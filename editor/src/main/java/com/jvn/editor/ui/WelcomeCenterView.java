@@ -58,13 +58,20 @@ public class WelcomeCenterView extends BorderPane {
     return t;
   });
 
-  private final Label headingLabel = new Label("Welcome back to JVN.");
+  private final Label headingLabel = new Label("Welcome to JVN");
+  private final Label introLabel = new Label("Resume recent work, open projects, and verify your environment before launch.");
   private final Label versionLabel = new Label("Version: --");
-  private final Label workspaceLabel = new Label("Workspace: --");
-  private final Label projectLabel = new Label("Project: none");
+  private final Label workspaceLabel = new Label("No workspace root configured.");
+  private final Label projectLabel = new Label("No project is currently open.");
   private final Label statusLabel = new Label("Ready");
   private final Label recentMetaLabel = new Label("0 projects");
   private final Label healthMetaLabel = new Label("0 checks");
+  private final Label workspaceValueLabel = new Label("No workspace");
+  private final Label projectValueLabel = new Label("No active project");
+  private final Label recentOverviewValueLabel = new Label("0");
+  private final Label recentOverviewDetailLabel = new Label("Tracked projects");
+  private final Label healthOverviewValueLabel = new Label("Pending");
+  private final Label healthOverviewDetailLabel = new Label("Run checks to inspect the environment");
 
   private final Button btnNewProject = new Button();
   private final Button btnOpenProject = new Button();
@@ -93,18 +100,24 @@ public class WelcomeCenterView extends BorderPane {
 
   public void setEditorVersion(String version) {
     if (version == null || version.isBlank()) version = "dev";
-    versionLabel.setText("Version: " + version.trim());
+    versionLabel.setText("Version " + version.trim());
   }
 
   public void setWorkspaceRoot(File workspaceRoot) {
     this.workspaceRoot = normalizeDir(workspaceRoot);
-    workspaceLabel.setText("Workspace: " + (this.workspaceRoot == null ? "--" : this.workspaceRoot.getAbsolutePath()));
+    workspaceValueLabel.setText(this.workspaceRoot == null ? "No workspace" : displayName(this.workspaceRoot));
+    workspaceLabel.setText(this.workspaceRoot == null
+        ? "Set a workspace root to scan project health and discover recent work."
+        : abbreviatePath(this.workspaceRoot.getAbsolutePath()));
     refresh();
   }
 
   public void setCurrentProject(File projectRoot) {
     this.projectRoot = normalizeDir(projectRoot);
-    projectLabel.setText("Project: " + (this.projectRoot == null ? "none" : this.projectRoot.getAbsolutePath()));
+    projectValueLabel.setText(this.projectRoot == null ? "No active project" : displayName(this.projectRoot));
+    projectLabel.setText(this.projectRoot == null
+        ? "Open a project to validate runtime artifacts and continue where you left off."
+        : abbreviatePath(this.projectRoot.getAbsolutePath()));
     refresh();
   }
 
@@ -149,14 +162,21 @@ public class WelcomeCenterView extends BorderPane {
     setPadding(new Insets(14));
 
     headingLabel.getStyleClass().add("welcome-heading");
-    versionLabel.getStyleClass().add("welcome-meta-text");
-    workspaceLabel.getStyleClass().add("welcome-meta-text");
+    introLabel.getStyleClass().add("welcome-intro-text");
+    versionLabel.getStyleClass().add("welcome-version-chip");
+    workspaceLabel.getStyleClass().add("welcome-overview-detail");
     workspaceLabel.setWrapText(true);
-    projectLabel.getStyleClass().add("welcome-meta-text");
+    projectLabel.getStyleClass().add("welcome-overview-detail");
     projectLabel.setWrapText(true);
     statusLabel.getStyleClass().add("welcome-status-text");
     recentMetaLabel.getStyleClass().add("welcome-section-meta");
     healthMetaLabel.getStyleClass().add("welcome-section-meta");
+    workspaceValueLabel.getStyleClass().add("welcome-overview-value");
+    projectValueLabel.getStyleClass().add("welcome-overview-value");
+    recentOverviewValueLabel.getStyleClass().add("welcome-overview-value");
+    recentOverviewDetailLabel.getStyleClass().add("welcome-overview-detail");
+    healthOverviewValueLabel.getStyleClass().addAll("welcome-overview-value", "welcome-overview-value-info");
+    healthOverviewDetailLabel.getStyleClass().add("welcome-overview-detail");
 
     btnNewProject.setOnAction(e -> {
       if (onCreateProject != null) onCreateProject.run();
@@ -169,18 +189,27 @@ public class WelcomeCenterView extends BorderPane {
       if (first != null) openRecentProject(first);
     });
     btnRefresh.setOnAction(e -> refresh());
-    configureIconButton(btnNewProject, CssIcon.plus("#9ed67a"), "New Project", "welcome-action-button", 30);
-    configureIconButton(btnOpenProject, CssIcon.folder("#8ab4f8"), "Open Project", "welcome-action-button", 30);
-    configureIconButton(btnOpenLast, CssIcon.link("#f5c46b"), "Open Most Recent Project", "welcome-action-button", 30);
-    configureIconButton(btnRefresh, CssIcon.redo("#7ec8e3"), "Refresh Health", "welcome-action-button", 30);
+    configureActionButton(btnNewProject, CssIcon.plus("#f0f0f0"), "New Project", "Create a new project", "welcome-action-button-primary");
+    configureActionButton(btnOpenProject, CssIcon.folder("#d0d0d0"), "Open Project", "Open an existing project", "welcome-action-button-secondary");
+    configureActionButton(btnOpenLast, CssIcon.arrowRight("#d0d0d0"), "Resume Latest", "Open the most recent project", "welcome-action-button-secondary");
+    configureActionButton(btnRefresh, CssIcon.redo("#d0d0d0"), "Refresh Checks", "Refresh Welcome Center data and health checks", "welcome-action-button-secondary");
 
-    HBox actions = new HBox(6, btnNewProject, btnOpenProject, btnOpenLast, btnRefresh);
+    HBox actions = new HBox(8, btnNewProject, btnOpenProject, btnOpenLast, btnRefresh);
+    actions.getStyleClass().add("welcome-action-row");
     actions.setAlignment(Pos.CENTER_LEFT);
 
     HBox headingRow = new HBox(8, headingLabel, versionLabel);
     headingRow.setAlignment(Pos.BASELINE_LEFT);
 
-    VBox hero = new VBox(4, headingRow, workspaceLabel, projectLabel, actions, statusLabel);
+    HBox overviewRow = new HBox(
+        10,
+        buildOverviewCard("Workspace", workspaceValueLabel, workspaceLabel),
+        buildOverviewCard("Active Project", projectValueLabel, projectLabel),
+        buildOverviewCard("Recent Projects", recentOverviewValueLabel, recentOverviewDetailLabel),
+        buildOverviewCard("Environment", healthOverviewValueLabel, healthOverviewDetailLabel));
+    overviewRow.getStyleClass().add("welcome-overview-row");
+
+    VBox hero = new VBox(12, headingRow, introLabel, overviewRow, actions, statusLabel);
     hero.setPadding(new Insets(10, 12, 10, 12));
     hero.getStyleClass().add("welcome-hero-card");
 
@@ -189,7 +218,9 @@ public class WelcomeCenterView extends BorderPane {
     recentFilterField.setPromptText("Filter by project name or path...");
     recentFilterField.getStyleClass().add("welcome-filter-field");
     recentFilterField.textProperty().addListener((obs, oldValue, newValue) -> applyRecentFilter());
-    recentList.setPlaceholder(new Label("No projects found yet. Create one with New Project."));
+    Label recentPlaceholder = new Label("No projects found yet. Create one with New Project.");
+    recentPlaceholder.getStyleClass().add("welcome-placeholder-text");
+    recentList.setPlaceholder(recentPlaceholder);
     recentList.getStyleClass().add("welcome-project-list");
     recentList.setCellFactory(list -> new ProjectCell());
     recentList.setOnMouseClicked(e -> {
@@ -230,10 +261,12 @@ public class WelcomeCenterView extends BorderPane {
     VBox.setVgrow(healthScroll, Priority.ALWAYS);
 
     SplitPane split = new SplitPane(left, right);
+    split.getStyleClass().add("welcome-center-split");
     split.setDividerPositions(0.47);
     VBox.setVgrow(split, Priority.ALWAYS);
 
     VBox center = new VBox(10, hero, split);
+    center.getStyleClass().add("welcome-center-body");
     VBox.setVgrow(split, Priority.ALWAYS);
     setCenter(center);
     applyRecentFilter();
@@ -254,6 +287,8 @@ public class WelcomeCenterView extends BorderPane {
     if (allRecentProjects == null || allRecentProjects.isEmpty()) {
       recentProjects.setAll(List.of());
       recentMetaLabel.setText("0 projects");
+      recentOverviewValueLabel.setText("0");
+      recentOverviewDetailLabel.setText("No tracked projects");
       btnOpenLast.setDisable(true);
       return;
     }
@@ -273,6 +308,8 @@ public class WelcomeCenterView extends BorderPane {
     int shown = recentProjects.size();
     int total = allRecentProjects.size();
     recentMetaLabel.setText(needle.isEmpty() ? (shown + " projects") : (shown + " / " + total + " shown"));
+    recentOverviewValueLabel.setText(String.valueOf(total));
+    recentOverviewDetailLabel.setText(total == 1 ? "1 tracked project" : total + " tracked projects");
     btnOpenLast.setDisable(busy || recentProjects.isEmpty());
   }
 
@@ -282,13 +319,28 @@ public class WelcomeCenterView extends BorderPane {
     scroll.getStyleClass().add("welcome-health-scroll");
   }
 
-  private static void configureIconButton(Button button, Region icon, String tooltipText, String styleClass, double size) {
+  private VBox buildOverviewCard(String title, Label valueLabel, Label detailLabel) {
+    Label titleLabel = new Label(title);
+    titleLabel.getStyleClass().add("welcome-overview-title");
+    VBox card = new VBox(5, titleLabel, valueLabel, detailLabel);
+    card.getStyleClass().add("welcome-overview-card");
+    HBox.setHgrow(card, Priority.ALWAYS);
+    VBox.setVgrow(card, Priority.ALWAYS);
+    detailLabel.setMaxWidth(Double.MAX_VALUE);
+    return card;
+  }
+
+  private static void configureActionButton(Button button,
+                                            Region icon,
+                                            String text,
+                                            String tooltipText,
+                                            String styleClass) {
     if (button == null) return;
-    button.setText(null);
+    button.setText(text);
     button.setGraphic(icon);
-    button.setMinSize(size, size);
-    button.setPrefSize(size, size);
-    button.setMaxSize(size, size);
+    button.setMinHeight(34);
+    button.setPrefHeight(34);
+    button.setMaxHeight(34);
     button.setFocusTraversable(false);
     if (styleClass != null && !styleClass.isBlank()) {
       button.getStyleClass().add(styleClass);
@@ -539,36 +591,122 @@ public class WelcomeCenterView extends BorderPane {
     healthContainer.getChildren().clear();
     if (rows == null || rows.isEmpty()) {
       Label empty = new Label("No health checks available.");
-      empty.setStyle("-fx-text-fill: #9aa0a6;");
+      empty.getStyleClass().add("welcome-placeholder-text");
       healthContainer.getChildren().add(empty);
+      updateHealthOverview(rows);
       return;
     }
     for (HealthRow row : rows) {
       healthContainer.getChildren().add(buildHealthCard(row));
     }
+    updateHealthOverview(rows);
   }
 
   private VBox buildHealthCard(HealthRow row) {
-    VBox box = new VBox(3);
+    VBox box = new VBox(6);
     box.setPadding(new Insets(8));
     box.getStyleClass().add("welcome-health-card");
 
-    Label title = new Label(row.title() + "  •  " + row.summary());
+    Label badge = new Label(severityLabel(row.severity()));
+    badge.getStyleClass().addAll("welcome-health-badge", severityBadgeClass(row.severity()));
+    Label title = new Label(row.title());
     title.getStyleClass().add("welcome-health-title");
-    title.setStyle("-fx-text-fill: " + severityColor(row.severity()) + ";");
+    Label summary = new Label(row.summary());
+    summary.getStyleClass().add("welcome-health-summary");
     Label detail = new Label(row.detail());
     detail.setWrapText(true);
     detail.getStyleClass().add("welcome-health-detail");
 
-    box.getChildren().addAll(title, detail);
+    HBox titleRow = new HBox(8, badge, title);
+    titleRow.setAlignment(Pos.CENTER_LEFT);
+
+    box.getChildren().addAll(titleRow, summary, detail);
     return box;
   }
 
-  private String severityColor(Severity severity) {
-    if (severity == Severity.OK) return "#4dd17a";
-    if (severity == Severity.WARN) return "#f0b673";
-    if (severity == Severity.ERROR) return "#f38ba8";
-    return "#9aa0a6";
+  private String severityLabel(Severity severity) {
+    return switch (severity) {
+      case OK -> "OK";
+      case WARN -> "WARN";
+      case ERROR -> "ERROR";
+      case INFO -> "INFO";
+    };
+  }
+
+  private String severityBadgeClass(Severity severity) {
+    return switch (severity) {
+      case OK -> "welcome-health-badge-ok";
+      case WARN -> "welcome-health-badge-warn";
+      case ERROR -> "welcome-health-badge-error";
+      case INFO -> "welcome-health-badge-info";
+    };
+  }
+
+  private void updateHealthOverview(List<HealthRow> rows) {
+    healthOverviewValueLabel.getStyleClass().removeAll(
+        "welcome-overview-value-ok",
+        "welcome-overview-value-warn",
+        "welcome-overview-value-error",
+        "welcome-overview-value-info");
+    if (rows == null || rows.isEmpty()) {
+      healthOverviewValueLabel.setText("Pending");
+      healthOverviewDetailLabel.setText("Run checks to inspect the environment");
+      healthOverviewValueLabel.getStyleClass().add("welcome-overview-value-info");
+      return;
+    }
+
+    int ok = 0;
+    int warn = 0;
+    int error = 0;
+    int info = 0;
+    for (HealthRow row : rows) {
+      if (row == null || row.severity() == null) continue;
+      switch (row.severity()) {
+        case OK -> ok++;
+        case WARN -> warn++;
+        case ERROR -> error++;
+        case INFO -> info++;
+      }
+    }
+
+    if (error > 0) {
+      healthOverviewValueLabel.setText("Errors detected");
+      healthOverviewDetailLabel.setText(error + " blocking issue" + (error == 1 ? "" : "s") + " across " + rows.size() + " checks");
+      healthOverviewValueLabel.getStyleClass().add("welcome-overview-value-error");
+    } else if (warn > 0) {
+      healthOverviewValueLabel.setText("Needs attention");
+      healthOverviewDetailLabel.setText(warn + " warning" + (warn == 1 ? "" : "s") + " • " + ok + " checks passing");
+      healthOverviewValueLabel.getStyleClass().add("welcome-overview-value-warn");
+    } else {
+      healthOverviewValueLabel.setText("All clear");
+      healthOverviewDetailLabel.setText(rows.size() + " checks passing" + (info > 0 ? " • " + info + " informational" : ""));
+      healthOverviewValueLabel.getStyleClass().add("welcome-overview-value-ok");
+    }
+  }
+
+  private String abbreviatePath(String path) {
+    if (path == null || path.isBlank()) return "--";
+    String normalized = path.trim();
+    String home = System.getProperty("user.home", "").trim();
+    if (!home.isBlank() && normalized.startsWith(home)) {
+      return "~" + normalized.substring(home.length());
+    }
+    return normalized;
+  }
+
+  private String displayName(File dir) {
+    if (dir == null) return "--";
+    String name = dir.getName();
+    return name == null || name.isBlank() ? dir.getAbsolutePath() : name;
+  }
+
+  private boolean sameDirectory(File a, File b) {
+    if (a == null || b == null) return false;
+    try {
+      return a.getCanonicalFile().equals(b.getCanonicalFile());
+    } catch (Exception ex) {
+      return a.getAbsoluteFile().equals(b.getAbsoluteFile());
+    }
   }
 
   private void requireProjectFile(Path projectRoot, String relativePath, List<String> missing) {
@@ -785,15 +923,20 @@ public class WelcomeCenterView extends BorderPane {
     private final Label nameLabel = new Label();
     private final Label pathLabel = new Label();
     private final Label timeLabel = new Label();
-    private final Button openButton = new Button();
+    private final Label stateBadge = new Label();
+    private final Button openButton = new Button("Open");
     private final Region spacer = new Region();
-    private final HBox footerRow = new HBox(8, timeLabel, spacer, openButton);
-    private final VBox content = new VBox(2, nameLabel, pathLabel, footerRow);
+    private final HBox titleRow = new HBox(8, nameLabel, stateBadge, spacer, openButton);
+    private final VBox content = new VBox(4, titleRow, pathLabel, timeLabel);
 
     private ProjectCell() {
       HBox.setHgrow(spacer, Priority.ALWAYS);
       content.getStyleClass().add("welcome-project-cell");
-      configureIconButton(openButton, CssIcon.folder("#8ab4f8"), "Open Project", "welcome-open-button", 26);
+      titleRow.setAlignment(Pos.CENTER_LEFT);
+      openButton.setGraphic(CssIcon.arrowRight("#d0d0d0"));
+      openButton.getStyleClass().add("welcome-open-button");
+      openButton.setFocusTraversable(false);
+      openButton.setTooltip(new Tooltip("Open project"));
       openButton.setOnAction(e -> {
         ProjectEntry item = getItem();
         if (item != null) openRecentProject(item);
@@ -802,6 +945,7 @@ public class WelcomeCenterView extends BorderPane {
       nameLabel.getStyleClass().add("welcome-project-name");
       pathLabel.getStyleClass().add("welcome-project-path");
       timeLabel.getStyleClass().add("welcome-project-time");
+      stateBadge.getStyleClass().add("welcome-project-badge");
     }
 
     @Override
@@ -816,8 +960,25 @@ public class WelcomeCenterView extends BorderPane {
       boolean exists = dir.isDirectory();
       String baseName = dir.getName().isBlank() ? dir.getAbsolutePath() : dir.getName();
       nameLabel.setText(exists ? baseName : (baseName + " (missing)"));
-      pathLabel.setText(dir.getAbsolutePath());
+      pathLabel.setText(abbreviatePath(dir.getAbsolutePath()));
       timeLabel.setText("Updated: " + formatTimestamp(item.modifiedMillis()));
+      stateBadge.getStyleClass().removeAll("welcome-project-badge-current", "welcome-project-badge-missing");
+      boolean current = sameDirectory(dir, projectRoot);
+      if (!exists) {
+        stateBadge.setText("MISSING");
+        stateBadge.getStyleClass().add("welcome-project-badge-missing");
+        stateBadge.setVisible(true);
+        stateBadge.setManaged(true);
+      } else if (current) {
+        stateBadge.setText("CURRENT");
+        stateBadge.getStyleClass().add("welcome-project-badge-current");
+        stateBadge.setVisible(true);
+        stateBadge.setManaged(true);
+      } else {
+        stateBadge.setText("");
+        stateBadge.setVisible(false);
+        stateBadge.setManaged(false);
+      }
       openButton.setDisable(!exists);
       setText(null);
       setGraphic(content);
