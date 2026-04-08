@@ -4722,3 +4722,88 @@
   -fx-font-size: 11px;
   -fx-padding: 6 2 2 2;
 }
+
+/* Standalone launcher */
+.jvn-launcher-root {
+  -fx-background-color: linear-gradient(to bottom, #f0f0f0 0%, #ebebeb 100%);
+}
+
+.jvn-launcher-header {
+  -fx-padding: 10 12 10 12;
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(0, 0, 0, 0.03), rgba(0, 0, 0, 0.0)),
+      linear-gradient(to bottom, #efefef 0%, #e7e7e7 100%);
+  -fx-border-color: #cbcbcb;
+  -fx-border-width: 1;
+  -fx-background-radius: 14;
+  -fx-border-radius: 14;
+}
+
+.jvn-launcher-title {
+  -fx-text-fill: #101010;
+  -fx-font-size: 24px;
+  -fx-font-weight: 800;
+}
+
+.jvn-launcher-subtitle {
+  -fx-text-fill: #5f5f5f;
+  -fx-font-size: 12px;
+  -fx-font-weight: 600;
+}
+
+.jvn-launcher-workspace,
+.jvn-launcher-project {
+  -fx-text-fill: #757575;
+  -fx-font-size: 11px;
+  -fx-font-weight: 600;
+}
+
+.jvn-launcher-action-button {
+  -fx-alignment: center-left;
+  -fx-content-display: left;
+  -fx-graphic-text-gap: 7;
+  -fx-padding: 0 12 0 12;
+  -fx-background-color: linear-gradient(to bottom, #dfdfdf, #d4d4d4);
+  -fx-border-color: #b2b2b2;
+  -fx-border-width: 1;
+  -fx-background-radius: 10;
+  -fx-border-radius: 10;
+  -fx-text-fill: #1a1a1a;
+  -fx-font-size: 12px;
+  -fx-font-weight: 700;
+}
+
+.jvn-launcher-action-button:hover {
+  -fx-background-color: linear-gradient(to bottom, #d6d6d6, #cccccc);
+  -fx-border-color: #9f9f9f;
+}
+
+.jvn-launcher-action-button:pressed {
+  -fx-background-color: linear-gradient(to bottom, #ececec, #dfdfdf);
+  -fx-border-color: #a7a7a7;
+}
+
+.jvn-launcher-action-button-primary {
+  -fx-background-color: linear-gradient(to bottom, #e2d3c2, #d9c8b4);
+  -fx-border-color: #b39778;
+}
+
+.jvn-launcher-action-button-primary:hover {
+  -fx-background-color: linear-gradient(to bottom, #dccab6, #d1bea8);
+  -fx-border-color: #a58765;
+}
+
+.jvn-launcher-theme-button {
+  -fx-padding: 0 11 0 11;
+}
+
+.jvn-launcher-status-bar {
+  -fx-border-color: #cdcdcd transparent transparent transparent;
+  -fx-border-width: 1 0 0 0;
+}
+
+.jvn-launcher-status {
+  -fx-text-fill: #5c5c5c;
+  -fx-font-size: 11px;
+  -fx-font-weight: 600;
+}

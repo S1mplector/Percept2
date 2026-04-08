@@ -4721,3 +4721,88 @@
   -fx-font-size: 11px;
   -fx-padding: 6 2 2 2;
 }
+
+/* Standalone launcher */
+.jvn-launcher-root {
+  -fx-background-color: linear-gradient(to bottom, #151515 0%, #101010 100%);
+}
+
+.jvn-launcher-header {
+  -fx-padding: 10 12 10 12;
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.0)),
+      linear-gradient(to bottom, #181818 0%, #131313 100%);
+  -fx-border-color: #2f2f2f;
+  -fx-border-width: 1;
+  -fx-background-radius: 14;
+  -fx-border-radius: 14;
+}
+
+.jvn-launcher-title {
+  -fx-text-fill: #f0f0f0;
+  -fx-font-size: 24px;
+  -fx-font-weight: 800;
+}
+
+.jvn-launcher-subtitle {
+  -fx-text-fill: #b0b0b0;
+  -fx-font-size: 12px;
+  -fx-font-weight: 600;
+}
+
+.jvn-launcher-workspace,
+.jvn-launcher-project {
+  -fx-text-fill: #8a8a8a;
+  -fx-font-size: 11px;
+  -fx-font-weight: 600;
+}
+
+.jvn-launcher-action-button {
+  -fx-alignment: center-left;
+  -fx-content-display: left;
+  -fx-graphic-text-gap: 7;
+  -fx-padding: 0 12 0 12;
+  -fx-background-color: linear-gradient(to bottom, #2a2a2a, #212121);
+  -fx-border-color: #4a4a4a;
+  -fx-border-width: 1;
+  -fx-background-radius: 10;
+  -fx-border-radius: 10;
+  -fx-text-fill: #e2e2e2;
+  -fx-font-size: 12px;
+  -fx-font-weight: 700;
+}
+
+.jvn-launcher-action-button:hover {
+  -fx-background-color: linear-gradient(to bottom, #353535, #282828);
+  -fx-border-color: #626262;
+}
+
+.jvn-launcher-action-button:pressed {
+  -fx-background-color: linear-gradient(to bottom, #202020, #181818);
+  -fx-border-color: #4f4f4f;
+}
+
+.jvn-launcher-action-button-primary {
+  -fx-background-color: linear-gradient(to bottom, #3a2a1a, #2c2016);
+  -fx-border-color: #8e673e;
+}
+
+.jvn-launcher-action-button-primary:hover {
+  -fx-background-color: linear-gradient(to bottom, #46311d, #332418);
+  -fx-border-color: #ab7b49;
+}
+
+.jvn-launcher-theme-button {
+  -fx-padding: 0 11 0 11;
+}
+
+.jvn-launcher-status-bar {
+  -fx-border-color: #2b2b2b transparent transparent transparent;
+  -fx-border-width: 1 0 0 0;
+}
+
+.jvn-launcher-status {
+  -fx-text-fill: #a6a6a6;
+  -fx-font-size: 11px;
+  -fx-font-weight: 600;
+}
