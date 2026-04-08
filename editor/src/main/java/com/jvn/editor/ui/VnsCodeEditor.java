@@ -1163,6 +1163,10 @@ public class VnsCodeEditor extends BorderPane {
 
     if (pl.startsWith("[")) {
       out.add(new CodeAutoCompleter.Suggestion("[background "));
+      out.add(new CodeAutoCompleter.Suggestion("[show "));
+      out.add(new CodeAutoCompleter.Suggestion("[move "));
+      out.add(new CodeAutoCompleter.Suggestion("[hide "));
+      out.add(new CodeAutoCompleter.Suggestion("[transition "));
       out.add(new CodeAutoCompleter.Suggestion("[jump "));
       out.add(new CodeAutoCompleter.Suggestion("[bgm "));
       out.add(new CodeAutoCompleter.Suggestion("[bgm_crossfade "));
@@ -1640,7 +1644,8 @@ public class VnsCodeEditor extends BorderPane {
   static {
     VNS_COMMAND_DOCS.put("bg", "Set background image. Usage: [bg image_name]");
     VNS_COMMAND_DOCS.put("background", "Set background image. Usage: [background image_name]");
-    VNS_COMMAND_DOCS.put("show", "Show a character sprite. Usage: [show character position]");
+    VNS_COMMAND_DOCS.put("show", "Show a character sprite. Usage: [show character_id pos=center expr=neutral layer=10] or [show character_id center]");
+    VNS_COMMAND_DOCS.put("move", "Move an existing character sprite. Usage: [move character_id pos=right expr=smile ease=easeInOut dur=500] or [move character_id right]");
     VNS_COMMAND_DOCS.put("hide", "Hide a character sprite. Usage: [hide character]");
     VNS_COMMAND_DOCS.put("jump", "Jump to a label. Usage: [jump label_name]");
     VNS_COMMAND_DOCS.put("end", "End the current scenario. Usage: [end]");
@@ -1657,7 +1662,7 @@ public class VnsCodeEditor extends BorderPane {
     VNS_COMMAND_DOCS.put("else", "Else branch. Usage: [else]");
     VNS_COMMAND_DOCS.put("endif", "End conditional block. Usage: [endif]");
     VNS_COMMAND_DOCS.put("choice", "Present choices. Usage: > text -> label");
-    VNS_COMMAND_DOCS.put("transition", "Screen transition. Usage: [transition type]");
+    VNS_COMMAND_DOCS.put("transition", "Screen transition. Usage: [transition type=fade dur=500 bg=room] or [transition fade]");
     VNS_COMMAND_DOCS.put("volume", "Set volume. Usage: [volume channel level]");
     VNS_COMMAND_DOCS.put("call", "Call a subroutine label. Usage: [call label]");
     VNS_COMMAND_DOCS.put("return", "Return from subroutine. Usage: [return]");
@@ -1866,14 +1871,15 @@ public class VnsCodeEditor extends BorderPane {
       {"Label", "@label label_name"},
       {"Jump", "[jump label_name]"},
       {"Background", "[bg background_name]"},
-      {"Show Character", "[show character_id center]"},
+      {"Show Character", "[show character_id pos=center expr=neutral layer=10]"},
+      {"Move Character", "[move character_id pos=right expr=smile ease=easeInOut dur=500]"},
       {"Hide Character", "[hide character_id]"},
       {"Play BGM", "[bgm music_file]"},
       {"Stop BGM", "[bgm_stop]"},
       {"Play SFX", "[sfx sound_file]"},
       {"Play Voice", "[voice voice_file]"},
       {"Wait", "[wait 1.0]"},
-      {"Transition", "[transition fade]"},
+      {"Transition", "[transition type=fade dur=500 bg=background_name]"},
       {"If Block", "[if condition]\n  # true branch\n[endif]"},
       {"If-Else Block", "[if condition]\n  # true branch\n[else]\n  # false branch\n[endif]"},
       {"Set Variable", "[set variable_name value]"},
