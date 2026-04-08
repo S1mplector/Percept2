@@ -105,6 +105,21 @@ public class WelcomeCenterView extends BorderPane {
     versionLabel.setText("Version " + version.trim());
   }
 
+  public void setWelcomeHeading(String heading) {
+    if (heading == null || heading.isBlank()) return;
+    headingLabel.setText(heading.trim());
+  }
+
+  public void setWelcomeIntro(String intro) {
+    if (intro == null || intro.isBlank()) return;
+    introLabel.setText(intro.trim());
+  }
+
+  public void setVersionChipVisible(boolean visible) {
+    versionLabel.setVisible(visible);
+    versionLabel.setManaged(visible);
+  }
+
   public void setWorkspaceRoot(File workspaceRoot) {
     this.workspaceRoot = normalizeDir(workspaceRoot);
     workspaceValueLabel.setText(this.workspaceRoot == null ? "No workspace" : displayName(this.workspaceRoot));

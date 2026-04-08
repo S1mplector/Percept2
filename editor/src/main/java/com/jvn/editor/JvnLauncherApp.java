@@ -30,7 +30,6 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
-import javafx.stage.Window;
 
 /**
  * Standalone launcher app for project discovery and runtime/editor entry.
@@ -50,7 +49,6 @@ public class JvnLauncherApp extends Application {
   private final Button chooseProjectButton = new Button();
   private final Button runProjectButton = new Button();
   private final Button openEditorButton = new Button();
-  private final Button themeButton = new Button();
 
   public static void main(String[] args) {
     launch(args);
@@ -96,14 +94,7 @@ public class JvnLauncherApp extends Application {
         "Open the main editor in a separate process.");
     openEditorButton.setOnAction(e -> launchEditor(currentProject));
 
-    configureActionButton(themeButton,
-        CssIcon.palette("#d7c59f"),
-        "",
-        "jvn-launcher-action-button jvn-launcher-theme-button",
-        "Toggle dark/light theme.");
-    themeButton.setOnAction(e -> toggleTheme());
-
-    HBox actionBar = new HBox(8, chooseProjectButton, runProjectButton, openEditorButton, themeButton);
+    HBox actionBar = new HBox(8, chooseProjectButton, runProjectButton, openEditorButton);
     actionBar.getStyleClass().add("jvn-launcher-action-bar");
     actionBar.setAlignment(Pos.CENTER_RIGHT);
 
@@ -114,6 +105,9 @@ public class JvnLauncherApp extends Application {
     header.setAlignment(Pos.CENTER_LEFT);
 
     welcomeView = new WelcomeCenterView();
+    welcomeView.setWelcomeHeading("Welcome to JVN Launcher");
+    welcomeView.setWelcomeIntro("Open recent work, run project builds, and launch the editor.");
+    welcomeView.setVersionChipVisible(false);
     welcomeView.setEditorVersion(resolveVersionLabel());
     welcomeView.setWorkspaceRoot(workspaceRoot);
     welcomeView.setOnCreateProject(this::createNewProject);
@@ -146,7 +140,6 @@ public class JvnLauncherApp extends Application {
     workspaceLabel.setText("Workspace: " + displayPath(workspaceRoot));
     setCurrentProject(resolveStartupProject(), false);
     refreshButtonState();
-    updateThemeButtonLabel();
   }
 
   private void configureActionButton(Button button,
@@ -363,25 +356,6 @@ public class JvnLauncherApp extends Application {
     } catch (Exception ex) {
       EditorDialogs.error(primaryStage, "Open Editor", "Failed to launch editor: " + ex.getMessage());
     }
-  }
-
-  private void toggleTheme() {
-    EditorTheme.Theme next = EditorTheme.theme() == EditorTheme.Theme.DARK
-        ? EditorTheme.Theme.LIGHT
-        : EditorTheme.Theme.DARK;
-    EditorTheme.setTheme(next);
-    for (Window window : Window.getWindows()) {
-      if (window == null || window.getScene() == null) continue;
-      EditorTheme.apply(window.getScene());
-    }
-    updateThemeButtonLabel();
-    statusLabel.setText("Theme: " + (next == EditorTheme.Theme.LIGHT ? "Light" : "Dark"));
-  }
-
-  private void updateThemeButtonLabel() {
-    if (themeButton == null) return;
-    String label = EditorTheme.theme() == EditorTheme.Theme.LIGHT ? "Light" : "Dark";
-    themeButton.setText("Theme " + label);
   }
 
   private String resolveJavaExecutable() {
