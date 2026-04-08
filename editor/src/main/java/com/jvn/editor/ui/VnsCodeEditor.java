@@ -1147,6 +1147,7 @@ public class VnsCodeEditor extends BorderPane {
     String p = ctx.prefix == null ? "" : ctx.prefix;
     String pl = p.toLowerCase(Locale.ROOT);
     List<CodeAutoCompleter.Suggestion> out = new ArrayList<>();
+    out.addAll(contextualCommandSuggestions(ctx.text, ctx.caret, p));
 
     if (pl.startsWith("@")) {
       out.add(new CodeAutoCompleter.Suggestion("@scenario "));
@@ -1213,6 +1214,113 @@ public class VnsCodeEditor extends BorderPane {
       out.removeIf(sug -> !seen.add(sug.insert));
     }
     return out;
+  }
+
+  static List<CodeAutoCompleter.Suggestion> contextualCommandSuggestions(String text, int caret, String prefix) {
+    String command = currentBracketCommandName(text, caret);
+    if (command == null) return List.of();
+
+    String normalizedPrefix = prefix == null ? "" : prefix.trim();
+    String prefixLower = normalizedPrefix.toLowerCase(Locale.ROOT);
+    List<CodeAutoCompleter.Suggestion> out = new ArrayList<>();
+
+    switch (command) {
+      case "show" -> {
+        addMatchingSuggestion(out, normalizedPrefix, "pos=");
+        addMatchingSuggestion(out, normalizedPrefix, "expr=");
+        addMatchingSuggestion(out, normalizedPrefix, "layer=");
+        addMatchingSuggestion(out, normalizedPrefix, "at=");
+        addMatchingSuggestion(out, normalizedPrefix, "pos=center");
+        addMatchingSuggestion(out, normalizedPrefix, "pos=left");
+        addMatchingSuggestion(out, normalizedPrefix, "pos=right");
+        addMatchingSuggestion(out, normalizedPrefix, "pos=far_left");
+        addMatchingSuggestion(out, normalizedPrefix, "pos=far_right");
+        addMatchingSuggestion(out, normalizedPrefix, "expr=neutral");
+        addMatchingSuggestion(out, normalizedPrefix, "expr=talking");
+        addMatchingSuggestion(out, normalizedPrefix, "expr=happy");
+      }
+      case "move" -> {
+        addMatchingSuggestion(out, normalizedPrefix, "pos=");
+        addMatchingSuggestion(out, normalizedPrefix, "expr=");
+        addMatchingSuggestion(out, normalizedPrefix, "ease=");
+        addMatchingSuggestion(out, normalizedPrefix, "dur=");
+        addMatchingSuggestion(out, normalizedPrefix, "at=");
+        addMatchingSuggestion(out, normalizedPrefix, "pos=center");
+        addMatchingSuggestion(out, normalizedPrefix, "pos=left");
+        addMatchingSuggestion(out, normalizedPrefix, "pos=right");
+        addMatchingSuggestion(out, normalizedPrefix, "pos=far_left");
+        addMatchingSuggestion(out, normalizedPrefix, "pos=far_right");
+        addMatchingSuggestion(out, normalizedPrefix, "expr=neutral");
+        addMatchingSuggestion(out, normalizedPrefix, "expr=smile");
+        addMatchingSuggestion(out, normalizedPrefix, "expr=talking");
+        addMatchingSuggestion(out, normalizedPrefix, "ease=linear");
+        addMatchingSuggestion(out, normalizedPrefix, "ease=easeIn");
+        addMatchingSuggestion(out, normalizedPrefix, "ease=easeOut");
+        addMatchingSuggestion(out, normalizedPrefix, "ease=easeInOut");
+        addMatchingSuggestion(out, normalizedPrefix, "dur=500");
+      }
+      case "transition" -> {
+        addMatchingSuggestion(out, normalizedPrefix, "type=");
+        addMatchingSuggestion(out, normalizedPrefix, "dur=");
+        addMatchingSuggestion(out, normalizedPrefix, "bg=");
+        addMatchingSuggestion(out, normalizedPrefix, "type=fade");
+        addMatchingSuggestion(out, normalizedPrefix, "type=dissolve");
+        addMatchingSuggestion(out, normalizedPrefix, "type=crossfade");
+        addMatchingSuggestion(out, normalizedPrefix, "type=slide_left");
+        addMatchingSuggestion(out, normalizedPrefix, "type=slide_right");
+        addMatchingSuggestion(out, normalizedPrefix, "type=wipe");
+        addMatchingSuggestion(out, normalizedPrefix, "dur=500");
+      }
+      default -> {
+        return List.of();
+      }
+    }
+
+    if (normalizedPrefix.isEmpty()) {
+      return out;
+    }
+
+    if (out.isEmpty() && !prefixLower.contains("=")) {
+      switch (command) {
+        case "show", "move" -> {
+          addMatchingSuggestion(out, normalizedPrefix, "pos=center");
+          addMatchingSuggestion(out, normalizedPrefix, "expr=neutral");
+        }
+        case "transition" -> addMatchingSuggestion(out, normalizedPrefix, "type=fade");
+        default -> {}
+      }
+    }
+    return out;
+  }
+
+  private static void addMatchingSuggestion(List<CodeAutoCompleter.Suggestion> out, String prefix, String insert) {
+    String normalizedPrefix = prefix == null ? "" : prefix.trim().toLowerCase(Locale.ROOT);
+    if (normalizedPrefix.isEmpty() || insert.toLowerCase(Locale.ROOT).startsWith(normalizedPrefix)) {
+      out.add(new CodeAutoCompleter.Suggestion(insert));
+    }
+  }
+
+  private static String currentBracketCommandName(String text, int caret) {
+    if (text == null || text.isEmpty()) return null;
+    int safeCaret = Math.max(0, Math.min(caret, text.length()));
+    if (safeCaret <= 0) return null;
+
+    int lineStart = text.lastIndexOf('\n', safeCaret - 1) + 1;
+    int open = text.lastIndexOf('[', safeCaret - 1);
+    if (open < lineStart) return null;
+    int close = text.lastIndexOf(']', safeCaret - 1);
+    if (close > open) return null;
+
+    String segment = text.substring(open + 1, safeCaret).trim();
+    if (segment.isEmpty()) return null;
+
+    int split = 0;
+    while (split < segment.length() && !Character.isWhitespace(segment.charAt(split))) split++;
+    String command = segment.substring(0, split).trim().toLowerCase(Locale.ROOT);
+    return switch (command) {
+      case "show", "move", "transition" -> command;
+      default -> null;
+    };
   }
 
   private List<String> extractLabels(String text) {
