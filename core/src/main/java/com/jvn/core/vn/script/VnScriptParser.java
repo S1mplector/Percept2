@@ -757,52 +757,92 @@ public class VnScriptParser {
       case "bgm_crossfade": {
         String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
         String[] toks = VnArgTokenizer.tokenizeToArray(payload);
-        if (toks.length < 2 || toks[0].isBlank()) {
-          throw parseError(sourceName, lineNumber, "[bgm_crossfade] expects: [bgm_crossfade <trackId> <ms> [loop]]", rawLine);
-        }
+        String track = null;
+        Long durationMs = null;
+        Boolean loop = null;
+        int positionalCount = 0;
 
-        String track = toks[0];
-        long durationMs;
-        try {
-          durationMs = Long.parseLong(toks[1]);
-        } catch (NumberFormatException ex) {
-          throw parseError(sourceName, lineNumber, "[bgm_crossfade] duration must be an integer in ms", rawLine);
-        }
-        if (durationMs < 0) {
-          throw parseError(sourceName, lineNumber, "[bgm_crossfade] duration must be >= 0", rawLine);
-        }
+        for (String rawToken : toks) {
+          String token = rawToken == null ? "" : rawToken.trim();
+          if (token.isEmpty()) continue;
 
-        String normalized = "crossfade " + quoteTokenIfNeeded(track) + " " + durationMs;
-        if (toks.length >= 3) {
-          String loopToken = toks[2];
-          String loopValue = loopToken;
-          int eq = loopToken.indexOf('=');
-          if (eq > 0) {
-            String key = loopToken.substring(0, eq).trim().toLowerCase();
-            if (!"loop".equals(key)) {
-              throw parseError(sourceName, lineNumber, "[bgm_crossfade] unknown option: " + key, rawLine);
+          if (isNamedOptionToken(token, "bgm_crossfade")) {
+            KeyValueOption option = parseKeyValueOption(token, sourceName, lineNumber, rawLine, "[bgm_crossfade]");
+            switch (option.key()) {
+              case "track", "id", "file", "path" -> track = option.value();
+              case "dur", "duration", "ms" -> {
+                durationMs = parseLongValue(option.value(), "[bgm_crossfade]", "duration", sourceName, lineNumber, rawLine);
+                if (durationMs < 0) {
+                  throw parseError(sourceName, lineNumber, "[bgm_crossfade] duration must be >= 0", rawLine);
+                }
+              }
+              case "loop" -> {
+                if (!isBooleanToken(option.value())) {
+                  throw parseError(sourceName, lineNumber, "[bgm_crossfade] loop must be true/false/on/off/1/0", rawLine);
+                }
+                loop = parseBooleanToken(option.value());
+              }
+              default -> throw parseError(sourceName, lineNumber, "[bgm_crossfade] unknown option: " + option.key(), rawLine);
             }
-            loopValue = loopToken.substring(eq + 1).trim();
+            continue;
           }
-          if (!isBooleanToken(loopValue)) {
-            throw parseError(sourceName, lineNumber, "[bgm_crossfade] loop must be true/false/on/off/1/0", rawLine);
+
+          positionalCount++;
+          if (track == null) {
+            track = token;
+            continue;
           }
-          normalized += " " + parseBooleanToken(loopValue);
-        }
-        if (toks.length > 3) {
+          if (durationMs == null) {
+            durationMs = parseLongValue(token, "[bgm_crossfade]", "duration", sourceName, lineNumber, rawLine);
+            if (durationMs < 0) {
+              throw parseError(sourceName, lineNumber, "[bgm_crossfade] duration must be >= 0", rawLine);
+            }
+            continue;
+          }
+          if (loop == null && isBooleanToken(token)) {
+            loop = parseBooleanToken(token);
+            continue;
+          }
           throw parseError(sourceName, lineNumber, "[bgm_crossfade] too many arguments", rawLine);
         }
 
+        if (track == null || track.isBlank() || durationMs == null) {
+          throw parseError(sourceName, lineNumber, "[bgm_crossfade] expects: [bgm_crossfade <trackId> <ms> [loop]] or named options", rawLine);
+        }
+
+        String normalized = "crossfade " + quoteTokenIfNeeded(track) + " " + durationMs;
+        if (loop != null) normalized += " " + loop;
         state.builder.external("audio", normalized);
         return;
       }
       case "sfx": {
         String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
         String[] toks = VnArgTokenizer.tokenizeToArray(payload);
-        if (toks.length == 0 || toks[0].isBlank()) {
+        if (toks.length == 0) {
           throw parseError(sourceName, lineNumber, "[sfx] requires a track id", rawLine);
         }
-        state.builder.playSfx(toks[0]);
+        String track = null;
+        for (String rawToken : toks) {
+          String token = rawToken == null ? "" : rawToken.trim();
+          if (token.isEmpty()) continue;
+          if (isNamedOptionToken(token, "sfx")) {
+            KeyValueOption option = parseKeyValueOption(token, sourceName, lineNumber, rawLine, "[sfx]");
+            switch (option.key()) {
+              case "track", "id", "file", "path" -> track = option.value();
+              default -> throw parseError(sourceName, lineNumber, "[sfx] unknown option: " + option.key(), rawLine);
+            }
+            continue;
+          }
+          if (track == null) {
+            track = token;
+            continue;
+          }
+          throw parseError(sourceName, lineNumber, "[sfx] unexpected token: " + token, rawLine);
+        }
+        if (track == null || track.isBlank()) {
+          throw parseError(sourceName, lineNumber, "[sfx] requires a track id", rawLine);
+        }
+        state.builder.playSfx(track);
         return;
       }
       case "sfx_stop":
@@ -812,10 +852,31 @@ public class VnScriptParser {
       case "voice": {
         String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
         String[] toks = VnArgTokenizer.tokenizeToArray(payload);
-        if (toks.length == 0 || toks[0].isBlank()) {
+        if (toks.length == 0) {
           throw parseError(sourceName, lineNumber, "[voice] requires a track id", rawLine);
         }
-        state.pendingVoiceTrackId = toks[0];
+        String track = null;
+        for (String rawToken : toks) {
+          String token = rawToken == null ? "" : rawToken.trim();
+          if (token.isEmpty()) continue;
+          if (isNamedOptionToken(token, "voice")) {
+            KeyValueOption option = parseKeyValueOption(token, sourceName, lineNumber, rawLine, "[voice]");
+            switch (option.key()) {
+              case "track", "id", "file", "path" -> track = option.value();
+              default -> throw parseError(sourceName, lineNumber, "[voice] unknown option: " + option.key(), rawLine);
+            }
+            continue;
+          }
+          if (track == null) {
+            track = token;
+            continue;
+          }
+          throw parseError(sourceName, lineNumber, "[voice] unexpected token: " + token, rawLine);
+        }
+        if (track == null || track.isBlank()) {
+          throw parseError(sourceName, lineNumber, "[voice] requires a track id", rawLine);
+        }
+        state.pendingVoiceTrackId = track;
         return;
       }
       case "voice_stop":
@@ -1586,6 +1647,14 @@ public class VnScriptParser {
       };
       case "transition" -> switch (key) {
         case "type", "kind", "style", "dur", "duration", "ms", "bg", "background" -> true;
+        default -> false;
+      };
+      case "bgm_crossfade" -> switch (key) {
+        case "track", "id", "file", "path", "dur", "duration", "ms", "loop" -> true;
+        default -> false;
+      };
+      case "sfx", "voice" -> switch (key) {
+        case "track", "id", "file", "path" -> true;
         default -> false;
       };
       case "particles", "particle", "weather" -> switch (key) {

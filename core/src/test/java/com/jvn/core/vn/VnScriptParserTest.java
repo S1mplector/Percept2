@@ -976,6 +976,22 @@ public class VnScriptParserTest {
   }
 
   @Test
+  public void parsesBgmCrossfadeWithNamedOptions() throws Exception {
+    String script = """
+      @label start
+      [bgm_crossfade track=new_track dur=2000 loop=false]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    VnNode ext = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.EXTERNAL
+            && n.getExternalCommand().getProvider().equals("audio"))
+        .findFirst().orElseThrow();
+    assertEquals("crossfade new_track 2000 false", ext.getExternalCommand().getPayload());
+  }
+
+  @Test
   public void parsesBgmCrossfadeQuotedTrackPathWithSpaces() throws Exception {
     String script = """
       @label start
@@ -1003,6 +1019,20 @@ public class VnScriptParserTest {
     VnNode audio = scen.getNodes().stream()
         .filter(n -> n.getType() == VnNodeType.AUDIO).findFirst().orElseThrow();
     assertEquals("assets/demo/audio/03 - Definitely Our Town.mp3", audio.getAudioCommand().getTrackId());
+  }
+
+  @Test
+  public void parsesSfxWithNamedTrackOption() throws Exception {
+    String script = """
+      @label start
+      [sfx track=ui/click.ogg]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    VnNode audio = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.AUDIO).findFirst().orElseThrow();
+    assertEquals("ui/click.ogg", audio.getAudioCommand().getTrackId());
   }
 
   @Test
@@ -1078,6 +1108,24 @@ public class VnScriptParserTest {
     String script = """
       @label start
       [voice voice/alice_001.ogg]
+      Alice: Hello there.
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario = parser.parseFromString(script);
+
+    assertEquals(2, scenario.getNodes().size());
+    VnNode dialogue = scenario.getNodes().get(0);
+    assertEquals(VnNodeType.DIALOGUE, dialogue.getType());
+    assertEquals("voice/alice_001.ogg", dialogue.getDialogue().getVoiceTrackId());
+  }
+
+  @Test
+  public void attachesNamedVoiceTrackToFollowingDialogueLine() throws Exception {
+    String script = """
+      @label start
+      [voice track=voice/alice_001.ogg]
       Alice: Hello there.
       [end]
     """;
