@@ -1484,6 +1484,176 @@
   -fx-border-width: 1 0 0 0;
 }
 
+.vns-diagnostics-root {
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255,255,255,0.02), rgba(255,255,255,0.0)),
+      linear-gradient(to bottom, #171b20 0%, #101318 100%);
+}
+
+.vns-diagnostics-header {
+  -fx-background-color: rgba(15, 18, 22, 0.86);
+  -fx-border-color: #252c34;
+  -fx-border-width: 0 0 1 0;
+}
+
+.vns-diagnostics-title-row {
+  -fx-alignment: center-left;
+}
+
+.vns-diagnostics-title {
+  -fx-text-fill: #f2f5f8;
+  -fx-font-size: 14px;
+  -fx-font-weight: 800;
+}
+
+.vns-diagnostics-file {
+  -fx-text-fill: #9aa8b8;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+}
+
+.vns-diagnostics-summary {
+  -fx-text-fill: #7f8b98;
+  -fx-font-size: 11px;
+}
+
+.vns-diagnostics-chip {
+  -fx-font-size: 10px;
+  -fx-font-weight: 800;
+  -fx-padding: 4 9 4 9;
+  -fx-background-radius: 999;
+  -fx-border-radius: 999;
+  -fx-border-width: 1;
+}
+
+.vns-diagnostics-chip-error {
+  -fx-text-fill: #ffd8df;
+  -fx-background-color: rgba(109, 42, 57, 0.9);
+  -fx-border-color: #8f5061;
+}
+
+.vns-diagnostics-chip-warning {
+  -fx-text-fill: #ffe5ba;
+  -fx-background-color: rgba(98, 72, 28, 0.9);
+  -fx-border-color: #9b7a3c;
+}
+
+.vns-diagnostics-filter-row {
+  -fx-background-color: transparent;
+}
+
+.vns-diagnostics-filter {
+  -fx-background-color: #12161b;
+  -fx-text-fill: #edf2f8;
+  -fx-prompt-text-fill: #74808f;
+  -fx-border-color: #313a45;
+  -fx-border-radius: 10;
+  -fx-background-radius: 10;
+  -fx-font-size: 11px;
+  -fx-padding: 7 11 7 11;
+}
+
+.vns-diagnostics-filter:focused {
+  -fx-border-color: #6f869c;
+  -fx-background-color: #171c22;
+  -fx-effect: dropshadow(gaussian, rgba(111, 134, 156, 0.18), 8, 0.2, 0, 0);
+}
+
+.vns-diagnostics-list {
+  -fx-background-color: transparent;
+  -fx-control-inner-background: transparent;
+  -fx-padding: 8;
+}
+
+.vns-diagnostics-list .virtual-flow,
+.vns-diagnostics-list .corner,
+.vns-diagnostics-list .viewport {
+  -fx-background-color: transparent;
+}
+
+.vns-diagnostics-placeholder {
+  -fx-text-fill: #798594;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+}
+
+.vns-diagnostics-cell {
+  -fx-background-color: transparent;
+  -fx-padding: 0 0 8 0;
+}
+
+.vns-diagnostics-cell:filled:selected,
+.vns-diagnostics-cell:filled:selected:hover {
+  -fx-background-color: transparent;
+}
+
+.vns-diagnostics-row {
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255,255,255,0.03), rgba(255,255,255,0.0)),
+      linear-gradient(to bottom, #1b2026 0%, #15191f 100%);
+  -fx-background-radius: 12;
+  -fx-border-color: #2e353d;
+  -fx-border-radius: 12;
+  -fx-border-width: 1;
+  -fx-padding: 10;
+}
+
+.vns-diagnostics-cell:hover .vns-diagnostics-row {
+  -fx-border-color: #41505f;
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255,255,255,0.04), rgba(255,255,255,0.01)),
+      linear-gradient(to bottom, #1e252d 0%, #171d24 100%);
+}
+
+.vns-diagnostics-cell:selected .vns-diagnostics-row {
+  -fx-border-color: #5a7290;
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(130, 160, 210, 0.08), rgba(130, 160, 210, 0.02)),
+      linear-gradient(to bottom, #202a34 0%, #18212b 100%);
+}
+
+.vns-diagnostics-row-error {
+  -fx-effect: dropshadow(gaussian, rgba(133, 52, 71, 0.16), 8, 0.18, 0, 1);
+}
+
+.vns-diagnostics-row-warning {
+  -fx-effect: dropshadow(gaussian, rgba(151, 117, 53, 0.14), 8, 0.18, 0, 1);
+}
+
+.vns-diagnostics-badge {
+  -fx-font-size: 10px;
+  -fx-font-weight: 800;
+  -fx-padding: 3 8 3 8;
+  -fx-background-radius: 999;
+  -fx-border-radius: 999;
+  -fx-border-width: 1;
+}
+
+.vns-diagnostics-badge-error {
+  -fx-text-fill: #ffd7de;
+  -fx-background-color: rgba(112, 41, 59, 0.9);
+  -fx-border-color: #8e5061;
+}
+
+.vns-diagnostics-badge-warning {
+  -fx-text-fill: #ffe4b8;
+  -fx-background-color: rgba(107, 77, 29, 0.9);
+  -fx-border-color: #9a7c3d;
+}
+
+.vns-diagnostics-badge-location,
+.vns-diagnostics-badge-kind {
+  -fx-text-fill: #c9d3de;
+  -fx-background-color: rgba(29, 35, 43, 0.94);
+  -fx-border-color: #3a4654;
+}
+
+.vns-diagnostics-message {
+  -fx-text-fill: #edf2f7;
+  -fx-font-size: 12px;
+  -fx-font-weight: 600;
+}
+
 .script-editor-workspace-icon-button {
   -fx-background-color: linear-gradient(to bottom, #252525, #1a1a1a);
   -fx-border-color: #4a4a4a;
