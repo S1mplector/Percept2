@@ -250,6 +250,7 @@ public class EditorApp extends Application {
   private static final String PANEL_CHOOSER_TAB_ROLE = "panel-chooser";
   private static final String PANEL_CHOOSER_REFRESH_KEY = "panel-chooser-refresh";
   private static final String PANEL_WINDOW_SUPPRESS_UNLOAD_KEY = "jvn.panelWindow.suppressUnload";
+  private static final String EDITOR_START_PROJECT_PROPERTY = "jvn.editor.openProject";
   private final EnumMap<EditorSidebarPanel, Stage> panelWindows =
       new EnumMap<>(EditorSidebarPanel.class);
   private Stage editorSettingsWindow;
@@ -528,6 +529,35 @@ public class EditorApp extends Application {
     File fromCwd = findGradleRoot(new File(System.getProperty("user.dir", ".")));
     if (fromCwd != null) return fromCwd;
     return findGradleRoot(new File("."));
+  }
+
+  private File resolveStartupProjectOverride() {
+    String raw = System.getProperty(EDITOR_START_PROJECT_PROPERTY, "");
+    if (raw == null || raw.isBlank()) {
+      Application.Parameters parameters = getParameters();
+      if (parameters != null && parameters.getUnnamed() != null && !parameters.getUnnamed().isEmpty()) {
+        raw = parameters.getUnnamed().get(0);
+      }
+    }
+    if (raw == null || raw.isBlank()) return null;
+    File candidate = new File(raw.trim());
+    if (candidate.isFile() && "jvn.project".equalsIgnoreCase(candidate.getName())) {
+      candidate = candidate.getParentFile();
+    }
+    if (candidate == null || !candidate.isDirectory()) return null;
+    try {
+      return candidate.getCanonicalFile();
+    } catch (Exception ignore) {
+      return candidate.getAbsoluteFile();
+    }
+  }
+
+  private void applyStartupProjectOverride() {
+    File startupProject = resolveStartupProjectOverride();
+    if (startupProject == null) return;
+    openProjectDirectory(startupProject);
+    if (status != null) status.setText("Project: " + startupProject.getName());
+    selectProjectTab();
   }
 
   private File findGradleRoot(File start) {
@@ -1939,6 +1969,7 @@ public class EditorApp extends Application {
     root.setLeft(null);
    root.setRight(null);
     root.setCenter(centerSplit);
+    applyStartupProjectOverride();
     refreshMainCommandUi.run();
 
     Scene scene = new Scene(root, 1200, 800);

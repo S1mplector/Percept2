@@ -53,6 +53,15 @@ tasks.named<JavaExec>("run") {
   configureJavaFxRuntime()
 }
 
+tasks.register<JavaExec>("runLauncher") {
+  group = "application"
+  description = "Runs the standalone JVN launcher application."
+  classpath = sourceSets["main"].runtimeClasspath
+  mainClass.set("com.jvn.editor.JvnLauncherApp")
+  workingDir = rootProject.projectDir
+  configureJavaFxRuntime()
+}
+
 fun JavaExec.forwardDocsScreenshotSystemProps() {
   listOf(
     "jvn.docs.profile",

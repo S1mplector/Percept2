@@ -1,6 +1,9 @@
 # editor
 
-JavaFX-based visual editor for authoring JVN visual novel and game projects. Entry point: `EditorApp`.
+JavaFX-based visual tooling for authoring and launching JVN visual novel projects.
+
+- Main editor entry point: `EditorApp`
+- Standalone launcher entry point: `JvnLauncherApp`
 
 ## Features
 
@@ -30,10 +33,17 @@ JavaFX-based visual editor for authoring JVN visual novel and game projects. Ent
 ./gradlew :editor:run
 ```
 
+Standalone launcher:
+
+```bash
+./gradlew :editor:runLauncher
+```
+
 ## Gradle Tasks
 
 | Task | Purpose |
 |------|---------|
+| `runLauncher` | Run the standalone Ren'Py-style project launcher |
 | `generateDocsScreenshots` | Capture annotated screenshots for all editor profiles |
 | `generateCoreDocsScreenshots` | Capture screenshots for Welcome Center and Run Console docs |
 | `generatePuppeteerDocsScreenshots` | Puppeteer-specific screenshots |
