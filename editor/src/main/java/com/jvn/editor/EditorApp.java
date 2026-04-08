@@ -1899,10 +1899,7 @@ public class EditorApp extends Application {
 
     Scene scene = new Scene(root, 1200, 800);
     // Load editor stylesheet (icons, theme, etc.)
-    try {
-      String css = EditorApp.class.getResource("/com/jvn/editor/editor.css").toExternalForm();
-      scene.getStylesheets().add(css);
-    } catch (Exception ignore) {}
+    EditorTheme.apply(scene);
     primaryStage.setScene(scene);
     primaryStage.setOnCloseRequest(e -> {
       if (!confirmCloseAllTabs()) {
@@ -4420,10 +4417,7 @@ public class EditorApp extends Application {
     windowStage.setTitle(title != null ? title : "Utility");
     javafx.scene.layout.BorderPane wrapper = new javafx.scene.layout.BorderPane(content);
     Scene windowScene = new Scene(wrapper, width, height);
-    try {
-      String css = EditorApp.class.getResource("/com/jvn/editor/editor.css").toExternalForm();
-      windowScene.getStylesheets().add(css);
-    } catch (Exception ignore) {}
+    EditorTheme.apply(windowScene);
     windowStage.setScene(windowScene);
     if (panel != null) {
       panelWindows.put(panel, windowStage);

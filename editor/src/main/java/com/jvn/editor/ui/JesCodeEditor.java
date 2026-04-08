@@ -126,10 +126,10 @@ public class JesCodeEditor extends BorderPane {
     lintLabel.setText("Ready");
     setCenter(wrapper);
 
-    var css = JesCodeEditor.class.getResource("/com/jvn/editor/editor.css");
-    if (css != null) {
-      getStylesheets().add(css.toExternalForm());
-      codeArea.getStylesheets().add(css.toExternalForm());
+    String css = EditorTheme.stylesheetUrl();
+    if (!css.isEmpty()) {
+      getStylesheets().add(css);
+      codeArea.getStylesheets().add(css);
     }
 
     completer = new CodeAutoCompleter(codeArea, ctx -> provideSuggestions(ctx));

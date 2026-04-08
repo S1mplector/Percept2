@@ -6,22 +6,79 @@ import javafx.scene.control.DialogPane;
 import javafx.stage.Stage;
 
 public final class EditorTheme {
-  private static final String CSS_PATH = "/com/jvn/editor/editor.css";
+  public enum Theme {
+    DARK,
+    LIGHT
+  }
+
+  private static final String DARK_CSS_PATH = "/com/jvn/editor/editor.css";
+  private static final String LIGHT_CSS_PATH = "/com/jvn/editor/editor-light.css";
+  private static final String THEME_PROPERTY = "jvn.editor.theme";
+  private static final String THEME_ENV = "JVN_EDITOR_THEME";
+
+  private static Theme currentTheme = resolveInitialTheme();
+  private static String cachedCssPath;
   private static String cachedCssUrl;
 
   private EditorTheme() {}
 
+  private static Theme resolveInitialTheme() {
+    String value = System.getProperty(THEME_PROPERTY);
+    if (value == null || value.isBlank()) {
+      value = System.getenv(THEME_ENV);
+    }
+    return parseTheme(value);
+  }
+
+  private static Theme parseTheme(String value) {
+    if (value == null || value.isBlank()) return Theme.DARK;
+    String normalized = value.trim().toLowerCase();
+    return normalized.equals("light") ? Theme.LIGHT : Theme.DARK;
+  }
+
+  private static String cssPath(Theme theme) {
+    return theme == Theme.LIGHT ? LIGHT_CSS_PATH : DARK_CSS_PATH;
+  }
+
+  private static boolean isThemeStylesheet(String stylesheet) {
+    if (stylesheet == null || stylesheet.isBlank()) return false;
+    return stylesheet.contains(DARK_CSS_PATH) || stylesheet.contains(LIGHT_CSS_PATH);
+  }
+
   private static String cssUrl() {
-    if (cachedCssUrl != null) return cachedCssUrl;
-    var url = EditorTheme.class.getResource(CSS_PATH);
+    String path = cssPath(currentTheme);
+    if (cachedCssUrl != null && path.equals(cachedCssPath)) return cachedCssUrl;
+    var url = EditorTheme.class.getResource(path);
+    cachedCssPath = path;
     cachedCssUrl = (url == null) ? "" : url.toExternalForm();
     return cachedCssUrl;
+  }
+
+  public static String stylesheetUrl() {
+    return cssUrl();
+  }
+
+  public static Theme theme() {
+    return currentTheme;
+  }
+
+  public static void setTheme(Theme theme) {
+    Theme resolved = theme == null ? Theme.DARK : theme;
+    if (resolved == currentTheme) return;
+    currentTheme = resolved;
+    cachedCssPath = null;
+    cachedCssUrl = null;
+  }
+
+  public static void setTheme(String themeName) {
+    setTheme(parseTheme(themeName));
   }
 
   public static void apply(Scene scene) {
     if (scene == null) return;
     String css = cssUrl();
     if (css.isEmpty()) return;
+    scene.getStylesheets().removeIf(EditorTheme::isThemeStylesheet);
     if (!scene.getStylesheets().contains(css)) scene.getStylesheets().add(css);
   }
 
@@ -34,7 +91,10 @@ public final class EditorTheme {
     if (dialog == null) return null;
     DialogPane pane = dialog.getDialogPane();
     String css = cssUrl();
-    if (!css.isEmpty() && !pane.getStylesheets().contains(css)) pane.getStylesheets().add(css);
+    if (!css.isEmpty()) {
+      pane.getStylesheets().removeIf(EditorTheme::isThemeStylesheet);
+      if (!pane.getStylesheets().contains(css)) pane.getStylesheets().add(css);
+    }
     if (!pane.getStyleClass().contains("jvn-dialog")) pane.getStyleClass().add("jvn-dialog");
     return dialog;
   }

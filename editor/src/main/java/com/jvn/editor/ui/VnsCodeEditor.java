@@ -172,10 +172,10 @@ public class VnsCodeEditor extends BorderPane {
     breadcrumbLabel.setStyle("-fx-text-fill: #9a9a9a; -fx-font-size: 11px; -fx-padding: 2 10 2 10;");
     breadcrumbLabel.setMaxWidth(Double.MAX_VALUE);
 
-    var css = VnsCodeEditor.class.getResource("/com/jvn/editor/editor.css");
-    if (css != null) {
-      getStylesheets().add(css.toExternalForm());
-      codeArea.getStylesheets().add(css.toExternalForm());
+    String css = EditorTheme.stylesheetUrl();
+    if (!css.isEmpty()) {
+      getStylesheets().add(css);
+      codeArea.getStylesheets().add(css);
     }
 
     completer = new CodeAutoCompleter(codeArea, this::provideSuggestions);
@@ -2269,8 +2269,8 @@ public class VnsCodeEditor extends BorderPane {
       splitCodeArea = new CodeArea();
       splitCodeArea.setEditable(false);
       splitCodeArea.replaceText(codeArea.getText());
-      var splitCss = VnsCodeEditor.class.getResource("/com/jvn/editor/editor.css");
-      if (splitCss != null) splitCodeArea.getStylesheets().add(splitCss.toExternalForm());
+      String splitCss = EditorTheme.stylesheetUrl();
+      if (!splitCss.isEmpty()) splitCodeArea.getStylesheets().add(splitCss);
       splitCodeArea.setStyle("-fx-font-size: " + (int) fontSizePx + "px;");
       // Sync text from primary to split
       codeArea.textProperty().addListener((obs, ov, nv) -> {
@@ -2335,10 +2335,7 @@ public class VnsCodeEditor extends BorderPane {
     root.setBottom(info);
 
     Scene scene = new Scene(root, 800, 600);
-    try {
-      String css = VnsCodeEditor.class.getResource("/com/jvn/editor/editor.css").toExternalForm();
-      scene.getStylesheets().add(css);
-    } catch (Exception ignored) {}
+    EditorTheme.apply(scene);
     diffStage.setScene(scene);
     diffStage.show();
   }

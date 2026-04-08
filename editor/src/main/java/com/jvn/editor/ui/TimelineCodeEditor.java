@@ -58,8 +58,8 @@ public class TimelineCodeEditor extends BorderPane {
     applyHighlighting("");
     var sp = new VirtualizedScrollPane<>(code);
     setCenter(sp);
-    var css = TimelineCodeEditor.class.getResource("/com/jvn/editor/editor.css");
-    if (css != null) { getStylesheets().add(css.toExternalForm()); code.getStylesheets().add(css.toExternalForm()); }
+    String css = EditorTheme.stylesheetUrl();
+    if (!css.isEmpty()) { getStylesheets().add(css); code.getStylesheets().add(css); }
     applyFontSize();
     code.setOnContextMenuRequested(e -> {
       Issue is = issueAt(code.getCaretPosition());
