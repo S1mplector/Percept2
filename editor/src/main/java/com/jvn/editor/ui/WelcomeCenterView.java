@@ -27,7 +27,9 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.Button;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
@@ -35,9 +37,7 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
-import javafx.scene.control.ContentDisplay;
 import javafx.scene.input.KeyCode;
-import javafx.scene.Node;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -60,7 +60,7 @@ public class WelcomeCenterView extends BorderPane {
     return t;
   });
 
-  private final Label headingLabel = new Label("Welcome to JVN");
+  private final Label headingLabel = new Label("Welcome to JVN Editor");
   private final Label introLabel = new Label("Resume recent work, open projects, and verify your environment before launch.");
   private final Label versionLabel = new Label("Version: --");
   private final Label workspaceLabel = new Label("No workspace root configured.");
