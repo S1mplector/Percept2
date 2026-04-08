@@ -16,10 +16,10 @@ import com.jvn.core.menu.config.MenuProfileLoader;
 import com.jvn.core.menu.config.MenuScreenSpec;
 import com.jvn.core.menu.config.MenuStyleSpec;
 import com.jvn.core.scene.Scene;
+import com.jvn.core.vn.VnEntryScriptResolver;
 import com.jvn.core.vn.VnScenario;
 import com.jvn.core.vn.VnScenarioLoader;
 import com.jvn.core.vn.VnScene;
-import com.jvn.core.vn.VnEntryScriptResolver;
 import com.jvn.core.vn.VnSettings;
 import com.jvn.core.vn.save.VnSaveManager;
 
@@ -207,6 +207,14 @@ public class MainMenuScene implements Scene {
           engine.stop();
         }
       }
+      case GALLERY -> {
+        com.jvn.core.vn.VnPersistentStore store = new com.jvn.core.vn.VnPersistentStore();
+        engine.scenes().push(new com.jvn.core.menu.gallery.GalleryScene(engine, store));
+      }
+      case MUSIC_ROOM -> {
+        com.jvn.core.vn.VnPersistentStore store = new com.jvn.core.vn.VnPersistentStore();
+        engine.scenes().push(new com.jvn.core.menu.gallery.MusicRoomScene(engine, audio, store));
+      }
       case SAVE_MENU -> LOG.debug("Ignoring save menu action in title context");
       case NOOP -> {
       }
@@ -384,6 +392,8 @@ public class MainMenuScene implements Scene {
       case MAIN_MENU -> Localization.t("app.title");
       case RUN_SCRIPT -> Localization.t("menu.new_game");
       case OPEN_MENU -> titleize(normalize(item.action().target(), item.id()));
+      case GALLERY -> Localization.t("menu.gallery");
+      case MUSIC_ROOM -> Localization.t("menu.music_room");
       case NOOP -> titleize(item.id());
     };
   }

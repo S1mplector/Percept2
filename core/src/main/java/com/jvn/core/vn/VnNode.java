@@ -25,6 +25,7 @@ public class VnNode {
   private final Easing.Type moveEasingType;
   private final long moveDurationMs;
   private final VnExternalCommand externalCommand;
+  private final VnParticleCommand particleCommand;
   private final int sourceLine;
 
   private VnNode(Builder builder) {
@@ -44,6 +45,7 @@ public class VnNode {
     this.moveEasingType = builder.moveEasingType;
     this.moveDurationMs = builder.moveDurationMs;
     this.externalCommand = builder.externalCommand;
+    this.particleCommand = builder.particleCommand;
     this.sourceLine = builder.sourceLine;
   }
 
@@ -63,6 +65,7 @@ public class VnNode {
   public Easing.Type getMoveEasingType() { return moveEasingType; }
   public long getMoveDurationMs() { return moveDurationMs; }
   public VnExternalCommand getExternalCommand() { return externalCommand; }
+  public VnParticleCommand getParticleCommand() { return particleCommand; }
   public int getSourceLine() { return sourceLine; }
 
   public static Builder builder(VnNodeType type) { return new Builder(type); }
@@ -84,6 +87,7 @@ public class VnNode {
     private Easing.Type moveEasingType;
     private long moveDurationMs;
     private VnExternalCommand externalCommand;
+    private VnParticleCommand particleCommand;
     private int sourceLine;
 
     private Builder(VnNodeType type) { this.type = type; }
@@ -103,6 +107,7 @@ public class VnNode {
     public Builder moveEasingType(Easing.Type easing) { this.moveEasingType = easing; return this; }
     public Builder moveDurationMs(long ms) { this.moveDurationMs = ms; return this; }
     public Builder external(VnExternalCommand cmd) { this.externalCommand = cmd; return this; }
+    public Builder particleCommand(VnParticleCommand cmd) { this.particleCommand = cmd; return this; }
     public Builder sourceLine(int line) { this.sourceLine = line; return this; }
     public VnNode build() { return new VnNode(this); }
   }

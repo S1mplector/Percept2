@@ -10,6 +10,8 @@ public enum MenuActionType {
   RUN_SCRIPT,
   BACK,
   QUIT,
+  GALLERY,
+  MUSIC_ROOM,
   NOOP;
 
   public static MenuActionType parse(String raw) {
@@ -25,6 +27,8 @@ public enum MenuActionType {
       case "run_script", "script", "start_script", "play_script" -> RUN_SCRIPT;
       case "back", "return" -> BACK;
       case "quit", "exit" -> QUIT;
+      case "gallery", "cg", "cg_gallery" -> GALLERY;
+      case "music", "music_room", "sound_room", "jukebox" -> MUSIC_ROOM;
       default -> NOOP;
     };
   }

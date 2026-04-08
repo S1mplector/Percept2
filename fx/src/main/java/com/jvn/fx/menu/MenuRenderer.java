@@ -16,6 +16,10 @@ import com.jvn.core.menu.SettingsScene;
 import com.jvn.core.menu.config.MenuItemSpec;
 import com.jvn.core.menu.config.MenuLayoutSpec;
 import com.jvn.core.menu.config.MenuStyleSpec;
+import com.jvn.core.menu.gallery.GalleryEntry;
+import com.jvn.core.menu.gallery.GalleryScene;
+import com.jvn.core.menu.gallery.MusicRoomEntry;
+import com.jvn.core.menu.gallery.MusicRoomScene;
 import com.jvn.core.ui.BoundsPointCodec;
 import com.jvn.fx.ui.ProjectFontResolver;
 
@@ -2347,6 +2351,181 @@ public class MenuRenderer {
   private double resolve(double v, double total) {
     // if v <= 1, treat as fraction of total; otherwise pixels
     return v <= 1.0 ? (total * v) : v;
+  }
+
+  // --- Gallery rendering ---
+
+  public void renderGallery(GalleryScene scene, double w, double h) {
+    gc.setFill(Color.rgb(20, 20, 30));
+    gc.fillRect(0, 0, w, h);
+
+    if (scene == null) return;
+
+    Font titleFont = theme.getTitleFont();
+    Font catFont = theme.getItemFont();
+    Font smallFont = theme.getHintFont();
+
+    // Title
+    gc.setFont(titleFont);
+    gc.setFill(Color.WHITE);
+    gc.fillText(Localization.t("menu.gallery"), w * 0.04, h * 0.06);
+
+    // Category tabs
+    List<String> cats = scene.getCategories();
+    double tabX = w * 0.04;
+    gc.setFont(catFont);
+    for (int i = 0; i < cats.size(); i++) {
+      boolean active = i == scene.getCategoryIndex();
+      gc.setFill(active ? Color.web("#f0b673") : Color.gray(0.6));
+      gc.fillText(cats.get(i), tabX, h * 0.12);
+      tabX += gc.getFont().getSize() * cats.get(i).length() * 0.65 + 24;
+    }
+
+    // Counter
+    gc.setFont(smallFont);
+    gc.setFill(Color.gray(0.5));
+    gc.fillText(scene.getUnlockedCount() + " / " + scene.getTotalCount(), w * 0.88, h * 0.06);
+
+    if (scene.isViewingFullscreen()) {
+      renderGalleryFullscreen(scene, w, h);
+      return;
+    }
+
+    // Thumbnail grid
+    List<GalleryEntry> entries = scene.getPageEntries();
+    int cols = scene.getColumns();
+    double gridX = w * 0.04;
+    double gridY = h * 0.17;
+    double cellW = (w * 0.92) / cols;
+    double cellH = cellW * 0.6;
+    double gap = 8;
+
+    for (int i = 0; i < entries.size(); i++) {
+      GalleryEntry entry = entries.get(i);
+      int col = i % cols;
+      int row = i / cols;
+      double cx = gridX + col * (cellW + gap);
+      double cy = gridY + row * (cellH + gap);
+      boolean selected = i == scene.getSelectedIndex();
+      boolean unlocked = scene.isUnlocked(entry);
+
+      if (unlocked) {
+        Image img = loadImage(entry.imagePath());
+        if (img != null) {
+          gc.drawImage(img, cx, cy, cellW, cellH);
+        } else {
+          gc.setFill(Color.rgb(40, 40, 55));
+          gc.fillRect(cx, cy, cellW, cellH);
+        }
+      } else {
+        gc.setFill(Color.rgb(30, 30, 40));
+        gc.fillRect(cx, cy, cellW, cellH);
+        gc.setFont(smallFont);
+        gc.setFill(Color.gray(0.35));
+        gc.fillText("???", cx + cellW / 2 - 10, cy + cellH / 2 + 5);
+      }
+
+      if (selected) {
+        gc.setStroke(Color.web("#f0b673"));
+        gc.setLineWidth(2.5);
+        gc.strokeRect(cx - 1, cy - 1, cellW + 2, cellH + 2);
+      }
+    }
+
+    // Page indicator
+    int pageCount = scene.getPageCount();
+    if (pageCount > 1) {
+      gc.setFont(smallFont);
+      gc.setFill(Color.gray(0.5));
+      gc.fillText("Page " + (scene.getPage() + 1) + " / " + pageCount, w * 0.46, h * 0.95);
+    }
+  }
+
+  private void renderGalleryFullscreen(GalleryScene scene, double w, double h) {
+    GalleryEntry entry = scene.getFullscreenEntry();
+    if (entry == null) return;
+    gc.setFill(Color.BLACK);
+    gc.fillRect(0, 0, w, h);
+    Image img = loadImage(entry.imagePath());
+    if (img == null) return;
+    double iw = img.getWidth();
+    double ih = img.getHeight();
+    double scale = Math.min(w / iw, h / ih);
+    double dw = iw * scale;
+    double dh = ih * scale;
+    gc.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
+  }
+
+  // --- Music Room rendering ---
+
+  public void renderMusicRoom(MusicRoomScene scene, double w, double h) {
+    gc.setFill(Color.rgb(18, 18, 28));
+    gc.fillRect(0, 0, w, h);
+
+    if (scene == null) return;
+
+    Font titleFont = theme.getTitleFont();
+    Font trackFont = theme.getItemFont();
+    Font artistFont = theme.getHintFont();
+    Font catFont = theme.getItemFont();
+
+    // Title
+    gc.setFont(titleFont);
+    gc.setFill(Color.WHITE);
+    gc.fillText(Localization.t("menu.music_room"), w * 0.04, h * 0.06);
+
+    // Category tabs
+    List<String> cats = scene.getCategories();
+    double tabX = w * 0.04;
+    gc.setFont(catFont);
+    for (int i = 0; i < cats.size(); i++) {
+      boolean active = i == scene.getCategoryIndex();
+      gc.setFill(active ? Color.web("#7ec8e3") : Color.gray(0.6));
+      gc.fillText(cats.get(i), tabX, h * 0.12);
+      tabX += gc.getFont().getSize() * cats.get(i).length() * 0.65 + 24;
+    }
+
+    // Track list
+    List<MusicRoomEntry> entries = scene.getCurrentEntries();
+    double listX = w * 0.06;
+    double listY = h * 0.18;
+    double lineH = h * 0.06;
+
+    for (int i = 0; i < entries.size(); i++) {
+      MusicRoomEntry entry = entries.get(i);
+      double y = listY + i * lineH;
+      boolean selected = i == scene.getSelectedIndex();
+      boolean unlocked = scene.isUnlocked(entry);
+      boolean playing = entry.equals(scene.getNowPlaying()) && scene.isPlaying();
+
+      if (selected) {
+        gc.setFill(Color.rgb(255, 255, 255, 0.06));
+        gc.fillRoundRect(listX - 8, y - lineH * 0.65, w * 0.88, lineH, 6, 6);
+      }
+
+      if (!unlocked) {
+        gc.setFont(trackFont);
+        gc.setFill(Color.gray(0.3));
+        gc.fillText("??? - Locked", listX, y);
+        continue;
+      }
+
+      // Now-playing indicator
+      if (playing) {
+        gc.setFill(Color.web("#7ec8e3"));
+        gc.fillText("\u266B", listX - 20, y);
+      }
+
+      gc.setFont(trackFont);
+      gc.setFill(selected ? Color.web("#7ec8e3") : Color.WHITE);
+      gc.fillText(entry.title(), listX, y);
+
+      if (!entry.artist().isBlank()) {
+        gc.setFont(artistFont);
+        gc.setFill(Color.gray(0.5));
+        gc.fillText(entry.artist(), listX + w * 0.5, y);
+      }
+    }
   }
 
   private record Rect(double x, double y, double w, double h) {

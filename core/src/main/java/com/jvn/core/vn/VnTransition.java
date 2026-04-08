@@ -39,6 +39,10 @@ public class VnTransition {
     CROSSFADE,
     SLIDE_LEFT,
     SLIDE_RIGHT,
-    WIPE
+    WIPE,
+    PIXELATE,
+    BLINDS,
+    IRIS_IN,
+    IRIS_OUT
   }
 }

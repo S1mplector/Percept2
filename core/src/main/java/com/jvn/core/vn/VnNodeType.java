@@ -32,6 +32,9 @@ public enum VnNodeType {
   // External integration
   EXTERNAL,      // External interop call (jes/java/custom)
 
+  // Effects
+  PARTICLE,      // Start/stop particle effects (snow, rain, etc.)
+
   // Terminal
   END;           // End of scenario
 
@@ -47,7 +50,8 @@ public enum VnNodeType {
    */
   public boolean isInstant() {
     return this == BACKGROUND || this == SHOW || this == HIDE || this == MOVE ||
-           this == JUMP || this == CALL || this == RETURN || this == AUDIO;
+           this == JUMP || this == CALL || this == RETURN || this == AUDIO ||
+           this == PARTICLE;
   }
 
   /**

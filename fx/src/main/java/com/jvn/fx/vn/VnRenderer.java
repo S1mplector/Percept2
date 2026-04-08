@@ -11,42 +11,42 @@ import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
 import com.jvn.core.audio.AudioFacade;
 import com.jvn.core.localization.Localization;
-import com.jvn.core.vn.BubbleAnchor;
 import com.jvn.core.ui.BoundsPointCodec;
+import com.jvn.core.vn.BubbleAnchor;
 import com.jvn.core.vn.CharacterPosition;
 import com.jvn.core.vn.Choice;
-import com.jvn.core.vn.DialoguePresentationMode;
 import com.jvn.core.vn.DialogueLine;
+import com.jvn.core.vn.DialoguePresentationMode;
+import com.jvn.core.vn.VnAudioVisualizerConfig;
 import com.jvn.core.vn.VnBackground;
 import com.jvn.core.vn.VnCharacter;
 import com.jvn.core.vn.VnCharacterSceneAccessor;
 import com.jvn.core.vn.VnNode;
 import com.jvn.core.vn.VnNodeType;
 import com.jvn.core.vn.VnScenario;
-import com.jvn.core.vn.VnAudioVisualizerConfig;
 import com.jvn.core.vn.VnState;
 import com.jvn.core.vn.VnVariableInterpolator;
 import com.jvn.core.vn.stage.VnStagePreset;
 import com.jvn.core.vn.text.TextEffect;
 import com.jvn.core.vn.text.TextParser;
 import com.jvn.core.vn.text.TextSpan;
+import com.jvn.core.vn.ui.VnOverlayButtonSpec;
+import com.jvn.core.vn.ui.VnOverlayScreenSpec;
 import com.jvn.core.vn.ui.VnUiActionButtonSpec;
 import com.jvn.core.vn.ui.VnUiLayoutLoader;
 import com.jvn.core.vn.ui.VnUiLayoutSpec;
 import com.jvn.core.vn.ui.VnUiStyleSpec;
-import com.jvn.core.vn.ui.VnOverlayButtonSpec;
-import com.jvn.core.vn.ui.VnOverlayScreenSpec;
 import com.jvn.fx.ui.ProjectFontResolver;
 
+import javafx.scene.SnapshotParameters;
+import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
 import javafx.scene.image.WritableImage;
-import javafx.scene.paint.CycleMethod;
 import javafx.scene.paint.Color;
+import javafx.scene.paint.CycleMethod;
 import javafx.scene.paint.LinearGradient;
 import javafx.scene.paint.Stop;
-import javafx.scene.canvas.Canvas;
-import javafx.scene.SnapshotParameters;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
@@ -2013,6 +2013,59 @@ public class VnRenderer {
         double wipeWidth = width * (1.0 - eased);
         gc.setFill(Color.BLACK);
         gc.fillRect(0, 0, wipeWidth, height);
+      }
+      case PIXELATE -> {
+        // Pixelate: black overlay with decreasing mosaic-like opacity
+        double eased = easeInOutQuad(progress);
+        double opacity = 1.0 - eased;
+        int blockSize = Math.max(2, (int) (40 * (1.0 - eased)));
+        gc.setFill(Color.rgb(0, 0, 0, Math.max(0, Math.min(1, opacity * 0.8))));
+        for (int bx = 0; bx < width; bx += blockSize * 2) {
+          for (int by = 0; by < height; by += blockSize * 2) {
+            gc.fillRect(bx, by, blockSize, blockSize);
+          }
+        }
+      }
+      case BLINDS -> {
+        // Horizontal blinds closing/opening
+        double eased = easeInOutQuad(progress);
+        int slats = 12;
+        double slatH = height / slats;
+        double slatVisible = slatH * (1.0 - eased);
+        gc.setFill(Color.BLACK);
+        for (int i = 0; i < slats; i++) {
+          gc.fillRect(0, i * slatH, width, slatVisible);
+        }
+      }
+      case IRIS_IN -> {
+        // Circular iris opening from center
+        double eased = easeOutCubic(progress);
+        double maxRadius = Math.hypot(width / 2, height / 2);
+        double radius = maxRadius * eased;
+        gc.setFill(Color.BLACK);
+        gc.fillRect(0, 0, width, height);
+        gc.save();
+        gc.beginPath();
+        gc.arc(width / 2, height / 2, radius, radius, 0, 360);
+        gc.closePath();
+        gc.clip();
+        gc.clearRect(0, 0, width, height);
+        gc.restore();
+      }
+      case IRIS_OUT -> {
+        // Circular iris closing to center
+        double eased = easeOutCubic(progress);
+        double maxRadius = Math.hypot(width / 2, height / 2);
+        double radius = maxRadius * (1.0 - eased);
+        gc.setFill(Color.BLACK);
+        gc.fillRect(0, 0, width, height);
+        gc.save();
+        gc.beginPath();
+        gc.arc(width / 2, height / 2, radius, radius, 0, 360);
+        gc.closePath();
+        gc.clip();
+        gc.clearRect(0, 0, width, height);
+        gc.restore();
       }
       case CROSSFADE -> {
         // Crossfade is handled separately in render() for backgrounds

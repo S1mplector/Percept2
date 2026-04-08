@@ -1766,6 +1766,10 @@ public class VnScriptParser {
       if (t.equals("SLIDE_LEFT")) return VnTransition.TransitionType.SLIDE_LEFT;
       if (t.equals("SLIDE_RIGHT")) return VnTransition.TransitionType.SLIDE_RIGHT;
       if (t.equals("WIPE")) return VnTransition.TransitionType.WIPE;
+      if (t.equals("PIXELATE") || t.equals("PIXEL")) return VnTransition.TransitionType.PIXELATE;
+      if (t.equals("BLINDS") || t.equals("BLIND")) return VnTransition.TransitionType.BLINDS;
+      if (t.equals("IRIS_IN") || t.equals("IRISIN")) return VnTransition.TransitionType.IRIS_IN;
+      if (t.equals("IRIS_OUT") || t.equals("IRISOUT")) return VnTransition.TransitionType.IRIS_OUT;
       return null;
     }
   }

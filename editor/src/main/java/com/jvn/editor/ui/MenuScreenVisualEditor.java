@@ -2134,6 +2134,8 @@ public class MenuScreenVisualEditor extends BorderPane {
       case MAIN_MENU -> "Main Menu";
       case OPEN_MENU -> titleize(normalize(row.getTarget(), row.getId()));
       case RUN_SCRIPT -> "Run Script";
+      case GALLERY -> "Gallery";
+      case MUSIC_ROOM -> "Music Room";
       case NOOP -> titleize(row.getId());
     };
   }
@@ -2150,6 +2152,8 @@ public class MenuScreenVisualEditor extends BorderPane {
       case RUN_SCRIPT -> "run_script";
       case BACK -> "back";
       case QUIT -> "quit";
+      case GALLERY -> "gallery";
+      case MUSIC_ROOM -> "music_room";
       case NOOP -> "noop";
     };
   }

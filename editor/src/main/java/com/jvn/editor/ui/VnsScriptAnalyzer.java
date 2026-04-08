@@ -1,11 +1,9 @@
 package com.jvn.editor.ui;
 
-import com.jvn.core.vn.script.VnScriptParser;
-
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -22,6 +20,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import com.jvn.core.vn.script.VnScriptParser;
 
 /**
  * Shared VNS static analysis used by editor features (code lint, diagnostics panel, and flow map).
@@ -203,7 +203,11 @@ public final class VnsScriptAnalyzer {
     });
 
     String startLabel = labels.isEmpty() ? null : pickStartLabel(labelsByName, labels);
-    return new Analysis(source, diagnostics, labels, edges, startLabel, backgrounds);
+
+    // Compute script statistics
+    ScriptStats stats = computeStats(lines, labels, edges);
+
+    return new Analysis(source, diagnostics, labels, edges, startLabel, backgrounds, stats);
   }
 
   private static void parseWithIncludeResolver(String source, File projectRoot, File sourceFile) throws Exception {
@@ -597,17 +601,98 @@ public final class VnsScriptAnalyzer {
     }
   }
 
+  private static final Pattern DIALOGUE_LINE_PATTERN = Pattern.compile("^\\s*(\\w+)\\s*:\\s*(.+)$");
+
+  private static ScriptStats computeStats(List<LineInfo> lines,
+                                           List<LabelNode> labels,
+                                           List<FlowEdge> edges) {
+    int wordCount = 0;
+    int dialogueLineCount = 0;
+    Map<String, Integer> characterLineMap = new LinkedHashMap<>();
+    int choiceBranchCount = 0;
+
+    for (LineInfo line : lines) {
+      String trimmed = line.trimmed();
+      if (trimmed.isEmpty() || trimmed.startsWith("#")) continue;
+
+      // Count choice branches
+      if (trimmed.startsWith(">")) {
+        choiceBranchCount++;
+        continue;
+      }
+
+      // Skip labels and directives
+      if (LABEL_PATTERN.matcher(line.text).matches()) continue;
+      if (BG_DECL_PATTERN.matcher(line.text).matches()) continue;
+      if (trimmed.startsWith("@")) continue;
+
+      // Skip commands (lines like [command args])
+      if (COMMAND_PATTERN.matcher(trimmed).matches()) continue;
+
+      // What's left is dialogue or narration
+      String dialogueText = trimmed;
+      Matcher dialogueMatcher = DIALOGUE_LINE_PATTERN.matcher(trimmed);
+      if (dialogueMatcher.matches()) {
+        String charId = dialogueMatcher.group(1).trim();
+        dialogueText = dialogueMatcher.group(2).trim();
+        characterLineMap.merge(charId, 1, Integer::sum);
+      }
+
+      dialogueLineCount++;
+      // Count words (split on whitespace)
+      String[] words = dialogueText.split("\\s+");
+      for (String w : words) {
+        if (!w.isBlank()) wordCount++;
+      }
+    }
+
+    // Estimated playtime: ~150 words per minute for reading VN dialogue
+    // Plus ~3 seconds per choice interaction
+    double minutes = wordCount / 150.0 + (choiceBranchCount * 3.0) / 60.0;
+
+    return new ScriptStats(
+        wordCount,
+        dialogueLineCount,
+        characterLineMap,
+        choiceBranchCount,
+        labels.size(),
+        Math.round(minutes * 10.0) / 10.0
+    );
+  }
+
   public record Analysis(String source,
                          List<Diagnostic> diagnostics,
                          List<LabelNode> labels,
                          List<FlowEdge> edges,
                          String startLabel,
-                         Map<String, String> backgrounds) {
+                         Map<String, String> backgrounds,
+                         ScriptStats stats) {
     public Analysis {
       diagnostics = diagnostics == null ? List.of() : List.copyOf(diagnostics);
       labels = labels == null ? List.of() : List.copyOf(labels);
       edges = edges == null ? List.of() : List.copyOf(edges);
       backgrounds = backgrounds == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(backgrounds));
+      stats = stats == null ? ScriptStats.EMPTY : stats;
+    }
+  }
+
+  /**
+   * Aggregated script statistics.
+   */
+  public record ScriptStats(
+      int wordCount,
+      int dialogueLineCount,
+      Map<String, Integer> characterLineMap,
+      int choiceBranchCount,
+      int labelCount,
+      double estimatedPlaytimeMinutes
+  ) {
+    static final ScriptStats EMPTY = new ScriptStats(0, 0, Map.of(), 0, 0, 0.0);
+
+    public ScriptStats {
+      characterLineMap = characterLineMap == null
+          ? Map.of()
+          : Collections.unmodifiableMap(new LinkedHashMap<>(characterLineMap));
     }
   }
 

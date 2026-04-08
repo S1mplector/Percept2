@@ -54,6 +54,8 @@ public record MenuActionSpec(MenuActionType type, String target, String rawActio
       case RUN_SCRIPT -> "run_script";
       case BACK -> "back";
       case QUIT -> "quit";
+      case GALLERY -> "gallery";
+      case MUSIC_ROOM -> "music_room";
       case NOOP -> "noop";
     };
   }
