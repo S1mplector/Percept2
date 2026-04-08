@@ -3654,14 +3654,14 @@
 }
 
 .sidebar-tab-pane .tab:selected {
-  -fx-background-color: linear-gradient(to bottom, #4c2f16 0%, #352213 55%, #241912 100%);
-  -fx-border-color: #d78a36 #b56e2f transparent #b56e2f;
+  -fx-background-color: linear-gradient(to bottom, #2c2723 0%, #25211d 55%, #1f1c19 100%);
+  -fx-border-color: #8d6c4f #715740 transparent #715740;
   -fx-effect: none;
 }
 
 .sidebar-tab-pane .tab:selected:hover {
-  -fx-background-color: linear-gradient(to bottom, #5b3818 0%, #3f2815 55%, #2a1d13 100%);
-  -fx-border-color: #e39a4a #c87a36 transparent #c87a36;
+  -fx-background-color: linear-gradient(to bottom, #312b26 0%, #29231f 55%, #221e1b 100%);
+  -fx-border-color: #9a7656 #7a5f46 transparent #7a5f46;
 }
 
 .sidebar-tab-pane .tab .tab-container {
@@ -3715,7 +3715,7 @@
 }
 
 .sidebar-tab-pane .tab:selected .tab-label {
-  -fx-text-fill: #ffe2bf;
+  -fx-text-fill: #dfd3c6;
 }
 
 .sidebar-tab-pane .tab .tab-close-button:hover {
