@@ -99,6 +99,7 @@ import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.OverrunStyle;
+import javafx.scene.control.RadioMenuItem;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.SplitPane;
@@ -106,6 +107,7 @@ import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.DragEvent;
@@ -260,6 +262,26 @@ public class EditorApp extends Application {
     if (status != null && status.getScene() != null) return status.getScene().getWindow();
     if (filesTabs != null && filesTabs.getScene() != null) return filesTabs.getScene().getWindow();
     return null;
+  }
+
+  private void setEditorTheme(EditorTheme.Theme theme) {
+    EditorTheme.Theme target = theme == null ? EditorTheme.Theme.DARK : theme;
+    if (target == EditorTheme.theme()) return;
+    EditorTheme.setTheme(target);
+    applyThemeToOpenWindows();
+    if (status != null) {
+      status.setText("Theme: " + (target == EditorTheme.Theme.LIGHT ? "Light" : "Dark"));
+    }
+  }
+
+  private void applyThemeToOpenWindows() {
+    for (Window window : Window.getWindows()) {
+      if (window == null) continue;
+      Scene scene = window.getScene();
+      if (scene != null) {
+        EditorTheme.apply(scene);
+      }
+    }
   }
 
   private Label createDialogDetailLabel(String text) {
@@ -1352,7 +1374,26 @@ public class EditorApp extends Application {
 
     Menu menuViewport = new Menu("Viewport");
     menuViewport.getItems().addAll(miToggleEditorFullscreen, miResetCamera, miFitContent);
-    menuView.getItems().addAll(menuViewport, new SeparatorMenuItem(), menuPanels);
+    Menu menuTheme = new Menu("Theme");
+    ToggleGroup themeToggleGroup = new ToggleGroup();
+    RadioMenuItem miThemeDark = new RadioMenuItem("Dark");
+    miThemeDark.setToggleGroup(themeToggleGroup);
+    RadioMenuItem miThemeLight = new RadioMenuItem("Light");
+    miThemeLight.setToggleGroup(themeToggleGroup);
+    Runnable syncThemeMenuSelection = () -> {
+      boolean lightSelected = EditorTheme.theme() == EditorTheme.Theme.LIGHT;
+      miThemeDark.setSelected(!lightSelected);
+      miThemeLight.setSelected(lightSelected);
+    };
+    syncThemeMenuSelection.run();
+    miThemeDark.setOnAction(e -> {
+      if (miThemeDark.isSelected()) setEditorTheme(EditorTheme.Theme.DARK);
+    });
+    miThemeLight.setOnAction(e -> {
+      if (miThemeLight.isSelected()) setEditorTheme(EditorTheme.Theme.LIGHT);
+    });
+    menuTheme.getItems().addAll(miThemeDark, miThemeLight);
+    menuView.getItems().addAll(menuViewport, menuTheme, new SeparatorMenuItem(), menuPanels);
 
     // ── Navigate ──
     Menu menuNavigate = new Menu("Navigate");
@@ -1786,7 +1827,10 @@ public class EditorApp extends Application {
     commands.setOnChange(refreshChrome);
     menuFile.setOnShowing(e -> refreshChrome.run());
     menuEdit.setOnShowing(e -> refreshChrome.run());
-    menuView.setOnShowing(e -> refreshChrome.run());
+    menuView.setOnShowing(e -> {
+      syncThemeMenuSelection.run();
+      refreshChrome.run();
+    });
     menuNavigate.setOnShowing(e -> refreshChrome.run());
     menuRun.setOnShowing(e -> refreshChrome.run());
     menuTools.setOnShowing(e -> refreshChrome.run());
