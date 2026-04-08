@@ -2278,10 +2278,14 @@ public class EditorApp extends Application {
   }
 
   private String buildMainCommandSummary() {
+    Tab activeTab = filesTabs != null ? filesTabs.getSelectionModel().getSelectedItem() : null;
+    if (activeTab == tabWelcome) {
+      return "";
+    }
+
     List<String> parts = new ArrayList<>();
     parts.add(projectRoot != null ? "Project " + projectRoot.getName() : "No Project Open");
 
-    Tab activeTab = filesTabs != null ? filesTabs.getSelectionModel().getSelectedItem() : null;
     FileEditorTab ft = getActiveFileTab();
     if (ft != null) {
       parts.add(kindLabel(ft.getKind()));
@@ -2291,8 +2295,6 @@ public class EditorApp extends Application {
       } else if (ft.getKind() == FileEditorTab.Kind.JES) {
         parts.add("Scene Preview Ready");
       }
-    } else if (activeTab == tabWelcome) {
-      parts.add("Welcome Center");
     } else if (activeTab != null && activeTab.getText() != null && !activeTab.getText().isBlank()) {
       parts.add(activeTab.getText());
     } else {
