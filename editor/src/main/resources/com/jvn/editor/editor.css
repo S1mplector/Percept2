@@ -1729,12 +1729,12 @@
 .vns-diagnostics-root {
   -fx-background-color:
       linear-gradient(to bottom, rgba(255,255,255,0.02), rgba(255,255,255,0.0)),
-      linear-gradient(to bottom, #171b20 0%, #101318 100%);
+      linear-gradient(to bottom, #171717 0%, #101010 100%);
 }
 
 .vns-diagnostics-header {
-  -fx-background-color: rgba(15, 18, 22, 0.86);
-  -fx-border-color: #252c34;
+  -fx-background-color: rgba(16, 16, 16, 0.9);
+  -fx-border-color: #2c2c2c;
   -fx-border-width: 0 0 1 0;
 }
 
@@ -1743,19 +1743,19 @@
 }
 
 .vns-diagnostics-title {
-  -fx-text-fill: #f2f5f8;
+  -fx-text-fill: #f0f0f0;
   -fx-font-size: 14px;
   -fx-font-weight: 800;
 }
 
 .vns-diagnostics-file {
-  -fx-text-fill: #9aa8b8;
+  -fx-text-fill: #b4b4b4;
   -fx-font-size: 11px;
   -fx-font-weight: 700;
 }
 
 .vns-diagnostics-summary {
-  -fx-text-fill: #7f8b98;
+  -fx-text-fill: #8c8c8c;
   -fx-font-size: 11px;
 }
 
@@ -1785,10 +1785,10 @@
 }
 
 .vns-diagnostics-filter {
-  -fx-background-color: #12161b;
-  -fx-text-fill: #edf2f8;
-  -fx-prompt-text-fill: #74808f;
-  -fx-border-color: #313a45;
+  -fx-background-color: #121212;
+  -fx-text-fill: #ececec;
+  -fx-prompt-text-fill: #7a7a7a;
+  -fx-border-color: #343434;
   -fx-border-radius: 10;
   -fx-background-radius: 10;
   -fx-font-size: 11px;
@@ -1796,9 +1796,53 @@
 }
 
 .vns-diagnostics-filter:focused {
-  -fx-border-color: #6f869c;
-  -fx-background-color: #171c22;
-  -fx-effect: dropshadow(gaussian, rgba(111, 134, 156, 0.18), 8, 0.2, 0, 0);
+  -fx-border-color: #717171;
+  -fx-background-color: #171717;
+  -fx-effect: none;
+}
+
+.vns-diagnostics-severity-filter {
+  -fx-font-size: 11px;
+  -fx-background-color: #1a1a1a;
+  -fx-border-color: #343434;
+  -fx-border-width: 1;
+  -fx-border-radius: 10;
+  -fx-background-radius: 10;
+  -fx-text-fill: #ededed;
+}
+
+.vns-diagnostics-severity-filter:focused {
+  -fx-border-color: #717171;
+}
+
+.vns-diagnostics-severity-filter .list-cell {
+  -fx-background-color: #1a1a1a;
+  -fx-text-fill: #ededed;
+}
+
+.vns-diagnostics-severity-filter .arrow-button {
+  -fx-background-color: #1a1a1a;
+  -fx-background-radius: 0 10 10 0;
+}
+
+.vns-diagnostics-severity-filter .arrow {
+  -fx-background-color: #e0e0e0;
+}
+
+.vns-diagnostics-severity-filter .combo-box-popup .list-view {
+  -fx-background-color: #181818;
+  -fx-control-inner-background: #181818;
+  -fx-border-color: #343434;
+}
+
+.vns-diagnostics-severity-filter .combo-box-popup .list-cell {
+  -fx-background-color: #181818;
+  -fx-text-fill: #ebebeb;
+}
+
+.vns-diagnostics-severity-filter .combo-box-popup .list-cell:hover,
+.vns-diagnostics-severity-filter .combo-box-popup .list-cell:selected {
+  -fx-background-color: #262626;
 }
 
 .vns-diagnostics-list {
@@ -1814,7 +1858,7 @@
 }
 
 .vns-diagnostics-placeholder {
-  -fx-text-fill: #798594;
+  -fx-text-fill: #7d7d7d;
   -fx-font-size: 11px;
   -fx-font-weight: 700;
 }
@@ -1832,26 +1876,26 @@
 .vns-diagnostics-row {
   -fx-background-color:
       linear-gradient(to bottom, rgba(255,255,255,0.03), rgba(255,255,255,0.0)),
-      linear-gradient(to bottom, #1b2026 0%, #15191f 100%);
+      linear-gradient(to bottom, #1a1a1a 0%, #131313 100%);
   -fx-background-radius: 12;
-  -fx-border-color: #2e353d;
+  -fx-border-color: #2f2f2f;
   -fx-border-radius: 12;
   -fx-border-width: 1;
   -fx-padding: 10;
 }
 
 .vns-diagnostics-cell:hover .vns-diagnostics-row {
-  -fx-border-color: #41505f;
+  -fx-border-color: #474747;
   -fx-background-color:
       linear-gradient(to bottom, rgba(255,255,255,0.04), rgba(255,255,255,0.01)),
-      linear-gradient(to bottom, #1e252d 0%, #171d24 100%);
+      linear-gradient(to bottom, #1d1d1d 0%, #161616 100%);
 }
 
 .vns-diagnostics-cell:selected .vns-diagnostics-row {
-  -fx-border-color: #5a7290;
+  -fx-border-color: #666666;
   -fx-background-color:
-      linear-gradient(to bottom, rgba(130, 160, 210, 0.08), rgba(130, 160, 210, 0.02)),
-      linear-gradient(to bottom, #202a34 0%, #18212b 100%);
+      linear-gradient(to bottom, rgba(255,255,255,0.04), rgba(255,255,255,0.01)),
+      linear-gradient(to bottom, #202020 0%, #181818 100%);
 }
 
 .vns-diagnostics-row-error {
@@ -1885,13 +1929,13 @@
 
 .vns-diagnostics-badge-location,
 .vns-diagnostics-badge-kind {
-  -fx-text-fill: #c9d3de;
-  -fx-background-color: rgba(29, 35, 43, 0.94);
-  -fx-border-color: #3a4654;
+  -fx-text-fill: #d2d2d2;
+  -fx-background-color: rgba(33, 33, 33, 0.94);
+  -fx-border-color: #444444;
 }
 
 .vns-diagnostics-message {
-  -fx-text-fill: #edf2f7;
+  -fx-text-fill: #ececec;
   -fx-font-size: 12px;
   -fx-font-weight: 600;
 }

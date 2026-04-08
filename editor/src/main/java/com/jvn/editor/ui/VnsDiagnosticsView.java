@@ -57,7 +57,7 @@ public class VnsDiagnosticsView extends BorderPane {
     severityFilter.setValue(SEVERITY_ALL);
     severityFilter.setFocusTraversable(false);
     severityFilter.setPrefWidth(96);
-    severityFilter.getStyleClass().add("run-console-filter-combo");
+    severityFilter.getStyleClass().add("vns-diagnostics-severity-filter");
     severityFilter.setButtonCell(new javafx.scene.control.ListCell<>() {
       @Override
       protected void updateItem(String item, boolean empty) {
@@ -81,7 +81,7 @@ public class VnsDiagnosticsView extends BorderPane {
       openSelectedRow();
     });
 
-    HBox titleRow = new HBox(8, CssIcon.list("#d7dde6"), titleLabel);
+    HBox titleRow = new HBox(8, CssIcon.list("#d0d0d0"), titleLabel);
     titleRow.setAlignment(Pos.CENTER_LEFT);
     titleRow.getStyleClass().add("vns-diagnostics-title-row");
 
