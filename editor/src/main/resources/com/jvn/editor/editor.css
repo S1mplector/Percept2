@@ -1397,28 +1397,28 @@
 .script-editor-workspace-root {
   -fx-background-color:
       linear-gradient(to bottom, rgba(255,255,255,0.02), rgba(255,255,255,0.0)),
-      linear-gradient(to bottom, #171b20 0%, #101318 100%);
+      linear-gradient(to bottom, #171717 0%, #101010 100%);
 }
 
 .script-editor-launcher-pane,
 .script-editor-workspace-content {
-  -fx-background-color: #151a20;
+  -fx-background-color: #151515;
 }
 
 .script-editor-card {
   -fx-background-color:
       linear-gradient(to bottom, rgba(255,255,255,0.03), rgba(255,255,255,0.0)),
-      linear-gradient(to bottom, #1b2026 0%, #15191f 100%);
+      linear-gradient(to bottom, #1b1b1b 0%, #141414 100%);
   -fx-background-radius: 12;
-  -fx-border-color: #2e353d;
+  -fx-border-color: #2f2f2f;
   -fx-border-radius: 12;
-  -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.22), 10, 0.22, 0, 2);
+  -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.16), 8, 0.18, 0, 1);
 }
 
 .script-editor-launcher-header {
   -fx-spacing: 8;
-  -fx-background-color: rgba(15, 18, 22, 0.86);
-  -fx-border-color: #252c34;
+  -fx-background-color: rgba(16, 16, 16, 0.9);
+  -fx-border-color: #2b2b2b;
   -fx-border-width: 0 0 1 0;
 }
 
@@ -1429,16 +1429,16 @@
 }
 
 .script-editor-launcher-meta-chip {
-  -fx-background-color: rgba(21, 24, 29, 0.96);
-  -fx-border-color: #333b45;
+  -fx-background-color: rgba(22, 22, 22, 0.96);
+  -fx-border-color: #343434;
   -fx-background-radius: 10;
   -fx-border-radius: 10;
   -fx-padding: 6 10 6 10;
 }
 
 .script-editor-stat-chip {
-  -fx-background-color: rgba(22, 25, 30, 0.98);
-  -fx-border-color: #39414c;
+  -fx-background-color: rgba(24, 24, 24, 0.98);
+  -fx-border-color: #383838;
   -fx-background-radius: 999;
   -fx-border-radius: 999;
   -fx-padding: 4 10 4 10;
@@ -1447,7 +1447,7 @@
 .script-editor-launcher-title {
   -fx-font-size: 16px;
   -fx-font-weight: 800;
-  -fx-text-fill: #f2f5f8;
+  -fx-text-fill: #f0f0f0;
 }
 
 .script-editor-launcher-description,
@@ -1455,18 +1455,18 @@
 .script-editor-selection-meta,
 .script-editor-meta-value,
 .script-editor-tree-file-label {
-  -fx-text-fill: #bcbcbc;
+  -fx-text-fill: #c0c0c0;
   -fx-font-size: 11px;
 }
 
 .script-editor-launcher-inline-value {
-  -fx-text-fill: #d2d2d2;
+  -fx-text-fill: #d7d7d7;
 }
 
 .script-editor-section-label,
 .script-editor-meta-label,
 .script-editor-stat-label {
-  -fx-text-fill: #8591a0;
+  -fx-text-fill: #8a8a8a;
   -fx-font-size: 10px;
   -fx-font-weight: 800;
 }
@@ -1496,15 +1496,15 @@
 .script-editor-workspace-meta,
 .script-editor-hint,
 .script-editor-window-status {
-  -fx-text-fill: #878787;
+  -fx-text-fill: #8c8c8c;
   -fx-font-size: 10px;
 }
 
 .script-editor-field {
-  -fx-background-color: #12161b;
-  -fx-text-fill: #edf2f8;
-  -fx-prompt-text-fill: #74808f;
-  -fx-border-color: #313a45;
+  -fx-background-color: #121212;
+  -fx-text-fill: #ececec;
+  -fx-prompt-text-fill: #7a7a7a;
+  -fx-border-color: #343434;
   -fx-border-radius: 10;
   -fx-background-radius: 10;
   -fx-font-size: 11px;
@@ -1512,21 +1512,21 @@
 }
 
 .script-editor-field:focused {
-  -fx-border-color: #6f869c;
-  -fx-background-color: #171c22;
-  -fx-effect: dropshadow(gaussian, rgba(111, 134, 156, 0.18), 8, 0.2, 0, 0);
+  -fx-border-color: #717171;
+  -fx-background-color: #171717;
+  -fx-effect: none;
 }
 
 .script-editor-action-button,
 .script-editor-toolbar-button {
   -fx-background-color:
       linear-gradient(to bottom, rgba(255,255,255,0.04), rgba(255,255,255,0.0)),
-      linear-gradient(to bottom, #20262d, #181d23);
-  -fx-text-fill: #edf2f7;
+      linear-gradient(to bottom, #202020, #181818);
+  -fx-text-fill: #ededed;
   -fx-font-size: 11px;
   -fx-font-weight: 700;
   -fx-background-radius: 10;
-  -fx-border-color: #34404c;
+  -fx-border-color: #3b3b3b;
   -fx-border-radius: 10;
   -fx-cursor: hand;
 }
@@ -1550,31 +1550,31 @@
 .script-editor-toolbar-button:hover {
   -fx-background-color:
       linear-gradient(to bottom, rgba(255,255,255,0.05), rgba(255,255,255,0.01)),
-      linear-gradient(to bottom, #28303a, #1d232a);
-  -fx-border-color: #4d6174;
-  -fx-text-fill: #f8fbff;
+      linear-gradient(to bottom, #2b2b2b, #212121);
+  -fx-border-color: #565656;
+  -fx-text-fill: #f4f4f4;
 }
 
 .script-editor-action-button:pressed,
 .script-editor-toolbar-button:pressed {
-  -fx-background-color: linear-gradient(to bottom, #181d23, #14181d);
+  -fx-background-color: linear-gradient(to bottom, #181818, #141414);
 }
 
 .script-editor-action-button-accent,
 .script-editor-toolbar-button-primary {
   -fx-background-color:
-      linear-gradient(to bottom, rgba(152, 190, 255, 0.14), rgba(152, 190, 255, 0.04)),
-      linear-gradient(to bottom, #233141, #1a2532);
-  -fx-border-color: #4d6884;
-  -fx-text-fill: #f4f8fc;
+      linear-gradient(to bottom, rgba(255,255,255,0.07), rgba(255,255,255,0.02)),
+      linear-gradient(to bottom, #2a2a2a, #202020);
+  -fx-border-color: #5b5b5b;
+  -fx-text-fill: #f1f1f1;
 }
 
 .script-editor-action-button-accent:hover,
 .script-editor-toolbar-button-primary:hover {
   -fx-background-color:
-      linear-gradient(to bottom, rgba(152, 190, 255, 0.18), rgba(152, 190, 255, 0.06)),
-      linear-gradient(to bottom, #29405a, #1d2d40);
-  -fx-border-color: #6785a5;
+      linear-gradient(to bottom, rgba(255,255,255,0.09), rgba(255,255,255,0.03)),
+      linear-gradient(to bottom, #313131, #252525);
+  -fx-border-color: #6a6a6a;
 }
 
 .script-editor-action-button:disabled,
@@ -1599,12 +1599,12 @@
 }
 
 .script-editor-tree .tree-cell:selected {
-  -fx-background-color: linear-gradient(to bottom, #304051, #263442);
+  -fx-background-color: linear-gradient(to bottom, #3a3a3a, #303030);
   -fx-background-radius: 9;
 }
 
 .script-editor-tree .tree-cell:hover {
-  -fx-background-color: rgba(129, 153, 179, 0.12);
+  -fx-background-color: rgba(255,255,255,0.07);
   -fx-background-radius: 9;
 }
 
@@ -1615,9 +1615,9 @@
 }
 
 .script-editor-tree-badge {
-  -fx-text-fill: #bac6d4;
+  -fx-text-fill: #d2d2d2;
   -fx-font-size: 10px;
-  -fx-background-color: #232b34;
+  -fx-background-color: #2a2a2a;
   -fx-padding: 1 6 1 6;
   -fx-background-radius: 999;
 }
@@ -1626,8 +1626,8 @@
 .script-editor-workspace-toolbar {
   -fx-background-color:
       linear-gradient(to bottom, rgba(255,255,255,0.03), rgba(255,255,255,0.0)),
-      linear-gradient(to bottom, #14191f, #101419);
-  -fx-border-color: #27313b;
+      linear-gradient(to bottom, #151515, #101010);
+  -fx-border-color: #2b2b2b;
   -fx-border-width: 0 0 1 0;
   -fx-alignment: center-left;
 }
@@ -1639,27 +1639,27 @@
 
 .script-editor-window-status {
   -fx-padding: 7 12 7 12;
-  -fx-background-color: #0f1419;
-  -fx-border-color: #27313b;
+  -fx-background-color: #101010;
+  -fx-border-color: #2b2b2b;
   -fx-border-width: 1 0 0 0;
-  -fx-text-fill: #95a2b1;
+  -fx-text-fill: #979797;
 }
 
 .script-editor-pane-header {
   -fx-alignment: center-left;
   -fx-padding: 2 2 6 2;
-  -fx-border-color: rgba(64, 78, 94, 0.55);
+  -fx-border-color: rgba(74, 74, 74, 0.72);
   -fx-border-width: 0 0 1 0;
 }
 
 .script-editor-pane-title {
-  -fx-text-fill: #ecf2f8;
+  -fx-text-fill: #efefef;
   -fx-font-size: 12px;
   -fx-font-weight: 800;
 }
 
 .script-editor-pane-subtitle {
-  -fx-text-fill: #7f8b98;
+  -fx-text-fill: #8a8a8a;
   -fx-font-size: 10px;
   -fx-font-weight: 600;
 }
@@ -1678,7 +1678,7 @@
 
 .script-editor-launcher-split > .split-pane-divider > .vertical-grabber,
 .script-editor-window-split > .split-pane-divider > .horizontal-grabber {
-  -fx-background-color: #29333d;
+  -fx-background-color: #343434;
   -fx-background-radius: 999;
 }
 
@@ -1687,11 +1687,11 @@
 }
 
 .script-editor-toolbar-chip {
-  -fx-text-fill: #dbe4ee;
+  -fx-text-fill: #dfdfdf;
   -fx-font-size: 10px;
   -fx-font-weight: 800;
-  -fx-background-color: rgba(26, 33, 40, 0.96);
-  -fx-border-color: #394755;
+  -fx-background-color: rgba(28, 28, 28, 0.96);
+  -fx-border-color: #3d3d3d;
   -fx-background-radius: 999;
   -fx-border-radius: 999;
   -fx-padding: 5 10 5 10;
@@ -1703,26 +1703,26 @@
 }
 
 .script-editor-tabs > .tab-header-area > .headers-region > .tab {
-  -fx-background-color: linear-gradient(to bottom, #1d232a, #171c22);
+  -fx-background-color: linear-gradient(to bottom, #1d1d1d, #161616);
   -fx-background-radius: 10 10 0 0;
-  -fx-border-color: #303b46;
+  -fx-border-color: #353535;
   -fx-border-radius: 10 10 0 0;
 }
 
 .script-editor-tabs > .tab-header-area > .headers-region > .tab:selected {
-  -fx-background-color: linear-gradient(to bottom, #263240, #1d2733);
-  -fx-border-color: #46607a;
+  -fx-background-color: linear-gradient(to bottom, #2d2d2d, #222222);
+  -fx-border-color: #5f5f5f;
 }
 
 .script-editor-tabs > .tab-header-area > .headers-region > .tab .tab-label {
-  -fx-text-fill: #d9e2ec;
+  -fx-text-fill: #dfdfdf;
   -fx-font-size: 11px;
   -fx-font-weight: 700;
 }
 
 .script-editor-tabs > .tab-content-area {
-  -fx-background-color: #12171d;
-  -fx-border-color: #29333d;
+  -fx-background-color: #121212;
+  -fx-border-color: #2d2d2d;
   -fx-border-width: 1 0 0 0;
 }
 

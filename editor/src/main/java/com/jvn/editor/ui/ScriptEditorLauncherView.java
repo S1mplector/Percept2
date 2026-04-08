@@ -159,7 +159,7 @@ public class ScriptEditorLauncherView extends BorderPane {
     HBox.setHgrow(titleSpacer, Priority.ALWAYS);
     HBox titleRow = new HBox(
         8,
-        CssIcon.list("#d7dde6"),
+        CssIcon.list("#d0d0d0"),
         titleLabel,
         titleSpacer,
         compactStatChip("Files", scriptsStat),
@@ -175,15 +175,15 @@ public class ScriptEditorLauncherView extends BorderPane {
     HBox.setHgrow(metaRow.getChildren().get(0), Priority.NEVER);
     HBox.setHgrow(metaRow.getChildren().get(1), Priority.ALWAYS);
 
-    styleActionButton(openInEditorButton, CssIcon.list("#e8edf4"), "Open the selected text file in the main editor", true)
+    styleActionButton(openInEditorButton, CssIcon.list("#e0e0e0"), "Open the selected text file in the main editor", true)
         .getStyleClass().add("script-editor-action-button-compact");
-    styleActionButton(openWindowButton, CssIcon.popOut("#d2d9e3"), "Open the standalone tabbed text window", false)
+    styleActionButton(openWindowButton, CssIcon.popOut("#d0d0d0"), "Open the standalone tabbed text window", false)
         .getStyleClass().add("script-editor-action-button-compact");
     styleActionButton(newScriptButton, CssIcon.plus("#96bf7c"), "Create a new project text file", false)
         .getStyleClass().add("script-editor-action-button-compact");
-    styleActionButton(refreshButton, CssIcon.redo("#c6ced8"), "Refresh the text workspace", false)
+    styleActionButton(refreshButton, CssIcon.redo("#d0d0d0"), "Refresh the text workspace", false)
         .getStyleClass().add("script-editor-action-button-compact");
-    styleActionButton(revealButton, CssIcon.folder("#cfd6df"), "Reveal the current workspace folder in Finder", false)
+    styleActionButton(revealButton, CssIcon.folder("#d0d0d0"), "Reveal the current workspace folder in Finder", false)
         .getStyleClass().add("script-editor-action-button-compact");
 
     FlowPane actionsBar = new FlowPane();
@@ -220,7 +220,7 @@ public class ScriptEditorLauncherView extends BorderPane {
           return;
         }
         Region icon = item.directory
-            ? CssIcon.folder(item.relativePath == null ? "#d7dde6" : "#c6ced8")
+            ? CssIcon.folder(item.relativePath == null ? "#d0d0d0" : "#c8c8c8")
             : CssIcon.list("#bcbcbc");
         Label name = new Label(item.displayName);
         name.getStyleClass().add(item.directory ? "script-editor-tree-dir-label" : "script-editor-tree-file-label");
@@ -241,7 +241,7 @@ public class ScriptEditorLauncherView extends BorderPane {
     explorerHint.setWrapText(true);
     explorerHint.getStyleClass().add("script-editor-hint");
 
-    VBox searchResultsCard = new VBox(6, paneHeader("Search Results", "Matches across the workspace", CssIcon.search("#d2dae5")), searchResults);
+    VBox searchResultsCard = new VBox(6, paneHeader("Search Results", "Matches across the workspace", CssIcon.search("#d0d0d0")), searchResults);
     searchResultsCard.setPadding(new Insets(6));
     searchResultsCard.getStyleClass().add("script-editor-card");
     searchResultsCard.setVisible(false);
@@ -249,7 +249,7 @@ public class ScriptEditorLauncherView extends BorderPane {
 
     VBox explorerBox = new VBox(
         8,
-        paneHeader("Workspace Explorer", "Project scripts and folders", CssIcon.folder("#d5dce6")),
+        paneHeader("Workspace Explorer", "Project scripts and folders", CssIcon.folder("#d0d0d0")),
         explorerTree,
         explorerHint,
         searchResultsCard);
@@ -272,7 +272,7 @@ public class ScriptEditorLauncherView extends BorderPane {
     VBox includedByCard = new VBox(6, sectionLabel("Included By"), includedByList);
     includedByCard.setPadding(new Insets(8));
     includedByCard.getStyleClass().add("script-editor-card");
-    VBox inspectorBox = new VBox(10, paneHeader("Inspector", "Outline, includes, and references", CssIcon.list("#d5dce6")), selectionTitle, selectionPath, selectionMeta,
+    VBox inspectorBox = new VBox(10, paneHeader("Inspector", "Outline, includes, and references", CssIcon.list("#d0d0d0")), selectionTitle, selectionPath, selectionMeta,
         outlineCard, includesCard, includedByCard);
     inspectorBox.setPadding(new Insets(8));
     inspectorBox.getStyleClass().addAll("script-editor-launcher-pane", "script-editor-card");
@@ -346,25 +346,25 @@ public class ScriptEditorLauncherView extends BorderPane {
       ContextMenu ctx = new ContextMenu();
 
       if (node.file() != null) {
-        MenuItem open = menuItem("Open in Editor", CssIcon.list("#d8dee7"), this::openSelectedInEditor);
-        MenuItem openWindow = menuItem("Open in Text Window", CssIcon.popOut("#d6dde7"), () -> launchEditorWindow(node.file()));
+        MenuItem open = menuItem("Open in Editor", CssIcon.list("#d0d0d0"), this::openSelectedInEditor);
+        MenuItem openWindow = menuItem("Open in Text Window", CssIcon.popOut("#d0d0d0"), () -> launchEditorWindow(node.file()));
         ctx.getItems().addAll(open, openWindow, new SeparatorMenuItem());
 
-        MenuItem rename = menuItem("Rename…", CssIcon.freehand("#c8d0d9"), this::renameSelectedScript);
-        MenuItem duplicate = menuItem("Duplicate", CssIcon.copy("#c8d0d9"), this::duplicateSelectedScript);
+        MenuItem rename = menuItem("Rename…", CssIcon.freehand("#c8c8c8"), this::renameSelectedScript);
+        MenuItem duplicate = menuItem("Duplicate", CssIcon.copy("#c8c8c8"), this::duplicateSelectedScript);
         MenuItem delete = menuItem("Delete…", CssIcon.clearX("#f06a6a"), this::deleteSelectedScript);
         ctx.getItems().addAll(rename, duplicate, delete, new SeparatorMenuItem());
 
-        MenuItem copyPath = menuItem("Copy Absolute Path", CssIcon.copy("#c8d0d9"),
+        MenuItem copyPath = menuItem("Copy Absolute Path", CssIcon.copy("#c8c8c8"),
             () -> copyToClipboard(node.file().getAbsolutePath()));
-        MenuItem copyRelPath = menuItem("Copy Relative Path", CssIcon.link("#c8d0d9"), () -> {
+        MenuItem copyRelPath = menuItem("Copy Relative Path", CssIcon.link("#c8c8c8"), () -> {
           if (node.entry != null) copyToClipboard(node.entry.projectRelativePath());
         });
-        MenuItem reveal = menuItem("Reveal in File Manager", CssIcon.folder("#d5b36a"), () -> revealFile(node.file()));
+        MenuItem reveal = menuItem("Reveal in File Manager", CssIcon.folder("#d0d0d0"), () -> revealFile(node.file()));
         ctx.getItems().addAll(copyPath, copyRelPath, reveal);
       } else if (node.directory) {
         MenuItem newScript = menuItem("New File Here…", CssIcon.plus("#8bcf98"), () -> createNewScriptInFolder(node));
-        MenuItem reveal = menuItem("Reveal in File Manager", CssIcon.folder("#d5b36a"), () -> {
+        MenuItem reveal = menuItem("Reveal in File Manager", CssIcon.folder("#d0d0d0"), () -> {
           File dir = resolveNodeDirectory(node);
           if (dir != null && dir.exists()) revealFile(dir);
         });
@@ -946,7 +946,7 @@ public class ScriptEditorLauncherView extends BorderPane {
       toolbar.getStyleClass().add("script-editor-toolbar");
       toolbar.setPadding(new Insets(5, 10, 5, 10));
       toolbar.setAlignment(Pos.CENTER_LEFT);
-      HBox titleRow = new HBox(8, CssIcon.list("#d7dde6"), toolbarTitle("JVN Text Editor"));
+      HBox titleRow = new HBox(8, CssIcon.list("#d0d0d0"), toolbarTitle("JVN Text Editor"));
       titleRow.setAlignment(Pos.CENTER_LEFT);
       Label workspaceChip = toolbarChip("Workspace", launchRoot.getName());
 
@@ -963,7 +963,7 @@ public class ScriptEditorLauncherView extends BorderPane {
       Button saveAllBtn = toolbarButton(
           "Save All",
           "Save all open files (Ctrl+Shift+S)",
-          CssIcon.save("#d7dde6"),
+          CssIcon.save("#d0d0d0"),
           false);
       saveAllBtn.setOnAction(e -> saveAllTabs(editorTabs, windowStatus));
 
@@ -973,7 +973,7 @@ public class ScriptEditorLauncherView extends BorderPane {
       Button undoBtn = toolbarButton(
           "Undo",
           "Undo (Ctrl+Z)",
-          CssIcon.undo("#d2d9e3"),
+          CssIcon.undo("#d0d0d0"),
           false);
       undoBtn.setOnAction(e -> {
         TextEditorSession ed = activeEditor(editorTabs);
@@ -983,7 +983,7 @@ public class ScriptEditorLauncherView extends BorderPane {
       Button redoBtn = toolbarButton(
           "Redo",
           "Redo (Ctrl+Shift+Z)",
-          CssIcon.redo("#d2d9e3"),
+          CssIcon.redo("#d0d0d0"),
           false);
       redoBtn.setOnAction(e -> {
         TextEditorSession ed = activeEditor(editorTabs);
@@ -996,7 +996,7 @@ public class ScriptEditorLauncherView extends BorderPane {
       Button findBtn = toolbarButton(
           "Find",
           "Find & Replace (Ctrl+F)",
-          CssIcon.search("#d7dde6"),
+          CssIcon.search("#d0d0d0"),
           false);
       findBtn.setOnAction(e -> {
         TextEditorSession ed = activeEditor(editorTabs);
@@ -1009,7 +1009,7 @@ public class ScriptEditorLauncherView extends BorderPane {
       Button refreshBtn = toolbarButton(
           "Refresh",
           "Refresh file tree",
-          CssIcon.redo("#c7d0df"),
+          CssIcon.redo("#d0d0d0"),
           false);
       refreshBtn.setOnAction(e -> {
         TreeItem<String> refreshedRoot = buildFileTree(contentRoot, contentRoot.getFileName().toString());
@@ -1027,7 +1027,7 @@ public class ScriptEditorLauncherView extends BorderPane {
       );
 
       BorderPane filePane = new BorderPane(fileTree);
-      filePane.setTop(paneHeader("Files", "Project text workspace", CssIcon.folder("#d5dce6")));
+      filePane.setTop(paneHeader("Files", "Project text workspace", CssIcon.folder("#d0d0d0")));
       filePane.getStyleClass().addAll("script-editor-window-sidebar", "script-editor-card");
 
       SplitPane split = new SplitPane(filePane, editorTabs);
@@ -1384,8 +1384,8 @@ public class ScriptEditorLauncherView extends BorderPane {
         TreeItem<String> treeItem = getTreeItem();
         boolean directory = treeItem != null && !treeItem.isLeaf();
         Region icon = directory
-            ? CssIcon.folder(treeItem != null && treeItem.getParent() == null ? "#d7dde6" : "#c6ced8")
-            : CssIcon.list("#c5cdd7");
+            ? CssIcon.folder(treeItem != null && treeItem.getParent() == null ? "#d0d0d0" : "#c8c8c8")
+            : CssIcon.list("#c0c0c0");
         Label label = new Label(item);
         label.getStyleClass().add(directory ? "script-editor-tree-dir-label" : "script-editor-tree-file-label");
         HBox row = new HBox(6, icon, label);
