@@ -3184,150 +3184,379 @@
 
 /* Welcome center */
 .welcome-center-root {
-  -fx-background-color: #0a0a0a;
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255,255,255,0.015), rgba(255,255,255,0.0)),
+      linear-gradient(to bottom, #101010 0%, #0b0b0b 100%);
+}
+
+.welcome-center-body {
+  -fx-spacing: 12;
 }
 
 .welcome-hero-card {
-  -fx-background-color: #111111;
-  -fx-border-color: #222222;
-  -fx-border-width: 0 0 1 0;
-  -fx-border-radius: 0;
-  -fx-background-radius: 0;
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255,255,255,0.025), rgba(255,255,255,0.0)),
+      linear-gradient(to bottom, #171717 0%, #121212 100%);
+  -fx-border-color: #2b2b2b;
+  -fx-border-width: 1;
+  -fx-border-radius: 14;
+  -fx-background-radius: 14;
 }
 
 .welcome-heading {
-  -fx-font-size: 16px;
-  -fx-font-weight: 700;
-  -fx-text-fill: #e0e0e0;
+  -fx-font-size: 24px;
+  -fx-font-weight: 800;
+  -fx-text-fill: #f1f1f1;
 }
 
-.welcome-subheading {
-  -fx-text-fill: #888888;
-  -fx-font-size: 11px;
-}
-
-.welcome-meta-text {
-  -fx-text-fill: #777777;
-  -fx-font-size: 11px;
-}
-
-.welcome-shortcuts-text {
-  -fx-text-fill: #555555;
-  -fx-font-size: 10px;
+.welcome-intro-text {
+  -fx-text-fill: #9a9a9a;
+  -fx-font-size: 12px;
+  -fx-font-weight: 600;
 }
 
 .welcome-status-text {
-  -fx-text-fill: #555555;
+  -fx-text-fill: #6e6e6e;
   -fx-font-size: 10px;
+  -fx-font-weight: 700;
 }
 
-.welcome-action-button {
-  -fx-background-color: #1a1a1a;
+.welcome-version-chip {
   -fx-text-fill: #d0d0d0;
-  -fx-border-color: #2a2a2a;
-  -fx-border-radius: 4;
-  -fx-background-radius: 4;
-  -fx-padding: 0;
-  -fx-alignment: center;
+  -fx-font-size: 10px;
+  -fx-font-weight: 800;
+  -fx-padding: 4 9 4 9;
+  -fx-background-color: #171717;
+  -fx-border-color: #323232;
+  -fx-background-radius: 999;
+  -fx-border-radius: 999;
 }
 
-.welcome-action-button:hover {
-  -fx-background-color: #252525;
+.welcome-overview-row,
+.welcome-action-row {
+  -fx-alignment: center-left;
+}
+
+.welcome-overview-card {
+  -fx-padding: 12 14 12 14;
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255,255,255,0.02), rgba(255,255,255,0.0)),
+      linear-gradient(to bottom, #121212 0%, #0f0f0f 100%);
+  -fx-border-color: #2a2a2a;
+  -fx-background-radius: 12;
+  -fx-border-radius: 12;
+  -fx-border-width: 1;
+  -fx-min-height: 88;
+}
+
+.welcome-overview-title {
+  -fx-text-fill: #787878;
+  -fx-font-size: 10px;
+  -fx-font-weight: 800;
+}
+
+.welcome-overview-value {
+  -fx-text-fill: #f0f0f0;
+  -fx-font-size: 18px;
+  -fx-font-weight: 800;
+}
+
+.welcome-overview-value-ok {
+  -fx-text-fill: #dfdfdf;
+}
+
+.welcome-overview-value-warn {
+  -fx-text-fill: #efbf82;
+}
+
+.welcome-overview-value-error {
+  -fx-text-fill: #f0a1b2;
+}
+
+.welcome-overview-value-info {
+  -fx-text-fill: #bdbdbd;
+}
+
+.welcome-overview-detail {
+  -fx-text-fill: #8a8a8a;
+  -fx-font-size: 10px;
+  -fx-font-weight: 600;
+}
+
+.welcome-action-button-primary,
+.welcome-action-button-secondary {
+  -fx-font-size: 11px;
+  -fx-font-weight: 800;
+  -fx-padding: 0 14 0 14;
+  -fx-background-radius: 10;
+  -fx-border-radius: 10;
+  -fx-border-width: 1;
+  -fx-content-display: left;
+  -fx-graphic-text-gap: 8;
+  -fx-alignment: center-left;
+  -fx-cursor: hand;
+}
+
+.welcome-action-button-primary {
+  -fx-background-color: linear-gradient(to bottom, #4a4a4a, #373737);
+  -fx-text-fill: #f4f4f4;
+  -fx-border-color: #7d7d7d;
+}
+
+.welcome-action-button-primary:hover {
+  -fx-background-color: linear-gradient(to bottom, #565656, #404040);
+  -fx-border-color: #969696;
+}
+
+.welcome-action-button-secondary {
+  -fx-background-color: linear-gradient(to bottom, #262626, #1c1c1c);
+  -fx-text-fill: #dddddd;
+  -fx-border-color: #3a3a3a;
+}
+
+.welcome-action-button-secondary:hover {
+  -fx-background-color: linear-gradient(to bottom, #303030, #222222);
+  -fx-border-color: #575757;
+}
+
+.welcome-action-button-primary:disabled,
+.welcome-action-button-secondary:disabled {
+  -fx-opacity: 0.42;
 }
 
 .welcome-section-card {
-  -fx-background-color: #0d0d0d;
-  -fx-border-color: #1e1e1e;
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255,255,255,0.02), rgba(255,255,255,0.0)),
+      linear-gradient(to bottom, #131313 0%, #0f0f0f 100%);
+  -fx-border-color: #2a2a2a;
   -fx-border-width: 1;
-  -fx-border-radius: 4;
-  -fx-background-radius: 4;
+  -fx-border-radius: 14;
+  -fx-background-radius: 14;
 }
 
 .welcome-section-title {
-  -fx-font-size: 12px;
-  -fx-font-weight: 700;
-  -fx-text-fill: #c0c0c0;
+  -fx-font-size: 14px;
+  -fx-font-weight: 800;
+  -fx-text-fill: #ececec;
 }
 
 .welcome-section-meta {
-  -fx-text-fill: #666666;
-  -fx-font-size: 10px;
+  -fx-text-fill: #7b7b7b;
+  -fx-font-size: 11px;
+  -fx-font-weight: 600;
 }
 
 .welcome-filter-field {
-  -fx-background-color: #111111;
-  -fx-text-fill: #d0d0d0;
-  -fx-prompt-text-fill: #555555;
-  -fx-border-color: #2a2a2a;
+  -fx-background-color: #101010;
+  -fx-text-fill: #dfdfdf;
+  -fx-prompt-text-fill: #5d5d5d;
+  -fx-border-color: #303030;
+  -fx-border-radius: 10;
+  -fx-background-radius: 10;
+  -fx-font-size: 12px;
+  -fx-padding: 8 12 8 12;
+}
+
+.welcome-filter-field:focused {
+  -fx-background-color: #141414;
+  -fx-border-color: #7a7a7a;
 }
 
 .welcome-project-list {
-  -fx-background-color: #0a0a0a;
-  -fx-control-inner-background: #0a0a0a;
+  -fx-background-color: transparent;
+  -fx-control-inner-background: transparent;
+  -fx-padding: 2;
+}
+
+.welcome-project-list .virtual-flow,
+.welcome-project-list .viewport,
+.welcome-project-list .corner {
+  -fx-background-color: transparent;
 }
 
 .welcome-project-list .list-cell {
   -fx-background-color: transparent;
+  -fx-padding: 0 0 10 0;
 }
 
-.welcome-project-list .list-cell:filled:hover {
-  -fx-background-color: #161616;
+.welcome-project-list .list-cell:filled:selected,
+.welcome-project-list .list-cell:filled:selected:hover {
+  -fx-background-color: transparent;
 }
 
-.welcome-project-list .list-cell:filled:selected {
-  -fx-background-color: #1e1e1e;
+.welcome-project-cell {
+  -fx-padding: 12 14 12 14;
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255,255,255,0.02), rgba(255,255,255,0.0)),
+      linear-gradient(to bottom, #121212 0%, #101010 100%);
+  -fx-border-color: #292929;
+  -fx-border-width: 1;
+  -fx-background-radius: 12;
+  -fx-border-radius: 12;
+}
+
+.welcome-project-list .list-cell:hover .welcome-project-cell {
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255,255,255,0.03), rgba(255,255,255,0.0)),
+      linear-gradient(to bottom, #151515 0%, #111111 100%);
+  -fx-border-color: #3c3c3c;
+}
+
+.welcome-project-list .list-cell:selected .welcome-project-cell {
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255,255,255,0.035), rgba(255,255,255,0.0)),
+      linear-gradient(to bottom, #171717 0%, #121212 100%);
+  -fx-border-color: #525252;
 }
 
 .welcome-project-name {
-  -fx-font-weight: 700;
-  -fx-text-fill: #d0d0d0;
+  -fx-font-weight: 800;
+  -fx-font-size: 15px;
+  -fx-text-fill: #efefef;
 }
 
 .welcome-project-path {
-  -fx-text-fill: #777777;
+  -fx-text-fill: #8b8b8b;
   -fx-font-size: 11px;
+  -fx-font-weight: 600;
 }
 
 .welcome-project-time {
-  -fx-text-fill: #555555;
+  -fx-text-fill: #6f6f6f;
   -fx-font-size: 10px;
+  -fx-font-weight: 700;
+}
+
+.welcome-project-badge {
+  -fx-padding: 2 8 2 8;
+  -fx-font-size: 9px;
+  -fx-font-weight: 800;
+  -fx-background-radius: 999;
+  -fx-border-radius: 999;
+  -fx-border-width: 1;
+}
+
+.welcome-project-badge-current {
+  -fx-text-fill: #e6e6e6;
+  -fx-background-color: #262626;
+  -fx-border-color: #4d4d4d;
+}
+
+.welcome-project-badge-missing {
+  -fx-text-fill: #efbf82;
+  -fx-background-color: #30251a;
+  -fx-border-color: #705232;
 }
 
 .welcome-open-button {
-  -fx-background-color: #1a1a1a;
-  -fx-text-fill: #d0d0d0;
-  -fx-border-color: #2a2a2a;
-  -fx-border-radius: 4;
-  -fx-background-radius: 4;
-  -fx-padding: 0;
-  -fx-alignment: center;
+  -fx-background-color: linear-gradient(to bottom, #252525, #1b1b1b);
+  -fx-text-fill: #dfdfdf;
+  -fx-border-color: #3b3b3b;
+  -fx-border-radius: 999;
+  -fx-background-radius: 999;
+  -fx-padding: 4 11 4 11;
+  -fx-alignment: center-left;
+  -fx-content-display: left;
+  -fx-graphic-text-gap: 6;
+  -fx-font-size: 10px;
+  -fx-font-weight: 800;
 }
 
 .welcome-open-button:hover {
-  -fx-background-color: #252525;
+  -fx-background-color: linear-gradient(to bottom, #2f2f2f, #222222);
+  -fx-border-color: #565656;
+}
+
+.welcome-open-button:disabled {
+  -fx-opacity: 0.42;
 }
 
 .welcome-health-scroll,
 .welcome-health-scroll > .viewport {
   -fx-background-color: transparent;
+  -fx-border-color: transparent;
 }
 
 .welcome-health-card {
-  -fx-background-color: #111111;
-  -fx-border-color: #1e1e1e;
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255,255,255,0.02), rgba(255,255,255,0.0)),
+      linear-gradient(to bottom, #121212 0%, #101010 100%);
+  -fx-border-color: #2a2a2a;
   -fx-border-width: 1;
-  -fx-border-radius: 4;
-  -fx-background-radius: 4;
+  -fx-border-radius: 12;
+  -fx-background-radius: 12;
 }
 
 .welcome-health-title {
+  -fx-font-weight: 800;
+  -fx-font-size: 12px;
+  -fx-text-fill: #eaeaea;
+}
+
+.welcome-health-summary {
+  -fx-text-fill: #d7d7d7;
+  -fx-font-size: 12px;
   -fx-font-weight: 700;
-  -fx-font-size: 11px;
 }
 
 .welcome-health-detail {
-  -fx-text-fill: #888888;
+  -fx-text-fill: #8b8b8b;
   -fx-font-size: 11px;
+  -fx-font-weight: 600;
+}
+
+.welcome-health-badge {
+  -fx-padding: 3 8 3 8;
+  -fx-font-size: 9px;
+  -fx-font-weight: 800;
+  -fx-background-radius: 999;
+  -fx-border-radius: 999;
+  -fx-border-width: 1;
+}
+
+.welcome-health-badge-ok {
+  -fx-text-fill: #d8d8d8;
+  -fx-background-color: #262626;
+  -fx-border-color: #4b4b4b;
+}
+
+.welcome-health-badge-warn {
+  -fx-text-fill: #efbf82;
+  -fx-background-color: #30251a;
+  -fx-border-color: #705232;
+}
+
+.welcome-health-badge-error {
+  -fx-text-fill: #f0a1b2;
+  -fx-background-color: #341c24;
+  -fx-border-color: #7d4756;
+}
+
+.welcome-health-badge-info {
+  -fx-text-fill: #bfbfbf;
+  -fx-background-color: #222222;
+  -fx-border-color: #444444;
+}
+
+.welcome-placeholder-text {
+  -fx-text-fill: #727272;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+}
+
+.welcome-center-split {
+  -fx-background-color: transparent;
+  -fx-padding: 0;
+}
+
+.welcome-center-split > .split-pane-divider {
+  -fx-background-color: transparent;
+  -fx-padding: 4;
+}
+
+.welcome-center-split > .split-pane-divider > .vertical-grabber {
+  -fx-background-color: #2c2c2c;
+  -fx-background-radius: 999;
 }
 
 /* Sidebar tab panes */
