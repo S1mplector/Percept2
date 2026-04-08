@@ -3507,12 +3507,13 @@
   -fx-border-color: #3b3b3b;
   -fx-border-radius: 999;
   -fx-background-radius: 999;
-  -fx-padding: 4 11 4 11;
-  -fx-alignment: center-left;
-  -fx-content-display: left;
-  -fx-graphic-text-gap: 6;
-  -fx-font-size: 10px;
-  -fx-font-weight: 800;
+  -fx-padding: 4 8 4 8;
+  -fx-min-width: 30;
+  -fx-pref-width: 30;
+  -fx-min-height: 24;
+  -fx-pref-height: 24;
+  -fx-alignment: center;
+  -fx-content-display: graphic-only;
 }
 
 .welcome-open-button:hover {

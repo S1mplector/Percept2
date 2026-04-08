@@ -36,6 +36,7 @@ import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyCode;
+import javafx.scene.Node;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -201,15 +202,7 @@ public class WelcomeCenterView extends BorderPane {
     HBox headingRow = new HBox(8, headingLabel, versionLabel);
     headingRow.setAlignment(Pos.BASELINE_LEFT);
 
-    HBox overviewRow = new HBox(
-        10,
-        buildOverviewCard("Workspace", workspaceValueLabel, workspaceLabel),
-        buildOverviewCard("Active Project", projectValueLabel, projectLabel),
-        buildOverviewCard("Recent Projects", recentOverviewValueLabel, recentOverviewDetailLabel),
-        buildOverviewCard("Environment", healthOverviewValueLabel, healthOverviewDetailLabel));
-    overviewRow.getStyleClass().add("welcome-overview-row");
-
-    VBox hero = new VBox(12, headingRow, introLabel, overviewRow, actions, statusLabel);
+    VBox hero = new VBox(12, headingRow, introLabel, actions, statusLabel);
     hero.setPadding(new Insets(10, 12, 10, 12));
     hero.getStyleClass().add("welcome-hero-card");
 
@@ -607,8 +600,9 @@ public class WelcomeCenterView extends BorderPane {
     box.setPadding(new Insets(8));
     box.getStyleClass().add("welcome-health-card");
 
-    Label badge = new Label(severityLabel(row.severity()));
+    Label badge = new Label();
     badge.getStyleClass().addAll("welcome-health-badge", severityBadgeClass(row.severity()));
+    configureSeverityBadge(badge, row.severity());
     Label title = new Label(row.title());
     title.getStyleClass().add("welcome-health-title");
     Label summary = new Label(row.summary());
@@ -631,6 +625,21 @@ public class WelcomeCenterView extends BorderPane {
       case ERROR -> "ERROR";
       case INFO -> "INFO";
     };
+  }
+
+  private void configureSeverityBadge(Label badge, Severity severity) {
+    if (badge == null || severity == null) return;
+    badge.setGraphic(null);
+    badge.setText(null);
+    badge.setContentDisplay(javafx.scene.control.ContentDisplay.LEFT);
+    if (severity == Severity.OK) {
+      Node okIcon = CssIcon.check("#d8d8d8");
+      badge.setGraphic(okIcon);
+      badge.setContentDisplay(javafx.scene.control.ContentDisplay.GRAPHIC_ONLY);
+      badge.setAccessibleText("OK");
+      return;
+    }
+    badge.setText(severityLabel(severity));
   }
 
   private String severityBadgeClass(Severity severity) {
@@ -924,7 +933,7 @@ public class WelcomeCenterView extends BorderPane {
     private final Label pathLabel = new Label();
     private final Label timeLabel = new Label();
     private final Label stateBadge = new Label();
-    private final Button openButton = new Button("Open");
+    private final Button openButton = new Button();
     private final Region spacer = new Region();
     private final HBox titleRow = new HBox(8, nameLabel, stateBadge, spacer, openButton);
     private final VBox content = new VBox(4, titleRow, pathLabel, timeLabel);
@@ -933,10 +942,12 @@ public class WelcomeCenterView extends BorderPane {
       HBox.setHgrow(spacer, Priority.ALWAYS);
       content.getStyleClass().add("welcome-project-cell");
       titleRow.setAlignment(Pos.CENTER_LEFT);
-      openButton.setGraphic(CssIcon.arrowRight("#d0d0d0"));
+      openButton.setGraphic(CssIcon.popOut("#d0d0d0"));
+      openButton.setText("");
       openButton.getStyleClass().add("welcome-open-button");
       openButton.setFocusTraversable(false);
       openButton.setTooltip(new Tooltip("Open project"));
+      openButton.setAccessibleText("Open project");
       openButton.setOnAction(e -> {
         ProjectEntry item = getItem();
         if (item != null) openRecentProject(item);
