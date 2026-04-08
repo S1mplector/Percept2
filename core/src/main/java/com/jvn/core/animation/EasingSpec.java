@@ -121,11 +121,27 @@ public final class EasingSpec {
   }
 
   private static String normalizeTypeToken(String token) {
-    String normalized = token.trim().toUpperCase(Locale.ROOT).replace('-', '_');
+    String normalized = camelToSnake(token == null ? "" : token.trim())
+        .toUpperCase(Locale.ROOT)
+        .replace('-', '_');
     if ("EASE_IN".equals(normalized)) return "EASE_IN_QUAD";
     if ("EASE_OUT".equals(normalized)) return "EASE_OUT_QUAD";
     if ("EASE_IN_OUT".equals(normalized)) return "EASE_IN_OUT_QUAD";
     return normalized;
+  }
+
+  private static String camelToSnake(String token) {
+    if (token == null || token.isBlank()) return "";
+    StringBuilder out = new StringBuilder(token.length() + 8);
+    for (int i = 0; i < token.length(); i++) {
+      char c = token.charAt(i);
+      if (i > 0 && Character.isUpperCase(c)) {
+        char prev = token.charAt(i - 1);
+        if (Character.isLowerCase(prev) || Character.isDigit(prev)) out.append('_');
+      }
+      out.append(c);
+    }
+    return out.toString();
   }
 
   private static double[] parseArguments(String raw) {

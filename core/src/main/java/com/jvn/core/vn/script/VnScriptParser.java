@@ -1932,12 +1932,7 @@ public class VnScriptParser {
   }
 
   private Easing.Type parseEasingToken(String token) {
-    if (token == null || token.isBlank()) return null;
-    String upper = token.trim().toUpperCase();
-    try {
-      return Easing.Type.valueOf(upper);
-    } catch (IllegalArgumentException ignored) {
-      return null;
-    }
+    com.jvn.core.animation.EasingSpec spec = com.jvn.core.animation.EasingSpec.tryParse(token);
+    return spec == null ? null : spec.getType();
   }
 }

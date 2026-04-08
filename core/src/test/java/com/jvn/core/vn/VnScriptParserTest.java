@@ -190,6 +190,26 @@ public class VnScriptParserTest {
   }
 
   @Test
+  public void moveCommandAcceptsCamelCaseEasingAliases() throws Exception {
+    String script = """
+      @label start
+      [move hero center easeInOut 500]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario = parser.parseFromString(script);
+    VnNode move = scenario.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.MOVE)
+        .findFirst()
+        .orElseThrow();
+
+    assertEquals(com.jvn.core.animation.Easing.Type.EASE_IN_OUT_QUAD, move.getMoveEasingType());
+    assertEquals(500, move.getMoveDurationMs());
+    assertEquals("neutral", move.getShowExpression());
+  }
+
+  @Test
   public void showCommandSupportsGroupedInlineCompositeLayerSpec() throws Exception {
     String script = """
       @scenario layered_demo
