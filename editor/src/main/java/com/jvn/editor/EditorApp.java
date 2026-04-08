@@ -43,6 +43,7 @@ import com.jvn.editor.ui.EditorPreferencesStore;
 import com.jvn.editor.ui.EditorSettingsView;
 import com.jvn.editor.ui.EditorSidebarPanel;
 import com.jvn.editor.ui.EditorTheme;
+import com.jvn.editor.ui.EditorWorkspaceHubView;
 import com.jvn.editor.ui.FileEditorTab;
 import com.jvn.editor.ui.HelpCenterView;
 import com.jvn.editor.ui.ImageAttributesToolView;
@@ -70,7 +71,6 @@ import com.jvn.editor.ui.VersionControlView;
 import com.jvn.editor.ui.VnsDiagnosticsView;
 import com.jvn.editor.ui.VnsFlowMapView;
 import com.jvn.editor.ui.VnsScriptAnalyzer;
-import com.jvn.editor.ui.WelcomeCenterView;
 import com.jvn.editor.ui.actioneditor.AnimationProject;
 import com.jvn.editor.ui.actioneditor.CodeImporter;
 import com.jvn.editor.ui.actioneditor.EntityTrack;
@@ -185,8 +185,8 @@ public class EditorApp extends Application {
   private boolean layeredVisualizerFullscreen;
   private double[] savedLayeredVisualizerDividers;
   private ImageToolPanel fullscreenImageToolView;
-  private WelcomeCenterView welcomeView;
-  private Tab tabWelcome;
+  private EditorWorkspaceHubView workspaceHubView;
+  private Tab tabWorkspaceHub;
   private Tab tabProject;
   private Tab tabTimeline;
   private Tab tabInspector;
@@ -359,9 +359,8 @@ public class EditorApp extends Application {
     Properties mf = loadManifest(dir);
     configureProjectContext(dir, mf);
     applyProjectRootToTabs();
-    if (welcomeView != null) {
-      welcomeView.setCurrentProject(dir);
-      welcomeView.markProjectVisited(dir);
+    if (workspaceHubView != null) {
+      workspaceHubView.setCurrentProject(dir);
     }
     refreshMainCommandUi.run();
   }
@@ -1206,8 +1205,8 @@ public class EditorApp extends Application {
     miRevealActiveFile.setOnAction(e -> revealActiveFileInFileManager());
     MenuItem miCopyActiveFilePath = new MenuItem("Copy Active File Path");
     miCopyActiveFilePath.setOnAction(e -> copyActiveFilePathToClipboard());
-    MenuItem miFileWelcome = new MenuItem("Welcome Center");
-    miFileWelcome.setOnAction(e -> selectWelcomeTab());
+    MenuItem miFileWelcome = new MenuItem("Workspace Hub");
+    miFileWelcome.setOnAction(e -> selectWorkspaceHubTab());
     MenuItem miFileProjectExplorer = new MenuItem("Project Explorer");
     miFileProjectExplorer.setOnAction(e -> selectProjectTab());
     MenuItem miFileRunProject = new MenuItem("Run Project");
@@ -1339,8 +1338,8 @@ public class EditorApp extends Application {
     Menu menuPanels = new Menu("Panels");
     MenuItem miShowProject = new MenuItem("Project Explorer");
     miShowProject.setOnAction(e -> selectProjectTab());
-    MenuItem miShowWelcomePanel = new MenuItem("Welcome Center");
-    miShowWelcomePanel.setOnAction(e -> selectWelcomeTab());
+    MenuItem miShowWelcomePanel = new MenuItem("Workspace Hub");
+    miShowWelcomePanel.setOnAction(e -> selectWorkspaceHubTab());
     MenuItem miShowTimeline = new MenuItem("Story Timeline");
     miShowTimeline.setOnAction(e -> selectTimelineTab());
     MenuItem miShowInspector = new MenuItem("Inspector");
@@ -1428,8 +1427,8 @@ public class EditorApp extends Application {
     // ── Navigate ──
     Menu menuNavigate = new Menu("Navigate");
     Menu menuNavigateCore = new Menu("Core Panels");
-    MenuItem miNavigateWelcome = new MenuItem("Welcome Center");
-    miNavigateWelcome.setOnAction(e -> selectWelcomeTab());
+    MenuItem miNavigateWelcome = new MenuItem("Workspace Hub");
+    miNavigateWelcome.setOnAction(e -> selectWorkspaceHubTab());
     MenuItem miNavigateProject = new MenuItem("Project Explorer");
     miNavigateProject.setOnAction(e -> selectProjectTab());
     MenuItem miNavigateTimeline = new MenuItem("Story Timeline");
@@ -1619,8 +1618,8 @@ public class EditorApp extends Application {
     miCloseFloatingWindows.setOnAction(e -> closeAllFloatingPanelWindows());
 
     Menu menuWindowWorkspace = new Menu("Workspace Tabs");
-    MenuItem miWindowWelcome = new MenuItem("Welcome Center");
-    miWindowWelcome.setOnAction(e -> selectWelcomeTab());
+    MenuItem miWindowWelcome = new MenuItem("Workspace Hub");
+    miWindowWelcome.setOnAction(e -> selectWorkspaceHubTab());
     MenuItem miWindowProject = new MenuItem("Project Explorer");
     miWindowProject.setOnAction(e -> selectProjectTab());
     MenuItem miWindowTimeline = new MenuItem("Story Timeline");
@@ -1737,8 +1736,8 @@ public class EditorApp extends Application {
 
     // ── Help ──
     Menu menuHelp = new Menu("Help");
-    MenuItem miWelcome = new MenuItem("Welcome Center");
-    miWelcome.setOnAction(e -> selectWelcomeTab());
+    MenuItem miWelcome = new MenuItem("Workspace Hub");
+    miWelcome.setOnAction(e -> selectWorkspaceHubTab());
     miWelcome.setAccelerator(new KeyCodeCombination(KeyCode.H, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
     MenuItem miHelpCenter = new MenuItem("Help Center");
     miHelpCenter.setOnAction(e -> selectHelpTab());
@@ -1895,23 +1894,21 @@ public class EditorApp extends Application {
     filesTabs.getSelectionModel().selectedItemProperty().addListener((o, ov, nv) -> {
       updateContextForActiveTab();
     });
-    welcomeView = new WelcomeCenterView();
-    welcomeView.setEditorVersion(editorVersion);
-    welcomeView.setWorkspaceRoot(resolveWorkspaceRoot());
-    welcomeView.setCurrentProject(projectRoot);
-    welcomeView.setOnCreateProject(() -> doNewProject(primaryStage));
-    welcomeView.setOnOpenProjectDialog(() -> doOpenProject(primaryStage));
-    welcomeView.setOnOpenRecentProject(projectDir -> {
-      if (projectDir == null || !projectDir.isDirectory()) return;
-      openProjectDirectory(projectDir);
-      status.setText("Project: " + projectDir.getName());
-      selectProjectTab();
-    });
-    tabWelcome = new Tab("Welcome", welcomeView);
-    tabWelcome.setClosable(false);
+    workspaceHubView = new EditorWorkspaceHubView();
+    workspaceHubView.setWorkspaceRoot(resolveWorkspaceRoot());
+    workspaceHubView.setCurrentProject(projectRoot);
+    workspaceHubView.setOnCreateProject(() -> doNewProject(primaryStage));
+    workspaceHubView.setOnOpenProjectDialog(() -> doOpenProject(primaryStage));
+    workspaceHubView.setOnRunProject(() -> doRunProject(primaryStage));
+    workspaceHubView.setOnShowProjectExplorer(this::selectProjectTab);
+    workspaceHubView.setOnShowScriptEditor(this::selectScriptEditorLauncherTab);
+    workspaceHubView.setOnShowVersionControl(this::selectVersionControlTab);
+    workspaceHubView.setOnShowHelpCenter(this::selectHelpTab);
+    tabWorkspaceHub = new Tab("Workspace", workspaceHubView);
+    tabWorkspaceHub.setClosable(false);
     if (editorPreferences.isShowWelcomeOnStartup()) {
-      filesTabs.getTabs().add(tabWelcome);
-      filesTabs.getSelectionModel().select(tabWelcome);
+      filesTabs.getTabs().add(tabWorkspaceHub);
+      filesTabs.getSelectionModel().select(tabWorkspaceHub);
     }
     root.setCenter(filesTabs);
     inspectorView = new InspectorView(s -> status.setText(s));
@@ -2344,7 +2341,7 @@ public class EditorApp extends Application {
 
   private String buildMainCommandSummary() {
     Tab activeTab = filesTabs != null ? filesTabs.getSelectionModel().getSelectedItem() : null;
-    if (activeTab == tabWelcome) {
+    if (activeTab == tabWorkspaceHub) {
       return "";
     }
 
@@ -2944,7 +2941,7 @@ public class EditorApp extends Application {
     if (imageTintToolView != null) imageTintToolView.setProjectRoot(projectRoot);
     if (menuFlowEditorView != null) menuFlowEditorView.setProjectRoot(projectRoot);
     if (puppeteerLauncherPanel != null) puppeteerLauncherPanel.setProjectRoot(projectRoot);
-    if (welcomeView != null) welcomeView.setCurrentProject(projectRoot);
+    if (workspaceHubView != null) workspaceHubView.setCurrentProject(projectRoot);
     syncStoryboardOverlayProjectState();
     refreshMainCommandUi.run();
   }
@@ -2998,19 +2995,19 @@ public class EditorApp extends Application {
   }
 
   private void applyWelcomeTabPreference() {
-    if (filesTabs == null || tabWelcome == null) return;
+    if (filesTabs == null || tabWorkspaceHub == null) return;
     boolean wantsWelcome = editorPreferences.isShowWelcomeOnStartup();
-    boolean hasWelcome = filesTabs.getTabs().contains(tabWelcome);
+    boolean hasWelcome = filesTabs.getTabs().contains(tabWorkspaceHub);
     if (wantsWelcome && !hasWelcome) {
-      filesTabs.getTabs().add(0, tabWelcome);
+      filesTabs.getTabs().add(0, tabWorkspaceHub);
       if (filesTabs.getSelectionModel().getSelectedItem() == null) {
-        filesTabs.getSelectionModel().select(tabWelcome);
+        filesTabs.getSelectionModel().select(tabWorkspaceHub);
       }
       return;
     }
     if (!wantsWelcome && hasWelcome) {
-      boolean selected = filesTabs.getSelectionModel().getSelectedItem() == tabWelcome;
-      filesTabs.getTabs().remove(tabWelcome);
+      boolean selected = filesTabs.getSelectionModel().getSelectedItem() == tabWorkspaceHub;
+      filesTabs.getTabs().remove(tabWorkspaceHub);
       if (selected && !filesTabs.getTabs().isEmpty()) {
         filesTabs.getSelectionModel().select(filesTabs.getTabs().get(0));
       }
@@ -5037,13 +5034,12 @@ public class EditorApp extends Application {
     }
   }
 
-  private void selectWelcomeTab() {
-    if (filesTabs == null || tabWelcome == null) return;
-    if (!filesTabs.getTabs().contains(tabWelcome)) {
-      filesTabs.getTabs().add(0, tabWelcome);
+  private void selectWorkspaceHubTab() {
+    if (filesTabs == null || tabWorkspaceHub == null) return;
+    if (!filesTabs.getTabs().contains(tabWorkspaceHub)) {
+      filesTabs.getTabs().add(0, tabWorkspaceHub);
     }
-    filesTabs.getSelectionModel().select(tabWelcome);
-    if (welcomeView != null) welcomeView.refresh();
+    filesTabs.getSelectionModel().select(tabWorkspaceHub);
   }
 
   private void selectTimelineTab() {

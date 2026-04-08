@@ -25,7 +25,7 @@ public class EditorSettingsView extends BorderPane {
   private final EditorPreferencesStore store;
   private final Spinner<Integer> codeEditorFontSizeSpinner = new Spinner<>();
   private final CheckBox showWelcomeOnStartupCheck =
-      new CheckBox("Show Welcome tab on startup");
+      new CheckBox("Show Workspace Hub tab on startup");
   private final CheckBox loadSidebarExtensionsOnDemandCheck =
       new CheckBox("Load sidebar extensions only when opened (lower memory usage)");
   private final Map<EditorSidebarPanel, ComboBox<EditorPanelPlacement>> panelPlacements =
