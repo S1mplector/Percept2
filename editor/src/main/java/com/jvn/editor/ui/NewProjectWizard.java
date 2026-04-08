@@ -221,7 +221,7 @@ public class NewProjectWizard extends Stage {
     title.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.BOLD, 24));
     title.setTextFill(Color.web(TEXT_PRIMARY));
 
-    Label subtitle = new Label("Set up a clean engine-ready project structure with scripts, config, and visual editor files.");
+    Label subtitle = new Label("");
     subtitle.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.NORMAL, 13));
     subtitle.setTextFill(Color.web(TEXT_SECONDARY));
 
