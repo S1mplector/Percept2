@@ -305,6 +305,16 @@ public class VnScenarioBuilder {
     return this;
   }
 
+  // --- Particle effects ---
+  public VnScenarioBuilder particles(VnParticleCommand cmd) {
+    scenarioBuilder.addNode(
+      VnNode.builder(VnNodeType.PARTICLE)
+        .particleCommand(cmd)
+        .build()
+    );
+    return this;
+  }
+
   // --- Interop ---
   public VnScenarioBuilder external(String provider, String payload) {
     scenarioBuilder.addNode(

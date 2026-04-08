@@ -597,6 +597,19 @@ public class VnState {
     }
   }
 
+  // ── Particle effects ──────────────────────────────────────────────────
+  private VnParticleCommand activeParticleCommand;
+
+  public VnParticleCommand getActiveParticleCommand() { return activeParticleCommand; }
+
+  public void setActiveParticleCommand(VnParticleCommand cmd) {
+    this.activeParticleCommand = cmd;
+  }
+
+  public void clearParticleEffect() {
+    this.activeParticleCommand = null;
+  }
+
   public Map<String, Object> getVariables() { return variables; }
   public String getActiveStagePresetId() {
     Object value = variables.get(VAR_ACTIVE_STAGE_PRESET_ID);

@@ -22,6 +22,7 @@ import com.jvn.core.vn.Choice;
 import com.jvn.core.vn.LayeredCharacterResolver;
 import com.jvn.core.vn.VnArgTokenizer;
 import com.jvn.core.vn.VnConditionEvaluator;
+import com.jvn.core.vn.VnParticleCommand;
 import com.jvn.core.vn.VnScenario;
 import com.jvn.core.vn.VnScenarioBuilder;
 import com.jvn.core.vn.VnTransition;
@@ -1114,6 +1115,33 @@ public class VnScriptParser {
         }
         String bg = toks.length >= 3 ? toks[2] : null;
         state.builder.transition(type, dur, bg);
+        return;
+      }
+      case "particles":
+      case "particle":
+      case "weather": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        String[] toks = payload.split("\\s+");
+        VnParticleCommand.Preset preset = VnParticleCommand.Preset.parse(toks[0]);
+        if (preset == VnParticleCommand.Preset.NONE) {
+          state.builder.particles(VnParticleCommand.stop());
+        } else {
+          float intensity = 0.5f;
+          int layer = 100;
+          if (toks.length >= 2) {
+            try { intensity = Float.parseFloat(toks[1]); }
+            catch (NumberFormatException ex) {
+              throw parseError(sourceName, lineNumber, "[particles] intensity must be a number", rawLine);
+            }
+          }
+          if (toks.length >= 3) {
+            try { layer = Integer.parseInt(toks[2]); }
+            catch (NumberFormatException ex) {
+              throw parseError(sourceName, lineNumber, "[particles] layer must be an integer", rawLine);
+            }
+          }
+          state.builder.particles(VnParticleCommand.start(preset, intensity, layer));
+        }
         return;
       }
       case "menu":

@@ -448,6 +448,12 @@ public class VnScene implements Scene {
           instantCount++;
           break;
 
+        case PARTICLE:
+          processParticleNode(node);
+          state.advance();
+          instantCount++;
+          break;
+
         case END:
           return; // Terminal - stop loop
       }
@@ -606,6 +612,17 @@ public class VnScene implements Scene {
       // Block until transition completes
       transitionBlocking = true;
       transitionRemainingMs = transition.getDurationMs();
+    }
+  }
+
+  private void processParticleNode(VnNode node) {
+    VnParticleCommand cmd = node.getParticleCommand();
+    if (cmd != null) {
+      if (cmd.isStop()) {
+        state.clearParticleEffect();
+      } else {
+        state.setActiveParticleCommand(cmd);
+      }
     }
   }
 
