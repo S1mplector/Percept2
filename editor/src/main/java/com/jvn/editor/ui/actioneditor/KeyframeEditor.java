@@ -7,8 +7,8 @@ import java.util.Objects;
 
 import com.jvn.core.animation.Easing;
 import com.jvn.core.animation.EasingSpec;
-import com.jvn.editor.ui.ProjectViewportSpec;
 import com.jvn.editor.ui.CssIcon;
+import com.jvn.editor.ui.ProjectViewportSpec;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -26,11 +26,9 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
-import javafx.scene.shape.Line;
 
 public class KeyframeEditor extends VBox {
     enum SelectionTargetKind {
@@ -1367,7 +1365,7 @@ public class KeyframeEditor extends VBox {
     private void nudgeTimeField(double deltaMs) {
         if (currentSelection.size() > 1 || currentKeyframe == null) return;
         double base = parseOrFallback(tfTime.getText(), currentKeyframe.getTimeMs());
-        double next = Math.max(0.0, Math.min(timelineDurationMs, base + deltaMs));
+        double next = Math.max(0.0, base + deltaMs);
         tfTime.setText(String.format("%.0f", next));
         applyChanges();
     }

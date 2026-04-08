@@ -233,7 +233,7 @@ public class TimelinePanel extends VBox {
         EntityTrack track = selectedTrack(true);
         if (track == null) return;
 
-        time = clampToTimeline(snapTime(Math.max(0, time)));
+        time = clampOrExpandTimeline(snapTime(Math.max(0, time)));
         double value = track.getValueAt(selectedProperty, time);
         Keyframe kf = track.upsertKeyframe(selectedProperty, new Keyframe(time, value));
         selectionModel.clearSelection();
@@ -250,7 +250,7 @@ public class TimelinePanel extends VBox {
      */
     public void addKeyframeForAllEntities(double time, PropertyType property) {
         if (property == null) return;
-        time = clampToTimeline(snapTime(Math.max(0, time)));
+        time = clampOrExpandTimeline(snapTime(Math.max(0, time)));
         int count = 0;
         for (EntityTrack track : project.getTracks()) {
             double value = track.getValueAt(property, time);
@@ -301,7 +301,7 @@ public class TimelinePanel extends VBox {
         } else if (selectedEntity != null && selectedKeyframe != null && selectedProperty != null) {
             EntityTrack track = selectedTrack(false);
             if (track == null) return;
-            double next = clampToTimeline(snapTime(selectedKeyframe.getTimeMs() + deltaMs));
+            double next = clampOrExpandTimeline(snapTime(selectedKeyframe.getTimeMs() + deltaMs));
             selectedKeyframe.setTimeMs(next);
             track.sortKeyframes(selectedProperty);
         } else {
@@ -388,7 +388,7 @@ public class TimelinePanel extends VBox {
             PropertyType property = entry.property();
             if (!isPropertySupportedForSelection(property)) continue;
             Keyframe copy = entry.keyframe().copy();
-            copy.setTimeMs(clampToTimeline(snapTime(playhead + entry.offsetMs())));
+            copy.setTimeMs(clampOrExpandTimeline(snapTime(playhead + entry.offsetMs())));
             Keyframe inserted = track.upsertKeyframe(property, copy);
             if (inserted == null) continue;
             if (firstProperty == null) firstProperty = property;
@@ -428,7 +428,7 @@ public class TimelinePanel extends VBox {
             PropertyType property = entry.getKey();
             for (Keyframe source : entry.getValue()) {
                 Keyframe copy = source.copy();
-                copy.setTimeMs(clampToTimeline(snapTime(source.getTimeMs() + deltaMs)));
+                copy.setTimeMs(clampOrExpandTimeline(snapTime(source.getTimeMs() + deltaMs)));
                 Keyframe inserted = track.upsertKeyframe(property, copy);
                 if (inserted == null) continue;
                 if (firstProperty == null) firstProperty = property;
@@ -853,11 +853,11 @@ public class TimelinePanel extends VBox {
             if (!dragStartTimes.isEmpty()) {
                 for (Map.Entry<KeyframeSelectionModel.KeyframeRef, Double> entry : dragStartTimes.entrySet()) {
                     Keyframe moving = entry.getKey().keyframe();
-                    double next = clampToTimeline(snapTime(entry.getValue() + dt));
+                    double next = clampOrExpandTimeline(snapTime(entry.getValue() + dt));
                     moving.setTimeMs(next);
                 }
             } else {
-                double next = clampToTimeline(snapTime(selectedKeyframe.getTimeMs() + dt));
+                double next = clampOrExpandTimeline(snapTime(selectedKeyframe.getTimeMs() + dt));
                 selectedKeyframe.setTimeMs(next);
             }
             render();
@@ -1330,6 +1330,15 @@ public class TimelinePanel extends VBox {
 
     private double clampToTimeline(double timeMs) {
         return Math.max(0.0, Math.min(project.getTotalDurationMs(), timeMs));
+    }
+
+    private double clampOrExpandTimeline(double timeMs) {
+        timeMs = Math.max(0.0, timeMs);
+        if (timeMs > project.getTotalDurationMs()) {
+            double padded = Math.ceil(timeMs / 500.0) * 500.0;
+            project.setTotalDurationMs(Math.max(padded, timeMs + 500));
+        }
+        return timeMs;
     }
 
     private boolean jumpPlayheadToAdjacentKeyframe(boolean forward) {

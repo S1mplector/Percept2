@@ -459,7 +459,10 @@ public class PuppeteerWindow extends Stage {
             updatePreview();
             refreshSidebarTabs();
         });
-        timelinePanel.setOnEdited(this::refreshExportPreviewAndMarkDirty);
+        timelinePanel.setOnEdited(() -> {
+            syncDurationUi();
+            refreshExportPreviewAndMarkDirty();
+        });
 
         keyframeEditor.setOnKeyframeChanged(() -> {
             if (timelinePanel.getSelectionCount() > 1) {
@@ -3744,6 +3747,15 @@ public class PuppeteerWindow extends Stage {
         diags.addAll(TimelineDiagnostic.diagnoseDsl(codePreview.getCode()));
         codePreview.setDiagnostics(diags);
         refreshSidebarTabs();
+    }
+
+    private void syncDurationUi() {
+        String current = tfDuration.getText();
+        String updated = String.valueOf((int) project.getTotalDurationMs());
+        if (!updated.equals(current)) {
+            tfDuration.setText(updated);
+            keyframeEditor.setTimelineDurationMs(project.getTotalDurationMs());
+        }
     }
 
     private void refreshExportPreviewAndMarkDirty() {

@@ -179,9 +179,16 @@ public class KeyframeSelectionModel {
             .max()
             .orElse(Double.NEGATIVE_INFINITY);
 
+        double maxNewTime = 0.0;
         for (KeyframeRef ref : refs) {
             double newTime = snap(ref.keyframe().getTimeMs() + deltaMs, snap);
-            ref.keyframe().setTimeMs(Math.max(0.0, newTime));
+            newTime = Math.max(0.0, newTime);
+            ref.keyframe().setTimeMs(newTime);
+            maxNewTime = Math.max(maxNewTime, newTime);
+        }
+        if (maxNewTime > project.getTotalDurationMs()) {
+            double padded = Math.ceil(maxNewTime / 500.0) * 500.0;
+            project.setTotalDurationMs(Math.max(padded, maxNewTime + 500));
         }
 
         if (rippleRetimeEnabled && Double.isFinite(latestSelectedTime)) {
@@ -210,10 +217,17 @@ public class KeyframeSelectionModel {
 
         List<KeyframeRef> refs = getSelectedOrdered();
         double start = refs.get(0).keyframe().getTimeMs();
+        double maxNewTime = 0.0;
         for (KeyframeRef ref : refs) {
             double offset = ref.keyframe().getTimeMs() - start;
             double newTime = snap(start + offset * safeFactor, snap);
-            ref.keyframe().setTimeMs(Math.max(0.0, newTime));
+            newTime = Math.max(0.0, newTime);
+            ref.keyframe().setTimeMs(newTime);
+            maxNewTime = Math.max(maxNewTime, newTime);
+        }
+        if (maxNewTime > project.getTotalDurationMs()) {
+            double padded = Math.ceil(maxNewTime / 500.0) * 500.0;
+            project.setTotalDurationMs(Math.max(padded, maxNewTime + 500));
         }
         sortAffectedTracks(project);
     }
