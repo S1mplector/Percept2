@@ -239,6 +239,33 @@ public class VnScriptParserTest {
   }
 
   @Test
+  public void showCommandSupportsNamedOptions() throws Exception {
+    String script = """
+      @scenario layered_demo
+      @character lavender "Lavender"
+      @charlayer lavender base assets/demo/characters/lavender/base/lavender_test_sprite_base.png
+      @charlayer lavender eyes_neutral assets/demo/characters/lavender/eyes/lavender_test_sprite_eyes_neutral.png
+      @charlayer lavender mouth_smile assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_smile.png
+      @charpreset lavender talking $base | $eyes_neutral | $mouth_smile
+
+      @label start
+      [show lavender pos=center expr=@talking layer=25]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario = parser.parseFromString(script);
+    VnNode show = scenario.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.SHOW)
+        .findFirst()
+        .orElseThrow();
+
+    assertEquals(CharacterPosition.CENTER, show.getShowPosition());
+    assertEquals("talking", show.getShowExpression());
+    assertEquals(Integer.valueOf(25), show.getShowLayerOrder());
+  }
+
+  @Test
   public void characterInteropExpressionCommandSupportsInlineCompositePresetAndLayer() throws Exception {
     String script = """
       @scenario layered_demo
@@ -599,6 +626,50 @@ public class VnScriptParserTest {
         .findFirst()
         .orElseThrow();
     assertEquals(Integer.valueOf(25), show.getShowLayerOrder());
+  }
+
+  @Test
+  public void moveCommandSupportsNamedOptions() throws Exception {
+    String script = """
+      @label start
+      [move hero pos=right expr=smile ease=easeInOut dur=500]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario;
+    try (var in = new ByteArrayInputStream(script.getBytes(StandardCharsets.UTF_8))) {
+      scenario = parser.parse(in);
+    }
+
+    VnNode move = scenario.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.MOVE)
+        .findFirst()
+        .orElseThrow();
+    assertEquals(CharacterPosition.RIGHT, move.getShowPosition());
+    assertEquals("smile", move.getShowExpression());
+    assertEquals(com.jvn.core.animation.Easing.Type.EASE_IN_OUT_QUAD, move.getMoveEasingType());
+    assertEquals(500, move.getMoveDurationMs());
+  }
+
+  @Test
+  public void transitionCommandSupportsNamedOptions() throws Exception {
+    String script = """
+      @label start
+      [transition type=crossfade dur=700 bg=classroom]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario = parser.parseFromString(script);
+    VnNode transition = scenario.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.TRANSITION)
+        .findFirst()
+        .orElseThrow();
+
+    assertEquals(VnTransition.TransitionType.CROSSFADE, transition.getTransition().getType());
+    assertEquals(700, transition.getTransition().getDurationMs());
+    assertEquals("classroom", transition.getTransition().getTargetBackgroundId());
   }
 
   @Test
