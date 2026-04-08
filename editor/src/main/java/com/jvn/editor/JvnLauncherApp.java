@@ -65,7 +65,7 @@ public class JvnLauncherApp extends Application {
 
     welcomeView = new WelcomeCenterView();
     welcomeView.setWelcomeHeading("Welcome to JVN Launcher");
-    welcomeView.setWelcomeIntro("Open recent work, run project builds, and launch the editor.");
+    welcomeView.setWelcomeIntro("");
     welcomeView.setVersionChipVisible(false);
     welcomeView.setEditorVersion(resolveVersionLabel());
     welcomeView.setWorkspaceRoot(workspaceRoot);

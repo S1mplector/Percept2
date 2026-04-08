@@ -18,8 +18,7 @@ import javafx.scene.layout.VBox;
  * Lightweight in-editor hub tab that replaces the full launcher-style welcome view.
  */
 public class EditorWorkspaceHubView extends BorderPane {
-  private final Label headingLabel = new Label("Workspace Hub");
-  private final Label introLabel = new Label("Create, open, and run projects without leaving the editor.");
+  private final Label headingLabel = new Label("Welcome to JVN Editor");
   private final Label workspaceLabel = new Label("Workspace: --");
   private final Label projectLabel = new Label("Project: no project selected");
   private final Label statusLabel = new Label("Choose an action to continue.");
@@ -91,7 +90,6 @@ public class EditorWorkspaceHubView extends BorderPane {
     setPadding(new Insets(14));
 
     headingLabel.getStyleClass().add("welcome-heading");
-    introLabel.getStyleClass().add("welcome-intro-text");
     workspaceLabel.getStyleClass().add("welcome-overview-detail");
     projectLabel.getStyleClass().add("welcome-overview-detail");
     statusLabel.getStyleClass().add("welcome-status-text");
@@ -160,7 +158,7 @@ public class EditorWorkspaceHubView extends BorderPane {
     rowSecondary.getStyleClass().add("welcome-action-row");
     rowSecondary.setAlignment(Pos.CENTER_LEFT);
 
-    VBox hero = new VBox(12, headingLabel, introLabel, workspaceLabel, projectLabel, rowPrimary, rowSecondary, statusLabel);
+    VBox hero = new VBox(12, headingLabel, workspaceLabel, projectLabel, rowPrimary, rowSecondary, statusLabel);
     hero.setPadding(new Insets(12));
     hero.getStyleClass().add("welcome-hero-card");
 
