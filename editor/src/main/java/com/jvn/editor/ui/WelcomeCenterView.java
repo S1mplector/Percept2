@@ -35,6 +35,7 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.input.KeyCode;
 import javafx.scene.Node;
 import javafx.scene.layout.BorderPane;
@@ -190,10 +191,10 @@ public class WelcomeCenterView extends BorderPane {
       if (first != null) openRecentProject(first);
     });
     btnRefresh.setOnAction(e -> refresh());
-    configureActionButton(btnNewProject, CssIcon.plus("#f0f0f0"), "New Project", "Create a new project", "welcome-action-button-primary");
-    configureActionButton(btnOpenProject, CssIcon.folder("#d0d0d0"), "Open Project", "Open an existing project", "welcome-action-button-secondary");
-    configureActionButton(btnOpenLast, CssIcon.arrowRight("#d0d0d0"), "Resume Latest", "Open the most recent project", "welcome-action-button-secondary");
-    configureActionButton(btnRefresh, CssIcon.redo("#d0d0d0"), "Refresh Checks", "Refresh Welcome Center data and health checks", "welcome-action-button-secondary");
+    configureActionButton(btnNewProject, CssIcon.plus("#8bcf98"), "New Project", "Create a new project", "welcome-action-button-primary");
+    configureActionButton(btnOpenProject, CssIcon.folder("#d5b36a"), "Open Project", "Open an existing project", "welcome-action-button-secondary");
+    configureActionButton(btnOpenLast, CssIcon.arrowRight("#dccba2"), "Resume Latest", "Open the most recent project", "welcome-action-button-secondary");
+    configureActionButton(btnRefresh, CssIcon.redo("#d6cab8"), "Refresh Checks", "Refresh Welcome Center data and health checks", "welcome-action-button-secondary");
 
     HBox actions = new HBox(8, btnNewProject, btnOpenProject, btnOpenLast, btnRefresh);
     actions.getStyleClass().add("welcome-action-row");
@@ -631,11 +632,11 @@ public class WelcomeCenterView extends BorderPane {
     if (badge == null || severity == null) return;
     badge.setGraphic(null);
     badge.setText(null);
-    badge.setContentDisplay(javafx.scene.control.ContentDisplay.LEFT);
+    badge.setContentDisplay(ContentDisplay.LEFT);
     if (severity == Severity.OK) {
-      Node okIcon = CssIcon.check("#d8d8d8");
+      Node okIcon = CssIcon.check("#8bcf98");
       badge.setGraphic(okIcon);
-      badge.setContentDisplay(javafx.scene.control.ContentDisplay.GRAPHIC_ONLY);
+      badge.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
       badge.setAccessibleText("OK");
       return;
     }
@@ -942,7 +943,7 @@ public class WelcomeCenterView extends BorderPane {
       HBox.setHgrow(spacer, Priority.ALWAYS);
       content.getStyleClass().add("welcome-project-cell");
       titleRow.setAlignment(Pos.CENTER_LEFT);
-      openButton.setGraphic(CssIcon.popOut("#d0d0d0"));
+      openButton.setGraphic(CssIcon.popOut("#d5b36a"));
       openButton.setText("");
       openButton.getStyleClass().add("welcome-open-button");
       openButton.setFocusTraversable(false);
@@ -973,7 +974,10 @@ public class WelcomeCenterView extends BorderPane {
       nameLabel.setText(exists ? baseName : (baseName + " (missing)"));
       pathLabel.setText(abbreviatePath(dir.getAbsolutePath()));
       timeLabel.setText("Updated: " + formatTimestamp(item.modifiedMillis()));
-      stateBadge.getStyleClass().removeAll("welcome-project-badge-current", "welcome-project-badge-missing");
+      stateBadge.getStyleClass().removeAll("welcome-project-badge-current", "welcome-project-badge-missing", "welcome-project-badge-current-icon");
+      stateBadge.setGraphic(null);
+      stateBadge.setContentDisplay(ContentDisplay.LEFT);
+      stateBadge.setAccessibleText(null);
       boolean current = sameDirectory(dir, projectRoot);
       if (!exists) {
         stateBadge.setText("MISSING");
@@ -981,8 +985,11 @@ public class WelcomeCenterView extends BorderPane {
         stateBadge.setVisible(true);
         stateBadge.setManaged(true);
       } else if (current) {
-        stateBadge.setText("CURRENT");
-        stateBadge.getStyleClass().add("welcome-project-badge-current");
+        stateBadge.setText("");
+        stateBadge.setGraphic(CssIcon.check("#8bcf98"));
+        stateBadge.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        stateBadge.setAccessibleText("Current project");
+        stateBadge.getStyleClass().addAll("welcome-project-badge-current", "welcome-project-badge-current-icon");
         stateBadge.setVisible(true);
         stateBadge.setManaged(true);
       } else {

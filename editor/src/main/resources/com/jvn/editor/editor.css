@@ -3495,6 +3495,14 @@
   -fx-border-color: #4d4d4d;
 }
 
+.welcome-project-badge-current-icon {
+  -fx-padding: 2 6 2 6;
+  -fx-min-width: 22;
+  -fx-pref-width: 22;
+  -fx-alignment: center;
+  -fx-content-display: graphic-only;
+}
+
 .welcome-project-badge-missing {
   -fx-text-fill: #efbf82;
   -fx-background-color: #30251a;
