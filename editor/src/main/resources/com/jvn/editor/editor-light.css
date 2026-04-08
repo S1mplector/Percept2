@@ -3451,7 +3451,7 @@
 
 .welcome-project-list .list-cell:hover .welcome-project-cell {
   -fx-background-color:
-      radial-gradient(center 8% 92%, radius 68%, rgba(208, 128, 56, 0.12) 0%, rgba(208, 128, 56, 0.06) 24%, rgba(208, 128, 56, 0.0) 60%),
+      radial-gradient(center 8% 94%, radius 82%, rgba(208, 128, 56, 0.20) 0%, rgba(208, 128, 56, 0.10) 26%, rgba(208, 128, 56, 0.03) 48%, rgba(208, 128, 56, 0.0) 72%),
       linear-gradient(to bottom, rgba(0, 0, 0, 0.03), rgba(0, 0, 0, 0.0)),
       linear-gradient(to bottom, #eaeaea 0%, #eeeeee 100%);
   -fx-border-color: #c3c3c3;
@@ -3459,7 +3459,7 @@
 
 .welcome-project-list .list-cell:selected .welcome-project-cell {
   -fx-background-color:
-      radial-gradient(center 8% 92%, radius 70%, rgba(208, 128, 56, 0.14) 0%, rgba(208, 128, 56, 0.07) 25%, rgba(208, 128, 56, 0.0) 62%),
+      radial-gradient(center 8% 94%, radius 84%, rgba(208, 128, 56, 0.24) 0%, rgba(208, 128, 56, 0.12) 27%, rgba(208, 128, 56, 0.04) 50%, rgba(208, 128, 56, 0.0) 74%),
       linear-gradient(to bottom, rgba(0, 0, 0, 0.035), rgba(0, 0, 0, 0.0)),
       linear-gradient(to bottom, #e8e8e8 0%, #ededed 100%);
   -fx-border-color: #adadad;
