@@ -94,26 +94,35 @@ public class LayoutEditorLauncherView extends BorderPane {
   }
 
   public LayoutEditorLauncherView() {
+    getStyleClass().add("layout-launcher-root");
     setPadding(new Insets(8));
 
     Label title = new Label("Layout Editors");
-    title.setStyle("-fx-font-size: 14px; -fx-font-weight: 700;");
+    title.getStyleClass().add("layout-launcher-title");
 
     filterField.setPromptText("Filter layout files...");
+    filterField.getStyleClass().add("layout-launcher-field");
     filterField.textProperty().addListener((o, ov, nv) -> renderItemList());
 
     Button refreshButton = new Button("Refresh");
-    refreshButton.setGraphic(CssIcon.redo("#7ec8e3"));
+    refreshButton.getStyleClass().add("layout-launcher-button");
+    refreshButton.setGraphic(CssIcon.redo());
     refreshButton.setOnAction(e -> refreshStatus());
 
     HBox topActions = new HBox(8, filterField, refreshButton);
+    topActions.getStyleClass().add("layout-launcher-actions");
     topActions.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(filterField, Priority.ALWAYS);
 
+    summaryLabel.getStyleClass().add("layout-launcher-summary");
+
     VBox top = new VBox(8, title, summaryLabel, topActions, new Separator());
+    top.getStyleClass().add("layout-launcher-header");
     setTop(top);
 
     ScrollPane scroll = new ScrollPane(itemList);
+    itemList.getStyleClass().add("layout-launcher-list");
+    scroll.getStyleClass().add("layout-launcher-scroll");
     scroll.setFitToWidth(true);
     setCenter(scroll);
   }
@@ -188,10 +197,10 @@ public class LayoutEditorLauncherView extends BorderPane {
     }
 
     // Group by type with section headers (CSS icons)
-    renderSection(visible, ItemType.DIALOGUE_LAYOUT, CssIcon.speech("#7ec8e3"), "Dialogue Layout");
-    renderSection(visible, ItemType.MENU_SCREEN,     CssIcon.list("#a8d8a8"),   "Menu Screens");
-    renderSection(visible, ItemType.MENU_LAYOUT,     CssIcon.grid("#d4a8e8"),   "Menu Layouts");
-    renderSection(visible, ItemType.MENU_STYLE,      CssIcon.palette("#e8c8a8"),"Menu Styles");
+    renderSection(visible, ItemType.DIALOGUE_LAYOUT, CssIcon.speech(),  "Dialogue Layout");
+    renderSection(visible, ItemType.MENU_SCREEN,     CssIcon.list(),    "Menu Screens");
+    renderSection(visible, ItemType.MENU_LAYOUT,     CssIcon.grid(),    "Menu Layouts");
+    renderSection(visible, ItemType.MENU_STYLE,      CssIcon.palette(), "Menu Styles");
 
     // Always show Create New buttons when in blank mode or when project has menu dirs
     if (projectRoot != null && projectRoot.isDirectory()) {
@@ -205,8 +214,11 @@ public class LayoutEditorLauncherView extends BorderPane {
         .collect(Collectors.toList());
     if (group.isEmpty()) return;
 
-    HBox header = CssIcon.iconLabel(icon, sectionTitle + "  (" + group.size() + ")",
-        "-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #a8b0c0;");
+    HBox header = CssIcon.iconLabel(icon, sectionTitle + "  (" + group.size() + ")", "");
+    header.getStyleClass().add("layout-launcher-section-header");
+    if (header.getChildren().size() > 1 && header.getChildren().get(1) instanceof Label) {
+      ((Label) header.getChildren().get(1)).getStyleClass().add("layout-launcher-section-title");
+    }
     header.setPadding(new Insets(8, 0, 4, 0));
     itemList.getChildren().add(header);
     for (LayoutItem item : group) {
@@ -217,50 +229,52 @@ public class LayoutEditorLauncherView extends BorderPane {
 
   private VBox createItemRow(LayoutItem item) {
     Label title = new Label(item.title());
-    title.setStyle("-fx-font-weight: 700;");
+    title.getStyleClass().add("layout-launcher-item-title");
 
     Label path = new Label(item.relativePath());
-    path.getStyleClass().add("muted");
-    path.setStyle("-fx-font-family: 'Consolas'; -fx-font-size: 11px;");
+    path.getStyleClass().add("layout-launcher-item-path");
 
     Label status = new Label(statusText(item.status()));
-    status.setStyle("-fx-padding: 2 8 2 8; -fx-background-radius: 10; " + statusStyle(item.status()));
+    status.getStyleClass().addAll("layout-launcher-status", statusClass(item.status()));
 
     Label detail = new Label(item.detail());
-    detail.getStyleClass().add("muted");
-    detail.setStyle("-fx-font-size: 11px;");
+    detail.getStyleClass().add("layout-launcher-item-detail");
 
     Button openButton = new Button("Open Studio");
+    openButton.getStyleClass().add("layout-launcher-button");
     openButton.setOnAction(e -> openItem(item));
 
     Button cloneButton = new Button("Clone");
-    cloneButton.setGraphic(CssIcon.plus("#7ec8e3"));
-    cloneButton.setStyle("-fx-font-size: 10px;");
+    cloneButton.getStyleClass().addAll("layout-launcher-button", "layout-launcher-button-pill");
+    cloneButton.setGraphic(CssIcon.plus());
     cloneButton.setOnAction(e -> cloneItem(item));
 
     HBox head = new HBox(8, title, status);
     head.setAlignment(Pos.CENTER_LEFT);
     HBox actions = new HBox(6, openButton, cloneButton);
+    actions.getStyleClass().add("layout-launcher-actions-row");
     actions.setAlignment(Pos.CENTER_LEFT);
 
     VBox box = new VBox(4, head, path, detail);
+    box.getStyleClass().add("layout-launcher-card");
 
     // Wiring info for menu screens
     if (item.type() == ItemType.MENU_SCREEN) {
       VBox wiringBox = new VBox(4);
+      wiringBox.getStyleClass().add("layout-launcher-wiring");
       wiringBox.setPadding(new Insets(4, 0, 2, 0));
 
       // Quick-assign layout ComboBox
       javafx.scene.control.ComboBox<String> layoutCombo = new javafx.scene.control.ComboBox<>();
       layoutCombo.setEditable(true);
+      layoutCombo.getStyleClass().add("layout-launcher-field");
       layoutCombo.getItems().add("default");
       layoutCombo.getItems().addAll(knownLayoutIds);
       layoutCombo.setValue(item.layoutRef() != null ? item.layoutRef() : "default");
       layoutCombo.setMaxWidth(Double.MAX_VALUE);
-      layoutCombo.setStyle("-fx-font-size: 11px;");
       boolean layoutValid = item.layoutRef() == null || "default".equals(item.layoutRef()) || knownLayoutIds.contains(item.layoutRef());
       if (!layoutValid) {
-        layoutCombo.setStyle("-fx-font-size: 11px; -fx-border-color: #f0a060;");
+        layoutCombo.getStyleClass().add("layout-launcher-field-invalid");
       }
       layoutCombo.valueProperty().addListener((o, ov, nv) -> {
         if (nv != null && !nv.equals(ov)) {
@@ -269,7 +283,7 @@ public class LayoutEditorLauncherView extends BorderPane {
       });
       Label layoutLbl = new Label("Layout");
       layoutLbl.setMinWidth(42);
-      layoutLbl.setStyle("-fx-text-fill: #90a0b0; -fx-font-size: 10px;");
+      layoutLbl.getStyleClass().add("layout-launcher-micro-label");
       HBox.setHgrow(layoutCombo, Priority.ALWAYS);
       HBox layoutRow = new HBox(4, layoutLbl, layoutCombo);
       layoutRow.setAlignment(Pos.CENTER_LEFT);
@@ -278,14 +292,14 @@ public class LayoutEditorLauncherView extends BorderPane {
       // Quick-assign style ComboBox
       javafx.scene.control.ComboBox<String> styleCombo = new javafx.scene.control.ComboBox<>();
       styleCombo.setEditable(true);
+      styleCombo.getStyleClass().add("layout-launcher-field");
       styleCombo.getItems().add("default");
       styleCombo.getItems().addAll(knownStyleIds);
       styleCombo.setValue(item.styleRef() != null ? item.styleRef() : "default");
       styleCombo.setMaxWidth(Double.MAX_VALUE);
-      styleCombo.setStyle("-fx-font-size: 11px;");
       boolean styleValid = item.styleRef() == null || "default".equals(item.styleRef()) || knownStyleIds.contains(item.styleRef());
       if (!styleValid) {
-        styleCombo.setStyle("-fx-font-size: 11px; -fx-border-color: #f0a060;");
+        styleCombo.getStyleClass().add("layout-launcher-field-invalid");
       }
       styleCombo.valueProperty().addListener((o, ov, nv) -> {
         if (nv != null && !nv.equals(ov)) {
@@ -294,7 +308,7 @@ public class LayoutEditorLauncherView extends BorderPane {
       });
       Label styleLbl = new Label("Style");
       styleLbl.setMinWidth(42);
-      styleLbl.setStyle("-fx-text-fill: #90a0b0; -fx-font-size: 10px;");
+      styleLbl.getStyleClass().add("layout-launcher-micro-label");
       HBox.setHgrow(styleCombo, Priority.ALWAYS);
       HBox styleRow = new HBox(4, styleLbl, styleCombo);
       styleRow.setAlignment(Pos.CENTER_LEFT);
@@ -311,7 +325,7 @@ public class LayoutEditorLauncherView extends BorderPane {
           if (!valid) flowText.append(" [?]");
         }
         Label flowLabel = new Label(flowText.toString());
-        flowLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #c8c8a8;");
+        flowLabel.getStyleClass().add("layout-launcher-flow-label");
         flowLabel.setWrapText(true);
         wiringBox.getChildren().add(flowLabel);
       }
@@ -321,9 +335,10 @@ public class LayoutEditorLauncherView extends BorderPane {
 
     // Validation warnings
     if (!item.warnings().isEmpty()) {
+      box.getStyleClass().add("layout-launcher-card-warning");
       for (String warn : item.warnings()) {
         Label warnLabel = new Label(warn);
-        warnLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #f0a060; -fx-font-weight: bold;");
+        warnLabel.getStyleClass().add("layout-launcher-warning");
         warnLabel.setWrapText(true);
         box.getChildren().add(warnLabel);
       }
@@ -331,8 +346,6 @@ public class LayoutEditorLauncherView extends BorderPane {
 
     box.getChildren().add(actions);
     box.setPadding(new Insets(8));
-    String borderColor = item.warnings().isEmpty() ? "#2a2f3a" : "#6a4a2a";
-    box.setStyle("-fx-background-color: #1a1c22; -fx-background-radius: 8; -fx-border-color: " + borderColor + "; -fx-border-radius: 8;");
     return box;
   }
 
@@ -686,11 +699,11 @@ public class LayoutEditorLauncherView extends BorderPane {
     };
   }
 
-  private String statusStyle(StatusKind kind) {
+  private String statusClass(StatusKind kind) {
     return switch (kind) {
-      case DEFAULT -> "-fx-background-color: rgba(86, 163, 255, 0.16); -fx-text-fill: #9ecbff;";
-      case CUSTOMIZED -> "-fx-background-color: rgba(114, 214, 145, 0.16); -fx-text-fill: #8be2a5;";
-      case MISSING -> "-fx-background-color: rgba(255, 190, 100, 0.16); -fx-text-fill: #f0c180;";
+      case DEFAULT -> "layout-launcher-status-default";
+      case CUSTOMIZED -> "layout-launcher-status-customized";
+      case MISSING -> "layout-launcher-status-missing";
     };
   }
 
@@ -776,14 +789,14 @@ public class LayoutEditorLauncherView extends BorderPane {
 
   private VBox buildRegistryEditorPanel() {
     VBox panel = new VBox(6);
+    panel.getStyleClass().addAll("layout-launcher-panel", "layout-launcher-registry-panel");
     panel.setPadding(new Insets(10, 12, 10, 12));
-    panel.setStyle("-fx-background-color: #1a2030; -fx-background-radius: 8; -fx-border-color: #2a3a5a; -fx-border-radius: 8;");
 
     Label heading = new Label("Menu Registry");
-    heading.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #a8c8f0;");
+    heading.getStyleClass().add("layout-launcher-panel-title");
 
     Label hint = new Label("config/menu/registry/menu.registry");
-    hint.setStyle("-fx-font-family: 'Consolas'; -fx-font-size: 10px; -fx-text-fill: #70788a;");
+    hint.getStyleClass().add("layout-launcher-panel-path");
 
     // Default menu field
     TextField tfDefaultMenu = new TextField(registryDefaultMenu);
@@ -807,7 +820,8 @@ public class LayoutEditorLauncherView extends BorderPane {
     HBox stylesRow = labeledField("Styles", tfStyles);
 
     Button saveRegistry = new Button("Save Registry");
-    saveRegistry.setGraphic(CssIcon.save("#8cd48c"));
+    saveRegistry.getStyleClass().add("layout-launcher-button");
+    saveRegistry.setGraphic(CssIcon.save());
     saveRegistry.setOnAction(e -> {
       if (projectRoot == null) return;
       File registryFile = new File(projectRoot, DEFAULT_MENU_REGISTRY_PATH);
@@ -832,7 +846,8 @@ public class LayoutEditorLauncherView extends BorderPane {
     });
 
     Button openRegistryFile = new Button("Open File");
-    openRegistryFile.setGraphic(CssIcon.expand("#7ec8e3"));
+    openRegistryFile.getStyleClass().add("layout-launcher-button");
+    openRegistryFile.setGraphic(CssIcon.expand());
     openRegistryFile.setOnAction(e -> {
       if (projectRoot == null || onOpenFile == null) return;
       File registryFile = new File(projectRoot, DEFAULT_MENU_REGISTRY_PATH);
@@ -850,6 +865,7 @@ public class LayoutEditorLauncherView extends BorderPane {
     });
 
     HBox registryActions = new HBox(6, saveRegistry, openRegistryFile);
+    registryActions.getStyleClass().add("layout-launcher-actions-row");
     registryActions.setAlignment(Pos.CENTER_LEFT);
 
     panel.getChildren().addAll(heading, hint, defaultRow, menusRow, layoutsRow, stylesRow, registryActions);
@@ -859,11 +875,12 @@ public class LayoutEditorLauncherView extends BorderPane {
   private HBox labeledField(String label, TextField field) {
     Label l = new Label(label);
     l.setMinWidth(80);
-    l.setStyle("-fx-text-fill: #b0b8c8; -fx-font-size: 11px;");
+    l.getStyleClass().add("layout-launcher-field-label");
     HBox.setHgrow(field, Priority.ALWAYS);
     field.setMaxWidth(Double.MAX_VALUE);
-    field.setStyle("-fx-font-size: 11px;");
+    field.getStyleClass().add("layout-launcher-field");
     HBox row = new HBox(6, l, field);
+    row.getStyleClass().add("layout-launcher-field-row");
     row.setAlignment(Pos.CENTER_LEFT);
     return row;
   }
@@ -936,11 +953,11 @@ public class LayoutEditorLauncherView extends BorderPane {
 
   private VBox buildOnboardingPanel() {
     VBox panel = new VBox(6);
+    panel.getStyleClass().addAll("layout-launcher-panel", "layout-launcher-onboarding-panel");
     panel.setPadding(new Insets(10, 12, 10, 12));
-    panel.setStyle("-fx-background-color: #1c2230; -fx-background-radius: 8; -fx-border-color: #2a3a5a; -fx-border-radius: 8;");
 
     Label heading = new Label("Custom Menu Project");
-    heading.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #7ec8e3;");
+    heading.getStyleClass().add("layout-launcher-panel-title");
 
     boolean hasLayouts = cachedItems.stream().anyMatch(it -> it.type() == ItemType.MENU_LAYOUT);
     boolean hasStyles = cachedItems.stream().anyMatch(it -> it.type() == ItemType.MENU_STYLE);
@@ -971,7 +988,7 @@ public class LayoutEditorLauncherView extends BorderPane {
 
     Label body = new Label(guide.toString());
     body.setWrapText(true);
-    body.setStyle("-fx-font-size: 11px; -fx-text-fill: #b0b8c8;");
+    body.getStyleClass().add("layout-launcher-panel-body");
 
     panel.getChildren().addAll(heading, body);
     return panel;
@@ -979,24 +996,31 @@ public class LayoutEditorLauncherView extends BorderPane {
 
   private VBox buildCreateNewPanel() {
     VBox panel = new VBox(6);
+    panel.getStyleClass().add("layout-launcher-create-panel");
     panel.setPadding(new Insets(8, 0, 4, 0));
 
-    HBox header = CssIcon.iconLabel(CssIcon.plus("#8cd48c"), "Create New File",
-        "-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #a8b0c0;");
+    HBox header = CssIcon.iconLabel(CssIcon.plus(), "Create New File", "");
+    header.getStyleClass().add("layout-launcher-section-header");
+    if (header.getChildren().size() > 1 && header.getChildren().get(1) instanceof Label) {
+      ((Label) header.getChildren().get(1)).getStyleClass().add("layout-launcher-section-title");
+    }
     header.setPadding(new Insets(4, 0, 4, 0));
 
     Button newScreen = new Button("New Menu Screen");
-    newScreen.setGraphic(CssIcon.list("#a8d8a8"));
+    newScreen.getStyleClass().add("layout-launcher-button");
+    newScreen.setGraphic(CssIcon.list());
     newScreen.setMaxWidth(Double.MAX_VALUE);
     newScreen.setOnAction(e -> promptCreateFile("Menu Screen", "config/menu/menus", ".menu", ItemType.MENU_SCREEN));
 
     Button newLayout = new Button("New Menu Layout");
-    newLayout.setGraphic(CssIcon.grid("#d4a8e8"));
+    newLayout.getStyleClass().add("layout-launcher-button");
+    newLayout.setGraphic(CssIcon.grid());
     newLayout.setMaxWidth(Double.MAX_VALUE);
     newLayout.setOnAction(e -> promptCreateFile("Menu Layout", "config/menu/layouts", ".layout", ItemType.MENU_LAYOUT));
 
     Button newStyle = new Button("New Menu Style");
-    newStyle.setGraphic(CssIcon.palette("#e8c8a8"));
+    newStyle.getStyleClass().add("layout-launcher-button");
+    newStyle.setGraphic(CssIcon.palette());
     newStyle.setMaxWidth(Double.MAX_VALUE);
     newStyle.setOnAction(e -> promptCreateFile("Menu Style", "config/menu/styles", ".style", ItemType.MENU_STYLE));
 
