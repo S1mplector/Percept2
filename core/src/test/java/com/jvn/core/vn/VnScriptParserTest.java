@@ -943,6 +943,41 @@ public class VnScriptParserTest {
   }
 
   @Test
+  public void attachesVoiceCommandToFollowingDialogueLine() throws Exception {
+    String script = """
+      @label start
+      [voice voice/alice_001.ogg]
+      Alice: Hello there.
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario = parser.parseFromString(script);
+
+    assertEquals(2, scenario.getNodes().size());
+    VnNode dialogue = scenario.getNodes().get(0);
+    assertEquals(VnNodeType.DIALOGUE, dialogue.getType());
+    assertEquals("voice/alice_001.ogg", dialogue.getDialogue().getVoiceTrackId());
+  }
+
+  @Test
+  public void keepsVoiceCommandStandaloneWhenNotFollowedByDialogue() throws Exception {
+    String script = """
+      @label start
+      [voice voice/sting.ogg]
+      [show hero center neutral]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario = parser.parseFromString(script);
+
+    assertEquals(VnNodeType.AUDIO, scenario.getNodes().get(0).getType());
+    assertEquals("voice/sting.ogg", scenario.getNodes().get(0).getAudioCommand().getTrackId());
+    assertEquals(VnNodeType.SHOW, scenario.getNodes().get(1).getType());
+  }
+
+  @Test
   public void parsesAudioPauseResumeAllCommands() throws Exception {
     String script = """
       @label start

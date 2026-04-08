@@ -193,6 +193,7 @@ public class VnScriptParser {
     int syntheticLabelCounter = 0;
     Map<String, CharacterPosition> customPositions = new HashMap<>();
     Map<String, String> inlineCompositeExpressions = new HashMap<>();
+    String pendingVoiceTrackId;
 
     CharacterPosition getCustomPosition(String name) {
       if (name == null || name.isBlank()) return null;
@@ -299,6 +300,7 @@ public class VnScriptParser {
 
     ensureBuilder(state);
     flushChoices(state.builder, state.pendingChoices);
+    flushPendingVoice(state);
     validateLabelReferences(state);
 
     // Finalize characters with expressions (replaces earlier simple character entries).
@@ -392,6 +394,7 @@ public class VnScriptParser {
       Matcher varMatcher = VAR_PATTERN.matcher(trimmed);
       if (varMatcher.matches()) {
         state.contentEmitted = true;
+        flushPendingVoice(state);
         String key = varMatcher.group(1).trim();
         String value = varMatcher.group(2) != null ? varMatcher.group(2) : varMatcher.group(3);
         if (value == null || value.isBlank()) {
@@ -513,6 +516,7 @@ public class VnScriptParser {
       if (labelMatcher.matches()) {
         state.contentEmitted = true;
         flushChoices(state.builder, state.pendingChoices);
+        flushPendingVoice(state);
         String label = labelMatcher.group(1).trim();
         registerLabel(state, label, sourceName, lineNumber, rawLine, false);
         state.builder.label(label);
@@ -523,6 +527,7 @@ public class VnScriptParser {
       if (legacyLabelMatcher.matches()) {
         state.contentEmitted = true;
         flushChoices(state.builder, state.pendingChoices);
+        flushPendingVoice(state);
         String label = legacyLabelMatcher.group(1).trim();
         registerLabel(state, label, sourceName, lineNumber, rawLine, false);
         state.builder.label(label);
@@ -531,6 +536,7 @@ public class VnScriptParser {
 
       if (trimmed.startsWith(">")) {
         state.contentEmitted = true;
+        flushPendingVoice(state);
         ParsedChoice parsedChoice = parseChoiceSegment(trimmed.substring(1).trim(), sourceName, lineNumber, rawLine);
         if (parsedChoice != null) {
           if (parsedChoice.target != null) {
@@ -545,6 +551,7 @@ public class VnScriptParser {
       if (trimmed.startsWith("timeline") && (trimmed.endsWith("{") || trimmed.equals("timeline"))) {
         state.contentEmitted = true;
         flushChoices(state.builder, state.pendingChoices);
+        flushPendingVoice(state);
         ensureBuilder(state);
         StringBuilder block = new StringBuilder();
         int braceDepth = 0;
@@ -604,8 +611,7 @@ public class VnScriptParser {
         flushChoices(state.builder, state.pendingChoices);
         String speakerId = dialogueMatcher.group(1).trim();
         String text = dialogueMatcher.group(2).trim();
-        String displayName = resolveDisplayName(state, speakerId);
-        state.builder.dialogue(displayName, text);
+        emitDialogue(state, speakerId, text);
         continue;
       }
 
@@ -615,8 +621,7 @@ public class VnScriptParser {
         flushChoices(state.builder, state.pendingChoices);
         String speakerId = quotedDialogueMatcher.group(1).trim();
         String text = unescapeQuoted(quotedDialogueMatcher.group(2));
-        String displayName = resolveDisplayName(state, speakerId);
-        state.builder.dialogue(displayName, text);
+        emitDialogue(state, speakerId, text);
         continue;
       }
 
@@ -652,6 +657,7 @@ public class VnScriptParser {
         return;
       }
       case "end":
+        flushPendingVoice(state);
         ensureNoArg(arg, cmd, sourceName, lineNumber, rawLine);
         state.builder.end();
         return;
@@ -801,10 +807,11 @@ public class VnScriptParser {
         if (toks.length == 0 || toks[0].isBlank()) {
           throw parseError(sourceName, lineNumber, "[voice] requires a track id", rawLine);
         }
-        state.builder.playVoice(toks[0]);
+        state.pendingVoiceTrackId = toks[0];
         return;
       }
       case "voice_stop":
+        flushPendingVoice(state);
         ensureNoArg(arg, cmd, sourceName, lineNumber, rawLine);
         state.builder.external("audio", "voice_stop");
         return;
@@ -1252,6 +1259,7 @@ public class VnScriptParser {
         return;
       }
       case "choice": {
+        flushPendingVoice(state);
         String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
         List<Choice> inlineChoices = parseInlineChoices(payload, sourceName, lineNumber, rawLine, state);
         if (inlineChoices.isEmpty()) {
@@ -1425,11 +1433,28 @@ public class VnScriptParser {
     return displayName;
   }
 
+  private void emitDialogue(ParseState state, String speakerId, String text) {
+    String displayName = resolveDisplayName(state, speakerId);
+    if (state.pendingVoiceTrackId != null && !state.pendingVoiceTrackId.isBlank()) {
+      state.builder.dialogue(displayName, text, state.pendingVoiceTrackId);
+      state.pendingVoiceTrackId = null;
+      return;
+    }
+    state.builder.dialogue(displayName, text);
+  }
+
   private void flushChoices(VnScenarioBuilder builder, List<Choice> choices) {
     if (!choices.isEmpty()) {
       builder.choiceNodes(new ArrayList<>(choices));
       choices.clear();
     }
+  }
+
+  private void flushPendingVoice(ParseState state) {
+    if (state.pendingVoiceTrackId == null || state.pendingVoiceTrackId.isBlank()) return;
+    ensureBuilder(state);
+    state.builder.playVoice(state.pendingVoiceTrackId);
+    state.pendingVoiceTrackId = null;
   }
 
   private String resolveLayerPresetSpec(ParseState state,

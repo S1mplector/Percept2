@@ -281,6 +281,7 @@ public class VnScene implements Scene {
       if (state.getTextRevealProgress() < textLength) {
         state.setTextRevealProgress(textLength);
       }
+      stopDialogueVoiceIfPresent(current);
     }
 
     state.advance();
@@ -481,8 +482,20 @@ public class VnScene implements Scene {
       );
     }
 
+    if (audioFacade != null && dialogue.getVoiceTrackId() != null && !dialogue.getVoiceTrackId().isBlank()) {
+      audioFacade.stopVoice();
+      audioFacade.playVoice(dialogue.getVoiceTrackId());
+    }
+
     // Capture rollback state after dialogue visuals are applied.
     state.captureRollbackState(speaker, text);
+  }
+
+  private void stopDialogueVoiceIfPresent(VnNode node) {
+    if (audioFacade == null || node == null || node.getType() != VnNodeType.DIALOGUE) return;
+    DialogueLine dialogue = node.getDialogue();
+    if (dialogue == null || dialogue.getVoiceTrackId() == null || dialogue.getVoiceTrackId().isBlank()) return;
+    audioFacade.stopVoice();
   }
 
   private void processBackgroundNode(VnNode node) {
@@ -690,6 +703,9 @@ public class VnScene implements Scene {
     boolean ok = quickSaveManager.applyQuickLoad(state, scenario);
     if (ok) {
       if (audioFacade != null) {
+        audioFacade.stopVoice();
+      }
+      if (audioFacade != null) {
         VnSettings s = state.getSettings();
         audioFacade.setBgmVolume(s.getBgmVolume());
         audioFacade.setSfxVolume(s.getSfxVolume());
@@ -709,6 +725,9 @@ public class VnScene implements Scene {
     if (quickSaveManager == null) return false;
     boolean ok = quickSaveManager.applyLatestAutoSave(state, scenario);
     if (ok) {
+      if (audioFacade != null) {
+        audioFacade.stopVoice();
+      }
       if (audioFacade != null) {
         VnSettings s = state.getSettings();
         audioFacade.setBgmVolume(s.getBgmVolume());
@@ -753,6 +772,7 @@ public class VnScene implements Scene {
     // Get previous state and apply
     VnRollbackEntry previous = state.getRollbackStack().rollback(currentEntry);
     if (previous != null) {
+      if (audioFacade != null) audioFacade.stopVoice();
       previous.applyTo(state);
       // Reset blocking states
       waitingNode = false;
@@ -792,6 +812,7 @@ public class VnScene implements Scene {
     // Get next state and apply
     VnRollbackEntry next = state.getRollbackStack().rollforward(currentEntry);
     if (next != null) {
+      if (audioFacade != null) audioFacade.stopVoice();
       next.applyTo(state);
       waitingNode = false;
       waitRemainingMs = 0;

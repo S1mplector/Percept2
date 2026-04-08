@@ -75,11 +75,16 @@ public class VnScenarioBuilder {
   }
 
   public VnScenarioBuilder dialogue(String speaker, String text) {
+    return dialogue(speaker, text, null);
+  }
+
+  public VnScenarioBuilder dialogue(String speaker, String text, String voiceTrackId) {
     scenarioBuilder.addNode(
       VnNode.builder(VnNodeType.DIALOGUE)
         .dialogue(DialogueLine.builder()
           .speakerName(speaker)
           .text(text)
+          .voiceTrackId(voiceTrackId)
           .build())
         .build()
     );
@@ -88,6 +93,12 @@ public class VnScenarioBuilder {
 
   public VnScenarioBuilder dialogue(String speaker, String text, String characterId, 
                                     String expression, CharacterPosition position) {
+    return dialogue(speaker, text, characterId, expression, position, null);
+  }
+
+  public VnScenarioBuilder dialogue(String speaker, String text, String characterId,
+                                    String expression, CharacterPosition position,
+                                    String voiceTrackId) {
     scenarioBuilder.addNode(
       VnNode.builder(VnNodeType.DIALOGUE)
         .dialogue(DialogueLine.builder()
@@ -96,6 +107,7 @@ public class VnScenarioBuilder {
           .characterId(characterId)
           .expression(expression)
           .position(position)
+          .voiceTrackId(voiceTrackId)
           .build())
         .build()
     );
