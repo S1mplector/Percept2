@@ -224,6 +224,8 @@ fi
 
 spinner_frames=('|' '/' '-' '\')
 spinner_index=0
+spinner_tick_seconds="0.10"
+spinner_tick_marker="__JVNW_SPINNER_TICK__"
 status_text="Preparing Gradle wrapper..."
 done_message="Command completed."
 compile_started=0
@@ -540,16 +542,39 @@ if [[ -n "$command_label" || -n "$resolved_target" ]]; then
 fi
 
 start_time_epoch="$(date +%s)"
+if [[ "$supports_spinner" -eq 1 ]]; then
+  render_status
+fi
 "${gradle_cmd[@]}" >"$fifo_path" 2>&1 &
 gradle_pid=$!
 
-exec 3<"$fifo_path"
+exec 3< <(
+  perl -e '
+    use strict;
+    use warnings;
+    use IO::Select;
+    $| = 1;
 
-while true; do
-  if IFS= read -r -t 1 line <&3; then
-    printf '%s\n' "$line" >>"$output_log"
-    handle_line "$line"
-  else
+    my ($interval, $tick_marker, $fifo_path) = @ARGV;
+    open my $fh, "<", $fifo_path or die "Unable to open $fifo_path: $!";
+
+    my $selector = IO::Select->new($fh);
+    while (1) {
+      my @ready = $selector->can_read($interval);
+      if (@ready) {
+        my $line = <$fh>;
+        last unless defined $line;
+        $line =~ s/\r?\n\z//;
+        print "$line\n";
+      } else {
+        print "$tick_marker\n";
+      }
+    }
+  ' "$spinner_tick_seconds" "$spinner_tick_marker" "$fifo_path"
+)
+
+while IFS= read -r line <&3; do
+  if [[ "$line" == "$spinner_tick_marker" ]]; then
     if kill -0 "$gradle_pid" 2>/dev/null; then
       if [[ "$launch_announced" -eq 1 && "$launch_live_announced" -eq 0 ]]; then
         clear_status
@@ -573,13 +598,10 @@ while true; do
       if [[ "$suppress_status_render" -eq 0 ]]; then
         render_status
       fi
-    else
-      while IFS= read -r line <&3; do
-        printf '%s\n' "$line" >>"$output_log"
-        handle_line "$line"
-      done
-      break
     fi
+  else
+    printf '%s\n' "$line" >>"$output_log"
+    handle_line "$line"
   fi
 done
 
