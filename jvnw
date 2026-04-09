@@ -233,6 +233,8 @@ tests_announced=0
 native_math_announced=0
 audiofx_announced=0
 live_failure_output_seen=0
+launch_live_announced=0
+suppress_status_render=0
 command_label=""
 resolved_target=""
 wrapper_mode="Direct Gradle task"
@@ -336,7 +338,7 @@ emit_hint() {
 emit_raw() {
   local line="$1"
   case "$line" in
-    FAILURE:*|*"Execution failed for task"*|*"What went wrong:"*|*"Caused by:"*|*"Exception"*|*"error:"*|*"BUILD FAILED"*)
+    FAILURE:*|*"Execution failed for task"*|*"What went wrong:"*|*"Caused by:"*|*"BUILD FAILED"*)
       emit_line "$(paint "$tone_error" "$line")"
       ;;
     WARNING:*|*WARN*)
@@ -346,6 +348,21 @@ emit_raw() {
       emit_line "$line"
       ;;
   esac
+}
+
+is_real_error_line() {
+  local line="$1"
+  [[ "$line" == *"Execution failed for task"* ]] && return 0
+  [[ "$line" == *"BUILD FAILED"* ]] && return 0
+  [[ "$line" == FAILURE:* ]] && return 0
+  [[ "$line" == *" What went wrong:"* ]] && return 0
+  [[ "$line" == *"* What went wrong:"* ]] && return 0
+  [[ "$line" == *"Caused by:"* ]] && return 0
+  [[ "$line" == *"Exception"* ]] && return 0
+  [[ "$line" == *": error:"* ]] && return 0
+  [[ "$line" == *" error C"* ]] && return 0
+  [[ "$line" == *"fatal error:"* ]] && return 0
+  return 1
 }
 
 should_surface_line() {
@@ -359,17 +376,13 @@ should_surface_line() {
     ">"*)
       return 0
       ;;
-    FAILURE:*|\
-    *"Execution failed for task"*|\
-    *"What went wrong:"*|\
-    *"Caused by:"*|\
-    *"Exception"*|\
-    *"error:"*|\
-    *" FAILED"*|\
-    *"BUILD FAILED"*)
+    *" FAILED"*)
       return 0
       ;;
   esac
+  if is_real_error_line "$line"; then
+    return 0
+  fi
   return 1
 }
 
@@ -469,6 +482,8 @@ handle_line() {
         emit_info "Launching..."
         launch_announced=1
       fi
+      suppress_status_render=0
+      launch_live_announced=0
       status_text="Launching..."
       ;;
     WARNING:\ A\ restricted\ method\ in\ java.lang.System\ has\ been\ called*|\
@@ -536,7 +551,28 @@ while true; do
     handle_line "$line"
   else
     if kill -0 "$gradle_pid" 2>/dev/null; then
-      render_status
+      if [[ "$launch_announced" -eq 1 && "$launch_live_announced" -eq 0 ]]; then
+        clear_status
+        case "$command_label" in
+          launcher)
+            emit_info "Launcher running. Close the launcher window to finish this command."
+            ;;
+          editor)
+            emit_info "Editor running. Close the editor window to finish this command."
+            ;;
+          runtime|run|game)
+            emit_info "Runtime running. Close the runtime window to finish this command."
+            ;;
+          *)
+            emit_info "Application process is running."
+            ;;
+        esac
+        launch_live_announced=1
+        suppress_status_render=1
+      fi
+      if [[ "$suppress_status_render" -eq 0 ]]; then
+        render_status
+      fi
     else
       while IFS= read -r line <&3; do
         printf '%s\n' "$line" >>"$output_log"
