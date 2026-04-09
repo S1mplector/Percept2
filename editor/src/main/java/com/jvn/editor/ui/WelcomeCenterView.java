@@ -715,14 +715,27 @@ public class WelcomeCenterView extends BorderPane {
     badge.setGraphic(null);
     badge.setText(null);
     badge.setContentDisplay(ContentDisplay.LEFT);
-    if (severity == Severity.OK) {
-      Node okIcon = CssIcon.check("#8bcf98");
-      badge.setGraphic(okIcon);
-      badge.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
-      badge.setAccessibleText("OK");
-      return;
+    switch (severity) {
+      case OK -> {
+        Node okIcon = CssIcon.check("#8bcf98");
+        badge.setGraphic(okIcon);
+        badge.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        badge.setAccessibleText("OK");
+      }
+      case WARN -> {
+        Node warnIcon = CssIcon.warning("#efbf82");
+        badge.setGraphic(warnIcon);
+        badge.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        badge.setAccessibleText("WARN");
+      }
+      case ERROR -> {
+        Node errorIcon = CssIcon.error("#f0a1b2");
+        badge.setGraphic(errorIcon);
+        badge.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        badge.setAccessibleText("ERROR");
+      }
+      case INFO -> badge.setText(severityLabel(severity));
     }
-    badge.setText(severityLabel(severity));
   }
 
   private String severityBadgeClass(Severity severity) {

@@ -54,8 +54,12 @@ public final class CssIcon {
       "M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z";
   private static final String PATH_PALETTE =
       "M12 2C6.49 2 2 6.49 2 12s4.49 10 10 10a2.5 2.5 0 0 0 2.5-2.5c0-.61-.23-1.2-.63-1.63-.37-.4-.58-.92-.58-1.51 0-1.31 1.07-2.36 2.37-2.36H17c2.76 0 5-2.24 5-5 0-4.42-4.03-8-10-8zm-5.5 9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3 4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z";
+  private static final String PATH_WARNING =
+      "M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z";
   private static final String PATH_CHECK =
       "M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z";
+  private static final String PATH_ERROR =
+      "M12 2 4.93 4.93 2 12l2.93 7.07L12 22l7.07-2.93L22 12l-2.93-7.07L12 2zm4.24 13.83-1.41 1.41L12 13.41l-2.83 2.83-1.41-1.41L10.59 12 7.76 9.17l1.41-1.41L12 10.59l2.83-2.83 1.41 1.41L13.41 12l2.83 2.83z";
   private static final String PATH_LINK =
       "M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z";
   private static final String PATH_HOME =
@@ -112,10 +116,12 @@ public final class CssIcon {
   public static Region search(String color)   { return icon(PATH_SEARCH, color, 14); }
   public static Region grid(String color)     { return icon(PATH_GRID, color, 14); }
   public static Region palette(String color)  { return icon(PATH_PALETTE, color, 14); }
+  public static Region warning(String color)  { return icon(PATH_WARNING, color, 14); }
   public static Region download(String color)  { return icon(PATH_DOWNLOAD, color, 14); }
   public static Region save(String color)      { return icon(PATH_SAVE, color, 14); }
   public static Region expand(String color)    { return icon(PATH_EXPAND, color, 14); }
   public static Region check(String color)     { return icon(PATH_CHECK, color, 14); }
+  public static Region error(String color)     { return icon(PATH_ERROR, color, 14); }
   public static Region link(String color)      { return icon(PATH_LINK, color, 14); }
   public static Region home(String color)      { return icon(PATH_HOME, color, 14); }
   public static Region copy(String color)      { return icon(PATH_COPY, color, 14); }
@@ -153,10 +159,12 @@ public final class CssIcon {
   public static Region search()   { return search("#b0b8c8"); }
   public static Region grid()     { return grid("#b0b8c8"); }
   public static Region palette()  { return palette("#b0b8c8"); }
+  public static Region warning()  { return warning("#b0b8c8"); }
   public static Region download() { return download("#b0b8c8"); }
   public static Region save()     { return save("#b0b8c8"); }
   public static Region expand()   { return expand("#b0b8c8"); }
   public static Region check()    { return check("#b0b8c8"); }
+  public static Region error()    { return error("#b0b8c8"); }
   public static Region link()     { return link("#b0b8c8"); }
   public static Region home()     { return home("#b0b8c8"); }
   public static Region copy()     { return copy("#b0b8c8"); }
