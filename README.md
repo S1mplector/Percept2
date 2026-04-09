@@ -4,7 +4,7 @@
   <img src="docs/assets/images/jvn_logo_os.png" width="512" alt="JVN logo">
 </div>
 
-JVN is a modular Visual Novel engine written primarily in Java, C and C++.
+JVN is a modular cross-platform Visual Novel engine written primarily in Java, C and C++.
 
 ## Architecture
 
