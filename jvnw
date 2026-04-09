@@ -229,8 +229,10 @@ done_message="Command completed."
 compile_started=0
 compile_ok_announced=0
 launch_announced=0
+tests_announced=0
 native_math_announced=0
 audiofx_announced=0
+live_failure_output_seen=0
 command_label=""
 resolved_target=""
 wrapper_mode="Direct Gradle task"
@@ -352,6 +354,11 @@ should_surface_line() {
     return 0
   fi
   case "$line" in
+    "> Task "*)
+      ;;
+    ">"*)
+      return 0
+      ;;
     FAILURE:*|\
     *"Execution failed for task"*|\
     *"What went wrong:"*|\
@@ -374,20 +381,24 @@ show_failure_summary() {
   fi
 
   emit_error "Command failed after ${elapsed_label}."
-  emit_section "Relevant output"
+  if [[ "$live_failure_output_seen" -eq 1 ]]; then
+    emit_hint "Failure output was already surfaced above."
+  else
+    emit_section "Relevant output"
 
-  local surfaced=0
-  while IFS= read -r line; do
-    if should_surface_line "$line"; then
-      emit_raw "$line"
-      surfaced=1
+    local surfaced=0
+    while IFS= read -r line; do
+      if should_surface_line "$line"; then
+        emit_raw "$line"
+        surfaced=1
+      fi
+    done <"$output_log"
+
+    if [[ "$surfaced" -eq 0 ]]; then
+      tail -n 40 "$output_log" | while IFS= read -r line; do
+        emit_raw "$line"
+      done
     fi
-  done <"$output_log"
-
-  if [[ "$surfaced" -eq 0 ]]; then
-    tail -n 40 "$output_log" | while IFS= read -r line; do
-      emit_raw "$line"
-    done
   fi
 
   emit_hint "Re-run with ./jvnw --raw <same-args> for full Gradle output."
@@ -438,7 +449,18 @@ handle_line() {
         status_text="Finalizing compiled modules..."
       fi
       ;;
-    "> Task "*:runLauncher*|"> Task "*:run*)
+    "> Task :"?*":test"*|"> Task "*:runAudioFxNativeTests*)
+      if [[ "$compile_started" -eq 1 && "$compile_ok_announced" -eq 0 ]]; then
+        emit_info "Compiling submodules OK"
+        compile_ok_announced=1
+      fi
+      if [[ "$tests_announced" -eq 0 ]]; then
+        emit_info "Running tests..."
+        tests_announced=1
+      fi
+      status_text="Running tests..."
+      ;;
+    "> Task :editor:runLauncher"*|"> Task :editor:run"*|"> Task :runtime:run"*)
       if [[ "$compile_started" -eq 1 && "$compile_ok_announced" -eq 0 ]]; then
         emit_info "Compiling submodules OK"
         compile_ok_announced=1
@@ -469,6 +491,7 @@ handle_line() {
       ;;
     *)
       if should_surface_line "$line"; then
+        live_failure_output_seen=1
         emit_raw "$line"
       fi
       ;;

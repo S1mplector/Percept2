@@ -165,6 +165,10 @@ public final class StartupSplashOverlay {
     runOnFx(() -> statusLabel.setText(status == null ? "" : status));
   }
 
+  public void setSubtitle(String subtitle) {
+    runOnFx(() -> subtitleLabel.setText(subtitle == null ? "" : subtitle));
+  }
+
   public void showFailure(String summary, String detail, Runnable onRetry, Runnable onQuit) {
     runOnFx(() -> {
       subtitleLabel.setText("Startup blocked");

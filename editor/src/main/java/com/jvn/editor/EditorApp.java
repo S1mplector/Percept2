@@ -1902,8 +1902,6 @@ public class EditorApp extends Application {
     workspaceHubView.setOnOpenProjectDialog(() -> doOpenProject(primaryStage));
     workspaceHubView.setOnRunProject(() -> doRunProject(primaryStage));
     workspaceHubView.setOnShowProjectExplorer(this::selectProjectTab);
-    workspaceHubView.setOnShowScriptEditor(this::selectScriptEditorLauncherTab);
-    workspaceHubView.setOnShowVersionControl(this::selectVersionControlTab);
     workspaceHubView.setOnShowHelpCenter(this::selectHelpTab);
     tabWorkspaceHub = new Tab("Workspace", workspaceHubView);
     tabWorkspaceHub.setClosable(false);
@@ -4187,23 +4185,9 @@ public class EditorApp extends Application {
       popOutBtn.setDisable(true);
     }
 
-    Button removeBtn = new Button();
-    removeBtn.setGraphic(CssIcon.minus("#f38ba8"));
-    removeBtn.setTooltip(new Tooltip("Remove from sidebars"));
-    removeBtn.setMinSize(26, 26); removeBtn.setPrefSize(26, 26); removeBtn.setMaxSize(26, 26);
-    removeBtn.setFocusTraversable(false);
-    removeBtn.getStyleClass().add("panel-chooser-icon-btn");
-    if (removeAction != null) {
-      removeBtn.setOnAction(e -> removeAction.run());
-    } else {
-      removeBtn.setDisable(true);
-    }
-
     Runnable refreshState = () -> {
       updateChooserMemoryIndicator(memoryIndicator, panel, memoryTooltip);
       if (panel == null) {
-        removeBtn.setManaged(false);
-        removeBtn.setVisible(false);
         dockBtn.setGraphic(CssIcon.plus("#d6dbe5"));
         dockBtn.setTooltip(new Tooltip("Open in this panel"));
         placementBadge.setManaged(false);
@@ -4230,9 +4214,6 @@ public class EditorApp extends Application {
         dockBtn.setGraphic(CssIcon.dock("#d6dbe5"));
         dockBtn.setTooltip(new Tooltip("Select panel"));
       }
-      removeBtn.setManaged(true);
-      removeBtn.setVisible(true);
-      removeBtn.setDisable(!attached && placement == EditorPanelPlacement.HIDDEN);
     };
 
     final Runnable dockAction;
@@ -4253,15 +4234,8 @@ public class EditorApp extends Application {
         refreshState.run();
       });
     }
-    if (removeAction != null) {
-      removeBtn.setOnAction(e -> {
-        removeAction.run();
-        dismissPanelChooser(chooserPane);
-        refreshState.run();
-      });
-    }
 
-    HBox row = new HBox(6, panelIcon, label, memoryGroup, placementBadge, dockBtn, popOutBtn, removeBtn);
+    HBox row = new HBox(6, panelIcon, label, memoryGroup, placementBadge, dockBtn, popOutBtn);
     row.setAlignment(Pos.CENTER_LEFT);
     row.setPadding(new javafx.geometry.Insets(4, 6, 4, 6));
     row.getStyleClass().add("panel-chooser-row");
@@ -4320,11 +4294,11 @@ public class EditorApp extends Application {
     content.setAlignment(Pos.CENTER);
     content.setFillWidth(true);
     content.setMaxWidth(260);
+    content.setMaxHeight(Region.USE_PREF_SIZE);
     content.setPadding(new Insets(24));
 
     StackPane shell = new StackPane(content);
     shell.getStyleClass().add("sidebar-empty-shell");
-    shell.setPadding(new Insets(18));
     return shell;
   }
 

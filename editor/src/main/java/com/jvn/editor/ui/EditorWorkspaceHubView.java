@@ -27,8 +27,6 @@ public class EditorWorkspaceHubView extends BorderPane {
   private final Button btnOpenProject = new Button();
   private final Button btnRunProject = new Button();
   private final Button btnOpenProjectExplorer = new Button();
-  private final Button btnOpenTextEditor = new Button();
-  private final Button btnOpenVersionControl = new Button();
   private final Button btnOpenHelpCenter = new Button();
 
   private File workspaceRoot;
@@ -38,8 +36,6 @@ public class EditorWorkspaceHubView extends BorderPane {
   private Runnable onOpenProjectDialog;
   private Runnable onRunProject;
   private Runnable onShowProjectExplorer;
-  private Runnable onShowScriptEditor;
-  private Runnable onShowVersionControl;
   private Runnable onShowHelpCenter;
 
   public EditorWorkspaceHubView() {
@@ -71,14 +67,6 @@ public class EditorWorkspaceHubView extends BorderPane {
 
   public void setOnShowProjectExplorer(Runnable onShowProjectExplorer) {
     this.onShowProjectExplorer = onShowProjectExplorer;
-  }
-
-  public void setOnShowScriptEditor(Runnable onShowScriptEditor) {
-    this.onShowScriptEditor = onShowScriptEditor;
-  }
-
-  public void setOnShowVersionControl(Runnable onShowVersionControl) {
-    this.onShowVersionControl = onShowVersionControl;
   }
 
   public void setOnShowHelpCenter(Runnable onShowHelpCenter) {
@@ -125,20 +113,6 @@ public class EditorWorkspaceHubView extends BorderPane {
         "welcome-action-button-secondary",
         () -> runAction(onShowProjectExplorer, "Project Explorer"));
     configureActionButton(
-        btnOpenTextEditor,
-        CssIcon.document("#d6cab8"),
-        "Text Editor",
-        "Open Text Editor Workspace tab",
-        "welcome-action-button-secondary",
-        () -> runAction(onShowScriptEditor, "Text Editor Workspace"));
-    configureActionButton(
-        btnOpenVersionControl,
-        CssIcon.link("#d6cab8"),
-        "Version Control",
-        "Open Version Control tab",
-        "welcome-action-button-secondary",
-        () -> runAction(onShowVersionControl, "Version Control"));
-    configureActionButton(
         btnOpenHelpCenter,
         CssIcon.search("#d6cab8"),
         "Help Center",
@@ -150,11 +124,7 @@ public class EditorWorkspaceHubView extends BorderPane {
     rowPrimary.getStyleClass().add("welcome-action-row");
     rowPrimary.setAlignment(Pos.CENTER_LEFT);
 
-    HBox rowSecondary = new HBox(8,
-        btnOpenProjectExplorer,
-        btnOpenTextEditor,
-        btnOpenVersionControl,
-        btnOpenHelpCenter);
+    HBox rowSecondary = new HBox(8, btnOpenProjectExplorer, btnOpenHelpCenter);
     rowSecondary.getStyleClass().add("welcome-action-row");
     rowSecondary.setAlignment(Pos.CENTER_LEFT);
 

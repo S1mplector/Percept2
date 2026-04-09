@@ -2,7 +2,12 @@ package com.jvn.editor;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.InputStream;
 import java.lang.management.ManagementFactory;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -12,9 +17,13 @@ import com.jvn.editor.ui.EditorDialogs;
 import com.jvn.editor.ui.EditorTheme;
 import com.jvn.editor.ui.NewProjectWizard;
 import com.jvn.editor.ui.RunConsoleView;
+import com.jvn.editor.ui.StartupSplashOverlay;
 import com.jvn.editor.ui.WelcomeCenterView;
 
+import javafx.animation.PauseTransition;
 import javafx.application.Application;
+import javafx.application.Platform;
+import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.Label;
@@ -34,6 +43,7 @@ import javafx.scene.layout.HBox;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
 import javafx.stage.Window;
+import javafx.util.Duration;
 
 /**
  * Standalone launcher app for project discovery and runtime/editor entry.
@@ -41,6 +51,11 @@ import javafx.stage.Window;
 public class JvnLauncherApp extends Application {
   private static final String EDITOR_OPEN_PROJECT_PROPERTY = "jvn.editor.openProject";
   private static final String LAUNCHER_START_PROJECT_PROPERTY = "jvn.launcher.project";
+  private static final String STARTUP_LOGO_RELATIVE_PATH = "docs/assets/images/jvn_logo.png";
+  private static final String STARTUP_LOGO_CLASSPATH_RESOURCE = "/com/jvn/editor/images/jvn_logo.png";
+  private static final long MIN_STARTUP_SPLASH_MS = 650L;
+  private static final long STARTUP_STEP_DELAY_MS = 130L;
+  private static final DateTimeFormatter STARTUP_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
 
   private Stage primaryStage;
   private WelcomeCenterView welcomeView;
@@ -57,8 +72,158 @@ public class JvnLauncherApp extends Application {
 
   @Override
   public void start(Stage stage) {
+    EditorCrashSupport.installProcessHandler();
+    Path logoPath = resolveStartupLogoPath();
+    StartupSplashOverlay splash = new StartupSplashOverlay(logoPath);
+    splash.setSubtitle("Loading launcher environment");
+    splash.setStatus("Starting JVN Launcher...");
+    splash.show();
+    launchStartupSequence(stage, splash, logoPath, false);
+  }
+
+  private void launchStartupSequence(Stage stage,
+                                     StartupSplashOverlay splash,
+                                     Path logoPath,
+                                     boolean clearLogs) {
+    splash.prepareForChecks(clearLogs);
+    splash.setSubtitle("Loading launcher environment");
+    splash.setStatus("Preparing launcher workspace...");
+    splash.setProgress(0.0);
+    splash.appendLog(startupLogLine("INFO", "Bootstrap",
+        clearLogs ? "Retrying launcher startup checks" : "Launching launcher startup checks"));
+
+    long splashShownNs = System.nanoTime();
+    Task<File> startupTask = createStartupTask(logoPath, splash);
+    startupTask.messageProperty().addListener((o, ov, nv) -> {
+      if (nv == null || nv.isBlank()) return;
+      splash.setStatus(nv);
+    });
+    startupTask.progressProperty().addListener((o, ov, nv) -> {
+      double progress = nv == null ? -1.0 : nv.doubleValue();
+      splash.setProgress(progress);
+    });
+    startupTask.setOnSucceeded(e -> finalizeStartupSuccess(stage, splash, startupTask.getValue(), splashShownNs));
+    startupTask.setOnFailed(e -> finalizeStartupFailure(stage, splash, logoPath, startupTask.getException()));
+    Thread startupThread = new Thread(startupTask, "jvn-launcher-startup-checks");
+    startupThread.setDaemon(true);
+    startupThread.start();
+  }
+
+  private void finalizeStartupSuccess(Stage stage,
+                                      StartupSplashOverlay splash,
+                                      File resolvedWorkspace,
+                                      long splashShownNs) {
+    long elapsedMs = (System.nanoTime() - splashShownNs) / 1_000_000L;
+    long waitMs = Math.max(0L, MIN_STARTUP_SPLASH_MS - elapsedMs);
+    PauseTransition delay = new PauseTransition(Duration.millis(waitMs));
+    delay.setOnFinished(evt -> {
+      try {
+        workspaceRoot = resolvedWorkspace != null ? resolvedWorkspace : resolveWorkspaceRoot();
+        initializeLauncherStage(stage);
+      } catch (Exception ex) {
+        EditorDialogs.error(stage, "JVN Launcher", "Startup failed: " + safeMessage(ex));
+      } finally {
+        splash.close();
+      }
+    });
+    delay.play();
+  }
+
+  private void finalizeStartupFailure(Stage stage,
+                                      StartupSplashOverlay splash,
+                                      Path logoPath,
+                                      Throwable startupFailure) {
+    StartupFailure failure = startupFailure instanceof StartupFailure sf
+        ? sf
+        : new StartupFailure(
+            "Launcher startup checks failed",
+            startupFailure == null ? "Unknown startup error" : safeMessage(startupFailure),
+            startupFailure);
+    splash.appendLog(startupLogLine("ERROR", "Preflight", failure.summary()));
+    if (failure.detail() != null && !failure.detail().isBlank()) {
+      splash.appendLog(startupLogLine("ERROR", "Preflight", failure.detail()));
+    }
+    splash.showFailure(
+        failure.summary(),
+        failure.detail(),
+        () -> launchStartupSequence(stage, splash, logoPath, true),
+        Platform::exit);
+  }
+
+  private Task<File> createStartupTask(Path logoPath, StartupSplashOverlay splash) {
+    return new Task<>() {
+      @Override
+      protected File call() {
+        final int totalChecks = 6;
+        int step = 0;
+        updateProgress(0, totalChecks);
+
+        File workspace = resolveWorkspaceRoot();
+        if (workspace == null || !workspace.isDirectory()) {
+          throw new StartupFailure(
+              "Workspace root not found",
+              "Launch the launcher from the JVN repository root so project discovery and runtime actions can resolve correctly.");
+        }
+        logSplash(splash, "OK", "Workspace", workspace.getAbsolutePath());
+        updateMessage("Workspace root resolved");
+        advance(++step, totalChecks);
+
+        boolean logoOk = logoPath != null && Files.isRegularFile(logoPath) && Files.isReadable(logoPath);
+        logSplash(splash, logoOk ? "OK" : "WARN", "Branding",
+            logoOk
+                ? "Logo ready: " + logoPath.toAbsolutePath()
+                : "Logo not readable: " + (logoPath == null ? "<none>" : logoPath.toAbsolutePath()));
+        updateMessage(logoOk ? "Brand assets loaded" : "Brand assets unavailable");
+        advance(++step, totalChecks);
+
+        logSplash(splash, "OK", "Runtime",
+            "Java " + System.getProperty("java.version", "unknown")
+                + " at " + System.getProperty("java.home", "<unknown>"));
+        logSplash(splash, "OK", "Runtime", "JavaFX " + System.getProperty("javafx.version", "unknown"));
+        updateMessage("Java runtime verified");
+        advance(++step, totalChecks);
+
+        Path gradlew = workspace.toPath().resolve(isWindowsOs() ? "gradlew.bat" : "gradlew");
+        Path wrapperProps = workspace.toPath().resolve("gradle/wrapper/gradle-wrapper.properties");
+        if (!Files.isRegularFile(gradlew) || !Files.isRegularFile(wrapperProps)) {
+          logSplash(splash, "WARN", "Gradle",
+              "Wrapper not fully available. Launcher can open projects, but build/run actions may fail.");
+        } else if (!isWindowsOs() && !Files.isExecutable(gradlew)) {
+          logSplash(splash, "WARN", "Gradle", "Wrapper exists but is not executable: " + gradlew.toAbsolutePath());
+        } else {
+          logSplash(splash, "OK", "Gradle", "Wrapper ready (Gradle " + readGradleWrapperVersion(wrapperProps) + ")");
+        }
+        updateMessage("Gradle tooling checked");
+        advance(++step, totalChecks);
+
+        File startupProject = resolveStartupProject();
+        logSplash(splash, startupProject != null ? "OK" : "INFO", "Project",
+            startupProject != null
+                ? "Startup project selected: " + startupProject.getAbsolutePath()
+                : "No startup project provided");
+        updateMessage("Project selection restored");
+        advance(++step, totalChecks);
+
+        logSplash(splash, "INFO", "Bootstrap", "Launcher checks complete");
+        updateMessage("Launching JVN Launcher");
+        advance(++step, totalChecks);
+        return workspace;
+      }
+
+      private void advance(int currentStep, int totalChecks) {
+        updateProgress(currentStep, totalChecks);
+        if (!isCancelled()) {
+          startupSleep(STARTUP_STEP_DELAY_MS);
+        }
+      }
+    };
+  }
+
+  private void initializeLauncherStage(Stage stage) {
     primaryStage = stage;
-    workspaceRoot = resolveWorkspaceRoot();
+    if (workspaceRoot == null) {
+      workspaceRoot = resolveWorkspaceRoot();
+    }
 
     BorderPane root = new BorderPane();
     root.getStyleClass().add("jvn-launcher-root");
@@ -103,6 +268,81 @@ public class JvnLauncherApp extends Application {
     setCurrentProject(resolveStartupProject(), false);
     refreshButtonState();
     statusLabel.setText("Workspace: " + displayPath(workspaceRoot));
+  }
+
+  private Path resolveStartupLogoPath() {
+    File root = resolveWorkspaceRoot();
+    if (root != null) {
+      Path candidate = root.toPath().resolve(STARTUP_LOGO_RELATIVE_PATH);
+      if (Files.isRegularFile(candidate)) return candidate;
+    }
+    Path cwdCandidate = Path.of(STARTUP_LOGO_RELATIVE_PATH);
+    if (Files.isRegularFile(cwdCandidate)) return cwdCandidate;
+    return extractClasspathStartupLogo();
+  }
+
+  private Path extractClasspathStartupLogo() {
+    try (var in = EditorApp.class.getResourceAsStream(STARTUP_LOGO_CLASSPATH_RESOURCE)) {
+      if (in == null) return null;
+      Path temp = Files.createTempFile("jvn-launcher-logo-", ".png");
+      temp.toFile().deleteOnExit();
+      Files.write(temp, in.readAllBytes());
+      return temp;
+    } catch (Exception ignored) {
+      return null;
+    }
+  }
+
+  private static String startupLogLine(String level, String category, String detail) {
+    String time = LocalTime.now().format(STARTUP_TIME_FORMAT);
+    String lv = level == null ? "INFO" : level.trim().toUpperCase(Locale.ROOT);
+    String cat = category == null ? "Startup" : category.trim();
+    String msg = detail == null ? "" : detail.trim();
+    return "[" + time + "] [" + lv + "] " + cat + " - " + msg;
+  }
+
+  private static void logSplash(StartupSplashOverlay splash, String level, String category, String detail) {
+    if (splash == null) return;
+    splash.appendLog(startupLogLine(level, category, detail));
+  }
+
+  private static void startupSleep(long millis) {
+    try {
+      Thread.sleep(Math.max(0L, millis));
+    } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
+    }
+  }
+
+  private static String safeMessage(Throwable ex) {
+    if (ex == null) return "Unknown error";
+    String msg = ex.getMessage();
+    return (msg == null || msg.isBlank()) ? ex.getClass().getSimpleName() : msg.trim();
+  }
+
+  private static final class StartupFailure extends RuntimeException {
+    private final String summary;
+    private final String detail;
+
+    private StartupFailure(String summary, String detail) {
+      super((summary == null ? "Startup failure" : summary) + ": " + (detail == null ? "" : detail));
+      this.summary = summary == null ? "Startup failure" : summary;
+      this.detail = detail == null ? "" : detail;
+    }
+
+    private StartupFailure(String summary, String detail, Throwable cause) {
+      super((summary == null ? "Startup failure" : summary) + ": " + (detail == null ? "" : detail), cause);
+      this.summary = summary == null ? "Startup failure" : summary;
+      this.detail = detail == null ? "" : detail;
+    }
+
+    private String summary() {
+      return summary;
+    }
+
+    private String detail() {
+      return detail;
+    }
   }
 
   private MenuBar buildMenuBar() {
@@ -488,6 +728,23 @@ public class JvnLauncherApp extends Application {
       return props;
     } catch (Exception ignore) {
       return null;
+    }
+  }
+
+  private String readGradleWrapperVersion(Path wrapperProps) {
+    Properties props = new Properties();
+    try (InputStream in = Files.newInputStream(wrapperProps)) {
+      props.load(in);
+      String distributionUrl = props.getProperty("distributionUrl", "");
+      int gradleIndex = distributionUrl.indexOf("gradle-");
+      int zipIndex = distributionUrl.indexOf(".zip");
+      if (gradleIndex < 0 || zipIndex <= gradleIndex) return "unknown";
+      String version = distributionUrl.substring(gradleIndex + "gradle-".length(), zipIndex);
+      if (version.endsWith("-bin")) version = version.substring(0, version.length() - 4);
+      if (version.endsWith("-all")) version = version.substring(0, version.length() - 4);
+      return version;
+    } catch (Exception ignore) {
+      return "unknown";
     }
   }
 

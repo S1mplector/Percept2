@@ -3830,15 +3830,15 @@
 }
 
 .sidebar-empty-shell {
-  -fx-background-color: #141414;
+  -fx-background-color: transparent;
 }
 
 .sidebar-empty-state {
-  -fx-background-color: rgba(26, 26, 26, 0.94);
-  -fx-border-color: #2a2a2a;
-  -fx-border-width: 1;
-  -fx-background-radius: 12;
-  -fx-border-radius: 12;
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
+  -fx-border-width: 0;
+  -fx-background-radius: 0;
+  -fx-border-radius: 0;
 }
 
 .sidebar-empty-title {
