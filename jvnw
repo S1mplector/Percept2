@@ -1,0 +1,269 @@
+#!/usr/bin/env bash
+
+set -u
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+GRADLEW_PATH="$SCRIPT_DIR/gradlew"
+
+if [[ ! -f "$GRADLEW_PATH" ]]; then
+  printf 'JVN wrapper error: missing %s\n' "$GRADLEW_PATH" >&2
+  exit 1
+fi
+
+raw_mode="${JVN_WRAPPER_RAW:-0}"
+debug_mode="${JVN_WRAPPER_DEBUG:-0}"
+supports_spinner=0
+
+if [[ -t 1 && "${TERM:-}" != "dumb" && -z "${CI:-}" ]]; then
+  supports_spinner=1
+fi
+
+declare -a forwarded_args=()
+for arg in "$@"; do
+  if [[ "$arg" == "--raw" ]]; then
+    raw_mode=1
+  else
+    forwarded_args+=("$arg")
+  fi
+done
+
+if [[ "$raw_mode" == "1" ]]; then
+  exec "$GRADLEW_PATH" "${forwarded_args[@]}"
+fi
+
+console_specified=0
+declare -a task_args=()
+for arg in "${forwarded_args[@]}"; do
+  case "$arg" in
+    --console|--console=*)
+      console_specified=1
+      ;;
+  esac
+  if [[ "$arg" != -* ]]; then
+    task_args+=("$arg")
+  fi
+done
+
+declare -a gradle_cmd=("$GRADLEW_PATH")
+if [[ "$console_specified" -eq 0 ]]; then
+  gradle_cmd+=("--console=plain")
+fi
+gradle_cmd+=("${forwarded_args[@]}")
+
+spinner_frames=('|' '/' '-' '\')
+spinner_index=0
+status_text="Preparing Gradle wrapper..."
+done_message="Ready."
+compile_started=0
+compile_ok_announced=0
+launch_announced=0
+native_math_announced=0
+audiofx_announced=0
+
+temp_dir="$(mktemp -d "${TMPDIR:-/tmp}/jvnw.XXXXXX")"
+fifo_path="$temp_dir/gradle.pipe"
+output_log="$temp_dir/gradle.log"
+touch "$output_log"
+mkfifo "$fifo_path"
+
+cleanup() {
+  rm -rf "$temp_dir"
+}
+trap cleanup EXIT
+
+clear_status() {
+  if [[ "$supports_spinner" -eq 1 ]]; then
+    printf '\r\033[K'
+  fi
+}
+
+render_status() {
+  if [[ "$supports_spinner" -eq 1 && -n "$status_text" ]]; then
+    printf '\r%s %s' "${spinner_frames[$spinner_index]}" "$status_text"
+    spinner_index=$(( (spinner_index + 1) % ${#spinner_frames[@]} ))
+  fi
+}
+
+emit_line() {
+  clear_status
+  printf '%s\n' "$1"
+}
+
+emit_info() {
+  emit_line "$1"
+}
+
+emit_raw() {
+  emit_line "$1"
+}
+
+should_surface_line() {
+  local line="$1"
+  if [[ "$debug_mode" == "1" ]]; then
+    return 0
+  fi
+  case "$line" in
+    FAILURE:*|\
+    *"Execution failed for task"*|\
+    *"What went wrong:"*|\
+    *"Caused by:"*|\
+    *"Exception"*|\
+    *"error:"*|\
+    *" FAILED"*|\
+    *"BUILD FAILED"*)
+      return 0
+      ;;
+  esac
+  return 1
+}
+
+show_failure_summary() {
+  if [[ "$debug_mode" == "1" ]]; then
+    emit_info "Build failed."
+    return
+  fi
+
+  emit_info "Build failed."
+  emit_info "Relevant output:"
+
+  local surfaced=0
+  while IFS= read -r line; do
+    if should_surface_line "$line"; then
+      emit_raw "$line"
+      surfaced=1
+    fi
+  done <"$output_log"
+
+  if [[ "$surfaced" -eq 0 ]]; then
+    tail -n 40 "$output_log" | while IFS= read -r line; do
+      emit_raw "$line"
+    done
+  fi
+
+  emit_info "Re-run with ./jvnw --raw <same-args> for full Gradle output."
+}
+
+handle_line() {
+  local line="$1"
+
+  case "$line" in
+    native-math\ already\ built:*)
+      if [[ "$native_math_announced" -eq 0 ]]; then
+        emit_info "Native math bridge OK"
+        native_math_announced=1
+      fi
+      ;;
+    "> Task :buildNativeMathIfNeeded"*)
+      status_text="Checking native math bridge..."
+      ;;
+    "> Task :audio-fx:buildAudioFxNativeIfNeeded"*)
+      status_text="Building AudioFX native bridge..."
+      ;;
+    --\ Configuring\ done*|--\ Generating\ done*|--\ Build\ files\ have\ been\ written\ to:*)
+      ;;
+    \[*Building\ C\ object*|\[*Building\ CXX\ object*)
+      status_text="Compiling native audio modules..."
+      ;;
+    \[*Linking\ CXX\ shared\ library\ libjvn_audiofx_native.dylib*)
+      status_text="Linking native audio modules..."
+      ;;
+    \[*Built\ target\ jvn_audiofx_native*)
+      if [[ "$audiofx_announced" -eq 0 ]]; then
+        emit_info "AudioFX native bridge OK"
+        audiofx_announced=1
+      fi
+      ;;
+    Starting\ a\ Gradle\ Daemon*|*busy\ and*Daemons\ could\ not\ be\ reused*)
+      status_text="Starting Gradle daemon..."
+      ;;
+    "> Task "*:compileJava*|"> Task "*:compileKotlin*|"> Task "*:compileScala*)
+      if [[ "$compile_started" -eq 0 ]]; then
+        emit_info "Compiling submodules..."
+        compile_started=1
+      fi
+      status_text="Compiling submodules..."
+      ;;
+    "> Task "*:processResources*|"> Task "*:classes*)
+      if [[ "$compile_started" -eq 1 ]]; then
+        status_text="Finalizing compiled modules..."
+      fi
+      ;;
+    "> Task "*:runLauncher*|"> Task "*:run*)
+      if [[ "$compile_started" -eq 1 && "$compile_ok_announced" -eq 0 ]]; then
+        emit_info "Compiling submodules OK"
+        compile_ok_announced=1
+      fi
+      if [[ "$launch_announced" -eq 0 ]]; then
+        emit_info "Launching..."
+        launch_announced=1
+      fi
+      status_text="Launching..."
+      ;;
+    WARNING:\ A\ restricted\ method\ in\ java.lang.System\ has\ been\ called*|\
+    WARNING:\ java.lang.System::*|\
+    WARNING:\ Use\ --enable-native-access=*|\
+    WARNING:\ Restricted\ methods\ will\ be\ blocked*|\
+    WARNING:\ A\ terminally\ deprecated\ method\ in\ sun.misc.Unsafe\ has\ been\ called*|\
+    WARNING:\ sun.misc.Unsafe::*|\
+    WARNING:\ Please\ consider\ reporting\ this\ to\ the\ maintainers*)
+      ;;
+    Note:\ Some\ input\ files\ use\ unchecked\ or\ unsafe\ operations.*|\
+    Note:\ Recompile\ with\ -Xlint:unchecked\ for\ details.*)
+      ;;
+    BUILD\ SUCCESSFUL*)
+      done_message="Ready."
+      ;;
+    BUILD\ FAILED*)
+      done_message="Build failed."
+      ;;
+    "")
+      ;;
+    *)
+      if should_surface_line "$line"; then
+        emit_raw "$line"
+      fi
+      ;;
+  esac
+}
+
+if [[ ${#task_args[@]} -gt 0 ]]; then
+  status_text="Preparing ${task_args[*]}..."
+fi
+
+printf 'Welcome to JVN.\n'
+printf 'Thanks for choosing our engine to build with.\n\n'
+
+"${gradle_cmd[@]}" >"$fifo_path" 2>&1 &
+gradle_pid=$!
+
+exec 3<"$fifo_path"
+
+while true; do
+  if IFS= read -r -t 0.12 line <&3; then
+    printf '%s\n' "$line" >>"$output_log"
+    handle_line "$line"
+  else
+    if kill -0 "$gradle_pid" 2>/dev/null; then
+      render_status
+    else
+      while IFS= read -r line <&3; do
+        printf '%s\n' "$line" >>"$output_log"
+        handle_line "$line"
+      done
+      break
+    fi
+  fi
+done
+
+wait "$gradle_pid"
+exit_code=$?
+
+clear_status
+
+if [[ "$exit_code" -eq 0 ]]; then
+  emit_info "$done_message"
+else
+  show_failure_summary
+fi
+
+exit "$exit_code"

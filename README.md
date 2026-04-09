@@ -20,6 +20,7 @@ Typical memory footprint for the core runtime together with the full editor is a
 
 - JDK 21 (toolchain auto-download is enabled, but local JDK 21 is still recommended)
 - No global Gradle install required (`./gradlew` is included)
+- Optional branded terminal wrapper: `./jvnw` delegates to `./gradlew` with a cleaner JVN-themed CLI
 - For team version-control workflows in editor: `git` and `git lfs` installed/configured
 - `cmake` + C/C++ compiler toolchain (`clang`/`gcc`/MSVC)
 
@@ -44,6 +45,12 @@ Build everything:
 
 ```bash
 ./gradlew build
+```
+
+Branded wrapper around Gradle:
+
+```bash
+./jvnw :editor:runLauncher
 ```
 
 `./gradlew build` also auto-attempts a `native-math` CMake build when required native outputs are missing.

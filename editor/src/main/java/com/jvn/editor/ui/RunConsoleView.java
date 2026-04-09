@@ -72,8 +72,6 @@ public class RunConsoleView extends BorderPane {
 
     private final TextFlow outputFlow = new TextFlow();
     private final ScrollPane scrollPane = new ScrollPane(outputFlow);
-    private final Label launchTitleLabel = new Label("Welcome to JVN.");
-    private final Label launchCopyLabel = new Label("Thanks for choosing our engine to build with.");
     private final Label launchActivityLabel = new Label();
     private final Label launchDetailLabel = new Label();
     private final Label stateLabel = new Label();
@@ -142,6 +140,10 @@ public class RunConsoleView extends BorderPane {
         "^\\[(JVN|Engine|Scene|Audio|Script|VN|Menu|Runtime|Init|Asset|Error|WARN|INFO)\\]",
         Pattern.CASE_INSENSITIVE
     );
+    private static final Pattern RUNTIME_LOG_LINE = Pattern.compile(
+        "^\\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\s+(TRACE|DEBUG|INFO|WARN|ERROR)\\s+\\[[^\\]]+\\]\\s+.+?\\s+-\\s+.+$",
+        Pattern.CASE_INSENSITIVE
+    );
 
     // Patterns for errors and warnings
     private static final Pattern ERROR_LINE = Pattern.compile(
@@ -180,11 +182,8 @@ public class RunConsoleView extends BorderPane {
 
     public RunConsoleView(String title) {
         getStyleClass().add("run-console-root");
-        launchTitleLabel.getStyleClass().add("run-console-launch-title");
-        launchCopyLabel.getStyleClass().add("run-console-launch-copy");
         launchActivityLabel.getStyleClass().add("run-console-launch-activity");
         launchDetailLabel.getStyleClass().add("run-console-launch-detail");
-        launchCopyLabel.setWrapText(true);
         launchDetailLabel.setWrapText(true);
         stateLabel.getStyleClass().add("run-console-state");
         elapsedLabel.getStyleClass().add("run-console-elapsed");
@@ -275,7 +274,6 @@ public class RunConsoleView extends BorderPane {
         launchMilestoneAnnounced = false;
         runtimeMilestoneAnnounced = false;
         setState(EngineState.BUILDING);
-        appendInfoMessage("Welcome to JVN. Thanks for choosing our engine to build with.");
         appendInfoMessage("Preparing " + launchToolLabel + "...");
         refreshLaunchBanner();
 
@@ -354,7 +352,7 @@ public class RunConsoleView extends BorderPane {
         if (rawLine.contains("> Task") && rawLine.contains(":run")) {
             setState(EngineState.STARTING);
         }
-        if (ENGINE_MSG.matcher(rawLine).find() && engineState == EngineState.STARTING) {
+        if (isEngineOutputLine(rawLine) && engineState == EngineState.STARTING) {
             setState(EngineState.RUNNING);
         }
         if (rawLine.contains("BUILD FAILED")) {
@@ -396,7 +394,7 @@ public class RunConsoleView extends BorderPane {
 
     /** Check if a line passes the current filter settings. */
     private boolean passesFilter(String rawLine) {
-        boolean isEngineMsg = ENGINE_MSG.matcher(rawLine).find();
+        boolean isEngineMsg = isEngineOutputLine(rawLine);
         boolean isError = ERROR_LINE.matcher(rawLine).find();
         boolean isWarning = !isError && WARN_LINE.matcher(rawLine).find();
         boolean isNoise = GRADLE_NOISE.matcher(rawLine).find();
@@ -420,7 +418,7 @@ public class RunConsoleView extends BorderPane {
 
     /** Style a raw line based on its content type. */
     private static Text styleText(String rawLine) {
-        boolean isEngineMsg = ENGINE_MSG.matcher(rawLine).find();
+        boolean isEngineMsg = isEngineOutputLine(rawLine);
         boolean isError = ERROR_LINE.matcher(rawLine).find();
         boolean isWarning = !isError && WARN_LINE.matcher(rawLine).find();
         boolean isNoise = GRADLE_NOISE.matcher(rawLine).find();
@@ -468,7 +466,7 @@ public class RunConsoleView extends BorderPane {
     }
 
     private VBox createLaunchBanner() {
-        VBox box = new VBox(4, launchTitleLabel, launchCopyLabel, launchActivityLabel, launchDetailLabel);
+        VBox box = new VBox(4, launchActivityLabel, launchDetailLabel);
         box.getStyleClass().add("run-console-launch-shell");
         return box;
     }
@@ -503,7 +501,7 @@ public class RunConsoleView extends BorderPane {
             changed = true;
         }
 
-        if (!runtimeMilestoneAnnounced && ENGINE_MSG.matcher(rawLine).find() && engineState == EngineState.STARTING) {
+        if (!runtimeMilestoneAnnounced && isEngineOutputLine(rawLine) && engineState == EngineState.STARTING) {
             runtimeMilestoneAnnounced = true;
             appendInfoMessage("Runtime online.");
             changed = true;
@@ -566,6 +564,11 @@ public class RunConsoleView extends BorderPane {
         if (!launchTaskLabel.isBlank()) context += " -> " + launchTaskLabel;
         if (!launchWorkspaceLabel.isBlank()) context += " @ " + launchWorkspaceLabel;
         return context;
+    }
+
+    private static boolean isEngineOutputLine(String rawLine) {
+        if (rawLine == null || rawLine.isBlank()) return false;
+        return ENGINE_MSG.matcher(rawLine).find() || RUNTIME_LOG_LINE.matcher(rawLine).find();
     }
 
     private void copyTraceback() {

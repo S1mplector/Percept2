@@ -33,6 +33,12 @@ JavaFX-based visual tooling for authoring and launching JVN visual novel project
 ./gradlew :editor:run
 ```
 
+Branded terminal wrapper:
+
+```bash
+./jvnw :editor:runLauncher
+```
+
 Standalone launcher:
 
 ```bash
