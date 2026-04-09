@@ -61,7 +61,7 @@ public class WelcomeCenterView extends BorderPane {
   });
 
   private final Label headingLabel = new Label("Welcome to JVN Editor");
-  private final Label introLabel = new Label("Resume recent work, open projects, and verify your environment before launch.");
+  private final Label introLabel = new Label("");
   private final Label versionLabel = new Label("Version: --");
   private final Label workspaceLabel = new Label("No workspace root configured.");
   private final Label projectLabel = new Label("No project is currently open.");
