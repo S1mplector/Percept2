@@ -8,13 +8,19 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import com.sun.management.OperatingSystemMXBean;
 
+import javafx.animation.Animation;
 import javafx.animation.AnimationTimer;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
@@ -66,6 +72,10 @@ public class RunConsoleView extends BorderPane {
 
     private final TextFlow outputFlow = new TextFlow();
     private final ScrollPane scrollPane = new ScrollPane(outputFlow);
+    private final Label launchTitleLabel = new Label("Welcome to JVN.");
+    private final Label launchCopyLabel = new Label("Thanks for choosing our engine to build with.");
+    private final Label launchActivityLabel = new Label();
+    private final Label launchDetailLabel = new Label();
     private final Label stateLabel = new Label();
     private final Label elapsedLabel = new Label();
     private final ToggleButton showAllToggle = new ToggleButton("Build Output");
@@ -107,6 +117,16 @@ public class RunConsoleView extends BorderPane {
     private long lastFrameNs = -1L;
     private double smoothedProcessCpu = Double.NaN;
     private double smoothedFps = Double.NaN;
+    private final Timeline launchSpinner;
+    private final Set<String> compiledModules = Collections.synchronizedSet(new LinkedHashSet<>());
+    private int spinnerFrameIndex = 0;
+    private volatile boolean sawGradleBootstrap = false;
+    private volatile boolean compileMilestoneAnnounced = false;
+    private volatile boolean launchMilestoneAnnounced = false;
+    private volatile boolean runtimeMilestoneAnnounced = false;
+    private String launchToolLabel = "Gradle wrapper";
+    private String launchTaskLabel = "";
+    private String launchWorkspaceLabel = "";
 
     // Patterns for Gradle noise lines we suppress by default
     private static final Pattern GRADLE_NOISE = Pattern.compile(
@@ -155,9 +175,17 @@ public class RunConsoleView extends BorderPane {
     private static final long PERF_HUD_UPDATE_INTERVAL_NS = 300_000_000L;
     private static final double PERF_CPU_SMOOTH_ALPHA = 0.28;
     private static final double PERF_FPS_SMOOTH_ALPHA = 0.20;
+    private static final String[] SPINNER_FRAMES = {"|", "/", "-", "\\"};
+    private static final Pattern COMPILE_TASK = Pattern.compile("^> Task (:[^\\s]+):compileJava(?:\\s+.*)?$");
 
     public RunConsoleView(String title) {
         getStyleClass().add("run-console-root");
+        launchTitleLabel.getStyleClass().add("run-console-launch-title");
+        launchCopyLabel.getStyleClass().add("run-console-launch-copy");
+        launchActivityLabel.getStyleClass().add("run-console-launch-activity");
+        launchDetailLabel.getStyleClass().add("run-console-launch-detail");
+        launchCopyLabel.setWrapText(true);
+        launchDetailLabel.setWrapText(true);
         stateLabel.getStyleClass().add("run-console-state");
         elapsedLabel.getStyleClass().add("run-console-elapsed");
 
@@ -176,7 +204,9 @@ public class RunConsoleView extends BorderPane {
         outputFlow.getStyleClass().add("run-console-output-flow");
         scrollPane.setFitToWidth(true);
         scrollPane.getStyleClass().add("run-console-output-scroll");
-        setCenter(scrollPane);
+        VBox centerBox = new VBox(createLaunchBanner(), scrollPane);
+        VBox.setVgrow(scrollPane, Priority.ALWAYS);
+        setCenter(centerBox);
 
         // ─── Status bar ──────────────────────────────────────────────
         HBox statusBar = createStatusBar();
@@ -197,7 +227,11 @@ public class RunConsoleView extends BorderPane {
         };
         perfHudTimer.start();
 
+        launchSpinner = new Timeline(new KeyFrame(javafx.util.Duration.millis(110), e -> advanceSpinner()));
+        launchSpinner.setCycleCount(Animation.INDEFINITE);
+
         setState(EngineState.BUILDING);
+        refreshLaunchBanner();
     }
 
     private static Button iconButton(String iconClass, String tooltipText) {
@@ -216,6 +250,13 @@ public class RunConsoleView extends BorderPane {
         runBtn.setDisable(processStarter == null || !(engineState == EngineState.STOPPED || engineState == EngineState.FAILED));
     }
 
+    public void setLaunchContext(String toolLabel, String taskLabel, String workspaceLabel) {
+        launchToolLabel = toolLabel == null || toolLabel.isBlank() ? "Gradle wrapper" : toolLabel.trim();
+        launchTaskLabel = taskLabel == null ? "" : taskLabel.trim();
+        launchWorkspaceLabel = workspaceLabel == null ? "" : workspaceLabel.trim();
+        refreshLaunchBanner();
+    }
+
     public void startProcess(Process process) {
         attachProcess(process);
     }
@@ -227,7 +268,16 @@ public class RunConsoleView extends BorderPane {
         errorCount = 0;
         warnCount = 0;
         rawLineBuffer.clear();
+        compiledModules.clear();
+        spinnerFrameIndex = 0;
+        sawGradleBootstrap = false;
+        compileMilestoneAnnounced = false;
+        launchMilestoneAnnounced = false;
+        runtimeMilestoneAnnounced = false;
         setState(EngineState.BUILDING);
+        appendInfoMessage("Welcome to JVN. Thanks for choosing our engine to build with.");
+        appendInfoMessage("Preparing " + launchToolLabel + "...");
+        refreshLaunchBanner();
 
         Thread reader = new Thread(() -> {
             Process active = process;
@@ -266,6 +316,13 @@ public class RunConsoleView extends BorderPane {
             updateStateClass(state);
             stopBtn.setDisable(state == EngineState.STOPPED || state == EngineState.FAILED);
             runBtn.setDisable(processStarter == null || !(state == EngineState.STOPPED || state == EngineState.FAILED));
+            boolean spinnerActive = state == EngineState.BUILDING || state == EngineState.STARTING;
+            if (spinnerActive) {
+                if (launchSpinner.getStatus() != Animation.Status.RUNNING) launchSpinner.play();
+            } else {
+                launchSpinner.stop();
+            }
+            refreshLaunchBanner();
         });
     }
 
@@ -289,6 +346,7 @@ public class RunConsoleView extends BorderPane {
 
     /** Append a raw line from the process. Handles filtering and coloring. */
     public void appendLine(String rawLine) {
+        observeBuildProgress(rawLine);
         lineCount++;
         rawLineBuffer.add(rawLine);
 
@@ -398,11 +456,116 @@ public class RunConsoleView extends BorderPane {
     }
 
     private void appendInfoMessage(String msg) {
-        Text text = new Text("── " + msg + " ──\n");
-        text.setStyle("-fx-fill: " + LOG_COLOR_INFO + "; -fx-font-family: 'Menlo', 'Consolas', monospace; -fx-font-size: 12px; -fx-font-style: italic;");
-        outputFlow.getChildren().add(text);
-        scrollPane.layout();
-        scrollPane.setVvalue(1.0);
+        Runnable task = () -> {
+            Text text = new Text("── " + msg + " ──\n");
+            text.setStyle("-fx-fill: " + LOG_COLOR_INFO + "; -fx-font-family: 'Menlo', 'Consolas', monospace; -fx-font-size: 12px; -fx-font-style: italic;");
+            outputFlow.getChildren().add(text);
+            scrollPane.layout();
+            scrollPane.setVvalue(1.0);
+        };
+        if (Platform.isFxApplicationThread()) task.run();
+        else Platform.runLater(task);
+    }
+
+    private VBox createLaunchBanner() {
+        VBox box = new VBox(4, launchTitleLabel, launchCopyLabel, launchActivityLabel, launchDetailLabel);
+        box.getStyleClass().add("run-console-launch-shell");
+        return box;
+    }
+
+    private void observeBuildProgress(String rawLine) {
+        if (rawLine == null || rawLine.isBlank()) return;
+        boolean changed = false;
+
+        if (!sawGradleBootstrap && rawLine.startsWith("Starting a Gradle")) {
+            sawGradleBootstrap = true;
+            changed = true;
+        }
+
+        java.util.regex.Matcher compileMatcher = COMPILE_TASK.matcher(rawLine);
+        if (compileMatcher.matches()) {
+            String moduleName = compileMatcher.group(1);
+            if (moduleName != null && compiledModules.add(moduleName)) {
+                changed = true;
+            }
+            if (!compileMilestoneAnnounced) {
+                compileMilestoneAnnounced = true;
+                appendInfoMessage("Compiling submodules...");
+            }
+        }
+
+        if (!launchMilestoneAnnounced && rawLine.startsWith("> Task ") && rawLine.contains(":run")) {
+            launchMilestoneAnnounced = true;
+            if (!compiledModules.isEmpty()) {
+                appendInfoMessage("Compiling submodules OK");
+            }
+            appendInfoMessage("Launching...");
+            changed = true;
+        }
+
+        if (!runtimeMilestoneAnnounced && ENGINE_MSG.matcher(rawLine).find() && engineState == EngineState.STARTING) {
+            runtimeMilestoneAnnounced = true;
+            appendInfoMessage("Runtime online.");
+            changed = true;
+        }
+
+        if (changed) refreshLaunchBanner();
+    }
+
+    private void advanceSpinner() {
+        spinnerFrameIndex = (spinnerFrameIndex + 1) % SPINNER_FRAMES.length;
+        refreshLaunchBanner();
+    }
+
+    private void refreshLaunchBanner() {
+        Runnable task = () -> {
+            launchActivityLabel.setText(spinnerPrefix() + currentActivityText());
+            launchDetailLabel.setText(currentDetailText());
+        };
+        if (Platform.isFxApplicationThread()) task.run();
+        else Platform.runLater(task);
+    }
+
+    private String spinnerPrefix() {
+        if (engineState == EngineState.BUILDING || engineState == EngineState.STARTING) {
+            return SPINNER_FRAMES[spinnerFrameIndex] + " ";
+        }
+        return "";
+    }
+
+    private String currentActivityText() {
+        return switch (engineState) {
+            case BUILDING -> compileMilestoneAnnounced ? "Compiling submodules..." : ("Preparing " + launchToolLabel + "...");
+            case STARTING -> "Launching...";
+            case RUNNING -> "Running.";
+            case STOPPED -> "Finished.";
+            case FAILED -> "Build failed.";
+        };
+    }
+
+    private String currentDetailText() {
+        if (engineState == EngineState.STARTING && !compiledModules.isEmpty()) {
+            return "Compiling submodules OK";
+        }
+        if (engineState == EngineState.RUNNING) {
+            return "Engine boot completed successfully.";
+        }
+        if (engineState == EngineState.STOPPED) {
+            return "Process completed. You can re-run or inspect the log below.";
+        }
+        if (engineState == EngineState.FAILED) {
+            return "Gradle reported a failure. Inspect the log below for the exact task and stack trace.";
+        }
+        if (!compiledModules.isEmpty()) {
+            return compiledModules.size() + (compiledModules.size() == 1 ? " module ready." : " modules ready.");
+        }
+        if (sawGradleBootstrap) {
+            return "Gradle daemon bootstrapped. Resolving build graph...";
+        }
+        String context = launchToolLabel;
+        if (!launchTaskLabel.isBlank()) context += " -> " + launchTaskLabel;
+        if (!launchWorkspaceLabel.isBlank()) context += " @ " + launchWorkspaceLabel;
+        return context;
     }
 
     private void copyTraceback() {

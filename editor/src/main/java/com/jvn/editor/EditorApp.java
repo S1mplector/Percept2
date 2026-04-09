@@ -451,6 +451,7 @@ public class EditorApp extends Application {
         }
       }
       RunConsoleView console = new RunConsoleView(title);
+      console.setLaunchContext(gradlew.exists() ? "Gradle wrapper" : "Gradle CLI", task, root.getName());
       RunConsoleView.ProcessStarter starter = () -> {
         ProcessBuilder pb = new ProcessBuilder(cmd);
         pb.directory(root);

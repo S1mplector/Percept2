@@ -232,6 +232,38 @@
   -fx-background-color: #0c0c0c;
 }
 
+.run-console-launch-shell {
+  -fx-padding: 12 14 10 14;
+  -fx-spacing: 4;
+  -fx-background-color: #101010;
+  -fx-border-color: #252525;
+  -fx-border-width: 0 0 1 0;
+}
+
+.run-console-launch-title {
+  -fx-text-fill: #f0f0f0;
+  -fx-font-size: 14px;
+  -fx-font-weight: 800;
+}
+
+.run-console-launch-copy {
+  -fx-text-fill: #9ea7b2;
+  -fx-font-size: 11px;
+}
+
+.run-console-launch-activity {
+  -fx-text-fill: #f3c483;
+  -fx-font-family: "Menlo", "Consolas", monospace;
+  -fx-font-size: 12px;
+  -fx-font-weight: 700;
+}
+
+.run-console-launch-detail {
+  -fx-text-fill: #7f8996;
+  -fx-font-family: "Menlo", "Consolas", monospace;
+  -fx-font-size: 11px;
+}
+
 .run-console-output-scroll {
   -fx-background: #0c0c0c;
   -fx-background-color: #0c0c0c;
