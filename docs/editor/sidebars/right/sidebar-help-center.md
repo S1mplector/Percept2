@@ -81,9 +81,9 @@ Copy-to-clipboard buttons for common terminal commands:
 
 | Button | Command |
 |--------|---------|
-| **Build** | `./gradlew build` |
-| **Run Editor** | `./gradlew :editor:run` |
-| **Run Runtime** | `./gradlew :runtime:run` |
+| **Build** | `./jvnw build` |
+| **Run Editor** | `./jvnw editor` |
+| **Run Runtime** | `./jvnw runtime` |
 
 Clicking a command button copies it to the system clipboard for pasting into a terminal.
 

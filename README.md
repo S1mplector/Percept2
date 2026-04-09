@@ -19,8 +19,8 @@ Typical memory footprint for the core runtime together with the full editor is a
 ## Requirements
 
 - JDK 21 (toolchain auto-download is enabled, but local JDK 21 is still recommended)
-- No global Gradle install required (`./gradlew` is included)
-- Optional branded terminal wrapper: `./jvnw` delegates to `./gradlew` with a cleaner JVN-themed CLI
+- No global Gradle install required. Use `./jvnw` as the default JVN command wrapper.
+- `./gradlew` remains available as the optional low-level Gradle entrypoint for uncommon/manual tasks.
 - For team version-control workflows in editor: `git` and `git lfs` installed/configured
 - `cmake` + C/C++ compiler toolchain (`clang`/`gcc`/MSVC)
 
@@ -44,20 +44,26 @@ git submodule update --init --recursive
 Build everything:
 
 ```bash
-./gradlew build
+./jvnw build
 ```
 
-Branded wrapper around Gradle:
+Daily JVN commands:
 
 ```bash
-./jvnw :editor:runLauncher
+./jvnw launcher
+./jvnw editor
+./jvnw runtime
+./jvnw build
+./jvnw test
 ```
 
-`./gradlew build` also auto-attempts a `native-math` CMake build when required native outputs are missing.
+Use `./jvnw` for normal development. Drop to `./gradlew` or `./jvnw --raw ...` only when you need direct Gradle task control.
+
+`./jvnw build` also auto-attempts a `native-math` CMake build when required native outputs are missing.
 If you need to bypass this on a machine without CMake/toolchain:
 
 ```bash
-./gradlew -PskipNativeMathBuild=true build
+./jvnw -PskipNativeMathBuild=true build
 ```
 
 That flag is an escape hatch for limited scenarios only.
@@ -66,33 +72,30 @@ It is not the supported default workflow, and `:editor:run` still expects a work
 Run editor:
 
 ```bash
-./gradlew :editor:run
+./jvnw editor
 ```
 
 Run runtime:
 
 ```bash
-./gradlew :runtime:run
+./jvnw runtime
 ```
 
 ## Build and Test
 
-Compile main app modules:
+Default wrapper commands:
+
+```bash
+./jvnw build
+./jvnw test
+./jvnw dist
+```
+
+Optional direct Gradle tasks for focused work:
 
 ```bash
 ./gradlew :core:compileJava :scripting:compileJava :fx:compileJava :runtime:compileJava :editor:compileJava
-```
-
-Run unit tests:
-
-```bash
 ./gradlew :core:test :scripting:test :swing:test
-```
-
-Create runtime distribution:
-
-```bash
-./gradlew :runtime:distZip
 ```
 
 ## Native-Math Build
@@ -136,23 +139,23 @@ Entrypoint: `runtime/src/main/java/com/jvn/runtime/JvnApp.java`
 Basic run:
 
 ```bash
-./gradlew :runtime:run
+./jvnw runtime
 ```
 
 Common examples:
 
 ```bash
 # Run a specific VNS script with FX renderer
-./gradlew :runtime:run --args='--script scripts/story/prologue.vns --ui fx'
+./jvnw runtime --args='--script scripts/story/prologue.vns --ui fx'
 
 # Run with Swing renderer
-./gradlew :runtime:run --args='--script scripts/story/prologue.vns --ui swing'
+./jvnw runtime --args='--script scripts/story/prologue.vns --ui swing'
 
 # Load JES directly
-./gradlew :runtime:run --args='--jes game/minigames/brickbreaker.jes'
+./jvnw runtime --args='--jes game/minigames/brickbreaker.jes'
 
 # Overlay filesystem assets onto classpath assets
-./gradlew :runtime:run --args='--assets /absolute/path/to/project --script story/prologue.vns'
+./jvnw runtime --args='--assets /absolute/path/to/project --script story/prologue.vns'
 ```
 
 Supported runtime CLI flags:
@@ -180,7 +183,7 @@ Notes:
 Run:
 
 ```bash
-./gradlew :editor:run
+./jvnw editor
 ```
 
 Editor currently features:
@@ -204,9 +207,9 @@ No extra Maven install step or `-PuseSimp3` flag is required.
 Runtime audio selection:
 
 ```bash
-./gradlew :runtime:run --args='--audio auto'
-./gradlew :runtime:run --args='--audio simp3'
-./gradlew :runtime:run --args='--audio fx'
+./jvnw runtime --args='--audio auto'
+./jvnw runtime --args='--audio simp3'
+./jvnw runtime --args='--audio fx'
 ```
 
 `auto` prefers Simp3 and falls back to FX if needed.

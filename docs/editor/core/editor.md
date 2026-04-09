@@ -24,7 +24,7 @@ This page explains:
 Launch command:
 
 ```bash
-./gradlew :editor:run
+./jvnw editor
 ```
 
 ## Layout Overview

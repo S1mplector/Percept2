@@ -36,7 +36,7 @@ Docs are tagged by source (`Workspace` vs `Project`) in the guide tree.
 - `Reveal File` action in OS file manager
 - `Copy Path` action
 - quick-access buttons for common docs (`README`, `Overview`, `Editor`, `VNS`, `JES`, `Runtime`, `Menus`)
-- quick command copy buttons (`./gradlew build`, `./gradlew :editor:run`, `./gradlew :runtime:run`)
+- quick command copy buttons (`./jvnw build`, `./jvnw editor`, `./jvnw runtime`)
 
 ## Typical Usage Pattern
 

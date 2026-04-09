@@ -38,7 +38,7 @@ This page tells you:
 ## Basic Launch
 
 ```bash
-./gradlew :runtime:run
+./jvnw runtime
 ```
 
 ## Common Launch Patterns
@@ -46,38 +46,38 @@ This page tells you:
 Run specific VNS script:
 
 ```bash
-./gradlew :runtime:run --args='--script scripts/story/prologue.vns'
+./jvnw runtime --args='--script scripts/story/prologue.vns'
 ```
 
 Run VNS with explicit backend:
 
 ```bash
-./gradlew :runtime:run --args='--script story/prologue.vns --ui fx'
-./gradlew :runtime:run --args='--script story/prologue.vns --ui swing'
+./jvnw runtime --args='--script story/prologue.vns --ui fx'
+./jvnw runtime --args='--script story/prologue.vns --ui swing'
 ```
 
 Run JES directly:
 
 ```bash
-./gradlew :runtime:run --args='--jes game/minigames/arcade.jes'
+./jvnw runtime --args='--jes game/minigames/arcade.jes'
 ```
 
 Run JES by merging multiple scripts:
 
 ```bash
-./gradlew :runtime:run --args='--jes game/minigames/base.jes,game/minigames/overlay.jes'
+./jvnw runtime --args='--jes game/minigames/base.jes,game/minigames/overlay.jes'
 ```
 
 Use project assets from disk:
 
 ```bash
-./gradlew :runtime:run --args='--assets /absolute/path/to/project --script story/prologue.vns'
+./jvnw runtime --args='--assets /absolute/path/to/project --script story/prologue.vns'
 ```
 
 Run exactly like editor project-run (typical VN project):
 
 ```bash
-./gradlew :runtime:run --args='--assets /absolute/path/to/project --script scripts/story/prologue.vns --ui fx --audio auto'
+./jvnw runtime --args='--assets /absolute/path/to/project --script scripts/story/prologue.vns --ui fx --audio auto'
 ```
 
 ## CLI Options

@@ -12,7 +12,7 @@ Before you go deep:
 ## Prerequisites
 
 - **JDK 21** — toolchain auto-download is enabled, but a local JDK 21 is recommended
-- **No global Gradle install required** — `./gradlew` wrapper is included
+- **No global Gradle install required** — `./jvnw` is the default command wrapper, with `./gradlew` available for advanced tasks
 - **Git** (optional) — for version control integration in the editor
 - **CMake + C/C++ toolchain** — required for native bridge builds and editor startup
 
@@ -25,7 +25,7 @@ Clone the repository and build:
 ```bash
 git clone <repository-url> Java-Vector-Nexus
 cd Java-Vector-Nexus
-./gradlew build
+./jvnw build
 ```
 
 This compiles all modules and runs tests. The build also configures and builds the native bridges when native outputs are missing.
@@ -33,7 +33,7 @@ This compiles all modules and runs tests. The build also configures and builds t
 If you need to bypass native builds for a limited non-editor scenario:
 
 ```bash
-./gradlew -PskipNativeMathBuild=true build
+./jvnw -PskipNativeMathBuild=true build
 ```
 
 This is an escape hatch, not the supported default workflow. `:editor:run` still expects a working CMake toolchain because the startup preflight verifies and loads native libraries before opening the editor.
@@ -43,13 +43,13 @@ This is an escape hatch, not the supported default workflow. `:editor:run` still
 Instead of full `build` every time, use focused tasks:
 
 ```bash
-# Compile core + runtime only
+# Default wrapper commands
+./jvnw build
+./jvnw test
+
+# Optional direct Gradle tasks for focused module work
 ./gradlew :core:compileJava :runtime:compileJava
-
-# Compile editor
 ./gradlew :editor:compileJava
-
-# Run tests
 ./gradlew :core:test :scripting:test
 ```
 
@@ -58,7 +58,7 @@ Instead of full `build` every time, use focused tasks:
 ## Step 2: Launch the Editor
 
 ```bash
-./gradlew :editor:run
+./jvnw editor
 ```
 
 The editor startup preflight checks `cmake`, validates the native toolchain, and rebuilds missing native libraries before launch.
@@ -165,7 +165,7 @@ Click the **Run** button at the top of the Project Explorer panel.
 Or run from terminal:
 
 ```bash
-./gradlew :runtime:run --args='--assets /path/to/MyProject --script scripts/story/prologue.vns --ui fx --audio auto'
+./jvnw runtime --args='--assets /path/to/MyProject --script scripts/story/prologue.vns --ui fx --audio auto'
 ```
 
 ### Runtime Controls

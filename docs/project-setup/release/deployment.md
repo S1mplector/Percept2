@@ -15,7 +15,7 @@ JVN projects run on the JVM. Distribution involves packaging your compiled engin
 ### Step 1: Compile the Engine
 
 ```bash
-./gradlew build
+./jvnw build
 ```
 
 This compiles all modules (`core`, `scripting`, `fx`, `runtime`, `audio`, etc.) and runs tests.
@@ -25,7 +25,7 @@ This compiles all modules (`core`, `scripting`, `fx`, `runtime`, `audio`, etc.) 
 The runtime module produces a runnable application:
 
 ```bash
-./gradlew :runtime:jar
+./jvnw jar
 ```
 
 The output JAR is in `runtime/build/libs/`.
@@ -33,6 +33,9 @@ The output JAR is in `runtime/build/libs/`.
 ### Targeted module builds for faster iteration:
 
 ```bash
+./jvnw build
+
+# Optional direct Gradle tasks for focused module work
 ./gradlew :core:compileJava :runtime:compileJava
 ```
 

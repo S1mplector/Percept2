@@ -18,37 +18,129 @@ if [[ -t 1 && "${TERM:-}" != "dumb" && -z "${CI:-}" ]]; then
   supports_spinner=1
 fi
 
+show_help() {
+  printf 'JVN wrapper\n\n'
+  printf 'Use ./jvnw for day-to-day work. It maps plain commands onto the right Gradle tasks.\n\n'
+  printf 'Common commands:\n'
+  printf '  ./jvnw launcher    Run the standalone launcher\n'
+  printf '  ./jvnw editor      Run the editor\n'
+  printf '  ./jvnw runtime     Run the runtime\n'
+  printf '  ./jvnw build       Build the workspace\n'
+  printf '  ./jvnw test        Run the test suite\n'
+  printf '  ./jvnw dist        Create the runtime distribution zip\n'
+  printf '  ./jvnw jar         Build the runtime jar\n'
+  printf '\n'
+  printf 'Advanced usage:\n'
+  printf '  ./jvnw gradle <gradle-args>    Pass straight through to Gradle with JVN console styling\n'
+  printf '  ./jvnw --raw <gradle-args>     Bypass JVN styling and call ./gradlew directly\n'
+  printf '  ./gradlew <gradle-task>        Optional low-level Gradle entrypoint\n'
+}
+
+declare -a input_args=()
+if [[ $# -gt 0 ]]; then
+  for arg in "$@"; do
+    if [[ "$arg" == "--raw" ]]; then
+      raw_mode=1
+    else
+      input_args+=("$arg")
+    fi
+  done
+fi
+
+if [[ "$raw_mode" == "1" ]]; then
+  if [[ ${#input_args[@]} -gt 0 ]]; then
+    exec "$GRADLEW_PATH" "${input_args[@]}"
+  fi
+  exec "$GRADLEW_PATH"
+fi
+
+if [[ ${#input_args[@]} -eq 0 ]]; then
+  show_help
+  exit 0
+fi
+
 declare -a forwarded_args=()
-for arg in "$@"; do
-  if [[ "$arg" == "--raw" ]]; then
-    raw_mode=1
+alias_label=""
+first_non_option_seen=0
+
+for arg in "${input_args[@]}"; do
+  if [[ "$first_non_option_seen" -eq 0 && "$arg" != -* ]]; then
+    first_non_option_seen=1
+    case "$arg" in
+      help|-h|--help)
+        show_help
+        exit 0
+        ;;
+      launcher)
+        alias_label="launcher"
+        forwarded_args+=(":editor:runLauncher")
+        ;;
+      editor)
+        alias_label="editor"
+        forwarded_args+=(":editor:run")
+        ;;
+      runtime|run|game)
+        alias_label="runtime"
+        forwarded_args+=(":runtime:run")
+        ;;
+      build)
+        alias_label="build"
+        forwarded_args+=("build")
+        ;;
+      test)
+        alias_label="test"
+        forwarded_args+=("test")
+        ;;
+      check)
+        alias_label="check"
+        forwarded_args+=("check")
+        ;;
+      clean)
+        alias_label="clean"
+        forwarded_args+=("clean")
+        ;;
+      dist)
+        alias_label="dist"
+        forwarded_args+=(":runtime:distZip")
+        ;;
+      jar)
+        alias_label="jar"
+        forwarded_args+=(":runtime:jar")
+        ;;
+      gradle)
+        alias_label="gradle"
+        ;;
+      *)
+        forwarded_args+=("$arg")
+        ;;
+    esac
   else
     forwarded_args+=("$arg")
   fi
 done
 
-if [[ "$raw_mode" == "1" ]]; then
-  exec "$GRADLEW_PATH" "${forwarded_args[@]}"
-fi
-
 console_specified=0
 declare -a task_args=()
-for arg in "${forwarded_args[@]}"; do
-  case "$arg" in
-    --console|--console=*)
-      console_specified=1
-      ;;
-  esac
-  if [[ "$arg" != -* ]]; then
-    task_args+=("$arg")
-  fi
-done
+if [[ ${#forwarded_args[@]} -gt 0 ]]; then
+  for arg in "${forwarded_args[@]}"; do
+    case "$arg" in
+      --console|--console=*)
+        console_specified=1
+        ;;
+    esac
+    if [[ "$arg" != -* ]]; then
+      task_args+=("$arg")
+    fi
+  done
+fi
 
 declare -a gradle_cmd=("$GRADLEW_PATH")
 if [[ "$console_specified" -eq 0 ]]; then
   gradle_cmd+=("--console=plain")
 fi
-gradle_cmd+=("${forwarded_args[@]}")
+if [[ ${#forwarded_args[@]} -gt 0 ]]; then
+  gradle_cmd+=("${forwarded_args[@]}")
+fi
 
 spinner_frames=('|' '/' '-' '\')
 spinner_index=0
@@ -59,6 +151,13 @@ compile_ok_announced=0
 launch_announced=0
 native_math_announced=0
 audiofx_announced=0
+command_label=""
+
+case "$alias_label" in
+  launcher|editor|runtime|build|test|check|clean|dist|jar)
+    command_label="$alias_label"
+    ;;
+esac
 
 temp_dir="$(mktemp -d "${TMPDIR:-/tmp}/jvnw.XXXXXX")"
 fifo_path="$temp_dir/gradle.pipe"
@@ -226,8 +325,12 @@ handle_line() {
   esac
 }
 
-if [[ ${#task_args[@]} -gt 0 ]]; then
-  status_text="Preparing ${task_args[*]}..."
+if [[ -z "$command_label" && ${#task_args[@]} -gt 0 ]]; then
+  command_label="${task_args[*]}"
+fi
+
+if [[ -n "$command_label" ]]; then
+  status_text="Preparing ${command_label}..."
 fi
 
 printf 'Welcome to JVN.\n'
@@ -239,7 +342,7 @@ gradle_pid=$!
 exec 3<"$fifo_path"
 
 while true; do
-  if IFS= read -r -t 0.12 line <&3; then
+  if IFS= read -r -t 1 line <&3; then
     printf '%s\n' "$line" >>"$output_log"
     handle_line "$line"
   else
