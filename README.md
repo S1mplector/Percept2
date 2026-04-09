@@ -191,7 +191,7 @@ Editor currently features:
 
 ## Simp3 Backend (Default)
 
-JVN now ships with an embedded Simp3-compatible backend by default in `audio`.
+JVN ships with an embedded Simp3-compatible backend by default in `audio`.
 No extra Maven install step or `-PuseSimp3` flag is required.
 
 Runtime audio selection:
@@ -260,7 +260,7 @@ New projects created from the editor wizard are scaffolded in this shape:
 
 ## Team Version Control (Git + Git LFS)
 
-JVN now ships first-party Git/Git-LFS project tooling:
+JVN ships first-party Git/Git-LFS project tooling:
 
 - **Wizard integration**:
   - initialize Git repository
