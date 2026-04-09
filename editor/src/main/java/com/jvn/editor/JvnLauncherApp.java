@@ -71,10 +71,12 @@ public class JvnLauncherApp extends Application {
     welcomeView.setWorkspaceRoot(workspaceRoot);
     welcomeView.setOnCreateProject(this::createNewProject);
     welcomeView.setOnOpenProjectDialog(this::chooseProjectDirectory);
+    welcomeView.setOnOpenSelectedProject(() -> launchEditor(currentProject));
+    welcomeView.setOnRunSelectedProject(this::runSelectedProject);
     welcomeView.setOnOpenRecentProject(projectDir -> {
       if (projectDir == null || !projectDir.isDirectory()) return;
       setCurrentProject(projectDir, false);
-      launchEditor(projectDir);
+      statusLabel.setText("Selected project: " + displayProjectName(projectDir));
     });
 
     statusLabel.getStyleClass().add("jvn-launcher-status");

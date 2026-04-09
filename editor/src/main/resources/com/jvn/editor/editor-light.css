@@ -3499,11 +3499,22 @@
 }
 
 .welcome-project-badge-current-icon {
-  -fx-padding: 2 6 2 6;
-  -fx-min-width: 22;
-  -fx-pref-width: 22;
+  -fx-padding: 0;
+  -fx-min-width: 14;
+  -fx-pref-width: 14;
   -fx-alignment: center;
   -fx-content-display: graphic-only;
+}
+
+.welcome-project-badge-current-arrow {
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
+  -fx-border-width: 0;
+}
+
+.welcome-project-current-arrow {
+  -fx-alignment: center;
+  -fx-padding: 0;
 }
 
 .welcome-project-badge-missing {

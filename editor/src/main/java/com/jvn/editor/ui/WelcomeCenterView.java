@@ -22,6 +22,11 @@ import java.util.stream.Stream;
 
 import com.jvn.editor.vcs.GitVcsService;
 
+import javafx.animation.Animation;
+import javafx.animation.Interpolator;
+import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
+import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -42,7 +47,9 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.util.Duration;
 
 /**
  * Startup workspace dashboard for editor users.
@@ -77,6 +84,7 @@ public class WelcomeCenterView extends BorderPane {
 
   private final Button btnNewProject = new Button();
   private final Button btnOpenProject = new Button();
+  private final Button btnRunProject = new Button();
   private final Button btnOpenLast = new Button();
   private final Button btnRefresh = new Button();
 
@@ -91,6 +99,8 @@ public class WelcomeCenterView extends BorderPane {
   private File projectRoot;
   private Runnable onCreateProject;
   private Runnable onOpenProjectDialog;
+  private Runnable onOpenSelectedProject;
+  private Runnable onRunSelectedProject;
   private Consumer<File> onOpenRecentProject;
 
   private boolean busy;
@@ -135,6 +145,7 @@ public class WelcomeCenterView extends BorderPane {
     projectLabel.setText(this.projectRoot == null
         ? "Open a project to validate runtime artifacts and continue where you left off."
         : abbreviatePath(this.projectRoot.getAbsolutePath()));
+    updateProjectActionButtons();
     refresh();
   }
 
@@ -144,6 +155,14 @@ public class WelcomeCenterView extends BorderPane {
 
   public void setOnOpenProjectDialog(Runnable onOpenProjectDialog) {
     this.onOpenProjectDialog = onOpenProjectDialog;
+  }
+
+  public void setOnOpenSelectedProject(Runnable onOpenSelectedProject) {
+    this.onOpenSelectedProject = onOpenSelectedProject;
+  }
+
+  public void setOnRunSelectedProject(Runnable onRunSelectedProject) {
+    this.onRunSelectedProject = onRunSelectedProject;
   }
 
   public void setOnOpenRecentProject(Consumer<File> onOpenRecentProject) {
@@ -199,7 +218,16 @@ public class WelcomeCenterView extends BorderPane {
       if (onCreateProject != null) onCreateProject.run();
     });
     btnOpenProject.setOnAction(e -> {
-      if (onOpenProjectDialog != null) onOpenProjectDialog.run();
+      if (hasSelectedProject()) {
+        if (onOpenSelectedProject != null) onOpenSelectedProject.run();
+      } else if (onOpenProjectDialog != null) {
+        onOpenProjectDialog.run();
+      }
+    });
+    btnRunProject.setOnAction(e -> {
+      if (hasSelectedProject() && onRunSelectedProject != null) {
+        onRunSelectedProject.run();
+      }
     });
     btnOpenLast.setOnAction(e -> {
       ProjectEntry first = recentProjects.isEmpty() ? null : recentProjects.get(0);
@@ -207,11 +235,13 @@ public class WelcomeCenterView extends BorderPane {
     });
     btnRefresh.setOnAction(e -> refresh());
     configureActionButton(btnNewProject, CssIcon.plus("#8bcf98"), "New Project", "Create a new project", "welcome-action-button-primary");
-    configureActionButton(btnOpenProject, CssIcon.folder("#d5b36a"), "Open Project", "Open an existing project", "welcome-action-button-secondary");
-    configureActionButton(btnOpenLast, CssIcon.arrowRight("#dccba2"), "Resume Latest", "Open the most recent project", "welcome-action-button-secondary");
+    configureActionButton(btnOpenProject, CssIcon.folder("#d5b36a"), "Open Project", "Choose an existing project", "welcome-action-button-secondary");
+    configureActionButton(btnRunProject, CssIcon.play("#dd9a48"), "Run Project", "Run the selected project with the runtime", "welcome-action-button-secondary");
+    configureActionButton(btnOpenLast, CssIcon.arrowRight("#dccba2"), "Select Latest", "Select the most recent project", "welcome-action-button-secondary");
     configureActionButton(btnRefresh, CssIcon.redo("#d6cab8"), "Refresh Checks", "Refresh Welcome Center data and health checks", "welcome-action-button-secondary");
+    updateProjectActionButtons();
 
-    HBox actions = new HBox(8, btnNewProject, btnOpenProject, btnOpenLast, btnRefresh);
+    HBox actions = new HBox(8, btnNewProject, btnOpenProject, btnRunProject, btnOpenLast, btnRefresh);
     actions.getStyleClass().add("welcome-action-row");
     actions.setAlignment(Pos.CENTER_LEFT);
 
@@ -285,6 +315,7 @@ public class WelcomeCenterView extends BorderPane {
     this.busy = busy;
     btnNewProject.setDisable(busy);
     btnOpenProject.setDisable(busy);
+    btnRunProject.setDisable(busy || !hasSelectedProject());
     btnOpenLast.setDisable(busy || recentProjects.isEmpty());
     btnRefresh.setDisable(busy);
     recentFilterField.setDisable(busy);
@@ -299,6 +330,7 @@ public class WelcomeCenterView extends BorderPane {
       recentOverviewValueLabel.setText("0");
       recentOverviewDetailLabel.setText("No tracked projects");
       btnOpenLast.setDisable(true);
+      btnRunProject.setDisable(busy || !hasSelectedProject());
       return;
     }
     if (needle.isEmpty()) {
@@ -320,6 +352,28 @@ public class WelcomeCenterView extends BorderPane {
     recentOverviewValueLabel.setText(String.valueOf(total));
     recentOverviewDetailLabel.setText(total == 1 ? "1 tracked project" : total + " tracked projects");
     btnOpenLast.setDisable(busy || recentProjects.isEmpty());
+    btnRunProject.setDisable(busy || !hasSelectedProject());
+  }
+
+  private boolean hasSelectedProject() {
+    return projectRoot != null && projectRoot.isDirectory();
+  }
+
+  private void updateProjectActionButtons() {
+    if (hasSelectedProject()) {
+      setActionButtonContent(
+          btnOpenProject,
+          CssIcon.popOut("#d5b36a"),
+          "Open in Editor",
+          "Open the selected project in the editor");
+    } else {
+      setActionButtonContent(
+          btnOpenProject,
+          CssIcon.folder("#d5b36a"),
+          "Open Project",
+          "Choose an existing project");
+    }
+    btnRunProject.setDisable(busy || !hasSelectedProject());
   }
 
   private void rightPanelStyling(ScrollPane scroll) {
@@ -345,18 +399,31 @@ public class WelcomeCenterView extends BorderPane {
                                             String tooltipText,
                                             String styleClass) {
     if (button == null) return;
-    button.setText(text);
-    button.setGraphic(icon);
     button.setMinHeight(34);
     button.setPrefHeight(34);
     button.setMaxHeight(34);
     button.setFocusTraversable(false);
     if (styleClass != null && !styleClass.isBlank()) {
-      button.getStyleClass().add(styleClass);
+      if (!button.getStyleClass().contains(styleClass)) {
+        button.getStyleClass().add(styleClass);
+      }
     }
+    setActionButtonContent(button, icon, text, tooltipText);
+  }
+
+  private static void setActionButtonContent(Button button,
+                                             Region icon,
+                                             String text,
+                                             String tooltipText) {
+    if (button == null) return;
+    button.setText(text);
+    button.setGraphic(icon);
     if (tooltipText != null && !tooltipText.isBlank()) {
       button.setTooltip(new Tooltip(tooltipText));
       button.setAccessibleText(tooltipText);
+    } else {
+      button.setTooltip(null);
+      button.setAccessibleText(null);
     }
   }
 
@@ -949,6 +1016,7 @@ public class WelcomeCenterView extends BorderPane {
     private final Label pathLabel = new Label();
     private final Label timeLabel = new Label();
     private final Label stateBadge = new Label();
+    private final AnimatedArrowIndicator currentProjectIndicator = new AnimatedArrowIndicator();
     private final Button openButton = new Button();
     private final Region spacer = new Region();
     private final HBox titleRow = new HBox(8, nameLabel, stateBadge, spacer, openButton);
@@ -962,8 +1030,8 @@ public class WelcomeCenterView extends BorderPane {
       openButton.setText("");
       openButton.getStyleClass().add("welcome-open-button");
       openButton.setFocusTraversable(false);
-      openButton.setTooltip(new Tooltip("Open project"));
-      openButton.setAccessibleText("Open project");
+      openButton.setTooltip(new Tooltip("Select project"));
+      openButton.setAccessibleText("Select project");
       openButton.setOnAction(e -> {
         ProjectEntry item = getItem();
         if (item != null) openRecentProject(item);
@@ -978,6 +1046,7 @@ public class WelcomeCenterView extends BorderPane {
     @Override
     protected void updateItem(ProjectEntry item, boolean empty) {
       super.updateItem(item, empty);
+      currentProjectIndicator.stop();
       if (empty || item == null || item.projectDir() == null) {
         setText(null);
         setGraphic(null);
@@ -989,7 +1058,11 @@ public class WelcomeCenterView extends BorderPane {
       nameLabel.setText(exists ? baseName : (baseName + " (missing)"));
       pathLabel.setText(abbreviatePath(dir.getAbsolutePath()));
       timeLabel.setText("Updated: " + formatTimestamp(item.modifiedMillis()));
-      stateBadge.getStyleClass().removeAll("welcome-project-badge-current", "welcome-project-badge-missing", "welcome-project-badge-current-icon");
+      stateBadge.getStyleClass().removeAll(
+          "welcome-project-badge-current",
+          "welcome-project-badge-missing",
+          "welcome-project-badge-current-icon",
+          "welcome-project-badge-current-arrow");
       stateBadge.setGraphic(null);
       stateBadge.setContentDisplay(ContentDisplay.LEFT);
       stateBadge.setAccessibleText(null);
@@ -1001,12 +1074,15 @@ public class WelcomeCenterView extends BorderPane {
         stateBadge.setManaged(true);
       } else if (current) {
         stateBadge.setText("");
-        stateBadge.setGraphic(CssIcon.check("#8bcf98"));
+        stateBadge.setGraphic(currentProjectIndicator);
         stateBadge.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
-        stateBadge.setAccessibleText("Current project");
-        stateBadge.getStyleClass().addAll("welcome-project-badge-current", "welcome-project-badge-current-icon");
+        stateBadge.setAccessibleText("Selected project");
+        stateBadge.getStyleClass().addAll(
+            "welcome-project-badge-current-icon",
+            "welcome-project-badge-current-arrow");
         stateBadge.setVisible(true);
         stateBadge.setManaged(true);
+        currentProjectIndicator.play();
       } else {
         stateBadge.setText("");
         stateBadge.setVisible(false);
@@ -1015,6 +1091,50 @@ public class WelcomeCenterView extends BorderPane {
       openButton.setDisable(!exists);
       setText(null);
       setGraphic(content);
+    }
+  }
+
+  private static final class AnimatedArrowIndicator extends StackPane {
+    private final Region arrow = CssIcon.arrowLeft("#e08a2e");
+    private final Timeline timeline;
+
+    private AnimatedArrowIndicator() {
+      getStyleClass().add("welcome-project-current-arrow");
+      setMinSize(14, 12);
+      setPrefSize(14, 12);
+      setMaxSize(14, 12);
+      setPickOnBounds(false);
+
+      arrow.setScaleX(1.1);
+      arrow.setScaleY(1.1);
+      getChildren().add(arrow);
+
+      resetAnimationState();
+      timeline = new Timeline(
+          new KeyFrame(Duration.ZERO,
+              new KeyValue(arrow.translateXProperty(), 1.4, Interpolator.EASE_BOTH),
+              new KeyValue(arrow.opacityProperty(), 0.74, Interpolator.EASE_BOTH)),
+          new KeyFrame(Duration.millis(320),
+              new KeyValue(arrow.translateXProperty(), -2.2, Interpolator.EASE_BOTH),
+              new KeyValue(arrow.opacityProperty(), 1.0, Interpolator.EASE_BOTH)),
+          new KeyFrame(Duration.millis(760),
+              new KeyValue(arrow.translateXProperty(), 1.4, Interpolator.EASE_BOTH),
+              new KeyValue(arrow.opacityProperty(), 0.74, Interpolator.EASE_BOTH)));
+      timeline.setCycleCount(Animation.INDEFINITE);
+    }
+
+    private void play() {
+      timeline.playFromStart();
+    }
+
+    private void stop() {
+      timeline.stop();
+      resetAnimationState();
+    }
+
+    private void resetAnimationState() {
+      arrow.setTranslateX(1.4);
+      arrow.setOpacity(0.74);
     }
   }
 }
