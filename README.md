@@ -8,13 +8,13 @@ JVN is a modular cross-platform Visual Novel engine written primarily in Java, C
 
 ## Architecture
 
-JVN is designed to be lightweight and predictable under load:
-- Modular separation of runtime, scripting, renderer backends, editor tooling, and native acceleration layers.
-- Performance-critical paths are accelerated in `native-math` (SIMD text search, pooled batch scanning, math kernels, and atomic save-path I/O).
+JVN is designed to be lightweight and predictable under load.
+- There is modular separation of runtime, scripting, renderer backends, editor tooling, and native acceleration layers.
+- Performance ccritical paths are accelerated in `native-math` (SIMD text search, pooled batch scanning, math kernels, and atomic save-path I/O).
 - Native bridges are isolated in `core/nativebridge`; some call sites still fall back to Java at runtime, but supported local builds and editor startup expect native binaries to be buildable.
 - Hot paths are data-oriented where possible (compact buffers, reduced allocation churn, pooled native buffers for batch workflows).
 
-Typical memory footprint for the core runtime together with the full editor is around **30-60 MB RAM** in normal desktop usage (project/content dependent).
+Typical memory footprint for the core runtime together with the full editor is around **70-130 MB RAM** in normal desktop usage (project/content dependent).
 
 ## Requirements
 
@@ -47,7 +47,10 @@ Build everything:
 ./jvnw build
 ```
 
-Daily JVN commands:
+The build command also runs the core test suite, so if the build fails due to a test, it is still
+safe to proceed. 
+
+Useful JVN commands:
 
 ```bash
 ./jvnw launcher
@@ -68,6 +71,7 @@ If you need to bypass this on a machine without CMake/toolchain:
 
 That flag is an escape hatch for limited scenarios only.
 It is not the supported default workflow, and `:editor:run` still expects a working native toolchain.
+If you want to use the editor, building the engine from source, you then must have CMake on your system. 
 
 Run editor:
 
