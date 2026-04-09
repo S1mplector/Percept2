@@ -5,6 +5,7 @@
 </div>
 
 JVN is a modular cross-platform Visual Novel engine written primarily in Java, C and C++.
+It is quite a young engine, but is under heavy development. Expect regular updates and changes.
 
 ## Architecture
 
