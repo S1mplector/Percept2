@@ -31,9 +31,21 @@ if /I "%command%"=="check" set "resolved=check"
 if /I "%command%"=="clean" set "resolved=clean"
 if /I "%command%"=="dist" set "resolved=:runtime:distZip"
 if /I "%command%"=="jar" set "resolved=:runtime:jar"
+set "mode=Direct Gradle task"
+if defined resolved set "mode=JVN shortcut"
+if /I "%command%"=="gradle" set "mode=Gradle passthrough"
 
 echo Welcome to JVN.
 echo Thanks for choosing our engine to build with.
+echo.
+
+echo   Command  %command%
+if defined resolved (
+  echo   Target   %resolved%
+) else (
+  if not "%command%"=="" echo   Target   %command%
+)
+echo   Mode     %mode%
 echo.
 
 if /I "%command%"=="gradle" (
@@ -65,4 +77,9 @@ echo Advanced usage:
 echo   jvnw gradle ^<gradle-args^>  Pass straight through to Gradle with JVN console styling
 echo   jvnw --raw ^<gradle-args^>   Bypass JVN styling and call gradlew directly
 echo   gradlew ^<gradle-task^>      Optional low-level Gradle entrypoint
+echo.
+echo Examples:
+echo   jvnw launcher
+echo   jvnw runtime --args="--script scripts/story/prologue.vns"
+echo   jvnw gradle :editor:compileJava
 exit /b 0
