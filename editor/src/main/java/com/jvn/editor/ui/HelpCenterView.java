@@ -125,11 +125,14 @@ public class HelpCenterView extends BorderPane {
 
   private void buildUi() {
     filterField.setPromptText("Filter docs...");
+    filterField.getStyleClass().add("help-filter-field");
     filterField.textProperty().addListener((obs, oldVal, newVal) -> rebuildGuideTree(newVal));
 
     Button refreshButton = new Button("Refresh");
+    refreshButton.getStyleClass().add("help-toolbar-button");
     refreshButton.setOnAction(e -> refresh());
     HBox filterRow = new HBox(8, filterField, refreshButton);
+    filterRow.getStyleClass().add("help-filter-row");
     HBox.setHgrow(filterField, Priority.ALWAYS);
     filterRow.setAlignment(Pos.CENTER_LEFT);
 

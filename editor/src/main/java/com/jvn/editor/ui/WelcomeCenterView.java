@@ -366,15 +366,11 @@ public class WelcomeCenterView extends BorderPane {
     HBox.setHgrow(healthSpacer, Priority.ALWAYS);
     HBox healthHeaderRow = new HBox(8, healthHeader, healthSpacer, healthMetaLabel);
     healthHeaderRow.setAlignment(Pos.CENTER_LEFT);
-    healthContainer.setPadding(new Insets(4, 0, 0, 0));
-    ScrollPane healthScroll = new ScrollPane(healthContainer);
-    healthScroll.setFitToWidth(true);
-    healthScroll.setFitToHeight(true);
-    rightPanelStyling(healthScroll);
-    VBox health = new VBox(8, healthHeaderRow, healthScroll);
+    healthContainer.setPadding(new Insets(0));
+    healthContainer.setSpacing(6);
+    VBox health = new VBox(8, healthHeaderRow, healthContainer);
     health.setPadding(new Insets(10));
     health.getStyleClass().add("welcome-section-card");
-    VBox.setVgrow(healthScroll, Priority.ALWAYS);
 
     VBox right = new VBox(10, spotlight, health);
     VBox.setVgrow(spotlight, Priority.ALWAYS);
@@ -719,12 +715,6 @@ public class WelcomeCenterView extends BorderPane {
       if (word.length() > 1) sb.append(word.substring(1).toLowerCase(Locale.ROOT));
     }
     return sb.isEmpty() ? "Custom scaffold" : sb + " scaffold";
-  }
-
-  private void rightPanelStyling(ScrollPane scroll) {
-    if (scroll == null) return;
-    scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-    scroll.getStyleClass().add("welcome-health-scroll");
   }
 
   private VBox buildOverviewCard(String title, Label valueLabel, Label detailLabel) {
@@ -1131,10 +1121,11 @@ public class WelcomeCenterView extends BorderPane {
     updateHealthOverview(rows);
   }
 
-  private VBox buildHealthCard(HealthRow row) {
-    VBox box = new VBox(6);
-    box.setPadding(new Insets(8));
+  private HBox buildHealthCard(HealthRow row) {
+    HBox box = new HBox(8);
+    box.setPadding(new Insets(6, 8, 6, 8));
     box.getStyleClass().add("welcome-health-card");
+    box.setAlignment(Pos.CENTER_LEFT);
 
     Label badge = new Label();
     badge.getStyleClass().addAll("welcome-health-badge", severityBadgeClass(row.severity()));
@@ -1143,14 +1134,11 @@ public class WelcomeCenterView extends BorderPane {
     title.getStyleClass().add("welcome-health-title");
     Label summary = new Label(row.summary());
     summary.getStyleClass().add("welcome-health-summary");
-    Label detail = new Label(row.detail());
-    detail.setWrapText(true);
-    detail.getStyleClass().add("welcome-health-detail");
+    summary.setMaxWidth(Double.MAX_VALUE);
+    summary.setTooltip(new Tooltip(row.detail() == null || row.detail().isBlank() ? row.summary() : row.detail()));
+    HBox.setHgrow(summary, Priority.ALWAYS);
 
-    HBox titleRow = new HBox(8, badge, title);
-    titleRow.setAlignment(Pos.CENTER_LEFT);
-
-    box.getChildren().addAll(titleRow, summary, detail);
+    box.getChildren().addAll(badge, title, summary);
     return box;
   }
 

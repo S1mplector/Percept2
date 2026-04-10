@@ -44,7 +44,7 @@ public class EditorSettingsView extends BorderPane {
 
   public EditorSettingsView(EditorPreferencesStore store) {
     this.store = store == null ? new EditorPreferencesStore() : store;
-    setPadding(new Insets(10));
+    setPadding(Insets.EMPTY);
     getStyleClass().add("editor-settings-view");
 
     ToolBar toolbar = new ToolBar();
@@ -65,7 +65,7 @@ public class EditorSettingsView extends BorderPane {
     setTop(toolbar);
 
     VBox content = new VBox(14);
-    content.setPadding(new Insets(4));
+    content.setPadding(new Insets(12));
     content.getStyleClass().add("editor-settings-content");
 
     Label header = new Label("Editor Settings");

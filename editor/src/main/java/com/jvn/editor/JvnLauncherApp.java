@@ -16,8 +16,8 @@ import java.util.Properties;
 import com.jvn.editor.ui.EditorDialogs;
 import com.jvn.editor.ui.EditorPreferences;
 import com.jvn.editor.ui.EditorPreferencesStore;
-import com.jvn.editor.ui.EditorSettingsView;
 import com.jvn.editor.ui.EditorTheme;
+import com.jvn.editor.ui.LauncherSettingsView;
 import com.jvn.editor.ui.NewProjectWizard;
 import com.jvn.editor.ui.RunConsoleView;
 import com.jvn.editor.ui.StartupSplashOverlay;
@@ -233,6 +233,7 @@ public class JvnLauncherApp extends Application {
     }
     editorPreferencesStore = new EditorPreferencesStore();
     editorPreferences = editorPreferencesStore.load();
+    EditorTheme.setTheme(editorPreferences.getLauncherTheme());
 
     BorderPane root = new BorderPane();
     root.getStyleClass().add("jvn-launcher-root");
@@ -482,6 +483,7 @@ public class JvnLauncherApp extends Application {
         welcomeView.markProjectVisited(resolved);
       }
     }
+    rememberLauncherProjectSelection(resolved);
     refreshButtonState();
   }
 
@@ -504,7 +506,8 @@ public class JvnLauncherApp extends Application {
       settingsStage.requestFocus();
       return;
     }
-    EditorSettingsView settingsView = new EditorSettingsView(editorPreferencesStore);
+    LauncherSettingsView settingsView = new LauncherSettingsView(editorPreferencesStore);
+    settingsView.setCurrentProject(currentProject);
     settingsView.setOnPreferencesApplied(this::applyEditorPreferences);
     settingsView.loadIntoForm(editorPreferences);
 
@@ -522,7 +525,24 @@ public class JvnLauncherApp extends Application {
 
   private void applyEditorPreferences(EditorPreferences preferences) {
     editorPreferences = preferences == null ? EditorPreferences.defaults() : preferences.copy();
+    setTheme(EditorPreferences.LAUNCHER_THEME_LIGHT.equals(editorPreferences.getLauncherTheme())
+        ? EditorTheme.Theme.LIGHT
+        : EditorTheme.Theme.DARK,
+        false);
     statusLabel.setText("Launcher settings saved");
+  }
+
+  private void rememberLauncherProjectSelection(File selectedProject) {
+    if (editorPreferencesStore == null || editorPreferences == null) return;
+    if (!editorPreferences.isLauncherRestoreLastProject()) return;
+    String path = selectedProject == null ? "" : selectedProject.getAbsolutePath();
+    if (path.equals(editorPreferences.getLauncherLastProjectPath())) return;
+    editorPreferences.setLauncherLastProjectPath(path);
+    try {
+      editorPreferencesStore.save(editorPreferences);
+    } catch (Exception ex) {
+      statusLabel.setText("Failed to remember selected project: " + ex.getMessage());
+    }
   }
 
   private void openProjectFileFromLauncher(File file) {
@@ -639,11 +659,26 @@ public class JvnLauncherApp extends Application {
   }
 
   private void setTheme(EditorTheme.Theme theme) {
+    setTheme(theme, true);
+  }
+
+  private void setTheme(EditorTheme.Theme theme, boolean persist) {
     if (theme == null || theme == EditorTheme.theme()) return;
     EditorTheme.setTheme(theme);
     for (Window window : Window.getWindows()) {
       if (window != null && window.getScene() != null) {
         EditorTheme.apply(window.getScene());
+      }
+    }
+    if (persist && editorPreferencesStore != null && editorPreferences != null) {
+      editorPreferences.setLauncherTheme(theme == EditorTheme.Theme.LIGHT
+          ? EditorPreferences.LAUNCHER_THEME_LIGHT
+          : EditorPreferences.LAUNCHER_THEME_DARK);
+      try {
+        editorPreferencesStore.save(editorPreferences);
+      } catch (Exception ex) {
+        statusLabel.setText("Failed to save theme: " + ex.getMessage());
+        return;
       }
     }
     statusLabel.setText("Theme: " + (theme == EditorTheme.Theme.LIGHT ? "Light" : "Dark"));
@@ -866,7 +901,12 @@ public class JvnLauncherApp extends Application {
 
   private File resolveStartupProject() {
     String value = System.getProperty(LAUNCHER_START_PROJECT_PROPERTY, "").trim();
-    if (value.isBlank()) return null;
+    if (value.isBlank()
+        && editorPreferences != null
+        && editorPreferences.isLauncherRestoreLastProject()) {
+      value = editorPreferences.getLauncherLastProjectPath();
+    }
+    if (value == null || value.isBlank()) return null;
     return normalizeProjectDirectory(new File(value));
   }
 
