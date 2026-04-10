@@ -1,6 +1,5 @@
 package com.jvn.core.vn;
 
-import com.jvn.core.audio.AmbienceProfile;
 import com.jvn.core.audio.AudioFacade;
 import org.junit.jupiter.api.Test;
 
@@ -209,44 +208,6 @@ class DefaultVnInteropQuotedArgsTest {
     assertFalse(audio.lastCrossfadeLoop);
   }
 
-  @Test
-  void appliesSynthesizerAudioInteropCommands() {
-    VnScenario scenario = new VnScenarioBuilder("audio_synth")
-        .label("start")
-        .dialogue("Narrator", "Start")
-        .end()
-        .build();
-    VnScene scene = new VnScene(scenario);
-    FakeAudio audio = new FakeAudio();
-    scene.setAudioFacade(audio);
-    DefaultVnInterop interop = new DefaultVnInterop();
-
-    interop.handle(new VnExternalCommand(
-        "audio",
-        "synth on type=ambience mode=rain intensity=0.81 volume=0.42 detail=0.63 motion=0.28 spread=0.74 accent=0.91 loop=true"), scene);
-    assertEquals("rain", audio.lastAmbiencePreset);
-    assertEquals(0.81f, audio.lastAmbienceIntensity);
-    assertEquals(true, audio.lastAmbienceLoop);
-    assertEquals(0.42f, audio.lastAmbienceVolume);
-    assertEquals(0.63f, audio.lastAmbienceProfile.detail());
-    assertEquals(0.28f, audio.lastAmbienceProfile.motion());
-    assertEquals(0.74f, audio.lastAmbienceProfile.spread());
-    assertEquals(0.91f, audio.lastAmbienceProfile.accent());
-
-    interop.handle(new VnExternalCommand(
-        "audio",
-        "synth on type=chiptune cue=\"confirm tone\" intensity=0.56 volume=0.73 loop=false"), scene);
-    assertEquals("confirm tone", audio.lastChiptuneCue);
-    assertEquals(0.56f, audio.lastChiptuneIntensity);
-    assertEquals(false, audio.lastChiptuneLoop);
-    assertEquals(0.73f, audio.lastChiptuneVolume);
-
-    interop.handle(new VnExternalCommand("audio", "synth off type=all"), scene);
-    assertEquals(1, audio.stopAmbienceCount);
-    assertEquals(1, audio.stopChiptuneCount);
-  }
-
-  @Test
   void togglesDialoguePresentationModesAndBubblePreferences() {
     VnScenario scenario = new VnScenarioBuilder("dialogue_modes")
         .label("start")
@@ -295,18 +256,6 @@ class DefaultVnInteropQuotedArgsTest {
     private String lastCrossfadeTrack;
     private long lastCrossfadeDurationMs = -1L;
     private boolean lastCrossfadeLoop;
-    private String lastAmbiencePreset;
-    private float lastAmbienceIntensity;
-    private boolean lastAmbienceLoop;
-    private float lastAmbienceVolume = -1f;
-    private AmbienceProfile lastAmbienceProfile;
-
-    private String lastChiptuneCue;
-    private float lastChiptuneIntensity;
-    private boolean lastChiptuneLoop;
-    private float lastChiptuneVolume = -1f;
-    private int stopAmbienceCount;
-    private int stopChiptuneCount;
     private boolean supportsSpectrum;
     private float[] latestSpectrum;
     private long latestSpectrumUpdatedAtNanos;
@@ -369,48 +318,6 @@ class DefaultVnInteropQuotedArgsTest {
       lastCrossfadeTrack = trackId;
       lastCrossfadeDurationMs = ms;
       lastCrossfadeLoop = loop;
-    }
-
-    @Override
-    public void playAmbience(String preset, float intensity, boolean loop) {
-      lastAmbiencePreset = preset;
-      lastAmbienceIntensity = intensity;
-      lastAmbienceLoop = loop;
-    }
-
-    @Override
-    public void playAmbience(String preset, float intensity, AmbienceProfile profile) {
-      lastAmbiencePreset = preset;
-      lastAmbienceIntensity = intensity;
-      lastAmbienceLoop = profile.loop();
-      lastAmbienceProfile = profile;
-    }
-
-    @Override
-    public void stopAmbience() {
-      stopAmbienceCount++;
-    }
-
-    @Override
-    public void setAmbienceVolume(float volume) {
-      lastAmbienceVolume = volume;
-    }
-
-    @Override
-    public void playChiptune(String cueId, float intensity, boolean loop) {
-      lastChiptuneCue = cueId;
-      lastChiptuneIntensity = intensity;
-      lastChiptuneLoop = loop;
-    }
-
-    @Override
-    public void stopChiptune() {
-      stopChiptuneCount++;
-    }
-
-    @Override
-    public void setChiptuneVolume(float volume) {
-      lastChiptuneVolume = volume;
     }
 
     @Override

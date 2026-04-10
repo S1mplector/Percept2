@@ -1252,77 +1252,15 @@ public class VnScriptParserTest {
   }
 
   @Test
-  public void parsesSynthesizerAmbienceCommandWithOptions() throws Exception {
-    String script = """
-      @label start
-      [synthesizer on mode:"wind" intensity:0.72 volume:0.4 detail:0.61 motion:0.22 spread:0.78 accent:0.83 loop:false]
-      [end]
-    """;
-    VnScriptParser parser = new VnScriptParser();
-    VnScenario scen = parser.parseFromString(script);
-    VnNode ext = scen.getNodes().stream()
-        .filter(n -> n.getType() == VnNodeType.EXTERNAL
-            && "audio".equals(n.getExternalCommand().getProvider()))
-        .findFirst().orElseThrow();
-    assertEquals(
-        "synth on type=ambience mode=wind intensity=0.72 volume=0.4 detail=0.61 motion=0.22 spread=0.78 accent=0.83 loop=false",
-        ext.getExternalCommand().getPayload());
-  }
-
-  @Test
-  public void parsesSynthesizerChiptuneCommandWithQuotedCue() throws Exception {
-    String script = """
-      @label start
-      [synth on type:"chiptune" cue:"confirm tone" intensity:0.9 loop:true]
-      [end]
-    """;
-    VnScriptParser parser = new VnScriptParser();
-    VnScenario scen = parser.parseFromString(script);
-    VnNode ext = scen.getNodes().stream()
-        .filter(n -> n.getType() == VnNodeType.EXTERNAL
-            && "audio".equals(n.getExternalCommand().getProvider()))
-        .findFirst().orElseThrow();
-    assertEquals("synth on type=chiptune cue=\"confirm tone\" intensity=0.9 loop=true", ext.getExternalCommand().getPayload());
-  }
-
-  @Test
-  public void parsesSynthesizerOffCommand() throws Exception {
+  public void rejectsRemovedSynthesizerCommand() {
     String script = """
       @label start
       [synthesizer off]
       [end]
     """;
     VnScriptParser parser = new VnScriptParser();
-    VnScenario scen = parser.parseFromString(script);
-    VnNode ext = scen.getNodes().stream()
-        .filter(n -> n.getType() == VnNodeType.EXTERNAL
-            && "audio".equals(n.getExternalCommand().getProvider()))
-        .findFirst().orElseThrow();
-    assertEquals("synth off type=all", ext.getExternalCommand().getPayload());
-  }
-
-  @Test
-  public void rejectsSynthesizerInvalidIntensityRange() {
-    String script = """
-      @label start
-      [synthesizer on mode:"wind" intensity:1.2]
-      [end]
-    """;
-    VnScriptParser parser = new VnScriptParser();
     IOException ex = assertThrows(IOException.class, () -> parser.parseFromString(script));
-    assertTrue(ex.getMessage().contains("[synthesizer] intensity must be between 0 and 1"));
-  }
-
-  @Test
-  public void rejectsSynthesizerInvalidSpreadRange() {
-    String script = """
-      @label start
-      [synthesizer on mode:"rain" spread:1.3]
-      [end]
-    """;
-    VnScriptParser parser = new VnScriptParser();
-    IOException ex = assertThrows(IOException.class, () -> parser.parseFromString(script));
-    assertTrue(ex.getMessage().contains("[synthesizer] spread must be between 0 and 1"));
+    assertTrue(ex.getMessage().contains("Unknown command [synthesizer]"));
   }
 
   @Test

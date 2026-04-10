@@ -15,7 +15,6 @@ import com.jvn.core.animation.TimelineData;
 import com.jvn.core.animation.TimelineDataParser;
 import com.jvn.core.animation.TimelineRegistry;
 import com.jvn.core.animation.TimelineRunner;
-import com.jvn.core.audio.AmbienceProfile;
 import com.jvn.core.audio.AudioFacade;
 import com.jvn.core.vn.stage.VnStagePreset;
 import com.jvn.core.vn.ui.VnOverlayButtonSpec;
@@ -785,10 +784,6 @@ public class DefaultVnInterop implements VnInterop {
       case "crossfade":
         handleAudioCrossfade(toks, a);
         break;
-      case "synth":
-      case "synthesizer":
-        handleSynthAudio(toks, a);
-        break;
     }
   }
 
@@ -904,86 +899,6 @@ public class DefaultVnInterop implements VnInterop {
       case "master" -> "all";
       default -> token.trim().toLowerCase(Locale.ROOT);
     };
-  }
-
-  private void handleSynthAudio(String[] toks, com.jvn.core.audio.AudioFacade audio) {
-    if (toks == null || toks.length < 2 || audio == null) return;
-
-    String action = toks[1] == null ? "" : toks[1].trim().toLowerCase();
-    if ("stop".equals(action)) action = "off";
-    if (action.isEmpty()) return;
-
-    String type = "on".equals(action) ? "ambience" : "all";
-    String mode = "wind";
-    String cue = null;
-    float intensity = 0.65f;
-    Float volume = null;
-    Boolean loop = Boolean.TRUE;
-    Float detail = null;
-    Float motion = null;
-    Float spread = null;
-    Float accent = null;
-
-    for (int i = 2; i < toks.length; i++) {
-      SynthOption option = parseSynthOption(toks[i]);
-      if (option == null) continue;
-      switch (option.key) {
-        case "type", "target", "channel" -> {
-          String parsedType = parseSynthType(option.value, "off".equals(action));
-          if (parsedType != null) type = parsedType;
-        }
-        case "mode", "preset" -> mode = option.value;
-        case "cue" -> cue = option.value;
-        case "intensity", "amount" -> intensity = clamp01(parseFloatSafe(option.value, intensity));
-        case "vol", "volume" -> volume = clamp01(parseFloatSafe(option.value, 0.7f));
-        case "detail" -> detail = clamp01(parseFloatSafe(option.value, 0.5f));
-        case "motion" -> motion = clamp01(parseFloatSafe(option.value, 0.5f));
-        case "spread", "width" -> spread = clamp01(parseFloatSafe(option.value, 0.5f));
-        case "accent", "variation" -> accent = clamp01(parseFloatSafe(option.value, 0.5f));
-        case "loop" -> {
-          Boolean b = parseBooleanMaybe(option.value);
-          if (b != null) loop = b;
-        }
-        default -> {
-          // Ignore unknown options here; parser-level validation handles strict VNS command input.
-        }
-      }
-    }
-
-    if ("off".equals(action)) {
-      switch (type) {
-        case "ambience" -> audio.stopAmbience();
-        case "chiptune" -> audio.stopChiptune();
-        default -> {
-          audio.stopAmbience();
-          audio.stopChiptune();
-        }
-      }
-      return;
-    }
-
-    if (!"on".equals(action)) return;
-    boolean playLoop = loop == null || loop;
-    if ("chiptune".equals(type)) {
-      String playCue = cue;
-      if (playCue == null || playCue.isBlank()) playCue = mode;
-      if (playCue == null || playCue.isBlank()) playCue = "blip";
-      if (volume != null) audio.setChiptuneVolume(volume);
-      audio.playChiptune(playCue, intensity, playLoop);
-      return;
-    }
-
-    String preset = mode == null || mode.isBlank() ? "wind" : mode;
-    if (volume != null) audio.setAmbienceVolume(volume);
-    audio.playAmbience(
-        preset,
-        intensity,
-        new AmbienceProfile(
-            detail == null ? AmbienceProfile.DEFAULT_DETAIL : detail,
-            motion == null ? AmbienceProfile.DEFAULT_MOTION : motion,
-            spread == null ? AmbienceProfile.DEFAULT_SPREAD : spread,
-            accent == null ? AmbienceProfile.DEFAULT_ACCENT : accent,
-            playLoop));
   }
 
   private VnInteropResult handleScreen(String payload, VnScene scene) {
@@ -1418,31 +1333,6 @@ public class DefaultVnInterop implements VnInterop {
     };
   }
 
-  private String parseSynthType(String token, boolean allowAll) {
-    if (token == null || token.isBlank()) return null;
-    String t = token.trim().toLowerCase();
-    return switch (t) {
-      case "ambience", "ambient", "ambi" -> "ambience";
-      case "chiptune", "chip", "beez" -> "chiptune";
-      case "all" -> allowAll ? "all" : "ambience";
-      default -> null;
-    };
-  }
-
-  private SynthOption parseSynthOption(String token) {
-    if (token == null || token.isBlank()) return null;
-    int eq = token.indexOf('=');
-    int colon = token.indexOf(':');
-    int sep;
-    if (eq > 0 && colon > 0) sep = Math.min(eq, colon);
-    else sep = Math.max(eq, colon);
-    if (sep <= 0 || sep >= token.length() - 1) return null;
-    String key = token.substring(0, sep).trim().toLowerCase();
-    String value = token.substring(sep + 1).trim();
-    if (key.isEmpty() || value.isEmpty()) return null;
-    return new SynthOption(key, value);
-  }
-
   private float clamp01(float value) {
     if (value < 0f) return 0f;
     if (value > 1f) return 1f;
@@ -1602,6 +1492,4 @@ public class DefaultVnInterop implements VnInterop {
       Double height,
       Integer z,
       List<String> warnings) {}
-
-  private record SynthOption(String key, String value) {}
 }

@@ -5,8 +5,7 @@ package com.jvn.core.audio;
  *
  * <p>{@code AudioFacade} defines three main channels — <b>BGM</b>
  * (background music), <b>SFX</b> (sound effects), and <b>Voice</b> —
- * plus optional hooks for procedural ambience, chiptune synthesis,
- * and real-time spectrum analysis.</p>
+ * plus optional real-time spectrum analysis.</p>
  *
  * <p>Only three methods are abstract ({@link #playBgm}, {@link #stopBgm},
  * {@link #playSfx}). All others provide sensible default (no-op)
@@ -17,10 +16,7 @@ package com.jvn.core.audio;
  * BGM   — loopable background music track (one at a time)
  * SFX   — fire-and-forget sound effects
  * Voice — treated as SFX by default; override for dedicated voice channel
- * Ambience / Chiptune — optional procedural synthesis channels
  * </pre>
- *
- * @see AmbienceProfile
  */
 public interface AudioFacade {
 
@@ -106,33 +102,6 @@ public interface AudioFacade {
    * @param loop    whether the new track should loop
    */
   default void crossfadeBgm(String trackId, long ms, boolean loop) {}
-
-  // ──────────────────────────────────────────────────────────────────────────
-  //  Procedural synthesis (optional compatibility hooks)
-  // ──────────────────────────────────────────────────────────────────────────
-
-  /** Start a procedural ambience preset. */
-  default void playAmbience(String preset, float intensity, boolean loop) {}
-
-  /** Start a procedural ambience preset using an {@link AmbienceProfile}. */
-  default void playAmbience(String preset, float intensity, AmbienceProfile profile) {
-    playAmbience(preset, intensity, profile == null || profile.loop());
-  }
-
-  /** Stop the ambience channel. */
-  default void stopAmbience() {}
-
-  /** Set the ambience volume [0, 1]. */
-  default void setAmbienceVolume(float volume) {}
-
-  /** Start a procedural chiptune cue. */
-  default void playChiptune(String cueId, float intensity, boolean loop) {}
-
-  /** Stop the chiptune channel. */
-  default void stopChiptune() {}
-
-  /** Set the chiptune volume [0, 1]. */
-  default void setChiptuneVolume(float volume) {}
 
   // ──────────────────────────────────────────────────────────────────────────
   //  Spectrum analysis (optional)
