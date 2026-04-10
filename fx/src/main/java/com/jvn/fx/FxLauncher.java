@@ -1749,6 +1749,10 @@ public class FxLauncher extends Application {
   @Override
   public void stop() {
     if (timer != null) timer.stop();
+    if (hotReloadTracker != null) {
+      hotReloadTracker.close();
+      hotReloadTracker = null;
+    }
     if (engine != null && engine.isStarted()) {
       engine.stop();
     }
