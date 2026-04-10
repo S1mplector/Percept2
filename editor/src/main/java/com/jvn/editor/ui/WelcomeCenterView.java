@@ -3,14 +3,12 @@ package com.jvn.editor.ui;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.management.ManagementFactory;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -44,8 +42,6 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
-import javafx.scene.canvas.Canvas;
-import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
@@ -53,7 +49,6 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
-import javafx.scene.paint.Color;
 import javafx.util.Duration;
 
 /**
@@ -115,10 +110,6 @@ public class WelcomeCenterView extends BorderPane {
   private final TextField recentFilterField = new TextField();
 
   private final VBox healthContainer = new VBox(8);
-  private final PerformanceSparkline performanceGraph = new PerformanceSparkline();
-  private final Label performanceCpuLabel = new Label("CPU --");
-  private final Label performanceMemoryLabel = new Label("Heap --");
-  private final Label performanceThreadLabel = new Label("Threads --");
   private List<ProjectEntry> allRecentProjects = List.of();
 
   private File workspaceRoot;
@@ -238,11 +229,9 @@ public class WelcomeCenterView extends BorderPane {
     worker.submit(() -> {
       List<ProjectEntry> projects = collectRecentProjects();
       List<HealthRow> healthRows = collectHealthRows();
-      PerformanceSnapshot performance = collectPerformanceSnapshot();
       Platform.runLater(() -> {
         allRecentProjects = projects == null ? List.of() : projects;
         applyRecentFilter();
-        renderPerformanceSnapshot(performance);
         renderHealthRows(healthRows);
         healthMetaLabel.setText(buildHealthSummary(healthRows));
         statusLabel.setText("Last refreshed: " + formatTimestamp(System.currentTimeMillis()));
@@ -379,7 +368,7 @@ public class WelcomeCenterView extends BorderPane {
     healthHeaderRow.setAlignment(Pos.CENTER_LEFT);
     healthContainer.setPadding(new Insets(0));
     healthContainer.setSpacing(6);
-    VBox health = new VBox(8, healthHeaderRow, buildPerformancePanel(), healthContainer);
+    VBox health = new VBox(8, healthHeaderRow, healthContainer);
     health.setPadding(new Insets(10));
     health.getStyleClass().add("welcome-section-card");
 
@@ -1153,79 +1142,6 @@ public class WelcomeCenterView extends BorderPane {
     return box;
   }
 
-  private HBox buildPerformancePanel() {
-    Label title = new Label("Runtime Performance");
-    title.getStyleClass().add("welcome-performance-title");
-    performanceCpuLabel.getStyleClass().add("welcome-performance-stat");
-    performanceMemoryLabel.getStyleClass().add("welcome-performance-stat");
-    performanceThreadLabel.getStyleClass().add("welcome-performance-stat");
-
-    HBox stats = new HBox(8, performanceCpuLabel, performanceMemoryLabel, performanceThreadLabel);
-    stats.setAlignment(Pos.CENTER_LEFT);
-    VBox copy = new VBox(4, title, stats);
-    copy.setMinWidth(210);
-    HBox.setHgrow(copy, Priority.ALWAYS);
-
-    HBox panel = new HBox(10, copy, performanceGraph);
-    panel.getStyleClass().add("welcome-performance-card");
-    panel.setAlignment(Pos.CENTER_LEFT);
-    panel.setPadding(new Insets(8));
-    return panel;
-  }
-
-  private PerformanceSnapshot collectPerformanceSnapshot() {
-    Runtime runtime = Runtime.getRuntime();
-    long max = runtime.maxMemory();
-    long used = runtime.totalMemory() - runtime.freeMemory();
-    double heapRatio = max <= 0L ? 0.0 : clamp01((double) used / (double) max);
-    double cpuLoad = -1.0;
-    try {
-      java.lang.management.OperatingSystemMXBean base =
-          ManagementFactory.getOperatingSystemMXBean();
-      if (base instanceof com.sun.management.OperatingSystemMXBean os) {
-        cpuLoad = os.getProcessCpuLoad();
-      }
-    } catch (Exception ignore) {
-      cpuLoad = -1.0;
-    }
-    int threads = 0;
-    try {
-      threads = ManagementFactory.getThreadMXBean().getThreadCount();
-    } catch (Exception ignore) {
-      threads = 0;
-    }
-    return new PerformanceSnapshot(
-        cpuLoad < 0 ? -1.0 : clamp01(cpuLoad),
-        heapRatio,
-        used,
-        max,
-        threads);
-  }
-
-  private void renderPerformanceSnapshot(PerformanceSnapshot snapshot) {
-    if (snapshot == null) return;
-    performanceCpuLabel.setText("CPU " + formatPercent(snapshot.cpuLoad()));
-    performanceMemoryLabel.setText("Heap " + formatMemory(snapshot.heapUsedBytes()) + "/" + formatMemory(snapshot.heapMaxBytes()));
-    performanceThreadLabel.setText("Threads " + snapshot.threadCount());
-    performanceGraph.addSample(snapshot.cpuLoad(), snapshot.heapLoad());
-  }
-
-  private String formatPercent(double value) {
-    if (value < 0) return "--";
-    return Math.round(clamp01(value) * 100.0) + "%";
-  }
-
-  private String formatMemory(long bytes) {
-    if (bytes <= 0L) return "--";
-    long mib = Math.max(1L, Math.round(bytes / 1024.0 / 1024.0));
-    return mib + " MB";
-  }
-
-  private double clamp01(double value) {
-    if (Double.isNaN(value) || Double.isInfinite(value)) return 0.0;
-    return Math.max(0.0, Math.min(1.0, value));
-  }
-
   private String severityLabel(Severity severity) {
     return switch (severity) {
       case OK -> "OK";
@@ -1607,97 +1523,6 @@ public class WelcomeCenterView extends BorderPane {
   }
 
   private record HealthRow(Severity severity, String title, String summary, String detail) {
-  }
-
-  private record PerformanceSnapshot(
-      double cpuLoad,
-      double heapLoad,
-      long heapUsedBytes,
-      long heapMaxBytes,
-      int threadCount) {
-  }
-
-  private static final class PerformanceSparkline extends Canvas {
-    private static final int SAMPLE_LIMIT = 42;
-    private final ArrayDeque<Double> cpuSamples = new ArrayDeque<>();
-    private final ArrayDeque<Double> heapSamples = new ArrayDeque<>();
-
-    private PerformanceSparkline() {
-      setWidth(160);
-      setHeight(42);
-      setFocusTraversable(false);
-      getStyleClass().add("welcome-performance-graph");
-      widthProperty().addListener((obs, oldValue, newValue) -> redraw());
-      heightProperty().addListener((obs, oldValue, newValue) -> redraw());
-      redraw();
-    }
-
-    private void addSample(double cpuLoad, double heapLoad) {
-      append(cpuSamples, cpuLoad);
-      append(heapSamples, heapLoad);
-      redraw();
-    }
-
-    private void append(ArrayDeque<Double> samples, double value) {
-      samples.addLast(value);
-      while (samples.size() > SAMPLE_LIMIT) {
-        samples.removeFirst();
-      }
-    }
-
-    private void redraw() {
-      GraphicsContext gc = getGraphicsContext2D();
-      double w = Math.max(1.0, getWidth());
-      double h = Math.max(1.0, getHeight());
-      gc.clearRect(0, 0, w, h);
-      gc.setFill(Color.rgb(12, 12, 12, 0.55));
-      gc.fillRoundRect(0, 0, w, h, 10, 10);
-      gc.setStroke(Color.rgb(255, 255, 255, 0.10));
-      gc.setLineWidth(1.0);
-      for (int i = 1; i <= 3; i++) {
-        double y = h * i / 4.0;
-        gc.strokeLine(6, y, w - 6, y);
-      }
-      drawSeries(gc, heapSamples, w, h, Color.web("#dd9a48"));
-      drawSeries(gc, cpuSamples, w, h, Color.web("#8bcf98"));
-    }
-
-    private void drawSeries(GraphicsContext gc,
-                            ArrayDeque<Double> samples,
-                            double width,
-                            double height,
-                            Color color) {
-      if (samples.isEmpty()) return;
-      int count = samples.size();
-      double left = 7.0;
-      double right = width - 7.0;
-      double top = 6.0;
-      double bottom = height - 6.0;
-      double step = count <= 1 ? 0.0 : (right - left) / (count - 1);
-      gc.setStroke(color);
-      gc.setLineWidth(1.8);
-      Double previousX = null;
-      Double previousY = null;
-      int index = 0;
-      for (Double raw : samples) {
-        double value = raw == null ? -1.0 : raw.doubleValue();
-        double x = left + step * index++;
-        if (value < 0.0 || Double.isNaN(value) || Double.isInfinite(value)) {
-          previousX = null;
-          previousY = null;
-          continue;
-        }
-        double clamped = Math.max(0.0, Math.min(1.0, value));
-        double y = bottom - (bottom - top) * clamped;
-        if (previousX != null && previousY != null) {
-          gc.strokeLine(previousX, previousY, x, y);
-        } else {
-          gc.strokeOval(x - 0.8, y - 0.8, 1.6, 1.6);
-        }
-        previousX = x;
-        previousY = y;
-      }
-    }
   }
 
   private final class ProjectCell extends ListCell<ProjectEntry> {
