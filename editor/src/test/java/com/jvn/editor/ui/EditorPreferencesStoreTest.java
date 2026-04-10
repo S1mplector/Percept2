@@ -28,6 +28,9 @@ class EditorPreferencesStoreTest {
     assertTrue(preferences.isLoadSidebarExtensionsOnDemand());
     assertEquals(EditorPreferences.TEXT_EDITOR_JVN, preferences.getDefaultTextEditor());
     assertEquals("", preferences.getCustomTextEditorCommand());
+    assertEquals(EditorPreferences.LAUNCHER_THEME_DARK, preferences.getLauncherTheme());
+    assertTrue(preferences.isLauncherRestoreLastProject());
+    assertEquals("", preferences.getLauncherLastProjectPath());
     assertEquals(EditorPanelPlacement.LEFT, preferences.getPlacement(EditorSidebarPanel.PROJECT));
     assertEquals(EditorPanelPlacement.HIDDEN, preferences.getPlacement(EditorSidebarPanel.HELP));
     assertTrue(preferences.isVisibleInChooser(EditorSidebarPanel.PROJECT));
@@ -48,6 +51,9 @@ class EditorPreferencesStoreTest {
     preferences.setLoadSidebarExtensionsOnDemand(false);
     preferences.setDefaultTextEditor(EditorPreferences.TEXT_EDITOR_CUSTOM);
     preferences.setCustomTextEditorCommand("code --reuse-window {file}");
+    preferences.setLauncherTheme(EditorPreferences.LAUNCHER_THEME_LIGHT);
+    preferences.setLauncherRestoreLastProject(false);
+    preferences.setLauncherLastProjectPath("/tmp/project");
     preferences.setPlacement(EditorSidebarPanel.HELP, EditorPanelPlacement.RIGHT);
     preferences.setPlacement(EditorSidebarPanel.TIMELINE, EditorPanelPlacement.LEFT);
     preferences.setVisibleInChooser(EditorSidebarPanel.HELP, false);
@@ -60,6 +66,9 @@ class EditorPreferencesStoreTest {
     assertFalse(loaded.isLoadSidebarExtensionsOnDemand());
     assertEquals(EditorPreferences.TEXT_EDITOR_CUSTOM, loaded.getDefaultTextEditor());
     assertEquals("code --reuse-window {file}", loaded.getCustomTextEditorCommand());
+    assertEquals(EditorPreferences.LAUNCHER_THEME_LIGHT, loaded.getLauncherTheme());
+    assertFalse(loaded.isLauncherRestoreLastProject());
+    assertEquals("/tmp/project", loaded.getLauncherLastProjectPath());
     assertEquals(EditorPanelPlacement.RIGHT, loaded.getPlacement(EditorSidebarPanel.HELP));
     assertEquals(EditorPanelPlacement.LEFT, loaded.getPlacement(EditorSidebarPanel.TIMELINE));
     assertFalse(loaded.isVisibleInChooser(EditorSidebarPanel.HELP));
@@ -73,6 +82,8 @@ class EditorPreferencesStoreTest {
     props.setProperty(EditorPreferencesStore.KEY_SHOW_WELCOME_ON_STARTUP, "false");
     props.setProperty(EditorPreferencesStore.KEY_LOAD_SIDEBAR_EXTENSIONS_ON_DEMAND, "notabool");
     props.setProperty(EditorPreferencesStore.KEY_DEFAULT_TEXT_EDITOR, "unknown");
+    props.setProperty(EditorPreferencesStore.KEY_LAUNCHER_THEME, "unknown");
+    props.setProperty(EditorPreferencesStore.KEY_LAUNCHER_RESTORE_LAST_PROJECT, "notabool");
     props.setProperty(
         EditorPreferencesStore.KEY_PANEL_PREFIX + EditorSidebarPanel.PROJECT.key()
             + EditorPreferencesStore.KEY_PANEL_SUFFIX,
@@ -92,6 +103,8 @@ class EditorPreferencesStoreTest {
     assertFalse(loaded.isShowWelcomeOnStartup());
     assertTrue(loaded.isLoadSidebarExtensionsOnDemand());
     assertEquals(EditorPreferences.TEXT_EDITOR_JVN, loaded.getDefaultTextEditor());
+    assertEquals(EditorPreferences.LAUNCHER_THEME_DARK, loaded.getLauncherTheme());
+    assertTrue(loaded.isLauncherRestoreLastProject());
     assertEquals(EditorPanelPlacement.LEFT, loaded.getPlacement(EditorSidebarPanel.PROJECT));
     assertTrue(loaded.isVisibleInChooser(EditorSidebarPanel.PROJECT));
   }

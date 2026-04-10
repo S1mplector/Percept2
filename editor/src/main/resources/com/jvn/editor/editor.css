@@ -3860,17 +3860,19 @@
   -fx-border-width: 1;
   -fx-border-radius: 12;
   -fx-background-radius: 12;
+  -fx-min-height: 32;
+  -fx-pref-height: 34;
 }
 
 .welcome-health-title {
   -fx-font-weight: 800;
-  -fx-font-size: 12px;
+  -fx-font-size: 11px;
   -fx-text-fill: #eaeaea;
 }
 
 .welcome-health-summary {
-  -fx-text-fill: #d7d7d7;
-  -fx-font-size: 12px;
+  -fx-text-fill: #9a9a9a;
+  -fx-font-size: 10px;
   -fx-font-weight: 700;
 }
 
@@ -3878,6 +3880,32 @@
   -fx-text-fill: #8b8b8b;
   -fx-font-size: 11px;
   -fx-font-weight: 600;
+}
+
+.welcome-performance-card {
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255,255,255,0.018), rgba(255,255,255,0.0)),
+      linear-gradient(to bottom, #111111 0%, #0f0f0f 100%);
+  -fx-border-color: #272727;
+  -fx-border-width: 1;
+  -fx-border-radius: 12;
+  -fx-background-radius: 12;
+}
+
+.welcome-performance-title {
+  -fx-text-fill: #eaeaea;
+  -fx-font-size: 11px;
+  -fx-font-weight: 800;
+}
+
+.welcome-performance-stat {
+  -fx-text-fill: #8b8b8b;
+  -fx-font-size: 10px;
+  -fx-font-weight: 800;
+}
+
+.welcome-performance-graph {
+  -fx-opacity: 0.98;
 }
 
 .welcome-spotlight-link-row {
@@ -3926,8 +3954,8 @@
 }
 
 .welcome-health-badge {
-  -fx-padding: 3 8 3 8;
-  -fx-font-size: 9px;
+  -fx-padding: 2 7 2 7;
+  -fx-font-size: 8px;
   -fx-font-weight: 800;
   -fx-background-radius: 999;
   -fx-border-radius: 999;

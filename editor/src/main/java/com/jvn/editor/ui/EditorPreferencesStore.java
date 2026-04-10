@@ -13,6 +13,9 @@ public final class EditorPreferencesStore {
   static final String KEY_LOAD_SIDEBAR_EXTENSIONS_ON_DEMAND = "loadSidebarExtensionsOnDemand";
   static final String KEY_DEFAULT_TEXT_EDITOR = "defaultTextEditor";
   static final String KEY_CUSTOM_TEXT_EDITOR_COMMAND = "customTextEditorCommand";
+  static final String KEY_LAUNCHER_THEME = "launcher.theme";
+  static final String KEY_LAUNCHER_RESTORE_LAST_PROJECT = "launcher.restoreLastProject";
+  static final String KEY_LAUNCHER_LAST_PROJECT_PATH = "launcher.lastProjectPath";
   static final String KEY_PANEL_PREFIX = "panel.";
   static final String KEY_PANEL_SUFFIX = ".placement";
   static final String KEY_CHOOSER_SUFFIX = ".chooserVisible";
@@ -77,6 +80,15 @@ public final class EditorPreferencesStore {
     props.setProperty(
         KEY_CUSTOM_TEXT_EDITOR_COMMAND,
         preferences.getCustomTextEditorCommand());
+    props.setProperty(
+        KEY_LAUNCHER_THEME,
+        preferences.getLauncherTheme());
+    props.setProperty(
+        KEY_LAUNCHER_RESTORE_LAST_PROJECT,
+        Boolean.toString(preferences.isLauncherRestoreLastProject()));
+    props.setProperty(
+        KEY_LAUNCHER_LAST_PROJECT_PATH,
+        preferences.getLauncherLastProjectPath());
     for (EditorSidebarPanel panel : EditorSidebarPanel.values()) {
       props.setProperty(
           KEY_PANEL_PREFIX + panel.key() + KEY_PANEL_SUFFIX,
@@ -103,6 +115,14 @@ public final class EditorPreferencesStore {
         EditorPreferences.TEXT_EDITOR_JVN));
     preferences.setCustomTextEditorCommand(props.getProperty(
         KEY_CUSTOM_TEXT_EDITOR_COMMAND,
+        ""));
+    preferences.setLauncherTheme(props.getProperty(
+        KEY_LAUNCHER_THEME,
+        EditorPreferences.LAUNCHER_THEME_DARK));
+    preferences.setLauncherRestoreLastProject(parseBoolean(
+        props.getProperty(KEY_LAUNCHER_RESTORE_LAST_PROJECT), true));
+    preferences.setLauncherLastProjectPath(props.getProperty(
+        KEY_LAUNCHER_LAST_PROJECT_PATH,
         ""));
     for (EditorSidebarPanel panel : EditorSidebarPanel.values()) {
       String key = KEY_PANEL_PREFIX + panel.key() + KEY_PANEL_SUFFIX;
