@@ -121,7 +121,7 @@ Preflight applies:
 - `MOVE` — applies target position immediately (no slide tween)
 - `TRANSITION` — applies target background
 - `AUDIO` — processes audio commands
-- `EXTERNAL` — only safe providers (`var`, `ui`, `audio`, `char`, `settings`, `mode`, `screen`, `history`)
+- `EXTERNAL` — only safe providers (`var`, `ui`, `audio`, `char`, `stage`, `settings`, `mode`, `screen`, `history`)
 
 Preflight skips: `DIALOGUE`, `CHOICE`, `WAIT`, `JUMP`, `CALL`, `RETURN`, `END`
 
@@ -154,15 +154,20 @@ Preflight skips: `DIALOGUE`, `CHOICE`, `WAIT`, `JUMP`, `CALL`, `RETURN`, `END`
 
 ### Character Positions
 
+`CharacterPosition` is a class (not an enum) with five predefined constants and support for custom named or inline positions:
+
 ```java
-public enum CharacterPosition {
-    LEFT,
-    CENTER,
-    RIGHT,
-    FAR_LEFT,
-    FAR_RIGHT
-}
+CharacterPosition.LEFT        // predefined, x=0.25
+CharacterPosition.CENTER      // predefined, x=0.50
+CharacterPosition.RIGHT       // predefined, x=0.75
+CharacterPosition.FAR_LEFT    // predefined, x=0.10
+CharacterPosition.FAR_RIGHT   // predefined, x=0.90
+
+CharacterPosition.named("balcony", 0.3, 0.6)  // custom named position
+CharacterPosition.at(0.8, 0.4)                 // inline anonymous position
 ```
+
+Custom positions are declared via `@position` directives or inline `at x,y` syntax in commands.
 
 ### Character Tweening
 
@@ -207,6 +212,9 @@ state.showCharacterAnimated(RIGHT, "hero", "happy"); // slides from CENTER to RI
 | `readNodes` | Set of visited node indices |
 | `callStack` | Subroutine return addresses |
 | `activeTimelines` | Running `TimelineRunner` instances |
+| `persistentStore` | `VnPersistentStore` — cross-save persistent variables |
+| `mirroredPersistentVariables` | Keys currently mirrored from persistent store into `variables` as `persistent.<key>` |
+| `activeStagePresetId` | ID of the currently active stage lighting preset (stored as a variable) |
 
 ### Screen Effects
 

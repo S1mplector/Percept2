@@ -24,6 +24,8 @@ Directives start with `@` and are processed before runtime. They declare metadat
 | `@charlayer` | `@charlayer <id> <layer_name> <path>` | Defines a compositing layer for a character |
 | `@charpreset` | `@charpreset <id> <preset> $layer1 \| $layer2 \| ...` | Builds named expression from layers |
 | `@background` | `@background <id> <path>` | Registers a background image |
+| `@position` | `@position <name> <x> [<y>]` | Defines a named custom character position |
+| `@stagepreset` | `@stagepreset <id> <path>` | Loads a stage lighting preset from a `.properties` file |
 | `@var` | `@var <name> = <value>` | Declares a variable with initial value |
 | `@label` | `@label <name>` | Declares a jump target |
 | `@define` | `@define KEY value` | Parser-time text macro |
@@ -88,6 +90,8 @@ Commands use `[command args...]` bracket syntax. The parser's `parseCommand` met
 | `settings` | `[settings textspeed 20]` | Settings modification |
 | `save` | `[save]` | Auto-save |
 | `hud` | `[hud Chapter 2 — The Forest]` | HUD message |
+| `persistent` | `[persistent set key val]` | Persistent variable operations |
+| `stage` | `[stage sunset_park]` | Stage lighting preset activation |
 
 **Visual commands:**
 

@@ -109,6 +109,10 @@ This index is meant to guide you, the reader. Start with the path that matches w
 - [Storyboard Overlay](editor/sidebars/right/sidebar-storyboard-overlay.md)
 - [Text Editor](editor/sidebars/right/sidebar-script-editor.md)
 
+### Editor File Formats
+
+- [.layersetup Files](editor/tools/layersetup-files.md)
+
 ## Scripting
 
 ### VNS
