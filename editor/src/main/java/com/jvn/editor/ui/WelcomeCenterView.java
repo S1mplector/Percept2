@@ -68,7 +68,7 @@ public class WelcomeCenterView extends BorderPane {
   });
 
   private final Label headingLabel = new Label("Welcome to JVN Editor");
-  private final Label introLabel = new Label("");
+  private final Label introLabel = new Label("Create, open, run, and inspect projects from one place.");
   private final Label versionLabel = new Label("Version: --");
   private final Label workspaceLabel = new Label("No workspace root configured.");
   private final Label projectLabel = new Label("No project is currently open.");
@@ -86,7 +86,23 @@ public class WelcomeCenterView extends BorderPane {
   private final Button btnOpenProject = new Button();
   private final Button btnRunProject = new Button();
   private final Button btnOpenLast = new Button();
+  private final Button btnProjectExplorer = new Button();
+  private final Button btnHelpCenter = new Button();
   private final Button btnRefresh = new Button();
+  private final Button btnSpotlightOpenProject = new Button();
+  private final Button btnSpotlightRunProject = new Button();
+  private final Button btnSpotlightRevealProject = new Button();
+
+  private final Label spotlightMetaLabel = new Label("Select a project to inspect its common files and launch actions.");
+  private final Label spotlightNameLabel = new Label("No project selected");
+  private final Label spotlightPathLabel = new Label("Pick a recent project or open one from disk.");
+  private final Label spotlightSummaryLabel = new Label("The launcher will surface the project manifest, entry script, timeline, README, and docs folder here.");
+  private final Label spotlightStateBadge = new Label("No project");
+  private final SpotlightLinkRow entryLinkRow = new SpotlightLinkRow(CssIcon.speech("#8bcf98"), "Entry Script", "Open");
+  private final SpotlightLinkRow timelineLinkRow = new SpotlightLinkRow(CssIcon.play("#dd9a48"), "Timeline", "Open");
+  private final SpotlightLinkRow manifestLinkRow = new SpotlightLinkRow(CssIcon.document("#c6d1dc"), "Manifest", "Open");
+  private final SpotlightLinkRow readmeLinkRow = new SpotlightLinkRow(CssIcon.document("#d6cab8"), "README", "Open");
+  private final SpotlightLinkRow docsLinkRow = new SpotlightLinkRow(CssIcon.folder("#d5b36a"), "Docs Folder", "Reveal");
 
   private final ObservableList<ProjectEntry> recentProjects = FXCollections.observableArrayList();
   private final ListView<ProjectEntry> recentList = new ListView<>(recentProjects);
@@ -99,9 +115,13 @@ public class WelcomeCenterView extends BorderPane {
   private File projectRoot;
   private Runnable onCreateProject;
   private Runnable onOpenProjectDialog;
-  private Runnable onOpenSelectedProject;
-  private Runnable onRunSelectedProject;
+  private Runnable onShowProjectExplorer;
+  private Runnable onShowHelpCenter;
+  private Consumer<File> onOpenProject;
   private Consumer<File> onOpenRecentProject;
+  private Consumer<File> onRunProject;
+  private Consumer<File> onRevealProject;
+  private Consumer<File> onOpenProjectFile;
 
   private boolean busy;
 
@@ -136,6 +156,7 @@ public class WelcomeCenterView extends BorderPane {
     workspaceLabel.setText(this.workspaceRoot == null
         ? "Set a workspace root to scan project health and discover recent work."
         : abbreviatePath(this.workspaceRoot.getAbsolutePath()));
+    updateProjectSpotlight();
     refresh();
   }
 
@@ -145,6 +166,8 @@ public class WelcomeCenterView extends BorderPane {
     projectLabel.setText(this.projectRoot == null
         ? "Open a project to validate runtime artifacts and continue where you left off."
         : abbreviatePath(this.projectRoot.getAbsolutePath()));
+    syncRecentSelection();
+    updateProjectSpotlight();
     updateProjectActionButtons();
     refresh();
   }
@@ -157,16 +180,32 @@ public class WelcomeCenterView extends BorderPane {
     this.onOpenProjectDialog = onOpenProjectDialog;
   }
 
-  public void setOnOpenSelectedProject(Runnable onOpenSelectedProject) {
-    this.onOpenSelectedProject = onOpenSelectedProject;
+  public void setOnShowProjectExplorer(Runnable onShowProjectExplorer) {
+    this.onShowProjectExplorer = onShowProjectExplorer;
   }
 
-  public void setOnRunSelectedProject(Runnable onRunSelectedProject) {
-    this.onRunSelectedProject = onRunSelectedProject;
+  public void setOnShowHelpCenter(Runnable onShowHelpCenter) {
+    this.onShowHelpCenter = onShowHelpCenter;
+  }
+
+  public void setOnOpenProject(Consumer<File> onOpenProject) {
+    this.onOpenProject = onOpenProject;
   }
 
   public void setOnOpenRecentProject(Consumer<File> onOpenRecentProject) {
     this.onOpenRecentProject = onOpenRecentProject;
+  }
+
+  public void setOnRunProject(Consumer<File> onRunProject) {
+    this.onRunProject = onRunProject;
+  }
+
+  public void setOnRevealProject(Consumer<File> onRevealProject) {
+    this.onRevealProject = onRevealProject;
+  }
+
+  public void setOnOpenProjectFile(Consumer<File> onOpenProjectFile) {
+    this.onOpenProjectFile = onOpenProjectFile;
   }
 
   public void markProjectVisited(File projectDir) {
@@ -218,37 +257,53 @@ public class WelcomeCenterView extends BorderPane {
       if (onCreateProject != null) onCreateProject.run();
     });
     btnOpenProject.setOnAction(e -> {
-      if (hasSelectedProject()) {
-        if (onOpenSelectedProject != null) onOpenSelectedProject.run();
+      File target = resolveLauncherProjectDir();
+      if (target != null) {
+        openLauncherProject(target);
       } else if (onOpenProjectDialog != null) {
         onOpenProjectDialog.run();
       }
     });
-    btnRunProject.setOnAction(e -> {
-      if (hasSelectedProject() && onRunSelectedProject != null) {
-        onRunSelectedProject.run();
-      }
-    });
+    btnRunProject.setOnAction(e -> runLauncherProject(resolveLauncherProjectDir()));
     btnOpenLast.setOnAction(e -> {
       ProjectEntry first = recentProjects.isEmpty() ? null : recentProjects.get(0);
       if (first != null) openRecentProject(first);
+    });
+    btnProjectExplorer.setOnAction(e -> openProjectExplorerFor(resolveLauncherProjectDir()));
+    btnHelpCenter.setOnAction(e -> {
+      if (onShowHelpCenter != null) onShowHelpCenter.run();
     });
     btnRefresh.setOnAction(e -> refresh());
     configureActionButton(btnNewProject, CssIcon.plus("#8bcf98"), "New Project", "Create a new project", "welcome-action-button-primary");
     configureActionButton(btnOpenProject, CssIcon.folder("#d5b36a"), "Open Project", "Choose an existing project", "welcome-action-button-secondary");
     configureActionButton(btnRunProject, CssIcon.play("#dd9a48"), "Run Project", "Run the selected project with the runtime", "welcome-action-button-secondary");
     configureActionButton(btnOpenLast, CssIcon.arrowRight("#dccba2"), "Select Latest", "Select the most recent project", "welcome-action-button-secondary");
+    configureActionButton(btnProjectExplorer, CssIcon.list("#d6cab8"), "Project Explorer", "Jump to the Project Explorer tab", "welcome-action-button-secondary");
+    configureActionButton(btnHelpCenter, CssIcon.search("#d6cab8"), "Help Center", "Open Help Center documentation", "welcome-action-button-secondary");
     configureActionButton(btnRefresh, CssIcon.redo("#d6cab8"), "Refresh Checks", "Refresh Welcome Center data and health checks", "welcome-action-button-secondary");
     updateProjectActionButtons();
 
-    HBox actions = new HBox(8, btnNewProject, btnOpenProject, btnRunProject, btnOpenLast, btnRefresh);
-    actions.getStyleClass().add("welcome-action-row");
-    actions.setAlignment(Pos.CENTER_LEFT);
+    HBox primaryActions = new HBox(8, btnNewProject, btnOpenProject, btnRunProject, btnOpenLast);
+    primaryActions.getStyleClass().add("welcome-action-row");
+    primaryActions.setAlignment(Pos.CENTER_LEFT);
+
+    HBox secondaryActions = new HBox(8, btnProjectExplorer, btnHelpCenter, btnRefresh);
+    secondaryActions.getStyleClass().add("welcome-action-row");
+    secondaryActions.setAlignment(Pos.CENTER_LEFT);
 
     HBox headingRow = new HBox(8, headingLabel, versionLabel);
     headingRow.setAlignment(Pos.BASELINE_LEFT);
 
-    VBox hero = new VBox(12, headingRow, introLabel, actions, statusLabel);
+    HBox overviewRow = new HBox(
+        10,
+        buildOverviewCard("Workspace", workspaceValueLabel, workspaceLabel),
+        buildOverviewCard("Current Project", projectValueLabel, projectLabel),
+        buildOverviewCard("Recent Projects", recentOverviewValueLabel, recentOverviewDetailLabel),
+        buildOverviewCard("Environment Health", healthOverviewValueLabel, healthOverviewDetailLabel)
+    );
+    overviewRow.getStyleClass().add("welcome-overview-row");
+
+    VBox hero = new VBox(12, headingRow, introLabel, primaryActions, secondaryActions, overviewRow, statusLabel);
     hero.setPadding(new Insets(10, 12, 10, 12));
     hero.getStyleClass().add("welcome-hero-card");
 
@@ -262,6 +317,10 @@ public class WelcomeCenterView extends BorderPane {
     recentList.setPlaceholder(recentPlaceholder);
     recentList.getStyleClass().add("welcome-project-list");
     recentList.setCellFactory(list -> new ProjectCell());
+    recentList.getSelectionModel().selectedItemProperty().addListener((obs, oldValue, newValue) -> {
+      updateProjectActionButtons();
+      updateProjectSpotlight();
+    });
     recentList.setOnMouseClicked(e -> {
       if (e.getClickCount() < 2) return;
       ProjectEntry selected = recentList.getSelectionModel().getSelectedItem();
@@ -283,6 +342,10 @@ public class WelcomeCenterView extends BorderPane {
     left.getStyleClass().add("welcome-section-card");
     VBox.setVgrow(recentList, Priority.ALWAYS);
 
+    VBox spotlight = buildProjectSpotlightCard();
+    spotlight.setPadding(new Insets(10));
+    spotlight.getStyleClass().add("welcome-section-card");
+
     Label healthHeader = new Label("Environment Health");
     healthHeader.getStyleClass().add("welcome-section-title");
     Region healthSpacer = new Region();
@@ -294,10 +357,13 @@ public class WelcomeCenterView extends BorderPane {
     healthScroll.setFitToWidth(true);
     healthScroll.setFitToHeight(true);
     rightPanelStyling(healthScroll);
-    VBox right = new VBox(8, healthHeaderRow, healthScroll);
-    right.setPadding(new Insets(10));
-    right.getStyleClass().add("welcome-section-card");
+    VBox health = new VBox(8, healthHeaderRow, healthScroll);
+    health.setPadding(new Insets(10));
+    health.getStyleClass().add("welcome-section-card");
     VBox.setVgrow(healthScroll, Priority.ALWAYS);
+
+    VBox right = new VBox(10, spotlight, health);
+    VBox.setVgrow(health, Priority.ALWAYS);
 
     SplitPane split = new SplitPane(left, right);
     split.getStyleClass().add("welcome-center-split");
@@ -315,10 +381,15 @@ public class WelcomeCenterView extends BorderPane {
     this.busy = busy;
     btnNewProject.setDisable(busy);
     btnOpenProject.setDisable(busy);
-    btnRunProject.setDisable(busy || !hasSelectedProject());
+    btnRunProject.setDisable(busy || resolveLauncherProjectDir() == null || onRunProject == null);
     btnOpenLast.setDisable(busy || recentProjects.isEmpty());
+    btnProjectExplorer.setDisable(busy || resolveLauncherProjectDir() == null || onShowProjectExplorer == null);
+    btnHelpCenter.setDisable(busy || onShowHelpCenter == null);
     btnRefresh.setDisable(busy);
     recentFilterField.setDisable(busy);
+    btnSpotlightOpenProject.setDisable(busy || resolveLauncherProjectDir() == null || (onOpenProject == null && onOpenRecentProject == null));
+    btnSpotlightRunProject.setDisable(busy || resolveLauncherProjectDir() == null || onRunProject == null);
+    btnSpotlightRevealProject.setDisable(busy || resolveLauncherProjectDir() == null || onRevealProject == null);
   }
 
   private void applyRecentFilter() {
@@ -329,8 +400,10 @@ public class WelcomeCenterView extends BorderPane {
       recentMetaLabel.setText("0 projects");
       recentOverviewValueLabel.setText("0");
       recentOverviewDetailLabel.setText("No tracked projects");
+      recentList.getSelectionModel().clearSelection();
       btnOpenLast.setDisable(true);
-      btnRunProject.setDisable(busy || !hasSelectedProject());
+      updateProjectActionButtons();
+      updateProjectSpotlight();
       return;
     }
     if (needle.isEmpty()) {
@@ -351,16 +424,31 @@ public class WelcomeCenterView extends BorderPane {
     recentMetaLabel.setText(needle.isEmpty() ? (shown + " projects") : (shown + " / " + total + " shown"));
     recentOverviewValueLabel.setText(String.valueOf(total));
     recentOverviewDetailLabel.setText(total == 1 ? "1 tracked project" : total + " tracked projects");
+    syncRecentSelection();
+    updateProjectActionButtons();
+    updateProjectSpotlight();
     btnOpenLast.setDisable(busy || recentProjects.isEmpty());
-    btnRunProject.setDisable(busy || !hasSelectedProject());
   }
 
-  private boolean hasSelectedProject() {
-    return projectRoot != null && projectRoot.isDirectory();
+  private File resolveLauncherProjectDir() {
+    ProjectEntry selected = recentList.getSelectionModel().getSelectedItem();
+    if (selected != null && selected.projectDir() != null && selected.projectDir().isDirectory()) {
+      return selected.projectDir();
+    }
+    return projectRoot != null && projectRoot.isDirectory() ? projectRoot : null;
+  }
+
+  private File resolveSpotlightProjectDir() {
+    ProjectEntry selected = recentList.getSelectionModel().getSelectedItem();
+    if (selected != null && selected.projectDir() != null) {
+      return selected.projectDir();
+    }
+    return projectRoot;
   }
 
   private void updateProjectActionButtons() {
-    if (hasSelectedProject()) {
+    File launcherProject = resolveLauncherProjectDir();
+    if (launcherProject != null) {
       setActionButtonContent(
           btnOpenProject,
           CssIcon.popOut("#d5b36a"),
@@ -373,7 +461,247 @@ public class WelcomeCenterView extends BorderPane {
           "Open Project",
           "Choose an existing project");
     }
-    btnRunProject.setDisable(busy || !hasSelectedProject());
+    btnRunProject.setDisable(busy || launcherProject == null || onRunProject == null);
+    btnProjectExplorer.setDisable(busy || launcherProject == null || onShowProjectExplorer == null);
+    btnHelpCenter.setDisable(busy || onShowHelpCenter == null);
+    btnSpotlightOpenProject.setDisable(busy || launcherProject == null || (onOpenProject == null && onOpenRecentProject == null));
+    btnSpotlightRunProject.setDisable(busy || launcherProject == null || onRunProject == null);
+    btnSpotlightRevealProject.setDisable(busy || launcherProject == null || onRevealProject == null);
+  }
+
+  private void syncRecentSelection() {
+    if (recentList == null) return;
+    ProjectEntry selected = recentList.getSelectionModel().getSelectedItem();
+    if (selected != null && recentProjects.contains(selected)) return;
+
+    ProjectEntry preferred = null;
+    if (projectRoot != null) {
+      for (ProjectEntry entry : recentProjects) {
+        if (sameDirectory(entry.projectDir(), projectRoot)) {
+          preferred = entry;
+          break;
+        }
+      }
+    }
+    if (preferred == null && !recentProjects.isEmpty()) {
+      preferred = recentProjects.get(0);
+    }
+    if (preferred != null) {
+      recentList.getSelectionModel().select(preferred);
+      recentList.scrollTo(preferred);
+    } else {
+      recentList.getSelectionModel().clearSelection();
+    }
+  }
+
+  private void openLauncherProject(File dir) {
+    if (dir == null || !dir.isDirectory()) return;
+    if (onOpenProject != null) {
+      rememberRecentProject(dir.toPath());
+      onOpenProject.accept(dir);
+      return;
+    }
+    activateLauncherProject(dir);
+  }
+
+  private void activateLauncherProject(File dir) {
+    if (dir == null || !dir.isDirectory() || onOpenRecentProject == null) return;
+    rememberRecentProject(dir.toPath());
+    onOpenRecentProject.accept(dir);
+  }
+
+  private void runLauncherProject(File dir) {
+    if (dir == null || !dir.isDirectory() || onRunProject == null) return;
+    onRunProject.accept(dir);
+  }
+
+  private void revealLauncherProject(File dir) {
+    if (dir == null || !dir.isDirectory() || onRevealProject == null) return;
+    onRevealProject.accept(dir);
+  }
+
+  private void openProjectExplorerFor(File dir) {
+    if (dir != null) {
+      activateLauncherProject(dir);
+    }
+    if (onShowProjectExplorer != null) {
+      onShowProjectExplorer.run();
+    }
+  }
+
+  private void updateProjectSpotlight() {
+    ProjectSnapshot snapshot = snapshotFor(resolveSpotlightProjectDir());
+    if (snapshot == null) {
+      spotlightMetaLabel.setText("Select a project to inspect its common files and launch actions.");
+      spotlightNameLabel.setText("No project selected");
+      spotlightPathLabel.setText("Pick a recent project or open one from disk.");
+      spotlightSummaryLabel.setText("The launcher will surface the project manifest, entry script, timeline, README, and docs folder here.");
+      spotlightStateBadge.getStyleClass().removeAll(
+          "welcome-project-badge-current",
+          "welcome-project-badge-missing",
+          "welcome-project-badge-tracked");
+      spotlightStateBadge.setText("No project");
+      spotlightStateBadge.getStyleClass().add("welcome-project-badge-tracked");
+      entryLinkRow.setTarget("No entry script until a project is selected.", null, null);
+      timelineLinkRow.setTarget("No timeline until a project is selected.", null, null);
+      manifestLinkRow.setTarget("No manifest until a project is selected.", null, null);
+      readmeLinkRow.setTarget("No README until a project is selected.", null, null);
+      docsLinkRow.setTarget("No docs folder until a project is selected.", null, null);
+      return;
+    }
+
+    spotlightMetaLabel.setText("Last updated: " + formatTimestamp(snapshot.modifiedMillis()));
+    spotlightNameLabel.setText(snapshot.displayName());
+    spotlightPathLabel.setText(abbreviatePath(snapshot.projectDir().getAbsolutePath()));
+    spotlightSummaryLabel.setText(snapshot.summary());
+
+    spotlightStateBadge.getStyleClass().removeAll(
+        "welcome-project-badge-current",
+        "welcome-project-badge-missing",
+        "welcome-project-badge-tracked");
+    if (!snapshot.exists()) {
+      spotlightStateBadge.setText("MISSING");
+      spotlightStateBadge.getStyleClass().add("welcome-project-badge-missing");
+    } else if (snapshot.current()) {
+      spotlightStateBadge.setText("CURRENT");
+      spotlightStateBadge.getStyleClass().add("welcome-project-badge-current");
+    } else {
+      spotlightStateBadge.setText("TRACKED");
+      spotlightStateBadge.getStyleClass().add("welcome-project-badge-tracked");
+    }
+
+    entryLinkRow.setTarget(describeProjectFile(snapshot.projectDir(), snapshot.entryScript()), snapshot.entryScript(), file -> openProjectFile(snapshot.projectDir(), file));
+    timelineLinkRow.setTarget(describeProjectFile(snapshot.projectDir(), snapshot.timelineFile()), snapshot.timelineFile(), file -> openProjectFile(snapshot.projectDir(), file));
+    manifestLinkRow.setTarget(describeProjectFile(snapshot.projectDir(), snapshot.manifestFile()), snapshot.manifestFile(), file -> openProjectFile(snapshot.projectDir(), file));
+    readmeLinkRow.setTarget(describeProjectFile(snapshot.projectDir(), snapshot.readmeFile()), snapshot.readmeFile(), file -> openProjectFile(snapshot.projectDir(), file));
+    docsLinkRow.setTarget(describeProjectDirectory(snapshot.projectDir(), snapshot.docsDir()), snapshot.docsDir(), dir -> revealProjectDirectory(snapshot.projectDir(), dir));
+  }
+
+  private void openProjectFile(File projectDir, File file) {
+    if (projectDir != null) {
+      activateLauncherProject(projectDir);
+    }
+    if (file != null && file.isFile() && onOpenProjectFile != null) {
+      onOpenProjectFile.accept(file);
+    }
+  }
+
+  private void revealProjectDirectory(File projectDir, File targetDir) {
+    if (projectDir != null) {
+      activateLauncherProject(projectDir);
+    }
+    if (targetDir != null && targetDir.isDirectory() && onRevealProject != null) {
+      onRevealProject.accept(targetDir);
+    }
+  }
+
+  private ProjectSnapshot snapshotFor(File dir) {
+    if (dir == null) return null;
+    File projectDir = dir.getAbsoluteFile();
+    boolean exists = projectDir.isDirectory();
+    Properties manifest = new Properties();
+    boolean manifestLoaded = false;
+    File manifestFile = new File(projectDir, "jvn.project");
+    if (exists && manifestFile.isFile()) {
+      try (InputStream in = Files.newInputStream(manifestFile.toPath())) {
+        manifest.load(in);
+        manifestLoaded = true;
+      } catch (Exception ignore) {
+        manifestLoaded = false;
+      }
+    }
+
+    String displayName = manifestLoaded
+        ? manifest.getProperty("name", displayName(projectDir)).trim()
+        : displayName(projectDir);
+    if (displayName == null || displayName.isBlank()) {
+      displayName = projectDir.getAbsolutePath();
+    }
+
+    String template = humanizeScaffoldTemplate(manifest.getProperty("scaffold.template", "custom"));
+    String runtimeUi = manifest.getProperty("runtime.ui", "fx");
+    String audio = manifest.getProperty("runtime.audio", "auto");
+    String locale = manifest.getProperty("runtime.locale", "en");
+    boolean tutorialPack = Boolean.parseBoolean(manifest.getProperty("feature.tutorialPack", "false"));
+    boolean blankMenus = Boolean.parseBoolean(manifest.getProperty("feature.blankMenus", "false"));
+
+    String summary;
+    if (!exists) {
+      summary = "This project directory no longer exists. Remove it from recent projects or recreate it on disk.";
+    } else if (!manifestLoaded) {
+      summary = "Manifest missing or unreadable. Open the project to inspect and repair its scaffold files.";
+    } else {
+      List<String> parts = new ArrayList<>();
+      parts.add(template);
+      parts.add(runtimeUi + "/" + audio);
+      parts.add("locale " + locale);
+      if (tutorialPack) parts.add("tutorial pack");
+      if (blankMenus) parts.add("blank menus");
+      summary = String.join("  •  ", parts);
+    }
+
+    File entryScript = resolveProjectFile(projectDir, manifest.getProperty("entryVns", "scripts/story/prologue.vns"));
+    File timelineFile = resolveProjectFile(projectDir, manifest.getProperty("timeline", "config/timeline/story.timeline"));
+    File readmeFile = new File(projectDir, "README.md");
+    File docsDir = new File(projectDir, "docs");
+    long modified = exists ? projectTimestamp(projectDir.toPath()) : 0L;
+    boolean current = sameDirectory(projectDir, projectRoot);
+    return new ProjectSnapshot(
+        projectDir,
+        displayName,
+        exists,
+        current,
+        modified,
+        summary,
+        manifestFile,
+        entryScript,
+        timelineFile,
+        readmeFile,
+        docsDir
+    );
+  }
+
+  private File resolveProjectFile(File projectDir, String relativePath) {
+    if (projectDir == null || relativePath == null || relativePath.isBlank()) return null;
+    return projectDir.toPath().resolve(relativePath.trim().replace('\\', '/')).normalize().toFile();
+  }
+
+  private String describeProjectFile(File projectDir, File file) {
+    if (file == null) return "Not available in this project.";
+    String display = relativizeProjectPath(projectDir, file);
+    return file.isFile() ? display : display + "  •  missing";
+  }
+
+  private String describeProjectDirectory(File projectDir, File dir) {
+    if (dir == null) return "No docs directory configured.";
+    String display = relativizeProjectPath(projectDir, dir);
+    return dir.isDirectory() ? display : display + "  •  not created yet";
+  }
+
+  private String relativizeProjectPath(File projectDir, File target) {
+    if (projectDir == null || target == null) return "--";
+    try {
+      return projectDir.toPath().toAbsolutePath().normalize()
+          .relativize(target.toPath().toAbsolutePath().normalize())
+          .toString()
+          .replace('\\', '/');
+    } catch (Exception ignore) {
+      return target.getName();
+    }
+  }
+
+  private String humanizeScaffoldTemplate(String raw) {
+    if (raw == null || raw.isBlank()) return "Custom scaffold";
+    String normalized = raw.trim().replace('_', ' ').replace('-', ' ');
+    String[] words = normalized.split("\\s+");
+    StringBuilder sb = new StringBuilder();
+    for (String word : words) {
+      if (word.isBlank()) continue;
+      if (!sb.isEmpty()) sb.append(' ');
+      sb.append(Character.toUpperCase(word.charAt(0)));
+      if (word.length() > 1) sb.append(word.substring(1).toLowerCase(Locale.ROOT));
+    }
+    return sb.isEmpty() ? "Custom scaffold" : sb + " scaffold";
   }
 
   private void rightPanelStyling(ScrollPane scroll) {
@@ -390,6 +718,75 @@ public class WelcomeCenterView extends BorderPane {
     HBox.setHgrow(card, Priority.ALWAYS);
     VBox.setVgrow(card, Priority.ALWAYS);
     detailLabel.setMaxWidth(Double.MAX_VALUE);
+    return card;
+  }
+
+  private VBox buildProjectSpotlightCard() {
+    Label header = new Label("Project Launcher");
+    header.getStyleClass().add("welcome-section-title");
+    spotlightMetaLabel.getStyleClass().add("welcome-section-meta");
+
+    spotlightNameLabel.getStyleClass().add("welcome-project-name");
+    spotlightPathLabel.getStyleClass().add("welcome-project-path");
+    spotlightSummaryLabel.getStyleClass().add("welcome-health-detail");
+    spotlightSummaryLabel.setWrapText(true);
+    spotlightStateBadge.getStyleClass().add("welcome-project-badge");
+
+    configureActionButton(
+        btnSpotlightOpenProject,
+        CssIcon.popOut("#d5b36a"),
+        "Open Project",
+        "Open this project in the editor",
+        "welcome-action-button-primary");
+    btnSpotlightOpenProject.setOnAction(e -> openLauncherProject(resolveLauncherProjectDir()));
+
+    configureActionButton(
+        btnSpotlightRunProject,
+        CssIcon.play("#8bcf98"),
+        "Run Project",
+        "Run this project",
+        "welcome-action-button-secondary");
+    btnSpotlightRunProject.setOnAction(e -> runLauncherProject(resolveLauncherProjectDir()));
+
+    configureActionButton(
+        btnSpotlightRevealProject,
+        CssIcon.folder("#d5b36a"),
+        "Reveal Folder",
+        "Reveal this project in the file manager",
+        "welcome-action-button-secondary");
+    btnSpotlightRevealProject.setOnAction(e -> revealLauncherProject(resolveLauncherProjectDir()));
+
+    HBox headerRow = new HBox(8, header);
+    headerRow.setAlignment(Pos.CENTER_LEFT);
+
+    Region badgeSpacer = new Region();
+    HBox.setHgrow(badgeSpacer, Priority.ALWAYS);
+    HBox titleRow = new HBox(8, spotlightNameLabel, badgeSpacer, spotlightStateBadge);
+    titleRow.setAlignment(Pos.CENTER_LEFT);
+
+    HBox actionsRow = new HBox(8, btnSpotlightOpenProject, btnSpotlightRunProject, btnSpotlightRevealProject);
+    actionsRow.getStyleClass().add("welcome-action-row");
+    actionsRow.setAlignment(Pos.CENTER_LEFT);
+
+    Label linksHeader = new Label("Open Common Files");
+    linksHeader.getStyleClass().add("welcome-overview-title");
+
+    VBox card = new VBox(
+        10,
+        headerRow,
+        spotlightMetaLabel,
+        titleRow,
+        spotlightPathLabel,
+        spotlightSummaryLabel,
+        actionsRow,
+        linksHeader,
+        entryLinkRow,
+        timelineLinkRow,
+        manifestLinkRow,
+        readmeLinkRow,
+        docsLinkRow
+    );
+    updateProjectSpotlight();
     return card;
   }
 
@@ -994,6 +1391,66 @@ public class WelcomeCenterView extends BorderPane {
   private File normalizeDir(File dir) {
     if (dir == null || !dir.exists() || !dir.isDirectory()) return null;
     return dir.getAbsoluteFile();
+  }
+
+  private record ProjectSnapshot(
+      File projectDir,
+      String displayName,
+      boolean exists,
+      boolean current,
+      long modifiedMillis,
+      String summary,
+      File manifestFile,
+      File entryScript,
+      File timelineFile,
+      File readmeFile,
+      File docsDir) {
+  }
+
+  private final class SpotlightLinkRow extends HBox {
+    private final Label titleLabel = new Label();
+    private final Label detailLabel = new Label();
+    private final Button actionButton = new Button();
+    private final String enabledActionText;
+    private File target;
+    private Consumer<File> handler;
+
+    private SpotlightLinkRow(Region icon, String title, String actionText) {
+      this.enabledActionText = actionText;
+      titleLabel.setText(title);
+      titleLabel.getStyleClass().add("welcome-spotlight-link-title");
+      detailLabel.getStyleClass().add("welcome-spotlight-link-detail");
+      detailLabel.setWrapText(true);
+
+      VBox copy = new VBox(2, titleLabel, detailLabel);
+      copy.setFillWidth(true);
+      Region spacer = new Region();
+      HBox.setHgrow(copy, Priority.ALWAYS);
+      HBox.setHgrow(spacer, Priority.ALWAYS);
+
+      actionButton.getStyleClass().add("welcome-spotlight-link-button");
+      actionButton.setFocusTraversable(false);
+      actionButton.setOnAction(e -> {
+        if (target != null && handler != null) {
+          handler.accept(target);
+        }
+        e.consume();
+      });
+
+      setAlignment(Pos.CENTER_LEFT);
+      setSpacing(8);
+      getStyleClass().add("welcome-spotlight-link-row");
+      getChildren().addAll(icon, copy, spacer, actionButton);
+    }
+
+    private void setTarget(String detail, File target, Consumer<File> handler) {
+      this.target = target;
+      this.handler = handler;
+      detailLabel.setText(detail == null || detail.isBlank() ? "--" : detail);
+      boolean available = target != null && (target.isFile() || target.isDirectory()) && handler != null;
+      actionButton.setText(available ? enabledActionText : "Missing");
+      actionButton.setDisable(!available);
+    }
   }
 
   private static final class ProjectEntry {

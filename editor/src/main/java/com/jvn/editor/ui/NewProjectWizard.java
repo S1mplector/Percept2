@@ -21,12 +21,16 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TextArea;
+import javafx.scene.control.TreeCell;
+import javafx.scene.control.TreeItem;
+import javafx.scene.control.TreeView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
@@ -71,6 +75,32 @@ public class NewProjectWizard extends Stage {
     @Override
     public String toString() {
       return label;
+    }
+  }
+
+  private enum PreviewItemKind {
+    ROOT,
+    FOLDER,
+    SCRIPT,
+    MENU,
+    LAYOUT,
+    STYLE,
+    TIMELINE,
+    DOCUMENT,
+    NOTE
+  }
+
+  private static final class PreviewNode {
+    private final String name;
+    private final String detail;
+    private final boolean directory;
+    private final PreviewItemKind kind;
+
+    private PreviewNode(String name, String detail, boolean directory, PreviewItemKind kind) {
+      this.name = name;
+      this.detail = detail;
+      this.directory = directory;
+      this.kind = kind;
     }
   }
 
@@ -121,7 +151,7 @@ public class NewProjectWizard extends Stage {
   private CheckBox chkInitialCommit;
   private Label lblBlankMenuWarning;
   private TextArea txtDescription;
-  private TextArea txtStructurePreview;
+  private TreeView<PreviewNode> treeStructurePreview;
   private Label lblPreview;
   private Label lblTargetPath;
   private Label lblEstimatedSize;
@@ -359,6 +389,8 @@ public class NewProjectWizard extends Stage {
     });
 
     Button btnBrowse = new Button("Browse...");
+    btnBrowse.setGraphic(CssIcon.folder("#d5b36a"));
+    btnBrowse.setContentDisplay(ContentDisplay.LEFT);
     btnBrowse.setOnAction(e -> browseLocation());
     styleSecondaryButton(btnBrowse);
 
@@ -735,16 +767,37 @@ public class NewProjectWizard extends Stage {
   private Region createGeneratedLayoutPane() {
     VBox box = new VBox(8);
 
-    txtStructurePreview = new TextArea();
-    txtStructurePreview.setEditable(false);
-    txtStructurePreview.setWrapText(false);
-    txtStructurePreview.setPrefRowCount(16);
-    addStyleClasses(txtStructurePreview, "new-project-wizard-preview");
+    treeStructurePreview = new TreeView<>();
+    treeStructurePreview.setShowRoot(true);
+    treeStructurePreview.setPrefHeight(360);
+    addStyleClasses(treeStructurePreview, "new-project-wizard-structure-tree");
+    treeStructurePreview.setCellFactory(tree -> new TreeCell<>() {
+      @Override
+      protected void updateItem(PreviewNode item, boolean empty) {
+        super.updateItem(item, empty);
+        if (empty || item == null) {
+          setText(null);
+          setGraphic(null);
+          return;
+        }
+        Label nameLabel = new Label(item.name);
+        nameLabel.getStyleClass().add(item.directory ? "new-project-wizard-tree-dir-label" : "new-project-wizard-tree-file-label");
+        HBox row = new HBox(6, previewIcon(item), nameLabel);
+        row.setAlignment(Pos.CENTER_LEFT);
+        if (item.detail != null && !item.detail.isBlank()) {
+          Label detailLabel = new Label(item.detail);
+          detailLabel.getStyleClass().add("new-project-wizard-tree-detail-label");
+          row.getChildren().add(detailLabel);
+        }
+        setText(null);
+        setGraphic(row);
+      }
+    });
 
     Label note = new Label("This preview updates live based on your selected modules.");
     addStyleClasses(note, "welcome-section-meta");
 
-    box.getChildren().addAll(txtStructurePreview, note);
+    box.getChildren().addAll(treeStructurePreview, note);
     return box;
   }
 
@@ -780,11 +833,15 @@ public class NewProjectWizard extends Stage {
 
     Button btnCancel = new Button("Cancel");
     btnCancel.setPrefWidth(110);
+    btnCancel.setGraphic(CssIcon.clearX("#f0a1b2"));
+    btnCancel.setContentDisplay(ContentDisplay.LEFT);
     styleSecondaryButton(btnCancel);
     btnCancel.setOnAction(e -> close());
 
     btnCreate = new Button("Create Project");
     btnCreate.setPrefWidth(150);
+    btnCreate.setGraphic(CssIcon.plusBold("#8bcf98"));
+    btnCreate.setContentDisplay(ContentDisplay.LEFT);
     stylePrimaryButton(btnCreate);
     btnCreate.setOnAction(e -> createProject());
 
@@ -1069,10 +1126,10 @@ public class NewProjectWizard extends Stage {
   }
 
   private void updateStructurePreview() {
-    if (txtStructurePreview == null) return;
+    if (treeStructurePreview == null) return;
     String folderName = resolveFolderName();
     if (folderName.isBlank()) folderName = "my_visual_novel";
-    txtStructurePreview.setText(buildStructurePreviewText(folderName));
+    treeStructurePreview.setRoot(buildStructurePreviewTree(folderName));
   }
 
   private void updateEstimatedSize() {
@@ -1222,6 +1279,108 @@ public class NewProjectWizard extends Stage {
     sb.append("\u2514\u2500\u2500 jvn.project\n");
 
     return sb.toString();
+  }
+
+  private TreeItem<PreviewNode> buildStructurePreviewTree(String projectFolderName) {
+    String preview = buildStructurePreviewText(projectFolderName);
+    String[] lines = preview.split("\\R");
+    TreeItem<PreviewNode> root = null;
+    List<TreeItem<PreviewNode>> stack = new ArrayList<>();
+    for (String line : lines) {
+      if (line == null || line.isBlank()) continue;
+      int branchIndex = line.indexOf("├── ");
+      if (branchIndex < 0) branchIndex = line.indexOf("└── ");
+      if (branchIndex < 0) {
+        PreviewNode node = new PreviewNode(stripTrailingSlash(line.trim()), null, true, PreviewItemKind.ROOT);
+        root = new TreeItem<>(node);
+        stack.clear();
+        stack.add(root);
+        continue;
+      }
+
+      int depth = (branchIndex / 4) + 1;
+      while (stack.size() > depth) {
+        stack.remove(stack.size() - 1);
+      }
+      if (stack.isEmpty()) continue;
+
+      TreeItem<PreviewNode> item = new TreeItem<>(parsePreviewNode(line.substring(branchIndex + 4)));
+      stack.get(stack.size() - 1).getChildren().add(item);
+      stack.add(item);
+    }
+
+    if (root == null) {
+      root = new TreeItem<>(new PreviewNode(projectFolderName, null, true, PreviewItemKind.ROOT));
+    }
+    expandPreviewTree(root);
+    return root;
+  }
+
+  private PreviewNode parsePreviewNode(String rawContent) {
+    String content = rawContent == null ? "" : rawContent.stripTrailing();
+    String name = content;
+    String detail = null;
+    int detailIndex = findDetailStart(content);
+    if (detailIndex >= 0) {
+      name = content.substring(0, detailIndex).stripTrailing();
+      detail = content.substring(detailIndex).trim();
+    }
+    boolean directory = name.endsWith("/");
+    String displayName = directory ? stripTrailingSlash(name) : name;
+    PreviewItemKind kind = resolvePreviewItemKind(displayName, directory, detail);
+    return new PreviewNode(displayName, detail, directory, kind);
+  }
+
+  private int findDetailStart(String content) {
+    if (content == null) return -1;
+    for (int i = 0; i < content.length() - 2; i++) {
+      if (content.charAt(i) == ' '
+          && content.charAt(i + 1) == ' '
+          && content.substring(i).trim().startsWith("(")) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  private PreviewItemKind resolvePreviewItemKind(String name, boolean directory, String detail) {
+    if (name == null || name.isBlank()) return PreviewItemKind.DOCUMENT;
+    if (name.startsWith("(")) return PreviewItemKind.NOTE;
+    if (directory) return PreviewItemKind.FOLDER;
+    String lower = name.toLowerCase(Locale.ROOT);
+    if (lower.endsWith(".vns")) return PreviewItemKind.SCRIPT;
+    if (lower.endsWith(".menu") || lower.endsWith(".registry")) return PreviewItemKind.MENU;
+    if (lower.endsWith(".layout")) return PreviewItemKind.LAYOUT;
+    if (lower.endsWith(".style") || lower.endsWith(".theme")) return PreviewItemKind.STYLE;
+    if (lower.endsWith(".timeline")) return PreviewItemKind.TIMELINE;
+    return PreviewItemKind.DOCUMENT;
+  }
+
+  private Region previewIcon(PreviewNode node) {
+    return switch (node.kind) {
+      case ROOT -> CssIcon.folder("#d5b36a");
+      case FOLDER -> CssIcon.folder("#cbb27b");
+      case SCRIPT -> CssIcon.speech("#8bcf98");
+      case MENU -> CssIcon.list("#dccba2");
+      case LAYOUT -> CssIcon.grid("#8ec7dd");
+      case STYLE -> CssIcon.palette("#d6b4ff");
+      case TIMELINE -> CssIcon.play("#dd9a48");
+      case NOTE -> CssIcon.warning("#efbf82");
+      case DOCUMENT -> CssIcon.document("#c6d1dc");
+    };
+  }
+
+  private void expandPreviewTree(TreeItem<PreviewNode> item) {
+    if (item == null) return;
+    item.setExpanded(true);
+    for (TreeItem<PreviewNode> child : item.getChildren()) {
+      expandPreviewTree(child);
+    }
+  }
+
+  private String stripTrailingSlash(String value) {
+    if (value == null || value.isBlank()) return value;
+    return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
   }
 
   private long estimateBundledDemoAssetsKb() {

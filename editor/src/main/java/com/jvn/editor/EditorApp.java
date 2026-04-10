@@ -39,7 +39,6 @@ import com.jvn.editor.ui.EditorPreferencesStore;
 import com.jvn.editor.ui.EditorSettingsView;
 import com.jvn.editor.ui.EditorSidebarPanel;
 import com.jvn.editor.ui.EditorTheme;
-import com.jvn.editor.ui.EditorWorkspaceHubView;
 import com.jvn.editor.ui.FileEditorTab;
 import com.jvn.editor.ui.HelpCenterView;
 import com.jvn.editor.ui.ImageAttributesToolView;
@@ -67,6 +66,7 @@ import com.jvn.editor.ui.VersionControlView;
 import com.jvn.editor.ui.VnsDiagnosticsView;
 import com.jvn.editor.ui.VnsFlowMapView;
 import com.jvn.editor.ui.VnsScriptAnalyzer;
+import com.jvn.editor.ui.WelcomeCenterView;
 import com.jvn.editor.ui.actioneditor.AnimationProject;
 import com.jvn.editor.ui.actioneditor.CodeImporter;
 import com.jvn.editor.ui.actioneditor.EntityTrack;
@@ -181,7 +181,7 @@ public class EditorApp extends Application {
   private boolean layeredVisualizerFullscreen;
   private double[] savedLayeredVisualizerDividers;
   private ImageToolPanel fullscreenImageToolView;
-  private EditorWorkspaceHubView workspaceHubView;
+  private WelcomeCenterView workspaceHubView;
   private Tab tabWorkspaceHub;
   private Tab tabProject;
   private Tab tabTimeline;
@@ -1829,12 +1829,30 @@ public class EditorApp extends Application {
     filesTabs.getSelectionModel().selectedItemProperty().addListener((o, ov, nv) -> {
       updateContextForActiveTab();
     });
-    workspaceHubView = new EditorWorkspaceHubView();
+    workspaceHubView = new WelcomeCenterView();
+    workspaceHubView.setEditorVersion(editorVersion);
     workspaceHubView.setWorkspaceRoot(resolveWorkspaceRoot());
     workspaceHubView.setCurrentProject(projectRoot);
     workspaceHubView.setOnCreateProject(() -> doNewProject(primaryStage));
     workspaceHubView.setOnOpenProjectDialog(() -> doOpenProject(primaryStage));
-    workspaceHubView.setOnRunProject(() -> doRunProject(primaryStage));
+    workspaceHubView.setOnOpenProject(projectDir -> {
+      if (projectDir == null) return;
+      openProjectDirectory(projectDir);
+      selectProjectTab();
+    });
+    workspaceHubView.setOnOpenRecentProject(projectDir -> {
+      openProjectDirectory(projectDir);
+      selectProjectTab();
+    });
+    workspaceHubView.setOnRunProject(projectDir -> {
+      if (projectDir == null) return;
+      openProjectDirectory(projectDir);
+      doRunProject(projectDir);
+    });
+    workspaceHubView.setOnRevealProject(projectDir -> openDirectoryInFileManager(projectDir, "Project folder is not available."));
+    workspaceHubView.setOnOpenProjectFile(file -> {
+      if (file != null && file.isFile()) openFile(file);
+    });
     workspaceHubView.setOnShowProjectExplorer(this::selectProjectTab);
     workspaceHubView.setOnShowHelpCenter(this::selectHelpTab);
     tabWorkspaceHub = new Tab("Workspace", workspaceHubView);

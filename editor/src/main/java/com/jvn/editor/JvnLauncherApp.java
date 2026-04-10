@@ -236,12 +236,30 @@ public class JvnLauncherApp extends Application {
     welcomeView.setWorkspaceRoot(workspaceRoot);
     welcomeView.setOnCreateProject(this::createNewProject);
     welcomeView.setOnOpenProjectDialog(this::chooseProjectDirectory);
-    welcomeView.setOnOpenSelectedProject(() -> launchEditor(currentProject));
-    welcomeView.setOnRunSelectedProject(this::runSelectedProject);
+    welcomeView.setOnOpenProject(projectDir -> launchEditor(projectDir));
     welcomeView.setOnOpenRecentProject(projectDir -> {
       if (projectDir == null || !projectDir.isDirectory()) return;
       setCurrentProject(projectDir, false);
       statusLabel.setText("Selected project: " + displayProjectName(projectDir));
+    });
+    welcomeView.setOnRunProject(projectDir -> {
+      if (projectDir == null || !projectDir.isDirectory()) return;
+      setCurrentProject(projectDir, false);
+      runSelectedProject();
+    });
+    welcomeView.setOnRevealProject(projectDir -> {
+      if (projectDir == null || !projectDir.isDirectory()) return;
+      try {
+        java.awt.Desktop.getDesktop().open(projectDir);
+        statusLabel.setText("Opened folder: " + displayProjectName(projectDir));
+      } catch (Exception ex) {
+        EditorDialogs.error(primaryStage, "Reveal Project", "Failed to reveal folder: " + ex.getMessage());
+      }
+    });
+    welcomeView.setOnOpenProjectFile(file -> {
+      if (currentProject != null && currentProject.isDirectory()) {
+        launchEditor(currentProject);
+      }
     });
 
     statusLabel.getStyleClass().add("jvn-launcher-status");

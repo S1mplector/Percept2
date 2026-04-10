@@ -3551,6 +3551,58 @@
   -fx-border-color: #717171;
 }
 
+.new-project-wizard-structure-tree {
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255,255,255,0.02), rgba(255,255,255,0.0)),
+      linear-gradient(to bottom, #111111 0%, #0d0d0d 100%);
+  -fx-border-color: #2d2d2d;
+  -fx-border-width: 1;
+  -fx-border-radius: 10;
+  -fx-background-radius: 10;
+  -fx-padding: 6;
+}
+
+.new-project-wizard-structure-tree > .virtual-flow,
+.new-project-wizard-structure-tree > .virtual-flow > .clipped-container,
+.new-project-wizard-structure-tree > .virtual-flow > .clipped-container > .sheet,
+.new-project-wizard-structure-tree > .viewport,
+.new-project-wizard-structure-tree > .corner {
+  -fx-background-color: transparent;
+}
+
+.new-project-wizard-structure-tree .tree-cell {
+  -fx-background-color: transparent;
+  -fx-padding: 5 8 5 8;
+}
+
+.new-project-wizard-structure-tree .tree-cell:selected {
+  -fx-background-color: linear-gradient(to bottom, #313131, #272727);
+  -fx-background-radius: 9;
+}
+
+.new-project-wizard-structure-tree .tree-cell:hover:filled {
+  -fx-background-color: rgba(255,255,255,0.06);
+  -fx-background-radius: 9;
+}
+
+.new-project-wizard-tree-dir-label {
+  -fx-text-fill: #ececec;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+}
+
+.new-project-wizard-tree-file-label {
+  -fx-text-fill: #d5d5d5;
+  -fx-font-size: 11px;
+  -fx-font-weight: 600;
+}
+
+.new-project-wizard-tree-detail-label {
+  -fx-text-fill: #8a8a8a;
+  -fx-font-size: 10px;
+  -fx-font-weight: 600;
+}
+
 .new-project-wizard-checkbox {
   -fx-text-fill: #e2e2e2;
   -fx-font-size: 12px;
@@ -3745,6 +3797,12 @@
   -fx-border-color: #705232;
 }
 
+.welcome-project-badge-tracked {
+  -fx-text-fill: #d8d8d8;
+  -fx-background-color: #242424;
+  -fx-border-color: #454545;
+}
+
 .welcome-open-button {
   -fx-background-color: linear-gradient(to bottom, #252525, #1b1b1b);
   -fx-text-fill: #dfdfdf;
@@ -3801,6 +3859,51 @@
   -fx-text-fill: #8b8b8b;
   -fx-font-size: 11px;
   -fx-font-weight: 600;
+}
+
+.welcome-spotlight-link-row {
+  -fx-padding: 10 12 10 12;
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255,255,255,0.018), rgba(255,255,255,0.0)),
+      linear-gradient(to bottom, #111111 0%, #0e0e0e 100%);
+  -fx-border-color: #272727;
+  -fx-border-width: 1;
+  -fx-border-radius: 10;
+  -fx-background-radius: 10;
+}
+
+.welcome-spotlight-link-title {
+  -fx-text-fill: #ececec;
+  -fx-font-size: 11px;
+  -fx-font-weight: 800;
+}
+
+.welcome-spotlight-link-detail {
+  -fx-text-fill: #8b8b8b;
+  -fx-font-size: 10px;
+  -fx-font-weight: 600;
+}
+
+.welcome-spotlight-link-button {
+  -fx-background-color: linear-gradient(to bottom, #262626, #1c1c1c);
+  -fx-text-fill: #dddddd;
+  -fx-font-size: 10px;
+  -fx-font-weight: 800;
+  -fx-padding: 4 10 4 10;
+  -fx-border-color: #3a3a3a;
+  -fx-border-width: 1;
+  -fx-border-radius: 999;
+  -fx-background-radius: 999;
+  -fx-cursor: hand;
+}
+
+.welcome-spotlight-link-button:hover {
+  -fx-background-color: linear-gradient(to bottom, #303030, #222222);
+  -fx-border-color: #575757;
+}
+
+.welcome-spotlight-link-button:disabled {
+  -fx-opacity: 0.42;
 }
 
 .welcome-health-badge {
