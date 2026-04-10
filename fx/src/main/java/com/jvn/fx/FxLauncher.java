@@ -49,6 +49,7 @@ import com.jvn.fx.menu.MenuTheme;
 import com.jvn.fx.phone.PhoneRenderer;
 import com.jvn.fx.render.FxSceneRendererRegistry;
 import com.jvn.fx.scene2d.FxBlitter2D;
+import com.jvn.fx.ui.ProjectFontResolver;
 import com.jvn.fx.vn.VnRenderer;
 
 import javafx.animation.AnimationTimer;
@@ -1506,6 +1507,7 @@ public class FxLauncher extends Application {
       reloadLocalizationFromProject();
     }
     if (changes.assetsChanged()) {
+      ProjectFontResolver.clearCache();
       menuRenderer.clearImageCache();
       phoneRenderer.clearAssetCache();
     }
