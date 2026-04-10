@@ -16,7 +16,7 @@ Zero-dependency foundation module for the JVN engine. Every other module depends
 | `localization` | Locale-aware resource resolution |
 | `math` | Scalar helpers plus 2D vector, geometry, ray, segment, and transform utilities |
 | `menu` | Menu profile system — screens, layouts, styles, actions, registry, inheritance |
-| `nativebridge` | JNI bridge abstractions for native-math |
+| `nativebridge` | Shared native-library loading support for optional integrations |
 | `phone` | In-game phone UI model, config codec, and command/runtime support for chats, apps, calls, and typed messages |
 | `physics` | PhysicsWorld2D, broadphase, raycasts, rigid bodies |
 | `rpg` | Stats, inventory, equipment, items, damage/heal |

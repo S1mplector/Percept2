@@ -439,7 +439,7 @@ public class AudioSynthControlsView extends BorderPane {
   // --- Live preview ---
 
   private void doPlay() {
-    if (controller == null) return;
+    if (controller == null || !controller.nativeBridgeAvailable()) return;
     try {
       playing = true;
       updateTransportAndHeaderState();
@@ -874,7 +874,7 @@ public class AudioSynthControlsView extends BorderPane {
   }
 
   private void updateTransportAndHeaderState() {
-    btnPlay.setDisable(controller == null || playing);
+    btnPlay.setDisable(controller == null || !controller.nativeBridgeAvailable() || playing);
     btnStop.setDisable(!playing);
 
     statusChip.setText(playing ? "Live Preview" : "Ready");
@@ -900,7 +900,7 @@ public class AudioSynthControlsView extends BorderPane {
 
     String rendererId = diagAmbienceProvider.getText();
     if (rendererId == null || rendererId.isBlank() || "—".equals(rendererId)) {
-      rendererId = controller.nativeBridgeAvailable() ? "Native" : "Fallback";
+      rendererId = controller.nativeBridgeAvailable() ? "Native" : "Disabled";
     }
     rendererChip.setText(rendererId);
     rendererChip.getStyleClass().removeAll("audio-synth-chip-live", "audio-synth-chip-idle");

@@ -9,9 +9,13 @@ public final class AudioFxController {
   private final ChipSynthProvider beez;
 
   public AudioFxController() {
-    ensureNativeBridgeAvailable();
-    this.ambience = new NativeLoomAmbienceSynth();
-    this.beez = new NativeBeezChipSynth();
+    if (AudioFxNativeBridge.isAvailable()) {
+      this.ambience = new NativeLoomAmbienceSynth();
+      this.beez = new NativeBeezChipSynth();
+    } else {
+      this.ambience = new DisabledAmbienceSynthProvider();
+      this.beez = new DisabledChipSynthProvider();
+    }
   }
 
   public void playAmbience(String preset, float intensity, float volume, boolean loop) {
@@ -66,9 +70,37 @@ public final class AudioFxController {
     return v;
   }
 
-  private static void ensureNativeBridgeAvailable() {
-    if (!AudioFxNativeBridge.isAvailable()) {
-      throw new IllegalStateException("AudioFX native bridge unavailable: " + AudioFxNativeBridge.diagnostics());
+  private static final class DisabledAmbienceSynthProvider implements AmbienceSynthProvider {
+    @Override
+    public String id() {
+      return "disabled-ambience";
+    }
+
+    @Override
+    public void play(String preset, float intensity, float volume, boolean loop) {
+      // Synth playback is optional. When the native bridge is missing we keep
+      // the main audio backends alive and treat ambience synthesis as disabled.
+    }
+
+    @Override
+    public void stop() {
+    }
+  }
+
+  private static final class DisabledChipSynthProvider implements ChipSynthProvider {
+    @Override
+    public String id() {
+      return "disabled-chiptune";
+    }
+
+    @Override
+    public void play(String cueId, float intensity, float volume, boolean loop) {
+      // Synth playback is optional. When the native bridge is missing we keep
+      // the main audio backends alive and treat chiptune synthesis as disabled.
+    }
+
+    @Override
+    public void stop() {
     }
   }
 }

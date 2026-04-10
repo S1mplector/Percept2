@@ -7,9 +7,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.jvn.core.audio.AmbienceProfile;
 import java.util.Arrays;
 import java.util.Random;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class NativeAmbienceMathTest {
+
+  @BeforeEach
+  void requireNativeBridge() {
+    Assumptions.assumeTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
+  }
 
   @Test
   void nativeAmbienceRenderingIsDeterministicForSameConfiguration() {

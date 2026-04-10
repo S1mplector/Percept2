@@ -67,9 +67,8 @@ fun audioFxNativeCandidates(): List<java.io.File> {
   )
 }
 
-fun resolveAudioFxNativePath(): String =
+fun existingAudioFxNativePath(): String? =
   audioFxNativeCandidates().firstOrNull { it.exists() }?.absolutePath
-    ?: nativeBuildDir.get().file(nativeLibName).asFile.absolutePath
 
 fun cmakeAvailable(project: Project): Boolean = try {
   val out = ByteArrayOutputStream()
@@ -170,24 +169,17 @@ val runAudioFxNativeTests = tasks.register("runAudioFxNativeTests") {
   }
 }
 
-tasks.named("build") {
-  dependsOn(buildAudioFxNativeIfNeeded)
-}
-
 tasks.withType<Test>().configureEach {
-  dependsOn(buildAudioFxNativeIfNeeded)
-  dependsOn(runAudioFxNativeTests)
   doFirst {
-    systemProperty("jvn.native.path.jvn_audiofx_native", resolveAudioFxNativePath())
+    existingAudioFxNativePath()?.let { systemProperty("jvn.native.path.jvn_audiofx_native", it) }
   }
 }
 
 gradle.projectsEvaluated {
   rootProject.allprojects.forEach { target ->
     target.tasks.withType<JavaExec>().configureEach {
-      dependsOn(buildAudioFxNativeIfNeeded)
       doFirst {
-        systemProperty("jvn.native.path.jvn_audiofx_native", resolveAudioFxNativePath())
+        existingAudioFxNativePath()?.let { systemProperty("jvn.native.path.jvn_audiofx_native", it) }
       }
     }
   }

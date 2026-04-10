@@ -7,11 +7,18 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.jvn.core.audio.AmbienceProfile;
 
 class AudioFxNativeBridgeTest {
+  @BeforeEach
+  void requireNativeBridge() {
+    Assumptions.assumeTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());
+  }
+
   @Test
   void nativeBridgeLoads() {
     assertTrue(AudioFxNativeBridge.isAvailable(), AudioFxNativeBridge.diagnostics());

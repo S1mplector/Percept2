@@ -29,14 +29,7 @@ cd Java-Vector-Nexus
 ```
 
 This compiles all modules and runs tests. The build also configures and builds the native bridges when native outputs are missing.
-
-If you need to bypass native builds for a limited non-editor scenario:
-
-```bash
-./jvnw -PskipNativeMathBuild=true build
-```
-
-This is an escape hatch, not the supported default workflow. `:editor:run` still expects a working CMake toolchain because the startup preflight verifies and loads native libraries before opening the editor.
+This path no longer requires a native toolchain.
 
 ### Targeted builds during development
 

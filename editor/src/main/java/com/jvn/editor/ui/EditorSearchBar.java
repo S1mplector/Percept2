@@ -2,10 +2,9 @@ package com.jvn.editor.ui;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import org.fxmisc.richtext.CodeArea;
-
-import com.jvn.core.nativebridge.NativeSearchBridge;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -167,15 +166,7 @@ public class EditorSearchBar extends VBox {
       return;
     }
 
-    int[] found = NativeSearchBridge.findAllCaseInsensitive(text, query, text.length());
-    int queryLen = query.length();
-    for (int start : found) {
-      if (start < 0) continue;
-      int end = start + queryLen;
-      if (end <= text.length()) {
-        matches.add(new int[]{start, end});
-      }
-    }
+    addCaseInsensitiveMatches(text, query);
 
     if (!matches.isEmpty()) {
       int caretPos = codeArea.getCaretPosition();
@@ -244,6 +235,22 @@ public class EditorSearchBar extends VBox {
       }
     } else {
       statusLabel.setText((currentMatchIndex + 1) + " of " + matches.size());
+    }
+  }
+
+  private void addCaseInsensitiveMatches(String text, String query) {
+    String haystack = text.toLowerCase(Locale.ROOT);
+    String needle = query.toLowerCase(Locale.ROOT);
+    int queryLen = query.length();
+    int start = 0;
+    while (start <= haystack.length() - needle.length()) {
+      int found = haystack.indexOf(needle, start);
+      if (found < 0) break;
+      int end = found + queryLen;
+      if (end <= text.length()) {
+        matches.add(new int[]{found, end});
+      }
+      start = found + 1;
     }
   }
 }

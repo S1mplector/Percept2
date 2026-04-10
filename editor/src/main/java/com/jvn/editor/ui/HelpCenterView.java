@@ -517,8 +517,7 @@ public class HelpCenterView extends BorderPane {
         || path.startsWith("core/")
         || path.startsWith("fx/")
         || path.startsWith("audio/")
-        || path.startsWith("audio-fx/")
-        || path.startsWith("native-math/")) {
+        || path.startsWith("audio-fx/")) {
       return SECTION_ARCHITECTURE;
     }
     if (path.startsWith("docs/guides/")) return SECTION_GUIDES;

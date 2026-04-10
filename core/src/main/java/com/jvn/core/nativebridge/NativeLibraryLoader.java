@@ -55,12 +55,6 @@ public final class NativeLibraryLoader {
     candidates.add(Paths.get("audio-fx", "build", "native", "Debug", mapped));
     candidates.add(Paths.get("audio-fx", "build", "native", osDir, "Release", mapped));
     candidates.add(Paths.get("audio-fx", "build", "native", osDir, "Debug", mapped));
-    candidates.add(Paths.get("native-math", "build", mapped));
-    candidates.add(Paths.get("native-math", "build", "Release", mapped));
-    candidates.add(Paths.get("native-math", "build", "Debug", mapped));
-    candidates.add(Paths.get("native-math", "build", osDir, mapped));
-    candidates.add(Paths.get("native-math", "build", osDir, "Release", mapped));
-    candidates.add(Paths.get("native-math", "build", osDir, "Debug", mapped));
     return candidates;
   }
 

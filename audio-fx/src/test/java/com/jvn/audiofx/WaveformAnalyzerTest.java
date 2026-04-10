@@ -23,8 +23,15 @@ class WaveformAnalyzerTest {
     s.setPreset("rain");
     s.setIntensity(0.8f);
     WaveformAnalyzer.Analysis a = WaveformAnalyzer.analyze(s, 32);
-    assertTrue(a.rms() > 0f, "RMS should be non-zero for active ambience");
-    assertTrue(a.peak() >= a.rms(), "Peak should be >= RMS");
+    if (AudioFxNativeBridge.isAvailable()) {
+      assertTrue(a.rms() > 0f, "RMS should be non-zero for active ambience");
+      assertTrue(a.peak() >= a.rms(), "Peak should be >= RMS");
+      assertTrue(a.nativeAvailable());
+    } else {
+      assertEquals(0f, a.rms());
+      assertEquals(0f, a.peak());
+      assertFalse(a.nativeAvailable());
+    }
   }
 
   @Test
@@ -45,7 +52,13 @@ class WaveformAnalyzerTest {
     for (int i = 0; i < 32; i++) {
       totalDiff += Math.abs(aWind.envelope()[i] - aThunder.envelope()[i]);
     }
-    assertTrue(totalDiff > 0.01f, "Different presets should produce different envelopes");
+    if (AudioFxNativeBridge.isAvailable()) {
+      assertTrue(totalDiff > 0.01f, "Different presets should produce different envelopes");
+    } else {
+      assertEquals(0f, totalDiff);
+      assertFalse(aWind.nativeAvailable());
+      assertFalse(aThunder.nativeAvailable());
+    }
   }
 
   @Test
@@ -137,6 +150,11 @@ class WaveformAnalyzerTest {
     s.setPreset("wind");
     s.setIntensity(0.7f);
     sa.start(s);
+    if (!AudioFxNativeBridge.isAvailable()) {
+      assertFalse(sa.isRunning());
+      assertSame(WaveformAnalyzer.EMPTY, sa.latest());
+      return;
+    }
     assertTrue(sa.isRunning());
 
     // Give the render thread time to produce at least one analysis
@@ -158,6 +176,11 @@ class WaveformAnalyzerTest {
     s.setPreset("wind");
     s.setIntensity(0.3f);
     sa.start(s);
+    if (!AudioFxNativeBridge.isAvailable()) {
+      assertFalse(sa.isRunning());
+      assertSame(WaveformAnalyzer.EMPTY, sa.latest());
+      return;
+    }
     Thread.sleep(200);
     WaveformAnalyzer.Analysis a1 = sa.latest();
 

@@ -31,7 +31,6 @@ import javax.tools.ToolProvider;
 
 import com.jvn.audiofx.AudioFxNativeBridge;
 import com.jvn.core.nativebridge.NativeLibraryLoader;
-import com.jvn.core.nativebridge.NativeMathBridge;
 import com.jvn.core.scene2d.Entity2D;
 import com.jvn.editor.commands.CommandStack;
 import com.jvn.editor.ui.AssetBrowserView;
@@ -749,7 +748,7 @@ public class EditorApp extends Application {
         if (ToolProvider.getSystemJavaCompiler() == null) {
           throw new StartupFailure(
               "Full JDK not detected",
-              "Launch the editor with a JDK installation. `javac` is required for native JNI builds and startup smoke tests.");
+              "Launch the editor with a JDK installation. `javac` is required for editor tooling and Gradle-based startup checks.");
         }
         logSplash(splash, "OK", "Runtime",
             "Java " + System.getProperty("java.version", "unknown")
@@ -788,56 +787,21 @@ public class EditorApp extends Application {
             "Fix the Gradle wrapper or local JDK configuration, then retry.");
         advance(++step, totalChecks);
 
-        updateMessage("Checking native toolchain");
-        runStartupProcess(
-            workspace,
-            splash,
-            "CMake",
-            List.of("cmake", "--version"),
-            "CMake not available",
-            "Install CMake and a native C/C++ toolchain, then retry.");
-        advance(++step, totalChecks);
+        updateMessage("Checking optional native integrations");
 
-        updateMessage("Building native libraries");
-        runGradleStartupProcess(
-            workspace,
-            splash,
-            "Native Build",
-            List.of("buildNativeMathIfNeeded", ":audio-fx:buildAudioFxNativeIfNeeded"),
-            "Native library build failed",
-            "Resolve the native build errors shown above, then retry.");
-        advance(++step, totalChecks);
-
-        Path nativeMathLibrary = NativeLibraryLoader.findExisting("jvn_native_bridge");
-        if (nativeMathLibrary == null) {
-          throw new StartupFailure(
-              "Native math bridge not found",
-              "Expected `jvn_native_bridge` output was not produced under `native-math/build`.");
-        }
         Path audioFxLibrary = NativeLibraryLoader.findExisting("jvn_audiofx_native");
-        if (audioFxLibrary == null) {
-          throw new StartupFailure(
-              "Audio synth native library not found",
-              "Expected `jvn_audiofx_native` output was not produced under `audio-fx/build/native`.");
-        }
-        logSplash(splash, "OK", "Native", "Math bridge: " + nativeMathLibrary);
-        logSplash(splash, "OK", "Native", "AudioFX bridge: " + audioFxLibrary);
-        updateMessage("Native libraries built");
+        logSplash(
+            splash,
+            audioFxLibrary != null ? "OK" : "WARN",
+            "Native",
+            audioFxLibrary != null
+                ? "AudioFX bridge detected: " + audioFxLibrary
+                : "AudioFX bridge not found; synth preview will stay disabled.");
+        updateMessage("Optional native integrations checked");
         advance(++step, totalChecks);
 
-        if (!NativeMathBridge.isAvailable()) {
-          throw new StartupFailure(
-              "Native math bridge failed to load",
-              NativeMathBridge.diagnostics());
-        }
-        if (!AudioFxNativeBridge.isAvailable()) {
-          throw new StartupFailure(
-              "Audio synth bridge failed to load",
-              AudioFxNativeBridge.diagnostics());
-        }
-        logSplash(splash, "OK", "Native", NativeMathBridge.diagnostics());
-        logSplash(splash, "OK", "Native", AudioFxNativeBridge.diagnostics());
-        updateMessage("Native bridges loaded");
+        logSplash(splash, AudioFxNativeBridge.isAvailable() ? "OK" : "WARN", "Native", AudioFxNativeBridge.diagnostics());
+        updateMessage("Optional native bridges checked");
         advance(++step, totalChecks);
 
         awaitStartupLaunchChoice(splash);

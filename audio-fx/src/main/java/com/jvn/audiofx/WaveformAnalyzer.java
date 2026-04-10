@@ -47,7 +47,9 @@ public final class WaveformAnalyzer {
     if (settings == null || envelopeBins < 1) {
       return new Analysis(new float[0], new float[0], 0f, 0f, false);
     }
-    requireNativeBridge();
+    if (!AudioFxNativeBridge.isAvailable()) {
+      return new Analysis(new float[Math.max(1, envelopeBins)], new float[0], 0f, 0f, false);
+    }
 
     byte[] pcm = new byte[RENDER_FRAMES * FRAME_BYTES];
     int written;
@@ -109,7 +111,10 @@ public final class WaveformAnalyzer {
         pendingSettings = settings != null ? settings.copy() : null;
         configGeneration++;
         if (pendingSettings == null) return;
-        requireNativeBridge();
+        if (!AudioFxNativeBridge.isAvailable()) {
+          latestAnalysis = EMPTY;
+          return;
+        }
         running = true;
         renderThread = new Thread(this::renderLoop, "synth-waveform-stream");
         renderThread.setDaemon(true);
@@ -167,7 +172,10 @@ public final class WaveformAnalyzer {
     }
 
     private void runSession(SynthPreviewSettings settings, long sessionGen) {
-      requireNativeBridge();
+      if (!AudioFxNativeBridge.isAvailable()) {
+        latestAnalysis = EMPTY;
+        return;
+      }
       float[] rolling = new float[ROLLING_FRAMES];
       byte[] pcmBuf = new byte[CHUNK_FRAMES * FRAME_BYTES];
 
@@ -409,11 +417,5 @@ public final class WaveformAnalyzer {
     }
 
     return spectrum;
-  }
-
-  private static void requireNativeBridge() {
-    if (!AudioFxNativeBridge.isAvailable()) {
-      throw new IllegalStateException("AudioFX native bridge unavailable: " + AudioFxNativeBridge.diagnostics());
-    }
   }
 }

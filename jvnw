@@ -423,15 +423,6 @@ handle_line() {
   local line="$1"
 
   case "$line" in
-    native-math\ already\ built:*)
-      if [[ "$native_math_announced" -eq 0 ]]; then
-        emit_ok "Native math bridge OK"
-        native_math_announced=1
-      fi
-      ;;
-    "> Task :buildNativeMathIfNeeded"*)
-      status_text="Checking native math bridge..."
-      ;;
     "> Task :audio-fx:buildAudioFxNativeIfNeeded"*)
       status_text="Building AudioFX native bridge..."
       ;;

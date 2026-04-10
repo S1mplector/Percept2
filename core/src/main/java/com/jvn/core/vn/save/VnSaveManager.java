@@ -15,7 +15,6 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.jvn.core.nativebridge.NativeIoBridge;
 import com.jvn.core.vn.CharacterPosition;
 import com.jvn.core.vn.VnSettings;
 import com.jvn.core.vn.VnState;
@@ -426,11 +425,6 @@ public class VnSaveManager {
     if (parent != null) Files.createDirectories(parent);
 
     byte[] payload = VnSaveSerializer.toJson(saveData).getBytes(StandardCharsets.UTF_8);
-
-    // Prefer native atomic write when available; Java path remains fallback.
-    if (NativeIoBridge.atomicWrite(finalPath, payload, true, true)) {
-      return;
-    }
 
     String fileName = finalPath.getFileName().toString();
     Path tempPath = finalPath.resolveSibling(fileName + TEMP_SUFFIX);

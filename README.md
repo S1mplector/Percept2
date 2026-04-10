@@ -4,15 +4,14 @@
   <img src="docs/assets/images/jvn_logo_os.png" width="512" alt="JVN logo">
 </div>
 
-JVN is a modular cross-platform Visual Novel engine written primarily in Java, C and C++.
+JVN is a modular cross-platform Visual Novel engine written primarily in Java, with optional native audio modules.
 It is quite a young engine, but is under heavy development. Expect regular updates and changes.
 
 ## Architecture
 
 JVN is designed to be lightweight and predictable under load.
-- There is modular separation of runtime, scripting, renderer backends, editor tooling, and native acceleration layers.
-- Performance ccritical paths are accelerated in `native-math` (SIMD text search, pooled batch scanning, math kernels, and atomic save-path I/O).
-- Native bridges are isolated in `core/nativebridge`; some call sites still fall back to Java at runtime, but supported local builds and editor startup expect native binaries to be buildable.
+- There is modular separation of runtime, scripting, renderer backends, editor tooling, and optional native integrations.
+- Optional native bridges are isolated from the Java runtime, so the engine/editor can boot without any native toolchain.
 - Hot paths are data-oriented where possible (compact buffers, reduced allocation churn, pooled native buffers for batch workflows).
 
 Typical memory footprint for the core runtime together with the full editor is around **70-130 MB RAM** in normal desktop usage (project/content dependent).
@@ -23,10 +22,7 @@ Typical memory footprint for the core runtime together with the full editor is a
 - No global Gradle install required. Use `./jvnw` as the default JVN command wrapper.
 - `./gradlew` remains available as the optional low-level Gradle entrypoint for uncommon/manual tasks.
 - For team version-control workflows in editor: `git` and `git lfs` installed/configured
-- `cmake` + C/C++ compiler toolchain (`clang`/`gcc`/MSVC)
-
-`cmake` is currently a hard requirement for supported local builds and editor startup.
-The editor preflight checks build and verify native libraries before launch.
+- `cmake` + C/C++ compiler toolchain (`clang`/`gcc`/MSVC`) only if you want to work on optional native audio modules
 
 ## Quick Start
 
@@ -63,16 +59,7 @@ Useful JVN commands:
 
 Use `./jvnw` for normal development. Drop to `./gradlew` or `./jvnw --raw ...` only when you need direct Gradle task control.
 
-`./jvnw build` also auto-attempts a `native-math` CMake build when required native outputs are missing.
-If you need to bypass this on a machine without CMake/toolchain:
-
-```bash
-./jvnw -PskipNativeMathBuild=true build
-```
-
-That flag is an escape hatch for limited scenarios only.
-It is not the supported default workflow, and `:editor:run` still expects a working native toolchain.
-If you want to use the editor, building the engine from source, you then must have CMake on your system. 
+The default Java build no longer requires any native toolchain.
 
 Run editor:
 
@@ -102,40 +89,6 @@ Optional direct Gradle tasks for focused work:
 ./gradlew :core:compileJava :scripting:compileJava :fx:compileJava :runtime:compileJava :editor:compileJava
 ./gradlew :core:test :scripting:test :swing:test
 ```
-
-## Native-Math Build
-
-Treat this as required for normal development.
-The current editor startup flow validates CMake, builds native libraries, and loads the JNI bridges before opening the editor.
-
-Build commands:
-
-```bash
-# macOS/Linux
-./native-math/build.sh
-
-# macOS-only helper
-./native-math/build_mac.sh
-
-# Linux-only helper
-./native-math/build_linux.sh
-```
-
-On Windows:
-
-```bat
-native-math\build_windows.bat
-```
-
-Or:
-
-```powershell
-.\native-math\build.ps1
-```
-
-Current runtime usage:
-- `core` save pipeline attempts native atomic writes through `NativeIoBridge`.
-- If unavailable, JVN automatically falls back to Java temp-file + atomic move flow.
 
 ## Runtime Usage
 
