@@ -26,6 +26,8 @@ class EditorPreferencesStoreTest {
     assertEquals(EditorPreferences.DEFAULT_CODE_EDITOR_FONT_SIZE, preferences.getCodeEditorFontSize());
     assertTrue(preferences.isShowWelcomeOnStartup());
     assertTrue(preferences.isLoadSidebarExtensionsOnDemand());
+    assertEquals(EditorPreferences.TEXT_EDITOR_JVN, preferences.getDefaultTextEditor());
+    assertEquals("", preferences.getCustomTextEditorCommand());
     assertEquals(EditorPanelPlacement.LEFT, preferences.getPlacement(EditorSidebarPanel.PROJECT));
     assertEquals(EditorPanelPlacement.HIDDEN, preferences.getPlacement(EditorSidebarPanel.HELP));
     assertTrue(preferences.isVisibleInChooser(EditorSidebarPanel.PROJECT));
@@ -44,6 +46,8 @@ class EditorPreferencesStoreTest {
     preferences.setCodeEditorFontSize(18);
     preferences.setShowWelcomeOnStartup(false);
     preferences.setLoadSidebarExtensionsOnDemand(false);
+    preferences.setDefaultTextEditor(EditorPreferences.TEXT_EDITOR_CUSTOM);
+    preferences.setCustomTextEditorCommand("code --reuse-window {file}");
     preferences.setPlacement(EditorSidebarPanel.HELP, EditorPanelPlacement.RIGHT);
     preferences.setPlacement(EditorSidebarPanel.TIMELINE, EditorPanelPlacement.LEFT);
     preferences.setVisibleInChooser(EditorSidebarPanel.HELP, false);
@@ -54,6 +58,8 @@ class EditorPreferencesStoreTest {
     assertEquals(18, loaded.getCodeEditorFontSize());
     assertFalse(loaded.isShowWelcomeOnStartup());
     assertFalse(loaded.isLoadSidebarExtensionsOnDemand());
+    assertEquals(EditorPreferences.TEXT_EDITOR_CUSTOM, loaded.getDefaultTextEditor());
+    assertEquals("code --reuse-window {file}", loaded.getCustomTextEditorCommand());
     assertEquals(EditorPanelPlacement.RIGHT, loaded.getPlacement(EditorSidebarPanel.HELP));
     assertEquals(EditorPanelPlacement.LEFT, loaded.getPlacement(EditorSidebarPanel.TIMELINE));
     assertFalse(loaded.isVisibleInChooser(EditorSidebarPanel.HELP));
@@ -66,6 +72,7 @@ class EditorPreferencesStoreTest {
     props.setProperty(EditorPreferencesStore.KEY_CODE_EDITOR_FONT_SIZE, "invalid");
     props.setProperty(EditorPreferencesStore.KEY_SHOW_WELCOME_ON_STARTUP, "false");
     props.setProperty(EditorPreferencesStore.KEY_LOAD_SIDEBAR_EXTENSIONS_ON_DEMAND, "notabool");
+    props.setProperty(EditorPreferencesStore.KEY_DEFAULT_TEXT_EDITOR, "unknown");
     props.setProperty(
         EditorPreferencesStore.KEY_PANEL_PREFIX + EditorSidebarPanel.PROJECT.key()
             + EditorPreferencesStore.KEY_PANEL_SUFFIX,
@@ -84,6 +91,7 @@ class EditorPreferencesStoreTest {
     assertEquals(EditorPreferences.DEFAULT_CODE_EDITOR_FONT_SIZE, loaded.getCodeEditorFontSize());
     assertFalse(loaded.isShowWelcomeOnStartup());
     assertTrue(loaded.isLoadSidebarExtensionsOnDemand());
+    assertEquals(EditorPreferences.TEXT_EDITOR_JVN, loaded.getDefaultTextEditor());
     assertEquals(EditorPanelPlacement.LEFT, loaded.getPlacement(EditorSidebarPanel.PROJECT));
     assertTrue(loaded.isVisibleInChooser(EditorSidebarPanel.PROJECT));
   }

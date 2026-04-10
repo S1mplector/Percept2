@@ -3410,6 +3410,25 @@
   -fx-opacity: 0.42;
 }
 
+.welcome-settings-button {
+  -fx-background-color: linear-gradient(to bottom, #d9d9d9, #e3e3e3);
+  -fx-border-color: #c5c5c5;
+  -fx-border-width: 1;
+  -fx-background-radius: 10;
+  -fx-border-radius: 10;
+  -fx-padding: 0;
+  -fx-cursor: hand;
+}
+
+.welcome-settings-button:hover {
+  -fx-background-color: linear-gradient(to bottom, #cfcfcf, #dddddd);
+  -fx-border-color: #a8a8a8;
+}
+
+.welcome-settings-button:disabled {
+  -fx-opacity: 0.42;
+}
+
 .welcome-section-card {
   -fx-background-color:
       linear-gradient(to bottom, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.0)),
@@ -4370,6 +4389,19 @@
   -fx-text-fill: #0d0d0d;
   -fx-prompt-text-fill: #838383;
   -fx-background-radius: 6 0 0 6;
+}
+
+.editor-settings-text-field {
+  -fx-background-color: #e3e3e3;
+  -fx-text-fill: #0d0d0d;
+  -fx-prompt-text-fill: #838383;
+  -fx-border-color: #c8c8c8;
+  -fx-border-radius: 6;
+  -fx-background-radius: 6;
+}
+
+.editor-settings-text-field:disabled {
+  -fx-opacity: 0.55;
 }
 
 .editor-settings-view .spinner .increment-arrow-button,

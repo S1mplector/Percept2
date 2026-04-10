@@ -39,6 +39,7 @@ import com.jvn.editor.ui.EditorPreferencesStore;
 import com.jvn.editor.ui.EditorSettingsView;
 import com.jvn.editor.ui.EditorSidebarPanel;
 import com.jvn.editor.ui.EditorTheme;
+import com.jvn.editor.ui.EditorWorkspaceHubView;
 import com.jvn.editor.ui.FileEditorTab;
 import com.jvn.editor.ui.HelpCenterView;
 import com.jvn.editor.ui.ImageAttributesToolView;
@@ -66,7 +67,6 @@ import com.jvn.editor.ui.VersionControlView;
 import com.jvn.editor.ui.VnsDiagnosticsView;
 import com.jvn.editor.ui.VnsFlowMapView;
 import com.jvn.editor.ui.VnsScriptAnalyzer;
-import com.jvn.editor.ui.WelcomeCenterView;
 import com.jvn.editor.ui.actioneditor.AnimationProject;
 import com.jvn.editor.ui.actioneditor.CodeImporter;
 import com.jvn.editor.ui.actioneditor.EntityTrack;
@@ -181,7 +181,7 @@ public class EditorApp extends Application {
   private boolean layeredVisualizerFullscreen;
   private double[] savedLayeredVisualizerDividers;
   private ImageToolPanel fullscreenImageToolView;
-  private WelcomeCenterView workspaceHubView;
+  private EditorWorkspaceHubView workspaceHubView;
   private Tab tabWorkspaceHub;
   private Tab tabProject;
   private Tab tabTimeline;
@@ -247,6 +247,7 @@ public class EditorApp extends Application {
   private static final String PANEL_CHOOSER_REFRESH_KEY = "panel-chooser-refresh";
   private static final String PANEL_WINDOW_SUPPRESS_UNLOAD_KEY = "jvn.panelWindow.suppressUnload";
   private static final String EDITOR_START_PROJECT_PROPERTY = "jvn.editor.openProject";
+  private static final String EDITOR_OPEN_FILE_PROPERTY = "jvn.editor.openFile";
   private final EnumMap<EditorSidebarPanel, Stage> panelWindows =
       new EnumMap<>(EditorSidebarPanel.class);
   private Stage editorSettingsWindow;
@@ -548,12 +549,32 @@ public class EditorApp extends Application {
     }
   }
 
+  private File resolveStartupFileOverride() {
+    String raw = System.getProperty(EDITOR_OPEN_FILE_PROPERTY, "");
+    if (raw == null || raw.isBlank()) return null;
+    File candidate = new File(raw.trim());
+    if (candidate == null || !candidate.isFile()) return null;
+    try {
+      return candidate.getCanonicalFile();
+    } catch (Exception ignore) {
+      return candidate.getAbsoluteFile();
+    }
+  }
+
   private void applyStartupProjectOverride() {
     File startupProject = resolveStartupProjectOverride();
-    if (startupProject == null) return;
-    openProjectDirectory(startupProject);
-    if (status != null) status.setText("Project: " + startupProject.getName());
-    selectProjectTab();
+    File startupFile = resolveStartupFileOverride();
+    if (startupProject == null && startupFile == null) return;
+    if (startupProject != null) {
+      openProjectDirectory(startupProject);
+      selectProjectTab();
+    }
+    if (startupFile != null) {
+      openFile(startupFile);
+      if (status != null) status.setText("Opened: " + startupFile.getName());
+    } else if (status != null && startupProject != null) {
+      status.setText("Project: " + startupProject.getName());
+    }
   }
 
   private File findGradleRoot(File start) {
@@ -1829,32 +1850,18 @@ public class EditorApp extends Application {
     filesTabs.getSelectionModel().selectedItemProperty().addListener((o, ov, nv) -> {
       updateContextForActiveTab();
     });
-    workspaceHubView = new WelcomeCenterView();
-    workspaceHubView.setEditorVersion(editorVersion);
+    workspaceHubView = new EditorWorkspaceHubView();
     workspaceHubView.setWorkspaceRoot(resolveWorkspaceRoot());
     workspaceHubView.setCurrentProject(projectRoot);
     workspaceHubView.setOnCreateProject(() -> doNewProject(primaryStage));
     workspaceHubView.setOnOpenProjectDialog(() -> doOpenProject(primaryStage));
-    workspaceHubView.setOnOpenProject(projectDir -> {
-      if (projectDir == null) return;
-      openProjectDirectory(projectDir);
-      selectProjectTab();
-    });
-    workspaceHubView.setOnOpenRecentProject(projectDir -> {
-      openProjectDirectory(projectDir);
-      selectProjectTab();
-    });
-    workspaceHubView.setOnRunProject(projectDir -> {
-      if (projectDir == null) return;
-      openProjectDirectory(projectDir);
-      doRunProject(projectDir);
-    });
-    workspaceHubView.setOnRevealProject(projectDir -> openDirectoryInFileManager(projectDir, "Project folder is not available."));
-    workspaceHubView.setOnOpenProjectFile(file -> {
-      if (file != null && file.isFile()) openFile(file);
+    workspaceHubView.setOnRunProject(() -> {
+      File rootDir = projectRoot == null ? ensureProjectRoot(primaryStage) : projectRoot;
+      if (rootDir != null) doRunProject(rootDir);
     });
     workspaceHubView.setOnShowProjectExplorer(this::selectProjectTab);
     workspaceHubView.setOnShowHelpCenter(this::selectHelpTab);
+    workspaceHubView.setOnShowSettings(this::selectEditorSettingsTab);
     tabWorkspaceHub = new Tab("Workspace", workspaceHubView);
     tabWorkspaceHub.setClosable(false);
     if (editorPreferences.isShowWelcomeOnStartup()) {

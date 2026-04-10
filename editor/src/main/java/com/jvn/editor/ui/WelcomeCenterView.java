@@ -89,6 +89,7 @@ public class WelcomeCenterView extends BorderPane {
   private final Button btnProjectExplorer = new Button();
   private final Button btnHelpCenter = new Button();
   private final Button btnRefresh = new Button();
+  private final Button btnSettings = new Button();
   private final Button btnSpotlightOpenProject = new Button();
   private final Button btnSpotlightRunProject = new Button();
   private final Button btnSpotlightRevealProject = new Button();
@@ -117,6 +118,7 @@ public class WelcomeCenterView extends BorderPane {
   private Runnable onOpenProjectDialog;
   private Runnable onShowProjectExplorer;
   private Runnable onShowHelpCenter;
+  private Runnable onShowSettings;
   private Consumer<File> onOpenProject;
   private Consumer<File> onOpenRecentProject;
   private Consumer<File> onRunProject;
@@ -186,6 +188,12 @@ public class WelcomeCenterView extends BorderPane {
 
   public void setOnShowHelpCenter(Runnable onShowHelpCenter) {
     this.onShowHelpCenter = onShowHelpCenter;
+    updateProjectActionButtons();
+  }
+
+  public void setOnShowSettings(Runnable onShowSettings) {
+    this.onShowSettings = onShowSettings;
+    btnSettings.setDisable(busy || onShowSettings == null);
   }
 
   public void setOnOpenProject(Consumer<File> onOpenProject) {
@@ -274,6 +282,9 @@ public class WelcomeCenterView extends BorderPane {
       if (onShowHelpCenter != null) onShowHelpCenter.run();
     });
     btnRefresh.setOnAction(e -> refresh());
+    btnSettings.setOnAction(e -> {
+      if (onShowSettings != null) onShowSettings.run();
+    });
     configureActionButton(btnNewProject, CssIcon.plus("#8bcf98"), "New Project", "Create a new project", "welcome-action-button-primary");
     configureActionButton(btnOpenProject, CssIcon.folder("#d5b36a"), "Open Project", "Choose an existing project", "welcome-action-button-secondary");
     configureActionButton(btnRunProject, CssIcon.play("#dd9a48"), "Run Project", "Run the selected project with the runtime", "welcome-action-button-secondary");
@@ -281,6 +292,7 @@ public class WelcomeCenterView extends BorderPane {
     configureActionButton(btnProjectExplorer, CssIcon.list("#d6cab8"), "Project Explorer", "Jump to the Project Explorer tab", "welcome-action-button-secondary");
     configureActionButton(btnHelpCenter, CssIcon.search("#d6cab8"), "Help Center", "Open Help Center documentation", "welcome-action-button-secondary");
     configureActionButton(btnRefresh, CssIcon.redo("#d6cab8"), "Refresh Checks", "Refresh Welcome Center data and health checks", "welcome-action-button-secondary");
+    configureIconButton(btnSettings, CssIcon.settings("#d6cab8"), "Settings", "Configure launcher and editor defaults");
     updateProjectActionButtons();
 
     HBox primaryActions = new HBox(8, btnNewProject, btnOpenProject, btnRunProject, btnOpenLast);
@@ -291,7 +303,9 @@ public class WelcomeCenterView extends BorderPane {
     secondaryActions.getStyleClass().add("welcome-action-row");
     secondaryActions.setAlignment(Pos.CENTER_LEFT);
 
-    HBox headingRow = new HBox(8, headingLabel, versionLabel);
+    Region headingSpacer = new Region();
+    HBox.setHgrow(headingSpacer, Priority.ALWAYS);
+    HBox headingRow = new HBox(8, headingLabel, versionLabel, headingSpacer, btnSettings);
     headingRow.setAlignment(Pos.BASELINE_LEFT);
 
     HBox overviewRow = new HBox(
@@ -363,7 +377,8 @@ public class WelcomeCenterView extends BorderPane {
     VBox.setVgrow(healthScroll, Priority.ALWAYS);
 
     VBox right = new VBox(10, spotlight, health);
-    VBox.setVgrow(health, Priority.ALWAYS);
+    VBox.setVgrow(spotlight, Priority.ALWAYS);
+    VBox.setVgrow(health, Priority.SOMETIMES);
 
     SplitPane split = new SplitPane(left, right);
     split.getStyleClass().add("welcome-center-split");
@@ -386,6 +401,7 @@ public class WelcomeCenterView extends BorderPane {
     btnProjectExplorer.setDisable(busy || resolveLauncherProjectDir() == null || onShowProjectExplorer == null);
     btnHelpCenter.setDisable(busy || onShowHelpCenter == null);
     btnRefresh.setDisable(busy);
+    btnSettings.setDisable(busy || onShowSettings == null);
     recentFilterField.setDisable(busy);
     btnSpotlightOpenProject.setDisable(busy || resolveLauncherProjectDir() == null || (onOpenProject == null && onOpenRecentProject == null));
     btnSpotlightRunProject.setDisable(busy || resolveLauncherProjectDir() == null || onRunProject == null);
@@ -464,6 +480,7 @@ public class WelcomeCenterView extends BorderPane {
     btnRunProject.setDisable(busy || launcherProject == null || onRunProject == null);
     btnProjectExplorer.setDisable(busy || launcherProject == null || onShowProjectExplorer == null);
     btnHelpCenter.setDisable(busy || onShowHelpCenter == null);
+    btnSettings.setDisable(busy || onShowSettings == null);
     btnSpotlightOpenProject.setDisable(busy || launcherProject == null || (onOpenProject == null && onOpenRecentProject == null));
     btnSpotlightRunProject.setDisable(busy || launcherProject == null || onRunProject == null);
     btnSpotlightRevealProject.setDisable(busy || launcherProject == null || onRevealProject == null);
@@ -756,7 +773,9 @@ public class WelcomeCenterView extends BorderPane {
         "welcome-action-button-secondary");
     btnSpotlightRevealProject.setOnAction(e -> revealLauncherProject(resolveLauncherProjectDir()));
 
-    HBox headerRow = new HBox(8, header);
+    Region headerSpacer = new Region();
+    HBox.setHgrow(headerSpacer, Priority.ALWAYS);
+    HBox headerRow = new HBox(8, header, headerSpacer, spotlightMetaLabel);
     headerRow.setAlignment(Pos.CENTER_LEFT);
 
     Region badgeSpacer = new Region();
@@ -768,24 +787,45 @@ public class WelcomeCenterView extends BorderPane {
     actionsRow.getStyleClass().add("welcome-action-row");
     actionsRow.setAlignment(Pos.CENTER_LEFT);
 
-    Label linksHeader = new Label("Open Common Files");
-    linksHeader.getStyleClass().add("welcome-overview-title");
+    Region divider = new Region();
+    divider.getStyleClass().add("welcome-spotlight-divider");
+    divider.setMinHeight(1);
+    divider.setPrefHeight(1);
+    divider.setMaxHeight(1);
 
-    VBox card = new VBox(
-        10,
-        headerRow,
-        spotlightMetaLabel,
-        titleRow,
-        spotlightPathLabel,
-        spotlightSummaryLabel,
-        actionsRow,
-        linksHeader,
+    Label linksHeader = new Label("Open Common Files");
+    linksHeader.getStyleClass().add("welcome-spotlight-links-header");
+
+    VBox linksSection = new VBox(6,
         entryLinkRow,
         timelineLinkRow,
         manifestLinkRow,
         readmeLinkRow,
         docsLinkRow
     );
+    linksSection.setPadding(new Insets(0));
+
+    VBox scrollContent = new VBox(
+        10,
+        headerRow,
+        titleRow,
+        spotlightPathLabel,
+        spotlightSummaryLabel,
+        actionsRow,
+        divider,
+        linksHeader,
+        linksSection
+    );
+    scrollContent.setPadding(new Insets(2, 0, 6, 0));
+
+    ScrollPane spotlightScroll = new ScrollPane(scrollContent);
+    spotlightScroll.setFitToWidth(true);
+    spotlightScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+    spotlightScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+    spotlightScroll.getStyleClass().add("welcome-spotlight-scroll");
+    VBox.setVgrow(spotlightScroll, Priority.ALWAYS);
+
+    VBox card = new VBox(0, spotlightScroll);
     updateProjectSpotlight();
     return card;
   }
@@ -806,6 +846,22 @@ public class WelcomeCenterView extends BorderPane {
       }
     }
     setActionButtonContent(button, icon, text, tooltipText);
+  }
+
+  private static void configureIconButton(Button button,
+                                          Region icon,
+                                          String accessibleText,
+                                          String tooltipText) {
+    if (button == null) return;
+    button.setText("");
+    button.setGraphic(icon);
+    button.setMinSize(34, 34);
+    button.setPrefSize(34, 34);
+    button.setMaxSize(34, 34);
+    button.setFocusTraversable(false);
+    button.getStyleClass().add("welcome-settings-button");
+    button.setAccessibleText(accessibleText == null ? tooltipText : accessibleText);
+    button.setTooltip(tooltipText == null || tooltipText.isBlank() ? null : new Tooltip(tooltipText));
   }
 
   private static void setActionButtonContent(Button button,

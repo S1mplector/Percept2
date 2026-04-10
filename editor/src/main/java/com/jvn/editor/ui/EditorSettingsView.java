@@ -14,6 +14,7 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
+import javafx.scene.control.TextField;
 import javafx.scene.control.ToolBar;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.ColumnConstraints;
@@ -22,8 +23,14 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
 public class EditorSettingsView extends BorderPane {
+  private static final String TEXT_EDITOR_LABEL_JVN = "JVN Editor";
+  private static final String TEXT_EDITOR_LABEL_SYSTEM = "System Default App";
+  private static final String TEXT_EDITOR_LABEL_CUSTOM = "Custom Command";
+
   private final EditorPreferencesStore store;
   private final Spinner<Integer> codeEditorFontSizeSpinner = new Spinner<>();
+  private final ComboBox<String> defaultTextEditorCombo = new ComboBox<>();
+  private final TextField customTextEditorCommandField = new TextField();
   private final CheckBox showWelcomeOnStartupCheck =
       new CheckBox("Show Workspace Hub tab on startup");
   private final CheckBox loadSidebarExtensionsOnDemandCheck =
@@ -88,11 +95,23 @@ public class EditorSettingsView extends BorderPane {
             EditorPreferences.DEFAULT_CODE_EDITOR_FONT_SIZE));
     codeEditorFontSizeSpinner.setEditable(true);
     codeEditorFontSizeSpinner.getStyleClass().add("editor-settings-spinner");
+    defaultTextEditorCombo.getItems().addAll(
+        TEXT_EDITOR_LABEL_JVN,
+        TEXT_EDITOR_LABEL_SYSTEM,
+        TEXT_EDITOR_LABEL_CUSTOM);
+    defaultTextEditorCombo.setMaxWidth(Double.MAX_VALUE);
+    defaultTextEditorCombo.getStyleClass().add("editor-settings-combo");
+    defaultTextEditorCombo.valueProperty().addListener((obs, oldValue, newValue) ->
+        updateCustomTextEditorCommandState());
+    customTextEditorCommandField.setPromptText("Example: code --reuse-window {file}");
+    customTextEditorCommandField.getStyleClass().add("editor-settings-text-field");
     showWelcomeOnStartupCheck.getStyleClass().add("editor-settings-check");
     loadSidebarExtensionsOnDemandCheck.getStyleClass().add("editor-settings-check");
     generalGrid.addRow(0, fieldLabel("Code Editor Text Size"), codeEditorFontSizeSpinner);
-    generalGrid.add(showWelcomeOnStartupCheck, 1, 1);
-    generalGrid.add(loadSidebarExtensionsOnDemandCheck, 1, 2);
+    generalGrid.addRow(1, fieldLabel("Default Text Editor"), defaultTextEditorCombo);
+    generalGrid.addRow(2, fieldLabel("Custom Editor Command"), customTextEditorCommandField);
+    generalGrid.add(showWelcomeOnStartupCheck, 1, 3);
+    generalGrid.add(loadSidebarExtensionsOnDemandCheck, 1, 4);
     generalSection.getChildren().add(generalGrid);
 
     VBox sidebarSection = new VBox(10);
@@ -173,6 +192,9 @@ public class EditorSettingsView extends BorderPane {
   public void loadIntoForm(EditorPreferences preferences) {
     EditorPreferences model = preferences == null ? EditorPreferences.defaults() : preferences.copy();
     codeEditorFontSizeSpinner.getValueFactory().setValue(model.getCodeEditorFontSize());
+    defaultTextEditorCombo.setValue(textEditorLabel(model.getDefaultTextEditor()));
+    customTextEditorCommandField.setText(model.getCustomTextEditorCommand());
+    updateCustomTextEditorCommandState();
     showWelcomeOnStartupCheck.setSelected(model.isShowWelcomeOnStartup());
     loadSidebarExtensionsOnDemandCheck.setSelected(model.isLoadSidebarExtensionsOnDemand());
     for (EditorSidebarPanel panel : EditorSidebarPanel.values()) {
@@ -204,6 +226,8 @@ public class EditorSettingsView extends BorderPane {
         fontSize == null
             ? EditorPreferences.DEFAULT_CODE_EDITOR_FONT_SIZE
             : fontSize.intValue());
+    preferences.setDefaultTextEditor(textEditorValue(defaultTextEditorCombo.getValue()));
+    preferences.setCustomTextEditorCommand(customTextEditorCommandField.getText());
     preferences.setShowWelcomeOnStartup(showWelcomeOnStartupCheck.isSelected());
     preferences.setLoadSidebarExtensionsOnDemand(loadSidebarExtensionsOnDemandCheck.isSelected());
     for (EditorSidebarPanel panel : EditorSidebarPanel.values()) {
@@ -230,5 +254,24 @@ public class EditorSettingsView extends BorderPane {
     Label label = new Label(text);
     label.getStyleClass().add("editor-settings-label");
     return label;
+  }
+
+  private void updateCustomTextEditorCommandState() {
+    boolean custom = TEXT_EDITOR_LABEL_CUSTOM.equals(defaultTextEditorCombo.getValue());
+    customTextEditorCommandField.setDisable(!custom);
+  }
+
+  private static String textEditorLabel(String value) {
+    return switch (EditorPreferences.normalizeTextEditor(value)) {
+      case EditorPreferences.TEXT_EDITOR_SYSTEM -> TEXT_EDITOR_LABEL_SYSTEM;
+      case EditorPreferences.TEXT_EDITOR_CUSTOM -> TEXT_EDITOR_LABEL_CUSTOM;
+      default -> TEXT_EDITOR_LABEL_JVN;
+    };
+  }
+
+  private static String textEditorValue(String label) {
+    if (TEXT_EDITOR_LABEL_SYSTEM.equals(label)) return EditorPreferences.TEXT_EDITOR_SYSTEM;
+    if (TEXT_EDITOR_LABEL_CUSTOM.equals(label)) return EditorPreferences.TEXT_EDITOR_CUSTOM;
+    return EditorPreferences.TEXT_EDITOR_JVN;
   }
 }

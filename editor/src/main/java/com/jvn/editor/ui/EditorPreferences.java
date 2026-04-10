@@ -7,10 +7,15 @@ public final class EditorPreferences {
   public static final int DEFAULT_CODE_EDITOR_FONT_SIZE = 13;
   public static final int MIN_CODE_EDITOR_FONT_SIZE = 10;
   public static final int MAX_CODE_EDITOR_FONT_SIZE = 28;
+  public static final String TEXT_EDITOR_JVN = "jvn";
+  public static final String TEXT_EDITOR_SYSTEM = "system";
+  public static final String TEXT_EDITOR_CUSTOM = "custom";
 
   private int codeEditorFontSize;
   private boolean showWelcomeOnStartup;
   private boolean loadSidebarExtensionsOnDemand;
+  private String defaultTextEditor;
+  private String customTextEditorCommand;
   private final EnumMap<EditorSidebarPanel, EditorPanelPlacement> panelPlacements =
       new EnumMap<>(EditorSidebarPanel.class);
   private final EnumMap<EditorSidebarPanel, Boolean> chooserVisibility =
@@ -21,6 +26,8 @@ public final class EditorPreferences {
         DEFAULT_CODE_EDITOR_FONT_SIZE,
         true,
         true,
+        TEXT_EDITOR_JVN,
+        "",
         EditorSidebarPanel.defaultPlacements(),
         EditorSidebarPanel.defaultChooserVisibility());
   }
@@ -29,12 +36,16 @@ public final class EditorPreferences {
       int codeEditorFontSize,
       boolean showWelcomeOnStartup,
       boolean loadSidebarExtensionsOnDemand,
+      String defaultTextEditor,
+      String customTextEditorCommand,
       Map<EditorSidebarPanel, EditorPanelPlacement> placements,
       Map<EditorSidebarPanel, Boolean> chooserVisibility) {
     this.codeEditorFontSize =
         clampCodeEditorFontSize(codeEditorFontSize);
     this.showWelcomeOnStartup = showWelcomeOnStartup;
     this.loadSidebarExtensionsOnDemand = loadSidebarExtensionsOnDemand;
+    this.defaultTextEditor = normalizeTextEditor(defaultTextEditor);
+    this.customTextEditorCommand = cleanText(customTextEditorCommand);
     panelPlacements.putAll(EditorSidebarPanel.defaultPlacements());
     this.chooserVisibility.putAll(EditorSidebarPanel.defaultChooserVisibility());
     if (placements != null) {
@@ -79,6 +90,22 @@ public final class EditorPreferences {
     this.loadSidebarExtensionsOnDemand = loadSidebarExtensionsOnDemand;
   }
 
+  public String getDefaultTextEditor() {
+    return defaultTextEditor;
+  }
+
+  public void setDefaultTextEditor(String defaultTextEditor) {
+    this.defaultTextEditor = normalizeTextEditor(defaultTextEditor);
+  }
+
+  public String getCustomTextEditorCommand() {
+    return customTextEditorCommand;
+  }
+
+  public void setCustomTextEditorCommand(String customTextEditorCommand) {
+    this.customTextEditorCommand = cleanText(customTextEditorCommand);
+  }
+
   public EditorPanelPlacement getPlacement(EditorSidebarPanel panel) {
     if (panel == null) return EditorPanelPlacement.HIDDEN;
     return panelPlacements.getOrDefault(panel, panel.defaultPlacement());
@@ -112,11 +139,24 @@ public final class EditorPreferences {
         codeEditorFontSize,
         showWelcomeOnStartup,
         loadSidebarExtensionsOnDemand,
+        defaultTextEditor,
+        customTextEditorCommand,
         panelPlacements,
         chooserVisibility);
   }
 
   public static int clampCodeEditorFontSize(int value) {
     return Math.max(MIN_CODE_EDITOR_FONT_SIZE, Math.min(MAX_CODE_EDITOR_FONT_SIZE, value));
+  }
+
+  public static String normalizeTextEditor(String value) {
+    String normalized = cleanText(value).toLowerCase();
+    if (TEXT_EDITOR_SYSTEM.equals(normalized)) return TEXT_EDITOR_SYSTEM;
+    if (TEXT_EDITOR_CUSTOM.equals(normalized)) return TEXT_EDITOR_CUSTOM;
+    return TEXT_EDITOR_JVN;
+  }
+
+  private static String cleanText(String value) {
+    return value == null ? "" : value.trim();
   }
 }
