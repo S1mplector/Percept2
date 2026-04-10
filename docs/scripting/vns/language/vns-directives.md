@@ -486,9 +486,9 @@ narrator: Back to normal lighting.
 Stage preset files are `.properties` format exported from the Scene Lighting Studio editor tool. They contain:
 
 - **Background grade** — `bgTintColor`, `bgTintStrength`, `bgSaturation`, `bgContrast`, `bgOverlayColor`, `bgOverlayOpacity`
-- **Lights** — `lights` count, then `light.<i>.name`, `light.<i>.shape` (radial/polygon/cone/strip/window/bounce), `light.<i>.layer` (background/character/foreground), `light.<i>.color`, `light.<i>.intensity`, `light.<i>.radius`, `light.<i>.softness`, `light.<i>.silhouette`, `light.<i>.position`, `light.<i>.source`, `light.<i>.group`, etc.
-- **Occluders** — `occluders` count, then `occluder.<i>.name`, `occluder.<i>.opacity`, `occluder.<i>.softness`, `occluder.<i>.polygon`
-- **Response zones** — `zones` count, then `zone.<i>.name`, `zone.<i>.bounds`, `zone.<i>.surface`, `zone.<i>.depthBias`, `zone.<i>.responseScale`, `zone.<i>.polygon`
+- **Lights** — `lights` count, then `light.<i>.name`, `light.<i>.shape` (radial/polygon/cone/strip/window/bounce), `light.<i>.layer` (background/character/foreground), `light.<i>.color`, `light.<i>.intensity`, `light.<i>.radius`, `light.<i>.softness`, `light.<i>.silhouette`, `light.<i>.position`, `light.<i>.source`, `light.<i>.group`, `light.<i>.muted`, `light.<i>.locked`, `light.<i>.solo`, `light.<i>.polygon`
+- **Occluders** — `occluders` count, then `occluder.<i>.name`, `occluder.<i>.opacity`, `occluder.<i>.softness`, `occluder.<i>.enabled`, `occluder.<i>.polygon`
+- **Response zones** — `zones` count, then `zone.<i>.name`, `zone.<i>.bounds`, `zone.<i>.surface`, `zone.<i>.depthBias`, `zone.<i>.responseScale`, `zone.<i>.rotation`, `zone.<i>.polygon`
 
 Stage preset files are typically created using the **Scene Lighting Studio** editor sidebar, not hand-authored.
 
