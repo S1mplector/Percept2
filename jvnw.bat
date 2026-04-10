@@ -49,16 +49,16 @@ echo   Mode     %mode%
 echo.
 
 if /I "%command%"=="gradle" (
-  call "%~dp0gradlew.bat" --console=plain %*
+  call "%~dp0gradlew.bat" --console=plain %1 %2 %3 %4 %5 %6 %7 %8 %9
   exit /b %ERRORLEVEL%
 )
 
 if defined resolved (
-  call "%~dp0gradlew.bat" --console=plain %resolved% %*
+  call "%~dp0gradlew.bat" --console=plain %resolved% %1 %2 %3 %4 %5 %6 %7 %8 %9
   exit /b %ERRORLEVEL%
 )
 
-call "%~dp0gradlew.bat" --console=plain %command% %*
+call "%~dp0gradlew.bat" --console=plain %command% %1 %2 %3 %4 %5 %6 %7 %8 %9
 exit /b %ERRORLEVEL%
 
 :help
