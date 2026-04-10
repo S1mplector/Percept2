@@ -444,15 +444,70 @@ narrator: Evening falls.
 
 ---
 
+## Persistent Variables
+
+Persistent variables survive across playthroughs and save slots. They are stored in a separate `VnPersistentStore` and automatically mirrored into the session variable map under the `persistent.` prefix.
+
+### Operations
+
+```vns
+[persistent set endings_seen 1]        # set a persistent value
+[persistent inc endings_seen]          # increment (+1 default)
+[persistent inc endings_seen 5]        # increment by delta
+[persistent dec endings_seen]          # decrement (-1 default)
+[persistent flag true_route_unlocked]  # set to true
+[persistent unflag true_route_unlocked] # set to false
+[persistent toggle new_game_plus]      # flip boolean value
+[persistent clear endings_seen]        # remove a key entirely
+```
+
+### Cross-Store Operations
+
+```vns
+[persistent load endings_seen]          # copy persistent.endings_seen → session variable "endings_seen"
+[persistent load endings_seen my_var]   # copy persistent.endings_seen → session variable "my_var"
+[persistent store endings_seen]         # copy session variable "endings_seen" → persistent store
+[persistent store endings_seen my_var]  # copy session variable "my_var" → persistent store key "endings_seen"
+```
+
+### Store Management
+
+```vns
+[persistent reload]   # reload all persistent data from disk
+[persistent reset]    # clear all persistent data
+```
+
+### Reading Persistent Values in Conditions
+
+Persistent values are mirrored into the session variable map as `persistent.<key>`:
+
+```vns
+[if persistent.endings_seen >= 3 goto true_route]
+[if persistent.true_route_unlocked]
+  narrator: Welcome back, traveler.
+[endif]
+```
+
+### Use Cases
+
+- **New Game+** — track completion flags across playthroughs
+- **Route unlocks** — gate content behind completion of other routes
+- **Achievement tracking** — count milestones independently of save slots
+- **Global statistics** — total playtime, endings seen, choices made
+
+---
+
 ## Variables in Save Data
 
-All variables are serialized when saving and restored when loading. This includes:
+All session variables are serialized when saving and restored when loading. This includes:
 
 - All `[set]` / `[inc]` / `[dec]` values
 - All `[flag]` / `[unflag]` booleans
 - String, numeric, and boolean types
 
 Variable state is also captured by the rollback system for in-session undo/redo.
+
+Persistent variables (`[persistent ...]`) are stored separately and are **not** tied to individual save slots — they persist globally across all saves.
 
 ---
 
