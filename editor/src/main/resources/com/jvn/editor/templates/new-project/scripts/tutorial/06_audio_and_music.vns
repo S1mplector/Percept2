@@ -1,5 +1,5 @@
 # Tutorial 06 — Audio and Music
-# [bgm], [sfx], [voice], [synthesizer], and audio fading commands.
+# [bgm], [sfx], [voice], and audio fading commands.
 
 @scenario {{SCENARIO_PREFIX}}_tutorial_06_audio
 @include {{CHARACTERS_INCLUDE}}
@@ -9,7 +9,7 @@
 [autodelay 1650]
 [show lavender center happy]
 [wait 200]
-Lavender: Audio has four layers in VNS: background music, sound effects, voice clips, and procedural synthesis.
+Lavender: Audio in VNS has three main layers: background music, sound effects, and voice clips.
 [show lavender center talking]
 Lavender: Each layer has its own commands. Let's go through them.
 
@@ -18,7 +18,6 @@ Lavender: Each layer has its own commands. Let's go through them.
 > [bgm] — background music -> section_bgm
 > [sfx] — sound effects -> section_sfx
 > [voice] — voice acting -> section_voice
-> [synthesizer] — procedural ambience -> section_synth
 > Fading and crossfading audio -> section_fading
 > Practice: scoring a scene -> practice_scene
 > Back to Tutorial Hub -> return_hub
@@ -72,29 +71,6 @@ narrator: {b}Folder:{/b} assets/audio/voice/ with subfolders per character.
 narrator: {b}Settings:{/b} always give players a separate voice volume slider.
 [show lavender center happy]
 Lavender: Voice files add up fast. A 10-hour VN can have thousands of clips. Organize early.
-> Next: synthesizer -> section_synth
-> Back to menu -> lesson_menu
-
-# ─── Synthesizer ─────────────────────────────────────────────────
-
-@label section_synth
-[show lavender center talking]
-Lavender: The {b}[synthesizer]{/b} command generates ambient sound procedurally — no audio files needed.
-narrator: {color=#8888cc}[synthesizer on mode:"rain" intensity:0.7 volume:0.4 loop:true]{/color}
-narrator: Starts a rain ambience at 70% intensity, 40% volume, looping.
-[show lavender left talking]
-Lavender: Available modes and their key parameters:
-narrator: {b}wind{/b} — {color=#8888cc}[synthesizer on mode:"wind" intensity:0.7 volume:0.35 loop:true]{/color}
-narrator: {b}rain{/b} — {color=#8888cc}[synthesizer on mode:"rain" intensity:0.68 detail:0.82 motion:0.35 spread:0.72 accent:0.9]{/color}
-narrator: {b}thunder{/b} — {color=#8888cc}[synthesizer on mode:"thunder" intensity:0.8 accent:0.7]{/color}
-narrator: {b}fireplace{/b} — {color=#8888cc}[synthesizer on mode:"fireplace" intensity:0.6 detail:0.75]{/color}
-narrator: {b}night_insects{/b} — {color=#8888cc}[synthesizer on mode:"night_insects" intensity:0.5 accent:0.8 motion:0.6]{/color}
-[show lavender center talking]
-Lavender: Parameters: {b}intensity{/b} (strength), {b}detail{/b} (texture), {b}motion{/b} (stereo movement), {b}spread{/b} (stereo width), {b}accent{/b} (preset-specific variation).
-narrator: {color=#8888cc}[synthesizer off]{/color}
-narrator: Stops all active synth layers.
-[show lavender center happy]
-Lavender: Synth ambience is zero-filesize and infinitely variable. Layer it under BGM for rich atmospheric scenes.
 > Next: fading -> section_fading
 > Back to menu -> lesson_menu
 
@@ -136,15 +112,15 @@ narrator: {b}↑ You'd add [sfx "knock.wav"] right before that narrator line.{/b
 Lavender: Who's there...?
 [wait 400]
 narrator: Silence. Then the distant rumble of thunder.
-narrator: {b}↑ Here you'd layer [synthesizer on mode:"thunder" intensity:0.5 accent:0.6] for atmosphere.{/b}
+narrator: {b}↑ Here you'd layer a low thunder SFX or switch to a darker BGM cue for atmosphere.{/b}
 [wait 300]
 {{BGM_FADE}}
 narrator: {b}↑ [bgm_fadeout] faded the music to silence.{/b}
 [show lavender center talking]
-Lavender: That scene used four audio tools:
+Lavender: That scene used four audio ideas:
 narrator: {b}1.{/b} [bgm] for the background music track.
 narrator: {b}2.{/b} [sfx] for the door knock (marked where it would go).
-narrator: {b}3.{/b} [synthesizer] for the thunder atmosphere.
+narrator: {b}3.{/b} Careful cue selection to shift the mood as the storm rolls in.
 narrator: {b}4.{/b} [bgm_fadeout] to fade music as the mood shifts.
 Lavender: Add your own audio files and replace the annotations with real commands to hear it come alive.
 > Replay the scored scene -> practice_scored_scene

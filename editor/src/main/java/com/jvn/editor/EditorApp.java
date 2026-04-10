@@ -28,8 +28,6 @@ import java.util.regex.Pattern;
 
 import javax.tools.ToolProvider;
 
-import com.jvn.audiofx.AudioFxNativeBridge;
-import com.jvn.core.nativebridge.NativeLibraryLoader;
 import com.jvn.core.scene2d.Entity2D;
 import com.jvn.editor.commands.CommandStack;
 import com.jvn.editor.ui.AssetBrowserView;
@@ -709,7 +707,7 @@ public class EditorApp extends Application {
     return new Task<>() {
       @Override
       protected Void call() {
-        final int totalChecks = 13;
+        final int totalChecks = 11;
         int step = 0;
         updateProgress(0, totalChecks);
 
@@ -717,7 +715,7 @@ public class EditorApp extends Application {
         if (workspace == null || !workspace.isDirectory()) {
           throw new StartupFailure(
               "Workspace root not found",
-              "Launch the editor from the JVN repository root so Gradle, native builds, and smoke tests can run.");
+              "Launch the editor from the JVN repository root so Gradle and smoke tests can run.");
         }
         logSplash(splash, "OK", "Workspace", workspace.getAbsolutePath());
         updateMessage("Workspace root resolved");
@@ -784,23 +782,6 @@ public class EditorApp extends Application {
             List.of(resolveGradleCommand(workspace), "--version"),
             "Gradle wrapper check failed",
             "Fix the Gradle wrapper or local JDK configuration, then retry.");
-        advance(++step, totalChecks);
-
-        updateMessage("Checking optional native integrations");
-
-        Path audioFxLibrary = NativeLibraryLoader.findExisting("jvn_audiofx_native");
-        logSplash(
-            splash,
-            audioFxLibrary != null ? "OK" : "WARN",
-            "Native",
-            audioFxLibrary != null
-                ? "AudioFX bridge detected: " + audioFxLibrary
-                : "AudioFX bridge not found; synth preview will stay disabled.");
-        updateMessage("Optional native integrations checked");
-        advance(++step, totalChecks);
-
-        logSplash(splash, AudioFxNativeBridge.isAvailable() ? "OK" : "WARN", "Native", AudioFxNativeBridge.diagnostics());
-        updateMessage("Optional native bridges checked");
         advance(++step, totalChecks);
 
         showStartupLaunchProgress(splash);

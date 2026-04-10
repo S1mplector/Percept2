@@ -20,7 +20,7 @@ Start with **[INDEX.md](INDEX.md)**.
 
 | Directory | Coverage |
 |-----------|----------|
-| `architecture/` | System architecture, 2D engine, performance, native library audit, audio synthesis architecture, UI parity roadmap |
+| `architecture/` | System architecture, 2D engine, performance, and UI parity roadmap |
 | `editor/` | Editor guide, Welcome Center, Run Console, Scene Graph, Tilemap Editor, Puppeteer animation editor, 17 documented sidebar panels |
 | `guides/` | Getting started guide, cookbook and recipes |
 | `project-setup/` | New project wizard, project structure, title screen, text effects, version control, localization, deployment |

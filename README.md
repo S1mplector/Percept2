@@ -4,14 +4,12 @@
   <img src="docs/assets/images/jvn_logo_os.png" width="512" alt="JVN logo">
 </div>
 
-JVN is a modular cross-platform Visual Novel engine written primarily in Java, with optional native audio modules.
-It is quite a young engine, but is under heavy development. Expect regular updates and changes.
+JVN is a modular cross-platform Visual Novel engine written in Java.
 
 ## Architecture
 
 JVN is designed to be lightweight and predictable under load.
-- There is modular separation of runtime, scripting, renderer backends, editor tooling, and optional native integrations.
-- Optional native bridges are isolated from the Java runtime, so the engine/editor can boot without any native toolchain.
+- There is modular separation of runtime, scripting, renderer backends, and editor tooling.
 - Hot paths are data-oriented where possible (compact buffers, reduced allocation churn, pooled native buffers for batch workflows).
 
 Typical memory footprint for the core runtime together with the full editor is around **70-130 MB RAM** in normal desktop usage (project/content dependent).
@@ -22,20 +20,13 @@ Typical memory footprint for the core runtime together with the full editor is a
 - No global Gradle install required. Use `./jvnw` as the default JVN command wrapper.
 - `./gradlew` remains available as the optional low-level Gradle entrypoint for uncommon/manual tasks.
 - For team version-control workflows in editor: `git` and `git lfs` installed/configured
-- `cmake` + C/C++ compiler toolchain (`clang`/`gcc`/MSVC`) only if you want to work on optional native audio modules
 
 ## Quick Start
 
-Clone with audio-fx submodules:
+Clone the repository:
 
 ```bash
-git clone --recurse-submodules <repo-url>
-```
-
-If you already cloned the repo:
-
-```bash
-git submodule update --init --recursive
+git clone <repo-url>
 ```
 
 Build everything:
@@ -267,7 +258,6 @@ Full documentation index: **`docs/INDEX.md`**
 - `docs/architecture/core/system-architecture.md`
 - `docs/architecture/core/2d-engine.md`
 - `docs/architecture/quality/performance.md`
-- `docs/architecture/native/native-library-audit.md`
 
 ### VNS Scripting (25 sub-documents)
 - `docs/scripting/vns/overview/vns-scripting.md` — overview and quick reference

@@ -19,7 +19,6 @@ JavaFX rendering backend for the JVN engine. Provides the primary desktop window
 ## Dependencies
 
 - `:core` — engine abstractions, scene graph, VN model
-- `:audio-fx` — native synthesizer integration
 - JavaFX 21 (`javafx-base`, `javafx-graphics`, `javafx-controls`, `javafx-media`, `javafx-swing`)
 
 ## Build

@@ -1,9 +1,6 @@
 package com.jvn.audio.simp3;
 
-import com.jvn.audiofx.AudioFxController;
-import com.jvn.core.assets.AssetPaths;
-import com.jvn.core.assets.AssetType;
-import com.jvn.core.audio.AmbienceProfile;
+import com.jvn.core.assets.AudioAssetResolver;
 import com.jvn.core.audio.AudioFacade;
 import com.musicplayer.core.audio.AudioEngine;
 import com.musicplayer.core.audio.HybridAudioEngine;
@@ -46,9 +43,6 @@ public class Simp3AudioService implements AudioFacade {
   private final Map<String, File> extractedAudioCache = new HashMap<>();
   private volatile float[] latestBgmSpectrum;
   private volatile long latestBgmSpectrumUpdatedAtNanos;
-  private final AudioFxController audioFx = new AudioFxController();
-  private volatile float ambienceVolume = 0.45f;
-  private volatile float chiptuneVolume = 0.70f;
   private final AudioSpectrumListener bgmSpectrumListener = (timestamp, duration, magnitudes, phases) -> {
     if (magnitudes == null || magnitudes.length == 0) return;
     float[] copy = new float[magnitudes.length];
@@ -71,7 +65,6 @@ public class Simp3AudioService implements AudioFacade {
     this.bgmEngine = newEngine();
     attachBgmSpectrumListener(this.bgmEngine);
     this.bgmEngine.setVolume(bgmVolume);
-    log.info("Audio FX backend -> {}", audioFx.diagnosticsSummary());
   }
 
   public synchronized void setProjectRoot(File root) {
@@ -82,7 +75,7 @@ public class Simp3AudioService implements AudioFacade {
   public synchronized void playBgm(String trackId, boolean loop) {
     try {
       cancelCrossfadeTaskLocked();
-      File audioFile = resolveToFile(AssetType.AUDIO, trackId);
+      File audioFile = resolveToFile(trackId);
       if (audioFile == null || !audioFile.exists()) {
         log.warn("BGM file not found for trackId={}", trackId);
         return;
@@ -124,68 +117,22 @@ public class Simp3AudioService implements AudioFacade {
 
   @Override
   public synchronized void playSfx(String sfxId) {
-    try {
-      File audioFile = resolveToFile(AssetType.AUDIO, sfxId);
-      if (audioFile == null || !audioFile.exists()) return;
-
-      AudioEngine engine = newEngine();
-      Song song = toSong(new BgmTrack(sfxId, audioFile.getAbsolutePath()));
-      if (!engine.loadSong(song)) return;
-
-      engine.setVolume(sfxVolume);
-      engine.setOnSongEnded(() -> {
-        safeStop(engine);
-        synchronized (Simp3AudioService.this) {
-          sfxEngines.remove(engine);
-        }
-      });
-      sfxEngines.add(engine);
-      cleanupEngines(sfxEngines);
-      engine.play();
-    } catch (Exception e) {
-      log.debug("playSfx error", e);
-    }
+    playClip(sfxId, sfxVolume, sfxEngines, "sfx");
   }
 
   @Override
   public synchronized void playVoice(String voiceId) {
-    try {
-      File audioFile = resolveToFile(AssetType.AUDIO, voiceId);
-      if (audioFile == null || !audioFile.exists()) return;
-
-      AudioEngine engine = newEngine();
-      Song song = toSong(new BgmTrack(voiceId, audioFile.getAbsolutePath()));
-      if (!engine.loadSong(song)) return;
-
-      engine.setVolume(voiceVolume);
-      engine.setOnSongEnded(() -> {
-        safeStop(engine);
-        synchronized (Simp3AudioService.this) {
-          voiceEngines.remove(engine);
-        }
-      });
-      voiceEngines.add(engine);
-      cleanupEngines(voiceEngines);
-      engine.play();
-    } catch (Exception e) {
-      log.debug("playVoice error", e);
-    }
+    playClip(voiceId, voiceVolume, voiceEngines, "voice");
   }
 
   @Override
   public synchronized void stopSfx() {
-    for (AudioEngine engine : new ArrayList<>(sfxEngines)) {
-      safeStop(engine);
-    }
-    sfxEngines.clear();
+    stopEngines(sfxEngines);
   }
 
   @Override
   public synchronized void stopVoice() {
-    for (AudioEngine engine : new ArrayList<>(voiceEngines)) {
-      safeStop(engine);
-    }
-    voiceEngines.clear();
+    stopEngines(voiceEngines);
   }
 
   @Override
@@ -193,8 +140,6 @@ public class Simp3AudioService implements AudioFacade {
     stopSfx();
     stopVoice();
     stopBgm();
-    stopAmbience();
-    stopChiptune();
   }
 
   @Override
@@ -206,17 +151,13 @@ public class Simp3AudioService implements AudioFacade {
   @Override
   public synchronized void setSfxVolume(float volume) {
     this.sfxVolume = clamp(volume);
-    for (AudioEngine engine : new ArrayList<>(sfxEngines)) {
-      engine.setVolume(sfxVolume);
-    }
+    applyVolume(sfxEngines, sfxVolume);
   }
 
   @Override
   public synchronized void setVoiceVolume(float volume) {
     this.voiceVolume = clamp(volume);
-    for (AudioEngine engine : new ArrayList<>(voiceEngines)) {
-      engine.setVolume(voiceVolume);
-    }
+    applyVolume(voiceEngines, voiceVolume);
   }
 
   @Override
@@ -275,7 +216,7 @@ public class Simp3AudioService implements AudioFacade {
   public synchronized void crossfadeBgm(String trackId, long ms, boolean loop) {
     try {
       cancelCrossfadeTaskLocked();
-      File audioFile = resolveToFile(AssetType.AUDIO, trackId);
+      File audioFile = resolveToFile(trackId);
       if (audioFile == null || !audioFile.exists()) {
         log.warn("Crossfade target BGM file not found for trackId={}", trackId);
         return;
@@ -352,43 +293,6 @@ public class Simp3AudioService implements AudioFacade {
     }
   }
 
-  @Override
-  public synchronized void playAmbience(String preset, float intensity, boolean loop) {
-    playAmbience(preset, intensity, AmbienceProfile.defaults(loop));
-  }
-
-  @Override
-  public synchronized void playAmbience(String preset, float intensity, AmbienceProfile profile) {
-    audioFx.playAmbience(preset, clamp01(intensity), ambienceVolume, profile);
-  }
-
-  @Override
-  public synchronized void stopAmbience() {
-    audioFx.stopAmbience();
-  }
-
-  @Override
-  public synchronized void setAmbienceVolume(float volume) {
-    ambienceVolume = clamp01(volume);
-    audioFx.setAmbienceVolume(ambienceVolume);
-  }
-
-  @Override
-  public synchronized void playChiptune(String cueId, float intensity, boolean loop) {
-    audioFx.playBeez(cueId, clamp01(intensity), chiptuneVolume, loop);
-  }
-
-  @Override
-  public synchronized void stopChiptune() {
-    audioFx.stopBeez();
-  }
-
-  @Override
-  public synchronized void setChiptuneVolume(float volume) {
-    chiptuneVolume = clamp01(volume);
-    audioFx.setBeezVolume(chiptuneVolume);
-  }
-
   private AudioEngine ensureBgmEngine() {
     if (bgmEngine == null) {
       bgmEngine = newEngine();
@@ -400,6 +304,37 @@ public class Simp3AudioService implements AudioFacade {
 
   private AudioEngine newEngine() {
     return new HybridAudioEngine();
+  }
+
+  private void playClip(String trackId, double volume, List<AudioEngine> engines, String channelName) {
+    try {
+      File audioFile = resolveToFile(trackId);
+      if (audioFile == null || !audioFile.exists()) {
+        log.warn("{} file not found for trackId={}", channelName, trackId);
+        return;
+      }
+
+      AudioEngine engine = newEngine();
+      Song song = toSong(new BgmTrack(trackId, audioFile.getAbsolutePath()));
+      if (!engine.loadSong(song)) {
+        log.warn("Failed to load {} trackId={} file={}", channelName, trackId, audioFile.getAbsolutePath());
+        safeStop(engine);
+        return;
+      }
+
+      cleanupEngines(engines);
+      engine.setVolume(volume);
+      engine.setOnSongEnded(() -> {
+        safeStop(engine);
+        synchronized (Simp3AudioService.this) {
+          engines.remove(engine);
+        }
+      });
+      engines.add(engine);
+      engine.play();
+    } catch (Exception e) {
+      log.debug("play{} error for trackId={}", channelName, trackId, e);
+    }
   }
 
   private void attachBgmSpectrumListener(AudioEngine engine) {
@@ -448,6 +383,24 @@ public class Simp3AudioService implements AudioFacade {
     }
   }
 
+  private void stopEngines(List<AudioEngine> engines) {
+    for (AudioEngine engine : new ArrayList<>(engines)) {
+      safeStop(engine);
+    }
+    engines.clear();
+  }
+
+  private void applyVolume(List<AudioEngine> engines, double volume) {
+    for (AudioEngine engine : new ArrayList<>(engines)) {
+      try {
+        engine.setVolume(volume);
+      } catch (Exception e) {
+        safeStop(engine);
+        engines.remove(engine);
+      }
+    }
+  }
+
   private void cleanupEngines(List<AudioEngine> engines) {
     Iterator<AudioEngine> it = engines.iterator();
     while (it.hasNext()) {
@@ -476,118 +429,47 @@ public class Simp3AudioService implements AudioFacade {
     }
   }
 
-  private File resolveToFile(AssetType type, String id) {
+  private File resolveToFile(String id) {
     if (id == null || id.isBlank()) return null;
-    String normalized = id.replace('\\', '/');
-    if (normalized.startsWith("/")) {
-      normalized = normalized.substring(1);
-    }
-
-    File direct = new File(id);
-    if (direct.exists() && direct.isFile()) return direct;
-
-    // Also try with normalized path directly (important when id has backslashes)
-    File directNormalized = new File(normalized);
-    if (directNormalized.exists() && directNormalized.isFile()) return directNormalized;
-
-    if (projectRoot != null) {
-      File fromProject = new File(projectRoot, normalized);
-      if (fromProject.exists() && fromProject.isFile()) return fromProject;
-      String projectName = projectRoot.getName();
-      if (normalized.startsWith(projectName + "/")) {
-        String stripped = normalized.substring(projectName.length() + 1);
-        File strippedFromProject = new File(projectRoot, stripped);
-        if (strippedFromProject.exists() && strippedFromProject.isFile()) return strippedFromProject;
-      }
-    }
-
     try {
-      // If a project-relative path accidentally includes the project root folder name,
-      // strip it when resolving against cwd/project dir.
-      String cwdName = new File(System.getProperty("user.dir", ".")).getName();
-      if (normalized.startsWith(cwdName + "/")) {
-        String stripped = normalized.substring(cwdName.length() + 1);
-        File strippedFile = new File(stripped);
-        if (strippedFile.exists() && strippedFile.isFile()) return strippedFile;
-      }
-    } catch (Exception ignored) {
-    }
+      File resolved = AudioAssetResolver.resolveFile(projectRoot, id);
+      if (resolved != null) return resolved;
 
-    if (type == AssetType.AUDIO) {
-      if (normalized.startsWith("assets/demo/audio/")) {
-        File local = new File(normalized);
-        if (local.exists() && local.isFile()) return local;
-      }
-      if (normalized.startsWith("assets/audio/")) {
-        File local = new File(normalized);
-        if (local.exists() && local.isFile()) return local;
-      }
-      File demoAudio = new File("assets/demo/audio", normalized);
-      if (demoAudio.exists() && demoAudio.isFile()) return demoAudio;
-      File audioRoot = new File("assets/audio", normalized);
-      if (audioRoot.exists() && audioRoot.isFile()) return audioRoot;
-      File fallback = new File("game/audio", normalized);
-      if (fallback.exists() && fallback.isFile()) return fallback;
-    }
-
-    try {
-      String built = AssetPaths.build(type, id);
-      String[] candidates = new String[] {
-          built,
-          normalized,
-          built.startsWith("game/") ? built.substring("game/".length()) : built,
-          built.startsWith("game/audio/") ? built.substring("game/audio/".length()) : built,
-          "game/audio/" + normalized,
-          "audio/" + normalized,
-          "assets/demo/audio/" + normalized,
-          "assets/audio/" + normalized,
-          id
-      };
-
-      for (String c : candidates) {
-        File f = new File(c);
-        if (f.exists() && f.isFile()) return f;
-        URL url = Thread.currentThread().getContextClassLoader().getResource(c);
-        if (url != null && "file".equalsIgnoreCase(url.getProtocol())) {
-          try {
-            return new File(url.toURI());
-          } catch (Exception ignored) {
-          }
+      ClassLoader loader = Thread.currentThread().getContextClassLoader();
+      URL url = AudioAssetResolver.resolveClasspathUrl(loader, id);
+      if (url != null && "file".equalsIgnoreCase(url.getProtocol())) {
+        try {
+          return new File(url.toURI());
+        } catch (Exception ignored) {
         }
       }
 
       synchronized (extractedAudioCache) {
-        File cached = extractedAudioCache.get(built);
+        File cached = url == null ? null : extractedAudioCache.get(url.toExternalForm());
         if (cached != null && cached.exists()) return cached;
 
-        InputStream in = null;
-        for (String c : candidates) {
-          in = Thread.currentThread().getContextClassLoader().getResourceAsStream(c);
-          if (in != null) {
-            break;
-          }
-        }
-
-        if (in == null) {
-          log.warn("Audio resource not found in classpath for asset path={} (id={})", built, id);
+        if (url == null) {
+          log.warn("Audio resource not found for id={}", id);
           return null;
         }
 
+        String path = url.getPath() == null ? id : url.getPath();
         String ext = ".audio";
-        int dot = built.lastIndexOf('.');
-        if (dot >= 0 && dot < built.length() - 1) {
-          ext = built.substring(dot);
+        int dot = path.lastIndexOf('.');
+        if (dot >= 0 && dot < path.length() - 1) {
+          ext = path.substring(dot);
         }
         File extracted = Files.createTempFile("jvn_audio_", ext).toFile();
         extracted.deleteOnExit();
-        try (FileOutputStream out = new FileOutputStream(extracted, false)) {
+        try (InputStream in = url.openStream();
+             FileOutputStream out = new FileOutputStream(extracted, false)) {
           in.transferTo(out);
         }
-        extractedAudioCache.put(built, extracted);
+        extractedAudioCache.put(url.toExternalForm(), extracted);
         return extracted;
       }
     } catch (Exception e) {
-      log.warn("resolveToFile error for assetType={} id={}", type, id, e);
+      log.warn("resolveToFile error for id={}", id, e);
       return null;
     }
   }

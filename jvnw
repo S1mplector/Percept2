@@ -232,8 +232,6 @@ compile_started=0
 compile_ok_announced=0
 launch_announced=0
 tests_announced=0
-native_math_announced=0
-audiofx_announced=0
 live_failure_output_seen=0
 launch_live_announced=0
 suppress_status_render=0
@@ -423,23 +421,6 @@ handle_line() {
   local line="$1"
 
   case "$line" in
-    "> Task :audio-fx:buildAudioFxNativeIfNeeded"*)
-      status_text="Building AudioFX native bridge..."
-      ;;
-    --\ Configuring\ done*|--\ Generating\ done*|--\ Build\ files\ have\ been\ written\ to:*)
-      ;;
-    \[*Building\ C\ object*|\[*Building\ CXX\ object*)
-      status_text="Compiling native audio modules..."
-      ;;
-    \[*Linking\ CXX\ shared\ library\ libjvn_audiofx_native.dylib*)
-      status_text="Linking native audio modules..."
-      ;;
-    \[*Built\ target\ jvn_audiofx_native*)
-      if [[ "$audiofx_announced" -eq 0 ]]; then
-        emit_ok "AudioFX native bridge OK"
-        audiofx_announced=1
-      fi
-      ;;
     Starting\ a\ Gradle\ Daemon*|*busy\ and*Daemons\ could\ not\ be\ reused*)
       status_text="Starting Gradle daemon..."
       ;;
@@ -455,7 +436,7 @@ handle_line() {
         status_text="Finalizing compiled modules..."
       fi
       ;;
-    "> Task :"?*":test"*|"> Task "*:runAudioFxNativeTests*)
+    "> Task :"?*":test"*)
       if [[ "$compile_started" -eq 1 && "$compile_ok_announced" -eq 0 ]]; then
         emit_info "Compiling submodules OK"
         compile_ok_announced=1

@@ -35,7 +35,7 @@ Launch command:
 - Shows:
   - JVN logo + editor version
   - recent projects (with one-click open)
-  - workspace/project health checks (Java, Gradle wrapper, Git/Git LFS, native build tooling, missing project files)
+  - workspace/project health checks (Java, Gradle wrapper, Git/Git LFS, missing project files)
 - Quick actions:
   - `New Project`
   - `Open Project`

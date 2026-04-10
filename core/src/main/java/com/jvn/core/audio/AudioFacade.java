@@ -108,7 +108,7 @@ public interface AudioFacade {
   default void crossfadeBgm(String trackId, long ms, boolean loop) {}
 
   // ──────────────────────────────────────────────────────────────────────────
-  //  Procedural synthesis (optional — loom / beez style audio-fx)
+  //  Procedural synthesis (optional compatibility hooks)
   // ──────────────────────────────────────────────────────────────────────────
 
   /** Start a procedural ambience preset. */

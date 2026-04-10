@@ -43,7 +43,7 @@ Lavender: Writing and presenting — how text, characters, and visuals reach the
 [wait 120]
 Lavender: Engine systems — transitions, audio, state, movement, branching, and animation.
 > 05. Transitions and Effects — fade, crossfade, flash, shake -> open_transitions
-> 06. Audio and Music — bgm, sfx, voice, synthesizer -> open_audio
+> 06. Audio and Music — bgm, sfx, voice, fades -> open_audio
 > 07. Variables and Conditions — [set], [inc], [if]/[endif] -> open_variables
 > 08. Character Movement — [move], easing, @position -> open_movement
 > 09. Puppeteer Timelines — parallel tracks, keyframes, camera -> open_puppeteer

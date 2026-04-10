@@ -14,7 +14,6 @@ Before you go deep:
 - **JDK 21** — toolchain auto-download is enabled, but a local JDK 21 is recommended
 - **No global Gradle install required** — `./jvnw` is the default command wrapper, with `./gradlew` available for advanced tasks
 - **Git** (optional) — for version control integration in the editor
-- **CMake + C/C++ toolchain** — required for native bridge builds and editor startup
 
 ---
 
@@ -28,8 +27,7 @@ cd Java-Vector-Nexus
 ./jvnw build
 ```
 
-This compiles all modules and runs tests. The build also configures and builds the native bridges when native outputs are missing.
-This path no longer requires a native toolchain.
+This compiles all modules and runs tests.
 
 ### Targeted builds during development
 
@@ -54,7 +52,7 @@ Instead of full `build` every time, use focused tasks:
 ./jvnw editor
 ```
 
-The editor startup preflight checks `cmake`, validates the native toolchain, and rebuilds missing native libraries before launch.
+The editor startup preflight checks the workspace, Gradle wrapper, writable state path, Java runtime, and other basic health indicators before launch.
 
 The editor opens with a Welcome dashboard showing:
 - Recent projects

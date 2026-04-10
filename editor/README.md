@@ -24,7 +24,7 @@ JavaFX-based visual tooling for authoring and launching JVN visual novel project
 
 ## Dependencies
 
-- `:core`, `:fx`, `:audio`, `:audio-fx`, `:scripting`
+- `:core`, `:fx`, `:audio`, `:scripting`
 - `richtextfx` — syntax-highlighted code editing
 
 ## Build & Run

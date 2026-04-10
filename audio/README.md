@@ -6,7 +6,6 @@ High-level audio playback module providing BGM, SFX, and voice channel managemen
 
 - `:core` — channel abstractions and asset resolution
 - `:fx` — JavaFX media integration
-- `:audio-fx` — native synthesizer backends
 - `basicplayer` — audio playback engine
 - `vorbisspi` — Ogg Vorbis decoding
 - `mp3spi` — MP3 decoding

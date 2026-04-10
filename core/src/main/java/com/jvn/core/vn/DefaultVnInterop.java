@@ -734,14 +734,23 @@ public class DefaultVnInterop implements VnInterop {
   private void handleAudio(String payload, VnScene scene) {
     String[] toks = split(payload);
     if (toks.length == 0) return;
-    String cmd = toks[0].toLowerCase();
+    String cmd = toks[0].toLowerCase(Locale.ROOT);
     var a = scene.getAudioFacade(); if (a == null) return;
     switch (cmd) {
       case "pause":
-        a.pauseBgm();
+        if (toks.length >= 2 && "all".equals(normalizeAudioChannel(toks[1]))) a.pauseAllAudio();
+        else a.pauseBgm();
         break;
       case "resume":
-        a.resumeBgm();
+        if (toks.length >= 2 && "all".equals(normalizeAudioChannel(toks[1]))) a.resumeAllAudio();
+        else a.resumeBgm();
+        break;
+      case "stop":
+        handleAudioStop(toks, a);
+        break;
+      case "volume":
+      case "vol":
+        handleAudioVolume(toks, scene, a);
         break;
       case "pause_all":
       case "pauseall":
@@ -774,20 +783,127 @@ public class DefaultVnInterop implements VnInterop {
         }
         break;
       case "crossfade":
-        if (toks.length >= 3) {
-          String track = toks[1];
-          try {
-            long ms = Long.parseLong(toks[2]);
-            boolean loop = toks.length < 4 || ("true".equalsIgnoreCase(toks[3]) || "on".equalsIgnoreCase(toks[3]) || "1".equals(toks[3]));
-            a.crossfadeBgm(track, ms, loop);
-          } catch (Exception ignored) {}
-        }
+        handleAudioCrossfade(toks, a);
         break;
       case "synth":
       case "synthesizer":
         handleSynthAudio(toks, a);
         break;
     }
+  }
+
+  private void handleAudioStop(String[] toks, AudioFacade audio) {
+    String channel = toks.length >= 2 ? normalizeAudioChannel(toks[1]) : "all";
+    switch (channel) {
+      case "bgm" -> audio.stopBgm();
+      case "sfx" -> audio.stopSfx();
+      case "voice" -> audio.stopVoice();
+      default -> audio.stopAllAudio();
+    }
+  }
+
+  private void handleAudioVolume(String[] toks, VnScene scene, AudioFacade audio) {
+    if (toks == null || toks.length < 2 || scene == null || audio == null) return;
+
+    String channelToken = null;
+    String valueToken = null;
+    if (toks.length >= 3) {
+      channelToken = toks[1];
+      valueToken = toks[2];
+    } else {
+      int sep = toks[1].indexOf('=');
+      if (sep > 0 && sep < toks[1].length() - 1) {
+        channelToken = toks[1].substring(0, sep);
+        valueToken = toks[1].substring(sep + 1);
+      }
+    }
+    if (channelToken == null || valueToken == null) return;
+
+    String channel = normalizeAudioChannel(channelToken);
+    if (!"bgm".equals(channel) && !"sfx".equals(channel) && !"voice".equals(channel)) return;
+
+    try {
+      float volume = clamp01(Float.parseFloat(valueToken));
+      VnSettings settings = scene.getState().getSettings();
+      switch (channel) {
+        case "bgm" -> {
+          settings.setBgmVolume(volume);
+          audio.setBgmVolume(volume);
+        }
+        case "sfx" -> {
+          settings.setSfxVolume(volume);
+          audio.setSfxVolume(volume);
+        }
+        case "voice" -> {
+          settings.setVoiceVolume(volume);
+          audio.setVoiceVolume(volume);
+        }
+        default -> {
+        }
+      }
+    } catch (Exception ignored) {
+    }
+  }
+
+  private void handleAudioCrossfade(String[] toks, AudioFacade audio) {
+    if (toks == null || toks.length < 3 || audio == null) return;
+
+    String track = null;
+    Long durationMs = null;
+    Boolean loop = null;
+
+    for (int i = 1; i < toks.length; i++) {
+      String token = toks[i];
+      if (token == null || token.isBlank()) continue;
+
+      int eq = token.indexOf('=');
+      if (eq > 0 && eq < token.length() - 1) {
+        String key = token.substring(0, eq).trim().toLowerCase(Locale.ROOT);
+        String value = token.substring(eq + 1).trim();
+        switch (key) {
+          case "track", "id", "audio" -> track = value;
+          case "dur", "duration", "ms" -> {
+            long parsed = parseLongSafe(value, -1L);
+            if (parsed >= 0L) durationMs = parsed;
+          }
+          case "loop" -> loop = parseBooleanMaybe(value);
+          default -> {
+          }
+        }
+        continue;
+      }
+
+      if (track == null) {
+        track = token;
+        continue;
+      }
+      if (durationMs == null) {
+        long parsed = parseLongSafe(token, -1L);
+        if (parsed >= 0L) {
+          durationMs = parsed;
+          continue;
+        }
+      }
+      if (loop == null) {
+        Boolean parsed = parseBooleanMaybe(token);
+        if (parsed != null) {
+          loop = parsed;
+        }
+      }
+    }
+
+    if (track == null || durationMs == null || durationMs < 0L) return;
+    audio.crossfadeBgm(track, durationMs, loop == null || loop);
+  }
+
+  private String normalizeAudioChannel(String token) {
+    if (token == null || token.isBlank()) return "all";
+    return switch (token.trim().toLowerCase(Locale.ROOT)) {
+      case "music" -> "bgm";
+      case "sound" -> "sfx";
+      case "master" -> "all";
+      default -> token.trim().toLowerCase(Locale.ROOT);
+    };
   }
 
   private void handleSynthAudio(String[] toks, com.jvn.core.audio.AudioFacade audio) {

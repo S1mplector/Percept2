@@ -222,8 +222,6 @@ This index is meant to guide you, the reader. Start with the path that matches w
 - [2D Engine](architecture/core/2d-engine.md)
 - [Performance](architecture/quality/performance.md)
 - [Debugging & Profiling](architecture/quality/debugging.md)
-- [Native Library Audit](architecture/native/native-library-audit.md)
-- [Audio Synthesis Architecture](architecture/native/audio-synthesis.md)
 - [Ren'Py UI Parity Roadmap](architecture/core/ui-parity-roadmap.md)
 
 ## Supplementary

@@ -501,7 +501,6 @@ public class HelpCenterView extends BorderPane {
         || path.endsWith("changelog.md")
         || path.endsWith("contributing.md")
         || path.endsWith("puppeteer-audit.md")
-        || path.endsWith("native-library-audit.md")
         || path.equals("license.md")) {
       return SECTION_REFERENCE;
     }
@@ -516,8 +515,7 @@ public class HelpCenterView extends BorderPane {
     if (path.startsWith("docs/architecture/")
         || path.startsWith("core/")
         || path.startsWith("fx/")
-        || path.startsWith("audio/")
-        || path.startsWith("audio-fx/")) {
+        || path.startsWith("audio/")) {
       return SECTION_ARCHITECTURE;
     }
     if (path.startsWith("docs/guides/")) return SECTION_GUIDES;

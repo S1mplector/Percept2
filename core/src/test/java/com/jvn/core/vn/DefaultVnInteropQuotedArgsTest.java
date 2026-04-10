@@ -156,6 +156,60 @@ class DefaultVnInteropQuotedArgsTest {
   }
 
   @Test
+  void supportsGenericAudioInteropChannelAliasesAndVolumeCommands() {
+    VnScenario scenario = new VnScenarioBuilder("audio_aliases")
+        .label("start")
+        .dialogue("Narrator", "Start")
+        .end()
+        .build();
+    VnScene scene = new VnScene(scenario);
+    FakeAudio audio = new FakeAudio();
+    scene.setAudioFacade(audio);
+    DefaultVnInterop interop = new DefaultVnInterop();
+
+    interop.handle(new VnExternalCommand("audio", "stop music"), scene);
+    interop.handle(new VnExternalCommand("audio", "stop sound"), scene);
+    interop.handle(new VnExternalCommand("audio", "stop voice"), scene);
+    interop.handle(new VnExternalCommand("audio", "stop"), scene);
+    interop.handle(new VnExternalCommand("audio", "pause all"), scene);
+    interop.handle(new VnExternalCommand("audio", "resume all"), scene);
+    interop.handle(new VnExternalCommand("audio", "volume music 0.45"), scene);
+    interop.handle(new VnExternalCommand("audio", "volume voice=0.35"), scene);
+
+    assertEquals(1, audio.stopBgmCount);
+    assertEquals(1, audio.stopSfxCount);
+    assertEquals(1, audio.stopVoiceCount);
+    assertEquals(1, audio.stopAllCount);
+    assertEquals(1, audio.pauseAllCount);
+    assertEquals(1, audio.resumeAllCount);
+    assertEquals(0.45f, audio.lastBgmVolume);
+    assertEquals(0.35f, audio.lastVoiceVolume);
+    assertEquals(0.45f, scene.getState().getSettings().getBgmVolume());
+    assertEquals(0.35f, scene.getState().getSettings().getVoiceVolume());
+  }
+
+  @Test
+  void supportsNamedGenericAudioCrossfadeOptions() {
+    VnScenario scenario = new VnScenarioBuilder("audio_crossfade")
+        .label("start")
+        .dialogue("Narrator", "Start")
+        .end()
+        .build();
+    VnScene scene = new VnScene(scenario);
+    FakeAudio audio = new FakeAudio();
+    scene.setAudioFacade(audio);
+    DefaultVnInterop interop = new DefaultVnInterop();
+
+    interop.handle(new VnExternalCommand(
+        "audio",
+        "crossfade track=\"assets/audio/theme one.ogg\" loop=false dur=1500"), scene);
+
+    assertEquals("assets/audio/theme one.ogg", audio.lastCrossfadeTrack);
+    assertEquals(1500L, audio.lastCrossfadeDurationMs);
+    assertFalse(audio.lastCrossfadeLoop);
+  }
+
+  @Test
   void appliesSynthesizerAudioInteropCommands() {
     VnScenario scenario = new VnScenarioBuilder("audio_synth")
         .label("start")
@@ -229,6 +283,18 @@ class DefaultVnInteropQuotedArgsTest {
   }
 
   private static final class FakeAudio implements AudioFacade {
+    private int stopBgmCount;
+    private int stopSfxCount;
+    private int stopVoiceCount;
+    private int stopAllCount;
+    private int pauseAllCount;
+    private int resumeAllCount;
+    private float lastBgmVolume = -1f;
+    private float lastSfxVolume = -1f;
+    private float lastVoiceVolume = -1f;
+    private String lastCrossfadeTrack;
+    private long lastCrossfadeDurationMs = -1L;
+    private boolean lastCrossfadeLoop;
     private String lastAmbiencePreset;
     private float lastAmbienceIntensity;
     private boolean lastAmbienceLoop;
@@ -251,10 +317,58 @@ class DefaultVnInteropQuotedArgsTest {
 
     @Override
     public void stopBgm() {
+      stopBgmCount++;
     }
 
     @Override
     public void playSfx(String sfxId) {
+    }
+
+    @Override
+    public void stopSfx() {
+      stopSfxCount++;
+    }
+
+    @Override
+    public void stopVoice() {
+      stopVoiceCount++;
+    }
+
+    @Override
+    public void stopAllAudio() {
+      stopAllCount++;
+    }
+
+    @Override
+    public void pauseAllAudio() {
+      pauseAllCount++;
+    }
+
+    @Override
+    public void resumeAllAudio() {
+      resumeAllCount++;
+    }
+
+    @Override
+    public void setBgmVolume(float volume) {
+      lastBgmVolume = volume;
+    }
+
+    @Override
+    public void setSfxVolume(float volume) {
+      lastSfxVolume = volume;
+    }
+
+    @Override
+    public void setVoiceVolume(float volume) {
+      lastVoiceVolume = volume;
+    }
+
+    @Override
+    public void crossfadeBgm(String trackId, long ms, boolean loop) {
+      lastCrossfadeTrack = trackId;
+      lastCrossfadeDurationMs = ms;
+      lastCrossfadeLoop = loop;
     }
 
     @Override
