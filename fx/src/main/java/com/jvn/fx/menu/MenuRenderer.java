@@ -21,6 +21,7 @@ import com.jvn.core.menu.gallery.GalleryScene;
 import com.jvn.core.menu.gallery.MusicRoomEntry;
 import com.jvn.core.menu.gallery.MusicRoomScene;
 import com.jvn.core.ui.BoundsPointCodec;
+import com.jvn.fx.ui.FxTextMetrics;
 import com.jvn.fx.ui.ProjectFontResolver;
 
 import javafx.scene.canvas.GraphicsContext;
@@ -46,6 +47,7 @@ public class MenuRenderer {
   private final GraphicsContext gc;
   private MenuTheme theme;
   private final java.util.Map<String, Image> imageCache = new java.util.HashMap<>();
+  private final FxTextMetrics textMetrics = new FxTextMetrics();
   private File projectRoot;
 
   public enum LoadControlType {
@@ -64,9 +66,15 @@ public class MenuRenderer {
 
   public MenuRenderer(GraphicsContext gc) { this.gc = gc; this.theme = MenuTheme.defaults(); }
   public MenuRenderer(GraphicsContext gc, MenuTheme theme) { this.gc = gc; this.theme = (theme == null ? MenuTheme.defaults() : theme); }
-  public void setTheme(MenuTheme t) { this.theme = (t == null ? MenuTheme.defaults() : t); }
+  public void setTheme(MenuTheme t) {
+    this.theme = (t == null ? MenuTheme.defaults() : t);
+    textMetrics.clear();
+  }
   public MenuTheme getTheme() { return theme; }
-  public void setProjectRoot(File root) { this.projectRoot = root; }
+  public void setProjectRoot(File root) {
+    this.projectRoot = root;
+    textMetrics.clear();
+  }
 
   public void renderMainMenu(MainMenuScene scene, double w, double h) {
     MenuLayoutSpec layout = scene != null ? scene.getMenuLayout() : null;
@@ -666,6 +674,10 @@ public class MenuRenderer {
     imageCache.clear();
   }
 
+  public void clearTextMeasureCache() {
+    textMetrics.clear();
+  }
+
   private void drawTitle(String text, double w, double y) {
     drawTitle(text, w, y, null, null);
   }
@@ -891,9 +903,7 @@ public class MenuRenderer {
   }
 
   private double measure(String s, Font f) {
-    javafx.scene.text.Text t = new javafx.scene.text.Text(s);
-    t.setFont(f);
-    return t.getLayoutBounds().getWidth();
+    return textMetrics.width(s, f);
   }
 
   private String truncateToWidth(String text, double maxWidth, Font font) {

@@ -1509,6 +1509,7 @@ public class FxLauncher extends Application {
     if (changes.assetsChanged()) {
       ProjectFontResolver.clearCache();
       menuRenderer.clearImageCache();
+      menuRenderer.clearTextMeasureCache();
       phoneRenderer.clearAssetCache();
     }
     if (changes.uiChanged() || changes.assetsChanged()) {

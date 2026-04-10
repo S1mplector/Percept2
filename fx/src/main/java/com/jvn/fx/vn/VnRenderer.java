@@ -36,6 +36,7 @@ import com.jvn.core.vn.ui.VnUiActionButtonSpec;
 import com.jvn.core.vn.ui.VnUiLayoutLoader;
 import com.jvn.core.vn.ui.VnUiLayoutSpec;
 import com.jvn.core.vn.ui.VnUiStyleSpec;
+import com.jvn.fx.ui.FxTextMetrics;
 import com.jvn.fx.ui.ProjectFontResolver;
 
 import javafx.scene.SnapshotParameters;
@@ -49,7 +50,6 @@ import javafx.scene.paint.LinearGradient;
 import javafx.scene.paint.Stop;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
-import javafx.scene.text.Text;
 
 /**
  * Renders visual novel elements using JavaFX Canvas
@@ -59,6 +59,7 @@ public class VnRenderer {
   private final Map<String, Image> imageCache = new HashMap<>();
   private final Map<String, Image> stageBackgroundCache = new HashMap<>();
   private final Map<String, Image> stageCharacterCache = new HashMap<>();
+  private final FxTextMetrics textMetrics = new FxTextMetrics();
   private Font nameFont;
   private Font dialogueFont;
   private Font choiceFont;
@@ -2231,15 +2232,19 @@ public class VnRenderer {
     double lineHeight = 22;
 
     for (String word : words) {
-      String testLine = line.length() == 0 ? word : line + " " + word;
-      double testWidth = computeTextWidth(testLine, font);
-      
-      if (testWidth > maxWidth && line.length() > 0) {
+      int originalLength = line.length();
+      if (originalLength > 0) {
+        line.append(' ');
+      }
+      line.append(word);
+      double testWidth = computeTextWidth(line.toString(), font);
+
+      if (testWidth > maxWidth && originalLength > 0) {
+        line.setLength(originalLength);
         gc.fillText(line.toString(), x, currentY);
-        line = new StringBuilder(word);
+        line.setLength(0);
+        line.append(word);
         currentY += lineHeight;
-      } else {
-        line = new StringBuilder(testLine);
       }
     }
     
@@ -2249,23 +2254,15 @@ public class VnRenderer {
   }
 
   private double computeTextWidth(String text, Font font) {
-    javafx.scene.text.Text helper = new javafx.scene.text.Text(text);
-    helper.setFont(font);
-    return helper.getLayoutBounds().getWidth();
+    return textMetrics.width(text, font);
   }
 
   private double computeTextAscent(Font font) {
-    javafx.scene.text.Text helper = new javafx.scene.text.Text("Hg");
-    helper.setFont(font);
-    double ascent = -helper.getLayoutBounds().getMinY();
-    return ascent > 0.0 ? ascent : Math.max(1.0, font.getSize() * 0.8);
+    return textMetrics.ascent(font);
   }
 
   private double computeTextHeight(Font font) {
-    javafx.scene.text.Text helper = new javafx.scene.text.Text("Hg");
-    helper.setFont(font);
-    double height = helper.getLayoutBounds().getHeight();
-    return height > 0.0 ? height : Math.max(1.0, font.getSize());
+    return textMetrics.height(font);
   }
 
   private double resolvePaddedTextBaselineY(
@@ -2562,10 +2559,7 @@ public class VnRenderer {
   }
 
   private double measureText(String text) {
-    if (text == null || text.isEmpty()) return 0.0;
-    Text probe = new Text(text);
-    probe.setFont(gc.getFont());
-    return probe.getLayoutBounds().getWidth();
+    return textMetrics.width(text, gc.getFont());
   }
 
   private ScreenGeometry computeOverlayScreenGeometry(VnOverlayScreenSpec screen, double viewportWidth, double viewportHeight) {
@@ -2670,5 +2664,6 @@ public class VnRenderer {
 
   public void clearCache() {
     imageCache.clear();
+    textMetrics.clear();
   }
 }
