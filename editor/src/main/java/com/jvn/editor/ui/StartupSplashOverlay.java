@@ -9,11 +9,11 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.TextArea;
-import javafx.scene.control.ContentDisplay;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
@@ -39,8 +39,6 @@ public final class StartupSplashOverlay {
   private final ProgressBar progressBar = new ProgressBar(0);
   private final Button retryButton = createActionButton("Retry");
   private final Button quitButton = createActionButton("Quit");
-  private final Button launchEditorButton =
-      createActionButton("Launch JVN Editor", CssIcon.play("#8bcf98"), true);
   private final HBox actionBar = new HBox(8);
   private String progressAccent = "#6ea8ff";
 
@@ -151,7 +149,6 @@ public final class StartupSplashOverlay {
       progressAccent = "#6ea8ff";
       retryButton.setDisable(true);
       quitButton.setDisable(true);
-      launchEditorButton.setDisable(true);
       hideActions();
       styleProgressBarForBlackChrome();
     });
@@ -189,7 +186,6 @@ public final class StartupSplashOverlay {
       showActions(retryButton, quitButton);
       retryButton.setDisable(false);
       quitButton.setDisable(false);
-      launchEditorButton.setDisable(true);
       retryButton.setOnAction(evt -> {
         retryButton.setDisable(true);
         quitButton.setDisable(true);
@@ -201,25 +197,20 @@ public final class StartupSplashOverlay {
     });
   }
 
-  public void showLaunchChoice(Runnable onLaunchEditor) {
+  public void showLaunchingEditor() {
     runOnFx(() -> {
       subtitleLabel.setText("Startup preflight complete");
-      statusLabel.setText("Ready to launch");
+      statusLabel.setText("Launching editor");
       statusLabel.setTextFill(Color.web("#b7c3d9"));
-      detailLabel.setText("Native libraries and runtime checks passed. Launch the editor when you're ready.");
+      detailLabel.setText("Startup checks passed. Opening the editor now.");
       detailLabel.setTextFill(Color.web("#9caac0"));
       detailLabel.setVisible(true);
       detailLabel.setManaged(true);
       progressAccent = "#d9b36a";
       styleProgressBarForBlackChrome();
-      showActions(launchEditorButton);
+      hideActions();
       retryButton.setDisable(true);
       quitButton.setDisable(true);
-      launchEditorButton.setDisable(false);
-      launchEditorButton.setOnAction(evt -> {
-        launchEditorButton.setDisable(true);
-        if (onLaunchEditor != null) onLaunchEditor.run();
-      });
     });
   }
 

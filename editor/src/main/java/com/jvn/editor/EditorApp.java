@@ -25,7 +25,6 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.regex.Pattern;
-import java.util.concurrent.CountDownLatch;
 
 import javax.tools.ToolProvider;
 
@@ -804,7 +803,7 @@ public class EditorApp extends Application {
         updateMessage("Optional native bridges checked");
         advance(++step, totalChecks);
 
-        awaitStartupLaunchChoice(splash);
+        showStartupLaunchProgress(splash);
         logSplash(splash, "INFO", "Tests", "Full repository test suite not run during splash launch.");
         updateMessage("Launching editor");
         advance(++step, totalChecks);
@@ -889,19 +888,9 @@ public class EditorApp extends Application {
     splash.appendLog(startupLogLine(level, category, detail));
   }
 
-  private void awaitStartupLaunchChoice(StartupSplashOverlay splash) {
-    CountDownLatch latch = new CountDownLatch(1);
-    logSplash(splash, "INFO", "Launch", "Awaiting user confirmation to launch the editor.");
-    splash.showLaunchChoice(latch::countDown);
-    try {
-      latch.await();
-    } catch (InterruptedException ex) {
-      Thread.currentThread().interrupt();
-      throw new StartupFailure(
-          "Startup interrupted",
-          "Interrupted while waiting for the launch confirmation.",
-          ex);
-    }
+  private void showStartupLaunchProgress(StartupSplashOverlay splash) {
+    logSplash(splash, "INFO", "Launch", "Startup checks passed; launching editor immediately.");
+    splash.showLaunchingEditor();
   }
 
   private static String safeMessage(Throwable throwable) {
