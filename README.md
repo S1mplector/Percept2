@@ -35,8 +35,8 @@ Build everything:
 ./jvnw build
 ```
 
-The build command also runs the core test suite, so if the build fails due to a test, it is still
-safe to proceed. 
+The build command also runs tests for applicable modules, so a failing build may be a test failure
+rather than a compile failure.
 
 Useful JVN commands:
 
@@ -46,9 +46,11 @@ Useful JVN commands:
 ./jvnw runtime
 ./jvnw build
 ./jvnw test
+./jvnw check
+./jvnw clean
 ```
 
-Use `./jvnw` for normal development. Drop to `./gradlew` or `./jvnw --raw ...` only when you need direct Gradle task control.
+Use `./jvnw` for normal development. It prints concise wrapper status by default. Drop to `./gradlew` or `./jvnw --raw ...` only when you need direct Gradle task control or full Gradle logs.
 
 The default Java build no longer requires any native toolchain.
 
@@ -71,6 +73,8 @@ Default wrapper commands:
 ```bash
 ./jvnw build
 ./jvnw test
+./jvnw check
+./jvnw clean
 ./jvnw dist
 ```
 
