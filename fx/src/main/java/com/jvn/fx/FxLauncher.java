@@ -100,6 +100,7 @@ public class FxLauncher extends Application {
   private double mouseX = 0;
   private double mouseY = 0;
   private OperatingSystemMXBean osBean;
+  private final MemoryMXBean memoryBean = ManagementFactory.getMemoryMXBean();
   private HBox perfHud;
   private Label perfCpuLabel;
   private Label perfJvmLabel;
@@ -517,7 +518,6 @@ public class FxLauncher extends Application {
     smoothedProcessCpu = smoothRatio(smoothedProcessCpu, processCpu, PERF_CPU_SMOOTH_ALPHA);
     smoothedFps = smoothRatio(smoothedFps, engine.frameStats().getFps(), PERF_FPS_SMOOTH_ALPHA);
 
-    MemoryMXBean memoryBean = ManagementFactory.getMemoryMXBean();
     MemoryUsage heap = memoryBean.getHeapMemoryUsage();
     MemoryUsage nonHeap = memoryBean.getNonHeapMemoryUsage();
     double heapUsedMb = Math.max(0.0, bytesToMb(heap == null ? -1L : heap.getUsed()));
