@@ -9,12 +9,14 @@ import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToolBar;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
@@ -39,7 +41,7 @@ public class LauncherSettingsView extends BorderPane {
 
   public LauncherSettingsView(EditorPreferencesStore store) {
     this.store = store == null ? new EditorPreferencesStore() : store;
-    setPadding(new Insets(10));
+    setPadding(Insets.EMPTY);
     getStyleClass().add("editor-settings-view");
 
     ToolBar toolbar = new ToolBar();
@@ -67,7 +69,7 @@ public class LauncherSettingsView extends BorderPane {
     setTop(toolbar);
 
     VBox content = new VBox(14);
-    content.setPadding(new Insets(4));
+    content.setPadding(new Insets(12));
     content.getStyleClass().add("editor-settings-content");
 
     Label header = new Label("Launcher Settings");
@@ -112,9 +114,10 @@ public class LauncherSettingsView extends BorderPane {
     Button clearProjectButton = new Button("Clear");
     clearProjectButton.getStyleClass().add("editor-settings-button");
     clearProjectButton.setOnAction(e -> lastProjectPathField.clear());
-    javafx.scene.layout.HBox lastProjectControls =
-        new javafx.scene.layout.HBox(8, lastProjectPathField, useCurrentProjectButton, clearProjectButton);
-    javafx.scene.layout.HBox.setHgrow(lastProjectPathField, Priority.ALWAYS);
+    HBox lastProjectControls =
+        new HBox(8, lastProjectPathField, useCurrentProjectButton, clearProjectButton);
+    lastProjectControls.getStyleClass().add("editor-settings-inline-row");
+    HBox.setHgrow(lastProjectPathField, Priority.ALWAYS);
 
     grid.addRow(0, fieldLabel("Launcher Theme"), themeCombo);
     grid.addRow(1, fieldLabel("Default Text Editor"), defaultTextEditorCombo);
@@ -122,14 +125,20 @@ public class LauncherSettingsView extends BorderPane {
     grid.add(restoreLastProjectCheck, 1, 3);
     grid.addRow(4, fieldLabel("Last Project"), lastProjectControls);
 
+    VBox launcherSection = new VBox(10, sectionHeader("Launcher"), grid);
+    launcherSection.getStyleClass().add("editor-settings-section");
+
     content.getChildren().addAll(
         header,
         intro,
         new Separator(),
-        sectionHeader("Launcher"),
-        grid);
+        launcherSection);
 
-    setCenter(content);
+    ScrollPane scrollPane = new ScrollPane(content);
+    scrollPane.setFitToWidth(true);
+    scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+    scrollPane.getStyleClass().add("editor-settings-scroll");
+    setCenter(scrollPane);
     statusLabel.getStyleClass().add("editor-settings-status");
     setBottom(statusLabel);
 

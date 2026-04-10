@@ -204,7 +204,8 @@ public class RunConsoleView extends BorderPane {
         outputFlow.getStyleClass().add("run-console-output-flow");
         scrollPane.setFitToWidth(true);
         scrollPane.getStyleClass().add("run-console-output-scroll");
-        VBox centerBox = new VBox(createLaunchBanner(), scrollPane);
+        VBox centerBox = new VBox(8, createLaunchBanner(), scrollPane);
+        centerBox.getStyleClass().add("run-console-content");
         VBox.setVgrow(scrollPane, Priority.ALWAYS);
         setCenter(centerBox);
 

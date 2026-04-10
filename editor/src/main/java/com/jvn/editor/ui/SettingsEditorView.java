@@ -1,8 +1,11 @@
 package com.jvn.editor.ui;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.VBox;
 
 import java.io.*;
 import java.util.Properties;
@@ -41,25 +44,85 @@ public class SettingsEditorView extends BorderPane {
   private final CheckBox cbSkipAfterChoices = new CheckBox("Skip After Choices");
 
   public SettingsEditorView() {
-    setPadding(new Insets(8));
+    getStyleClass().addAll("editor-settings-view", "vn-settings-editor-view");
+    setPadding(Insets.EMPTY);
+    configureSliders();
+
     GridPane g = new GridPane();
-    g.setHgap(8); g.setVgap(8);
-    g.addRow(0, new Label("Text Speed (ms/char)"), slText);
-    g.addRow(1, new Label("BGM Volume"), slBgm);
-    g.addRow(2, new Label("SFX Volume"), slSfx);
-    g.addRow(3, new Label("Voice Volume"), slVoice);
-    g.addRow(4, new Label("Auto-play Delay (ms)"), slAuto);
+    g.getStyleClass().add("vn-settings-editor-grid");
+    g.setHgap(12); g.setVgap(12);
+    g.addRow(0, fieldLabel("Text Speed (ms/char)"), slText);
+    g.addRow(1, fieldLabel("BGM Volume"), slBgm);
+    g.addRow(2, fieldLabel("SFX Volume"), slSfx);
+    g.addRow(3, fieldLabel("Voice Volume"), slVoice);
+    g.addRow(4, fieldLabel("Auto-play Delay (ms)"), slAuto);
     g.addRow(5, cbSkipUnread);
     g.addRow(6, cbSkipAfterChoices);
 
     ToolBar tb = new ToolBar();
+    tb.getStyleClass().add("editor-settings-toolbar");
     Button bLoad = new Button("Load"); bLoad.setOnAction(e -> load());
     Button bSave = new Button("Save"); bSave.setOnAction(e -> save());
     Button bDefaults = new Button("Defaults"); bDefaults.setOnAction(e -> setFromModel(new SettingsModel()));
+    bLoad.getStyleClass().add("editor-settings-button");
+    bSave.getStyleClass().add("editor-settings-button");
+    bDefaults.getStyleClass().add("editor-settings-button");
     tb.getItems().addAll(bLoad, bSave, bDefaults);
 
+    Label title = new Label("Runtime Settings");
+    title.getStyleClass().add("editor-settings-header");
+    Label copy = new Label("Tune project playback defaults written to the VN settings file.");
+    copy.getStyleClass().add("editor-settings-copy");
+    copy.setWrapText(true);
+    VBox header = new VBox(4, title, copy);
+
+    VBox settingsSection = new VBox(12, sectionTitle("Playback"), g);
+    settingsSection.getStyleClass().add("editor-settings-section");
+
+    VBox content = new VBox(12, header, settingsSection);
+    content.setPadding(new Insets(12));
+    content.getStyleClass().add("editor-settings-content");
+
+    ScrollPane scroll = new ScrollPane(content);
+    scroll.setFitToWidth(true);
+    scroll.getStyleClass().add("editor-settings-scroll");
+
     setTop(tb);
-    setCenter(g);
+    setCenter(scroll);
+  }
+
+  private void configureSliders() {
+    configureSlider(slText, 10, 10);
+    configureSlider(slBgm, 0.25, 0.05);
+    configureSlider(slSfx, 0.25, 0.05);
+    configureSlider(slVoice, 0.25, 0.05);
+    configureSlider(slAuto, 500, 250);
+    cbSkipUnread.getStyleClass().add("vn-settings-editor-check");
+    cbSkipAfterChoices.getStyleClass().add("vn-settings-editor-check");
+  }
+
+  private void configureSlider(Slider slider, double majorTickUnit, double blockIncrement) {
+    slider.setShowTickMarks(true);
+    slider.setShowTickLabels(true);
+    slider.setMajorTickUnit(majorTickUnit);
+    slider.setBlockIncrement(blockIncrement);
+    slider.setMaxWidth(Double.MAX_VALUE);
+    slider.getStyleClass().add("vn-settings-editor-slider");
+    GridPane.setHgrow(slider, Priority.ALWAYS);
+  }
+
+  private Label fieldLabel(String text) {
+    Label label = new Label(text);
+    label.getStyleClass().add("editor-settings-label");
+    label.setMinWidth(150);
+    label.setAlignment(Pos.CENTER_LEFT);
+    return label;
+  }
+
+  private Label sectionTitle(String text) {
+    Label label = new Label(text);
+    label.getStyleClass().add("editor-settings-section-title");
+    return label;
   }
 
   public void setProjectRoot(File dir) {
