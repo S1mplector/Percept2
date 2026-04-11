@@ -35,10 +35,13 @@ import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ContentDisplay;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
@@ -102,6 +105,11 @@ public class WelcomeCenterView extends BorderPane {
   private Runnable onOpenSelectedProject;
   private Runnable onRunSelectedProject;
   private Consumer<File> onOpenRecentProject;
+  private Consumer<File> onOpenProject;
+  private Consumer<File> onRunProject;
+  private Consumer<File> onRevealProject;
+  private Consumer<File> onOpenProjectFile;
+  private Runnable onShowSettings;
 
   private boolean busy;
 
@@ -169,6 +177,26 @@ public class WelcomeCenterView extends BorderPane {
     this.onOpenRecentProject = onOpenRecentProject;
   }
 
+  public void setOnOpenProject(Consumer<File> onOpenProject) {
+    this.onOpenProject = onOpenProject;
+  }
+
+  public void setOnRunProject(Consumer<File> onRunProject) {
+    this.onRunProject = onRunProject;
+  }
+
+  public void setOnRevealProject(Consumer<File> onRevealProject) {
+    this.onRevealProject = onRevealProject;
+  }
+
+  public void setOnOpenProjectFile(Consumer<File> onOpenProjectFile) {
+    this.onOpenProjectFile = onOpenProjectFile;
+  }
+
+  public void setOnShowSettings(Runnable onShowSettings) {
+    this.onShowSettings = onShowSettings;
+  }
+
   public void markProjectVisited(File projectDir) {
     Path project = normalizeProjectDir(projectDir == null ? null : projectDir.toPath());
     if (project == null) return;
@@ -219,14 +247,14 @@ public class WelcomeCenterView extends BorderPane {
     });
     btnOpenProject.setOnAction(e -> {
       if (hasSelectedProject()) {
-        if (onOpenSelectedProject != null) onOpenSelectedProject.run();
+        if (onOpenProject != null) onOpenProject.accept(projectRoot);
       } else if (onOpenProjectDialog != null) {
         onOpenProjectDialog.run();
       }
     });
     btnRunProject.setOnAction(e -> {
-      if (hasSelectedProject() && onRunSelectedProject != null) {
-        onRunSelectedProject.run();
+      if (hasSelectedProject() && onRunProject != null) {
+        onRunProject.accept(projectRoot);
       }
     });
     btnOpenLast.setOnAction(e -> {
@@ -272,6 +300,23 @@ public class WelcomeCenterView extends BorderPane {
       ProjectEntry selected = recentList.getSelectionModel().getSelectedItem();
       if (selected != null) openRecentProject(selected);
     });
+    MenuItem miReveal = new MenuItem("Reveal in Explorer");
+    MenuItem miOpenFile = new MenuItem("Open Project File...");
+    MenuItem miSettings = new MenuItem("Settings...");
+    miReveal.setOnAction(e -> {
+      ProjectEntry sel = recentList.getSelectionModel().getSelectedItem();
+      if (sel != null && onRevealProject != null) onRevealProject.accept(sel.projectDir());
+    });
+    miOpenFile.setOnAction(e -> {
+      ProjectEntry sel = recentList.getSelectionModel().getSelectedItem();
+      if (sel != null && onOpenProjectFile != null) onOpenProjectFile.accept(sel.projectDir());
+    });
+    miSettings.setOnAction(e -> {
+      if (onShowSettings != null) onShowSettings.run();
+    });
+    ContextMenu listMenu = new ContextMenu();
+    listMenu.getItems().addAll(miReveal, miOpenFile, new SeparatorMenuItem(), miSettings);
+    recentList.setContextMenu(listMenu);
 
     Region recentSpacer = new Region();
     HBox.setHgrow(recentSpacer, Priority.ALWAYS);

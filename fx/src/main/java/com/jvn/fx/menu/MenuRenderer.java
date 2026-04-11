@@ -661,6 +661,10 @@ public class MenuRenderer {
     imageCache.clear();
   }
 
+  public void clearTextMeasureCache() {
+    // no text measure cache currently; stub for API compatibility
+  }
+
   private void drawTitle(String text, double w, double y, MenuStyleSpec style, MenuLayoutSpec layout) {
     if (text == null || text.isBlank()) text = "JVN";
     Color titleColor = parseColor(style != null ? style.titleColor() : null, theme.getTitleColor());
