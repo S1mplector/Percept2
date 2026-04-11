@@ -31,8 +31,7 @@ public class JavaZoomAudioEngine implements AudioEngine, BasicPlayerListener {
     private static final Logger LOGGER = Logger.getLogger(JavaZoomAudioEngine.class.getName());
     
     private BasicPlayer player;
-    private Song currentSong;
-    
+
     // Observable properties for JavaFX binding
     private final BooleanProperty playing = new SimpleBooleanProperty(false);
     private final DoubleProperty currentTime = new SimpleDoubleProperty(0.0);
@@ -46,8 +45,6 @@ public class JavaZoomAudioEngine implements AudioEngine, BasicPlayerListener {
     
     // State tracking
     private long audioDataLength = 0;
-    private long currentBytes = 0;
-    private double currentVolume = 0.5;
     private boolean isSeeking = false;
     
     // Audio spectrum listener (not directly supported by BasicPlayer)
@@ -64,7 +61,6 @@ public class JavaZoomAudioEngine implements AudioEngine, BasicPlayerListener {
                     // Convert 0.0-1.0 to gain value
                     double gain = convertVolumeToGain(newVal.doubleValue());
                     player.setGain(gain);
-                    currentVolume = newVal.doubleValue();
                 } catch (BasicPlayerException e) {
                     LOGGER.log(Level.WARNING, "Failed to set volume", e);
                 }
@@ -103,7 +99,6 @@ public class JavaZoomAudioEngine implements AudioEngine, BasicPlayerListener {
             // Open the new audio file
             player.open(audioFile);
             
-            this.currentSong = song;
             Platform.runLater(() -> currentSongProperty.set(song));
             
             // Reset time properties
@@ -237,9 +232,7 @@ public class JavaZoomAudioEngine implements AudioEngine, BasicPlayerListener {
             currentSongProperty.set(null);
         });
         
-        currentSong = null;
         audioDataLength = 0;
-        currentBytes = 0;
         
         LOGGER.info("Audio engine disposed");
     }
@@ -295,6 +288,7 @@ public class JavaZoomAudioEngine implements AudioEngine, BasicPlayerListener {
     // BasicPlayerListener implementation
     
     @Override
+    @SuppressWarnings("rawtypes")
     public void opened(Object stream, Map properties) {
         LOGGER.fine("Stream opened");
         
@@ -336,9 +330,9 @@ public class JavaZoomAudioEngine implements AudioEngine, BasicPlayerListener {
     }
     
     @Override
+    @SuppressWarnings("rawtypes")
     public void progress(int bytesread, long microseconds, byte[] pcmdata, Map properties) {
         if (!isSeeking) {
-            currentBytes = bytesread;
             double seconds = microseconds / 1_000_000.0;
             Platform.runLater(() -> currentTime.set(seconds));
         }

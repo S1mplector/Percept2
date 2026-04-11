@@ -93,10 +93,6 @@ public class AlbumCard extends StackPane {
         });
     }
 
-    private Image getPlaceholderImage() {
-        return new Image(AlbumCard.class.getResourceAsStream("/images/icons/album_placeholder.png"), 90, 90, true, true);
-    }
-
     public Album getAlbum() {
         return album;
     }
@@ -370,11 +366,6 @@ public class AlbumCard extends StackPane {
         }
     }
 
-    // Deprecated method kept for compatibility, now delegates to the new dialog
-    private void openAlbumEditDialog() {
-        openAlbumSettingsDialog();
-    }
-    
     /**
      * Handle the result of album editing.
      */

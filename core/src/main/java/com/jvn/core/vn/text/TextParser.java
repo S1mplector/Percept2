@@ -141,7 +141,6 @@ public class TextParser {
       int spanLen = span.length();
       if (charCount + spanLen > revealIndex) {
         // This span contains the reveal position
-        int posInSpan = revealIndex - charCount;
         totalDelay += span.getDelayMs();
         avgSpeed = span.getSpeedMultiplier();
         return new RevealInfo(revealIndex, totalDelay, avgSpeed, span);

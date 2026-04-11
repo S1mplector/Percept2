@@ -382,17 +382,6 @@ public class WelcomeCenterView extends BorderPane {
     scroll.getStyleClass().add("welcome-health-scroll");
   }
 
-  private VBox buildOverviewCard(String title, Label valueLabel, Label detailLabel) {
-    Label titleLabel = new Label(title);
-    titleLabel.getStyleClass().add("welcome-overview-title");
-    VBox card = new VBox(5, titleLabel, valueLabel, detailLabel);
-    card.getStyleClass().add("welcome-overview-card");
-    HBox.setHgrow(card, Priority.ALWAYS);
-    VBox.setVgrow(card, Priority.ALWAYS);
-    detailLabel.setMaxWidth(Double.MAX_VALUE);
-    return card;
-  }
-
   private static void configureActionButton(Button button,
                                             Region icon,
                                             String text,

@@ -123,8 +123,6 @@ public class MenuStyleVisualEditor extends BorderPane {
   private final List<String> lineDiagnostics = new ArrayList<>();
   private final TableView<CustomProperty> customPropsTable = new TableView<>();
   private final ObservableList<CustomProperty> customProps = FXCollections.observableArrayList();
-  private List<String> previewItems = List.of("> New Game", "  Load", "  Settings", "  Quit");
-
   public MenuStyleVisualEditor() {
     setPadding(new Insets(8));
     cbItemFontWeight.getItems().setAll("NORMAL", "BOLD");
@@ -312,7 +310,6 @@ public class MenuStyleVisualEditor extends BorderPane {
   }
 
   public void setPreviewContent(List<String> items) {
-    this.previewItems = items != null && !items.isEmpty() ? items : List.of("> New Game", "  Load", "  Settings", "  Quit");
     redrawPreview();
   }
 

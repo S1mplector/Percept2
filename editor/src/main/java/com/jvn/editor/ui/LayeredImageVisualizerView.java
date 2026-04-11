@@ -3,7 +3,6 @@ package com.jvn.editor.ui;
 import java.awt.Desktop;
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;

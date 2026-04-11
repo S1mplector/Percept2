@@ -145,7 +145,6 @@ public class UnifiedMenuEditor extends BorderPane {
     try { styleProps.load(new StringReader(styleEditor.getStyleText())); } catch (Exception ignored) {}
     Color itemColor = parseColor(styleProps.getProperty("itemColor"), Color.web("#D3D3D3"));
     Color selectedColor = parseColor(styleProps.getProperty("itemSelectedColor"), Color.web("#FFFF00"));
-    Color disabledColor = parseColor(styleProps.getProperty("itemDisabledColor"), Color.web("#808080"));
     String prefix = styleProps.getProperty("itemPrefix", "  ");
     String selectedPrefix = styleProps.getProperty("itemSelectedPrefix", "> ");
     String fontFamily = styleProps.getProperty("itemFontFamily", "Arial");

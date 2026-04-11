@@ -78,7 +78,6 @@ public class EasingCurveEditor extends Pane {
     private int hoveredHandle = 0;
     private int selectedHandle = 0;
     private double hoverProgress = Double.NaN;
-    private String helperText = "";
 
     // Callback when user drags control points
     private Consumer<double[]> onBezierChanged;
@@ -307,11 +306,6 @@ public class EasingCurveEditor extends Pane {
         hoveredHandle = selectedHandle;
         commitCurveChange();
         return true;
-    }
-
-    public void setHelperText(String helperText) {
-        this.helperText = helperText != null ? helperText.trim() : "";
-        draw();
     }
 
     // --- A) Ghost curve overlay API ---

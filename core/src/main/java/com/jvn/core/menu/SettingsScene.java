@@ -544,20 +544,6 @@ public class SettingsScene implements Scene {
     return new Row(key, key, null, true, style, MenuActionSpec.noop(), null);
   }
 
-  private void ensureBuiltInSettingVisible(List<Row> rows, String key, MenuStyleSpec style) {
-    for (Row row : rows) {
-      if (row != null && key.equals(row.key())) return;
-    }
-    for (int i = 0; i < rows.size(); i++) {
-      Row row = rows.get(i);
-      if (row != null && KEY_BACK.equals(row.key())) {
-        rows.add(i, defaultRow(key, style));
-        return;
-      }
-    }
-    rows.add(defaultRow(key, style));
-  }
-
   private boolean handleAction(Row row, int delta, boolean confirm) {
     MenuActionSpec action = row.action();
     if (action == null) return false;

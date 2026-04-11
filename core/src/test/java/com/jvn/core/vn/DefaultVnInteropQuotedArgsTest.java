@@ -208,6 +208,7 @@ class DefaultVnInteropQuotedArgsTest {
     assertFalse(audio.lastCrossfadeLoop);
   }
 
+  @Test
   void togglesDialoguePresentationModesAndBubblePreferences() {
     VnScenario scenario = new VnScenarioBuilder("dialogue_modes")
         .label("start")
@@ -251,7 +252,6 @@ class DefaultVnInteropQuotedArgsTest {
     private int pauseAllCount;
     private int resumeAllCount;
     private float lastBgmVolume = -1f;
-    private float lastSfxVolume = -1f;
     private float lastVoiceVolume = -1f;
     private String lastCrossfadeTrack;
     private long lastCrossfadeDurationMs = -1L;
@@ -305,7 +305,6 @@ class DefaultVnInteropQuotedArgsTest {
 
     @Override
     public void setSfxVolume(float volume) {
-      lastSfxVolume = volume;
     }
 
     @Override

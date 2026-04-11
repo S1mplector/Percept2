@@ -93,7 +93,6 @@ public class MenuLayoutVisualEditor extends BorderPane {
   private final Spinner<Integer> spMaxVisibleItems = intSpinner(1, 100, 10, 1);
 
   private DragTarget dragTarget = DragTarget.NONE;
-  private double dragStartX;
   private double dragStartY;
   private MenuLayoutSpec dragStartSpec = MenuLayoutSpecDefaults.DEFAULT;
   private final UndoManager undoManager = new UndoManager();
@@ -444,7 +443,6 @@ public class MenuLayoutVisualEditor extends BorderPane {
 
   private void registerPreviewDrag() {
     preview.setOnMousePressed(e -> {
-      dragStartX = e.getX();
       dragStartY = e.getY();
       dragStartSpec = spec;
       dragTarget = hitTest(e.getX(), e.getY());
@@ -458,7 +456,6 @@ public class MenuLayoutVisualEditor extends BorderPane {
       if (dragTarget == DragTarget.NONE) return;
       double w = Math.max(1, preview.getWidth());
       double h = Math.max(1, preview.getHeight());
-      double dx = e.getX() - dragStartX;
       double dy = e.getY() - dragStartY;
 
       double listYStart = dragStartSpec.listYStart();

@@ -46,7 +46,6 @@ public class LayoutEditorLauncherView extends BorderPane {
   private final TextField filterField = new TextField();
   private final Label summaryLabel = new Label("No project loaded.");
   private final VBox itemList = new VBox(6);
-  private final VBox registryPanel = new VBox(6);
 
   private File projectRoot;
   private Consumer<File> onOpenFile;

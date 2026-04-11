@@ -1715,8 +1715,6 @@ public class KeyframeEditor extends VBox {
         curveEditor.setDisable(!hasPreview);
         curveEditor.setOpacity(!hasPreview ? 0.55 : editableCurve ? 1.0 : tween ? 0.96 : 0.90);
         lblCurveInteractionHint.setText(resolveCurveInteractionHint(hasPreview, singleKeyframe, tween, current.getType()));
-        curveEditor.setHelperText(resolveCurveCanvasHint(hasPreview, singleKeyframe, tween, current.getType()));
-
         // --- C) Show spring editor for SPRING / DAMPED_SPRING types ---
         boolean isSpring = singleKeyframe && tween &&
             (current.getType() == Easing.Type.SPRING || current.getType() == Easing.Type.DAMPED_SPRING);
@@ -1859,28 +1857,6 @@ public class KeyframeEditor extends VBox {
             return "Multi-point editing is live. Drag points, double-click or press + to add anchors, Delete removes the selected point, and Tab cycles through them.";
         }
         return "Preview only. Click Make Editable for cubic editing, use Add Point for a richer multi-point curve, or apply a spec to convert the current easing.";
-    }
-
-    private String resolveCurveCanvasHint(boolean hasPreview,
-                                          boolean singleKeyframe,
-                                          boolean tween,
-                                          Easing.Type easingType) {
-        if (!hasPreview) {
-            return "Select a keyframe to preview a curve.";
-        }
-        if (!singleKeyframe) {
-            return "Preview only for multi-selection.";
-        }
-        if (!tween) {
-            return "Preview only for non-tween interpolation.";
-        }
-        if (easingType == Easing.Type.CUSTOM) {
-            return "Drag handles. 1/2 selects a handle. Arrows nudge. Shift snaps to 0.05.";
-        }
-        if (easingType == Easing.Type.CURVE) {
-            return "Drag points. Double-click or + adds. Delete removes. Tab cycles. Shift snaps.";
-        }
-        return "Hover to inspect. Make Editable unlocks cubic handles. Add Point unlocks a multi-point curve.";
     }
 
     private void syncPresetEditSessionFromSelection(boolean preserveCurrent) {

@@ -2521,15 +2521,6 @@ public class PhoneAssetsToolView extends BorderPane {
     };
   }
 
-  private static boolean parseBoolean(String raw, boolean fallback) {
-    if (raw == null || raw.isBlank()) return fallback;
-    return switch (raw.trim().toLowerCase(Locale.ROOT)) {
-      case "true", "1", "yes", "on" -> true;
-      case "false", "0", "no", "off" -> false;
-      default -> fallback;
-    };
-  }
-
   private void showInfo(String title, String message) {
     EditorDialogs.info(ownerWindow(), title, message);
   }

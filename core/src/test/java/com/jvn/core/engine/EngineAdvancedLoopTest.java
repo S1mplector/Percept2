@@ -1,13 +1,14 @@
 package com.jvn.core.engine;
 
-import com.jvn.core.config.ApplicationConfig;
-import com.jvn.core.scene.Scene;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+
+import com.jvn.core.config.ApplicationConfig;
+import com.jvn.core.scene.Scene;
 
 class EngineAdvancedLoopTest {
 
@@ -328,7 +329,6 @@ class EngineAdvancedLoopTest {
 
   private static final class CountingScene implements Scene {
     int fixedUpdateCount = 0;
-    long fixedUpdateTotalDelta = 0;
     int updateCount = 0;
     long updateTotalDelta = 0;
     int lateUpdateCount = 0;
@@ -336,7 +336,6 @@ class EngineAdvancedLoopTest {
 
     @Override public void fixedUpdate(long deltaMs) {
       fixedUpdateCount++;
-      fixedUpdateTotalDelta += deltaMs;
     }
     @Override public void update(long deltaMs) {
       updateCount++;

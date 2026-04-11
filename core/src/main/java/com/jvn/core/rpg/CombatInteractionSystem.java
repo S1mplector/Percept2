@@ -23,14 +23,10 @@ public class CombatInteractionSystem {
     public double elapsedMs = 0;
   }
 
-  private final PhysicsWorld2D world;
   private final List<Hitbox> hitboxes = new ArrayList<>();
   private final List<DamagePopup> popups = new ArrayList<>();
-  private final TweenRunner tweens;
 
   public CombatInteractionSystem(PhysicsWorld2D world, TweenRunner tweens) {
-    this.world = world;
-    this.tweens = tweens;
   }
 
   public void registerHitbox(Hitbox hb) { if (hb != null) hitboxes.add(hb); }

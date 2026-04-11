@@ -1,7 +1,6 @@
 package com.jvn.core.menu.config;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;

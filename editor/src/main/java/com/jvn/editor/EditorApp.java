@@ -59,9 +59,9 @@ import com.jvn.editor.ui.RunConsoleView;
 import com.jvn.editor.ui.ScriptEditorLauncherView;
 import com.jvn.editor.ui.SettingsEditorView;
 import com.jvn.editor.ui.StartupSplashOverlay;
+import com.jvn.editor.ui.StoryTimelineView;
 import com.jvn.editor.ui.StoryboardOverlayState;
 import com.jvn.editor.ui.StoryboardOverlayView;
-import com.jvn.editor.ui.StoryTimelineView;
 import com.jvn.editor.ui.TilemapEditorView;
 import com.jvn.editor.ui.VersionControlView;
 import com.jvn.editor.ui.VnsDiagnosticsView;
@@ -70,8 +70,8 @@ import com.jvn.editor.ui.VnsScriptAnalyzer;
 import com.jvn.editor.ui.actioneditor.AnimationProject;
 import com.jvn.editor.ui.actioneditor.CodeImporter;
 import com.jvn.editor.ui.actioneditor.EntityTrack;
-import com.jvn.editor.ui.actioneditor.PuppeteerWindow;
 import com.jvn.editor.ui.actioneditor.PropertyType;
+import com.jvn.editor.ui.actioneditor.PuppeteerWindow;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 import com.sun.management.OperatingSystemMXBean;
 
@@ -87,7 +87,6 @@ import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
-import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.Labeled;
 import javafx.scene.control.ListView;
@@ -102,8 +101,8 @@ import javafx.scene.control.SplitPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TextField;
-import javafx.scene.control.Tooltip;
 import javafx.scene.control.ToggleGroup;
+import javafx.scene.control.Tooltip;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.DragEvent;
@@ -140,13 +139,10 @@ public class EditorApp extends Application {
   private Text ramText;
   private Text fpsText;
   private PerfGraph perfGraph;
-  private File lastOpened;
   private Entity2D selected;
   private String lastSelectedName;
   private InspectorView inspectorView;
   private TabPane filesTabs;
-  private boolean showGrid = true;
-  
   private ProjectExplorerView projView;
   private HelpCenterView helpCenterView;
   private StoryTimelineView timelineView;
@@ -592,15 +588,6 @@ public class EditorApp extends Application {
     status.setText("Created project: " + projectDir.getName());
   }
 
-  private void openSample(String absolutePath) {
-    File f = new File(absolutePath);
-    if (!f.exists()) {
-      EditorDialogs.error(dialogOwner(), "Error", "Sample not found: " + absolutePath);
-      return;
-    }
-    openFile(f);
-  }
-
   private void openTimelineArc(StoryTimelineView.Arc arc) {
     if (arc == null || arc.script == null || arc.script.isBlank()) return;
     File target = resolveProjectFile(arc.script);
@@ -963,37 +950,6 @@ public class EditorApp extends Application {
       return gradlew.getAbsolutePath();
     }
     return "gradle";
-  }
-
-  private List<String> commonGradleStartupCommand(File workspace) {
-    File gradleUserHome = new File(workspace, ".jvn-gradle-user-home");
-    if (!gradleUserHome.exists()) {
-      gradleUserHome.mkdirs();
-    }
-    String runtimeJavaHome = System.getProperty("java.home", "").trim();
-    List<String> cmd = new ArrayList<>();
-    cmd.add(resolveGradleCommand(workspace));
-    cmd.add("--no-daemon");
-    cmd.add("--console=plain");
-    cmd.add("--gradle-user-home");
-    cmd.add(gradleUserHome.getAbsolutePath());
-    cmd.add("-Dorg.gradle.vfs.watch=false");
-    if (!runtimeJavaHome.isEmpty()) {
-      cmd.add("-Dorg.gradle.java.home=" + runtimeJavaHome);
-      cmd.add("-PjvnNativeJavaHome=" + runtimeJavaHome);
-    }
-    return cmd;
-  }
-
-  private void runGradleStartupProcess(File workspace,
-                                       StartupSplashOverlay splash,
-                                       String category,
-                                       List<String> taskArgs,
-                                       String failureSummary,
-                                       String failureDetail) {
-    List<String> cmd = commonGradleStartupCommand(workspace);
-    cmd.addAll(taskArgs);
-    runStartupProcess(workspace, splash, category, cmd, failureSummary, failureDetail);
   }
 
   private void runStartupProcess(File workspace,
@@ -2199,18 +2155,6 @@ public class EditorApp extends Application {
     }
   }
 
-  private void openJavaFile(File f) { openFile(f); }
-
-  private static String stripExt(String name) {
-    if (name == null) return "scene";
-    int i = name.lastIndexOf('.');
-    return (i > 0) ? name.substring(0, i) : name;
-  }
-
-  private void buildSceneGraph() {
-    updateContextForActiveTab();
-  }
-
   private void executeUndo() {
     if (!commands.canUndo()) return;
     commands.undo();
@@ -2325,9 +2269,6 @@ public class EditorApp extends Application {
       case OTHER -> "Text File";
     };
   }
-
-  private String mapKey(KeyCode code) { return code == null ? "" : (code.getName() == null || code.getName().isBlank() ? code.toString() : code.getName()).toUpperCase(); }
-  private int mapButton(MouseButton b) { if (b == MouseButton.PRIMARY) return 1; if (b == MouseButton.MIDDLE) return 2; if (b == MouseButton.SECONDARY) return 3; return 0; }
 
   private void updatePerf(long nowNs) {
     if (perf == null) return;
@@ -2835,7 +2776,6 @@ public class EditorApp extends Application {
     });
     filesTabs.getTabs().add(tab);
     filesTabs.getSelectionModel().select(tab);
-    lastOpened = f;
     status.setText("Loaded: " + f.getName());
     updateContextForActiveTab();
     if (editor.getKind() == FileEditorTab.Kind.VNS || editor.getKind() == FileEditorTab.Kind.TIMELINE) {
@@ -3477,13 +3417,6 @@ public class EditorApp extends Application {
     });
   }
 
-  private void fitCameraToEntity(Entity2D e) {
-    FileEditorTab ft = getActiveFileTab();
-    if (ft != null && ft.getViewport() != null) {
-      ft.getViewport().fitToEntity(e);
-    }
-  }
-
   private void resetCamera() {
     FileEditorTab ft = getActiveFileTab();
     if (ft != null && ft.getViewport() != null) {
@@ -4040,26 +3973,6 @@ public class EditorApp extends Application {
     }
     attachPanelTabToPane(tabScriptEditorLauncher, targetPane);
     return tabScriptEditorLauncher;
-  }
-
-  private String panelActionLabel(String panelName, Tab tab, TabPane targetPane) {
-    if (tab != null && tab.getTabPane() == targetPane) return "Open " + panelName;
-    if (tab != null && tab.getTabPane() != null) return "Move " + panelName + " Here";
-    return "Add " + panelName;
-  }
-
-  private void addChooserActionButton(javafx.scene.layout.VBox actions, String text, String iconClass, Runnable action) {
-    if (actions == null || text == null || action == null) return;
-    Button button = new Button(text);
-    button.setMaxWidth(Double.MAX_VALUE);
-    button.setAlignment(Pos.CENTER_LEFT);
-    if (iconClass != null && !iconClass.isBlank()) {
-      button.setGraphic(icon("icon", iconClass));
-      button.setContentDisplay(ContentDisplay.LEFT);
-      button.setGraphicTextGap(8);
-    }
-    button.setOnAction(e -> action.run());
-    actions.getChildren().add(button);
   }
 
   private void addChooserActionRow(TabPane chooserPane,

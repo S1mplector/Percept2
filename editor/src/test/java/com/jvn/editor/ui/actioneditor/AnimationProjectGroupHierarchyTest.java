@@ -55,7 +55,7 @@ class AnimationProjectGroupHierarchyTest {
     project.getOrCreateGroup("face");
     project.addGroupToGroup("face", "character");
 
-    EntityTrack head = project.getOrCreateTrack("head");
+    project.getOrCreateTrack("head");
     project.addEntityToGroup("head", "face");
 
     project.getGroup("character").getGroupTrack().upsertKeyframe(PropertyType.ROTATION, new Keyframe(0, 15));

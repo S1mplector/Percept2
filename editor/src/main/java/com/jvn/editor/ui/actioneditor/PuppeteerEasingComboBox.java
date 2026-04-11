@@ -39,8 +39,6 @@ final class PuppeteerEasingComboBox extends ComboBox<PuppeteerEasingCatalog.Entr
 
     private File projectRoot;
     private Supplier<EasingSpec> currentSpecSupplier = () -> EasingSpec.of(Easing.Type.LINEAR);
-    private boolean updatingValue = false;
-
     PuppeteerEasingComboBox() {
         setEditable(false);
         setVisibleRowCount(14);
@@ -202,13 +200,8 @@ final class PuppeteerEasingComboBox extends ComboBox<PuppeteerEasingCatalog.Entr
     private void applySelection(PuppeteerEasingCatalog.Entry entry, boolean fireAction) {
         if (entry == null) return;
         PuppeteerEasingCatalog.Entry previous = getValue();
-        updatingValue = true;
-        try {
-            getSelectionModel().select(entry);
-            super.setValue(entry);
-        } finally {
-            updatingValue = false;
-        }
+        getSelectionModel().select(entry);
+        super.setValue(entry);
         if (fireAction && !Objects.equals(previous, entry)) {
             fireEvent(new javafx.event.ActionEvent());
         }

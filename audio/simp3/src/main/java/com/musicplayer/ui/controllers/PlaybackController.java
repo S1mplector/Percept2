@@ -202,12 +202,6 @@ public class PlaybackController implements IPlaybackController {
         }
     }
 
-    private void notifyRefreshSongTable() {
-        if (communicationInterface != null) {
-            communicationInterface.requestRefreshSongTable();
-        }
-    }
-
     private void notifyVisualizerUpdate() {
         if (communicationInterface != null) {
             communicationInterface.onVisualizerUpdateRequired();

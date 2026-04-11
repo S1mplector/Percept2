@@ -4868,11 +4868,6 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     freehandPoints.clear();
   }
 
-  private void disableOccluderShapeDrawModes() {
-    disableOccluderPolyDrawMode();
-    disableOccluderFreehandDrawMode();
-  }
-
   private void appendFreehandPoint(double x, double y) {
     if (freehandPoints.isEmpty()) {
       freehandPoints.add(new double[]{x, y});
@@ -6906,10 +6901,6 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     File file = chooseSaveFile("Export Stage Preset", "Stage Preset", "*.stagepreset", buildStagePresetFileName());
     if (file == null) return;
     writeSetupFile(file, buildFullSetupText(), "stage preset");
-  }
-
-  private void writeSetupFile(File file, String content) {
-    writeSetupFile(file, content, "setup", true);
   }
 
   private void writeSetupFile(File file, String content, String kind) {

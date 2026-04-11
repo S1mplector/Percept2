@@ -105,7 +105,6 @@ public class VersionComparator {
         info.minor = Integer.parseInt(matcher.group(2));
         info.patch = Integer.parseInt(matcher.group(3));
         info.preRelease = matcher.group(4);
-        info.build = matcher.group(5);
         
         return info;
     }
@@ -118,7 +117,6 @@ public class VersionComparator {
         int minor;
         int patch;
         String preRelease;
-        String build;
     }
     
     /**

@@ -97,7 +97,6 @@ public class JesScene2D extends Scene2DBase {
   private static class RunningAsyncAction {
     final JesAst.TimelineAction action;
     final ActionRuntime state;
-    double elapsedMs;
     RunningAsyncAction(JesAst.TimelineAction action, ActionRuntime state) {
       this.action = action;
       this.state = state;

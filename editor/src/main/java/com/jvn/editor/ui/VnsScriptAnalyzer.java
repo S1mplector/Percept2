@@ -522,7 +522,7 @@ public final class VnsScriptAnalyzer {
   private static List<LineInfo> splitLines(String text) {
     List<LineInfo> out = new ArrayList<>();
     if (text == null) {
-      out.add(new LineInfo(0, 0, 0, ""));
+      out.add(new LineInfo(0, 0, ""));
       return out;
     }
     int lineIndex = 0;
@@ -530,12 +530,12 @@ public final class VnsScriptAnalyzer {
     for (int i = 0; i <= text.length(); i++) {
       if (i == text.length() || text.charAt(i) == '\n') {
         String line = text.substring(start, i);
-        out.add(new LineInfo(lineIndex, start, i, line));
+        out.add(new LineInfo(lineIndex, start, line));
         lineIndex++;
         start = i + 1;
       }
     }
-    if (out.isEmpty()) out.add(new LineInfo(0, 0, 0, ""));
+    if (out.isEmpty()) out.add(new LineInfo(0, 0, ""));
     return out;
   }
 
@@ -572,13 +572,11 @@ public final class VnsScriptAnalyzer {
   private static final class LineInfo {
     final int index;
     final int start;
-    final int end;
     final String text;
 
-    LineInfo(int index, int start, int end, String text) {
+    LineInfo(int index, int start, String text) {
       this.index = index;
       this.start = start;
-      this.end = end;
       this.text = text;
     }
 

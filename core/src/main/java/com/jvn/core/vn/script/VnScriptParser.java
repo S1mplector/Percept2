@@ -185,12 +185,10 @@ public class VnScriptParser {
   private static final class LabelDeclaration {
     final String source;
     final int line;
-    final boolean synthetic;
 
-    LabelDeclaration(String source, int line, boolean synthetic) {
+    LabelDeclaration(String source, int line) {
       this.source = source;
       this.line = line;
-      this.synthetic = synthetic;
     }
   }
 
@@ -256,8 +254,6 @@ public class VnScriptParser {
       this.label = label;
     }
   }
-
-  private record LayerReference(String characterId, String layerId) {}
 
   public VnScenario parse(InputStream input) throws IOException {
     return parse(input, "<input>", null);
@@ -499,7 +495,7 @@ public class VnScriptParser {
         flushChoices(state.builder, state.pendingChoices);
         flushPendingVoice(state);
         String label = labelMatcher.group(1).trim();
-        registerLabel(state, label, sourceName, lineNumber, rawLine, false);
+        registerLabel(state, label, sourceName, lineNumber, rawLine);
         state.builder.label(label);
         continue;
       }
@@ -510,7 +506,7 @@ public class VnScriptParser {
         flushChoices(state.builder, state.pendingChoices);
         flushPendingVoice(state);
         String label = legacyLabelMatcher.group(1).trim();
-        registerLabel(state, label, sourceName, lineNumber, rawLine, false);
+        registerLabel(state, label, sourceName, lineNumber, rawLine);
         state.builder.label(label);
         continue;
       }
@@ -741,7 +737,6 @@ public class VnScriptParser {
         String track = null;
         Long durationMs = null;
         Boolean loop = null;
-        int positionalCount = 0;
 
         for (String rawToken : toks) {
           String token = rawToken == null ? "" : rawToken.trim();
@@ -768,7 +763,6 @@ public class VnScriptParser {
             continue;
           }
 
-          positionalCount++;
           if (track == null) {
             track = token;
             continue;
@@ -1462,7 +1456,7 @@ public class VnScriptParser {
     state.builder.external("cond", "if " + expression + " goto " + thenLabel);
     state.builder.jump(falseLabel);
 
-    registerLabel(state, thenLabel, sourceName, lineNumber, rawLine, true);
+    registerLabel(state, thenLabel, sourceName, lineNumber, rawLine);
     state.builder.label(thenLabel);
 
     state.conditionalBlocks.push(new ConditionalBlock(falseLabel, endLabel, sourceName, lineNumber));
@@ -1484,7 +1478,7 @@ public class VnScriptParser {
     validateConditionExpression(expression, sourceName, lineNumber, rawLine);
 
     state.builder.jump(block.endLabel);
-    registerLabel(state, block.falseLabel, sourceName, lineNumber, rawLine, true);
+    registerLabel(state, block.falseLabel, sourceName, lineNumber, rawLine);
     state.builder.label(block.falseLabel);
 
     String thenLabel = nextSyntheticLabel(state, "elif_then");
@@ -1493,7 +1487,7 @@ public class VnScriptParser {
     state.builder.external("cond", "if " + expression + " goto " + thenLabel);
     state.builder.jump(nextFalseLabel);
 
-    registerLabel(state, thenLabel, sourceName, lineNumber, rawLine, true);
+    registerLabel(state, thenLabel, sourceName, lineNumber, rawLine);
     state.builder.label(thenLabel);
 
     block.falseLabel = nextFalseLabel;
@@ -1512,7 +1506,7 @@ public class VnScriptParser {
     }
 
     state.builder.jump(block.endLabel);
-    registerLabel(state, block.falseLabel, sourceName, lineNumber, rawLine, true);
+    registerLabel(state, block.falseLabel, sourceName, lineNumber, rawLine);
     state.builder.label(block.falseLabel);
     block.falseLabel = null;
     block.elseSeen = true;
@@ -1528,11 +1522,11 @@ public class VnScriptParser {
     }
 
     if (!block.elseSeen && block.falseLabel != null) {
-      registerLabel(state, block.falseLabel, sourceName, lineNumber, rawLine, true);
+      registerLabel(state, block.falseLabel, sourceName, lineNumber, rawLine);
       state.builder.label(block.falseLabel);
     }
 
-    registerLabel(state, block.endLabel, sourceName, lineNumber, rawLine, true);
+    registerLabel(state, block.endLabel, sourceName, lineNumber, rawLine);
     state.builder.label(block.endLabel);
   }
 
@@ -1978,8 +1972,7 @@ public class VnScriptParser {
                              String label,
                              String sourceName,
                              int lineNumber,
-                             String rawLine,
-                             boolean synthetic) throws IOException {
+                             String rawLine) throws IOException {
     String normalized = label == null ? "" : label.trim();
     if (normalized.isEmpty()) {
       throw parseError(sourceName, lineNumber, "Label name is empty", rawLine);
@@ -1993,7 +1986,7 @@ public class VnScriptParser {
       String where = " (previously declared at " + prev.source + ":" + prev.line + ")";
       throw parseError(sourceName, lineNumber, "Duplicate label '" + normalized + "'" + where, rawLine);
     }
-    state.declaredLabels.put(normalized, new LabelDeclaration(sourceName, lineNumber, synthetic));
+    state.declaredLabels.put(normalized, new LabelDeclaration(sourceName, lineNumber));
   }
 
   private void addLabelReference(ParseState state,

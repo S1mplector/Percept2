@@ -17,7 +17,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Properties;
 import java.util.Random;
 import java.util.regex.Matcher;
@@ -1731,11 +1730,9 @@ public class ImageAttributesToolView extends BorderPane implements ImageToolPane
   }
 
   private static final class ImageTag {
-    final String id;
     final Map<String, List<AttributeOption>> groups = new LinkedHashMap<>();
 
     ImageTag(String id) {
-      this.id = Objects.requireNonNullElse(id, "(tag)");
     }
 
     void add(AttributeOption option) {

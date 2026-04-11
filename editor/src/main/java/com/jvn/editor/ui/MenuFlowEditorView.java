@@ -315,6 +315,7 @@ public class MenuFlowEditorView extends BorderPane {
     setCenter(split);
   }
 
+  @SuppressWarnings("unchecked")
   private void buildItemTable() {
     itemTable.setEditable(true);
     itemTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);

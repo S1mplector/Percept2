@@ -11,7 +11,6 @@ import com.jvn.core.vn.stage.VnStagePreset;
  */
 public class VnScenarioBuilder {
   private final VnScenario.Builder scenarioBuilder;
-  private String lastLabel = null;
 
   public VnScenarioBuilder(String scenarioId) {
     this.scenarioBuilder = VnScenario.builder(scenarioId);
@@ -60,7 +59,6 @@ public class VnScenarioBuilder {
   }
 
   public VnScenarioBuilder label(String labelName) {
-    this.lastLabel = labelName;
     scenarioBuilder.addLabel(labelName);
     return this;
   }

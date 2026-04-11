@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.stream.StreamSupport;
 
 import com.jvn.core.animation.TimelineData;
 import com.jvn.core.animation.TimelineRegistry;
@@ -61,7 +62,6 @@ import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
@@ -2346,11 +2346,7 @@ public class PuppeteerWindow extends Stage {
 
     private int countItems(Iterable<?> items) {
         if (items == null) return 0;
-        int count = 0;
-        for (Object ignored : items) {
-            count++;
-        }
-        return count;
+        return (int) StreamSupport.stream(items.spliterator(), false).count();
     }
 
     private void applyLinuxDefaultWindowState() {
@@ -3488,33 +3484,6 @@ public class PuppeteerWindow extends Stage {
         return splitPane.getDividerPositions()[0];
     }
 
-    private static void attachToSplitPane(SplitPane splitPane, Node node, int index) {
-        if (splitPane == null || node == null || splitPane.getItems().contains(node)) return;
-        int safeIndex = Math.max(0, Math.min(index, splitPane.getItems().size()));
-        splitPane.getItems().add(safeIndex, node);
-        SplitPane.setResizableWithParent(node, Boolean.TRUE);
-    }
-
-    private static void detachNode(Node node) {
-        if (node == null) return;
-        Parent parent = node.getParent();
-        if (parent instanceof SplitPane splitPane) {
-            splitPane.getItems().remove(node);
-            return;
-        }
-        if (parent instanceof BorderPane borderPane) {
-            if (borderPane.getTop() == node) borderPane.setTop(null);
-            else if (borderPane.getBottom() == node) borderPane.setBottom(null);
-            else if (borderPane.getLeft() == node) borderPane.setLeft(null);
-            else if (borderPane.getRight() == node) borderPane.setRight(null);
-            else if (borderPane.getCenter() == node) borderPane.setCenter(null);
-            return;
-        }
-        if (parent instanceof Pane pane) {
-            pane.getChildren().remove(node);
-        }
-    }
-
     private void setupKeyboardShortcuts(Scene scene) {
         scene.getAccelerators().put(
             new KeyCodeCombination(KeyCode.SPACE),
@@ -4498,9 +4467,6 @@ public class PuppeteerWindow extends Stage {
     private static final String STYLE_BTN_ACCENT =
         "-fx-background-color: #4da3ff; -fx-text-fill: #0a0a0a; -fx-background-radius: 4; " +
         "-fx-border-color: #5bb3ff; -fx-border-radius: 4; -fx-padding: 4 10; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand;";
-    private static final String STYLE_BTN_GREEN =
-        "-fx-background-color: #58d68d; -fx-text-fill: #0a0a0a; -fx-background-radius: 4; " +
-        "-fx-border-color: #68e69d; -fx-border-radius: 4; -fx-padding: 4 10; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand;";
     private static final String STYLE_TEXT_FIELD =
         "-fx-background-color: #1a1a1a; -fx-text-fill: #e6e6e6; -fx-border-color: #3a3a3a; " +
         "-fx-border-radius: 3; -fx-background-radius: 3; -fx-padding: 3 6; -fx-font-size: 11px;";

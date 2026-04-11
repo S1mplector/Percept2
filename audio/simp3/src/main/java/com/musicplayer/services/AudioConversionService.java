@@ -7,15 +7,12 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -30,8 +27,6 @@ import org.jaudiotagger.audio.AudioFile;
 import org.jaudiotagger.audio.AudioFileIO;
 import org.jaudiotagger.tag.Tag;
 import org.jaudiotagger.tag.FieldKey;
-
-import com.musicplayer.data.models.Song;
 
 /**
  * Service for converting audio files to JavaFX-compatible formats (WAV, AIFF)
@@ -223,9 +218,6 @@ public class AudioConversionService {
             // Convert files in this directory
             for (File inputFile : filesInDir) {
                 try {
-                    String outputFileName = getConvertedFileName(inputFile.getName());
-                    File outputFile = new File(convertedDir, outputFileName);
-                    
                     callback.onProgress(inputFile.getName(), 
                         allConvertedFiles.size() + 1, inputFiles.size(), 
                         (double)(allConvertedFiles.size()) / inputFiles.size() * 100);
@@ -295,13 +287,6 @@ public class AudioConversionService {
                 }
             }
         }
-    }
-    
-    private String getConvertedFileName(String originalName) {
-        int lastDot = originalName.lastIndexOf('.');
-        String baseName = lastDot > 0 ? originalName.substring(0, lastDot) : originalName;
-        String targetExt = settings.getTargetFormat().getExtension().toLowerCase();
-        return baseName + "." + targetExt;
     }
     
     /**
@@ -382,12 +367,12 @@ public class AudioConversionService {
         
         String inputExtension = getFileExtension(inputFile.getName());
         if (!isConvertible(inputExtension)) {
-            LOGGER.info("File format not convertible, skipping: " + inputFile.getName());
+            LOGGER.info(() -> "File format not convertible, skipping: " + inputFile.getName());
             return null;
         }
         
         if (isJavaFXCompatible(inputExtension)) {
-            LOGGER.info("File already JavaFX compatible, skipping: " + inputFile.getName());
+            LOGGER.info(() -> "File already JavaFX compatible, skipping: " + inputFile.getName());
             return inputFile; // Return original file
         }
         
@@ -396,11 +381,11 @@ public class AudioConversionService {
         
         // Check if converted file already exists
         if (outputFile.exists()) {
-            LOGGER.info("Converted file already exists: " + outputFile.getName());
+            LOGGER.info(() -> "Converted file already exists: " + outputFile.getName());
             return outputFile;
         }
         
-        LOGGER.info("Converting: " + inputFile.getName() + " -> " + outputFile.getName());
+        LOGGER.info(() -> "Converting: " + inputFile.getName() + " -> " + outputFile.getName());
         
         try {
             // Read the input audio file
@@ -457,7 +442,7 @@ public class AudioConversionService {
             String convertedFormat = settings.getTargetFormat().getExtension();
             conversionTracker.recordConversion(inputFile, outputFile, originalFormat, convertedFormat);
             
-            LOGGER.info("Successfully converted: " + outputFile.getName());
+            LOGGER.info(() -> "Successfully converted: " + outputFile.getName());
             return outputFile;
             
         } catch (Exception e) {
@@ -487,7 +472,7 @@ public class AudioConversionService {
         try {
             Files.createDirectories(outputDir);
         } catch (IOException e) {
-            LOGGER.warning("Could not create output directory: " + outputDir);
+            LOGGER.warning(() -> "Could not create output directory: " + outputDir);
         }
         
         String outputFileName = baseName + "_converted." + targetExtension;
@@ -503,7 +488,7 @@ public class AudioConversionService {
             Tag sourceTag = sourceAudioFile.getTag();
 
             if (sourceTag == null) {
-                LOGGER.fine("No metadata found in source file " + sourceFile.getName());
+                LOGGER.fine(() -> "No metadata found in source file " + sourceFile.getName());
                 return;
             }
 
@@ -533,7 +518,7 @@ public class AudioConversionService {
             }
 
             targetAudioFile.commit();
-            LOGGER.fine("Metadata copied from " + sourceFile.getName() + " to " + targetFile.getName());
+            LOGGER.fine(() -> "Metadata copied from " + sourceFile.getName() + " to " + targetFile.getName());
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, "Failed to copy metadata: " + e.getMessage(), e);
             // Non-fatal error, continue
@@ -585,7 +570,7 @@ public class AudioConversionService {
     public void forceReconversion(File file) {
         // This would require implementing a way to identify the album from a file
         // For now, we'll add this as a placeholder for future enhancement
-        LOGGER.info("Force re-conversion requested for: " + file.getName());
+        LOGGER.info(() -> "Force re-conversion requested for: " + file.getName());
     }
     
     /**

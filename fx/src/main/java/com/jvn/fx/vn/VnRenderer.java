@@ -324,6 +324,7 @@ public class VnRenderer {
         case CALL:
         case RETURN:
         case EXTERNAL:
+        case PARTICLE:
           break;
         case END:
           renderEnd(width, height);
@@ -647,16 +648,6 @@ public class VnRenderer {
     Image lit = stageCharacterCache.computeIfAbsent(key, unused ->
         VnStageLightingSupport.buildLitCharacter(source, spriteTag, x, y, drawWidth, drawHeight, canvasWidth, canvasHeight, stage));
     gc.drawImage(lit, x, y, drawWidth, drawHeight);
-  }
-
-  private void drawLayerStack(List<String> layerPaths, double x, double y, double width, double height) {
-    if (layerPaths == null) return;
-    for (String path : layerPaths) {
-      Image img = loadImage(path);
-      if (img != null) {
-        gc.drawImage(img, x, y, width, height);
-      }
-    }
   }
 
   private VnStagePreset resolveActiveStagePreset(VnState state, VnScenario scenario) {
@@ -1366,7 +1357,6 @@ public class VnRenderer {
     }
     if (currentDialogue != null && !entries.isEmpty()) {
       String text = resolveRuntimeText(currentDialogue.getText());
-      DialogueRenderEntry last = entries.get(entries.size() - 1);
       entries.set(entries.size() - 1, new DialogueRenderEntry(
           resolveRuntimeText(currentDialogue.getSpeakerName()),
           text,
@@ -2084,10 +2074,6 @@ public class VnRenderer {
     return 1 - Math.pow(1 - t, 3);
   }
 
-  private double easeInCubic(double t) {
-    return t * t * t;
-  }
-
   private void renderSlideBackground(VnBackground prev, VnBackground cur, float progress, double width, double height, boolean left) {
     double p = Math.max(0, Math.min(1, progress));
     double offset = width * p;
@@ -2223,30 +2209,7 @@ public class VnRenderer {
     gc.strokePolygon(xs, ys, 3);
   }
 
-  private void drawWrappedText(String text, double x, double y, double maxWidth, Font font) {
-    gc.setFont(font);
-    String[] words = text.split(" ");
-    StringBuilder line = new StringBuilder();
-    double currentY = y;
-    double lineHeight = 22;
 
-    for (String word : words) {
-      String testLine = line.length() == 0 ? word : line + " " + word;
-      double testWidth = computeTextWidth(testLine, font);
-      
-      if (testWidth > maxWidth && line.length() > 0) {
-        gc.fillText(line.toString(), x, currentY);
-        line = new StringBuilder(word);
-        currentY += lineHeight;
-      } else {
-        line = new StringBuilder(testLine);
-      }
-    }
-    
-    if (line.length() > 0) {
-      gc.fillText(line.toString(), x, currentY);
-    }
-  }
 
   private double computeTextWidth(String text, Font font) {
     javafx.scene.text.Text helper = new javafx.scene.text.Text(text);

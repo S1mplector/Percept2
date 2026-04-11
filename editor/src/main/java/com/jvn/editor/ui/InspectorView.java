@@ -21,7 +21,6 @@ import java.util.function.DoubleSupplier;
 
 public class InspectorView extends VBox {
   private final Consumer<String> setStatus;
-  private JesScene2D scene;
   private Entity2D selected;
   private CommandStack commands;
 
@@ -31,7 +30,6 @@ public class InspectorView extends VBox {
   }
 
   public void setScene(JesScene2D scene) {
-    this.scene = scene;
   }
 
   public void setSelection(Entity2D e) {

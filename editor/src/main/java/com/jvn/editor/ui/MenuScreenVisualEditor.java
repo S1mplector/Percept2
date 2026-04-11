@@ -426,6 +426,7 @@ public class MenuScreenVisualEditor extends BorderPane {
     if (Math.abs(preview.getLayoutY() - y) >= 0.5) preview.setLayoutY(y);
   }
 
+  @SuppressWarnings("unchecked")
   private void buildColumns() {
     TableColumn<MenuItemRow, String> idCol = new TableColumn<>("ID");
     idCol.setCellValueFactory(v -> v.getValue().idProperty());
@@ -2199,16 +2200,6 @@ public class MenuScreenVisualEditor extends BorderPane {
 
   private static double clamp01(double value) {
     return clamp(value, 0, 1);
-  }
-
-  private static boolean parseBoolean(String raw, boolean fallback) {
-    if (raw == null || raw.isBlank()) return fallback;
-    String v = raw.trim().toLowerCase(Locale.ROOT);
-    return switch (v) {
-      case "true", "yes", "1" -> true;
-      case "false", "no", "0" -> false;
-      default -> fallback;
-    };
   }
 
   private static boolean isLinux() {

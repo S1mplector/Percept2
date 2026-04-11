@@ -14,13 +14,14 @@ class TimelineParityTest {
 
     private static class TestAccessor implements SceneAccessor {
         final Entity2D hero = new Entity2D();
-        double cameraX, cameraY, cameraZoom = 1.0;
+        double cameraX;
+        double cameraZoom = 1.0;
 
         @Override public Entity2D findEntity(String name) {
             return "hero".equals(name) ? hero : null;
         }
         @Override public void setCameraX(double x) { cameraX = x; }
-        @Override public void setCameraY(double y) { cameraY = y; }
+        @Override public void setCameraY(double y) {}
         @Override public void setCameraZoom(double z) { cameraZoom = z; }
     }
 
@@ -35,7 +36,6 @@ class TimelineParityTest {
         data.addTrack(track);
 
         TestAccessor scene = new TestAccessor();
-        TimelineRunner runner = new TimelineRunner(data, scene);
 
         // Sample at multiple points and verify runner matches Track.getValueAt
         double[] times = {0, 100, 250, 500, 750, 999, 1000};

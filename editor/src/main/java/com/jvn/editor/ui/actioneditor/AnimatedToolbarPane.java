@@ -120,7 +120,6 @@ public class AnimatedToolbarPane extends Region {
 
     @Override
     protected void layoutChildren() {
-        Insets insets = getInsets();
         double left = snappedLeftInset();
         double top = snappedTopInset();
         double availableWidth = Math.max(1.0, getWidth() - left - snappedRightInset());

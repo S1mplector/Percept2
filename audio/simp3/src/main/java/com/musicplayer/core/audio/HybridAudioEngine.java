@@ -4,7 +4,6 @@ import java.io.File;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.musicplayer.data.models.Song;
@@ -68,7 +67,7 @@ public class HybridAudioEngine implements AudioEngine {
         
         File audioFile = new File(song.getFilePath());
         if (!audioFile.exists()) {
-            LOGGER.severe("Audio file not found: " + song.getFilePath());
+            LOGGER.severe(() -> "Audio file not found: " + song.getFilePath());
             if (onErrorCallback != null) {
                 onErrorCallback.run();
             }
@@ -88,10 +87,10 @@ public class HybridAudioEngine implements AudioEngine {
         boolean loaded = activeEngine.loadSong(song);
         
         if (loaded) {
-            LOGGER.info("Successfully loaded song with " + getEngineName(activeEngine) + 
+            LOGGER.info(() -> "Successfully loaded song with " + getEngineName(activeEngine) +
                        " engine: " + song.getTitle() + " [" + fileExtension + "]");
         } else {
-            LOGGER.severe("Failed to load song with " + getEngineName(activeEngine) + 
+            LOGGER.severe(() -> "Failed to load song with " + getEngineName(activeEngine) +
                          " engine: " + song.getTitle());
         }
         
@@ -102,7 +101,7 @@ public class HybridAudioEngine implements AudioEngine {
      * Switches to a different audio engine, properly disposing of the previous one.
      */
     private void switchEngine(AudioEngine newEngine, String format) {
-        LOGGER.info("Switching from " + getEngineName(activeEngine) + 
+        LOGGER.info(() -> "Switching from " + getEngineName(activeEngine) +
                    " to " + getEngineName(newEngine) + " for format: " + format);
         
         // Stop and dispose the current engine
@@ -130,7 +129,7 @@ public class HybridAudioEngine implements AudioEngine {
         // Restore volume
         activeEngine.setVolume(currentVolume);
         
-        LOGGER.info("Engine switch completed. Active engine: " + getEngineName(activeEngine));
+        LOGGER.info(() -> "Engine switch completed. Active engine: " + getEngineName(activeEngine));
     }
     
     /**
@@ -140,7 +139,7 @@ public class HybridAudioEngine implements AudioEngine {
     private AudioEngine selectEngineForFormat(String format) {
         // On Linux, prefer JavaZoom for MP3 files due to JavaFX codec issues
         if ("mp3".equals(format) && System.getProperty("os.name").toLowerCase().contains("linux")) {
-            LOGGER.info("Linux detected - using JavaZoom for MP3: " + format);
+            LOGGER.info(() -> "Linux detected - using JavaZoom for MP3: " + format);
             return javaZoomEngine;
         }
         
@@ -150,7 +149,7 @@ public class HybridAudioEngine implements AudioEngine {
             return javaZoomEngine;
         } else {
             // Default to JavaFX for unknown formats
-            LOGGER.warning("Unknown format: " + format + ". Defaulting to JavaFX engine.");
+            LOGGER.warning(() -> "Unknown format: " + format + ". Defaulting to JavaFX engine.");
             return javaFXEngine;
         }
     }

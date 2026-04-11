@@ -3,7 +3,6 @@ package com.jvn.editor.ui;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -61,8 +60,6 @@ public class VnsCodeEditor extends BorderPane {
   private EditorSearchBar searchBar;
   private boolean searchBarVisible = false;
   private final Label statusBarLabel = new Label("Ln 1, Col 1");
-  private Consumer<Integer> onCaretLineChanged;
-
   // Code folding
   private final Set<Integer> foldedRegionStarts = new HashSet<>();
   // Bookmarks
@@ -126,12 +123,6 @@ public class VnsCodeEditor extends BorderPane {
     + "|(?<PUNCT>"     + PUNCT_PATTERN      + ")"
   );
 
-  private static final Pattern LABEL_PATTERN = Pattern.compile("^\\s*(?:@label|label)\\s+(\\S+)\\s*$", Pattern.CASE_INSENSITIVE);
-  private static final Pattern BG_DECL_PATTERN = Pattern.compile("^\\s*@background\\s+(\\S+)\\s+(.+)\\s*$", Pattern.CASE_INSENSITIVE);
-  private static final Pattern COMMAND_PATTERN = Pattern.compile("^\\s*\\[(.+)]\\s*$");
-  private static final Pattern CHOICE_IF_SUFFIX_PATTERN = Pattern.compile("^(.*)\\[if\\s+(.+)]\\s*$", Pattern.CASE_INSENSITIVE);
-  private static final Pattern IF_GOTO_PATTERN = Pattern.compile("^(.+?)\\s+goto\\s+(\\S+)\\s*$", Pattern.CASE_INSENSITIVE);
-  private static final Pattern PARSE_LINE_PATTERN = Pattern.compile("\\bat line (\\d+)\\b", Pattern.CASE_INSENSITIVE);
 
   public VnsCodeEditor() {
     codeArea.setParagraphGraphicFactory(this::makeLineNumberLabel);
@@ -507,7 +498,6 @@ public class VnsCodeEditor extends BorderPane {
     for (int i = endPara; i >= startPara; i--) {
       String line = codeArea.getParagraph(i).getText();
       int lineStart = codeArea.getAbsolutePosition(i, 0);
-      int lineEnd = lineStart + line.length();
       if (allCommented) {
         // Remove first # (and optional trailing space)
         int hashIdx = line.indexOf('#');
@@ -842,7 +832,6 @@ public class VnsCodeEditor extends BorderPane {
             diag.end(),
             diag.line(),
             diag.label(),
-            diag.assetPath(),
             diag.blockEnd()
         ));
       } else {
@@ -853,189 +842,12 @@ public class VnsCodeEditor extends BorderPane {
             diag.end(),
             diag.line(),
             diag.label(),
-            diag.assetPath(),
             diag.blockEnd()
         ));
       }
     }
 
     return out;
-  }
-
-  private List<Issue> computeUnreachableLabelIssues(String source,
-                                                    Map<String, LabelDef> labels,
-                                                    List<LabelRef> refs,
-                                                    List<LineInfo> lines) {
-    if (labels.isEmpty()) return List.of();
-
-    List<LabelDef> orderedLabels = new ArrayList<>(labels.values());
-    orderedLabels.sort((a, b) -> Integer.compare(a.line, b.line));
-
-    Map<String, Set<String>> edges = new HashMap<>();
-    for (LabelDef def : orderedLabels) {
-      edges.put(def.name, new HashSet<>());
-    }
-
-    for (LabelDef def : orderedLabels) {
-      int idx = orderedLabels.indexOf(def);
-      int startLine = def.line + 1;
-      int endLine = idx + 1 < orderedLabels.size() ? orderedLabels.get(idx + 1).line : lines.size();
-
-      boolean terminal = false;
-      for (int i = startLine; i < endLine; i++) {
-        if (i < 0 || i >= lines.size()) continue;
-        String trimmed = lines.get(i).trimmed();
-        if (trimmed.isEmpty() || trimmed.startsWith("#")) continue;
-
-        if (trimmed.startsWith(">")) {
-          LabelRef cr = extractChoiceReference(lines.get(i), trimmed.substring(1).trim());
-          if (cr != null && labels.containsKey(cr.label)) {
-            edges.get(def.name).add(cr.label);
-          }
-          continue;
-        }
-
-        Matcher cm = COMMAND_PATTERN.matcher(trimmed);
-        if (!cm.matches()) continue;
-        String body = cm.group(1).trim();
-        if (body.isEmpty()) continue;
-
-        String[] parts = body.split("\\s+", 2);
-        String cmd = parts[0].toLowerCase(Locale.ROOT);
-        String arg = parts.length > 1 ? parts[1].trim() : "";
-
-        if ("jump".equals(cmd)) {
-          String tgt = firstToken(arg);
-          if (labels.containsKey(tgt)) edges.get(def.name).add(tgt);
-          terminal = true;
-          break;
-        }
-        if ("end".equals(cmd)) {
-          terminal = true;
-          break;
-        }
-        if ("if".equals(cmd)) {
-          Matcher m = IF_GOTO_PATTERN.matcher(arg);
-          if (m.matches()) {
-            String tgt = m.group(2).trim();
-            if (labels.containsKey(tgt)) edges.get(def.name).add(tgt);
-          }
-          continue;
-        }
-        if ("choice".equals(cmd)) {
-          String[] segs = arg.split("\\|");
-          for (String seg : segs) {
-            LabelRef cr = extractChoiceReference(lines.get(i), seg == null ? "" : seg.trim());
-            if (cr != null && labels.containsKey(cr.label)) {
-              edges.get(def.name).add(cr.label);
-            }
-          }
-        }
-      }
-
-      if (!terminal && idx + 1 < orderedLabels.size()) {
-        edges.get(def.name).add(orderedLabels.get(idx + 1).name);
-      }
-    }
-
-    String start = orderedLabels.get(0).name;
-    Set<String> reachable = new HashSet<>();
-    ArrayDeque<String> queue = new ArrayDeque<>();
-    queue.add(start);
-
-    while (!queue.isEmpty()) {
-      String current = queue.removeFirst();
-      if (!reachable.add(current)) continue;
-      for (String nxt : edges.getOrDefault(current, Set.of())) {
-        if (!reachable.contains(nxt)) queue.addLast(nxt);
-      }
-    }
-
-    List<Issue> out = new ArrayList<>();
-    for (int i = 0; i < orderedLabels.size(); i++) {
-      LabelDef def = orderedLabels.get(i);
-      if (reachable.contains(def.name)) continue;
-
-      int blockEnd = i + 1 < orderedLabels.size() ? orderedLabels.get(i + 1).tokenStart : source.length();
-      out.add(Issue.warning(
-          "unreachable_label",
-          "Unreachable label: " + def.name,
-          def.tokenStart,
-          def.tokenEnd,
-          def.line,
-          def.name,
-          null,
-          blockEnd
-      ));
-    }
-
-    return out;
-  }
-
-  private void addChoiceReference(LineInfo line, String segment, List<LabelRef> refs) {
-    LabelRef ref = extractChoiceReference(line, segment);
-    if (ref != null) refs.add(ref);
-  }
-
-  private LabelRef extractChoiceReference(LineInfo line, String segment) {
-    if (segment == null || segment.isBlank()) return null;
-    String work = segment.trim();
-
-    Matcher suffix = CHOICE_IF_SUFFIX_PATTERN.matcher(work);
-    if (suffix.matches()) {
-      work = suffix.group(1).trim();
-    }
-
-    int arrow = work.indexOf("->");
-    if (arrow < 0) return null;
-
-    String right = work.substring(arrow + 2).trim();
-    if (right.isEmpty()) return null;
-
-    String target = firstToken(right);
-    int targetInLine = safeIndexOf(line.text, target, 0);
-    int start = line.start + targetInLine;
-    return new LabelRef(target, start, start + target.length(), line.index);
-  }
-
-  private boolean assetExists(String path) {
-    if (path == null || path.isBlank()) return false;
-    File resolved = resolveAssetPath(path);
-    return resolved != null && resolved.exists() && resolved.isFile();
-  }
-
-  private File resolveAssetPath(String rawPath) {
-    if (rawPath == null || rawPath.isBlank()) return null;
-    String normalized = rawPath.trim().replace('\\', '/');
-    File direct = new File(normalized);
-    if (direct.isAbsolute()) return direct;
-    if (projectRoot == null) return null;
-
-    List<String> candidates = new ArrayList<>();
-    candidates.add(normalized);
-
-    String rel = normalized;
-    if (rel.startsWith("./")) rel = rel.substring(2);
-    if (rel.startsWith("game/images/")) rel = rel.substring("game/images/".length());
-    if (rel.startsWith("images/")) rel = rel.substring("images/".length());
-    if (rel.startsWith("assets/")) rel = rel.substring("assets/".length());
-
-    candidates.add("assets/" + rel);
-    candidates.add("assets/images/" + rel);
-    candidates.add("assets/backgrounds/" + rel);
-
-    String fileName = rel.contains("/") ? rel.substring(rel.lastIndexOf('/') + 1) : rel;
-    if (!fileName.isBlank()) {
-      candidates.add("assets/backgrounds/" + fileName);
-      candidates.add("assets/images/backgrounds/" + fileName);
-      candidates.add("game/images/backgrounds/" + fileName);
-    }
-
-    for (String candidate : candidates) {
-      File f = new File(projectRoot, candidate);
-      if (f.exists()) return f;
-    }
-    return new File(projectRoot, normalized);
   }
 
   private List<String> listBackgroundAssets() {
@@ -1363,51 +1175,23 @@ public class VnsCodeEditor extends BorderPane {
     return res;
   }
 
-  private int parseLineFromMessage(String message) {
-    if (message == null || message.isBlank()) return -1;
-    Matcher m = PARSE_LINE_PATTERN.matcher(message);
-    if (!m.find()) return -1;
-    try {
-      return Integer.parseInt(m.group(1));
-    } catch (Exception ignored) {
-      return -1;
-    }
-  }
-
   private static List<LineInfo> splitLines(String text) {
     List<LineInfo> out = new ArrayList<>();
     if (text == null) {
-      out.add(new LineInfo(0, 0, 0, ""));
+      out.add(new LineInfo(0, 0, 0));
       return out;
     }
     int lineIndex = 0;
     int start = 0;
     for (int i = 0; i <= text.length(); i++) {
       if (i == text.length() || text.charAt(i) == '\n') {
-        String line = text.substring(start, i);
-        out.add(new LineInfo(lineIndex, start, i, line));
+        out.add(new LineInfo(lineIndex, start, i));
         lineIndex++;
         start = i + 1;
       }
     }
-    if (out.isEmpty()) out.add(new LineInfo(0, 0, 0, ""));
+    if (out.isEmpty()) out.add(new LineInfo(0, 0, 0));
     return out;
-  }
-
-  private static int[] lineBounds(String text, int zeroBasedLine) {
-    if (zeroBasedLine < 0) return new int[] {0, 0};
-    int currentLine = 0;
-    int start = 0;
-    for (int i = 0; i <= text.length(); i++) {
-      if (i == text.length() || text.charAt(i) == '\n') {
-        if (currentLine == zeroBasedLine) {
-          return new int[] {start, i};
-        }
-        currentLine++;
-        start = i + 1;
-      }
-    }
-    return new int[] {Math.max(0, text.length() - 1), text.length()};
   }
 
   private int lineInsertOffset(List<LineInfo> lines, int zeroBasedLine) {
@@ -1452,20 +1236,6 @@ public class VnsCodeEditor extends BorderPane {
         ? text.length()
         : lines.get(endLine).start;
     codeArea.replaceText(startOffset, deleteTo, "");
-  }
-
-  private static String firstToken(String value) {
-    if (value == null) return "";
-    String t = value.trim();
-    if (t.isEmpty()) return "";
-    int sp = t.indexOf(' ');
-    return sp < 0 ? t : t.substring(0, sp);
-  }
-
-  private static int safeIndexOf(String text, String needle, int fallback) {
-    if (text == null || needle == null || needle.isEmpty()) return fallback;
-    int idx = text.indexOf(needle);
-    return idx >= 0 ? idx : fallback;
   }
 
   private static List<Span> overlay(List<Span> base, int start, int end, String cls) {
@@ -1524,46 +1294,13 @@ public class VnsCodeEditor extends BorderPane {
     final int index;
     final int start;
     final int end;
-    final String text;
 
-    LineInfo(int index, int start, int end, String text) {
+    LineInfo(int index, int start, int end) {
       this.index = index;
       this.start = start;
       this.end = end;
-      this.text = text;
     }
 
-    String trimmed() {
-      return text == null ? "" : text.trim();
-    }
-  }
-
-  private static final class LabelDef {
-    final String name;
-    final int line;
-    final int tokenStart;
-    final int tokenEnd;
-
-    LabelDef(String name, int line, int tokenStart, int tokenEnd) {
-      this.name = name;
-      this.line = line;
-      this.tokenStart = tokenStart;
-      this.tokenEnd = tokenEnd;
-    }
-  }
-
-  private static final class LabelRef {
-    final String label;
-    final int start;
-    final int end;
-    final int line;
-
-    LabelRef(String label, int start, int end, int line) {
-      this.label = label;
-      this.start = start;
-      this.end = end;
-      this.line = line;
-    }
   }
 
   private static final class Issue {
@@ -1574,7 +1311,6 @@ public class VnsCodeEditor extends BorderPane {
     final int line;
     final boolean warning;
     final String label;
-    final String assetPath;
     final int blockEnd;
 
     private Issue(String kind,
@@ -1584,7 +1320,6 @@ public class VnsCodeEditor extends BorderPane {
                   int line,
                   boolean warning,
                   String label,
-                  String assetPath,
                   int blockEnd) {
       this.kind = kind;
       this.message = message;
@@ -1593,7 +1328,6 @@ public class VnsCodeEditor extends BorderPane {
       this.line = Math.max(0, line);
       this.warning = warning;
       this.label = label;
-      this.assetPath = assetPath;
       this.blockEnd = blockEnd;
     }
 
@@ -1603,9 +1337,8 @@ public class VnsCodeEditor extends BorderPane {
                        int end,
                        int line,
                        String label,
-                       String assetPath,
                        int blockEnd) {
-      return new Issue(kind, message, start, end, line, false, label, assetPath, blockEnd);
+      return new Issue(kind, message, start, end, line, false, label, blockEnd);
     }
 
     static Issue warning(String kind,
@@ -1614,9 +1347,8 @@ public class VnsCodeEditor extends BorderPane {
                          int end,
                          int line,
                          String label,
-                         String assetPath,
                          int blockEnd) {
-      return new Issue(kind, message, start, end, line, true, label, assetPath, blockEnd);
+      return new Issue(kind, message, start, end, line, true, label, blockEnd);
     }
   }
 

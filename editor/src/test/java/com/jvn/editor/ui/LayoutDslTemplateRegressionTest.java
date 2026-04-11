@@ -120,14 +120,6 @@ class LayoutDslTemplateRegressionTest {
     return properties;
   }
 
-  private static Map<String, String> toSortedMap(Properties properties) {
-    Map<String, String> map = new TreeMap<>();
-    for (String key : properties.stringPropertyNames()) {
-      map.put(key, properties.getProperty(key));
-    }
-    return map;
-  }
-
   private static Map<String, String> toCanonicalSortedMap(Properties properties) {
     Map<String, String> map = new TreeMap<>();
     for (String key : properties.stringPropertyNames()) {

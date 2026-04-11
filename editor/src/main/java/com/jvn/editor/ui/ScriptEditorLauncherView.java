@@ -806,19 +806,6 @@ public class ScriptEditorLauncherView extends BorderPane {
     }
   }
 
-  private void openFileAtLabel(File file, String labelName, Integer lineNo) {
-    if (file == null) return;
-    if (onOpenFileAtLine != null && lineNo != null) {
-      onOpenFileAtLine.accept(file, lineNo);
-      setStatus("Jumped to @label " + labelName + " (L" + lineNo + ")");
-    } else if (onOpenFile != null) {
-      onOpenFile.accept(file);
-      setStatus("Opened " + file.getName() + " (@label " + labelName + ")");
-    } else {
-      launchEditorWindow(file);
-    }
-  }
-
   private void openFileAtLine(File file, int lineNo) {
     if (file == null) return;
     if (onOpenFileAtLine != null && lineNo > 0) {
@@ -1183,14 +1170,6 @@ public class ScriptEditorLauncherView extends BorderPane {
     status.setText("Opened: " + rel);
   }
 
-  private static Button toolbarButton(String text, String tooltip) {
-    return toolbarButton(text, tooltip, null, false);
-  }
-
-  private static Button toolbarButton(String text, String tooltip, Region icon) {
-    return toolbarButton(text, tooltip, icon, false);
-  }
-
   private static Button toolbarButton(String text, String tooltip, Region icon, boolean accent) {
     Button btn = new Button(text);
     if (icon != null) {
@@ -1299,29 +1278,10 @@ public class ScriptEditorLauncherView extends BorderPane {
     return box;
   }
 
-  private static VBox statCard(String labelText, Label valueLabel) {
-    Label label = new Label(labelText);
-    label.getStyleClass().add("script-editor-stat-label");
-    VBox box = new VBox(2, label, valueLabel);
-    box.setPadding(new Insets(8, 10, 8, 10));
-    box.getStyleClass().addAll("script-editor-card", "script-editor-stat-card");
-    HBox.setHgrow(box, Priority.ALWAYS);
-    box.setMaxWidth(Double.MAX_VALUE);
-    return box;
-  }
-
   private static Label statValue(String text) {
     Label label = new Label(text);
     label.getStyleClass().add("script-editor-stat-value");
     return label;
-  }
-
-  private static VBox labelledMeta(String labelText, Label valueLabel) {
-    Label label = new Label(labelText);
-    label.getStyleClass().add("script-editor-meta-label");
-    valueLabel.setWrapText(true);
-    valueLabel.getStyleClass().add("script-editor-meta-value");
-    return new VBox(2, label, valueLabel);
   }
 
   private static Label sectionLabel(String text) {

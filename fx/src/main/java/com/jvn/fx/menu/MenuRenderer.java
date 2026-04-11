@@ -458,10 +458,6 @@ public class MenuRenderer {
     gc.fillRect(0, 0, w, h);
   }
 
-  private void drawScreenBackground(double w, double h, MenuStyleSpec style, boolean allowThemeImageFallback) {
-    drawScreenBackground(w, h, style, allowThemeImageFallback, null);
-  }
-
   private void drawScreenBackground(double w, double h, MenuStyleSpec style, boolean allowThemeImageFallback, String screenBgAsset) {
     if (screenBgAsset != null && !screenBgAsset.isBlank()) {
       Image screenBgImage = loadImage(screenBgAsset);
@@ -640,7 +636,6 @@ public class MenuRenderer {
 
   private List<String> buildFallbackImageCandidates(String originalPath) {
     List<String> out = new ArrayList<>();
-    String lower = originalPath.toLowerCase();
     int dot = originalPath.lastIndexOf('.');
     String base = dot > 0 ? originalPath.substring(0, dot) : originalPath;
     if (dot > 0) {
@@ -664,14 +659,6 @@ public class MenuRenderer {
 
   public void clearImageCache() {
     imageCache.clear();
-  }
-
-  private void drawTitle(String text, double w, double y) {
-    drawTitle(text, w, y, null, null);
-  }
-
-  private void drawTitle(String text, double w, double y, MenuStyleSpec style) {
-    drawTitle(text, w, y, style, null);
   }
 
   private void drawTitle(String text, double w, double y, MenuStyleSpec style, MenuLayoutSpec layout) {
@@ -726,10 +713,6 @@ public class MenuRenderer {
           default -> (w - textW) / 2.0;
         };
     return clamp(tx, 0, Math.max(0, w - textW));
-  }
-
-  private void drawMenuList(String[] items, int selected, double w, double h) {
-    drawMenuList(items, selected, null, null, null, null, 0, w, h, false);
   }
 
   private void drawMenuList(
@@ -852,18 +835,6 @@ public class MenuRenderer {
           : rect.y() + rect.h() * 0.55 + textPadY;
       drawItemText(label, x, baseline, style, font, color);
     }
-  }
-
-  private void drawHints(String text, double w, double h) {
-    drawHints(text, w, h, 20.0);
-  }
-
-  private void drawHints(String text, double w, double h, double bottomMargin) {
-    drawHints(text, w, h, bottomMargin, null);
-  }
-
-  private void drawHints(String text, double w, double h, double bottomMargin, MenuStyleSpec style) {
-    drawHints(text, w, h, bottomMargin, style, null);
   }
 
   private void drawHints(String text, double w, double h, double bottomMargin, MenuStyleSpec style, MenuLayoutSpec layout) {

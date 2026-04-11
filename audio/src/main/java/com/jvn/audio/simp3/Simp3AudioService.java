@@ -480,12 +480,6 @@ public class Simp3AudioService implements AudioFacade {
     return v;
   }
 
-  private float clamp01(float v) {
-    if (v < 0f) return 0f;
-    if (v > 1f) return 1f;
-    return v;
-  }
-
   private static final class BgmTrack {
     final String id;
     final String absolutePath;

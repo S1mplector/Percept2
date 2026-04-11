@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -166,7 +167,7 @@ public class UpdateService {
                     GITHUB_RELEASES_URL : GITHUB_RELEASES_URL + "/latest";
                 logger.info("Querying GitHub API: {}", apiUrl);
                 
-                URL url = new URL(apiUrl);
+                URL url = URI.create(apiUrl).toURL();
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
                 conn.setRequestProperty("Accept", "application/vnd.github.v3+json");
@@ -225,7 +226,6 @@ public class UpdateService {
     private DistributionType detectDistributionType() {
         try {
             // Check if running from a typical installer location
-            String userHome = System.getProperty("user.home");
             String currentPath = new File(".").getCanonicalPath().toLowerCase();
             
             // Common installer paths
@@ -492,7 +492,7 @@ public class UpdateService {
      */
     private void downloadFile(String urlStr, Path targetFile, long expectedSize) throws IOException {
         logger.info("Downloading from: {}", urlStr);
-        URL url = new URL(urlStr);
+        URL url = URI.create(urlStr).toURL();
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestProperty("User-Agent", "SiMP3-Updater");
         

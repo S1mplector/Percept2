@@ -31,8 +31,6 @@ public class AudioVisualizer extends Canvas {
     private final float[] waveformData;
     private final float[] smoothedWaveform;
     private static final int WAVEFORM_SAMPLES = 512; // Number of waveform samples to display
-    private int waveformWriteIndex = 0;
-    
     // Visualization mode
     private VisualizationType visualizationType = VisualizationType.SPECTRUM_BARS;
     

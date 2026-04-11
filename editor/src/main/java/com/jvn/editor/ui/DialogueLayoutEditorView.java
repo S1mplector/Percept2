@@ -37,7 +37,6 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ScrollPane;
-import javafx.scene.control.Separator;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TextField;
@@ -729,14 +728,6 @@ public class DialogueLayoutEditorView extends BorderPane {
     button.setTooltip(new Tooltip(tooltip));
     button.getStyleClass().addAll("layout-studio-action-button", "layout-studio-icon-button");
     return button;
-  }
-
-  private int addHeader(GridPane grid, int row, String title) {
-    if (row > 0) grid.add(new Separator(), 0, row++, 2, 1);
-    Label label = new Label(title);
-    label.setFont(Font.font(label.getFont().getFamily(), FontWeight.BOLD, 12));
-    grid.add(label, 0, row++, 2, 1);
-    return row;
   }
 
   private int addRow(GridPane grid, int row, String label, Spinner<Double> spinner) {
@@ -1727,14 +1718,12 @@ public class DialogueLayoutEditorView extends BorderPane {
     g.strokeRect(hx, hy, size, size);
   }
 
-  private Font resolveNamePreviewFont() { return resolveNamePreviewFont(1.0); }
   private Font resolveNamePreviewFont(double scale) {
     String family = normalizeFontFamily(style.nameTextFontFamily(), DEFAULT_FONT_FAMILY);
     double size = clamp(style.nameTextFontSize() == null ? DEFAULT_NAME_FONT_SIZE : style.nameTextFontSize(), 6, 220);
     return ProjectFontResolver.resolve(projectRoot, family, FontWeight.BOLD, size * scale, DEFAULT_FONT_FAMILY);
   }
 
-  private Font resolveDialoguePreviewFont() { return resolveDialoguePreviewFont(1.0); }
   private Font resolveDialoguePreviewFont(double scale) {
     String family = normalizeFontFamily(style.dialogueTextFontFamily(), DEFAULT_FONT_FAMILY);
     double size = clamp(style.dialogueTextFontSize() == null ? DEFAULT_DIALOGUE_FONT_SIZE : style.dialogueTextFontSize(), 6, 220);
@@ -2211,10 +2200,6 @@ public class DialogueLayoutEditorView extends BorderPane {
     return -1;
   }
 
-  private double resolveChoiceYStart(VnUiLayoutSpec s, double h, int count) {
-    return resolveChoiceYStart(s, h, count, 1.0);
-  }
-
   private double resolveChoiceYStart(VnUiLayoutSpec s, double h, int count, double scale) {
     double choiceH = s.choiceHeight() * scale;
     double choiceGap = s.choiceGap() * scale;
@@ -2224,7 +2209,6 @@ public class DialogueLayoutEditorView extends BorderPane {
   }
 
   private VnUiLayoutSpec readSpecFromControls() {
-    VnUiLayoutSpec base = spec == null ? VnUiLayoutSpec.defaults() : spec;
     return new VnUiLayoutSpec(
         value(spTextBoxX),
         value(spTextBoxY),

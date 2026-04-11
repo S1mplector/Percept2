@@ -30,31 +30,24 @@ import com.musicplayer.services.LibraryService;
 import com.musicplayer.services.ListeningStatsService;
 import com.musicplayer.services.MusicLibraryManager;
 import com.musicplayer.services.PlaylistManager;
-import com.musicplayer.services.PlaylistService;
 import com.musicplayer.services.SettingsService;
 import com.musicplayer.services.UpdateService;
 import com.musicplayer.ui.components.ActivityFeedItem;
 import com.musicplayer.ui.components.AlbumGridView;
-import com.musicplayer.ui.components.AudioVisualizer;
 import com.musicplayer.ui.components.NowPlayingBar;
 import com.musicplayer.ui.components.PinboardItem;
 import com.musicplayer.ui.components.PinboardPanel;
 import com.musicplayer.ui.components.PlaylistCell;
 import com.musicplayer.ui.components.RescanButtonFactory;
-import com.musicplayer.ui.controllers.AudioConversionController;
 import com.musicplayer.ui.dialogs.FirstRunWizard;
 import com.musicplayer.ui.dialogs.MissingFilesDialog;
 import com.musicplayer.ui.dialogs.PlaylistSelectionPopup;
 import com.musicplayer.ui.dialogs.YouTubeDownloadDialog;
 import com.musicplayer.ui.dialogs.UpdateDialog;
 import com.musicplayer.ui.handlers.PlaylistActionHandler;
-import com.musicplayer.ui.util.AlbumArtLoader;
 import com.musicplayer.ui.util.SearchManager;
 import com.musicplayer.ui.util.SongContextMenuProvider;
 import com.musicplayer.ui.windows.MiniPlayerWindow;
-import com.musicplayer.ui.windows.MiniPlayerWindow.ShowSongInLibraryEvent;
-
-import javafx.animation.FadeTransition;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -63,7 +56,6 @@ import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
 import javafx.geometry.Pos;
-import javafx.scene.Node;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
@@ -90,12 +82,9 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
-import javafx.scene.paint.Color;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
-import javafx.stage.StageStyle;
 import javafx.stage.Stage;
-import javafx.util.Duration;
 import com.musicplayer.ui.dialogs.AudioConversionDialog;
 
 public class MainController implements Initializable, IControllerCommunication {
@@ -131,14 +120,8 @@ public class MainController implements Initializable, IControllerCommunication {
     @FXML private Label songTitleLabel;
     @FXML private Label songArtistLabel;
     
-    // Icons for play/pause button
-    private Image playIcon;
-    private Image pauseIcon;
-    private ImageView playPauseImageView;
-    
     private LibraryService libraryService;
     private MusicLibraryManager musicLibraryManager;
-    private PlaylistService playlistService;
     private PlaylistManager playlistManager;
     private AudioPlayerService audioPlayerService;
     private ListeningStatsService listeningStatsService;
@@ -196,8 +179,7 @@ public class MainController implements Initializable, IControllerCommunication {
         PlaylistRepository playlistRepository = new PersistentPlaylistRepository(storage);
         albumRepository = new PersistentAlbumRepository(storage);
         libraryService = new LibraryService(songRepository);
-        playlistService = new PlaylistService(playlistRepository);
-        
+
         // Initialize the music library manager
         musicLibraryManager = new MusicLibraryManager(songRepository);
         
@@ -386,7 +368,6 @@ public class MainController implements Initializable, IControllerCommunication {
         
         // After setting up library controls or right after selectMusicFolderButton creation finish insert rescan button
         HBox libraryHeader = (HBox) selectMusicFolderButton.getParent();
-        int index = libraryHeader.getChildren().indexOf(selectMusicFolderButton);
         libraryHeader.getChildren().add(RescanButtonFactory.createRescanButton(musicLibraryManager));
         
         // Initialize album view after everything is set up
@@ -1783,74 +1764,6 @@ public class MainController implements Initializable, IControllerCommunication {
                 }
             }
             
-    /**
-     * Updates the album art display for the current song.
-     * Uses AlbumArtLoader utility to load album art from metadata.
-     */
-    private void updateAlbumArt(Song song) {
-        if (song == null) {
-            // Clear album art and labels when no song
-            if (albumArtImageView != null) {
-                albumArtImageView.setImage(null);
-            }
-            if (albumArtImageView2 != null) {
-                albumArtImageView2.setImage(null);
-            }
-            if (songTitleLabel != null) {
-                songTitleLabel.setText("");
-            }
-            if (songArtistLabel != null) {
-                songArtistLabel.setText("");
-            }
-            return;
-        }
-        
-        // Update song info labels
-        if (songTitleLabel != null) {
-            songTitleLabel.setText(song.getTitle());
-        }
-        if (songArtistLabel != null) {
-            songArtistLabel.setText(song.getArtist());
-        }
-        
-        // Load album art asynchronously
-        if (albumArtContainer != null && albumArtImageView != null && albumArtImageView2 != null) {
-            AlbumArtLoader.loadAlbumArt(song)
-                .thenAcceptAsync(image -> transitionToImage(image), Platform::runLater);
-        }
-    }
-    
-    /**
-     * Transitions to a new album art image with a fade effect.
-     * Uses two ImageViews to create smooth crossfade transitions.
-     */
-    private void transitionToImage(Image newImage) {
-        if (albumArtImageView == null || albumArtImageView2 == null || albumArtContainer == null) {
-            return;
-        }
-        
-        // Determine which ImageView is currently visible
-        ImageView currentView = albumArtImageView.getOpacity() > 0 ? albumArtImageView : albumArtImageView2;
-        ImageView nextView = currentView == albumArtImageView ? albumArtImageView2 : albumArtImageView;
-        
-        // Set the new image on the hidden view
-        nextView.setImage(newImage);
-        
-        // Create fade out transition for current view
-        FadeTransition fadeOut = new FadeTransition(Duration.millis(300), currentView);
-        fadeOut.setFromValue(1.0);
-        fadeOut.setToValue(0.0);
-        
-        // Create fade in transition for next view
-        FadeTransition fadeIn = new FadeTransition(Duration.millis(300), nextView);
-        fadeIn.setFromValue(0.0);
-        fadeIn.setToValue(1.0);
-        
-        // Play both transitions
-        fadeOut.play();
-        fadeIn.play();
-    }
-    
     @FXML
     private void handleCheckForUpdates() {
         // Disable the button/menu item while checking

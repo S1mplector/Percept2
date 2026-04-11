@@ -92,7 +92,6 @@ public class FileEditorTab extends BorderPane {
 
   private Consumer<Entity2D> onSelected;
   private Consumer<String> onStatus;
-  private com.jvn.editor.commands.CommandStack commands;
   private File projectRoot;
   private String savedSnapshot = "";
   private double lastSizedWidth = -1;
@@ -408,7 +407,6 @@ public class FileEditorTab extends BorderPane {
   }
 
   public void setCommandStack(com.jvn.editor.commands.CommandStack cs) {
-    this.commands = cs;
     if (viewport != null) viewport.setCommandStack(cs);
   }
 

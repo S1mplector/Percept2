@@ -2,9 +2,6 @@ package com.jvn.scripting.jes.runtime;
 
 import com.jvn.core.graphics.Camera2D;
 import com.jvn.core.scene2d.Sprite2D;
-import com.jvn.scripting.jes.JesParser;
-import com.jvn.scripting.jes.JesTokenizer;
-import com.jvn.scripting.jes.ast.JesAst;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -14,12 +11,6 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class JesTimelineRuntimeTest {
-  private JesAst.SceneDecl sceneFrom(String src) {
-    List<com.jvn.scripting.jes.JesToken> toks = new JesTokenizer(src).tokenize();
-    JesAst.Program prog = new JesParser(toks).parseProgram();
-    return prog.scenes.get(0);
-  }
-
   @Test
   public void waitForCallThenMove() throws Exception {
     String src = """

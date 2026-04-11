@@ -173,10 +173,9 @@ public class TimelineCodeEditor extends BorderPane {
     final int start;
     final int end;
     final String arc;
-    final String label;
     final String arcScript;
     Issue(String kind, int start, int end, String arc, String label, String arcScript) {
-      this.kind = kind; this.start = start; this.end = end; this.arc = arc; this.label = label; this.arcScript = arcScript;
+      this.kind = kind; this.start = start; this.end = end; this.arc = arc; this.arcScript = arcScript;
     }
   }
 

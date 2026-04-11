@@ -1,9 +1,8 @@
 package com.jvn.core.scene;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class SceneManagerLifecycleTest {
 
@@ -35,12 +34,11 @@ class SceneManagerLifecycleTest {
     int exitCount;
     int pauseCount;
     int resumeCount;
-    int updateCount;
 
     @Override public void onEnter() { enterCount++; }
     @Override public void onExit() { exitCount++; }
     @Override public void onPause() { pauseCount++; }
     @Override public void onResume() { resumeCount++; }
-    @Override public void update(long deltaMs) { updateCount++; }
+    @Override public void update(long deltaMs) {}
   }
 }

@@ -949,7 +949,6 @@ public final class PhoneRenderer extends StackPane {
   private SkinInsets resolveSkinInsets(VnPhoneData data) {
     if (data == null) return SkinInsets.DEFAULT;
 
-    double width = SHELL_WIDTH;
     double height = SHELL_HEIGHT;
     AlphaBounds topBar = alphaBounds(data.getSkinTopBarPath(), skinTopBarView.getImage());
     AlphaBounds bottomBar = alphaBounds(data.getSkinBottomBarPath(), skinBottomBarView.getImage());

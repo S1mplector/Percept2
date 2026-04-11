@@ -200,9 +200,6 @@ public class AnimationPreview extends VBox {
     private Consumer<double[]> onCameraInteractionFinished;
     private ProjectViewportSpec.Dimensions viewportSpec =
         new ProjectViewportSpec.Dimensions(ProjectViewportSpec.DEFAULT_WIDTH, ProjectViewportSpec.DEFAULT_HEIGHT);
-    private double viewportScale = 1.0;
-    private double viewportOffsetX = 0.0;
-    private double viewportOffsetY = 0.0;
     private double viewportLogicalWidth = ProjectViewportSpec.DEFAULT_WIDTH;
     private double viewportLogicalHeight = ProjectViewportSpec.DEFAULT_HEIGHT;
     private double displayScale = 1.0;
@@ -547,10 +544,6 @@ public class AnimationPreview extends VBox {
         displayOffsetX = 0.0;
         displayOffsetY = 0.0;
 
-        // Keep legacy fields aligned with current visible world transform.
-        viewportScale = displayScale;
-        viewportOffsetX = worldToScreenX(camera.getX());
-        viewportOffsetY = worldToScreenY(camera.getY());
     }
 
     private double[] computeDisplayBoundsWorld() {
@@ -1272,19 +1265,6 @@ public class AnimationPreview extends VBox {
         return screenX >= displayOffsetX && screenX <= right && screenY >= displayOffsetY && screenY <= bottom;
     }
 
-    private boolean isInsideRuntimeFrame(double screenX, double screenY) {
-        double z = Math.max(0.0001, camera.getZoom());
-        double left = worldToScreenX(camera.getX());
-        double top = worldToScreenY(camera.getY());
-        double right = worldToScreenX(camera.getX() + viewportLogicalWidth / z);
-        double bottom = worldToScreenY(camera.getY() + viewportLogicalHeight / z);
-        double minX = Math.min(left, right);
-        double minY = Math.min(top, bottom);
-        double maxX = Math.max(left, right);
-        double maxY = Math.max(top, bottom);
-        return screenX >= minX && screenX <= maxX && screenY >= minY && screenY <= maxY;
-    }
-
     private boolean isNearRuntimeFrameHandle(double screenX, double screenY) {
         double handleX = Math.min(worldToScreenX(camera.getX()),
             worldToScreenX(camera.getX() + viewportLogicalWidth / Math.max(0.0001, camera.getZoom()))) + 5.0;
@@ -1350,39 +1330,23 @@ public class AnimationPreview extends VBox {
         }
     }
 
-    private void setOrbitAnchorSource(String entityName, String sourceEntityName) {
-        if (scene == null) return;
-        Entity2D source = scene.find(sourceEntityName);
-        if (source == null) return;
-        setOrbitAnchorSource(entityName, sourceEntityName, source.getX(), source.getY());
-    }
-
-    private void setOrbitAnchorSource(String entityName, String sourceEntityName, double anchorWorldX, double anchorWorldY) {
+    private void setOrbitAnchorSource(String entityName, String sourceEntityName, double worldX, double worldY) {
         if (entityName == null || entityName.isBlank()) return;
         if (sourceEntityName == null || sourceEntityName.isBlank()) return;
-        if (entityName.equals(sourceEntityName)) return;
-        if (scene == null) return;
-        Entity2D target = scene.find(entityName);
-        Entity2D source = scene.find(sourceEntityName);
-        if (target == null || source == null) return;
-        double sx = source.getX();
-        double sy = source.getY();
-        if (!Double.isFinite(sx) || !Double.isFinite(sy)) return;
-        double anchorX = Double.isFinite(anchorWorldX) ? anchorWorldX : sx;
-        double anchorY = Double.isFinite(anchorWorldY) ? anchorWorldY : sy;
-        double offsetX = anchorX - sx;
-        double offsetY = anchorY - sy;
-        orbitAnchors.put(entityName, new double[]{anchorX, anchorY});
+        if (!Double.isFinite(worldX) || !Double.isFinite(worldY)) return;
+        if (scene != null && scene.find(entityName) == null) return;
+        if (scene != null && scene.find(sourceEntityName) == null) return;
         orbitAnchorSources.put(entityName, sourceEntityName);
-        orbitAnchorSourceOffsets.put(entityName, new double[]{offsetX, offsetY});
-        if (onOrbitAnchorChanged != null) {
-            onOrbitAnchorChanged.accept(entityName, new double[]{anchorX, anchorY});
-        }
+        orbitAnchorSourceOffsets.put(entityName, new double[]{worldX, worldY});
+        orbitAnchors.remove(entityName);
         if (onOrbitAnchorSourceChanged != null) {
             onOrbitAnchorSourceChanged.accept(entityName, sourceEntityName);
         }
         if (onOrbitAnchorSourceOffsetChanged != null) {
-            onOrbitAnchorSourceOffsetChanged.accept(entityName, new double[]{offsetX, offsetY});
+            onOrbitAnchorSourceOffsetChanged.accept(entityName, new double[]{worldX, worldY});
+        }
+        if (onOrbitAnchorChanged != null) {
+            onOrbitAnchorChanged.accept(entityName, null);
         }
     }
 
@@ -2100,10 +2064,6 @@ public class AnimationPreview extends VBox {
 
     private void applyCameraTransform() {
         // Scene is rendered in world-overview mode; runtime camera is represented by the red frame.
-    }
-
-    private double[] worldToViewport(double worldX, double worldY) {
-        return new double[]{worldX, worldY};
     }
 
     private double worldToScreenX(double worldX) {
