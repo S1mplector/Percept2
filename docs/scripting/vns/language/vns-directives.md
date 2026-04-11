@@ -445,11 +445,60 @@ hero: Here we go.
 
 ---
 
+## `@stagepreset` — Stage Lighting Preset
+
+Loads a Scene Lighting Studio export (`.properties` file) as a named stage preset available at runtime via the `[stage]` command.
+
+### Syntax
+
+```text
+@stagepreset <id> <path>
+```
+
+### Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `id` | Unique preset identifier used in `[stage <id>]` |
+| `path` | Relative path to the `.properties` file exported from Scene Lighting Studio |
+
+### Example
+
+```vns
+@stagepreset sunset_park config/stage/sunset_park.properties
+@stagepreset night_cave config/stage/night_cave.properties
+
+@label start
+[bg park]
+[stage sunset_park]
+narrator: The park glows in the evening light.
+
+[transition FADE 800 cave]
+[stage night_cave]
+narrator: The cave is dimly lit.
+
+[stage clear]
+narrator: Back to normal lighting.
+```
+
+### Properties File Format
+
+Stage preset files are `.properties` format exported from the Scene Lighting Studio editor tool. They contain:
+
+- **Background grade** — `bgTintColor`, `bgTintStrength`, `bgSaturation`, `bgContrast`, `bgOverlayColor`, `bgOverlayOpacity`
+- **Lights** — `lights` count, then `light.<i>.name`, `light.<i>.shape` (radial/polygon/cone/strip/window/bounce), `light.<i>.layer` (background/character/foreground), `light.<i>.color`, `light.<i>.intensity`, `light.<i>.radius`, `light.<i>.softness`, `light.<i>.silhouette`, `light.<i>.position`, `light.<i>.source`, `light.<i>.group`, `light.<i>.muted`, `light.<i>.locked`, `light.<i>.solo`, `light.<i>.polygon`
+- **Occluders** — `occluders` count, then `occluder.<i>.name`, `occluder.<i>.opacity`, `occluder.<i>.softness`, `occluder.<i>.enabled`, `occluder.<i>.polygon`
+- **Response zones** — `zones` count, then `zone.<i>.name`, `zone.<i>.bounds`, `zone.<i>.surface`, `zone.<i>.depthBias`, `zone.<i>.responseScale`, `zone.<i>.rotation`, `zone.<i>.polygon`
+
+Stage preset files are typically created using the **Scene Lighting Studio** editor sidebar, not hand-authored.
+
+---
+
 ## Directive Ordering Rules
 
 1. `@scenario` must come before any content (if used).
 2. `@define` and `@include` are processed before other directives on each line.
-3. `@character`, `@background`, `@charimg`, `@charlayer`, `@charpreset`, `@position` can appear in any order relative to each other.
+3. `@character`, `@background`, `@charimg`, `@charlayer`, `@charpreset`, `@position`, `@stagepreset` can appear in any order relative to each other.
 4. `@var` can appear anywhere — it emits a set command at that position.
 5. `@label` must be unique within the script (including included files).
 
@@ -463,6 +512,7 @@ hero: Here we go.
 @character narrator "Narrator"
 @background park assets/backgrounds/park.png
 @charimg hero neutral assets/characters/hero/neutral.png
+@stagepreset sunset_park config/stage/sunset_park.properties
 
 @var score = 0
 @position balcony 0.3 0.6
@@ -479,3 +529,4 @@ hero: Here we go.
 - [Characters & Sprites](../presentation/vns-characters.md) — detailed character system docs, custom positions
 - [Variables & Conditions](vns-variables.md) — runtime variable system
 - [Parsing Internals](../internals/vns-parsing.md) — how directives are processed
+- [Scene Lighting Studio](../../../editor/sidebars/right/sidebar-image-tint-tool.md) — visual stage preset authoring

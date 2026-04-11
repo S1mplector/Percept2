@@ -14,7 +14,10 @@ import java.util.Locale;
 import java.util.Properties;
 
 import com.jvn.editor.ui.EditorDialogs;
+import com.jvn.editor.ui.EditorPreferences;
+import com.jvn.editor.ui.EditorPreferencesStore;
 import com.jvn.editor.ui.EditorTheme;
+import com.jvn.editor.ui.LauncherSettingsView;
 import com.jvn.editor.ui.NewProjectWizard;
 import com.jvn.editor.ui.RunConsoleView;
 import com.jvn.editor.ui.StartupSplashOverlay;
@@ -50,6 +53,7 @@ import javafx.util.Duration;
  */
 public class JvnLauncherApp extends Application {
   private static final String EDITOR_OPEN_PROJECT_PROPERTY = "jvn.editor.openProject";
+  private static final String EDITOR_OPEN_FILE_PROPERTY = "jvn.editor.openFile";
   private static final String LAUNCHER_START_PROJECT_PROPERTY = "jvn.launcher.project";
   private static final String STARTUP_LOGO_RELATIVE_PATH = "docs/assets/images/jvn_logo.png";
   private static final String STARTUP_LOGO_CLASSPATH_RESOURCE = "/com/jvn/editor/images/jvn_logo.png";
@@ -58,9 +62,12 @@ public class JvnLauncherApp extends Application {
   private static final DateTimeFormatter STARTUP_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
 
   private Stage primaryStage;
+  private Stage settingsStage;
   private WelcomeCenterView welcomeView;
   private File workspaceRoot;
   private File currentProject;
+  private EditorPreferencesStore editorPreferencesStore;
+  private EditorPreferences editorPreferences = EditorPreferences.defaults();
 
   private final Label statusLabel = new Label("Ready");
   private MenuItem runProjectMenuItem;
@@ -224,6 +231,9 @@ public class JvnLauncherApp extends Application {
     if (workspaceRoot == null) {
       workspaceRoot = resolveWorkspaceRoot();
     }
+    editorPreferencesStore = new EditorPreferencesStore();
+    editorPreferences = editorPreferencesStore.load();
+    EditorTheme.setTheme(editorPreferences.getLauncherTheme());
 
     BorderPane root = new BorderPane();
     root.getStyleClass().add("jvn-launcher-root");
@@ -236,13 +246,28 @@ public class JvnLauncherApp extends Application {
     welcomeView.setWorkspaceRoot(workspaceRoot);
     welcomeView.setOnCreateProject(this::createNewProject);
     welcomeView.setOnOpenProjectDialog(this::chooseProjectDirectory);
-    welcomeView.setOnOpenSelectedProject(() -> launchEditor(currentProject));
-    welcomeView.setOnRunSelectedProject(this::runSelectedProject);
+    welcomeView.setOnOpenProject(projectDir -> launchEditor(projectDir));
     welcomeView.setOnOpenRecentProject(projectDir -> {
       if (projectDir == null || !projectDir.isDirectory()) return;
       setCurrentProject(projectDir, false);
       statusLabel.setText("Selected project: " + displayProjectName(projectDir));
     });
+    welcomeView.setOnRunProject(projectDir -> {
+      if (projectDir == null || !projectDir.isDirectory()) return;
+      setCurrentProject(projectDir, false);
+      runSelectedProject();
+    });
+    welcomeView.setOnRevealProject(projectDir -> {
+      if (projectDir == null || !projectDir.isDirectory()) return;
+      try {
+        java.awt.Desktop.getDesktop().open(projectDir);
+        statusLabel.setText("Opened folder: " + displayProjectName(projectDir));
+      } catch (Exception ex) {
+        EditorDialogs.error(primaryStage, "Reveal Project", "Failed to reveal folder: " + ex.getMessage());
+      }
+    });
+    welcomeView.setOnOpenProjectFile(this::openProjectFileFromLauncher);
+    welcomeView.setOnShowSettings(this::showLauncherSettings);
 
     statusLabel.getStyleClass().add("jvn-launcher-status");
     HBox statusBar = new HBox(statusLabel);
@@ -368,11 +393,14 @@ public class JvnLauncherApp extends Application {
     MenuItem miRefresh = new MenuItem("Refresh Projects");
     miRefresh.setAccelerator(new KeyCodeCombination(KeyCode.F5));
     miRefresh.setOnAction(e -> refreshWelcomeProjects());
+    MenuItem miSettings = new MenuItem("Settings...");
+    miSettings.setAccelerator(new KeyCodeCombination(KeyCode.COMMA, KeyCombination.SHORTCUT_DOWN));
+    miSettings.setOnAction(e -> showLauncherSettings());
     copyProjectPathMenuItem = new MenuItem("Copy Selected Project Path");
     copyProjectPathMenuItem.setAccelerator(new KeyCodeCombination(
         KeyCode.C, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
     copyProjectPathMenuItem.setOnAction(e -> copySelectedProjectPath());
-    menuEdit.getItems().addAll(miRefresh, copyProjectPathMenuItem);
+    menuEdit.getItems().addAll(miRefresh, miSettings, copyProjectPathMenuItem);
 
     Menu menuProject = new Menu("Project");
     runProjectMenuItem = new MenuItem("Run Selected Project");
@@ -455,6 +483,7 @@ public class JvnLauncherApp extends Application {
         welcomeView.markProjectVisited(resolved);
       }
     }
+    rememberLauncherProjectSelection(resolved);
     refreshButtonState();
   }
 
@@ -471,6 +500,153 @@ public class JvnLauncherApp extends Application {
     }
   }
 
+  private void showLauncherSettings() {
+    if (settingsStage != null && settingsStage.isShowing()) {
+      settingsStage.toFront();
+      settingsStage.requestFocus();
+      return;
+    }
+    LauncherSettingsView settingsView = new LauncherSettingsView(editorPreferencesStore);
+    settingsView.setCurrentProject(currentProject);
+    settingsView.setOnPreferencesApplied(this::applyEditorPreferences);
+    settingsView.loadIntoForm(editorPreferences);
+
+    settingsStage = new Stage();
+    settingsStage.initOwner(primaryStage);
+    settingsStage.setTitle("JVN Launcher Settings");
+    Scene settingsScene = new Scene(settingsView, 560, 760);
+    EditorTheme.apply(settingsScene);
+    settingsStage.setScene(settingsScene);
+    settingsStage.setMinWidth(520);
+    settingsStage.setMinHeight(620);
+    settingsStage.setOnCloseRequest(e -> settingsStage = null);
+    settingsStage.show();
+  }
+
+  private void applyEditorPreferences(EditorPreferences preferences) {
+    editorPreferences = preferences == null ? EditorPreferences.defaults() : preferences.copy();
+    setTheme(EditorPreferences.LAUNCHER_THEME_LIGHT.equals(editorPreferences.getLauncherTheme())
+        ? EditorTheme.Theme.LIGHT
+        : EditorTheme.Theme.DARK,
+        false);
+    statusLabel.setText("Launcher settings saved");
+  }
+
+  private void rememberLauncherProjectSelection(File selectedProject) {
+    if (editorPreferencesStore == null || editorPreferences == null) return;
+    if (!editorPreferences.isLauncherRestoreLastProject()) return;
+    String path = selectedProject == null ? "" : selectedProject.getAbsolutePath();
+    if (path.equals(editorPreferences.getLauncherLastProjectPath())) return;
+    editorPreferences.setLauncherLastProjectPath(path);
+    try {
+      editorPreferencesStore.save(editorPreferences);
+    } catch (Exception ex) {
+      statusLabel.setText("Failed to remember selected project: " + ex.getMessage());
+    }
+  }
+
+  private void openProjectFileFromLauncher(File file) {
+    if (file == null || !file.isFile()) return;
+    String editorChoice = editorPreferences == null
+        ? EditorPreferences.TEXT_EDITOR_JVN
+        : editorPreferences.getDefaultTextEditor();
+    switch (EditorPreferences.normalizeTextEditor(editorChoice)) {
+      case EditorPreferences.TEXT_EDITOR_SYSTEM -> openFileWithSystemDefault(file);
+      case EditorPreferences.TEXT_EDITOR_CUSTOM -> openFileWithCustomTextEditor(file);
+      default -> launchEditor(currentProject, file);
+    }
+  }
+
+  private void openFileWithSystemDefault(File file) {
+    try {
+      java.awt.Desktop.getDesktop().open(file);
+      statusLabel.setText("Opened " + file.getName() + " with system default app");
+    } catch (Exception ex) {
+      EditorDialogs.error(primaryStage, "Open File", "Failed to open file: " + ex.getMessage());
+    }
+  }
+
+  private void openFileWithCustomTextEditor(File file) {
+    String rawCommand = editorPreferences == null ? "" : editorPreferences.getCustomTextEditorCommand();
+    if (rawCommand == null || rawCommand.isBlank()) {
+      EditorDialogs.warning(primaryStage,
+          "Text Editor",
+          "Set a custom text editor command in Settings first.");
+      showLauncherSettings();
+      return;
+    }
+    try {
+      List<String> command = buildTextEditorCommand(rawCommand, file);
+      ProcessBuilder pb = new ProcessBuilder(command);
+      File dir = currentProject != null && currentProject.isDirectory() ? currentProject : file.getParentFile();
+      if (dir != null && dir.isDirectory()) pb.directory(dir);
+      pb.start();
+      statusLabel.setText("Opened " + file.getName() + " with custom text editor");
+    } catch (Exception ex) {
+      EditorDialogs.error(primaryStage, "Text Editor", "Failed to open custom editor: " + ex.getMessage());
+    }
+  }
+
+  private List<String> buildTextEditorCommand(String rawCommand, File file) {
+    List<String> tokens = tokenizeCommand(rawCommand);
+    List<String> command = new ArrayList<>();
+    boolean insertedFile = false;
+    String filePath = file == null ? "" : file.getAbsolutePath();
+    String projectPath = currentProject == null ? "" : currentProject.getAbsolutePath();
+    for (String token : tokens) {
+      String value = token
+          .replace("{file}", filePath)
+          .replace("{project}", projectPath);
+      if (token.contains("{file}")) insertedFile = true;
+      if (!value.isBlank()) command.add(value);
+    }
+    if (!insertedFile && file != null) command.add(file.getAbsolutePath());
+    if (command.isEmpty()) throw new IllegalArgumentException("Command is empty.");
+    return command;
+  }
+
+  private List<String> tokenizeCommand(String rawCommand) {
+    List<String> tokens = new ArrayList<>();
+    if (rawCommand == null || rawCommand.isBlank()) return tokens;
+    StringBuilder current = new StringBuilder();
+    boolean quoted = false;
+    char quoteChar = 0;
+    for (int i = 0; i < rawCommand.length(); i++) {
+      char ch = rawCommand.charAt(i);
+      if (ch == '\\' && i + 1 < rawCommand.length()) {
+        char next = rawCommand.charAt(i + 1);
+        if (next == '"' || next == '\'') {
+          current.append(next);
+          i++;
+          continue;
+        }
+      }
+      if (quoted) {
+        if (ch == quoteChar) {
+          quoted = false;
+        } else {
+          current.append(ch);
+        }
+        continue;
+      }
+      if (ch == '"' || ch == '\'') {
+        quoted = true;
+        quoteChar = ch;
+        continue;
+      }
+      if (Character.isWhitespace(ch)) {
+        if (!current.isEmpty()) {
+          tokens.add(current.toString());
+          current.setLength(0);
+        }
+        continue;
+      }
+      current.append(ch);
+    }
+    if (!current.isEmpty()) tokens.add(current.toString());
+    return tokens;
+  }
+
   private void copySelectedProjectPath() {
     if (currentProject == null || !currentProject.isDirectory()) {
       statusLabel.setText("No selected project to copy");
@@ -483,11 +659,26 @@ public class JvnLauncherApp extends Application {
   }
 
   private void setTheme(EditorTheme.Theme theme) {
+    setTheme(theme, true);
+  }
+
+  private void setTheme(EditorTheme.Theme theme, boolean persist) {
     if (theme == null || theme == EditorTheme.theme()) return;
     EditorTheme.setTheme(theme);
     for (Window window : Window.getWindows()) {
       if (window != null && window.getScene() != null) {
         EditorTheme.apply(window.getScene());
+      }
+    }
+    if (persist && editorPreferencesStore != null && editorPreferences != null) {
+      editorPreferences.setLauncherTheme(theme == EditorTheme.Theme.LIGHT
+          ? EditorPreferences.LAUNCHER_THEME_LIGHT
+          : EditorPreferences.LAUNCHER_THEME_DARK);
+      try {
+        editorPreferencesStore.save(editorPreferences);
+      } catch (Exception ex) {
+        statusLabel.setText("Failed to save theme: " + ex.getMessage());
+        return;
       }
     }
     statusLabel.setText("Theme: " + (theme == EditorTheme.Theme.LIGHT ? "Light" : "Dark"));
@@ -615,6 +806,10 @@ public class JvnLauncherApp extends Application {
   }
 
   private void launchEditor(File projectDir) {
+    launchEditor(projectDir, null);
+  }
+
+  private void launchEditor(File projectDir, File startupFile) {
     try {
       List<String> command = new ArrayList<>();
       command.add(resolveJavaExecutable());
@@ -624,6 +819,9 @@ public class JvnLauncherApp extends Application {
       command.add("-Djvn.editor.theme=" + (EditorTheme.theme() == EditorTheme.Theme.LIGHT ? "light" : "dark"));
       if (projectDir != null && projectDir.isDirectory()) {
         command.add("-D" + EDITOR_OPEN_PROJECT_PROPERTY + "=" + projectDir.getAbsolutePath());
+      }
+      if (startupFile != null && startupFile.isFile()) {
+        command.add("-D" + EDITOR_OPEN_FILE_PROPERTY + "=" + startupFile.getAbsolutePath());
       }
       command.add(EditorApp.class.getName());
 
@@ -635,9 +833,13 @@ public class JvnLauncherApp extends Application {
       pb.redirectError(ProcessBuilder.Redirect.DISCARD);
       pb.start();
 
-      statusLabel.setText(projectDir == null
-          ? "Editor launched"
-          : "Editor launched for " + projectDir.getName());
+      if (startupFile != null && startupFile.isFile()) {
+        statusLabel.setText("Editor launched for " + startupFile.getName());
+      } else {
+        statusLabel.setText(projectDir == null
+            ? "Editor launched"
+            : "Editor launched for " + projectDir.getName());
+      }
     } catch (Exception ex) {
       EditorDialogs.error(primaryStage, "Open Editor", "Failed to launch editor: " + ex.getMessage());
     }
@@ -699,7 +901,12 @@ public class JvnLauncherApp extends Application {
 
   private File resolveStartupProject() {
     String value = System.getProperty(LAUNCHER_START_PROJECT_PROPERTY, "").trim();
-    if (value.isBlank()) return null;
+    if (value.isBlank()
+        && editorPreferences != null
+        && editorPreferences.isLauncherRestoreLastProject()) {
+      value = editorPreferences.getLauncherLastProjectPath();
+    }
+    if (value == null || value.isBlank()) return null;
     return normalizeProjectDirectory(new File(value));
   }
 

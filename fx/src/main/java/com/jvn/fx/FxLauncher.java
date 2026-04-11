@@ -49,6 +49,7 @@ import com.jvn.fx.menu.MenuTheme;
 import com.jvn.fx.phone.PhoneRenderer;
 import com.jvn.fx.render.FxSceneRendererRegistry;
 import com.jvn.fx.scene2d.FxBlitter2D;
+import com.jvn.fx.ui.ProjectFontResolver;
 import com.jvn.fx.vn.VnRenderer;
 
 import javafx.animation.AnimationTimer;
@@ -99,6 +100,7 @@ public class FxLauncher extends Application {
   private double mouseX = 0;
   private double mouseY = 0;
   private OperatingSystemMXBean osBean;
+  private final MemoryMXBean memoryBean = ManagementFactory.getMemoryMXBean();
   private HBox perfHud;
   private Label perfCpuLabel;
   private Label perfJvmLabel;
@@ -516,7 +518,6 @@ public class FxLauncher extends Application {
     smoothedProcessCpu = smoothRatio(smoothedProcessCpu, processCpu, PERF_CPU_SMOOTH_ALPHA);
     smoothedFps = smoothRatio(smoothedFps, engine.frameStats().getFps(), PERF_FPS_SMOOTH_ALPHA);
 
-    MemoryMXBean memoryBean = ManagementFactory.getMemoryMXBean();
     MemoryUsage heap = memoryBean.getHeapMemoryUsage();
     MemoryUsage nonHeap = memoryBean.getNonHeapMemoryUsage();
     double heapUsedMb = Math.max(0.0, bytesToMb(heap == null ? -1L : heap.getUsed()));
@@ -1506,7 +1507,9 @@ public class FxLauncher extends Application {
       reloadLocalizationFromProject();
     }
     if (changes.assetsChanged()) {
+      ProjectFontResolver.clearCache();
       menuRenderer.clearImageCache();
+      menuRenderer.clearTextMeasureCache();
       phoneRenderer.clearAssetCache();
     }
     if (changes.uiChanged() || changes.assetsChanged()) {
@@ -1749,6 +1752,10 @@ public class FxLauncher extends Application {
   @Override
   public void stop() {
     if (timer != null) timer.stop();
+    if (hotReloadTracker != null) {
+      hotReloadTracker.close();
+      hotReloadTracker = null;
+    }
     if (engine != null && engine.isStarted()) {
       engine.stop();
     }

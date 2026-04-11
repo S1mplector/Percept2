@@ -110,6 +110,7 @@ public class RunConsoleView extends BorderPane {
     private String currentSearchTerm = "";
     private final OperatingSystemMXBean osBean =
         ManagementFactory.getPlatformMXBean(OperatingSystemMXBean.class);
+    private final MemoryMXBean memoryBean = ManagementFactory.getMemoryMXBean();
     private final AnimationTimer perfHudTimer;
     private long lastPerfHudUpdateNs = -1L;
     private long lastFrameNs = -1L;
@@ -203,7 +204,8 @@ public class RunConsoleView extends BorderPane {
         outputFlow.getStyleClass().add("run-console-output-flow");
         scrollPane.setFitToWidth(true);
         scrollPane.getStyleClass().add("run-console-output-scroll");
-        VBox centerBox = new VBox(createLaunchBanner(), scrollPane);
+        VBox centerBox = new VBox(8, createLaunchBanner(), scrollPane);
+        centerBox.getStyleClass().add("run-console-content");
         VBox.setVgrow(scrollPane, Priority.ALWAYS);
         setCenter(centerBox);
 
@@ -941,7 +943,6 @@ public class RunConsoleView extends BorderPane {
         }
         smoothedProcessCpu = smoothRatio(smoothedProcessCpu, processCpu, PERF_CPU_SMOOTH_ALPHA);
 
-        MemoryMXBean memoryBean = ManagementFactory.getMemoryMXBean();
         MemoryUsage heap = memoryBean.getHeapMemoryUsage();
         MemoryUsage nonHeap = memoryBean.getNonHeapMemoryUsage();
         double heapUsedMb = Math.max(0.0, bytesToMb(heap == null ? -1L : heap.getUsed()));

@@ -7225,6 +7225,10 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
         out.append(p).append("silhouette=").append(formatNormalized(light.silhouette / 100.0)).append('\n');
         out.append(p).append("shape=").append((light.shape == null ? SceneLightShape.RADIAL : light.shape).persistedValue()).append('\n');
         out.append(p).append("layer=").append((light.layer == null ? SceneLightLayer.CHARACTER : light.layer).persistedValue()).append('\n');
+        out.append(p).append("muted=").append(light.muted).append('\n');
+        out.append(p).append("locked=").append(light.locked).append('\n');
+        out.append(p).append("solo=").append(light.solo).append('\n');
+        out.append(p).append("group=").append(light.group == null ? "" : light.group).append('\n');
         if (light.isPolygon()) {
           StringBuilder polyStr = new StringBuilder();
           for (int pi = 0; pi < light.polygon.size(); pi++) {
@@ -7254,12 +7258,35 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
         out.append(p).append("rotation=").append(formatNormalized(tz.rotation)).append('\n');
         out.append(p).append("blend=").append(canonicalBlendMode(tz.blendMode, "Normal")).append('\n');
         out.append(p).append("visible=").append(tz.overlayVisible).append('\n');
+        out.append(p).append("surface=").append((tz.surfaceClass == null ? SubjectSurfaceClass.DEFAULT : tz.surfaceClass).persistedValue()).append('\n');
+        out.append(p).append("depthBias=").append(formatNormalized(tz.depthBias / 100.0)).append('\n');
+        out.append(p).append("responseScale=").append(formatNormalized(tz.responseScale / 100.0)).append('\n');
         if (tz.isPolygon()) {
           StringBuilder polyStr = new StringBuilder();
           for (int pi = 0; pi < tz.polygon.size(); pi++) {
             if (pi > 0) polyStr.append(";");
             polyStr.append(formatNormalized(tz.polygon.get(pi)[0])).append(",")
                 .append(formatNormalized(tz.polygon.get(pi)[1]));
+          }
+          out.append(p).append("polygon=").append(polyStr).append('\n');
+        }
+      }
+    }
+    if (!sceneOccluders.isEmpty()) {
+      out.append("occluders=").append(sceneOccluders.size()).append('\n');
+      for (int i = 0; i < sceneOccluders.size(); i++) {
+        SceneOccluder occ = sceneOccluders.get(i);
+        String p = "occluder." + i + ".";
+        out.append(p).append("name=").append(occ.name == null ? "" : occ.name).append('\n');
+        out.append(p).append("opacity=").append(formatNormalized(occ.opacity / 100.0)).append('\n');
+        out.append(p).append("softness=").append(formatNormalized(occ.softness / 100.0)).append('\n');
+        out.append(p).append("enabled=").append(occ.enabled).append('\n');
+        if (occ.isPolygon()) {
+          StringBuilder polyStr = new StringBuilder();
+          for (int pi = 0; pi < occ.polygon.size(); pi++) {
+            if (pi > 0) polyStr.append(";");
+            polyStr.append(formatNormalized(occ.polygon.get(pi)[0])).append(",")
+                .append(formatNormalized(occ.polygon.get(pi)[1]));
           }
           out.append(p).append("polygon=").append(polyStr).append('\n');
         }

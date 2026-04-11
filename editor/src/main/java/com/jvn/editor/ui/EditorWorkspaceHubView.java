@@ -28,6 +28,7 @@ public class EditorWorkspaceHubView extends BorderPane {
   private final Button btnRunProject = new Button();
   private final Button btnOpenProjectExplorer = new Button();
   private final Button btnOpenHelpCenter = new Button();
+  private final Button btnSettings = new Button();
 
   private File workspaceRoot;
   private File projectRoot;
@@ -37,6 +38,7 @@ public class EditorWorkspaceHubView extends BorderPane {
   private Runnable onRunProject;
   private Runnable onShowProjectExplorer;
   private Runnable onShowHelpCenter;
+  private Runnable onShowSettings;
 
   public EditorWorkspaceHubView() {
     buildUi();
@@ -71,6 +73,11 @@ public class EditorWorkspaceHubView extends BorderPane {
 
   public void setOnShowHelpCenter(Runnable onShowHelpCenter) {
     this.onShowHelpCenter = onShowHelpCenter;
+  }
+
+  public void setOnShowSettings(Runnable onShowSettings) {
+    this.onShowSettings = onShowSettings;
+    btnSettings.setDisable(onShowSettings == null);
   }
 
   private void buildUi() {
@@ -120,6 +127,14 @@ public class EditorWorkspaceHubView extends BorderPane {
         "welcome-action-button-secondary",
         () -> runAction(onShowHelpCenter, "Help Center"));
 
+    configureIconButton(
+        btnSettings,
+        CssIcon.settings("#d6cab8"),
+        "Settings",
+        "Configure editor defaults",
+        () -> runAction(onShowSettings, "Editor Settings"));
+    btnSettings.setDisable(true);
+
     HBox rowPrimary = new HBox(8, btnNewProject, btnOpenProject, btnRunProject);
     rowPrimary.getStyleClass().add("welcome-action-row");
     rowPrimary.setAlignment(Pos.CENTER_LEFT);
@@ -128,7 +143,12 @@ public class EditorWorkspaceHubView extends BorderPane {
     rowSecondary.getStyleClass().add("welcome-action-row");
     rowSecondary.setAlignment(Pos.CENTER_LEFT);
 
-    VBox hero = new VBox(12, headingLabel, workspaceLabel, projectLabel, rowPrimary, rowSecondary, statusLabel);
+    Region headingSpacer = new Region();
+    HBox.setHgrow(headingSpacer, Priority.ALWAYS);
+    HBox headingRow = new HBox(8, headingLabel, headingSpacer, btnSettings);
+    headingRow.setAlignment(Pos.CENTER_LEFT);
+
+    VBox hero = new VBox(12, headingRow, workspaceLabel, projectLabel, rowPrimary, rowSecondary, statusLabel);
     hero.setPadding(new Insets(12));
     hero.getStyleClass().add("welcome-hero-card");
 
@@ -159,6 +179,29 @@ public class EditorWorkspaceHubView extends BorderPane {
     if (tooltipText != null && !tooltipText.isBlank()) {
       button.setTooltip(new Tooltip(tooltipText));
       button.setAccessibleText(tooltipText);
+    }
+    button.setOnAction(e -> {
+      if (action != null) action.run();
+      e.consume();
+    });
+  }
+
+  private static void configureIconButton(Button button,
+                                          Region icon,
+                                          String accessibleText,
+                                          String tooltipText,
+                                          Runnable action) {
+    if (button == null) return;
+    button.setText("");
+    button.setGraphic(icon);
+    button.setMinSize(34, 34);
+    button.setPrefSize(34, 34);
+    button.setMaxSize(34, 34);
+    button.setFocusTraversable(false);
+    button.getStyleClass().add("welcome-settings-button");
+    button.setAccessibleText(accessibleText == null ? tooltipText : accessibleText);
+    if (tooltipText != null && !tooltipText.isBlank()) {
+      button.setTooltip(new Tooltip(tooltipText));
     }
     button.setOnAction(e -> {
       if (action != null) action.run();

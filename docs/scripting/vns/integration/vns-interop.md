@@ -475,6 +475,8 @@ Shows a temporary on-screen message (auto-expires after ~2 seconds). Supports `$
 | `audio` | Advanced audio control |
 | `screen` | Shake/flash effects |
 | `char` | Character choreography |
+| `persistent` | Cross-save persistent variable operations |
+| `stage` | Stage lighting preset activation |
 | `jes_timeline` | Named timeline playback |
 | `jes_timeline_inline` | Inline timeline playback |
 

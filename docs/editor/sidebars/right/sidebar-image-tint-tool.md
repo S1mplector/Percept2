@@ -131,27 +131,50 @@ Scene Lights are stationary light sources placed in the preview scene.
 
 Each light has:
 
-- name
-- position
-- source direction
-- color
-- intensity
-- radius
-- softness
-- light type
-- layer
-- silhouette
+| Control | Description |
+|---------|-------------|
+| **Name** | Label for the light in the rig list |
+| **Position** | Where the light falls on the scene (cross handle) |
+| **Source** | Where the light originates from (diamond handle) |
+| **Color** | Light tint color |
+| **Intensity** | Brightness (0–100%) |
+| **Radius** | Size of the light pool (5–80%) |
+| **Softness** | Edge falloff (0–100%) |
+| **Silhouette** | Rim/backlight contribution — high values rim the character instead of flat-tinting (0–100%) |
+| **Shape** | Light type (see below) |
+| **Layer** | Z-layer: `background`, `character`, or `foreground` |
+| **Group** | Organizational group name for related lights |
+| **Mute** | Suppress light contribution without removing it |
+| **Lock** | Prevent accidental dragging on the canvas |
+| **Solo** | Show only this light, hiding all others temporarily |
 
 The key idea is scene-relative behavior: when you move the character around the preview, the character grading reacts to those lights instead of the light moving with the character. This makes the tool useful for staging VN shots with fixed lamps, windows, signs, firelight, and similar environmental lighting.
 
-Supported light types:
+#### Light Shapes
 
-- **Radial** — soft general-purpose pools
-- **Polygon** — hand-drawn or freehand projected areas
-- **Cone** — directional beams or key lights
-- **Strip** — thin edge lights, monitors, or tube lights
-- **Window** — broad rectangular light patches
-- **Bounce** — reflected light from floor or wall surfaces
+| Shape | Description |
+|-------|-------------|
+| **Radial** | Soft general-purpose pools |
+| **Polygon** | Hand-drawn or freehand projected areas |
+| **Cone** | Directional beams or key lights |
+| **Strip** | Thin edge lights, monitors, or tube lights |
+| **Window** | Broad rectangular light patches |
+| **Bounce** | Reflected light from floor or wall surfaces |
+
+#### Quick-Add Light Presets
+
+The rig section provides one-click preset chips for common lighting roles:
+
+| Preset | Shape | Layer | Description |
+|--------|-------|-------|-------------|
+| **Key** | Cone | Character | Primary subject light, warm, upper-right |
+| **Fill** | Radial | Character | Soft blue fill from the left side |
+| **Rim** | Strip | Foreground | Warm backlight/edge light from behind-right |
+| **Sun** | Window | Background | Broad warm patch for outdoor/window light |
+| **Screen** | Strip | Foreground | Cool blue glow simulating monitor/screen spill |
+| **Bounce** | Bounce | Character | Warm upward bounce from floor/wall |
+
+Presets are starting points — all properties are fully editable after placement.
 
 By default, the preview also shows the light vector for each scene light:
 
@@ -160,6 +183,14 @@ By default, the preview also shows the light vector for each scene light:
 - **Beam / footprint preview** — a shape-aware visualization of how the light projects into the scene
 
 Use **Show light vectors** to hide or reveal the guides, and **Reset selected light source vector** to snap the source handle back to its default upper-left staging position for the selected light.
+
+#### Drawing Modes
+
+Lights can be added via:
+
+- **Default** — click "Add" to place a generic light at center
+- **Polygon draw** — click on the preview to nail vertices; click near the first point or double-click to close a polygon light shape
+- **Freehand draw** — hold and drag to sketch a smoothed polygon light shape
 
 ### Occlusion
 
@@ -172,9 +203,40 @@ Use occluders for:
 - gobos and beam masks
 - coarse subject / plate shadow separation while staging
 
+Each occluder has:
+
+| Control | Description |
+|---------|-------------|
+| **Name** | Label for the occluder in the list |
+| **Block %** | Shadow opacity (0–100%) |
+| **Softness** | Edge falloff for the blocker (0–100%) |
+| **Enabled** | Toggle the occluder on/off without removing it |
+
+Occluders are drawn on the preview with the same two polygon modes as lights:
+
+- **Polygon draw** — click to nail vertices; click near start or double-click to close
+- **Freehand draw** — hold and drag to sketch a smoothed shadow polygon
+
 ### Background Grade
 
 Background Grade applies plate-side adjustments independently of the subject lighting flow. Use it for atmospheric grading on the scene plate without having to flatten everything into one destructive pass first.
+
+| Control | Description |
+|---------|-------------|
+| **Tint Color** | Background tint color |
+| **Tint Strength** | Blend intensity toward the tint color |
+| **Tint Blend** | Blend mode for the tint pass |
+| **Saturation** | Desaturate or oversaturate the background |
+| **Contrast** | Flatten or sharpen tonal separation |
+| **Overlay Color** | Secondary overlay color (e.g., dark vignette or atmosphere) |
+| **Overlay Opacity** | Overlay blend strength |
+| **Overlay Blend** | Blend mode for the overlay pass |
+
+#### Blend Modes
+
+Both tint and overlay support these blend modes (also used by Local Grades):
+
+`Normal`, `Multiply`, `Screen`, `Overlay`, `Soft Light`, `Hard Light`, `Color Dodge`, `Color Burn`, `Difference`, `Exclusion`, `Lighten`, `Darken`, `Add`, `Subtract`
 
 ### Local Grades
 
@@ -188,6 +250,45 @@ Typical use cases:
 - localized atmosphere patches on the background
 
 Zones are also where you can push more selective response for different regions instead of treating the subject as one flat material.
+
+#### Per-Zone Controls
+
+| Control | Description |
+|---------|-------------|
+| **Name** | Label for the zone in the list |
+| **Color** | Zone tint color |
+| **Strength** | Tint intensity (0–100%) |
+| **Saturation** | Local saturation adjustment (-100–100%) |
+| **Contrast** | Local contrast adjustment (-100–100%) |
+| **Feather** | Edge softness / falloff (0–100%) |
+| **Rotation** | Rotation angle for rectangular zones (-180–180°) |
+| **Blend** | Blend mode (same 14 modes as Background Grade) |
+| **Surface** | Material surface class (see below) |
+| **Depth** | Depth bias for zone ordering (-100–100%) |
+| **Response %** | Light response scale — how strongly the zone reacts to scene lights (10–250%) |
+
+#### Surface Classes
+
+Each zone can be tagged with a surface class that hints at material-aware light response:
+
+| Surface | Description |
+|---------|-------------|
+| **Default** | Generic / unclassified |
+| **Skin** | Skin tones — warm subsurface response |
+| **Hair** | Hair — anisotropic highlight behavior |
+| **Fabric** | Clothing and textiles |
+| **Metal** | Metallic / reflective surfaces |
+| **Glass** | Transparent / refractive surfaces |
+
+#### Drawing Modes
+
+Zones can be created via three methods:
+
+- **Rectangle drag** — drag on the preview to draw a rectangular zone
+- **Polygon draw** — click to nail vertices; click near start or double-click to close
+- **Freehand draw** — hold and drag to sketch a smoothed freehand zone
+
+Zones can be reordered with move-up / move-down buttons, and each zone's overlay bounds can be toggled visible/hidden independently.
 
 ---
 
@@ -232,12 +333,12 @@ Three persistence layers are used:
 A setup stores:
 
 - character/background selection
-- global tint values
-- background grade values
-- scene lights
-- occluders
-- tint zones
-- view and export preferences
+- global tint values (color, strength, saturation, contrast)
+- background grade values (tint, overlay, blend modes)
+- scene lights (all properties including muted/locked/solo/group, polygon shapes)
+- occluders (all properties including enabled state, polygon shapes)
+- tint zones (all properties including surface class, depth bias, response scale, polygon shapes)
+- view and export preferences (zoom, pan, export folder)
 
 ---
 
@@ -280,3 +381,5 @@ Persisted state includes:
 - [Layered Image Visualizer](sidebar-layered-image-visualizer.md) — layer-based sprite composition and export
 - [Image Attributes Tool](sidebar-image-attributes-tool.md) — attribute-driven image assembly
 - [Asset Browser](sidebar-asset-browser.md) — general asset discovery
+- [VNS Directives — @stagepreset](../../../scripting/vns/language/vns-directives.md) — loading exported presets in VNS scripts
+- [VNS Commands — stage](../../../scripting/vns/language/vns-commands.md) — activating stage presets at runtime

@@ -93,8 +93,8 @@ print_help_row() {
 }
 
 show_help() {
-  printf '%s\n' "$(paint "${style_bold}${tone_brand}" "JVN wrapper")"
-  printf '%s\n' "Use ./jvnw for day-to-day work. It maps plain commands onto the right Gradle tasks."
+  printf '%s\n' "$(paint "${style_bold}${tone_brand}" "jvnw")"
+  printf '%s\n' "Use ./jvnw for common tasks. Known commands map to Gradle tasks; everything else passes through."
   printf '\n'
   printf '%s\n' "$(paint "${style_bold}${tone_info}" "Common commands")"
   print_help_row "./jvnw launcher" "Run the standalone launcher"
@@ -102,16 +102,18 @@ show_help() {
   print_help_row "./jvnw runtime" "Run the runtime"
   print_help_row "./jvnw build" "Build the workspace"
   print_help_row "./jvnw test" "Run the test suite"
+  print_help_row "./jvnw check" "Run verification tasks"
+  print_help_row "./jvnw clean" "Remove build outputs"
   print_help_row "./jvnw dist" "Create the runtime distribution zip"
   print_help_row "./jvnw jar" "Build the runtime jar"
   printf '\n'
   printf '%s\n' "$(paint "${style_bold}${tone_info}" "Advanced usage")"
-  print_help_row "./jvnw gradle <gradle-args>" "Pass straight through to Gradle with JVN console styling"
-  print_help_row "./jvnw --raw <gradle-args>" "Bypass JVN styling and call ./gradlew directly"
+  print_help_row "./jvnw gradle <gradle-args>" "Pass through to Gradle with wrapper status output"
+  print_help_row "./jvnw --raw <gradle-args>" "Call ./gradlew directly with full Gradle output"
   print_help_row "./gradlew <gradle-task>" "Optional low-level Gradle entrypoint"
   printf '\n'
   printf '%s\n' "$(paint "${style_bold}${tone_info}" "Examples")"
-  print_help_row "./jvnw launcher" "Launch the recent-project selector"
+  print_help_row "./jvnw launcher" "Run the launcher"
   print_help_row "./jvnw runtime --args='--script scripts/story/prologue.vns'" "Run a specific script"
   print_help_row "./jvnw gradle :editor:compileJava" "Target a single Gradle task manually"
 }
@@ -226,7 +228,7 @@ spinner_frames=('|' '/' '-' '\')
 spinner_index=0
 spinner_tick_seconds="0.10"
 spinner_tick_marker="__JVNW_SPINNER_TICK__"
-status_text="Preparing Gradle wrapper..."
+status_text="Preparing..."
 done_message="Command completed."
 compile_started=0
 compile_ok_announced=0
@@ -237,7 +239,7 @@ launch_live_announced=0
 suppress_status_render=0
 command_label=""
 resolved_target=""
-wrapper_mode="Direct Gradle task"
+wrapper_mode="Gradle task"
 
 case "$alias_label" in
   launcher|editor|runtime|build|test|check|clean|dist|jar)
@@ -367,7 +369,7 @@ is_real_error_line() {
 
 should_surface_line() {
   local line="$1"
-  if [[ "$debug_mode" == "1" ]]; then
+  if [[ "$debug_mode" == "1" || "$alias_label" == "gradle" ]]; then
     return 0
   fi
   case "$line" in
@@ -426,10 +428,10 @@ handle_line() {
       ;;
     "> Task "*:compileJava*|"> Task "*:compileKotlin*|"> Task "*:compileScala*)
       if [[ "$compile_started" -eq 0 ]]; then
-        emit_info "Compiling submodules..."
+        emit_info "Compiling modules..."
         compile_started=1
       fi
-      status_text="Compiling submodules..."
+      status_text="Compiling modules..."
       ;;
     "> Task "*:processResources*|"> Task "*:classes*)
       if [[ "$compile_started" -eq 1 ]]; then
@@ -438,7 +440,7 @@ handle_line() {
       ;;
     "> Task :"?*":test"*)
       if [[ "$compile_started" -eq 1 && "$compile_ok_announced" -eq 0 ]]; then
-        emit_info "Compiling submodules OK"
+        emit_info "Compilation finished."
         compile_ok_announced=1
       fi
       if [[ "$tests_announced" -eq 0 ]]; then
@@ -449,7 +451,7 @@ handle_line() {
       ;;
     "> Task :editor:runLauncher"*|"> Task :editor:run"*|"> Task :runtime:run"*)
       if [[ "$compile_started" -eq 1 && "$compile_ok_announced" -eq 0 ]]; then
-        emit_info "Compiling submodules OK"
+        emit_info "Compilation finished."
         compile_ok_announced=1
       fi
       if [[ "$launch_announced" -eq 0 ]]; then
@@ -499,10 +501,7 @@ if [[ -n "$command_label" ]]; then
   status_text="Preparing ${command_label}..."
 fi
 
-emit_section "$(paint "${style_bold}${tone_brand}" "Welcome to JVN.")"
-emit_hint "Thanks for choosing our engine to build with."
 if [[ -n "$command_label" || -n "$resolved_target" ]]; then
-  printf '\n'
   if [[ -n "$command_label" ]]; then
     emit_detail "Command" "$command_label"
   fi

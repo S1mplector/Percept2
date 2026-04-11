@@ -69,6 +69,8 @@ public class JesCodeEditor extends BorderPane {
 
   // ── Boolean literals (orange) ──
   private static final String BOOL_PATTERN = "\\b(?:true|false)\\b";
+  private static final Pattern ENTITY_NAME_PATTERN = Pattern.compile("entity\\s+\"([^\"]+)\"");
+  private static final Pattern LABEL_NAME_PATTERN = Pattern.compile("label\\s+\"([^\"]+)\"");
 
   // ── Binding sub-keywords ──
   private static final String SUBKW_PATTERN = "\\b(?:key|do)\\b";
@@ -302,12 +304,12 @@ public class JesCodeEditor extends BorderPane {
     cachedEntities.clear();
     cachedLabels.clear();
     if (text == null) return;
-    Matcher ent = Pattern.compile("entity\\s+\"([^\"]+)\"").matcher(text);
+    Matcher ent = ENTITY_NAME_PATTERN.matcher(text);
     while (ent.find()) {
       String name = ent.group(1);
       if (name != null && !name.isBlank()) cachedEntities.add(name);
     }
-    Matcher lab = Pattern.compile("label\\s+\"([^\"]+)\"").matcher(text);
+    Matcher lab = LABEL_NAME_PATTERN.matcher(text);
     while (lab.find()) {
       String name = lab.group(1);
       if (name != null && !name.isBlank()) cachedLabels.add(name);

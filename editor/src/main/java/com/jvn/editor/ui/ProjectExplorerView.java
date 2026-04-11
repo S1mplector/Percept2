@@ -32,10 +32,14 @@ public class ProjectExplorerView extends VBox {
   public ProjectExplorerView() {
     setSpacing(8);
     setPadding(new Insets(6));
+    getStyleClass().add("project-explorer-root");
+    header.getStyleClass().add("project-explorer-header");
     filter.setPromptText("Filter files...");
+    filter.getStyleClass().add("project-explorer-filter");
     filter.textProperty().addListener((o, ov, nv) -> refresh());
 
     tree.setShowRoot(true);
+    tree.getStyleClass().add("project-explorer-tree");
     VBox.setVgrow(tree, Priority.ALWAYS);
 
     ContextMenu ctx = new ContextMenu();
@@ -57,6 +61,8 @@ public class ProjectExplorerView extends VBox {
       private final HBox rootRow = new HBox(6, nameLabel, spacer, runButton);
       {
         rootRow.setAlignment(Pos.CENTER_LEFT);
+        rootRow.getStyleClass().add("project-explorer-root-row");
+        nameLabel.getStyleClass().add("project-explorer-root-name");
         HBox.setHgrow(spacer, Priority.ALWAYS);
         rootRow.prefWidthProperty().bind(widthProperty().subtract(24));
         runButton.getStyleClass().add("project-run-button");

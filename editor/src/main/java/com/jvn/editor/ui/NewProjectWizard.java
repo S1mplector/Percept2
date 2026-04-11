@@ -14,18 +14,23 @@ import java.util.Properties;
 
 import com.jvn.editor.vcs.GitVcsService;
 
+import javafx.css.Styleable;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TextArea;
+import javafx.scene.control.TreeCell;
+import javafx.scene.control.TreeItem;
+import javafx.scene.control.TreeView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
@@ -35,9 +40,6 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
-import javafx.scene.paint.Color;
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
@@ -48,13 +50,73 @@ import javafx.stage.StageStyle;
  * Keeps setup compact and aligned with the current engine/editor workflow.
  */
 public class NewProjectWizard extends Stage {
+  private enum ProjectTemplate {
+    STARTER_STORY("Starter Story", "A lean starter project with a playable story flow, menu pack, and demo assets."),
+    TUTORIAL_WORKSPACE("Tutorial Workspace", "A full learning scaffold with the starter story, 16 tutorial scripts, and demo content."),
+    BLANK_SANDBOX("Blank Sandbox", "A stripped-down project for custom pipelines, no demo assets, and blank menu wiring."),
+    CUSTOM("Custom", "A manual combination of modules and starter content.");
+
+    private final String label;
+    private final String description;
+
+    ProjectTemplate(String label, String description) {
+      this.label = label;
+      this.description = description;
+    }
+
+    String label() {
+      return label;
+    }
+
+    String description() {
+      return description;
+    }
+
+    @Override
+    public String toString() {
+      return label;
+    }
+  }
+
+  private enum PreviewItemKind {
+    ROOT,
+    FOLDER,
+    SCRIPT,
+    MENU,
+    LAYOUT,
+    STYLE,
+    TIMELINE,
+    DOCUMENT,
+    NOTE
+  }
+
+  private static final class PreviewNode {
+    private final String name;
+    private final String detail;
+    private final boolean directory;
+    private final PreviewItemKind kind;
+
+    private PreviewNode(String name, String detail, boolean directory, PreviewItemKind kind) {
+      this.name = name;
+      this.detail = detail;
+      this.directory = directory;
+      this.kind = kind;
+    }
+  }
 
   // Result
   private File createdProjectDir = null;
   private final boolean gitAvailable;
+  private boolean syncingFolderName = false;
+  private boolean syncingProjectTemplate = false;
 
   // Form fields
+  private Label lblHeaderSubtitle;
+  private ComboBox<ProjectTemplate> cmbProjectTemplate;
+  private Label lblProjectTemplateSummary;
   private TextField txtProjectName;
+  private TextField txtFolderName;
+  private CheckBox chkAutoFolderName;
   private TextField txtAuthor;
   private TextField txtLocation;
   private ComboBox<String> cmbResolution;
@@ -77,7 +139,8 @@ public class NewProjectWizard extends Stage {
   private Spinner<Integer> spPhysicsMaxSubsteps;
   private Spinner<Double> spPhysicsFriction;
   private TextField txtInputProfilePath;
-  private CheckBox chkSampleContent;
+  private CheckBox chkStarterStory;
+  private CheckBox chkTutorialPack;
   private CheckBox chkBundledDemoAssets;
   private CheckBox chkTitleScreen;
   private CheckBox chkSaveSystem;
@@ -88,26 +151,16 @@ public class NewProjectWizard extends Stage {
   private CheckBox chkInitialCommit;
   private Label lblBlankMenuWarning;
   private TextArea txtDescription;
-  private TextArea txtStructurePreview;
+  private TreeView<PreviewNode> treeStructurePreview;
   private Label lblPreview;
   private Label lblTargetPath;
   private Label lblEstimatedSize;
   private Label lblValidation;
   private Button btnCreate;
-
-  // Theme colors
-  private static final String BG_DARK = "#0f0f10";
-  private static final String BG_CARD = "#17181a";
-  private static final String BG_FIELD = "#222326";
-  private static final String BG_MONO = "#141518";
-  private static final String ACCENT = "#4a9eff";
-  private static final String TEXT_PRIMARY = "#f1f3f4";
-  private static final String TEXT_SECONDARY = "#9aa0a6";
-  private static final String TEXT_MUTED = "#7f858b";
-  private static final String BORDER_VALID = "#3a8c5c";
-  private static final String BORDER_ERROR = "#c44040";
-  private static final String TEXT_ERROR = "#e87070";
-  private static final String TEXT_VALID = "#6cc888";
+  private static final String STYLE_FIELD_VALID = "new-project-wizard-field-valid";
+  private static final String STYLE_FIELD_ERROR = "new-project-wizard-field-error";
+  private static final String STYLE_VALIDATION_READY = "new-project-wizard-validation-ready";
+  private static final String STYLE_VALIDATION_ERROR = "new-project-wizard-validation-error";
 
   // Project paths
   private static final String ENTRY_SCRIPT_PATH = "scripts/story/prologue.vns";
@@ -192,14 +245,14 @@ public class NewProjectWizard extends Stage {
     gitAvailable = new GitVcsService().isGitAvailable();
 
     BorderPane root = new BorderPane();
-    root.setStyle("-fx-background-color: " + BG_DARK + ";");
+    addStyleClasses(root, "welcome-center-root", "new-project-wizard-root");
 
     VBox header = createHeader();
     root.setTop(header);
 
     ScrollPane scrollPane = new ScrollPane(createMainContent());
     scrollPane.setFitToWidth(true);
-    scrollPane.setStyle("-fx-background: " + BG_DARK + "; -fx-background-color: " + BG_DARK + ";");
+    addStyleClasses(scrollPane, "new-project-wizard-scroll");
     root.setCenter(scrollPane);
 
     HBox footer = createFooter();
@@ -209,35 +262,35 @@ public class NewProjectWizard extends Stage {
     EditorTheme.apply(scene);
     setScene(scene);
 
+    applySelectedProjectTemplate();
     updateDerivedFields();
   }
 
   private VBox createHeader() {
     VBox header = new VBox(8);
     header.setPadding(new Insets(20, 28, 14, 28));
-    header.setStyle("-fx-background-color: " + BG_CARD + ";");
+    addStyleClasses(header, "welcome-hero-card", "new-project-wizard-header");
 
     Label title = new Label("Create New Visual Novel");
-    title.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.BOLD, 24));
-    title.setTextFill(Color.web(TEXT_PRIMARY));
+    addStyleClasses(title, "welcome-heading");
 
-    Label subtitle = new Label("");
-    subtitle.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.NORMAL, 13));
-    subtitle.setTextFill(Color.web(TEXT_SECONDARY));
+    lblHeaderSubtitle = new Label("");
+    addStyleClasses(lblHeaderSubtitle, "new-project-wizard-subtitle");
 
     Label hint = new Label("All settings can be changed later in the editor.");
-    hint.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.NORMAL, 11));
-    hint.setTextFill(Color.web(TEXT_MUTED));
+    addStyleClasses(hint, "welcome-section-meta");
 
-    header.getChildren().addAll(title, subtitle, hint);
+    header.getChildren().addAll(title, lblHeaderSubtitle, hint);
     return header;
   }
 
   private VBox createMainContent() {
     VBox content = new VBox(16);
     content.setPadding(new Insets(18, 28, 18, 28));
+    addStyleClasses(content, "new-project-wizard-body");
 
     content.getChildren().addAll(
+        createSection("Project Template", "Pick a starting point, then tune the scaffold below.", createProjectTemplatePane()),
         createSection("Project Basics", "Name, author, target directory, and output path.", createProjectBasicsGrid()),
         createSection("Engine Profile", "Runtime defaults and entry points for this project.", createEngineProfileGrid()),
         createSection("Playback Defaults", "Initial text/audio/physics/input settings for this project profile.", createPlaybackDefaultsPane()),
@@ -253,20 +306,47 @@ public class NewProjectWizard extends Stage {
   private VBox createSection(String title, String subtitle, Region content) {
     VBox section = new VBox(10);
     section.setPadding(new Insets(14));
-    section.setStyle("-fx-background-color: " + BG_CARD + "; -fx-background-radius: 8;");
+    addStyleClasses(section, "welcome-section-card", "new-project-wizard-section");
 
     Label titleLabel = new Label(title);
-    titleLabel.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.SEMI_BOLD, 16));
-    titleLabel.setTextFill(Color.web(ACCENT));
+    addStyleClasses(titleLabel, "welcome-section-title");
 
     Label subtitleLabel = new Label(subtitle);
-    subtitleLabel.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.NORMAL, 12));
-    subtitleLabel.setTextFill(Color.web(TEXT_SECONDARY));
+    addStyleClasses(subtitleLabel, "welcome-section-meta");
 
     Separator sep = new Separator();
 
     section.getChildren().addAll(titleLabel, subtitleLabel, sep, content);
     return section;
+  }
+
+  private Region createProjectTemplatePane() {
+    VBox box = new VBox(10);
+
+    cmbProjectTemplate = new ComboBox<>();
+    cmbProjectTemplate.getItems().addAll(ProjectTemplate.values());
+    cmbProjectTemplate.setValue(ProjectTemplate.STARTER_STORY);
+    cmbProjectTemplate.setPrefWidth(260);
+    styleField(cmbProjectTemplate);
+    tip(cmbProjectTemplate, "Template presets change starter scripts, menu setup, and demo content. You can still override any option below.");
+    cmbProjectTemplate.setOnAction(e -> applySelectedProjectTemplate());
+
+    lblProjectTemplateSummary = new Label();
+    lblProjectTemplateSummary.setWrapText(true);
+    addStyleClasses(lblProjectTemplateSummary, "new-project-wizard-summary");
+
+    FlowPane tags = new FlowPane();
+    tags.setHgap(10);
+    tags.setVgap(6);
+    tags.getChildren().addAll(
+        detailTag("Starter Story", "Sample prologue, branch, and epilogue scripts."),
+        detailTag("Tutorial Pack", "Optional 16-topic learning set wired from tutorial_hub.vns."),
+        detailTag("Blank Sandbox", "Minimal story content with blank menu registry wiring."),
+        detailTag("Manual Override", "Selecting Custom preserves your checkbox choices.")
+    );
+
+    box.getChildren().addAll(cmbProjectTemplate, lblProjectTemplateSummary, tags);
+    return box;
   }
 
   private Region createProjectBasicsGrid() {
@@ -275,43 +355,73 @@ public class NewProjectWizard extends Stage {
     grid.setVgap(10);
 
     txtProjectName = createTextField("My Visual Novel");
-    tip(txtProjectName, "Display name for the project. The folder name is derived automatically.");
+    tip(txtProjectName, "Display name for the project. The folder name syncs automatically until you turn Auto off.");
+    txtFolderName = createTextField(sanitizeName(txtProjectName.getText()));
+    txtFolderName.setPrefWidth(280);
+    tip(txtFolderName, "Project directory name. Safe characters only: letters, numbers, dot, underscore, hyphen.");
+    chkAutoFolderName = createCheckBox("Auto", true);
+    tip(chkAutoFolderName, "Keep folder name synced to the project name.");
     txtAuthor = createTextField("Anonymous");
     tip(txtAuthor, "Author name written to jvn.project manifest and README.");
     txtLocation = createTextField(System.getProperty("user.home") + "/JVN Projects");
     txtLocation.setPrefWidth(440);
     tip(txtLocation, "Parent directory where the project folder will be created.");
 
-    txtProjectName.textProperty().addListener((o, ov, nv) -> updateDerivedFields());
+    txtProjectName.textProperty().addListener((o, ov, nv) -> {
+      if (chkAutoFolderName != null && chkAutoFolderName.isSelected()) {
+        syncFolderNameToProjectName();
+      }
+      updateDerivedFields();
+    });
     txtLocation.textProperty().addListener((o, ov, nv) -> updateDerivedFields());
+    txtFolderName.textProperty().addListener((o, ov, nv) -> {
+      if (!syncingFolderName) {
+        updateDerivedFields();
+      }
+    });
+    chkAutoFolderName.selectedProperty().addListener((o, ov, nv) -> {
+      boolean auto = nv != null && nv;
+      txtFolderName.setDisable(auto);
+      if (auto) {
+        syncFolderNameToProjectName();
+      }
+      updateDerivedFields();
+    });
 
     Button btnBrowse = new Button("Browse...");
+    btnBrowse.setGraphic(CssIcon.folder("#d5b36a"));
+    btnBrowse.setContentDisplay(ContentDisplay.LEFT);
     btnBrowse.setOnAction(e -> browseLocation());
-    btnBrowse.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: " + TEXT_PRIMARY + ";");
+    styleSecondaryButton(btnBrowse);
 
     HBox locationRow = new HBox(8, txtLocation, btnBrowse);
     HBox.setHgrow(txtLocation, Priority.ALWAYS);
+    HBox folderRow = new HBox(8, txtFolderName, chkAutoFolderName);
+    folderRow.setAlignment(Pos.CENTER_LEFT);
+    HBox.setHgrow(txtFolderName, Priority.ALWAYS);
+    txtFolderName.setDisable(true);
 
     lblTargetPath = new Label();
     lblTargetPath.setWrapText(true);
-    lblTargetPath.setTextFill(Color.web(TEXT_SECONDARY));
-    lblTargetPath.setFont(Font.font("Consolas", 11));
+    addStyleClasses(lblTargetPath, "new-project-wizard-path");
 
     Label slugHint = new Label("Folder name is sanitized automatically for cross-platform safety.");
-    slugHint.setTextFill(Color.web(TEXT_MUTED));
-    slugHint.setFont(Font.font(Font.getDefault().getFamily(), 11));
+    addStyleClasses(slugHint, "welcome-section-meta");
 
     grid.add(createLabel("Project Name"), 0, 0);
     grid.add(txtProjectName, 1, 0);
-    grid.add(createLabel("Author"), 0, 1);
-    grid.add(txtAuthor, 1, 1);
-    grid.add(createLabel("Location"), 0, 2);
-    grid.add(locationRow, 1, 2);
-    grid.add(createLabel("Output Path"), 0, 3);
-    grid.add(lblTargetPath, 1, 3);
-    grid.add(slugHint, 1, 4);
+    grid.add(createLabel("Folder Name"), 0, 1);
+    grid.add(folderRow, 1, 1);
+    grid.add(createLabel("Author"), 0, 2);
+    grid.add(txtAuthor, 1, 2);
+    grid.add(createLabel("Location"), 0, 3);
+    grid.add(locationRow, 1, 3);
+    grid.add(createLabel("Output Path"), 0, 4);
+    grid.add(lblTargetPath, 1, 4);
+    grid.add(slugHint, 1, 5);
 
     GridPane.setHgrow(txtProjectName, Priority.ALWAYS);
+    GridPane.setHgrow(folderRow, Priority.ALWAYS);
     GridPane.setHgrow(txtAuthor, Priority.ALWAYS);
     GridPane.setHgrow(locationRow, Priority.ALWAYS);
 
@@ -340,7 +450,7 @@ public class NewProjectWizard extends Stage {
     );
     cmbResolution.setValue("1920x1080 (Full HD)");
     cmbResolution.setPrefWidth(230);
-    cmbResolution.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: " + TEXT_PRIMARY + ";");
+    styleField(cmbResolution);
     tip(cmbResolution, "Target rendering resolution. Affects dialogue layout scaling and menu positioning.");
 
     chkCustomResolution = createCheckBox("Custom Resolution", false);
@@ -351,13 +461,12 @@ public class NewProjectWizard extends Stage {
     txtCustomWidth.setDisable(true);
     txtCustomHeight.setDisable(true);
     Label resolutionSeparator = new Label("x");
-    resolutionSeparator.setTextFill(Color.web(TEXT_SECONDARY));
+    addStyleClasses(resolutionSeparator, "welcome-section-meta");
     HBox customRow = new HBox(8, chkCustomResolution, txtCustomWidth, resolutionSeparator, txtCustomHeight);
     customRow.setAlignment(Pos.CENTER_LEFT);
 
     lblAspectRatio = new Label();
-    lblAspectRatio.setTextFill(Color.web(TEXT_MUTED));
-    lblAspectRatio.setFont(Font.font(Font.getDefault().getFamily(), 11));
+    addStyleClasses(lblAspectRatio, "welcome-section-meta");
 
     cmbTheme = new ComboBox<>();
     cmbTheme.getItems().addAll(
@@ -369,21 +478,21 @@ public class NewProjectWizard extends Stage {
     );
     cmbTheme.setValue("Dark Elegant");
     cmbTheme.setPrefWidth(230);
-    cmbTheme.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: " + TEXT_PRIMARY + ";");
+    styleField(cmbTheme);
     tip(cmbTheme, "Color palette preset for menu theme. Affects title, items, hints, and background colors.");
 
     cmbRuntimeUi = new ComboBox<>();
     cmbRuntimeUi.getItems().addAll("fx", "swing");
     cmbRuntimeUi.setValue("fx");
     cmbRuntimeUi.setPrefWidth(230);
-    cmbRuntimeUi.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: " + TEXT_PRIMARY + ";");
+    styleField(cmbRuntimeUi);
     tip(cmbRuntimeUi, "UI toolkit for the runtime renderer. 'fx' (JavaFX) is recommended for most projects.");
 
     cmbAudioBackend = new ComboBox<>();
     cmbAudioBackend.getItems().addAll("auto", "simp3", "fx");
     cmbAudioBackend.setValue("auto");
     cmbAudioBackend.setPrefWidth(230);
-    cmbAudioBackend.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: " + TEXT_PRIMARY + ";");
+    styleField(cmbAudioBackend);
     tip(cmbAudioBackend, "Audio playback backend. 'auto' selects the best available (simp3 for MP3, fx for WAV).");
 
     cmbLocale = new ComboBox<>();
@@ -391,7 +500,7 @@ public class NewProjectWizard extends Stage {
     cmbLocale.setEditable(true);
     cmbLocale.setValue("en");
     cmbLocale.setPrefWidth(230);
-    cmbLocale.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: " + TEXT_PRIMARY + ";");
+    styleField(cmbLocale);
     tip(cmbLocale, "Default locale for text mapping. Creates config/locales/<locale>.properties. Type a custom code if needed.");
 
     cmbResolution.setOnAction(e -> updateDerivedFields());
@@ -410,8 +519,7 @@ public class NewProjectWizard extends Stage {
     txtCustomHeight.textProperty().addListener((o, ov, nv) -> updateDerivedFields());
 
     lblPreview = new Label();
-    lblPreview.setTextFill(Color.web(TEXT_SECONDARY));
-    lblPreview.setFont(Font.font(Font.getDefault().getFamily(), 12));
+    addStyleClasses(lblPreview, "new-project-wizard-summary");
 
     Label entryInfo = new Label(
         "Entry script: " + ENTRY_SCRIPT_PATH + "\n" +
@@ -420,8 +528,7 @@ public class NewProjectWizard extends Stage {
         "Dialogue layout: " + DIALOGUE_LAYOUT_PATH + "\n" +
         "Menu registry: " + MENU_REGISTRY_PATH
     );
-    entryInfo.setTextFill(Color.web(TEXT_MUTED));
-    entryInfo.setFont(Font.font("Consolas", 11));
+    addStyleClasses(entryInfo, "new-project-wizard-path");
 
     grid.add(createLabel("Resolution"), 0, 0);
     grid.add(cmbResolution, 1, 0);
@@ -478,8 +585,7 @@ public class NewProjectWizard extends Stage {
         + "Physics fixed step: 0 means variable timestep."
     );
     note.setWrapText(true);
-    note.setTextFill(Color.web(TEXT_MUTED));
-    note.setFont(Font.font(Font.getDefault().getFamily(), 11));
+    addStyleClasses(note, "welcome-section-meta");
 
     grid.add(createLabel("Text Speed"), 0, 0);
     grid.add(spTextSpeed, 1, 0);
@@ -512,10 +618,10 @@ public class NewProjectWizard extends Stage {
     VBox box = new VBox(10);
 
     Label intro = new Label("These options control both scaffolding and starter content.");
-    intro.setTextFill(Color.web(TEXT_SECONDARY));
-    intro.setFont(Font.font(Font.getDefault().getFamily(), 12));
+    addStyleClasses(intro, "new-project-wizard-summary");
 
-    chkSampleContent = createCheckBox("Sample Prologue Script", true);
+    chkStarterStory = createCheckBox("Starter Story Flow", true);
+    chkTutorialPack = createCheckBox("Guided Tutorial Pack (16 scripts)", false);
     chkBundledDemoAssets = createCheckBox("Bundled Demo Assets (Lavender/Field/BGM)", true);
     chkTitleScreen = createCheckBox("Main Menu Profile Pack", true);
     chkSaveSystem = createCheckBox("Load/Save Menu Profiles", true);
@@ -535,14 +641,13 @@ public class NewProjectWizard extends Stage {
         + "Game progress can only be viewed through VNS file preview until menus are set up."
     );
     lblBlankMenuWarning.setWrapText(true);
-    lblBlankMenuWarning.setTextFill(Color.web("#e8a840"));
-    lblBlankMenuWarning.setFont(Font.font(Font.getDefault().getFamily(), 11));
     lblBlankMenuWarning.setPadding(new Insets(8, 12, 8, 12));
-    lblBlankMenuWarning.setStyle("-fx-background-color: #2a2210; -fx-background-radius: 6; -fx-border-color: #5c4a1a; -fx-border-radius: 6;");
+    addStyleClasses(lblBlankMenuWarning, "new-project-wizard-warning-card");
     lblBlankMenuWarning.setVisible(false);
     lblBlankMenuWarning.setManaged(false);
 
-    chkSampleContent.selectedProperty().addListener((o, ov, nv) -> updateDerivedFields());
+    chkStarterStory.selectedProperty().addListener((o, ov, nv) -> updateDerivedFields());
+    chkTutorialPack.selectedProperty().addListener((o, ov, nv) -> updateDerivedFields());
     chkBundledDemoAssets.selectedProperty().addListener((o, ov, nv) -> updateDerivedFields());
     chkTitleScreen.selectedProperty().addListener((o, ov, nv) -> updateDerivedFields());
     chkHistoryBacklog.selectedProperty().addListener((o, ov, nv) -> updateDerivedFields());
@@ -572,19 +677,21 @@ public class NewProjectWizard extends Stage {
     GridPane options = new GridPane();
     options.setHgap(28);
     options.setVgap(8);
-    options.add(chkSampleContent, 0, 0);
-    options.add(chkBundledDemoAssets, 1, 0);
-    options.add(chkTitleScreen, 0, 1);
-    options.add(chkSaveSystem, 1, 1);
-    options.add(chkSettingsMenu, 0, 2);
-    options.add(chkHistoryBacklog, 1, 2);
-    options.add(chkBlankMenus, 0, 3);
+    options.add(chkStarterStory, 0, 0);
+    options.add(chkTutorialPack, 1, 0);
+    options.add(chkBundledDemoAssets, 0, 1);
+    options.add(chkTitleScreen, 1, 1);
+    options.add(chkSaveSystem, 0, 2);
+    options.add(chkSettingsMenu, 1, 2);
+    options.add(chkHistoryBacklog, 0, 3);
+    options.add(chkBlankMenus, 1, 3);
 
     FlowPane details = new FlowPane();
     details.setVgap(4);
     details.setHgap(16);
     details.getChildren().addAll(
-        detailTag("Sample Tutorial Pack", "Multi-file VNS tutorial set with one file per feature example."),
+        detailTag("Starter Story", "Sample prologue, route split, and epilogue scripts."),
+        detailTag("Tutorial Pack", "Sixteen focused VNS examples linked from the tutorial hub."),
         detailTag("Demo Assets", "Copies bundled field/lavender/audio starter assets."),
         detailTag("Menu Profiles", "Creates config/menu registry, screens, layout and style."),
         detailTag("Save/Load", "Adds load.menu and save.menu defaults."),
@@ -600,15 +707,13 @@ public class NewProjectWizard extends Stage {
   private Region detailTag(String title, String subtitle) {
     VBox tag = new VBox(2);
     tag.setPadding(new Insets(8, 10, 8, 10));
-    tag.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-background-radius: 6;");
+    addStyleClasses(tag, "new-project-wizard-detail-tag");
 
     Label t = new Label(title);
-    t.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.SEMI_BOLD, 11));
-    t.setTextFill(Color.web(TEXT_PRIMARY));
+    addStyleClasses(t, "new-project-wizard-detail-tag-title");
 
     Label s = new Label(subtitle);
-    s.setFont(Font.font(Font.getDefault().getFamily(), 10));
-    s.setTextFill(Color.web(TEXT_MUTED));
+    addStyleClasses(s, "new-project-wizard-detail-tag-copy");
 
     tag.getChildren().addAll(t, s);
     return tag;
@@ -622,8 +727,7 @@ public class NewProjectWizard extends Stage {
         "If disabled (or unavailable), project creation is unaffected."
     );
     intro.setWrapText(true);
-    intro.setTextFill(Color.web(TEXT_SECONDARY));
-    intro.setFont(Font.font(Font.getDefault().getFamily(), 12));
+    addStyleClasses(intro, "new-project-wizard-summary");
 
     chkGitInit = createCheckBox("Initialize Git repository", false);
     chkInitialCommit = createCheckBox("Create initial commit", false);
@@ -654,8 +758,7 @@ public class NewProjectWizard extends Stage {
             : "Git is not detected on PATH. You can still create and run projects normally."
     );
     note.setWrapText(true);
-    note.setTextFill(Color.web(TEXT_MUTED));
-    note.setFont(Font.font(Font.getDefault().getFamily(), 11));
+    addStyleClasses(note, "welcome-section-meta");
 
     box.getChildren().addAll(intro, chkGitInit, chkInitialCommit, note);
     return box;
@@ -664,22 +767,37 @@ public class NewProjectWizard extends Stage {
   private Region createGeneratedLayoutPane() {
     VBox box = new VBox(8);
 
-    txtStructurePreview = new TextArea();
-    txtStructurePreview.setEditable(false);
-    txtStructurePreview.setWrapText(false);
-    txtStructurePreview.setPrefRowCount(16);
-    txtStructurePreview.setStyle(
-        "-fx-control-inner-background: " + BG_MONO + ";" +
-        "-fx-font-family: 'Consolas';" +
-        "-fx-font-size: 11px;" +
-        "-fx-text-fill: " + TEXT_PRIMARY + ";"
-    );
+    treeStructurePreview = new TreeView<>();
+    treeStructurePreview.setShowRoot(true);
+    treeStructurePreview.setPrefHeight(360);
+    addStyleClasses(treeStructurePreview, "new-project-wizard-structure-tree");
+    treeStructurePreview.setCellFactory(tree -> new TreeCell<>() {
+      @Override
+      protected void updateItem(PreviewNode item, boolean empty) {
+        super.updateItem(item, empty);
+        if (empty || item == null) {
+          setText(null);
+          setGraphic(null);
+          return;
+        }
+        Label nameLabel = new Label(item.name);
+        nameLabel.getStyleClass().add(item.directory ? "new-project-wizard-tree-dir-label" : "new-project-wizard-tree-file-label");
+        HBox row = new HBox(6, previewIcon(item), nameLabel);
+        row.setAlignment(Pos.CENTER_LEFT);
+        if (item.detail != null && !item.detail.isBlank()) {
+          Label detailLabel = new Label(item.detail);
+          detailLabel.getStyleClass().add("new-project-wizard-tree-detail-label");
+          row.getChildren().add(detailLabel);
+        }
+        setText(null);
+        setGraphic(row);
+      }
+    });
 
     Label note = new Label("This preview updates live based on your selected modules.");
-    note.setTextFill(Color.web(TEXT_MUTED));
-    note.setFont(Font.font(Font.getDefault().getFamily(), 11));
+    addStyleClasses(note, "welcome-section-meta");
 
-    box.getChildren().addAll(txtStructurePreview, note);
+    box.getChildren().addAll(treeStructurePreview, note);
     return box;
   }
 
@@ -687,17 +805,13 @@ public class NewProjectWizard extends Stage {
     VBox box = new VBox(8);
 
     Label info = new Label("Optional project description:");
-    info.setTextFill(Color.web(TEXT_SECONDARY));
-    info.setFont(Font.font(Font.getDefault().getFamily(), 12));
+    addStyleClasses(info, "new-project-wizard-summary");
 
     txtDescription = new TextArea();
     txtDescription.setPromptText("Example: A sci-fi mystery told across branching routes.");
     txtDescription.setPrefRowCount(3);
     txtDescription.setWrapText(true);
-    txtDescription.setStyle(
-        "-fx-control-inner-background: " + BG_FIELD + ";" +
-        "-fx-text-fill: " + TEXT_PRIMARY + ";"
-    );
+    addStyleClasses(txtDescription, "new-project-wizard-description");
 
     box.getChildren().addAll(info, txtDescription);
     return box;
@@ -707,25 +821,28 @@ public class NewProjectWizard extends Stage {
     HBox footer = new HBox(12);
     footer.setPadding(new Insets(14, 28, 18, 28));
     footer.setAlignment(Pos.CENTER_RIGHT);
-    footer.setStyle("-fx-background-color: " + BG_CARD + ";");
+    addStyleClasses(footer, "new-project-wizard-footer");
 
     lblEstimatedSize = new Label();
-    lblEstimatedSize.setTextFill(Color.web(TEXT_SECONDARY));
-    lblEstimatedSize.setFont(Font.font(Font.getDefault().getFamily(), 11));
+    addStyleClasses(lblEstimatedSize, "welcome-section-meta");
 
     lblValidation = new Label();
-    lblValidation.setFont(Font.font(Font.getDefault().getFamily(), 11));
     lblValidation.setWrapText(true);
     lblValidation.setMaxWidth(380);
+    addStyleClasses(lblValidation, "new-project-wizard-validation");
 
     Button btnCancel = new Button("Cancel");
     btnCancel.setPrefWidth(110);
-    btnCancel.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: " + TEXT_PRIMARY + ";");
+    btnCancel.setGraphic(CssIcon.clearX("#f0a1b2"));
+    btnCancel.setContentDisplay(ContentDisplay.LEFT);
+    styleSecondaryButton(btnCancel);
     btnCancel.setOnAction(e -> close());
 
     btnCreate = new Button("Create Project");
     btnCreate.setPrefWidth(150);
-    btnCreate.setStyle("-fx-background-color: " + ACCENT + "; -fx-text-fill: white; -fx-font-weight: bold;");
+    btnCreate.setGraphic(CssIcon.plusBold("#8bcf98"));
+    btnCreate.setContentDisplay(ContentDisplay.LEFT);
+    stylePrimaryButton(btnCreate);
     btnCreate.setOnAction(e -> createProject());
 
     Region spacer = new Region();
@@ -737,24 +854,22 @@ public class NewProjectWizard extends Stage {
 
   private Label createLabel(String text) {
     Label label = new Label(text);
-    label.setTextFill(Color.web(TEXT_PRIMARY));
-    label.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.SEMI_BOLD, 12));
     label.setMinWidth(110);
+    addStyleClasses(label, "new-project-wizard-form-label");
     return label;
   }
 
   private TextField createTextField(String defaultValue) {
     TextField tf = new TextField(defaultValue);
     tf.setPrefWidth(280);
-    tf.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: " + TEXT_PRIMARY + ";");
+    styleField(tf);
     return tf;
   }
 
   private CheckBox createCheckBox(String text, boolean selected) {
     CheckBox cb = new CheckBox(text);
     cb.setSelected(selected);
-    cb.setTextFill(Color.web(TEXT_PRIMARY));
-    cb.setFont(Font.font(Font.getDefault().getFamily(), 12));
+    addStyleClasses(cb, "new-project-wizard-checkbox");
     return cb;
   }
 
@@ -771,6 +886,7 @@ public class NewProjectWizard extends Stage {
   }
 
   private void updateDerivedFields() {
+    syncProjectTemplateSelection();
     updatePresetPreview();
     updateTargetPathLabel();
     updateStructurePreview();
@@ -778,49 +894,195 @@ public class NewProjectWizard extends Stage {
     validateForm();
   }
 
+  private void applySelectedProjectTemplate() {
+    if (syncingProjectTemplate || cmbProjectTemplate == null) return;
+    ProjectTemplate template = cmbProjectTemplate.getValue();
+    if (template == null || template == ProjectTemplate.CUSTOM) {
+      updateProjectTemplateSummary();
+      updateDerivedFields();
+      return;
+    }
+    syncingProjectTemplate = true;
+    try {
+      boolean blank = template == ProjectTemplate.BLANK_SANDBOX;
+      if (chkStarterStory != null) chkStarterStory.setSelected(template != ProjectTemplate.BLANK_SANDBOX);
+      if (chkTutorialPack != null) chkTutorialPack.setSelected(template == ProjectTemplate.TUTORIAL_WORKSPACE);
+      if (chkBundledDemoAssets != null) chkBundledDemoAssets.setSelected(!blank);
+      if (chkTitleScreen != null) chkTitleScreen.setSelected(!blank);
+      if (chkSaveSystem != null) chkSaveSystem.setSelected(!blank);
+      if (chkSettingsMenu != null) chkSettingsMenu.setSelected(!blank);
+      if (chkHistoryBacklog != null) chkHistoryBacklog.setSelected(!blank);
+      if (chkBlankMenus != null) chkBlankMenus.setSelected(blank);
+    } finally {
+      syncingProjectTemplate = false;
+    }
+    updateProjectTemplateSummary();
+    updateDerivedFields();
+  }
+
+  private void syncProjectTemplateSelection() {
+    ProjectTemplate resolved = resolveProjectTemplateFromSelections();
+    if (cmbProjectTemplate != null && !syncingProjectTemplate && cmbProjectTemplate.getValue() != resolved) {
+      syncingProjectTemplate = true;
+      try {
+        cmbProjectTemplate.setValue(resolved);
+      } finally {
+        syncingProjectTemplate = false;
+      }
+    }
+    updateProjectTemplateSummary();
+  }
+
+  private ProjectTemplate resolveProjectTemplateFromSelections() {
+    boolean starterStory = chkStarterStory != null && chkStarterStory.isSelected();
+    boolean tutorialPack = chkTutorialPack != null && chkTutorialPack.isSelected();
+    boolean demoAssets = chkBundledDemoAssets != null && chkBundledDemoAssets.isSelected();
+    boolean titleScreen = chkTitleScreen != null && chkTitleScreen.isSelected();
+    boolean saveSystem = chkSaveSystem != null && chkSaveSystem.isSelected();
+    boolean settingsMenu = chkSettingsMenu != null && chkSettingsMenu.isSelected();
+    boolean historyBacklog = chkHistoryBacklog != null && chkHistoryBacklog.isSelected();
+    boolean blankMenus = chkBlankMenus != null && chkBlankMenus.isSelected();
+
+    if (starterStory && !tutorialPack && demoAssets && titleScreen && saveSystem && settingsMenu && historyBacklog && !blankMenus) {
+      return ProjectTemplate.STARTER_STORY;
+    }
+    if (starterStory && tutorialPack && demoAssets && titleScreen && saveSystem && settingsMenu && historyBacklog && !blankMenus) {
+      return ProjectTemplate.TUTORIAL_WORKSPACE;
+    }
+    if (!starterStory && !tutorialPack && !demoAssets && !titleScreen && !saveSystem && !settingsMenu && !historyBacklog && blankMenus) {
+      return ProjectTemplate.BLANK_SANDBOX;
+    }
+    return ProjectTemplate.CUSTOM;
+  }
+
+  private void updateProjectTemplateSummary() {
+    if (lblProjectTemplateSummary == null) return;
+    ProjectTemplate template = cmbProjectTemplate == null || cmbProjectTemplate.getValue() == null
+        ? ProjectTemplate.STARTER_STORY
+        : cmbProjectTemplate.getValue();
+    String summary = switch (template) {
+      case STARTER_STORY -> "Recommended default. Creates a playable story skeleton, demo assets, and ready-to-run menu profiles without the larger tutorial pack.";
+      case TUTORIAL_WORKSPACE -> "Creates the starter story plus the full 16-script guided tutorial pack and tutorial hub routes.";
+      case BLANK_SANDBOX -> "Creates the runtime/config skeleton with blank story scripts, no bundled assets, and blank menu wiring.";
+      case CUSTOM -> "Custom combination detected. The wizard will scaffold exactly what your current checkboxes describe.";
+    };
+    lblProjectTemplateSummary.setText(summary);
+  }
+
+  private void syncFolderNameToProjectName() {
+    if (txtFolderName == null) return;
+    syncingFolderName = true;
+    try {
+      txtFolderName.setText(sanitizeName(txtProjectName == null ? "" : txtProjectName.getText()));
+    } finally {
+      syncingFolderName = false;
+    }
+  }
+
   private void validateForm() {
     if (lblValidation == null || btnCreate == null) return;
     String name = txtProjectName == null ? "" : txtProjectName.getText().trim();
     String location = txtLocation == null ? "" : txtLocation.getText().trim();
-    String slug = sanitizeName(name);
-    String fieldStyle = "-fx-background-color: " + BG_FIELD + "; -fx-text-fill: " + TEXT_PRIMARY + ";";
-    String validBorder = fieldStyle + " -fx-border-color: " + BORDER_VALID + "; -fx-border-width: 1; -fx-border-radius: 3;";
-    String errorBorder = fieldStyle + " -fx-border-color: " + BORDER_ERROR + "; -fx-border-width: 1; -fx-border-radius: 3;";
 
     List<String> errors = new ArrayList<>();
+    String folderName = resolveFolderName();
 
     if (name.isEmpty()) {
       errors.add("Project name is required.");
-      if (txtProjectName != null) txtProjectName.setStyle(errorBorder);
-    } else if (slug.isBlank()) {
+      setFieldState(txtProjectName, STYLE_FIELD_ERROR);
+    } else if (sanitizeName(name).isBlank()) {
       errors.add("Name must contain at least one letter or number.");
-      if (txtProjectName != null) txtProjectName.setStyle(errorBorder);
+      setFieldState(txtProjectName, STYLE_FIELD_ERROR);
     } else {
-      if (txtProjectName != null) txtProjectName.setStyle(validBorder);
+      setFieldState(txtProjectName, STYLE_FIELD_VALID);
+    }
+
+    if (txtFolderName != null) {
+      if (folderName.isBlank()) {
+        errors.add("Folder name is required.");
+        setFieldState(txtFolderName, STYLE_FIELD_ERROR);
+      } else if (!isSafeFolderName(folderName)) {
+        errors.add("Folder name can only use letters, numbers, dot, underscore, or hyphen.");
+        setFieldState(txtFolderName, STYLE_FIELD_ERROR);
+      } else {
+        setFieldState(txtFolderName, STYLE_FIELD_VALID);
+      }
     }
 
     if (location.isEmpty()) {
       errors.add("Project location is required.");
-      if (txtLocation != null) txtLocation.setStyle(errorBorder);
+      setFieldState(txtLocation, STYLE_FIELD_ERROR);
     } else {
-      File target = slug.isBlank() ? null : new File(location, slug);
-      if (target != null && target.exists()) {
-        errors.add("Folder already exists: " + slug);
-        if (txtLocation != null) txtLocation.setStyle(errorBorder);
+      File base = new File(location);
+      if (base.exists() && !base.isDirectory()) {
+        errors.add("Project location must be a directory.");
+        setFieldState(txtLocation, STYLE_FIELD_ERROR);
+      } else if (base.exists() && !base.canWrite()) {
+        errors.add("Project location is not writable.");
+        setFieldState(txtLocation, STYLE_FIELD_ERROR);
+      } else if (folderName.isBlank()) {
+        setFieldState(txtLocation, STYLE_FIELD_ERROR);
       } else {
-        if (txtLocation != null) txtLocation.setStyle(validBorder);
+        File target = new File(location, folderName);
+        if (target.exists()) {
+          errors.add("Folder already exists: " + folderName);
+          setFieldState(txtLocation, STYLE_FIELD_ERROR);
+        } else {
+          setFieldState(txtLocation, STYLE_FIELD_VALID);
+        }
+      }
+    }
+
+    if (chkCustomResolution != null && chkCustomResolution.isSelected()) {
+      boolean widthValid = validateCustomDimensionField(txtCustomWidth);
+      boolean heightValid = validateCustomDimensionField(txtCustomHeight);
+      if (!widthValid || !heightValid) {
+        errors.add("Custom resolution must use whole numbers between 320 and 8192.");
+      }
+      setFieldState(txtCustomWidth, widthValid ? STYLE_FIELD_VALID : STYLE_FIELD_ERROR);
+      setFieldState(txtCustomHeight, heightValid ? STYLE_FIELD_VALID : STYLE_FIELD_ERROR);
+    } else {
+      setFieldState(txtCustomWidth, null);
+      setFieldState(txtCustomHeight, null);
+    }
+
+    if (cmbLocale != null) {
+      String locale = cmbLocale.getValue() == null ? "" : cmbLocale.getValue().trim();
+      if (locale.isBlank()) {
+        errors.add("Locale is required.");
+      } else if (!locale.matches("[A-Za-z0-9_-]+")) {
+        errors.add("Locale may only use letters, numbers, hyphen, or underscore.");
       }
     }
 
     if (errors.isEmpty()) {
-      lblValidation.setText("\u2714 Ready to create");
-      lblValidation.setTextFill(Color.web(TEXT_VALID));
-      btnCreate.setDisable(false);
+      setValidationMessage(true, "\u2714 Ready to create");
     } else {
-      lblValidation.setText(String.join(" ", errors));
-      lblValidation.setTextFill(Color.web(TEXT_ERROR));
-      btnCreate.setDisable(true);
+      setValidationMessage(false, String.join(" ", errors));
     }
+  }
+
+  private boolean validateCustomDimensionField(TextField field) {
+    if (field == null) return false;
+    String raw = field.getText();
+    if (raw == null || raw.isBlank()) return false;
+    try {
+      int value = Integer.parseInt(raw.trim());
+      return value >= 320 && value <= 8192;
+    } catch (NumberFormatException ignored) {
+      return false;
+    }
+  }
+
+  private String resolveFolderName() {
+    if (chkAutoFolderName != null && chkAutoFolderName.isSelected()) {
+      return sanitizeName(txtProjectName == null ? "" : txtProjectName.getText());
+    }
+    return txtFolderName == null ? "" : txtFolderName.getText().trim();
+  }
+
+  static boolean isSafeFolderName(String name) {
+    return name != null && !name.isBlank() && name.matches("[A-Za-z0-9._-]+");
   }
 
   private void updatePresetPreview() {
@@ -835,8 +1097,14 @@ public class NewProjectWizard extends Stage {
     String audioBackend = cmbAudioBackend == null || cmbAudioBackend.getValue() == null ? "auto" : cmbAudioBackend.getValue();
     String locale = cmbLocale == null || cmbLocale.getValue() == null ? "en" : cmbLocale.getValue();
     String source = chkCustomResolution != null && chkCustomResolution.isSelected() ? "custom" : "preset";
+    ProjectTemplate template = cmbProjectTemplate == null || cmbProjectTemplate.getValue() == null
+        ? ProjectTemplate.STARTER_STORY
+        : cmbProjectTemplate.getValue();
     if (lblAspectRatio != null) {
       lblAspectRatio.setText(ratio + " (" + source + ")");
+    }
+    if (lblHeaderSubtitle != null) {
+      lblHeaderSubtitle.setText(template.label() + " • " + resolveFolderName() + " • " + res + " • " + runtimeUi + "/" + audioBackend);
     }
     lblPreview.setText("\"" + name + "\" • " + res + " • " + ratio + " • " + theme
         + " • " + runtimeUi + "/" + audioBackend + " • " + locale);
@@ -845,24 +1113,23 @@ public class NewProjectWizard extends Stage {
   private void updateTargetPathLabel() {
     if (lblTargetPath == null) return;
     String location = txtLocation == null ? "" : txtLocation.getText().trim();
-    String projectName = txtProjectName == null ? "" : txtProjectName.getText().trim();
-    String sanitized = sanitizeName(projectName);
+    String folderName = resolveFolderName();
     if (location.isBlank()) {
       lblTargetPath.setText("(select a location)");
       return;
     }
-    if (sanitized.isBlank()) {
+    if (folderName.isBlank()) {
       lblTargetPath.setText(new File(location).getAbsolutePath());
       return;
     }
-    lblTargetPath.setText(new File(location, sanitized).getAbsolutePath());
+    lblTargetPath.setText(new File(location, folderName).getAbsolutePath());
   }
 
   private void updateStructurePreview() {
-    if (txtStructurePreview == null) return;
-    String folderName = sanitizeName(txtProjectName == null ? "" : txtProjectName.getText().trim());
+    if (treeStructurePreview == null) return;
+    String folderName = resolveFolderName();
     if (folderName.isBlank()) folderName = "my_visual_novel";
-    txtStructurePreview.setText(buildStructurePreviewText(folderName));
+    treeStructurePreview.setRoot(buildStructurePreviewTree(folderName));
   }
 
   private void updateEstimatedSize() {
@@ -875,7 +1142,8 @@ public class NewProjectWizard extends Stage {
     if (chkBundledDemoAssets != null && chkBundledDemoAssets.isSelected()) {
       kb += estimateBundledDemoAssetsKb();
     }
-    if (chkSampleContent != null && chkSampleContent.isSelected()) kb += 8;
+    if (chkStarterStory != null && chkStarterStory.isSelected()) kb += 4;
+    if (chkTutorialPack != null && chkTutorialPack.isSelected()) kb += 8;
     if (shouldCreateMenuPack()) kb += 8;
     if (chkSaveSystem != null && chkSaveSystem.isSelected()) kb += 3;
     if (chkSettingsMenu != null && chkSettingsMenu.isSelected()) kb += 2;
@@ -889,7 +1157,8 @@ public class NewProjectWizard extends Stage {
     boolean includeSave = chkSaveSystem != null && chkSaveSystem.isSelected();
     boolean includeSettings = chkSettingsMenu != null && chkSettingsMenu.isSelected();
     boolean includeDemoAssets = chkBundledDemoAssets != null && chkBundledDemoAssets.isSelected();
-    boolean includeSampleContent = chkSampleContent != null && chkSampleContent.isSelected();
+    boolean includeTutorialPack = chkTutorialPack != null && chkTutorialPack.isSelected();
+    String locale = cmbLocale == null || cmbLocale.getValue() == null || cmbLocale.getValue().isBlank() ? "en" : cmbLocale.getValue().trim();
 
     StringBuilder sb = new StringBuilder();
     sb.append(projectFolderName).append("/\n");
@@ -901,7 +1170,7 @@ public class NewProjectWizard extends Stage {
     sb.append("\u2502   \u251c\u2500\u2500 ui/\n");
     sb.append("\u2502   \u2502   \u2514\u2500\u2500 dialogue.layout\n");
     sb.append("\u2502   \u251c\u2500\u2500 locales/\n");
-    sb.append("\u2502   \u2502   \u2514\u2500\u2500 en.properties\n");
+    sb.append("\u2502   \u2502   \u2514\u2500\u2500 ").append(locale).append(".properties\n");
     sb.append("\u2502   \u251c\u2500\u2500 puppeteer/\n");
     sb.append("\u2502   \u2502   \u2514\u2500\u2500 clips/\n");
     boolean blankMenus = shouldStartBlankMenus();
@@ -954,8 +1223,8 @@ public class NewProjectWizard extends Stage {
     sb.append("\u2502   \u2502   \u251c\u2500\u2500 tutorial_hub.vns\n");
     sb.append("\u2502   \u2502   \u251c\u2500\u2500 branch_demo.vns\n");
     sb.append("\u2502   \u2502   \u2514\u2500\u2500 epilogue.vns\n");
-    if (includeSampleContent) {
-      sb.append("\u2502   \u251c\u2500\u2500 tutorial/\n");
+    sb.append("\u2502   \u251c\u2500\u2500 tutorial/\n");
+    if (includeTutorialPack) {
       sb.append("\u2502   \u2502   \u251c\u2500\u2500 01_dialogue_basics.vns\n");
       sb.append("\u2502   \u2502   \u251c\u2500\u2500 02_narration_and_pacing.vns\n");
       sb.append("\u2502   \u2502   \u251c\u2500\u2500 03_expressions_and_characters.vns\n");
@@ -972,6 +1241,8 @@ public class NewProjectWizard extends Stage {
       sb.append("\u2502   \u2502   \u251c\u2500\u2500 14_localization_and_textkeys.vns\n");
       sb.append("\u2502   \u2502   \u251c\u2500\u2500 15_ui_layout_and_theme.vns\n");
       sb.append("\u2502   \u2502   \u2514\u2500\u2500 16_testing_and_release.vns\n");
+    } else {
+      sb.append("\u2502   \u2502   \u2514\u2500\u2500 (empty until tutorial pack is added)\n");
     }
     sb.append("\u2502   \u251c\u2500\u2500 routes/\n");
     sb.append("\u2502   \u251c\u2500\u2500 definitions/\n");
@@ -1008,6 +1279,108 @@ public class NewProjectWizard extends Stage {
     sb.append("\u2514\u2500\u2500 jvn.project\n");
 
     return sb.toString();
+  }
+
+  private TreeItem<PreviewNode> buildStructurePreviewTree(String projectFolderName) {
+    String preview = buildStructurePreviewText(projectFolderName);
+    String[] lines = preview.split("\\R");
+    TreeItem<PreviewNode> root = null;
+    List<TreeItem<PreviewNode>> stack = new ArrayList<>();
+    for (String line : lines) {
+      if (line == null || line.isBlank()) continue;
+      int branchIndex = line.indexOf("├── ");
+      if (branchIndex < 0) branchIndex = line.indexOf("└── ");
+      if (branchIndex < 0) {
+        PreviewNode node = new PreviewNode(stripTrailingSlash(line.trim()), null, true, PreviewItemKind.ROOT);
+        root = new TreeItem<>(node);
+        stack.clear();
+        stack.add(root);
+        continue;
+      }
+
+      int depth = (branchIndex / 4) + 1;
+      while (stack.size() > depth) {
+        stack.remove(stack.size() - 1);
+      }
+      if (stack.isEmpty()) continue;
+
+      TreeItem<PreviewNode> item = new TreeItem<>(parsePreviewNode(line.substring(branchIndex + 4)));
+      stack.get(stack.size() - 1).getChildren().add(item);
+      stack.add(item);
+    }
+
+    if (root == null) {
+      root = new TreeItem<>(new PreviewNode(projectFolderName, null, true, PreviewItemKind.ROOT));
+    }
+    expandPreviewTree(root);
+    return root;
+  }
+
+  private PreviewNode parsePreviewNode(String rawContent) {
+    String content = rawContent == null ? "" : rawContent.stripTrailing();
+    String name = content;
+    String detail = null;
+    int detailIndex = findDetailStart(content);
+    if (detailIndex >= 0) {
+      name = content.substring(0, detailIndex).stripTrailing();
+      detail = content.substring(detailIndex).trim();
+    }
+    boolean directory = name.endsWith("/");
+    String displayName = directory ? stripTrailingSlash(name) : name;
+    PreviewItemKind kind = resolvePreviewItemKind(displayName, directory, detail);
+    return new PreviewNode(displayName, detail, directory, kind);
+  }
+
+  private int findDetailStart(String content) {
+    if (content == null) return -1;
+    for (int i = 0; i < content.length() - 2; i++) {
+      if (content.charAt(i) == ' '
+          && content.charAt(i + 1) == ' '
+          && content.substring(i).trim().startsWith("(")) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  private PreviewItemKind resolvePreviewItemKind(String name, boolean directory, String detail) {
+    if (name == null || name.isBlank()) return PreviewItemKind.DOCUMENT;
+    if (name.startsWith("(")) return PreviewItemKind.NOTE;
+    if (directory) return PreviewItemKind.FOLDER;
+    String lower = name.toLowerCase(Locale.ROOT);
+    if (lower.endsWith(".vns")) return PreviewItemKind.SCRIPT;
+    if (lower.endsWith(".menu") || lower.endsWith(".registry")) return PreviewItemKind.MENU;
+    if (lower.endsWith(".layout")) return PreviewItemKind.LAYOUT;
+    if (lower.endsWith(".style") || lower.endsWith(".theme")) return PreviewItemKind.STYLE;
+    if (lower.endsWith(".timeline")) return PreviewItemKind.TIMELINE;
+    return PreviewItemKind.DOCUMENT;
+  }
+
+  private Region previewIcon(PreviewNode node) {
+    return switch (node.kind) {
+      case ROOT -> CssIcon.folder("#d5b36a");
+      case FOLDER -> CssIcon.folder("#cbb27b");
+      case SCRIPT -> CssIcon.speech("#8bcf98");
+      case MENU -> CssIcon.list("#dccba2");
+      case LAYOUT -> CssIcon.grid("#8ec7dd");
+      case STYLE -> CssIcon.palette("#d6b4ff");
+      case TIMELINE -> CssIcon.play("#dd9a48");
+      case NOTE -> CssIcon.warning("#efbf82");
+      case DOCUMENT -> CssIcon.document("#c6d1dc");
+    };
+  }
+
+  private void expandPreviewTree(TreeItem<PreviewNode> item) {
+    if (item == null) return;
+    item.setExpanded(true);
+    for (TreeItem<PreviewNode> child : item.getChildren()) {
+      expandPreviewTree(child);
+    }
+  }
+
+  private String stripTrailingSlash(String value) {
+    if (value == null || value.isBlank()) return value;
+    return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
   }
 
   private long estimateBundledDemoAssetsKb() {
@@ -1062,9 +1435,13 @@ public class NewProjectWizard extends Stage {
       return;
     }
 
-    String folderName = sanitizeName(displayName);
+    String folderName = resolveFolderName();
     if (folderName.isBlank()) {
-      showError("Project name must contain at least one letter or number.");
+      showError("Please enter a folder name.");
+      return;
+    }
+    if (!isSafeFolderName(folderName)) {
+      showError("Folder name can only use letters, numbers, dot, underscore, or hyphen.");
       return;
     }
 
@@ -1105,6 +1482,8 @@ public class NewProjectWizard extends Stage {
     boolean includeSave = chkSaveSystem.isSelected();
     boolean includeSettings = chkSettingsMenu.isSelected();
     boolean includeDemoAssets = chkBundledDemoAssets != null && chkBundledDemoAssets.isSelected();
+    boolean includeStarterStory = chkStarterStory != null && chkStarterStory.isSelected();
+    boolean includeTutorialPack = chkTutorialPack != null && chkTutorialPack.isSelected();
     boolean gitRequested = shouldSetupGit();
     boolean gitCommitRequested = shouldCreateInitialCommit();
     boolean gitEnabled = false;
@@ -1123,9 +1502,15 @@ public class NewProjectWizard extends Stage {
     }
 
     createCharactersScript(dir, includeDemoAssets, useLayeredLavenderDemo);
-    if (chkSampleContent.isSelected()) createSampleScript(dir, displayName, includeDemoAssets, useLayeredLavenderDemo);
-    else createEmptyScript(dir, displayName, includeDemoAssets, useLayeredLavenderDemo);
-    createStoryTimeline(dir, displayName, chkSampleContent.isSelected());
+    createStoryScripts(
+        dir,
+        displayName,
+        includeStarterStory,
+        includeTutorialPack,
+        includeDemoAssets,
+        useLayeredLavenderDemo
+    );
+    createStoryTimeline(dir, displayName, includeTutorialPack);
 
     createSettings(dir);
     createDialogueLayout(dir);
@@ -1442,11 +1827,16 @@ public class NewProjectWizard extends Stage {
     manifest.setProperty("width", String.valueOf(width));
     manifest.setProperty("height", String.valueOf(height));
     manifest.setProperty("display.customResolution", Boolean.toString(chkCustomResolution != null && chkCustomResolution.isSelected()));
+    manifest.setProperty("scaffold.template", resolveProjectTemplateFromSelections().name().toLowerCase(Locale.ROOT));
     manifest.setProperty("theme", cmbTheme == null || cmbTheme.getValue() == null ? "Dark Elegant" : cmbTheme.getValue());
     manifest.setProperty("runtime.ui", cmbRuntimeUi == null || cmbRuntimeUi.getValue() == null ? "fx" : cmbRuntimeUi.getValue());
     manifest.setProperty("runtime.audio", cmbAudioBackend == null || cmbAudioBackend.getValue() == null ? "auto" : cmbAudioBackend.getValue());
     manifest.setProperty("runtime.locale", cmbLocale == null || cmbLocale.getValue() == null ? "en" : cmbLocale.getValue());
-    manifest.setProperty("feature.sampleContent", Boolean.toString(chkSampleContent.isSelected()));
+    boolean starterStory = chkStarterStory != null && chkStarterStory.isSelected();
+    boolean tutorialPack = chkTutorialPack != null && chkTutorialPack.isSelected();
+    manifest.setProperty("feature.sampleContent", Boolean.toString(starterStory || tutorialPack));
+    manifest.setProperty("feature.starterStory", Boolean.toString(starterStory));
+    manifest.setProperty("feature.tutorialPack", Boolean.toString(tutorialPack));
     manifest.setProperty("feature.demoAssets", Boolean.toString(chkBundledDemoAssets != null && chkBundledDemoAssets.isSelected()));
     manifest.setProperty("feature.titleScreen", Boolean.toString(chkTitleScreen.isSelected() && includeMenuPack));
     manifest.setProperty("feature.menuProfiles", Boolean.toString(includeMenuPack));
@@ -1504,15 +1894,51 @@ public class NewProjectWizard extends Stage {
     }
   }
 
-  private void createSampleScript(
+  private void createStoryScripts(
+      File dir,
+      String name,
+      boolean includeStarterStory,
+      boolean includeTutorialPack,
+      boolean includeDemoAssets,
+      boolean useLayeredLavenderDemo
+  ) throws Exception {
+    if (includeTutorialPack) {
+      createTutorialHubScript(dir, name, includeDemoAssets);
+      createTutorialTopicScripts(dir, name, includeDemoAssets, useLayeredLavenderDemo);
+    } else {
+      createBlankTutorialHubScript(dir, name, includeDemoAssets, useLayeredLavenderDemo);
+    }
+
+    if (includeStarterStory) {
+      createSampleArcEntryAndBranchScripts(dir, name, includeDemoAssets);
+    } else {
+      createBlankArcEntryAndBranchScripts(dir, name, includeDemoAssets, useLayeredLavenderDemo);
+    }
+  }
+
+  private void createBlankTutorialHubScript(
       File dir,
       String name,
       boolean includeDemoAssets,
       boolean useLayeredLavenderDemo
   ) throws Exception {
-    createTutorialHubScript(dir, name, includeDemoAssets);
-    createTutorialTopicScripts(dir, name, includeDemoAssets, useLayeredLavenderDemo);
-    createSampleArcEntryAndBranchScripts(dir, name, includeDemoAssets);
+    java.util.Map<String, String> tokens = new java.util.LinkedHashMap<>();
+    tokens.put("PROJECT_NAME", name);
+    tokens.put("SCENARIO_PREFIX", sanitizeName(name).toLowerCase(Locale.ROOT));
+    tokens.put("CHARACTERS_INCLUDE", CHARACTERS_INCLUDE_PATH);
+    tokens.put("LAVENDER_EXPR", includeDemoAssets && useLayeredLavenderDemo ? "idle" : "neutral");
+    tokens.put("TUTORIAL_TARGET", ARC_TUTORIAL_HUB);
+    tokens.put("BRANCH_TARGET", ARC_BRANCH_DEMO);
+    tokens.put("EPILOGUE_TARGET", ARC_EPILOGUE);
+    tokens.put("STORY_TUTORIAL_SCRIPT_PATH", STORY_TUTORIAL_SCRIPT_PATH);
+    tokens.put("STORY_BRANCH_SCRIPT_PATH", STORY_BRANCH_SCRIPT_PATH);
+    tokens.put("STORY_EPILOGUE_SCRIPT_PATH", STORY_EPILOGUE_SCRIPT_PATH);
+    writeScaffoldTemplateScript(
+        dir,
+        STORY_TUTORIAL_SCRIPT_PATH,
+        "scripts/story/tutorial_hub_blank.vns",
+        tokens
+    );
   }
 
   private void createTutorialHubScript(File dir, String name, boolean includeDemoAssets) throws Exception {
@@ -1644,20 +2070,22 @@ public class NewProjectWizard extends Stage {
     return rendered;
   }
 
-  private void createEmptyScript(File dir, String name, boolean includeDemoAssets, boolean useLayeredLavenderDemo) throws Exception {
+  private void createBlankArcEntryAndBranchScripts(
+      File dir,
+      String name,
+      boolean includeDemoAssets,
+      boolean useLayeredLavenderDemo
+  ) throws Exception {
     String lavenderExpr = includeDemoAssets && useLayeredLavenderDemo ? "idle" : "neutral";
-    String tutorialTarget = ARC_TUTORIAL_HUB;
-    String branchTarget = ARC_BRANCH_DEMO;
-    String epilogueTarget = ARC_EPILOGUE;
     String scenarioPrefix = sanitizeName(name).toLowerCase(Locale.ROOT);
     java.util.Map<String, String> tokens = new java.util.LinkedHashMap<>();
     tokens.put("PROJECT_NAME", name);
     tokens.put("SCENARIO_PREFIX", scenarioPrefix);
     tokens.put("CHARACTERS_INCLUDE", CHARACTERS_INCLUDE_PATH);
     tokens.put("LAVENDER_EXPR", lavenderExpr);
-    tokens.put("TUTORIAL_TARGET", tutorialTarget);
-    tokens.put("BRANCH_TARGET", branchTarget);
-    tokens.put("EPILOGUE_TARGET", epilogueTarget);
+    tokens.put("TUTORIAL_TARGET", ARC_TUTORIAL_HUB);
+    tokens.put("BRANCH_TARGET", ARC_BRANCH_DEMO);
+    tokens.put("EPILOGUE_TARGET", ARC_EPILOGUE);
     tokens.put("STORY_TUTORIAL_SCRIPT_PATH", STORY_TUTORIAL_SCRIPT_PATH);
     tokens.put("STORY_BRANCH_SCRIPT_PATH", STORY_BRANCH_SCRIPT_PATH);
     tokens.put("STORY_EPILOGUE_SCRIPT_PATH", STORY_EPILOGUE_SCRIPT_PATH);
@@ -1858,7 +2286,8 @@ public class NewProjectWizard extends Stage {
 
   private void createLocaleStub(File dir) throws Exception {
     String locale = cmbLocale == null || cmbLocale.getValue() == null ? "en" : cmbLocale.getValue();
-    boolean hasSample = chkSampleContent != null && chkSampleContent.isSelected();
+    boolean hasSample = (chkStarterStory != null && chkStarterStory.isSelected())
+        || (chkTutorialPack != null && chkTutorialPack.isSelected());
     boolean hasMenus = shouldCreateMenuPack();
     String fileName = "config/locales/" + locale + ".properties";
     try (FileWriter fw = new FileWriter(new File(dir, fileName))) {
@@ -2221,8 +2650,10 @@ public class NewProjectWizard extends Stage {
       fw.write("# " + name + "\n\n");
       fw.write("A visual novel project scaffolded by the JVN editor wizard.\n\n");
       if (!txtAuthor.getText().isBlank()) fw.write("**Author:** " + txtAuthor.getText().trim() + "\n\n");
+      fw.write("**Template:** " + resolveProjectTemplateFromSelections().label() + "\n\n");
       fw.write("## Enabled Modules\n\n");
-      fw.write("- Sample arc walkthrough: " + (chkSampleContent.isSelected() ? "yes" : "no") + "\n");
+      fw.write("- Starter story flow: " + ((chkStarterStory != null && chkStarterStory.isSelected()) ? "yes" : "no") + "\n");
+      fw.write("- Guided tutorial pack: " + ((chkTutorialPack != null && chkTutorialPack.isSelected()) ? "yes" : "no") + "\n");
       fw.write("- Bundled demo assets: " + (includeDemoAssets ? "yes (`assets/demo/...`)" : "no") + "\n");
       fw.write("- Menu profile pack: " + (includeMenuPack ? "yes" : "no") + "\n");
       fw.write("- Blank menus (custom): " + (shouldStartBlankMenus() ? "yes" : "no") + "\n");
@@ -2258,6 +2689,9 @@ public class NewProjectWizard extends Stage {
       fw.write("- Timeline: `" + TIMELINE_PATH + "`\n");
       fw.write("- Settings: `" + SETTINGS_PATH + "`\n");
       fw.write("- Dialogue layout: `" + DIALOGUE_LAYOUT_PATH + "`\n\n");
+      if (chkTutorialPack != null && chkTutorialPack.isSelected()) {
+        fw.write("- Tutorial lessons: `scripts/tutorial/*.vns`\n\n");
+      }
       if (includeMenuPack) {
         fw.write("- Menu registry: `" + MENU_REGISTRY_PATH + "`\n");
         fw.write("- Menu theme: `" + MENU_THEME_PATH + "`\n\n");
@@ -2271,7 +2705,7 @@ public class NewProjectWizard extends Stage {
 
       fw.write("## Project Structure\n\n");
       fw.write("```\n");
-      fw.write(buildStructurePreviewText(sanitizeName(name)));
+      fw.write(buildStructurePreviewText(dir.getName()));
       fw.write("```\n\n");
 
       fw.write("## First Steps\n\n");
@@ -2281,6 +2715,9 @@ public class NewProjectWizard extends Stage {
       fw.write(step++ + ". Keep shared character declarations in `" + CHARACTERS_SCRIPT_PATH + "` and import with `@include " + CHARACTERS_INCLUDE_PATH + "`.\n");
       fw.write(step++ + ". Open `" + TIMELINE_PATH + "` and inspect/edit arc links.\n");
       fw.write(step++ + ". Edit `" + DIALOGUE_LAYOUT_PATH + "` in text first, then run runtime to validate.\n");
+      if (chkTutorialPack != null && chkTutorialPack.isSelected()) {
+        fw.write(step++ + ". Use `scripts/story/tutorial_hub.vns` as the launch point for the guided lesson scripts in `scripts/tutorial/`.\n");
+      }
       if (includeMenuPack) {
         fw.write(step++ + ". Edit `config/menu/menus/*.menu`, `config/menu/layouts/*.layout`, and `config/menu/styles/*.style` in text first.\n");
         fw.write(step++ + ". Use visual Layout Studio tools only when needed (bounds drawing, color picking, quick sanity preview).\n");
@@ -2293,7 +2730,7 @@ public class NewProjectWizard extends Stage {
     }
   }
 
-  private String sanitizeName(String name) {
+  static String sanitizeName(String name) {
     if (name == null) return "";
     String s = name.trim().replaceAll("[^a-zA-Z0-9._-]", "_");
     s = s.replaceAll("_+", "_");
@@ -2306,7 +2743,7 @@ public class NewProjectWizard extends Stage {
     Spinner<Integer> spinner = new Spinner<>(new SpinnerValueFactory.IntegerSpinnerValueFactory(min, max, initial, step));
     spinner.setEditable(true);
     spinner.setPrefWidth(160);
-    spinner.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: " + TEXT_PRIMARY + ";");
+    addStyleClasses(spinner, "new-project-wizard-spinner");
     spinner.valueProperty().addListener((o, ov, nv) -> updateDerivedFields());
     return spinner;
   }
@@ -2315,9 +2752,46 @@ public class NewProjectWizard extends Stage {
     Spinner<Double> spinner = new Spinner<>(new SpinnerValueFactory.DoubleSpinnerValueFactory(min, max, initial, step));
     spinner.setEditable(true);
     spinner.setPrefWidth(160);
-    spinner.setStyle("-fx-background-color: " + BG_FIELD + "; -fx-text-fill: " + TEXT_PRIMARY + ";");
+    addStyleClasses(spinner, "new-project-wizard-spinner");
     spinner.valueProperty().addListener((o, ov, nv) -> updateDerivedFields());
     return spinner;
+  }
+
+  private static void addStyleClasses(Styleable styleable, String... styleClasses) {
+    if (styleable == null || styleClasses == null) return;
+    for (String styleClass : styleClasses) {
+      if (styleClass == null || styleClass.isBlank()) continue;
+      if (!styleable.getStyleClass().contains(styleClass)) {
+        styleable.getStyleClass().add(styleClass);
+      }
+    }
+  }
+
+  private static void styleField(javafx.scene.control.Control control) {
+    addStyleClasses(control, "layout-launcher-field");
+  }
+
+  private static void stylePrimaryButton(Button button) {
+    addStyleClasses(button, "welcome-action-button-primary", "new-project-wizard-action-button");
+  }
+
+  private static void styleSecondaryButton(Button button) {
+    addStyleClasses(button, "layout-launcher-button", "new-project-wizard-action-button");
+  }
+
+  private static void setFieldState(javafx.scene.control.Control control, String styleClass) {
+    if (control == null) return;
+    control.getStyleClass().removeAll(STYLE_FIELD_VALID, STYLE_FIELD_ERROR);
+    if (styleClass != null && !styleClass.isBlank()) {
+      addStyleClasses(control, styleClass);
+    }
+  }
+
+  private void setValidationMessage(boolean ready, String message) {
+    lblValidation.setText(message);
+    lblValidation.getStyleClass().removeAll(STYLE_VALIDATION_READY, STYLE_VALIDATION_ERROR);
+    addStyleClasses(lblValidation, ready ? STYLE_VALIDATION_READY : STYLE_VALIDATION_ERROR);
+    btnCreate.setDisable(!ready);
   }
 
   private static void tip(javafx.scene.control.Control control, String text) {

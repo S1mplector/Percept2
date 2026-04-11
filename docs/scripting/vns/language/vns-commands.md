@@ -584,6 +584,68 @@ Special runtime variables control character rendering:
 
 See [Variables & Conditions](vns-variables.md) for detailed documentation.
 
+### Persistent Variables
+
+`[persistent]` manages cross-save persistent variables that survive across playthroughs.
+
+```vns
+[persistent set endings_seen 1]
+[persistent inc endings_seen]
+[persistent dec endings_seen]
+[persistent flag true_route_unlocked]
+[persistent unflag true_route_unlocked]
+[persistent toggle new_game_plus]
+[persistent clear endings_seen]
+[persistent load endings_seen]          # copy persistent → session variable
+[persistent load endings_seen my_var]   # copy persistent → named session variable
+[persistent store endings_seen]         # copy session variable → persistent
+[persistent store endings_seen my_var]  # copy named session variable → persistent
+[persistent reload]                     # reload persistent store from disk
+[persistent reset]                      # clear all persistent data
+```
+
+Persistent values are automatically mirrored into the session variable map as `persistent.<key>`, so you can read them in conditions:
+
+```vns
+[if persistent.endings_seen >= 3 goto true_route]
+```
+
+See [Variables & Conditions](vns-variables.md) for detailed documentation.
+
+---
+
+## Stage Lighting
+
+### `[stage <presetId>]`
+
+Activates a stage lighting preset loaded via `@stagepreset`. The preset controls scene lighting, background grading, occluders, and response zones at runtime.
+
+```vns
+[stage sunset_park]
+[stage night_cave]
+[stage preset=indoor_warm]
+```
+
+### `[stage clear|off|none]`
+
+Deactivates the current stage preset.
+
+```vns
+[stage clear]
+[stage off]
+[stage none]
+```
+
+**Options:**
+
+| Option | Aliases | Description |
+|--------|---------|-------------|
+| `preset` | `id`, `name`, `mode` | The stage preset ID to activate |
+
+If only a bare token is provided (no `key=value`), it is used as the preset ID directly.
+
+See [Directives](vns-directives.md) for `@stagepreset` declaration syntax.
+
 ---
 
 ## Conditionals

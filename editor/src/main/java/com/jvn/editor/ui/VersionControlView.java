@@ -98,17 +98,22 @@ public class VersionControlView extends BorderPane {
   private boolean disposed;
 
   public VersionControlView() {
-    titleLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: 700;");
-    repoLabel.setStyle("-fx-text-fill: #9aa0a6;");
-    toolLabel.setStyle("-fx-text-fill: #9aa0a6;");
-    conflictLabel.setStyle("-fx-text-fill: #f38ba8; -fx-font-weight: bold;");
+    getStyleClass().add("version-control-root");
+    titleLabel.getStyleClass().add("vcs-title");
+    repoLabel.getStyleClass().add("vcs-muted");
+    toolLabel.getStyleClass().add("vcs-muted");
+    conflictLabel.getStyleClass().add("vcs-conflict");
     conflictLabel.setVisible(false);
     conflictLabel.setManaged(false);
-    remoteLabel.setStyle("-fx-text-fill: #f0b673; -fx-font-size: 11px;");
-    btnConfigureRemote.setStyle("-fx-font-size: 10px; -fx-padding: 2 8 2 8;");
+    remoteLabel.getStyleClass().addAll("vcs-remote", "vcs-remote-missing");
+    btnConfigureRemote.getStyleClass().add("vcs-text-button");
     btnConfigureRemote.setOnAction(e -> showAddRemoteDialog());
-    initHintLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 11px;");
+    initHintLabel.getStyleClass().add("vcs-banner-copy");
     initHintLabel.setWrapText(true);
+    txtCommitMessage.getStyleClass().add("vcs-text-field");
+    cbBranch.getStyleClass().add("vcs-combo");
+    listChanges.getStyleClass().add("vcs-list");
+    txtLog.getStyleClass().add("vcs-log");
 
     chkInitCommit.setSelected(true);
 
@@ -176,26 +181,26 @@ public class VersionControlView extends BorderPane {
     // Init controls - styled as prominent warning banner
     HBox initOptionsRow = new HBox(12, chkInitCommit);
     HBox initActionRow = new HBox(6, btnInitialize);
-    initTitleLabel.setStyle("-fx-text-fill: #f0b673; -fx-font-weight: bold; -fx-font-size: 12px;");
+    initTitleLabel.getStyleClass().addAll("vcs-banner-title", "vcs-banner-title-warn");
+    initBox.getStyleClass().addAll("vcs-banner", "vcs-banner-warn");
     initBox.getChildren().addAll(initTitleLabel, initHintLabel, initOptionsRow, initActionRow);
-    initBox.setStyle("-fx-background-color: rgba(240, 182, 115, 0.12); -fx-padding: 10; -fx-background-radius: 6; -fx-border-color: #f0b673; -fx-border-radius: 6; -fx-border-width: 1;");
 
     // Setup guide banner - shown when repo exists but no remote configured
     Label setupTitle = new Label("\u2699 Setup Required");
-    setupTitle.setStyle("-fx-text-fill: #4da3ff; -fx-font-weight: bold; -fx-font-size: 12px;");
+    setupTitle.getStyleClass().addAll("vcs-banner-title", "vcs-banner-title-info");
     Label setupDesc = new Label("Your project needs a remote repository to push, pull, and collaborate.");
-    setupDesc.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
+    setupDesc.getStyleClass().add("vcs-banner-copy");
     setupDesc.setWrapText(true);
 
     // Option A: Create GitHub repo directly (if gh CLI available)
     Label optionALabel = new Label("Option A — Create a new GitHub repository:");
-    optionALabel.setStyle("-fx-text-fill: #e6e6e6; -fx-font-size: 11px; -fx-font-weight: bold;");
+    optionALabel.getStyleClass().add("vcs-option-label");
     ComboBox<String> cbVisibility = new ComboBox<>(FXCollections.observableArrayList("Private", "Public"));
     cbVisibility.setValue("Private");
-    cbVisibility.setStyle("-fx-font-size: 11px;");
+    cbVisibility.getStyleClass().add("vcs-combo");
     cbVisibility.setMaxWidth(100);
     Button btnCreateGitHub = new Button("Create GitHub Repository");
-    btnCreateGitHub.setStyle("-fx-background-color: #238636; -fx-text-fill: #ffffff; -fx-font-weight: bold; -fx-padding: 6 16 6 16; -fx-background-radius: 4;");
+    btnCreateGitHub.getStyleClass().addAll("vcs-action-button", "vcs-action-button-success");
     btnCreateGitHub.setOnAction(e -> {
       boolean isPrivate = "Private".equals(cbVisibility.getValue());
       showCreateGitHubRepoDialog(isPrivate);
@@ -203,24 +208,24 @@ public class VersionControlView extends BorderPane {
     HBox ghRow = new HBox(8, cbVisibility, btnCreateGitHub);
     ghRow.setAlignment(Pos.CENTER_LEFT);
     Label ghHint = new Label("Requires GitHub CLI (gh). Installs remote + pushes in one step.");
-    ghHint.setStyle("-fx-text-fill: #666666; -fx-font-size: 10px;");
+    ghHint.getStyleClass().add("vcs-hint");
     VBox optionA = new VBox(4, optionALabel, ghRow, ghHint);
 
     // Option B: Manually connect existing repo
     Label optionBLabel = new Label("Option B — Connect an existing remote repository:");
-    optionBLabel.setStyle("-fx-text-fill: #e6e6e6; -fx-font-size: 11px; -fx-font-weight: bold;");
+    optionBLabel.getStyleClass().add("vcs-option-label");
     Button btnSetupRemote = new Button("Connect to Remote Repository");
-    btnSetupRemote.setStyle("-fx-background-color: #4da3ff; -fx-text-fill: #ffffff; -fx-font-weight: bold; -fx-padding: 6 16 6 16; -fx-background-radius: 4;");
+    btnSetupRemote.getStyleClass().addAll("vcs-action-button", "vcs-action-button-accent");
     btnSetupRemote.setOnAction(e -> showAddRemoteDialog());
     Label manualHint = new Label("Already created a repo on GitHub/GitLab/Bitbucket? Paste its URL.");
-    manualHint.setStyle("-fx-text-fill: #666666; -fx-font-size: 10px;");
+    manualHint.getStyleClass().add("vcs-hint");
     VBox optionB = new VBox(4, optionBLabel, btnSetupRemote, manualHint);
 
     Label setupSkip = new Label("You can also work offline and add a remote later.");
-    setupSkip.setStyle("-fx-text-fill: #555555; -fx-font-size: 10px;");
+    setupSkip.getStyleClass().add("vcs-hint");
 
+    setupBox.getStyleClass().addAll("vcs-banner", "vcs-banner-info");
     setupBox.getChildren().addAll(setupTitle, setupDesc, optionA, optionB, setupSkip);
-    setupBox.setStyle("-fx-background-color: rgba(77, 163, 255, 0.10); -fx-padding: 12; -fx-background-radius: 6; -fx-border-color: #4da3ff; -fx-border-radius: 6; -fx-border-width: 1;");
     setupBox.setVisible(false);
     setupBox.setManaged(false);
 
@@ -244,6 +249,7 @@ public class VersionControlView extends BorderPane {
 
     // Header section
     VBox statusBox = new VBox(2, branchLabel, remoteRow, syncLabel, summaryLabel, conflictLabel);
+    statusBox.getStyleClass().add("vcs-status-stack");
 
     VBox top = new VBox(
         6,
@@ -257,13 +263,15 @@ public class VersionControlView extends BorderPane {
         branchRow,
         commitRow
     );
+    top.getStyleClass().add("vcs-top");
     top.setPadding(new Insets(8));
 
     Label changesLabel = new Label("Changes");
-    changesLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 11px; -fx-text-fill: #e6e6e6;");
+    changesLabel.getStyleClass().add("vcs-section-label");
     Label logLabel = new Label("Log");
-    logLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 11px; -fx-text-fill: #e6e6e6;");
+    logLabel.getStyleClass().add("vcs-section-label");
     VBox center = new VBox(4, changesLabel, fileActionRow, listChanges, logLabel, txtLog);
+    center.getStyleClass().add("vcs-center");
     center.setPadding(new Insets(0, 10, 10, 10));
     VBox.setVgrow(listChanges, Priority.ALWAYS);
 
@@ -357,15 +365,16 @@ public class VersionControlView extends BorderPane {
             summaryLabel.setText("Status: " + status.entries().size() + " changed files");
           }
           // Update remote status and setup guide
+          remoteLabel.getStyleClass().removeAll("vcs-remote-configured", "vcs-remote-missing");
           if (hasRemote && remoteUrl != null) {
             remoteLabel.setText("Remote: " + remoteUrl);
-            remoteLabel.setStyle("-fx-text-fill: #9aa0a6; -fx-font-size: 11px;");
+            remoteLabel.getStyleClass().add("vcs-remote-configured");
             btnConfigureRemote.setText("Change");
             setupBox.setVisible(false);
             setupBox.setManaged(false);
           } else {
             remoteLabel.setText("Remote: not configured");
-            remoteLabel.setStyle("-fx-text-fill: #f0b673; -fx-font-size: 11px;");
+            remoteLabel.getStyleClass().add("vcs-remote-missing");
             btnConfigureRemote.setText("Add Remote");
             setupBox.setVisible(true);
             setupBox.setManaged(true);
@@ -659,7 +668,7 @@ public class VersionControlView extends BorderPane {
     Label visLabel = new Label(isPrivate
         ? "\uD83D\uDD12 This repository will be private — only you and collaborators can see it."
         : "\uD83C\uDF10 This repository will be public — anyone can see it.");
-    visLabel.setStyle("-fx-text-fill: " + (isPrivate ? "#8bcf98" : "#f0b673") + "; -fx-font-size: 10px;");
+    visLabel.getStyleClass().addAll("vcs-dialog-visibility", isPrivate ? "vcs-dialog-visibility-private" : "vcs-dialog-visibility-public");
     visLabel.setWrapText(true);
     visLabel.setMaxWidth(350);
 
@@ -823,25 +832,24 @@ public class VersionControlView extends BorderPane {
       super.updateItem(item, empty);
       if (empty || item == null) {
         setText(null);
-        setStyle("");
+        getStyleClass().removeAll("vcs-status-untracked", "vcs-status-modified", "vcs-status-added", "vcs-status-deleted", "vcs-status-renamed");
         return;
       }
 
       setText(item.code() + "  " + item.path());
+      getStyleClass().removeAll("vcs-status-untracked", "vcs-status-modified", "vcs-status-added", "vcs-status-deleted", "vcs-status-renamed");
 
       String code = item.code().toUpperCase(Locale.ROOT);
       if (item.isUntracked()) {
-        setStyle("-fx-text-fill: #8bd17c;");
+        getStyleClass().add("vcs-status-untracked");
       } else if (code.contains("M")) {
-        setStyle("-fx-text-fill: #66d9ef;");
+        getStyleClass().add("vcs-status-modified");
       } else if (code.contains("A")) {
-        setStyle("-fx-text-fill: #8bd17c;");
+        getStyleClass().add("vcs-status-added");
       } else if (code.contains("D")) {
-        setStyle("-fx-text-fill: #f38ba8;");
+        getStyleClass().add("vcs-status-deleted");
       } else if (code.contains("R") || code.contains("C")) {
-        setStyle("-fx-text-fill: #f0b673;");
-      } else {
-        setStyle("");
+        getStyleClass().add("vcs-status-renamed");
       }
     }
   }
