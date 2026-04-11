@@ -65,6 +65,7 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
+import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
@@ -95,6 +96,7 @@ public class FxLauncher extends Application {
   private ActionMap actionMap;
   private Cursor configuredCursor = Cursor.DEFAULT;
   private javafx.scene.Scene fxScene;
+  private StackPane runtimeLoadingOverlay;
   private File runtimeProjectRoot;
   private ProjectHotReloadTracker hotReloadTracker;
   private double mouseX = 0;
@@ -108,6 +110,7 @@ public class FxLauncher extends Application {
   private long lastPerfHudUpdateNs = -1L;
   private double smoothedProcessCpu = Double.NaN;
   private double smoothedFps = Double.NaN;
+  private boolean firstFrameRendered;
 
   public static void launch(Engine eng) {
     launch(eng, false);
@@ -143,6 +146,8 @@ public class FxLauncher extends Application {
     this.canvas = new Canvas(width, height);
     this.phoneRenderer = new PhoneRenderer();
     root.getChildren().addAll(this.canvas, this.phoneRenderer);
+    this.runtimeLoadingOverlay = createRuntimeLoadingOverlay();
+    root.getChildren().add(this.runtimeLoadingOverlay);
     this.osBean = ManagementFactory.getPlatformMXBean(OperatingSystemMXBean.class);
     if (showPerfHud) {
       this.perfHud = createPerfHud();
@@ -467,10 +472,40 @@ public class FxLauncher extends Application {
           } else {
             drawDefaultScene(w, h);
           }
+          hideRuntimeLoadingOverlayAfterFirstFrame();
         }
       }
     };
     timer.start();
+  }
+
+  private StackPane createRuntimeLoadingOverlay() {
+    ProgressIndicator indicator = new ProgressIndicator();
+    indicator.setMouseTransparent(true);
+    indicator.setMaxSize(42, 42);
+    indicator.setStyle(
+        "-fx-progress-color: #e8d8ad;"
+            + "-fx-background-color: rgba(10, 10, 10, 0.72);"
+            + "-fx-background-radius: 8;"
+            + "-fx-padding: 10;");
+
+    StackPane overlay = new StackPane(indicator);
+    overlay.setMouseTransparent(true);
+    overlay.setPickOnBounds(false);
+    overlay.setAlignment(Pos.CENTER);
+    overlay.setStyle("-fx-background-color: rgba(0, 0, 0, 0.35);");
+    return overlay;
+  }
+
+  private void hideRuntimeLoadingOverlayAfterFirstFrame() {
+    if (firstFrameRendered) return;
+    firstFrameRendered = true;
+    if (runtimeLoadingOverlay == null) return;
+    runtimeLoadingOverlay.setVisible(false);
+    if (runtimeLoadingOverlay.getParent() instanceof StackPane parent) {
+      parent.getChildren().remove(runtimeLoadingOverlay);
+    }
+    runtimeLoadingOverlay = null;
   }
 
   private HBox createPerfHud() {
