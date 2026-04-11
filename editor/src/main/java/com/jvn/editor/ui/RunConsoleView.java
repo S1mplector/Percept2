@@ -17,10 +17,7 @@ import java.util.regex.Pattern;
 
 import com.sun.management.OperatingSystemMXBean;
 
-import javafx.animation.Animation;
 import javafx.animation.AnimationTimer;
-import javafx.animation.KeyFrame;
-import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
@@ -34,6 +31,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.control.SeparatorMenuItem;
@@ -73,6 +71,7 @@ public class RunConsoleView extends BorderPane {
 
     private final TextFlow outputFlow = new TextFlow();
     private final ScrollPane scrollPane = new ScrollPane(outputFlow);
+    private final ProgressIndicator launchProgressIndicator = new ProgressIndicator();
     private final Label launchActivityLabel = new Label();
     private final Label launchDetailLabel = new Label();
     private final Label stateLabel = new Label();
@@ -117,9 +116,7 @@ public class RunConsoleView extends BorderPane {
     private long lastFrameNs = -1L;
     private double smoothedProcessCpu = Double.NaN;
     private double smoothedFps = Double.NaN;
-    private final Timeline launchSpinner;
     private final Set<String> compiledModules = Collections.synchronizedSet(new LinkedHashSet<>());
-    private int spinnerFrameIndex = 0;
     private volatile boolean sawGradleBootstrap = false;
     private volatile boolean compileMilestoneAnnounced = false;
     private volatile boolean launchMilestoneAnnounced = false;
@@ -179,7 +176,6 @@ public class RunConsoleView extends BorderPane {
     private static final long PERF_HUD_UPDATE_INTERVAL_NS = 300_000_000L;
     private static final double PERF_CPU_SMOOTH_ALPHA = 0.28;
     private static final double PERF_FPS_SMOOTH_ALPHA = 0.20;
-    private static final String[] SPINNER_FRAMES = {"|", "/", "-", "\\"};
     private static final Pattern COMPILE_TASK = Pattern.compile("^> Task (:[^\\s]+):compileJava(?:\\s+.*)?$");
 
     public RunConsoleView(String title) {
@@ -229,9 +225,6 @@ public class RunConsoleView extends BorderPane {
         };
         perfHudTimer.start();
 
-        launchSpinner = new Timeline(new KeyFrame(javafx.util.Duration.millis(110), e -> advanceSpinner()));
-        launchSpinner.setCycleCount(Animation.INDEFINITE);
-
         setState(EngineState.BUILDING);
         refreshLaunchBanner();
     }
@@ -271,7 +264,6 @@ public class RunConsoleView extends BorderPane {
         warnCount = 0;
         rawLineBuffer.clear();
         compiledModules.clear();
-        spinnerFrameIndex = 0;
         sawGradleBootstrap = false;
         compileMilestoneAnnounced = false;
         launchMilestoneAnnounced = false;
@@ -318,11 +310,8 @@ public class RunConsoleView extends BorderPane {
             stopBtn.setDisable(state == EngineState.STOPPED || state == EngineState.FAILED);
             runBtn.setDisable(processStarter == null || !(state == EngineState.STOPPED || state == EngineState.FAILED));
             boolean spinnerActive = state == EngineState.BUILDING || state == EngineState.STARTING;
-            if (spinnerActive) {
-                if (launchSpinner.getStatus() != Animation.Status.RUNNING) launchSpinner.play();
-            } else {
-                launchSpinner.stop();
-            }
+            launchProgressIndicator.setVisible(spinnerActive);
+            launchProgressIndicator.setManaged(spinnerActive);
             refreshLaunchBanner();
         });
     }
@@ -469,7 +458,15 @@ public class RunConsoleView extends BorderPane {
     }
 
     private VBox createLaunchBanner() {
-        VBox box = new VBox(4, launchActivityLabel, launchDetailLabel);
+        launchProgressIndicator.setMaxSize(18, 18);
+        launchProgressIndicator.setPrefSize(18, 18);
+        launchProgressIndicator.setMouseTransparent(true);
+        launchProgressIndicator.setStyle("-fx-progress-color: #e8d8ad;");
+        VBox labels = new VBox(4, launchActivityLabel, launchDetailLabel);
+        HBox row = new HBox(10, launchProgressIndicator, labels);
+        row.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(labels, Priority.ALWAYS);
+        VBox box = new VBox(row);
         box.getStyleClass().add("run-console-launch-shell");
         return box;
     }
@@ -513,25 +510,13 @@ public class RunConsoleView extends BorderPane {
         if (changed) refreshLaunchBanner();
     }
 
-    private void advanceSpinner() {
-        spinnerFrameIndex = (spinnerFrameIndex + 1) % SPINNER_FRAMES.length;
-        refreshLaunchBanner();
-    }
-
     private void refreshLaunchBanner() {
         Runnable task = () -> {
-            launchActivityLabel.setText(spinnerPrefix() + currentActivityText());
+            launchActivityLabel.setText(currentActivityText());
             launchDetailLabel.setText(currentDetailText());
         };
         if (Platform.isFxApplicationThread()) task.run();
         else Platform.runLater(task);
-    }
-
-    private String spinnerPrefix() {
-        if (engineState == EngineState.BUILDING || engineState == EngineState.STARTING) {
-            return SPINNER_FRAMES[spinnerFrameIndex] + " ";
-        }
-        return "";
     }
 
     private String currentActivityText() {
@@ -928,7 +913,6 @@ public class RunConsoleView extends BorderPane {
 
     public void dispose() {
         perfHudTimer.stop();
-        launchSpinner.stop();
     }
 
     private void updatePerfHud(long nowNs) {
