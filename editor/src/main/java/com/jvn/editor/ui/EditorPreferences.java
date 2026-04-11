@@ -7,6 +7,9 @@ public final class EditorPreferences {
   public static final int DEFAULT_CODE_EDITOR_FONT_SIZE = 13;
   public static final int MIN_CODE_EDITOR_FONT_SIZE = 10;
   public static final int MAX_CODE_EDITOR_FONT_SIZE = 28;
+  public static final int DEFAULT_EDITOR_MAX_FPS = 0;  // 0 = uncapped (match display rate)
+  public static final int MIN_EDITOR_MAX_FPS = 0;
+  public static final int MAX_EDITOR_MAX_FPS = 240;
   public static final String TEXT_EDITOR_JVN = "jvn";
   public static final String TEXT_EDITOR_SYSTEM = "system";
   public static final String TEXT_EDITOR_CUSTOM = "custom";
@@ -14,6 +17,7 @@ public final class EditorPreferences {
   public static final String LAUNCHER_THEME_LIGHT = "light";
 
   private int codeEditorFontSize;
+  private int editorMaxFps = DEFAULT_EDITOR_MAX_FPS;
   private boolean showWelcomeOnStartup;
   private boolean loadSidebarExtensionsOnDemand;
   private String defaultTextEditor;
@@ -86,6 +90,19 @@ public final class EditorPreferences {
 
   public void setCodeEditorFontSize(int codeEditorFontSize) {
     this.codeEditorFontSize = clampCodeEditorFontSize(codeEditorFontSize);
+  }
+
+  public int getEditorMaxFps() {
+    return editorMaxFps;
+  }
+
+  public void setEditorMaxFps(int editorMaxFps) {
+    // 0 = uncapped; any positive value is clamped to [15, MAX]
+    if (editorMaxFps <= 0) {
+      this.editorMaxFps = 0;
+    } else {
+      this.editorMaxFps = Math.min(editorMaxFps, MAX_EDITOR_MAX_FPS);
+    }
   }
 
   public boolean isShowWelcomeOnStartup() {
@@ -173,7 +190,7 @@ public final class EditorPreferences {
   }
 
   public EditorPreferences copy() {
-    return new EditorPreferences(
+    EditorPreferences c = new EditorPreferences(
         codeEditorFontSize,
         showWelcomeOnStartup,
         loadSidebarExtensionsOnDemand,
@@ -184,6 +201,8 @@ public final class EditorPreferences {
         launcherLastProjectPath,
         panelPlacements,
         chooserVisibility);
+    c.editorMaxFps = this.editorMaxFps;
+    return c;
   }
 
   public static int clampCodeEditorFontSize(int value) {

@@ -25,6 +25,7 @@ import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
@@ -925,12 +926,28 @@ public class RunConsoleView extends BorderPane {
         return (seconds / 60) + "m " + (seconds % 60) + "s";
     }
 
+    public void dispose() {
+        perfHudTimer.stop();
+        launchSpinner.stop();
+    }
+
     private void updatePerfHud(long nowNs) {
-        if (lastFrameNs > 0L) {
-            double instantFps = 1_000_000_000.0 / Math.max(1L, nowNs - lastFrameNs);
-            smoothedFps = smoothRatio(smoothedFps, instantFps, PERF_FPS_SMOOTH_ALPHA);
+        // Skip all work when the window is not on screen (minimized, hidden, or closed).
+        // The timer stays alive so it resumes correctly if the window is restored.
+        Scene scene = getScene();
+        if (scene == null || scene.getWindow() == null || !scene.getWindow().isShowing()) return;
+
+        // Only track per-frame FPS while the process is actively running.
+        // When stopped/failed the FPS figure is meaningless and the per-pulse cost is wasted.
+        if (engineState == EngineState.RUNNING
+                || engineState == EngineState.BUILDING
+                || engineState == EngineState.STARTING) {
+            if (lastFrameNs > 0L) {
+                double instantFps = 1_000_000_000.0 / Math.max(1L, nowNs - lastFrameNs);
+                smoothedFps = smoothRatio(smoothedFps, instantFps, PERF_FPS_SMOOTH_ALPHA);
+            }
+            lastFrameNs = nowNs;
         }
-        lastFrameNs = nowNs;
 
         if (lastPerfHudUpdateNs > 0L && (nowNs - lastPerfHudUpdateNs) < PERF_HUD_UPDATE_INTERVAL_NS) {
             return;

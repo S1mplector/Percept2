@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(./gradlew :audio:dependencies --configuration compileClasspath)"
+      "Bash(./gradlew :audio:dependencies --configuration compileClasspath)",
+      "Bash(./gradlew :editor:clean :editor:classes --no-daemon)"
     ]
   }
 }

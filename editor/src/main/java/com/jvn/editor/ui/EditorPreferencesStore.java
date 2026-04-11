@@ -9,6 +9,7 @@ import java.util.Properties;
 
 public final class EditorPreferencesStore {
   static final String KEY_CODE_EDITOR_FONT_SIZE = "codeEditorFontSize";
+  static final String KEY_EDITOR_MAX_FPS = "editorMaxFps";
   static final String KEY_SHOW_WELCOME_ON_STARTUP = "showWelcomeOnStartup";
   static final String KEY_LOAD_SIDEBAR_EXTENSIONS_ON_DEMAND = "loadSidebarExtensionsOnDemand";
   static final String KEY_DEFAULT_TEXT_EDITOR = "defaultTextEditor";
@@ -69,6 +70,9 @@ public final class EditorPreferencesStore {
         KEY_CODE_EDITOR_FONT_SIZE,
         Integer.toString(preferences.getCodeEditorFontSize()));
     props.setProperty(
+        KEY_EDITOR_MAX_FPS,
+        Integer.toString(preferences.getEditorMaxFps()));
+    props.setProperty(
         KEY_SHOW_WELCOME_ON_STARTUP,
         Boolean.toString(preferences.isShowWelcomeOnStartup()));
     props.setProperty(
@@ -106,6 +110,9 @@ public final class EditorPreferencesStore {
     preferences.setCodeEditorFontSize(parseInt(
         props.getProperty(KEY_CODE_EDITOR_FONT_SIZE),
         EditorPreferences.DEFAULT_CODE_EDITOR_FONT_SIZE));
+    preferences.setEditorMaxFps(parseInt(
+        props.getProperty(KEY_EDITOR_MAX_FPS),
+        EditorPreferences.DEFAULT_EDITOR_MAX_FPS));
     preferences.setShowWelcomeOnStartup(Boolean.parseBoolean(
         props.getProperty(KEY_SHOW_WELCOME_ON_STARTUP, "true")));
     preferences.setLoadSidebarExtensionsOnDemand(parseBoolean(

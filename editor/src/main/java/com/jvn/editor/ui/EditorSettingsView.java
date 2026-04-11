@@ -29,6 +29,7 @@ public class EditorSettingsView extends BorderPane {
 
   private final EditorPreferencesStore store;
   private final Spinner<Integer> codeEditorFontSizeSpinner = new Spinner<>();
+  private final Spinner<Integer> editorMaxFpsSpinner = new Spinner<>();
   private final ComboBox<String> defaultTextEditorCombo = new ComboBox<>();
   private final TextField customTextEditorCommandField = new TextField();
   private final CheckBox showWelcomeOnStartupCheck =
@@ -95,6 +96,14 @@ public class EditorSettingsView extends BorderPane {
             EditorPreferences.DEFAULT_CODE_EDITOR_FONT_SIZE));
     codeEditorFontSizeSpinner.setEditable(true);
     codeEditorFontSizeSpinner.getStyleClass().add("editor-settings-spinner");
+    editorMaxFpsSpinner.setValueFactory(
+        new SpinnerValueFactory.IntegerSpinnerValueFactory(
+            EditorPreferences.MIN_EDITOR_MAX_FPS,
+            EditorPreferences.MAX_EDITOR_MAX_FPS,
+            EditorPreferences.DEFAULT_EDITOR_MAX_FPS));
+    editorMaxFpsSpinner.setEditable(true);
+    editorMaxFpsSpinner.getStyleClass().add("editor-settings-spinner");
+    editorMaxFpsSpinner.setPromptText("0 = display rate");
     defaultTextEditorCombo.getItems().addAll(
         TEXT_EDITOR_LABEL_JVN,
         TEXT_EDITOR_LABEL_SYSTEM,
@@ -108,10 +117,11 @@ public class EditorSettingsView extends BorderPane {
     showWelcomeOnStartupCheck.getStyleClass().add("editor-settings-check");
     loadSidebarExtensionsOnDemandCheck.getStyleClass().add("editor-settings-check");
     generalGrid.addRow(0, fieldLabel("Code Editor Text Size"), codeEditorFontSizeSpinner);
-    generalGrid.addRow(1, fieldLabel("Default Text Editor"), defaultTextEditorCombo);
-    generalGrid.addRow(2, fieldLabel("Custom Editor Command"), customTextEditorCommandField);
-    generalGrid.add(showWelcomeOnStartupCheck, 1, 3);
-    generalGrid.add(loadSidebarExtensionsOnDemandCheck, 1, 4);
+    generalGrid.addRow(1, fieldLabel("Max FPS (0 = display rate)"), editorMaxFpsSpinner);
+    generalGrid.addRow(2, fieldLabel("Default Text Editor"), defaultTextEditorCombo);
+    generalGrid.addRow(3, fieldLabel("Custom Editor Command"), customTextEditorCommandField);
+    generalGrid.add(showWelcomeOnStartupCheck, 1, 4);
+    generalGrid.add(loadSidebarExtensionsOnDemandCheck, 1, 5);
     generalSection.getChildren().add(generalGrid);
 
     VBox sidebarSection = new VBox(10);
@@ -192,6 +202,7 @@ public class EditorSettingsView extends BorderPane {
   public void loadIntoForm(EditorPreferences preferences) {
     EditorPreferences model = preferences == null ? EditorPreferences.defaults() : preferences.copy();
     codeEditorFontSizeSpinner.getValueFactory().setValue(model.getCodeEditorFontSize());
+    editorMaxFpsSpinner.getValueFactory().setValue(model.getEditorMaxFps());
     defaultTextEditorCombo.setValue(textEditorLabel(model.getDefaultTextEditor()));
     customTextEditorCommandField.setText(model.getCustomTextEditorCommand());
     updateCustomTextEditorCommandState();
@@ -226,6 +237,11 @@ public class EditorSettingsView extends BorderPane {
         fontSize == null
             ? EditorPreferences.DEFAULT_CODE_EDITOR_FONT_SIZE
             : fontSize.intValue());
+    Integer maxFps = editorMaxFpsSpinner.getValue();
+    preferences.setEditorMaxFps(
+        maxFps == null
+            ? EditorPreferences.DEFAULT_EDITOR_MAX_FPS
+            : maxFps.intValue());
     preferences.setDefaultTextEditor(textEditorValue(defaultTextEditorCombo.getValue()));
     preferences.setCustomTextEditorCommand(customTextEditorCommandField.getText());
     preferences.setShowWelcomeOnStartup(showWelcomeOnStartupCheck.isSelected());

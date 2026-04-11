@@ -764,6 +764,7 @@ public class JvnLauncherApp extends Application {
       logStage.setScene(logScene);
       logStage.setMinWidth(860);
       logStage.setMinHeight(520);
+      logStage.setOnHiding(e -> console.dispose());
       logStage.show();
 
       console.startProcess(starter.start());
@@ -831,7 +832,7 @@ public class JvnLauncherApp extends Application {
       }
       pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
       pb.redirectError(ProcessBuilder.Redirect.DISCARD);
-      pb.start();
+      Process editorProcess = pb.start();
 
       if (startupFile != null && startupFile.isFile()) {
         statusLabel.setText("Editor launched for " + startupFile.getName());
@@ -840,6 +841,10 @@ public class JvnLauncherApp extends Application {
             ? "Editor launched"
             : "Editor launched for " + projectDir.getName());
       }
+
+      primaryStage.hide();
+      editorProcess.onExit().thenRunAsync(
+          () -> Platform.runLater(() -> primaryStage.show()));
     } catch (Exception ex) {
       EditorDialogs.error(primaryStage, "Open Editor", "Failed to launch editor: " + ex.getMessage());
     }
@@ -979,8 +984,17 @@ public class JvnLauncherApp extends Application {
   }
 
   private String quoteCliArg(String raw) {
-    String value = raw == null ? "" : raw.replace("\\", "\\\\").replace("\"", "\\\"");
-    return "\"" + value + "\"";
+    String value = raw == null ? "" : raw;
+    // Use single quotes so the --args= string contains no embedded double-quotes.
+    // On Windows, ProcessBuilder runs gradlew.bat via cmd.exe, which breaks an
+    // argument at any embedded double-quote it finds, turning the tail of the
+    // --args value into stray tokens that Gradle misinterprets as task names.
+    // Single-quoted strings are handled correctly by Gradle's --args parser
+    // (Ant CommandLineUtils.translateCommandline) on all platforms.
+    if (value.isEmpty() || value.contains(" ")) {
+      return "'" + value + "'";
+    }
+    return value;
   }
 
   private String resolveVersionLabel() {

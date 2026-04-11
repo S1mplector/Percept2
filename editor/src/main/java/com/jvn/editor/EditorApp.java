@@ -215,7 +215,8 @@ public class EditorApp extends Application {
   private static final long PERF_UPDATE_INTERVAL_NS = 300_000_000L;
   private static final double PERF_CPU_SMOOTH_ALPHA = 0.28;
   private static final double PERF_FPS_SMOOTH_ALPHA = 0.20;
-  private static final double TARGET_FPS = 60.0;
+  private double targetFps = EditorPreferences.DEFAULT_EDITOR_MAX_FPS;
+  private long minFrameIntervalNs = 0L; // 0 = uncapped
   private static final Color CPU_COLOR = Color.web("#f27333");
   private static final Color GPU_COLOR = Color.web("#a855f7");
   private static final Color RAM_COLOR = Color.web("#49a5ff");
@@ -462,6 +463,7 @@ public class EditorApp extends Application {
       logStage.setMinWidth(860);
       logStage.setMinHeight(520);
       applyLinuxDefaultWindowState(logStage);
+      logStage.setOnHiding(e -> console.dispose());
       logStage.show();
       console.startProcess(starter.start());
     } catch (Exception ex) {
@@ -514,8 +516,11 @@ public class EditorApp extends Application {
   }
 
   private String quoteCliArg(String raw) {
-    String v = raw == null ? "" : raw.replace("\\", "\\\\").replace("\"", "\\\"");
-    return "\"" + v + "\"";
+    String value = raw == null ? "" : raw;
+    if (value.isEmpty() || value.contains(" ")) {
+      return "'" + value + "'";
+    }
+    return value;
   }
 
   private File resolveWorkspaceRoot() {
@@ -1923,6 +1928,7 @@ public class EditorApp extends Application {
       long last = -1;
       @Override public void handle(long now) {
         if (last < 0) { last = now; return; }
+        if (minFrameIntervalNs > 0 && now - last < minFrameIntervalNs) return;
         long dt = (now - last) / 1_000_000L;
         last = now;
         FileEditorTab ft = getActiveFileTab();
@@ -2306,7 +2312,7 @@ public class EditorApp extends Application {
     }
 
     smoothedProcessCpu = smoothRatio(smoothedProcessCpu, processCpu, PERF_CPU_SMOOTH_ALPHA);
-    smoothedFps = smoothRatio(smoothedFps, lastFps / TARGET_FPS, PERF_FPS_SMOOTH_ALPHA);
+    smoothedFps = smoothRatio(smoothedFps, lastFps / targetFps, PERF_FPS_SMOOTH_ALPHA);
 
     MemoryMXBean memoryBean = ManagementFactory.getMemoryMXBean();
     MemoryUsage heap = memoryBean.getHeapMemoryUsage();
@@ -2364,7 +2370,7 @@ public class EditorApp extends Application {
     String fpsTextValue = String.format(
         Locale.ROOT,
         " | FPS %.0f | THR %d | %s",
-        Math.max(0.0, smoothedFps * TARGET_FPS),
+        Math.max(0.0, smoothedFps * targetFps),
         threadCount,
         gcText);
 
@@ -2724,7 +2730,6 @@ public class EditorApp extends Application {
         updateTabTitle(t, ft);
       }
     }
-    refreshMainCommandUi.run();
   }
 
   private void updateTabTitle(Tab tab, FileEditorTab ft) {
@@ -2848,6 +2853,14 @@ public class EditorApp extends Application {
     editorPreferences = preferences == null ? EditorPreferences.defaults() : preferences.copy();
     if (editorSettingsView != null) {
       editorSettingsView.loadIntoForm(editorPreferences);
+    }
+    int maxFps = editorPreferences.getEditorMaxFps();
+    if (maxFps <= 0) {
+      targetFps = 60.0; // used only for perf HUD display
+      minFrameIntervalNs = 0L; // uncapped: let AnimationTimer run every pulse
+    } else {
+      targetFps = maxFps;
+      minFrameIntervalNs = (long) (1_000_000_000.0 / targetFps);
     }
     applyCodeEditorFontSizePreference();
     applyWelcomeTabPreference();
