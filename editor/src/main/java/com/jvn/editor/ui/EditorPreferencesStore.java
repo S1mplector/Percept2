@@ -10,13 +10,20 @@ import java.util.Properties;
 public final class EditorPreferencesStore {
   static final String KEY_CODE_EDITOR_FONT_SIZE = "codeEditorFontSize";
   static final String KEY_EDITOR_MAX_FPS = "editorMaxFps";
+  static final String KEY_EDITOR_THEME = "editor.theme";
   static final String KEY_SHOW_WELCOME_ON_STARTUP = "showWelcomeOnStartup";
   static final String KEY_LOAD_SIDEBAR_EXTENSIONS_ON_DEMAND = "loadSidebarExtensionsOnDemand";
+  static final String KEY_AUTO_SAVE_BEFORE_RUN = "autoSaveBeforeRun";
+  static final String KEY_EDITOR_RUNTIME_PERF_HUD = "editor.runtimePerfHud";
   static final String KEY_DEFAULT_TEXT_EDITOR = "defaultTextEditor";
   static final String KEY_CUSTOM_TEXT_EDITOR_COMMAND = "customTextEditorCommand";
   static final String KEY_LAUNCHER_THEME = "launcher.theme";
   static final String KEY_LAUNCHER_RESTORE_LAST_PROJECT = "launcher.restoreLastProject";
   static final String KEY_LAUNCHER_LAST_PROJECT_PATH = "launcher.lastProjectPath";
+  static final String KEY_LAUNCHER_KEEP_OPEN_AFTER_EDITOR_LAUNCH =
+      "launcher.keepOpenAfterEditorLaunch";
+  static final String KEY_LAUNCHER_CONFIRM_RUN_PROJECT = "launcher.confirmRunProject";
+  static final String KEY_LAUNCHER_RUNTIME_PERF_HUD = "launcher.runtimePerfHud";
   static final String KEY_PANEL_PREFIX = "panel.";
   static final String KEY_PANEL_SUFFIX = ".placement";
   static final String KEY_CHOOSER_SUFFIX = ".chooserVisible";
@@ -73,11 +80,20 @@ public final class EditorPreferencesStore {
         KEY_EDITOR_MAX_FPS,
         Integer.toString(preferences.getEditorMaxFps()));
     props.setProperty(
+        KEY_EDITOR_THEME,
+        preferences.getEditorTheme());
+    props.setProperty(
         KEY_SHOW_WELCOME_ON_STARTUP,
         Boolean.toString(preferences.isShowWelcomeOnStartup()));
     props.setProperty(
         KEY_LOAD_SIDEBAR_EXTENSIONS_ON_DEMAND,
         Boolean.toString(preferences.isLoadSidebarExtensionsOnDemand()));
+    props.setProperty(
+        KEY_AUTO_SAVE_BEFORE_RUN,
+        Boolean.toString(preferences.isAutoSaveBeforeRun()));
+    props.setProperty(
+        KEY_EDITOR_RUNTIME_PERF_HUD,
+        Boolean.toString(preferences.isEditorRuntimePerfHud()));
     props.setProperty(
         KEY_DEFAULT_TEXT_EDITOR,
         preferences.getDefaultTextEditor());
@@ -93,6 +109,15 @@ public final class EditorPreferencesStore {
     props.setProperty(
         KEY_LAUNCHER_LAST_PROJECT_PATH,
         preferences.getLauncherLastProjectPath());
+    props.setProperty(
+        KEY_LAUNCHER_KEEP_OPEN_AFTER_EDITOR_LAUNCH,
+        Boolean.toString(preferences.isLauncherKeepOpenAfterEditorLaunch()));
+    props.setProperty(
+        KEY_LAUNCHER_CONFIRM_RUN_PROJECT,
+        Boolean.toString(preferences.isLauncherConfirmRunProject()));
+    props.setProperty(
+        KEY_LAUNCHER_RUNTIME_PERF_HUD,
+        Boolean.toString(preferences.isLauncherRuntimePerfHud()));
     for (EditorSidebarPanel panel : EditorSidebarPanel.values()) {
       props.setProperty(
           KEY_PANEL_PREFIX + panel.key() + KEY_PANEL_SUFFIX,
@@ -113,10 +138,17 @@ public final class EditorPreferencesStore {
     preferences.setEditorMaxFps(parseInt(
         props.getProperty(KEY_EDITOR_MAX_FPS),
         EditorPreferences.DEFAULT_EDITOR_MAX_FPS));
+    preferences.setEditorTheme(props.getProperty(
+        KEY_EDITOR_THEME,
+        EditorPreferences.LAUNCHER_THEME_DARK));
     preferences.setShowWelcomeOnStartup(Boolean.parseBoolean(
         props.getProperty(KEY_SHOW_WELCOME_ON_STARTUP, "true")));
     preferences.setLoadSidebarExtensionsOnDemand(parseBoolean(
         props.getProperty(KEY_LOAD_SIDEBAR_EXTENSIONS_ON_DEMAND), true));
+    preferences.setAutoSaveBeforeRun(parseBoolean(
+        props.getProperty(KEY_AUTO_SAVE_BEFORE_RUN), true));
+    preferences.setEditorRuntimePerfHud(parseBoolean(
+        props.getProperty(KEY_EDITOR_RUNTIME_PERF_HUD), true));
     preferences.setDefaultTextEditor(props.getProperty(
         KEY_DEFAULT_TEXT_EDITOR,
         EditorPreferences.TEXT_EDITOR_JVN));
@@ -131,6 +163,12 @@ public final class EditorPreferencesStore {
     preferences.setLauncherLastProjectPath(props.getProperty(
         KEY_LAUNCHER_LAST_PROJECT_PATH,
         ""));
+    preferences.setLauncherKeepOpenAfterEditorLaunch(parseBoolean(
+        props.getProperty(KEY_LAUNCHER_KEEP_OPEN_AFTER_EDITOR_LAUNCH), false));
+    preferences.setLauncherConfirmRunProject(parseBoolean(
+        props.getProperty(KEY_LAUNCHER_CONFIRM_RUN_PROJECT), false));
+    preferences.setLauncherRuntimePerfHud(parseBoolean(
+        props.getProperty(KEY_LAUNCHER_RUNTIME_PERF_HUD), true));
     for (EditorSidebarPanel panel : EditorSidebarPanel.values()) {
       String key = KEY_PANEL_PREFIX + panel.key() + KEY_PANEL_SUFFIX;
       EditorPanelPlacement placement = parsePlacement(props.getProperty(key), panel.defaultPlacement());

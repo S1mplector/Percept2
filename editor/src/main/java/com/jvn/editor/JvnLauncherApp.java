@@ -689,6 +689,17 @@ public class JvnLauncherApp extends Application {
       EditorDialogs.info(primaryStage, "Run Project", "Select a project first.");
       return;
     }
+    if (editorPreferences != null
+        && editorPreferences.isLauncherConfirmRunProject()
+        && !EditorDialogs.confirm(
+            primaryStage,
+            "Run Project",
+            "Run " + displayProjectName(currentProject) + " from the launcher?",
+            "Run",
+            false)) {
+      statusLabel.setText("Run cancelled");
+      return;
+    }
 
     Properties manifest = loadManifest(currentProject);
     if (manifest == null) {
@@ -801,7 +812,9 @@ public class JvnLauncherApp extends Application {
     if (!runtimeAudio.isBlank()) runtimeArgs.append(" --audio ").append(quoteCliArg(runtimeAudio));
     String runtimeLocale = manifest.getProperty("runtime.locale", "").trim();
     if (!runtimeLocale.isBlank()) runtimeArgs.append(" --locale ").append(quoteCliArg(runtimeLocale));
-    runtimeArgs.append(" --perf-hud");
+    if (editorPreferences == null || editorPreferences.isLauncherRuntimePerfHud()) {
+      runtimeArgs.append(" --perf-hud");
+    }
 
     runGradle(workspace, ":runtime:run", new String[] {"--args=" + runtimeArgs}, "JVN Runtime");
   }
@@ -817,7 +830,10 @@ public class JvnLauncherApp extends Application {
       command.addAll(resolveForwardedJvmArgs());
       command.add("-cp");
       command.add(System.getProperty("java.class.path", ""));
-      command.add("-Djvn.editor.theme=" + (EditorTheme.theme() == EditorTheme.Theme.LIGHT ? "light" : "dark"));
+      String editorTheme = editorPreferences == null
+          ? EditorPreferences.LAUNCHER_THEME_DARK
+          : EditorPreferences.normalizeEditorTheme(editorPreferences.getEditorTheme());
+      command.add("-Djvn.editor.theme=" + editorTheme);
       if (projectDir != null && projectDir.isDirectory()) {
         command.add("-D" + EDITOR_OPEN_PROJECT_PROPERTY + "=" + projectDir.getAbsolutePath());
       }
@@ -842,9 +858,11 @@ public class JvnLauncherApp extends Application {
             : "Editor launched for " + projectDir.getName());
       }
 
-      primaryStage.hide();
-      editorProcess.onExit().thenRunAsync(
-          () -> Platform.runLater(() -> primaryStage.show()));
+      if (editorPreferences == null || !editorPreferences.isLauncherKeepOpenAfterEditorLaunch()) {
+        primaryStage.hide();
+        editorProcess.onExit().thenRunAsync(
+            () -> Platform.runLater(() -> primaryStage.show()));
+      }
     } catch (Exception ex) {
       EditorDialogs.error(primaryStage, "Open Editor", "Failed to launch editor: " + ex.getMessage());
     }

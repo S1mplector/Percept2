@@ -26,8 +26,11 @@ public class EditorSettingsView extends BorderPane {
   private static final String TEXT_EDITOR_LABEL_JVN = "JVN Editor";
   private static final String TEXT_EDITOR_LABEL_SYSTEM = "System Default App";
   private static final String TEXT_EDITOR_LABEL_CUSTOM = "Custom Command";
+  private static final String THEME_LABEL_DARK = "Dark";
+  private static final String THEME_LABEL_LIGHT = "Light";
 
   private final EditorPreferencesStore store;
+  private final ComboBox<String> editorThemeCombo = new ComboBox<>();
   private final Spinner<Integer> codeEditorFontSizeSpinner = new Spinner<>();
   private final Spinner<Integer> editorMaxFpsSpinner = new Spinner<>();
   private final ComboBox<String> defaultTextEditorCombo = new ComboBox<>();
@@ -36,6 +39,10 @@ public class EditorSettingsView extends BorderPane {
       new CheckBox("Show Workspace Hub tab on startup");
   private final CheckBox loadSidebarExtensionsOnDemandCheck =
       new CheckBox("Load sidebar extensions only when opened (lower memory usage)");
+  private final CheckBox autoSaveBeforeRunCheck =
+      new CheckBox("Save dirty files before project runs");
+  private final CheckBox editorRuntimePerfHudCheck =
+      new CheckBox("Show runtime performance HUD when launching projects");
   private final Map<EditorSidebarPanel, ComboBox<EditorPanelPlacement>> panelPlacements =
       new EnumMap<>(EditorSidebarPanel.class);
   private final Map<EditorSidebarPanel, CheckBox> chooserVisibilityChecks =
@@ -72,23 +79,14 @@ public class EditorSettingsView extends BorderPane {
     Label header = new Label("Editor Settings");
     header.getStyleClass().add("editor-settings-header");
     Label intro = new Label(
-        "Configure editor-wide defaults for sidebar panels and code editor scale. "
+        "Configure editor-wide appearance, launch behavior, and sidebar defaults. "
             + "These settings apply across launches.");
     intro.setWrapText(true);
     intro.getStyleClass().add("editor-settings-copy");
 
-    VBox generalSection = new VBox(10);
-    generalSection.getChildren().add(sectionHeader("General"));
-    generalSection.getStyleClass().add("editor-settings-section");
-    GridPane generalGrid = new GridPane();
-    generalGrid.setHgap(10);
-    generalGrid.setVgap(10);
-    ColumnConstraints labelColumn = new ColumnConstraints();
-    labelColumn.setMinWidth(180);
-    ColumnConstraints fieldColumn = new ColumnConstraints();
-    fieldColumn.setHgrow(Priority.ALWAYS);
-    generalGrid.getColumnConstraints().addAll(labelColumn, fieldColumn);
-
+    editorThemeCombo.getItems().addAll(THEME_LABEL_DARK, THEME_LABEL_LIGHT);
+    editorThemeCombo.setMaxWidth(Double.MAX_VALUE);
+    editorThemeCombo.getStyleClass().add("editor-settings-combo");
     codeEditorFontSizeSpinner.setValueFactory(
         new SpinnerValueFactory.IntegerSpinnerValueFactory(
             EditorPreferences.MIN_CODE_EDITOR_FONT_SIZE,
@@ -116,13 +114,33 @@ public class EditorSettingsView extends BorderPane {
     customTextEditorCommandField.getStyleClass().add("editor-settings-text-field");
     showWelcomeOnStartupCheck.getStyleClass().add("editor-settings-check");
     loadSidebarExtensionsOnDemandCheck.getStyleClass().add("editor-settings-check");
-    generalGrid.addRow(0, fieldLabel("Code Editor Text Size"), codeEditorFontSizeSpinner);
-    generalGrid.addRow(1, fieldLabel("Max FPS (0 = display rate)"), editorMaxFpsSpinner);
-    generalGrid.addRow(2, fieldLabel("Default Text Editor"), defaultTextEditorCombo);
-    generalGrid.addRow(3, fieldLabel("Custom Editor Command"), customTextEditorCommandField);
-    generalGrid.add(showWelcomeOnStartupCheck, 1, 4);
-    generalGrid.add(loadSidebarExtensionsOnDemandCheck, 1, 5);
-    generalSection.getChildren().add(generalGrid);
+    autoSaveBeforeRunCheck.getStyleClass().add("editor-settings-check");
+    editorRuntimePerfHudCheck.getStyleClass().add("editor-settings-check");
+
+    GridPane appearanceGrid = settingsGrid(180);
+    appearanceGrid.addRow(0, fieldLabel("Editor Theme"), editorThemeCombo);
+    appearanceGrid.addRow(1, fieldLabel("Code Text Size"), codeEditorFontSizeSpinner);
+    VBox appearanceSection =
+        settingsSection("Appearance", "Theme and code editor scale.", appearanceGrid);
+
+    GridPane runtimeGrid = settingsGrid(180);
+    runtimeGrid.addRow(0, fieldLabel("Max FPS"), editorMaxFpsSpinner);
+    runtimeGrid.add(editorRuntimePerfHudCheck, 1, 1);
+    runtimeGrid.add(autoSaveBeforeRunCheck, 1, 2);
+    VBox runtimeSection =
+        settingsSection("Runtime", "Project launch and preview performance defaults.", runtimeGrid);
+
+    GridPane startupGrid = settingsGrid(180);
+    startupGrid.add(showWelcomeOnStartupCheck, 1, 0);
+    startupGrid.add(loadSidebarExtensionsOnDemandCheck, 1, 1);
+    VBox startupSection =
+        settingsSection("Startup", "Tabs and side tools loaded when the editor opens.", startupGrid);
+
+    GridPane fileOpeningGrid = settingsGrid(180);
+    fileOpeningGrid.addRow(0, fieldLabel("Default Text Editor"), defaultTextEditorCombo);
+    fileOpeningGrid.addRow(1, fieldLabel("Custom Command"), customTextEditorCommandField);
+    VBox fileOpeningSection =
+        settingsSection("File Opening", "Default editor used when project files are opened externally.", fileOpeningGrid);
 
     VBox sidebarSection = new VBox(10);
     sidebarSection.getChildren().add(sectionHeader("Default Sidebar Panels"));
@@ -170,7 +188,10 @@ public class EditorSettingsView extends BorderPane {
         header,
         intro,
         new Separator(),
-        generalSection,
+        appearanceSection,
+        runtimeSection,
+        startupSection,
+        fileOpeningSection,
         new Separator(),
         sidebarSection);
 
@@ -201,6 +222,7 @@ public class EditorSettingsView extends BorderPane {
 
   public void loadIntoForm(EditorPreferences preferences) {
     EditorPreferences model = preferences == null ? EditorPreferences.defaults() : preferences.copy();
+    editorThemeCombo.setValue(themeLabel(model.getEditorTheme()));
     codeEditorFontSizeSpinner.getValueFactory().setValue(model.getCodeEditorFontSize());
     editorMaxFpsSpinner.getValueFactory().setValue(model.getEditorMaxFps());
     defaultTextEditorCombo.setValue(textEditorLabel(model.getDefaultTextEditor()));
@@ -208,6 +230,8 @@ public class EditorSettingsView extends BorderPane {
     updateCustomTextEditorCommandState();
     showWelcomeOnStartupCheck.setSelected(model.isShowWelcomeOnStartup());
     loadSidebarExtensionsOnDemandCheck.setSelected(model.isLoadSidebarExtensionsOnDemand());
+    autoSaveBeforeRunCheck.setSelected(model.isAutoSaveBeforeRun());
+    editorRuntimePerfHudCheck.setSelected(model.isEditorRuntimePerfHud());
     for (EditorSidebarPanel panel : EditorSidebarPanel.values()) {
       if (!panel.editableInSettings()) continue;
       ComboBox<EditorPanelPlacement> combo = panelPlacements.get(panel);
@@ -237,6 +261,7 @@ public class EditorSettingsView extends BorderPane {
         fontSize == null
             ? EditorPreferences.DEFAULT_CODE_EDITOR_FONT_SIZE
             : fontSize.intValue());
+    preferences.setEditorTheme(themeValue(editorThemeCombo.getValue()));
     Integer maxFps = editorMaxFpsSpinner.getValue();
     preferences.setEditorMaxFps(
         maxFps == null
@@ -246,6 +271,8 @@ public class EditorSettingsView extends BorderPane {
     preferences.setCustomTextEditorCommand(customTextEditorCommandField.getText());
     preferences.setShowWelcomeOnStartup(showWelcomeOnStartupCheck.isSelected());
     preferences.setLoadSidebarExtensionsOnDemand(loadSidebarExtensionsOnDemandCheck.isSelected());
+    preferences.setAutoSaveBeforeRun(autoSaveBeforeRunCheck.isSelected());
+    preferences.setEditorRuntimePerfHud(editorRuntimePerfHudCheck.isSelected());
     for (EditorSidebarPanel panel : EditorSidebarPanel.values()) {
       if (!panel.editableInSettings()) continue;
       ComboBox<EditorPanelPlacement> combo = panelPlacements.get(panel);
@@ -272,9 +299,47 @@ public class EditorSettingsView extends BorderPane {
     return label;
   }
 
+  private static GridPane settingsGrid(double labelWidth) {
+    GridPane grid = new GridPane();
+    grid.setHgap(10);
+    grid.setVgap(10);
+    ColumnConstraints labelColumn = new ColumnConstraints();
+    labelColumn.setMinWidth(labelWidth);
+    ColumnConstraints fieldColumn = new ColumnConstraints();
+    fieldColumn.setHgrow(Priority.ALWAYS);
+    grid.getColumnConstraints().addAll(labelColumn, fieldColumn);
+    return grid;
+  }
+
+  private static VBox settingsSection(String title, String description, GridPane grid) {
+    VBox section = new VBox(10);
+    section.getStyleClass().add("editor-settings-section");
+    section.getChildren().add(sectionHeader(title));
+    if (description != null && !description.isBlank()) {
+      Label copy = new Label(description);
+      copy.setWrapText(true);
+      copy.getStyleClass().add("editor-settings-copy");
+      section.getChildren().add(copy);
+    }
+    section.getChildren().add(grid);
+    return section;
+  }
+
   private void updateCustomTextEditorCommandState() {
     boolean custom = TEXT_EDITOR_LABEL_CUSTOM.equals(defaultTextEditorCombo.getValue());
     customTextEditorCommandField.setDisable(!custom);
+  }
+
+  private static String themeLabel(String value) {
+    return EditorPreferences.LAUNCHER_THEME_LIGHT.equals(EditorPreferences.normalizeEditorTheme(value))
+        ? THEME_LABEL_LIGHT
+        : THEME_LABEL_DARK;
+  }
+
+  private static String themeValue(String label) {
+    return THEME_LABEL_LIGHT.equals(label)
+        ? EditorPreferences.LAUNCHER_THEME_LIGHT
+        : EditorPreferences.LAUNCHER_THEME_DARK;
   }
 
   private static String textEditorLabel(String value) {

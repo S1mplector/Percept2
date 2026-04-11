@@ -18,13 +18,19 @@ public final class EditorPreferences {
 
   private int codeEditorFontSize;
   private int editorMaxFps = DEFAULT_EDITOR_MAX_FPS;
+  private String editorTheme;
   private boolean showWelcomeOnStartup;
   private boolean loadSidebarExtensionsOnDemand;
+  private boolean autoSaveBeforeRun;
+  private boolean editorRuntimePerfHud;
   private String defaultTextEditor;
   private String customTextEditorCommand;
   private String launcherTheme;
   private boolean launcherRestoreLastProject;
   private String launcherLastProjectPath;
+  private boolean launcherKeepOpenAfterEditorLaunch;
+  private boolean launcherConfirmRunProject;
+  private boolean launcherRuntimePerfHud;
   private final EnumMap<EditorSidebarPanel, EditorPanelPlacement> panelPlacements =
       new EnumMap<>(EditorSidebarPanel.class);
   private final EnumMap<EditorSidebarPanel, Boolean> chooserVisibility =
@@ -33,6 +39,9 @@ public final class EditorPreferences {
   public EditorPreferences() {
     this(
         DEFAULT_CODE_EDITOR_FONT_SIZE,
+        LAUNCHER_THEME_DARK,
+        true,
+        true,
         true,
         true,
         TEXT_EDITOR_JVN,
@@ -40,30 +49,45 @@ public final class EditorPreferences {
         LAUNCHER_THEME_DARK,
         true,
         "",
+        false,
+        false,
+        true,
         EditorSidebarPanel.defaultPlacements(),
         EditorSidebarPanel.defaultChooserVisibility());
   }
 
   public EditorPreferences(
       int codeEditorFontSize,
+      String editorTheme,
       boolean showWelcomeOnStartup,
       boolean loadSidebarExtensionsOnDemand,
+      boolean autoSaveBeforeRun,
+      boolean editorRuntimePerfHud,
       String defaultTextEditor,
       String customTextEditorCommand,
       String launcherTheme,
       boolean launcherRestoreLastProject,
       String launcherLastProjectPath,
+      boolean launcherKeepOpenAfterEditorLaunch,
+      boolean launcherConfirmRunProject,
+      boolean launcherRuntimePerfHud,
       Map<EditorSidebarPanel, EditorPanelPlacement> placements,
       Map<EditorSidebarPanel, Boolean> chooserVisibility) {
     this.codeEditorFontSize =
         clampCodeEditorFontSize(codeEditorFontSize);
+    this.editorTheme = normalizeTheme(editorTheme);
     this.showWelcomeOnStartup = showWelcomeOnStartup;
     this.loadSidebarExtensionsOnDemand = loadSidebarExtensionsOnDemand;
+    this.autoSaveBeforeRun = autoSaveBeforeRun;
+    this.editorRuntimePerfHud = editorRuntimePerfHud;
     this.defaultTextEditor = normalizeTextEditor(defaultTextEditor);
     this.customTextEditorCommand = cleanText(customTextEditorCommand);
     this.launcherTheme = normalizeLauncherTheme(launcherTheme);
     this.launcherRestoreLastProject = launcherRestoreLastProject;
     this.launcherLastProjectPath = cleanText(launcherLastProjectPath);
+    this.launcherKeepOpenAfterEditorLaunch = launcherKeepOpenAfterEditorLaunch;
+    this.launcherConfirmRunProject = launcherConfirmRunProject;
+    this.launcherRuntimePerfHud = launcherRuntimePerfHud;
     panelPlacements.putAll(EditorSidebarPanel.defaultPlacements());
     this.chooserVisibility.putAll(EditorSidebarPanel.defaultChooserVisibility());
     if (placements != null) {
@@ -105,6 +129,14 @@ public final class EditorPreferences {
     }
   }
 
+  public String getEditorTheme() {
+    return editorTheme;
+  }
+
+  public void setEditorTheme(String editorTheme) {
+    this.editorTheme = normalizeTheme(editorTheme);
+  }
+
   public boolean isShowWelcomeOnStartup() {
     return showWelcomeOnStartup;
   }
@@ -119,6 +151,22 @@ public final class EditorPreferences {
 
   public void setLoadSidebarExtensionsOnDemand(boolean loadSidebarExtensionsOnDemand) {
     this.loadSidebarExtensionsOnDemand = loadSidebarExtensionsOnDemand;
+  }
+
+  public boolean isAutoSaveBeforeRun() {
+    return autoSaveBeforeRun;
+  }
+
+  public void setAutoSaveBeforeRun(boolean autoSaveBeforeRun) {
+    this.autoSaveBeforeRun = autoSaveBeforeRun;
+  }
+
+  public boolean isEditorRuntimePerfHud() {
+    return editorRuntimePerfHud;
+  }
+
+  public void setEditorRuntimePerfHud(boolean editorRuntimePerfHud) {
+    this.editorRuntimePerfHud = editorRuntimePerfHud;
   }
 
   public String getDefaultTextEditor() {
@@ -161,6 +209,30 @@ public final class EditorPreferences {
     this.launcherLastProjectPath = cleanText(launcherLastProjectPath);
   }
 
+  public boolean isLauncherKeepOpenAfterEditorLaunch() {
+    return launcherKeepOpenAfterEditorLaunch;
+  }
+
+  public void setLauncherKeepOpenAfterEditorLaunch(boolean launcherKeepOpenAfterEditorLaunch) {
+    this.launcherKeepOpenAfterEditorLaunch = launcherKeepOpenAfterEditorLaunch;
+  }
+
+  public boolean isLauncherConfirmRunProject() {
+    return launcherConfirmRunProject;
+  }
+
+  public void setLauncherConfirmRunProject(boolean launcherConfirmRunProject) {
+    this.launcherConfirmRunProject = launcherConfirmRunProject;
+  }
+
+  public boolean isLauncherRuntimePerfHud() {
+    return launcherRuntimePerfHud;
+  }
+
+  public void setLauncherRuntimePerfHud(boolean launcherRuntimePerfHud) {
+    this.launcherRuntimePerfHud = launcherRuntimePerfHud;
+  }
+
   public EditorPanelPlacement getPlacement(EditorSidebarPanel panel) {
     if (panel == null) return EditorPanelPlacement.HIDDEN;
     return panelPlacements.getOrDefault(panel, panel.defaultPlacement());
@@ -192,13 +264,19 @@ public final class EditorPreferences {
   public EditorPreferences copy() {
     EditorPreferences c = new EditorPreferences(
         codeEditorFontSize,
+        editorTheme,
         showWelcomeOnStartup,
         loadSidebarExtensionsOnDemand,
+        autoSaveBeforeRun,
+        editorRuntimePerfHud,
         defaultTextEditor,
         customTextEditorCommand,
         launcherTheme,
         launcherRestoreLastProject,
         launcherLastProjectPath,
+        launcherKeepOpenAfterEditorLaunch,
+        launcherConfirmRunProject,
+        launcherRuntimePerfHud,
         panelPlacements,
         chooserVisibility);
     c.editorMaxFps = this.editorMaxFps;
@@ -217,6 +295,14 @@ public final class EditorPreferences {
   }
 
   public static String normalizeLauncherTheme(String value) {
+    return normalizeTheme(value);
+  }
+
+  public static String normalizeEditorTheme(String value) {
+    return normalizeTheme(value);
+  }
+
+  private static String normalizeTheme(String value) {
     String normalized = cleanText(value).toLowerCase();
     return LAUNCHER_THEME_LIGHT.equals(normalized) ? LAUNCHER_THEME_LIGHT : LAUNCHER_THEME_DARK;
   }

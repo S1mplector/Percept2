@@ -24,13 +24,19 @@ class EditorPreferencesStoreTest {
     EditorPreferences preferences = store.load();
 
     assertEquals(EditorPreferences.DEFAULT_CODE_EDITOR_FONT_SIZE, preferences.getCodeEditorFontSize());
+    assertEquals(EditorPreferences.LAUNCHER_THEME_DARK, preferences.getEditorTheme());
     assertTrue(preferences.isShowWelcomeOnStartup());
     assertTrue(preferences.isLoadSidebarExtensionsOnDemand());
+    assertTrue(preferences.isAutoSaveBeforeRun());
+    assertTrue(preferences.isEditorRuntimePerfHud());
     assertEquals(EditorPreferences.TEXT_EDITOR_JVN, preferences.getDefaultTextEditor());
     assertEquals("", preferences.getCustomTextEditorCommand());
     assertEquals(EditorPreferences.LAUNCHER_THEME_DARK, preferences.getLauncherTheme());
     assertTrue(preferences.isLauncherRestoreLastProject());
     assertEquals("", preferences.getLauncherLastProjectPath());
+    assertFalse(preferences.isLauncherKeepOpenAfterEditorLaunch());
+    assertFalse(preferences.isLauncherConfirmRunProject());
+    assertTrue(preferences.isLauncherRuntimePerfHud());
     assertEquals(EditorPanelPlacement.LEFT, preferences.getPlacement(EditorSidebarPanel.PROJECT));
     assertEquals(EditorPanelPlacement.HIDDEN, preferences.getPlacement(EditorSidebarPanel.HELP));
     assertTrue(preferences.isVisibleInChooser(EditorSidebarPanel.PROJECT));
@@ -47,13 +53,19 @@ class EditorPreferencesStoreTest {
     EditorPreferencesStore store = new EditorPreferencesStore(prefsFile);
     EditorPreferences preferences = EditorPreferences.defaults();
     preferences.setCodeEditorFontSize(18);
+    preferences.setEditorTheme(EditorPreferences.LAUNCHER_THEME_LIGHT);
     preferences.setShowWelcomeOnStartup(false);
     preferences.setLoadSidebarExtensionsOnDemand(false);
+    preferences.setAutoSaveBeforeRun(false);
+    preferences.setEditorRuntimePerfHud(false);
     preferences.setDefaultTextEditor(EditorPreferences.TEXT_EDITOR_CUSTOM);
     preferences.setCustomTextEditorCommand("code --reuse-window {file}");
     preferences.setLauncherTheme(EditorPreferences.LAUNCHER_THEME_LIGHT);
     preferences.setLauncherRestoreLastProject(false);
     preferences.setLauncherLastProjectPath("/tmp/project");
+    preferences.setLauncherKeepOpenAfterEditorLaunch(false);
+    preferences.setLauncherConfirmRunProject(true);
+    preferences.setLauncherRuntimePerfHud(false);
     preferences.setPlacement(EditorSidebarPanel.HELP, EditorPanelPlacement.RIGHT);
     preferences.setPlacement(EditorSidebarPanel.TIMELINE, EditorPanelPlacement.LEFT);
     preferences.setVisibleInChooser(EditorSidebarPanel.HELP, false);
@@ -62,13 +74,19 @@ class EditorPreferencesStoreTest {
     EditorPreferences loaded = store.load();
 
     assertEquals(18, loaded.getCodeEditorFontSize());
+    assertEquals(EditorPreferences.LAUNCHER_THEME_LIGHT, loaded.getEditorTheme());
     assertFalse(loaded.isShowWelcomeOnStartup());
     assertFalse(loaded.isLoadSidebarExtensionsOnDemand());
+    assertFalse(loaded.isAutoSaveBeforeRun());
+    assertFalse(loaded.isEditorRuntimePerfHud());
     assertEquals(EditorPreferences.TEXT_EDITOR_CUSTOM, loaded.getDefaultTextEditor());
     assertEquals("code --reuse-window {file}", loaded.getCustomTextEditorCommand());
     assertEquals(EditorPreferences.LAUNCHER_THEME_LIGHT, loaded.getLauncherTheme());
     assertFalse(loaded.isLauncherRestoreLastProject());
     assertEquals("/tmp/project", loaded.getLauncherLastProjectPath());
+    assertFalse(loaded.isLauncherKeepOpenAfterEditorLaunch());
+    assertTrue(loaded.isLauncherConfirmRunProject());
+    assertFalse(loaded.isLauncherRuntimePerfHud());
     assertEquals(EditorPanelPlacement.RIGHT, loaded.getPlacement(EditorSidebarPanel.HELP));
     assertEquals(EditorPanelPlacement.LEFT, loaded.getPlacement(EditorSidebarPanel.TIMELINE));
     assertFalse(loaded.isVisibleInChooser(EditorSidebarPanel.HELP));
@@ -79,11 +97,17 @@ class EditorPreferencesStoreTest {
     Path prefsFile = tempDir.resolve("editor-preferences.properties");
     Properties props = new Properties();
     props.setProperty(EditorPreferencesStore.KEY_CODE_EDITOR_FONT_SIZE, "invalid");
+    props.setProperty(EditorPreferencesStore.KEY_EDITOR_THEME, "unknown");
     props.setProperty(EditorPreferencesStore.KEY_SHOW_WELCOME_ON_STARTUP, "false");
     props.setProperty(EditorPreferencesStore.KEY_LOAD_SIDEBAR_EXTENSIONS_ON_DEMAND, "notabool");
+    props.setProperty(EditorPreferencesStore.KEY_AUTO_SAVE_BEFORE_RUN, "notabool");
+    props.setProperty(EditorPreferencesStore.KEY_EDITOR_RUNTIME_PERF_HUD, "notabool");
     props.setProperty(EditorPreferencesStore.KEY_DEFAULT_TEXT_EDITOR, "unknown");
     props.setProperty(EditorPreferencesStore.KEY_LAUNCHER_THEME, "unknown");
     props.setProperty(EditorPreferencesStore.KEY_LAUNCHER_RESTORE_LAST_PROJECT, "notabool");
+    props.setProperty(EditorPreferencesStore.KEY_LAUNCHER_KEEP_OPEN_AFTER_EDITOR_LAUNCH, "notabool");
+    props.setProperty(EditorPreferencesStore.KEY_LAUNCHER_CONFIRM_RUN_PROJECT, "notabool");
+    props.setProperty(EditorPreferencesStore.KEY_LAUNCHER_RUNTIME_PERF_HUD, "notabool");
     props.setProperty(
         EditorPreferencesStore.KEY_PANEL_PREFIX + EditorSidebarPanel.PROJECT.key()
             + EditorPreferencesStore.KEY_PANEL_SUFFIX,
@@ -100,11 +124,17 @@ class EditorPreferencesStoreTest {
     EditorPreferences loaded = store.load();
 
     assertEquals(EditorPreferences.DEFAULT_CODE_EDITOR_FONT_SIZE, loaded.getCodeEditorFontSize());
+    assertEquals(EditorPreferences.LAUNCHER_THEME_DARK, loaded.getEditorTheme());
     assertFalse(loaded.isShowWelcomeOnStartup());
     assertTrue(loaded.isLoadSidebarExtensionsOnDemand());
+    assertTrue(loaded.isAutoSaveBeforeRun());
+    assertTrue(loaded.isEditorRuntimePerfHud());
     assertEquals(EditorPreferences.TEXT_EDITOR_JVN, loaded.getDefaultTextEditor());
     assertEquals(EditorPreferences.LAUNCHER_THEME_DARK, loaded.getLauncherTheme());
     assertTrue(loaded.isLauncherRestoreLastProject());
+    assertFalse(loaded.isLauncherKeepOpenAfterEditorLaunch());
+    assertFalse(loaded.isLauncherConfirmRunProject());
+    assertTrue(loaded.isLauncherRuntimePerfHud());
     assertEquals(EditorPanelPlacement.LEFT, loaded.getPlacement(EditorSidebarPanel.PROJECT));
     assertTrue(loaded.isVisibleInChooser(EditorSidebarPanel.PROJECT));
   }

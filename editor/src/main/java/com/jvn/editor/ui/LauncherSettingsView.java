@@ -33,6 +33,12 @@ public class LauncherSettingsView extends BorderPane {
   private final TextField customTextEditorCommandField = new TextField();
   private final CheckBox restoreLastProjectCheck =
       new CheckBox("Restore the last selected project on startup");
+  private final CheckBox keepLauncherOpenCheck =
+      new CheckBox("Keep launcher open after opening the editor");
+  private final CheckBox confirmRunProjectCheck =
+      new CheckBox("Confirm before running a project from the launcher");
+  private final CheckBox launcherRuntimePerfHudCheck =
+      new CheckBox("Show runtime performance HUD when launching projects");
   private final TextField lastProjectPathField = new TextField();
   private final Label statusLabel = new Label("Launcher settings loaded");
 
@@ -61,6 +67,9 @@ public class LauncherSettingsView extends BorderPane {
       defaults.setCustomTextEditorCommand("");
       defaults.setLauncherRestoreLastProject(true);
       defaults.setLauncherLastProjectPath("");
+      defaults.setLauncherKeepOpenAfterEditorLaunch(false);
+      defaults.setLauncherConfirmRunProject(false);
+      defaults.setLauncherRuntimePerfHud(true);
       loadIntoForm(defaults);
       statusLabel.setText("Launcher defaults restored in form");
     });
@@ -75,18 +84,9 @@ public class LauncherSettingsView extends BorderPane {
     Label header = new Label("Launcher Settings");
     header.getStyleClass().add("editor-settings-header");
     Label intro = new Label(
-        "Configure launcher behavior, project handoff, and file-opening defaults.");
+        "Configure launcher appearance, startup project behavior, and editor handoff.");
     intro.setWrapText(true);
     intro.getStyleClass().add("editor-settings-copy");
-
-    GridPane grid = new GridPane();
-    grid.setHgap(10);
-    grid.setVgap(10);
-    ColumnConstraints labelColumn = new ColumnConstraints();
-    labelColumn.setMinWidth(190);
-    ColumnConstraints fieldColumn = new ColumnConstraints();
-    fieldColumn.setHgrow(Priority.ALWAYS);
-    grid.getColumnConstraints().addAll(labelColumn, fieldColumn);
 
     themeCombo.getItems().addAll(THEME_LABEL_DARK, THEME_LABEL_LIGHT);
     themeCombo.setMaxWidth(Double.MAX_VALUE);
@@ -104,6 +104,9 @@ public class LauncherSettingsView extends BorderPane {
     customTextEditorCommandField.setPromptText("Example: code --reuse-window {file}");
     customTextEditorCommandField.getStyleClass().add("editor-settings-text-field");
     restoreLastProjectCheck.getStyleClass().add("editor-settings-check");
+    keepLauncherOpenCheck.getStyleClass().add("editor-settings-check");
+    confirmRunProjectCheck.getStyleClass().add("editor-settings-check");
+    launcherRuntimePerfHudCheck.getStyleClass().add("editor-settings-check");
     lastProjectPathField.setEditable(false);
     lastProjectPathField.setPromptText("No project stored yet");
     lastProjectPathField.getStyleClass().add("editor-settings-text-field");
@@ -119,20 +122,38 @@ public class LauncherSettingsView extends BorderPane {
     lastProjectControls.getStyleClass().add("editor-settings-inline-row");
     HBox.setHgrow(lastProjectPathField, Priority.ALWAYS);
 
-    grid.addRow(0, fieldLabel("Launcher Theme"), themeCombo);
-    grid.addRow(1, fieldLabel("Default Text Editor"), defaultTextEditorCombo);
-    grid.addRow(2, fieldLabel("Custom Editor Command"), customTextEditorCommandField);
-    grid.add(restoreLastProjectCheck, 1, 3);
-    grid.addRow(4, fieldLabel("Last Project"), lastProjectControls);
+    GridPane appearanceGrid = settingsGrid(190);
+    appearanceGrid.addRow(0, fieldLabel("Launcher Theme"), themeCombo);
+    VBox appearanceSection =
+        settingsSection("Appearance", "Launcher window styling.", appearanceGrid);
 
-    VBox launcherSection = new VBox(10, sectionHeader("Launcher"), grid);
-    launcherSection.getStyleClass().add("editor-settings-section");
+    GridPane startupGrid = settingsGrid(190);
+    startupGrid.add(restoreLastProjectCheck, 1, 0);
+    startupGrid.addRow(1, fieldLabel("Startup Project"), lastProjectControls);
+    VBox startupSection =
+        settingsSection("Startup Project", "Project selection restored when the launcher opens.", startupGrid);
+
+    GridPane handoffGrid = settingsGrid(190);
+    handoffGrid.addRow(0, fieldLabel("Default Text Editor"), defaultTextEditorCombo);
+    handoffGrid.addRow(1, fieldLabel("Custom Command"), customTextEditorCommandField);
+    handoffGrid.add(keepLauncherOpenCheck, 1, 2);
+    VBox handoffSection =
+        settingsSection("Editor Handoff", "How project files and editor launches leave the launcher.", handoffGrid);
+
+    GridPane runGrid = settingsGrid(190);
+    runGrid.add(confirmRunProjectCheck, 1, 0);
+    runGrid.add(launcherRuntimePerfHudCheck, 1, 1);
+    VBox runSection =
+        settingsSection("Run Behavior", "Defaults used when running projects directly from the launcher.", runGrid);
 
     content.getChildren().addAll(
         header,
         intro,
         new Separator(),
-        launcherSection);
+        appearanceSection,
+        startupSection,
+        handoffSection,
+        runSection);
 
     ScrollPane scrollPane = new ScrollPane(content);
     scrollPane.setFitToWidth(true);
@@ -165,6 +186,9 @@ public class LauncherSettingsView extends BorderPane {
     customTextEditorCommandField.setText(model.getCustomTextEditorCommand());
     restoreLastProjectCheck.setSelected(model.isLauncherRestoreLastProject());
     lastProjectPathField.setText(model.getLauncherLastProjectPath());
+    keepLauncherOpenCheck.setSelected(model.isLauncherKeepOpenAfterEditorLaunch());
+    confirmRunProjectCheck.setSelected(model.isLauncherConfirmRunProject());
+    launcherRuntimePerfHudCheck.setSelected(model.isLauncherRuntimePerfHud());
     updateCustomCommandState();
   }
 
@@ -177,6 +201,9 @@ public class LauncherSettingsView extends BorderPane {
     preferences.setCustomTextEditorCommand(customTextEditorCommandField.getText());
     preferences.setLauncherRestoreLastProject(restoreLastProjectCheck.isSelected());
     preferences.setLauncherLastProjectPath(lastProjectPathField.getText());
+    preferences.setLauncherKeepOpenAfterEditorLaunch(keepLauncherOpenCheck.isSelected());
+    preferences.setLauncherConfirmRunProject(confirmRunProjectCheck.isSelected());
+    preferences.setLauncherRuntimePerfHud(launcherRuntimePerfHudCheck.isSelected());
     try {
       store.save(preferences);
       statusLabel.setText("Launcher settings saved");
@@ -210,6 +237,32 @@ public class LauncherSettingsView extends BorderPane {
     Label label = new Label(text);
     label.getStyleClass().add("editor-settings-label");
     return label;
+  }
+
+  private static GridPane settingsGrid(double labelWidth) {
+    GridPane grid = new GridPane();
+    grid.setHgap(10);
+    grid.setVgap(10);
+    ColumnConstraints labelColumn = new ColumnConstraints();
+    labelColumn.setMinWidth(labelWidth);
+    ColumnConstraints fieldColumn = new ColumnConstraints();
+    fieldColumn.setHgrow(Priority.ALWAYS);
+    grid.getColumnConstraints().addAll(labelColumn, fieldColumn);
+    return grid;
+  }
+
+  private static VBox settingsSection(String title, String description, GridPane grid) {
+    VBox section = new VBox(10);
+    section.getStyleClass().add("editor-settings-section");
+    section.getChildren().add(sectionHeader(title));
+    if (description != null && !description.isBlank()) {
+      Label copy = new Label(description);
+      copy.setWrapText(true);
+      copy.getStyleClass().add("editor-settings-copy");
+      section.getChildren().add(copy);
+    }
+    section.getChildren().add(grid);
+    return section;
   }
 
   private static String themeLabel(String value) {

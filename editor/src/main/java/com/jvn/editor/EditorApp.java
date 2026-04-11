@@ -264,10 +264,25 @@ public class EditorApp extends Application {
   }
 
   private void setEditorTheme(EditorTheme.Theme theme) {
+    setEditorTheme(theme, true);
+  }
+
+  private void setEditorTheme(EditorTheme.Theme theme, boolean persist) {
     EditorTheme.Theme target = theme == null ? EditorTheme.Theme.DARK : theme;
-    if (target == EditorTheme.theme()) return;
-    EditorTheme.setTheme(target);
-    applyThemeToOpenWindows();
+    boolean changed = target != EditorTheme.theme();
+    if (changed) {
+      EditorTheme.setTheme(target);
+      applyThemeToOpenWindows();
+    }
+    if (persist && editorPreferences != null) {
+      editorPreferences.setEditorTheme(target == EditorTheme.Theme.LIGHT
+          ? EditorPreferences.LAUNCHER_THEME_LIGHT
+          : EditorPreferences.LAUNCHER_THEME_DARK);
+      persistEditorPreferences();
+      if (editorSettingsView != null) {
+        editorSettingsView.loadIntoForm(editorPreferences);
+      }
+    }
     if (status != null) {
       status.setText("Theme: " + (target == EditorTheme.Theme.LIGHT ? "Light" : "Dark"));
     }
@@ -313,7 +328,9 @@ public class EditorApp extends Application {
 
   private void doRunProject(File root) {
     if (root == null) return;
-    if (!saveDirtyEditorsBeforeRun()) return;
+    if (editorPreferences == null || editorPreferences.isAutoSaveBeforeRun()) {
+      if (!saveDirtyEditorsBeforeRun()) return;
+    }
     Properties mf = loadManifest(root);
     if (mf == null) { status.setText("jvn.project not found"); return; }
     String type = mf.getProperty("type", "gradle").trim();
@@ -504,7 +521,9 @@ public class EditorApp extends Application {
     if (!runtimeAudio.isBlank()) runtimeArgs.append(" --audio ").append(quoteCliArg(runtimeAudio));
     String runtimeLocale = mf.getProperty("runtime.locale", "").trim();
     if (!runtimeLocale.isBlank()) runtimeArgs.append(" --locale ").append(quoteCliArg(runtimeLocale));
-    runtimeArgs.append(" --perf-hud");
+    if (editorPreferences == null || editorPreferences.isEditorRuntimePerfHud()) {
+      runtimeArgs.append(" --perf-hud");
+    }
 
     runGradle(workspaceRoot, ":runtime:run", new String[] { "--args=" + runtimeArgs }, "JVN Runtime");
     status.setText("Launching runtime: " + root.getName());
@@ -2922,6 +2941,10 @@ public class EditorApp extends Application {
       targetFps = maxFps;
       minFrameIntervalNs = (long) (1_000_000_000.0 / targetFps);
     }
+    setEditorTheme(EditorPreferences.LAUNCHER_THEME_LIGHT.equals(editorPreferences.getEditorTheme())
+        ? EditorTheme.Theme.LIGHT
+        : EditorTheme.Theme.DARK,
+        false);
     applyCodeEditorFontSizePreference();
     applyWelcomeTabPreference();
     applyDefaultSidebarPreferences();
