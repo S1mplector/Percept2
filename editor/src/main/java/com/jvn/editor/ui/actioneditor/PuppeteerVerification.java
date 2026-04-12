@@ -83,6 +83,18 @@ final class PuppeteerVerification {
         AnimationProject project,
         List<TimelineDiagnostic.Message> messages
     ) {
+        for (EntityGroup group : project.getGroups()) {
+            if (group == null) continue;
+            EntityTrack groupTrack = group.getGroupTrack();
+            if (!isAnimated(groupTrack)) continue;
+            messages.add(new TimelineDiagnostic.Message(
+                TimelineDiagnostic.Severity.ERROR,
+                group.getName(),
+                "Animated groups are preview-only and are ignored during runtime registration",
+                "Bake group animation to entity tracks before registering at runtime"
+            ));
+        }
+
         int cameraCarrierCount = 0;
         String mixedCameraTrack = null;
 
@@ -140,5 +152,16 @@ final class PuppeteerVerification {
             return projectRoot.toPath().resolve(path.replace('\\', '/')).normalize();
         }
         return direct.normalize();
+    }
+
+    private static boolean isAnimated(EntityTrack track) {
+        if (track == null) return false;
+        for (PropertyType property : PropertyType.values()) {
+            if (track.hasKeyframes(property)) return true;
+        }
+        for (String key : track.getAnimatedCustomProperties()) {
+            if (track.hasCustomKeyframes(key)) return true;
+        }
+        return false;
     }
 }

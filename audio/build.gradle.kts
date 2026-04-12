@@ -8,9 +8,13 @@ sourceSets {
       setSrcDirs(
           listOf(
               "src/main/java",
-              "simp3/src/main/java/com/musicplayer/core/audio",
-              "simp3/src/main/java/com/musicplayer/data/models"
+              "simp3/src/main/java"
           )
+      )
+      include(
+          "com/jvn/audio/**",
+          "com/musicplayer/core/audio/**",
+          "com/musicplayer/data/models/**"
       )
     }
     resources {

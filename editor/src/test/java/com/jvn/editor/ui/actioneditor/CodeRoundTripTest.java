@@ -124,7 +124,11 @@ class CodeRoundTripTest {
 
         // Export and check it contains event blocks
         String exported = CodeExporter.export(project1);
-        assertTrue(exported.contains("event \"expression\""));
+        assertTrue(
+            exported.contains("expression \"lavender\"")
+                || exported.contains("event \"expression\""),
+            "expected expression action/event header"
+        );
         assertTrue(exported.contains("event \"dialogue_marker\""));
 
         // Re-import

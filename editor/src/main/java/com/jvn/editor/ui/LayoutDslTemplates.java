@@ -38,6 +38,9 @@ nameBoxWidth=210
 nameBoxHeight=38
 nameTextXOffset=12
 nameTextBaselineOffset=24
+nameTextTopPadding=0
+nameTextBottomPadding=0
+nameTextYAlign=-1
 
 # ---- Dialogue text insets ----
 dialogueTextHorizontalPadding=24
@@ -52,6 +55,9 @@ choiceWidthFactor=0.56
 choiceHeight=48
 choiceGap=10
 choiceTextXPadding=20
+choiceTextTopPadding=0
+choiceTextBottomPadding=0
+choiceTextYAlign=-1
 
 # ---- Dialogue style ----
 textBoxColor=#0C1220E0

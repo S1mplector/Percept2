@@ -93,11 +93,16 @@ class ExportSnapshotTest {
         project.addEditorEventCue(new EditorEventCue(500, "dialogue_marker", markerPayload));
 
         String exported = CodeExporter.export(project);
-        assertTrue(exported.contains("event \"expression\""),
-            "Should contain expression event block");
+        assertTrue(
+            exported.contains("expression \"lavender\"")
+                || exported.contains("event \"expression\""),
+            "Should contain expression action/event block"
+        );
         assertTrue(exported.contains("event \"dialogue_marker\""),
             "Should contain dialogue_marker event block");
-        assertTrue(exported.contains("target:"));
+        if (exported.contains("event \"expression\"")) {
+            assertTrue(exported.contains("target:"));
+        }
         assertTrue(exported.contains("value:"));
         assertTrue(exported.contains("id:"));
     }

@@ -32,9 +32,9 @@ import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.ProgressIndicator;
-import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.control.SeparatorMenuItem;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToolBar;
@@ -52,8 +52,6 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-import javafx.scene.text.Text;
-import javafx.scene.text.TextFlow;
 import javafx.stage.FileChooser;
 
 /**
@@ -69,8 +67,7 @@ public class RunConsoleView extends BorderPane {
         Process start() throws Exception;
     }
 
-    private final TextFlow outputFlow = new TextFlow();
-    private final ScrollPane scrollPane = new ScrollPane(outputFlow);
+    private final TextArea outputFlow = new TextArea();
     private final ProgressIndicator launchProgressIndicator = new ProgressIndicator();
     private final Label launchActivityLabel = new Label();
     private final Label launchDetailLabel = new Label();
@@ -198,12 +195,12 @@ public class RunConsoleView extends BorderPane {
 
         // ─── Output area ─────────────────────────────────────────────
         outputFlow.setPadding(new Insets(8));
-        outputFlow.getStyleClass().add("run-console-output-flow");
-        scrollPane.setFitToWidth(true);
-        scrollPane.getStyleClass().add("run-console-output-scroll");
-        VBox centerBox = new VBox(8, createLaunchBanner(), scrollPane);
+        outputFlow.setEditable(false);
+        outputFlow.setWrapText(true);
+        outputFlow.getStyleClass().add("run-console-output");
+        VBox centerBox = new VBox(8, createLaunchBanner(), outputFlow);
         centerBox.getStyleClass().add("run-console-content");
-        VBox.setVgrow(scrollPane, Priority.ALWAYS);
+        VBox.setVgrow(outputFlow, Priority.ALWAYS);
         setCenter(centerBox);
 
         // ─── Status bar ──────────────────────────────────────────────
@@ -360,13 +357,12 @@ public class RunConsoleView extends BorderPane {
         Platform.runLater(() -> {
             if (!passesFilter(rawLine)) return;
 
-            Text text = styleText(rawLine);
-            outputFlow.getChildren().add(text);
+            String text = styleText(rawLine);
+            outputFlow.appendText(text);
 
             // Auto-scroll to bottom (unless user disabled it)
             if (autoScrollBtn.isSelected()) {
-                scrollPane.layout();
-                scrollPane.setVvalue(1.0);
+                outputFlow.setScrollTop(Double.MAX_VALUE);
             }
 
             // Update counters
@@ -409,25 +405,8 @@ public class RunConsoleView extends BorderPane {
     }
 
     /** Style a raw line based on its content type. */
-    private static Text styleText(String rawLine) {
-        boolean isEngineMsg = isEngineOutputLine(rawLine);
-        boolean isError = ERROR_LINE.matcher(rawLine).find();
-        boolean isWarning = !isError && WARN_LINE.matcher(rawLine).find();
-        boolean isNoise = GRADLE_NOISE.matcher(rawLine).find();
-
-        Text text = new Text(rawLine + "\n");
-        if (isError) {
-            text.setStyle("-fx-fill: " + LOG_COLOR_ERROR + "; -fx-font-family: 'Menlo', 'Consolas', monospace; -fx-font-size: 12px;");
-        } else if (isWarning) {
-            text.setStyle("-fx-fill: " + LOG_COLOR_WARNING + "; -fx-font-family: 'Menlo', 'Consolas', monospace; -fx-font-size: 12px;");
-        } else if (isEngineMsg) {
-            text.setStyle("-fx-fill: " + LOG_COLOR_ENGINE + "; -fx-font-family: 'Menlo', 'Consolas', monospace; -fx-font-size: 12px;");
-        } else if (isNoise) {
-            text.setStyle("-fx-fill: " + LOG_COLOR_NOISE + "; -fx-font-family: 'Menlo', 'Consolas', monospace; -fx-font-size: 11px;");
-        } else {
-            text.setStyle("-fx-fill: " + LOG_COLOR_NORMAL + "; -fx-font-family: 'Menlo', 'Consolas', monospace; -fx-font-size: 12px;");
-        }
-        return text;
+    private String styleText(String rawLine) {
+        return rawLine + "\n";
     }
 
     /** Called when the process exits. */
@@ -447,11 +426,9 @@ public class RunConsoleView extends BorderPane {
 
     private void appendInfoMessage(String msg) {
         Runnable task = () -> {
-            Text text = new Text("── " + msg + " ──\n");
-            text.setStyle("-fx-fill: " + LOG_COLOR_INFO + "; -fx-font-family: 'Menlo', 'Consolas', monospace; -fx-font-size: 12px; -fx-font-style: italic;");
-            outputFlow.getChildren().add(text);
-            scrollPane.layout();
-            scrollPane.setVvalue(1.0);
+            String text = "── " + msg + " ──\n";
+            outputFlow.appendText(text);
+            outputFlow.setScrollTop(Double.MAX_VALUE);
         };
         if (Platform.isFxApplicationThread()) task.run();
         else Platform.runLater(task);
@@ -560,13 +537,7 @@ public class RunConsoleView extends BorderPane {
     }
 
     private void copyTraceback() {
-        StringBuilder sb = new StringBuilder();
-        for (var node : outputFlow.getChildren()) {
-            if (node instanceof Text t) {
-                sb.append(t.getText());
-            }
-        }
-        String text = sb.toString().trim();
+        String text = outputFlow.getText().trim();
         if (text.isEmpty()) {
             appendInfoMessage("Nothing to copy.");
             return;
@@ -578,7 +549,7 @@ public class RunConsoleView extends BorderPane {
     }
 
     private void clearOutput() {
-        outputFlow.getChildren().clear();
+        outputFlow.clear();
         rawLineBuffer.clear();
         lineCount = 0;
         errorCount = 0;
@@ -590,15 +561,14 @@ public class RunConsoleView extends BorderPane {
     }
 
     private void rebuildOutput() {
-        outputFlow.getChildren().clear();
+        outputFlow.clear();
         for (String line : rawLineBuffer) {
             if (passesFilter(line)) {
-                outputFlow.getChildren().add(styleText(line));
+                outputFlow.appendText(styleText(line));
             }
         }
         if (autoScrollBtn.isSelected()) {
-            scrollPane.layout();
-            scrollPane.setVvalue(1.0);
+            outputFlow.setScrollTop(Double.MAX_VALUE);
         }
     }
 
@@ -689,19 +659,16 @@ public class RunConsoleView extends BorderPane {
         MenuItem miWordWrap = new MenuItem("Toggle Word Wrap");
         miWordWrap.setOnAction(e -> {
             wordWrapBtn.setSelected(!wordWrapBtn.isSelected());
-            scrollPane.setFitToWidth(wordWrapBtn.isSelected());
+            outputFlow.setWrapText(wordWrapBtn.isSelected());
         });
 
         MenuItem miScrollTop = new MenuItem("Scroll to Top");
         miScrollTop.setAccelerator(new KeyCodeCombination(KeyCode.HOME, KeyCombination.SHORTCUT_DOWN));
-        miScrollTop.setOnAction(e -> scrollPane.setVvalue(0));
+        miScrollTop.setOnAction(e -> outputFlow.setScrollTop(0));
 
         MenuItem miScrollBottom = new MenuItem("Scroll to Bottom");
         miScrollBottom.setAccelerator(new KeyCodeCombination(KeyCode.END, KeyCombination.SHORTCUT_DOWN));
-        miScrollBottom.setOnAction(e -> {
-            scrollPane.layout();
-            scrollPane.setVvalue(1.0);
-        });
+        miScrollBottom.setOnAction(e -> outputFlow.setScrollTop(Double.MAX_VALUE));
 
         viewMenu.getItems().addAll(miShowAll, miAutoScroll, miWordWrap,
             new SeparatorMenuItem(), miScrollTop, miScrollBottom);
@@ -784,7 +751,7 @@ public class RunConsoleView extends BorderPane {
         wordWrapBtn.getStyleClass().add("run-console-toggle");
         wordWrapBtn.setTooltip(new Tooltip("Toggle word wrapping"));
         wordWrapBtn.setFocusTraversable(false);
-        wordWrapBtn.setOnAction(e -> scrollPane.setFitToWidth(wordWrapBtn.isSelected()));
+        wordWrapBtn.setOnAction(e -> outputFlow.setWrapText(wordWrapBtn.isSelected()));
 
         // Search field
         searchField.setPromptText("Search output...");
