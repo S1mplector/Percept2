@@ -3575,15 +3575,15 @@ public class PuppeteerWindow extends Stage {
             this::duplicateSelectedKeyframesBySnapStep
         );
         scene.getAccelerators().put(
-            new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN, KeyCombination.ALT_DOWN),
+            new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN),
             this::executeUndo
         );
         scene.getAccelerators().put(
-            new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN, KeyCombination.ALT_DOWN),
+            new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
             this::executeRedo
         );
         scene.getAccelerators().put(
-            new KeyCodeCombination(KeyCode.Y, KeyCombination.SHORTCUT_DOWN, KeyCombination.ALT_DOWN),
+            new KeyCodeCombination(KeyCode.Y, KeyCombination.SHORTCUT_DOWN),
             this::executeRedo
         );
         scene.getAccelerators().put(
