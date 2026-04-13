@@ -138,7 +138,7 @@ public class RunConsoleView extends BorderPane {
         Pattern.CASE_INSENSITIVE
     );
     private static final Pattern RUNTIME_LOG_LINE = Pattern.compile(
-        "^\\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\s+(TRACE|DEBUG|INFO|WARN|ERROR)\\s+\\[[^\\]]+\\]\\s+.+?\\s+-\\s+.+$",
+        "^\\d{2}:\\d{2}:\\d{2}[.,]\\d{3}\\s+\\|?-?(TRACE|DEBUG|INFO|WARN|ERROR)\\b",
         Pattern.CASE_INSENSITIVE
     );
 
@@ -403,13 +403,19 @@ public class RunConsoleView extends BorderPane {
     }
 
     private static String classifyLine(String line) {
-            if (line.startsWith("\u200B")) return "run-console-line-milestone";
+        if (line.startsWith("\u200B")) return "run-console-line-milestone";
+        java.util.regex.Matcher rtm = RUNTIME_LOG_LINE.matcher(line);
+        if (rtm.find()) {
+            String level = rtm.group(1).toUpperCase();
+            return switch (level) {
+                case "ERROR" -> "run-console-line-error";
+                case "WARN"  -> "run-console-line-warn";
+                case "INFO"  -> "run-console-line-info";
+                default       -> "run-console-line-engine";
+            };
+        }
         if (ERROR_LINE.matcher(line).find()) return "run-console-line-error";
         if (WARN_LINE.matcher(line).find()) return "run-console-line-warn";
-        if (RUNTIME_LOG_LINE.matcher(line).find()) {
-            if (line.toUpperCase().contains(" INFO ")) return "run-console-line-info";
-            return "run-console-line-engine";
-        }
         if (ENGINE_MSG.matcher(line).find()) return "run-console-line-engine";
         if (GRADLE_NOISE.matcher(line).find()) return "run-console-line-noise";
         return "run-console-line-normal";
