@@ -32,7 +32,6 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.ContextMenu;
@@ -1085,73 +1084,6 @@ public class WelcomeCenterView extends BorderPane {
 
   private void renderHealthRows(List<HealthRow> rows) {
     updateHealthOverview(rows);
-  }
-
-  private HBox buildHealthCard(HealthRow row) {
-    HBox box = new HBox(8);
-    box.setPadding(new Insets(6, 8, 6, 8));
-    box.getStyleClass().add("welcome-health-card");
-    box.setAlignment(Pos.CENTER_LEFT);
-
-    Label badge = new Label();
-    badge.getStyleClass().addAll("welcome-health-badge", severityBadgeClass(row.severity()));
-    configureSeverityBadge(badge, row.severity());
-    Label title = new Label(row.title());
-    title.getStyleClass().add("welcome-health-title");
-    Label summary = new Label(row.summary());
-    summary.getStyleClass().add("welcome-health-summary");
-    summary.setMaxWidth(Double.MAX_VALUE);
-    summary.setTooltip(new Tooltip(row.detail() == null || row.detail().isBlank() ? row.summary() : row.detail()));
-    HBox.setHgrow(summary, Priority.ALWAYS);
-
-    box.getChildren().addAll(badge, title, summary);
-    return box;
-  }
-
-  private String severityLabel(Severity severity) {
-    return switch (severity) {
-      case OK -> "OK";
-      case WARN -> "WARN";
-      case ERROR -> "ERROR";
-      case INFO -> "INFO";
-    };
-  }
-
-  private void configureSeverityBadge(Label badge, Severity severity) {
-    if (badge == null || severity == null) return;
-    badge.setGraphic(null);
-    badge.setText(null);
-    badge.setContentDisplay(ContentDisplay.LEFT);
-    switch (severity) {
-      case OK -> {
-        Node okIcon = CssIcon.check("#8bcf98");
-        badge.setGraphic(okIcon);
-        badge.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
-        badge.setAccessibleText("OK");
-      }
-      case WARN -> {
-        Node warnIcon = CssIcon.warning("#efbf82");
-        badge.setGraphic(warnIcon);
-        badge.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
-        badge.setAccessibleText("WARN");
-      }
-      case ERROR -> {
-        Node errorIcon = CssIcon.error("#f0a1b2");
-        badge.setGraphic(errorIcon);
-        badge.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
-        badge.setAccessibleText("ERROR");
-      }
-      case INFO -> badge.setText(severityLabel(severity));
-    }
-  }
-
-  private String severityBadgeClass(Severity severity) {
-    return switch (severity) {
-      case OK -> "welcome-health-badge-ok";
-      case WARN -> "welcome-health-badge-warn";
-      case ERROR -> "welcome-health-badge-error";
-      case INFO -> "welcome-health-badge-info";
-    };
   }
 
   private void updateHealthOverview(List<HealthRow> rows) {

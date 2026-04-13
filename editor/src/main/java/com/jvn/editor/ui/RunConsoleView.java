@@ -403,7 +403,7 @@ public class RunConsoleView extends BorderPane {
     }
 
     private static String classifyLine(String line) {
-        if (line.startsWith("── ")) return "run-console-line-milestone";
+            if (line.startsWith("\u200B")) return "run-console-line-milestone";
         if (ERROR_LINE.matcher(line).find()) return "run-console-line-error";
         if (WARN_LINE.matcher(line).find()) return "run-console-line-warn";
         if (RUNTIME_LOG_LINE.matcher(line).find()) {
@@ -416,24 +416,26 @@ public class RunConsoleView extends BorderPane {
     }
 
     private class LogLineCell extends ListCell<String> {
-        private static final List<String> LEVEL_CLASSES = List.of(
-            "run-console-line-error", "run-console-line-warn",
-            "run-console-line-info", "run-console-line-engine",
-            "run-console-line-milestone", "run-console-line-noise",
-            "run-console-line-normal"
-        );
+        private String currentClass = null;
 
         @Override
         protected void updateItem(String item, boolean empty) {
             super.updateItem(item, empty);
-            getStyleClass().removeAll(LEVEL_CLASSES);
             if (empty || item == null) {
                 setText(null);
+                if (currentClass != null) {
+                    getStyleClass().remove(currentClass);
+                    currentClass = null;
+                }
                 return;
             }
             setText(item);
-            setWrapText(wordWrapBtn.isSelected());
-            getStyleClass().add(classifyLine(item));
+            String newClass = classifyLine(item);
+            if (!newClass.equals(currentClass)) {
+                if (currentClass != null) getStyleClass().remove(currentClass);
+                getStyleClass().add(newClass);
+                currentClass = newClass;
+            }
         }
     }
 
@@ -454,7 +456,7 @@ public class RunConsoleView extends BorderPane {
 
     private void appendInfoMessage(String msg) {
         Runnable task = () -> {
-            outputList.getItems().add("── " + msg + " ──");
+            outputList.getItems().add("\u200B" + msg);
             scrollToBottom();
         };
         if (Platform.isFxApplicationThread()) task.run();
@@ -686,6 +688,11 @@ public class RunConsoleView extends BorderPane {
         MenuItem miWordWrap = new MenuItem("Toggle Word Wrap");
         miWordWrap.setOnAction(e -> {
             wordWrapBtn.setSelected(!wordWrapBtn.isSelected());
+            if (wordWrapBtn.isSelected()) {
+                outputList.setFixedCellSize(-1);
+            } else {
+                outputList.setFixedCellSize(20);
+            }
             outputList.refresh();
         });
 
@@ -778,7 +785,14 @@ public class RunConsoleView extends BorderPane {
         wordWrapBtn.getStyleClass().add("run-console-toggle");
         wordWrapBtn.setTooltip(new Tooltip("Toggle word wrapping"));
         wordWrapBtn.setFocusTraversable(false);
-        wordWrapBtn.setOnAction(e -> outputList.refresh());
+        wordWrapBtn.setOnAction(e -> {
+            if (wordWrapBtn.isSelected()) {
+                outputList.setFixedCellSize(-1);
+            } else {
+                outputList.setFixedCellSize(20);
+            }
+            outputList.refresh();
+        });
 
         // Search field
         searchField.setPromptText("Search output...");

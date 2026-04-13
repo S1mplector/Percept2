@@ -254,10 +254,6 @@
   -fx-padding: 1 8 1 8;
 }
 
-.run-console-output .list-cell:empty {
-  -fx-pref-height: 4;
-}
-
 .run-console-output .list-cell:selected {
   -fx-background-color: rgba(255, 255, 255, 0.06);
 }
