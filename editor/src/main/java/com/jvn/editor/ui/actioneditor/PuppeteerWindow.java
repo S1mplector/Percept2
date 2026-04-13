@@ -1323,8 +1323,10 @@ public class PuppeteerWindow extends Stage {
         });
 
         MenuItem miUndo = new MenuItem("Undo");
+        miUndo.setAccelerator(new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN));
         miUndo.setOnAction(e -> executeUndo());
         MenuItem miRedo = new MenuItem("Redo");
+        miRedo.setAccelerator(new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
         miRedo.setOnAction(e -> executeRedo());
         MenuItem miAddKeyframe = new MenuItem("Add Keyframe at Playhead");
         miAddKeyframe.setOnAction(e -> timelinePanel.addKeyframeAtPlayhead());
