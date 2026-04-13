@@ -1,7 +1,7 @@
 # Java Vector Nexus (JVN)
 
 <div align="left">
-  <img src="docs/assets/images/jvn_logo_os.png" width="512" alt="JVN logo">
+  <img src="docs/assets/images/jvn_logo.png" width="512" alt="JVN logo">
 </div>
 
 JVN is a modular cross-platform Visual Novel engine written in Java.
