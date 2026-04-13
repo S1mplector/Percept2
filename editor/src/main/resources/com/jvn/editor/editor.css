@@ -4387,24 +4387,22 @@
 }
 
 .sidebar-tab-pane .tab .tab-close-button {
-  -fx-opacity: 0.95;
+  -fx-opacity: 0;
   -fx-padding: 0;
-  -fx-translate-x: 4px;
-  -fx-min-width: 6px;
-  -fx-pref-width: 6px;
-  -fx-max-width: 6px;
-  -fx-min-height: 6px;
-  -fx-pref-height: 6px;
-  -fx-max-height: 6px;
-  -fx-background-color: #e14f63;
+  -fx-min-width: 14px;
+  -fx-pref-width: 14px;
+  -fx-max-width: 14px;
+  -fx-min-height: 14px;
+  -fx-pref-height: 14px;
+  -fx-max-height: 14px;
+  -fx-background-color: #888888;
   -fx-background-insets: 0;
-  -fx-background-radius: 999;
-  -fx-scale-shape: false;
-  -fx-shape: "M4 0A4 4 0 1 1 4 8A4 4 0 1 1 4 0z";
+  -fx-background-radius: 4;
+  -fx-shape: "M2 0 L5 3 L8 0 L10 2 L7 5 L10 8 L8 10 L5 7 L2 10 L0 8 L3 5 L0 2 Z";
 }
 
 .sidebar-tab-pane .tab .tab-label {
-  -fx-padding: 0 12 0 0;
+  -fx-padding: 0 6 0 0;
   -fx-text-fill: #c2c2c2;
   -fx-font-size: 12px;
   -fx-font-weight: 600;
@@ -4412,7 +4410,7 @@
 
 .sidebar-tab-pane .tab:hover .tab-close-button,
 .sidebar-tab-pane .tab:selected .tab-close-button {
-  -fx-opacity: 0.94;
+  -fx-opacity: 0.5;
 }
 
 .sidebar-tab-pane .tab:hover .tab-label {
@@ -4424,11 +4422,13 @@
 }
 
 .sidebar-tab-pane .tab .tab-close-button:hover {
-  -fx-background-color: #f56a7c;
+  -fx-opacity: 1;
+  -fx-background-color: #c0c0c0;
 }
 
 .sidebar-tab-pane .tab .tab-close-button:pressed {
-  -fx-background-color: #bf3950;
+  -fx-opacity: 1;
+  -fx-background-color: #f06070;
 }
 
 .sidebar-tab-pane .tab.sidebar-add-tab {
