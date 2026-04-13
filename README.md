@@ -26,7 +26,7 @@ Typical memory footprint for the core runtime together with the full editor is a
 Clone the repository:
 
 ```bash
-git clone <repo-url>
+git clone [<repo-url>](https://github.com/S1mplector/Java-Vector-Nexus)
 ```
 
 Build everything:
