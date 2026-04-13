@@ -47,6 +47,15 @@ public class PuppeteerCommand {
             }
         }
 
+        public void pushExecuted(PuppeteerCommand cmd) {
+            if (cmd == null) return;
+            undoStack.push(cmd);
+            redoStack.clear();
+            if (undoStack.size() > maxSize) {
+                ((ArrayDeque<PuppeteerCommand>) undoStack).removeLast();
+            }
+        }
+
         public boolean canUndo() { return !undoStack.isEmpty(); }
         public boolean canRedo() { return !redoStack.isEmpty(); }
 

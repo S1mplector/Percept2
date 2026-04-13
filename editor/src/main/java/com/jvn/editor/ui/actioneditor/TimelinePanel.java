@@ -241,7 +241,14 @@ public class TimelinePanel extends VBox {
 
         time = clampOrExpandTimeline(snapTime(Math.max(0, time)));
         double value = track.getValueAt(selectedProperty, time);
-        Keyframe kf = track.upsertKeyframe(selectedProperty, new Keyframe(time, value));
+        Keyframe kf;
+        if (commandStack != null) {
+            PuppeteerCommand cmd = PuppeteerCommand.upsertKeyframe(track, selectedProperty, time, value);
+            commandStack.execute(cmd);
+            kf = track.findKeyframeAt(selectedProperty, time);
+        } else {
+            kf = track.upsertKeyframe(selectedProperty, new Keyframe(time, value));
+        }
         selectionModel.clearSelection();
         if (kf != null) selectionModel.select(KeyframeSelectionModel.ref(selectedEntity, selectedProperty, kf));
         selectedKeyframe = kf;
@@ -270,21 +277,27 @@ public class TimelinePanel extends VBox {
     }
 
     public void deleteSelectedKeyframe() {
+        List<PuppeteerCommand> cmds = new ArrayList<>();
         if (selectionModel.hasSelection()) {
             for (KeyframeSelectionModel.KeyframeRef ref : new ArrayList<>(selectionModel.getSelected())) {
                 EntityTrack track = ref.entityName() != null
                     ? project.getTrack(ref.entityName())
                     : null;
                 if (track == null || ref.property() == null || ref.keyframe() == null) continue;
-                track.removeKeyframe(ref.property(), ref.keyframe());
+                cmds.add(PuppeteerCommand.removeKeyframe(track, ref.property(), ref.keyframe()));
             }
         } else if (selectedKeyframe != null && selectedProperty != null) {
             if (selectedEntity == null) return;
             EntityTrack track = selectedTrack(false);
             if (track == null) return;
-            track.removeKeyframe(selectedProperty, selectedKeyframe);
+            cmds.add(PuppeteerCommand.removeKeyframe(track, selectedProperty, selectedKeyframe));
         } else {
             return;
+        }
+        if (commandStack != null && !cmds.isEmpty()) {
+            commandStack.execute(PuppeteerCommand.composite("Delete keyframes", cmds));
+        } else {
+            for (PuppeteerCommand cmd : cmds) cmd.execute();
         }
         clearKeyframeSelection();
         notifyEdited();
@@ -302,16 +315,37 @@ public class TimelinePanel extends VBox {
     public int getCopiedKeyframeCount() { return copiedKeyframes.size(); }
 
     public void nudgeSelectedKeyframes(double deltaMs) {
+        List<PuppeteerCommand> cmds = new ArrayList<>();
         if (selectionModel.hasSelection()) {
-            selectionModel.moveSelected(project, deltaMs, snapEnabled ? snapStepMs : 0.0);
+            for (KeyframeSelectionModel.KeyframeRef ref : selectionModel.getSelectedOrdered()) {
+                if (ref.keyframe() == null) continue;
+                double oldTime = ref.keyframe().getTimeMs();
+                double newTime = clampOrExpandTimeline(snapTime(oldTime + deltaMs));
+                cmds.add(PuppeteerCommand.moveKeyframe(ref.keyframe(), oldTime, newTime));
+            }
         } else if (selectedEntity != null && selectedKeyframe != null && selectedProperty != null) {
             EntityTrack track = selectedTrack(false);
             if (track == null) return;
-            double next = clampOrExpandTimeline(snapTime(selectedKeyframe.getTimeMs() + deltaMs));
-            selectedKeyframe.setTimeMs(next);
-            track.sortKeyframes(selectedProperty);
+            double oldTime = selectedKeyframe.getTimeMs();
+            double newTime = clampOrExpandTimeline(snapTime(oldTime + deltaMs));
+            cmds.add(PuppeteerCommand.moveKeyframe(selectedKeyframe, oldTime, newTime));
         } else {
             return;
+        }
+        if (commandStack != null && !cmds.isEmpty()) {
+            commandStack.execute(PuppeteerCommand.composite("Nudge keyframes", cmds));
+        } else {
+            for (PuppeteerCommand cmd : cmds) cmd.execute();
+        }
+        // Re-sort affected tracks
+        if (selectionModel.hasSelection()) {
+            for (KeyframeSelectionModel.KeyframeRef ref : selectionModel.getSelectedOrdered()) {
+                EntityTrack track = ref.entityName() != null ? project.getTrack(ref.entityName()) : null;
+                if (track != null && ref.property() != null) track.sortKeyframes(ref.property());
+            }
+        } else if (selectedProperty != null) {
+            EntityTrack track = selectedTrack(false);
+            if (track != null) track.sortKeyframes(selectedProperty);
         }
         notifyEdited();
         render();
@@ -878,6 +912,22 @@ public class TimelinePanel extends VBox {
     private void handleMouseReleased(MouseEvent e) {
         e.consume();
         if (draggingKeyframe && selectedEntity != null) {
+            // Build undo commands for the drag
+            if (commandStack != null && !dragStartTimes.isEmpty()) {
+                List<PuppeteerCommand> cmds = new ArrayList<>();
+                for (Map.Entry<KeyframeSelectionModel.KeyframeRef, Double> entry : dragStartTimes.entrySet()) {
+                    Keyframe kf = entry.getKey().keyframe();
+                    double oldTime = entry.getValue();
+                    double newTime = kf.getTimeMs();
+                    if (Math.abs(oldTime - newTime) > 0.001) {
+                        cmds.add(PuppeteerCommand.moveKeyframe(kf, oldTime, newTime));
+                    }
+                }
+                if (!cmds.isEmpty()) {
+                    // Already executed (drag mutated directly), so push a pre-executed composite
+                    commandStack.pushExecuted(PuppeteerCommand.composite("Drag keyframes", cmds));
+                }
+            }
             EntityTrack track = selectedTrack(false);
             if (track != null) {
                 Set<PropertyType> affectedProperties = collectSelectedProperties(track);
