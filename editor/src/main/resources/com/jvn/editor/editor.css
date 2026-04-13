@@ -237,6 +237,61 @@
   -fx-padding: 10;
 }
 
+/* ListView-based console output */
+.run-console-output {
+  -fx-background-color: #0c0c0c;
+  -fx-border-color: #252525;
+  -fx-border-width: 1;
+  -fx-border-radius: 8;
+  -fx-background-radius: 8;
+}
+
+.run-console-output .list-cell {
+  -fx-background-color: transparent;
+  -fx-text-fill: #b5bfd0;
+  -fx-font-family: "Menlo", "Consolas", "SF Mono", monospace;
+  -fx-font-size: 12px;
+  -fx-padding: 1 8 1 8;
+}
+
+.run-console-output .list-cell:empty {
+  -fx-pref-height: 4;
+}
+
+.run-console-output .list-cell:selected {
+  -fx-background-color: rgba(255, 255, 255, 0.06);
+}
+
+/* Per-line log level coloring */
+.run-console-line-error {
+  -fx-text-fill: #f38ba8;
+}
+
+.run-console-line-warn {
+  -fx-text-fill: #f0b673;
+}
+
+.run-console-line-info {
+  -fx-text-fill: #8ab4f8;
+}
+
+.run-console-line-engine {
+  -fx-text-fill: #dbe4f0;
+}
+
+.run-console-line-milestone {
+  -fx-text-fill: #e8d8ad;
+  -fx-font-weight: bold;
+}
+
+.run-console-line-noise {
+  -fx-text-fill: #6b7381;
+}
+
+.run-console-line-normal {
+  -fx-text-fill: #b5bfd0;
+}
+
 .run-console-launch-shell {
   -fx-padding: 10 12 10 12;
   -fx-spacing: 4;

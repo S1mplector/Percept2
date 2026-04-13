@@ -108,7 +108,6 @@ public class WelcomeCenterView extends BorderPane {
   private final ListView<ProjectEntry> recentList = new ListView<>(recentProjects);
   private final TextField recentFilterField = new TextField();
 
-  private final VBox healthContainer = new VBox(8);
   private List<ProjectEntry> allRecentProjects = List.of();
 
   private File workspaceRoot;
@@ -305,8 +304,6 @@ public class WelcomeCenterView extends BorderPane {
     HBox headingRow = new HBox(8, headingLabel, versionLabel, headingSpacer, btnSettings);
     headingRow.setAlignment(Pos.BASELINE_LEFT);
 
-    healthContainer.setPadding(new Insets(0));
-    healthContainer.setSpacing(4);
     VBox healthOverviewCard = buildHealthOverviewCard();
 
     HBox overviewRow = new HBox(
@@ -733,7 +730,7 @@ public class WelcomeCenterView extends BorderPane {
     Label titleLabel = new Label("Environment Health");
     titleLabel.getStyleClass().add("welcome-overview-title");
     healthMetaLabel.getStyleClass().add("welcome-overview-detail");
-    VBox card = new VBox(5, titleLabel, healthOverviewValueLabel, healthMetaLabel, healthContainer);
+    VBox card = new VBox(5, titleLabel, healthOverviewValueLabel, healthMetaLabel);
     card.getStyleClass().add("welcome-overview-card");
     HBox.setHgrow(card, Priority.ALWAYS);
     VBox.setVgrow(card, Priority.ALWAYS);
@@ -1087,17 +1084,6 @@ public class WelcomeCenterView extends BorderPane {
   }
 
   private void renderHealthRows(List<HealthRow> rows) {
-    healthContainer.getChildren().clear();
-    if (rows == null || rows.isEmpty()) {
-      Label empty = new Label("No health checks available.");
-      empty.getStyleClass().add("welcome-placeholder-text");
-      healthContainer.getChildren().add(empty);
-      updateHealthOverview(rows);
-      return;
-    }
-    for (HealthRow row : rows) {
-      healthContainer.getChildren().add(buildHealthCard(row));
-    }
     updateHealthOverview(rows);
   }
 

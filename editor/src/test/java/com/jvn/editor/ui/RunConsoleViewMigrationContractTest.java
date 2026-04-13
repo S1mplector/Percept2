@@ -1,23 +1,23 @@
 package com.jvn.editor.ui;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import javafx.scene.control.TextArea;
 import org.junit.jupiter.api.Test;
+
+import javafx.scene.control.ListView;
 
 class RunConsoleViewMigrationContractTest {
 
     @Test
-    void consoleOutputUsesTextAreaContract() throws Exception {
-        // Verify RunConsoleView class uses TextArea for output
+    void consoleOutputUsesListViewContract() throws Exception {
+        // Verify RunConsoleView class uses ListView for per-line styled output
         var fields = RunConsoleView.class.getDeclaredFields();
-        boolean hasTextAreaField = false;
+        boolean hasListViewField = false;
         for (var field : fields) {
-            if (field.getType().equals(TextArea.class)) {
-                hasTextAreaField = true;
+            if (field.getType().equals(ListView.class)) {
+                hasListViewField = true;
                 break;
             }
         }
-        assertTrue(hasTextAreaField, "RunConsoleView should have a TextArea field for output");
+        assertTrue(hasListViewField, "RunConsoleView should have a ListView field for output");
     }
 }

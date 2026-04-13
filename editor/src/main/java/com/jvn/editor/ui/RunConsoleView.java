@@ -22,24 +22,25 @@ import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListCell;
+import javafx.scene.control.ListView;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.Separator;
 import javafx.scene.control.SeparatorMenuItem;
-import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToolBar;
 import javafx.scene.control.Tooltip;
-import javafx.scene.Node;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
@@ -67,7 +68,7 @@ public class RunConsoleView extends BorderPane {
         Process start() throws Exception;
     }
 
-    private final TextArea outputFlow = new TextArea();
+    private final ListView<String> outputList = new ListView<>();
     private final ProgressIndicator launchProgressIndicator = new ProgressIndicator();
     private final Label launchActivityLabel = new Label();
     private final Label launchDetailLabel = new Label();
@@ -159,12 +160,6 @@ public class RunConsoleView extends BorderPane {
     private static final String COUNTER_ERROR_ACTIVE_CLASS = "run-console-meta-alert";
     private static final String COUNTER_WARN_ACTIVE_CLASS = "run-console-meta-warn";
 
-    private static final String LOG_COLOR_ERROR = "#f38ba8";
-    private static final String LOG_COLOR_WARNING = "#f0b673";
-    private static final String LOG_COLOR_ENGINE = "#dbe4f0";
-    private static final String LOG_COLOR_NOISE = "#6b7381";
-    private static final String LOG_COLOR_NORMAL = "#b5bfd0";
-    private static final String LOG_COLOR_INFO = "#8ab4f8";
     private static final Color PERF_GRID_BG = Color.web("#111111");
     private static final Color PERF_GRID_LINE = Color.web("#2a2a2a");
     private static final Color PERF_CPU_COLOR = Color.web("#f27333");
@@ -194,13 +189,12 @@ public class RunConsoleView extends BorderPane {
         setTop(topContainer);
 
         // ─── Output area ─────────────────────────────────────────────
-        outputFlow.setPadding(new Insets(8));
-        outputFlow.setEditable(false);
-        outputFlow.setWrapText(true);
-        outputFlow.getStyleClass().add("run-console-output");
-        VBox centerBox = new VBox(8, createLaunchBanner(), outputFlow);
+        outputList.getStyleClass().add("run-console-output");
+        outputList.setCellFactory(list -> new LogLineCell());
+        outputList.setFocusTraversable(true);
+        VBox centerBox = new VBox(8, createLaunchBanner(), outputList);
         centerBox.getStyleClass().add("run-console-content");
-        VBox.setVgrow(outputFlow, Priority.ALWAYS);
+        VBox.setVgrow(outputList, Priority.ALWAYS);
         setCenter(centerBox);
 
         // ─── Status bar ──────────────────────────────────────────────
@@ -357,12 +351,11 @@ public class RunConsoleView extends BorderPane {
         Platform.runLater(() -> {
             if (!passesFilter(rawLine)) return;
 
-            String text = styleText(rawLine);
-            outputFlow.appendText(text);
+            outputList.getItems().add(rawLine);
 
             // Auto-scroll to bottom (unless user disabled it)
             if (autoScrollBtn.isSelected()) {
-                outputFlow.setScrollTop(Double.MAX_VALUE);
+                scrollToBottom();
             }
 
             // Update counters
@@ -404,9 +397,44 @@ public class RunConsoleView extends BorderPane {
         return true;
     }
 
-    /** Style a raw line based on its content type. */
-    private String styleText(String rawLine) {
-        return rawLine + "\n";
+    private void scrollToBottom() {
+        int size = outputList.getItems().size();
+        if (size > 0) outputList.scrollTo(size - 1);
+    }
+
+    private static String classifyLine(String line) {
+        if (line.startsWith("── ")) return "run-console-line-milestone";
+        if (ERROR_LINE.matcher(line).find()) return "run-console-line-error";
+        if (WARN_LINE.matcher(line).find()) return "run-console-line-warn";
+        if (RUNTIME_LOG_LINE.matcher(line).find()) {
+            if (line.toUpperCase().contains(" INFO ")) return "run-console-line-info";
+            return "run-console-line-engine";
+        }
+        if (ENGINE_MSG.matcher(line).find()) return "run-console-line-engine";
+        if (GRADLE_NOISE.matcher(line).find()) return "run-console-line-noise";
+        return "run-console-line-normal";
+    }
+
+    private class LogLineCell extends ListCell<String> {
+        private static final List<String> LEVEL_CLASSES = List.of(
+            "run-console-line-error", "run-console-line-warn",
+            "run-console-line-info", "run-console-line-engine",
+            "run-console-line-milestone", "run-console-line-noise",
+            "run-console-line-normal"
+        );
+
+        @Override
+        protected void updateItem(String item, boolean empty) {
+            super.updateItem(item, empty);
+            getStyleClass().removeAll(LEVEL_CLASSES);
+            if (empty || item == null) {
+                setText(null);
+                return;
+            }
+            setText(item);
+            setWrapText(wordWrapBtn.isSelected());
+            getStyleClass().add(classifyLine(item));
+        }
     }
 
     /** Called when the process exits. */
@@ -426,9 +454,8 @@ public class RunConsoleView extends BorderPane {
 
     private void appendInfoMessage(String msg) {
         Runnable task = () -> {
-            String text = "── " + msg + " ──\n";
-            outputFlow.appendText(text);
-            outputFlow.setScrollTop(Double.MAX_VALUE);
+            outputList.getItems().add("── " + msg + " ──");
+            scrollToBottom();
         };
         if (Platform.isFxApplicationThread()) task.run();
         else Platform.runLater(task);
@@ -537,7 +564,7 @@ public class RunConsoleView extends BorderPane {
     }
 
     private void copyTraceback() {
-        String text = outputFlow.getText().trim();
+        String text = String.join("\n", outputList.getItems()).trim();
         if (text.isEmpty()) {
             appendInfoMessage("Nothing to copy.");
             return;
@@ -549,7 +576,7 @@ public class RunConsoleView extends BorderPane {
     }
 
     private void clearOutput() {
-        outputFlow.clear();
+        outputList.getItems().clear();
         rawLineBuffer.clear();
         lineCount = 0;
         errorCount = 0;
@@ -561,14 +588,14 @@ public class RunConsoleView extends BorderPane {
     }
 
     private void rebuildOutput() {
-        outputFlow.clear();
+        outputList.getItems().clear();
         for (String line : rawLineBuffer) {
             if (passesFilter(line)) {
-                outputFlow.appendText(styleText(line));
+                outputList.getItems().add(line);
             }
         }
         if (autoScrollBtn.isSelected()) {
-            outputFlow.setScrollTop(Double.MAX_VALUE);
+            scrollToBottom();
         }
     }
 
@@ -659,16 +686,16 @@ public class RunConsoleView extends BorderPane {
         MenuItem miWordWrap = new MenuItem("Toggle Word Wrap");
         miWordWrap.setOnAction(e -> {
             wordWrapBtn.setSelected(!wordWrapBtn.isSelected());
-            outputFlow.setWrapText(wordWrapBtn.isSelected());
+            outputList.refresh();
         });
 
         MenuItem miScrollTop = new MenuItem("Scroll to Top");
         miScrollTop.setAccelerator(new KeyCodeCombination(KeyCode.HOME, KeyCombination.SHORTCUT_DOWN));
-        miScrollTop.setOnAction(e -> outputFlow.setScrollTop(0));
+        miScrollTop.setOnAction(e -> { if (!outputList.getItems().isEmpty()) outputList.scrollTo(0); });
 
         MenuItem miScrollBottom = new MenuItem("Scroll to Bottom");
         miScrollBottom.setAccelerator(new KeyCodeCombination(KeyCode.END, KeyCombination.SHORTCUT_DOWN));
-        miScrollBottom.setOnAction(e -> outputFlow.setScrollTop(Double.MAX_VALUE));
+        miScrollBottom.setOnAction(e -> scrollToBottom());
 
         viewMenu.getItems().addAll(miShowAll, miAutoScroll, miWordWrap,
             new SeparatorMenuItem(), miScrollTop, miScrollBottom);
@@ -751,7 +778,7 @@ public class RunConsoleView extends BorderPane {
         wordWrapBtn.getStyleClass().add("run-console-toggle");
         wordWrapBtn.setTooltip(new Tooltip("Toggle word wrapping"));
         wordWrapBtn.setFocusTraversable(false);
-        wordWrapBtn.setOnAction(e -> outputFlow.setWrapText(wordWrapBtn.isSelected()));
+        wordWrapBtn.setOnAction(e -> outputList.refresh());
 
         // Search field
         searchField.setPromptText("Search output...");
