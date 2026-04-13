@@ -72,6 +72,7 @@ public class TimelinePanel extends VBox {
     }
 
     private final AnimationProject project;
+    private final PuppeteerCommand.Stack commandStack;
     private final Canvas canvas;
     private final ScrollPane scrollPane;
     private final Pane canvasContainer;
@@ -118,7 +119,12 @@ public class TimelinePanel extends VBox {
     private record KeyframeHit(TrackRow row, Keyframe keyframe) {}
 
     public TimelinePanel(AnimationProject project) {
+        this(project, null);
+    }
+
+    public TimelinePanel(AnimationProject project, PuppeteerCommand.Stack commandStack) {
         this.project = project;
+        this.commandStack = commandStack;
 
         canvas = new Canvas(800, 400);
         canvasContainer = new Pane(canvas);

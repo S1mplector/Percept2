@@ -258,7 +258,7 @@ public class PuppeteerWindow extends Stage {
         setHeight(900);
 
         entitySelector = new EntitySelector();
-        timelinePanel = new TimelinePanel(this.project);
+        timelinePanel = new TimelinePanel(this.project, commandStack);
         selectionModel = timelinePanel.getSelectionModel();
         keyframeEditor = new KeyframeEditor();
         keyframeEditor.setTimelineDurationMs(this.project.getTotalDurationMs());
