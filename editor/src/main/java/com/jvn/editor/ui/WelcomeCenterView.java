@@ -82,7 +82,6 @@ public class WelcomeCenterView extends BorderPane {
   private final Label recentOverviewValueLabel = new Label("0");
   private final Label recentOverviewDetailLabel = new Label("Tracked projects");
   private final Label healthOverviewValueLabel = new Label("Pending");
-  private final Label healthOverviewDetailLabel = new Label("Run checks to inspect the environment");
 
   private final Button btnNewProject = new Button();
   private final Button btnOpenProject = new Button();
@@ -253,13 +252,11 @@ public class WelcomeCenterView extends BorderPane {
     projectLabel.setWrapText(true);
     statusLabel.getStyleClass().add("welcome-status-text");
     recentMetaLabel.getStyleClass().add("welcome-section-meta");
-    healthMetaLabel.getStyleClass().add("welcome-section-meta");
     workspaceValueLabel.getStyleClass().add("welcome-overview-value");
     projectValueLabel.getStyleClass().add("welcome-overview-value");
     recentOverviewValueLabel.getStyleClass().add("welcome-overview-value");
     recentOverviewDetailLabel.getStyleClass().add("welcome-overview-detail");
     healthOverviewValueLabel.getStyleClass().addAll("welcome-overview-value", "welcome-overview-value-info");
-    healthOverviewDetailLabel.getStyleClass().add("welcome-overview-detail");
 
     btnNewProject.setOnAction(e -> {
       if (onCreateProject != null) onCreateProject.run();
@@ -308,12 +305,16 @@ public class WelcomeCenterView extends BorderPane {
     HBox headingRow = new HBox(8, headingLabel, versionLabel, headingSpacer, btnSettings);
     headingRow.setAlignment(Pos.BASELINE_LEFT);
 
+    healthContainer.setPadding(new Insets(0));
+    healthContainer.setSpacing(4);
+    VBox healthOverviewCard = buildHealthOverviewCard();
+
     HBox overviewRow = new HBox(
         10,
         buildOverviewCard("Workspace", workspaceValueLabel, workspaceLabel),
         buildOverviewCard("Current Project", projectValueLabel, projectLabel),
         buildOverviewCard("Recent Projects", recentOverviewValueLabel, recentOverviewDetailLabel),
-        buildOverviewCard("Environment Health", healthOverviewValueLabel, healthOverviewDetailLabel)
+        healthOverviewCard
     );
     overviewRow.getStyleClass().add("welcome-overview-row");
 
@@ -377,21 +378,8 @@ public class WelcomeCenterView extends BorderPane {
     spotlight.setPadding(new Insets(10));
     spotlight.getStyleClass().add("welcome-section-card");
 
-    Label healthHeader = new Label("Environment Health");
-    healthHeader.getStyleClass().add("welcome-section-title");
-    Region healthSpacer = new Region();
-    HBox.setHgrow(healthSpacer, Priority.ALWAYS);
-    HBox healthHeaderRow = new HBox(8, healthHeader, healthSpacer, healthMetaLabel);
-    healthHeaderRow.setAlignment(Pos.CENTER_LEFT);
-    healthContainer.setPadding(new Insets(0));
-    healthContainer.setSpacing(6);
-    VBox health = new VBox(8, healthHeaderRow, healthContainer);
-    health.setPadding(new Insets(10));
-    health.getStyleClass().add("welcome-section-card");
-
-    VBox right = new VBox(10, spotlight, health);
+    VBox right = new VBox(10, spotlight);
     VBox.setVgrow(spotlight, Priority.ALWAYS);
-    VBox.setVgrow(health, Priority.SOMETIMES);
 
     SplitPane split = new SplitPane(left, right);
     split.getStyleClass().add("welcome-center-split");
@@ -738,6 +726,17 @@ public class WelcomeCenterView extends BorderPane {
     HBox.setHgrow(card, Priority.ALWAYS);
     VBox.setVgrow(card, Priority.ALWAYS);
     detailLabel.setMaxWidth(Double.MAX_VALUE);
+    return card;
+  }
+
+  private VBox buildHealthOverviewCard() {
+    Label titleLabel = new Label("Environment Health");
+    titleLabel.getStyleClass().add("welcome-overview-title");
+    healthMetaLabel.getStyleClass().add("welcome-overview-detail");
+    VBox card = new VBox(5, titleLabel, healthOverviewValueLabel, healthMetaLabel, healthContainer);
+    card.getStyleClass().add("welcome-overview-card");
+    HBox.setHgrow(card, Priority.ALWAYS);
+    VBox.setVgrow(card, Priority.ALWAYS);
     return card;
   }
 
@@ -1177,36 +1176,29 @@ public class WelcomeCenterView extends BorderPane {
         "welcome-overview-value-info");
     if (rows == null || rows.isEmpty()) {
       healthOverviewValueLabel.setText("Pending");
-      healthOverviewDetailLabel.setText("Run checks to inspect the environment");
       healthOverviewValueLabel.getStyleClass().add("welcome-overview-value-info");
       return;
     }
 
-    int ok = 0;
     int warn = 0;
     int error = 0;
-    int info = 0;
     for (HealthRow row : rows) {
       if (row == null || row.severity() == null) continue;
       switch (row.severity()) {
-        case OK -> ok++;
         case WARN -> warn++;
         case ERROR -> error++;
-        case INFO -> info++;
+        default -> {}
       }
     }
 
     if (error > 0) {
-      healthOverviewValueLabel.setText("Errors detected");
-      healthOverviewDetailLabel.setText(error + " blocking issue" + (error == 1 ? "" : "s") + " across " + rows.size() + " checks");
+      healthOverviewValueLabel.setText(error + " error" + (error == 1 ? "" : "s") + " detected");
       healthOverviewValueLabel.getStyleClass().add("welcome-overview-value-error");
     } else if (warn > 0) {
-      healthOverviewValueLabel.setText("Needs attention");
-      healthOverviewDetailLabel.setText(warn + " warning" + (warn == 1 ? "" : "s") + " • " + ok + " checks passing");
+      healthOverviewValueLabel.setText(warn + " warning" + (warn == 1 ? "" : "s"));
       healthOverviewValueLabel.getStyleClass().add("welcome-overview-value-warn");
     } else {
       healthOverviewValueLabel.setText("All clear");
-      healthOverviewDetailLabel.setText(rows.size() + " checks passing" + (info > 0 ? " • " + info + " informational" : ""));
       healthOverviewValueLabel.getStyleClass().add("welcome-overview-value-ok");
     }
   }
