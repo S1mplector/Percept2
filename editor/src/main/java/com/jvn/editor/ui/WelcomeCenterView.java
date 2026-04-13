@@ -40,7 +40,6 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.MenuItem;
-import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
@@ -93,8 +92,6 @@ public class WelcomeCenterView extends BorderPane {
   private final Button btnHelpCenter = new Button();
   private final Button btnRefresh = new Button();
   private final Button btnSettings = new Button();
-  private final Button btnSpotlightOpenProject = new Button();
-  private final Button btnSpotlightRunProject = new Button();
   private final Button btnSpotlightRevealProject = new Button();
 
   private final Label spotlightMetaLabel = new Label("Select a project to inspect its common files and launch actions.");
@@ -419,8 +416,6 @@ public class WelcomeCenterView extends BorderPane {
     btnRefresh.setDisable(busy);
     btnSettings.setDisable(busy || onShowSettings == null);
     recentFilterField.setDisable(busy);
-    btnSpotlightOpenProject.setDisable(busy || resolveLauncherProjectDir() == null || (onOpenProject == null && onOpenRecentProject == null));
-    btnSpotlightRunProject.setDisable(busy || resolveLauncherProjectDir() == null || onRunProject == null);
     btnSpotlightRevealProject.setDisable(busy || resolveLauncherProjectDir() == null || onRevealProject == null);
   }
 
@@ -497,8 +492,6 @@ public class WelcomeCenterView extends BorderPane {
     btnProjectExplorer.setDisable(busy || launcherProject == null || onShowProjectExplorer == null);
     btnHelpCenter.setDisable(busy || onShowHelpCenter == null);
     btnSettings.setDisable(busy || onShowSettings == null);
-    btnSpotlightOpenProject.setDisable(busy || launcherProject == null || (onOpenProject == null && onOpenRecentProject == null));
-    btnSpotlightRunProject.setDisable(busy || launcherProject == null || onRunProject == null);
     btnSpotlightRevealProject.setDisable(busy || launcherProject == null || onRevealProject == null);
   }
 
@@ -759,28 +752,11 @@ public class WelcomeCenterView extends BorderPane {
     spotlightSummaryLabel.setWrapText(true);
     spotlightStateBadge.getStyleClass().add("welcome-project-badge");
 
-    configureActionButton(
-        btnSpotlightOpenProject,
-        CssIcon.popOut("#d5b36a"),
-        "Open Project",
-        "Open this project in the editor",
-        "welcome-action-button-primary");
-    btnSpotlightOpenProject.setOnAction(e -> openLauncherProject(resolveLauncherProjectDir()));
-
-    configureActionButton(
-        btnSpotlightRunProject,
-        CssIcon.play("#8bcf98"),
-        "Run Project",
-        "Run this project",
-        "welcome-action-button-secondary");
-    btnSpotlightRunProject.setOnAction(e -> runLauncherProject(resolveLauncherProjectDir()));
-
-    configureActionButton(
+    configureIconButton(
         btnSpotlightRevealProject,
         CssIcon.folder("#d5b36a"),
         "Reveal Folder",
-        "Reveal this project in the file manager",
-        "welcome-action-button-secondary");
+        "Reveal this project in the file manager");
     btnSpotlightRevealProject.setOnAction(e -> revealLauncherProject(resolveLauncherProjectDir()));
 
     Region headerSpacer = new Region();
@@ -790,12 +766,8 @@ public class WelcomeCenterView extends BorderPane {
 
     Region badgeSpacer = new Region();
     HBox.setHgrow(badgeSpacer, Priority.ALWAYS);
-    HBox titleRow = new HBox(8, spotlightNameLabel, badgeSpacer, spotlightStateBadge);
+    HBox titleRow = new HBox(8, spotlightNameLabel, badgeSpacer, spotlightStateBadge, btnSpotlightRevealProject);
     titleRow.setAlignment(Pos.CENTER_LEFT);
-
-    HBox actionsRow = new HBox(8, btnSpotlightOpenProject, btnSpotlightRunProject, btnSpotlightRevealProject);
-    actionsRow.getStyleClass().add("welcome-action-row");
-    actionsRow.setAlignment(Pos.CENTER_LEFT);
 
     Region divider = new Region();
     divider.getStyleClass().add("welcome-spotlight-divider");
@@ -815,27 +787,16 @@ public class WelcomeCenterView extends BorderPane {
     );
     linksSection.setPadding(new Insets(0));
 
-    VBox scrollContent = new VBox(
-        10,
+    VBox card = new VBox(
+        8,
         headerRow,
         titleRow,
         spotlightPathLabel,
         spotlightSummaryLabel,
-        actionsRow,
         divider,
         linksHeader,
         linksSection
     );
-    scrollContent.setPadding(new Insets(2, 0, 6, 0));
-
-    ScrollPane spotlightScroll = new ScrollPane(scrollContent);
-    spotlightScroll.setFitToWidth(true);
-    spotlightScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-    spotlightScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-    spotlightScroll.getStyleClass().add("welcome-spotlight-scroll");
-    VBox.setVgrow(spotlightScroll, Priority.ALWAYS);
-
-    VBox card = new VBox(0, spotlightScroll);
     updateProjectSpotlight();
     return card;
   }
