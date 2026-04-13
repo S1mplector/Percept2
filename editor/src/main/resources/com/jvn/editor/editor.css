@@ -4402,7 +4402,7 @@
 }
 
 .sidebar-tab-pane .tab .tab-label {
-  -fx-padding: 0 6 0 0;
+  -fx-padding: 0 14 0 0;
   -fx-text-fill: #c2c2c2;
   -fx-font-size: 12px;
   -fx-font-weight: 600;
