@@ -367,6 +367,7 @@ public class RuntimeVnInterop implements VnInterop {
   }
 
   private VnInteropResult handleJes(String payload, VnScene scene) {
+
     String[] toks = split(payload);
     if (toks.length == 0) return VnInteropResult.advance();
     String cmd = toks[0].toLowerCase();

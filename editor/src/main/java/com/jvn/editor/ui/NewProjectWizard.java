@@ -40,10 +40,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
-import javafx.stage.DirectoryChooser;
-import javafx.stage.Modality;
-import javafx.stage.Stage;
-import javafx.stage.StageStyle;
+import javafx.stage.*;
 
 /**
  * Project creation wizard for VN projects.
@@ -1089,7 +1086,7 @@ public class NewProjectWizard extends Stage {
     if (lblPreview == null || cmbTheme == null || cmbResolution == null) return;
     String name = txtProjectName == null ? "" : txtProjectName.getText().trim();
     if (name.isBlank()) name = "Untitled";
-    int[] resolution = parseResolution();
+    int[] resolution = getScaledResolution();
     String res = resolution[0] + "x" + resolution[1];
     String ratio = formatAspectRatio(resolution[0], resolution[1]);
     String theme = cmbTheme.getValue() == null ? "Dark Elegant" : cmbTheme.getValue();
@@ -1544,7 +1541,7 @@ public class NewProjectWizard extends Stage {
       }
     }
 
-    int[] resolution = parseResolution();
+    int[] resolution = getScaledResolution();
     createManifest(
         dir,
         displayName,
@@ -1765,6 +1762,16 @@ public class NewProjectWizard extends Stage {
     if (parts.length != 2) return new int[] {1920, 1080};
     int width = parseDimension(parts[0], 1920, "width");
     int height = parseDimension(parts[1], 1080, "height");
+    return new int[] {width, height};
+  }
+
+  private int[] getScaledResolution() {
+    int[] resolution = parseResolution();
+    double scaling = Screen.getPrimary().getOutputScaleX();
+
+    int width = (int) (resolution[0] / scaling);
+    int height = (int) (resolution[1] / scaling);
+
     return new int[] {width, height};
   }
 
@@ -2229,7 +2236,7 @@ public class NewProjectWizard extends Stage {
   }
 
   private void createDialogueLayout(File dir) throws Exception {
-    int[] res = parseResolution();
+    int[] res = getScaledResolution();
     double scale = res[1] / 1080.0;
     String template = LayoutDslTemplates.defaultDialogueLayoutTemplate();
     if (Math.abs(scale - 1.0) > 0.01) {
@@ -2664,7 +2671,7 @@ public class NewProjectWizard extends Stage {
       fw.write("- Initial commit: " + (gitInitialCommit ? "yes" : "no") + "\n\n");
 
       fw.write("## Runtime Profile\n\n");
-      int[] resolution = parseResolution();
+      int[] resolution = getScaledResolution();
       fw.write("- Resolution: " + resolution[0] + "x" + resolution[1] + " (" + formatAspectRatio(resolution[0], resolution[1]) + ")\n");
       fw.write("- Theme preset: " + (cmbTheme.getValue() == null ? "Dark Elegant" : cmbTheme.getValue()) + "\n");
       fw.write("- UI backend: " + (cmbRuntimeUi.getValue() == null ? "fx" : cmbRuntimeUi.getValue()) + "\n");
