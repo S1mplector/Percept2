@@ -331,16 +331,35 @@ public class JvnApp {
     return arg.substring(prefix.length());
   }
 
-  private static String cleanCliValue(String raw) {
+  static String cleanCliValue(String raw) {
     if (raw == null) return "";
-    String value = raw.trim();
+    String value = raw;
     while (value.length() >= 2) {
-      boolean doubleQuoted = value.startsWith("\"") && value.endsWith("\"");
-      boolean singleQuoted = value.startsWith("'") && value.endsWith("'");
+      int start = firstNonWhitespace(value);
+      int end = lastNonWhitespace(value);
+      if (start < 0 || end < start) return "";
+      char first = value.charAt(start);
+      char last = value.charAt(end);
+      boolean doubleQuoted = first == '"' && last == '"';
+      boolean singleQuoted = first == '\'' && last == '\'';
       if (!doubleQuoted && !singleQuoted) break;
-      value = value.substring(1, value.length() - 1).trim();
+      value = value.substring(start + 1, end);
     }
     return value;
+  }
+
+  private static int firstNonWhitespace(String value) {
+    for (int i = 0; i < value.length(); i++) {
+      if (!Character.isWhitespace(value.charAt(i))) return i;
+    }
+    return -1;
+  }
+
+  private static int lastNonWhitespace(String value) {
+    for (int i = value.length() - 1; i >= 0; i--) {
+      if (!Character.isWhitespace(value.charAt(i))) return i;
+    }
+    return -1;
   }
 
   private static boolean parseBooleanFlag(String raw) {
