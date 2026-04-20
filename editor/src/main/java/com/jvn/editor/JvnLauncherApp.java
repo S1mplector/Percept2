@@ -712,7 +712,7 @@ public class JvnLauncherApp extends Application {
       case "gradle" -> {
         String path = manifest.getProperty("path", ":runtime").trim();
         String task = manifest.getProperty("task", "run").trim();
-        String args = manifest.getProperty("args", "-x test");
+        String args = manifest.getProperty("args", defaultGradleRunArgs());
         runGradle(currentProject, composeGradleTask(path, task), splitArgs(args), "Run Project");
       }
       case "vn" -> runVnProjectInRuntime(currentProject, manifest);
@@ -824,6 +824,10 @@ public class JvnLauncherApp extends Application {
   }
 
   private void launchEditor(File projectDir, File startupFile) {
+    if (!confirmOpenEditorLaunch(projectDir, startupFile)) {
+      statusLabel.setText("Open editor cancelled");
+      return;
+    }
     try {
       List<String> command = new ArrayList<>();
       command.add(resolveJavaExecutable());
@@ -866,6 +870,19 @@ public class JvnLauncherApp extends Application {
     } catch (Exception ex) {
       EditorDialogs.error(primaryStage, "Open Editor", "Failed to launch editor: " + ex.getMessage());
     }
+  }
+
+  private boolean confirmOpenEditorLaunch(File projectDir, File startupFile) {
+    if (editorPreferences == null || !editorPreferences.isLauncherConfirmOpenEditor()) return true;
+    String target;
+    if (startupFile != null && startupFile.isFile()) {
+      target = "Open " + startupFile.getName() + " in the editor?";
+    } else if (projectDir != null && projectDir.isDirectory()) {
+      target = "Open " + displayProjectName(projectDir) + " in the editor?";
+    } else {
+      target = "Open the editor?";
+    }
+    return EditorDialogs.confirm(primaryStage, "Open Editor", target, "Open", false);
   }
 
   private String resolveJavaExecutable() {
@@ -981,6 +998,12 @@ public class JvnLauncherApp extends Application {
   private String[] splitArgs(String raw) {
     if (raw == null || raw.isBlank()) return new String[0];
     return raw.trim().split("\\s+");
+  }
+
+  private String defaultGradleRunArgs() {
+    return editorPreferences == null || editorPreferences.isGradleSkipTestsOnRun()
+        ? "-x test"
+        : "";
   }
 
   private String composeGradleTask(String path, String task) {

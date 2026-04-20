@@ -1,7 +1,10 @@
 package com.jvn.editor.ui;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -28,6 +31,7 @@ public class EditorSettingsView extends BorderPane {
   private static final String TEXT_EDITOR_LABEL_CUSTOM = "Custom Command";
   private static final String THEME_LABEL_DARK = "Dark";
   private static final String THEME_LABEL_LIGHT = "Light";
+  private static final String SETTINGS_SEARCH_TEXT_KEY = "settingsSearchText";
 
   private final EditorPreferencesStore store;
   private final ComboBox<String> editorThemeCombo = new ComboBox<>();
@@ -35,6 +39,7 @@ public class EditorSettingsView extends BorderPane {
   private final Spinner<Integer> editorMaxFpsSpinner = new Spinner<>();
   private final ComboBox<String> defaultTextEditorCombo = new ComboBox<>();
   private final TextField customTextEditorCommandField = new TextField();
+  private final TextField settingsFilterField = new TextField();
   private final CheckBox showWelcomeOnStartupCheck =
       new CheckBox("Show Workspace Hub tab on startup");
   private final CheckBox loadSidebarExtensionsOnDemandCheck =
@@ -43,11 +48,16 @@ public class EditorSettingsView extends BorderPane {
       new CheckBox("Save dirty files before project runs");
   private final CheckBox editorRuntimePerfHudCheck =
       new CheckBox("Show runtime performance HUD when launching projects");
+  private final CheckBox editorConfirmRunProjectCheck =
+      new CheckBox("Confirm before running a project from the editor");
+  private final CheckBox gradleSkipTestsOnRunCheck =
+      new CheckBox("Skip Gradle tests for default project runs");
   private final Map<EditorSidebarPanel, ComboBox<EditorPanelPlacement>> panelPlacements =
       new EnumMap<>(EditorSidebarPanel.class);
   private final Map<EditorSidebarPanel, CheckBox> chooserVisibilityChecks =
       new EnumMap<>(EditorSidebarPanel.class);
   private final Label statusLabel = new Label("Editor settings loaded");
+  private final List<VBox> filterableSections = new ArrayList<>();
   private Consumer<EditorPreferences> onPreferencesApplied;
 
   public EditorSettingsView(EditorPreferencesStore store) {
@@ -87,6 +97,9 @@ public class EditorSettingsView extends BorderPane {
     editorThemeCombo.getItems().addAll(THEME_LABEL_DARK, THEME_LABEL_LIGHT);
     editorThemeCombo.setMaxWidth(Double.MAX_VALUE);
     editorThemeCombo.getStyleClass().add("editor-settings-combo");
+    settingsFilterField.setPromptText("Filter settings...");
+    settingsFilterField.getStyleClass().addAll("editor-settings-text-field", "editor-settings-search-field");
+    settingsFilterField.textProperty().addListener((obs, oldValue, newValue) -> applySettingsFilter());
     codeEditorFontSizeSpinner.setValueFactory(
         new SpinnerValueFactory.IntegerSpinnerValueFactory(
             EditorPreferences.MIN_CODE_EDITOR_FONT_SIZE,
@@ -116,31 +129,43 @@ public class EditorSettingsView extends BorderPane {
     loadSidebarExtensionsOnDemandCheck.getStyleClass().add("editor-settings-check");
     autoSaveBeforeRunCheck.getStyleClass().add("editor-settings-check");
     editorRuntimePerfHudCheck.getStyleClass().add("editor-settings-check");
+    editorConfirmRunProjectCheck.getStyleClass().add("editor-settings-check");
+    gradleSkipTestsOnRunCheck.getStyleClass().add("editor-settings-check");
 
     GridPane appearanceGrid = settingsGrid(180);
     appearanceGrid.addRow(0, fieldLabel("Editor Theme"), editorThemeCombo);
     appearanceGrid.addRow(1, fieldLabel("Code Text Size"), codeEditorFontSizeSpinner);
     VBox appearanceSection =
-        settingsSection("Appearance", "Theme and code editor scale.", appearanceGrid);
+        registerSection(
+            settingsSection("Appearance", "Theme and code editor scale.", appearanceGrid),
+            "appearance theme code text size font editor dark light scale");
 
     GridPane runtimeGrid = settingsGrid(180);
     runtimeGrid.addRow(0, fieldLabel("Max FPS"), editorMaxFpsSpinner);
     runtimeGrid.add(editorRuntimePerfHudCheck, 1, 1);
     runtimeGrid.add(autoSaveBeforeRunCheck, 1, 2);
+    runtimeGrid.add(editorConfirmRunProjectCheck, 1, 3);
+    runtimeGrid.add(gradleSkipTestsOnRunCheck, 1, 4);
     VBox runtimeSection =
-        settingsSection("Runtime", "Project launch and preview performance defaults.", runtimeGrid);
+        registerSection(
+            settingsSection("Runtime", "Project launch and preview performance defaults.", runtimeGrid),
+            "runtime run project launch preview performance max fps perf hud save dirty confirm gradle skip tests");
 
     GridPane startupGrid = settingsGrid(180);
     startupGrid.add(showWelcomeOnStartupCheck, 1, 0);
     startupGrid.add(loadSidebarExtensionsOnDemandCheck, 1, 1);
     VBox startupSection =
-        settingsSection("Startup", "Tabs and side tools loaded when the editor opens.", startupGrid);
+        registerSection(
+            settingsSection("Startup", "Tabs and side tools loaded when the editor opens.", startupGrid),
+            "startup workspace hub tab sidebar extensions on demand memory tools");
 
     GridPane fileOpeningGrid = settingsGrid(180);
     fileOpeningGrid.addRow(0, fieldLabel("Default Text Editor"), defaultTextEditorCombo);
     fileOpeningGrid.addRow(1, fieldLabel("Custom Command"), customTextEditorCommandField);
     VBox fileOpeningSection =
-        settingsSection("File Opening", "Default editor used when project files are opened externally.", fileOpeningGrid);
+        registerSection(
+            settingsSection("File Opening", "Default editor used when project files are opened externally.", fileOpeningGrid),
+            "file opening default text editor custom command external system app");
 
     VBox sidebarSection = new VBox(10);
     sidebarSection.getChildren().add(sectionHeader("Default Sidebar Panels"));
@@ -183,10 +208,14 @@ public class EditorSettingsView extends BorderPane {
       row++;
     }
     sidebarSection.getChildren().addAll(sidebarDesc, sidebarGrid);
+    registerSection(
+        sidebarSection,
+        "default sidebar panels project inspector timeline help assets placement left right hidden chooser tools");
 
     content.getChildren().addAll(
         header,
         intro,
+        settingsFilterField,
         new Separator(),
         appearanceSection,
         runtimeSection,
@@ -232,6 +261,8 @@ public class EditorSettingsView extends BorderPane {
     loadSidebarExtensionsOnDemandCheck.setSelected(model.isLoadSidebarExtensionsOnDemand());
     autoSaveBeforeRunCheck.setSelected(model.isAutoSaveBeforeRun());
     editorRuntimePerfHudCheck.setSelected(model.isEditorRuntimePerfHud());
+    editorConfirmRunProjectCheck.setSelected(model.isEditorConfirmRunProject());
+    gradleSkipTestsOnRunCheck.setSelected(model.isGradleSkipTestsOnRun());
     for (EditorSidebarPanel panel : EditorSidebarPanel.values()) {
       if (!panel.editableInSettings()) continue;
       ComboBox<EditorPanelPlacement> combo = panelPlacements.get(panel);
@@ -273,6 +304,8 @@ public class EditorSettingsView extends BorderPane {
     preferences.setLoadSidebarExtensionsOnDemand(loadSidebarExtensionsOnDemandCheck.isSelected());
     preferences.setAutoSaveBeforeRun(autoSaveBeforeRunCheck.isSelected());
     preferences.setEditorRuntimePerfHud(editorRuntimePerfHudCheck.isSelected());
+    preferences.setEditorConfirmRunProject(editorConfirmRunProjectCheck.isSelected());
+    preferences.setGradleSkipTestsOnRun(gradleSkipTestsOnRunCheck.isSelected());
     for (EditorSidebarPanel panel : EditorSidebarPanel.values()) {
       if (!panel.editableInSettings()) continue;
       ComboBox<EditorPanelPlacement> combo = panelPlacements.get(panel);
@@ -285,6 +318,38 @@ public class EditorSettingsView extends BorderPane {
           chooserVisible == null ? panel.defaultVisibleInChooser() : chooserVisible.isSelected());
     }
     return preferences;
+  }
+
+  private VBox registerSection(VBox section, String searchText) {
+    if (section == null) return null;
+    section.getProperties().put(SETTINGS_SEARCH_TEXT_KEY, normalizeSearchText(searchText));
+    filterableSections.add(section);
+    return section;
+  }
+
+  private void applySettingsFilter() {
+    String filter = normalizeSearchText(settingsFilterField.getText());
+    for (VBox section : filterableSections) {
+      Object raw = section.getProperties().get(SETTINGS_SEARCH_TEXT_KEY);
+      String haystack = raw == null ? "" : raw.toString();
+      boolean match = filter.isBlank() || matchesFilter(haystack, filter);
+      section.setVisible(match);
+      section.setManaged(match);
+    }
+  }
+
+  private static boolean matchesFilter(String haystack, String filter) {
+    if (filter == null || filter.isBlank()) return true;
+    if (haystack == null || haystack.isBlank()) return false;
+    String[] tokens = filter.split("\\s+");
+    for (String token : tokens) {
+      if (!token.isBlank() && !haystack.contains(token)) return false;
+    }
+    return true;
+  }
+
+  private static String normalizeSearchText(String text) {
+    return text == null ? "" : text.trim().toLowerCase(Locale.ROOT);
   }
 
   private static Label sectionHeader(String text) {

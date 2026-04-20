@@ -15,6 +15,7 @@ public final class EditorPreferencesStore {
   static final String KEY_LOAD_SIDEBAR_EXTENSIONS_ON_DEMAND = "loadSidebarExtensionsOnDemand";
   static final String KEY_AUTO_SAVE_BEFORE_RUN = "autoSaveBeforeRun";
   static final String KEY_EDITOR_RUNTIME_PERF_HUD = "editor.runtimePerfHud";
+  static final String KEY_EDITOR_CONFIRM_RUN_PROJECT = "editor.confirmRunProject";
   static final String KEY_DEFAULT_TEXT_EDITOR = "defaultTextEditor";
   static final String KEY_CUSTOM_TEXT_EDITOR_COMMAND = "customTextEditorCommand";
   static final String KEY_LAUNCHER_THEME = "launcher.theme";
@@ -22,8 +23,10 @@ public final class EditorPreferencesStore {
   static final String KEY_LAUNCHER_LAST_PROJECT_PATH = "launcher.lastProjectPath";
   static final String KEY_LAUNCHER_KEEP_OPEN_AFTER_EDITOR_LAUNCH =
       "launcher.keepOpenAfterEditorLaunch";
+  static final String KEY_LAUNCHER_CONFIRM_OPEN_EDITOR = "launcher.confirmOpenEditor";
   static final String KEY_LAUNCHER_CONFIRM_RUN_PROJECT = "launcher.confirmRunProject";
   static final String KEY_LAUNCHER_RUNTIME_PERF_HUD = "launcher.runtimePerfHud";
+  static final String KEY_GRADLE_SKIP_TESTS_ON_RUN = "gradle.skipTestsOnRun";
   static final String KEY_PANEL_PREFIX = "panel.";
   static final String KEY_PANEL_SUFFIX = ".placement";
   static final String KEY_CHOOSER_SUFFIX = ".chooserVisible";
@@ -95,6 +98,9 @@ public final class EditorPreferencesStore {
         KEY_EDITOR_RUNTIME_PERF_HUD,
         Boolean.toString(preferences.isEditorRuntimePerfHud()));
     props.setProperty(
+        KEY_EDITOR_CONFIRM_RUN_PROJECT,
+        Boolean.toString(preferences.isEditorConfirmRunProject()));
+    props.setProperty(
         KEY_DEFAULT_TEXT_EDITOR,
         preferences.getDefaultTextEditor());
     props.setProperty(
@@ -113,11 +119,17 @@ public final class EditorPreferencesStore {
         KEY_LAUNCHER_KEEP_OPEN_AFTER_EDITOR_LAUNCH,
         Boolean.toString(preferences.isLauncherKeepOpenAfterEditorLaunch()));
     props.setProperty(
+        KEY_LAUNCHER_CONFIRM_OPEN_EDITOR,
+        Boolean.toString(preferences.isLauncherConfirmOpenEditor()));
+    props.setProperty(
         KEY_LAUNCHER_CONFIRM_RUN_PROJECT,
         Boolean.toString(preferences.isLauncherConfirmRunProject()));
     props.setProperty(
         KEY_LAUNCHER_RUNTIME_PERF_HUD,
         Boolean.toString(preferences.isLauncherRuntimePerfHud()));
+    props.setProperty(
+        KEY_GRADLE_SKIP_TESTS_ON_RUN,
+        Boolean.toString(preferences.isGradleSkipTestsOnRun()));
     for (EditorSidebarPanel panel : EditorSidebarPanel.values()) {
       props.setProperty(
           KEY_PANEL_PREFIX + panel.key() + KEY_PANEL_SUFFIX,
@@ -149,6 +161,8 @@ public final class EditorPreferencesStore {
         props.getProperty(KEY_AUTO_SAVE_BEFORE_RUN), true));
     preferences.setEditorRuntimePerfHud(parseBoolean(
         props.getProperty(KEY_EDITOR_RUNTIME_PERF_HUD), true));
+    preferences.setEditorConfirmRunProject(parseBoolean(
+        props.getProperty(KEY_EDITOR_CONFIRM_RUN_PROJECT), false));
     preferences.setDefaultTextEditor(props.getProperty(
         KEY_DEFAULT_TEXT_EDITOR,
         EditorPreferences.TEXT_EDITOR_JVN));
@@ -165,10 +179,14 @@ public final class EditorPreferencesStore {
         ""));
     preferences.setLauncherKeepOpenAfterEditorLaunch(parseBoolean(
         props.getProperty(KEY_LAUNCHER_KEEP_OPEN_AFTER_EDITOR_LAUNCH), false));
+    preferences.setLauncherConfirmOpenEditor(parseBoolean(
+        props.getProperty(KEY_LAUNCHER_CONFIRM_OPEN_EDITOR), false));
     preferences.setLauncherConfirmRunProject(parseBoolean(
         props.getProperty(KEY_LAUNCHER_CONFIRM_RUN_PROJECT), false));
     preferences.setLauncherRuntimePerfHud(parseBoolean(
         props.getProperty(KEY_LAUNCHER_RUNTIME_PERF_HUD), true));
+    preferences.setGradleSkipTestsOnRun(parseBoolean(
+        props.getProperty(KEY_GRADLE_SKIP_TESTS_ON_RUN), true));
     for (EditorSidebarPanel panel : EditorSidebarPanel.values()) {
       String key = KEY_PANEL_PREFIX + panel.key() + KEY_PANEL_SUFFIX;
       EditorPanelPlacement placement = parsePlacement(props.getProperty(key), panel.defaultPlacement());

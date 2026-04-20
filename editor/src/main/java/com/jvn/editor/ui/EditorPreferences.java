@@ -23,14 +23,17 @@ public final class EditorPreferences {
   private boolean loadSidebarExtensionsOnDemand;
   private boolean autoSaveBeforeRun;
   private boolean editorRuntimePerfHud;
+  private boolean editorConfirmRunProject;
   private String defaultTextEditor;
   private String customTextEditorCommand;
   private String launcherTheme;
   private boolean launcherRestoreLastProject;
   private String launcherLastProjectPath;
   private boolean launcherKeepOpenAfterEditorLaunch;
+  private boolean launcherConfirmOpenEditor;
   private boolean launcherConfirmRunProject;
   private boolean launcherRuntimePerfHud;
+  private boolean gradleSkipTestsOnRun;
   private final EnumMap<EditorSidebarPanel, EditorPanelPlacement> panelPlacements =
       new EnumMap<>(EditorSidebarPanel.class);
   private final EnumMap<EditorSidebarPanel, Boolean> chooserVisibility =
@@ -44,6 +47,7 @@ public final class EditorPreferences {
         true,
         true,
         true,
+        false,
         TEXT_EDITOR_JVN,
         "",
         LAUNCHER_THEME_DARK,
@@ -51,6 +55,8 @@ public final class EditorPreferences {
         "",
         false,
         false,
+        false,
+        true,
         true,
         EditorSidebarPanel.defaultPlacements(),
         EditorSidebarPanel.defaultChooserVisibility());
@@ -63,14 +69,17 @@ public final class EditorPreferences {
       boolean loadSidebarExtensionsOnDemand,
       boolean autoSaveBeforeRun,
       boolean editorRuntimePerfHud,
+      boolean editorConfirmRunProject,
       String defaultTextEditor,
       String customTextEditorCommand,
       String launcherTheme,
       boolean launcherRestoreLastProject,
       String launcherLastProjectPath,
       boolean launcherKeepOpenAfterEditorLaunch,
+      boolean launcherConfirmOpenEditor,
       boolean launcherConfirmRunProject,
       boolean launcherRuntimePerfHud,
+      boolean gradleSkipTestsOnRun,
       Map<EditorSidebarPanel, EditorPanelPlacement> placements,
       Map<EditorSidebarPanel, Boolean> chooserVisibility) {
     this.codeEditorFontSize =
@@ -80,14 +89,17 @@ public final class EditorPreferences {
     this.loadSidebarExtensionsOnDemand = loadSidebarExtensionsOnDemand;
     this.autoSaveBeforeRun = autoSaveBeforeRun;
     this.editorRuntimePerfHud = editorRuntimePerfHud;
+    this.editorConfirmRunProject = editorConfirmRunProject;
     this.defaultTextEditor = normalizeTextEditor(defaultTextEditor);
     this.customTextEditorCommand = cleanText(customTextEditorCommand);
     this.launcherTheme = normalizeLauncherTheme(launcherTheme);
     this.launcherRestoreLastProject = launcherRestoreLastProject;
     this.launcherLastProjectPath = cleanText(launcherLastProjectPath);
     this.launcherKeepOpenAfterEditorLaunch = launcherKeepOpenAfterEditorLaunch;
+    this.launcherConfirmOpenEditor = launcherConfirmOpenEditor;
     this.launcherConfirmRunProject = launcherConfirmRunProject;
     this.launcherRuntimePerfHud = launcherRuntimePerfHud;
+    this.gradleSkipTestsOnRun = gradleSkipTestsOnRun;
     panelPlacements.putAll(EditorSidebarPanel.defaultPlacements());
     this.chooserVisibility.putAll(EditorSidebarPanel.defaultChooserVisibility());
     if (placements != null) {
@@ -169,6 +181,14 @@ public final class EditorPreferences {
     this.editorRuntimePerfHud = editorRuntimePerfHud;
   }
 
+  public boolean isEditorConfirmRunProject() {
+    return editorConfirmRunProject;
+  }
+
+  public void setEditorConfirmRunProject(boolean editorConfirmRunProject) {
+    this.editorConfirmRunProject = editorConfirmRunProject;
+  }
+
   public String getDefaultTextEditor() {
     return defaultTextEditor;
   }
@@ -217,6 +237,14 @@ public final class EditorPreferences {
     this.launcherKeepOpenAfterEditorLaunch = launcherKeepOpenAfterEditorLaunch;
   }
 
+  public boolean isLauncherConfirmOpenEditor() {
+    return launcherConfirmOpenEditor;
+  }
+
+  public void setLauncherConfirmOpenEditor(boolean launcherConfirmOpenEditor) {
+    this.launcherConfirmOpenEditor = launcherConfirmOpenEditor;
+  }
+
   public boolean isLauncherConfirmRunProject() {
     return launcherConfirmRunProject;
   }
@@ -231,6 +259,14 @@ public final class EditorPreferences {
 
   public void setLauncherRuntimePerfHud(boolean launcherRuntimePerfHud) {
     this.launcherRuntimePerfHud = launcherRuntimePerfHud;
+  }
+
+  public boolean isGradleSkipTestsOnRun() {
+    return gradleSkipTestsOnRun;
+  }
+
+  public void setGradleSkipTestsOnRun(boolean gradleSkipTestsOnRun) {
+    this.gradleSkipTestsOnRun = gradleSkipTestsOnRun;
   }
 
   public EditorPanelPlacement getPlacement(EditorSidebarPanel panel) {
@@ -269,14 +305,17 @@ public final class EditorPreferences {
         loadSidebarExtensionsOnDemand,
         autoSaveBeforeRun,
         editorRuntimePerfHud,
+        editorConfirmRunProject,
         defaultTextEditor,
         customTextEditorCommand,
         launcherTheme,
         launcherRestoreLastProject,
         launcherLastProjectPath,
         launcherKeepOpenAfterEditorLaunch,
+        launcherConfirmOpenEditor,
         launcherConfirmRunProject,
         launcherRuntimePerfHud,
+        gradleSkipTestsOnRun,
         panelPlacements,
         chooserVisibility);
     c.editorMaxFps = this.editorMaxFps;

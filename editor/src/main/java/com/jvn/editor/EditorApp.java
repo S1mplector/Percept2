@@ -348,6 +348,17 @@ public class EditorApp extends Application {
 
   private void doRunProject(File root) {
     if (root == null) return;
+    if (editorPreferences != null
+        && editorPreferences.isEditorConfirmRunProject()
+        && !EditorDialogs.confirm(
+            dialogOwner(),
+            "Run Project",
+            "Run " + root.getName() + " from the editor?",
+            "Run",
+            false)) {
+      if (status != null) status.setText("Run cancelled");
+      return;
+    }
     if (editorPreferences == null || editorPreferences.isAutoSaveBeforeRun()) {
       if (!saveDirtyEditorsBeforeRun()) return;
     }
@@ -357,7 +368,7 @@ public class EditorApp extends Application {
     if ("gradle".equalsIgnoreCase(type)) {
       String path = mf.getProperty("path", ":runtime").trim();
       String task = mf.getProperty("task", "run").trim();
-      String args = mf.getProperty("args", "-x test");
+      String args = mf.getProperty("args", defaultGradleRunArgs());
       runGradle(root, composeGradleTask(path, task), args == null ? new String[]{} : args.split("\\s+"), "Run Project");
     } else if ("vn".equalsIgnoreCase(type)) {
       runVnProjectInRuntime(root, mf);
@@ -464,6 +475,12 @@ public class EditorApp extends Application {
     if (p.isEmpty()) return t;
     if (!p.startsWith(":")) p = ":" + p;
     return p + ":" + t;
+  }
+
+  private String defaultGradleRunArgs() {
+    return editorPreferences == null || editorPreferences.isGradleSkipTestsOnRun()
+        ? "-x test"
+        : "";
   }
 
   private void runGradle(File root, String task, String[] args, String title) {

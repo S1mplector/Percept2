@@ -4900,6 +4900,10 @@
   -fx-background-radius: 6;
 }
 
+.editor-settings-search-field {
+  -fx-padding: 8 10 8 10;
+}
+
 .editor-settings-text-field:disabled {
   -fx-opacity: 0.55;
 }
