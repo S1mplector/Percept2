@@ -923,7 +923,7 @@ public class JvnLauncherApp extends Application {
   }
 
   private File resolveStartupProject() {
-    String value = System.getProperty(LAUNCHER_START_PROJECT_PROPERTY, "").trim();
+    String value = EditorApp.cleanStartupPathValue(System.getProperty(LAUNCHER_START_PROJECT_PROPERTY, ""));
     if (value.isBlank()
         && editorPreferences != null
         && editorPreferences.isLauncherRestoreLastProject()) {

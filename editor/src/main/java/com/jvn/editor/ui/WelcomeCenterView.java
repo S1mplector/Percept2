@@ -30,6 +30,7 @@ import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -39,17 +40,21 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyCode;
+import javafx.scene.Scene;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.stage.Popup;
+import javafx.stage.Window;
 import javafx.util.Duration;
 
 /**
@@ -81,6 +86,8 @@ public class WelcomeCenterView extends BorderPane {
   private final Label recentOverviewValueLabel = new Label("0");
   private final Label recentOverviewDetailLabel = new Label("Tracked projects");
   private final Label healthOverviewValueLabel = new Label("Pending");
+  private final Button btnHealthDetails = new Button("Details");
+  private final Popup healthDetailsPopup = new Popup();
 
   private final Button btnNewProject = new Button();
   private final Button btnOpenProject = new Button();
@@ -108,6 +115,7 @@ public class WelcomeCenterView extends BorderPane {
   private final TextField recentFilterField = new TextField();
 
   private List<ProjectEntry> allRecentProjects = List.of();
+  private List<HealthRow> latestHealthRows = List.of();
 
   private File workspaceRoot;
   private File projectRoot;
@@ -280,6 +288,9 @@ public class WelcomeCenterView extends BorderPane {
     btnSettings.setOnAction(e -> {
       if (onShowSettings != null) onShowSettings.run();
     });
+    healthDetailsPopup.setAutoHide(true);
+    healthDetailsPopup.setHideOnEscape(true);
+    healthDetailsPopup.setOnHidden(e -> btnHealthDetails.setText("Details"));
     configureActionButton(btnNewProject, CssIcon.plus("#8bcf98"), "New Project", "Create a new project", "welcome-action-button-primary");
     configureActionButton(btnOpenProject, CssIcon.folder("#d5b36a"), "Open Project", "Choose an existing project", "welcome-action-button-secondary");
     configureActionButton(btnRunProject, CssIcon.play("#dd9a48"), "Run Project", "Run the selected project with the runtime", "welcome-action-button-secondary");
@@ -399,6 +410,8 @@ public class WelcomeCenterView extends BorderPane {
     btnHelpCenter.setDisable(busy || onShowHelpCenter == null);
     btnRefresh.setDisable(busy);
     btnSettings.setDisable(busy || onShowSettings == null);
+    btnHealthDetails.setDisable(busy);
+    if (busy) healthDetailsPopup.hide();
     recentFilterField.setDisable(busy);
     btnSpotlightRevealProject.setDisable(busy || resolveLauncherProjectDir() == null || onRevealProject == null);
   }
@@ -729,7 +742,17 @@ public class WelcomeCenterView extends BorderPane {
     Label titleLabel = new Label("Environment Health");
     titleLabel.getStyleClass().add("welcome-overview-title");
     healthMetaLabel.getStyleClass().add("welcome-overview-detail");
-    VBox card = new VBox(5, titleLabel, healthOverviewValueLabel, healthMetaLabel);
+    btnHealthDetails.getStyleClass().add("welcome-health-toggle-button");
+    btnHealthDetails.setFocusTraversable(false);
+    btnHealthDetails.setTooltip(new Tooltip("Show environment health details"));
+    btnHealthDetails.setOnAction(e -> toggleHealthDetailsPopup());
+
+    Region titleSpacer = new Region();
+    HBox.setHgrow(titleSpacer, Priority.ALWAYS);
+    HBox titleRow = new HBox(8, titleLabel, titleSpacer, btnHealthDetails);
+    titleRow.setAlignment(Pos.CENTER_LEFT);
+
+    VBox card = new VBox(5, titleRow, healthOverviewValueLabel, healthMetaLabel);
     card.getStyleClass().add("welcome-overview-card");
     HBox.setHgrow(card, Priority.ALWAYS);
     VBox.setVgrow(card, Priority.ALWAYS);
@@ -1083,7 +1106,134 @@ public class WelcomeCenterView extends BorderPane {
   }
 
   private void renderHealthRows(List<HealthRow> rows) {
-    updateHealthOverview(rows);
+    latestHealthRows = rows == null ? List.of() : List.copyOf(rows);
+    updateHealthOverview(latestHealthRows);
+    if (healthDetailsPopup.isShowing()) {
+      updateHealthDetailsPopupContent();
+    }
+  }
+
+  private void toggleHealthDetailsPopup() {
+    if (healthDetailsPopup.isShowing()) {
+      healthDetailsPopup.hide();
+      return;
+    }
+    showHealthDetailsPopup();
+  }
+
+  private void showHealthDetailsPopup() {
+    Window owner = getScene() == null ? null : getScene().getWindow();
+    if (owner == null) return;
+    updateHealthDetailsPopupContent();
+
+    Bounds anchor = btnHealthDetails.localToScreen(btnHealthDetails.getBoundsInLocal());
+    double popupWidth = 480;
+    double margin = 14;
+    double ownerLeft = owner.getX() + margin;
+    double ownerRight = owner.getX() + owner.getWidth() - popupWidth - margin;
+    double x = anchor == null ? ownerRight : anchor.getMaxX() - popupWidth;
+    x = Math.max(ownerLeft, Math.min(x, ownerRight));
+    double y = anchor == null ? owner.getY() + 120 : anchor.getMaxY() + 8;
+
+    healthDetailsPopup.show(owner, x, y);
+    syncHealthPopupStylesheets();
+    btnHealthDetails.setText("Hide");
+  }
+
+  private void updateHealthDetailsPopupContent() {
+    healthDetailsPopup.getContent().setAll(buildHealthDetailsPopupContent());
+    syncHealthPopupStylesheets();
+  }
+
+  private void syncHealthPopupStylesheets() {
+    if (getScene() == null || healthDetailsPopup.getContent().isEmpty()) return;
+    Scene popupScene = healthDetailsPopup.getContent().get(0).getScene();
+    if (popupScene == null) return;
+    popupScene.getStylesheets().setAll(getScene().getStylesheets());
+  }
+
+  private VBox buildHealthDetailsPopupContent() {
+    Label title = new Label("Environment Health");
+    title.getStyleClass().add("welcome-health-popup-title");
+    Label subtitle = new Label(buildHealthSummary(latestHealthRows));
+    subtitle.getStyleClass().add("welcome-health-summary");
+    subtitle.setWrapText(true);
+
+    Button close = new Button("Close");
+    close.getStyleClass().add("welcome-health-popup-close");
+    close.setFocusTraversable(false);
+    close.setOnAction(e -> healthDetailsPopup.hide());
+
+    Region spacer = new Region();
+    HBox.setHgrow(spacer, Priority.ALWAYS);
+    HBox header = new HBox(8, title, spacer, close);
+    header.setAlignment(Pos.CENTER_LEFT);
+
+    VBox rows = new VBox(6);
+    rows.getStyleClass().add("welcome-health-popup-rows");
+    if (latestHealthRows == null || latestHealthRows.isEmpty()) {
+      Label empty = new Label("Checks have not finished yet.");
+      empty.getStyleClass().add("welcome-health-detail");
+      empty.setWrapText(true);
+      rows.getChildren().add(empty);
+    } else {
+      for (HealthRow row : latestHealthRows) {
+        if (row == null) continue;
+        rows.getChildren().add(buildHealthDetailRow(row));
+      }
+    }
+
+    ScrollPane scroll = new ScrollPane(rows);
+    scroll.getStyleClass().add("welcome-health-popup-scroll");
+    scroll.setFitToWidth(true);
+    scroll.setMaxHeight(360);
+    scroll.setPrefViewportHeight(Math.min(360, 76 + Math.max(0, rows.getChildren().size() - 1) * 68));
+
+    VBox popup = new VBox(10, header, subtitle, scroll);
+    popup.getStyleClass().add("welcome-health-popup");
+    popup.setPrefWidth(480);
+    popup.setMaxWidth(480);
+    return popup;
+  }
+
+  private HBox buildHealthDetailRow(HealthRow row) {
+    Severity severity = row.severity() == null ? Severity.INFO : row.severity();
+    Label badge = new Label(severityLabel(severity));
+    badge.getStyleClass().addAll("welcome-health-badge", healthBadgeClass(severity));
+
+    Label title = new Label(row.title() == null || row.title().isBlank() ? "Health Check" : row.title());
+    title.getStyleClass().add("welcome-health-detail-title");
+    Label summary = new Label(row.summary() == null || row.summary().isBlank() ? "--" : row.summary());
+    summary.getStyleClass().add("welcome-health-summary");
+    summary.setWrapText(true);
+    Label detail = new Label(row.detail() == null || row.detail().isBlank() ? "No extra detail." : row.detail());
+    detail.getStyleClass().add("welcome-health-detail");
+    detail.setWrapText(true);
+
+    VBox text = new VBox(2, title, summary, detail);
+    HBox.setHgrow(text, Priority.ALWAYS);
+    HBox rowBox = new HBox(8, badge, text);
+    rowBox.getStyleClass().add("welcome-health-detail-row");
+    rowBox.setAlignment(Pos.TOP_LEFT);
+    return rowBox;
+  }
+
+  private String severityLabel(Severity severity) {
+    return switch (severity) {
+      case OK -> "OK";
+      case WARN -> "WARN";
+      case ERROR -> "ERROR";
+      case INFO -> "INFO";
+    };
+  }
+
+  private String healthBadgeClass(Severity severity) {
+    return switch (severity) {
+      case OK -> "welcome-health-badge-ok";
+      case WARN -> "welcome-health-badge-warn";
+      case ERROR -> "welcome-health-badge-error";
+      case INFO -> "welcome-health-badge-info";
+    };
   }
 
   private void updateHealthOverview(List<HealthRow> rows) {
@@ -1435,11 +1585,11 @@ public class WelcomeCenterView extends BorderPane {
       openButton.setText("");
       openButton.getStyleClass().add("welcome-open-button");
       openButton.setFocusTraversable(false);
-      openButton.setTooltip(new Tooltip("Select project"));
-      openButton.setAccessibleText("Select project");
+      openButton.setTooltip(new Tooltip("Open project in editor"));
+      openButton.setAccessibleText("Open project in editor");
       openButton.setOnAction(e -> {
         ProjectEntry item = getItem();
-        if (item != null) openRecentProject(item);
+        if (item != null) openLauncherProject(item.projectDir());
         e.consume();
       });
       nameLabel.getStyleClass().add("welcome-project-name");

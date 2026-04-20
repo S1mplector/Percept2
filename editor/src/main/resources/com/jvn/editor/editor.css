@@ -3698,6 +3698,82 @@
   -fx-font-weight: 600;
 }
 
+.welcome-health-toggle-button {
+  -fx-background-color: transparent;
+  -fx-border-color: #343434;
+  -fx-border-width: 1;
+  -fx-border-radius: 999;
+  -fx-background-radius: 999;
+  -fx-text-fill: #b9b9b9;
+  -fx-font-size: 9px;
+  -fx-font-weight: 800;
+  -fx-padding: 3 8 3 8;
+  -fx-cursor: hand;
+}
+
+.welcome-health-toggle-button:hover {
+  -fx-background-color: #1e1e1e;
+  -fx-border-color: #565656;
+  -fx-text-fill: #ededed;
+}
+
+.welcome-health-detail-row {
+  -fx-padding: 6 0 4 0;
+}
+
+.welcome-health-detail-title {
+  -fx-text-fill: #e4e4e4;
+  -fx-font-size: 10px;
+  -fx-font-weight: 800;
+}
+
+.welcome-health-popup {
+  -fx-padding: 14;
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255,255,255,0.03), rgba(255,255,255,0.0)),
+      linear-gradient(to bottom, #121212 0%, #0d0d0d 100%);
+  -fx-border-color: #333333;
+  -fx-border-width: 1;
+  -fx-border-radius: 10;
+  -fx-background-radius: 10;
+  -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.45), 18, 0.2, 0, 8);
+}
+
+.welcome-health-popup-title {
+  -fx-text-fill: #f0f0f0;
+  -fx-font-size: 14px;
+  -fx-font-weight: 800;
+}
+
+.welcome-health-popup-close {
+  -fx-background-color: transparent;
+  -fx-border-color: #3f3f3f;
+  -fx-border-width: 1;
+  -fx-border-radius: 999;
+  -fx-background-radius: 999;
+  -fx-text-fill: #bdbdbd;
+  -fx-font-size: 9px;
+  -fx-font-weight: 800;
+  -fx-padding: 4 10 4 10;
+  -fx-cursor: hand;
+}
+
+.welcome-health-popup-close:hover {
+  -fx-background-color: #222222;
+  -fx-border-color: #5a5a5a;
+  -fx-text-fill: #f0f0f0;
+}
+
+.welcome-health-popup-scroll,
+.welcome-health-popup-scroll > .viewport {
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
+}
+
+.welcome-health-popup-rows {
+  -fx-padding: 2 0 0 0;
+}
+
 .welcome-action-button-primary,
 .welcome-action-button-secondary {
   -fx-font-size: 11px;

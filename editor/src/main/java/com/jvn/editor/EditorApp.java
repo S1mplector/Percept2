@@ -538,6 +538,36 @@ public class EditorApp extends Application {
     return script.isBlank() ? null : script;
   }
 
+  static String cleanStartupPathValue(String raw) {
+    if (raw == null) return "";
+    if (raw.isBlank()) return "";
+    int start = firstNonWhitespace(raw);
+    int end = lastNonWhitespace(raw);
+    if (start < 0 || end < start) return "";
+    char first = raw.charAt(start);
+    char last = raw.charAt(end);
+    boolean doubleQuoted = first == '"' && last == '"';
+    boolean singleQuoted = first == '\'' && last == '\'';
+    if (doubleQuoted || singleQuoted) {
+      return raw.substring(start + 1, end);
+    }
+    return raw;
+  }
+
+  private static int firstNonWhitespace(String value) {
+    for (int i = 0; i < value.length(); i++) {
+      if (!Character.isWhitespace(value.charAt(i))) return i;
+    }
+    return -1;
+  }
+
+  private static int lastNonWhitespace(String value) {
+    for (int i = value.length() - 1; i >= 0; i--) {
+      if (!Character.isWhitespace(value.charAt(i))) return i;
+    }
+    return -1;
+  }
+
   private String quoteCliArg(String raw) {
     String value = raw == null ? "" : raw;
     if (value.isEmpty() || value.contains(" ")) {
@@ -560,8 +590,9 @@ public class EditorApp extends Application {
         raw = parameters.getUnnamed().get(0);
       }
     }
-    if (raw == null || raw.isBlank()) return null;
-    File candidate = new File(raw.trim());
+    String path = cleanStartupPathValue(raw);
+    if (path.isBlank()) return null;
+    File candidate = new File(path);
     if (candidate.isFile() && "jvn.project".equalsIgnoreCase(candidate.getName())) {
       candidate = candidate.getParentFile();
     }
@@ -575,8 +606,9 @@ public class EditorApp extends Application {
 
   private File resolveStartupFileOverride() {
     String raw = System.getProperty(EDITOR_OPEN_FILE_PROPERTY, "");
-    if (raw == null || raw.isBlank()) return null;
-    File candidate = new File(raw.trim());
+    String path = cleanStartupPathValue(raw);
+    if (path.isBlank()) return null;
+    File candidate = new File(path);
     if (candidate == null || !candidate.isFile()) return null;
     try {
       return candidate.getCanonicalFile();
