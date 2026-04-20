@@ -439,7 +439,7 @@ Shared definitions (`common/characters.vns`, etc.) act as the contract between r
 ### Version Control
 
 - Commit `.vns` files as text — they diff cleanly in Git
-- Put binary assets (images, audio) under Git LFS or a separate asset pipeline
+- Keep binary assets (images, audio) reasonably sized; compress before committing
 - Use CI to run `VnScriptParser` on all `.vns` files and catch errors before merge
 
 ### Review Checklist

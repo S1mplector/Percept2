@@ -134,8 +134,8 @@ The parser resolves inline composites into ordinary expression entries at parse 
 
 ### Positions
 
-| Full Name | Shortcut | Typical Screen X |
-|-----------|----------|-----------------|
+| Full Name | Shortcut | Typical Screen X (center) |
+|-----------|----------|--------------------------|
 | `FAR_LEFT` | `FL` | ~10% |
 | `LEFT` | `L` | ~25% |
 | `CENTER` | `C` | ~50% |

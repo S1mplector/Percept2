@@ -36,7 +36,6 @@ Wizard class:
 
 4. **Version Control**
    - initialize Git repository
-   - enable Git LFS defaults
    - optional initial commit
 
 5. **Generated Layout Preview**
@@ -78,7 +77,7 @@ Wizard class:
 |   `-- audio/{bgm,sfx,voices}
 |-- save/
 |-- .gitignore      (if Git init is enabled)
-|-- .gitattributes  (if Git LFS defaults are enabled)
+|-- .gitattributes  (if Git is enabled)
 |-- README.md
 `-- jvn.project
 ```
@@ -153,4 +152,4 @@ When enabled, creates:
 - Keep `jvn.project` committed; it defines entry/config linkage.
 - Use module toggles consistently across team templates to avoid layout drift.
 - If Git is enabled, the wizard writes managed blocks into `.gitignore` and `.gitattributes`.
-- Re-running Git/LFS setup from editor is safe; managed blocks are replaced in place.
+- Re-running Git setup from editor is safe; managed blocks are replaced in place.

@@ -71,7 +71,7 @@ MyProject/
 ├── save/                           # Save files (gitignored)
 │
 ├── .gitignore                      # Git ignore rules
-└── .gitattributes                  # Git LFS / line ending rules
+└── .gitattributes                  # Line ending rules
 ```
 
 ---
@@ -356,7 +356,7 @@ assets/ui/
 1. **Keep `jvn.project` committed** — it defines how the project launches
 2. **Gitignore `save/`** — save files are user-specific, not shared
 3. **Gitignore `.jvn-gradle-user-home/`** — editor's isolated Gradle cache
-4. **Keep binary assets in Git LFS** — images, audio, fonts are large
+4. **Keep binary assets reasonably sized** — compress images and audio before committing
 5. **Keep scripts and configs in normal Git** — they're plain text, diff-friendly
 6. **Use feature branches** — one branch per chapter, side quest, or UI pass
 7. **Separate script changes from layout changes** — makes code review easier

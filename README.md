@@ -323,8 +323,9 @@ Full documentation index: **`docs/INDEX.md`**
 - `docs/scripting/ui/layout/structure/menu-button-layouts.md` — per-button positional layouts, Bounds Studio
 - `docs/scripting/ui/layout/components/dialogue-layout.md` — textbox geometry, name box, choices, action buttons
 
-### Editor (22 sub-documents)
+### Editor (23 sub-documents)
 - `docs/editor/core/editor.md` — layout, editing modes, keyboard shortcuts
+- `docs/editor/core/settings.md` — editor and launcher preferences, run defaults, handoff, sidebar defaults
 - `docs/editor/puppeteer/puppeteer.md` — Puppeteer overview, architecture, data pipeline, JES/VNS relationship
 - `docs/editor/puppeteer/puppeteer-editor-guide.md` — complete usage guide: UI panels, keyframes, 12 presets, 26 easing types, audio cues, camera, groups, layers
 - `docs/editor/puppeteer/puppeteer-jes-dsl.md` — exported timeline DSL: move, rotate, scale, fade, pivot, camera, audio, wait, parallel, easing values

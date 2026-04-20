@@ -1367,6 +1367,21 @@ public class VnScriptParser {
         state.builder.external("var", "clear " + payload);
         return;
       }
+      case "mul": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("var", "mul " + payload);
+        return;
+      }
+      case "div": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("var", "div " + payload);
+        return;
+      }
+      case "toggle": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("var", "toggle " + payload);
+        return;
+      }
       case "if": {
         String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
         IfGoto ifGoto = parseIfGoto(payload);

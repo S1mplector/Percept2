@@ -40,6 +40,19 @@ public final class VnConditionEvaluator {
     parser.parseExpression();
   }
 
+  private static double asNumber(Object value) {
+    if (value == null) return 0.0;
+    if (value == UnknownValue.INSTANCE) return 0.0;
+    if (value instanceof Number n) return n.doubleValue();
+    String s = String.valueOf(value).trim();
+    if (s.isEmpty()) return 0.0;
+    try {
+      return Double.parseDouble(s);
+    } catch (Exception ignored) {
+      return 0.0;
+    }
+  }
+
   private static boolean asBoolean(Object value) {
     if (value == null) return false;
     if (value == UnknownValue.INSTANCE) return false;
@@ -86,6 +99,7 @@ public final class VnConditionEvaluator {
     LPAREN, RPAREN,
     OP_EQ, OP_NE, OP_GT, OP_LT, OP_GE, OP_LE,
     OP_AND, OP_OR, OP_NOT,
+    OP_ADD, OP_SUB, OP_MUL, OP_DIV, OP_MOD,
     NUMBER, STRING, BOOLEAN, IDENT,
     END
   }
@@ -114,13 +128,20 @@ public final class VnConditionEvaluator {
       java.util.ArrayList<Token> tokens = new java.util.ArrayList<>();
       Token t;
       do {
-        t = next();
+        t = next(tokens.isEmpty() ? null : tokens.get(tokens.size() - 1));
         tokens.add(t);
       } while (t.type != TokenType.END);
       return tokens;
     }
 
-    private Token next() {
+    private boolean isValueToken(Token prev) {
+      if (prev == null) return false;
+      return prev.type == TokenType.NUMBER || prev.type == TokenType.IDENT
+          || prev.type == TokenType.STRING || prev.type == TokenType.BOOLEAN
+          || prev.type == TokenType.RPAREN;
+    }
+
+    private Token next(Token prev) {
       skipWs();
       if (index >= input.length()) return new Token(TokenType.END, "", index);
 
@@ -172,11 +193,36 @@ public final class VnConditionEvaluator {
         index++;
         return new Token(TokenType.OP_LT, "<", start);
       }
+      if (c == '+') {
+        index++;
+        return new Token(TokenType.OP_ADD, "+", start);
+      }
+      if (c == '*') {
+        index++;
+        return new Token(TokenType.OP_MUL, "*", start);
+      }
+      if (c == '/') {
+        index++;
+        return new Token(TokenType.OP_DIV, "/", start);
+      }
+      if (c == '%') {
+        index++;
+        return new Token(TokenType.OP_MOD, "%", start);
+      }
       if (c == '"' || c == '\'') {
         return readString(c, start);
       }
-      if (c == '-' && index + 1 < input.length() && Character.isDigit(input.charAt(index + 1))) {
-        return readNumber(start);
+      // '-': subtraction after a value token, negative literal otherwise
+      if (c == '-') {
+        if (isValueToken(prev)) {
+          index++;
+          return new Token(TokenType.OP_SUB, "-", start);
+        }
+        if (index + 1 < input.length() && Character.isDigit(input.charAt(index + 1))) {
+          return readNumber(start);
+        }
+        index++;
+        return new Token(TokenType.OP_SUB, "-", start);
       }
       if (Character.isDigit(c)) {
         return readNumber(start);
@@ -338,7 +384,7 @@ public final class VnConditionEvaluator {
     }
 
     private Object parseComparison() {
-      Object left = parseUnary();
+      Object left = parseAdditive();
       while (true) {
         if (match(TokenType.OP_GT)) {
           Object right = parseUnary();
@@ -350,7 +396,7 @@ public final class VnConditionEvaluator {
           continue;
         }
         if (match(TokenType.OP_LT)) {
-          Object right = parseUnary();
+          Object right = parseAdditive();
           if (syntaxOnly && (left == UnknownValue.INSTANCE || right == UnknownValue.INSTANCE)) {
             left = false;
           } else {
@@ -359,7 +405,7 @@ public final class VnConditionEvaluator {
           continue;
         }
         if (match(TokenType.OP_GE)) {
-          Object right = parseUnary();
+          Object right = parseAdditive();
           if (syntaxOnly && (left == UnknownValue.INSTANCE || right == UnknownValue.INSTANCE)) {
             left = false;
           } else {
@@ -368,7 +414,7 @@ public final class VnConditionEvaluator {
           continue;
         }
         if (match(TokenType.OP_LE)) {
-          Object right = parseUnary();
+          Object right = parseAdditive();
           if (syntaxOnly && (left == UnknownValue.INSTANCE || right == UnknownValue.INSTANCE)) {
             left = false;
           } else {
@@ -380,9 +426,63 @@ public final class VnConditionEvaluator {
       }
     }
 
+    private Object parseAdditive() {
+      Object left = parseMultiplicative();
+      while (true) {
+        if (match(TokenType.OP_ADD)) {
+          Object right = parseMultiplicative();
+          if (left instanceof String || right instanceof String) {
+            left = String.valueOf(left) + String.valueOf(right);
+          } else {
+            left = asNumber(left) + asNumber(right);
+          }
+          continue;
+        }
+        if (match(TokenType.OP_SUB)) {
+          Object right = parseMultiplicative();
+          left = asNumber(left) - asNumber(right);
+          continue;
+        }
+        return left;
+      }
+    }
+
+    private Object parseMultiplicative() {
+      Object left = parseUnary();
+      while (true) {
+        if (match(TokenType.OP_MUL)) {
+          Object right = parseUnary();
+          left = asNumber(left) * asNumber(right);
+          continue;
+        }
+        if (match(TokenType.OP_DIV)) {
+          Object right = parseUnary();
+          double divisor = asNumber(right);
+          if (Math.abs(divisor) < 1e-15) {
+            throw new IllegalArgumentException("Division by zero");
+          }
+          left = asNumber(left) / divisor;
+          continue;
+        }
+        if (match(TokenType.OP_MOD)) {
+          Object right = parseUnary();
+          double divisor = asNumber(right);
+          if (Math.abs(divisor) < 1e-15) {
+            throw new IllegalArgumentException("Modulo by zero");
+          }
+          left = asNumber(left) % divisor;
+          continue;
+        }
+        return left;
+      }
+    }
+
     private Object parseUnary() {
       if (match(TokenType.OP_NOT)) {
         return !asBoolean(parseUnary());
+      }
+      if (match(TokenType.OP_SUB)) {
+        return -asNumber(parseUnary());
       }
       return parsePrimary();
     }

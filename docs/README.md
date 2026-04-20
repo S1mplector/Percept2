@@ -11,6 +11,7 @@ Start with **[INDEX.md](INDEX.md)**.
 - Need to understand the file types first: [Common JVN File Types](guides/common-file-types.md)
 - Need the full map: [Documentation Index](INDEX.md)
 - Learning the editor: [Editor Guide](editor/core/editor.md)
+- Tuning editor or launcher preferences: [Editor And Launcher Settings](editor/core/settings.md)
 - Writing VN scripts: [VNS Overview](scripting/vns/overview/vns-scripting.md)
 - Writing gameplay scenes: [JES Overview](scripting/jes/overview/jes-scripting.md)
 - Building menus and layouts: [Menu Profiles Overview](scripting/ui/menus/menu-profiles.md)
@@ -21,7 +22,7 @@ Start with **[INDEX.md](INDEX.md)**.
 | Directory | Coverage |
 |-----------|----------|
 | `architecture/` | System architecture, 2D engine, performance, and UI parity roadmap |
-| `editor/` | Editor guide, Welcome Center, Run Console, Scene Graph, Tilemap Editor, Puppeteer animation editor, 17 documented sidebar panels |
+| `editor/` | Editor guide, settings, Welcome Center, Run Console, Scene Graph, Tilemap Editor, Puppeteer animation editor, 17 documented sidebar panels |
 | `guides/` | Getting started guide, cookbook and recipes |
 | `project-setup/` | New project wizard, project structure, title screen, text effects, version control, localization, deployment |
 | `runtime/` | Runtime guide, interop, save system, audio system, asset management, VN settings |

@@ -41,8 +41,8 @@ This is the concrete patch list for the Ren'Py screen families observed in the t
 Current JVN surface:
 
 - `dialogue.layout`
-- [`VnRenderer.java`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/fx/src/main/java/com/jvn/fx/vn/VnRenderer.java)
-- [`DialogueLayoutEditorView.java`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/editor/src/main/java/com/jvn/editor/ui/DialogueLayoutEditorView.java)
+- [`VnRenderer.java`](../../../fx/src/main/java/com/jvn/fx/vn/VnRenderer.java)
+- [`DialogueLayoutEditorView.java`](../../../editor/src/main/java/com/jvn/editor/ui/DialogueLayoutEditorView.java)
 
 Patch requirements:
 
@@ -60,8 +60,8 @@ Status:
 Current JVN surface:
 
 - `dialogue.layout` choice section
-- [`choice-buttons.md`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/docs/scripting/ui/layout/components/choice-buttons.md)
-- [`VnRenderer.java`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/fx/src/main/java/com/jvn/fx/vn/VnRenderer.java)
+- [`choice-buttons.md`](../../scripting/ui/layout/components/choice-buttons.md)
+- [`VnRenderer.java`](../../../fx/src/main/java/com/jvn/fx/vn/VnRenderer.java)
 
 Patch requirements:
 
@@ -89,10 +89,10 @@ Patch requirements:
 
 Implemented so far:
 
-- `titleAlign`, `hintsAlign`, and `hintsX` in [`MenuLayoutSpec.java`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/core/src/main/java/com/jvn/core/menu/config/MenuLayoutSpec.java)
+- `titleAlign`, `hintsAlign`, and `hintsX` in [`MenuLayoutSpec.java`](../../../core/src/main/java/com/jvn/core/menu/config/MenuLayoutSpec.java)
 - `subtitleText` on menu screens and `subtitleGap` on menu layouts
-- runtime title/footer placement in [`MenuRenderer.java`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/fx/src/main/java/com/jvn/fx/menu/MenuRenderer.java)
-- editor support in [`MenuLayoutVisualEditor.java`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/editor/src/main/java/com/jvn/editor/ui/MenuLayoutVisualEditor.java)
+- runtime title/footer placement in [`MenuRenderer.java`](../../../fx/src/main/java/com/jvn/fx/menu/MenuRenderer.java)
+- editor support in [`MenuLayoutVisualEditor.java`](../../../editor/src/main/java/com/jvn/editor/ui/MenuLayoutVisualEditor.java)
 
 Status:
 
@@ -103,8 +103,8 @@ Status:
 Current JVN surface:
 
 - menu save/load screens
-- save/load routing in [`FxLauncher.java`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/fx/src/main/java/com/jvn/fx/FxLauncher.java)
-- preview save/load routing in [`VnPreviewView.java`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/editor/src/main/java/com/jvn/editor/ui/VnPreviewView.java)
+- save/load routing in [`FxLauncher.java`](../../../fx/src/main/java/com/jvn/fx/FxLauncher.java)
+- preview save/load routing in [`VnPreviewView.java`](../../../editor/src/main/java/com/jvn/editor/ui/VnPreviewView.java)
 
 Patch requirements:
 
@@ -131,8 +131,8 @@ Patch requirements:
 Implemented so far:
 
 - shared menu title/footer alignment controls from the main-menu slice
-- section-header rendering via `item.<id>.renderAs=section` or `role=section` in [`MenuRenderer.java`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/fx/src/main/java/com/jvn/fx/menu/MenuRenderer.java)
-- updated examples in [`settings-screen.md`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/docs/scripting/ui/layout/screens/settings-screen.md)
+- section-header rendering via `item.<id>.renderAs=section` or `role=section` in [`MenuRenderer.java`](../../../fx/src/main/java/com/jvn/fx/menu/MenuRenderer.java)
+- updated examples in [`settings-screen.md`](../../scripting/ui/layout/screens/settings-screen.md)
 - static text blocks via `renderAs=body` / `paragraph` / `note`
 - variable-height rows via `rowSpan` / `rows`
 
@@ -145,8 +145,8 @@ Status:
 Current JVN surface:
 
 - history runtime support
-- themed history scene in [`HistoryMenuScene.java`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/core/src/main/java/com/jvn/core/menu/HistoryMenuScene.java)
-- history rendering in [`MenuRenderer.java`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/fx/src/main/java/com/jvn/fx/menu/MenuRenderer.java)
+- themed history scene in [`HistoryMenuScene.java`](../../../core/src/main/java/com/jvn/core/menu/HistoryMenuScene.java)
+- history rendering in [`MenuRenderer.java`](../../../fx/src/main/java/com/jvn/fx/menu/MenuRenderer.java)
 
 Patch requirements:
 
@@ -173,7 +173,7 @@ Implemented so far:
 
 - wrapped static text blocks via `renderAs=body` / `note`
 - variable-height rows for auto-laid-out help content
-- canonical help-screen example in [`help-screen.md`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/docs/scripting/ui/layout/screens/help-screen.md)
+- canonical help-screen example in [`help-screen.md`](../../scripting/ui/layout/screens/help-screen.md)
 
 Status:
 
@@ -248,10 +248,10 @@ Status:
 
 Files involved:
 
-- [`VnUiStyleSpec.java`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/core/src/main/java/com/jvn/core/vn/ui/VnUiStyleSpec.java)
-- [`VnUiLayoutLoader.java`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/core/src/main/java/com/jvn/core/vn/ui/VnUiLayoutLoader.java)
-- [`VnRenderer.java`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/fx/src/main/java/com/jvn/fx/vn/VnRenderer.java)
-- [`DialogueLayoutEditorView.java`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/editor/src/main/java/com/jvn/editor/ui/DialogueLayoutEditorView.java)
+- [`VnUiStyleSpec.java`](../../../core/src/main/java/com/jvn/core/vn/ui/VnUiStyleSpec.java)
+- [`VnUiLayoutLoader.java`](../../../core/src/main/java/com/jvn/core/vn/ui/VnUiLayoutLoader.java)
+- [`VnRenderer.java`](../../../fx/src/main/java/com/jvn/fx/vn/VnRenderer.java)
+- [`DialogueLayoutEditorView.java`](../../../editor/src/main/java/com/jvn/editor/ui/DialogueLayoutEditorView.java)
 
 ### 2. Data-Driven Runtime Screen Parity
 
@@ -265,8 +265,8 @@ Required patches:
 
 Current hardcoded targets:
 
-- history overlay in [`VnRenderer.java`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/fx/src/main/java/com/jvn/fx/vn/VnRenderer.java)
-- save/load slot overlay in [`VnRenderer.java`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/fx/src/main/java/com/jvn/fx/vn/VnRenderer.java)
+- history overlay in [`VnRenderer.java`](../../../fx/src/main/java/com/jvn/fx/vn/VnRenderer.java)
+- save/load slot overlay in [`VnRenderer.java`](../../../fx/src/main/java/com/jvn/fx/vn/VnRenderer.java)
 
 ### 3. Alternate Dialogue Presentation Modes
 
@@ -297,10 +297,10 @@ Required patches:
 
 Relevant existing surface:
 
-- [`menu-profiles.md`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/docs/scripting/ui/menus/menu-profiles.md)
-- [`menu-screens.md`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/docs/scripting/ui/menus/menu-screens.md)
-- [`save-load-screens.md`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/docs/scripting/ui/layout/screens/save-load-screens.md)
-- [`settings-screen.md`](/Users/ilgazmehmetoglu/Desktop/Java-Vector-Nexus/docs/scripting/ui/layout/screens/settings-screen.md)
+- [`menu-profiles.md`](../../scripting/ui/menus/menu-profiles.md)
+- [`menu-screens.md`](../../scripting/ui/menus/menu-screens.md)
+- [`save-load-screens.md`](../../scripting/ui/layout/screens/save-load-screens.md)
+- [`settings-screen.md`](../../scripting/ui/layout/screens/settings-screen.md)
 
 ### 5. Optional Migration Tooling
 

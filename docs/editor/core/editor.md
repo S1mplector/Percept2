@@ -19,6 +19,7 @@ This page explains:
 
 - Need the full docs map: [Documentation Index](../../INDEX.md)
 - Need a beginner route through JVN: [Choose Your Path in JVN](../../guides/choose-your-path.md)
+- Need editor or launcher preferences: [Editor And Launcher Settings](settings.md)
 - Need sidebar tool coverage: [Sidebar Utilities Overview](../sidebars/overview/sidebar-utilities.md)
 
 Launch command:
@@ -35,7 +36,7 @@ Launch command:
 - Shows:
   - JVN logo + editor version
   - recent projects (with one-click open)
-  - workspace/project health checks (Java, Gradle wrapper, Git/Git LFS, missing project files)
+  - workspace/project health checks (Java, Gradle wrapper, Git, missing project files)
 - Quick actions:
   - `New Project`
   - `Open Project`
@@ -46,6 +47,7 @@ Launch command:
 - Menus: `File`, `Edit`, `Code`, `Project`, `Version Control`, `Help`
 - Main actions: `Open`, `Save`, `Undo`, `Redo`, `Apply Code`, `Fullscreen`
 - Status + performance strip (CPU/GPU/RAM/FPS)
+- `Cmd/Ctrl+,` opens Editor Settings.
 
 ### Left panel: Project Explorer
 
@@ -99,6 +101,14 @@ Project run from editor:
    - `--no-daemon`, `--console=plain`, VFS watch disabled
 
 This design avoids shared global lock issues and makes editor-run more consistent across machines.
+
+Related preferences live in [Editor And Launcher Settings](settings.md):
+
+- confirm before running from the editor
+- save dirty files before project runs
+- runtime performance HUD on project launch
+- default Gradle `-x test` behavior when `jvn.project` does not define `args`
+- sidebar panel default placement and chooser visibility
 
 ## Supported Editing Modes
 
@@ -185,10 +195,10 @@ The wizard creates a layered VN project scaffold with:
 - `scripts/story`, `scripts/common`, `scripts/system`
 - structured `assets/` subfolders for backgrounds/characters/audio/ui/fonts
 - `jvn.project` manifest with entry script and config paths
-- optional Git repository + Git LFS defaults + initial commit
+- optional Git repository + initial commit
 
 See full wizard documentation:
-- `docs/Project Setup/New Project Wizard.md`
+- [New Project Wizard](../../project-setup/onboarding/new-project-wizard.md)
 
 ## Keyboard Shortcuts
 

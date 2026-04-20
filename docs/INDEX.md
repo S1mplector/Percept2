@@ -9,6 +9,7 @@ This index is meant to guide you, the reader. Start with the path that matches w
 - [Common JVN File Types](guides/common-file-types.md) — quick orientation for `.vns`, `.jes`, `.menu`, `.layout`, `.style`, timelines, and staging files
 - [Architecture Overview](architecture/core/overview.md) — understand how JVN is split across editor, runtime, VNS, JES, menus, and native systems
 - [Editor Guide](editor/core/editor.md) — learn the main editor layout, modes, and shortcuts
+- [Editor And Launcher Settings](editor/core/settings.md) — app preferences, launcher handoff, run defaults, and sidebar defaults
 
 ## Pick A Path
 
@@ -50,8 +51,9 @@ This index is meant to guide you, the reader. Start with the path that matches w
 1. [Editor Guide](editor/core/editor.md)
 2. [Welcome Center](editor/core/welcome-center.md)
 3. [Run Console](editor/core/run-console.md)
-4. [Sidebar Utilities Overview](editor/sidebars/overview/sidebar-utilities.md)
-5. [Help Center](editor/core/help-center.md)
+4. [Editor And Launcher Settings](editor/core/settings.md)
+5. [Sidebar Utilities Overview](editor/sidebars/overview/sidebar-utilities.md)
+6. [Help Center](editor/core/help-center.md)
 
 ### I want runtime, packaging, and deployment details
 
@@ -74,6 +76,7 @@ This index is meant to guide you, the reader. Start with the path that matches w
 ### Core Editor
 
 - [Editor Guide](editor/core/editor.md) — layout, editing modes, keyboard shortcuts
+- [Editor And Launcher Settings](editor/core/settings.md) — app preferences, launcher handoff, run defaults, and sidebar defaults
 - [Welcome Center](editor/core/welcome-center.md) — startup dashboard and environment health
 - [Run Console](editor/core/run-console.md) — build output, filters, counters, runtime monitoring
 - [Scene Graph View](editor/core/scene-graph.md) — entity list, filtering, rename/delete, fit-to-selection

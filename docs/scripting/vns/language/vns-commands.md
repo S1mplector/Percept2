@@ -96,13 +96,13 @@ Shows a character at a named position with an optional expression and layer orde
 
 **Predefined positions:**
 
-| Full Name | Shortcut | Typical Screen X |
-|-----------|----------|-----------------|
-| `FAR_LEFT` | `FL` | ~5% |
-| `LEFT` | `L` | ~20% |
+| Full Name | Shortcut | Typical Screen X (center) |
+|-----------|----------|--------------------------|
+| `FAR_LEFT` | `FL` | ~10% |
+| `LEFT` | `L` | ~25% |
 | `CENTER` | `C` | ~50% |
-| `RIGHT` | `R` | ~80% |
-| `FAR_RIGHT` | `FR` | ~95% |
+| `RIGHT` | `R` | ~75% |
+| `FAR_RIGHT` | `FR` | ~90% |
 
 **Named custom positions:**
 
@@ -571,6 +571,32 @@ Removes a variable entirely.
 
 ```vns
 [clear temp_data]
+```
+
+### `[mul key factor]`
+
+Multiplies a numeric variable by a factor.
+
+```vns
+[mul score 2]       # score *= 2
+[mul gold 1.5]      # gold *= 1.5
+```
+
+### `[div key divisor]`
+
+Divides a numeric variable by a divisor. Division by zero is silently ignored.
+
+```vns
+[div gold 2]        # gold /= 2
+```
+
+### `[toggle key]`
+
+Flips a boolean variable between `true` and `false`.
+
+```vns
+[toggle door_locked]
+[toggle debug_mode]
 ```
 
 ### Character framing overrides

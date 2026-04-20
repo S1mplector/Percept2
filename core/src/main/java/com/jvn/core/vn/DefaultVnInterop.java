@@ -190,12 +190,24 @@ public class DefaultVnInterop implements VnInterop {
       case "dec":
         numberOp(vars, key, val, false);
         break;
+      case "mul":
+        multiplyOp(vars, key, val);
+        break;
+      case "div":
+        divideOp(vars, key, val);
+        break;
       case "flag":
         vars.put(key, Boolean.TRUE);
         break;
       case "unflag":
         vars.put(key, Boolean.FALSE);
         break;
+      case "toggle": {
+        Object current = vars.get(key);
+        boolean next = !(current instanceof Boolean b ? b : Boolean.parseBoolean(String.valueOf(current)));
+        vars.put(key, next);
+        break;
+      }
       case "clear":
         vars.remove(key);
         break;
@@ -265,6 +277,29 @@ public class DefaultVnInterop implements VnInterop {
     double delta = 1.0;
     try { delta = Double.parseDouble(deltaStr); } catch (Exception ignored) {}
     double res = inc ? curVal + delta : curVal - delta;
+    if (isWhole(res)) vars.put(key, (int)Math.round(res)); else vars.put(key, res);
+  }
+
+  private void multiplyOp(java.util.Map<String,Object> vars, String key, String factorStr) {
+    Object cur = vars.get(key);
+    double curVal = 0.0;
+    if (cur instanceof Number n) curVal = n.doubleValue();
+    else if (cur instanceof String s) try { curVal = Double.parseDouble(s); } catch (Exception ignored) {}
+    double factor = 1.0;
+    try { factor = Double.parseDouble(factorStr); } catch (Exception ignored) {}
+    double res = curVal * factor;
+    if (isWhole(res)) vars.put(key, (int)Math.round(res)); else vars.put(key, res);
+  }
+
+  private void divideOp(java.util.Map<String,Object> vars, String key, String divisorStr) {
+    Object cur = vars.get(key);
+    double curVal = 0.0;
+    if (cur instanceof Number n) curVal = n.doubleValue();
+    else if (cur instanceof String s) try { curVal = Double.parseDouble(s); } catch (Exception ignored) {}
+    double divisor = 1.0;
+    try { divisor = Double.parseDouble(divisorStr); } catch (Exception ignored) {}
+    if (Math.abs(divisor) < 1e-15) return;
+    double res = curVal / divisor;
     if (isWhole(res)) vars.put(key, (int)Math.round(res)); else vars.put(key, res);
   }
 

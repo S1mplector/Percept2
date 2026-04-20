@@ -90,6 +90,33 @@ Removes a variable entirely from the map.
 [clear old_quest_flag]
 ```
 
+### `[mul key factor]`
+
+Multiplies a numeric variable by a factor.
+
+```vns
+[mul score 2]       # score *= 2
+[mul gold 1.5]      # gold *= 1.5
+```
+
+### `[div key divisor]`
+
+Divides a numeric variable by a divisor. Division by zero is silently ignored.
+
+```vns
+[div gold 2]        # gold /= 2
+[div score 3]       # score /= 3
+```
+
+### `[toggle key]`
+
+Flips a boolean variable between `true` and `false`.
+
+```vns
+[toggle door_locked]  # true → false, false → true
+[toggle debug_mode]
+```
+
 ---
 
 ## Variable Interpolation
@@ -265,9 +292,14 @@ This is equivalent to:
 
 | Category | Operators |
 |----------|-----------|
+| Arithmetic | `+`, `-`, `*`, `/`, `%` |
 | Comparison | `==`, `!=`, `>`, `<`, `>=`, `<=` |
 | Logical | `&&`, `\|\|`, `!`, `and`, `or`, `not` |
 | Grouping | `(`, `)` |
+
+**Precedence** (highest to lowest): unary `-`/`!` → `*`/`/`/`%` → `+`/`-` → comparison → `&&` → `||`
+
+Arithmetic works on numeric variables and literals. `+` also concatenates strings when either operand is a string.
 
 ### Literals
 
@@ -314,6 +346,19 @@ has_sword && sword_level >= 3 && !cursed
 
 # Nested logic
 (route == "a" || route == "b") && chapter >= 2
+
+# Arithmetic in conditions
+coins >= price * 2
+gold - cost >= 0
+(score + bonus) * multiplier > threshold
+lives + potions > 0
+score % 10 == 0
+
+# Unary negation
+-val + 10 > 0
+
+# String concatenation in conditions
+prefix + suffix == "helloworld"
 ```
 
 ---
@@ -344,7 +389,7 @@ These override `characterHeightFactor` / `characterBaselineY` from `dialogue.lay
 ### Best practices
 
 - Use descriptive variable names: `chapter1_complete` not `c1`.
-- Use `flag`/`unflag` for booleans, `set`/`inc`/`dec` for numbers.
+- Use `flag`/`unflag`/`toggle` for booleans, `set`/`inc`/`dec`/`mul`/`div` for numbers.
 - Avoid spaces in variable names.
 - Prefix related variables: `quest_1_started`, `quest_1_complete`.
 
@@ -501,8 +546,8 @@ Persistent values are mirrored into the session variable map as `persistent.<key
 
 All session variables are serialized when saving and restored when loading. This includes:
 
-- All `[set]` / `[inc]` / `[dec]` values
-- All `[flag]` / `[unflag]` booleans
+- All `[set]` / `[inc]` / `[dec]` / `[mul]` / `[div]` values
+- All `[flag]` / `[unflag]` / `[toggle]` booleans
 - String, numeric, and boolean types
 
 Variable state is also captured by the rollback system for in-session undo/redo.
