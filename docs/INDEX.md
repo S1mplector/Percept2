@@ -231,6 +231,11 @@ This index is meant to guide you, the reader. Start with the path that matches w
 - [Debugging & Profiling](architecture/quality/debugging.md)
 - [Ren'Py UI Parity Roadmap](architecture/core/ui-parity-roadmap.md)
 
+## Tutorials (By Example)
+
+- [JES By Example](guides/jes-by-example.md) — 10-chapter progressive JES tutorial (scenes → physics → VNS bridge)
+- [VNS By Example](guides/vns-by-example.md) — 10-chapter progressive VNS tutorial (dialogue → variables → JES integration)
+
 ## Supplementary
 
 - [Choose Your Path in JVN](guides/choose-your-path.md) — onboarding route selection
