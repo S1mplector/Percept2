@@ -4162,7 +4162,12 @@ public class EditorApp extends Application {
     if (actions == null || panelName == null) return;
     if (panel != null && !editorPreferences.isVisibleInChooser(panel)) return;
 
-    Region panelIcon = icon("icon", iconClass);
+    Region panelIcon = icon("icon", "panel-chooser-tool-icon", iconClass);
+    StackPane iconChip = new StackPane(panelIcon);
+    iconChip.getStyleClass().add("panel-chooser-icon-chip");
+    if (iconClass != null && !iconClass.isBlank()) {
+      iconChip.getStyleClass().add(iconClass + "-chip");
+    }
 
     Label label = new Label(panelName);
     label.setMaxWidth(Double.MAX_VALUE);
@@ -4262,7 +4267,7 @@ public class EditorApp extends Application {
       });
     }
 
-    HBox row = new HBox(6, panelIcon, label, memoryGroup, placementBadge, dockBtn, popOutBtn);
+    HBox row = new HBox(8, iconChip, label, memoryGroup, placementBadge, dockBtn, popOutBtn);
     row.setAlignment(Pos.CENTER_LEFT);
     row.setPadding(new javafx.geometry.Insets(4, 6, 4, 6));
     row.getStyleClass().add("panel-chooser-row");
@@ -4856,7 +4861,7 @@ public class EditorApp extends Application {
       applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(pane, actions, EditorSidebarPanel.PHONE_ASSETS, targetPlacement, "Phone Assets", "icon-panel-assets", () -> {
+    addChooserActionRow(pane, actions, EditorSidebarPanel.PHONE_ASSETS, targetPlacement, "Phone Assets", "icon-panel-phone", () -> {
       rememberPanelPlacement(EditorSidebarPanel.PHONE_ASSETS, targetPlacement);
       Tab t = ensurePhoneAssetsToolTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
@@ -4969,7 +4974,7 @@ public class EditorApp extends Application {
       applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(pane, actions, EditorSidebarPanel.SCRIPT_EDITOR, targetPlacement, "Text Editor", "icon-panel-flow", () -> {
+    addChooserActionRow(pane, actions, EditorSidebarPanel.SCRIPT_EDITOR, targetPlacement, "Text Editor", "icon-panel-text", () -> {
       rememberPanelPlacement(EditorSidebarPanel.SCRIPT_EDITOR, targetPlacement);
       ScriptEditorLauncherView launcher = ensureScriptEditorLauncherView();
       launcher.setProjectRoot(projectRoot);
@@ -4986,7 +4991,7 @@ public class EditorApp extends Application {
       applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(pane, actions, null, targetPlacement, "Editor Settings", "icon-panel-help", () -> {
+    addChooserActionRow(pane, actions, null, targetPlacement, "Editor Settings", "icon-panel-settings", () -> {
       Tab t = ensureEditorSettingsTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
     }, () -> launchPanelAsWindow("Editor Settings", ensureEditorSettingsView(), 520, 760, null), null);
