@@ -1636,6 +1636,12 @@ public class EditorApp extends Application {
         new SeparatorMenuItem(),
         menuRunLaunchVns);
 
+    // ── Build ──
+    Menu menuBuild = new Menu("Build");
+    MenuItem miBuildPublishMain = new MenuItem("Build & Publish...");
+    miBuildPublishMain.setOnAction(e -> showGameBuildPublisherWindow(primaryStage));
+    menuBuild.getItems().add(miBuildPublishMain);
+
     // ── Tools ──
     Menu menuTools = new Menu("Tools");
     MenuItem miActionEditor = new MenuItem("Puppeteer (Window)");
@@ -1863,7 +1869,7 @@ public class EditorApp extends Application {
         new SeparatorMenuItem(),
         miAbout);
 
-    mb.getMenus().addAll(menuFile, menuEdit, menuView, menuNavigate, menuRun, menuTools, menuVcs, menuWindow, menuHelp);
+    mb.getMenus().addAll(menuFile, menuEdit, menuView, menuNavigate, menuRun, menuBuild, menuTools, menuVcs, menuWindow, menuHelp);
 
     Label toolbarCommandSummary = new Label();
     toolbarCommandSummary.getStyleClass().add("main-editor-command-summary");
@@ -1945,6 +1951,7 @@ public class EditorApp extends Application {
       miRunProject.setDisable(!hasProject);
       miFileBuildPublish.setDisable(!hasProject);
       miBuildPublishProject.setDisable(!hasProject);
+      miBuildPublishMain.setDisable(!hasProject);
       miFileRevealProjectRoot.setDisable(!hasProject);
       miFileCopyProjectRoot.setDisable(!hasProject);
       miOpenVcs.setDisable(!hasProject);
@@ -1966,6 +1973,7 @@ public class EditorApp extends Application {
     });
     menuNavigate.setOnShowing(e -> refreshChrome.run());
     menuRun.setOnShowing(e -> refreshChrome.run());
+    menuBuild.setOnShowing(e -> refreshChrome.run());
     menuTools.setOnShowing(e -> refreshChrome.run());
     menuVcs.setOnShowing(e -> refreshChrome.run());
     menuHelp.setOnShowing(e -> refreshChrome.run());

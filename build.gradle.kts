@@ -77,7 +77,7 @@ fun currentGameTarget(): JvnGameTarget {
 }
 
 fun gameProjectDir(): File {
-  val raw = (findProperty("jvnGameProject") as String?)?.trim()
+  val raw = findProperty("jvnGameProject") as String?
   if (raw.isNullOrBlank()) {
     throw GradleException("Missing -PjvnGameProject=/absolute/path/to/jvn-game. Game packaging builds JVN-made projects, not the engine workspace.")
   }

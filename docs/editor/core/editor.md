@@ -105,7 +105,7 @@ This design avoids shared global lock issues and makes editor-run more consisten
 
 ## Game Build & Publish
 
-Open **File -> Project -> Build & Publish...**, **Run -> Build & Publish...**, or the Project Explorer root **Build** button to package the current JVN game project.
+Open **Build -> Build & Publish...**, **File -> Project -> Build & Publish...**, **Run -> Build & Publish...**, or the Project Explorer root **Build** button to package the current JVN game project.
 
 The popup reads `jvn.project`, lets you set the release name/version, and launches the portable game build tasks in the run console. Outputs are written to `build/distributions/games/` in the JVN workspace.
 
