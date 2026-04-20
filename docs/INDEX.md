@@ -241,3 +241,4 @@ This index is meant to guide you, the reader. Start with the path that matches w
 - [Choose Your Path in JVN](guides/choose-your-path.md) — onboarding route selection
 - [Common JVN File Types](guides/common-file-types.md) — file-role quick reference
 - [Cookbook & Recipes](guides/cookbook.md) — practical patterns and end-to-end examples
+- [JES ↔ VNS Integration Cookbook](guides/integration-cookbook.md) — detailed code examples for every integration direction
