@@ -16,6 +16,7 @@ Start with **[INDEX.md](INDEX.md)**.
 - Writing gameplay scenes: [JES Overview](scripting/jes/overview/jes-scripting.md)
 - Building menus and layouts: [Menu Profiles Overview](scripting/ui/menus/menu-profiles.md)
 - Working with Puppeteer: [Puppeteer Editor Guide](editor/puppeteer/puppeteer-editor-guide.md)
+- Shipping builds: [Build System](project-setup/release/build-system.md)
 
 ## Directory Structure
 

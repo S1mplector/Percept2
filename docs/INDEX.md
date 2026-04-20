@@ -61,7 +61,8 @@ This index is meant to guide you, the reader. Start with the path that matches w
 2. [Asset Management](runtime/systems/asset-management.md)
 3. [Save System](runtime/systems/save-system.md)
 4. [Audio System](runtime/systems/audio-system.md)
-5. [Deployment & Packaging](project-setup/release/deployment.md)
+5. [Build System](project-setup/release/build-system.md)
+6. [Deployment & Packaging](project-setup/release/deployment.md)
 
 ### I want architecture, internals, and debugging
 
@@ -220,6 +221,7 @@ This index is meant to guide you, the reader. Start with the path that matches w
 - [Text Effects](project-setup/content/text-effects.md)
 - [Localization Workflow](project-setup/content/localization.md)
 - [Version Control](project-setup/collaboration/version-control.md)
+- [Build System](project-setup/release/build-system.md)
 - [Deployment & Packaging](project-setup/release/deployment.md)
 
 ## Architecture And Internals

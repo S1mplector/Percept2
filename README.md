@@ -48,6 +48,8 @@ Useful JVN commands:
 ./jvnw test
 ./jvnw check
 ./jvnw clean
+./jvnw dist -PjvnGameProject=/path/to/game
+./jvnw dist-all -PjvnGameProject=/path/to/game
 ```
 
 Use `./jvnw` for normal development. It prints concise wrapper status by default. Drop to `./gradlew` or `./jvnw --raw ...` only when you need direct Gradle task control or full Gradle logs.
@@ -75,7 +77,8 @@ Default wrapper commands:
 ./jvnw test
 ./jvnw check
 ./jvnw clean
-./jvnw dist
+./jvnw dist -PjvnGameProject=/path/to/game
+./jvnw dist-all -PjvnGameProject=/path/to/game
 ```
 
 Optional direct Gradle tasks for focused work:
@@ -84,6 +87,8 @@ Optional direct Gradle tasks for focused work:
 ./gradlew :core:compileJava :scripting:compileJava :fx:compileJava :runtime:compileJava :editor:compileJava
 ./gradlew :core:test :scripting:test :swing:test
 ```
+
+Game archives are written to `build/distributions/games/`. Use `./jvnw dist -PjvnGameProject=/path/to/game` for the current OS/arch and `./jvnw dist-all -PjvnGameProject=/path/to/game` to produce Windows, Linux, and macOS game archives from the same machine. The editor also exposes this through **Build & Publish...** for the currently open game project.
 
 ## Runtime Usage
 

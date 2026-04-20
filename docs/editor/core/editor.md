@@ -13,7 +13,7 @@ This page explains:
 - the main editor layout
 - what each major area is responsible for
 - how files open into different tool tabs
-- how project run from the editor works
+- how project run and build from the editor work
 
 ## Read This Next
 
@@ -53,6 +53,7 @@ Launch command:
 
 - Project tree with filter box
 - Root-level **Run** button for full project runtime launch
+- Root-level **Build** button for the game build/publish popup
 - Context menu actions:
   - open
   - reveal in file manager
@@ -101,6 +102,14 @@ Project run from editor:
    - `--no-daemon`, `--console=plain`, VFS watch disabled
 
 This design avoids shared global lock issues and makes editor-run more consistent across machines.
+
+## Game Build & Publish
+
+Open **File -> Project -> Build & Publish...**, **Run -> Build & Publish...**, or the Project Explorer root **Build** button to package the current JVN game project.
+
+The popup reads `jvn.project`, lets you set the release name/version, and launches the portable game build tasks in the run console. Outputs are written to `build/distributions/games/` in the JVN workspace.
+
+For CLI usage and target details, see [Build System](../../project-setup/release/build-system.md).
 
 Related preferences live in [Editor And Launcher Settings](settings.md):
 

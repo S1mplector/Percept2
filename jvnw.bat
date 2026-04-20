@@ -50,7 +50,11 @@ if /I "%command%"=="build" set "resolved=build"
 if /I "%command%"=="test" set "resolved=test"
 if /I "%command%"=="check" set "resolved=check"
 if /I "%command%"=="clean" set "resolved=clean"
-if /I "%command%"=="dist" set "resolved=:runtime:distZip"
+if /I "%command%"=="dist" set "resolved=assembleJvnGamePortableCurrent"
+if /I "%command%"=="dist-all" set "resolved=assembleJvnGamePortable"
+if /I "%command%"=="distAll" set "resolved=assembleJvnGamePortable"
+if /I "%command%"=="portable-all" set "resolved=assembleJvnGamePortable"
+if /I "%command%"=="portableAll" set "resolved=assembleJvnGamePortable"
 if /I "%command%"=="jar" set "resolved=:runtime:jar"
 
 set "console_arg=--console=plain"
@@ -103,7 +107,8 @@ echo   jvnw build      Build the workspace
 echo   jvnw test       Run the test suite
 echo   jvnw check      Run verification tasks
 echo   jvnw clean      Remove build outputs
-echo   jvnw dist       Create the runtime distribution zip
+echo   jvnw dist -PjvnGameProject=^<dir^>      Create a game zip for this OS/arch
+echo   jvnw dist-all -PjvnGameProject=^<dir^>  Create game zips for every supported OS/arch
 echo   jvnw jar        Build the runtime jar
 echo.
 echo Advanced usage:

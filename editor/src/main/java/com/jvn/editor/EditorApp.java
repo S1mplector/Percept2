@@ -41,6 +41,7 @@ import com.jvn.editor.ui.EditorSidebarPanel;
 import com.jvn.editor.ui.EditorTheme;
 import com.jvn.editor.ui.EditorWorkspaceHubView;
 import com.jvn.editor.ui.FileEditorTab;
+import com.jvn.editor.ui.GameBuildPublisherView;
 import com.jvn.editor.ui.HelpCenterView;
 import com.jvn.editor.ui.ImageAttributesToolView;
 import com.jvn.editor.ui.ImageTintToolView;
@@ -272,6 +273,8 @@ public class EditorApp extends Application {
   private final EnumMap<EditorSidebarPanel, Stage> panelWindows =
       new EnumMap<>(EditorSidebarPanel.class);
   private Stage editorSettingsWindow;
+  private Stage gameBuildPublisherWindow;
+  private GameBuildPublisherView gameBuildPublisherView;
 
   public static void main(String[] args) {
     launch(args);
@@ -527,6 +530,46 @@ public class EditorApp extends Application {
     } catch (Exception ex) {
       status.setText("Run failed");
     }
+  }
+
+  private void showGameBuildPublisherWindow(Stage owner) {
+    File root = ensureProjectRoot(owner);
+    if (root == null) return;
+    File workspace = resolveWorkspaceRoot();
+    if (workspace == null || !workspace.isDirectory()) {
+      status.setText("Cannot locate JVN workspace root");
+      EditorDialogs.error(dialogOwner(), "Build Unavailable", "Cannot locate the JVN workspace root.");
+      return;
+    }
+
+    if (gameBuildPublisherWindow != null && gameBuildPublisherWindow.isShowing()) {
+      if (gameBuildPublisherView != null) gameBuildPublisherView.setProjectRoot(root);
+      gameBuildPublisherWindow.toFront();
+      gameBuildPublisherWindow.requestFocus();
+      return;
+    }
+
+    gameBuildPublisherView = new GameBuildPublisherView(workspace, root, request ->
+        runGradle(workspace, request.taskName(), request.args(), request.title()));
+
+    BorderPane popupRoot = new BorderPane(gameBuildPublisherView);
+    popupRoot.setStyle("-fx-background-color: #111;");
+    javafx.scene.Scene scene = new javafx.scene.Scene(popupRoot, 920, 620);
+    EditorTheme.apply(scene);
+
+    Stage window = new Stage();
+    if (owner != null) window.initOwner(owner);
+    window.setTitle("JVN Game Build & Publish");
+    window.setScene(scene);
+    window.setMinWidth(760);
+    window.setMinHeight(540);
+    window.setOnHidden(e -> {
+      gameBuildPublisherWindow = null;
+      gameBuildPublisherView = null;
+    });
+
+    gameBuildPublisherWindow = window;
+    window.show();
   }
 
   private void runVnProjectInRuntime(File root, Properties mf) {
@@ -1260,6 +1303,8 @@ public class EditorApp extends Application {
     miFileProjectExplorer.setOnAction(e -> selectProjectTab());
     MenuItem miFileRunProject = new MenuItem("Run Project");
     miFileRunProject.setOnAction(e -> doRunProject(primaryStage));
+    MenuItem miFileBuildPublish = new MenuItem("Build & Publish...");
+    miFileBuildPublish.setOnAction(e -> showGameBuildPublisherWindow(primaryStage));
     MenuItem miFileRevealProjectRoot = new MenuItem("Reveal Project Root in File Manager");
     miFileRevealProjectRoot.setOnAction(e -> revealProjectRootInFileManager());
     MenuItem miFileCopyProjectRoot = new MenuItem("Copy Project Root Path");
@@ -1292,6 +1337,7 @@ public class EditorApp extends Application {
         miFileProjectExplorer,
         new SeparatorMenuItem(),
         miFileRunProject,
+        miFileBuildPublish,
         new SeparatorMenuItem(),
         miFileRevealProjectRoot,
         miFileCopyProjectRoot);
@@ -1536,6 +1582,8 @@ public class EditorApp extends Application {
     miApplyCode.setAccelerator(new KeyCodeCombination(KeyCode.ENTER, KeyCombination.SHORTCUT_DOWN));
     MenuItem miRunProject = new MenuItem("Run Project");
     miRunProject.setOnAction(e -> doRunProject(primaryStage));
+    MenuItem miBuildPublishProject = new MenuItem("Build & Publish...");
+    miBuildPublishProject.setOnAction(e -> showGameBuildPublisherWindow(primaryStage));
     MenuItem miLaunchHere = new MenuItem("Launch VNS from Here");
     miLaunchHere.setAccelerator(new KeyCodeCombination(KeyCode.F5));
     miLaunchHere.setOnAction(e -> {
@@ -1584,6 +1632,7 @@ public class EditorApp extends Application {
         menuRunPreview,
         new SeparatorMenuItem(),
         miRunProject,
+        miBuildPublishProject,
         new SeparatorMenuItem(),
         menuRunLaunchVns);
 
@@ -1892,6 +1941,12 @@ public class EditorApp extends Application {
       miApplyCode.setDisable(!canApplyPreview());
       miLaunchHere.setDisable(!canLaunchFromActiveTab());
       miLaunchStart.setDisable(!canLaunchFromActiveTab());
+      miFileRunProject.setDisable(!hasProject);
+      miRunProject.setDisable(!hasProject);
+      miFileBuildPublish.setDisable(!hasProject);
+      miBuildPublishProject.setDisable(!hasProject);
+      miFileRevealProjectRoot.setDisable(!hasProject);
+      miFileCopyProjectRoot.setDisable(!hasProject);
       miOpenVcs.setDisable(!hasProject);
       miRefreshVcs.setDisable(!hasProject);
       miRevealProjectRoot.setDisable(!hasProject);
@@ -1995,6 +2050,12 @@ public class EditorApp extends Application {
       openProjectDirectory(projectDir);
       selectProjectTab();
       doRunProject(projectDir);
+    });
+    projView.setOnBuildProject(projectDir -> {
+      if (projectDir == null) return;
+      openProjectDirectory(projectDir);
+      selectProjectTab();
+      showGameBuildPublisherWindow(primaryStage);
     });
     leftTabs = new TabPane();
     leftTabs.getStyleClass().add("sidebar-tab-pane");

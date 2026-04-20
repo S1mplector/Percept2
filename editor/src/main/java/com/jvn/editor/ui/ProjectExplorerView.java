@@ -28,6 +28,7 @@ public class ProjectExplorerView extends VBox {
   private File rootDir;
   private Consumer<File> onOpenFile;
   private Consumer<File> onRunProject;
+  private Consumer<File> onBuildProject;
 
   public ProjectExplorerView() {
     setSpacing(8);
@@ -57,14 +58,28 @@ public class ProjectExplorerView extends VBox {
     tree.setCellFactory(tv -> new TreeCell<>() {
       private final Label nameLabel = new Label();
       private final Region spacer = new Region();
+      private final Button buildButton = new Button("Build", CssIcon.download("#ecfff2"));
       private final Button runButton = new Button("Run", CssIcon.play("#ecfff2"));
-      private final HBox rootRow = new HBox(6, nameLabel, spacer, runButton);
+      private final HBox rootRow = new HBox(6, nameLabel, spacer, buildButton, runButton);
       {
         rootRow.setAlignment(Pos.CENTER_LEFT);
         rootRow.getStyleClass().add("project-explorer-root-row");
         nameLabel.getStyleClass().add("project-explorer-root-name");
         HBox.setHgrow(spacer, Priority.ALWAYS);
         rootRow.prefWidthProperty().bind(widthProperty().subtract(24));
+        buildButton.getStyleClass().add("project-run-button");
+        buildButton.setContentDisplay(ContentDisplay.LEFT);
+        buildButton.setGraphicTextGap(6);
+        buildButton.setFocusTraversable(false);
+        buildButton.setAccessibleText("Build Project");
+        buildButton.setTooltip(new Tooltip("Open Build & Publish for this project"));
+        buildButton.setOnAction(e -> {
+          File current = getItem();
+          if (current == null) return;
+          File project = rootDir != null ? rootDir : current;
+          if (onBuildProject != null) onBuildProject.accept(project);
+          e.consume();
+        });
         runButton.getStyleClass().add("project-run-button");
         runButton.setContentDisplay(ContentDisplay.LEFT);
         runButton.setGraphicTextGap(6);
@@ -131,6 +146,7 @@ public class ProjectExplorerView extends VBox {
 
   public void setOnOpenFile(Consumer<File> c) { this.onOpenFile = c; }
   public void setOnRunProject(Consumer<File> c) { this.onRunProject = c; }
+  public void setOnBuildProject(Consumer<File> c) { this.onBuildProject = c; }
 
   public File getSelectedFile() {
     TreeItem<File> it = tree.getSelectionModel().getSelectedItem();

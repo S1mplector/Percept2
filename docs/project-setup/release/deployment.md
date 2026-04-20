@@ -2,6 +2,8 @@
 
 Guide to building JVN projects for distribution — creating runnable JARs, bundling assets, platform-specific considerations, and distribution strategies.
 
+For the current automated portable archive tasks, start with [Build System](build-system.md). This page covers broader deployment concepts and native packaging options.
+
 ---
 
 ## Overview
@@ -20,7 +22,18 @@ JVN projects run on the JVM. Distribution involves packaging your compiled engin
 
 This compiles all modules (`core`, `scripting`, `fx`, `runtime`, `audio`, etc.) and runs tests.
 
-### Step 2: Create a Distribution JAR
+### Step 2: Create Portable Archives
+
+The root build system can produce portable game archives for the current platform or every supported target:
+
+```bash
+./jvnw dist -PjvnGameProject=/path/to/game
+./jvnw dist-all -PjvnGameProject=/path/to/game
+```
+
+Outputs are written to `build/distributions/games/`. In the editor, open the game project and use **Build & Publish...** for the same workflow with a popup UI.
+
+### Low-Level: Create a Runtime JAR
 
 The runtime module produces a runnable application:
 
@@ -236,6 +249,7 @@ The Simp3 audio module must be on the classpath. Verify the audio JAR is include
 ## Related Docs
 
 - [Runtime Guide](../../runtime/core/runtime.md)
+- [Build System](build-system.md)
 - [Asset Management](../../runtime/systems/asset-management.md)
 - [Project Structure Conventions](../onboarding/project-structure.md)
 - [Performance](../../architecture/quality/performance.md)

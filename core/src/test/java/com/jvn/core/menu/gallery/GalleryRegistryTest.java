@@ -3,12 +3,14 @@ package com.jvn.core.menu.gallery;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import com.jvn.core.vn.VnPersistentStore;
 
@@ -59,13 +61,13 @@ class GalleryRegistryTest {
   }
 
   @Test
-  void unlockAndQuery() {
+  void unlockAndQuery(@TempDir Path tempDir) {
     Map<String, String> props = new LinkedHashMap<>();
     props.put("entry.ids", "test1");
     props.put("entry.test1.image", "img.png");
     GalleryRegistry reg = GalleryRegistry.parseProperties(props);
 
-    VnPersistentStore store = new VnPersistentStore();
+    VnPersistentStore store = new VnPersistentStore(tempDir.resolve("persistent.json"));
     GalleryEntry entry = reg.entries().get(0);
     assertFalse(reg.isUnlocked(entry, store));
     assertEquals(0, reg.unlockedCount(store));

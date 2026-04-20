@@ -3,11 +3,13 @@ package com.jvn.core.menu.gallery;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import com.jvn.core.vn.VnPersistentStore;
 
@@ -36,13 +38,13 @@ class MusicRoomRegistryTest {
   }
 
   @Test
-  void unlockAndQuery() {
+  void unlockAndQuery(@TempDir Path tempDir) {
     Map<String, String> props = new LinkedHashMap<>();
     props.put("track.ids", "t1");
     props.put("track.t1.audio", "test.ogg");
     MusicRoomRegistry reg = MusicRoomRegistry.parseProperties(props);
 
-    VnPersistentStore store = new VnPersistentStore();
+    VnPersistentStore store = new VnPersistentStore(tempDir.resolve("persistent.json"));
     MusicRoomEntry entry = reg.entries().get(0);
     assertFalse(reg.isUnlocked(entry, store));
 

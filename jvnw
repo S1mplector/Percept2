@@ -104,7 +104,8 @@ show_help() {
   print_help_row "./jvnw test" "Run the test suite"
   print_help_row "./jvnw check" "Run verification tasks"
   print_help_row "./jvnw clean" "Remove build outputs"
-  print_help_row "./jvnw dist" "Create the runtime distribution zip"
+  print_help_row "./jvnw dist -PjvnGameProject=<dir>" "Create a game zip for this OS/arch"
+  print_help_row "./jvnw dist-all -PjvnGameProject=<dir>" "Create game zips for every supported OS/arch"
   print_help_row "./jvnw jar" "Build the runtime jar"
   printf '\n'
   printf '%s\n' "$(paint "${style_bold}${tone_info}" "Advanced usage")"
@@ -183,7 +184,11 @@ for arg in "${input_args[@]}"; do
         ;;
       dist)
         alias_label="dist"
-        forwarded_args+=(":runtime:distZip")
+        forwarded_args+=("assembleJvnGamePortableCurrent")
+        ;;
+      dist-all|distAll|portable-all|portableAll)
+        alias_label="dist-all"
+        forwarded_args+=("assembleJvnGamePortable")
         ;;
       jar)
         alias_label="jar"
@@ -242,13 +247,13 @@ resolved_target=""
 wrapper_mode="Gradle task"
 
 case "$alias_label" in
-  launcher|editor|runtime|build|test|check|clean|dist|jar)
+  launcher|editor|runtime|build|test|check|clean|dist|dist-all|jar)
     command_label="$alias_label"
     ;;
 esac
 
 case "$alias_label" in
-  launcher|editor|runtime|build|test|check|clean|dist|jar)
+  launcher|editor|runtime|build|test|check|clean|dist|dist-all|jar)
     wrapper_mode="JVN shortcut"
     ;;
   gradle)
@@ -270,7 +275,10 @@ case "$alias_label" in
     done_message="Workspace cleaned."
     ;;
   dist)
-    done_message="Runtime distribution ready."
+    done_message="Game build ready."
+    ;;
+  dist-all)
+    done_message="Game builds ready."
     ;;
   jar)
     done_message="Runtime jar ready."
