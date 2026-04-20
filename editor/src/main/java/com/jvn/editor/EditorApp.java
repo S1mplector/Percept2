@@ -77,12 +77,17 @@ import com.sun.management.OperatingSystemMXBean;
 
 import javafx.animation.AnimationTimer;
 import javafx.animation.FadeTransition;
+import javafx.animation.Interpolator;
+import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
 import javafx.animation.PauseTransition;
+import javafx.animation.Timeline;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -114,6 +119,8 @@ import javafx.scene.input.KeyCombination;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.TransferMode;
+import javafx.scene.effect.Effect;
+import javafx.scene.effect.GaussianBlur;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -176,6 +183,10 @@ public class EditorApp extends Application {
   private TabPane leftTabs;
   private TabPane rightTabs;
   private SplitPane centerSplit;
+  private StackPane leftSidebarShell;
+  private StackPane rightSidebarShell;
+  private TabPane activeSidebarDragFrostPane;
+  private boolean sidebarDragFrostSceneReleaseInstalled;
   private boolean editorFullscreen;
   private double[] savedCenterDividers;
   private boolean layeredVisualizerFullscreen;
@@ -244,6 +255,15 @@ public class EditorApp extends Application {
       "^(> Task |> Configure |BUILD SUCCESSFUL|Deprecated Gradle|\\d+ actionable|To honour the JVM|Daemon will be stopped|\\s*$)");
   private static final int STARTUP_COMMAND_TAIL_LINES = 14;
   private static final double SIDEBAR_COLLAPSED_EPSILON = 0.01;
+  private static final double SIDEBAR_DRAG_BLUR_RADIUS = 5.5;
+  private static final double SIDEBAR_DRAG_FROST_OPACITY = 0.72;
+  private static final Duration SIDEBAR_DRAG_FROST_DURATION = Duration.millis(135);
+  private static final String SIDEBAR_DRAG_FROST_OVERLAY_KEY = "jvn.sidebarDragFrost.overlay";
+  private static final String SIDEBAR_DRAG_FROST_BLUR_KEY = "jvn.sidebarDragFrost.blur";
+  private static final String SIDEBAR_DRAG_FROST_BASE_EFFECT_KEY = "jvn.sidebarDragFrost.baseEffect";
+  private static final String SIDEBAR_DRAG_FROST_BASE_EFFECT_PRESENT_KEY = "jvn.sidebarDragFrost.baseEffectPresent";
+  private static final String SIDEBAR_DRAG_FROST_ANIMATION_KEY = "jvn.sidebarDragFrost.animation";
+  private static final String SIDEBAR_DRAG_FROST_HANDLER_KEY = "jvn.sidebarDragFrost.handlerInstalled";
   private static final String PANEL_CHOOSER_TAB_ROLE = "panel-chooser";
   private static final String PANEL_CHOOSER_REFRESH_KEY = "panel-chooser-refresh";
   private static final String PANEL_WINDOW_SUPPRESS_UNLOAD_KEY = "jvn.panelWindow.suppressUnload";
@@ -1971,9 +1991,11 @@ public class EditorApp extends Application {
     installAddTabBehavior(leftTabs, tabLeftAdd, this::showLeftAddMenu);
     leftTabs.getSelectionModel().select(tabProject);
     leftTabs.setPrefWidth(300);
+    leftSidebarShell = createSidebarDragFrostShell(leftTabs, true);
+    rightSidebarShell = createSidebarDragFrostShell(rightTabs, false);
     centerSplit = new SplitPane();
     centerSplit.getStyleClass().add("editor-main-split-pane");
-    centerSplit.getItems().addAll(leftTabs, filesTabs, rightTabs);
+    centerSplit.getItems().addAll(leftSidebarShell, filesTabs, rightSidebarShell);
     centerSplit.setDividerPositions(0.22, 0.78);
     savedCenterDividers = new double[]{0.22, 0.78};
     applyEditorPreferences(editorPreferences);
@@ -3348,6 +3370,25 @@ public class EditorApp extends Application {
     updateSidebarDividerHoverHints();
   }
 
+  private StackPane createSidebarDragFrostShell(TabPane pane, boolean leftSide) {
+    if (pane == null) return new StackPane();
+    pane.setMinWidth(0);
+
+    Region frost = new Region();
+    frost.getStyleClass().add("sidebar-drag-frost");
+    frost.getStyleClass().add(leftSide ? "left" : "right");
+    frost.setMouseTransparent(true);
+    frost.setOpacity(0.0);
+    frost.setVisible(false);
+    frost.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+
+    StackPane shell = new StackPane(pane, frost);
+    shell.getStyleClass().add("sidebar-drag-frost-shell");
+    shell.setMinWidth(0);
+    pane.getProperties().put(SIDEBAR_DRAG_FROST_OVERLAY_KEY, frost);
+    return shell;
+  }
+
   private void installSidebarDividerHoverHints() {
     installSidebarDividerHoverHints(0);
   }
@@ -3376,6 +3417,9 @@ public class EditorApp extends Application {
 
       leftSidebarDividerNode.hoverProperty().addListener((o, ov, nv) -> updateSidebarDividerHoverHints());
       rightSidebarDividerNode.hoverProperty().addListener((o, ov, nv) -> updateSidebarDividerHoverHints());
+      installSidebarDragFrostHandlers(leftSidebarDividerNode, leftTabs);
+      installSidebarDragFrostHandlers(rightSidebarDividerNode, rightTabs);
+      installSidebarDragFrostSceneReleaseHandler();
       if (centerSplit.getDividers().size() >= 2) {
         centerSplit.getDividers().get(0).positionProperty().addListener((o, ov, nv) -> updateSidebarDividerHoverHints());
         centerSplit.getDividers().get(1).positionProperty().addListener((o, ov, nv) -> updateSidebarDividerHoverHints());
@@ -3384,9 +3428,122 @@ public class EditorApp extends Application {
     });
   }
 
+  private void installSidebarDragFrostHandlers(StackPane divider, TabPane targetPane) {
+    if (divider == null || targetPane == null) return;
+    if (Boolean.TRUE.equals(divider.getProperties().get(SIDEBAR_DRAG_FROST_HANDLER_KEY))) return;
+    divider.getProperties().put(SIDEBAR_DRAG_FROST_HANDLER_KEY, true);
+
+    divider.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
+      if (event.getButton() == MouseButton.PRIMARY) {
+        beginSidebarDragFrost(targetPane);
+      }
+    });
+    divider.addEventFilter(MouseEvent.MOUSE_DRAGGED, event -> {
+      if (event.isPrimaryButtonDown()) {
+        beginSidebarDragFrost(targetPane);
+      }
+    });
+    divider.addEventFilter(MouseEvent.MOUSE_RELEASED, event -> endSidebarDragFrost());
+  }
+
+  private void installSidebarDragFrostSceneReleaseHandler() {
+    if (sidebarDragFrostSceneReleaseInstalled || centerSplit == null || centerSplit.getScene() == null) return;
+    sidebarDragFrostSceneReleaseInstalled = true;
+    Scene scene = centerSplit.getScene();
+    scene.addEventFilter(MouseEvent.MOUSE_RELEASED, event -> endSidebarDragFrost());
+    scene.addEventFilter(MouseEvent.MOUSE_EXITED, event -> {
+      if (!event.isPrimaryButtonDown()) {
+        endSidebarDragFrost();
+      }
+    });
+    if (scene.getWindow() != null) {
+      scene.getWindow().focusedProperty().addListener((o, ov, nv) -> {
+        if (!nv) endSidebarDragFrost();
+      });
+    }
+  }
+
+  private void beginSidebarDragFrost(TabPane targetPane) {
+    if (targetPane == null) return;
+    if (activeSidebarDragFrostPane == targetPane) return;
+    if (activeSidebarDragFrostPane != null) {
+      animateSidebarDragFrost(activeSidebarDragFrostPane, false);
+    }
+    activeSidebarDragFrostPane = targetPane;
+    animateSidebarDragFrost(targetPane, true);
+  }
+
+  private void endSidebarDragFrost() {
+    TabPane targetPane = activeSidebarDragFrostPane;
+    if (targetPane == null) return;
+    activeSidebarDragFrostPane = null;
+    animateSidebarDragFrost(targetPane, false);
+  }
+
+  private void animateSidebarDragFrost(TabPane pane, boolean active) {
+    if (pane == null) return;
+    Object overlayValue = pane.getProperties().get(SIDEBAR_DRAG_FROST_OVERLAY_KEY);
+    if (!(overlayValue instanceof Region overlay)) return;
+
+    Object existingAnimation = pane.getProperties().get(SIDEBAR_DRAG_FROST_ANIMATION_KEY);
+    if (existingAnimation instanceof Timeline timeline) {
+      timeline.stop();
+    }
+
+    GaussianBlur blur = sidebarDragBlurFor(pane);
+    if (active) {
+      if (!Boolean.TRUE.equals(pane.getProperties().get(SIDEBAR_DRAG_FROST_BASE_EFFECT_PRESENT_KEY))) {
+        Effect baseEffect = pane.getEffect();
+        if (baseEffect != null && baseEffect != blur) {
+          pane.getProperties().put(SIDEBAR_DRAG_FROST_BASE_EFFECT_KEY, baseEffect);
+        } else {
+          pane.getProperties().remove(SIDEBAR_DRAG_FROST_BASE_EFFECT_KEY);
+        }
+        pane.getProperties().put(SIDEBAR_DRAG_FROST_BASE_EFFECT_PRESENT_KEY, true);
+      }
+      Object baseEffectValue = pane.getProperties().get(SIDEBAR_DRAG_FROST_BASE_EFFECT_KEY);
+      blur.setInput(baseEffectValue instanceof Effect effect ? effect : null);
+      pane.setEffect(blur);
+      overlay.setVisible(true);
+    }
+
+    Timeline animation = new Timeline(
+        new KeyFrame(Duration.ZERO,
+            new KeyValue(blur.radiusProperty(), blur.getRadius(), Interpolator.EASE_BOTH),
+            new KeyValue(overlay.opacityProperty(), overlay.getOpacity(), Interpolator.EASE_BOTH)),
+        new KeyFrame(SIDEBAR_DRAG_FROST_DURATION,
+            new KeyValue(blur.radiusProperty(), active ? SIDEBAR_DRAG_BLUR_RADIUS : 0.0, Interpolator.EASE_BOTH),
+            new KeyValue(overlay.opacityProperty(), active ? SIDEBAR_DRAG_FROST_OPACITY : 0.0, Interpolator.EASE_BOTH)));
+    animation.setOnFinished(event -> {
+      pane.getProperties().remove(SIDEBAR_DRAG_FROST_ANIMATION_KEY);
+      if (!active) {
+        overlay.setOpacity(0.0);
+        overlay.setVisible(false);
+        blur.setRadius(0.0);
+        Object baseEffectValue = pane.getProperties().get(SIDEBAR_DRAG_FROST_BASE_EFFECT_KEY);
+        pane.setEffect(baseEffectValue instanceof Effect effect ? effect : null);
+        blur.setInput(null);
+        pane.getProperties().remove(SIDEBAR_DRAG_FROST_BASE_EFFECT_KEY);
+        pane.getProperties().remove(SIDEBAR_DRAG_FROST_BASE_EFFECT_PRESENT_KEY);
+      }
+    });
+    pane.getProperties().put(SIDEBAR_DRAG_FROST_ANIMATION_KEY, animation);
+    animation.play();
+  }
+
+  private GaussianBlur sidebarDragBlurFor(TabPane pane) {
+    Object existing = pane.getProperties().get(SIDEBAR_DRAG_FROST_BLUR_KEY);
+    if (existing instanceof GaussianBlur blur) {
+      return blur;
+    }
+    GaussianBlur blur = new GaussianBlur(0.0);
+    pane.getProperties().put(SIDEBAR_DRAG_FROST_BLUR_KEY, blur);
+    return blur;
+  }
+
   private Region ensureDividerArrow(StackPane divider, boolean leftSide) {
     if (divider == null) return null;
-    for (javafx.scene.Node child : divider.getChildren()) {
+    for (Node child : divider.getChildren()) {
       if (child instanceof Region region && region.getStyleClass().contains("sidebar-hidden-drag-arrow")) {
         return region;
       }

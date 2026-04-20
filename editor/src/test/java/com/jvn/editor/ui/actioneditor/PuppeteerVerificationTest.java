@@ -1,6 +1,9 @@
 package com.jvn.editor.ui.actioneditor;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -9,14 +12,20 @@ import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
+import com.jvn.core.animation.TimelineData;
+
 class PuppeteerVerificationTest {
 
     @Test
-    void runtimeRegistrationFlagsAnimatedGroups() {
+    void runtimeRegistrationReportsAnimatedGroupsAsBakedIntoRuntimeTracks() {
         AnimationProject project = new AnimationProject();
-        project.getOrCreateTrack("hero");
+        EntityTrack hero = project.getOrCreateTrack("hero");
+        hero.addKeyframe(PropertyType.X, new Keyframe(0, 100));
+        hero.addKeyframe(PropertyType.X, new Keyframe(100, 200));
         EntityGroup group = project.getOrCreateGroup("crowd");
-        group.getGroupTrack().addKeyframe(PropertyType.X, new Keyframe(0, 120));
+        group.getGroupTrack().addKeyframe(PropertyType.X, new Keyframe(0, 20));
+        group.getGroupTrack().addKeyframe(PropertyType.X, new Keyframe(100, 40));
+        project.addEntityToGroup("hero", "crowd");
 
         List<TimelineDiagnostic.Message> messages = PuppeteerVerification.diagnose(
             project,
@@ -25,10 +34,39 @@ class PuppeteerVerificationTest {
             PuppeteerVerification.Mode.REGISTER_RUNTIME
         );
 
-        assertTrue(messages.stream().anyMatch(message ->
+        assertFalse(messages.stream().anyMatch(message ->
             message.severity() == TimelineDiagnostic.Severity.ERROR
                 && message.entityOrTrack().equals("crowd")
-                && message.description().contains("preview-only")));
+                && message.description().contains("Animated group")));
+        assertTrue(messages.stream().anyMatch(message ->
+            message.severity() == TimelineDiagnostic.Severity.INFO
+                && message.entityOrTrack().equals("crowd")
+                && message.description().contains("will be baked")));
+
+        TimelineData data = project.toTimelineData("crowd_intro");
+        TimelineData.Track runtimeHero = data.getTrack("hero");
+        assertNotNull(runtimeHero);
+        assertEquals(120.0, runtimeHero.getValueAt(TimelineData.Property.X, 0), 0.0001);
+        assertEquals(240.0, runtimeHero.getValueAt(TimelineData.Property.X, 100), 0.0001);
+    }
+
+    @Test
+    void runtimeRegistrationWarnsWhenAnimatedGroupHasNoRuntimeChildren() {
+        AnimationProject project = new AnimationProject();
+        EntityGroup group = project.getOrCreateGroup("empty");
+        group.getGroupTrack().addKeyframe(PropertyType.X, new Keyframe(0, 120));
+
+        List<TimelineDiagnostic.Message> messages = PuppeteerVerification.diagnose(
+            project,
+            Set.of(),
+            null,
+            PuppeteerVerification.Mode.REGISTER_RUNTIME
+        );
+
+        assertTrue(messages.stream().anyMatch(message ->
+            message.severity() == TimelineDiagnostic.Severity.WARNING
+                && message.entityOrTrack().equals("empty")
+                && message.description().contains("has no child entities")));
     }
 
     @Test

@@ -87,11 +87,22 @@ final class PuppeteerVerification {
             if (group == null) continue;
             EntityTrack groupTrack = group.getGroupTrack();
             if (!isAnimated(groupTrack)) continue;
+            List<String> childEntities = project.collectGroupEntityNames(group.getName());
+            if (childEntities.isEmpty()) {
+                messages.add(new TimelineDiagnostic.Message(
+                    TimelineDiagnostic.Severity.WARNING,
+                    group.getName(),
+                    "Animated group '" + group.getName() + "' has no child entities and will not affect runtime playback",
+                    "Add entities to the group or remove the group animation"
+                ));
+                continue;
+            }
             messages.add(new TimelineDiagnostic.Message(
-                TimelineDiagnostic.Severity.ERROR,
+                TimelineDiagnostic.Severity.INFO,
                 group.getName(),
-                "Animated groups are preview-only and are ignored during runtime registration",
-                "Bake group animation to entity tracks before registering at runtime"
+                "Animated group '" + group.getName() + "' will be baked into "
+                    + childEntities.size() + " child entity track(s) during runtime registration",
+                "Use Runtime Data Preview in Puppeteer to inspect the registered result"
             ));
         }
 

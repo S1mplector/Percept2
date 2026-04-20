@@ -16,14 +16,21 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 
+import com.jvn.core.animation.SceneAccessor;
 import com.jvn.core.animation.TimelineData;
 import com.jvn.core.animation.TimelineRegistry;
+import com.jvn.core.animation.TimelineRunner;
 import com.jvn.editor.ui.EditorTheme;
 import com.jvn.editor.ui.ProjectViewportSpec;
 import com.jvn.editor.ui.PuppeteerLauncherPanel;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 
 import javafx.animation.AnimationTimer;
+import javafx.animation.Interpolator;
+import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
+import javafx.animation.PauseTransition;
+import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
@@ -53,11 +60,15 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.Tooltip;
+import javafx.scene.effect.Effect;
+import javafx.scene.effect.GaussianBlur;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
@@ -70,6 +81,7 @@ import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import javafx.util.Duration;
 
 public class PuppeteerWindow extends Stage {
     private static final double LEFT_LIBRARY_WORKING_WIDTH = 360.0;
@@ -102,6 +114,15 @@ public class PuppeteerWindow extends Stage {
     private static final List<String> CAMERA_DEDICATED_CUSTOM_KEYS = List.of(
         "dof.focus", "dof.strength", "dof.maxBlur"
     );
+    private static final double PUPPETEER_FROST_BLUR_RADIUS = 5.5;
+    private static final double PUPPETEER_FROST_OPACITY = 0.72;
+    private static final Duration PUPPETEER_FROST_DURATION = Duration.millis(135);
+    private static final String PUPPETEER_FROST_OVERLAY_KEY = "jvn.puppeteerFrost.overlay";
+    private static final String PUPPETEER_FROST_BLUR_KEY = "jvn.puppeteerFrost.blur";
+    private static final String PUPPETEER_FROST_BASE_EFFECT_KEY = "jvn.puppeteerFrost.baseEffect";
+    private static final String PUPPETEER_FROST_BASE_EFFECT_PRESENT_KEY = "jvn.puppeteerFrost.baseEffectPresent";
+    private static final String PUPPETEER_FROST_ANIMATION_KEY = "jvn.puppeteerFrost.animation";
+    private static final String PUPPETEER_FROST_HANDLER_KEY = "jvn.puppeteerFrost.handlerInstalled";
 
     private final AnimationProject project;
     private JesScene2D scene;
@@ -124,11 +145,13 @@ public class PuppeteerWindow extends Stage {
     private TextField tfSnapMs;
     private ToggleButton cbOrbitTool;
     private ToggleButton cbOrbitAlign;
+    private ToggleButton cbRuntimePreview;
 
     private AnimationTimer playbackTimer;
     private long lastNanos = 0;
     private double playbackSpeed = 1.0;
     private boolean autoKeyEnabled = false;
+    private boolean runtimeParityPreview = false;
 
     private final PuppeteerCommand.Stack commandStack = new PuppeteerCommand.Stack();
     private final KeyframeSelectionModel selectionModel;
@@ -182,6 +205,12 @@ public class PuppeteerWindow extends Stage {
     private SplitPane mainWorkspaceSplit;
     private SplitPane previewFocusSplit;
     private StackPane workspaceModeHost;
+    private Node puppeteerLeftFrostTarget;
+    private Node puppeteerKeyframeFrostTarget;
+    private Node puppeteerCodeFrostTarget;
+    private StackPane codePreviewFrostShell;
+    private Node activePuppeteerFrostNode;
+    private boolean puppeteerFrostSceneReleaseInstalled = false;
     private boolean dirty = false;
     private boolean compactExport = false;
     private boolean previewStaged = false;
@@ -895,6 +924,17 @@ public class PuppeteerWindow extends Stage {
             }
         });
 
+        cbRuntimePreview = makeToolbarIconToggle(
+            "icon-puppeteer-register",
+            "Runtime data preview: render through TimelineData/TimelineRunner"
+        );
+        cbRuntimePreview.setSelected(runtimeParityPreview);
+        cbRuntimePreview.setOnAction(e -> {
+            runtimeParityPreview = cbRuntimePreview.isSelected();
+            updatePreview();
+            updateStatusBar();
+        });
+
         // --- Auto-key toggle ---
         ToggleButton cbAutoKey = makeToolbarIconToggle("icon-puppeteer-autokey", "Auto-key: automatically insert keyframe on drag");
         cbAutoKey.setSelected(false);
@@ -912,7 +952,7 @@ public class PuppeteerWindow extends Stage {
 
         HBox autoKeyBox = new HBox(4, cbAutoKey, lblAutoKey);
         autoKeyBox.setAlignment(Pos.CENTER_LEFT);
-        HBox previewSnapBox = new HBox(4, cbSnapGrid, cbSnapEntity, cbSpeed, cbWheelMode);
+        HBox previewSnapBox = new HBox(4, cbSnapGrid, cbSnapEntity, cbRuntimePreview, cbSpeed, cbWheelMode);
         previewSnapBox.setAlignment(Pos.CENTER_LEFT);
 
         cbOrbitTool = makeToolbarIconToggle("icon-puppeteer-orbit", "Enable orbit-anchor tool. Shift+click preview to place anchor. Alt+Shift+click another entity to link the anchor at the exact cursor point (joint/nail).");
@@ -1097,9 +1137,13 @@ public class PuppeteerWindow extends Stage {
         leftTabsScrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         leftTabsScrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         leftTabsScrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        puppeteerLeftFrostTarget = leftTabsScrollPane;
+        StackPane leftTabsFrostShell = createPuppeteerFrostShell(leftTabsScrollPane, "left");
 
         keyframeEditor.setMinWidth(0);
         keyframeEditor.setMinHeight(0);
+        puppeteerKeyframeFrostTarget = keyframeEditor;
+        StackPane keyframeFrostShell = createPuppeteerFrostShell(keyframeEditor, "left");
         final double[] collapsedWorkspaceDivider = {0.4};
         keyframeEditor.setOnCurveEditorExpandedChanged(expanded -> {
             if (workspaceContentSplit == null || workspaceContentSplit.getDividers().isEmpty()) {
@@ -1179,8 +1223,8 @@ public class PuppeteerWindow extends Stage {
         topWorkspaceSplit.setOrientation(Orientation.HORIZONTAL);
         topWorkspaceSplit.setMinWidth(0);
         topWorkspaceSplit.setMinHeight(0);
-        topWorkspaceSplit.getItems().addAll(leftTabsScrollPane, previewPane);
-        SplitPane.setResizableWithParent(leftTabsScrollPane, Boolean.TRUE);
+        topWorkspaceSplit.getItems().addAll(leftTabsFrostShell, previewPane);
+        SplitPane.setResizableWithParent(leftTabsFrostShell, Boolean.TRUE);
         SplitPane.setResizableWithParent(previewPane, Boolean.TRUE);
         topWorkspaceSplit.setDividerPositions(0.2);
 
@@ -1189,8 +1233,8 @@ public class PuppeteerWindow extends Stage {
         bottomWorkspaceSplit.setOrientation(Orientation.HORIZONTAL);
         bottomWorkspaceSplit.setMinWidth(0);
         bottomWorkspaceSplit.setMinHeight(0);
-        bottomWorkspaceSplit.getItems().addAll(keyframeEditor, timelinePanel);
-        SplitPane.setResizableWithParent(keyframeEditor, Boolean.TRUE);
+        bottomWorkspaceSplit.getItems().addAll(keyframeFrostShell, timelinePanel);
+        SplitPane.setResizableWithParent(keyframeFrostShell, Boolean.TRUE);
         SplitPane.setResizableWithParent(timelinePanel, Boolean.TRUE);
         bottomWorkspaceSplit.setDividerPositions(0.28);
 
@@ -1211,7 +1255,11 @@ public class PuppeteerWindow extends Stage {
         mainWorkspaceSplit.setMinWidth(0);
         mainWorkspaceSplit.setMinHeight(0);
         codePreview.setMinWidth(0);
-        mainWorkspaceSplit.getItems().addAll(workspaceContentSplit, codePreview);
+        puppeteerCodeFrostTarget = codePreview;
+        codePreviewFrostShell = createPuppeteerFrostShell(codePreview, "right");
+        mainWorkspaceSplit.getItems().addAll(workspaceContentSplit, codePreviewFrostShell);
+        SplitPane.setResizableWithParent(workspaceContentSplit, Boolean.TRUE);
+        SplitPane.setResizableWithParent(codePreviewFrostShell, Boolean.TRUE);
         mainWorkspaceSplit.setDividerPositions(codePaneDividerPosition);
 
         previewFocusSplit = new SplitPane();
@@ -1245,6 +1293,7 @@ public class PuppeteerWindow extends Stage {
         setScene(fxScene);
         applyLinuxDefaultWindowState();
 
+        installPuppeteerFrostHandlers();
         setupKeyboardShortcuts(fxScene);
         setupPlaybackTimer();
         setCodePaneVisible(true);
@@ -2485,32 +2534,211 @@ public class PuppeteerWindow extends Stage {
         return 16.0;
     }
 
+    private StackPane createPuppeteerFrostShell(Node content, String sideClass) {
+        if (content == null) return new StackPane();
+        if (content instanceof Region region) {
+            region.setMinWidth(0);
+            region.setMinHeight(0);
+            region.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        }
+
+        Region frost = new Region();
+        frost.getStyleClass().add("puppeteer-sidebar-frost");
+        if (sideClass != null && !sideClass.isBlank()) {
+            frost.getStyleClass().add(sideClass);
+        }
+        frost.setMouseTransparent(true);
+        frost.setOpacity(0.0);
+        frost.setVisible(false);
+        frost.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+
+        StackPane shell = new StackPane(content, frost);
+        shell.getStyleClass().add("puppeteer-frost-shell");
+        shell.setMinWidth(0);
+        shell.setMinHeight(0);
+        shell.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        content.getProperties().put(PUPPETEER_FROST_OVERLAY_KEY, frost);
+        return shell;
+    }
+
+    private void installPuppeteerFrostHandlers() {
+        installPuppeteerFrostHandlers(topWorkspaceSplit, puppeteerLeftFrostTarget, 0);
+        installPuppeteerFrostHandlers(bottomWorkspaceSplit, puppeteerKeyframeFrostTarget, 0);
+        installPuppeteerFrostHandlers(mainWorkspaceSplit, puppeteerCodeFrostTarget, 0);
+        installPuppeteerFrostSceneReleaseHandler();
+    }
+
+    private void installPuppeteerFrostHandlers(SplitPane split, Node frostTarget, int attempt) {
+        if (split == null || frostTarget == null) return;
+        Platform.runLater(() -> {
+            List<StackPane> dividerNodes = split.lookupAll(".split-pane-divider").stream()
+                .filter(StackPane.class::isInstance)
+                .map(StackPane.class::cast)
+                .toList();
+            if (dividerNodes.isEmpty()) {
+                if (attempt < 8) {
+                    PauseTransition retry = new PauseTransition(Duration.millis(80));
+                    retry.setOnFinished(e -> installPuppeteerFrostHandlers(split, frostTarget, attempt + 1));
+                    retry.play();
+                }
+                return;
+            }
+            for (StackPane divider : dividerNodes) {
+                installPuppeteerFrostHandler(divider, frostTarget);
+            }
+        });
+    }
+
+    private void installPuppeteerFrostHandler(StackPane divider, Node frostTarget) {
+        if (divider == null || frostTarget == null) return;
+        if (Boolean.TRUE.equals(divider.getProperties().get(PUPPETEER_FROST_HANDLER_KEY))) return;
+        divider.getProperties().put(PUPPETEER_FROST_HANDLER_KEY, true);
+
+        divider.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
+            if (event.getButton() == MouseButton.PRIMARY) {
+                beginPuppeteerFrost(frostTarget);
+            }
+        });
+        divider.addEventFilter(MouseEvent.MOUSE_DRAGGED, event -> {
+            if (event.isPrimaryButtonDown()) {
+                beginPuppeteerFrost(frostTarget);
+            }
+        });
+        divider.addEventFilter(MouseEvent.MOUSE_RELEASED, event -> endPuppeteerFrost());
+    }
+
+    private void installPuppeteerFrostSceneReleaseHandler() {
+        if (puppeteerFrostSceneReleaseInstalled || getScene() == null) return;
+        puppeteerFrostSceneReleaseInstalled = true;
+        Scene fxScene = getScene();
+        fxScene.addEventFilter(MouseEvent.MOUSE_RELEASED, event -> endPuppeteerFrost());
+        fxScene.addEventFilter(MouseEvent.MOUSE_EXITED, event -> {
+            if (!event.isPrimaryButtonDown()) {
+                endPuppeteerFrost();
+            }
+        });
+        if (fxScene.getWindow() != null) {
+            fxScene.getWindow().focusedProperty().addListener((o, ov, nv) -> {
+                if (!nv) endPuppeteerFrost();
+            });
+        }
+    }
+
+    private void beginPuppeteerFrost(Node target) {
+        if (target == null) return;
+        if (activePuppeteerFrostNode == target) return;
+        if (activePuppeteerFrostNode != null) {
+            animatePuppeteerFrost(activePuppeteerFrostNode, false);
+        }
+        activePuppeteerFrostNode = target;
+        animatePuppeteerFrost(target, true);
+    }
+
+    private void endPuppeteerFrost() {
+        Node target = activePuppeteerFrostNode;
+        if (target == null) return;
+        activePuppeteerFrostNode = null;
+        animatePuppeteerFrost(target, false);
+    }
+
+    private void animatePuppeteerFrost(Node target, boolean active) {
+        if (target == null) return;
+        Object overlayValue = target.getProperties().get(PUPPETEER_FROST_OVERLAY_KEY);
+        if (!(overlayValue instanceof Region overlay)) return;
+
+        Object existingAnimation = target.getProperties().get(PUPPETEER_FROST_ANIMATION_KEY);
+        if (existingAnimation instanceof Timeline timeline) {
+            timeline.stop();
+        }
+
+        GaussianBlur blur = puppeteerFrostBlurFor(target);
+        if (active) {
+            if (!Boolean.TRUE.equals(target.getProperties().get(PUPPETEER_FROST_BASE_EFFECT_PRESENT_KEY))) {
+                Effect baseEffect = target.getEffect();
+                if (baseEffect != null && baseEffect != blur) {
+                    target.getProperties().put(PUPPETEER_FROST_BASE_EFFECT_KEY, baseEffect);
+                } else {
+                    target.getProperties().remove(PUPPETEER_FROST_BASE_EFFECT_KEY);
+                }
+                target.getProperties().put(PUPPETEER_FROST_BASE_EFFECT_PRESENT_KEY, true);
+            }
+            Object baseEffectValue = target.getProperties().get(PUPPETEER_FROST_BASE_EFFECT_KEY);
+            blur.setInput(baseEffectValue instanceof Effect effect ? effect : null);
+            target.setEffect(blur);
+            overlay.setVisible(true);
+        }
+
+        Timeline animation = new Timeline(
+            new KeyFrame(Duration.ZERO,
+                new KeyValue(blur.radiusProperty(), blur.getRadius(), Interpolator.EASE_BOTH),
+                new KeyValue(overlay.opacityProperty(), overlay.getOpacity(), Interpolator.EASE_BOTH)),
+            new KeyFrame(PUPPETEER_FROST_DURATION,
+                new KeyValue(blur.radiusProperty(), active ? PUPPETEER_FROST_BLUR_RADIUS : 0.0, Interpolator.EASE_BOTH),
+                new KeyValue(overlay.opacityProperty(), active ? PUPPETEER_FROST_OPACITY : 0.0, Interpolator.EASE_BOTH)));
+        animation.setOnFinished(event -> {
+            target.getProperties().remove(PUPPETEER_FROST_ANIMATION_KEY);
+            if (!active) {
+                overlay.setOpacity(0.0);
+                overlay.setVisible(false);
+                blur.setRadius(0.0);
+                Object baseEffectValue = target.getProperties().get(PUPPETEER_FROST_BASE_EFFECT_KEY);
+                target.setEffect(baseEffectValue instanceof Effect effect ? effect : null);
+                blur.setInput(null);
+                target.getProperties().remove(PUPPETEER_FROST_BASE_EFFECT_KEY);
+                target.getProperties().remove(PUPPETEER_FROST_BASE_EFFECT_PRESENT_KEY);
+            }
+        });
+        target.getProperties().put(PUPPETEER_FROST_ANIMATION_KEY, animation);
+        animation.play();
+    }
+
+    private GaussianBlur puppeteerFrostBlurFor(Node target) {
+        Object existing = target.getProperties().get(PUPPETEER_FROST_BLUR_KEY);
+        if (existing instanceof GaussianBlur blur) {
+            return blur;
+        }
+        GaussianBlur blur = new GaussianBlur(0.0);
+        target.getProperties().put(PUPPETEER_FROST_BLUR_KEY, blur);
+        return blur;
+    }
+
     public void setCodePaneVisible(boolean visible) {
         codePaneVisible = visible;
         if (codePreview != null) {
             codePreview.setManaged(visible);
             codePreview.setVisible(visible);
         }
+        Node codePaneNode = codePreviewSplitNode();
+        if (codePreviewFrostShell != null) {
+            codePreviewFrostShell.setManaged(visible);
+            codePreviewFrostShell.setVisible(visible);
+        }
         if (mainWorkspaceSplit == null) {
             return;
         }
         if (visible) {
-            if (!mainWorkspaceSplit.getItems().contains(codePreview)) {
-                mainWorkspaceSplit.getItems().add(codePreview);
+            if (!mainWorkspaceSplit.getItems().contains(codePaneNode)) {
+                mainWorkspaceSplit.getItems().add(codePaneNode);
+                SplitPane.setResizableWithParent(codePaneNode, Boolean.TRUE);
+                installPuppeteerFrostHandlers(mainWorkspaceSplit, puppeteerCodeFrostTarget, 0);
             }
             mainWorkspaceSplit.setDividerPositions(codePaneDividerPosition);
             refreshSidebarTabs();
             return;
         }
-        if (mainWorkspaceSplit.getItems().contains(codePreview)) {
+        if (mainWorkspaceSplit.getItems().contains(codePaneNode)) {
             double[] positions = mainWorkspaceSplit.getDividerPositions();
             if (positions.length >= 1) {
                 codePaneDividerPosition = positions[0];
             }
-            mainWorkspaceSplit.getItems().remove(codePreview);
+            mainWorkspaceSplit.getItems().remove(codePaneNode);
         }
         refreshSidebarTabs();
         refreshToolbarCommandSummary();
+    }
+
+    private Node codePreviewSplitNode() {
+        return codePreviewFrostShell != null ? codePreviewFrostShell : codePreview;
     }
 
     public boolean isCodePaneVisible() {
@@ -3024,6 +3252,12 @@ public class PuppeteerWindow extends Stage {
 
         double time = project.getPlayheadMs();
         restorePreviewBaselineState();
+        if (runtimeParityPreview) {
+            applyRuntimeParityPreview(time);
+            animationPreview.render();
+            refreshSidebarTabs();
+            return;
+        }
         var previewCamera = animationPreview.getCamera();
         double cameraX = previewCamera.getX();
         double cameraY = previewCamera.getY();
@@ -3181,6 +3415,61 @@ public class PuppeteerWindow extends Stage {
         refreshSidebarTabs();
     }
 
+    private void applyRuntimeParityPreview(double timeMs) {
+        TimelineData data = project.toTimelineData(resolveTimelineNameForRuntimeData());
+        TimelineRunner runner = new TimelineRunner(data, createPreviewSceneAccessor());
+        runner.update(Math.max(0L, Math.round(timeMs)));
+        var previewCamera = animationPreview.getCamera();
+        keyframeEditor.setCameraState(previewCamera.getX(), previewCamera.getY(), previewCamera.getZoom());
+    }
+
+    private SceneAccessor createPreviewSceneAccessor() {
+        return new SceneAccessor() {
+            @Override
+            public com.jvn.core.scene2d.Entity2D findEntity(String name) {
+                return scene == null || name == null ? null : scene.find(name);
+            }
+
+            @Override
+            public void setCameraX(double x) {
+                var camera = animationPreview.getCamera();
+                camera.setPosition(x, camera.getY());
+            }
+
+            @Override
+            public void setCameraY(double y) {
+                var camera = animationPreview.getCamera();
+                camera.setPosition(camera.getX(), y);
+            }
+
+            @Override
+            public void setCameraZoom(double zoom) {
+                animationPreview.getCamera().setZoom(zoom);
+            }
+
+            @Override
+            public void applyCustomProperty(String target, String propertyKey, double value) {
+                if (TimelinePanel.isRuntimeCameraTarget(target)) {
+                    animationPreview.getCamera().applyCustomProperty(propertyKey, value);
+                    return;
+                }
+                SceneAccessor.super.applyCustomProperty(target, propertyKey, value);
+            }
+
+            @Override
+            public void onEventCue(String type, Map<String, String> payload) {
+                applyPreviewEventCue(type, payload);
+            }
+        };
+    }
+
+    private String resolveTimelineNameForRuntimeData() {
+        String timelineName = tfTimelineName != null ? tfTimelineName.getText().trim() : "";
+        if (timelineName.isBlank()) timelineName = project.getName();
+        if (timelineName == null || timelineName.isBlank()) timelineName = "Untitled Animation";
+        return timelineName;
+    }
+
     private void captureSceneStateBaseline() {
         sceneBaselineImagePaths.clear();
         sceneBaselineVisibility.clear();
@@ -3230,15 +3519,20 @@ public class PuppeteerWindow extends Stage {
     }
 
     private void applyPreviewEventCue(EditorEventCue cue) {
-        if (scene == null || cue == null || cue.getType() == null) return;
-        String type = cue.getType().trim().toLowerCase(Locale.ROOT);
-        String target = cue.getPayloadValue("target");
+        if (cue == null) return;
+        applyPreviewEventCue(cue.getType(), cue.getPayloadView());
+    }
+
+    private void applyPreviewEventCue(String rawType, Map<String, String> payload) {
+        if (scene == null || rawType == null) return;
+        String type = rawType.trim().toLowerCase(Locale.ROOT);
+        String target = payloadValue(payload, "target");
         com.jvn.core.scene2d.Entity2D entity = target == null || target.isBlank() ? null : scene.find(target);
 
         switch (type) {
             case "expression" -> {
-                String expression = cue.getPayloadValue("value");
-                String path = resolveCueAssetPath(target, expression, cue.getPayloadValue("path"), false);
+                String expression = payloadValue(payload, "value");
+                String path = resolveCueAssetPath(target, expression, payloadValue(payload, "path"), false);
                 if (path != null && entity instanceof com.jvn.core.scene2d.Sprite2D sprite) {
                     sprite.setImagePath(path);
                     entity.setVisible(true);
@@ -3246,9 +3540,9 @@ public class PuppeteerWindow extends Stage {
             }
             case "show" -> {
                 if (entity != null) entity.setVisible(true);
-                String expression = cue.getPayloadValue("expression");
-                if (expression.isBlank()) expression = cue.getPayloadValue("value");
-                String path = resolveCueAssetPath(target, expression, cue.getPayloadValue("path"), false);
+                String expression = payloadValue(payload, "expression");
+                if (expression.isBlank()) expression = payloadValue(payload, "value");
+                String path = resolveCueAssetPath(target, expression, payloadValue(payload, "path"), false);
                 if (path != null && entity instanceof com.jvn.core.scene2d.Sprite2D sprite) {
                     sprite.setImagePath(path);
                 }
@@ -3257,16 +3551,16 @@ public class PuppeteerWindow extends Stage {
                 if (entity != null) entity.setVisible(false);
             }
             case "replace" -> {
-                String expression = cue.getPayloadValue("expression");
-                if (expression.isBlank()) expression = cue.getPayloadValue("value");
-                String path = resolveCueAssetPath(target, expression, cue.getPayloadValue("path"), false);
+                String expression = payloadValue(payload, "expression");
+                if (expression.isBlank()) expression = payloadValue(payload, "value");
+                String path = resolveCueAssetPath(target, expression, payloadValue(payload, "path"), false);
                 if (path != null && entity instanceof com.jvn.core.scene2d.Sprite2D sprite) {
                     sprite.setImagePath(path);
                     entity.setVisible(true);
                 }
             }
             case "scene" -> {
-                String resolvedPath = resolveCueAssetPath(target, cue.getPayloadValue("id"), cue.getPayloadValue("path"), true);
+                String resolvedPath = resolveCueAssetPath(target, payloadValue(payload, "id"), payloadValue(payload, "path"), true);
                 com.jvn.core.scene2d.Entity2D background = entity;
                 if (background == null) {
                     background = findBackgroundEntity();
@@ -3279,6 +3573,11 @@ public class PuppeteerWindow extends Stage {
             default -> {
             }
         }
+    }
+
+    private static String payloadValue(Map<String, String> payload, String key) {
+        if (payload == null || key == null) return "";
+        return payload.getOrDefault(key, "");
     }
 
     private com.jvn.core.scene2d.Entity2D findBackgroundEntity() {
@@ -3778,6 +4077,7 @@ public class PuppeteerWindow extends Stage {
         }
         if (sb.length() == 0) sb.append("Ready");
         if (autoKeyEnabled) sb.append("  │  Auto-Key ON");
+        if (runtimeParityPreview) sb.append("  │  Runtime Preview ON");
         sb.append("  │  Speed: ").append(playbackSpeed).append("x");
         statusBar.setText(sb.toString());
         refreshToolbarCommandSummary();
