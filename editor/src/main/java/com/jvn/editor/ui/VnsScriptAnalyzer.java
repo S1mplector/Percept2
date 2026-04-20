@@ -674,6 +674,18 @@ public final class VnsScriptAnalyzer {
       backgrounds = backgrounds == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(backgrounds));
       stats = stats == null ? ScriptStats.EMPTY : stats;
     }
+
+    public List<LanguageDiagnostic> languageDiagnostics() {
+      return languageDiagnostics("");
+    }
+
+    public List<LanguageDiagnostic> languageDiagnostics(String sourceName) {
+      List<LanguageDiagnostic> out = new ArrayList<>();
+      for (Diagnostic diagnostic : diagnostics) {
+        out.add(diagnostic.toLanguageDiagnostic(source, sourceName));
+      }
+      return List.copyOf(out);
+    }
   }
 
   /**
@@ -770,6 +782,23 @@ public final class VnsScriptAnalyzer {
       return kind;
     }
 
+    public LanguageDiagnostic toLanguageDiagnostic(String source, String sourceName) {
+      LanguageDiagnostic.Severity severity = warning
+          ? LanguageDiagnostic.Severity.WARNING
+          : LanguageDiagnostic.Severity.ERROR;
+      int computedColumn = columnForOffset(source, start);
+      return new LanguageDiagnostic(
+          "vns",
+          sourceName,
+          severity,
+          kind,
+          message,
+          start,
+          end,
+          line,
+          computedColumn);
+    }
+
     public String message() {
       return message;
     }
@@ -801,5 +830,12 @@ public final class VnsScriptAnalyzer {
     public int blockEnd() {
       return blockEnd;
     }
+  }
+
+  private static int columnForOffset(String source, int offset) {
+    if (source == null || source.isEmpty()) return 0;
+    int clamped = Math.max(0, Math.min(offset, source.length()));
+    int lineStart = source.lastIndexOf('\n', Math.max(0, clamped - 1));
+    return clamped - (lineStart < 0 ? 0 : lineStart + 1);
   }
 }

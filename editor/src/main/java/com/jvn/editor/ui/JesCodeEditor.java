@@ -14,11 +14,6 @@ import org.fxmisc.richtext.CodeArea;
 import org.fxmisc.richtext.model.StyleSpans;
 import org.fxmisc.richtext.model.StyleSpansBuilder;
 
-import com.jvn.scripting.jes.JesParseException;
-import com.jvn.scripting.jes.JesParser;
-import com.jvn.scripting.jes.JesToken;
-import com.jvn.scripting.jes.JesTokenizer;
-
 import javafx.application.Platform;
 import javafx.scene.control.Label;
 import javafx.scene.layout.BorderPane;
@@ -69,8 +64,6 @@ public class JesCodeEditor extends BorderPane {
 
   // ── Boolean literals (orange) ──
   private static final String BOOL_PATTERN = "\\b(?:true|false)\\b";
-  private static final Pattern ENTITY_NAME_PATTERN = Pattern.compile("entity\\s+\"([^\"]+)\"");
-  private static final Pattern LABEL_NAME_PATTERN = Pattern.compile("label\\s+\"([^\"]+)\"");
 
   // ── Binding sub-keywords ──
   private static final String SUBKW_PATTERN = "\\b(?:key|do)\\b";
@@ -111,14 +104,13 @@ public class JesCodeEditor extends BorderPane {
     });
     codeArea.textProperty().addListener((obs, oldText, newText) -> {
       applyHighlighting(newText);
-      lint(newText);
-      cacheNames(newText);
+      applyAnalysis(newText);
       if (!suppressTextChanged && onTextChanged != null) {
         onTextChanged.accept(newText);
       }
     });
     applyHighlighting("");
-    lint("");
+    applyAnalysis("");
 
     VirtualizedScrollPane<CodeArea> sp = new VirtualizedScrollPane<>(codeArea);
     VBox wrapper = new VBox(sp, lintLabel);
@@ -143,7 +135,11 @@ public class JesCodeEditor extends BorderPane {
     codeArea.replaceText(s == null ? "" : s);
     refreshSyntaxHighlighting();
   }
-  public void setProjectRoot(File root) { this.projectRoot = root; if (completer != null) completer.setProjectRoot(root); }
+  public void setProjectRoot(File root) {
+    this.projectRoot = root;
+    if (completer != null) completer.setProjectRoot(root);
+    applyAnalysis(getText());
+  }
   public void setTextNoEvent(String s) {
     try {
       suppressTextChanged = true;
@@ -171,7 +167,7 @@ public class JesCodeEditor extends BorderPane {
 
   public void setLintMode(LintMode mode) {
     this.lintMode = mode == null ? LintMode.JES_DOCUMENT : mode;
-    lint(codeArea.getText());
+    applyAnalysis(codeArea.getText());
   }
 
   public void setLintVisible(boolean visible) {
@@ -255,22 +251,35 @@ public class JesCodeEditor extends BorderPane {
     return out;
   }
 
-  private void lint(String text) {
-    // Basic synchronous lint; fast enough for small scripts
-    if (text == null) text = "";
-    if (lintMode == LintMode.TIMELINE_BLOCK) {
-      showLintMessage("Timeline block", -1);
+  private void applyAnalysis(String text) {
+    JesScriptAnalyzer.Analysis analysis =
+        JesScriptAnalyzer.analyze(text, projectRoot, null, toAnalyzerMode(lintMode));
+    cachedEntities.clear();
+    cachedEntities.addAll(analysis.entityNames());
+    cachedLabels.clear();
+    cachedLabels.addAll(analysis.timelineLabelNames());
+    showAnalysis(analysis);
+  }
+
+  private static JesScriptAnalyzer.Mode toAnalyzerMode(LintMode mode) {
+    return mode == LintMode.TIMELINE_BLOCK
+        ? JesScriptAnalyzer.Mode.TIMELINE_BLOCK
+        : JesScriptAnalyzer.Mode.JES_DOCUMENT;
+  }
+
+  private void showAnalysis(JesScriptAnalyzer.Analysis analysis) {
+    if (analysis == null || analysis.diagnostics().isEmpty()) {
+      showLintMessage("No errors", -1);
       return;
     }
-    try {
-      List<JesToken> toks = new JesTokenizer(text).tokenize();
-      new JesParser(toks).parseProgram();
-      showLintMessage("No errors", -1);
-    } catch (JesParseException ex) {
-      showLintMessage(ex.getMessage(), ex.getLine());
-    } catch (Exception ex) {
-      showLintMessage("Error: " + ex.getMessage(), -1);
-    }
+    LanguageDiagnostic primary = analysis.diagnostics().stream()
+        .filter(d -> d.severity() == LanguageDiagnostic.Severity.ERROR)
+        .findFirst()
+        .orElseGet(() -> analysis.diagnostics().get(0));
+    int errLine = primary.severity() == LanguageDiagnostic.Severity.INFO
+        ? -1
+        : primary.oneBasedLine();
+    showLintMessage(primary.message(), errLine);
   }
 
   private void showLintMessage(String msg, int errLine) {
@@ -297,22 +306,6 @@ public class JesCodeEditor extends BorderPane {
   private void clearErrorLine() {
     if (lastErrorLine >= 0 && lastErrorLine < codeArea.getParagraphs().size()) {
       codeArea.setParagraphStyle(lastErrorLine, Collections.emptyList());
-    }
-  }
-
-  private void cacheNames(String text) {
-    cachedEntities.clear();
-    cachedLabels.clear();
-    if (text == null) return;
-    Matcher ent = ENTITY_NAME_PATTERN.matcher(text);
-    while (ent.find()) {
-      String name = ent.group(1);
-      if (name != null && !name.isBlank()) cachedEntities.add(name);
-    }
-    Matcher lab = LABEL_NAME_PATTERN.matcher(text);
-    while (lab.find()) {
-      String name = lab.group(1);
-      if (name != null && !name.isBlank()) cachedLabels.add(name);
     }
   }
 
