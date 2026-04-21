@@ -81,7 +81,7 @@ public class GameBuildPublisherView extends BorderPane {
   private void buildUi() {
     Label title = new Label("Build & Publish");
     title.setStyle(STYLE_TITLE);
-    Label subtitle = new Label("Package and release the current JVN game project as portable, self-contained, or native builds.");
+    Label subtitle = new Label("Package and release the current JVN game project as portable zips, cross-target desktop bundles, or host-native installers.");
     subtitle.setWrapText(true);
     subtitle.setStyle(STYLE_SUBTITLE);
 
@@ -154,14 +154,14 @@ public class GameBuildPublisherView extends BorderPane {
 
     VBox projectCard = card("Game", form, manifestLabel, outputLabel, validationLabel, releaseConfigLabel);
 
-    Label buildHelp = new Label("Portable zips still need Java on the player machine. Bundled-runtime zips include a trimmed runtime image for the current host. Native packages use jpackage and can apply release-profile signing, notarization, and publish commands. Cross-host native installers run through the CI matrix workflow.");
+    Label buildHelp = new Label("Portable zips still need Java on the player machine. Desktop bundles include a prebuilt runtime for the selected target, so players do not need Java installed. The first bundle build for a target downloads and caches that runtime locally. Native packages use jpackage and stay host-specific.");
     buildHelp.setWrapText(true);
     buildHelp.setStyle(STYLE_HELP);
 
     buildSelectedButton = button("Build Selected Target", true);
     buildSelectedButton.setOnAction(e -> buildSelectedTarget());
     buildAllButton = button("Build All Targets", true);
-    buildAllButton.setOnAction(e -> buildTask("assembleJvnGamePortable", "Build Game - All Targets"));
+    buildAllButton.setOnAction(e -> buildAllTargets());
     releaseButton = button("Run Release Profile", false);
     releaseButton.setOnAction(e -> runReleaseProfile());
     copyCliButton = button("Copy CLI Command", false);
@@ -177,7 +177,7 @@ public class GameBuildPublisherView extends BorderPane {
 
     VBox actionCard = card("Actions", buildHelp, buildRow, statusLabel);
 
-    Label nativeNote = new Label("Editor builds native packages for the current host only. For Windows, Linux, macOS Intel, and macOS Apple Silicon installers from one control point, use the native-builds CI workflow.");
+    Label nativeNote = new Label("Desktop bundles build locally for Windows, Linux, macOS Intel, and macOS Apple Silicon. Native installers still build on the matching host OS only.");
     nativeNote.setWrapText(true);
     nativeNote.setStyle(STYLE_HELP);
 
@@ -278,7 +278,7 @@ public class GameBuildPublisherView extends BorderPane {
 
   private void applyValidation(ValidationResult result) {
     PackageMode mode = selectedPackageMode();
-    boolean supportsBuildAll = mode == PackageMode.PORTABLE_ZIP;
+    boolean supportsBuildAll = mode != PackageMode.NATIVE_PACKAGE;
     nativeTypeBox.setDisable(mode != PackageMode.NATIVE_PACKAGE);
 
     boolean canBuild = result != null && result.errors().isEmpty();
@@ -338,12 +338,12 @@ public class GameBuildPublisherView extends BorderPane {
       errors.add("Choose a build target.");
     } else if (target.outputToken().startsWith("unsupported")) {
       errors.add(target.description());
-    } else if (mode != PackageMode.PORTABLE_ZIP && !"windows-x64".equals(target.outputToken())
+    } else if (mode == PackageMode.NATIVE_PACKAGE && !"windows-x64".equals(target.outputToken())
         && !"linux-x64".equals(target.outputToken()) && !"macos-x64".equals(target.outputToken())
         && !"macos-aarch64".equals(target.outputToken())) {
-      errors.add("Bundled-runtime and native packages are only available for the current host target.");
-    } else if (mode != PackageMode.PORTABLE_ZIP && !target.outputToken().equals(currentTargetToken())) {
-      errors.add("Bundled-runtime and native packages are host-only. Switch target to Current machine.");
+      errors.add("Native packages are only available for supported desktop targets.");
+    } else if (mode == PackageMode.NATIVE_PACKAGE && !target.outputToken().equals(currentTargetToken())) {
+      errors.add("Native packages are host-only. Switch target to Current machine.");
     }
 
     if (mode == PackageMode.NATIVE_PACKAGE) {
@@ -369,7 +369,7 @@ public class GameBuildPublisherView extends BorderPane {
       } else if (!availableReleaseProfiles(projectRoot).contains(profile)) {
         errors.add("Release profile '" + profile + "' was not found in " + releaseConfig.getPath() + ".");
       }
-    } else if (releaseConfig == null && mode != PackageMode.PORTABLE_ZIP) {
+    } else if (releaseConfig == null && mode == PackageMode.NATIVE_PACKAGE) {
       warnings.add("No release profile config found. Native packaging will build unsigned packages without publish commands.");
     }
 
@@ -427,8 +427,13 @@ public class GameBuildPublisherView extends BorderPane {
           outputLabel.setText("Output: " + new File(outDir, stem + "-" + targetId + ".zip").getPath());
         }
       }
-      case BUNDLED_RUNTIME_ZIP ->
-          outputLabel.setText("Output: " + new File(outDir, stem + "-" + currentTargetToken() + "-runtime.zip").getPath());
+      case BUNDLED_RUNTIME_ZIP -> {
+        if (target != null && "all".equals(targetId)) {
+          outputLabel.setText("Output: " + new File(outDir, stem + "-*-runtime.zip").getPath());
+        } else {
+          outputLabel.setText("Output: " + new File(outDir, stem + "-" + targetId + "-runtime.zip").getPath());
+        }
+      }
       case NATIVE_PACKAGE -> {
         NativeTypeChoice nativeType = nativeTypeBox.getValue();
         String ext = nativeType == null ? ".pkg" : nativeType.artifactSuffix();
@@ -447,11 +452,22 @@ public class GameBuildPublisherView extends BorderPane {
     buildTask(selection.taskName(), selection.title());
   }
 
+  private void buildAllTargets() {
+    if (!canBuild()) return;
+    BuildTaskSelection selection = switch (selectedPackageMode()) {
+      case PORTABLE_ZIP -> new BuildTaskSelection("assembleJvnGamePortable", "Build Game - All Portable Targets");
+      case BUNDLED_RUNTIME_ZIP -> new BuildTaskSelection("assembleJvnGameBundledRuntime", "Build Game - All Desktop Bundles");
+      case NATIVE_PACKAGE -> null;
+    };
+    if (selection == null) return;
+    buildTask(selection.taskName(), selection.title());
+  }
+
   private void runReleaseProfile() {
     if (!canBuild()) return;
     BuildTaskSelection selection = releaseTaskForSelection();
     if (selection == null) {
-      statusLabel.setText("Release profile is only available for current-host build formats.");
+      statusLabel.setText("Release profile needs a single selected artifact, not an all-target build.");
       return;
     }
     List<String> args = buildGradleArgs();
@@ -523,7 +539,11 @@ public class GameBuildPublisherView extends BorderPane {
         notes.append("Runtime requirement: Java 21 or newer on the player machine.\n");
         notes.append("Targets: windows-x64, linux-x64, macos-x64, macos-aarch64.\n");
       }
-      case BUNDLED_RUNTIME_ZIP -> notes.append("Runtime requirement: bundled runtime image, no external Java install needed.\n");
+      case BUNDLED_RUNTIME_ZIP -> {
+        notes.append("Runtime requirement: bundled target runtime, no external Java install needed.\n");
+        notes.append("Targets: windows-x64, linux-x64, macos-x64, macos-aarch64.\n");
+        notes.append("Runtime cache: the first build for a target downloads and verifies a prebuilt runtime.\n");
+      }
       case NATIVE_PACKAGE -> {
         NativeTypeChoice nativeType = nativeTypeBox.getValue();
         notes.append("Native package type: ").append(nativeType == null ? "(unset)" : nativeType.token()).append('\n');
@@ -568,8 +588,15 @@ public class GameBuildPublisherView extends BorderPane {
         }
         yield new BuildTaskSelection(target.taskName(), "Build Game - " + target.label());
       }
-      case BUNDLED_RUNTIME_ZIP ->
-          new BuildTaskSelection("assembleJvnGameBundledRuntimeCurrent", "Build Game - Bundled Runtime");
+      case BUNDLED_RUNTIME_ZIP -> {
+        if (target == null) yield null;
+        if ("all".equals(target.outputToken())) {
+          yield new BuildTaskSelection("assembleJvnGameBundledRuntime", "Build Game - All Desktop Bundles");
+        }
+        yield new BuildTaskSelection(
+            "assembleJvnGameBundledRuntime" + targetTaskSuffix(target),
+            "Build Game - Desktop Bundle - " + target.label());
+      }
       case NATIVE_PACKAGE -> {
         NativeTypeChoice nativeType = nativeTypeBox.getValue();
         String label = nativeType == null ? "Native Package" : nativeType.label();
@@ -585,8 +612,13 @@ public class GameBuildPublisherView extends BorderPane {
         if (target == null || "all".equals(target.outputToken()) || !target.outputToken().equals(currentTargetToken())) yield null;
         yield new BuildTaskSelection("releaseJvnGamePortableCurrent", "Release Game - Portable Current Host");
       }
-      case BUNDLED_RUNTIME_ZIP ->
-          new BuildTaskSelection("releaseJvnGameBundledRuntimeCurrent", "Release Game - Bundled Runtime");
+      case BUNDLED_RUNTIME_ZIP -> {
+        TargetChoice target = targetBox.getValue();
+        if (target == null || "all".equals(target.outputToken())) yield null;
+        yield new BuildTaskSelection(
+            "releaseJvnGameBundledRuntime" + targetTaskSuffix(target),
+            "Release Game - Desktop Bundle - " + target.label());
+      }
       case NATIVE_PACKAGE ->
           new BuildTaskSelection("releaseJvnGameNativeCurrent", "Release Game - Native Package");
     };
@@ -780,6 +812,17 @@ public class GameBuildPublisherView extends BorderPane {
     return String.join(".", parts);
   }
 
+  private static String targetTaskSuffix(TargetChoice target) {
+    if (target == null) return "";
+    return switch (target.outputToken()) {
+      case "windows-x64" -> "WindowsX64";
+      case "linux-x64" -> "LinuxX64";
+      case "macos-x64" -> "MacosX64";
+      case "macos-aarch64" -> "MacosAarch64";
+      default -> "";
+    };
+  }
+
   private static String shellQuote(String value) {
     if (value == null || value.isBlank()) return "''";
     if (value.matches("[A-Za-z0-9_./:=@-]+")) return value;
@@ -835,7 +878,7 @@ public class GameBuildPublisherView extends BorderPane {
 
   private enum PackageMode {
     PORTABLE_ZIP("Portable Zip"),
-    BUNDLED_RUNTIME_ZIP("Bundled Runtime Zip"),
+    BUNDLED_RUNTIME_ZIP("Desktop Bundle"),
     NATIVE_PACKAGE("Native Package");
 
     private final String label;

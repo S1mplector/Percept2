@@ -31,8 +31,11 @@ The root build system can now produce three kinds of outputs:
 ./jvnw dist -PjvnGameProject=/path/to/game
 ./jvnw dist-all -PjvnGameProject=/path/to/game
 
-# Current-host self-contained zip (players do not need Java installed)
+# Self-contained desktop bundle for the current target (players do not need Java installed)
 ./jvnw dist-runtime -PjvnGameProject=/path/to/game
+
+# Self-contained desktop bundles for every supported desktop target
+./jvnw dist-runtime-all -PjvnGameProject=/path/to/game
 
 # Current-host native package (players do not need Java installed)
 ./jvnw native -PjvnGameProject=/path/to/game
@@ -42,7 +45,9 @@ Outputs are written to `build/distributions/games/`. In the editor, open the gam
 
 The build tasks validate the selected game before assembling: `jvn.project` must be readable, the manifest type must be `vn` or `jes`, the configured entry script must exist, and the selected folder must be a game project rather than the JVN engine workspace.
 
-Bundled-runtime and native packages are host-only when you run them locally. For true cross-host native installers and app bundles, use the reusable CI matrix workflow at [native-builds.yml](../../../.github/workflows/native-builds.yml), which runs matching Linux, Windows, macOS Intel, and macOS Apple Silicon builders.
+Desktop bundles are cross-target from one machine. Native packages are still host-only when you run them locally. For true cross-host native installers and app bundles, use the reusable CI matrix workflow at [native-builds.yml](../../../.github/workflows/native-builds.yml), which runs matching Linux, Windows, macOS Intel, and macOS Apple Silicon builders.
+
+The first desktop-bundle build for a target downloads a prebuilt runtime, verifies its SHA-256 checksum, and caches it locally for reuse.
 
 ### Low-Level: Create a Runtime JAR
 
@@ -121,7 +126,7 @@ java -jar "%DIR%jvn-runtime.jar" --assets "%DIR%" --script scripts/story/prologu
 
 ### JDK Requirement
 
-JVN build machines require **JDK 21**. End users only need Java if you ship the portable zip format. Bundled-runtime zips and native packages include their own runtime.
+JVN build machines require **JDK 21**. End users only need Java if you ship the portable zip format. Desktop bundles and native packages include their own runtime.
 
 ### Using jpackage (Native Installer)
 
@@ -154,11 +159,15 @@ jpackage --type deb \
   --main-class com.jvn.runtime.JvnApp
 ```
 
-### Using jlink (Custom JRE)
+### Using Prebuilt Runtime Bundles
 
-JVN now uses `jlink` to create bundled runtime images for self-contained zips and as the runtime base for native packages.
+JVN now builds self-contained desktop bundles by downloading a prebuilt target runtime and packaging it alongside the game and target-specific JavaFX natives. This is what makes the Ren'Py-like cross-target desktop bundle flow possible from one machine.
 
-Standalone example:
+Use `./jvnw runtime-cache` to inspect the local runtime cache and `./jvnw runtime-cache-clear` to clear it.
+
+`jlink` is still used for the current-host runtime image that feeds `jpackage` native installers.
+
+Standalone `jlink` example:
 
 ```bash
 jlink --module-path $JAVA_HOME/jmods \
@@ -168,7 +177,7 @@ jlink --module-path $JAVA_HOME/jmods \
   --compress=2
 ```
 
-Then distribute `custom-jre/` alongside your game JAR, or let JVN's `assembleJvnGameBundledRuntimeCurrent` task do the staging automatically.
+Then distribute `custom-jre/` alongside your game JAR, or let JVN's native packaging tasks create the runtime image automatically for current-host `jpackage` builds.
 
 ---
 
@@ -206,14 +215,21 @@ The simplest approach — a ZIP containing the JAR, assets, and a launch script.
 **Pros:** Simple, cross-platform, can be built for multiple desktop targets from one host
 **Cons:** Requires user to have Java 21 installed
 
-### Strategy 2: Native Installer (jpackage)
+### Strategy 2: Desktop Bundle
+
+Self-contained target bundle with a packaged runtime and launch script.
+
+**Pros:** No Java requirement for users, cross-target from one machine, easy to upload to itch.io or Steam
+**Cons:** Less native installation behavior than a true installer, larger download than portable zip
+
+### Strategy 3: Native Installer (jpackage)
 
 Platform-specific installer that bundles a JRE.
 
 **Pros:** No Java requirement for users, native look and feel
 **Cons:** Local builds must run on the matching host OS, larger download
 
-### Strategy 3: Distribution Platform (itch.io, Steam)
+### Strategy 4: Distribution Platform (itch.io, Steam)
 
 Upload platform-specific builds. Most platforms support:
 - macOS: `.app` bundle or `.dmg`

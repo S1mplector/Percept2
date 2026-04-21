@@ -51,6 +51,9 @@ Useful JVN commands:
 ./jvnw dist -PjvnGameProject=/path/to/game
 ./jvnw dist-all -PjvnGameProject=/path/to/game
 ./jvnw dist-runtime -PjvnGameProject=/path/to/game
+./jvnw dist-runtime-all -PjvnGameProject=/path/to/game
+./jvnw runtime-cache
+./jvnw runtime-cache-clear
 ./jvnw native -PjvnGameProject=/path/to/game
 ./jvnw release-native -PjvnGameProject=/path/to/game
 ```
@@ -83,6 +86,9 @@ Default wrapper commands:
 ./jvnw dist -PjvnGameProject=/path/to/game
 ./jvnw dist-all -PjvnGameProject=/path/to/game
 ./jvnw dist-runtime -PjvnGameProject=/path/to/game
+./jvnw dist-runtime-all -PjvnGameProject=/path/to/game
+./jvnw runtime-cache
+./jvnw runtime-cache-clear
 ./jvnw native -PjvnGameProject=/path/to/game
 ./jvnw release-native -PjvnGameProject=/path/to/game
 ```
@@ -98,7 +104,10 @@ Game archives are written to `build/distributions/games/`. Use:
 
 - `./jvnw dist -PjvnGameProject=/path/to/game` for a current-host portable zip
 - `./jvnw dist-all -PjvnGameProject=/path/to/game` for cross-target portable zips
-- `./jvnw dist-runtime -PjvnGameProject=/path/to/game` for a current-host self-contained zip with bundled runtime
+- `./jvnw dist-runtime -PjvnGameProject=/path/to/game` for a self-contained desktop bundle for the current target
+- `./jvnw dist-runtime-all -PjvnGameProject=/path/to/game` for self-contained desktop bundles across all supported desktop targets
+- `./jvnw runtime-cache` to inspect cached prebuilt desktop runtimes
+- `./jvnw runtime-cache-clear` to clear cached prebuilt desktop runtimes
 - `./jvnw native -PjvnGameProject=/path/to/game` for a current-host native package
 - `.github/workflows/native-builds.yml` for cross-host native installers and app bundles on matching GitHub runners
 

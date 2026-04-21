@@ -110,14 +110,14 @@ Open **Build -> Build & Publish...**, **File -> Project -> Build & Publish...**,
 The popup now supports:
 
 - **Portable Zip**: cross-target zip, Java required on the player machine
-- **Bundled Runtime Zip**: current-host self-contained zip built with `jlink`
+- **Desktop Bundle**: cross-target self-contained zip with a packaged target runtime
 - **Native Package**: current-host `jpackage` output such as `dmg`, `pkg`, `exe`, `msi`, `deb`, `rpm`, or `app-image`
 
 The popup reads `jvn.project`, lets you set the release name/version, target, format, native package type, and release profile, validates the selection, and launches the matching Gradle task in the run console. Outputs are written to `build/distributions/games/` in the JVN workspace.
 
 Build actions stay disabled until the selected project is packageable. The validation checks for a readable `jvn.project`, `type=vn` or `type=jes`, an existing VN `entryVns` or JES `entry` file, a supported target, a writable output folder, accidental selection of the engine workspace, and release-profile availability when native packaging is selected.
 
-Bundled-runtime and native formats are host-only in the editor popup, so it requires the **Current machine** target for those modes. Cross-host native installers and app bundles run through the reusable CI matrix workflow instead. The **Run Release Profile** action builds the selected artifact and then runs any configured signing, notarization, and publish hooks from the game's release profile.
+Portable zips and desktop bundles can target any supported desktop platform from the popup. The first desktop-bundle build for a target downloads and verifies a packaged runtime, then reuses the local cache on later builds. Native packages remain host-only, so the popup requires the **Current machine** target for that mode. The **Run Release Profile** action builds the selected artifact and then runs any configured signing, notarization, and publish hooks from the game's release profile.
 
 For CLI usage and target details, see [Build System](../../project-setup/release/build-system.md).
 

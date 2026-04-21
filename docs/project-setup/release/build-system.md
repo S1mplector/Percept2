@@ -3,7 +3,7 @@
 JVN's game packaging has three output layers:
 
 - **Portable zip**: cross-target zip with runtime jars and JavaFX jars. Players still need Java 21 installed.
-- **Bundled-runtime zip**: self-contained zip with a trimmed runtime image built by `jlink`. Locally this is current-host only. Players do not need Java installed.
+- **Desktop bundle**: self-contained zip with a prebuilt target runtime plus target-specific JavaFX natives. Players do not need Java installed.
 - **Native package**: app image or installer built by `jpackage`. Locally this is current-host only. Players do not need Java installed.
 
 Portable packaging supports `type=vn` and `type=jes` game manifests. It rejects `type=gradle` manifests and the engine workspace itself because those describe development run commands, not a distributable game.
@@ -39,16 +39,22 @@ All CLI builds require `-PjvnGameProject=<dir>`. The path is used exactly as pro
 |---------|--------|
 | `./jvnw dist -PjvnGameProject=<dir>` | Game archive for the current host OS/arch |
 | `./jvnw dist-all -PjvnGameProject=<dir>` | Game archives for every supported target |
-| `./jvnw dist-runtime -PjvnGameProject=<dir>` | Self-contained current-host zip with bundled runtime |
+| `./jvnw dist-runtime -PjvnGameProject=<dir>` | Self-contained desktop bundle for the current target |
+| `./jvnw dist-runtime-all -PjvnGameProject=<dir>` | Self-contained desktop bundles for every supported target |
+| `./jvnw runtime-cache` | Print cached prebuilt desktop runtimes |
+| `./jvnw runtime-cache-clear` | Clear cached prebuilt desktop runtimes |
 | `./jvnw native -PjvnGameProject=<dir>` | Current-host native package using the host default type |
 | `./jvnw release-native -PjvnGameProject=<dir>` | Current-host native package plus release-profile hooks |
 | `./gradlew assembleJvnGamePortableCurrent -PjvnGameProject=<dir>` | Same as `./jvnw dist` |
 | `./gradlew assembleJvnGamePortable -PjvnGameProject=<dir>` | Same as `./jvnw dist-all` |
-| `./gradlew assembleJvnGameBundledRuntimeCurrent -PjvnGameProject=<dir>` | Self-contained current-host zip |
+| `./gradlew assembleJvnGameBundledRuntimeCurrent -PjvnGameProject=<dir>` | Self-contained desktop bundle for the current target |
+| `./gradlew assembleJvnGameBundledRuntime -PjvnGameProject=<dir>` | Self-contained desktop bundles for every supported target |
 | `./gradlew packageJvnGameNativeCurrent -PjvnGameProject=<dir>` | Current-host native package |
 | `./gradlew releaseJvnGameNativeCurrent -PjvnGameProject=<dir>` | Native package + signing/notarization/publish hooks |
 | `./gradlew validateJvnGameProject -PjvnGameProject=<dir>` | Validate and print selected game metadata |
 | `./gradlew printJvnGamePortableTargets` | List supported platform targets |
+| `./gradlew printJvnBundledRuntimeCache` | Print cached prebuilt desktop runtimes |
+| `./gradlew clearJvnBundledRuntimeCache` | Clear cached prebuilt desktop runtimes |
 | `./gradlew printJvnGameNativePackageTypes` | List supported native package types for this host |
 | `./gradlew printJvnGameReleaseProfiles` | List available release profiles from the selected game project |
 
@@ -60,6 +66,9 @@ Optional properties:
 | `-PjvnGameVersion=<version>` | Override release version used in archive names |
 | `-PjvnNativeVersion=<version>` | Override version used for native packages when installer rules require numeric versions |
 | `-PjvnNativePackageType=<type>` | Override current-host native package type (`app-image`, `dmg`, `pkg`, `exe`, `msi`, `deb`, `rpm`) |
+| `-PjvnBundledRuntimeImageType=<jre|jdk>` | Prefer a specific prebuilt runtime image type for desktop bundles |
+| `-PjvnBundledRuntimeVendor=<vendor>` | Override the Adoptium vendor segment used for desktop-bundle runtime downloads (default: `eclipse`) |
+| `-PjvnRefreshBundledRuntime=true` | Force a fresh download of the prebuilt runtime archive instead of reusing the local cache |
 | `-PjvnReleaseProfile=<name>` | Select release profile from `jvn-release.properties` |
 | `-PjvnAllowEngineWorkspacePackage=true` | Advanced escape hatch for intentionally packaging the engine workspace |
 
@@ -80,9 +89,31 @@ build/distributions/games/
 
 Linux aarch64 is not part of the current supported set because OpenJFX 21.0.3 does not publish `linux-aarch64` classifier jars in Maven Central. Add it after upgrading the JavaFX runtime or supplying native JavaFX artifacts for that platform.
 
-## Local Host Packaging
+## Desktop Bundles
 
-Local `jlink` and `jpackage` runs are still **host-bound**:
+Desktop bundles are the Ren'Py-like packaging path:
+
+- buildable for every supported desktop target from one machine
+- no Java install required on the player machine
+- game files stay visible as a normal packaged folder
+- launch scripts stay platform-native for the selected target
+
+Internally a desktop bundle stages:
+
+- the JVN runtime jars
+- the game project files
+- target-specific JavaFX native jars
+- a downloaded prebuilt Eclipse Temurin runtime for the selected target
+
+The downloaded runtime archive is SHA-256 verified against the metadata returned by the Adoptium API before JVN reuses it.
+
+That means JVN no longer depends on local `jlink` for cross-target self-contained desktop builds.
+
+Downloaded runtime archives and extracted caches live under `build/downloads/jvnRuntime/` and `build/vendor-runtimes/`. Use `./jvnw runtime-cache` to inspect them and `./jvnw runtime-cache-clear` to wipe them.
+
+## Local Native Packaging
+
+Local `jpackage` runs are still **host-bound**:
 
 - build mac packages on macOS
 - build Windows packages on Windows
@@ -107,7 +138,7 @@ That workflow fans out to matching GitHub-hosted runners for:
 
 It checks out the engine, checks out the selected game repository, validates the chosen `jvn.project`, then builds:
 
-- bundled-runtime zips
+- desktop bundles when requested
 - native `app-image` bundles
 - native installer packages for the target host (`deb`/`rpm`, `exe`/`msi`, `dmg`/`pkg`)
 
@@ -161,9 +192,9 @@ The launchers keep JavaFX jars on the module path and the rest of JVN on the cla
 
 Runtime configuration such as `entryVns`, `width`, `height`, `runtime.ui`, `runtime.audio`, and `runtime.locale` is read from the bundled `game/jvn.project`. VN builds also pass the resolved entry script to `--script`; JES builds pass the configured `entry` file to `--jes`.
 
-## Bundled Runtime Layout
+## Desktop Bundle Layout
 
-Bundled-runtime zips expand into this shape:
+Desktop bundles expand into this shape:
 
 ```text
 <game>-<version>-<target>-runtime/
@@ -175,7 +206,7 @@ Bundled-runtime zips expand into this shape:
 `-- README.txt
 ```
 
-The `runtime/` directory is created with `jlink`, and the launcher runs the packaged game through `com.jvn.runtime.GamePackageLauncher`, which resolves the bundled `game/` directory automatically.
+The `runtime/` directory contains the downloaded prebuilt runtime archive contents for the selected target. The launcher points directly at that runtime, keeps JavaFX jars on the module path, and launches the bundled game with the same `--assets`, `--script`, or `--jes` wiring used by the portable packages.
 
 ## Native Packages
 
@@ -231,8 +262,8 @@ Supported first-pass profile categories:
 2. Open `Build & Publish...`.
 3. Set the release version.
 4. Build the current target for smoke testing.
-5. Smoke-test the current host locally with either a bundled-runtime zip or a native package.
-6. Run the cross-host native workflow when you need Windows, Linux, macOS Intel, and macOS Apple Silicon artifacts from one control point.
+5. Build desktop bundles locally for the targets you want to ship.
+6. Smoke-test at least the current host locally, then use matching machines or CI for native installers when you need them.
 7. Run the release profile when signing, notarization, or publish commands are configured.
 8. Upload the generated artifacts from `build/distributions/games/` or from the CI artifact set.
 
