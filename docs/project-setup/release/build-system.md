@@ -1,14 +1,10 @@
 # Build System
 
-JVN's first packaging layer is for games made with JVN. It produces portable runtime archives that contain:
+JVN's game packaging has three output layers:
 
-- the JVN runtime jars
-- JavaFX native jars for the selected target
-- the selected game project's `jvn.project`, `scripts/`, `assets/`, `config/`, and other project files
-- a launcher script that starts `com.jvn.runtime.JvnApp` with `--assets` pointed at the bundled game folder
-- `BUILD-METADATA.txt` with the target, runtime versions, manifest type, entry file, and packaging warnings
-
-These archives are not native installers yet. They require Java 21 or newer on the player machine. Native app bundles, installers, signing, notarization, and bundled JRE images are the next packaging layer.
+- **Portable zip**: cross-target zip with runtime jars and JavaFX jars. Players still need Java 21 installed.
+- **Bundled-runtime zip**: current-host self-contained zip with a trimmed runtime image built by `jlink`. Players do not need Java installed.
+- **Native package**: current-host app image or installer built by `jpackage`. Players do not need Java installed.
 
 Portable packaging supports `type=vn` and `type=jes` game manifests. It rejects `type=gradle` manifests and the engine workspace itself because those describe development run commands, not a distributable game.
 
@@ -23,7 +19,7 @@ Run -> Build & Publish...
 Project Explorer -> Build
 ```
 
-The popup reads the current project's `jvn.project`, lets you set the release name/version, chooses a target, and launches the matching Gradle task in the run console. It also reveals the output folder and copies CLI/publish notes for release prep.
+The popup reads the current project's `jvn.project`, lets you set the release name/version, target, format, native package type, and release profile, then launches the matching Gradle task in the run console. It also reveals the output folder, copies CLI/publish notes, and can run the selected release profile.
 
 Before enabling build actions, the popup validates:
 
@@ -33,7 +29,7 @@ Before enabling build actions, the popup validates:
 - the selected target is supported
 - the output folder is writable
 
-Warnings are shown for easy-to-miss cases such as a project folder with leading/trailing whitespace or a script-only package without an `assets/` folder.
+Warnings are shown for easy-to-miss cases such as a project folder with leading/trailing whitespace, a script-only package without an `assets/` folder, or missing release-profile config for native packaging.
 
 ## CLI Commands
 
@@ -43,10 +39,18 @@ All CLI builds require `-PjvnGameProject=<dir>`. The path is used exactly as pro
 |---------|--------|
 | `./jvnw dist -PjvnGameProject=<dir>` | Game archive for the current host OS/arch |
 | `./jvnw dist-all -PjvnGameProject=<dir>` | Game archives for every supported target |
+| `./jvnw dist-runtime -PjvnGameProject=<dir>` | Self-contained current-host zip with bundled runtime |
+| `./jvnw native -PjvnGameProject=<dir>` | Current-host native package using the host default type |
+| `./jvnw release-native -PjvnGameProject=<dir>` | Current-host native package plus release-profile hooks |
 | `./gradlew assembleJvnGamePortableCurrent -PjvnGameProject=<dir>` | Same as `./jvnw dist` |
 | `./gradlew assembleJvnGamePortable -PjvnGameProject=<dir>` | Same as `./jvnw dist-all` |
+| `./gradlew assembleJvnGameBundledRuntimeCurrent -PjvnGameProject=<dir>` | Self-contained current-host zip |
+| `./gradlew packageJvnGameNativeCurrent -PjvnGameProject=<dir>` | Current-host native package |
+| `./gradlew releaseJvnGameNativeCurrent -PjvnGameProject=<dir>` | Native package + signing/notarization/publish hooks |
 | `./gradlew validateJvnGameProject -PjvnGameProject=<dir>` | Validate and print selected game metadata |
 | `./gradlew printJvnGamePortableTargets` | List supported platform targets |
+| `./gradlew printJvnGameNativePackageTypes` | List supported native package types for this host |
+| `./gradlew printJvnGameReleaseProfiles` | List available release profiles from the selected game project |
 
 Optional properties:
 
@@ -54,6 +58,9 @@ Optional properties:
 |----------|---------|
 | `-PjvnGameName=<name>` | Override the archive/launcher display name |
 | `-PjvnGameVersion=<version>` | Override release version used in archive names |
+| `-PjvnNativeVersion=<version>` | Override version used for native packages when installer rules require numeric versions |
+| `-PjvnNativePackageType=<type>` | Override current-host native package type (`app-image`, `dmg`, `pkg`, `exe`, `msi`, `deb`, `rpm`) |
+| `-PjvnReleaseProfile=<name>` | Select release profile from `jvn-release.properties` |
 | `-PjvnAllowEngineWorkspacePackage=true` | Advanced escape hatch for intentionally packaging the engine workspace |
 
 Archives are written to:
@@ -62,7 +69,7 @@ Archives are written to:
 build/distributions/games/
 ```
 
-## Targets
+## Portable Targets
 
 | Target | JavaFX classifier | Per-target Gradle task |
 |--------|-------------------|------------------------|
@@ -71,7 +78,21 @@ build/distributions/games/
 | `macos-x64` | `mac` | `assembleJvnGamePortableMacosX64` |
 | `macos-aarch64` | `mac-aarch64` | `assembleJvnGamePortableMacosAarch64` |
 
-Linux aarch64 is not part of the first supported set because OpenJFX 21.0.3 does not publish `linux-aarch64` classifier jars in Maven Central. Add it after upgrading the JavaFX runtime or supplying native JavaFX artifacts for that platform.
+Linux aarch64 is not part of the current supported set because OpenJFX 21.0.3 does not publish `linux-aarch64` classifier jars in Maven Central. Add it after upgrading the JavaFX runtime or supplying native JavaFX artifacts for that platform.
+
+## Host-Only Formats
+
+Bundled-runtime zips and native packages are **host-only**:
+
+- build mac packages on macOS
+- build Windows packages on Windows
+- build Linux packages on Linux
+
+Supported native package types by host:
+
+- macOS: `app-image`, `dmg`, `pkg`
+- Windows: `app-image`, `exe`, `msi`
+- Linux: `app-image`, `deb`, `rpm`
 
 ## Archive Layout
 
@@ -100,30 +121,93 @@ The launchers keep JavaFX jars on the module path and the rest of JVN on the cla
 
 Runtime configuration such as `entryVns`, `width`, `height`, `runtime.ui`, `runtime.audio`, and `runtime.locale` is read from the bundled `game/jvn.project`. VN builds also pass the resolved entry script to `--script`; JES builds pass the configured `entry` file to `--jes`.
 
+## Bundled Runtime Layout
+
+Bundled-runtime zips expand into this shape:
+
+```text
+<game>-<version>-<target>-runtime/
+|-- bin/
+|-- game/
+|-- lib/
+|-- runtime/
+|-- BUILD-METADATA.txt
+`-- README.txt
+```
+
+The `runtime/` directory is created with `jlink`, and the launcher runs the packaged game through `com.jvn.runtime.GamePackageLauncher`, which resolves the bundled `game/` directory automatically.
+
+## Native Packages
+
+Native packaging uses `jpackage` with:
+
+- input jars from the JVN runtime modules
+- the bundled `game/` directory added as app content
+- a prebuilt runtime image from `createJvnGameRuntimeImageCurrent`
+- `com.jvn.runtime.GamePackageLauncher` as the package entrypoint
+
+Current-host native app versions must satisfy installer rules, so JVN derives a numeric native version automatically when the game version is a development label such as `0.1-SNAPSHOT`. Override it with `-PjvnNativeVersion=...` when needed.
+
+## Release Profiles
+
+Release profiles live in one of these locations inside the game project:
+
+```text
+config/release/jvn-release.properties
+config/release/release.properties
+release/jvn-release.properties
+jvn-release.properties
+```
+
+Example:
+
+```properties
+defaultProfile=release
+
+profile.release.vendor=Studio Name
+profile.release.description=Was I Write?
+profile.release.aboutUrl=https://example.com/was-i-write
+profile.release.icon=packaging/icon.icns
+profile.release.mac.packageIdentifier=com.example.wasiwrite
+profile.release.mac.sign=true
+profile.release.mac.signingIdentity=Developer ID Application: Studio Name
+profile.release.mac.notarize=true
+profile.release.mac.notarytoolProfile=AC_PASSWORD
+profile.release.publish.command.1=butler push "{artifact}" user/game:mac
+```
+
+Supported first-pass profile categories:
+
+- package metadata: `vendor`, `description`, `aboutUrl`, `copyright`, `licenseFile`, `icon`
+- runtime tuning: `runtime.modules`
+- mac packaging: `mac.packageIdentifier`, `mac.packageName`, `mac.sign`, `mac.signingIdentity`, `mac.keychain`, `mac.notarize`, `mac.notarytoolProfile`, `mac.entitlements`, `mac.appStore`
+- Windows packaging/signing: `win.dirChooser`, `win.menu`, `win.shortcut`, `win.perUserInstall`, `win.console`, `win.sign`, `win.signtool`, `win.certificateFile`, `win.certificatePasswordEnv`, `win.subjectName`, `win.timestampUrl`
+- Linux packaging: `linux.shortcut`, `linux.packageName`, `linux.appCategory`, `linux.debMaintainer`, `linux.rpmLicenseType`
+- publish hooks: `publish.command.<n>`
+
 ## Release Workflow
 
 1. Open the game in the editor and run it once from the editor.
 2. Open `Build & Publish...`.
 3. Set the release version.
 4. Build the current target for smoke testing.
-5. Build all targets.
-6. Upload the generated zips from `build/distributions/games/`.
+5. Build either a bundled-runtime zip or a native package for the host you are releasing from.
+6. Run the release profile if signing/notarization/publish commands are configured.
+7. Upload the generated artifacts from `build/distributions/games/`.
 
 CLI equivalent:
 
 ```bash
-./jvnw dist-all \
+./jvnw dist-runtime \
   -PjvnGameProject=/absolute/path/to/my-game \
   -PjvnGameVersion=1.0.0
 ```
 
-## Native Packaging Roadmap
+## Remaining Gaps
 
-Portable game archives are the cross-host baseline. The native packaging pass should add:
+What is still not solved:
 
-- OS-matrix CI runners for Windows, Linux, and macOS.
-- `jlink` runtime images for each target.
-- `jpackage` outputs for `.dmg`, `.msi`, `.deb`, and `.rpm`.
-- Signing and notarization hooks for release builds.
-- Store/channel publish profiles.
-- Linux aarch64 support after the JavaFX runtime dependency can resolve that target.
+- host-native packaging is not cross-host; use matching machines or CI runners
+- Linux aarch64 remains unsupported
+- platform-store specific publishing still needs profile command templates and external tooling
+- mac signing/notarization and Windows signing require real local credentials/tools; JVN now provides hooks, not credentials

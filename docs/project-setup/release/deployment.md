@@ -22,18 +22,27 @@ JVN projects run on the JVM. Distribution involves packaging your compiled engin
 
 This compiles all modules (`core`, `scripting`, `fx`, `runtime`, `audio`, etc.) and runs tests.
 
-### Step 2: Create Portable Archives
+### Step 2: Create Release Artifacts
 
-The root build system can produce portable game archives for the current platform or every supported target:
+The root build system can now produce three kinds of outputs:
 
 ```bash
+# Cross-target portable zips (players need Java 21)
 ./jvnw dist -PjvnGameProject=/path/to/game
 ./jvnw dist-all -PjvnGameProject=/path/to/game
+
+# Current-host self-contained zip (players do not need Java installed)
+./jvnw dist-runtime -PjvnGameProject=/path/to/game
+
+# Current-host native package (players do not need Java installed)
+./jvnw native -PjvnGameProject=/path/to/game
 ```
 
 Outputs are written to `build/distributions/games/`. In the editor, open the game project and use **Build & Publish...** for the same workflow with a popup UI.
 
-The portable build tasks validate the selected game before assembling: `jvn.project` must be readable, the manifest type must be `vn` or `jes`, the configured entry script must exist, and the selected folder must be a game project rather than the JVN engine workspace.
+The build tasks validate the selected game before assembling: `jvn.project` must be readable, the manifest type must be `vn` or `jes`, the configured entry script must exist, and the selected folder must be a game project rather than the JVN engine workspace.
+
+Bundled-runtime and native packages are host-only. Build mac packages on macOS, Windows packages on Windows, and Linux packages on Linux.
 
 ### Low-Level: Create a Runtime JAR
 
@@ -112,15 +121,11 @@ java -jar "%DIR%jvn-runtime.jar" --assets "%DIR%" --script scripts/story/prologu
 
 ### JDK Requirement
 
-JVN requires **JDK 21**. End users need a compatible JVM. Options:
-
-1. **Require users to install JDK 21** — simplest but adds friction
-2. **Bundle a JRE** — include a stripped JDK with your distribution using `jlink`
-3. **Use a wrapper** — tools like `jpackage` create native installers
+JVN build machines require **JDK 21**. End users only need Java if you ship the portable zip format. Bundled-runtime zips and native packages include their own runtime.
 
 ### Using jpackage (Native Installer)
 
-JDK 21 includes `jpackage` for creating platform-native packages:
+JVN now uses `jpackage` for host-native app images and installers. Under the hood it packages the JVN runtime jars, adds the bundled game folder as app content, and uses a `jlink` runtime image so players do not need a system Java install.
 
 ```bash
 # macOS .app / .dmg
@@ -149,7 +154,9 @@ jpackage --type deb \
 
 ### Using jlink (Custom JRE)
 
-Create a minimal JRE containing only the modules your game needs:
+JVN now uses `jlink` to create bundled runtime images for self-contained zips and as the runtime base for native packages.
+
+Standalone example:
 
 ```bash
 jlink --module-path $JAVA_HOME/jmods \
@@ -159,7 +166,7 @@ jlink --module-path $JAVA_HOME/jmods \
   --compress=2
 ```
 
-Then distribute `custom-jre/` alongside your game JAR.
+Then distribute `custom-jre/` alongside your game JAR, or let JVN's `assembleJvnGameBundledRuntimeCurrent` task do the staging automatically.
 
 ---
 
@@ -194,15 +201,15 @@ Then distribute `custom-jre/` alongside your game JAR.
 
 The simplest approach — a ZIP containing the JAR, assets, and a launch script.
 
-**Pros:** Simple, cross-platform, small distribution size
-**Cons:** Requires user to have JDK 21 installed
+**Pros:** Simple, cross-platform, can be built for multiple desktop targets from one host
+**Cons:** Requires user to have Java 21 installed
 
 ### Strategy 2: Native Installer (jpackage)
 
 Platform-specific installer that bundles a JRE.
 
-**Pros:** No JDK requirement for users, native look and feel
-**Cons:** Separate builds per platform, larger download
+**Pros:** No Java requirement for users, native look and feel
+**Cons:** Must be built on the matching host OS, larger download
 
 ### Strategy 3: Distribution Platform (itch.io, Steam)
 

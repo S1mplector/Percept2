@@ -106,6 +106,9 @@ show_help() {
   print_help_row "./jvnw clean" "Remove build outputs"
   print_help_row "./jvnw dist -PjvnGameProject=<dir>" "Create a game zip for this OS/arch"
   print_help_row "./jvnw dist-all -PjvnGameProject=<dir>" "Create game zips for every supported OS/arch"
+  print_help_row "./jvnw dist-runtime -PjvnGameProject=<dir>" "Create a self-contained game zip with bundled runtime for this host"
+  print_help_row "./jvnw native -PjvnGameProject=<dir>" "Create a native package for this host"
+  print_help_row "./jvnw release-native -PjvnGameProject=<dir>" "Build native package and run release profile hooks for this host"
   print_help_row "./jvnw jar" "Build the runtime jar"
   printf '\n'
   printf '%s\n' "$(paint "${style_bold}${tone_info}" "Advanced usage")"
@@ -190,6 +193,18 @@ for arg in "${input_args[@]}"; do
         alias_label="dist-all"
         forwarded_args+=("assembleJvnGamePortable")
         ;;
+      dist-runtime|distRuntime|portable-runtime|portableRuntime|bundled-runtime|bundledRuntime)
+        alias_label="dist-runtime"
+        forwarded_args+=("assembleJvnGameBundledRuntimeCurrent")
+        ;;
+      native|package-native|packageNative)
+        alias_label="native"
+        forwarded_args+=("packageJvnGameNativeCurrent")
+        ;;
+      release-native|releaseNative)
+        alias_label="release-native"
+        forwarded_args+=("releaseJvnGameNativeCurrent")
+        ;;
       jar)
         alias_label="jar"
         forwarded_args+=(":runtime:jar")
@@ -247,13 +262,13 @@ resolved_target=""
 wrapper_mode="Gradle task"
 
 case "$alias_label" in
-  launcher|editor|runtime|build|test|check|clean|dist|dist-all|jar)
+  launcher|editor|runtime|build|test|check|clean|dist|dist-all|dist-runtime|native|release-native|jar)
     command_label="$alias_label"
     ;;
 esac
 
 case "$alias_label" in
-  launcher|editor|runtime|build|test|check|clean|dist|dist-all|jar)
+  launcher|editor|runtime|build|test|check|clean|dist|dist-all|dist-runtime|native|release-native|jar)
     wrapper_mode="JVN shortcut"
     ;;
   gradle)

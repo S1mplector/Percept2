@@ -1,0 +1,84 @@
+name: Game Native Builds
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-14
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Select Gradle wrapper command
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            echo "GRADLE_CMD=./gradlew.bat" >> "$GITHUB_ENV"
+          else
+            chmod +x gradlew
+            echo "GRADLE_CMD=./gradlew" >> "$GITHUB_ENV"
+          fi
+
+      - name: Create smoke-test game project
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/jvn-smoke-game/scripts/story" "$RUNNER_TEMP/jvn-smoke-game/assets" "$RUNNER_TEMP/jvn-smoke-game/config"
+          printf '%s\n' \
+            'name=JVN Native Smoke Game' \
+            'type=vn' \
+            'entryVns=scripts/story/prologue.vns' \
+            'width=960' \
+            'height=540' \
+            'runtime.ui=fx' \
+            'runtime.audio=auto' \
+            'runtime.locale=en' \
+            > "$RUNNER_TEMP/jvn-smoke-game/jvn.project"
+          printf '%s\n' \
+            '@scenario smoke' \
+            '@character narrator "Narrator"' \
+            '' \
+            'Narrator: Native package smoke test.' \
+            '' \
+            '[end]' \
+            > "$RUNNER_TEMP/jvn-smoke-game/scripts/story/prologue.vns"
+
+      - name: Build bundled-runtime zip
+        shell: bash
+        run: |
+          "$GRADLE_CMD" assembleJvnGameBundledRuntimeCurrent \
+            -PjvnGameProject="$RUNNER_TEMP/jvn-smoke-game" \
+            -PjvnGameVersion=1.0.0 \
+            --no-daemon
+
+      - name: Build native app-image
+        shell: bash
+        run: |
+          "$GRADLE_CMD" packageJvnGameNativeCurrent \
+            -PjvnGameProject="$RUNNER_TEMP/jvn-smoke-game" \
+            -PjvnGameVersion=1.0.0 \
+            -PjvnNativePackageType=app-image \
+            --no-daemon
+
+      - name: Upload current-host native artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: jvn-native-${{ matrix.os }}
+          path: |
+            build/distributions/games/*runtime.zip
+            build/distributions/games/*app-image.zip
+            build/distributions/games/*.metadata.txt
