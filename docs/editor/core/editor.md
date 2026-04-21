@@ -117,7 +117,7 @@ The popup reads `jvn.project`, lets you set the release name/version, target, fo
 
 Build actions stay disabled until the selected project is packageable. The validation checks for a readable `jvn.project`, `type=vn` or `type=jes`, an existing VN `entryVns` or JES `entry` file, a supported target, a writable output folder, accidental selection of the engine workspace, and release-profile availability when native packaging is selected.
 
-Bundled-runtime and native formats are host-only, so the popup requires the **Current machine** target for those modes. The **Run Release Profile** action builds the selected artifact and then runs any configured signing, notarization, and publish hooks from the game's release profile.
+Bundled-runtime and native formats are host-only in the editor popup, so it requires the **Current machine** target for those modes. Cross-host native installers and app bundles run through the reusable CI matrix workflow instead. The **Run Release Profile** action builds the selected artifact and then runs any configured signing, notarization, and publish hooks from the game's release profile.
 
 For CLI usage and target details, see [Build System](../../project-setup/release/build-system.md).
 

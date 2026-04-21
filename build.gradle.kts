@@ -3,7 +3,6 @@ import org.gradle.api.tasks.bundling.Zip
 import org.gradle.api.tasks.testing.Test
 import org.gradle.jvm.tasks.Jar
 import org.gradle.jvm.toolchain.JavaToolchainService
-import java.io.ByteArrayOutputStream
 import java.time.Instant
 import java.util.Properties
 

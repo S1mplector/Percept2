@@ -1,84 +1,292 @@
 name: Game Native Builds
 
 on:
+  workflow_call:
+    inputs:
+      game_repository:
+        description: Repository containing the JVN game project. Leave empty to build the caller repository.
+        required: false
+        type: string
+        default: ""
+      game_ref:
+        description: Branch, tag, or SHA to build from the game repository.
+        required: false
+        type: string
+        default: ""
+      game_project_path:
+        description: Path to the JVN game project relative to the checked-out game repository.
+        required: false
+        type: string
+        default: "."
+      game_version:
+        description: Optional override for jvnGameVersion.
+        required: false
+        type: string
+        default: ""
+      release_profile:
+        description: JVN release profile to pass through to the build.
+        required: false
+        type: string
+        default: "default"
+      build_bundled_runtime:
+        description: Build bundled-runtime zip outputs.
+        required: false
+        type: boolean
+        default: true
+      build_app_image:
+        description: Build jpackage app-image outputs.
+        required: false
+        type: boolean
+        default: true
+      build_installers:
+        description: Build installer outputs for each host.
+        required: false
+        type: boolean
+        default: true
+      run_release_profile_hooks:
+        description: Use release tasks instead of plain package tasks so signing, notarization, and publish hooks can run on matching hosts.
+        required: false
+        type: boolean
+        default: false
   workflow_dispatch:
-  push:
-    tags:
-      - "v*"
+    inputs:
+      game_repository:
+        description: Repository containing the JVN game project (owner/repo).
+        required: true
+        type: string
+      game_ref:
+        description: Branch, tag, or SHA to build from the game repository.
+        required: false
+        type: string
+        default: ""
+      game_project_path:
+        description: Path to the JVN game project relative to the checked-out game repository.
+        required: false
+        type: string
+        default: "."
+      game_version:
+        description: Optional override for jvnGameVersion.
+        required: false
+        type: string
+        default: ""
+      release_profile:
+        description: JVN release profile to pass through to the build.
+        required: false
+        type: string
+        default: "default"
+      build_bundled_runtime:
+        description: Build bundled-runtime zip outputs.
+        required: false
+        type: boolean
+        default: true
+      build_app_image:
+        description: Build jpackage app-image outputs.
+        required: false
+        type: boolean
+        default: true
+      build_installers:
+        description: Build installer outputs for each host.
+        required: false
+        type: boolean
+        default: true
+      run_release_profile_hooks:
+        description: Use release tasks instead of plain package tasks so signing, notarization, and publish hooks can run on matching hosts.
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
 
 jobs:
   native:
+    name: ${{ matrix.target_id }}
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - ubuntu-latest
-          - windows-latest
-          - macos-14
-    runs-on: ${{ matrix.os }}
+        include:
+          - runner: ubuntu-24.04
+            target_id: linux-x64
+            installer_types: "deb rpm"
+          - runner: windows-2022
+            target_id: windows-x64
+            installer_types: "exe msi"
+          - runner: macos-15-intel
+            target_id: macos-x64
+            installer_types: "dmg pkg"
+          - runner: macos-14
+            target_id: macos-aarch64
+            installer_types: "dmg pkg"
+    env:
+      INPUT_GAME_REPOSITORY: ${{ inputs.game_repository }}
+      INPUT_GAME_REF: ${{ inputs.game_ref }}
+      INPUT_GAME_PROJECT_PATH: ${{ inputs.game_project_path }}
+      INPUT_GAME_VERSION: ${{ inputs.game_version }}
+      INPUT_RELEASE_PROFILE: ${{ inputs.release_profile }}
+      INPUT_BUILD_BUNDLED_RUNTIME: ${{ inputs.build_bundled_runtime }}
+      INPUT_BUILD_APP_IMAGE: ${{ inputs.build_app_image }}
+      INPUT_BUILD_INSTALLERS: ${{ inputs.build_installers }}
+      INPUT_RUN_RELEASE_PROFILE_HOOKS: ${{ inputs.run_release_profile_hooks }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Resolve engine and game repositories
+        shell: bash
+        run: |
+          set -eu
+          engine_repo="${GITHUB_WORKFLOW_REF%%/.github/workflows/*}"
+          engine_ref="${GITHUB_WORKFLOW_REF#*@}"
+          game_repo="$INPUT_GAME_REPOSITORY"
+          if [ -z "$game_repo" ]; then
+            game_repo="$GITHUB_REPOSITORY"
+          fi
+          game_ref="$INPUT_GAME_REF"
+          if [ -z "$game_ref" ] && [ "$game_repo" = "$GITHUB_REPOSITORY" ]; then
+            game_ref="$GITHUB_SHA"
+          fi
+          echo "ENGINE_REPOSITORY=$engine_repo" >> "$GITHUB_ENV"
+          echo "ENGINE_REF=$engine_ref" >> "$GITHUB_ENV"
+          echo "GAME_REPOSITORY=$game_repo" >> "$GITHUB_ENV"
+          echo "GAME_REF=$game_ref" >> "$GITHUB_ENV"
+
+      - name: Checkout engine repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.ENGINE_REPOSITORY }}
+          ref: ${{ env.ENGINE_REF }}
+          path: engine
+
+      - name: Checkout game repository at explicit ref
+        if: env.GAME_REF != ''
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.GAME_REPOSITORY }}
+          ref: ${{ env.GAME_REF }}
+          path: game-source
+          lfs: true
+          submodules: recursive
+
+      - name: Checkout game repository at default ref
+        if: env.GAME_REF == ''
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.GAME_REPOSITORY }}
+          path: game-source
+          lfs: true
+          submodules: recursive
 
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 21
+          cache: gradle
 
-      - name: Select Gradle wrapper command
+      - name: Install Linux packaging prerequisites
+        if: runner.os == 'Linux'
         shell: bash
         run: |
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            echo "GRADLE_CMD=./gradlew.bat" >> "$GITHUB_ENV"
-          else
-            chmod +x gradlew
-            echo "GRADLE_CMD=./gradlew" >> "$GITHUB_ENV"
+          sudo apt-get update
+          sudo apt-get install -y fakeroot rpm
+
+      - name: Prepare engine wrapper
+        shell: bash
+        working-directory: engine
+        run: chmod +x gradlew jvnw
+
+      - name: Resolve build inputs
+        shell: bash
+        run: |
+          set -eu
+          game_root="$GITHUB_WORKSPACE/game-source/$INPUT_GAME_PROJECT_PATH"
+          if [ ! -d "$game_root" ]; then
+            echo "Game project directory does not exist: $game_root" >&2
+            exit 1
           fi
+          if [ ! -f "$game_root/jvn.project" ]; then
+            echo "Selected game project is missing jvn.project: $game_root" >&2
+            exit 1
+          fi
+          echo "GAME_PROJECT_ROOT=$game_root" >> "$GITHUB_ENV"
 
-      - name: Create smoke-test game project
+      - name: Validate selected game project
         shell: bash
+        working-directory: engine
         run: |
-          mkdir -p "$RUNNER_TEMP/jvn-smoke-game/scripts/story" "$RUNNER_TEMP/jvn-smoke-game/assets" "$RUNNER_TEMP/jvn-smoke-game/config"
-          printf '%s\n' \
-            'name=JVN Native Smoke Game' \
-            'type=vn' \
-            'entryVns=scripts/story/prologue.vns' \
-            'width=960' \
-            'height=540' \
-            'runtime.ui=fx' \
-            'runtime.audio=auto' \
-            'runtime.locale=en' \
-            > "$RUNNER_TEMP/jvn-smoke-game/jvn.project"
-          printf '%s\n' \
-            '@scenario smoke' \
-            '@character narrator "Narrator"' \
-            '' \
-            'Narrator: Native package smoke test.' \
-            '' \
-            '[end]' \
-            > "$RUNNER_TEMP/jvn-smoke-game/scripts/story/prologue.vns"
+          set -eu
+          args=(-PjvnGameProject="$GAME_PROJECT_ROOT" -PjvnReleaseProfile="$INPUT_RELEASE_PROFILE" --no-daemon)
+          if [ -n "$INPUT_GAME_VERSION" ]; then
+            args+=(-PjvnGameVersion="$INPUT_GAME_VERSION")
+          fi
+          ./gradlew validateJvnGameProject "${args[@]}"
 
       - name: Build bundled-runtime zip
+        if: env.INPUT_BUILD_BUNDLED_RUNTIME == 'true'
         shell: bash
+        working-directory: engine
         run: |
-          "$GRADLE_CMD" assembleJvnGameBundledRuntimeCurrent \
-            -PjvnGameProject="$RUNNER_TEMP/jvn-smoke-game" \
-            -PjvnGameVersion=1.0.0 \
-            --no-daemon
+          set -eu
+          task="assembleJvnGameBundledRuntimeCurrent"
+          if [ "$INPUT_RUN_RELEASE_PROFILE_HOOKS" = "true" ]; then
+            task="releaseJvnGameBundledRuntimeCurrent"
+          fi
+          args=(-PjvnGameProject="$GAME_PROJECT_ROOT" -PjvnReleaseProfile="$INPUT_RELEASE_PROFILE" --no-daemon)
+          if [ -n "$INPUT_GAME_VERSION" ]; then
+            args+=(-PjvnGameVersion="$INPUT_GAME_VERSION")
+          fi
+          ./gradlew "$task" "${args[@]}"
 
       - name: Build native app-image
+        if: env.INPUT_BUILD_APP_IMAGE == 'true'
+        shell: bash
+        working-directory: engine
+        run: |
+          set -eu
+          task="packageJvnGameNativeCurrent"
+          if [ "$INPUT_RUN_RELEASE_PROFILE_HOOKS" = "true" ]; then
+            task="releaseJvnGameNativeCurrent"
+          fi
+          args=(-PjvnGameProject="$GAME_PROJECT_ROOT" -PjvnReleaseProfile="$INPUT_RELEASE_PROFILE" -PjvnNativePackageType=app-image --no-daemon)
+          if [ -n "$INPUT_GAME_VERSION" ]; then
+            args+=(-PjvnGameVersion="$INPUT_GAME_VERSION")
+          fi
+          ./gradlew "$task" "${args[@]}"
+
+      - name: Build native installers
+        if: env.INPUT_BUILD_INSTALLERS == 'true'
+        shell: bash
+        working-directory: engine
+        run: |
+          set -eu
+          task="packageJvnGameNativeCurrent"
+          if [ "$INPUT_RUN_RELEASE_PROFILE_HOOKS" = "true" ]; then
+            task="releaseJvnGameNativeCurrent"
+          fi
+          for package_type in ${{ matrix.installer_types }}; do
+            args=(-PjvnGameProject="$GAME_PROJECT_ROOT" -PjvnReleaseProfile="$INPUT_RELEASE_PROFILE" -PjvnNativePackageType="$package_type" --no-daemon)
+            if [ -n "$INPUT_GAME_VERSION" ]; then
+              args+=(-PjvnGameVersion="$INPUT_GAME_VERSION")
+            fi
+            ./gradlew "$task" "${args[@]}"
+          done
+
+      - name: Summarize generated artifacts
+        if: always()
         shell: bash
         run: |
-          "$GRADLE_CMD" packageJvnGameNativeCurrent \
-            -PjvnGameProject="$RUNNER_TEMP/jvn-smoke-game" \
-            -PjvnGameVersion=1.0.0 \
-            -PjvnNativePackageType=app-image \
-            --no-daemon
+          {
+            echo "### ${{ matrix.target_id }}"
+            echo
+            if [ -d "$GITHUB_WORKSPACE/engine/build/distributions/games" ]; then
+              ls -1 "$GITHUB_WORKSPACE/engine/build/distributions/games" | sed 's/^/- /'
+            else
+              echo "- no artifacts produced"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload current-host native artifacts
+      - name: Upload artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: jvn-native-${{ matrix.os }}
+          name: jvn-native-${{ matrix.target_id }}
           path: |
-            build/distributions/games/*runtime.zip
-            build/distributions/games/*app-image.zip
-            build/distributions/games/*.metadata.txt
+            engine/build/distributions/games/*${{ matrix.target_id }}*
+          if-no-files-found: ignore

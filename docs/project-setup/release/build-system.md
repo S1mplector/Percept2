@@ -3,8 +3,8 @@
 JVN's game packaging has three output layers:
 
 - **Portable zip**: cross-target zip with runtime jars and JavaFX jars. Players still need Java 21 installed.
-- **Bundled-runtime zip**: current-host self-contained zip with a trimmed runtime image built by `jlink`. Players do not need Java installed.
-- **Native package**: current-host app image or installer built by `jpackage`. Players do not need Java installed.
+- **Bundled-runtime zip**: self-contained zip with a trimmed runtime image built by `jlink`. Locally this is current-host only. Players do not need Java installed.
+- **Native package**: app image or installer built by `jpackage`. Locally this is current-host only. Players do not need Java installed.
 
 Portable packaging supports `type=vn` and `type=jes` game manifests. It rejects `type=gradle` manifests and the engine workspace itself because those describe development run commands, not a distributable game.
 
@@ -80,9 +80,9 @@ build/distributions/games/
 
 Linux aarch64 is not part of the current supported set because OpenJFX 21.0.3 does not publish `linux-aarch64` classifier jars in Maven Central. Add it after upgrading the JavaFX runtime or supplying native JavaFX artifacts for that platform.
 
-## Host-Only Formats
+## Local Host Packaging
 
-Bundled-runtime zips and native packages are **host-only**:
+Local `jlink` and `jpackage` runs are still **host-bound**:
 
 - build mac packages on macOS
 - build Windows packages on Windows
@@ -93,6 +93,46 @@ Supported native package types by host:
 - macOS: `app-image`, `dmg`, `pkg`
 - Windows: `app-image`, `exe`, `msi`
 - Linux: `app-image`, `deb`, `rpm`
+
+## Cross-Host Native Builds
+
+True cross-host native packaging is handled through the reusable CI matrix workflow at [native-builds.yml](../../../.github/workflows/native-builds.yml).
+
+That workflow fans out to matching GitHub-hosted runners for:
+
+- `linux-x64` on `ubuntu-24.04`
+- `windows-x64` on `windows-2022`
+- `macos-x64` on `macos-15-intel`
+- `macos-aarch64` on `macos-14`
+
+It checks out the engine, checks out the selected game repository, validates the chosen `jvn.project`, then builds:
+
+- bundled-runtime zips
+- native `app-image` bundles
+- native installer packages for the target host (`deb`/`rpm`, `exe`/`msi`, `dmg`/`pkg`)
+
+Example caller workflow inside a game repository:
+
+```yaml
+name: Release Native Builds
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  native:
+    uses: S1mplector/Java-Vector-Nexus/.github/workflows/native-builds.yml@main
+    with:
+      game_project_path: .
+      release_profile: release
+      run_release_profile_hooks: true
+    secrets: inherit
+```
+
+For monorepos, set `game_project_path` to the game folder. For manual dispatches in the engine repository, set `game_repository` to the external game repo you want to package. Use `game_version` when you need to override the version coming from `jvn.project`.
 
 ## Archive Layout
 
@@ -191,9 +231,10 @@ Supported first-pass profile categories:
 2. Open `Build & Publish...`.
 3. Set the release version.
 4. Build the current target for smoke testing.
-5. Build either a bundled-runtime zip or a native package for the host you are releasing from.
-6. Run the release profile if signing/notarization/publish commands are configured.
-7. Upload the generated artifacts from `build/distributions/games/`.
+5. Smoke-test the current host locally with either a bundled-runtime zip or a native package.
+6. Run the cross-host native workflow when you need Windows, Linux, macOS Intel, and macOS Apple Silicon artifacts from one control point.
+7. Run the release profile when signing, notarization, or publish commands are configured.
+8. Upload the generated artifacts from `build/distributions/games/` or from the CI artifact set.
 
 CLI equivalent:
 
@@ -207,7 +248,7 @@ CLI equivalent:
 
 What is still not solved:
 
-- host-native packaging is not cross-host; use matching machines or CI runners
+- local `jpackage` remains host-bound; cross-host native packaging depends on CI or self-hosted matching runners
 - Linux aarch64 remains unsupported
 - platform-store specific publishing still needs profile command templates and external tooling
 - mac signing/notarization and Windows signing require real local credentials/tools; JVN now provides hooks, not credentials

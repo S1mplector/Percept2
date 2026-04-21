@@ -154,7 +154,7 @@ public class GameBuildPublisherView extends BorderPane {
 
     VBox projectCard = card("Game", form, manifestLabel, outputLabel, validationLabel, releaseConfigLabel);
 
-    Label buildHelp = new Label("Portable zips still need Java on the player machine. Bundled-runtime zips include a trimmed runtime image for the current host. Native packages use jpackage and can apply release-profile signing, notarization, and publish commands.");
+    Label buildHelp = new Label("Portable zips still need Java on the player machine. Bundled-runtime zips include a trimmed runtime image for the current host. Native packages use jpackage and can apply release-profile signing, notarization, and publish commands. Cross-host native installers run through the CI matrix workflow.");
     buildHelp.setWrapText(true);
     buildHelp.setStyle(STYLE_HELP);
 
@@ -177,7 +177,7 @@ public class GameBuildPublisherView extends BorderPane {
 
     VBox actionCard = card("Actions", buildHelp, buildRow, statusLabel);
 
-    Label nativeNote = new Label("Native packaging is host-only: build mac packages on macOS, Windows packages on Windows, and Linux packages on Linux. Portable zips are still the cross-target path.");
+    Label nativeNote = new Label("Editor builds native packages for the current host only. For Windows, Linux, macOS Intel, and macOS Apple Silicon installers from one control point, use the native-builds CI workflow.");
     nativeNote.setWrapText(true);
     nativeNote.setStyle(STYLE_HELP);
 

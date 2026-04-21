@@ -100,6 +100,7 @@ Game archives are written to `build/distributions/games/`. Use:
 - `./jvnw dist-all -PjvnGameProject=/path/to/game` for cross-target portable zips
 - `./jvnw dist-runtime -PjvnGameProject=/path/to/game` for a current-host self-contained zip with bundled runtime
 - `./jvnw native -PjvnGameProject=/path/to/game` for a current-host native package
+- `.github/workflows/native-builds.yml` for cross-host native installers and app bundles on matching GitHub runners
 
 The editor also exposes this through **Build & Publish...** for the currently open game project. Packaging validates `type=vn` and `type=jes` game manifests, rejects the engine workspace, writes `BUILD-METADATA.txt` sidecars/contents, and supports release profiles for signing, notarization, and publish commands.
 

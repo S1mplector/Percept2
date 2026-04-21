@@ -42,7 +42,7 @@ Outputs are written to `build/distributions/games/`. In the editor, open the gam
 
 The build tasks validate the selected game before assembling: `jvn.project` must be readable, the manifest type must be `vn` or `jes`, the configured entry script must exist, and the selected folder must be a game project rather than the JVN engine workspace.
 
-Bundled-runtime and native packages are host-only. Build mac packages on macOS, Windows packages on Windows, and Linux packages on Linux.
+Bundled-runtime and native packages are host-only when you run them locally. For true cross-host native installers and app bundles, use the reusable CI matrix workflow at [native-builds.yml](../../../.github/workflows/native-builds.yml), which runs matching Linux, Windows, macOS Intel, and macOS Apple Silicon builders.
 
 ### Low-Level: Create a Runtime JAR
 
@@ -125,7 +125,9 @@ JVN build machines require **JDK 21**. End users only need Java if you ship the 
 
 ### Using jpackage (Native Installer)
 
-JVN now uses `jpackage` for host-native app images and installers. Under the hood it packages the JVN runtime jars, adds the bundled game folder as app content, and uses a `jlink` runtime image so players do not need a system Java install.
+JVN now uses `jpackage` for native app images and installers. Under the hood it packages the JVN runtime jars, adds the bundled game folder as app content, and uses a `jlink` runtime image so players do not need a system Java install.
+
+Local `jpackage` runs are still host-bound. The supported cross-host path is to fan out the same Gradle packaging tasks through the reusable CI matrix workflow so each native artifact is created on a matching runner.
 
 ```bash
 # macOS .app / .dmg
@@ -209,7 +211,7 @@ The simplest approach — a ZIP containing the JAR, assets, and a launch script.
 Platform-specific installer that bundles a JRE.
 
 **Pros:** No Java requirement for users, native look and feel
-**Cons:** Must be built on the matching host OS, larger download
+**Cons:** Local builds must run on the matching host OS, larger download
 
 ### Strategy 3: Distribution Platform (itch.io, Steam)
 
