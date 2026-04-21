@@ -107,7 +107,9 @@ This design avoids shared global lock issues and makes editor-run more consisten
 
 Open **Build -> Build & Publish...**, **File -> Project -> Build & Publish...**, **Run -> Build & Publish...**, or the Project Explorer root **Build** button to package the current JVN game project.
 
-The popup reads `jvn.project`, lets you set the release name/version, and launches the portable game build tasks in the run console. Outputs are written to `build/distributions/games/` in the JVN workspace.
+The popup reads `jvn.project`, lets you set the release name/version, validates the selected game/target, and launches the portable game build tasks in the run console. Outputs are written to `build/distributions/games/` in the JVN workspace.
+
+Build actions stay disabled until the selected project is packageable. The validation checks for a readable `jvn.project`, `type=vn` or `type=jes`, an existing VN `entryVns` or JES `entry` file, a supported target, a writable output folder, and accidental selection of the engine workspace.
 
 For CLI usage and target details, see [Build System](../../project-setup/release/build-system.md).
 

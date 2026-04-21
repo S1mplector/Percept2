@@ -2,6 +2,7 @@ import org.gradle.api.file.DuplicatesStrategy
 import org.gradle.api.tasks.bundling.Zip
 import org.gradle.api.tasks.testing.Test
 import org.gradle.jvm.tasks.Jar
+import java.time.Instant
 import java.util.Properties
 
 plugins {
@@ -26,6 +27,14 @@ data class JvnGameTarget(
   val taskSuffix: String,
   val javafxClassifier: String,
   val windows: Boolean
+)
+
+data class JvnGameProjectValidation(
+  val dir: File,
+  val manifest: Properties,
+  val type: String,
+  val entryKey: String?,
+  val warnings: List<String>
 )
 
 val jvnJavaFxVersion = "21.0.3"
@@ -99,6 +108,140 @@ fun gameManifest(): Properties {
   return props
 }
 
+fun gradleFlag(name: String): Boolean {
+  val raw = findProperty(name) as String?
+  return raw != null && raw.trim().lowercase() !in setOf("", "0", "false", "no", "off")
+}
+
+fun canonicalOrAbsolute(file: File): File {
+  return try {
+    file.canonicalFile
+  } catch (_: Exception) {
+    file.absoluteFile
+  }
+}
+
+fun normalizeProjectPath(raw: String?): String? {
+  if (raw == null) return null
+  var value = raw.trim().replace('\\', '/')
+  if (value.isBlank()) return null
+  while (value.startsWith("./")) value = value.substring(2)
+  while (value.startsWith("/")) value = value.substring(1)
+  return value.ifBlank { null }
+}
+
+fun normalizeScriptKey(raw: String?): String? {
+  var value = normalizeProjectPath(raw) ?: return null
+  if (value.startsWith("game/scripts/")) value = value.substring("game/scripts/".length)
+  if (value.startsWith("scripts/")) value = value.substring("scripts/".length)
+  return value.ifBlank { null }
+}
+
+fun resolveScriptFile(dir: File, raw: String?): File? {
+  val normalized = normalizeProjectPath(raw) ?: return null
+  val scriptKey = normalizeScriptKey(normalized) ?: normalized
+  val candidates = linkedSetOf<File>()
+  candidates += File(dir, normalized)
+  candidates += File(dir, scriptKey)
+  candidates += File(dir, "scripts/$scriptKey")
+  candidates += File(dir, "game/scripts/$scriptKey")
+  if (normalized.startsWith("game/") && !normalized.startsWith("game/scripts/")) {
+    candidates += File(dir, "scripts/${normalized.substring("game/".length)}")
+  }
+  return candidates.firstOrNull { it.isFile }
+}
+
+fun discoveredScript(dir: File, extension: String): String? {
+  val ext = extension.removePrefix(".")
+  val scriptsDir = listOf(File(dir, "scripts"), File(dir, "game/scripts")).firstOrNull { it.isDirectory } ?: return null
+  return scriptsDir.walkTopDown()
+    .filter { it.isFile && it.extension.equals(ext, ignoreCase = true) }
+    .map { scriptsDir.toPath().relativize(it.toPath()).toString().replace('\\', '/') }
+    .sortedWith(compareBy<String> {
+      val key = it.lowercase()
+      when {
+        key == "story/prologue.$ext" -> 0
+        key == "prologue.$ext" -> 1
+        key == "story/main.$ext" -> 2
+        key == "main.$ext" -> 3
+        key.contains("prologue") -> 10
+        key.contains("start") -> 11
+        key.contains("main") -> 12
+        else -> 100
+      }
+    }.thenBy { it.lowercase() })
+    .firstOrNull()
+}
+
+fun validateGameProject(): JvnGameProjectValidation {
+  val dir = gameProjectDir()
+  val manifest = gameManifest()
+  val warnings = mutableListOf<String>()
+  val errors = mutableListOf<String>()
+  val type = manifest.getProperty("type", "vn").trim().lowercase().ifBlank { "vn" }
+
+  if (canonicalOrAbsolute(dir) == canonicalOrAbsolute(projectDir) && !gradleFlag("jvnAllowEngineWorkspacePackage")) {
+    errors += "Selected project is the JVN engine workspace. Game packaging expects a separate JVN-made game project. If this is intentional, pass -PjvnAllowEngineWorkspacePackage=true."
+  }
+
+  if (dir.name != dir.name.trim()) {
+    warnings += "Project folder name has leading or trailing whitespace. The build preserves it, but it is easy to mistype on the CLI."
+  }
+
+  val entryKey = when (type) {
+    "vn" -> {
+      val configured = normalizeScriptKey(manifest.getProperty("entryVns"))
+      if (configured != null) {
+        if (resolveScriptFile(dir, configured) == null) {
+          errors += "Configured entryVns is missing: ${manifest.getProperty("entryVns")}"
+        }
+        configured
+      } else {
+        val discovered = discoveredScript(dir, "vns")
+        if (discovered == null) {
+          errors += "No VN entry script could be resolved. Set entryVns in jvn.project or add a .vns file under scripts/."
+        } else {
+          warnings += "entryVns is not set; runtime will start from discovered script: $discovered"
+        }
+        discovered
+      }
+    }
+    "jes" -> {
+      val configured = normalizeProjectPath(manifest.getProperty("entry") ?: "scripts/main.jes")
+      if (configured == null) {
+        errors += "JES projects must define entry=<path-to-jes> in jvn.project."
+        null
+      } else {
+        if (resolveScriptFile(dir, configured) == null) {
+          errors += "Configured JES entry is missing: $configured"
+        }
+        configured
+      }
+    }
+    "gradle" -> {
+      errors += "type=gradle projects describe an engine/workspace run command, not a distributable JVN game. Open a type=vn or type=jes game project for packaging."
+      null
+    }
+    else -> {
+      errors += "Unsupported jvn.project type for portable game packaging: $type. Supported types: vn, jes."
+      null
+    }
+  }
+
+  if (!File(dir, "scripts").isDirectory && !File(dir, "game/scripts").isDirectory) {
+    warnings += "No scripts/ or game/scripts/ directory was found."
+  }
+  if (!File(dir, "assets").isDirectory && !File(dir, "game").isDirectory) {
+    warnings += "No assets/ or game/ directory was found; package may be script-only."
+  }
+
+  if (errors.isNotEmpty()) {
+    throw GradleException("Invalid JVN game project:\n - ${errors.joinToString("\n - ")}")
+  }
+
+  return JvnGameProjectValidation(dir, manifest, type, entryKey, warnings)
+}
+
 fun sanitizeGameName(raw: String?): String {
   val sanitized = (raw ?: "")
     .trim()
@@ -133,39 +276,99 @@ fun gameLauncherBaseName(): String {
   return sanitizeGameName(gameDisplayName()).lowercase()
 }
 
+fun shQuote(value: String): String {
+  return "'" + value.replace("'", "'\"'\"'") + "'"
+}
+
+fun batQuote(value: String): String {
+  return "\"" + value.replace("\"", "") + "\""
+}
+
+fun gameLauncherStaticRuntimeArgs(): List<String> {
+  val validation = validateGameProject()
+  return when (validation.type) {
+    "vn" -> validation.entryKey?.let { listOf("--script", it) } ?: emptyList()
+    "jes" -> validation.entryKey?.let { listOf("--jes", it) } ?: emptyList()
+    else -> emptyList()
+  }
+}
+
+fun gameLauncherArgsUnix(dollar: String): String {
+  val args = gameLauncherStaticRuntimeArgs()
+  return buildString {
+    append("    |  --assets \"${dollar}APP_HOME/game\" \\\n")
+    args.forEach { arg ->
+      append("    |  ${shQuote(arg)} \\\n")
+    }
+    append("    |  \"${dollar}@\"")
+  }
+}
+
+fun gameLauncherExtraArgsWindows(): String {
+  val args = gameLauncherStaticRuntimeArgs()
+  return args.joinToString(separator = "") { arg -> " ${batQuote(arg)}" }
+}
+
 fun gameScriptUnix(): String {
   val dollar = "$"
+  val launcherArgs = gameLauncherArgsUnix(dollar)
   return """
     |#!/usr/bin/env sh
     |set -eu
     |APP_HOME=${dollar}(CDPATH= cd -- "${dollar}(dirname -- "${dollar}0")/.." && pwd)
+    |if [ ! -f "${dollar}APP_HOME/game/jvn.project" ]; then
+    |  echo "JVN launcher error: bundled game/jvn.project is missing." >&2
+    |  exit 1
+    |fi
     |if [ -n "${dollar}{JAVA_HOME:-}" ] && [ -x "${dollar}JAVA_HOME/bin/java" ]; then
     |  JAVA_EXE="${dollar}JAVA_HOME/bin/java"
     |else
     |  JAVA_EXE="java"
+    |fi
+    |if ! "${dollar}JAVA_EXE" -version >/dev/null 2>&1; then
+    |  echo "JVN launcher error: Java 21 or newer is required. Set JAVA_HOME or add java to PATH." >&2
+    |  exit 1
+    |fi
+    |JAVA_SPEC=$("${dollar}JAVA_EXE" -XshowSettings:properties -version 2>&1 | awk -F'= ' '/java.specification.version/ {print ${dollar}2; exit}')
+    |JAVA_MAJOR=${dollar}{JAVA_SPEC%%.*}
+    |if [ "${dollar}JAVA_MAJOR" = "1" ]; then
+    |  JAVA_MAJOR=${dollar}(printf '%s' "${dollar}JAVA_SPEC" | awk -F. '{print ${dollar}2}')
+    |fi
+    |if [ -n "${dollar}{JAVA_MAJOR:-}" ] && [ "${dollar}JAVA_MAJOR" -lt 21 ] 2>/dev/null; then
+    |  echo "JVN launcher error: Java 21 or newer is required. Found Java ${dollar}JAVA_SPEC." >&2
+    |  exit 1
     |fi
     |exec "${dollar}JAVA_EXE" \
     |  --module-path "${dollar}APP_HOME/lib/javafx" \
     |  --add-modules ${jvnJavaFxRuntimeModules.joinToString(",")} \
     |  -cp "${dollar}APP_HOME/lib/*" \
     |  com.jvn.runtime.JvnApp \
-    |  --assets "${dollar}APP_HOME/game" \
-    |  "${dollar}@"
+$launcherArgs
     |
   """.trimMargin()
 }
 
 fun gameScriptWindows(): String {
+  val extraArgs = gameLauncherExtraArgsWindows()
   return """
     |@echo off
     |setlocal
     |set "APP_HOME=%~dp0.."
+    |if not exist "%APP_HOME%\game\jvn.project" (
+    |  echo JVN launcher error: bundled game\jvn.project is missing.
+    |  exit /b 1
+    |)
     |if defined JAVA_HOME (
     |  set "JAVA_EXE=%JAVA_HOME%\bin\java.exe"
     |) else (
     |  set "JAVA_EXE=java"
     |)
-    |"%JAVA_EXE%" --module-path "%APP_HOME%\lib\javafx" --add-modules ${jvnJavaFxRuntimeModules.joinToString(",")} -cp "%APP_HOME%\lib\*" com.jvn.runtime.JvnApp --assets "%APP_HOME%\game" %*
+    |"%JAVA_EXE%" -version >nul 2>&1
+    |if errorlevel 1 (
+    |  echo JVN launcher error: Java 21 or newer is required. Set JAVA_HOME or add java to PATH.
+    |  exit /b 1
+    |)
+    |"%JAVA_EXE%" --module-path "%APP_HOME%\lib\javafx" --add-modules ${jvnJavaFxRuntimeModules.joinToString(",")} -cp "%APP_HOME%\lib\*" com.jvn.runtime.JvnApp --assets "%APP_HOME%\game"$extraArgs %*
     |exit /b %ERRORLEVEL%
     |
   """.trimMargin()
@@ -197,10 +400,35 @@ fun gameReadme(target: JvnGameTarget, distName: String, launcherName: String): S
     |  game/        bundled JVN project files
     |  lib/         JVN runtime jars and third-party dependencies
     |  lib/javafx/  JavaFX native jars for ${target.javafxClassifier}
+    |  BUILD-METADATA.txt package metadata for this build
     |
     |The launcher starts com.jvn.runtime.JvnApp with --assets pointing at the bundled
     |game folder. Runtime options from jvn.project, including entryVns, width,
     |height, runtime.ui, runtime.audio, and runtime.locale, are read at launch.
+    |
+  """.trimMargin()
+}
+
+fun gameBuildMetadata(target: JvnGameTarget, distName: String): String {
+  val validation = validateGameProject()
+  val manifest = validation.manifest
+  return """
+    |JVN Game Portable Build
+    |builtAt=${Instant.now()}
+    |target=${target.id}
+    |distName=$distName
+    |gameName=${gameDisplayName()}
+    |gameVersion=${gameVersion()}
+    |projectType=${validation.type}
+    |entry=${validation.entryKey ?: "(runtime discovery)"}
+    |runtimeRequirement=Java 21+
+    |runtimeModules=${jvnGameRuntimeProjectPaths.joinToString(",")}
+    |javafxVersion=$jvnJavaFxVersion
+    |javafxClassifier=${target.javafxClassifier}
+    |runtime.ui=${manifest.getProperty("runtime.ui", "fx")}
+    |runtime.audio=${manifest.getProperty("runtime.audio", "auto")}
+    |runtime.locale=${manifest.getProperty("runtime.locale", "en")}
+    |warnings=${validation.warnings.joinToString(" | ").ifBlank { "none" }}
     |
   """.trimMargin()
 }
@@ -231,6 +459,8 @@ val gameZipTasks = jvnGameTargets.map { target ->
     outputs.dir(generatedDir)
     outputs.upToDateWhen { false }
     doLast {
+      val validation = validateGameProject()
+      validation.warnings.forEach { warning -> logger.warn("JVN game project warning: $warning") }
       val distName = gameDistName(target)
       val launcherName = gameLauncherBaseName()
       val rootDir = generatedDir.get().asFile
@@ -241,6 +471,7 @@ val gameZipTasks = jvnGameTargets.map { target ->
       scriptFile.writeText(if (target.windows) gameScriptWindows() else gameScriptUnix())
       if (!target.windows) scriptFile.setExecutable(true)
       rootDir.resolve("README.txt").writeText(gameReadme(target, distName, launcherName))
+      rootDir.resolve("BUILD-METADATA.txt").writeText(gameBuildMetadata(target, distName))
     }
   }
 
@@ -252,6 +483,7 @@ val gameZipTasks = jvnGameTargets.map { target ->
     archiveClassifier.set(target.id)
     destinationDirectory.set(layout.buildDirectory.dir("distributions/games"))
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    dependsOn("validateJvnGameProject")
     dependsOn(prepareTask)
     jvnGameRuntimeProjectPaths.forEach { projectPath ->
       dependsOn("$projectPath:jar")
@@ -285,6 +517,13 @@ val gameZipTasks = jvnGameTargets.map { target ->
         "dist/**",
         "save/**",
         "saves/**",
+        "logs/**",
+        ".idea/**",
+        ".vscode/**",
+        "__MACOSX/**",
+        "**/*.log",
+        "**/*.tmp",
+        "**/Icon\r",
         "**/.DS_Store",
         "**/Thumbs.db"
       )
@@ -296,14 +535,22 @@ tasks.register("validateJvnGameProject") {
   group = "verification"
   description = "Validates the JVN game project selected with -PjvnGameProject."
   doLast {
-    val dir = gameProjectDir()
-    val manifest = gameManifest()
-    val type = manifest.getProperty("type", "vn").trim()
+    val validation = validateGameProject()
+    val dir = validation.dir
+    val manifest = validation.manifest
     println("JVN game project: ${dir.absolutePath}")
     println("  name: ${gameDisplayName()}")
     println("  version: ${gameVersion()}")
-    println("  type: $type")
-    println("  entryVns: ${manifest.getProperty("entryVns", "(auto)")}")
+    println("  type: ${validation.type}")
+    println("  entry: ${validation.entryKey ?: "(runtime discovery)"}")
+    println("  runtime.ui: ${manifest.getProperty("runtime.ui", "fx")}")
+    println("  runtime.audio: ${manifest.getProperty("runtime.audio", "auto")}")
+    if (validation.warnings.isEmpty()) {
+      println("  warnings: none")
+    } else {
+      println("  warnings:")
+      validation.warnings.forEach { println("    - $it") }
+    }
   }
 }
 

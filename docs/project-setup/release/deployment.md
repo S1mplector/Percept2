@@ -33,6 +33,8 @@ The root build system can produce portable game archives for the current platfor
 
 Outputs are written to `build/distributions/games/`. In the editor, open the game project and use **Build & Publish...** for the same workflow with a popup UI.
 
+The portable build tasks validate the selected game before assembling: `jvn.project` must be readable, the manifest type must be `vn` or `jes`, the configured entry script must exist, and the selected folder must be a game project rather than the JVN engine workspace.
+
 ### Low-Level: Create a Runtime JAR
 
 The runtime module produces a runnable application:

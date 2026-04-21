@@ -6,8 +6,11 @@ JVN's first packaging layer is for games made with JVN. It produces portable run
 - JavaFX native jars for the selected target
 - the selected game project's `jvn.project`, `scripts/`, `assets/`, `config/`, and other project files
 - a launcher script that starts `com.jvn.runtime.JvnApp` with `--assets` pointed at the bundled game folder
+- `BUILD-METADATA.txt` with the target, runtime versions, manifest type, entry file, and packaging warnings
 
 These archives are not native installers yet. They require Java 21 or newer on the player machine. Native app bundles, installers, signing, notarization, and bundled JRE images are the next packaging layer.
+
+Portable packaging supports `type=vn` and `type=jes` game manifests. It rejects `type=gradle` manifests and the engine workspace itself because those describe development run commands, not a distributable game.
 
 ## Editor Popup
 
@@ -22,9 +25,19 @@ Project Explorer -> Build
 
 The popup reads the current project's `jvn.project`, lets you set the release name/version, chooses a target, and launches the matching Gradle task in the run console. It also reveals the output folder and copies CLI/publish notes for release prep.
 
+Before enabling build actions, the popup validates:
+
+- the selected project is not the JVN engine workspace
+- `jvn.project` is readable and uses `type=vn` or `type=jes`
+- VN `entryVns` or JES `entry` resolves to an existing script
+- the selected target is supported
+- the output folder is writable
+
+Warnings are shown for easy-to-miss cases such as a project folder with leading/trailing whitespace or a script-only package without an `assets/` folder.
+
 ## CLI Commands
 
-All CLI builds require `-PjvnGameProject=<dir>`.
+All CLI builds require `-PjvnGameProject=<dir>`. The path is used exactly as provided, so quote paths with spaces or intentional trailing whitespace.
 
 | Command | Output |
 |---------|--------|
@@ -41,6 +54,7 @@ Optional properties:
 |----------|---------|
 | `-PjvnGameName=<name>` | Override the archive/launcher display name |
 | `-PjvnGameVersion=<version>` | Override release version used in archive names |
+| `-PjvnAllowEngineWorkspacePackage=true` | Advanced escape hatch for intentionally packaging the engine workspace |
 
 Archives are written to:
 
@@ -76,12 +90,15 @@ Each archive expands into a self-contained game folder:
 |   |-- *.jar
 |   `-- javafx/
 |       `-- javafx native jars for the target
+|-- BUILD-METADATA.txt
 `-- README.txt
 ```
 
 Windows archives use `.bat` launchers. Linux and macOS archives use executable shell scripts.
 
-The launchers keep JavaFX jars on the module path and the rest of JVN on the classpath. Runtime configuration such as `entryVns`, `width`, `height`, `runtime.ui`, `runtime.audio`, and `runtime.locale` is read from the bundled `game/jvn.project`.
+The launchers keep JavaFX jars on the module path and the rest of JVN on the classpath. They fail early with a clear message when Java is missing, Java is older than 21, or the bundled `game/jvn.project` file is missing.
+
+Runtime configuration such as `entryVns`, `width`, `height`, `runtime.ui`, `runtime.audio`, and `runtime.locale` is read from the bundled `game/jvn.project`. VN builds also pass the resolved entry script to `--script`; JES builds pass the configured `entry` file to `--jes`.
 
 ## Release Workflow
 

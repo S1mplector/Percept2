@@ -39,7 +39,11 @@ public class GameBuildPublisherView extends BorderPane {
   private final ComboBox<TargetChoice> targetBox = new ComboBox<>();
   private final Label manifestLabel = new Label();
   private final Label outputLabel = new Label();
+  private final Label validationLabel = new Label();
   private final Label statusLabel = new Label();
+  private Button buildSelectedButton;
+  private Button buildAllButton;
+  private Button copyCliButton;
 
   private static final String STYLE_PANEL = "-fx-background-color: #111; -fx-padding: 18;";
   private static final String STYLE_CARD = "-fx-background-color: #151515; -fx-border-color: #303030; -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 14;";
@@ -51,6 +55,9 @@ public class GameBuildPublisherView extends BorderPane {
   private static final String STYLE_BUTTON = "-fx-background-color: #202020; -fx-text-fill: #f0f0f0; -fx-border-color: #444; -fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 8 12;";
   private static final String STYLE_ACCENT = "-fx-background-color: #2f6f4e; -fx-text-fill: #f4fff7; -fx-border-color: #5dbb83; -fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 8 12; -fx-font-weight: bold;";
   private static final String STYLE_STATUS = "-fx-text-fill: #f2c26b; -fx-font-size: 12px;";
+  private static final String STYLE_OK = "-fx-text-fill: #8fd694; -fx-font-size: 12px;";
+  private static final String STYLE_WARN = "-fx-text-fill: #f2c26b; -fx-font-size: 12px;";
+  private static final String STYLE_ERROR = "-fx-text-fill: #ff8a8a; -fx-font-size: 12px;";
 
   public GameBuildPublisherView(File workspaceRoot, File projectRoot, Consumer<BuildRequest> onBuildRequested) {
     this.workspaceRoot = workspaceRoot;
@@ -83,7 +90,7 @@ public class GameBuildPublisherView extends BorderPane {
     versionField.setStyle(STYLE_FIELD);
 
     targetBox.getItems().setAll(
-        new TargetChoice("Current machine", "assembleJvnGamePortableCurrent", "Builds only the OS/arch this editor is running on.", currentTargetToken()),
+        new TargetChoice("Current machine", "assembleJvnGamePortableCurrent", currentTargetDescription(), currentTargetToken()),
         new TargetChoice("Windows x64", "assembleJvnGamePortableWindowsX64", "Builds a Windows portable zip.", "windows-x64"),
         new TargetChoice("Linux x64", "assembleJvnGamePortableLinuxX64", "Builds a Linux portable zip.", "linux-x64"),
         new TargetChoice("macOS x64", "assembleJvnGamePortableMacosX64", "Builds an Intel macOS portable zip.", "macos-x64"),
@@ -114,33 +121,35 @@ public class GameBuildPublisherView extends BorderPane {
     manifestLabel.setStyle(STYLE_HELP);
     outputLabel.setWrapText(true);
     outputLabel.setStyle(STYLE_HELP);
+    validationLabel.setWrapText(true);
+    validationLabel.setStyle(STYLE_HELP);
     statusLabel.setWrapText(true);
     statusLabel.setStyle(STYLE_STATUS);
 
-    VBox projectCard = card("Game", form, manifestLabel, outputLabel);
+    VBox projectCard = card("Game", form, manifestLabel, outputLabel, validationLabel);
 
     Label buildHelp = new Label("The archive contains the JVN runtime, JavaFX native jars for the target, and a bundled game folder copied from the selected project.");
     buildHelp.setWrapText(true);
     buildHelp.setStyle(STYLE_HELP);
 
-    Button buildSelected = button("Build Selected Target", true);
-    buildSelected.setOnAction(e -> buildSelectedTarget());
-    Button buildAll = button("Build All Targets", true);
-    buildAll.setOnAction(e -> buildTask("assembleJvnGamePortable", "Build Game - All Targets"));
-    Button copyCli = button("Copy CLI Command", false);
-    copyCli.setOnAction(e -> copyCommand());
+    buildSelectedButton = button("Build Selected Target", true);
+    buildSelectedButton.setOnAction(e -> buildSelectedTarget());
+    buildAllButton = button("Build All Targets", true);
+    buildAllButton.setOnAction(e -> buildTask("assembleJvnGamePortable", "Build Game - All Targets"));
+    copyCliButton = button("Copy CLI Command", false);
+    copyCliButton.setOnAction(e -> copyCommand());
     Button reveal = button("Reveal Builds", false);
     reveal.setOnAction(e -> revealBuilds());
     Button notes = button("Copy Publish Notes", false);
     notes.setOnAction(e -> copyPublishNotes());
 
-    HBox buildRow = new HBox(8, buildSelected, buildAll, copyCli, reveal, notes);
+    HBox buildRow = new HBox(8, buildSelectedButton, buildAllButton, copyCliButton, reveal, notes);
     buildRow.setAlignment(Pos.CENTER_LEFT);
     buildRow.setFillHeight(false);
 
     VBox actionCard = card("Actions", buildHelp, buildRow, statusLabel);
 
-    Label nativeNote = new Label("Native installers and bundled JRE images are still a later pass. This popup produces portable zip builds that require Java 21 on the player machine.");
+    Label nativeNote = new Label("Portable zip builds support VN and JES game projects. Native installers and bundled JRE images are still a later pass, so players need Java 21 on their machine.");
     nativeNote.setWrapText(true);
     nativeNote.setStyle(STYLE_HELP);
 
@@ -148,9 +157,9 @@ public class GameBuildPublisherView extends BorderPane {
     content.setFillWidth(true);
     setCenter(content);
 
-    nameField.textProperty().addListener((obs, oldValue, newValue) -> refreshOutputPreview());
-    versionField.textProperty().addListener((obs, oldValue, newValue) -> refreshOutputPreview());
-    targetBox.valueProperty().addListener((obs, oldValue, newValue) -> refreshOutputPreview());
+    nameField.textProperty().addListener((obs, oldValue, newValue) -> refreshFormState());
+    versionField.textProperty().addListener((obs, oldValue, newValue) -> refreshFormState());
+    targetBox.valueProperty().addListener((obs, oldValue, newValue) -> refreshFormState());
   }
 
   private Label label(String text) {
@@ -184,7 +193,7 @@ public class GameBuildPublisherView extends BorderPane {
       versionField.setText("0.1.0");
       manifestLabel.setText("No jvn.project found. Choose a JVN game project before building.");
       statusLabel.setText("Build unavailable: missing jvn.project.");
-      refreshOutputPreview();
+      refreshFormState();
       return;
     }
 
@@ -197,11 +206,11 @@ public class GameBuildPublisherView extends BorderPane {
     nameField.setText(name.isBlank() ? root.getName() : name);
     versionField.setText(version);
     manifestLabel.setText("Manifest: type=" + manifest.getProperty("type", "vn")
-        + "  entryVns=" + manifest.getProperty("entryVns", "(auto)")
+        + "  " + manifestEntryText(manifest)
         + "  runtime.ui=" + manifest.getProperty("runtime.ui", "fx")
         + "  runtime.audio=" + manifest.getProperty("runtime.audio", "auto"));
     statusLabel.setText("Ready to build " + nameField.getText() + ".");
-    refreshOutputPreview();
+    refreshFormState();
   }
 
   private Properties loadManifest(File root) {
@@ -214,6 +223,124 @@ public class GameBuildPublisherView extends BorderPane {
       return props;
     } catch (Exception ignored) {
       return null;
+    }
+  }
+
+  private String manifestEntryText(Properties manifest) {
+    String type = manifest.getProperty("type", "vn").trim().toLowerCase(Locale.ROOT);
+    if ("jes".equals(type)) {
+      return "entry=" + manifest.getProperty("entry", "scripts/main.jes");
+    }
+    return "entryVns=" + manifest.getProperty("entryVns", "(auto)");
+  }
+
+  private ValidationResult refreshFormState() {
+    refreshOutputPreview();
+    ValidationResult result = validateForm();
+    applyValidation(result);
+    return result;
+  }
+
+  private void applyValidation(ValidationResult result) {
+    boolean canBuild = result != null && result.errors().isEmpty();
+    if (buildSelectedButton != null) buildSelectedButton.setDisable(!canBuild);
+    if (buildAllButton != null) buildAllButton.setDisable(!canBuild);
+    if (copyCliButton != null) copyCliButton.setDisable(!canBuild);
+
+    if (result == null) {
+      validationLabel.setText("");
+      validationLabel.setStyle(STYLE_HELP);
+      return;
+    }
+    if (!result.errors().isEmpty()) {
+      validationLabel.setText("Blocked: " + result.errors().get(0));
+      validationLabel.setStyle(STYLE_ERROR);
+      statusLabel.setText("Build unavailable: " + result.errors().get(0));
+      return;
+    }
+    if (!result.warnings().isEmpty()) {
+      validationLabel.setText("Warning: " + result.warnings().get(0));
+      validationLabel.setStyle(STYLE_WARN);
+      return;
+    }
+    validationLabel.setText("Validated: project, manifest, entry file, target, and output folder are ready.");
+    validationLabel.setStyle(STYLE_OK);
+  }
+
+  private ValidationResult validateForm() {
+    List<String> errors = new ArrayList<>();
+    List<String> warnings = new ArrayList<>();
+
+    if (workspaceRoot == null || !workspaceRoot.isDirectory()) {
+      errors.add("JVN workspace root was not found.");
+    }
+    if (projectRoot == null || !projectRoot.isDirectory()) {
+      errors.add("Open a JVN game project first.");
+    } else {
+      if (sameCanonical(projectRoot, workspaceRoot)) {
+        errors.add("Selected project is the JVN engine workspace, not a game project.");
+      }
+      if (!projectRoot.getName().equals(projectRoot.getName().trim())) {
+        warnings.add("Project folder name has leading or trailing spaces; the build preserves it, but CLI paths are easy to mistype.");
+      }
+      Properties manifest = loadManifest(projectRoot);
+      if (manifest == null) {
+        errors.add("Selected project has no readable jvn.project.");
+      } else {
+        validateManifest(projectRoot, manifest, errors, warnings);
+      }
+    }
+
+    TargetChoice target = targetBox.getValue();
+    if (target == null) {
+      errors.add("Choose a build target.");
+    } else if (target.outputToken().startsWith("unsupported")) {
+      errors.add(target.description());
+    }
+
+    File outDir = new File(workspaceRoot == null ? new File(".") : workspaceRoot, "build/distributions/games");
+    File writableProbe = outDir.exists() ? outDir : outDir.getParentFile();
+    if (writableProbe != null && writableProbe.exists() && !writableProbe.canWrite()) {
+      errors.add("Build output folder is not writable: " + outDir.getPath());
+    }
+
+    return new ValidationResult(errors, warnings);
+  }
+
+  private void validateManifest(File root, Properties manifest, List<String> errors, List<String> warnings) {
+    String type = manifest.getProperty("type", "vn").trim().toLowerCase(Locale.ROOT);
+    if (type.isBlank()) type = "vn";
+    switch (type) {
+      case "vn" -> {
+        String entry = normalizeScriptKey(manifest.getProperty("entryVns"));
+        if (entry == null) {
+          File discovered = discoverScript(root, "vns");
+          if (discovered == null) {
+            errors.add("No VN entry script could be resolved. Set entryVns or add a .vns file under scripts/.");
+          } else {
+            warnings.add("entryVns is not set; runtime will use discovered script " + relativeTo(root, discovered) + ".");
+          }
+        } else if (resolveScriptFile(root, entry) == null) {
+          errors.add("Configured entryVns is missing: " + manifest.getProperty("entryVns"));
+        }
+      }
+      case "jes" -> {
+        String entry = normalizeProjectPath(manifest.getProperty("entry", "scripts/main.jes"));
+        if (entry == null) {
+          errors.add("JES projects must define entry=<path-to-jes> in jvn.project.");
+        } else if (resolveScriptFile(root, entry) == null) {
+          errors.add("Configured JES entry is missing: " + entry);
+        }
+      }
+      case "gradle" -> errors.add("type=gradle describes a workspace run command, not a distributable game package.");
+      default -> errors.add("Unsupported jvn.project type for packaging: " + type + ". Supported types: vn, jes.");
+    }
+
+    if (!new File(root, "scripts").isDirectory() && !new File(root, "game/scripts").isDirectory()) {
+      warnings.add("No scripts/ or game/scripts/ directory was found.");
+    }
+    if (!new File(root, "assets").isDirectory() && !new File(root, "game").isDirectory()) {
+      warnings.add("No assets/ or game/ directory was found; package may be script-only.");
     }
   }
 
@@ -245,19 +372,10 @@ public class GameBuildPublisherView extends BorderPane {
   }
 
   private boolean canBuild() {
-    if (workspaceRoot == null || !workspaceRoot.isDirectory()) {
-      statusLabel.setText("Build unavailable: JVN workspace root was not found.");
-      return false;
-    }
-    if (projectRoot == null || !projectRoot.isDirectory()) {
-      statusLabel.setText("Build unavailable: open a JVN game project first.");
-      return false;
-    }
-    if (!new File(projectRoot, "jvn.project").isFile()) {
-      statusLabel.setText("Build unavailable: selected project has no jvn.project.");
-      return false;
-    }
-    return true;
+    ValidationResult result = refreshFormState();
+    if (result.errors().isEmpty()) return true;
+    statusLabel.setText("Build unavailable: " + result.errors().get(0));
+    return false;
   }
 
   private List<String> buildGradleArgs() {
@@ -313,6 +431,110 @@ public class GameBuildPublisherView extends BorderPane {
     }
   }
 
+  private static boolean sameCanonical(File a, File b) {
+    if (a == null || b == null) return false;
+    try {
+      return a.getCanonicalFile().equals(b.getCanonicalFile());
+    } catch (Exception ignored) {
+      return a.getAbsoluteFile().equals(b.getAbsoluteFile());
+    }
+  }
+
+  private static File resolveScriptFile(File root, String raw) {
+    if (root == null) return null;
+    String normalized = normalizeProjectPath(raw);
+    if (normalized == null) return null;
+    String scriptKey = normalizeScriptKey(normalized);
+    if (scriptKey == null) scriptKey = normalized;
+
+    List<File> candidates = new ArrayList<>();
+    addCandidate(candidates, new File(root, normalized));
+    addCandidate(candidates, new File(root, scriptKey));
+    addCandidate(candidates, new File(root, "scripts/" + scriptKey));
+    addCandidate(candidates, new File(root, "game/scripts/" + scriptKey));
+    if (normalized.startsWith("game/") && !normalized.startsWith("game/scripts/")) {
+      addCandidate(candidates, new File(root, "scripts/" + normalized.substring("game/".length())));
+    }
+
+    for (File candidate : candidates) {
+      if (candidate.isFile()) return candidate;
+    }
+    return null;
+  }
+
+  private static void addCandidate(List<File> candidates, File candidate) {
+    if (candidate != null && !candidates.contains(candidate)) {
+      candidates.add(candidate);
+    }
+  }
+
+  private static File discoverScript(File root, String extension) {
+    if (root == null) return null;
+    File scripts = new File(root, "scripts");
+    if (!scripts.isDirectory()) scripts = new File(root, "game/scripts");
+    if (!scripts.isDirectory()) return null;
+    File[] files = scripts.listFiles();
+    if (files == null) return null;
+    List<File> matches = new ArrayList<>();
+    collectScripts(scripts, extension.startsWith(".") ? extension : "." + extension, matches);
+    matches.sort((a, b) -> scoreScript(a.getName()) == scoreScript(b.getName())
+        ? a.getPath().compareToIgnoreCase(b.getPath())
+        : Integer.compare(scoreScript(a.getName()), scoreScript(b.getName())));
+    return matches.isEmpty() ? null : matches.get(0);
+  }
+
+  private static void collectScripts(File dir, String extension, List<File> out) {
+    File[] files = dir.listFiles();
+    if (files == null) return;
+    for (File file : files) {
+      if (file.isDirectory()) {
+        collectScripts(file, extension, out);
+      } else if (file.getName().toLowerCase(Locale.ROOT).endsWith(extension.toLowerCase(Locale.ROOT))) {
+        out.add(file);
+      }
+    }
+  }
+
+  private static int scoreScript(String name) {
+    String lower = name == null ? "" : name.toLowerCase(Locale.ROOT);
+    if (lower.equals("prologue.vns") || lower.equals("prologue.jes")) return 0;
+    if (lower.equals("main.vns") || lower.equals("main.jes")) return 1;
+    if (lower.equals("start.vns") || lower.equals("start.jes")) return 2;
+    if (lower.contains("prologue")) return 10;
+    if (lower.contains("start")) return 11;
+    if (lower.contains("main")) return 12;
+    return 100;
+  }
+
+  private static String relativeTo(File root, File file) {
+    if (root == null || file == null) return "";
+    try {
+      return root.toPath().toAbsolutePath().normalize()
+          .relativize(file.toPath().toAbsolutePath().normalize())
+          .toString()
+          .replace('\\', '/');
+    } catch (Exception ignored) {
+      return file.getPath();
+    }
+  }
+
+  private static String normalizeProjectPath(String raw) {
+    if (raw == null) return null;
+    String value = raw.trim().replace('\\', '/');
+    if (value.isBlank()) return null;
+    while (value.startsWith("./")) value = value.substring(2);
+    while (value.startsWith("/")) value = value.substring(1);
+    return value.isBlank() ? null : value;
+  }
+
+  private static String normalizeScriptKey(String raw) {
+    String value = normalizeProjectPath(raw);
+    if (value == null) return null;
+    if (value.startsWith("game/scripts/")) value = value.substring("game/scripts/".length());
+    if (value.startsWith("scripts/")) value = value.substring("scripts/".length());
+    return value.isBlank() ? null : value;
+  }
+
   private static String firstNonBlank(String... values) {
     if (values != null) {
       for (String value : values) {
@@ -335,14 +557,33 @@ public class GameBuildPublisherView extends BorderPane {
     return "'" + value.replace("'", "'\"'\"'") + "'";
   }
 
+  private static String currentTargetDescription() {
+    String token = currentTargetToken();
+    if ("unsupported-linux-aarch64".equals(token)) {
+      return "Linux aarch64 portable builds are not supported by the current JavaFX runtime classifiers. Choose a specific supported target instead.";
+    }
+    if (token.startsWith("unsupported")) {
+      return "This host OS/arch is not supported as a current-machine portable target. Choose a specific supported target instead.";
+    }
+    return "Builds only the OS/arch this editor is running on.";
+  }
+
   private static String currentTargetToken() {
     String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
     String arch = System.getProperty("os.arch", "").toLowerCase(Locale.ROOT);
     if (os.contains("win")) return "windows-x64";
+    if (os.contains("linux") && (arch.contains("aarch64") || arch.contains("arm64"))) return "unsupported-linux-aarch64";
     if (os.contains("linux")) return "linux-x64";
     if (os.contains("mac") && (arch.contains("aarch64") || arch.contains("arm64"))) return "macos-aarch64";
     if (os.contains("mac")) return "macos-x64";
-    return "current-target";
+    return "unsupported-current";
+  }
+
+  private record ValidationResult(List<String> errors, List<String> warnings) {
+    private ValidationResult {
+      errors = errors == null ? List.of() : List.copyOf(errors);
+      warnings = warnings == null ? List.of() : List.copyOf(warnings);
+    }
   }
 
   private record TargetChoice(String label, String taskName, String description, String outputToken) {

@@ -88,7 +88,7 @@ Optional direct Gradle tasks for focused work:
 ./gradlew :core:test :scripting:test :swing:test
 ```
 
-Game archives are written to `build/distributions/games/`. Use `./jvnw dist -PjvnGameProject=/path/to/game` for the current OS/arch and `./jvnw dist-all -PjvnGameProject=/path/to/game` to produce Windows, Linux, and macOS game archives from the same machine. The editor also exposes this through **Build & Publish...** for the currently open game project.
+Game archives are written to `build/distributions/games/`. Use `./jvnw dist -PjvnGameProject=/path/to/game` for the current OS/arch and `./jvnw dist-all -PjvnGameProject=/path/to/game` to produce Windows, Linux, and macOS game archives from the same machine. The editor also exposes this through **Build & Publish...** for the currently open game project. Packaging validates `type=vn` and `type=jes` game manifests, rejects the engine workspace, and writes `BUILD-METADATA.txt` into each archive.
 
 ## Runtime Usage
 
