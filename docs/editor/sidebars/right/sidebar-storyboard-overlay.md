@@ -27,8 +27,11 @@ The Storyboard Overlay is a sidebar panel that scans a storyboard folder, lists 
 | **Quick filter** | Live substring filter across frame filenames |
 | **Opacity slider** | Adjustable 5%–100% overlay opacity (default 35%) |
 | **Enable/disable toggle** | Checkbox to show or hide the overlay without losing selection |
+| **Follow active scene** | Tracks the active JES or VNS file and finds the most probable storyboard frame match |
+| **Best-match jump** | Jumps directly to the strongest storyboard candidate for the current script context |
 | **Previous / Next** | Step through frames sequentially while working |
-| **Preview thumbnail** | Shows the selected frame with path and metadata below the list |
+| **Reveal frame** | Opens the selected frame in the OS so artists can jump straight to the source file |
+| **Preview thumbnail** | Shows the selected frame with path, dimensions, and list position below the list |
 | **Viewport-fitted compositing** | Overlay scales to match the project viewport from `jvn.project`, so 1:1 boards line up with the engine preview |
 
 ---
@@ -45,19 +48,22 @@ The Storyboard Overlay is a sidebar panel that scans a storyboard folder, lists 
 ### 2. Frame Browser
 
 - **Filter field** — live case-insensitive substring match on filenames
-- **Frame list** — scrollable list with custom cells showing filename and thumbnail
+- **Frame list** — scrollable list with filename-first rows and the parent folder path underneath
 - Click to select; the selected frame is composited over the preview
 
 ### 3. Preview & Controls
 
 - **Preview image** — larger thumbnail of the selected frame
 - **Path label** — absolute path to the selected image
-- **Metadata label** — image dimensions and file size
+- **Metadata label** — image dimensions, viewport fit status, and selected frame index
 - **Previous / Next** buttons — navigate frames sequentially
+- **Jump To Match** — snap to the strongest scene-aware storyboard candidate
+- **Reveal Frame** — open the selected image file outside the editor
 
 ### 4. Overlay Settings
 
 - **Show overlay in preview** — checkbox to enable/disable compositing
+- **Follow active scene** — automatically reselects the best frame match when the active JES/VNS tab changes
 - **Opacity slider** — 5% to 100% with live numeric readout
 
 ---
@@ -86,6 +92,7 @@ All settings are saved to `.jvn/storyboard-overlay.properties`:
 | `folder` | Manual folder path (empty for auto-detect) |
 | `filter` | Last-used filter text |
 | `enabled` | Overlay enabled state |
+| `followActive` | Whether the panel should auto-follow the active JES/VNS scene |
 | `opacity` | Opacity percentage (5–100) |
 | `selected` | Last selected frame filename |
 
@@ -95,7 +102,7 @@ State is restored automatically when the panel reopens.
 
 ## Integration
 
-The overlay communicates with the preview via a `StoryboardOverlayState` callback:
+The overlay communicates with the preview via a `StoryboardOverlayState` callback and now also receives the active script file from the editor so it can compute probable storyboard matches:
 
 - **Image** — the selected `Image` object (or null when disabled)
 - **Opacity** — the current opacity value (0.05–1.0)
