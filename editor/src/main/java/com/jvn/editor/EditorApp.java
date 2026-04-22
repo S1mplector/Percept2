@@ -554,15 +554,15 @@ public class EditorApp extends Application {
 
     BorderPane popupRoot = new BorderPane(gameBuildPublisherView);
     popupRoot.setStyle("-fx-background-color: #111;");
-    javafx.scene.Scene scene = new javafx.scene.Scene(popupRoot, 920, 620);
+    javafx.scene.Scene scene = new javafx.scene.Scene(popupRoot, 1040, 720);
     EditorTheme.apply(scene);
 
     Stage window = new Stage();
     if (owner != null) window.initOwner(owner);
     window.setTitle("JVN Game Build & Publish");
     window.setScene(scene);
-    window.setMinWidth(760);
-    window.setMinHeight(540);
+    window.setMinWidth(880);
+    window.setMinHeight(620);
     window.setOnHidden(e -> {
       gameBuildPublisherWindow = null;
       gameBuildPublisherView = null;

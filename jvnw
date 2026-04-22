@@ -103,9 +103,15 @@ show_help() {
   print_help_row "./jvnw build" "Build the workspace"
   print_help_row "./jvnw test" "Run the test suite"
   print_help_row "./jvnw check" "Run verification tasks"
-Af  print_help_row "./jvnw clean" "Remove build outputs"
-  print_help_row "./jvnw dist" "Create a portable zip for this OS/arch"
-  print_help_row "./jvnw dist-all" "Create portable zips for every supported OS/arch"
+  print_help_row "./jvnw clean" "Remove build outputs"
+  print_help_row "./jvnw dist -PjvnGameProject=<dir>" "Create a game zip for this OS/arch"
+  print_help_row "./jvnw dist-all -PjvnGameProject=<dir>" "Create game zips for every supported OS/arch"
+  print_help_row "./jvnw dist-runtime -PjvnGameProject=<dir>" "Create a self-contained desktop bundle for this OS/arch"
+  print_help_row "./jvnw dist-runtime-all -PjvnGameProject=<dir>" "Create self-contained desktop bundles for every supported OS/arch"
+  print_help_row "./jvnw runtime-cache" "Show cached prebuilt desktop runtimes"
+  print_help_row "./jvnw runtime-cache-clear" "Clear cached prebuilt desktop runtimes"
+  print_help_row "./jvnw native -PjvnGameProject=<dir>" "Create a native package for this host"
+  print_help_row "./jvnw release-native -PjvnGameProject=<dir>" "Build native package and run release profile hooks for this host"
   print_help_row "./jvnw jar" "Build the runtime jar"
   printf '\n'
   printf '%s\n' "$(paint "${style_bold}${tone_info}" "Advanced usage")"
@@ -184,11 +190,35 @@ for arg in "${input_args[@]}"; do
         ;;
       dist)
         alias_label="dist"
-        forwarded_args+=("assembleJvnPortableCurrent")
+        forwarded_args+=("assembleJvnGamePortableCurrent")
         ;;
       dist-all|distAll|portable-all|portableAll)
         alias_label="dist-all"
-        forwarded_args+=("assembleJvnPortable")
+        forwarded_args+=("assembleJvnGamePortable")
+        ;;
+      dist-runtime|distRuntime|portable-runtime|portableRuntime|bundled-runtime|bundledRuntime)
+        alias_label="dist-runtime"
+        forwarded_args+=("assembleJvnGameBundledRuntimeCurrent")
+        ;;
+      dist-runtime-all|distRuntimeAll|bundled-runtime-all|bundledRuntimeAll|portable-runtime-all|portableRuntimeAll)
+        alias_label="dist-runtime-all"
+        forwarded_args+=("assembleJvnGameBundledRuntime")
+        ;;
+      runtime-cache|runtimeCache)
+        alias_label="runtime-cache"
+        forwarded_args+=("printJvnBundledRuntimeCache")
+        ;;
+      runtime-cache-clear|runtimeCacheClear)
+        alias_label="runtime-cache-clear"
+        forwarded_args+=("clearJvnBundledRuntimeCache")
+        ;;
+      native|package-native|packageNative)
+        alias_label="native"
+        forwarded_args+=("packageJvnGameNativeCurrent")
+        ;;
+      release-native|releaseNative)
+        alias_label="release-native"
+        forwarded_args+=("releaseJvnGameNativeCurrent")
         ;;
       jar)
         alias_label="jar"
@@ -247,13 +277,13 @@ resolved_target=""
 wrapper_mode="Gradle task"
 
 case "$alias_label" in
-  launcher|editor|runtime|build|test|check|clean|dist|dist-all|jar)
+  launcher|editor|runtime|build|test|check|clean|dist|dist-all|dist-runtime|dist-runtime-all|runtime-cache|runtime-cache-clear|native|release-native|jar)
     command_label="$alias_label"
     ;;
 esac
 
 case "$alias_label" in
-  launcher|editor|runtime|build|test|check|clean|dist|dist-all|jar)
+  launcher|editor|runtime|build|test|check|clean|dist|dist-all|dist-runtime|dist-runtime-all|runtime-cache|runtime-cache-clear|native|release-native|jar)
     wrapper_mode="JVN shortcut"
     ;;
   gradle)

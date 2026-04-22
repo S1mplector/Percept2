@@ -5491,3 +5491,189 @@
   -fx-font-size: 11px;
   -fx-font-weight: 600;
 }
+
+/* Build & publish */
+.build-publisher-root {
+  -fx-background-color: linear-gradient(to bottom, #141414 0%, #0f0f0f 100%);
+}
+
+.build-publisher-scroll,
+.build-publisher-scroll > .viewport {
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
+}
+
+.build-publisher-content {
+  -fx-padding: 18;
+}
+
+.build-publisher-header {
+  -fx-padding: 16;
+  -fx-spacing: 12;
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255,255,255,0.035), rgba(255,255,255,0.0)),
+      linear-gradient(to bottom, #181818 0%, #121212 100%);
+  -fx-background-radius: 14;
+  -fx-border-color: #2f2f2f;
+  -fx-border-radius: 14;
+  -fx-border-width: 1;
+}
+
+.build-publisher-title {
+  -fx-text-fill: #f1f1f1;
+  -fx-font-size: 26px;
+  -fx-font-weight: 800;
+}
+
+.build-publisher-subtitle {
+  -fx-text-fill: #aaaaaa;
+  -fx-font-size: 12px;
+  -fx-font-weight: 600;
+}
+
+.build-publisher-section-label {
+  -fx-text-fill: #cfcfcf;
+  -fx-font-size: 11px;
+  -fx-font-weight: 800;
+}
+
+.build-publisher-card {
+  -fx-padding: 14;
+  -fx-spacing: 10;
+}
+
+.build-publisher-card-title {
+  -fx-text-fill: #f0f0f0;
+  -fx-font-size: 14px;
+  -fx-font-weight: 800;
+}
+
+.build-publisher-form {
+  -fx-hgap: 12;
+  -fx-vgap: 10;
+}
+
+.build-publisher-plan-title {
+  -fx-text-fill: #f2f2f2;
+  -fx-font-size: 18px;
+  -fx-font-weight: 800;
+}
+
+.build-publisher-copy,
+.build-publisher-meta-line {
+  -fx-text-fill: #a8a8a8;
+  -fx-font-size: 11px;
+  -fx-font-weight: 600;
+}
+
+.build-publisher-path {
+  -fx-font-family: "SF Mono", "Menlo", "Consolas", monospace;
+}
+
+.build-publisher-note {
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+}
+
+.build-publisher-note-status {
+  -fx-text-fill: #b2b2b2;
+}
+
+.build-publisher-note-ok {
+  -fx-text-fill: #9fd9ab;
+}
+
+.build-publisher-note-warn {
+  -fx-text-fill: #efbf82;
+}
+
+.build-publisher-note-error {
+  -fx-text-fill: #f0a2af;
+}
+
+.build-publisher-button {
+  -fx-font-size: 11px;
+  -fx-font-weight: 800;
+  -fx-padding: 7 14 7 14;
+  -fx-background-radius: 8;
+  -fx-border-radius: 8;
+  -fx-border-width: 1;
+  -fx-cursor: hand;
+}
+
+.build-publisher-button:disabled {
+  -fx-opacity: 0.42;
+}
+
+.build-publisher-button-secondary {
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255,255,255,0.04), rgba(255,255,255,0.0)),
+      linear-gradient(to bottom, #252525, #1b1b1b);
+  -fx-text-fill: #ededed;
+  -fx-border-color: #383838;
+}
+
+.build-publisher-button-secondary:hover {
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255,255,255,0.05), rgba(255,255,255,0.01)),
+      linear-gradient(to bottom, #2d2d2d, #212121);
+  -fx-border-color: #555555;
+}
+
+.build-publisher-button-primary {
+  -fx-background-color: linear-gradient(to bottom, #3a2a1a, #2c2016);
+  -fx-text-fill: #f4f1ec;
+  -fx-border-color: #8e673e;
+}
+
+.build-publisher-button-primary:hover {
+  -fx-background-color: linear-gradient(to bottom, #46311d, #332418);
+  -fx-border-color: #ab7b49;
+}
+
+.build-publisher-button-danger {
+  -fx-background-color: linear-gradient(to bottom, #6b3140, #4d222d);
+  -fx-text-fill: #ffe8ec;
+  -fx-border-color: #9c5d6d;
+}
+
+.build-publisher-button-danger:hover {
+  -fx-background-color: linear-gradient(to bottom, #7a3849, #592633);
+  -fx-border-color: #b96f82;
+}
+
+.build-publisher-button-pill {
+  -fx-background-radius: 999;
+  -fx-border-radius: 999;
+  -fx-padding: 6 12 6 12;
+}
+
+.build-publisher-badge {
+  -fx-padding: 3 10 3 10;
+  -fx-background-color: rgba(255,255,255,0.05);
+  -fx-text-fill: #dddddd;
+  -fx-font-size: 10px;
+  -fx-font-weight: 800;
+  -fx-background-radius: 999;
+  -fx-border-radius: 999;
+  -fx-border-color: rgba(220,220,220,0.12);
+  -fx-border-width: 1;
+}
+
+.build-publisher-badge-accent {
+  -fx-background-color: rgba(127, 96, 58, 0.32);
+  -fx-text-fill: #f3d2a0;
+  -fx-border-color: rgba(179, 132, 76, 0.58);
+}
+
+.build-publisher-badge-warn {
+  -fx-background-color: rgba(118, 82, 39, 0.34);
+  -fx-text-fill: #f1c48a;
+  -fx-border-color: rgba(180, 129, 67, 0.62);
+}
+
+.build-publisher-badge-error {
+  -fx-background-color: rgba(108, 46, 59, 0.34);
+  -fx-text-fill: #f1b5c1;
+  -fx-border-color: rgba(176, 92, 114, 0.62);
+}

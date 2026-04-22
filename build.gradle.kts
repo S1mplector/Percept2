@@ -1,9 +1,12 @@
+import groovy.json.JsonSlurper
 import org.gradle.api.file.DuplicatesStrategy
 import org.gradle.api.tasks.bundling.Zip
 import org.gradle.api.tasks.testing.Test
 import org.gradle.jvm.tasks.Jar
 import org.gradle.jvm.toolchain.JavaToolchainService
-import java.io.ByteArrayOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
+import java.security.MessageDigest
 import java.time.Instant
 import java.util.Properties
 
@@ -49,6 +52,24 @@ data class JvnGamePackageHost(
   val target: JvnGameTarget,
   val nativePackageTypes: List<String>,
   val defaultNativePackageType: String
+)
+
+data class JvnBundledRuntimeSelection(
+  val target: JvnGameTarget,
+  val imageType: String,
+  val downloadUrl: String,
+  val checksum: String,
+  val checksumUrl: String?,
+  val archiveFile: File,
+  val runtimeDir: File,
+  val javaExecutableRelativePath: String
+)
+
+data class JvnBundledRuntimeAsset(
+  val imageType: String,
+  val downloadUrl: String,
+  val checksum: String,
+  val checksumUrl: String?
 )
 
 data class JvnReleaseProfile(
@@ -364,24 +385,31 @@ fun selectedReleaseProfile(): JvnReleaseProfile {
 fun nativeGameVersion(): String {
   val explicit = (findProperty("jvnNativeVersion") as String?)?.trim()
   if (!explicit.isNullOrBlank()) return explicit
-  val normalized = gameVersion()
-    .replace(Regex("[^0-9.]+"), ".")
-    .replace(Regex("\\.{2,}"), ".")
-    .trim('.')
-  return normalized.ifBlank { "1.0.0" }
+  val parts = Regex("\\d+").findAll(gameVersion())
+    .map { it.value.toIntOrNull() ?: 0 }
+    .toList()
+    .toMutableList()
+  while (parts.size < 3) parts += 0
+  if (parts.isEmpty()) return "1.0.0"
+  if (parts[0] <= 0) parts[0] = 1
+  return parts.take(3).joinToString(".")
 }
 
-fun currentJavaFxConfiguration(): org.gradle.api.artifacts.Configuration {
-  return jvnGameJavaFxConfigurations[currentGameTarget().id]
-    ?: throw GradleException("No JavaFX runtime configuration is registered for ${currentGameTarget().id}.")
+fun targetJavaFxConfiguration(target: JvnGameTarget): org.gradle.api.artifacts.Configuration {
+  return jvnGameJavaFxConfigurations[target.id]
+    ?: throw GradleException("No JavaFX runtime configuration is registered for ${target.id}.")
 }
 
-fun currentJavaFxRuntimeJars(): List<File> {
-  return currentJavaFxConfiguration().resolve()
+fun currentJavaFxConfiguration(): org.gradle.api.artifacts.Configuration = targetJavaFxConfiguration(currentGameTarget())
+
+fun targetJavaFxRuntimeJars(target: JvnGameTarget): List<File> {
+  return targetJavaFxConfiguration(target).resolve()
     .filter { it.isFile && it.name.startsWith("javafx-") && it.name.endsWith(".jar") }
     .distinctBy { it.name }
     .sortedBy { it.name }
 }
+
+fun currentJavaFxRuntimeJars(): List<File> = targetJavaFxRuntimeJars(currentGameTarget())
 
 fun gameRuntimeClasspathJars(): List<File> {
   return (
@@ -405,9 +433,74 @@ fun currentJpackageType(): String {
   return host.defaultNativePackageType
 }
 
-fun gameBundledDistName(): String {
-  val host = currentPackageHost()
-  return "${sanitizeGameName(gameDisplayName())}-${sanitizeGameName(gameVersion())}-${host.target.id}-runtime"
+fun bundledRuntimeVendor(): String {
+  val explicit = (findProperty("jvnBundledRuntimeVendor") as String?)?.trim()
+  return explicit?.ifBlank { null } ?: "eclipse"
+}
+
+fun bundledRuntimeImageTypeCandidates(): List<String> {
+  val explicit = (findProperty("jvnBundledRuntimeImageType") as String?)?.trim()?.lowercase()
+  return when {
+    explicit.isNullOrBlank() -> listOf("jre", "jdk")
+    explicit in setOf("jre", "jdk") -> listOf(explicit)
+    else -> throw GradleException("Unsupported jvnBundledRuntimeImageType '$explicit'. Supported values: jre, jdk.")
+  }
+}
+
+fun bundledRuntimeOs(target: JvnGameTarget): String = when {
+  target.id.startsWith("windows") -> "windows"
+  target.id.startsWith("linux") -> "linux"
+  target.id.startsWith("macos") -> "mac"
+  else -> throw GradleException("Unsupported bundled runtime target OS: ${target.id}")
+}
+
+fun bundledRuntimeArch(target: JvnGameTarget): String = when {
+  target.id.endsWith("aarch64") -> "aarch64"
+  else -> "x64"
+}
+
+fun bundledRuntimeArchiveType(target: JvnGameTarget): String = if (target.windows) "zip" else "tar.gz"
+
+fun bundledRuntimeAssetApiUrl(target: JvnGameTarget, imageType: String): String {
+  return "https://api.adoptium.net/v3/assets/latest/$configuredJavaVersion/hotspot" +
+    "?os=${bundledRuntimeOs(target)}" +
+    "&architecture=${bundledRuntimeArch(target)}" +
+    "&image_type=$imageType" +
+    "&jvm_impl=hotspot" +
+    "&heap_size=normal" +
+    "&vendor=${bundledRuntimeVendor()}"
+}
+
+fun bundledRuntimeArchiveFile(target: JvnGameTarget, imageType: String): File {
+  val extension = bundledRuntimeArchiveType(target)
+  return layout.buildDirectory.file(
+    "downloads/jvnRuntime/${target.id}/temurin-${configuredJavaVersion}-${target.id}-$imageType.$extension"
+  ).get().asFile
+}
+
+fun bundledRuntimeExtractDir(target: JvnGameTarget): File {
+  return layout.buildDirectory.dir("vendor-runtimes/${target.id}").get().asFile
+}
+
+fun bundledRuntimeInfoFile(target: JvnGameTarget): File {
+  return layout.buildDirectory.file("vendor-runtimes/${target.id}.properties").get().asFile
+}
+
+fun sha256Hex(file: File): String {
+  val digest = MessageDigest.getInstance("SHA-256")
+  file.inputStream().use { input ->
+    val buffer = ByteArray(1024 * 64)
+    while (true) {
+      val read = input.read(buffer)
+      if (read < 0) break
+      if (read > 0) digest.update(buffer, 0, read)
+    }
+  }
+  return digest.digest().joinToString("") { "%02x".format(it) }
+}
+
+fun gameBundledDistName(target: JvnGameTarget): String {
+  return "${sanitizeGameName(gameDisplayName())}-${sanitizeGameName(gameVersion())}-${target.id}-runtime"
 }
 
 fun gameNativeArtifactStem(packageType: String): String {
@@ -420,19 +513,28 @@ fun jpackageAppName(): String {
   return if (!fromProfile.isNullOrBlank()) fromProfile else gameDisplayName()
 }
 
-fun bundledRuntimeMetadata(): String {
+fun bundledRuntimeMetadata(target: JvnGameTarget, runtime: JvnBundledRuntimeSelection): String {
   val profile = selectedReleaseProfile()
   return """
     |JVN Game Bundled Runtime Build
     |builtAt=${Instant.now()}
-    |target=${currentPackageHost().target.id}
-    |distName=${gameBundledDistName()}
+    |target=${target.id}
+    |distName=${gameBundledDistName(target)}
     |gameName=${gameDisplayName()}
     |gameVersion=${gameVersion()}
     |nativeVersion=${nativeGameVersion()}
     |releaseProfile=${profile.name}
     |releaseConfig=${profile.file?.absolutePath ?: "(none)"}
     |runtimeRequirement=Bundled Java runtime image
+    |runtimeVendor=${bundledRuntimeVendor()}
+    |runtimeImageType=${runtime.imageType}
+    |runtimeArchive=${runtime.archiveFile.name}
+    |runtimeDownloadUrl=${runtime.downloadUrl}
+    |runtimeChecksum=${runtime.checksum}
+    |runtimeChecksumUrl=${runtime.checksumUrl ?: "(none)"}
+    |runtimeJavaExecutable=${runtime.javaExecutableRelativePath}
+    |javafxVersion=$jvnJavaFxVersion
+    |javafxClassifier=${target.javafxClassifier}
     |
   """.trimMargin()
 }
@@ -451,6 +553,547 @@ fun nativeBuildMetadata(packageType: String): String {
     |releaseConfig=${profile.file?.absolutePath ?: "(none)"}
     |
   """.trimMargin()
+}
+
+fun gamePackagedMainClass(): String = "com.jvn.runtime.GamePackageLauncher"
+
+fun runtimeImageModules(): List<String> {
+  val modules = linkedSetOf(
+    "java.base",
+    "java.desktop",
+    "java.logging",
+    "java.management",
+    "java.naming",
+    "java.prefs",
+    "java.scripting",
+    "java.sql",
+    "java.xml",
+    "jdk.unsupported"
+  )
+  modules += jvnJavaFxRuntimeModules
+  selectedReleaseProfile().value("runtime.modules")
+    ?.split(',', ';', ' ')
+    ?.map { it.trim() }
+    ?.filter { it.isNotBlank() }
+    ?.forEach { modules += it }
+  return modules.toList()
+}
+
+fun resolveProjectRelativeFile(raw: String?): File? {
+  if (raw.isNullOrBlank()) return null
+  val candidate = File(raw)
+  if (candidate.isAbsolute) return candidate
+  val releaseFile = gameReleaseConfigFile()
+  val bases = listOfNotNull(releaseFile?.parentFile, gameProjectDir())
+  return bases.asSequence()
+    .map { File(it, raw) }
+    .firstOrNull { it.exists() }
+    ?: File(gameProjectDir(), raw)
+}
+
+fun gamePackageVendor(): String {
+  return selectedReleaseProfile().value("vendor")
+    ?: gameManifest().getProperty("author", "").trim().ifBlank { "JVN" }
+}
+
+fun gamePackageDescription(): String {
+  return selectedReleaseProfile().value("description")
+    ?: gameManifest().getProperty("description", "").trim().ifBlank { "${gameDisplayName()} built with JVN." }
+}
+
+fun gamePackageCopyright(): String? = selectedReleaseProfile().value("copyright")
+
+fun gamePackageAboutUrl(): String? = selectedReleaseProfile().value("aboutUrl")
+
+fun gamePackageLicenseFile(): File? {
+  return resolveProjectRelativeFile(selectedReleaseProfile().value("licenseFile"))?.takeIf { it.isFile }
+}
+
+fun gamePackageIconFile(): File? {
+  val explicit = resolveProjectRelativeFile(selectedReleaseProfile().value("icon"))
+  if (explicit != null && explicit.isFile) return explicit
+  val candidates = when (currentPackageHost().osId) {
+    "macos" -> listOf("icon.icns", "Icon.icns", "assets/icon.icns")
+    "windows" -> listOf("icon.ico", "Icon.ico", "assets/icon.ico")
+    else -> listOf("icon.png", "Icon.png", "assets/icon.png")
+  }
+  return candidates.asSequence()
+    .mapNotNull { resolveProjectRelativeFile(it) }
+    .firstOrNull { it.isFile }
+}
+
+fun copyGameProjectFiles(destination: File) {
+  copy {
+    from(gameProjectDir())
+    into(destination)
+    exclude(
+      ".git/**",
+      ".gradle/**",
+      ".jvn-gradle-user-home/**",
+      "build/**",
+      "out/**",
+      "dist/**",
+      "save/**",
+      "saves/**",
+      "logs/**",
+      ".idea/**",
+      ".vscode/**",
+      "__MACOSX/**",
+      "**/*.log",
+      "**/*.tmp",
+      "**/Icon\r",
+      "**/.DS_Store",
+      "**/Thumbs.db"
+    )
+  }
+}
+
+fun bundledRuntimeRootDir(target: JvnGameTarget): File {
+  return layout.buildDirectory.dir("generated/jvnGameBundledRuntime/${target.id}/${gameBundledDistName(target)}").get().asFile
+}
+
+fun bundledRuntimeZipDir(): File {
+  return layout.buildDirectory.dir("distributions/games").get().asFile
+}
+
+fun bundledRuntimeDistributionFile(target: JvnGameTarget): File {
+  return bundledRuntimeZipDir().resolve("${gameBundledDistName(target)}.zip")
+}
+
+fun runtimeImageDir(): File {
+  return layout.buildDirectory.dir("runtime-images/games/${currentPackageHost().target.id}/${sanitizeGameName(gameDisplayName())}-${sanitizeGameName(nativeGameVersion())}").get().asFile
+}
+
+fun jpackageInputDir(): File {
+  return layout.buildDirectory.dir("generated/jvnGameJpackage/${currentPackageHost().target.id}/input").get().asFile
+}
+
+fun jpackageContentDir(): File {
+  return layout.buildDirectory.dir("generated/jvnGameJpackage/${currentPackageHost().target.id}/content").get().asFile
+}
+
+fun jpackageRawOutputDir(packageType: String): File {
+  return layout.buildDirectory.dir("jpackage/games/${currentPackageHost().target.id}/$packageType").get().asFile
+}
+
+fun downloadUrlToFile(urlString: String, outputFile: File) {
+  outputFile.parentFile.mkdirs()
+  val tempFile = File(outputFile.absolutePath + ".part")
+  tempFile.delete()
+  val connection = URL(urlString).openConnection()
+  connection.connectTimeout = 30_000
+  connection.readTimeout = 300_000
+  connection.setRequestProperty("Accept", "application/octet-stream")
+  if (connection is HttpURLConnection) {
+    connection.instanceFollowRedirects = true
+    val response = connection.responseCode
+    if (response >= 400) {
+      throw GradleException("HTTP $response while downloading $urlString")
+    }
+  }
+  connection.getInputStream().use { input ->
+    tempFile.outputStream().use { output ->
+      input.copyTo(output)
+    }
+  }
+  if (outputFile.exists()) outputFile.delete()
+  if (!tempFile.renameTo(outputFile)) {
+    tempFile.copyTo(outputFile, overwrite = true)
+    tempFile.delete()
+  }
+}
+
+fun fetchBundledRuntimeAsset(target: JvnGameTarget, imageType: String): JvnBundledRuntimeAsset {
+  val connection = URL(bundledRuntimeAssetApiUrl(target, imageType)).openConnection()
+  connection.connectTimeout = 30_000
+  connection.readTimeout = 120_000
+  connection.setRequestProperty("Accept", "application/json")
+  connection.setRequestProperty("User-Agent", "JVN Build")
+  if (connection is HttpURLConnection) {
+    connection.instanceFollowRedirects = true
+    val response = connection.responseCode
+    if (response >= 400) {
+      throw GradleException("HTTP $response while fetching bundled runtime metadata for ${target.id} ($imageType)")
+    }
+  }
+  val parsed = connection.getInputStream().use { input ->
+    JsonSlurper().parse(input)
+  }
+  val entries = parsed as? List<*> ?: throw GradleException("Unexpected bundled runtime metadata payload for ${target.id} ($imageType)")
+  val first = entries.firstOrNull() as? Map<*, *> ?: throw GradleException("No bundled runtime metadata returned for ${target.id} ($imageType)")
+  val binary = first["binary"] as? Map<*, *> ?: throw GradleException("Bundled runtime metadata is missing binary data for ${target.id} ($imageType)")
+  val pkg = binary["package"] as? Map<*, *> ?: throw GradleException("Bundled runtime metadata is missing package data for ${target.id} ($imageType)")
+  val link = pkg["link"]?.toString()?.trim().orEmpty()
+  val checksum = pkg["checksum"]?.toString()?.trim().orEmpty().lowercase()
+  val checksumUrl = pkg["checksum_link"]?.toString()?.trim()?.ifBlank { null }
+  if (link.isBlank() || checksum.isBlank()) {
+    throw GradleException("Bundled runtime metadata for ${target.id} ($imageType) is missing link/checksum information.")
+  }
+  return JvnBundledRuntimeAsset(imageType, link, checksum, checksumUrl)
+}
+
+fun verifyBundledRuntimeArchive(archiveFile: File, expectedChecksum: String) {
+  if (!archiveFile.isFile) {
+    throw GradleException("Bundled runtime archive is missing: ${archiveFile.absolutePath}")
+  }
+  val actualChecksum = sha256Hex(archiveFile)
+  if (!actualChecksum.equals(expectedChecksum, ignoreCase = true)) {
+    throw GradleException(
+      "Bundled runtime checksum mismatch for ${archiveFile.name}. Expected $expectedChecksum but found $actualChecksum."
+    )
+  }
+}
+
+fun extractBundledRuntimeArchive(archiveFile: File, target: JvnGameTarget, destination: File) {
+  deleteAndMkdir(destination)
+  copy {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    when (bundledRuntimeArchiveType(target)) {
+      "zip" -> from(zipTree(archiveFile))
+      "tar.gz" -> from(tarTree(resources.gzip(archiveFile)))
+      else -> throw GradleException("Unsupported bundled runtime archive type for ${target.id}: ${bundledRuntimeArchiveType(target)}")
+    }
+    into(destination)
+  }
+}
+
+fun detectBundledRuntimeJavaExecutableRelativePath(runtimeDir: File, target: JvnGameTarget): String? {
+  val expectedName = if (target.windows) "java.exe" else "java"
+  return runtimeDir.walkTopDown()
+    .filter { file -> file.isFile && file.name.equals(expectedName, ignoreCase = true) && file.parentFile?.name.equals("bin", ignoreCase = true) == true }
+    .map { file -> runtimeDir.toPath().relativize(file.toPath()).toString().replace('\\', '/') }
+    .sortedWith(compareBy<String>({ it.count { ch -> ch == '/' } }, { it.length }))
+    .firstOrNull()
+}
+
+fun ensureBundledRuntimeSelection(target: JvnGameTarget): JvnBundledRuntimeSelection {
+  val refresh = gradleFlag("jvnRefreshBundledRuntime")
+  val runtimeDir = bundledRuntimeExtractDir(target)
+  val infoFile = bundledRuntimeInfoFile(target)
+  if (!refresh && infoFile.isFile() && runtimeDir.isDirectory) {
+    val props = Properties()
+    infoFile.inputStream().use { props.load(it) }
+    val imageType = props.getProperty("imageType", "").trim()
+    val downloadUrl = props.getProperty("downloadUrl", "").trim()
+    val checksum = props.getProperty("checksum", "").trim().lowercase()
+    val checksumUrl = props.getProperty("checksumUrl", "").trim().ifBlank { null }
+    val archivePath = props.getProperty("archiveFile", "").trim()
+    val javaExecutableRelativePath = props.getProperty("javaExecutableRelativePath", "").trim()
+    if (imageType.isNotBlank() && downloadUrl.isNotBlank() && checksum.isNotBlank() && javaExecutableRelativePath.isNotBlank()) {
+      val archiveFile = File(archivePath)
+      if (archiveFile.isFile && runtimeDir.resolve(javaExecutableRelativePath).exists()) {
+        verifyBundledRuntimeArchive(archiveFile, checksum)
+        return JvnBundledRuntimeSelection(target, imageType, downloadUrl, checksum, checksumUrl, archiveFile, runtimeDir, javaExecutableRelativePath)
+      }
+    }
+  }
+
+  val attempts = mutableListOf<String>()
+  bundledRuntimeImageTypeCandidates().forEach { imageType ->
+    val asset = fetchBundledRuntimeAsset(target, imageType)
+    val archiveFile = bundledRuntimeArchiveFile(target, asset.imageType)
+    try {
+      if (refresh || !archiveFile.isFile || archiveFile.length() == 0L) {
+        logger.lifecycle("Downloading bundled runtime for ${target.id}: ${asset.downloadUrl}")
+        downloadUrlToFile(asset.downloadUrl, archiveFile)
+      }
+      verifyBundledRuntimeArchive(archiveFile, asset.checksum)
+      extractBundledRuntimeArchive(archiveFile, target, runtimeDir)
+      val javaExecutableRelativePath = detectBundledRuntimeJavaExecutableRelativePath(runtimeDir, target)
+        ?: throw GradleException("Downloaded runtime for ${target.id} does not contain a detectable java executable under a bin/ directory.")
+      val props = Properties()
+      props.setProperty("imageType", asset.imageType)
+      props.setProperty("downloadUrl", asset.downloadUrl)
+      props.setProperty("checksum", asset.checksum)
+      asset.checksumUrl?.let { props.setProperty("checksumUrl", it) }
+      props.setProperty("archiveFile", archiveFile.absolutePath)
+      props.setProperty("javaExecutableRelativePath", javaExecutableRelativePath)
+      infoFile.parentFile.mkdirs()
+      infoFile.outputStream().use { props.store(it, "JVN bundled runtime cache") }
+      return JvnBundledRuntimeSelection(target, asset.imageType, asset.downloadUrl, asset.checksum, asset.checksumUrl, archiveFile, runtimeDir, javaExecutableRelativePath)
+    } catch (ex: Exception) {
+      runtimeDir.deleteRecursively()
+      infoFile.delete()
+      archiveFile.delete()
+      attempts += "${asset.imageType} from ${asset.downloadUrl} (${ex.message ?: ex.javaClass.simpleName})"
+    }
+  }
+
+  throw GradleException("Could not prepare a bundled runtime for ${target.id}. Tried:\n - ${attempts.joinToString("\n - ")}")
+}
+
+fun gameBundledScriptUnix(javaExecutableRelativePath: String): String {
+  val dollar = "$"
+  val javaPath = javaExecutableRelativePath.replace('\\', '/')
+  return """
+    |#!/usr/bin/env sh
+    |set -eu
+    |APP_HOME=${dollar}(CDPATH= cd -- "${dollar}(dirname -- "${dollar}0")/.." && pwd)
+    |JAVA_EXE="${dollar}APP_HOME/runtime/$javaPath"
+    |if [ ! -x "${dollar}JAVA_EXE" ]; then
+    |  echo "JVN launcher error: bundled runtime image is missing ${dollar}JAVA_EXE." >&2
+    |  exit 1
+    |fi
+    |exec "${dollar}JAVA_EXE" \
+    |  --module-path "${dollar}APP_HOME/lib/javafx" \
+    |  --add-modules ${jvnJavaFxRuntimeModules.joinToString(",")} \
+    |  -cp "${dollar}APP_HOME/lib/*" \
+    |  com.jvn.runtime.JvnApp \
+${gameLauncherArgsUnix(dollar)}
+    |
+  """.trimMargin()
+}
+
+fun gameBundledScriptWindows(target: JvnGameTarget, javaExecutableRelativePath: String): String {
+  val javaPath = javaExecutableRelativePath.replace('/', '\\')
+  return """
+    |@echo off
+    |setlocal
+    |set "APP_HOME=%~dp0.."
+    |if not exist "%APP_HOME%\game\jvn.project" (
+    |  echo JVN launcher error: bundled game\jvn.project is missing.
+    |  exit /b 1
+    |)
+    |set "JAVA_EXE=%APP_HOME%\runtime\$javaPath"
+    |if not exist "%JAVA_EXE%" (
+    |  echo JVN launcher error: bundled runtime image is missing %JAVA_EXE%.
+    |  exit /b 1
+    |)
+    |"%JAVA_EXE%" --module-path "%APP_HOME%\lib\javafx" --add-modules ${jvnJavaFxRuntimeModules.joinToString(",")} -cp "%APP_HOME%\lib\*" com.jvn.runtime.JvnApp --assets "%APP_HOME%\game"${gameLauncherExtraArgsWindows()} %*
+    |exit /b %ERRORLEVEL%
+    |
+  """.trimMargin()
+}
+
+fun gameBundledReadme(target: JvnGameTarget, runtime: JvnBundledRuntimeSelection): String {
+  val launcher = if (target.windows) "bin\\${gameLauncherBaseName()}.bat" else "bin/${gameLauncherBaseName()}"
+  return """
+    |${gameBundledDistName(target)}
+    |
+    |Self-contained JVN game build for ${target.id}.
+    |
+    |Requirements:
+    |  None. This package includes its own Java runtime image.
+    |
+    |Launch:
+    |  $launcher
+    |
+    |Contents:
+    |  bin/         game launcher
+    |  game/        bundled JVN project files
+    |  lib/         JVN runtime jars and third-party dependencies
+    |  lib/javafx/  JavaFX native jars for ${target.javafxClassifier}
+    |  runtime/     bundled ${bundledRuntimeVendor()} runtime archive (${runtime.imageType})
+    |  BUILD-METADATA.txt package metadata for this build
+    |
+  """.trimMargin()
+}
+
+fun gameNativeReadme(): String {
+  val host = currentPackageHost()
+  return """
+    |${jpackageAppName()}
+    |
+    |Native JVN game package for ${host.target.id}.
+    |
+    |Requirements:
+    |  None. This package includes its own Java runtime image.
+    |
+    |Contents:
+    |  game/        bundled JVN project files
+    |  BUILD-METADATA.txt package metadata for this build
+    |
+  """.trimMargin()
+}
+
+fun deleteAndMkdir(dir: File) {
+  dir.deleteRecursively()
+  dir.mkdirs()
+}
+
+fun copyDirectoryContents(from: File, into: File) {
+  copy {
+    from(from)
+    into(into)
+  }
+}
+
+fun currentNativePackageExtension(packageType: String): String = when (packageType) {
+  "app-image" -> ".zip"
+  "dmg" -> ".dmg"
+  "pkg" -> ".pkg"
+  "exe" -> ".exe"
+  "msi" -> ".msi"
+  "deb" -> ".deb"
+  "rpm" -> ".rpm"
+  else -> ".bin"
+}
+
+fun currentNativeDistributionFile(packageType: String): File {
+  return bundledRuntimeZipDir().resolve("${gameNativeArtifactStem(packageType)}${currentNativePackageExtension(packageType)}")
+}
+
+fun currentReleaseArtifactFile(mode: String): File {
+  return when (mode) {
+    "portable" -> bundledRuntimeZipDir().resolve("${gameDistName(currentPackageHost().target)}.zip")
+    "bundled" -> bundledRuntimeDistributionFile(currentPackageHost().target)
+    "native" -> currentNativeDistributionFile(currentJpackageType())
+    else -> throw GradleException("Unsupported release artifact mode: $mode")
+  }
+}
+
+fun publishCommandVariables(mode: String, artifact: File, targetId: String = currentPackageHost().target.id): Map<String, String> {
+  return mapOf(
+    "artifact" to artifact.absolutePath,
+    "artifactName" to artifact.name,
+    "artifactDir" to artifact.parentFile.absolutePath,
+    "artifactType" to mode,
+    "packageType" to if (mode == "native") currentJpackageType() else mode,
+    "gameName" to gameDisplayName(),
+    "gameVersion" to gameVersion(),
+    "nativeVersion" to nativeGameVersion(),
+    "target" to targetId,
+    "releaseProfile" to selectedReleaseProfile().name
+  )
+}
+
+fun expandPublishCommand(template: String, values: Map<String, String>): String {
+  var result = template
+  values.forEach { (key, value) ->
+    result = result.replace("{$key}", value)
+  }
+  return result
+}
+
+fun validateExistingProfileFile(label: String, raw: String?) {
+  if (raw.isNullOrBlank()) return
+  val resolved = resolveProjectRelativeFile(raw)
+  if (resolved == null || !resolved.isFile) {
+    throw GradleException("Release profile '${selectedReleaseProfile().name}' references $label='$raw', but that file was not found.")
+  }
+}
+
+fun unresolvedPublishPlaceholders(template: String, allowedKeys: Set<String>): List<String> {
+  return Regex("\\{([A-Za-z][A-Za-z0-9]*)\\}")
+    .findAll(template)
+    .map { it.groupValues[1] }
+    .filter { it !in allowedKeys }
+    .distinct()
+    .toList()
+}
+
+fun validateSelectedReleaseProfile() {
+  val releaseFile = gameReleaseConfigFile()
+  val selectedName = selectedReleaseProfile().name
+  val explicit = (findProperty("jvnReleaseProfile") as String?)?.trim()
+  val configuredDefault = gameReleaseConfig().getProperty("defaultProfile", "").trim()
+
+  if (!configuredDefault.isNullOrBlank() &&
+      !configuredDefault.equals("default", ignoreCase = true) &&
+      configuredDefault !in gameReleaseProfileNames()) {
+    throw GradleException(
+      "Configured defaultProfile '$configuredDefault' was not found in ${releaseFile?.absolutePath ?: "(missing release config)"}." +
+        " Available profiles: ${gameReleaseProfileNames().joinToString(", ")}"
+    )
+  }
+
+  if (!explicit.isNullOrBlank() && !explicit.equals("default", ignoreCase = true) && releaseFile == null) {
+    throw GradleException("Requested release profile '$explicit', but no release profile config file was found under the selected game project.")
+  }
+
+  if (!selectedName.equals("default", ignoreCase = true) && selectedName !in gameReleaseProfileNames()) {
+    throw GradleException(
+      "Requested release profile '$selectedName' was not found in ${releaseFile?.absolutePath ?: "(missing release config)"}." +
+        " Available profiles: ${gameReleaseProfileNames().joinToString(", ")}"
+    )
+  }
+
+  val profile = selectedReleaseProfile()
+  validateExistingProfileFile("icon", profile.value("icon"))
+  validateExistingProfileFile("licenseFile", profile.value("licenseFile"))
+  validateExistingProfileFile("mac.entitlements", profile.value("mac.entitlements"))
+  validateExistingProfileFile("win.certificateFile", profile.value("win.certificateFile"))
+
+  val allowedPublishKeys = publishCommandVariables("portable", File(gameProjectDir(), "artifact-placeholder")).keys
+  profile.commands("publish.command").forEachIndexed { index, command ->
+    val unresolved = unresolvedPublishPlaceholders(command, allowedPublishKeys)
+    if (unresolved.isNotEmpty()) {
+      throw GradleException(
+        "Release profile '${profile.name}' publish.command.${index + 1} contains unsupported placeholders: ${unresolved.joinToString(", ")}." +
+          " Supported placeholders: ${allowedPublishKeys.sorted().joinToString(", ")}"
+      )
+    }
+  }
+}
+
+fun maybeSignWindowsArtifact(artifact: File) {
+  val profile = selectedReleaseProfile()
+  if (currentPackageHost().osId != "windows" || !profile.flag("win.sign")) return
+
+  val signtool = profile.value("win.signtool") ?: "signtool"
+  val certFile = resolveProjectRelativeFile(profile.value("win.certificateFile"))?.takeIf { it.isFile }
+  val subjectName = profile.value("win.subjectName")
+  if (certFile == null && subjectName.isNullOrBlank()) {
+    throw GradleException("Windows signing is enabled in release profile '${profile.name}', but neither win.certificateFile nor win.subjectName is configured.")
+  }
+
+  val args = mutableListOf(signtool, "sign", "/fd", "SHA256")
+  if (certFile != null) {
+    args += listOf("/f", certFile.absolutePath)
+    val passwordEnv = profile.value("win.certificatePasswordEnv")
+    val password = if (!passwordEnv.isNullOrBlank()) System.getenv(passwordEnv) else null
+    if (!password.isNullOrBlank()) args += listOf("/p", password)
+  }
+  if (!subjectName.isNullOrBlank()) args += listOf("/n", subjectName)
+  val timestamp = profile.value("win.timestampUrl") ?: "http://timestamp.digicert.com"
+  args += listOf("/tr", timestamp, "/td", "SHA256", artifact.absolutePath)
+
+  exec {
+    commandLine(args)
+  }
+}
+
+fun maybeNotarizeMacArtifact(packageType: String, artifact: File) {
+  val profile = selectedReleaseProfile()
+  if (currentPackageHost().osId != "macos" || !profile.flag("mac.notarize")) return
+  if (packageType == "app-image") {
+    logger.warn("Skipping notarization for app-image output. Package dmg/pkg for notarization, or zip the app image manually.")
+    return
+  }
+  val notaryProfile = profile.value("mac.notarytoolProfile")
+    ?: throw GradleException("mac.notarize is enabled in release profile '${profile.name}', but mac.notarytoolProfile is not configured.")
+  exec {
+    commandLine("xcrun", "notarytool", "submit", artifact.absolutePath, "--keychain-profile", notaryProfile, "--wait")
+  }
+  if (profile.flag("mac.staple", true)) {
+    exec {
+      commandLine("xcrun", "stapler", "staple", artifact.absolutePath)
+    }
+  }
+}
+
+fun runPublishCommands(mode: String, artifact: File, targetId: String = currentPackageHost().target.id) {
+  val profile = selectedReleaseProfile()
+  val commands = profile.commands("publish.command")
+  if (commands.isEmpty()) {
+    logger.lifecycle("No publish commands configured for release profile '${profile.name}'.")
+    return
+  }
+  if (!artifact.exists()) {
+    throw GradleException("Publish commands were requested for ${artifact.absolutePath}, but that artifact does not exist.")
+  }
+  val values = publishCommandVariables(mode, artifact, targetId)
+  commands.forEachIndexed { index, template ->
+    val command = expandPublishCommand(template, values)
+    logger.lifecycle("Running publish command ${index + 1}/${commands.size}: $command")
+    exec {
+      if (currentHostIsWindows()) {
+        commandLine("cmd", "/c", command)
+      } else {
+        commandLine("sh", "-lc", command)
+      }
+    }
+  }
 }
 
 fun sanitizeGameName(raw: String?): String {
@@ -792,6 +1435,346 @@ tasks.register("printJvnGamePortableTargets") {
     jvnGameTargets.forEach { target ->
       println("  ${target.id} (JavaFX classifier: ${target.javafxClassifier})")
     }
+  }
+}
+
+tasks.register("printJvnGameReleaseProfiles") {
+  group = "help"
+  description = "Prints available JVN release profiles for the selected game project."
+  doLast {
+    validateGameProject()
+    val file = gameReleaseConfigFile()
+    println("JVN release profile config: ${file?.absolutePath ?: "(none)"}")
+    println("Selected profile: ${selectedReleaseProfile().name}")
+    println("Available profiles:")
+    gameReleaseProfileNames().forEach { println("  $it") }
+  }
+}
+
+tasks.register("printJvnGameNativePackageTypes") {
+  group = "help"
+  description = "Prints supported native package types for the current host OS."
+  doLast {
+    val host = currentPackageHost()
+    println("Current host: ${host.osId} (${host.target.id})")
+    println("Supported native package types:")
+    host.nativePackageTypes.forEach { type ->
+      val marker = if (type == host.defaultNativePackageType) " (default)" else ""
+      println("  $type$marker")
+    }
+  }
+}
+
+tasks.register("printJvnBundledRuntimeCache") {
+  group = "help"
+  description = "Prints cached prebuilt desktop-bundle runtimes under build/vendor-runtimes."
+  doLast {
+    val found = jvnGameTargets.mapNotNull { target ->
+      val infoFile = bundledRuntimeInfoFile(target)
+      if (!infoFile.isFile) return@mapNotNull null
+      val props = Properties()
+      infoFile.inputStream().use { props.load(it) }
+      target to props
+    }
+    if (found.isEmpty()) {
+      println("No bundled runtime cache entries were found.")
+      return@doLast
+    }
+    println("Bundled runtime cache entries:")
+    found.forEach { (target, props) ->
+      println("  ${target.id}")
+      println("    imageType: ${props.getProperty("imageType", "(unknown)")}")
+      println("    archiveFile: ${props.getProperty("archiveFile", "(missing)")}")
+      println("    checksum: ${props.getProperty("checksum", "(missing)")}")
+      println("    javaExecutable: ${props.getProperty("javaExecutableRelativePath", "(missing)")}")
+    }
+  }
+}
+
+tasks.register("clearJvnBundledRuntimeCache") {
+  group = "distribution"
+  description = "Clears downloaded prebuilt runtime archives and extracted runtime caches for desktop bundles."
+  doLast {
+    layout.buildDirectory.dir("downloads/jvnRuntime").get().asFile.deleteRecursively()
+    layout.buildDirectory.dir("vendor-runtimes").get().asFile.deleteRecursively()
+    println("Cleared bundled runtime cache.")
+  }
+}
+
+tasks.register("createJvnGameRuntimeImageCurrent") {
+  group = "distribution"
+  description = "Creates a bundled Java runtime image for the current host using jlink."
+  dependsOn("validateJvnGameProject")
+  outputs.dir(providers.provider { runtimeImageDir() })
+  doLast {
+    validateSelectedReleaseProfile()
+    val imageDir = runtimeImageDir()
+    imageDir.deleteRecursively()
+    imageDir.parentFile.mkdirs()
+
+    val modulePath = (listOf(packagingJavaHome().resolve("jmods")) + currentJavaFxRuntimeJars())
+      .joinToString(File.pathSeparator) { it.absolutePath }
+
+    exec {
+      commandLine(
+        packagingTool("jlink").absolutePath,
+        "--module-path", modulePath,
+        "--add-modules", runtimeImageModules().joinToString(","),
+        "--output", imageDir.absolutePath,
+        "--strip-debug",
+        "--no-header-files",
+        "--no-man-pages",
+        "--compress=2"
+      )
+    }
+  }
+}
+
+val bundledRuntimeZipTasks = jvnGameTargets.map { target ->
+  val prepareTask = tasks.register("prepareJvnGameBundledRuntime${target.taskSuffix}") {
+    group = "distribution"
+    description = "Stages a self-contained game directory with a bundled runtime for ${target.id}."
+    dependsOn("validateJvnGameProject")
+    jvnGameRuntimeProjectPaths.forEach { projectPath ->
+      dependsOn("$projectPath:jar")
+    }
+    outputs.dir(providers.provider { bundledRuntimeRootDir(target) })
+    outputs.upToDateWhen { false }
+    doLast {
+      validateSelectedReleaseProfile()
+      val runtime = ensureBundledRuntimeSelection(target)
+      val rootDir = bundledRuntimeRootDir(target)
+      deleteAndMkdir(rootDir)
+      val binDir = rootDir.resolve("bin")
+      val libDir = rootDir.resolve("lib")
+      val javafxDir = libDir.resolve("javafx")
+      val gameDir = rootDir.resolve("game")
+      val runtimeDir = rootDir.resolve("runtime")
+      binDir.mkdirs()
+      libDir.mkdirs()
+      javafxDir.mkdirs()
+      gameDir.mkdirs()
+
+      gameRuntimeClasspathJars().forEach { jar ->
+        jar.copyTo(libDir.resolve(jar.name), overwrite = true)
+      }
+      targetJavaFxRuntimeJars(target).forEach { jar ->
+        jar.copyTo(javafxDir.resolve(jar.name), overwrite = true)
+      }
+      copyGameProjectFiles(gameDir)
+      copyDirectoryContents(runtime.runtimeDir, runtimeDir)
+
+      val launcher = binDir.resolve(if (target.windows) "${gameLauncherBaseName()}.bat" else gameLauncherBaseName())
+      launcher.writeText(
+        if (target.windows) gameBundledScriptWindows(target, runtime.javaExecutableRelativePath)
+        else gameBundledScriptUnix(runtime.javaExecutableRelativePath)
+      )
+      if (!target.windows) launcher.setExecutable(true)
+      rootDir.resolve("README.txt").writeText(gameBundledReadme(target, runtime))
+      rootDir.resolve("BUILD-METADATA.txt").writeText(bundledRuntimeMetadata(target, runtime))
+    }
+  }
+
+  val zipTask = tasks.register<Zip>("assembleJvnGameBundledRuntime${target.taskSuffix}") {
+    group = "distribution"
+    description = "Assembles a self-contained game zip with a bundled runtime for ${target.id}."
+    dependsOn(prepareTask)
+    archiveFileName.set(providers.provider { "${gameBundledDistName(target)}.zip" })
+    destinationDirectory.set(layout.buildDirectory.dir("distributions/games"))
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from(providers.provider { bundledRuntimeRootDir(target) }) {
+      into(providers.provider { gameBundledDistName(target) })
+    }
+  }
+
+  tasks.register("releaseJvnGameBundledRuntime${target.taskSuffix}") {
+    group = "distribution"
+    description = "Builds the ${target.id} bundled-runtime zip and runs publish commands for the selected release profile."
+    dependsOn(zipTask)
+    doLast {
+      validateSelectedReleaseProfile()
+      runPublishCommands("bundled", bundledRuntimeDistributionFile(target), target.id)
+    }
+  }
+
+  zipTask
+}
+
+tasks.register("assembleJvnGameBundledRuntimeCurrent") {
+  group = "distribution"
+  description = "Assembles a self-contained game zip with a bundled runtime for the current host target."
+  dependsOn(tasks.named("assembleJvnGameBundledRuntime${currentGameTarget().taskSuffix}"))
+}
+
+tasks.register("assembleJvnGameBundledRuntimeAll") {
+  group = "distribution"
+  description = "Assembles self-contained game zips with bundled runtimes for every supported target."
+  dependsOn(bundledRuntimeZipTasks)
+}
+
+tasks.register("assembleJvnGameBundledRuntime") {
+  group = "distribution"
+  description = "Assembles self-contained bundled-runtime game zips for every supported target."
+  dependsOn(tasks.named("assembleJvnGameBundledRuntimeAll"))
+}
+
+tasks.register("prepareJvnGameNativeInputCurrent") {
+  group = "distribution"
+  description = "Stages jpackage input jars and app content for the current host."
+  dependsOn("validateJvnGameProject")
+  dependsOn("createJvnGameRuntimeImageCurrent")
+  jvnGameRuntimeProjectPaths.forEach { projectPath ->
+    dependsOn("$projectPath:jar")
+  }
+  outputs.dir(providers.provider { jpackageInputDir() })
+  outputs.dir(providers.provider { jpackageContentDir() })
+  doLast {
+    validateSelectedReleaseProfile()
+    val inputDir = jpackageInputDir()
+    val contentDir = jpackageContentDir()
+    deleteAndMkdir(inputDir)
+    deleteAndMkdir(contentDir)
+
+    gameRuntimeClasspathJars().forEach { jar ->
+      jar.copyTo(inputDir.resolve(jar.name), overwrite = true)
+    }
+
+    val gameContent = contentDir.resolve("game")
+    gameContent.mkdirs()
+    copyGameProjectFiles(gameContent)
+    contentDir.resolve("README.txt").writeText(gameNativeReadme())
+    contentDir.resolve("BUILD-METADATA.txt").writeText(nativeBuildMetadata(currentJpackageType()))
+  }
+}
+
+tasks.register("packageJvnGameNativeCurrent") {
+  group = "distribution"
+  description = "Builds a native package or app image for the current host using jpackage."
+  dependsOn("prepareJvnGameNativeInputCurrent")
+  doLast {
+    validateSelectedReleaseProfile()
+    val packageType = currentJpackageType()
+    val profile = selectedReleaseProfile()
+    val rawOutputDir = jpackageRawOutputDir(packageType)
+    rawOutputDir.deleteRecursively()
+    rawOutputDir.mkdirs()
+
+    val runtimeJar = project(":runtime").tasks.named<Jar>("jar").get().archiveFile.get().asFile
+    val args = mutableListOf(
+      packagingTool("jpackage").absolutePath,
+      "--type", packageType,
+      "--name", jpackageAppName(),
+      "--app-version", nativeGameVersion(),
+      "--vendor", gamePackageVendor(),
+      "--description", gamePackageDescription(),
+      "--dest", rawOutputDir.absolutePath,
+      "--input", jpackageInputDir().absolutePath,
+      "--main-jar", runtimeJar.name,
+      "--main-class", gamePackagedMainClass(),
+      "--runtime-image", runtimeImageDir().absolutePath,
+      "--app-content", jpackageContentDir().absolutePath,
+      "--java-options", "--add-modules=${jvnJavaFxRuntimeModules.joinToString(",")}"
+    )
+
+    gamePackageIconFile()?.let { args += listOf("--icon", it.absolutePath) }
+    gamePackageAboutUrl()?.let { args += listOf("--about-url", it) }
+    gamePackageCopyright()?.let { args += listOf("--copyright", it) }
+    gamePackageLicenseFile()?.let { args += listOf("--license-file", it.absolutePath) }
+
+    when (currentPackageHost().osId) {
+      "macos" -> {
+        profile.value("mac.packageIdentifier")?.let { args += listOf("--mac-package-identifier", it) }
+        profile.value("mac.packageName")?.let { args += listOf("--mac-package-name", it) }
+        profile.value("mac.packageSigningPrefix")?.let { args += listOf("--mac-package-signing-prefix", it) }
+        profile.value("mac.appCategory")?.let { args += listOf("--mac-app-category", it) }
+        resolveProjectRelativeFile(profile.value("mac.entitlements"))?.takeIf { it.isFile }
+          ?.let { args += listOf("--mac-entitlements", it.absolutePath) }
+        if (profile.flag("mac.sign")) {
+          args += "--mac-sign"
+          profile.value("mac.keychain")?.let { args += listOf("--mac-signing-keychain", it) }
+          val appIdentity = profile.value("mac.appImageSignIdentity") ?: profile.value("mac.signingIdentity")
+          val installerIdentity = profile.value("mac.installerSignIdentity") ?: profile.value("mac.signingIdentity")
+          if (!appIdentity.isNullOrBlank()) args += listOf("--mac-app-image-sign-identity", appIdentity)
+          if (!installerIdentity.isNullOrBlank()) args += listOf("--mac-installer-sign-identity", installerIdentity)
+          val signingUser = profile.value("mac.signingKeyUserName")
+          if (!signingUser.isNullOrBlank()) args += listOf("--mac-signing-key-user-name", signingUser)
+        }
+        if (profile.flag("mac.appStore")) args += "--mac-app-store"
+      }
+      "windows" -> {
+        if (profile.flag("win.dirChooser")) args += "--win-dir-chooser"
+        if (profile.flag("win.menu")) args += "--win-menu"
+        if (profile.flag("win.shortcut")) args += "--win-shortcut"
+        if (profile.flag("win.perUserInstall")) args += "--win-per-user-install"
+        if (profile.flag("win.console")) args += "--win-console"
+        profile.value("installDir")?.let { args += listOf("--install-dir", it) }
+      }
+      "linux" -> {
+        if (profile.flag("linux.shortcut")) args += "--linux-shortcut"
+        profile.value("linux.packageName")?.let { args += listOf("--linux-package-name", it) }
+        profile.value("linux.appCategory")?.let { args += listOf("--linux-app-category", it) }
+        profile.value("linux.debMaintainer")?.let { args += listOf("--linux-deb-maintainer", it) }
+        profile.value("linux.rpmLicenseType")?.let { args += listOf("--linux-rpm-license-type", it) }
+        profile.value("installDir")?.let { args += listOf("--install-dir", it) }
+      }
+    }
+
+    exec {
+      commandLine(args)
+    }
+
+    val distributionFile = currentNativeDistributionFile(packageType)
+    distributionFile.parentFile.mkdirs()
+    if (packageType == "app-image") {
+      val appImage = when (currentPackageHost().osId) {
+        "macos" -> rawOutputDir.resolve("${jpackageAppName()}.app")
+        else -> rawOutputDir.resolve(jpackageAppName())
+      }
+      if (!appImage.exists()) {
+        throw GradleException("jpackage did not produce the expected app image at ${appImage.absolutePath}")
+      }
+      distributionFile.delete()
+      ant.withGroovyBuilder {
+        "zip"("destfile" to distributionFile.absolutePath, "basedir" to rawOutputDir.absolutePath)
+      }
+    } else {
+      val packagedArtifact = rawOutputDir.listFiles()
+        ?.filter { it.isFile && it.extension.equals(packageType, ignoreCase = true) }
+        ?.maxByOrNull { it.lastModified() }
+        ?: throw GradleException("jpackage did not produce a .$packageType artifact under ${rawOutputDir.absolutePath}")
+      packagedArtifact.copyTo(distributionFile, overwrite = true)
+    }
+    val metadataFile = bundledRuntimeZipDir().resolve("${gameNativeArtifactStem(packageType)}.metadata.txt")
+    metadataFile.writeText(nativeBuildMetadata(packageType))
+  }
+}
+
+tasks.register("releaseJvnGamePortableCurrent") {
+  group = "distribution"
+  description = "Builds the current-host portable zip and runs publish commands for the selected release profile."
+  dependsOn("assembleJvnGamePortableCurrent")
+  doLast {
+    validateSelectedReleaseProfile()
+    runPublishCommands("portable", currentReleaseArtifactFile("portable"))
+  }
+}
+
+tasks.register("releaseJvnGameBundledRuntimeCurrent") {
+  group = "distribution"
+  description = "Builds the current-target bundled-runtime zip and runs publish commands for the selected release profile."
+  dependsOn(tasks.named("releaseJvnGameBundledRuntime${currentGameTarget().taskSuffix}"))
+}
+
+tasks.register("releaseJvnGameNativeCurrent") {
+  group = "distribution"
+  description = "Builds the current-host native package, applies signing/notarization hooks, and runs publish commands for the selected release profile."
+  dependsOn("packageJvnGameNativeCurrent")
+  doLast {
+    validateSelectedReleaseProfile()
+    val artifact = currentReleaseArtifactFile("native")
+    maybeSignWindowsArtifact(artifact)
+    maybeNotarizeMacArtifact(currentJpackageType(), artifact)
+    runPublishCommands("native", artifact)
   }
 }
 

@@ -9,15 +9,17 @@ import java.util.Locale;
 import java.util.Properties;
 import java.util.function.Consumer;
 
-import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -40,6 +42,7 @@ public class GameBuildPublisherView extends BorderPane {
   private final ComboBox<PackageMode> formatBox = new ComboBox<>();
   private final ComboBox<NativeTypeChoice> nativeTypeBox = new ComboBox<>();
   private final ComboBox<String> releaseProfileBox = new ComboBox<>();
+  private final Label nativeTypeFieldLabel = new Label("Native Type");
   private final Label manifestLabel = new Label();
   private final Label outputLabel = new Label();
   private final Label validationLabel = new Label();
@@ -64,30 +67,11 @@ public class GameBuildPublisherView extends BorderPane {
   private Button presetDesktopButton;
   private Button presetNativeButton;
 
-  private static final String STYLE_PANEL = "-fx-background-color: #111; -fx-padding: 18;";
-  private static final String STYLE_CARD = "-fx-background-color: #151515; -fx-border-color: #303030; -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 14;";
-  private static final String STYLE_TITLE = "-fx-text-fill: #f2f2f2; -fx-font-size: 20px; -fx-font-weight: bold;";
-  private static final String STYLE_CARD_TITLE = "-fx-text-fill: #f2f2f2; -fx-font-size: 17px; -fx-font-weight: bold;";
-  private static final String STYLE_SUBTITLE = "-fx-text-fill: #a7a7a7; -fx-font-size: 12px;";
-  private static final String STYLE_LABEL = "-fx-text-fill: #d8d8d8; -fx-font-size: 12px; -fx-font-weight: bold;";
-  private static final String STYLE_HELP = "-fx-text-fill: #9d9d9d; -fx-font-size: 12px;";
-  private static final String STYLE_FIELD = "-fx-background-color: #0f0f0f; -fx-text-fill: #f2f2f2; -fx-prompt-text-fill: #777; -fx-border-color: #3a3a3a; -fx-border-radius: 6; -fx-background-radius: 6;";
-  private static final String STYLE_BUTTON = "-fx-background-color: #202020; -fx-text-fill: #f0f0f0; -fx-border-color: #444; -fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 8 12;";
-  private static final String STYLE_ACCENT = "-fx-background-color: #2f6f4e; -fx-text-fill: #f4fff7; -fx-border-color: #5dbb83; -fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 8 12; -fx-font-weight: bold;";
-  private static final String STYLE_BADGE = "-fx-background-color: #1b1b1b; -fx-text-fill: #d8d8d8; -fx-border-color: #383838; -fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 4 9; -fx-font-size: 11px; -fx-font-weight: bold;";
-  private static final String STYLE_BADGE_ACCENT = "-fx-background-color: #163a2a; -fx-text-fill: #dff9ea; -fx-border-color: #3f9b6b; -fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 4 9; -fx-font-size: 11px; -fx-font-weight: bold;";
-  private static final String STYLE_BADGE_WARN = "-fx-background-color: #3b2b12; -fx-text-fill: #ffd58f; -fx-border-color: #b8873b; -fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 4 9; -fx-font-size: 11px; -fx-font-weight: bold;";
-  private static final String STYLE_BADGE_ERROR = "-fx-background-color: #3a1f1f; -fx-text-fill: #ffb3b3; -fx-border-color: #c45f5f; -fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 4 9; -fx-font-size: 11px; -fx-font-weight: bold;";
-  private static final String STYLE_STATUS = "-fx-text-fill: #f2c26b; -fx-font-size: 12px;";
-  private static final String STYLE_OK = "-fx-text-fill: #8fd694; -fx-font-size: 12px;";
-  private static final String STYLE_WARN = "-fx-text-fill: #f2c26b; -fx-font-size: 12px;";
-  private static final String STYLE_ERROR = "-fx-text-fill: #ff8a8a; -fx-font-size: 12px;";
-
   public GameBuildPublisherView(File workspaceRoot, File projectRoot, Consumer<BuildRequest> onBuildRequested) {
     this.workspaceRoot = workspaceRoot;
     this.projectRoot = projectRoot;
     this.onBuildRequested = onBuildRequested;
-    setStyle(STYLE_PANEL);
+    getStyleClass().add("build-publisher-root");
     buildUi();
     loadProject(projectRoot);
   }
@@ -99,35 +83,38 @@ public class GameBuildPublisherView extends BorderPane {
 
   private void buildUi() {
     Label title = new Label("Build & Publish");
-    title.setStyle(STYLE_TITLE);
+    title.getStyleClass().add("build-publisher-title");
     Label subtitle = new Label("Package and release the current JVN game project as portable zips, cross-target desktop bundles, or host-native installers.");
     subtitle.setWrapText(true);
-    subtitle.setStyle(STYLE_SUBTITLE);
+    subtitle.getStyleClass().add("build-publisher-subtitle");
 
     Label quickModesLabel = new Label("Quick Modes");
-    quickModesLabel.setStyle(STYLE_LABEL);
+    quickModesLabel.getStyleClass().add("build-publisher-section-label");
     Label quickModesHelp = new Label("Switch the popup to the most common release flows without re-entering the whole plan.");
     quickModesHelp.setWrapText(true);
-    quickModesHelp.setStyle(STYLE_HELP);
+    quickModesHelp.getStyleClass().add("build-publisher-copy");
 
-    presetPortableButton = button("Current Portable", false);
+    presetPortableButton = button("Current Portable", ButtonTone.SECONDARY, true);
     presetPortableButton.setOnAction(e -> applyPreset(PackageMode.PORTABLE_ZIP, currentTargetToken()));
-    presetDesktopButton = button("Desktop Bundles", false);
+    presetDesktopButton = button("Desktop Bundles", ButtonTone.PRIMARY, true);
     presetDesktopButton.setOnAction(e -> applyPreset(PackageMode.BUNDLED_RUNTIME_ZIP, "all"));
-    presetNativeButton = button("Native Current", false);
+    presetNativeButton = button("Native Current", ButtonTone.SECONDARY, true);
     presetNativeButton.setOnAction(e -> applyPreset(PackageMode.NATIVE_PACKAGE, currentTargetToken()));
 
-    HBox presetRow = new HBox(8, presetPortableButton, presetDesktopButton, presetNativeButton);
+    FlowPane presetRow = new FlowPane(8, 8, presetPortableButton, presetDesktopButton, presetNativeButton);
     presetRow.setAlignment(Pos.CENTER_LEFT);
 
-    VBox header = new VBox(4, title, subtitle, quickModesLabel, quickModesHelp, presetRow);
+    VBox titleBlock = new VBox(4, title, subtitle);
+    VBox quickModesBlock = new VBox(6, quickModesLabel, quickModesHelp, presetRow);
+    VBox header = new VBox(12, titleBlock, quickModesBlock);
+    header.getStyleClass().add("build-publisher-header");
 
     projectField.setEditable(false);
-    projectField.setStyle(STYLE_FIELD);
+    styleField(projectField);
     nameField.setPromptText("Game title");
-    nameField.setStyle(STYLE_FIELD);
+    styleField(nameField);
     versionField.setPromptText("0.1.0");
-    versionField.setStyle(STYLE_FIELD);
+    styleField(versionField);
 
     targetBox.getItems().setAll(
         new TargetChoice("Current machine", "assembleJvnGamePortableCurrent", currentTargetDescription(), currentTargetToken()),
@@ -138,27 +125,28 @@ public class GameBuildPublisherView extends BorderPane {
         new TargetChoice("All supported targets", "assembleJvnGamePortable", "Builds Windows x64, Linux x64, macOS x64, and macOS Apple Silicon.", "all")
     );
     targetBox.getSelectionModel().select(0);
-    targetBox.setStyle(STYLE_FIELD);
+    styleField(targetBox);
     targetBox.setMaxWidth(Double.MAX_VALUE);
 
     formatBox.getItems().setAll(PackageMode.values());
     formatBox.getSelectionModel().select(PackageMode.PORTABLE_ZIP);
-    formatBox.setStyle(STYLE_FIELD);
+    styleField(formatBox);
     formatBox.setMaxWidth(Double.MAX_VALUE);
 
     nativeTypeBox.getItems().setAll(currentNativeTypeChoices());
     nativeTypeBox.getSelectionModel().selectFirst();
-    nativeTypeBox.setStyle(STYLE_FIELD);
+    styleField(nativeTypeBox);
     nativeTypeBox.setMaxWidth(Double.MAX_VALUE);
 
     releaseProfileBox.setEditable(true);
-    releaseProfileBox.setStyle(STYLE_FIELD);
+    styleField(releaseProfileBox);
     releaseProfileBox.setMaxWidth(Double.MAX_VALUE);
     releaseProfileBox.getEditor().setPromptText("default");
 
     GridPane form = new GridPane();
     form.setHgap(10);
     form.setVgap(10);
+    form.getStyleClass().add("build-publisher-form");
     form.add(label("Project"), 0, 0);
     form.add(projectField, 1, 0);
     form.add(label("Game Name"), 0, 1);
@@ -169,7 +157,8 @@ public class GameBuildPublisherView extends BorderPane {
     form.add(targetBox, 1, 3);
     form.add(label("Format"), 0, 4);
     form.add(formatBox, 1, 4);
-    form.add(label("Native Type"), 0, 5);
+    nativeTypeFieldLabel.getStyleClass().add("layout-launcher-field-label");
+    form.add(nativeTypeFieldLabel, 0, 5);
     form.add(nativeTypeBox, 1, 5);
     form.add(label("Release Profile"), 0, 6);
     form.add(releaseProfileBox, 1, 6);
@@ -179,75 +168,87 @@ public class GameBuildPublisherView extends BorderPane {
     form.getColumnConstraints().add(fill);
 
     manifestLabel.setWrapText(true);
-    manifestLabel.setStyle(STYLE_HELP);
+    manifestLabel.getStyleClass().addAll("build-publisher-meta-line", "build-publisher-copy");
     outputLabel.setWrapText(true);
-    outputLabel.setStyle(STYLE_HELP);
+    outputLabel.getStyleClass().addAll("build-publisher-meta-line", "build-publisher-copy", "build-publisher-path");
     validationLabel.setWrapText(true);
-    validationLabel.setStyle(STYLE_HELP);
+    validationLabel.getStyleClass().addAll("build-publisher-note", "build-publisher-note-status");
     releaseConfigLabel.setWrapText(true);
-    releaseConfigLabel.setStyle(STYLE_HELP);
+    releaseConfigLabel.getStyleClass().addAll("build-publisher-meta-line", "build-publisher-copy");
     buildPlanTitleLabel.setWrapText(true);
-    buildPlanTitleLabel.setStyle(STYLE_CARD_TITLE);
+    buildPlanTitleLabel.getStyleClass().add("build-publisher-plan-title");
     buildPlanBodyLabel.setWrapText(true);
-    buildPlanBodyLabel.setStyle(STYLE_HELP);
+    buildPlanBodyLabel.getStyleClass().add("build-publisher-copy");
     buildPlanHintLabel.setWrapText(true);
-    buildPlanHintLabel.setStyle(STYLE_HELP);
+    buildPlanHintLabel.getStyleClass().addAll("build-publisher-note", "build-publisher-note-status");
     styleBadge(formatBadgeLabel);
     styleBadge(targetBadgeLabel);
     styleBadge(runtimeBadgeLabel);
     styleBadge(releaseBadgeLabel);
     statusLabel.setWrapText(true);
-    statusLabel.setStyle(STYLE_STATUS);
+    statusLabel.getStyleClass().addAll("build-publisher-note", "build-publisher-note-status");
 
     VBox projectCard = card("Game", form, manifestLabel);
 
-    HBox badgeRow = new HBox(6, formatBadgeLabel, targetBadgeLabel, runtimeBadgeLabel, releaseBadgeLabel);
+    FlowPane badgeRow = new FlowPane(6, 6, formatBadgeLabel, targetBadgeLabel, runtimeBadgeLabel, releaseBadgeLabel);
     badgeRow.setAlignment(Pos.CENTER_LEFT);
 
-    openProjectButton = button("Open Project", false);
+    openProjectButton = button("Open Project", ButtonTone.SECONDARY, false);
     openProjectButton.setOnAction(e -> openProjectFolder());
-    openReleaseConfigButton = button("Open Release Config", false);
+    openReleaseConfigButton = button("Open Release Config", ButtonTone.SECONDARY, false);
     openReleaseConfigButton.setOnAction(e -> openReleaseConfig());
-    revealRuntimeCacheButton = button("Reveal Runtime Cache", false);
+    revealRuntimeCacheButton = button("Reveal Runtime Cache", ButtonTone.SECONDARY, false);
     revealRuntimeCacheButton.setOnAction(e -> revealRuntimeCache());
-    clearRuntimeCacheButton = button("Clear Runtime Cache", false);
+    clearRuntimeCacheButton = button("Clear Runtime Cache", ButtonTone.DANGER, false);
     clearRuntimeCacheButton.setOnAction(e -> clearRuntimeCache());
 
-    HBox utilitiesRow = new HBox(8, openProjectButton, openReleaseConfigButton, revealRuntimeCacheButton, clearRuntimeCacheButton);
+    FlowPane utilitiesRow = new FlowPane(8, 8, openProjectButton, openReleaseConfigButton, revealRuntimeCacheButton, clearRuntimeCacheButton);
     utilitiesRow.setAlignment(Pos.CENTER_LEFT);
 
     VBox planCard = card("Build Plan", badgeRow, buildPlanTitleLabel, buildPlanBodyLabel, buildPlanHintLabel, outputLabel, validationLabel, releaseConfigLabel, utilitiesRow);
 
     Label buildHelp = new Label("Portable zips still need Java on the player machine. Desktop bundles include a prebuilt runtime for the selected target, so players do not need Java installed. The first bundle build for a target downloads and caches that runtime locally. Native packages use jpackage and stay host-specific.");
     buildHelp.setWrapText(true);
-    buildHelp.setStyle(STYLE_HELP);
+    buildHelp.getStyleClass().add("build-publisher-copy");
 
-    buildSelectedButton = button("Build Selected Target", true);
+    buildSelectedButton = button("Build Selected", ButtonTone.PRIMARY, false);
     buildSelectedButton.setOnAction(e -> buildSelectedTarget());
-    buildAllButton = button("Build All Targets", true);
+    buildAllButton = button("Build All Targets", ButtonTone.PRIMARY, false);
     buildAllButton.setOnAction(e -> buildAllTargets());
-    releaseButton = button("Run Release Profile", false);
+    releaseButton = button("Run Release Hooks", ButtonTone.SECONDARY, false);
     releaseButton.setOnAction(e -> runReleaseProfile());
-    copyCliButton = button("Copy CLI Command", false);
+    copyCliButton = button("Copy Build Command", ButtonTone.SECONDARY, false);
     copyCliButton.setOnAction(e -> copyCommand());
-    Button reveal = button("Reveal Builds", false);
+    Button reveal = button("Reveal Builds", ButtonTone.SECONDARY, false);
     reveal.setOnAction(e -> revealBuilds());
-    Button notes = button("Copy Publish Notes", false);
+    Button notes = button("Copy Publish Notes", ButtonTone.SECONDARY, false);
     notes.setOnAction(e -> copyPublishNotes());
 
-    HBox buildRow = new HBox(8, buildSelectedButton, buildAllButton, releaseButton, copyCliButton, reveal, notes);
+    FlowPane buildRow = new FlowPane(8, 8, buildSelectedButton, buildAllButton, releaseButton, copyCliButton, reveal, notes);
     buildRow.setAlignment(Pos.CENTER_LEFT);
-    buildRow.setFillHeight(false);
 
     VBox actionCard = card("Actions", buildHelp, buildRow, statusLabel);
 
     Label nativeNote = new Label("Desktop bundles build locally for Windows, Linux, macOS Intel, and macOS Apple Silicon. Native installers still build on the matching host OS only.");
     nativeNote.setWrapText(true);
-    nativeNote.setStyle(STYLE_HELP);
+    nativeNote.getStyleClass().add("build-publisher-copy");
 
-    VBox content = new VBox(14, header, projectCard, planCard, actionCard, nativeNote);
+    HBox topRow = new HBox(14, projectCard, planCard);
+    topRow.setAlignment(Pos.TOP_LEFT);
+    HBox.setHgrow(projectCard, Priority.ALWAYS);
+    HBox.setHgrow(planCard, Priority.ALWAYS);
+    projectCard.setMaxWidth(Double.MAX_VALUE);
+    planCard.setMaxWidth(Double.MAX_VALUE);
+
+    VBox content = new VBox(14, header, topRow, actionCard, nativeNote);
+    content.getStyleClass().add("build-publisher-content");
     content.setFillWidth(true);
-    setCenter(content);
+
+    ScrollPane scroller = new ScrollPane(content);
+    scroller.setFitToWidth(true);
+    scroller.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+    scroller.getStyleClass().add("build-publisher-scroll");
+    setCenter(scroller);
 
     nameField.textProperty().addListener((obs, oldValue, newValue) -> refreshFormState());
     versionField.textProperty().addListener((obs, oldValue, newValue) -> refreshFormState());
@@ -260,30 +261,44 @@ public class GameBuildPublisherView extends BorderPane {
 
   private Label label(String text) {
     Label label = new Label(text);
-    label.setStyle(STYLE_LABEL);
+    label.getStyleClass().add("layout-launcher-field-label");
     return label;
   }
 
-  private VBox card(String title, javafx.scene.Node... nodes) {
+  private VBox card(String title, Node... nodes) {
     Label label = new Label(title);
-    label.setStyle("-fx-text-fill: #f2f2f2; -fx-font-size: 14px; -fx-font-weight: bold;");
-    VBox box = new VBox(10);
-    box.setStyle(STYLE_CARD);
+    label.getStyleClass().add("build-publisher-card-title");
+    VBox box = new VBox(12);
+    box.getStyleClass().addAll("build-publisher-card", "layout-launcher-card");
     box.getChildren().add(label);
     box.getChildren().addAll(nodes);
     return box;
   }
 
-  private Button button(String text, boolean accent) {
+  private Button button(String text, ButtonTone tone, boolean pill) {
     Button button = new Button(text);
-    button.setStyle(accent ? STYLE_ACCENT : STYLE_BUTTON);
+    button.getStyleClass().add("build-publisher-button");
+    switch (tone) {
+      case PRIMARY -> button.getStyleClass().add("build-publisher-button-primary");
+      case DANGER -> button.getStyleClass().add("build-publisher-button-danger");
+      case SECONDARY -> button.getStyleClass().add("build-publisher-button-secondary");
+    }
+    if (pill) button.getStyleClass().add("build-publisher-button-pill");
     button.setMinHeight(34);
     return button;
   }
 
   private void styleBadge(Label label) {
-    label.setStyle(STYLE_BADGE);
+    label.getStyleClass().add("build-publisher-badge");
     label.setMinHeight(24);
+  }
+
+  private void styleField(TextField field) {
+    field.getStyleClass().add("layout-launcher-field");
+  }
+
+  private void styleField(ComboBox<?> box) {
+    box.getStyleClass().add("layout-launcher-field");
   }
 
   private void loadProject(File root) {
@@ -365,6 +380,8 @@ public class GameBuildPublisherView extends BorderPane {
     nativeTypeBox.setDisable(mode != PackageMode.NATIVE_PACKAGE);
     nativeTypeBox.setManaged(mode == PackageMode.NATIVE_PACKAGE);
     nativeTypeBox.setVisible(mode == PackageMode.NATIVE_PACKAGE);
+    nativeTypeFieldLabel.setManaged(mode == PackageMode.NATIVE_PACKAGE);
+    nativeTypeFieldLabel.setVisible(mode == PackageMode.NATIVE_PACKAGE);
 
     boolean canBuild = result != null && result.errors().isEmpty();
     if (buildSelectedButton != null) buildSelectedButton.setDisable(!canBuild);
@@ -379,22 +396,25 @@ public class GameBuildPublisherView extends BorderPane {
 
     if (result == null) {
       validationLabel.setText("");
-      validationLabel.setStyle(STYLE_HELP);
+      setNoteTone(validationLabel, "status");
       return;
     }
     if (!result.errors().isEmpty()) {
       validationLabel.setText("Blocked: " + result.errors().get(0));
-      validationLabel.setStyle(STYLE_ERROR);
+      setNoteTone(validationLabel, "error");
       statusLabel.setText("Build unavailable: " + result.errors().get(0));
+      setNoteTone(statusLabel, "error");
       return;
     }
     if (!result.warnings().isEmpty()) {
       validationLabel.setText("Warning: " + result.warnings().get(0));
-      validationLabel.setStyle(STYLE_WARN);
+      setNoteTone(validationLabel, "warn");
+      setNoteTone(statusLabel, "status");
       return;
     }
     validationLabel.setText("Validated: project, manifest, entry file, target, and output folder are ready.");
-    validationLabel.setStyle(STYLE_OK);
+    setNoteTone(validationLabel, "ok");
+    setNoteTone(statusLabel, "status");
   }
 
   private void refreshBuildPlan(ValidationResult result) {
@@ -413,20 +433,20 @@ public class GameBuildPublisherView extends BorderPane {
     String profile = selectedReleaseProfile();
     if (mode == PackageMode.NATIVE_PACKAGE && releaseConfig == null) {
       releaseBadgeLabel.setText("Unsigned");
-      releaseBadgeLabel.setStyle(STYLE_BADGE_WARN);
+      setBadgeTone(releaseBadgeLabel, "warn");
     } else if (releaseConfig == null) {
       releaseBadgeLabel.setText("No Release Config");
-      releaseBadgeLabel.setStyle(STYLE_BADGE);
+      setBadgeTone(releaseBadgeLabel, "default");
     } else {
       releaseBadgeLabel.setText("Profile " + profile);
-      releaseBadgeLabel.setStyle(STYLE_BADGE_ACCENT);
+      setBadgeTone(releaseBadgeLabel, "accent");
     }
 
-    formatBadgeLabel.setStyle(mode == PackageMode.BUNDLED_RUNTIME_ZIP ? STYLE_BADGE_ACCENT : STYLE_BADGE);
-    targetBadgeLabel.setStyle("all".equals(target == null ? "" : target.outputToken()) ? STYLE_BADGE_ACCENT : STYLE_BADGE);
-    if (result != null && !result.errors().isEmpty()) runtimeBadgeLabel.setStyle(STYLE_BADGE_ERROR);
-    else if (result != null && !result.warnings().isEmpty()) runtimeBadgeLabel.setStyle(STYLE_BADGE_WARN);
-    else runtimeBadgeLabel.setStyle(mode == PackageMode.PORTABLE_ZIP ? STYLE_BADGE : STYLE_BADGE_ACCENT);
+    setBadgeTone(formatBadgeLabel, mode == PackageMode.BUNDLED_RUNTIME_ZIP ? "accent" : "default");
+    setBadgeTone(targetBadgeLabel, "all".equals(target == null ? "" : target.outputToken()) ? "accent" : "default");
+    if (result != null && !result.errors().isEmpty()) setBadgeTone(runtimeBadgeLabel, "error");
+    else if (result != null && !result.warnings().isEmpty()) setBadgeTone(runtimeBadgeLabel, "warn");
+    else setBadgeTone(runtimeBadgeLabel, mode == PackageMode.PORTABLE_ZIP ? "default" : "accent");
   }
 
   private void refreshActionButtons(ValidationResult result) {
@@ -679,6 +699,7 @@ public class GameBuildPublisherView extends BorderPane {
     BuildTaskSelection selection = releaseTaskForSelection();
     if (selection == null) {
       statusLabel.setText("Release profile needs a single selected artifact, not an all-target build.");
+      setNoteTone(statusLabel, "warn");
       return;
     }
     List<String> args = buildGradleArgs();
@@ -686,6 +707,7 @@ public class GameBuildPublisherView extends BorderPane {
       onBuildRequested.accept(new BuildRequest(selection.taskName(), args.toArray(String[]::new), selection.title()));
     }
     statusLabel.setText("Started " + selection.title() + ".");
+    setNoteTone(statusLabel, "status");
   }
 
   private void buildTask(String taskName, String title) {
@@ -695,12 +717,14 @@ public class GameBuildPublisherView extends BorderPane {
       onBuildRequested.accept(new BuildRequest(taskName, args.toArray(String[]::new), title));
     }
     statusLabel.setText("Started " + title + ".");
+    setNoteTone(statusLabel, "status");
   }
 
   private boolean canBuild() {
     ValidationResult result = refreshFormState();
     if (result.errors().isEmpty()) return true;
     statusLabel.setText("Build unavailable: " + result.errors().get(0));
+    setNoteTone(statusLabel, "error");
     return false;
   }
 
@@ -736,6 +760,7 @@ public class GameBuildPublisherView extends BorderPane {
     content.putString(cmd.toString());
     Clipboard.getSystemClipboard().setContent(content);
     statusLabel.setText("Copied build command.");
+    setNoteTone(statusLabel, "status");
   }
 
   private void copyPublishNotes() {
@@ -765,6 +790,7 @@ public class GameBuildPublisherView extends BorderPane {
     content.putString(notes.toString());
     Clipboard.getSystemClipboard().setContent(content);
     statusLabel.setText("Copied publish notes.");
+    setNoteTone(statusLabel, "status");
   }
 
   private void revealBuilds() {
@@ -773,8 +799,10 @@ public class GameBuildPublisherView extends BorderPane {
       if (!outDir.exists()) outDir.mkdirs();
       Desktop.getDesktop().open(outDir);
       statusLabel.setText("Opened build output folder.");
+      setNoteTone(statusLabel, "status");
     } catch (Exception ex) {
       statusLabel.setText("Could not open build folder: " + ex.getMessage());
+      setNoteTone(statusLabel, "error");
     }
   }
 
@@ -783,8 +811,10 @@ public class GameBuildPublisherView extends BorderPane {
     try {
       Desktop.getDesktop().open(projectRoot);
       statusLabel.setText("Opened project folder.");
+      setNoteTone(statusLabel, "status");
     } catch (Exception ex) {
       statusLabel.setText("Could not open project folder: " + ex.getMessage());
+      setNoteTone(statusLabel, "error");
     }
   }
 
@@ -792,13 +822,16 @@ public class GameBuildPublisherView extends BorderPane {
     File config = findReleaseConfig(projectRoot);
     if (config == null) {
       statusLabel.setText("No release config file found.");
+      setNoteTone(statusLabel, "warn");
       return;
     }
     try {
       Desktop.getDesktop().open(config);
       statusLabel.setText("Opened release config.");
+      setNoteTone(statusLabel, "status");
     } catch (Exception ex) {
       statusLabel.setText("Could not open release config: " + ex.getMessage());
+      setNoteTone(statusLabel, "error");
     }
   }
 
@@ -810,8 +843,10 @@ public class GameBuildPublisherView extends BorderPane {
       if (!extractDir.exists()) extractDir.mkdirs();
       Desktop.getDesktop().open(cacheDir);
       statusLabel.setText("Opened runtime cache folder.");
+      setNoteTone(statusLabel, "status");
     } catch (Exception ex) {
       statusLabel.setText("Could not open runtime cache: " + ex.getMessage());
+      setNoteTone(statusLabel, "error");
     }
   }
 
@@ -819,6 +854,7 @@ public class GameBuildPublisherView extends BorderPane {
     if (workspaceRoot == null || onBuildRequested == null) return;
     onBuildRequested.accept(new BuildRequest("clearJvnBundledRuntimeCache", new String[0], "Clear Desktop Runtime Cache"));
     statusLabel.setText("Started runtime cache cleanup.");
+    setNoteTone(statusLabel, "status");
   }
 
   private void applyPreset(PackageMode mode, String targetToken) {
@@ -828,7 +864,36 @@ public class GameBuildPublisherView extends BorderPane {
       nativeTypeBox.getSelectionModel().selectFirst();
     }
     statusLabel.setText("Preset applied: " + mode + ".");
+    setNoteTone(statusLabel, "status");
     refreshFormState();
+  }
+
+  private void setNoteTone(Label label, String tone) {
+    label.getStyleClass().removeAll(
+        "build-publisher-note-ok",
+        "build-publisher-note-warn",
+        "build-publisher-note-error",
+        "build-publisher-note-status");
+    label.getStyleClass().add(switch (tone) {
+      case "ok" -> "build-publisher-note-ok";
+      case "warn" -> "build-publisher-note-warn";
+      case "error" -> "build-publisher-note-error";
+      default -> "build-publisher-note-status";
+    });
+  }
+
+  private void setBadgeTone(Label label, String tone) {
+    label.getStyleClass().removeAll(
+        "build-publisher-badge-accent",
+        "build-publisher-badge-warn",
+        "build-publisher-badge-error");
+    switch (tone) {
+      case "accent" -> label.getStyleClass().add("build-publisher-badge-accent");
+      case "warn" -> label.getStyleClass().add("build-publisher-badge-warn");
+      case "error" -> label.getStyleClass().add("build-publisher-badge-error");
+      default -> {
+      }
+    }
   }
 
   private void selectTargetByToken(String targetToken) {
@@ -1189,5 +1254,11 @@ public class GameBuildPublisherView extends BorderPane {
     public String toString() {
       return label;
     }
+  }
+
+  private enum ButtonTone {
+    PRIMARY,
+    SECONDARY,
+    DANGER
   }
 }
