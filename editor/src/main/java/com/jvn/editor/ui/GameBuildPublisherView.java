@@ -39,26 +39,45 @@ public class GameBuildPublisherView extends BorderPane {
   private final ComboBox<TargetChoice> targetBox = new ComboBox<>();
   private final ComboBox<PackageMode> formatBox = new ComboBox<>();
   private final ComboBox<NativeTypeChoice> nativeTypeBox = new ComboBox<>();
-  private final TextField releaseProfileField = new TextField();
+  private final ComboBox<String> releaseProfileBox = new ComboBox<>();
   private final Label manifestLabel = new Label();
   private final Label outputLabel = new Label();
   private final Label validationLabel = new Label();
   private final Label releaseConfigLabel = new Label();
+  private final Label buildPlanTitleLabel = new Label();
+  private final Label buildPlanBodyLabel = new Label();
+  private final Label buildPlanHintLabel = new Label();
+  private final Label formatBadgeLabel = new Label();
+  private final Label targetBadgeLabel = new Label();
+  private final Label runtimeBadgeLabel = new Label();
+  private final Label releaseBadgeLabel = new Label();
   private final Label statusLabel = new Label();
   private Button buildSelectedButton;
   private Button buildAllButton;
   private Button releaseButton;
   private Button copyCliButton;
+  private Button openProjectButton;
+  private Button openReleaseConfigButton;
+  private Button revealRuntimeCacheButton;
+  private Button clearRuntimeCacheButton;
+  private Button presetPortableButton;
+  private Button presetDesktopButton;
+  private Button presetNativeButton;
 
   private static final String STYLE_PANEL = "-fx-background-color: #111; -fx-padding: 18;";
   private static final String STYLE_CARD = "-fx-background-color: #151515; -fx-border-color: #303030; -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 14;";
   private static final String STYLE_TITLE = "-fx-text-fill: #f2f2f2; -fx-font-size: 20px; -fx-font-weight: bold;";
+  private static final String STYLE_CARD_TITLE = "-fx-text-fill: #f2f2f2; -fx-font-size: 17px; -fx-font-weight: bold;";
   private static final String STYLE_SUBTITLE = "-fx-text-fill: #a7a7a7; -fx-font-size: 12px;";
   private static final String STYLE_LABEL = "-fx-text-fill: #d8d8d8; -fx-font-size: 12px; -fx-font-weight: bold;";
   private static final String STYLE_HELP = "-fx-text-fill: #9d9d9d; -fx-font-size: 12px;";
   private static final String STYLE_FIELD = "-fx-background-color: #0f0f0f; -fx-text-fill: #f2f2f2; -fx-prompt-text-fill: #777; -fx-border-color: #3a3a3a; -fx-border-radius: 6; -fx-background-radius: 6;";
   private static final String STYLE_BUTTON = "-fx-background-color: #202020; -fx-text-fill: #f0f0f0; -fx-border-color: #444; -fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 8 12;";
   private static final String STYLE_ACCENT = "-fx-background-color: #2f6f4e; -fx-text-fill: #f4fff7; -fx-border-color: #5dbb83; -fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 8 12; -fx-font-weight: bold;";
+  private static final String STYLE_BADGE = "-fx-background-color: #1b1b1b; -fx-text-fill: #d8d8d8; -fx-border-color: #383838; -fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 4 9; -fx-font-size: 11px; -fx-font-weight: bold;";
+  private static final String STYLE_BADGE_ACCENT = "-fx-background-color: #163a2a; -fx-text-fill: #dff9ea; -fx-border-color: #3f9b6b; -fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 4 9; -fx-font-size: 11px; -fx-font-weight: bold;";
+  private static final String STYLE_BADGE_WARN = "-fx-background-color: #3b2b12; -fx-text-fill: #ffd58f; -fx-border-color: #b8873b; -fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 4 9; -fx-font-size: 11px; -fx-font-weight: bold;";
+  private static final String STYLE_BADGE_ERROR = "-fx-background-color: #3a1f1f; -fx-text-fill: #ffb3b3; -fx-border-color: #c45f5f; -fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 4 9; -fx-font-size: 11px; -fx-font-weight: bold;";
   private static final String STYLE_STATUS = "-fx-text-fill: #f2c26b; -fx-font-size: 12px;";
   private static final String STYLE_OK = "-fx-text-fill: #8fd694; -fx-font-size: 12px;";
   private static final String STYLE_WARN = "-fx-text-fill: #f2c26b; -fx-font-size: 12px;";
@@ -85,7 +104,23 @@ public class GameBuildPublisherView extends BorderPane {
     subtitle.setWrapText(true);
     subtitle.setStyle(STYLE_SUBTITLE);
 
-    VBox header = new VBox(4, title, subtitle);
+    Label quickModesLabel = new Label("Quick Modes");
+    quickModesLabel.setStyle(STYLE_LABEL);
+    Label quickModesHelp = new Label("Switch the popup to the most common release flows without re-entering the whole plan.");
+    quickModesHelp.setWrapText(true);
+    quickModesHelp.setStyle(STYLE_HELP);
+
+    presetPortableButton = button("Current Portable", false);
+    presetPortableButton.setOnAction(e -> applyPreset(PackageMode.PORTABLE_ZIP, currentTargetToken()));
+    presetDesktopButton = button("Desktop Bundles", false);
+    presetDesktopButton.setOnAction(e -> applyPreset(PackageMode.BUNDLED_RUNTIME_ZIP, "all"));
+    presetNativeButton = button("Native Current", false);
+    presetNativeButton.setOnAction(e -> applyPreset(PackageMode.NATIVE_PACKAGE, currentTargetToken()));
+
+    HBox presetRow = new HBox(8, presetPortableButton, presetDesktopButton, presetNativeButton);
+    presetRow.setAlignment(Pos.CENTER_LEFT);
+
+    VBox header = new VBox(4, title, subtitle, quickModesLabel, quickModesHelp, presetRow);
 
     projectField.setEditable(false);
     projectField.setStyle(STYLE_FIELD);
@@ -116,8 +151,10 @@ public class GameBuildPublisherView extends BorderPane {
     nativeTypeBox.setStyle(STYLE_FIELD);
     nativeTypeBox.setMaxWidth(Double.MAX_VALUE);
 
-    releaseProfileField.setPromptText("default");
-    releaseProfileField.setStyle(STYLE_FIELD);
+    releaseProfileBox.setEditable(true);
+    releaseProfileBox.setStyle(STYLE_FIELD);
+    releaseProfileBox.setMaxWidth(Double.MAX_VALUE);
+    releaseProfileBox.getEditor().setPromptText("default");
 
     GridPane form = new GridPane();
     form.setHgap(10);
@@ -135,7 +172,7 @@ public class GameBuildPublisherView extends BorderPane {
     form.add(label("Native Type"), 0, 5);
     form.add(nativeTypeBox, 1, 5);
     form.add(label("Release Profile"), 0, 6);
-    form.add(releaseProfileField, 1, 6);
+    form.add(releaseProfileBox, 1, 6);
     form.getColumnConstraints().add(new javafx.scene.layout.ColumnConstraints(120));
     javafx.scene.layout.ColumnConstraints fill = new javafx.scene.layout.ColumnConstraints();
     fill.setHgrow(Priority.ALWAYS);
@@ -149,10 +186,37 @@ public class GameBuildPublisherView extends BorderPane {
     validationLabel.setStyle(STYLE_HELP);
     releaseConfigLabel.setWrapText(true);
     releaseConfigLabel.setStyle(STYLE_HELP);
+    buildPlanTitleLabel.setWrapText(true);
+    buildPlanTitleLabel.setStyle(STYLE_CARD_TITLE);
+    buildPlanBodyLabel.setWrapText(true);
+    buildPlanBodyLabel.setStyle(STYLE_HELP);
+    buildPlanHintLabel.setWrapText(true);
+    buildPlanHintLabel.setStyle(STYLE_HELP);
+    styleBadge(formatBadgeLabel);
+    styleBadge(targetBadgeLabel);
+    styleBadge(runtimeBadgeLabel);
+    styleBadge(releaseBadgeLabel);
     statusLabel.setWrapText(true);
     statusLabel.setStyle(STYLE_STATUS);
 
-    VBox projectCard = card("Game", form, manifestLabel, outputLabel, validationLabel, releaseConfigLabel);
+    VBox projectCard = card("Game", form, manifestLabel);
+
+    HBox badgeRow = new HBox(6, formatBadgeLabel, targetBadgeLabel, runtimeBadgeLabel, releaseBadgeLabel);
+    badgeRow.setAlignment(Pos.CENTER_LEFT);
+
+    openProjectButton = button("Open Project", false);
+    openProjectButton.setOnAction(e -> openProjectFolder());
+    openReleaseConfigButton = button("Open Release Config", false);
+    openReleaseConfigButton.setOnAction(e -> openReleaseConfig());
+    revealRuntimeCacheButton = button("Reveal Runtime Cache", false);
+    revealRuntimeCacheButton.setOnAction(e -> revealRuntimeCache());
+    clearRuntimeCacheButton = button("Clear Runtime Cache", false);
+    clearRuntimeCacheButton.setOnAction(e -> clearRuntimeCache());
+
+    HBox utilitiesRow = new HBox(8, openProjectButton, openReleaseConfigButton, revealRuntimeCacheButton, clearRuntimeCacheButton);
+    utilitiesRow.setAlignment(Pos.CENTER_LEFT);
+
+    VBox planCard = card("Build Plan", badgeRow, buildPlanTitleLabel, buildPlanBodyLabel, buildPlanHintLabel, outputLabel, validationLabel, releaseConfigLabel, utilitiesRow);
 
     Label buildHelp = new Label("Portable zips still need Java on the player machine. Desktop bundles include a prebuilt runtime for the selected target, so players do not need Java installed. The first bundle build for a target downloads and caches that runtime locally. Native packages use jpackage and stay host-specific.");
     buildHelp.setWrapText(true);
@@ -181,7 +245,7 @@ public class GameBuildPublisherView extends BorderPane {
     nativeNote.setWrapText(true);
     nativeNote.setStyle(STYLE_HELP);
 
-    VBox content = new VBox(14, header, projectCard, actionCard, nativeNote);
+    VBox content = new VBox(14, header, projectCard, planCard, actionCard, nativeNote);
     content.setFillWidth(true);
     setCenter(content);
 
@@ -190,7 +254,8 @@ public class GameBuildPublisherView extends BorderPane {
     targetBox.valueProperty().addListener((obs, oldValue, newValue) -> refreshFormState());
     formatBox.valueProperty().addListener((obs, oldValue, newValue) -> refreshFormState());
     nativeTypeBox.valueProperty().addListener((obs, oldValue, newValue) -> refreshFormState());
-    releaseProfileField.textProperty().addListener((obs, oldValue, newValue) -> refreshFormState());
+    releaseProfileBox.valueProperty().addListener((obs, oldValue, newValue) -> refreshFormState());
+    releaseProfileBox.getEditor().textProperty().addListener((obs, oldValue, newValue) -> refreshFormState());
   }
 
   private Label label(String text) {
@@ -216,13 +281,19 @@ public class GameBuildPublisherView extends BorderPane {
     return button;
   }
 
+  private void styleBadge(Label label) {
+    label.setStyle(STYLE_BADGE);
+    label.setMinHeight(24);
+  }
+
   private void loadProject(File root) {
     projectField.setText(root == null ? "" : root.getAbsolutePath());
     Properties manifest = loadManifest(root);
+    releaseProfileBox.getItems().setAll(availableReleaseProfiles(root));
     if (manifest == null) {
       nameField.setText(root == null ? "" : root.getName());
       versionField.setText("0.1.0");
-      releaseProfileField.setText(defaultReleaseProfile(root));
+      setReleaseProfileSelection(defaultReleaseProfile(root));
       releaseConfigLabel.setText(releaseConfigText(root));
       manifestLabel.setText("No jvn.project found. Choose a JVN game project before building.");
       statusLabel.setText("Build unavailable: missing jvn.project.");
@@ -238,7 +309,7 @@ public class GameBuildPublisherView extends BorderPane {
         "0.1.0");
     nameField.setText(name.isBlank() ? root.getName() : name);
     versionField.setText(version);
-    releaseProfileField.setText(defaultReleaseProfile(root));
+    setReleaseProfileSelection(defaultReleaseProfile(root));
     releaseConfigLabel.setText(releaseConfigText(root));
     manifestLabel.setText("Manifest: type=" + manifest.getProperty("type", "vn")
         + "  " + manifestEntryText(manifest)
@@ -246,6 +317,15 @@ public class GameBuildPublisherView extends BorderPane {
         + "  runtime.audio=" + manifest.getProperty("runtime.audio", "auto"));
     statusLabel.setText("Ready to build " + nameField.getText() + ".");
     refreshFormState();
+  }
+
+  private void setReleaseProfileSelection(String profile) {
+    String value = profile == null || profile.isBlank() ? "default" : profile.trim();
+    if (!releaseProfileBox.getItems().contains(value)) {
+      releaseProfileBox.getItems().add(value);
+    }
+    releaseProfileBox.setValue(value);
+    releaseProfileBox.getEditor().setText(value);
   }
 
   private Properties loadManifest(File root) {
@@ -273,6 +353,9 @@ public class GameBuildPublisherView extends BorderPane {
     refreshOutputPreview();
     ValidationResult result = validateForm();
     applyValidation(result);
+    refreshBuildPlan(result);
+    refreshActionButtons(result);
+    refreshUtilityButtons(result);
     return result;
   }
 
@@ -280,10 +363,16 @@ public class GameBuildPublisherView extends BorderPane {
     PackageMode mode = selectedPackageMode();
     boolean supportsBuildAll = mode != PackageMode.NATIVE_PACKAGE;
     nativeTypeBox.setDisable(mode != PackageMode.NATIVE_PACKAGE);
+    nativeTypeBox.setManaged(mode == PackageMode.NATIVE_PACKAGE);
+    nativeTypeBox.setVisible(mode == PackageMode.NATIVE_PACKAGE);
 
     boolean canBuild = result != null && result.errors().isEmpty();
     if (buildSelectedButton != null) buildSelectedButton.setDisable(!canBuild);
     if (buildAllButton != null) buildAllButton.setDisable(!canBuild || !supportsBuildAll);
+    if (buildAllButton != null) {
+      buildAllButton.setManaged(supportsBuildAll);
+      buildAllButton.setVisible(supportsBuildAll);
+    }
     boolean canRelease = canBuild && releaseTaskForSelection() != null;
     if (releaseButton != null) releaseButton.setDisable(!canRelease);
     if (copyCliButton != null) copyCliButton.setDisable(!canBuild);
@@ -306,6 +395,67 @@ public class GameBuildPublisherView extends BorderPane {
     }
     validationLabel.setText("Validated: project, manifest, entry file, target, and output folder are ready.");
     validationLabel.setStyle(STYLE_OK);
+  }
+
+  private void refreshBuildPlan(ValidationResult result) {
+    PackageMode mode = selectedPackageMode();
+    TargetChoice target = targetBox.getValue();
+    String targetText = target == null ? "No target selected" : target.label();
+    buildPlanTitleLabel.setText(selectionTitle(mode, target));
+    buildPlanBodyLabel.setText(selectionBody(mode, target));
+    buildPlanHintLabel.setText(selectionHint(mode, target, result));
+
+    formatBadgeLabel.setText(mode.toString());
+    targetBadgeLabel.setText(targetText);
+    runtimeBadgeLabel.setText(mode == PackageMode.PORTABLE_ZIP ? "Java 21 Required" : "Java Bundled");
+
+    File releaseConfig = findReleaseConfig(projectRoot);
+    String profile = selectedReleaseProfile();
+    if (mode == PackageMode.NATIVE_PACKAGE && releaseConfig == null) {
+      releaseBadgeLabel.setText("Unsigned");
+      releaseBadgeLabel.setStyle(STYLE_BADGE_WARN);
+    } else if (releaseConfig == null) {
+      releaseBadgeLabel.setText("No Release Config");
+      releaseBadgeLabel.setStyle(STYLE_BADGE);
+    } else {
+      releaseBadgeLabel.setText("Profile " + profile);
+      releaseBadgeLabel.setStyle(STYLE_BADGE_ACCENT);
+    }
+
+    formatBadgeLabel.setStyle(mode == PackageMode.BUNDLED_RUNTIME_ZIP ? STYLE_BADGE_ACCENT : STYLE_BADGE);
+    targetBadgeLabel.setStyle("all".equals(target == null ? "" : target.outputToken()) ? STYLE_BADGE_ACCENT : STYLE_BADGE);
+    if (result != null && !result.errors().isEmpty()) runtimeBadgeLabel.setStyle(STYLE_BADGE_ERROR);
+    else if (result != null && !result.warnings().isEmpty()) runtimeBadgeLabel.setStyle(STYLE_BADGE_WARN);
+    else runtimeBadgeLabel.setStyle(mode == PackageMode.PORTABLE_ZIP ? STYLE_BADGE : STYLE_BADGE_ACCENT);
+  }
+
+  private void refreshActionButtons(ValidationResult result) {
+    BuildTaskSelection buildSelection = buildTaskForSelection();
+    if (buildSelectedButton != null) {
+      buildSelectedButton.setText(buildSelection == null ? "Build Selected" : buildActionLabel(buildSelection));
+    }
+    if (buildAllButton != null) {
+      buildAllButton.setText(switch (selectedPackageMode()) {
+        case PORTABLE_ZIP -> "Build All Portable Targets";
+        case BUNDLED_RUNTIME_ZIP -> "Build All Desktop Bundles";
+        case NATIVE_PACKAGE -> "Build All";
+      });
+    }
+    BuildTaskSelection releaseSelection = releaseTaskForSelection();
+    if (releaseButton != null) {
+      releaseButton.setText(releaseSelection == null ? "Run Release Profile" : releaseActionLabel(releaseSelection));
+    }
+    if (copyCliButton != null) {
+      copyCliButton.setText(result != null && result.errors().isEmpty() ? "Copy Build Command" : "Copy CLI Command");
+    }
+  }
+
+  private void refreshUtilityButtons(ValidationResult result) {
+    if (openProjectButton != null) openProjectButton.setDisable(projectRoot == null || !projectRoot.isDirectory());
+    if (openReleaseConfigButton != null) openReleaseConfigButton.setDisable(findReleaseConfig(projectRoot) == null);
+    boolean allowCache = workspaceRoot != null && workspaceRoot.isDirectory();
+    if (revealRuntimeCacheButton != null) revealRuntimeCacheButton.setDisable(!allowCache);
+    if (clearRuntimeCacheButton != null) clearRuntimeCacheButton.setDisable(!allowCache || (result != null && !result.errors().isEmpty() && selectedPackageMode() == PackageMode.NATIVE_PACKAGE));
   }
 
   private ValidationResult validateForm() {
@@ -452,6 +602,67 @@ public class GameBuildPublisherView extends BorderPane {
     buildTask(selection.taskName(), selection.title());
   }
 
+  private String selectionTitle(PackageMode mode, TargetChoice target) {
+    if (target == null) return "Choose a target and format";
+    return switch (mode) {
+      case PORTABLE_ZIP -> "Portable zip for " + target.label();
+      case BUNDLED_RUNTIME_ZIP -> "Desktop bundle for " + target.label();
+      case NATIVE_PACKAGE -> {
+        NativeTypeChoice nativeType = nativeTypeBox.getValue();
+        String nativeLabel = nativeType == null ? "native package" : nativeType.label().toLowerCase(Locale.ROOT);
+        yield nativeLabel.substring(0, 1).toUpperCase(Locale.ROOT) + nativeLabel.substring(1) + " for " + target.label();
+      }
+    };
+  }
+
+  private String selectionBody(PackageMode mode, TargetChoice target) {
+    if (target == null) return "Pick a build target to see the release plan.";
+    return switch (mode) {
+      case PORTABLE_ZIP -> "Fastest export path. Good for internal drops and teams that already control the Java runtime.";
+      case BUNDLED_RUNTIME_ZIP -> {
+        if ("all".equals(target.outputToken())) {
+          yield "Builds the full desktop-bundle set so the game is ready to upload for Windows, Linux, and both macOS variants.";
+        }
+        yield "Self-contained build with a packaged runtime for " + target.label() + ". Players can unzip and launch without installing Java.";
+      }
+      case NATIVE_PACKAGE -> "Host-native installer path with release-profile support for signing, notarization, and publish hooks.";
+    };
+  }
+
+  private String selectionHint(PackageMode mode, TargetChoice target, ValidationResult result) {
+    if (result != null && !result.errors().isEmpty()) {
+      return "Resolve the blocking issue above before starting the build.";
+    }
+    if (result != null && !result.warnings().isEmpty()) {
+      return "Current note: " + result.warnings().get(0);
+    }
+    if (target == null) return "No target selected.";
+    String targetDescription = target.description();
+    return switch (mode) {
+      case PORTABLE_ZIP -> targetDescription;
+      case BUNDLED_RUNTIME_ZIP -> "all".equals(target.outputToken())
+          ? "First bundle builds may download and verify runtimes for each target, then reuse the local cache."
+          : targetDescription + " The first build for this target downloads and verifies its runtime cache.";
+      case NATIVE_PACKAGE -> targetDescription + " Release hooks only run for a single selected artifact.";
+    };
+  }
+
+  private String buildActionLabel(BuildTaskSelection selection) {
+    String title = selection.title();
+    if (title.startsWith("Build Game - ")) {
+      return title.replace("Build Game - ", "Build ");
+    }
+    return title;
+  }
+
+  private String releaseActionLabel(BuildTaskSelection selection) {
+    String title = selection.title();
+    if (title.startsWith("Release Game - ")) {
+      return title.replace("Release Game - ", "Release ");
+    }
+    return title;
+  }
+
   private void buildAllTargets() {
     if (!canBuild()) return;
     BuildTaskSelection selection = switch (selectedPackageMode()) {
@@ -567,13 +778,76 @@ public class GameBuildPublisherView extends BorderPane {
     }
   }
 
+  private void openProjectFolder() {
+    if (projectRoot == null || !projectRoot.isDirectory()) return;
+    try {
+      Desktop.getDesktop().open(projectRoot);
+      statusLabel.setText("Opened project folder.");
+    } catch (Exception ex) {
+      statusLabel.setText("Could not open project folder: " + ex.getMessage());
+    }
+  }
+
+  private void openReleaseConfig() {
+    File config = findReleaseConfig(projectRoot);
+    if (config == null) {
+      statusLabel.setText("No release config file found.");
+      return;
+    }
+    try {
+      Desktop.getDesktop().open(config);
+      statusLabel.setText("Opened release config.");
+    } catch (Exception ex) {
+      statusLabel.setText("Could not open release config: " + ex.getMessage());
+    }
+  }
+
+  private void revealRuntimeCache() {
+    File cacheDir = new File(workspaceRoot == null ? new File(".") : workspaceRoot, "build/downloads/jvnRuntime");
+    File extractDir = new File(workspaceRoot == null ? new File(".") : workspaceRoot, "build/vendor-runtimes");
+    try {
+      if (!cacheDir.exists()) cacheDir.mkdirs();
+      if (!extractDir.exists()) extractDir.mkdirs();
+      Desktop.getDesktop().open(cacheDir);
+      statusLabel.setText("Opened runtime cache folder.");
+    } catch (Exception ex) {
+      statusLabel.setText("Could not open runtime cache: " + ex.getMessage());
+    }
+  }
+
+  private void clearRuntimeCache() {
+    if (workspaceRoot == null || onBuildRequested == null) return;
+    onBuildRequested.accept(new BuildRequest("clearJvnBundledRuntimeCache", new String[0], "Clear Desktop Runtime Cache"));
+    statusLabel.setText("Started runtime cache cleanup.");
+  }
+
+  private void applyPreset(PackageMode mode, String targetToken) {
+    formatBox.getSelectionModel().select(mode);
+    selectTargetByToken(targetToken);
+    if (mode == PackageMode.NATIVE_PACKAGE) {
+      nativeTypeBox.getSelectionModel().selectFirst();
+    }
+    statusLabel.setText("Preset applied: " + mode + ".");
+    refreshFormState();
+  }
+
+  private void selectTargetByToken(String targetToken) {
+    if (targetToken == null || targetToken.isBlank()) return;
+    for (TargetChoice choice : targetBox.getItems()) {
+      if (targetToken.equals(choice.outputToken())) {
+        targetBox.getSelectionModel().select(choice);
+        return;
+      }
+    }
+  }
+
   private PackageMode selectedPackageMode() {
     PackageMode mode = formatBox.getValue();
     return mode == null ? PackageMode.PORTABLE_ZIP : mode;
   }
 
   private String selectedReleaseProfile() {
-    String value = releaseProfileField.getText();
+    String value = releaseProfileBox.isEditable() ? releaseProfileBox.getEditor().getText() : releaseProfileBox.getValue();
     return value == null || value.trim().isBlank() ? "default" : value.trim();
   }
 
