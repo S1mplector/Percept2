@@ -18,6 +18,7 @@ This page explains:
 ## Read This Next
 
 - Need the full docs map: [Documentation Index](../../INDEX.md)
+- Need the editor docs hub: [JVN Editor Docs](../README.md)
 - Need a beginner route through JVN: [Choose Your Path in JVN](../../guides/choose-your-path.md)
 - Need editor or launcher preferences: [Editor And Launcher Settings](settings.md)
 - Need sidebar tool coverage: [Sidebar Utilities Overview](../sidebars/overview/sidebar-utilities.md)
@@ -44,7 +45,7 @@ Launch command:
 
 ### Top bar
 
-- Menus: `File`, `Edit`, `Code`, `Project`, `Version Control`, `Help`
+- Menus: `File`, `Edit`, `View`, `Navigate`, `Run`, `Build`, `Tools`, `Version Control`, `Window`, `Help`
 - Main actions: `Open`, `Save`, `Undo`, `Redo`, `Apply Code`, `Fullscreen`
 - Status + performance strip (CPU/GPU/RAM/FPS)
 - `Cmd/Ctrl+,` opens Editor Settings.
@@ -120,6 +121,7 @@ Build actions stay disabled until the selected project is packageable. The valid
 Portable zips and desktop bundles can target any supported desktop platform from the popup. The first desktop-bundle build for a target downloads and verifies a packaged runtime, then reuses the local cache on later builds. Native packages remain host-only, so the popup requires the **Current machine** target for that mode. The **Run Release Profile** action builds the selected artifact and then runs any configured signing, notarization, and publish hooks from the game's release profile.
 
 For CLI usage and target details, see [Build System](../../project-setup/release/build-system.md).
+For the format chooser and shipping guidance, see [JVN Build And Release Docs](../../project-setup/release/README.md).
 
 Related preferences live in [Editor And Launcher Settings](settings.md):
 
@@ -128,6 +130,18 @@ Related preferences live in [Editor And Launcher Settings](settings.md):
 - runtime performance HUD on project launch
 - default Gradle `-x test` behavior when `jvn.project` does not define `args`
 - sidebar panel default placement and chooser visibility
+
+## Tool Access Patterns
+
+The editor now exposes most tooling through more than one route so teams can keep a stable workflow even when the sidebar layout changes:
+
+- **Sidebar chooser (`+`)** for persistent left/right panel placement
+- **View -> Panels** for panel-first navigation
+- **Navigate** for quick jumps to the same tools
+- **Tools** for task-oriented grouping
+- **Window -> Open Tool Window** for floating utility windows such as Storyboard Overlay
+
+This matters for newer workflow-critical utilities such as **Build & Publish...**, **Storyboard Overlay**, **Version Control**, and **Puppeteer Launcher**, because they can be reopened from the menu system even when their sidebar tab is closed.
 
 ## Supported Editing Modes
 

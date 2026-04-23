@@ -13,7 +13,11 @@ The Storyboard Overlay is a sidebar panel that scans a storyboard folder, lists 
 - **Default side:** Right
 - **Tab name:** Storyboard Overlay
 - **Panel chooser entry:** Storyboard Overlay
-- **Also accessible via:** `View > Panels > Storyboard Overlay` or `Tools > Storyboard Overlay`
+- **Also accessible via:**
+  - `View > Panels > Visual Tools > Storyboard Overlay`
+  - `Navigate > Visual Tools > Storyboard Overlay`
+  - `Tools > Layout & UI > Storyboard Overlay`
+  - `Window > Open Tool Window > Storyboard Overlay`
 
 ---
 
@@ -50,6 +54,15 @@ The Storyboard Overlay is a sidebar panel that scans a storyboard folder, lists 
 - **Filter field** — live case-insensitive substring match on filenames
 - **Frame list** — scrollable list with filename-first rows and the parent folder path underneath
 - Click to select; the selected frame is composited over the preview
+
+Keyboard support:
+
+- `Down` from the filter field moves focus into the frame list
+- `Enter` from the filter field selects the only remaining result
+- `Esc` in the filter field clears the filter
+- `Cmd/Ctrl+F` in the frame list jumps back to the filter field
+- `Enter` on a selected frame reveals it in the OS
+- `Left` / `Right` step to the previous or next frame
 
 ### 3. Preview & Controls
 
@@ -109,6 +122,12 @@ The overlay communicates with the preview via a `StoryboardOverlayState` callbac
 - **Enabled** — whether the overlay should be drawn
 
 The preview renderer receives this state and composites the overlay image behind the scene content at the configured opacity, scaled to fit the project's target resolution.
+
+## Matching Behavior
+
+When **Follow active scene** is enabled, the panel scores available storyboard frames against the active JES or VNS file using filename and path tokens. The goal is not strict naming magic; it is to get the likely frame into view quickly enough that staging work stays fluid.
+
+Use **Jump To Match** when you want to resync the frame list manually without changing the follow behavior.
 
 ---
 

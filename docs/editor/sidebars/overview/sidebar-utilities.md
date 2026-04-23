@@ -4,7 +4,7 @@ Complete reference for all 17 documented sidebar panels available in the JVN edi
 
 Panels can be added to either the left or right sidebar via the **+** tab. Each panel is independently closable and repositionable.
 
-Source: `editor/src/main/java/com/jvn/editor/EditorApp.java` (panel chooser at lines 1880–1955)
+Source: `editor/src/main/java/com/jvn/editor/EditorApp.java`
 
 ---
 
@@ -17,8 +17,10 @@ Use this page when you know the editor has a sidebar tool for something, but you
 If you only need a quick answer:
 
 - Need to browse files or run the project: **Project Explorer**
+- Need to package a game or reopen release tooling: **Project Explorer** -> root **Build** button, then **Build & Publish...**
 - Need live VNS problems: **VNS Diagnostics**
 - Need to launch or reopen animation work: **Puppeteer Launcher**
+- Need storyboard continuity while staging a shot: **Storyboard Overlay**
 - Need layered character inspection: **Layered Image Visualizer**
 - Need attribute-based character assembly: **Image Attributes Tool**
 - Need lighting, grading, and stage presets: **Scene Lighting Studio**
@@ -65,6 +67,13 @@ If you only need a quick answer:
    minus to remove it from the sidebars
 4. Close regular sidebar tabs with the tab **×** button (`Project` stays pinned)
 
+Most panels are also reachable from the menu bar:
+
+- **View -> Panels**
+- **Navigate**
+- **Tools**
+- **Window -> Open Tool Window**
+
 ---
 
 ## Fullscreen Mode (Image Tools)
@@ -92,6 +101,7 @@ Several sidebar utilities persist their state in the project's `.jvn/` directory
 | Phone Assets | `.jvn/phone-assets-tool.properties` |
 | Image Attributes Tool | `.jvn/image-attributes-tool.properties` |
 | Scene Lighting Studio | `.jvn/image-tint-tool.properties` |
+| Storyboard Overlay | `.jvn/storyboard-overlay.properties` |
 | Story Timeline | `.jvn/story-timeline.txt` |
 | Version Control | Git state (`.git/`) |
 

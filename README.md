@@ -6,6 +6,12 @@
 
 JVN is a modular cross-platform Visual Novel engine written in Java.
 
+Docs entrypoints:
+
+- [Documentation Index](docs/INDEX.md)
+- [JVN Editor Docs](docs/editor/README.md)
+- [JVN Build And Release Docs](docs/project-setup/release/README.md)
+
 ## Architecture
 
 JVN is designed to be lightweight and predictable under load.

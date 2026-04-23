@@ -10,6 +10,8 @@ Start with **[INDEX.md](INDEX.md)**.
 - Not sure which layer to use: [Choose Your Path in JVN](guides/choose-your-path.md)
 - Need to understand the file types first: [Common JVN File Types](guides/common-file-types.md)
 - Need the full map: [Documentation Index](INDEX.md)
+- Working in the editor: [JVN Editor Docs](editor/README.md)
+- Shipping a game: [JVN Build And Release Docs](project-setup/release/README.md)
 - Learning the editor: [Editor Guide](editor/core/editor.md)
 - Tuning editor or launcher preferences: [Editor And Launcher Settings](editor/core/settings.md)
 - Writing VN scripts: [VNS Overview](scripting/vns/overview/vns-scripting.md)
@@ -23,8 +25,8 @@ Start with **[INDEX.md](INDEX.md)**.
 | Directory | Coverage |
 |-----------|----------|
 | `architecture/` | System architecture, 2D engine, performance, and UI parity roadmap |
-| `editor/` | Editor guide, settings, Welcome Center, Run Console, Scene Graph, Tilemap Editor, Puppeteer animation editor, 17 documented sidebar panels |
+| `editor/` | Editor docs hub, editor guide, settings, Welcome Center, Run Console, Scene Graph, Tilemap Editor, Puppeteer animation editor, and 17 documented sidebar panels |
 | `guides/` | Getting started guide, cookbook and recipes |
-| `project-setup/` | New project wizard, project structure, title screen, text effects, version control, localization, deployment |
+| `project-setup/` | New project wizard, project structure, title screen, text effects, version control, localization, build-and-release hub, deployment |
 | `runtime/` | Runtime guide, interop, save system, audio system, asset management, VN settings |
 | `scripting/` | VNS scripting (20+ pages), JES scripting (12 pages), timeline DSL, menu/layout system (25+ pages) |

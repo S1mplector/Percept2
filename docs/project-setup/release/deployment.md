@@ -2,7 +2,7 @@
 
 Guide to building JVN projects for distribution — creating runnable JARs, bundling assets, platform-specific considerations, and distribution strategies.
 
-For the current automated portable archive tasks, start with [Build System](build-system.md). This page covers broader deployment concepts and native packaging options.
+For the current automated packaging tasks, start with [JVN Build And Release Docs](README.md) and [Build System](build-system.md). This page covers broader deployment concepts, packaging tradeoffs, and lower-level distribution concerns.
 
 ---
 
@@ -40,6 +40,8 @@ The root build system can now produce three kinds of outputs:
 # Current-host native package (players do not need Java installed)
 ./jvnw native -PjvnGameProject=/path/to/game
 ```
+
+For most teams, **Desktop Bundle** should be the default release artifact. It is the best balance between cross-target automation and player-facing simplicity.
 
 Outputs are written to `build/distributions/games/`. In the editor, open the game project and use **Build & Publish...** for the same workflow with a popup UI.
 

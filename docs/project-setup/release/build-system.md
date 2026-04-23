@@ -8,6 +8,16 @@ JVN's game packaging has three output layers:
 
 Portable packaging supports `type=vn` and `type=jes` game manifests. It rejects `type=gradle` manifests and the engine workspace itself because those describe development run commands, not a distributable game.
 
+Need the shipping-oriented overview first? Start at [JVN Build And Release Docs](README.md).
+
+## Choosing A Format
+
+| Format | Use It When | Player Needs Java? | Cross-Target From One Machine? |
+|---|---|---:|---:|
+| **Portable zip** | You want the lightest packaging path and Java 21 on the player machine is acceptable | Yes | Yes |
+| **Desktop bundle** | You want a normal shippable desktop artifact without asking players to install Java | No | Yes |
+| **Native package** | You need installer/app-bundle polish, host integration, signing, or store-ready packaging | No | Not locally |
+
 ## Editor Popup
 
 Open a game project in the editor, then use one of:
@@ -30,6 +40,8 @@ Before enabling build actions, the popup validates:
 - the output folder is writable
 
 Warnings are shown for easy-to-miss cases such as a project folder with leading/trailing whitespace, a script-only package without an `assets/` folder, or missing release-profile config for native packaging.
+
+The popup is described from the editor side in [Editor Guide](../../editor/core/editor.md#game-build--publish).
 
 ## CLI Commands
 
@@ -128,6 +140,8 @@ Supported native package types by host:
 ## Cross-Host Native Builds
 
 True cross-host native packaging is handled through the reusable CI matrix workflow at [native-builds.yml](../../../.github/workflows/native-builds.yml).
+
+Treat GitHub here as the current execution backend, not as a packaging requirement. The real requirement is matching host builders for the native targets.
 
 That workflow fans out to matching GitHub-hosted runners for:
 
