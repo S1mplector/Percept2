@@ -650,6 +650,7 @@ public class FileEditorTab extends BorderPane {
     if (kind != Kind.VNS || vnsEditor == null) return;
     if (oneBasedLine <= 0) return;
     vnsEditor.setStoryboardCursorLine(oneBasedLine);
+    vnsEditor.scrollToLineIfNeeded(oneBasedLine);
   }
   public void stopPreviewAudio() {
     if (vnPreview != null) vnPreview.stopAudio();

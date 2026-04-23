@@ -685,6 +685,16 @@ public class VnsCodeEditor extends BorderPane {
     codeArea.requestFocus();
   }
 
+  public void scrollToLineIfNeeded(int oneBasedLine) {
+    int paragraphCount = codeArea.getParagraphs().size();
+    if (paragraphCount <= 0 || oneBasedLine <= 0) return;
+    int target = Math.max(0, Math.min(paragraphCount - 1, oneBasedLine - 1));
+    int visibleStart = codeArea.firstVisibleParToAllParIndex();
+    int visibleEnd = codeArea.lastVisibleParToAllParIndex();
+    if (target >= visibleStart && target <= visibleEnd) return;
+    codeArea.showParagraphAtTop(Math.max(0, target - 5));
+  }
+
   public void goToOffset(int offset) {
     String text = codeArea.getText();
     int length = text == null ? 0 : text.length();
@@ -750,12 +760,20 @@ public class VnsCodeEditor extends BorderPane {
       cursor.setStyle(
           isStoryboardLine
               ? "-fx-text-fill: #f0c27a; -fx-font-size: 10px; -fx-padding: 0 2 0 0; -fx-cursor: v_resize;"
-              : "-fx-text-fill: #4f5e73; -fx-font-size: 8px; -fx-padding: 0 2 0 0;");
+              : "-fx-text-fill: #6a7a8e; -fx-font-size: 9px; -fx-padding: 0 2 0 0; -fx-cursor: hand;");
       cursor.setTooltip(new Tooltip(isStoryboardLine
-          ? "Drag the storyboard marker to reposition the preview"
-          : "Storyboard marker target"));
+          ? "Drag to scrub storyboard position"
+          : "Click to jump storyboard here  •  Drag to scrub"));
+      if (!isStoryboardLine) {
+        cursor.setOnMouseEntered(e -> cursor.setStyle(
+            "-fx-text-fill: #a0b0c0; -fx-font-size: 9px; -fx-padding: 0 2 0 0; -fx-cursor: hand;"));
+        cursor.setOnMouseExited(e -> {
+          if (!storyboardDragActive) cursor.setStyle(
+              "-fx-text-fill: #6a7a8e; -fx-font-size: 9px; -fx-padding: 0 2 0 0; -fx-cursor: hand;");
+        });
+      }
       cursor.setOnMousePressed(e -> {
-        if (!isStoryboardLine || e.getButton() != javafx.scene.input.MouseButton.PRIMARY) return;
+        if (e.getButton() != javafx.scene.input.MouseButton.PRIMARY) return;
         storyboardDragActive = true;
         requestStoryboardLine(line + 1);
         e.consume();
