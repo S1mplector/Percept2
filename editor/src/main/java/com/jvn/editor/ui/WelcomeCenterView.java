@@ -1352,8 +1352,8 @@ public class WelcomeCenterView extends BorderPane {
       List<String> lines = Files.readAllLines(history, StandardCharsets.UTF_8);
       List<Path> paths = new ArrayList<>();
       for (String line : lines) {
-        if (line == null || line.isBlank()) continue;
-        paths.add(Path.of(line.trim()));
+        Path path = parseHistoryPath(line);
+        if (path != null) paths.add(path);
       }
       return paths;
     } catch (Exception ignore) {
@@ -1372,7 +1372,8 @@ public class WelcomeCenterView extends BorderPane {
           : new ArrayList<>();
 
       String raw = normalized.toAbsolutePath().normalize().toString();
-      existing.removeIf(line -> line == null || line.isBlank() || line.trim().equals(raw));
+      String canonical = canonicalPath(normalized);
+      existing.removeIf(line -> shouldDropHistoryEntry(line, raw, canonical));
       existing.add(0, raw);
       if (existing.size() > RECENT_HISTORY_LIMIT) {
         existing = new ArrayList<>(existing.subList(0, RECENT_HISTORY_LIMIT));
@@ -1471,6 +1472,25 @@ public class WelcomeCenterView extends BorderPane {
 
   private Path historyPath() {
     return Path.of(System.getProperty("user.home", "."), ".jvn-editor", "recent-projects.txt");
+  }
+
+  private Path parseHistoryPath(String raw) {
+    if (raw == null || raw.isBlank()) return null;
+    try {
+      return Path.of(raw);
+    } catch (Exception ignore) {
+      return null;
+    }
+  }
+
+  private boolean shouldDropHistoryEntry(String rawLine, String projectPath, String canonicalProjectPath) {
+    if (rawLine == null || rawLine.isBlank()) return true;
+    if (rawLine.equals(projectPath)) return true;
+    Path stored = parseHistoryPath(rawLine);
+    if (stored == null) return false;
+    Path normalizedStored = normalizeProjectDir(stored);
+    if (normalizedStored == null) return false;
+    return canonicalPath(normalizedStored).equals(canonicalProjectPath);
   }
 
   private File normalizeDir(File dir) {

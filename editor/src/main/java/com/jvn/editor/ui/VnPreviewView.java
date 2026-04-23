@@ -5,12 +5,14 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -19,6 +21,7 @@ import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
 import com.jvn.core.assets.FilesystemAssetManager;
 import com.jvn.core.audio.AudioFacade;
+import com.jvn.core.graphics.ViewportScaler2D;
 import com.jvn.core.menu.HistoryMenuScene;
 import com.jvn.core.menu.LoadMenuScene;
 import com.jvn.core.menu.config.MenuProfile;
@@ -53,15 +56,21 @@ import com.jvn.fx.vn.VnRenderer;
 
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.Slider;
 import javafx.scene.control.Tooltip;
 import javafx.scene.Cursor;
 import javafx.scene.ImageCursor;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.image.Image;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 
 public class VnPreviewView extends StackPane {
   private static final String PREVIEW_HINT = String.join("\n",
@@ -94,13 +103,27 @@ public class VnPreviewView extends StackPane {
   private Scene overlayScene;
   private Cursor configuredCursor = Cursor.DEFAULT;
   private StoryboardOverlayState storyboardOverlay = StoryboardOverlayState.none();
+  private Consumer<StoryboardOverlayState> onStoryboardStateAdjusted;
+  private Consumer<Integer> onStoryboardPreviewLineChanged;
+  private final VBox storyboardHud = new VBox(6);
+  private final Label storyboardHudTitle = new Label("Storyboard");
+  private final Label storyboardHudFrameLabel = new Label("");
+  private final Slider storyboardOpacitySlider = new Slider(0, 100, 35);
+  private final Label storyboardOpacityValue = new Label("35%");
+  private final CheckBox storyboardHideUiCheck = new CheckBox("Hide UI");
+  private boolean applyingStoryboardHud = false;
+  private int storyboardPreviewLine = -1;
+  private Boolean storyboardUiHiddenRestore;
 
   // Virtual viewport: render at the game's target resolution, scale to fit canvas
   private int virtualWidth = 0;
   private int virtualHeight = 0;
 
   public VnPreviewView() {
-    getChildren().addAll(canvas, phoneRenderer);
+    configureStoryboardHud();
+    getChildren().addAll(canvas, phoneRenderer, storyboardHud);
+    StackPane.setAlignment(storyboardHud, Pos.TOP_RIGHT);
+    StackPane.setMargin(storyboardHud, new Insets(12));
     setFocusTraversable(true);
     canvas.setFocusTraversable(true);
 
@@ -122,6 +145,55 @@ public class VnPreviewView extends StackPane {
     canvas.addEventHandler(javafx.scene.input.MouseEvent.MOUSE_PRESSED, e -> requestFocus());
     canvas.addEventHandler(javafx.scene.input.MouseEvent.MOUSE_ENTERED, e -> applyCursor(configuredCursor));
     phoneRenderer.addEventHandler(javafx.scene.input.MouseEvent.MOUSE_ENTERED, e -> applyCursor(configuredCursor));
+  }
+
+  private void configureStoryboardHud() {
+    storyboardHud.setManaged(false);
+    storyboardHud.setVisible(false);
+    storyboardHud.setMaxWidth(220);
+    storyboardHud.setPadding(new Insets(10));
+    storyboardHud.setStyle(
+        "-fx-background-color: rgba(12, 16, 22, 0.88);"
+            + "-fx-background-radius: 8;"
+            + "-fx-border-color: rgba(255,255,255,0.10);"
+            + "-fx-border-radius: 8;");
+    storyboardHudTitle.setStyle("-fx-font-size: 12px; -fx-font-weight: 700; -fx-text-fill: #f1f5fb;");
+    storyboardHudFrameLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #b9c3d4;");
+    storyboardHudFrameLabel.setWrapText(true);
+    storyboardOpacityValue.setStyle("-fx-font-size: 10px; -fx-text-fill: #d6dde8;");
+    storyboardHideUiCheck.setStyle("-fx-text-fill: #d6dde8;");
+
+    storyboardOpacitySlider.valueProperty().addListener((obs, oldValue, newValue) -> {
+      if (applyingStoryboardHud) return;
+      storyboardOpacityValue.setText(Integer.toString((int) Math.round(newValue.doubleValue())) + "%");
+      if (!isStoryboardModeActive()) return;
+      storyboardOverlay = new StoryboardOverlayState(
+          true,
+          storyboardOverlay.image(),
+          newValue.doubleValue() / 100.0,
+          storyboardOverlay.sourcePath(),
+          storyboardHideUiCheck.isSelected());
+      emitStoryboardStateAdjusted();
+    });
+    storyboardHideUiCheck.selectedProperty().addListener((obs, oldValue, newValue) -> {
+      if (applyingStoryboardHud) return;
+      if (!isStoryboardModeActive()) return;
+      storyboardOverlay = new StoryboardOverlayState(
+          true,
+          storyboardOverlay.image(),
+          storyboardOverlay.opacity(),
+          storyboardOverlay.sourcePath(),
+          newValue);
+      applyStoryboardUiState();
+      emitStoryboardStateAdjusted();
+    });
+
+    storyboardHud.getChildren().addAll(
+        storyboardHudTitle,
+        storyboardHudFrameLabel,
+        storyboardOpacitySlider,
+        storyboardOpacityValue,
+        storyboardHideUiCheck);
   }
 
   public void setScenario(VnScenario scenario) {
@@ -177,8 +249,40 @@ public class VnPreviewView extends StackPane {
     if (Math.abs(canvas.getHeight() - sh) >= 0.5) canvas.setHeight(sh);
   }
 
+  public void setOnStoryboardStateAdjusted(Consumer<StoryboardOverlayState> listener) {
+    this.onStoryboardStateAdjusted = listener;
+  }
+
+  public void setOnStoryboardPreviewLineChanged(Consumer<Integer> listener) {
+    this.onStoryboardPreviewLineChanged = listener;
+  }
+
+  public int getStoryboardPreviewLine() {
+    return storyboardPreviewLine;
+  }
+
   public void setStoryboardOverlay(StoryboardOverlayState storyboardOverlay) {
+    boolean wasActive = isStoryboardModeActive();
     this.storyboardOverlay = storyboardOverlay == null ? StoryboardOverlayState.none() : storyboardOverlay;
+    syncStoryboardHud();
+    applyStoryboardUiState(wasActive);
+  }
+
+  public void navigateToStoryboardLine(String sourceText, String sourceName, int oneBasedLine) throws IOException {
+    if (sourceText == null || sourceText.isBlank()) return;
+    int targetLine = Math.max(1, oneBasedLine);
+    VnScenario scenario = parseStoryboardScenario(sourceText, sourceName);
+    int targetIndex = findNodeIndexForSourceLine(scenario, targetLine);
+    VnSettings existingSettings = scene == null ? null : scene.getState().getSettings();
+    this.scene = buildScene(scenario, null, normalizeScriptKey(sourceName), existingSettings, false);
+    if (targetIndex > 0) {
+      this.scene.preflightState(targetIndex);
+      this.scene.getState().setCurrentNodeIndex(targetIndex);
+    }
+    this.scene.onEnter();
+    storyboardPreviewLine = resolveCurrentStoryboardLine();
+    emitStoryboardPreviewLineChanged();
+    applyStoryboardUiState();
   }
 
   public void render(long deltaMs) {
@@ -198,30 +302,25 @@ public class VnPreviewView extends StackPane {
     if (overlayScene instanceof PhoneScene phone && phone.consumeCloseRequested()) {
       closeOverlayScene();
     }
-
-    double vw = virtualWidth > 0 ? virtualWidth : canvasW;
-    double vh = virtualHeight > 0 ? virtualHeight : canvasH;
-    double scale = Math.min(canvasW / vw, canvasH / vh);
-    double scaledW = vw * scale;
-    double scaledH = vh * scale;
-    double offsetX = (canvasW - scaledW) / 2.0;
-    double offsetY = (canvasH - scaledH) / 2.0;
-
-    // Clear full canvas (letterbox bars)
     gc.setFill(javafx.scene.paint.Color.BLACK);
     gc.fillRect(0, 0, canvasW, canvasH);
 
-    // Transform mouse from canvas space → virtual space
-    double virtualMouseX = (mouseX - offsetX) / scale;
-    double virtualMouseY = (mouseY - offsetY) / scale;
+    if (isStoryboardModeActive()) {
+      renderStoryboardMode(canvasW, canvasH);
+    } else {
+      double vw = viewportW();
+      double vh = viewportH();
+      ViewportScaler2D.Transform transform = ViewportScaler2D.fit(vw, vh, canvasW, canvasH);
+      double virtualMouseX = transform.screenToLogicalX(mouseX);
+      double virtualMouseY = transform.screenToLogicalY(mouseY);
 
-    gc.save();
-    gc.translate(offsetX, offsetY);
-    gc.scale(scale, scale);
-    renderer.render(scene.getState(), scene.getScenario(), vw, vh, virtualMouseX, virtualMouseY);
-    renderOverlayScene(vw, vh);
-    drawStoryboardOverlay(vw, vh);
-    gc.restore();
+      gc.save();
+      gc.translate(transform.offsetX(), transform.offsetY());
+      gc.scale(transform.scale(), transform.scale());
+      renderer.render(scene.getState(), scene.getScenario(), vw, vh, virtualMouseX, virtualMouseY);
+      renderOverlayScene(vw, vh);
+      gc.restore();
+    }
     syncPhoneOverlay();
   }
 
@@ -242,6 +341,106 @@ public class VnPreviewView extends StackPane {
     applyUiOverrides();
   }
 
+  private VnScenario parseStoryboardScenario(String sourceText, String sourceName) throws IOException {
+    com.jvn.core.vn.script.VnScriptParser parser = new com.jvn.core.vn.script.VnScriptParser();
+    byte[] bytes = sourceText.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    try (InputStream in = new java.io.ByteArrayInputStream(bytes)) {
+      return parser.parse(in, sourceName == null || sourceName.isBlank() ? "<editor>" : sourceName, this::openEditorInclude);
+    }
+  }
+
+  private InputStream openEditorInclude(String includePath) throws IOException {
+    if (includePath == null || includePath.isBlank()) throw new IOException("Empty include path");
+    if (projectRoot != null) {
+      Path direct = projectRoot.toPath().resolve(includePath).normalize();
+      if (Files.isRegularFile(direct)) return Files.newInputStream(direct);
+      Path scripts = projectRoot.toPath().resolve("scripts").resolve(includePath).normalize();
+      if (Files.isRegularFile(scripts)) return Files.newInputStream(scripts);
+    }
+    File directFile = new File(includePath);
+    if (directFile.isFile()) return new FileInputStream(directFile);
+    throw new IOException("Include not found: " + includePath);
+  }
+
+  private int findNodeIndexForSourceLine(VnScenario scenario, int sourceLine) {
+    if (scenario == null || scenario.getNodes().isEmpty()) return 0;
+    int bestIndex = 0;
+    int bestLine = Integer.MIN_VALUE;
+    List<VnNode> nodes = scenario.getNodes();
+    for (int i = 0; i < nodes.size(); i++) {
+      VnNode node = nodes.get(i);
+      if (node == null) continue;
+      int nodeLine = node.getSourceLine();
+      if (nodeLine <= 0) continue;
+      if (nodeLine <= sourceLine && nodeLine >= bestLine) {
+        bestLine = nodeLine;
+        bestIndex = i;
+      }
+    }
+    return bestIndex;
+  }
+
+  private void syncStoryboardHud() {
+    applyingStoryboardHud = true;
+    try {
+      storyboardOpacitySlider.setValue(storyboardOverlay.opacity() * 100.0);
+      storyboardOpacityValue.setText(Integer.toString((int) Math.round(storyboardOpacitySlider.getValue())) + "%");
+      storyboardHideUiCheck.setSelected(storyboardOverlay.hideUi());
+      storyboardHudFrameLabel.setText(
+          storyboardOverlay.sourcePath() == null || storyboardOverlay.sourcePath().isBlank()
+              ? "No storyboard frame selected"
+              : storyboardOverlay.sourcePath());
+      boolean visible = isStoryboardModeActive();
+      storyboardHud.setVisible(visible);
+      storyboardHud.setManaged(visible);
+    } finally {
+      applyingStoryboardHud = false;
+    }
+  }
+
+  private boolean isStoryboardModeActive() {
+    return storyboardOverlay != null && storyboardOverlay.enabled() && storyboardOverlay.hasImage();
+  }
+
+  private void emitStoryboardStateAdjusted() {
+    if (onStoryboardStateAdjusted != null) {
+      onStoryboardStateAdjusted.accept(storyboardOverlay == null ? StoryboardOverlayState.none() : storyboardOverlay);
+    }
+  }
+
+  private void emitStoryboardPreviewLineChanged() {
+    if (onStoryboardPreviewLineChanged != null && storyboardPreviewLine > 0) {
+      onStoryboardPreviewLineChanged.accept(storyboardPreviewLine);
+    }
+  }
+
+  private int resolveCurrentStoryboardLine() {
+    if (scene == null || scene.getState() == null) return -1;
+    VnNode node = scene.getState().getCurrentNode();
+    return node == null ? -1 : Math.max(-1, node.getSourceLine());
+  }
+
+  private void applyStoryboardUiState() {
+    applyStoryboardUiState(isStoryboardModeActive());
+  }
+
+  private void applyStoryboardUiState(boolean wasActive) {
+    boolean active = isStoryboardModeActive();
+    if (scene == null) return;
+    if (!wasActive && active) {
+      storyboardUiHiddenRestore = scene.getState().isUiHidden();
+    } else if (wasActive && !active) {
+      if (storyboardUiHiddenRestore != null) {
+        scene.getState().setUiHidden(storyboardUiHiddenRestore);
+      }
+      storyboardUiHiddenRestore = null;
+      return;
+    }
+    if (active) {
+      scene.getState().setUiHidden(storyboardOverlay.hideUi());
+    }
+  }
+
   private void applyUiOverrides() {
     if (uiLayoutOverride != null) renderer.setUiLayout(uiLayoutOverride);
     if (uiStyleOverride != null) renderer.setUiStyle(uiStyleOverride);
@@ -255,6 +454,7 @@ public class VnPreviewView extends StackPane {
       this.overlayScene = null;
       phoneRenderer.setSceneModel(null);
       renderer.setAudioFacade(null);
+      storyboardPreviewLine = -1;
       return;
     }
     stopAudio();
@@ -264,10 +464,22 @@ public class VnPreviewView extends StackPane {
     this.overlayScene = null;
     phoneRenderer.setSceneModel(null);
     renderer.setAudioFacade(audio);
+    storyboardPreviewLine = resolveCurrentStoryboardLine();
+    emitStoryboardPreviewLineChanged();
+    applyStoryboardUiState();
     requestFocus();
   }
 
   private VnScene buildScene(VnScenario scenario, String startLabel, String scriptName, VnSettings settingsTemplate) {
+    return buildScene(scenario, startLabel, scriptName, settingsTemplate, true);
+  }
+
+  private VnScene buildScene(
+      VnScenario scenario,
+      String startLabel,
+      String scriptName,
+      VnSettings settingsTemplate,
+      boolean enterNow) {
     VnScene nextScene = new VnScene(scenario);
     PreviewVnInterop interop = new PreviewVnInterop();
     com.jvn.core.vn.VnCharacterSceneAccessor accessor = new com.jvn.core.vn.VnCharacterSceneAccessor();
@@ -287,7 +499,9 @@ public class VnPreviewView extends StackPane {
       nextScene.getState().jumpToLabel(startLabel);
       nextScene.preflightState(nextScene.getState().getCurrentNodeIndex());
     }
-    nextScene.onEnter();
+    if (enterNow) {
+      nextScene.onEnter();
+    }
     return nextScene;
   }
 
@@ -304,30 +518,86 @@ public class VnPreviewView extends StackPane {
   }
 
   private void renderEmptyPreview(double canvasW, double canvasH) {
-    double vw = virtualWidth > 0 ? virtualWidth : canvasW;
-    double vh = virtualHeight > 0 ? virtualHeight : canvasH;
-    double scale = Math.min(canvasW / vw, canvasH / vh);
-    double scaledW = vw * scale;
-    double scaledH = vh * scale;
-    double offsetX = (canvasW - scaledW) / 2.0;
-    double offsetY = (canvasH - scaledH) / 2.0;
     gc.setFill(javafx.scene.paint.Color.BLACK);
     gc.fillRect(0, 0, canvasW, canvasH);
+    if (isStoryboardModeActive()) {
+      StoryboardCanvasLayout layout = storyboardCanvasLayout(canvasW, canvasH);
+      gc.save();
+      gc.setGlobalAlpha(storyboardOverlay.opacity());
+      gc.drawImage(
+          storyboardOverlay.image(),
+          layout.pageTransform.offsetX(),
+          layout.pageTransform.offsetY(),
+          layout.pageTransform.contentWidth(),
+          layout.pageTransform.contentHeight());
+      gc.restore();
+      gc.save();
+      gc.beginPath();
+      gc.rect(layout.viewportX, layout.viewportY, layout.viewportWidth, layout.viewportHeight);
+      gc.closePath();
+      gc.clip();
+      gc.translate(layout.viewportX, layout.viewportY);
+      gc.scale(layout.viewportScale, layout.viewportScale);
+      gc.setFill(javafx.scene.paint.Color.color(0.06, 0.06, 0.08, 0.96));
+      gc.fillRect(0, 0, layout.logicalWidth, layout.logicalHeight);
+      gc.restore();
+      return;
+    }
+    double vw = viewportW();
+    double vh = viewportH();
+    ViewportScaler2D.Transform transform = ViewportScaler2D.fit(vw, vh, canvasW, canvasH);
     gc.save();
-    gc.translate(offsetX, offsetY);
-    gc.scale(scale, scale);
+    gc.translate(transform.offsetX(), transform.offsetY());
+    gc.scale(transform.scale(), transform.scale());
     gc.setFill(javafx.scene.paint.Color.color(0.06, 0.06, 0.08));
     gc.fillRect(0, 0, vw, vh);
-    drawStoryboardOverlay(vw, vh);
     gc.restore();
   }
 
-  private void drawStoryboardOverlay(double vw, double vh) {
-    if (storyboardOverlay == null || !storyboardOverlay.enabled() || !storyboardOverlay.hasImage()) return;
+  private void renderStoryboardMode(double canvasW, double canvasH) {
+    StoryboardCanvasLayout layout = storyboardCanvasLayout(canvasW, canvasH);
     gc.save();
     gc.setGlobalAlpha(storyboardOverlay.opacity());
-    gc.drawImage(storyboardOverlay.image(), 0, 0, vw, vh);
+    gc.drawImage(
+        storyboardOverlay.image(),
+        layout.pageTransform.offsetX(),
+        layout.pageTransform.offsetY(),
+        layout.pageTransform.contentWidth(),
+        layout.pageTransform.contentHeight());
     gc.restore();
+    gc.save();
+    gc.beginPath();
+    gc.rect(layout.viewportX, layout.viewportY, layout.viewportWidth, layout.viewportHeight);
+    gc.closePath();
+    gc.clip();
+    gc.translate(layout.viewportX, layout.viewportY);
+    gc.scale(layout.viewportScale, layout.viewportScale);
+    double virtualMouseX = (mouseX - layout.viewportX) / layout.viewportScale;
+    double virtualMouseY = (mouseY - layout.viewportY) / layout.viewportScale;
+    renderer.render(scene.getState(), scene.getScenario(), layout.logicalWidth, layout.logicalHeight, virtualMouseX, virtualMouseY);
+    renderOverlayScene(layout.logicalWidth, layout.logicalHeight);
+    gc.restore();
+  }
+
+  private StoryboardCanvasLayout storyboardCanvasLayout(double canvasW, double canvasH) {
+    Image image = storyboardOverlay == null ? null : storyboardOverlay.image();
+    double pageWidth = image == null || image.isError() || image.getWidth() <= 0 ? canvasW : image.getWidth();
+    double pageHeight = image == null || image.isError() || image.getHeight() <= 0 ? canvasH : image.getHeight();
+    double logicalWidth = viewportW();
+    double logicalHeight = viewportH();
+    ViewportScaler2D.Transform pageTransform = ViewportScaler2D.fit(pageWidth, pageHeight, canvasW, canvasH);
+    double viewportX = pageTransform.logicalToScreenX((pageWidth - logicalWidth) * 0.5);
+    double viewportY = pageTransform.logicalToScreenY((pageHeight - logicalHeight) * 0.5);
+    double viewportScale = pageTransform.scale();
+    return new StoryboardCanvasLayout(
+        pageTransform,
+        viewportX,
+        viewportY,
+        logicalWidth * viewportScale,
+        logicalHeight * viewportScale,
+        viewportScale,
+        logicalWidth,
+        logicalHeight);
   }
 
   private void syncPhoneOverlay() {
@@ -447,6 +717,9 @@ public class VnPreviewView extends StackPane {
       this.sourceScriptName = normalizeScriptKey(script);
       this.scene = buildScene(loaded, label, sourceScriptName, settings);
       renderer.setAudioFacade(audio);
+      storyboardPreviewLine = resolveCurrentStoryboardLine();
+      emitStoryboardPreviewLineChanged();
+      applyStoryboardUiState();
     } catch (Exception ex) {
       if (activeScene != null) {
         activeScene.getState().showHudMessage("Preview could not load script: " + script, 1900);
@@ -622,6 +895,7 @@ public class VnPreviewView extends StackPane {
     mouseY = y;
     requestFocus();
     if (scene == null || button != MouseButton.PRIMARY) return;
+    if (isStoryboardModeActive() && !isInsideStoryboardViewport(x, y)) return;
 
     if (handleOverlayMouseClick(clickCount, x, y)) return;
 
@@ -632,18 +906,40 @@ public class VnPreviewView extends StackPane {
 
     com.jvn.core.vn.ui.VnUiActionButtonSpec textBoxButton =
         renderer.getHoveredTextBoxButton(scene.getState(), vw, vh, vx, vy);
-    if (textBoxButton != null && executeTextBoxButtonAction(textBoxButton)) return;
+    if (textBoxButton != null && executeTextBoxButtonAction(textBoxButton)) {
+      syncStoryboardLineFromScene();
+      return;
+    }
 
     VnNode node = scene.getState().getCurrentNode();
     if (node != null && node.getType() == VnNodeType.CHOICE) {
       int idx = renderer.getHoveredChoiceIndex(node.getChoices(), vw, vh, vx, vy);
       if (idx >= 0) {
         scene.selectChoice(idx);
+        syncStoryboardLineFromScene();
       }
       return;
     }
 
     scene.advanceFromClick();
+    syncStoryboardLineFromScene();
+  }
+
+  private void syncStoryboardLineFromScene() {
+    storyboardPreviewLine = resolveCurrentStoryboardLine();
+    emitStoryboardPreviewLineChanged();
+  }
+
+  private void syncStoryboardHideUiFromScene() {
+    if (!isStoryboardModeActive() || scene == null) return;
+    storyboardOverlay = new StoryboardOverlayState(
+        true,
+        storyboardOverlay.image(),
+        storyboardOverlay.opacity(),
+        storyboardOverlay.sourcePath(),
+        scene.getState().isUiHidden());
+    syncStoryboardHud();
+    emitStoryboardStateAdjusted();
   }
 
   private boolean executeTextBoxButtonAction(com.jvn.core.vn.ui.VnUiActionButtonSpec button) {
@@ -690,6 +986,7 @@ public class VnPreviewView extends StackPane {
       }
       case "toggle_ui", "ui" -> {
         state.toggleUiHidden();
+        syncStoryboardHideUiFromScene();
         return true;
       }
       case "settings_menu", "open_settings_menu", "menu_settings" -> {
@@ -825,6 +1122,7 @@ public class VnPreviewView extends StackPane {
       e.consume();
     } else if (code == KeyCode.H) {
       state.toggleUiHidden();
+      syncStoryboardHideUiFromScene();
       e.consume();
     } else if (code == KeyCode.B) {
       state.clearHistoryScroll();
@@ -952,10 +1250,12 @@ public class VnPreviewView extends StackPane {
       int hover = renderer.getHoveredChoiceIndex(node.getChoices(), viewportW(), viewportH(), toVirtualX(mouseX), toVirtualY(mouseY));
       if (hover >= 0) {
         scene.selectChoice(hover);
+        syncStoryboardLineFromScene();
       }
       return;
     }
     scene.advance();
+    syncStoryboardLineFromScene();
   }
 
   private boolean trySelectChoiceByDigit(KeyCode code) {
@@ -966,6 +1266,7 @@ public class VnPreviewView extends StackPane {
     int idx = digit - 1;
     if (idx >= 0 && idx < node.getChoices().size()) {
       scene.selectChoice(idx);
+      syncStoryboardLineFromScene();
       return true;
     }
     return false;
@@ -1101,24 +1402,55 @@ public class VnPreviewView extends StackPane {
   private double viewportH() { return virtualHeight > 0 ? virtualHeight : canvas.getHeight(); }
 
   private double viewportScale() {
+    if (isStoryboardModeActive()) {
+      return storyboardCanvasLayout(canvas.getWidth(), canvas.getHeight()).viewportScale;
+    }
     return Math.min(canvas.getWidth() / viewportW(), canvas.getHeight() / viewportH());
   }
 
   private double toVirtualX(double canvasX) {
+    if (isStoryboardModeActive()) {
+      StoryboardCanvasLayout layout = storyboardCanvasLayout(canvas.getWidth(), canvas.getHeight());
+      return (canvasX - layout.viewportX) / Math.max(1e-9, layout.viewportScale);
+    }
     double scale = viewportScale();
     double offsetX = (canvas.getWidth() - viewportW() * scale) / 2.0;
     return (canvasX - offsetX) / scale;
   }
 
   private double toVirtualY(double canvasY) {
+    if (isStoryboardModeActive()) {
+      StoryboardCanvasLayout layout = storyboardCanvasLayout(canvas.getWidth(), canvas.getHeight());
+      return (canvasY - layout.viewportY) / Math.max(1e-9, layout.viewportScale);
+    }
     double scale = viewportScale();
     double offsetY = (canvas.getHeight() - viewportH() * scale) / 2.0;
     return (canvasY - offsetY) / scale;
   }
 
+  private boolean isInsideStoryboardViewport(double canvasX, double canvasY) {
+    if (!isStoryboardModeActive()) return true;
+    StoryboardCanvasLayout layout = storyboardCanvasLayout(canvas.getWidth(), canvas.getHeight());
+    return canvasX >= layout.viewportX
+        && canvasX <= layout.viewportX + layout.viewportWidth
+        && canvasY >= layout.viewportY
+        && canvasY <= layout.viewportY + layout.viewportHeight;
+  }
+
   private static double sanitizeCanvasDimension(double value) {
     if (!Double.isFinite(value)) return 1.0;
     return Math.max(1.0, Math.min(8192.0, value));
+  }
+
+  private record StoryboardCanvasLayout(
+      ViewportScaler2D.Transform pageTransform,
+      double viewportX,
+      double viewportY,
+      double viewportWidth,
+      double viewportHeight,
+      double viewportScale,
+      double logicalWidth,
+      double logicalHeight) {
   }
 
   private void copySettings(VnSettings src, VnSettings dst) {

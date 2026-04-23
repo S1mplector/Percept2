@@ -49,10 +49,11 @@ public class StoryboardOverlayView extends BorderPane {
   private static final String KEY_OPACITY = "opacity";
   private static final String KEY_SELECTED = "selected";
   private static final String KEY_FOLLOW_ACTIVE = "followActive";
+  private static final String KEY_HIDE_UI = "hideUi";
 
   private final Label titleLabel = new Label("Storyboard Overlay");
   private final Label summaryLabel =
-      new Label("Ghost storyboard frames over JES and VNS previews for staging reference.");
+      new Label("Switch the active preview into storyboard page mode for staging and shot matching.");
   private final Label targetLabel = new Label("Active preview: open a JES or VNS tab.");
   private final Label sourceLabel = new Label("Source: not scanned");
   private final Label framesSummaryLabel = new Label("No frames loaded.");
@@ -64,8 +65,9 @@ public class StoryboardOverlayView extends BorderPane {
   private final ImageView previewImage = new ImageView();
   private final Label previewPathLabel = new Label("Select a storyboard frame.");
   private final Label previewMetaLabel = new Label("");
-  private final CheckBox enabledCheck = new CheckBox("Show overlay in preview");
+  private final CheckBox enabledCheck = new CheckBox("Storyboard mode");
   private final CheckBox followActiveCheck = new CheckBox("Follow active scene");
+  private final CheckBox hideUiCheck = new CheckBox("Hide VN UI");
   private final Slider opacitySlider = new Slider(5, 100, 35);
   private final Label opacityValueLabel = new Label("35%");
   private final Button previousButton = new Button("Previous");
@@ -116,8 +118,10 @@ public class StoryboardOverlayView extends BorderPane {
     styleActionButton(revealButton, CssIcon.expand("#d6dbe5"));
     enabledCheck.setGraphic(CssIcon.visibility("#d6dbe5"));
     followActiveCheck.setGraphic(CssIcon.link("#d5b36a"));
+    hideUiCheck.setGraphic(CssIcon.grid("#d6dbe5"));
     enabledCheck.setContentDisplay(javafx.scene.control.ContentDisplay.LEFT);
     followActiveCheck.setContentDisplay(javafx.scene.control.ContentDisplay.LEFT);
+    hideUiCheck.setContentDisplay(javafx.scene.control.ContentDisplay.LEFT);
 
     browseButton.setTooltip(new Tooltip("Choose a storyboard folder"));
     autoButton.setTooltip(new Tooltip("Return to automatic folder discovery"));
@@ -185,14 +189,25 @@ public class StoryboardOverlayView extends BorderPane {
     });
 
     enabledCheck.selectedProperty().addListener((obs, oldValue, newValue) -> {
+      if (applyingState) return;
+      emitOverlayChanged();
+      saveState();
+    });
+    hideUiCheck.selectedProperty().addListener((obs, oldValue, newValue) -> {
+      if (applyingState) return;
       emitOverlayChanged();
       saveState();
     });
     followActiveCheck.selectedProperty().addListener((obs, oldValue, newValue) -> {
+      if (applyingState) return;
       if (newValue) applyActiveContextMatch(true);
       saveState();
     });
     opacitySlider.valueProperty().addListener((obs, oldValue, newValue) -> {
+      if (applyingState) {
+        opacityValueLabel.setText(Integer.toString((int) Math.round(newValue.doubleValue())) + "%");
+        return;
+      }
       opacityValueLabel.setText(Integer.toString((int) Math.round(newValue.doubleValue())) + "%");
       emitOverlayChanged();
       saveState();
@@ -219,7 +234,8 @@ public class StoryboardOverlayView extends BorderPane {
     HBox folderRow = new HBox(6, folderField, browseButton, autoButton, refreshButton);
     HBox.setHgrow(folderField, Priority.ALWAYS);
 
-    HBox overlayRow = new HBox(10, enabledCheck, followActiveCheck, new Label("Opacity"), opacitySlider, opacityValueLabel);
+    HBox overlayRow =
+        new HBox(10, enabledCheck, followActiveCheck, hideUiCheck, new Label("Opacity"), opacitySlider, opacityValueLabel);
     overlayRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(opacitySlider, Priority.ALWAYS);
 
@@ -282,6 +298,19 @@ public class StoryboardOverlayView extends BorderPane {
   public void setOnOverlayChanged(Consumer<StoryboardOverlayState> onOverlayChanged) {
     this.onOverlayChanged = onOverlayChanged;
     emitOverlayChanged();
+  }
+
+  public void applyExternalState(StoryboardOverlayState state) {
+    StoryboardOverlayState resolved = state == null ? StoryboardOverlayState.none() : state;
+    applyingState = true;
+    try {
+      enabledCheck.setSelected(resolved.enabled());
+      hideUiCheck.setSelected(resolved.hideUi());
+      opacitySlider.setValue(resolved.opacity() * 100.0);
+      opacityValueLabel.setText(Integer.toString((int) Math.round(opacitySlider.getValue())) + "%");
+    } finally {
+      applyingState = false;
+    }
   }
 
   public void refreshCatalog() {
@@ -468,7 +497,7 @@ public class StoryboardOverlayView extends BorderPane {
     boolean enabled = enabledCheck.isSelected() && image != null && !image.isError();
     onOverlayChanged.accept(
         enabled
-            ? new StoryboardOverlayState(true, image, opacitySlider.getValue() / 100.0, selected.displayPath())
+            ? new StoryboardOverlayState(true, image, opacitySlider.getValue() / 100.0, selected.displayPath(), hideUiCheck.isSelected())
             : StoryboardOverlayState.none());
   }
 
@@ -518,9 +547,9 @@ public class StoryboardOverlayView extends BorderPane {
 
   private Path resolveInitialFolder() {
     if (projectRoot == null) return null;
-    String override = folderField.getText();
+    String override = cleanPathValue(folderField.getText());
     if (override == null || override.isBlank()) return projectRoot.toPath();
-    Path path = Path.of(override.trim());
+    Path path = Path.of(override);
     if (!path.isAbsolute()) path = projectRoot.toPath().resolve(path).normalize();
     return path.toAbsolutePath().normalize();
   }
@@ -528,8 +557,8 @@ public class StoryboardOverlayView extends BorderPane {
   private void updateSummaryForProject() {
     ProjectViewportSpec.Dimensions dims = ProjectViewportSpec.resolve(projectRoot);
     summaryLabel.setText(
-        "Ghost storyboard frames over JES and VNS previews for staging reference. "
-            + "Frames fit to "
+        "Use storyboard mode to stage JES and VNS scenes against the full board page. "
+            + "The active game viewport is centered at "
             + dims.width()
             + "x"
             + dims.height()
@@ -542,6 +571,7 @@ public class StoryboardOverlayView extends BorderPane {
     boolean hasFrames = !framesList.getItems().isEmpty();
     boolean hasSelection = framesList.getSelectionModel().getSelectedItem() != null;
     enabledCheck.setDisable(!hasSelection);
+    hideUiCheck.setDisable(!hasSelection);
     opacitySlider.setDisable(!hasSelection);
     followActiveCheck.setDisable(activeScriptFile == null);
     previousButton.setDisable(!hasFrames);
@@ -558,6 +588,7 @@ public class StoryboardOverlayView extends BorderPane {
       filterField.clear();
       enabledCheck.setSelected(false);
       followActiveCheck.setSelected(true);
+      hideUiCheck.setSelected(false);
       opacitySlider.setValue(35.0);
       Path stateFile = stateFile();
       if (stateFile != null && Files.isRegularFile(stateFile)) {
@@ -569,6 +600,7 @@ public class StoryboardOverlayView extends BorderPane {
       filterField.setText(persisted.getProperty(KEY_FILTER, ""));
       enabledCheck.setSelected(Boolean.parseBoolean(persisted.getProperty(KEY_ENABLED, "false")));
       followActiveCheck.setSelected(Boolean.parseBoolean(persisted.getProperty(KEY_FOLLOW_ACTIVE, "true")));
+      hideUiCheck.setSelected(Boolean.parseBoolean(persisted.getProperty(KEY_HIDE_UI, "false")));
       opacitySlider.setValue(parseOpacity(persisted.getProperty(KEY_OPACITY), 35.0));
       opacityValueLabel.setText(Integer.toString((int) Math.round(opacitySlider.getValue())) + "%");
     } catch (Exception ignored) {
@@ -584,10 +616,11 @@ public class StoryboardOverlayView extends BorderPane {
     try {
       Files.createDirectories(stateFile.getParent());
       Properties props = new Properties();
-      props.setProperty(KEY_FOLDER, textOrEmpty(folderField.getText()));
+      props.setProperty(KEY_FOLDER, pathTextOrEmpty(folderField.getText()));
       props.setProperty(KEY_FILTER, textOrEmpty(filterField.getText()));
       props.setProperty(KEY_ENABLED, Boolean.toString(enabledCheck.isSelected()));
       props.setProperty(KEY_FOLLOW_ACTIVE, Boolean.toString(followActiveCheck.isSelected()));
+      props.setProperty(KEY_HIDE_UI, Boolean.toString(hideUiCheck.isSelected()));
       props.setProperty(KEY_OPACITY, Double.toString(opacitySlider.getValue()));
       StoryboardFrame selected = framesList.getSelectionModel().getSelectedItem();
       props.setProperty(KEY_SELECTED, selected == null ? "" : encodePath(selected.path()));
@@ -611,6 +644,39 @@ public class StoryboardOverlayView extends BorderPane {
 
   private static String textOrEmpty(String value) {
     return value == null ? "" : value.trim();
+  }
+
+  private static String pathTextOrEmpty(String value) {
+    return value == null || value.isBlank() ? "" : value;
+  }
+
+  private static String cleanPathValue(String raw) {
+    if (raw == null || raw.isBlank()) return "";
+    int start = firstNonWhitespace(raw);
+    int end = lastNonWhitespace(raw);
+    if (start < 0 || end < start) return "";
+    char first = raw.charAt(start);
+    char last = raw.charAt(end);
+    boolean doubleQuoted = first == '"' && last == '"';
+    boolean singleQuoted = first == '\'' && last == '\'';
+    if (doubleQuoted || singleQuoted) {
+      return raw.substring(start + 1, end);
+    }
+    return raw;
+  }
+
+  private static int firstNonWhitespace(String value) {
+    for (int i = 0; i < value.length(); i++) {
+      if (!Character.isWhitespace(value.charAt(i))) return i;
+    }
+    return -1;
+  }
+
+  private static int lastNonWhitespace(String value) {
+    for (int i = value.length() - 1; i >= 0; i--) {
+      if (!Character.isWhitespace(value.charAt(i))) return i;
+    }
+    return -1;
   }
 
   private static double parseOpacity(String raw, double fallback) {

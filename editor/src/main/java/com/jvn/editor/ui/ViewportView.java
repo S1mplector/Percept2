@@ -4,6 +4,7 @@ import java.util.function.Consumer;
 import java.util.function.LongConsumer;
 
 import com.jvn.core.graphics.Camera2D;
+import com.jvn.core.graphics.ViewportScaler2D;
 import com.jvn.core.input.Input;
 import com.jvn.core.physics.RigidBody2D;
 import com.jvn.core.scene2d.Entity2D;
@@ -21,6 +22,7 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
+import javafx.scene.image.Image;
 import javafx.scene.layout.StackPane;
 
 public class ViewportView extends StackPane {
@@ -53,43 +55,53 @@ public class ViewportView extends StackPane {
 
     // Mouse handlers
     canvas.setOnMouseClicked(e -> {
-      pick(e.getX(), e.getY());
+      if (!isInsidePreviewSurface(e.getX(), e.getY())) return;
+      pick(screenToPreviewX(e.getX()), screenToPreviewY(e.getY()));
       if (onSelected != null) onSelected.accept(selected);
     });
-    canvas.setOnMouseMoved(e -> input.setMousePosition(e.getX(), e.getY()));
+    canvas.setOnMouseMoved(e -> input.setMousePosition(screenToPreviewX(e.getX()), screenToPreviewY(e.getY())));
     canvas.setOnMouseDragged(e -> {
-      input.setMousePosition(e.getX(), e.getY());
+      input.setMousePosition(screenToPreviewX(e.getX()), screenToPreviewY(e.getY()));
       if (dragging && selected != null && e.isPrimaryButtonDown()) {
         double z = camera.getZoom();
-        double wx = camera.getX() + e.getX() / z;
-        double wy = camera.getY() + e.getY() / z;
+        double wx = camera.getX() + screenToPreviewX(e.getX()) / z;
+        double wy = camera.getY() + screenToPreviewY(e.getY()) / z;
         selected.setPosition(wx + dragOffsetX, wy + dragOffsetY);
       } else if (panning) {
-        double dx = e.getX() - panLastX;
-        double dy = e.getY() - panLastY;
-        panLastX = e.getX(); panLastY = e.getY();
+        double currentX = screenToPreviewX(e.getX());
+        double currentY = screenToPreviewY(e.getY());
+        double dx = currentX - panLastX;
+        double dy = currentY - panLastY;
+        panLastX = currentX; panLastY = currentY;
         camera.setPosition(camera.getX() - dx / camera.getZoom(), camera.getY() - dy / camera.getZoom());
       }
     });
     canvas.setOnScroll(e -> {
       input.addScrollDeltaY(e.getDeltaY());
       double z = camera.getZoom();
-      double worldX = camera.getX() + e.getX() / z;
-      double worldY = camera.getY() + e.getY() / z;
+      double worldX = camera.getX() + screenToPreviewX(e.getX()) / z;
+      double worldY = camera.getY() + screenToPreviewY(e.getY()) / z;
       double factor = Math.pow(1.05, e.getDeltaY() / 40.0);
       double newZ = z * factor;
       camera.setZoom(newZ);
-      camera.setPosition(worldX - e.getX() / newZ, worldY - e.getY() / newZ);
+      camera.setPosition(worldX - screenToPreviewX(e.getX()) / newZ, worldY - screenToPreviewY(e.getY()) / newZ);
     });
     canvas.setOnMousePressed(e -> {
       input.mouseDown(mapButton(e.getButton()));
       if (e.getButton() == MouseButton.MIDDLE || e.getButton() == MouseButton.SECONDARY) {
-        panning = true; panLastX = e.getX(); panLastY = e.getY();
+        panning = true; panLastX = screenToPreviewX(e.getX()); panLastY = screenToPreviewY(e.getY());
       } else if (e.getButton() == MouseButton.PRIMARY) {
+        if (!isInsidePreviewSurface(e.getX(), e.getY())) {
+          dragging = false;
+          selected = null;
+          return;
+        }
         double z = camera.getZoom();
-        double wx = camera.getX() + e.getX() / z;
-        double wy = camera.getY() + e.getY() / z;
-        pick(e.getX(), e.getY());
+        double previewX = screenToPreviewX(e.getX());
+        double previewY = screenToPreviewY(e.getY());
+        double wx = camera.getX() + previewX / z;
+        double wy = camera.getY() + previewY / z;
+        pick(previewX, previewY);
         if (selected != null) {
           dragOffsetX = selected.getX() - wx;
           dragOffsetY = selected.getY() - wy;
@@ -166,10 +178,30 @@ public class ViewportView extends StackPane {
     gc.fillRect(0, 0, w, h);
 
     handleKeyboardCamera(deltaMs);
+    PreviewSurface surface = previewSurface(w, h);
 
-    if (showGrid) drawGrid(w, h);
+    if (storyboardModeActive()) {
+      gc.save();
+      gc.setGlobalAlpha(storyboardOverlay.opacity());
+      gc.drawImage(
+          storyboardOverlay.image(),
+          surface.pageTransform.offsetX(),
+          surface.pageTransform.offsetY(),
+          surface.pageTransform.contentWidth(),
+          surface.pageTransform.contentHeight());
+      gc.restore();
+    }
 
-    blitter.setViewport(w, h);
+    gc.save();
+    gc.beginPath();
+    gc.rect(surface.x, surface.y, surface.width, surface.height);
+    gc.closePath();
+    gc.clip();
+    gc.translate(surface.x, surface.y);
+
+    if (showGrid) drawGrid(surface.width, surface.height);
+
+    blitter.setViewport(surface.width, surface.height);
     if (scene != null) {
       if (beforeSceneUpdateHook != null) {
         try {
@@ -178,15 +210,14 @@ public class ViewportView extends StackPane {
         }
       }
       scene.update(deltaMs);
-      scene.render(blitter, w, h);
-      drawStoryboardOverlay();
+      scene.render(blitter, surface.width, surface.height);
       drawSelectionOverlay();
       if (scene.getInput() != null) scene.getInput().endFrame();
     } else {
-      drawStoryboardOverlay();
       gc.setFill(javafx.scene.paint.Color.WHITE);
       gc.fillText("Open a JES file to preview", 20, 30);
     }
+    gc.restore();
   }
 
   private void drawGrid(double w, double h) {
@@ -296,17 +327,44 @@ public class ViewportView extends StackPane {
     if (input.wasKeyPressed("E")) camera.setZoom(camera.getZoom() * 1.1);
   }
 
-  private void drawStoryboardOverlay() {
-    if (storyboardOverlay == null || !storyboardOverlay.enabled() || !storyboardOverlay.hasImage()) return;
-    double z = Math.max(0.0001, camera.getZoom());
-    double screenX = -camera.getX() * z;
-    double screenY = -camera.getY() * z;
-    double screenW = overlayViewportWidth * z;
-    double screenH = overlayViewportHeight * z;
-    gc.save();
-    gc.setGlobalAlpha(storyboardOverlay.opacity());
-    gc.drawImage(storyboardOverlay.image(), screenX, screenY, screenW, screenH);
-    gc.restore();
+  private boolean storyboardModeActive() {
+    return storyboardOverlay != null && storyboardOverlay.enabled() && storyboardOverlay.hasImage();
+  }
+
+  private PreviewSurface previewSurface(double canvasWidth, double canvasHeight) {
+    if (!storyboardModeActive()) {
+      return new PreviewSurface(null, 0.0, 0.0, canvasWidth, canvasHeight);
+    }
+    Image image = storyboardOverlay.image();
+    double pageWidth = image == null || image.isError() || image.getWidth() <= 0 ? canvasWidth : image.getWidth();
+    double pageHeight = image == null || image.isError() || image.getHeight() <= 0 ? canvasHeight : image.getHeight();
+    ViewportScaler2D.Transform transform = ViewportScaler2D.fit(pageWidth, pageHeight, canvasWidth, canvasHeight);
+    double x = transform.logicalToScreenX((pageWidth - overlayViewportWidth) * 0.5);
+    double y = transform.logicalToScreenY((pageHeight - overlayViewportHeight) * 0.5);
+    return new PreviewSurface(
+        transform,
+        x,
+        y,
+        overlayViewportWidth * transform.scale(),
+        overlayViewportHeight * transform.scale());
+  }
+
+  private boolean isInsidePreviewSurface(double canvasX, double canvasY) {
+    PreviewSurface surface = previewSurface(canvas.getWidth(), canvas.getHeight());
+    return canvasX >= surface.x
+        && canvasX <= surface.x + surface.width
+        && canvasY >= surface.y
+        && canvasY <= surface.y + surface.height;
+  }
+
+  private double screenToPreviewX(double canvasX) {
+    PreviewSurface surface = previewSurface(canvas.getWidth(), canvas.getHeight());
+    return canvasX - surface.x;
+  }
+
+  private double screenToPreviewY(double canvasY) {
+    PreviewSurface surface = previewSurface(canvas.getWidth(), canvas.getHeight());
+    return canvasY - surface.y;
   }
 
   private static int mapButton(MouseButton b) {
@@ -322,6 +380,7 @@ public class ViewportView extends StackPane {
   }
 
   private static class Rect { double x,y,w,h; Rect(double x,double y,double w,double h){this.x=x;this.y=y;this.w=w;this.h=h;} }
+  private record PreviewSurface(ViewportScaler2D.Transform pageTransform, double x, double y, double width, double height) {}
 
   private Rect computeSceneBounds() {
     if (scene == null) return null;

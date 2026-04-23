@@ -2979,6 +2979,7 @@ public class EditorApp extends Application {
     if (projectRoot != null) editor.setProjectRoot(projectRoot);
     editor.setCodeEditorFontSize(editorPreferences.getCodeEditorFontSize());
     editor.setStoryboardOverlay(storyboardOverlayState);
+    editor.setOnStoryboardOverlayAdjusted(this::setStoryboardOverlayState);
     editor.setOnSelected(ent -> {
       selected = ent;
       if (inspectorView != null) inspectorView.setSelection(ent);
@@ -3349,6 +3350,7 @@ public class EditorApp extends Application {
     if (storyboardOverlayView != null) return storyboardOverlayView;
     storyboardOverlayView = new StoryboardOverlayView();
     storyboardOverlayView.setOnOverlayChanged(this::setStoryboardOverlayState);
+    storyboardOverlayView.applyExternalState(storyboardOverlayState);
     storyboardOverlayView.setProjectRoot(projectRoot);
     refreshStoryboardOverlayContext(getActiveFileTab());
     return storyboardOverlayView;
@@ -5428,6 +5430,9 @@ public class EditorApp extends Application {
   private void setStoryboardOverlayState(StoryboardOverlayState storyboardOverlayState) {
     this.storyboardOverlayState =
         storyboardOverlayState == null ? StoryboardOverlayState.none() : storyboardOverlayState;
+    if (storyboardOverlayView != null) {
+      storyboardOverlayView.applyExternalState(this.storyboardOverlayState);
+    }
     applyStoryboardOverlayToOpenTabs();
   }
 

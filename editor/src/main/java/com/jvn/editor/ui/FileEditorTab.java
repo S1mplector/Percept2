@@ -92,6 +92,7 @@ public class FileEditorTab extends BorderPane {
 
   private Consumer<Entity2D> onSelected;
   private Consumer<String> onStatus;
+  private Consumer<StoryboardOverlayState> onStoryboardOverlayAdjusted;
   private com.jvn.editor.commands.CommandStack commands;
   private File projectRoot;
   private String savedSnapshot = "";
@@ -150,6 +151,15 @@ public class FileEditorTab extends BorderPane {
     
     if (vnsEditor != null) {
       vnsEditor.setOnLaunchFromHere(this::runFromLabel);
+      vnsEditor.setOnStoryboardLineRequested(this::syncStoryboardPreviewToLine);
+    }
+    if (vnPreview != null) {
+      vnPreview.setOnStoryboardPreviewLineChanged(this::syncStoryboardEditorCursor);
+      vnPreview.setOnStoryboardStateAdjusted(state -> {
+        if (onStoryboardOverlayAdjusted != null) {
+          onStoryboardOverlayAdjusted.accept(state);
+        }
+      });
     }
 
     setupLayout();
@@ -380,6 +390,7 @@ public class FileEditorTab extends BorderPane {
 
   public void setOnSelected(Consumer<Entity2D> c) { this.onSelected = c; }
   public void setOnStatus(Consumer<String> c) { this.onStatus = c; }
+  public void setOnStoryboardOverlayAdjusted(Consumer<StoryboardOverlayState> c) { this.onStoryboardOverlayAdjusted = c; }
   public void setProjectRoot(File root) {
     this.projectRoot = root;
     if (jesEditor != null) jesEditor.setProjectRoot(root);
@@ -610,7 +621,35 @@ public class FileEditorTab extends BorderPane {
   public VnPreviewView getVnPreview() { return vnPreview; }
   public void setStoryboardOverlay(StoryboardOverlayState storyboardOverlay) {
     if (viewport != null) viewport.setStoryboardOverlay(storyboardOverlay);
-    if (vnPreview != null) vnPreview.setStoryboardOverlay(storyboardOverlay);
+    if (vnPreview != null) {
+      vnPreview.setStoryboardOverlay(storyboardOverlay);
+      if (vnsEditor != null) {
+        boolean active = storyboardOverlay != null && storyboardOverlay.enabled() && storyboardOverlay.hasImage();
+        vnsEditor.setStoryboardModeActive(active);
+        if (active && vnsEditor.getStoryboardCursorLine() <= 0) {
+          int line = vnPreview.getStoryboardPreviewLine();
+          if (line <= 0) line = Math.max(1, vnsEditor.getCurrentLine() + 1);
+          syncStoryboardPreviewToLine(line);
+        }
+      }
+    }
+  }
+
+  private void syncStoryboardPreviewToLine(int oneBasedLine) {
+    if (kind != Kind.VNS || vnsEditor == null || vnPreview == null) return;
+    int targetLine = Math.max(1, oneBasedLine);
+    vnsEditor.setStoryboardCursorLine(targetLine);
+    try {
+      vnPreview.navigateToStoryboardLine(getCurrentText(), resolveVnsSourceName(), targetLine);
+    } catch (Exception ex) {
+      if (onStatus != null) onStatus.accept("Storyboard sync failed: " + ex.getMessage());
+    }
+  }
+
+  private void syncStoryboardEditorCursor(int oneBasedLine) {
+    if (kind != Kind.VNS || vnsEditor == null) return;
+    if (oneBasedLine <= 0) return;
+    vnsEditor.setStoryboardCursorLine(oneBasedLine);
   }
   public void stopPreviewAudio() {
     if (vnPreview != null) vnPreview.stopAudio();

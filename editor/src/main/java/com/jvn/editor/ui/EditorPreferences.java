@@ -94,7 +94,7 @@ public final class EditorPreferences {
     this.customTextEditorCommand = cleanText(customTextEditorCommand);
     this.launcherTheme = normalizeLauncherTheme(launcherTheme);
     this.launcherRestoreLastProject = launcherRestoreLastProject;
-    this.launcherLastProjectPath = cleanText(launcherLastProjectPath);
+    this.launcherLastProjectPath = cleanPathText(launcherLastProjectPath);
     this.launcherKeepOpenAfterEditorLaunch = launcherKeepOpenAfterEditorLaunch;
     this.launcherConfirmOpenEditor = launcherConfirmOpenEditor;
     this.launcherConfirmRunProject = launcherConfirmRunProject;
@@ -226,7 +226,7 @@ public final class EditorPreferences {
   }
 
   public void setLauncherLastProjectPath(String launcherLastProjectPath) {
-    this.launcherLastProjectPath = cleanText(launcherLastProjectPath);
+    this.launcherLastProjectPath = cleanPathText(launcherLastProjectPath);
   }
 
   public boolean isLauncherKeepOpenAfterEditorLaunch() {
@@ -344,6 +344,10 @@ public final class EditorPreferences {
   private static String normalizeTheme(String value) {
     String normalized = cleanText(value).toLowerCase();
     return LAUNCHER_THEME_LIGHT.equals(normalized) ? LAUNCHER_THEME_LIGHT : LAUNCHER_THEME_DARK;
+  }
+
+  private static String cleanPathText(String value) {
+    return value == null || value.isBlank() ? "" : value;
   }
 
   private static String cleanText(String value) {

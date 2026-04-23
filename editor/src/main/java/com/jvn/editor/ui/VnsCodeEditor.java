@@ -62,6 +62,10 @@ public class VnsCodeEditor extends BorderPane {
   private boolean searchBarVisible = false;
   private final Label statusBarLabel = new Label("Ln 1, Col 1");
   private Consumer<Integer> onCaretLineChanged;
+  private Consumer<Integer> onStoryboardLineRequested;
+  private boolean storyboardModeActive = false;
+  private int storyboardCursorLine = -1;
+  private boolean storyboardDragActive = false;
 
   // Code folding
   private final Set<Integer> foldedRegionStarts = new HashSet<>();
@@ -227,6 +231,7 @@ public class VnsCodeEditor extends BorderPane {
         e.consume();
       }
     });
+    addEventFilter(javafx.scene.input.MouseEvent.MOUSE_RELEASED, e -> storyboardDragActive = false);
 
     setupIdeKeyBindings();
     setupAutoPairing();
@@ -638,6 +643,39 @@ public class VnsCodeEditor extends BorderPane {
     });
   }
 
+  public void setOnStoryboardLineRequested(Consumer<Integer> listener) {
+    this.onStoryboardLineRequested = listener;
+  }
+
+  public void setStoryboardModeActive(boolean active) {
+    if (storyboardModeActive == active) return;
+    storyboardModeActive = active;
+    if (!active) {
+      storyboardDragActive = false;
+      storyboardCursorLine = -1;
+    }
+    Platform.runLater(() -> codeArea.setParagraphGraphicFactory(this::makeLineNumberLabel));
+  }
+
+  public void setStoryboardCursorLine(int oneBasedLine) {
+    int normalized = oneBasedLine <= 0 ? -1 : oneBasedLine;
+    if (storyboardCursorLine == normalized) return;
+    storyboardCursorLine = normalized;
+    Platform.runLater(() -> codeArea.setParagraphGraphicFactory(this::makeLineNumberLabel));
+  }
+
+  public int getStoryboardCursorLine() {
+    return storyboardCursorLine;
+  }
+
+  private void requestStoryboardLine(int oneBasedLine) {
+    storyboardCursorLine = Math.max(1, oneBasedLine);
+    if (onStoryboardLineRequested != null) {
+      onStoryboardLineRequested.accept(storyboardCursorLine);
+    }
+    Platform.runLater(() -> codeArea.setParagraphGraphicFactory(this::makeLineNumberLabel));
+  }
+
   public void goToLine(int oneBasedLine) {
     int paragraphCount = codeArea.getParagraphs().size();
     if (paragraphCount <= 0) return;
@@ -686,6 +724,8 @@ public class VnsCodeEditor extends BorderPane {
       ln.getStyleClass().add(highlightedIssueWarning ? "lineno-warning" : "lineno-error");
     }
 
+    boolean isStoryboardLine = storyboardModeActive && storyboardCursorLine == line + 1;
+
     // Bookmark indicator
     boolean isBookmarked = bookmarks.contains(line);
 
@@ -696,13 +736,43 @@ public class VnsCodeEditor extends BorderPane {
       if (r[0] == line) { isFoldable = true; break; }
     }
 
-    if (!isFoldable && !isBookmarked) return ln;
+    if (!isFoldable && !isBookmarked && !storyboardModeActive) return ln;
 
     HBox gutter = new HBox(2);
     gutter.setAlignment(Pos.CENTER_LEFT);
     gutter.getStyleClass().add("lineno");
     if (line == highlightedIssueLine) {
       gutter.getStyleClass().add(highlightedIssueWarning ? "lineno-warning" : "lineno-error");
+    }
+
+    if (storyboardModeActive) {
+      Label cursor = new Label(isStoryboardLine ? "\u25B6" : "\u25E6");
+      cursor.setStyle(
+          isStoryboardLine
+              ? "-fx-text-fill: #f0c27a; -fx-font-size: 10px; -fx-padding: 0 2 0 0; -fx-cursor: v_resize;"
+              : "-fx-text-fill: #4f5e73; -fx-font-size: 8px; -fx-padding: 0 2 0 0;");
+      cursor.setTooltip(new Tooltip(isStoryboardLine
+          ? "Drag the storyboard marker to reposition the preview"
+          : "Storyboard marker target"));
+      cursor.setOnMousePressed(e -> {
+        if (!isStoryboardLine || e.getButton() != javafx.scene.input.MouseButton.PRIMARY) return;
+        storyboardDragActive = true;
+        requestStoryboardLine(line + 1);
+        e.consume();
+      });
+      gutter.setOnMouseEntered(e -> {
+        if (storyboardDragActive) {
+          requestStoryboardLine(line + 1);
+        }
+      });
+      gutter.setOnMouseReleased(e -> {
+        if (storyboardDragActive && e.getButton() == javafx.scene.input.MouseButton.PRIMARY) {
+          storyboardDragActive = false;
+          requestStoryboardLine(line + 1);
+          e.consume();
+        }
+      });
+      gutter.getChildren().add(cursor);
     }
 
     if (isBookmarked) {

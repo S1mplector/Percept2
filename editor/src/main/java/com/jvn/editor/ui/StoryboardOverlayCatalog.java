@@ -41,7 +41,7 @@ final class StoryboardOverlayCatalog {
       return new ScanResult("No project loaded", "Open a project to browse storyboard frames.", List.of());
     }
     Path normalizedRoot = projectRoot.toAbsolutePath().normalize();
-    String override = folderOverride == null ? "" : folderOverride.trim();
+    String override = cleanPathValue(folderOverride);
     if (!override.isBlank()) {
       Path explicit = resolveOverride(normalizedRoot, override);
       if (explicit == null || !Files.isDirectory(explicit)) {
@@ -103,7 +103,7 @@ final class StoryboardOverlayCatalog {
   private static Path resolveOverride(Path projectRoot, String folderOverride) {
     if (folderOverride == null || folderOverride.isBlank()) return null;
     try {
-      Path path = Path.of(folderOverride.trim());
+      Path path = Path.of(cleanPathValue(folderOverride));
       if (!path.isAbsolute()) {
         path = projectRoot.resolve(path).normalize();
       }
@@ -199,6 +199,35 @@ final class StoryboardOverlayCatalog {
 
   private static int depth(Path path) {
     return path == null ? Integer.MAX_VALUE : path.toAbsolutePath().normalize().getNameCount();
+  }
+
+  private static String cleanPathValue(String raw) {
+    if (raw == null || raw.isBlank()) return "";
+    int start = firstNonWhitespace(raw);
+    int end = lastNonWhitespace(raw);
+    if (start < 0 || end < start) return "";
+    char first = raw.charAt(start);
+    char last = raw.charAt(end);
+    boolean doubleQuoted = first == '"' && last == '"';
+    boolean singleQuoted = first == '\'' && last == '\'';
+    if (doubleQuoted || singleQuoted) {
+      return raw.substring(start + 1, end);
+    }
+    return raw;
+  }
+
+  private static int firstNonWhitespace(String value) {
+    for (int i = 0; i < value.length(); i++) {
+      if (!Character.isWhitespace(value.charAt(i))) return i;
+    }
+    return -1;
+  }
+
+  private static int lastNonWhitespace(String value) {
+    for (int i = value.length() - 1; i >= 0; i--) {
+      if (!Character.isWhitespace(value.charAt(i))) return i;
+    }
+    return -1;
   }
 
   record ScanResult(String sourceLabel, String statusMessage, List<Path> frames) {
