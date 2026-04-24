@@ -15,6 +15,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
+          cache: gradle
       - name: Make Gradle executable
         run: chmod +x gradlew
       - name: Create smoke-test game project

@@ -101,6 +101,7 @@ show_help() {
   print_help_row "./jvnw editor" "Run the editor"
   print_help_row "./jvnw runtime" "Run the runtime"
   print_help_row "./jvnw build" "Build the workspace"
+  print_help_row "./jvnw ci" "Run the compile/test workflow used by CI"
   print_help_row "./jvnw test" "Run the test suite"
   print_help_row "./jvnw check" "Run verification tasks"
   print_help_row "./jvnw clean" "Remove build outputs"
@@ -151,6 +152,7 @@ fi
 declare -a forwarded_args=()
 alias_label=""
 first_non_option_seen=0
+prefer_configuration_cache=0
 
 for arg in "${input_args[@]}"; do
   if [[ "$first_non_option_seen" -eq 0 && "$arg" != -* ]]; then
@@ -174,14 +176,22 @@ for arg in "${input_args[@]}"; do
         ;;
       build)
         alias_label="build"
+        prefer_configuration_cache=1
         forwarded_args+=("build")
+        ;;
+      ci)
+        alias_label="ci"
+        prefer_configuration_cache=1
+        forwarded_args+=("ci")
         ;;
       test)
         alias_label="test"
+        prefer_configuration_cache=1
         forwarded_args+=("test")
         ;;
       check)
         alias_label="check"
+        prefer_configuration_cache=1
         forwarded_args+=("check")
         ;;
       clean)
@@ -237,12 +247,16 @@ for arg in "${input_args[@]}"; do
 done
 
 console_specified=0
+configuration_cache_specified=0
 declare -a task_args=()
 if [[ ${#forwarded_args[@]} -gt 0 ]]; then
   for arg in "${forwarded_args[@]}"; do
     case "$arg" in
       --console|--console=*)
         console_specified=1
+        ;;
+      --configuration-cache|--configuration-cache=*|--no-configuration-cache|-Dorg.gradle.configuration-cache=*|-Dorg.gradle.configuration-cache)
+        configuration_cache_specified=1
         ;;
     esac
     if [[ "$arg" != -* ]]; then
@@ -254,6 +268,9 @@ fi
 declare -a gradle_cmd=("$GRADLEW_PATH")
 if [[ "$console_specified" -eq 0 ]]; then
   gradle_cmd+=("--console=plain")
+fi
+if [[ "$prefer_configuration_cache" -eq 1 && "$configuration_cache_specified" -eq 0 ]]; then
+  gradle_cmd+=("--configuration-cache")
 fi
 if [[ ${#forwarded_args[@]} -gt 0 ]]; then
   gradle_cmd+=("${forwarded_args[@]}")

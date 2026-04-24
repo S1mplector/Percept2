@@ -13,9 +13,8 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
+          cache: gradle
       - name: Make Gradle executable
         run: chmod +x gradlew
-      - name: Compile app modules
-        run: ./gradlew :fx:compileJava :runtime:compileJava :editor:compileJava --no-daemon
-      - name: Run unit tests
-        run: ./gradlew :core:test :scripting:test :swing:test --no-daemon
+      - name: Run CI verification
+        run: ./gradlew ci --configuration-cache --no-daemon

@@ -51,6 +51,7 @@ Useful JVN commands:
 ./jvnw editor
 ./jvnw runtime
 ./jvnw build
+./jvnw ci
 ./jvnw test
 ./jvnw check
 ./jvnw clean
@@ -86,6 +87,7 @@ Default wrapper commands:
 
 ```bash
 ./jvnw build
+./jvnw ci
 ./jvnw test
 ./jvnw check
 ./jvnw clean
@@ -102,9 +104,12 @@ Default wrapper commands:
 Optional direct Gradle tasks for focused work:
 
 ```bash
+./gradlew ci
 ./gradlew :core:compileJava :scripting:compileJava :fx:compileJava :runtime:compileJava :editor:compileJava
 ./gradlew :core:test :scripting:test :swing:test
 ```
+
+Gradle build cache is enabled by default. `./jvnw build`, `./jvnw ci`, `./jvnw test`, and `./jvnw check` also opt into configuration cache automatically.
 
 Game archives are written to `build/distributions/games/`. Use:
 

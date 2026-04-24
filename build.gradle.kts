@@ -1778,6 +1778,21 @@ tasks.register("releaseJvnGameNativeCurrent") {
   }
 }
 
+val jvnCiVerificationTasks = listOf(
+  ":fx:compileJava",
+  ":runtime:compileJava",
+  ":editor:compileJava",
+  ":core:test",
+  ":scripting:test",
+  ":swing:test"
+)
+
+tasks.register("ci") {
+  group = "verification"
+  description = "Runs the compile and unit-test tasks that define the workspace CI contract."
+  dependsOn(jvnCiVerificationTasks)
+}
+
 allprojects {
   repositories {
     mavenLocal {
@@ -1802,11 +1817,8 @@ subprojects {
     }
   }
 
-  tasks.test {
-    useJUnitPlatform()
-  }
-
   tasks.withType<Test>().configureEach {
+    useJUnitPlatform()
   }
 
   dependencies {
