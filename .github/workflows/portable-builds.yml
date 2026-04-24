@@ -18,6 +18,20 @@ jobs:
           cache: gradle
       - name: Make Gradle executable
         run: chmod +x gradlew
+      - name: Resolve build directory
+        shell: bash
+        run: |
+          build_dir="$(awk -F= '/^[[:space:]]*jvnBuildDir[[:space:]]*=/{val=$2} END{gsub(/^[[:space:]]+|[[:space:]]+$/, "", val); print val}' gradle.properties)"
+          if [ -z "$build_dir" ]; then
+            build_dir="build"
+          fi
+          if [[ "$build_dir" = /* ]]; then
+            build_dir_path="$build_dir"
+          else
+            build_dir_path="$GITHUB_WORKSPACE/$build_dir"
+          fi
+          echo "JVN_BUILD_DIR=$build_dir" >> "$GITHUB_ENV"
+          echo "JVN_BUILD_DIR_PATH=$build_dir_path" >> "$GITHUB_ENV"
       - name: Create smoke-test game project
         run: |
           mkdir -p "$RUNNER_TEMP/jvn-smoke-game/scripts/story" "$RUNNER_TEMP/jvn-smoke-game/assets" "$RUNNER_TEMP/jvn-smoke-game/config"
@@ -45,4 +59,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: jvn-game-portable-archives
-          path: build/distributions/games/*.zip
+          path: ${{ env.JVN_BUILD_DIR_PATH }}/distributions/games/*.zip

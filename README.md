@@ -111,7 +111,9 @@ Optional direct Gradle tasks for focused work:
 
 Gradle build cache is enabled by default. `./jvnw build`, `./jvnw ci`, `./jvnw test`, and `./jvnw check` also opt into configuration cache automatically.
 
-Game archives are written to `build/distributions/games/`. Use:
+Game archives are written to `build/distributions/games/` by default. Set `jvnBuildDir=<dir>` in `gradle.properties` or pass `-PjvnBuildDir=<dir>` to relocate workspace build outputs; relative paths resolve from the workspace root.
+
+Use:
 
 - `./jvnw dist -PjvnGameProject=/path/to/game` for a current-host portable zip
 - `./jvnw dist-all -PjvnGameProject=/path/to/game` for cross-target portable zips

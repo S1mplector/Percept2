@@ -82,12 +82,13 @@ Optional properties:
 | `-PjvnBundledRuntimeVendor=<vendor>` | Override the Adoptium vendor segment used for desktop-bundle runtime downloads (default: `eclipse`) |
 | `-PjvnRefreshBundledRuntime=true` | Force a fresh download of the prebuilt runtime archive instead of reusing the local cache |
 | `-PjvnReleaseProfile=<name>` | Select release profile from `jvn-release.properties` |
+| `-PjvnBuildDir=<dir>` | Override the workspace build root; relative paths resolve from the JVN workspace root |
 | `-PjvnAllowEngineWorkspacePackage=true` | Advanced escape hatch for intentionally packaging the engine workspace |
 
 Archives are written to:
 
 ```text
-build/distributions/games/
+<jvnBuildDir>/distributions/games/   (default: build/distributions/games/)
 ```
 
 ## Portable Targets
@@ -121,7 +122,7 @@ The downloaded runtime archive is SHA-256 verified against the metadata returned
 
 That means JVN no longer depends on local `jlink` for cross-target self-contained desktop builds.
 
-Downloaded runtime archives and extracted caches live under `build/downloads/jvnRuntime/` and `build/vendor-runtimes/`. Use `./jvnw runtime-cache` to inspect them and `./jvnw runtime-cache-clear` to wipe them.
+Downloaded runtime archives and extracted caches live under `<jvnBuildDir>/downloads/jvnRuntime/` and `<jvnBuildDir>/vendor-runtimes/` (default: `build/...`). Use `./jvnw runtime-cache` to inspect them and `./jvnw runtime-cache-clear` to wipe them.
 
 ## Local Native Packaging
 
@@ -279,7 +280,7 @@ Supported first-pass profile categories:
 5. Build desktop bundles locally for the targets you want to ship.
 6. Smoke-test at least the current host locally, then use matching machines or CI for native installers when you need them.
 7. Run the release profile when signing, notarization, or publish commands are configured.
-8. Upload the generated artifacts from `build/distributions/games/` or from the CI artifact set.
+8. Upload the generated artifacts from `<jvnBuildDir>/distributions/games/` (default: `build/distributions/games/`) or from the CI artifact set.
 
 CLI equivalent:
 

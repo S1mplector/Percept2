@@ -192,6 +192,21 @@ jobs:
         working-directory: engine
         run: chmod +x gradlew jvnw
 
+      - name: Resolve engine build directory
+        shell: bash
+        run: |
+          build_dir="$(awk -F= '/^[[:space:]]*jvnBuildDir[[:space:]]*=/{val=$2} END{gsub(/^[[:space:]]+|[[:space:]]+$/, "", val); print val}' "$GITHUB_WORKSPACE/engine/gradle.properties")"
+          if [ -z "$build_dir" ]; then
+            build_dir="build"
+          fi
+          if [[ "$build_dir" = /* ]]; then
+            build_dir_path="$build_dir"
+          else
+            build_dir_path="$GITHUB_WORKSPACE/engine/$build_dir"
+          fi
+          echo "ENGINE_BUILD_DIR=$build_dir" >> "$GITHUB_ENV"
+          echo "ENGINE_BUILD_DIR_PATH=$build_dir_path" >> "$GITHUB_ENV"
+
       - name: Resolve build inputs
         shell: bash
         run: |
@@ -275,8 +290,8 @@ jobs:
           {
             echo "### ${{ matrix.target_id }}"
             echo
-            if [ -d "$GITHUB_WORKSPACE/engine/build/distributions/games" ]; then
-              ls -1 "$GITHUB_WORKSPACE/engine/build/distributions/games" | sed 's/^/- /'
+            if [ -d "$ENGINE_BUILD_DIR_PATH/distributions/games" ]; then
+              ls -1 "$ENGINE_BUILD_DIR_PATH/distributions/games" | sed 's/^/- /'
             else
               echo "- no artifacts produced"
             fi
@@ -288,5 +303,5 @@ jobs:
         with:
           name: jvn-native-${{ matrix.target_id }}
           path: |
-            engine/build/distributions/games/*${{ matrix.target_id }}*
+            ${{ env.ENGINE_BUILD_DIR_PATH }}/distributions/games/*${{ matrix.target_id }}*
           if-no-files-found: ignore

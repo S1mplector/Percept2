@@ -16,9 +16,20 @@ plugins {
 
 val jvnGroup = (findProperty("jvnGroup") as String?) ?: "com.jvn"
 val jvnVersion = (findProperty("jvnVersion") as String?) ?: "0.1-SNAPSHOT"
+val jvnBuildDirOverride = (findProperty("jvnBuildDir") as String?)
+  ?.trim()
+  ?.takeIf { it.isNotBlank() }
+  ?.let { raw ->
+    val candidate = File(raw)
+    if (candidate.isAbsolute) candidate else File(rootDir, raw)
+  }
 
 group = jvnGroup
 version = jvnVersion
+
+if (jvnBuildDirOverride != null) {
+  layout.buildDirectory.set(jvnBuildDirOverride)
+}
 
 val configuredJavaVersion = (findProperty("javaVersion") as String?)?.toIntOrNull() ?: 21
 java {
@@ -1467,7 +1478,7 @@ tasks.register("printJvnGameNativePackageTypes") {
 
 tasks.register("printJvnBundledRuntimeCache") {
   group = "help"
-  description = "Prints cached prebuilt desktop-bundle runtimes under build/vendor-runtimes."
+  description = "Prints cached prebuilt desktop-bundle runtimes under the configured build directory."
   doLast {
     val found = jvnGameTargets.mapNotNull { target ->
       val infoFile = bundledRuntimeInfoFile(target)
@@ -1810,6 +1821,11 @@ subprojects {
 
   group = jvnGroup
   version = jvnVersion
+
+  if (jvnBuildDirOverride != null) {
+    val relativeProjectPath = project.path.removePrefix(":").replace(':', '/')
+    layout.buildDirectory.set(rootProject.layout.buildDirectory.dir(relativeProjectPath))
+  }
 
   java {
     toolchain {

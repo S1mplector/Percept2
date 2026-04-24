@@ -43,7 +43,7 @@ The root build system can now produce three kinds of outputs:
 
 For most teams, **Desktop Bundle** should be the default release artifact. It is the best balance between cross-target automation and player-facing simplicity.
 
-Outputs are written to `build/distributions/games/`. In the editor, open the game project and use **Build & Publish...** for the same workflow with a popup UI.
+Outputs are written to `build/distributions/games/` by default. Set `jvnBuildDir=<dir>` in `gradle.properties` or pass `-PjvnBuildDir=<dir>` to relocate them. In the editor, open the game project and use **Build & Publish...** for the same workflow with a popup UI.
 
 The build tasks validate the selected game before assembling: `jvn.project` must be readable, the manifest type must be `vn` or `jes`, the configured entry script must exist, and the selected folder must be a game project rather than the JVN engine workspace.
 
@@ -59,7 +59,7 @@ The runtime module produces a runnable application:
 ./jvnw jar
 ```
 
-The output JAR is in `runtime/build/libs/`.
+The output JAR is in `runtime/build/libs/` by default, or `<jvnBuildDir>/runtime/libs/` when the workspace build root is overridden.
 
 ### Targeted module builds for faster iteration:
 

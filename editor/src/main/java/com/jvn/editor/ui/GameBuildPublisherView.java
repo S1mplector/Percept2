@@ -525,7 +525,7 @@ public class GameBuildPublisherView extends BorderPane {
       }
     }
 
-    File outDir = new File(workspaceRoot == null ? new File(".") : workspaceRoot, "build/distributions/games");
+    File outDir = buildDistributionsDir();
     File writableProbe = outDir.exists() ? outDir : outDir.getParentFile();
     if (writableProbe != null && writableProbe.exists() && !writableProbe.canWrite()) {
       errors.add("Build output folder is not writable: " + outDir.getPath());
@@ -588,7 +588,7 @@ public class GameBuildPublisherView extends BorderPane {
     PackageMode mode = selectedPackageMode();
     String targetId = target == null ? "current-target" : target.outputToken();
     String stem = safeToken(nameField.getText()) + "-" + safeToken(versionField.getText());
-    File outDir = new File(workspaceRoot == null ? new File(".") : workspaceRoot, "build/distributions/games");
+    File outDir = buildDistributionsDir();
     switch (mode) {
       case PORTABLE_ZIP -> {
         if (target != null && "all".equals(targetId)) {
@@ -794,7 +794,7 @@ public class GameBuildPublisherView extends BorderPane {
   }
 
   private void revealBuilds() {
-    File outDir = new File(workspaceRoot == null ? new File(".") : workspaceRoot, "build/distributions/games");
+    File outDir = buildDistributionsDir();
     try {
       if (!outDir.exists()) outDir.mkdirs();
       Desktop.getDesktop().open(outDir);
@@ -836,8 +836,8 @@ public class GameBuildPublisherView extends BorderPane {
   }
 
   private void revealRuntimeCache() {
-    File cacheDir = new File(workspaceRoot == null ? new File(".") : workspaceRoot, "build/downloads/jvnRuntime");
-    File extractDir = new File(workspaceRoot == null ? new File(".") : workspaceRoot, "build/vendor-runtimes");
+    File cacheDir = bundledRuntimeDownloadDir();
+    File extractDir = bundledRuntimeExtractDir();
     try {
       if (!cacheDir.exists()) cacheDir.mkdirs();
       if (!extractDir.exists()) extractDir.mkdirs();
@@ -866,6 +866,22 @@ public class GameBuildPublisherView extends BorderPane {
     statusLabel.setText("Preset applied: " + mode + ".");
     setNoteTone(statusLabel, "status");
     refreshFormState();
+  }
+
+  private File workspaceBuildDir() {
+    return GradleWorkspaceLayout.buildDir(workspaceRoot == null ? null : workspaceRoot.toPath()).toFile();
+  }
+
+  private File buildDistributionsDir() {
+    return new File(workspaceBuildDir(), "distributions/games");
+  }
+
+  private File bundledRuntimeDownloadDir() {
+    return new File(workspaceBuildDir(), "downloads/jvnRuntime");
+  }
+
+  private File bundledRuntimeExtractDir() {
+    return new File(workspaceBuildDir(), "vendor-runtimes");
   }
 
   private void setNoteTone(Label label, String tone) {
