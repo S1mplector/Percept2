@@ -96,6 +96,49 @@ class CodeRoundTripTest {
     }
 
     @Test
+    void editorMetadataRoundTripPreservesLoopRegionAndOriginalLocalKeyframes() {
+        AnimationProject project = new AnimationProject();
+        project.setName("rigged_intro");
+        project.setTotalDurationMs(1800);
+        project.setLooping(true);
+        project.setLoopRegion(250, 1250);
+
+        EntityGroup rig = project.getOrCreateGroup("hero_rig");
+        rig.setLayerOrder(7);
+        rig.getGroupTrack().addKeyframe(PropertyType.X, new Keyframe(0, 100, Easing.Type.LINEAR));
+        rig.getGroupTrack().addKeyframe(PropertyType.X, new Keyframe(500, 140.654321, Easing.Type.EASE_OUT_QUAD));
+
+        EntityTrack hand = project.getOrCreateTrack("hero_hand");
+        hand.setLayerOrder(2);
+        hand.addKeyframe(PropertyType.X, new Keyframe(0, 10, Easing.Type.LINEAR));
+        hand.addKeyframe(PropertyType.X, new Keyframe(500, 30.123456, Easing.Type.EASE_IN_OUT_CUBIC));
+        project.addEntityToGroup("hero_hand", "hero_rig");
+
+        String exported = CodeExporter.exportNamed(project, "rigged_intro");
+        assertTrue(exported.contains("@jvn-puppeteer-project"));
+        assertTrue(exported.contains("@jvn-puppeteer-group"));
+        assertTrue(exported.contains("@jvn-puppeteer-key"));
+
+        AnimationProject imported = CodeImporter.importCode("rigged_intro", exported);
+        assertEquals(1800.0, imported.getTotalDurationMs(), 0.001);
+        assertTrue(imported.isLooping());
+        assertTrue(imported.hasLoopRegion());
+        assertEquals(250.0, imported.getLoopStartMs(), 0.001);
+        assertEquals(1250.0, imported.getLoopEndMs(), 0.001);
+
+        EntityGroup importedRig = imported.getGroup("hero_rig");
+        EntityTrack importedHand = imported.getTrack("hero_hand");
+        assertNotNull(importedRig);
+        assertNotNull(importedHand);
+        assertEquals("hero_rig", importedHand.getParentGroupName());
+        assertEquals(7, importedRig.getLayerOrder());
+        assertEquals(2, importedHand.getLayerOrder());
+        assertEquals(140.654321, importedRig.getGroupTrack().getValueAt(PropertyType.X, 500), 0.000001);
+        assertEquals(30.123456, importedHand.getValueAt(PropertyType.X, 500), 0.000001);
+        assertEquals(170.777777, imported.computeValueAt("hero_hand", PropertyType.X, 500), 0.000001);
+    }
+
+    @Test
     void cameraAndAudioRoundTrip() {
         String original = """
             timeline {

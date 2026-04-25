@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -20,6 +21,7 @@ public class CodeExporter {
         sb.append("// Timeline: ").append(name).append("\n");
         sb.append("// Usage in VNS: @external jes_timeline ").append(name).append("\n\n");
         appendSceneEntityMetadata(sb, project);
+        appendEditorProjectMetadata(sb, project);
         sb.append(body);
         return sb.toString();
     }
@@ -33,18 +35,104 @@ public class CodeExporter {
                 .append(" name=").append(encode(entity.name()))
                 .append(" type=").append(encode(entity.type()))
                 .append(" image=").append(encode(entity.imagePath()))
-                .append(" x=").append(formatNumber(entity.x()))
-                .append(" y=").append(formatNumber(entity.y()))
-                .append(" w=").append(formatNumber(entity.width()))
-                .append(" h=").append(formatNumber(entity.height()))
-                .append(" ox=").append(formatNumber(entity.originX()))
-                .append(" oy=").append(formatNumber(entity.originY()))
-                .append(" z=").append(formatNumber(entity.z()))
+                .append(" x=").append(formatMetadataNumber(entity.x()))
+                .append(" y=").append(formatMetadataNumber(entity.y()))
+                .append(" w=").append(formatMetadataNumber(entity.width()))
+                .append(" h=").append(formatMetadataNumber(entity.height()))
+                .append(" ox=").append(formatMetadataNumber(entity.originX()))
+                .append(" oy=").append(formatMetadataNumber(entity.originY()))
+                .append(" z=").append(formatMetadataNumber(entity.z()))
                 .append(" visible=").append(entity.visible() ? "1" : "0")
-                .append(" alpha=").append(formatNumber(entity.alpha()))
+                .append(" alpha=").append(formatMetadataNumber(entity.alpha()))
                 .append("\n");
         }
         sb.append("\n");
+    }
+
+    private static void appendEditorProjectMetadata(StringBuilder sb, AnimationProject project) {
+        if (sb == null || project == null) return;
+        sb.append("// Puppeteer editor metadata. Runtime parsers ignore these comments.\n");
+        sb.append("// @jvn-puppeteer-project")
+            .append(" schema=2")
+            .append(" duration=").append(formatMetadataNumber(project.getTotalDurationMs()))
+            .append(" playhead=").append(formatMetadataNumber(project.getPlayheadMs()))
+            .append(" looping=").append(project.isLooping() ? "1" : "0");
+        if (project.hasLoopRegion()) {
+            sb.append(" loopStart=").append(formatMetadataNumber(project.getLoopStartMs()))
+                .append(" loopEnd=").append(formatMetadataNumber(project.getLoopEndMs()));
+        }
+        sb.append("\n");
+
+        for (EntityGroup group : project.getGroups()) {
+            if (group == null || group.getName() == null || group.getName().isBlank()) continue;
+            sb.append("// @jvn-puppeteer-group")
+                .append(" name=").append(encode(group.getName()))
+                .append(" parent=").append(encode(group.getParentGroupName()))
+                .append(" layer=").append(group.getLayerOrder())
+                .append(" expanded=").append(group.isExpanded() ? "1" : "0")
+                .append("\n");
+        }
+
+        for (EntityTrack track : project.getTracks()) {
+            appendTrackMetadata(sb, track);
+            appendTrackKeyframeMetadata(sb, track, false);
+        }
+        for (EntityGroup group : project.getGroups()) {
+            if (group == null) continue;
+            appendTrackKeyframeMetadata(sb, group.getGroupTrack(), true);
+        }
+        sb.append("\n");
+    }
+
+    private static void appendTrackMetadata(StringBuilder sb, EntityTrack track) {
+        if (sb == null || track == null || track.getEntityName() == null || track.getEntityName().isBlank()) return;
+        sb.append("// @jvn-puppeteer-track")
+            .append(" name=").append(encode(track.getEntityName()))
+            .append(" parent=").append(encode(track.getParentGroupName()))
+            .append(" visible=").append(track.isVisible() ? "1" : "0")
+            .append(" expanded=").append(track.isExpanded() ? "1" : "0")
+            .append(" layer=").append(track.getLayerOrder())
+            .append("\n");
+    }
+
+    private static void appendTrackKeyframeMetadata(StringBuilder sb, EntityTrack track, boolean groupTrack) {
+        if (sb == null || track == null || track.getEntityName() == null || track.getEntityName().isBlank()) return;
+        String target = track.getEntityName();
+        String kind = groupTrack ? "group" : "entity";
+        for (PropertyType property : PropertyType.values()) {
+            for (Keyframe keyframe : track.getKeyframes(property)) {
+                appendKeyframeMetadata(sb, target, kind, property, null, keyframe);
+            }
+        }
+        for (String customKey : track.getAnimatedCustomProperties()) {
+            if (customKey == null || customKey.isBlank()) continue;
+            for (Keyframe keyframe : track.getCustomKeyframes(customKey)) {
+                appendKeyframeMetadata(sb, target, kind, null, customKey, keyframe);
+            }
+        }
+    }
+
+    private static void appendKeyframeMetadata(
+        StringBuilder sb,
+        String target,
+        String kind,
+        PropertyType property,
+        String customKey,
+        Keyframe keyframe
+    ) {
+        if (sb == null || target == null || target.isBlank() || keyframe == null) return;
+        boolean custom = customKey != null && !customKey.isBlank();
+        sb.append(custom ? "// @jvn-puppeteer-custom-key" : "// @jvn-puppeteer-key")
+            .append(" target=").append(encode(target))
+            .append(" kind=").append(encode(kind))
+            .append(custom
+                ? " key=" + encode(customKey)
+                : " prop=" + encode(property != null ? property.getCode() : ""))
+            .append(" time=").append(formatMetadataNumber(keyframe.getTimeMs()))
+            .append(" value=").append(formatMetadataNumber(keyframe.getValue()))
+            .append(" easing=").append(encode(keyframe.getEasingSpec().toDslString()))
+            .append(" interp=").append(encode(keyframe.getInterpolation().name().toLowerCase()))
+            .append("\n");
     }
 
     private static String encode(String raw) {
@@ -516,6 +604,16 @@ public class CodeExporter {
             return Long.toString(Math.round(v));
         }
         return String.format("%.2f", v).replaceAll("0+$", "").replaceAll("\\.$", "");
+    }
+
+    private static String formatMetadataNumber(double v) {
+        if (!Double.isFinite(v)) return "0";
+        if (Math.abs(v - Math.round(v)) < 0.000001) {
+            return Long.toString(Math.round(v));
+        }
+        return String.format(Locale.ROOT, "%.6f", v)
+            .replaceAll("0+$", "")
+            .replaceAll("\\.$", "");
     }
 
     private static String formatPropValue(Object value) {
