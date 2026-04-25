@@ -15,6 +15,7 @@ import javafx.scene.control.Slider;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
@@ -149,8 +150,19 @@ final class SpringParameterEditor extends VBox {
         );
         dampedSpringBox.setMaxWidth(Double.MAX_VALUE);
 
-        // Preview canvas
+        // Preview canvas. Keep the Canvas unmanaged so its live width does not
+        // feed back into this editor's preferred-width calculation.
         previewCanvas = new Canvas(480, CANVAS_HEIGHT);
+        previewCanvas.setManaged(false);
+        Pane previewCanvasHost = new Pane(previewCanvas);
+        previewCanvasHost.setMinWidth(0);
+        previewCanvasHost.setPrefHeight(CANVAS_HEIGHT);
+        previewCanvasHost.setMinHeight(CANVAS_HEIGHT);
+        previewCanvasHost.setMaxHeight(CANVAS_HEIGHT);
+        previewCanvasHost.setMaxWidth(Double.MAX_VALUE);
+        previewCanvasHost.widthProperty().addListener((obs, oldWidth, newWidth) -> {
+            resizePreviewCanvas(newWidth.doubleValue());
+        });
 
         btnPlayStop = new Button("▶ Preview");
         btnPlayStop.setStyle(BUTTON_STYLE);
@@ -165,7 +177,7 @@ final class SpringParameterEditor extends VBox {
         canvasToolbar.setAlignment(Pos.CENTER_LEFT);
         ((Label) canvasToolbar.getChildren().get(0)).setStyle(TITLE_STYLE);
 
-        getChildren().addAll(header, springBox, dampedSpringBox, canvasToolbar, previewCanvas, lblSpecReadout);
+        getChildren().addAll(header, springBox, dampedSpringBox, canvasToolbar, previewCanvasHost, lblSpecReadout);
 
         // Wire slider listeners
         wireSliderPair(slStiffness, tfStiffness);
@@ -176,8 +188,6 @@ final class SpringParameterEditor extends VBox {
         wireSliderPair(slDampingRatio, tfDampingRatio);
         wireSliderPair(slResponse, tfResponse);
         wireSliderPair(slDsVelocity, tfDsVelocity);
-
-        previewCanvas.widthProperty().bind(widthProperty().subtract(24));
 
         setSpringType(false);
         drawPreview();
@@ -430,6 +440,17 @@ final class SpringParameterEditor extends VBox {
             String damping = ratio < 0.98 ? "Under-damped" : ratio > 1.02 ? "Over-damped" : "Critically damped";
             gc.fillText(damping, plotX + plotW - 90, plotY + 11);
         }
+    }
+
+    private void resizePreviewCanvas(double hostWidth) {
+        double width = Math.max(1.0, hostWidth);
+        if (Math.abs(previewCanvas.getWidth() - width) > 0.5) {
+            previewCanvas.setWidth(width);
+        }
+        if (Math.abs(previewCanvas.getHeight() - CANVAS_HEIGHT) > 0.5) {
+            previewCanvas.setHeight(CANVAS_HEIGHT);
+        }
+        drawPreview();
     }
 
     private double screenY(double value, double plotY, double plotH, double rangeMin, double rangeMax) {

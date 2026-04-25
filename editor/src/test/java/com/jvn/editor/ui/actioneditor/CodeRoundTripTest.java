@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.jvn.core.animation.Easing;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 /**
  * Round-trip tests: source -> model -> export -> model -> export.
  * Verifies semantic equality and stable output (category A + H).
@@ -57,6 +59,40 @@ class CodeRoundTripTest {
             hero2.getValueAt(PropertyType.Y, 200),
             0.5, "Y at t=200 should match across round-trips"
         );
+    }
+
+    @Test
+    void sceneMetadataRoundTripRestoresImportedStartKeyframes() {
+        AnimationProject project = new AnimationProject();
+        EntityTrack hero = project.getOrCreateTrack("hero");
+        hero.addKeyframe(PropertyType.X, new Keyframe(0, 420, Easing.Type.LINEAR));
+        hero.addKeyframe(PropertyType.X, new Keyframe(500, 640, Easing.Type.EASE_OUT_QUAD));
+        hero.addKeyframe(PropertyType.Y, new Keyframe(0, 690, Easing.Type.LINEAR));
+        hero.addKeyframe(PropertyType.Y, new Keyframe(500, 620, Easing.Type.EASE_OUT_QUAD));
+        project.setSceneEntitySnapshots(List.of(new AnimationProject.SceneEntitySnapshot(
+            "hero",
+            "sprite",
+            "assets/characters/hero.png",
+            420,
+            690,
+            240,
+            480,
+            0.5,
+            1.0,
+            3,
+            true,
+            1.0
+        )));
+
+        String exported = CodeExporter.exportNamed(project, "hero_reopen");
+        assertTrue(exported.contains("@jvn-puppeteer-entity"));
+
+        AnimationProject imported = CodeImporter.importCode("hero_reopen", exported);
+        EntityTrack importedHero = imported.getTrack("hero");
+        assertNotNull(importedHero);
+        assertEquals(420.0, importedHero.getKeyframes(PropertyType.X).get(0).getValue(), 0.001);
+        assertEquals(690.0, importedHero.getKeyframes(PropertyType.Y).get(0).getValue(), 0.001);
+        assertEquals("assets/characters/hero.png", imported.getSceneEntitySnapshot("hero").imagePath());
     }
 
     @Test

@@ -5305,6 +5305,7 @@ public class PuppeteerWindow extends Stage {
     }
 
     private boolean performRegisterTimeline(String name, Runnable onSuccess) {
+        project.setSceneEntitySnapshots(captureSceneEntitySnapshots());
         TimelineData data = project.toTimelineData(name);
         TimelineRegistry.register(data);
         String code = CodeExporter.exportNamed(project, name);
@@ -5450,6 +5451,87 @@ public class PuppeteerWindow extends Stage {
             snapshot.put(entityName, props);
         }
         project.setInitialSnapshot(snapshot);
+    }
+
+    private List<AnimationProject.SceneEntitySnapshot> captureSceneEntitySnapshots() {
+        if (scene == null) return List.of();
+        List<AnimationProject.SceneEntitySnapshot> snapshots = new ArrayList<>();
+        for (String entityName : scene.names()) {
+            if (entityName == null || entityName.isBlank()) continue;
+            var entity = scene.find(entityName);
+            if (entity == null) continue;
+
+            String type = "entity";
+            String imagePath = "";
+            double width = 1.0;
+            double height = 1.0;
+            double alpha = snapshotOrCurrent(entityName, PropertyType.ALPHA, fallbackPropertyValue(entity, PropertyType.ALPHA));
+            if (entity instanceof com.jvn.core.scene2d.Sprite2D sprite) {
+                type = "sprite";
+                imagePath = relativizePreviewAssetPathSpec(sprite.getImagePath());
+                width = sprite.getWidth();
+                height = sprite.getHeight();
+                alpha = snapshotOrCurrent(entityName, PropertyType.ALPHA, sprite.getAlpha());
+            } else if (entity instanceof com.jvn.core.scene2d.Panel2D panel) {
+                type = "panel";
+                width = panel.getWidth();
+                height = panel.getHeight();
+                alpha = snapshotOrCurrent(entityName, PropertyType.ALPHA, panel.getFillA());
+            } else if (entity instanceof com.jvn.core.scene2d.CharacterEntity2D character) {
+                type = "character";
+                width = character.getDrawWidth();
+                height = character.getDrawHeight();
+            }
+
+            snapshots.add(new AnimationProject.SceneEntitySnapshot(
+                entityName,
+                type,
+                imagePath,
+                snapshotOrCurrent(entityName, PropertyType.X, entity.getX()),
+                snapshotOrCurrent(entityName, PropertyType.Y, entity.getY()),
+                width,
+                height,
+                snapshotOrCurrent(entityName, PropertyType.PIVOT_X, entity.getOriginX()),
+                snapshotOrCurrent(entityName, PropertyType.PIVOT_Y, entity.getOriginY()),
+                snapshotOrCurrent(entityName, PropertyType.Z, entity.getZ()),
+                snapshotOrCurrent(entityName, PropertyType.VISIBILITY, entity.isVisible() ? 1.0 : 0.0) >= 0.5,
+                alpha
+            ));
+        }
+        return snapshots;
+    }
+
+    private double snapshotOrCurrent(String entityName, PropertyType property, double fallback) {
+        Double value = project.getInitialSnapshotValue(entityName, property);
+        return value != null && Double.isFinite(value) ? value : fallback;
+    }
+
+    private String relativizePreviewAssetPathSpec(String pathSpec) {
+        if (pathSpec == null || pathSpec.isBlank()) return "";
+        if (pathSpec.indexOf('|') < 0) return relativizePreviewAssetPath(pathSpec.trim());
+        StringBuilder out = new StringBuilder();
+        for (String token : pathSpec.split("\\|")) {
+            String part = token == null ? "" : token.trim();
+            if (part.isEmpty()) continue;
+            if (!out.isEmpty()) out.append(" | ");
+            out.append(relativizePreviewAssetPath(part));
+        }
+        return out.toString();
+    }
+
+    private String relativizePreviewAssetPath(String rawPath) {
+        if (rawPath == null || rawPath.isBlank() || projectRoot == null) {
+            return rawPath == null ? "" : rawPath.trim();
+        }
+        try {
+            Path root = projectRoot.toPath().toAbsolutePath().normalize();
+            Path path = Path.of(rawPath.trim()).toAbsolutePath().normalize();
+            if (path.startsWith(root)) {
+                return root.relativize(path).toString().replace('\\', '/');
+            }
+        } catch (Exception ignored) {
+        }
+        return rawPath.trim();
     }
 
     private Set<String> knownSceneEntities() {

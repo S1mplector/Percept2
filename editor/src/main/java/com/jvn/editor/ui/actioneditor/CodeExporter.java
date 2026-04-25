@@ -1,5 +1,7 @@
 package com.jvn.editor.ui.actioneditor;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -17,8 +19,36 @@ public class CodeExporter {
         StringBuilder sb = new StringBuilder();
         sb.append("// Timeline: ").append(name).append("\n");
         sb.append("// Usage in VNS: @external jes_timeline ").append(name).append("\n\n");
+        appendSceneEntityMetadata(sb, project);
         sb.append(body);
         return sb.toString();
+    }
+
+    private static void appendSceneEntityMetadata(StringBuilder sb, AnimationProject project) {
+        if (sb == null || project == null || project.getSceneEntitySnapshotsView().isEmpty()) return;
+        sb.append("// Puppeteer scene metadata. Runtime parsers ignore these comments.\n");
+        for (AnimationProject.SceneEntitySnapshot entity : project.getSceneEntitySnapshotsView().values()) {
+            if (entity == null || entity.name().isBlank()) continue;
+            sb.append("// @jvn-puppeteer-entity")
+                .append(" name=").append(encode(entity.name()))
+                .append(" type=").append(encode(entity.type()))
+                .append(" image=").append(encode(entity.imagePath()))
+                .append(" x=").append(formatNumber(entity.x()))
+                .append(" y=").append(formatNumber(entity.y()))
+                .append(" w=").append(formatNumber(entity.width()))
+                .append(" h=").append(formatNumber(entity.height()))
+                .append(" ox=").append(formatNumber(entity.originX()))
+                .append(" oy=").append(formatNumber(entity.originY()))
+                .append(" z=").append(formatNumber(entity.z()))
+                .append(" visible=").append(entity.visible() ? "1" : "0")
+                .append(" alpha=").append(formatNumber(entity.alpha()))
+                .append("\n");
+        }
+        sb.append("\n");
+    }
+
+    private static String encode(String raw) {
+        return URLEncoder.encode(raw != null ? raw : "", StandardCharsets.UTF_8);
     }
 
     private static List<Double> collectUniqueTimes(List<Keyframe> list1, List<Keyframe> list2) {
