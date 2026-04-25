@@ -2070,6 +2070,7 @@ public class EditorApp extends Application {
     leftTabs.setTabDragPolicy(TabPane.TabDragPolicy.REORDER);
     leftTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.SELECTED_TAB);
     tabProject = new Tab("Project", projView); tabProject.setClosable(false);
+    applySidebarPanelGraphic(tabProject, EditorSidebarPanel.PROJECT);
     tabLeftAdd = new Tab("", createSidebarEmptyState("left")); tabLeftAdd.setClosable(false);
     tabLeftAdd.setGraphic(CssIcon.plusBold("#8cd48c"));
     tabLeftAdd.getStyleClass().add("sidebar-add-tab");
@@ -2760,6 +2761,27 @@ public class EditorApp extends Application {
     Region r = CssIcon.prepare(new Region());
     if (styleClasses != null) r.getStyleClass().addAll(styleClasses);
     return r;
+  }
+
+  private Region sidebarPanelIcon(EditorSidebarPanel panel, String... extraStyleClasses) {
+    if (panel == null) return null;
+    Region icon = icon("icon", panel.iconStyleClass());
+    if (extraStyleClasses != null && extraStyleClasses.length > 0) {
+      icon.getStyleClass().addAll(extraStyleClasses);
+    }
+    return icon;
+  }
+
+  private void applySidebarPanelGraphic(Tab tab, EditorSidebarPanel panel) {
+    if (tab == null || panel == null) return;
+    tab.setGraphic(sidebarPanelIcon(panel, "sidebar-tab-icon"));
+  }
+
+  private Tab attachSidebarPanelTab(Tab tab, EditorSidebarPanel panel, TabPane targetPane) {
+    if (tab == null) return null;
+    applySidebarPanelGraphic(tab, panel);
+    attachPanelTabToPane(tab, targetPane);
+    return tab;
   }
 
   private boolean isEditableFile(File f) {
@@ -4104,8 +4126,7 @@ public class EditorApp extends Application {
     } else if (tabProject.getContent() != projView) {
       tabProject.setContent(projView);
     }
-    attachPanelTabToPane(tabProject, targetPane);
-    return tabProject;
+    return attachSidebarPanelTab(tabProject, EditorSidebarPanel.PROJECT, targetPane);
   }
 
   private Tab ensureTimelineTab(TabPane targetPane) {
@@ -4122,8 +4143,7 @@ public class EditorApp extends Application {
     } else if (tabTimeline.getContent() != timeline) {
       tabTimeline.setContent(timeline);
     }
-    attachPanelTabToPane(tabTimeline, targetPane);
-    return tabTimeline;
+    return attachSidebarPanelTab(tabTimeline, EditorSidebarPanel.TIMELINE, targetPane);
   }
 
   private Tab ensureHelpTab(TabPane targetPane) {
@@ -4140,8 +4160,7 @@ public class EditorApp extends Application {
     } else if (tabHelp.getContent() != help) {
       tabHelp.setContent(help);
     }
-    attachPanelTabToPane(tabHelp, targetPane);
-    return tabHelp;
+    return attachSidebarPanelTab(tabHelp, EditorSidebarPanel.HELP, targetPane);
   }
 
   private Tab ensureInspectorTab(TabPane targetPane) {
@@ -4151,8 +4170,7 @@ public class EditorApp extends Application {
       tabInspector.setClosable(true);
       tabInspector.setOnClosed(e -> tabInspector = null);
     }
-    attachPanelTabToPane(tabInspector, targetPane);
-    return tabInspector;
+    return attachSidebarPanelTab(tabInspector, EditorSidebarPanel.INSPECTOR, targetPane);
   }
 
   private Tab ensureVnsDiagnosticsTab(TabPane targetPane) {
@@ -4169,8 +4187,7 @@ public class EditorApp extends Application {
     } else if (tabVnsDiagnostics.getContent() != diagnostics) {
       tabVnsDiagnostics.setContent(diagnostics);
     }
-    attachPanelTabToPane(tabVnsDiagnostics, targetPane);
-    return tabVnsDiagnostics;
+    return attachSidebarPanelTab(tabVnsDiagnostics, EditorSidebarPanel.VNS_DIAGNOSTICS, targetPane);
   }
 
   private Tab ensureVnsFlowMapTab(TabPane targetPane) {
@@ -4187,8 +4204,7 @@ public class EditorApp extends Application {
     } else if (tabVnsFlowMap.getContent() != flowMap) {
       tabVnsFlowMap.setContent(flowMap);
     }
-    attachPanelTabToPane(tabVnsFlowMap, targetPane);
-    return tabVnsFlowMap;
+    return attachSidebarPanelTab(tabVnsFlowMap, EditorSidebarPanel.LABEL_FLOW, targetPane);
   }
 
   private Tab ensureAssetBrowserTab(TabPane targetPane) {
@@ -4205,8 +4221,7 @@ public class EditorApp extends Application {
     } else if (tabAssetBrowser.getContent() != assets) {
       tabAssetBrowser.setContent(assets);
     }
-    attachPanelTabToPane(tabAssetBrowser, targetPane);
-    return tabAssetBrowser;
+    return attachSidebarPanelTab(tabAssetBrowser, EditorSidebarPanel.ASSETS, targetPane);
   }
 
   private Tab ensureVersionControlTab(TabPane targetPane) {
@@ -4223,8 +4238,7 @@ public class EditorApp extends Application {
     } else if (tabVersionControl.getContent() != vcs) {
       tabVersionControl.setContent(vcs);
     }
-    attachPanelTabToPane(tabVersionControl, targetPane);
-    return tabVersionControl;
+    return attachSidebarPanelTab(tabVersionControl, EditorSidebarPanel.VERSION_CONTROL, targetPane);
   }
 
   private Tab ensureLayoutLauncherTab(TabPane targetPane) {
@@ -4241,8 +4255,7 @@ public class EditorApp extends Application {
     } else if (tabLayoutLauncher.getContent() != launcher) {
       tabLayoutLauncher.setContent(launcher);
     }
-    attachPanelTabToPane(tabLayoutLauncher, targetPane);
-    return tabLayoutLauncher;
+    return attachSidebarPanelTab(tabLayoutLauncher, EditorSidebarPanel.LAYOUT_LAUNCHER, targetPane);
   }
 
   private Tab ensurePhoneAssetsToolTab(TabPane targetPane) {
@@ -4259,8 +4272,7 @@ public class EditorApp extends Application {
     } else if (tabPhoneAssetsTool.getContent() != phoneAssets) {
       tabPhoneAssetsTool.setContent(phoneAssets);
     }
-    attachPanelTabToPane(tabPhoneAssetsTool, targetPane);
-    return tabPhoneAssetsTool;
+    return attachSidebarPanelTab(tabPhoneAssetsTool, EditorSidebarPanel.PHONE_ASSETS, targetPane);
   }
 
   private Tab ensureStoryboardOverlayTab(TabPane targetPane) {
@@ -4277,8 +4289,7 @@ public class EditorApp extends Application {
     } else if (tabStoryboardOverlay.getContent() != storyboardOverlay) {
       tabStoryboardOverlay.setContent(storyboardOverlay);
     }
-    attachPanelTabToPane(tabStoryboardOverlay, targetPane);
-    return tabStoryboardOverlay;
+    return attachSidebarPanelTab(tabStoryboardOverlay, EditorSidebarPanel.STORYBOARD_OVERLAY, targetPane);
   }
 
   private Tab ensureLayeredImageVisualizerTab(TabPane targetPane) {
@@ -4298,8 +4309,7 @@ public class EditorApp extends Application {
     } else if (tabLayeredImageVisualizer.getContent() != layered) {
       tabLayeredImageVisualizer.setContent(layered);
     }
-    attachPanelTabToPane(tabLayeredImageVisualizer, targetPane);
-    return tabLayeredImageVisualizer;
+    return attachSidebarPanelTab(tabLayeredImageVisualizer, EditorSidebarPanel.LAYERED_IMAGES, targetPane);
   }
 
   private Tab ensureImageAttributesToolTab(TabPane targetPane) {
@@ -4319,8 +4329,7 @@ public class EditorApp extends Application {
     } else if (tabImageAttributesTool.getContent() != attributes) {
       tabImageAttributesTool.setContent(attributes);
     }
-    attachPanelTabToPane(tabImageAttributesTool, targetPane);
-    return tabImageAttributesTool;
+    return attachSidebarPanelTab(tabImageAttributesTool, EditorSidebarPanel.IMAGE_ATTRIBUTES, targetPane);
   }
 
   private Tab ensureImageTintToolTab(TabPane targetPane) {
@@ -4340,8 +4349,7 @@ public class EditorApp extends Application {
     } else if (tabImageTintTool.getContent() != tint) {
       tabImageTintTool.setContent(tint);
     }
-    attachPanelTabToPane(tabImageTintTool, targetPane);
-    return tabImageTintTool;
+    return attachSidebarPanelTab(tabImageTintTool, EditorSidebarPanel.IMAGE_TINT, targetPane);
   }
 
   private Tab ensureMenuFlowTab(TabPane targetPane) {
@@ -4358,8 +4366,7 @@ public class EditorApp extends Application {
     } else if (tabMenuFlow.getContent() != menuFlow) {
       tabMenuFlow.setContent(menuFlow);
     }
-    attachPanelTabToPane(tabMenuFlow, targetPane);
-    return tabMenuFlow;
+    return attachSidebarPanelTab(tabMenuFlow, EditorSidebarPanel.MENU_FLOW, targetPane);
   }
 
   private Tab ensureScriptEditorLauncherTab(TabPane targetPane) {
@@ -4376,8 +4383,7 @@ public class EditorApp extends Application {
     } else if (tabScriptEditorLauncher.getContent() != launcher) {
       tabScriptEditorLauncher.setContent(launcher);
     }
-    attachPanelTabToPane(tabScriptEditorLauncher, targetPane);
-    return tabScriptEditorLauncher;
+    return attachSidebarPanelTab(tabScriptEditorLauncher, EditorSidebarPanel.SCRIPT_EDITOR, targetPane);
   }
 
   private String panelActionLabel(String panelName, Tab tab, TabPane targetPane) {
@@ -4407,11 +4413,12 @@ public class EditorApp extends Application {
     if (actions == null || panelName == null) return;
     if (panel != null && !editorPreferences.isVisibleInChooser(panel)) return;
 
-    Region panelIcon = icon("icon", "panel-chooser-tool-icon", iconClass);
+    String resolvedIconClass = panel != null ? panel.iconStyleClass() : iconClass;
+    Region panelIcon = icon("icon", "panel-chooser-tool-icon", resolvedIconClass);
     StackPane iconChip = new StackPane(panelIcon);
     iconChip.getStyleClass().add("panel-chooser-icon-chip");
-    if (iconClass != null && !iconClass.isBlank()) {
-      iconChip.getStyleClass().add(iconClass + "-chip");
+    if (resolvedIconClass != null && !resolvedIconClass.isBlank()) {
+      iconChip.getStyleClass().add(resolvedIconClass + "-chip");
     }
 
     Label label = new Label(panelName);
@@ -5047,7 +5054,7 @@ public class EditorApp extends Application {
     filter.setPromptText("Filter panels...");
     filter.getStyleClass().add("panel-chooser-filter");
     javafx.scene.layout.VBox actions = new javafx.scene.layout.VBox(4);
-    addChooserActionRow(pane, actions, EditorSidebarPanel.PROJECT, targetPlacement, "Project", "icon-panel-project", () -> {
+    addChooserActionRow(pane, actions, EditorSidebarPanel.PROJECT, targetPlacement, "Project", null, () -> {
       rememberPanelPlacement(EditorSidebarPanel.PROJECT, targetPlacement);
       Tab t = ensureProjectTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
@@ -5056,7 +5063,7 @@ public class EditorApp extends Application {
       applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(pane, actions, EditorSidebarPanel.TIMELINE, targetPlacement, "Timeline", "icon-panel-timeline", () -> {
+    addChooserActionRow(pane, actions, EditorSidebarPanel.TIMELINE, targetPlacement, "Timeline", null, () -> {
       rememberPanelPlacement(EditorSidebarPanel.TIMELINE, targetPlacement);
       Tab t = ensureTimelineTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
@@ -5065,7 +5072,7 @@ public class EditorApp extends Application {
       applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(pane, actions, EditorSidebarPanel.VNS_DIAGNOSTICS, targetPlacement, "VNS Diagnostics", "icon-panel-diagnostics", () -> {
+    addChooserActionRow(pane, actions, EditorSidebarPanel.VNS_DIAGNOSTICS, targetPlacement, "VNS Diagnostics", null, () -> {
       rememberPanelPlacement(EditorSidebarPanel.VNS_DIAGNOSTICS, targetPlacement);
       Tab t = ensureVnsDiagnosticsTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
@@ -5074,7 +5081,7 @@ public class EditorApp extends Application {
       applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(pane, actions, EditorSidebarPanel.LABEL_FLOW, targetPlacement, "Label Flow", "icon-panel-flow", () -> {
+    addChooserActionRow(pane, actions, EditorSidebarPanel.LABEL_FLOW, targetPlacement, "Label Flow", null, () -> {
       rememberPanelPlacement(EditorSidebarPanel.LABEL_FLOW, targetPlacement);
       Tab t = ensureVnsFlowMapTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
@@ -5083,7 +5090,7 @@ public class EditorApp extends Application {
       applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(pane, actions, EditorSidebarPanel.ASSETS, targetPlacement, "Assets", "icon-panel-assets", () -> {
+    addChooserActionRow(pane, actions, EditorSidebarPanel.ASSETS, targetPlacement, "Assets", null, () -> {
       rememberPanelPlacement(EditorSidebarPanel.ASSETS, targetPlacement);
       Tab t = ensureAssetBrowserTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
@@ -5092,7 +5099,7 @@ public class EditorApp extends Application {
       applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(pane, actions, EditorSidebarPanel.LAYOUT_LAUNCHER, targetPlacement, "Layout Launcher", "icon-panel-layouts", () -> {
+    addChooserActionRow(pane, actions, EditorSidebarPanel.LAYOUT_LAUNCHER, targetPlacement, "Layout Launcher", null, () -> {
       rememberPanelPlacement(EditorSidebarPanel.LAYOUT_LAUNCHER, targetPlacement);
       Tab t = ensureLayoutLauncherTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
@@ -5106,7 +5113,7 @@ public class EditorApp extends Application {
       applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(pane, actions, EditorSidebarPanel.PHONE_ASSETS, targetPlacement, "Phone Assets", "icon-panel-phone", () -> {
+    addChooserActionRow(pane, actions, EditorSidebarPanel.PHONE_ASSETS, targetPlacement, "Phone Assets", null, () -> {
       rememberPanelPlacement(EditorSidebarPanel.PHONE_ASSETS, targetPlacement);
       Tab t = ensurePhoneAssetsToolTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
@@ -5117,7 +5124,7 @@ public class EditorApp extends Application {
       applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(pane, actions, EditorSidebarPanel.STORYBOARD_OVERLAY, targetPlacement, "Storyboard Overlay", "icon-panel-storyboard", () -> {
+    addChooserActionRow(pane, actions, EditorSidebarPanel.STORYBOARD_OVERLAY, targetPlacement, "Storyboard Overlay", null, () -> {
       rememberPanelPlacement(EditorSidebarPanel.STORYBOARD_OVERLAY, targetPlacement);
       Tab t = ensureStoryboardOverlayTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
@@ -5131,7 +5138,7 @@ public class EditorApp extends Application {
       applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(pane, actions, EditorSidebarPanel.LAYERED_IMAGES, targetPlacement, "Layered Image Visualizer", "icon-panel-layered", () -> {
+    addChooserActionRow(pane, actions, EditorSidebarPanel.LAYERED_IMAGES, targetPlacement, "Layered Image Visualizer", null, () -> {
       rememberPanelPlacement(EditorSidebarPanel.LAYERED_IMAGES, targetPlacement);
       Tab t = ensureLayeredImageVisualizerTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
@@ -5145,7 +5152,7 @@ public class EditorApp extends Application {
       applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(pane, actions, EditorSidebarPanel.IMAGE_ATTRIBUTES, targetPlacement, "Image Attributes Tool", "icon-panel-image-attributes", () -> {
+    addChooserActionRow(pane, actions, EditorSidebarPanel.IMAGE_ATTRIBUTES, targetPlacement, "Image Attributes Tool", null, () -> {
       rememberPanelPlacement(EditorSidebarPanel.IMAGE_ATTRIBUTES, targetPlacement);
       Tab t = ensureImageAttributesToolTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
@@ -5159,7 +5166,7 @@ public class EditorApp extends Application {
       applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(pane, actions, EditorSidebarPanel.IMAGE_TINT, targetPlacement, "Scene Lighting Studio", "icon-panel-image-tint", () -> {
+    addChooserActionRow(pane, actions, EditorSidebarPanel.IMAGE_TINT, targetPlacement, "Scene Lighting Studio", null, () -> {
       rememberPanelPlacement(EditorSidebarPanel.IMAGE_TINT, targetPlacement);
       Tab t = ensureImageTintToolTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
@@ -5173,7 +5180,7 @@ public class EditorApp extends Application {
       applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(pane, actions, EditorSidebarPanel.MENU_FLOW, targetPlacement, "Menu Flow", "icon-panel-menuflow", () -> {
+    addChooserActionRow(pane, actions, EditorSidebarPanel.MENU_FLOW, targetPlacement, "Menu Flow", null, () -> {
       rememberPanelPlacement(EditorSidebarPanel.MENU_FLOW, targetPlacement);
       Tab t = ensureMenuFlowTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
@@ -5187,7 +5194,7 @@ public class EditorApp extends Application {
       applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(pane, actions, EditorSidebarPanel.VERSION_CONTROL, targetPlacement, "Version Control", "icon-panel-vcs", () -> {
+    addChooserActionRow(pane, actions, EditorSidebarPanel.VERSION_CONTROL, targetPlacement, "Version Control", null, () -> {
       rememberPanelPlacement(EditorSidebarPanel.VERSION_CONTROL, targetPlacement);
       Tab t = ensureVersionControlTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
@@ -5201,7 +5208,7 @@ public class EditorApp extends Application {
       applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(pane, actions, EditorSidebarPanel.HELP, targetPlacement, "Help", "icon-panel-help", () -> {
+    addChooserActionRow(pane, actions, EditorSidebarPanel.HELP, targetPlacement, "Help", null, () -> {
       rememberPanelPlacement(EditorSidebarPanel.HELP, targetPlacement);
       Tab t = ensureHelpTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
@@ -5210,7 +5217,7 @@ public class EditorApp extends Application {
       applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(pane, actions, EditorSidebarPanel.PUPPETEER_LAUNCHER, targetPlacement, "Puppeteer Launcher", "icon-panel-puppeteer", () -> {
+    addChooserActionRow(pane, actions, EditorSidebarPanel.PUPPETEER_LAUNCHER, targetPlacement, "Puppeteer Launcher", null, () -> {
       rememberPanelPlacement(EditorSidebarPanel.PUPPETEER_LAUNCHER, targetPlacement);
       Tab t = ensurePuppeteerLauncherTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
@@ -5219,7 +5226,7 @@ public class EditorApp extends Application {
       applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(pane, actions, EditorSidebarPanel.SCRIPT_EDITOR, targetPlacement, "Text Editor", "icon-panel-text", () -> {
+    addChooserActionRow(pane, actions, EditorSidebarPanel.SCRIPT_EDITOR, targetPlacement, "Text Editor", null, () -> {
       rememberPanelPlacement(EditorSidebarPanel.SCRIPT_EDITOR, targetPlacement);
       ScriptEditorLauncherView launcher = ensureScriptEditorLauncherView();
       launcher.setProjectRoot(projectRoot);
@@ -5515,8 +5522,7 @@ public class EditorApp extends Application {
     } else if (tabPuppeteerLauncher.getContent() != launcher) {
       tabPuppeteerLauncher.setContent(launcher);
     }
-    attachPanelTabToPane(tabPuppeteerLauncher, targetPane);
-    return tabPuppeteerLauncher;
+    return attachSidebarPanelTab(tabPuppeteerLauncher, EditorSidebarPanel.PUPPETEER_LAUNCHER, targetPane);
   }
 
   private Tab ensureEditorSettingsTab(TabPane targetPane) {
@@ -5533,6 +5539,7 @@ public class EditorApp extends Application {
     } else if (tabEditorSettings.getContent() != settingsView) {
       tabEditorSettings.setContent(settingsView);
     }
+    tabEditorSettings.setGraphic(icon("icon", "sidebar-tab-icon", "icon-panel-settings"));
     attachPanelTabToPane(tabEditorSettings, targetPane);
     return tabEditorSettings;
   }

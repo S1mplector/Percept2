@@ -1318,24 +1318,35 @@
   -fx-opacity: 1;
 }
 
-.icon-panel-project { -fx-shape: "M3,6 C3,4.9 3.9,4 5,4 L10,4 L12,6 L19,6 C20.1,6 21,6.9 21,8 L21,18 C21,19.1 20.1,20 19,20 L5,20 C3.9,20 3,19.1 3,18 Z M5,8 L5,18 L19,18 L19,8 Z"; -fx-background-color: #f5c56f; }
-.icon-panel-timeline { -fx-shape: "M4,6 L20,6 L20,8 L4,8 Z M7,11 L17,11 L17,13 L7,13 Z M4,16 L20,16 L20,18 L4,18 Z M6,4 L8,4 L8,20 L6,20 Z M16,4 L18,4 L18,20 L16,20 Z"; -fx-background-color: #d7d7d7; }
-.icon-panel-diagnostics { -fx-shape: "M12,3 L22,20 L2,20 Z M11,9 L13,9 L13,14 L11,14 Z M11,16 L13,16 L13,18 L11,18 Z"; -fx-background-color: #f0b673; }
-.icon-panel-flow { -fx-shape: "M4,4 L10,4 L10,10 L4,10 Z M14,14 L20,14 L20,20 L14,20 Z M4,14 L10,14 L10,20 L4,20 Z M10,7 L16,7 L16,14 L14,14 L14,9 L10,9 Z M10,17 L14,17 L14,19 L10,19 Z"; -fx-background-color: #8bd17c; }
-.icon-panel-assets { -fx-shape: "M12,3 L21,8 L21,16 L12,21 L3,16 L3,8 Z M12,5.4 L6,8.7 L12,12 L18,8.7 Z M5,10.4 L5,14.8 L11,18.1 L11,13.8 Z M19,10.4 L13,13.8 L13,18.1 L19,14.8 Z"; -fx-background-color: #d6cab9; }
-.icon-panel-phone { -fx-shape: "M8,2 L16,2 C17.1,2 18,2.9 18,4 L18,20 C18,21.1 17.1,22 16,22 L8,22 C6.9,22 6,21.1 6,20 L6,4 C6,2.9 6.9,2 8,2 Z M8,5 L8,18 L16,18 L16,5 Z M10.5,19 L13.5,19 L13.5,20.5 L10.5,20.5 Z"; -fx-background-color: #80d4ff; }
-.icon-panel-layouts { -fx-shape: "M3,4 L21,4 L21,20 L3,20 Z M5,6 L5,10 L19,10 L19,6 Z M5,12 L5,18 L12,18 L12,12 Z M14,12 L14,18 L19,18 L19,12 Z"; -fx-background-color: #dbcfbc; }
-.icon-panel-storyboard { -fx-shape: "M3,4 L21,4 L21,20 L3,20 Z M5,6 L10,6 L10,10 L5,10 Z M14,6 L19,6 L19,10 L14,10 Z M5,14 L10,14 L10,18 L5,18 Z M14,14 L19,14 L19,18 L14,18 Z M11,7.5 L13,7.5 L13,16.5 L11,16.5 Z"; -fx-background-color: #e4c183; }
-.icon-panel-layered { -fx-shape: "M12,3 L21,8 L12,13 L3,8 Z M6.8,10.2 L12,13.1 L17.2,10.2 L21,12.4 L12,17.4 L3,12.4 Z M6.8,14.7 L12,17.6 L17.2,14.7 L21,16.9 L12,22 L3,16.9 Z"; -fx-background-color: #f5b971; }
-.icon-panel-image-attributes { -fx-shape: "M4,5 L20,5 L20,19 L4,19 Z M6,7 L6,17 L18,17 L18,7 Z M7.5,15 L10,12 L12,14 L14.5,10.5 L17,15 Z M8,8.5 A1.5,1.5 0 1,1 8,11.5 A1.5,1.5 0 1,1 8,8.5 Z M13,8 L18,8 L18,9.5 L13,9.5 Z"; -fx-background-color: #d6cab8; }
-.icon-panel-image-tint { -fx-shape: "M12,2 C12,2 6,9.2 6,14 C6,18.4 8.7,21 12,21 C15.3,21 18,18.4 18,14 C18,9.2 12,2 12,2 Z M10,15 C10,17 11.2,18 12.8,18 C14.2,18 15.3,17.2 15.8,15.8 C14.8,16.3 13.8,16.5 12.8,16.5 C11.7,16.5 10.8,16 10,15 Z"; -fx-background-color: #f6a2c8; }
-.icon-panel-menuflow { -fx-shape: "M4,5 L10,5 L10,11 L4,11 Z M14,3 L20,3 L20,9 L14,9 Z M14,15 L20,15 L20,21 L14,21 Z M10,8 L14,6.5 L14,8.5 L12,9.5 L14,16 L12,16.7 L10,10.5 Z"; -fx-background-color: #7dd6b7; }
-.icon-panel-vcs { -fx-shape: "M7,4 A3,3 0 1,1 7,10 A3,3 0 1,1 7,4 Z M17,14 A3,3 0 1,1 17,20 A3,3 0 1,1 17,14 Z M8,10 L8,12 C8,14 9.5,15 12,15 L14,15 L14,13 L18,17 L14,21 L14,19 L12,19 C7.8,19 5,16.5 5,12 L5,10 Z"; -fx-background-color: #7de0b8; }
-.icon-panel-help { -fx-shape: "M12,3 A9,9 0 1,1 12,21 A9,9 0 1,1 12,3 Z M11,16 L13,16 L13,18 L11,18 Z M9,9 C9.2,6.8 10.9,6 12.2,6 C14.4,6 16,7.3 16,9.3 C16,11.5 13,12 13,14 L11,14 C11,11.2 14,10.9 14,9.3 C14,8.4 13.2,7.8 12.2,7.8 C11.2,7.8 10.6,8.3 10.4,9 Z"; -fx-background-color: #ffd166; }
-.icon-panel-inspector { -fx-shape: "M4,6 L13,6 L13,8 L4,8 Z M15,5 L20,5 L20,9 L15,9 Z M4,11 L9,11 L9,13 L4,13 Z M11,10 L20,10 L20,14 L11,14 Z M4,16 L14,16 L14,18 L4,18 Z M16,15 L20,15 L20,19 L16,19 Z"; -fx-background-color: #d5cab8; }
-.icon-panel-puppeteer { -fx-shape: "M4,3 L20,3 L20,5 L13,5 L13,8 L17,11 L17,16 C17,19 14.8,21 12,21 C9.2,21 7,19 7,16 L7,11 L11,8 L11,5 L4,5 Z M9,12 L9,16 C9,17.7 10.2,19 12,19 C13.8,19 15,17.7 15,16 L15,12 L12,10 Z M7,5 L9,9 L7.5,10.5 L5,5 Z M17,5 L15,9 L16.5,10.5 L19,5 Z"; -fx-background-color: #f0a0d0; }
-.icon-panel-text { -fx-shape: "M5,4 L19,4 L19,7 L14,7 L14,20 L10,20 L10,7 L5,7 Z M6,9 L9,9 L9,11 L6,11 Z M15,9 L18,9 L18,11 L15,11 Z M15,13 L18,13 L18,15 L15,15 Z"; -fx-background-color: #9cc7ff; }
-.icon-panel-settings { -fx-shape: "M12,3 L14,3 L14.7,5.3 C15.3,5.5 15.9,5.8 16.4,6.1 L18.5,5.1 L20,7.7 L18.1,9.1 C18.2,9.7 18.3,10.4 18.3,11 L20,12.3 L18.5,14.9 L16.4,13.9 C15.9,14.2 15.3,14.5 14.7,14.7 L14,17 L10,17 L9.3,14.7 C8.7,14.5 8.1,14.2 7.6,13.9 L5.5,14.9 L4,12.3 L5.7,11 C5.7,10.4 5.8,9.7 5.9,9.1 L4,7.7 L5.5,5.1 L7.6,6.1 C8.1,5.8 8.7,5.5 9.3,5.3 L10,3 Z M12,8 A3,3 0 1,0 12,14 A3,3 0 1,0 12,8 Z"; -fx-background-color: #c4b5fd; }
+.sidebar-tab-icon {
+  -fx-min-width: 14px;
+  -fx-min-height: 14px;
+  -fx-pref-width: 14px;
+  -fx-pref-height: 14px;
+  -fx-max-width: 14px;
+  -fx-max-height: 14px;
+  -fx-effect: none;
+  -fx-opacity: 0.96;
+}
+
+.icon-panel-project { -fx-shape: "M3,7 C3,5.9 3.9,5 5,5 L9.4,5 L11.2,7 L19,7 C20.1,7 21,7.9 21,9 L21,18 C21,19.1 20.1,20 19,20 L5,20 C3.9,20 3,19.1 3,18 Z M5.5,9.5 L5.5,17.5 L18.5,17.5 L18.5,9.5 Z M8,11 L13,11 L13,16 L10.5,14.4 L8,16 Z"; -fx-background-color: #f5c56f; }
+.icon-panel-timeline { -fx-shape: "M6,6 A2.5,2.5 0 1,1 6,11 A2.5,2.5 0 1,1 6,6 Z M12,11 A2.5,2.5 0 1,1 12,16 A2.5,2.5 0 1,1 12,11 Z M18,6 A2.5,2.5 0 1,1 18,11 A2.5,2.5 0 1,1 18,6 Z M7.5,7.8 L10.2,10.4 L9,11.8 L6.3,9.2 Z M13.8,10.4 L16.5,7.8 L17.7,9.2 L15,11.8 Z M5,18 L19,18 L19,20 L5,20 Z"; -fx-background-color: #cfd7e6; }
+.icon-panel-diagnostics { -fx-shape: "M12,3 L21,19 L3,19 Z M11,8 L13,8 L13,13 L11,13 Z M11,15 L13,15 L13,17 L11,17 Z"; -fx-background-color: #f0b673; }
+.icon-panel-flow { -fx-shape: "M4,5 L10,5 L10,10 L4,10 Z M14,5 L20,5 L20,10 L14,10 Z M9,15 L15,15 L15,20 L9,20 Z M10,7 L14,7 L14,8.8 L11.8,8.8 L11.8,15 L10.2,15 L10.2,8.8 L10,8.8 Z M15,7 L17,7 L17,13 L15,13 Z M15,13 L19,13 L17,16 Z"; -fx-background-color: #91d7a5; }
+.icon-panel-assets { -fx-shape: "M12,3 L20,7.5 L20,16.5 L12,21 L4,16.5 L4,7.5 Z M12,5.4 L6.4,8.5 L12,11.6 L17.6,8.5 Z M6,10.1 L6,15.3 L11,18.1 L11,12.9 Z M18,10.1 L13,12.9 L13,18.1 L18,15.3 Z M16.6,4.4 L17.6,6.3 L19.6,7.3 L17.6,8.2 L16.6,10.2 L15.7,8.2 L13.7,7.3 L15.7,6.3 Z"; -fx-background-color: #d8cbb3; }
+.icon-panel-phone { -fx-shape: "M8,2 L16,2 C17.1,2 18,2.9 18,4 L18,20 C18,21.1 17.1,22 16,22 L8,22 C6.9,22 6,21.1 6,20 L6,4 C6,2.9 6.9,2 8,2 Z M8,5 L8,17 L16,17 L16,5 Z M9.5,6.7 L11.5,6.7 L11.5,8.7 L9.5,8.7 Z M12.5,6.7 L14.5,6.7 L14.5,8.7 L12.5,8.7 Z M9.5,10.3 L11.5,10.3 L11.5,12.3 L9.5,12.3 Z M12.5,10.3 L14.5,10.3 L14.5,12.3 L12.5,12.3 Z M10.4,18.5 L13.6,18.5 L13.6,19.8 L10.4,19.8 Z"; -fx-background-color: #80d4ff; }
+.icon-panel-layouts { -fx-shape: "M3,4 L21,4 L21,20 L3,20 Z M5,6 L19,6 L19,8 L5,8 Z M5,10 L10,10 L10,18 L5,18 Z M12,10 L19,10 L19,14 L12,14 Z M12,16 L16,16 L16,18 L12,18 Z"; -fx-background-color: #dbcab8; }
+.icon-panel-storyboard { -fx-shape: "M3,4 L21,4 L21,20 L3,20 Z M5,6 L10,6 L10,10 L5,10 Z M12,6 L19,6 L19,10 L12,10 Z M5,12 L12,12 L12,18 L5,18 Z M14,13 L18,15 L14,17 Z"; -fx-background-color: #e7bc72; }
+.icon-panel-layered { -fx-shape: "M6,4 L18,4 L20,6 L8,6 Z M8,6 L20,6 L20,8 L8,8 Z M5,9 L17,9 L19,11 L7,11 Z M7,11 L19,11 L19,13 L7,13 Z M4,14 L16,14 L18,16 L6,16 Z M6,16 L18,16 L18,18 L6,18 Z"; -fx-background-color: #f5b971; }
+.icon-panel-image-attributes { -fx-shape: "M4,5 L20,5 L20,17 L4,17 Z M6,7 L18,7 L18,15 L6,15 Z M7.5,13 L10.2,10.3 L12.3,12.2 L14.4,9.6 L16.5,13 Z M8.5,8.5 A1.4,1.4 0 1,1 8.5,11.3 A1.4,1.4 0 1,1 8.5,8.5 Z M7,19 L9,19 L9,22 L7,22 Z M11,18 L13,18 L13,22 L11,22 Z M15,20 L17,20 L17,22 L15,22 Z M6,21 L18,21 L18,22 L6,22 Z"; -fx-background-color: #c0d7ef; }
+.icon-panel-image-tint { -fx-shape: "M12,3 A5,5 0 1,1 12,13 A5,5 0 1,1 12,3 Z M11,0 L13,0 L13,3 L11,3 Z M11,13 L13,13 L13,16 L11,16 Z M0,11 L3,11 L3,13 L0,13 Z M21,11 L24,11 L24,13 L21,13 Z M3.5,3.5 L5.2,2 L7.3,4.1 L5.7,5.8 Z M18.3,4.1 L20.4,2 L22,3.5 L19.9,5.7 Z M4.1,18.3 L5.8,19.9 L4.1,21.6 L2.5,19.9 Z M19.9,18.2 L21.5,19.9 L19.9,21.5 L18.2,19.9 Z"; -fx-background-color: #f6a2c8; }
+.icon-panel-menuflow { -fx-shape: "M4,5 L11,5 L11,10 L4,10 Z M13,4 L20,4 L20,9 L13,9 Z M13,15 L20,15 L20,20 L13,20 Z M11,7 L14,7 L14,6 L18,10.5 L14,15 L14,13 L11,13 Z"; -fx-background-color: #7dd6b7; }
+.icon-panel-vcs { -fx-shape: "M8,4 A3,3 0 1,1 8,10 A3,3 0 1,1 8,4 Z M17,14 A3,3 0 1,1 17,20 A3,3 0 1,1 17,14 Z M17,4 A3,3 0 1,1 17,10 A3,3 0 1,1 17,4 Z M8,10 L8,12 C8,14 9.2,15 11,15 L14,15 L14,13 L17,16 L14,19 L14,17 L11,17 C8,17 6,15 6,12 L6,10 Z M14,7 L11,7 C9.2,7 8,8.2 8,10 L6,10 C6,7.1 8.3,5 11,5 L14,5 L14,3 L17,6 L14,9 Z"; -fx-background-color: #86e4be; }
+.icon-panel-help { -fx-shape: "M12,3 C6.5,3 3,6.5 3,11 C3,15.5 6.5,19 11,19 L11,22 L15,18.8 C18.7,17.8 21,14.8 21,11 C21,6.5 17.5,3 12,3 Z M11,14 L13,14 L13,16 L11,16 Z M9.4,9 C9.6,7.1 10.9,6 12.4,6 C14.6,6 16,7.3 16,9.1 C16,11.3 13.1,11.6 13.1,13.4 L11.3,13.4 C11.3,10.8 13.9,10.5 13.9,9.2 C13.9,8.4 13.2,7.8 12.3,7.8 C11.3,7.8 10.7,8.4 10.6,9 Z"; -fx-background-color: #ffd166; }
+.icon-panel-inspector { -fx-shape: "M5,6 L19,6 L19,8 L5,8 Z M8,11 L19,11 L19,13 L8,13 Z M5,16 L19,16 L19,18 L5,18 Z M7,4 A2,2 0 1,1 7,8 A2,2 0 1,1 7,4 Z M14,9 A2,2 0 1,1 14,13 A2,2 0 1,1 14,9 Z M10,14 A2,2 0 1,1 10,18 A2,2 0 1,1 10,14 Z"; -fx-background-color: #e2d3c3; }
+.icon-panel-puppeteer { -fx-shape: "M6,4 L18,4 L18,6 L13,6 L13,8.4 L16.5,11.5 L16.5,16.2 C16.5,18.7 14.5,20.5 12,20.5 C9.5,20.5 7.5,18.7 7.5,16.2 L7.5,11.5 L11,8.4 L11,6 L6,6 Z M9.5,12 L9.5,16 C9.5,17.4 10.5,18.4 12,18.4 C13.5,18.4 14.5,17.4 14.5,16 L14.5,12 L12,10 Z M5,6.5 L7.2,10 L5.8,10.9 L3.6,7.4 Z M19,6.5 L20.4,7.4 L18.2,10.9 L16.8,10 Z"; -fx-background-color: #f0a0d0; }
+.icon-panel-text { -fx-shape: "M6,3 L15,3 L19,7 L19,21 L6,21 Z M14,5 L14,8 L17,8 Z M8,10 L17,10 L17,12 L8,12 Z M8,14 L17,14 L17,16 L8,16 Z M8,18 L14,18 L14,20 L8,20 Z"; -fx-background-color: #9cc7ff; }
+.icon-panel-settings { -fx-shape: "M12,3 L14,3 L14.7,5.4 C15.4,5.6 16,5.9 16.6,6.3 L18.8,5.2 L20.8,8.6 L18.9,10 C19,10.6 19,11.1 19,11.7 L21,13.1 L19,16.5 L16.6,15.4 C16,15.8 15.4,16.1 14.7,16.3 L14,18.7 L10,18.7 L9.3,16.3 C8.6,16.1 8,15.8 7.4,15.4 L5,16.5 L3,13.1 L5,11.7 C5,11.1 5,10.6 5.1,10 L3.2,8.6 L5.2,5.2 L7.4,6.3 C8,5.9 8.6,5.6 9.3,5.4 L10,3 Z M12,8 A3,3 0 1,0 12,14 A3,3 0 1,0 12,8 Z"; -fx-background-color: #c4b5fd; }
 
 /* Neutralize legacy vector logo style */
 .jvn-logo { -fx-background-color: transparent; -fx-shape: null; }
@@ -4544,6 +4555,7 @@
   -fx-text-fill: #c2c2c2;
   -fx-font-size: 12px;
   -fx-font-weight: 600;
+  -fx-graphic-text-gap: 8px;
 }
 
 .sidebar-tab-pane .tab:hover .tab-close-button,
@@ -4557,6 +4569,11 @@
 
 .sidebar-tab-pane .tab:selected .tab-label {
   -fx-text-fill: #dfd3c6;
+}
+
+.sidebar-tab-pane .tab:hover .sidebar-tab-icon,
+.sidebar-tab-pane .tab:selected .sidebar-tab-icon {
+  -fx-opacity: 1;
 }
 
 .sidebar-tab-pane .tab .tab-close-button:hover {
