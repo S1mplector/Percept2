@@ -57,10 +57,11 @@ public class ProjectExplorerView extends VBox {
 
     tree.setCellFactory(tv -> new TreeCell<>() {
       private final Label nameLabel = new Label();
+      private final Region rootIcon = ProjectFileIcons.iconFor(ProjectFileIcons.Kind.ROOT);
       private final Region spacer = new Region();
       private final Button buildButton = new Button("Build", CssIcon.download("#ecfff2"));
       private final Button runButton = new Button("Run", CssIcon.play("#ecfff2"));
-      private final HBox rootRow = new HBox(6, nameLabel, spacer, buildButton, runButton);
+      private final HBox rootRow = new HBox(6, rootIcon, nameLabel, spacer, buildButton, runButton);
       {
         rootRow.setAlignment(Pos.CENTER_LEFT);
         rootRow.getStyleClass().add("project-explorer-root-row");
@@ -111,8 +112,14 @@ public class ProjectExplorerView extends VBox {
           nameLabel.setText(display);
           setGraphic(rootRow);
         } else {
-          setGraphic(null);
-          setText(display);
+          Label fileLabel = new Label(display);
+          fileLabel.getStyleClass().add(item.isDirectory()
+              ? "new-project-wizard-tree-dir-label"
+              : "new-project-wizard-tree-file-label");
+          HBox row = new HBox(6, ProjectFileIcons.iconFor(ProjectFileIcons.kindFor(item, rootDir)), fileLabel);
+          row.setAlignment(Pos.CENTER_LEFT);
+          setText(null);
+          setGraphic(row);
         }
       }
     });

@@ -75,25 +75,13 @@ public class NewProjectWizard extends Stage {
     }
   }
 
-  private enum PreviewItemKind {
-    ROOT,
-    FOLDER,
-    SCRIPT,
-    MENU,
-    LAYOUT,
-    STYLE,
-    TIMELINE,
-    DOCUMENT,
-    NOTE
-  }
-
   private static final class PreviewNode {
     private final String name;
     private final String detail;
     private final boolean directory;
-    private final PreviewItemKind kind;
+    private final ProjectFileIcons.Kind kind;
 
-    private PreviewNode(String name, String detail, boolean directory, PreviewItemKind kind) {
+    private PreviewNode(String name, String detail, boolean directory, ProjectFileIcons.Kind kind) {
       this.name = name;
       this.detail = detail;
       this.directory = directory;
@@ -1288,7 +1276,7 @@ public class NewProjectWizard extends Stage {
       int branchIndex = line.indexOf("├── ");
       if (branchIndex < 0) branchIndex = line.indexOf("└── ");
       if (branchIndex < 0) {
-        PreviewNode node = new PreviewNode(stripTrailingSlash(line.trim()), null, true, PreviewItemKind.ROOT);
+        PreviewNode node = new PreviewNode(stripTrailingSlash(line.trim()), null, true, ProjectFileIcons.Kind.ROOT);
         root = new TreeItem<>(node);
         stack.clear();
         stack.add(root);
@@ -1307,7 +1295,7 @@ public class NewProjectWizard extends Stage {
     }
 
     if (root == null) {
-      root = new TreeItem<>(new PreviewNode(projectFolderName, null, true, PreviewItemKind.ROOT));
+      root = new TreeItem<>(new PreviewNode(projectFolderName, null, true, ProjectFileIcons.Kind.ROOT));
     }
     expandPreviewTree(root);
     return root;
@@ -1324,7 +1312,7 @@ public class NewProjectWizard extends Stage {
     }
     boolean directory = name.endsWith("/");
     String displayName = directory ? stripTrailingSlash(name) : name;
-    PreviewItemKind kind = resolvePreviewItemKind(displayName, directory, detail);
+    ProjectFileIcons.Kind kind = resolvePreviewItemKind(displayName, directory, detail);
     return new PreviewNode(displayName, detail, directory, kind);
   }
 
@@ -1340,31 +1328,12 @@ public class NewProjectWizard extends Stage {
     return -1;
   }
 
-  private PreviewItemKind resolvePreviewItemKind(String name, boolean directory, String detail) {
-    if (name == null || name.isBlank()) return PreviewItemKind.DOCUMENT;
-    if (name.startsWith("(")) return PreviewItemKind.NOTE;
-    if (directory) return PreviewItemKind.FOLDER;
-    String lower = name.toLowerCase(Locale.ROOT);
-    if (lower.endsWith(".vns")) return PreviewItemKind.SCRIPT;
-    if (lower.endsWith(".menu") || lower.endsWith(".registry")) return PreviewItemKind.MENU;
-    if (lower.endsWith(".layout")) return PreviewItemKind.LAYOUT;
-    if (lower.endsWith(".style") || lower.endsWith(".theme")) return PreviewItemKind.STYLE;
-    if (lower.endsWith(".timeline")) return PreviewItemKind.TIMELINE;
-    return PreviewItemKind.DOCUMENT;
+  private ProjectFileIcons.Kind resolvePreviewItemKind(String name, boolean directory, String detail) {
+    return ProjectFileIcons.kindFor(name, directory, false);
   }
 
   private Region previewIcon(PreviewNode node) {
-    return switch (node.kind) {
-      case ROOT -> CssIcon.folder("#d5b36a");
-      case FOLDER -> CssIcon.folder("#cbb27b");
-      case SCRIPT -> CssIcon.speech("#8bcf98");
-      case MENU -> CssIcon.list("#dccba2");
-      case LAYOUT -> CssIcon.grid("#8ec7dd");
-      case STYLE -> CssIcon.palette("#d6b4ff");
-      case TIMELINE -> CssIcon.play("#dd9a48");
-      case NOTE -> CssIcon.warning("#efbf82");
-      case DOCUMENT -> CssIcon.document("#c6d1dc");
-    };
+    return ProjectFileIcons.iconFor(node != null ? node.kind : ProjectFileIcons.Kind.DOCUMENT);
   }
 
   private void expandPreviewTree(TreeItem<PreviewNode> item) {
