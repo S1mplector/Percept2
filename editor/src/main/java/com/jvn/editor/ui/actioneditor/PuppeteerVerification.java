@@ -33,6 +33,7 @@ final class PuppeteerVerification {
 
         diagnoseContent(project, messages);
         diagnoseAudioFiles(project, projectRoot, messages);
+        diagnoseSceneEntityAssets(project, projectRoot, messages);
 
         if (mode == Mode.REGISTER_RUNTIME) {
             diagnoseRuntimeRegistration(project, messages);
@@ -75,6 +76,33 @@ final class PuppeteerVerification {
                         ? "Import the file into the project or fix the relative path"
                         : "Open the project root or use an absolute file path"
                 ));
+            }
+        }
+    }
+
+    private static void diagnoseSceneEntityAssets(
+        AnimationProject project,
+        File projectRoot,
+        List<TimelineDiagnostic.Message> messages
+    ) {
+        for (AnimationProject.SceneEntitySnapshot snapshot : project.getSceneEntitySnapshotsView().values()) {
+            if (snapshot == null) continue;
+            String imagePath = snapshot.imagePath() == null ? "" : snapshot.imagePath().trim();
+            if (imagePath.isBlank()) continue;
+            for (String part : imagePath.split("\\|")) {
+                String path = part == null ? "" : part.trim();
+                if (path.isBlank()) continue;
+                Path resolved = resolveProjectPath(projectRoot, path);
+                if (resolved == null || !Files.isRegularFile(resolved)) {
+                    messages.add(new TimelineDiagnostic.Message(
+                        TimelineDiagnostic.Severity.ERROR,
+                        snapshot.name().isBlank() ? "(scene)" : snapshot.name(),
+                        "Scene asset '" + path + "' does not exist on disk",
+                        projectRoot != null && projectRoot.isDirectory()
+                            ? "Relink the entity image or import the missing asset into the project"
+                            : "Open the project root so Puppeteer can resolve relative asset paths"
+                    ));
+                }
             }
         }
     }

@@ -108,6 +108,38 @@ class PuppeteerVerificationTest {
     }
 
     @Test
+    void runtimeRegistrationFlagsMissingSceneEntityAsset() throws Exception {
+        Path projectRoot = Files.createTempDirectory("puppeteer-scene-assets");
+        AnimationProject project = new AnimationProject();
+        project.setSceneEntitySnapshots(List.of(new AnimationProject.SceneEntitySnapshot(
+            "hero",
+            "sprite",
+            "assets/characters/missing.png",
+            0,
+            0,
+            100,
+            200,
+            0.5,
+            1.0,
+            0,
+            true,
+            1.0
+        )));
+
+        List<TimelineDiagnostic.Message> messages = PuppeteerVerification.diagnose(
+            project,
+            Set.of("hero"),
+            projectRoot.toFile(),
+            PuppeteerVerification.Mode.REGISTER_RUNTIME
+        );
+
+        assertTrue(messages.stream().anyMatch(message ->
+            message.severity() == TimelineDiagnostic.Severity.ERROR
+                && message.entityOrTrack().equals("hero")
+                && message.description().contains("Scene asset 'assets/characters/missing.png'")));
+    }
+
+    @Test
     void runtimeRegistrationWarnsWhenCameraKeysAreMixedIntoEntityTracks() {
         AnimationProject project = new AnimationProject();
         EntityTrack hero = project.getOrCreateTrack("hero");

@@ -107,7 +107,12 @@ public class TimelinePanel extends VBox {
     private final Map<KeyframeSelectionModel.KeyframeRef, Double> dragStartTimes = new HashMap<>();
     private List<ClipboardEntry> copiedKeyframes = List.of();
 
-    private record ClipboardEntry(PropertyType property, Keyframe keyframe, double offsetMs) {}
+    private record ClipboardEntry(String sourceName,
+                                  boolean group,
+                                  PropertyType property,
+                                  Keyframe keyframe,
+                                  double offsetMs) {}
+    private record PasteTarget(EntityTrack track, String selectionName, boolean group) {}
     private record TrackRow(EntityTrack track,
                             String selectionName,
                             String displayLabel,
@@ -384,35 +389,34 @@ public class TimelinePanel extends VBox {
     }
 
     public boolean copySelectedKeyframes() {
-        EntityTrack track = selectedTrack(false);
-        if (track == null) return false;
-        Map<PropertyType, List<Keyframe>> selection = selectedKeyframesByProperty(track);
-        if (selection.isEmpty()) return false;
-
+        List<ClipboardEntry> entries = collectClipboardEntries();
+        if (entries.isEmpty()) return false;
         double anchor = Double.POSITIVE_INFINITY;
-        for (List<Keyframe> keyframes : selection.values()) {
-            for (Keyframe keyframe : keyframes) {
-                anchor = Math.min(anchor, keyframe.getTimeMs());
-            }
+        for (ClipboardEntry entry : entries) {
+            anchor = Math.min(anchor, entry.keyframe().getTimeMs());
         }
         if (!Double.isFinite(anchor)) return false;
 
         List<ClipboardEntry> snapshot = new ArrayList<>();
-        for (Map.Entry<PropertyType, List<Keyframe>> entry : selection.entrySet()) {
-            PropertyType property = entry.getKey();
-            for (Keyframe keyframe : entry.getValue()) {
-                snapshot.add(new ClipboardEntry(property, keyframe.copy(), keyframe.getTimeMs() - anchor));
-            }
+        for (ClipboardEntry entry : entries) {
+            snapshot.add(new ClipboardEntry(
+                entry.sourceName(),
+                entry.group(),
+                entry.property(),
+                entry.keyframe().copy(),
+                entry.keyframe().getTimeMs() - anchor));
         }
-        snapshot.sort(Comparator.comparingDouble(ClipboardEntry::offsetMs)
-            .thenComparing(e -> e.property().ordinal()));
+        snapshot.sort(Comparator.comparingDouble((ClipboardEntry e) -> e.offsetMs())
+            .thenComparing((ClipboardEntry e) -> e.sourceName(), Comparator.nullsLast(String::compareTo))
+            .thenComparingInt(e -> e.property().ordinal()));
         copiedKeyframes = List.copyOf(snapshot);
         return !copiedKeyframes.isEmpty();
     }
 
     public boolean pasteCopiedKeyframesAtPlayhead() {
-        EntityTrack track = selectedTrack(true);
-        if (track == null || copiedKeyframes.isEmpty()) return false;
+        if (copiedKeyframes.isEmpty()) return false;
+        EntityTrack selectedTargetTrack = selectedTrack(true);
+        boolean retargetSingleSource = selectedTargetTrack != null && clipboardHasSingleSourceTarget();
 
         double playhead = clampToTimeline(snapTime(project.getPlayheadMs()));
         Keyframe previousPrimary = selectedKeyframe;
@@ -426,14 +430,17 @@ public class TimelinePanel extends VBox {
         int pasted = 0;
         for (ClipboardEntry entry : copiedKeyframes) {
             PropertyType property = entry.property();
-            if (!isPropertySupportedForSelection(property)) continue;
+            PasteTarget target = resolvePasteTarget(entry, selectedTargetTrack, retargetSingleSource);
+            if (target == null || !isPropertySupportedForTarget(property, target.selectionName(), target.group())) continue;
             Keyframe copy = entry.keyframe().copy();
             copy.setTimeMs(clampOrExpandTimeline(snapTime(playhead + entry.offsetMs())));
-            Keyframe inserted = track.upsertKeyframe(property, copy);
+            Keyframe inserted = target.track().upsertKeyframe(property, copy);
             if (inserted == null) continue;
             if (firstProperty == null) firstProperty = property;
-            selectionModel.select(KeyframeSelectionModel.ref(track.getEntityName(), property, inserted));
+            selectionModel.select(KeyframeSelectionModel.ref(target.track().getEntityName(), property, inserted));
             selectedKeyframe = inserted;
+            selectedEntity = target.selectionName();
+            selectedGroup = target.group();
             pasted++;
         }
         if (pasted == 0) {
@@ -454,28 +461,28 @@ public class TimelinePanel extends VBox {
 
     public boolean duplicateSelectedKeyframes(double deltaMs) {
         if (Math.abs(deltaMs) < 1e-9) return false;
-        EntityTrack track = selectedTrack(false);
-        if (track == null) return false;
-        Map<PropertyType, List<Keyframe>> selection = selectedKeyframesByProperty(track);
-        if (selection.isEmpty()) return false;
+        List<ClipboardEntry> entries = collectClipboardEntries();
+        if (entries.isEmpty()) return false;
 
         selectionModel.clearSelection();
         selectedKeyframe = null;
 
         PropertyType firstProperty = null;
         int duplicated = 0;
-        for (Map.Entry<PropertyType, List<Keyframe>> entry : selection.entrySet()) {
-            PropertyType property = entry.getKey();
-            for (Keyframe source : entry.getValue()) {
-                Keyframe copy = source.copy();
-                copy.setTimeMs(clampOrExpandTimeline(snapTime(source.getTimeMs() + deltaMs)));
-                Keyframe inserted = track.upsertKeyframe(property, copy);
-                if (inserted == null) continue;
-                if (firstProperty == null) firstProperty = property;
-                selectionModel.select(KeyframeSelectionModel.ref(track.getEntityName(), property, inserted));
-                selectedKeyframe = inserted;
-                duplicated++;
-            }
+        for (ClipboardEntry entry : entries) {
+            PropertyType property = entry.property();
+            PasteTarget target = resolvePasteTarget(entry, null, false);
+            if (target == null || !isPropertySupportedForTarget(property, target.selectionName(), target.group())) continue;
+            Keyframe copy = entry.keyframe().copy();
+            copy.setTimeMs(clampOrExpandTimeline(snapTime(entry.keyframe().getTimeMs() + deltaMs)));
+            Keyframe inserted = target.track().upsertKeyframe(property, copy);
+            if (inserted == null) continue;
+            if (firstProperty == null) firstProperty = property;
+            selectionModel.select(KeyframeSelectionModel.ref(target.track().getEntityName(), property, inserted));
+            selectedKeyframe = inserted;
+            selectedEntity = target.selectionName();
+            selectedGroup = target.group();
+            duplicated++;
         }
         if (duplicated == 0) {
             clearKeyframeSelection();
@@ -1131,6 +1138,94 @@ public class TimelinePanel extends VBox {
             byProperty.put(selectedProperty, List.of(selectedKeyframe));
         }
         return byProperty;
+    }
+
+    private List<ClipboardEntry> collectClipboardEntries() {
+        List<ClipboardEntry> entries = new ArrayList<>();
+        if (selectionModel.hasSelection()) {
+            for (KeyframeSelectionModel.KeyframeRef ref : selectionModel.getSelectedOrdered()) {
+                if (ref == null || ref.keyframe() == null || ref.property() == null) continue;
+                String sourceName = ref.entityName();
+                if (sourceName == null || sourceName.isBlank()) continue;
+                entries.add(new ClipboardEntry(
+                    sourceName,
+                    isClipboardGroupSource(sourceName),
+                    ref.property(),
+                    ref.keyframe(),
+                    0.0));
+            }
+            return entries;
+        }
+
+        EntityTrack track = selectedTrack(false);
+        if (track == null) return entries;
+        String sourceName = currentStorageSelectionName();
+        if (sourceName == null || sourceName.isBlank()) sourceName = track.getEntityName();
+        boolean sourceGroup = selectedGroup;
+        Map<PropertyType, List<Keyframe>> selection = selectedKeyframesByProperty(track);
+        for (Map.Entry<PropertyType, List<Keyframe>> entry : selection.entrySet()) {
+            PropertyType property = entry.getKey();
+            for (Keyframe keyframe : entry.getValue()) {
+                entries.add(new ClipboardEntry(sourceName, sourceGroup, property, keyframe, 0.0));
+            }
+        }
+        entries.sort(Comparator.comparingDouble((ClipboardEntry e) -> e.keyframe().getTimeMs())
+            .thenComparing((ClipboardEntry e) -> e.sourceName(), Comparator.nullsLast(String::compareTo))
+            .thenComparingInt(e -> e.property().ordinal()));
+        return entries;
+    }
+
+    private boolean clipboardHasSingleSourceTarget() {
+        String sourceName = null;
+        Boolean sourceGroup = null;
+        for (ClipboardEntry entry : copiedKeyframes) {
+            if (entry == null) continue;
+            if (sourceName == null) {
+                sourceName = entry.sourceName();
+                sourceGroup = entry.group();
+                continue;
+            }
+            if (!Objects.equals(sourceName, entry.sourceName()) || !Objects.equals(sourceGroup, entry.group())) {
+                return false;
+            }
+        }
+        return sourceName != null;
+    }
+
+    private PasteTarget resolvePasteTarget(
+        ClipboardEntry entry,
+        EntityTrack selectedTargetTrack,
+        boolean retargetSingleSource
+    ) {
+        if (entry == null) return null;
+        if (retargetSingleSource && selectedTargetTrack != null) {
+            return new PasteTarget(selectedTargetTrack, selectedEntity, selectedGroup);
+        }
+        String sourceName = entry.sourceName();
+        if (sourceName == null || sourceName.isBlank()) return null;
+        if (entry.group()) {
+            EntityGroup group = project.getGroup(sourceName);
+            return group != null ? new PasteTarget(group.getGroupTrack(), sourceName, true) : null;
+        }
+        if (isRuntimeCameraTarget(sourceName)) {
+            EntityTrack track = resolveRuntimeCameraTrack(true);
+            return track != null ? new PasteTarget(track, RUNTIME_CAMERA_TARGET, false) : null;
+        }
+        EntityTrack track = project.getTrack(sourceName);
+        return track != null ? new PasteTarget(track, sourceName, false) : null;
+    }
+
+    private boolean isPropertySupportedForTarget(PropertyType property, String targetName, boolean group) {
+        if (property == null) return false;
+        if (isRuntimeCameraTarget(targetName)) return property.isCameraProperty();
+        return !group || isGroupProperty(property);
+    }
+
+    private boolean isClipboardGroupSource(String sourceName) {
+        if (sourceName == null || sourceName.isBlank()) return false;
+        if (project.getGroup(sourceName) == null) return false;
+        if (project.getTrack(sourceName) == null) return true;
+        return selectedGroup && Objects.equals(selectedEntity, sourceName);
     }
 
     private void clearKeyframeSelection() {

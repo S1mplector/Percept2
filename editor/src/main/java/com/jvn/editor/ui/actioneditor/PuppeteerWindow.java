@@ -5400,12 +5400,23 @@ public class PuppeteerWindow extends Stage {
             Path dir = projectRoot.toPath().resolve("scripts").resolve("timelines");
             Files.createDirectories(dir);
             Path file = dir.resolve(name + ".jes");
+            backupExistingTimelineFile(file);
             Files.writeString(file, jesCode);
             return true;
         } catch (IOException ex) {
             showSaveError(name, ex.getMessage());
             return false;
         }
+    }
+
+    static Path backupExistingTimelineFile(Path file) throws IOException {
+        if (file == null || !Files.isRegularFile(file)) return null;
+        Path backupDir = file.getParent().resolve(".backups");
+        Files.createDirectories(backupDir);
+        String fileName = file.getFileName().toString();
+        Path backup = backupDir.resolve(fileName + ".bak");
+        Files.copy(file, backup, StandardCopyOption.REPLACE_EXISTING);
+        return backup;
     }
 
     private void showSaveError(String name, String detail) {
