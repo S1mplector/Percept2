@@ -3,6 +3,9 @@ package com.jvn.editor.ui;
 import java.awt.Desktop;
 import java.io.File;
 import java.io.FileInputStream;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -12,6 +15,7 @@ import java.util.function.Consumer;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
@@ -55,14 +59,21 @@ public class GameBuildPublisherView extends BorderPane {
   private final Label runtimeBadgeLabel = new Label();
   private final Label releaseBadgeLabel = new Label();
   private final Label statusLabel = new Label();
+  private final Label commandPreviewLabel = new Label();
+  private final Label artifactInventoryLabel = new Label();
+  private final CheckBox offlineModeCheck = new CheckBox("Offline");
+  private final CheckBox refreshRuntimeCheck = new CheckBox("Refresh runtime");
   private Button buildSelectedButton;
   private Button buildAllButton;
+  private Button preflightButton;
   private Button releaseButton;
   private Button copyCliButton;
   private Button openProjectButton;
   private Button openReleaseConfigButton;
   private Button revealRuntimeCacheButton;
   private Button clearRuntimeCacheButton;
+  private Button cleanOutputButton;
+  private Button refreshArtifactsButton;
   private Button presetPortableButton;
   private Button presetDesktopButton;
   private Button presetNativeButton;
@@ -187,6 +198,12 @@ public class GameBuildPublisherView extends BorderPane {
     styleBadge(releaseBadgeLabel);
     statusLabel.setWrapText(true);
     statusLabel.getStyleClass().addAll("build-publisher-note", "build-publisher-note-status");
+    commandPreviewLabel.setWrapText(true);
+    commandPreviewLabel.getStyleClass().addAll("build-publisher-command-preview", "build-publisher-path");
+    artifactInventoryLabel.setWrapText(true);
+    artifactInventoryLabel.getStyleClass().addAll("build-publisher-artifact-inventory", "build-publisher-path");
+    styleOption(offlineModeCheck);
+    styleOption(refreshRuntimeCheck);
 
     VBox projectCard = card("Game", form, manifestLabel);
 
@@ -215,6 +232,8 @@ public class GameBuildPublisherView extends BorderPane {
     buildSelectedButton.setOnAction(e -> buildSelectedTarget());
     buildAllButton = button("Build All Targets", ButtonTone.PRIMARY, false);
     buildAllButton.setOnAction(e -> buildAllTargets());
+    preflightButton = button("Run Preflight", ButtonTone.SECONDARY, false);
+    preflightButton.setOnAction(e -> runPreflight());
     releaseButton = button("Run Release Hooks", ButtonTone.SECONDARY, false);
     releaseButton.setOnAction(e -> runReleaseProfile());
     copyCliButton = button("Copy Build Command", ButtonTone.SECONDARY, false);
@@ -223,11 +242,28 @@ public class GameBuildPublisherView extends BorderPane {
     reveal.setOnAction(e -> revealBuilds());
     Button notes = button("Copy Publish Notes", ButtonTone.SECONDARY, false);
     notes.setOnAction(e -> copyPublishNotes());
+    cleanOutputButton = button("Clean Artifacts", ButtonTone.DANGER, false);
+    cleanOutputButton.setOnAction(e -> cleanBuildArtifacts());
+    refreshArtifactsButton = button("Refresh Artifacts", ButtonTone.SECONDARY, false);
+    refreshArtifactsButton.setOnAction(e -> refreshArtifactInventory());
 
-    FlowPane buildRow = new FlowPane(8, 8, buildSelectedButton, buildAllButton, releaseButton, copyCliButton, reveal, notes);
+    FlowPane optionsRow = new FlowPane(12, 8, offlineModeCheck, refreshRuntimeCheck);
+    optionsRow.setAlignment(Pos.CENTER_LEFT);
+    optionsRow.getStyleClass().add("build-publisher-options");
+
+    FlowPane buildRow = new FlowPane(8, 8,
+        buildSelectedButton,
+        buildAllButton,
+        preflightButton,
+        releaseButton,
+        copyCliButton,
+        reveal,
+        refreshArtifactsButton,
+        cleanOutputButton,
+        notes);
     buildRow.setAlignment(Pos.CENTER_LEFT);
 
-    VBox actionCard = card("Actions", buildHelp, buildRow, statusLabel);
+    VBox actionCard = card("Actions", buildHelp, optionsRow, commandPreviewLabel, buildRow, artifactInventoryLabel, statusLabel);
 
     Label nativeNote = new Label("Desktop bundles build locally for Windows, Linux, macOS Intel, and macOS Apple Silicon. Native installers still build on the matching host OS only.");
     nativeNote.setWrapText(true);
@@ -257,6 +293,8 @@ public class GameBuildPublisherView extends BorderPane {
     nativeTypeBox.valueProperty().addListener((obs, oldValue, newValue) -> refreshFormState());
     releaseProfileBox.valueProperty().addListener((obs, oldValue, newValue) -> refreshFormState());
     releaseProfileBox.getEditor().textProperty().addListener((obs, oldValue, newValue) -> refreshFormState());
+    offlineModeCheck.selectedProperty().addListener((obs, oldValue, newValue) -> refreshFormState());
+    refreshRuntimeCheck.selectedProperty().addListener((obs, oldValue, newValue) -> refreshFormState());
   }
 
   private Label label(String text) {
@@ -301,6 +339,10 @@ public class GameBuildPublisherView extends BorderPane {
     box.getStyleClass().add("layout-launcher-field");
   }
 
+  private void styleOption(CheckBox option) {
+    option.getStyleClass().add("build-publisher-option");
+  }
+
   private void loadProject(File root) {
     projectField.setText(root == null ? "" : root.getAbsolutePath());
     Properties manifest = loadManifest(root);
@@ -313,6 +355,7 @@ public class GameBuildPublisherView extends BorderPane {
       manifestLabel.setText("No jvn.project found. Choose a JVN game project before building.");
       statusLabel.setText("Build unavailable: missing jvn.project.");
       refreshFormState();
+      refreshArtifactInventory();
       return;
     }
 
@@ -332,6 +375,7 @@ public class GameBuildPublisherView extends BorderPane {
         + "  runtime.audio=" + manifest.getProperty("runtime.audio", "auto"));
     statusLabel.setText("Ready to build " + nameField.getText() + ".");
     refreshFormState();
+    refreshArtifactInventory();
   }
 
   private void setReleaseProfileSelection(String profile) {
@@ -371,6 +415,7 @@ public class GameBuildPublisherView extends BorderPane {
     refreshBuildPlan(result);
     refreshActionButtons(result);
     refreshUtilityButtons(result);
+    refreshCommandPreview(result);
     return result;
   }
 
@@ -382,6 +427,7 @@ public class GameBuildPublisherView extends BorderPane {
     nativeTypeBox.setVisible(mode == PackageMode.NATIVE_PACKAGE);
     nativeTypeFieldLabel.setManaged(mode == PackageMode.NATIVE_PACKAGE);
     nativeTypeFieldLabel.setVisible(mode == PackageMode.NATIVE_PACKAGE);
+    refreshRuntimeCheck.setDisable(mode != PackageMode.BUNDLED_RUNTIME_ZIP);
 
     boolean canBuild = result != null && result.errors().isEmpty();
     if (buildSelectedButton != null) buildSelectedButton.setDisable(!canBuild);
@@ -390,6 +436,7 @@ public class GameBuildPublisherView extends BorderPane {
       buildAllButton.setManaged(supportsBuildAll);
       buildAllButton.setVisible(supportsBuildAll);
     }
+    if (preflightButton != null) preflightButton.setDisable(!canBuild);
     boolean canRelease = canBuild && releaseTaskForSelection() != null;
     if (releaseButton != null) releaseButton.setDisable(!canRelease);
     if (copyCliButton != null) copyCliButton.setDisable(!canBuild);
@@ -476,6 +523,22 @@ public class GameBuildPublisherView extends BorderPane {
     boolean allowCache = workspaceRoot != null && workspaceRoot.isDirectory();
     if (revealRuntimeCacheButton != null) revealRuntimeCacheButton.setDisable(!allowCache);
     if (clearRuntimeCacheButton != null) clearRuntimeCacheButton.setDisable(!allowCache || (result != null && !result.errors().isEmpty() && selectedPackageMode() == PackageMode.NATIVE_PACKAGE));
+    if (cleanOutputButton != null) cleanOutputButton.setDisable(!allowCache);
+    if (refreshArtifactsButton != null) refreshArtifactsButton.setDisable(!allowCache);
+  }
+
+  private void refreshCommandPreview(ValidationResult result) {
+    if (commandPreviewLabel == null) return;
+    if (result == null || !result.errors().isEmpty()) {
+      commandPreviewLabel.setText("Command: resolve validation issues to preview the Gradle invocation.");
+      return;
+    }
+    BuildTaskSelection selection = buildTaskForSelection();
+    if (selection == null) {
+      commandPreviewLabel.setText("Command: choose a build target and format.");
+      return;
+    }
+    commandPreviewLabel.setText("Command: " + buildCliCommand(selection.taskName(), buildGradleArgs()));
   }
 
   private ValidationResult validateForm() {
@@ -694,6 +757,16 @@ public class GameBuildPublisherView extends BorderPane {
     buildTask(selection.taskName(), selection.title());
   }
 
+  private void runPreflight() {
+    if (!canBuild()) return;
+    List<String> args = buildGradleArgs();
+    if (onBuildRequested != null) {
+      onBuildRequested.accept(new BuildRequest("preflightJvnGameBuild", args.toArray(String[]::new), "Preflight Game Build"));
+    }
+    statusLabel.setText("Started build preflight. The report will be written under build/reports/jvn-game-build/.");
+    setNoteTone(statusLabel, "status");
+  }
+
   private void runReleaseProfile() {
     if (!canBuild()) return;
     BuildTaskSelection selection = releaseTaskForSelection();
@@ -720,6 +793,14 @@ public class GameBuildPublisherView extends BorderPane {
     setNoteTone(statusLabel, "status");
   }
 
+  private void cleanBuildArtifacts() {
+    if (workspaceRoot == null || onBuildRequested == null) return;
+    onBuildRequested.accept(new BuildRequest("cleanJvnGameDistributions", new String[0], "Clean Game Build Artifacts"));
+    statusLabel.setText("Started build artifact cleanup.");
+    setNoteTone(statusLabel, "status");
+    refreshArtifactInventory();
+  }
+
   private boolean canBuild() {
     ValidationResult result = refreshFormState();
     if (result.errors().isEmpty()) return true;
@@ -730,13 +811,20 @@ public class GameBuildPublisherView extends BorderPane {
 
   private List<String> buildGradleArgs() {
     List<String> args = new ArrayList<>();
+    if (offlineModeCheck.isSelected()) args.add("--offline");
     args.add("-PjvnGameProject=" + projectRoot.getAbsolutePath());
+    args.add("-PjvnPackageMode=" + selectedPackageMode().gradleToken());
+    TargetChoice target = targetBox.getValue();
+    if (target != null) args.add("-PjvnGameTarget=" + target.outputToken());
     String name = nameField.getText() == null ? "" : nameField.getText().trim();
     if (!name.isBlank()) args.add("-PjvnGameName=" + name);
     String version = versionField.getText() == null ? "" : versionField.getText().trim();
     if (!version.isBlank()) args.add("-PjvnGameVersion=" + version);
     String profile = selectedReleaseProfile();
     if (!profile.isBlank()) args.add("-PjvnReleaseProfile=" + profile);
+    if (selectedPackageMode() == PackageMode.BUNDLED_RUNTIME_ZIP && refreshRuntimeCheck.isSelected()) {
+      args.add("-PjvnRefreshBundledRuntime=true");
+    }
     if (selectedPackageMode() == PackageMode.NATIVE_PACKAGE) {
       NativeTypeChoice nativeType = nativeTypeBox.getValue();
       if (nativeType != null && !nativeType.token().isBlank() && !nativeType.token().startsWith("unsupported")) {
@@ -750,14 +838,8 @@ public class GameBuildPublisherView extends BorderPane {
     if (!canBuild()) return;
     BuildTaskSelection selection = buildTaskForSelection();
     if (selection == null) return;
-    String task = selection.taskName();
-    StringBuilder cmd = new StringBuilder("./jvnw gradle ");
-    cmd.append(task);
-    for (String arg : buildGradleArgs()) {
-      cmd.append(' ').append(shellQuote(arg));
-    }
     ClipboardContent content = new ClipboardContent();
-    content.putString(cmd.toString());
+    content.putString(buildCliCommand(selection.taskName(), buildGradleArgs()));
     Clipboard.getSystemClipboard().setContent(content);
     statusLabel.setText("Copied build command.");
     setNoteTone(statusLabel, "status");
@@ -804,6 +886,61 @@ public class GameBuildPublisherView extends BorderPane {
       statusLabel.setText("Could not open build folder: " + ex.getMessage());
       setNoteTone(statusLabel, "error");
     }
+  }
+
+  private void refreshArtifactInventory() {
+    if (artifactInventoryLabel == null) return;
+    artifactInventoryLabel.setText("Artifacts: " + formatArtifactInventory(summarizeArtifacts(buildDistributionsDir())));
+  }
+
+  static List<ArtifactSummary> summarizeArtifacts(File outDir) {
+    if (outDir == null || !outDir.isDirectory()) return List.of();
+    File[] files = outDir.listFiles(file -> file.isFile() && !file.isHidden());
+    if (files == null || files.length == 0) return List.of();
+    List<ArtifactSummary> summaries = new ArrayList<>();
+    for (File file : files) {
+      summaries.add(new ArtifactSummary(file.getName(), file.length(), file.lastModified()));
+    }
+    summaries.sort((a, b) -> Long.compare(b.lastModifiedMillis(), a.lastModifiedMillis()));
+    return List.copyOf(summaries);
+  }
+
+  static String formatArtifactInventory(List<ArtifactSummary> artifacts) {
+    if (artifacts == null || artifacts.isEmpty()) return "none yet";
+    StringBuilder out = new StringBuilder();
+    int shown = Math.min(artifacts.size(), 6);
+    for (int i = 0; i < shown; i++) {
+      ArtifactSummary artifact = artifacts.get(i);
+      if (i > 0) out.append('\n');
+      out.append(artifact.name())
+          .append("  ")
+          .append(formatBytes(artifact.bytes()))
+          .append("  ")
+          .append(formatTimestamp(artifact.lastModifiedMillis()));
+    }
+    if (artifacts.size() > shown) {
+      out.append('\n').append("+").append(artifacts.size() - shown).append(" more");
+    }
+    return out.toString();
+  }
+
+  static String formatBytes(long bytes) {
+    if (bytes < 1024L) return bytes + " B";
+    double value = bytes;
+    String[] units = {"KB", "MB", "GB"};
+    int unitIndex = -1;
+    do {
+      value /= 1024.0;
+      unitIndex++;
+    } while (value >= 1024.0 && unitIndex < units.length - 1);
+    return String.format(Locale.ROOT, value >= 10.0 ? "%.0f %s" : "%.1f %s", value, units[unitIndex]);
+  }
+
+  private static String formatTimestamp(long millis) {
+    if (millis <= 0L) return "unknown time";
+    return DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+        .withZone(ZoneId.systemDefault())
+        .format(Instant.ofEpochMilli(millis));
   }
 
   private void openProjectFolder() {
@@ -1184,6 +1321,21 @@ public class GameBuildPublisherView extends BorderPane {
     return "'" + value.replace("'", "'\"'\"'") + "'";
   }
 
+  static String buildCliCommand(String taskName, List<String> args) {
+    StringBuilder cmd = new StringBuilder("./jvnw gradle");
+    if (taskName != null && !taskName.isBlank()) {
+      cmd.append(' ').append(shellQuote(taskName));
+    }
+    if (args != null) {
+      for (String arg : args) {
+        if (arg != null && !arg.isBlank()) {
+          cmd.append(' ').append(shellQuote(arg));
+        }
+      }
+    }
+    return cmd.toString();
+  }
+
   private static List<NativeTypeChoice> currentNativeTypeChoices() {
     String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
     List<NativeTypeChoice> types = new ArrayList<>();
@@ -1232,14 +1384,20 @@ public class GameBuildPublisherView extends BorderPane {
   }
 
   private enum PackageMode {
-    PORTABLE_ZIP("Portable Zip"),
-    BUNDLED_RUNTIME_ZIP("Desktop Bundle"),
-    NATIVE_PACKAGE("Native Package");
+    PORTABLE_ZIP("Portable Zip", "portable"),
+    BUNDLED_RUNTIME_ZIP("Desktop Bundle", "bundled"),
+    NATIVE_PACKAGE("Native Package", "native");
 
     private final String label;
+    private final String gradleToken;
 
-    PackageMode(String label) {
+    PackageMode(String label, String gradleToken) {
       this.label = label;
+      this.gradleToken = gradleToken;
+    }
+
+    private String gradleToken() {
+      return gradleToken;
     }
 
     @Override
@@ -1256,6 +1414,9 @@ public class GameBuildPublisherView extends BorderPane {
   }
 
   private record BuildTaskSelection(String taskName, String title) {
+  }
+
+  record ArtifactSummary(String name, long bytes, long lastModifiedMillis) {
   }
 
   private record TargetChoice(String label, String taskName, String description, String outputToken) {

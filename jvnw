@@ -109,6 +109,8 @@ show_help() {
   print_help_row "./jvnw dist-all -PjvnGameProject=<dir>" "Create game zips for every supported OS/arch"
   print_help_row "./jvnw dist-runtime -PjvnGameProject=<dir>" "Create a self-contained desktop bundle for this OS/arch"
   print_help_row "./jvnw dist-runtime-all -PjvnGameProject=<dir>" "Create self-contained desktop bundles for every supported OS/arch"
+  print_help_row "./jvnw dist-preflight -PjvnGameProject=<dir>" "Validate the selected package plan and write a build report"
+  print_help_row "./jvnw dist-clean" "Delete packaged game artifacts"
   print_help_row "./jvnw runtime-cache" "Show cached prebuilt desktop runtimes"
   print_help_row "./jvnw runtime-cache-clear" "Clear cached prebuilt desktop runtimes"
   print_help_row "./jvnw native -PjvnGameProject=<dir>" "Create a native package for this host"
@@ -147,6 +149,15 @@ fi
 if [[ ${#input_args[@]} -eq 0 ]]; then
   show_help
   exit 0
+fi
+
+if [[ ${#input_args[@]} -eq 1 ]]; then
+  case "${input_args[0]}" in
+    help|-h|--help)
+      show_help
+      exit 0
+      ;;
+  esac
 fi
 
 declare -a forwarded_args=()
@@ -213,6 +224,14 @@ for arg in "${input_args[@]}"; do
       dist-runtime-all|distRuntimeAll|bundled-runtime-all|bundledRuntimeAll|portable-runtime-all|portableRuntimeAll)
         alias_label="dist-runtime-all"
         forwarded_args+=("assembleJvnGameBundledRuntime")
+        ;;
+      dist-preflight|distPreflight|preflight|build-plan|buildPlan)
+        alias_label="dist-preflight"
+        forwarded_args+=("preflightJvnGameBuild")
+        ;;
+      dist-clean|distClean|clean-dist|cleanDist)
+        alias_label="dist-clean"
+        forwarded_args+=("cleanJvnGameDistributions")
         ;;
       runtime-cache|runtimeCache)
         alias_label="runtime-cache"
@@ -294,13 +313,13 @@ resolved_target=""
 wrapper_mode="Gradle task"
 
 case "$alias_label" in
-  launcher|editor|runtime|build|test|check|clean|dist|dist-all|dist-runtime|dist-runtime-all|runtime-cache|runtime-cache-clear|native|release-native|jar)
+  launcher|editor|runtime|build|ci|test|check|clean|dist|dist-all|dist-runtime|dist-runtime-all|dist-preflight|dist-clean|runtime-cache|runtime-cache-clear|native|release-native|jar)
     command_label="$alias_label"
     ;;
 esac
 
 case "$alias_label" in
-  launcher|editor|runtime|build|test|check|clean|dist|dist-all|dist-runtime|dist-runtime-all|runtime-cache|runtime-cache-clear|native|release-native|jar)
+  launcher|editor|runtime|build|ci|test|check|clean|dist|dist-all|dist-runtime|dist-runtime-all|dist-preflight|dist-clean|runtime-cache|runtime-cache-clear|native|release-native|jar)
     wrapper_mode="JVN shortcut"
     ;;
   gradle)
@@ -311,6 +330,9 @@ esac
 case "$alias_label" in
   build)
     done_message="Workspace build OK."
+    ;;
+  ci)
+    done_message="CI verification OK."
     ;;
   test)
     done_message="Test suite OK."
@@ -326,6 +348,18 @@ case "$alias_label" in
     ;;
   dist-all)
     done_message="Portable distributions ready."
+    ;;
+  dist-runtime)
+    done_message="Desktop bundle ready."
+    ;;
+  dist-runtime-all)
+    done_message="Desktop bundles ready."
+    ;;
+  dist-preflight)
+    done_message="Game build preflight OK."
+    ;;
+  dist-clean)
+    done_message="Game build artifacts cleaned."
     ;;
   jar)
     done_message="Runtime jar ready."

@@ -5587,6 +5587,33 @@
   -fx-font-family: "SF Mono", "Menlo", "Consolas", monospace;
 }
 
+.build-publisher-command-preview,
+.build-publisher-artifact-inventory {
+  -fx-padding: 9 10 9 10;
+  -fx-background-color: rgba(255,255,255,0.035);
+  -fx-background-radius: 8;
+  -fx-border-radius: 8;
+  -fx-border-color: rgba(220,220,220,0.09);
+  -fx-border-width: 1;
+  -fx-text-fill: #c9c9c9;
+  -fx-font-size: 11px;
+  -fx-font-weight: 600;
+}
+
+.build-publisher-options {
+  -fx-padding: 2 0 2 0;
+}
+
+.build-publisher-option {
+  -fx-text-fill: #d2d2d2;
+  -fx-font-size: 11px;
+  -fx-font-weight: 800;
+}
+
+.build-publisher-option:disabled {
+  -fx-opacity: 0.42;
+}
+
 .build-publisher-note {
   -fx-font-size: 11px;
   -fx-font-weight: 700;

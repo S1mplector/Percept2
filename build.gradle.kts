@@ -1,3 +1,4 @@
+import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import org.gradle.api.file.DuplicatesStrategy
 import org.gradle.api.tasks.bundling.Zip
@@ -120,6 +121,16 @@ data class JvnReleaseProfile(
   }
 }
 
+data class JvnGamePlannedArtifact(
+  val mode: String,
+  val targetId: String,
+  val buildTask: String,
+  val releaseTask: String?,
+  val artifact: File,
+  val runtimeRequirement: String,
+  val packageType: String?
+)
+
 val jvnJavaFxVersion = "21.0.3"
 val jvnJavaFxModules = listOf(
   "javafx-base",
@@ -166,6 +177,14 @@ fun currentGameTarget(): JvnGameTarget {
       jvnGameTargets.first { it.id == "macos-aarch64" }
     osName.contains("mac") -> jvnGameTargets.first { it.id == "macos-x64" }
     else -> throw GradleException("Unsupported host OS/Arch for current portable target: $osName/$arch")
+  }
+}
+
+fun currentGameTargetOrNull(): JvnGameTarget? {
+  return try {
+    currentGameTarget()
+  } catch (_: Exception) {
+    null
   }
 }
 
@@ -953,6 +972,137 @@ fun currentReleaseArtifactFile(mode: String): File {
   }
 }
 
+fun selectedJvnGamePackageMode(): String {
+  val raw = (findProperty("jvnPackageMode") as String?)?.trim()?.lowercase()
+  return when (raw) {
+    null, "", "portable", "portable-zip", "zip" -> "portable"
+    "bundled", "bundle", "runtime", "desktop", "desktop-bundle", "bundled-runtime" -> "bundled"
+    "native", "native-package", "installer", "jpackage" -> "native"
+    else -> throw GradleException("Unsupported jvnPackageMode '$raw'. Supported values: portable, bundled, native.")
+  }
+}
+
+fun selectedJvnGameTargetToken(): String {
+  return ((findProperty("jvnGameTarget") as String?)?.trim()?.lowercase() ?: "current").ifBlank { "current" }
+}
+
+fun selectedJvnGameTargets(mode: String): List<JvnGameTarget> {
+  val token = selectedJvnGameTargetToken()
+  if (mode == "native") {
+    val host = currentPackageHost()
+    if (token != "current" && token != host.target.id) {
+      throw GradleException("Native game packages are host-only. Requested jvnGameTarget='$token', but this host builds ${host.target.id}.")
+    }
+    return listOf(host.target)
+  }
+  if (token == "all") return jvnGameTargets
+  if (token == "current") return listOf(currentGameTarget())
+  return listOf(jvnGameTargets.firstOrNull { it.id == token }
+    ?: throw GradleException("Unsupported jvnGameTarget '$token'. Supported values: current, all, ${jvnGameTargets.joinToString(", ") { it.id }}."))
+}
+
+fun jvnGameBuildTaskName(mode: String, target: JvnGameTarget): String {
+  return when (mode) {
+    "portable" -> "assembleJvnGamePortable${target.taskSuffix}"
+    "bundled" -> "assembleJvnGameBundledRuntime${target.taskSuffix}"
+    "native" -> "packageJvnGameNativeCurrent"
+    else -> throw GradleException("Unsupported game package mode: $mode")
+  }
+}
+
+fun jvnGameReleaseTaskName(mode: String, target: JvnGameTarget): String? {
+  return when (mode) {
+    "portable" -> if (target.id == currentGameTargetOrNull()?.id) "releaseJvnGamePortableCurrent" else null
+    "bundled" -> "releaseJvnGameBundledRuntime${target.taskSuffix}"
+    "native" -> "releaseJvnGameNativeCurrent"
+    else -> null
+  }
+}
+
+fun jvnGamePlannedArtifact(mode: String, target: JvnGameTarget): JvnGamePlannedArtifact {
+  return when (mode) {
+    "portable" -> JvnGamePlannedArtifact(
+      mode,
+      target.id,
+      jvnGameBuildTaskName(mode, target),
+      jvnGameReleaseTaskName(mode, target),
+      bundledRuntimeZipDir().resolve("${gameDistName(target)}.zip"),
+      "Java 21+ on the player machine",
+      null
+    )
+    "bundled" -> JvnGamePlannedArtifact(
+      mode,
+      target.id,
+      jvnGameBuildTaskName(mode, target),
+      jvnGameReleaseTaskName(mode, target),
+      bundledRuntimeDistributionFile(target),
+      "Bundled Java runtime image",
+      null
+    )
+    "native" -> {
+      val packageType = currentJpackageType()
+      JvnGamePlannedArtifact(
+        mode,
+        target.id,
+        jvnGameBuildTaskName(mode, target),
+        jvnGameReleaseTaskName(mode, target),
+        currentNativeDistributionFile(packageType),
+        "Bundled native runtime image",
+        packageType
+      )
+    }
+    else -> throw GradleException("Unsupported game package mode: $mode")
+  }
+}
+
+fun selectedJvnGamePlannedArtifacts(): List<JvnGamePlannedArtifact> {
+  val mode = selectedJvnGamePackageMode()
+  return selectedJvnGameTargets(mode).map { target -> jvnGamePlannedArtifact(mode, target) }
+}
+
+fun jvnGameBuildPlanMap(): Map<String, Any?> {
+  val validation = validateGameProject()
+  validateSelectedReleaseProfile()
+  val profile = selectedReleaseProfile()
+  val artifacts = selectedJvnGamePlannedArtifacts()
+  return mapOf(
+    "generatedAt" to Instant.now().toString(),
+    "workspaceRoot" to rootDir.absolutePath,
+    "buildDir" to layout.buildDirectory.get().asFile.absolutePath,
+    "projectRoot" to validation.dir.absolutePath,
+    "gameName" to gameDisplayName(),
+    "gameVersion" to gameVersion(),
+    "projectType" to validation.type,
+    "entry" to (validation.entryKey ?: "runtime discovery"),
+    "packageMode" to selectedJvnGamePackageMode(),
+    "requestedTarget" to selectedJvnGameTargetToken(),
+    "releaseProfile" to profile.name,
+    "releaseConfig" to (profile.file?.absolutePath ?: ""),
+    "warnings" to validation.warnings,
+    "artifacts" to artifacts.map { artifact ->
+      mapOf(
+        "mode" to artifact.mode,
+        "target" to artifact.targetId,
+        "buildTask" to artifact.buildTask,
+        "releaseTask" to (artifact.releaseTask ?: ""),
+        "artifactPath" to artifact.artifact.absolutePath,
+        "artifactName" to artifact.artifact.name,
+        "packageType" to (artifact.packageType ?: ""),
+        "runtimeRequirement" to artifact.runtimeRequirement,
+        "exists" to artifact.artifact.exists(),
+        "bytes" to if (artifact.artifact.isFile) artifact.artifact.length() else 0L
+      )
+    }
+  )
+}
+
+fun writeJvnGameBuildReport(): File {
+  val reportFile = layout.buildDirectory.file("reports/jvn-game-build/build-plan.json").get().asFile
+  reportFile.parentFile.mkdirs()
+  reportFile.writeText(JsonOutput.prettyPrint(JsonOutput.toJson(jvnGameBuildPlanMap())))
+  return reportFile
+}
+
 fun publishCommandVariables(mode: String, artifact: File, targetId: String = currentPackageHost().target.id): Map<String, String> {
   return mapOf(
     "artifact" to artifact.absolutePath,
@@ -1025,7 +1175,11 @@ fun validateSelectedReleaseProfile() {
   validateExistingProfileFile("mac.entitlements", profile.value("mac.entitlements"))
   validateExistingProfileFile("win.certificateFile", profile.value("win.certificateFile"))
 
-  val allowedPublishKeys = publishCommandVariables("portable", File(gameProjectDir(), "artifact-placeholder")).keys
+  val allowedPublishKeys = publishCommandVariables(
+    "portable",
+    File(gameProjectDir(), "artifact-placeholder"),
+    currentGameTargetOrNull()?.id ?: "current"
+  ).keys
   profile.commands("publish.command").forEachIndexed { index, command ->
     val unresolved = unresolvedPublishPlaceholders(command, allowedPublishKeys)
     if (unresolved.isNotEmpty()) {
@@ -1417,6 +1571,38 @@ tasks.register("validateJvnGameProject") {
       println("  warnings:")
       validation.warnings.forEach { println("    - $it") }
     }
+  }
+}
+
+tasks.register("preflightJvnGameBuild") {
+  group = "verification"
+  description = "Validates the selected JVN game build plan and writes build/reports/jvn-game-build/build-plan.json."
+  doLast {
+    val reportFile = writeJvnGameBuildReport()
+    val plan = jvnGameBuildPlanMap()
+    val artifacts = selectedJvnGamePlannedArtifacts()
+    println("JVN game build preflight OK")
+    println("  project: ${plan["projectRoot"]}")
+    println("  game: ${plan["gameName"]} ${plan["gameVersion"]}")
+    println("  mode: ${plan["packageMode"]}")
+    println("  requested target: ${plan["requestedTarget"]}")
+    println("  release profile: ${plan["releaseProfile"]}")
+    println("  artifacts:")
+    artifacts.forEach { artifact ->
+      val releaseTask = artifact.releaseTask?.let { " releaseTask=$it" } ?: ""
+      println("    - ${artifact.targetId}: ${artifact.artifact.absolutePath} buildTask=${artifact.buildTask}$releaseTask")
+    }
+    println("  report: ${reportFile.absolutePath}")
+  }
+}
+
+tasks.register("cleanJvnGameDistributions") {
+  group = "distribution"
+  description = "Deletes packaged JVN game artifacts under the configured build distributions directory."
+  doLast {
+    val dir = bundledRuntimeZipDir()
+    dir.deleteRecursively()
+    println("Deleted JVN game distribution artifacts: ${dir.absolutePath}")
   }
 }
 

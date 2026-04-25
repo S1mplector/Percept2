@@ -47,6 +47,7 @@ if /I "%command%"=="runtime" set "resolved=:runtime:run"
 if /I "%command%"=="run" set "resolved=:runtime:run"
 if /I "%command%"=="game" set "resolved=:runtime:run"
 if /I "%command%"=="build" set "resolved=build"
+if /I "%command%"=="ci" set "resolved=ci"
 if /I "%command%"=="test" set "resolved=test"
 if /I "%command%"=="check" set "resolved=check"
 if /I "%command%"=="clean" set "resolved=clean"
@@ -55,6 +56,32 @@ if /I "%command%"=="dist-all" set "resolved=assembleJvnGamePortable"
 if /I "%command%"=="distAll" set "resolved=assembleJvnGamePortable"
 if /I "%command%"=="portable-all" set "resolved=assembleJvnGamePortable"
 if /I "%command%"=="portableAll" set "resolved=assembleJvnGamePortable"
+if /I "%command%"=="dist-runtime" set "resolved=assembleJvnGameBundledRuntimeCurrent"
+if /I "%command%"=="distRuntime" set "resolved=assembleJvnGameBundledRuntimeCurrent"
+if /I "%command%"=="bundled-runtime" set "resolved=assembleJvnGameBundledRuntimeCurrent"
+if /I "%command%"=="bundledRuntime" set "resolved=assembleJvnGameBundledRuntimeCurrent"
+if /I "%command%"=="dist-runtime-all" set "resolved=assembleJvnGameBundledRuntime"
+if /I "%command%"=="distRuntimeAll" set "resolved=assembleJvnGameBundledRuntime"
+if /I "%command%"=="bundled-runtime-all" set "resolved=assembleJvnGameBundledRuntime"
+if /I "%command%"=="bundledRuntimeAll" set "resolved=assembleJvnGameBundledRuntime"
+if /I "%command%"=="runtime-cache" set "resolved=printJvnBundledRuntimeCache"
+if /I "%command%"=="runtimeCache" set "resolved=printJvnBundledRuntimeCache"
+if /I "%command%"=="runtime-cache-clear" set "resolved=clearJvnBundledRuntimeCache"
+if /I "%command%"=="runtimeCacheClear" set "resolved=clearJvnBundledRuntimeCache"
+if /I "%command%"=="native" set "resolved=packageJvnGameNativeCurrent"
+if /I "%command%"=="package-native" set "resolved=packageJvnGameNativeCurrent"
+if /I "%command%"=="packageNative" set "resolved=packageJvnGameNativeCurrent"
+if /I "%command%"=="release-native" set "resolved=releaseJvnGameNativeCurrent"
+if /I "%command%"=="releaseNative" set "resolved=releaseJvnGameNativeCurrent"
+if /I "%command%"=="dist-preflight" set "resolved=preflightJvnGameBuild"
+if /I "%command%"=="distPreflight" set "resolved=preflightJvnGameBuild"
+if /I "%command%"=="preflight" set "resolved=preflightJvnGameBuild"
+if /I "%command%"=="build-plan" set "resolved=preflightJvnGameBuild"
+if /I "%command%"=="buildPlan" set "resolved=preflightJvnGameBuild"
+if /I "%command%"=="dist-clean" set "resolved=cleanJvnGameDistributions"
+if /I "%command%"=="distClean" set "resolved=cleanJvnGameDistributions"
+if /I "%command%"=="clean-dist" set "resolved=cleanJvnGameDistributions"
+if /I "%command%"=="cleanDist" set "resolved=cleanJvnGameDistributions"
 if /I "%command%"=="jar" set "resolved=:runtime:jar"
 
 set "console_arg=--console=plain"
@@ -104,11 +131,20 @@ echo   jvnw launcher   Run the standalone launcher
 echo   jvnw editor     Run the editor
 echo   jvnw runtime    Run the runtime
 echo   jvnw build      Build the workspace
+echo   jvnw ci         Run the compile/test workflow used by CI
 echo   jvnw test       Run the test suite
 echo   jvnw check      Run verification tasks
 echo   jvnw clean      Remove build outputs
 echo   jvnw dist -PjvnGameProject=^<dir^>      Create a game zip for this OS/arch
 echo   jvnw dist-all -PjvnGameProject=^<dir^>  Create game zips for every supported OS/arch
+echo   jvnw dist-runtime -PjvnGameProject=^<dir^>      Create a self-contained desktop bundle
+echo   jvnw dist-runtime-all -PjvnGameProject=^<dir^>  Create all self-contained desktop bundles
+echo   jvnw dist-preflight -PjvnGameProject=^<dir^>    Validate a package plan and write a report
+echo   jvnw dist-clean                                Delete packaged game artifacts
+echo   jvnw runtime-cache                             Show cached prebuilt desktop runtimes
+echo   jvnw runtime-cache-clear                       Clear cached prebuilt desktop runtimes
+echo   jvnw native -PjvnGameProject=^<dir^>            Create a native package for this host
+echo   jvnw release-native -PjvnGameProject=^<dir^>    Build native package and run release hooks
 echo   jvnw jar        Build the runtime jar
 echo.
 echo Advanced usage:
