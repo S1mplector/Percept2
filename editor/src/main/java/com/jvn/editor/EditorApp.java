@@ -5469,13 +5469,13 @@ public class EditorApp extends Application {
     String label;
     File activeScript = null;
     if (fileTab == null) {
-      label = "Active preview: open a JES or VNS tab. Overlay fits " + dims.width() + "x" + dims.height() + ".";
+      label = "Active preview: open a JES or VNS tab. Overlay locks to " + dims.width() + "x" + dims.height() + ".";
     } else if (fileTab.getKind() == FileEditorTab.Kind.JES) {
       activeScript = fileTab.getFile();
-      label = "Active preview: JES scene. Overlay fits " + dims.width() + "x" + dims.height() + ".";
+      label = "Active preview: JES scene. Overlay locks to " + dims.width() + "x" + dims.height() + ".";
     } else if (fileTab.getKind() == FileEditorTab.Kind.VNS) {
       activeScript = fileTab.getFile();
-      label = "Active preview: VNS scene. Overlay fits " + dims.width() + "x" + dims.height() + ".";
+      label = "Active preview: VNS scene. Overlay locks to " + dims.width() + "x" + dims.height() + ".";
     } else {
       label = "Active preview: " + fileTab.getDisplayName() + " has no JES/VNS preview.";
     }

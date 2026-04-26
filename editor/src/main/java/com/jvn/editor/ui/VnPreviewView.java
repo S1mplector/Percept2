@@ -523,15 +523,6 @@ public class VnPreviewView extends StackPane {
     if (isStoryboardModeActive()) {
       StoryboardCanvasLayout layout = storyboardCanvasLayout(canvasW, canvasH);
       gc.save();
-      gc.setGlobalAlpha(storyboardOverlay.opacity());
-      gc.drawImage(
-          storyboardOverlay.image(),
-          layout.pageTransform.offsetX(),
-          layout.pageTransform.offsetY(),
-          layout.pageTransform.contentWidth(),
-          layout.pageTransform.contentHeight());
-      gc.restore();
-      gc.save();
       gc.beginPath();
       gc.rect(layout.viewportX, layout.viewportY, layout.viewportWidth, layout.viewportHeight);
       gc.closePath();
@@ -541,6 +532,7 @@ public class VnPreviewView extends StackPane {
       gc.setFill(javafx.scene.paint.Color.color(0.06, 0.06, 0.08, 0.96));
       gc.fillRect(0, 0, layout.logicalWidth, layout.logicalHeight);
       gc.restore();
+      drawStoryboardOverlay(layout);
       return;
     }
     double vw = viewportW();
@@ -557,15 +549,6 @@ public class VnPreviewView extends StackPane {
   private void renderStoryboardMode(double canvasW, double canvasH) {
     StoryboardCanvasLayout layout = storyboardCanvasLayout(canvasW, canvasH);
     gc.save();
-    gc.setGlobalAlpha(storyboardOverlay.opacity());
-    gc.drawImage(
-        storyboardOverlay.image(),
-        layout.pageTransform.offsetX(),
-        layout.pageTransform.offsetY(),
-        layout.pageTransform.contentWidth(),
-        layout.pageTransform.contentHeight());
-    gc.restore();
-    gc.save();
     gc.beginPath();
     gc.rect(layout.viewportX, layout.viewportY, layout.viewportWidth, layout.viewportHeight);
     gc.closePath();
@@ -577,27 +560,40 @@ public class VnPreviewView extends StackPane {
     renderer.render(scene.getState(), scene.getScenario(), layout.logicalWidth, layout.logicalHeight, virtualMouseX, virtualMouseY);
     renderOverlayScene(layout.logicalWidth, layout.logicalHeight);
     gc.restore();
+    drawStoryboardOverlay(layout);
   }
 
   private StoryboardCanvasLayout storyboardCanvasLayout(double canvasW, double canvasH) {
-    Image image = storyboardOverlay == null ? null : storyboardOverlay.image();
-    double pageWidth = image == null || image.isError() || image.getWidth() <= 0 ? canvasW : image.getWidth();
-    double pageHeight = image == null || image.isError() || image.getHeight() <= 0 ? canvasH : image.getHeight();
     double logicalWidth = viewportW();
     double logicalHeight = viewportH();
-    ViewportScaler2D.Transform pageTransform = ViewportScaler2D.fit(pageWidth, pageHeight, canvasW, canvasH);
-    double viewportX = pageTransform.logicalToScreenX((pageWidth - logicalWidth) * 0.5);
-    double viewportY = pageTransform.logicalToScreenY((pageHeight - logicalHeight) * 0.5);
-    double viewportScale = pageTransform.scale();
+    ViewportScaler2D.Transform viewportTransform =
+        ViewportScaler2D.fit(logicalWidth, logicalHeight, canvasW, canvasH);
+    double viewportScale = viewportTransform.scale();
     return new StoryboardCanvasLayout(
-        pageTransform,
-        viewportX,
-        viewportY,
-        logicalWidth * viewportScale,
-        logicalHeight * viewportScale,
+        viewportTransform.offsetX(),
+        viewportTransform.offsetY(),
+        viewportTransform.contentWidth(),
+        viewportTransform.contentHeight(),
         viewportScale,
         logicalWidth,
         logicalHeight);
+  }
+
+  private void drawStoryboardOverlay(StoryboardCanvasLayout layout) {
+    if (!isStoryboardModeActive() || layout == null) return;
+    gc.save();
+    gc.beginPath();
+    gc.rect(layout.viewportX, layout.viewportY, layout.viewportWidth, layout.viewportHeight);
+    gc.closePath();
+    gc.clip();
+    gc.setGlobalAlpha(storyboardOverlay.opacity());
+    gc.drawImage(
+        storyboardOverlay.image(),
+        layout.viewportX,
+        layout.viewportY,
+        layout.viewportWidth,
+        layout.viewportHeight);
+    gc.restore();
   }
 
   private void syncPhoneOverlay() {
@@ -1443,7 +1439,6 @@ public class VnPreviewView extends StackPane {
   }
 
   private record StoryboardCanvasLayout(
-      ViewportScaler2D.Transform pageTransform,
       double viewportX,
       double viewportY,
       double viewportWidth,

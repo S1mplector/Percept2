@@ -22,7 +22,6 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
-import javafx.scene.image.Image;
 import javafx.scene.layout.StackPane;
 
 public class ViewportView extends StackPane {
@@ -180,18 +179,6 @@ public class ViewportView extends StackPane {
     handleKeyboardCamera(deltaMs);
     PreviewSurface surface = previewSurface(w, h);
 
-    if (storyboardModeActive()) {
-      gc.save();
-      gc.setGlobalAlpha(storyboardOverlay.opacity());
-      gc.drawImage(
-          storyboardOverlay.image(),
-          surface.pageTransform.offsetX(),
-          surface.pageTransform.offsetY(),
-          surface.pageTransform.contentWidth(),
-          surface.pageTransform.contentHeight());
-      gc.restore();
-    }
-
     gc.save();
     gc.beginPath();
     gc.rect(surface.x, surface.y, surface.width, surface.height);
@@ -211,12 +198,22 @@ public class ViewportView extends StackPane {
       }
       scene.update(deltaMs);
       scene.render(blitter, surface.width, surface.height);
+      drawStoryboardOverlay(surface);
       drawSelectionOverlay();
       if (scene.getInput() != null) scene.getInput().endFrame();
     } else {
+      drawStoryboardOverlay(surface);
       gc.setFill(javafx.scene.paint.Color.WHITE);
       gc.fillText("Open a JES file to preview", 20, 30);
     }
+    gc.restore();
+  }
+
+  private void drawStoryboardOverlay(PreviewSurface surface) {
+    if (!storyboardModeActive() || surface == null) return;
+    gc.save();
+    gc.setGlobalAlpha(storyboardOverlay.opacity());
+    gc.drawImage(storyboardOverlay.image(), 0, 0, surface.width, surface.height);
     gc.restore();
   }
 
@@ -333,20 +330,15 @@ public class ViewportView extends StackPane {
 
   private PreviewSurface previewSurface(double canvasWidth, double canvasHeight) {
     if (!storyboardModeActive()) {
-      return new PreviewSurface(null, 0.0, 0.0, canvasWidth, canvasHeight);
+      return new PreviewSurface(0.0, 0.0, canvasWidth, canvasHeight);
     }
-    Image image = storyboardOverlay.image();
-    double pageWidth = image == null || image.isError() || image.getWidth() <= 0 ? canvasWidth : image.getWidth();
-    double pageHeight = image == null || image.isError() || image.getHeight() <= 0 ? canvasHeight : image.getHeight();
-    ViewportScaler2D.Transform transform = ViewportScaler2D.fit(pageWidth, pageHeight, canvasWidth, canvasHeight);
-    double x = transform.logicalToScreenX((pageWidth - overlayViewportWidth) * 0.5);
-    double y = transform.logicalToScreenY((pageHeight - overlayViewportHeight) * 0.5);
+    ViewportScaler2D.Transform transform =
+        ViewportScaler2D.fit(overlayViewportWidth, overlayViewportHeight, canvasWidth, canvasHeight);
     return new PreviewSurface(
-        transform,
-        x,
-        y,
-        overlayViewportWidth * transform.scale(),
-        overlayViewportHeight * transform.scale());
+        transform.offsetX(),
+        transform.offsetY(),
+        transform.contentWidth(),
+        transform.contentHeight());
   }
 
   private boolean isInsidePreviewSurface(double canvasX, double canvasY) {
@@ -380,7 +372,7 @@ public class ViewportView extends StackPane {
   }
 
   private static class Rect { double x,y,w,h; Rect(double x,double y,double w,double h){this.x=x;this.y=y;this.w=w;this.h=h;} }
-  private record PreviewSurface(ViewportScaler2D.Transform pageTransform, double x, double y, double width, double height) {}
+  private record PreviewSurface(double x, double y, double width, double height) {}
 
   private Rect computeSceneBounds() {
     if (scene == null) return null;

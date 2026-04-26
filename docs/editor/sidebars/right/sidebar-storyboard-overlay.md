@@ -36,7 +36,7 @@ The Storyboard Overlay is a sidebar panel that scans a storyboard folder, lists 
 | **Previous / Next** | Step through frames sequentially while working |
 | **Reveal frame** | Opens the selected frame in the OS so artists can jump straight to the source file |
 | **Preview thumbnail** | Shows the selected frame with path, dimensions, and list position below the list |
-| **Viewport-fitted compositing** | Overlay scales to match the project viewport from `jvn.project`, so 1:1 boards line up with the engine preview |
+| **Flush preview compositing** | Overlay maps directly onto the active JES/VNS preview rectangle from `jvn.project`, so matching-size boards sit edge-to-edge with the engine preview |
 
 ---
 
@@ -121,7 +121,7 @@ The overlay communicates with the preview via a `StoryboardOverlayState` callbac
 - **Opacity** — the current opacity value (0.05–1.0)
 - **Enabled** — whether the overlay should be drawn
 
-The preview renderer receives this state and composites the overlay image behind the scene content at the configured opacity, scaled to fit the project's target resolution.
+The preview renderer receives this state and composites the overlay image over the scene content at the configured opacity. The image is drawn into the same fitted preview rectangle as the active JES or VNS render, so the overlay does not drift into letterbox space or a separate board-page layout.
 
 ## Matching Behavior
 
@@ -137,6 +137,7 @@ Use **Jump To Match** when you want to resync the frame list manually without ch
 - Image loading is cached per session to avoid redundant disk I/O
 - Folder scanning runs on a background task to keep the UI responsive
 - The overlay respects the project viewport resolution for correct alignment
+- Boards with the same dimensions and aspect ratio as the project viewport align without distortion
 
 ---
 

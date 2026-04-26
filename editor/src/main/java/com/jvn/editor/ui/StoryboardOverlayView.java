@@ -53,7 +53,7 @@ public class StoryboardOverlayView extends BorderPane {
 
   private final Label titleLabel = new Label("Storyboard Overlay");
   private final Label summaryLabel =
-      new Label("Switch the active preview into storyboard page mode for staging and shot matching.");
+      new Label("Pin a storyboard frame flush to the active preview for staging and shot matching.");
   private final Label targetLabel = new Label("Active preview: open a JES or VNS tab.");
   private final Label sourceLabel = new Label("Source: not scanned");
   private final Label framesSummaryLabel = new Label("No frames loaded.");
@@ -469,8 +469,8 @@ public class StoryboardOverlayView extends BorderPane {
       int imageWidth = (int) Math.round(image.getWidth());
       int imageHeight = (int) Math.round(image.getHeight());
       String match = imageWidth == dims.width() && imageHeight == dims.height()
-          ? "Matches project viewport"
-          : "Scaled to " + dims.width() + "x" + dims.height();
+          ? "1:1 project viewport"
+          : "Flush-fits " + dims.width() + "x" + dims.height();
       previewMetaLabel.setText(imageWidth + "x" + imageHeight + "  •  " + match + "  •  Frame " + selectedIndex + " of " + totalShown);
     }
     updateControlAvailability();
@@ -557,12 +557,12 @@ public class StoryboardOverlayView extends BorderPane {
   private void updateSummaryForProject() {
     ProjectViewportSpec.Dimensions dims = ProjectViewportSpec.resolve(projectRoot);
     summaryLabel.setText(
-        "Use storyboard mode to stage JES and VNS scenes against the full board page. "
-            + "The active game viewport is centered at "
+        "Use storyboard mode to stage JES and VNS scenes against a frame locked to the active preview. "
+            + "Best alignment comes from "
             + dims.width()
             + "x"
             + dims.height()
-            + ".");
+            + " boards.");
     updateFrameSummary();
     updateMatchLabel();
   }
