@@ -447,7 +447,7 @@ hero: Here we go.
 
 ## `@stagepreset` — Stage Lighting Preset
 
-Loads a Scene Lighting Studio export (`.properties` file) as a named stage preset available at runtime via the `[stage]` command.
+Loads a Scene Lighting Studio export (`.stagepreset` file) as a named stage preset available at runtime via the `[stage]` command.
 
 ### Syntax
 
@@ -460,13 +460,13 @@ Loads a Scene Lighting Studio export (`.properties` file) as a named stage prese
 | Parameter | Description |
 |-----------|-------------|
 | `id` | Unique preset identifier used in `[stage <id>]` |
-| `path` | Relative path to the `.properties` file exported from Scene Lighting Studio |
+| `path` | Relative path to the `.stagepreset` file exported from Scene Lighting Studio. Quote the path if it contains spaces. |
 
 ### Example
 
 ```vns
-@stagepreset sunset_park config/stage/sunset_park.properties
-@stagepreset night_cave config/stage/night_cave.properties
+@stagepreset sunset_park config/stage/sunset_park.stagepreset
+@stagepreset night_cave config/stage/night_cave.stagepreset
 
 @label start
 [bg park]
@@ -481,9 +481,27 @@ narrator: The cave is dimly lit.
 narrator: Back to normal lighting.
 ```
 
-### Properties File Format
+### Stage Preset File Format
 
-Stage preset files are `.properties` format exported from the Scene Lighting Studio editor tool. They contain:
+Stage preset files are Java `.properties` content with a `.stagepreset` extension. They are exported from Scene Lighting Studio and typically start with VNS handoff metadata:
+
+```properties
+# JVN Stage Preset
+# @stagepreset sunset_park config/stage/sunset_park.stagepreset
+# [stage sunset_park]
+jvn.stagePreset.schema=2
+jvn.stagePreset.id=sunset_park
+jvn.stagePreset.file=sunset_park.stagepreset
+jvn.stagePreset.vnsDeclaration=@stagepreset sunset_park config/stage/sunset_park.stagepreset
+jvn.stagePreset.vnsCommand=[stage sunset_park]
+jvn.stagePreset.lightCount=3
+jvn.stagePreset.occluderCount=1
+jvn.stagePreset.responseZoneCount=4
+```
+
+The loader accepts the ID and source path from the directive. If either is blank in an editor handoff context, it can fall back to `jvn.stagePreset.id` and `jvn.stagePreset.file`.
+
+Stage preset files contain:
 
 - **Background grade** — `bgTintColor`, `bgTintStrength`, `bgSaturation`, `bgContrast`, `bgOverlayColor`, `bgOverlayOpacity`
 - **Lights** — `lights` count, then `light.<i>.name`, `light.<i>.shape` (radial/polygon/cone/strip/window/bounce), `light.<i>.layer` (background/character/foreground), `light.<i>.color`, `light.<i>.intensity`, `light.<i>.radius`, `light.<i>.softness`, `light.<i>.silhouette`, `light.<i>.position`, `light.<i>.source`, `light.<i>.group`, `light.<i>.muted`, `light.<i>.locked`, `light.<i>.solo`, `light.<i>.polygon`
@@ -512,7 +530,7 @@ Stage preset files are typically created using the **Scene Lighting Studio** edi
 @character narrator "Narrator"
 @background park assets/backgrounds/park.png
 @charimg hero neutral assets/characters/hero/neutral.png
-@stagepreset sunset_park config/stage/sunset_park.properties
+@stagepreset sunset_park config/stage/sunset_park.stagepreset
 
 @var score = 0
 @position balcony 0.3 0.6

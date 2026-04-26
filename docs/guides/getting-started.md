@@ -251,4 +251,5 @@ Open `config/timeline/story.timeline` to see the narrative structure graph.
 - **[Menu Profiles](../scripting/ui/menus/menu-profiles.md)** — customizing menus
 - **[Save System](../runtime/systems/save-system.md)** — save/load architecture
 - **[Puppeteer Animation Editor](../editor/puppeteer/puppeteer.md)** — visual keyframe animation
+- **[Scene Lighting Studio](../editor/sidebars/right/sidebar-image-tint-tool.md)** — reusable scene lighting and stage preset export
 - **[Documentation Index](../INDEX.md)** — full docs map

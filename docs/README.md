@@ -1,32 +1,37 @@
 # JVN Documentation
 
-This directory contains the complete documentation for the Java Vector Nexus engine.
+This directory is the source of truth for Java Vector Nexus editor, runtime, scripting, packaging, and workflow docs.
 
-Start with **[INDEX.md](INDEX.md)**.
+Start with the detailed [Documentation Index](INDEX.md). It is organized by task first, then by subsystem.
 
-## Recommended Starting Points
+## Fast Routes
 
-- New to JVN: [Getting Started Guide](guides/getting-started.md)
-- Not sure which layer to use: [Choose Your Path in JVN](guides/choose-your-path.md)
-- Need to understand the file types first: [Common JVN File Types](guides/common-file-types.md)
-- Need the full map: [Documentation Index](INDEX.md)
-- Working in the editor: [JVN Editor Docs](editor/README.md)
-- Shipping a game: [JVN Build And Release Docs](project-setup/release/README.md)
-- Learning the editor: [Editor Guide](editor/core/editor.md)
-- Tuning editor or launcher preferences: [Editor And Launcher Settings](editor/core/settings.md)
-- Writing VN scripts: [VNS Overview](scripting/vns/overview/vns-scripting.md)
-- Writing gameplay scenes: [JES Overview](scripting/jes/overview/jes-scripting.md)
-- Building menus and layouts: [Menu Profiles Overview](scripting/ui/menus/menu-profiles.md)
-- Working with Puppeteer: [Puppeteer Editor Guide](editor/puppeteer/puppeteer-editor-guide.md)
-- Shipping builds: [Build System](project-setup/release/build-system.md)
+| Goal | Start Here |
+|------|------------|
+| Build and run JVN | [Getting Started Guide](guides/getting-started.md) |
+| Decide which layer to use | [Choose Your Path in JVN](guides/choose-your-path.md) |
+| Identify project file types | [Common JVN File Types](guides/common-file-types.md) |
+| Work inside the editor | [JVN Editor Docs](editor/README.md) |
+| Animate shots | [Puppeteer Editor Guide](editor/puppeteer/puppeteer-editor-guide.md) |
+| Export lighting/stage presets | [Scene Lighting Studio](editor/sidebars/right/sidebar-image-tint-tool.md) |
+| Write VN scripts | [VNS Overview](scripting/vns/overview/vns-scripting.md) |
+| Write gameplay scenes | [JES Overview](scripting/jes/overview/jes-scripting.md) |
+| Build menus and layouts | [Menu Profiles Overview](scripting/ui/menus/menu-profiles.md) |
+| Package a game | [Build And Release Docs](project-setup/release/README.md) |
 
-## Directory Structure
+## Directory Map
 
 | Directory | Coverage |
 |-----------|----------|
-| `architecture/` | System architecture, 2D engine, performance, and UI parity roadmap |
-| `editor/` | Editor docs hub, editor guide, settings, Welcome Center, Run Console, Scene Graph, Tilemap Editor, Puppeteer animation editor, and 17 documented sidebar panels |
-| `guides/` | Getting started guide, cookbook and recipes |
-| `project-setup/` | New project wizard, project structure, title screen, text effects, version control, localization, build-and-release hub, deployment |
-| `runtime/` | Runtime guide, interop, save system, audio system, asset management, VN settings |
-| `scripting/` | VNS scripting (20+ pages), JES scripting (12 pages), timeline DSL, menu/layout system (25+ pages) |
+| `architecture/` | Engine architecture, 2D rendering, performance, debugging, and UI parity notes |
+| `editor/` | Editor hub, core windows, settings, Puppeteer, sidebars, and editor-owned file formats |
+| `guides/` | Onboarding, by-example tutorials, cookbooks, integration recipes, and file-type orientation |
+| `project-setup/` | New project wizard, project structure, content setup, collaboration, build, release, and deployment |
+| `runtime/` | Runtime behavior, interop, save/load, audio, asset resolution, and VN settings |
+| `scripting/` | VNS, JES, timelines, menu profiles, layout DSL, visual UI config, and scripting internals |
+
+## Maintenance Notes
+
+- Generated screenshot docs use `generated-*.md` names and are refreshed by docs screenshot tasks.
+- Prefer linking to hub pages from new docs, then deep pages for specific APIs or tools.
+- Keep implementation-specific docs anchored to current source file names when possible, especially under `editor/`.

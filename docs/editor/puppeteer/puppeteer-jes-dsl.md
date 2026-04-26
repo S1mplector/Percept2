@@ -1,6 +1,6 @@
 # Puppeteer — JES Timeline DSL Reference
 
-Complete reference for the JES timeline code that Puppeteer generates and exports. Covers the `timeline { }` block syntax, all action types, generic property channels, event cues, easing values, parallel blocks, wait commands, audio cues, camera actions, and how to use exported code in VNS scripts and JES scenes.
+Complete reference for the JES timeline code that Puppeteer generates and exports. Covers the `timeline { }` block syntax, all action types, generic property channels, event cues, easing values, parallel blocks, wait commands, audio cues, camera actions, editor metadata comments, and how to use exported code in VNS scripts and JES scenes.
 
 Exporter: `editor/src/main/java/com/jvn/editor/ui/actioneditor/CodeExporter.java`
 Runtime: `core/src/main/java/com/jvn/core/animation/TimelineRunner.java`
@@ -42,6 +42,13 @@ When using `exportNamed()`, a header comment is prepended:
 timeline {
   ...
 }
+```
+
+Named export can also include Puppeteer-only metadata comments. Runtime parsers ignore these comments; the editor uses them when reopening a registered animation.
+
+```jes
+// Puppeteer stage metadata. Runtime parsers ignore these comments.
+// @jvn-puppeteer-stage id=sunset_park source=config%2Fstage%2Fsunset_park.stagepreset bg=park_day subject=hero lights=3 occluders=1 zones=4
 ```
 
 ---
@@ -370,16 +377,20 @@ scale "hero" {
 
 ### Named Export
 
-`CodeExporter.exportNamed(project, name)` — same as standard but with a comment header:
+`CodeExporter.exportNamed(project, name)` — same as standard but with a comment header and editor metadata when the project has reusable context such as a Scene Lighting Studio stage preset:
 
 ```jes
 // Timeline: hero_entrance
 // Usage in VNS: @external jes_timeline hero_entrance
+// Puppeteer stage metadata. Runtime parsers ignore these comments.
+// @jvn-puppeteer-stage id=sunset_park source=config%2Fstage%2Fsunset_park.stagepreset bg=park_day subject=hero lights=3 occluders=1 zones=4
 
 timeline {
   ...
 }
 ```
+
+The metadata is URL-encoded key/value text so paths and tags survive round-trip import safely. It is not part of the runtime timeline DSL.
 
 ### Group-Annotated Export
 

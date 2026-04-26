@@ -14,6 +14,7 @@ As the caret moves through a `.vns` file, the panel resolves a cumulative scene 
 
 - current label
 - active background
+- active stage preset
 - visible characters
 - declared character image/preset paths
 - related inline or external timeline context
@@ -58,6 +59,7 @@ The upper section reflects the current script position.
 | **Line indicator** | Current caret line number and trimmed source line |
 | **Label** | Most recent `@label` / `label` before the caret |
 | **Background** | Active background id |
+| **Stage** | Active `[stage ...]` preset id, if one is currently active |
 | **Timeline** | Inline timeline body or referenced registered timeline, when relevant |
 | **Visible Characters** | Resolved visible characters in `charId @ position [expression]` form |
 | **Open Timeline** | Opens the related inline or external timeline source |
@@ -105,6 +107,8 @@ The launcher performs a lightweight VNS pass from line `1` through the caret. It
 
 - labels
 - background declarations and background changes
+- `@stagepreset` declarations
+- `[stage ...]`, `[stage clear]`, and external stage commands
 - `@charimg`
 - `@charlayer`
 - `@charpreset`
@@ -114,6 +118,8 @@ The launcher performs a lightweight VNS pass from line `1` through the caret. It
 - external registered timeline references
 
 This gives Puppeteer enough context to reconstruct the visible scene without building the full runtime scenario object first.
+
+When a stage preset is active, the launcher also resolves its declared file path. Missing mappings or missing files are surfaced as launcher diagnostics so a lighting handoff problem is visible before the animation window opens.
 
 ---
 
@@ -128,6 +134,30 @@ That means snapshot previews and Puppeteer scene construction can resolve:
 - correct composite image sources for layered characters
 
 This matters for projects where visible expressions are assembled from multiple declared layers instead of a single sprite file.
+
+---
+
+## Scene Lighting Handoff
+
+Scene Lighting Studio exports `.stagepreset` files and writes VNS usage hints into the file header. The launcher understands that flow:
+
+```vns
+@stagepreset sunset_park config/stage/sunset_park.stagepreset
+
+@label park
+[bg park_day]
+[stage sunset_park]
+[show hero center neutral]
+hero: The light is perfect here.
+```
+
+At the hero line, the snapshot includes:
+
+- `activeStagePresetId = sunset_park`
+- the resolved stage preset path
+- the background and visible character state
+
+Puppeteer displays this in the Scene sidebar and preserves it in exported timeline metadata. This keeps the lighting context attached when a registered animation is reopened.
 
 ---
 

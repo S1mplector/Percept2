@@ -357,6 +357,8 @@ narrator: The world opens before you.
 ### Stage Lighting Before JES
 
 ```vns
+@stagepreset sunset_park config/stage/sunset_park.stagepreset
+
 [stage sunset_park]
 narrator: The golden hour.
 # Stage lighting affects the VN scene

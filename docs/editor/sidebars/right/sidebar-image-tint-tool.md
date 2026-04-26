@@ -19,7 +19,7 @@ Scene Lighting Studio is no longer just a simple tint slider panel. It behaves l
 - stack lights behind the character, directly on it, or in front of it
 - add silhouette strength so backlights can rim the character instead of only tinting the full body
 - add occluders for shadow/blocker previews
-- save reusable setups and export flattened PNGs, editor `.tintsetup` files, and runtime `.stagepreset` files
+- save reusable setups and export flattened PNGs, editor `.tintsetup` files, and runtime `.stagepreset` files with VNS/Puppeteer handoff metadata
 
 - **Default side:** Right
 - **Tab name:** Scene Lighting Studio
@@ -111,6 +111,40 @@ The export section also supports:
 - **auto naming from the current asset/setup**
 - **persistent export directory**
 - **selected export summaries** for PNG/setup/stage targets
+
+### Stage Preset Handoff
+
+Stage preset export is designed to be copied directly into the VNS/Puppeteer workflow. Exported `.stagepreset` files include:
+
+- a stable `jvn.stagePreset.id`
+- the source filename
+- VNS declaration and activation hints
+- light, occluder, and response-zone counts
+- the full setup data needed by the runtime loader
+
+Example header:
+
+```properties
+# JVN Stage Preset
+# @stagepreset sunset_park config/stage/sunset_park.stagepreset
+# [stage sunset_park]
+jvn.stagePreset.schema=2
+jvn.stagePreset.id=sunset_park
+jvn.stagePreset.file=sunset_park.stagepreset
+jvn.stagePreset.vnsDeclaration=@stagepreset sunset_park config/stage/sunset_park.stagepreset
+jvn.stagePreset.vnsCommand=[stage sunset_park]
+jvn.stagePreset.lightCount=3
+jvn.stagePreset.occluderCount=1
+jvn.stagePreset.responseZoneCount=4
+```
+
+Recommended handoff:
+
+1. Export a stage preset from Scene Lighting Studio.
+2. Add the generated `@stagepreset` declaration near the top of the `.vns` file.
+3. Activate it with `[stage <id>]` before the beat you want to animate.
+4. Open Puppeteer Launcher at that beat; it detects the active stage and carries it into Puppeteer.
+5. Register/export the animation. Puppeteer includes stage metadata so reopening the timeline keeps the lighting context visible.
 
 ### Global Grade
 
@@ -381,5 +415,6 @@ Persisted state includes:
 - [Layered Image Visualizer](sidebar-layered-image-visualizer.md) — layer-based sprite composition and export
 - [Image Attributes Tool](sidebar-image-attributes-tool.md) — attribute-driven image assembly
 - [Asset Browser](sidebar-asset-browser.md) — general asset discovery
-- [VNS Directives — @stagepreset](../../../scripting/vns/language/vns-directives.md) — loading exported presets in VNS scripts
-- [VNS Commands — stage](../../../scripting/vns/language/vns-commands.md) — activating stage presets at runtime
+- [VNS Directives — @stagepreset](../../../scripting/vns/language/vns-directives.md#stagepreset--stage-lighting-preset) — loading exported presets in VNS scripts
+- [VNS Commands — stage](../../../scripting/vns/language/vns-commands.md#stage-lighting) — activating stage presets at runtime
+- [Puppeteer Launcher](sidebar-puppeteer-launcher.md) — carrying active stage context into animation authoring

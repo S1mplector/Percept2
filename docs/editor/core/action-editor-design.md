@@ -1,284 +1,226 @@
-# JVN Action Editor - Design Document
+# Puppeteer Design Notes
 
-A visual animation choreography tool for JVN, similar to Ren'Py's Action Editor. Allows users to visually position sprites, create keyframe animations, and export as JES timeline code.
+Puppeteer is the current visual animation editor for JVN. It replaced the older Action Editor design plan and is implemented under `editor/src/main/java/com/jvn/editor/ui/actioneditor/`.
 
-## Overview
+Use this page as an implementation-oriented map. For author-facing usage, start with [Puppeteer Editor Guide](../puppeteer/puppeteer-editor-guide.md). For exported syntax, use [Puppeteer JES Timeline DSL Reference](../puppeteer/puppeteer-jes-dsl.md).
 
-The Action Editor provides a **visual timeline interface** for choreographing entity animations without writing code. Users can:
-- Select entities from the current scene
-- Create keyframes for position, rotation, scale, alpha, etc.
-- Preview animations in real-time
-- Export the result as copy-pasteable JES timeline code
+## Current Scope
 
-## Component Breakdown
+Puppeteer provides a mature timeline workspace for:
 
-### 1. ActionEditorWindow
-**File:** `editor/src/main/java/com/jvn/editor/ui/actioneditor/ActionEditorWindow.java`
+- visual entity animation
+- runtime camera motion and frame authoring
+- advanced keyframe channels such as matrix, blur, color matrix, DOF, and custom numeric properties
+- audio cues and event cues
+- groups, clips, presets, easing libraries, and runtime verification
+- VNS launcher snapshots, including active Scene Lighting Studio stage presets
+- JES timeline export, preview parsing, registration, and round-trip import
 
-Main window container. Opens as a separate Stage from EditorApp.
+## Primary Source Files
 
-**Responsibilities:**
-- Layout management (SplitPanes for resizable sections)
-- Toolbar with playback controls
-- Coordination between child components
-- Scene loading/saving
+| Area | Source |
+|------|--------|
+| Main window and workspace orchestration | `PuppeteerWindow.java` |
+| Project data model | `AnimationProject.java` |
+| Timeline canvas and keyframe interaction | `TimelinePanel.java` |
+| Preview canvas and scene manipulation | `AnimationPreview.java` |
+| Entity/group tree | `EntitySelector.java` |
+| Keyframe inspector and easing editor | `KeyframeEditor.java` |
+| Asset browser/importer | `AssetPickerPanel.java` |
+| Code preview and parse staging | `CodePreviewPane.java` |
+| JES export | `CodeExporter.java` |
+| JES import/round-trip | `CodeImporter.java` |
+| Undo/redo commands | `PuppeteerCommand.java` |
+| VNS launch context | `PuppeteerLauncherPanel.java` |
 
-### 2. EntitySelector
-**File:** `editor/src/main/java/com/jvn/editor/ui/actioneditor/EntitySelector.java`
+## Workspace Layout
 
-Left panel listing all named entities in the scene.
-
-**Features:**
-- Checkbox selection for which entities to animate
-- Search/filter by name
-- Entity type badges (Sprite, Label, Panel, etc.)
-- Drag to reorder track display
-
-### 3. AnimationPreview
-**File:** `editor/src/main/java/com/jvn/editor/ui/actioneditor/AnimationPreview.java`
-
-Embedded viewport showing the scene with current animation state.
-
-**Features:**
-- Real-time preview at current playhead position
-- Play/pause/scrub controls synced with timeline
-- Click-to-select entity (syncs with EntitySelector)
-- Gizmo overlays for dragging position (creates keyframes)
-
-### 4. TimelinePanel
-**File:** `editor/src/main/java/com/jvn/editor/ui/actioneditor/TimelinePanel.java`
-
-Main timeline view with tracks and keyframes.
-
-**Features:**
-- Horizontal time ruler (ms or frames)
-- Playhead (draggable red line)
-- Zoom in/out (mouse wheel)
-- Scroll horizontally/vertically
-
-### 5. PropertyTrackView
-**File:** `editor/src/main/java/com/jvn/editor/ui/actioneditor/PropertyTrackView.java`
-
-Individual track row for a single property (e.g., "hero.x").
-
-**Features:**
-- Track label (entity + property name)
-- Keyframe diamonds on the track
-- Drag keyframes horizontally to change time
-- Double-click to edit keyframe value
-- Right-click context menu (delete, duplicate, copy)
-
-### 6. KeyframeEditor
-**File:** `editor/src/main/java/com/jvn/editor/ui/actioneditor/KeyframeEditor.java`
-
-Bottom panel for editing selected keyframe properties.
-
-**Fields:**
-- Time (ms)
-- Value (numeric or color picker depending on property)
-- Easing curve dropdown (all types from `Easing.Type`)
-- Delete button
-
-### 7. CodeExporter
-**File:** `editor/src/main/java/com/jvn/editor/ui/actioneditor/CodeExporter.java`
-
-Generates JES timeline code from animation data.
-
-**Output format:**
-```jes
-timeline {
-  // Parallel group - actions at same time
-  parallel {
-    move "hero" { x: 320, y: 200, dur: 500, easing: ease_out_quad }
-    fade "hero" { alpha: 0.5, dur: 500, easing: linear }
-  }
-  wait 200
-  rotate "hero" { deg: 45, dur: 300, easing: ease_in_out_cubic }
-}
+```text
+PuppeteerWindow
+├── toolbar
+│   ├── transport, duration, loop controls
+│   ├── presets, property target, keyframe operations
+│   ├── snap, auto-key, preview behavior, orbit tools
+│   └── cue management, timeline name, register, help
+├── left workspace
+│   ├── Entities tab
+│   ├── Assets tab
+│   └── Keyframe Editor
+├── center workspace
+│   ├── AnimationPreview
+│   └── TimelinePanel
+├── right sidebar
+│   ├── Selection tab
+│   └── Scene tab
+└── code pane
+    └── generated/editable JES timeline source
 ```
 
-### 8. CodePreviewPane
-**File:** `editor/src/main/java/com/jvn/editor/ui/actioneditor/CodePreviewPane.java`
-
-Read-only code view showing generated JES.
-
-**Features:**
-- Syntax highlighting
-- Copy to clipboard button
-- Auto-updates as keyframes change
+The layout is intentionally split between preview, timeline, selection inspection, and source output so authors can work visually while still seeing the generated runtime representation.
 
 ## Data Model
 
-### AnimationProject
+`AnimationProject` is the root model. It stores:
+
+- scene name, duration, playhead, loop region, and playback flags
+- entity `EntityTrack` records
+- hierarchical `EntityGroup` records
+- keyframes per `PropertyType`
+- audio and editor event cues
+- orbit anchors and preview metadata
+- scene-entity snapshots for reopen flows
+- optional `StageContext` from Scene Lighting Studio handoff
+
+`StageContext` preserves the active VNS stage preset in animation projects:
+
 ```java
-public class AnimationProject {
-    private String sceneName;
-    private double totalDurationMs;
-    private List<EntityTrack> tracks;
-}
+record StageContext(
+    String presetId,
+    String sourcePath,
+    String backgroundTag,
+    String subjectTag,
+    int lightCount,
+    int occluderCount,
+    int responseZoneCount
+)
 ```
 
-### EntityTrack
-```java
-public class EntityTrack {
-    private String entityName;
-    private Map<PropertyType, List<Keyframe>> propertyKeyframes;
-}
+This context is exported as Puppeteer metadata comments and imported again during round-trip parsing.
+
+## Timeline Model
+
+Each `EntityTrack` contains property lanes keyed by `PropertyType`.
+
+Common entity lanes:
+
+- `X`, `Y`, `Z`
+- `PIVOT_X`, `PIVOT_Y`
+- `ROTATION`
+- `SCALE_X`, `SCALE_Y`
+- `ALPHA`
+- `VISIBILITY`
+- matrix and blur custom lanes
+
+Runtime camera lanes:
+
+- `CAMERA_X`
+- `CAMERA_Y`
+- `CAMERA_ZOOM`
+- `CAMERA_DOF_FOCUS`
+- `CAMERA_DOF_STRENGTH`
+- `CAMERA_DOF_MAX_BLUR`
+
+The timeline canvas renders:
+
+- adaptive time ruler with minor and major grid ticks
+- entity and property rows
+- keyframe diamonds with selected/hover states
+- interpolation segment lines between keyframes
+- playhead line and time badge
+- loop region
+- audio cue markers
+- event cue markers
+- hover readouts for time, target, property, value, interpolation, and easing
+- marquee selection
+
+## Preview Model
+
+`AnimationPreview` renders a scene with:
+
+- world overview and runtime frame
+- camera HUD and safe/title guides
+- entity selection and drag handles
+- pivot editing
+- runtime camera frame dragging
+- motion paths
+- onion skinning
+- orbit anchors and linked-orbit workflows
+
+Dragging entities creates or updates keyframes at the playhead. Camera manipulation writes to the dedicated runtime camera lane.
+
+## VNS Launch Handoff
+
+`PuppeteerLauncherPanel` scans VNS source up to the caret and builds a `SceneSnapshot` with:
+
+- active label
+- active background
+- visible characters
+- image, layer, and preset asset mappings
+- inline or external timeline context
+- active `@stagepreset` / `[stage ...]` context
+
+When Puppeteer launches from that snapshot, it builds a `JesScene2D` using the resolved background and character assets. If a stage preset is active, `PuppeteerWindow` stores it in `AnimationProject.StageContext`; the Scene sidebar displays the preset id, source path, and light/occluder/response-zone counts.
+
+## Scene Lighting Handoff
+
+Scene Lighting Studio exports runtime `.stagepreset` files with VNS handoff metadata:
+
+```properties
+# @stagepreset sunset_park config/stage/sunset_park.stagepreset
+# [stage sunset_park]
+jvn.stagePreset.schema=2
+jvn.stagePreset.id=sunset_park
+jvn.stagePreset.file=sunset_park.stagepreset
+jvn.stagePreset.vnsDeclaration=@stagepreset sunset_park config/stage/sunset_park.stagepreset
+jvn.stagePreset.vnsCommand=[stage sunset_park]
+jvn.stagePreset.lightCount=3
+jvn.stagePreset.occluderCount=1
+jvn.stagePreset.responseZoneCount=4
 ```
 
-### Keyframe
-```java
-public class Keyframe {
-    private double timeMs;
-    private double value;
-    private Easing.Type easing;
-}
+The VNS parser loads these presets through `@stagepreset`, and the launcher carries the active `[stage ...]` state into Puppeteer so lighting context does not get lost during animation authoring.
+
+## Export Pipeline
+
+```text
+AnimationProject
+  -> CodeExporter
+  -> JES timeline text
+  -> CodePreviewPane
+  -> copy, preview parse, register, or save
 ```
 
-### PropertyType
-```java
-public enum PropertyType {
-    X, Y, ROTATION, SCALE_X, SCALE_Y, ALPHA,
-    CAMERA_X, CAMERA_Y, CAMERA_ZOOM
-}
-```
+Export groups simultaneous events into `parallel` blocks, emits waits for gaps, merges compatible properties into higher-level actions, and uses generic `property` actions for advanced/custom channels.
 
-## Supported Timeline Actions (from JesScene2D)
+Named export adds:
 
-| Action Type   | Properties                          | Notes                    |
-|---------------|-------------------------------------|--------------------------|
-| `move`        | x, y, dur, easing                   | Entity position          |
-| `rotate`      | deg, dur, easing                    | Entity rotation          |
-| `scale`       | sx, sy, dur, easing                 | Entity scale             |
-| `fade`        | alpha, dur, easing                  | Entity opacity           |
-| `visible`     | value (bool)                        | Instant show/hide        |
-| `cameraMove`  | x, y, dur, easing                   | Camera pan               |
-| `cameraZoom`  | zoom, dur, easing                   | Camera zoom              |
-| `cameraShake` | ampX, ampY, dur                     | Screen shake             |
-| `wait`        | ms                                  | Delay between actions    |
-| `call`        | target (handler name)               | Trigger custom handler   |
+- `// Timeline: <name>`
+- VNS usage hint
+- optional `// @jvn-puppeteer-stage ...` metadata when a stage context is present
 
-## Easing Curves (from Easing.java)
+`CodeImporter` reads generated code back into `AnimationProject`, including stage metadata, so registered timelines can be reopened without losing context.
 
-- LINEAR
-- EASE_IN_QUAD, EASE_OUT_QUAD, EASE_IN_OUT_QUAD
-- EASE_IN_CUBIC, EASE_OUT_CUBIC, EASE_IN_OUT_CUBIC
-- EASE_IN_QUART, EASE_OUT_QUART, EASE_IN_OUT_QUART
-- EASE_IN_EXPO, EASE_OUT_EXPO, EASE_IN_OUT_EXPO
-- EASE_IN_SINE, EASE_OUT_SINE, EASE_IN_OUT_SINE
-- EASE_IN_ELASTIC, EASE_OUT_ELASTIC, EASE_IN_OUT_ELASTIC
-- EASE_IN_BACK, EASE_OUT_BACK, EASE_IN_OUT_BACK
-- EASE_IN_BOUNCE, EASE_OUT_BOUNCE, EASE_IN_OUT_BOUNCE
+## Runtime Registration
 
-## Integration Points
+Registration flow:
 
-### Opening the Action Editor
-- Menu: `Tools > Action Editor`
-- Toolbar button in EditorApp
-- Right-click on JES file > "Open in Action Editor"
+1. Validate the current project.
+2. Run timeline diagnostics.
+3. Serialize to `TimelineData`.
+4. Register with `TimelineRegistry`.
+5. Write `scripts/timelines/<name>.jes` for project reuse.
 
-### Scene Loading
-1. Parse current JES file to get entities
-2. Build JesScene2D in memory
-3. Pass to ActionEditorWindow
+Runtime playback is handled by `TimelineRunner` through `SceneAccessor`, which lets the same exported timeline drive JES entities or VN scene entities.
 
-### Code Export Flow
-1. User creates keyframes visually
-2. CodeExporter groups keyframes by time
-3. Generates optimized JES timeline block
-4. User clicks "Copy Code" → clipboard
-5. Paste into JES file in code editor
+## Verification And Quality Gates
 
-## Keyboard Shortcuts
+Puppeteer should keep these checks intact as features evolve:
 
-| Key           | Action                        |
-|---------------|-------------------------------|
-| Space         | Play/Pause                    |
-| Home          | Go to start                   |
-| End           | Go to end                     |
-| Delete        | Delete selected keyframe      |
-| Ctrl+C        | Copy keyframe                 |
-| Ctrl+V        | Paste keyframe                |
-| Ctrl+D        | Duplicate keyframe            |
-| K             | Add keyframe at playhead      |
-| +/-           | Zoom timeline in/out          |
-| Arrow L/R     | Nudge playhead                |
+- missing or mixed camera lanes are flagged before registration
+- audio cue paths are checked
+- generated code can be preview-parsed before commit
+- imported code should round-trip without losing keyframes, advanced channels, cues, or stage metadata
+- UI changes should keep timeline interaction stable under zoom, scroll, and selection
 
-## Implementation Order
+Relevant focused tests live under:
 
-1. **ActionEditorWindow** - basic layout shell
-2. **AnimationProject data model** - Keyframe, EntityTrack, etc.
-3. **TimelinePanel** - time ruler, playhead, basic rendering
-4. **PropertyTrackView** - keyframe display and selection
-5. **EntitySelector** - list entities, toggle tracks
-6. **KeyframeEditor** - edit selected keyframe
-7. **AnimationPreview** - integrate ViewportView
-8. **CodeExporter** - generate JES code
-9. **CodePreviewPane** - display and copy
-10. **EditorApp integration** - menu, toolbar
-11. **Polish** - icons, dark theme, drag handles
+- `editor/src/test/java/com/jvn/editor/ui/actioneditor/`
+- `editor/src/test/java/com/jvn/editor/ui/`
 
-## Files to Create
+## Related Docs
 
-```
-editor/src/main/java/com/jvn/editor/ui/actioneditor/
-├── ActionEditorWindow.java
-├── AnimationPreview.java
-├── AnimationProject.java
-├── CodeExporter.java
-├── CodePreviewPane.java
-├── EntitySelector.java
-├── EntityTrack.java
-├── Keyframe.java
-├── KeyframeEditor.java
-├── PropertyTrackView.java
-├── PropertyType.java
-└── TimelinePanel.java
-```
-
-## Hierarchical Entity Groups
-
-The Action Editor supports **parent-child entity relationships** for layered animation:
-
-```
-character_group/          ← Group track: animating this moves all children
-  ├── body_sprite         ← Child entity: has local offset animations
-  └── head_sprite         ← Child entity: can nod/turn independently
-```
-
-### How It Works
-
-1. **EntityGroup** contains child entities and child groups (nested hierarchy)
-2. **Local transforms** - each entity's keyframes define position relative to parent
-3. **World transforms** - computed by summing parent chain transforms
-4. **Timeline UI** - collapsible tree showing group → children structure
-
-### Creating Groups
-
-1. Select entities in EntitySelector
-2. Click "+ Group" button
-3. Drag entities into the group
-4. Animate the group track to move all children together
-5. Animate individual children for local motion (head turning, etc.)
-
-### Code Export
-
-Groups export as separate timeline actions that play in parallel:
-
-```jes
-timeline {
-  parallel {
-    move "character_group" { x: 100, y: 0, dur: 500 }
-    move "head_sprite" { x: 5, y: -3, dur: 200, easing: ease_out_quad }
-  }
-}
-```
-
-## Future Enhancements
-
-- **Curve editor** - visual bezier curve editing for custom easing
-- **Onion skinning** - ghost frames for previous/next positions
-- **Multi-select keyframes** - shift+click, box select
-- **Copy/paste between entities**
-- **Animation templates/presets** - "shake", "bounce in", etc.
-- **Import from existing timeline** - parse JES timeline back to keyframes
+- [Puppeteer Overview](../puppeteer/puppeteer.md)
+- [Puppeteer Editor Guide](../puppeteer/puppeteer-editor-guide.md)
+- [Puppeteer JES Timeline DSL Reference](../puppeteer/puppeteer-jes-dsl.md)
+- [Puppeteer Launcher](../sidebars/right/sidebar-puppeteer-launcher.md)
+- [Scene Lighting Studio](../sidebars/right/sidebar-image-tint-tool.md)

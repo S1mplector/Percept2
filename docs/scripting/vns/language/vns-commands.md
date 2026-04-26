@@ -670,7 +670,9 @@ Deactivates the current stage preset.
 
 If only a bare token is provided (no `key=value`), it is used as the preset ID directly.
 
-See [Directives](vns-directives.md) for `@stagepreset` declaration syntax.
+When authoring in the editor, Puppeteer Launcher tracks the active stage at the caret. Launching Puppeteer from that line carries the lighting context into the animation project, and named exports preserve it in Puppeteer metadata comments.
+
+See [Directives](vns-directives.md#stagepreset--stage-lighting-preset) for `@stagepreset` declaration syntax.
 
 ---
 

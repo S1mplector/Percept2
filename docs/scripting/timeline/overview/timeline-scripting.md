@@ -26,7 +26,7 @@ link Chapter1:offer_side -> SideQuest:entry_side
 
 ### 2. Animation Timeline — Entity Motion
 
-Keyframe-based animation data that interpolates entity properties (position, rotation, scale, alpha, camera) over time. Think of it as a **choreography system**.
+Keyframe-based animation data that interpolates entity properties, camera properties, advanced visual channels, audio cues, and event cues over time. Think of it as a **choreography system**.
 
 ```jes
 timeline {
@@ -53,7 +53,7 @@ timeline {
 | **Created by** | Story graph editor or DSL text | Puppeteer editor or JES code |
 | **File format** | `.timeline` (arc/link DSL) | `TimelineData` (Java object) |
 | **Runtime role** | Authoring & validation only | Active playback via `TimelineRunner` |
-| **VNS integration** | `[goto Arc:label]` | `[external jes_timeline name]` |
+| **VNS integration** | `[goto Arc:label]` | `[call jes_timeline name]` or `[external jes_timeline name]` |
 | **Entities involved** | VNS scripts (arcs) | JES scene entities |
 | **Editing granularity** | Arc-level (which scripts) | Keyframe-level (per-property, per-ms) |
 | **Output** | Directed graph of arcs/links | Sequence of tween actions |
@@ -124,11 +124,12 @@ The fastest way to create complex animations — point-and-click keyframe editin
 1. Open a `.vns` or `.jes` file in the editor
 2. Open the **Puppeteer Launcher** sidebar panel
 3. Place cursor where characters are visible (for VNS files)
-4. Click **Launch @ Cursor**
-5. Select an entity → drag to reposition → keyframes auto-create at playhead
-6. Apply presets (Fade In, Slide, Bounce, Shake) for common patterns
-7. Click **Register** to save to `TimelineRegistry`, or **Copy Code** for the raw JES block
-8. Use in VNS: `[call jes_timeline my_animation]`
+4. If the scene uses `[stage ...]`, confirm the launcher shows the active stage
+5. Click **Launch @ Cursor**
+6. Select an entity → drag to reposition → keyframes auto-create at playhead
+7. Apply presets (Fade In, Slide, Bounce, Shake) for common patterns
+8. Click **Register** to save to `TimelineRegistry`, or **Copy Code** for the raw JES block
+9. Use in VNS: `[call jes_timeline my_animation]`
 
 See [Puppeteer Editor Guide](../../../editor/puppeteer/puppeteer-editor-guide.md) for complete UI reference.
 
@@ -200,7 +201,7 @@ TimelineRegistry.register(data);
 Then from VNS:
 
 ```vns
-[external jes_timeline hero_entrance]
+[call jes_timeline hero_entrance]
 ```
 
 ---

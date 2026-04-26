@@ -18,6 +18,7 @@ Typical uses:
 - mid-sequence expression swaps and sprite replacement beats
 - cutaway/background swaps inside a timeline
 - reusable timeline clips
+- animation that should retain Scene Lighting Studio stage context
 - staging and timing that needs preview before export
 
 ## What You Will Learn
@@ -173,8 +174,9 @@ PuppeteerLauncherPanel     FileEditorTab.getJesScene()
       ▼                          │
  resolveSnapshot()               │
  (parse @background,             │
-  @charimg, [show],              │
-  [bg] commands up               │
+  @charimg, @stagepreset,        │
+  [show], [bg], [stage]          │
+  commands up                    │
   to cursor line)                │
       │                          │
       ▼                          │
@@ -182,7 +184,8 @@ PuppeteerLauncherPanel     FileEditorTab.getJesScene()
  {backgroundId,                  │
   characters[],                  │
   backgroundPaths{},             │
-  characterImagePaths{}}         │
+  characterImagePaths{},         │
+  activeStagePresetId}           │
       │                          │
       ▼                          │
 EditorApp.buildSceneFromSnapshot()
@@ -195,6 +198,7 @@ EditorApp.buildSceneFromSnapshot()
                 ▼
         PuppeteerWindow
         {AnimationProject,
+         StageContext,
          AnimationPreview,
          EntitySelector,
          TimelinePanel,
@@ -224,13 +228,14 @@ EditorApp.buildSceneFromSnapshot()
 |-------|--------|------|
 | `PuppeteerLauncherPanel` | editor | Right-panel widget; parses VNS source to build scene snapshots; provides direct launch and registered-animation reopen flows |
 | `PuppeteerWindow` | editor | `Stage` subclass; main Puppeteer UI; assembles all sub-panels |
-| `AnimationProject` | editor | Data model: entity tracks, groups, keyframes, custom channels, event/audio cues, loop region, playback state |
+| `AnimationProject` | editor | Data model: entity tracks, groups, keyframes, custom channels, event/audio cues, loop region, playback state, and optional stage context |
 | `AnimationPreview` | editor | Canvas-based scene renderer with entity selection, drag-to-move, onion skinning |
 | `EntitySelector` | editor | TreeView of named entities and groups |
 | `TimelinePanel` | editor | Horizontal timeline with keyframe diamonds, playhead, entity rows |
 | `KeyframeEditor` | editor | Property editor for selected keyframe (time, value, easing, sliders) |
 | `CodePreviewPane` | editor | Live-updating JES code output |
 | `CodeExporter` | editor | Converts `AnimationProject` to JES timeline syntax |
+| `CodeImporter` | editor | Parses exported timeline code back into `AnimationProject`, including Puppeteer metadata |
 | `AnimationPreset` | editor | 12 built-in animation templates (fade, slide, bounce, shake, etc.) |
 | `PuppeteerCommand` | editor | Undo/redo command stack |
 | `FxBlitter2D` | fx | Canvas renderer for `Entity2D` — handles image loading from classpath and filesystem |
@@ -265,7 +270,10 @@ Sprite2D.render(blitter)
 | `@charimg <charId> <expr> <path>` | Character expression → file path mapping |
 | `@charlayer <charId> <layerId> <path>` | Layered character asset mapping |
 | `@charpreset <charId> <expr> <spec>` | Composite preset resolution against declared layers |
+| `@stagepreset <id> <path>` | Stage preset ID -> file path mapping |
 | `[bg <id>]` / `[background <id>]` | Active background ID |
+| `[stage <id>]` / `[stage preset=<id>]` | Active stage preset |
+| `[stage clear]` / `[stage off]` / `[stage none]` | Clears active stage preset |
 | `[show <charId> <position> <expr?>]` | Visible character with slot + expression |
 | `[hide <charId>]` | Character removal |
 | `[char <id> show/hide/move/expr ...]` | External character commands |
@@ -277,6 +285,8 @@ The result is a `SceneSnapshot` containing:
 - `backgroundPaths` — map of background IDs to their declared file paths
 - `characterImagePaths` — map of `"charId/expression"` keys to file paths
 - `characterLayerPaths` — layered rig mappings used to resolve preset-backed expressions
+- `stagePresetPaths` — map of stage preset IDs to exported `.stagepreset` paths
+- `activeStagePresetId` — active stage preset at the caret
 - `referencedTimelineName` / inline timeline data — launch context for reopening vs creating new work
 - `resolveBackgroundPath()` — looks up the active background's file path
 - `resolveCharacterPath(id, expr)` — resolves the best matching sprite path with fallback chain: exact expression → neutral → any expression for that character
@@ -294,6 +304,24 @@ The result is a `SceneSnapshot` containing:
    - `far_right` → 90%
    - Y position: 55% of scene height, origin at bottom-center (0.5, 1.0)
 3. Registers each entity by name in the `JesScene2D` (e.g. `"codel"`, `"bg_field_day"`)
+4. If a stage is active, builds `AnimationProject.StageContext` from the stage preset so Puppeteer can display and export the lighting handoff.
+
+### Stage Context Preservation
+
+When launched from a VNS beat with an active `[stage ...]`, Puppeteer stores:
+
+- preset ID
+- resolved source path
+- background/subject tags when available
+- counts for lights, occluders, and response zones
+
+Named exports include a compact metadata line:
+
+```jes
+// @jvn-puppeteer-stage id=sunset_park source=config%2Fstage%2Fsunset_park.stagepreset bg=park_day subject=hero lights=3 occluders=1 zones=4
+```
+
+`CodeImporter` reads that metadata back when reopening registered timelines. The Scene sidebar also shows the active Lighting Stage so authors know which lighting setup the animation was staged against.
 
 ---
 

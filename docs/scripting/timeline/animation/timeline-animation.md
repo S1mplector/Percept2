@@ -16,7 +16,7 @@ Puppeteer animation timelines are **keyframe-based** animations that interpolate
 - Are created visually in the Puppeteer editor or written as inline JES blocks
 - Stored as named `TimelineData` objects in the `TimelineRegistry`
 - Played back by `TimelineRunner` which applies property values each frame
-- Support looping, audio cues, easing per keyframe, and camera control
+- Support looping, audio cues, event cues, easing per keyframe, camera control, and advanced custom numeric channels
 
 ---
 
@@ -24,7 +24,7 @@ Puppeteer animation timelines are **keyframe-based** animations that interpolate
 
 ### Properties
 
-Each entity track can animate these properties:
+Each runtime track can animate these built-in `TimelineData.Property` values:
 
 | Property | Default | Description |
 |----------|---------|-------------|
@@ -37,9 +37,20 @@ Each entity track can animate these properties:
 | `SCALE_X` | 1.0 | Horizontal scale |
 | `SCALE_Y` | 1.0 | Vertical scale |
 | `ALPHA` | 1.0 | Opacity (0–1) |
+| `VISIBILITY` | 1.0 | Runtime visibility threshold |
 | `CAMERA_X` | 0.0 | Camera X position |
 | `CAMERA_Y` | 0.0 | Camera Y position |
 | `CAMERA_ZOOM` | 1.0 | Camera zoom factor |
+
+Puppeteer also writes advanced numeric channels onto each track's `customKeyframes` map:
+
+| Key Family | Description |
+|------------|-------------|
+| `matrix.mxx`, `matrix.mxy`, `matrix.myx`, `matrix.myy`, `matrix.tx`, `matrix.ty` | Supplemental affine matrix channels |
+| `effect.blur` | Entity blur radius |
+| `color.m00` through `color.m34` | Full RGBA color matrix |
+| `dof.focus`, `dof.strength`, `dof.maxBlur` | Runtime camera depth-of-field channels on the `__camera__` track |
+| any freeform key | Registered or custom numeric property consumed through the custom-property path |
 
 ### Structure
 
@@ -51,11 +62,12 @@ TimelineData
 ├── tracks: List<Track>
 │   └── Track
 │       ├── entityName: String
-│       └── keyframes: Map<Property, List<Keyframe>>
+│       ├── keyframes: Map<Property, List<Keyframe>>
+│       └── customKeyframes: Map<String, List<Keyframe>>
 │           └── Keyframe
 │               ├── timeMs: double
 │               ├── value: double
-│               └── easing: Easing.Type
+│               └── easing: Easing.Type / EasingSpec
 ├── audioCues: List<AudioCue>
 │   └── AudioCue
 │       ├── timeMs: double

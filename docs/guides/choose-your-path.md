@@ -7,6 +7,7 @@ If you are new to JVN, the biggest early mistake is starting in the wrong layer.
 - Use **VNS** for story flow, dialogue, choices, character staging, and most visual novel logic.
 - Use **JES** for gameplay scenes, entities, components, physics, camera systems, and lower-level scene control.
 - Use **Puppeteer** for authored timeline animation that should be previewed visually and then reused from VNS or JES.
+- Use **Scene Lighting Studio** when a shot needs reusable lighting, background grading, occluders, or stage presets that should carry into VNS and Puppeteer.
 - Use **Menu Profiles + Layouts** for title screens, settings, save/load, and textbox/menu presentation.
 - Use the **Editor sidebar tools** for supporting workflows such as diagnostics, layered character inspection, scene lighting, or menu flow.
 
@@ -49,11 +50,26 @@ Start with Puppeteer if your first goal is:
 - coordinate multiple properties on a timeline
 - preview motion before exporting it
 - build reusable timeline clips
+- preserve lighting context from an active VNS stage preset while animating
 
 Read next:
 
 - [Puppeteer Overview & Architecture](../editor/puppeteer/puppeteer.md)
 - [Puppeteer Editor Guide](../editor/puppeteer/puppeteer-editor-guide.md)
+
+## When To Start With Scene Lighting Studio
+
+Start here if your first goal is:
+
+- grade a character/background composite
+- build reusable scene lights or shadow blockers
+- export `.stagepreset` files for VNS `[stage ...]`
+- make Puppeteer launch with the same lighting setup as the script beat
+
+Read next:
+
+- [Scene Lighting Studio](../editor/sidebars/right/sidebar-image-tint-tool.md)
+- [VNS Directives & Declarations](../scripting/vns/language/vns-directives.md#stagepreset--stage-lighting-preset)
 
 ## When To Start With Menu Profiles And Layouts
 

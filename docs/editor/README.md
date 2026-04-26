@@ -7,6 +7,8 @@ Use this hub when your work is primarily inside the editor: opening projects, au
 - [Editor Guide](core/editor.md) — main layout, project run behavior, build/publish flow, editing modes
 - [Editor And Launcher Settings](core/settings.md) — preferences, startup behavior, run defaults, sidebar defaults
 - [Sidebar Utilities Overview](sidebars/overview/sidebar-utilities.md) — map of the editor's auxiliary tools
+- [Puppeteer Editor Guide](puppeteer/puppeteer-editor-guide.md) — visual animation authoring and timeline registration
+- [Scene Lighting Studio](sidebars/right/sidebar-image-tint-tool.md) — lighting, grading, setup export, and stage-preset handoff
 - [Help Center](core/help-center.md) — in-app docs browser and quick access routes
 
 ## Common Routes
@@ -26,10 +28,11 @@ Use this hub when your work is primarily inside the editor: opening projects, au
 
 ### I need visual staging or animation tools
 
-1. [Storyboard Overlay](sidebars/right/sidebar-storyboard-overlay.md)
+1. [Puppeteer Launcher](sidebars/right/sidebar-puppeteer-launcher.md)
 2. [Puppeteer Editor Guide](puppeteer/puppeteer-editor-guide.md)
-3. [Puppeteer Launcher](sidebars/right/sidebar-puppeteer-launcher.md)
-4. [Story Timeline](sidebars/left/sidebar-story-timeline.md)
+3. [Scene Lighting Studio](sidebars/right/sidebar-image-tint-tool.md)
+4. [Storyboard Overlay](sidebars/right/sidebar-storyboard-overlay.md)
+5. [Story Timeline](sidebars/left/sidebar-story-timeline.md)
 
 ### I need layout, menu, or image tools
 
@@ -48,7 +51,7 @@ Use this hub when your work is primarily inside the editor: opening projects, au
 - [Run Console](core/run-console.md)
 - [Scene Graph View](core/scene-graph.md)
 - [Tilemap Editor](core/tilemap-editor.md)
-- [Action Editor Design](core/action-editor-design.md)
+- [Puppeteer Design Notes](core/action-editor-design.md)
 
 ### Sidebars
 
@@ -62,7 +65,14 @@ Use this hub when your work is primarily inside the editor: opening projects, au
 - [Puppeteer Overview](puppeteer/puppeteer.md)
 - [Puppeteer Editor Guide](puppeteer/puppeteer-editor-guide.md)
 - [Puppeteer JES DSL Reference](puppeteer/puppeteer-jes-dsl.md)
+- [Puppeteer Launcher](sidebars/right/sidebar-puppeteer-launcher.md)
 - [Puppeteer Audit](puppeteer/puppeteer-audit.md)
+
+### Image And Staging Tools
+
+- [Scene Lighting Studio](sidebars/right/sidebar-image-tint-tool.md)
+- [Layered Image Visualizer](sidebars/right/sidebar-layered-image-visualizer.md)
+- [Image Attributes Tool](sidebars/right/sidebar-image-attributes-tool.md)
 
 ## Related Hubs
 

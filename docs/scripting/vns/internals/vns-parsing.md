@@ -25,7 +25,7 @@ Directives start with `@` and are processed before runtime. They declare metadat
 | `@charpreset` | `@charpreset <id> <preset> $layer1 \| $layer2 \| ...` | Builds named expression from layers |
 | `@background` | `@background <id> <path>` | Registers a background image |
 | `@position` | `@position <name> <x> [<y>]` | Defines a named custom character position |
-| `@stagepreset` | `@stagepreset <id> <path>` | Loads a stage lighting preset from a `.properties` file |
+| `@stagepreset` | `@stagepreset <id> <path>` | Loads a Scene Lighting Studio `.stagepreset` file |
 | `@var` | `@var <name> = <value>` | Declares a variable with initial value |
 | `@label` | `@label <name>` | Declares a jump target |
 | `@define` | `@define KEY value` | Parser-time text macro |

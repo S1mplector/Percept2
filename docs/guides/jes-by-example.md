@@ -54,4 +54,4 @@ Source reference:
 - [Timeline Actions](../scripting/jes/timeline/jes-timeline.md) — all 22 timeline action types
 - [VN Bridge & Java Hooks](../scripting/jes/integration/jes-bridge.md) — full integration reference
 - [VNS By Example](vns-by-example.md) — the same progressive tutorial series for VNS scripting
-- [Puppeteer Workflow](puppeteer-workflow.md) — visual animation authoring
+- [Puppeteer Editor Guide](../editor/puppeteer/puppeteer-editor-guide.md) — visual animation authoring

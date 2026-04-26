@@ -78,7 +78,7 @@ For VNS tabs, diagnostics are routed to the side diagnostics panel to preserve v
 
 - Left defaults to `Project` tab.
 - Right starts empty; use `+` to open a panel chooser.
-- Available addable panels on **both** sides:
+- Common addable panels include:
   - `Project`
   - `Timeline`
   - `VNS Diagnostics`
@@ -88,6 +88,15 @@ For VNS tabs, diagnostics are routed to the side diagnostics panel to preserve v
   - `Version Control`
   - `Help`
   - `Inspector`
+  - `Puppeteer Launcher`
+  - `Storyboard Overlay`
+  - `Layered Image Visualizer`
+  - `Image Attributes Tool`
+  - `Scene Lighting Studio`
+  - `Layout Launcher`
+  - `Text Editor`
+
+For the complete panel map, use [Sidebar Utilities Overview](../sidebars/overview/sidebar-utilities.md).
 
 ## Project Run Behavior
 
@@ -141,7 +150,7 @@ The editor now exposes most tooling through more than one route so teams can kee
 - **Tools** for task-oriented grouping
 - **Window -> Open Tool Window** for floating utility windows such as Storyboard Overlay
 
-This matters for newer workflow-critical utilities such as **Build & Publish...**, **Storyboard Overlay**, **Version Control**, and **Puppeteer Launcher**, because they can be reopened from the menu system even when their sidebar tab is closed.
+This matters for workflow-critical utilities such as **Build & Publish...**, **Storyboard Overlay**, **Version Control**, **Puppeteer Launcher**, and **Scene Lighting Studio**, because they can be reopened from the menu system even when their sidebar tab is closed.
 
 ## Supported Editing Modes
 

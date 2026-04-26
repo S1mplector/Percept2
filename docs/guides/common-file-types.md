@@ -20,7 +20,7 @@ This page is for beginners who can already open the editor, but are not yet sure
 
 | File | What it does | Usually edited by |
 |------|--------------|-------------------|
-| `scripts/timelines/*.jes` | Registered Puppeteer export files that can be called from VNS or used from JES. | cinematic/technical authors |
+| `scripts/timelines/*.jes` | Registered Puppeteer export files that can be called from VNS or used from JES. Named exports may include Puppeteer metadata comments for editor reopen/state handoff. | cinematic/technical authors |
 | `.clip` | Reusable Puppeteer clip snippets saved from track ranges. | cinematic authors |
 
 ## Menu And UI Files
@@ -38,7 +38,7 @@ This page is for beginners who can already open the editor, but are not yet sure
 | File | What it does | Usually edited by |
 |------|--------------|-------------------|
 | `.tintsetup` | Saved Scene Lighting Studio setups for editor reuse. | art or staging author |
-| `.stagepreset` | Runtime-ready stage/light preset export for scene reuse. | art or staging author |
+| `.stagepreset` | Runtime-ready Scene Lighting Studio export for `[stage ...]`; includes lighting data and VNS/Puppeteer handoff metadata. | art or staging author |
 
 ## How To Think About Them
 
@@ -47,6 +47,15 @@ This page is for beginners who can already open the editor, but are not yet sure
 - If it controls **menus or textbox presentation**, it is usually `.menu`, `.layout`, or `.style`.
 - If it controls **animation reuse**, it is usually a registered Puppeteer timeline or `.clip`.
 - If it controls **lighting/staging reuse**, it is usually `.tintsetup` or `.stagepreset`.
+
+Stage presets are normally declared from VNS:
+
+```vns
+@stagepreset sunset_park config/stage/sunset_park.stagepreset
+[stage sunset_park]
+```
+
+If you launch Puppeteer from a line where the stage is active, the animation project keeps that lighting context.
 
 ## Safe Beginner Starting Point
 

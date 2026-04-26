@@ -75,6 +75,7 @@ The Puppeteer Launcher is a sidebar panel that provides live VNS scene state tra
 | **Scene Snapshot at Cursor** | Section header |
 | **Label** | The most recent `@label` / `label` before the cursor |
 | **Background** | The active background from the most recent `[bg]` / `[background]` command |
+| **Stage** | Active stage preset from `[stage ...]`, resolved through `@stagepreset` |
 | **Visible Characters** | List of character entries: `charId @ position [expression]` |
 | **Launch @ Cursor** | Creates a new animation from the exact current scene snapshot |
 | **Launch @ Label Start** | Starts from the active label start snapshot |
@@ -92,6 +93,9 @@ The launcher parses every line from line 1 through the cursor position, tracking
 | **Character image** | `@charimg hero neutral assets/char/hero_neutral.png` | Maps `charId/expression` → asset path |
 | **Character layer** | `@charlayer hero eyes assets/char/hero_eyes.png` | Maps `charId/layerId` → asset path |
 | **Character preset** | `@charpreset hero happy $eyes=happy $mouth=smile` | Resolves layer references into a composite asset path |
+| **Stage preset declaration** | `@stagepreset sunset_park config/stage/sunset_park.stagepreset` | Maps stage preset ID → `.stagepreset` path |
+| **Stage activation** | `[stage sunset_park]` / `[stage preset=sunset_park]` | Sets the active lighting stage for the snapshot |
+| **Stage clear** | `[stage clear]` / `[stage off]` / `[stage none]` | Removes active stage context |
 | **Show character** | `[show hero center happy]` | Adds character with position and expression |
 | **Hide character** | `[hide hero]` | Removes character from visible set |
 | **External show** | `@external character hero show center happy` | Adds character via external command |
@@ -111,6 +115,8 @@ SceneSnapshot {
     Map<String, String> bgPaths;      // background ID → asset path
     Map<String, String> charImgPaths; // "charId/expression" → asset path
     Map<String, Map<String, String>> charLayerPaths; // charId → (layerId → path)
+    Map<String, String> stagePresetPaths; // stage ID → .stagepreset path
+    String activeStagePresetId;       // active stage at cursor, if any
 }
 ```
 
@@ -120,6 +126,8 @@ Puppeteer uses this to construct a `JesScene2D` with:
 - Correct expression images resolved from `charImgPaths` or composite `charLayerPaths`
 
 This means the Puppeteer animation viewport matches exactly what the player would see at that point in the script.
+
+If the cursor is inside a scene with an active stage preset, Puppeteer also receives the lighting handoff. The Scene sidebar shows the active **Lighting Stage** with its source path and counts for lights, occluders, and response zones. Named exports preserve that context in Puppeteer metadata comments so reopening the timeline keeps the staging information visible.
 
 ### From a JES File
 
@@ -172,6 +180,7 @@ This section is intentionally exhaustive and mirrors the current implementation 
 | Center (top) | Preview canvas | World-overview rendering plus runtime frame, camera HUD, selection handles |
 | Center (bottom) | Timeline canvas | Time ruler, tracks, keyframes, playhead, loop region, audio cues, and a dedicated `Runtime Camera / Frame` lane above entity rows |
 | Right sidebar | `Selection` tab | Selection summary plus advanced inspectors for matrix/blur, color matrix, runtime camera DOF, and custom channels |
+| Right sidebar | `Scene` tab | Project stats, viewport/camera/code-pane state, orbit anchors, and active Lighting Stage handoff |
 | Right | Timeline Code panel | Live JES source, diagnostics, preview-stage controls |
 | Bottom | Status bar | Undo/redo state, auto-key status, playback speed |
 
@@ -435,9 +444,12 @@ Built-in timeline-backed properties such as matrix channels and DOF channels rou
 | Property rows | canvas rows | Color-coded per property type |
 | Keyframe diamonds | canvas glyphs | Select/drag keyframes |
 | Playhead | red line + triangle | Current time |
+| Playhead badge | compact label | Current time pinned to the ruler while the playhead is visible |
 | Loop region | green overlay | Active loop segment |
 | Audio cue markers | orange dots + waveform | Cue timing and channel indicator |
 | Event cue markers | accent markers | Instant cue timing for expression/show/hide/replace/scene/custom events |
+| Interpolation segments | colored lines | Connect neighboring keyframes on the same property lane |
+| Hover readout | floating label | Shows time, target, property, value, interpolation, and easing when hovering keyframes |
 
 #### Timeline Interactions (Exact)
 
@@ -450,6 +462,7 @@ Built-in timeline-backed properties such as matrix channels and DOF channels rou
 | Double-click property lane | Add keyframe at clicked time |
 | Scroll | Pan timeline |
 | Ctrl+Scroll | Horizontal zoom timeline centered at cursor |
+| Hover property/keyframe lane | Show row or keyframe inspection readout |
 
 ### Right Panel: Timeline Code
 
@@ -956,7 +969,7 @@ Click **Copy Code** (button in the right code panel) or use **Ctrl/Cmd+Shift+C**
 | **Standard** | `CodeExporter.export()` | Full timeline with all events |
 | **With Groups** | `CodeExporter.exportWithGroups()` | Includes group comment annotations |
 | **Incremental** | `CodeExporter.exportIncremental()` | Only changed properties (compared to initial snapshot) |
-| **Named** | `CodeExporter.exportNamed()` | Adds header comments with timeline name and VNS usage hint |
+| **Named** | `CodeExporter.exportNamed()` | Adds header comments with timeline name, VNS usage hint, and Puppeteer metadata such as stage context when present |
 
 ### Unsaved Changes
 
