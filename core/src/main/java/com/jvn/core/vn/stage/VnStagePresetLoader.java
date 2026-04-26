@@ -92,9 +92,15 @@ public final class VnStagePresetLoader {
       ));
     }
 
+    String resolvedId = id == null || id.isBlank()
+        ? props.getProperty("jvn.stagePreset.id", "")
+        : id;
+    String resolvedSourcePath = sourcePath == null || sourcePath.isBlank()
+        ? props.getProperty("jvn.stagePreset.file", "")
+        : sourcePath;
     return new VnStagePreset(
-        id,
-        sourcePath,
+        resolvedId,
+        resolvedSourcePath,
         props.getProperty("background", "").trim(),
         props.getProperty("character", "").trim(),
         grade,

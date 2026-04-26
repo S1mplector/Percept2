@@ -29,6 +29,13 @@ class ImageTintToolViewTest {
   }
 
   @Test
+  void buildStagePresetIdDropsTintSuffixForVnsUsage() {
+    assertEquals("sunset_park", ImageTintToolView.buildStagePresetId("sunset_park_tint"));
+    assertEquals("lavender_neutral", ImageTintToolView.buildStagePresetId("preset:lavender/neutral_tint"));
+    assertEquals("stage_preset", ImageTintToolView.buildStagePresetId(""));
+  }
+
+  @Test
   void pickDefaultCharacterTagPrefersNonBackground() {
     List<String> tags = List.of(
         "assets/demo/backgrounds/field_day.png",

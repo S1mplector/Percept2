@@ -1547,7 +1547,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       return;
     }
     if (DEFAULT_EXPORT_STAGE_PRESET.equals(format)) {
-      copy(buildFullSetupText());
+      copy(buildStagePresetText());
       status("Copied stage preset.");
       return;
     }
@@ -3413,6 +3413,31 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
   private String buildStagePresetFileName() {
     return buildExportFileName(currentExportBaseName(), "stagepreset");
+  }
+
+  private String currentStagePresetId() {
+    return buildStagePresetId(currentExportBaseName());
+  }
+
+  static String buildStagePresetId(String baseName) {
+    String normalized = normalize(baseName);
+    String stem = normalized.startsWith(PRESET_TAG_PREFIX)
+        ? sanitizeExportStem(normalized.substring(PRESET_TAG_PREFIX.length()), "stage_preset")
+        : sanitizeExportStem(stripExtension(baseName), "stage_preset");
+    if (stem.endsWith("_tint")) {
+      stem = stem.substring(0, stem.length() - "_tint".length());
+    }
+    if (stem.startsWith("preset_") && stem.length() > "preset_".length()) {
+      stem = stem.substring("preset_".length());
+    }
+    return stem.isBlank() ? "stage_preset" : stem;
+  }
+
+  private String buildStagePresetUsagePath(String fileName) {
+    File directory = resolveExportDirectory();
+    if (directory == null || fileName == null || fileName.isBlank()) return fileName == null ? "" : fileName;
+    String path = describePathRelativeToProject(new File(directory, fileName));
+    return "Project root".equals(path) ? fileName : path;
   }
 
   static String buildDefaultTintExportStem(String tag) {
@@ -6899,13 +6924,13 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       status("Choose an export folder first.");
       return;
     }
-    writeSetupFile(file, buildFullSetupText(), "stage preset");
+    writeSetupFile(file, buildStagePresetText(), "stage preset");
   }
 
   private void exportStagePresetToFileAs() {
     File file = chooseSaveFile("Export Stage Preset", "Stage Preset", "*.stagepreset", buildStagePresetFileName());
     if (file == null) return;
-    writeSetupFile(file, buildFullSetupText(), "stage preset");
+    writeSetupFile(file, buildStagePresetText(file), "stage preset");
   }
 
   private void writeSetupFile(File file, String content) {
@@ -6944,7 +6969,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     }
     boolean pngOk = writeTintedPng(tinted, pngFile, false);
     boolean setupOk = writeSetupFile(setupFile, buildFullSetupText(), "setup", false);
-    boolean stageOk = writeSetupFile(stageFile, buildFullSetupText(), "stage preset", false);
+    boolean stageOk = writeSetupFile(stageFile, buildStagePresetText(stageFile), "stage preset", false);
     if (pngOk && setupOk && stageOk) {
       status("Exported PNG + setup + stage preset to " + describePathRelativeToProject(pngFile.getParentFile()));
     } else if (pngOk || setupOk || stageOk) {
@@ -7194,6 +7219,44 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       }
     }
     return light;
+  }
+
+  /** Build the full setup text (same format for clipboard and file export). D: Uses normalized values. */
+  private String buildStagePresetText() {
+    File target = resolveQuickExportFile(buildStagePresetFileName());
+    return buildStagePresetText(target);
+  }
+
+  private String buildStagePresetText(File targetFile) {
+    String id = currentStagePresetId();
+    String fileName = targetFile != null ? targetFile.getName() : buildStagePresetFileName();
+    String usagePath = targetFile != null ? describePathRelativeToProject(targetFile) : buildStagePresetUsagePath(fileName);
+    if ("Project root".equals(usagePath)) usagePath = fileName;
+    String usagePathToken = quoteVnsTokenIfNeeded(usagePath);
+    StringBuilder out = new StringBuilder();
+    out.append("# JVN Stage Preset\n");
+    out.append("# Exported by Scene Lighting Studio.\n");
+    out.append("# VNS handoff:\n");
+    out.append("# @stagepreset ").append(id).append(' ').append(usagePathToken).append('\n');
+    out.append("# [stage ").append(id).append("]\n");
+    out.append("jvn.stagePreset.schema=2\n");
+    out.append("jvn.stagePreset.id=").append(id).append('\n');
+    out.append("jvn.stagePreset.file=").append(fileName == null ? "" : fileName).append('\n');
+    out.append("jvn.stagePreset.vnsDeclaration=@stagepreset ").append(id).append(' ').append(usagePathToken).append('\n');
+    out.append("jvn.stagePreset.vnsCommand=[stage ").append(id).append("]\n");
+    out.append("jvn.stagePreset.lightCount=").append(sceneLights.size()).append('\n');
+    out.append("jvn.stagePreset.occluderCount=").append(sceneOccluders.size()).append('\n');
+    out.append("jvn.stagePreset.responseZoneCount=").append(tintZones.size()).append('\n');
+    out.append('\n');
+    out.append(buildFullSetupText());
+    return out.toString();
+  }
+
+  private static String quoteVnsTokenIfNeeded(String raw) {
+    String value = normalize(raw);
+    if (value.isBlank()) return "\"\"";
+    if (value.matches("[A-Za-z0-9_./:@+-]+")) return value;
+    return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
   }
 
   /** Build the full setup text (same format for clipboard and file export). D: Uses normalized values. */

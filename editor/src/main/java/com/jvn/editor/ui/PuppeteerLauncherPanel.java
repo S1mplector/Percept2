@@ -45,10 +45,12 @@ public class PuppeteerLauncherPanel extends VBox {
   private static final Pattern INCLUDE_PATTERN = Pattern.compile("^\\s*@include\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern BG_CMD_PATTERN = Pattern.compile("^\\s*\\[(?:bg|background)\\s+(\\S+)]", Pattern.CASE_INSENSITIVE);
   private static final Pattern BG_DECL_PATTERN = Pattern.compile("^\\s*@background\\s+(\\S+)\\s+(.+)", Pattern.CASE_INSENSITIVE);
+  private static final Pattern STAGE_PRESET_PATTERN = Pattern.compile("^\\s*@stagepreset\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARIMG_PATTERN = Pattern.compile("^\\s*@charimg\\s+(\\S+)\\s+(\\S+)\\s+(.+)", Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARLAYER_PATTERN = Pattern.compile("^\\s*@charlayer\\s+(\\S+)\\s+(\\S+)\\s+(.+)", Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARPRESET_PATTERN = Pattern.compile("^\\s*@charpreset\\s+(\\S+)\\s+(\\S+)\\s+(.+)", Pattern.CASE_INSENSITIVE);
   private static final Pattern JES_TIMELINE_PATTERN = Pattern.compile("^\\s*@external\\s+jes_timeline\\s+(\\S+)", Pattern.CASE_INSENSITIVE);
+  private static final Pattern EXT_STAGE_PATTERN = Pattern.compile("^\\s*@external\\s+stage\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern EXT_CHAR_SHOW = Pattern.compile("^\\s*@external\\s+char(?:acter)?\\s+(\\S+)\\s+show\\s+(\\S+)(?:\\s+(\\S+))?", Pattern.CASE_INSENSITIVE);
   private static final Pattern EXT_CHAR_HIDE = Pattern.compile("^\\s*@external\\s+char(?:acter)?\\s+(\\S+)\\s+hide", Pattern.CASE_INSENSITIVE);
   private static final Pattern EXT_CHAR_MOVE = Pattern.compile("^\\s*@external\\s+char(?:acter)?\\s+(\\S+)\\s+move\\s+(\\S+)", Pattern.CASE_INSENSITIVE);
@@ -60,6 +62,7 @@ public class PuppeteerLauncherPanel extends VBox {
   private final Label lblLineText;
   private final Label lblLabel;
   private final Label lblBackground;
+  private final Label lblStage;
   private final Label lblTimeline;
   private final Label lblSummary;
   private final VBox characterList;
@@ -108,6 +111,9 @@ public class PuppeteerLauncherPanel extends VBox {
 
     lblBackground = new Label("Background: —");
     lblBackground.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
+
+    lblStage = new Label("Stage: —");
+    lblStage.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
 
     lblTimeline = new Label("Timeline: —");
     lblTimeline.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
@@ -221,6 +227,7 @@ public class PuppeteerLauncherPanel extends VBox {
         snapshotHeader,
         lblLabel,
         lblBackground,
+        lblStage,
         lblTimeline,
         lblSummary,
         charsHeader,
@@ -279,6 +286,7 @@ public class PuppeteerLauncherPanel extends VBox {
     lblLineText.setText("(no VNS file active)");
     lblLabel.setText("Label: —");
     lblBackground.setText("Background: —");
+    lblStage.setText("Stage: —");
     lblTimeline.setText("Timeline: —");
     lblSummary.setText("Snapshot: —");
     characterList.getChildren().clear();
@@ -315,6 +323,7 @@ public class PuppeteerLauncherPanel extends VBox {
 
     lblLabel.setText("Label: " + (snap.currentLabel != null ? snap.currentLabel : "(before first label)"));
     lblBackground.setText("Background: " + (snap.backgroundId != null ? snap.backgroundId : "—"));
+    lblStage.setText("Stage: " + (snap.activeStagePresetId != null ? snap.activeStagePresetId : "—"));
     lblTimeline.setText("Timeline: " + describeTimelineContext(snap));
     lblSummary.setText(
         "Snapshot: " + snap.characters.size() + " character(s)"
@@ -860,6 +869,9 @@ public class PuppeteerLauncherPanel extends VBox {
     if (snapshot.backgroundId != null && !snapshot.backgroundId.isBlank()) {
       sceneBits.add("bg " + snapshot.backgroundId);
     }
+    if (snapshot.activeStagePresetId != null && !snapshot.activeStagePresetId.isBlank()) {
+      sceneBits.add("stage " + snapshot.activeStagePresetId);
+    }
     if (!sceneBits.isEmpty()) {
       lines.add("Scene • " + String.join(" • ", sceneBits));
     }
@@ -967,8 +979,11 @@ public class PuppeteerLauncherPanel extends VBox {
     int backgroundLine = -1;
     Map<String, CharacterEntry> visible = new LinkedHashMap<>();
     Map<String, String> bgPaths = new LinkedHashMap<>();
+    Map<String, String> stagePresetPaths = new LinkedHashMap<>();
     Map<String, String> charImgPaths = new LinkedHashMap<>();
     Map<String, Map<String, String>> charLayerPaths = new LinkedHashMap<>();
+    String activeStagePresetId = null;
+    int activeStageLine = -1;
     String referencedTimelineName = null;
     int referencedTimelineLine = -1;
 
@@ -978,6 +993,7 @@ public class PuppeteerLauncherPanel extends VBox {
         sourceName,
         includeResolver,
         bgPaths,
+        stagePresetPaths,
         charImgPaths,
         charLayerPaths,
         new HashSet<>());
@@ -1009,6 +1025,12 @@ public class PuppeteerLauncherPanel extends VBox {
       m = BG_DECL_PATTERN.matcher(line);
       if (m.find()) {
         bgPaths.put(m.group(1), m.group(2).trim());
+        continue;
+      }
+
+      m = STAGE_PRESET_PATTERN.matcher(line);
+      if (m.find()) {
+        stagePresetPaths.put(m.group(1), resolveDeclarationPath(sourceName, stripQuotes(m.group(2).trim())));
         continue;
       }
 
@@ -1056,10 +1078,27 @@ public class PuppeteerLauncherPanel extends VBox {
         continue;
       }
 
+      String stageCommand = parseStageCommand(commandLine);
+      if (stageCommand != null) {
+        activeStagePresetId = stageCommand.isBlank() ? null : stageCommand;
+        activeStageLine = i;
+        continue;
+      }
+
       m = JES_TIMELINE_PATTERN.matcher(line);
       if (m.find()) {
         referencedTimelineName = m.group(1);
         referencedTimelineLine = i;
+        continue;
+      }
+
+      m = EXT_STAGE_PATTERN.matcher(line);
+      if (m.find()) {
+        String stageId = parseStageTokenList(simpleTokens(m.group(1)));
+        if (stageId != null) {
+          activeStagePresetId = stageId.isBlank() ? null : stageId;
+          activeStageLine = i;
+        }
         continue;
       }
 
@@ -1112,7 +1151,10 @@ public class PuppeteerLauncherPanel extends VBox {
         new ArrayList<>(visible.values()),
         limit,
         bgPaths,
+        stagePresetPaths,
         charImgPaths,
+        activeStagePresetId,
+        activeStageLine,
         referencedTimelineName,
         referencedTimelineLine,
         inlineTimeline != null ? inlineTimeline.body() : null,
@@ -1210,6 +1252,20 @@ public class PuppeteerLauncherPanel extends VBox {
       out.add("Background '" + snapshot.backgroundId + "' has no @background path mapping.");
     }
 
+    if (snapshot.activeStagePresetId != null && !snapshot.activeStagePresetId.isBlank()) {
+      if (!snapshot.hasStagePresetPathMapping()) {
+        out.add("Stage preset '" + snapshot.activeStagePresetId + "' has no @stagepreset path mapping.");
+      } else {
+        String stagePath = snapshot.resolveStagePresetPath(projectRoot);
+        if (stagePath != null && !stagePath.isBlank()) {
+          File file = new File(stagePath);
+          if (!file.isFile()) {
+            out.add("Stage preset '" + snapshot.activeStagePresetId + "' points to a missing file: " + stagePath);
+          }
+        }
+      }
+    }
+
     for (CharacterEntry ch : snapshot.characters) {
       if (ch == null || ch.characterId == null || ch.characterId.isBlank()) continue;
       if (!snapshot.hasCharacterPathMapping(ch.characterId, ch.expression)) {
@@ -1272,6 +1328,45 @@ public class PuppeteerLauncherPanel extends VBox {
     return (charId == null || charId.isBlank()) ? null : charId;
   }
 
+  private static String parseStageCommand(String line) {
+    List<String> tokens = bracketTokens(line);
+    if (tokens.isEmpty() || !"stage".equalsIgnoreCase(tokens.get(0))) return null;
+    return parseStageTokenList(tokens.subList(1, tokens.size()));
+  }
+
+  private static String parseStageTokenList(List<String> tokens) {
+    if (tokens == null || tokens.isEmpty()) return null;
+    String firstBare = null;
+    for (String rawToken : tokens) {
+      String token = rawToken == null ? "" : rawToken.trim();
+      if (token.isEmpty()) continue;
+      String lower = token.toLowerCase(Locale.ROOT);
+      if ("clear".equals(lower) || "off".equals(lower) || "none".equals(lower)) return "";
+      int equals = token.indexOf('=');
+      if (equals > 0) {
+        String key = token.substring(0, equals).trim().toLowerCase(Locale.ROOT);
+        String value = stripQuotes(token.substring(equals + 1).trim());
+        if (Set.of("preset", "id", "name", "mode").contains(key)) {
+          String normalized = value.toLowerCase(Locale.ROOT);
+          return "clear".equals(normalized) || "off".equals(normalized) || "none".equals(normalized)
+              ? ""
+              : value;
+        }
+      } else if (firstBare == null) {
+        firstBare = stripQuotes(token);
+      }
+    }
+    return firstBare;
+  }
+
+  private static List<String> simpleTokens(String raw) {
+    if (raw == null || raw.isBlank()) return List.of();
+    return Arrays.stream(raw.trim().split("\\s+"))
+        .map(String::trim)
+        .filter(s -> !s.isEmpty())
+        .toList();
+  }
+
   private static List<String> bracketTokens(String line) {
     String raw = stripInlineComment(line).trim();
     if (raw.length() < 2 || raw.charAt(0) != '[' || raw.charAt(raw.length() - 1) != ']') {
@@ -1293,6 +1388,15 @@ public class PuppeteerLauncherPanel extends VBox {
 
   private static boolean isKnownPosition(String value) {
     return value != null && KNOWN_POSITIONS.contains(value.toLowerCase(Locale.ROOT));
+  }
+
+  private static String resolveDeclarationPath(String sourceName, String declaredPath) {
+    String path = declaredPath == null ? "" : declaredPath.trim().replace('\\', '/');
+    if (path.isBlank() || path.startsWith("/") || path.contains(":")) return path;
+    String src = normalizeSourceName(sourceName);
+    int idx = src.lastIndexOf('/');
+    if (idx < 0 || "<script>".equals(src)) return path;
+    return src.substring(0, idx + 1) + path;
   }
 
   private static InlineTimelineContext resolveInlineTimelineContext(String source, int cursorLine) {
@@ -1371,6 +1475,7 @@ public class PuppeteerLauncherPanel extends VBox {
       String sourceName,
       IncludeSourceResolver includeResolver,
       Map<String, String> bgPaths,
+      Map<String, String> stagePresetPaths,
       Map<String, String> charImgPaths,
       Map<String, Map<String, String>> charLayerPaths,
       Set<String> includeStack
@@ -1399,6 +1504,7 @@ public class PuppeteerLauncherPanel extends VBox {
                     resolved.sourceName(),
                     includeResolver,
                     bgPaths,
+                    stagePresetPaths,
                     charImgPaths,
                     charLayerPaths,
                     includeStack);
@@ -1412,6 +1518,14 @@ public class PuppeteerLauncherPanel extends VBox {
         Matcher backgroundMatcher = BG_DECL_PATTERN.matcher(trimmed);
         if (backgroundMatcher.matches()) {
           bgPaths.put(backgroundMatcher.group(1), backgroundMatcher.group(2).trim());
+          continue;
+        }
+
+        Matcher stagePresetMatcher = STAGE_PRESET_PATTERN.matcher(trimmed);
+        if (stagePresetMatcher.matches()) {
+          stagePresetPaths.put(
+              stagePresetMatcher.group(1),
+              resolveDeclarationPath(normalizedSource, stripQuotes(stagePresetMatcher.group(2).trim())));
           continue;
         }
 
@@ -1596,7 +1710,10 @@ public class PuppeteerLauncherPanel extends VBox {
     public final List<CharacterEntry> characters;
     public final int atLine;
     public final Map<String, String> backgroundPaths;
+    public final Map<String, String> stagePresetPaths;
     public final Map<String, String> characterImagePaths;
+    public final String activeStagePresetId;
+    public final int activeStageLine;
     public final String referencedTimelineName;
     public final int referencedTimelineLine;
     public final String inlineTimelineBody;
@@ -1615,13 +1732,49 @@ public class PuppeteerLauncherPanel extends VBox {
                          String inlineTimelineBody,
                          int inlineTimelineStartLine,
                          String inlineTimelineName) {
+      this(
+          currentLabel,
+          backgroundId,
+          backgroundLine,
+          characters,
+          atLine,
+          backgroundPaths,
+          Map.of(),
+          characterImagePaths,
+          null,
+          -1,
+          referencedTimelineName,
+          referencedTimelineLine,
+          inlineTimelineBody,
+          inlineTimelineStartLine,
+          inlineTimelineName);
+    }
+
+    public SceneSnapshot(String currentLabel,
+                         String backgroundId,
+                         int backgroundLine,
+                         List<CharacterEntry> characters,
+                         int atLine,
+                         Map<String, String> backgroundPaths,
+                         Map<String, String> stagePresetPaths,
+                         Map<String, String> characterImagePaths,
+                         String activeStagePresetId,
+                         int activeStageLine,
+                         String referencedTimelineName,
+                         int referencedTimelineLine,
+                         String inlineTimelineBody,
+                         int inlineTimelineStartLine,
+                         String inlineTimelineName) {
       this.currentLabel = currentLabel;
       this.backgroundId = backgroundId;
       this.backgroundLine = backgroundLine;
-      this.characters = characters;
+      this.characters = characters == null ? List.of() : characters;
       this.atLine = atLine;
-      this.backgroundPaths = backgroundPaths;
-      this.characterImagePaths = characterImagePaths;
+      this.backgroundPaths = backgroundPaths == null ? Map.of() : backgroundPaths;
+      this.stagePresetPaths = stagePresetPaths == null ? Map.of() : stagePresetPaths;
+      this.characterImagePaths = characterImagePaths == null ? Map.of() : characterImagePaths;
+      this.activeStagePresetId = activeStagePresetId;
+      this.activeStageLine = activeStageLine;
       this.referencedTimelineName = referencedTimelineName;
       this.referencedTimelineLine = referencedTimelineLine;
       this.inlineTimelineBody = inlineTimelineBody;
@@ -1635,6 +1788,23 @@ public class PuppeteerLauncherPanel extends VBox {
 
     public boolean hasBackgroundPathMapping() {
       return backgroundId != null && backgroundPaths.containsKey(backgroundId);
+    }
+
+    public boolean hasStagePresetPathMapping() {
+      return activeStagePresetId != null && stagePresetPaths.containsKey(activeStagePresetId);
+    }
+
+    public String resolveStagePresetPath(File projectRoot) {
+      if (activeStagePresetId == null || activeStagePresetId.isBlank()) return "";
+      String raw = stagePresetPaths.getOrDefault(activeStagePresetId, "");
+      if (raw == null || raw.isBlank()) return "";
+      File direct = new File(raw);
+      if (direct.isAbsolute()) return direct.getAbsolutePath();
+      if (projectRoot != null) {
+        File projectRelative = new File(projectRoot, raw);
+        if (projectRelative.isFile()) return projectRelative.getAbsolutePath();
+      }
+      return raw;
     }
 
     public boolean hasCharacterPathMapping(String characterId, String expression) {

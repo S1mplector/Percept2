@@ -30,7 +30,8 @@ public class AnimationProject {
     private final Map<String, double[]> orbitAnchors = new LinkedHashMap<>();
     private final Map<String, String> orbitAnchorSources = new LinkedHashMap<>();
     private final Map<String, double[]> orbitAnchorSourceOffsets = new LinkedHashMap<>();
-    private final Map<String, SceneEntitySnapshot> sceneEntitySnapshots = new LinkedHashMap<>();
+        private final Map<String, SceneEntitySnapshot> sceneEntitySnapshots = new LinkedHashMap<>();
+    private StageContext stageContext;
 
     private double loopStartMs = -1;
     private double loopEndMs = -1;
@@ -38,6 +39,30 @@ public class AnimationProject {
     private Map<String, Map<PropertyType, Double>> initialSnapshot;
 
     public AnimationProject() {}
+
+    public record StageContext(
+        String presetId,
+        String sourcePath,
+        String backgroundTag,
+        String subjectTag,
+        int lightCount,
+        int occluderCount,
+        int responseZoneCount
+    ) {
+        public StageContext {
+            presetId = presetId == null ? "" : presetId.trim();
+            sourcePath = sourcePath == null ? "" : sourcePath.trim();
+            backgroundTag = backgroundTag == null ? "" : backgroundTag.trim();
+            subjectTag = subjectTag == null ? "" : subjectTag.trim();
+            lightCount = Math.max(0, lightCount);
+            occluderCount = Math.max(0, occluderCount);
+            responseZoneCount = Math.max(0, responseZoneCount);
+        }
+
+        public boolean isPresent() {
+            return !presetId.isBlank();
+        }
+    }
 
     public static final class SceneEntitySnapshot {
         private final String name;
@@ -265,6 +290,18 @@ public class AnimationProject {
 
     public void clearSceneEntitySnapshots() {
         sceneEntitySnapshots.clear();
+    }
+
+    public StageContext getStageContext() {
+        return stageContext;
+    }
+
+    public void setStageContext(StageContext stageContext) {
+        this.stageContext = stageContext != null && stageContext.isPresent() ? stageContext : null;
+    }
+
+    public void clearStageContext() {
+        this.stageContext = null;
     }
 
     public void setOrbitAnchors(Map<String, double[]> anchors) {
@@ -836,6 +873,7 @@ public class AnimationProject {
         copy.rootGroupNames.addAll(rootGroupNames);
         copy.setInitialSnapshot(initialSnapshot);
         copy.setSceneEntitySnapshots(sceneEntitySnapshots.values());
+        copy.setStageContext(stageContext);
         return copy;
     }
 
@@ -966,6 +1004,7 @@ public class AnimationProject {
         this.setOrbitAnchorSourceOffsets(other.getOrbitAnchorSourceOffsetsView());
         this.setInitialSnapshot(other.initialSnapshot);
         this.setSceneEntitySnapshots(other.sceneEntitySnapshots.values());
+        this.setStageContext(other.stageContext);
     }
 
     private boolean hasGroupAnimation(String groupName, PropertyType property) {

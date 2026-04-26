@@ -37,7 +37,7 @@ You should see a dialogue box with the Narrator speaking three lines, then the s
 
 ### `@scenario` — Script Declaration
 
-Every VNS file must begin with a `@scenario` directive:
+Every VNS file must begin with a `@scenario` directive. This is the most primitive of the directives. 
 
 ```vns
 @scenario hello

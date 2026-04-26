@@ -96,6 +96,31 @@ class CodeRoundTripTest {
     }
 
     @Test
+    void stageMetadataRoundTripPreservesLightingHandoff() {
+        AnimationProject project = new AnimationProject();
+        project.setStageContext(new AnimationProject.StageContext(
+            "sunset_park",
+            "config/stage/sunset_park.stagepreset",
+            "park_day",
+            "hero",
+            3,
+            1,
+            2
+        ));
+
+        String exported = CodeExporter.exportNamed(project, "hero_reopen");
+        assertTrue(exported.contains("@jvn-puppeteer-stage"));
+
+        AnimationProject imported = CodeImporter.importCode("hero_reopen", exported);
+        assertNotNull(imported.getStageContext());
+        assertEquals("sunset_park", imported.getStageContext().presetId());
+        assertEquals("config/stage/sunset_park.stagepreset", imported.getStageContext().sourcePath());
+        assertEquals(3, imported.getStageContext().lightCount());
+        assertEquals(1, imported.getStageContext().occluderCount());
+        assertEquals(2, imported.getStageContext().responseZoneCount());
+    }
+
+    @Test
     void editorMetadataRoundTripPreservesLoopRegionAndOriginalLocalKeyframes() {
         AnimationProject project = new AnimationProject();
         project.setName("rigged_intro");

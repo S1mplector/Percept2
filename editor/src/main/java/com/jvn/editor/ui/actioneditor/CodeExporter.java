@@ -21,6 +21,7 @@ public class CodeExporter {
         sb.append("// Timeline: ").append(name).append("\n");
         sb.append("// Usage in VNS: @external jes_timeline ").append(name).append("\n\n");
         appendSceneEntityMetadata(sb, project);
+        appendStageMetadata(sb, project);
         appendEditorProjectMetadata(sb, project);
         sb.append(body);
         return sb.toString();
@@ -47,6 +48,22 @@ public class CodeExporter {
                 .append("\n");
         }
         sb.append("\n");
+    }
+
+    private static void appendStageMetadata(StringBuilder sb, AnimationProject project) {
+        if (sb == null || project == null) return;
+        AnimationProject.StageContext stage = project.getStageContext();
+        if (stage == null || !stage.isPresent()) return;
+        sb.append("// Puppeteer stage metadata. Runtime parsers ignore these comments.\n");
+        sb.append("// @jvn-puppeteer-stage")
+            .append(" id=").append(encode(stage.presetId()))
+            .append(" source=").append(encode(stage.sourcePath()))
+            .append(" bg=").append(encode(stage.backgroundTag()))
+            .append(" subject=").append(encode(stage.subjectTag()))
+            .append(" lights=").append(Math.max(0, stage.lightCount()))
+            .append(" occluders=").append(Math.max(0, stage.occluderCount()))
+            .append(" zones=").append(Math.max(0, stage.responseZoneCount()))
+            .append("\n\n");
     }
 
     private static void appendEditorProjectMetadata(StringBuilder sb, AnimationProject project) {

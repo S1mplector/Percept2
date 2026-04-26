@@ -115,6 +115,30 @@ class PuppeteerLauncherPanelTest {
   }
 
   @Test
+  void resolveSnapshotCapturesActiveStagePreset() {
+    String source = """
+        @stagepreset sunset_park config/stage/sunset_park.stagepreset
+        @label intro
+        [background field_day]
+        [stage preset=sunset_park]
+        [show lavender center neutral]
+        """;
+
+    PuppeteerLauncherPanel.SceneSnapshot snapshot = PuppeteerLauncherPanel.resolveSnapshot(
+        source,
+        4,
+        "/tmp/project/scripts/story/intro.vns",
+        null);
+
+    assertEquals("sunset_park", snapshot.activeStagePresetId);
+    assertEquals(3, snapshot.activeStageLine);
+    assertTrue(snapshot.hasStagePresetPathMapping());
+    assertEquals(
+        "/tmp/project/scripts/story/config/stage/sunset_park.stagepreset",
+        snapshot.resolveStagePresetPath(null));
+  }
+
+  @Test
   void resolveSnapshotCapturesInlineTimelineAtCursor() {
     String source = """
         @label intro

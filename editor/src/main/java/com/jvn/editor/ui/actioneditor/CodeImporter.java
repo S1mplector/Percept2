@@ -22,6 +22,7 @@ import com.jvn.core.animation.TimelineDataParser;
  */
 public class CodeImporter {
     private static final String ENTITY_META_PREFIX = "// @jvn-puppeteer-entity";
+    private static final String STAGE_META_PREFIX = "// @jvn-puppeteer-stage";
     private static final String PROJECT_META_PREFIX = "// @jvn-puppeteer-project";
     private static final String GROUP_META_PREFIX = "// @jvn-puppeteer-group";
     private static final String TRACK_META_PREFIX = "// @jvn-puppeteer-track";
@@ -55,6 +56,7 @@ public class CodeImporter {
             metadata.applySettings(project);
         }
         applySceneMetadata(project, parseSceneEntitySnapshots(code), !restoredEditorModel);
+        project.setStageContext(parseStageContext(code));
         return project;
     }
 
@@ -418,6 +420,27 @@ public class CodeImporter {
             ));
         }
         return snapshots;
+    }
+
+    private static AnimationProject.StageContext parseStageContext(String code) {
+        if (code == null || code.isBlank()) return null;
+        for (String rawLine : code.split("\\r?\\n")) {
+            String line = rawLine == null ? "" : rawLine.trim();
+            if (!line.startsWith(STAGE_META_PREFIX)) continue;
+            Map<String, String> attrs = parseAttributes(line.substring(STAGE_META_PREFIX.length()).trim());
+            String id = decode(attrs.get("id"));
+            if (id.isBlank()) return null;
+            return new AnimationProject.StageContext(
+                id,
+                decode(attrs.get("source")),
+                decode(attrs.get("bg")),
+                decode(attrs.get("subject")),
+                Math.max(0, (int) parseDouble(attrs.get("lights"), 0.0)),
+                Math.max(0, (int) parseDouble(attrs.get("occluders"), 0.0)),
+                Math.max(0, (int) parseDouble(attrs.get("zones"), 0.0))
+            );
+        }
+        return null;
     }
 
     private static Map<String, String> parseAttributes(String raw) {

@@ -20,6 +20,8 @@ import com.jvn.core.animation.SceneAccessor;
 import com.jvn.core.animation.TimelineData;
 import com.jvn.core.animation.TimelineRegistry;
 import com.jvn.core.animation.TimelineRunner;
+import com.jvn.core.vn.stage.VnStagePreset;
+import com.jvn.core.vn.stage.VnStagePresetLoader;
 import com.jvn.editor.ui.EditorTheme;
 import com.jvn.editor.ui.ProjectViewportSpec;
 import com.jvn.editor.ui.PuppeteerLauncherPanel;
@@ -2797,7 +2799,60 @@ public class PuppeteerWindow extends Stage {
             if (snapshot.backgroundPaths != null) {
                 launchBackgroundPaths.putAll(snapshot.backgroundPaths);
             }
+            applyLaunchStageContext(snapshot);
         }
+    }
+
+    private void applyLaunchStageContext(PuppeteerLauncherPanel.SceneSnapshot snapshot) {
+        if (snapshot == null || snapshot.activeStagePresetId == null || snapshot.activeStagePresetId.isBlank()) return;
+        String sourcePath = snapshot.resolveStagePresetPath(projectRoot);
+        AnimationProject.StageContext context = buildStageContext(
+            snapshot.activeStagePresetId,
+            sourcePath,
+            snapshot.backgroundId,
+            snapshot.characters.isEmpty() ? "" : snapshot.characters.get(0).characterId);
+        project.setStageContext(context);
+        refreshExportPreview();
+        refreshSidebarTabs();
+    }
+
+    private AnimationProject.StageContext buildStageContext(
+        String presetId,
+        String sourcePath,
+        String fallbackBackgroundTag,
+        String fallbackSubjectTag
+    ) {
+        if (presetId == null || presetId.isBlank()) return null;
+        String metadataPath = relativizePreviewAssetPath(sourcePath);
+        if (sourcePath != null && !sourcePath.isBlank()) {
+            try {
+                Path path = Path.of(sourcePath).toAbsolutePath().normalize();
+                if (Files.isRegularFile(path)) {
+                    try (var input = Files.newInputStream(path)) {
+                        VnStagePreset preset = VnStagePresetLoader.load(presetId, sourcePath, input);
+                        return new AnimationProject.StageContext(
+                            presetId,
+                            metadataPath,
+                            firstNonBlank(preset.getBackgroundTag(), fallbackBackgroundTag),
+                            firstNonBlank(preset.getSubjectTag(), fallbackSubjectTag),
+                            preset.getLights().size(),
+                            preset.getOccluders().size(),
+                            preset.getResponseZones().size()
+                        );
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        return new AnimationProject.StageContext(
+            presetId,
+            metadataPath,
+            fallbackBackgroundTag,
+            fallbackSubjectTag,
+            0,
+            0,
+            0
+        );
     }
 
     private java.io.File projectRoot;
