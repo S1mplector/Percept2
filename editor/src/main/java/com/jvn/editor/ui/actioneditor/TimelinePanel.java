@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -104,6 +105,14 @@ public class TimelinePanel extends VBox {
     private double marqueeStartY;
     private double marqueeEndX;
     private double marqueeEndY;
+    private double hoverX = Double.NaN;
+    private double hoverY = Double.NaN;
+    private double hoverTimeMs = Double.NaN;
+    private String hoverReadout = "";
+    private String hoverRowStorageName;
+    private PropertyType hoverRowProperty;
+    private boolean hoverRowGroup;
+    private Keyframe hoverKeyframe;
     private final Map<KeyframeSelectionModel.KeyframeRef, Double> dragStartTimes = new HashMap<>();
     private List<ClipboardEntry> copiedKeyframes = List.of();
 
@@ -149,6 +158,8 @@ public class TimelinePanel extends VBox {
         canvas.setOnMouseDragged(this::handleMouseDragged);
         canvas.setOnMouseReleased(this::handleMouseReleased);
         canvas.setOnMouseClicked(this::handleMouseClicked);
+        canvas.setOnMouseMoved(this::handleMouseMoved);
+        canvas.setOnMouseExited(this::handleMouseExited);
         scrollPane.addEventFilter(ScrollEvent.SCROLL, this::handleScroll);
 
         widthProperty().addListener((obs, oldVal, newVal) -> {
@@ -541,32 +552,53 @@ public class TimelinePanel extends VBox {
         drawEventCues(gc, w, h);
         drawAudioCues(gc, w, h);
         drawPlayhead(gc, h);
+        drawHoverGuide(gc, w, h);
         drawSelectionMarquee(gc);
     }
 
     private void drawTimeRuler(GraphicsContext gc, double width) {
+        gc.setFill(Color.web("#181818"));
+        gc.fillRect(0, 0, LABEL_WIDTH, HEADER_HEIGHT);
         gc.setFill(Color.web("#1a1a1a"));
-        gc.fillRect(0, 0, width, HEADER_HEIGHT);
-
-        gc.setStroke(GRID_COLOR);
-        gc.setLineWidth(1);
+        gc.fillRect(LABEL_WIDTH, 0, Math.max(0.0, width - LABEL_WIDTH), HEADER_HEIGHT);
 
         double duration = project.getTotalDurationMs();
         double step = computeGridStep();
+        double minorStep = Math.max(10.0, step / 5.0);
+        double viewStart = Math.max(0.0, scrollX / pixelsPerMs);
+        double viewEnd = Math.min(duration, Math.max(0.0, (scrollX + width - LABEL_WIDTH) / pixelsPerMs));
 
+        gc.setStroke(Color.web("#2f2f2f", 0.58));
+        gc.setLineWidth(0.5);
+        for (double t = Math.floor(viewStart / minorStep) * minorStep; t <= viewEnd; t += minorStep) {
+            if (t < 0) continue;
+            if (isMajorGridLine(t, step)) continue;
+            double x = LABEL_WIDTH + t * pixelsPerMs - scrollX;
+            if (x < LABEL_WIDTH || x > width) continue;
+            gc.strokeLine(x, HEADER_HEIGHT - 3, x, HEADER_HEIGHT);
+        }
+
+        gc.setStroke(GRID_COLOR);
+        gc.setLineWidth(1);
         gc.setFill(TEXT_COLOR);
         gc.setFont(javafx.scene.text.Font.font(10));
 
-        for (double t = 0; t <= duration; t += step) {
+        for (double t = Math.floor(viewStart / step) * step; t <= viewEnd; t += step) {
+            if (t < 0) continue;
             double x = LABEL_WIDTH + t * pixelsPerMs - scrollX;
             if (x < LABEL_WIDTH || x > width) continue;
 
-            gc.strokeLine(x, HEADER_HEIGHT - 5, x, HEADER_HEIGHT);
+            gc.strokeLine(x, HEADER_HEIGHT - 7, x, HEADER_HEIGHT);
 
             String label = formatTime(t);
             gc.fillText(label, x - 15, HEADER_HEIGHT - 10);
         }
 
+        gc.setFill(Color.web("#a6a6a6"));
+        gc.setFont(javafx.scene.text.Font.font(10));
+        gc.fillText("Timeline", 10, HEADER_HEIGHT - 10);
+        gc.setStroke(Color.web("#333333"));
+        gc.strokeLine(LABEL_WIDTH, 0, LABEL_WIDTH, HEADER_HEIGHT);
         gc.strokeLine(LABEL_WIDTH, HEADER_HEIGHT, width, HEADER_HEIGHT);
     }
 
@@ -608,6 +640,9 @@ public class TimelinePanel extends VBox {
                                   boolean runtimeCameraTrack,
                                   PropertyType[] properties) {
         gc.setFill(isSelected ? Color.web("#2a2a2a") : Color.web("#1a1a1a"));
+        if (isHoveredRow(selectionName, track, groupTrack, null)) {
+            gc.setFill(Color.web("#24313a"));
+        }
         gc.fillRect(0, y, width, TRACK_HEIGHT);
         gc.setFill(TEXT_COLOR);
         gc.setFont(javafx.scene.text.Font.font(12));
@@ -620,7 +655,10 @@ public class TimelinePanel extends VBox {
             if (!showTrack) continue;
 
             boolean propSelected = isSelected && prop == selectedProperty;
-            gc.setFill(propSelected ? Color.web("#3a3a3a") : Color.web("#151515"));
+            boolean propHovered = isHoveredRow(selectionName, track, groupTrack, prop);
+            gc.setFill(propSelected
+                ? Color.web("#3a3a3a")
+                : propHovered ? Color.web("#202832") : Color.web("#151515"));
             gc.fillRect(0, y, width, TRACK_HEIGHT);
 
             Color propColor = trackColorFor(prop);
@@ -640,24 +678,43 @@ public class TimelinePanel extends VBox {
     }
 
     private void drawTrackGridLines(GraphicsContext gc, double y, double width) {
-        gc.setStroke(GRID_COLOR);
-        gc.setLineWidth(0.5);
-
         double step = computeGridStep();
+        double minorStep = Math.max(10.0, step / 5.0);
         double duration = project.getTotalDurationMs();
+        double viewStart = Math.max(0.0, scrollX / pixelsPerMs);
+        double viewEnd = Math.min(duration, Math.max(0.0, (scrollX + width - LABEL_WIDTH) / pixelsPerMs));
 
-        for (double t = 0; t <= duration; t += step) {
+        gc.setStroke(Color.web("#242424", 0.58));
+        gc.setLineWidth(0.35);
+        for (double t = Math.floor(viewStart / minorStep) * minorStep; t <= viewEnd; t += minorStep) {
+            if (t < 0) continue;
+            if (isMajorGridLine(t, step)) continue;
             double x = LABEL_WIDTH + t * pixelsPerMs - scrollX;
             if (x >= LABEL_WIDTH && x <= width) {
                 gc.strokeLine(x, y, x, y + TRACK_HEIGHT);
             }
         }
+
+        gc.setStroke(GRID_COLOR);
+        gc.setLineWidth(0.5);
+        for (double t = Math.floor(viewStart / step) * step; t <= viewEnd; t += step) {
+            if (t < 0) continue;
+            double x = LABEL_WIDTH + t * pixelsPerMs - scrollX;
+            if (x >= LABEL_WIDTH && x <= width) {
+                gc.strokeLine(x, y, x, y + TRACK_HEIGHT);
+            }
+        }
+        gc.setStroke(Color.web("#202020"));
+        gc.strokeLine(0, y + TRACK_HEIGHT - 0.5, width, y + TRACK_HEIGHT - 0.5);
+        gc.setStroke(Color.web("#333333"));
+        gc.strokeLine(LABEL_WIDTH, y, LABEL_WIDTH, y + TRACK_HEIGHT);
     }
 
     private void drawKeyframes(GraphicsContext gc, String selectionName, EntityTrack track, PropertyType prop, double y, double width) {
         if (track == null || prop == null) return;
         List<Keyframe> keyframes = track.getKeyframes(prop);
         double cy = y + TRACK_HEIGHT / 2;
+        drawKeyframeSegments(gc, keyframes, prop, cy, width);
 
         for (Keyframe kf : keyframes) {
             double x = LABEL_WIDTH + kf.getTimeMs() * pixelsPerMs - scrollX;
@@ -670,15 +727,51 @@ public class TimelinePanel extends VBox {
                 || (effectiveSelectionName != null
                     && !effectiveSelectionName.equals(storageName)
                     && isSelected(effectiveSelectionName, prop, kf));
+            boolean isHovered = hoverKeyframe == kf
+                && prop == hoverRowProperty
+                && Objects.equals(storageName, hoverRowStorageName);
             gc.setFill(isSelected ? KEYFRAME_SELECTED_COLOR : trackColorFor(prop));
 
             // Diamond shape
-            double size = 6;
+            double size = isSelected || isHovered ? 7 : 6;
             gc.fillPolygon(
                 new double[]{x, x + size, x, x - size},
                 new double[]{cy - size, cy, cy + size, cy},
                 4
             );
+            gc.setStroke(isSelected ? Color.web("#fff6df", 0.95) : Color.web("#050505", 0.72));
+            gc.setLineWidth(isSelected ? 1.4 : 0.8);
+            gc.strokePolygon(
+                new double[]{x, x + size, x, x - size},
+                new double[]{cy - size, cy, cy + size, cy},
+                4
+            );
+            if (isHovered && !isSelected) {
+                gc.setStroke(Color.web("#8bd2ff", 0.8));
+                gc.setLineWidth(1.2);
+                gc.strokeOval(x - 8.5, cy - 8.5, 17, 17);
+            }
+        }
+    }
+
+    private void drawKeyframeSegments(GraphicsContext gc, List<Keyframe> keyframes, PropertyType prop, double cy, double width) {
+        if (keyframes == null || keyframes.size() < 2) return;
+        List<Keyframe> sorted = new ArrayList<>(keyframes);
+        sorted.sort(Comparator.comparingDouble(Keyframe::getTimeMs));
+        Color lineColor = trackColorFor(prop).deriveColor(0, 0.85, 0.95, 0.34);
+        gc.setLineWidth(1.6);
+        for (int i = 0; i < sorted.size() - 1; i++) {
+            Keyframe left = sorted.get(i);
+            Keyframe right = sorted.get(i + 1);
+            double x1 = LABEL_WIDTH + left.getTimeMs() * pixelsPerMs - scrollX;
+            double x2 = LABEL_WIDTH + right.getTimeMs() * pixelsPerMs - scrollX;
+            if (x2 < LABEL_WIDTH || x1 > width) continue;
+            gc.setStroke(lineColor);
+            if (left.getInterpolation() != null && !"TWEEN".equals(left.getInterpolation().name())) {
+                gc.setLineDashes(5, 4);
+            }
+            gc.strokeLine(Math.max(LABEL_WIDTH, x1), cy, Math.min(width, x2), cy);
+            gc.setLineDashes((double[]) null);
         }
     }
 
@@ -800,7 +893,8 @@ public class TimelinePanel extends VBox {
 
     private void drawPlayhead(GraphicsContext gc, double height) {
         double x = LABEL_WIDTH + project.getPlayheadMs() * pixelsPerMs - scrollX;
-        if (x < LABEL_WIDTH) return;
+        double width = canvas.getWidth();
+        if (x < LABEL_WIDTH || x > width) return;
 
         gc.setStroke(PLAYHEAD_COLOR);
         gc.setLineWidth(2);
@@ -811,6 +905,50 @@ public class TimelinePanel extends VBox {
         double[] xPoints = {x - 8, x + 8, x};
         double[] yPoints = {0, 0, 12};
         gc.fillPolygon(xPoints, yPoints, 3);
+
+        String label = formatTime(project.getPlayheadMs());
+        double badgeWidth = Math.max(48.0, label.length() * 6.4 + 16.0);
+        double badgeX = clamp(x - badgeWidth / 2.0, LABEL_WIDTH + 4.0, width - badgeWidth - 4.0);
+        gc.setFill(Color.web("#2d141d", 0.94));
+        gc.fillRoundRect(badgeX, 4, badgeWidth, 18, 6, 6);
+        gc.setStroke(Color.web("#f38ba8", 0.55));
+        gc.setLineWidth(1);
+        gc.strokeRoundRect(badgeX + 0.5, 4.5, badgeWidth - 1.0, 17.0, 6, 6);
+        gc.setFill(Color.web("#ffdce6"));
+        gc.setFont(javafx.scene.text.Font.font(10));
+        gc.fillText(label, badgeX + 8, 17);
+    }
+
+    private void drawHoverGuide(GraphicsContext gc, double width, double height) {
+        if (!Double.isFinite(hoverTimeMs) || hoverX < LABEL_WIDTH || hoverY < HEADER_HEIGHT) return;
+        double x = LABEL_WIDTH + hoverTimeMs * pixelsPerMs - scrollX;
+        if (x >= LABEL_WIDTH && x <= width) {
+            gc.setStroke(Color.web("#8bd2ff", 0.30));
+            gc.setLineWidth(1);
+            gc.setLineDashes(3, 4);
+            gc.strokeLine(x, HEADER_HEIGHT, x, height);
+            gc.setLineDashes((double[]) null);
+        }
+
+        String text = hoverReadout == null || hoverReadout.isBlank() ? formatTime(hoverTimeMs) : hoverReadout;
+        text = abbreviate(text, Math.max(18, (int) ((width - 28.0) / 6.2)));
+        double boxWidth = Math.min(width - 16.0, Math.max(92.0, text.length() * 6.2 + 18.0));
+        double boxHeight = 22.0;
+        double boxX = clamp(hoverX + 12.0, LABEL_WIDTH + 6.0, width - boxWidth - 8.0);
+        double boxY = hoverY + 14.0;
+        if (boxY + boxHeight > height - 8.0) {
+            boxY = hoverY - boxHeight - 10.0;
+        }
+        boxY = clamp(boxY, HEADER_HEIGHT + 4.0, Math.max(HEADER_HEIGHT + 4.0, height - boxHeight - 6.0));
+
+        gc.setFill(Color.web("#111820", 0.94));
+        gc.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 6, 6);
+        gc.setStroke(Color.web("#8bd2ff", 0.45));
+        gc.setLineWidth(1);
+        gc.strokeRoundRect(boxX + 0.5, boxY + 0.5, boxWidth - 1.0, boxHeight - 1.0, 6, 6);
+        gc.setFill(Color.web("#dceeff"));
+        gc.setFont(javafx.scene.text.Font.font(10));
+        gc.fillText(text, boxX + 9, boxY + 15);
     }
 
     private void drawSelectionMarquee(GraphicsContext gc) {
@@ -840,9 +978,96 @@ public class TimelinePanel extends VBox {
 
     private String formatTime(double ms) {
         if (ms >= 1000) {
-            return String.format("%.1fs", ms / 1000);
+            return String.format(Locale.ROOT, "%.1fs", ms / 1000);
         }
-        return String.format("%.0fms", ms);
+        return String.format(Locale.ROOT, "%.0fms", ms);
+    }
+
+    private String formatKeyframeValue(double value) {
+        String text = String.format(Locale.ROOT, "%.2f", value);
+        if (text.endsWith(".00")) return text.substring(0, text.length() - 3);
+        if (text.endsWith("0")) return text.substring(0, text.length() - 1);
+        return text;
+    }
+
+    private String buildKeyframeHoverReadout(TrackRow row, Keyframe keyframe) {
+        if (row == null || keyframe == null || row.property() == null) return "";
+        String target = row.runtimeCamera() ? "Runtime Camera" : row.selectionName();
+        if (target == null || target.isBlank()) target = row.displayLabel();
+        String interpolation = keyframe.getInterpolation() != null
+            ? keyframe.getInterpolation().name().toLowerCase(Locale.ROOT)
+            : "tween";
+        String easing = keyframe.getEasingSpec() != null ? keyframe.getEasingSpec().toDslString() : "linear";
+        return target + " / " + row.property().getDisplayName()
+            + "  " + formatTime(keyframe.getTimeMs())
+            + "  value " + formatKeyframeValue(keyframe.getValue())
+            + "  " + interpolation + " " + easing;
+    }
+
+    private String buildRowHoverReadout(TrackRow row, double timeMs) {
+        if (row == null) return "Time " + formatTime(timeMs);
+        if (row.property() == null) return row.displayLabel() + "  " + formatTime(timeMs);
+        String target = row.runtimeCamera() ? "Runtime Camera" : row.selectionName();
+        if (target == null || target.isBlank()) target = row.displayLabel();
+        return target + " / " + row.property().getDisplayName() + "  " + formatTime(timeMs);
+    }
+
+    private void updateHoverFromMouse(MouseEvent e) {
+        hoverX = e.getX();
+        hoverY = e.getY();
+        hoverKeyframe = null;
+        hoverRowStorageName = null;
+        hoverRowProperty = null;
+        hoverRowGroup = false;
+
+        if (hoverX < LABEL_WIDTH || hoverY < HEADER_HEIGHT || hoverX > canvas.getWidth() || hoverY > canvas.getHeight()) {
+            hoverTimeMs = Double.NaN;
+            hoverReadout = "";
+            render();
+            return;
+        }
+
+        hoverTimeMs = clampToTimeline((hoverX - LABEL_WIDTH + scrollX) / pixelsPerMs);
+        KeyframeHit hit = findKeyframeAt(hoverX, hoverY);
+        if (hit != null) {
+            TrackRow row = hit.row();
+            hoverKeyframe = hit.keyframe();
+            hoverRowStorageName = storageNameForRow(row);
+            hoverRowProperty = row.property();
+            hoverRowGroup = row.group();
+            hoverReadout = buildKeyframeHoverReadout(row, hit.keyframe());
+            render();
+            return;
+        }
+
+        TrackRow row = findRowAt(hoverY);
+        if (row != null) {
+            hoverRowStorageName = storageNameForRow(row);
+            hoverRowProperty = row.property();
+            hoverRowGroup = row.group();
+        }
+        hoverReadout = buildRowHoverReadout(row, hoverTimeMs);
+        render();
+    }
+
+    private void clearHoverState() {
+        hoverX = Double.NaN;
+        hoverY = Double.NaN;
+        hoverTimeMs = Double.NaN;
+        hoverReadout = "";
+        hoverRowStorageName = null;
+        hoverRowProperty = null;
+        hoverRowGroup = false;
+        hoverKeyframe = null;
+    }
+
+    private void handleMouseMoved(MouseEvent e) {
+        updateHoverFromMouse(e);
+    }
+
+    private void handleMouseExited(MouseEvent e) {
+        clearHoverState();
+        render();
     }
 
     private void handleMousePressed(MouseEvent e) {
@@ -1070,6 +1295,15 @@ public class TimelinePanel extends VBox {
                 if (dist < 10) {
                     return new KeyframeHit(row, keyframe);
                 }
+            }
+        }
+        return null;
+    }
+
+    private TrackRow findRowAt(double my) {
+        for (TrackRow row : buildVisibleRows()) {
+            if (my >= row.y() && my < row.y() + row.height()) {
+                return row;
             }
         }
         return null;
@@ -1470,6 +1704,16 @@ public class TimelinePanel extends VBox {
         return row.selectionName();
     }
 
+    private boolean isHoveredRow(String selectionName, EntityTrack track, boolean groupTrack, PropertyType property) {
+        if (!Double.isFinite(hoverTimeMs)) return false;
+        String storageName = track != null && track.getEntityName() != null && !track.getEntityName().isBlank()
+            ? track.getEntityName()
+            : selectionName;
+        return Objects.equals(hoverRowStorageName, storageName)
+            && hoverRowProperty == property
+            && hoverRowGroup == groupTrack;
+    }
+
     static boolean isRuntimeCameraTarget(String name) {
         return RUNTIME_CAMERA_TARGET.equals(name);
     }
@@ -1612,6 +1856,23 @@ public class TimelinePanel extends VBox {
             start = Math.max(0.0, end - 100.0);
         }
         return new double[]{start, end};
+    }
+
+    private static boolean isMajorGridLine(double timeMs, double stepMs) {
+        if (stepMs <= 0.0) return false;
+        double nearest = Math.rint(timeMs / stepMs);
+        return Math.abs(timeMs - nearest * stepMs) < 0.0001;
+    }
+
+    private static String abbreviate(String value, int maxChars) {
+        if (value == null) return "";
+        if (maxChars <= 3) return value.length() <= maxChars ? value : value.substring(0, Math.max(0, maxChars));
+        return value.length() <= maxChars ? value : value.substring(0, maxChars - 3) + "...";
+    }
+
+    private static double clamp(double value, double min, double max) {
+        if (max < min) return min;
+        return Math.max(min, Math.min(max, value));
     }
 
     private void notifyEdited() {

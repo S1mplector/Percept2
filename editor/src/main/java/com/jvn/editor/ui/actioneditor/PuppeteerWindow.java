@@ -195,6 +195,7 @@ public class PuppeteerWindow extends Stage {
     private Label lblSidebarSceneCamera;
     private Label lblSidebarSceneCodePane;
     private Label lblSidebarSceneAnchors;
+    private Label lblSidebarSceneStage;
     private Button btnSidebarAddKeyframe;
     private Button btnSidebarFocusSelection;
     private Button btnSidebarClearSelection;
@@ -1701,6 +1702,7 @@ public class PuppeteerWindow extends Stage {
         lblSidebarSceneCamera = buildSidebarValueLabel();
         lblSidebarSceneCodePane = buildSidebarValueLabel();
         lblSidebarSceneAnchors = buildSidebarValueLabel();
+        lblSidebarSceneStage = buildSidebarValueLabel();
 
         Button btnFitPreview = buildSidebarActionButton("Fit Preview", () -> {
             animationPreview.fitToContent();
@@ -1722,7 +1724,8 @@ public class PuppeteerWindow extends Stage {
                 buildSidebarInfoBlock("Tracks", lblSidebarSceneTracks),
                 buildSidebarInfoBlock("Groups", lblSidebarSceneGroups),
                 buildSidebarInfoBlock("Duration", lblSidebarSceneDuration),
-                buildSidebarInfoBlock("Orbit Anchors", lblSidebarSceneAnchors)
+                buildSidebarInfoBlock("Orbit Anchors", lblSidebarSceneAnchors),
+                buildSidebarInfoBlock("Lighting Stage", lblSidebarSceneStage)
             ),
             buildSidebarCard(
                 "Preview",
@@ -1985,6 +1988,9 @@ public class PuppeteerWindow extends Stage {
         }
         if (lblSidebarSceneAnchors != null) {
             lblSidebarSceneAnchors.setText(String.valueOf(project.getOrbitAnchorsView().size()));
+        }
+        if (lblSidebarSceneStage != null) {
+            lblSidebarSceneStage.setText(describeStageContext(project.getStageContext()));
         }
         if (lblSidebarSceneViewport != null) {
             ProjectViewportSpec.Dimensions viewport = ProjectViewportSpec.resolve(projectRoot);
@@ -2404,6 +2410,22 @@ public class PuppeteerWindow extends Stage {
             count++;
         }
         return count;
+    }
+
+    private String describeStageContext(AnimationProject.StageContext stage) {
+        if (stage == null || !stage.isPresent()) return "None";
+        StringBuilder sb = new StringBuilder(stage.presetId());
+        List<String> counts = new ArrayList<>();
+        if (stage.lightCount() > 0) counts.add(stage.lightCount() + " lights");
+        if (stage.occluderCount() > 0) counts.add(stage.occluderCount() + " occluders");
+        if (stage.responseZoneCount() > 0) counts.add(stage.responseZoneCount() + " zones");
+        if (!counts.isEmpty()) {
+            sb.append(" (").append(String.join(", ", counts)).append(")");
+        }
+        if (!stage.sourcePath().isBlank()) {
+            sb.append("\n").append(stage.sourcePath());
+        }
+        return sb.toString();
     }
 
     private void applyLinuxDefaultWindowState() {
