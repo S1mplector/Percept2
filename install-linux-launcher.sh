@@ -3,63 +3,315 @@
 #  install-linux-launcher.sh
 #
 #  Installs a "JVN Engine Hub" entry into the current user's applications menu
-#  (GNOME / KDE / XFCE / etc.) with absolute paths baked in. Use this if your
-#  file manager refuses to launch the in-tree jvn.desktop.
+#  without sudo. It writes:
 #
-#  Uninstall: rm ~/.local/share/applications/jvn-engine-hub.desktop
+#    ~/.local/share/applications/jvn-engine-hub.desktop
+#    ~/.local/share/jvn-engine-hub/jvn-engine-hub-launcher.sh
+#    ~/.local/share/icons/hicolor/scalable/apps/jvn-engine-hub.svg
+#
+#  The launcher wrapper keeps errors visible and logs them under:
+#
+#    ~/.local/state/jvn-engine-hub/
+#
+#  Uninstall:
+#    rm -f ~/.local/share/applications/jvn-engine-hub.desktop
+#    rm -rf ~/.local/share/jvn-engine-hub
+#    rm -f ~/.local/share/icons/hicolor/scalable/apps/jvn-engine-hub.svg
 # -----------------------------------------------------------------------------
-set -eu
+
+if [ -z "${BASH_VERSION:-}" ]; then
+  exec bash "$0" "$@"
+fi
+
+set -Eeuo pipefail
+IFS=$'\n\t'
+
+APP_ID="jvn-engine-hub"
+APP_NAME="JVN Engine Hub"
+SELF_PATH="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)/$(basename -- "${BASH_SOURCE[0]}")"
+
+terminal_command() {
+  local self_q
+  printf -v self_q '%q' "$SELF_PATH"
+  printf 'JVN_INSTALLER_TERMINAL=1 %s; status=$?; echo; echo "Installer finished with exit code $status."; printf "Press Enter to close..."; read -r _; exit "$status"' "$self_q"
+}
+
+relaunch_in_terminal_if_needed() {
+  if [[ -n "${JVN_INSTALLER_TERMINAL:-}" || -t 1 ]]; then
+    return 0
+  fi
+
+  local cmd
+  cmd="$(terminal_command)"
+
+  if command -v x-terminal-emulator >/dev/null 2>&1; then
+    x-terminal-emulator -e bash -lc "$cmd" >/dev/null 2>&1 &
+    exit 0
+  fi
+  if command -v gnome-terminal >/dev/null 2>&1; then
+    gnome-terminal -- bash -lc "$cmd" >/dev/null 2>&1 &
+    exit 0
+  fi
+  if command -v kgx >/dev/null 2>&1; then
+    kgx -- bash -lc "$cmd" >/dev/null 2>&1 &
+    exit 0
+  fi
+  if command -v konsole >/dev/null 2>&1; then
+    konsole --hold -e bash -lc "$cmd" >/dev/null 2>&1 &
+    exit 0
+  fi
+  if command -v xterm >/dev/null 2>&1; then
+    xterm -hold -e bash -lc "$cmd" >/dev/null 2>&1 &
+    exit 0
+  fi
+}
+
+notify_user() {
+  local title="$1"
+  local body="$2"
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send "$title" "$body" >/dev/null 2>&1 || true
+  elif command -v zenity >/dev/null 2>&1; then
+    zenity --info --title="$title" --text="$body" >/dev/null 2>&1 || true
+  elif command -v kdialog >/dev/null 2>&1; then
+    kdialog --title "$title" --msgbox "$body" >/dev/null 2>&1 || true
+  elif command -v xmessage >/dev/null 2>&1; then
+    xmessage -center "$title: $body" >/dev/null 2>&1 || true
+  fi
+}
+
+shell_quote() {
+  printf "'%s'" "$(printf "%s" "$1" | sed "s/'/'\\\\''/g")"
+}
+
+desktop_quote() {
+  local value="${1//\\/\\\\}"
+  value="${value//\"/\\\"}"
+  printf '"%s"' "$value"
+}
+
+xml_escape() {
+  local value="$1"
+  value="${value//&/&amp;}"
+  value="${value//</&lt;}"
+  value="${value//>/&gt;}"
+  value="${value//\"/&quot;}"
+  printf "%s" "$value"
+}
+
+die() {
+  local message="$1"
+  echo "[installer] error: $message" >&2
+  notify_user "$APP_NAME installer failed" "$message"
+  exit 1
+}
+
+relaunch_in_terminal_if_needed
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
-TARGET_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
-TARGET_FILE="$TARGET_DIR/jvn-engine-hub.desktop"
+DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
+TARGET_DIR="$DATA_HOME/applications"
+APP_DATA_DIR="$DATA_HOME/$APP_ID"
+ICON_DIR="$DATA_HOME/icons/hicolor/scalable/apps"
+STATE_DIR="$STATE_HOME/$APP_ID"
+TARGET_FILE="$TARGET_DIR/$APP_ID.desktop"
+WRAPPER_FILE="$APP_DATA_DIR/$APP_ID-launcher.sh"
+ICON_FILE="$ICON_DIR/$APP_ID.svg"
+INSTALL_LOG_FILE="$STATE_DIR/install-linux-launcher.log"
+LAUNCH_LOG_FILE="$STATE_DIR/launcher.log"
 
-if [[ ! -x "$SCRIPT_DIR/jvn" ]]; then
-  echo "[installer] error: $SCRIPT_DIR/jvn not found or not executable." >&2
-  echo "            run: chmod +x jvn" >&2
+mkdir -p "$STATE_DIR"
+exec > >(tee -a "$INSTALL_LOG_FILE") 2>&1
+
+trap 'die "Installation stopped at line $LINENO. See $INSTALL_LOG_FILE for details."' ERR
+
+if [[ "${EUID:-$(id -u)}" -eq 0 && -z "${JVN_ALLOW_ROOT_INSTALL:-}" ]]; then
+  die "Do not run this installer with sudo. It installs only for the current desktop user."
+fi
+
+read_project_version() {
+  local version=""
+  if [[ -f "$SCRIPT_DIR/gradle.properties" ]]; then
+    version="$(sed -nE 's/^[[:space:]]*jvnVersion[[:space:]]*=[[:space:]]*([^[:space:]]+).*$/\1/p' "$SCRIPT_DIR/gradle.properties" | head -n 1)"
+  fi
+  if [[ -z "$version" && -f "$SCRIPT_DIR/build.gradle.kts" ]]; then
+    version="$(sed -nE 's/.*val[[:space:]]+jvnVersion[[:space:]]*=.*\?:[[:space:]]*"([^"]+)".*/\1/p' "$SCRIPT_DIR/build.gradle.kts" | head -n 1)"
+  fi
+  if [[ -z "$version" ]]; then
+    version="dev"
+  fi
+  printf "%s" "$version"
+}
+
+ensure_executable() {
+  local file="$1"
+  local label="$2"
+  if [[ ! -f "$file" ]]; then
+    die "$label was not found at: $file"
+  fi
+  if [[ ! -x "$file" ]]; then
+    echo "[installer] fixing executable bit: $file"
+    chmod u+x "$file"
+  fi
+  if [[ ! -x "$file" ]]; then
+    die "$label exists but is not executable: $file"
+  fi
+}
+
+write_icon() {
+  local version="$1"
+  local version_label="$version"
+  if [[ "$version_label" != v* ]]; then
+    version_label="v$version_label"
+  fi
+  version_label="$(xml_escape "$version_label")"
+
+  mkdir -p "$ICON_DIR"
+  cat > "$ICON_FILE" <<SVG
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="JVN ${version_label}">
+  <defs>
+    <linearGradient id="bg" x1="24" y1="24" x2="232" y2="232" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#121826"/>
+      <stop offset="0.55" stop-color="#1e2d4c"/>
+      <stop offset="1" stop-color="#0b111f"/>
+    </linearGradient>
+    <linearGradient id="mark" x1="56" y1="42" x2="204" y2="206" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffb35c"/>
+      <stop offset="0.48" stop-color="#ff6f3c"/>
+      <stop offset="1" stop-color="#4fb7ff"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000000" flood-opacity="0.42"/>
+    </filter>
+  </defs>
+  <rect x="18" y="18" width="220" height="220" rx="44" fill="url(#bg)" filter="url(#shadow)"/>
+  <path d="M62 70h36v72c0 28-17 46-45 46-8 0-17-2-25-6l7-29c5 3 10 4 15 4 8 0 12-5 12-15V70z" fill="url(#mark)"/>
+  <path d="M102 70h34l24 74 24-74h36l-44 118h-33L102 70z" fill="url(#mark)"/>
+  <path d="M72 207h112c15 0 27-12 27-27V67" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity="0.17"/>
+  <text x="128" y="126" text-anchor="middle" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="44" font-weight="800" fill="#ffffff" opacity="0.92">JVN</text>
+  <rect x="54" y="182" width="148" height="32" rx="16" fill="#07101f" opacity="0.74"/>
+  <text x="128" y="204" text-anchor="middle" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="700" fill="#ffcf91">${version_label}</text>
+</svg>
+SVG
+  chmod 0644 "$ICON_FILE"
+}
+
+write_wrapper() {
+  local project_q log_q
+  project_q="$(shell_quote "$SCRIPT_DIR")"
+  log_q="$(shell_quote "$LAUNCH_LOG_FILE")"
+
+  mkdir -p "$APP_DATA_DIR"
+  cat > "$WRAPPER_FILE" <<WRAPPER
+#!/usr/bin/env bash
+set -u
+
+PROJECT_DIR=$project_q
+LOG_FILE=$log_q
+
+pause_on_error() {
+  local status="\$1"
+  echo
+  echo "[JVN] Launcher failed with exit code \$status."
+  echo "[JVN] Log: \$LOG_FILE"
+  echo
+  if [[ -t 0 ]]; then
+    read -r -p "Press Enter to close..." _
+  else
+    sleep 12
+  fi
+}
+
+mkdir -p "\$(dirname -- "\$LOG_FILE")"
+{
+  echo "---- \$(date -Is) ----"
+  echo "[JVN] Project: \$PROJECT_DIR"
+  echo "[JVN] Starting Engine Hub..."
+} >> "\$LOG_FILE"
+
+cd "\$PROJECT_DIR" || {
+  echo "[JVN] Could not cd to project directory: \$PROJECT_DIR" | tee -a "\$LOG_FILE"
+  pause_on_error 1
+  exit 1
+}
+
+if [[ ! -x ./jvn ]]; then
+  echo "[JVN] Missing executable ./jvn in \$PROJECT_DIR" | tee -a "\$LOG_FILE"
+  echo "[JVN] Try running: chmod +x jvn gradlew" | tee -a "\$LOG_FILE"
+  pause_on_error 1
   exit 1
 fi
 
-ICON_PATH=""
-for candidate in \
-    "$SCRIPT_DIR/docs/assets/images/jvn_logo.png" \
-    "$SCRIPT_DIR/editor/src/main/resources/com/jvn/editor/images/jvn_logo.png"; do
-  if [[ -f "$candidate" ]]; then
-    ICON_PATH="$candidate"
-    break
-  fi
-done
+./jvn "\$@" 2>&1 | tee -a "\$LOG_FILE"
+status="\${PIPESTATUS[0]}"
 
-mkdir -p "$TARGET_DIR"
+if [[ "\$status" -ne 0 ]]; then
+  pause_on_error "\$status"
+fi
 
-cat > "$TARGET_FILE" <<DESKTOP
+exit "\$status"
+WRAPPER
+  chmod 0755 "$WRAPPER_FILE"
+}
+
+write_desktop_entry() {
+  mkdir -p "$TARGET_DIR"
+  cat > "$TARGET_FILE" <<DESKTOP
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=JVN Engine Hub
+Name=$APP_NAME
 GenericName=Game Engine Launcher
 Comment=Launch the Java Vector Nexus editor, runtime, build tasks, and updates
-Exec=$SCRIPT_DIR/jvn
-Path=$SCRIPT_DIR
-Icon=$ICON_PATH
+Exec=$(desktop_quote "$WRAPPER_FILE")
+TryExec=$(desktop_quote "$WRAPPER_FILE")
+Path=$(desktop_quote "$SCRIPT_DIR")
+Icon=$(desktop_quote "$ICON_FILE")
 Terminal=true
 Categories=Development;IDE;
 Keywords=JVN;Editor;Engine;Gradle;
 StartupNotify=false
 DESKTOP
+  chmod 0644 "$TARGET_FILE"
+}
 
-chmod +x "$TARGET_FILE"
+echo "[installer] Installing $APP_NAME for this user only. No sudo or password is required."
+echo "[installer] Project directory: $SCRIPT_DIR"
 
-# Some file managers require the trusted metadata flag before they'll show
-# the entry without a "Suspicious executable" warning. Best-effort only.
+ensure_executable "$SCRIPT_DIR/jvn" "JVN launcher script"
+ensure_executable "$SCRIPT_DIR/gradlew" "Gradle wrapper"
+
+version="$(read_project_version)"
+write_icon "$version"
+write_wrapper
+write_desktop_entry
+
 if command -v gio >/dev/null 2>&1; then
   gio set "$TARGET_FILE" metadata::trusted true 2>/dev/null || true
 fi
 
-# Refresh the desktop database so the new entry shows up immediately.
+if command -v desktop-file-validate >/dev/null 2>&1; then
+  desktop-file-validate "$TARGET_FILE" || true
+fi
+
 if command -v update-desktop-database >/dev/null 2>&1; then
   update-desktop-database "$TARGET_DIR" >/dev/null 2>&1 || true
 fi
 
-echo "[installer] installed: $TARGET_FILE"
-echo "[installer] you can now launch 'JVN Engine Hub' from your applications menu."
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+  gtk-update-icon-cache -q "$DATA_HOME/icons/hicolor" >/dev/null 2>&1 || true
+fi
+
+echo "[installer] installed desktop entry: $TARGET_FILE"
+echo "[installer] installed launcher wrapper: $WRAPPER_FILE"
+echo "[installer] installed SVG icon: $ICON_FILE"
+echo "[installer] install log: $INSTALL_LOG_FILE"
+echo "[installer] launch log: $LAUNCH_LOG_FILE"
+echo
+echo "Launch '$APP_NAME' from your applications menu."
+echo "If it still closes immediately, run this command in a terminal:"
+echo "  $WRAPPER_FILE"
+
+notify_user "$APP_NAME installed" "Launch it from your applications menu. Logs are in $STATE_DIR."
