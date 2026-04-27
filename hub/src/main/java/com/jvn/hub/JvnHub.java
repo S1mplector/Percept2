@@ -496,6 +496,9 @@ public final class JvnHub {
     buttons.add(makeAction("Run Tests", "Execute the full test suite.",
         VectorIcon.Kind.CHECK, false, () -> runGradle("test")));
 
+    buttons.add(makeAction("Build Shortcuts", "Install Start Menu / Applications shortcuts for this OS.",
+        VectorIcon.Kind.SHORTCUT, false, this::installShortcuts));
+
     buttons.add(makeAction("Update Engine", "git pull --rebase",
         VectorIcon.Kind.REFRESH, true, this::updateEngine));
 
@@ -613,6 +616,44 @@ public final class JvnHub {
     List<String> cmd = List.of("git", "pull", "--rebase");
     appendLog("$ " + String.join(" ", cmd));
     startProcess(cmd, "Update Engine");
+  }
+
+  private void installShortcuts() {
+    String os = System.getProperty("os.name", "").toLowerCase();
+    List<String> cmd = new ArrayList<>();
+    Path script;
+    String label = "Build Shortcuts";
+
+    if (os.contains("win")) {
+      script = projectRoot.resolve("install-windows-launcher.ps1");
+      String powershell = commandExists("pwsh") ? "pwsh" : "powershell";
+      cmd.add(powershell);
+      cmd.add("-NoProfile");
+      cmd.add("-ExecutionPolicy");
+      cmd.add("Bypass");
+      cmd.add("-File");
+      cmd.add(script.toAbsolutePath().toString());
+    } else if (os.contains("mac") || os.contains("darwin")) {
+      script = projectRoot.resolve("install-macos-launcher.sh");
+      cmd.add("bash");
+      cmd.add(script.toAbsolutePath().toString());
+    } else {
+      script = projectRoot.resolve("install-linux-launcher.sh");
+      cmd.add("env");
+      cmd.add("JVN_INSTALLER_TERMINAL=1");
+      cmd.add("bash");
+      cmd.add(script.toAbsolutePath().toString());
+    }
+
+    if (!Files.isRegularFile(script)) {
+      appendLog("[hub] shortcut installer not found: " + script.toAbsolutePath());
+      setStatus("Failed: " + label, ACCENT_ERROR);
+      return;
+    }
+
+    if (!acquire(label)) return;
+    appendLog("$ " + quoteCommandForLog(cmd));
+    startProcess(cmd, label);
   }
 
   private boolean acquire(String label) {
@@ -739,6 +780,45 @@ public final class JvnHub {
     String name = os.contains("win") ? "gradlew.bat" : "gradlew";
     Path wrapper = projectRoot.resolve(name);
     return wrapper.toAbsolutePath().toString();
+  }
+
+  private boolean commandExists(String command) {
+    if (command == null || command.isBlank()) return false;
+    String path = System.getenv("PATH");
+    if (path == null || path.isBlank()) return false;
+    String os = System.getProperty("os.name", "").toLowerCase();
+    String[] dirs = path.split(java.io.File.pathSeparator);
+    if (os.contains("win")) {
+      String pathext = System.getenv("PATHEXT");
+      String[] exts = pathext == null || pathext.isBlank()
+          ? new String[] { ".exe", ".cmd", ".bat", "" }
+          : pathext.toLowerCase().split(";");
+      for (String dir : dirs) {
+        for (String ext : exts) {
+          Path candidate = Paths.get(dir, command + ext);
+          if (Files.isRegularFile(candidate) || Files.isExecutable(candidate)) return true;
+        }
+      }
+      return false;
+    }
+    for (String dir : dirs) {
+      Path candidate = Paths.get(dir, command);
+      if (Files.isExecutable(candidate)) return true;
+    }
+    return false;
+  }
+
+  private static String quoteCommandForLog(List<String> command) {
+    if (command == null || command.isEmpty()) return "";
+    List<String> quoted = new ArrayList<>();
+    for (String part : command) {
+      if (part == null) continue;
+      boolean needsQuotes = part.isBlank()
+          || part.chars().anyMatch(Character::isWhitespace)
+          || part.contains("\"");
+      quoted.add(needsQuotes ? "\"" + part.replace("\"", "\\\"") + "\"" : part);
+    }
+    return String.join(" ", quoted);
   }
 
   private static String readVersion() {
@@ -954,7 +1034,7 @@ public final class JvnHub {
    * configurable so the same {@link Kind} can be reused across contexts.
    */
   private static final class VectorIcon implements Icon {
-    enum Kind { PLAY, EDIT, ROCKET, HAMMER, CHECK, REFRESH, STOP, CLOSE, BELL }
+    enum Kind { PLAY, EDIT, ROCKET, HAMMER, CHECK, REFRESH, STOP, CLOSE, BELL, SHORTCUT }
 
     private final Kind kind;
     private final int size;
@@ -1137,6 +1217,24 @@ public final class JvnHub {
                       (int) Math.round(s * 0.74f), (int) Math.round(s * 0.74f));
           g2.drawLine((int) Math.round(s * 0.74f), (int) Math.round(s * 0.26f),
                       (int) Math.round(s * 0.26f), (int) Math.round(s * 0.74f));
+        }
+        case SHORTCUT -> {
+          // Desktop/app shortcut: small window tile with a launch arrow.
+          float pad = s * 0.16f;
+          float corner = s * 0.08f;
+          g2.setStroke(new BasicStroke(strokeMain, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+          g2.draw(new RoundRectangle2D.Float(pad, pad, s * 0.58f, s * 0.58f, corner, corner));
+          g2.setStroke(new BasicStroke(strokeBold, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+          Path2D arrow = new Path2D.Float();
+          arrow.moveTo(s * 0.42f, s * 0.68f);
+          arrow.lineTo(s * 0.82f, s * 0.28f);
+          g2.draw(arrow);
+          Path2D head = new Path2D.Float();
+          head.moveTo(s * 0.82f, s * 0.28f);
+          head.lineTo(s * 0.80f, s * 0.52f);
+          head.lineTo(s * 0.58f, s * 0.30f);
+          head.closePath();
+          g2.fill(head);
         }
         case BELL -> {
           // Top stem (the loop where a real bell would hang).
