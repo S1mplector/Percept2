@@ -595,7 +595,7 @@ public class RuntimeVnInterop implements VnInterop {
       }
       String arc = target.substring(0, colon);
       String label = target.substring(colon + 1);
-      String script = arc.contains(".") ? arc : arc + ".vns";
+      String script = arc.contains(".") ? arc : resolveArcScript(arc, arc + ".vns");
       try {
         VnScene newScene = loadVnScene(script, scene);
         if (newScene != null) {
@@ -649,6 +649,30 @@ public class RuntimeVnInterop implements VnInterop {
     dst.setAutoPlayDelay(src.getAutoPlayDelay());
     dst.setSkipUnreadText(src.isSkipUnreadText());
     dst.setSkipAfterChoices(src.isSkipAfterChoices());
+  }
+
+  private String resolveArcScript(String arcName, String fallback) {
+    if (arcName == null || arcName.isBlank()) return fallback;
+    String projectRoot = System.getProperty("jvn.assets.root");
+    if (projectRoot == null || projectRoot.isBlank()) return fallback;
+    File timelineFile = new File(projectRoot, "config/timeline/story.timeline");
+    if (!timelineFile.isFile()) return fallback;
+    java.util.regex.Pattern arcPattern = java.util.regex.Pattern.compile(
+        "^\\s*arc\\s+(?:\"([^\"]+)\"|(\\S+))\\s+script\\s+(?:\"([^\"]+)\"|(\\S+)).*$");
+    try {
+      for (String line : java.nio.file.Files.readAllLines(timelineFile.toPath())) {
+        if (line == null || line.trim().isEmpty() || line.trim().startsWith("#")) continue;
+        java.util.regex.Matcher m = arcPattern.matcher(line.trim());
+        if (!m.matches()) continue;
+        String arc = m.group(1) != null ? m.group(1) : m.group(2);
+        String script = m.group(3) != null ? m.group(3) : m.group(4);
+        if (arcName.equalsIgnoreCase(arc != null ? arc.trim() : "")) {
+          return script;
+        }
+      }
+    } catch (Exception ignored) {
+    }
+    return fallback;
   }
 
   // --- VN Character → Entity2D proxy bridge ---

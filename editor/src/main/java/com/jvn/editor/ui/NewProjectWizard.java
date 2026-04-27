@@ -2133,6 +2133,7 @@ public class NewProjectWizard extends Stage {
 
       fw.write("link " + ARC_PROLOGUE + ":route_tutorial -> " + ARC_TUTORIAL_HUB + ":start\n");
       fw.write("link " + ARC_PROLOGUE + ":route_branch -> " + ARC_BRANCH_DEMO + ":start\n");
+      fw.write("link " + ARC_BRANCH_DEMO + ":end -> " + ARC_EPILOGUE + ":start\n");
 
       if (includeTutorialPack) {
         fw.write("link " + ARC_TUTORIAL_HUB + ":open_dialogue -> " + ARC_T01_DIALOGUE + ":start\n");
