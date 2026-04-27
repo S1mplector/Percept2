@@ -3123,6 +3123,9 @@ public class PuppeteerWindow extends Stage {
         final Runnable[] showInitialActions = {null};
         final Runnable[] showRecordingActions = {null};
         final Runnable[] showFinishedActions = {null};
+        // Captured at record-start so the post-export Reveal button can target it
+        // even after the user typed something else into the directory field afterwards.
+        final File[] lastOutputDir = {null};
         final java.util.concurrent.atomic.AtomicReference<java.util.function.Consumer<String>> showErrorAction =
             new java.util.concurrent.atomic.AtomicReference<>();
 
@@ -3169,6 +3172,10 @@ public class PuppeteerWindow extends Stage {
                 outW, outH);
 
             if (project.isPlaying()) pause();
+
+            // Snapshot the output folder so the finished-state Reveal action survives
+            // the user editing the directory field after recording completes.
+            lastOutputDir[0] = outputDir;
 
             tfBaseName.setDisable(true);
             tfOutputDir.setDisable(true);
@@ -3239,7 +3246,23 @@ public class PuppeteerWindow extends Stage {
             "Recording Complete",
             "Files were written to disk.",
             content,
-            ActionEditorDialogOverlay.ActionSpec.accent("Close", overlayDialog::hideOverlay));
+            ActionEditorDialogOverlay.ActionSpec.accent("Reveal in Folder", () -> {
+                File dir = lastOutputDir[0];
+                if (dir == null || !dir.isDirectory()) {
+                    lblStatus.setText("Output folder is no longer available.");
+                    return;
+                }
+                try {
+                    if (java.awt.Desktop.isDesktopSupported()) {
+                        java.awt.Desktop.getDesktop().open(dir);
+                    } else {
+                        lblStatus.setText("Desktop integration is unavailable in this environment.");
+                    }
+                } catch (Exception ex) {
+                    lblStatus.setText("Could not open folder: " + ex.getMessage());
+                }
+            }),
+            ActionEditorDialogOverlay.ActionSpec.neutral("Close", overlayDialog::hideOverlay));
 
         showErrorAction.set(errorMessage -> {
             lblStatus.setText("Recording failed: " + errorMessage);
