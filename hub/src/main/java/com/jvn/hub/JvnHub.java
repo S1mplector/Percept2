@@ -505,36 +505,33 @@ public final class JvnHub {
     buttons.add(makeAction("Update Engine", "git pull --rebase",
         VectorIcon.Kind.REFRESH, true, this::updateEngine));
 
-    JPanel center = new JPanel(new BorderLayout(0, 10));
+    JPanel center = new JPanel(new BorderLayout(0, 8));
     center.setBackground(BG);
     center.add(buttons, BorderLayout.NORTH);
-    center.add(buildActivityPanel(), BorderLayout.CENTER);
+    center.add(buildActivityPanel(), BorderLayout.SOUTH);
     return center;
   }
 
   private JPanel buildActivityPanel() {
     activityTitle.setForeground(TEXT_PRIMARY);
-    activityTitle.setFont(activityTitle.getFont().deriveFont(Font.BOLD, 15f));
+    activityTitle.setFont(activityTitle.getFont().deriveFont(Font.BOLD, 12f));
     activityDetail.setForeground(TEXT_MUTED);
-    activityDetail.setFont(activityDetail.getFont().deriveFont(Font.PLAIN, 11f));
+    activityDetail.setFont(activityDetail.getFont().deriveFont(Font.PLAIN, 10f));
 
-    JPanel text = new JPanel();
+    JPanel text = new JPanel(new BorderLayout(10, 0));
     text.setBackground(PANEL_BG);
-    text.setLayout(new BoxLayout(text, BoxLayout.Y_AXIS));
-    activityTitle.setAlignmentX(Component.LEFT_ALIGNMENT);
-    activityDetail.setAlignmentX(Component.LEFT_ALIGNMENT);
-    text.add(activityTitle);
-    text.add(Box.createVerticalStrut(4));
-    text.add(activityDetail);
+    text.add(activityTitle, BorderLayout.WEST);
+    text.add(activityDetail, BorderLayout.CENTER);
 
-    JPanel panel = new JPanel(new BorderLayout(14, 0));
+    JPanel panel = new JPanel(new BorderLayout(10, 0));
     panel.setBackground(PANEL_BG);
     panel.setBorder(BorderFactory.createCompoundBorder(
         BorderFactory.createLineBorder(BORDER_NEUTRAL),
-        new EmptyBorder(18, 18, 18, 18)));
+        new EmptyBorder(8, 10, 8, 12)));
     panel.add(activitySpinner, BorderLayout.WEST);
     panel.add(text, BorderLayout.CENTER);
-    panel.setPreferredSize(new Dimension(0, 112));
+    panel.setPreferredSize(new Dimension(0, 42));
+    panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
     return panel;
   }
 
@@ -952,9 +949,9 @@ public final class JvnHub {
 
     ActivitySpinner() {
       setOpaque(false);
-      setPreferredSize(new Dimension(54, 54));
-      setMinimumSize(new Dimension(54, 54));
-      setMaximumSize(new Dimension(54, 54));
+      setPreferredSize(new Dimension(24, 24));
+      setMinimumSize(new Dimension(24, 24));
+      setMaximumSize(new Dimension(24, 24));
     }
 
     void setActive(boolean active) {
@@ -977,11 +974,11 @@ public final class JvnHub {
       int h = getHeight();
       float cx = w / 2f;
       float cy = h / 2f;
-      float radius = Math.min(w, h) * 0.32f;
+      float radius = Math.min(w, h) * 0.34f;
 
       g2.setColor(active ? Color.decode("#07101f") : BG);
-      g2.fillOval(Math.round(cx - radius - 9), Math.round(cy - radius - 9),
-          Math.round((radius + 9) * 2), Math.round((radius + 9) * 2));
+      g2.fillOval(Math.round(cx - radius - 4), Math.round(cy - radius - 4),
+          Math.round((radius + 4) * 2), Math.round((radius + 4) * 2));
 
       for (int i = 0; i < 12; i++) {
         int age = active ? Math.floorMod(i - frame, 12) : i;
@@ -989,18 +986,18 @@ public final class JvnHub {
         double angle = (Math.PI * 2.0 * i / 12.0) - Math.PI / 2.0;
         float x = cx + (float) Math.cos(angle) * radius;
         float y = cy + (float) Math.sin(angle) * radius;
-        int dot = active && age == 0 ? 7 : 5;
+        int dot = active && age == 0 ? 4 : 3;
         g2.setColor(withAlpha(active ? ACCENT_BLUE : TEXT_MUTED, Math.min(1.0f, alpha)));
         g2.fillOval(Math.round(x - dot / 2f), Math.round(y - dot / 2f), dot, dot);
       }
 
       if (!active) {
         g2.setColor(ACCENT_GREEN);
-        g2.setStroke(new BasicStroke(2.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         Path2D check = new Path2D.Float();
-        check.moveTo(cx - 8, cy);
-        check.lineTo(cx - 2, cy + 7);
-        check.lineTo(cx + 11, cy - 8);
+        check.moveTo(cx - 6, cy);
+        check.lineTo(cx - 1, cy + 5);
+        check.lineTo(cx + 7, cy - 6);
         g2.draw(check);
       }
       g2.dispose();
