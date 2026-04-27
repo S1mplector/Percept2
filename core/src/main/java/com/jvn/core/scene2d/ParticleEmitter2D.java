@@ -385,13 +385,17 @@ public class ParticleEmitter2D extends Entity2D {
     for (Particle p : particles) {
       b.push();
       b.translate(p.x, p.y);
-      b.rotateDeg(p.rotation);
       b.setGlobalAlpha(p.a);
-      
+
       if (texture != null) {
+        // Textured quads honour per-particle rotation so authored sprites can spin.
+        b.rotateDeg(p.rotation);
         double hs = p.size / 2;
         b.drawImage(texture, -hs, -hs, p.size, p.size);
       } else if (renderMode == RenderMode.STREAK) {
+        // Streaks self-orient along their velocity vector; applying the random
+        // per-particle rotation here would scramble that alignment, which is
+        // why rain previously rendered as a starburst instead of vertical lines.
         double speed = Math.hypot(p.vx, p.vy);
         double len = Math.max(p.size * 3.0, speed * streakLengthScale);
         double ux = speed > 1e-6 ? p.vx / speed : 0.0;
@@ -401,10 +405,12 @@ public class ParticleEmitter2D extends Entity2D {
         b.setStrokeCap("round");
         b.drawLine(-ux * len, -uy * len, ux * len * 0.18, uy * len * 0.18);
       } else {
+        // Filled circles are rotation-invariant — skip the rotate to avoid
+        // pointless transform churn.
         b.setFill(p.r, p.g, p.b, p.a);
         b.fillCircle(0, 0, p.size / 2);
       }
-      
+
       b.pop();
     }
     

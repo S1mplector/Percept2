@@ -56,7 +56,9 @@ public class ParticleFxToolView extends BorderPane {
   private long lastPreviewNanos = 0L;
 
   public ParticleFxToolView() {
-    getStyleClass().add("particle-fx-tool-view");
+    // Reuse the editor settings sidebar style namespace so spinners, combos,
+    // checks, and text fields render identically to the Editor Settings tool.
+    getStyleClass().addAll("editor-settings-view", "particle-fx-tool-view");
 
     presetCombo.getItems().addAll(
         VnParticleCommand.Preset.SNOW,
@@ -67,20 +69,23 @@ public class ParticleFxToolView extends BorderPane {
         VnParticleCommand.Preset.LEAVES);
     presetCombo.getSelectionModel().select(VnParticleCommand.Preset.RAIN);
     presetCombo.setMaxWidth(Double.MAX_VALUE);
+    presetCombo.getStyleClass().add("editor-settings-combo");
 
     layerSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(-1000, 1000, 100, 10));
     speedSpinner.setValueFactory(new SpinnerValueFactory.DoubleSpinnerValueFactory(0.0, 10.0, 1.0, 0.05));
     windSpinner.setValueFactory(new SpinnerValueFactory.DoubleSpinnerValueFactory(-1000.0, 1000.0, 0.0, 5.0));
     durationSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(0, 600000, 0, 500));
-    layerSpinner.setEditable(true);
-    speedSpinner.setEditable(true);
-    windSpinner.setEditable(true);
-    durationSpinner.setEditable(true);
+    for (Spinner<?> spinner : new Spinner<?>[] { layerSpinner, speedSpinner, windSpinner, durationSpinner }) {
+      spinner.setEditable(true);
+      spinner.setMaxWidth(Double.MAX_VALUE);
+      spinner.getStyleClass().add("editor-settings-spinner");
+    }
 
     commandField.setEditable(false);
-    commandField.getStyleClass().add("particle-fx-command-field");
+    commandField.getStyleClass().addAll("editor-settings-text-field", "particle-fx-command-field");
     HBox.setHgrow(commandField, Priority.ALWAYS);
 
+    tintCheck.getStyleClass().add("editor-settings-check");
     tintPicker.disableProperty().bind(tintCheck.selectedProperty().not());
 
     GridPane controls = new GridPane();

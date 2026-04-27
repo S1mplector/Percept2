@@ -157,29 +157,39 @@ public final class VnParticlePresetLibrary {
 
     emitter.setEmitting(true);
     emitter.setZ(cmd.getLayer());
-    emitter.setPosition(width * 0.5, -height * 0.16);
-    emitter.setSpawnArea(-width * 0.68, width * 0.68, -height * 0.10, height * 0.02);
-    emitter.setMaxParticles(clampMax((int) Math.round(360 * i)));
-    emitter.setEmissionRate(320.0 * i);
+    // Spawn line straddles the top edge of the viewport. The vertical band
+    // gives newly-spawned drops a small head-start so even the first frame
+    // looks populated instead of an empty sky waiting for rain to arrive.
+    emitter.setPosition(width * 0.5, -height * 0.18);
+    emitter.setSpawnArea(-width * 0.72, width * 0.72, -height * 0.08, height * 0.05);
+    emitter.setMaxParticles(clampMax((int) Math.round(440 * i)));
+    emitter.setEmissionRate(380.0 * i);
 
-    emitter.setLifeRange(0.55, 0.90);
-    emitter.setSizeRange(0.9, 1.7, 0.8);
+    // Lifetime tuned so a drop traverses the full visible scene at default
+    // speed — no more bottom band of empty space below the rain front.
+    emitter.setLifeRange(0.95, 1.30);
+    emitter.setSizeRange(1.2, 2.0, 0.95);
 
-    // Slightly slanted downward cone — enough directionality to feel windy
-    // without turning default rain into diagonal speed lines.
-    emitter.setAngleRange(82.0, 94.0);
-    emitter.setSpeedRange(720.0 * speedScale, 980.0 * speedScale);
+    // Mostly straight down. The previous 82–94° cone collapsed to dot-like
+    // streaks because the rotation bug masked any orientation; with the bug
+    // fixed, a slightly wider cone reads as natural variance.
+    emitter.setAngleRange(84.0, 96.0);
+    emitter.setSpeedRange(950.0 * speedScale, 1200.0 * speedScale);
 
-    emitter.setGravity(650.0);
+    // Real rain hits terminal velocity quickly. A modest gravity gives a
+    // subtle accel without the previous "second half is twice as fast as the
+    // first half" inconsistency.
+    emitter.setGravity(220.0);
     emitter.setWindX(cmd.getWindX());
     emitter.setAdditive(false);
     emitter.setTexture(null);
     emitter.setRenderMode(ParticleEmitter2D.RenderMode.STREAK);
-    emitter.setStreakLengthScale(0.045);
+    emitter.setStreakLengthScale(0.060);
 
-    // Cool, slightly desaturated blue → fades transparent.
-    setColors(emitter, cmd, /*r*/0.72, /*g*/0.82, /*b*/0.95,
-        /*startA*/0.48, /*endR*/0.58, /*endG*/0.70, /*endB*/0.90, /*endA*/0.0);
+    // Cool, slightly desaturated blue → fades transparent. Higher start alpha
+    // makes the rain read as actual weather instead of a faint shimmer.
+    setColors(emitter, cmd, /*r*/0.78, /*g*/0.86, /*b*/0.98,
+        /*startA*/0.62, /*endR*/0.62, /*endG*/0.74, /*endB*/0.92, /*endA*/0.0);
   }
 
   // ──────────────────────────────────────────────────────────────────────────

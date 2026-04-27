@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import org.junit.jupiter.api.Test;
 
 import com.jvn.core.scene2d.ParticleEmitter2D;
@@ -67,13 +66,16 @@ public class VnParticlePresetLibraryTest {
     assertTrue(emitter.isEmitting());
     assertFalse(emitter.isAdditive());
     assertEquals(ParticleEmitter2D.RenderMode.STREAK, emitter.getRenderMode());
-    assertEquals(0.045, emitter.getStreakLengthScale(), 0.0001);
-    assertEquals(864.0, emitter.getMinSpeed(), 0.0001);
-    assertEquals(1176.0, emitter.getMaxSpeed(), 0.0001);
-    assertEquals(82.0, emitter.getMinAngle(), 0.0001);
-    assertEquals(94.0, emitter.getMaxAngle(), 0.0001);
+    assertEquals(0.060, emitter.getStreakLengthScale(), 0.0001);
+    assertEquals(1140.0, emitter.getMinSpeed(), 0.0001);
+    assertEquals(1440.0, emitter.getMaxSpeed(), 0.0001);
+    assertEquals(84.0, emitter.getMinAngle(), 0.0001);
+    assertEquals(96.0, emitter.getMaxAngle(), 0.0001);
     assertEquals(24.0, emitter.getWindX(), 0.0001);
-    assertEquals(0.48, emitter.getStartA(), 0.0001);
+    assertEquals(0.62, emitter.getStartA(), 0.0001);
+    assertEquals(220.0, emitter.getGravityY(), 0.0001);
+    assertEquals(1.2, emitter.getMinSize(), 0.0001);
+    assertEquals(2.0, emitter.getMaxSize(), 0.0001);
   }
 
   @Test
