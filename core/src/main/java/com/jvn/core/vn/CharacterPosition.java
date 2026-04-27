@@ -56,7 +56,7 @@ public final class CharacterPosition {
   /** Try to resolve a predefined constant by name (case-insensitive). Returns null if not found. */
   public static CharacterPosition predefined(String token) {
     if (token == null || token.isBlank()) return null;
-    return switch (token.trim().toUpperCase()) {
+    return switch (token.trim().toUpperCase(java.util.Locale.ENGLISH)) {
       case "FAR_LEFT", "FL", "FARLEFT" -> FAR_LEFT;
       case "LEFT", "L"                 -> LEFT;
       case "CENTER", "C", "CENTRE"     -> CENTER;

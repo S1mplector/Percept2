@@ -30,6 +30,19 @@ final class GradleWorkspaceLayout {
     if (workspaceRoot == null || key == null || key.isBlank()) return null;
     Path propsPath = workspaceRoot.resolve("gradle.properties");
     if (!Files.isRegularFile(propsPath)) return null;
+
+    try {
+      String content = Files.readString(propsPath);
+      String prefix = key + "=";
+      for (String line : content.split("\\r?\\n")) {
+        if (line.startsWith(prefix)) {
+          return line.substring(prefix.length());
+        }
+      }
+    } catch (Exception ignore) {
+      // Fall back to Properties if manual parsing fails
+    }
+
     Properties props = new Properties();
     try (InputStream in = Files.newInputStream(propsPath)) {
       props.load(in);
