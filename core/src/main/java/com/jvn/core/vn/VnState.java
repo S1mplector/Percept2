@@ -9,7 +9,6 @@ import java.util.Set;
 
 import com.jvn.core.animation.Easing;
 import com.jvn.core.animation.TimelineRunner;
-import com.jvn.core.tween.Easings;
 import com.jvn.core.vn.rollback.VnRollbackStack;
 import com.jvn.core.vn.ui.VnOverlayScreenSpec;
 
@@ -776,7 +775,7 @@ public class VnState {
         elapsedMs = durationMs;
       }
       double t = elapsedMs / (double) durationMs;
-      double k = easingType != null ? Easing.apply(easingType, t) : Easings.easeOutQuad(t);
+      double k = Easing.apply(easingType != null ? easingType : Easing.Type.EASE_OUT_QUAD, t);
       alpha = lerp(startAlpha, endAlpha, k);
       offsetX = lerp(startOffsetX, endOffsetX, k);
       offsetY = lerp(startOffsetY, endOffsetY, k);
