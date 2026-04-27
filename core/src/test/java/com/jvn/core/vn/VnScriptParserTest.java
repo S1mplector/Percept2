@@ -754,6 +754,32 @@ public class VnScriptParserTest {
   }
 
   @Test
+  public void particlesCommandSupportsFxShapingOptionsAndAliases() throws Exception {
+    String script = """
+      @label start
+      [pfx snow intensity=0.6 layer=90 opacity=0.35 speed=1.25 wind=-18 duration=2500 tint=#88aaff]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario = parser.parseFromString(script);
+    VnParticleCommand command = scenario.getNodes().stream()
+        .filter(n -> n.getParticleCommand() != null)
+        .findFirst()
+        .orElseThrow()
+        .getParticleCommand();
+
+    assertEquals(VnParticleCommand.Preset.SNOW, command.getPreset());
+    assertEquals(0.6f, command.getIntensity(), 0.0001f);
+    assertEquals(90, command.getLayer());
+    assertEquals(0.35, command.getOpacityScale(), 0.0001);
+    assertEquals(1.25, command.getSpeedScale(), 0.0001);
+    assertEquals(-18.0, command.getWindX(), 0.0001);
+    assertEquals(2500L, command.getDurationMs());
+    assertEquals(0x0088AAFF, command.getTintArgb());
+  }
+
+  @Test
   public void weatherCommandSupportsNamedOptionsAndStopAlias() throws Exception {
     String script = """
       @label start

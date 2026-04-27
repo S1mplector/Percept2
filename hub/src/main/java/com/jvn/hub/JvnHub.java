@@ -16,11 +16,13 @@ import java.awt.Insets;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Shape;
-import java.awt.Stroke;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.awt.geom.AffineTransform;
+import java.awt.geom.Arc2D;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
+import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -978,128 +980,183 @@ public final class JvnHub {
       g2.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
       g2.translate(x, y);
       g2.setColor(color);
-      Stroke thick = new BasicStroke(1.7f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
-      g2.setStroke(thick);
       float s = size;
+      // Strokes are sized as a fraction of the icon so all icons read consistently
+      // at any size and never look hairline at large sizes.
+      float strokeMain = Math.max(1.4f, s * 0.10f);
+      float strokeBold = Math.max(1.6f, s * 0.13f);
+      g2.setStroke(new BasicStroke(strokeMain, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
 
       switch (kind) {
         case PLAY -> {
+          // Equilateral-ish triangle, fill + stroke gives slightly rounded corners.
           Path2D tri = new Path2D.Float();
-          tri.moveTo(s * 0.25f, s * 0.15f);
-          tri.lineTo(s * 0.85f, s * 0.50f);
-          tri.lineTo(s * 0.25f, s * 0.85f);
+          tri.moveTo(s * 0.30f, s * 0.20f);
+          tri.lineTo(s * 0.80f, s * 0.50f);
+          tri.lineTo(s * 0.30f, s * 0.80f);
           tri.closePath();
+          g2.setStroke(new BasicStroke(s * 0.14f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+          g2.draw(tri);
           g2.fill(tri);
         }
         case EDIT -> {
-          // Pencil along the main diagonal.
-          Path2D body = new Path2D.Float();
-          body.moveTo(s * 0.15f, s * 0.85f);
-          body.lineTo(s * 0.55f, s * 0.45f);
-          body.lineTo(s * 0.85f, s * 0.15f);
-          body.lineTo(s * 0.95f, s * 0.25f);
-          body.lineTo(s * 0.45f, s * 0.75f);
-          body.closePath();
-          g2.draw(body);
-          // Tip fill.
+          // Pencil drawn vertically into a rotated frame, then tilted -45°
+          // (eraser at top-right, graphite tip at bottom-left).
+          AffineTransform saved = g2.getTransform();
+          g2.translate(s * 0.50f, s * 0.50f);
+          g2.rotate(Math.PI / 4);
+
+          float w = s * 0.22f;          // pencil width
+          float halfBody = s * 0.24f;   // half the wood body length
+          float eraserH = s * 0.08f;
+          float ferruleH = s * 0.04f;
+          float tipH = s * 0.12f;
+          float corner = s * 0.04f;
+
+          // Eraser — small rounded rectangle above the wood body.
+          g2.fill(new RoundRectangle2D.Float(
+              -w / 2f, -halfBody - eraserH - ferruleH,
+              w, eraserH, corner, corner));
+          // Ferrule (metal band) — same width, no rounding.
+          g2.fillRect(
+              (int) Math.round(-w / 2f), (int) Math.round(-halfBody - ferruleH),
+              (int) Math.round(w), (int) Math.round(ferruleH));
+          // Wood body — long rectangle.
+          g2.fillRect(
+              (int) Math.round(-w / 2f), (int) Math.round(-halfBody),
+              (int) Math.round(w), (int) Math.round(halfBody * 2));
+          // Graphite tip — triangle below the body.
           Path2D tip = new Path2D.Float();
-          tip.moveTo(s * 0.10f, s * 0.90f);
-          tip.lineTo(s * 0.25f, s * 0.75f);
-          tip.lineTo(s * 0.35f, s * 0.85f);
+          tip.moveTo(-w / 2f, halfBody);
+          tip.lineTo(0f, halfBody + tipH);
+          tip.lineTo(w / 2f, halfBody);
           tip.closePath();
           g2.fill(tip);
+
+          g2.setTransform(saved);
         }
         case ROCKET -> {
-          // Simple rocket silhouette.
+          // Pointed-nose capsule with two angled side fins and a small tail flame.
           Path2D body = new Path2D.Float();
-          body.moveTo(s * 0.50f, s * 0.10f);
-          body.curveTo(s * 0.80f, s * 0.30f, s * 0.80f, s * 0.55f, s * 0.65f, s * 0.80f);
-          body.lineTo(s * 0.35f, s * 0.80f);
-          body.curveTo(s * 0.20f, s * 0.55f, s * 0.20f, s * 0.30f, s * 0.50f, s * 0.10f);
+          body.moveTo(s * 0.50f, s * 0.08f);
+          body.curveTo(s * 0.66f, s * 0.18f, s * 0.66f, s * 0.32f, s * 0.66f, s * 0.42f);
+          body.lineTo(s * 0.66f, s * 0.74f);
+          body.lineTo(s * 0.34f, s * 0.74f);
+          body.lineTo(s * 0.34f, s * 0.42f);
+          body.curveTo(s * 0.34f, s * 0.32f, s * 0.34f, s * 0.18f, s * 0.50f, s * 0.08f);
           body.closePath();
-          g2.draw(body);
-          g2.draw(new Ellipse2D.Float(s * 0.42f, s * 0.35f, s * 0.16f, s * 0.16f));
-          // Fins.
+          g2.fill(body);
+
+          // Side fins — sweep down and out from the lower body.
           Path2D finL = new Path2D.Float();
-          finL.moveTo(s * 0.35f, s * 0.65f);
-          finL.lineTo(s * 0.15f, s * 0.90f);
-          finL.lineTo(s * 0.35f, s * 0.85f);
+          finL.moveTo(s * 0.34f, s * 0.56f);
+          finL.lineTo(s * 0.16f, s * 0.84f);
+          finL.lineTo(s * 0.34f, s * 0.78f);
           finL.closePath();
           g2.fill(finL);
+
           Path2D finR = new Path2D.Float();
-          finR.moveTo(s * 0.65f, s * 0.65f);
-          finR.lineTo(s * 0.85f, s * 0.90f);
-          finR.lineTo(s * 0.65f, s * 0.85f);
+          finR.moveTo(s * 0.66f, s * 0.56f);
+          finR.lineTo(s * 0.84f, s * 0.84f);
+          finR.lineTo(s * 0.66f, s * 0.78f);
           finR.closePath();
           g2.fill(finR);
+
+          // Tail flame — small downward triangle exiting the bottom of the body.
+          Path2D flame = new Path2D.Float();
+          flame.moveTo(s * 0.42f, s * 0.78f);
+          flame.lineTo(s * 0.50f, s * 0.92f);
+          flame.lineTo(s * 0.58f, s * 0.78f);
+          flame.closePath();
+          g2.fill(flame);
         }
         case HAMMER -> {
-          // Head.
-          Path2D head = new Path2D.Float();
-          head.moveTo(s * 0.10f, s * 0.20f);
-          head.lineTo(s * 0.65f, s * 0.20f);
-          head.lineTo(s * 0.65f, s * 0.45f);
-          head.lineTo(s * 0.10f, s * 0.45f);
-          head.closePath();
-          g2.fill(head);
-          // Handle.
-          g2.setStroke(new BasicStroke(2.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-          g2.drawLine((int) (s * 0.55f), (int) (s * 0.45f), (int) (s * 0.90f), (int) (s * 0.90f));
+          // Classic T-shape: wide rounded head sitting on a vertical handle.
+          float headW = s * 0.72f;
+          float headH = s * 0.26f;
+          float headX = (s - headW) / 2f;
+          float headY = s * 0.18f;
+          float handleW = s * 0.18f;
+          float handleX = (s - handleW) / 2f;
+          float handleY = headY + headH - s * 0.02f;
+          float handleH = s - handleY - s * 0.10f;
+          float corner = s * 0.06f;
+
+          g2.fill(new RoundRectangle2D.Float(headX, headY, headW, headH, corner, corner));
+          g2.fill(new RoundRectangle2D.Float(handleX, handleY, handleW, handleH, corner, corner));
         }
         case CHECK -> {
+          // Bold tick with rounded joins; balanced inside the icon box.
           Path2D check = new Path2D.Float();
-          check.moveTo(s * 0.15f, s * 0.55f);
-          check.lineTo(s * 0.40f, s * 0.80f);
-          check.lineTo(s * 0.85f, s * 0.25f);
-          g2.setStroke(new BasicStroke(2.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+          check.moveTo(s * 0.18f, s * 0.52f);
+          check.lineTo(s * 0.42f, s * 0.76f);
+          check.lineTo(s * 0.84f, s * 0.28f);
+          g2.setStroke(new BasicStroke(strokeBold, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
           g2.draw(check);
         }
         case REFRESH -> {
-          // Circular arrow.
-          float r = s * 0.35f;
+          // Open circle with a tangent arrowhead at the start, pointing into the rotation direction.
+          float r = s * 0.34f;
           float cx = s * 0.50f;
           float cy = s * 0.50f;
-          Shape arc = new java.awt.geom.Arc2D.Float(
-              cx - r, cy - r, r * 2, r * 2, 45f, 270f, java.awt.geom.Arc2D.OPEN);
-          g2.setStroke(new BasicStroke(1.9f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+          // Arc spans 290° starting at 50° (top-right gap) — leaves room for the arrow.
+          Shape arc = new Arc2D.Float(cx - r, cy - r, r * 2f, r * 2f, 50f, 290f, Arc2D.OPEN);
+          g2.setStroke(new BasicStroke(strokeBold, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
           g2.draw(arc);
-          // Arrow head at the start of the arc (top-right quadrant).
-          double theta = Math.toRadians(45);
+
+          // Arrowhead at the arc's start point (50°), pointing tangent to the circle.
+          double theta = Math.toRadians(50);
           float ax = (float) (cx + r * Math.cos(theta));
           float ay = (float) (cy - r * Math.sin(theta));
+          // Tangent direction for clockwise traversal at this point: (sin θ, cos θ) in screen coords.
+          float tx = (float) Math.sin(theta);
+          float ty = (float) Math.cos(theta);
+          // Perpendicular for arrow width.
+          float px = -ty;
+          float py = tx;
+          float headLen = s * 0.22f;
+          float headWid = s * 0.11f;
           Path2D head = new Path2D.Float();
-          head.moveTo(ax, ay);
-          head.lineTo(ax - s * 0.14f, ay - s * 0.04f);
-          head.lineTo(ax - s * 0.06f, ay + s * 0.14f);
+          head.moveTo(ax + tx * headLen * 0.5f, ay + ty * headLen * 0.5f);
+          head.lineTo(ax - tx * headLen * 0.5f + px * headWid,
+                      ay - ty * headLen * 0.5f + py * headWid);
+          head.lineTo(ax - tx * headLen * 0.5f - px * headWid,
+                      ay - ty * headLen * 0.5f - py * headWid);
           head.closePath();
           g2.fill(head);
         }
         case STOP -> {
-          float pad = s * 0.2f;
-          g2.fillRoundRect((int) pad, (int) pad,
-              (int) (s - pad * 2), (int) (s - pad * 2), 2, 2);
+          // Slightly-rounded filled square; corner radius scales with icon size.
+          float pad = s * 0.22f;
+          float r = s * 0.10f;
+          g2.fill(new RoundRectangle2D.Float(pad, pad, s - pad * 2f, s - pad * 2f, r, r));
         }
         case CLOSE -> {
-          g2.setStroke(new BasicStroke(1.9f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-          g2.drawLine((int) (s * 0.2f), (int) (s * 0.2f),
-              (int) (s * 0.8f), (int) (s * 0.8f));
-          g2.drawLine((int) (s * 0.8f), (int) (s * 0.2f),
-              (int) (s * 0.2f), (int) (s * 0.8f));
+          g2.setStroke(new BasicStroke(strokeBold, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+          g2.drawLine((int) Math.round(s * 0.26f), (int) Math.round(s * 0.26f),
+                      (int) Math.round(s * 0.74f), (int) Math.round(s * 0.74f));
+          g2.drawLine((int) Math.round(s * 0.74f), (int) Math.round(s * 0.26f),
+                      (int) Math.round(s * 0.26f), (int) Math.round(s * 0.74f));
         }
         case BELL -> {
-          // Stem at top.
-          g2.fillRect((int) (s * 0.46f), (int) (s * 0.08f),
-              (int) (s * 0.10f), (int) (s * 0.08f));
-          // Bell body: dome flaring out to a wide flange.
+          // Top stem (the loop where a real bell would hang).
+          float stemW = s * 0.12f;
+          float stemH = s * 0.08f;
+          g2.fill(new RoundRectangle2D.Float(
+              (s - stemW) / 2f, s * 0.06f, stemW, stemH, s * 0.04f, s * 0.04f));
+
+          // Dome that flares into a wide flange — closes flat across the bottom.
           Path2D body = new Path2D.Float();
           body.moveTo(s * 0.50f, s * 0.16f);
-          body.curveTo(s * 0.82f, s * 0.20f, s * 0.82f, s * 0.55f, s * 0.85f, s * 0.72f);
-          body.lineTo(s * 0.15f, s * 0.72f);
-          body.curveTo(s * 0.18f, s * 0.55f, s * 0.18f, s * 0.20f, s * 0.50f, s * 0.16f);
+          body.curveTo(s * 0.78f, s * 0.20f, s * 0.78f, s * 0.50f, s * 0.84f, s * 0.70f);
+          body.lineTo(s * 0.16f, s * 0.70f);
+          body.curveTo(s * 0.22f, s * 0.50f, s * 0.22f, s * 0.20f, s * 0.50f, s * 0.16f);
           body.closePath();
           g2.fill(body);
-          // Clapper.
-          g2.fill(new Ellipse2D.Float(s * 0.42f, s * 0.74f, s * 0.16f, s * 0.16f));
+
+          // Clapper — small ball just below the flange.
+          float clapper = s * 0.16f;
+          g2.fill(new Ellipse2D.Float((s - clapper) / 2f, s * 0.74f, clapper, clapper));
         }
       }
       g2.dispose();

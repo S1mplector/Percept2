@@ -598,15 +598,27 @@ public class VnState {
 
   // ── Particle effects ──────────────────────────────────────────────────
   private VnParticleCommand activeParticleCommand;
+  private long activeParticleRemainingMs = 0L;
 
   public VnParticleCommand getActiveParticleCommand() { return activeParticleCommand; }
+  public long getActiveParticleRemainingMs() { return activeParticleRemainingMs; }
 
   public void setActiveParticleCommand(VnParticleCommand cmd) {
     this.activeParticleCommand = cmd;
+    this.activeParticleRemainingMs = cmd == null ? 0L : cmd.getDurationMs();
   }
 
   public void clearParticleEffect() {
     this.activeParticleCommand = null;
+    this.activeParticleRemainingMs = 0L;
+  }
+
+  public void updateParticleEffect(long deltaMs) {
+    if (activeParticleCommand == null || activeParticleRemainingMs <= 0L) return;
+    activeParticleRemainingMs = Math.max(0L, activeParticleRemainingMs - Math.max(0L, deltaMs));
+    if (activeParticleRemainingMs <= 0L) {
+      activeParticleCommand = null;
+    }
   }
 
   public Map<String, Object> getVariables() { return variables; }

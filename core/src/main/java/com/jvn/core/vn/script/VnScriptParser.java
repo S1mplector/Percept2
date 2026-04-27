@@ -1261,33 +1261,55 @@ public class VnScriptParser {
       }
       case "particles":
       case "particle":
-      case "weather": {
+      case "weather":
+      case "pfx":
+      case "fx": {
+        String tag = "[" + cmd + "]";
         String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
         String[] toks = VnArgTokenizer.tokenizeToArray(payload);
         if (toks.length == 0) {
-          throw parseError(sourceName, lineNumber, "[particles] requires a preset or preset=...", rawLine);
+          throw parseError(sourceName, lineNumber, tag + " requires a preset or preset=...", rawLine);
         }
         VnParticleCommand.Preset preset = null;
         float intensity = 0.5f;
         int layer = 100;
+        Double opacity = null;
+        Double speed = null;
+        Double wind = null;
+        Long durationMs = null;
+        Integer tintArgb = null;
         boolean intensitySet = false;
         boolean layerSet = false;
         for (String rawToken : toks) {
           String token = rawToken == null ? "" : rawToken.trim();
           if (token.isEmpty()) continue;
           if (isNamedOptionToken(token, cmd)) {
-            KeyValueOption option = parseKeyValueOption(token, sourceName, lineNumber, rawLine, "[particles]");
+            KeyValueOption option = parseKeyValueOption(token, sourceName, lineNumber, rawLine, tag);
             switch (option.key()) {
               case "preset", "type", "kind", "mode", "weather" -> preset = VnParticleCommand.Preset.parse(option.value());
               case "intensity", "amount", "strength", "level" -> {
-                intensity = parseUnitRangeToken(option.value(), sourceName, lineNumber, rawLine, "[particles]", "intensity");
+                intensity = parseUnitRangeToken(option.value(), sourceName, lineNumber, rawLine, tag, "intensity");
                 intensitySet = true;
               }
               case "layer", "z", "zorder" -> {
-                layer = parseIntegerValue(option.value(), "[particles]", "layer", sourceName, lineNumber, rawLine);
+                layer = parseIntegerValue(option.value(), tag, "layer", sourceName, lineNumber, rawLine);
                 layerSet = true;
               }
-              default -> throw parseError(sourceName, lineNumber, "[particles] unknown option: " + option.key(), rawLine);
+              case "opacity", "alpha" ->
+                  opacity = (double) parseUnitRangeToken(option.value(), sourceName, lineNumber, rawLine, tag, "opacity");
+              case "speed", "speedscale", "velocity" ->
+                  speed = parseNonNegativeDouble(option.value(), tag, "speed", sourceName, lineNumber, rawLine);
+              case "wind", "drift", "windx" ->
+                  wind = parseDoubleValue(option.value(), tag, "wind", sourceName, lineNumber, rawLine);
+              case "duration", "dur", "ms", "time" -> {
+                durationMs = parseLongValue(option.value(), tag, "duration", sourceName, lineNumber, rawLine);
+                if (durationMs < 0) {
+                  throw parseError(sourceName, lineNumber, tag + " duration must be >= 0", rawLine);
+                }
+              }
+              case "tint", "color", "colour" ->
+                  tintArgb = parseHexColor(option.value(), tag, sourceName, lineNumber, rawLine);
+              default -> throw parseError(sourceName, lineNumber, tag + " unknown option: " + option.key(), rawLine);
             }
             continue;
           }
@@ -1296,7 +1318,7 @@ public class VnScriptParser {
             continue;
           }
           if (!intensitySet) {
-            intensity = parseUnitRangeToken(token, sourceName, lineNumber, rawLine, "[particles]", "intensity");
+            intensity = parseUnitRangeToken(token, sourceName, lineNumber, rawLine, tag, "intensity");
             intensitySet = true;
             continue;
           }
@@ -1305,15 +1327,23 @@ public class VnScriptParser {
             layerSet = true;
             continue;
           }
-          throw parseError(sourceName, lineNumber, "[particles] unexpected token: " + token, rawLine);
+          throw parseError(sourceName, lineNumber, tag + " unexpected token: " + token, rawLine);
         }
         if (preset == null) {
-          throw parseError(sourceName, lineNumber, "[particles] requires a preset via positional arg or preset=...", rawLine);
+          throw parseError(sourceName, lineNumber, tag + " requires a preset via positional arg or preset=...", rawLine);
         }
         if (preset == VnParticleCommand.Preset.NONE) {
           state.builder.particles(VnParticleCommand.stop());
         } else {
-          state.builder.particles(VnParticleCommand.start(preset, intensity, layer));
+          VnParticleCommand.Builder pb = VnParticleCommand.builder(preset)
+              .intensity(intensity)
+              .layer(layer);
+          if (opacity != null)    pb.opacity(opacity);
+          if (speed != null)      pb.speed(speed);
+          if (wind != null)       pb.wind(wind);
+          if (durationMs != null) pb.duration(durationMs);
+          if (tintArgb != null)   pb.tint(tintArgb);
+          state.builder.particles(pb.build());
         }
         return;
       }
@@ -1690,10 +1720,14 @@ public class VnScriptParser {
         case "track", "id", "file", "path" -> true;
         default -> false;
       };
-      case "particles", "particle", "weather" -> switch (key) {
+      case "particles", "particle", "weather", "pfx", "fx" -> switch (key) {
         case "preset", "type", "kind", "mode", "weather",
              "intensity", "amount", "strength", "level",
-             "layer", "z", "zorder" -> true;
+             "layer", "z", "zorder",
+             "opacity", "alpha", "speed", "speedscale", "velocity",
+             "wind", "drift", "windx",
+             "duration", "dur", "ms", "time",
+             "tint", "color", "colour" -> true;
         default -> false;
       };
       default -> false;
@@ -1723,6 +1757,84 @@ public class VnScriptParser {
       return Long.parseLong(token.trim());
     } catch (NumberFormatException ex) {
       throw parseError(sourceName, lineNumber, commandName + " " + fieldName + " must be an integer", rawLine);
+    }
+  }
+
+  private double parseDoubleValue(String token,
+                                  String commandName,
+                                  String fieldName,
+                                  String sourceName,
+                                  int lineNumber,
+                                  String rawLine) throws IOException {
+    if (token == null) {
+      throw parseError(sourceName, lineNumber, commandName + " " + fieldName + " must be a number", rawLine);
+    }
+    try {
+      return Double.parseDouble(token.trim());
+    } catch (NumberFormatException ex) {
+      throw parseError(sourceName, lineNumber, commandName + " " + fieldName + " must be a number", rawLine);
+    }
+  }
+
+  private double parseNonNegativeDouble(String token,
+                                        String commandName,
+                                        String fieldName,
+                                        String sourceName,
+                                        int lineNumber,
+                                        String rawLine) throws IOException {
+    double v = parseDoubleValue(token, commandName, fieldName, sourceName, lineNumber, rawLine);
+    if (v < 0.0) {
+      throw parseError(sourceName, lineNumber, commandName + " " + fieldName + " must be >= 0", rawLine);
+    }
+    return v;
+  }
+
+  /**
+   * Parse a hex colour token in any of the common forms — {@code #aabbcc},
+   * {@code #aabbccdd}, {@code 0xaabbcc}, {@code aabbcc}, plus 3/4 digit
+   * shorthand ({@code #fcf}, {@code #fcfa}). Returns a packed ARGB integer.
+   *
+   * <p>For 6-digit forms the alpha byte is left as {@code 0x00}; downstream
+   * consumers (e.g. {@link com.jvn.core.vn.VnParticlePresetLibrary}) treat
+   * a zero alpha as "use the preset's natural alpha" so users don't have to
+   * spell out {@code ff} every time.</p>
+   */
+  private Integer parseHexColor(String token,
+                                String commandName,
+                                String sourceName,
+                                int lineNumber,
+                                String rawLine) throws IOException {
+    if (token == null) return null;
+    String t = token.trim();
+    if (t.startsWith("#")) {
+      t = t.substring(1);
+    } else if (t.startsWith("0x") || t.startsWith("0X")) {
+      t = t.substring(2);
+    }
+    if (t.length() == 3 || t.length() == 4) {
+      // Expand shorthand: each digit doubled.
+      StringBuilder sb = new StringBuilder(t.length() * 2);
+      for (int i = 0; i < t.length(); i++) {
+        char c = t.charAt(i);
+        sb.append(c).append(c);
+      }
+      t = sb.toString();
+    }
+    if (t.length() != 6 && t.length() != 8) {
+      throw parseError(sourceName, lineNumber,
+          commandName + " tint expects 3/4/6/8 hex digits, got: " + token, rawLine);
+    }
+    try {
+      long v = Long.parseLong(t, 16);
+      if (t.length() == 6) {
+        // RGB only: leave the alpha byte at 0 so the consumer keeps the
+        // preset's alpha curve.
+        return (int) (v & 0x00FFFFFFL);
+      }
+      return (int) v;
+    } catch (NumberFormatException ex) {
+      throw parseError(sourceName, lineNumber,
+          commandName + " tint must be hex, got: " + token, rawLine);
     }
   }
 

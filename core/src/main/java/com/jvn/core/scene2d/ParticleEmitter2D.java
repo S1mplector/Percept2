@@ -98,8 +98,27 @@ public class ParticleEmitter2D extends Entity2D {
   /** Maximum emission angle in degrees. */
   private double maxAngle = 360;
 
+  /** Minimum spawn X offset relative to the emitter origin. */
+  private double minSpawnX = 0;
+
+  /** Maximum spawn X offset relative to the emitter origin. */
+  private double maxSpawnX = 0;
+
+  /** Minimum spawn Y offset relative to the emitter origin. */
+  private double minSpawnY = 0;
+
+  /** Maximum spawn Y offset relative to the emitter origin. */
+  private double maxSpawnY = 0;
+
   /** Vertical gravity acceleration (positive = downward). */
   private double gravityY = 100;
+
+  /**
+   * Horizontal acceleration applied every frame, used to model wind or drift.
+   * Positive values push particles to the right, negative to the left.
+   * Defaults to {@code 0} (still air).
+   */
+  private double windX = 0;
 
   // ── Colour ────────────────────────────────────────────────────────────
 
@@ -130,8 +149,12 @@ public class ParticleEmitter2D extends Entity2D {
   public double getEmissionRate() { return emissionRate; }
   /** @param max maximum concurrent alive particles */
   public void setMaxParticles(int max) { this.maxParticles = max; }
+  /** @return maximum concurrent alive particles */
+  public int getMaxParticles() { return maxParticles; }
   /** @param emit whether continuous emission is active */
   public void setEmitting(boolean emit) { this.emitting = emit; }
+  /** @return {@code true} when continuous emission is active */
+  public boolean isEmitting() { return emitting; }
 
   /** Set the min/max particle lifetime range (seconds). */
   public void setLifeRange(double min, double max) { this.minLife = min; this.maxLife = max; }
@@ -165,10 +188,43 @@ public class ParticleEmitter2D extends Entity2D {
   /** @return maximum emission angle (degrees) */
   public double getMaxAngle() { return maxAngle; }
 
+  /**
+   * Set the rectangular spawn area relative to the emitter origin. The default
+   * area is a single point at {@code (0, 0)}, preserving the legacy emitter
+   * behaviour.
+   */
+  public void setSpawnArea(double minX, double maxX, double minY, double maxY) {
+    this.minSpawnX = Math.min(minX, maxX);
+    this.maxSpawnX = Math.max(minX, maxX);
+    this.minSpawnY = Math.min(minY, maxY);
+    this.maxSpawnY = Math.max(minY, maxY);
+  }
+  /** Reset spawning back to the emitter origin. */
+  public void clearSpawnArea() { setSpawnArea(0, 0, 0, 0); }
+  /** @return minimum spawn X offset */
+  public double getMinSpawnX() { return minSpawnX; }
+  /** @return maximum spawn X offset */
+  public double getMaxSpawnX() { return maxSpawnX; }
+  /** @return minimum spawn Y offset */
+  public double getMinSpawnY() { return minSpawnY; }
+  /** @return maximum spawn Y offset */
+  public double getMaxSpawnY() { return maxSpawnY; }
+
   /** @param gy vertical gravity acceleration (positive = downward) */
   public void setGravity(double gy) { this.gravityY = gy; }
   /** @return vertical gravity */
   public double getGravityY() { return gravityY; }
+
+  /**
+   * Set horizontal wind acceleration (world units / sec²). Positive values push
+   * particles to the right; negative push to the left. Useful for snow drift,
+   * slanted rain, and similar weather effects.
+   *
+   * @param wx horizontal acceleration
+   */
+  public void setWindX(double wx) { this.windX = wx; }
+  /** @return horizontal wind acceleration (world units / sec²) */
+  public double getWindX() { return windX; }
 
   /** Set the start colour (RGBA, [0.0, 1.0]). */
   public void setStartColor(double r, double g, double b, double a) {
@@ -223,8 +279,8 @@ public class ParticleEmitter2D extends Entity2D {
   /** Spawn a single particle with randomised properties from the configured ranges. */
   private void emit() {
     Particle p = new Particle();
-    p.x = 0;
-    p.y = 0;
+    p.x = randomRange(minSpawnX, maxSpawnX);
+    p.y = randomRange(minSpawnY, maxSpawnY);
     
     double angle = Math.toRadians(minAngle + rnd.nextDouble() * (maxAngle - minAngle));
     double speed = minSpeed + rnd.nextDouble() * (maxSpeed - minSpeed);
@@ -281,6 +337,7 @@ public class ParticleEmitter2D extends Entity2D {
       // Physics
       p.x += p.vx * dt;
       p.y += p.vy * dt;
+      p.vx += windX * dt;
       p.vy += gravityY * dt;
       p.rotation += p.rotationSpeed * dt;
       
@@ -332,4 +389,9 @@ public class ParticleEmitter2D extends Entity2D {
 
   /** Remove all alive particles immediately. */
   public void clear() { particles.clear(); }
+
+  private double randomRange(double min, double max) {
+    if (Math.abs(max - min) < 1e-9) return min;
+    return min + rnd.nextDouble() * (max - min);
+  }
 }
