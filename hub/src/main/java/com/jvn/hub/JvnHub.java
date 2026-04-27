@@ -38,6 +38,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import javax.swing.BorderFactory;
@@ -104,6 +106,7 @@ public final class JvnHub {
   private final javax.swing.Timer spinnerTimer = new javax.swing.Timer(70, e -> activitySpinner.tick());
   private final List<JButton> actionButtons = new ArrayList<>();
   private final AtomicReference<Process> runningProcess = new AtomicReference<>();
+  private final AtomicBoolean updateCheckRunning = new AtomicBoolean(false);
 
   /** Currently-loaded announcements; refreshed on startup and after Update Engine. */
   private final List<Announcement> announcements = new ArrayList<>();
@@ -111,6 +114,8 @@ public final class JvnHub {
   private final Set<String> readIds = new HashSet<>();
   /** Bell button in the header; redrawn so the small badge reflects announcement count. */
   private AnnouncementsButton announcementsButton;
+  /** Update button with a right-aligned incoming-commit badge. */
+  private UpdateEngineButton updateEngineButton;
 
   private JvnHub(Path projectRoot) {
     this.projectRoot = projectRoot;
@@ -119,6 +124,7 @@ public final class JvnHub {
     readIds.addAll(loadReadIds());
     announcements.addAll(loadAnnouncements());
     buildUi();
+    checkIncomingUpdates(true);
   }
 
   /** Entry point. Can be invoked directly or via the {@code :hub:run} Gradle task. */
@@ -502,8 +508,12 @@ public final class JvnHub {
     buttons.add(makeAction("Build Shortcuts", "Install Start Menu / Applications shortcuts for this OS.",
         VectorIcon.Kind.SHORTCUT, false, this::installShortcuts));
 
-    buttons.add(makeAction("Update Engine", "git pull --rebase",
-        VectorIcon.Kind.REFRESH, true, this::updateEngine));
+    updateEngineButton = new UpdateEngineButton("Update Engine",
+        VectorIcon.of(VectorIcon.Kind.REFRESH, 16, ACCENT_BLUE));
+    updateEngineButton.setToolTipText("git pull --rebase");
+    updateEngineButton.addActionListener(e -> updateEngine());
+    actionButtons.add(updateEngineButton);
+    buttons.add(updateEngineButton);
 
     JPanel center = new JPanel(new BorderLayout(0, 8));
     center.setBackground(BG);
@@ -607,6 +617,7 @@ public final class JvnHub {
 
   private void updateEngine() {
     if (!acquire("git pull --rebase")) return;
+    if (updateEngineButton != null) updateEngineButton.setChecking(true);
     List<String> cmd = List.of("git", "pull", "--rebase");
     appendLog("$ " + String.join(" ", cmd));
     startProcess(cmd, "Update Engine");
@@ -730,6 +741,9 @@ public final class JvnHub {
         // the version label and announcements list reflect the new HEAD.
         if (exit == 0 && "Update Engine".equals(label)) {
           refreshFromDisk();
+          checkIncomingUpdates(false);
+        } else if ("Update Engine".equals(label) && updateEngineButton != null) {
+          updateEngineButton.setChecking(false);
         }
       }
     }.execute();
@@ -799,6 +813,89 @@ public final class JvnHub {
   private void setActivityDetail(String detail) {
     SwingUtilities.invokeLater(() -> activityDetail.setText(compactMessage(detail)));
   }
+
+  private void checkIncomingUpdates(boolean fetchFirst) {
+    if (updateEngineButton == null) return;
+    if (!Files.isDirectory(projectRoot.resolve(".git"))) {
+      updateEngineButton.setIncomingCount(-1);
+      return;
+    }
+    if (!commandExists("git")) {
+      updateEngineButton.setIncomingCount(-1);
+      return;
+    }
+    if (!updateCheckRunning.compareAndSet(false, true)) return;
+
+    updateEngineButton.setChecking(true);
+    new SwingWorker<Integer, Void>() {
+      @Override protected Integer doInBackground() {
+        if (fetchFirst) {
+          runGit(List.of("git", "fetch", "--quiet", "--prune", "--no-tags"), 45);
+        }
+        CommandResult result = runGit(List.of("git", "rev-list", "--count", "HEAD..@{upstream}"), 10);
+        if (result.exitCode != 0) return -1;
+        try {
+          return Math.max(0, Integer.parseInt(result.output.strip()));
+        } catch (NumberFormatException e) {
+          return -1;
+        }
+      }
+
+      @Override protected void done() {
+        updateCheckRunning.set(false);
+        int count = -1;
+        try {
+          count = get();
+        } catch (Exception ignored) {
+          // Keep the badge hidden when Git cannot report an upstream count.
+        }
+        updateEngineButton.setIncomingCount(count);
+      }
+    }.execute();
+  }
+
+  private CommandResult runGit(List<String> command, long timeoutSeconds) {
+    Process process;
+    try {
+      process = new ProcessBuilder(command)
+          .directory(projectRoot.toFile())
+          .redirectErrorStream(true)
+          .start();
+    } catch (IOException e) {
+      return new CommandResult(-1, e.getMessage());
+    }
+
+    StringBuilder output = new StringBuilder();
+    Thread reader = new Thread(() -> {
+      try (BufferedReader br = new BufferedReader(
+          new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+        String line;
+        while ((line = br.readLine()) != null) {
+          if (output.length() < 4096) output.append(line).append('\n');
+        }
+      } catch (IOException ignored) {
+        // Best-effort capture only.
+      }
+    }, "jvn-hub-git-output");
+    reader.setDaemon(true);
+    reader.start();
+
+    try {
+      boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
+      if (!finished) {
+        process.destroyForcibly();
+        return new CommandResult(-1, "timed out");
+      }
+      reader.join(1000);
+      return new CommandResult(process.exitValue(), output.toString());
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      process.destroyForcibly();
+      return new CommandResult(-1, "interrupted");
+    }
+  }
+
+  private record CommandResult(int exitCode, String output) {}
 
   private static String compactMessage(String text) {
     if (text == null) return "";
@@ -1010,7 +1107,7 @@ public final class JvnHub {
    * Custom-painted button that stays fully black (no L&F chrome) and paints its own
    * 1px border with optional accent color. Text + icon render via {@code super.paintComponent}.
    */
-  private static final class FlatButton extends JButton {
+  private static class FlatButton extends JButton {
     private final Color accent;
 
     FlatButton(String text, Icon icon, Color accentOrNull) {
@@ -1061,6 +1158,78 @@ public final class JvnHub {
 
       g2.dispose();
       super.paintComponent(g);
+    }
+  }
+
+  /** Update button that paints incoming commit count as a right-aligned badge. */
+  private static final class UpdateEngineButton extends FlatButton {
+    private int incomingCount = -1;
+    private boolean checking = false;
+
+    UpdateEngineButton(String text, Icon icon) {
+      super(text, icon, ACCENT_BLUE);
+      setBorder(new EmptyBorder(10, 18, 10, 52));
+    }
+
+    void setChecking(boolean checking) {
+      SwingUtilities.invokeLater(() -> {
+        this.checking = checking;
+        if (checking && incomingCount < 0) {
+          setToolTipText("Checking for incoming engine updates...");
+        } else if (!checking) {
+          refreshTooltip();
+        }
+        repaint();
+      });
+    }
+
+    void setIncomingCount(int count) {
+      SwingUtilities.invokeLater(() -> {
+        this.checking = false;
+        this.incomingCount = count;
+        refreshTooltip();
+        repaint();
+      });
+    }
+
+    private void refreshTooltip() {
+      if (incomingCount > 0) {
+        setToolTipText(incomingCount + " incoming commit" + (incomingCount == 1 ? "" : "s")
+            + " available. Click to pull --rebase.");
+      } else if (incomingCount == 0) {
+        setToolTipText("Engine is up to date.");
+      } else {
+        setToolTipText("Update Engine — incoming commit count unavailable.");
+      }
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+      super.paintComponent(g);
+      if (incomingCount <= 0) return;
+
+      Graphics2D g2 = (Graphics2D) g.create();
+      g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+      g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+      String text = incomingCount > 99 ? "99+" : Integer.toString(incomingCount);
+      Font badgeFont = getFont().deriveFont(Font.BOLD, 11f);
+      g2.setFont(badgeFont);
+      FontMetrics fm = g2.getFontMetrics();
+      int textW = fm.stringWidth(text);
+      int badgeH = 22;
+      int badgeW = Math.max(26, textW + 14);
+      int badgeX = getWidth() - badgeW - 14;
+      int badgeY = (getHeight() - badgeH) / 2;
+
+      Color fill = isEnabled() ? ACCENT_GREEN : BORDER_NEUTRAL;
+      g2.setColor(fill);
+      g2.fillRoundRect(badgeX, badgeY, badgeW, badgeH, badgeH, badgeH);
+      g2.setColor(BG);
+      int textX = badgeX + (badgeW - textW) / 2;
+      int textY = badgeY + badgeH - (badgeH - fm.getAscent() + fm.getDescent()) / 2 - 1;
+      g2.drawString(text, textX, textY);
+      g2.dispose();
     }
   }
 

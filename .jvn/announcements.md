@@ -8,6 +8,9 @@ Format:
 
 ----
 
+## 2026-04-27 — Documentation update covering the engine hub
+New documentation has been added regarding the engine hub. You can read engine-hub.md for more information. 
+
 ## 2026-04-27 — Particle FX presets for VNS
 VNS particle effects now support richer weather controls and render in game through the JavaFX VN renderer. Use `[particles]`, `[weather]`, `[pfx]`, or `[fx]` with presets like `snow` and `rain`, plus shaping options for `intensity`, `layer`, `opacity`, `speed`, `wind`, `duration`, and `tint`.
 
