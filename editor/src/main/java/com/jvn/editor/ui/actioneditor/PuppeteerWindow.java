@@ -41,10 +41,8 @@ import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBase;
-import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.CheckMenuItem;
 import javafx.scene.control.ComboBox;
@@ -3236,34 +3234,48 @@ public class PuppeteerWindow extends Stage {
         if (draft.isEmpty()) return;
         draftRestorePromptShown = true;
         PuppeteerDraftStore.DraftRecord rec = draft.get();
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-        alert.setTitle("Restore Puppeteer draft?");
-        alert.setHeaderText("An unsaved draft for \"" + name + "\" was found");
+
         long ageSec = Math.max(0L,
             (System.currentTimeMillis() - rec.lastModifiedMs()) / 1000L);
         String ageText = ageSec < 60 ? ageSec + "s ago"
             : ageSec < 3600 ? (ageSec / 60) + " min ago"
             : (ageSec / 3600) + "h " + ((ageSec % 3600) / 60) + "m ago";
-        alert.setContentText(
-            "Draft saved " + ageText + " at:\n" + rec.file().getAbsolutePath()
-                + "\n\nRestore the draft into the code preview? You can review and Commit it,\n"
-                + "or click Discard to delete the draft and continue with the registered timeline.");
-        ButtonType restore = new ButtonType("Restore", ButtonType.OK.getButtonData());
-        ButtonType discard = new ButtonType("Discard", ButtonType.CANCEL.getButtonData());
-        ButtonType keep = new ButtonType("Keep Draft", ButtonType.NO.getButtonData());
-        alert.getButtonTypes().setAll(restore, keep, discard);
-        alert.initOwner(this);
-        alert.showAndWait().ifPresent(result -> {
-            if (result == restore) {
+
+        Label ageLabel = sectionLabel("Saved");
+        Label ageValue = new Label(ageText);
+        ageValue.setStyle("-fx-text-fill: #d0d0d0; -fx-font-size: 12px;");
+
+        Label pathLabel = sectionLabel("Draft file");
+        Label pathValue = new Label(rec.file().getAbsolutePath());
+        pathValue.setStyle("-fx-text-fill: #d0d0d0; -fx-font-size: 11px; -fx-font-family: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;");
+        pathValue.setWrapText(true);
+
+        Label hint = new Label(
+            "Restore loads the draft into the code preview where you can review it and "
+                + "Commit it (overwriting the registered timeline). Discard deletes the draft "
+                + "and continues with the registered timeline. Keep Draft leaves the file untouched "
+                + "for next session.");
+        hint.setStyle("-fx-text-fill: #989898; -fx-font-size: 11px;");
+        hint.setWrapText(true);
+
+        VBox content = new VBox(6,
+            ageLabel, ageValue,
+            pathLabel, pathValue,
+            hint);
+        content.setFillWidth(true);
+
+        overlayDialog.showDialog(
+            "Restore Puppeteer draft?",
+            "An unsaved draft for \"" + name + "\" was found.",
+            content,
+            ActionEditorDialogOverlay.ActionSpec.danger("Discard", () -> draftStore.deleteDraft(name)),
+            ActionEditorDialogOverlay.ActionSpec.neutral("Keep Draft", () -> {}),
+            ActionEditorDialogOverlay.ActionSpec.accent("Restore", () -> {
                 if (codePreview != null) {
                     codePreview.setCode(rec.code());
                     stagePreviewFromCode();
                 }
-            } else if (result == discard) {
-                draftStore.deleteDraft(name);
-            }
-            // "Keep Draft" leaves the file alone for next session.
-        });
+            }));
     }
 
     public void setSourceScriptFile(java.io.File file) {
