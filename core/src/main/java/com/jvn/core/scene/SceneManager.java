@@ -39,15 +39,26 @@ public class SceneManager {
    * <p>If there is already a scene on top, its {@link Scene#onPause()} is called
    * first. Then the new scene's {@link Scene#onEnter()} is invoked.</p>
    *
+   * <p><b>Exception safety:</b> the stack mutation (pushing {@code scene}) is
+   * always performed before lifecycle callbacks run, and each callback is
+   * isolated in its own {@code try/catch}. This guarantees that a misbehaving
+   * {@code onPause} or {@code onEnter} cannot leave the manager in a state
+   * where the stack disagrees with the scenes' beliefs about their own
+   * activeness.</p>
+   *
    * @param scene the scene to push; {@code null} is silently ignored
    */
   public void push(Scene scene) {
     if (scene == null) return;
-    if (!stack.isEmpty()) {
-      stack.peek().onPause();
-    }
+    Scene previous = stack.peek();
     stack.push(scene);
-    scene.onEnter();
+    // Pause the previous top AFTER the stack mutation so that if onPause
+    // throws, the new scene is still reachable via peek() and the engine
+    // can continue driving updates.
+    if (previous != null) {
+      safeLifecycle("onPause", previous, Scene::onPause);
+    }
+    safeLifecycle("onEnter", scene, Scene::onEnter);
   }
 
   /**
@@ -57,14 +68,26 @@ public class SceneManager {
    * remains on the stack, its {@link Scene#onResume()} is called so it can
    * reactivate audio, animation, etc.</p>
    *
+   * <p><b>Exception safety:</b> the scene is removed from the stack before
+   * {@code onExit} fires, and {@code onResume} always runs on the newly
+   * exposed scene even if {@code onExit} threw — preventing a situation
+   * where the below-scene is left permanently paused because of a crash in
+   * the above-scene's exit logic.</p>
+   *
    * @return the removed scene, or {@code null} if the stack was empty
    */
   public Scene pop() {
     if (stack.isEmpty()) return null;
-    Scene s = stack.pop();
-    s.onExit();
-    if (!stack.isEmpty()) stack.peek().onResume();
-    return s;
+    Scene removed = stack.pop();
+    try {
+      safeLifecycle("onExit", removed, Scene::onExit);
+    } finally {
+      Scene nowTop = stack.peek();
+      if (nowTop != null) {
+        safeLifecycle("onResume", nowTop, Scene::onResume);
+      }
+    }
+    return removed;
   }
 
   /**
@@ -75,14 +98,52 @@ public class SceneManager {
    * {@code onResume}/{@code onPause} calls — only the replaced scene gets
    * {@code onExit} and the new scene gets {@code onEnter}.</p>
    *
-   * @param scene the replacement scene
+   * <p>{@code null} replacements are treated as a plain {@link #pop()} so
+   * callers that compute the replacement lazily don't accidentally empty
+   * the stack by forgetting a null-check.</p>
+   *
+   * @param scene the replacement scene; {@code null} falls through to pop
    */
   public void replace(Scene scene) {
-    if (!stack.isEmpty()) {
-      Scene s = stack.pop();
-      s.onExit();
+    if (scene == null) {
+      pop();
+      return;
     }
-    push(scene);
+    if (!stack.isEmpty()) {
+      Scene removed = stack.pop();
+      safeLifecycle("onExit", removed, Scene::onExit);
+    }
+    // Delegate to push() so the new scene's onEnter runs through the same
+    // exception-isolated path. The scene below the replaced top is NOT
+    // paused/resumed — this is the documented semantic of replace().
+    stack.push(scene);
+    safeLifecycle("onEnter", scene, Scene::onEnter);
+  }
+
+  /**
+   * Execute a {@link Scene} lifecycle callback while swallowing and logging
+   * any {@link RuntimeException} so the {@code SceneManager}'s own
+   * invariants (stack contents, symmetric pause/resume) are never corrupted
+   * by a misbehaving scene.
+   *
+   * <p>Errors ({@link Error}) are <em>not</em> caught — a
+   * {@link OutOfMemoryError} or {@link StackOverflowError} indicates the
+   * whole process is in a bad state and should propagate.</p>
+   */
+  private static void safeLifecycle(String phase, Scene scene, SceneLifecycleCall call) {
+    try {
+      call.apply(scene);
+    } catch (RuntimeException ex) {
+      System.err.println("SceneManager: " + phase + " on "
+          + scene.getClass().getSimpleName() + " threw "
+          + ex.getClass().getSimpleName() + ": " + ex.getMessage());
+      ex.printStackTrace(System.err);
+    }
+  }
+
+  @FunctionalInterface
+  private interface SceneLifecycleCall {
+    void apply(Scene scene);
   }
 
   /** @return the current top scene, or {@code null} if the stack is empty */

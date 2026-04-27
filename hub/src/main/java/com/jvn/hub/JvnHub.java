@@ -68,7 +68,8 @@ import javax.swing.plaf.basic.BasicScrollBarUI;
  * without touching the {@code jvnw} wrapper CLI.
  *
  * <p>Visually mirrors {@code com.jvn.editor.ui.StartupSplashOverlay}: black background,
- * blue accent, compact header + simple activity panel.</p>
+ * neutral-gray accent (matches the editor's settings sidebar palette), compact header
+ * + simple activity panel.</p>
  *
  * <p>Shells out to {@code ./gradlew} and {@code git}. The hub remains responsive while
  * a task runs; only one task at a time is allowed and the buttons disable for the
@@ -76,21 +77,27 @@ import javax.swing.plaf.basic.BasicScrollBarUI;
  */
 public final class JvnHub {
 
-  // --- Splash-inspired color palette -----------------------------------------
+  // --- Neutral-gray palette --------------------------------------------------
+  // Aligned with the editor's settings-sidebar CSS (#0f0f0f / #1c1c1c /
+  // #2a2a2a / #c2c2c2 / #e2e2e2 / #f2f2f2) so the hub no longer stands out
+  // against the rest of the tooling UI. Status colours (green/error) are
+  // kept as signal accents because they convey task-result semantics, not
+  // branding. Previously the palette was tinted navy-blue.
   private static final Color BG             = Color.BLACK;
   private static final Color PANEL_BG       = Color.BLACK;
-  private static final Color HOVER_BG       = Color.decode("#0b1422");
-  private static final Color PRESSED_BG     = Color.decode("#141e30");
-  private static final Color BORDER_NEUTRAL = Color.decode("#1f2a3d");
-  private static final Color TEXT_PRIMARY   = Color.decode("#e6ebf5");
-  private static final Color TEXT_MUTED     = Color.decode("#9caac0");
-  private static final Color TEXT_SOFT      = Color.decode("#b7c3d9");
-  private static final Color ACCENT_BLUE    = Color.decode("#6ea8ff");
+  private static final Color HOVER_BG       = Color.decode("#141414");
+  private static final Color PRESSED_BG     = Color.decode("#1c1c1c");
+  private static final Color BORDER_NEUTRAL = Color.decode("#2a2a2a");
+  private static final Color TEXT_PRIMARY   = Color.decode("#f2f2f2");
+  private static final Color TEXT_MUTED     = Color.decode("#9c9c9c");
+  private static final Color TEXT_SOFT      = Color.decode("#b7b7b7");
+  /** High-contrast neutral for emphasis (version tag, dates, running-task state). */
+  private static final Color ACCENT_NEUTRAL = Color.decode("#c2c2c2");
   private static final Color ACCENT_GREEN   = Color.decode("#7ed39a");
   private static final Color ACCENT_ERROR   = Color.decode("#f38ba8");
-  private static final Color LOG_TEXT       = Color.decode("#cfd8e6");
-  private static final Color SCROLL_THUMB   = Color.decode("#1a2333");
-  private static final Color SCROLL_THUMB_HOVER = Color.decode("#2a3a55");
+  private static final Color LOG_TEXT       = Color.decode("#cfcfcf");
+  private static final Color SCROLL_THUMB   = Color.decode("#2a2a2a");
+  private static final Color SCROLL_THUMB_HOVER = Color.decode("#3a3a3a");
 
   /** Resolved at class-init time from a Gradle-generated resource. */
   private static final String VERSION = readVersion();
@@ -221,7 +228,7 @@ public final class JvnHub {
     subtitle.setFont(subtitle.getFont().deriveFont(Font.PLAIN, 12f));
 
     versionLabel.setText("v" + readDiskVersion());
-    versionLabel.setForeground(ACCENT_BLUE);
+    versionLabel.setForeground(ACCENT_NEUTRAL);
     versionLabel.setFont(versionLabel.getFont().deriveFont(Font.BOLD, 10f));
 
     JPanel titleBox = new JPanel();
@@ -452,7 +459,7 @@ public final class JvnHub {
         new EmptyBorder(10, 12, 10, 12)));
 
     JLabel dateLbl = new JLabel(a.date);
-    dateLbl.setForeground(ACCENT_BLUE);
+    dateLbl.setForeground(ACCENT_NEUTRAL);
     dateLbl.setFont(dateLbl.getFont().deriveFont(Font.BOLD, 10f));
 
     JLabel titleLbl = new JLabel(a.title.isEmpty() ? "Update" : a.title);
@@ -508,7 +515,7 @@ public final class JvnHub {
         VectorIcon.Kind.SHORTCUT, false, this::installShortcuts));
 
     updateEngineButton = new UpdateEngineButton("Update Engine",
-        VectorIcon.of(VectorIcon.Kind.REFRESH, 16, ACCENT_BLUE));
+        VectorIcon.of(VectorIcon.Kind.REFRESH, 16, ACCENT_NEUTRAL));
     updateEngineButton.setToolTipText("git pull --rebase");
     updateEngineButton.addActionListener(e -> updateEngine());
     actionButtons.add(updateEngineButton);
@@ -593,9 +600,9 @@ public final class JvnHub {
 
   private JButton makeAction(String label, String tooltip, VectorIcon.Kind iconKind,
                              boolean accent, Runnable action) {
-    Color foreground = accent ? ACCENT_BLUE : TEXT_PRIMARY;
+    Color foreground = accent ? ACCENT_NEUTRAL : TEXT_PRIMARY;
     Icon icon = iconKind != null ? VectorIcon.of(iconKind, 16, foreground) : null;
-    FlatButton button = new FlatButton(label, icon, accent ? ACCENT_BLUE : null);
+    FlatButton button = new FlatButton(label, icon, accent ? ACCENT_NEUTRAL : null);
     button.setToolTipText(tooltip);
     button.addActionListener(e -> action.run());
     actionButtons.add(button);
@@ -664,8 +671,8 @@ public final class JvnHub {
       return false;
     }
     setButtonsEnabled(false);
-    setStatus("Running: " + label, ACCENT_BLUE);
-    setActivity("Working on " + label, "This can take a moment.", true, ACCENT_BLUE);
+    setStatus("Running: " + label, ACCENT_NEUTRAL);
+    setActivity("Working on " + label, "This can take a moment.", true, ACCENT_NEUTRAL);
     return true;
   }
 
@@ -1081,7 +1088,7 @@ public final class JvnHub {
         float x = cx + (float) Math.cos(angle) * radius;
         float y = cy + (float) Math.sin(angle) * radius;
         int dot = active && age == 0 ? 4 : 3;
-        g2.setColor(withAlpha(active ? ACCENT_BLUE : TEXT_MUTED, Math.min(1.0f, alpha)));
+        g2.setColor(withAlpha(active ? ACCENT_NEUTRAL : TEXT_MUTED, Math.min(1.0f, alpha)));
         g2.fillOval(Math.round(x - dot / 2f), Math.round(y - dot / 2f), dot, dot);
       }
 
@@ -1166,7 +1173,7 @@ public final class JvnHub {
     private boolean checking = false;
 
     UpdateEngineButton(String text, Icon icon) {
-      super(text, icon, ACCENT_BLUE);
+      super(text, icon, ACCENT_NEUTRAL);
       setBorder(new EmptyBorder(10, 18, 10, 52));
     }
 
