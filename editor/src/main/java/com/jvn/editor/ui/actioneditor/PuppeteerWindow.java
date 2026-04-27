@@ -88,6 +88,7 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
+import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.util.Duration;
@@ -2978,24 +2979,49 @@ public class PuppeteerWindow extends Stage {
 
     private void showRecordGifDialog() {
         if (previewRecorder == null || projectRoot == null) {
-            Alert err = new Alert(Alert.AlertType.WARNING,
+            overlayDialog.showDialog(
+                "Record Preview as GIF",
                 "Recording requires a saved project (no project root is set).",
-                ButtonType.OK);
-            err.initOwner(this);
-            err.showAndWait();
+                null,
+                ActionEditorDialogOverlay.ActionSpec.accent("Close", overlayDialog::hideOverlay));
             return;
         }
         if (previewRecorder.isActive()) {
-            Alert err = new Alert(Alert.AlertType.INFORMATION,
-                "A recording is already in progress.", ButtonType.OK);
-            err.initOwner(this);
-            err.showAndWait();
+            overlayDialog.showDialog(
+                "Record Preview as GIF",
+                "A recording is already in progress.",
+                null,
+                ActionEditorDialogOverlay.ActionSpec.accent("OK", overlayDialog::hideOverlay));
             return;
         }
 
         double durationMs = Math.max(100.0, project.getTotalDurationMs());
         double loopStart = project.hasLoopRegion() ? project.getLoopStartMs() : 0.0;
         double loopEnd = project.hasLoopRegion() ? project.getLoopEndMs() : durationMs;
+
+        String defaultBaseName = (tfTimelineName != null && !tfTimelineName.getText().isBlank())
+            ? tfTimelineName.getText().trim()
+            : "preview";
+        File defaultDir = projectRoot.toPath().resolve("exports").resolve("puppeteer").toFile();
+
+        TextField tfBaseName = new TextField(defaultBaseName);
+        tfBaseName.setPrefColumnCount(20);
+        TextField tfOutputDir = new TextField(defaultDir.getAbsolutePath());
+        tfOutputDir.setPrefColumnCount(28);
+        Button btnBrowse = new Button("Browse...");
+        btnBrowse.setStyle(STYLE_BTN_DARK);
+        btnBrowse.setOnAction(ev -> {
+            DirectoryChooser chooser = new DirectoryChooser();
+            chooser.setTitle("Choose recording output directory");
+            File current = new File(tfOutputDir.getText().trim());
+            File initial = current.isDirectory() ? current
+                : (current.getParentFile() != null && current.getParentFile().isDirectory()
+                    ? current.getParentFile()
+                    : projectRoot);
+            if (initial != null && initial.isDirectory()) chooser.setInitialDirectory(initial);
+            File picked = chooser.showDialog(this);
+            if (picked != null) tfOutputDir.setText(picked.getAbsolutePath());
+        });
 
         TextField tfStart = new TextField(String.valueOf((long) loopStart));
         tfStart.setPrefColumnCount(7);
@@ -3010,59 +3036,58 @@ public class PuppeteerWindow extends Stage {
         CheckBox cbPng = new CheckBox("PNG sequence");
         cbPng.setSelected(false);
 
-        String defaultBaseName = (tfTimelineName != null && !tfTimelineName.getText().isBlank())
-            ? tfTimelineName.getText().trim()
-            : "preview";
-        TextField tfBaseName = new TextField(defaultBaseName);
-        tfBaseName.setPrefColumnCount(20);
-
-        Label lblStatus = new Label("Output: " + projectRoot.toPath()
-            .resolve("exports").resolve("puppeteer").toString());
-        lblStatus.setWrapText(true);
-        lblStatus.setStyle("-fx-text-fill: #989898; -fx-font-size: 10px;");
-
         ProgressBar progress = new ProgressBar(0.0);
-        progress.setPrefWidth(360);
+        progress.setPrefWidth(420);
+        progress.setMaxWidth(Double.MAX_VALUE);
         progress.setVisible(false);
         progress.setManaged(false);
 
-        GridPane form = new GridPane();
-        form.setHgap(8);
-        form.setVgap(8);
-        form.setPadding(new Insets(14, 16, 12, 16));
-        form.add(new Label("Base name:"), 0, 0); form.add(tfBaseName, 1, 0, 3, 1);
-        form.add(new Label("Start (ms):"), 0, 1); form.add(tfStart, 1, 1);
-        form.add(new Label("End (ms):"), 2, 1); form.add(tfEnd, 3, 1);
-        form.add(new Label("FPS:"), 0, 2); form.add(spFps, 1, 2);
-        form.add(cbGif, 2, 2); form.add(cbPng, 3, 2);
-        form.add(progress, 0, 3, 4, 1);
-        form.add(lblStatus, 0, 4, 4, 1);
-        form.setStyle("-fx-background-color: #181818;");
+        Label lblStatus = new Label("Captures the preview canvas frame-by-frame using the chosen FPS.");
+        lblStatus.setWrapText(true);
+        lblStatus.setStyle("-fx-text-fill: #989898; -fx-font-size: 11px;");
 
-        Button btnRecord = new Button("Start Recording");
-        btnRecord.setStyle(STYLE_BTN_GREEN);
-        Button btnCancel = new Button("Cancel");
-        btnCancel.setStyle(STYLE_BTN_DARK);
-        HBox actions = new HBox(8, btnCancel, btnRecord);
-        actions.setAlignment(Pos.CENTER_RIGHT);
-        actions.setPadding(new Insets(0, 16, 14, 16));
-        actions.setStyle("-fx-background-color: #181818;");
+        HBox baseRow = new HBox(8, tfBaseName);
+        HBox.setHgrow(tfBaseName, Priority.ALWAYS);
+        tfBaseName.setMaxWidth(Double.MAX_VALUE);
 
-        VBox content = new VBox(form, actions);
-        content.setStyle("-fx-background-color: #181818;");
+        HBox outputRow = new HBox(6, tfOutputDir, btnBrowse);
+        HBox.setHgrow(tfOutputDir, Priority.ALWAYS);
+        tfOutputDir.setMaxWidth(Double.MAX_VALUE);
 
-        Stage dialog = new Stage();
-        dialog.initOwner(this);
-        dialog.initModality(javafx.stage.Modality.WINDOW_MODAL);
-        dialog.setTitle("Record Puppeteer Preview");
-        dialog.setScene(new Scene(content, 520, 280));
-        dialog.setResizable(false);
+        HBox rangeRow = new HBox(6,
+            new Label("Start"), tfStart,
+            spacer(8),
+            new Label("End"), tfEnd);
+        rangeRow.setAlignment(Pos.CENTER_LEFT);
 
-        btnCancel.setOnAction(e -> {
-            previewRecorder.cancel();
-            dialog.close();
-        });
-        btnRecord.setOnAction(e -> {
+        HBox fpsRow = new HBox(6,
+            new Label("FPS"), spFps,
+            spacer(12),
+            cbGif, cbPng);
+        fpsRow.setAlignment(Pos.CENTER_LEFT);
+
+        Label headerBaseName = sectionLabel("Base name");
+        Label headerOutputDir = sectionLabel("Output directory");
+        Label headerRange = sectionLabel("Time range (ms)");
+        Label headerFps = sectionLabel("Playback");
+
+        VBox content = new VBox(6,
+            headerBaseName, baseRow,
+            headerOutputDir, outputRow,
+            headerRange, rangeRow,
+            headerFps, fpsRow,
+            progress, lblStatus);
+        content.setFillWidth(true);
+        content.setSpacing(6);
+
+        // Holders so callbacks can mutate state.
+        final Runnable[] showInitialActions = {null};
+        final Runnable[] showRecordingActions = {null};
+        final Runnable[] showFinishedActions = {null};
+        final java.util.concurrent.atomic.AtomicReference<java.util.function.Consumer<String>> showErrorAction =
+            new java.util.concurrent.atomic.AtomicReference<>();
+
+        Runnable beginRecording = () -> {
             double startMs;
             double endMs;
             try {
@@ -3070,39 +3095,53 @@ public class PuppeteerWindow extends Stage {
                 endMs = Double.parseDouble(tfEnd.getText().trim());
             } catch (NumberFormatException ex) {
                 lblStatus.setText("Start and End must be numeric milliseconds.");
+                showInitialActions[0].run();
                 return;
             }
             if (endMs <= startMs) {
                 lblStatus.setText("End must be greater than Start.");
+                showInitialActions[0].run();
                 return;
             }
             String baseName = tfBaseName.getText().trim();
             if (baseName.isEmpty()) {
                 lblStatus.setText("Choose a base name for the output files.");
+                showInitialActions[0].run();
+                return;
+            }
+            String dirPath = tfOutputDir.getText().trim();
+            if (dirPath.isEmpty()) {
+                lblStatus.setText("Choose an output directory.");
+                showInitialActions[0].run();
+                return;
+            }
+            File outputDir = new File(dirPath);
+            if (!cbGif.isSelected() && !cbPng.isSelected()) {
+                lblStatus.setText("Enable at least one output format (GIF or PNG sequence).");
+                showInitialActions[0].run();
                 return;
             }
             int fps = spFps.getValue() != null ? spFps.getValue() : 24;
-            File outputDir = projectRoot.toPath()
-                .resolve("exports").resolve("puppeteer").toFile();
-
             PuppeteerPreviewRecorder.Spec spec = new PuppeteerPreviewRecorder.Spec(
                 outputDir, baseName, startMs, endMs, fps,
                 cbPng.isSelected(), cbGif.isSelected());
 
-            // Pause normal playback before driving the playhead frame-by-frame.
             if (project.isPlaying()) pause();
 
-            btnRecord.setDisable(true);
+            tfBaseName.setDisable(true);
+            tfOutputDir.setDisable(true);
+            btnBrowse.setDisable(true);
             tfStart.setDisable(true);
             tfEnd.setDisable(true);
             spFps.setDisable(true);
             cbGif.setDisable(true);
             cbPng.setDisable(true);
-            tfBaseName.setDisable(true);
+
             progress.setVisible(true);
             progress.setManaged(true);
             progress.setProgress(0.0);
             lblStatus.setText("Recording " + spec.frameCount() + " frames at " + fps + " fps...");
+            showRecordingActions[0].run();
 
             previewRecorder.record(spec, new PuppeteerPreviewRecorder.Hooks() {
                 @Override
@@ -3124,21 +3163,67 @@ public class PuppeteerWindow extends Stage {
                             sb.append("• ").append(f.getAbsolutePath()).append('\n');
                         }
                         lblStatus.setText(sb.toString().trim());
-                        btnRecord.setText("Done");
-                        btnRecord.setDisable(false);
-                        btnRecord.setOnAction(ev -> dialog.close());
+                        showFinishedActions[0].run();
                     } else {
-                        lblStatus.setText("Recording failed: " + result.error());
-                        btnRecord.setDisable(false);
+                        showErrorAction.get().accept(result.error());
                     }
                 }
             });
+        };
+
+        showInitialActions[0] = () -> overlayDialog.showDialog(
+            "Record Preview as GIF",
+            "Capture the preview canvas frame-by-frame to PNG and/or animated GIF.",
+            content,
+            ActionEditorDialogOverlay.ActionSpec.neutral("Cancel", () -> {
+                if (previewRecorder.isActive()) previewRecorder.cancel();
+            }),
+            ActionEditorDialogOverlay.ActionSpec.stayOpen("Start Recording",
+                ActionEditorDialogOverlay.ButtonStyle.ACCENT, beginRecording));
+
+        showRecordingActions[0] = () -> overlayDialog.showDialog(
+            "Recording Puppeteer Preview",
+            "Recording is in progress. Stay on this dialog to monitor progress.",
+            content,
+            ActionEditorDialogOverlay.ActionSpec.danger("Cancel Recording", () -> {
+                if (previewRecorder.isActive()) previewRecorder.cancel();
+            }));
+
+        showFinishedActions[0] = () -> overlayDialog.showDialog(
+            "Recording Complete",
+            "Files were written to disk.",
+            content,
+            ActionEditorDialogOverlay.ActionSpec.accent("Close", overlayDialog::hideOverlay));
+
+        showErrorAction.set(errorMessage -> {
+            lblStatus.setText("Recording failed: " + errorMessage);
+            tfBaseName.setDisable(false);
+            tfOutputDir.setDisable(false);
+            btnBrowse.setDisable(false);
+            tfStart.setDisable(false);
+            tfEnd.setDisable(false);
+            spFps.setDisable(false);
+            cbGif.setDisable(false);
+            cbPng.setDisable(false);
+            progress.setVisible(false);
+            progress.setManaged(false);
+            showInitialActions[0].run();
         });
 
-        dialog.setOnCloseRequest(e -> {
-            if (previewRecorder.isActive()) previewRecorder.cancel();
-        });
-        dialog.show();
+        showInitialActions[0].run();
+    }
+
+    private static Region spacer(double width) {
+        Region r = new Region();
+        r.setMinWidth(width);
+        r.setPrefWidth(width);
+        return r;
+    }
+
+    private static Label sectionLabel(String text) {
+        Label label = new Label(text);
+        label.setStyle("-fx-text-fill: #c0c0c0; -fx-font-size: 10px; -fx-font-weight: bold;");
+        return label;
     }
 
     private void promptDraftRestoreIfNeeded() {

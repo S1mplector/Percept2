@@ -13,7 +13,7 @@ public enum EditorSidebarPanel {
   LAYOUT_LAUNCHER("layout_launcher", "Layout Launcher", EditorPanelPlacement.HIDDEN, true, "icon-panel-layouts", "layout_editor_manager_orange_transparent.png"),
   PHONE_ASSETS("phone_assets", "Phone Assets", EditorPanelPlacement.HIDDEN, true, "icon-panel-phone", null),
   STORYBOARD_OVERLAY("storyboard_overlay", "Storyboard Overlay", EditorPanelPlacement.HIDDEN, true, "icon-panel-storyboard", "storyboard_overlay_tool_orange_transparent.png"),
-  LAYERED_IMAGES("layered_images", "Layered Image Visualizer", EditorPanelPlacement.HIDDEN, true, "icon-panel-layered", null),
+  LAYERED_IMAGES("layered_images", "Layered Image Visualizer", EditorPanelPlacement.HIDDEN, true, "icon-panel-layered", "layered_image_visualizer_orange_transparent.png"),
   IMAGE_ATTRIBUTES("image_attributes", "Image Attributes Tool", EditorPanelPlacement.HIDDEN, false, "icon-panel-image-attributes", null),
   IMAGE_TINT("image_tint", "Scene Lighting Studio", EditorPanelPlacement.HIDDEN, true, "icon-panel-image-tint", "scene_lighting_studio_tool_orange_transparent.png"),
   MENU_FLOW("menu_flow", "Menu Flow", EditorPanelPlacement.HIDDEN, true, "icon-panel-menuflow", "menu_flow_editor_orange_transparent.png"),
