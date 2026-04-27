@@ -1,8 +1,6 @@
 # JVN Engine Hub — Announcements
 
-This file is read by the Engine Hub on startup and after every "Update Engine"
-pull. Add a new entry above the others using the format below; the hub shows
-them latest-first, with the date and title bold and the body underneath.
+This file is read by the Engine Hub on startup and after every "Update Engine" pull. Add a new entry above the others using the format below; the hub shows them latest-first, with the date and title bold and the body underneath.
 
 Format:
 
