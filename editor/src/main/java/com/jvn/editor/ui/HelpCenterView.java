@@ -1,32 +1,5 @@
 package com.jvn.editor.ui;
 
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.ScrollPane;
-import javafx.scene.control.Separator;
-import javafx.scene.control.SplitPane;
-import javafx.scene.control.TextField;
-import javafx.scene.control.TreeCell;
-import javafx.scene.control.TreeItem;
-import javafx.scene.control.TreeView;
-import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
-import javafx.scene.input.KeyCode;
-import javafx.scene.input.MouseButton;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
-import javafx.scene.layout.StackPane;
-import javafx.scene.layout.VBox;
-import javafx.scene.text.Text;
-import javafx.scene.text.TextFlow;
-
 import java.awt.Desktop;
 import java.io.File;
 import java.io.IOException;
@@ -45,6 +18,35 @@ import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Separator;
+import javafx.scene.control.SplitPane;
+import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
+import javafx.scene.control.TreeCell;
+import javafx.scene.control.TreeItem;
+import javafx.scene.control.TreeView;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.ScrollEvent;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
+import javafx.scene.text.Text;
+import javafx.scene.text.TextFlow;
 
 public class HelpCenterView extends BorderPane {
   private static final int TITLE_SCAN_LINE_LIMIT = 100;
@@ -128,14 +130,52 @@ public class HelpCenterView extends BorderPane {
     filterField.setPromptText("Filter docs...");
     filterField.getStyleClass().add("help-filter-field");
     filterField.textProperty().addListener((obs, oldVal, newVal) -> rebuildGuideTree(newVal));
+    filterField.setOnKeyPressed(e -> {
+      if (e.getCode() == KeyCode.ESCAPE && !filterField.getText().isBlank()) {
+        filterField.clear();
+        e.consume();
+      } else if (e.getCode() == KeyCode.DOWN) {
+        docsTree.requestFocus();
+        if (docsTree.getSelectionModel().isEmpty() && docsTree.getRoot() != null) {
+          TreeItem<HelpNode> first = firstDocNode(docsTree.getRoot());
+          if (first != null) docsTree.getSelectionModel().select(first);
+        }
+        e.consume();
+      }
+    });
+
+    Button clearFilterButton = new Button("\u2715");
+    clearFilterButton.getStyleClass().addAll("help-toolbar-button", "help-toolbar-button-icon");
+    clearFilterButton.setTooltip(new Tooltip("Clear filter (Esc)"));
+    clearFilterButton.setOnAction(e -> filterField.clear());
+    clearFilterButton.disableProperty().bind(
+        javafx.beans.binding.Bindings.createBooleanBinding(
+            () -> filterField.getText() == null || filterField.getText().isBlank(),
+            filterField.textProperty()));
+
+    Button expandAllButton = new Button("Expand");
+    expandAllButton.getStyleClass().add("help-toolbar-button");
+    expandAllButton.setTooltip(new Tooltip("Expand all sections"));
+    expandAllButton.setOnAction(e -> setAllSectionsExpanded(true));
+
+    Button collapseAllButton = new Button("Collapse");
+    collapseAllButton.getStyleClass().add("help-toolbar-button");
+    collapseAllButton.setTooltip(new Tooltip("Collapse all sections"));
+    collapseAllButton.setOnAction(e -> setAllSectionsExpanded(false));
 
     Button refreshButton = new Button("Refresh");
     refreshButton.getStyleClass().add("help-toolbar-button");
+    refreshButton.setTooltip(new Tooltip("Re-scan workspace and project docs"));
     refreshButton.setOnAction(e -> refresh());
-    HBox filterRow = new HBox(8, filterField, refreshButton);
+
+    HBox filterRow = new HBox(6, filterField, clearFilterButton);
     filterRow.getStyleClass().add("help-filter-row");
     HBox.setHgrow(filterField, Priority.ALWAYS);
     filterRow.setAlignment(Pos.CENTER_LEFT);
+
+    HBox treeToolbar = new HBox(6, expandAllButton, collapseAllButton, spacer(), refreshButton);
+    treeToolbar.getStyleClass().add("help-tree-toolbar");
+    treeToolbar.setAlignment(Pos.CENTER_LEFT);
 
     Label browserTitle = new Label("Guide Tree");
     browserTitle.getStyleClass().add("help-pane-title");
@@ -148,6 +188,7 @@ public class HelpCenterView extends BorderPane {
 
     docsTree.setShowRoot(false);
     docsTree.getStyleClass().add("help-doc-tree");
+    docsTree.setFixedCellSize(28);
     docsTree.setCellFactory(tree -> new TreeCell<>() {
       @Override
       protected void updateItem(HelpNode item, boolean empty) {
@@ -155,23 +196,26 @@ public class HelpCenterView extends BorderPane {
         if (empty || item == null) {
           setGraphic(null);
           setText(null);
+          setTooltip(null);
           return;
         }
         setText(null);
         if (item.section()) {
           Label name = new Label(item.title());
           name.getStyleClass().add("help-guide-section-title");
-          Label info = new Label(item.subtitle());
-          info.getStyleClass().add("help-guide-section-subtitle");
-          info.setWrapText(true);
-          VBox box = new VBox(2, name, info);
-          box.getStyleClass().add("help-guide-section-box");
-          Label count = new Label(item.documentCount() + " docs");
+          name.setMaxWidth(Double.MAX_VALUE);
+          HBox.setHgrow(name, Priority.ALWAYS);
+          Label count = new Label(String.valueOf(item.documentCount()));
           count.getStyleClass().add("help-guide-section-count");
-          HBox row = new HBox(10, box, count);
+          HBox row = new HBox(8, name, count);
           row.setAlignment(Pos.CENTER_LEFT);
-          HBox.setHgrow(box, Priority.ALWAYS);
+          row.getStyleClass().add("help-guide-section-row");
           setGraphic(row);
+          if (item.subtitle() != null && !item.subtitle().isBlank()) {
+            setTooltip(buildTooltip(item.title(), item.subtitle()));
+          } else {
+            setTooltip(null);
+          }
           return;
         }
 
@@ -180,24 +224,14 @@ public class HelpCenterView extends BorderPane {
         docIcon.getStyleClass().add("help-doc-icon");
         Label name = new Label(entry.title());
         name.getStyleClass().add("help-doc-title");
+        name.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(name, Priority.ALWAYS);
 
-        Label path = new Label(entry.relativePath());
-        path.getStyleClass().add("help-doc-path");
-
-        Label summary = new Label(entry.summary());
-        summary.getStyleClass().add("help-doc-summary");
-        summary.setWrapText(true);
-
-        VBox textBox = new VBox(2, name, path, summary);
-        textBox.getStyleClass().add("help-doc-card");
-        HBox.setHgrow(textBox, Priority.ALWAYS);
-
-        Label sourceChip = new Label(entry.sourceLabel());
-        sourceChip.getStyleClass().add("help-doc-source-badge");
-
-        HBox row = new HBox(10, docIcon, textBox, sourceChip);
+        HBox row = new HBox(8, docIcon, name);
         row.setAlignment(Pos.CENTER_LEFT);
+        row.getStyleClass().add("help-doc-row");
         setGraphic(row);
+        setTooltip(buildTooltip(entry.title(), entry.relativePath() + "\n\n" + entry.summary()));
       }
     });
     docsTree.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
@@ -215,7 +249,7 @@ public class HelpCenterView extends BorderPane {
 
     statsLabel.getStyleClass().add("help-stats-label");
 
-    VBox left = new VBox(10, browserTitleRow, browserSubtitle, filterRow, new Separator(), docsTree, statsLabel);
+    VBox left = new VBox(8, browserTitleRow, browserSubtitle, filterRow, treeToolbar, new Separator(), docsTree, statsLabel);
     left.getStyleClass().add("help-browser-pane");
     left.setPadding(new Insets(10));
     left.setPrefWidth(340);
@@ -226,6 +260,9 @@ public class HelpCenterView extends BorderPane {
     contentScroll.setFitToWidth(true);
     contentScroll.setContent(markdownContent);
     contentScroll.getStyleClass().add("help-doc-content-scroll");
+    contentScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+    contentScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+    installSmoothScroll(contentScroll);
 
     titleLabel.getStyleClass().add("help-preview-title");
     sourceBadgeLabel.getStyleClass().add("help-doc-source-chip");
@@ -428,8 +465,12 @@ public class HelpCenterView extends BorderPane {
     activeDocEntry = entry;
     sourceBadgeLabel.setText(entry.sourceLabel());
     titleLabel.setText(entry.title());
-    pathLabel.setText(entry.relativePath());
+    GuideSection section = classifySection(entry);
+    String breadcrumb = section == null ? entry.relativePath()
+        : section.title() + "  \u203A  " + entry.relativePath();
+    pathLabel.setText(breadcrumb);
     summaryLabel.setText(entry.summary());
+    contentScroll.setVvalue(0.0);
     try {
       renderMarkdown(Files.readString(entry.file().toPath()));
     } catch (Exception ex) {
@@ -462,6 +503,54 @@ public class HelpCenterView extends BorderPane {
   private DocEntry extractDocEntry(TreeItem<HelpNode> item) {
     if (item == null || item.getValue() == null || item.getValue().section()) return null;
     return item.getValue().doc();
+  }
+
+  private Region spacer() {
+    Region r = new Region();
+    HBox.setHgrow(r, Priority.ALWAYS);
+    return r;
+  }
+
+  private void setAllSectionsExpanded(boolean expanded) {
+    TreeItem<HelpNode> root = docsTree.getRoot();
+    if (root == null) return;
+    for (TreeItem<HelpNode> section : root.getChildren()) {
+      section.setExpanded(expanded);
+    }
+  }
+
+  private void installSmoothScroll(ScrollPane pane) {
+    pane.addEventFilter(ScrollEvent.SCROLL, ev -> {
+      if (ev.getDeltaY() == 0) return;
+      double contentHeight = pane.getContent() == null
+          ? 0
+          : pane.getContent().getBoundsInLocal().getHeight();
+      double viewportHeight = pane.getViewportBounds() == null
+          ? 1
+          : pane.getViewportBounds().getHeight();
+      double scrollableRange = Math.max(1.0, contentHeight - viewportHeight);
+      double pixelDelta = ev.getDeltaY() * (ev.isShiftDown() ? 0.3 : 1.4);
+      double valueDelta = pixelDelta / scrollableRange;
+      double newValue = pane.getVvalue() - valueDelta;
+      pane.setVvalue(Math.max(pane.getVmin(), Math.min(pane.getVmax(), newValue)));
+      ev.consume();
+    });
+  }
+
+  private Tooltip buildTooltip(String header, String body) {
+    StringBuilder sb = new StringBuilder();
+    if (header != null && !header.isBlank()) sb.append(header);
+    if (body != null && !body.isBlank()) {
+      if (sb.length() > 0) sb.append("\n\n");
+      sb.append(body);
+    }
+    Tooltip tip = new Tooltip(sb.toString());
+    tip.setWrapText(true);
+    tip.setMaxWidth(360);
+    tip.setShowDelay(javafx.util.Duration.millis(450));
+    tip.setHideDelay(javafx.util.Duration.millis(120));
+    tip.getStyleClass().add("help-tooltip");
+    return tip;
   }
 
   private void showGuidePlaceholder(String title, String path, String summary, String bodyMessage) {
@@ -812,7 +901,8 @@ public class HelpCenterView extends BorderPane {
     imageView.setPreserveRatio(true);
     imageView.setSmooth(true);
     imageView.setCache(true);
-    imageView.fitWidthProperty().bind(markdownContent.widthProperty().subtract(36));
+    imageView.fitWidthProperty().bind(contentScroll.viewportBoundsProperty()
+        .map(b -> Math.max(120.0, b.getWidth() - 56)));
 
     StackPane frame = new StackPane(imageView);
     frame.getStyleClass().add("help-md-image-frame");
@@ -869,7 +959,6 @@ public class HelpCenterView extends BorderPane {
     Label body = new Label(code == null ? "" : code);
     body.setWrapText(true);
     body.setMaxWidth(Double.MAX_VALUE);
-    body.prefWidthProperty().bind(markdownContent.widthProperty().subtract(20));
     body.getStyleClass().add("help-md-code-block");
     box.getChildren().add(body);
     markdownContent.getChildren().add(box);
@@ -886,7 +975,6 @@ public class HelpCenterView extends BorderPane {
     GridPane table = new GridPane();
     table.getStyleClass().add("help-md-table");
     table.setMaxWidth(Double.MAX_VALUE);
-    table.prefWidthProperty().bind(markdownContent.widthProperty().subtract(8));
 
     for (int r = 0; r < rows.size(); r++) {
       String[] row = rows.get(r);
@@ -921,7 +1009,10 @@ public class HelpCenterView extends BorderPane {
     flow.getStyleClass().add("help-md-flow");
     if (blockClass != null && !blockClass.isBlank()) flow.getStyleClass().add(blockClass);
     flow.setMaxWidth(Double.MAX_VALUE);
-    flow.prefWidthProperty().bind(markdownContent.widthProperty().subtract(widthInset));
+    // Bind to viewport width (not the VBox width) to avoid layout feedback loops
+    // when the scrollbar appears/disappears, which was causing scroll jitter.
+    flow.maxWidthProperty().bind(contentScroll.viewportBoundsProperty()
+        .map(b -> Math.max(80.0, b.getWidth() - widthInset)));
     appendInlineMarkdown(flow, source == null ? "" : source);
     return flow;
   }

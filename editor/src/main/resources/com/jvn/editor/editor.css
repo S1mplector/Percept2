@@ -3430,6 +3430,24 @@
   -fx-border-radius: 8;
 }
 
+.help-tree-toolbar {
+  -fx-padding: 2 0 2 0;
+}
+
+.help-toolbar-button-icon {
+  -fx-padding: 4 8 4 8;
+  -fx-font-size: 11px;
+  -fx-min-width: 26;
+}
+
+.help-doc-row {
+  -fx-padding: 0;
+}
+
+.help-guide-section-row {
+  -fx-padding: 0;
+}
+
 .help-doc-tree {
   -fx-background-color: #171717;
   -fx-border-color: #2b2b2b;
