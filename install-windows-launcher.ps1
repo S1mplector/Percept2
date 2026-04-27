@@ -68,9 +68,7 @@ function Write-SvgIcon([string]$Path, [string]$Version) {
     </linearGradient>
   </defs>
   <rect x="18" y="18" width="220" height="220" rx="44" fill="url(#bg)"/>
-  <path d="M62 70h36v72c0 28-17 46-45 46-8 0-17-2-25-6l7-29c5 3 10 4 15 4 8 0 12-5 12-15V70z" fill="url(#mark)"/>
-  <path d="M102 70h34l24 74 24-74h36l-44 118h-33L102 70z" fill="url(#mark)"/>
-  <text x="128" y="126" text-anchor="middle" font-family="Arial, sans-serif" font-size="44" font-weight="800" fill="#ffffff">JVN</text>
+  <text x="128" y="137" text-anchor="middle" font-family="Arial, sans-serif" font-size="70" font-weight="900" fill="url(#mark)" opacity="0.96">JVN</text>
   <rect x="54" y="182" width="148" height="32" rx="16" fill="#07101f" opacity="0.74"/>
   <text x="128" y="204" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#ffcf91">$label</text>
 </svg>
