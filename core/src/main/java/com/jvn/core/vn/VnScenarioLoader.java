@@ -1,16 +1,16 @@
 package com.jvn.core.vn;
 
-import com.jvn.core.assets.AssetCatalog;
-import com.jvn.core.assets.AssetType;
-import com.jvn.core.localization.Localization;
-import com.jvn.core.localization.LocalizedScriptLoader;
-import com.jvn.core.vn.script.VnScriptParser;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+
+import com.jvn.core.assets.AssetCatalog;
+import com.jvn.core.assets.AssetType;
+import com.jvn.core.localization.Localization;
+import com.jvn.core.localization.LocalizedScriptLoader;
+import com.jvn.core.vn.script.VnScriptParser;
 
 /**
  * Centralized VN scenario loader with localization-aware script resolution.
@@ -35,29 +35,84 @@ public class VnScenarioLoader {
 
   public VnScenario load(String scriptName) throws IOException {
     String normalized = scriptName == null ? "" : scriptName.trim();
-    try (InputStream in = open(normalized)) {
+    OpenResult opened = openWithDiagnostics(normalized);
+    try (InputStream in = opened.stream) {
       if (in == null) {
-        throw new IOException("Script not found: " + normalized);
+        throw scriptNotFound(normalized, opened);
       }
       return parser.parse(in, normalized, includePath -> {
-        InputStream included = open(includePath);
-        if (included == null) {
-          throw new IOException("Included script not found: " + includePath);
+        OpenResult inc = openWithDiagnostics(includePath);
+        if (inc.stream == null) {
+          throw scriptNotFound("Included script not found: " + includePath, inc);
         }
-        return included;
+        return inc.stream;
       });
     }
   }
 
   public InputStream open(String scriptName) {
+    return openWithDiagnostics(scriptName).stream;
+  }
+
+  /**
+   * Probe the candidate paths; on success returns the first openable stream.
+   * On failure, returns the most informative exception encountered (if any) so
+   * callers can surface a real cause rather than a bare "not found".
+   */
+  private OpenResult openWithDiagnostics(String scriptName) {
+    Exception firstFailure = null;
+    String firstFailingCandidate = null;
+    List<String> tried = new ArrayList<>();
     for (String candidate : localizedScriptCandidates(scriptName)) {
+      tried.add(candidate);
       try {
         InputStream in = assets.open(AssetType.SCRIPT, candidate);
-        if (in != null) return in;
-      } catch (Exception ignored) {
+        if (in != null) return new OpenResult(in, null, null, tried);
+      } catch (Exception ex) {
+        if (firstFailure == null) {
+          firstFailure = ex;
+          firstFailingCandidate = candidate;
+        }
       }
     }
-    return null;
+    return new OpenResult(null, firstFailure, firstFailingCandidate, tried);
+  }
+
+  private static IOException scriptNotFound(String prefix, OpenResult opened) {
+    StringBuilder msg = new StringBuilder();
+    if (prefix != null && !prefix.isBlank()) {
+      msg.append(prefix);
+    } else {
+      msg.append("Script not found");
+    }
+    if (opened != null && opened.firstFailure != null) {
+      msg.append(" (failed to open '")
+         .append(opened.firstFailingCandidate)
+         .append("': ")
+         .append(opened.firstFailure.getClass().getSimpleName());
+      String causeMsg = opened.firstFailure.getMessage();
+      if (causeMsg != null && !causeMsg.isBlank()) msg.append(": ").append(causeMsg);
+      msg.append(')');
+    }
+    if (opened != null && !opened.triedCandidates.isEmpty()) {
+      msg.append(". Tried: ").append(opened.triedCandidates);
+    }
+    IOException io = new IOException(msg.toString());
+    if (opened != null && opened.firstFailure != null) io.initCause(opened.firstFailure);
+    return io;
+  }
+
+  private static final class OpenResult {
+    final InputStream stream;
+    final Exception firstFailure;
+    final String firstFailingCandidate;
+    final List<String> triedCandidates;
+    OpenResult(InputStream stream, Exception firstFailure, String firstFailingCandidate, List<String> triedCandidates) {
+      this.stream = stream;
+      this.firstFailure = firstFailure;
+      this.firstFailingCandidate = firstFailingCandidate;
+      this.triedCandidates = triedCandidates == null ? List.of() : List.copyOf(triedCandidates);
+    }
   }
 
   public List<String> localizedScriptCandidates(String scriptName) {
