@@ -41,6 +41,9 @@ public class SettingsScene implements Scene {
   private static final String KEY_PHYSICS_MAX_SUBSTEPS = "physics_max_substeps";
   private static final String KEY_PHYSICS_DEFAULT_FRICTION = "physics_default_friction";
   private static final String KEY_INPUT_PROFILE = "input_profile";
+  private static final String KEY_DISPLAY_WIDTH = "display_width";
+  private static final String KEY_DISPLAY_HEIGHT = "display_height";
+  private static final String KEY_AUTO_FIT_RESOLUTION = "auto_fit_resolution";
   private static final String KEY_BACK = "back";
 
   private final VnSettings settings;
@@ -281,7 +284,9 @@ public class SettingsScene implements Scene {
            KEY_AUTO_PLAY_DELAY,
            KEY_PHYSICS_FIXED_STEP,
            KEY_PHYSICS_MAX_SUBSTEPS,
-           KEY_PHYSICS_DEFAULT_FRICTION -> true;
+           KEY_PHYSICS_DEFAULT_FRICTION,
+           KEY_DISPLAY_WIDTH,
+           KEY_DISPLAY_HEIGHT -> true;
       default -> false;
     };
   }
@@ -292,7 +297,8 @@ public class SettingsScene implements Scene {
     return switch (r.key()) {
       case KEY_SKIP_UNREAD,
            KEY_SKIP_AFTER_CHOICES,
-           KEY_CLICK_REVEAL_BEFORE_ADVANCE -> true;
+           KEY_CLICK_REVEAL_BEFORE_ADVANCE,
+           KEY_AUTO_FIT_RESOLUTION -> true;
       default -> false;
     };
   }
@@ -309,6 +315,8 @@ public class SettingsScene implements Scene {
       case KEY_PHYSICS_FIXED_STEP -> clamp01(settings.getPhysicsFixedStepMs() / 50.0);
       case KEY_PHYSICS_MAX_SUBSTEPS -> clamp01((settings.getPhysicsMaxSubSteps() - 1) / 7.0);
       case KEY_PHYSICS_DEFAULT_FRICTION -> clamp01(settings.getPhysicsDefaultFriction());
+      case KEY_DISPLAY_WIDTH -> clamp01((settings.getDisplayWidth() - 320.0) / (7680.0 - 320.0));
+      case KEY_DISPLAY_HEIGHT -> clamp01((settings.getDisplayHeight() - 180.0) / (4320.0 - 180.0));
       default -> 0.0;
     };
   }
@@ -320,6 +328,7 @@ public class SettingsScene implements Scene {
       case KEY_SKIP_UNREAD -> settings.isSkipUnreadText();
       case KEY_SKIP_AFTER_CHOICES -> settings.isSkipAfterChoices();
       case KEY_CLICK_REVEAL_BEFORE_ADVANCE -> settings.isClickRevealBeforeAdvance();
+      case KEY_AUTO_FIT_RESOLUTION -> settings.isAutoFitResolution();
       default -> false;
     };
   }
@@ -373,6 +382,9 @@ public class SettingsScene implements Scene {
       case KEY_PHYSICS_FIXED_STEP -> settings.setPhysicsFixedStepMs(Math.max(0, settings.getPhysicsFixedStepMs() + delta * 5));
       case KEY_PHYSICS_MAX_SUBSTEPS -> settings.setPhysicsMaxSubSteps(Math.max(1, settings.getPhysicsMaxSubSteps() + delta));
       case KEY_PHYSICS_DEFAULT_FRICTION -> settings.setPhysicsDefaultFriction(settings.getPhysicsDefaultFriction() + delta * 0.05);
+      case KEY_DISPLAY_WIDTH -> settings.setDisplayWidth(settings.getDisplayWidth() + delta * 64);
+      case KEY_DISPLAY_HEIGHT -> settings.setDisplayHeight(settings.getDisplayHeight() + delta * 36);
+      case KEY_AUTO_FIT_RESOLUTION -> settings.setAutoFitResolution(!settings.isAutoFitResolution());
       case KEY_INPUT_PROFILE -> {
         if (delta > 0) saveBindingsToDisk();
         else loadBindingsFromDisk();
@@ -396,6 +408,7 @@ public class SettingsScene implements Scene {
       case KEY_SKIP_UNREAD -> settings.setSkipUnreadText(!settings.isSkipUnreadText());
       case KEY_SKIP_AFTER_CHOICES -> settings.setSkipAfterChoices(!settings.isSkipAfterChoices());
       case KEY_CLICK_REVEAL_BEFORE_ADVANCE -> settings.setClickRevealBeforeAdvance(!settings.isClickRevealBeforeAdvance());
+      case KEY_AUTO_FIT_RESOLUTION -> settings.setAutoFitResolution(!settings.isAutoFitResolution());
       case KEY_INPUT_PROFILE -> loadBindingsFromDisk();
       case KEY_BACK -> closeRequested = true;
       default -> {
@@ -434,6 +447,17 @@ public class SettingsScene implements Scene {
       case KEY_PHYSICS_FIXED_STEP -> settings.setPhysicsFixedStepMs(Math.round(v * 50));
       case KEY_PHYSICS_MAX_SUBSTEPS -> settings.setPhysicsMaxSubSteps(1 + (int) Math.round(v * 7));
       case KEY_PHYSICS_DEFAULT_FRICTION -> settings.setPhysicsDefaultFriction(v);
+      case KEY_DISPLAY_WIDTH -> {
+        int min = 320, max = 7680;
+        int val = (int) Math.round(min + v * (max - min));
+        settings.setDisplayWidth(val);
+      }
+      case KEY_DISPLAY_HEIGHT -> {
+        int min = 180, max = 4320;
+        int val = (int) Math.round(min + v * (max - min));
+        settings.setDisplayHeight(val);
+      }
+      case KEY_AUTO_FIT_RESOLUTION -> settings.setAutoFitResolution(v >= 0.5);
       case KEY_INPUT_PROFILE -> {
         if (v > 0.5) saveBindingsToDisk(); else loadBindingsFromDisk();
       }
@@ -463,6 +487,9 @@ public class SettingsScene implements Scene {
       case KEY_PHYSICS_FIXED_STEP -> settings.setPhysicsFixedStepMs(defaults.getPhysicsFixedStepMs());
       case KEY_PHYSICS_MAX_SUBSTEPS -> settings.setPhysicsMaxSubSteps(defaults.getPhysicsMaxSubSteps());
       case KEY_PHYSICS_DEFAULT_FRICTION -> settings.setPhysicsDefaultFriction(defaults.getPhysicsDefaultFriction());
+      case KEY_DISPLAY_WIDTH -> settings.setDisplayWidth(defaults.getDisplayWidth());
+      case KEY_DISPLAY_HEIGHT -> settings.setDisplayHeight(defaults.getDisplayHeight());
+      case KEY_AUTO_FIT_RESOLUTION -> settings.setAutoFitResolution(defaults.isAutoFitResolution());
       default -> {
       }
     }
@@ -535,6 +562,10 @@ public class SettingsScene implements Scene {
     out.add(defaultRow(KEY_BGM_VOLUME, style));
     out.add(defaultRow(KEY_SFX_VOLUME, style));
     out.add(defaultRow(KEY_VOICE_VOLUME, style));
+    // Display
+    out.add(defaultRow(KEY_DISPLAY_WIDTH, style));
+    out.add(defaultRow(KEY_DISPLAY_HEIGHT, style));
+    out.add(defaultRow(KEY_AUTO_FIT_RESOLUTION, style));
     // Navigation
     out.add(defaultRow(KEY_BACK, style));
     return out;
@@ -859,6 +890,9 @@ public class SettingsScene implements Scene {
       case KEY_PHYSICS_FIXED_STEP -> "Physics: Fixed Step";
       case KEY_PHYSICS_MAX_SUBSTEPS -> "Physics: Max Substeps";
       case KEY_PHYSICS_DEFAULT_FRICTION -> "Physics: Friction";
+      case KEY_DISPLAY_WIDTH -> fallbackLocalized("settings.display_width", "Screen Width");
+      case KEY_DISPLAY_HEIGHT -> fallbackLocalized("settings.display_height", "Screen Height");
+      case KEY_AUTO_FIT_RESOLUTION -> fallbackLocalized("settings.auto_fit_resolution", "Auto-Fit Resolution");
       case KEY_INPUT_PROFILE -> "Input Profile";
       case KEY_BACK -> fallbackLocalized("common.back", "Back");
       default -> titleize(key);
@@ -883,6 +917,9 @@ public class SettingsScene implements Scene {
       case KEY_PHYSICS_FIXED_STEP -> settings.getPhysicsFixedStepMs() + " ms";
       case KEY_PHYSICS_MAX_SUBSTEPS -> Integer.toString(settings.getPhysicsMaxSubSteps());
       case KEY_PHYSICS_DEFAULT_FRICTION -> toPct((float) settings.getPhysicsDefaultFriction());
+      case KEY_DISPLAY_WIDTH -> settings.getDisplayWidth() + "px";
+      case KEY_DISPLAY_HEIGHT -> settings.getDisplayHeight() + "px";
+      case KEY_AUTO_FIT_RESOLUTION -> settings.isAutoFitResolution() ? "On" : "Off";
       case KEY_INPUT_PROFILE -> "Save/Load";
       default -> null;
     };
@@ -958,6 +995,9 @@ public class SettingsScene implements Scene {
       case "physics_fixed_step", "fixed_step", "fixed_step_ms" -> KEY_PHYSICS_FIXED_STEP;
       case "physics_max_substeps", "max_substeps", "max_steps" -> KEY_PHYSICS_MAX_SUBSTEPS;
       case "physics_default_friction", "physics_friction", "default_friction", "friction" -> KEY_PHYSICS_DEFAULT_FRICTION;
+      case "display_width", "screen_width", "width", "resolution_width" -> KEY_DISPLAY_WIDTH;
+      case "display_height", "screen_height", "height", "resolution_height" -> KEY_DISPLAY_HEIGHT;
+      case "auto_fit_resolution", "autofit", "auto_fit", "fit_resolution" -> KEY_AUTO_FIT_RESOLUTION;
       case "input", "input_profile", "bindings", "input_bindings" -> KEY_INPUT_PROFILE;
       case "back", "close", "return" -> KEY_BACK;
       default -> v;
@@ -977,6 +1017,9 @@ public class SettingsScene implements Scene {
            KEY_PHYSICS_FIXED_STEP,
            KEY_PHYSICS_MAX_SUBSTEPS,
            KEY_PHYSICS_DEFAULT_FRICTION,
+           KEY_DISPLAY_WIDTH,
+           KEY_DISPLAY_HEIGHT,
+           KEY_AUTO_FIT_RESOLUTION,
            KEY_INPUT_PROFILE -> true;
       default -> false;
     };
