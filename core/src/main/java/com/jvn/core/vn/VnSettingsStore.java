@@ -40,6 +40,8 @@ public class VnSettingsStore {
         try { s.setPhysicsDefaultFriction(Double.parseDouble(p.getProperty("physics_default_friction", Double.toString(s.getPhysicsDefaultFriction())))); } catch (Exception ignored) {}
         try { s.setInputProfilePath(p.getProperty("input_profile_path", s.getInputProfilePath())); } catch (Exception ignored) {}
         try { s.setInputProfileSerialized(p.getProperty("input_profile_serialized", s.getInputProfileSerialized())); } catch (Exception ignored) {}
+        try { s.setDisplayWidth(Integer.parseInt(p.getProperty("display_width", Integer.toString(s.getDisplayWidth())))); } catch (Exception ignored) {}
+        try { s.setDisplayHeight(Integer.parseInt(p.getProperty("display_height", Integer.toString(s.getDisplayHeight())))); } catch (Exception ignored) {}
       }
     } catch (Exception ignored) {
     }
@@ -64,6 +66,8 @@ public class VnSettingsStore {
       p.setProperty("physics_default_friction", Double.toString(s.getPhysicsDefaultFriction()));
       p.setProperty("input_profile_path", s.getInputProfilePath());
       p.setProperty("input_profile_serialized", s.getInputProfileSerialized());
+      p.setProperty("display_width", Integer.toString(s.getDisplayWidth()));
+      p.setProperty("display_height", Integer.toString(s.getDisplayHeight()));
       try (FileOutputStream out = new FileOutputStream(settingsPath.toFile())) {
         p.store(out, "JVN Settings");
       }

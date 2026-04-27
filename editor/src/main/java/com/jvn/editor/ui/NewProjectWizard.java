@@ -2196,6 +2196,11 @@ public class NewProjectWizard extends Stage {
       sp.setProperty("physics_default_friction", Double.toString(physicsFriction));
       sp.setProperty("input_profile_path", inputProfile);
 
+      // Display resolution (scaled for screen DPI).
+      int[] scaledRes = getScaledResolution();
+      sp.setProperty("display_width", Integer.toString(scaledRes[0]));
+      sp.setProperty("display_height", Integer.toString(scaledRes[1]));
+
       // Project module hints.
       sp.setProperty("historyBacklogEnabled", Boolean.toString(chkHistoryBacklog.isSelected()));
       sp.setProperty("saveProfilesEnabled", Boolean.toString(chkSaveSystem.isSelected()));
