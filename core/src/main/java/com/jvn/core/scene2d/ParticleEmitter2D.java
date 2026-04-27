@@ -27,6 +27,11 @@ import java.util.Random;
  * @see Blitter2D#setBlendMode(String)
  */
 public class ParticleEmitter2D extends Entity2D {
+  public enum RenderMode {
+    CIRCLE,
+    STREAK
+  }
+
 
   /**
    * Mutable state for a single active particle.
@@ -135,6 +140,12 @@ public class ParticleEmitter2D extends Entity2D {
 
   /** Optional texture path; {@code null} = draw filled circles. */
   private String texture = null;
+
+  /** Shape renderer used when no texture is set. */
+  private RenderMode renderMode = RenderMode.CIRCLE;
+
+  /** Multiplier for velocity-derived streak length. */
+  private double streakLengthScale = 0.05;
 
   /** Default constructor — creates an emitter with default fire-like settings. */
   public ParticleEmitter2D() {}
@@ -256,6 +267,14 @@ public class ParticleEmitter2D extends Entity2D {
   public void setTexture(String path) { this.texture = path; }
   /** @return texture path, or {@code null} */
   public String getTexture() { return texture; }
+  /** @param mode particle renderer used when no texture is set */
+  public void setRenderMode(RenderMode mode) { this.renderMode = mode == null ? RenderMode.CIRCLE : mode; }
+  /** @return particle renderer used when no texture is set */
+  public RenderMode getRenderMode() { return renderMode; }
+  /** @param scale multiplier applied to velocity magnitude for streak length */
+  public void setStreakLengthScale(double scale) { this.streakLengthScale = Math.max(0.0, scale); }
+  /** @return velocity multiplier used for streak length */
+  public double getStreakLengthScale() { return streakLengthScale; }
   /** @param add whether to use additive blend mode */
   public void setAdditive(boolean add) { this.useAdditive = add; }
   /** @return {@code true} if additive blending is active */
@@ -372,6 +391,15 @@ public class ParticleEmitter2D extends Entity2D {
       if (texture != null) {
         double hs = p.size / 2;
         b.drawImage(texture, -hs, -hs, p.size, p.size);
+      } else if (renderMode == RenderMode.STREAK) {
+        double speed = Math.hypot(p.vx, p.vy);
+        double len = Math.max(p.size * 3.0, speed * streakLengthScale);
+        double ux = speed > 1e-6 ? p.vx / speed : 0.0;
+        double uy = speed > 1e-6 ? p.vy / speed : 1.0;
+        b.setStroke(p.r, p.g, p.b, 1.0);
+        b.setStrokeWidth(Math.max(0.75, p.size));
+        b.setStrokeCap("round");
+        b.drawLine(-ux * len, -uy * len, ux * len * 0.18, uy * len * 0.18);
       } else {
         b.setFill(p.r, p.g, p.b, p.a);
         b.fillCircle(0, 0, p.size / 2);

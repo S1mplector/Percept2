@@ -54,6 +54,29 @@ public class VnParticlePresetLibraryTest {
   }
 
   @Test
+  public void rainPresetUsesFastStreakRenderer() {
+    ParticleEmitter2D emitter = new ParticleEmitter2D();
+    VnParticleCommand command = VnParticleCommand.builder(VnParticleCommand.Preset.RAIN)
+        .intensity(0.75f)
+        .speed(1.2)
+        .wind(24.0)
+        .build();
+
+    VnParticlePresetLibrary.apply(emitter, command, 1600, 900);
+
+    assertTrue(emitter.isEmitting());
+    assertFalse(emitter.isAdditive());
+    assertEquals(ParticleEmitter2D.RenderMode.STREAK, emitter.getRenderMode());
+    assertEquals(0.045, emitter.getStreakLengthScale(), 0.0001);
+    assertEquals(864.0, emitter.getMinSpeed(), 0.0001);
+    assertEquals(1176.0, emitter.getMaxSpeed(), 0.0001);
+    assertEquals(82.0, emitter.getMinAngle(), 0.0001);
+    assertEquals(94.0, emitter.getMaxAngle(), 0.0001);
+    assertEquals(24.0, emitter.getWindX(), 0.0001);
+    assertEquals(0.48, emitter.getStartA(), 0.0001);
+  }
+
+  @Test
   public void sakuraPresetUsesPetalLikeDriftAndTintableColor() {
     ParticleEmitter2D emitter = new ParticleEmitter2D();
     VnParticleCommand command = VnParticleCommand.builder(VnParticleCommand.Preset.SAKURA)

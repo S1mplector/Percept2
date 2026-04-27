@@ -84,6 +84,9 @@ public final class VnParticlePresetLibrary {
       return;
     }
 
+    emitter.setRenderMode(ParticleEmitter2D.RenderMode.CIRCLE);
+    emitter.setStreakLengthScale(0.05);
+
     switch (cmd.getPreset()) {
       case SNOW -> configureSnow(emitter, cmd, width, height);
       case RAIN -> configureRain(emitter, cmd, width, height);
@@ -141,10 +144,10 @@ public final class VnParticlePresetLibrary {
   // ──────────────────────────────────────────────────────────────────────────
 
   /**
-   * Fast, narrow, slightly slanted streaks. Strong gravity so droplets fall
-   * convincingly; small particle size so they read as streaks rather than
-   * blobs. No additive blending; alpha tapers to zero so droplets don't leave
-   * hard cutoffs near their lifetime end.
+   * Fast, narrow, slightly slanted streaks. Rain uses the emitter's velocity
+   * streak renderer instead of dot particles, so drops read as motion-blurred
+   * lines with a small bright leading edge. No additive blending; alpha tapers
+   * to zero so droplets don't leave hard cutoffs near their lifetime end.
    *
    * <p>Intensity 0.0 → drizzle, 1.0 → downpour. Default 0.5 ≈ steady rain.</p>
    */
@@ -154,26 +157,29 @@ public final class VnParticlePresetLibrary {
 
     emitter.setEmitting(true);
     emitter.setZ(cmd.getLayer());
-    emitter.setPosition(width * 0.5, -height * 0.10);
-    emitter.setSpawnArea(-width * 0.62, width * 0.62, -height * 0.08, height * 0.04);
-    emitter.setMaxParticles(clampMax((int) Math.round(260 * i)));
-    emitter.setEmissionRate(220.0 * i);
+    emitter.setPosition(width * 0.5, -height * 0.16);
+    emitter.setSpawnArea(-width * 0.68, width * 0.68, -height * 0.10, height * 0.02);
+    emitter.setMaxParticles(clampMax((int) Math.round(360 * i)));
+    emitter.setEmissionRate(320.0 * i);
 
-    emitter.setLifeRange(0.9, 1.3);
-    emitter.setSizeRange(1.4, 2.6, 0.9);
+    emitter.setLifeRange(0.55, 0.90);
+    emitter.setSizeRange(0.9, 1.7, 0.8);
 
-    // Narrow downward cone — rain doesn't spread the way snow does.
-    emitter.setAngleRange(85.0, 95.0);
-    emitter.setSpeedRange(420.0 * speedScale, 620.0 * speedScale);
+    // Slightly slanted downward cone — enough directionality to feel windy
+    // without turning default rain into diagonal speed lines.
+    emitter.setAngleRange(82.0, 94.0);
+    emitter.setSpeedRange(720.0 * speedScale, 980.0 * speedScale);
 
-    emitter.setGravity(900.0);
+    emitter.setGravity(650.0);
     emitter.setWindX(cmd.getWindX());
     emitter.setAdditive(false);
     emitter.setTexture(null);
+    emitter.setRenderMode(ParticleEmitter2D.RenderMode.STREAK);
+    emitter.setStreakLengthScale(0.045);
 
     // Cool, slightly desaturated blue → fades transparent.
     setColors(emitter, cmd, /*r*/0.72, /*g*/0.82, /*b*/0.95,
-        /*startA*/0.72, /*endR*/0.60, /*endG*/0.72, /*endB*/0.92, /*endA*/0.0);
+        /*startA*/0.48, /*endR*/0.58, /*endG*/0.70, /*endB*/0.90, /*endA*/0.0);
   }
 
   // ──────────────────────────────────────────────────────────────────────────

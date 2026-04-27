@@ -5144,7 +5144,12 @@ public class EditorApp extends Application {
         }
         imageTintToolView = null;
       }
-      case PARTICLE_FX -> particleFxToolView = null;
+      case PARTICLE_FX -> {
+        if (particleFxToolView != null) {
+          particleFxToolView.dispose();
+        }
+        particleFxToolView = null;
+      }
       case MENU_FLOW -> {
         if (menuFlowEditorView != null) {
           menuFlowEditorView.setProjectRoot(null);
