@@ -7,20 +7,21 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.GradientPaint;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridLayout;
-import java.awt.Image;
 import java.awt.Insets;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Shape;
 import java.awt.Stroke;
-import java.awt.Toolkit;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
+import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -31,13 +32,13 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.atomic.AtomicReference;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.Icon;
-import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
@@ -83,6 +84,9 @@ public final class JvnHub {
   private static final Color LOG_TEXT       = Color.decode("#cfd8e6");
   private static final Color SCROLL_THUMB   = Color.decode("#1a2333");
   private static final Color SCROLL_THUMB_HOVER = Color.decode("#2a3a55");
+
+  /** Resolved at class-init time from a Gradle-generated resource. */
+  private static final String VERSION = readVersion();
 
   private final Path projectRoot;
   private final JFrame frame = new JFrame("JVN Engine Hub");
@@ -153,20 +157,17 @@ public final class JvnHub {
     frame.setSize(640, 460);
     frame.setLocationRelativeTo(null);
 
-    Image icon = loadLogo();
-    if (icon != null) frame.setIconImage(icon);
+    // Render the vector logo into a raster for the OS window icon.
+    frame.setIconImage(JvnLogoIcon.renderToImage(128, 128));
   }
 
   private JPanel buildHeader() {
     JPanel header = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
     header.setBackground(BG);
 
-    Image logo = loadLogo();
-    if (logo != null) {
-      Image scaled = logo.getScaledInstance(-1, 56, Image.SCALE_SMOOTH);
-      JLabel logoLabel = new JLabel(new ImageIcon(scaled));
-      header.add(logoLabel);
-    }
+    // Vector-rendered JVN logomark — no PNG dependency, scales perfectly.
+    JLabel logoLabel = new JLabel(new JvnLogoIcon(96, 56));
+    header.add(logoLabel);
 
     JLabel title = new JLabel("Java Vector Nexus");
     title.setForeground(TEXT_PRIMARY);
@@ -176,14 +177,21 @@ public final class JvnHub {
     subtitle.setForeground(TEXT_MUTED);
     subtitle.setFont(subtitle.getFont().deriveFont(Font.PLAIN, 12f));
 
+    JLabel versionLabel = new JLabel("v" + VERSION);
+    versionLabel.setForeground(ACCENT_BLUE);
+    versionLabel.setFont(versionLabel.getFont().deriveFont(Font.BOLD, 10f));
+
     JPanel titleBox = new JPanel();
     titleBox.setBackground(BG);
     titleBox.setLayout(new BoxLayout(titleBox, BoxLayout.Y_AXIS));
     title.setAlignmentX(Component.LEFT_ALIGNMENT);
     subtitle.setAlignmentX(Component.LEFT_ALIGNMENT);
+    versionLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
     titleBox.add(title);
     titleBox.add(Box.createVerticalStrut(2));
     titleBox.add(subtitle);
+    titleBox.add(Box.createVerticalStrut(2));
+    titleBox.add(versionLabel);
 
     header.add(titleBox);
     return header;
@@ -446,21 +454,18 @@ public final class JvnHub {
     return wrapper.toAbsolutePath().toString();
   }
 
-  private Image loadLogo() {
-    Path[] candidates = new Path[] {
-        projectRoot.resolve("editor/src/main/resources/com/jvn/editor/images/jvn_logo.png"),
-        projectRoot.resolve("docs/assets/images/jvn_logo.png")
-    };
-    for (Path p : candidates) {
-      if (Files.isRegularFile(p)) {
-        try (InputStream in = Files.newInputStream(p)) {
-          return Toolkit.getDefaultToolkit().createImage(in.readAllBytes());
-        } catch (IOException ignored) {
-          // try next candidate
-        }
+  private static String readVersion() {
+    try (InputStream in = JvnHub.class.getResourceAsStream("/com/jvn/hub/version.properties")) {
+      if (in != null) {
+        Properties props = new Properties();
+        props.load(in);
+        String v = props.getProperty("version");
+        if (v != null && !v.isBlank()) return v.trim();
       }
+    } catch (IOException ignored) {
+      // fall through
     }
-    return null;
+    return "dev";
   }
 
   private static Path resolveProjectRoot(String[] args) {
@@ -690,6 +695,85 @@ public final class JvnHub {
               (int) (s * 0.2f), (int) (s * 0.8f));
         }
       }
+      g2.dispose();
+    }
+  }
+
+  /**
+   * Vector logomark for the JVN engine — fully painted, no PNG dependency.
+   * Renders "JVN" in bold sans-serif with a white-to-blue vertical gradient,
+   * an accent stripe in the engine's primary blue, and a tracked-out "ENGINE"
+   * subtitle. Also exposes {@link #renderToImage(int, int)} so the OS window
+   * icon can use the same artwork.
+   */
+  private static final class JvnLogoIcon implements Icon {
+    private final int width;
+    private final int height;
+
+    JvnLogoIcon(int width, int height) {
+      this.width = width;
+      this.height = height;
+    }
+
+    /** Render the logo into a fresh ARGB raster suitable for {@link JFrame#setIconImage}. */
+    static BufferedImage renderToImage(int w, int h) {
+      BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+      Graphics2D g = img.createGraphics();
+      try {
+        new JvnLogoIcon(w, h).paintIcon(null, g, 0, 0);
+      } finally {
+        g.dispose();
+      }
+      return img;
+    }
+
+    @Override public int getIconWidth()  { return width; }
+    @Override public int getIconHeight() { return height; }
+
+    @Override
+    public void paintIcon(Component c, Graphics g, int x, int y) {
+      Graphics2D g2 = (Graphics2D) g.create();
+      g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+      g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+      g2.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
+      g2.translate(x, y);
+
+      // --- "JVN" wordmark with vertical white → blue gradient -----------------
+      int jvnSize = Math.max(12, Math.round(height * 0.62f));
+      Font jvnFont = new Font(Font.SANS_SERIF, Font.BOLD, jvnSize);
+      g2.setFont(jvnFont);
+      FontMetrics fm = g2.getFontMetrics();
+      String jvn = "JVN";
+      int jvnW = fm.stringWidth(jvn);
+      int jvnX = (width - jvnW) / 2;
+      int jvnY = fm.getAscent() + Math.round(height * 0.04f);
+
+      GradientPaint gradient = new GradientPaint(
+          0, jvnY - fm.getAscent(), Color.WHITE,
+          0, jvnY + fm.getDescent(), ACCENT_BLUE);
+      g2.setPaint(gradient);
+      g2.drawString(jvn, jvnX, jvnY);
+
+      // --- Accent stripe in primary blue, full text width ---------------------
+      int stripeY = jvnY + fm.getDescent() + Math.max(1, Math.round(height * 0.04f));
+      int stripeH = Math.max(1, Math.round(height * 0.04f));
+      g2.setColor(ACCENT_BLUE);
+      g2.fillRect(jvnX, stripeY, jvnW, stripeH);
+
+      // --- Tracked-out "ENGINE" subtitle --------------------------------------
+      int subSize = Math.max(8, Math.round(height * 0.16f));
+      Font subFont = new Font(Font.SANS_SERIF, Font.BOLD, subSize);
+      g2.setFont(subFont);
+      FontMetrics fmSub = g2.getFontMetrics();
+      String sub = "E N G I N E";
+      int subW = fmSub.stringWidth(sub);
+      int subX = (width - subW) / 2;
+      int subY = stripeY + stripeH + fmSub.getAscent() + Math.max(1, Math.round(height * 0.05f));
+      // Clamp inside the icon bounds even on tiny sizes.
+      if (subY + fmSub.getDescent() > height) subY = height - fmSub.getDescent();
+      g2.setColor(TEXT_MUTED);
+      g2.drawString(sub, subX, subY);
+
       g2.dispose();
     }
   }
