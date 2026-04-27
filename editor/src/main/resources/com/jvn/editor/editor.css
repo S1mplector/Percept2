@@ -2174,6 +2174,17 @@
   -fx-font-size: 11px;
 }
 
+.vns-diagnostics-stats {
+  -fx-text-fill: #a8b2c1;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+  -fx-padding: 5 8 5 8;
+  -fx-background-color: rgba(255, 255, 255, 0.035);
+  -fx-background-radius: 8;
+  -fx-border-color: #2d333d;
+  -fx-border-radius: 8;
+}
+
 .vns-diagnostics-chip {
   -fx-font-size: 10px;
   -fx-font-weight: 800;
@@ -2197,6 +2208,43 @@
 
 .vns-diagnostics-filter-row {
   -fx-background-color: transparent;
+}
+
+.vns-diagnostics-action-row {
+  -fx-background-color: transparent;
+}
+
+.vns-diagnostics-action-button {
+  -fx-background-color: linear-gradient(to bottom, #2f333b, #23272e);
+  -fx-text-fill: #e8edf4;
+  -fx-background-radius: 8;
+  -fx-border-color: #3d4652;
+  -fx-border-width: 1;
+  -fx-border-radius: 8;
+  -fx-padding: 5 10;
+  -fx-font-size: 11px;
+  -fx-font-weight: 800;
+  -fx-cursor: hand;
+}
+
+.vns-diagnostics-action-button:hover {
+  -fx-background-color: linear-gradient(to bottom, #39404a, #2b3038);
+  -fx-border-color: #596574;
+}
+
+.vns-diagnostics-action-button:pressed {
+  -fx-background-color: linear-gradient(to bottom, #1d2127, #181b20);
+}
+
+.vns-diagnostics-action-button:disabled {
+  -fx-opacity: 0.38;
+}
+
+.vns-diagnostics-filter-count {
+  -fx-text-fill: #8c96a6;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+  -fx-padding: 0 0 0 2;
 }
 
 .vns-diagnostics-filter {
@@ -2353,6 +2401,35 @@
   -fx-text-fill: #ececec;
   -fx-font-size: 12px;
   -fx-font-weight: 600;
+}
+
+.vns-diagnostics-source-line {
+  -fx-text-fill: #c9d2df;
+  -fx-font-family: "Menlo", "Consolas", monospace;
+  -fx-font-size: 11px;
+  -fx-padding: 7 8 2 8;
+  -fx-background-color: rgba(255, 255, 255, 0.04);
+  -fx-background-radius: 7 7 0 0;
+  -fx-border-color: #303741;
+  -fx-border-radius: 7 7 0 0;
+}
+
+.vns-diagnostics-caret-line {
+  -fx-text-fill: #ffbf75;
+  -fx-font-family: "Menlo", "Consolas", monospace;
+  -fx-font-size: 11px;
+  -fx-font-weight: 800;
+  -fx-padding: 0 8 7 8;
+  -fx-background-color: rgba(255, 255, 255, 0.04);
+  -fx-background-radius: 0 0 7 7;
+  -fx-border-color: #303741;
+  -fx-border-radius: 0 0 7 7;
+}
+
+.vns-diagnostics-hint {
+  -fx-text-fill: #737d8b;
+  -fx-font-size: 10px;
+  -fx-font-weight: 700;
 }
 
 .editor-dialog-overlay {

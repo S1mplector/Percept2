@@ -56,4 +56,23 @@ class VnsDiagnosticsViewTest {
     assertTrue(haystack.contains("column 4"));
     assertTrue(haystack.contains("l2:4"));
   }
+
+  @Test
+  void sourceLineReturnsRequestedLineWithoutNewline() {
+    String source = "label start\nsay alice Hello\njump missing";
+
+    assertEquals("say alice Hello", VnsDiagnosticsView.sourceLine(source, 1));
+  }
+
+  @Test
+  void buildSourcePreviewPlacesCaretAtOneBasedColumn() {
+    VnsDiagnosticsView.SourcePreview preview = VnsDiagnosticsView.buildSourcePreview(
+        "label start\njump missing_label",
+        1,
+        6
+    );
+
+    assertEquals("jump missing_label", preview.sourceLine());
+    assertEquals("     ^", preview.caretLine());
+  }
 }
