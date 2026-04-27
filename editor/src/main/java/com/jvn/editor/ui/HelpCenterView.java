@@ -30,6 +30,7 @@ import javafx.scene.text.TextFlow;
 import java.awt.Desktop;
 import java.io.File;
 import java.io.IOException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -138,6 +139,8 @@ public class HelpCenterView extends BorderPane {
 
     Label browserTitle = new Label("Guide Tree");
     browserTitle.getStyleClass().add("help-pane-title");
+    HBox browserTitleRow = new HBox(10, browserTitle, documentationHeaderIcon());
+    browserTitleRow.setAlignment(Pos.CENTER_LEFT);
     Label browserSubtitle = new Label(
         "Every Markdown doc is indexed here, but the tree starts with onboarding and then moves into scripting, animation, UI, runtime, and internals.");
     browserSubtitle.getStyleClass().add("help-pane-subtitle");
@@ -212,7 +215,7 @@ public class HelpCenterView extends BorderPane {
 
     statsLabel.getStyleClass().add("help-stats-label");
 
-    VBox left = new VBox(10, browserTitle, browserSubtitle, filterRow, new Separator(), docsTree, statsLabel);
+    VBox left = new VBox(10, browserTitleRow, browserSubtitle, filterRow, new Separator(), docsTree, statsLabel);
     left.getStyleClass().add("help-browser-pane");
     left.setPadding(new Insets(10));
     left.setPrefWidth(340);
@@ -263,6 +266,20 @@ public class HelpCenterView extends BorderPane {
         "Select a document to preview.",
         "Follow the guide tree on the left to move from onboarding into deeper authoring and engine reference.",
         "Pick a document from the guide tree to preview it here.");
+  }
+
+  private ImageView documentationHeaderIcon() {
+    URL url = getClass().getResource("/com/jvn/editor/images/sidebar/documentation.png");
+    if (url == null) return new ImageView();
+    ImageView view = new ImageView(new Image(url.toExternalForm(), 44, 44, true, true, true));
+    view.setFitWidth(44);
+    view.setFitHeight(44);
+    view.setPreserveRatio(true);
+    view.setSmooth(true);
+    view.setCache(true);
+    view.setMouseTransparent(true);
+    view.getStyleClass().add("help-documentation-header-icon");
+    return view;
   }
 
   private void rebuildIndex() {

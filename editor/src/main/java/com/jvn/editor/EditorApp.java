@@ -10,6 +10,7 @@ import java.io.InputStreamReader;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -124,6 +125,8 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.input.TransferMode;
 import javafx.scene.effect.Effect;
 import javafx.scene.effect.GaussianBlur;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -2813,13 +2816,54 @@ public class EditorApp extends Application {
     return r;
   }
 
-  private Region sidebarPanelIcon(EditorSidebarPanel panel, String... extraStyleClasses) {
+  private Node sidebarPanelIcon(EditorSidebarPanel panel, String... extraStyleClasses) {
     if (panel == null) return null;
+    ImageView assetIcon = sidebarPanelAssetIcon(panel, extraStyleClasses);
+    if (assetIcon != null) return assetIcon;
     Region icon = icon("icon", panel.iconStyleClass());
     if (extraStyleClasses != null && extraStyleClasses.length > 0) {
       icon.getStyleClass().addAll(extraStyleClasses);
     }
     return icon;
+  }
+
+  private ImageView sidebarPanelAssetIcon(EditorSidebarPanel panel, String... styleClasses) {
+    if (!useSidebarAssetIcons() || panel.iconAssetName() == null || panel.iconAssetName().isBlank()) {
+      return null;
+    }
+    URL url = getClass().getResource("/com/jvn/editor/images/sidebar/" + panel.iconAssetName());
+    if (url == null) return null;
+
+    double size = sidebarPanelAssetIconSize(styleClasses);
+    ImageView view = new ImageView(new Image(url.toExternalForm(), size * 2.0, size * 2.0, true, true, true));
+    view.setPreserveRatio(true);
+    view.setSmooth(true);
+    view.setCache(true);
+    view.setMouseTransparent(true);
+    view.getStyleClass().add("sidebar-asset-icon");
+    if (styleClasses != null) view.getStyleClass().addAll(styleClasses);
+    view.setFitWidth(size);
+    view.setFitHeight(size);
+    return view;
+  }
+
+  private double sidebarPanelAssetIconSize(String[] styleClasses) {
+    if (hasStyleClass(styleClasses, "panel-chooser-tool-icon")) return 28.0;
+    if (hasStyleClass(styleClasses, "sidebar-tab-icon")) return 22.0;
+    return 22.0;
+  }
+
+  private boolean useSidebarAssetIcons() {
+    String mode = System.getProperty("jvn.editor.sidebarIconMode", "asset");
+    return !"css".equalsIgnoreCase(mode) && !"fx".equalsIgnoreCase(mode);
+  }
+
+  private boolean hasStyleClass(String[] styleClasses, String target) {
+    if (styleClasses == null || target == null) return false;
+    for (String styleClass : styleClasses) {
+      if (target.equals(styleClass)) return true;
+    }
+    return false;
   }
 
   private void applySidebarPanelGraphic(Tab tab, EditorSidebarPanel panel) {
@@ -4464,7 +4508,9 @@ public class EditorApp extends Application {
     if (panel != null && !editorPreferences.isVisibleInChooser(panel)) return;
 
     String resolvedIconClass = panel != null ? panel.iconStyleClass() : iconClass;
-    Region panelIcon = icon("icon", "panel-chooser-tool-icon", resolvedIconClass);
+    Node panelIcon = panel != null
+        ? sidebarPanelIcon(panel, "panel-chooser-tool-icon")
+        : icon("icon", "panel-chooser-tool-icon", resolvedIconClass);
     StackPane iconChip = new StackPane(panelIcon);
     iconChip.getStyleClass().add("panel-chooser-icon-chip");
     if (resolvedIconClass != null && !resolvedIconClass.isBlank()) {
