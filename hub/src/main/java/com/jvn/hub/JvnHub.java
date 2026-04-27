@@ -31,8 +31,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import javax.swing.BorderFactory;
@@ -41,6 +44,7 @@ import javax.swing.BoxLayout;
 import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JComponent;
+import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -56,7 +60,7 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.plaf.basic.BasicScrollBarUI;
 
 /**
- * Standalone engine hub — a tiny Swing app that lets the user launch the editor,
+ * Standalone engine hub. a tiny Swing app that lets the user launch the editor,
  * launcher, or runtime, run common Gradle tasks, and pull-rebase the repository
  * without touching the {@code jvnw} wrapper CLI.
  *
@@ -91,12 +95,24 @@ public final class JvnHub {
   private final Path projectRoot;
   private final JFrame frame = new JFrame("JVN Engine Hub");
   private final JLabel statusLabel = new JLabel("Idle");
+  private final JLabel versionLabel = new JLabel();
   private final JTextArea logArea = new JTextArea();
   private final List<JButton> actionButtons = new ArrayList<>();
   private final AtomicReference<Process> runningProcess = new AtomicReference<>();
 
+  /** Currently-loaded announcements; refreshed on startup and after Update Engine. */
+  private final List<Announcement> announcements = new ArrayList<>();
+  /** IDs (date+title) of announcements the user has already opened in the dialog. */
+  private final Set<String> readIds = new HashSet<>();
+  /** Bell button in the header; redrawn so the small badge reflects announcement count. */
+  private AnnouncementsButton announcementsButton;
+
   private JvnHub(Path projectRoot) {
     this.projectRoot = projectRoot;
+    // Load persisted read-state first so the badge counts only unread entries
+    // on the very first paint.
+    readIds.addAll(loadReadIds());
+    announcements.addAll(loadAnnouncements());
     buildUi();
   }
 
@@ -162,12 +178,15 @@ public final class JvnHub {
   }
 
   private JPanel buildHeader() {
-    JPanel header = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
+    JPanel header = new JPanel(new BorderLayout());
     header.setBackground(BG);
 
-    // Vector-rendered JVN logomark — no PNG dependency, scales perfectly.
+    // --- Left: vector logo + text stack -------------------------------------
+    JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
+    left.setBackground(BG);
+
     JLabel logoLabel = new JLabel(new JvnLogoIcon(96, 56));
-    header.add(logoLabel);
+    left.add(logoLabel);
 
     JLabel title = new JLabel("Java Vector Nexus");
     title.setForeground(TEXT_PRIMARY);
@@ -177,7 +196,7 @@ public final class JvnHub {
     subtitle.setForeground(TEXT_MUTED);
     subtitle.setFont(subtitle.getFont().deriveFont(Font.PLAIN, 12f));
 
-    JLabel versionLabel = new JLabel("v" + VERSION);
+    versionLabel.setText("v" + readDiskVersion());
     versionLabel.setForeground(ACCENT_BLUE);
     versionLabel.setFont(versionLabel.getFont().deriveFont(Font.BOLD, 10f));
 
@@ -193,9 +212,256 @@ public final class JvnHub {
     titleBox.add(Box.createVerticalStrut(2));
     titleBox.add(versionLabel);
 
-    header.add(titleBox);
+    left.add(titleBox);
+    header.add(left, BorderLayout.WEST);
+
+    // --- Right: announcements bell -----------------------------------------
+    announcementsButton = new AnnouncementsButton();
+    announcementsButton.refreshBadge(unreadCount());
+    announcementsButton.addActionListener(e -> showAnnouncementsDialog());
+
+    JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+    right.setBackground(BG);
+    right.add(announcementsButton);
+    header.add(right, BorderLayout.EAST);
+
     return header;
   }
+
+  // --- Announcements ---------------------------------------------------------
+
+  /**
+   * Reads the announcements file (committed at {@code .jvn/announcements.md} so it
+   * arrives via {@code git pull --rebase}). The format is markdown-flavoured:
+   * each entry begins with {@code ## YYYY-MM-DD — Title} followed by a body that
+   * runs until the next {@code ## } header or end of file.
+   */
+  private List<Announcement> loadAnnouncements() {
+    Path file = projectRoot.resolve(".jvn/announcements.md");
+    if (!Files.isRegularFile(file)) return Collections.emptyList();
+    List<String> lines;
+    try {
+      lines = Files.readAllLines(file, StandardCharsets.UTF_8);
+    } catch (IOException e) {
+      appendLog("[hub] failed to read announcements: " + e.getMessage());
+      return Collections.emptyList();
+    }
+    List<Announcement> out = new ArrayList<>();
+    String date = null;
+    String title = null;
+    StringBuilder body = new StringBuilder();
+    for (String raw : lines) {
+      if (raw.startsWith("## ")) {
+        if (date != null) {
+          out.add(new Announcement(date, title, body.toString().strip()));
+          body.setLength(0);
+        }
+        // Header form: "## 2026-04-27 — Title"  or  "## 2026-04-27 - Title"
+        String header = raw.substring(3).strip();
+        int sep = indexOfFirst(header, " — ", " - ", " – ");
+        if (sep > 0) {
+          date = header.substring(0, sep).strip();
+          title = header.substring(sep).replaceFirst("^[\\s\u2014\u2013-]+", "").strip();
+        } else {
+          date = header;
+          title = "";
+        }
+      } else if (date != null) {
+        body.append(raw).append('\n');
+      }
+      // Lines before the first header are intentionally ignored (file preamble).
+    }
+    if (date != null) {
+      out.add(new Announcement(date, title, body.toString().strip()));
+    }
+    return out;
+  }
+
+  private static int indexOfFirst(String s, String... needles) {
+    int best = -1;
+    for (String n : needles) {
+      int idx = s.indexOf(n);
+      if (idx >= 0 && (best < 0 || idx < best)) best = idx;
+    }
+    return best;
+  }
+
+  private void showAnnouncementsDialog() {
+    JDialog dialog = new JDialog(frame, "Announcements", true);
+    dialog.setUndecorated(false);
+
+    JPanel root = new JPanel(new BorderLayout(0, 12));
+    root.setBackground(BG);
+    root.setBorder(new EmptyBorder(16, 16, 16, 16));
+
+    JLabel header = new JLabel("Engine Announcements");
+    header.setForeground(TEXT_PRIMARY);
+    header.setFont(header.getFont().deriveFont(Font.BOLD, 16f));
+
+    JLabel sub = new JLabel(announcements.isEmpty()
+        ? "No announcements yet. Click \"Update Engine\" to fetch the latest."
+        : announcements.size() + " total \u00B7 latest first");
+    sub.setForeground(TEXT_MUTED);
+    sub.setFont(sub.getFont().deriveFont(Font.PLAIN, 11f));
+
+    JPanel headerBox = new JPanel();
+    headerBox.setBackground(BG);
+    headerBox.setLayout(new BoxLayout(headerBox, BoxLayout.Y_AXIS));
+    header.setAlignmentX(Component.LEFT_ALIGNMENT);
+    sub.setAlignmentX(Component.LEFT_ALIGNMENT);
+    headerBox.add(header);
+    headerBox.add(Box.createVerticalStrut(2));
+    headerBox.add(sub);
+    root.add(headerBox, BorderLayout.NORTH);
+
+    // List body.
+    JPanel list = new JPanel();
+    list.setBackground(BG);
+    list.setLayout(new BoxLayout(list, BoxLayout.Y_AXIS));
+    list.setBorder(BorderFactory.createEmptyBorder());
+
+    if (announcements.isEmpty()) {
+      JLabel empty = new JLabel("—");
+      empty.setForeground(TEXT_MUTED);
+      list.add(empty);
+    } else {
+      for (int i = 0; i < announcements.size(); i++) {
+        list.add(buildAnnouncementCard(announcements.get(i)));
+        if (i < announcements.size() - 1) list.add(Box.createVerticalStrut(10));
+      }
+    }
+
+    JScrollPane scroll = new JScrollPane(list);
+    scroll.setBorder(BorderFactory.createLineBorder(BORDER_NEUTRAL));
+    scroll.setBackground(BG);
+    scroll.getViewport().setOpaque(true);
+    scroll.getViewport().setBackground(BG);
+    scroll.setPreferredSize(new Dimension(540, 320));
+    styleScrollBar(scroll.getVerticalScrollBar());
+    styleScrollBar(scroll.getHorizontalScrollBar());
+    root.add(scroll, BorderLayout.CENTER);
+
+    FlatButton close = new FlatButton("Close",
+        VectorIcon.of(VectorIcon.Kind.CLOSE, 14, TEXT_PRIMARY), null);
+    close.addActionListener(e -> dialog.dispose());
+    JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+    footer.setBackground(BG);
+    footer.add(close);
+    root.add(footer, BorderLayout.SOUTH);
+
+    dialog.setContentPane(root);
+    dialog.pack();
+    dialog.setLocationRelativeTo(frame);
+    // Opening the dialog counts as reading every entry currently visible in it.
+    // The badge clears before the dialog shows so the user never sees a stale count.
+    markAllAnnouncementsRead();
+    dialog.setVisible(true);
+  }
+
+  // --- Read-state persistence ------------------------------------------------
+
+  private static String idOf(Announcement a) {
+    return a.date + "|" + a.title;
+  }
+
+  private int unreadCount() {
+    int n = 0;
+    for (Announcement a : announcements) {
+      if (!readIds.contains(idOf(a))) n++;
+    }
+    return n;
+  }
+
+  private void markAllAnnouncementsRead() {
+    if (announcements.isEmpty()) return;
+    boolean changed = false;
+    for (Announcement a : announcements) {
+      changed |= readIds.add(idOf(a));
+    }
+    if (changed) saveReadIds();
+    if (announcementsButton != null) announcementsButton.refreshBadge(0);
+  }
+
+  /** Per-user, machine-local state file. Lives outside the repo by design. */
+  private static Path readStateFile() {
+    return Paths.get(System.getProperty("user.home", "."), ".jvn", "hub-read.properties");
+  }
+
+  private static Set<String> loadReadIds() {
+    Path file = readStateFile();
+    if (!Files.isRegularFile(file)) return new HashSet<>();
+    Properties props = new Properties();
+    try (InputStream in = Files.newInputStream(file)) {
+      props.load(in);
+    } catch (IOException ignored) {
+      return new HashSet<>();
+    }
+    Set<String> out = new HashSet<>();
+    for (String key : props.stringPropertyNames()) {
+      if ("true".equalsIgnoreCase(props.getProperty(key))) out.add(key);
+    }
+    return out;
+  }
+
+  private void saveReadIds() {
+    Path file = readStateFile();
+    try {
+      Files.createDirectories(file.getParent());
+    } catch (IOException e) {
+      appendLog("[hub] could not create state dir: " + e.getMessage());
+      return;
+    }
+    Properties props = new Properties();
+    for (String id : readIds) props.setProperty(id, "true");
+    try (var out = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
+      props.store(out, "JVN Engine Hub \u2014 announcement read-state. Auto-generated.");
+    } catch (IOException e) {
+      appendLog("[hub] could not save read-state: " + e.getMessage());
+    }
+  }
+
+  private JPanel buildAnnouncementCard(Announcement a) {
+    JPanel card = new JPanel(new BorderLayout(0, 4));
+    card.setBackground(BG);
+    card.setBorder(BorderFactory.createCompoundBorder(
+        BorderFactory.createLineBorder(BORDER_NEUTRAL),
+        new EmptyBorder(10, 12, 10, 12)));
+
+    JLabel dateLbl = new JLabel(a.date);
+    dateLbl.setForeground(ACCENT_BLUE);
+    dateLbl.setFont(dateLbl.getFont().deriveFont(Font.BOLD, 10f));
+
+    JLabel titleLbl = new JLabel(a.title.isEmpty() ? "Update" : a.title);
+    titleLbl.setForeground(TEXT_PRIMARY);
+    titleLbl.setFont(titleLbl.getFont().deriveFont(Font.BOLD, 13f));
+
+    JPanel head = new JPanel();
+    head.setBackground(BG);
+    head.setLayout(new BoxLayout(head, BoxLayout.Y_AXIS));
+    dateLbl.setAlignmentX(Component.LEFT_ALIGNMENT);
+    titleLbl.setAlignmentX(Component.LEFT_ALIGNMENT);
+    head.add(dateLbl);
+    head.add(Box.createVerticalStrut(1));
+    head.add(titleLbl);
+    card.add(head, BorderLayout.NORTH);
+
+    JTextArea bodyArea = new JTextArea(a.body);
+    bodyArea.setEditable(false);
+    bodyArea.setFocusable(false);
+    bodyArea.setLineWrap(true);
+    bodyArea.setWrapStyleWord(true);
+    bodyArea.setOpaque(true);
+    bodyArea.setBackground(BG);
+    bodyArea.setForeground(TEXT_SOFT);
+    bodyArea.setFont(bodyArea.getFont().deriveFont(Font.PLAIN, 12f));
+    bodyArea.setBorder(new EmptyBorder(4, 0, 0, 0));
+    card.add(bodyArea, BorderLayout.CENTER);
+
+    return card;
+  }
+
+  /** Small immutable record describing one announcement entry. */
+  private record Announcement(String date, String title, String body) {}
 
   private JPanel buildCenter() {
     // 5 actions laid out as a 3-row / 2-col grid; the last cell stays empty.
@@ -395,6 +661,11 @@ public final class JvnHub {
           appendLog("[hub] task raised: " + e.getMessage());
         }
         release(label, exit);
+        // Update Engine touched the working tree — re-read on-disk state so
+        // the version label and announcements list reflect the new HEAD.
+        if (exit == 0 && "Update Engine".equals(label)) {
+          refreshFromDisk();
+        }
       }
     }.execute();
   }
@@ -466,6 +737,47 @@ public final class JvnHub {
       // fall through
     }
     return "dev";
+  }
+
+  /**
+   * Live version lookup: read {@code gradle.properties} from disk so an Update
+   * Engine pull surfaces a bumped {@code jvnVersion} without rebuilding. Falls
+   * back to the build-time classpath resource if the file is unreadable.
+   */
+  private String readDiskVersion() {
+    Path props = projectRoot.resolve("gradle.properties");
+    if (Files.isRegularFile(props)) {
+      Properties p = new Properties();
+      try (InputStream in = Files.newInputStream(props)) {
+        p.load(in);
+        String v = p.getProperty("jvnVersion");
+        if (v != null && !v.isBlank()) return v.trim();
+      } catch (IOException ignored) {
+        // fall through
+      }
+    }
+    return VERSION;
+  }
+
+  /**
+   * Re-reads the version + announcements file and updates the corresponding
+   * Swing components. Safe to call from any thread; UI updates are dispatched
+   * to the EDT.
+   */
+  private void refreshFromDisk() {
+    String newVersion = readDiskVersion();
+    List<Announcement> fresh = loadAnnouncements();
+    SwingUtilities.invokeLater(() -> {
+      versionLabel.setText("v" + newVersion);
+      announcements.clear();
+      announcements.addAll(fresh);
+      int unread = unreadCount();
+      if (announcementsButton != null) announcementsButton.refreshBadge(unread);
+      appendLog("[hub] refresh: " + fresh.size()
+          + " announcement" + (fresh.size() == 1 ? "" : "s")
+          + " (" + unread + " unread). Version: " + newVersion + ".");
+      frame.repaint();
+    });
   }
 
   private static Path resolveProjectRoot(String[] args) {
@@ -556,11 +868,77 @@ public final class JvnHub {
   }
 
   /**
+   * Borderless bell button with a small numeric badge in the top-right corner.
+   * The badge auto-hides when the announcement count is zero. Painted entirely
+   * by Swing — no rasters required.
+   */
+  private static final class AnnouncementsButton extends JButton {
+    private int count = 0;
+
+    AnnouncementsButton() {
+      setIcon(VectorIcon.of(VectorIcon.Kind.BELL, 22, TEXT_PRIMARY));
+      setToolTipText("Announcements — small updates pulled from the engine");
+      setContentAreaFilled(false);
+      setBorderPainted(false);
+      setFocusPainted(false);
+      setOpaque(false);
+      setRolloverEnabled(true);
+      setBorder(new EmptyBorder(8, 8, 8, 8));
+      setPreferredSize(new Dimension(40, 40));
+    }
+
+    void refreshBadge(int newCount) {
+      this.count = Math.max(0, newCount);
+      setToolTipText(count == 0
+          ? "No announcements yet"
+          : count + " announcement" + (count == 1 ? "" : "s") + " — click to read");
+      repaint();
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+      // Subtle hover halo so the bell signals interactivity.
+      if (getModel().isRollover() || getModel().isPressed()) {
+        Graphics2D h = (Graphics2D) g.create();
+        h.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        h.setColor(getModel().isPressed() ? PRESSED_BG : HOVER_BG);
+        h.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+        h.dispose();
+      }
+      super.paintComponent(g);
+
+      if (count <= 0) return;
+
+      // Badge: small filled circle + numeric label, anchored top-right.
+      Graphics2D g2 = (Graphics2D) g.create();
+      g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+      g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+      String text = count > 9 ? "9+" : Integer.toString(count);
+      Font badgeFont = getFont().deriveFont(Font.BOLD, 9f);
+      g2.setFont(badgeFont);
+      FontMetrics fm = g2.getFontMetrics();
+      int textW = fm.stringWidth(text);
+      int diameter = Math.max(14, textW + 8);
+      int badgeX = getWidth() - diameter - 4;
+      int badgeY = 4;
+
+      g2.setColor(ACCENT_ERROR);
+      g2.fillRoundRect(badgeX, badgeY, diameter, 14, 14, 14);
+      g2.setColor(Color.WHITE);
+      int textX = badgeX + (diameter - textW) / 2;
+      int textY = badgeY + 14 - (14 - fm.getAscent() + fm.getDescent()) / 2 - 1;
+      g2.drawString(text, textX, textY);
+      g2.dispose();
+    }
+  }
+
+  /**
    * Resolution-independent vector icon painted via Java2D. Color and size are both
    * configurable so the same {@link Kind} can be reused across contexts.
    */
   private static final class VectorIcon implements Icon {
-    enum Kind { PLAY, EDIT, ROCKET, HAMMER, CHECK, REFRESH, STOP, CLOSE }
+    enum Kind { PLAY, EDIT, ROCKET, HAMMER, CHECK, REFRESH, STOP, CLOSE, BELL }
 
     private final Kind kind;
     private final int size;
@@ -693,6 +1071,21 @@ public final class JvnHub {
               (int) (s * 0.8f), (int) (s * 0.8f));
           g2.drawLine((int) (s * 0.8f), (int) (s * 0.2f),
               (int) (s * 0.2f), (int) (s * 0.8f));
+        }
+        case BELL -> {
+          // Stem at top.
+          g2.fillRect((int) (s * 0.46f), (int) (s * 0.08f),
+              (int) (s * 0.10f), (int) (s * 0.08f));
+          // Bell body: dome flaring out to a wide flange.
+          Path2D body = new Path2D.Float();
+          body.moveTo(s * 0.50f, s * 0.16f);
+          body.curveTo(s * 0.82f, s * 0.20f, s * 0.82f, s * 0.55f, s * 0.85f, s * 0.72f);
+          body.lineTo(s * 0.15f, s * 0.72f);
+          body.curveTo(s * 0.18f, s * 0.55f, s * 0.18f, s * 0.20f, s * 0.50f, s * 0.16f);
+          body.closePath();
+          g2.fill(body);
+          // Clapper.
+          g2.fill(new Ellipse2D.Float(s * 0.42f, s * 0.74f, s * 0.16f, s * 0.16f));
         }
       }
       g2.dispose();
