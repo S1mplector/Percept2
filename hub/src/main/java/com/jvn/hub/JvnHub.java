@@ -190,6 +190,7 @@ public final class JvnHub {
   }
 
   private JPanel buildCenter() {
+    // 5 actions laid out as a 3-row / 2-col grid; the last cell stays empty.
     JPanel buttons = new JPanel(new GridLayout(3, 2, 10, 10));
     buttons.setBackground(BG);
 
@@ -198,9 +199,6 @@ public final class JvnHub {
 
     buttons.add(makeAction("Run Launcher", "Launch the standalone JVN launcher.",
         VectorIcon.Kind.ROCKET, false, () -> runGradle(":editor:runLauncher")));
-
-    buttons.add(makeAction("Run Game Runtime", "Launch the runtime (plays the configured scenario).",
-        VectorIcon.Kind.PLAY, false, () -> runGradle(":runtime:run")));
 
     buttons.add(makeAction("Build All", "Compile every module.",
         VectorIcon.Kind.HAMMER, false, () -> runGradle("build")));
