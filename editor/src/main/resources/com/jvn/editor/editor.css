@@ -3808,6 +3808,84 @@
   -fx-font-size: 12px;
 }
 
+/* Puppeteer record-preview dialog form */
+.puppeteer-record-form .text-field {
+  -fx-background-color: #1c1c1c;
+  -fx-text-fill: #f2f2f2;
+  -fx-prompt-text-fill: #7c7c7c;
+  -fx-border-color: #373737;
+  -fx-border-radius: 4;
+  -fx-background-radius: 4;
+  -fx-padding: 4 8 4 8;
+}
+
+.puppeteer-record-form .text-field:focused {
+  -fx-border-color: #5a5a5a;
+}
+
+.puppeteer-record-form .label {
+  -fx-text-fill: #d6d6d6;
+  -fx-font-size: 11px;
+}
+
+.puppeteer-record-form .check-box {
+  -fx-text-fill: #d6d6d6;
+}
+
+.puppeteer-record-form .check-box .box {
+  -fx-background-color: #1c1c1c;
+  -fx-border-color: #444444;
+  -fx-border-radius: 3;
+  -fx-background-radius: 3;
+}
+
+.puppeteer-record-form .check-box:selected .mark {
+  -fx-background-color: #f2f2f2;
+}
+
+.puppeteer-record-form .spinner {
+  -fx-background-color: #1c1c1c;
+  -fx-border-color: #373737;
+  -fx-border-radius: 4;
+  -fx-background-radius: 4;
+}
+
+.puppeteer-record-form .spinner .text-field {
+  -fx-background-color: transparent;
+  -fx-text-fill: #f2f2f2;
+  -fx-border-color: transparent;
+  -fx-padding: 4 6 4 6;
+}
+
+.puppeteer-record-form .spinner .increment-arrow-button,
+.puppeteer-record-form .spinner .decrement-arrow-button {
+  -fx-background-color: #2a2a2a;
+  -fx-background-radius: 0;
+  -fx-border-color: transparent;
+}
+
+.puppeteer-record-form .spinner .increment-arrow-button:hover,
+.puppeteer-record-form .spinner .decrement-arrow-button:hover {
+  -fx-background-color: #3a3a3a;
+}
+
+.puppeteer-record-form .spinner .increment-arrow,
+.puppeteer-record-form .spinner .decrement-arrow {
+  -fx-background-color: #c8c8c8;
+}
+
+.puppeteer-record-form .progress-bar > .track {
+  -fx-background-color: #232323;
+  -fx-background-radius: 4;
+}
+
+.puppeteer-record-form .progress-bar > .bar {
+  -fx-background-color: linear-gradient(to right, #4a90d9, #6fb1f0);
+  -fx-background-insets: 0;
+  -fx-background-radius: 4;
+  -fx-padding: 4 0 4 0;
+}
+
 /* === Puppeteer dark-theme overrides for JavaFX controls === */
 
 /* TreeView */
