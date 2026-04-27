@@ -80,8 +80,25 @@ public class Engine {
   /** Rolling-window frame timing statistics for diagnostics and profiling. */
   private final FrameStats frameStats = new FrameStats();
 
-  /** Registered observers notified at the start and end of each frame. */
+  /**
+   * Registered observers notified at the start and end of each frame.
+   *
+   * <p>Mutations made from inside a listener callback are deferred via
+   * {@link #pendingListenerMutations} so iteration in {@link #update(long)}
+   * is never corrupted. Mirrors the re-entrancy strategy used by
+   * {@link com.jvn.core.tween.TweenRunner}.</p>
+   */
   private final List<EngineListener> listeners = new ArrayList<>();
+
+  /**
+   * Queued add/remove operations accumulated while {@link #dispatchingListeners}
+   * is true. Applied atomically after the current dispatch finishes so
+   * listeners can safely register / unregister themselves from inside a callback.
+   */
+  private final List<Runnable> pendingListenerMutations = new ArrayList<>();
+
+  /** True while iterating {@link #listeners}; re-entrant mutations are queued. */
+  private boolean dispatchingListeners = false;
 
   /** Optional factory for creating VN interop bridges (set by runtime layer). */
   private VnInteropFactory vnInteropFactory;
@@ -211,62 +228,122 @@ public class Engine {
    * </ol>
    */
   public void update(long deltaMs) {
-    // --- Pre-frame ---
     frameStats.record(deltaMs);
-    for (int i = 0; i < listeners.size(); i++) {
-      listeners.get(i).preUpdate(deltaMs);
-    }
+    dispatchPreUpdate(deltaMs);
 
     long clamped = clampDelta(deltaMs);
     long smoothed = smoothDelta(clamped);
     long effective = applyTimeScale(smoothed);
 
-    if (!started || paused) {
-      interpolationAlpha = 0.0;
-      input.endFrame();
-      for (int i = 0; i < listeners.size(); i++) {
-        listeners.get(i).postUpdate(effective);
+    // `try/finally` guarantees postUpdate + input.endFrame() run even when a
+    // scene / tween callback throws — otherwise edge-triggered input state
+    // would get permanently stuck and listeners would silently desync.
+    try {
+      if (!started || paused) {
+        interpolationAlpha = 0.0;
+        return;
       }
-      return;
-    }
 
-    Scene current = sceneManager.peek();
+      Scene current = sceneManager.peek();
 
-    // --- Fixed update phase ---
-    if (fixedUpdateMs > 0) {
-      accumulatorMs += effective;
-      int steps = 0;
-      while (accumulatorMs >= fixedUpdateMs && steps < maxFixedSteps) {
-        if (current != null) {
-          current.fixedUpdate(fixedUpdateMs);
+      // --- Fixed update phase ---
+      if (fixedUpdateMs > 0) {
+        accumulatorMs += effective;
+        int steps = 0;
+        while (accumulatorMs >= fixedUpdateMs && steps < maxFixedSteps) {
+          if (current != null) {
+            current.fixedUpdate(fixedUpdateMs);
+          }
+          accumulatorMs -= fixedUpdateMs;
+          steps++;
         }
-        accumulatorMs -= fixedUpdateMs;
-        steps++;
+        if (steps == maxFixedSteps && accumulatorMs > fixedUpdateMs) {
+          // Cap residue at one step so we don't immediately re-trigger the
+          // spiral on the next frame, but keep interpolationAlpha bounded.
+          accumulatorMs = fixedUpdateMs;
+        }
+        interpolationAlpha = accumulatorMs / fixedUpdateMs;
+        if (interpolationAlpha < 0.0) interpolationAlpha = 0.0;
+        else if (interpolationAlpha > 1.0) interpolationAlpha = 1.0;
+      } else {
+        interpolationAlpha = 0.0;
       }
-      if (steps == maxFixedSteps && accumulatorMs > fixedUpdateMs) {
-        accumulatorMs = fixedUpdateMs;
+
+      // --- Variable update phase ---
+      tweens.update(effective);
+      if (current != null) {
+        current.update(effective);
       }
-      interpolationAlpha = accumulatorMs / fixedUpdateMs;
-    } else {
-      interpolationAlpha = 0.0;
-    }
 
-    // --- Variable update phase ---
-    tweens.update(effective);
-    if (current != null) {
-      current.update(effective);
+      // --- Late update phase ---
+      if (current != null) {
+        current.lateUpdate(effective);
+      }
+    } finally {
+      input.endFrame();
+      dispatchPostUpdate(effective);
     }
+  }
 
-    // --- Late update phase ---
-    if (current != null) {
-      current.lateUpdate(effective);
+  /**
+   * Fire {@link EngineListener#preUpdate(long)} on every registered listener.
+   * Mutations to the listener list from inside a callback are deferred via
+   * {@link #pendingListenerMutations}; exceptions from one listener do not
+   * prevent subsequent listeners from being notified.
+   */
+  private void dispatchPreUpdate(long deltaMs) {
+    dispatchingListeners = true;
+    try {
+      for (int i = 0, n = listeners.size(); i < n; i++) {
+        try {
+          listeners.get(i).preUpdate(deltaMs);
+        } catch (RuntimeException ex) {
+          reportListenerFailure("preUpdate", ex);
+        }
+      }
+    } finally {
+      dispatchingListeners = false;
+      drainPendingListenerMutations();
     }
+  }
 
-    // --- Post-frame ---
-    input.endFrame();
-    for (int i = 0; i < listeners.size(); i++) {
-      listeners.get(i).postUpdate(effective);
+  /** Symmetric counterpart to {@link #dispatchPreUpdate(long)}. */
+  private void dispatchPostUpdate(long deltaMs) {
+    dispatchingListeners = true;
+    try {
+      for (int i = 0, n = listeners.size(); i < n; i++) {
+        try {
+          listeners.get(i).postUpdate(deltaMs);
+        } catch (RuntimeException ex) {
+          reportListenerFailure("postUpdate", ex);
+        }
+      }
+    } finally {
+      dispatchingListeners = false;
+      drainPendingListenerMutations();
     }
+  }
+
+  private void drainPendingListenerMutations() {
+    if (pendingListenerMutations.isEmpty()) return;
+    // Copy then clear before executing so a mutation that itself queues
+    // another mutation is applied on the next drain, not in the middle of
+    // the current one.
+    List<Runnable> batch = new ArrayList<>(pendingListenerMutations);
+    pendingListenerMutations.clear();
+    for (Runnable r : batch) {
+      try {
+        r.run();
+      } catch (RuntimeException ex) {
+        reportListenerFailure("listener-mutation", ex);
+      }
+    }
+  }
+
+  private static void reportListenerFailure(String phase, Throwable t) {
+    System.err.println("Engine: " + phase + " threw " + t.getClass().getSimpleName()
+        + ": " + t.getMessage());
+    t.printStackTrace(System.err);
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -378,10 +455,21 @@ public class Engine {
    * Register an {@link EngineListener} to receive frame-boundary callbacks.
    * Duplicate registrations are silently ignored.
    *
+   * <p>Safe to call from inside a listener callback: the addition is queued
+   * and applied after the current dispatch completes, so iteration is never
+   * corrupted.</p>
+   *
    * @param listener the listener to add; {@code null} is ignored
    */
   public void addListener(EngineListener listener) {
-    if (listener != null && !listeners.contains(listener)) {
+    if (listener == null) return;
+    if (dispatchingListeners) {
+      pendingListenerMutations.add(() -> {
+        if (!listeners.contains(listener)) listeners.add(listener);
+      });
+      return;
+    }
+    if (!listeners.contains(listener)) {
       listeners.add(listener);
     }
   }
@@ -389,9 +477,17 @@ public class Engine {
   /**
    * Unregister a previously registered listener. No-op if not found.
    *
+   * <p>Safe to call from inside a listener callback — the removal is
+   * deferred until the current dispatch finishes.</p>
+   *
    * @param listener the listener to remove
    */
   public void removeListener(EngineListener listener) {
+    if (listener == null) return;
+    if (dispatchingListeners) {
+      pendingListenerMutations.add(() -> listeners.remove(listener));
+      return;
+    }
     listeners.remove(listener);
   }
 

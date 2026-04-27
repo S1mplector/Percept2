@@ -31,8 +31,14 @@ public class FrameStats {
 
   /**
    * Record a frame's delta time. Called by the engine each frame.
+   *
+   * <p>{@code deltaMs} is defensively floored to {@code 0}: negative values
+   * (from clock skew / NTP correction / monotonic-clock wrap) would otherwise
+   * pollute {@link #getMinMs()} and make {@link #getFps()} return
+   * {@link Double#POSITIVE_INFINITY} whenever the rolling average hit zero.</p>
    */
   public void record(long deltaMs) {
+    if (deltaMs < 0) deltaMs = 0;
     samples[head] = deltaMs;
     head = (head + 1) % samples.length;
     if (count < samples.length) count++;
@@ -54,7 +60,10 @@ public class FrameStats {
     avgMs = (double) sum / count;
     minMs = lo;
     maxMs = hi;
-    fps = avgMs > 0 ? 1000.0 / avgMs : 0;
+    // avgMs is guaranteed >= 0 because every recorded sample is >= 0, but we
+    // still guard against div-by-zero explicitly to avoid emitting
+    // Double.POSITIVE_INFINITY on an all-zero window (e.g. headless tests).
+    fps = avgMs > 0.0 ? 1000.0 / avgMs : 0.0;
   }
 
   /** Frames per second (averaged over the window). */
