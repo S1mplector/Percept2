@@ -2575,6 +2575,226 @@
   -fx-effect: dropshadow(gaussian, rgba(255, 255, 255, 0.35), 10, 0.25, 0, 2);
 }
 
+.menu-flow-editor {
+  -fx-background-color: #f2f4f7;
+}
+
+.menu-flow-header {
+  -fx-padding: 10 12 10 12;
+  -fx-background-color: linear-gradient(to bottom, #ffffff, #eef1f5);
+  -fx-border-color: #cfd6df;
+  -fx-border-width: 0 0 1 0;
+}
+
+.menu-flow-title {
+  -fx-text-fill: #151922;
+  -fx-font-size: 16px;
+  -fx-font-weight: 800;
+}
+
+.menu-flow-project-label {
+  -fx-text-fill: #4e5868;
+  -fx-font-size: 12px;
+}
+
+.menu-flow-status-label {
+  -fx-text-fill: #1e2733;
+  -fx-font-size: 12px;
+  -fx-font-weight: 700;
+  -fx-padding: 5 9;
+  -fx-background-color: #e5eaf1;
+  -fx-background-radius: 7;
+  -fx-border-color: #c9d1dc;
+  -fx-border-radius: 7;
+}
+
+.menu-flow-toolbar {
+  -fx-padding: 1 0 1 0;
+}
+
+.menu-flow-button {
+  -fx-background-color: linear-gradient(to bottom, #ffffff, #e4e8ef);
+  -fx-text-fill: #202733;
+  -fx-background-radius: 7;
+  -fx-border-color: #bec7d3;
+  -fx-border-width: 1;
+  -fx-border-radius: 7;
+  -fx-padding: 5 10;
+  -fx-font-size: 12px;
+  -fx-font-weight: 700;
+  -fx-cursor: hand;
+}
+
+.menu-flow-button:hover {
+  -fx-background-color: linear-gradient(to bottom, #f6f8fb, #d9dee8);
+  -fx-border-color: #9da9b8;
+}
+
+.menu-flow-button:pressed {
+  -fx-background-color: linear-gradient(to bottom, #d7dde7, #eef2f6);
+  -fx-border-color: #8794a5;
+}
+
+.menu-flow-button:disabled {
+  -fx-opacity: 0.42;
+}
+
+.menu-flow-graph-host {
+  -fx-background-color: #e9edf2;
+  -fx-border-color: #c7cfda;
+  -fx-border-width: 1;
+}
+
+.menu-flow-graph-scroll,
+.menu-flow-graph-scroll > .viewport,
+.menu-flow-graph-pane {
+  -fx-background-color: #e9edf2;
+}
+
+.menu-flow-empty-label {
+  -fx-text-fill: #647084;
+  -fx-font-size: 13px;
+  -fx-font-weight: 700;
+}
+
+.menu-flow-graph-legend {
+  -fx-text-fill: #3f4a5a;
+  -fx-font-size: 11px;
+  -fx-font-weight: 800;
+  -fx-padding: 6 9;
+  -fx-background-color: rgba(255, 255, 255, 0.9);
+  -fx-background-radius: 8;
+  -fx-border-color: #c7d0dc;
+  -fx-border-radius: 8;
+}
+
+.menu-flow-inspector {
+  -fx-background-color: #f6f8fb;
+  -fx-border-color: #cbd3df;
+  -fx-border-width: 0 0 0 1;
+}
+
+.menu-flow-inspector-split,
+.menu-flow-inspector-scroll,
+.menu-flow-inspector-scroll > .viewport {
+  -fx-background-color: transparent;
+}
+
+.menu-flow-inspector-split > .split-pane-divider {
+  -fx-background-color: #d3dae4;
+  -fx-padding: 1;
+}
+
+.menu-flow-inspector-stack {
+  -fx-padding: 10;
+}
+
+.menu-flow-inspector-card {
+  -fx-padding: 10;
+  -fx-background-color: #ffffff;
+  -fx-background-radius: 8;
+  -fx-border-color: #d2d9e4;
+  -fx-border-radius: 8;
+}
+
+.menu-flow-section-label {
+  -fx-text-fill: #506078;
+  -fx-font-size: 11px;
+  -fx-font-weight: 800;
+}
+
+.menu-flow-meta-label {
+  -fx-text-fill: #1f2630;
+  -fx-font-size: 12px;
+}
+
+.menu-flow-mono-label {
+  -fx-font-family: "Menlo", "Consolas", monospace;
+  -fx-font-size: 10.5px;
+  -fx-text-fill: #526073;
+}
+
+.menu-flow-input-label {
+  -fx-text-fill: #445166;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+}
+
+.menu-flow-wire-active {
+  -fx-text-fill: #086a9b;
+  -fx-font-weight: 800;
+}
+
+.menu-flow-editor .text-field,
+.menu-flow-editor .combo-box-base {
+  -fx-background-color: #ffffff;
+  -fx-text-fill: #151a22;
+  -fx-prompt-text-fill: #7b8797;
+  -fx-border-color: #c5ceda;
+  -fx-border-radius: 6;
+  -fx-background-radius: 6;
+  -fx-padding: 5 8;
+}
+
+.menu-flow-editor .combo-box .list-cell {
+  -fx-text-fill: #151a22;
+  -fx-background-color: transparent;
+}
+
+.menu-flow-diagnostics {
+  -fx-font-family: "Menlo", "Consolas", monospace;
+  -fx-font-size: 11px;
+  -fx-control-inner-background: #ffffff;
+  -fx-text-fill: #151a22;
+  -fx-highlight-fill: #88bce0;
+  -fx-highlight-text-fill: #071019;
+  -fx-background-color: #ffffff;
+  -fx-border-color: #cbd4df;
+  -fx-border-radius: 6;
+  -fx-background-radius: 6;
+}
+
+.menu-flow-table {
+  -fx-background-color: #ffffff;
+  -fx-control-inner-background: #ffffff;
+  -fx-table-cell-border-color: #d8dfe8;
+  -fx-selection-bar: #a9d0eb;
+  -fx-selection-bar-non-focused: #c3d7e7;
+  -fx-text-background-color: #151a22;
+  -fx-border-color: #cbd4df;
+  -fx-border-radius: 6;
+  -fx-background-radius: 6;
+}
+
+.menu-flow-table .column-header-background {
+  -fx-background-color: #dfe5ee;
+}
+
+.menu-flow-table .column-header,
+.menu-flow-table .filler {
+  -fx-background-color: #dfe5ee;
+  -fx-border-color: #c4ceda;
+}
+
+.menu-flow-table .column-header .label {
+  -fx-text-fill: #1d2530;
+  -fx-font-size: 11px;
+  -fx-font-weight: 800;
+}
+
+.menu-flow-table .table-row-cell {
+  -fx-background-color: #ffffff;
+  -fx-border-color: transparent transparent #e1e6ee transparent;
+}
+
+.menu-flow-table .table-row-cell:odd {
+  -fx-background-color: #f5f7fa;
+}
+
+.menu-flow-table .table-row-cell:selected {
+  -fx-background-color: #b8dcf3;
+}
+
 .puppeteer-toolbar-shell {
   -fx-background-color: #f5f5f5;
   -fx-border-color: #d5d5d5;

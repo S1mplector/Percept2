@@ -9,6 +9,7 @@ import javafx.beans.property.StringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
 import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
@@ -18,8 +19,8 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.OverrunStyle;
 import javafx.scene.control.ScrollPane;
-import javafx.scene.control.Separator;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableRow;
@@ -41,7 +42,7 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-import javafx.scene.shape.Line;
+import javafx.scene.shape.CubicCurve;
 import javafx.scene.shape.Polygon;
 import javafx.scene.shape.Rectangle;
 import javafx.util.StringConverter;
@@ -83,6 +84,7 @@ public class MenuFlowEditorView extends BorderPane {
   private final Label registryPathLabel = new Label("Registry: " + DEFAULT_MENU_REGISTRY_PATH);
   private final Label registryMenusLabel = new Label("Menus: (auto-discovery)");
   private final Label registrySelectionLabel = new Label("Selected screen: (none)");
+  private final Label graphLegendLabel = new Label("OPEN_MENU   MAIN_MENU   BACK   missing target");
 
   private final Button refreshButton = iconBtn("Refresh", CssIcon.redo("#7ec8e3"));
   private final Button validateButton = iconBtn("Validate", CssIcon.check("#8cd48c"));
@@ -143,6 +145,7 @@ public class MenuFlowEditorView extends BorderPane {
 
   public MenuFlowEditorView() {
     setPadding(new Insets(8));
+    getStyleClass().add("menu-flow-editor");
     buildUi();
     bindActions();
     rebuildGraph();
@@ -164,42 +167,70 @@ public class MenuFlowEditorView extends BorderPane {
   }
 
   private void buildUi() {
-    Label title = new Label("Menu Graph / Flow");
-    title.setStyle("-fx-font-size: 14px; -fx-font-weight: 700;");
+    Label title = new Label("Menu Flow Editor");
+    title.getStyleClass().add("menu-flow-title");
 
-    HBox rowA = new HBox(8, refreshButton, validateButton, saveSelectedButton, saveAllButton, autoLayoutButton, openButton, addScreenButton);
-    rowA.setAlignment(Pos.CENTER_LEFT);
+    projectLabel.getStyleClass().add("menu-flow-project-label");
+    projectLabel.setTextOverrun(OverrunStyle.LEADING_ELLIPSIS);
+    projectLabel.setMaxWidth(Double.MAX_VALUE);
 
-    VBox top = new VBox(6, title, projectLabel, rowA, statusLabel, new Separator());
+    statusLabel.getStyleClass().add("menu-flow-status-label");
+
+    FlowPane toolbar = new FlowPane(8, 8,
+        refreshButton,
+        validateButton,
+        saveSelectedButton,
+        saveAllButton,
+        autoLayoutButton,
+        openButton,
+        addScreenButton);
+    toolbar.getStyleClass().add("menu-flow-toolbar");
+    toolbar.setAlignment(Pos.CENTER_LEFT);
+
+    VBox top = new VBox(8, title, projectLabel, toolbar, statusLabel);
+    top.getStyleClass().add("menu-flow-header");
     setTop(top);
 
-    graphScroll.setFitToWidth(true);
-    graphScroll.setFitToHeight(true);
+    graphScroll.getStyleClass().add("menu-flow-graph-scroll");
+    graphScroll.setFitToWidth(false);
+    graphScroll.setFitToHeight(false);
     graphScroll.setPannable(true);
+    graphScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+    graphScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
     graphPane.setPrefSize(1200, 760);
+    graphPane.getStyleClass().add("menu-flow-graph-pane");
+    graphPane.setFocusTraversable(true);
 
-    graphEmptyLabel.setStyle("-fx-text-fill: #a4a4a4;");
+    graphEmptyLabel.getStyleClass().add("menu-flow-empty-label");
     graphEmptyLabel.setMouseTransparent(true);
     StackPane.setAlignment(graphEmptyLabel, Pos.CENTER);
 
-    StackPane graphHost = new StackPane(graphScroll, graphEmptyLabel);
-    graphHost.setStyle("-fx-background-color: #121212; -fx-border-color: #333333;");
+    graphLegendLabel.getStyleClass().add("menu-flow-graph-legend");
+    graphLegendLabel.setMouseTransparent(true);
+    StackPane.setAlignment(graphLegendLabel, Pos.TOP_LEFT);
+    StackPane.setMargin(graphLegendLabel, new Insets(12));
+
+    StackPane graphHost = new StackPane(graphScroll, graphEmptyLabel, graphLegendLabel);
+    graphHost.getStyleClass().add("menu-flow-graph-host");
 
     buildItemTable();
 
     diagnosticsArea.setEditable(false);
     diagnosticsArea.setWrapText(true);
-    diagnosticsArea.setPrefRowCount(8);
-    diagnosticsArea.setStyle("-fx-font-family: 'Consolas'; -fx-font-size: 11px;");
+    diagnosticsArea.setPrefRowCount(5);
+    diagnosticsArea.setMinHeight(96);
+    diagnosticsArea.getStyleClass().add("menu-flow-diagnostics");
 
+    for (Label label : List.of(selectedMenuLabel, selectedFileLabel, selectedItemLabel, wireModeLabel,
+        wireHintLabel, registryPathLabel, registryMenusLabel, registrySelectionLabel)) {
+      label.getStyleClass().add("menu-flow-meta-label");
+      label.setWrapText(true);
+    }
     wireHintLabel.setWrapText(true);
-    wireHintLabel.setStyle("-fx-text-fill: #a8a8a8; -fx-font-size: 11px;");
     registryPathLabel.setWrapText(true);
-    registryPathLabel.setStyle("-fx-text-fill: #9a9a9a; -fx-font-size: 10px; -fx-font-family: 'Consolas';");
+    registryPathLabel.getStyleClass().add("menu-flow-mono-label");
     registryMenusLabel.setWrapText(true);
-    registryMenusLabel.setStyle("-fx-text-fill: #a8a8a8; -fx-font-size: 11px;");
     registrySelectionLabel.setWrapText(true);
-    registrySelectionLabel.setStyle("-fx-text-fill: #a8a8a8; -fx-font-size: 11px;");
 
     quickTargetCombo.setEditable(true);
     quickTargetCombo.setPromptText("target menu id");
@@ -236,12 +267,6 @@ public class MenuFlowEditorView extends BorderPane {
 
     quickAddItemField.setPromptText("new_item_id");
 
-    for (Button b : List.of(
-        wireOpenButton, cancelWireButton, setMainButton, setBackButton, clearTargetButton,
-        applyQuickTargetButton, addItemButton, duplicateItemButton, removeItemButton)) {
-      b.setStyle("-fx-font-size: 11px;");
-    }
-
     wireOpenButton.setTooltip(new Tooltip("Select an item, then click a target node in the graph."));
     cancelWireButton.setTooltip(new Tooltip("Exit wiring mode (Esc also works)."));
     applyQuickTargetButton.setTooltip(new Tooltip("Set selected item to OPEN_MENU and assign the chosen target."));
@@ -249,6 +274,7 @@ public class MenuFlowEditorView extends BorderPane {
     duplicateItemButton.setTooltip(new Tooltip("Duplicate the selected item."));
 
     FlowPane wireButtons = new FlowPane(6, 6, wireOpenButton, cancelWireButton, setMainButton, setBackButton, clearTargetButton);
+    wireButtons.getStyleClass().add("menu-flow-button-flow");
     wireButtons.setAlignment(Pos.CENTER_LEFT);
 
     HBox targetRow = new HBox(6, quickTargetCombo, applyQuickTargetButton);
@@ -260,64 +286,78 @@ public class MenuFlowEditorView extends BorderPane {
     HBox.setHgrow(quickAddItemField, Priority.ALWAYS);
 
     FlowPane itemButtons = new FlowPane(6, 6, duplicateItemButton, removeItemButton);
+    itemButtons.getStyleClass().add("menu-flow-button-flow");
     itemButtons.setAlignment(Pos.CENTER_LEFT);
-
-    Label selectionHeader = sectionLabel("Selection");
-    Label registryHeader = sectionLabel("Registry Wiring");
-    Label wiringHeader = sectionLabel("Wiring Utilities");
-    Label itemsHeader = sectionLabel("Items");
-    Label validationHeader = sectionLabel("Validation");
 
     HBox defaultMenuRow = labeledInput("Default", defaultMenuCombo);
     HBox layoutsRow = labeledInput("Layouts", registryLayoutsField);
     HBox stylesRow = labeledInput("Styles", registryStylesField);
     FlowPane registryButtons = new FlowPane(6, 6,
         registerSelectedButton, unregisterSelectedButton, syncRegistryMenusButton, saveRegistryButton, openRegistryButton);
+    registryButtons.getStyleClass().add("menu-flow-button-flow");
     registryButtons.setAlignment(Pos.CENTER_LEFT);
 
-    VBox detail = new VBox(8,
-        selectionHeader,
+    VBox selectionCard = inspectorCard("Selection",
         selectedMenuLabel,
         selectedFileLabel,
-        selectedItemLabel,
-        new Separator(),
-        registryHeader,
+        selectedItemLabel);
+
+    VBox registryCard = inspectorCard("Registry Wiring",
         registryPathLabel,
         registryMenusLabel,
         registrySelectionLabel,
         defaultMenuRow,
         layoutsRow,
         stylesRow,
-        registryButtons,
-        new Separator(),
-        wiringHeader,
+        registryButtons);
+
+    VBox wiringCard = inspectorCard("Wiring",
         wireModeLabel,
         wireHintLabel,
         wireButtons,
-        targetRow,
-        new Separator(),
-        itemsHeader,
+        targetRow);
+
+    VBox controlsStack = new VBox(10, selectionCard, registryCard, wiringCard);
+    controlsStack.getStyleClass().add("menu-flow-inspector-stack");
+
+    ScrollPane controlsScroll = new ScrollPane(controlsStack);
+    controlsScroll.getStyleClass().add("menu-flow-inspector-scroll");
+    controlsScroll.setFitToWidth(true);
+    controlsScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+    controlsScroll.setMinHeight(220);
+
+    VBox itemsCard = inspectorCard("Items",
         quickAddRow,
         itemButtons,
-        itemTable,
-        validationHeader,
-        diagnosticsArea
-    );
-    detail.setPadding(new Insets(8));
-    detail.setStyle("-fx-background-color: #161616; -fx-border-color: #333333;");
-    detail.setMinWidth(360);
-    detail.setPrefWidth(420);
+        itemTable);
     VBox.setVgrow(itemTable, Priority.ALWAYS);
+
+    VBox validationCard = inspectorCard("Validation", diagnosticsArea);
     VBox.setVgrow(diagnosticsArea, Priority.ALWAYS);
 
+    SplitPane detailSplit = new SplitPane(controlsScroll, itemsCard, validationCard);
+    detailSplit.setOrientation(Orientation.VERTICAL);
+    detailSplit.setDividerPositions(0.48, 0.76);
+    detailSplit.getStyleClass().add("menu-flow-inspector-split");
+
+    BorderPane detail = new BorderPane(detailSplit);
+    detail.getStyleClass().add("menu-flow-inspector");
+    detail.setMinWidth(360);
+    detail.setPrefWidth(460);
+
     SplitPane split = new SplitPane(graphHost, detail);
-    split.setDividerPositions(0.66);
+    split.getStyleClass().add("menu-flow-main-split");
+    split.setDividerPositions(0.70);
     setCenter(split);
   }
 
   private void buildItemTable() {
     itemTable.setEditable(true);
+    itemTable.getStyleClass().add("menu-flow-table");
     itemTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
+    itemTable.setFixedCellSize(30);
+    itemTable.setMinHeight(150);
+    itemTable.setPrefHeight(220);
 
     TableColumn<MenuItemModel, String> idCol = new TableColumn<>("Item");
     idCol.setCellValueFactory(v -> v.getValue().idProperty());
@@ -806,8 +846,12 @@ public class MenuFlowEditorView extends BorderPane {
 
     if (needsBackNode) {
       NodeView back = createNode(NODE_BACK, "Back", NodeKind.SPECIAL, null);
-      back.setLayoutX(30);
-      back.setLayoutY(30);
+      double backY = screensById.values().stream()
+          .mapToDouble(s -> Double.isFinite(s.y) ? s.y : 40)
+          .max()
+          .orElse(40) + NODE_HEIGHT + 58;
+      back.setLayoutX(44);
+      back.setLayoutY(backY);
       nodeLayer.getChildren().add(back);
       nodeViews.put(NODE_BACK, back);
     }
@@ -853,20 +897,34 @@ public class MenuFlowEditorView extends BorderPane {
       default -> Color.web("#7f8795");
     };
 
-    Line line = new Line(sx, sy, tx, ty);
-    line.setStroke(color);
-    line.setStrokeWidth(edge.missingTarget ? 1.5 : 2.0);
-    if (edge.missingTarget) line.getStrokeDashArray().setAll(8.0, 6.0);
+    MenuItemModel selectedItem = getSelectedItem();
+    boolean fromSelectedScreen = selectedScreen != null && selectedScreen.id.equals(edge.fromScreenId);
+    boolean selectedItemEdge = fromSelectedScreen
+        && selectedItem != null
+        && sanitizeId(selectedItem.getId()).equals(edge.fromItemId);
+    boolean dimForSelection = selectedScreen != null && !fromSelectedScreen;
 
-    Polygon arrow = createArrowHead(sx, sy, tx, ty, color);
+    boolean forward = tx >= sx;
+    double bend = Math.max(72, Math.abs(tx - sx) * 0.34);
+    double c1x = sx + (forward ? bend : -bend);
+    double c2x = tx + (forward ? -bend : bend);
+    CubicCurve curve = new CubicCurve(sx, sy, c1x, sy, c2x, ty, tx, ty);
+    curve.setFill(Color.TRANSPARENT);
+    curve.setStroke(color);
+    curve.setStrokeWidth(selectedItemEdge ? 3.2 : (edge.missingTarget ? 1.4 : 2.0));
+    curve.setOpacity(selectedItemEdge ? 1.0 : (dimForSelection ? 0.26 : (fromSelectedScreen ? 0.88 : 0.58)));
+    if (edge.missingTarget) curve.getStrokeDashArray().setAll(8.0, 6.0);
+
+    Polygon arrow = createArrowHead(c2x, ty, tx, ty, color);
+    arrow.setOpacity(curve.getOpacity());
 
     String tip = edge.fromScreenId + "." + edge.fromItemId + " -> " + canonicalActionName(edge.action)
         + (edge.targetMenuId == null || edge.targetMenuId.isBlank() ? "" : (" (" + edge.targetMenuId + ")"));
     Tooltip tooltip = new Tooltip(tip);
-    Tooltip.install(line, tooltip);
+    Tooltip.install(curve, tooltip);
     Tooltip.install(arrow, tooltip);
 
-    edgeLayer.getChildren().addAll(line, arrow);
+    edgeLayer.getChildren().addAll(curve, arrow);
   }
 
   private Polygon createArrowHead(double sx, double sy, double tx, double ty, Color color) {
@@ -946,13 +1004,15 @@ public class MenuFlowEditorView extends BorderPane {
       final double[] dragDelta = new double[2];
       node.setOnMousePressed(e -> {
         if (e.getButton() != MouseButton.PRIMARY) return;
-        dragDelta[0] = e.getSceneX() - node.getLayoutX();
-        dragDelta[1] = e.getSceneY() - node.getLayoutY();
+        Point2D parentPoint = node.getParent().sceneToLocal(e.getSceneX(), e.getSceneY());
+        dragDelta[0] = parentPoint.getX() - node.getLayoutX();
+        dragDelta[1] = parentPoint.getY() - node.getLayoutY();
       });
       node.setOnMouseDragged(e -> {
         if (e.getButton() != MouseButton.PRIMARY) return;
-        double nx = Math.max(12, e.getSceneX() - dragDelta[0]);
-        double ny = Math.max(12, e.getSceneY() - dragDelta[1]);
+        Point2D parentPoint = node.getParent().sceneToLocal(e.getSceneX(), e.getSceneY());
+        double nx = Math.max(12, parentPoint.getX() - dragDelta[0]);
+        double ny = Math.max(12, parentPoint.getY() - dragDelta[1]);
         node.setLayoutX(nx);
         node.setLayoutY(ny);
         screen.x = nx;
@@ -1529,12 +1589,14 @@ public class MenuFlowEditorView extends BorderPane {
 
     if (wireMode == WireMode.OPEN_MENU) {
       wireModeLabel.setText("Wire mode: OPEN_MENU (click target node)");
-      wireModeLabel.setStyle("-fx-text-fill: #78d0ff; -fx-font-weight: 700;");
+      if (!wireModeLabel.getStyleClass().contains("menu-flow-wire-active")) {
+        wireModeLabel.getStyleClass().add("menu-flow-wire-active");
+      }
       wireHintLabel.setText("Canvas wiring active for the selected item. Click a menu node or press Esc.");
       wireOpenButton.setText("Wiring Active");
     } else {
       wireModeLabel.setText("Wire mode: Off");
-      wireModeLabel.setStyle("-fx-text-fill: #b8beca;");
+      wireModeLabel.getStyleClass().remove("menu-flow-wire-active");
       wireOpenButton.setText("Wire on Graph");
       if (!hasSelection) {
         wireHintLabel.setText("Select a menu and item to wire.");
@@ -1600,16 +1662,53 @@ public class MenuFlowEditorView extends BorderPane {
 
   private void autoLayoutScreens() {
     if (screensById.isEmpty()) return;
-    int count = screensById.size();
-    int cols = Math.max(1, (int) Math.ceil(Math.sqrt(count)));
-    int idx = 0;
+    String root = sanitizeId(normalize(registryDefaultMenu, ""));
+    if (root.isBlank() || !screensById.containsKey(root)) {
+      root = screensById.containsKey("main") ? "main" : screensById.keySet().stream().findFirst().orElse("");
+    }
+
+    Map<String, Integer> depthById = new LinkedHashMap<>();
+    if (!root.isBlank()) {
+      List<String> queue = new ArrayList<>();
+      queue.add(root);
+      depthById.put(root, 0);
+      while (!queue.isEmpty()) {
+        String current = queue.remove(0);
+        int nextDepth = depthById.getOrDefault(current, 0) + 1;
+        MenuScreenModel screen = screensById.get(current);
+        if (screen == null) continue;
+        for (MenuItemModel item : screen.items) {
+          String target = resolveTargetMenu(item.getAction(), item.getTarget());
+          if (target == null || NODE_BACK.equals(target) || !screensById.containsKey(target)) continue;
+          Integer knownDepth = depthById.get(target);
+          if (knownDepth != null && knownDepth <= nextDepth) continue;
+          depthById.put(target, nextDepth);
+          if (!queue.contains(target)) queue.add(target);
+        }
+      }
+    }
+
+    int overflowDepth = depthById.values().stream().mapToInt(Integer::intValue).max().orElse(0) + 1;
+    Map<Integer, List<MenuScreenModel>> columns = new LinkedHashMap<>();
     for (MenuScreenModel screen : screensById.values()) {
-      int row = idx / cols;
-      int col = idx % cols;
-      screen.x = 40 + col * (NODE_WIDTH + 86);
-      screen.y = 40 + row * (NODE_HEIGHT + 78);
-      rememberedScreenPositions.put(screen.id, new Point2D(screen.x, screen.y));
-      idx++;
+      int depth = depthById.getOrDefault(screen.id, overflowDepth);
+      columns.computeIfAbsent(depth, ignored -> new ArrayList<>()).add(screen);
+    }
+
+    List<Integer> depths = new ArrayList<>(columns.keySet());
+    depths.sort(Integer::compareTo);
+    int colIndex = 0;
+    for (Integer depth : depths) {
+      List<MenuScreenModel> column = columns.getOrDefault(depth, List.of());
+      double baseY = 52;
+      if (column.size() <= 2) baseY = 92;
+      for (int row = 0; row < column.size(); row++) {
+        MenuScreenModel screen = column.get(row);
+        screen.x = 64 + colIndex * (NODE_WIDTH + 154);
+        screen.y = baseY + row * (NODE_HEIGHT + 66);
+        rememberedScreenPositions.put(screen.id, new Point2D(screen.x, screen.y));
+      }
+      colIndex++;
     }
   }
 
@@ -1746,16 +1845,24 @@ public class MenuFlowEditorView extends BorderPane {
     return out.toString();
   }
 
+  private static VBox inspectorCard(String title, javafx.scene.Node... children) {
+    VBox card = new VBox(8);
+    card.getStyleClass().add("menu-flow-inspector-card");
+    card.getChildren().add(sectionLabel(title));
+    card.getChildren().addAll(children);
+    return card;
+  }
+
   private static Label sectionLabel(String text) {
     Label label = new Label(text);
-    label.setStyle("-fx-font-size: 11px; -fx-text-fill: #8c96a8; -fx-font-weight: 700;");
+    label.getStyleClass().add("menu-flow-section-label");
     return label;
   }
 
   private static HBox labeledInput(String label, javafx.scene.Node input) {
     Label l = new Label(label);
     l.setMinWidth(64);
-    l.setStyle("-fx-text-fill: #b0b8c8; -fx-font-size: 11px;");
+    l.getStyleClass().add("menu-flow-input-label");
     if (input instanceof Region region) {
       region.setMaxWidth(Double.MAX_VALUE);
       HBox.setHgrow(region, Priority.ALWAYS);
@@ -1796,13 +1903,28 @@ public class MenuFlowEditorView extends BorderPane {
       this.kind = kind;
       this.screen = screen;
       this.box = new Rectangle(NODE_WIDTH, NODE_HEIGHT);
+      setMinSize(NODE_WIDTH, NODE_HEIGHT);
+      setPrefSize(NODE_WIDTH, NODE_HEIGHT);
+      setMaxSize(NODE_WIDTH, NODE_HEIGHT);
       box.setArcWidth(10);
       box.setArcHeight(10);
 
       Label title = new Label(label);
       title.setStyle("-fx-font-size: 13px; -fx-font-weight: 700; -fx-text-fill: #e4e8ef;");
-      Label subtitle = new Label(kind == NodeKind.SCREEN ? "screen" : (kind == NodeKind.SPECIAL ? "special" : "missing"));
+      title.setMaxWidth(NODE_WIDTH - 22);
+      title.setTextOverrun(OverrunStyle.ELLIPSIS);
+      String subtitleText = switch (kind) {
+        case SCREEN -> {
+          int count = screen == null ? 0 : screen.items.size();
+          yield count + " item" + (count == 1 ? "" : "s");
+        }
+        case SPECIAL -> "navigation action";
+        case MISSING -> "missing target";
+      };
+      Label subtitle = new Label(subtitleText);
       subtitle.setStyle("-fx-font-size: 11px; -fx-text-fill: #a5acb9;");
+      subtitle.setMaxWidth(NODE_WIDTH - 22);
+      subtitle.setTextOverrun(OverrunStyle.ELLIPSIS);
 
       VBox content = new VBox(4, title, subtitle);
       content.setAlignment(Pos.CENTER_LEFT);
@@ -1895,6 +2017,12 @@ public class MenuFlowEditorView extends BorderPane {
   private static Button iconBtn(String text, Region icon) {
     Button btn = new Button(text);
     btn.setGraphic(icon);
+    btn.getStyleClass().add("menu-flow-button");
+    btn.setGraphicTextGap(7);
+    btn.setMinHeight(34);
+    btn.setMnemonicParsing(false);
+    btn.setTooltip(new Tooltip(text));
+    btn.setAccessibleText(text);
     return btn;
   }
 }
