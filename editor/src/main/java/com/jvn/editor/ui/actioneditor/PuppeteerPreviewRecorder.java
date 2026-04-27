@@ -1,5 +1,7 @@
 package com.jvn.editor.ui.actioneditor;
 
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -50,18 +52,26 @@ public final class PuppeteerPreviewRecorder {
         double endMs,
         int fps,
         boolean writePngSequence,
-        boolean writeGif
+        boolean writeGif,
+        int outputWidth,
+        int outputHeight
     ) {
         public Spec {
             if (fps < 1) fps = 1;
             if (fps > 60) fps = 60;
             if (endMs < startMs) endMs = startMs;
+            if (outputWidth < 0) outputWidth = 0;
+            if (outputHeight < 0) outputHeight = 0;
         }
         public int frameCount() {
             return Math.max(1, (int) Math.round((endMs - startMs) / 1000.0 * fps) + 1);
         }
         public long frameDelayCentiseconds() {
             return Math.max(1L, Math.round(100.0 / fps));
+        }
+        /** Whether the recorder should rescale captured frames to a custom resolution. */
+        public boolean hasCustomResolution() {
+            return outputWidth > 0 && outputHeight > 0;
         }
     }
 
@@ -238,7 +248,28 @@ public final class PuppeteerPreviewRecorder {
             params.setFill(Color.web("#121212"));
             canvas.snapshot(params, fxImage);
             BufferedImage awt = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
-            return SwingFXUtils.fromFXImage(fxImage, awt);
+            BufferedImage source = SwingFXUtils.fromFXImage(fxImage, awt);
+
+            if (!spec.hasCustomResolution() ||
+                (spec.outputWidth() == w && spec.outputHeight() == h)) {
+                return source;
+            }
+            int targetW = Math.max(1, spec.outputWidth());
+            int targetH = Math.max(1, spec.outputHeight());
+            BufferedImage scaled = new BufferedImage(targetW, targetH, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g = scaled.createGraphics();
+            try {
+                g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                    RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                g.setRenderingHint(RenderingHints.KEY_RENDERING,
+                    RenderingHints.VALUE_RENDER_QUALITY);
+                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                    RenderingHints.VALUE_ANTIALIAS_ON);
+                g.drawImage(source, 0, 0, targetW, targetH, null);
+            } finally {
+                g.dispose();
+            }
+            return scaled;
         }
     }
 

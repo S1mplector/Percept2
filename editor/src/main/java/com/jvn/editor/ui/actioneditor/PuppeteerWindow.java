@@ -3028,11 +3028,61 @@ public class PuppeteerWindow extends Stage {
         Spinner<Integer> spFps = new Spinner<>();
         spFps.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 60, 24));
         spFps.setEditable(true);
-        spFps.setPrefWidth(80);
+        spFps.setPrefWidth(90);
         CheckBox cbGif = new CheckBox("Animated GIF");
         cbGif.setSelected(true);
         CheckBox cbPng = new CheckBox("PNG sequence");
         cbPng.setSelected(false);
+
+        // Resolution controls — default to canvas dimensions, lock aspect by default.
+        javafx.scene.canvas.Canvas previewCanvas = animationPreview.getPreviewCanvas();
+        int nativeW = previewCanvas != null ? Math.max(1, (int) Math.round(previewCanvas.getWidth())) : 1280;
+        int nativeH = previewCanvas != null ? Math.max(1, (int) Math.round(previewCanvas.getHeight())) : 720;
+        double aspectRatio = nativeH == 0 ? 1.0 : (double) nativeW / nativeH;
+
+        Spinner<Integer> spWidth = new Spinner<>();
+        spWidth.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(16, 4096, nativeW, 16));
+        spWidth.setEditable(true);
+        spWidth.setPrefWidth(120);
+
+        Spinner<Integer> spHeight = new Spinner<>();
+        spHeight.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(16, 4096, nativeH, 16));
+        spHeight.setEditable(true);
+        spHeight.setPrefWidth(120);
+
+        CheckBox cbLockAspect = new CheckBox("Lock aspect");
+        cbLockAspect.setSelected(true);
+
+        Button btnResetRes = new Button("Native");
+        btnResetRes.setStyle(STYLE_BTN_DARK);
+        btnResetRes.setTooltip(new Tooltip("Reset to native preview size (" + nativeW + " x " + nativeH + ")"));
+        btnResetRes.setOnAction(ev -> {
+            spWidth.getValueFactory().setValue(nativeW);
+            spHeight.getValueFactory().setValue(nativeH);
+        });
+
+        // Lock aspect ratio: editing one side updates the other.
+        final boolean[] aspectGuard = {false};
+        spWidth.valueProperty().addListener((obs, oldV, newV) -> {
+            if (!cbLockAspect.isSelected() || aspectGuard[0] || newV == null) return;
+            aspectGuard[0] = true;
+            try {
+                int derivedH = Math.max(16, Math.min(4096, (int) Math.round(newV / aspectRatio)));
+                spHeight.getValueFactory().setValue(derivedH);
+            } finally {
+                aspectGuard[0] = false;
+            }
+        });
+        spHeight.valueProperty().addListener((obs, oldV, newV) -> {
+            if (!cbLockAspect.isSelected() || aspectGuard[0] || newV == null) return;
+            aspectGuard[0] = true;
+            try {
+                int derivedW = Math.max(16, Math.min(4096, (int) Math.round(newV * aspectRatio)));
+                spWidth.getValueFactory().setValue(derivedW);
+            } finally {
+                aspectGuard[0] = false;
+            }
+        });
 
         ProgressBar progress = new ProgressBar(0.0);
         progress.setPrefWidth(420);
@@ -3064,19 +3114,31 @@ public class PuppeteerWindow extends Stage {
             cbGif, cbPng);
         fpsRow.setAlignment(Pos.CENTER_LEFT);
 
+        HBox resolutionRow = new HBox(6,
+            new Label("Width"), spWidth,
+            new Label("\u00d7"), spHeight,
+            spacer(8),
+            cbLockAspect,
+            spacer(8),
+            btnResetRes);
+        resolutionRow.setAlignment(Pos.CENTER_LEFT);
+
         Label headerBaseName = sectionLabel("Base name");
         Label headerOutputDir = sectionLabel("Output directory");
         Label headerRange = sectionLabel("Time range (ms)");
         Label headerFps = sectionLabel("Playback");
+        Label headerResolution = sectionLabel("Resolution");
 
         VBox content = new VBox(6,
             headerBaseName, baseRow,
             headerOutputDir, outputRow,
             headerRange, rangeRow,
             headerFps, fpsRow,
+            headerResolution, resolutionRow,
             progress, lblStatus);
         content.setFillWidth(true);
         content.setSpacing(6);
+        content.getStyleClass().add("puppeteer-record-form");
 
         // Holders so callbacks can mutate state.
         final Runnable[] showInitialActions = {null};
@@ -3120,9 +3182,12 @@ public class PuppeteerWindow extends Stage {
                 return;
             }
             int fps = spFps.getValue() != null ? spFps.getValue() : 24;
+            int outW = spWidth.getValue() != null ? spWidth.getValue() : nativeW;
+            int outH = spHeight.getValue() != null ? spHeight.getValue() : nativeH;
             PuppeteerPreviewRecorder.Spec spec = new PuppeteerPreviewRecorder.Spec(
                 outputDir, baseName, startMs, endMs, fps,
-                cbPng.isSelected(), cbGif.isSelected());
+                cbPng.isSelected(), cbGif.isSelected(),
+                outW, outH);
 
             if (project.isPlaying()) pause();
 
@@ -3134,6 +3199,10 @@ public class PuppeteerWindow extends Stage {
             spFps.setDisable(true);
             cbGif.setDisable(true);
             cbPng.setDisable(true);
+            spWidth.setDisable(true);
+            spHeight.setDisable(true);
+            cbLockAspect.setDisable(true);
+            btnResetRes.setDisable(true);
 
             progress.setVisible(true);
             progress.setManaged(true);
@@ -3203,6 +3272,10 @@ public class PuppeteerWindow extends Stage {
             spFps.setDisable(false);
             cbGif.setDisable(false);
             cbPng.setDisable(false);
+            spWidth.setDisable(false);
+            spHeight.setDisable(false);
+            cbLockAspect.setDisable(false);
+            btnResetRes.setDisable(false);
             progress.setVisible(false);
             progress.setManaged(false);
             showInitialActions[0].run();
