@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# -----------------------------------------------------------------------------
+#  jvn — launch the JVN Engine Hub (Swing GUI)
+#
+#  Usage (macOS / Linux):
+#    ./jvn
+#
+#  The hub lets you launch the editor, launcher, runtime, build/test the
+#  workspace, or pull-rebase the repository — without typing jvnw commands.
+# -----------------------------------------------------------------------------
+set -eu
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+GRADLEW="$SCRIPT_DIR/gradlew"
+
+if [[ ! -x "$GRADLEW" ]]; then
+  echo "[jvn] error: gradlew not found or not executable at $GRADLEW" 1>&2
+  exit 1
+fi
+
+# Run the hub via Gradle so classpath + toolchain are handled for us.
+# -q / --console=plain keeps the terminal tidy since the hub is a GUI.
+exec "$GRADLEW" -q --console=plain -p "$SCRIPT_DIR" :hub:run

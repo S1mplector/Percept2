@@ -21,6 +21,7 @@ include(
   ":editor",
   ":demo-game",
   ":swing",
+  ":hub",
   ":testkit",
   ":scala-utils",
   ":clojure-utils"
