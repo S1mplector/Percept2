@@ -7,7 +7,10 @@
 #    ~/Applications/JVN Engine Hub.app
 #
 #  The app bundle runs the in-tree Gradle hub task, logs launch output, and shows
-#  a native alert if startup fails.
+#  a native alert if startup fails. On macOS, the app opens a Terminal-backed
+#  .command launcher so projects under ~/Desktop/Documents are handled by
+#  Terminal's normal Files & Folders permission flow instead of failing inside
+#  a bare app-bundle shell.
 #
 #  Uninstall:
 #    rm -rf "$HOME/Applications/JVN Engine Hub.app"
@@ -27,6 +30,7 @@ APP_BUNDLE="$HOME/Applications/$APP_NAME.app"
 SUPPORT_DIR="$HOME/Library/Application Support/$APP_NAME"
 LOG_DIR="$HOME/Library/Logs/$APP_NAME"
 LOG_FILE="$LOG_DIR/launcher.log"
+COMMAND_FILE="$SUPPORT_DIR/launch-jvn-engine-hub.command"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 
 die() {
@@ -180,8 +184,9 @@ svg_icon="$(write_svg_icon "$version")"
 icns_icon="$(create_icns_icon "$svg_icon")"
 project_q="$(shell_quote "$SCRIPT_DIR")"
 log_q="$(shell_quote "$LOG_FILE")"
+command_q="$(shell_quote "$COMMAND_FILE")"
 
-cat > "$APP_BUNDLE/Contents/MacOS/JVN Engine Hub" <<LAUNCHER
+cat > "$COMMAND_FILE" <<COMMAND
 #!/usr/bin/env bash
 set -u
 PROJECT_DIR=$project_q
@@ -191,7 +196,7 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:\${P
 
 mkdir -p "\$(dirname -- "\$LOG_FILE")"
 {
-  echo "---- \$(date -Is) ----"
+  echo "---- \$(date '+%Y-%m-%dT%H:%M:%S%z') ----"
   echo "[JVN] Project: \$PROJECT_DIR"
   echo "[JVN] PATH: \$PATH"
   echo "[JVN] Starting Engine Hub..."
@@ -251,6 +256,38 @@ bash ./gradlew -q --console=plain -p "\$PROJECT_DIR" :hub:run 2>&1 | tee -a "\$L
 status="\${PIPESTATUS[0]}"
 if [[ "\$status" -ne 0 ]]; then
   alert_failure "Startup failed with exit code \$status."
+  echo
+  echo "[JVN] Startup failed with exit code \$status."
+  echo "[JVN] Log: \$LOG_FILE"
+  echo
+  read -r -p "Press Enter to close this Terminal window..." _
+fi
+exit "\$status"
+COMMAND
+chmod 0755 "$COMMAND_FILE"
+
+cat > "$APP_BUNDLE/Contents/MacOS/JVN Engine Hub" <<LAUNCHER
+#!/usr/bin/env bash
+set -u
+COMMAND_FILE=$command_q
+LOG_FILE=$log_q
+
+mkdir -p "\$(dirname -- "\$LOG_FILE")"
+{
+  echo "---- \$(date '+%Y-%m-%dT%H:%M:%S%z') ----"
+  echo "[JVN] Opening Terminal command: \$COMMAND_FILE"
+} >> "\$LOG_FILE"
+
+if [[ ! -x "\$COMMAND_FILE" ]]; then
+  echo "[JVN] Missing command launcher: \$COMMAND_FILE" >> "\$LOG_FILE"
+  osascript -e 'display alert "JVN Engine Hub failed" message "The Terminal launcher is missing. Re-run Build Shortcuts." as critical' >/dev/null 2>&1 || true
+  exit 1
+fi
+
+open -a Terminal "\$COMMAND_FILE" >> "\$LOG_FILE" 2>&1
+status="\$?"
+if [[ "\$status" -ne 0 ]]; then
+  osascript -e 'display alert "JVN Engine Hub failed" message "Could not open Terminal launcher. See ~/Library/Logs/JVN Engine Hub/launcher.log." as critical' >/dev/null 2>&1 || true
 fi
 exit "\$status"
 LAUNCHER
@@ -296,5 +333,6 @@ if [[ -n "$icns_icon" ]]; then
 else
   echo "[installer] warning: could not generate .icns; Finder may show a generic app icon."
 fi
+echo "[installer] installed Terminal launcher: $COMMAND_FILE"
 echo "[installer] launch log: $LOG_FILE"
 echo "Open '$APP_NAME' from ~/Applications."
