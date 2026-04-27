@@ -139,6 +139,7 @@ public class AnimationPreview extends VBox {
     }
 
     private final Canvas canvas;
+    public Canvas getPreviewCanvas() { return canvas; }
     private final GraphicsContext gc;
     private final FxBlitter2D blitter;
     private final Input input;

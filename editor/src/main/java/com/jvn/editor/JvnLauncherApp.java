@@ -128,7 +128,13 @@ public class JvnLauncherApp extends Application {
         workspaceRoot = resolvedWorkspace != null ? resolvedWorkspace : resolveWorkspaceRoot();
         initializeLauncherStage(stage);
       } catch (Exception ex) {
-        EditorDialogs.error(stage, "JVN Launcher", "Startup failed: " + safeMessage(ex));
+        EditorDialogs.error(
+            stage,
+            "JVN Launcher",
+            "Startup failed while preparing the launcher window.",
+            ex,
+            "Retry launcher startup from the splash screen if it is still available.",
+            "Confirm the JVN workspace folder is readable and contains the expected Gradle files.");
       } finally {
         splash.close();
       }
@@ -263,7 +269,13 @@ public class JvnLauncherApp extends Application {
         java.awt.Desktop.getDesktop().open(projectDir);
         statusLabel.setText("Opened folder: " + displayProjectName(projectDir));
       } catch (Exception ex) {
-        EditorDialogs.error(primaryStage, "Reveal Project", "Failed to reveal folder: " + ex.getMessage());
+        EditorDialogs.error(
+            primaryStage,
+            "Reveal Project",
+            "Could not reveal project folder:\n" + projectDir.getAbsolutePath(),
+            ex,
+            "Confirm the project folder still exists.",
+            "Check that the operating system allows folder reveal/open actions.");
       }
     });
     welcomeView.setOnOpenProjectFile(this::openProjectFileFromLauncher);
@@ -562,7 +574,13 @@ public class JvnLauncherApp extends Application {
       java.awt.Desktop.getDesktop().open(file);
       statusLabel.setText("Opened " + file.getName() + " with system default app");
     } catch (Exception ex) {
-      EditorDialogs.error(primaryStage, "Open File", "Failed to open file: " + ex.getMessage());
+      EditorDialogs.error(
+          primaryStage,
+          "Open File",
+          "Could not open file with the system default app:\n" + file.getAbsolutePath(),
+          ex,
+          "Confirm the file still exists.",
+          "Check that the operating system has an app associated with this file type.");
     }
   }
 
@@ -583,7 +601,13 @@ public class JvnLauncherApp extends Application {
       pb.start();
       statusLabel.setText("Opened " + file.getName() + " with custom text editor");
     } catch (Exception ex) {
-      EditorDialogs.error(primaryStage, "Text Editor", "Failed to open custom editor: " + ex.getMessage());
+      EditorDialogs.error(
+          primaryStage,
+          "Text Editor",
+          "Could not open the configured custom text editor for:\n" + file.getAbsolutePath(),
+          ex,
+          "Review the custom text editor command in Launcher Settings.",
+          "Use {file} in the command if the editor requires the target path as an argument.");
     }
   }
 
@@ -703,7 +727,13 @@ public class JvnLauncherApp extends Application {
 
     Properties manifest = loadManifest(currentProject);
     if (manifest == null) {
-      EditorDialogs.error(primaryStage, "Run Project", "Could not read jvn.project from selected project.");
+      EditorDialogs.error(
+          primaryStage,
+          "Run Project",
+          "Could not read jvn.project from selected project:\n" + currentProject.getAbsolutePath(),
+          null,
+          "Confirm the selected folder contains a readable jvn.project file.",
+          "Use Open Project to select the actual project root, not a nested asset folder.");
       return;
     }
 
@@ -728,7 +758,13 @@ public class JvnLauncherApp extends Application {
 
   private void runGradle(File root, String task, String[] args, String title) {
     if (root == null || !root.isDirectory()) {
-      EditorDialogs.error(primaryStage, title, "Invalid project/workspace directory.");
+      EditorDialogs.error(
+          primaryStage,
+          title,
+          "Invalid project or workspace directory.",
+          null,
+          "Select an existing project folder before running.",
+          "If this came from a recent project entry, remove or reopen that entry.");
       return;
     }
 
@@ -781,7 +817,13 @@ public class JvnLauncherApp extends Application {
       console.startProcess(starter.start());
       statusLabel.setText("Running " + task + " for " + runRoot.getName());
     } catch (Exception ex) {
-      EditorDialogs.error(primaryStage, title, "Failed to start process: " + ex.getMessage());
+      EditorDialogs.error(
+          primaryStage,
+          title,
+          "Failed to start process for task `" + task + "` in:\n" + runRoot.getAbsolutePath(),
+          ex,
+          "Confirm the Gradle wrapper exists and is executable.",
+          "Check that Java and Gradle can be launched from this workspace.");
     }
   }
 
@@ -789,7 +831,13 @@ public class JvnLauncherApp extends Application {
     if (root == null || manifest == null) return;
     File workspace = workspaceRoot != null ? workspaceRoot : resolveWorkspaceRoot();
     if (workspace == null || !workspace.isDirectory()) {
-      EditorDialogs.error(primaryStage, "Run Project", "Workspace root not found for :runtime:run.");
+      EditorDialogs.error(
+          primaryStage,
+          "Run Project",
+          "Workspace root not found for :runtime:run.",
+          null,
+          "Launch the launcher from the JVN repository root.",
+          "Reopen the project through the launcher after the workspace root is available.");
       return;
     }
 
@@ -868,7 +916,13 @@ public class JvnLauncherApp extends Application {
             () -> Platform.runLater(() -> primaryStage.show()));
       }
     } catch (Exception ex) {
-      EditorDialogs.error(primaryStage, "Open Editor", "Failed to launch editor: " + ex.getMessage());
+      EditorDialogs.error(
+          primaryStage,
+          "Open Editor",
+          "Failed to launch the editor process.",
+          ex,
+          "Confirm the workspace root contains the editor Gradle project.",
+          "Check that Java can start a new process from this launcher session.");
     }
   }
 

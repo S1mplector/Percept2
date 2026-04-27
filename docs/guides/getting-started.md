@@ -48,6 +48,32 @@ Instead of full `build` every time, use focused tasks:
 
 ## Step 2: Launch the Editor
 
+For day-to-day work, start with the Engine Hub:
+
+```bash
+# macOS / Linux
+./jvn
+```
+
+```bat
+:: Windows
+jvn.bat
+```
+
+The hub can launch the editor, run builds/tests, update the engine checkout, and install desktop shortcuts. Click **Build Shortcuts** to create a native OS launcher for this checkout.
+
+Installed shortcuts launch without opening a terminal or command prompt:
+
+| OS | Shortcut location |
+|----|-------------------|
+| macOS | `~/Applications/JVN Engine Hub.app` |
+| Linux | Applications menu entry from `~/.local/share/applications/jvn-engine-hub.desktop` |
+| Windows | Start Menu and Desktop shortcuts |
+
+If a shortcut launch fails, check the platform log listed in [JVN Engine Hub](../editor/core/engine-hub.md).
+
+You can also launch the editor directly:
+
 ```bash
 ./jvnw editor
 ```

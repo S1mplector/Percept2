@@ -27,6 +27,11 @@ import java.util.Random;
  * @see Blitter2D#setBlendMode(String)
  */
 public class ParticleEmitter2D extends Entity2D {
+  public enum RenderMode {
+    CIRCLE,
+    STREAK
+  }
+
 
   /**
    * Mutable state for a single active particle.
@@ -45,6 +50,12 @@ public class ParticleEmitter2D extends Entity2D {
     double r, g, b, a;
     /** Current rotation (degrees) and angular velocity (deg/sec). */
     double rotation, rotationSpeed;
+    /**
+     * Per-particle texture path picked at spawn from the emitter's texture
+     * pool. {@code null} means the particle uses the emitter's single-texture
+     * fallback (or shape rendering if that is also unset).
+     */
+    String texturePath;
   }
 
   /** Pool of currently alive particles. */
@@ -98,8 +109,27 @@ public class ParticleEmitter2D extends Entity2D {
   /** Maximum emission angle in degrees. */
   private double maxAngle = 360;
 
+  /** Minimum spawn X offset relative to the emitter origin. */
+  private double minSpawnX = 0;
+
+  /** Maximum spawn X offset relative to the emitter origin. */
+  private double maxSpawnX = 0;
+
+  /** Minimum spawn Y offset relative to the emitter origin. */
+  private double minSpawnY = 0;
+
+  /** Maximum spawn Y offset relative to the emitter origin. */
+  private double maxSpawnY = 0;
+
   /** Vertical gravity acceleration (positive = downward). */
   private double gravityY = 100;
+
+  /**
+   * Horizontal acceleration applied every frame, used to model wind or drift.
+   * Positive values push particles to the right, negative to the left.
+   * Defaults to {@code 0} (still air).
+   */
+  private double windX = 0;
 
   // ── Colour ────────────────────────────────────────────────────────────
 
@@ -114,8 +144,25 @@ public class ParticleEmitter2D extends Entity2D {
   /** Whether to use additive blend mode (glowing effects). */
   private boolean useAdditive = true;
 
-  /** Optional texture path; {@code null} = draw filled circles. */
+  /**
+   * Optional single-texture path used when the texture pool is empty;
+   * {@code null} = draw filled circles. Kept for backward compatibility with
+   * authoring tools that bind to a single texture field.
+   */
   private String texture = null;
+
+  /**
+   * Optional pool of texture paths. When non-empty, each spawned particle
+   * picks one path uniformly at random, allowing presets to render varied
+   * sprites (e.g. nine distinct sakura petal shapes) from a single emitter.
+   */
+  private final List<String> textures = new ArrayList<>();
+
+  /** Shape renderer used when no texture is set. */
+  private RenderMode renderMode = RenderMode.CIRCLE;
+
+  /** Multiplier for velocity-derived streak length. */
+  private double streakLengthScale = 0.05;
 
   /** Default constructor — creates an emitter with default fire-like settings. */
   public ParticleEmitter2D() {}
@@ -130,8 +177,12 @@ public class ParticleEmitter2D extends Entity2D {
   public double getEmissionRate() { return emissionRate; }
   /** @param max maximum concurrent alive particles */
   public void setMaxParticles(int max) { this.maxParticles = max; }
+  /** @return maximum concurrent alive particles */
+  public int getMaxParticles() { return maxParticles; }
   /** @param emit whether continuous emission is active */
   public void setEmitting(boolean emit) { this.emitting = emit; }
+  /** @return {@code true} when continuous emission is active */
+  public boolean isEmitting() { return emitting; }
 
   /** Set the min/max particle lifetime range (seconds). */
   public void setLifeRange(double min, double max) { this.minLife = min; this.maxLife = max; }
@@ -165,10 +216,43 @@ public class ParticleEmitter2D extends Entity2D {
   /** @return maximum emission angle (degrees) */
   public double getMaxAngle() { return maxAngle; }
 
+  /**
+   * Set the rectangular spawn area relative to the emitter origin. The default
+   * area is a single point at {@code (0, 0)}, preserving the legacy emitter
+   * behaviour.
+   */
+  public void setSpawnArea(double minX, double maxX, double minY, double maxY) {
+    this.minSpawnX = Math.min(minX, maxX);
+    this.maxSpawnX = Math.max(minX, maxX);
+    this.minSpawnY = Math.min(minY, maxY);
+    this.maxSpawnY = Math.max(minY, maxY);
+  }
+  /** Reset spawning back to the emitter origin. */
+  public void clearSpawnArea() { setSpawnArea(0, 0, 0, 0); }
+  /** @return minimum spawn X offset */
+  public double getMinSpawnX() { return minSpawnX; }
+  /** @return maximum spawn X offset */
+  public double getMaxSpawnX() { return maxSpawnX; }
+  /** @return minimum spawn Y offset */
+  public double getMinSpawnY() { return minSpawnY; }
+  /** @return maximum spawn Y offset */
+  public double getMaxSpawnY() { return maxSpawnY; }
+
   /** @param gy vertical gravity acceleration (positive = downward) */
   public void setGravity(double gy) { this.gravityY = gy; }
   /** @return vertical gravity */
   public double getGravityY() { return gravityY; }
+
+  /**
+   * Set horizontal wind acceleration (world units / sec²). Positive values push
+   * particles to the right; negative push to the left. Useful for snow drift,
+   * slanted rain, and similar weather effects.
+   *
+   * @param wx horizontal acceleration
+   */
+  public void setWindX(double wx) { this.windX = wx; }
+  /** @return horizontal wind acceleration (world units / sec²) */
+  public double getWindX() { return windX; }
 
   /** Set the start colour (RGBA, [0.0, 1.0]). */
   public void setStartColor(double r, double g, double b, double a) {
@@ -196,10 +280,49 @@ public class ParticleEmitter2D extends Entity2D {
   /** @return end alpha */
   public double getEndA() { return endA; }
 
-  /** @param path texture asset path, or {@code null} for filled circles */
-  public void setTexture(String path) { this.texture = path; }
-  /** @return texture path, or {@code null} */
+  /**
+   * Set the single fallback texture path. Calling this also clears any
+   * configured texture pool, restoring legacy single-sprite behaviour.
+   *
+   * @param path texture asset path, or {@code null} for filled circles
+   */
+  public void setTexture(String path) {
+    this.texture = path;
+    this.textures.clear();
+  }
+  /** @return single texture path, or {@code null} */
   public String getTexture() { return texture; }
+
+  /**
+   * Configure a pool of texture paths. When the pool is non-empty each
+   * spawned particle picks one entry uniformly at random — useful for
+   * varied sprite presets such as falling petals or autumn leaves.
+   * Passing {@code null} or an empty list clears the pool and falls back
+   * to the single texture (or shape rendering) defined by
+   * {@link #setTexture(String)}.
+   */
+  public void setTextures(List<String> paths) {
+    this.textures.clear();
+    if (paths != null) {
+      for (String p : paths) {
+        if (p != null && !p.isBlank()) this.textures.add(p);
+      }
+    }
+    // Keep `texture` in sync as a sensible single-sprite fallback for code
+    // that still inspects the legacy field (e.g. JES export, inspector view).
+    this.texture = this.textures.isEmpty() ? null : this.textures.get(0);
+  }
+  /** @return immutable view of the texture pool (empty when only a single
+   *          texture or no texture is configured) */
+  public List<String> getTextures() { return java.util.Collections.unmodifiableList(textures); }
+  /** @param mode particle renderer used when no texture is set */
+  public void setRenderMode(RenderMode mode) { this.renderMode = mode == null ? RenderMode.CIRCLE : mode; }
+  /** @return particle renderer used when no texture is set */
+  public RenderMode getRenderMode() { return renderMode; }
+  /** @param scale multiplier applied to velocity magnitude for streak length */
+  public void setStreakLengthScale(double scale) { this.streakLengthScale = Math.max(0.0, scale); }
+  /** @return velocity multiplier used for streak length */
+  public double getStreakLengthScale() { return streakLengthScale; }
   /** @param add whether to use additive blend mode */
   public void setAdditive(boolean add) { this.useAdditive = add; }
   /** @return {@code true} if additive blending is active */
@@ -223,8 +346,8 @@ public class ParticleEmitter2D extends Entity2D {
   /** Spawn a single particle with randomised properties from the configured ranges. */
   private void emit() {
     Particle p = new Particle();
-    p.x = 0;
-    p.y = 0;
+    p.x = randomRange(minSpawnX, maxSpawnX);
+    p.y = randomRange(minSpawnY, maxSpawnY);
     
     double angle = Math.toRadians(minAngle + rnd.nextDouble() * (maxAngle - minAngle));
     double speed = minSpeed + rnd.nextDouble() * (maxSpeed - minSpeed);
@@ -245,7 +368,12 @@ public class ParticleEmitter2D extends Entity2D {
     
     p.rotation = rnd.nextDouble() * 360;
     p.rotationSpeed = (rnd.nextDouble() - 0.5) * 360;
-    
+
+    // Pick a texture from the pool (if any) so each particle can render a
+    // different sprite. Falls back to the legacy single-texture field at
+    // render time when the pool is empty.
+    p.texturePath = textures.isEmpty() ? null : textures.get(rnd.nextInt(textures.size()));
+
     particles.add(p);
   }
   
@@ -281,6 +409,7 @@ public class ParticleEmitter2D extends Entity2D {
       // Physics
       p.x += p.vx * dt;
       p.y += p.vy * dt;
+      p.vx += windX * dt;
       p.vy += gravityY * dt;
       p.rotation += p.rotationSpeed * dt;
       
@@ -309,17 +438,33 @@ public class ParticleEmitter2D extends Entity2D {
     for (Particle p : particles) {
       b.push();
       b.translate(p.x, p.y);
-      b.rotateDeg(p.rotation);
       b.setGlobalAlpha(p.a);
-      
-      if (texture != null) {
+
+      String tex = p.texturePath != null ? p.texturePath : texture;
+      if (tex != null) {
+        // Textured quads honour per-particle rotation so authored sprites can spin.
+        b.rotateDeg(p.rotation);
         double hs = p.size / 2;
-        b.drawImage(texture, -hs, -hs, p.size, p.size);
+        b.drawImage(tex, -hs, -hs, p.size, p.size);
+      } else if (renderMode == RenderMode.STREAK) {
+        // Streaks self-orient along their velocity vector; applying the random
+        // per-particle rotation here would scramble that alignment, which is
+        // why rain previously rendered as a starburst instead of vertical lines.
+        double speed = Math.hypot(p.vx, p.vy);
+        double len = Math.max(p.size * 3.0, speed * streakLengthScale);
+        double ux = speed > 1e-6 ? p.vx / speed : 0.0;
+        double uy = speed > 1e-6 ? p.vy / speed : 1.0;
+        b.setStroke(p.r, p.g, p.b, 1.0);
+        b.setStrokeWidth(Math.max(0.75, p.size));
+        b.setStrokeCap("round");
+        b.drawLine(-ux * len, -uy * len, ux * len * 0.18, uy * len * 0.18);
       } else {
+        // Filled circles are rotation-invariant — skip the rotate to avoid
+        // pointless transform churn.
         b.setFill(p.r, p.g, p.b, p.a);
         b.fillCircle(0, 0, p.size / 2);
       }
-      
+
       b.pop();
     }
     
@@ -332,4 +477,9 @@ public class ParticleEmitter2D extends Entity2D {
 
   /** Remove all alive particles immediately. */
   public void clear() { particles.clear(); }
+
+  private double randomRange(double min, double max) {
+    if (Math.abs(max - min) < 1e-9) return min;
+    return min + rnd.nextDouble() * (max - min);
+  }
 }

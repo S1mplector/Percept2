@@ -129,6 +129,15 @@ public class VnScene implements Scene {
             processAudioCommand(node.getAudioCommand());
           }
           break;
+        case PARTICLE:
+          if (node.getParticleCommand() != null) {
+            if (node.getParticleCommand().isStop()) {
+              state.clearParticleEffect();
+            } else {
+              state.setActiveParticleCommand(node.getParticleCommand());
+            }
+          }
+          break;
         case EXTERNAL:
           if (node.getExternalCommand() != null) {
             String prov = node.getExternalCommand().getProvider();
@@ -173,6 +182,7 @@ public class VnScene implements Scene {
     }
 
     state.updateScreenEffects(deltaMs);
+    state.updateParticleEffect(deltaMs);
     state.updateCharacterAnimations(deltaMs);
     state.updateOverlayScreens(deltaMs);
     state.updateTimelineRunners(deltaMs);

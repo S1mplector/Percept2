@@ -2778,7 +2778,13 @@ public class NewProjectWizard extends Stage {
   }
 
   private void showError(String message) {
-    EditorDialogs.error(this, "Error", message);
+    EditorDialogs.error(
+        this,
+        "New Project",
+        message,
+        null,
+        "Review the highlighted project setup fields.",
+        "Confirm the project location exists and is writable.");
   }
 
   /**

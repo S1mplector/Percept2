@@ -4,6 +4,7 @@ Use this hub when your work is primarily inside the editor: opening projects, au
 
 ## Start Here
 
+- [JVN Engine Hub](core/engine-hub.md) — desktop control panel, Build Shortcuts, installed launcher paths, and logs
 - [Editor Guide](core/editor.md) — main layout, project run behavior, build/publish flow, editing modes
 - [Editor And Launcher Settings](core/settings.md) — preferences, startup behavior, run defaults, sidebar defaults
 - [Sidebar Utilities Overview](sidebars/overview/sidebar-utilities.md) — map of the editor's auxiliary tools
@@ -15,9 +16,10 @@ Use this hub when your work is primarily inside the editor: opening projects, au
 
 ### I need to open, run, and package a project
 
-1. [Editor Guide](core/editor.md)
-2. [New Project Wizard](../project-setup/onboarding/new-project-wizard.md)
-3. [Build & Release Hub](../project-setup/release/README.md)
+1. [JVN Engine Hub](core/engine-hub.md)
+2. [Editor Guide](core/editor.md)
+3. [New Project Wizard](../project-setup/onboarding/new-project-wizard.md)
+4. [Build & Release Hub](../project-setup/release/README.md)
 
 ### I need script authoring and diagnostics
 
@@ -46,6 +48,7 @@ Use this hub when your work is primarily inside the editor: opening projects, au
 
 ### Core
 
+- [JVN Engine Hub](core/engine-hub.md)
 - [Editor Guide](core/editor.md)
 - [Welcome Center](core/welcome-center.md)
 - [Run Console](core/run-console.md)

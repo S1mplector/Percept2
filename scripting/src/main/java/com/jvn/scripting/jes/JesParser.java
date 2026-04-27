@@ -332,7 +332,12 @@ public class JesParser {
       case "loop" -> {
         // loop 3 { ... } or loop until "event" { ... }
         if (match(NUMBER)) {
-          a.props.put("count", Double.parseDouble(prev().lexeme));
+          JesToken cntTok = prev();
+          try {
+            a.props.put("count", Double.parseDouble(cntTok.lexeme));
+          } catch (NumberFormatException ex) {
+            throw new JesParseException("Malformed loop count '" + cntTok.lexeme + "'", cntTok.line, cntTok.col);
+          }
         } else if (peek().type == IDENT && "until".equalsIgnoreCase(peek().lexeme)) {
           match(IDENT);
           String ev = expect(STRING, "event name").lexeme;
@@ -421,7 +426,12 @@ public class JesParser {
 
   private Object parseValue() {
     if (match(NUMBER)) {
-      return Double.parseDouble(prev().lexeme);
+      JesToken numTok = prev();
+      try {
+        return Double.parseDouble(numTok.lexeme);
+      } catch (NumberFormatException ex) {
+        throw new JesParseException("Malformed number '" + numTok.lexeme + "'", numTok.line, numTok.col);
+      }
     } else if (match(STRING)) {
       return prev().lexeme;
     } else if (match(IDENT)) {
@@ -448,6 +458,10 @@ public class JesParser {
 
   private double parseNum() {
     JesToken t = expect(NUMBER, "number");
-    return Double.parseDouble(t.lexeme);
+    try {
+      return Double.parseDouble(t.lexeme);
+    } catch (NumberFormatException ex) {
+      throw new JesParseException("Malformed number '" + t.lexeme + "'", t.line, t.col);
+    }
   }
 }

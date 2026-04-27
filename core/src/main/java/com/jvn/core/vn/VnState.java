@@ -9,7 +9,6 @@ import java.util.Set;
 
 import com.jvn.core.animation.Easing;
 import com.jvn.core.animation.TimelineRunner;
-import com.jvn.core.tween.Easings;
 import com.jvn.core.vn.rollback.VnRollbackStack;
 import com.jvn.core.vn.ui.VnOverlayScreenSpec;
 
@@ -599,15 +598,27 @@ public class VnState {
 
   // ── Particle effects ──────────────────────────────────────────────────
   private VnParticleCommand activeParticleCommand;
+  private long activeParticleRemainingMs = 0L;
 
   public VnParticleCommand getActiveParticleCommand() { return activeParticleCommand; }
+  public long getActiveParticleRemainingMs() { return activeParticleRemainingMs; }
 
   public void setActiveParticleCommand(VnParticleCommand cmd) {
     this.activeParticleCommand = cmd;
+    this.activeParticleRemainingMs = cmd == null ? 0L : cmd.getDurationMs();
   }
 
   public void clearParticleEffect() {
     this.activeParticleCommand = null;
+    this.activeParticleRemainingMs = 0L;
+  }
+
+  public void updateParticleEffect(long deltaMs) {
+    if (activeParticleCommand == null || activeParticleRemainingMs <= 0L) return;
+    activeParticleRemainingMs = Math.max(0L, activeParticleRemainingMs - Math.max(0L, deltaMs));
+    if (activeParticleRemainingMs <= 0L) {
+      activeParticleCommand = null;
+    }
   }
 
   public Map<String, Object> getVariables() { return variables; }
@@ -776,7 +787,7 @@ public class VnState {
         elapsedMs = durationMs;
       }
       double t = elapsedMs / (double) durationMs;
-      double k = easingType != null ? Easing.apply(easingType, t) : Easings.easeOutQuad(t);
+      double k = Easing.apply(easingType != null ? easingType : Easing.Type.EASE_OUT_QUAD, t);
       alpha = lerp(startAlpha, endAlpha, k);
       offsetX = lerp(startOffsetX, endOffsetX, k);
       offsetY = lerp(startOffsetY, endOffsetY, k);

@@ -206,13 +206,16 @@ public class TimelineData {
         private final Map<String, List<Keyframe>> customKeyframes = new LinkedHashMap<>();
 
         public Track(String entityName) {
-            this.entityName = entityName;
+            this.entityName = entityName == null ? "" : entityName.trim();
         }
 
         public String getEntityName() { return entityName; }
 
         public void addKeyframe(Property prop, Keyframe kf) {
-            keyframes.computeIfAbsent(prop, k -> new ArrayList<>()).add(kf);
+            if (prop == null || kf == null) return;
+            List<Keyframe> list = keyframes.computeIfAbsent(prop, k -> new ArrayList<>());
+            list.add(kf);
+            list.sort(java.util.Comparator.comparingDouble(Keyframe::getTimeMs));
         }
 
         public List<Keyframe> getKeyframes(Property prop) {
@@ -222,7 +225,9 @@ public class TimelineData {
 
         public void addCustomKeyframe(String propertyKey, Keyframe kf) {
             if (propertyKey == null || propertyKey.isBlank() || kf == null) return;
-            customKeyframes.computeIfAbsent(propertyKey.trim(), k -> new ArrayList<>()).add(kf);
+            List<Keyframe> list = customKeyframes.computeIfAbsent(propertyKey.trim(), k -> new ArrayList<>());
+            list.add(kf);
+            list.sort(java.util.Comparator.comparingDouble(Keyframe::getTimeMs));
         }
 
         public List<Keyframe> getCustomKeyframes(String propertyKey) {
@@ -374,8 +379,9 @@ public class TimelineData {
      * @return the matching track, or {@code null}
      */
     public Track getTrack(String entityName) {
+        String target = entityName == null ? "" : entityName.trim();
         for (Track t : tracks) {
-            if (t.getEntityName().equals(entityName)) return t;
+            if (t.getEntityName().equals(target)) return t;
         }
         return null;
     }

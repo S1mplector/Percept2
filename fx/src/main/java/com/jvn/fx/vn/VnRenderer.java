@@ -10,6 +10,7 @@ import java.util.Map;
 import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
 import com.jvn.core.audio.AudioFacade;
+import com.jvn.core.scene2d.ParticleEmitter2D;
 import com.jvn.core.localization.Localization;
 import com.jvn.core.ui.BoundsPointCodec;
 import com.jvn.core.vn.BubbleAnchor;
@@ -23,6 +24,8 @@ import com.jvn.core.vn.VnCharacter;
 import com.jvn.core.vn.VnCharacterSceneAccessor;
 import com.jvn.core.vn.VnNode;
 import com.jvn.core.vn.VnNodeType;
+import com.jvn.core.vn.VnParticleCommand;
+import com.jvn.core.vn.VnParticlePresetLibrary;
 import com.jvn.core.vn.VnScenario;
 import com.jvn.core.vn.VnState;
 import com.jvn.core.vn.VnVariableInterpolator;
@@ -36,6 +39,7 @@ import com.jvn.core.vn.ui.VnUiActionButtonSpec;
 import com.jvn.core.vn.ui.VnUiLayoutLoader;
 import com.jvn.core.vn.ui.VnUiLayoutSpec;
 import com.jvn.core.vn.ui.VnUiStyleSpec;
+import com.jvn.fx.scene2d.FxBlitter2D;
 import com.jvn.fx.ui.FxTextMetrics;
 import com.jvn.fx.ui.ProjectFontResolver;
 
@@ -159,9 +163,17 @@ public class VnRenderer {
   private long visualizerLastBeatAtNanos = 0L;
   private double visualizerBeatFlashIntensity = 0.0;
   private double visualizerHue = 182.0;
+  private final ParticleEmitter2D particleEmitter = new ParticleEmitter2D();
+  private final FxBlitter2D particleBlitter;
+  private VnParticleCommand renderedParticleCommand;
+  private long particleLastFrameNanos = 0L;
+  private int lastParticleLayer = 100;
+  private double particleConfigWidth = -1.0;
+  private double particleConfigHeight = -1.0;
 
   public VnRenderer(GraphicsContext gc) {
     this.gc = gc;
+    this.particleBlitter = new FxBlitter2D(gc);
     this.nameFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.BOLD, DEFAULT_NAME_FONT_SIZE);
     this.dialogueFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.NORMAL, DEFAULT_DIALOGUE_FONT_SIZE);
     this.choiceFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.NORMAL, DEFAULT_CHOICE_FONT_SIZE);
@@ -173,6 +185,7 @@ public class VnRenderer {
   private File projectRoot;
   public void setProjectRoot(File root) {
     this.projectRoot = root;
+    particleBlitter.setProjectRoot(root);
     stageBackgroundCache.clear();
     stageCharacterCache.clear();
     reloadUiLayout();
@@ -294,11 +307,7 @@ public class VnRenderer {
 
     List<Map.Entry<CharacterPosition, VnState.CharacterSlot>> orderedCharacters = orderedCharacterEntries(state);
     AudioVisualizerSettings visualizerSettings = resolveAudioVisualizerSettings();
-    int visualizerSplit = resolveVisualizerCharacterSplit(orderedCharacters, visualizerSettings.zIndex());
-
-    renderCharacters(orderedCharacters.subList(0, visualizerSplit), state, scenario, activeStage, width, height);
-    renderAudioVisualizer(width, height, visualizerSettings);
-    renderCharacters(orderedCharacters.subList(visualizerSplit, orderedCharacters.size()), state, scenario, activeStage, width, height);
+    renderLayeredScene(orderedCharacters, state, scenario, activeStage, width, height, visualizerSettings);
     renderStageLightOverlays(activeStage, width, height, VnStagePreset.LightLayer.FOREGROUND);
 
     // Render current node content (unless UI is hidden)
@@ -321,6 +330,7 @@ public class VnRenderer {
         case MOVE:
         case WAIT:
         case AUDIO:
+        case PARTICLE:
         case JUMP:
         case CALL:
         case RETURN:
@@ -381,6 +391,48 @@ public class VnRenderer {
       }
     }
     renderOverlayScreens(state, width, height, getHoveredOverlayButton(state, width, height, mouseX, mouseY));
+  }
+
+  private boolean prepareParticles(VnState state, double width, double height) {
+    VnParticleCommand cmd = state == null ? null : state.getActiveParticleCommand();
+    boolean sizeChanged = Math.abs(width - particleConfigWidth) > 0.5
+        || Math.abs(height - particleConfigHeight) > 0.5;
+
+    if (cmd != null && (cmd != renderedParticleCommand || sizeChanged)) {
+      VnParticlePresetLibrary.apply(particleEmitter, cmd, width, height);
+      renderedParticleCommand = cmd;
+      lastParticleLayer = cmd.getLayer();
+      particleConfigWidth = width;
+      particleConfigHeight = height;
+    } else if (cmd == null && renderedParticleCommand != null) {
+      particleEmitter.setEmitting(false);
+      renderedParticleCommand = null;
+    }
+
+    long now = System.nanoTime();
+    long deltaMs = 16L;
+    if (particleLastFrameNanos > 0L) {
+      deltaMs = Math.max(0L, Math.min(250L, (now - particleLastFrameNanos) / 1_000_000L));
+    }
+    particleLastFrameNanos = now;
+    particleEmitter.update(deltaMs);
+
+    return cmd != null || particleEmitter.getParticleCount() > 0;
+  }
+
+  private void renderParticles(double width, double height) {
+    if (particleEmitter.getParticleCount() <= 0 && renderedParticleCommand == null) return;
+    particleBlitter.setViewport(width, height);
+    particleBlitter.push();
+    particleBlitter.translate(particleEmitter.getX(), particleEmitter.getY());
+    if (particleEmitter.getRotationDeg() != 0.0) {
+      particleBlitter.rotateDeg(particleEmitter.getRotationDeg());
+    }
+    if (particleEmitter.getScaleX() != 1.0 || particleEmitter.getScaleY() != 1.0) {
+      particleBlitter.scale(particleEmitter.getScaleX(), particleEmitter.getScaleY());
+    }
+    particleEmitter.render(particleBlitter);
+    particleBlitter.pop();
   }
 
   private int positionOrdinal(CharacterPosition position) {
@@ -490,43 +542,78 @@ public class VnRenderer {
     return ordered;
   }
 
-  private int resolveVisualizerCharacterSplit(List<Map.Entry<CharacterPosition, VnState.CharacterSlot>> orderedCharacters, int visualizerZ) {
-    if (orderedCharacters == null || orderedCharacters.isEmpty()) return 0;
-    for (int i = 0; i < orderedCharacters.size(); i++) {
-      Map.Entry<CharacterPosition, VnState.CharacterSlot> entry = orderedCharacters.get(i);
-      VnState.CharacterSlot slot = entry.getValue();
-      int layerOrder = slot != null ? slot.getLayerOrder() : 0;
-      if (layerOrder >= visualizerZ) return i;
+  private void renderLayeredScene(
+      List<Map.Entry<CharacterPosition, VnState.CharacterSlot>> orderedCharacters,
+      VnState state,
+      VnScenario scenario,
+      VnStagePreset stage,
+      double width,
+      double height,
+      AudioVisualizerSettings visualizerSettings) {
+
+    List<LayeredSceneDraw> draws = new ArrayList<>();
+    if (orderedCharacters != null) {
+      for (int i = 0; i < orderedCharacters.size(); i++) {
+        Map.Entry<CharacterPosition, VnState.CharacterSlot> entry = orderedCharacters.get(i);
+        VnState.CharacterSlot slot = entry.getValue();
+        int z = slot != null ? slot.getLayerOrder() : 0;
+        draws.add(new LayeredSceneDraw(z, i, () -> renderCharacterEntry(entry, state, scenario, stage, width, height)));
+      }
     }
-    return orderedCharacters.size();
+
+    draws.add(new LayeredSceneDraw(visualizerSettings.zIndex(), 10_000, () ->
+        renderAudioVisualizer(width, height, visualizerSettings)));
+
+    if (prepareParticles(state, width, height)) {
+      draws.add(new LayeredSceneDraw(lastParticleLayer, 20_000, () ->
+          renderParticles(width, height)));
+    }
+
+    draws.sort(java.util.Comparator
+        .comparingInt((LayeredSceneDraw item) -> item.z)
+        .thenComparingInt(item -> item.order));
+
+    for (LayeredSceneDraw draw : draws) {
+      draw.action.run();
+    }
   }
 
-  private void renderCharacters(
-      List<Map.Entry<CharacterPosition, VnState.CharacterSlot>> ordered,
+  private static final class LayeredSceneDraw {
+    final int z;
+    final int order;
+    final Runnable action;
+
+    LayeredSceneDraw(int z, int order, Runnable action) {
+      this.z = z;
+      this.order = order;
+      this.action = action;
+    }
+  }
+
+  private void renderCharacterEntry(
+      Map.Entry<CharacterPosition, VnState.CharacterSlot> entry,
       VnState state,
       VnScenario scenario,
       VnStagePreset stage,
       double width,
       double height) {
-    if (ordered == null || ordered.isEmpty()) return;
-    for (Map.Entry<CharacterPosition, VnState.CharacterSlot> entry : ordered) {
-      CharacterPosition position = entry.getKey();
-      VnState.CharacterSlot slot = entry.getValue();
-      if (slot == null) continue;
-      VnState.CharacterVisual visual = state.getCharacterVisual(position);
-      double alpha = visual != null ? visual.getAlpha() : 1.0;
-      double offsetX = visual != null ? visual.getOffsetX() : 0.0;
-      double offsetY = visual != null ? visual.getOffsetY() : 0.0;
-      
-      VnCharacter character = scenario.getCharacter(slot.getCharacterId());
-      if (character != null) {
-        String imagePath = character.getExpressionPath(slot.getExpression());
-        if (imagePath != null) {
-          gc.save();
-          if (alpha < 0.999) gc.setGlobalAlpha(alpha);
-          renderCharacterSprite(imagePath, position, width, height, offsetX, offsetY, slot.getCharacterId(), stage);
-          gc.restore();
-        }
+    if (entry == null) return;
+    CharacterPosition position = entry.getKey();
+    VnState.CharacterSlot slot = entry.getValue();
+    if (slot == null) return;
+    VnState.CharacterVisual visual = state.getCharacterVisual(position);
+    double alpha = visual != null ? visual.getAlpha() : 1.0;
+    double offsetX = visual != null ? visual.getOffsetX() : 0.0;
+    double offsetY = visual != null ? visual.getOffsetY() : 0.0;
+
+    VnCharacter character = scenario.getCharacter(slot.getCharacterId());
+    if (character != null) {
+      String imagePath = character.getExpressionPath(slot.getExpression());
+      if (imagePath != null) {
+        gc.save();
+        if (alpha < 0.999) gc.setGlobalAlpha(alpha);
+        renderCharacterSprite(imagePath, position, width, height, offsetX, offsetY, slot.getCharacterId(), stage);
+        gc.restore();
       }
     }
   }

@@ -9,6 +9,7 @@ JVN is a modular cross-platform Visual Novel engine written in Java.
 Docs entrypoints:
 
 - [Documentation Index](docs/INDEX.md)
+- [JVN Engine Hub](docs/editor/core/engine-hub.md)
 - [JVN Editor Docs](docs/editor/README.md)
 - [JVN Build And Release Docs](docs/project-setup/release/README.md)
 
@@ -43,6 +44,37 @@ Build everything:
 
 The build command also runs tests for applicable modules, so a failing build may be a test failure
 rather than a compile failure.
+
+Launch the Engine Hub:
+
+```bash
+# macOS / Linux
+./jvn
+```
+
+```bat
+:: Windows
+jvn.bat
+```
+
+The hub is the recommended desktop entry point for day-to-day work. It can run the editor, launcher, builds, tests, repository updates, and shortcut installation without keeping a terminal output panel in the hub window.
+
+Install native OS shortcuts from the hub with **Build Shortcuts**, or run the installer for your platform:
+
+```bash
+# macOS
+./install-macos-launcher.sh
+
+# Linux
+./install-linux-launcher.sh
+```
+
+```powershell
+# Windows PowerShell
+.\install-windows-launcher.ps1
+```
+
+Installed shortcuts are user-local and launch without opening a terminal or command prompt. See [JVN Engine Hub](docs/editor/core/engine-hub.md) for install paths, logs, and troubleshooting.
 
 Useful JVN commands:
 

@@ -8,6 +8,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
+import com.jvn.core.animation.TimelineDataDiagnostics;
+
 final class PuppeteerVerification {
     enum Mode {
         EXPORT_CODE,
@@ -37,6 +39,7 @@ final class PuppeteerVerification {
 
         if (mode == Mode.REGISTER_RUNTIME) {
             diagnoseRuntimeRegistration(project, messages);
+            diagnoseRuntimeData(project, messages);
         }
 
         return Collections.unmodifiableList(messages);
@@ -179,6 +182,21 @@ final class PuppeteerVerification {
         }
     }
 
+    private static void diagnoseRuntimeData(
+        AnimationProject project,
+        List<TimelineDiagnostic.Message> messages
+    ) {
+        for (TimelineDataDiagnostics.Message message :
+            TimelineDataDiagnostics.diagnose(project.toTimelineData(project.getName()))) {
+            addIfAbsent(messages, new TimelineDiagnostic.Message(
+                mapSeverity(message.severity()),
+                message.target(),
+                message.description(),
+                message.quickFix()
+            ));
+        }
+    }
+
     private static Path resolveProjectPath(File projectRoot, String rawPath) {
         String path = rawPath == null ? "" : rawPath.trim();
         if (path.isBlank()) return null;
@@ -202,5 +220,30 @@ final class PuppeteerVerification {
             if (track.hasCustomKeyframes(key)) return true;
         }
         return false;
+    }
+
+    private static TimelineDiagnostic.Severity mapSeverity(TimelineDataDiagnostics.Severity severity) {
+        if (severity == null) return TimelineDiagnostic.Severity.INFO;
+        return switch (severity) {
+            case ERROR -> TimelineDiagnostic.Severity.ERROR;
+            case WARNING -> TimelineDiagnostic.Severity.WARNING;
+            case INFO -> TimelineDiagnostic.Severity.INFO;
+        };
+    }
+
+    private static void addIfAbsent(
+        List<TimelineDiagnostic.Message> messages,
+        TimelineDiagnostic.Message candidate
+    ) {
+        if (candidate == null) return;
+        for (TimelineDiagnostic.Message existing : messages) {
+            if (existing == null) continue;
+            if (existing.severity() == candidate.severity()
+                && existing.entityOrTrack().equals(candidate.entityOrTrack())
+                && existing.description().equals(candidate.description())) {
+                return;
+            }
+        }
+        messages.add(candidate);
     }
 }

@@ -10,6 +10,7 @@ import java.io.InputStreamReader;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -54,6 +55,7 @@ import com.jvn.editor.ui.LayoutEditorLauncherView;
 import com.jvn.editor.ui.LayoutStudioWindowManager;
 import com.jvn.editor.ui.MenuFlowEditorView;
 import com.jvn.editor.ui.NewProjectWizard;
+import com.jvn.editor.ui.ParticleFxToolView;
 import com.jvn.editor.ui.PhoneAssetsToolView;
 import com.jvn.editor.ui.ProjectExplorerView;
 import com.jvn.editor.ui.ProjectViewportSpec;
@@ -124,6 +126,8 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.input.TransferMode;
 import javafx.scene.effect.Effect;
 import javafx.scene.effect.GaussianBlur;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -170,6 +174,7 @@ public class EditorApp extends Application {
   private LayeredImageVisualizerView layeredImageVisualizerView;
   private ImageAttributesToolView imageAttributesToolView;
   private ImageTintToolView imageTintToolView;
+  private ParticleFxToolView particleFxToolView;
   private LayoutStudioWindowManager layoutStudioWindowManager;
   private MenuFlowEditorView menuFlowEditorView;
   private EditorSettingsView editorSettingsView;
@@ -211,6 +216,7 @@ public class EditorApp extends Application {
   private Tab tabLayeredImageVisualizer;
   private Tab tabImageAttributesTool;
   private Tab tabImageTintTool;
+  private Tab tabParticleFxTool;
   private Tab tabMenuFlow;
   private Tab tabLeftAdd;
   private Tab tabRightAdd;
@@ -341,7 +347,13 @@ public class EditorApp extends Application {
       openVnsFile(f);
     } catch (Exception ex) {
       status.setText("Load failed");
-      EditorDialogs.error(stage, "Error", "Failed to load: " + ex.getMessage());
+      EditorDialogs.error(
+          stage,
+          "Open VNS Script",
+          "Failed to load the selected VNS script.",
+          ex,
+          "Confirm the script file still exists and is readable.",
+          "Check included scripts and referenced assets if the parser reported a nested error.");
     }
   }
 
@@ -540,7 +552,13 @@ public class EditorApp extends Application {
     File workspace = resolveWorkspaceRoot();
     if (workspace == null || !workspace.isDirectory()) {
       status.setText("Cannot locate JVN workspace root");
-      EditorDialogs.error(dialogOwner(), "Build Unavailable", "Cannot locate the JVN workspace root.");
+      EditorDialogs.error(
+          dialogOwner(),
+          "Build Unavailable",
+          "Cannot locate the JVN workspace root.",
+          null,
+          "Launch the editor from the JVN repository root.",
+          "Use the launcher to reopen the project if the workspace path changed.");
       return;
     }
 
@@ -754,7 +772,13 @@ public class EditorApp extends Application {
   private void openSample(String absolutePath) {
     File f = new File(absolutePath);
     if (!f.exists()) {
-      EditorDialogs.error(dialogOwner(), "Error", "Sample not found: " + absolutePath);
+      EditorDialogs.error(
+          dialogOwner(),
+          "Open Sample",
+          "Sample file was not found:\n" + absolutePath,
+          null,
+          "Confirm the sample assets are present in this checkout.",
+          "Refresh or restore the project files if the sample was moved.");
       return;
     }
     openFile(f);
@@ -833,7 +857,13 @@ public class EditorApp extends Application {
       try {
         initializeEditorStage(primaryStage);
       } catch (Exception ex) {
-        EditorDialogs.error(primaryStage, "JVN Editor", "Startup failed: " + ex.getMessage());
+        EditorDialogs.error(
+            primaryStage,
+            "JVN Editor",
+            "Startup failed while preparing the editor window.",
+            ex,
+            "Retry editor startup from the splash screen if it is still available.",
+            "Confirm the workspace and editor resources are readable.");
       } finally {
         splash.close();
       }
@@ -2163,7 +2193,13 @@ public class EditorApp extends Application {
       openJesFile(f);
     } catch (Exception ex) {
       status.setText("Load failed");
-      EditorDialogs.error(stage, "Error", "Failed to load: " + ex.getMessage());
+      EditorDialogs.error(
+          stage,
+          "Open JES Script",
+          "Failed to load the selected JES script.",
+          ex,
+          "Confirm the script file still exists and is readable.",
+          "Check the script syntax near the reported parser location.");
     }
   }
 
@@ -2183,7 +2219,13 @@ public class EditorApp extends Application {
       openFile(f);
     } catch (Exception ex) {
       status.setText("Load failed");
-      EditorDialogs.error(stage, "Error", "Failed to load: " + ex.getMessage());
+      EditorDialogs.error(
+          stage,
+          "Open Text File",
+          "Failed to load the selected text file.",
+          ex,
+          "Confirm the file still exists and is readable.",
+          "Try opening the file from the project explorer if it was recently moved.");
     }
   }
 
@@ -2234,7 +2276,13 @@ public class EditorApp extends Application {
       }
     } catch (Exception ex) {
       status.setText("Apply failed");
-      EditorDialogs.error(dialogOwner(), "Error", "Failed to apply code: " + ex.getMessage());
+      EditorDialogs.error(
+          dialogOwner(),
+          "Apply Code",
+          "Failed to apply the current code to the preview.",
+          ex,
+          "Check the script or Java syntax around the latest edits.",
+          "Undo recent changes if the preview was working before this edit.");
     }
     refreshMainCommandUi.run();
   }
@@ -2388,7 +2436,13 @@ public class EditorApp extends Application {
       if (currentTab != null && filesTabs != null) closeAndDisposeTab(currentTab);
     } catch (Exception ex) {
       status.setText("Save As failed");
-      EditorDialogs.error(stage, "Error", "Failed to save as: " + ex.getMessage());
+      EditorDialogs.error(
+          stage,
+          "Save As",
+          "Failed to save the file to the selected location.",
+          ex,
+          "Confirm the destination folder exists and is writable.",
+          "Choose a different folder if the current location is protected.");
     }
   }
 
@@ -2765,13 +2819,71 @@ public class EditorApp extends Application {
     return r;
   }
 
-  private Region sidebarPanelIcon(EditorSidebarPanel panel, String... extraStyleClasses) {
+  private Node sidebarPanelIcon(EditorSidebarPanel panel, String... extraStyleClasses) {
     if (panel == null) return null;
+    ImageView assetIcon = sidebarPanelAssetIcon(panel, extraStyleClasses);
+    if (assetIcon != null) return assetIcon;
     Region icon = icon("icon", panel.iconStyleClass());
     if (extraStyleClasses != null && extraStyleClasses.length > 0) {
       icon.getStyleClass().addAll(extraStyleClasses);
     }
     return icon;
+  }
+
+  private ImageView sidebarPanelAssetIcon(EditorSidebarPanel panel, String... styleClasses) {
+    if (panel == null) {
+      return null;
+    }
+    return sidebarAssetIcon(panel.iconAssetName(), styleClasses);
+  }
+
+  private ImageView sidebarAssetIcon(String assetName, String... styleClasses) {
+    if (!useSidebarAssetIcons() || assetName == null || assetName.isBlank()) {
+      return null;
+    }
+    URL url = getClass().getResource("/com/jvn/editor/images/sidebar/" + assetName);
+    if (url == null) return null;
+
+    double size = sidebarPanelAssetIconSize(styleClasses);
+    ImageView view = new ImageView(new Image(url.toExternalForm(), size * 2.0, size * 2.0, true, true, true));
+    view.setPreserveRatio(true);
+    view.setSmooth(true);
+    view.setCache(true);
+    view.setMouseTransparent(true);
+    view.getStyleClass().add("sidebar-asset-icon");
+    if (styleClasses != null) view.getStyleClass().addAll(styleClasses);
+    view.setFitWidth(size);
+    view.setFitHeight(size);
+    return view;
+  }
+
+  private Node editorSettingsSidebarIcon(String... extraStyleClasses) {
+    ImageView assetIcon = sidebarAssetIcon("settings_orange_transparent.png", extraStyleClasses);
+    if (assetIcon != null) return assetIcon;
+    Region icon = icon("icon", "icon-panel-settings");
+    if (extraStyleClasses != null && extraStyleClasses.length > 0) {
+      icon.getStyleClass().addAll(extraStyleClasses);
+    }
+    return icon;
+  }
+
+  private double sidebarPanelAssetIconSize(String[] styleClasses) {
+    if (hasStyleClass(styleClasses, "panel-chooser-tool-icon")) return 28.0;
+    if (hasStyleClass(styleClasses, "sidebar-tab-icon")) return 22.0;
+    return 22.0;
+  }
+
+  private boolean useSidebarAssetIcons() {
+    String mode = System.getProperty("jvn.editor.sidebarIconMode", "asset");
+    return !"css".equalsIgnoreCase(mode) && !"fx".equalsIgnoreCase(mode);
+  }
+
+  private boolean hasStyleClass(String[] styleClasses, String target) {
+    if (styleClasses == null || target == null) return false;
+    for (String styleClass : styleClasses) {
+      if (target.equals(styleClass)) return true;
+    }
+    return false;
   }
 
   private void applySidebarPanelGraphic(Tab tab, EditorSidebarPanel panel) {
@@ -2963,6 +3075,18 @@ public class EditorApp extends Application {
     ClipboardContent content = new ClipboardContent();
     content.putString(text == null ? "" : text);
     Clipboard.getSystemClipboard().setContent(content);
+  }
+
+  private void insertParticleFxCommand(String command) {
+    if (command == null || command.isBlank()) return;
+    FileEditorTab ft = getActiveFileTab();
+    if (ft != null && ft.getKind() == FileEditorTab.Kind.VNS) {
+      ft.insertVnsSnippet(command + System.lineSeparator());
+      if (status != null) status.setText("Inserted particle FX command.");
+      return;
+    }
+    copyToClipboard(command);
+    if (status != null) status.setText("Open a VNS script to insert. Copied particle FX command instead.");
   }
 
   private void refreshTabDirtyIndicators() {
@@ -3249,6 +3373,7 @@ public class EditorApp extends Application {
       case LAYERED_IMAGES -> tabLayeredImageVisualizer;
       case IMAGE_ATTRIBUTES -> tabImageAttributesTool;
       case IMAGE_TINT -> tabImageTintTool;
+      case PARTICLE_FX -> tabParticleFxTool;
       case MENU_FLOW -> tabMenuFlow;
       case VERSION_CONTROL -> tabVersionControl;
       case HELP -> tabHelp;
@@ -3272,6 +3397,7 @@ public class EditorApp extends Application {
       case LAYERED_IMAGES -> ensureLayeredImageVisualizerTab(targetPane);
       case IMAGE_ATTRIBUTES -> ensureImageAttributesToolTab(targetPane);
       case IMAGE_TINT -> ensureImageTintToolTab(targetPane);
+      case PARTICLE_FX -> ensureParticleFxToolTab(targetPane);
       case MENU_FLOW -> ensureMenuFlowTab(targetPane);
       case VERSION_CONTROL -> ensureVersionControlTab(targetPane);
       case HELP -> ensureHelpTab(targetPane);
@@ -3405,6 +3531,17 @@ public class EditorApp extends Application {
     imageTintToolView.setOnToggleFullscreen(() -> toggleImageToolFullscreen(imageTintToolView));
     imageTintToolView.setFullscreenActive(false);
     return imageTintToolView;
+  }
+
+  private ParticleFxToolView ensureParticleFxToolView() {
+    if (particleFxToolView != null) return particleFxToolView;
+    particleFxToolView = new ParticleFxToolView();
+    particleFxToolView.setOnInsertCommand(this::insertParticleFxCommand);
+    particleFxToolView.setOnCopyCommand(command -> {
+      copyToClipboard(command);
+      if (status != null) status.setText("Copied particle FX command.");
+    });
+    return particleFxToolView;
   }
 
   private MenuFlowEditorView ensureMenuFlowEditorView() {
@@ -4354,6 +4491,23 @@ public class EditorApp extends Application {
     return attachSidebarPanelTab(tabImageTintTool, EditorSidebarPanel.IMAGE_TINT, targetPane);
   }
 
+  private Tab ensureParticleFxToolTab(TabPane targetPane) {
+    closePanelWindow(EditorSidebarPanel.PARTICLE_FX, true);
+    ParticleFxToolView particleFx = ensureParticleFxToolView();
+    if (targetPane == null || particleFx == null) return null;
+    if (tabParticleFxTool == null) {
+      tabParticleFxTool = new Tab("Particle FX", particleFx);
+      tabParticleFxTool.setClosable(true);
+      tabParticleFxTool.setOnClosed(e -> {
+        tabParticleFxTool = null;
+        releaseSidebarPanelIfUnused(EditorSidebarPanel.PARTICLE_FX);
+      });
+    } else if (tabParticleFxTool.getContent() != particleFx) {
+      tabParticleFxTool.setContent(particleFx);
+    }
+    return attachSidebarPanelTab(tabParticleFxTool, EditorSidebarPanel.PARTICLE_FX, targetPane);
+  }
+
   private Tab ensureMenuFlowTab(TabPane targetPane) {
     closePanelWindow(EditorSidebarPanel.MENU_FLOW, true);
     MenuFlowEditorView menuFlow = ensureMenuFlowEditorView();
@@ -4416,7 +4570,11 @@ public class EditorApp extends Application {
     if (panel != null && !editorPreferences.isVisibleInChooser(panel)) return;
 
     String resolvedIconClass = panel != null ? panel.iconStyleClass() : iconClass;
-    Region panelIcon = icon("icon", "panel-chooser-tool-icon", resolvedIconClass);
+    Node panelIcon = panel != null
+        ? sidebarPanelIcon(panel, "panel-chooser-tool-icon")
+        : "icon-panel-settings".equals(resolvedIconClass)
+            ? editorSettingsSidebarIcon("panel-chooser-tool-icon")
+            : icon("icon", "panel-chooser-tool-icon", resolvedIconClass);
     StackPane iconChip = new StackPane(panelIcon);
     iconChip.getStyleClass().add("panel-chooser-icon-chip");
     if (resolvedIconClass != null && !resolvedIconClass.isBlank()) {
@@ -4824,6 +4982,7 @@ public class EditorApp extends Application {
     else if (tab == tabLayeredImageVisualizer) tabLayeredImageVisualizer = null;
     else if (tab == tabImageAttributesTool) tabImageAttributesTool = null;
     else if (tab == tabImageTintTool) tabImageTintTool = null;
+    else if (tab == tabParticleFxTool) tabParticleFxTool = null;
     else if (tab == tabMenuFlow) tabMenuFlow = null;
     else if (tab == tabPuppeteerLauncher) tabPuppeteerLauncher = null;
     else if (tab == tabScriptEditorLauncher) tabScriptEditorLauncher = null;
@@ -4900,6 +5059,7 @@ public class EditorApp extends Application {
       case LAYERED_IMAGES -> layeredImageVisualizerView != null;
       case IMAGE_ATTRIBUTES -> imageAttributesToolView != null;
       case IMAGE_TINT -> imageTintToolView != null;
+      case PARTICLE_FX -> particleFxToolView != null;
       case MENU_FLOW -> menuFlowEditorView != null;
       case VERSION_CONTROL -> versionControlView != null;
       case HELP -> helpCenterView != null;
@@ -4983,6 +5143,12 @@ public class EditorApp extends Application {
           imageTintToolView.dispose();
         }
         imageTintToolView = null;
+      }
+      case PARTICLE_FX -> {
+        if (particleFxToolView != null) {
+          particleFxToolView.dispose();
+        }
+        particleFxToolView = null;
       }
       case MENU_FLOW -> {
         if (menuFlowEditorView != null) {
@@ -5179,6 +5345,15 @@ public class EditorApp extends Application {
       launchPanelAsWindow("Scene Lighting Studio", view, 800, 650, EditorSidebarPanel.IMAGE_TINT);
     }, () -> {
       rememberPanelPlacement(EditorSidebarPanel.IMAGE_TINT, EditorPanelPlacement.HIDDEN);
+      applyDefaultSidebarPreferences();
+    });
+
+    addChooserActionRow(pane, actions, EditorSidebarPanel.PARTICLE_FX, targetPlacement, "Particle FX", null, () -> {
+      rememberPanelPlacement(EditorSidebarPanel.PARTICLE_FX, targetPlacement);
+      Tab t = ensureParticleFxToolTab(pane);
+      if (t != null) pane.getSelectionModel().select(t);
+    }, () -> launchPanelAsWindow("Particle FX", ensureParticleFxToolView(), 520, 520, EditorSidebarPanel.PARTICLE_FX), () -> {
+      rememberPanelPlacement(EditorSidebarPanel.PARTICLE_FX, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
     });
 
@@ -5541,7 +5716,7 @@ public class EditorApp extends Application {
     } else if (tabEditorSettings.getContent() != settingsView) {
       tabEditorSettings.setContent(settingsView);
     }
-    tabEditorSettings.setGraphic(icon("icon", "sidebar-tab-icon", "icon-panel-settings"));
+    tabEditorSettings.setGraphic(editorSettingsSidebarIcon("sidebar-tab-icon"));
     attachPanelTabToPane(tabEditorSettings, targetPane);
     return tabEditorSettings;
   }
