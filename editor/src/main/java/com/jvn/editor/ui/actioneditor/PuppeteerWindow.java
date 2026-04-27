@@ -2938,27 +2938,6 @@ public class PuppeteerWindow extends Stage {
         });
     }
 
-    private void persistWorkspacePrefs() {
-        if (workspacePrefs == null) return;
-        if (topWorkspaceSplit != null && !topWorkspaceSplit.getDividers().isEmpty()) {
-            workspacePrefs.setDivider(PuppeteerWorkspacePrefs.DIVIDER_TOP,
-                topWorkspaceSplit.getDividerPositions()[0]);
-        }
-        if (bottomWorkspaceSplit != null && !bottomWorkspaceSplit.getDividers().isEmpty()) {
-            workspacePrefs.setDivider(PuppeteerWorkspacePrefs.DIVIDER_BOTTOM,
-                bottomWorkspaceSplit.getDividerPositions()[0]);
-        }
-        if (workspaceContentSplit != null && !workspaceContentSplit.getDividers().isEmpty()) {
-            workspacePrefs.setDivider(PuppeteerWorkspacePrefs.DIVIDER_CONTENT,
-                workspaceContentSplit.getDividerPositions()[0]);
-        }
-        if (mainWorkspaceSplit != null && !mainWorkspaceSplit.getDividers().isEmpty()) {
-            workspacePrefs.setDivider(PuppeteerWorkspacePrefs.DIVIDER_CODE_PANE,
-                mainWorkspaceSplit.getDividerPositions()[0]);
-        }
-        workspacePrefs.save();
-    }
-
     private File resolveRegisteredJesFile(String timelineName) {
         if (projectRoot == null || timelineName == null || timelineName.isBlank()) return null;
         return projectRoot.toPath()
@@ -5317,21 +5296,69 @@ public class PuppeteerWindow extends Stage {
     }
 
     private void closeNow() {
-        stopAudioPreview();
-        if (previewRecorder != null) previewRecorder.cancel();
-        persistWorkspacePrefs();
-        if (draftStore != null) {
-            draftStore.flushNow();
-            draftStore.shutdown();
-            draftStore = null;
-        }
-        if (assetImporterWindow != null) {
-            assetImporterWindow.close();
-            assetImporterWindow = null;
-            assetImporterPanel = null;
-        }
+        // Hide the window FIRST so the user doesn't see a frozen editor while we clean up.
+        // Each cleanup step is best-effort and isolated; a failure in any one step must not
+        // prevent the rest from running, and must not block the JavaFX Application Thread.
         bypassCloseConfirmation = true;
-        close();
+        try { stopAudioPreview(); } catch (Exception ignored) {}
+        try { if (previewRecorder != null) previewRecorder.cancel(); } catch (Exception ignored) {}
+        try {
+            if (assetImporterWindow != null) {
+                assetImporterWindow.close();
+                assetImporterWindow = null;
+                assetImporterPanel = null;
+            }
+        } catch (Exception ignored) {}
+
+        // Snapshot divider positions on the FX thread (Node properties are FX-only),
+        // but defer the actual disk write to the background.
+        PuppeteerWorkspacePrefs prefsSnapshot = null;
+        try {
+            if (workspacePrefs != null) {
+                captureDividerPositionsInto(workspacePrefs);
+                prefsSnapshot = workspacePrefs;
+            }
+        } catch (Exception ignored) {}
+
+        // Hand off the draft store; null out the field immediately so no more save tasks
+        // can be scheduled by listeners that fire during close.
+        PuppeteerDraftStore draftSnapshot = draftStore;
+        draftStore = null;
+
+        try { close(); } catch (Exception ignored) {}
+
+        // Background best-effort persistence — never blocks the FX thread.
+        final PuppeteerWorkspacePrefs prefsToSave = prefsSnapshot;
+        final PuppeteerDraftStore draftsToFlush = draftSnapshot;
+        if (prefsToSave != null || draftsToFlush != null) {
+            Thread cleanup = new Thread(() -> {
+                try { if (prefsToSave != null) prefsToSave.save(); } catch (Throwable ignored) {}
+                try { if (draftsToFlush != null) draftsToFlush.shutdown(); } catch (Throwable ignored) {}
+            }, "puppeteer-close-cleanup");
+            cleanup.setDaemon(true);
+            cleanup.start();
+        }
+    }
+
+    /** Copy the current SplitPane divider positions into the prefs object (no IO). */
+    private void captureDividerPositionsInto(PuppeteerWorkspacePrefs prefs) {
+        if (prefs == null) return;
+        if (topWorkspaceSplit != null && !topWorkspaceSplit.getDividers().isEmpty()) {
+            prefs.setDivider(PuppeteerWorkspacePrefs.DIVIDER_TOP,
+                topWorkspaceSplit.getDividerPositions()[0]);
+        }
+        if (bottomWorkspaceSplit != null && !bottomWorkspaceSplit.getDividers().isEmpty()) {
+            prefs.setDivider(PuppeteerWorkspacePrefs.DIVIDER_BOTTOM,
+                bottomWorkspaceSplit.getDividerPositions()[0]);
+        }
+        if (workspaceContentSplit != null && !workspaceContentSplit.getDividers().isEmpty()) {
+            prefs.setDivider(PuppeteerWorkspacePrefs.DIVIDER_CONTENT,
+                workspaceContentSplit.getDividerPositions()[0]);
+        }
+        if (mainWorkspaceSplit != null && !mainWorkspaceSplit.getDividers().isEmpty()) {
+            prefs.setDivider(PuppeteerWorkspacePrefs.DIVIDER_CODE_PANE,
+                mainWorkspaceSplit.getDividerPositions()[0]);
+        }
     }
 
     public PuppeteerCommand.Stack getCommandStack() { return commandStack; }
