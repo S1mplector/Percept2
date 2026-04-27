@@ -100,7 +100,26 @@ public class VnParticlePresetLibraryTest {
     assertEquals(118.0, emitter.getMaxAngle(), 0.0001);
     assertEquals(12.0, emitter.getWindX(), 0.0001);
     assertFalse(emitter.isAdditive());
-    assertEquals(0.645, emitter.getStartA(), 0.0001);
+    assertEquals(18.0, emitter.getMinSize(), 0.0001);
+    assertEquals(34.0, emitter.getMaxSize(), 0.0001);
+    // start alpha 1.0 × opacity 0.75 = 0.75
+    assertEquals(0.75, emitter.getStartA(), 0.0001);
+    // Texture pool: nine bundled petal sprites; emitter exposes the legacy
+    // single-texture field as the first entry for backward compatibility.
+    assertEquals(9, emitter.getTextures().size());
+    assertEquals("com/jvn/fx/particles/sakura/petal1.png", emitter.getTexture());
+    assertEquals(VnParticlePresetLibrary.SAKURA_PETAL_TEXTURES, emitter.getTextures());
+  }
+
+  @Test
+  public void setTextureClearsTexturePool() {
+    ParticleEmitter2D emitter = new ParticleEmitter2D();
+    emitter.setTextures(VnParticlePresetLibrary.SAKURA_PETAL_TEXTURES);
+    assertEquals(9, emitter.getTextures().size());
+
+    emitter.setTexture("custom/single.png");
+    assertEquals("custom/single.png", emitter.getTexture());
+    assertTrue(emitter.getTextures().isEmpty());
   }
 
   @Test

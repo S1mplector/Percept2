@@ -12,7 +12,6 @@ import java.awt.GradientPaint;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridLayout;
-import java.awt.Insets;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Shape;
@@ -1454,7 +1453,7 @@ public final class JvnHub {
           g2.setStroke(new BasicStroke(strokeBold, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
           g2.draw(arc);
 
-          // Arrowhead at the arc's start point (50°), pointing tangent to the circle.
+          // Arrowhead at the arc's start point (50 degrees), pointing tangent to the circle.
           double theta = Math.toRadians(50);
           float ax = (float) (cx + r * Math.cos(theta));
           float ay = (float) (cy - r * Math.sin(theta));

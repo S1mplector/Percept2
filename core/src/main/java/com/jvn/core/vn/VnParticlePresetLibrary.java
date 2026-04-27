@@ -1,5 +1,7 @@
 package com.jvn.core.vn;
 
+import java.util.List;
+
 import com.jvn.core.scene2d.ParticleEmitter2D;
 
 /**
@@ -45,6 +47,24 @@ public final class VnParticlePresetLibrary {
    * see consistent behaviour; this is purely a conversion factor for tuning.
    */
   public static final double REFERENCE_SCENE_WIDTH = 1280.0;
+
+  /**
+   * Classpath resource paths for the nine bundled sakura petal sprites. The
+   * sakura preset pulls from this pool so every petal in flight is one of
+   * nine hand-drawn variants — far more natural than the legacy pink blobs.
+   * Resources live in the {@code fx} module so they ship with the JavaFX
+   * renderer's classpath.
+   */
+  public static final List<String> SAKURA_PETAL_TEXTURES = List.of(
+      "com/jvn/fx/particles/sakura/petal1.png",
+      "com/jvn/fx/particles/sakura/petal2.png",
+      "com/jvn/fx/particles/sakura/petal3.png",
+      "com/jvn/fx/particles/sakura/petal4.png",
+      "com/jvn/fx/particles/sakura/petal5.png",
+      "com/jvn/fx/particles/sakura/petal6.png",
+      "com/jvn/fx/particles/sakura/petal7.png",
+      "com/jvn/fx/particles/sakura/petal8.png",
+      "com/jvn/fx/particles/sakura/petal9.png");
 
   private VnParticlePresetLibrary() {}
 
@@ -197,10 +217,13 @@ public final class VnParticlePresetLibrary {
   // ──────────────────────────────────────────────────────────────────────────
 
   /**
-   * Soft pink petals drifting across the scene. The preset uses a broad top
-   * spawn strip, long lifetimes, and mostly downward angles so petals linger
-   * without looking like snow. Use {@code wind=} to steer the fall across the
-   * frame.
+   * Soft pink petals drifting across the scene. Particles are drawn using the
+   * nine bundled {@link #SAKURA_PETAL_TEXTURES petal sprite variants} so the
+   * effect reads as actual sakura instead of generic pink blobs. The preset
+   * uses a broad top spawn strip, long lifetimes, and mostly downward angles
+   * so petals linger without looking like snow. Use {@code wind=} to steer
+   * the fall across the frame; tint is intentionally not multiplied onto the
+   * sprites so the hand-drawn pinks come through cleanly.
    */
   private static void configureSakura(ParticleEmitter2D emitter, VnParticleCommand cmd, double width, double height) {
     double i = scaleIntensity(cmd.getIntensity());
@@ -210,20 +233,29 @@ public final class VnParticlePresetLibrary {
     emitter.setZ(cmd.getLayer());
     emitter.setPosition(width * 0.5, -height * 0.08);
     emitter.setSpawnArea(-width * 0.58, width * 0.58, -height * 0.02, height * 0.16);
-    emitter.setMaxParticles(clampMax((int) Math.round(120 * i)));
-    emitter.setEmissionRate(24.0 * i);
+    emitter.setMaxParticles(clampMax((int) Math.round(110 * i)));
+    emitter.setEmissionRate(20.0 * i);
 
-    emitter.setLifeRange(5.5, 9.0);
-    emitter.setSizeRange(4.0, 9.0, 0.85);
+    // Petals are detailed sprites — give them a long lifetime so they read as
+    // a slow drift, and a chunkier on-screen size so the variation between
+    // petal shapes is visible.
+    emitter.setLifeRange(6.0, 10.0);
+    emitter.setSizeRange(18.0, 34.0, 0.95);
     emitter.setAngleRange(68.0, 118.0);
-    emitter.setSpeedRange(24.0 * speedScale, 68.0 * speedScale);
-    emitter.setGravity(24.0);
+    emitter.setSpeedRange(28.0 * speedScale, 72.0 * speedScale);
+    emitter.setGravity(22.0);
     emitter.setWindX(cmd.getWindX());
     emitter.setAdditive(false);
-    emitter.setTexture(null);
 
+    // Bind the petal texture pool. The emitter randomly picks one of the nine
+    // sprites per particle and tumbles each one via its rotationSpeed.
+    emitter.setTextures(SAKURA_PETAL_TEXTURES);
+
+    // Colour is preserved for HUD/debug parity; only alpha actually affects
+    // textured particles, so this primarily controls the per-particle fade
+    // curve. Start fully visible and fade smoothly to zero.
     setColors(emitter, cmd, /*r*/1.0, /*g*/0.70, /*b*/0.82,
-        /*startA*/0.86, /*endR*/1.0, /*endG*/0.52, /*endB*/0.74, /*endA*/0.0);
+        /*startA*/1.0, /*endR*/1.0, /*endG*/0.62, /*endB*/0.78, /*endA*/0.0);
   }
 
   // ──────────────────────────────────────────────────────────────────────────

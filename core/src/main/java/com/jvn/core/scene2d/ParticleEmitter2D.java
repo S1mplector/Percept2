@@ -50,6 +50,12 @@ public class ParticleEmitter2D extends Entity2D {
     double r, g, b, a;
     /** Current rotation (degrees) and angular velocity (deg/sec). */
     double rotation, rotationSpeed;
+    /**
+     * Per-particle texture path picked at spawn from the emitter's texture
+     * pool. {@code null} means the particle uses the emitter's single-texture
+     * fallback (or shape rendering if that is also unset).
+     */
+    String texturePath;
   }
 
   /** Pool of currently alive particles. */
@@ -138,8 +144,19 @@ public class ParticleEmitter2D extends Entity2D {
   /** Whether to use additive blend mode (glowing effects). */
   private boolean useAdditive = true;
 
-  /** Optional texture path; {@code null} = draw filled circles. */
+  /**
+   * Optional single-texture path used when the texture pool is empty;
+   * {@code null} = draw filled circles. Kept for backward compatibility with
+   * authoring tools that bind to a single texture field.
+   */
   private String texture = null;
+
+  /**
+   * Optional pool of texture paths. When non-empty, each spawned particle
+   * picks one path uniformly at random, allowing presets to render varied
+   * sprites (e.g. nine distinct sakura petal shapes) from a single emitter.
+   */
+  private final List<String> textures = new ArrayList<>();
 
   /** Shape renderer used when no texture is set. */
   private RenderMode renderMode = RenderMode.CIRCLE;
@@ -263,10 +280,41 @@ public class ParticleEmitter2D extends Entity2D {
   /** @return end alpha */
   public double getEndA() { return endA; }
 
-  /** @param path texture asset path, or {@code null} for filled circles */
-  public void setTexture(String path) { this.texture = path; }
-  /** @return texture path, or {@code null} */
+  /**
+   * Set the single fallback texture path. Calling this also clears any
+   * configured texture pool, restoring legacy single-sprite behaviour.
+   *
+   * @param path texture asset path, or {@code null} for filled circles
+   */
+  public void setTexture(String path) {
+    this.texture = path;
+    this.textures.clear();
+  }
+  /** @return single texture path, or {@code null} */
   public String getTexture() { return texture; }
+
+  /**
+   * Configure a pool of texture paths. When the pool is non-empty each
+   * spawned particle picks one entry uniformly at random — useful for
+   * varied sprite presets such as falling petals or autumn leaves.
+   * Passing {@code null} or an empty list clears the pool and falls back
+   * to the single texture (or shape rendering) defined by
+   * {@link #setTexture(String)}.
+   */
+  public void setTextures(List<String> paths) {
+    this.textures.clear();
+    if (paths != null) {
+      for (String p : paths) {
+        if (p != null && !p.isBlank()) this.textures.add(p);
+      }
+    }
+    // Keep `texture` in sync as a sensible single-sprite fallback for code
+    // that still inspects the legacy field (e.g. JES export, inspector view).
+    this.texture = this.textures.isEmpty() ? null : this.textures.get(0);
+  }
+  /** @return immutable view of the texture pool (empty when only a single
+   *          texture or no texture is configured) */
+  public List<String> getTextures() { return java.util.Collections.unmodifiableList(textures); }
   /** @param mode particle renderer used when no texture is set */
   public void setRenderMode(RenderMode mode) { this.renderMode = mode == null ? RenderMode.CIRCLE : mode; }
   /** @return particle renderer used when no texture is set */
@@ -320,7 +368,12 @@ public class ParticleEmitter2D extends Entity2D {
     
     p.rotation = rnd.nextDouble() * 360;
     p.rotationSpeed = (rnd.nextDouble() - 0.5) * 360;
-    
+
+    // Pick a texture from the pool (if any) so each particle can render a
+    // different sprite. Falls back to the legacy single-texture field at
+    // render time when the pool is empty.
+    p.texturePath = textures.isEmpty() ? null : textures.get(rnd.nextInt(textures.size()));
+
     particles.add(p);
   }
   
@@ -387,11 +440,12 @@ public class ParticleEmitter2D extends Entity2D {
       b.translate(p.x, p.y);
       b.setGlobalAlpha(p.a);
 
-      if (texture != null) {
+      String tex = p.texturePath != null ? p.texturePath : texture;
+      if (tex != null) {
         // Textured quads honour per-particle rotation so authored sprites can spin.
         b.rotateDeg(p.rotation);
         double hs = p.size / 2;
-        b.drawImage(texture, -hs, -hs, p.size, p.size);
+        b.drawImage(tex, -hs, -hs, p.size, p.size);
       } else if (renderMode == RenderMode.STREAK) {
         // Streaks self-orient along their velocity vector; applying the random
         // per-particle rotation here would scramble that alignment, which is
