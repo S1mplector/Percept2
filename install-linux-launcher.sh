@@ -9,7 +9,8 @@
 #    ~/.local/share/jvn-engine-hub/jvn-engine-hub-launcher.sh
 #    ~/.local/share/icons/hicolor/scalable/apps/jvn-engine-hub.svg
 #
-#  The launcher wrapper keeps errors visible and logs them under:
+#  The launcher wrapper runs without a terminal, sends desktop notifications on
+#  failure, and logs details under:
 #
 #    ~/.local/state/jvn-engine-hub/
 #
@@ -28,43 +29,6 @@ IFS=$'\n\t'
 
 APP_ID="jvn-engine-hub"
 APP_NAME="JVN Engine Hub"
-SELF_PATH="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)/$(basename -- "${BASH_SOURCE[0]}")"
-
-terminal_command() {
-  local self_q
-  printf -v self_q '%q' "$SELF_PATH"
-  printf 'JVN_INSTALLER_TERMINAL=1 %s; status=$?; echo; echo "Installer finished with exit code $status."; printf "Press Enter to close..."; read -r _; exit "$status"' "$self_q"
-}
-
-relaunch_in_terminal_if_needed() {
-  if [[ -n "${JVN_INSTALLER_TERMINAL:-}" || -t 1 ]]; then
-    return 0
-  fi
-
-  local cmd
-  cmd="$(terminal_command)"
-
-  if command -v x-terminal-emulator >/dev/null 2>&1; then
-    x-terminal-emulator -e bash -lc "$cmd" >/dev/null 2>&1 &
-    exit 0
-  fi
-  if command -v gnome-terminal >/dev/null 2>&1; then
-    gnome-terminal -- bash -lc "$cmd" >/dev/null 2>&1 &
-    exit 0
-  fi
-  if command -v kgx >/dev/null 2>&1; then
-    kgx -- bash -lc "$cmd" >/dev/null 2>&1 &
-    exit 0
-  fi
-  if command -v konsole >/dev/null 2>&1; then
-    konsole --hold -e bash -lc "$cmd" >/dev/null 2>&1 &
-    exit 0
-  fi
-  if command -v xterm >/dev/null 2>&1; then
-    xterm -hold -e bash -lc "$cmd" >/dev/null 2>&1 &
-    exit 0
-  fi
-}
 
 notify_user() {
   local title="$1"
@@ -105,8 +69,6 @@ die() {
   notify_user "$APP_NAME installer failed" "$message"
   exit 1
 }
-
-relaunch_in_terminal_if_needed
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
@@ -209,44 +171,45 @@ set -u
 PROJECT_DIR=$project_q
 LOG_FILE=$log_q
 
-pause_on_error() {
-  local status="\$1"
-  echo
-  echo "[JVN] Launcher failed with exit code \$status."
-  echo "[JVN] Log: \$LOG_FILE"
-  echo
-  if [[ -t 0 ]]; then
-    read -r -p "Press Enter to close..." _
-  else
-    sleep 12
+notify_failure() {
+  local message="\$1"
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send "JVN Engine Hub failed" "\$message\nLog: \$LOG_FILE" >/dev/null 2>&1 || true
+  elif command -v zenity >/dev/null 2>&1; then
+    zenity --error --title="JVN Engine Hub failed" --text="\$message\n\nLog: \$LOG_FILE" >/dev/null 2>&1 || true
+  elif command -v kdialog >/dev/null 2>&1; then
+    kdialog --title "JVN Engine Hub failed" --error "\$message\n\nLog: \$LOG_FILE" >/dev/null 2>&1 || true
+  elif command -v xmessage >/dev/null 2>&1; then
+    xmessage -center "JVN Engine Hub failed: \$message\nLog: \$LOG_FILE" >/dev/null 2>&1 || true
   fi
 }
 
 mkdir -p "\$(dirname -- "\$LOG_FILE")"
 {
-  echo "---- \$(date -Is) ----"
+  echo "---- \$(date '+%Y-%m-%dT%H:%M:%S%z') ----"
   echo "[JVN] Project: \$PROJECT_DIR"
   echo "[JVN] Starting Engine Hub..."
 } >> "\$LOG_FILE"
 
 cd "\$PROJECT_DIR" || {
-  echo "[JVN] Could not cd to project directory: \$PROJECT_DIR" | tee -a "\$LOG_FILE"
-  pause_on_error 1
+  echo "[JVN] Could not cd to project directory: \$PROJECT_DIR" >> "\$LOG_FILE"
+  notify_failure "Could not enter the project directory."
   exit 1
 }
 
 if [[ ! -x ./jvn ]]; then
-  echo "[JVN] Missing executable ./jvn in \$PROJECT_DIR" | tee -a "\$LOG_FILE"
-  echo "[JVN] Try running: chmod +x jvn gradlew" | tee -a "\$LOG_FILE"
-  pause_on_error 1
+  echo "[JVN] Missing executable ./jvn in \$PROJECT_DIR" >> "\$LOG_FILE"
+  echo "[JVN] Try running: chmod +x jvn gradlew" >> "\$LOG_FILE"
+  notify_failure "Missing executable ./jvn in the project directory."
   exit 1
 fi
 
-./jvn "\$@" 2>&1 | tee -a "\$LOG_FILE"
-status="\${PIPESTATUS[0]}"
+./jvn "\$@" >> "\$LOG_FILE" 2>&1
+status="\$?"
 
 if [[ "\$status" -ne 0 ]]; then
-  pause_on_error "\$status"
+  echo "[JVN] Launcher failed with exit code \$status." >> "\$LOG_FILE"
+  notify_failure "Startup failed with exit code \$status."
 fi
 
 exit "\$status"
@@ -267,10 +230,10 @@ Exec=$(desktop_quote "$WRAPPER_FILE")
 TryExec=$(desktop_quote "$WRAPPER_FILE")
 Path=$(desktop_quote "$SCRIPT_DIR")
 Icon=$(desktop_quote "$ICON_FILE")
-Terminal=true
+Terminal=false
 Categories=Development;IDE;
 Keywords=JVN;Editor;Engine;Gradle;
-StartupNotify=false
+StartupNotify=true
 DESKTOP
   chmod 0644 "$TARGET_FILE"
 }
@@ -309,7 +272,6 @@ echo "[installer] install log: $INSTALL_LOG_FILE"
 echo "[installer] launch log: $LAUNCH_LOG_FILE"
 echo
 echo "Launch '$APP_NAME' from your applications menu."
-echo "If it still closes immediately, run this command in a terminal:"
-echo "  $WRAPPER_FILE"
+echo "If launch fails, check: $LAUNCH_LOG_FILE"
 
 notify_user "$APP_NAME installed" "Launch it from your applications menu. Logs are in $STATE_DIR."

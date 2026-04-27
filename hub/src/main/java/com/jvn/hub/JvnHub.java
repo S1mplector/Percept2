@@ -633,8 +633,6 @@ public final class JvnHub {
       cmd.add(script.toAbsolutePath().toString());
     } else {
       script = projectRoot.resolve("install-linux-launcher.sh");
-      cmd.add("env");
-      cmd.add("JVN_INSTALLER_TERMINAL=1");
       cmd.add("bash");
       cmd.add(script.toAbsolutePath().toString());
     }

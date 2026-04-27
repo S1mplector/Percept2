@@ -6,11 +6,8 @@
 #
 #    ~/Applications/JVN Engine Hub.app
 #
-#  The app bundle runs the in-tree Gradle hub task, logs launch output, and shows
-#  a native alert if startup fails. On macOS, the app opens a Terminal-backed
-#  .command launcher so projects under ~/Desktop/Documents are handled by
-#  Terminal's normal Files & Folders permission flow instead of failing inside
-#  a bare app-bundle shell.
+#  The app bundle runs the in-tree Gradle hub task without opening Terminal,
+#  logs launch output, and shows a native alert if startup fails.
 #
 #  Uninstall:
 #    rm -rf "$HOME/Applications/JVN Engine Hub.app"
@@ -30,7 +27,6 @@ APP_BUNDLE="$HOME/Applications/$APP_NAME.app"
 SUPPORT_DIR="$HOME/Library/Application Support/$APP_NAME"
 LOG_DIR="$HOME/Library/Logs/$APP_NAME"
 LOG_FILE="$LOG_DIR/launcher.log"
-COMMAND_FILE="$SUPPORT_DIR/launch-jvn-engine-hub.command"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 
 die() {
@@ -68,6 +64,14 @@ read_project_version() {
 
 shell_quote() {
   printf "'%s'" "$(printf "%s" "$1" | sed "s/'/'\\\\''/g")"
+}
+
+swift_string_literal() {
+  local value="$1"
+  value="${value//\\/\\\\}"
+  value="${value//\"/\\\"}"
+  value="${value//$'\n'/\\n}"
+  printf '"%s"' "$value"
 }
 
 xml_escape() {
@@ -178,15 +182,166 @@ xattr -d com.apple.quarantine "$SCRIPT_DIR/jvn" "$SCRIPT_DIR/gradlew" 2>/dev/nul
 
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_BUNDLE/Contents/MacOS" "$APP_BUNDLE/Contents/Resources" "$LOG_DIR"
+rm -f "$SUPPORT_DIR/launch-jvn-engine-hub.command"
 
 version="$(read_project_version)"
 svg_icon="$(write_svg_icon "$version")"
 icns_icon="$(create_icns_icon "$svg_icon")"
 project_q="$(shell_quote "$SCRIPT_DIR")"
 log_q="$(shell_quote "$LOG_FILE")"
-command_q="$(shell_quote "$COMMAND_FILE")"
+app_executable="$APP_BUNDLE/Contents/MacOS/JVN Engine Hub"
+launcher_kind="shell"
 
-cat > "$COMMAND_FILE" <<COMMAND
+if command -v swiftc >/dev/null 2>&1; then
+  swift_source="$SUPPORT_DIR/jvn-engine-hub-launcher.swift"
+  swift_project="$(swift_string_literal "$SCRIPT_DIR")"
+  swift_log="$(swift_string_literal "$LOG_FILE")"
+  cat > "$swift_source" <<SWIFT
+import Cocoa
+import Foundation
+
+let projectDir = $swift_project
+let logFile = $swift_log
+
+func appendLog(_ message: String) {
+  let url = URL(fileURLWithPath: logFile)
+  try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+  guard let data = (message + "\\n").data(using: .utf8) else { return }
+  if FileManager.default.fileExists(atPath: logFile),
+     let handle = try? FileHandle(forWritingTo: url) {
+    handle.seekToEndOfFile()
+    handle.write(data)
+    try? handle.close()
+  } else {
+    try? data.write(to: url)
+  }
+}
+
+func runAndCapture(_ executable: String, _ arguments: [String], env: [String: String]) {
+  let process = Process()
+  process.executableURL = URL(fileURLWithPath: executable)
+  process.arguments = arguments
+  process.environment = env
+  let pipe = Pipe()
+  process.standardOutput = pipe
+  process.standardError = pipe
+  do {
+    try process.run()
+    let data = pipe.fileHandleForReading.readDataToEndOfFile()
+    if let output = String(data: data, encoding: .utf8), !output.isEmpty {
+      appendLog(output.trimmingCharacters(in: .newlines))
+    }
+    process.waitUntilExit()
+  } catch {
+    appendLog("[JVN] Could not run \\(executable): \\(error.localizedDescription)")
+  }
+}
+
+func showFailure(_ message: String) {
+  DispatchQueue.main.async {
+    NSApp.setActivationPolicy(.regular)
+    NSApp.activate(ignoringOtherApps: true)
+    let alert = NSAlert()
+    alert.alertStyle = .critical
+    alert.messageText = "JVN Engine Hub failed"
+    alert.informativeText = "\(message)\\n\\nSee ~/Library/Logs/JVN Engine Hub/launcher.log."
+    alert.runModal()
+    NSApp.terminate(nil)
+  }
+}
+
+func launchHub() {
+  let formatter = ISO8601DateFormatter()
+  appendLog("---- \\(formatter.string(from: Date())) ----")
+  appendLog("[JVN] Project: \\(projectDir)")
+  appendLog("[JVN] Starting Engine Hub...")
+
+  var env = ProcessInfo.processInfo.environment
+  let basePath = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+  env["PATH"] = basePath + ":" + (env["PATH"] ?? "")
+
+  if (env["JAVA_HOME"] ?? "").isEmpty, FileManager.default.isExecutableFile(atPath: "/usr/libexec/java_home") {
+    let javaHomeProcess = Process()
+    javaHomeProcess.executableURL = URL(fileURLWithPath: "/usr/libexec/java_home")
+    javaHomeProcess.arguments = ["-v", "21"]
+    let pipe = Pipe()
+    javaHomeProcess.standardOutput = pipe
+    javaHomeProcess.standardError = Pipe()
+    if (try? javaHomeProcess.run()) != nil {
+      javaHomeProcess.waitUntilExit()
+      let data = pipe.fileHandleForReading.readDataToEndOfFile()
+      if javaHomeProcess.terminationStatus == 0,
+         let home = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+         !home.isEmpty {
+        env["JAVA_HOME"] = home
+        env["PATH"] = home + "/bin:" + (env["PATH"] ?? basePath)
+      }
+    }
+  }
+
+  appendLog("[JVN] JAVA_HOME: \\(env["JAVA_HOME"] ?? "")")
+  runAndCapture("/usr/bin/env", ["java", "-version"], env: env)
+
+  let gradlew = URL(fileURLWithPath: projectDir).appendingPathComponent("gradlew").path
+  if !FileManager.default.fileExists(atPath: gradlew) {
+    appendLog("[JVN] Missing ./gradlew in \\(projectDir)")
+    showFailure("gradlew is missing.")
+    return
+  }
+
+  let process = Process()
+  process.executableURL = URL(fileURLWithPath: "/bin/bash")
+  process.arguments = ["./gradlew", "-q", "--console=plain", "-p", projectDir, ":hub:run"]
+  process.currentDirectoryURL = URL(fileURLWithPath: projectDir)
+  process.environment = env
+
+  let logURL = URL(fileURLWithPath: logFile)
+  try? FileManager.default.createDirectory(at: logURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+  let handle = FileHandle(forWritingAtPath: logFile) ?? FileHandle.standardError
+  handle.seekToEndOfFile()
+  process.standardOutput = handle
+  process.standardError = handle
+
+  do {
+    try process.run()
+    process.waitUntilExit()
+    let status = process.terminationStatus
+    try? handle.close()
+    appendLog("[JVN] Gradle exited with code \\(status).")
+    if status != 0 {
+      appendLog("[JVN] Startup failed with exit code \\(status).")
+      showFailure("Startup failed with exit code \\(status).")
+      return
+    }
+  } catch {
+    appendLog("[JVN] Startup exception: \\(error.localizedDescription)")
+    showFailure("Startup failed before the hub could run.")
+    return
+  }
+
+  DispatchQueue.main.async {
+    NSApp.terminate(nil)
+  }
+}
+
+let app = NSApplication.shared
+app.setActivationPolicy(.accessory)
+DispatchQueue.global(qos: .userInitiated).async {
+  launchHub()
+}
+app.run()
+SWIFT
+
+  if swiftc "$swift_source" -o "$app_executable" >/dev/null 2>&1; then
+    launcher_kind="native"
+    chmod 0755 "$app_executable"
+  else
+    echo "[installer] warning: swiftc could not build native launcher; using shell fallback."
+  fi
+fi
+
+if [[ "$launcher_kind" != "native" ]]; then
+cat > "$app_executable" <<LAUNCHER
 #!/usr/bin/env bash
 set -u
 PROJECT_DIR=$project_q
@@ -249,49 +404,19 @@ if [[ ! -f ./gradlew ]]; then
 fi
 
 if [[ ! -x ./gradlew ]]; then
-  chmod u+x ./gradlew 2>>"\$LOG_FILE" || true
+  chmod u+x ./gradlew >>"\$LOG_FILE" 2>&1 || true
 fi
 
-bash ./gradlew -q --console=plain -p "\$PROJECT_DIR" :hub:run 2>&1 | tee -a "\$LOG_FILE"
-status="\${PIPESTATUS[0]}"
+bash ./gradlew -q --console=plain -p "\$PROJECT_DIR" :hub:run >> "\$LOG_FILE" 2>&1
+status="\$?"
+echo "[JVN] Gradle exited with code \$status." >> "\$LOG_FILE"
 if [[ "\$status" -ne 0 ]]; then
   alert_failure "Startup failed with exit code \$status."
-  echo
-  echo "[JVN] Startup failed with exit code \$status."
-  echo "[JVN] Log: \$LOG_FILE"
-  echo
-  read -r -p "Press Enter to close this Terminal window..." _
-fi
-exit "\$status"
-COMMAND
-chmod 0755 "$COMMAND_FILE"
-
-cat > "$APP_BUNDLE/Contents/MacOS/JVN Engine Hub" <<LAUNCHER
-#!/usr/bin/env bash
-set -u
-COMMAND_FILE=$command_q
-LOG_FILE=$log_q
-
-mkdir -p "\$(dirname -- "\$LOG_FILE")"
-{
-  echo "---- \$(date '+%Y-%m-%dT%H:%M:%S%z') ----"
-  echo "[JVN] Opening Terminal command: \$COMMAND_FILE"
-} >> "\$LOG_FILE"
-
-if [[ ! -x "\$COMMAND_FILE" ]]; then
-  echo "[JVN] Missing command launcher: \$COMMAND_FILE" >> "\$LOG_FILE"
-  osascript -e 'display alert "JVN Engine Hub failed" message "The Terminal launcher is missing. Re-run Build Shortcuts." as critical' >/dev/null 2>&1 || true
-  exit 1
-fi
-
-open -a Terminal "\$COMMAND_FILE" >> "\$LOG_FILE" 2>&1
-status="\$?"
-if [[ "\$status" -ne 0 ]]; then
-  osascript -e 'display alert "JVN Engine Hub failed" message "Could not open Terminal launcher. See ~/Library/Logs/JVN Engine Hub/launcher.log." as critical' >/dev/null 2>&1 || true
 fi
 exit "\$status"
 LAUNCHER
-chmod 0755 "$APP_BUNDLE/Contents/MacOS/JVN Engine Hub"
+chmod 0755 "$app_executable"
+fi
 
 cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -316,6 +441,14 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
   <string>10.13</string>
   <key>NSHighResolutionCapable</key>
   <true/>
+  <key>LSUIElement</key>
+  <true/>
+  <key>NSDesktopFolderUsageDescription</key>
+  <string>JVN Engine Hub needs access to this project when it is stored on Desktop.</string>
+  <key>NSDocumentsFolderUsageDescription</key>
+  <string>JVN Engine Hub needs access to this project when it is stored in Documents.</string>
+  <key>NSDownloadsFolderUsageDescription</key>
+  <string>JVN Engine Hub needs access to this project when it is stored in Downloads.</string>
 </dict>
 </plist>
 PLIST
@@ -333,6 +466,5 @@ if [[ -n "$icns_icon" ]]; then
 else
   echo "[installer] warning: could not generate .icns; Finder may show a generic app icon."
 fi
-echo "[installer] installed Terminal launcher: $COMMAND_FILE"
 echo "[installer] launch log: $LOG_FILE"
 echo "Open '$APP_NAME' from ~/Applications."

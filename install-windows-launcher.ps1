@@ -6,8 +6,9 @@
 #    Start Menu\Programs\JVN Engine Hub.lnk
 #    Desktop\JVN Engine Hub.lnk
 #
-#  It also writes a wrapper .cmd under %LOCALAPPDATA%\JVN Engine Hub that keeps
-#  the command prompt open on failure and logs startup output.
+#  It also writes hidden launcher wrappers under %LOCALAPPDATA%\JVN Engine Hub.
+#  The shortcuts do not open a command prompt; failures are logged and shown in
+#  a native message box.
 #
 #  Uninstall:
 #    Remove the shortcuts and %LOCALAPPDATA%\JVN Engine Hub
@@ -27,6 +28,10 @@ function Fail([string]$Message) {
 
 function XmlEscape([string]$Value) {
   return [System.Security.SecurityElement]::Escape($Value)
+}
+
+function PsQuote([string]$Value) {
+  return "'" + $Value.Replace("'", "''") + "'"
 }
 
 function Read-ProjectVersion([string]$Root) {
@@ -76,10 +81,11 @@ function Write-SvgIcon([string]$Path, [string]$Version) {
   Set-Content -LiteralPath $Path -Value $svg -Encoding UTF8
 }
 
-function New-Shortcut([string]$ShortcutPath, [string]$TargetPath, [string]$WorkingDirectory, [string]$Description) {
+function New-Shortcut([string]$ShortcutPath, [string]$TargetPath, [string]$Arguments, [string]$WorkingDirectory, [string]$Description) {
   $shell = New-Object -ComObject WScript.Shell
   $shortcut = $shell.CreateShortcut($ShortcutPath)
   $shortcut.TargetPath = $TargetPath
+  $shortcut.Arguments = $Arguments
   $shortcut.WorkingDirectory = $WorkingDirectory
   $shortcut.Description = $Description
   $shortcut.Save()
@@ -94,7 +100,8 @@ if (-not (Test-Path -LiteralPath $GradleBat)) { Fail "gradlew.bat was not found 
 
 $InstallDir = Join-Path $env:LOCALAPPDATA "JVN Engine Hub"
 $LogDir = Join-Path $env:LOCALAPPDATA "JVN Engine Hub\Logs"
-$Wrapper = Join-Path $InstallDir "jvn-engine-hub-launcher.cmd"
+$LauncherPs1 = Join-Path $InstallDir "jvn-engine-hub-launcher.ps1"
+$LauncherVbs = Join-Path $InstallDir "jvn-engine-hub-launcher.vbs"
 $IconSvg = Join-Path $InstallDir "jvn-engine-hub.svg"
 $LogFile = Join-Path $LogDir "launcher.log"
 
@@ -103,52 +110,83 @@ New-Item -ItemType Directory -Force -Path $InstallDir, $LogDir | Out-Null
 $Version = Read-ProjectVersion $ProjectRoot
 Write-SvgIcon $IconSvg $Version
 
-$wrapperContent = @"
-@echo off
-setlocal EnableExtensions
-set "PROJECT_DIR=$ProjectRoot"
-set "LOG_FILE=$LogFile"
+$projectRootLiteral = PsQuote $ProjectRoot
+$logFileLiteral = PsQuote $LogFile
 
-if not exist "%PROJECT_DIR%\jvn.bat" (
-  echo [JVN] Missing jvn.bat in "%PROJECT_DIR%"
-  echo [JVN] Missing jvn.bat in "%PROJECT_DIR%" >> "%LOG_FILE%"
-  pause
-  exit /b 1
-)
+$launcherPs1Content = @"
+`$ErrorActionPreference = "Stop"
+`$ProjectRoot = $projectRootLiteral
+`$LogFile = $logFileLiteral
+`$JvnBat = Join-Path `$ProjectRoot "jvn.bat"
 
-echo ---- %DATE% %TIME% ---- >> "%LOG_FILE%"
-echo [JVN] Project: %PROJECT_DIR% >> "%LOG_FILE%"
-cd /d "%PROJECT_DIR%" || (
-  echo [JVN] Could not enter project directory: %PROJECT_DIR%
-  echo [JVN] Could not enter project directory: %PROJECT_DIR% >> "%LOG_FILE%"
-  pause
-  exit /b 1
-)
+function Write-LaunchLog([string]`$Message) {
+  Add-Content -LiteralPath `$LogFile -Value `$Message
+}
 
-call "%PROJECT_DIR%\jvn.bat" >> "%LOG_FILE%" 2>&1
-set "STATUS=%ERRORLEVEL%"
-if not "%STATUS%"=="0" (
-  type "%LOG_FILE%"
-  echo.
-  echo [JVN] Launcher failed with exit code %STATUS%.
-  echo [JVN] Log: %LOG_FILE%
-  pause
-)
-exit /b %STATUS%
+function Show-Failure([string]`$Message) {
+  try {
+    Add-Type -AssemblyName System.Windows.Forms
+    [System.Windows.Forms.MessageBox]::Show("`$Message`r`n`r`nLog: `$LogFile", "JVN Engine Hub failed", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error) | Out-Null
+  } catch {
+  }
+}
+
+New-Item -ItemType Directory -Force -Path (Split-Path -Parent `$LogFile) | Out-Null
+Write-LaunchLog "---- `$((Get-Date).ToString('yyyy-MM-ddTHH:mm:sszzz')) ----"
+Write-LaunchLog "[JVN] Project: `$ProjectRoot"
+Write-LaunchLog "[JVN] Starting Engine Hub..."
+
+if (-not (Test-Path -LiteralPath `$JvnBat)) {
+  Write-LaunchLog "[JVN] Missing jvn.bat in `$ProjectRoot"
+  Show-Failure "Missing jvn.bat in the project directory."
+  exit 1
+}
+
+try {
+  `$psi = New-Object System.Diagnostics.ProcessStartInfo
+  `$psi.FileName = `$env:ComSpec
+  if ([string]::IsNullOrWhiteSpace(`$psi.FileName)) { `$psi.FileName = "cmd.exe" }
+  `$cmdLine = '"' + `$JvnBat + '" >> "' + `$LogFile + '" 2>&1'
+  `$psi.Arguments = '/d /s /c "' + `$cmdLine + '"'
+  `$psi.WorkingDirectory = `$ProjectRoot
+  `$psi.UseShellExecute = `$false
+  `$psi.CreateNoWindow = `$true
+  `$psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+  `$process = [System.Diagnostics.Process]::Start(`$psi)
+  `$process.WaitForExit()
+  `$status = `$process.ExitCode
+} catch {
+  Write-LaunchLog "[JVN] Startup exception: `$(`$_.Exception.Message)"
+  Show-Failure "Startup failed before the hub could run."
+  exit 1
+}
+
+if (`$status -ne 0) {
+  Write-LaunchLog "[JVN] Launcher failed with exit code `$status."
+  Show-Failure "Startup failed with exit code `$status."
+}
+exit `$status
 "@
 
-Set-Content -LiteralPath $Wrapper -Value $wrapperContent -Encoding ASCII
+$launcherVbsContent = @"
+Set shell = CreateObject("WScript.Shell")
+shell.Run "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ""$LauncherPs1""", 0, False
+"@
+
+Set-Content -LiteralPath $LauncherPs1 -Value $launcherPs1Content -Encoding UTF8
+Set-Content -LiteralPath $LauncherVbs -Value $launcherVbsContent -Encoding ASCII
 
 $StartMenuDir = Join-Path ([Environment]::GetFolderPath("StartMenu")) "Programs"
 $StartShortcut = Join-Path $StartMenuDir "JVN Engine Hub.lnk"
 New-Item -ItemType Directory -Force -Path $StartMenuDir | Out-Null
-New-Shortcut $StartShortcut $Wrapper $ProjectRoot "Launch Java Vector Nexus Engine Hub"
+$Wscript = Join-Path $env:WINDIR "System32\wscript.exe"
+New-Shortcut $StartShortcut $Wscript "`"$LauncherVbs`"" $ProjectRoot "Launch Java Vector Nexus Engine Hub"
 
 if (-not $NoDesktop) {
   $DesktopDir = [Environment]::GetFolderPath("Desktop")
   if ($DesktopDir) {
     $DesktopShortcut = Join-Path $DesktopDir "JVN Engine Hub.lnk"
-    New-Shortcut $DesktopShortcut $Wrapper $ProjectRoot "Launch Java Vector Nexus Engine Hub"
+    New-Shortcut $DesktopShortcut $Wscript "`"$LauncherVbs`"" $ProjectRoot "Launch Java Vector Nexus Engine Hub"
   }
 }
 
@@ -156,6 +194,7 @@ Write-Host "[installer] installed Start Menu shortcut: $StartShortcut"
 if (-not $NoDesktop -and $DesktopShortcut) {
   Write-Host "[installer] installed Desktop shortcut: $DesktopShortcut"
 }
-Write-Host "[installer] installed launcher wrapper: $Wrapper"
+Write-Host "[installer] installed hidden PowerShell launcher: $LauncherPs1"
+Write-Host "[installer] installed hidden WSH launcher: $LauncherVbs"
 Write-Host "[installer] generated SVG icon: $IconSvg"
 Write-Host "[installer] launch log: $LogFile"
