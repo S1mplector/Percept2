@@ -170,6 +170,7 @@ create_icns_icon() {
 
 ensure_executable "$SCRIPT_DIR/jvn" "JVN launcher script"
 ensure_executable "$SCRIPT_DIR/gradlew" "Gradle wrapper"
+xattr -d com.apple.quarantine "$SCRIPT_DIR/jvn" "$SCRIPT_DIR/gradlew" 2>/dev/null || true
 
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_BUNDLE/Contents/MacOS" "$APP_BUNDLE/Contents/Resources" "$LOG_DIR"
@@ -198,7 +199,17 @@ mkdir -p "\$(dirname -- "\$LOG_FILE")"
 
 alert_failure() {
   local message="\$1"
-  osascript -e "display alert \\"JVN Engine Hub failed\\" message \\"\$message\\n\\nSee ~/Library/Logs/JVN Engine Hub/launcher.log.\\" as critical" >/dev/null 2>&1 || true
+  local last_line=""
+  if [[ -f "\$LOG_FILE" ]]; then
+    last_line="\$(tail -n 20 "\$LOG_FILE" | sed '/^[[:space:]]*$/d' | tail -n 1)"
+  fi
+  osascript \
+    -e 'on run argv' \
+    -e 'set msg to item 1 of argv' \
+    -e 'set lastLine to item 2 of argv' \
+    -e 'display alert "JVN Engine Hub failed" message (msg & "\n\nLast log line: " & lastLine & "\n\nSee ~/Library/Logs/JVN Engine Hub/launcher.log.") as critical' \
+    -e 'end run' \
+    -- "\$message" "\$last_line" >/dev/null 2>&1 || true
 }
 
 cd "\$PROJECT_DIR" || {
@@ -226,13 +237,17 @@ if ! command -v java >/dev/null 2>&1; then
   exit 1
 fi
 
-if [[ ! -x ./gradlew ]]; then
-  echo "[JVN] Missing executable ./gradlew in \$PROJECT_DIR" | tee -a "\$LOG_FILE"
-  alert_failure "gradlew is missing or not executable."
+if [[ ! -f ./gradlew ]]; then
+  echo "[JVN] Missing ./gradlew in \$PROJECT_DIR" | tee -a "\$LOG_FILE"
+  alert_failure "gradlew is missing."
   exit 1
 fi
 
-./gradlew -q --console=plain -p "\$PROJECT_DIR" :hub:run 2>&1 | tee -a "\$LOG_FILE"
+if [[ ! -x ./gradlew ]]; then
+  chmod u+x ./gradlew 2>>"\$LOG_FILE" || true
+fi
+
+bash ./gradlew -q --console=plain -p "\$PROJECT_DIR" :hub:run 2>&1 | tee -a "\$LOG_FILE"
 status="\${PIPESTATUS[0]}"
 if [[ "\$status" -ne 0 ]]; then
   alert_failure "Startup failed with exit code \$status."
@@ -272,6 +287,7 @@ cp "$svg_icon" "$APP_BUNDLE/Contents/Resources/jvn-engine-hub.svg"
 if [[ -n "$icns_icon" ]]; then
   touch "$APP_BUNDLE"
 fi
+xattr -dr com.apple.quarantine "$APP_BUNDLE" 2>/dev/null || true
 
 echo "[installer] installed app: $APP_BUNDLE"
 echo "[installer] generated SVG icon: $svg_icon"
