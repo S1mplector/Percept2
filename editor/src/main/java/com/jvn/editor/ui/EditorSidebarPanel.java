@@ -4,7 +4,7 @@ import java.util.EnumMap;
 import java.util.Map;
 
 public enum EditorSidebarPanel {
-  PROJECT("project", "Project", EditorPanelPlacement.LEFT, true, "icon-panel-project", "project_explorer_orange_transparent.png"),
+  PROJECT("project", "Project", EditorPanelPlacement.LEFT, true, "icon-panel-project", "project_inspector_orange_transparent.png"),
   TIMELINE("timeline", "Timeline", EditorPanelPlacement.HIDDEN, true, "icon-panel-timeline", "timeline_editor_orange_transparent.png"),
   INSPECTOR("inspector", "Inspector", EditorPanelPlacement.HIDDEN, false, "icon-panel-inspector", "project_inspector_orange_transparent.png"),
   VNS_DIAGNOSTICS("vns_diagnostics", "VNS Diagnostics", EditorPanelPlacement.HIDDEN, true, "icon-panel-diagnostics", "vns_diagnostics_orange_transparent.png"),
@@ -16,6 +16,7 @@ public enum EditorSidebarPanel {
   LAYERED_IMAGES("layered_images", "Layered Image Visualizer", EditorPanelPlacement.HIDDEN, true, "icon-panel-layered", "layered_image_visualizer_orange_transparent.png"),
   IMAGE_ATTRIBUTES("image_attributes", "Image Attributes Tool", EditorPanelPlacement.HIDDEN, false, "icon-panel-image-attributes", null),
   IMAGE_TINT("image_tint", "Scene Lighting Studio", EditorPanelPlacement.HIDDEN, true, "icon-panel-image-tint", "scene_lighting_studio_tool_orange_transparent.png"),
+  PARTICLE_FX("particle_fx", "Particle FX", EditorPanelPlacement.HIDDEN, true, "icon-panel-particle-fx", "particle_effects_orange_transparent.png"),
   MENU_FLOW("menu_flow", "Menu Flow", EditorPanelPlacement.HIDDEN, true, "icon-panel-menuflow", "menu_flow_editor_orange_transparent.png"),
   VERSION_CONTROL("version_control", "Version Control", EditorPanelPlacement.HIDDEN, true, "icon-panel-vcs", "version_control_orange_transparent_v2.png"),
   HELP("help", "Help", EditorPanelPlacement.HIDDEN, true, "icon-panel-help", "help.png"),

@@ -55,6 +55,7 @@ import com.jvn.editor.ui.LayoutEditorLauncherView;
 import com.jvn.editor.ui.LayoutStudioWindowManager;
 import com.jvn.editor.ui.MenuFlowEditorView;
 import com.jvn.editor.ui.NewProjectWizard;
+import com.jvn.editor.ui.ParticleFxToolView;
 import com.jvn.editor.ui.PhoneAssetsToolView;
 import com.jvn.editor.ui.ProjectExplorerView;
 import com.jvn.editor.ui.ProjectViewportSpec;
@@ -173,6 +174,7 @@ public class EditorApp extends Application {
   private LayeredImageVisualizerView layeredImageVisualizerView;
   private ImageAttributesToolView imageAttributesToolView;
   private ImageTintToolView imageTintToolView;
+  private ParticleFxToolView particleFxToolView;
   private LayoutStudioWindowManager layoutStudioWindowManager;
   private MenuFlowEditorView menuFlowEditorView;
   private EditorSettingsView editorSettingsView;
@@ -214,6 +216,7 @@ public class EditorApp extends Application {
   private Tab tabLayeredImageVisualizer;
   private Tab tabImageAttributesTool;
   private Tab tabImageTintTool;
+  private Tab tabParticleFxTool;
   private Tab tabMenuFlow;
   private Tab tabLeftAdd;
   private Tab tabRightAdd;
@@ -3074,6 +3077,18 @@ public class EditorApp extends Application {
     Clipboard.getSystemClipboard().setContent(content);
   }
 
+  private void insertParticleFxCommand(String command) {
+    if (command == null || command.isBlank()) return;
+    FileEditorTab ft = getActiveFileTab();
+    if (ft != null && ft.getKind() == FileEditorTab.Kind.VNS) {
+      ft.insertVnsSnippet(command + System.lineSeparator());
+      if (status != null) status.setText("Inserted particle FX command.");
+      return;
+    }
+    copyToClipboard(command);
+    if (status != null) status.setText("Open a VNS script to insert. Copied particle FX command instead.");
+  }
+
   private void refreshTabDirtyIndicators() {
     if (filesTabs == null) return;
     for (Tab t : filesTabs.getTabs()) {
@@ -3358,6 +3373,7 @@ public class EditorApp extends Application {
       case LAYERED_IMAGES -> tabLayeredImageVisualizer;
       case IMAGE_ATTRIBUTES -> tabImageAttributesTool;
       case IMAGE_TINT -> tabImageTintTool;
+      case PARTICLE_FX -> tabParticleFxTool;
       case MENU_FLOW -> tabMenuFlow;
       case VERSION_CONTROL -> tabVersionControl;
       case HELP -> tabHelp;
@@ -3381,6 +3397,7 @@ public class EditorApp extends Application {
       case LAYERED_IMAGES -> ensureLayeredImageVisualizerTab(targetPane);
       case IMAGE_ATTRIBUTES -> ensureImageAttributesToolTab(targetPane);
       case IMAGE_TINT -> ensureImageTintToolTab(targetPane);
+      case PARTICLE_FX -> ensureParticleFxToolTab(targetPane);
       case MENU_FLOW -> ensureMenuFlowTab(targetPane);
       case VERSION_CONTROL -> ensureVersionControlTab(targetPane);
       case HELP -> ensureHelpTab(targetPane);
@@ -3514,6 +3531,17 @@ public class EditorApp extends Application {
     imageTintToolView.setOnToggleFullscreen(() -> toggleImageToolFullscreen(imageTintToolView));
     imageTintToolView.setFullscreenActive(false);
     return imageTintToolView;
+  }
+
+  private ParticleFxToolView ensureParticleFxToolView() {
+    if (particleFxToolView != null) return particleFxToolView;
+    particleFxToolView = new ParticleFxToolView();
+    particleFxToolView.setOnInsertCommand(this::insertParticleFxCommand);
+    particleFxToolView.setOnCopyCommand(command -> {
+      copyToClipboard(command);
+      if (status != null) status.setText("Copied particle FX command.");
+    });
+    return particleFxToolView;
   }
 
   private MenuFlowEditorView ensureMenuFlowEditorView() {
@@ -4463,6 +4491,23 @@ public class EditorApp extends Application {
     return attachSidebarPanelTab(tabImageTintTool, EditorSidebarPanel.IMAGE_TINT, targetPane);
   }
 
+  private Tab ensureParticleFxToolTab(TabPane targetPane) {
+    closePanelWindow(EditorSidebarPanel.PARTICLE_FX, true);
+    ParticleFxToolView particleFx = ensureParticleFxToolView();
+    if (targetPane == null || particleFx == null) return null;
+    if (tabParticleFxTool == null) {
+      tabParticleFxTool = new Tab("Particle FX", particleFx);
+      tabParticleFxTool.setClosable(true);
+      tabParticleFxTool.setOnClosed(e -> {
+        tabParticleFxTool = null;
+        releaseSidebarPanelIfUnused(EditorSidebarPanel.PARTICLE_FX);
+      });
+    } else if (tabParticleFxTool.getContent() != particleFx) {
+      tabParticleFxTool.setContent(particleFx);
+    }
+    return attachSidebarPanelTab(tabParticleFxTool, EditorSidebarPanel.PARTICLE_FX, targetPane);
+  }
+
   private Tab ensureMenuFlowTab(TabPane targetPane) {
     closePanelWindow(EditorSidebarPanel.MENU_FLOW, true);
     MenuFlowEditorView menuFlow = ensureMenuFlowEditorView();
@@ -4937,6 +4982,7 @@ public class EditorApp extends Application {
     else if (tab == tabLayeredImageVisualizer) tabLayeredImageVisualizer = null;
     else if (tab == tabImageAttributesTool) tabImageAttributesTool = null;
     else if (tab == tabImageTintTool) tabImageTintTool = null;
+    else if (tab == tabParticleFxTool) tabParticleFxTool = null;
     else if (tab == tabMenuFlow) tabMenuFlow = null;
     else if (tab == tabPuppeteerLauncher) tabPuppeteerLauncher = null;
     else if (tab == tabScriptEditorLauncher) tabScriptEditorLauncher = null;
@@ -5013,6 +5059,7 @@ public class EditorApp extends Application {
       case LAYERED_IMAGES -> layeredImageVisualizerView != null;
       case IMAGE_ATTRIBUTES -> imageAttributesToolView != null;
       case IMAGE_TINT -> imageTintToolView != null;
+      case PARTICLE_FX -> particleFxToolView != null;
       case MENU_FLOW -> menuFlowEditorView != null;
       case VERSION_CONTROL -> versionControlView != null;
       case HELP -> helpCenterView != null;
@@ -5097,6 +5144,7 @@ public class EditorApp extends Application {
         }
         imageTintToolView = null;
       }
+      case PARTICLE_FX -> particleFxToolView = null;
       case MENU_FLOW -> {
         if (menuFlowEditorView != null) {
           menuFlowEditorView.setProjectRoot(null);
@@ -5292,6 +5340,15 @@ public class EditorApp extends Application {
       launchPanelAsWindow("Scene Lighting Studio", view, 800, 650, EditorSidebarPanel.IMAGE_TINT);
     }, () -> {
       rememberPanelPlacement(EditorSidebarPanel.IMAGE_TINT, EditorPanelPlacement.HIDDEN);
+      applyDefaultSidebarPreferences();
+    });
+
+    addChooserActionRow(pane, actions, EditorSidebarPanel.PARTICLE_FX, targetPlacement, "Particle FX", null, () -> {
+      rememberPanelPlacement(EditorSidebarPanel.PARTICLE_FX, targetPlacement);
+      Tab t = ensureParticleFxToolTab(pane);
+      if (t != null) pane.getSelectionModel().select(t);
+    }, () -> launchPanelAsWindow("Particle FX", ensureParticleFxToolView(), 520, 520, EditorSidebarPanel.PARTICLE_FX), () -> {
+      rememberPanelPlacement(EditorSidebarPanel.PARTICLE_FX, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
     });
 
