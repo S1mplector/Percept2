@@ -112,6 +112,7 @@ public class RunConsoleView extends BorderPane {
     private final AnimationTimer perfHudTimer;
     private long lastPerfHudUpdateNs = -1L;
     private long lastFrameNs = -1L;
+    private long lastPerfHudFrameNs = -1L;
     private double smoothedProcessCpu = Double.NaN;
     private double smoothedFps = Double.NaN;
     private final Set<String> compiledModules = Collections.synchronizedSet(new LinkedHashSet<>());
@@ -285,6 +286,10 @@ public class RunConsoleView extends BorderPane {
     }
 
     public void setState(EngineState state) {
+        if (state != EngineState.RUNNING) {
+            smoothedFps = Double.NaN;
+            lastFrameNs = -1L;
+        }
         this.engineState = state;
         Platform.runLater(() -> {
             String label;
@@ -930,16 +935,19 @@ public class RunConsoleView extends BorderPane {
     }
 
     private void updatePerfHud(long nowNs) {
+        // Throttle AnimationTimer to ~16.67ms (60fps) to avoid interfering with editor frame rate limiting.
+        // Without this, the perfHudTimer can pull the shared JavaFX pulse faster, breaking the editor's FPS cap.
+        if (lastPerfHudFrameNs > 0L && (nowNs - lastPerfHudFrameNs) < 16_667_000L) return;
+        lastPerfHudFrameNs = nowNs;
+
         // Skip all work when the window is not on screen (minimized, hidden, or closed).
         // The timer stays alive so it resumes correctly if the window is restored.
         Scene scene = getScene();
         if (scene == null || scene.getWindow() == null || !scene.getWindow().isShowing()) return;
 
-        // Only track per-frame FPS while the process is actively running.
-        // When stopped/failed the FPS figure is meaningless and the per-pulse cost is wasted.
-        if (engineState == EngineState.RUNNING
-                || engineState == EngineState.BUILDING
-                || engineState == EngineState.STARTING) {
+        // Only track per-frame FPS while the engine is actively running.
+        // During BUILDING/STARTING the FPS measurement is meaningless (no game frame is running).
+        if (engineState == EngineState.RUNNING) {
             if (lastFrameNs > 0L) {
                 double instantFps = 1_000_000_000.0 / Math.max(1L, nowNs - lastFrameNs);
                 smoothedFps = smoothRatio(smoothedFps, instantFps, PERF_FPS_SMOOTH_ALPHA);
@@ -981,16 +989,26 @@ public class RunConsoleView extends BorderPane {
         double cpuPercent = cpuRatio * 100.0;
         double fpsValue = Math.max(0.0, smoothedFps);
 
+        String fpsText;
+        double fpsSampleValue;
+        if (engineState == EngineState.RUNNING && isRatioValid(smoothedFps)) {
+            fpsText = String.format(Locale.ROOT, "FPS %.0f", fpsValue);
+            fpsSampleValue = fpsValue;
+        } else {
+            fpsText = "FPS --";
+            fpsSampleValue = 0.0;
+        }
+
         perfGraphTooltip.setText(String.format(
             Locale.ROOT,
-            "CPU %.0f%% | JVN %.0f MB | FPS %.0f",
+            "CPU %.0f%% | JVN %.0f MB | %s",
             cpuPercent,
             jvnUsedMb,
-            fpsValue));
+            fpsText));
         perfCpuValue.setText(String.format(Locale.ROOT, "CPU %.0f%%", cpuPercent));
         perfJvmValue.setText(String.format(Locale.ROOT, "JVN %.0f MB", jvnUsedMb));
-        perfFpsValue.setText(String.format(Locale.ROOT, "FPS %.0f", fpsValue));
-        perfGraph.pushSample(cpuPercent, jvnUsedMb, fpsValue, jvnCeilingMb);
+        perfFpsValue.setText(fpsText);
+        perfGraph.pushSample(cpuPercent, jvnUsedMb, fpsSampleValue, jvnCeilingMb);
     }
 
     private static final class PerfGraph {
