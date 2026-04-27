@@ -1086,7 +1086,13 @@ public class ScriptEditorLauncherView extends BorderPane {
 
   private void showLaunchError(String message) {
     setStatus(message);
-    EditorDialogs.error(dialogOwner(), "Text Editor", "Could not complete text editor action\n" + message);
+    EditorDialogs.error(
+        dialogOwner(),
+        "Text Editor",
+        "Could not complete the text editor action.\n" + message,
+        null,
+        "Confirm the target file and project root still exist.",
+        "Review the text editor command in Launcher Settings if this uses a custom editor.");
   }
 
   private Window dialogOwner() {

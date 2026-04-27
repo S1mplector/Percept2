@@ -1,9 +1,11 @@
 package com.jvn.editor.ui;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -19,6 +21,9 @@ import javafx.scene.control.ListView;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TitledPane;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -112,7 +117,23 @@ public final class EditorDialogs {
   }
 
   public static void error(Window owner, String title, String message) {
-    show(owner, title, message, null, ActionSpec.accent("close", "Close", null));
+    error(owner, title, message, null);
+  }
+
+  public static void error(Window owner,
+                           String title,
+                           String message,
+                           Throwable cause,
+                           String... recoveryHints) {
+    ErrorDialogModel model = buildErrorDialogModel(title, message, cause, recoveryHints);
+    show(
+        owner,
+        title == null || title.isBlank() ? "Error" : title.trim(),
+        model.headline(),
+        model.content(),
+        ActionSpec.neutral("copy", "Copy Details", () -> copyToClipboard(model.report()))
+            .closeOnAction(false),
+        ActionSpec.accent("close", "Close", null));
   }
 
   public static boolean confirm(Window owner,
@@ -212,6 +233,175 @@ public final class EditorDialogs {
     area.getStyleClass().add("editor-dialog-text-area");
     area.setPrefRowCount(16);
     show(owner, title, message, area, ActionSpec.accent("close", closeLabel == null ? "Close" : closeLabel, null));
+  }
+
+  private static ErrorDialogModel buildErrorDialogModel(String title,
+                                                        String message,
+                                                        Throwable cause,
+                                                        String... recoveryHints) {
+    String summary = normalizeDialogText(message, "The operation could not be completed.");
+    Throwable root = rootCause(cause);
+    List<String> hints = recoveryHints(summary, root, recoveryHints);
+
+    VBox content = new VBox(12);
+    content.getStyleClass().add("editor-dialog-error-content");
+
+    HBox badgeRow = new HBox(8);
+    badgeRow.setAlignment(Pos.CENTER_LEFT);
+    Label badge = new Label("ERROR");
+    badge.getStyleClass().add("editor-dialog-error-badge");
+    Label context = new Label(title == null || title.isBlank() ? "JVN" : title.trim());
+    context.getStyleClass().add("editor-dialog-error-context");
+    context.setWrapText(true);
+    badgeRow.getChildren().addAll(badge, context);
+
+    VBox whatHappened = new VBox(5, sectionLabel("What happened"), bodyLabel(summary));
+    content.getChildren().addAll(badgeRow, whatHappened);
+
+    if (root != null) {
+      content.getChildren().add(new VBox(5, sectionLabel("Likely cause"), bodyLabel(causeSummary(root))));
+    }
+
+    if (!hints.isEmpty()) {
+      VBox hintBox = new VBox(5);
+      hintBox.getChildren().add(sectionLabel("What you can try"));
+      for (String hint : hints) {
+        hintBox.getChildren().add(hintLabel(hint));
+      }
+      content.getChildren().add(hintBox);
+    }
+
+    String report = buildErrorReport(title, summary, root, cause, hints);
+    TitledPane technicalDetails = technicalDetailsPane(report);
+    content.getChildren().add(technicalDetails);
+
+    return new ErrorDialogModel(
+        "JVN could not complete this action. Review the cause and next steps below.",
+        content,
+        report);
+  }
+
+  private static Label sectionLabel(String text) {
+    Label label = new Label(text == null ? "" : text);
+    label.getStyleClass().add("editor-dialog-section-title");
+    return label;
+  }
+
+  private static Label bodyLabel(String text) {
+    Label label = new Label(text == null ? "" : text);
+    label.getStyleClass().add("editor-dialog-message");
+    label.setWrapText(true);
+    label.setMaxWidth(520);
+    return label;
+  }
+
+  private static Label hintLabel(String text) {
+    Label label = bodyLabel("- " + normalizeDialogText(text, "Try the action again."));
+    label.getStyleClass().add("editor-dialog-error-hint");
+    return label;
+  }
+
+  private static TitledPane technicalDetailsPane(String report) {
+    TextArea details = new TextArea(report == null ? "" : report);
+    details.setEditable(false);
+    details.setWrapText(false);
+    details.getStyleClass().add("editor-dialog-text-area");
+    details.setPrefRowCount(7);
+
+    TitledPane pane = new TitledPane("Technical details", details);
+    pane.getStyleClass().add("editor-dialog-error-details");
+    pane.setExpanded(false);
+    pane.setCollapsible(true);
+    return pane;
+  }
+
+  private static List<String> recoveryHints(String summary, Throwable root, String... providedHints) {
+    LinkedHashSet<String> hints = new LinkedHashSet<>();
+    if (providedHints != null) {
+      for (String hint : providedHints) {
+        if (hint != null && !hint.isBlank()) hints.add(hint.trim());
+      }
+    }
+    if (!hints.isEmpty()) return new ArrayList<>(hints);
+
+    String haystack = (summary + " " + (root == null ? "" : root.getMessage()))
+        .toLowerCase(Locale.ROOT);
+    if (haystack.contains("workspace root")) {
+      hints.add("Launch JVN from the repository root or reopen the project through the launcher.");
+    }
+    if (haystack.contains("jvn.project") || haystack.contains("manifest")) {
+      hints.add("Open a project folder that contains a readable jvn.project file.");
+    }
+    if (haystack.contains("open") || haystack.contains("load") || haystack.contains("read")
+        || haystack.contains("not found")) {
+      hints.add("Confirm the file or folder still exists and your account can read it.");
+    }
+    if (haystack.contains("save") || haystack.contains("write") || haystack.contains("create")) {
+      hints.add("Confirm the destination folder exists and your account can write to it.");
+    }
+    if (haystack.contains("process") || haystack.contains("gradle") || haystack.contains("run")
+        || haystack.contains("launch")) {
+      hints.add("Check the run console or terminal output for process-specific errors.");
+    }
+    if (hints.isEmpty()) {
+      hints.add("Check the selected project, file, or folder and try the action again.");
+    }
+    hints.add("Copy the technical details if you need to report the issue.");
+    return new ArrayList<>(hints);
+  }
+
+  private static String buildErrorReport(String title,
+                                         String summary,
+                                         Throwable root,
+                                         Throwable cause,
+                                         List<String> hints) {
+    StringBuilder report = new StringBuilder();
+    report.append("Title: ").append(normalizeDialogText(title, "Error")).append('\n');
+    report.append("Summary: ").append(summary).append('\n');
+    if (root != null) {
+      report.append("Root cause: ").append(causeSummary(root)).append('\n');
+    }
+    if (hints != null && !hints.isEmpty()) {
+      report.append('\n').append("Suggested next steps:").append('\n');
+      for (String hint : hints) {
+        report.append("- ").append(hint).append('\n');
+      }
+    }
+    if (cause != null) {
+      report.append('\n').append("Stack trace:").append('\n');
+      StringWriter stack = new StringWriter();
+      cause.printStackTrace(new PrintWriter(stack));
+      report.append(stack.toString().stripTrailing());
+    }
+    return report.toString().stripTrailing();
+  }
+
+  private static String causeSummary(Throwable throwable) {
+    if (throwable == null) return "Unknown error";
+    String message = normalizeDialogText(throwable.getMessage(), throwable.getClass().getSimpleName());
+    return throwable.getClass().getSimpleName() + ": " + message;
+  }
+
+  private static Throwable rootCause(Throwable throwable) {
+    Throwable current = throwable;
+    for (int depth = 0; current != null && current.getCause() != null && depth < 32; depth++) {
+      Throwable next = current.getCause();
+      if (next == current) break;
+      current = next;
+    }
+    return current;
+  }
+
+  private static String normalizeDialogText(String text, String fallback) {
+    String normalized = text == null ? "" : text.trim();
+    if (normalized.isBlank()) return fallback == null ? "" : fallback;
+    return normalized;
+  }
+
+  private static void copyToClipboard(String text) {
+    ClipboardContent content = new ClipboardContent();
+    content.putString(text == null ? "" : text);
+    Clipboard.getSystemClipboard().setContent(content);
   }
 
   private static Stage createStage(Window owner,
@@ -333,5 +523,8 @@ public final class EditorDialogs {
       }
     });
     return stage;
+  }
+
+  private record ErrorDialogModel(String headline, VBox content, String report) {
   }
 }

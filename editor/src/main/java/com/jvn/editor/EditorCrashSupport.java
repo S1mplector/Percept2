@@ -80,19 +80,19 @@ final class EditorCrashSupport {
   private static void showCrashAlert(Thread thread, Throwable throwable, Path logFile) {
     if (!SHOWING_ALERT.compareAndSet(false, true)) return;
     try {
-      String detail = safeMessage(throwable);
       String pathLine = logFile != null
-          ? "A crash log was written to:\n" + logFile.toAbsolutePath()
+          ? "Crash log written to:\n" + logFile.toAbsolutePath()
           : "No crash log could be written.";
-      EditorDialogs.showTextBlock(
+      EditorDialogs.error(
           null,
           "JVN Editor",
-          "JVN Editor Error",
-          "An unexpected editor error occurred.\n\n"
-              + "Thread: " + (thread != null ? thread.getName() : "<unknown>") + "\n"
-              + "Error: " + detail + "\n\n"
-              + pathLine,
-          "Close");
+          "An unexpected editor error occurred on thread "
+              + (thread != null ? thread.getName() : "<unknown>")
+              + ".",
+          throwable,
+          pathLine,
+          "Save any recoverable work in other windows before continuing.",
+          "Restart the editor if the UI behaves inconsistently after this error.");
     } catch (Exception ex) {
       ex.printStackTrace(System.err);
     } finally {

@@ -5504,20 +5504,91 @@ public class PuppeteerWindow extends Stage {
     }
 
     private void showOverlayError(String title, String header, String detail) {
-        Label detailLabel = new Label(detail == null || detail.isBlank() ? "Unknown error" : detail.trim());
-        detailLabel.setWrapText(true);
-        detailLabel.setStyle("-fx-text-fill: #e6a8b3; -fx-font-size: 11px;");
+        String normalizedTitle = title == null || title.isBlank() ? "Puppeteer Error" : title.trim();
+        String normalizedHeader = header == null || header.isBlank()
+            ? "Puppeteer could not complete this action."
+            : header.trim();
+        String normalizedDetail = detail == null || detail.isBlank() ? "Unknown error" : detail.trim();
+        List<String> hints = overlayErrorHints(normalizedHeader, normalizedDetail);
+
+        VBox content = new VBox(10);
+        content.setFillWidth(true);
+        content.getChildren().addAll(
+            overlaySectionLabel("What happened"),
+            overlayBodyLabel(normalizedHeader, "#d8d8d8"),
+            overlaySectionLabel("Details"),
+            overlayBodyLabel(normalizedDetail, "#e6a8b3"));
+        if (!hints.isEmpty()) {
+            content.getChildren().add(overlaySectionLabel("What you can try"));
+            for (String hint : hints) {
+                content.getChildren().add(overlayBodyLabel("- " + hint, "#b8b8b8"));
+            }
+        }
+
+        String report = overlayErrorReport(normalizedTitle, normalizedHeader, normalizedDetail, hints);
         overlayDialog.showDialog(
-            title,
-            header,
-            detailLabel,
+            normalizedTitle,
+            "JVN could not complete this Puppeteer action.",
+            content,
+            ActionEditorDialogOverlay.ActionSpec.neutral("Copy Details", () -> copyToClipboard(report))
+                .closeOnAction(false),
             ActionEditorDialogOverlay.ActionSpec.accent("Close", overlayDialog::hideOverlay)
         );
     }
 
+    private Label overlaySectionLabel(String text) {
+        Label label = new Label(text);
+        label.setStyle("-fx-text-fill: #f0f0f0; -fx-font-size: 11px; -fx-font-weight: bold;");
+        return label;
+    }
+
+    private Label overlayBodyLabel(String text, String color) {
+        Label label = new Label(text == null ? "" : text);
+        label.setWrapText(true);
+        label.setStyle("-fx-text-fill: " + (color == null ? "#b0b0b0" : color) + "; -fx-font-size: 11px;");
+        return label;
+    }
+
+    private List<String> overlayErrorHints(String header, String detail) {
+        LinkedHashSet<String> hints = new LinkedHashSet<>();
+        String haystack = ((header == null ? "" : header) + " " + (detail == null ? "" : detail))
+            .toLowerCase(Locale.ROOT);
+        if (haystack.contains("project root")) {
+            hints.add("Open Puppeteer from a project-backed scene or reopen the project in the editor.");
+        }
+        if (haystack.contains("save") || haystack.contains("disk")) {
+            hints.add("Confirm the project folder exists and is writable.");
+        }
+        if (haystack.contains("parse") || haystack.contains("code")) {
+            hints.add("Check the generated code for incomplete edits or syntax errors.");
+        }
+        if (haystack.contains("clip")) {
+            hints.add("Verify the clip still matches the selected track and entity type.");
+        }
+        if (hints.isEmpty()) {
+            hints.add("Review the selected timeline, track, and project context, then try again.");
+        }
+        hints.add("Copy the details if you need to report the issue.");
+        return new ArrayList<>(hints);
+    }
+
+    private String overlayErrorReport(String title, String header, String detail, List<String> hints) {
+        StringBuilder report = new StringBuilder();
+        report.append("Title: ").append(title).append('\n');
+        report.append("Summary: ").append(header).append('\n');
+        report.append("Details: ").append(detail).append('\n');
+        if (hints != null && !hints.isEmpty()) {
+            report.append('\n').append("Suggested next steps:").append('\n');
+            for (String hint : hints) {
+                report.append("- ").append(hint).append('\n');
+            }
+        }
+        return report.toString().stripTrailing();
+    }
+
     private void copyToClipboard(String text) {
         ClipboardContent content = new ClipboardContent();
-        content.putString(text);
+        content.putString(text == null ? "" : text);
         Clipboard.getSystemClipboard().setContent(content);
     }
 

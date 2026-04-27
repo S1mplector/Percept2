@@ -341,7 +341,13 @@ public class EditorApp extends Application {
       openVnsFile(f);
     } catch (Exception ex) {
       status.setText("Load failed");
-      EditorDialogs.error(stage, "Error", "Failed to load: " + ex.getMessage());
+      EditorDialogs.error(
+          stage,
+          "Open VNS Script",
+          "Failed to load the selected VNS script.",
+          ex,
+          "Confirm the script file still exists and is readable.",
+          "Check included scripts and referenced assets if the parser reported a nested error.");
     }
   }
 
@@ -540,7 +546,13 @@ public class EditorApp extends Application {
     File workspace = resolveWorkspaceRoot();
     if (workspace == null || !workspace.isDirectory()) {
       status.setText("Cannot locate JVN workspace root");
-      EditorDialogs.error(dialogOwner(), "Build Unavailable", "Cannot locate the JVN workspace root.");
+      EditorDialogs.error(
+          dialogOwner(),
+          "Build Unavailable",
+          "Cannot locate the JVN workspace root.",
+          null,
+          "Launch the editor from the JVN repository root.",
+          "Use the launcher to reopen the project if the workspace path changed.");
       return;
     }
 
@@ -754,7 +766,13 @@ public class EditorApp extends Application {
   private void openSample(String absolutePath) {
     File f = new File(absolutePath);
     if (!f.exists()) {
-      EditorDialogs.error(dialogOwner(), "Error", "Sample not found: " + absolutePath);
+      EditorDialogs.error(
+          dialogOwner(),
+          "Open Sample",
+          "Sample file was not found:\n" + absolutePath,
+          null,
+          "Confirm the sample assets are present in this checkout.",
+          "Refresh or restore the project files if the sample was moved.");
       return;
     }
     openFile(f);
@@ -833,7 +851,13 @@ public class EditorApp extends Application {
       try {
         initializeEditorStage(primaryStage);
       } catch (Exception ex) {
-        EditorDialogs.error(primaryStage, "JVN Editor", "Startup failed: " + ex.getMessage());
+        EditorDialogs.error(
+            primaryStage,
+            "JVN Editor",
+            "Startup failed while preparing the editor window.",
+            ex,
+            "Retry editor startup from the splash screen if it is still available.",
+            "Confirm the workspace and editor resources are readable.");
       } finally {
         splash.close();
       }
@@ -2163,7 +2187,13 @@ public class EditorApp extends Application {
       openJesFile(f);
     } catch (Exception ex) {
       status.setText("Load failed");
-      EditorDialogs.error(stage, "Error", "Failed to load: " + ex.getMessage());
+      EditorDialogs.error(
+          stage,
+          "Open JES Script",
+          "Failed to load the selected JES script.",
+          ex,
+          "Confirm the script file still exists and is readable.",
+          "Check the script syntax near the reported parser location.");
     }
   }
 
@@ -2183,7 +2213,13 @@ public class EditorApp extends Application {
       openFile(f);
     } catch (Exception ex) {
       status.setText("Load failed");
-      EditorDialogs.error(stage, "Error", "Failed to load: " + ex.getMessage());
+      EditorDialogs.error(
+          stage,
+          "Open Text File",
+          "Failed to load the selected text file.",
+          ex,
+          "Confirm the file still exists and is readable.",
+          "Try opening the file from the project explorer if it was recently moved.");
     }
   }
 
@@ -2234,7 +2270,13 @@ public class EditorApp extends Application {
       }
     } catch (Exception ex) {
       status.setText("Apply failed");
-      EditorDialogs.error(dialogOwner(), "Error", "Failed to apply code: " + ex.getMessage());
+      EditorDialogs.error(
+          dialogOwner(),
+          "Apply Code",
+          "Failed to apply the current code to the preview.",
+          ex,
+          "Check the script or Java syntax around the latest edits.",
+          "Undo recent changes if the preview was working before this edit.");
     }
     refreshMainCommandUi.run();
   }
@@ -2388,7 +2430,13 @@ public class EditorApp extends Application {
       if (currentTab != null && filesTabs != null) closeAndDisposeTab(currentTab);
     } catch (Exception ex) {
       status.setText("Save As failed");
-      EditorDialogs.error(stage, "Error", "Failed to save as: " + ex.getMessage());
+      EditorDialogs.error(
+          stage,
+          "Save As",
+          "Failed to save the file to the selected location.",
+          ex,
+          "Confirm the destination folder exists and is writable.",
+          "Choose a different folder if the current location is protected.");
     }
   }
 

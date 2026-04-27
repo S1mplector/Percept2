@@ -2287,6 +2287,62 @@
   -fx-spacing: 8;
 }
 
+.editor-dialog-error-content {
+  -fx-spacing: 12;
+}
+
+.editor-dialog-error-badge {
+  -fx-background-color: #fde1e7;
+  -fx-background-radius: 6;
+  -fx-border-color: #ba6475;
+  -fx-border-radius: 6;
+  -fx-text-fill: #6b2735;
+  -fx-font-size: 10px;
+  -fx-font-weight: 900;
+  -fx-padding: 3 7 3 7;
+}
+
+.editor-dialog-error-context {
+  -fx-text-fill: #171717;
+  -fx-font-size: 12px;
+  -fx-font-weight: 800;
+}
+
+.editor-dialog-section-title {
+  -fx-text-fill: #272727;
+  -fx-font-size: 11px;
+  -fx-font-weight: 900;
+}
+
+.editor-dialog-error-hint {
+  -fx-text-fill: #515151;
+}
+
+.editor-dialog-error-details {
+  -fx-background-color: transparent;
+  -fx-text-fill: #222222;
+}
+
+.editor-dialog-error-details > .title {
+  -fx-background-color: #eeeeee;
+  -fx-background-radius: 9;
+  -fx-border-color: #cfcfcf;
+  -fx-border-radius: 9;
+  -fx-padding: 7 9 7 9;
+}
+
+.editor-dialog-error-details > .title > .text {
+  -fx-fill: #222222;
+  -fx-font-size: 11px;
+  -fx-font-weight: 800;
+}
+
+.editor-dialog-error-details > .content {
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
+  -fx-padding: 8 0 0 0;
+}
+
 .editor-dialog-field-label {
   -fx-text-fill: #2d2d2d;
   -fx-font-size: 11px;
