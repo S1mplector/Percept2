@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -40,8 +41,11 @@ import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBase;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.CheckMenuItem;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.ContentDisplay;
@@ -50,10 +54,13 @@ import javafx.scene.control.ListView;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.ProgressBar;
 import javafx.scene.control.RadioButton;
 import javafx.scene.control.RadioMenuItem;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SeparatorMenuItem;
+import javafx.scene.control.Spinner;
+import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
@@ -1320,6 +1327,8 @@ public class PuppeteerWindow extends Stage {
         miLoadClip.setOnAction(e -> loadAndApplyClip());
         MenuItem miImportAssets = new MenuItem("Import Assets...");
         miImportAssets.setOnAction(e -> showAssetImporterWindow());
+        MenuItem miRecordGif = new MenuItem("Record Preview as GIF...");
+        miRecordGif.setOnAction(e -> showRecordGifDialog());
         MenuItem miClose = new MenuItem("Close Puppeteer");
         miClose.setOnAction(e -> requestWindowClose());
 
@@ -1337,6 +1346,7 @@ public class PuppeteerWindow extends Stage {
             miSaveClip,
             miLoadClip,
             miImportAssets,
+            miRecordGif,
             new SeparatorMenuItem(),
             miClose
         );
@@ -2863,6 +2873,10 @@ public class PuppeteerWindow extends Stage {
 
     private java.io.File projectRoot;
     private java.io.File scriptTargetFile;
+    private PuppeteerWorkspacePrefs workspacePrefs;
+    private PuppeteerDraftStore draftStore;
+    private PuppeteerPreviewRecorder previewRecorder;
+    private boolean draftRestorePromptShown;
 
     public void setProjectRoot(java.io.File root) {
         this.projectRoot = root;
@@ -2874,6 +2888,297 @@ public class PuppeteerWindow extends Stage {
         codePreview.setProjectRoot(root);
         updateViewportInfoLabel();
         refreshSidebarTabs();
+        installWorkspaceServicesForProjectRoot();
+    }
+
+    private void installWorkspaceServicesForProjectRoot() {
+        // Replace any previously bound services if the project root changed.
+        if (draftStore != null) {
+            draftStore.shutdown();
+            draftStore = null;
+        }
+        previewRecorder = null;
+        workspacePrefs = null;
+        draftRestorePromptShown = false;
+        if (projectRoot == null) return;
+
+        workspacePrefs = PuppeteerWorkspacePrefs.load(projectRoot);
+        applyWorkspacePrefsToSplits();
+
+        draftStore = new PuppeteerDraftStore(projectRoot);
+        previewRecorder = new PuppeteerPreviewRecorder(animationPreview.getPreviewCanvas());
+
+        // Run on the next tick so the timeline name field has the resolved value.
+        Platform.runLater(this::promptDraftRestoreIfNeeded);
+    }
+
+    private void applyWorkspacePrefsToSplits() {
+        if (workspacePrefs == null) return;
+        workspacePrefs.getDivider(PuppeteerWorkspacePrefs.DIVIDER_TOP).ifPresent(v -> {
+            if (topWorkspaceSplit != null && !topWorkspaceSplit.getDividers().isEmpty()) {
+                topWorkspaceSplit.setDividerPositions(v);
+                topWorkspaceDividerPosition = v;
+            }
+        });
+        workspacePrefs.getDivider(PuppeteerWorkspacePrefs.DIVIDER_BOTTOM).ifPresent(v -> {
+            if (bottomWorkspaceSplit != null && !bottomWorkspaceSplit.getDividers().isEmpty()) {
+                bottomWorkspaceSplit.setDividerPositions(v);
+                bottomWorkspaceDividerPosition = v;
+            }
+        });
+        workspacePrefs.getDivider(PuppeteerWorkspacePrefs.DIVIDER_CONTENT).ifPresent(v -> {
+            if (workspaceContentSplit != null && !workspaceContentSplit.getDividers().isEmpty()) {
+                workspaceContentSplit.setDividerPositions(v);
+            }
+        });
+        workspacePrefs.getDivider(PuppeteerWorkspacePrefs.DIVIDER_CODE_PANE).ifPresent(v -> {
+            codePaneDividerPosition = v;
+            if (mainWorkspaceSplit != null && !mainWorkspaceSplit.getDividers().isEmpty()) {
+                mainWorkspaceSplit.setDividerPositions(v);
+            }
+        });
+    }
+
+    private void persistWorkspacePrefs() {
+        if (workspacePrefs == null) return;
+        if (topWorkspaceSplit != null && !topWorkspaceSplit.getDividers().isEmpty()) {
+            workspacePrefs.setDivider(PuppeteerWorkspacePrefs.DIVIDER_TOP,
+                topWorkspaceSplit.getDividerPositions()[0]);
+        }
+        if (bottomWorkspaceSplit != null && !bottomWorkspaceSplit.getDividers().isEmpty()) {
+            workspacePrefs.setDivider(PuppeteerWorkspacePrefs.DIVIDER_BOTTOM,
+                bottomWorkspaceSplit.getDividerPositions()[0]);
+        }
+        if (workspaceContentSplit != null && !workspaceContentSplit.getDividers().isEmpty()) {
+            workspacePrefs.setDivider(PuppeteerWorkspacePrefs.DIVIDER_CONTENT,
+                workspaceContentSplit.getDividerPositions()[0]);
+        }
+        if (mainWorkspaceSplit != null && !mainWorkspaceSplit.getDividers().isEmpty()) {
+            workspacePrefs.setDivider(PuppeteerWorkspacePrefs.DIVIDER_CODE_PANE,
+                mainWorkspaceSplit.getDividerPositions()[0]);
+        }
+        workspacePrefs.save();
+    }
+
+    private File resolveRegisteredJesFile(String timelineName) {
+        if (projectRoot == null || timelineName == null || timelineName.isBlank()) return null;
+        return projectRoot.toPath()
+            .resolve("scripts").resolve("timelines").resolve(timelineName + ".jes")
+            .toFile();
+    }
+
+    private void scheduleDraftSave() {
+        if (draftStore == null) return;
+        String name = tfTimelineName != null ? tfTimelineName.getText().trim() : "";
+        if (name.isEmpty()) return;
+        String code = codePreview != null ? codePreview.getCode() : null;
+        if (code == null || code.isBlank()) return;
+        draftStore.scheduleSave(name, code);
+    }
+
+    private void showRecordGifDialog() {
+        if (previewRecorder == null || projectRoot == null) {
+            Alert err = new Alert(Alert.AlertType.WARNING,
+                "Recording requires a saved project (no project root is set).",
+                ButtonType.OK);
+            err.initOwner(this);
+            err.showAndWait();
+            return;
+        }
+        if (previewRecorder.isActive()) {
+            Alert err = new Alert(Alert.AlertType.INFORMATION,
+                "A recording is already in progress.", ButtonType.OK);
+            err.initOwner(this);
+            err.showAndWait();
+            return;
+        }
+
+        double durationMs = Math.max(100.0, project.getTotalDurationMs());
+        double loopStart = project.hasLoopRegion() ? project.getLoopStartMs() : 0.0;
+        double loopEnd = project.hasLoopRegion() ? project.getLoopEndMs() : durationMs;
+
+        TextField tfStart = new TextField(String.valueOf((long) loopStart));
+        tfStart.setPrefColumnCount(7);
+        TextField tfEnd = new TextField(String.valueOf((long) loopEnd));
+        tfEnd.setPrefColumnCount(7);
+        Spinner<Integer> spFps = new Spinner<>();
+        spFps.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 60, 24));
+        spFps.setEditable(true);
+        spFps.setPrefWidth(80);
+        CheckBox cbGif = new CheckBox("Animated GIF");
+        cbGif.setSelected(true);
+        CheckBox cbPng = new CheckBox("PNG sequence");
+        cbPng.setSelected(false);
+
+        String defaultBaseName = (tfTimelineName != null && !tfTimelineName.getText().isBlank())
+            ? tfTimelineName.getText().trim()
+            : "preview";
+        TextField tfBaseName = new TextField(defaultBaseName);
+        tfBaseName.setPrefColumnCount(20);
+
+        Label lblStatus = new Label("Output: " + projectRoot.toPath()
+            .resolve("exports").resolve("puppeteer").toString());
+        lblStatus.setWrapText(true);
+        lblStatus.setStyle("-fx-text-fill: #989898; -fx-font-size: 10px;");
+
+        ProgressBar progress = new ProgressBar(0.0);
+        progress.setPrefWidth(360);
+        progress.setVisible(false);
+        progress.setManaged(false);
+
+        GridPane form = new GridPane();
+        form.setHgap(8);
+        form.setVgap(8);
+        form.setPadding(new Insets(14, 16, 12, 16));
+        form.add(new Label("Base name:"), 0, 0); form.add(tfBaseName, 1, 0, 3, 1);
+        form.add(new Label("Start (ms):"), 0, 1); form.add(tfStart, 1, 1);
+        form.add(new Label("End (ms):"), 2, 1); form.add(tfEnd, 3, 1);
+        form.add(new Label("FPS:"), 0, 2); form.add(spFps, 1, 2);
+        form.add(cbGif, 2, 2); form.add(cbPng, 3, 2);
+        form.add(progress, 0, 3, 4, 1);
+        form.add(lblStatus, 0, 4, 4, 1);
+        form.setStyle("-fx-background-color: #181818;");
+
+        Button btnRecord = new Button("Start Recording");
+        btnRecord.setStyle(STYLE_BTN_GREEN);
+        Button btnCancel = new Button("Cancel");
+        btnCancel.setStyle(STYLE_BTN_DARK);
+        HBox actions = new HBox(8, btnCancel, btnRecord);
+        actions.setAlignment(Pos.CENTER_RIGHT);
+        actions.setPadding(new Insets(0, 16, 14, 16));
+        actions.setStyle("-fx-background-color: #181818;");
+
+        VBox content = new VBox(form, actions);
+        content.setStyle("-fx-background-color: #181818;");
+
+        Stage dialog = new Stage();
+        dialog.initOwner(this);
+        dialog.initModality(javafx.stage.Modality.WINDOW_MODAL);
+        dialog.setTitle("Record Puppeteer Preview");
+        dialog.setScene(new Scene(content, 520, 280));
+        dialog.setResizable(false);
+
+        btnCancel.setOnAction(e -> {
+            previewRecorder.cancel();
+            dialog.close();
+        });
+        btnRecord.setOnAction(e -> {
+            double startMs;
+            double endMs;
+            try {
+                startMs = Double.parseDouble(tfStart.getText().trim());
+                endMs = Double.parseDouble(tfEnd.getText().trim());
+            } catch (NumberFormatException ex) {
+                lblStatus.setText("Start and End must be numeric milliseconds.");
+                return;
+            }
+            if (endMs <= startMs) {
+                lblStatus.setText("End must be greater than Start.");
+                return;
+            }
+            String baseName = tfBaseName.getText().trim();
+            if (baseName.isEmpty()) {
+                lblStatus.setText("Choose a base name for the output files.");
+                return;
+            }
+            int fps = spFps.getValue() != null ? spFps.getValue() : 24;
+            File outputDir = projectRoot.toPath()
+                .resolve("exports").resolve("puppeteer").toFile();
+
+            PuppeteerPreviewRecorder.Spec spec = new PuppeteerPreviewRecorder.Spec(
+                outputDir, baseName, startMs, endMs, fps,
+                cbPng.isSelected(), cbGif.isSelected());
+
+            // Pause normal playback before driving the playhead frame-by-frame.
+            if (project.isPlaying()) pause();
+
+            btnRecord.setDisable(true);
+            tfStart.setDisable(true);
+            tfEnd.setDisable(true);
+            spFps.setDisable(true);
+            cbGif.setDisable(true);
+            cbPng.setDisable(true);
+            tfBaseName.setDisable(true);
+            progress.setVisible(true);
+            progress.setManaged(true);
+            progress.setProgress(0.0);
+            lblStatus.setText("Recording " + spec.frameCount() + " frames at " + fps + " fps...");
+
+            previewRecorder.record(spec, new PuppeteerPreviewRecorder.Hooks() {
+                @Override
+                public void seekAndRender(double timeMs) {
+                    project.setPlayheadMs(timeMs);
+                    timelinePanel.refresh();
+                    updateTimeLabel();
+                    updatePreview();
+                }
+                @Override
+                public void onProgress(double normalizedProgress) {
+                    progress.setProgress(normalizedProgress);
+                }
+                @Override
+                public void onFinished(PuppeteerPreviewRecorder.Result result) {
+                    if (result.success()) {
+                        StringBuilder sb = new StringBuilder("Recording complete:\n");
+                        for (File f : result.outputs()) {
+                            sb.append("• ").append(f.getAbsolutePath()).append('\n');
+                        }
+                        lblStatus.setText(sb.toString().trim());
+                        btnRecord.setText("Done");
+                        btnRecord.setDisable(false);
+                        btnRecord.setOnAction(ev -> dialog.close());
+                    } else {
+                        lblStatus.setText("Recording failed: " + result.error());
+                        btnRecord.setDisable(false);
+                    }
+                }
+            });
+        });
+
+        dialog.setOnCloseRequest(e -> {
+            if (previewRecorder.isActive()) previewRecorder.cancel();
+        });
+        dialog.show();
+    }
+
+    private void promptDraftRestoreIfNeeded() {
+        if (draftRestorePromptShown || draftStore == null || tfTimelineName == null) return;
+        String name = tfTimelineName.getText().trim();
+        if (name.isEmpty()) return;
+        File registered = resolveRegisteredJesFile(name);
+        Optional<PuppeteerDraftStore.DraftRecord> draft =
+            draftStore.findRestorableDraft(name, registered);
+        if (draft.isEmpty()) return;
+        draftRestorePromptShown = true;
+        PuppeteerDraftStore.DraftRecord rec = draft.get();
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Restore Puppeteer draft?");
+        alert.setHeaderText("An unsaved draft for \"" + name + "\" was found");
+        long ageSec = Math.max(0L,
+            (System.currentTimeMillis() - rec.lastModifiedMs()) / 1000L);
+        String ageText = ageSec < 60 ? ageSec + "s ago"
+            : ageSec < 3600 ? (ageSec / 60) + " min ago"
+            : (ageSec / 3600) + "h " + ((ageSec % 3600) / 60) + "m ago";
+        alert.setContentText(
+            "Draft saved " + ageText + " at:\n" + rec.file().getAbsolutePath()
+                + "\n\nRestore the draft into the code preview? You can review and Commit it,\n"
+                + "or click Discard to delete the draft and continue with the registered timeline.");
+        ButtonType restore = new ButtonType("Restore", ButtonType.OK.getButtonData());
+        ButtonType discard = new ButtonType("Discard", ButtonType.CANCEL.getButtonData());
+        ButtonType keep = new ButtonType("Keep Draft", ButtonType.NO.getButtonData());
+        alert.getButtonTypes().setAll(restore, keep, discard);
+        alert.initOwner(this);
+        alert.showAndWait().ifPresent(result -> {
+            if (result == restore) {
+                if (codePreview != null) {
+                    codePreview.setCode(rec.code());
+                    stagePreviewFromCode();
+                }
+            } else if (result == discard) {
+                draftStore.deleteDraft(name);
+            }
+            // "Keep Draft" leaves the file alone for next session.
+        });
     }
 
     public void setSourceScriptFile(java.io.File file) {
@@ -4124,6 +4429,7 @@ public class PuppeteerWindow extends Stage {
         refreshExportPreview();
         setDirty(true);
         updateStatusBar();
+        scheduleDraftSave();
     }
 
     private void updateStatusBar() {
@@ -4842,6 +5148,13 @@ public class PuppeteerWindow extends Stage {
 
     private void closeNow() {
         stopAudioPreview();
+        if (previewRecorder != null) previewRecorder.cancel();
+        persistWorkspacePrefs();
+        if (draftStore != null) {
+            draftStore.flushNow();
+            draftStore.shutdown();
+            draftStore = null;
+        }
         if (assetImporterWindow != null) {
             assetImporterWindow.close();
             assetImporterWindow = null;
@@ -5392,6 +5705,10 @@ public class PuppeteerWindow extends Stage {
             }
             setDirty(false);
             setTitle("Puppeteer - " + name + " (saved & registered)");
+            if (draftStore != null) draftStore.deleteDraft(name);
+            if (workspacePrefs != null) {
+                workspacePrefs.pushRecent(name, resolveRegisteredJesFile(name));
+            }
         } else {
             // Registry succeeded but disk write failed — keep dirty
             setTitle("Puppeteer - " + name + " (registered, save FAILED)");
