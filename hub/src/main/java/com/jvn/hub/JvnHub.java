@@ -135,6 +135,12 @@ public final class JvnHub {
     UIManager.put("info", BG);
     UIManager.put("nimbusBase", BG);
     UIManager.put("nimbusBlueGrey", BORDER_NEUTRAL);
+    // Root chrome that can otherwise bleed through as the cross-platform L&F's
+    // default light grey behind the content pane and at the window edges.
+    UIManager.put("Frame.background", BG);
+    UIManager.put("Window.background", BG);
+    UIManager.put("RootPane.background", BG);
+    UIManager.put("Dialog.background", BG);
     UIManager.put("Panel.background", BG);
     UIManager.put("OptionPane.background", BG);
     UIManager.put("ToolTip.background", BG);
@@ -166,6 +172,14 @@ public final class JvnHub {
     root.add(buildFooter(), BorderLayout.SOUTH);
 
     frame.setContentPane(root);
+    // Force every paintable surface to pure black so the hub's body matches
+    // the splash exactly — defeats the cross-platform L&F's default light-grey
+    // root pane / frame background that would otherwise tint the window edges.
+    frame.setBackground(BG);
+    frame.getRootPane().setBackground(BG);
+    frame.getRootPane().setOpaque(true);
+    frame.getContentPane().setBackground(BG);
+
     frame.setResizable(false);
     frame.pack();
     frame.setMinimumSize(new Dimension(640, 460));
