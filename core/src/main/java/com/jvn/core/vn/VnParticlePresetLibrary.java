@@ -26,11 +26,13 @@ import com.jvn.core.scene2d.ParticleEmitter2D;
  *       preset's alpha curve.</li>
  * </ul>
  *
- * <p>Currently the library ships with fully-tuned configurations for
- * {@link VnParticleCommand.Preset#SNOW SNOW} and
- * {@link VnParticleCommand.Preset#RAIN RAIN}. Other presets defined on the
- * enum are reserved for future implementations and will fall back to a
- * neutral default if requested.</p>
+ * <p>The library ships with tuned configurations for weather and ambience:
+ * {@link VnParticleCommand.Preset#SNOW SNOW},
+ * {@link VnParticleCommand.Preset#RAIN RAIN},
+ * {@link VnParticleCommand.Preset#SAKURA SAKURA},
+ * {@link VnParticleCommand.Preset#FIREFLIES FIREFLIES},
+ * {@link VnParticleCommand.Preset#DUST DUST}, and
+ * {@link VnParticleCommand.Preset#LEAVES LEAVES}.</p>
  */
 public final class VnParticlePresetLibrary {
 
@@ -85,6 +87,10 @@ public final class VnParticlePresetLibrary {
     switch (cmd.getPreset()) {
       case SNOW -> configureSnow(emitter, cmd, width, height);
       case RAIN -> configureRain(emitter, cmd, width, height);
+      case SAKURA -> configureSakura(emitter, cmd, width, height);
+      case FIREFLIES -> configureFireflies(emitter, cmd, width, height);
+      case DUST -> configureDust(emitter, cmd, width, height);
+      case LEAVES -> configureLeaves(emitter, cmd, width, height);
       default -> configureNeutral(emitter, cmd, width, height);
     }
   }
@@ -168,6 +174,138 @@ public final class VnParticlePresetLibrary {
     // Cool, slightly desaturated blue → fades transparent.
     setColors(emitter, cmd, /*r*/0.72, /*g*/0.82, /*b*/0.95,
         /*startA*/0.72, /*endR*/0.60, /*endG*/0.72, /*endB*/0.92, /*endA*/0.0);
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  //  SAKURA
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Soft pink petals drifting across the scene. The preset uses a broad top
+   * spawn strip, long lifetimes, and mostly downward angles so petals linger
+   * without looking like snow. Use {@code wind=} to steer the fall across the
+   * frame.
+   */
+  private static void configureSakura(ParticleEmitter2D emitter, VnParticleCommand cmd, double width, double height) {
+    double i = scaleIntensity(cmd.getIntensity());
+    double speedScale = cmd.getSpeedScale();
+
+    emitter.setEmitting(true);
+    emitter.setZ(cmd.getLayer());
+    emitter.setPosition(width * 0.5, -height * 0.08);
+    emitter.setSpawnArea(-width * 0.58, width * 0.58, -height * 0.02, height * 0.16);
+    emitter.setMaxParticles(clampMax((int) Math.round(120 * i)));
+    emitter.setEmissionRate(24.0 * i);
+
+    emitter.setLifeRange(5.5, 9.0);
+    emitter.setSizeRange(4.0, 9.0, 0.85);
+    emitter.setAngleRange(68.0, 118.0);
+    emitter.setSpeedRange(24.0 * speedScale, 68.0 * speedScale);
+    emitter.setGravity(24.0);
+    emitter.setWindX(cmd.getWindX());
+    emitter.setAdditive(false);
+    emitter.setTexture(null);
+
+    setColors(emitter, cmd, /*r*/1.0, /*g*/0.70, /*b*/0.82,
+        /*startA*/0.86, /*endR*/1.0, /*endG*/0.52, /*endB*/0.74, /*endA*/0.0);
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  //  FIREFLIES
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Sparse warm glows for night scenes. Fireflies spawn in the lower-middle of
+   * the viewport and rise gently with additive blending, so even low intensity
+   * values remain readable without flooding the scene.
+   */
+  private static void configureFireflies(ParticleEmitter2D emitter, VnParticleCommand cmd, double width, double height) {
+    double i = scaleIntensity(cmd.getIntensity());
+    double speedScale = cmd.getSpeedScale();
+
+    emitter.setEmitting(true);
+    emitter.setZ(cmd.getLayer());
+    emitter.setPosition(width * 0.5, height * 0.62);
+    emitter.setSpawnArea(-width * 0.46, width * 0.46, -height * 0.20, height * 0.24);
+    emitter.setMaxParticles(clampMax((int) Math.round(48 * i)));
+    emitter.setEmissionRate(8.0 * i);
+
+    emitter.setLifeRange(3.2, 6.0);
+    emitter.setSizeRange(3.5, 7.0, 0.45);
+    emitter.setAngleRange(210.0, 330.0);
+    emitter.setSpeedRange(8.0 * speedScale, 26.0 * speedScale);
+    emitter.setGravity(-10.0);
+    emitter.setWindX(cmd.getWindX());
+    emitter.setAdditive(true);
+    emitter.setTexture(null);
+
+    setColors(emitter, cmd, /*r*/1.0, /*g*/0.92, /*b*/0.32,
+        /*startA*/0.90, /*endR*/0.55, /*endG*/1.0, /*endB*/0.42, /*endA*/0.0);
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  //  DUST
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Subtle floating motes for sunbeams, interiors, and old rooms. Dust fills
+   * the whole scene, drifts slowly upward, and uses very low alpha so it adds
+   * texture without becoming visual noise.
+   */
+  private static void configureDust(ParticleEmitter2D emitter, VnParticleCommand cmd, double width, double height) {
+    double i = scaleIntensity(cmd.getIntensity());
+    double speedScale = cmd.getSpeedScale();
+
+    emitter.setEmitting(true);
+    emitter.setZ(cmd.getLayer());
+    emitter.setPosition(width * 0.5, height * 0.5);
+    emitter.setSpawnArea(-width * 0.52, width * 0.52, -height * 0.52, height * 0.52);
+    emitter.setMaxParticles(clampMax((int) Math.round(180 * i)));
+    emitter.setEmissionRate(18.0 * i);
+
+    emitter.setLifeRange(6.0, 11.0);
+    emitter.setSizeRange(1.2, 3.2, 0.65);
+    emitter.setAngleRange(235.0, 305.0);
+    emitter.setSpeedRange(5.0 * speedScale, 18.0 * speedScale);
+    emitter.setGravity(-4.0);
+    emitter.setWindX(cmd.getWindX());
+    emitter.setAdditive(true);
+    emitter.setTexture(null);
+
+    setColors(emitter, cmd, /*r*/1.0, /*g*/0.88, /*b*/0.64,
+        /*startA*/0.22, /*endR*/1.0, /*endG*/0.92, /*endB*/0.74, /*endA*/0.0);
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  //  LEAVES
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Autumn leaves and broad foreground debris. Larger particles, faster fall,
+   * and a long lifetime make this read as sparse leaves instead of rain.
+   */
+  private static void configureLeaves(ParticleEmitter2D emitter, VnParticleCommand cmd, double width, double height) {
+    double i = scaleIntensity(cmd.getIntensity());
+    double speedScale = cmd.getSpeedScale();
+
+    emitter.setEmitting(true);
+    emitter.setZ(cmd.getLayer());
+    emitter.setPosition(width * 0.5, -height * 0.12);
+    emitter.setSpawnArea(-width * 0.64, width * 0.64, -height * 0.06, height * 0.08);
+    emitter.setMaxParticles(clampMax((int) Math.round(90 * i)));
+    emitter.setEmissionRate(18.0 * i);
+
+    emitter.setLifeRange(4.5, 8.0);
+    emitter.setSizeRange(7.0, 15.0, 0.80);
+    emitter.setAngleRange(62.0, 118.0);
+    emitter.setSpeedRange(42.0 * speedScale, 96.0 * speedScale);
+    emitter.setGravity(54.0);
+    emitter.setWindX(cmd.getWindX());
+    emitter.setAdditive(false);
+    emitter.setTexture(null);
+
+    setColors(emitter, cmd, /*r*/0.95, /*g*/0.42, /*b*/0.14,
+        /*startA*/0.90, /*endR*/0.62, /*endG*/0.24, /*endB*/0.08, /*endA*/0.0);
   }
 
   // ──────────────────────────────────────────────────────────────────────────

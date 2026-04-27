@@ -8,6 +8,13 @@ Format:
 
 ----
 
+## 2026-04-27 — Expanded VNS particle ambience presets
+The VNS particle preset library now has tuned implementations for `sakura`, `fireflies`, `dust`, and `leaves` instead of routing those preset names through the neutral fallback.
+
+Use `[particles preset=sakura]`, `[pfx fireflies intensity=0.4]`, `[weather dust opacity=0.5]`, or `[fx leaves wind=-20 tint=#ccdd7722]` to add scene-wide petals, night glows, floating motes, and autumn leaves. The existing shaping options still apply: `intensity`, `layer`, `opacity`, `speed`, `wind`, `duration`, and `tint`.
+
+Focused preset tests cover the new tuning so these ambience effects keep their scene-sized spawn areas, alpha behavior, wind handling, and blend modes stable.
+
 ## 2026-04-27 — Documentation update covering the engine hub
 New documentation has been added regarding the engine hub. You can read engine-hub.md for more information. 
 
