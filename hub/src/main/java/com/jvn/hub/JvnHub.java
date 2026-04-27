@@ -701,12 +701,16 @@ public final class JvnHub {
 
   /**
    * Vector logomark for the JVN engine — fully painted, no PNG dependency.
-   * Renders "JVN" in bold sans-serif with a white-to-blue vertical gradient,
-   * an accent stripe in the engine's primary blue, and a tracked-out "ENGINE"
-   * subtitle. Also exposes {@link #renderToImage(int, int)} so the OS window
-   * icon can use the same artwork.
+   * Renders "JVN" in bold sans-serif with a vertical orange gradient (light
+   * peach at the top fading into deep orange at the baseline) — an
+   * understated nod to the engine's original fiery wordmark, on a black field.
+   * {@link #renderToImage(int, int)} exposes the same artwork as a raster so
+   * the OS window/dock icon stays in sync.
    */
   private static final class JvnLogoIcon implements Icon {
+    private static final Color ORANGE_TOP    = Color.decode("#ffe2a8");
+    private static final Color ORANGE_BOTTOM = Color.decode("#ff5a1f");
+
     private final int width;
     private final int height;
 
@@ -738,41 +742,22 @@ public final class JvnHub {
       g2.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
       g2.translate(x, y);
 
-      // --- "JVN" wordmark with vertical white → blue gradient -----------------
-      int jvnSize = Math.max(12, Math.round(height * 0.62f));
+      // "JVN" wordmark, vertically centered, with a top-to-bottom orange gradient.
+      int jvnSize = Math.max(14, Math.round(height * 0.78f));
       Font jvnFont = new Font(Font.SANS_SERIF, Font.BOLD, jvnSize);
       g2.setFont(jvnFont);
       FontMetrics fm = g2.getFontMetrics();
       String jvn = "JVN";
       int jvnW = fm.stringWidth(jvn);
       int jvnX = (width - jvnW) / 2;
-      int jvnY = fm.getAscent() + Math.round(height * 0.04f);
+      int textTop = (height - (fm.getAscent() + fm.getDescent())) / 2;
+      int jvnY = textTop + fm.getAscent();
 
       GradientPaint gradient = new GradientPaint(
-          0, jvnY - fm.getAscent(), Color.WHITE,
-          0, jvnY + fm.getDescent(), ACCENT_BLUE);
+          0, jvnY - fm.getAscent(), ORANGE_TOP,
+          0, jvnY + fm.getDescent(), ORANGE_BOTTOM);
       g2.setPaint(gradient);
       g2.drawString(jvn, jvnX, jvnY);
-
-      // --- Accent stripe in primary blue, full text width ---------------------
-      int stripeY = jvnY + fm.getDescent() + Math.max(1, Math.round(height * 0.04f));
-      int stripeH = Math.max(1, Math.round(height * 0.04f));
-      g2.setColor(ACCENT_BLUE);
-      g2.fillRect(jvnX, stripeY, jvnW, stripeH);
-
-      // --- Tracked-out "ENGINE" subtitle --------------------------------------
-      int subSize = Math.max(8, Math.round(height * 0.16f));
-      Font subFont = new Font(Font.SANS_SERIF, Font.BOLD, subSize);
-      g2.setFont(subFont);
-      FontMetrics fmSub = g2.getFontMetrics();
-      String sub = "E N G I N E";
-      int subW = fmSub.stringWidth(sub);
-      int subX = (width - subW) / 2;
-      int subY = stripeY + stripeH + fmSub.getAscent() + Math.max(1, Math.round(height * 0.05f));
-      // Clamp inside the icon bounds even on tiny sizes.
-      if (subY + fmSub.getDescent() > height) subY = height - fmSub.getDescent();
-      g2.setColor(TEXT_MUTED);
-      g2.drawString(sub, subX, subY);
 
       g2.dispose();
     }
