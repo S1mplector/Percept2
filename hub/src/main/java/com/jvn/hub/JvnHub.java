@@ -67,7 +67,7 @@ import javax.swing.plaf.basic.BasicScrollBarUI;
  * without touching the {@code jvnw} wrapper CLI.
  *
  * <p>Visually mirrors {@code com.jvn.editor.ui.StartupSplashOverlay}: black background,
- * blue accent, compact header + log panel.</p>
+ * blue accent, compact header + simple activity panel.</p>
  *
  * <p>Shells out to {@code ./gradlew} and {@code git}. The hub remains responsive while
  * a task runs; only one task at a time is allowed and the buttons disable for the
@@ -98,7 +98,10 @@ public final class JvnHub {
   private final JFrame frame = new JFrame("JVN Engine Hub");
   private final JLabel statusLabel = new JLabel("Idle");
   private final JLabel versionLabel = new JLabel();
-  private final JTextArea logArea = new JTextArea();
+  private final ActivitySpinner activitySpinner = new ActivitySpinner();
+  private final JLabel activityTitle = new JLabel("Ready");
+  private final JLabel activityDetail = new JLabel("Choose an action to get started.");
+  private final javax.swing.Timer spinnerTimer = new javax.swing.Timer(70, e -> activitySpinner.tick());
   private final List<JButton> actionButtons = new ArrayList<>();
   private final AtomicReference<Process> runningProcess = new AtomicReference<>();
 
@@ -502,43 +505,37 @@ public final class JvnHub {
     buttons.add(makeAction("Update Engine", "git pull --rebase",
         VectorIcon.Kind.REFRESH, true, this::updateEngine));
 
-    // Scroll log fills remaining space; wrap buttons in a container that doesn't stretch.
     JPanel center = new JPanel(new BorderLayout(0, 10));
     center.setBackground(BG);
     center.add(buttons, BorderLayout.NORTH);
-    center.add(buildLogPanel(), BorderLayout.CENTER);
+    center.add(buildActivityPanel(), BorderLayout.CENTER);
     return center;
   }
 
-  private JPanel buildLogPanel() {
-    logArea.setEditable(false);
-    logArea.setFocusable(false);
-    logArea.setLineWrap(true);
-    logArea.setWrapStyleWord(true);
-    logArea.setOpaque(true);
-    logArea.setBackground(BG);
-    logArea.setForeground(LOG_TEXT);
-    logArea.setCaretColor(LOG_TEXT);
-    logArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 11));
-    logArea.setMargin(new Insets(8, 8, 8, 8));
-    logArea.setBorder(BorderFactory.createEmptyBorder());
+  private JPanel buildActivityPanel() {
+    activityTitle.setForeground(TEXT_PRIMARY);
+    activityTitle.setFont(activityTitle.getFont().deriveFont(Font.BOLD, 15f));
+    activityDetail.setForeground(TEXT_MUTED);
+    activityDetail.setFont(activityDetail.getFont().deriveFont(Font.PLAIN, 11f));
 
-    JScrollPane scroll = new JScrollPane(logArea);
-    scroll.setBorder(BorderFactory.createLineBorder(BORDER_NEUTRAL));
-    scroll.setBackground(BG);
-    scroll.getViewport().setOpaque(true);
-    scroll.getViewport().setBackground(BG);
-    scroll.setPreferredSize(new Dimension(0, 180));
+    JPanel text = new JPanel();
+    text.setBackground(PANEL_BG);
+    text.setLayout(new BoxLayout(text, BoxLayout.Y_AXIS));
+    activityTitle.setAlignmentX(Component.LEFT_ALIGNMENT);
+    activityDetail.setAlignmentX(Component.LEFT_ALIGNMENT);
+    text.add(activityTitle);
+    text.add(Box.createVerticalStrut(4));
+    text.add(activityDetail);
 
-    // Dark-themed, flat scrollbars matching the rest of the chrome.
-    styleScrollBar(scroll.getVerticalScrollBar());
-    styleScrollBar(scroll.getHorizontalScrollBar());
-    scroll.getVerticalScrollBar().setUnitIncrement(16);
-
-    JPanel wrap = new JPanel(new BorderLayout());
-    wrap.setBackground(BG);
-    wrap.add(scroll, BorderLayout.CENTER);
-    return wrap;
+    JPanel panel = new JPanel(new BorderLayout(14, 0));
+    panel.setBackground(PANEL_BG);
+    panel.setBorder(BorderFactory.createCompoundBorder(
+        BorderFactory.createLineBorder(BORDER_NEUTRAL),
+        new EmptyBorder(18, 18, 18, 18)));
+    panel.add(activitySpinner, BorderLayout.WEST);
+    panel.add(text, BorderLayout.CENTER);
+    panel.setPreferredSize(new Dimension(0, 112));
+    return panel;
   }
 
   private static void styleScrollBar(JScrollBar bar) {
@@ -663,6 +660,7 @@ public final class JvnHub {
     }
     setButtonsEnabled(false);
     setStatus("Running: " + label, ACCENT_BLUE);
+    setActivity("Working on " + label, "This can take a moment.", true, ACCENT_BLUE);
     return true;
   }
 
@@ -672,10 +670,16 @@ public final class JvnHub {
     Color tone = exitCode == 0 ? ACCENT_GREEN : ACCENT_ERROR;
     String prefix = exitCode == 0 ? "Done" : "Failed (exit " + exitCode + ")";
     setStatus(prefix + ": " + label, tone);
+    setActivity(prefix + ": " + label,
+        exitCode == 0 ? "Ready for the next action." : "Check the terminal or generated launcher log for details.",
+        false,
+        tone);
   }
 
   private void startProcess(List<String> command, String label) {
     new SwingWorker<Integer, String>() {
+      private String lastOutput = "";
+
       @Override protected Integer doInBackground() throws Exception {
         ProcessBuilder pb = new ProcessBuilder(command)
             .directory(projectRoot.toFile())
@@ -698,15 +702,21 @@ public final class JvnHub {
         try (BufferedReader reader = new BufferedReader(
             new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
           String line;
-          while ((line = reader.readLine()) != null) publish(line);
+          while ((line = reader.readLine()) != null) {
+            if (!line.isBlank()) {
+              lastOutput = compactMessage(line);
+            }
+          }
         } catch (IOException e) {
-          publish("[hub] stream error: " + e.getMessage());
+          lastOutput = "Stream error: " + e.getMessage();
         }
         return process.waitFor();
       }
 
       @Override protected void process(List<String> chunks) {
-        for (String line : chunks) appendLog(line);
+        if (!chunks.isEmpty()) {
+          appendLog(chunks.get(chunks.size() - 1));
+        }
       }
 
       @Override protected void done() {
@@ -715,9 +725,12 @@ public final class JvnHub {
           exit = get();
         } catch (Exception e) {
           exit = -1;
-          appendLog("[hub] task raised: " + e.getMessage());
+          lastOutput = "Task raised: " + e.getMessage();
         }
         release(label, exit);
+        if (!lastOutput.isBlank()) {
+          setActivityDetail(lastOutput);
+        }
         // Update Engine touched the working tree — re-read on-disk state so
         // the version label and announcements list reflect the new HEAD.
         if (exit == 0 && "Update Engine".equals(label)) {
@@ -734,6 +747,7 @@ public final class JvnHub {
       return;
     }
     appendLog("[hub] cancelling current task...");
+    setActivity("Cancelling task", "Stopping the running process.", true, ACCENT_ERROR);
     p.descendants().forEach(ProcessHandle::destroy);
     p.destroy();
   }
@@ -742,9 +756,11 @@ public final class JvnHub {
     Process p = runningProcess.get();
     if (p != null) {
       appendLog("[hub] cancelling running task before exit...");
+      setActivity("Cancelling task", "Closing the hub after the process stops.", true, ACCENT_ERROR);
       p.descendants().forEach(ProcessHandle::destroy);
       p.destroy();
     }
+    if (spinnerTimer.isRunning()) spinnerTimer.stop();
     frame.dispose();
     // Give child processes a moment to die.
     new Thread(() -> {
@@ -768,11 +784,35 @@ public final class JvnHub {
 
   private void appendLog(String line) {
     if (line == null) return;
+    setActivityDetail(compactMessage(line));
+  }
+
+  private void setActivity(String title, String detail, boolean spinning, Color tone) {
     SwingUtilities.invokeLater(() -> {
-      logArea.append(line);
-      logArea.append("\n");
-      logArea.setCaretPosition(logArea.getDocument().getLength());
+      activityTitle.setText(compactMessage(title));
+      activityTitle.setForeground(tone != null ? tone : TEXT_PRIMARY);
+      activityDetail.setText(compactMessage(detail));
+      activitySpinner.setActive(spinning);
+      if (spinning && !spinnerTimer.isRunning()) {
+        spinnerTimer.start();
+      } else if (!spinning && spinnerTimer.isRunning()) {
+        spinnerTimer.stop();
+      }
     });
+  }
+
+  private void setActivityDetail(String detail) {
+    SwingUtilities.invokeLater(() -> activityDetail.setText(compactMessage(detail)));
+  }
+
+  private static String compactMessage(String text) {
+    if (text == null) return "";
+    String compact = text.replaceAll("\\s+", " ").trim();
+    if (compact.startsWith("[hub] ")) compact = compact.substring(6);
+    if (compact.length() > 96) {
+      compact = compact.substring(0, 93) + "...";
+    }
+    return compact;
   }
 
   private String gradleCommand() {
@@ -904,6 +944,72 @@ public final class JvnHub {
   // ===========================================================================
   //  Nested UI primitives: flat dark button, vector icons, scrollbar UI.
   // ===========================================================================
+
+  /** Compact indeterminate spinner used in place of terminal-style output. */
+  private static final class ActivitySpinner extends JComponent {
+    private int frame = 0;
+    private boolean active = false;
+
+    ActivitySpinner() {
+      setOpaque(false);
+      setPreferredSize(new Dimension(54, 54));
+      setMinimumSize(new Dimension(54, 54));
+      setMaximumSize(new Dimension(54, 54));
+    }
+
+    void setActive(boolean active) {
+      this.active = active;
+      if (!active) frame = 0;
+      repaint();
+    }
+
+    void tick() {
+      if (!active) return;
+      frame = (frame + 1) % 12;
+      repaint();
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+      Graphics2D g2 = (Graphics2D) g.create();
+      g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+      int w = getWidth();
+      int h = getHeight();
+      float cx = w / 2f;
+      float cy = h / 2f;
+      float radius = Math.min(w, h) * 0.32f;
+
+      g2.setColor(active ? Color.decode("#07101f") : BG);
+      g2.fillOval(Math.round(cx - radius - 9), Math.round(cy - radius - 9),
+          Math.round((radius + 9) * 2), Math.round((radius + 9) * 2));
+
+      for (int i = 0; i < 12; i++) {
+        int age = active ? Math.floorMod(i - frame, 12) : i;
+        float alpha = active ? (0.22f + (11 - age) * 0.065f) : 0.16f;
+        double angle = (Math.PI * 2.0 * i / 12.0) - Math.PI / 2.0;
+        float x = cx + (float) Math.cos(angle) * radius;
+        float y = cy + (float) Math.sin(angle) * radius;
+        int dot = active && age == 0 ? 7 : 5;
+        g2.setColor(withAlpha(active ? ACCENT_BLUE : TEXT_MUTED, Math.min(1.0f, alpha)));
+        g2.fillOval(Math.round(x - dot / 2f), Math.round(y - dot / 2f), dot, dot);
+      }
+
+      if (!active) {
+        g2.setColor(ACCENT_GREEN);
+        g2.setStroke(new BasicStroke(2.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        Path2D check = new Path2D.Float();
+        check.moveTo(cx - 8, cy);
+        check.lineTo(cx - 2, cy + 7);
+        check.lineTo(cx + 11, cy - 8);
+        g2.draw(check);
+      }
+      g2.dispose();
+    }
+
+    private static Color withAlpha(Color color, float alpha) {
+      return new Color(color.getRed(), color.getGreen(), color.getBlue(), Math.round(alpha * 255f));
+    }
+  }
 
   /**
    * Custom-painted button that stays fully black (no L&F chrome) and paints its own

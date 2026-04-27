@@ -6,8 +6,8 @@
 #
 #    ~/Applications/JVN Engine Hub.app
 #
-#  The app bundle runs the in-tree ./jvn script, logs launch output, and keeps a
-#  terminal window open if startup fails so errors are visible.
+#  The app bundle runs the in-tree Gradle hub task, logs launch output, and shows
+#  a native alert if startup fails.
 #
 #  Uninstall:
 #    rm -rf "$HOME/Applications/JVN Engine Hub.app"
@@ -107,13 +107,78 @@ SVG
   echo "$icon_file"
 }
 
+create_icns_icon() {
+  local svg_file="$1"
+  local icns_file="$APP_BUNDLE/Contents/Resources/jvn-engine-hub.icns"
+  local iconset="$SUPPORT_DIR/jvn-engine-hub.iconset"
+  local source_png="$SUPPORT_DIR/jvn-engine-hub-1024.png"
+  local rendered=""
+
+  rm -rf "$iconset"
+  mkdir -p "$iconset"
+
+  # Prefer rendering the generated SVG so the icon includes the current version.
+  if command -v qlmanage >/dev/null 2>&1; then
+    rm -f "$SUPPORT_DIR/jvn-engine-hub.svg.png" "$source_png"
+    qlmanage -t -s 1024 -o "$SUPPORT_DIR" "$svg_file" >/dev/null 2>&1 || true
+    if [[ -f "$SUPPORT_DIR/jvn-engine-hub.svg.png" ]]; then
+      rendered="$SUPPORT_DIR/jvn-engine-hub.svg.png"
+    fi
+  fi
+
+  if [[ -z "$rendered" ]] && command -v sips >/dev/null 2>&1; then
+    sips -s format png "$svg_file" --out "$source_png" >/dev/null 2>&1 || true
+    if [[ -f "$source_png" ]]; then
+      rendered="$source_png"
+    fi
+  fi
+
+  # Last-resort fallback: still produce a real macOS icon from the existing PNG.
+  if [[ -z "$rendered" ]]; then
+    for candidate in \
+        "$SCRIPT_DIR/docs/assets/images/jvn_logo_os.png" \
+        "$SCRIPT_DIR/docs/assets/images/jvn_logo.png" \
+        "$SCRIPT_DIR/editor/src/main/resources/com/jvn/editor/images/jvn_logo.png"; do
+      if [[ -f "$candidate" ]]; then
+        rendered="$candidate"
+        break
+      fi
+    done
+  fi
+
+  if [[ -z "$rendered" || ! -f "$rendered" ]]; then
+    echo ""
+    return 0
+  fi
+
+  if ! command -v sips >/dev/null 2>&1 || ! command -v iconutil >/dev/null 2>&1; then
+    echo ""
+    return 0
+  fi
+
+  local names=(icon_16x16.png icon_16x16@2x.png icon_32x32.png icon_32x32@2x.png icon_128x128.png icon_128x128@2x.png icon_256x256.png icon_256x256@2x.png icon_512x512.png icon_512x512@2x.png)
+  local sizes=(16 32 32 64 128 256 256 512 512 1024)
+  for i in "${!names[@]}"; do
+    sips -z "${sizes[$i]}" "${sizes[$i]}" "$rendered" --out "$iconset/${names[$i]}" >/dev/null 2>&1 || true
+  done
+
+  iconutil -c icns "$iconset" -o "$icns_file" >/dev/null 2>&1 || true
+  if [[ -f "$icns_file" ]]; then
+    echo "$icns_file"
+  else
+    echo ""
+  fi
+}
+
 ensure_executable "$SCRIPT_DIR/jvn" "JVN launcher script"
 ensure_executable "$SCRIPT_DIR/gradlew" "Gradle wrapper"
 
+rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_BUNDLE/Contents/MacOS" "$APP_BUNDLE/Contents/Resources" "$LOG_DIR"
 
 version="$(read_project_version)"
 svg_icon="$(write_svg_icon "$version")"
+icns_icon="$(create_icns_icon "$svg_icon")"
 project_q="$(shell_quote "$SCRIPT_DIR")"
 log_q="$(shell_quote "$LOG_FILE")"
 
@@ -123,23 +188,56 @@ set -u
 PROJECT_DIR=$project_q
 LOG_FILE=$log_q
 
+export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:\${PATH:-}"
+
 mkdir -p "\$(dirname -- "\$LOG_FILE")"
 {
   echo "---- \$(date -Is) ----"
   echo "[JVN] Project: \$PROJECT_DIR"
+  echo "[JVN] PATH: \$PATH"
   echo "[JVN] Starting Engine Hub..."
 } >> "\$LOG_FILE"
 
+alert_failure() {
+  local message="\$1"
+  osascript -e "display alert \\"JVN Engine Hub failed\\" message \\"\$message\\n\\nSee ~/Library/Logs/JVN Engine Hub/launcher.log.\\" as critical" >/dev/null 2>&1 || true
+}
+
 cd "\$PROJECT_DIR" || {
   echo "[JVN] Could not cd to project directory: \$PROJECT_DIR" | tee -a "\$LOG_FILE"
-  osascript -e 'display alert "JVN Engine Hub failed" message "Could not enter the project directory. See the launcher log." as critical' >/dev/null 2>&1 || true
+  alert_failure "Could not enter the project directory."
   exit 1
 }
 
-./jvn 2>&1 | tee -a "\$LOG_FILE"
+if [[ -z "\${JAVA_HOME:-}" && -x /usr/libexec/java_home ]]; then
+  JAVA_HOME="\$(/usr/libexec/java_home -v 21 2>/dev/null || /usr/libexec/java_home 2>/dev/null || true)"
+  if [[ -n "\$JAVA_HOME" ]]; then
+    export JAVA_HOME
+    export PATH="\$JAVA_HOME/bin:\$PATH"
+  fi
+fi
+
+{
+  echo "[JVN] JAVA_HOME: \${JAVA_HOME:-}"
+  command -v java >/dev/null 2>&1 && java -version
+} >> "\$LOG_FILE" 2>&1
+
+if ! command -v java >/dev/null 2>&1; then
+  echo "[JVN] Java was not found from Finder launch environment." | tee -a "\$LOG_FILE"
+  alert_failure "Java was not found. Install Java 21 or set JAVA_HOME."
+  exit 1
+fi
+
+if [[ ! -x ./gradlew ]]; then
+  echo "[JVN] Missing executable ./gradlew in \$PROJECT_DIR" | tee -a "\$LOG_FILE"
+  alert_failure "gradlew is missing or not executable."
+  exit 1
+fi
+
+./gradlew -q --console=plain -p "\$PROJECT_DIR" :hub:run 2>&1 | tee -a "\$LOG_FILE"
 status="\${PIPESTATUS[0]}"
 if [[ "\$status" -ne 0 ]]; then
-  osascript -e 'display alert "JVN Engine Hub failed" message "Startup failed. See ~/Library/Logs/JVN Engine Hub/launcher.log." as critical' >/dev/null 2>&1 || true
+  alert_failure "Startup failed with exit code \$status."
 fi
 exit "\$status"
 LAUNCHER
@@ -162,6 +260,8 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
   <string>$(xml_escape "$version")</string>
   <key>CFBundleExecutable</key>
   <string>JVN Engine Hub</string>
+  <key>CFBundleIconFile</key>
+  <string>jvn-engine-hub</string>
   <key>LSMinimumSystemVersion</key>
   <string>10.13</string>
   <key>NSHighResolutionCapable</key>
@@ -171,8 +271,16 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
 PLIST
 
 cp "$svg_icon" "$APP_BUNDLE/Contents/Resources/jvn-engine-hub.svg"
+if [[ -n "$icns_icon" ]]; then
+  touch "$APP_BUNDLE"
+fi
 
 echo "[installer] installed app: $APP_BUNDLE"
 echo "[installer] generated SVG icon: $svg_icon"
+if [[ -n "$icns_icon" ]]; then
+  echo "[installer] generated macOS app icon: $icns_icon"
+else
+  echo "[installer] warning: could not generate .icns; Finder may show a generic app icon."
+fi
 echo "[installer] launch log: $LOG_FILE"
 echo "Open '$APP_NAME' from ~/Applications."
