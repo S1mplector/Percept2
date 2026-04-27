@@ -177,6 +177,29 @@ This strictness is surfaced in editor diagnostics and enables CI confidence for 
 
 ---
 
+## Variable Placeholders in Text
+
+Dynamic text is a common need in visual novels. Authors can surface VN variables in dialogue, choice text, and HUD messages using the `${varName}` placeholder syntax. Variables are resolved at runtime with their current values.
+
+```vns
+[set player_name "Alice"]
+[set score 42]
+
+narrator: Welcome back, ${player_name}!
+narrator: Your current score is ${score}.
+
+[hud Score: ${score}]
+```
+
+**Behavior:**
+- Missing variables resolve to **empty string** (no error).
+- Interpolation happens once per render — no nesting (`${${nested}}` does not work).
+- VNS also supports ICU-style formatting for plurals, selection, and number formatting: `{varName, plural, one{# item} other{# items}}`.
+
+For advanced formatting (plurals, gender selection, number formatting), see **[Text Formatting & ICU](../language/vns-text-formatting.md)**.
+
+---
+
 ## Full Example
 
 ```vns

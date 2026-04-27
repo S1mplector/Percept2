@@ -187,10 +187,14 @@ narrator: {speed=0.4}And then...{/speed} {delay=800}peace.
 
 ## Variable Interpolation in Dialogue
 
-Runtime interpolation uses `${variableName}` syntax inside dialogue, choice text, and HUD messages.
+Runtime interpolation uses `${variableName}` syntax inside dialogue, choice text, and HUD messages. This allows authors to surface VN variables without custom Java code.
 
 ```vns
-narrator: Welcome back, ${playerName}.
+[set player_name "Alice"]
+[set score 42]
+[set coins 150]
+
+narrator: Welcome back, ${player_name}!
 narrator: You have ${coins} gold coins.
 narrator: Current score: ${score}
 
@@ -205,6 +209,19 @@ narrator: Current score: ${score}
 - Missing variables resolve to **empty string** (no error).
 - Interpolation is **single-pass** (no nested `${}` evaluation).
 - Use `${...}` form to avoid collisions with text-effect tags like `{shake}`.
+- Dialogue text is interpolated **before** being added to history, so history contains the resolved values.
+
+### Advanced: Plurals, Gender Selection, Number Formatting
+
+For more complex text transformations (plural agreement, gender-aware pronouns, number formatting), use ICU-style syntax:
+
+```vns
+narrator: {score, plural, one{# point} other{# points}} earned!
+narrator: {gender, select, male{He} female{She} other{They}} smiled.
+narrator: Distance: {miles, number} leagues away.
+```
+
+See **[Text Formatting & ICU](vns-text-formatting.md)** for complete reference and examples.
 
 ### Difference from `@define`
 
