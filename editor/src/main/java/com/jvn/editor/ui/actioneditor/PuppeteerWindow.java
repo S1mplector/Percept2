@@ -695,7 +695,7 @@ public class PuppeteerWindow extends Stage {
             } catch (NumberFormatException ignored) {}
         });
 
-        Button btnFitDuration = makeToolbarIconButton("icon-timeline-fit", "Fit duration to content");
+        Button btnFitDuration = makeToolbarIconButton("icon-puppeteer-fit-duration", "Fit duration to content");
         btnFitDuration.setOnAction(e -> {
             this.project.fitDurationToContent();
             tfDuration.setText(String.valueOf((int) this.project.getTotalDurationMs()));
@@ -712,13 +712,6 @@ public class PuppeteerWindow extends Stage {
         });
 
         Button btnLoopIn = makeToolbarIconButton("icon-puppeteer-loop-in", "Set loop IN at playhead");
-        btnLoopIn.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #58d68d; -fx-background-radius: 4; " +
-            "-fx-border-color: #3a3a3a; -fx-border-radius: 4; -fx-padding: 2 6; -fx-font-size: 9px; -fx-cursor: hand;");
-        btnLoopIn.setText("In");
-        btnLoopIn.setContentDisplay(ContentDisplay.TEXT_ONLY);
-        btnLoopIn.setMinSize(28, 24);
-        btnLoopIn.setPrefSize(28, 24);
-        btnLoopIn.setMaxSize(28, 24);
         btnLoopIn.setOnAction(e -> {
             double inMs = project.getPlayheadMs();
             double outMs = project.hasLoopRegion() ? project.getLoopEndMs() : project.getTotalDurationMs();
@@ -730,12 +723,6 @@ public class PuppeteerWindow extends Stage {
         });
 
         Button btnLoopOut = makeToolbarIconButton("icon-puppeteer-loop-out", "Set loop OUT at playhead");
-        btnLoopOut.setStyle(btnLoopIn.getStyle());
-        btnLoopOut.setText("Out");
-        btnLoopOut.setContentDisplay(ContentDisplay.TEXT_ONLY);
-        btnLoopOut.setMinSize(28, 24);
-        btnLoopOut.setPrefSize(28, 24);
-        btnLoopOut.setMaxSize(28, 24);
         btnLoopOut.setOnAction(e -> {
             double outMs = project.getPlayheadMs();
             double inMs = project.hasLoopRegion() ? project.getLoopStartMs() : 0;
@@ -746,10 +733,7 @@ public class PuppeteerWindow extends Stage {
             }
         });
 
-        Button btnLoopClear = makeToolbarIconButton("icon-puppeteer-clear-anchor", "Clear loop region");
-        btnLoopClear.setMinSize(24, 24);
-        btnLoopClear.setPrefSize(24, 24);
-        btnLoopClear.setMaxSize(24, 24);
+        Button btnLoopClear = makeToolbarIconButton("icon-puppeteer-loop-clear", "Clear loop region");
         btnLoopClear.setOnAction(e -> {
             project.clearLoopRegion();
             timelinePanel.refresh();
@@ -810,12 +794,12 @@ public class PuppeteerWindow extends Stage {
         btnZoomFit.setOnAction(e -> timelinePanel.zoomToFit());
         Button btnFocusSelection = makeToolbarIconButton("icon-puppeteer-focus-selection", "Zoom timeline to the current selection or active track");
         btnFocusSelection.setOnAction(e -> timelinePanel.zoomToSelection());
-        Button btnPrevKeyframe = makeToolbarIconButton("icon-puppeteer-rewind", "Jump playhead to previous keyframe (Page Up)");
+        Button btnPrevKeyframe = makeToolbarIconButton("icon-puppeteer-prev-key", "Jump playhead to previous keyframe (Page Up)");
         btnPrevKeyframe.setOnAction(e -> timelinePanel.jumpPlayheadToPreviousKeyframe());
-        Button btnNextKeyframe = makeToolbarIconButton("icon-puppeteer-forward", "Jump playhead to next keyframe (Page Down)");
+        Button btnNextKeyframe = makeToolbarIconButton("icon-puppeteer-next-key", "Jump playhead to next keyframe (Page Down)");
         btnNextKeyframe.setOnAction(e -> timelinePanel.jumpPlayheadToNextKeyframe());
 
-        ToggleButton cbRipple = makeToolbarIconToggle("icon-puppeteer-loop", "Ripple-retime: shift following keys when nudging a selection");
+        ToggleButton cbRipple = makeToolbarIconToggle("icon-puppeteer-ripple", "Ripple-retime: shift following keys when nudging a selection");
         cbRipple.setSelected(timelinePanel.isRippleRetimeEnabled());
         cbRipple.setOnAction(e -> timelinePanel.setRippleRetimeEnabled(cbRipple.isSelected()));
 
@@ -826,7 +810,7 @@ public class PuppeteerWindow extends Stage {
             }
         });
 
-        Button btnReverseKeys = makeToolbarIconButton("icon-puppeteer-rewind", "Reverse selected keyframes within their current range");
+        Button btnReverseKeys = makeToolbarIconButton("icon-puppeteer-reverse-keys", "Reverse selected keyframes within their current range");
         btnReverseKeys.setOnAction(e -> {
             if (timelinePanel.reverseSelectedKeyframes()) {
                 refreshExportPreviewAndMarkDirty();
@@ -847,7 +831,7 @@ public class PuppeteerWindow extends Stage {
             }
         });
 
-        ToggleButton cbCompactExport = makeToolbarIconToggle("icon-puppeteer-save-clip", "Use compact export format");
+        ToggleButton cbCompactExport = makeToolbarIconToggle("icon-puppeteer-compact-export", "Use compact export format");
         cbCompactExport.setSelected(false);
         cbCompactExport.setOnAction(e -> {
             compactExport = cbCompactExport.isSelected();
@@ -928,7 +912,7 @@ public class PuppeteerWindow extends Stage {
         });
 
         cbRuntimePreview = makeToolbarIconToggle(
-            "icon-puppeteer-register",
+            "icon-puppeteer-runtime-preview",
             "Runtime data preview: render through TimelineData/TimelineRunner"
         );
         cbRuntimePreview.setSelected(runtimeParityPreview);
@@ -946,7 +930,7 @@ public class PuppeteerWindow extends Stage {
         lblAutoKey.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 10px;");
 
         // --- Snap-to-grid / snap-to-entity toggles ---
-        ToggleButton cbSnapGrid = makeToolbarIconToggle("icon-puppeteer-snap", "Snap entities to grid when dragging");
+        ToggleButton cbSnapGrid = makeToolbarIconToggle("icon-puppeteer-snap-grid", "Snap entities to grid when dragging");
         cbSnapGrid.setSelected(false);
         cbSnapGrid.setOnAction(e -> animationPreview.setSnapToGridEnabled(cbSnapGrid.isSelected()));
         ToggleButton cbSnapEntity = makeToolbarIconToggle("icon-puppeteer-snap-entity", "Snap to nearby entity positions");
@@ -999,7 +983,7 @@ public class PuppeteerWindow extends Stage {
         });
         Button btnManageEvents = makeToolbarIconButton("icon-puppeteer-events", "Manage timeline event cues");
         btnManageEvents.setOnAction(e -> showEventCueManagerDialog(null));
-        Button btnClearEvents = makeToolbarIconButton("icon-puppeteer-audio-clear", "Remove all timeline event cues");
+        Button btnClearEvents = makeToolbarIconButton("icon-puppeteer-event-clear", "Remove all timeline event cues");
         btnClearEvents.setOnAction(e -> {
             if (project.getEditorEventCues().isEmpty()) return;
             overlayDialog.showDialog(
@@ -4898,12 +4882,13 @@ public class PuppeteerWindow extends Stage {
         btn.getStyleClass().add("puppeteer-toolbar-icon-button");
         btn.setText("");
         btn.setGraphic(makeToolbarIcon(iconClass));
-        btn.setTooltip(new Tooltip(tooltip));
+        installToolbarTooltip(btn, tooltip);
         btn.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
         btn.setGraphicTextGap(0);
-        btn.setMinSize(34, 30);
-        btn.setPrefSize(34, 30);
-        btn.setMaxSize(34, 30);
+        btn.setMnemonicParsing(false);
+        btn.setMinSize(36, 32);
+        btn.setPrefSize(36, 32);
+        btn.setMaxSize(36, 32);
         btn.setFocusTraversable(false);
         return btn;
     }
@@ -4919,14 +4904,25 @@ public class PuppeteerWindow extends Stage {
         toggle.getStyleClass().add("puppeteer-toolbar-icon-toggle");
         toggle.setText("");
         toggle.setGraphic(makeToolbarIcon(iconClass));
-        toggle.setTooltip(new Tooltip(tooltip));
+        installToolbarTooltip(toggle, tooltip);
         toggle.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
         toggle.setGraphicTextGap(0);
-        toggle.setMinSize(34, 30);
-        toggle.setPrefSize(34, 30);
-        toggle.setMaxSize(34, 30);
+        toggle.setMnemonicParsing(false);
+        toggle.setMinSize(36, 32);
+        toggle.setPrefSize(36, 32);
+        toggle.setMaxSize(36, 32);
         toggle.setFocusTraversable(false);
         return toggle;
+    }
+
+    private static void installToolbarTooltip(ButtonBase control, String tooltipText) {
+        Tooltip tooltip = new Tooltip(tooltipText);
+        tooltip.setShowDelay(Duration.millis(220));
+        tooltip.setShowDuration(Duration.seconds(8));
+        tooltip.setHideDelay(Duration.millis(80));
+        control.setTooltip(tooltip);
+        control.setAccessibleText(tooltipText);
+        control.setAccessibleHelp(tooltipText);
     }
 
     private static Label makeToolbarIcon(String iconClass) {

@@ -1102,17 +1102,27 @@
 }
 
 .icon-puppeteer-loop-in {
-  -fx-shape: "M5 4h2v14H5zM18 12l-5 5v-3H9v-4h4V7z";
-  -fx-background-color: #272727;
+  -fx-shape: "M5 4h2v16H5V4zm4 3h8v3l4-4-4-4v3H9v2zm0 10h8v3l4-4-4-4v3H9v2z";
+  -fx-background-color: #237346;
 }
 
 .icon-puppeteer-loop-out {
-  -fx-shape: "M17 4h2v14h-2zM6 12l5-5v3h4v4h-4v3z";
-  -fx-background-color: #272727;
+  -fx-shape: "M17 4h2v16h-2V4zM7 7h8v2H7V7zM3 8l4-4v8L3 8zm4 9h8v2H7v-2zm-4 1l4-4v8l-4-4z";
+  -fx-background-color: #237346;
+}
+
+.icon-puppeteer-loop-clear {
+  -fx-shape: "M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h8v-2zm1.4-5.6l1.4-1.4 2.2 2.2 2.2-2.2 1.4 1.4-2.2 2.2 2.2 2.2-1.4 1.4-2.2-2.2-2.2 2.2-1.4-1.4 2.2-2.2z";
+  -fx-background-color: #9f2632;
+}
+
+.icon-puppeteer-fit-duration {
+  -fx-shape: "M4 7h16v2H4V7zm0 8h16v2H4v-2zm1-6h2v6H5V9zm12 0h2v6h-2V9zm-7 2h4v2h-4v-2z";
+  -fx-background-color: #222222;
 }
 
 .icon-puppeteer-presets {
-  -fx-shape: "M4 18c0-1.1.9-2 2-2s2 .9 2 2-.9 2-2 2-2-.9-2-2zm14-10c0-1.1.9-2 2-2s2 .9 2 2-.9 2-2 2-2-.9-2-2zm-7-3c0-1.1.9-2 2-2s2 .9 2 2-.9 2-2 2-2-.9-2-2zm-5 13c4 0 4-12 8-12 4 0 4 6 8 6v2c-5 0-5-6-8-6-3 0-3 12-8 12v-2z";
+  -fx-shape: "M4 20l9.8-9.8 2 2L6 22H4v-2zm12.5-14.5l1.2-3.5 1.2 3.5 3.5 1.2-3.5 1.2-1.2 3.5-1.2-3.5-3.5-1.2 3.5-1.2zM7 3l.8 2.2L10 6l-2.2.8L7 9l-.8-2.2L4 6l2.2-.8z";
   -fx-background-color: #ffd98f;
 }
 
@@ -1127,22 +1137,47 @@
 }
 
 .icon-puppeteer-snap {
-  -fx-shape: "M11 2h2v3h-2zm6.36 1.22l1.42 1.42-2.12 2.12-1.42-1.42zM19 11h3v2h-3zm-2.34 6.66l2.12 2.12-1.42 1.42-2.12-2.12zM11 19h2v3h-2zm-6.35-1.34l1.41 1.42-2.12 2.12-1.41-1.42zM2 11h3v2H2zm2.64-7.78l2.12 2.12-1.42 1.42-2.12-2.12zM12 8a4 4 0 100 8 4 4 0 000-8z";
+  -fx-shape: "M6 3h5v7a5 5 0 0 0 10 0V3h5v7a10 10 0 0 1-20 0V3zm0 0v5h5V3H6zm15 0v5h5V3h-5z";
   -fx-background-color: #2c2c2c;
 }
 
+.icon-puppeteer-snap-grid {
+  -fx-shape: "M3 3h7v7H3V3zm11 0h7v7h-7V3zM3 14h7v7H3v-7zm11 0h7v7h-7v-7zM5 5v3h3V5H5zm11 0v3h3V5h-3zM5 16v3h3v-3H5zm11 0v3h3v-3h-3z";
+  -fx-background-color: #292929;
+}
+
+.icon-puppeteer-prev-key {
+  -fx-shape: "M5 4h2v16H5V4zm11 4l-5 4 5 4v-3h5v-2h-5V8zm-7 4l3-3 3 3-3 3-3-3z";
+  -fx-background-color: #272727;
+}
+
+.icon-puppeteer-next-key {
+  -fx-shape: "M19 4h2v16h-2V4zM8 8l5 4-5 4v-3H3v-2h5V8zm4 4l3-3 3 3-3 3-3-3z";
+  -fx-background-color: #272727;
+}
+
 .icon-puppeteer-batch-key {
-  -fx-shape: "M3 5h8v8H3zm11 1h2v3h3v2h-3v3h-2v-3h-3V9h3z";
+  -fx-shape: "M3 5h5v5H3V5zm7 0h5v5h-5V5zM3 12h5v5H3v-5zm10 2h3v-3h2v3h3v2h-3v3h-2v-3h-3v-2z";
   -fx-background-color: #272727;
 }
 
 .icon-puppeteer-autokey {
-  -fx-shape: "M4 8h7v7H4zm11-5h2v3h3v2h-3v3h-2V8h-3V6h3z";
+  -fx-shape: "M4 12l4-4 4 4-4 4-4-4zm11-8h2v4h4v2h-4v4h-2v-4h-4V8h4V4z";
   -fx-background-color: #272727;
 }
 
 .icon-puppeteer-distribute {
-  -fx-shape: "M4 6h2v12H4zm7-3h2v18h-2zm7 3h2v12h-2z";
+  -fx-shape: "M4 5h2v14H4V5zm14 0h2v14h-2V5zM8 11h2v2H8v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2z";
+  -fx-background-color: #272727;
+}
+
+.icon-puppeteer-ripple {
+  -fx-shape: "M4 7l3 3-3 3-3-3 3-3zm7 0l3 3-3 3-3-3 3-3zm7 0l3 3-3 3-3-3 3-3zM4 18h12v-3l5 4-5 4v-3H4v-2z";
+  -fx-background-color: #272727;
+}
+
+.icon-puppeteer-reverse-keys {
+  -fx-shape: "M6 8l3 3-3 3-3-3 3-3zm10 0l3 3-3 3-3-3 3-3zM19 18H7v-3l-5 4 5 4v-3h12v-2z";
   -fx-background-color: #272727;
 }
 
@@ -1154,6 +1189,11 @@
 .icon-puppeteer-compress {
   -fx-shape: "M8 12l-5-5v3H1v4h2v3zm8 0l5-5v3h2v4h-2v3zM10 8h4v8h-4z";
   -fx-background-color: #272727;
+}
+
+.icon-puppeteer-compact-export {
+  -fx-shape: "M6 2h9l5 5v15H6V2zm8 1.5V8h4.5L14 3.5zM8 12h10v2H8v-2zm0 4h7v2H8v-2zM3 11l3-3v2h4v2H6v2l-3-3z";
+  -fx-background-color: #262626;
 }
 
 .icon-puppeteer-orbit {
@@ -1194,6 +1234,11 @@
 .icon-puppeteer-audio-clear {
   -fx-shape: "M5 9v6h4l5 5V4L9 9H5zm11.59 0L19 6.59 20.41 8 18 10.41 20.41 12.83 19 14.24 16.59 11.83 14.17 14.24 12.76 12.83 15.17 10.41 12.76 8 14.17 6.59 16.59 9z";
   -fx-background-color: #ffb6bf;
+}
+
+.icon-puppeteer-runtime-preview {
+  -fx-shape: "M3 4h18v12H3V4zm2 2v8h14V6H5zm5 2v4l4-2-4-2zM8 18h8v2H8v-2z";
+  -fx-background-color: #1f6b3f;
 }
 
 .icon-puppeteer-register {
@@ -1239,6 +1284,11 @@
 .icon-puppeteer-events {
   -fx-shape: "M4 4h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-4 4v-4H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm3 4h2v4H7zm4 0h2v4h-2zm4 0h2v4h-2z";
   -fx-background-color: #ffd98f;
+}
+
+.icon-puppeteer-event-clear {
+  -fx-shape: "M4 4h12a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H9l-4 4v-4H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm13.5 10.5l1.5-1.5 2 2 2-2 1.5 1.5-2 2 2 2-1.5 1.5-2-2-2 2-1.5-1.5 2-2-2-2zM7 8h2v3H7V8zm4 0h2v3h-2V8z";
+  -fx-background-color: #9f2632;
 }
 
 .icon-puppeteer-help {
@@ -2590,12 +2640,12 @@
 .puppeteer-toolbar-icon-toggle,
 .puppeteer-toolbar-icon-menu {
   -fx-padding: 0;
-  -fx-min-width: 34;
-  -fx-pref-width: 34;
-  -fx-max-width: 34;
-  -fx-min-height: 28;
-  -fx-pref-height: 28;
-  -fx-max-height: 28;
+  -fx-min-width: 36;
+  -fx-pref-width: 36;
+  -fx-max-width: 36;
+  -fx-min-height: 32;
+  -fx-pref-height: 32;
+  -fx-max-height: 32;
   -fx-content-display: graphic-only;
   -fx-graphic-text-gap: 0;
   -fx-alignment: center;
@@ -2645,12 +2695,12 @@
 }
 
 .puppeteer-toolbar-icon {
-  -fx-min-width: 16px;
-  -fx-min-height: 16px;
-  -fx-pref-width: 16px;
-  -fx-pref-height: 16px;
-  -fx-max-width: 16px;
-  -fx-max-height: 16px;
+  -fx-min-width: 17px;
+  -fx-min-height: 17px;
+  -fx-pref-width: 17px;
+  -fx-pref-height: 17px;
+  -fx-max-width: 17px;
+  -fx-max-height: 17px;
   -fx-opacity: 0.98;
   -fx-effect: dropshadow(gaussian, rgba(4, 7, 11, 0.42), 3, 0.2, 0, 1);
 }

@@ -162,4 +162,26 @@ class PuppeteerVerificationTest {
             message.severity() == TimelineDiagnostic.Severity.WARNING
                 && message.description().contains("mixed into entity track 'hero'")));
     }
+
+    @Test
+    void runtimeRegistrationIncludesCoreTimelineDataDiagnostics() {
+        AnimationProject project = new AnimationProject();
+        project.setName("");
+        EntityTrack camera = project.getOrCreateTrack(TimelinePanel.RUNTIME_CAMERA_TARGET);
+        camera.addKeyframe(PropertyType.X, new Keyframe(0, 20));
+
+        List<TimelineDiagnostic.Message> messages = PuppeteerVerification.diagnose(
+            project,
+            Set.of(),
+            null,
+            PuppeteerVerification.Mode.REGISTER_RUNTIME
+        );
+
+        assertTrue(messages.stream().anyMatch(message ->
+            message.severity() == TimelineDiagnostic.Severity.WARNING
+                && message.description().contains("Timeline name is empty")));
+        assertTrue(messages.stream().anyMatch(message ->
+            message.severity() == TimelineDiagnostic.Severity.WARNING
+                && message.description().contains("Entity property X is stored on the camera track")));
+    }
 }
