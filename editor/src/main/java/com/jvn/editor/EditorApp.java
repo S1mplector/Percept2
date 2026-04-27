@@ -2828,10 +2828,17 @@ public class EditorApp extends Application {
   }
 
   private ImageView sidebarPanelAssetIcon(EditorSidebarPanel panel, String... styleClasses) {
-    if (!useSidebarAssetIcons() || panel.iconAssetName() == null || panel.iconAssetName().isBlank()) {
+    if (panel == null) {
       return null;
     }
-    URL url = getClass().getResource("/com/jvn/editor/images/sidebar/" + panel.iconAssetName());
+    return sidebarAssetIcon(panel.iconAssetName(), styleClasses);
+  }
+
+  private ImageView sidebarAssetIcon(String assetName, String... styleClasses) {
+    if (!useSidebarAssetIcons() || assetName == null || assetName.isBlank()) {
+      return null;
+    }
+    URL url = getClass().getResource("/com/jvn/editor/images/sidebar/" + assetName);
     if (url == null) return null;
 
     double size = sidebarPanelAssetIconSize(styleClasses);
@@ -2845,6 +2852,16 @@ public class EditorApp extends Application {
     view.setFitWidth(size);
     view.setFitHeight(size);
     return view;
+  }
+
+  private Node editorSettingsSidebarIcon(String... extraStyleClasses) {
+    ImageView assetIcon = sidebarAssetIcon("settings_orange_transparent.png", extraStyleClasses);
+    if (assetIcon != null) return assetIcon;
+    Region icon = icon("icon", "icon-panel-settings");
+    if (extraStyleClasses != null && extraStyleClasses.length > 0) {
+      icon.getStyleClass().addAll(extraStyleClasses);
+    }
+    return icon;
   }
 
   private double sidebarPanelAssetIconSize(String[] styleClasses) {
@@ -4510,7 +4527,9 @@ public class EditorApp extends Application {
     String resolvedIconClass = panel != null ? panel.iconStyleClass() : iconClass;
     Node panelIcon = panel != null
         ? sidebarPanelIcon(panel, "panel-chooser-tool-icon")
-        : icon("icon", "panel-chooser-tool-icon", resolvedIconClass);
+        : "icon-panel-settings".equals(resolvedIconClass)
+            ? editorSettingsSidebarIcon("panel-chooser-tool-icon")
+            : icon("icon", "panel-chooser-tool-icon", resolvedIconClass);
     StackPane iconChip = new StackPane(panelIcon);
     iconChip.getStyleClass().add("panel-chooser-icon-chip");
     if (resolvedIconClass != null && !resolvedIconClass.isBlank()) {
@@ -5635,7 +5654,7 @@ public class EditorApp extends Application {
     } else if (tabEditorSettings.getContent() != settingsView) {
       tabEditorSettings.setContent(settingsView);
     }
-    tabEditorSettings.setGraphic(icon("icon", "sidebar-tab-icon", "icon-panel-settings"));
+    tabEditorSettings.setGraphic(editorSettingsSidebarIcon("sidebar-tab-icon"));
     attachPanelTabToPane(tabEditorSettings, targetPane);
     return tabEditorSettings;
   }

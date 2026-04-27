@@ -4,7 +4,7 @@ import java.util.EnumMap;
 import java.util.Map;
 
 public enum EditorSidebarPanel {
-  PROJECT("project", "Project", EditorPanelPlacement.LEFT, true, "icon-panel-project", null),
+  PROJECT("project", "Project", EditorPanelPlacement.LEFT, true, "icon-panel-project", "project_explorer_orange_transparent.png"),
   TIMELINE("timeline", "Timeline", EditorPanelPlacement.HIDDEN, true, "icon-panel-timeline", "timeline_editor_orange_transparent.png"),
   INSPECTOR("inspector", "Inspector", EditorPanelPlacement.HIDDEN, false, "icon-panel-inspector", "project_inspector_orange_transparent.png"),
   VNS_DIAGNOSTICS("vns_diagnostics", "VNS Diagnostics", EditorPanelPlacement.HIDDEN, true, "icon-panel-diagnostics", "vns_diagnostics_orange_transparent.png"),
