@@ -50,6 +50,7 @@ import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
@@ -622,11 +623,196 @@ public final class JvnHub {
   }
 
   private void updateEngine() {
+    if (runningProcess.get() != null) {
+      appendLog("[hub] a task is already running; wait for it to finish or cancel it.");
+      return;
+    }
+    UpdatePreflight preflight = inspectUpdatePreflight();
+    if (preflight.statusUnavailable()) {
+      if (!confirmUpdateWithUnknownStatus(preflight.statusError())) return;
+    } else if (preflight.hasChanges()) {
+      UpdatePreflightAction action = chooseUpdatePreflightAction(preflight);
+      if (action == UpdatePreflightAction.CANCEL) {
+        setActivity("Update cancelled", "No engine files were changed.", false, TEXT_MUTED);
+        return;
+      }
+      cleanBeforeUpdate(preflight);
+      return;
+    }
+    startUpdateEngine();
+  }
+
+  private void startUpdateEngine() {
     if (!acquire("git pull --rebase")) return;
     if (updateEngineButton != null) updateEngineButton.setChecking(true);
     List<String> cmd = List.of("git", "pull", "--rebase");
     appendLog("$ " + String.join(" ", cmd));
     startProcess(cmd, "Update Engine");
+  }
+
+  private UpdatePreflight inspectUpdatePreflight() {
+    CommandResult status = runGit(
+        List.of("git", "-c", "core.quotePath=false", "status", "--porcelain=v1", "--untracked-files=all"),
+        10);
+    if (status.exitCode != 0) {
+      return UpdatePreflight.unavailable(status.output.strip().isBlank()
+          ? "git status failed with exit " + status.exitCode
+          : status.output.strip());
+    }
+    return UpdatePreflight.from(parseGitStatus(status.output));
+  }
+
+  private boolean confirmUpdateWithUnknownStatus(String details) {
+    String[] options = {"Update Anyway", "Cancel"};
+    int choice = showUpdateDialog(
+        "Update Engine",
+        "The hub could not check whether local engine files have changed.",
+        "Updating may still work, but Git may stop if local files would be overwritten.\n\n" + details,
+        options,
+        JOptionPane.WARNING_MESSAGE);
+    return choice == 0;
+  }
+
+  private UpdatePreflightAction chooseUpdatePreflightAction(UpdatePreflight preflight) {
+    if (preflight.onlyBuildOutput()) {
+      String[] options = {"Clear Build Output and Update", "Cancel"};
+      int choice = showUpdateDialog(
+          "Clear Build Output?",
+          "Update Engine found generated build output in the engine checkout.",
+          "Build output can be safely recreated. Clear these files before updating?\n\n"
+              + preflight.summary(),
+          options,
+          JOptionPane.QUESTION_MESSAGE);
+      return choice == 0 ? UpdatePreflightAction.CLEAN_AND_UPDATE : UpdatePreflightAction.CANCEL;
+    }
+
+    String[] options = {"Clean Changes and Update", "Cancel"};
+    int choice = showUpdateDialog(
+        "Local Engine Changes Found",
+        "Update Engine found local changes that do not look like build output.",
+        "Cleaning will permanently discard these local engine changes and delete untracked files.\n"
+            + "Choose Cancel if you want to keep or commit them first.\n\n"
+            + preflight.summary(),
+        options,
+        JOptionPane.WARNING_MESSAGE);
+    return choice == 0 ? UpdatePreflightAction.CLEAN_AND_UPDATE : UpdatePreflightAction.CANCEL;
+  }
+
+  private int showUpdateDialog(String title, String message, String details, String[] options, int type) {
+    JPanel panel = new JPanel(new BorderLayout(0, 8));
+    panel.setOpaque(false);
+
+    JLabel prompt = new JLabel("<html><b>" + escapeHtml(message) + "</b></html>");
+    panel.add(prompt, BorderLayout.NORTH);
+
+    JTextArea detailArea = new JTextArea(details == null ? "" : details);
+    detailArea.setEditable(false);
+    detailArea.setFocusable(false);
+    detailArea.setLineWrap(true);
+    detailArea.setWrapStyleWord(true);
+    detailArea.setRows(10);
+    detailArea.setColumns(52);
+    detailArea.setOpaque(false);
+    JScrollPane scroll = new JScrollPane(detailArea);
+    scroll.setBorder(BorderFactory.createLineBorder(BORDER_NEUTRAL));
+    scroll.setPreferredSize(new Dimension(520, 190));
+    panel.add(scroll, BorderLayout.CENTER);
+
+    return JOptionPane.showOptionDialog(
+        frame,
+        panel,
+        title,
+        JOptionPane.DEFAULT_OPTION,
+        type,
+        null,
+        options,
+        options[0]);
+  }
+
+  private void cleanBeforeUpdate(UpdatePreflight preflight) {
+    setButtonsEnabled(false);
+    setStatus("Cleaning before update", ACCENT_NEUTRAL);
+    setActivity(
+        preflight.onlyBuildOutput() ? "Clearing build output" : "Cleaning local engine changes",
+        "Preparing the engine checkout for update.",
+        true,
+        ACCENT_NEUTRAL);
+
+    new SwingWorker<Boolean, String>() {
+      private String failure = "";
+
+      @Override protected Boolean doInBackground() {
+        publish("[hub] cleaning local files before Update Engine...");
+        CommandResult result = preflight.onlyBuildOutput()
+            ? cleanBuildOutputChanges(preflight)
+            : cleanAllLocalChanges();
+        if (result.exitCode != 0) {
+          failure = result.output.strip().isBlank()
+              ? "clean command failed with exit " + result.exitCode
+              : compactMessage(result.output);
+          return false;
+        }
+        return true;
+      }
+
+      @Override protected void process(List<String> chunks) {
+        if (!chunks.isEmpty()) appendLog(chunks.get(chunks.size() - 1));
+      }
+
+      @Override protected void done() {
+        setButtonsEnabled(true);
+        boolean ok = false;
+        try {
+          ok = get();
+        } catch (Exception e) {
+          failure = e.getMessage();
+        }
+        if (!ok) {
+          setStatus("Clean failed", ACCENT_ERROR);
+          setActivity("Clean failed", failure == null || failure.isBlank() ? "Git could not clean the checkout." : failure,
+              false, ACCENT_ERROR);
+          return;
+        }
+        setActivity("Clean complete", "Starting engine update.", true, ACCENT_NEUTRAL);
+        startUpdateEngine();
+      }
+    }.execute();
+  }
+
+  private CommandResult cleanBuildOutputChanges(UpdatePreflight preflight) {
+    List<String> tracked = preflight.buildOutputChanges().stream()
+        .filter(GitStatusEntry::trackedChange)
+        .map(GitStatusEntry::path)
+        .distinct()
+        .toList();
+    if (!tracked.isEmpty()) {
+      List<String> restore = new ArrayList<>(List.of("git", "restore", "--staged", "--worktree", "--"));
+      restore.addAll(tracked);
+      CommandResult result = runGit(restore, 60);
+      if (result.exitCode != 0) return result;
+    }
+
+    List<String> untracked = preflight.buildOutputChanges().stream()
+        .filter(GitStatusEntry::untracked)
+        .map(GitStatusEntry::path)
+        .distinct()
+        .toList();
+    if (!untracked.isEmpty()) {
+      List<String> clean = new ArrayList<>(List.of("git", "clean", "-fd", "--"));
+      clean.addAll(untracked);
+      CommandResult result = runGit(clean, 60);
+      if (result.exitCode != 0) return result;
+    }
+
+    return new CommandResult(0, "cleaned build output");
+  }
+
+  private CommandResult cleanAllLocalChanges() {
+    CommandResult reset = runGit(List.of("git", "reset", "--hard", "HEAD"), 60);
+    if (reset.exitCode != 0) return reset;
+    CommandResult clean = runGit(List.of("git", "clean", "-fd"), 60);
+    if (clean.exitCode != 0) return clean;
+    return new CommandResult(0, reset.output + clean.output);
   }
 
   private void installShortcuts() {
@@ -901,7 +1087,137 @@ public final class JvnHub {
     }
   }
 
+  private static List<GitStatusEntry> parseGitStatus(String output) {
+    if (output == null || output.isBlank()) return List.of();
+    List<GitStatusEntry> entries = new ArrayList<>();
+    for (String line : output.split("\\R")) {
+      if (line.length() < 4) continue;
+      String code = line.substring(0, 2);
+      String path = line.substring(3).trim();
+      int renameArrow = path.indexOf(" -> ");
+      if (renameArrow >= 0) {
+        path = path.substring(renameArrow + 4).trim();
+      }
+      if (!path.isBlank()) entries.add(new GitStatusEntry(code, path));
+    }
+    return entries;
+  }
+
+  private static boolean isBuildOutputPath(String rawPath) {
+    if (rawPath == null || rawPath.isBlank()) return false;
+    String path = rawPath.replace('\\', '/');
+    return path.equals("build")
+        || path.startsWith("build/")
+        || path.contains("/build/")
+        || path.endsWith("/build")
+        || path.equals("bin")
+        || path.startsWith("bin/")
+        || path.contains("/bin/")
+        || path.endsWith("/bin")
+        || path.equals("out")
+        || path.startsWith("out/")
+        || path.contains("/out/")
+        || path.endsWith("/out")
+        || path.equals(".gradle")
+        || path.startsWith(".gradle/")
+        || path.contains("/.gradle/")
+        || path.equals(".jvn-gradle-user-home")
+        || path.startsWith(".jvn-gradle-user-home/");
+  }
+
+  private static String summarizeEntries(List<GitStatusEntry> entries) {
+    if (entries == null || entries.isEmpty()) return "No changed files.";
+    StringBuilder out = new StringBuilder();
+    int limit = Math.min(entries.size(), 12);
+    for (int i = 0; i < limit; i++) {
+      GitStatusEntry entry = entries.get(i);
+      out.append(entry.code().trim().isBlank() ? "changed" : entry.code().trim())
+          .append("  ")
+          .append(entry.path())
+          .append('\n');
+    }
+    if (entries.size() > limit) {
+      out.append("... and ").append(entries.size() - limit).append(" more.\n");
+    }
+    return out.toString().trim();
+  }
+
+  private static String escapeHtml(String text) {
+    if (text == null) return "";
+    return text
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;");
+  }
+
   private record CommandResult(int exitCode, String output) {}
+
+  private enum UpdatePreflightAction {
+    CLEAN_AND_UPDATE,
+    CANCEL
+  }
+
+  private record GitStatusEntry(String code, String path) {
+    boolean untracked() {
+      return "??".equals(code);
+    }
+
+    boolean trackedChange() {
+      return !untracked() && !"!!".equals(code);
+    }
+  }
+
+  private record UpdatePreflight(
+      List<GitStatusEntry> allChanges,
+      List<GitStatusEntry> buildOutputChanges,
+      List<GitStatusEntry> otherChanges,
+      String statusError) {
+
+    static UpdatePreflight unavailable(String error) {
+      return new UpdatePreflight(List.of(), List.of(), List.of(), error == null ? "" : error);
+    }
+
+    static UpdatePreflight from(List<GitStatusEntry> entries) {
+      List<GitStatusEntry> build = new ArrayList<>();
+      List<GitStatusEntry> other = new ArrayList<>();
+      for (GitStatusEntry entry : entries) {
+        if (isBuildOutputPath(entry.path())) {
+          build.add(entry);
+        } else {
+          other.add(entry);
+        }
+      }
+      return new UpdatePreflight(List.copyOf(entries), List.copyOf(build), List.copyOf(other), "");
+    }
+
+    boolean statusUnavailable() {
+      return statusError != null && !statusError.isBlank();
+    }
+
+    boolean hasChanges() {
+      return !allChanges.isEmpty();
+    }
+
+    boolean onlyBuildOutput() {
+      return hasChanges() && !buildOutputChanges.isEmpty() && otherChanges.isEmpty();
+    }
+
+    String summary() {
+      if (onlyBuildOutput()) {
+        return "Build output:\n" + summarizeEntries(buildOutputChanges);
+      }
+      StringBuilder out = new StringBuilder();
+      if (!otherChanges.isEmpty()) {
+        out.append("Other local changes:\n").append(summarizeEntries(otherChanges));
+      }
+      if (!buildOutputChanges.isEmpty()) {
+        if (out.length() > 0) out.append("\n\n");
+        out.append("Build output:\n").append(summarizeEntries(buildOutputChanges));
+      }
+      return out.toString();
+    }
+  }
 
   private static String compactMessage(String text) {
     if (text == null) return "";
