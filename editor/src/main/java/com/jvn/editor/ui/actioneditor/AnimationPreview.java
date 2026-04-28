@@ -248,6 +248,18 @@ public class AnimationPreview extends VBox {
     private double viewZoomFactor = 1.0;
     private double viewPanX = 0.0;
     private double viewPanY = 0.0;
+
+    public double getViewPanX() { return viewPanX; }
+    public double getViewPanY() { return viewPanY; }
+    public double getViewZoomFactor() { return viewZoomFactor; }
+
+    public void setViewPanAndZoom(double panX, double panY, double zoomFactor) {
+        this.viewPanX = panX;
+        this.viewPanY = panY;
+        this.viewZoomFactor = Math.max(VIEW_ZOOM_MIN, Math.min(VIEW_ZOOM_MAX, zoomFactor));
+        if (getParent() != null) getParent().requestLayout();
+        render();
+    }
     private ScrollZoomMode scrollZoomMode = ScrollZoomMode.VIEW;
     private java.io.File projectRoot;
     private final Map<String, double[]> sourceImageSizeCache = new HashMap<>();

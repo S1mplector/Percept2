@@ -2986,7 +2986,7 @@ public class PuppeteerWindow extends Stage {
         if (projectRoot == null) return;
 
         workspacePrefs = PuppeteerWorkspacePrefs.load(projectRoot);
-        applyWorkspacePrefsToSplits();
+        applyWorkspacePrefs();
 
         draftStore = new PuppeteerDraftStore(projectRoot);
         previewRecorder = new PuppeteerPreviewRecorder(animationPreview.getPreviewCanvas());
@@ -2995,7 +2995,7 @@ public class PuppeteerWindow extends Stage {
         Platform.runLater(this::promptDraftRestoreIfNeeded);
     }
 
-    private void applyWorkspacePrefsToSplits() {
+    private void applyWorkspacePrefs() {
         if (workspacePrefs == null) return;
         workspacePrefs.getDivider(PuppeteerWorkspacePrefs.DIVIDER_TOP).ifPresent(v -> {
             if (topWorkspaceSplit != null && !topWorkspaceSplit.getDividers().isEmpty()) {
@@ -3020,6 +3020,18 @@ public class PuppeteerWindow extends Stage {
                 mainWorkspaceSplit.setDividerPositions(v);
             }
         });
+
+        if (animationPreview != null) {
+            double panX = workspacePrefs.getDouble(PuppeteerWorkspacePrefs.KEY_VIEWPORT_PAN_X).orElse(0.0);
+            double panY = workspacePrefs.getDouble(PuppeteerWorkspacePrefs.KEY_VIEWPORT_PAN_Y).orElse(0.0);
+            double zoom = workspacePrefs.getDouble(PuppeteerWorkspacePrefs.KEY_VIEWPORT_ZOOM).orElse(1.0);
+            animationPreview.setViewPanAndZoom(panX, panY, zoom);
+        }
+        if (project != null) {
+            workspacePrefs.getDouble(PuppeteerWorkspacePrefs.KEY_TIMELINE_PLAYHEAD).ifPresent(ms -> {
+                project.setPlayheadMs(ms);
+            });
+        }
     }
 
     private File resolveRegisteredJesFile(String timelineName) {
@@ -5422,7 +5434,7 @@ public class PuppeteerWindow extends Stage {
         PuppeteerWorkspacePrefs prefsSnapshot = null;
         try {
             if (workspacePrefs != null) {
-                captureDividerPositionsInto(workspacePrefs);
+                captureWorkspacePrefsInto(workspacePrefs);
                 prefsSnapshot = workspacePrefs;
             }
         } catch (Exception ignored) {}
@@ -5447,8 +5459,8 @@ public class PuppeteerWindow extends Stage {
         }
     }
 
-    /** Copy the current SplitPane divider positions into the prefs object (no IO). */
-    private void captureDividerPositionsInto(PuppeteerWorkspacePrefs prefs) {
+    /** Copy the current SplitPane divider positions and camera state into the prefs object (no IO). */
+    private void captureWorkspacePrefsInto(PuppeteerWorkspacePrefs prefs) {
         if (prefs == null) return;
         if (topWorkspaceSplit != null && !topWorkspaceSplit.getDividers().isEmpty()) {
             prefs.setDivider(PuppeteerWorkspacePrefs.DIVIDER_TOP,
@@ -5465,6 +5477,14 @@ public class PuppeteerWindow extends Stage {
         if (mainWorkspaceSplit != null && !mainWorkspaceSplit.getDividers().isEmpty()) {
             prefs.setDivider(PuppeteerWorkspacePrefs.DIVIDER_CODE_PANE,
                 mainWorkspaceSplit.getDividerPositions()[0]);
+        }
+        if (animationPreview != null) {
+            prefs.setDouble(PuppeteerWorkspacePrefs.KEY_VIEWPORT_PAN_X, animationPreview.getViewPanX());
+            prefs.setDouble(PuppeteerWorkspacePrefs.KEY_VIEWPORT_PAN_Y, animationPreview.getViewPanY());
+            prefs.setDouble(PuppeteerWorkspacePrefs.KEY_VIEWPORT_ZOOM, animationPreview.getViewZoomFactor());
+        }
+        if (project != null) {
+            prefs.setDouble(PuppeteerWorkspacePrefs.KEY_TIMELINE_PLAYHEAD, project.getPlayheadMs());
         }
     }
 

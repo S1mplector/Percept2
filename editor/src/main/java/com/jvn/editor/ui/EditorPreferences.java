@@ -39,6 +39,11 @@ public final class EditorPreferences {
   private final EnumMap<EditorSidebarPanel, Boolean> chooserVisibility =
       new EnumMap<>(EditorSidebarPanel.class);
 
+  private double centerDividerLeft = 0.22;
+  private double centerDividerRight = 0.78;
+  private String activeLeftTab = "";
+  private String activeRightTab = "";
+
   public EditorPreferences() {
     this(
         DEFAULT_CODE_EDITOR_FONT_SIZE,
@@ -297,6 +302,38 @@ public final class EditorPreferences {
     return new EnumMap<>(chooserVisibility);
   }
 
+  public double getCenterDividerLeft() {
+    return centerDividerLeft;
+  }
+
+  public void setCenterDividerLeft(double centerDividerLeft) {
+    this.centerDividerLeft = centerDividerLeft;
+  }
+
+  public double getCenterDividerRight() {
+    return centerDividerRight;
+  }
+
+  public void setCenterDividerRight(double centerDividerRight) {
+    this.centerDividerRight = centerDividerRight;
+  }
+
+  public String getActiveLeftTab() {
+    return activeLeftTab;
+  }
+
+  public void setActiveLeftTab(String activeLeftTab) {
+    this.activeLeftTab = cleanText(activeLeftTab);
+  }
+
+  public String getActiveRightTab() {
+    return activeRightTab;
+  }
+
+  public void setActiveRightTab(String activeRightTab) {
+    this.activeRightTab = cleanText(activeRightTab);
+  }
+
   public EditorPreferences copy() {
     EditorPreferences c = new EditorPreferences(
         codeEditorFontSize,
@@ -319,6 +356,10 @@ public final class EditorPreferences {
         panelPlacements,
         chooserVisibility);
     c.editorMaxFps = this.editorMaxFps;
+    c.centerDividerLeft = this.centerDividerLeft;
+    c.centerDividerRight = this.centerDividerRight;
+    c.activeLeftTab = this.activeLeftTab;
+    c.activeRightTab = this.activeRightTab;
     return c;
   }
 

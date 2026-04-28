@@ -26,6 +26,11 @@ public final class PuppeteerWorkspacePrefs {
     public static final String DIVIDER_CONTENT = "divider.content";  // top half vs bottom half
     public static final String DIVIDER_CODE_PANE = "divider.codePane"; // workspace vs code pane
 
+    public static final String KEY_VIEWPORT_PAN_X = "viewport.panX";
+    public static final String KEY_VIEWPORT_PAN_Y = "viewport.panY";
+    public static final String KEY_VIEWPORT_ZOOM = "viewport.zoom";
+    public static final String KEY_TIMELINE_PLAYHEAD = "timeline.playhead";
+
     private static final String RECENT_KEY = "recent.timelines";
     private static final String RECENT_RECORD_DELIM = ";;";
     private static final String RECENT_FIELD_DELIM = "||";
@@ -72,6 +77,39 @@ public final class PuppeteerWorkspacePrefs {
         if (key == null || key.isBlank()) return;
         if (Double.isNaN(value) || value < 0.0 || value > 1.0) return;
         entries.put(key, String.format(java.util.Locale.ROOT, "%.4f", value));
+    }
+
+    public Optional<Double> getDouble(String key) {
+        String raw = entries.get(key);
+        if (raw == null) return Optional.empty();
+        try {
+            double v = Double.parseDouble(raw.trim());
+            if (Double.isNaN(v)) return Optional.empty();
+            return Optional.of(v);
+        } catch (NumberFormatException ex) {
+            return Optional.empty();
+        }
+    }
+
+    public void setDouble(String key, double value) {
+        if (key == null || key.isBlank()) return;
+        if (Double.isNaN(value)) return;
+        entries.put(key, String.format(java.util.Locale.ROOT, "%.4f", value));
+    }
+
+    public Optional<Long> getLong(String key) {
+        String raw = entries.get(key);
+        if (raw == null) return Optional.empty();
+        try {
+            return Optional.of(Long.parseLong(raw.trim()));
+        } catch (NumberFormatException ex) {
+            return Optional.empty();
+        }
+    }
+
+    public void setLong(String key, long value) {
+        if (key == null || key.isBlank()) return;
+        entries.put(key, Long.toString(value));
     }
 
     public List<RecentTimeline> getRecent() {

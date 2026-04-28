@@ -30,6 +30,10 @@ public final class EditorPreferencesStore {
   static final String KEY_PANEL_PREFIX = "panel.";
   static final String KEY_PANEL_SUFFIX = ".placement";
   static final String KEY_CHOOSER_SUFFIX = ".chooserVisible";
+  static final String KEY_CENTER_DIVIDER_LEFT = "centerDividerLeft";
+  static final String KEY_CENTER_DIVIDER_RIGHT = "centerDividerRight";
+  static final String KEY_ACTIVE_LEFT_TAB = "activeLeftTab";
+  static final String KEY_ACTIVE_RIGHT_TAB = "activeRightTab";
 
   private final Path preferencesFile;
 
@@ -138,6 +142,10 @@ public final class EditorPreferencesStore {
           KEY_PANEL_PREFIX + panel.key() + KEY_CHOOSER_SUFFIX,
           Boolean.toString(preferences.isVisibleInChooser(panel)));
     }
+    props.setProperty(KEY_CENTER_DIVIDER_LEFT, Double.toString(preferences.getCenterDividerLeft()));
+    props.setProperty(KEY_CENTER_DIVIDER_RIGHT, Double.toString(preferences.getCenterDividerRight()));
+    props.setProperty(KEY_ACTIVE_LEFT_TAB, preferences.getActiveLeftTab());
+    props.setProperty(KEY_ACTIVE_RIGHT_TAB, preferences.getActiveRightTab());
     return props;
   }
 
@@ -196,6 +204,10 @@ public final class EditorPreferencesStore {
           panel,
           parseBoolean(props.getProperty(chooserKey), panel.defaultVisibleInChooser()));
     }
+    preferences.setCenterDividerLeft(parseDouble(props.getProperty(KEY_CENTER_DIVIDER_LEFT), 0.22));
+    preferences.setCenterDividerRight(parseDouble(props.getProperty(KEY_CENTER_DIVIDER_RIGHT), 0.78));
+    preferences.setActiveLeftTab(props.getProperty(KEY_ACTIVE_LEFT_TAB, ""));
+    preferences.setActiveRightTab(props.getProperty(KEY_ACTIVE_RIGHT_TAB, ""));
     return preferences;
   }
 
@@ -203,6 +215,15 @@ public final class EditorPreferencesStore {
     if (raw == null || raw.isBlank()) return fallback;
     try {
       return Integer.parseInt(raw.trim());
+    } catch (NumberFormatException ignored) {
+      return fallback;
+    }
+  }
+
+  private static double parseDouble(String raw, double fallback) {
+    if (raw == null || raw.isBlank()) return fallback;
+    try {
+      return Double.parseDouble(raw.trim());
     } catch (NumberFormatException ignored) {
       return fallback;
     }

@@ -2115,8 +2115,10 @@ public class EditorApp extends Application {
     centerSplit = new SplitPane();
     centerSplit.getStyleClass().add("editor-main-split-pane");
     centerSplit.getItems().addAll(leftSidebarShell, filesTabs, rightSidebarShell);
-    centerSplit.setDividerPositions(0.22, 0.78);
-    savedCenterDividers = new double[]{0.22, 0.78};
+    double initLeft = editorPreferences != null ? editorPreferences.getCenterDividerLeft() : 0.22;
+    double initRight = editorPreferences != null ? editorPreferences.getCenterDividerRight() : 0.78;
+    centerSplit.setDividerPositions(initLeft, initRight);
+    savedCenterDividers = new double[]{initLeft, initRight};
     applyEditorPreferences(editorPreferences);
     root.setLeft(null);
    root.setRight(null);
@@ -2137,6 +2139,7 @@ public class EditorApp extends Application {
         e.consume();
         return;
       }
+      saveWorkspaceStateToPreferences();
       disposeAllFileTabs();
     });
     applyLinuxDefaultWindowState(primaryStage);
@@ -3263,6 +3266,42 @@ public class EditorApp extends Application {
     }
   }
 
+  private void saveWorkspaceStateToPreferences() {
+    if (editorPreferences == null || centerSplit == null) return;
+    
+    // Save dividers only if we're not currently in a fullscreen mode that overwrites them
+    if (!editorFullscreen && !layeredVisualizerFullscreen) {
+        double[] divs = centerSplit.getDividerPositions();
+        if (divs != null && divs.length >= 2) {
+            editorPreferences.setCenterDividerLeft(divs[0]);
+            editorPreferences.setCenterDividerRight(divs[1]);
+        }
+    } else if (savedCenterDividers != null && savedCenterDividers.length >= 2) {
+        // If we are in fullscreen, save the pre-fullscreen backed up dividers
+        editorPreferences.setCenterDividerLeft(savedCenterDividers[0]);
+        editorPreferences.setCenterDividerRight(savedCenterDividers[1]);
+    }
+    
+    // Save active tabs
+    if (leftTabs != null) {
+      Tab leftActive = leftTabs.getSelectionModel().getSelectedItem();
+      if (leftActive != null) {
+        String title = leftActive.getText();
+        if (title != null && !title.isBlank()) editorPreferences.setActiveLeftTab(title);
+      }
+    }
+    
+    if (rightTabs != null) {
+      Tab rightActive = rightTabs.getSelectionModel().getSelectedItem();
+      if (rightActive != null) {
+        String title = rightActive.getText();
+        if (title != null && !title.isBlank()) editorPreferences.setActiveRightTab(title);
+      }
+    }
+    
+    persistEditorPreferences();
+  }
+
   private void applyCodeEditorFontSizePreference() {
     double fontSize = editorPreferences.getCodeEditorFontSize();
     if (filesTabs != null) {
@@ -3326,14 +3365,38 @@ public class EditorApp extends Application {
       releaseSidebarPanelIfUnused(panel);
     }
     releaseEditorSettingsIfUnused();
-    Tab leftDefault = firstRegularTab(leftTabs, tabLeftAdd);
+    
+    // Restore active tabs
+    String savedLeftTab = editorPreferences.getActiveLeftTab();
+    Tab leftDefault = null;
+    if (savedLeftTab != null && !savedLeftTab.isBlank()) {
+      for (Tab t : leftTabs.getTabs()) {
+        if (savedLeftTab.equals(t.getText())) {
+          leftDefault = t;
+          break;
+        }
+      }
+    }
+    if (leftDefault == null) leftDefault = firstRegularTab(leftTabs, tabLeftAdd);
     if (leftDefault != null) {
       leftTabs.getSelectionModel().select(leftDefault);
     }
-    Tab rightDefault = firstRegularTab(rightTabs, tabRightAdd);
+
+    String savedRightTab = editorPreferences.getActiveRightTab();
+    Tab rightDefault = null;
+    if (savedRightTab != null && !savedRightTab.isBlank()) {
+      for (Tab t : rightTabs.getTabs()) {
+        if (savedRightTab.equals(t.getText())) {
+          rightDefault = t;
+          break;
+        }
+      }
+    }
+    if (rightDefault == null) rightDefault = firstRegularTab(rightTabs, tabRightAdd);
     if (rightDefault != null) {
       rightTabs.getSelectionModel().select(rightDefault);
     }
+
     if (centerSplit != null) {
       boolean hasLeft = firstRegularTab(leftTabs, tabLeftAdd) != null;
       boolean hasRight = firstRegularTab(rightTabs, tabRightAdd) != null;
