@@ -105,6 +105,8 @@ public class AnimationPreview extends VBox {
         final double pivotY;
         double lastMouseAngleRad;
         double accumulatedThetaRad = 0.0;
+        double currentMouseWorldX;
+        double currentMouseWorldY;
         final double baseRotationDeg;
         final java.util.Map<String, FollowerState> followers = new java.util.LinkedHashMap<>();
 
@@ -1777,6 +1779,8 @@ public class AnimationPreview extends VBox {
                 render();
             } else if (draggingRotate && rotateDragState != null && selectedEntity != null && selectedEntityName != null) {
                 double[] world = screenToWorld(e.getX(), e.getY());
+                rotateDragState.currentMouseWorldX = world[0];
+                rotateDragState.currentMouseWorldY = world[1];
                 double currentAngle = Math.atan2(world[1] - rotateDragState.pivotY, world[0] - rotateDragState.pivotX);
                 
                 double dThetaRad = currentAngle - rotateDragState.lastMouseAngleRad;
@@ -2046,6 +2050,18 @@ public class AnimationPreview extends VBox {
             drawPivotHandleWorld(entity, z);
             drawRotateHandleWorld(entity, z);
         }
+
+        if (draggingRotate && rotateDragState != null && entity == selectedEntity) {
+            double dashOffset = (System.currentTimeMillis() / 20.0) % 20.0;
+            gc.setStroke(Color.web("#a08af0", 0.8));
+            gc.setLineWidth(1.5 / z);
+            gc.setLineDashes(5.0 / z, 5.0 / z);
+            gc.setLineDashOffset(-dashOffset / z);
+            gc.strokeLine(rotateDragState.pivotX, rotateDragState.pivotY, rotateDragState.currentMouseWorldX, rotateDragState.currentMouseWorldY);
+            gc.setLineDashes((double[]) null);
+            gc.setLineDashOffset(0);
+        }
+
         drawMatrixGizmoWorld(entity, z);
         if (selectedEntityName != null && hasOrbitAnchor(selectedEntityName)) {
             drawOrbitAnchorWorld(selectedEntityName, entity, z);
