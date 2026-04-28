@@ -2824,6 +2824,10 @@ public class PuppeteerWindow extends Stage {
     private void applyLaunchScenePresetGrouping() {
         if (launchSceneSnapshot == null || scene == null || project == null) return;
         boolean changed = false;
+        
+        Map<String, String> orbitSources = new java.util.LinkedHashMap<>(project.getOrbitAnchorSourcesView());
+        Map<String, double[]> orbitOffsets = new java.util.LinkedHashMap<>(project.getOrbitAnchorSourceOffsetsView());
+        
         for (PuppeteerLauncherPanel.CharacterEntry character : launchSceneSnapshot.characters) {
             if (character == null) continue;
             List<PuppeteerLauncherPanel.CharacterLayerEntry> layers =
@@ -2833,10 +2837,23 @@ public class PuppeteerWindow extends Stage {
             EntityGroup group = project.getOrCreateGroup(groupName);
             int layerIndex = 0;
             int groupLayer = Integer.MAX_VALUE;
+            String baseEntityName = null;
             for (PuppeteerLauncherPanel.CharacterLayerEntry layer : layers) {
                 if (layer == null) continue;
                 String entityName = findSnapshotLayerEntityName(groupName, layer.layerId);
                 if (entityName == null || entityName.isBlank()) continue;
+                
+                if (baseEntityName == null) {
+                    baseEntityName = entityName;
+                } else {
+                    orbitSources.put(entityName, baseEntityName);
+                    com.jvn.core.scene2d.Entity2D baseEntity = scene.find(baseEntityName);
+                    com.jvn.core.scene2d.Entity2D childEntity = scene.find(entityName);
+                    if (baseEntity != null && childEntity != null) {
+                        orbitOffsets.put(entityName, new double[]{childEntity.getX() - baseEntity.getX(), childEntity.getY() - baseEntity.getY()});
+                    }
+                }
+                
                 EntityTrack track = project.getTrack(entityName);
                 if (track == null) continue;
                 track.setLayerOrder(layerIndex);
@@ -2850,6 +2867,8 @@ public class PuppeteerWindow extends Stage {
             }
         }
         if (changed) {
+            project.setOrbitAnchorSources(orbitSources);
+            project.setOrbitAnchorSourceOffsets(orbitOffsets);
             entitySelector.refresh(project);
             timelinePanel.refresh();
             refreshPropertyPickerChoices();

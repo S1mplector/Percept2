@@ -100,6 +100,33 @@ public class AnimationPreview extends VBox {
         }
     }
 
+    private static final class RotateDragState {
+        final double pivotX;
+        final double pivotY;
+        final double startMouseAngleRad;
+        final double baseRotationDeg;
+        final java.util.Map<String, FollowerState> followers = new java.util.LinkedHashMap<>();
+
+        RotateDragState(double px, double py, double angle, double rot) {
+            this.pivotX = px;
+            this.pivotY = py;
+            this.startMouseAngleRad = angle;
+            this.baseRotationDeg = rot;
+        }
+    }
+
+    private static final class FollowerState {
+        final double startX;
+        final double startY;
+        final double startRotationDeg;
+
+        FollowerState(double x, double y, double rot) {
+            this.startX = x;
+            this.startY = y;
+            this.startRotationDeg = rot;
+        }
+    }
+
     private static final class PivotDragState {
         final double baseX;
         final double baseY;
@@ -157,11 +184,13 @@ public class AnimationPreview extends VBox {
     private boolean draggingEntity = false;
     private boolean draggingGroup = false;
     private boolean draggingPivot = false;
+    private boolean draggingRotate = false;
     private boolean draggingOrbit = false;
     private boolean draggingOrbitAnchor = false;
     private boolean draggingCameraFrame = false;
     private PivotDragState pivotDragState;
     private MatrixDragState matrixDragState;
+    private RotateDragState rotateDragState;
     private double dragEntityStartX, dragEntityStartY;
     private double groupDragStartTrackX, groupDragStartTrackY;
     private double groupDragAccumX, groupDragAccumY;
@@ -1399,6 +1428,15 @@ public class AnimationPreview extends VBox {
         return dx * dx + dy * dy <= 100;
     }
 
+    private boolean isNearRotateHandle(double screenX, double screenY) {
+        if (selectedEntity == null) return false;
+        double px = worldToScreenX(selectedEntity.getX());
+        double py = worldToScreenY(selectedEntity.getY());
+        double dist = Math.hypot(screenX - px, screenY - py);
+        double targetDist = 45.0; // distance of rotation handle from pivot
+        return Math.abs(dist - targetDist) <= 8.0;
+    }
+
     private boolean shouldAllowMatrixTranslateHandle(boolean altDown) {
         return altDown || (selectedEntity != null && selectedEntity.hasSupplementalTransform());
     }
@@ -1535,9 +1573,11 @@ public class AnimationPreview extends VBox {
                     draggingGroup = false;
                     draggingOrbit = false;
                     draggingPivot = false;
+                    draggingRotate = false;
                     draggingOrbitAnchor = false;
                     pivotDragState = null;
                     matrixDragState = null;
+                    rotateDragState = null;
                     matrixOverlayText = null;
                     cancelMoveInteraction();
                     render();
@@ -1614,6 +1654,26 @@ public class AnimationPreview extends VBox {
                     pivotDragStartWorldY = startWorld[1];
                     return;
                 }
+                
+                if (selectedEntity != null && isNearRotateHandle(e.getX(), e.getY())) {
+                    double[] world = screenToWorld(e.getX(), e.getY());
+                    double angle = Math.atan2(world[1] - selectedEntity.getY(), world[0] - selectedEntity.getX());
+                    rotateDragState = new RotateDragState(selectedEntity.getX(), selectedEntity.getY(), angle, selectedEntity.getRotationDeg());
+                    if (orbitAnchorSources != null && scene != null) {
+                        for (java.util.Map.Entry<String, String> entry : orbitAnchorSources.entrySet()) {
+                            if (selectedEntityName.equals(entry.getValue())) {
+                                String followerName = entry.getKey();
+                                Entity2D follower = scene.find(followerName);
+                                if (follower != null) {
+                                    rotateDragState.followers.put(followerName, new FollowerState(follower.getX(), follower.getY(), follower.getRotationDeg()));
+                                }
+                            }
+                        }
+                    }
+                    draggingRotate = true;
+                    beginMoveInteraction(selectedEntityName, selectedEntity);
+                    return;
+                }
 
                 String hitName = findEntityNameAt(e.getX(), e.getY(), selectedGroupName == null);
                 if (hitName != null) {
@@ -1647,8 +1707,10 @@ public class AnimationPreview extends VBox {
                     draggingEntity = false;
                     draggingGroup = false;
                     draggingOrbit = false;
+                    draggingRotate = false;
                     pivotDragState = null;
                     matrixDragState = null;
+                    rotateDragState = null;
                     matrixOverlayText = null;
                     cancelMoveInteraction();
                 }
@@ -1710,6 +1772,35 @@ public class AnimationPreview extends VBox {
                 }
                 if (onEntityMoved != null) {
                     onEntityMoved.accept(selectedEntityName, new double[]{nextX, nextY});
+                }
+                render();
+            } else if (draggingRotate && rotateDragState != null && selectedEntity != null && selectedEntityName != null) {
+                double[] world = screenToWorld(e.getX(), e.getY());
+                double currentAngle = Math.atan2(world[1] - rotateDragState.pivotY, world[0] - rotateDragState.pivotX);
+                double dThetaRad = currentAngle - rotateDragState.startMouseAngleRad;
+                double dThetaDeg = Math.toDegrees(dThetaRad);
+                
+                double newRotation = rotateDragState.baseRotationDeg + dThetaDeg;
+                selectedEntity.setRotationDeg(newRotation);
+                if (onEntityRotationChanged != null) {
+                    onEntityRotationChanged.accept(selectedEntityName, newRotation);
+                }
+                
+                for (java.util.Map.Entry<String, FollowerState> entry : rotateDragState.followers.entrySet()) {
+                    String followerName = entry.getKey();
+                    FollowerState state = entry.getValue();
+                    Entity2D follower = scene.find(followerName);
+                    if (follower != null) {
+                        double dx = state.startX - rotateDragState.pivotX;
+                        double dy = state.startY - rotateDragState.pivotY;
+                        double newX = rotateDragState.pivotX + dx * Math.cos(dThetaRad) - dy * Math.sin(dThetaRad);
+                        double newY = rotateDragState.pivotY + dx * Math.sin(dThetaRad) + dy * Math.cos(dThetaRad);
+                        double newRot = state.startRotationDeg + dThetaDeg;
+                        follower.setPosition(newX, newY);
+                        follower.setRotationDeg(newRot);
+                        if (onEntityMoved != null) onEntityMoved.accept(followerName, new double[]{newX, newY});
+                        if (onEntityRotationChanged != null) onEntityRotationChanged.accept(followerName, newRot);
+                    }
                 }
                 render();
             } else if (matrixDragState != null && selectedEntity != null && selectedEntityName != null) {
@@ -1828,9 +1919,11 @@ public class AnimationPreview extends VBox {
             draggingGroup = false;
             draggingPivot = false;
             draggingOrbit = false;
+            draggingRotate = false;
             draggingOrbitAnchor = false;
             pivotDragState = null;
             matrixDragState = null;
+            rotateDragState = null;
             pivotAxisLocked = false;
             if (pivotOverlayText != null) {
                 pivotOverlayText = null;
@@ -1942,6 +2035,7 @@ public class AnimationPreview extends VBox {
 
         if (supportsPivotEntity(entity)) {
             drawPivotHandleWorld(entity, z);
+            drawRotateHandleWorld(entity, z);
         }
         drawMatrixGizmoWorld(entity, z);
         if (selectedEntityName != null && hasOrbitAnchor(selectedEntityName)) {
@@ -2047,6 +2141,21 @@ public class AnimationPreview extends VBox {
             gc.setFont(javafx.scene.text.Font.font(8.0 / z));
             gc.fillText(label, px + arm + (2.0 / z), py - (2.0 / z));
         }
+    }
+
+    private void drawRotateHandleWorld(Entity2D entity, double zoom) {
+        double z = Math.max(0.0001, zoom);
+        double px = entity.getX();
+        double py = entity.getY();
+        double radius = 45.0 / z;
+
+        gc.setStroke(Color.web("#a08af0", 0.6));
+        gc.setLineWidth(3.0 / z);
+        gc.strokeOval(px - radius, py - radius, radius * 2.0, radius * 2.0);
+
+        gc.setStroke(Color.web("#c4b8fa", 0.9));
+        gc.setLineWidth(1.0 / z);
+        gc.strokeOval(px - radius, py - radius, radius * 2.0, radius * 2.0);
     }
 
     private void drawOrbitAnchorWorld(String entityName, Entity2D entity, double zoom) {
