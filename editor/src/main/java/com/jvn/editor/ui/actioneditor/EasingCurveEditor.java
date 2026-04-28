@@ -12,6 +12,9 @@ import javafx.geometry.VPos;
 import javafx.scene.Cursor;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.ContextMenu;
+import javafx.scene.control.MenuItem;
+import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
@@ -421,27 +424,81 @@ public class EasingCurveEditor extends Pane {
             return;
         }
 
-        if (insidePlot && event.getClickCount() >= 2) {
-            if (addCurvePointAt(clamp01((event.getX() - getPlotBounds()[0]) / getPlotBounds()[2]))) {
-                event.consume();
+        // Handle point deletion via secondary click (right-click or ctrl-click)
+        if (event.isSecondaryButtonDown() || (event.isPrimaryButtonDown() && event.isControlDown())) {
+            int handleToDel = resolveHandleAt(event.getX(), event.getY());
+            showContextMenu(event.getScreenX(), event.getScreenY(), handleToDel, hoverProgress);
+            event.consume();
+            return;
+        }
+
+        if (insidePlot && event.getClickCount() >= 2 && event.isPrimaryButtonDown()) {
+            int handle = resolveHandleAt(event.getX(), event.getY());
+            if (handle > 0) {
+                selectedHandle = handle;
+                if (removeSelectedCurvePoint()) {
+                    event.consume();
+                }
+            } else {
+                if (addCurvePointAt(clamp01((event.getX() - getPlotBounds()[0]) / getPlotBounds()[2]))) {
+                    event.consume();
+                }
             }
             updateCursor(true);
             draw();
             return;
         }
 
-        draggingHandle = resolveHandleAt(event.getX(), event.getY());
-        if (draggingHandle == 0 && insidePlot) {
-            draggingHandle = resolvePreferredHandle(event.getX(), event.getY());
-            updateHandleFromMouse(event.getX(), event.getY(), event.isShiftDown());
+        if (event.isPrimaryButtonDown()) {
+            draggingHandle = resolveHandleAt(event.getX(), event.getY());
+            if (draggingHandle == 0 && insidePlot) {
+                draggingHandle = resolvePreferredHandle(event.getX(), event.getY());
+                updateHandleFromMouse(event.getX(), event.getY(), event.isShiftDown());
+            }
+            if (draggingHandle != 0) {
+                selectedHandle = draggingHandle;
+                event.consume();
+            }
+            hoveredHandle = draggingHandle;
         }
-        if (draggingHandle != 0) {
-            selectedHandle = draggingHandle;
-            event.consume();
-        }
-        hoveredHandle = draggingHandle;
+        
         updateCursor(insidePlot);
         draw();
+    }
+
+    private void showContextMenu(double screenX, double screenY, int handle, double progress) {
+        ContextMenu menu = new ContextMenu();
+        if (handle > 0) {
+            MenuItem deleteItem = new MenuItem("Delete Point");
+            deleteItem.setOnAction(e -> {
+                selectedHandle = handle;
+                removeSelectedCurvePoint();
+            });
+            menu.getItems().add(deleteItem);
+        } else if (Double.isFinite(progress)) {
+            MenuItem addPointItem = new MenuItem("Add Point Here");
+            addPointItem.setOnAction(e -> addCurvePointAt(progress));
+            menu.getItems().add(addPointItem);
+        }
+        
+        if (!menu.getItems().isEmpty()) {
+            menu.getItems().add(new SeparatorMenuItem());
+        }
+        
+        MenuItem resetItem = new MenuItem("Reset Curve");
+        resetItem.setOnAction(e -> {
+            if (easingType == Easing.Type.CUSTOM) {
+                setBezierParams(0.25, 0.1, 0.25, 1.0);
+                commitCurveChange();
+            } else if (easingType == Easing.Type.CURVE) {
+                curvePoints = Easing.coerceParameters(Easing.Type.CURVE, null);
+                easingParams = curvePoints.clone();
+                commitCurveChange();
+            }
+        });
+        menu.getItems().add(resetItem);
+        
+        menu.show(canvas, screenX, screenY);
     }
 
     private void handleMouseDragged(MouseEvent event) {
@@ -994,10 +1051,16 @@ public class EasingCurveEditor extends Pane {
             double p2x = plotX + cx2 * plotW;
             double p2y = screenYForValue(cy2, plotY, plotH, rangeMin, rangeMax);
 
-            gc.setStroke(TANGENT_COLOR);
-            gc.setLineWidth(1);
+            boolean highlightP1 = hoveredHandle == 1 || draggingHandle == 1 || selectedHandle == 1;
+            boolean highlightP2 = hoveredHandle == 2 || draggingHandle == 2 || selectedHandle == 2;
+            
             gc.setLineDashes(3, 2);
+            gc.setStroke(highlightP1 ? HANDLE_COLOR.deriveColor(0, 1.0, 1.0, 0.7) : TANGENT_COLOR);
+            gc.setLineWidth(highlightP1 ? 1.5 : 1.0);
             gc.strokeLine(startSx, startSy, p1x, p1y);
+            
+            gc.setStroke(highlightP2 ? HANDLE2_COLOR.deriveColor(0, 1.0, 1.0, 0.7) : TANGENT_COLOR);
+            gc.setLineWidth(highlightP2 ? 1.5 : 1.0);
             gc.strokeLine(endSx, endSy, p2x, p2y);
             gc.setLineDashes((double[]) null);
 
@@ -1009,18 +1072,21 @@ public class EasingCurveEditor extends Pane {
                 plotY + plotH + 15,
                 Color.web("#a5adb7"));
         } else if (isCurve) {
-            gc.setStroke(TANGENT_COLOR);
-            gc.setLineWidth(1);
-            gc.setLineDashes(3, 2);
             double prevX = startSx;
             double prevY = startSy;
             for (int i = 1; i <= editableHandleCount(); i++) {
                 double px = plotX + handleX(i) * plotW;
                 double py = screenYForValue(handleY(i), plotY, plotH, rangeMin, rangeMax);
+                boolean highlight = (hoveredHandle == i || draggingHandle == i || selectedHandle == i);
+                gc.setStroke(highlight ? HANDLE2_COLOR.deriveColor(0, 1.0, 1.0, 0.7) : TANGENT_COLOR);
+                gc.setLineWidth(highlight ? 1.5 : 1.0);
+                gc.setLineDashes(3, 2);
                 gc.strokeLine(prevX, prevY, px, py);
                 prevX = px;
                 prevY = py;
             }
+            gc.setStroke(TANGENT_COLOR);
+            gc.setLineWidth(1.0);
             gc.strokeLine(prevX, prevY, endSx, endSy);
             gc.setLineDashes((double[]) null);
             for (int i = 1; i <= editableHandleCount(); i++) {
@@ -1105,6 +1171,9 @@ public class EasingCurveEditor extends Pane {
             if (!handleReadout.isBlank()) {
                 drawBadge(gc, plotX + 6, plotY + plotH - 22, handleReadout, false);
             }
+        }
+        if (!helperText.isEmpty()) {
+            drawBadge(gc, plotX + 6, plotY + 6, helperText, false);
         }
         if (isDisabled()) {
             drawBadge(gc, plotX + plotW - 80, plotY + plotH - 22, "Locked", true);
