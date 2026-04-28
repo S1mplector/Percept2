@@ -1137,6 +1137,17 @@ public class AnimationPreview extends VBox {
         render();
     }
 
+    private boolean resolveEntityLocked(String entityName) {
+        if (project == null || entityName == null || entityName.isBlank()) return false;
+        EntityTrack track = project.getTrack(entityName);
+        if (track != null && track.isLocked()) return true;
+        if (track != null && track.hasParent()) {
+            EntityGroup parent = project.getGroup(track.getParentGroupName());
+            if (parent != null && parent.isLocked()) return true;
+        }
+        return false;
+    }
+
     private String findEntityNameAt(double screenX, double screenY, boolean updateSelection) {
         if (scene == null) return null;
         if (!isInsideViewport(screenX, screenY)) {
@@ -1162,6 +1173,7 @@ public class AnimationPreview extends VBox {
         }
         for (var entry : named.entrySet()) {
             String name = entry.getKey();
+            if (resolveEntityLocked(name)) continue;
             Entity2D entity = entry.getValue();
             if (entity == null) continue;
             double[] corners = getEntityCorners(entity);
@@ -1627,26 +1639,31 @@ public class AnimationPreview extends VBox {
                 }
 
                 if (orbitToolEnabled && selectedEntity != null && isNearOrbitAnchorHandle(e.getX(), e.getY())) {
+                    if (resolveEntityLocked(selectedEntityName)) return;
                     draggingOrbitAnchor = true;
                     return;
                 }
 
                 if (selectedEntity != null && isNearMatrixHandle(e.getX(), e.getY(), MatrixHandleKind.X_AXIS)) {
+                    if (resolveEntityLocked(selectedEntityName)) return;
                     beginMatrixInteraction(MatrixHandleKind.X_AXIS);
                     return;
                 }
                 if (selectedEntity != null && isNearMatrixHandle(e.getX(), e.getY(), MatrixHandleKind.Y_AXIS)) {
+                    if (resolveEntityLocked(selectedEntityName)) return;
                     beginMatrixInteraction(MatrixHandleKind.Y_AXIS);
                     return;
                 }
                 if (selectedEntity != null
                     && shouldAllowMatrixTranslateHandle(e.isAltDown())
                     && isNearMatrixHandle(e.getX(), e.getY(), MatrixHandleKind.TRANSLATE)) {
+                    if (resolveEntityLocked(selectedEntityName)) return;
                     beginMatrixInteraction(MatrixHandleKind.TRANSLATE);
                     return;
                 }
 
                 if (selectedEntity != null && supportsPivotEntity(selectedEntity) && isNearPivotHandle(e.getX(), e.getY())) {
+                    if (resolveEntityLocked(selectedEntityName)) return;
                     pivotDragState = buildPivotDragState(selectedEntity);
                     draggingPivot = true;
                     beginMoveInteraction(selectedEntityName, selectedEntity);
@@ -1659,6 +1676,7 @@ public class AnimationPreview extends VBox {
                 }
                 
                 if (selectedEntity != null && isNearRotateHandle(e.getX(), e.getY())) {
+                    if (resolveEntityLocked(selectedEntityName)) return;
                     double[] world = screenToWorld(e.getX(), e.getY());
                     double angle = Math.atan2(world[1] - selectedEntity.getY(), world[0] - selectedEntity.getX());
                     rotateDragState = new RotateDragState(selectedEntity.getX(), selectedEntity.getY(), angle, selectedEntity.getRotationDeg());
@@ -2197,8 +2215,13 @@ public class AnimationPreview extends VBox {
         gc.setStroke(Color.web("#58d68d", 0.75));
         gc.setLineWidth(1.0 / z);
         gc.setLineDashes(4.0 / z, 3.0 / z);
+        if (draggingOrbitAnchor && selectedEntityName != null && selectedEntityName.equals(entityName)) {
+            double dashOffset = (System.currentTimeMillis() / 20.0) % 20.0;
+            gc.setLineDashOffset(-dashOffset / z);
+        }
         gc.strokeLine(ax, ay, ex, ey);
         gc.setLineDashes((double[]) null);
+        gc.setLineDashOffset(0);
 
         gc.setStroke(Color.web("#58d68d"));
         gc.setLineWidth(1.5 / z);

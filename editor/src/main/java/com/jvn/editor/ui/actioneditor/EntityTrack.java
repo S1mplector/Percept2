@@ -15,6 +15,7 @@ public class EntityTrack {
     private final Map<String, List<Keyframe>> customKeyframes;
     private boolean expanded = true;
     private boolean visible = true;
+    private boolean locked = false;
     private int layerOrder = 0;
 
     public EntityTrack(String entityName) {
@@ -34,6 +35,9 @@ public class EntityTrack {
 
     public boolean isVisible() { return visible; }
     public void setVisible(boolean visible) { this.visible = visible; }
+
+    public boolean isLocked() { return locked; }
+    public void setLocked(boolean locked) { this.locked = locked; }
 
     public int getLayerOrder() { return layerOrder; }
     public void setLayerOrder(int layerOrder) { this.layerOrder = layerOrder; }
@@ -195,6 +199,7 @@ public class EntityTrack {
         copy.parentGroupName = parentGroupName;
         copy.expanded = expanded;
         copy.visible = visible;
+        copy.locked = locked;
         copy.layerOrder = layerOrder;
         for (Map.Entry<PropertyType, List<Keyframe>> entry : keyframes.entrySet()) {
             List<Keyframe> copyList = new ArrayList<>();

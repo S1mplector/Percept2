@@ -11,6 +11,7 @@ public class EntityGroup {
     private final List<String> childGroupNames = new ArrayList<>();
     private final EntityTrack groupTrack;
     private boolean expanded = true;
+    private boolean locked = false;
     private int layerOrder = 0;
 
     public EntityGroup(String name) {
@@ -26,6 +27,9 @@ public class EntityGroup {
 
     public boolean isExpanded() { return expanded; }
     public void setExpanded(boolean expanded) { this.expanded = expanded; }
+
+    public boolean isLocked() { return locked; }
+    public void setLocked(boolean locked) { this.locked = locked; }
 
     public int getLayerOrder() { return layerOrder; }
     public void setLayerOrder(int layerOrder) { this.layerOrder = layerOrder; }

@@ -55,6 +55,8 @@ public class EntitySelector extends VBox {
     private BiConsumer<String, Integer> onEntityLayerDelta;
     private BiConsumer<String, Integer> onGroupLayerDelta;
     private BiConsumer<String, Boolean> onEntityVisibilityChanged;
+    private BiConsumer<String, Boolean> onEntityLockChanged;
+    private BiConsumer<String, Boolean> onGroupLockChanged;
 
     public EntitySelector() {
         setSpacing(0);
@@ -141,6 +143,8 @@ public class EntitySelector extends VBox {
     public void setOnEntityLayerDelta(BiConsumer<String, Integer> callback) { this.onEntityLayerDelta = callback; }
     public void setOnGroupLayerDelta(BiConsumer<String, Integer> callback) { this.onGroupLayerDelta = callback; }
     public void setOnEntityVisibilityChanged(BiConsumer<String, Boolean> callback) { this.onEntityVisibilityChanged = callback; }
+    public void setOnEntityLockChanged(BiConsumer<String, Boolean> callback) { this.onEntityLockChanged = callback; }
+    public void setOnGroupLockChanged(BiConsumer<String, Boolean> callback) { this.onGroupLockChanged = callback; }
 
     public void setScene(JesScene2D scene) {
         this.scene = scene;
@@ -569,14 +573,27 @@ public class EntitySelector extends VBox {
         return track == null || track.isVisible();
     }
 
+    private boolean resolveEntityLocked(String entityName) {
+        if (project == null || entityName == null || entityName.isBlank()) return false;
+        EntityTrack track = project.getTrack(entityName);
+        return track != null && track.isLocked();
+    }
+
+    private boolean resolveGroupLocked(String groupName) {
+        if (project == null || groupName == null || groupName.isBlank()) return false;
+        EntityGroup group = project.getGroup(groupName);
+        return group != null && group.isLocked();
+    }
+
     private class EntityTreeCell extends TreeCell<String> {
         private static final double LASSO_ARC = 10.0;
         private final Canvas icon = new Canvas(16, 16);
         private final Canvas visibilityIcon = new Canvas(14, 14);
+        private final Canvas lockIcon = new Canvas(14, 14);
         private final Label label = new Label();
         private final Region spacer = new Region();
         private final Label layerBadge = new Label();
-        private final HBox row = new HBox(6, icon, label, spacer, visibilityIcon, layerBadge);
+        private final HBox row = new HBox(6, icon, label, spacer, lockIcon, visibilityIcon, layerBadge);
         private final Canvas lassoCanvas = new Canvas();
         private final StackPane cellRoot = new StackPane(row, lassoCanvas);
         private final Timeline lassoTimeline;
@@ -612,6 +629,22 @@ public class EntitySelector extends VBox {
                 event.consume();
             });
 
+            lockIcon.setCursor(Cursor.HAND);
+            lockIcon.setOnMouseClicked(event -> {
+                if (isEmpty() || getItem() == null) return;
+                String encoded = getItem();
+                boolean isGroup = isEncodedGroupValue(encoded);
+                String name = decodeTreeValue(encoded);
+                boolean nextLocked = isGroup ? !resolveGroupLocked(name) : !resolveEntityLocked(name);
+                if (isGroup) {
+                    if (onGroupLockChanged != null) onGroupLockChanged.accept(name, nextLocked);
+                } else {
+                    if (onEntityLockChanged != null) onEntityLockChanged.accept(name, nextLocked);
+                }
+                drawLockIcon(lockIcon.getGraphicsContext2D(), nextLocked);
+                event.consume();
+            });
+
             lassoCanvas.setMouseTransparent(true);
             lassoCanvas.setManaged(false);
             StackPane.setAlignment(row, Pos.CENTER_LEFT);
@@ -641,12 +674,18 @@ public class EntitySelector extends VBox {
                 String name = decodeTreeValue(item);
                 boolean isGroup = isEncodedGroupValue(item);
                 boolean isVisible = !isGroup && resolveEntityVisible(name);
+                boolean isLocked = isGroup ? resolveGroupLocked(name) : resolveEntityLocked(name);
                 label.setText(name);
                 label.setTextFill(isGroup
                     ? Color.web("#f0b673")
                     : (isVisible ? Color.web("#e6e6e6") : Color.web("#8a8f98")));
                 layerBadge.setText(formatLayerBadge(name, isGroup));
                 drawEntityIcon(icon.getGraphicsContext2D(), name, isGroup);
+                
+                lockIcon.setVisible(true);
+                lockIcon.setManaged(true);
+                drawLockIcon(lockIcon.getGraphicsContext2D(), isLocked);
+
                 if (isGroup) {
                     visibilityIcon.setVisible(false);
                     visibilityIcon.setManaged(false);
@@ -815,6 +854,28 @@ public class EntitySelector extends VBox {
                 gc.setStroke(Color.web("#f0b673", 0.90));
                 gc.setLineWidth(1.4);
                 gc.strokeLine(2.0, h - 2.0, w - 2.0, 2.0);
+            }
+        }
+
+        private void drawLockIcon(GraphicsContext gc, boolean locked) {
+            double w = lockIcon.getWidth();
+            double h = lockIcon.getHeight();
+            gc.clearRect(0, 0, w, h);
+
+            Color color = locked ? Color.web("#f0b673") : Color.web("#6b7687");
+            gc.setStroke(color);
+            gc.setFill(color);
+            gc.setLineWidth(1.2);
+
+            // Draw lock body
+            gc.fillRect(3.0, 6.0, w - 6.0, h - 8.0);
+
+            // Draw shackle
+            if (locked) {
+                gc.strokeArc(4.0, 2.0, w - 8.0, 8.0, 0, 180, javafx.scene.shape.ArcType.OPEN);
+            } else {
+                gc.strokeArc(4.0, 0.0, w - 8.0, 8.0, 0, 180, javafx.scene.shape.ArcType.OPEN);
+                gc.strokeLine(4.0, 4.0, 4.0, 6.0); // Open gap
             }
         }
     }

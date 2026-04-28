@@ -475,6 +475,22 @@ public class PuppeteerWindow extends Stage {
             updatePreview();
         });
 
+        entitySelector.setOnEntityLockChanged((entityName, locked) -> {
+            EntityTrack track = this.project.getTrack(entityName);
+            if (track == null) return;
+            track.setLocked(locked);
+            entitySelector.refresh(this.project);
+            entitySelector.selectEntity(entityName);
+        });
+
+        entitySelector.setOnGroupLockChanged((groupName, locked) -> {
+            EntityGroup group = this.project.getGroup(groupName);
+            if (group == null) return;
+            group.setLocked(locked);
+            entitySelector.refresh(this.project);
+            entitySelector.selectGroup(groupName);
+        });
+
         timelinePanel.setOnKeyframeSelected(kf -> {
             if (timelinePanel.getSelectionCount() > 1) {
                 keyframeEditor.setSelection(new ArrayList<>(timelinePanel.getSelectedKeyframes()), timelinePanel.getSelectedProperty());
