@@ -699,10 +699,6 @@ public class EntitySelector extends VBox {
         }
 
         private void syncLassoCanvas() {
-            double width = Math.max(1.0, row.getWidth());
-            double height = Math.max(1.0, row.getHeight());
-            lassoCanvas.setWidth(width);
-            lassoCanvas.setHeight(height);
             drawSelectionLasso();
         }
 
