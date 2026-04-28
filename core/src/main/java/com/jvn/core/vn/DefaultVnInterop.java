@@ -1294,6 +1294,7 @@ public class DefaultVnInterop implements VnInterop {
           }
         }
         if (expression == null) expression = state.getCharacterExpression(characterId);
+        state.setCharacterDefinedPosition(characterId, position);
         state.showCharacterAnimated(position, characterId,
             expression == null ? "neutral" : expression, null, easingType, durationMs);
         break;
@@ -1311,6 +1312,7 @@ public class DefaultVnInterop implements VnInterop {
         }
         if (position == null) return;
         String expression = showNextIdx < toks.length ? toks[showNextIdx] : "neutral";
+        state.setCharacterDefinedPosition(characterId, position);
         state.showCharacterAnimated(position, characterId, expression);
         break;
       }

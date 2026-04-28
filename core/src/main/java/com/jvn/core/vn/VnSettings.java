@@ -17,6 +17,9 @@ public class VnSettings {
   private double physicsDefaultFriction = 0.2;
   private String inputProfilePath = System.getProperty("user.home") + "/.jvn/input-bindings.properties";
   private String inputProfileSerialized = ""; // serialized ActionBindingProfile (optional)
+  private int displayWidth = 1920;
+  private int displayHeight = 1080;
+  private boolean autoFitResolution = false;
 
   public int getTextSpeed() { return textSpeed; }
   public void setTextSpeed(int speed) { this.textSpeed = Math.max(1, Math.min(speed, 200)); }
@@ -64,6 +67,15 @@ public class VnSettings {
     this.inputProfileSerialized = serialized == null ? "" : serialized;
   }
 
+  public int getDisplayWidth() { return displayWidth; }
+  public void setDisplayWidth(int width) { this.displayWidth = Math.max(320, Math.min(width, 7680)); }
+
+  public int getDisplayHeight() { return displayHeight; }
+  public void setDisplayHeight(int height) { this.displayHeight = Math.max(180, Math.min(height, 4320)); }
+
+  public boolean isAutoFitResolution() { return autoFitResolution; }
+  public void setAutoFitResolution(boolean autoFit) { this.autoFitResolution = autoFit; }
+
   public VnSettings copy() {
     VnSettings copy = new VnSettings();
     copy.textSpeed = this.textSpeed;
@@ -79,6 +91,9 @@ public class VnSettings {
     copy.physicsDefaultFriction = this.physicsDefaultFriction;
     copy.inputProfilePath = this.inputProfilePath;
     copy.inputProfileSerialized = this.inputProfileSerialized;
+    copy.displayWidth = this.displayWidth;
+    copy.displayHeight = this.displayHeight;
+    copy.autoFitResolution = this.autoFitResolution;
     return copy;
   }
 }

@@ -41,6 +41,14 @@ Store: `core/src/main/java/com/jvn/core/vn/VnSettingsStore.java`
 | `physicsMaxSubSteps` | `physics_max_substeps` | int | `4` | ≥ 1 | Maximum physics substeps per frame |
 | `physicsDefaultFriction` | `physics_default_friction` | double | `0.2` | 0.0–1.0 | Default friction coefficient for physics bodies |
 
+### Display & Resolution
+
+| Field | Property Key | Type | Default | Range | Description |
+|-------|-------------|------|---------|-------|-------------|
+| `displayWidth` | `display_width` | int | `1920` | 320–7680 | Game window width in pixels |
+| `displayHeight` | `display_height` | int | `1080` | 180–4320 | Game window height in pixels |
+| `autoFitResolution` | `auto_fit_resolution` | boolean | `false` | — | Automatically adjust resolution to fit player's screen |
+
 ### Input
 
 | Field | Property Key | Type | Default | Description |
@@ -77,6 +85,9 @@ click_reveal_before_advance=true
 physics_fixed_step_ms=0
 physics_max_substeps=4
 physics_default_friction=0.2
+display_width=1920
+display_height=1080
+auto_fit_resolution=false
 input_profile_path=/Users/me/.jvn/input-bindings.properties
 input_profile_serialized=
 ```
@@ -135,6 +146,9 @@ The settings menu screen binds to settings fields by item ID. Each recognized it
 | `physics_fixed_step` | `physicsFixedStepMs` | ±5ms per step |
 | `physics_max_substeps` | `physicsMaxSubSteps` | ±1 per step |
 | `physics_default_friction` | `physicsDefaultFriction` | ±0.05 per step |
+| `display_width` | `displayWidth` | ±64px per step |
+| `display_height` | `displayHeight` | ±36px per step |
+| `auto_fit_resolution` | `autoFitResolution` | Toggle ON/OFF |
 | `input_profile` | Input bindings | Load/save profile |
 | `back` | — | Close settings screen |
 
@@ -152,6 +166,8 @@ Settings items that show as sliders have these value ranges:
 | `physics_fixed_step` | 0ms | 50ms | 0 = variable timestep |
 | `physics_max_substeps` | 1 | 8 | Higher = more stable physics |
 | `physics_default_friction` | 0.0 | 1.0 | Higher = more friction |
+| `display_width` | 320px | 7680px | Resolution width adjustment |
+| `display_height` | 180px | 4320px | Resolution height adjustment |
 
 ### {value} Display Format
 
@@ -168,7 +184,69 @@ Settings items that show as sliders have these value ranges:
 | `physics_fixed_step` | `0` |
 | `physics_max_substeps` | `4` |
 | `physics_default_friction` | `0.20` |
+| `display_width` | `1920px` |
+| `display_height` | `1080px` |
+| `auto_fit_resolution` | `OFF` |
 | `input_profile` | `default` |
+
+---
+
+## Resolution & Display Settings
+
+### Player-Facing Options
+
+The settings menu now includes three display-related options for players:
+
+1. **Screen Width** (Slider: 320–7680px)
+   - Adjust the logical game window width
+   - Default: 1920px
+
+2. **Screen Height** (Slider: 180–4320px)
+   - Adjust the logical game window height
+   - Default: 1080px
+
+3. **Auto-Fit Resolution** (Toggle: ON/OFF)
+   - Automatically adjust resolution to fit the player's monitor
+   - Default: OFF
+
+### Implementing Resolution Changes in Your Game
+
+When a player changes these settings, you can access and apply them:
+
+```java
+VnSettings settings = vnScene.getState().getSettings();
+
+// Read resolution settings
+int width = settings.getDisplayWidth();
+int height = settings.getDisplayHeight();
+boolean autoFit = settings.isAutoFitResolution();
+
+// Apply to window (JavaFX example)
+if (autoFit) {
+  Screen screen = Screen.getPrimary();
+  primaryStage.setWidth(screen.getVisualBounds().getWidth());
+  primaryStage.setHeight(screen.getVisualBounds().getHeight());
+} else {
+  primaryStage.setWidth(width);
+  primaryStage.setHeight(height);
+}
+
+// Update renderer viewport scaling
+ViewportScaler2D.Transform transform = ViewportScaler2D.fit(
+  width, height,
+  windowWidth, windowHeight
+);
+```
+
+### From VNS Scripts
+
+Players can also change resolution settings from VNS scripts:
+
+```vns
+[settings display_width 1280]
+[settings display_height 720]
+[settings auto_fit_resolution true]
+```
 
 ---
 
@@ -223,6 +301,10 @@ saveData.setSettings(snapshot);
 - [ ] Click-to-reveal behavior matches `clickRevealBeforeAdvance` setting
 - [ ] Settings are embedded in save data and restored on load
 - [ ] Physics settings affect JES scene behavior
+- [ ] Display width/height sliders respond to input
+- [ ] Auto-fit resolution toggle is displayed correctly
+- [ ] Resolution values persist after game restart
+- [ ] Window/viewport updates when resolution settings change (if implemented)
 
 ---
 
@@ -239,6 +321,12 @@ The minimum is clamped to 1. Values close to 1 will reveal very fast.
 
 **Physics settings have no effect in VN-only projects:**
 Physics settings only matter when JES scenes with physics bodies are loaded.
+
+**Window doesn't resize when resolution changes:**
+The `displayWidth` and `displayHeight` settings store the values, but the actual window resize must be implemented in your runtime's window manager. The settings are available for you to use via `settings.getDisplayWidth()` and `settings.getDisplayHeight()`.
+
+**Auto-fit resolution appears but does nothing:**
+Auto-fit detection requires platform-specific code to query the screen dimensions. This setting flag is provided; you implement the actual auto-detect behavior in your window initialization code.
 
 ---
 

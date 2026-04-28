@@ -34,7 +34,7 @@ public class VnParticleCommand {
 
     public static Preset parse(String token) {
       if (token == null || token.isBlank()) return NONE;
-      return switch (token.trim().toUpperCase()) {
+      return switch (token.trim().toUpperCase(java.util.Locale.ENGLISH)) {
         case "SNOW" -> SNOW;
         case "RAIN" -> RAIN;
         case "SAKURA", "PETALS", "CHERRY" -> SAKURA;

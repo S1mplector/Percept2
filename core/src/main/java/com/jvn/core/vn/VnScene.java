@@ -581,6 +581,7 @@ public class VnScene implements Scene {
 
   private void processShowNode(VnNode node) {
     if (node.getCharacterToShow() != null && node.getShowPosition() != null) {
+      state.setCharacterDefinedPosition(node.getCharacterToShow(), node.getShowPosition());
       String expr = node.getShowExpression() != null ? node.getShowExpression() : "neutral";
       state.showCharacterAnimated(node.getShowPosition(), node.getCharacterToShow(), expr, node.getShowLayerOrder());
     }
@@ -588,6 +589,7 @@ public class VnScene implements Scene {
 
   private void processMoveNode(VnNode node) {
     if (node.getCharacterToShow() != null && node.getShowPosition() != null) {
+      state.setCharacterDefinedPosition(node.getCharacterToShow(), node.getShowPosition());
       String expr = node.getShowExpression() != null ? node.getShowExpression() : null;
       state.showCharacterAnimated(node.getShowPosition(), node.getCharacterToShow(), expr,
           null, node.getMoveEasingType(), node.getMoveDurationMs());

@@ -2133,6 +2133,7 @@ public class NewProjectWizard extends Stage {
 
       fw.write("link " + ARC_PROLOGUE + ":route_tutorial -> " + ARC_TUTORIAL_HUB + ":start\n");
       fw.write("link " + ARC_PROLOGUE + ":route_branch -> " + ARC_BRANCH_DEMO + ":start\n");
+      fw.write("link " + ARC_BRANCH_DEMO + ":end -> " + ARC_EPILOGUE + ":start\n");
 
       if (includeTutorialPack) {
         fw.write("link " + ARC_TUTORIAL_HUB + ":open_dialogue -> " + ARC_T01_DIALOGUE + ":start\n");
@@ -2195,6 +2196,11 @@ public class NewProjectWizard extends Stage {
       sp.setProperty("physics_max_substeps", Integer.toString(physicsSubsteps));
       sp.setProperty("physics_default_friction", Double.toString(physicsFriction));
       sp.setProperty("input_profile_path", inputProfile);
+
+      // Display resolution (scaled for screen DPI).
+      int[] scaledRes = getScaledResolution();
+      sp.setProperty("display_width", Integer.toString(scaledRes[0]));
+      sp.setProperty("display_height", Integer.toString(scaledRes[1]));
 
       // Project module hints.
       sp.setProperty("historyBacklogEnabled", Boolean.toString(chkHistoryBacklog.isSelected()));

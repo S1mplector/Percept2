@@ -1125,19 +1125,63 @@ public class VnScriptParser {
         if (toks.length < 2) {
           throw parseError(sourceName, lineNumber, "[move] expects: [move <charId> <pos|at x,y> [expression] [easing] [durationMs]]", rawLine);
         }
+
         String moveCharId = toks[0];
         CharacterPosition movePos = null;
         String moveExpr = null;
         Easing.Type moveEasing = null;
         long moveDur = 0;
-        for (int ti = 1; ti < toks.length; ti++) {
-          String tok = toks[ti].trim();
-          if (tok.isEmpty()) continue;
-          if ("at".equalsIgnoreCase(tok) && ti + 1 < toks.length && !isNamedOptionToken(toks[ti + 1], "move")) {
-            InlinePosition mip = parseAtPosition(toks[++ti], sourceName, lineNumber, rawLine);
-            movePos = mip.position();
+
+        // Parse all tokens
+        int i = 1;
+
+        // First, handle positional position (second token)
+        if (i < toks.length && !isNamedOptionToken(toks[i], "move")) {
+          String posToken = toks[i];
+          if ("at".equalsIgnoreCase(posToken)) {
+            i++;
+            if (i < toks.length) {
+              InlinePosition inline = parseAtPosition(toks[i], sourceName, lineNumber, rawLine);
+              movePos = inline.position();
+              i++;
+            }
+          } else {
+            // Try built-in positions
+            String upper = posToken.trim().toUpperCase(java.util.Locale.ENGLISH);
+            if ("FAR_LEFT".equals(upper) || "FL".equals(upper) || "FARLEFT".equals(upper)) {
+              movePos = CharacterPosition.FAR_LEFT;
+              i++;
+            } else if ("LEFT".equals(upper) || "L".equals(upper)) {
+              movePos = CharacterPosition.LEFT;
+              i++;
+            } else if ("CENTER".equals(upper) || "C".equals(upper) || "CENTRE".equals(upper)) {
+              movePos = CharacterPosition.CENTER;
+              i++;
+            } else if ("RIGHT".equals(upper) || "R".equals(upper)) {
+              movePos = CharacterPosition.RIGHT;
+              i++;
+            } else if ("FAR_RIGHT".equals(upper) || "FR".equals(upper) || "FARRIGHT".equals(upper)) {
+              movePos = CharacterPosition.FAR_RIGHT;
+              i++;
+            } else {
+              // Try custom positions
+              movePos = state.getCustomPosition(posToken);
+              if (movePos != null) {
+                i++;
+              }
+            }
+          }
+        }
+
+        // Parse remaining tokens in order: expression, easing, duration, or named options
+        while (i < toks.length) {
+          String tok = toks[i].trim();
+          if (tok.isEmpty()) {
+            i++;
             continue;
           }
+
+          // Check for named options
           if (isNamedOptionToken(tok, "move")) {
             KeyValueOption option = parseKeyValueOption(tok, sourceName, lineNumber, rawLine, "[move]");
             switch (option.key()) {
@@ -1157,31 +1201,40 @@ public class VnScriptParser {
               }
               default -> throw parseError(sourceName, lineNumber, "[move] unknown option: " + option.key(), rawLine);
             }
+            i++;
             continue;
           }
-          if (movePos == null) {
-            movePos = parsePosition(tok, sourceName, lineNumber, rawLine, state);
-            continue;
-          }
+
+          // Check for integer duration
           if (isIntegerToken(tok)) {
             moveDur = Long.parseLong(tok);
             if (moveDur < 0) throw parseError(sourceName, lineNumber, "[move] duration must be >= 0", rawLine);
+            i++;
             continue;
           }
-          Easing.Type parsed = parseEasingToken(tok);
-          if (parsed != null) {
-            moveEasing = parsed;
+
+          // Check for easing
+          Easing.Type easing = parseEasingToken(tok);
+          if (easing != null) {
+            moveEasing = easing;
+            i++;
             continue;
           }
+
+          // Otherwise treat as expression
           if (moveExpr == null) {
             moveExpr = resolveInlineExpressionToken(state, moveCharId, tok, sourceName, lineNumber, rawLine);
+            i++;
             continue;
           }
+
           throw parseError(sourceName, lineNumber, "[move] unexpected token: " + tok, rawLine);
         }
+
         if (movePos == null) {
-          throw parseError(sourceName, lineNumber, "[move] requires a destination via positional arg, pos=..., or at=...", rawLine);
+          throw parseError(sourceName, lineNumber, "[move] requires a position via positional arg, pos=..., or at=...", rawLine);
         }
+
         state.builder.move(moveCharId, movePos, moveExpr, moveEasing, moveDur);
         return;
       }
@@ -2176,6 +2229,19 @@ public class VnScriptParser {
     }
   }
 
+  private CharacterPosition tryParsePosition(String token) {
+    if (token == null || token.isBlank()) return null;
+    String t = token.trim().toUpperCase(java.util.Locale.ENGLISH);
+    return switch (t) {
+      case "FAR_LEFT", "FL", "FARLEFT" -> CharacterPosition.FAR_LEFT;
+      case "LEFT", "L" -> CharacterPosition.LEFT;
+      case "CENTER", "C", "CENTRE" -> CharacterPosition.CENTER;
+      case "RIGHT", "R" -> CharacterPosition.RIGHT;
+      case "FAR_RIGHT", "FR", "FARRIGHT" -> CharacterPosition.FAR_RIGHT;
+      case null, default -> null;
+    };
+  }
+
   private CharacterPosition parsePosition(String token,
                                           String sourceName,
                                           int lineNumber,
@@ -2190,7 +2256,7 @@ public class VnScriptParser {
   }
 
   private VnTransition.TransitionType parseTransitionType(String token) {
-    String t = token.trim().toUpperCase();
+    String t = token.trim().toUpperCase(java.util.Locale.ENGLISH);
     try {
       return VnTransition.TransitionType.valueOf(t);
     } catch (IllegalArgumentException e) {

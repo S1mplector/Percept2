@@ -503,13 +503,21 @@ Useful options:
 
 ### `[hud <message>]`
 
-Displays a temporary on-screen message.
+Displays a temporary on-screen message. Messages support `${var}` variable interpolation and ICU formatting for dynamic content.
 
 ```vns
 [hud Saved!]
 [hud Chapter 2 — The Forest]
 [hud Score: ${score}]
+[hud {score, plural, one{# enemy} other{# enemies}} defeated!]
 ```
+
+**Behavior:**
+- Variables are resolved at the time the command executes, using current VN state.
+- Missing variables resolve to empty string.
+- HUD messages auto-expire after 2000ms by default.
+
+For more advanced formatting (plurals, selection, number formatting), see **[Text Formatting & ICU](vns-text-formatting.md)**.
 
 ---
 
