@@ -8,10 +8,10 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.FontMetrics;
-import java.awt.GradientPaint;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridLayout;
+import java.awt.LinearGradientPaint;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Shape;
@@ -1538,16 +1538,16 @@ public final class JvnHub {
   }
 
   /**
-   * Vector logomark for the JVN engine — fully painted, no PNG dependency.
-   * Renders "JVN" in bold sans-serif with a vertical orange gradient (light
-   * peach at the top fading into deep orange at the baseline) — an
-   * understated nod to the engine's original fiery wordmark, on a black field.
+   * Vector logomark for the JVN engine, fully painted with no PNG dependency.
+   * Renders "JVN" in bold sans-serif with the same white-to-gray treatment used
+   * by the editor and launcher wordmark.
    * {@link #renderToImage(int, int)} exposes the same artwork as a raster so
    * the OS window/dock icon stays in sync.
    */
   private static final class JvnLogoIcon implements Icon {
-    private static final Color ORANGE_TOP    = Color.decode("#ffe2a8");
-    private static final Color ORANGE_BOTTOM = Color.decode("#ff5a1f");
+    private static final Color WORDMARK_TOP = Color.decode("#ffffff");
+    private static final Color WORDMARK_MID = Color.decode("#dedede");
+    private static final Color WORDMARK_BOTTOM = Color.decode("#9a9a9a");
 
     private final int width;
     private final int height;
@@ -1580,7 +1580,7 @@ public final class JvnHub {
       g2.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
       g2.translate(x, y);
 
-      // "JVN" wordmark, vertically centered, with a top-to-bottom orange gradient.
+      // "JVN" wordmark, vertically centered, with the editor's white-to-gray gradient.
       int jvnSize = Math.max(14, Math.round(height * 0.78f));
       Font jvnFont = new Font(Font.SANS_SERIF, Font.BOLD, jvnSize);
       g2.setFont(jvnFont);
@@ -1591,9 +1591,15 @@ public final class JvnHub {
       int textTop = (height - (fm.getAscent() + fm.getDescent())) / 2;
       int jvnY = textTop + fm.getAscent();
 
-      GradientPaint gradient = new GradientPaint(
-          0, jvnY - fm.getAscent(), ORANGE_TOP,
-          0, jvnY + fm.getDescent(), ORANGE_BOTTOM);
+      float top = jvnY - fm.getAscent();
+      float bottom = jvnY + fm.getDescent();
+      LinearGradientPaint gradient = new LinearGradientPaint(
+          0f,
+          top,
+          0f,
+          bottom,
+          new float[] {0f, 0.42f, 1f},
+          new Color[] {WORDMARK_TOP, WORDMARK_MID, WORDMARK_BOTTOM});
       g2.setPaint(gradient);
       g2.drawString(jvn, jvnX, jvnY);
 
