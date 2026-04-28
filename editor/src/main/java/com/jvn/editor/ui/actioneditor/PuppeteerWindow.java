@@ -501,7 +501,8 @@ public class PuppeteerWindow extends Stage {
             
             if (!commands.isEmpty()) {
                 commandStack.execute(PuppeteerCommand.composite("Reset Group Transforms", commands));
-                if (animationPreview != null) animationPreview.render();
+                refreshExportPreviewAndMarkDirty();
+                updatePreview();
                 if (timelinePanel != null) timelinePanel.refresh();
             }
         });
