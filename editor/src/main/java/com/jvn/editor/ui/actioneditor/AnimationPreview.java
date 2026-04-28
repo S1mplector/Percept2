@@ -103,14 +103,15 @@ public class AnimationPreview extends VBox {
     private static final class RotateDragState {
         final double pivotX;
         final double pivotY;
-        final double startMouseAngleRad;
+        double lastMouseAngleRad;
+        double accumulatedThetaRad = 0.0;
         final double baseRotationDeg;
         final java.util.Map<String, FollowerState> followers = new java.util.LinkedHashMap<>();
 
         RotateDragState(double px, double py, double angle, double rot) {
             this.pivotX = px;
             this.pivotY = py;
-            this.startMouseAngleRad = angle;
+            this.lastMouseAngleRad = angle;
             this.baseRotationDeg = rot;
         }
     }
@@ -1777,8 +1778,16 @@ public class AnimationPreview extends VBox {
             } else if (draggingRotate && rotateDragState != null && selectedEntity != null && selectedEntityName != null) {
                 double[] world = screenToWorld(e.getX(), e.getY());
                 double currentAngle = Math.atan2(world[1] - rotateDragState.pivotY, world[0] - rotateDragState.pivotX);
-                double dThetaRad = currentAngle - rotateDragState.startMouseAngleRad;
-                double dThetaDeg = Math.toDegrees(dThetaRad);
+                
+                double dThetaRad = currentAngle - rotateDragState.lastMouseAngleRad;
+                while (dThetaRad > Math.PI) dThetaRad -= 2 * Math.PI;
+                while (dThetaRad < -Math.PI) dThetaRad += 2 * Math.PI;
+                
+                rotateDragState.lastMouseAngleRad = currentAngle;
+                rotateDragState.accumulatedThetaRad += dThetaRad;
+                
+                double totalDThetaRad = rotateDragState.accumulatedThetaRad;
+                double dThetaDeg = Math.toDegrees(totalDThetaRad);
                 
                 double newRotation = rotateDragState.baseRotationDeg + dThetaDeg;
                 selectedEntity.setRotationDeg(newRotation);
@@ -1793,8 +1802,8 @@ public class AnimationPreview extends VBox {
                     if (follower != null) {
                         double dx = state.startX - rotateDragState.pivotX;
                         double dy = state.startY - rotateDragState.pivotY;
-                        double newX = rotateDragState.pivotX + dx * Math.cos(dThetaRad) - dy * Math.sin(dThetaRad);
-                        double newY = rotateDragState.pivotY + dx * Math.sin(dThetaRad) + dy * Math.cos(dThetaRad);
+                        double newX = rotateDragState.pivotX + dx * Math.cos(totalDThetaRad) - dy * Math.sin(totalDThetaRad);
+                        double newY = rotateDragState.pivotY + dx * Math.sin(totalDThetaRad) + dy * Math.cos(totalDThetaRad);
                         double newRot = state.startRotationDeg + dThetaDeg;
                         follower.setPosition(newX, newY);
                         follower.setRotationDeg(newRot);

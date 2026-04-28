@@ -580,7 +580,6 @@ public class EntitySelector extends VBox {
         private final Canvas lassoCanvas = new Canvas();
         private final StackPane cellRoot = new StackPane(row, lassoCanvas);
         private final Timeline lassoTimeline;
-        private final ChangeListener<Bounds> boundsListener;
         private double lassoDashOffset = 0.0;
 
         EntityTreeCell() {
