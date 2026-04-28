@@ -8,7 +8,7 @@ rem  pull-rebase the repository — without typing jvnw commands.
 rem -----------------------------------------------------------------------------
 setlocal EnableExtensions
 
-set "SCRIPT_DIR=%~dp0"
+for %%I in ("%~dp0.") do set "SCRIPT_DIR=%%~sI\"
 set "GRADLEW=%SCRIPT_DIR%gradlew.bat"
 
 if not exist "%GRADLEW%" (
@@ -16,7 +16,13 @@ if not exist "%GRADLEW%" (
   exit /b 1
 )
 
+rem Change to short-path directory to avoid Unicode path issues with Gradle
+pushd "%SCRIPT_DIR%"
+
 rem Run the hub via Gradle so classpath + toolchain are handled for us.
 rem --console=plain keeps the terminal tidy; -q suppresses Gradle chatter.
-call "%GRADLEW%" -q --console=plain -p "%SCRIPT_DIR%" :hub:run
-exit /b %ERRORLEVEL%
+call "%GRADLEW%" -q --console=plain :hub:run
+set RESULT=%ERRORLEVEL%
+
+popd
+exit /b %RESULT%
