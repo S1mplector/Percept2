@@ -588,7 +588,9 @@ public class EntitySelector extends VBox {
             row.setPadding(new Insets(3, 6, 3, 6));
             label.setStyle("-fx-font-size: 11px;");
             label.setMaxWidth(Double.MAX_VALUE);
-            HBox.setHgrow(spacer, Priority.ALWAYS);
+            spacer.setMinWidth(12);
+            spacer.setPrefWidth(12);
+            spacer.setMaxWidth(12);
             layerBadge.setStyle(
                 "-fx-font-size: 10px; -fx-text-fill: #8a8f98; " +
                 "-fx-background-color: #15181f; -fx-background-radius: 9; " +
@@ -612,6 +614,7 @@ public class EntitySelector extends VBox {
             });
 
             lassoCanvas.setMouseTransparent(true);
+            lassoCanvas.setManaged(false);
             StackPane.setAlignment(row, Pos.CENTER_LEFT);
             StackPane.setAlignment(lassoCanvas, Pos.CENTER_LEFT);
 
@@ -621,10 +624,11 @@ public class EntitySelector extends VBox {
             }));
             lassoTimeline.setCycleCount(Animation.INDEFINITE);
 
-            boundsListener = (obs, oldValue, newValue) -> Platform.runLater(this::syncLassoCanvas);
-            row.layoutBoundsProperty().addListener(boundsListener);
-            widthProperty().addListener((obs, oldValue, newValue) -> Platform.runLater(this::syncLassoCanvas));
-            heightProperty().addListener((obs, oldValue, newValue) -> Platform.runLater(this::syncLassoCanvas));
+            lassoCanvas.widthProperty().bind(row.widthProperty());
+            lassoCanvas.heightProperty().bind(row.heightProperty());
+            
+            lassoCanvas.widthProperty().addListener((obs, oldVal, newVal) -> drawSelectionLasso());
+            lassoCanvas.heightProperty().addListener((obs, oldVal, newVal) -> drawSelectionLasso());
         }
 
         @Override
