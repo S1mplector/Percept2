@@ -25,6 +25,13 @@ import java.util.stream.Stream;
 
 import javax.imageio.ImageIO;
 
+import com.jvn.core.scene2d.Sprite2D;
+import com.jvn.editor.ui.actioneditor.AnimationProject;
+import com.jvn.editor.ui.actioneditor.EntityGroup;
+import com.jvn.editor.ui.actioneditor.EntitySelector;
+import com.jvn.editor.ui.actioneditor.EntityTrack;
+import com.jvn.scripting.jes.runtime.JesScene2D;
+
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
@@ -149,15 +156,18 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
   private final Canvas previewCanvas = new Canvas(320, 240);
   private final LoadingProgressOverlay previewLoadingOverlay = new LoadingProgressOverlay();
+  private final EntitySelector sceneEntitySelector = new EntitySelector();
   private final VBox controlsSection = new VBox(8);
   private final SplitPane workspaceSplit = new SplitPane();
   private TitledPane controlsPane;
+  private TitledPane sceneEntitiesPane;
 
   private final Map<String, File> imageByTag = new LinkedHashMap<>();
   private final Map<String, PresetTagEntry> presetByTag = new LinkedHashMap<>();
   private final Map<String, String> setupNameToKey = new LinkedHashMap<>();
   private final Map<String, Image> imageCache = new HashMap<>();
   private final Map<ComboBox<String>, AssetTagSearchPopup> assetTagSearchPopups = new HashMap<>();
+  private final Map<String, SceneSelectorBinding> sceneSelectorBindings = new LinkedHashMap<>();
   private final Properties persisted = new Properties();
   private final PauseTransition stateSaveDebounce = new PauseTransition(Duration.millis(250));
 
@@ -199,6 +209,9 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   private String tintedBackgroundTag;
   private String tintedBackgroundKey;
   private Image tintedBackground;
+  private AnimationProject sceneEntityProject = new AnimationProject();
+  private JesScene2D sceneEntityScene = new JesScene2D();
+  private boolean syncingSceneEntitySelector;
 
   private record BackgroundTintParams(
       double tintStrength,
@@ -223,6 +236,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
           && Math.abs(overlayOpacity) < 1e-8;
     }
   }
+
+  private record SceneSelectorBinding(String tag, boolean background) {}
 
   // ── Zone area selector ──
   private static final String[] BLEND_MODES = {
@@ -438,6 +453,8 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     tagsPane.setAnimated(false);
     tagsPane.setCollapsible(true);
 
+    buildSceneEntitiesPane();
+
     // ── Preview canvas fills the center ──
     StackPane previewPane = new StackPane(previewCanvas, previewLoadingOverlay);
     StackPane.setAlignment(previewLoadingOverlay, Pos.CENTER);
@@ -554,6 +571,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
         sidebarHeader, summaryLabel,
         actionRow,
         tagsPane,
+        sceneEntitiesPane,
         exportPane,
         controlsPane,
         backgroundPane,
@@ -595,6 +613,72 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
     bindTagSelectionHandlers();
     updateExportControls();
+  }
+
+  private void buildSceneEntitiesPane() {
+    sceneEntitySelector.setMinHeight(190);
+    sceneEntitySelector.setPrefHeight(240);
+    sceneEntitySelector.setScene(sceneEntityScene);
+    sceneEntitySelector.setOnSelectionChanged((name, group) -> {
+      if (syncingSceneEntitySelector || applyingState) return;
+      SceneSelectorBinding binding = sceneSelectorBindings.get(selectorKey(name, group));
+      if (binding == null) return;
+      if (binding.background()) {
+        setComboTagValue(backgroundTagBox, binding.tag());
+        applyBackgroundTintIfPresent(selectedBackgroundTag());
+      } else {
+        setComboTagValue(characterTagBox, binding.tag());
+        onCharacterTagChanged(false);
+      }
+      persistGlobalState();
+    });
+    sceneEntitySelector.setOnCreateGroup(groupName -> {
+      sceneEntityProject.getOrCreateGroup(groupName);
+      refreshSceneEntitySelector(false);
+    });
+    sceneEntitySelector.setOnAddSelectionToGroup((name, selectionIsGroup, groupName) -> {
+      if (selectionIsGroup) {
+        sceneEntityProject.addGroupToGroup(name, groupName);
+      } else {
+        sceneEntityProject.addEntityToGroup(name, groupName);
+      }
+      refreshSceneEntitySelector(false);
+    });
+    sceneEntitySelector.setOnRenameGroup((currentName, nextName) -> {
+      sceneEntityProject.renameGroup(currentName, nextName);
+      refreshSceneEntitySelector(false);
+      sceneEntitySelector.selectGroup(nextName);
+    });
+    sceneEntitySelector.setOnDeleteSelection((name, group) -> {
+      if (group) {
+        sceneEntityProject.removeGroup(name);
+      } else {
+        sceneEntityProject.removeTrack(name);
+        if (sceneEntityScene != null) sceneEntityScene.removeEntity(name);
+      }
+      refreshSceneEntitySelector(false);
+    });
+    sceneEntitySelector.setOnEntityLayerDelta((entityName, delta) -> {
+      EntityTrack track = sceneEntityProject.getTrack(entityName);
+      if (track != null) track.setLayerOrder(track.getLayerOrder() + delta);
+      refreshSceneEntitySelector(false);
+    });
+    sceneEntitySelector.setOnGroupLayerDelta((groupName, delta) -> {
+      EntityGroup group = sceneEntityProject.getGroup(groupName);
+      if (group != null) group.setLayerOrder(group.getLayerOrder() + delta);
+      refreshSceneEntitySelector(false);
+    });
+    sceneEntitySelector.setOnEntityVisibilityChanged((entityName, visible) -> {
+      EntityTrack track = sceneEntityProject.getTrack(entityName);
+      if (track != null) track.setVisible(visible);
+      refreshSceneEntitySelector(false);
+      sceneEntitySelector.selectEntity(entityName);
+    });
+
+    sceneEntitiesPane = new TitledPane("Scene Entities", sceneEntitySelector);
+    sceneEntitiesPane.setExpanded(true);
+    sceneEntitiesPane.setAnimated(false);
+    sceneEntitiesPane.setCollapsible(true);
   }
 
   private void buildBackgroundSection() {
@@ -835,6 +919,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     backgroundTagBox.valueProperty().addListener((o, ov, nv) -> {
       if (applyingState) return;
       applyBackgroundTintIfPresent(selectedBackgroundTag());
+      refreshSceneEntitySelector(true);
       persistGlobalState();
     });
   }
@@ -845,6 +930,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     }
     updateExportControls();
     redrawPreview();
+    refreshSceneEntitySelector(true);
     persistGlobalState();
   }
 
@@ -1074,6 +1160,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
       ensureDefaultSelections();
       refreshSetupOptions();
       switchZoneProfileForCharacter(selectedCharacterTag(), false);
+      refreshSceneEntitySelector(true);
       redrawPreview();
       status("Scan complete.");
     });
@@ -1271,8 +1358,149 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     if (changed) {
       applyBackgroundTintIfPresent(selectedBackgroundTag());
       switchZoneProfileForCharacter(selectedCharacterTag(), false);
+      refreshSceneEntitySelector(true);
       persistGlobalState();
     }
+  }
+
+  private void refreshSceneEntitySelector(boolean preserveSelectedTags) {
+    String previousCharacter = preserveSelectedTags ? selectedCharacterTag() : "";
+    String previousBackground = preserveSelectedTags ? selectedBackgroundTag() : "";
+
+    sceneEntityProject = new AnimationProject();
+    sceneEntityScene = new JesScene2D();
+    sceneSelectorBindings.clear();
+
+    String backgroundTag = selectedBackgroundTag();
+    if (!backgroundTag.isBlank()) {
+      String entityName = uniqueSelectorEntityName("bg_" + selectorName(backgroundTag));
+      Sprite2D sprite = new Sprite2D(resolveSelectorImagePath(backgroundTag), 1, 1);
+      sprite.setZ(-100);
+      sceneEntityScene.add(sprite);
+      sceneEntityScene.registerEntity(entityName, sprite);
+      EntityTrack track = sceneEntityProject.getOrCreateTrack(entityName);
+      track.setLayerOrder(-100);
+      sceneSelectorBindings.put(selectorKey(entityName, false), new SceneSelectorBinding(backgroundTag, true));
+    }
+
+    String characterTag = selectedCharacterTag();
+    PresetTagEntry preset = presetByTag.get(characterTag);
+    if (preset != null && !preset.layerTags().isEmpty()) {
+      String groupName = uniqueSelectorGroupName(selectorName(characterTag));
+      sceneEntityProject.getOrCreateGroup(groupName);
+      sceneSelectorBindings.put(selectorKey(groupName, true), new SceneSelectorBinding(characterTag, false));
+      int layerIndex = 0;
+      for (String layerTag : preset.layerTags()) {
+        String normalizedLayer = normalize(layerTag);
+        if (normalizedLayer.isBlank()) continue;
+        String entityName = uniqueSelectorEntityName(selectorName(characterTag) + "_" + selectorName(normalizedLayer));
+        Sprite2D sprite = new Sprite2D(resolveSelectorImagePath(normalizedLayer), 1, 1);
+        sprite.setZ(layerIndex);
+        sceneEntityScene.add(sprite);
+        sceneEntityScene.registerEntity(entityName, sprite);
+        EntityTrack track = sceneEntityProject.getOrCreateTrack(entityName);
+        track.setLayerOrder(layerIndex);
+        sceneEntityProject.addEntityToGroup(entityName, groupName);
+        sceneSelectorBindings.put(selectorKey(entityName, false), new SceneSelectorBinding(characterTag, false));
+        layerIndex++;
+      }
+    } else if (!characterTag.isBlank()) {
+      String entityName = uniqueSelectorEntityName("char_" + selectorName(characterTag));
+      Sprite2D sprite = new Sprite2D(resolveSelectorImagePath(characterTag), 1, 1);
+      sprite.setZ(0);
+      sceneEntityScene.add(sprite);
+      sceneEntityScene.registerEntity(entityName, sprite);
+      sceneEntityProject.getOrCreateTrack(entityName);
+      sceneSelectorBindings.put(selectorKey(entityName, false), new SceneSelectorBinding(characterTag, false));
+    }
+
+    syncingSceneEntitySelector = true;
+    try {
+      sceneEntitySelector.setScene(sceneEntityScene);
+      sceneEntitySelector.refresh(sceneEntityProject);
+      if (preserveSelectedTags) {
+        selectSceneEntityForTag(previousCharacter, false);
+        if (sceneEntitySelector.isGroupSelected() || !previousCharacter.isBlank()) return;
+        selectSceneEntityForTag(previousBackground, true);
+      }
+    } finally {
+      syncingSceneEntitySelector = false;
+    }
+  }
+
+  private void selectSceneEntityForTag(String tag, boolean background) {
+    String normalized = normalize(tag);
+    if (normalized.isBlank()) return;
+    for (Map.Entry<String, SceneSelectorBinding> entry : sceneSelectorBindings.entrySet()) {
+      SceneSelectorBinding binding = entry.getValue();
+      if (binding == null || binding.background() != background || !normalized.equals(binding.tag())) continue;
+      String key = entry.getKey();
+      if (key.startsWith("group:")) {
+        sceneEntitySelector.selectGroup(key.substring("group:".length()));
+      } else if (key.startsWith("entity:")) {
+        sceneEntitySelector.selectEntity(key.substring("entity:".length()));
+      }
+      return;
+    }
+  }
+
+  private String uniqueSelectorEntityName(String requested) {
+    String base = selectorName(requested);
+    if (base.isBlank()) base = "entity";
+    String name = base;
+    int suffix = 2;
+    while (sceneEntityScene != null && sceneEntityScene.find(name) != null) {
+      name = base + "_" + suffix++;
+    }
+    return name;
+  }
+
+  private String uniqueSelectorGroupName(String requested) {
+    String base = selectorName(requested);
+    if (base.isBlank()) base = "group";
+    String name = base;
+    int suffix = 2;
+    while (sceneEntityProject != null && sceneEntityProject.getGroup(name) != null) {
+      name = base + "_" + suffix++;
+    }
+    return name;
+  }
+
+  private String resolveSelectorImagePath(String tag) {
+    String normalized = normalize(tag);
+    File file = imageByTag.get(normalized);
+    if (file != null) return file.getPath();
+    if (projectRoot != null && !normalized.isBlank()) {
+      return projectRoot.toPath().resolve(normalized).toString();
+    }
+    return normalized.isBlank() ? "selector-placeholder.png" : normalized;
+  }
+
+  private static String selectorKey(String name, boolean group) {
+    return (group ? "group:" : "entity:") + normalize(name);
+  }
+
+  private static String selectorName(String raw) {
+    String value = normalize(raw);
+    if (value.startsWith(PRESET_TAG_PREFIX)) value = value.substring(PRESET_TAG_PREFIX.length());
+    value = value.replace('\\', '/');
+    int slash = value.lastIndexOf('/');
+    if (slash >= 0 && slash < value.length() - 1) value = value.substring(slash + 1);
+    int dot = value.lastIndexOf('.');
+    if (dot > 0) value = value.substring(0, dot);
+    StringBuilder out = new StringBuilder();
+    for (int i = 0; i < value.length(); i++) {
+      char ch = value.charAt(i);
+      if (Character.isLetterOrDigit(ch) || ch == '_' || ch == '-') {
+        out.append(ch);
+      } else {
+        out.append('_');
+      }
+    }
+    String cleaned = out.toString().replaceAll("_+", "_");
+    while (cleaned.startsWith("_")) cleaned = cleaned.substring(1);
+    while (cleaned.endsWith("_")) cleaned = cleaned.substring(0, cleaned.length() - 1);
+    return cleaned;
   }
 
   private void restoreComboSelection(ComboBox<String> box, String value) {

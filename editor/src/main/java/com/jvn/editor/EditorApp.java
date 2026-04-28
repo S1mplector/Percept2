@@ -5978,6 +5978,11 @@ public class EditorApp extends Application {
     }
 
     for (PuppeteerLauncherPanel.CharacterEntry ch : snapshot.characters) {
+      List<PuppeteerLauncherPanel.CharacterLayerEntry> layers = snapshot.resolveCharacterLayers(ch.characterId, ch.expression);
+      if (!layers.isEmpty()) {
+        addLayeredSnapshotCharacter(scene, snapshot, ch, layers, sceneW, sceneH, characterHeight);
+        continue;
+      }
       String spritePathSpec = resolveProjectPathSpec(snapshot.resolveCharacterPath(ch.characterId, ch.expression));
       double[] spriteSize = estimateSpriteSize(firstLayerPath(spritePathSpec), characterHeight);
       double charW = spriteSize[0];
@@ -5994,6 +5999,49 @@ public class EditorApp extends Application {
     }
 
     return scene;
+  }
+
+  private void addLayeredSnapshotCharacter(
+      JesScene2D scene,
+      PuppeteerLauncherPanel.SceneSnapshot snapshot,
+      PuppeteerLauncherPanel.CharacterEntry ch,
+      List<PuppeteerLauncherPanel.CharacterLayerEntry> layers,
+      double sceneW,
+      double sceneH,
+      double characterHeight
+  ) {
+    if (scene == null || ch == null || layers == null || layers.isEmpty()) return;
+    String groupBase = snapshotCharacterGroupName(ch);
+    double charW = 1.0;
+    double charH = 1.0;
+    List<String> resolvedPaths = new ArrayList<>();
+    for (PuppeteerLauncherPanel.CharacterLayerEntry layer : layers) {
+      if (layer == null || layer.path == null || layer.path.isBlank()) continue;
+      String resolvedPath = resolveProjectPath(layer.path);
+      resolvedPaths.add(resolvedPath);
+      double[] size = estimateSpriteSize(resolvedPath, characterHeight);
+      charW = Math.max(charW, size[0]);
+      charH = Math.max(charH, size[1]);
+    }
+    if (resolvedPaths.isEmpty()) return;
+    double leftX = positionToLeftX(ch.position, sceneW, charW);
+    double bottomY = sceneH;
+    int layerIndex = 0;
+    for (PuppeteerLauncherPanel.CharacterLayerEntry layer : layers) {
+      if (layer == null || layer.path == null || layer.path.isBlank()) continue;
+      String resolvedPath = resolveProjectPath(layer.path);
+      String entityName = groupBase + "_" + selectorSafeName(layer.layerId);
+      while (scene.find(entityName) != null) {
+        entityName = entityName + "_" + (layerIndex + 2);
+      }
+      com.jvn.core.scene2d.Sprite2D sprite = new com.jvn.core.scene2d.Sprite2D(resolvedPath, charW, charH);
+      sprite.setOrigin(0.5, 1.0);
+      sprite.setPosition(leftX + (charW * 0.5), bottomY);
+      sprite.setZ(layerIndex);
+      scene.add(sprite);
+      scene.registerEntity(entityName, sprite);
+      layerIndex++;
+    }
   }
 
   private boolean isCameraTrack(EntityTrack track) {
@@ -6055,6 +6103,30 @@ public class EditorApp extends Application {
     int idx = pathSpec.indexOf('|');
     String raw = idx >= 0 ? pathSpec.substring(0, idx) : pathSpec;
     return raw == null ? "" : raw.trim();
+  }
+
+  private static String snapshotCharacterGroupName(PuppeteerLauncherPanel.CharacterEntry ch) {
+    if (ch == null) return "character_preset";
+    String character = selectorSafeName(ch.characterId);
+    String expression = selectorSafeName(ch.expression == null || ch.expression.isBlank() ? "neutral" : ch.expression);
+    return (character.isBlank() ? "character" : character) + "_" + (expression.isBlank() ? "neutral" : expression);
+  }
+
+  private static String selectorSafeName(String raw) {
+    String value = raw == null ? "" : raw.trim();
+    StringBuilder out = new StringBuilder();
+    for (int i = 0; i < value.length(); i++) {
+      char ch = value.charAt(i);
+      if (Character.isLetterOrDigit(ch) || ch == '_' || ch == '-') {
+        out.append(ch);
+      } else {
+        out.append('_');
+      }
+    }
+    String cleaned = out.toString().replaceAll("_+", "_");
+    while (cleaned.startsWith("_")) cleaned = cleaned.substring(1);
+    while (cleaned.endsWith("_")) cleaned = cleaned.substring(0, cleaned.length() - 1);
+    return cleaned;
   }
 
   private String resolveProjectPath(String relativePath) {

@@ -2790,6 +2790,7 @@ public class PuppeteerWindow extends Stage {
                     track.setLayerOrder((int) Math.round(entity.getZ()));
                 }
             }
+            applyLaunchScenePresetGrouping();
             captureSceneStateBaseline();
             captureProjectSnapshotBaseline();
             entitySelector.refresh(project);
@@ -2805,6 +2806,7 @@ public class PuppeteerWindow extends Stage {
     }
 
     public void setLaunchSceneSnapshot(PuppeteerLauncherPanel.SceneSnapshot snapshot) {
+        this.launchSceneSnapshot = snapshot;
         launchCharacterImagePaths.clear();
         launchBackgroundPaths.clear();
         if (snapshot != null) {
@@ -2815,7 +2817,53 @@ public class PuppeteerWindow extends Stage {
                 launchBackgroundPaths.putAll(snapshot.backgroundPaths);
             }
             applyLaunchStageContext(snapshot);
+            applyLaunchScenePresetGrouping();
         }
+    }
+
+    private void applyLaunchScenePresetGrouping() {
+        if (launchSceneSnapshot == null || scene == null || project == null) return;
+        boolean changed = false;
+        for (PuppeteerLauncherPanel.CharacterEntry character : launchSceneSnapshot.characters) {
+            if (character == null) continue;
+            List<PuppeteerLauncherPanel.CharacterLayerEntry> layers =
+                launchSceneSnapshot.resolveCharacterLayers(character.characterId, character.expression);
+            if (layers == null || layers.isEmpty()) continue;
+            String groupName = snapshotCharacterGroupName(character);
+            EntityGroup group = project.getOrCreateGroup(groupName);
+            int layerIndex = 0;
+            int groupLayer = Integer.MAX_VALUE;
+            for (PuppeteerLauncherPanel.CharacterLayerEntry layer : layers) {
+                if (layer == null) continue;
+                String entityName = findSnapshotLayerEntityName(groupName, layer.layerId);
+                if (entityName == null || entityName.isBlank()) continue;
+                EntityTrack track = project.getTrack(entityName);
+                if (track == null) continue;
+                track.setLayerOrder(layerIndex);
+                project.addEntityToGroup(entityName, groupName);
+                groupLayer = Math.min(groupLayer, layerIndex);
+                layerIndex++;
+                changed = true;
+            }
+            if (groupLayer != Integer.MAX_VALUE) {
+                group.setLayerOrder(groupLayer);
+            }
+        }
+        if (changed) {
+            entitySelector.refresh(project);
+            timelinePanel.refresh();
+            refreshPropertyPickerChoices();
+            refreshExportPreview();
+        }
+    }
+
+    private String findSnapshotLayerEntityName(String groupName, String layerId) {
+        String expected = groupName + "_" + selectorSafeName(layerId);
+        if (scene.find(expected) != null) return expected;
+        for (String name : scene.names()) {
+            if (name != null && name.startsWith(expected + "_")) return name;
+        }
+        return null;
     }
 
     private void applyLaunchStageContext(PuppeteerLauncherPanel.SceneSnapshot snapshot) {
@@ -2872,6 +2920,7 @@ public class PuppeteerWindow extends Stage {
 
     private java.io.File projectRoot;
     private java.io.File scriptTargetFile;
+    private PuppeteerLauncherPanel.SceneSnapshot launchSceneSnapshot;
     private PuppeteerWorkspacePrefs workspacePrefs;
     private PuppeteerDraftStore draftStore;
     private PuppeteerPreviewRecorder previewRecorder;
@@ -6615,6 +6664,34 @@ public class PuppeteerWindow extends Stage {
         if (name == null || name.isBlank()) return "-";
         if (TimelinePanel.isRuntimeCameraTarget(name)) return "Runtime Camera / Frame";
         return group ? name + " [Group]" : name;
+    }
+
+    private static String snapshotCharacterGroupName(PuppeteerLauncherPanel.CharacterEntry character) {
+        if (character == null) return "character_preset";
+        String characterId = selectorSafeName(character.characterId);
+        String expression = selectorSafeName(character.expression == null || character.expression.isBlank()
+            ? "neutral"
+            : character.expression);
+        if (characterId.isBlank()) characterId = "character";
+        if (expression.isBlank()) expression = "neutral";
+        return characterId + "_" + expression;
+    }
+
+    private static String selectorSafeName(String raw) {
+        String value = raw == null ? "" : raw.trim();
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < value.length(); i++) {
+            char ch = value.charAt(i);
+            if (Character.isLetterOrDigit(ch) || ch == '_' || ch == '-') {
+                out.append(ch);
+            } else {
+                out.append('_');
+            }
+        }
+        String cleaned = out.toString().replaceAll("_+", "_");
+        while (cleaned.startsWith("_")) cleaned = cleaned.substring(1);
+        while (cleaned.endsWith("_")) cleaned = cleaned.substring(0, cleaned.length() - 1);
+        return cleaned;
     }
 
     private java.util.List<Keyframe> findAdjacentKeyframes(Keyframe kf, PropertyType property) {

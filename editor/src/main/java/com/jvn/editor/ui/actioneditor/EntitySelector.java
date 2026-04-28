@@ -285,6 +285,7 @@ public class EntitySelector extends VBox {
             group ? "Wrap in New Parent Group" : "Wrap in New Group",
             () -> showCreateParentGroupOverlay(name, group)));
         if (group) {
+            menu.getChildren().add(buildActionMenuButton("Create Child Group", () -> showCreateChildGroupOverlay(name)));
             menu.getChildren().add(buildActionMenuButton("Rename Group", () -> showRenameGroupOverlay(name)));
         }
         menu.getChildren().add(buildActionMenuButton(
@@ -371,6 +372,31 @@ public class EntitySelector extends VBox {
                 } else if (!selectionIsGroup && onAddToGroup != null) {
                     onAddToGroup.accept(selectionName, groupName);
                 }
+            }
+        );
+    }
+
+    private void showCreateChildGroupOverlay(String parentGroupName) {
+        if (project == null || parentGroupName == null || parentGroupName.isBlank()) return;
+        String suggestedName = resolveUniqueGroupName(parentGroupName + "Child", null);
+        actionOverlay.hideOverlay();
+        groupPromptOverlay.showPrompt(
+            "Create Child Group",
+            "Create a new nested group inside the selected parent group.",
+            "Group name",
+            suggestedName,
+            "Create",
+            requestedName -> {
+                String groupName = resolveUniqueGroupName(requestedName, null);
+                if (groupName.isBlank()) return;
+                if (onCreateGroup != null) {
+                    onCreateGroup.accept(groupName);
+                }
+                if (onAddSelectionToGroup != null) {
+                    onAddSelectionToGroup.accept(groupName, true, parentGroupName);
+                }
+                refresh(project);
+                selectGroup(groupName);
             }
         );
     }

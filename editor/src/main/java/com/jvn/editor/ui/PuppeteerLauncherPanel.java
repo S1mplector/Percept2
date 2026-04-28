@@ -982,6 +982,7 @@ public class PuppeteerLauncherPanel extends VBox {
     Map<String, String> stagePresetPaths = new LinkedHashMap<>();
     Map<String, String> charImgPaths = new LinkedHashMap<>();
     Map<String, Map<String, String>> charLayerPaths = new LinkedHashMap<>();
+    Map<String, List<CharacterLayerEntry>> charPresetLayers = new LinkedHashMap<>();
     String activeStagePresetId = null;
     int activeStageLine = -1;
     String referencedTimelineName = null;
@@ -996,6 +997,7 @@ public class PuppeteerLauncherPanel extends VBox {
         stagePresetPaths,
         charImgPaths,
         charLayerPaths,
+        charPresetLayers,
         new HashSet<>());
 
     for (int i = 0; i <= limit; i++) {
@@ -1058,8 +1060,12 @@ public class PuppeteerLauncherPanel extends VBox {
         String expr = m.group(2);
         String spec = m.group(3).trim();
         String resolved = resolvePresetSpec(charLayerPaths, charImgPaths, charId, spec);
+        List<CharacterLayerEntry> layers = resolvePresetLayerEntries(charLayerPaths, charImgPaths, charId, spec);
         if (!resolved.isBlank()) {
           charImgPaths.put(charId + "/" + expr, resolved);
+        }
+        if (!layers.isEmpty()) {
+          charPresetLayers.put(charId + "/" + expr, layers);
         }
         continue;
       }
@@ -1153,6 +1159,7 @@ public class PuppeteerLauncherPanel extends VBox {
         bgPaths,
         stagePresetPaths,
         charImgPaths,
+        charPresetLayers,
         activeStagePresetId,
         activeStageLine,
         referencedTimelineName,
@@ -1478,6 +1485,7 @@ public class PuppeteerLauncherPanel extends VBox {
       Map<String, String> stagePresetPaths,
       Map<String, String> charImgPaths,
       Map<String, Map<String, String>> charLayerPaths,
+      Map<String, List<CharacterLayerEntry>> charPresetLayers,
       Set<String> includeStack
   ) {
     if (source == null || source.isBlank()) return;
@@ -1507,6 +1515,7 @@ public class PuppeteerLauncherPanel extends VBox {
                     stagePresetPaths,
                     charImgPaths,
                     charLayerPaths,
+                    charPresetLayers,
                     includeStack);
               }
             } catch (IOException ignored) {
@@ -1552,8 +1561,12 @@ public class PuppeteerLauncherPanel extends VBox {
           String expr = charPresetMatcher.group(2);
           String spec = charPresetMatcher.group(3).trim();
           String resolved = resolvePresetSpec(charLayerPaths, charImgPaths, charId, spec);
+          List<CharacterLayerEntry> layers = resolvePresetLayerEntries(charLayerPaths, charImgPaths, charId, spec);
           if (!resolved.isBlank()) {
             charImgPaths.put(charId + "/" + expr, resolved);
+          }
+          if (!layers.isEmpty()) {
+            charPresetLayers.put(charId + "/" + expr, layers);
           }
         }
       }
@@ -1588,6 +1601,46 @@ public class PuppeteerLauncherPanel extends VBox {
       }
     }
     return String.join(" | ", resolved);
+  }
+
+  private static List<CharacterLayerEntry> resolvePresetLayerEntries(
+      Map<String, Map<String, String>> layersByCharacter,
+      Map<String, String> expressionsByCharacter,
+      String characterId,
+      String spec
+  ) {
+    if (spec == null || spec.isBlank()) return List.of();
+    List<CharacterLayerEntry> resolved = new ArrayList<>();
+    String[] tokens = spec.split("\\|");
+    int directIndex = 1;
+    for (String token : tokens) {
+      if (token == null) continue;
+      String part = token.trim();
+      if (part.isEmpty()) continue;
+      if (part.startsWith("$")) {
+        String layerRef = part.substring(1).trim();
+        String path = LayeredCharacterResolver.resolveLayerPath(layersByCharacter, characterId, layerRef);
+        if (path == null || path.isBlank()) continue;
+        String layerId = layerRef;
+        int sep = Math.max(layerId.lastIndexOf(':'), layerId.lastIndexOf('.'));
+        if (sep >= 0 && sep < layerId.length() - 1) {
+          layerId = layerId.substring(sep + 1);
+        }
+        resolved.add(new CharacterLayerEntry(layerId, path.trim()));
+      } else if (part.startsWith("@")) {
+        LayeredCharacterResolver.CharacterRef ref =
+            LayeredCharacterResolver.parseReference(part.substring(1).trim(), characterId);
+        String presetPath = expressionsByCharacter.get(ref.characterId() + "/" + ref.localId());
+        List<String> paths = splitResolvedLayerSpec(presetPath);
+        int nestedIndex = 1;
+        for (String path : paths) {
+          resolved.add(new CharacterLayerEntry(ref.localId() + "_" + nestedIndex++, path));
+        }
+      } else {
+        resolved.add(new CharacterLayerEntry("layer" + directIndex++, part));
+      }
+    }
+    return List.copyOf(resolved);
   }
 
   private static List<String> splitResolvedLayerSpec(String spec) {
@@ -1703,6 +1756,16 @@ public class PuppeteerLauncherPanel extends VBox {
     }
   }
 
+  public static class CharacterLayerEntry {
+    public final String layerId;
+    public final String path;
+
+    public CharacterLayerEntry(String layerId, String path) {
+      this.layerId = layerId == null || layerId.isBlank() ? "layer" : layerId.trim();
+      this.path = path == null ? "" : path.trim();
+    }
+  }
+
   public static class SceneSnapshot {
     public final String currentLabel;
     public final String backgroundId;
@@ -1712,6 +1775,7 @@ public class PuppeteerLauncherPanel extends VBox {
     public final Map<String, String> backgroundPaths;
     public final Map<String, String> stagePresetPaths;
     public final Map<String, String> characterImagePaths;
+    public final Map<String, List<CharacterLayerEntry>> characterPresetLayers;
     public final String activeStagePresetId;
     public final int activeStageLine;
     public final String referencedTimelineName;
@@ -1721,9 +1785,9 @@ public class PuppeteerLauncherPanel extends VBox {
     public final String inlineTimelineName;
 
     public SceneSnapshot(String currentLabel,
-                         String backgroundId,
-                         int backgroundLine,
-                         List<CharacterEntry> characters,
+	                         String backgroundId,
+	                         int backgroundLine,
+	                         List<CharacterEntry> characters,
                          int atLine,
                          Map<String, String> backgroundPaths,
                          Map<String, String> characterImagePaths,
@@ -1735,12 +1799,13 @@ public class PuppeteerLauncherPanel extends VBox {
       this(
           currentLabel,
           backgroundId,
-          backgroundLine,
-          characters,
-          atLine,
+	          backgroundLine,
+	          characters,
+	          atLine,
           backgroundPaths,
           Map.of(),
           characterImagePaths,
+          Map.of(),
           null,
           -1,
           referencedTimelineName,
@@ -1751,13 +1816,14 @@ public class PuppeteerLauncherPanel extends VBox {
     }
 
     public SceneSnapshot(String currentLabel,
-                         String backgroundId,
-                         int backgroundLine,
-                         List<CharacterEntry> characters,
-                         int atLine,
+	                         String backgroundId,
+	                         int backgroundLine,
+	                         List<CharacterEntry> characters,
+	                         int atLine,
                          Map<String, String> backgroundPaths,
                          Map<String, String> stagePresetPaths,
                          Map<String, String> characterImagePaths,
+                         Map<String, List<CharacterLayerEntry>> characterPresetLayers,
                          String activeStagePresetId,
                          int activeStageLine,
                          String referencedTimelineName,
@@ -1773,6 +1839,7 @@ public class PuppeteerLauncherPanel extends VBox {
       this.backgroundPaths = backgroundPaths == null ? Map.of() : backgroundPaths;
       this.stagePresetPaths = stagePresetPaths == null ? Map.of() : stagePresetPaths;
       this.characterImagePaths = characterImagePaths == null ? Map.of() : characterImagePaths;
+      this.characterPresetLayers = characterPresetLayers == null ? Map.of() : characterPresetLayers;
       this.activeStagePresetId = activeStagePresetId;
       this.activeStageLine = activeStageLine;
       this.referencedTimelineName = referencedTimelineName;
@@ -1832,6 +1899,23 @@ public class PuppeteerLauncherPanel extends VBox {
         if (e.getKey().startsWith(characterId + "/")) return e.getValue();
       }
       return characterId;
+    }
+
+    public List<CharacterLayerEntry> resolveCharacterLayers(String characterId, String expression) {
+      if (characterId == null || characterId.isBlank()) return List.of();
+      if (expression != null) {
+        List<CharacterLayerEntry> layers = characterPresetLayers.get(characterId + "/" + expression);
+        if (layers != null && !layers.isEmpty()) return layers;
+      }
+      List<CharacterLayerEntry> neutral = characterPresetLayers.get(characterId + "/neutral");
+      if (neutral != null && !neutral.isEmpty()) return neutral;
+      for (Map.Entry<String, List<CharacterLayerEntry>> entry : characterPresetLayers.entrySet()) {
+        if (entry.getKey() != null && entry.getKey().startsWith(characterId + "/")
+            && entry.getValue() != null && !entry.getValue().isEmpty()) {
+          return entry.getValue();
+        }
+      }
+      return List.of();
     }
 
     public boolean hasInlineTimeline() {
