@@ -491,6 +491,21 @@ public class PuppeteerWindow extends Stage {
             entitySelector.selectGroup(groupName);
         });
 
+        entitySelector.setOnGroupResetRequested(groupName -> {
+            EntityGroup group = this.project.getGroup(groupName);
+            if (group == null) return;
+            
+            double time = this.project.getPlayheadMs();
+            java.util.List<PuppeteerCommand> commands = new ArrayList<>();
+            collectResetCommands(group, time, commands);
+            
+            if (!commands.isEmpty()) {
+                commandStack.execute(PuppeteerCommand.composite("Reset Group Transforms", commands));
+                if (animationPreview != null) animationPreview.render();
+                if (timelinePanel != null) timelinePanel.refresh();
+            }
+        });
+
         timelinePanel.setOnKeyframeSelected(kf -> {
             if (timelinePanel.getSelectionCount() > 1) {
                 keyframeEditor.setSelection(new ArrayList<>(timelinePanel.getSelectedKeyframes()), timelinePanel.getSelectedProperty());
@@ -6802,5 +6817,34 @@ public class PuppeteerWindow extends Stage {
     public void close() {
         if (playbackTimer != null) playbackTimer.stop();
         super.close();
+    }
+
+    private void collectResetCommands(EntityGroup group, double time, java.util.List<PuppeteerCommand> commands) {
+        if (group == null || this.project == null) return;
+        
+        for (String childEntity : group.getChildEntityNames()) {
+            EntityTrack track = this.project.getTrack(childEntity);
+            if (track != null && !track.isLocked()) {
+                commands.add(PuppeteerCommand.upsertKeyframe(track, PropertyType.X, time, PropertyType.X.getDefaultValue()));
+                commands.add(PuppeteerCommand.upsertKeyframe(track, PropertyType.Y, time, PropertyType.Y.getDefaultValue()));
+                commands.add(PuppeteerCommand.upsertKeyframe(track, PropertyType.ROTATION, time, PropertyType.ROTATION.getDefaultValue()));
+                commands.add(PuppeteerCommand.upsertKeyframe(track, PropertyType.SCALE_X, time, PropertyType.SCALE_X.getDefaultValue()));
+                commands.add(PuppeteerCommand.upsertKeyframe(track, PropertyType.SCALE_Y, time, PropertyType.SCALE_Y.getDefaultValue()));
+            }
+        }
+        for (String childGroup : group.getChildGroupNames()) {
+            EntityGroup child = this.project.getGroup(childGroup);
+            if (child != null && !child.isLocked()) {
+                EntityTrack track = child.getGroupTrack();
+                if (track != null) {
+                    commands.add(PuppeteerCommand.upsertKeyframe(track, PropertyType.X, time, PropertyType.X.getDefaultValue()));
+                    commands.add(PuppeteerCommand.upsertKeyframe(track, PropertyType.Y, time, PropertyType.Y.getDefaultValue()));
+                    commands.add(PuppeteerCommand.upsertKeyframe(track, PropertyType.ROTATION, time, PropertyType.ROTATION.getDefaultValue()));
+                    commands.add(PuppeteerCommand.upsertKeyframe(track, PropertyType.SCALE_X, time, PropertyType.SCALE_X.getDefaultValue()));
+                    commands.add(PuppeteerCommand.upsertKeyframe(track, PropertyType.SCALE_Y, time, PropertyType.SCALE_Y.getDefaultValue()));
+                }
+                collectResetCommands(child, time, commands);
+            }
+        }
     }
 }

@@ -57,6 +57,7 @@ public class EntitySelector extends VBox {
     private BiConsumer<String, Boolean> onEntityVisibilityChanged;
     private BiConsumer<String, Boolean> onEntityLockChanged;
     private BiConsumer<String, Boolean> onGroupLockChanged;
+    private Consumer<String> onGroupResetRequested;
 
     public EntitySelector() {
         setSpacing(0);
@@ -145,6 +146,7 @@ public class EntitySelector extends VBox {
     public void setOnEntityVisibilityChanged(BiConsumer<String, Boolean> callback) { this.onEntityVisibilityChanged = callback; }
     public void setOnEntityLockChanged(BiConsumer<String, Boolean> callback) { this.onEntityLockChanged = callback; }
     public void setOnGroupLockChanged(BiConsumer<String, Boolean> callback) { this.onGroupLockChanged = callback; }
+    public void setOnGroupResetRequested(Consumer<String> callback) { this.onGroupResetRequested = callback; }
 
     public void setScene(JesScene2D scene) {
         this.scene = scene;
@@ -590,10 +592,11 @@ public class EntitySelector extends VBox {
         private final Canvas icon = new Canvas(16, 16);
         private final Canvas visibilityIcon = new Canvas(14, 14);
         private final Canvas lockIcon = new Canvas(14, 14);
+        private final Canvas resetIcon = new Canvas(14, 14);
         private final Label label = new Label();
         private final Region spacer = new Region();
         private final Label layerBadge = new Label();
-        private final HBox row = new HBox(6, icon, label, spacer, lockIcon, visibilityIcon, layerBadge);
+        private final HBox row = new HBox(6, icon, label, spacer, resetIcon, lockIcon, visibilityIcon, layerBadge);
         private final Canvas lassoCanvas = new Canvas();
         private final StackPane cellRoot = new StackPane(row, lassoCanvas);
         private final Timeline lassoTimeline;
@@ -645,6 +648,19 @@ public class EntitySelector extends VBox {
                 event.consume();
             });
 
+            resetIcon.setCursor(Cursor.HAND);
+            resetIcon.setOnMouseClicked(event -> {
+                if (isEmpty() || getItem() == null) return;
+                String encoded = getItem();
+                if (isEncodedGroupValue(encoded)) {
+                    String name = decodeTreeValue(encoded);
+                    if (onGroupResetRequested != null) {
+                        onGroupResetRequested.accept(name);
+                    }
+                }
+                event.consume();
+            });
+
             lassoCanvas.setMouseTransparent(true);
             lassoCanvas.setManaged(false);
             StackPane.setAlignment(row, Pos.CENTER_LEFT);
@@ -690,10 +706,18 @@ public class EntitySelector extends VBox {
                     visibilityIcon.setVisible(false);
                     visibilityIcon.setManaged(false);
                     visibilityIcon.getGraphicsContext2D().clearRect(0, 0, visibilityIcon.getWidth(), visibilityIcon.getHeight());
+
+                    resetIcon.setVisible(true);
+                    resetIcon.setManaged(true);
+                    drawResetIcon(resetIcon.getGraphicsContext2D());
                 } else {
                     visibilityIcon.setVisible(true);
                     visibilityIcon.setManaged(true);
                     drawVisibilityIcon(visibilityIcon.getGraphicsContext2D(), isVisible);
+
+                    resetIcon.setVisible(false);
+                    resetIcon.setManaged(false);
+                    resetIcon.getGraphicsContext2D().clearRect(0, 0, resetIcon.getWidth(), resetIcon.getHeight());
                 }
                 setText(null);
                 setGraphic(cellRoot);
@@ -883,5 +907,14 @@ public class EntitySelector extends VBox {
     @FunctionalInterface
     public interface AddToGroupRequest {
         void accept(String selectionName, boolean selectionIsGroup, String targetGroupName);
+    }
+
+    private void drawResetIcon(GraphicsContext gc) {
+        gc.clearRect(0, 0, 14, 14);
+        gc.setStroke(Color.web("#555c6b"));
+        gc.setLineWidth(1.5);
+        gc.strokeArc(2, 2, 10, 10, 45, 270, javafx.scene.shape.ArcType.OPEN);
+        gc.strokeLine(10, 1, 12, 4);
+        gc.strokeLine(14, 3, 12, 4);
     }
 }
