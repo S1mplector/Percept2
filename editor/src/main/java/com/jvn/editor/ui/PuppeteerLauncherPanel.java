@@ -496,6 +496,19 @@ public class PuppeteerLauncherPanel extends VBox {
     HBox.setHgrow(spacer, Priority.ALWAYS);
     titleRow.getChildren().add(spacer);
 
+    Button copyButton = createCardActionButton(
+        "icon-timeline-copy",
+        "Copy timeline link to clipboard",
+        "-fx-background-color: #343434; -fx-background-radius: 8;");
+    copyButton.setDisable(!importable);
+    copyButton.setOnAction(e -> {
+      if (importable) {
+        javafx.scene.input.ClipboardContent content = new javafx.scene.input.ClipboardContent();
+        content.putString("@external jes_timeline " + timelineId);
+        javafx.scene.input.Clipboard.getSystemClipboard().setContent(content);
+      }
+    });
+
     Button openButton = createCardActionButton(
         "icon-timeline-open",
         "Open timeline",
@@ -519,7 +532,7 @@ public class PuppeteerLauncherPanel extends VBox {
         "-fx-background-color: #343434; -fx-background-radius: 8;");
     deleteButton.setOnAction(e -> deleteRegisteredAnimation(animation));
 
-    titleRow.getChildren().addAll(openButton, renameButton, deleteButton);
+    titleRow.getChildren().addAll(copyButton, openButton, renameButton, deleteButton);
 
     Label meta = new Label(animation.statsText());
     meta.setStyle("-fx-text-fill: #a3a3a3; -fx-font-size: 9px;");
@@ -546,13 +559,27 @@ public class PuppeteerLauncherPanel extends VBox {
     body.setMaxWidth(Double.MAX_VALUE);
     body.setPadding(new Insets(8, 10, 8, 10));
     Tooltip.install(body, new Tooltip(animation.file().getName()));
-    String style = suggested
+    String baseStyle = suggested
         ? "-fx-background-color: #2c2c2c; -fx-background-radius: 10; -fx-border-radius: 10; -fx-border-color: #646464;"
         : "-fx-background-color: #242424; -fx-background-radius: 10; -fx-border-radius: 10; -fx-border-color: #3d3d3d;";
     if (!importable) {
-      style = "-fx-background-color: #252525; -fx-background-radius: 10; -fx-border-radius: 10; -fx-border-color: #4a4a4a;";
+      baseStyle = "-fx-background-color: #252525; -fx-background-radius: 10; -fx-border-radius: 10; -fx-border-color: #4a4a4a;";
     }
-    body.setStyle(style);
+    
+    String hoverStyle = suggested
+        ? "-fx-background-color: #383838; -fx-background-radius: 10; -fx-border-radius: 10; -fx-border-color: #757575;"
+        : "-fx-background-color: #303030; -fx-background-radius: 10; -fx-border-radius: 10; -fx-border-color: #4f4f4f;";
+    if (!importable) {
+      hoverStyle = "-fx-background-color: #2a2a2a; -fx-background-radius: 10; -fx-border-radius: 10; -fx-border-color: #5b5b5b;";
+    }
+
+    body.setStyle(baseStyle);
+    
+    final String finalBaseStyle = baseStyle;
+    final String finalHoverStyle = hoverStyle;
+    body.setOnMouseEntered(e -> body.setStyle(finalHoverStyle));
+    body.setOnMouseExited(e -> body.setStyle(finalBaseStyle));
+    
     return body;
   }
 
