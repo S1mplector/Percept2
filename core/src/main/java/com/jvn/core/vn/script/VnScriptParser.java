@@ -175,6 +175,7 @@ public class VnScriptParser {
     Map<String, CharacterPosition> customPositions = new HashMap<>();
     Map<String, String> inlineCompositeExpressions = new HashMap<>();
     String pendingVoiceTrackId;
+    List<VnParseException> errors = new ArrayList<>();
 
     CharacterPosition getCustomPosition(String name) {
       if (name == null || name.isBlank()) return null;
@@ -276,13 +277,22 @@ public class VnScriptParser {
 
     if (!state.conditionalBlocks.isEmpty()) {
       ConditionalBlock open = state.conditionalBlocks.peek();
-      throw parseError(open.source, open.line, "Unclosed [if] block (missing [endif])", "[if ...]");
+      state.errors.add(parseError(open.source, open.line, "Unclosed [if] block (missing [endif])", "[if ...]"));
     }
 
     ensureBuilder(state);
     flushChoices(state.builder, state.pendingChoices);
     flushPendingVoice(state);
-    validateLabelReferences(state);
+    
+    try {
+      validateLabelReferences(state);
+    } catch (VnParseException e) {
+      state.errors.add(e);
+    }
+
+    if (!state.errors.isEmpty()) {
+      throw new MultipleParseErrorsException(state.errors);
+    }
 
     // Finalize characters with expressions (replaces earlier simple character entries).
     for (var e : state.charBuilders.entrySet()) {
@@ -320,6 +330,9 @@ public class VnScriptParser {
       if (trimmed.isEmpty() || trimmed.startsWith("#")) {
         continue;
       }
+
+      try {
+
 
       Matcher defineMatcher = DEFINE_PATTERN.matcher(trimmed);
       if (defineMatcher.matches()) {
@@ -607,6 +620,9 @@ public class VnScriptParser {
       }
 
       throw parseError(sourceName, lineNumber, "Unrecognized syntax", rawLine);
+      } catch (VnParseException ex) {
+        state.errors.add(ex);
+      }
     }
   }
 
@@ -2301,9 +2317,9 @@ public class VnScriptParser {
     }
   }
 
-  private IOException parseError(String sourceName, int lineNumber, String message, String line) {
+  private VnParseException parseError(String sourceName, int lineNumber, String message, String line) {
     String src = (sourceName == null || sourceName.isBlank()) ? "<script>" : sourceName;
-    return new IOException("Parse error in " + src + " at line " + lineNumber + ": " + message + " -> " + line);
+    return new VnParseException("Parse error in " + src + " at line " + lineNumber + ": " + message + " -> " + line, sourceName, lineNumber, message, line);
   }
 
   private String applyDefines(String line, Map<String, String> defines) {

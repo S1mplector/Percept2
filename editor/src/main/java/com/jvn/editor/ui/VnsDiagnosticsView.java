@@ -90,7 +90,7 @@ public class VnsDiagnosticsView extends BorderPane {
     placeholderLabel.setWrapText(true);
     listView.setPlaceholder(placeholderLabel);
     listView.getStyleClass().add("vns-diagnostics-list");
-    listView.setCellFactory(lv -> new DiagnosticCell());
+    listView.setCellFactory(lv -> new DiagnosticCell(lv));
     listView.getSelectionModel().selectedItemProperty().addListener((obs, oldValue, newValue) -> updateActionState());
     listView.setOnMouseClicked(e -> {
       if (e.getClickCount() < 2) return;
@@ -453,12 +453,15 @@ public class VnsDiagnosticsView extends BorderPane {
     private final HBox metaRow = new HBox(6, severityBadge, locationBadge, kindBadge);
     private final VBox content = new VBox(6, metaRow, messageLabel, sourceLabel, caretLabel, hintLabel);
 
-    private DiagnosticCell() {
+    private DiagnosticCell(ListView<DiagnosticRow> parentList) {
       severityBadge.getStyleClass().add("vns-diagnostics-badge");
       locationBadge.getStyleClass().addAll("vns-diagnostics-badge", "vns-diagnostics-badge-location");
       kindBadge.getStyleClass().addAll("vns-diagnostics-badge", "vns-diagnostics-badge-kind");
       messageLabel.getStyleClass().add("vns-diagnostics-message");
       messageLabel.setWrapText(true);
+      if (parentList != null) {
+        messageLabel.prefWidthProperty().bind(parentList.widthProperty().subtract(60));
+      }
       sourceLabel.getStyleClass().add("vns-diagnostics-source-line");
       sourceLabel.setWrapText(true);
       caretLabel.getStyleClass().add("vns-diagnostics-caret-line");

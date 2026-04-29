@@ -21,6 +21,8 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.jvn.core.vn.script.MultipleParseErrorsException;
+import com.jvn.core.vn.script.VnParseException;
 import com.jvn.core.vn.script.VnScriptParser;
 
 /**
@@ -48,6 +50,27 @@ public final class VnsScriptAnalyzer {
     // Strict parser diagnostics first.
     try {
       parseWithIncludeResolver(source, projectRoot, sourceFile);
+    } catch (MultipleParseErrorsException mex) {
+      for (VnParseException ex : mex.getErrors()) {
+        int line = ex.getLineNumber() - 1;
+        int start = 0;
+        int end = Math.max(0, source.length());
+        if (line >= 0) {
+          int[] bounds = lineBounds(source, line);
+          start = bounds[0];
+          end = bounds[1];
+        }
+        diagnostics.add(Diagnostic.error(
+            "parse_error",
+            ex.getDetailMessage(),
+            start,
+            end,
+            Math.max(line, 0),
+            null,
+            null,
+            -1
+        ));
+      }
     } catch (Exception ex) {
       int line = parseLineFromMessage(ex.getMessage()) - 1;
       int start = 0;
