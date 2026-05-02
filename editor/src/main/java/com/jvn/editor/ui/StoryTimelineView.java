@@ -408,7 +408,7 @@ public class StoryTimelineView extends BorderPane {
                             String iconClass,
                             javafx.event.EventHandler<javafx.event.ActionEvent> onAction) {
     Button button = new Button(text);
-    button.getStyleClass().add("timeline-toolbar-button");
+    button.getStyleClass().addAll("timeline-toolbar-button", "sidebar-tool-btn");
     button.getProperties().put("fullText", text);
     button.setContentDisplay(ContentDisplay.LEFT);
     button.setGraphicTextGap(6);

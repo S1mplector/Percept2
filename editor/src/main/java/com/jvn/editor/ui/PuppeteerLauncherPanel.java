@@ -498,8 +498,7 @@ public class PuppeteerLauncherPanel extends VBox {
 
     Button copyButton = createCardActionButton(
         "icon-timeline-copy",
-        "Copy timeline link to clipboard",
-        "-fx-background-color: #343434; -fx-background-radius: 8;");
+        "Copy timeline link to clipboard");
     copyButton.setDisable(!importable);
     copyButton.setOnAction(e -> {
       if (importable) {
@@ -511,8 +510,7 @@ public class PuppeteerLauncherPanel extends VBox {
 
     Button openButton = createCardActionButton(
         "icon-timeline-open",
-        "Open timeline",
-        "-fx-background-color: #343434; -fx-background-radius: 8;");
+        "Open timeline");
     openButton.setDisable(!importable);
     openButton.setOnAction(e -> {
       if (onLaunch != null && importable) {
@@ -522,14 +520,12 @@ public class PuppeteerLauncherPanel extends VBox {
 
     Button renameButton = createCardActionButton(
         "icon-timeline-edit",
-        "Rename timeline",
-        "-fx-background-color: #343434; -fx-background-radius: 8;");
+        "Rename timeline");
     renameButton.setOnAction(e -> renameRegisteredAnimation(animation));
 
     Button deleteButton = createCardActionButton(
         "icon-timeline-delete",
-        "Delete timeline",
-        "-fx-background-color: #343434; -fx-background-radius: 8;");
+        "Delete timeline");
     deleteButton.setOnAction(e -> deleteRegisteredAnimation(animation));
 
     titleRow.getChildren().addAll(copyButton, openButton, renameButton, deleteButton);
@@ -559,27 +555,14 @@ public class PuppeteerLauncherPanel extends VBox {
     body.setMaxWidth(Double.MAX_VALUE);
     body.setPadding(new Insets(8, 10, 8, 10));
     Tooltip.install(body, new Tooltip(animation.file().getName()));
-    String baseStyle = suggested
-        ? "-fx-background-color: #2c2c2c; -fx-background-radius: 10; -fx-border-radius: 10; -fx-border-color: #646464;"
-        : "-fx-background-color: #242424; -fx-background-radius: 10; -fx-border-radius: 10; -fx-border-color: #3d3d3d;";
     if (!importable) {
-      baseStyle = "-fx-background-color: #252525; -fx-background-radius: 10; -fx-border-radius: 10; -fx-border-color: #4a4a4a;";
-    }
-    
-    String hoverStyle = suggested
-        ? "-fx-background-color: #383838; -fx-background-radius: 10; -fx-border-radius: 10; -fx-border-color: #757575;"
-        : "-fx-background-color: #303030; -fx-background-radius: 10; -fx-border-radius: 10; -fx-border-color: #4f4f4f;";
-    if (!importable) {
-      hoverStyle = "-fx-background-color: #2a2a2a; -fx-background-radius: 10; -fx-border-radius: 10; -fx-border-color: #5b5b5b;";
+      body.getStyleClass().add("sidebar-tool-card-disabled");
+    } else if (suggested) {
+      body.getStyleClass().add("sidebar-tool-card-suggested");
+    } else {
+      body.getStyleClass().add("sidebar-tool-card");
     }
 
-    body.setStyle(baseStyle);
-    
-    final String finalBaseStyle = baseStyle;
-    final String finalHoverStyle = hoverStyle;
-    body.setOnMouseEntered(e -> body.setStyle(finalHoverStyle));
-    body.setOnMouseExited(e -> body.setStyle(finalBaseStyle));
-    
     return body;
   }
 
@@ -606,14 +589,13 @@ public class PuppeteerLauncherPanel extends VBox {
     return clusters.isEmpty() ? 0 : clusters.size();
   }
 
-  private Button createCardActionButton(String iconClass, String tooltip, String style) {
+  private Button createCardActionButton(String iconClass, String tooltip) {
     Button button = new Button();
+    button.getStyleClass().add("sidebar-tool-btn");
     button.setGraphic(makeIcon(iconClass));
     button.setTooltip(new Tooltip(tooltip));
     button.setAccessibleText(tooltip);
     button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
-    button.getStyleClass().add("layout-studio-icon-button");
-    button.setStyle(style);
     button.setFocusTraversable(false);
     return button;
   }

@@ -407,7 +407,7 @@ public class VnsDiagnosticsView extends BorderPane {
 
   private static Button actionButton(String text, javafx.scene.layout.Region icon) {
     Button button = new Button(text);
-    button.getStyleClass().add("vns-diagnostics-action-button");
+    button.getStyleClass().add("sidebar-tool-btn");
     button.setGraphic(icon);
     button.setGraphicTextGap(6);
     button.setMnemonicParsing(false);

@@ -6221,3 +6221,77 @@
   -fx-text-fill: #f1b5c1;
   -fx-border-color: rgba(176, 92, 114, 0.62);
 }
+
+/* Centralized Sidebar Tool Styles */
+.sidebar-tool-btn {
+  -fx-background-color: #343434;
+  -fx-background-radius: 8;
+  -fx-padding: 6;
+  -fx-cursor: hand;
+}
+.sidebar-tool-btn:hover {
+  -fx-background-color: #404040;
+}
+.sidebar-tool-btn:pressed {
+  -fx-background-color: #2a2a2a;
+}
+.sidebar-tool-btn:disabled {
+  -fx-opacity: 0.5;
+  -fx-cursor: default;
+}
+
+.sidebar-tool-card {
+  -fx-background-color: #242424;
+  -fx-background-radius: 10;
+  -fx-border-radius: 10;
+  -fx-border-color: #3d3d3d;
+  -fx-padding: 8 10 8 10;
+}
+.sidebar-tool-card:hover {
+  -fx-background-color: #303030;
+  -fx-border-color: #4f4f4f;
+  -fx-cursor: hand;
+}
+
+.sidebar-tool-card-suggested {
+  -fx-background-color: #2c2c2c;
+  -fx-background-radius: 10;
+  -fx-border-radius: 10;
+  -fx-border-color: #646464;
+  -fx-padding: 8 10 8 10;
+}
+.sidebar-tool-card-suggested:hover {
+  -fx-background-color: #383838;
+  -fx-border-color: #757575;
+  -fx-cursor: hand;
+}
+
+.sidebar-tool-card-disabled {
+  -fx-background-color: #252525;
+  -fx-background-radius: 10;
+  -fx-border-radius: 10;
+  -fx-border-color: #4a4a4a;
+  -fx-padding: 8 10 8 10;
+  -fx-cursor: default;
+}
+.sidebar-tool-card-disabled:hover {
+  -fx-background-color: #2a2a2a;
+  -fx-border-color: #5b5b5b;
+}
+
+.sidebar-tool-toggle-btn {
+  -fx-background-color: #2a2a2a;
+  -fx-background-radius: 6;
+  -fx-padding: 4;
+  -fx-cursor: hand;
+}
+.sidebar-tool-toggle-btn:hover {
+  -fx-background-color: #353535;
+}
+.sidebar-tool-toggle-btn:selected {
+  -fx-background-color: #d4a017;
+  -fx-text-fill: #1a1a1a;
+}
+.sidebar-tool-toggle-btn:selected:hover {
+  -fx-background-color: #e6b125;
+}
