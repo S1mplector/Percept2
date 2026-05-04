@@ -4744,37 +4744,54 @@ public class PuppeteerWindow extends Stage {
     }
 
     private void showShortcutsOverlay() {
-        TextArea content = new TextArea(
-            "Space — Play / Pause\n" +
-            "Home — Rewind\n" +
-            "Page Up / Page Down — Jump to previous / next keyframe\n" +
-            "K — Add keyframe at playhead\n" +
-            "Del — Delete selected keyframe\n" +
-            "Ctrl/Cmd+Alt+F — Focus timeline on selection\n" +
-            "Alt+←/→ — Nudge keyframe by snap step\n" +
-            "Alt+Shift+←/→ — Nudge keyframe by 1ms\n" +
-            "Alt+Shift+R — Reverse selected keyframes\n" +
-            "Alt+Shift+E — Distribute selected keyframes\n" +
-            "Ctrl/Cmd+Alt+C — Copy selected keyframes\n" +
-            "Ctrl/Cmd+Alt+V — Paste keyframes at playhead\n" +
-            "Ctrl/Cmd+Alt+D — Duplicate keyframes\n" +
-            "Ctrl/Cmd+Shift+C — Copy exported code\n" +
-            "Ctrl/Cmd+Alt+Z — Undo\n" +
-            "Ctrl/Cmd+Alt+Y — Redo\n" +
-            "Ctrl/Cmd+O — Toggle onion skinning\n" +
-            "A — Toggle orbit tool\n" +
-            "Shift+A — Clear orbit anchor"
-        );
-        content.setEditable(false);
-        content.setWrapText(false);
-        content.setFocusTraversable(false);
-        content.setStyle("-fx-control-inner-background: #121212; -fx-text-fill: #d7d7d7; -fx-font-family: Monospaced;");
-        content.setPrefColumnCount(36);
-        content.setPrefRowCount(14);
+        GridPane grid = new GridPane();
+        grid.setHgap(16);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(16));
+        grid.setStyle("-fx-background-color: #1a1a1a; -fx-background-radius: 8;");
+
+        String[][] shortcuts = {
+            {"Space", "Play / Pause"},
+            {"Home", "Rewind"},
+            {"Page Up / Down", "Jump to previous / next keyframe"},
+            {"K", "Add keyframe at playhead"},
+            {"Del", "Delete selected keyframe"},
+            {"Ctrl/Cmd + Alt + F", "Focus timeline on selection"},
+            {"Alt + ← / →", "Nudge keyframe by snap step"},
+            {"Alt + Shift + ← / →", "Nudge keyframe by 1ms"},
+            {"Alt + Shift + R", "Reverse selected keyframes"},
+            {"Alt + Shift + E", "Distribute selected keyframes"},
+            {"Ctrl/Cmd + Alt + C", "Copy selected keyframes"},
+            {"Ctrl/Cmd + Alt + V", "Paste keyframes at playhead"},
+            {"Ctrl/Cmd + Alt + D", "Duplicate keyframes"},
+            {"Ctrl/Cmd + Shift + C", "Copy exported code"},
+            {"Ctrl/Cmd + Alt + Z", "Undo"},
+            {"Ctrl/Cmd + Alt + Y", "Redo"},
+            {"Ctrl/Cmd + O", "Toggle onion skinning"},
+            {"A", "Toggle orbit tool"},
+            {"Shift + A", "Clear orbit anchor"}
+        };
+
+        for (int i = 0; i < shortcuts.length; i++) {
+            Label keyLabel = new Label(shortcuts[i][0]);
+            keyLabel.setStyle("-fx-text-fill: #9cdcfe; -fx-font-family: Monospaced; -fx-font-weight: bold; -fx-background-color: #2d2d2d; -fx-padding: 4 8; -fx-background-radius: 4; -fx-border-color: #3d3d3d; -fx-border-radius: 4;");
+            
+            Label descLabel = new Label(shortcuts[i][1]);
+            descLabel.setStyle("-fx-text-fill: #d7d7d7; -fx-font-size: 13px;");
+            
+            grid.add(keyLabel, 0, i);
+            grid.add(descLabel, 1, i);
+        }
+
+        ScrollPane scroll = new ScrollPane(grid);
+        scroll.setFitToWidth(true);
+        scroll.setPrefViewportHeight(380);
+        scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-padding: 0;");
+
         overlayDialog.showDialog(
             "Keyboard Shortcuts",
             "Puppeteer keyboard shortcuts",
-            content,
+            scroll,
             ActionEditorDialogOverlay.ActionSpec.accent("Close", overlayDialog::hideOverlay)
         );
     }
