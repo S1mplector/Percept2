@@ -31,7 +31,10 @@ Each character can have multiple named expressions:
 @charimg hero surprised assets/characters/aria/surprised.png
 @charimg hero sad assets/characters/aria/sad.png
 @charimg hero thinking assets/characters/aria/thinking.png
+@charimg hero cinematic assets/characters/aria/cinematic.mp4
 ```
+
+Supported formats include `.png`, `.jpg`, `.gif` (animated), and even `.mp4`/`.mov` videos. For advanced characters built from separate parts (e.g. body + eyes + mouth), you can use the layer system to mix and match formats dynamically.
 
 If no expression is specified in a `[show]` command, `neutral` is used as default.
 

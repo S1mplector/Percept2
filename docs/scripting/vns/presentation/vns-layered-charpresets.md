@@ -50,11 +50,20 @@ assets/characters/<characterId>/
     └── hat.png
 ```
 
-### Layer image requirements
+### Supported Formats
+
+JVN's compositing engine seamlessly blends multiple media types:
+- **Images:** `.png`, `.jpg`, `.jpeg` (Transparent PNGs highly recommended)
+- **Animated:** `.gif` (Plays automatically, loops infinitely)
+- **Video:** `.mp4`, `.mov` (Fully hardware-accelerated. Video frames are dynamically extracted and rendered into the canvas. You can use these for complex looping 3D renders or live-action overlays. *Note: Video extraction is computationally heavier than images, so use video layers sparingly.*)
+
+You can freely mix and match these formats in a single `@charpreset`. For example, you can have a looping `.mp4` video body, static `.png` facial features, and an animated `.gif` accessory, all compositing flawlessly on top of each other.
+
+### Layer asset requirements
 
 - **All layers for a character must share the same canvas dimensions.** The renderer scales every layer to the same bounding box.
 - Layers are drawn bottom-to-top (left-to-right in the declaration order).
-- Use transparent PNGs so upper layers overlay cleanly on lower ones.
+- Upper layers must have transparent backgrounds (e.g., transparent PNGs or GIFs) so they overlay cleanly on lower ones.
 - The **base** layer typically contains the body, hair, and any parts that never change.
 
 ---
