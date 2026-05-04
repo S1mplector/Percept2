@@ -105,7 +105,7 @@ public class VnsDiagnosticsView extends BorderPane {
     copyDiagnosticsButton.setOnAction(e -> copyVisibleDiagnostics());
     clearFilterButton.setOnAction(e -> clearFilters());
 
-    HBox titleRow = new HBox(8, CssIcon.list("#d0d0d0"), titleLabel);
+    HBox titleRow = new HBox(8, titleLabel);
     titleRow.setAlignment(Pos.CENTER_LEFT);
     titleRow.getStyleClass().add("vns-diagnostics-title-row");
 
