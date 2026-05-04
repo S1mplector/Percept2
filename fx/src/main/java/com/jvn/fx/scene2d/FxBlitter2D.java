@@ -24,6 +24,10 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
+import javafx.scene.media.Media;
+import javafx.scene.media.MediaPlayer;
+import javafx.scene.media.MediaView;
+import javafx.scene.SnapshotParameters;
 
 public class FxBlitter2D implements Blitter2D {
   private static final double[] IDENTITY_COLOR_MATRIX = new double[] {
@@ -66,6 +70,10 @@ public class FxBlitter2D implements Blitter2D {
   private final Set<String> missing = new HashSet<>();
   private final Deque<RenderState> stateStack = new ArrayDeque<>();
   private RenderState state = new RenderState();
+  
+  private final Map<String, MediaPlayer> videoPlayers = new LinkedHashMap<>();
+  private final Map<String, MediaView> videoViews = new LinkedHashMap<>();
+  private final Map<String, WritableImage> videoFrames = new LinkedHashMap<>();
 
   public FxBlitter2D(GraphicsContext gc) {
     this.gc = gc;
@@ -155,6 +163,12 @@ public class FxBlitter2D implements Blitter2D {
   @Override
   public void drawImage(String classpath, double x, double y, double w, double h) {
     if (classpath == null || classpath.isBlank()) return;
+    String lower = classpath.toLowerCase();
+    if (lower.endsWith(".mp4") || lower.endsWith(".mov")) {
+        drawVideo(classpath, x, y, w, h, -1, -1, -1, -1, false);
+        return;
+    }
+
     Image img = cache.computeIfAbsent(classpath, this::loadImage);
     if (img != null) {
       gc.drawImage(resolveProcessedImage(classpath, img), x, y, w, h);
@@ -168,6 +182,12 @@ public class FxBlitter2D implements Blitter2D {
   public void drawImageRegion(String classpath, double sx, double sy, double sw, double sh,
                               double dx, double dy, double dw, double dh) {
     if (classpath == null || classpath.isBlank()) return;
+    String lower = classpath.toLowerCase();
+    if (lower.endsWith(".mp4") || lower.endsWith(".mov")) {
+        drawVideo(classpath, dx, dy, dw, dh, sx, sy, sw, sh, true);
+        return;
+    }
+
     Image img = cache.computeIfAbsent(classpath, this::loadImage);
     if (img != null) {
       gc.drawImage(resolveProcessedImage(classpath, img), sx, sy, sw, sh, dx, dy, dw, dh);
@@ -267,30 +287,45 @@ public class FxBlitter2D implements Blitter2D {
       cache.remove(path);
       processedCache.keySet().removeIf(key -> key.startsWith(path + "::"));
       missing.remove(path);
+      MediaPlayer mp = videoPlayers.remove(path);
+      if (mp != null) {
+          mp.stop();
+          mp.dispose();
+      }
+      videoViews.remove(path);
+      videoFrames.remove(path);
     }
   }
   public void clearCache() {
     cache.clear();
     processedCache.clear();
     missing.clear();
+    for (MediaPlayer mp : videoPlayers.values()) {
+        mp.stop();
+        mp.dispose();
+    }
+    videoPlayers.clear();
+    videoViews.clear();
+    videoFrames.clear();
   }
 
   private Image loadImage(String path) {
+    String url = resolveMediaUrl(path);
+    if (url != null) return new Image(url);
+    return null;
+  }
+
+  private String resolveMediaUrl(String path) {
     try {
-      // 1. Classpath lookup
       URL u = getClass().getClassLoader().getResource(path);
-      if (u != null) return new Image(u.toExternalForm());
+      if (u != null) return u.toExternalForm();
 
-      // 2. Absolute filesystem path
       java.io.File f = new java.io.File(path);
-      if (f.isAbsolute() && f.exists()) {
-        return new Image(f.toURI().toString());
-      }
+      if (f.isAbsolute() && f.exists()) return f.toURI().toString();
 
-      // 3. Relative to project root (if set)
       if (projectRoot != null) {
         java.io.File pf = new java.io.File(projectRoot, path);
-        if (pf.exists()) return new Image(pf.toURI().toString());
+        if (pf.exists()) return pf.toURI().toString();
       }
     } catch (Exception e) { /* fall through */ }
     return null;
@@ -363,6 +398,54 @@ public class FxBlitter2D implements Blitter2D {
     gc.setLineWidth(Math.max(1, Math.min(w, h) * 0.05));
     gc.strokeLine(x, y, x + w, y + h);
     gc.strokeLine(x + w, y, x, y + h);
+  }
+
+  private void drawVideo(String path, double dx, double dy, double dw, double dh, double sx, double sy, double sw, double sh, boolean isRegion) {
+      MediaPlayer player = videoPlayers.get(path);
+      if (player == null && !missing.contains(path)) {
+          String url = resolveMediaUrl(path);
+          if (url != null) {
+              Media media = new Media(url);
+              player = new MediaPlayer(media);
+              player.setCycleCount(MediaPlayer.INDEFINITE);
+              player.setMute(true);
+              player.play();
+              videoPlayers.put(path, player);
+              
+              MediaView view = new MediaView(player);
+              videoViews.put(path, view);
+          } else {
+              reportMissing(path);
+          }
+      }
+      
+      if (player != null) {
+          MediaView view = videoViews.get(path);
+          Media media = player.getMedia();
+          int vw = media.getWidth();
+          int vh = media.getHeight();
+          if (vw > 0 && vh > 0) {
+              WritableImage frame = videoFrames.get(path);
+              if (frame == null || frame.getWidth() != vw || frame.getHeight() != vh) {
+                  frame = new WritableImage(vw, vh);
+                  videoFrames.put(path, frame);
+              }
+              SnapshotParameters params = new SnapshotParameters();
+              params.setFill(Color.TRANSPARENT);
+              view.snapshot(params, frame);
+              
+              Image processed = resolveProcessedImage(path, frame);
+              
+              if (isRegion) {
+                  gc.drawImage(processed, sx, sy, sw, sh, dx, dy, dw, dh);
+              } else {
+                  gc.drawImage(processed, dx, dy, dw, dh);
+              }
+              return;
+          }
+      }
+      
+      drawMissingPlaceholder(dx, dy, dw, dh);
   }
 
   private void reportMissing(String path) {
