@@ -49,8 +49,9 @@ public class AssetBrowserView extends BorderPane {
   private Consumer<String> onAssetSelected;
 
   public AssetBrowserView() {
-    titleLabel.setStyle("-fx-font-weight: 700; -fx-font-size: 13px;");
-    rootLabel.setStyle("-fx-text-fill: #99a0af;");
+    getStyleClass().add("sidebar-tool-root");
+    titleLabel.getStyleClass().add("sidebar-tool-title");
+    rootLabel.getStyleClass().add("sidebar-tool-subtitle");
 
     filterField.setPromptText("Filter assets...");
     filterField.textProperty().addListener((obs, oldValue, newValue) -> applyFilter());
@@ -119,15 +120,16 @@ public class AssetBrowserView extends BorderPane {
 
     VBox header = new VBox(6, titleLabel, rootLabel, filterRow);
     header.setPadding(new Insets(10, 10, 8, 10));
+    header.getStyleClass().add("sidebar-tool-header");
 
     HBox previewActions = new HBox(8, copyPathButton, openButton, useAssetButton);
     previewActions.setAlignment(Pos.CENTER_LEFT);
 
     VBox previewBox = new VBox(6, previewImage, previewPath, previewMeta, previewActions);
     previewBox.setPadding(new Insets(10));
-    previewBox.setStyle("-fx-border-color: #2a2f3a; -fx-border-width: 1 0 0 0;");
+    previewBox.getStyleClass().add("sidebar-tool-footer");
     previewPath.setWrapText(true);
-    previewMeta.setStyle("-fx-text-fill: #a4acba;");
+    previewMeta.getStyleClass().add("sidebar-tool-subtitle");
 
     VBox center = new VBox(listView, previewBox);
     VBox.setVgrow(listView, Priority.ALWAYS);

@@ -191,7 +191,7 @@ public class StoryTimelineView extends BorderPane {
   private double toolbarTextModeMinWidth = -1;
 
   public StoryTimelineView() {
-    getStyleClass().add("timeline-root");
+    getStyleClass().addAll("timeline-root", "sidebar-tool-root");
     arcs.getStyleClass().add("timeline-list");
     links.getStyleClass().add("timeline-list");
     graphHint.getStyleClass().add("timeline-empty-hint");

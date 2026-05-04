@@ -6223,75 +6223,172 @@
 }
 
 /* Centralized Sidebar Tool Styles */
-.sidebar-tool-btn {
-  -fx-background-color: #343434;
+.sidebar-tool-root {
+  -fx-background-color: #0f0f0f;
+  -fx-control-inner-background: #111111;
+}
+
+.sidebar-tool-scroll,
+.sidebar-tool-scroll > .viewport {
+  -fx-background: #0f0f0f;
+  -fx-background-color: #0f0f0f;
+}
+
+.sidebar-tool-header,
+.layout-launcher-header,
+.script-editor-launcher-header,
+.vns-diagnostics-header,
+.menu-flow-header,
+.vcs-top {
+  -fx-background-color: #121212;
+  -fx-border-color: #2a2a2a;
+  -fx-border-width: 0 0 1 0;
+}
+
+.sidebar-tool-footer {
+  -fx-border-color: #2a2a2a;
+  -fx-border-width: 1 0 0 0;
+}
+
+.sidebar-tool-title,
+.project-explorer-header,
+.layout-launcher-title,
+.script-editor-launcher-title,
+.vns-diagnostics-title,
+.menu-flow-title,
+.vcs-title,
+.phone-tool-root .phone-tool-title,
+.editor-settings-header {
+  -fx-text-fill: #efefef;
+  -fx-font-size: 14px;
+  -fx-font-weight: 800;
+}
+
+.sidebar-tool-section-title,
+.layout-launcher-section-title,
+.script-editor-pane-title,
+.phone-tool-root .phone-tool-section-title,
+.help-pane-title {
+  -fx-text-fill: #d8d8d8;
+  -fx-font-size: 12px;
+  -fx-font-weight: 800;
+}
+
+.sidebar-tool-summary,
+.sidebar-tool-subtitle,
+.sidebar-tool-status,
+.layout-launcher-summary,
+.script-editor-launcher-description,
+.vns-diagnostics-summary,
+.vns-diagnostics-file,
+.menu-flow-project-label,
+.phone-tool-root .phone-tool-summary,
+.editor-settings-copy,
+.help-pane-subtitle {
+  -fx-text-fill: #a3a3a3;
+  -fx-font-size: 11px;
+}
+
+.sidebar-tool-summary,
+.layout-launcher-summary,
+.script-editor-launcher-description {
+  -fx-text-fill: #b8b8b8;
+}
+
+.sidebar-tool-root .button,
+.sidebar-tool-root .toggle-button,
+.sidebar-tool-root .menu-button,
+.sidebar-tool-btn,
+.sidebar-tool-toggle-btn {
+  -fx-background-color: linear-gradient(to bottom, #262626, #1c1c1c);
+  -fx-text-fill: #ededed;
+  -fx-border-color: #383838;
+  -fx-border-width: 1;
+  -fx-border-radius: 8;
   -fx-background-radius: 8;
-  -fx-padding: 6;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
   -fx-cursor: hand;
+  -fx-effect: none;
 }
-.sidebar-tool-btn:hover {
-  -fx-background-color: #404040;
+
+.sidebar-tool-btn {
+  -fx-padding: 6 10 6 10;
 }
-.sidebar-tool-btn:pressed {
-  -fx-background-color: #2a2a2a;
+
+.sidebar-tool-root .button:hover,
+.sidebar-tool-root .toggle-button:hover,
+.sidebar-tool-root .menu-button:hover,
+.sidebar-tool-btn:hover,
+.sidebar-tool-toggle-btn:hover {
+  -fx-background-color: linear-gradient(to bottom, #303030, #222222);
+  -fx-border-color: #565656;
+  -fx-text-fill: #f4f4f4;
 }
-.sidebar-tool-btn:disabled {
-  -fx-opacity: 0.5;
+
+.sidebar-tool-root .button:pressed,
+.sidebar-tool-root .toggle-button:pressed,
+.sidebar-tool-root .menu-button:pressed,
+.sidebar-tool-btn:pressed,
+.sidebar-tool-toggle-btn:pressed {
+  -fx-background-color: linear-gradient(to bottom, #1b1b1b, #141414);
+  -fx-border-color: #707070;
+}
+
+.sidebar-tool-root .button:disabled,
+.sidebar-tool-root .toggle-button:disabled,
+.sidebar-tool-root .menu-button:disabled,
+.sidebar-tool-btn:disabled,
+.sidebar-tool-toggle-btn:disabled {
+  -fx-opacity: 0.42;
   -fx-cursor: default;
 }
 
-.sidebar-tool-card {
-  -fx-background-color: #242424;
-  -fx-background-radius: 10;
-  -fx-border-radius: 10;
-  -fx-border-color: #3d3d3d;
+.sidebar-tool-root .toggle-button:selected,
+.sidebar-tool-toggle-btn:selected,
+.sidebar-tool-toggle-btn:selected:hover {
+  -fx-background-color: linear-gradient(to bottom, #d4a017, #a77912);
+  -fx-text-fill: #181818;
+  -fx-border-color: #e2be5c;
+}
+
+.sidebar-tool-card,
+.sidebar-tool-card-suggested,
+.sidebar-tool-card-disabled,
+.layout-launcher-card,
+.layout-launcher-panel,
+.script-editor-card,
+.phone-tool-root .phone-tool-card,
+.menu-flow-inspector-card,
+.vns-diagnostics-row,
+.help-preview-header {
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255,255,255,0.03), rgba(255,255,255,0.0)),
+      linear-gradient(to bottom, #1a1a1a 0%, #141414 100%);
+  -fx-background-radius: 8;
+  -fx-border-color: #2f2f2f;
+  -fx-border-radius: 8;
+  -fx-border-width: 1;
+  -fx-effect: none;
+}
+
+.sidebar-tool-card,
+.sidebar-tool-card-suggested,
+.sidebar-tool-card-disabled {
   -fx-padding: 8 10 8 10;
 }
-.sidebar-tool-card:hover {
-  -fx-background-color: #303030;
+
+.sidebar-tool-card:hover,
+.sidebar-tool-card-suggested:hover {
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255,255,255,0.04), rgba(255,255,255,0.01)),
+      linear-gradient(to bottom, #202020 0%, #171717 100%);
   -fx-border-color: #4f4f4f;
   -fx-cursor: hand;
 }
 
-.sidebar-tool-card-suggested {
-  -fx-background-color: #2c2c2c;
-  -fx-background-radius: 10;
-  -fx-border-radius: 10;
-  -fx-border-color: #646464;
-  -fx-padding: 8 10 8 10;
-}
-.sidebar-tool-card-suggested:hover {
-  -fx-background-color: #383838;
-  -fx-border-color: #757575;
-  -fx-cursor: hand;
-}
-
-.sidebar-tool-card-disabled {
-  -fx-background-color: #252525;
-  -fx-background-radius: 10;
-  -fx-border-radius: 10;
-  -fx-border-color: #4a4a4a;
-  -fx-padding: 8 10 8 10;
-  -fx-cursor: default;
-}
+.sidebar-tool-card-disabled,
 .sidebar-tool-card-disabled:hover {
-  -fx-background-color: #2a2a2a;
-  -fx-border-color: #5b5b5b;
-}
-
-.sidebar-tool-toggle-btn {
-  -fx-background-color: #2a2a2a;
-  -fx-background-radius: 6;
-  -fx-padding: 4;
-  -fx-cursor: hand;
-}
-.sidebar-tool-toggle-btn:hover {
-  -fx-background-color: #353535;
-}
-.sidebar-tool-toggle-btn:selected {
-  -fx-background-color: #d4a017;
-  -fx-text-fill: #1a1a1a;
-}
-.sidebar-tool-toggle-btn:selected:hover {
-  -fx-background-color: #e6b125;
+  -fx-opacity: 0.62;
+  -fx-cursor: default;
 }

@@ -161,6 +161,7 @@ public class ImageAttributesToolView extends BorderPane implements ImageToolPane
   private double previewVirtualHeight;
 
   public ImageAttributesToolView() {
+    getStyleClass().add("sidebar-tool-root");
     setPadding(new Insets(8));
     buildUi();
     refreshCatalog();
@@ -168,8 +169,10 @@ public class ImageAttributesToolView extends BorderPane implements ImageToolPane
 
   private void buildUi() {
     Label title = new Label(TOOL_TITLE);
-    title.setStyle("-fx-font-size: 14px; -fx-font-weight: 700;");
-    interactionHintLabel.setStyle("-fx-text-fill: #a8a8a8; -fx-font-size: 11px;");
+    title.getStyleClass().add("sidebar-tool-title");
+    summaryLabel.getStyleClass().add("sidebar-tool-summary");
+    summaryLabel.setWrapText(true);
+    interactionHintLabel.getStyleClass().add("sidebar-tool-subtitle");
     interactionHintLabel.setWrapText(true);
 
     tagFilterField.setPromptText("Filter tags...");
@@ -273,6 +276,7 @@ public class ImageAttributesToolView extends BorderPane implements ImageToolPane
         profileLoadRow,
         profileSaveRow,
         new Separator());
+    top.getStyleClass().add("sidebar-tool-header");
     setTop(top);
 
     StackPane previewPane = new StackPane(previewCanvas);

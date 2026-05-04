@@ -2892,6 +2892,7 @@ public class EditorApp extends Application {
   private void applySidebarPanelGraphic(Tab tab, EditorSidebarPanel panel) {
     if (tab == null || panel == null) return;
     tab.setGraphic(sidebarPanelIcon(panel, "sidebar-tab-icon"));
+    applySidebarToolStyle(tab.getContent(), panel);
   }
 
   private Tab attachSidebarPanelTab(Tab tab, EditorSidebarPanel panel, TabPane targetPane) {
@@ -2899,6 +2900,23 @@ public class EditorApp extends Application {
     applySidebarPanelGraphic(tab, panel);
     attachPanelTabToPane(tab, targetPane);
     return tab;
+  }
+
+  private void applySidebarToolStyle(Node node, EditorSidebarPanel panel) {
+    if (node == null || panel == null) return;
+    addStyleClassIfMissing(node, "sidebar-tool-root");
+    addStyleClassIfMissing(node, "sidebar-tool-panel-" + panel.key().replace('_', '-'));
+    if (node instanceof ScrollPane scrollPane) {
+      addStyleClassIfMissing(scrollPane, "sidebar-tool-scroll");
+      applySidebarToolStyle(scrollPane.getContent(), panel);
+    }
+  }
+
+  private static void addStyleClassIfMissing(Node node, String styleClass) {
+    if (node == null || styleClass == null || styleClass.isBlank()) return;
+    if (!node.getStyleClass().contains(styleClass)) {
+      node.getStyleClass().add(styleClass);
+    }
   }
 
   private boolean isEditableFile(File f) {
@@ -4966,6 +4984,7 @@ public class EditorApp extends Application {
     }
     // Remove from any sidebar tab
     detachFromSidebarTab(content);
+    applySidebarToolStyle(content, panel);
 
     Stage windowStage = new Stage();
     windowStage.setTitle(title != null ? title : "Utility");

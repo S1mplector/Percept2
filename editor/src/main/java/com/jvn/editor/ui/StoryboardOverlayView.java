@@ -90,18 +90,18 @@ public class StoryboardOverlayView extends BorderPane {
   private Task<StoryboardOverlayCatalog.ScanResult> scanTask;
 
   public StoryboardOverlayView() {
-    getStyleClass().add("layout-launcher-root");
-    titleLabel.setStyle("-fx-font-size: 13px; -fx-font-weight: 700;");
-    summaryLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #95a3b8;");
+    getStyleClass().addAll("layout-launcher-root", "sidebar-tool-root");
+    titleLabel.getStyleClass().add("sidebar-tool-title");
+    summaryLabel.getStyleClass().add("sidebar-tool-summary");
     summaryLabel.setWrapText(true);
-    targetLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #aeb6c7;");
+    targetLabel.getStyleClass().add("sidebar-tool-subtitle");
     targetLabel.setWrapText(true);
-    sourceLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #8899aa;");
+    sourceLabel.getStyleClass().add("sidebar-tool-subtitle");
     sourceLabel.setWrapText(true);
-    framesSummaryLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #95a3b8;");
+    framesSummaryLabel.getStyleClass().add("sidebar-tool-subtitle");
     matchLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #d4b07c;");
     matchLabel.setWrapText(true);
-    statusLabel.setStyle("-fx-font-size: 10px;");
+    statusLabel.getStyleClass().add("sidebar-tool-status");
     statusLabel.setWrapText(true);
 
     folderField.setPromptText("Auto-detect storyboard folder");

@@ -52,10 +52,10 @@ public class VnsDiagnosticsView extends BorderPane {
   private Consumer<OpenTarget> onOpenTarget;
 
   public VnsDiagnosticsView() {
-    getStyleClass().add("vns-diagnostics-root");
-    titleLabel.getStyleClass().add("vns-diagnostics-title");
-    fileLabel.getStyleClass().add("vns-diagnostics-file");
-    summaryLabel.getStyleClass().add("vns-diagnostics-summary");
+    getStyleClass().addAll("vns-diagnostics-root", "sidebar-tool-root");
+    titleLabel.getStyleClass().addAll("vns-diagnostics-title", "sidebar-tool-title");
+    fileLabel.getStyleClass().addAll("vns-diagnostics-file", "sidebar-tool-subtitle");
+    summaryLabel.getStyleClass().addAll("vns-diagnostics-summary", "sidebar-tool-summary");
     summaryLabel.setWrapText(true);
     statsLabel.getStyleClass().add("vns-diagnostics-stats");
     statsLabel.setWrapText(true);

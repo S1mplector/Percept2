@@ -58,7 +58,7 @@ public class ParticleFxToolView extends BorderPane {
   public ParticleFxToolView() {
     // Reuse the editor settings sidebar style namespace so spinners, combos,
     // checks, and text fields render identically to the Editor Settings tool.
-    getStyleClass().addAll("editor-settings-view", "particle-fx-tool-view");
+    getStyleClass().addAll("editor-settings-view", "particle-fx-tool-view", "sidebar-tool-root");
 
     presetCombo.getItems().addAll(
         VnParticleCommand.Preset.SNOW,
@@ -113,7 +113,7 @@ public class ParticleFxToolView extends BorderPane {
     actions.setAlignment(Pos.CENTER_LEFT);
 
     Label header = new Label("Particle FX");
-    header.getStyleClass().add("editor-settings-header");
+    header.getStyleClass().addAll("editor-settings-header", "sidebar-tool-title");
     Label intro = new Label("Build VNS particle commands for rain, snow, petals, fireflies, dust, and leaves.");
     intro.setWrapText(true);
     intro.getStyleClass().add("editor-settings-copy");

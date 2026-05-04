@@ -218,7 +218,7 @@ public class PhoneAssetsToolView extends BorderPane {
   }
 
   public PhoneAssetsToolView() {
-    getStyleClass().add("phone-tool-root");
+    getStyleClass().addAll("phone-tool-root", "sidebar-tool-root");
     setPadding(new Insets(8));
 
     buildHeader();
@@ -339,9 +339,9 @@ public class PhoneAssetsToolView extends BorderPane {
 
   private void buildHeader() {
     Label title = new Label("Phone Assets");
-    title.getStyleClass().add("phone-tool-title");
+    title.getStyleClass().addAll("phone-tool-title", "sidebar-tool-title");
 
-    summaryLabel.getStyleClass().add("phone-tool-summary");
+    summaryLabel.getStyleClass().addAll("phone-tool-summary", "sidebar-tool-summary");
     summaryLabel.setWrapText(true);
 
     configPathLabel.getStyleClass().add("phone-tool-path");

@@ -98,9 +98,9 @@ public class VersionControlView extends BorderPane {
   private boolean disposed;
 
   public VersionControlView() {
-    getStyleClass().add("version-control-root");
-    titleLabel.getStyleClass().add("vcs-title");
-    repoLabel.getStyleClass().add("vcs-muted");
+    getStyleClass().addAll("version-control-root", "sidebar-tool-root");
+    titleLabel.getStyleClass().addAll("vcs-title", "sidebar-tool-title");
+    repoLabel.getStyleClass().addAll("vcs-muted", "sidebar-tool-subtitle");
     toolLabel.getStyleClass().add("vcs-muted");
     conflictLabel.getStyleClass().add("vcs-conflict");
     conflictLabel.setVisible(false);

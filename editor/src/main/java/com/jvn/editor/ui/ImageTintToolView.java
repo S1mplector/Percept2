@@ -338,6 +338,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
   public ImageTintToolView() {
 
     stateSaveDebounce.setOnFinished(e -> flushPendingStateSave());
+    getStyleClass().add("sidebar-tool-root");
     setPadding(new Insets(8));
     buildUi();
     refreshCatalog();
@@ -345,15 +346,15 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
 
   private void buildUi() {
     Label title = new Label(TOOL_TITLE);
-    title.setStyle("-fx-font-size: 13px; -fx-font-weight: 700;");
-    summaryLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #9a9a9a;");
+    title.getStyleClass().add("sidebar-tool-title");
+    summaryLabel.getStyleClass().add("sidebar-tool-summary");
     summaryLabel.setWrapText(true);
-    interactionHintLabel.setStyle("-fx-text-fill: #a8a8a8; -fx-font-size: 10px;");
+    interactionHintLabel.getStyleClass().add("sidebar-tool-subtitle");
     interactionHintLabel.setWrapText(true);
-    previewInfoLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #a0a0a0;");
-    lightRigSummaryLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #b3b9c8;");
+    previewInfoLabel.getStyleClass().add("sidebar-tool-subtitle");
+    lightRigSummaryLabel.getStyleClass().add("sidebar-tool-subtitle");
     lightRigSummaryLabel.setWrapText(true);
-    statusLabel.setStyle("-fx-font-size: 10px;");
+    statusLabel.getStyleClass().add("sidebar-tool-status");
     statusLabel.setWrapText(true);
 
     filterField.setPromptText("Filter tags...");
@@ -565,6 +566,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     HBox.setHgrow(sidebarHeaderSpacer, Priority.ALWAYS);
     HBox sidebarHeader = new HBox(8, title, sidebarHeaderSpacer, sidebarHideButton);
     sidebarHeader.setAlignment(Pos.CENTER_LEFT);
+    sidebarHeader.getStyleClass().add("sidebar-tool-header");
 
     // ── Right sidebar ──
     VBox sidebar = new VBox(6,

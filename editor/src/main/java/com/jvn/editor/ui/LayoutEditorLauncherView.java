@@ -93,11 +93,11 @@ public class LayoutEditorLauncherView extends BorderPane {
   }
 
   public LayoutEditorLauncherView() {
-    getStyleClass().add("layout-launcher-root");
+    getStyleClass().addAll("layout-launcher-root", "sidebar-tool-root");
     setPadding(new Insets(8));
 
     Label title = new Label("Layout Editors");
-    title.getStyleClass().add("layout-launcher-title");
+    title.getStyleClass().addAll("layout-launcher-title", "sidebar-tool-title");
 
     filterField.setPromptText("Filter layout files...");
     filterField.getStyleClass().add("layout-launcher-field");
@@ -113,10 +113,10 @@ public class LayoutEditorLauncherView extends BorderPane {
     topActions.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(filterField, Priority.ALWAYS);
 
-    summaryLabel.getStyleClass().add("layout-launcher-summary");
+    summaryLabel.getStyleClass().addAll("layout-launcher-summary", "sidebar-tool-summary");
 
     VBox top = new VBox(8, title, summaryLabel, topActions, new Separator());
-    top.getStyleClass().add("layout-launcher-header");
+    top.getStyleClass().addAll("layout-launcher-header", "sidebar-tool-header");
     setTop(top);
 
     ScrollPane scroll = new ScrollPane(itemList);

@@ -27,6 +27,7 @@ public class InspectorView extends VBox {
 
   public InspectorView(Consumer<String> setStatus) {
     this.setStatus = setStatus == null ? s -> {} : setStatus;
+    getStyleClass().add("sidebar-tool-root");
     setSpacing(8);
   }
 

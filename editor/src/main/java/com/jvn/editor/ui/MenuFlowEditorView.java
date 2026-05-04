@@ -145,7 +145,7 @@ public class MenuFlowEditorView extends BorderPane {
 
   public MenuFlowEditorView() {
     setPadding(new Insets(8));
-    getStyleClass().add("menu-flow-editor");
+    getStyleClass().addAll("menu-flow-editor", "sidebar-tool-root");
     buildUi();
     bindActions();
     rebuildGraph();
@@ -168,7 +168,7 @@ public class MenuFlowEditorView extends BorderPane {
 
   private void buildUi() {
     Label title = new Label("Menu Flow Editor");
-    title.getStyleClass().add("menu-flow-title");
+    title.getStyleClass().addAll("menu-flow-title", "sidebar-tool-title");
 
     projectLabel.getStyleClass().add("menu-flow-project-label");
     projectLabel.setTextOverrun(OverrunStyle.LEADING_ELLIPSIS);
@@ -188,7 +188,7 @@ public class MenuFlowEditorView extends BorderPane {
     toolbar.setAlignment(Pos.CENTER_LEFT);
 
     VBox top = new VBox(8, title, projectLabel, toolbar, statusLabel);
-    top.getStyleClass().add("menu-flow-header");
+    top.getStyleClass().addAll("menu-flow-header", "sidebar-tool-header");
     setTop(top);
 
     graphScroll.getStyleClass().add("menu-flow-graph-scroll");

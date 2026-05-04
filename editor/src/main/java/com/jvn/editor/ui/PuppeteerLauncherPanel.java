@@ -90,13 +90,13 @@ public class PuppeteerLauncherPanel extends VBox {
   public PuppeteerLauncherPanel() {
     setSpacing(8);
     setPadding(new Insets(12));
-    setStyle("-fx-background-color: #1a1a1a;");
+    getStyleClass().add("sidebar-tool-root");
 
     lblHeader = new Label("Puppeteer Launcher");
-    lblHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: #e6e6e6;");
+    lblHeader.getStyleClass().add("sidebar-tool-title");
 
     lblLine = new Label("Line: —");
-    lblLine.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
+    lblLine.getStyleClass().add("sidebar-tool-subtitle");
 
     lblLineText = new Label("");
     lblLineText.setStyle("-fx-text-fill: #e6e6e6; -fx-font-family: monospace; -fx-font-size: 11px;");
@@ -104,40 +104,40 @@ public class PuppeteerLauncherPanel extends VBox {
     lblLineText.setMaxWidth(260);
 
     Label snapshotHeader = new Label("Scene Snapshot at Cursor");
-    snapshotHeader.setStyle("-fx-font-weight: bold; -fx-text-fill: #d0d0d0; -fx-font-size: 12px;");
+    snapshotHeader.getStyleClass().add("sidebar-tool-section-title");
 
     lblLabel = new Label("Label: —");
-    lblLabel.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
+    lblLabel.getStyleClass().add("sidebar-tool-subtitle");
 
     lblBackground = new Label("Background: —");
-    lblBackground.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
+    lblBackground.getStyleClass().add("sidebar-tool-subtitle");
 
     lblStage = new Label("Stage: —");
-    lblStage.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
+    lblStage.getStyleClass().add("sidebar-tool-subtitle");
 
     lblTimeline = new Label("Timeline: —");
-    lblTimeline.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
+    lblTimeline.getStyleClass().add("sidebar-tool-subtitle");
 
     lblSummary = new Label("Snapshot: —");
-    lblSummary.setStyle("-fx-text-fill: #bcbcbc; -fx-font-size: 11px;");
+    lblSummary.getStyleClass().add("sidebar-tool-summary");
 
     Label charsHeader = new Label("Visible Characters:");
-    charsHeader.setStyle("-fx-text-fill: #e6e6e6; -fx-font-size: 11px; -fx-font-weight: bold;");
+    charsHeader.getStyleClass().add("sidebar-tool-section-title");
 
     characterList = new VBox(2);
     characterList.setPadding(new Insets(0, 0, 0, 8));
 
     Label diagnosticsHeader = new Label("Snapshot Diagnostics:");
-    diagnosticsHeader.setStyle("-fx-text-fill: #e6e6e6; -fx-font-size: 11px; -fx-font-weight: bold;");
+    diagnosticsHeader.getStyleClass().add("sidebar-tool-section-title");
 
     diagnosticsList = new VBox(2);
     diagnosticsList.setPadding(new Insets(0, 0, 0, 8));
 
     lblRegisteredHeader = new Label("Registered Animations");
-    lblRegisteredHeader.setStyle("-fx-font-weight: bold; -fx-text-fill: #e6e6e6; -fx-font-size: 12px;");
+    lblRegisteredHeader.getStyleClass().add("sidebar-tool-section-title");
 
     lblRegisteredSummary = new Label("No registered timelines found yet.");
-    lblRegisteredSummary.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
+    lblRegisteredSummary.getStyleClass().add("sidebar-tool-subtitle");
 
     registeredTimelineCards = new VBox(8);
     registeredTimelineCards.setFillWidth(true);

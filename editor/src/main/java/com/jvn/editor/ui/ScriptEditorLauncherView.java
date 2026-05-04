@@ -147,14 +147,14 @@ public class ScriptEditorLauncherView extends BorderPane {
   }
 
   private void buildUi() {
-    getStyleClass().add("script-editor-launcher-root");
+    getStyleClass().addAll("script-editor-launcher-root", "sidebar-tool-root");
 
     VBox header = new VBox(8);
-    header.getStyleClass().add("script-editor-launcher-header");
+    header.getStyleClass().addAll("script-editor-launcher-header", "sidebar-tool-header");
     header.setPadding(new Insets(10, 12, 8, 12));
 
     Label titleLabel = new Label("Text Editor");
-    titleLabel.getStyleClass().add("script-editor-launcher-title");
+    titleLabel.getStyleClass().addAll("script-editor-launcher-title", "sidebar-tool-title");
     Region titleSpacer = new Region();
     HBox.setHgrow(titleSpacer, Priority.ALWAYS);
     HBox titleRow = new HBox(

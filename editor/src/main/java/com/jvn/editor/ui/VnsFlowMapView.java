@@ -44,13 +44,15 @@ public class VnsFlowMapView extends BorderPane {
   private Consumer<Integer> onOpenLine;
 
   public VnsFlowMapView() {
-    titleLabel.setStyle("-fx-font-weight: 700; -fx-font-size: 13px;");
-    fileLabel.setStyle("-fx-text-fill: #99a0af;");
-    summaryLabel.setStyle("-fx-text-fill: #b8beca;");
+    getStyleClass().add("sidebar-tool-root");
+    titleLabel.getStyleClass().add("sidebar-tool-title");
+    fileLabel.getStyleClass().add("sidebar-tool-subtitle");
+    summaryLabel.getStyleClass().add("sidebar-tool-summary");
     summaryLabel.setWrapText(true);
 
     VBox header = new VBox(6, titleLabel, fileLabel, summaryLabel);
     header.setPadding(new Insets(10, 10, 8, 10));
+    header.getStyleClass().add("sidebar-tool-header");
     setTop(header);
 
     graphPane.setMinSize(420, 320);

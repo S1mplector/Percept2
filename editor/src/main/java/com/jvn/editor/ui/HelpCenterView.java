@@ -102,7 +102,7 @@ public class HelpCenterView extends BorderPane {
   private DocEntry activeDocEntry;
 
   public HelpCenterView() {
-    getStyleClass().add("help-center-root");
+    getStyleClass().addAll("help-center-root", "sidebar-tool-root");
     buildUi();
     refresh();
   }
