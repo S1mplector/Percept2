@@ -485,6 +485,17 @@ public class AnimationPreview extends VBox {
             drawGuideRect(x, y, frameW, frameH, 0.18, Color.web("#9bd6ff", runtimeCameraSelected ? 0.34 : 0.22));
         }
 
+        gc.setStroke(Color.web("#ffffff", 0.15));
+        gc.setLineWidth(1.0);
+        gc.setLineDashes(4.0, 4.0);
+        double thirdW = frameW / 3.0;
+        double thirdH = frameH / 3.0;
+        gc.strokeLine(x + thirdW, y, x + thirdW, y + frameH);
+        gc.strokeLine(x + 2 * thirdW, y, x + 2 * thirdW, y + frameH);
+        gc.strokeLine(x, y + thirdH, x + frameW, y + thirdH);
+        gc.strokeLine(x, y + 2 * thirdH, x + frameW, y + 2 * thirdH);
+        gc.setLineDashes((double[]) null);
+
         gc.setStroke(frameColor);
         gc.setLineWidth(2.0);
         gc.strokeRect(x + 0.5, y + 0.5, Math.max(0, frameW - 1.0), Math.max(0, frameH - 1.0));
@@ -842,7 +853,7 @@ public class AnimationPreview extends VBox {
         double z = Math.max(1e-6, displayScale);
         double now = project.getPlayheadMs();
         double dur = project.getTotalDurationMs();
-        double step = dur / 20;
+        double step = 66.666; // Fixed 15 FPS equivalent
 
         gc.save();
         applyCameraTransform();
@@ -858,6 +869,19 @@ public class AnimationPreview extends VBox {
             boolean hasScaleX = !track.getKeyframes(PropertyType.SCALE_X).isEmpty();
             boolean hasScaleY = !track.getKeyframes(PropertyType.SCALE_Y).isEmpty();
 
+            Entity2D entity = scene != null ? scene.find(track.getEntityName()) : null;
+            Image spriteImage = null;
+            double entityW = 20.0 / z;
+            double entityH = 20.0 / z;
+            if (entity instanceof com.jvn.core.scene2d.Sprite2D sprite) {
+                entityW = Math.max(1.0, sprite.getWidth());
+                entityH = Math.max(1.0, sprite.getHeight());
+                spriteImage = resolveSourceImage(sprite.getImagePath());
+            } else if (entity != null) {
+                entityW = Math.max(1.0, entity.getWidth());
+                entityH = Math.max(1.0, entity.getHeight());
+            }
+
             for (int i = -onionFrames; i <= onionFrames; i++) {
                 if (i == 0) continue;
                 double t = now + i * step;
@@ -871,7 +895,6 @@ public class AnimationPreview extends VBox {
 
                 gc.setStroke(color);
                 gc.setLineWidth(1.5 / z);
-                double size = 20.0 / z;
 
                 if (hasPivotX || hasPivotY || hasRotation || hasScaleX || hasScaleY) {
                     double pivX = hasPivotX ? track.getValueAt(PropertyType.PIVOT_X, t) : 0.5;
@@ -884,18 +907,36 @@ public class AnimationPreview extends VBox {
                     gc.translate(x, y);
                     gc.rotate(Math.toDegrees(rot));
                     gc.scale(sX, sY);
-                    double halfW = size / 2;
-                    double halfH = size / 2;
-                    double offX = -(pivX - 0.5) * size;
-                    double offY = -(pivY - 0.5) * size;
-                    gc.strokeRect(offX - halfW, offY - halfH, size, size);
+                    
+                    double offX = -pivX * entityW;
+                    double offY = -pivY * entityH;
+                    
+                    if (spriteImage != null) {
+                        gc.setGlobalAlpha(alpha + 0.1);
+                        gc.drawImage(spriteImage, offX, offY, entityW, entityH);
+                        gc.setStroke(color);
+                        gc.setLineWidth(2.0 / z);
+                        gc.strokeRect(offX, offY, entityW, entityH);
+                    } else {
+                        gc.strokeRect(offX, offY, entityW, entityH);
+                    }
 
                     gc.setFill(color);
                     double pivDot = 2.0 / z / Math.max(0.01, Math.max(Math.abs(sX), Math.abs(sY)));
                     gc.fillOval(-pivDot, -pivDot, pivDot * 2, pivDot * 2);
                     gc.restore();
                 } else {
-                    gc.strokeRect(x - size / 2, y - size / 2, size, size);
+                    double offX = -0.5 * entityW;
+                    double offY = -0.5 * entityH;
+                    if (spriteImage != null) {
+                        gc.setGlobalAlpha(alpha + 0.1);
+                        gc.drawImage(spriteImage, x + offX, y + offY, entityW, entityH);
+                        gc.setStroke(color);
+                        gc.setLineWidth(2.0 / z);
+                        gc.strokeRect(x + offX, y + offY, entityW, entityH);
+                    } else {
+                        gc.strokeRect(x + offX, y + offY, entityW, entityH);
+                    }
                 }
 
                 gc.setFill(color);
