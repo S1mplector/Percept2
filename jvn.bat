@@ -21,8 +21,8 @@ pushd "%SCRIPT_DIR%"
 
 rem Run the hub via Gradle so classpath + toolchain are handled for us.
 rem --console=plain keeps the terminal tidy; -q suppresses Gradle chatter.
-call "%GRADLEW%" -q --console=plain :hub:run
-set RESULT=%ERRORLEVEL%
+rem Use 'start' to detach the GUI so the command prompt closes immediately.
+start "" "%GRADLEW%" -q --console=plain :hub:run
 
 popd
-exit /b %RESULT%
+exit /b 0
