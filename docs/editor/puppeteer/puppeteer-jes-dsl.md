@@ -152,6 +152,42 @@ pivot "spinner" {
 | `dur` | number | Duration in milliseconds |
 | `easing` | string | Easing curve name |
 
+### `depth` — Z-Order Animation
+
+Animates an entity's rendering depth (layer order).
+
+```jes
+depth "overlay" {
+  value: 20
+  dur: 0
+}
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `value` | number | Target Z depth (higher values render on top) |
+| `dur` | number | Duration in milliseconds (usually `0` for instant layer changes) |
+| `easing` | string | Easing curve name |
+
+### `visible` — Visibility Toggle
+
+Animates an entity's visibility state as a numeric flag.
+
+```jes
+visible "hint_arrow" {
+  value: 0
+  dur: 0
+}
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `value` | number | `1.0` = visible, `0.0` = hidden |
+| `dur` | number | Duration in milliseconds (usually `0` for instant on/off) |
+| `easing` | string | Easing curve name |
+
+Unlike `fade` (which controls opacity), `visible` is a binary toggle — the entity is either rendered or not. A value of `0.5` is treated as visible (threshold > 0). Use `fade` for smooth opacity transitions.
+
 ### `cameraMove` — Camera Pan
 
 Animates the scene camera position. No target entity name is specified.

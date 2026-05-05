@@ -41,8 +41,8 @@ This page is the orientation layer for Puppeteer. It explains:
 
 ## Sub-Document Reference
 
-- **[Puppeteer Editor Guide](puppeteer-editor-guide.md)** — complete usage guide: launching, UI panels, selection-sidebar inspectors, keyframe editing, all 12 presets, 37 easing options, event cues, audio cues, camera animation, groups, layer ordering, orbit tool, onion skinning, export workflows, keyboard shortcuts
-- **[Puppeteer JES DSL Reference](puppeteer-jes-dsl.md)** — exported timeline code syntax: `move`, `rotate`, `scale`, `fade`, `pivot`, `cameraMove`, `cameraZoom`, generic `property` actions, `event` cues, `playAudio`, `wait`, `parallel`, easing values, spring functions, named curves, custom cubic Bézier, export modes, VNS/JES integration examples
+- **[Puppeteer Editor Guide](puppeteer-editor-guide.md)** — complete usage guide: launching, UI panels, selection-sidebar inspectors, keyframe editing, all 12 presets, 37 easing options, event cues, audio cues, animation clips, VN slot positions, camera animation, groups, layer ordering, orbit tool, onion skinning, code round-trip editing, timeline diagnostics, export workflows, keyboard shortcuts
+- **[Puppeteer JES DSL Reference](puppeteer-jes-dsl.md)** — exported timeline code syntax: `move`, `rotate`, `scale`, `fade`, `pivot`, `depth`, `visible`, `cameraMove`, `cameraZoom`, generic `property` actions, `event` cues, `playAudio`, `wait`, `parallel`, easing values, spring functions, named curves, custom cubic Bézier, export modes, VNS/JES integration examples
 - **[Sidebar Utilities](../sidebars/overview/sidebar-utilities.md)** — current editor sidebar panels including Puppeteer Launcher, VNS Diagnostics, Asset Browser, and more
 
 ---
@@ -898,23 +898,23 @@ Apply a preset, then refine: change easing curves, adjust timing, modify target 
 ### Common VNS + Timeline pitfalls
 
 ```vns
-// ❌ PITFALL: Timeline fires but characters aren't shown yet
+// PITFALL: Timeline fires but characters aren't shown yet
 [call jes_timeline hero_entrance]
 [show hero center]
 hero: Hello!
 
-// ✅ CORRECT: Show characters first, then animate
+// CORRECT: Show characters first, then animate
 [show hero center]
 [call jes_timeline hero_entrance]
 hero: Hello!
 ```
 
 ```vns
-// ❌ PITFALL: Assuming timeline blocks VNS execution
+// PITFALL: Assuming timeline blocks VNS execution
 timeline { move "hero" { x: 500 dur: 1000 } }
 hero: I'm there!  // ← This appears immediately, not after 1000ms
 
-// ✅ CORRECT: Add explicit wait if you need to sync
+// CORRECT: Add explicit wait if you need to sync
 timeline { move "hero" { x: 500 dur: 1000 } }
 [wait 1000]
 hero: I'm there!
@@ -950,10 +950,25 @@ editor/src/main/java/com/jvn/editor/
 │       ├── EntitySelector.java             # Entity tree panel
 │       ├── TimelinePanel.java              # Keyframe timeline panel
 │       ├── KeyframeEditor.java             # Keyframe property editor
+│       ├── KeyframeSelectionModel.java     # Box select, ripple retime, channel filters
 │       ├── CodePreviewPane.java            # Live code output panel
 │       ├── CodeExporter.java               # Project → JES code converter
+│       ├── CodeImporter.java               # JES code → Project importer (round-trip)
 │       ├── AnimationPreset.java            # Built-in animation templates
+│       ├── AnimationClip.java              # Reusable clip capture/apply/serialize
+│       ├── EditorEventCue.java             # Event cue editor model
+│       ├── TimelineDiagnostic.java         # Validation: ranges, entities, easing names
+│       ├── VnSlotHelper.java              # VN slot positions + expression/dialogue markers
+│       ├── PuppeteerVerification.java      # Runtime registration verification pass
 │       ├── PuppeteerCommand.java           # Undo/redo command stack
+│       ├── PuppeteerDraftStore.java        # Auto-save/restore unsaved work
+│       ├── PuppeteerWorkspacePrefs.java    # Per-project editor preferences
+│       ├── PuppeteerAudioLibrary.java      # Project audio file scanner for cue dialog
+│       ├── PuppeteerPreviewRecorder.java   # GIF/frame-sequence export from preview
+│       ├── EasingCurveEditor.java          # Visual cubic Bézier + multi-point curve editor
+│       ├── EasingPickerModel.java          # Searchable easing combo model
+│       ├── PuppeteerEasingPresetStore.java # Project curve presets (save/load/delete)
+│       ├── AssetPickerPanel.java           # Image browser + add-to-scene pipeline
 │       ├── SplinePath.java                 # Catmull-Rom spline for motion paths
 │       ├── AudioCue.java                   # Audio cue model
 │       ├── EntityTrack.java                # Per-entity keyframe storage
@@ -1002,26 +1017,36 @@ fx/src/main/java/com/jvn/fx/
 
 ---
 
-## 13. Recent Additions
+## 13. Feature Highlights
 
-### Asset Picker Panel (`AssetPickerPanel.java`)
-The **Assets** tab in the left sidebar scans the project directory for image files (png, jpg, gif, bmp, webp) and displays them with thumbnails. Selecting an image and clicking **+ Add to Scene** creates a new `Sprite2D` entity at center-screen with the image's actual dimensions, registers it in the scene and project, and refreshes the entity selector and timeline.
+This section summarizes key implementation details for Puppeteer subsystems not fully covered above.
 
-### Easing Curve Editor (`EasingCurveEditor.java`)
-The **Keyframe Editor** now includes a visual curve preview below the easing dropdown. It draws the selected easing function as a curve from (0,0) to (1,1) with:
-- Grid lines at 0.25 intervals
-- Dashed diagonal linear reference line
-- Blue curve showing the actual easing output
-- Orange start/end point markers
-- Easing name label
+### Asset Picker and Import Pipeline
+The **Assets** tab scans the project for image files (png, jpg, gif, bmp, webp) and displays them with thumbnails. Clicking **+ Add to Scene** creates a `Sprite2D` entity at center-screen with the image's actual pixel dimensions. **Import...** copies external files into `assets/puppeteer/imported/`. `PuppeteerAudioLibrary` provides the same scan-and-filter functionality for audio formats in the Add Audio Cue dialog.
 
-The curve updates live when the easing type is changed.
+### Easing Subsystem
+The easing picker (`EasingPickerModel`) is searchable — type part of a family name or semantic label to filter. The visual `EasingCurveEditor` renders the selected curve live (grid, linear reference line, blue output curve, start/end markers). For `CUSTOM` cubic Bézier and multi-point `curve(...)` entries, control points are directly draggable. Project-level presets are persisted via `PuppeteerEasingPresetStore` into `config/puppeteer/easing-presets.properties`.
 
-### CharacterEntity2D Bounds
-`CharacterEntity2D` now exposes `getDrawWidth()`, `getDrawHeight()`, `getOriginX()`, and `getOriginY()` getters. `AnimationPreview` uses these for accurate bounding box hit detection and selection highlights on animated sprite-sheet characters.
+### Round-Trip Code Editing
+`CodeImporter` parses exported JES timeline blocks (including Puppeteer metadata comments) back into an `AnimationProject`. This enables a visual → text → visual round-trip workflow for collaborative editing and hand-tuning. The code panel provides Preview Parse → Commit/Discard staging.
+
+### Timeline Diagnostics
+`TimelineDiagnostic` validates timelines during registration and code preview. It catches alpha/zoom/pivot range issues, missing entities, empty event types, unknown easing names (with edit-distance suggestions), camera key misplacement, and missing audio files.
+
+### Animation Clips
+`AnimationClip` captures keyframe segments, serializes them as `.properties` files under `config/puppeteer/clips/`, and supports apply with duration scaling and Layer On Top / Replace Range modes.
+
+### VN Slot Helpers
+`VnSlotHelper` maps FAR_LEFT/LEFT/CENTER/RIGHT/FAR_RIGHT to normalized X coordinates and provides methods for inserting expression cues and dialogue markers aligned with VN character positions.
 
 ### Layer Ordering
-Entities and groups now carry `layerOrder` metadata. Puppeteer provides context-menu controls to raise (+10) or lower (-10) layer order. The effective Z value is computed hierarchically through groups and exported to `TimelineData` for runtime use. The `TimelineRunner` applies Z keyframes via `entity.setZ()`.
+Entities and groups carry `layerOrder` metadata. Context-menu Raise (+10) / Lower (-10) controls adjust order. The effective Z is computed hierarchically through groups, exported to `TimelineData`, and applied at runtime via `entity.setZ()`.
+
+### Draft Auto-Save
+`PuppeteerDraftStore` auto-saves unsaved work periodically. If Puppeteer is reopened after a crash or accidental close, the draft is restored automatically with a notification.
+
+### Preview Recorder
+`PuppeteerPreviewRecorder` captures the preview canvas to image sequences or animated GIFs for documentation and asset review workflows.
 
 ---
 
@@ -1038,10 +1063,12 @@ Entities and groups now carry `layerOrder` metadata. Puppeteer provides context-
 
 ## 15. Related Docs
 
-- [Puppeteer Editor Guide](puppeteer-editor-guide.md) — comprehensive UI usage: launching, keyframes, 12 presets, 37 easing options, searchable easing picker, audio, camera, groups, shortcuts
-- [Puppeteer JES DSL Reference](puppeteer-jes-dsl.md) — complete exported timeline syntax reference
+- [Puppeteer Editor Guide](puppeteer-editor-guide.md) — comprehensive UI usage: launching, keyframes, presets, easing, clips, event cues, diagnostics, code round-trip, camera, groups, shortcuts
+- [Puppeteer JES DSL Reference](puppeteer-jes-dsl.md) — complete exported timeline syntax: actions, depth/visible, property channels, event cues, easing, spring, Bézier, export modes
 - [Hand-Coding Timelines](../../scripting/timeline/animation/timeline-hand-coding.md) — writing timelines by hand, time cursor model, 18 examples, reusable templates
-- [Puppeteer Animation Timelines](../../scripting/timeline/animation/timeline-animation.md) — TimelineData model, TimelineRunner, TimelineRegistry, event cues, audio cues
+- [Puppeteer Animation Timelines](../../scripting/timeline/animation/timeline-animation.md) — TimelineData model, TimelineRunner, TimelineRegistry, event cues, audio cues, SceneAccessor
 - [Timeline Overview](../../scripting/timeline/overview/timeline-scripting.md) — story vs animation timelines
 - [JES Timeline & Actions](../../scripting/jes/timeline/jes-timeline.md) — JES runtime timeline actions (superset: combat, flow control, loops)
 - [Puppeteer Launcher Panel](../sidebars/right/sidebar-puppeteer-launcher.md) — VNS snapshot resolution details
+- [VNS Characters](../../scripting/vns/presentation/vns-characters.md) — character positions and layering (the VNS context Puppeteer launches from)
+- [VNS Interop](../../scripting/vns/integration/vns-interop.md) — inline timelines and `[call jes_timeline]` from VNS
