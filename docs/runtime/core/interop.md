@@ -119,6 +119,19 @@ Supported dialogue mode tokens:
 
 Boolean subcommands accept `on`, `off`, `true`, `false`, `1`, and `0`; `nvl` and `bubble` also accept `toggle`.
 
+`[mode dialogue standard]` selects the standard ADV presentation, but it still uses the project's configured textbox asset if `textBoxAsset` is set in `config/ui/dialogue.layout`. To force the built-in filled textbox at runtime, set the textbox asset mode before dialogue starts:
+
+```vns
+[mode dialogue standard]
+[set ui.textBoxAsset default]
+```
+
+`ui.textBoxAsset` values `default`, `builtin`, `solid`, `fill`, `none`, `off`, `false`, `0`, and `no` disable custom textbox and narration textbox images. Any other value leaves the configured assets enabled. The boolean alias `ui.textBoxAssetEnabled` can also be set directly:
+
+```vns
+[set ui.textBoxAssetEnabled false]
+```
+
 ### `ui`
 
 UI visibility and audio visualizer controls:

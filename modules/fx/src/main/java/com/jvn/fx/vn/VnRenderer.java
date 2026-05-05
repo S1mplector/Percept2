@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import com.jvn.core.assets.AssetCatalog;
@@ -105,6 +106,8 @@ public class VnRenderer {
   private static final int VISUALIZER_BAR_COUNT = VnAudioVisualizerConfig.MAX_BARS;
   private static final String VAR_CHARACTER_HEIGHT_FACTOR = "ui.characterHeightFactor";
   private static final String VAR_CHARACTER_BASELINE_Y = "ui.characterBaselineY";
+  private static final String VAR_TEXT_BOX_ASSET = "ui.textBoxAsset";
+  private static final String VAR_TEXT_BOX_ASSET_ENABLED = "ui.textBoxAssetEnabled";
 
   private Image choiceButtonImage;
   private Image choiceButtonHoverImage;
@@ -1195,8 +1198,11 @@ public class VnRenderer {
     // Draw text box background (asset if provided, otherwise default fill).
     String speakerName = resolveRuntimeText(dialogue.getSpeakerName());
     boolean hasSpeaker = speakerName != null && !speakerName.isEmpty();
-    Image activeTextBoxImage = hasSpeaker || narrationTextBoxImage == null ? textBoxImage : narrationTextBoxImage;
-    boolean clipTextBox = hasPolygon(textBoxBoundsPolygon);
+    boolean useTextBoxAsset = shouldUseTextBoxAsset(state);
+    Image activeTextBoxImage = useTextBoxAsset
+        ? (hasSpeaker || narrationTextBoxImage == null ? textBoxImage : narrationTextBoxImage)
+        : null;
+    boolean clipTextBox = useTextBoxAsset && hasPolygon(textBoxBoundsPolygon);
     if (clipTextBox) {
       gc.save();
       clipToLocalPolygon(textBoxBoundsPolygon, textBoxX, textBoxY, textBoxWidth, textBoxHeight);
@@ -1834,6 +1840,19 @@ public class VnRenderer {
       return VnAudioVisualizerConfig.isTruthy(text);
     }
     return null;
+  }
+
+  private boolean shouldUseTextBoxAsset(VnState state) {
+    Boolean enabled = readBooleanVariable(state, VAR_TEXT_BOX_ASSET_ENABLED);
+    if (enabled != null) return enabled;
+
+    String mode = readStringVariable(state, VAR_TEXT_BOX_ASSET);
+    if (mode == null) return true;
+    String normalized = mode.trim().toLowerCase(Locale.ROOT);
+    return switch (normalized) {
+      case "default", "builtin", "built-in", "solid", "fill", "none", "off", "false", "0", "no" -> false;
+      default -> true;
+    };
   }
 
   private boolean isAudioVisualizerEnabled() {

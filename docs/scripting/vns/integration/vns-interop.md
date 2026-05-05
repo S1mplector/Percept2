@@ -53,6 +53,17 @@ Supported forms:
 
 Runtime aliases for standard mode are `standard`, `normal`, `say`, and `adv`. The mode is stored in the VN state variable `ui.dialogueMode`, so saves and scripted transitions preserve the current presentation until another `[mode ...]` command changes it.
 
+`standard` does not automatically bypass a custom `textBoxAsset` from `config/ui/dialogue.layout`. If a script must use the built-in filled textbox regardless of the project's UI skin, add the textbox asset override:
+
+```vns
+@label start
+[mode dialogue standard]
+[set ui.textBoxAsset default]
+[textspeed 28]
+```
+
+`ui.textBoxAsset` values `default`, `builtin`, `solid`, `fill`, `none`, `off`, `false`, `0`, and `no` disable the configured textbox and narration textbox images at runtime. To re-enable the configured asset later, set `ui.textBoxAsset` to `custom` or set `ui.textBoxAssetEnabled` to `true`.
+
 ### Bubble Placement Overrides
 
 Use the `char` provider to override per-speaker bubble placement:
