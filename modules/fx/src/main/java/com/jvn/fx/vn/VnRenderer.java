@@ -2837,15 +2837,17 @@ public class VnRenderer {
 
   // ─── Error Overlay ─────────────────────────────────────────────────
 
-  private static final Color ERROR_BG_COLOR = Color.rgb(48, 12, 14, 0.96);
-  private static final Color ERROR_HEADER_COLOR = Color.rgb(220, 50, 60);
-  private static final Color ERROR_TEXT_COLOR = Color.web("#F8E8E8");
-  private static final Color ERROR_DIM_TEXT_COLOR = Color.web("#C09898");
-  private static final Color ERROR_BOX_COLOR = Color.rgb(28, 6, 8, 0.85);
-  private static final Color ERROR_ACCENT_COLOR = Color.rgb(255, 80, 80);
-  private static final Color ERROR_BUTTON_COLOR = Color.rgb(60, 20, 22);
-  private static final Color ERROR_BUTTON_HOVER_COLOR = Color.rgb(90, 30, 35);
-  private static final Color ERROR_BUTTON_TEXT_COLOR = Color.web("#FFD0D0");
+  private static final Color ERROR_BG_COLOR = Color.rgb(28, 30, 34, 0.97);
+  private static final Color ERROR_HEADER_COLOR = Color.rgb(230, 62, 72);
+  private static final Color ERROR_TEXT_COLOR = Color.web("#F2F2F2");
+  private static final Color ERROR_DIM_TEXT_COLOR = Color.web("#C8CDD4");
+  private static final Color ERROR_BOX_COLOR = Color.rgb(18, 20, 24, 0.88);
+  private static final Color ERROR_ACCENT_COLOR = Color.rgb(230, 62, 72);
+  private static final Color ERROR_PANEL_BORDER_COLOR = Color.rgb(86, 92, 102);
+  private static final Color ERROR_RULE_COLOR = Color.rgb(112, 118, 128);
+  private static final Color ERROR_BUTTON_COLOR = Color.rgb(56, 60, 68);
+  private static final Color ERROR_BUTTON_HOVER_COLOR = Color.rgb(76, 82, 92);
+  private static final Color ERROR_BUTTON_TEXT_COLOR = Color.web("#F0F3F7");
 
   /**
    * Renders a full-screen error overlay, similar to Ren'Py's traceback screen.
@@ -2863,7 +2865,7 @@ public class VnRenderer {
                                  double mouseX, double mouseY) {
     if (error == null) return -1;
 
-    // Full-screen dark red background
+    // Full-screen neutral traceback background.
     gc.setFill(ERROR_BG_COLOR);
     gc.fillRect(0, 0, width, height);
 
@@ -2885,7 +2887,7 @@ public class VnRenderer {
     y += titleFont.getSize() + 16;
 
     // Separator line
-    gc.setStroke(ERROR_ACCENT_COLOR);
+    gc.setStroke(ERROR_RULE_COLOR);
     gc.setLineWidth(2);
     gc.strokeLine(contentX, y, contentX + contentW, y);
     y += 20;
@@ -2914,7 +2916,7 @@ public class VnRenderer {
       double lineBoxH = Math.min(height * 0.09, 68);
       gc.setFill(ERROR_BOX_COLOR);
       gc.fillRoundRect(contentX, y, contentW, lineBoxH, 8, 8);
-      gc.setStroke(Color.rgb(80, 25, 25));
+      gc.setStroke(ERROR_PANEL_BORDER_COLOR);
       gc.setLineWidth(1);
       gc.strokeRoundRect(contentX, y, contentW, lineBoxH, 8, 8);
       Font lineFont = Font.font("Monospaced", FontWeight.BOLD, Math.min(18, Math.max(15, height * 0.022)));
@@ -2935,7 +2937,7 @@ public class VnRenderer {
     double msgBoxH = Math.min(height * 0.13, 96);
     gc.setFill(ERROR_BOX_COLOR);
     gc.fillRoundRect(contentX, y, contentW, msgBoxH, 8, 8);
-    gc.setStroke(Color.rgb(100, 30, 30));
+    gc.setStroke(ERROR_PANEL_BORDER_COLOR);
     gc.setLineWidth(1);
     gc.strokeRoundRect(contentX, y, contentW, msgBoxH, 8, 8);
 
@@ -2956,7 +2958,7 @@ public class VnRenderer {
       double likelyBoxH = Math.min(height * 0.14, 106);
       gc.setFill(ERROR_BOX_COLOR);
       gc.fillRoundRect(contentX, y, contentW, likelyBoxH, 8, 8);
-      gc.setStroke(Color.rgb(100, 30, 30));
+      gc.setStroke(ERROR_PANEL_BORDER_COLOR);
       gc.setLineWidth(1);
       gc.strokeRoundRect(contentX, y, contentW, likelyBoxH, 8, 8);
 
@@ -2978,7 +2980,7 @@ public class VnRenderer {
       traceBoxH = Math.max(traceBoxH, 80);
       gc.setFill(ERROR_BOX_COLOR);
       gc.fillRoundRect(contentX, y, contentW, traceBoxH, 8, 8);
-      gc.setStroke(Color.rgb(80, 25, 25));
+      gc.setStroke(ERROR_PANEL_BORDER_COLOR);
       gc.setLineWidth(1);
       gc.strokeRoundRect(contentX, y, contentW, traceBoxH, 8, 8);
 
@@ -3006,7 +3008,7 @@ public class VnRenderer {
 
       gc.setFill(hovered ? ERROR_BUTTON_HOVER_COLOR : ERROR_BUTTON_COLOR);
       gc.fillRoundRect(bx, buttonY, buttonW, buttonH, 6, 6);
-      gc.setStroke(ERROR_ACCENT_COLOR);
+      gc.setStroke(ERROR_PANEL_BORDER_COLOR);
       gc.setLineWidth(1);
       gc.strokeRoundRect(bx, buttonY, buttonW, buttonH, 6, 6);
 
