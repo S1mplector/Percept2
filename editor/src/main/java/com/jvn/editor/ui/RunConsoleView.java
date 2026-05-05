@@ -75,10 +75,10 @@ public class RunConsoleView extends BorderPane {
     private final Label stateLabel = new Label();
     private final Label elapsedLabel = new Label();
     private final ToggleButton showAllToggle = new ToggleButton("Build Output");
-    private final Button runBtn = iconButton("icon-runtime-run", "Run current build again");
-    private final Button copyBtn = iconButton("icon-runtime-copy", "Copy traceback to clipboard");
-    private final Button clearBtn = iconButton("icon-runtime-clear", "Clear output");
-    private final Button stopBtn = iconButton("icon-runtime-stop", "Stop current build");
+    private final Button runBtn = iconButton(CssIcon.play(), "Run current build again");
+    private final Button copyBtn = iconButton(CssIcon.copy(), "Copy traceback to clipboard");
+    private final Button clearBtn = iconButton(CssIcon.clearX(), "Clear output");
+    private final Button stopBtn = iconButton(CssIcon.stop(), "Stop current build");
 
     // Enhanced UI components
     private final TextField searchField = new TextField();
@@ -221,12 +221,10 @@ public class RunConsoleView extends BorderPane {
         refreshLaunchBanner();
     }
 
-    private static Button iconButton(String iconClass, String tooltipText) {
+    private static Button iconButton(javafx.scene.layout.Region iconClass, String tooltipText) {
         Button btn = new Button();
         btn.getStyleClass().add("run-console-icon-btn");
-        Region icon = CssIcon.prepare(new Region());
-        icon.getStyleClass().addAll("icon", iconClass);
-        btn.setGraphic(icon);
+        btn.setGraphic(iconClass);
         btn.setTooltip(new Tooltip(tooltipText));
         btn.setFocusTraversable(false);
         return btn;

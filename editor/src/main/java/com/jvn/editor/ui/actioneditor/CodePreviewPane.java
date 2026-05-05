@@ -56,13 +56,13 @@ public class CodePreviewPane extends VBox {
         });
         VBox.setVgrow(jesEditor, Priority.ALWAYS);
 
-        btnCopy = makeIconButton("icon-timeline-copy", "Copy the code to clipboard");
+        btnCopy = makeIconButton(com.jvn.editor.ui.CssIcon.copy(), "Copy the code to clipboard");
         btnCopy.setTooltip(new Tooltip("Copy the code to clipboard"));
         btnCopy.setOnAction(e -> {
             if (onCopy != null) onCopy.run();
         });
 
-        btnRegenerate = makeIconButton("icon-timeline-auto", "Discard manual edits and regenerate from the timeline");
+        btnRegenerate = makeIconButton(com.jvn.editor.ui.CssIcon.auto(), "Discard manual edits and regenerate from the timeline");
         btnRegenerate.setTooltip(new Tooltip("Discard manual edits and regenerate from the timeline"));
         btnRegenerate.setOnAction(e -> {
             manuallyEdited = false;
@@ -71,21 +71,21 @@ public class CodePreviewPane extends VBox {
             if (onRegenerate != null) onRegenerate.run();
         });
 
-        btnPreviewApply = makeIconButton("icon-timeline-validate", "Parse code and stage it in preview mode");
+        btnPreviewApply = makeIconButton(com.jvn.editor.ui.CssIcon.check(), "Parse code and stage it in preview mode");
         btnPreviewApply.getStyleClass().add("puppeteer-toolbar-icon-button-success");
         btnPreviewApply.setTooltip(new Tooltip("Parse code and stage it in preview mode"));
         btnPreviewApply.setOnAction(e -> {
             if (onPreviewToModel != null) onPreviewToModel.run();
         });
 
-        btnCommitPreview = makeIconButton("icon-puppeteer-register", "Commit staged preview changes to the model");
+        btnCommitPreview = makeIconButton(com.jvn.editor.ui.CssIcon.save(), "Commit staged preview changes to the model");
         btnCommitPreview.setTooltip(new Tooltip("Commit staged preview changes to the model"));
         btnCommitPreview.setDisable(true);
         btnCommitPreview.setOnAction(e -> {
             if (onCommitPreview != null) onCommitPreview.run();
         });
 
-        btnDiscardPreview = makeIconButton("icon-runtime-clear", "Discard staged preview and restore previous model");
+        btnDiscardPreview = makeIconButton(com.jvn.editor.ui.CssIcon.clearX(), "Discard staged preview and restore previous model");
         btnDiscardPreview.setTooltip(new Tooltip("Discard staged preview and restore previous model"));
         btnDiscardPreview.setDisable(true);
         btnDiscardPreview.setOnAction(e -> {
@@ -107,11 +107,11 @@ public class CodePreviewPane extends VBox {
         getChildren().addAll(header, lblStatus, jesEditor, buttonRow, lblDiagnostics);
     }
 
-    private static Button makeIconButton(String iconClass, String tooltip) {
+    private static Button makeIconButton(javafx.scene.layout.Region icon, String tooltip) {
         Button button = new Button();
         button.getStyleClass().add("puppeteer-toolbar-icon-button");
         button.setText("");
-        button.setGraphic(makeIcon(iconClass));
+        button.setGraphic(icon);
         button.setTooltip(new Tooltip(tooltip));
         button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
         button.setGraphicTextGap(0);
@@ -120,13 +120,6 @@ public class CodePreviewPane extends VBox {
         button.setMaxSize(34, 30);
         button.setFocusTraversable(false);
         return button;
-    }
-
-    private static Label makeIcon(String iconClass) {
-        Label icon = new Label();
-        icon.getStyleClass().addAll("icon", "puppeteer-toolbar-icon", iconClass);
-        icon.setMouseTransparent(true);
-        return icon;
     }
 
     public void setCode(String code) {

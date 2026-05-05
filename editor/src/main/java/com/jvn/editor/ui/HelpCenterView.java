@@ -3,7 +3,6 @@ package com.jvn.editor.ui;
 import java.awt.Desktop;
 import java.io.File;
 import java.io.IOException;
-import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -179,7 +178,7 @@ public class HelpCenterView extends BorderPane {
 
     Label browserTitle = new Label("Guide Tree");
     browserTitle.getStyleClass().add("help-pane-title");
-    HBox browserTitleRow = new HBox(10, browserTitle, documentationHeaderIcon());
+    HBox browserTitleRow = new HBox(10, browserTitle);
     browserTitleRow.setAlignment(Pos.CENTER_LEFT);
     Label browserSubtitle = new Label(
         "Every Markdown doc is indexed here, but the tree starts with onboarding and then moves into scripting, animation, UI, runtime, and internals.");
@@ -219,6 +218,22 @@ public class HelpCenterView extends BorderPane {
           return;
         }
 
+        if (item.isHeading()) {
+          String indent = item.headingLevel() <= 2 ? "" : "  ";
+          Label marker = new Label("§");
+          marker.getStyleClass().add("help-heading-marker");
+          Label name = new Label(indent + item.title());
+          name.getStyleClass().add("help-heading-title");
+          name.setMaxWidth(Double.MAX_VALUE);
+          HBox.setHgrow(name, Priority.ALWAYS);
+          HBox row = new HBox(6, marker, name);
+          row.setAlignment(Pos.CENTER_LEFT);
+          row.getStyleClass().add("help-heading-row");
+          setGraphic(row);
+          setTooltip(null);
+          return;
+        }
+
         DocEntry entry = item.doc();
         Region docIcon = CssIcon.document("#c6d1dc");
         docIcon.getStyleClass().add("help-doc-icon");
@@ -235,8 +250,19 @@ public class HelpCenterView extends BorderPane {
       }
     });
     docsTree.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
-      DocEntry entry = extractDocEntry(newVal);
-      if (entry != null) showDoc(entry);
+      if (newVal == null || newVal.getValue() == null) return;
+      HelpNode node = newVal.getValue();
+      if (node.section()) return;
+      DocEntry entry = node.doc();
+      if (entry == null) return;
+      if (node.isHeading()) {
+        if (activeDocEntry == null || !canonicalPath(activeDocEntry.file()).equals(canonicalPath(entry.file()))) {
+          showDoc(entry);
+        }
+        scrollToHeading(node.title());
+      } else {
+        showDoc(entry);
+      }
     });
     docsTree.setOnMouseClicked(e -> {
       if (e.getButton() == MouseButton.PRIMARY && e.getClickCount() == 2) {
@@ -305,19 +331,6 @@ public class HelpCenterView extends BorderPane {
         "Pick a document from the guide tree to preview it here.");
   }
 
-  private ImageView documentationHeaderIcon() {
-    URL url = getClass().getResource("/com/jvn/editor/images/sidebar/documentation.png");
-    if (url == null) return new ImageView();
-    ImageView view = new ImageView(new Image(url.toExternalForm(), 44, 44, true, true, true));
-    view.setFitWidth(44);
-    view.setFitHeight(44);
-    view.setPreserveRatio(true);
-    view.setSmooth(true);
-    view.setCache(true);
-    view.setMouseTransparent(true);
-    view.getStyleClass().add("help-documentation-header-icon");
-    return view;
-  }
 
   private void rebuildIndex() {
     List<DocEntry> docs = new ArrayList<>();
@@ -413,6 +426,11 @@ public class HelpCenterView extends BorderPane {
       sectionItem.setExpanded(true);
       for (DocEntry entry : docsForSection) {
         TreeItem<HelpNode> docItem = new TreeItem<>(HelpNode.doc(entry));
+        List<HeadingInfo> headings = readHeadings(entry.file());
+        for (HeadingInfo h : headings) {
+          docItem.getChildren().add(new TreeItem<>(HelpNode.heading(entry, h.level(), h.text())));
+        }
+        docItem.setExpanded(false);
         sectionItem.getChildren().add(docItem);
         visibleDocNodes.put(canonicalPath(entry.file()), docItem);
         visibleDocCount++;
@@ -476,6 +494,26 @@ public class HelpCenterView extends BorderPane {
     } catch (Exception ex) {
       renderError("Failed to read file:\n" + entry.file().getAbsolutePath() + "\n\n" + ex.getMessage());
     }
+  }
+
+  private void scrollToHeading(String headingText) {
+    if (headingText == null || headingText.isBlank()) return;
+    String targetId = "heading:" + headingText;
+    javafx.application.Platform.runLater(() -> {
+      for (javafx.scene.Node child : markdownContent.getChildren()) {
+        if (targetId.equals(child.getId())) {
+          markdownContent.layout();
+          double contentHeight = markdownContent.getBoundsInLocal().getHeight();
+          double viewportHeight = contentScroll.getViewportBounds() != null
+              ? contentScroll.getViewportBounds().getHeight() : 1.0;
+          double scrollableRange = Math.max(1.0, contentHeight - viewportHeight);
+          double nodeY = child.getBoundsInParent().getMinY();
+          double targetVvalue = Math.min(1.0, Math.max(0.0, nodeY / scrollableRange));
+          contentScroll.setVvalue(targetVvalue);
+          break;
+        }
+      }
+    });
   }
 
   private void openSelectedDocInEditor() {
@@ -865,7 +903,9 @@ public class HelpCenterView extends BorderPane {
 
   private void addHeading(int level, String text) {
     String style = "help-md-h" + Math.max(1, Math.min(level, 6));
-    markdownContent.getChildren().add(createInlineFlow(text, style, 8));
+    TextFlow flow = createInlineFlow(text, style, 8);
+    flow.setId("heading:" + text);
+    markdownContent.getChildren().add(flow);
   }
 
   private void addParagraph(String text) {
@@ -1290,6 +1330,37 @@ public class HelpCenterView extends BorderPane {
     return fallback;
   }
 
+  private record HeadingInfo(int level, String text) {}
+
+  private List<HeadingInfo> readHeadings(File file) {
+    List<HeadingInfo> results = new ArrayList<>();
+    try {
+      List<String> lines = Files.readAllLines(file.toPath());
+      boolean inFence = false;
+      for (String raw : lines) {
+        String line = raw == null ? "" : raw;
+        String trimmed = line.trim();
+        if (trimmed.startsWith("```")) {
+          inFence = !inFence;
+          continue;
+        }
+        if (inFence) continue;
+        Matcher m = HEADING_LINE.matcher(trimmed);
+        if (m.matches()) {
+          int level = m.group(1).length();
+          if (level >= 2 && level <= 4) {
+            String text = m.group(2).trim();
+            if (!text.isBlank()) {
+              results.add(new HeadingInfo(level, text));
+            }
+          }
+        }
+      }
+    } catch (Exception ignored) {
+    }
+    return results;
+  }
+
   private String readSummary(File file) {
     try {
       List<String> lines = Files.readAllLines(file.toPath());
@@ -1399,13 +1470,21 @@ public class HelpCenterView extends BorderPane {
 
   private record GuideSection(String key, String title, String subtitle) {}
 
-  private record HelpNode(String title, String subtitle, DocEntry doc, boolean section, int documentCount) {
+  private record HelpNode(String title, String subtitle, DocEntry doc, boolean section, int documentCount, int headingLevel) {
     private static HelpNode section(GuideSection section, int documentCount) {
-      return new HelpNode(section.title(), section.subtitle(), null, true, documentCount);
+      return new HelpNode(section.title(), section.subtitle(), null, true, documentCount, 0);
     }
 
     private static HelpNode doc(DocEntry entry) {
-      return new HelpNode(entry.title(), entry.summary(), entry, false, 0);
+      return new HelpNode(entry.title(), entry.summary(), entry, false, 0, 0);
+    }
+
+    private static HelpNode heading(DocEntry parentDoc, int level, String text) {
+      return new HelpNode(text, null, parentDoc, false, 0, level);
+    }
+
+    boolean isHeading() {
+      return headingLevel > 0;
     }
   }
 

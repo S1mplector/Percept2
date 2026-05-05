@@ -156,7 +156,7 @@ public class PuppeteerLauncherPanel extends VBox {
 
     btnLaunch = createActionButton(
         "Launch @ Cursor",
-        "icon-puppeteer-launch-cursor",
+        CssIcon.rocket("#f0f0f0"),
         "-fx-background-color: #3a3a3a; -fx-text-fill: #f0f0f0; -fx-font-weight: bold;",
         "Launch Puppeteer with scene snapshot from the current cursor line");
     btnLaunch.setOnAction(e -> {
@@ -167,7 +167,7 @@ public class PuppeteerLauncherPanel extends VBox {
 
     btnLaunchLabelStart = createActionButton(
         "Launch @ Label Start",
-        "icon-puppeteer-launch-label",
+        CssIcon.label("#e4e4e4"),
         "-fx-background-color: #2e2e2e; -fx-text-fill: #e4e4e4; -fx-font-weight: bold;",
         "Launch Puppeteer from the active label start line");
     btnLaunchLabelStart.setOnAction(e -> {
@@ -178,7 +178,7 @@ public class PuppeteerLauncherPanel extends VBox {
 
     btnLaunchSceneStart = createActionButton(
         "Launch @ Scene Start",
-        "icon-puppeteer-launch-scene",
+        CssIcon.movie("#e4e4e4"),
         "-fx-background-color: #2f2f2f; -fx-text-fill: #e4e4e4; -fx-font-weight: bold;",
         "Launch Puppeteer from the most recent background change in the active label");
     btnLaunchSceneStart.setOnAction(e -> {
@@ -189,7 +189,7 @@ public class PuppeteerLauncherPanel extends VBox {
 
     btnOpenTimeline = createActionButton(
         "Open Timeline",
-        "icon-puppeteer-open-timeline",
+        CssIcon.timeline("#e0e0e0"),
         "-fx-background-color: #2d2d2d; -fx-text-fill: #e0e0e0;",
         "Open the related timeline file or inline block");
     btnOpenTimeline.setOnAction(e -> {
@@ -200,7 +200,7 @@ public class PuppeteerLauncherPanel extends VBox {
 
     btnOpenIssue = createActionButton(
         "Jump To Issue",
-        "icon-puppeteer-jump-issue",
+        CssIcon.warning("#dfdfdf"),
         "-fx-background-color: #303030; -fx-text-fill: #dfdfdf;",
         "Jump to the first launcher issue in the active VNS source");
     btnOpenIssue.setOnAction(e -> {
@@ -370,22 +370,15 @@ public class PuppeteerLauncherPanel extends VBox {
     refreshRegisteredAnimations(snap);
   }
 
-  private static Button createActionButton(String text, String iconClass, String style, String tooltip) {
+  private static Button createActionButton(String text, Region icon, String style, String tooltip) {
     Button button = new Button(text);
     button.setStyle(style);
     button.setMaxWidth(Double.MAX_VALUE);
-    button.setGraphic(makeIcon(iconClass));
+    button.setGraphic(icon);
     button.setContentDisplay(ContentDisplay.LEFT);
     button.setGraphicTextGap(8);
     button.setTooltip(new Tooltip(tooltip));
     return button;
-  }
-
-  private static Label makeIcon(String iconClass) {
-    Label icon = new Label();
-    icon.getStyleClass().addAll("icon", iconClass);
-    icon.setMouseTransparent(true);
-    return icon;
   }
 
   private static void configureTransparentScrollPaneViewport(ScrollPane scrollPane) {
@@ -497,7 +490,7 @@ public class PuppeteerLauncherPanel extends VBox {
     titleRow.getChildren().add(spacer);
 
     Button copyButton = createCardActionButton(
-        "icon-timeline-copy",
+        CssIcon.copy("#d5d5d5"),
         "Copy timeline link to clipboard");
     copyButton.setDisable(!importable);
     copyButton.setOnAction(e -> {
@@ -509,7 +502,7 @@ public class PuppeteerLauncherPanel extends VBox {
     });
 
     Button openButton = createCardActionButton(
-        "icon-timeline-open",
+        CssIcon.timeline("#d5d5d5"),
         "Open timeline");
     openButton.setDisable(!importable);
     openButton.setOnAction(e -> {
@@ -519,12 +512,12 @@ public class PuppeteerLauncherPanel extends VBox {
     });
 
     Button renameButton = createCardActionButton(
-        "icon-timeline-edit",
+        CssIcon.edit("#d5d5d5"),
         "Rename timeline");
     renameButton.setOnAction(e -> renameRegisteredAnimation(animation));
 
     Button deleteButton = createCardActionButton(
-        "icon-timeline-delete",
+        CssIcon.delete("#d5d5d5"),
         "Delete timeline");
     deleteButton.setOnAction(e -> deleteRegisteredAnimation(animation));
 
@@ -589,10 +582,10 @@ public class PuppeteerLauncherPanel extends VBox {
     return clusters.isEmpty() ? 0 : clusters.size();
   }
 
-  private Button createCardActionButton(String iconClass, String tooltip) {
+  private Button createCardActionButton(Region icon, String tooltip) {
     Button button = new Button();
     button.getStyleClass().add("sidebar-tool-btn");
-    button.setGraphic(makeIcon(iconClass));
+    button.setGraphic(icon);
     button.setTooltip(new Tooltip(tooltip));
     button.setAccessibleText(tooltip);
     button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);

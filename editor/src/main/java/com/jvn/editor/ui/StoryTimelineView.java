@@ -293,17 +293,17 @@ public class StoryTimelineView extends BorderPane {
     setCenter(rootSplit);
 
     // Toolbar
-    Button bAddArc = iconButton("Add Arc", "icon-timeline-add-arc", e -> addArc());
+    Button bAddArc = iconButton("Add Arc", CssIcon.plus(), e -> addArc());
     bAddArc.getStyleClass().add("timeline-primary-button");
-    Button bAddLink = iconButton("Add Link", "icon-timeline-add-link", e -> addLink());
+    Button bAddLink = iconButton("Add Link", CssIcon.link(), e -> addLink());
     bAddLink.getStyleClass().add("timeline-primary-button");
-    Button bEdit = iconButton("Edit Selected", "icon-timeline-edit", e -> editSelected());
-    Button bOpen = iconButton("Open", "icon-timeline-open", e -> openArc());
-    Button bDelete = iconButton("Delete Selected", "icon-timeline-delete", e -> deleteSelected());
-    Button bCopyGoto = iconButton("Copy Goto", "icon-timeline-copy", e -> copyGoto());
-    Button bAuto = iconButton("Auto Layout", "icon-timeline-auto", e -> { graph.autoLayout(); onGraphChanged(); });
-    Button bFit = iconButton("Fit", "icon-timeline-fit", e -> zoomToFit());
-    Button bValidate = iconButton("Validate", "icon-timeline-validate", e -> validate());
+    Button bEdit = iconButton("Edit Selected", CssIcon.edit(), e -> editSelected());
+    Button bOpen = iconButton("Open", CssIcon.folder(), e -> openArc());
+    Button bDelete = iconButton("Delete Selected", CssIcon.delete(), e -> deleteSelected());
+    Button bCopyGoto = iconButton("Copy Goto", CssIcon.copy(), e -> copyGoto());
+    Button bAuto = iconButton("Auto Layout", CssIcon.auto(), e -> { graph.autoLayout(); onGraphChanged(); });
+    Button bFit = iconButton("Fit", CssIcon.rectSelect(), e -> zoomToFit());
+    Button bValidate = iconButton("Validate", CssIcon.check(), e -> validate());
     TextField tfSearch = new TextField();
     tfSearch.setPromptText("Find arc...");
     tfSearch.setPrefWidth(180);
@@ -405,7 +405,7 @@ public class StoryTimelineView extends BorderPane {
   }
 
   private Button iconButton(String text,
-                            String iconClass,
+                            javafx.scene.layout.Region iconClass,
                             javafx.event.EventHandler<javafx.event.ActionEvent> onAction) {
     Button button = new Button(text);
     button.getStyleClass().addAll("timeline-toolbar-button", "sidebar-tool-btn");
@@ -414,10 +414,7 @@ public class StoryTimelineView extends BorderPane {
     button.setGraphicTextGap(6);
     button.setOnAction(onAction);
 
-    Label icon = new Label();
-    icon.getStyleClass().addAll("icon", iconClass);
-    icon.setMouseTransparent(true);
-    button.setGraphic(icon);
+    button.setGraphic(iconClass);
 
     toolbarIconButtons.add(button);
     return button;

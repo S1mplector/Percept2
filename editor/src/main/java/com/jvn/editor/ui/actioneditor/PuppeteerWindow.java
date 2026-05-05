@@ -703,10 +703,10 @@ public class PuppeteerWindow extends Stage {
         });
 
         // --- Transport controls ---
-        btnRewind = makeToolbarIconButton("icon-puppeteer-rewind", "Rewind (Home)");
-        btnPlay = makeToolbarIconButton("icon-puppeteer-play", "Play (Space)");
-        btnPause = makeToolbarIconButton("icon-puppeteer-pause", "Pause (Space)");
-        btnStop = makeToolbarIconButton("icon-puppeteer-stop", "Stop");
+        btnRewind = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.undo(), "Rewind (Home)");
+        btnPlay = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.play(), "Play (Space)");
+        btnPause = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.stop(), "Pause (Space)");
+        btnStop = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.stop(), "Stop");
 
         btnPlay.setOnAction(e -> play());
         btnPause.setOnAction(e -> pause());
@@ -733,7 +733,7 @@ public class PuppeteerWindow extends Stage {
             } catch (NumberFormatException ignored) {}
         });
 
-        Button btnFitDuration = makeToolbarIconButton("icon-puppeteer-fit-duration", "Fit duration to content");
+        Button btnFitDuration = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.rectSelect(), "Fit duration to content");
         btnFitDuration.setOnAction(e -> {
             this.project.fitDurationToContent();
             tfDuration.setText(String.valueOf((int) this.project.getTotalDurationMs()));
@@ -742,14 +742,14 @@ public class PuppeteerWindow extends Stage {
             refreshExportPreviewAndMarkDirty();
         });
 
-        cbLoop = makeToolbarIconToggle("icon-puppeteer-loop", "Loop timeline playback");
+        cbLoop = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.redo(), "Loop timeline playback");
         cbLoop.setSelected(this.project.isLooping());
         cbLoop.setOnAction(e -> {
             this.project.setLooping(cbLoop.isSelected());
             refreshExportPreviewAndMarkDirty();
         });
 
-        Button btnLoopIn = makeToolbarIconButton("icon-puppeteer-loop-in", "Set loop IN at playhead");
+        Button btnLoopIn = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.arrowDown(), "Set loop IN at playhead");
         btnLoopIn.setOnAction(e -> {
             double inMs = project.getPlayheadMs();
             double outMs = project.hasLoopRegion() ? project.getLoopEndMs() : project.getTotalDurationMs();
@@ -760,7 +760,7 @@ public class PuppeteerWindow extends Stage {
             }
         });
 
-        Button btnLoopOut = makeToolbarIconButton("icon-puppeteer-loop-out", "Set loop OUT at playhead");
+        Button btnLoopOut = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.arrowUp(), "Set loop OUT at playhead");
         btnLoopOut.setOnAction(e -> {
             double outMs = project.getPlayheadMs();
             double inMs = project.hasLoopRegion() ? project.getLoopStartMs() : 0;
@@ -771,7 +771,7 @@ public class PuppeteerWindow extends Stage {
             }
         });
 
-        Button btnLoopClear = makeToolbarIconButton("icon-puppeteer-loop-clear", "Clear loop region");
+        Button btnLoopClear = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.clearX(), "Clear loop region");
         btnLoopClear.setOnAction(e -> {
             project.clearLoopRegion();
             timelinePanel.refresh();
@@ -783,7 +783,7 @@ public class PuppeteerWindow extends Stage {
         durationBox.setAlignment(Pos.CENTER_LEFT);
 
         // --- Presets ---
-        Button presetButton = makeToolbarIconButton("icon-puppeteer-presets", "Apply animation preset to selected entity");
+        Button presetButton = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.folder(), "Apply animation preset to selected entity");
         presetButton.setOnAction(e -> showPresetMenuOverlay());
 
         // --- Property target + snapping ---
@@ -806,21 +806,21 @@ public class PuppeteerWindow extends Stage {
         HBox propertyBox = new HBox(4, cbProperty);
         propertyBox.setAlignment(Pos.CENTER_LEFT);
 
-        Button btnCopyKeyframes = makeToolbarIconButton("icon-timeline-copy", "Copy selected keyframes (Ctrl/Cmd+Alt+C)");
+        Button btnCopyKeyframes = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.copy(), "Copy selected keyframes (Ctrl/Cmd+Alt+C)");
         btnCopyKeyframes.setOnAction(e -> copySelectedKeyframesToClipboard());
-        Button btnPasteKeyframes = makeToolbarIconButton("icon-puppeteer-paste", "Paste keyframes at playhead (Ctrl/Cmd+Alt+V)");
+        Button btnPasteKeyframes = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.copy(), "Paste keyframes at playhead (Ctrl/Cmd+Alt+V)");
         btnPasteKeyframes.setOnAction(e -> pasteCopiedKeyframesAtPlayhead());
-        Button btnDuplicateKeyframes = makeToolbarIconButton("icon-puppeteer-duplicate", "Duplicate selected keyframes by snap step (Ctrl/Cmd+Alt+D)");
+        Button btnDuplicateKeyframes = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.copy(), "Duplicate selected keyframes by snap step (Ctrl/Cmd+Alt+D)");
         btnDuplicateKeyframes.setOnAction(e -> duplicateSelectedKeyframesBySnapStep());
-        Button btnSaveClip = makeToolbarIconButton("icon-puppeteer-save-clip", "Save selection as reusable clip");
+        Button btnSaveClip = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.save(), "Save selection as reusable clip");
         btnSaveClip.setOnAction(e -> saveSelectionAsClip());
-        Button btnLoadClip = makeToolbarIconButton("icon-puppeteer-load-clip", "Load and apply a saved clip at playhead");
+        Button btnLoadClip = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.folder(), "Load and apply a saved clip at playhead");
         btnLoadClip.setOnAction(e -> loadAndApplyClip());
 
-        Button slotButton = makeToolbarIconButton("icon-puppeteer-slot", "Place selected entity at a VN character slot");
+        Button slotButton = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.rectSelect(), "Place selected entity at a VN character slot");
         slotButton.setOnAction(e -> showSlotMenuOverlay());
 
-        Button btnBatchKeyframe = makeToolbarIconButton("icon-puppeteer-batch-key", "Add keyframe for ALL entities at playhead (batch)");
+        Button btnBatchKeyframe = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.plus(), "Add keyframe for ALL entities at playhead (batch)");
         btnBatchKeyframe.setOnAction(e -> {
             PropertyType prop = cbProperty.getValue();
             if (prop == null) prop = PropertyType.X;
@@ -828,48 +828,48 @@ public class PuppeteerWindow extends Stage {
             refreshExportPreviewAndMarkDirty();
         });
 
-        Button btnZoomFit = makeToolbarIconButton("icon-timeline-fit", "Zoom timeline to fit content");
+        Button btnZoomFit = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.rectSelect(), "Zoom timeline to fit content");
         btnZoomFit.setOnAction(e -> timelinePanel.zoomToFit());
-        Button btnFocusSelection = makeToolbarIconButton("icon-puppeteer-focus-selection", "Zoom timeline to the current selection or active track");
+        Button btnFocusSelection = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.search(), "Zoom timeline to the current selection or active track");
         btnFocusSelection.setOnAction(e -> timelinePanel.zoomToSelection());
-        Button btnPrevKeyframe = makeToolbarIconButton("icon-puppeteer-prev-key", "Jump playhead to previous keyframe (Page Up)");
+        Button btnPrevKeyframe = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.arrowDown(), "Jump playhead to previous keyframe (Page Up)");
         btnPrevKeyframe.setOnAction(e -> timelinePanel.jumpPlayheadToPreviousKeyframe());
-        Button btnNextKeyframe = makeToolbarIconButton("icon-puppeteer-next-key", "Jump playhead to next keyframe (Page Down)");
+        Button btnNextKeyframe = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.arrowUp(), "Jump playhead to next keyframe (Page Down)");
         btnNextKeyframe.setOnAction(e -> timelinePanel.jumpPlayheadToNextKeyframe());
 
-        ToggleButton cbRipple = makeToolbarIconToggle("icon-puppeteer-ripple", "Ripple-retime: shift following keys when nudging a selection");
+        ToggleButton cbRipple = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.auto(), "Ripple-retime: shift following keys when nudging a selection");
         cbRipple.setSelected(timelinePanel.isRippleRetimeEnabled());
         cbRipple.setOnAction(e -> timelinePanel.setRippleRetimeEnabled(cbRipple.isSelected()));
 
-        Button btnDistributeKeys = makeToolbarIconButton("icon-puppeteer-distribute", "Distribute selected keyframes evenly across their current range");
+        Button btnDistributeKeys = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.auto(), "Distribute selected keyframes evenly across their current range");
         btnDistributeKeys.setOnAction(e -> {
             if (timelinePanel.distributeSelectedKeyframes()) {
                 refreshExportPreviewAndMarkDirty();
             }
         });
 
-        Button btnReverseKeys = makeToolbarIconButton("icon-puppeteer-reverse-keys", "Reverse selected keyframes within their current range");
+        Button btnReverseKeys = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.undo(), "Reverse selected keyframes within their current range");
         btnReverseKeys.setOnAction(e -> {
             if (timelinePanel.reverseSelectedKeyframes()) {
                 refreshExportPreviewAndMarkDirty();
             }
         });
 
-        Button btnStretchKeys = makeToolbarIconButton("icon-puppeteer-stretch", "Stretch selected keyframes 25% wider");
+        Button btnStretchKeys = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.expand(), "Stretch selected keyframes 25% wider");
         btnStretchKeys.setOnAction(e -> {
             if (timelinePanel.stretchSelectedKeyframes(1.25)) {
                 refreshExportPreviewAndMarkDirty();
             }
         });
 
-        Button btnCompressKeys = makeToolbarIconButton("icon-puppeteer-compress", "Compress selected keyframes to 80% of their current range");
+        Button btnCompressKeys = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.minus(), "Compress selected keyframes to 80% of their current range");
         btnCompressKeys.setOnAction(e -> {
             if (timelinePanel.stretchSelectedKeyframes(0.8)) {
                 refreshExportPreviewAndMarkDirty();
             }
         });
 
-        ToggleButton cbCompactExport = makeToolbarIconToggle("icon-puppeteer-compact-export", "Use compact export format");
+        ToggleButton cbCompactExport = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.save(), "Use compact export format");
         cbCompactExport.setSelected(false);
         cbCompactExport.setOnAction(e -> {
             compactExport = cbCompactExport.isSelected();
@@ -901,7 +901,7 @@ public class PuppeteerWindow extends Stage {
         );
         keyframeOpsSecondaryRow.setAlignment(Pos.CENTER_LEFT);
 
-        cbSnap = makeToolbarIconToggle("icon-puppeteer-snap", "Enable snapping");
+        cbSnap = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.auto(), "Enable snapping");
         cbSnap.setSelected(timelinePanel.isSnapEnabled());
         cbSnap.setOnAction(e -> timelinePanel.setSnapEnabled(cbSnap.isSelected()));
 
@@ -950,7 +950,7 @@ public class PuppeteerWindow extends Stage {
         });
 
         cbRuntimePreview = makeToolbarIconToggle(
-            "icon-puppeteer-runtime-preview",
+            com.jvn.editor.ui.CssIcon.play(),
             "Runtime data preview: render through TimelineData/TimelineRunner"
         );
         cbRuntimePreview.setSelected(runtimeParityPreview);
@@ -961,17 +961,17 @@ public class PuppeteerWindow extends Stage {
         });
 
         // --- Auto-key toggle ---
-        ToggleButton cbAutoKey = makeToolbarIconToggle("icon-puppeteer-autokey", "Auto-key: automatically insert keyframe on drag");
+        ToggleButton cbAutoKey = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.auto(), "Auto-key: automatically insert keyframe on drag");
         cbAutoKey.setSelected(false);
         cbAutoKey.setOnAction(e -> autoKeyEnabled = cbAutoKey.isSelected());
         Label lblAutoKey = new Label("Auto");
         lblAutoKey.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 10px;");
 
         // --- Snap-to-grid / snap-to-entity toggles ---
-        ToggleButton cbSnapGrid = makeToolbarIconToggle("icon-puppeteer-snap-grid", "Snap entities to grid when dragging");
+        ToggleButton cbSnapGrid = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.auto(), "Snap entities to grid when dragging");
         cbSnapGrid.setSelected(false);
         cbSnapGrid.setOnAction(e -> animationPreview.setSnapToGridEnabled(cbSnapGrid.isSelected()));
-        ToggleButton cbSnapEntity = makeToolbarIconToggle("icon-puppeteer-snap-entity", "Snap to nearby entity positions");
+        ToggleButton cbSnapEntity = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.auto(), "Snap to nearby entity positions");
         cbSnapEntity.setSelected(false);
         cbSnapEntity.setOnAction(e -> animationPreview.setSnapToEntityEnabled(cbSnapEntity.isSelected()));
 
@@ -980,15 +980,15 @@ public class PuppeteerWindow extends Stage {
         HBox previewSnapBox = new HBox(4, cbSnapGrid, cbSnapEntity, cbRuntimePreview, cbSpeed, cbWheelMode);
         previewSnapBox.setAlignment(Pos.CENTER_LEFT);
 
-        cbOrbitTool = makeToolbarIconToggle("icon-puppeteer-orbit", "Enable orbit-anchor tool. Shift+click preview to place anchor. Alt+Shift+click another entity to link the anchor at the exact cursor point (joint/nail).");
+        cbOrbitTool = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.auto(), "Enable orbit-anchor tool. Shift+click preview to place anchor. Alt+Shift+click another entity to link the anchor at the exact cursor point (joint/nail).");
         cbOrbitTool.setSelected(animationPreview.isOrbitToolEnabled());
         cbOrbitTool.setOnAction(e -> animationPreview.setOrbitToolEnabled(cbOrbitTool.isSelected()));
 
-        cbOrbitAlign = makeToolbarIconToggle("icon-puppeteer-orbit-align", "When orbiting, update entity rotation to face outward.");
+        cbOrbitAlign = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.auto(), "When orbiting, update entity rotation to face outward.");
         cbOrbitAlign.setSelected(animationPreview.isOrbitAlignRotation());
         cbOrbitAlign.setOnAction(e -> animationPreview.setOrbitAlignRotation(cbOrbitAlign.isSelected()));
 
-        Button btnClearAnchor = makeToolbarIconButton("icon-puppeteer-clear-anchor", "Clear orbit anchor for selected entity");
+        Button btnClearAnchor = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.clearX(), "Clear orbit anchor for selected entity");
         btnClearAnchor.setOnAction(e -> {
             animationPreview.clearOrbitAnchorForSelectedEntity();
             updatePreview();
@@ -998,13 +998,13 @@ public class PuppeteerWindow extends Stage {
         orbitBox.setAlignment(Pos.CENTER_LEFT);
 
         // --- Help button ---
-        Button btnHelp = makeToolbarIconButton("icon-puppeteer-help", "Show keyboard shortcuts");
+        Button btnHelp = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.speech(), "Show keyboard shortcuts");
         btnHelp.setOnAction(e -> showShortcutsOverlay());
 
         // --- Audio + event cues ---
-        Button btnAddCue = makeToolbarIconButton("icon-puppeteer-audio-add", "Add audio cue at playhead");
+        Button btnAddCue = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.plus(), "Add audio cue at playhead");
         btnAddCue.setOnAction(e -> showAddAudioCueDialog());
-        Button btnClearCues = makeToolbarIconButton("icon-puppeteer-audio-clear", "Remove all timeline audio cues");
+        Button btnClearCues = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.clearX(), "Remove all timeline audio cues");
         btnClearCues.setOnAction(e -> {
             if (project.getAudioCues().isEmpty()) return;
             overlayDialog.showDialog(
@@ -1019,9 +1019,9 @@ public class PuppeteerWindow extends Stage {
                 })
             );
         });
-        Button btnManageEvents = makeToolbarIconButton("icon-puppeteer-events", "Manage timeline event cues");
+        Button btnManageEvents = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.list(), "Manage timeline event cues");
         btnManageEvents.setOnAction(e -> showEventCueManagerDialog(null));
-        Button btnClearEvents = makeToolbarIconButton("icon-puppeteer-event-clear", "Remove all timeline event cues");
+        Button btnClearEvents = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.clearX(), "Remove all timeline event cues");
         btnClearEvents.setOnAction(e -> {
             if (project.getEditorEventCues().isEmpty()) return;
             overlayDialog.showDialog(
@@ -1052,7 +1052,7 @@ public class PuppeteerWindow extends Stage {
         tfTimelineName.setStyle(STYLE_TEXT_FIELD);
         tfTimelineName.setTooltip(new Tooltip("Name for @external jes_timeline"));
 
-        Button btnRegister = makeToolbarSuccessIconButton("icon-puppeteer-register", "Register timeline for VNS interop");
+        Button btnRegister = makeToolbarSuccessIconButton(com.jvn.editor.ui.CssIcon.save(), "Register timeline for VNS interop");
         btnRegister.setOnAction(e -> requestRegisterTimeline());
 
         HBox nameBox = new HBox(4, tfTimelineName, btnRegister);
@@ -1189,7 +1189,7 @@ public class PuppeteerWindow extends Stage {
         ));
         updateViewportInfoLabel();
 
-        btnPreviewFullscreen = makeToolbarIconButton("icon-fullscreen", "Focus the preview in the editor workspace");
+        btnPreviewFullscreen = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.expand(), "Focus the preview in the editor workspace");
         btnPreviewFullscreen.getStyleClass().add("puppeteer-preview-overlay-button");
         btnPreviewFullscreen.getStyleClass().add("puppeteer-preview-overlay-button-idle");
         btnPreviewFullscreen.setText("Focus");
@@ -1202,7 +1202,7 @@ public class PuppeteerWindow extends Stage {
         btnPreviewFullscreen.setVisible(false);
         btnPreviewFullscreen.setOnAction(e -> enterFullscreenPreview());
 
-        btnPreviewBack = makeToolbarIconButton("icon-puppeteer-rewind", "Return to the standard editor workspace");
+        btnPreviewBack = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.undo(), "Return to the standard editor workspace");
         btnPreviewBack.getStyleClass().add("puppeteer-preview-overlay-button");
         btnPreviewBack.getStyleClass().add("puppeteer-preview-overlay-button-back");
         btnPreviewBack.setText("◀ Back to Editor");
@@ -5547,11 +5547,11 @@ public class PuppeteerWindow extends Stage {
     private static final String STYLE_SIDEBAR_VALUE_LABEL =
         "-fx-text-fill: #f0f0f0; -fx-font-size: 12px;";
 
-    private static Button makeToolbarIconButton(String iconClass, String tooltip) {
+    private static Button makeToolbarIconButton(javafx.scene.layout.Region iconClass, String tooltip) {
         Button btn = new Button();
         btn.getStyleClass().add("puppeteer-toolbar-icon-button");
         btn.setText("");
-        btn.setGraphic(makeToolbarIcon(iconClass));
+        btn.setGraphic(iconClass);
         installToolbarTooltip(btn, tooltip);
         btn.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
         btn.setGraphicTextGap(0);
@@ -5563,17 +5563,17 @@ public class PuppeteerWindow extends Stage {
         return btn;
     }
 
-    private static Button makeToolbarSuccessIconButton(String iconClass, String tooltip) {
+    private static Button makeToolbarSuccessIconButton(javafx.scene.layout.Region iconClass, String tooltip) {
         Button btn = makeToolbarIconButton(iconClass, tooltip);
         btn.getStyleClass().add("puppeteer-toolbar-icon-button-success");
         return btn;
     }
 
-    private static ToggleButton makeToolbarIconToggle(String iconClass, String tooltip) {
+    private static ToggleButton makeToolbarIconToggle(javafx.scene.layout.Region iconClass, String tooltip) {
         ToggleButton toggle = new ToggleButton();
         toggle.getStyleClass().add("puppeteer-toolbar-icon-toggle");
         toggle.setText("");
-        toggle.setGraphic(makeToolbarIcon(iconClass));
+        toggle.setGraphic(iconClass);
         installToolbarTooltip(toggle, tooltip);
         toggle.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
         toggle.setGraphicTextGap(0);

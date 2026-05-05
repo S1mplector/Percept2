@@ -60,27 +60,25 @@ public class VersionControlView extends BorderPane {
 
   private final CheckBox chkInitCommit = new CheckBox("Create initial commit");
 
-  private final Button btnRefresh = iconButton("vcs-icon-refresh", "Refresh status");
+  private final Button btnRefresh = iconButton(CssIcon.redo(), "Refresh status");
   private final Button btnInitialize = new Button("Initialize");
-  private final Button btnFetch = iconButton("vcs-icon-fetch", "Fetch all remotes");
-  private final Button btnPull = iconButton("vcs-icon-pull", "Pull with rebase");
-  private final Button btnPush = iconButton("vcs-icon-push", "Push to remote");
-  private final Button btnCommit = iconButton("vcs-icon-commit", "Commit all changes");
-  private final Button btnStash = iconButton("vcs-icon-stash", "Stash changes");
-  private final Button btnStashPop = iconButton("vcs-icon-stash-pop", "Pop stash");
-  private final Button btnStageSelected = iconButton("vcs-icon-stage", "Stage selected");
-  private final Button btnUnstageSelected = iconButton("vcs-icon-unstage", "Unstage selected");
-  private final Button btnDiscardSelected = iconButton("vcs-icon-discard", "Discard changes");
-  private final Button btnDiffSelected = iconButton("vcs-icon-diff", "Show diff");
+  private final Button btnFetch = iconButton(CssIcon.download(), "Fetch all remotes");
+  private final Button btnPull = iconButton(CssIcon.arrowDown(), "Pull with rebase");
+  private final Button btnPush = iconButton(CssIcon.arrowUp(), "Push to remote");
+  private final Button btnCommit = iconButton(CssIcon.save(), "Commit all changes");
+  private final Button btnStash = iconButton(CssIcon.memory(), "Stash changes");
+  private final Button btnStashPop = iconButton(CssIcon.popOut(), "Pop stash");
+  private final Button btnStageSelected = iconButton(CssIcon.plus(), "Stage selected");
+  private final Button btnUnstageSelected = iconButton(CssIcon.minus(), "Unstage selected");
+  private final Button btnDiscardSelected = iconButton(CssIcon.delete(), "Discard changes");
+  private final Button btnDiffSelected = iconButton(CssIcon.search(), "Show diff");
   private final ComboBox<String> cbBranch = new ComboBox<>();
-  private final Button btnNewBranch = iconButton("vcs-icon-new-branch", "Create branch");
+  private final Button btnNewBranch = iconButton(CssIcon.rocket(), "Create branch");
 
-  private static Button iconButton(String iconClass, String tooltip) {
+  private static Button iconButton(javafx.scene.layout.Region iconClass, String tooltip) {
     Button btn = new Button();
     btn.getStyleClass().add("vcs-icon-btn");
-    javafx.scene.layout.Region icon = CssIcon.prepare(new javafx.scene.layout.Region());
-    icon.getStyleClass().addAll("vcs-icon", iconClass);
-    btn.setGraphic(icon);
+    btn.setGraphic(iconClass);
     btn.setTooltip(new Tooltip(tooltip));
     return btn;
   }
@@ -144,9 +142,9 @@ public class VersionControlView extends BorderPane {
     btnRefresh.setOnAction(e -> refreshStatus());
     btnInitialize.setOnAction(e -> initializeRepository());
     btnInitialize.getStyleClass().add("vcs-icon-btn");
-    javafx.scene.layout.Region initIcon = CssIcon.prepare(new javafx.scene.layout.Region());
-    initIcon.getStyleClass().addAll("vcs-icon", "vcs-icon-init");
-    btnInitialize.setGraphic(initIcon);
+    
+    
+    btnInitialize.setGraphic(CssIcon.plus());
     btnFetch.setOnAction(e -> runFetch());
     btnPull.setOnAction(e -> runPull());
     btnPush.setOnAction(e -> runPush());
