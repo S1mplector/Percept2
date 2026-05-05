@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
+import com.jvn.core.vn.script.InMemoryJavaCompiler;
 import com.jvn.core.vn.script.VnScriptParser;
 
 public class VnScriptParserTest {
@@ -1928,6 +1929,31 @@ public class VnScriptParserTest {
     String payload = classNode.getExternalCommand().getPayload();
     assertTrue(payload.contains("GameUtils"), "Payload should contain class name");
     assertTrue(payload.contains("clamp"), "Payload should contain class body");
+  }
+
+  @Test
+  public void javaClassBlockCanBeReferencedByLaterInlineJava() throws Exception {
+    String script = """
+      @scenario class_runtime
+      [java class GameMath]
+      public static int clamp(int val, int min, int max) {
+          return Math.max(min, Math.min(max, val));
+      }
+      [/java]
+      [java]
+      Vn.setVar("clamped", GameMath.clamp(14, 0, 10));
+      [/java]
+      [end]
+    """;
+
+    InMemoryJavaCompiler.clearScenarioContext("class_runtime");
+    VnScenario scen = new VnScriptParser().parseFromString(script);
+    VnScene scene = new VnScene(scen);
+    scene.setInterop(new DefaultVnInterop());
+
+    scene.onEnter();
+
+    assertEquals(10, scene.getState().getVariable("clamped"));
   }
 
   // ─── Payload metadata encoding tests ──────────────────────────────

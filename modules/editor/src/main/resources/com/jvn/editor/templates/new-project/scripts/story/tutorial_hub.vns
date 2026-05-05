@@ -1,5 +1,5 @@
 # {{PROJECT_NAME}} - Tutorial Hub
-# 16 interactive lessons covering VNS scripting from first dialogue line to release checklist.
+# 17 interactive lessons covering VNS scripting from first dialogue line to release checklist.
 # Each lesson is a separate .vns file in scripts/tutorial/.
 # Lessons are self-contained — the player can take them in any order.
 # The tutorial_count variable (set to 0 in the prologue) tracks how many the player completes.
@@ -21,7 +21,7 @@
 
 Lavender: Welcome! I'm Lavender, your guide through these tutorials.
 [show lavender center talking]
-Lavender: There are {b}16 lessons{/b} ahead. Each one teaches a specific part of VNS scripting — from writing your first dialogue line to shipping a finished game.
+Lavender: There are {b}17 lessons{/b} ahead. Each one teaches a specific part of VNS scripting — from writing your first dialogue line to shipping a finished game.
 
 Lavender: Every lesson is a real {b}.vns{/b} file inside {b}scripts/tutorial/{/b}. You can open any of them in the editor right now, side by side with this hub.
 Lavender: They're designed to be modified. Change the code, break something, see what happens — that's how the syntax sticks.
@@ -60,11 +60,12 @@ Lavender: Engine systems — transitions, audio, state, movement, branching, and
 @label topics_page_3
 [show lavender far_left talking]
 [wait 120]
-Lavender: Production — camera work, localization, UI customization, and shipping.
+Lavender: Production — camera work, localization, UI customization, embedded Java, and shipping.
 > 13. Camera and Staging — [camera pan], [camera zoom], blocking -> open_camera
 > 14. Localization — text keys, locale files, translation workflow -> open_localization
 > 15. UI Layout and Theme — dialogue box, menu files, style properties -> open_ui_layout
 > 16. Testing and Release — validation, playtesting, release checklist -> open_testing_release
+> 17. Inline Java in VNS — $ shorthand, [java], @bind, helper classes -> open_inline_java
 > ← Back -> topics_page_1
 > ← Systems -> topics_page_2
 > I'm done for now -> end_early
@@ -117,6 +118,9 @@ Lavender: Production — camera work, localization, UI customization, and shippi
 @label open_testing_release
 [goto {{TESTING_RELEASE_TARGET}}:start]
 
+@label open_inline_java
+[goto {{INLINE_JAVA_TARGET}}:start]
+
 @label end_early
 [show lavender center talking]
 [wait 160]
@@ -125,7 +129,7 @@ Lavender: Production — camera work, localization, UI customization, and shippi
 # tutorial_count is incremented by each lesson's [inc tutorial_count] at the top.
 # This [if] block reacts to how many the player actually completed.
 
-[if tutorial_count > 13]
+[if tutorial_count > 14]
 Lavender: You covered {b}nearly everything{/b}. You know dialogue, pacing, characters, audio, variables, branching, camera, timelines, UI, localization, and testing.
 Lavender: That's not a tutorial anymore — that's a toolkit. You're ready to build a full game.
 [elif tutorial_count > 7]

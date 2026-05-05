@@ -1,6 +1,8 @@
 package com.jvn.core.vn.script;
 
 import java.io.ByteArrayOutputStream;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
 import java.net.URL;
@@ -10,6 +12,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureClassLoader;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -208,7 +211,7 @@ public class InMemoryJavaCompiler {
 
     ClassLoader parentLoader = resolveParentLoader(scenarioId);
     MemoryJavaFileManager fileManager = new MemoryJavaFileManager(
-        compiler.getStandardFileManager(null, null, null), parentLoader);
+        compiler.getStandardFileManager(null, null, null), parentLoader, contextClassBytes(scenarioId));
     JavaFileObject sourceFile = new StringJavaFileObject("com.jvn.core.vn.dynamic." + className, sourceCode);
 
     List<String> options = List.of("-classpath", buildClasspath());
@@ -230,16 +233,29 @@ public class InMemoryJavaCompiler {
       throw new RuntimeException(errorMsg.toString());
     }
 
+    registerContextClassBytes(scenarioId, fileManager.compiledBytes());
     return fileManager.getClassLoader(null).loadClass("com.jvn.core.vn.dynamic." + className);
   }
 
   // ─── Context Registry (shared classes per scenario) ────────────────
 
   private static final Map<String, Map<String, Class<?>>> SCENARIO_CLASSES = new ConcurrentHashMap<>();
+  private static final Map<String, Map<String, byte[]>> SCENARIO_CLASS_BYTES = new ConcurrentHashMap<>();
 
   private static void registerContextClass(String scenarioId, String className, Class<?> clazz) {
     SCENARIO_CLASSES.computeIfAbsent(scenarioId != null ? scenarioId : "_global_",
         k -> new ConcurrentHashMap<>()).put(className, clazz);
+  }
+
+  private static void registerContextClassBytes(String scenarioId, Map<String, byte[]> classBytes) {
+    if (classBytes == null || classBytes.isEmpty()) return;
+    SCENARIO_CLASS_BYTES.computeIfAbsent(scenarioId != null ? scenarioId : "_global_",
+        k -> new ConcurrentHashMap<>()).putAll(classBytes);
+  }
+
+  private static Map<String, byte[]> contextClassBytes(String scenarioId) {
+    Map<String, byte[]> classBytes = SCENARIO_CLASS_BYTES.get(scenarioId != null ? scenarioId : "_global_");
+    return classBytes == null ? Map.of() : classBytes;
   }
 
   private static ClassLoader resolveParentLoader(String scenarioId) {
@@ -264,7 +280,10 @@ public class InMemoryJavaCompiler {
   }
 
   public static void clearScenarioContext(String scenarioId) {
-    if (scenarioId != null) SCENARIO_CLASSES.remove(scenarioId);
+    if (scenarioId != null) {
+      SCENARIO_CLASSES.remove(scenarioId);
+      SCENARIO_CLASS_BYTES.remove(scenarioId);
+    }
   }
 
   // ─── Payload Protocol ─────────────────────────────────────────────
@@ -417,11 +436,15 @@ public class InMemoryJavaCompiler {
 
   static class MemoryJavaFileManager extends ForwardingJavaFileManager<JavaFileManager> {
     private final Map<String, MemoryClassFileObject> classFiles = new ConcurrentHashMap<>();
+    private final Map<String, byte[]> contextClasses;
     private final ClassLoader parentLoader;
 
-    protected MemoryJavaFileManager(JavaFileManager fileManager, ClassLoader parentLoader) {
+    protected MemoryJavaFileManager(JavaFileManager fileManager,
+                                    ClassLoader parentLoader,
+                                    Map<String, byte[]> contextClasses) {
       super(fileManager);
       this.parentLoader = parentLoader;
+      this.contextClasses = contextClasses == null ? Map.of() : new HashMap<>(contextClasses);
     }
 
     @Override
@@ -429,6 +452,42 @@ public class InMemoryJavaCompiler {
       MemoryClassFileObject classFileObject = new MemoryClassFileObject(className, kind);
       classFiles.put(className, classFileObject);
       return classFileObject;
+    }
+
+    @Override
+    public JavaFileObject getJavaFileForInput(Location location,
+                                             String className,
+                                             JavaFileObject.Kind kind) throws java.io.IOException {
+      if (kind == JavaFileObject.Kind.CLASS) {
+        byte[] bytes = contextClasses.get(className);
+        if (bytes != null) return new ByteArrayJavaFileObject(className, bytes);
+      }
+      return super.getJavaFileForInput(location, className, kind);
+    }
+
+    @Override
+    public Iterable<JavaFileObject> list(Location location,
+                                         String packageName,
+                                         java.util.Set<JavaFileObject.Kind> kinds,
+                                         boolean recurse) throws java.io.IOException {
+      Iterable<JavaFileObject> base = super.list(location, packageName, kinds, recurse);
+      if (!kinds.contains(JavaFileObject.Kind.CLASS) || contextClasses.isEmpty()) return base;
+      List<JavaFileObject> combined = new ArrayList<>();
+      for (JavaFileObject file : base) combined.add(file);
+      String prefix = packageName == null || packageName.isBlank() ? "" : packageName + ".";
+      for (Map.Entry<String, byte[]> entry : contextClasses.entrySet()) {
+        String binaryName = entry.getKey();
+        if (binaryName.startsWith(prefix) && binaryName.indexOf('.', prefix.length()) < 0) {
+          combined.add(new ByteArrayJavaFileObject(binaryName, entry.getValue()));
+        }
+      }
+      return combined;
+    }
+
+    @Override
+    public String inferBinaryName(Location location, JavaFileObject file) {
+      if (file instanceof ByteArrayJavaFileObject byteFile) return byteFile.binaryName();
+      return super.inferBinaryName(location, file);
     }
 
     @Override
@@ -441,9 +500,41 @@ public class InMemoryJavaCompiler {
             byte[] bytes = file.getBytes();
             return super.defineClass(name, bytes, 0, bytes.length);
           }
+          byte[] bytes = contextClasses.get(name);
+          if (bytes != null) {
+            return super.defineClass(name, bytes, 0, bytes.length);
+          }
           return super.findClass(name);
         }
       };
+    }
+
+    Map<String, byte[]> compiledBytes() {
+      Map<String, byte[]> out = new HashMap<>();
+      for (Map.Entry<String, MemoryClassFileObject> entry : classFiles.entrySet()) {
+        out.put(entry.getKey(), entry.getValue().getBytes());
+      }
+      return out;
+    }
+  }
+
+  static class ByteArrayJavaFileObject extends SimpleJavaFileObject {
+    private final String binaryName;
+    private final byte[] bytes;
+
+    ByteArrayJavaFileObject(String binaryName, byte[] bytes) {
+      super(URI.create("mem:///" + binaryName.replace('.', '/') + Kind.CLASS.extension), Kind.CLASS);
+      this.binaryName = binaryName;
+      this.bytes = bytes == null ? new byte[0] : bytes;
+    }
+
+    String binaryName() {
+      return binaryName;
+    }
+
+    @Override
+    public InputStream openInputStream() {
+      return new ByteArrayInputStream(bytes);
     }
   }
 

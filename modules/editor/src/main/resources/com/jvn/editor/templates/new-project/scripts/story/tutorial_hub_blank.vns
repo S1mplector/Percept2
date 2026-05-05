@@ -1,10 +1,10 @@
 # {{PROJECT_NAME}} - Tutorial Hub (Empty)
 # This is a placeholder for the tutorial hub. The full tutorial pack is not enabled.
-# The full pack includes 16 interactive .vns lessons covering:
+# The full pack includes 17 interactive .vns lessons covering:
 #   01–04: Dialogue, pacing, characters, backgrounds
 #   05–08: Transitions, audio, variables, movement
 #   09–12: Timelines, choices, subroutines, best practices
-#   13–16: Camera, localization, UI layout, testing/release
+#   13–17: Camera, localization, UI layout, testing/release, inline Java
 # Each lesson is a self-contained .vns file the player can open, edit, and learn from.
 
 @scenario {{SCENARIO_PREFIX}}_tutorial_hub
@@ -15,8 +15,8 @@
 narrator: This is the Tutorial Hub — {b}{{STORY_TUTORIAL_SCRIPT_PATH}}{/b}.
 narrator: The sample tutorial pack is not included in this project.
 
-narrator: The full pack adds 16 interactive VNS scripting lessons to {b}scripts/tutorial/{/b}:
-narrator: Dialogue basics, narration and pacing, characters and expressions, backgrounds, transitions, audio, variables, movement, timelines, choices, subroutines, best practices, camera staging, localization, UI layout, and testing.
+narrator: The full pack adds 17 interactive VNS scripting lessons to {b}scripts/tutorial/{/b}:
+narrator: Dialogue basics, narration and pacing, characters and expressions, backgrounds, transitions, audio, variables, movement, timelines, choices, subroutines, best practices, camera staging, localization, UI layout, testing, and inline Java.
 
 narrator: To enable it, create a new project in the wizard and check {b}Sample Tutorial Pack{/b} under content options.
 narrator: Each lesson is a real .vns file you can open in the editor, modify, and use as reference while building your game.

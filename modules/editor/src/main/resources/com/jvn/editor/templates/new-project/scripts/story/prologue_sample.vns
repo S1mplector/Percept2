@@ -16,14 +16,14 @@ Lavender: When a player hits "New Game" from the main menu, execution starts rig
 
 Lavender: This project is organized into {b}story arcs{/b}: separate .vns files connected by {b}[goto]{/b} commands.
 narrator: The arc structure for this project looks like this:
-narrator: {color=#8888cc}prologue{/color}  →  {color=#8888cc}tutorial hub{/color} (16 lessons)  →  back to prologue
+narrator: {color=#8888cc}prologue{/color}  →  {color=#8888cc}tutorial hub{/color} (17 lessons)  →  back to prologue
 narrator: {color=#8888cc}prologue{/color}  →  {color=#8888cc}branch demo{/color}  →  {color=#8888cc}epilogue{/color}
 
 [show lavender center happy]
 Lavender: Below are two choices. Each one uses {b}[goto]{/b} to jump to a different scenario file.
 Lavender: Open this file in the editor and read the labels below the choices to see exactly how routing works.
 
-> Learn VNS scripting — 16 interactive lessons covering dialogue to release -> route_tutorial
+> Learn VNS scripting — 17 interactive lessons covering dialogue to release -> route_tutorial
 > Branching scene demo — see how [goto] connects multiple script files -> route_branch
 
 # ─── Route: Tutorial Hub ────────────────────────────────────────

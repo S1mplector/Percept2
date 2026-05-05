@@ -49,7 +49,7 @@ import javafx.stage.*;
 public class NewProjectWizard extends Stage {
   private enum ProjectTemplate {
     STARTER_STORY("Starter Story", "A lean starter project with a playable story flow, menu pack, and demo assets."),
-    TUTORIAL_WORKSPACE("Tutorial Workspace", "A full learning scaffold with the starter story, 16 tutorial scripts, and demo content."),
+    TUTORIAL_WORKSPACE("Tutorial Workspace", "A full learning scaffold with the starter story, 17 tutorial scripts, and demo content."),
     BLANK_SANDBOX("Blank Sandbox", "A stripped-down project for custom pipelines, no demo assets, and blank menu wiring."),
     CUSTOM("Custom", "A manual combination of modules and starter content.");
 
@@ -168,6 +168,7 @@ public class NewProjectWizard extends Stage {
   private static final String TUTORIAL_LOCALIZATION_SCRIPT_PATH = "scripts/tutorial/14_localization_and_textkeys.vns";
   private static final String TUTORIAL_UI_LAYOUT_SCRIPT_PATH = "scripts/tutorial/15_ui_layout_and_theme.vns";
   private static final String TUTORIAL_TESTING_RELEASE_SCRIPT_PATH = "scripts/tutorial/16_testing_and_release.vns";
+  private static final String TUTORIAL_INLINE_JAVA_SCRIPT_PATH = "scripts/tutorial/17_inline_java_in_vns.vns";
   private static final String ARC_PROLOGUE = "Prologue";
   private static final String ARC_TUTORIAL_HUB = "TutorialHub";
   private static final String ARC_BRANCH_DEMO = "BranchDemo";
@@ -188,6 +189,7 @@ public class NewProjectWizard extends Stage {
   private static final String ARC_T14_LOCALIZATION = "T14_Localization";
   private static final String ARC_T15_UI_LAYOUT = "T15_UILayout";
   private static final String ARC_T16_TESTING_RELEASE = "T16_TestingRelease";
+  private static final String ARC_T17_INLINE_JAVA = "T17_InlineJava";
   private static final String CHARACTERS_SCRIPT_PATH = "scripts/definitions/characters.vns";
   private static final String CHARACTERS_INCLUDE_PATH = "/definitions/characters.vns";
   private static final String TIMELINE_PATH = "config/timeline/story.timeline";
@@ -947,7 +949,7 @@ public class NewProjectWizard extends Stage {
         : cmbProjectTemplate.getValue();
     String summary = switch (template) {
       case STARTER_STORY -> "Recommended default. Creates a playable story skeleton, demo assets, and ready-to-run menu profiles without the larger tutorial pack.";
-      case TUTORIAL_WORKSPACE -> "Creates the starter story plus the full 16-script guided tutorial pack and tutorial hub routes.";
+      case TUTORIAL_WORKSPACE -> "Creates the starter story plus the full 17-script guided tutorial pack and tutorial hub routes.";
       case BLANK_SANDBOX -> "Creates the runtime/config skeleton with blank story scripts, no bundled assets, and blank menu wiring.";
       case CUSTOM -> "Custom combination detected. The wizard will scaffold exactly what your current checkboxes describe.";
     };
@@ -1949,6 +1951,7 @@ public class NewProjectWizard extends Stage {
     tokens.put("LOCALIZATION_TARGET", ARC_T14_LOCALIZATION);
     tokens.put("UI_LAYOUT_TARGET", ARC_T15_UI_LAYOUT);
     tokens.put("TESTING_RELEASE_TARGET", ARC_T16_TESTING_RELEASE);
+    tokens.put("INLINE_JAVA_TARGET", ARC_T17_INLINE_JAVA);
 
     writeScaffoldTemplateScript(
         dir,
@@ -2006,6 +2009,7 @@ public class NewProjectWizard extends Stage {
     writeScaffoldTemplateScript(dir, TUTORIAL_LOCALIZATION_SCRIPT_PATH, "scripts/tutorial/14_localization_and_textkeys.vns", baseTokens);
     writeScaffoldTemplateScript(dir, TUTORIAL_UI_LAYOUT_SCRIPT_PATH, "scripts/tutorial/15_ui_layout_and_theme.vns", baseTokens);
     writeScaffoldTemplateScript(dir, TUTORIAL_TESTING_RELEASE_SCRIPT_PATH, "scripts/tutorial/16_testing_and_release.vns", baseTokens);
+    writeScaffoldTemplateScript(dir, TUTORIAL_INLINE_JAVA_SCRIPT_PATH, "scripts/tutorial/17_inline_java_in_vns.vns", baseTokens);
   }
 
   private void writeScaffoldScript(File dir, String relativePath, String content) throws Exception {
@@ -2130,7 +2134,8 @@ public class NewProjectWizard extends Stage {
         fw.write("arc " + ARC_T13_CAMERA + " script \"" + TUTORIAL_CAMERA_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 7 color \"#f0c48a\" tags \"tutorial,camera\" at 760,420\n");
         fw.write("arc " + ARC_T14_LOCALIZATION + " script \"" + TUTORIAL_LOCALIZATION_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 7 color \"#f3b27a\" tags \"tutorial,localization\" at 980,420\n");
         fw.write("arc " + ARC_T15_UI_LAYOUT + " script \"" + TUTORIAL_UI_LAYOUT_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 7 color \"#efb3c8\" tags \"tutorial,ui\" at 1200,420\n");
-        fw.write("arc " + ARC_T16_TESTING_RELEASE + " script \"" + TUTORIAL_TESTING_RELEASE_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 8 color \"#d6a8ee\" tags \"tutorial,testing\" at 1420,420\n\n");
+        fw.write("arc " + ARC_T16_TESTING_RELEASE + " script \"" + TUTORIAL_TESTING_RELEASE_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 8 color \"#d6a8ee\" tags \"tutorial,testing\" at 1420,420\n");
+        fw.write("arc " + ARC_T17_INLINE_JAVA + " script \"" + TUTORIAL_INLINE_JAVA_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 8 color \"#c4a4ff\" tags \"tutorial,java\" at 1640,420\n\n");
       }
 
       fw.write("link " + ARC_PROLOGUE + ":route_tutorial -> " + ARC_TUTORIAL_HUB + ":start\n");
@@ -2154,6 +2159,7 @@ public class NewProjectWizard extends Stage {
         fw.write("link " + ARC_TUTORIAL_HUB + ":open_localization -> " + ARC_T14_LOCALIZATION + ":start\n");
         fw.write("link " + ARC_TUTORIAL_HUB + ":open_ui_layout -> " + ARC_T15_UI_LAYOUT + ":start\n");
         fw.write("link " + ARC_TUTORIAL_HUB + ":open_testing_release -> " + ARC_T16_TESTING_RELEASE + ":start\n");
+        fw.write("link " + ARC_TUTORIAL_HUB + ":open_inline_java -> " + ARC_T17_INLINE_JAVA + ":start\n");
       }
     }
   }
