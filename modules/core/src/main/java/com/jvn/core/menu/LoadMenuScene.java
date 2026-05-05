@@ -570,8 +570,14 @@ public class LoadMenuScene implements Scene {
 
   private void startNewGame(String scriptName) {
     String resolvedScript = normalize(scriptName, defaultScriptName);
-    VnScenario scenario = loadScenario(resolvedScript);
-    VnScene scene = new VnScene(scenario);
+    VnScene scene;
+    try {
+      VnScenario scenario = scenarioLoader.load(resolvedScript);
+      scene = new VnScene(scenario);
+    } catch (Exception e) {
+      LOG.warn("Failed to load script '{}': {}", resolvedScript, e.toString());
+      scene = MenuScenarioFallbacks.scriptLoadErrorScene(resolvedScript, e);
+    }
     scene.getState().setSourceScriptName(resolvedScript);
     if (audio != null) scene.setAudioFacade(audio);
     if (engine != null && engine.getVnInteropFactory() != null) {

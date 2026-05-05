@@ -1,5 +1,12 @@
 package com.jvn.core.vn;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.List;
+
+import com.jvn.core.vn.script.MultipleParseErrorsException;
+import com.jvn.core.vn.script.VnParseException;
+
 /**
  * Holds information for a full-screen error overlay displayed when a VNS script
  * encounters a fatal or significant error during parsing or execution.
@@ -19,16 +26,26 @@ public class VnErrorOverlay {
   private final String message;
   private final String sourceName;
   private final int lineNumber;
+  private final String likelyCause;
+  private final String rawLine;
   private final String stackTrace;
   private final long timestamp;
 
   public VnErrorOverlay(ErrorType type, String title, String message,
                         String sourceName, int lineNumber, String stackTrace) {
+    this(type, title, message, sourceName, lineNumber, null, null, stackTrace);
+  }
+
+  public VnErrorOverlay(ErrorType type, String title, String message,
+                        String sourceName, int lineNumber,
+                        String likelyCause, String rawLine, String stackTrace) {
     this.type = type;
     this.title = title;
     this.message = message;
     this.sourceName = sourceName;
     this.lineNumber = lineNumber;
+    this.likelyCause = likelyCause;
+    this.rawLine = rawLine;
     this.stackTrace = stackTrace;
     this.timestamp = System.currentTimeMillis();
   }
@@ -38,6 +55,8 @@ public class VnErrorOverlay {
   public String getMessage() { return message; }
   public String getSourceName() { return sourceName; }
   public int getLineNumber() { return lineNumber; }
+  public String getLikelyCause() { return likelyCause; }
+  public String getRawLine() { return rawLine; }
   public String getStackTrace() { return stackTrace; }
   public long getTimestamp() { return timestamp; }
 
@@ -57,6 +76,46 @@ public class VnErrorOverlay {
         "VNS Parse Error",
         message,
         source, line, stackTrace);
+  }
+
+  public static VnErrorOverlay parseError(String source, int line, String message,
+                                          String likelyCause, String rawLine, String stackTrace) {
+    return new VnErrorOverlay(
+        ErrorType.PARSE_ERROR,
+        "VNS Parse Error",
+        message,
+        source, line, likelyCause, rawLine, stackTrace);
+  }
+
+  public static VnErrorOverlay fromScriptLoadFailure(String fallbackSource, Exception cause) {
+    if (cause instanceof MultipleParseErrorsException multi) {
+      return fromMultipleParseErrors(fallbackSource, multi);
+    }
+    if (cause instanceof VnParseException parse) {
+      return fromParseException(fallbackSource, parse, cause);
+    }
+    return runtimeError(
+        fallbackSource,
+        -1,
+        cause == null ? "Unknown script loading failure" : safeMessage(cause),
+        cause);
+  }
+
+  private static VnErrorOverlay fromMultipleParseErrors(String fallbackSource, MultipleParseErrorsException multi) {
+    List<VnParseException> errors = multi.getErrors();
+    VnParseException primary = errors == null || errors.isEmpty() ? null : errors.get(0);
+    String source = primary != null ? firstNonBlank(primary.getSourceName(), fallbackSource) : fallbackSource;
+    int line = primary != null ? primary.getLineNumber() : -1;
+    String message = primary != null ? firstNonBlank(primary.getDetailMessage(), primary.getMessage()) : safeMessage(multi);
+    String rawLine = primary != null ? primary.getRawLine() : null;
+    return parseError(source, line, message, likelyCause(message, rawLine), rawLine, formatStackTrace(multi));
+  }
+
+  private static VnErrorOverlay fromParseException(String fallbackSource, VnParseException parse, Exception cause) {
+    String source = firstNonBlank(parse.getSourceName(), fallbackSource);
+    String message = firstNonBlank(parse.getDetailMessage(), parse.getMessage());
+    return parseError(source, parse.getLineNumber(), message,
+        likelyCause(message, parse.getRawLine()), parse.getRawLine(), formatStackTrace(cause));
   }
 
   public static VnErrorOverlay runtimeError(String message, Exception cause) {
@@ -91,23 +150,46 @@ public class VnErrorOverlay {
         null, -1, formatStackTrace(cause));
   }
 
-  private static String formatStackTrace(Exception e) {
+  private static String formatStackTrace(Throwable e) {
     if (e == null) return null;
-    StringBuilder sb = new StringBuilder();
-    sb.append(e.getClass().getName()).append(": ").append(e.getMessage()).append("\n");
-    StackTraceElement[] trace = e.getStackTrace();
-    int limit = Math.min(trace.length, 12);
-    for (int i = 0; i < limit; i++) {
-      sb.append("  at ").append(trace[i]).append("\n");
+    StringWriter out = new StringWriter();
+    e.printStackTrace(new PrintWriter(out));
+    return out.toString();
+  }
+
+  private static String likelyCause(String message, String rawLine) {
+    String msg = message == null ? "" : message.toLowerCase();
+    String line = rawLine == null ? "" : rawLine.trim();
+    if (msg.contains("unrecognized syntax")) {
+      if (!line.isEmpty() && !line.startsWith("[") && !line.startsWith("@") && !line.startsWith(">") && !line.contains(":")) {
+        return "This line is bare text. VNS dialogue needs a speaker prefix such as 'narrator:' or a bracketed command such as [show ...].";
+      }
+      return "The parser could not match this line to a VNS command, label, choice, or dialogue statement.";
     }
-    if (trace.length > limit) {
-      sb.append("  ... ").append(trace.length - limit).append(" more\n");
+    if (msg.contains("unknown command")) {
+      return "The bracketed command name is not registered. Check the command spelling and arguments.";
     }
-    if (e.getCause() != null && e.getCause() != e) {
-      sb.append("Caused by: ").append(e.getCause().getClass().getName())
-          .append(": ").append(e.getCause().getMessage()).append("\n");
+    if (msg.contains("unknown character position")) {
+      return "A [show] or [move] command used a position name that is not built in or declared with @position.";
     }
-    return sb.toString();
+    if (msg.contains("duplicate label")) {
+      return "Two labels use the same name. Label names must be unique within the loaded script set.";
+    }
+    if (msg.contains("label") && msg.contains("not found")) {
+      return "A jump, goto, choice, or call points to a label that was not declared.";
+    }
+    return "The script could not be parsed before the game scene was created.";
+  }
+
+  private static String firstNonBlank(String first, String second) {
+    if (first != null && !first.isBlank()) return first;
+    return second == null ? "" : second;
+  }
+
+  private static String safeMessage(Throwable cause) {
+    if (cause == null) return "Unknown error";
+    String message = cause.getMessage();
+    return message == null || message.isBlank() ? cause.toString() : message;
   }
 
   /** Summary for display — combines title, location, and message. */
@@ -120,7 +202,13 @@ public class VnErrorOverlay {
     if (lineNumber > 0) {
       sb.append("Line: ").append(lineNumber).append("\n");
     }
+    if (rawLine != null && !rawLine.isBlank()) {
+      sb.append("Script line: ").append(rawLine).append("\n");
+    }
     sb.append("\nCause: ").append(message != null ? message : "(unknown)");
+    if (likelyCause != null && !likelyCause.isBlank()) {
+      sb.append("\n\nLikely cause: ").append(likelyCause);
+    }
     if (stackTrace != null && !stackTrace.isEmpty()) {
       sb.append("\n\n--- Stack Trace ---\n").append(stackTrace);
     }

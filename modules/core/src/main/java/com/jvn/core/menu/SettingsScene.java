@@ -747,8 +747,14 @@ public class SettingsScene implements Scene {
   private void startNewGame(String scriptName) {
     if (engine == null) return;
     String resolvedScript = normalize(scriptName, defaultScriptName);
-    VnScenario scenario = loadScenario(resolvedScript);
-    VnScene vnScene = new VnScene(scenario);
+    VnScene vnScene;
+    try {
+      VnScenario scenario = scenarioLoader.load(resolvedScript);
+      vnScene = new VnScene(scenario);
+    } catch (Exception e) {
+      LOG.warn("Failed to load script '{}': {}", resolvedScript, e.toString());
+      vnScene = MenuScenarioFallbacks.scriptLoadErrorScene(resolvedScript, e);
+    }
     vnScene.getState().setSourceScriptName(resolvedScript);
     if (audio != null) vnScene.setAudioFacade(audio);
     if (engine.getVnInteropFactory() != null) {

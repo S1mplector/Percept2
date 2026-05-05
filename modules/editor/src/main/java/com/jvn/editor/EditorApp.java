@@ -4124,6 +4124,7 @@ public class EditorApp extends Application {
     if (previewRoot != null) fullscreenPreview.setProjectRoot(previewRoot);
     
     // Copy the scenario from the source tab
+    String sourceName = resolveVnsSourceName(sourceTab.getFile(), previewRoot);
     try {
       String code = null;
       var editorNode = sourceTab.getEditorNode();
@@ -4133,7 +4134,6 @@ public class EditorApp extends Application {
       if (code != null && !code.isBlank()) {
         com.jvn.core.vn.script.VnScriptParser parser = new com.jvn.core.vn.script.VnScriptParser();
         byte[] bytes = code.getBytes(StandardCharsets.UTF_8);
-        String sourceName = resolveVnsSourceName(sourceTab.getFile(), previewRoot);
         com.jvn.core.vn.VnScenario scenario;
         try (ByteArrayInputStream in = new ByteArrayInputStream(bytes)) {
           scenario = parser.parse(in, sourceName, includePath -> openVnsIncludeForEditor(sourceTab, includePath));
@@ -4143,7 +4143,8 @@ public class EditorApp extends Application {
       }
     } catch (Exception ex) {
       status.setText("Failed to load VN for fullscreen: " + ex.getMessage());
-      return;
+      fullscreenPreview.setSourceScriptName(sourceName);
+      fullscreenPreview.setActiveError(com.jvn.core.vn.VnErrorOverlay.fromScriptLoadFailure(sourceName, ex));
     }
     
     javafx.scene.layout.StackPane root = new javafx.scene.layout.StackPane(fullscreenPreview);

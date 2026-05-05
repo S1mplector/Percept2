@@ -295,8 +295,15 @@ public class VnPreviewView extends StackPane {
     double canvasH = canvas.getHeight();
     if (scene == null) {
       renderEmptyPreview(canvasW, canvasH);
-      gc.setFill(javafx.scene.paint.Color.WHITE);
-      gc.fillText("Open a VNS file to preview", 20, 30);
+      VnErrorOverlay visibleError = resolveVisibleError();
+      if (visibleError != null) {
+        errorOverlayHoveredButton = renderer.renderErrorOverlay(
+            visibleError, canvasW, canvasH, mouseX, mouseY);
+      } else {
+        errorOverlayHoveredButton = -1;
+        gc.setFill(javafx.scene.paint.Color.WHITE);
+        gc.fillText("Open a VNS file to preview", 20, 30);
+      }
       return;
     }
     scene.update(deltaMs);
@@ -463,6 +470,7 @@ public class VnPreviewView extends StackPane {
 
   private void initializeScenario(VnScenario scenario, String startLabel) {
     renderer.resetParticleState();
+    activeError = null;
     if (scenario == null) {
       stopAudio();
       this.scene = null;
@@ -753,9 +761,7 @@ public class VnPreviewView extends StackPane {
       emitStoryboardPreviewLineChanged();
       applyStoryboardUiState();
     } catch (Exception ex) {
-      if (activeScene != null) {
-        activeScene.getState().showHudMessage("Preview could not load script: " + script, 1900);
-      }
+      setActiveError(VnErrorOverlay.fromScriptLoadFailure(script, ex));
     }
     return VnInteropResult.advance();
   }
@@ -929,8 +935,10 @@ public class VnPreviewView extends StackPane {
     if (button != MouseButton.PRIMARY) return;
 
     // Handle error overlay button clicks
-    if (resolveVisibleError() != null && errorOverlayHoveredButton >= 0) {
-      handleErrorOverlayButton(errorOverlayHoveredButton);
+    if (resolveVisibleError() != null) {
+      if (errorOverlayHoveredButton >= 0) {
+        handleErrorOverlayButton(errorOverlayHoveredButton);
+      }
       return;
     }
 
@@ -1659,7 +1667,7 @@ public class VnPreviewView extends StackPane {
         initializeScenario(loaded, null);
       }
     } catch (Exception e) {
-      setActiveError(VnErrorOverlay.parseError(sourceScriptName, -1, e.getMessage()));
+      setActiveError(VnErrorOverlay.fromScriptLoadFailure(sourceScriptName, e));
     }
   }
 }

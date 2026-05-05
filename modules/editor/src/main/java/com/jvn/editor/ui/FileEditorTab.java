@@ -23,6 +23,7 @@ import com.jvn.core.scene2d.Entity2D;
 import com.jvn.core.scene2d.Label2D;
 import com.jvn.core.scene2d.Panel2D;
 import com.jvn.core.vn.VnScenario;
+import com.jvn.core.vn.VnErrorOverlay;
 import com.jvn.core.vn.script.VnScriptParser;
 import com.jvn.scripting.jes.JesLoader;
 import com.jvn.scripting.jes.JesParseException;
@@ -273,7 +274,9 @@ public class FileEditorTab extends BorderPane {
       vnPreview.setSourceScriptName(resolveVnsScriptKey());
       vnPreview.runScenario(scenario, label);
       if (onStatus != null) onStatus.accept("Run from label: " + (label == null ? "<start>" : label));
-    } catch (Exception ignored) {}
+    } catch (Exception ex) {
+      showVnsParseOverlay(ex);
+    }
   }
 
   private VnScenario parseVnsScenarioFromText(String code) throws IOException {
@@ -412,6 +415,7 @@ public class FileEditorTab extends BorderPane {
           vnPreview.setSourceScriptName(resolveVnsScriptKey());
           vnPreview.setScenario(scenario);
         } catch (Exception ex) {
+          showVnsParseOverlay(ex);
           if (onStatus != null) onStatus.accept("VNS parse warning: " + ex.getMessage());
         }
       }
@@ -458,6 +462,7 @@ public class FileEditorTab extends BorderPane {
           vnPreview.setScenario(scenario);
         }
       } catch (Exception ex) {
+        showVnsParseOverlay(ex);
         if (onStatus != null) onStatus.accept("VNS error: " + ex.getMessage());
       }
     }
@@ -481,6 +486,7 @@ public class FileEditorTab extends BorderPane {
             vnPreview.setScenario(scenario);
           }
         } catch (Exception ex) {
+          showVnsParseOverlay(ex);
           if (onStatus != null) onStatus.accept("VNS parse warning: " + ex.getMessage());
         }
       } else if (kind == Kind.TIMELINE) {
@@ -1140,6 +1146,13 @@ public class FileEditorTab extends BorderPane {
     if (disposing) return;
     previewDockPosition = lastEmbeddedPreviewDock;
     restorePreviewLayoutMode();
+  }
+
+  private void showVnsParseOverlay(Exception ex) {
+    if (vnPreview == null) return;
+    String sourceName = resolveVnsSourceName();
+    vnPreview.setSourceScriptName(resolveVnsScriptKey());
+    vnPreview.setActiveError(VnErrorOverlay.fromScriptLoadFailure(sourceName, ex));
   }
 
   private boolean isDetachedPreviewVisible() {

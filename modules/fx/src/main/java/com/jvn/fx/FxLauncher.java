@@ -1034,8 +1034,8 @@ public class FxLauncher extends Application {
         int errBtn = vnRenderer.renderErrorOverlay(vnScene.getActiveError(), rw, rh, x, y);
         if (errBtn >= 0) {
           handleRuntimeErrorButton(vnScene, errBtn);
-          return;
         }
+        return;
       }
 
       com.jvn.core.vn.ui.VnOverlayButtonSpec overlayButton =
