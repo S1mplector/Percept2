@@ -175,7 +175,6 @@ public class VnScriptParser {
     Map<String, CharacterPosition> customPositions = new HashMap<>();
     Map<String, String> inlineCompositeExpressions = new HashMap<>();
     String pendingVoiceTrackId;
-    String pendingVoiceTrackId;
     List<VnParseException> errors = new ArrayList<>();
 
     boolean insideMenu = false;
@@ -337,20 +336,18 @@ public class VnScriptParser {
     List<String> choiceLabels = new ArrayList<>();
     for (BufferedLine bl : buffer) {
       String trimmed = bl.rawLine.trim();
-      Matcher choiceMatcher = CHOICE_PATTERN.matcher(trimmed);
-      if (choiceMatcher.matches()) {
-        String text = choiceMatcher.group(1).trim();
-        String target = choiceMatcher.group(2); 
-        String cond = choiceMatcher.group(3); 
+      if (trimmed.startsWith(">")) {
+        ParsedChoice pc = parseChoiceSegment(trimmed.substring(1).trim(), bl.sourceName, bl.lineNumber, bl.rawLine);
+        if (pc != null) {
+          String choiceLabel = pc.target != null ? pc.target : ("_menu_choice_" + (++state.syntheticLabelCounter));
+          choiceLabels.add(choiceLabel);
 
-        String choiceLabel = target != null ? target : ("_menu_choice_" + (++state.syntheticLabelCounter));
-        choiceLabels.add(choiceLabel);
-
-        syntheticScript.append("> ").append(text).append(" -> ").append(choiceLabel);
-        if (cond != null && !cond.isBlank()) {
-          syntheticScript.append(" [if ").append(cond).append("]");
+          syntheticScript.append("> ").append(pc.text).append(" -> ").append(choiceLabel);
+          if (pc.condition != null && !pc.condition.isBlank()) {
+            syntheticScript.append(" [if ").append(pc.condition).append("]");
+          }
+          syntheticScript.append("\n");
         }
-        syntheticScript.append("\n");
       }
     }
 
@@ -358,13 +355,15 @@ public class VnScriptParser {
     int choiceIndex = -1;
     for (BufferedLine bl : buffer) {
       String trimmed = bl.rawLine.trim();
-      Matcher choiceMatcher = CHOICE_PATTERN.matcher(trimmed);
-      if (choiceMatcher.matches()) {
-        if (choiceIndex >= 0) {
-          syntheticScript.append("[jump ").append(menuEndLabel).append("]\n");
+      if (trimmed.startsWith(">")) {
+        ParsedChoice pc = parseChoiceSegment(trimmed.substring(1).trim(), bl.sourceName, bl.lineNumber, bl.rawLine);
+        if (pc != null) {
+          if (choiceIndex >= 0) {
+            syntheticScript.append("[jump ").append(menuEndLabel).append("]\n");
+          }
+          choiceIndex++;
+          syntheticScript.append("[label ").append(choiceLabels.get(choiceIndex)).append("]\n");
         }
-        choiceIndex++;
-        syntheticScript.append("[label ").append(choiceLabels.get(choiceIndex)).append("]\n");
       } else {
         syntheticScript.append(bl.rawLine).append("\n");
       }
