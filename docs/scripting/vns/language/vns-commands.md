@@ -789,6 +789,38 @@ Calls a static Java method via reflection.
 [java com.example.GameHooks#beginEncounter goblin 3]
 ```
 
+### `[java]` ... `[/java]` (Inline Java Block)
+
+Embeds a multi-line Java code block directly in the script. The code is compiled in-memory
+and executed with access to the current `VnScene` and `VnState`. Similar to how Ren'Py
+supports Python blocks inside `.rpy` files.
+
+The generated method signature is:
+```java
+public static void execute(VnScene scene) throws Exception {
+    VnState state = scene.getState();
+    // <your code here>
+}
+```
+
+**Example:**
+```vns
+[java]
+int hp = ((Number) state.getVariable("hp")).intValue();
+hp = Math.max(0, hp - 10);
+state.setVariable("hp", hp);
+if (hp <= 0) {
+    state.setVariable("game_over", true);
+}
+[/java]
+```
+
+- Blank lines and comments (`//`, `/* */`) are preserved inside the block.
+- Lines starting with `#` are **not** treated as VNS comments inside `[java]` blocks.
+- Compiled classes are cached by content hash (MD5) to avoid recompilation.
+- Only available when running on a JDK (requires `javax.tools.JavaCompiler`).
+- Import `com.jvn.core.vn.*` is provided automatically.
+
 ### `[jes_push]` / `[jes_replace]` / `[jes_pop]` / `[jes_call]`
 
 Direct JES scene stack commands.

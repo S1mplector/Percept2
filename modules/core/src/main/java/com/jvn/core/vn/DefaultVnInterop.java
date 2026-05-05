@@ -50,6 +50,9 @@ public class DefaultVnInterop implements VnInterop {
       case "java":
         handleJava(payload, scene);
         return VnInteropResult.advance();
+      case "inline_java":
+        handleInlineJava(payload, scene);
+        return VnInteropResult.advance();
       case "jes":
         scene.getState().showHudMessage("[jes] " + payload, 1500);
         return VnInteropResult.advance();
@@ -129,6 +132,22 @@ public class DefaultVnInterop implements VnInterop {
       scene.getState().showHudMessage(msg, 2000);
     } catch (Throwable t) {
       scene.getState().showHudMessage("java: " + t.getClass().getSimpleName(), 2000);
+    }
+  }
+
+  private void handleInlineJava(String payload, VnScene scene) {
+    if (payload == null || payload.isBlank()) {
+      scene.getState().showHudMessage("inline_java: empty block", 1500);
+      return;
+    }
+    try {
+      com.jvn.core.vn.script.InMemoryJavaCompiler.execute(payload, scene);
+    } catch (Exception e) {
+      String msg = e.getMessage();
+      if (msg == null || msg.length() > 120) {
+        msg = e.getClass().getSimpleName();
+      }
+      scene.getState().showHudMessage("inline_java error: " + msg, 3000);
     }
   }
 

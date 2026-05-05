@@ -180,6 +180,11 @@ public class VnScriptParser {
     boolean insideMenu = false;
     List<BufferedLine> menuBuffer = new ArrayList<>();
 
+    boolean insideJava = false;
+    StringBuilder javaBuffer = new StringBuilder();
+    int javaBlockStartLine = 0;
+    String javaBlockStartSource = null;
+
     CharacterPosition getCustomPosition(String name) {
       if (name == null || name.isBlank()) return null;
       return customPositions.get(name.trim().toLowerCase());
@@ -295,6 +300,11 @@ public class VnScriptParser {
       state.errors.add(parseError(open.source, open.line, "Unclosed [if] block (missing [endif])", "[if ...]"));
     }
 
+    if (state.insideJava) {
+      state.errors.add(parseError(state.javaBlockStartSource, state.javaBlockStartLine,
+          "Unclosed [java] block (missing [/java])", "[java]"));
+    }
+
     ensureBuilder(state);
     flushChoices(state.builder, state.pendingChoices);
     flushPendingVoice(state);
@@ -391,6 +401,22 @@ public class VnScriptParser {
       String rawLine = line;
       String trimmed = rawLine.trim();
 
+      // Inside java blocks, buffer ALL lines (including blank and # lines)
+      if (state.insideJava) {
+        if (trimmed.equals("[/java]")) {
+          state.insideJava = false;
+          state.contentEmitted = true;
+          ensureBuilder(state);
+          flushChoices(state.builder, state.pendingChoices);
+          flushPendingVoice(state);
+          state.builder.external("inline_java", state.javaBuffer.toString());
+          state.javaBuffer.setLength(0);
+        } else {
+          state.javaBuffer.append(rawLine).append('\n');
+        }
+        continue;
+      }
+
       if (trimmed.isEmpty() || trimmed.startsWith("#")) {
         continue;
       }
@@ -446,6 +472,17 @@ public class VnScriptParser {
       if (state.insideMenu) {
         state.menuBuffer.add(new BufferedLine(rawLine, sourceName, lineNumber));
         continue;
+      }
+
+      if (trimmed.equals("[java]")) {
+        state.insideJava = true;
+        state.javaBuffer.setLength(0);
+        state.javaBlockStartLine = lineNumber;
+        state.javaBlockStartSource = sourceName;
+        continue;
+      }
+      if (trimmed.equals("[/java]")) {
+        throw parseError(sourceName, lineNumber, "[/java] without matching [java]", rawLine);
       }
 
       Matcher scenarioMatcher = SCENARIO_PATTERN.matcher(trimmed);

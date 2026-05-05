@@ -1656,4 +1656,94 @@ public class VnScriptParserTest {
     // (0.5 - 0.8) * 1100 = -330
     assertEquals(-330.0, delta2, 1e-6);
   }
+
+  @Test
+  public void parsesInlineJavaBlock() throws Exception {
+    String script = """
+      @scenario java_test
+      @character alice "Alice"
+
+      Alice: Before java
+      [java]
+      state.setVariable("hp", 100);
+      state.setVariable("name", "Hero");
+      [/java]
+      Alice: After java
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    List<VnNode> nodes = scen.getNodes();
+
+    // Find the EXTERNAL node with provider "inline_java"
+    VnNode javaNode = null;
+    for (VnNode n : nodes) {
+      if (n.getType() == VnNodeType.EXTERNAL
+          && n.getExternalCommand() != null
+          && "inline_java".equals(n.getExternalCommand().getProvider())) {
+        javaNode = n;
+        break;
+      }
+    }
+    assertNotNull(javaNode, "Should emit an EXTERNAL node with provider 'inline_java'");
+    String payload = javaNode.getExternalCommand().getPayload();
+    assertTrue(payload.contains("state.setVariable(\"hp\", 100)"), "Payload should contain user code");
+    assertTrue(payload.contains("state.setVariable(\"name\", \"Hero\")"), "Payload should contain user code");
+  }
+
+  @Test
+  public void unclosedJavaBlockReportsError() {
+    String script = """
+      @scenario java_unclosed
+      [java]
+      state.setVariable("x", 1);
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    assertThrows(Exception.class, () -> parser.parseFromString(script));
+  }
+
+  @Test
+  public void closingJavaWithoutOpeningReportsError() {
+    String script = """
+      @scenario java_mismatch
+      [/java]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    assertThrows(Exception.class, () -> parser.parseFromString(script));
+  }
+
+  @Test
+  public void javaBlockPreservesCommentsAndBlankLines() throws Exception {
+    String script = """
+      @scenario java_comments
+      [java]
+      // This is a comment
+      int x = 42;
+
+      state.setVariable("answer", x);
+      [/java]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    List<VnNode> nodes = scen.getNodes();
+
+    VnNode javaNode = null;
+    for (VnNode n : nodes) {
+      if (n.getType() == VnNodeType.EXTERNAL
+          && n.getExternalCommand() != null
+          && "inline_java".equals(n.getExternalCommand().getProvider())) {
+        javaNode = n;
+        break;
+      }
+    }
+    assertNotNull(javaNode);
+    String payload = javaNode.getExternalCommand().getPayload();
+    assertTrue(payload.contains("// This is a comment"), "Comments inside java block should be preserved");
+    assertTrue(payload.contains("int x = 42;"), "Code should be preserved");
+  }
 }
