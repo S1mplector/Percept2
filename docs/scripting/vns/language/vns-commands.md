@@ -819,7 +819,129 @@ if (hp <= 0) {
 - Lines starting with `#` are **not** treated as VNS comments inside `[java]` blocks.
 - Compiled classes are cached by content hash (MD5) to avoid recompilation.
 - Only available when running on a JDK (requires `javax.tools.JavaCompiler`).
-- Import `com.jvn.core.vn.*` is provided automatically.
+- Import `com.jvn.core.vn.*` and `com.jvn.core.vn.script.Vn` are provided automatically.
+- Compiler errors are remapped to the original script line numbers.
+
+### `$` (Single-Line Java Shorthand)
+
+Execute a single line of Java without opening a full block. Equivalent to a one-line `[java]...[/java]`.
+
+```vns
+$ state.setVariable("hp", 100);
+$ Vn.setVar("score", Vn.intVar("score") + 10);
+$ Vn.playBgm("victory_theme");
+```
+
+### `@jimport` (Custom Java Imports)
+
+Declare additional import statements for all subsequent `[java]` blocks and `$` lines in the same script. Placed before blocks that need the imports.
+
+```vns
+@jimport java.util.Random
+@jimport com.mygame.combat.DamageCalculator
+
+[java]
+Random rng = new Random();
+int damage = DamageCalculator.roll(rng, 5, 20);
+Vn.setVar("damage", damage);
+[/java]
+```
+
+### `@bind` (Variable Bridge)
+
+Declare variable bindings that automatically read from `VnState` before execution and write back after. Eliminates manual `getVariable`/`setVariable` boilerplate.
+
+Format: `@bind type:name` where type is a Java type (int, double, boolean, String, etc.)
+
+```vns
+@bind int:hp
+@bind int:defense
+@bind String:playerName
+
+[java]
+hp = Math.max(0, hp - (20 - defense));
+Vn.hud(playerName + " takes damage! HP: " + hp);
+[/java]
+```
+
+The variable bridge generates preamble/epilogue code:
+- **Read:** extracts the typed value from state before your code runs
+- **Write:** stores the value back into state after your code completes
+
+### `Vn.*` Facade API
+
+A static facade class available in all Java blocks, providing concise access to engine operations:
+
+| Method | Description |
+|--------|-------------|
+| `Vn.setVar(key, value)` | Set a game variable |
+| `Vn.getVar(key)` / `Vn.getVar(key, default)` | Get a variable |
+| `Vn.intVar(key)` / `Vn.doubleVar(key)` / `Vn.strVar(key)` / `Vn.boolVar(key)` | Typed getters |
+| `Vn.hasVar(key)` | Check if variable exists |
+| `Vn.show(charId, expression, position)` | Show character sprite |
+| `Vn.hide(charId)` | Hide character |
+| `Vn.playBgm(trackId)` / `Vn.stopBgm()` | Background music |
+| `Vn.playSfx(trackId)` | Sound effect |
+| `Vn.playVoice(trackId)` / `Vn.stopVoice()` | Voice playback |
+| `Vn.setBackground(bgId)` | Change background |
+| `Vn.jump(label)` | Jump to label |
+| `Vn.hud(message)` / `Vn.hud(message, durationMs)` | Show HUD message |
+| `Vn.setPersistent(key, value)` / `Vn.getPersistent(key)` | Persistent store |
+| `Vn.currentScene()` / `Vn.currentState()` | Direct access |
+| `Vn.log(message)` | Debug logging |
+
+### `[init java]` ... `[/init]` (Load-Time Initialization)
+
+Define static utility methods that are compiled once at load time and persist across the scenario. 
+The body becomes the content of a generated class. If it contains a `public static void init(VnScene scene)` method, that method is called immediately at load time.
+
+```vns
+[init java]
+public static int clampHp(int hp) {
+    return Math.max(0, Math.min(999, hp));
+}
+
+public static void init(VnScene scene) {
+    // Runs once when scenario loads
+    scene.getState().setVariable("max_hp", 999);
+}
+[/init]
+```
+
+### `[java class ClassName]` ... `[/java]` (Reusable Class Definitions)
+
+Define a named class that becomes available to all subsequent `[java]` blocks in the same scenario. Useful for combat systems, utility libraries, or data structures.
+
+```vns
+[java class CombatUtils]
+public static int calculateDamage(int atk, int def) {
+    return Math.max(1, atk - def);
+}
+
+public static boolean isCritical(double rate) {
+    return Math.random() < rate;
+}
+[/java]
+
+# Later in the script...
+[java]
+int dmg = CombatUtils.calculateDamage(Vn.intVar("atk"), Vn.intVar("def"));
+if (CombatUtils.isCritical(0.15)) dmg *= 2;
+Vn.setVar("last_damage", dmg);
+[/java]
+```
+
+### Error Line Remapping
+
+When a compilation error occurs, line numbers in error messages are remapped back to the original VNS script lines, making debugging significantly easier:
+
+```
+Inline Java compilation failed:
+  line 14: ';' expected
+  line 15: cannot find symbol: variable foo
+```
+
+The line numbers correspond to your `.vns` script, not the generated Java source.
 
 ### `[jes_push]` / `[jes_replace]` / `[jes_pop]` / `[jes_call]`
 

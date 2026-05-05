@@ -184,6 +184,15 @@ public class VnScriptParser {
     StringBuilder javaBuffer = new StringBuilder();
     int javaBlockStartLine = 0;
     String javaBlockStartSource = null;
+    String javaBlockClassName = null; // non-null for [java class X] blocks
+
+    boolean insideInitJava = false;
+    StringBuilder initJavaBuffer = new StringBuilder();
+    int initJavaBlockStartLine = 0;
+    String initJavaBlockStartSource = null;
+
+    List<String> javaImports = new ArrayList<>();
+    List<String> javaBinds = new ArrayList<>();
 
     CharacterPosition getCustomPosition(String name) {
       if (name == null || name.isBlank()) return null;
@@ -305,6 +314,11 @@ public class VnScriptParser {
           "Unclosed [java] block (missing [/java])", "[java]"));
     }
 
+    if (state.insideInitJava) {
+      state.errors.add(parseError(state.initJavaBlockStartSource, state.initJavaBlockStartLine,
+          "Unclosed [init java] block (missing [/init])", "[init java]"));
+    }
+
     ensureBuilder(state);
     flushChoices(state.builder, state.pendingChoices);
     flushPendingVoice(state);
@@ -336,6 +350,27 @@ public class VnScriptParser {
   public VnScenario parseFromString(String script) throws IOException {
     byte[] bytes = script == null ? new byte[0] : script.getBytes(StandardCharsets.UTF_8);
     return parse(new java.io.ByteArrayInputStream(bytes), "<string>", null);
+  }
+
+  private static String buildJavaPayload(String code, ParseState state, int sourceLine) {
+    boolean hasImports = !state.javaImports.isEmpty();
+    boolean hasBinds = !state.javaBinds.isEmpty();
+    if (!hasImports && !hasBinds && sourceLine == 0) {
+      return code; // Legacy format: raw code only (backward compatible)
+    }
+    StringBuilder sb = new StringBuilder();
+    if (hasImports) {
+      sb.append("\u00a7IMPORTS\u00a7").append(String.join("|", state.javaImports)).append("\n");
+    }
+    if (hasBinds) {
+      sb.append("\u00a7BINDS\u00a7").append(String.join("|", state.javaBinds)).append("\n");
+    }
+    if (sourceLine > 0) {
+      sb.append("\u00a7LINE\u00a7").append(sourceLine).append("\n");
+    }
+    sb.append("\u00a7SCENARIO\u00a7").append(state.scenarioId).append("\n");
+    sb.append("\u00a7CODE\u00a7").append(code);
+    return sb.toString();
   }
 
   private void processMenu(List<BufferedLine> buffer, IncludeResolver resolver, ParseState state, Deque<String> includeStack) throws IOException {
@@ -409,10 +444,37 @@ public class VnScriptParser {
           ensureBuilder(state);
           flushChoices(state.builder, state.pendingChoices);
           flushPendingVoice(state);
-          state.builder.external("inline_java", state.javaBuffer.toString());
+          if (state.javaBlockClassName != null) {
+            // [java class X] block — emit as java_class
+            state.builder.external("java_class", buildJavaPayload(
+                state.javaBlockClassName + "\n" + state.javaBuffer.toString(),
+                state, state.javaBlockStartLine));
+          } else {
+            // Regular [java] block
+            state.builder.external("inline_java", buildJavaPayload(
+                state.javaBuffer.toString(), state, state.javaBlockStartLine));
+          }
           state.javaBuffer.setLength(0);
+          state.javaBlockClassName = null;
         } else {
           state.javaBuffer.append(rawLine).append('\n');
+        }
+        continue;
+      }
+
+      // Inside init java blocks
+      if (state.insideInitJava) {
+        if (trimmed.equals("[/init]")) {
+          state.insideInitJava = false;
+          state.contentEmitted = true;
+          ensureBuilder(state);
+          flushChoices(state.builder, state.pendingChoices);
+          flushPendingVoice(state);
+          state.builder.external("init_java", buildJavaPayload(
+              state.initJavaBuffer.toString(), state, state.initJavaBlockStartLine));
+          state.initJavaBuffer.setLength(0);
+        } else {
+          state.initJavaBuffer.append(rawLine).append('\n');
         }
         continue;
       }
@@ -474,15 +536,59 @@ public class VnScriptParser {
         continue;
       }
 
+      // $ single-line Java shorthand
+      if (trimmed.startsWith("$") && trimmed.length() > 1 && trimmed.charAt(1) == ' ') {
+        String code = trimmed.substring(2);
+        state.contentEmitted = true;
+        ensureBuilder(state);
+        flushChoices(state.builder, state.pendingChoices);
+        flushPendingVoice(state);
+        state.builder.external("inline_java", buildJavaPayload(code, state, lineNumber));
+        continue;
+      }
+
+      // @jimport directive
+      if (trimmed.startsWith("@jimport ") || trimmed.startsWith("@jimport\t")) {
+        String imp = trimmed.substring("@jimport".length()).trim();
+        if (!imp.isEmpty()) state.javaImports.add(imp);
+        continue;
+      }
+
+      // @bind directive
+      if (trimmed.startsWith("@bind ") || trimmed.startsWith("@bind\t")) {
+        String bind = trimmed.substring("@bind".length()).trim();
+        if (!bind.isEmpty()) state.javaBinds.add(bind);
+        continue;
+      }
+
       if (trimmed.equals("[java]")) {
         state.insideJava = true;
         state.javaBuffer.setLength(0);
         state.javaBlockStartLine = lineNumber;
         state.javaBlockStartSource = sourceName;
+        state.javaBlockClassName = null;
+        continue;
+      }
+      if (trimmed.startsWith("[java class ") && trimmed.endsWith("]")) {
+        state.insideJava = true;
+        state.javaBuffer.setLength(0);
+        state.javaBlockStartLine = lineNumber;
+        state.javaBlockStartSource = sourceName;
+        state.javaBlockClassName = trimmed.substring("[java class ".length(), trimmed.length() - 1).trim();
+        continue;
+      }
+      if (trimmed.equals("[init java]")) {
+        state.insideInitJava = true;
+        state.initJavaBuffer.setLength(0);
+        state.initJavaBlockStartLine = lineNumber;
+        state.initJavaBlockStartSource = sourceName;
         continue;
       }
       if (trimmed.equals("[/java]")) {
         throw parseError(sourceName, lineNumber, "[/java] without matching [java]", rawLine);
+      }
+      if (trimmed.equals("[/init]")) {
+        throw parseError(sourceName, lineNumber, "[/init] without matching [init java]", rawLine);
       }
 
       Matcher scenarioMatcher = SCENARIO_PATTERN.matcher(trimmed);

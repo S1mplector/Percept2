@@ -1746,4 +1746,218 @@ public class VnScriptParserTest {
     assertTrue(payload.contains("// This is a comment"), "Comments inside java block should be preserved");
     assertTrue(payload.contains("int x = 42;"), "Code should be preserved");
   }
+
+  // ─── $ shorthand tests ─────────────────────────────────────────────
+
+  @Test
+  public void dollarShorthandEmitsInlineJava() throws Exception {
+    String script = """
+      @scenario dollar_test
+      $ state.setVariable("hp", 100);
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    List<VnNode> nodes = scen.getNodes();
+
+    VnNode javaNode = null;
+    for (VnNode n : nodes) {
+      if (n.getType() == VnNodeType.EXTERNAL
+          && n.getExternalCommand() != null
+          && "inline_java".equals(n.getExternalCommand().getProvider())) {
+        javaNode = n;
+        break;
+      }
+    }
+    assertNotNull(javaNode, "$ shorthand should emit an inline_java EXTERNAL node");
+    String payload = javaNode.getExternalCommand().getPayload();
+    assertTrue(payload.contains("state.setVariable(\"hp\", 100)"), "Payload should contain the code");
+  }
+
+  // ─── @jimport tests ────────────────────────────────────────────────
+
+  @Test
+  public void jimportAddsImportsToPayload() throws Exception {
+    String script = """
+      @scenario import_test
+      @jimport com.example.GameUtils
+      @jimport com.example.CombatSystem
+      [java]
+      GameUtils.doSomething();
+      [/java]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    List<VnNode> nodes = scen.getNodes();
+
+    VnNode javaNode = null;
+    for (VnNode n : nodes) {
+      if (n.getType() == VnNodeType.EXTERNAL
+          && n.getExternalCommand() != null
+          && "inline_java".equals(n.getExternalCommand().getProvider())) {
+        javaNode = n;
+        break;
+      }
+    }
+    assertNotNull(javaNode);
+    String payload = javaNode.getExternalCommand().getPayload();
+    assertTrue(payload.contains("com.example.GameUtils"), "Payload should contain import");
+    assertTrue(payload.contains("com.example.CombatSystem"), "Payload should contain import");
+    assertTrue(payload.contains("GameUtils.doSomething()"), "Payload should contain code");
+  }
+
+  // ─── @bind tests ──────────────────────────────────────────────────
+
+  @Test
+  public void bindAddsVariableBridgeToPayload() throws Exception {
+    String script = """
+      @scenario bind_test
+      @bind int:hp
+      @bind String:name
+      [java]
+      hp -= 10;
+      [/java]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    List<VnNode> nodes = scen.getNodes();
+
+    VnNode javaNode = null;
+    for (VnNode n : nodes) {
+      if (n.getType() == VnNodeType.EXTERNAL
+          && n.getExternalCommand() != null
+          && "inline_java".equals(n.getExternalCommand().getProvider())) {
+        javaNode = n;
+        break;
+      }
+    }
+    assertNotNull(javaNode);
+    String payload = javaNode.getExternalCommand().getPayload();
+    assertTrue(payload.contains("int:hp"), "Payload should contain bind declaration");
+    assertTrue(payload.contains("String:name"), "Payload should contain bind declaration");
+  }
+
+  // ─── [init java] tests ────────────────────────────────────────────
+
+  @Test
+  public void initJavaBlockEmitsInitJavaExternal() throws Exception {
+    String script = """
+      @scenario init_test
+      [init java]
+      public static int calculateDamage(int atk, int def) {
+          return Math.max(1, atk - def);
+      }
+      [/init]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    List<VnNode> nodes = scen.getNodes();
+
+    VnNode initNode = null;
+    for (VnNode n : nodes) {
+      if (n.getType() == VnNodeType.EXTERNAL
+          && n.getExternalCommand() != null
+          && "init_java".equals(n.getExternalCommand().getProvider())) {
+        initNode = n;
+        break;
+      }
+    }
+    assertNotNull(initNode, "Should emit an init_java EXTERNAL node");
+    String payload = initNode.getExternalCommand().getPayload();
+    assertTrue(payload.contains("calculateDamage"), "Payload should contain init code");
+  }
+
+  @Test
+  public void unclosedInitJavaBlockReportsError() {
+    String script = """
+      @scenario init_unclosed
+      [init java]
+      public static void helper() {}
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    assertThrows(Exception.class, () -> parser.parseFromString(script));
+  }
+
+  @Test
+  public void closingInitWithoutOpeningReportsError() {
+    String script = """
+      @scenario init_mismatch
+      [/init]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    assertThrows(Exception.class, () -> parser.parseFromString(script));
+  }
+
+  // ─── [java class] tests ───────────────────────────────────────────
+
+  @Test
+  public void javaClassBlockEmitsJavaClassExternal() throws Exception {
+    String script = """
+      @scenario class_test
+      [java class GameUtils]
+      public static int clamp(int val, int min, int max) {
+          return Math.max(min, Math.min(max, val));
+      }
+      [/java]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    List<VnNode> nodes = scen.getNodes();
+
+    VnNode classNode = null;
+    for (VnNode n : nodes) {
+      if (n.getType() == VnNodeType.EXTERNAL
+          && n.getExternalCommand() != null
+          && "java_class".equals(n.getExternalCommand().getProvider())) {
+        classNode = n;
+        break;
+      }
+    }
+    assertNotNull(classNode, "Should emit a java_class EXTERNAL node");
+    String payload = classNode.getExternalCommand().getPayload();
+    assertTrue(payload.contains("GameUtils"), "Payload should contain class name");
+    assertTrue(payload.contains("clamp"), "Payload should contain class body");
+  }
+
+  // ─── Payload metadata encoding tests ──────────────────────────────
+
+  @Test
+  public void dollarShorthandIncludesLineInfo() throws Exception {
+    String script = """
+      @scenario line_test
+      $ int x = 42;
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    List<VnNode> nodes = scen.getNodes();
+
+    VnNode javaNode = null;
+    for (VnNode n : nodes) {
+      if (n.getType() == VnNodeType.EXTERNAL
+          && n.getExternalCommand() != null
+          && "inline_java".equals(n.getExternalCommand().getProvider())) {
+        javaNode = n;
+        break;
+      }
+    }
+    assertNotNull(javaNode);
+    String payload = javaNode.getExternalCommand().getPayload();
+    // Should contain LINE and SCENARIO metadata
+    assertTrue(payload.contains("\u00a7LINE\u00a7"), "Payload should contain line metadata");
+    assertTrue(payload.contains("\u00a7SCENARIO\u00a7line_test"), "Payload should contain scenario metadata");
+    assertTrue(payload.contains("\u00a7CODE\u00a7"), "Payload should contain CODE section");
+  }
 }
