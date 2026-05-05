@@ -22,8 +22,25 @@ Lavender: Now it's {b}happy{/b}. Same position, different sprite. That swap is o
 > Step 3: @charlayer + @charpreset — layered sprites -> section_layers
 > Step 4: [show] and [hide] — putting characters on screen -> section_show_hide
 > Step 5: Positions — where characters stand -> section_positions
+> Quick reference: character pipeline -> quick_reference
 > Live gallery: Lavender's expressions -> practice_scene
 > Back to Tutorial Hub -> return_hub
+
+# ─── Quick Reference ─────────────────────────────────────────────
+
+@label quick_reference
+[show lavender center talking]
+Lavender: Character setup usually follows this order:
+narrator: {color=#8888cc}@character lavender "Lavender"{/color}
+narrator: {color=#8888cc}@charimg lavender happy assets/characters/lavender_happy.png{/color}
+narrator: {color=#8888cc}@charlayer lavender eyes_happy assets/characters/lavender/eyes_happy.png{/color}
+narrator: {color=#8888cc}@charpreset lavender happy $base | $eyes_happy | $mouth_smile{/color}
+narrator: {color=#8888cc}[show lavender center happy]{/color}
+narrator: {color=#8888cc}[hide lavender]{/color}
+[show lavender center happy]
+Lavender: Checklist: declare once, use stable expression names, and keep positions readable before adding motion.
+> Start the lesson sections -> section_declare
+> Back to menu -> lesson_menu
 
 # ─── Step 1: @character ──────────────────────────────────────────
 

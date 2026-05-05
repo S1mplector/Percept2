@@ -20,8 +20,24 @@ Lavender: This tutorial covers the config file structure for dialogue and menus.
 > Style properties — colors and fonts -> section_styles
 > Layout properties — positioning values -> section_layout_files
 > The menu registry -> section_registry
+> Quick reference: UI files -> quick_reference
 > Practice: design by genre -> practice_scene
 > Back to Tutorial Hub -> return_hub
+
+# ─── Quick Reference ─────────────────────────────────────────────
+
+@label quick_reference
+[show lavender center talking]
+Lavender: UI customization lives in config files:
+narrator: {color=#8888cc}config/ui/dialogue.layout{/color} — text box position and size.
+narrator: {color=#8888cc}config/ui/dialogue.style{/color} — dialogue colors and fonts.
+narrator: {color=#8888cc}config/menu/menus/main.menu{/color} — items and actions.
+narrator: {color=#8888cc}config/menu/layouts/default.layout{/color} — menu placement.
+narrator: {color=#8888cc}config/menu/styles/default.style{/color} — menu appearance.
+[show lavender center happy]
+Lavender: Checklist: edit one file type at a time, test at multiple resolutions, and keep readable contrast.
+> Start the lesson sections -> section_dialogue_box
+> Back to menu -> lesson_menu
 
 # ─── Dialogue Box ────────────────────────────────────────────────
 

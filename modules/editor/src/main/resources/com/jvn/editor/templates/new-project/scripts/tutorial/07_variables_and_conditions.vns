@@ -20,8 +20,26 @@ Lavender: Variables let the script remember things. Conditions let it react. Tha
 > [inc] and [dec] — counting up and down -> section_math
 > [if] / [elif] / [else] / [endif] — conditional blocks -> section_conditions
 > Wiring variables to choices -> section_choices_vars
+> Quick reference: state and branching -> quick_reference
 > Practice: a scored quiz -> practice_scene
 > Back to Tutorial Hub -> return_hub
+
+# ─── Quick Reference ─────────────────────────────────────────────
+
+@label quick_reference
+[show lavender center talking]
+Lavender: Variables are the memory of your story:
+narrator: {color=#8888cc}[set trust 0]{/color}
+narrator: {color=#8888cc}[inc trust]{/color} and {color=#8888cc}[dec trust]{/color}
+narrator: {color=#8888cc}[if trust >= 2]{/color}
+narrator: {color=#8888cc}Lavender: I trust you.{/color}
+narrator: {color=#8888cc}[else]{/color}
+narrator: {color=#8888cc}Lavender: Not yet.{/color}
+narrator: {color=#8888cc}[endif]{/color}
+[show lavender center happy]
+Lavender: Checklist: initialize variables, keep names specific, and close every [if] with [endif].
+> Start the lesson sections -> section_set
+> Back to menu -> lesson_menu
 
 # ─── [set] ───────────────────────────────────────────────────────
 

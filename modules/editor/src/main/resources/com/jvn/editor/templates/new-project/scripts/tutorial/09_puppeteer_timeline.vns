@@ -21,8 +21,24 @@ Lavender: Timelines are VNS's most powerful feature. Let's learn the syntax.
 > Camera tracks — pan and zoom -> section_camera
 > Keyframe paths — multi-point animation -> section_keyframes
 > The Puppeteer visual editor -> section_editor
+> Quick reference: timeline block -> quick_reference
 > Practice: reading a timeline -> practice_scene
 > Back to Tutorial Hub -> return_hub
+
+# ─── Quick Reference ─────────────────────────────────────────────
+
+@label quick_reference
+[show lavender center talking]
+Lavender: Inline timelines group animation instructions into one timed block:
+narrator: {color=#8888cc}timeline \{{/color}
+narrator: {color=#8888cc}  actor lavender x 640 at 0{/color}
+narrator: {color=#8888cc}  actor lavender x 760 at 600 easeInOut{/color}
+narrator: {color=#8888cc}  camera zoom 1.0 1.08 at 300 dur 500{/color}
+narrator: {color=#8888cc}\}{/color}
+[show lavender center happy]
+Lavender: Checklist: keep entity names stable, use keyframes for motion, and reserve timeline blocks for animation that needs precise timing.
+> Start the lesson sections -> section_what
+> Back to menu -> lesson_menu
 
 # ─── Timeline Block ──────────────────────────────────────────────
 

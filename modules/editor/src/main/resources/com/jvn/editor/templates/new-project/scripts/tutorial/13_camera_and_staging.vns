@@ -19,8 +19,24 @@ Lavender: Two commands: {b}[camera pan]{/b} and {b}[camera zoom]{/b}. Plus stagi
 > [camera zoom] — close-ups and wide shots -> section_zoom
 > Staging two characters -> section_two_char
 > Composition principles -> section_composition
+> Quick reference: staging commands -> quick_reference
 > Practice: three staged scenes -> practice_scene
 > Back to Tutorial Hub -> return_hub
+
+# ─── Quick Reference ─────────────────────────────────────────────
+
+@label quick_reference
+[show lavender center talking]
+Lavender: Camera work should direct attention:
+narrator: {color=#8888cc}[camera pan 0,0 100,0 easeInOut 1000]{/color}
+narrator: {color=#8888cc}[camera zoom 1.0 1.12 easeIn 600]{/color}
+narrator: {color=#8888cc}[show lavender left talking]{/color}
+narrator: {color=#8888cc}[show alex right neutral]{/color}
+narrator: {color=#8888cc}[move lavender center easeInOut 400]{/color}
+[show lavender center happy]
+Lavender: Checklist: establish the scene, keep speakers readable, and reset camera moves when the moment ends.
+> Start the lesson sections -> section_pan
+> Back to menu -> lesson_menu
 
 # ─── Camera Pan ──────────────────────────────────────────────────
 

@@ -21,8 +21,23 @@ Lavender: That was {b}[move lavender center easeInOut 600]{/b}. One command, smo
 > Easing curves explained -> section_easing
 > @position — custom named positions -> section_custom_pos
 > Timing movement with dialogue -> section_move_dialogue
+> Quick reference: movement patterns -> quick_reference
 > Practice: live movement demos -> practice_scene
 > Back to Tutorial Hub -> return_hub
+
+# ─── Quick Reference ─────────────────────────────────────────────
+
+@label quick_reference
+[show lavender center talking]
+Lavender: Movement is blocking plus timing:
+narrator: {color=#8888cc}[move lavender center easeInOut 450]{/color}
+narrator: {color=#8888cc}[move lavender at 0.25,0.90 easeOut 600]{/color}
+narrator: {color=#8888cc}@position doorway 0.18 0.92{/color}
+narrator: {color=#8888cc}[show lavender doorway talking]{/color}
+[show lavender center happy]
+Lavender: Checklist: move for story reasons, pick easing that matches emotion, and wait long enough for the player to see it.
+> Start the lesson sections -> section_move
+> Back to menu -> lesson_menu
 
 # ─── [move] ──────────────────────────────────────────────────────
 

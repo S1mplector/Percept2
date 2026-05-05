@@ -20,8 +20,23 @@ Lavender: One script, many languages. Here's how it works.
 > Key naming conventions -> section_naming
 > Translation workflow -> section_workflow
 > Five localization pitfalls -> section_pitfalls
+> Quick reference: localization checklist -> quick_reference
 > Practice: solve a translation problem -> practice_scene
 > Back to Tutorial Hub -> return_hub
+
+# ─── Quick Reference ─────────────────────────────────────────────
+
+@label quick_reference
+[show lavender center talking]
+Lavender: Localization starts with context-rich keys:
+narrator: {color=#8888cc}Lavender: \{\{ch1.rooftop.lavender_greeting\}\}{/color}
+narrator: {color=#8888cc}ch1.rooftop.lavender_greeting = Good morning.{/color}
+narrator: {color=#8888cc}menu.settings.volume_label = Volume{/color}
+narrator: Keep translator notes near ambiguous lines and never reuse a key for two different meanings.
+[show lavender center happy]
+Lavender: Checklist: stable key names, complete default locale, translated menus, and a missing-key pass before release.
+> Start the lesson sections -> section_textkeys
+> Back to menu -> lesson_menu
 
 # ─── Text Keys ───────────────────────────────────────────────────
 

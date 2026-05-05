@@ -19,8 +19,24 @@ Lavender: This tutorial covers declaring backgrounds, switching them, and compos
 > [bg] — switching mid-scene -> section_switching
 > Scene composition — background + characters -> section_composing
 > Asset folders and naming -> section_organization
+> Quick reference: background workflow -> quick_reference
 > Practice: build a scene from scratch -> practice_scene
 > Back to Tutorial Hub -> return_hub
+
+# ─── Quick Reference ─────────────────────────────────────────────
+
+@label quick_reference
+[show lavender center talking]
+Lavender: Backgrounds are declared once, then switched by ID:
+narrator: {color=#8888cc}@background field_day assets/backgrounds/field_day.png{/color}
+narrator: {color=#8888cc}[bg field_day]{/color}
+narrator: {color=#8888cc}[transition fade 500]{/color}
+narrator: {color=#8888cc}[bg cafe_night]{/color}
+narrator: {color=#8888cc}[transition crossfade 700 field_evening]{/color}
+[show lavender center happy]
+Lavender: Checklist: clear IDs, correct asset paths, target-resolution images, and a transition only when the cut should feel smooth.
+> Start the lesson sections -> section_declare
+> Back to menu -> lesson_menu
 
 # ─── @background ─────────────────────────────────────────────────
 

@@ -21,8 +21,24 @@ Lavender: That's a {b}>{/b}, the button text, an arrow {b}->{/b}, and the label 
 > Gated (conditional) choices -> section_gated
 > [jump] vs [goto] -> section_jump_goto
 > Writing effective choice text -> section_writing
+> Quick reference: choice flow -> quick_reference
 > Practice: a branching scene -> practice_scene
 > Back to Tutorial Hub -> return_hub
+
+# ─── Quick Reference ─────────────────────────────────────────────
+
+@label quick_reference
+[show lavender center talking]
+Lavender: Choices are labels plus visible options:
+narrator: {color=#8888cc}> Ask about the key -> ask_key{/color}
+narrator: {color=#8888cc}> Leave quietly [if courage < 2] -> leave{/color}
+narrator: {color=#8888cc}@label ask_key{/color}
+narrator: {color=#8888cc}[jump merge]{/color}
+narrator: {color=#8888cc}@label merge{/color}
+[show lavender center happy]
+Lavender: Checklist: every target label exists, choices say what the player means, and branches merge when they should.
+> Start the lesson sections -> section_basic
+> Back to menu -> lesson_menu
 
 # ─── Choice Syntax ───────────────────────────────────────────────
 

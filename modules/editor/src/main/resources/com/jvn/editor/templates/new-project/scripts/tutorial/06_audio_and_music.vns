@@ -19,8 +19,24 @@ Lavender: Each layer has its own commands. Let's go through them.
 > [sfx] — sound effects -> section_sfx
 > [voice] — voice acting -> section_voice
 > Fading and crossfading audio -> section_fading
+> Quick reference: audio commands -> quick_reference
 > Practice: scoring a scene -> practice_scene
 > Back to Tutorial Hub -> return_hub
+
+# ─── Quick Reference ─────────────────────────────────────────────
+
+@label quick_reference
+[show lavender center talking]
+Lavender: Audio works best when each channel has a job:
+narrator: {color=#8888cc}[bgm "assets/audio/theme.mp3" loop=true vol=0.7]{/color}
+narrator: {color=#8888cc}[sfx "assets/audio/sfx/click.ogg" vol=0.8]{/color}
+narrator: {color=#8888cc}[voice "assets/audio/voice/lavender_001.ogg"]{/color}
+narrator: {color=#8888cc}[bgm_crossfade "assets/audio/next_theme.mp3" 1200]{/color}
+narrator: {color=#8888cc}[bgm_fadeout 900]{/color}
+[show lavender center happy]
+Lavender: Checklist: music loops cleanly, SFX are short, voice lines match the following dialogue, and volume is balanced.
+> Start the lesson sections -> section_bgm
+> Back to menu -> lesson_menu
 
 # ─── BGM ─────────────────────────────────────────────────────────
 

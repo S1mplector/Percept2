@@ -23,8 +23,23 @@ Lavender: That's the core of this lesson — three commands that control rhythm.
 > [wait] — hard pauses -> section_waits
 > Line length as a pacing tool -> section_line_length
 > Live demo: all tools combined -> section_rhythm
+> Quick reference: pacing commands -> quick_reference
 > Practice: pace a scene -> practice_scene
 > Back to Tutorial Hub -> return_hub
+
+# ─── Quick Reference ─────────────────────────────────────────────
+
+@label quick_reference
+[show lavender center talking]
+Lavender: Pacing is three dials and one writing habit:
+narrator: {color=#8888cc}[textspeed 28]{/color} — milliseconds between revealed characters.
+narrator: {color=#8888cc}[autodelay 1650]{/color} — auto-play pause after each line.
+narrator: {color=#8888cc}[wait 600]{/color} — a hard pause everyone feels.
+narrator: Keep most dialogue lines short enough to read in one comfortable breath.
+[show lavender center happy]
+Lavender: Default recipe: textspeed 28, autodelay 1200-1800, wait only for intentional beats.
+> Start the lesson sections -> section_textspeed
+> Back to menu -> lesson_menu
 
 # ─── Text Speed ──────────────────────────────────────────────────
 

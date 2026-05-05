@@ -20,8 +20,23 @@ Lavender: Testing, validation, and the release checklist. Let's finish strong.
 > Save/load testing — the subtle bugs -> section_saves
 > The release checklist -> section_release
 > Post-release — what happens after you ship -> section_post_release
+> Quick reference: release gate -> quick_reference
 > Final quiz -> practice_scene
 > Back to Tutorial Hub -> return_hub
+
+# ─── Quick Reference ─────────────────────────────────────────────
+
+@label quick_reference
+[show lavender center talking]
+Lavender: Do not ship from vibes. Ship from a checklist:
+narrator: {b}Validate{/b}: parser, assets, labels, menu config.
+narrator: {b}Playtest{/b}: every branch, every ending, every tutorial or route entry.
+narrator: {b}Save/load{/b}: before choices, after branches, inside subroutines, near scene exits.
+narrator: {b}Package{/b}: clean build, fresh install, launch from shortcut, verify logs.
+[show lavender center happy]
+Lavender: Checklist: one final pass on a clean machine or clean folder before you call the build done.
+> Start the lesson sections -> section_validation
+> Back to menu -> lesson_menu
 
 # ─── Validation ──────────────────────────────────────────────────
 

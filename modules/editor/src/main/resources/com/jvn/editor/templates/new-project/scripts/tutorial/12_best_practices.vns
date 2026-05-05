@@ -19,8 +19,22 @@ Lavender: Naming, structure, writing craft, and the bugs that bite everyone exac
 > Project structure -> section_structure
 > Writing craft -> section_writing
 > The six most common bugs -> section_bugs
+> Quick reference: project hygiene -> quick_reference
 > Quiz: spot the problem -> practice_scene
 > Back to Tutorial Hub -> return_hub
+
+# ─── Quick Reference ─────────────────────────────────────────────
+
+@label quick_reference
+[show lavender center talking]
+Lavender: Good projects are boring to navigate:
+narrator: Use stable names: {color=#8888cc}chapter02_rooftop.vns{/color}, {color=#8888cc}trust_lavender{/color}, {color=#8888cc}@label confession_merge{/color}.
+narrator: Keep declarations shared, scene scripts focused, and assets sorted by type.
+narrator: Validate before playtesting. Commit working milestones. Back up art and audio sources.
+[show lavender center happy]
+Lavender: Checklist: readable names, shallow folders, one scenario per file, and every branch tested before you build.
+> Start the lesson sections -> section_naming
+> Back to menu -> lesson_menu
 
 # ─── Naming ──────────────────────────────────────────────────────
 

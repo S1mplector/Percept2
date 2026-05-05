@@ -21,8 +21,23 @@ Lavender: Those two line types, plus a handful of formatting tags, are everythin
 > Text tags: bold, italic, color -> section_tags
 > Text tags: wave and shake -> section_fx_tags
 > Nesting tags together -> section_nesting
+> Quick reference: dialogue syntax -> quick_reference
 > Practice: a mini-scene -> practice_scene
 > Back to Tutorial Hub -> return_hub
+
+# ─── Quick Reference ─────────────────────────────────────────────
+
+@label quick_reference
+[show lavender center talking]
+Lavender: Keep this pattern nearby while writing your first scenes:
+narrator: {color=#8888cc}@character lavender "Lavender"{/color}
+narrator: {color=#8888cc}Lavender: Character dialogue goes after the colon.{/color}
+narrator: {color=#8888cc}narrator: Narration uses the narrator speaker ID.{/color}
+narrator: {color=#8888cc}Lavender: Use \{b\}bold\{/b\}, \{i\}italic\{/i\}, and \{color=#4a9eff\}color\{/color\}.{/color}
+[show lavender center happy]
+Lavender: Checklist: declared speaker, readable line length, one emphasis tag only when it helps.
+> Start the lesson sections -> section_lines
+> Back to menu -> lesson_menu
 
 # ─── Character Lines ─────────────────────────────────────────────
 

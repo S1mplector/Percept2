@@ -20,8 +20,23 @@ Lavender: Each one is a single command with a duration in milliseconds. Let's co
 > [screen flash] — burst of light -> section_flash
 > [screen shake] — camera shake -> section_shake
 > Duration guide — choosing the right speed -> section_timing
+> Quick reference: visual punctuation -> quick_reference
 > Practice: live effect demos -> practice_scene
 > Back to Tutorial Hub -> return_hub
+
+# ─── Quick Reference ─────────────────────────────────────────────
+
+@label quick_reference
+[show lavender center talking]
+Lavender: Use visual effects like punctuation, not wallpaper:
+narrator: {color=#8888cc}[transition fade 500]{/color} — hard scene break.
+narrator: {color=#8888cc}[transition crossfade 700 field_evening]{/color} — continuous change.
+narrator: {color=#8888cc}[screen flash white 180]{/color} — impact or revelation.
+narrator: {color=#8888cc}[screen shake 8 250]{/color} — shock or instability.
+[show lavender center happy]
+Lavender: Checklist: one effect per beat, short durations for impact, longer durations for mood.
+> Start the lesson sections -> section_fade
+> Back to menu -> lesson_menu
 
 # ─── Fade ────────────────────────────────────────────────────────
 

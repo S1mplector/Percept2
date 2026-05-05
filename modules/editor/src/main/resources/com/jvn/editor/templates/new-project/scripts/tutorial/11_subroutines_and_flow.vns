@@ -19,8 +19,25 @@ Lavender: That difference is the foundation of reusable script structure. Let me
 > @include — shared definition files -> section_include
 > @scenario and @label — file structure -> section_structure
 > Organizing a multi-file project -> section_organizing
+> Quick reference: reusable flow -> quick_reference
 > Practice: live call/return demo -> practice_scene
 > Back to Tutorial Hub -> return_hub
+
+# ─── Quick Reference ─────────────────────────────────────────────
+
+@label quick_reference
+[show lavender center talking]
+Lavender: Reuse common beats instead of copying them:
+narrator: {color=#8888cc}@include /definitions/characters.vns{/color}
+narrator: {color=#8888cc}[call common_warning]{/color}
+narrator: {color=#8888cc}@label common_warning{/color}
+narrator: {color=#8888cc}narrator: The air turns cold.{/color}
+narrator: {color=#8888cc}[return]{/color}
+narrator: Use {color=#8888cc}[goto OtherArc:start]{/color} for cross-scenario travel.
+[show lavender center happy]
+Lavender: Checklist: include shared declarations once, keep subroutines short, and make every [call] reach a [return].
+> Start the lesson sections -> section_call
+> Back to menu -> lesson_menu
 
 # ─── [call] and [return] ────────────────────────────────────────
 
