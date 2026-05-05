@@ -11,6 +11,7 @@ import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridLayout;
+import java.awt.LayoutManager;
 import java.awt.LinearGradientPaint;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
@@ -68,9 +69,8 @@ import javax.swing.plaf.basic.BasicScrollBarUI;
  * launcher, or runtime, run common Gradle tasks, and pull-rebase the repository
  * without touching the {@code jvnw} wrapper CLI.
  *
- * <p>Visually mirrors {@code com.jvn.editor.ui.StartupSplashOverlay}: black background,
- * neutral-gray accent (matches the editor's settings sidebar palette), compact header
- * + simple activity panel.</p>
+ * <p>Visually mirrors the launcher/editor palette: dark charcoal neutral-gray
+ * background, light text, compact header, and simple activity panel.</p>
  *
  * <p>Shells out to {@code ./gradlew} and {@code git}. The hub remains responsive while
  * a task runs; only one task at a time is allowed and the buttons disable for the
@@ -78,20 +78,21 @@ import javax.swing.plaf.basic.BasicScrollBarUI;
  */
 public final class JvnHub {
 
-  // --- Neutral-gray palette --------------------------------------------------
-  // Aligned with the editor's settings-sidebar CSS (#0f0f0f / #1c1c1c /
-  // #2a2a2a / #c2c2c2 / #e2e2e2 / #f2f2f2) so the hub no longer stands out
-  // against the rest of the tooling UI. Status colours (green/error) are
-  // kept as signal accents because they convey task-result semantics, not
-  // branding. Previously the palette was tinted navy-blue.
-  private static final Color BG             = Color.BLACK;
-  private static final Color PANEL_BG       = Color.BLACK;
-  private static final Color HOVER_BG       = Color.decode("#141414");
-  private static final Color PRESSED_BG     = Color.decode("#1c1c1c");
-  private static final Color BORDER_NEUTRAL = Color.decode("#2a2a2a");
-  private static final Color TEXT_PRIMARY   = Color.decode("#f2f2f2");
-  private static final Color TEXT_MUTED     = Color.decode("#9c9c9c");
-  private static final Color TEXT_SOFT      = Color.decode("#b7b7b7");
+  // --- Editor dark neutral-gray palette -------------------------------------
+  // Mirrors the dark editor/launcher CSS: neutral graphite surfaces, no blue
+  // cast, and very subtle gradients instead of flat pure black.
+  private static final Color BG             = Color.decode("#101010");
+  private static final Color BG_TOP         = Color.decode("#151515");
+  private static final Color BG_BOTTOM      = Color.decode("#101010");
+  private static final Color PANEL_BG       = Color.decode("#1c1c1c");
+  private static final Color PANEL_BG_TOP   = Color.decode("#262626");
+  private static final Color PANEL_BG_BOTTOM = Color.decode("#1c1c1c");
+  private static final Color HOVER_BG       = Color.decode("#303030");
+  private static final Color PRESSED_BG     = Color.decode("#181818");
+  private static final Color BORDER_NEUTRAL = Color.decode("#3a3a3a");
+  private static final Color TEXT_PRIMARY   = Color.decode("#f0f0f0");
+  private static final Color TEXT_MUTED     = Color.decode("#9a9a9a");
+  private static final Color TEXT_SOFT      = Color.decode("#c5c5c5");
   /** High-contrast neutral for emphasis (version tag, dates, running-task state). */
   private static final Color ACCENT_NEUTRAL = Color.decode("#c2c2c2");
   private static final Color ACCENT_GREEN   = Color.decode("#7ed39a");
@@ -139,8 +140,8 @@ public final class JvnHub {
     Path root = resolveProjectRoot(args);
     // Keep the cross-platform (Metal) L&F — Aqua on macOS tints custom backgrounds
     // with system chrome we cannot override per-component. Cross-platform L&F honors
-    // setBackground/setForeground verbatim, which is what the dark theme needs.
-    applyDarkDefaults();
+    // setBackground/setForeground verbatim, which is what the custom theme needs.
+    applyHubDefaults();
     SwingUtilities.invokeLater(() -> {
       JvnHub hub = new JvnHub(root);
       hub.frame.setVisible(true);
@@ -148,7 +149,7 @@ public final class JvnHub {
   }
 
   /** Seed UIManager so ancillary components (tooltips, split panes, dialogs) match. */
-  private static void applyDarkDefaults() {
+  private static void applyHubDefaults() {
     UIManager.put("control", BG);
     UIManager.put("info", BG);
     UIManager.put("nimbusBase", BG);
@@ -181,7 +182,7 @@ public final class JvnHub {
       @Override public void windowClosing(WindowEvent e) { confirmAndExit(); }
     });
 
-    JPanel root = new JPanel(new BorderLayout(0, 12));
+    JPanel root = new GradientPanel(new BorderLayout(0, 12), BG_TOP, BG_BOTTOM);
     root.setBackground(BG);
     root.setBorder(new EmptyBorder(16, 16, 16, 16));
 
@@ -190,9 +191,7 @@ public final class JvnHub {
     root.add(buildFooter(), BorderLayout.SOUTH);
 
     frame.setContentPane(root);
-    // Force every paintable surface to pure black so the hub's body matches
-    // the splash exactly — defeats the cross-platform L&F's default light-grey
-    // root pane / frame background that would otherwise tint the window edges.
+    // Keep frame/root chrome aligned with the custom charcoal-neutral surface.
     frame.setBackground(BG);
     frame.getRootPane().setBackground(BG);
     frame.getRootPane().setOpaque(true);
@@ -211,11 +210,11 @@ public final class JvnHub {
 
   private JPanel buildHeader() {
     JPanel header = new JPanel(new BorderLayout());
-    header.setBackground(BG);
+    header.setOpaque(false);
 
     // --- Left: vector logo + text stack -------------------------------------
     JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
-    left.setBackground(BG);
+    left.setOpaque(false);
 
     JLabel logoLabel = new JLabel(new JvnLogoIcon(96, 56));
     left.add(logoLabel);
@@ -233,7 +232,7 @@ public final class JvnHub {
     versionLabel.setFont(versionLabel.getFont().deriveFont(Font.BOLD, 10f));
 
     JPanel titleBox = new JPanel();
-    titleBox.setBackground(BG);
+    titleBox.setOpaque(false);
     titleBox.setLayout(new BoxLayout(titleBox, BoxLayout.Y_AXIS));
     title.setAlignmentX(Component.LEFT_ALIGNMENT);
     subtitle.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -253,7 +252,7 @@ public final class JvnHub {
     announcementsButton.addActionListener(e -> showAnnouncementsDialog());
 
     JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
-    right.setBackground(BG);
+    right.setOpaque(false);
     right.add(announcementsButton);
     header.add(right, BorderLayout.EAST);
 
@@ -498,7 +497,7 @@ public final class JvnHub {
   private JPanel buildCenter() {
     // 5 actions laid out as a 3-row / 2-col grid; the last cell stays empty.
     JPanel buttons = new JPanel(new GridLayout(3, 2, 10, 10));
-    buttons.setBackground(BG);
+    buttons.setOpaque(false);
 
     buttons.add(makeAction("Run Editor", "Launch the full JVN editor.",
         VectorIcon.Kind.EDIT, false, () -> runGradle(":editor:run")));
@@ -523,7 +522,7 @@ public final class JvnHub {
     buttons.add(updateEngineButton);
 
     JPanel center = new JPanel(new BorderLayout(0, 8));
-    center.setBackground(BG);
+    center.setOpaque(false);
     center.add(buttons, BorderLayout.NORTH);
     center.add(buildActivityPanel(), BorderLayout.SOUTH);
     return center;
@@ -554,7 +553,7 @@ public final class JvnHub {
 
   private static void styleScrollBar(JScrollBar bar) {
     if (bar == null) return;
-    bar.setUI(new DarkScrollBarUI());
+    bar.setUI(new NeutralScrollBarUI());
     bar.setOpaque(true);
     bar.setBackground(BG);
     bar.setBorder(BorderFactory.createEmptyBorder());
@@ -564,13 +563,13 @@ public final class JvnHub {
 
   private JPanel buildFooter() {
     JPanel footer = new JPanel(new BorderLayout());
-    footer.setBackground(BG);
+    footer.setOpaque(false);
 
     statusLabel.setForeground(TEXT_SOFT);
     statusLabel.setFont(statusLabel.getFont().deriveFont(Font.PLAIN, 11f));
 
     JLabel rootLabel = new JLabel("Project: " + projectRoot.toString());
-    rootLabel.setForeground(Color.decode("#75829a"));
+    rootLabel.setForeground(TEXT_MUTED);
     rootLabel.setFont(rootLabel.getFont().deriveFont(Font.PLAIN, 10f));
 
     FlatButton cancel = new FlatButton("Cancel",
@@ -582,12 +581,12 @@ public final class JvnHub {
     quit.addActionListener(e -> confirmAndExit());
 
     JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
-    right.setBackground(BG);
+    right.setOpaque(false);
     right.add(cancel);
     right.add(quit);
 
     JPanel left = new JPanel();
-    left.setBackground(BG);
+    left.setOpaque(false);
     left.setLayout(new BoxLayout(left, BoxLayout.Y_AXIS));
     statusLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
     rootLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -1356,8 +1355,44 @@ public final class JvnHub {
   }
 
   // ===========================================================================
-  //  Nested UI primitives: flat dark button, vector icons, scrollbar UI.
+  //  Nested UI primitives: flat neutral button, vector icons, scrollbar UI.
   // ===========================================================================
+
+  /** Lightweight Swing panel for the hub's charcoal launcher-style surface. */
+  private static final class GradientPanel extends JPanel {
+    private final Color top;
+    private final Color bottom;
+
+    GradientPanel(LayoutManager layout, Color top, Color bottom) {
+      super(layout);
+      this.top = top;
+      this.bottom = bottom;
+      setOpaque(false);
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+      Graphics2D g2 = (Graphics2D) g.create();
+      g2.setPaint(new LinearGradientPaint(
+          0f,
+          0f,
+          0f,
+          Math.max(1f, getHeight()),
+          new float[] {0f, 1f},
+          new Color[] {top, bottom}));
+      g2.fillRect(0, 0, getWidth(), getHeight());
+      g2.dispose();
+      super.paintComponent(g);
+    }
+  }
+
+  private static Color lighten(Color color, float amount) {
+    float t = Math.max(0f, Math.min(1f, amount));
+    int r = Math.round(color.getRed() + (255 - color.getRed()) * t);
+    int g = Math.round(color.getGreen() + (255 - color.getGreen()) * t);
+    int b = Math.round(color.getBlue() + (255 - color.getBlue()) * t);
+    return new Color(r, g, b, color.getAlpha());
+  }
 
   /** Compact indeterminate spinner used in place of terminal-style output. */
   private static final class ActivitySpinner extends JComponent {
@@ -1393,7 +1428,7 @@ public final class JvnHub {
       float cy = h / 2f;
       float radius = Math.min(w, h) * 0.34f;
 
-      g2.setColor(active ? Color.decode("#07101f") : BG);
+      g2.setColor(active ? Color.decode("#1f1f1f") : PANEL_BG);
       g2.fillOval(Math.round(cx - radius - 4), Math.round(cy - radius - 4),
           Math.round((radius + 4) * 2), Math.round((radius + 4) * 2));
 
@@ -1426,7 +1461,7 @@ public final class JvnHub {
   }
 
   /**
-   * Custom-painted button that stays fully black (no L&F chrome) and paints its own
+   * Custom-painted button that stays free of L&F chrome and paints its own
    * 1px border with optional accent color. Text + icon render via {@code super.paintComponent}.
    */
   private static class FlatButton extends JButton {
@@ -1469,7 +1504,14 @@ public final class JvnHub {
       } else {
         fill = PANEL_BG;
       }
-      g2.setColor(fill);
+      Color topFill = fill.equals(PANEL_BG) ? PANEL_BG_TOP : lighten(fill, 0.035f);
+      g2.setPaint(new LinearGradientPaint(
+          0f,
+          0f,
+          0f,
+          Math.max(1f, h),
+          new float[] {0f, 1f},
+          new Color[] {topFill, fill}));
       g2.fillRoundRect(0, 0, w, h, arc, arc);
 
       Color borderColor = accent != null ? accent : BORDER_NEUTRAL;
@@ -1924,10 +1966,10 @@ public final class JvnHub {
   }
 
   /**
-   * Flat dark scrollbar UI: no arrow buttons, rounded thumb, BG-matching track.
+   * Flat neutral scrollbar UI: no arrow buttons, rounded thumb, BG-matching track.
    * Lightens the thumb on hover/drag for subtle feedback.
    */
-  private static final class DarkScrollBarUI extends BasicScrollBarUI {
+  private static final class NeutralScrollBarUI extends BasicScrollBarUI {
     @Override
     protected void configureScrollBarColors() {
       this.thumbColor = SCROLL_THUMB;
