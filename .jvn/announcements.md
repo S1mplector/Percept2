@@ -8,6 +8,10 @@ Format:
 
 ----
 
+## 2026-05-04 — Video and GIF support for Character Sprites
+The JVN engine now officially supports animated `.gif`, `.mp4`, and `.mov` formats for character sprites.
+Video playback is fully hardware-accelerated and uses a dynamic texture snapshotting system to ensure that all layer blending modes, color matrices, and z-ordering work nicely. You can freely mix and match these formats within the same `@charpreset`—for example, pairing a looping 3D `.mp4` character body with static `.png` facial expressions. Check out `docs/scripting/vns/presentation/vns-layered-charpresets.md` for more details.
+
 ## 2026-04-27 — Expanded VNS particle ambience presets
 The VNS particle preset library now has tuned implementations for `sakura`, `fireflies`, `dust`, and `leaves` instead of routing those preset names through the neutral fallback.
 
