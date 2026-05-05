@@ -14,7 +14,6 @@ import javax.imageio.ImageIO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.sun.management.OperatingSystemMXBean;
 import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
 import com.jvn.core.demo.Example2DScene;
@@ -32,8 +31,8 @@ import com.jvn.core.menu.PauseMenuScene;
 import com.jvn.core.menu.SaveMenuScene;
 import com.jvn.core.menu.SettingsScene;
 import com.jvn.core.phone.PhoneScene;
-import com.jvn.core.phone.VnPhonePropertiesCodec;
 import com.jvn.core.phone.VnPhoneData;
+import com.jvn.core.phone.VnPhonePropertiesCodec;
 import com.jvn.core.phone.VnPhoneStateStore;
 import com.jvn.core.project.ProjectHealthChecker;
 import com.jvn.core.scene2d.Scene2D;
@@ -42,8 +41,8 @@ import com.jvn.core.vn.VnEntryScriptResolver;
 import com.jvn.core.vn.VnScenario;
 import com.jvn.core.vn.VnScenarioLoader;
 import com.jvn.core.vn.VnScene;
-import com.jvn.core.vn.ui.VnUiActionButtonActions;
 import com.jvn.core.vn.ui.VnCursorConfigLoader;
+import com.jvn.core.vn.ui.VnUiActionButtonActions;
 import com.jvn.fx.menu.MenuRenderer;
 import com.jvn.fx.menu.MenuTheme;
 import com.jvn.fx.phone.PhoneRenderer;
@@ -51,6 +50,7 @@ import com.jvn.fx.render.FxSceneRendererRegistry;
 import com.jvn.fx.scene2d.FxBlitter2D;
 import com.jvn.fx.ui.ProjectFontResolver;
 import com.jvn.fx.vn.VnRenderer;
+import com.sun.management.OperatingSystemMXBean;
 
 import javafx.animation.AnimationTimer;
 import javafx.application.Application;
@@ -67,9 +67,9 @@ import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.TextInputDialog;
+import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
-import javafx.scene.image.Image;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
@@ -575,6 +575,9 @@ public class FxLauncher extends Application {
     reg.register(VnScene.class, (vn, ctx) -> {
       vnRenderer.setAudioFacade(vn.getAudioFacade());
       vnRenderer.render(vn.getState(), vn.getScenario(), ctx.width(), ctx.height(), mouseX, mouseY);
+      if (vn.hasActiveError()) {
+        vnRenderer.renderErrorOverlay(vn.getActiveError(), ctx.width(), ctx.height(), mouseX, mouseY);
+      }
     });
 
     reg.register(PauseMenuScene.class, (pause, ctx) -> {
@@ -1025,6 +1028,16 @@ public class FxLauncher extends Application {
     double rh = renderHeightForScene(currentScene);
     if (currentScene instanceof VnScene) {
       VnScene vnScene = (VnScene) currentScene;
+
+      // Handle error overlay clicks before anything else
+      if (vnScene.hasActiveError()) {
+        int errBtn = vnRenderer.renderErrorOverlay(vnScene.getActiveError(), rw, rh, x, y);
+        if (errBtn >= 0) {
+          handleRuntimeErrorButton(vnScene, errBtn);
+          return;
+        }
+      }
+
       com.jvn.core.vn.ui.VnOverlayButtonSpec overlayButton =
           vnRenderer.getHoveredOverlayButton(vnScene.getState(), rw, rh, x, y);
       if (overlayButton != null && executeOverlayButtonAction(vnScene, overlayButton)) {
@@ -1824,5 +1837,26 @@ public class FxLauncher extends Application {
     if (!isRatioValid(current)) return target;
     double clampedAlpha = Math.max(0.0, Math.min(1.0, alpha));
     return current + (target - current) * clampedAlpha;
+  }
+
+  private void handleRuntimeErrorButton(VnScene vnScene, int buttonIndex) {
+    switch (buttonIndex) {
+      case 0 -> vnScene.clearActiveError(); // Ignore
+      case 1 -> { // Reload — attempt to reload the current scenario
+        vnScene.clearActiveError();
+        // Re-initialize from the start of the current scenario
+        vnScene.getState().setCurrentNodeIndex(0);
+        vnScene.onEnter();
+      }
+      case 2 -> { // Copy — copy error text to clipboard
+        com.jvn.core.vn.VnErrorOverlay error = vnScene.getActiveError();
+        if (error != null) {
+          javafx.scene.input.Clipboard clipboard = javafx.scene.input.Clipboard.getSystemClipboard();
+          javafx.scene.input.ClipboardContent content = new javafx.scene.input.ClipboardContent();
+          content.putString(error.toDisplaySummary());
+          clipboard.setContent(content);
+        }
+      }
+    }
   }
 }

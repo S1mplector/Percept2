@@ -154,6 +154,7 @@ public class DefaultVnInterop implements VnInterop {
         msg = e.getClass().getSimpleName();
       }
       scene.getState().showHudMessage("inline_java error: " + msg, 3000);
+      scene.setActiveError(VnErrorOverlay.interopError("inline_java", msg, e));
     }
   }
 
@@ -171,6 +172,7 @@ public class DefaultVnInterop implements VnInterop {
       String msg = e.getMessage();
       if (msg == null || msg.length() > 120) msg = e.getClass().getSimpleName();
       scene.getState().showHudMessage("init_java error: " + msg, 3000);
+      scene.setActiveError(VnErrorOverlay.interopError("init_java", msg, e));
     }
   }
 
@@ -192,6 +194,7 @@ public class DefaultVnInterop implements VnInterop {
       String msg = e.getMessage();
       if (msg == null || msg.length() > 120) msg = e.getClass().getSimpleName();
       scene.getState().showHudMessage("java_class error: " + msg, 3000);
+      scene.setActiveError(VnErrorOverlay.compilationError(null, -1, msg));
     }
   }
 

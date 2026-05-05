@@ -11,8 +11,8 @@ import java.util.Map;
 import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
 import com.jvn.core.audio.AudioFacade;
-import com.jvn.core.scene2d.ParticleEmitter2D;
 import com.jvn.core.localization.Localization;
+import com.jvn.core.scene2d.ParticleEmitter2D;
 import com.jvn.core.ui.BoundsPointCodec;
 import com.jvn.core.vn.BubbleAnchor;
 import com.jvn.core.vn.CharacterPosition;
@@ -2817,5 +2817,190 @@ public class VnRenderer {
   public void clearCache() {
     imageCache.clear();
     textMetrics.clear();
+  }
+
+  // ─── Error Overlay ─────────────────────────────────────────────────
+
+  private static final Color ERROR_BG_COLOR = Color.rgb(48, 12, 14, 0.96);
+  private static final Color ERROR_HEADER_COLOR = Color.rgb(220, 50, 60);
+  private static final Color ERROR_TEXT_COLOR = Color.web("#F8E8E8");
+  private static final Color ERROR_DIM_TEXT_COLOR = Color.web("#C09898");
+  private static final Color ERROR_BOX_COLOR = Color.rgb(28, 6, 8, 0.85);
+  private static final Color ERROR_ACCENT_COLOR = Color.rgb(255, 80, 80);
+  private static final Color ERROR_BUTTON_COLOR = Color.rgb(60, 20, 22);
+  private static final Color ERROR_BUTTON_HOVER_COLOR = Color.rgb(90, 30, 35);
+  private static final Color ERROR_BUTTON_TEXT_COLOR = Color.web("#FFD0D0");
+
+  /**
+   * Renders a full-screen error overlay, similar to Ren'Py's traceback screen.
+   * Covers everything and shows error details with action buttons.
+   *
+   * @param error   the error data to display
+   * @param width   canvas width
+   * @param height  canvas height
+   * @param mouseX  mouse x for button hover
+   * @param mouseY  mouse y for button hover
+   * @return index of hovered button (0=Ignore, 1=Reload, 2=Copy) or -1
+   */
+  public int renderErrorOverlay(com.jvn.core.vn.VnErrorOverlay error,
+                                 double width, double height,
+                                 double mouseX, double mouseY) {
+    if (error == null) return -1;
+
+    // Full-screen dark red background
+    gc.setFill(ERROR_BG_COLOR);
+    gc.fillRect(0, 0, width, height);
+
+    // Subtle gradient stripe at top
+    gc.setFill(new LinearGradient(0, 0, 0, 6, false, CycleMethod.NO_CYCLE,
+        new Stop(0, ERROR_ACCENT_COLOR), new Stop(1, Color.TRANSPARENT)));
+    gc.fillRect(0, 0, width, 6);
+
+    double padding = Math.max(24, width * 0.04);
+    double contentX = padding;
+    double contentW = width - padding * 2;
+    double y = padding + 10;
+
+    // Title
+    Font titleFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.BOLD, Math.min(28, height * 0.04));
+    gc.setFont(titleFont);
+    gc.setFill(ERROR_HEADER_COLOR);
+    gc.fillText(error.getTitle(), contentX, y + titleFont.getSize());
+    y += titleFont.getSize() + 16;
+
+    // Separator line
+    gc.setStroke(ERROR_ACCENT_COLOR);
+    gc.setLineWidth(2);
+    gc.strokeLine(contentX, y, contentX + contentW, y);
+    y += 20;
+
+    // Location info
+    Font infoFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.NORMAL, Math.min(16, height * 0.022));
+    gc.setFont(infoFont);
+    gc.setFill(ERROR_DIM_TEXT_COLOR);
+
+    if (error.getSourceName() != null && !error.getSourceName().isEmpty()) {
+      gc.fillText("File:  " + error.getSourceName(), contentX, y + infoFont.getSize());
+      y += infoFont.getSize() + 6;
+    }
+    if (error.getLineNumber() > 0) {
+      gc.fillText("Line:  " + error.getLineNumber(), contentX, y + infoFont.getSize());
+      y += infoFont.getSize() + 6;
+    }
+    gc.fillText("Type:  " + error.getType().name().replace('_', ' '), contentX, y + infoFont.getSize());
+    y += infoFont.getSize() + 16;
+
+    // Cause message box
+    Font causeFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.BOLD, Math.min(18, height * 0.025));
+    gc.setFont(causeFont);
+    gc.setFill(ERROR_TEXT_COLOR);
+    gc.fillText("Cause:", contentX, y + causeFont.getSize());
+    y += causeFont.getSize() + 8;
+
+    String message = error.getMessage() != null ? error.getMessage() : "(unknown error)";
+    double msgBoxH = Math.min(height * 0.12, 80);
+    gc.setFill(ERROR_BOX_COLOR);
+    gc.fillRoundRect(contentX, y, contentW, msgBoxH, 8, 8);
+    gc.setStroke(Color.rgb(100, 30, 30));
+    gc.setLineWidth(1);
+    gc.strokeRoundRect(contentX, y, contentW, msgBoxH, 8, 8);
+
+    Font msgFont = Font.font("Monospaced", FontWeight.NORMAL, Math.min(14, height * 0.019));
+    gc.setFont(msgFont);
+    gc.setFill(ERROR_TEXT_COLOR);
+    // Word-wrap the message into the box
+    drawWrappedText(message, contentX + 12, y + 18, contentW - 24, msgBoxH - 8, msgFont);
+    y += msgBoxH + 20;
+
+    // Stack trace area (scrollable-looking panel)
+    String trace = error.getStackTrace();
+    if (trace != null && !trace.isEmpty()) {
+      gc.setFont(infoFont);
+      gc.setFill(ERROR_DIM_TEXT_COLOR);
+      gc.fillText("Stack Trace:", contentX, y + infoFont.getSize());
+      y += infoFont.getSize() + 8;
+
+      double traceBoxH = Math.min(height * 0.35, height - y - 80);
+      traceBoxH = Math.max(traceBoxH, 60);
+      gc.setFill(ERROR_BOX_COLOR);
+      gc.fillRoundRect(contentX, y, contentW, traceBoxH, 8, 8);
+      gc.setStroke(Color.rgb(80, 25, 25));
+      gc.setLineWidth(1);
+      gc.strokeRoundRect(contentX, y, contentW, traceBoxH, 8, 8);
+
+      Font traceFont = Font.font("Monospaced", FontWeight.NORMAL, Math.min(12, height * 0.016));
+      gc.setFont(traceFont);
+      gc.setFill(ERROR_DIM_TEXT_COLOR);
+      drawWrappedText(trace, contentX + 12, y + 16, contentW - 24, traceBoxH - 12, traceFont);
+      y += traceBoxH + 16;
+    }
+
+    // Action buttons at bottom
+    double buttonY = Math.max(y + 10, height - 60);
+    double buttonH = 36;
+    double buttonW = 100;
+    double buttonGap = 16;
+    double buttonsStartX = contentX;
+    int hoveredButton = -1;
+
+    String[] labels = {"Ignore", "Reload", "Copy"};
+    for (int i = 0; i < labels.length; i++) {
+      double bx = buttonsStartX + i * (buttonW + buttonGap);
+      boolean hovered = mouseX >= bx && mouseX <= bx + buttonW
+          && mouseY >= buttonY && mouseY <= buttonY + buttonH;
+      if (hovered) hoveredButton = i;
+
+      gc.setFill(hovered ? ERROR_BUTTON_HOVER_COLOR : ERROR_BUTTON_COLOR);
+      gc.fillRoundRect(bx, buttonY, buttonW, buttonH, 6, 6);
+      gc.setStroke(ERROR_ACCENT_COLOR);
+      gc.setLineWidth(1);
+      gc.strokeRoundRect(bx, buttonY, buttonW, buttonH, 6, 6);
+
+      gc.setFont(Font.font(DEFAULT_FONT_FAMILY, FontWeight.BOLD, 13));
+      gc.setFill(ERROR_BUTTON_TEXT_COLOR);
+      double textW = computeTextWidth(labels[i], gc.getFont());
+      gc.fillText(labels[i], bx + (buttonW - textW) / 2, buttonY + buttonH / 2 + 5);
+    }
+
+    // Timestamp in bottom-right corner
+    gc.setFont(Font.font(DEFAULT_FONT_FAMILY, FontWeight.NORMAL, 10));
+    gc.setFill(ERROR_DIM_TEXT_COLOR);
+    String timeStr = new java.text.SimpleDateFormat("HH:mm:ss").format(new java.util.Date(error.getTimestamp()));
+    gc.fillText(timeStr, width - padding - 60, height - 12);
+
+    return hoveredButton;
+  }
+
+  private void drawWrappedText(String text, double x, double y,
+                               double maxWidth, double maxHeight, Font font) {
+    if (text == null || text.isEmpty()) return;
+    gc.setFont(font);
+    double lineH = font.getSize() * 1.3;
+    double currentY = y;
+    String[] lines = text.split("\n");
+    for (String line : lines) {
+      if (currentY + lineH > y + maxHeight) {
+        gc.fillText("...", x, currentY);
+        break;
+      }
+      // Simple character-based wrapping
+      if (line.isEmpty()) {
+        currentY += lineH;
+        continue;
+      }
+      double charW = font.getSize() * 0.62; // Approx monospace char width
+      int charsPerLine = Math.max(1, (int) (maxWidth / charW));
+      int pos = 0;
+      while (pos < line.length()) {
+        if (currentY + lineH > y + maxHeight) {
+          gc.fillText("...", x, currentY);
+          return;
+        }
+        int end = Math.min(pos + charsPerLine, line.length());
+        gc.fillText(line.substring(pos, end), x, currentY);
+        currentY += lineH;
+        pos = end;
+      }
+    }
   }
 }

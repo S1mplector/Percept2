@@ -548,6 +548,7 @@ public class VnScene implements Scene {
     }
     LOGGER.log(Level.WARNING, "VN " + context + " interop failed for provider '" + provider + "'", ex);
     state.showHudMessage("VN " + context + " [" + provider + "] failed: " + detail, 2200);
+    setActiveError(VnErrorOverlay.interopError(provider, detail, ex));
   }
 
   private void processJumpNode(VnNode node) {
@@ -861,5 +862,29 @@ public class VnScene implements Scene {
     if (label == null || label.isBlank()) return;
     state.jumpToLabel(label);
     processCurrentNode();
+  }
+
+  // ─── Error Overlay ─────────────────────────────────────────────────
+
+  private VnErrorOverlay activeError;
+
+  /** Set the active error overlay (displayed over the whole scene). */
+  public void setActiveError(VnErrorOverlay error) {
+    this.activeError = error;
+  }
+
+  /** Get the current error overlay, or null if none. */
+  public VnErrorOverlay getActiveError() {
+    return activeError;
+  }
+
+  /** Dismiss the current error overlay. */
+  public void clearActiveError() {
+    this.activeError = null;
+  }
+
+  /** Whether an error overlay is currently active and should be rendered. */
+  public boolean hasActiveError() {
+    return activeError != null;
   }
 }

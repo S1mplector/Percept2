@@ -42,6 +42,33 @@ The engine displays interop errors as temporary HUD overlays during playback. If
 VN external [provider] failed: ExceptionType: detail
 ```
 
+### Full-Screen Error Overlay
+
+When a script error is severe enough (interop crash, inline Java compilation/runtime failure), the engine displays a **full-screen error overlay** that covers the entire canvas — similar to Ren'Py's traceback screen. This works in both the **editor VNS preview** and the **runtime game**.
+
+The overlay shows:
+
+- **Error type** — Parse Error, Runtime Error, Compilation Error, or Interop Error
+- **File and line number** — when available from the error source
+- **Cause message** — the exception detail in a monospace box
+- **Stack trace** — truncated Java stack trace for debugging
+- **Timestamp** — when the error occurred
+
+Three action buttons appear at the bottom:
+
+| Button | Action |
+|--------|--------|
+| **Ignore** | Dismiss the overlay and continue (the script remains at the current node) |
+| **Reload** | Re-parse and reload the current script from disk (editor) or restart from node 0 (runtime) |
+| **Copy** | Copy the full error summary to the system clipboard for pasting into bug reports |
+
+The overlay can also be set programmatically from the editor:
+
+```java
+previewView.setActiveError(VnErrorOverlay.parseError("script.vns", 42, "Duplicate label"));
+previewView.clearActiveError();  // dismiss
+```
+
 ---
 
 ## Parse Errors

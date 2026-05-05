@@ -24,10 +24,10 @@ import com.jvn.core.audio.AudioFacade;
 import com.jvn.core.graphics.ViewportScaler2D;
 import com.jvn.core.menu.HistoryMenuScene;
 import com.jvn.core.menu.LoadMenuScene;
-import com.jvn.core.menu.config.MenuProfile;
-import com.jvn.core.menu.config.MenuProfileLoader;
 import com.jvn.core.menu.SaveMenuScene;
 import com.jvn.core.menu.SettingsScene;
+import com.jvn.core.menu.config.MenuProfile;
+import com.jvn.core.menu.config.MenuProfileLoader;
 import com.jvn.core.phone.PhoneScene;
 import com.jvn.core.phone.VnPhoneCommands;
 import com.jvn.core.phone.VnPhoneData;
@@ -35,6 +35,7 @@ import com.jvn.core.phone.VnPhonePropertiesCodec;
 import com.jvn.core.phone.VnPhoneStateStore;
 import com.jvn.core.scene.Scene;
 import com.jvn.core.vn.DefaultVnInterop;
+import com.jvn.core.vn.VnErrorOverlay;
 import com.jvn.core.vn.VnExternalCommand;
 import com.jvn.core.vn.VnInteropResult;
 import com.jvn.core.vn.VnNode;
@@ -54,20 +55,20 @@ import com.jvn.fx.menu.MenuTheme;
 import com.jvn.fx.phone.PhoneRenderer;
 import com.jvn.fx.vn.VnRenderer;
 
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Cursor;
+import javafx.scene.ImageCursor;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
 import javafx.scene.control.Tooltip;
-import javafx.scene.Cursor;
-import javafx.scene.ImageCursor;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
+import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
-import javafx.scene.image.Image;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
@@ -116,6 +117,8 @@ public class VnPreviewView extends StackPane {
   private boolean applyingStoryboardHud = false;
   private int storyboardPreviewLine = -1;
   private Boolean storyboardUiHiddenRestore;
+  private VnErrorOverlay activeError;
+  private int errorOverlayHoveredButton = -1;
 
   // Virtual viewport: render at the game's target resolution, scale to fit canvas
   private int virtualWidth = 0;
@@ -324,6 +327,15 @@ public class VnPreviewView extends StackPane {
       gc.restore();
     }
     syncPhoneOverlay();
+
+    // Render error overlay on top of everything (in screen space)
+    VnErrorOverlay visibleError = resolveVisibleError();
+    if (visibleError != null) {
+      errorOverlayHoveredButton = renderer.renderErrorOverlay(
+          visibleError, canvasW, canvasH, mouseX, mouseY);
+    } else {
+      errorOverlayHoveredButton = -1;
+    }
   }
 
   public void setUiOverrides(VnUiLayoutSpec layout, VnUiStyleSpec style, List<VnUiActionButtonSpec> textBoxButtons) {
@@ -913,7 +925,15 @@ public class VnPreviewView extends StackPane {
     mouseX = x;
     mouseY = y;
     requestFocus();
-    if (scene == null || button != MouseButton.PRIMARY) return;
+    if (button != MouseButton.PRIMARY) return;
+
+    // Handle error overlay button clicks
+    if (resolveVisibleError() != null && errorOverlayHoveredButton >= 0) {
+      handleErrorOverlayButton(errorOverlayHoveredButton);
+      return;
+    }
+
+    if (scene == null) return;
     if (isStoryboardModeActive() && !isInsideStoryboardViewport(x, y)) return;
 
     if (handleOverlayMouseClick(clickCount, x, y)) return;
@@ -1574,6 +1594,71 @@ public class VnPreviewView extends StackPane {
       fx.setProjectRoot(root);
     } else if (facade instanceof Simp3AudioService simp3) {
       simp3.setProjectRoot(root);
+    }
+  }
+
+  // ─── Error Overlay ─────────────────────────────────────────────────
+
+  /** Set an error to display as a full-screen overlay (e.g. parse error from editor). */
+  public void setActiveError(VnErrorOverlay error) {
+    this.activeError = error;
+  }
+
+  /** Clear any externally-set error overlay. */
+  public void clearActiveError() {
+    this.activeError = null;
+    if (scene != null) scene.clearActiveError();
+  }
+
+  /** Resolve which error to display: prefer externally-set error, then scene runtime error. */
+  private VnErrorOverlay resolveVisibleError() {
+    if (activeError != null) return activeError;
+    if (scene != null && scene.hasActiveError()) return scene.getActiveError();
+    return null;
+  }
+
+  /** Handle button clicks on the error overlay (0=Ignore, 1=Reload, 2=Copy). */
+  private void handleErrorOverlayButton(int buttonIndex) {
+    switch (buttonIndex) {
+      case 0 -> { // Ignore — dismiss the overlay
+        if (activeError != null) {
+          activeError = null;
+        } else if (scene != null) {
+          scene.clearActiveError();
+        }
+      }
+      case 1 -> { // Reload — re-load the current scenario
+        if (activeError != null) activeError = null;
+        if (scene != null) {
+          scene.clearActiveError();
+          String scriptName = this.sourceScriptName;
+          if (scriptName != null && projectRoot != null) {
+            reloadCurrentScript();
+          }
+        }
+      }
+      case 2 -> { // Copy — copy error details to clipboard
+        VnErrorOverlay error = resolveVisibleError();
+        if (error != null) {
+          String text = error.toDisplaySummary();
+          javafx.scene.input.Clipboard clipboard = javafx.scene.input.Clipboard.getSystemClipboard();
+          javafx.scene.input.ClipboardContent content = new javafx.scene.input.ClipboardContent();
+          content.putString(text);
+          clipboard.setContent(content);
+        }
+      }
+    }
+  }
+
+  private void reloadCurrentScript() {
+    if (projectRoot == null || sourceScriptName == null) return;
+    try {
+      VnScenario loaded = loadScenarioFromScript(sourceScriptName);
+      if (loaded != null) {
+        initializeScenario(loaded, null);
+      }
+    } catch (Exception e) {
+      setActiveError(VnErrorOverlay.parseError(sourceScriptName, -1, e.getMessage()));
     }
   }
 }
