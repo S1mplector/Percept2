@@ -90,6 +90,8 @@ public class VnPreviewView extends StackPane {
   private final Tooltip previewTooltip = new Tooltip(PREVIEW_HINT);
   private static final Pattern TIMELINE_ARC_PATTERN = Pattern.compile(
       "^\\s*arc\\s+(?:\"([^\"]+)\"|(\\S+))\\s+script\\s+(?:\"([^\"]+)\"|(\\S+)).*$");
+  private static final String VAR_DIALOGUE_PRESENTATION_MODE = "ui.dialogueMode";
+  private static final String VAR_DIALOGUE_UI = "ui.dialogueUi";
   private VnScene scene;
   private double mouseX, mouseY;
   private AudioFacade audio;
@@ -495,6 +497,7 @@ public class VnPreviewView extends StackPane {
     if (scriptName != null && !scriptName.isBlank()) {
       nextScene.getState().setSourceScriptName(scriptName);
     }
+    applyPreviewScriptUiDefaults(nextScene, scenario, scriptName);
     if (startLabel != null && !startLabel.isBlank()) {
       nextScene.getState().jumpToLabel(startLabel);
       nextScene.preflightState(nextScene.getState().getCurrentNodeIndex());
@@ -503,6 +506,26 @@ public class VnPreviewView extends StackPane {
       nextScene.onEnter();
     }
     return nextScene;
+  }
+
+  private void applyPreviewScriptUiDefaults(VnScene nextScene, VnScenario scenario, String scriptName) {
+    if (nextScene == null || !isTutorialScriptPreview(scenario, scriptName)) return;
+    nextScene.getState().setVariable(VAR_DIALOGUE_PRESENTATION_MODE, "standard");
+    nextScene.getState().setVariable(VAR_DIALOGUE_UI, "default");
+  }
+
+  private boolean isTutorialScriptPreview(VnScenario scenario, String scriptName) {
+    String normalizedScript = normalizeScriptKey(scriptName);
+    if (normalizedScript != null) {
+      String lower = normalizedScript.toLowerCase(Locale.ROOT);
+      if (lower.contains("/tutorial/") || lower.endsWith("scripts/story/tutorial_hub.vns") || lower.endsWith("story/tutorial_hub.vns")) {
+        return true;
+      }
+    }
+    String scenarioId = scenario == null ? null : scenario.getId();
+    if (scenarioId == null) return false;
+    String lowerId = scenarioId.toLowerCase(Locale.ROOT);
+    return lowerId.contains("_tutorial_") || lowerId.endsWith("_tutorial_hub") || lowerId.equals("tutorial_hub");
   }
 
   private void renderOverlayScene(double vw, double vh) {

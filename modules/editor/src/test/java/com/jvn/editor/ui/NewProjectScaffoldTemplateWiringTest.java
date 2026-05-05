@@ -75,13 +75,13 @@ class NewProjectScaffoldTemplateWiringTest {
     for (String path : TUTORIAL_TEMPLATE_PATHS) {
       String rendered = render(path);
       assertTrue(
-          rendered.contains("[mode dialogue standard]\n[set ui.textBoxAsset default]\n[inc tutorial_count]"),
+          rendered.contains("[mode dialogue standard]\n[set ui.dialogueUi default]\n[set ui.textBoxAsset default]\n[inc tutorial_count]"),
           () -> "Tutorial does not reset dialogue presentation mode at entry: " + path);
     }
 
     String hub = render("scripts/story/tutorial_hub.vns");
     assertTrue(
-        hub.contains("[mode dialogue standard]\n[set ui.textBoxAsset default]\n[textspeed 28]"),
+        hub.contains("[mode dialogue standard]\n[set ui.dialogueUi default]\n[set ui.textBoxAsset default]\n[textspeed 28]"),
         "Tutorial hub does not reset dialogue presentation mode at entry");
   }
 

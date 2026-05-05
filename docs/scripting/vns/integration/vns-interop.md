@@ -58,11 +58,14 @@ Runtime aliases for standard mode are `standard`, `normal`, `say`, and `adv`. Th
 ```vns
 @label start
 [mode dialogue standard]
+[set ui.dialogueUi default]
 [set ui.textBoxAsset default]
 [textspeed 28]
 ```
 
-`ui.textBoxAsset` values `default`, `builtin`, `solid`, `fill`, `none`, `off`, `false`, `0`, and `no` disable the configured textbox and narration textbox images at runtime. To re-enable the configured asset later, set `ui.textBoxAsset` to `custom` or set `ui.textBoxAssetEnabled` to `true`.
+`ui.dialogueUi=default` is the broad override: it disables custom textbox/namebox images, custom textbox action buttons, custom dialogue/name text colors and fonts, and custom dialogue clipping for standard dialogue. Detached previews seed this automatically for scripts under `scripts/tutorial/` and for `scripts/story/tutorial_hub.vns`.
+
+`ui.textBoxAsset` values `default`, `builtin`, `solid`, `fill`, `none`, `off`, `false`, `0`, and `no` only disable the configured textbox and narration textbox images at runtime. To re-enable the configured asset later, set `ui.textBoxAsset` to `custom` or set `ui.textBoxAssetEnabled` to `true`. Custom textbox action buttons can be disabled independently with `[set ui.textBoxButtons off]`.
 
 ### Bubble Placement Overrides
 

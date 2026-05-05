@@ -10,6 +10,7 @@
 
 {{BG_DECL}}@label start
 {{BG_START}}[mode dialogue standard]
+[set ui.dialogueUi default]
 [set ui.textBoxAsset default]
 [textspeed 28]
 [autodelay 1700]

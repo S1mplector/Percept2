@@ -106,8 +106,12 @@ public class VnRenderer {
   private static final int VISUALIZER_BAR_COUNT = VnAudioVisualizerConfig.MAX_BARS;
   private static final String VAR_CHARACTER_HEIGHT_FACTOR = "ui.characterHeightFactor";
   private static final String VAR_CHARACTER_BASELINE_Y = "ui.characterBaselineY";
+  private static final String VAR_DIALOGUE_UI = "ui.dialogueUi";
+  private static final String VAR_DIALOGUE_STYLE = "ui.dialogueStyle";
   private static final String VAR_TEXT_BOX_ASSET = "ui.textBoxAsset";
   private static final String VAR_TEXT_BOX_ASSET_ENABLED = "ui.textBoxAssetEnabled";
+  private static final String VAR_TEXT_BOX_BUTTONS = "ui.textBoxButtons";
+  private static final String VAR_TEXT_BOX_BUTTONS_ENABLED = "ui.textBoxButtonsEnabled";
 
   private Image choiceButtonImage;
   private Image choiceButtonHoverImage;
@@ -1188,6 +1192,18 @@ public class VnRenderer {
 
   private void renderStandardDialogue(DialogueLine dialogue, VnState state, double width, double height, int hoveredButtonIndex) {
     if (dialogue == null) return;
+    boolean defaultDialogueStyle = shouldUseDefaultDialogueUi(state) || shouldUseDefaultDialogueStyle(state);
+    Color activeTextBoxFillColor = defaultDialogueStyle ? TEXTBOX_COLOR : textBoxFillColor;
+    Color activeNameBoxFillColor = defaultDialogueStyle ? NAME_BOX_COLOR : nameBoxFillColor;
+    Color activeNameTextFillColor = defaultDialogueStyle ? Color.web("#FFD78A") : nameTextFillColor;
+    Color activeDialogueTextFillColor = defaultDialogueStyle ? TEXT_COLOR : dialogueTextFillColor;
+    Font activeNameFont = defaultDialogueStyle
+        ? Font.font(DEFAULT_FONT_FAMILY, FontWeight.BOLD, DEFAULT_NAME_FONT_SIZE)
+        : nameFont;
+    Font activeDialogueFont = defaultDialogueStyle
+        ? Font.font(DEFAULT_FONT_FAMILY, FontWeight.NORMAL, DEFAULT_DIALOGUE_FONT_SIZE)
+        : dialogueFont;
+    double activeNameBoxOpacity = defaultDialogueStyle ? 1.0 : nameBoxRenderOpacity;
 
     TextBoxGeometry textBox = computeTextBoxGeometry(width, height);
     double textBoxX = textBox.x();
@@ -1210,11 +1226,11 @@ public class VnRenderer {
     if (activeTextBoxImage != null) {
       gc.drawImage(activeTextBoxImage, textBoxX, textBoxY, textBoxWidth, textBoxHeight);
       if (textBoxAssetOverlayOpacity > 0.001) {
-        gc.setFill(withOpacity(textBoxFillColor, textBoxAssetOverlayOpacity));
+        gc.setFill(withOpacity(activeTextBoxFillColor, textBoxAssetOverlayOpacity));
         gc.fillRect(textBoxX, textBoxY, textBoxWidth, textBoxHeight);
       }
     } else {
-      gc.setFill(textBoxFillColor);
+      gc.setFill(activeTextBoxFillColor);
       gc.fillRect(textBoxX, textBoxY, textBoxWidth, textBoxHeight);
     }
     if (clipTextBox) gc.restore();
@@ -1225,40 +1241,41 @@ public class VnRenderer {
       double nameBoxY = textBoxY + uiLayout.nameBoxYOffset();
       double nameBoxW;
       if (uiLayout.nameBoxAutoWidth()) {
-        double textW = computeTextWidth(speakerName, nameFont);
+        double textW = computeTextWidth(speakerName, activeNameFont);
         nameBoxW = Math.max(textW + uiLayout.nameTextXOffset() * 2, uiLayout.nameBoxWidth());
       } else {
         nameBoxW = uiLayout.nameBoxWidth();
       }
       double nameBoxH = uiLayout.nameBoxHeight();
-      boolean clipNameBox = hasPolygon(nameBoxBoundsPolygon);
+      Image activeNameBoxImage = defaultDialogueStyle ? null : nameBoxImage;
+      boolean clipNameBox = !defaultDialogueStyle && hasPolygon(nameBoxBoundsPolygon);
       if (clipNameBox) {
         gc.save();
         clipToLocalPolygon(nameBoxBoundsPolygon, nameBoxX, nameBoxY, nameBoxW, nameBoxH);
       }
       double prevAlpha = gc.getGlobalAlpha();
-      if (nameBoxRenderOpacity < 0.999) gc.setGlobalAlpha(prevAlpha * nameBoxRenderOpacity);
-      if (nameBoxImage != null) {
-        gc.drawImage(nameBoxImage, nameBoxX, nameBoxY, nameBoxW, nameBoxH);
+      if (activeNameBoxOpacity < 0.999) gc.setGlobalAlpha(prevAlpha * activeNameBoxOpacity);
+      if (activeNameBoxImage != null) {
+        gc.drawImage(activeNameBoxImage, nameBoxX, nameBoxY, nameBoxW, nameBoxH);
       } else {
-        gc.setFill(nameBoxFillColor);
+        gc.setFill(activeNameBoxFillColor);
         gc.fillRect(nameBoxX, nameBoxY, nameBoxW, nameBoxH);
       }
       gc.setGlobalAlpha(prevAlpha);
       if (clipNameBox) gc.restore();
 
-      gc.setFill(nameTextFillColor);
-      gc.setFont(nameFont);
+      gc.setFill(activeNameTextFillColor);
+      gc.setFont(activeNameFont);
       double nameContentX = nameBoxX + uiLayout.nameTextXOffset();
       double nameContentW = Math.max(0, nameBoxW - uiLayout.nameTextXOffset() * 2);
-      double nameTextW = computeTextWidth(speakerName, nameFont);
+      double nameTextW = computeTextWidth(speakerName, activeNameFont);
       double nameTextBaselineY = uiLayout.nameTextYAlign() >= 0.0
           ? resolvePaddedTextBaselineY(
               nameBoxY,
               nameBoxH,
               uiLayout.nameTextTopPadding(),
               uiLayout.nameTextBottomPadding(),
-              nameFont,
+              activeNameFont,
               uiLayout.nameTextYAlign())
           : nameBoxY + uiLayout.nameTextBaselineOffset();
       gc.fillText(
@@ -1282,9 +1299,9 @@ public class VnRenderer {
     double textHeight = Math.max(
         20,
         textBoxHeight - uiLayout.dialogueTextTopPadding() - uiLayout.dialogueTextBottomPadding());
-    double textBaselineY = textTop + computeTextAscent(dialogueFont);
+    double textBaselineY = textTop + computeTextAscent(activeDialogueFont);
     gc.save();
-    if (hasPolygon(dialogueTextBoundsPolygon)) {
+    if (!defaultDialogueStyle && hasPolygon(dialogueTextBoundsPolygon)) {
       clipToLocalPolygon(dialogueTextBoundsPolygon, textX, textTop, textWidth, textHeight);
     } else {
       gc.beginPath();
@@ -1292,7 +1309,7 @@ public class VnRenderer {
       gc.closePath();
       gc.clip();
     }
-    drawStyledText(spans, revealedLength, textX, textBaselineY, textWidth, dialogueTextXAlign);
+    drawStyledText(spans, revealedLength, textX, textBaselineY, textWidth, dialogueTextXAlign, activeDialogueFont, activeDialogueTextFillColor);
     gc.restore();
 
     // Draw continue indicator if text is fully revealed
@@ -1300,7 +1317,7 @@ public class VnRenderer {
       drawContinueIndicator(textBoxX + textBoxWidth - 30, textBoxY + textBoxHeight - 20);
     }
 
-    renderTextBoxButtons(textBox, width, height, hoveredButtonIndex);
+    renderTextBoxButtons(textBox, width, height, hoveredButtonIndex, state);
   }
 
   private void renderNvlHistory(VnState state, double width, double height) {
@@ -1469,7 +1486,8 @@ public class VnRenderer {
     return entries;
   }
 
-  private void renderTextBoxButtons(TextBoxGeometry textBox, double viewportWidth, double viewportHeight, int hoveredButtonIndex) {
+  private void renderTextBoxButtons(TextBoxGeometry textBox, double viewportWidth, double viewportHeight, int hoveredButtonIndex, VnState state) {
+    if (!shouldRenderTextBoxButtons(state)) return;
     if (textBoxButtons == null || textBoxButtons.isEmpty()) return;
     for (int i = 0; i < textBoxButtons.size(); i++) {
       VnUiActionButtonSpec button = textBoxButtons.get(i);
@@ -1842,7 +1860,17 @@ public class VnRenderer {
     return null;
   }
 
+  private boolean shouldUseDefaultDialogueUi(VnState state) {
+    return disablesCustomDialogueUi(readStringVariable(state, VAR_DIALOGUE_UI));
+  }
+
+  private boolean shouldUseDefaultDialogueStyle(VnState state) {
+    return shouldUseDefaultDialogueUi(state)
+        || disablesCustomDialogueUi(readStringVariable(state, VAR_DIALOGUE_STYLE));
+  }
+
   private boolean shouldUseTextBoxAsset(VnState state) {
+    if (shouldUseDefaultDialogueUi(state)) return false;
     Boolean enabled = readBooleanVariable(state, VAR_TEXT_BOX_ASSET_ENABLED);
     if (enabled != null) return enabled;
 
@@ -1852,6 +1880,24 @@ public class VnRenderer {
     return switch (normalized) {
       case "default", "builtin", "built-in", "solid", "fill", "none", "off", "false", "0", "no" -> false;
       default -> true;
+    };
+  }
+
+  private boolean shouldRenderTextBoxButtons(VnState state) {
+    if (shouldUseDefaultDialogueUi(state)) return false;
+    Boolean enabled = readBooleanVariable(state, VAR_TEXT_BOX_BUTTONS_ENABLED);
+    if (enabled != null) return enabled;
+    String mode = readStringVariable(state, VAR_TEXT_BOX_BUTTONS);
+    if (mode == null) return true;
+    return !disablesCustomDialogueUi(mode);
+  }
+
+  private boolean disablesCustomDialogueUi(String raw) {
+    if (raw == null || raw.isBlank()) return false;
+    String normalized = raw.trim().toLowerCase(Locale.ROOT);
+    return switch (normalized) {
+      case "default", "builtin", "built-in", "solid", "fill", "plain", "none", "off", "false", "0", "no" -> true;
+      default -> false;
     };
   }
 

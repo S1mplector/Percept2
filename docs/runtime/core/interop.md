@@ -123,13 +123,22 @@ Boolean subcommands accept `on`, `off`, `true`, `false`, `1`, and `0`; `nvl` and
 
 ```vns
 [mode dialogue standard]
+[set ui.dialogueUi default]
 [set ui.textBoxAsset default]
 ```
 
-`ui.textBoxAsset` values `default`, `builtin`, `solid`, `fill`, `none`, `off`, `false`, `0`, and `no` disable custom textbox and narration textbox images. Any other value leaves the configured assets enabled. The boolean alias `ui.textBoxAssetEnabled` can also be set directly:
+`ui.dialogueUi=default` disables custom dialogue skin behavior for standard dialogue: custom textbox/namebox images, custom textbox action buttons, custom dialogue/name text colors and fonts, and custom dialogue clipping. This is the broad override used by tutorial scripts and detached previews.
+
+`ui.textBoxAsset` values `default`, `builtin`, `solid`, `fill`, `none`, `off`, `false`, `0`, and `no` only disable custom textbox and narration textbox images. Any other value leaves the configured assets enabled. The boolean alias `ui.textBoxAssetEnabled` can also be set directly:
 
 ```vns
 [set ui.textBoxAssetEnabled false]
+```
+
+Custom textbox action buttons can be disabled without changing text styling:
+
+```vns
+[set ui.textBoxButtons off]
 ```
 
 ### `ui`
