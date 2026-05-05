@@ -33,6 +33,32 @@ This guide focuses on practical editor use:
 - Need the export syntax only: [Puppeteer JES DSL Reference](puppeteer-jes-dsl.md)
 - Need the timeline runtime model: [Puppeteer Animation Timelines](../../scripting/timeline/animation/timeline-animation.md)
 
+## Contents
+
+1. [Overview](#overview)
+2. [Launching Puppeteer](#launching-puppeteer) — VNS snapshot, JES file, manual entities
+3. [UI Layout](#ui-layout) — window regions overview
+4. [Complete UI Reference](#complete-ui-reference-exhaustive) — toolbar, sidebars, panels, dialogs
+5. [Animatable Properties](#animatable-properties) — entity, camera, advanced channels
+6. [Keyframes](#keyframes) — adding, editing, multi-selection, interpolation
+7. [Easing Types](#easing-types) — 37 options, families, spring, custom Bézier, project presets
+8. [Animation Presets](#animation-presets) — 12 built-in templates
+9. [Entity Groups](#entity-groups) — hierarchy, group animation, layer ordering
+10. [Audio Cues](#audio-cues) — adding cues, properties, timeline markers
+11. [Event Cues](#event-cues) — presets, payload, preview behavior
+12. [Animation Clips](#animation-clips) — save, load, apply modes, storage
+13. [VN Slot Positions](#vn-slot-positions) — character-aware positioning
+14. [Camera Animation](#camera-animation) — pan, zoom, DOF, runtime integration
+15. [Preview Controls](#preview-controls) — playback, viewport, onion skinning, orbit tool
+16. [Timeline Panel](#timeline-panel) — ruler, tracks, playhead, snap, loop, zoom
+17. [Undo/Redo](#undoredo)
+18. [Export & Registration](#export--registration) — register, copy, export modes
+19. [Code Round-Trip Editing](#code-round-trip-editing) — import workflow, fidelity
+20. [Timeline Diagnostics](#timeline-diagnostics) — categories, easing suggestions
+21. [Keyboard Shortcuts](#keyboard-shortcuts)
+22. [Workflow Tips](#workflow-tips)
+23. [Known Limitations](#known-limitations)
+
 ---
 
 ## Overview
@@ -828,6 +854,72 @@ Preview scrubbing restores the baseline scene state, reapplies interpolated tran
 
 ---
 
+## Animation Clips
+
+Clips are reusable animation segments that can be saved, browsed, and applied across timelines. They are persisted as properties files under `config/puppeteer/clips/`.
+
+### Saving a Clip
+
+1. Select an entity track in the timeline
+2. Optionally select a keyframe range (or the full track is captured)
+3. Click **Save clip** in the Keyframe Ops toolbar group
+4. Enter a name — nested paths (e.g., `entrances/hero_slide`) create subdirectories automatically
+5. The clip captures all keyed properties, their keyframes, and easing values for the selected segment
+
+### Loading a Clip
+
+1. Select the target entity
+2. Move the playhead to where the clip should start
+3. Click **Load clip** in the toolbar
+4. Browse or filter available clips — each shows metadata preview (duration, properties, keyframe count)
+5. Choose an apply mode:
+   - **Layer On Top** — merge clip keyframes with existing ones (additive)
+   - **Replace Range** — overwrite keyframes in the clip's time span
+6. Optionally enable **Duration Scaling** to stretch/compress the clip to fit a target duration
+7. Click **Apply**
+
+### Clip Storage Format
+
+```text
+config/puppeteer/clips/
+├── entrances/
+│   ├── hero_slide.properties
+│   └── fade_in_bounce.properties
+├── exits/
+│   └── zoom_out.properties
+└── emphasis/
+    └── shake_small.properties
+```
+
+Each `.properties` file stores keyframes in a serialized format readable by `AnimationClip.deserialize()`. Clips are project-local and version-controllable.
+
+---
+
+## VN Slot Positions
+
+The **Slot** menu in the toolbar provides character-aware positioning for VN-style scenes. It places the selected entity at standard visual novel character positions.
+
+### Available Slots
+
+| Slot | Normalized X | Description |
+|------|-------------|-------------|
+| `FAR_LEFT` | ~0.1 | Extreme left edge |
+| `LEFT` | ~0.25 | Standard left position |
+| `CENTER` | 0.5 | Center stage |
+| `RIGHT` | ~0.75 | Standard right position |
+| `FAR_RIGHT` | ~0.9 | Extreme right edge |
+
+### Usage
+
+1. Select an entity in the Entities panel
+2. Click **Slot** in the toolbar
+3. Choose a position — the entity immediately moves to that X coordinate at the current playhead
+4. A keyframe is automatically created for the new position
+
+This is especially useful when authoring animations that start or end at canonical VN positions, ensuring consistency with how VNS scripts position characters.
+
+---
+
 ## Camera Animation
 
 Puppeteer supports animating the scene camera alongside entities.
@@ -883,11 +975,27 @@ hero: Something is coming...
 
 ### Onion Skinning
 
-Toggle with **Cmd+O** (or **Ctrl+O**). Shows ghost frames at surrounding timestamps to visualize motion paths and timing.
+Toggle with **Ctrl/Cmd+O**. When active, the preview canvas renders semi-transparent ghost frames at timestamps surrounding the playhead. This helps you:
+
+- Visualize the motion path of an entity across time
+- Judge spacing between keyframes (closer ghosts = slower motion)
+- Identify timing issues where animation bunches up or gaps appear
+- Compare start and end positions of a movement
+
+Ghost frames are rendered with decreasing opacity the further they are from the current playhead. The feature works best at slow playback speeds or while scrubbing.
 
 ### Orbit Tool
 
-Toggle with **A**. When enabled, clicking on the preview sets an orbit anchor point for the selected entity. **Shift+A** clears the anchor.
+Toggle with **A**. The orbit tool enables rotation-around-a-point workflows:
+
+1. Enable orbit mode (`A`)
+2. **Shift+Click** on the preview canvas to place an orbit anchor at the clicked position
+3. Drag the selected entity — it orbits around the anchor instead of moving linearly
+4. If **Align rotation** is enabled (toolbar toggle), the entity's rotation updates to face outward from the anchor
+5. **Alt+Shift+Click** on another entity to link the anchor to that entity's position (joint/nail mode)
+6. **Shift+A** clears the orbit anchor for the selected entity
+
+This is useful for pendulum swings, circular reveals, and characters turning around pivot points.
 
 ---
 
@@ -918,6 +1026,30 @@ When **Loop** is enabled, a green-tinted region is drawn between loop start and 
 - **Ctrl+Scroll** on timeline — zoom horizontally (`0.01` to `5.0` pixels/ms)
 - **Scroll** — pan vertically and horizontally
 
+### Selection Model
+
+The timeline uses `KeyframeSelectionModel` for advanced selection workflows:
+
+| Feature | Description |
+|---------|-------------|
+| **Click** | Select single keyframe |
+| **Shift+Click** | Toggle keyframe in multi-selection |
+| **Box select** | Click-drag on empty timeline area to rectangle-select multiple keyframes |
+| **Ripple retime** | When enabled, moving a keyframe pushes all later keyframes on the same track by the same delta — useful for inserting time without manually adjusting everything |
+
+### Channel Visibility Filters
+
+Filter which track types are visible in the timeline canvas:
+
+| Filter | Tracks Shown |
+|--------|-------------|
+| **TRANSFORM** | X, Y, Z, Rotation, Scale X/Y, Alpha, Visibility, Pivot |
+| **CAMERA** | Camera X, Camera Y, Camera Zoom, DOF properties |
+| **AUDIO** | Audio cue markers |
+| **EVENT** | Event cue markers |
+
+Use these filters to reduce visual clutter when working on specific aspects of a complex timeline (e.g., hide camera tracks while authoring character motion, or isolate event cues for timing review).
+
 ---
 
 ## Undo/Redo
@@ -943,20 +1075,13 @@ Undoable operations include:
 
 1. Enter a name in the **Name** field (e.g., `hero_entrance`)
 2. Click **Register**
-3. Puppeteer runs runtime verification first
+3. Puppeteer runs runtime verification (see [Timeline Diagnostics](#timeline-diagnostics) below)
 4. If blocking errors exist, registration is stopped and a report is shown
 5. If warnings exist, you can review them and continue intentionally
 6. When registration succeeds, the animation is:
    - converted to `TimelineData` and stored in `TimelineRegistry`
    - exported as JES code to `scripts/timelines/<name>.jes`
    - marked as saved (title shows "saved & registered")
-
-Typical verification catches include:
-
-- missing audio cue files
-- camera keys mixed into entity tracks
-- camera keys spread across multiple tracks
-- animated groups that preview correctly but are not runtime-safe to register as-is
 
 ### Copy to Clipboard
 
@@ -977,26 +1102,130 @@ Closing Puppeteer with unsaved changes prompts: **Save & Register**, **Discard**
 
 ---
 
+## Code Round-Trip Editing
+
+Puppeteer supports editing the generated JES code directly and importing changes back into the visual model. This enables a round-trip workflow: author visually → export → hand-edit code → re-import.
+
+### The Code Panel
+
+The right-side **Timeline Code** panel shows the live-generated JES source and provides three code-editing states:
+
+| State | Indicator | Meaning |
+|-------|-----------|---------|
+| **Auto-generated** | default | Code reflects the current visual model |
+| **Manually edited** | after typing in the code editor | Code has diverged from the model |
+| **Preview staged** | after clicking Preview Parse | A parsed model is staged for comparison |
+
+### Import Workflow
+
+1. Edit the JES code in the code panel (or paste external code)
+2. Click **Preview Parse** — the code is parsed back into an `AnimationProject` via `CodeImporter`
+3. The preview canvas shows the staged model's result alongside the current model
+4. Review the differences in the diagnostics area
+5. Click **Commit** to accept the staged model (replaces the current project state)
+6. Or click **Discard** to revert to the previous model
+
+### What CodeImporter Handles
+
+- All standard timeline actions (`move`, `rotate`, `scale`, `fade`, `pivot`, `cameraMove`, `cameraZoom`, `property`)
+- Audio cues (`playAudio`)
+- Event cues (`event "type" { ... }`)
+- Easing values including spring functions, named curves, and custom cubic Bézier
+- Puppeteer metadata comments (timeline name, stage context, entity metadata)
+- Duration and loop settings from header metadata
+
+### Round-Trip Fidelity
+
+The export → import cycle preserves:
+- Keyframe times, values, and easing specifications
+- Audio cue timing, paths, channels, volumes, and fade settings
+- Event cue types and full payload maps
+- Entity names and property assignments
+- Timeline duration and loop flag
+
+Easing defaults to `LINEAR` when not explicitly specified (both in export and import), ensuring deterministic round-trip behavior.
+
+---
+
+## Timeline Diagnostics
+
+Puppeteer includes a built-in diagnostics system (`TimelineDiagnostic`) that validates timelines before registration and during code preview. Diagnostics appear in the code panel's diagnostics area.
+
+### Diagnostic Categories
+
+| Category | Severity | What It Catches |
+|----------|----------|-----------------|
+| **Alpha out of range** | Warning | Alpha keyframe values outside 0.0–1.0 |
+| **Zoom out of range** | Warning | Camera zoom values that are negative or extremely large |
+| **Pivot out of range** | Warning | Pivot values outside 0.0–1.0 (may indicate pixel values instead of normalized) |
+| **Missing entity** | Error | Track references an entity name not found in the scene |
+| **Empty event type** | Error | Event cue with blank or null type string |
+| **Unknown easing** | Warning | Unrecognized easing name (with edit-distance suggestion) |
+| **Camera key placement** | Warning | Camera keys on non-camera tracks or spread across multiple tracks |
+| **Missing audio file** | Warning | Audio cue references a path that doesn't exist in the project |
+
+### Easing Suggestions
+
+When an unknown easing name is detected, the diagnostic uses edit-distance matching to suggest the closest valid name:
+
+```text
+Unknown easing "ease_in_out_quard" on hero.X at 400ms
+  → Did you mean: EASE_IN_OUT_QUART?
+```
+
+### When Diagnostics Run
+
+- **On registration** — blocking errors prevent registration; warnings can be acknowledged
+- **On code preview parse** — full diagnostics are shown in the diagnostics area
+- **On manual regeneration** — Regenerate button updates diagnostics alongside the code
+
+---
+
 ## Keyboard Shortcuts
+
+### Transport
 
 | Key | Action |
 |-----|--------|
 | `Space` | Toggle play/pause |
 | `Home` | Rewind to start |
-| `K` | Add keyframe at playhead |
+
+### Keyframe Editing
+
+| Key | Action |
+|-----|--------|
+| `K` | Add keyframe at playhead for active property |
 | `Delete` | Delete selected keyframe(s) |
-| `Shift+Click` | Multi-select keyframes |
-| `Ctrl/Cmd+Shift+C` | Copy generated code to clipboard |
-| `Ctrl/Cmd+Alt+C` | Copy selected keyframes |
-| `Ctrl/Cmd+Alt+V` | Paste keyframes at playhead |
-| `Ctrl/Cmd+Alt+D` | Duplicate keyframes by snap step |
-| `Ctrl/Cmd+Alt+Z` | Undo |
-| `Ctrl/Cmd+Alt+Shift+Z` or `Ctrl/Cmd+Alt+Y` | Redo |
-| `Ctrl/Cmd+O` | Toggle onion skinning |
+| `Shift+Click` | Toggle keyframe in multi-selection |
 | `Alt+Left` | Nudge selected keyframe(s) backward by snap step |
 | `Alt+Right` | Nudge selected keyframe(s) forward by snap step |
 | `Alt+Shift+Left` | Nudge selected keyframe(s) backward by 1ms |
 | `Alt+Shift+Right` | Nudge selected keyframe(s) forward by 1ms |
+| `Page Up` | Jump playhead to previous keyframe |
+| `Page Down` | Jump playhead to next keyframe |
+| `Ctrl/Cmd+Alt+C` | Copy selected keyframes |
+| `Ctrl/Cmd+Alt+V` | Paste keyframes at playhead |
+| `Ctrl/Cmd+Alt+D` | Duplicate selected keyframes by snap step |
+| `Ctrl/Cmd+Alt+F` | Focus/zoom timeline to selection or active track |
+
+### Export and Clipboard
+
+| Key | Action |
+|-----|--------|
+| `Ctrl/Cmd+Shift+C` | Copy generated JES code to clipboard |
+
+### Undo/Redo
+
+| Key | Action |
+|-----|--------|
+| `Ctrl/Cmd+Alt+Z` | Undo |
+| `Ctrl/Cmd+Alt+Shift+Z` or `Ctrl/Cmd+Alt+Y` | Redo |
+
+### Viewport and Preview
+
+| Key | Action |
+|-----|--------|
+| `Ctrl/Cmd+O` | Toggle onion skinning |
 | `A` | Toggle orbit tool |
 | `Shift+A` | Clear orbit anchor for selected entity |
 | Middle-drag / Right-drag | Pan viewport |
@@ -1007,16 +1236,34 @@ Closing Puppeteer with unsaved changes prompts: **Save & Register**, **Discard**
 
 ## Workflow Tips
 
+### Getting Started
+
 - **Start from VNS** — launch Puppeteer from a VNS file to get characters pre-positioned at their story locations
 - **Start with presets** — apply a preset first, then fine-tune individual keyframes
-- **Use onion skinning** to visualize motion paths and timing overlap
-- **Name timelines descriptively** — they appear in VNS scripts as `[call jes_timeline <name>]`
-- **Use snap** for consistent timing (50ms or 100ms steps)
+- **Use the Slot menu** — snap entities to canonical VN positions before animating
+
+### Authoring
+
+- **Use snap** for consistent timing (50ms or 100ms steps work well for character animations)
 - **Fit duration** — click Fit to auto-size the timeline after adding keyframes
-- **Loop preview** for cyclic animations (float, breathe)
-- **Check code preview** — the right panel updates live, verify before exporting
+- **Use onion skinning** (`Ctrl/Cmd+O`) to visualize motion paths and timing overlap
 - **Group related entities** — animate a character and their props as a unit
 - **Layer order** — use Raise/Lower to control which entities render on top during overlaps
+- **Save clips** for reusable animation patterns (entrances, exits, emphasis effects)
+
+### Preview and Export
+
+- **Loop preview** for cyclic animations (float, breathe) — set loop region with In/Out buttons
+- **Check code preview** — the right panel updates live; verify before exporting
+- **Name timelines descriptively** — they appear in VNS scripts as `[call jes_timeline <name>]`
+- **Use diagnostics** — review warnings before registration to catch alpha/pivot range issues early
+- **Round-trip edit** — paste or hand-tweak JES code, then Preview Parse → Commit to refine timing numerically
+
+### Performance
+
+- **Keep timelines focused** — one timeline per animation beat, not one massive timeline for a whole scene
+- **Avoid overlapping property writes** — two concurrent timelines animating the same property on the same entity will produce jitter
+- **Prefer named timelines** for reuse — inline timelines in VNS scripts are parsed fresh each time
 
 ---
 
@@ -1032,7 +1279,10 @@ Closing Puppeteer with unsaved changes prompts: **Save & Register**, **Discard**
 
 ## Related Docs
 
-- [Puppeteer Architecture](puppeteer.md)
-- [Puppeteer JES DSL Reference](puppeteer-jes-dsl.md)
-- [Timeline Animation (Core)](../../scripting/timeline/animation/timeline-animation.md)
-- [VNS Interop](../../scripting/vns/integration/vns-interop.md)
+- [Puppeteer Architecture](puppeteer.md) — design overview, data flow, JES/VNS relationship
+- [Puppeteer JES DSL Reference](puppeteer-jes-dsl.md) — complete exported syntax: actions, easing, spring functions, event blocks
+- [Timeline Animation (Core)](../../scripting/timeline/animation/timeline-animation.md) — `TimelineData` model, `TimelineRunner`, event cues, audio cues, `SceneAccessor`
+- [Hand-Coding Timelines](../../scripting/timeline/animation/timeline-hand-coding.md) — writing timeline code by hand with examples
+- [Puppeteer Launcher Panel](../sidebars/right/sidebar-puppeteer-launcher.md) — VNS snapshot resolution and launch configuration
+- [VNS Interop](../../scripting/vns/integration/vns-interop.md) — how to play timelines from VNS scripts
+- [VNS Characters](../../scripting/vns/presentation/vns-characters.md) — character positions and layering (the VNS context Puppeteer snapshots from)
