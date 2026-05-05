@@ -75,6 +75,7 @@ public class PuppeteerLauncherPanel extends VBox {
   private final Button btnLaunchLabelStart;
   private final Button btnLaunchSceneStart;
   private final Button btnOpenTimeline;
+  private final Button btnNewBlankTimeline;
   private final Button btnOpenIssue;
 
   private String currentSource = "";
@@ -205,6 +206,17 @@ public class PuppeteerLauncherPanel extends VBox {
       if (target != null) onOpenTarget.accept(target);
     });
 
+    btnNewBlankTimeline = createActionButton(
+        "New Animation",
+        CssIcon.plus("#e0e0e0"),
+        "-fx-background-color: #2d2d2d; -fx-text-fill: #e0e0e0;",
+        "Create a new blank timeline in Puppeteer");
+    btnNewBlankTimeline.setOnAction(e -> {
+      if (onLaunch != null) {
+        onLaunch.accept(new LaunchRequest(null, null));
+      }
+    });
+
     btnOpenIssue = createActionButton(
         "Jump To Issue",
         CssIcon.warning("#dfdfdf"),
@@ -221,8 +233,9 @@ public class PuppeteerLauncherPanel extends VBox {
     HBox.setHgrow(btnLaunchLabelStart, Priority.ALWAYS);
     HBox.setHgrow(btnLaunchSceneStart, Priority.ALWAYS);
 
-    HBox openRow = new HBox(6, btnOpenTimeline, btnOpenIssue);
+    HBox openRow = new HBox(6, btnOpenTimeline, btnNewBlankTimeline, btnOpenIssue);
     HBox.setHgrow(btnOpenTimeline, Priority.ALWAYS);
+    HBox.setHgrow(btnNewBlankTimeline, Priority.ALWAYS);
     HBox.setHgrow(btnOpenIssue, Priority.ALWAYS);
 
     getChildren().addAll(

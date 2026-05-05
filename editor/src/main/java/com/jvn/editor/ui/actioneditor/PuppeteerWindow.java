@@ -5984,6 +5984,9 @@ public class PuppeteerWindow extends Stage {
             projectRoot,
             PuppeteerVerification.Mode.REGISTER_RUNTIME
         );
+        boolean hasErrors = findings.stream().anyMatch(message -> message.severity() == TimelineDiagnostic.Severity.ERROR);
+        boolean hasWarnings = findings.stream().anyMatch(message -> message.severity() == TimelineDiagnostic.Severity.WARNING);
+
         if (findings.isEmpty()) {
             findings = List.of(new TimelineDiagnostic.Message(
                 TimelineDiagnostic.Severity.INFO,
@@ -5992,13 +5995,32 @@ public class PuppeteerWindow extends Stage {
                 "This timeline is ready to register with the current project state"
             ));
         }
-        showVerificationOverlay(
-            "Runtime Verification",
-            "Puppeteer checked this timeline against runtime registration rules.",
-            findings,
-            false,
-            null
-        );
+
+        if (hasErrors) {
+            showVerificationOverlay(
+                "Runtime Verification (Errors Found)",
+                "Puppeteer checked this timeline and found errors blocking registration.",
+                findings,
+                null,
+                null
+            );
+        } else if (hasWarnings) {
+            showVerificationOverlay(
+                "Runtime Verification (Warnings Found)",
+                "Puppeteer checked this timeline and found potential issues. Proceed with registration?",
+                findings,
+                "Register Anyway",
+                () -> requestRegisterTimeline() 
+            );
+        } else {
+            showVerificationOverlay(
+                "Runtime Verification Passed",
+                "Puppeteer checked this timeline. It is ready for runtime registration.",
+                findings,
+                "Register Now",
+                () -> requestRegisterTimeline()
+            );
+        }
     }
 
     private void requestRegisterTimeline() {
@@ -6029,7 +6051,7 @@ public class PuppeteerWindow extends Stage {
                 "Registration Blocked",
                 "Puppeteer found runtime registration errors. Fix them before registering this timeline.",
                 findings,
-                false,
+                null,
                 null
             );
             return;
@@ -6039,7 +6061,7 @@ public class PuppeteerWindow extends Stage {
                 "Register Timeline?",
                 "Puppeteer found warnings that may affect runtime playback. Continue registering anyway?",
                 findings,
-                true,
+                "Continue",
                 () -> performRegisterTimeline(name, onSuccess)
             );
             return;
@@ -6080,7 +6102,7 @@ public class PuppeteerWindow extends Stage {
         String title,
         String header,
         List<TimelineDiagnostic.Message> findings,
-        boolean allowContinue,
+        String continueText,
         Runnable onContinue
     ) {
         TextArea body = new TextArea(formatVerificationMessages(findings));
@@ -6089,13 +6111,13 @@ public class PuppeteerWindow extends Stage {
         body.setFocusTraversable(false);
         body.setPrefRowCount(Math.min(18, Math.max(8, findings == null ? 8 : findings.size() + 2)));
         body.setStyle("-fx-control-inner-background: #121212; -fx-text-fill: #d7d7d7; -fx-font-family: Monospaced;");
-        if (allowContinue) {
+        if (continueText != null) {
             overlayDialog.showDialog(
                 title,
                 header,
                 body,
                 ActionEditorDialogOverlay.ActionSpec.neutral("Cancel", overlayDialog::hideOverlay).defaultFocus(true),
-                ActionEditorDialogOverlay.ActionSpec.accent("Continue", () -> {
+                ActionEditorDialogOverlay.ActionSpec.accent(continueText, () -> {
                     if (onContinue != null) {
                         onContinue.run();
                     }
@@ -6107,7 +6129,7 @@ public class PuppeteerWindow extends Stage {
             title,
             header,
             body,
-            ActionEditorDialogOverlay.ActionSpec.accent("Close", overlayDialog::hideOverlay)
+            ActionEditorDialogOverlay.ActionSpec.neutral("Close", overlayDialog::hideOverlay).defaultFocus(true)
         );
     }
 
