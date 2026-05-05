@@ -44,7 +44,6 @@ This page is the orientation layer for Puppeteer. It explains:
 - **[Puppeteer Editor Guide](puppeteer-editor-guide.md)** — complete usage guide: launching, UI panels, selection-sidebar inspectors, keyframe editing, all 12 presets, 37 easing options, event cues, audio cues, camera animation, groups, layer ordering, orbit tool, onion skinning, export workflows, keyboard shortcuts
 - **[Puppeteer JES DSL Reference](puppeteer-jes-dsl.md)** — exported timeline code syntax: `move`, `rotate`, `scale`, `fade`, `pivot`, `cameraMove`, `cameraZoom`, generic `property` actions, `event` cues, `playAudio`, `wait`, `parallel`, easing values, spring functions, named curves, custom cubic Bézier, export modes, VNS/JES integration examples
 - **[Sidebar Utilities](../sidebars/overview/sidebar-utilities.md)** — current editor sidebar panels including Puppeteer Launcher, VNS Diagnostics, Asset Browser, and more
-- **[Puppeteer Audit & Roadmap](puppeteer-audit.md)** — hardening audit and expansion roadmap
 
 ---
 
@@ -1042,8 +1041,7 @@ Entities and groups now carry `layerOrder` metadata. Puppeteer provides context-
 - [Puppeteer Editor Guide](puppeteer-editor-guide.md) — comprehensive UI usage: launching, keyframes, 12 presets, 37 easing options, searchable easing picker, audio, camera, groups, shortcuts
 - [Puppeteer JES DSL Reference](puppeteer-jes-dsl.md) — complete exported timeline syntax reference
 - [Hand-Coding Timelines](../../scripting/timeline/animation/timeline-hand-coding.md) — writing timelines by hand, time cursor model, 18 examples, reusable templates
-- [Puppeteer Animation Timelines](../../scripting/timeline/animation/timeline-animation.md) — TimelineData model, TimelineRunner, TimelineRegistry
+- [Puppeteer Animation Timelines](../../scripting/timeline/animation/timeline-animation.md) — TimelineData model, TimelineRunner, TimelineRegistry, event cues, audio cues
 - [Timeline Overview](../../scripting/timeline/overview/timeline-scripting.md) — story vs animation timelines
 - [JES Timeline & Actions](../../scripting/jes/timeline/jes-timeline.md) — JES runtime timeline actions (superset: combat, flow control, loops)
 - [Puppeteer Launcher Panel](../sidebars/right/sidebar-puppeteer-launcher.md) — VNS snapshot resolution details
-- [Puppeteer Audit & Roadmap](puppeteer-audit.md) — hardening audit and expansion status

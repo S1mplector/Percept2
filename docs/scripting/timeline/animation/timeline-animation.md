@@ -336,10 +336,84 @@ public interface SceneAccessor {
     // Optional audio hooks (default: no-op)
     default void playAudioCue(String path, String channel, double volume, boolean loop, double fadeInMs) {}
     default void stopAudio(String channel) {}
+
+    // Optional event cue hook (default: no-op)
+    default void onEventCue(String type, java.util.Map<String, String> payload) {}
 }
 ```
 
-**`findEntity`** is the only required method. Camera and audio are optional — if the scene doesn't implement them, those keyframes and cues are silently ignored. This allows the same `TimelineData` to work across different scene types (JES scenes, VN scenes, test harnesses).
+**`findEntity`** is the only required method. Camera, audio, and event cue hooks are optional — if the scene doesn't implement them, those keyframes and cues are silently ignored. This allows the same `TimelineData` to work across different scene types (JES scenes, VN scenes, test harnesses).
+
+---
+
+## Event Cues
+
+Event cues fire instant callbacks at specific timestamps during playback. Unlike audio cues (which trigger audio playback), event cues deliver structured data to the scene for expression changes, show/hide beats, scene swaps, or arbitrary game logic.
+
+```jes
+timeline {
+  # Expression change at 200ms
+  event "expression" {
+    target: hero
+    value: angry
+  }
+
+  wait 500
+
+  # Show/hide beat at 500ms
+  event "show" {
+    target: villain
+    position: right
+    value: smug
+  }
+
+  wait 300
+
+  # Custom game event at 800ms
+  event "script_call" {
+    handler: spawnParticles
+    count: 12
+  }
+}
+```
+
+### EventCue Structure
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `timeMs` | double | When the cue fires (milliseconds) |
+| `type` | String | Event category (e.g. `"expression"`, `"show"`, `"hide"`, `"replace"`, `"scene"`, custom) |
+| `payload` | Map\<String, String\> | Arbitrary key-value pairs describing the event |
+
+### Predefined Event Types
+
+| Type | Common Payload Keys | Description |
+|------|-------------------|-------------|
+| `expression` | `target`, `value` | Change a character's expression mid-animation |
+| `show` | `target`, `position`, `value` | Show a character at a position with expression |
+| `hide` | `target` | Hide a character |
+| `replace` | `target`, `value`, `path` | Replace a sprite's image source |
+| `scene` | `path`, `position` | Change background or cutaway |
+| (custom) | any | Forwarded to `SceneAccessor.onEventCue()` for game-specific logic |
+
+### Runtime Behavior
+
+- Event cues are triggered by `TimelineRunner` when elapsed time crosses the cue's timestamp (same window logic as audio cues).
+- In looping timelines, event cues re-fire each cycle.
+- The runner calls `sceneAccessor.onEventCue(type, payload)` for each triggered cue.
+- `VnCharacterSceneAccessor` provides a VN-native implementation that interprets expression/show/hide/replace cues and maintains an event log.
+- Scenes that don't override `onEventCue` silently ignore all event cues.
+
+### DSL Syntax
+
+```text
+event "<type>" {
+  key1: value1
+  key2: value2
+}
+```
+
+The type is a quoted string. The body contains `key: value` pairs (one per line). Values are always stored as strings in the payload map.
 
 ---
 

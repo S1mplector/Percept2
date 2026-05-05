@@ -88,7 +88,6 @@ This index is the main route through the Java Vector Nexus documentation. It is 
 - [Puppeteer - Animation Timeline Editor](editor/puppeteer/puppeteer.md) - architecture and integration overview
 - [Puppeteer Editor Guide](editor/puppeteer/puppeteer-editor-guide.md) - day-to-day usage, panels, timeline, keyframes, registration
 - [Puppeteer JES Timeline DSL Reference](editor/puppeteer/puppeteer-jes-dsl.md) - exported syntax and examples
-- [Puppeteer Audit & Expansion Roadmap](editor/puppeteer/puppeteer-audit.md) - hardening audit and roadmap notes
 - [Generated Puppeteer Screenshots](editor/puppeteer/generated-puppeteer-screenshots.md) - generated visual reference
 
 ### Sidebar Utilities
@@ -266,6 +265,7 @@ This index is the main route through the Java Vector Nexus documentation. It is 
 - [Interop Guide](runtime/core/interop.md)
 - [Asset Management & Path Resolution](runtime/systems/asset-management.md)
 - [Audio System](runtime/systems/audio-system.md)
+- [Display & Resolution Settings](runtime/systems/display-settings-guide.md)
 - [Save System](runtime/systems/save-system.md)
 - [VN Settings Reference](runtime/systems/vn-settings.md)
 

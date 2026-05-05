@@ -45,8 +45,11 @@ State variable operations:
 | `set` | `[set key value]` | Set variable to value (auto-typed: int/double/boolean/string) |
 | `inc` | `[inc key [delta]]` | Increment by delta (default 1). Auto-converts to int if result is whole |
 | `dec` | `[dec key [delta]]` | Decrement by delta (default 1) |
+| `mul` | `[mul key factor]` | Multiply by factor |
+| `div` | `[div key divisor]` | Divide by divisor (division by zero is silently ignored) |
 | `flag` | `[flag key]` | Set variable to `true` |
 | `unflag` | `[unflag key]` | Set variable to `false` |
+| `toggle` | `[toggle key]` | Flip boolean between `true` and `false` |
 | `clear` | `[clear key]` | Remove variable entirely |
 
 ### `cond`
@@ -67,9 +70,12 @@ Live settings changes, applied immediately:
 [settings volume bgm 0.5]              # BGM volume (0.0–1.0)
 [settings volume sfx 0.6]              # SFX volume
 [settings volume voice 0.8]            # Voice volume
+[settings display_width 1280]          # screen width (320–7680)
+[settings display_height 720]          # screen height (180–4320)
+[settings auto_fit_resolution true]    # auto-fit to player's screen
 ```
 
-Volume changes are applied immediately to all currently playing tracks on that channel.
+Volume changes are applied immediately to all currently playing tracks on that channel. Display settings take effect at the next frame or when the settings scene exits. See [Display & Resolution Settings](../systems/display-settings-guide.md) for implementation details.
 
 ### `save`
 

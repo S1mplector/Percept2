@@ -465,7 +465,7 @@ Shows a temporary on-screen message (auto-expires after ~2 seconds). Supports `$
 |----------|---------|
 | `hud` | Temporary HUD message |
 | `java` | Reflection-based static method call |
-| `var` | Variable operations (set/inc/dec/flag/unflag/clear) |
+| `var` | Variable operations (set/inc/dec/mul/div/flag/unflag/toggle/clear) |
 | `cond` | Conditional jump logic |
 | `settings` | Live settings changes |
 | `save` | Quick save/load |
