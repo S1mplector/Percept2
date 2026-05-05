@@ -332,7 +332,7 @@ public final class JvnHub {
 
     JLabel sub = new JLabel(announcements.isEmpty()
         ? "No announcements yet. Click \"Update Engine\" to fetch the latest."
-        : announcements.size() + " total \u00B7 latest first");
+        : announcements.size() + " total \u00B7");
     sub.setForeground(TEXT_MUTED);
     sub.setFont(sub.getFont().deriveFont(Font.PLAIN, 11f));
 

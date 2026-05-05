@@ -87,6 +87,8 @@ public class PuppeteerLauncherPanel extends VBox {
   private String cachedRegisteredAnimationsRoot = "";
   private long cachedRegisteredAnimationsStamp = Long.MIN_VALUE;
   private String activeEditingTimeline;
+  private String selectedTimelineId;
+  private java.io.File selectedTimelineFile;
 
   public PuppeteerLauncherPanel() {
     setSpacing(8);
@@ -157,7 +159,7 @@ public class PuppeteerLauncherPanel extends VBox {
 
     btnLaunch = createActionButton(
         "Launch @ Cursor",
-        CssIcon.rocket("#f0f0f0"),
+        CssIcon.nearMe("#f0f0f0"),
         "-fx-background-color: #3a3a3a; -fx-text-fill: #f0f0f0; -fx-font-weight: bold;",
         "Launch Puppeteer with scene snapshot from the current cursor line");
     btnLaunch.setOnAction(e -> {
@@ -195,6 +197,10 @@ public class PuppeteerLauncherPanel extends VBox {
         "Open the related timeline file or inline block");
     btnOpenTimeline.setOnAction(e -> {
       if (onOpenTarget == null) return;
+      if (selectedTimelineFile != null) {
+          onOpenTarget.accept(new OpenTarget(selectedTimelineFile, 0));
+          return;
+      }
       OpenTarget target = resolveTimelineOpenTarget(buildSnapshot(currentLine));
       if (target != null) onOpenTarget.accept(target);
     });
@@ -306,6 +312,8 @@ public class PuppeteerLauncherPanel extends VBox {
     btnLaunch.setDisable(true);
     btnLaunchLabelStart.setDisable(true);
     btnLaunchSceneStart.setDisable(true);
+    selectedTimelineId = null;
+    selectedTimelineFile = null;
     btnOpenTimeline.setDisable(true);
     btnOpenIssue.setDisable(true);
     refreshRegisteredAnimations(null);
@@ -371,7 +379,7 @@ public class PuppeteerLauncherPanel extends VBox {
     btnLaunch.setDisable(false);
     btnLaunchLabelStart.setDisable(false);
     btnLaunchSceneStart.setDisable(false);
-    btnOpenTimeline.setDisable(resolveTimelineOpenTarget(snap) == null);
+    btnOpenTimeline.setDisable(selectedTimelineId == null && resolveTimelineOpenTarget(snap) == null);
     btnOpenIssue.setDisable(resolvePrimaryIssueOpenTarget(snap) == null);
     refreshRegisteredAnimations(snap);
   }
@@ -455,7 +463,7 @@ public class PuppeteerLauncherPanel extends VBox {
     }
   }
 
-  private VBox createRegisteredAnimationCard(RegisteredAnimation animation, SceneSnapshot snapshot) {
+  private javafx.scene.layout.Region createRegisteredAnimationCard(RegisteredAnimation animation, SceneSnapshot snapshot) {
     String preferredTimelineName = snapshot != null ? snapshot.preferredTimelineName() : null;
     String timelineId = resolveRelativeTimelineStem(animation);
     boolean suggested = preferredTimelineName != null && preferredTimelineName.equals(timelineId);
@@ -579,15 +587,58 @@ public class PuppeteerLauncherPanel extends VBox {
       body.getStyleClass().add("sidebar-tool-card");
     }
 
+    javafx.scene.layout.StackPane cardRoot = new javafx.scene.layout.StackPane(body);
+    
+    boolean isSelected = timelineId != null && timelineId.equals(selectedTimelineId);
+    if (isSelected) {
+        selectedTimelineFile = animation.file();
+        javafx.scene.canvas.Canvas lassoCanvas = new javafx.scene.canvas.Canvas();
+        lassoCanvas.setMouseTransparent(true);
+        lassoCanvas.widthProperty().bind(body.widthProperty());
+        lassoCanvas.heightProperty().bind(body.heightProperty());
+        
+        double[] offset = {0.0};
+        javafx.animation.Timeline lassoTimeline = new javafx.animation.Timeline(
+            new javafx.animation.KeyFrame(javafx.util.Duration.millis(40), evt -> {
+                offset[0] -= 2.2;
+                javafx.scene.canvas.GraphicsContext gc = lassoCanvas.getGraphicsContext2D();
+                double w = lassoCanvas.getWidth();
+                double h = lassoCanvas.getHeight();
+                gc.clearRect(0, 0, w, h);
+                gc.setStroke(javafx.scene.paint.Color.web("#a0d0f0"));
+                gc.setLineWidth(1.5);
+                gc.setLineDashes(4, 4);
+                gc.setLineDashOffset(offset[0]);
+                gc.strokeRoundRect(1, 1, w - 2, h - 2, 8, 8);
+            })
+        );
+        lassoTimeline.setCycleCount(javafx.animation.Animation.INDEFINITE);
+        
+        cardRoot.getChildren().add(lassoCanvas);
+        
+        lassoCanvas.sceneProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null) lassoTimeline.stop();
+            else lassoTimeline.play();
+        });
+    }
+
     body.setOnMouseClicked(e -> {
-      if (!isEditing && importable && e.getButton() == javafx.scene.input.MouseButton.PRIMARY && e.getClickCount() == 2) {
-        if (onLaunch != null) {
-          onLaunch.accept(new LaunchRequest(snapshot, timelineId));
-        }
+      if (e.getButton() == javafx.scene.input.MouseButton.PRIMARY) {
+          if (e.getClickCount() == 2 && !isEditing && importable) {
+              if (onLaunch != null) {
+                  onLaunch.accept(new LaunchRequest(snapshot, timelineId));
+              }
+          } else if (e.getClickCount() == 1) {
+              if (timelineId != null && !timelineId.equals(selectedTimelineId)) {
+                  selectedTimelineId = timelineId;
+                  selectedTimelineFile = animation.file();
+                  refresh();
+              }
+          }
       }
     });
 
-    return body;
+    return cardRoot;
   }
 
   private VBox createPlaceholderCard(String title, String detail) {
