@@ -2,7 +2,7 @@
 
 Comprehensive guide to using the Puppeteer animation editor — launching, UI panels, entity management, keyframe editing, animation presets, event cues, advanced property inspectors, audio cues, camera animation, groups, layer ordering, preview controls, and export workflows.
 
-Source: `editor/src/main/java/com/jvn/editor/ui/actioneditor/PuppeteerWindow.java`
+Source: `modules/editor/src/main/java/com/jvn/editor/ui/actioneditor/PuppeteerWindow.java`
 
 ---
 
@@ -89,7 +89,7 @@ Puppeteer is JVN's visual keyframe animation editor. It lets you:
 
 ### Puppeteer Launcher Panel — In Detail
 
-Source: `editor/src/main/java/com/jvn/editor/ui/PuppeteerLauncherPanel.java`
+Source: `modules/editor/src/main/java/com/jvn/editor/ui/PuppeteerLauncherPanel.java`
 
 The Puppeteer Launcher is a sidebar panel that provides live VNS scene state tracking and one-click Puppeteer launch. It updates automatically as you move the cursor within a `.vns` file.
 
@@ -187,13 +187,13 @@ For raw generated captures and contact sheet, see:
 
 This section is intentionally exhaustive and mirrors the current implementation in:
 
-- `editor/src/main/java/com/jvn/editor/ui/actioneditor/PuppeteerWindow.java`
-- `editor/src/main/java/com/jvn/editor/ui/actioneditor/EntitySelector.java`
-- `editor/src/main/java/com/jvn/editor/ui/actioneditor/AssetPickerPanel.java`
-- `editor/src/main/java/com/jvn/editor/ui/actioneditor/KeyframeEditor.java`
-- `editor/src/main/java/com/jvn/editor/ui/actioneditor/TimelinePanel.java`
-- `editor/src/main/java/com/jvn/editor/ui/actioneditor/AnimationPreview.java`
-- `editor/src/main/java/com/jvn/editor/ui/actioneditor/CodePreviewPane.java`
+- `modules/editor/src/main/java/com/jvn/editor/ui/actioneditor/PuppeteerWindow.java`
+- `modules/editor/src/main/java/com/jvn/editor/ui/actioneditor/EntitySelector.java`
+- `modules/editor/src/main/java/com/jvn/editor/ui/actioneditor/AssetPickerPanel.java`
+- `modules/editor/src/main/java/com/jvn/editor/ui/actioneditor/KeyframeEditor.java`
+- `modules/editor/src/main/java/com/jvn/editor/ui/actioneditor/TimelinePanel.java`
+- `modules/editor/src/main/java/com/jvn/editor/ui/actioneditor/AnimationPreview.java`
+- `modules/editor/src/main/java/com/jvn/editor/ui/actioneditor/CodePreviewPane.java`
 
 ### Window Regions
 

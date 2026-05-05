@@ -1,6 +1,6 @@
 # Phone Assets
 
-Source: `editor/src/main/java/com/jvn/editor/ui/PhoneAssetsToolView.java`
+Source: `modules/editor/src/main/java/com/jvn/editor/ui/PhoneAssetsToolView.java`
 
 The **Phone Assets** sidebar is the structured editor for the phone framework. It edits the same `phone.properties` data that runtime and preview consume, so contacts, threads, messages, wallpaper paths, and theme colors stay aligned with `[phone ...]` behavior.
 

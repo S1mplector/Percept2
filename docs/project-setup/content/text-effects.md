@@ -2,8 +2,8 @@
 
 JVN supports inline text markup inside dialogue strings.
 
-Parser: `core/src/main/java/com/jvn/core/vn/text/TextParser.java`  
-Renderer: `fx/src/main/java/com/jvn/fx/vn/VnRenderer.java`
+Parser: `modules/core/src/main/java/com/jvn/core/vn/text/TextParser.java`  
+Renderer: `modules/fx/src/main/java/com/jvn/fx/vn/VnRenderer.java`
 
 ## Syntax
 

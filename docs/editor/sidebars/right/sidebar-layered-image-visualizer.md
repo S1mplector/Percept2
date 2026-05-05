@@ -2,7 +2,7 @@
 
 Explores layered character rigs, composites them live, and exports reusable setup or VNS-ready script output.
 
-Source: `editor/src/main/java/com/jvn/editor/ui/LayeredImageVisualizerView.java`
+Source: `modules/editor/src/main/java/com/jvn/editor/ui/LayeredImageVisualizerView.java`
 
 ---
 

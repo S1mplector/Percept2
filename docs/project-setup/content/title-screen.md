@@ -10,7 +10,7 @@ This page covers both.
 ## Theme File (`config/menu/theme/menu.theme`)
 
 Theme loader class:
-- `fx/src/main/java/com/jvn/fx/menu/MenuTheme.java`
+- `modules/fx/src/main/java/com/jvn/fx/menu/MenuTheme.java`
 
 Lookup order:
 - `config/menu/theme/menu.theme`
@@ -82,7 +82,7 @@ bgmVolume=0.7
 ## Dynamic Menu Profiles (Recommended)
 
 Profile loader:
-- `core/src/main/java/com/jvn/core/menu/config/MenuProfileLoader.java`
+- `modules/core/src/main/java/com/jvn/core/menu/config/MenuProfileLoader.java`
 
 Use this structure:
 

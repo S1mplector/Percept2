@@ -2,8 +2,8 @@
 
 Complete reference for the JES timeline code that Puppeteer generates and exports. Covers the `timeline { }` block syntax, all action types, generic property channels, event cues, easing values, parallel blocks, wait commands, audio cues, camera actions, editor metadata comments, and how to use exported code in VNS scripts and JES scenes.
 
-Exporter: `editor/src/main/java/com/jvn/editor/ui/actioneditor/CodeExporter.java`
-Runtime: `core/src/main/java/com/jvn/core/animation/TimelineRunner.java`
+Exporter: `modules/editor/src/main/java/com/jvn/editor/ui/actioneditor/CodeExporter.java`
+Runtime: `modules/core/src/main/java/com/jvn/core/animation/TimelineRunner.java`
 
 ---
 

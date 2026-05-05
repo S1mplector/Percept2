@@ -2,10 +2,10 @@
 
 Complete reference for keyframe-based animation timelines created with the Puppeteer editor — the `TimelineData` model, `TimelineRunner` playback, audio cues, and VNS/JES integration.
 
-Data model: `core/src/main/java/com/jvn/core/animation/TimelineData.java`
-Parser: `core/src/main/java/com/jvn/core/animation/TimelineDataParser.java`
-Runner: `core/src/main/java/com/jvn/core/animation/TimelineRunner.java`
-Registry: `core/src/main/java/com/jvn/core/animation/TimelineRegistry.java`
+Data model: `modules/core/src/main/java/com/jvn/core/animation/TimelineData.java`
+Parser: `modules/core/src/main/java/com/jvn/core/animation/TimelineDataParser.java`
+Runner: `modules/core/src/main/java/com/jvn/core/animation/TimelineRunner.java`
+Registry: `modules/core/src/main/java/com/jvn/core/animation/TimelineRegistry.java`
 
 ---
 

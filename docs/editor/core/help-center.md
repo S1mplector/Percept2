@@ -3,7 +3,7 @@
 The editor ships with an in-app Help Center so teams can browse project/workspace documentation without leaving JVN.
 
 Component:
-- `editor/src/main/java/com/jvn/editor/ui/HelpCenterView.java`
+- `modules/editor/src/main/java/com/jvn/editor/ui/HelpCenterView.java`
 
 ## How to Open
 

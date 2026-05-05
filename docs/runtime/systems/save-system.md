@@ -3,10 +3,10 @@
 JVN save/load is schema-versioned, migration-aware, and write-failure-safe.
 
 Primary classes:
-- `core/src/main/java/com/jvn/core/vn/save/VnSaveData.java`
-- `core/src/main/java/com/jvn/core/vn/save/VnSaveMigration.java`
-- `core/src/main/java/com/jvn/core/vn/save/VnSaveManager.java`
-- `core/src/main/java/com/jvn/core/vn/save/VnSaveSerializer.java`
+- `modules/core/src/main/java/com/jvn/core/vn/save/VnSaveData.java`
+- `modules/core/src/main/java/com/jvn/core/vn/save/VnSaveMigration.java`
+- `modules/core/src/main/java/com/jvn/core/vn/save/VnSaveManager.java`
+- `modules/core/src/main/java/com/jvn/core/vn/save/VnSaveSerializer.java`
 
 ## Storage Format
 

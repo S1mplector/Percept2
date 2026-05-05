@@ -23,7 +23,7 @@ The `jes/` package contains the full JES pipeline:
 
 ## Documentation
 
-- [JES Overview](../docs/scripting/jes/overview/jes-scripting.md)
-- [Scenes & Entities](../docs/scripting/jes/scene/jes-scenes-entities.md)
-- [Timeline & Actions](../docs/scripting/jes/timeline/jes-timeline.md)
-- [Parsing Internals](../docs/scripting/jes/internals/jes-parsing.md)
+- [JES Overview](../../docs/scripting/jes/overview/jes-scripting.md)
+- [Scenes & Entities](../../docs/scripting/jes/scene/jes-scenes-entities.md)
+- [Timeline & Actions](../../docs/scripting/jes/timeline/jes-timeline.md)
+- [Parsing Internals](../../docs/scripting/jes/internals/jes-parsing.md)

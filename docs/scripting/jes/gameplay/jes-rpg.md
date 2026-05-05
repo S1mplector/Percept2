@@ -2,7 +2,7 @@
 
 Complete reference for the Stats, Inventory, Equipment, and Item systems in JES — HP/MP management, damage/healing, death callbacks, item stacking, and equipment bonuses.
 
-Runtime: `scripting/src/main/java/com/jvn/scripting/jes/runtime/JesScene2D.java`
+Runtime: `modules/scripting/src/main/java/com/jvn/scripting/jes/runtime/JesScene2D.java`
 
 ---
 

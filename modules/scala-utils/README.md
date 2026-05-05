@@ -37,4 +37,4 @@ buttonLayout("main", resolution = "1920x1080", menuType = "main") {
 
 ## Documentation
 
-- [Scala DSL Reference](../docs/scripting/ui/layout/reference/scala-dsl.md)
+- [Scala DSL Reference](../../docs/scripting/ui/layout/reference/scala-dsl.md)

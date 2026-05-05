@@ -2,7 +2,7 @@
 
 VNS is JVN's line-oriented visual novel scripting DSL. It handles story flow, dialogue, branching, character staging, audio, transitions, variables, and integration with JES scenes and Java code.
 
-Parser source: `core/src/main/java/com/jvn/core/vn/script/VnScriptParser.java`
+Parser source: `modules/core/src/main/java/com/jvn/core/vn/script/VnScriptParser.java`
 
 ---
 

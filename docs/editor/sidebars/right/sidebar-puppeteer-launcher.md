@@ -2,7 +2,7 @@
 
 Live VNS scene snapshot panel that launches new Puppeteer work from the current cursor context and reopens registered animations directly.
 
-Source: `editor/src/main/java/com/jvn/editor/ui/PuppeteerLauncherPanel.java`
+Source: `modules/editor/src/main/java/com/jvn/editor/ui/PuppeteerLauncherPanel.java`
 
 ---
 

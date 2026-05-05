@@ -2,7 +2,7 @@
 
 The startup dashboard that greets users when the editor opens. Provides quick access to recent projects, environment health diagnostics, and project creation/opening actions.
 
-Source: `editor/src/main/java/com/jvn/editor/ui/WelcomeCenterView.java`
+Source: `modules/editor/src/main/java/com/jvn/editor/ui/WelcomeCenterView.java`
 
 ---
 

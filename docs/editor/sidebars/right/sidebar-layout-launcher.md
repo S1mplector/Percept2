@@ -2,7 +2,7 @@
 
 Quick-status and launch panel for all layout-related visual editors. Shows which layout, style, and screen files exist and whether they've been customized.
 
-Source: `editor/src/main/java/com/jvn/editor/ui/LayoutEditorLauncherView.java`
+Source: `modules/editor/src/main/java/com/jvn/editor/ui/LayoutEditorLauncherView.java`
 
 ---
 

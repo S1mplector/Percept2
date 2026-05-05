@@ -2,9 +2,9 @@
 
 Complete reference for the VN rollback (rewind/fast-forward) system and the dialogue history backlog.
 
-Rollback stack: `core/src/main/java/com/jvn/core/vn/rollback/VnRollbackStack.java`
-Rollback entry: `core/src/main/java/com/jvn/core/vn/rollback/VnRollbackEntry.java`
-History: `core/src/main/java/com/jvn/core/vn/VnHistory.java`
+Rollback stack: `modules/core/src/main/java/com/jvn/core/vn/rollback/VnRollbackStack.java`
+Rollback entry: `modules/core/src/main/java/com/jvn/core/vn/rollback/VnRollbackEntry.java`
+History: `modules/core/src/main/java/com/jvn/core/vn/VnHistory.java`
 
 ---
 

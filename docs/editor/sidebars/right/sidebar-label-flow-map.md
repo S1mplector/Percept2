@@ -2,7 +2,7 @@
 
 Visual directed graph showing label-to-label control flow within a single VNS script.
 
-Source: `editor/src/main/java/com/jvn/editor/ui/VnsFlowMapView.java`
+Source: `modules/editor/src/main/java/com/jvn/editor/ui/VnsFlowMapView.java`
 
 ---
 

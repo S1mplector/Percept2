@@ -375,7 +375,7 @@ Without global mode, each `[move]` above would produce an entrance animation ins
 
 Global mode is **per-character** and persists for the duration of the scene (or until explicitly disabled). It survives label jumps within the same scenario. It is saved/restored with save files.
 
-Source: `core/src/main/java/com/jvn/core/vn/VnState.java` — `isCharacterGlobalPositionEnabled()`, `showCharacterAnimated()`
+Source: `modules/core/src/main/java/com/jvn/core/vn/VnState.java` — `isCharacterGlobalPositionEnabled()`, `showCharacterAnimated()`
 
 ---
 
@@ -430,7 +430,7 @@ All 25 easing types (case-insensitive in VNS):
 | **Back** | `ease_in_back` | `ease_out_back` | `ease_in_out_back` |
 | **Bounce** | `ease_in_bounce` | `ease_out_bounce` | `ease_in_out_bounce` |
 
-Plus `linear` (constant speed). Source: `core/src/main/java/com/jvn/core/animation/Easing.java`
+Plus `linear` (constant speed). Source: `modules/core/src/main/java/com/jvn/core/animation/Easing.java`
 
 **In** = accelerate from rest. **Out** = decelerate to rest. **In-Out** = both.
 

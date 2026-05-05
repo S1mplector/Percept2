@@ -2,7 +2,7 @@
 
 Complete reference for the VNS parsing pipeline — how `VnScriptParser` transforms `.vns` source text into executable `VnScenario` data, including directives, commands, conditional lowering, include/macro handling, label validation, and error reporting.
 
-Parser source: `core/src/main/java/com/jvn/core/vn/script/VnScriptParser.java`
+Parser source: `modules/core/src/main/java/com/jvn/core/vn/script/VnScriptParser.java`
 
 ---
 

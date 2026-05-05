@@ -2,7 +2,7 @@
 
 Advanced text formatting reference for variable interpolation, pluralization, gender/case selection, and number formatting.
 
-Formatter: `core/src/main/java/com/jvn/core/vn/VnTextFormatter.java`
+Formatter: `modules/core/src/main/java/com/jvn/core/vn/VnTextFormatter.java`
 
 ---
 

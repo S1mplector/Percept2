@@ -2,7 +2,7 @@
 
 Complete catalog of all VNS commands. Commands use `[command args]` syntax.
 
-Parser source: `core/src/main/java/com/jvn/core/vn/script/VnScriptParser.java`
+Parser source: `modules/core/src/main/java/com/jvn/core/vn/script/VnScriptParser.java`
 
 ---
 

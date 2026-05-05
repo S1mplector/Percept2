@@ -2,7 +2,7 @@
 
 Practical guide to creating character expression presets from layered sprite assets. Covers the full pipeline from organizing art files through `@charlayer` and `@charpreset` declarations to runtime compositing and editor tooling.
 
-Source: `core/src/main/java/com/jvn/core/vn/script/VnScriptParser.java` (parsing), `fx/src/main/java/com/jvn/fx/vn/VnRenderer.java` (rendering)
+Source: `modules/core/src/main/java/com/jvn/core/vn/script/VnScriptParser.java` (parsing), `modules/fx/src/main/java/com/jvn/fx/vn/VnRenderer.java` (rendering)
 
 ---
 

@@ -2,7 +2,7 @@
 
 In-app documentation browser that discovers, indexes, and previews Markdown documentation files from the workspace and project.
 
-Source: `editor/src/main/java/com/jvn/editor/ui/HelpCenterView.java`
+Source: `modules/editor/src/main/java/com/jvn/editor/ui/HelpCenterView.java`
 
 ---
 

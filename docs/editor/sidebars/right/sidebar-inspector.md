@@ -2,7 +2,7 @@
 
 Property editor for the currently selected entity in a JES scene viewport. Displays different fields depending on entity type, with full undo/redo support.
 
-Source: `editor/src/main/java/com/jvn/editor/ui/InspectorView.java`
+Source: `modules/editor/src/main/java/com/jvn/editor/ui/InspectorView.java`
 
 ---
 

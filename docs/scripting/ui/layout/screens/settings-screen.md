@@ -2,8 +2,8 @@
 
 Complete guide to configuring the JVN settings menu screen — built-in setting items, dynamic `{value}` placeholders, slider/toggle behavior, and custom settings.
 
-Model: `core/src/main/java/com/jvn/core/menu/config/MenuScreenSpec.java`
-Defaults: `core/src/main/java/com/jvn/core/menu/config/MenuProfile.java`
+Model: `modules/core/src/main/java/com/jvn/core/menu/config/MenuScreenSpec.java`
+Defaults: `modules/core/src/main/java/com/jvn/core/menu/config/MenuProfile.java`
 
 ---
 

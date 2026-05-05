@@ -3,7 +3,7 @@
 The editor's new project wizard scaffolds a VN-ready project with layered config, scripts, assets, and manifest metadata.
 
 Wizard class:
-- `editor/src/main/java/com/jvn/editor/ui/NewProjectWizard.java`
+- `modules/editor/src/main/java/com/jvn/editor/ui/NewProjectWizard.java`
 
 ## Goals of Current Wizard
 

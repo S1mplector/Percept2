@@ -2,8 +2,8 @@
 
 Complete reference for per-button positional layouts — the `.buttonlayout` properties format for placing menu buttons at exact coordinates with custom assets.
 
-Model: `core/src/main/java/com/jvn/core/menu/config/MenuButtonLayoutSpec.java`
-Loader: `core/src/main/java/com/jvn/core/menu/config/MenuButtonLayoutLoader.java`
+Model: `modules/core/src/main/java/com/jvn/core/menu/config/MenuButtonLayoutSpec.java`
+Loader: `modules/core/src/main/java/com/jvn/core/menu/config/MenuButtonLayoutLoader.java`
 
 ---
 

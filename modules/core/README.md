@@ -34,6 +34,6 @@ No external dependencies.
 
 ## Documentation
 
-- [System Architecture](../docs/architecture/core/system-architecture.md)
-- [2D Engine](../docs/architecture/core/2d-engine.md)
-- [Overview](../docs/architecture/core/overview.md)
+- [System Architecture](../../docs/architecture/core/system-architecture.md)
+- [2D Engine](../../docs/architecture/core/2d-engine.md)
+- [Overview](../../docs/architecture/core/overview.md)

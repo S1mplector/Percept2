@@ -2,7 +2,7 @@
 
 Complete reference for camera positioning, zoom, shake, follow, parallax, and dead zones in JES scenes.
 
-Runtime: `scripting/src/main/java/com/jvn/scripting/jes/runtime/JesScene2D.java`
+Runtime: `modules/scripting/src/main/java/com/jvn/scripting/jes/runtime/JesScene2D.java`
 
 ---
 

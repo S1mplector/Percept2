@@ -2,8 +2,8 @@
 
 Complete reference for VN runtime settings and playback modes — text speed, audio volumes, skip mode, auto-play, UI visibility, click behavior, and physics tuning.
 
-Settings: `core/src/main/java/com/jvn/core/vn/VnSettings.java`
-Scene modes: `core/src/main/java/com/jvn/core/vn/VnScene.java`
+Settings: `modules/core/src/main/java/com/jvn/core/vn/VnSettings.java`
+Scene modes: `modules/core/src/main/java/com/jvn/core/vn/VnScene.java`
 
 ---
 

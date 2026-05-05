@@ -2,7 +2,7 @@
 
 Scene-aware lighting and grading utility for character and background images. The tool supports staged light rigs, multiple light shapes, occlusion blockers, z-layered light passes, silhouette effects, reusable setups, and direct PNG/setup/stage export.
 
-Source: `editor/src/main/java/com/jvn/editor/ui/ImageTintToolView.java`
+Source: `modules/editor/src/main/java/com/jvn/editor/ui/ImageTintToolView.java`
 
 ---
 

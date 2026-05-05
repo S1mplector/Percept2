@@ -2,8 +2,8 @@
 
 Complete reference for integrating JES scenes with VNS scripts and Java code — call handlers, the VN bridge, scene return, and runtime extensibility.
 
-Runtime: `scripting/src/main/java/com/jvn/scripting/jes/runtime/JesScene2D.java`
-Bridge: `runtime/src/main/java/com/jvn/runtime/JesVnBridge.java`
+Runtime: `modules/scripting/src/main/java/com/jvn/scripting/jes/runtime/JesScene2D.java`
+Bridge: `modules/runtime/src/main/java/com/jvn/runtime/JesVnBridge.java`
 
 ---
 

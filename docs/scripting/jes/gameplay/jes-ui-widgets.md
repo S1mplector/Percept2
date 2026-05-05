@@ -2,7 +2,7 @@
 
 Complete reference for interactive UI components in JES — buttons, sliders, and labels used for in-scene HUD and menu elements.
 
-Runtime: `scripting/src/main/java/com/jvn/scripting/jes/runtime/JesScene2D.java`
+Runtime: `modules/scripting/src/main/java/com/jvn/scripting/jes/runtime/JesScene2D.java`
 
 ---
 

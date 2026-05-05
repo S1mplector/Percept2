@@ -41,8 +41,8 @@ This is the concrete patch list for the Ren'Py screen families observed in the t
 Current JVN surface:
 
 - `dialogue.layout`
-- [`VnRenderer.java`](../../../fx/src/main/java/com/jvn/fx/vn/VnRenderer.java)
-- [`DialogueLayoutEditorView.java`](../../../editor/src/main/java/com/jvn/editor/ui/DialogueLayoutEditorView.java)
+- [`VnRenderer.java`](../../../modules/fx/src/main/java/com/jvn/fx/vn/VnRenderer.java)
+- [`DialogueLayoutEditorView.java`](../../../modules/editor/src/main/java/com/jvn/editor/ui/DialogueLayoutEditorView.java)
 
 Patch requirements:
 
@@ -61,7 +61,7 @@ Current JVN surface:
 
 - `dialogue.layout` choice section
 - [`choice-buttons.md`](../../scripting/ui/layout/components/choice-buttons.md)
-- [`VnRenderer.java`](../../../fx/src/main/java/com/jvn/fx/vn/VnRenderer.java)
+- [`VnRenderer.java`](../../../modules/fx/src/main/java/com/jvn/fx/vn/VnRenderer.java)
 
 Patch requirements:
 
@@ -89,10 +89,10 @@ Patch requirements:
 
 Implemented so far:
 
-- `titleAlign`, `hintsAlign`, and `hintsX` in [`MenuLayoutSpec.java`](../../../core/src/main/java/com/jvn/core/menu/config/MenuLayoutSpec.java)
+- `titleAlign`, `hintsAlign`, and `hintsX` in [`MenuLayoutSpec.java`](../../../modules/core/src/main/java/com/jvn/core/menu/config/MenuLayoutSpec.java)
 - `subtitleText` on menu screens and `subtitleGap` on menu layouts
-- runtime title/footer placement in [`MenuRenderer.java`](../../../fx/src/main/java/com/jvn/fx/menu/MenuRenderer.java)
-- editor support in [`MenuLayoutVisualEditor.java`](../../../editor/src/main/java/com/jvn/editor/ui/MenuLayoutVisualEditor.java)
+- runtime title/footer placement in [`MenuRenderer.java`](../../../modules/fx/src/main/java/com/jvn/fx/menu/MenuRenderer.java)
+- editor support in [`MenuLayoutVisualEditor.java`](../../../modules/editor/src/main/java/com/jvn/editor/ui/MenuLayoutVisualEditor.java)
 
 Status:
 
@@ -103,8 +103,8 @@ Status:
 Current JVN surface:
 
 - menu save/load screens
-- save/load routing in [`FxLauncher.java`](../../../fx/src/main/java/com/jvn/fx/FxLauncher.java)
-- preview save/load routing in [`VnPreviewView.java`](../../../editor/src/main/java/com/jvn/editor/ui/VnPreviewView.java)
+- save/load routing in [`FxLauncher.java`](../../../modules/fx/src/main/java/com/jvn/fx/FxLauncher.java)
+- preview save/load routing in [`VnPreviewView.java`](../../../modules/editor/src/main/java/com/jvn/editor/ui/VnPreviewView.java)
 
 Patch requirements:
 
@@ -131,7 +131,7 @@ Patch requirements:
 Implemented so far:
 
 - shared menu title/footer alignment controls from the main-menu slice
-- section-header rendering via `item.<id>.renderAs=section` or `role=section` in [`MenuRenderer.java`](../../../fx/src/main/java/com/jvn/fx/menu/MenuRenderer.java)
+- section-header rendering via `item.<id>.renderAs=section` or `role=section` in [`MenuRenderer.java`](../../../modules/fx/src/main/java/com/jvn/fx/menu/MenuRenderer.java)
 - updated examples in [`settings-screen.md`](../../scripting/ui/layout/screens/settings-screen.md)
 - static text blocks via `renderAs=body` / `paragraph` / `note`
 - variable-height rows via `rowSpan` / `rows`
@@ -145,8 +145,8 @@ Status:
 Current JVN surface:
 
 - history runtime support
-- themed history scene in [`HistoryMenuScene.java`](../../../core/src/main/java/com/jvn/core/menu/HistoryMenuScene.java)
-- history rendering in [`MenuRenderer.java`](../../../fx/src/main/java/com/jvn/fx/menu/MenuRenderer.java)
+- themed history scene in [`HistoryMenuScene.java`](../../../modules/core/src/main/java/com/jvn/core/menu/HistoryMenuScene.java)
+- history rendering in [`MenuRenderer.java`](../../../modules/fx/src/main/java/com/jvn/fx/menu/MenuRenderer.java)
 
 Patch requirements:
 
@@ -248,10 +248,10 @@ Status:
 
 Files involved:
 
-- [`VnUiStyleSpec.java`](../../../core/src/main/java/com/jvn/core/vn/ui/VnUiStyleSpec.java)
-- [`VnUiLayoutLoader.java`](../../../core/src/main/java/com/jvn/core/vn/ui/VnUiLayoutLoader.java)
-- [`VnRenderer.java`](../../../fx/src/main/java/com/jvn/fx/vn/VnRenderer.java)
-- [`DialogueLayoutEditorView.java`](../../../editor/src/main/java/com/jvn/editor/ui/DialogueLayoutEditorView.java)
+- [`VnUiStyleSpec.java`](../../../modules/core/src/main/java/com/jvn/core/vn/ui/VnUiStyleSpec.java)
+- [`VnUiLayoutLoader.java`](../../../modules/core/src/main/java/com/jvn/core/vn/ui/VnUiLayoutLoader.java)
+- [`VnRenderer.java`](../../../modules/fx/src/main/java/com/jvn/fx/vn/VnRenderer.java)
+- [`DialogueLayoutEditorView.java`](../../../modules/editor/src/main/java/com/jvn/editor/ui/DialogueLayoutEditorView.java)
 
 ### 2. Data-Driven Runtime Screen Parity
 
@@ -265,8 +265,8 @@ Required patches:
 
 Current hardcoded targets:
 
-- history overlay in [`VnRenderer.java`](../../../fx/src/main/java/com/jvn/fx/vn/VnRenderer.java)
-- save/load slot overlay in [`VnRenderer.java`](../../../fx/src/main/java/com/jvn/fx/vn/VnRenderer.java)
+- history overlay in [`VnRenderer.java`](../../../modules/fx/src/main/java/com/jvn/fx/vn/VnRenderer.java)
+- save/load slot overlay in [`VnRenderer.java`](../../../modules/fx/src/main/java/com/jvn/fx/vn/VnRenderer.java)
 
 ### 3. Alternate Dialogue Presentation Modes
 

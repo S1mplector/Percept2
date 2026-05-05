@@ -160,7 +160,7 @@ The editor also exposes this through **Build & Publish...** for the currently op
 
 ## Runtime Usage
 
-Entrypoint: `runtime/src/main/java/com/jvn/runtime/JvnApp.java`
+Entrypoint: `modules/runtime/src/main/java/com/jvn/runtime/JvnApp.java`
 
 Basic run:
 
@@ -313,14 +313,16 @@ Only prerequisites are `git` and `git lfs` on PATH.
 
 ## Module Overview
 
-- `core`: engine/runtime primitives, VN runtime, menus, save system, 2D/physics.
-- `scripting`: JES tokenizer/parser/AST/loader/runtime scene.
-- `fx`: JavaFX launcher, VN renderer, menu rendering, FX audio backend.
-- `swing`: Swing launcher/backend.
-- `runtime`: CLI app (`JvnApp`), runtime interop bridge, scene wiring.
-- `editor`: JavaFX authoring environment.
-- `audio`: bundled Simp3-compatible audio integration layer.
-- `testkit`: shared testing dependencies/helpers.
+Engine modules live under `modules/`, while Gradle project names stay stable (`:core`, `:editor`, `:runtime`, etc.).
+
+- `modules/core`: engine/runtime primitives, VN runtime, menus, save system, 2D/physics.
+- `modules/scripting`: JES tokenizer/parser/AST/loader/runtime scene.
+- `modules/fx`: JavaFX launcher, VN renderer, menu rendering, FX audio backend.
+- `modules/swing`: Swing launcher/backend.
+- `modules/runtime`: CLI app (`JvnApp`), runtime interop bridge, scene wiring.
+- `modules/editor`: JavaFX authoring environment.
+- `modules/audio`: bundled Simp3-compatible audio integration layer.
+- `modules/testkit`: shared testing dependencies/helpers.
 
 ## Documentation Map
 

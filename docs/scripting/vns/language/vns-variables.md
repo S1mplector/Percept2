@@ -2,7 +2,7 @@
 
 Complete reference for the variable system, conditional logic, and expression evaluation in VNS.
 
-Condition evaluator: `core/src/main/java/com/jvn/core/vn/VnConditionEvaluator.java`
+Condition evaluator: `modules/core/src/main/java/com/jvn/core/vn/VnConditionEvaluator.java`
 
 ---
 
@@ -145,7 +145,7 @@ narrator: You have ${gold} gold coins and ${lives} lives remaining.
 
 VNS includes ICU-inspired formatting for plurals, gender/case selection, and number formatting.
 
-Formatter: `core/src/main/java/com/jvn/core/vn/VnTextFormatter.java`
+Formatter: `modules/core/src/main/java/com/jvn/core/vn/VnTextFormatter.java`
 
 ### Plurals
 

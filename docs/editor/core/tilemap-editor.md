@@ -2,7 +2,7 @@
 
 Visual tile-painting tool for editing JES tilemap layers. Lets you select maps and layers from a parsed `.jes` scene file, paint tiles on a grid canvas, and pick tiles from a tileset palette.
 
-Source: `editor/src/main/java/com/jvn/editor/ui/TilemapEditorView.java`
+Source: `modules/editor/src/main/java/com/jvn/editor/ui/TilemapEditorView.java`
 
 ---
 

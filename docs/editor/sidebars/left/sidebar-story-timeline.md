@@ -2,7 +2,7 @@
 
 Multi-arc story planning tool for VNS projects. Manages narrative arcs, links between them, and visualizes the story graph.
 
-Source: `editor/src/main/java/com/jvn/editor/ui/StoryTimelineView.java`
+Source: `modules/editor/src/main/java/com/jvn/editor/ui/StoryTimelineView.java`
 
 ---
 

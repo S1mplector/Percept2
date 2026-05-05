@@ -2,9 +2,9 @@
 
 Complete guide to menu item actions — all built-in action types, navigation flow between screens, custom action handlers, and the action shorthand syntax.
 
-Model: `core/src/main/java/com/jvn/core/menu/config/MenuActionSpec.java`
-Types: `core/src/main/java/com/jvn/core/menu/config/MenuActionType.java`
-Loader: `core/src/main/java/com/jvn/core/menu/config/MenuProfileLoader.java`
+Model: `modules/core/src/main/java/com/jvn/core/menu/config/MenuActionSpec.java`
+Types: `modules/core/src/main/java/com/jvn/core/menu/config/MenuActionType.java`
+Loader: `modules/core/src/main/java/com/jvn/core/menu/config/MenuProfileLoader.java`
 
 ---
 

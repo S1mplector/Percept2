@@ -2,7 +2,7 @@
 
 The file-tree panel for navigating, creating, and managing project files and directories.
 
-Source: `editor/src/main/java/com/jvn/editor/ui/ProjectExplorerView.java`
+Source: `modules/editor/src/main/java/com/jvn/editor/ui/ProjectExplorerView.java`
 
 ---
 

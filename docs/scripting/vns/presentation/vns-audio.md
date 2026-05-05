@@ -2,7 +2,7 @@
 
 Complete reference for audio playback, control, and mixing in VNS scripts.
 
-Interop handler: `core/src/main/java/com/jvn/core/vn/DefaultVnInterop.java`
+Interop handler: `modules/core/src/main/java/com/jvn/core/vn/DefaultVnInterop.java`
 
 ---
 

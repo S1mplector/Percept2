@@ -2,7 +2,7 @@
 
 A focused JVN text explorer and launcher panel. Browse project text files in a tree view, inspect VNS label outlines and include dependencies where relevant, search across indexed files, and pop out a dedicated tabbed text editor window.
 
-Source: `editor/src/main/java/com/jvn/editor/ui/ScriptEditorLauncherView.java`
+Source: `modules/editor/src/main/java/com/jvn/editor/ui/ScriptEditorLauncherView.java`
 
 ---
 

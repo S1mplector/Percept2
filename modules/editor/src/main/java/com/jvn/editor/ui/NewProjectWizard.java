@@ -211,7 +211,7 @@ public class NewProjectWizard extends Stage {
   private static final String MENU_STYLE_SETTINGS_PATH = "config/menu/styles/settings.style";
   private static final String MENU_STYLE_SLOT_PATH = "config/menu/styles/slot.style";
   private static final String DEFAULT_MENU_BG_ASSET_PATH = "assets/demo/backgrounds/menu.png";
-  private static final String BUNDLED_DEMO_ASSETS_DIR = "demo-assets";
+  private static final String BUNDLED_DEMO_ASSETS_DIR = "misc/demo-assets";
   private static final String BUNDLED_DEMO_BG_DIR = "demo_bg";
   private static final String BUNDLED_DEMO_SPRITE_LAYERED_DIR = "Lavender_test_sprite";
   private static final String BUNDLED_DEMO_SPRITE_LEGACY_DIR = "demo_sprite_codel";
@@ -1685,6 +1685,8 @@ public class NewProjectWizard extends Stage {
     for (int i = 0; i < 6 && cursor != null; i++) {
       File candidate = new File(cursor, BUNDLED_DEMO_ASSETS_DIR);
       if (candidate.isDirectory()) return candidate;
+      File legacyCandidate = new File(cursor, "demo-assets");
+      if (legacyCandidate.isDirectory()) return legacyCandidate;
       File legacyBg = new File(cursor, BUNDLED_DEMO_BG_DIR);
       File layeredSprites = new File(cursor, BUNDLED_DEMO_SPRITE_LAYERED_DIR);
       File legacySprites = new File(cursor, BUNDLED_DEMO_SPRITE_LEGACY_DIR);

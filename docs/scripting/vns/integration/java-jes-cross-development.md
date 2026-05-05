@@ -3,8 +3,8 @@
 Complete guide to hybrid game architecture in JVN — how narrative scripts (VNS), 2D scene scripts (JES), and Java code interact, pass data, and share control flow.
 
 Bridge source:
-- `runtime/src/main/java/com/jvn/runtime/RuntimeVnInterop.java`
-- `runtime/src/main/java/com/jvn/runtime/JesVnBridge.java`
+- `modules/runtime/src/main/java/com/jvn/runtime/RuntimeVnInterop.java`
+- `modules/runtime/src/main/java/com/jvn/runtime/JesVnBridge.java`
 
 ---
 

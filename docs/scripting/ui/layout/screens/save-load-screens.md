@@ -2,9 +2,9 @@
 
 Complete guide to configuring save and load menu screens — slot templates, thumbnail previews, placeholder assets, frame overlays, and the save/load item lifecycle.
 
-Model: `core/src/main/java/com/jvn/core/menu/config/MenuItemSpec.java`
-Screen: `core/src/main/java/com/jvn/core/menu/config/MenuScreenSpec.java`
-Loader: `core/src/main/java/com/jvn/core/menu/config/MenuProfileLoader.java`
+Model: `modules/core/src/main/java/com/jvn/core/menu/config/MenuItemSpec.java`
+Screen: `modules/core/src/main/java/com/jvn/core/menu/config/MenuScreenSpec.java`
+Loader: `modules/core/src/main/java/com/jvn/core/menu/config/MenuProfileLoader.java`
 
 ---
 

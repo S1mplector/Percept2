@@ -2,7 +2,7 @@
 
 Live error and warning diagnostics panel for the active `.vns` script file. Updates automatically when the file changes.
 
-Source: `editor/src/main/java/com/jvn/editor/ui/VnsDiagnosticsView.java`
+Source: `modules/editor/src/main/java/com/jvn/editor/ui/VnsDiagnosticsView.java`
 
 ---
 

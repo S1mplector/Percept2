@@ -23,5 +23,5 @@ Audio playback is built on top of the `simp3` embedded player library (vendored 
 
 ## Documentation
 
-- [Audio System](../docs/runtime/systems/audio-system.md)
-- [VNS Audio Commands](../docs/scripting/vns/presentation/vns-audio.md)
+- [Audio System](../../docs/runtime/systems/audio-system.md)
+- [VNS Audio Commands](../../docs/scripting/vns/presentation/vns-audio.md)

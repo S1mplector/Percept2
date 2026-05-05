@@ -2,7 +2,7 @@
 
 Focused discovery, preview, and reuse tool for project assets such as images, audio, video, fonts, and data files.
 
-Source: `editor/src/main/java/com/jvn/editor/ui/AssetBrowserView.java`
+Source: `modules/editor/src/main/java/com/jvn/editor/ui/AssetBrowserView.java`
 
 ---
 

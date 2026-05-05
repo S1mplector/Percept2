@@ -37,7 +37,7 @@ public class SakuraPetalAssetsTest {
     for (String path : VnParticlePresetLibrary.SAKURA_PETAL_TEXTURES) {
       URL url = cl.getResource(path);
       assertNotNull(url, "Missing classpath resource: " + path
-          + " — confirm fx/src/main/resources/" + path + " exists.");
+          + " — confirm modules/fx/src/main/resources/" + path + " exists.");
     }
   }
 

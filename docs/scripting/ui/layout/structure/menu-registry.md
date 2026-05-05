@@ -2,7 +2,7 @@
 
 Complete guide to the `menu.registry` file and how the JVN engine discovers, loads, and resolves menu screens, layouts, and styles.
 
-Loader: `core/src/main/java/com/jvn/core/menu/config/MenuProfileLoader.java`
+Loader: `modules/core/src/main/java/com/jvn/core/menu/config/MenuProfileLoader.java`
 
 ---
 

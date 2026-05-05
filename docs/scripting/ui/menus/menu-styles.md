@@ -2,8 +2,8 @@
 
 Complete reference for menu style files — item colors, fonts, text effects, button skins, title/hints styling, and backgrounds.
 
-Model: `core/src/main/java/com/jvn/core/menu/config/MenuStyleSpec.java`
-Loader: `core/src/main/java/com/jvn/core/menu/config/MenuProfileLoader.java`
+Model: `modules/core/src/main/java/com/jvn/core/menu/config/MenuStyleSpec.java`
+Loader: `modules/core/src/main/java/com/jvn/core/menu/config/MenuProfileLoader.java`
 
 ---
 

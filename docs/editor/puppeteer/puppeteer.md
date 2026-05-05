@@ -937,7 +937,7 @@ hero: I'm there!
 ### Editor Module (`editor/`)
 
 ```
-editor/src/main/java/com/jvn/editor/
+modules/editor/src/main/java/com/jvn/editor/
 ├── EditorApp.java                          # Main editor app; wires Puppeteer launcher
 ├── ui/
 │   ├── PuppeteerLauncherPanel.java         # VNS snapshot resolver + launch button
@@ -981,7 +981,7 @@ editor/src/main/java/com/jvn/editor/
 ### Core Module (`core/`)
 
 ```
-core/src/main/java/com/jvn/core/
+modules/core/src/main/java/com/jvn/core/
 ├── animation/
 │   ├── TimelineData.java                   # Serializable timeline for registry
 │   ├── TimelineDataParser.java             # Inline JES block → TimelineData converter
@@ -1009,7 +1009,7 @@ core/src/main/java/com/jvn/core/
 ### FX Module (`fx/`)
 
 ```
-fx/src/main/java/com/jvn/fx/
+modules/fx/src/main/java/com/jvn/fx/
 ├── scene2d/FxBlitter2D.java               # JavaFX Canvas Blitter2D impl
 │                                            (classpath + filesystem image loading)
 └── vn/VnRenderer.java                      # VN scene Canvas renderer

@@ -4,7 +4,7 @@ Complete reference for all 17 documented sidebar panels available in the JVN edi
 
 Panels can be added to either the left or right sidebar via the **+** tab. Each panel is independently closable and repositionable.
 
-Source: `editor/src/main/java/com/jvn/editor/EditorApp.java`
+Source: `modules/editor/src/main/java/com/jvn/editor/EditorApp.java`
 
 ---
 

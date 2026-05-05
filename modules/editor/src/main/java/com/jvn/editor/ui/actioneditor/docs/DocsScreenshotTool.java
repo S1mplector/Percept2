@@ -1282,12 +1282,12 @@ public final class DocsScreenshotTool extends Application {
         Path lavenderMouthSmile = fixtureRoot.resolve("assets/characters/lavender/mouth/lavender_test_sprite_mouth_smile.png");
         Path background = fixtureRoot.resolve("assets/bg/school_day.png");
 
-        copyFile(repoRoot.resolve("demo-assets/Lavender_test_sprite/base/lavender_test_sprite_base.png"), lavenderBase);
-        copyFile(repoRoot.resolve("demo-assets/Lavender_test_sprite/eyes/lavender_test_sprite_eyes_neutral.png"), lavenderEyesNeutral);
-        copyFile(repoRoot.resolve("demo-assets/Lavender_test_sprite/eyes/lavender_test_sprite_eyes_half_closed.png"), lavenderEyesHalfClosed);
-        copyFile(repoRoot.resolve("demo-assets/Lavender_test_sprite/mouth/lavender_test_sprite_mouth_neutral.png"), lavenderMouthNeutral);
-        copyFile(repoRoot.resolve("demo-assets/Lavender_test_sprite/mouth/lavender_test_sprite_mouth_smile.png"), lavenderMouthSmile);
-        copyFile(repoRoot.resolve("demo-assets/demo_bg/game.png"), background);
+        copyFile(repoRoot.resolve("misc/demo-assets/Lavender_test_sprite/base/lavender_test_sprite_base.png"), lavenderBase);
+        copyFile(repoRoot.resolve("misc/demo-assets/Lavender_test_sprite/eyes/lavender_test_sprite_eyes_neutral.png"), lavenderEyesNeutral);
+        copyFile(repoRoot.resolve("misc/demo-assets/Lavender_test_sprite/eyes/lavender_test_sprite_eyes_half_closed.png"), lavenderEyesHalfClosed);
+        copyFile(repoRoot.resolve("misc/demo-assets/Lavender_test_sprite/mouth/lavender_test_sprite_mouth_neutral.png"), lavenderMouthNeutral);
+        copyFile(repoRoot.resolve("misc/demo-assets/Lavender_test_sprite/mouth/lavender_test_sprite_mouth_smile.png"), lavenderMouthSmile);
+        copyFile(repoRoot.resolve("misc/demo-assets/demo_bg/game.png"), background);
 
         writeTextFile(
             fixtureRoot.resolve("jvn.project"),

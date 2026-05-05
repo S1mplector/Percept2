@@ -3,7 +3,7 @@
 The runtime app boots the engine, loads your script content, and launches the selected renderer backend.
 
 Entrypoint:
-- `runtime/src/main/java/com/jvn/runtime/JvnApp.java`
+- `modules/runtime/src/main/java/com/jvn/runtime/JvnApp.java`
 
 ---
 

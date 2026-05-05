@@ -2,8 +2,8 @@
 
 Complete reference for physics bodies, collision detection, sensors, triggers, and the physics simulation in JES.
 
-Physics engine: `core/src/main/java/com/jvn/core/physics/PhysicsWorld2D.java`
-Runtime: `scripting/src/main/java/com/jvn/scripting/jes/runtime/JesScene2D.java`
+Physics engine: `modules/core/src/main/java/com/jvn/core/physics/PhysicsWorld2D.java`
+Runtime: `modules/scripting/src/main/java/com/jvn/scripting/jes/runtime/JesScene2D.java`
 
 ---
 

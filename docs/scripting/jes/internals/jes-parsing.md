@@ -3,10 +3,10 @@
 Complete reference for the JES parsing pipeline — tokenizer rules, grammar, AST structure, strict property validation, error reporting, and the loader stage.
 
 Source files:
-- `scripting/src/main/java/com/jvn/scripting/jes/JesTokenizer.java`
-- `scripting/src/main/java/com/jvn/scripting/jes/JesParser.java`
-- `scripting/src/main/java/com/jvn/scripting/jes/JesLoader.java`
-- `scripting/src/main/java/com/jvn/scripting/jes/JesAst.java`
+- `modules/scripting/src/main/java/com/jvn/scripting/jes/JesTokenizer.java`
+- `modules/scripting/src/main/java/com/jvn/scripting/jes/JesParser.java`
+- `modules/scripting/src/main/java/com/jvn/scripting/jes/JesLoader.java`
+- `modules/scripting/src/main/java/com/jvn/scripting/jes/JesAst.java`
 
 ---
 

@@ -144,7 +144,7 @@ create_icns_icon() {
     for candidate in \
         "$SCRIPT_DIR/docs/assets/images/jvn_logo_os.png" \
         "$SCRIPT_DIR/docs/assets/images/jvn_logo.png" \
-        "$SCRIPT_DIR/editor/src/main/resources/com/jvn/editor/images/jvn_logo.png"; do
+        "$SCRIPT_DIR/modules/editor/src/main/resources/com/jvn/editor/images/jvn_logo.png"; do
       if [[ -f "$candidate" ]]; then
         rendered="$candidate"
         break

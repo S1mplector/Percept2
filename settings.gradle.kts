@@ -26,3 +26,20 @@ include(
   ":scala-utils",
   ":clojure-utils"
 )
+
+listOf(
+  "core",
+  "fx",
+  "runtime",
+  "scripting",
+  "audio",
+  "editor",
+  "demo-game",
+  "swing",
+  "hub",
+  "testkit",
+  "scala-utils",
+  "clojure-utils"
+).forEach { moduleName ->
+  project(":$moduleName").projectDir = file("modules/$moduleName")
+}

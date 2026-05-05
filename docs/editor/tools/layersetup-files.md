@@ -2,7 +2,7 @@
 
 Portable, human-readable snapshots of a layer selection from the **Layered Image Visualizer**.
 
-Source: `editor/src/main/java/com/jvn/editor/ui/LayeredImageVisualizerView.java`
+Source: `modules/editor/src/main/java/com/jvn/editor/ui/LayeredImageVisualizerView.java`
 
 ---
 

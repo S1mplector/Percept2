@@ -2,10 +2,10 @@
 
 Complete reference for the VN runtime execution model — VnScene node processing, VnState management, node types, preflight, character visuals and tweening, screen effects, HUD messages, and timeline runners.
 
-Scene: `core/src/main/java/com/jvn/core/vn/VnScene.java`
-State: `core/src/main/java/com/jvn/core/vn/VnState.java`
-Node types: `core/src/main/java/com/jvn/core/vn/VnNodeType.java`
-Positions: `core/src/main/java/com/jvn/core/vn/CharacterPosition.java`
+Scene: `modules/core/src/main/java/com/jvn/core/vn/VnScene.java`
+State: `modules/core/src/main/java/com/jvn/core/vn/VnState.java`
+Node types: `modules/core/src/main/java/com/jvn/core/vn/VnNodeType.java`
+Positions: `modules/core/src/main/java/com/jvn/core/vn/CharacterPosition.java`
 
 ---
 

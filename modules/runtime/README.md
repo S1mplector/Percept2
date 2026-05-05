@@ -25,6 +25,6 @@ Standalone application entry point for running JVN projects. Boots the engine, w
 
 ## Documentation
 
-- [Runtime Guide](../docs/runtime/core/runtime.md)
-- [Interop Guide](../docs/runtime/core/interop.md)
-- [VNS Scene Lifecycle](../docs/scripting/vns/runtime/vns-scene-lifecycle.md)
+- [Runtime Guide](../../docs/runtime/core/runtime.md)
+- [Interop Guide](../../docs/runtime/core/interop.md)
+- [VNS Scene Lifecycle](../../docs/scripting/vns/runtime/vns-scene-lifecycle.md)

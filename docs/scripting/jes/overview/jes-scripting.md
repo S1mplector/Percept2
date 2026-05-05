@@ -3,10 +3,10 @@
 JES (JVN Engine Script) is a DSL for authoring 2D scenes with entities, components, tile maps, physics, AI, input bindings, timelines, RPG systems, and UI widgets. It integrates with VNS for hybrid visual-novel + gameplay projects.
 
 Core files:
-- `scripting/src/main/java/com/jvn/scripting/jes/JesTokenizer.java`
-- `scripting/src/main/java/com/jvn/scripting/jes/JesParser.java`
-- `scripting/src/main/java/com/jvn/scripting/jes/JesLoader.java`
-- `scripting/src/main/java/com/jvn/scripting/jes/runtime/JesScene2D.java`
+- `modules/scripting/src/main/java/com/jvn/scripting/jes/JesTokenizer.java`
+- `modules/scripting/src/main/java/com/jvn/scripting/jes/JesParser.java`
+- `modules/scripting/src/main/java/com/jvn/scripting/jes/JesLoader.java`
+- `modules/scripting/src/main/java/com/jvn/scripting/jes/runtime/JesScene2D.java`
 
 ---
 

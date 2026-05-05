@@ -2,8 +2,8 @@
 
 Complete reference for the AI behavior system in JES — chase, patrol, guard, flee, attack, line-of-sight, and pathfinding.
 
-Runtime: `scripting/src/main/java/com/jvn/scripting/jes/runtime/JesScene2D.java`
-Model: `scripting/src/main/java/com/jvn/scripting/jes/runtime/Ai2D.java`
+Runtime: `modules/scripting/src/main/java/com/jvn/scripting/jes/runtime/JesScene2D.java`
+Model: `modules/scripting/src/main/java/com/jvn/scripting/jes/runtime/Ai2D.java`
 
 ---
 

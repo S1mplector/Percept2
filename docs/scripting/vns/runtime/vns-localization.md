@@ -2,9 +2,9 @@
 
 Complete reference for locale-aware VNS script loading, UI string localization, and multi-language project structure.
 
-Scenario loader: `core/src/main/java/com/jvn/core/vn/VnScenarioLoader.java`
-Script loader: `core/src/main/java/com/jvn/core/localization/LocalizedScriptLoader.java`
-UI strings: `core/src/main/java/com/jvn/core/localization/Localization.java`
+Scenario loader: `modules/core/src/main/java/com/jvn/core/vn/VnScenarioLoader.java`
+Script loader: `modules/core/src/main/java/com/jvn/core/localization/LocalizedScriptLoader.java`
+UI strings: `modules/core/src/main/java/com/jvn/core/localization/Localization.java`
 
 ---
 

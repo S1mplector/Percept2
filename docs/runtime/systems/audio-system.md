@@ -2,8 +2,8 @@
 
 Complete guide to JVN's audio architecture — BGM, SFX, and Voice channels, dual-backend engine, crossfade, spectrum analysis, format support, and volume management.
 
-Core interface: `core/src/main/java/com/jvn/core/audio/AudioFacade.java`
-Simp3 backend: `audio/src/main/java/com/jvn/audio/simp3/Simp3AudioService.java`
+Core interface: `modules/core/src/main/java/com/jvn/core/audio/AudioFacade.java`
+Simp3 backend: `modules/audio/src/main/java/com/jvn/audio/simp3/Simp3AudioService.java`
 Hybrid engine: `audio/simp3/src/main/java/com/musicplayer/core/audio/HybridAudioEngine.java`
 
 ---

@@ -59,8 +59,8 @@ Optional direct Gradle tasks:
 
 ## Documentation
 
-- [Editor Guide](../docs/editor/core/editor.md)
-- [Editor And Launcher Settings](../docs/editor/core/settings.md)
-- [Puppeteer Overview](../docs/editor/puppeteer/puppeteer.md)
-- [Puppeteer Editor Guide](../docs/editor/puppeteer/puppeteer-editor-guide.md)
-- [Sidebar Utilities](../docs/editor/sidebars/overview/sidebar-utilities.md)
+- [Editor Guide](../../docs/editor/core/editor.md)
+- [Editor And Launcher Settings](../../docs/editor/core/settings.md)
+- [Puppeteer Overview](../../docs/editor/puppeteer/puppeteer.md)
+- [Puppeteer Editor Guide](../../docs/editor/puppeteer/puppeteer-editor-guide.md)
+- [Sidebar Utilities](../../docs/editor/sidebars/overview/sidebar-utilities.md)

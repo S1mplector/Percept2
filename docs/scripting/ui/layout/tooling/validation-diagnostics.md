@@ -2,9 +2,9 @@
 
 Complete guide to JVN's layout and menu validation system — all diagnostic messages, what triggers them, how to read console output, and how to fix every warning.
 
-Validator: `core/src/main/java/com/jvn/core/menu/config/MenuProfileValidator.java`
-Loader: `core/src/main/java/com/jvn/core/menu/config/MenuProfileLoader.java`
-Dialogue loader: `core/src/main/java/com/jvn/core/vn/ui/VnUiLayoutLoader.java`
+Validator: `modules/core/src/main/java/com/jvn/core/menu/config/MenuProfileValidator.java`
+Loader: `modules/core/src/main/java/com/jvn/core/menu/config/MenuProfileLoader.java`
+Dialogue loader: `modules/core/src/main/java/com/jvn/core/vn/ui/VnUiLayoutLoader.java`
 
 ---
 

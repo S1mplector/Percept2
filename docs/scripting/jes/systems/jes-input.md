@@ -2,7 +2,7 @@
 
 Complete reference for keyboard input bindings, continuous movement, and interaction systems in JES.
 
-Runtime: `scripting/src/main/java/com/jvn/scripting/jes/runtime/JesScene2D.java`
+Runtime: `modules/scripting/src/main/java/com/jvn/scripting/jes/runtime/JesScene2D.java`
 
 ---
 

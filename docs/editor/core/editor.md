@@ -287,7 +287,7 @@ height=1080
 
 This is automatically configured by the New Project Wizard based on the selected resolution. If no `jvn.project` exists, the preview defaults to 1920×1080.
 
-Source: `editor/src/main/java/com/jvn/editor/ui/VnPreviewView.java`, `editor/src/main/java/com/jvn/editor/ui/ProjectViewportSpec.java`
+Source: `modules/editor/src/main/java/com/jvn/editor/ui/VnPreviewView.java`, `modules/editor/src/main/java/com/jvn/editor/ui/ProjectViewportSpec.java`
 
 ---
 

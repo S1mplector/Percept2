@@ -2,7 +2,7 @@
 
 Visual flow editor for menu-to-menu navigation and `menu.registry` wiring. Lets teams wire `OPEN_MENU`, `BACK`, and `MAIN_MENU` actions between menu screens on a node graph, then register screens and set the default menu entry point from the same sidebar.
 
-Source: `editor/src/main/java/com/jvn/editor/ui/MenuFlowEditorView.java`
+Source: `modules/editor/src/main/java/com/jvn/editor/ui/MenuFlowEditorView.java`
 
 ---
 

@@ -2,7 +2,7 @@
 
 Dedicated tool for selecting and previewing character image attributes by group, with conflict-safe selection, profiles, and multiple export formats.
 
-Source: `editor/src/main/java/com/jvn/editor/ui/ImageAttributesToolView.java`
+Source: `modules/editor/src/main/java/com/jvn/editor/ui/ImageAttributesToolView.java`
 
 ---
 

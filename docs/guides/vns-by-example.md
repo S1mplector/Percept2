@@ -5,10 +5,10 @@ A progressive tutorial series that builds increasingly complex VNS scripts — f
 Each chapter is a self-contained document covering one topic in depth with full examples, command references, and design patterns.
 
 Source reference:
-- Parser: `core/src/main/java/com/jvn/core/vn/script/VnScriptParser.java`
-- Runtime: `core/src/main/java/com/jvn/core/vn/VnScene.java`
-- State: `core/src/main/java/com/jvn/core/vn/VnState.java`
-- Interop: `core/src/main/java/com/jvn/core/vn/DefaultVnInterop.java`
+- Parser: `modules/core/src/main/java/com/jvn/core/vn/script/VnScriptParser.java`
+- Runtime: `modules/core/src/main/java/com/jvn/core/vn/VnScene.java`
+- State: `modules/core/src/main/java/com/jvn/core/vn/VnState.java`
+- Interop: `modules/core/src/main/java/com/jvn/core/vn/DefaultVnInterop.java`
 
 ---
 

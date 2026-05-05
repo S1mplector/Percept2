@@ -2,8 +2,8 @@
 
 Complete reference for menu layout files — controlling item list positioning, line height, text alignment, title placement, and hints margins.
 
-Model: `core/src/main/java/com/jvn/core/menu/config/MenuLayoutSpec.java`
-Loader: `core/src/main/java/com/jvn/core/menu/config/MenuProfileLoader.java`
+Model: `modules/core/src/main/java/com/jvn/core/menu/config/MenuLayoutSpec.java`
+Loader: `modules/core/src/main/java/com/jvn/core/menu/config/MenuProfileLoader.java`
 
 ---
 

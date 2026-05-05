@@ -2,8 +2,8 @@
 
 Complete reference for all 12 JES component types — every property with type, default value, description, and annotated examples.
 
-Parser validation source: `scripting/src/main/java/com/jvn/scripting/jes/JesParser.java`
-Runtime loader: `scripting/src/main/java/com/jvn/scripting/jes/JesLoader.java`
+Parser validation source: `modules/scripting/src/main/java/com/jvn/scripting/jes/JesParser.java`
+Runtime loader: `modules/scripting/src/main/java/com/jvn/scripting/jes/JesLoader.java`
 
 The parser enforces **strict property validation**: unknown properties on known component types produce a parse error with line and column. This catches typos before runtime.
 

@@ -2,7 +2,7 @@
 
 Complete guide to the type-safe Scala DSL for building JVN menu styles, layouts, and button layouts programmatically — using Scala 3 context functions for a concise builder syntax.
 
-Source: `scala-utils/src/main/scala/com/jvn/scala/dsl/MenuDsl.scala`
+Source: `modules/scala-utils/src/main/scala/com/jvn/scala/dsl/MenuDsl.scala`
 
 ---
 

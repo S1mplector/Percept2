@@ -3,8 +3,8 @@
 Interop is how VNS scripts, JES scenes, and Java code coordinate behavior at runtime.
 
 Primary classes:
-- `core/src/main/java/com/jvn/core/vn/DefaultVnInterop.java`
-- `runtime/src/main/java/com/jvn/runtime/RuntimeVnInterop.java`
+- `modules/core/src/main/java/com/jvn/core/vn/DefaultVnInterop.java`
+- `modules/runtime/src/main/java/com/jvn/runtime/RuntimeVnInterop.java`
 
 ## Command Routing Model
 

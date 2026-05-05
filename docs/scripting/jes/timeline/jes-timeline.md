@@ -2,7 +2,7 @@
 
 Complete reference for JES timeline blocks — scripted animation sequences, entity tweens, camera control, audio, branching, and composite actions.
 
-Runtime: `scripting/src/main/java/com/jvn/scripting/jes/runtime/JesScene2D.java`
+Runtime: `modules/scripting/src/main/java/com/jvn/scripting/jes/runtime/JesScene2D.java`
 
 ---
 

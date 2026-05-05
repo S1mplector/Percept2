@@ -3,8 +3,8 @@
 Complete reference for integrating VNS scripts with JES scenes, Java code, inline timelines, menu systems, and the phone UI layer.
 
 Interop classes:
-- `core/src/main/java/com/jvn/core/vn/DefaultVnInterop.java`
-- `runtime/src/main/java/com/jvn/runtime/RuntimeVnInterop.java`
+- `modules/core/src/main/java/com/jvn/core/vn/DefaultVnInterop.java`
+- `modules/runtime/src/main/java/com/jvn/runtime/RuntimeVnInterop.java`
 
 ---
 

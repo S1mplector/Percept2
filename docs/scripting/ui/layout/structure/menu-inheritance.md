@@ -2,7 +2,7 @@
 
 Complete guide to inheritance in JVN menu screens, layouts, and styles — using `extends` to share configuration, override selectively, and build menu variants without duplication.
 
-Loader: `core/src/main/java/com/jvn/core/menu/config/MenuProfileLoader.java`
+Loader: `modules/core/src/main/java/com/jvn/core/menu/config/MenuProfileLoader.java`
 
 ---
 

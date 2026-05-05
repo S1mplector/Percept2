@@ -3,9 +3,9 @@
 Complete guide to how JVN discovers, loads, and resolves assets at runtime — the `AssetCatalog`, filesystem vs classpath loading, path conventions, and troubleshooting missing assets.
 
 Core classes:
-- `core/src/main/java/com/jvn/core/assets/AssetCatalog.java`
-- `core/src/main/java/com/jvn/core/assets/AssetPaths.java`
-- `core/src/main/java/com/jvn/core/assets/AssetType.java`
+- `modules/core/src/main/java/com/jvn/core/assets/AssetCatalog.java`
+- `modules/core/src/main/java/com/jvn/core/assets/AssetPaths.java`
+- `modules/core/src/main/java/com/jvn/core/assets/AssetType.java`
 
 ---
 

@@ -3,10 +3,10 @@
 Menu profiles are JVN's data-driven menu system for main/load/save/settings/custom menu screens, plus the dialogue UI layout system. Everything is defined in plain properties files — no code changes needed to customize menus and dialogue presentation.
 
 Core classes:
-- `core/src/main/java/com/jvn/core/menu/config/MenuProfile.java`
-- `core/src/main/java/com/jvn/core/menu/config/MenuProfileLoader.java`
-- `core/src/main/java/com/jvn/core/menu/config/MenuProfileValidator.java`
-- `core/src/main/java/com/jvn/core/vn/ui/VnUiLayoutLoader.java`
+- `modules/core/src/main/java/com/jvn/core/menu/config/MenuProfile.java`
+- `modules/core/src/main/java/com/jvn/core/menu/config/MenuProfileLoader.java`
+- `modules/core/src/main/java/com/jvn/core/menu/config/MenuProfileValidator.java`
+- `modules/core/src/main/java/com/jvn/core/vn/ui/VnUiLayoutLoader.java`
 
 ---
 

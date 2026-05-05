@@ -5,9 +5,9 @@ A progressive tutorial series that builds increasingly complex JES scenes — fr
 Each chapter is a self-contained document covering one topic in depth with full examples, property references, and design patterns.
 
 Source reference:
-- Parser: `scripting/src/main/java/com/jvn/scripting/jes/JesParser.java`
-- Loader: `scripting/src/main/java/com/jvn/scripting/jes/JesLoader.java`
-- Runtime: `scripting/src/main/java/com/jvn/scripting/jes/runtime/JesScene2D.java`
+- Parser: `modules/scripting/src/main/java/com/jvn/scripting/jes/JesParser.java`
+- Loader: `modules/scripting/src/main/java/com/jvn/scripting/jes/JesLoader.java`
+- Runtime: `modules/scripting/src/main/java/com/jvn/scripting/jes/runtime/JesScene2D.java`
 
 ---
 

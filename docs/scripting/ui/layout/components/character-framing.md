@@ -2,8 +2,8 @@
 
 Complete guide to configuring how character sprites are positioned and scaled in VN dialogue scenes — height factor, baseline positioning, and interaction with the dialogue textbox.
 
-Style spec: `core/src/main/java/com/jvn/core/vn/ui/VnUiStyleSpec.java`
-Loader: `core/src/main/java/com/jvn/core/vn/ui/VnUiLayoutLoader.java`
+Style spec: `modules/core/src/main/java/com/jvn/core/vn/ui/VnUiStyleSpec.java`
+Loader: `modules/core/src/main/java/com/jvn/core/vn/ui/VnUiLayoutLoader.java`
 
 ---
 

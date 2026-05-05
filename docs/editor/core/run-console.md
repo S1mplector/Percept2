@@ -2,7 +2,7 @@
 
 Integrated build and runtime output console that filters verbose Gradle noise and presents color-coded, searchable engine messages.
 
-Source: `editor/src/main/java/com/jvn/editor/ui/RunConsoleView.java`
+Source: `modules/editor/src/main/java/com/jvn/editor/ui/RunConsoleView.java`
 
 ---
 

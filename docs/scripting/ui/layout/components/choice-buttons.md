@@ -2,9 +2,9 @@
 
 Complete guide to configuring VN dialogue choice buttons — positioning, sizing, colors, borders, fonts, button images, and state-based styling.
 
-Layout spec: `core/src/main/java/com/jvn/core/vn/ui/VnUiLayoutSpec.java`
-Style spec: `core/src/main/java/com/jvn/core/vn/ui/VnUiStyleSpec.java`
-Loader: `core/src/main/java/com/jvn/core/vn/ui/VnUiLayoutLoader.java`
+Layout spec: `modules/core/src/main/java/com/jvn/core/vn/ui/VnUiLayoutSpec.java`
+Style spec: `modules/core/src/main/java/com/jvn/core/vn/ui/VnUiStyleSpec.java`
+Loader: `modules/core/src/main/java/com/jvn/core/vn/ui/VnUiLayoutLoader.java`
 
 ---
 

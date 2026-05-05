@@ -2,8 +2,8 @@
 
 Complete guide to writing JES timeline animations by hand — without the Puppeteer keyframe editor. Covers the time cursor model, every action type, easing selection, and 15+ fully annotated examples for common animation scenarios.
 
-Parser source: `core/src/main/java/com/jvn/core/animation/TimelineDataParser.java`
-Runtime: `core/src/main/java/com/jvn/core/animation/TimelineRunner.java`
+Parser source: `modules/core/src/main/java/com/jvn/core/animation/TimelineDataParser.java`
+Runtime: `modules/core/src/main/java/com/jvn/core/animation/TimelineRunner.java`
 
 ---
 

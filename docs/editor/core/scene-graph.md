@@ -2,7 +2,7 @@
 
 Entity list panel for JES scenes, providing a filterable, type-badged overview of all entities in the active scene with rename, delete, and fit-to-selection actions.
 
-Source: `editor/src/main/java/com/jvn/editor/ui/SceneGraphView.java`
+Source: `modules/editor/src/main/java/com/jvn/editor/ui/SceneGraphView.java`
 
 ---
 

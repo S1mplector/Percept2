@@ -2,8 +2,8 @@
 
 Complete reference for the story timeline DSL that maps narrative arcs, script files, entry labels, clusters, and arc-to-arc links into a visual graph.
 
-Editor: `editor/src/main/java/com/jvn/editor/ui/StoryTimelineView.java`
-Code editor: `editor/src/main/java/com/jvn/editor/ui/TimelineCodeEditor.java`
+Editor: `modules/editor/src/main/java/com/jvn/editor/ui/StoryTimelineView.java`
+Code editor: `modules/editor/src/main/java/com/jvn/editor/ui/TimelineCodeEditor.java`
 
 ---
 

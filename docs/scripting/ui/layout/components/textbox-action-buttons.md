@@ -2,8 +2,8 @@
 
 Complete guide to configuring clickable action buttons overlaid on the VN dialogue textbox — Auto, Skip, Log, Save, and custom buttons.
 
-Loader: `core/src/main/java/com/jvn/core/vn/ui/VnUiLayoutLoader.java`
-Spec: `core/src/main/java/com/jvn/core/vn/ui/VnUiActionButtonSpec.java`
+Loader: `modules/core/src/main/java/com/jvn/core/vn/ui/VnUiLayoutLoader.java`
+Spec: `modules/core/src/main/java/com/jvn/core/vn/ui/VnUiActionButtonSpec.java`
 
 ---
 

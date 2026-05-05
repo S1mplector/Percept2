@@ -1,6 +1,6 @@
 # Puppeteer Design Notes
 
-Puppeteer is the current visual animation editor for JVN. It replaced the older Action Editor design plan and is implemented under `editor/src/main/java/com/jvn/editor/ui/actioneditor/`.
+Puppeteer is the current visual animation editor for JVN. It replaced the older Action Editor design plan and is implemented under `modules/editor/src/main/java/com/jvn/editor/ui/actioneditor/`.
 
 Use this page as an implementation-oriented map. For author-facing usage, start with [Puppeteer Editor Guide](../puppeteer/puppeteer-editor-guide.md). For exported syntax, use [Puppeteer JES Timeline DSL Reference](../puppeteer/puppeteer-jes-dsl.md).
 
@@ -214,8 +214,8 @@ Puppeteer should keep these checks intact as features evolve:
 
 Relevant focused tests live under:
 
-- `editor/src/test/java/com/jvn/editor/ui/actioneditor/`
-- `editor/src/test/java/com/jvn/editor/ui/`
+- `modules/editor/src/test/java/com/jvn/editor/ui/actioneditor/`
+- `modules/editor/src/test/java/com/jvn/editor/ui/`
 
 ## Related Docs
 

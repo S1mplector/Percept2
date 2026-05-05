@@ -2,10 +2,10 @@
 
 Complete reference for configuring the VN dialogue UI — textbox geometry, name box, dialogue text, choice buttons, textbox action buttons, fonts, colors, and character framing.
 
-Layout spec: `core/src/main/java/com/jvn/core/vn/ui/VnUiLayoutSpec.java`
-Style spec: `core/src/main/java/com/jvn/core/vn/ui/VnUiStyleSpec.java`
-Loader: `core/src/main/java/com/jvn/core/vn/ui/VnUiLayoutLoader.java`
-Action buttons: `core/src/main/java/com/jvn/core/vn/ui/VnUiActionButtonSpec.java`
+Layout spec: `modules/core/src/main/java/com/jvn/core/vn/ui/VnUiLayoutSpec.java`
+Style spec: `modules/core/src/main/java/com/jvn/core/vn/ui/VnUiStyleSpec.java`
+Loader: `modules/core/src/main/java/com/jvn/core/vn/ui/VnUiLayoutLoader.java`
+Action buttons: `modules/core/src/main/java/com/jvn/core/vn/ui/VnUiActionButtonSpec.java`
 
 ---
 

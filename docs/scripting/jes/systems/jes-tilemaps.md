@@ -2,9 +2,9 @@
 
 Complete reference for tilesets, tile maps, collision layers, trigger layers, and grid-based world building in JES.
 
-Loader: `scripting/src/main/java/com/jvn/scripting/jes/JesLoader.java`
-Runtime: `scripting/src/main/java/com/jvn/scripting/jes/runtime/JesScene2D.java`
-Tilemap: `core/src/main/java/com/jvn/core/scene2d/TileMap2D.java`
+Loader: `modules/scripting/src/main/java/com/jvn/scripting/jes/JesLoader.java`
+Runtime: `modules/scripting/src/main/java/com/jvn/scripting/jes/runtime/JesScene2D.java`
+Tilemap: `modules/core/src/main/java/com/jvn/core/scene2d/TileMap2D.java`
 
 ---
 

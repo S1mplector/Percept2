@@ -2,10 +2,10 @@
 
 Complete reference for the VN save/load system — named slots, autosave, quick save/load, schema versioning, migration, JSON format, atomic writes, sidecar thumbnails, and RPG state passthrough.
 
-Manager: `core/src/main/java/com/jvn/core/vn/save/VnSaveManager.java`
-Data model: `core/src/main/java/com/jvn/core/vn/save/VnSaveData.java`
-Migration: `core/src/main/java/com/jvn/core/vn/save/VnSaveMigration.java`
-Quick save: `core/src/main/java/com/jvn/core/vn/VnQuickSaveManager.java`
+Manager: `modules/core/src/main/java/com/jvn/core/vn/save/VnSaveManager.java`
+Data model: `modules/core/src/main/java/com/jvn/core/vn/save/VnSaveData.java`
+Migration: `modules/core/src/main/java/com/jvn/core/vn/save/VnSaveMigration.java`
+Quick save: `modules/core/src/main/java/com/jvn/core/vn/VnQuickSaveManager.java`
 
 ---
 

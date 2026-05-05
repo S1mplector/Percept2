@@ -3,13 +3,13 @@
 How JES and VNS coordinate behind the scenes — scene stack management, interop routing, timeline runners, character proxy entities, bridge lifecycle, and data flow through the runtime layer.
 
 Bridge source:
-- `runtime/src/main/java/com/jvn/runtime/JesVnBridge.java`
-- `runtime/src/main/java/com/jvn/runtime/RuntimeVnInterop.java`
-- `runtime/src/main/java/com/jvn/runtime/BridgedVnScene.java`
-- `core/src/main/java/com/jvn/core/vn/VnScene.java`
-- `core/src/main/java/com/jvn/core/vn/DefaultVnInterop.java`
-- `core/src/main/java/com/jvn/core/animation/SceneAccessor.java`
-- `core/src/main/java/com/jvn/core/vn/VnCharacterSceneAccessor.java`
+- `modules/runtime/src/main/java/com/jvn/runtime/JesVnBridge.java`
+- `modules/runtime/src/main/java/com/jvn/runtime/RuntimeVnInterop.java`
+- `modules/runtime/src/main/java/com/jvn/runtime/BridgedVnScene.java`
+- `modules/core/src/main/java/com/jvn/core/vn/VnScene.java`
+- `modules/core/src/main/java/com/jvn/core/vn/DefaultVnInterop.java`
+- `modules/core/src/main/java/com/jvn/core/animation/SceneAccessor.java`
+- `modules/core/src/main/java/com/jvn/core/vn/VnCharacterSceneAccessor.java`
 
 ---
 

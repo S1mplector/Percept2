@@ -2,7 +2,7 @@
 
 Directives are header-level instructions that configure your script before story content begins. They start with `@` and define characters, assets, variables, macros, and structural metadata.
 
-Parser source: `core/src/main/java/com/jvn/core/vn/script/VnScriptParser.java`
+Parser source: `modules/core/src/main/java/com/jvn/core/vn/script/VnScriptParser.java`
 
 ---
 

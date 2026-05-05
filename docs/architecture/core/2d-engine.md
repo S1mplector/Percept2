@@ -53,7 +53,7 @@ See [Component Reference](../../scripting/jes/scene/components.md) for per-prope
 
 ## Scene2DBase — Render Pipeline
 
-Source: `core/src/main/java/com/jvn/core/scene2d/Scene2DBase.java`
+Source: `modules/core/src/main/java/com/jvn/core/scene2d/Scene2DBase.java`
 
 The base 2D scene manages a list of `Entity2D` children and renders them with camera transforms.
 
@@ -102,7 +102,7 @@ entity "hud_score" {
 
 ## Camera2D
 
-Source: `core/src/main/java/com/jvn/core/graphics/Camera2D.java`
+Source: `modules/core/src/main/java/com/jvn/core/graphics/Camera2D.java`
 
 ### Properties
 
@@ -153,7 +153,7 @@ double worldX = camera.screenToWorldX(screenX, viewportWidth, originX);
 
 ## Physics System
 
-Source: `core/src/main/java/com/jvn/core/physics/PhysicsWorld2D.java`, `RigidBody2D.java`
+Source: `modules/core/src/main/java/com/jvn/core/physics/PhysicsWorld2D.java`, `RigidBody2D.java`
 
 ### RigidBody2D
 

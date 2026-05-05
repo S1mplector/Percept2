@@ -66,8 +66,8 @@ narrator "The sign read: \"No Entry\""
 
 VNS supports inline markup tags inside dialogue text for animation and styling.
 
-Parser: `core/src/main/java/com/jvn/core/vn/text/TextParser.java`
-Renderer: `fx/src/main/java/com/jvn/fx/vn/VnRenderer.java`
+Parser: `modules/core/src/main/java/com/jvn/core/vn/text/TextParser.java`
+Renderer: `modules/fx/src/main/java/com/jvn/fx/vn/VnRenderer.java`
 
 ### Tag Syntax
 

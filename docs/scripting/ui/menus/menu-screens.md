@@ -2,10 +2,10 @@
 
 Complete reference for defining menu screens — the `.menu` properties format, item declarations, actions, navigation, bounds, slot previews, and inheritance.
 
-Model: `core/src/main/java/com/jvn/core/menu/config/MenuScreenSpec.java`
-Items: `core/src/main/java/com/jvn/core/menu/config/MenuItemSpec.java`
-Actions: `core/src/main/java/com/jvn/core/menu/config/MenuActionSpec.java`
-Loader: `core/src/main/java/com/jvn/core/menu/config/MenuProfileLoader.java`
+Model: `modules/core/src/main/java/com/jvn/core/menu/config/MenuScreenSpec.java`
+Items: `modules/core/src/main/java/com/jvn/core/menu/config/MenuItemSpec.java`
+Actions: `modules/core/src/main/java/com/jvn/core/menu/config/MenuActionSpec.java`
+Loader: `modules/core/src/main/java/com/jvn/core/menu/config/MenuProfileLoader.java`
 
 ---
 

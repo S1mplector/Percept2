@@ -2,7 +2,7 @@
 
 Team-focused Git control panel integrated into the JVN editor. Supports init, commit, push, pull, branch management, stash, and remote setup.
 
-Source: `editor/src/main/java/com/jvn/editor/ui/VersionControlView.java`
+Source: `modules/editor/src/main/java/com/jvn/editor/ui/VersionControlView.java`
 
 ---
 

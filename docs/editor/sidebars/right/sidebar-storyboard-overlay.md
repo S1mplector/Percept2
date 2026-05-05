@@ -2,7 +2,7 @@
 
 Ghost storyboard frames over the active JES or VNS preview for staging reference while placing characters, tuning framing, or checking shot continuity against board art.
 
-Source: `editor/src/main/java/com/jvn/editor/ui/StoryboardOverlayView.java`
+Source: `modules/editor/src/main/java/com/jvn/editor/ui/StoryboardOverlayView.java`
 
 ---
 

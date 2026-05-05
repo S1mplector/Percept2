@@ -21,7 +21,7 @@ This document describes the engine structure and the key execution paths across 
 
 ## Engine Core
 
-Source: `core/src/main/java/com/jvn/core/engine/Engine.java`
+Source: `modules/core/src/main/java/com/jvn/core/engine/Engine.java`
 
 The `Engine` class is the central orchestrator. It owns the scene stack, input state, tween runner, frame statistics, and the multi-phase update loop.
 
@@ -117,13 +117,13 @@ Built via `ApplicationConfig.builder()`:
 
 A lightweight task runner for time-based animations. `Engine.tweens()` returns the shared instance. Add `TweenTask` subclasses (implement `update(deltaMs)` + `isFinished()`); finished tasks are auto-removed. Tweens run during the variable update phase (not the fixed update phase).
 
-Source: `core/src/main/java/com/jvn/core/tween/TweenRunner.java`
+Source: `modules/core/src/main/java/com/jvn/core/tween/TweenRunner.java`
 
 ---
 
 ## Scene Stack (SceneManager)
 
-Source: `core/src/main/java/com/jvn/core/scene/SceneManager.java`
+Source: `modules/core/src/main/java/com/jvn/core/scene/SceneManager.java`
 
 Scenes are managed as a **stack** with lifecycle callbacks:
 
@@ -154,7 +154,7 @@ This stack model supports VNS → JES minigame → return patterns, menu overlay
 
 ## Input System
 
-Source: `core/src/main/java/com/jvn/core/input/Input.java`, `InputCode.java`
+Source: `modules/core/src/main/java/com/jvn/core/input/Input.java`, `InputCode.java`
 
 Backend-agnostic input that supports keyboard, mouse, and gamepad:
 
@@ -192,7 +192,7 @@ input.getGamepadAxis(0, "LEFT_X") // -1.0 to 1.0
 
 ## Runtime Boot Sequence
 
-Entrypoint: `runtime/src/main/java/com/jvn/runtime/JvnApp.java`
+Entrypoint: `modules/runtime/src/main/java/com/jvn/runtime/JvnApp.java`
 
 1. Parse CLI flags (`--script`, `--ui`, `--jes`, `--audio`, `--assets`, etc.).
 2. Initialize localization.
@@ -286,7 +286,7 @@ When `RuntimeVnInterop.loadJes()` creates a JES scene from VNS, it automatically
 
 ### Layer 3: JES→VNS via JesVnBridge
 
-Source: `runtime/src/main/java/com/jvn/runtime/JesVnBridge.java`
+Source: `modules/runtime/src/main/java/com/jvn/runtime/JesVnBridge.java`
 
 The bridge allows JES scenes to start VN segments (dialogue, cutscenes) and resume when they finish:
 
@@ -309,7 +309,7 @@ call "startVns" { script: "chapter2.vns", label: "boss_intro", popOnExit: true }
 
 ### Layer 4: VnCharacterProxyEntity — The Entity2D Bridge
 
-Source: `runtime/src/main/java/com/jvn/runtime/RuntimeVnInterop.VnCharacterProxyEntity`
+Source: `modules/runtime/src/main/java/com/jvn/runtime/RuntimeVnInterop.VnCharacterProxyEntity`
 
 When a JES timeline animates a VN character by name (e.g., a track targeting `"alice"`), the `SceneAccessor` creates a `VnCharacterProxyEntity` — a lightweight `Entity2D` subclass that forwards property changes to the VN character's `CharacterVisual`:
 
@@ -322,7 +322,7 @@ This means JES timeline animations work transparently on VN characters without t
 
 ### Layer 5: VnCharacterSceneAccessor (Editor Preview)
 
-Source: `core/src/main/java/com/jvn/core/vn/VnCharacterSceneAccessor.java`
+Source: `modules/core/src/main/java/com/jvn/core/vn/VnCharacterSceneAccessor.java`
 
 The editor uses a separate `SceneAccessor` implementation that creates virtual `Entity2D` proxies for VN character names during preview. This allows the editor's timeline preview to animate characters without a live runtime. Event cues (like `"expression"` changes) are logged for the diagnostics panel.
 
@@ -361,7 +361,7 @@ VNS is, in essence, a **high-level dialogue and branching scripting layer** that
 
 ## Menu System Flow
 
-Menu config loader: `core/src/main/java/com/jvn/core/menu/config/MenuProfileLoader.java`
+Menu config loader: `modules/core/src/main/java/com/jvn/core/menu/config/MenuProfileLoader.java`
 
 1. Load `config/menu/registry/menu.registry` (or legacy `config/menu/menu.registry`) if present.
 2. Discover screens/layouts/styles from `config/menu/menus`, `config/menu/layouts`, `config/menu/styles`.

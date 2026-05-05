@@ -2,9 +2,9 @@
 
 Complete reference for JES scene structure, entity declarations, and the scene lifecycle.
 
-Parser: `scripting/src/main/java/com/jvn/scripting/jes/JesParser.java`
-Loader: `scripting/src/main/java/com/jvn/scripting/jes/JesLoader.java`
-Runtime: `scripting/src/main/java/com/jvn/scripting/jes/runtime/JesScene2D.java`
+Parser: `modules/scripting/src/main/java/com/jvn/scripting/jes/JesParser.java`
+Loader: `modules/scripting/src/main/java/com/jvn/scripting/jes/JesLoader.java`
+Runtime: `modules/scripting/src/main/java/com/jvn/scripting/jes/runtime/JesScene2D.java`
 
 ---
 

@@ -3,11 +3,11 @@
 Complete, copy-pasteable code examples for every integration direction between VNS scripts, JES scenes, and Java code. Each recipe includes **all three layers** so you can see how data flows end to end.
 
 Source reference:
-- `runtime/src/main/java/com/jvn/runtime/RuntimeVnInterop.java`
-- `runtime/src/main/java/com/jvn/runtime/JesVnBridge.java`
-- `runtime/src/main/java/com/jvn/runtime/BridgedVnScene.java`
-- `scripting/src/main/java/com/jvn/scripting/jes/runtime/JesScene2D.java`
-- `core/src/main/java/com/jvn/core/vn/DefaultVnInterop.java`
+- `modules/runtime/src/main/java/com/jvn/runtime/RuntimeVnInterop.java`
+- `modules/runtime/src/main/java/com/jvn/runtime/JesVnBridge.java`
+- `modules/runtime/src/main/java/com/jvn/runtime/BridgedVnScene.java`
+- `modules/scripting/src/main/java/com/jvn/scripting/jes/runtime/JesScene2D.java`
+- `modules/core/src/main/java/com/jvn/core/vn/DefaultVnInterop.java`
 
 ---
 

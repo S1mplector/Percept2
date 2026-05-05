@@ -2,8 +2,8 @@
 
 Canonical pattern for building Ren'Py-style help and controls screens in JVN using the regular menu system.
 
-Model: `core/src/main/java/com/jvn/core/menu/config/MenuScreenSpec.java`  
-Renderer: `fx/src/main/java/com/jvn/fx/menu/MenuRenderer.java`
+Model: `modules/core/src/main/java/com/jvn/core/menu/config/MenuScreenSpec.java`  
+Renderer: `modules/fx/src/main/java/com/jvn/fx/menu/MenuRenderer.java`
 
 ---
 

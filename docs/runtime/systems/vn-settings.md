@@ -2,8 +2,8 @@
 
 Complete reference for all JVN runtime settings — fields, defaults, valid ranges, persistence, and how settings integrate with the settings menu, save system, and VNS interop.
 
-Model: `core/src/main/java/com/jvn/core/vn/VnSettings.java`
-Store: `core/src/main/java/com/jvn/core/vn/VnSettingsStore.java`
+Model: `modules/core/src/main/java/com/jvn/core/vn/VnSettings.java`
+Store: `modules/core/src/main/java/com/jvn/core/vn/VnSettingsStore.java`
 
 ---
 
