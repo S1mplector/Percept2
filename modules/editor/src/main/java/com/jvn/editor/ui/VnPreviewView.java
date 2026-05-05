@@ -462,6 +462,7 @@ public class VnPreviewView extends StackPane {
   }
 
   private void initializeScenario(VnScenario scenario, String startLabel) {
+    renderer.resetParticleState();
     if (scenario == null) {
       stopAudio();
       this.scene = null;

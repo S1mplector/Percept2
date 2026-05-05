@@ -6105,12 +6105,7 @@ public class PuppeteerWindow extends Stage {
         String continueText,
         Runnable onContinue
     ) {
-        TextArea body = new TextArea(formatVerificationMessages(findings));
-        body.setEditable(false);
-        body.setWrapText(true);
-        body.setFocusTraversable(false);
-        body.setPrefRowCount(Math.min(18, Math.max(8, findings == null ? 8 : findings.size() + 2)));
-        body.setStyle("-fx-control-inner-background: #121212; -fx-text-fill: #d7d7d7; -fx-font-family: Monospaced;");
+        VBox body = buildVerificationContent(findings);
         if (continueText != null) {
             overlayDialog.showDialog(
                 title,
@@ -6133,31 +6128,93 @@ public class PuppeteerWindow extends Stage {
         );
     }
 
-    private static String formatVerificationMessages(List<TimelineDiagnostic.Message> findings) {
-        if (findings == null || findings.isEmpty()) {
-            return "No issues found.";
+    private VBox buildVerificationContent(List<TimelineDiagnostic.Message> findings) {
+        VBox content = new VBox(8);
+        content.setFillWidth(true);
+        content.setMaxWidth(500);
+        content.setStyle("-fx-padding: 0 0 2 0;");
+
+        List<TimelineDiagnostic.Message> safeFindings = findings == null
+            ? List.of()
+            : findings.stream().filter(Objects::nonNull).toList();
+        if (safeFindings.isEmpty()) {
+            safeFindings = List.of(new TimelineDiagnostic.Message(
+                TimelineDiagnostic.Severity.INFO,
+                "(timeline)",
+                "No issues found.",
+                ""
+            ));
         }
-        StringBuilder out = new StringBuilder();
-        for (TimelineDiagnostic.Message finding : findings) {
-            if (finding == null) continue;
-            String prefix = switch (finding.severity()) {
-                case ERROR -> "[ERROR]";
-                case WARNING -> "[WARN]";
-                case INFO -> "[INFO]";
-            };
-            out.append(prefix)
-                .append(' ')
-                .append(finding.entityOrTrack() == null || finding.entityOrTrack().isBlank()
-                    ? "(timeline)"
-                    : finding.entityOrTrack())
-                .append(" — ")
-                .append(finding.description());
-            if (finding.quickFix() != null && !finding.quickFix().isBlank()) {
-                out.append("\n  fix: ").append(finding.quickFix());
-            }
-            out.append("\n\n");
+
+        for (TimelineDiagnostic.Message finding : safeFindings) {
+            content.getChildren().add(buildVerificationMessageRow(finding));
         }
-        return out.toString().trim();
+        return content;
+    }
+
+    private Node buildVerificationMessageRow(TimelineDiagnostic.Message finding) {
+        TimelineDiagnostic.Severity severity = finding.severity() == null
+            ? TimelineDiagnostic.Severity.INFO
+            : finding.severity();
+
+        Label badge = new Label(verificationSeverityLabel(severity));
+        badge.setMinWidth(58);
+        badge.setAlignment(Pos.CENTER);
+        badge.setStyle(verificationSeverityBadgeStyle(severity));
+
+        Label target = new Label(firstNonBlank(finding.entityOrTrack(), "(timeline)"));
+        target.setWrapText(true);
+        target.setStyle("-fx-text-fill: #f0f0f0; -fx-font-size: 11px; -fx-font-weight: bold;");
+
+        Label description = new Label(firstNonBlank(finding.description(), "No details available."));
+        description.setWrapText(true);
+        description.setStyle("-fx-text-fill: #cfcfcf; -fx-font-size: 11px;");
+
+        VBox text = new VBox(3, target, description);
+        text.setFillWidth(true);
+        HBox.setHgrow(text, Priority.ALWAYS);
+
+        String quickFix = finding.quickFix();
+        if (quickFix != null && !quickFix.isBlank()) {
+            Label fix = new Label("Fix: " + quickFix.trim());
+            fix.setWrapText(true);
+            fix.setStyle("-fx-text-fill: #9eb8d8; -fx-font-size: 11px;");
+            text.getChildren().add(fix);
+        }
+
+        HBox row = new HBox(10, badge, text);
+        row.setAlignment(Pos.TOP_LEFT);
+        row.setMaxWidth(Double.MAX_VALUE);
+        row.setStyle(
+            "-fx-background-color: #111111;"
+                + "-fx-background-radius: 6;"
+                + "-fx-border-color: #2e2e2e;"
+                + "-fx-border-radius: 6;"
+                + "-fx-padding: 8 10;"
+        );
+        return row;
+    }
+
+    private static String verificationSeverityLabel(TimelineDiagnostic.Severity severity) {
+        return switch (severity) {
+            case ERROR -> "ERROR";
+            case WARNING -> "WARN";
+            case INFO -> "INFO";
+        };
+    }
+
+    private static String verificationSeverityBadgeStyle(TimelineDiagnostic.Severity severity) {
+        String colors = switch (severity) {
+            case ERROR -> "-fx-background-color: #5d2430; -fx-text-fill: #ffd9df; -fx-border-color: #8a3a49;";
+            case WARNING -> "-fx-background-color: #4b3a1d; -fx-text-fill: #ffe2a8; -fx-border-color: #765c2d;";
+            case INFO -> "-fx-background-color: #213a4a; -fx-text-fill: #d8eefc; -fx-border-color: #365a70;";
+        };
+        return colors
+            + " -fx-background-radius: 999;"
+            + " -fx-border-radius: 999;"
+            + " -fx-font-size: 10px;"
+            + " -fx-font-weight: bold;"
+            + " -fx-padding: 3 8;";
     }
 
     private boolean saveTimelineFile(String name, String jesCode) {

@@ -181,6 +181,7 @@ public class VnRenderer {
   public VnRenderer(GraphicsContext gc) {
     this.gc = gc;
     this.particleBlitter = new FxBlitter2D(gc);
+    resetParticleState();
     this.nameFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.BOLD, DEFAULT_NAME_FONT_SIZE);
     this.dialogueFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.NORMAL, DEFAULT_DIALOGUE_FONT_SIZE);
     this.choiceFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.NORMAL, DEFAULT_CHOICE_FONT_SIZE);
@@ -200,6 +201,17 @@ public class VnRenderer {
 
   public VnUiLayoutSpec getUiLayout() {
     return uiLayout;
+  }
+
+  public void resetParticleState() {
+    particleEmitter.clear();
+    particleEmitter.setEmitting(false);
+    particleEmitter.setEmissionRate(0);
+    renderedParticleCommand = null;
+    particleLastFrameNanos = 0L;
+    lastParticleLayer = 100;
+    particleConfigWidth = -1.0;
+    particleConfigHeight = -1.0;
   }
 
   public void setUiLayout(VnUiLayoutSpec layout) {
@@ -404,6 +416,10 @@ public class VnRenderer {
     VnParticleCommand cmd = state == null ? null : state.getActiveParticleCommand();
     boolean sizeChanged = Math.abs(width - particleConfigWidth) > 0.5
         || Math.abs(height - particleConfigHeight) > 0.5;
+
+    if (cmd == null && renderedParticleCommand == null && particleEmitter.getParticleCount() <= 0) {
+      return false;
+    }
 
     if (cmd != null && (cmd != renderedParticleCommand || sizeChanged)) {
       VnParticlePresetLibrary.apply(particleEmitter, cmd, width, height);
