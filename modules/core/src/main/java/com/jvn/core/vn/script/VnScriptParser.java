@@ -1005,6 +1005,9 @@ public class VnScriptParser {
       case "auto":
         state.builder.external("mode", "auto " + (arg == null ? "" : arg));
         return;
+      case "mode":
+        state.builder.external("mode", arg == null ? "" : arg);
+        return;
       case "ui":
         state.builder.external("ui", arg == null ? "" : arg);
         return;

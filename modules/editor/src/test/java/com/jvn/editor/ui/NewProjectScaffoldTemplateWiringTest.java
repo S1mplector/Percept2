@@ -71,6 +71,21 @@ class NewProjectScaffoldTemplateWiringTest {
   }
 
   @Test
+  void tutorialTemplatesResetDialoguePresentationMode() throws Exception {
+    for (String path : TUTORIAL_TEMPLATE_PATHS) {
+      String rendered = render(path);
+      assertTrue(
+          rendered.contains("[mode dialogue standard]\n[inc tutorial_count]"),
+          () -> "Tutorial does not reset dialogue presentation mode at entry: " + path);
+    }
+
+    String hub = render("scripts/story/tutorial_hub.vns");
+    assertTrue(
+        hub.contains("[mode dialogue standard]\n[textspeed 28]"),
+        "Tutorial hub does not reset dialogue presentation mode at entry");
+  }
+
+  @Test
   void sampleStoryArcTemplatesPointAtExpectedTargets() throws Exception {
     String prologue = render("scripts/story/prologue_sample.vns");
     assertTrue(prologue.contains("[set tutorial_count 0]"));

@@ -479,6 +479,23 @@ public class VnScriptParserTest {
   }
 
   @Test
+  public void parsesModeCommandIntoModeInteropPayload() throws Exception {
+    String script = """
+      @label start
+      [mode dialogue standard]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+    VnNode ext = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.EXTERNAL
+            && "mode".equals(n.getExternalCommand().getProvider()))
+        .findFirst().orElseThrow();
+    assertEquals("dialogue standard", ext.getExternalCommand().getPayload());
+  }
+
+  @Test
   public void parsesInlineTimelineShowcaseScript() throws Exception {
     String script = """
       @scenario runtime_showcase

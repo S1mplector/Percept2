@@ -9,7 +9,8 @@
 @include {{CHARACTERS_INCLUDE}}
 
 {{BG_DECL}}@label start
-{{BG_START}}[textspeed 28]
+{{BG_START}}[mode dialogue standard]
+[textspeed 28]
 [autodelay 1700]
 [set ui.characterHeightFactor 1.28]
 [set ui.characterBaselineY 1.42]

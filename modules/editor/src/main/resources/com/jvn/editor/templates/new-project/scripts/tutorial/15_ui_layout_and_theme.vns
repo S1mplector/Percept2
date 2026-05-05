@@ -4,7 +4,8 @@
 @scenario {{SCENARIO_PREFIX}}_tutorial_15_ui_layout
 @include {{CHARACTERS_INCLUDE}}
 {{BG_DECL}}@label start
-{{BG_START}}[inc tutorial_count]
+{{BG_START}}[mode dialogue standard]
+[inc tutorial_count]
 [textspeed 28]
 [autodelay 1650]
 [show lavender center happy]
