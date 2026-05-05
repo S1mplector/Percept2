@@ -175,7 +175,11 @@ public class VnScriptParser {
     Map<String, CharacterPosition> customPositions = new HashMap<>();
     Map<String, String> inlineCompositeExpressions = new HashMap<>();
     String pendingVoiceTrackId;
+    String pendingVoiceTrackId;
     List<VnParseException> errors = new ArrayList<>();
+
+    boolean insideMenu = false;
+    List<BufferedLine> menuBuffer = new ArrayList<>();
 
     CharacterPosition getCustomPosition(String name) {
       if (name == null || name.isBlank()) return null;
@@ -192,6 +196,18 @@ public class VnScriptParser {
       this.source = source;
       this.line = line;
       this.synthetic = synthetic;
+    }
+  }
+
+  private static final class BufferedLine {
+    final String rawLine;
+    final String sourceName;
+    final int lineNumber;
+
+    BufferedLine(String rawLine, String sourceName, int lineNumber) {
+      this.rawLine = rawLine;
+      this.sourceName = sourceName;
+      this.lineNumber = lineNumber;
     }
   }
 
@@ -313,6 +329,55 @@ public class VnScriptParser {
     return parse(new java.io.ByteArrayInputStream(bytes), "<string>", null);
   }
 
+  private void processMenu(List<BufferedLine> buffer, IncludeResolver resolver, ParseState state, Deque<String> includeStack) throws IOException {
+    String menuEndLabel = "_menu_end_" + (++state.syntheticLabelCounter);
+    StringBuilder syntheticScript = new StringBuilder();
+
+    // Pass 1: Extract choices and generate Choice tags
+    List<String> choiceLabels = new ArrayList<>();
+    for (BufferedLine bl : buffer) {
+      String trimmed = bl.rawLine.trim();
+      Matcher choiceMatcher = CHOICE_PATTERN.matcher(trimmed);
+      if (choiceMatcher.matches()) {
+        String text = choiceMatcher.group(1).trim();
+        String target = choiceMatcher.group(2); 
+        String cond = choiceMatcher.group(3); 
+
+        String choiceLabel = target != null ? target : ("_menu_choice_" + (++state.syntheticLabelCounter));
+        choiceLabels.add(choiceLabel);
+
+        syntheticScript.append("> ").append(text).append(" -> ").append(choiceLabel);
+        if (cond != null && !cond.isBlank()) {
+          syntheticScript.append(" [if ").append(cond).append("]");
+        }
+        syntheticScript.append("\n");
+      }
+    }
+
+    // Pass 2: Emit the blocks
+    int choiceIndex = -1;
+    for (BufferedLine bl : buffer) {
+      String trimmed = bl.rawLine.trim();
+      Matcher choiceMatcher = CHOICE_PATTERN.matcher(trimmed);
+      if (choiceMatcher.matches()) {
+        if (choiceIndex >= 0) {
+          syntheticScript.append("[jump ").append(menuEndLabel).append("]\n");
+        }
+        choiceIndex++;
+        syntheticScript.append("[label ").append(choiceLabels.get(choiceIndex)).append("]\n");
+      } else {
+        syntheticScript.append(bl.rawLine).append("\n");
+      }
+    }
+    if (choiceIndex >= 0) {
+      syntheticScript.append("[jump ").append(menuEndLabel).append("]\n");
+    }
+    syntheticScript.append("[label ").append(menuEndLabel).append("]\n");
+
+    InputStream in = new java.io.ByteArrayInputStream(syntheticScript.toString().getBytes(StandardCharsets.UTF_8));
+    parseInto(in, "<menu>", resolver, state, includeStack);
+  }
+
   private void parseInto(InputStream input,
                          String sourceName,
                          IncludeResolver resolver,
@@ -367,6 +432,21 @@ public class VnScriptParser {
       if (!state.defines.isEmpty()) {
         rawLine = applyDefines(rawLine, state.defines);
         trimmed = rawLine.trim();
+      }
+
+      if (trimmed.equals("[menu]")) {
+        state.insideMenu = true;
+        continue;
+      }
+      if (trimmed.equals("[/menu]")) {
+        state.insideMenu = false;
+        processMenu(state.menuBuffer, resolver, state, includeStack);
+        state.menuBuffer.clear();
+        continue;
+      }
+      if (state.insideMenu) {
+        state.menuBuffer.add(new BufferedLine(rawLine, sourceName, lineNumber));
+        continue;
       }
 
       Matcher scenarioMatcher = SCENARIO_PATTERN.matcher(trimmed);
@@ -666,6 +746,11 @@ public class VnScriptParser {
         ensureNoArg(arg, cmd, sourceName, lineNumber, rawLine);
         state.builder.end();
         return;
+      case "eval": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("eval", payload);
+        return;
+      }
       case "bgm": {
         String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
         String[] toks = VnArgTokenizer.tokenizeToArray(payload);
@@ -1290,6 +1375,7 @@ public class VnScriptParser {
         VnTransition.TransitionType type = null;
         long dur = 500;
         String bg = null;
+        String maskAssetPath = null;
         for (String tok : toks) {
           String token = tok.trim();
           if (token.isEmpty()) continue;
@@ -1305,6 +1391,7 @@ public class VnScriptParser {
                 if (dur < 0) throw parseError(sourceName, lineNumber, "[transition] duration must be >= 0", rawLine);
               }
               case "bg", "background" -> bg = option.value();
+              case "mask", "maskPath", "maskAsset" -> maskAssetPath = option.value();
               default -> throw parseError(sourceName, lineNumber, "[transition] unknown option: " + option.key(), rawLine);
             }
             continue;
@@ -1328,7 +1415,10 @@ public class VnScriptParser {
         if (type == null) {
           throw parseError(sourceName, lineNumber, "[transition] requires a type via positional arg or type=...", rawLine);
         }
-        state.builder.transition(type, dur, bg);
+        if (type == VnTransition.TransitionType.MASK && maskAssetPath == null) {
+          throw parseError(sourceName, lineNumber, "[transition] MASK transition requires mask=... parameter", rawLine);
+        }
+        state.builder.transition(type, dur, bg, maskAssetPath);
         return;
       }
       case "particles":
@@ -2289,6 +2379,7 @@ public class VnScriptParser {
       if (t.equals("BLINDS") || t.equals("BLIND")) return VnTransition.TransitionType.BLINDS;
       if (t.equals("IRIS_IN") || t.equals("IRISIN")) return VnTransition.TransitionType.IRIS_IN;
       if (t.equals("IRIS_OUT") || t.equals("IRISOUT")) return VnTransition.TransitionType.IRIS_OUT;
+      if (t.equals("MASK")) return VnTransition.TransitionType.MASK;
       return null;
     }
   }

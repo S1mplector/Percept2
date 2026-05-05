@@ -32,6 +32,14 @@ public final class VnConditionEvaluator {
     return asBoolean(parser.parseExpression());
   }
 
+  public static Object evaluateValue(String expression, Map<String, ?> variables) {
+    if (expression == null || expression.isBlank()) {
+      throw new IllegalArgumentException("Condition expression is empty");
+    }
+    Parser parser = new Parser(expression, variables == null ? Map.of() : variables, false);
+    return parser.parseExpression();
+  }
+
   public static void validate(String expression) {
     if (expression == null || expression.isBlank()) {
       throw new IllegalArgumentException("Condition expression is empty");

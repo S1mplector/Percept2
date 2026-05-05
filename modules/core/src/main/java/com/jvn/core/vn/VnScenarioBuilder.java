@@ -287,11 +287,16 @@ public class VnScenarioBuilder {
   }
 
   public VnScenarioBuilder transition(VnTransition.TransitionType type, long durationMs, String targetBackgroundId) {
+    return transition(type, durationMs, targetBackgroundId, null);
+  }
+
+  public VnScenarioBuilder transition(VnTransition.TransitionType type, long durationMs, String targetBackgroundId, String maskAssetPath) {
     scenarioBuilder.addNode(
       VnNode.builder(VnNodeType.TRANSITION)
         .transition(VnTransition.builder(type)
           .durationMs(durationMs)
           .targetBackgroundId(targetBackgroundId)
+          .maskAssetPath(maskAssetPath)
           .build())
         .build()
     );

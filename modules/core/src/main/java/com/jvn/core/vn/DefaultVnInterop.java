@@ -60,6 +60,9 @@ public class DefaultVnInterop implements VnInterop {
       case "var":
         handleVar(payload, scene);
         return VnInteropResult.advance();
+      case "eval":
+        handleEval(payload, scene);
+        return VnInteropResult.advance();
       case "persistent":
         handlePersistent(payload, scene);
         return VnInteropResult.advance();
@@ -211,6 +214,24 @@ public class DefaultVnInterop implements VnInterop {
       case "clear":
         vars.remove(key);
         break;
+    }
+  }
+
+  private void handleEval(String payload, VnScene scene) {
+    if (payload == null) return;
+    int eq = payload.indexOf('=');
+    if (eq <= 0) {
+      scene.getState().showHudMessage("eval: missing '='", 1800);
+      return;
+    }
+    String targetVar = payload.substring(0, eq).trim();
+    String expr = payload.substring(eq + 1).trim();
+    if (targetVar.isEmpty() || expr.isEmpty()) return;
+    try {
+      Object result = VnConditionEvaluator.evaluateValue(expr, scene.getState().getVariables());
+      scene.getState().getVariables().put(targetVar, result);
+    } catch (Exception ex) {
+      scene.getState().showHudMessage("eval err: " + ex.getMessage(), 2000);
     }
   }
 

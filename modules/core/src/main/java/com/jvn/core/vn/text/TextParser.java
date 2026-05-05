@@ -19,6 +19,7 @@ import java.util.regex.Pattern;
  * - {b}text{/b} - Bold
  * - {i}text{/i} - Italic
  * - {rainbow}text{/rainbow} - Rainbow colors
+ * - {ruby=Furigana}Base{/ruby} - Ruby text (Furigana) above the base text
  * 
  * Effects can be nested: {shake}{color=#FF0000}scary{/color}{/shake}
  */
@@ -42,6 +43,7 @@ public class TextParser {
     String currentColor = null;
     float currentSpeed = 1.0f;
     int pendingDelay = 0;
+    String currentRubyText = null;
 
     Matcher matcher = TAG_PATTERN.matcher(text);
     int lastEnd = 0;
@@ -51,7 +53,7 @@ public class TextParser {
       if (matcher.start() > lastEnd) {
         String segment = text.substring(lastEnd, matcher.start());
         if (!segment.isEmpty()) {
-          spans.add(new TextSpan(segment, currentEffect, currentColor, currentSpeed, pendingDelay));
+          spans.add(new TextSpan(segment, currentEffect, currentColor, currentSpeed, pendingDelay, currentRubyText));
           pendingDelay = 0; // Clear delay after use
         }
       }
@@ -84,6 +86,9 @@ public class TextParser {
               catch (NumberFormatException ignored) {}
             }
           }
+          case "ruby" -> {
+            if (tagValue != null) currentRubyText = tagValue;
+          }
         }
       } else {
         // Closing tag
@@ -91,6 +96,7 @@ public class TextParser {
           case "shake", "wave", "bounce", "rainbow", "b", "bold", "i", "italic" -> currentEffect = TextEffect.NONE;
           case "color" -> currentColor = null;
           case "speed" -> currentSpeed = 1.0f;
+          case "ruby" -> currentRubyText = null;
         }
       }
 
@@ -101,7 +107,7 @@ public class TextParser {
     if (lastEnd < text.length()) {
       String segment = text.substring(lastEnd);
       if (!segment.isEmpty()) {
-        spans.add(new TextSpan(segment, currentEffect, currentColor, currentSpeed, pendingDelay));
+        spans.add(new TextSpan(segment, currentEffect, currentColor, currentSpeed, pendingDelay, currentRubyText));
       }
     }
 
