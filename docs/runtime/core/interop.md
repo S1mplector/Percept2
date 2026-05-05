@@ -84,7 +84,7 @@ Volume changes are applied immediately to all currently playing tracks on that c
 
 ### `mode`
 
-Skip/auto mode control:
+Runtime mode control for skip, auto-play, and dialogue presentation:
 
 ```vns
 [mode skip]              # toggle skip mode
@@ -92,9 +92,32 @@ Skip/auto mode control:
 [mode skip off]          # disable (also accepts: false, 0)
 [mode auto]              # toggle auto-play
 [mode auto on]           # enable auto-play (disables skip)
+[mode dialogue standard] # standard ADV textbox
+[mode dialogue nvl]      # NVL stacked dialogue panel
+[mode dialogue bubble]   # speech-bubble dialogue
+[mode nvl on]            # enable NVL mode
+[mode nvl off]           # return to standard textbox
+[mode bubble on]         # enable bubble mode
+[mode bubble off]        # return to standard textbox
 ```
 
 Enabling skip disables auto-play, and vice versa.
+
+Dialogue presentation modes are stored in `ui.dialogueMode`. `standard` is the default ADV textbox, which is useful at the top of standalone scripts or tutorials that should not inherit NVL/bubble state from a previous scene. `dialogue`, `presentation`, and `say` are equivalent selectors:
+
+```vns
+[mode dialogue standard]
+[mode presentation standard]
+[mode say standard]
+```
+
+Supported dialogue mode tokens:
+
+- `standard`, `normal`, `say`, `adv` -> standard textbox
+- `nvl` -> NVL stacked dialogue
+- `bubble` -> speech-bubble dialogue
+
+Boolean subcommands accept `on`, `off`, `true`, `false`, `1`, and `0`; `nvl` and `bubble` also accept `toggle`.
 
 ### `ui`
 

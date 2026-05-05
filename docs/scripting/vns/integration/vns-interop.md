@@ -21,15 +21,17 @@ At runtime:
 
 ## Dialogue Presentation Modes
 
-The built-in `mode` and `char` providers now control alternate dialogue presentation without custom hacks.
+The built-in `mode` and `char` providers control dialogue presentation without custom hacks. `mode` changes the active runtime presentation mode, while `char` controls per-speaker bubble placement.
 
 ### Standard / NVL / Bubble
 
 ```vns
 [mode dialogue standard]
 [mode dialogue nvl]
+[mode dialogue bubble]
 [mode bubble on]
 [mode bubble off]
+[mode nvl on]
 [mode nvl toggle]
 ```
 
@@ -40,6 +42,16 @@ Supported forms:
 - `[mode say standard|nvl|bubble]`
 - `[mode nvl on|off|toggle]`
 - `[mode bubble on|off|toggle]`
+
+`standard` is the default ADV textbox. Use it at the top of standalone scripts, tutorials, and scene-entry labels that should not inherit a prior NVL or bubble presentation mode:
+
+```vns
+@label start
+[mode dialogue standard]
+[textspeed 28]
+```
+
+Runtime aliases for standard mode are `standard`, `normal`, `say`, and `adv`. The mode is stored in the VN state variable `ui.dialogueMode`, so saves and scripted transitions preserve the current presentation until another `[mode ...]` command changes it.
 
 ### Bubble Placement Overrides
 
