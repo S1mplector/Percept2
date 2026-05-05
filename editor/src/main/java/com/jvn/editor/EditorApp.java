@@ -2849,7 +2849,7 @@ public class EditorApp extends Application {
       case MENU_FLOW: return com.jvn.editor.ui.CssIcon.list("#7dd6b7");
       case VERSION_CONTROL: return com.jvn.editor.ui.CssIcon.timeline("#86e4be");
       case HELP: return com.jvn.editor.ui.CssIcon.speech("#ffd166");
-      case PUPPETEER_LAUNCHER: return com.jvn.editor.ui.CssIcon.robot("#f0a0d0");
+      case PUPPETEER_LAUNCHER: return com.jvn.editor.ui.CssIcon.theater("#f0a0d0");
       case SCRIPT_EDITOR: return com.jvn.editor.ui.CssIcon.edit("#9cc7ff");
       default: return com.jvn.editor.ui.CssIcon.folder("#ffffff");
     }

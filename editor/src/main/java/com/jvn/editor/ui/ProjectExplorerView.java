@@ -24,6 +24,8 @@ import java.util.function.Consumer;
 public class ProjectExplorerView extends VBox {
   private final Label header = new Label("Project");
   private final TextField filter = new TextField();
+  private final javafx.scene.layout.StackPane treeContainer = new javafx.scene.layout.StackPane();
+  private final VBox emptyStateBox = new VBox(8);
   private final TreeView<File> tree = new TreeView<>();
   private File rootDir;
   private Consumer<File> onOpenFile;
@@ -41,7 +43,18 @@ public class ProjectExplorerView extends VBox {
 
     tree.setShowRoot(true);
     tree.getStyleClass().add("project-explorer-tree");
-    VBox.setVgrow(tree, Priority.ALWAYS);
+    
+    Label emptyTitle = new Label("No project selected");
+    emptyTitle.getStyleClass().add("sidebar-empty-title");
+    Label emptyMessage = new Label("Open a project folder or create a new one to see files here.");
+    emptyMessage.setWrapText(true);
+    emptyMessage.setStyle("-fx-text-fill: #999; -fx-text-alignment: center;");
+    emptyStateBox.getChildren().addAll(emptyTitle, emptyMessage);
+    emptyStateBox.setAlignment(Pos.CENTER);
+    emptyStateBox.setPadding(new Insets(16));
+    
+    treeContainer.getChildren().add(emptyStateBox);
+    VBox.setVgrow(treeContainer, Priority.ALWAYS);
 
     ContextMenu ctx = new ContextMenu();
     MenuItem miOpen = new MenuItem("Open");
@@ -143,7 +156,7 @@ public class ProjectExplorerView extends VBox {
     miRename.setOnAction(e -> renameSelected());
     miDelete.setOnAction(e -> deleteSelected());
 
-    getChildren().addAll(header, filter, tree);
+    getChildren().addAll(header, filter, treeContainer);
   }
 
   public void setRootDirectory(File dir) {
@@ -161,7 +174,17 @@ public class ProjectExplorerView extends VBox {
   }
 
   public void refresh() {
-    if (rootDir == null) { tree.setRoot(null); return; }
+    if (rootDir == null) { 
+      tree.setRoot(null);
+      if (!treeContainer.getChildren().contains(emptyStateBox)) {
+          treeContainer.getChildren().setAll(emptyStateBox);
+      }
+      return; 
+    } else {
+      if (!treeContainer.getChildren().contains(tree)) {
+          treeContainer.getChildren().setAll(tree);
+      }
+    }
     String q = filter.getText(); if (q == null) q = ""; String qq = q.toLowerCase(Locale.ROOT);
     TreeItem<File> root = buildTreeFiltered(rootDir, qq);
     tree.setRoot(root);
