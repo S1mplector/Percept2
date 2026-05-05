@@ -1,7 +1,7 @@
 package com.jvn.core.vn.script;
 
-import java.io.ByteArrayOutputStream;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
@@ -44,7 +44,7 @@ import com.jvn.core.vn.VnScene;
  */
 public class InMemoryJavaCompiler {
 
-  private static final Map<String, Class<?>> CLASS_CACHE = new ConcurrentHashMap<>();
+  private static final Map<String, Map<String, Class<?>>> CLASS_CACHE = new ConcurrentHashMap<>();
 
   // Number of preamble lines inserted before user code (for line remapping)
   private static final int INLINE_PREAMBLE_LINES = 6;
@@ -59,12 +59,14 @@ public class InMemoryJavaCompiler {
     ExecutionContext ctx = ExecutionContext.parse(payload);
     String cacheKey = md5(ctx.code + ctx.imports.toString() + ctx.binds.toString());
     String className = "InlineJavaBlock_" + cacheKey;
-    Class<?> clazz = CLASS_CACHE.get(className);
+    String scope = ctx.scenarioId != null ? ctx.scenarioId : "_global_";
+    Map<String, Class<?>> scopeCache = CLASS_CACHE.computeIfAbsent(scope, k -> new ConcurrentHashMap<>());
+    Class<?> clazz = scopeCache.get(className);
 
     if (clazz == null) {
       String source = generateInlineSource(className, ctx);
-      clazz = compileClass(className, source, ctx.scenarioId, ctx.sourceLine);
-      CLASS_CACHE.put(className, clazz);
+      clazz = compileClass(className, source, ctx.scenarioId, ctx.sourceLine, ctx.sourceName);
+      scopeCache.put(className, clazz);
     }
 
     // Bind Vn facade and execute
@@ -81,14 +83,16 @@ public class InMemoryJavaCompiler {
    */
   public static void compileInitClass(String className, String userCode,
                                        List<String> imports, String scenarioId,
-                                       int sourceLine) throws Exception {
+                                       int sourceLine, String sourceName) throws Exception {
     String fullClassName = "VnInit_" + sanitize(className);
     String cacheKey = md5(fullClassName + userCode);
-    if (CLASS_CACHE.containsKey(cacheKey)) return; // already compiled
+    String scope = scenarioId != null ? scenarioId : "_global_";
+    Map<String, Class<?>> scopeCache = CLASS_CACHE.computeIfAbsent(scope, k -> new ConcurrentHashMap<>());
+    if (scopeCache.containsKey(cacheKey)) return; // already compiled
 
     String source = generateInitSource(fullClassName, userCode, imports);
-    Class<?> clazz = compileClass(fullClassName, source, scenarioId, sourceLine);
-    CLASS_CACHE.put(cacheKey, clazz);
+    Class<?> clazz = compileClass(fullClassName, source, scenarioId, sourceLine, sourceName);
+    scopeCache.put(cacheKey, clazz);
 
     // Register in context loader for this scenario
     registerContextClass(scenarioId, fullClassName, clazz);
@@ -99,14 +103,16 @@ public class InMemoryJavaCompiler {
    */
   public static void compileUserClass(String className, String userCode,
                                        List<String> imports, String scenarioId,
-                                       int sourceLine) throws Exception {
+                                       int sourceLine, String sourceName) throws Exception {
     String fullClassName = sanitize(className);
     String cacheKey = md5(fullClassName + userCode);
-    if (CLASS_CACHE.containsKey(cacheKey)) return;
+    String scope = scenarioId != null ? scenarioId : "_global_";
+    Map<String, Class<?>> scopeCache = CLASS_CACHE.computeIfAbsent(scope, k -> new ConcurrentHashMap<>());
+    if (scopeCache.containsKey(cacheKey)) return;
 
     String source = generateUserClassSource(fullClassName, userCode, imports);
-    Class<?> clazz = compileClass(fullClassName, source, scenarioId, sourceLine);
-    CLASS_CACHE.put(cacheKey, clazz);
+    Class<?> clazz = compileClass(fullClassName, source, scenarioId, sourceLine, sourceName);
+    scopeCache.put(cacheKey, clazz);
     registerContextClass(scenarioId, fullClassName, clazz);
   }
 
@@ -115,14 +121,16 @@ public class InMemoryJavaCompiler {
    */
   public static void executeInit(String className, String userCode,
                                   List<String> imports, String scenarioId,
-                                  int sourceLine, VnScene scene) throws Exception {
+                                  int sourceLine, String sourceName, VnScene scene) throws Exception {
     String fullClassName = "VnInit_" + sanitize(className);
     String cacheKey = md5(fullClassName + userCode);
-    Class<?> clazz = CLASS_CACHE.get(cacheKey);
+    String scope = scenarioId != null ? scenarioId : "_global_";
+    Map<String, Class<?>> scopeCache = CLASS_CACHE.computeIfAbsent(scope, k -> new ConcurrentHashMap<>());
+    Class<?> clazz = scopeCache.get(cacheKey);
 
     if (clazz == null) {
-      compileInitClass(className, userCode, imports, scenarioId, sourceLine);
-      clazz = CLASS_CACHE.get(cacheKey);
+      compileInitClass(className, userCode, imports, scenarioId, sourceLine, sourceName);
+      clazz = scopeCache.get(cacheKey);
     }
 
     if (clazz != null) {
@@ -203,7 +211,8 @@ public class InMemoryJavaCompiler {
   // ─── Compilation ──────────────────────────────────────────────────
 
   private static Class<?> compileClass(String className, String sourceCode,
-                                        String scenarioId, int scriptSourceLine) throws Exception {
+                                        String scenarioId, int scriptSourceLine,
+                                        String sourceName) throws Exception {
     JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
     if (compiler == null) {
       throw new IllegalStateException("No JavaCompiler available. Ensure you are running on a JDK, not a JRE.");
@@ -222,15 +231,19 @@ public class InMemoryJavaCompiler {
 
     if (!success) {
       StringBuilder errorMsg = new StringBuilder("Inline Java compilation failed:\n");
+      int primaryLine = -1;
       for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics()) {
         long line = diagnostic.getLineNumber();
         // Remap line numbers: subtract preamble, add script source offset
         long remapped = line - INLINE_PREAMBLE_LINES + scriptSourceLine;
         if (remapped < scriptSourceLine) remapped = line; // fallback
+        if (primaryLine < 0 && diagnostic.getKind() == Diagnostic.Kind.ERROR) {
+          primaryLine = (int) remapped;
+        }
         errorMsg.append("  line ").append(remapped).append(": ")
                 .append(diagnostic.getMessage(null)).append("\n");
       }
-      throw new RuntimeException(errorMsg.toString());
+      throw new JavaCompilationException(errorMsg.toString(), sourceName, primaryLine > 0 ? primaryLine : scriptSourceLine);
     }
 
     registerContextClassBytes(scenarioId, fileManager.compiledBytes());
@@ -283,6 +296,7 @@ public class InMemoryJavaCompiler {
     if (scenarioId != null) {
       SCENARIO_CLASSES.remove(scenarioId);
       SCENARIO_CLASS_BYTES.remove(scenarioId);
+      CLASS_CACHE.remove(scenarioId);
     }
   }
 
@@ -304,6 +318,7 @@ public class InMemoryJavaCompiler {
     public List<BindDecl> binds = new ArrayList<>();
     public int sourceLine = 0;
     public String scenarioId = null;
+    public String sourceName = null;
     public String code = "";
 
     public static ExecutionContext parse(String payload) {
@@ -341,10 +356,29 @@ public class InMemoryJavaCompiler {
           catch (NumberFormatException ignored) {}
         } else if (line.startsWith("§SCENARIO§")) {
           ctx.scenarioId = line.substring("§SCENARIO§".length()).trim();
+        } else if (line.startsWith("§SOURCE§")) {
+          ctx.sourceName = line.substring("§SOURCE§".length()).trim();
         }
       }
       return ctx;
     }
+  }
+
+  /**
+   * Exception carrying structured compilation diagnostics for the error overlay.
+   */
+  public static class JavaCompilationException extends RuntimeException {
+    private final String sourceName;
+    private final int lineNumber;
+
+    public JavaCompilationException(String message, String sourceName, int lineNumber) {
+      super(message);
+      this.sourceName = sourceName;
+      this.lineNumber = lineNumber;
+    }
+
+    public String getSourceName() { return sourceName; }
+    public int getLineNumber() { return lineNumber; }
   }
 
   /**

@@ -352,10 +352,11 @@ public class VnScriptParser {
     return parse(new java.io.ByteArrayInputStream(bytes), "<string>", null);
   }
 
-  private static String buildJavaPayload(String code, ParseState state, int sourceLine) {
+  private static String buildJavaPayload(String code, ParseState state, int sourceLine, String sourceName) {
     boolean hasImports = !state.javaImports.isEmpty();
     boolean hasBinds = !state.javaBinds.isEmpty();
-    if (!hasImports && !hasBinds && sourceLine == 0) {
+    boolean hasSource = sourceName != null && !sourceName.isBlank();
+    if (!hasImports && !hasBinds && sourceLine == 0 && !hasSource) {
       return code; // Legacy format: raw code only (backward compatible)
     }
     StringBuilder sb = new StringBuilder();
@@ -369,6 +370,9 @@ public class VnScriptParser {
       sb.append("\u00a7LINE\u00a7").append(sourceLine).append("\n");
     }
     sb.append("\u00a7SCENARIO\u00a7").append(state.scenarioId).append("\n");
+    if (hasSource) {
+      sb.append("\u00a7SOURCE\u00a7").append(sourceName).append("\n");
+    }
     sb.append("\u00a7CODE\u00a7").append(code);
     return sb.toString();
   }
@@ -448,11 +452,11 @@ public class VnScriptParser {
             // [java class X] block — emit as java_class
             state.builder.external("java_class", buildJavaPayload(
                 state.javaBlockClassName + "\n" + state.javaBuffer.toString(),
-                state, state.javaBlockStartLine));
+                state, state.javaBlockStartLine, state.javaBlockStartSource));
           } else {
             // Regular [java] block
             state.builder.external("inline_java", buildJavaPayload(
-                state.javaBuffer.toString(), state, state.javaBlockStartLine));
+                state.javaBuffer.toString(), state, state.javaBlockStartLine, state.javaBlockStartSource));
           }
           state.javaBuffer.setLength(0);
           state.javaBlockClassName = null;
@@ -471,7 +475,7 @@ public class VnScriptParser {
           flushChoices(state.builder, state.pendingChoices);
           flushPendingVoice(state);
           state.builder.external("init_java", buildJavaPayload(
-              state.initJavaBuffer.toString(), state, state.initJavaBlockStartLine));
+              state.initJavaBuffer.toString(), state, state.initJavaBlockStartLine, state.initJavaBlockStartSource));
           state.initJavaBuffer.setLength(0);
         } else {
           state.initJavaBuffer.append(rawLine).append('\n');
@@ -543,7 +547,7 @@ public class VnScriptParser {
         ensureBuilder(state);
         flushChoices(state.builder, state.pendingChoices);
         flushPendingVoice(state);
-        state.builder.external("inline_java", buildJavaPayload(code, state, lineNumber));
+        state.builder.external("inline_java", buildJavaPayload(code, state, lineNumber, sourceName));
         continue;
       }
 

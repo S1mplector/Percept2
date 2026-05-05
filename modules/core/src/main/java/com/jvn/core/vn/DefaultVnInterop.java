@@ -148,6 +148,11 @@ public class DefaultVnInterop implements VnInterop {
     }
     try {
       com.jvn.core.vn.script.InMemoryJavaCompiler.execute(payload, scene);
+    } catch (com.jvn.core.vn.script.InMemoryJavaCompiler.JavaCompilationException e) {
+      String msg = e.getMessage();
+      if (msg == null || msg.length() > 120) msg = e.getClass().getSimpleName();
+      scene.getState().showHudMessage("inline_java error: " + msg, 3000);
+      scene.setActiveError(VnErrorOverlay.compilationError(e.getSourceName(), e.getLineNumber(), msg));
     } catch (Exception e) {
       String msg = e.getMessage();
       if (msg == null || msg.length() > 120) {
@@ -167,7 +172,12 @@ public class DefaultVnInterop implements VnInterop {
       var ctx = com.jvn.core.vn.script.InMemoryJavaCompiler.ExecutionContext.parse(payload);
       com.jvn.core.vn.script.InMemoryJavaCompiler.executeInit(
           "init_" + Integer.toHexString(payload.hashCode()),
-          ctx.code, ctx.imports, ctx.scenarioId, ctx.sourceLine, scene);
+          ctx.code, ctx.imports, ctx.scenarioId, ctx.sourceLine, ctx.sourceName, scene);
+    } catch (com.jvn.core.vn.script.InMemoryJavaCompiler.JavaCompilationException e) {
+      String msg = e.getMessage();
+      if (msg == null || msg.length() > 120) msg = e.getClass().getSimpleName();
+      scene.getState().showHudMessage("init_java error: " + msg, 3000);
+      scene.setActiveError(VnErrorOverlay.compilationError(e.getSourceName(), e.getLineNumber(), msg));
     } catch (Exception e) {
       String msg = e.getMessage();
       if (msg == null || msg.length() > 120) msg = e.getClass().getSimpleName();
@@ -189,7 +199,12 @@ public class DefaultVnInterop implements VnInterop {
       String className = nl >= 0 ? code.substring(0, nl).trim() : code.trim();
       String body = nl >= 0 ? code.substring(nl + 1) : "";
       com.jvn.core.vn.script.InMemoryJavaCompiler.compileUserClass(
-          className, body, ctx.imports, ctx.scenarioId, ctx.sourceLine);
+          className, body, ctx.imports, ctx.scenarioId, ctx.sourceLine, ctx.sourceName);
+    } catch (com.jvn.core.vn.script.InMemoryJavaCompiler.JavaCompilationException e) {
+      String msg = e.getMessage();
+      if (msg == null || msg.length() > 120) msg = e.getClass().getSimpleName();
+      scene.getState().showHudMessage("java_class error: " + msg, 3000);
+      scene.setActiveError(VnErrorOverlay.compilationError(e.getSourceName(), e.getLineNumber(), msg));
     } catch (Exception e) {
       String msg = e.getMessage();
       if (msg == null || msg.length() > 120) msg = e.getClass().getSimpleName();
