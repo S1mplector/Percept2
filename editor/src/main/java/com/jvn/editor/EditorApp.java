@@ -5863,6 +5863,14 @@ public class EditorApp extends Application {
       puppeteer.setTitle(title);
     }
     puppeteer.show();
+    if (puppeteerLauncherPanel != null && preferredTimelineName != null && !preferredTimelineName.isBlank()) {
+      puppeteerLauncherPanel.setActiveEditingTimeline(preferredTimelineName);
+      puppeteer.showingProperty().addListener((obs, oldVal, newVal) -> {
+        if (!newVal && puppeteerLauncherPanel != null) {
+          puppeteerLauncherPanel.setActiveEditingTimeline(null);
+        }
+      });
+    }
   }
 
   private JesScene2D resolvePuppeteerLaunchScene(

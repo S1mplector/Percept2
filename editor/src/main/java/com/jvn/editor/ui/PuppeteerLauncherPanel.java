@@ -86,6 +86,7 @@ public class PuppeteerLauncherPanel extends VBox {
   private List<RegisteredAnimation> cachedRegisteredAnimations = List.of();
   private String cachedRegisteredAnimationsRoot = "";
   private long cachedRegisteredAnimationsStamp = Long.MIN_VALUE;
+  private String activeEditingTimeline;
 
   public PuppeteerLauncherPanel() {
     setSpacing(8);
@@ -255,6 +256,11 @@ public class PuppeteerLauncherPanel extends VBox {
     this.onOpenTarget = handler;
   }
 
+  
+  public void setActiveEditingTimeline(String timelineId) {
+    this.activeEditingTimeline = timelineId;
+    refreshRegisteredAnimations(null);
+  }
   public void setProjectRoot(File projectRoot) {
     this.projectRoot = projectRoot;
     invalidateRegisteredAnimationsCache();
@@ -454,6 +460,8 @@ public class PuppeteerLauncherPanel extends VBox {
     String timelineId = resolveRelativeTimelineStem(animation);
     boolean suggested = preferredTimelineName != null && preferredTimelineName.equals(timelineId);
     boolean importable = animation.importable();
+    boolean isEditing = timelineId != null && timelineId.equals(activeEditingTimeline);
+    
     String scenePreviewText = shouldShowScenePreview(animation, suggested)
         ? describeScenePreview(snapshot)
         : "";
@@ -464,8 +472,16 @@ public class PuppeteerLauncherPanel extends VBox {
 
     HBox titleRow = new HBox(6);
     titleRow.getChildren().add(title);
-
-    if (suggested) {
+    
+    if (isEditing) {
+      javafx.scene.control.ProgressIndicator spinner = new javafx.scene.control.ProgressIndicator();
+      spinner.setPrefSize(12, 12);
+      spinner.setStyle("-fx-progress-color: #f0a0d0;");
+      Label badge = new Label("Currently being edited", spinner);
+      badge.setGraphicTextGap(4);
+      badge.setStyle("-fx-background-color: #2b2027; -fx-border-color: #f0a0d0; -fx-border-radius: 4; -fx-background-radius: 4; -fx-padding: 2 6 2 4; -fx-text-fill: #f0a0d0; -fx-font-size: 10px; -fx-font-weight: bold;");
+      titleRow.getChildren().add(badge);
+    } else if (suggested) {
       Label badge = new Label("Cursor Match");
       badge.setStyle("-fx-background-color: #3a3a3a; -fx-background-radius: 999; -fx-padding: 1 7 1 7; -fx-text-fill: #e4e4e4; -fx-font-size: 9px; -fx-font-weight: bold;");
       titleRow.getChildren().add(badge);
@@ -548,13 +564,28 @@ public class PuppeteerLauncherPanel extends VBox {
     body.setMaxWidth(Double.MAX_VALUE);
     body.setPadding(new Insets(8, 10, 8, 10));
     Tooltip.install(body, new Tooltip(animation.file().getName()));
-    if (!importable) {
+    
+    if (isEditing) {
+        copyButton.setDisable(true);
+        openButton.setDisable(true);
+        renameButton.setDisable(true);
+        deleteButton.setDisable(true);
+        body.getStyleClass().add("sidebar-tool-card-disabled");
+    } else if (!importable) {
       body.getStyleClass().add("sidebar-tool-card-disabled");
     } else if (suggested) {
       body.getStyleClass().add("sidebar-tool-card-suggested");
     } else {
       body.getStyleClass().add("sidebar-tool-card");
     }
+
+    body.setOnMouseClicked(e -> {
+      if (!isEditing && importable && e.getButton() == javafx.scene.input.MouseButton.PRIMARY && e.getClickCount() == 2) {
+        if (onLaunch != null) {
+          onLaunch.accept(new LaunchRequest(snapshot, timelineId));
+        }
+      }
+    });
 
     return body;
   }
