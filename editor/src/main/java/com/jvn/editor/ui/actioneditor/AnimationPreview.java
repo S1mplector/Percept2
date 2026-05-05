@@ -877,9 +877,6 @@ public class AnimationPreview extends VBox {
                 entityW = Math.max(1.0, sprite.getWidth());
                 entityH = Math.max(1.0, sprite.getHeight());
                 spriteImage = resolveSourceImage(sprite.getImagePath());
-            } else if (entity != null) {
-                entityW = Math.max(1.0, entity.getWidth());
-                entityH = Math.max(1.0, entity.getHeight());
             }
 
             for (int i = -onionFrames; i <= onionFrames; i++) {
@@ -941,7 +938,7 @@ public class AnimationPreview extends VBox {
 
                 gc.setFill(color);
                 gc.setFont(javafx.scene.text.Font.font(8.0 / z));
-                gc.fillText(String.format("%.0f", t), x + size / 2 + (2.0 / z), y);
+                gc.fillText(String.format("%.0f", t), x + entityW / 2 + (2.0 / z), y);
             }
         }
         gc.restore();

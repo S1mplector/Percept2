@@ -74,6 +74,7 @@ move "hero" {
 | `y` | number | Target Y position (pixels) |
 | `dur` | number | Duration in milliseconds |
 | `easing` | string | Easing curve name (see [Easing Reference](#easing-reference)) |
+| `interp` | string | Interpolation mode (see [Interpolation Modes](#interpolation-modes)) |
 
 Either `x` or `y` or both may be present. The entity interpolates from its current position to the target over the specified duration.
 
@@ -94,6 +95,7 @@ rotate "logo" {
 | `deg` | number | Target rotation in degrees |
 | `dur` | number | Duration in milliseconds |
 | `easing` | string | Easing curve name |
+| `interp` | string | Interpolation mode (see [Interpolation Modes](#interpolation-modes)) |
 
 ### `scale` — Scale Animation
 
@@ -114,6 +116,7 @@ scale "button" {
 | `sy` | number | Target vertical scale (1.0 = normal) |
 | `dur` | number | Duration in milliseconds |
 | `easing` | string | Easing curve name |
+| `interp` | string | Interpolation mode (see [Interpolation Modes](#interpolation-modes)) |
 
 ### `fade` — Opacity Animation
 
@@ -132,6 +135,7 @@ fade "ghost" {
 | `alpha` | number | Target opacity (0 = invisible, 1 = opaque) |
 | `dur` | number | Duration in milliseconds |
 | `easing` | string | Easing curve name |
+| `interp` | string | Interpolation mode (see [Interpolation Modes](#interpolation-modes)) |
 
 ### `pivot` — Origin Point Animation
 
@@ -151,6 +155,7 @@ pivot "spinner" {
 | `oy` | number | Vertical origin (0 = top edge, 1 = bottom edge) |
 | `dur` | number | Duration in milliseconds |
 | `easing` | string | Easing curve name |
+| `interp` | string | Interpolation mode (see [Interpolation Modes](#interpolation-modes)) |
 
 ### `depth` — Z-Order Animation
 
@@ -158,35 +163,33 @@ Animates an entity's rendering depth (layer order).
 
 ```jes
 depth "overlay" {
-  value: 20
+  z: 20
   dur: 0
 }
 ```
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `value` | number | Target Z depth (higher values render on top) |
+| `z` | number | Target Z depth (higher values render on top) |
 | `dur` | number | Duration in milliseconds (usually `0` for instant layer changes) |
 | `easing` | string | Easing curve name |
+| `interp` | string | Interpolation mode (see [Interpolation Modes](#interpolation-modes)) |
 
 ### `visible` — Visibility Toggle
 
-Animates an entity's visibility state as a numeric flag.
+Sets an entity's visibility state as a binary flag. This is an **instant** action — it has no duration or easing.
 
 ```jes
 visible "hint_arrow" {
   value: 0
-  dur: 0
 }
 ```
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `value` | number | `1.0` = visible, `0.0` = hidden |
-| `dur` | number | Duration in milliseconds (usually `0` for instant on/off) |
-| `easing` | string | Easing curve name |
+| `value` | boolean/number | `true`/`1` = visible, `false`/`0` = hidden |
 
-Unlike `fade` (which controls opacity), `visible` is a binary toggle — the entity is either rendered or not. A value of `0.5` is treated as visible (threshold > 0). Use `fade` for smooth opacity transitions.
+Unlike `fade` (which controls opacity over time), `visible` is a binary toggle — the entity is either rendered or not. A value of `0.5` is treated as visible (threshold > 0). Use `fade` for smooth opacity transitions. The `visible` key is also accepted as an alias for `value`.
 
 ### `cameraMove` — Camera Pan
 
@@ -207,6 +210,7 @@ cameraMove {
 | `y` | number | Target camera Y position |
 | `dur` | number | Duration in milliseconds |
 | `easing` | string | Easing curve name |
+| `interp` | string | Interpolation mode (see [Interpolation Modes](#interpolation-modes)) |
 
 ### `cameraZoom` — Camera Zoom
 
@@ -225,6 +229,7 @@ cameraZoom {
 | `zoom` | number | Target zoom level (1.0 = normal, >1 = closer) |
 | `dur` | number | Duration in milliseconds |
 | `easing` | string | Easing curve name |
+| `interp` | string | Interpolation mode (see [Interpolation Modes](#interpolation-modes)) |
 
 ### `playAudio` — Audio Cue
 
@@ -238,13 +243,15 @@ playAudio "assets/audio/sfx/whoosh.wav" {
 }
 ```
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `volume` | number | Playback volume (0–1) |
-| `loop` | boolean | Whether to loop (true for music channel) |
-| `bgm` | boolean | Whether this is background music |
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `volume` | number | 1.0 | Playback volume (0–1) |
+| `loop` | boolean | `bgm` value | Whether to loop playback |
+| `bgm` | boolean | false | Whether this is background music |
+| `channel` | string | auto | Audio channel: `"sound"`, `"music"`, or `"voice"` (auto-detected from `bgm` if omitted) |
+| `fadein` | number | 0 | Fade-in duration in milliseconds (aliases: `fadein_ms`, `fade_in`) |
 
-Audio actions have no `dur` or `easing` — they fire instantly at their timestamp.
+Audio actions have no `dur` or `easing` — they fire instantly at their timestamp. Puppeteer's exporter writes `volume`, `loop`, and `bgm`; `channel` and `fadein` are recognized by the parser for hand-authored timelines.
 
 ### `event` — Event Cue
 
@@ -405,6 +412,34 @@ scale "hero" {
 
 ---
 
+## Interpolation Modes
+
+All timed actions support an optional `interp` key that controls how the value transitions between keyframes:
+
+| Mode | DSL Value | Description |
+|------|-----------|-------------|
+| Tween | `tween` | Smooth interpolation using the easing curve (default, omitted in output) |
+| Hold | `hold` | Holds the previous keyframe value until the destination time, then snaps |
+| Step | `step` | Alias for `hold` — instant snap at the destination keyframe |
+
+Additional accepted aliases: `step_start`, `instant`, `jump` (all treated as step-start behavior); `step_end`, `constant` (step-end behavior).
+
+### Interpolation Omission Rule
+
+`tween` interpolation is the default and is **not** written to the output. Only non-default interpolation values appear in exported code:
+
+```jes
+move "hero" {
+  x: 400
+  dur: 300
+  interp: hold
+}
+```
+
+When `interp` is `hold` or `step`, the easing value has no visible effect since there is no gradual transition — the value snaps at the target time.
+
+---
+
 ## Export Modes
 
 ### Standard Export
@@ -524,7 +559,7 @@ The exporter maps Puppeteer's `PropertyType` enum to JES action types and proper
 | `SCALE_X` | `scale` | `sx` | 1.0 |
 | `SCALE_Y` | `scale` | `sy` | 1.0 |
 | `ALPHA` | `fade` | `alpha` | 1.0 |
-| `Z` | `depth` | `value` | 0 |
+| `Z` | `depth` | `z` | 0 |
 | `VISIBILITY` | `visible` | `value` | 1.0 |
 | `MATRIX_MXX` | `property` | `matrix.mxx` | 1.0 |
 | `MATRIX_MXY` | `property` | `matrix.mxy` | 0 |

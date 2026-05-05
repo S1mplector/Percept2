@@ -160,15 +160,23 @@ timeline {
 
 | Action | Properties | Description |
 |--------|-----------|-------------|
-| `move "entity"` | `x`, `y`, `dur`, `easing` | Position keyframes |
-| `pivot "entity"` | `ox`, `oy`, `dur`, `easing` | Origin/pivot keyframes |
-| `rotate "entity"` | `angle`/`rotation`, `dur`, `easing` | Rotation keyframe |
-| `scale "entity"` | `x`/`scale_x`, `y`/`scale_y`, `dur`, `easing` | Scale keyframes |
-| `fade "entity"` | `alpha`, `dur`, `easing` | Alpha keyframe |
-| `cameraMove` | `x`, `y`, `dur`, `easing` | Camera position keyframes |
-| `cameraZoom` | `zoom`, `dur`, `easing` | Camera zoom keyframe |
-| `playAudio "path"` | `volume`, `loop`, `bgm`, `channel`, `fadein` | Audio cue |
+| `move "entity"` | `x`, `y`, `dur`, `easing`, `interp` | Position keyframes |
+| `depth "entity"` | `z`, `dur`, `easing`, `interp` | Z-order / layer depth keyframe |
+| `pivot "entity"` | `ox`, `oy`, `dur`, `easing`, `interp` | Origin/pivot keyframes |
+| `rotate "entity"` | `angle`/`rotation`/`deg`, `dur`, `easing`, `interp` | Rotation keyframe |
+| `scale "entity"` | `x`/`sx`/`scale_x`, `y`/`sy`/`scale_y`, `dur`, `easing`, `interp` | Scale keyframes |
+| `fade "entity"` | `alpha`, `dur`, `easing`, `interp` | Alpha keyframe |
+| `visible "entity"` | `value`/`visible` | Instant visibility toggle (no dur/easing) |
+| `property "entity"` | `key`, `value`, `dur`, `easing`, `interp` | Generic numeric channel keyframe |
+| `cameraMove` | `x`, `y`, `dur`, `easing`, `interp` | Camera position keyframes |
+| `cameraZoom` | `zoom`, `dur`, `easing`, `interp` | Camera zoom keyframe |
+| `playAudio "path"` | `volume`, `loop`, `bgm`, `channel`, `fadein` | Audio cue (instant) |
 | `event "type"` | arbitrary key-value payload | Event cue (instant callback) |
+| `expression "entity"` | `value`, `path`, `position` | Sprite expression swap (instant) |
+| `show "entity"` | `target`, `expression`, `path`, `position`, `layer` | Show entity (instant) |
+| `hide "entity"` | `target` | Hide entity (instant) |
+| `replace "entity"` | `target`, `expression`, `path` | Replace sprite (instant) |
+| `scene` | `target`, `id`, `path`, `value` | Background/scene change (instant) |
 | `wait <ms>` | — | Advances the time cursor |
 
 ### Time Cursor
