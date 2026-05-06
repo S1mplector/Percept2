@@ -949,17 +949,20 @@ public class AnimationPreview extends VBox {
 
     private void drawInterpolationGhosts() {
         if (project == null || selectedEntityName == null || selectedEntityName.isBlank()) return;
-        
+
         EntityTrack track = project.getTrack(selectedEntityName);
         if (track == null) return;
-        
+
         java.util.List<Keyframe> xKeyframes = track.getKeyframes(PropertyType.X);
         java.util.List<Keyframe> yKeyframes = track.getKeyframes(PropertyType.Y);
         if (xKeyframes.isEmpty() || yKeyframes.isEmpty()) return;
-        
+
         double now = project.getPlayheadMs();
         double dur = project.getTotalDurationMs();
-        
+
+        // Sort keyframes by time
+        xKeyframes.sort(java.util.Comparator.comparingDouble(Keyframe::getTimeMs));
+
         // Find previous and next keyframes around current playhead
         Keyframe prevKfX = null, nextKfX = null;
         for (Keyframe kf : xKeyframes) {
@@ -973,7 +976,18 @@ public class AnimationPreview extends VBox {
                 }
             }
         }
-        
+
+        // If playhead is before all keyframes, use first two keyframes
+        if (prevKfX == null && nextKfX != null && xKeyframes.size() >= 2) {
+            prevKfX = xKeyframes.get(0);
+            nextKfX = xKeyframes.get(1);
+        }
+        // If playhead is after all keyframes, use last two keyframes
+        else if (nextKfX == null && prevKfX != null && xKeyframes.size() >= 2) {
+            prevKfX = xKeyframes.get(xKeyframes.size() - 2);
+            nextKfX = xKeyframes.get(xKeyframes.size() - 1);
+        }
+
         if (prevKfX == null || nextKfX == null) return;
         
         double startTime = prevKfX.getTimeMs();
