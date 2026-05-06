@@ -141,4 +141,24 @@ public class JesTimelineRuntimeTest {
     assertEquals(1, calls.size());
     assertEquals(1.0, calls.get(0).get("index"));
   }
+
+  @Test
+  public void puppeteerDepthAndPropertyActionsApplyAtRuntime() throws Exception {
+    String src = """
+      scene "Demo" {
+        entity "a" { component Sprite2D { x: 0 y: 0 w: 1 h: 1 image: "a.png" } }
+        timeline {
+          depth "a" { z: 7 duration: 50 }
+          property "a" { key: "effect.blur" value: 6 duration: 50 }
+        }
+      }
+      """;
+    JesScene2D js = com.jvn.scripting.jes.JesLoader.load(src);
+    Sprite2D a = (Sprite2D) js.find("a");
+
+    js.update(60);
+    assertEquals(7.0, a.getZ(), 1e-3);
+    js.update(60);
+    assertEquals(6.0, a.readCustomProperty("effect.blur"), 1e-3);
+  }
 }

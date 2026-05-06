@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.jvn.core.animation.TimelineActionSchema;
+
 import static com.jvn.scripting.jes.JesTokenType.COLON;
 import static com.jvn.scripting.jes.JesTokenType.COMMA;
 import static com.jvn.scripting.jes.JesTokenType.EOF;
@@ -37,21 +39,28 @@ public class JesParser {
   private static final Set<String> COMPONENT_FREE_PROPS = Set.of("Equipment");
 
   private static final Map<String, Set<String>> TIMELINE_PROPS = Map.ofEntries(
-    Map.entry("move", Set.of("x", "y", "dur", "easing")),
-    Map.entry("pivot", Set.of("ox", "oy", "dur", "easing")),
-    Map.entry("walkToTile", Set.of("tx", "ty", "x", "y", "dur", "easing")),
-    Map.entry("rotate", Set.of("deg", "dur", "easing")),
-    Map.entry("scale", Set.of("sx", "sy", "dur", "easing")),
-    Map.entry("fade", Set.of("alpha", "dur", "easing")),
-    Map.entry("visible", Set.of("value")),
-    Map.entry("cameraMove", Set.of("x", "y", "dur", "easing")),
-    Map.entry("cameraZoom", Set.of("zoom", "dur", "easing")),
+    Map.entry("move", Set.of("x", "y", "dur", "duration", "easing", "interp")),
+    Map.entry("depth", Set.of("z", "dur", "duration", "easing", "interp")),
+    Map.entry("pivot", Set.of("ox", "oy", "dur", "duration", "easing", "interp")),
+    Map.entry("walkToTile", Set.of("tx", "ty", "x", "y", "dur", "duration", "easing", "interp")),
+    Map.entry("rotate", Set.of("deg", "angle", "rotation", "dur", "duration", "easing", "interp")),
+    Map.entry("scale", Set.of("sx", "sy", "x", "y", "scale_x", "scale_y", "dur", "duration", "easing", "interp")),
+    Map.entry("fade", Set.of("alpha", "dur", "duration", "easing", "interp")),
+    Map.entry("visible", Set.of("value", "visible")),
+    Map.entry("expression", Set.of("target", "value", "path", "position")),
+    Map.entry("show", Set.of("target", "expression", "value", "path", "position", "layer")),
+    Map.entry("hide", Set.of("target")),
+    Map.entry("replace", Set.of("target", "expression", "value", "path")),
+    Map.entry("scene", Set.of("target", "id", "path", "value")),
+    Map.entry("property", Set.of("key", "value", "dur", "duration", "easing", "interp")),
+    Map.entry("cameraMove", Set.of("x", "y", "dur", "duration", "easing", "interp")),
+    Map.entry("cameraZoom", Set.of("zoom", "dur", "duration", "easing", "interp")),
     Map.entry("cameraShake", Set.of("ampX", "ampY", "dur")),
     Map.entry("damage", Set.of("amount", "source")),
     Map.entry("heal", Set.of("amount", "source")),
     Map.entry("waitForCall", Set.of("name")),
-    Map.entry("playAudio", Set.of("id", "volume", "loop", "bgm")),
-    Map.entry("stopAudio", Set.of("id")),
+    Map.entry("playAudio", Set.of("id", "path", "channel", "volume", "loop", "bgm", "fadeinms", "fadein_ms", "fadein", "fade_in")),
+    Map.entry("stopAudio", Set.of("id", "channel")),
     Map.entry("emitParticles", Set.of("count")),
     Map.entry("cameraFollow", Set.of("target", "lerp", "offsetX", "offsetY", "deadZoneW", "deadZoneH")),
     Map.entry("setParallax", Set.of("px", "py")),
@@ -235,7 +244,60 @@ public class JesParser {
           }
         }
       }
-      case "move", "pivot", "rotate", "scale", "fade", "visible", "walkToTile", "damage", "heal" -> {
+      case "expression", "show", "hide", "replace" -> {
+        String target = expect(STRING, "event target").lexeme;
+        a.type = "event";
+        a.target = kind;
+        a.props.put("target", target);
+        if (match(LBRACE)) {
+          while (!match(RBRACE)) {
+            if (match(IDENT)) {
+              JesToken keyTok = prev();
+              String k = keyTok.lexeme;
+              validateTimelineProp(kind, k, keyTok);
+              expect(COLON, ":");
+              Object v = parseValue();
+              a.props.put(k, v);
+            } else { throw error("Expected property name in event action"); }
+          }
+        }
+      }
+      case "scene" -> {
+        if (peek().type == STRING) {
+          String target = expect(STRING, "scene target").lexeme;
+          a.props.put("target", target);
+        }
+        a.type = "event";
+        a.target = "scene";
+        expect(LBRACE, "'{'" );
+        while (!match(RBRACE)) {
+          if (match(IDENT)) {
+            JesToken keyTok = prev();
+            String k = keyTok.lexeme;
+            validateTimelineProp(kind, k, keyTok);
+            expect(COLON, ":");
+            Object v = parseValue();
+            a.props.put(k, v);
+          } else { throw error("Expected property name in scene action"); }
+        }
+      }
+      case "property" -> {
+        if (peek().type == STRING) {
+          a.target = expect(STRING, "property target").lexeme;
+        }
+        expect(LBRACE, "'{'" );
+        while (!match(RBRACE)) {
+          if (match(IDENT)) {
+            JesToken keyTok = prev();
+            String k = keyTok.lexeme;
+            validateTimelineProp(kind, k, keyTok);
+            expect(COLON, ":");
+            Object v = parseValue();
+            a.props.put(k, v);
+          } else { throw error("Expected property name in property action"); }
+        }
+      }
+      case "move", "depth", "pivot", "rotate", "scale", "fade", "visible", "walkToTile", "damage", "heal" -> {
         String target = expect(STRING, "entity name").lexeme;
         a.target = target;
         expect(LBRACE, "'{'" );
@@ -266,6 +328,7 @@ public class JesParser {
       case "playAudio", "stopAudio" -> {
         String id = expect(STRING, "audio id").lexeme;
         a.target = id;
+        a.props.put("id", id);
         if (match(LBRACE)) {
           while (!match(RBRACE)) {
             if (match(IDENT)) {
@@ -368,6 +431,7 @@ public class JesParser {
       }
       default -> throw error("Unknown timeline action '" + kind + "'", kindTok);
     }
+    canonicalizeTimelineAction(a);
     return a;
   }
 
@@ -433,11 +497,62 @@ public class JesParser {
   private void validateTimelineProp(String action, String key, JesToken tok) {
     if (action == null || key == null) return;
     if (TIMELINE_FREE_PROPS.contains(action)) return;
+    if (TimelineActionSchema.isKnownAction(action)) {
+      if (!TimelineActionSchema.isKnownKey(action, key)) {
+        throw error("Unknown property '" + key + "' for timeline action '" + action + "'", tok);
+      }
+      return;
+    }
     Set<String> allowed = TIMELINE_PROPS.get(action);
     if (allowed == null) return;
     if (!allowed.contains(key)) {
       throw error("Unknown property '" + key + "' for timeline action '" + action + "'", tok);
     }
+  }
+
+  private void canonicalizeTimelineAction(JesAst.TimelineAction action) {
+    if (action == null) return;
+    if (action.props != null && !action.props.isEmpty()) {
+      Map<String,Object> normalized = new java.util.LinkedHashMap<>();
+      for (Map.Entry<String,Object> entry : action.props.entrySet()) {
+        if (entry == null || entry.getKey() == null) continue;
+        normalized.put(canonicalTimelineProp(action.type, entry.getKey()), entry.getValue());
+      }
+      action.props.clear();
+      action.props.putAll(normalized);
+    }
+    for (JesAst.TimelineAction child : action.children) {
+      canonicalizeTimelineAction(child);
+    }
+  }
+
+  private String canonicalTimelineProp(String action, String key) {
+    if (TIMELINE_FREE_PROPS.contains(action)) return key == null ? "" : key.trim();
+    String canonical = TimelineActionSchema.canonicalKey(action, key);
+    if (TimelineActionSchema.isKnownAction(action)
+        || !canonical.equals(TimelineActionSchema.normalize(key))) {
+      return canonical;
+    }
+    String normalizedAction = action == null ? "" : action.trim();
+    String normalizedKey = key == null ? "" : key.trim();
+    if ("duration".equalsIgnoreCase(normalizedKey)) return "dur";
+    if ("rotate".equals(normalizedAction)
+        && ("angle".equalsIgnoreCase(normalizedKey) || "rotation".equalsIgnoreCase(normalizedKey))) {
+      return "deg";
+    }
+    if ("scale".equals(normalizedAction)) {
+      if ("x".equalsIgnoreCase(normalizedKey) || "scale_x".equalsIgnoreCase(normalizedKey)) return "sx";
+      if ("y".equalsIgnoreCase(normalizedKey) || "scale_y".equalsIgnoreCase(normalizedKey)) return "sy";
+    }
+    if ("visible".equals(normalizedAction) && "visible".equalsIgnoreCase(normalizedKey)) return "value";
+    if ("playAudio".equals(normalizedAction)) {
+      if ("fadein_ms".equalsIgnoreCase(normalizedKey)
+          || "fadein".equalsIgnoreCase(normalizedKey)
+          || "fade_in".equalsIgnoreCase(normalizedKey)) {
+        return "fadeinms";
+      }
+    }
+    return normalizedKey;
   }
 
   private Object parseValue() {
@@ -461,6 +576,8 @@ public class JesParser {
         if (match(COMMA)) a = parseNum();
         expect(RPAREN, ")");
         return new double[]{r,g,b,a};
+      } else if (peek().type == LPAREN) {
+        return parseFunctionLiteral(ident);
       } else if ("true".equalsIgnoreCase(ident) || "false".equalsIgnoreCase(ident)) {
         return Boolean.parseBoolean(ident);
       } else {
@@ -470,6 +587,30 @@ public class JesParser {
     }
     JesToken p = peek();
     throw new JesParseException("Value expected", p.line, p.col);
+  }
+
+  private String parseFunctionLiteral(String name) {
+    StringBuilder sb = new StringBuilder(name == null ? "" : name);
+    expect(LPAREN, "(");
+    sb.append('(');
+    boolean first = true;
+    while (!match(RPAREN)) {
+      if (peek().type == EOF) throw error("Unterminated function literal");
+      if (!first) {
+        expect(COMMA, ",");
+        sb.append(", ");
+      }
+      if (match(NUMBER) || match(IDENT)) {
+        sb.append(prev().lexeme);
+      } else if (match(STRING)) {
+        sb.append('"').append(prev().lexeme.replace("\"", "\\\"")).append('"');
+      } else {
+        throw error("Expected function argument");
+      }
+      first = false;
+    }
+    sb.append(')');
+    return sb.toString();
   }
 
   private double parseNum() {

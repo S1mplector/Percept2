@@ -63,7 +63,10 @@ public class JesTokenizer {
   private JesToken ident() {
     int start = i;
     int startCol = col;
-    while (i < n && (Character.isLetterOrDigit(src.charAt(i)) || src.charAt(i) == '_' || src.charAt(i)=='.')) step();
+    while (i < n && (Character.isLetterOrDigit(src.charAt(i))
+        || src.charAt(i) == '_'
+        || src.charAt(i) == '.'
+        || src.charAt(i) == '-')) step();
     String lex = src.substring(start, i);
     return new JesToken(JesTokenType.IDENT, lex, line, startCol);
   }

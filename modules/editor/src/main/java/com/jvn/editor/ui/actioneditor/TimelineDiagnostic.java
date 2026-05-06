@@ -13,6 +13,7 @@ import java.util.regex.Pattern;
 
 import com.jvn.core.animation.Easing;
 import com.jvn.core.animation.EasingSpec;
+import com.jvn.core.animation.TimelineActionSchema;
 
 /**
  * Diagnostic engine for Puppeteer timelines. Scans an {@link AnimationProject}
@@ -62,7 +63,7 @@ public class TimelineDiagnostic {
             "tween", "hold", "step"
         )));
 
-        Set<String> actions = new LinkedHashSet<>();
+        Set<String> actions = new LinkedHashSet<>(TimelineActionSchema.knownActions());
         actions.add("move");
         actions.add("depth");
         actions.add("pivot");
@@ -103,6 +104,15 @@ public class TimelineDiagnostic {
         keys.put("camerazoom", lowerSet(Set.of("zoom", "dur", "duration", "easing", "interp")));
         keys.put("property", lowerSet(Set.of("key", "value", "dur", "duration", "easing", "interp")));
         keys.put("playaudio", lowerSet(Set.of("channel", "volume", "loop", "bgm", "fadeinms", "fadein_ms", "fadein", "fade_in")));
+        for (String action : TimelineActionSchema.knownActions()) {
+            Set<String> accepted = TimelineActionSchema.acceptedKeys(action);
+            if (accepted.isEmpty()) continue;
+            keys.merge(action, accepted, (existing, shared) -> {
+                LinkedHashSet<String> merged = new LinkedHashSet<>(existing);
+                merged.addAll(shared);
+                return Collections.unmodifiableSet(merged);
+            });
+        }
         ACTION_KEYS = Collections.unmodifiableMap(keys);
     }
 

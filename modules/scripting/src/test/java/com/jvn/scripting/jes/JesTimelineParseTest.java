@@ -80,4 +80,53 @@ public class JesTimelineParseTest {
     assertEquals(12.0, action.props.get("count"));
     assertEquals(Boolean.TRUE, action.props.get("burst"));
   }
+
+  @Test
+  public void parsesPuppeteerTimelineAliasesAndEvents() {
+    String src = """
+      scene "Demo" {
+        timeline {
+          rotate "hero" { rotation: 15 duration: 120 interp: hold easing: spring(220, 24, 1, 0) }
+          scale "hero" { x: 1.2 y: 0.8 duration: 120 }
+          depth "hero" { z: 4 duration: 1 }
+          expression "hero" { value: smile }
+          property "hero" { key: "effect.blur" value: 4 duration: 80 }
+          playAudio "assets/audio/sfx/click.wav" { channel: sound fade_in: 10 }
+        }
+      }
+      """;
+    JesAst.Program p = parse(src);
+    var tl = p.scenes.get(0).timeline;
+    assertEquals("rotate", tl.get(0).type);
+    assertEquals(15.0, tl.get(0).props.get("deg"));
+    assertEquals(120.0, tl.get(0).props.get("dur"));
+    assertEquals("spring(220, 24, 1, 0)", tl.get(0).props.get("easing"));
+    assertEquals("scale", tl.get(1).type);
+    assertEquals(1.2, tl.get(1).props.get("sx"));
+    assertEquals(0.8, tl.get(1).props.get("sy"));
+    assertEquals("depth", tl.get(2).type);
+    assertEquals("event", tl.get(3).type);
+    assertEquals("expression", tl.get(3).target);
+    assertEquals("hero", tl.get(3).props.get("target"));
+    assertEquals("property", tl.get(4).type);
+    assertEquals("effect.blur", tl.get(4).props.get("key"));
+    assertEquals(80.0, tl.get(4).props.get("dur"));
+    assertEquals("playAudio", tl.get(5).type);
+    assertEquals("assets/audio/sfx/click.wav", tl.get(5).props.get("id"));
+    assertEquals(10.0, tl.get(5).props.get("fadeinms"));
+  }
+
+  @Test
+  public void parsesCssStyleFunctionEasingLiteral() {
+    String src = """
+      scene "Demo" {
+        timeline {
+          move "hero" { x: 10 dur: 100 easing: cubic-bezier(0.22, 1, 0.36, 1) }
+        }
+      }
+      """;
+    JesAst.Program p = parse(src);
+    var action = p.scenes.get(0).timeline.get(0);
+    assertEquals("cubic-bezier(0.22, 1, 0.36, 1)", action.props.get("easing"));
+  }
 }

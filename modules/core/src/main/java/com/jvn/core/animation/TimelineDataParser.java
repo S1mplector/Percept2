@@ -125,7 +125,7 @@ public class TimelineDataParser {
                 String propertyKey = decodeStringLiteral(ab.getString("key", ""));
                 if (propertyKey.isBlank()) continue;
 
-                double dur = ab.getDouble("dur", ab.getDouble("duration", 0));
+                double dur = ab.getDuration();
                 EasingSpec easingSpec = parseEasingSpec(ab.getString("easing", "linear"));
                 Easing.Interpolation interpolation = parseInterpolation(ab.getString("interp", "tween"));
                 double value = ab.getDouble("value", 0.0);
@@ -154,7 +154,7 @@ public class TimelineDataParser {
                 ActionBlock ab = readBlock(lines, i);
                 i = ab.endIndex;
 
-                double dur = ab.getDouble("dur", ab.getDouble("duration", 0));
+                double dur = ab.getDuration();
                 EasingSpec easingSpec = parseEasingSpec(ab.getString("easing", "linear"));
                 Easing.Interpolation interpolation = parseInterpolation(ab.getString("interp", "tween"));
 
@@ -196,7 +196,7 @@ public class TimelineDataParser {
                 ActionBlock ab = readBlock(lines, i);
                 i = ab.endIndex;
 
-                double dur = ab.getDouble("dur", ab.getDouble("duration", 0));
+                double dur = ab.getDuration();
                 EasingSpec easingSpec = parseEasingSpec(ab.getString("easing", "linear"));
                 Easing.Interpolation interpolation = parseInterpolation(ab.getString("interp", "tween"));
 
@@ -227,7 +227,7 @@ public class TimelineDataParser {
                 ActionBlock ab = readBlock(lines, i);
                 i = ab.endIndex;
 
-                double dur = ab.getDouble("dur", ab.getDouble("duration", 0));
+                double dur = ab.getDuration();
                 EasingSpec easingSpec = parseEasingSpec(ab.getString("easing", "linear"));
                 Easing.Interpolation interpolation = parseInterpolation(ab.getString("interp", "tween"));
                 double endTime = cursor + dur;
@@ -269,14 +269,14 @@ public class TimelineDataParser {
                 ActionBlock ab = readBlock(lines, i);
                 i = ab.endIndex;
 
-                double dur = ab.getDouble("dur", ab.getDouble("duration", 0));
+                double dur = ab.getDuration();
                 EasingSpec easingSpec = parseEasingSpec(ab.getString("easing", "linear"));
                 Easing.Interpolation interpolation = parseInterpolation(ab.getString("interp", "tween"));
                 double endTime = cursor + dur;
                 TimelineData.Track track = getOrCreateTrack(data, entity);
 
-                if (ab.has("angle") || ab.has("rotation")) {
-                    double val = ab.has("angle") ? ab.getDouble("angle", 0) : ab.getDouble("rotation", 0);
+                if (ab.hasAny("deg", "angle", "rotation")) {
+                    double val = ab.getDoubleAny(0, "deg", "angle", "rotation");
                     addTweenKeyframe(
                         track,
                         TimelineData.Property.ROTATION,
@@ -300,14 +300,14 @@ public class TimelineDataParser {
                 ActionBlock ab = readBlock(lines, i);
                 i = ab.endIndex;
 
-                double dur = ab.getDouble("dur", ab.getDouble("duration", 0));
+                double dur = ab.getDuration();
                 EasingSpec easingSpec = parseEasingSpec(ab.getString("easing", "linear"));
                 Easing.Interpolation interpolation = parseInterpolation(ab.getString("interp", "tween"));
                 double endTime = cursor + dur;
                 TimelineData.Track track = getOrCreateTrack(data, entity);
 
-                if (ab.has("x") || ab.has("scale_x")) {
-                    double val = ab.has("scale_x") ? ab.getDouble("scale_x", 1) : ab.getDouble("x", 1);
+                if (ab.hasAny("sx", "x", "scale_x")) {
+                    double val = ab.getDoubleAny(1, "sx", "x", "scale_x");
                     addTweenKeyframe(
                         track,
                         TimelineData.Property.SCALE_X,
@@ -319,8 +319,8 @@ public class TimelineDataParser {
                         easingSpec.getParameters()
                     );
                 }
-                if (ab.has("y") || ab.has("scale_y")) {
-                    double val = ab.has("scale_y") ? ab.getDouble("scale_y", 1) : ab.getDouble("y", 1);
+                if (ab.hasAny("sy", "y", "scale_y")) {
+                    double val = ab.getDoubleAny(1, "sy", "y", "scale_y");
                     addTweenKeyframe(
                         track,
                         TimelineData.Property.SCALE_Y,
@@ -344,7 +344,7 @@ public class TimelineDataParser {
                 ActionBlock ab = readBlock(lines, i);
                 i = ab.endIndex;
 
-                double dur = ab.getDouble("dur", ab.getDouble("duration", 0));
+                double dur = ab.getDuration();
                 EasingSpec easingSpec = parseEasingSpec(ab.getString("easing", "linear"));
                 Easing.Interpolation interpolation = parseInterpolation(ab.getString("interp", "tween"));
                 double endTime = cursor + dur;
@@ -392,7 +392,7 @@ public class TimelineDataParser {
                 ActionBlock ab = readBlock(lines, i);
                 i = ab.endIndex;
 
-                double dur = ab.getDouble("dur", ab.getDouble("duration", 0));
+                double dur = ab.getDuration();
                 EasingSpec easingSpec = parseEasingSpec(ab.getString("easing", "linear"));
                 Easing.Interpolation interpolation = parseInterpolation(ab.getString("interp", "tween"));
                 double endTime = cursor + dur;
@@ -433,7 +433,7 @@ public class TimelineDataParser {
                 ActionBlock ab = readBlock(lines, i);
                 i = ab.endIndex;
 
-                double dur = ab.getDouble("dur", ab.getDouble("duration", 0));
+                double dur = ab.getDuration();
                 EasingSpec easingSpec = parseEasingSpec(ab.getString("easing", "linear"));
                 Easing.Interpolation interpolation = parseInterpolation(ab.getString("interp", "tween"));
                 double endTime = cursor + dur;
@@ -742,6 +742,13 @@ public class TimelineDataParser {
 
         void put(String key, String value) { props.put(key, value); }
         boolean has(String key) { return props.containsKey(key); }
+        boolean hasAny(String... keys) {
+            if (keys == null) return false;
+            for (String key : keys) {
+                if (has(key)) return true;
+            }
+            return false;
+        }
         String getString(String key, String def) { return props.getOrDefault(key, def); }
 
         boolean getBoolean(String key, boolean def) {
@@ -757,6 +764,18 @@ public class TimelineDataParser {
             String v = props.get(key);
             if (v == null) return def;
             try { return Double.parseDouble(v); } catch (Exception e) { return def; }
+        }
+
+        double getDoubleAny(double def, String... keys) {
+            if (keys == null) return def;
+            for (String key : keys) {
+                if (props.containsKey(key)) return getDouble(key, def);
+            }
+            return def;
+        }
+
+        double getDuration() {
+            return getDoubleAny(0, "dur", "duration");
         }
     }
 }

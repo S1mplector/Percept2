@@ -8,6 +8,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import com.jvn.core.animation.Easing;
+import com.jvn.core.animation.EasingSpec;
 import com.jvn.core.input.Input;
 import com.jvn.core.physics.PhysicsWorld2D;
 import com.jvn.core.physics.RigidBody2D;
@@ -89,7 +90,9 @@ public class JesScene2D extends Scene2DBase {
   private static class ActionRuntime {
     boolean started;
     double sx, sy, sRot, ssx, ssy;
-    Easing.Type easing = Easing.Type.LINEAR;
+    double sValue;
+    EasingSpec easingSpec = EasingSpec.of(Easing.Type.LINEAR);
+    Easing.Interpolation interpolation = Easing.Interpolation.TWEEN;
     double sAlpha;
     double sZoom;
     double elapsed;
@@ -393,13 +396,28 @@ public class JesScene2D extends Scene2DBase {
           st.started = true;
           st.sx = e.getX();
           st.sy = e.getY();
-          String easingStr = toStr(a.props.get("easing"), "LINEAR");
-          try { st.easing = Easing.Type.valueOf(easingStr.toUpperCase()); } catch (Exception ignored) {}
+          configureTimelineEasing(st, a.props);
         }
         st.elapsed += deltaMs;
         double p = (dur <= 0) ? 1.0 : Math.min(1.0, st.elapsed / dur);
-        double ep = Easing.apply(st.easing, p);
+        double ep = applyTimelineEasing(st, p);
         e.setPosition(st.sx + (tx - st.sx) * ep, st.sy + (ty - st.sy) * ep);
+        return p >= 1.0;
+      }
+      case "depth" -> {
+        Entity2D e = named.get(a.target);
+        if (e == null) return true;
+        double targetZ = toNum(a.props.get("z"), e.getZ());
+        double dur = toNum(a.props.get("dur"), 0);
+        if (!st.started) {
+          st.started = true;
+          st.sValue = e.getZ();
+          configureTimelineEasing(st, a.props);
+        }
+        st.elapsed += deltaMs;
+        double p = (dur <= 0) ? 1.0 : Math.min(1.0, st.elapsed / dur);
+        double ep = applyTimelineEasing(st, p);
+        e.setZ(st.sValue + (targetZ - st.sValue) * ep);
         return p >= 1.0;
       }
       case "pivot" -> {
@@ -412,12 +430,11 @@ public class JesScene2D extends Scene2DBase {
           st.started = true;
           st.sx = getPivotX(e);
           st.sy = getPivotY(e);
-          String easingStr = toStr(a.props.get("easing"), "LINEAR");
-          try { st.easing = Easing.Type.valueOf(easingStr.toUpperCase()); } catch (Exception ignored) {}
+          configureTimelineEasing(st, a.props);
         }
         st.elapsed += deltaMs;
         double p = (dur <= 0) ? 1.0 : Math.min(1.0, st.elapsed / dur);
-        double ep = Easing.apply(st.easing, p);
+        double ep = applyTimelineEasing(st, p);
         setPivot(e, st.sx + (tox - st.sx) * ep, st.sy + (toy - st.sy) * ep);
         return p >= 1.0;
       }
@@ -429,12 +446,11 @@ public class JesScene2D extends Scene2DBase {
         if (!st.started) {
           st.started = true;
           st.sRot = e.getRotationDeg();
-          String easingStr = toStr(a.props.get("easing"), "LINEAR");
-          try { st.easing = Easing.Type.valueOf(easingStr.toUpperCase()); } catch (Exception ignored) {}
+          configureTimelineEasing(st, a.props);
         }
         st.elapsed += deltaMs;
         double p = (dur <= 0) ? 1.0 : Math.min(1.0, st.elapsed / dur);
-        double ep = Easing.apply(st.easing, p);
+        double ep = applyTimelineEasing(st, p);
         e.setRotationDeg(st.sRot + (tdeg - st.sRot) * ep);
         return p >= 1.0;
       }
@@ -448,12 +464,11 @@ public class JesScene2D extends Scene2DBase {
           st.started = true;
           st.ssx = e.getScaleX();
           st.ssy = e.getScaleY();
-          String easingStr = toStr(a.props.get("easing"), "LINEAR");
-          try { st.easing = Easing.Type.valueOf(easingStr.toUpperCase()); } catch (Exception ignored) {}
+          configureTimelineEasing(st, a.props);
         }
         st.elapsed += deltaMs;
         double p = (dur <= 0) ? 1.0 : Math.min(1.0, st.elapsed / dur);
-        double ep = Easing.apply(st.easing, p);
+        double ep = applyTimelineEasing(st, p);
         e.setScale(st.ssx + (tsx - st.ssx) * ep, st.ssy + (tsy - st.ssy) * ep);
         return p >= 1.0;
       }
@@ -465,12 +480,11 @@ public class JesScene2D extends Scene2DBase {
         if (!st.started) {
           st.started = true;
           st.sAlpha = getAlpha(e);
-          String easingStr = toStr(a.props.get("easing"), "LINEAR");
-          try { st.easing = Easing.Type.valueOf(easingStr.toUpperCase()); } catch (Exception ignored) {}
+          configureTimelineEasing(st, a.props);
         }
         st.elapsed += deltaMs;
         double p = (dur <= 0) ? 1.0 : Math.min(1.0, st.elapsed / dur);
-        double ep = Easing.apply(st.easing, p);
+        double ep = applyTimelineEasing(st, p);
         double aVal = st.sAlpha + (targetAlpha - st.sAlpha) * ep;
         setAlpha(e, aVal);
         return p >= 1.0;
@@ -483,6 +497,9 @@ public class JesScene2D extends Scene2DBase {
         }
         return true;
       }
+      case "property" -> {
+        return processPropertyAction(a, st, deltaMs);
+      }
       case "cameraMove" -> {
         com.jvn.core.graphics.Camera2D cam = getCamera();
         if (cam == null) return true;
@@ -493,12 +510,11 @@ public class JesScene2D extends Scene2DBase {
           st.started = true;
           st.sx = cam.getX();
           st.sy = cam.getY();
-          String easingStr = toStr(a.props.get("easing"), "LINEAR");
-          try { st.easing = Easing.Type.valueOf(easingStr.toUpperCase()); } catch (Exception ignored) {}
+          configureTimelineEasing(st, a.props);
         }
         st.elapsed += deltaMs;
         double p = (dur <= 0) ? 1.0 : Math.min(1.0, st.elapsed / dur);
-        double ep = Easing.apply(st.easing, p);
+        double ep = applyTimelineEasing(st, p);
         double nx = st.sx + (tx - st.sx) * ep;
         double ny = st.sy + (ty - st.sy) * ep;
         cam.setPosition(nx, ny);
@@ -512,12 +528,11 @@ public class JesScene2D extends Scene2DBase {
         if (!st.started) {
           st.started = true;
           st.sZoom = cam.getZoom();
-          String easingStr = toStr(a.props.get("easing"), "LINEAR");
-          try { st.easing = Easing.Type.valueOf(easingStr.toUpperCase()); } catch (Exception ignored) {}
+          configureTimelineEasing(st, a.props);
         }
         st.elapsed += deltaMs;
         double p = (dur <= 0) ? 1.0 : Math.min(1.0, st.elapsed / dur);
-        double ep = Easing.apply(st.easing, p);
+        double ep = applyTimelineEasing(st, p);
         double nz = st.sZoom + (tz - st.sZoom) * ep;
         cam.setZoom(nz);
         return p >= 1.0;
@@ -646,13 +661,29 @@ public class JesScene2D extends Scene2DBase {
           st.started = true; 
           st.sx = e.getX(); 
           st.sy = e.getY();
-          String easingStr = toStr(a.props.get("easing"), "LINEAR");
-          try { st.easing = Easing.Type.valueOf(easingStr.toUpperCase()); } catch (Exception ignored) {}
+          configureTimelineEasing(st, a.props);
         }
         tlElapsedMs += deltaMs;
         double p = (dur <= 0) ? 1.0 : Math.min(1.0, tlElapsedMs / dur);
-        double ep = Easing.apply(st.easing, p);
+        double ep = applyTimelineEasing(st, p);
         e.setPosition(st.sx + (tx - st.sx) * ep, st.sy + (ty - st.sy) * ep);
+        if (p >= 1.0) { tlIndex++; tlElapsedMs = 0; actionState.remove(tlIndex-1); }
+      }
+      case "depth" -> {
+        Entity2D e = named.get(a.target);
+        if (e == null) { tlIndex++; tlElapsedMs = 0; return; }
+        double targetZ = toNum(a.props.get("z"), e.getZ());
+        double dur = toNum(a.props.get("dur"), 0);
+        ActionRuntime st = actionState.computeIfAbsent(tlIndex, k -> new ActionRuntime());
+        if (!st.started) {
+          st.started = true;
+          st.sValue = e.getZ();
+          configureTimelineEasing(st, a.props);
+        }
+        tlElapsedMs += deltaMs;
+        double p = (dur <= 0) ? 1.0 : Math.min(1.0, tlElapsedMs / dur);
+        double ep = applyTimelineEasing(st, p);
+        e.setZ(st.sValue + (targetZ - st.sValue) * ep);
         if (p >= 1.0) { tlIndex++; tlElapsedMs = 0; actionState.remove(tlIndex-1); }
       }
       case "pivot" -> {
@@ -666,12 +697,11 @@ public class JesScene2D extends Scene2DBase {
           st.started = true;
           st.sx = getPivotX(e);
           st.sy = getPivotY(e);
-          String easingStr = toStr(a.props.get("easing"), "LINEAR");
-          try { st.easing = Easing.Type.valueOf(easingStr.toUpperCase()); } catch (Exception ignored) {}
+          configureTimelineEasing(st, a.props);
         }
         tlElapsedMs += deltaMs;
         double p = (dur <= 0) ? 1.0 : Math.min(1.0, tlElapsedMs / dur);
-        double ep = Easing.apply(st.easing, p);
+        double ep = applyTimelineEasing(st, p);
         setPivot(e, st.sx + (tox - st.sx) * ep, st.sy + (toy - st.sy) * ep);
         if (p >= 1.0) { tlIndex++; tlElapsedMs = 0; actionState.remove(tlIndex-1); }
       }
@@ -696,12 +726,11 @@ public class JesScene2D extends Scene2DBase {
           st.started = true;
           st.sx = e.getX();
           st.sy = e.getY();
-          String easingStr = toStr(a.props.get("easing"), "LINEAR");
-          try { st.easing = Easing.Type.valueOf(easingStr.toUpperCase()); } catch (Exception ignored) {}
+          configureTimelineEasing(st, a.props);
         }
         tlElapsedMs += deltaMs;
         double p = (dur <= 0) ? 1.0 : Math.min(1.0, tlElapsedMs / dur);
-        double ep = Easing.apply(st.easing, p);
+        double ep = applyTimelineEasing(st, p);
         e.setPosition(st.sx + (tx - st.sx) * ep, st.sy + (ty - st.sy) * ep);
         if (p >= 1.0) { tlIndex++; tlElapsedMs = 0; actionState.remove(tlIndex-1); }
       }
@@ -714,12 +743,11 @@ public class JesScene2D extends Scene2DBase {
         if (!st.started) { 
           st.started = true; 
           st.sRot = e.getRotationDeg();
-          String easingStr = toStr(a.props.get("easing"), "LINEAR");
-          try { st.easing = Easing.Type.valueOf(easingStr.toUpperCase()); } catch (Exception ignored) {}
+          configureTimelineEasing(st, a.props);
         }
         tlElapsedMs += deltaMs;
         double p = (dur <= 0) ? 1.0 : Math.min(1.0, tlElapsedMs / dur);
-        double ep = Easing.apply(st.easing, p);
+        double ep = applyTimelineEasing(st, p);
         e.setRotationDeg(st.sRot + (tdeg - st.sRot) * ep);
         if (p >= 1.0) { tlIndex++; tlElapsedMs = 0; actionState.remove(tlIndex-1); }
       }
@@ -734,12 +762,11 @@ public class JesScene2D extends Scene2DBase {
           st.started = true; 
           st.ssx = e.getScaleX(); 
           st.ssy = e.getScaleY();
-          String easingStr = toStr(a.props.get("easing"), "LINEAR");
-          try { st.easing = Easing.Type.valueOf(easingStr.toUpperCase()); } catch (Exception ignored) {}
+          configureTimelineEasing(st, a.props);
         }
         tlElapsedMs += deltaMs;
         double p = (dur <= 0) ? 1.0 : Math.min(1.0, tlElapsedMs / dur);
-        double ep = Easing.apply(st.easing, p);
+        double ep = applyTimelineEasing(st, p);
         e.setScale(st.ssx + (tsx - st.ssx) * ep, st.ssy + (tsy - st.ssy) * ep);
         if (p >= 1.0) { tlIndex++; tlElapsedMs = 0; actionState.remove(tlIndex-1); }
       }
@@ -752,12 +779,11 @@ public class JesScene2D extends Scene2DBase {
         if (!st.started) {
           st.started = true;
           st.sAlpha = getAlpha(e);
-          String easingStr = toStr(a.props.get("easing"), "LINEAR");
-          try { st.easing = Easing.Type.valueOf(easingStr.toUpperCase()); } catch (Exception ignored) {}
+          configureTimelineEasing(st, a.props);
         }
         tlElapsedMs += deltaMs;
         double p = (dur <= 0) ? 1.0 : Math.min(1.0, tlElapsedMs / dur);
-        double ep = Easing.apply(st.easing, p);
+        double ep = applyTimelineEasing(st, p);
         double aVal = st.sAlpha + (targetAlpha - st.sAlpha) * ep;
         setAlpha(e, aVal);
         if (p >= 1.0) { tlIndex++; tlElapsedMs = 0; actionState.remove(tlIndex-1); }
@@ -771,6 +797,11 @@ public class JesScene2D extends Scene2DBase {
         tlIndex++;
         tlElapsedMs = 0;
       }
+      case "property" -> {
+        ActionRuntime st = actionState.computeIfAbsent(tlIndex, k -> new ActionRuntime());
+        boolean done = processPropertyAction(a, st, deltaMs);
+        if (done) { tlIndex++; tlElapsedMs = 0; actionState.remove(tlIndex-1); }
+      }
       case "cameraMove" -> {
         com.jvn.core.graphics.Camera2D cam = getCamera();
         if (cam == null) { tlIndex++; tlElapsedMs = 0; return; }
@@ -782,12 +813,11 @@ public class JesScene2D extends Scene2DBase {
           st.started = true;
           st.sx = cam.getX();
           st.sy = cam.getY();
-          String easingStr = toStr(a.props.get("easing"), "LINEAR");
-          try { st.easing = Easing.Type.valueOf(easingStr.toUpperCase()); } catch (Exception ignored) {}
+          configureTimelineEasing(st, a.props);
         }
         tlElapsedMs += deltaMs;
         double p = (dur <= 0) ? 1.0 : Math.min(1.0, tlElapsedMs / dur);
-        double ep = Easing.apply(st.easing, p);
+        double ep = applyTimelineEasing(st, p);
         double nx = st.sx + (tx - st.sx) * ep;
         double ny = st.sy + (ty - st.sy) * ep;
         cam.setPosition(nx, ny);
@@ -802,12 +832,11 @@ public class JesScene2D extends Scene2DBase {
         if (!st.started) {
           st.started = true;
           st.sZoom = cam.getZoom();
-          String easingStr = toStr(a.props.get("easing"), "LINEAR");
-          try { st.easing = Easing.Type.valueOf(easingStr.toUpperCase()); } catch (Exception ignored) {}
+          configureTimelineEasing(st, a.props);
         }
         tlElapsedMs += deltaMs;
         double p = (dur <= 0) ? 1.0 : Math.min(1.0, tlElapsedMs / dur);
-        double ep = Easing.apply(st.easing, p);
+        double ep = applyTimelineEasing(st, p);
         double nz = st.sZoom + (tz - st.sZoom) * ep;
         cam.setZoom(nz);
         if (p >= 1.0) { tlIndex++; tlElapsedMs = 0; actionState.remove(tlIndex-1); }
@@ -964,6 +993,66 @@ public class JesScene2D extends Scene2DBase {
       }
       default -> { tlIndex++; tlElapsedMs = 0; }
     }
+  }
+
+  private void configureTimelineEasing(ActionRuntime state, Map<String,Object> props) {
+    if (state == null) return;
+    String easing = toStr(props != null ? props.get("easing") : null, "linear");
+    state.easingSpec = EasingSpec.parseOrDefault(easing);
+    String interpolation = toStr(props != null ? props.get("interp") : null, "tween");
+    String normalized = interpolation == null ? "" : interpolation.trim().toLowerCase(java.util.Locale.ROOT).replace('-', '_');
+    state.interpolation = switch (normalized) {
+      case "hold", "step_end", "step_hold", "constant" -> Easing.Interpolation.HOLD;
+      case "step", "step_start", "instant", "jump" -> Easing.Interpolation.STEP;
+      default -> Easing.Interpolation.TWEEN;
+    };
+  }
+
+  private double applyTimelineEasing(ActionRuntime state, double progress) {
+    if (state == null) return Easing.apply(Easing.Type.LINEAR, progress);
+    return Easing.applyInterpolation(state.easingSpec, state.interpolation, progress);
+  }
+
+  private boolean processPropertyAction(JesAst.TimelineAction a, ActionRuntime st, long deltaMs) {
+    if (a == null || st == null) return true;
+    String key = toStr(a.props.get("key"), null);
+    if (key == null || key.isBlank()) return true;
+    double targetValue = toNum(a.props.get("value"), Double.NaN);
+    if (!Double.isFinite(targetValue)) return true;
+    double dur = toNum(a.props.get("dur"), 0);
+    String target = a.target;
+
+    if (!st.started) {
+      st.started = true;
+      st.sValue = readTimelineCustomProperty(target, key);
+      configureTimelineEasing(st, a.props);
+    }
+    st.elapsed += deltaMs;
+    double p = (dur <= 0) ? 1.0 : Math.min(1.0, st.elapsed / dur);
+    double ep = applyTimelineEasing(st, p);
+    applyTimelineCustomProperty(target, key, st.sValue + (targetValue - st.sValue) * ep);
+    return p >= 1.0;
+  }
+
+  private double readTimelineCustomProperty(String target, String key) {
+    if (key == null || key.isBlank()) return 0.0;
+    if (target == null || target.isBlank() || "__camera__".equals(target)) {
+      com.jvn.core.graphics.Camera2D cam = getCamera();
+      return cam != null ? cam.readCustomProperty(key) : 0.0;
+    }
+    Entity2D entity = named.get(target);
+    return entity != null ? entity.readCustomProperty(key) : 0.0;
+  }
+
+  private void applyTimelineCustomProperty(String target, String key, double value) {
+    if (key == null || key.isBlank()) return;
+    if (target == null || target.isBlank() || "__camera__".equals(target)) {
+      com.jvn.core.graphics.Camera2D cam = getCamera();
+      if (cam != null) cam.applyCustomProperty(key, value);
+      return;
+    }
+    Entity2D entity = named.get(target);
+    if (entity != null) entity.applyCustomProperty(key, value);
   }
 
   private void dispatchTimelineEvent(JesAst.TimelineAction action) {

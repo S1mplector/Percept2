@@ -16,16 +16,19 @@ Docs entrypoints:
 ## Architecture
 
 JVN is designed to be lightweight and predictable under load.
--Runtime, scripting, renderer backends, and editor tooling are clearly separated and extensible. 
+- Runtime, scripting, renderer backends, and editor tooling are clearly separated and extensible.
 
 Typical memory footprint for the core runtime together with the full editor is around **70-130 MB RAM** in normal desktop usage (project/content dependent).
 
 ## Requirements
 
-- JDK 21 (toolchain auto-download is enabled, but local JDK 21 is still recommended)
+JVN is in heavy continuous development. Engine APIs, editor tooling, generated project structure, and scripting/file-format behavior may change between updates.
+
+- JDK 21 installed locally on your machine. If multiple JDKs are installed, point `JAVA_HOME` at JDK 21 before building or running JVN.
 - No global Gradle install required. Use `./jvnw` as the default JVN command wrapper.
 - `./gradlew` remains available as the optional low-level Gradle entrypoint for uncommon/manual tasks.
-- For team version-control workflows in editor: `git` and `git lfs` installed/configured
+- `git` is required when cloning from source and optional afterward for pulling updates from the repository or using hub/editor update workflows.
+- For team version-control and large-asset workflows in editor: `git lfs` installed/configured.
 
 ## Quick Start
 

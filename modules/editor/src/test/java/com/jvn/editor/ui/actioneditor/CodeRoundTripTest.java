@@ -203,6 +203,30 @@ class CodeRoundTripTest {
     }
 
     @Test
+    void exportedRotateAndScaleReimportWithPuppeteerAliases() {
+        AnimationProject project = new AnimationProject();
+        EntityTrack hero = project.getOrCreateTrack("hero");
+        hero.addKeyframe(PropertyType.ROTATION, new Keyframe(0, 0, Easing.Type.LINEAR));
+        hero.addKeyframe(PropertyType.ROTATION, new Keyframe(300, 25, Easing.Type.EASE_OUT_QUAD));
+        hero.addKeyframe(PropertyType.SCALE_X, new Keyframe(0, 1, Easing.Type.LINEAR));
+        hero.addKeyframe(PropertyType.SCALE_X, new Keyframe(300, 1.25, Easing.Type.EASE_OUT_QUAD));
+        hero.addKeyframe(PropertyType.SCALE_Y, new Keyframe(0, 1, Easing.Type.LINEAR));
+        hero.addKeyframe(PropertyType.SCALE_Y, new Keyframe(300, 0.85, Easing.Type.EASE_OUT_QUAD));
+
+        String exported = CodeExporter.export(project);
+        assertTrue(exported.contains("deg: 25"));
+        assertTrue(exported.contains("sx: 1.25"));
+        assertTrue(exported.contains("sy: 0.85"));
+
+        AnimationProject imported = CodeImporter.importCode("rt_transform_aliases", exported);
+        EntityTrack importedHero = imported.getTrack("hero");
+        assertNotNull(importedHero);
+        assertEquals(25.0, importedHero.getValueAt(PropertyType.ROTATION, 300), 0.001);
+        assertEquals(1.25, importedHero.getValueAt(PropertyType.SCALE_X, 300), 0.001);
+        assertEquals(0.85, importedHero.getValueAt(PropertyType.SCALE_Y, 300), 0.001);
+    }
+
+    @Test
     void eventCueRoundTrip() {
         String original = """
             timeline {

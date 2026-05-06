@@ -211,4 +211,28 @@ class TimelineDataParserTest {
         assertTrue(xKeyframes.get(1).hasEasingParams());
         assertEquals(6, xKeyframes.get(1).getEasingParams().length);
     }
+
+    @Test
+    void acceptsPuppeteerExporterAliasesForRotateAndScale() {
+        String inline = """
+            timeline {
+              rotate "hero" {
+                deg: 45
+                duration: 100
+              }
+              scale "hero" {
+                sx: 1.5
+                sy: 0.75
+                duration: 100
+              }
+            }
+            """;
+
+        TimelineData data = TimelineDataParser.parse("inline_aliases", inline);
+        TimelineData.Track hero = data.getTrack("hero");
+        assertNotNull(hero);
+        assertEquals(45.0, hero.getValueAt(TimelineData.Property.ROTATION, 100), 0.001);
+        assertEquals(1.5, hero.getValueAt(TimelineData.Property.SCALE_X, 100), 0.001);
+        assertEquals(0.75, hero.getValueAt(TimelineData.Property.SCALE_Y, 100), 0.001);
+    }
 }
