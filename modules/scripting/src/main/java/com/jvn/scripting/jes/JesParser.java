@@ -60,7 +60,7 @@ public class JesParser {
     Map.entry("label", Set.of("name")),
     Map.entry("jump", Set.of("target"))
   );
-  private static final Set<String> TIMELINE_FREE_PROPS = Set.of("call");
+  private static final Set<String> TIMELINE_FREE_PROPS = Set.of("call", "event");
 
   public JesParser(List<JesToken> toks) { this.toks = toks == null ? new ArrayList<>() : toks; }
 
@@ -216,6 +216,22 @@ public class JesParser {
               Object v = parseValue();
               a.props.put(k, v);
             } else { throw error("Expected property name in call action"); }
+          }
+        }
+      }
+      case "event" -> {
+        String eventType = expect(STRING, "event type").lexeme;
+        a.target = eventType;
+        if (match(LBRACE)) {
+          while (!match(RBRACE)) {
+            if (match(IDENT)) {
+              JesToken keyTok = prev();
+              String k = keyTok.lexeme;
+              validateTimelineProp(kind, k, keyTok);
+              expect(COLON, ":");
+              Object v = parseValue();
+              a.props.put(k, v);
+            } else { throw error("Expected property name in event action"); }
           }
         }
       }

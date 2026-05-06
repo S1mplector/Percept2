@@ -16,7 +16,9 @@ public class VnErrorOverlay {
 
   public enum ErrorType {
     PARSE_ERROR,
+    DSL_PARSE_ERROR,
     RUNTIME_ERROR,
+    DSL_RUNTIME_ERROR,
     COMPILATION_ERROR,
     INTEROP_ERROR
   }
@@ -85,6 +87,64 @@ public class VnErrorOverlay {
         "VNS Parse Error",
         message,
         source, line, likelyCause, rawLine, stackTrace);
+  }
+
+  public static VnErrorOverlay dslParseError(String dslName, String source, int line, int column,
+                                             String message, String rawLine, Throwable cause) {
+    String name = normalizeDslName(dslName);
+    String locationMessage = message == null ? "Unknown parse error" : message;
+    if (column > 0 && !locationMessage.contains(":" + column)) {
+      locationMessage += " (column " + column + ")";
+    }
+    return new VnErrorOverlay(
+        ErrorType.DSL_PARSE_ERROR,
+        name + " Parse Error",
+        locationMessage,
+        source,
+        line,
+        likelyDslCause(name, locationMessage, rawLine),
+        rawLine,
+        formatStackTrace(cause));
+  }
+
+  public static VnErrorOverlay dslRuntimeError(String dslName, String source, int line,
+                                               String message, Throwable cause) {
+    String name = normalizeDslName(dslName);
+    return new VnErrorOverlay(
+        ErrorType.DSL_RUNTIME_ERROR,
+        name + " Runtime Error",
+        message == null || message.isBlank() ? "Unknown runtime error" : message,
+        source,
+        line,
+        null,
+        null,
+        formatStackTrace(cause));
+  }
+
+  public static VnErrorOverlay jesParseError(String sourceName, String source, Throwable cause) {
+    int line = readIntMethod(cause, "getLine", -1);
+    int column = readIntMethod(cause, "getCol", -1);
+    return dslParseError(
+        "JES",
+        sourceName,
+        line,
+        column,
+        safeMessage(cause),
+        lineFromSource(source, line),
+        cause);
+  }
+
+  public static VnErrorOverlay puppeteerJesParseError(String sourceName, String source, Throwable cause) {
+    int line = readIntMethod(cause, "getLine", -1);
+    int column = readIntMethod(cause, "getCol", -1);
+    return dslParseError(
+        "Puppeteer JES",
+        sourceName,
+        line,
+        column,
+        safeMessage(cause),
+        lineFromSource(source, line),
+        cause);
   }
 
   public static VnErrorOverlay fromScriptLoadFailure(String fallbackSource, Exception cause) {
@@ -181,6 +241,28 @@ public class VnErrorOverlay {
     return "The script could not be parsed before the game scene was created.";
   }
 
+  private static String likelyDslCause(String dslName, String message, String rawLine) {
+    String name = dslName == null ? "DSL" : dslName;
+    String msg = message == null ? "" : message.toLowerCase();
+    String line = rawLine == null ? "" : rawLine.trim();
+    if (msg.contains("expected")) {
+      return name + " syntax did not match the parser's expected token here. Check braces, quotes, colons, and block nesting around this line.";
+    }
+    if (msg.contains("unterminated string")) {
+      return "A quoted string was opened but not closed before the end of the line or file.";
+    }
+    if (msg.contains("unexpected character")) {
+      return "This character is not valid in this " + name + " context. Check for stray punctuation or pasted formatting.";
+    }
+    if (msg.contains("unknown timeline action")) {
+      return "The timeline action name is not registered. Check the action spelling or use an event/call action for custom behavior.";
+    }
+    if (!line.isEmpty() && line.endsWith("{")) {
+      return "This block opened successfully, so the issue is likely inside the block or at its closing brace.";
+    }
+    return name + " could not be parsed before the preview/runtime scene was created.";
+  }
+
   private static String firstNonBlank(String first, String second) {
     if (first != null && !first.isBlank()) return first;
     return second == null ? "" : second;
@@ -190,6 +272,27 @@ public class VnErrorOverlay {
     if (cause == null) return "Unknown error";
     String message = cause.getMessage();
     return message == null || message.isBlank() ? cause.toString() : message;
+  }
+
+  private static String normalizeDslName(String dslName) {
+    return dslName == null || dslName.isBlank() ? "DSL" : dslName.trim();
+  }
+
+  private static String lineFromSource(String source, int lineNumber) {
+    if (source == null || lineNumber <= 0) return null;
+    String[] lines = source.split("\\R", -1);
+    if (lineNumber > lines.length) return null;
+    return lines[lineNumber - 1];
+  }
+
+  private static int readIntMethod(Throwable cause, String methodName, int fallback) {
+    if (cause == null || methodName == null || methodName.isBlank()) return fallback;
+    try {
+      Object value = cause.getClass().getMethod(methodName).invoke(cause);
+      if (value instanceof Number n) return n.intValue();
+    } catch (Exception ignored) {
+    }
+    return fallback;
   }
 
   /** Summary for display — combines title, location, and message. */

@@ -370,6 +370,10 @@ public class JesScene2D extends Scene2DBase {
         }
         return true;
       }
+      case "event" -> {
+        dispatchTimelineEvent(a);
+        return true;
+      }
       case "move", "walkToTile" -> {
         Entity2D e = named.get(a.target);
         if (e == null) return true;
@@ -621,6 +625,12 @@ public class JesScene2D extends Scene2DBase {
         if (h != null) {
           try { h.accept(a.props == null ? java.util.Collections.emptyMap() : a.props); } catch (Exception ignored) {}
         }
+        tlIndex++;
+        tlElapsedMs = 0;
+        if (deltaMs > 0) updateTimeline(deltaMs);
+      }
+      case "event" -> {
+        dispatchTimelineEvent(a);
         tlIndex++;
         tlElapsedMs = 0;
         if (deltaMs > 0) updateTimeline(deltaMs);
@@ -954,6 +964,50 @@ public class JesScene2D extends Scene2DBase {
       }
       default -> { tlIndex++; tlElapsedMs = 0; }
     }
+  }
+
+  private void dispatchTimelineEvent(JesAst.TimelineAction action) {
+    if (action == null) return;
+    String eventType = action.target;
+    if (eventType == null || eventType.isBlank()) return;
+    Map<String,Object> props = action.props == null ? java.util.Collections.emptyMap() : action.props;
+    String normalized = eventType.trim();
+    if ("script_call".equalsIgnoreCase(normalized) || "scriptcall".equalsIgnoreCase(normalized)) {
+      String handler = firstString(props, "handler", "call", "name", "target");
+      if (handler != null && !handler.isBlank()) {
+        invokeCall(handler, eventProps(props));
+      }
+      return;
+    }
+    invokeCall(normalized, eventProps(props));
+  }
+
+  private static Map<String,Object> eventProps(Map<String,Object> source) {
+    if (source == null || source.isEmpty()) return java.util.Collections.emptyMap();
+    Map<String,Object> props = new HashMap<>();
+    for (Map.Entry<String,Object> entry : source.entrySet()) {
+      if (entry == null || entry.getKey() == null) continue;
+      String key = entry.getKey().trim();
+      if (key.isEmpty() || isTimelineEventMetaKey(key)) continue;
+      props.put(key, entry.getValue());
+    }
+    return props;
+  }
+
+  private static String firstString(Map<String,Object> props, String... keys) {
+    if (props == null || keys == null) return null;
+    for (String key : keys) {
+      Object value = props.get(key);
+      if (value instanceof String s && !s.isBlank()) return s;
+    }
+    return null;
+  }
+
+  private static boolean isTimelineEventMetaKey(String key) {
+    String normalized = key == null ? "" : key.trim().toLowerCase(java.util.Locale.ROOT);
+    return "handler".equals(normalized)
+        || "call".equals(normalized)
+        || "name".equals(normalized);
   }
 
   private void handleAction(Binding b) {

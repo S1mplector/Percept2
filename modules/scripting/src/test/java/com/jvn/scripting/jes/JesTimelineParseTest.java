@@ -58,4 +58,26 @@ public class JesTimelineParseTest {
     assertEquals("cameraFollow", tl.get(2).type);
     assertEquals("hero", tl.get(2).target);
   }
+
+  @Test
+  public void parsesEventTimelineAction() {
+    String src = """
+      scene "Demo" {
+        timeline {
+          event "script_call" {
+            handler: spawnParticles
+            count: 12
+            burst: true
+          }
+        }
+      }
+      """;
+    JesAst.Program p = parse(src);
+    var action = p.scenes.get(0).timeline.get(0);
+    assertEquals("event", action.type);
+    assertEquals("script_call", action.target);
+    assertEquals("spawnParticles", action.props.get("handler"));
+    assertEquals(12.0, action.props.get("count"));
+    assertEquals(Boolean.TRUE, action.props.get("burst"));
+  }
 }

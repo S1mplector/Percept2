@@ -75,4 +75,70 @@ public class JesTimelineRuntimeTest {
     assertEquals(5.0, cam.getX(), 1e-6); // 3 + 2
     assertEquals(3.0, cam.getY(), 1e-6); // 4 - 1
   }
+
+  @Test
+  public void eventTimelineActionInvokesNamedCall() throws Exception {
+    String src = """
+      scene "Demo" {
+        timeline {
+          event "script_call" {
+            handler: spawnParticles
+            count: 12
+            burst: true
+          }
+        }
+      }
+      """;
+    JesScene2D js = com.jvn.scripting.jes.JesLoader.load(src);
+    List<Map<String,Object>> calls = new ArrayList<>();
+    js.registerCall("spawnParticles", calls::add);
+
+    js.update(16);
+
+    assertEquals(1, calls.size());
+    assertEquals(12.0, calls.get(0).get("count"));
+    assertEquals(Boolean.TRUE, calls.get(0).get("burst"));
+  }
+
+  @Test
+  public void genericEventTimelineActionInvokesMatchingCall() throws Exception {
+    String src = """
+      scene "Demo" {
+        timeline {
+          event "doorOpened" { id: "north" }
+        }
+      }
+      """;
+    JesScene2D js = com.jvn.scripting.jes.JesLoader.load(src);
+    List<Map<String,Object>> calls = new ArrayList<>();
+    js.registerCall("doorOpened", calls::add);
+
+    js.update(16);
+
+    assertEquals(1, calls.size());
+    assertEquals("north", calls.get(0).get("id"));
+  }
+
+  @Test
+  public void parallelEventTimelineActionRunsAsAsyncChild() throws Exception {
+    String src = """
+      scene "Demo" {
+        entity "a" { component Sprite2D { x: 0 y: 0 w: 1 h: 1 image: "a.png" } }
+        timeline {
+          parallel {
+            move "a" { x: 5 dur: 50 }
+            event "script_call" { handler: beat index: 1 }
+          }
+        }
+      }
+      """;
+    JesScene2D js = com.jvn.scripting.jes.JesLoader.load(src);
+    List<Map<String,Object>> calls = new ArrayList<>();
+    js.registerCall("beat", calls::add);
+
+    js.update(60);
+
+    assertEquals(1, calls.size());
+    assertEquals(1.0, calls.get(0).get("index"));
+  }
 }

@@ -141,6 +141,12 @@ public class JesExporter {
           pw.println("    wait " + formatNumber(v));
         } else if ("call".equals(a.type)) {
           pw.println("    call \"" + escapeString(a.target) + "\"");
+        } else if ("event".equals(a.type)) {
+          pw.println("    event \"" + escapeString(a.target) + "\" {");
+          for (java.util.Map.Entry<String,Object> e : a.props.entrySet()) {
+            pw.println("      " + e.getKey() + ": " + formatValue(e.getValue()));
+          }
+          pw.println("    }");
         } else if ("move".equals(a.type) || "rotate".equals(a.type) || "scale".equals(a.type)) {
           pw.println("    " + a.type + " \"" + escapeString(a.target) + "\" {");
           for (java.util.Map.Entry<String,Object> e : a.props.entrySet()) {
