@@ -1,9 +1,5 @@
 package com.jvn.editor.ui;
 
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -14,15 +10,19 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.TextArea;
-import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.CycleMethod;
 import javafx.scene.paint.Color;
+import javafx.scene.paint.LinearGradient;
+import javafx.scene.paint.Stop;
 import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.scene.text.Text;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
@@ -50,17 +50,12 @@ public final class StartupSplashOverlay {
   private final HBox actionBar = new HBox(8);
   private String progressAccent = "#6ea8ff";
 
-  public StartupSplashOverlay(Path logoPath) {
+  public StartupSplashOverlay() {
     BorderPane root = new BorderPane();
     root.setPadding(new Insets(16));
     root.setStyle("-fx-background-color: linear-gradient(to bottom, " + BG_TOP + ", " + BG_BOTTOM + ");");
 
-    ImageView logoView = new ImageView(loadLogo(logoPath));
-    if (logoView.getImage() != null) {
-      logoView.setPreserveRatio(true);
-      logoView.setFitHeight(72);
-      logoView.setSmooth(true);
-    }
+    Node logoView = createVectorLogo();
 
     Label title = new Label("Java Vector Nexus");
     title.setTextFill(Color.web("#e6ebf5"));
@@ -277,6 +272,29 @@ public final class StartupSplashOverlay {
     return createActionButton(label, null, false);
   }
 
+  private static Node createVectorLogo() {
+    Text wordmark = new Text("JVN");
+    wordmark.setFont(Font.font("System", FontWeight.BOLD, 42));
+    wordmark.setFill(new LinearGradient(
+        0,
+        0,
+        0,
+        1,
+        true,
+        CycleMethod.NO_CYCLE,
+        new Stop(0.0, Color.web("#ffffff")),
+        new Stop(0.42, Color.web("#dedede")),
+        new Stop(1.0, Color.web("#9a9a9a"))));
+    wordmark.setSmooth(true);
+
+    StackPane mark = new StackPane(wordmark);
+    mark.setMinSize(96, 72);
+    mark.setPrefSize(96, 72);
+    mark.setMaxSize(96, 72);
+    mark.setAlignment(Pos.CENTER);
+    return mark;
+  }
+
   private static Button createActionButton(String label, Region icon, boolean accent) {
     Button button = new Button(label);
     button.setFocusTraversable(false);
@@ -296,16 +314,6 @@ public final class StartupSplashOverlay {
             + " -fx-background-radius: 6;"
             + " -fx-padding: 6 14 6 14;");
     return button;
-  }
-
-  private static Image loadLogo(Path logoPath) {
-    if (logoPath == null) return null;
-    if (!Files.isRegularFile(logoPath)) return null;
-    try (InputStream in = Files.newInputStream(logoPath)) {
-      return new Image(in);
-    } catch (Exception ignored) {
-      return null;
-    }
   }
 
   private static void runOnFx(Runnable task) {

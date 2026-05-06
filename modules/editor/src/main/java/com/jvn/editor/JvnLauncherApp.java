@@ -55,8 +55,6 @@ public class JvnLauncherApp extends Application {
   private static final String EDITOR_OPEN_PROJECT_PROPERTY = "jvn.editor.openProject";
   private static final String EDITOR_OPEN_FILE_PROPERTY = "jvn.editor.openFile";
   private static final String LAUNCHER_START_PROJECT_PROPERTY = "jvn.launcher.project";
-  private static final String STARTUP_LOGO_RELATIVE_PATH = "docs/assets/images/jvn_logo.png";
-  private static final String STARTUP_LOGO_CLASSPATH_RESOURCE = "/com/jvn/editor/images/jvn_logo.png";
   private static final long MIN_STARTUP_SPLASH_MS = 650L;
   private static final long STARTUP_STEP_DELAY_MS = 130L;
   private static final DateTimeFormatter STARTUP_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
@@ -80,17 +78,15 @@ public class JvnLauncherApp extends Application {
   @Override
   public void start(Stage stage) {
     EditorCrashSupport.installProcessHandler();
-    Path logoPath = resolveStartupLogoPath();
-    StartupSplashOverlay splash = new StartupSplashOverlay(logoPath);
+    StartupSplashOverlay splash = new StartupSplashOverlay();
     splash.setSubtitle("Loading launcher environment");
     splash.setStatus("Starting JVN Launcher...");
     splash.show();
-    launchStartupSequence(stage, splash, logoPath, false);
+    launchStartupSequence(stage, splash, false);
   }
 
   private void launchStartupSequence(Stage stage,
                                      StartupSplashOverlay splash,
-                                     Path logoPath,
                                      boolean clearLogs) {
     splash.prepareForChecks(clearLogs);
     splash.setSubtitle("Loading launcher environment");
@@ -100,7 +96,7 @@ public class JvnLauncherApp extends Application {
         clearLogs ? "Retrying launcher startup checks" : "Launching launcher startup checks"));
 
     long splashShownNs = System.nanoTime();
-    Task<File> startupTask = createStartupTask(logoPath, splash);
+    Task<File> startupTask = createStartupTask(splash);
     startupTask.messageProperty().addListener((o, ov, nv) -> {
       if (nv == null || nv.isBlank()) return;
       splash.setStatus(nv);
@@ -110,7 +106,7 @@ public class JvnLauncherApp extends Application {
       splash.setProgress(progress);
     });
     startupTask.setOnSucceeded(e -> finalizeStartupSuccess(stage, splash, startupTask.getValue(), splashShownNs));
-    startupTask.setOnFailed(e -> finalizeStartupFailure(stage, splash, logoPath, startupTask.getException()));
+    startupTask.setOnFailed(e -> finalizeStartupFailure(stage, splash, startupTask.getException()));
     Thread startupThread = new Thread(startupTask, "jvn-launcher-startup-checks");
     startupThread.setDaemon(true);
     startupThread.start();
@@ -144,7 +140,6 @@ public class JvnLauncherApp extends Application {
 
   private void finalizeStartupFailure(Stage stage,
                                       StartupSplashOverlay splash,
-                                      Path logoPath,
                                       Throwable startupFailure) {
     StartupFailure failure = startupFailure instanceof StartupFailure sf
         ? sf
@@ -159,15 +154,15 @@ public class JvnLauncherApp extends Application {
     splash.showFailure(
         failure.summary(),
         failure.detail(),
-        () -> launchStartupSequence(stage, splash, logoPath, true),
+        () -> launchStartupSequence(stage, splash, true),
         Platform::exit);
   }
 
-  private Task<File> createStartupTask(Path logoPath, StartupSplashOverlay splash) {
+  private Task<File> createStartupTask(StartupSplashOverlay splash) {
     return new Task<>() {
       @Override
       protected File call() {
-        final int totalChecks = 6;
+        final int totalChecks = 5;
         int step = 0;
         updateProgress(0, totalChecks);
 
@@ -179,14 +174,6 @@ public class JvnLauncherApp extends Application {
         }
         logSplash(splash, "OK", "Workspace", workspace.getAbsolutePath());
         updateMessage("Workspace root resolved");
-        advance(++step, totalChecks);
-
-        boolean logoOk = logoPath != null && Files.isRegularFile(logoPath) && Files.isReadable(logoPath);
-        logSplash(splash, logoOk ? "OK" : "WARN", "Branding",
-            logoOk
-                ? "Logo ready: " + logoPath.toAbsolutePath()
-                : "Logo not readable: " + (logoPath == null ? "<none>" : logoPath.toAbsolutePath()));
-        updateMessage(logoOk ? "Brand assets loaded" : "Brand assets unavailable");
         advance(++step, totalChecks);
 
         logSplash(splash, "OK", "Runtime",
@@ -305,29 +292,6 @@ public class JvnLauncherApp extends Application {
     setCurrentProject(resolveStartupProject(), false);
     refreshButtonState();
     statusLabel.setText("Workspace: " + displayPath(workspaceRoot));
-  }
-
-  private Path resolveStartupLogoPath() {
-    File root = resolveWorkspaceRoot();
-    if (root != null) {
-      Path candidate = root.toPath().resolve(STARTUP_LOGO_RELATIVE_PATH);
-      if (Files.isRegularFile(candidate)) return candidate;
-    }
-    Path cwdCandidate = Path.of(STARTUP_LOGO_RELATIVE_PATH);
-    if (Files.isRegularFile(cwdCandidate)) return cwdCandidate;
-    return extractClasspathStartupLogo();
-  }
-
-  private Path extractClasspathStartupLogo() {
-    try (var in = EditorApp.class.getResourceAsStream(STARTUP_LOGO_CLASSPATH_RESOURCE)) {
-      if (in == null) return null;
-      Path temp = Files.createTempFile("jvn-launcher-logo-", ".png");
-      temp.toFile().deleteOnExit();
-      Files.write(temp, in.readAllBytes());
-      return temp;
-    } catch (Exception ignored) {
-      return null;
-    }
   }
 
   private static String startupLogLine(String level, String category, String detail) {

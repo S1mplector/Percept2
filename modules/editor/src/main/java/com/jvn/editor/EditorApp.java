@@ -255,8 +255,6 @@ public class EditorApp extends Application {
   private static final String DEFAULT_TIMELINE_PATH = "config/timeline/story.timeline";
   private static final String LEGACY_TIMELINE_PATH = "story/story.timeline";
   private static final String LEGACY_TIMELINE_ROOT_PATH = "story.timeline";
-  private static final String STARTUP_LOGO_RELATIVE_PATH = "docs/assets/images/jvn_logo.png";
-  private static final String STARTUP_LOGO_CLASSPATH_RESOURCE = "/com/jvn/editor/images/jvn_logo.png";
   private static final long MIN_STARTUP_SPLASH_MS = 900L;
   private static final long STARTUP_STEP_DELAY_MS = 170L;
   private static final DateTimeFormatter STARTUP_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
@@ -814,15 +812,13 @@ public class EditorApp extends Application {
   @Override
   public void start(Stage primaryStage) {
     EditorCrashSupport.installProcessHandler();
-    Path logoPath = resolveStartupLogoPath();
-    StartupSplashOverlay splash = new StartupSplashOverlay(logoPath);
+    StartupSplashOverlay splash = new StartupSplashOverlay();
     splash.show();
-    launchStartupSequence(primaryStage, splash, logoPath, false);
+    launchStartupSequence(primaryStage, splash, false);
   }
 
   private void launchStartupSequence(Stage primaryStage,
                                      StartupSplashOverlay splash,
-                                     Path logoPath,
                                      boolean clearLogs) {
     splash.prepareForChecks(clearLogs);
     splash.setProgress(0.0);
@@ -831,7 +827,7 @@ public class EditorApp extends Application {
         clearLogs ? "Retrying preflight checks" : "Launching preflight checks"));
 
     long splashShownNs = System.nanoTime();
-    Task<Void> startupTask = createStartupHealthCheckTask(logoPath, splash);
+    Task<Void> startupTask = createStartupHealthCheckTask(splash);
     startupTask.messageProperty().addListener((o, ov, nv) -> {
       if (nv == null || nv.isBlank()) return;
       splash.setStatus(nv);
@@ -841,7 +837,7 @@ public class EditorApp extends Application {
       splash.setProgress(progress);
     });
     startupTask.setOnSucceeded(e -> finalizeStartupSuccess(primaryStage, splash, splashShownNs));
-    startupTask.setOnFailed(e -> finalizeStartupFailure(primaryStage, splash, logoPath, startupTask.getException()));
+    startupTask.setOnFailed(e -> finalizeStartupFailure(primaryStage, splash, startupTask.getException()));
     Thread startupThread = new Thread(startupTask, "jvn-editor-startup-checks");
     startupThread.setDaemon(true);
     startupThread.start();
@@ -873,7 +869,6 @@ public class EditorApp extends Application {
 
   private void finalizeStartupFailure(Stage primaryStage,
                                       StartupSplashOverlay splash,
-                                      Path logoPath,
                                       Throwable startupFailure) {
     StartupFailure failure = startupFailure instanceof StartupFailure sf
         ? sf
@@ -888,15 +883,15 @@ public class EditorApp extends Application {
     splash.showFailure(
         failure.summary(),
         failure.detail(),
-        () -> launchStartupSequence(primaryStage, splash, logoPath, true),
+        () -> launchStartupSequence(primaryStage, splash, true),
         Platform::exit);
   }
 
-  private Task<Void> createStartupHealthCheckTask(Path logoPath, StartupSplashOverlay splash) {
+  private Task<Void> createStartupHealthCheckTask(StartupSplashOverlay splash) {
     return new Task<>() {
       @Override
       protected Void call() {
-        final int totalChecks = 11;
+        final int totalChecks = 10;
         int step = 0;
         updateProgress(0, totalChecks);
 
@@ -908,14 +903,6 @@ public class EditorApp extends Application {
         }
         logSplash(splash, "OK", "Workspace", workspace.getAbsolutePath());
         updateMessage("Workspace root resolved");
-        advance(++step, totalChecks);
-
-        boolean logoOk = logoPath != null && Files.isRegularFile(logoPath) && Files.isReadable(logoPath);
-        logSplash(splash, logoOk ? "OK" : "WARN", "Branding",
-            logoOk
-                ? "Logo ready: " + logoPath.toAbsolutePath()
-                : "Logo not readable: " + (logoPath == null ? "<none>" : logoPath.toAbsolutePath()));
-        updateMessage(logoOk ? "Brand assets loaded" : "Brand assets unavailable");
         advance(++step, totalChecks);
 
         Path stateDir = workspace.toPath().resolve(".jvn");
@@ -1012,29 +999,6 @@ public class EditorApp extends Application {
         }
       }
     };
-  }
-
-  private Path resolveStartupLogoPath() {
-    File workspaceRoot = resolveWorkspaceRoot();
-    if (workspaceRoot != null) {
-      Path candidate = workspaceRoot.toPath().resolve(STARTUP_LOGO_RELATIVE_PATH);
-      if (Files.isRegularFile(candidate)) return candidate;
-    }
-    Path cwdCandidate = Path.of(STARTUP_LOGO_RELATIVE_PATH);
-    if (Files.isRegularFile(cwdCandidate)) return cwdCandidate;
-    return extractClasspathStartupLogo();
-  }
-
-  private Path extractClasspathStartupLogo() {
-    try (var in = EditorApp.class.getResourceAsStream(STARTUP_LOGO_CLASSPATH_RESOURCE)) {
-      if (in == null) return null;
-      Path temp = Files.createTempFile("jvn-startup-logo-", ".png");
-      temp.toFile().deleteOnExit();
-      Files.write(temp, in.readAllBytes());
-      return temp;
-    } catch (Exception ignored) {
-      return null;
-    }
   }
 
   private static String startupLogLine(String level, String category, String detail) {
