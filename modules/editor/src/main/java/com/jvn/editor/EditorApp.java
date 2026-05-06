@@ -3715,12 +3715,85 @@ public class EditorApp extends Application {
 
   private void installEmptySidebarAutoClose(TabPane pane) {
     if (pane == null) return;
-    pane.getTabs().addListener((javafx.collections.ListChangeListener<Tab>) change ->
-        scheduleEmptySidebarAutoClose(pane));
+    pane.getTabs().addListener((javafx.collections.ListChangeListener<Tab>) change -> {
+      boolean removedSidebarToolTab = false;
+      while (change.next()) {
+        if (!change.wasRemoved()) continue;
+        for (Tab removed : change.getRemoved()) {
+          if (isSidebarToolTab(pane, removed)) {
+            removedSidebarToolTab = true;
+            break;
+          }
+        }
+      }
+      if (removedSidebarToolTab) {
+        handleSidebarToolTabRemoved(pane);
+      } else {
+        scheduleEmptySidebarAutoClose(pane);
+      }
+    });
     pane.getSelectionModel().selectedItemProperty().addListener((o, ov, nv) ->
         scheduleEmptySidebarAutoClose(pane));
     pane.sceneProperty().addListener((o, ov, nv) -> scheduleEmptySidebarAutoClose(pane));
     Platform.runLater(() -> scheduleEmptySidebarAutoClose(pane));
+  }
+
+  private void handleSidebarToolTabRemoved(TabPane pane) {
+    if (pane == null) return;
+    refreshOpenPanelChooserIndicators(pane);
+    if (shouldAutoCloseEmptySidebar(pane)) {
+      playSidebarTabCloseSettle(pane, true);
+      PauseTransition delay = emptySidebarDelayFor(pane);
+      if (delay == null) return;
+      delay.stop();
+      delay.setDuration(SIDEBAR_EMPTY_AFTER_TAB_CLOSE_DELAY);
+      delay.setOnFinished(e -> animateCloseEmptySidebar(pane));
+      delay.playFromStart();
+      return;
+    }
+    playSidebarTabCloseSettle(pane, false);
+    scheduleEmptySidebarAutoClose(pane);
+  }
+
+  private boolean isSidebarToolTab(TabPane pane, Tab tab) {
+    if (pane == null || tab == null) return false;
+    if (tab == getAddTabForPane(pane)) return false;
+    return !PANEL_CHOOSER_TAB_ROLE.equals(tab.getProperties().get(PANEL_CHOOSER_TAB_ROLE));
+  }
+
+  private void playSidebarTabCloseSettle(TabPane pane, boolean emptied) {
+    StackPane shell = pane == leftTabs ? leftSidebarShell : pane == rightTabs ? rightSidebarShell : null;
+    if (shell == null || shell.getScene() == null || isSidebarCollapsed(pane)) return;
+
+    Object existing = shell.getProperties().get(SIDEBAR_TAB_CLOSE_ANIMATION_KEY);
+    if (existing instanceof Timeline timeline) {
+      timeline.stop();
+    }
+
+    double direction = pane == leftTabs ? -1.0 : 1.0;
+    double startOpacity = emptied ? 0.88 : 0.82;
+    double startTranslate = emptied ? direction * 4.0 : direction * 8.0;
+    shell.setOpacity(startOpacity);
+    shell.setTranslateX(startTranslate);
+
+    Timeline settle = new Timeline(
+        new KeyFrame(Duration.ZERO,
+            new KeyValue(shell.opacityProperty(), startOpacity, Interpolator.EASE_OUT),
+            new KeyValue(shell.translateXProperty(), startTranslate, Interpolator.EASE_OUT)),
+        new KeyFrame(SIDEBAR_TAB_CLOSE_SETTLE_DURATION,
+            new KeyValue(shell.opacityProperty(), 1.0, Interpolator.EASE_BOTH),
+            new KeyValue(shell.translateXProperty(), 0.0, Interpolator.EASE_BOTH)));
+    shell.getProperties().put(SIDEBAR_TAB_CLOSE_ANIMATION_KEY, settle);
+    settle.setOnFinished(e -> {
+      if (shell.getProperties().get(SIDEBAR_TAB_CLOSE_ANIMATION_KEY) == settle) {
+        shell.getProperties().remove(SIDEBAR_TAB_CLOSE_ANIMATION_KEY);
+      }
+      if (!isSidebarCollapsed(pane)) {
+        shell.setOpacity(1.0);
+      }
+      shell.setTranslateX(0.0);
+    });
+    settle.play();
   }
 
   private void scheduleEmptySidebarAutoClose(TabPane pane) {
