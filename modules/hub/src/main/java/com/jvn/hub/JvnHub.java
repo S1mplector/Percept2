@@ -18,6 +18,7 @@ import java.awt.RenderingHints;
 import java.awt.Shape;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.awt.font.GlyphVector;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Arc2D;
 import java.awt.geom.Ellipse2D;
@@ -218,16 +219,12 @@ public final class JvnHub {
     JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
     left.setOpaque(false);
 
-    JLabel logoLabel = new JLabel(new JvnLogoIcon(96, 56));
+    JLabel logoLabel = new JLabel(new JvnLogoIcon(124, 66));
     left.add(logoLabel);
 
-    JLabel title = new JLabel("Java Vector Nexus");
+    JLabel title = new JLabel("Engine Hub");
     title.setForeground(TEXT_PRIMARY);
-    title.setFont(title.getFont().deriveFont(Font.BOLD, 20f));
-
-    JLabel subtitle = new JLabel("Engine Hub");
-    subtitle.setForeground(TEXT_MUTED);
-    subtitle.setFont(subtitle.getFont().deriveFont(Font.PLAIN, 12f));
+    title.setFont(title.getFont().deriveFont(Font.BOLD, 16f));
 
     versionLabel.setText(formatVersionLabel(readDiskVersion()));
     versionLabel.setForeground(ACCENT_NEUTRAL);
@@ -237,11 +234,8 @@ public final class JvnHub {
     titleBox.setOpaque(false);
     titleBox.setLayout(new BoxLayout(titleBox, BoxLayout.Y_AXIS));
     title.setAlignmentX(Component.LEFT_ALIGNMENT);
-    subtitle.setAlignmentX(Component.LEFT_ALIGNMENT);
     versionLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
     titleBox.add(title);
-    titleBox.add(Box.createVerticalStrut(2));
-    titleBox.add(subtitle);
     titleBox.add(Box.createVerticalStrut(2));
     titleBox.add(versionLabel);
 
@@ -1966,8 +1960,13 @@ public final class JvnHub {
    */
   private static final class JvnLogoIcon implements Icon {
     private static final Color WORDMARK_TOP = Color.decode("#ffffff");
-    private static final Color WORDMARK_MID = Color.decode("#dedede");
-    private static final Color WORDMARK_BOTTOM = Color.decode("#9a9a9a");
+    private static final Color WORDMARK_HIGH = Color.decode("#cfd8df");
+    private static final Color WORDMARK_DARK = Color.decode("#7c8791");
+    private static final Color WORDMARK_FLASH = Color.decode("#f9fbfc");
+    private static final Color WORDMARK_MID = Color.decode("#9da8b2");
+    private static final Color WORDMARK_LOW = Color.decode("#eef3f7");
+    private static final Color WORDMARK_BOTTOM = Color.decode("#59636d");
+    private static final Color WORDMARK_EDGE = Color.decode("#15191f");
 
     private final int width;
     private final int height;
@@ -2000,28 +1999,40 @@ public final class JvnHub {
       g2.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
       g2.translate(x, y);
 
-      // "JVN" wordmark, vertically centered, with the editor's white-to-gray gradient.
-      int jvnSize = Math.max(14, Math.round(height * 0.78f));
+      int jvnSize = Math.max(18, Math.round(height * 0.80f));
       Font jvnFont = new Font(Font.SANS_SERIF, Font.BOLD, jvnSize);
       g2.setFont(jvnFont);
-      FontMetrics fm = g2.getFontMetrics();
       String jvn = "JVN";
-      int jvnW = fm.stringWidth(jvn);
-      int jvnX = (width - jvnW) / 2;
-      int textTop = (height - (fm.getAscent() + fm.getDescent())) / 2;
-      int jvnY = textTop + fm.getAscent();
+      GlyphVector glyphs = jvnFont.createGlyphVector(g2.getFontRenderContext(), jvn);
+      Rectangle bounds = glyphs.getPixelBounds(g2.getFontRenderContext(), 0, 0);
+      double tx = (width - bounds.getWidth()) / 2.0 - bounds.getX();
+      double ty = (height - bounds.getHeight()) / 2.0 - bounds.getY();
+      Shape wordmark = AffineTransform.getTranslateInstance(tx, ty).createTransformedShape(glyphs.getOutline());
+      Rectangle shapeBounds = wordmark.getBounds();
 
-      float top = jvnY - fm.getAscent();
-      float bottom = jvnY + fm.getDescent();
+      g2.setColor(new Color(0, 0, 0, 95));
+      g2.translate(0, Math.max(1, height * 0.05));
+      g2.fill(wordmark);
+      g2.translate(0, -Math.max(1, height * 0.05));
+
       LinearGradientPaint gradient = new LinearGradientPaint(
-          0f,
-          top,
-          0f,
-          bottom,
-          new float[] {0f, 0.42f, 1f},
-          new Color[] {WORDMARK_TOP, WORDMARK_MID, WORDMARK_BOTTOM});
+          0f, (float) shapeBounds.getMinY(),
+          0f, (float) shapeBounds.getMaxY(),
+          new float[] {0f, 0.14f, 0.27f, 0.42f, 0.58f, 0.76f, 1f},
+          new Color[] {
+              WORDMARK_TOP,
+              WORDMARK_HIGH,
+              WORDMARK_DARK,
+              WORDMARK_FLASH,
+              WORDMARK_MID,
+              WORDMARK_LOW,
+              WORDMARK_BOTTOM
+          });
+      g2.setStroke(new BasicStroke(Math.max(1.0f, height * 0.022f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+      g2.setColor(WORDMARK_EDGE);
+      g2.draw(wordmark);
       g2.setPaint(gradient);
-      g2.drawString(jvn, jvnX, jvnY);
+      g2.fill(wordmark);
 
       g2.dispose();
     }

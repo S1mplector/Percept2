@@ -14,15 +14,9 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
-import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
-import javafx.scene.paint.CycleMethod;
 import javafx.scene.paint.Color;
-import javafx.scene.paint.LinearGradient;
-import javafx.scene.paint.Stop;
 import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
-import javafx.scene.text.Text;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
@@ -55,20 +49,15 @@ public final class StartupSplashOverlay {
     root.setPadding(new Insets(16));
     root.setStyle("-fx-background-color: linear-gradient(to bottom, " + BG_TOP + ", " + BG_BOTTOM + ");");
 
-    Node logoView = createVectorLogo();
-
-    Label title = new Label("Java Vector Nexus");
-    title.setTextFill(Color.web("#e6ebf5"));
-    title.setFont(Font.font("System", 20));
-    title.setStyle("-fx-font-weight: 700;");
+    Node logoView = new MetallicJvnLogo(132, 70);
 
     subtitleLabel.setTextFill(Color.web("#9caac0"));
     subtitleLabel.setFont(Font.font("System", 12));
 
-    VBox titleBox = new VBox(2, title, subtitleLabel);
+    VBox titleBox = new VBox(2, logoView, subtitleLabel);
     titleBox.setAlignment(Pos.CENTER_LEFT);
 
-    HBox header = new HBox(12, logoView, titleBox);
+    HBox header = new HBox(titleBox);
     header.setAlignment(Pos.CENTER_LEFT);
     root.setTop(header);
 
@@ -270,29 +259,6 @@ public final class StartupSplashOverlay {
 
   private static Button createActionButton(String label) {
     return createActionButton(label, null, false);
-  }
-
-  private static Node createVectorLogo() {
-    Text wordmark = new Text("JVN");
-    wordmark.setFont(Font.font("System", FontWeight.BOLD, 42));
-    wordmark.setFill(new LinearGradient(
-        0,
-        0,
-        0,
-        1,
-        true,
-        CycleMethod.NO_CYCLE,
-        new Stop(0.0, Color.web("#ffffff")),
-        new Stop(0.42, Color.web("#dedede")),
-        new Stop(1.0, Color.web("#9a9a9a"))));
-    wordmark.setSmooth(true);
-
-    StackPane mark = new StackPane(wordmark);
-    mark.setMinSize(96, 72);
-    mark.setPrefSize(96, 72);
-    mark.setMaxSize(96, 72);
-    mark.setAlignment(Pos.CENTER);
-    return mark;
   }
 
   private static Button createActionButton(String label, Region icon, boolean accent) {

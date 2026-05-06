@@ -58,6 +58,7 @@ import com.jvn.editor.ui.LanguageDiagnostic;
 import com.jvn.editor.ui.LayoutEditorLauncherView;
 import com.jvn.editor.ui.LayoutStudioWindowManager;
 import com.jvn.editor.ui.MenuFlowEditorView;
+import com.jvn.editor.ui.MetallicJvnLogo;
 import com.jvn.editor.ui.NewProjectWizard;
 import com.jvn.editor.ui.ParticleFxToolView;
 import com.jvn.editor.ui.PhoneAssetsToolView;
@@ -1992,8 +1993,7 @@ public class EditorApp extends Application {
     menuVcs.setOnShowing(e -> refreshChrome.run());
     menuHelp.setOnShowing(e -> refreshChrome.run());
 
-    Label wordmark = new Label("JVN");
-    wordmark.getStyleClass().add("jvn-wordmark");
+    MetallicJvnLogo wordmark = new MetallicJvnLogo(126, 54);
     Label verLabel = new Label(buildInfo.versionLabel());
     verLabel.getStyleClass().add("jvn-wordmark-version");
     Label sourceLabel = new Label(buildInfo.sourceLabel());

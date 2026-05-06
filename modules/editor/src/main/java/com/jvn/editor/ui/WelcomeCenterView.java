@@ -74,6 +74,7 @@ public class WelcomeCenterView extends BorderPane {
   });
 
   private final Label headingLabel = new Label("Welcome to JVN Editor");
+  private final MetallicJvnLogo logoMark = new MetallicJvnLogo(118, 52);
   private final Label introLabel = new Label("Create, open, run, and inspect projects from one place.");
   private final Label versionLabel = new Label("Version: --");
   private final Label workspaceLabel = new Label("No workspace root configured.");
@@ -311,7 +312,7 @@ public class WelcomeCenterView extends BorderPane {
 
     Region headingSpacer = new Region();
     HBox.setHgrow(headingSpacer, Priority.ALWAYS);
-    HBox headingRow = new HBox(8, headingLabel, versionLabel, headingSpacer, btnSettings);
+    HBox headingRow = new HBox(10, logoMark, headingLabel, versionLabel, headingSpacer, btnSettings);
     headingRow.setAlignment(Pos.BASELINE_LEFT);
 
     VBox healthOverviewCard = buildHealthOverviewCard();
