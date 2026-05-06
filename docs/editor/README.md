@@ -10,7 +10,7 @@ Use this hub when your work is primarily inside the editor: opening projects, au
 - [Sidebar Utilities Overview](sidebars/overview/sidebar-utilities.md) — map of the editor's auxiliary tools
 - [Puppeteer Editor Guide](puppeteer/puppeteer-editor-guide.md) — visual animation authoring and timeline registration
 - [Scene Lighting Studio](sidebars/right/sidebar-image-tint-tool.md) — lighting, grading, setup export, and stage-preset handoff
-- [Help Center](core/help-center.md) — in-app docs browser and quick access routes
+- [Help Center](core/help-center.md) — in-app docs browser and guide tree routes
 
 ## Common Routes
 
@@ -55,6 +55,7 @@ Use this hub when your work is primarily inside the editor: opening projects, au
 - [Scene Graph View](core/scene-graph.md)
 - [Tilemap Editor](core/tilemap-editor.md)
 - [Puppeteer Design Notes](core/action-editor-design.md)
+- [Help Center Guide Tree](core/help-center-guide-tree.md)
 
 ### Sidebars
 

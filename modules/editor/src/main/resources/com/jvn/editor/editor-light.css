@@ -3369,6 +3369,18 @@
   -fx-text-fill: #101010;
 }
 
+.help-version-chip {
+  -fx-background-color: #dddddd;
+  -fx-border-color: #c4c4c4;
+  -fx-border-width: 1;
+  -fx-background-radius: 999;
+  -fx-border-radius: 999;
+  -fx-padding: 3 8 3 8;
+  -fx-font-size: 10px;
+  -fx-font-weight: 800;
+  -fx-text-fill: #2c2c2c;
+}
+
 .help-pane-subtitle {
   -fx-font-size: 12px;
   -fx-text-fill: #5a5a5a;
@@ -3404,6 +3416,16 @@
   -fx-border-width: 1;
   -fx-background-radius: 8;
   -fx-border-radius: 8;
+}
+
+.help-tree-toolbar {
+  -fx-padding: 2 0 2 0;
+}
+
+.help-toolbar-button-icon {
+  -fx-padding: 4 8 4 8;
+  -fx-font-size: 11px;
+  -fx-min-width: 26;
 }
 
 .help-doc-tree {
@@ -3458,6 +3480,28 @@
   -fx-text-fill: #373737;
 }
 
+.help-guide-folder-row {
+  -fx-padding: 0 0 0 10;
+}
+
+.help-guide-folder-title {
+  -fx-font-size: 12px;
+  -fx-font-weight: 800;
+  -fx-text-fill: #2a2a2a;
+}
+
+.help-guide-folder-count {
+  -fx-background-color: #dedede;
+  -fx-border-color: #c7c7c7;
+  -fx-border-width: 1;
+  -fx-background-radius: 999;
+  -fx-border-radius: 999;
+  -fx-padding: 2 7 2 7;
+  -fx-font-size: 10px;
+  -fx-font-weight: 700;
+  -fx-text-fill: #4a4a4a;
+}
+
 .help-doc-card {
   -fx-spacing: 1;
   -fx-padding: 1 0 1 0;
@@ -3499,6 +3543,30 @@
   -fx-font-size: 10px;
   -fx-font-weight: 700;
   -fx-text-fill: #303030;
+}
+
+.help-doc-source-mini {
+  -fx-background-color: #dedede;
+  -fx-border-color: #c7c7c7;
+  -fx-border-width: 1;
+  -fx-background-radius: 999;
+  -fx-border-radius: 999;
+  -fx-padding: 1 6 1 6;
+  -fx-font-size: 9px;
+  -fx-font-weight: 800;
+  -fx-text-fill: #555555;
+}
+
+.help-heading-marker {
+  -fx-text-fill: #65758b;
+  -fx-font-size: 11px;
+  -fx-font-weight: 800;
+}
+
+.help-heading-title {
+  -fx-text-fill: #405066;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
 }
 
 .help-preview-pane {

@@ -439,7 +439,7 @@ public final class DocsScreenshotTool extends Application {
                 "full",
                 "help_center_ui_full.png",
                 "Help Center Overview",
-                "Guide tree, quick access, and markdown preview in one workspace.",
+                "Guide tree and markdown preview in one workspace.",
                 0,
                 1200,
                 0,
@@ -453,13 +453,13 @@ public final class DocsScreenshotTool extends Application {
                 "guide_tree",
                 "help_center_guide_tree.png",
                 "Guide Tree",
-                "Progressive documentation tree with onboarding-first sections and full Markdown coverage.",
+                "Progressive documentation tree with onboarding-first sections, topic folders, and heading anchors.",
                 8,
                 560,
                 0,
                 List.of(
-                    new Callout("Quick Access + Filter", 0.03, 0.02, 0.94, 0.22),
-                    new Callout("Sectioned Doc Tree", 0.03, 0.27, 0.94, 0.68)
+                    new Callout("Version + Filter", 0.03, 0.02, 0.94, 0.22),
+                    new Callout("Topic Guide Tree", 0.03, 0.27, 0.94, 0.68)
                 )
             ),
             new ShotSpec(

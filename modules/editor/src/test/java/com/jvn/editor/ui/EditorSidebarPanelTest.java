@@ -11,4 +11,10 @@ class EditorSidebarPanelTest {
     assertEquals("Diagnostics", EditorSidebarPanel.VNS_DIAGNOSTICS.displayName());
     assertEquals("1.1.1", EditorSidebarPanel.VNS_DIAGNOSTICS.version());
   }
+
+  @Test
+  void helpPanelVersionReflectsGuideTreeUpgrade() {
+    assertEquals("1.2.1", EditorSidebarPanel.HELP.version());
+    assertEquals("v1.2.1", EditorSidebarPanel.HELP.versionBadge());
+  }
 }

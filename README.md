@@ -400,7 +400,7 @@ Full documentation index: **`docs/INDEX.md`**
 - `docs/scripting/ui/layout/structure/menu-button-layouts.md` — per-button positional layouts, Bounds Studio
 - `docs/scripting/ui/layout/components/dialogue-layout.md` — textbox geometry, name box, choices, action buttons
 
-### Editor (23 sub-documents)
+### Editor (24 sub-documents)
 - `docs/editor/core/editor.md` — layout, editing modes, keyboard shortcuts
 - `docs/editor/core/settings.md` — editor and launcher preferences, run defaults, handoff, sidebar defaults
 - `docs/editor/puppeteer/puppeteer.md` — Puppeteer overview, architecture, data pipeline, JES/VNS relationship
@@ -420,10 +420,11 @@ Full documentation index: **`docs/INDEX.md`**
 - `docs/editor/sidebars/right/sidebar-image-attributes-tool.md` — attribute-based character image assembly, profiles
 - `docs/editor/sidebars/right/sidebar-image-tint-tool.md` — scene lighting, grading, tint, and reactive character lights
 - `docs/editor/sidebars/right/sidebar-version-control.md` — Git panel: init, commit, push, pull, branch, stash, remote setup
-- `docs/editor/sidebars/right/sidebar-help-center.md` — in-app Markdown documentation browser, quick access, F1 shortcut
+- `docs/editor/sidebars/right/sidebar-help-center.md` — in-app Markdown documentation browser, guide tree, F1 shortcut
 - `docs/editor/core/action-editor-design.md` — architecture and component breakdown
 - `docs/editor/puppeteer/puppeteer-audit.md` — hardening audit and expansion roadmap
 - `docs/editor/core/help-center.md` — in-app documentation browser
+- `docs/editor/core/help-center-guide-tree.md` — Help sidebar guide tree taxonomy, topic folders, and heading-aware search
 
 ### Project Setup
 - `docs/project-setup/onboarding/new-project-wizard.md`

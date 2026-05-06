@@ -26,6 +26,7 @@ If you only need a quick answer:
 - Need lighting, grading, and stage presets: **Scene Lighting Studio**
 - Need menu navigation wiring: **Menu Flow Editor**
 - Need menu/layout editing entrypoints: **Layout Launcher**
+- Need in-editor docs lookup: **Help Center**
 
 ## Read This Next
 
@@ -54,7 +55,7 @@ If you only need a quick answer:
 | 13 | Image Attributes Tool | **[sidebar-image-attributes-tool.md](../right/sidebar-image-attributes-tool.md)** | Right | Attribute-based character image assembly |
 | 14 | Scene Lighting Studio | **[sidebar-image-tint-tool.md](../right/sidebar-image-tint-tool.md)** | Right | Scene lighting, grading, occlusion, and `.stagepreset` export for VNS/Puppeteer |
 | 15 | Version Control | **[sidebar-version-control.md](../right/sidebar-version-control.md)** | Right | Git operations: commit, push, pull, branch, stash |
-| 16 | Help Center | **[sidebar-help-center.md](../right/sidebar-help-center.md)** | Right | In-app documentation browser |
+| 16 | Help Center | **[sidebar-help-center.md](../right/sidebar-help-center.md)** | Right | In-app documentation browser with topic folders and heading-aware search |
 | 17 | Text Editor | **[sidebar-script-editor.md](../right/sidebar-script-editor.md)** | Right | JVN text file explorer, VNS label outline, include graph, pop-out editor window |
 
 ### Adding Panels
@@ -110,5 +111,6 @@ Several sidebar utilities persist their state in the project's `.jvn/` directory
 ## Related Docs
 
 - [Editor Guide](../../core/editor.md) — main editor layout, editing modes, keyboard shortcuts
+- [Help Center Guide Tree](../../core/help-center-guide-tree.md) — Help sidebar documentation taxonomy
 - [Puppeteer Editor Guide](../../puppeteer/puppeteer-editor-guide.md) — comprehensive Puppeteer usage
 - [Puppeteer JES DSL Reference](../../puppeteer/puppeteer-jes-dsl.md) — exported timeline code syntax

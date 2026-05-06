@@ -5,6 +5,8 @@ The editor ships with an in-app Help Center so teams can browse project/workspac
 Component:
 - `modules/editor/src/main/java/com/jvn/editor/ui/HelpCenterView.java`
 
+Current sidebar tool version: `v1.2.1`
+
 ## How to Open
 
 - Menu: `Help -> Help Center`
@@ -30,21 +32,40 @@ Docs are tagged by source (`Workspace` vs `Project`) in the guide tree.
 ## Core Features
 
 - live filter box (`Filter docs...`)
-- progressive guide tree with summaries, source chips, and full Markdown coverage
+- progressive guide tree with guide sections, topic folders, document nodes, and heading anchors
+- heading-aware search across title, path, source, summary, and level 2-4 headings
 - inline rendered Markdown preview pane
 - `Open in Editor` action for direct tab editing
 - `Reveal File` action in OS file manager
 - `Copy Path` action
-- quick-access buttons for common docs (`README`, `Overview`, `Editor`, `VNS`, `JES`, `Runtime`, `Menus`)
-- quick command copy buttons (`./jvnw build`, `./jvnw editor`, `./jvnw runtime`)
+- version chip in the guide tree header so the installed sidebar utility version is visible
 
 ## Typical Usage Pattern
 
 1. Press `F1`.
 2. Search by topic, file name, or path fragment.
-3. Read inline first.
-4. Open target doc into an editor tab when you need to update it.
-5. Refresh the index after adding/removing docs.
+3. Expand the topic folder or matching heading anchor.
+4. Read inline first.
+5. Open target doc into an editor tab when you need to update it.
+6. Refresh the index after adding/removing docs.
+
+## Guide Tree v1.2.1
+
+The `v1.2.1` tree groups docs by domain first, then by topic folder:
+
+- Start Here
+- Visual Novel Authoring
+- Gameplay And JES
+- Animation And Timelines
+- Menus And UI Layout
+- Editor And Tools
+- Runtime And Project Setup
+- Architecture And Internals
+- Guides And Recipes
+- Current Project Docs
+- Reference And Generated Docs
+
+See [Help Center Guide Tree](help-center-guide-tree.md) for the complete taxonomy and maintenance rules.
 
 ## Why It Matters in Team Environments
 
@@ -55,5 +76,6 @@ Docs are tagged by source (`Workspace` vs `Project`) in the guide tree.
 ## Maintenance Guidance
 
 - keep docs under `docs/` to maximize Help Center discoverability
-- keep top-level `README.md` current, since it is usually the first quick-access target
+- keep top-level `README.md` current, since it is usually the first indexed entry point
 - use clear file naming for searchable paths (`Runtime`, `Menu Profiles`, `Save System`, etc.)
+- use useful level 2 and level 3 headings because they become searchable tree anchors

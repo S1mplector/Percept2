@@ -82,6 +82,7 @@ This index is the main route through the Java Vector Nexus documentation. It is 
 - [Tilemap Editor](editor/core/tilemap-editor.md) - tile painting, layers, and tileset preview
 - [Puppeteer Design Notes](editor/core/action-editor-design.md) - current animation editor architecture and data flow
 - [Help Center](editor/core/help-center.md) - in-editor documentation browser
+- [Help Center Guide Tree](editor/core/help-center-guide-tree.md) - guide tree taxonomy, topic folders, and heading-aware search
 
 ### Puppeteer
 
@@ -108,7 +109,7 @@ This index is the main route through the Java Vector Nexus documentation. It is 
 - [Image Attributes Tool](editor/sidebars/right/sidebar-image-attributes-tool.md) - attribute-driven image assembly
 - [Scene Lighting Studio](editor/sidebars/right/sidebar-image-tint-tool.md) - lighting, grading, occlusion, setup, and stage-preset export
 - [Version Control](editor/sidebars/right/sidebar-version-control.md) - Git status, commit, push, pull, branch, stash
-- [Help Center Sidebar](editor/sidebars/right/sidebar-help-center.md) - sidebar docs browser
+- [Help Center Sidebar](editor/sidebars/right/sidebar-help-center.md) - sidebar docs browser with topic folders
 - [Text Editor](editor/sidebars/right/sidebar-script-editor.md) - text-file explorer, VNS outline, include graph
 
 ### Editor File Formats And Generated References

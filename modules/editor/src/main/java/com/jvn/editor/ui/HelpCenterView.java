@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -34,6 +35,8 @@ import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeView;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.ScrollEvent;
@@ -48,6 +51,7 @@ import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
 
 public class HelpCenterView extends BorderPane {
+  private static final String HELP_CENTER_VERSION = "1.2.1";
   private static final int TITLE_SCAN_LINE_LIMIT = 100;
   private static final int SUMMARY_SCAN_LINE_LIMIT = 140;
   private static final Pattern HEADING_LINE = Pattern.compile("^(#{1,6})\\s+(.*)$");
@@ -154,12 +158,12 @@ public class HelpCenterView extends BorderPane {
 
     Button expandAllButton = new Button("Expand");
     expandAllButton.getStyleClass().add("help-toolbar-button");
-    expandAllButton.setTooltip(new Tooltip("Expand all sections"));
+    expandAllButton.setTooltip(new Tooltip("Expand the guide tree"));
     expandAllButton.setOnAction(e -> setAllSectionsExpanded(true));
 
     Button collapseAllButton = new Button("Collapse");
     collapseAllButton.getStyleClass().add("help-toolbar-button");
-    collapseAllButton.setTooltip(new Tooltip("Collapse all sections"));
+    collapseAllButton.setTooltip(new Tooltip("Collapse guide sections and topic folders"));
     collapseAllButton.setOnAction(e -> setAllSectionsExpanded(false));
 
     Button refreshButton = new Button("Refresh");
@@ -178,10 +182,12 @@ public class HelpCenterView extends BorderPane {
 
     Label browserTitle = new Label("Guide Tree");
     browserTitle.getStyleClass().add("help-pane-title");
-    HBox browserTitleRow = new HBox(10, browserTitle);
+    Label versionChip = new Label("v" + HELP_CENTER_VERSION);
+    versionChip.getStyleClass().add("help-version-chip");
+    HBox browserTitleRow = new HBox(10, browserTitle, versionChip);
     browserTitleRow.setAlignment(Pos.CENTER_LEFT);
     Label browserSubtitle = new Label(
-        "Every Markdown doc is indexed here, but the tree starts with onboarding and then moves into scripting, animation, UI, runtime, and internals.");
+        "Topic folders keep docs in an onboarding-first order across scripting, animation, UI, runtime, tools, and internals.");
     browserSubtitle.getStyleClass().add("help-pane-subtitle");
     browserSubtitle.setWrapText(true);
 
@@ -218,6 +224,27 @@ public class HelpCenterView extends BorderPane {
           return;
         }
 
+        if (item.group()) {
+          Region folderIcon = CssIcon.folder("#d9ad64");
+          folderIcon.getStyleClass().add("help-doc-icon");
+          Label name = new Label(item.title());
+          name.getStyleClass().add("help-guide-folder-title");
+          name.setMaxWidth(Double.MAX_VALUE);
+          HBox.setHgrow(name, Priority.ALWAYS);
+          Label count = new Label(String.valueOf(item.documentCount()));
+          count.getStyleClass().add("help-guide-folder-count");
+          HBox row = new HBox(8, folderIcon, name, count);
+          row.setAlignment(Pos.CENTER_LEFT);
+          row.getStyleClass().add("help-guide-folder-row");
+          setGraphic(row);
+          if (item.subtitle() != null && !item.subtitle().isBlank()) {
+            setTooltip(buildTooltip(item.title(), item.subtitle()));
+          } else {
+            setTooltip(null);
+          }
+          return;
+        }
+
         if (item.isHeading()) {
           String indent = item.headingLevel() <= 2 ? "" : "  ";
           Label marker = new Label("§");
@@ -241,8 +268,11 @@ public class HelpCenterView extends BorderPane {
         name.getStyleClass().add("help-doc-title");
         name.setMaxWidth(Double.MAX_VALUE);
         HBox.setHgrow(name, Priority.ALWAYS);
+        Label source = new Label(entry.isWorkspaceDoc() ? "W" : "P");
+        source.getStyleClass().add("help-doc-source-mini");
+        source.setTooltip(new Tooltip(entry.sourceLabel() + " doc"));
 
-        HBox row = new HBox(8, docIcon, name);
+        HBox row = new HBox(8, docIcon, name, source);
         row.setAlignment(Pos.CENTER_LEFT);
         row.getStyleClass().add("help-doc-row");
         setGraphic(row);
@@ -252,7 +282,7 @@ public class HelpCenterView extends BorderPane {
     docsTree.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
       if (newVal == null || newVal.getValue() == null) return;
       HelpNode node = newVal.getValue();
-      if (node.section()) return;
+      if (node.section() || node.group()) return;
       DocEntry entry = node.doc();
       if (entry == null) return;
       if (node.isHeading()) {
@@ -305,7 +335,16 @@ public class HelpCenterView extends BorderPane {
     Button revealButton = new Button("Reveal File");
     revealButton.getStyleClass().add("help-toolbar-button");
     revealButton.setOnAction(e -> revealSelectedDoc());
-    HBox contentActions = new HBox(8, openButton, revealButton);
+    Button copyPathButton = new Button("Copy Path");
+    copyPathButton.getStyleClass().add("help-toolbar-button");
+    copyPathButton.setOnAction(e -> copySelectedDocPath());
+    javafx.beans.binding.BooleanBinding noDocSelected = javafx.beans.binding.Bindings.createBooleanBinding(
+        () -> selectedDocEntry() == null,
+        docsTree.getSelectionModel().selectedItemProperty());
+    openButton.disableProperty().bind(noDocSelected);
+    revealButton.disableProperty().bind(noDocSelected);
+    copyPathButton.disableProperty().bind(noDocSelected);
+    HBox contentActions = new HBox(8, openButton, revealButton, copyPathButton);
     contentActions.setAlignment(Pos.CENTER_LEFT);
 
     Text quickHint = new Text("Tip: press F1 from anywhere in the editor to jump back here.");
@@ -395,7 +434,8 @@ public class HelpCenterView extends BorderPane {
     String relative = relativize(base, file);
     String title = readTitle(file, fallbackTitle(file));
     String summary = readSummary(file);
-    DocEntry entry = new DocEntry(file, source, relative, title, summary, workspaceDoc);
+    List<HeadingInfo> headings = readHeadings(file);
+    DocEntry entry = new DocEntry(file, source, relative, title, summary, workspaceDoc, headings);
     docs.add(entry);
     if (workspaceDoc) {
       workspaceDocIndex.put(normalizePath(relative), entry);
@@ -412,28 +452,50 @@ public class HelpCenterView extends BorderPane {
 
     int visibleDocCount = 0;
     int visibleSectionCount = 0;
+    int visibleFolderCount = 0;
     for (GuideSection section : GUIDE_SECTIONS) {
-      List<DocEntry> docsForSection = new ArrayList<>();
+      Map<GuideBucket, List<FilteredDocEntry>> docsByBucket = new LinkedHashMap<>();
       for (DocEntry entry : allDocs) {
         if (classifySection(entry) != section) continue;
-        if (!matchesFilter(entry, filter)) continue;
-        docsForSection.add(entry);
+        FilteredDocEntry filteredDoc = filterDoc(entry, filter);
+        if (filteredDoc == null) continue;
+        GuideBucket bucket = classifyBucket(section, entry);
+        docsByBucket.computeIfAbsent(bucket, key -> new ArrayList<>()).add(filteredDoc);
       }
-      docsForSection.sort(this::compareDocs);
-      if (docsForSection.isEmpty()) continue;
+      if (docsByBucket.isEmpty()) continue;
 
-      TreeItem<HelpNode> sectionItem = new TreeItem<>(HelpNode.section(section, docsForSection.size()));
-      sectionItem.setExpanded(true);
-      for (DocEntry entry : docsForSection) {
-        TreeItem<HelpNode> docItem = new TreeItem<>(HelpNode.doc(entry));
-        List<HeadingInfo> headings = readHeadings(entry.file());
-        for (HeadingInfo h : headings) {
-          docItem.getChildren().add(new TreeItem<>(HelpNode.heading(entry, h.level(), h.text())));
+      int sectionDocCount = docsByBucket.values().stream().mapToInt(List::size).sum();
+      TreeItem<HelpNode> sectionItem = new TreeItem<>(HelpNode.section(section, sectionDocCount));
+      sectionItem.setExpanded(shouldExpandSection(section, filter));
+
+      List<Map.Entry<GuideBucket, List<FilteredDocEntry>>> bucketEntries = new ArrayList<>(docsByBucket.entrySet());
+      bucketEntries.sort(Comparator
+          .comparingInt((Map.Entry<GuideBucket, List<FilteredDocEntry>> e) -> e.getKey().rank())
+          .thenComparing(e -> e.getKey().title(), String.CASE_INSENSITIVE_ORDER));
+      boolean showBuckets = shouldShowBuckets(section, bucketEntries);
+      for (Map.Entry<GuideBucket, List<FilteredDocEntry>> bucketEntry : bucketEntries) {
+        GuideBucket bucket = bucketEntry.getKey();
+        List<FilteredDocEntry> docsForBucket = bucketEntry.getValue();
+        docsForBucket.sort((left, right) -> compareDocs(left.entry(), right.entry()));
+        TreeItem<HelpNode> parent = sectionItem;
+        if (showBuckets) {
+          TreeItem<HelpNode> bucketItem = new TreeItem<>(HelpNode.group(bucket, docsForBucket.size()));
+          bucketItem.setExpanded(shouldExpandBucket(bucket, filter));
+          sectionItem.getChildren().add(bucketItem);
+          parent = bucketItem;
+          visibleFolderCount++;
         }
-        docItem.setExpanded(false);
-        sectionItem.getChildren().add(docItem);
-        visibleDocNodes.put(canonicalPath(entry.file()), docItem);
-        visibleDocCount++;
+        for (FilteredDocEntry filteredDoc : docsForBucket) {
+          DocEntry entry = filteredDoc.entry();
+          TreeItem<HelpNode> docItem = new TreeItem<>(HelpNode.doc(entry));
+          for (HeadingInfo h : filteredDoc.visibleHeadings()) {
+            docItem.getChildren().add(new TreeItem<>(HelpNode.heading(entry, h.level(), h.text())));
+          }
+          docItem.setExpanded(!filter.isBlank() && !filteredDoc.visibleHeadings().isEmpty());
+          parent.getChildren().add(docItem);
+          visibleDocNodes.put(canonicalPath(entry.file()), docItem);
+          visibleDocCount++;
+        }
       }
       root.getChildren().add(sectionItem);
       visibleSectionCount++;
@@ -464,7 +526,8 @@ public class HelpCenterView extends BorderPane {
     }
 
     if (filter.isBlank()) {
-      statsLabel.setText("Showing " + visibleDocCount + " docs across " + visibleSectionCount + " guide sections");
+      statsLabel.setText("Showing " + visibleDocCount + " docs in " + visibleFolderCount
+          + " topic folders across " + visibleSectionCount + " guide sections");
     } else {
       statsLabel.setText("Showing " + visibleDocCount + " matching docs across " + visibleSectionCount
           + " sections • Indexed " + allDocs.size() + " total");
@@ -534,12 +597,21 @@ public class HelpCenterView extends BorderPane {
     }
   }
 
+  private void copySelectedDocPath() {
+    DocEntry entry = selectedDocEntry();
+    if (entry == null) return;
+    ClipboardContent content = new ClipboardContent();
+    content.putString(entry.file().getAbsolutePath());
+    Clipboard.getSystemClipboard().setContent(content);
+    statsLabel.setText("Copied path: " + entry.relativePath());
+  }
+
   private DocEntry selectedDocEntry() {
     return extractDocEntry(docsTree.getSelectionModel().getSelectedItem());
   }
 
   private DocEntry extractDocEntry(TreeItem<HelpNode> item) {
-    if (item == null || item.getValue() == null || item.getValue().section()) return null;
+    if (item == null || item.getValue() == null || item.getValue().doc() == null) return null;
     return item.getValue().doc();
   }
 
@@ -552,8 +624,17 @@ public class HelpCenterView extends BorderPane {
   private void setAllSectionsExpanded(boolean expanded) {
     TreeItem<HelpNode> root = docsTree.getRoot();
     if (root == null) return;
-    for (TreeItem<HelpNode> section : root.getChildren()) {
-      section.setExpanded(expanded);
+    root.setExpanded(true);
+    for (TreeItem<HelpNode> child : root.getChildren()) {
+      setExpandedRecursive(child, expanded);
+    }
+  }
+
+  private void setExpandedRecursive(TreeItem<HelpNode> item, boolean expanded) {
+    if (item == null) return;
+    item.setExpanded(expanded);
+    for (TreeItem<HelpNode> child : item.getChildren()) {
+      setExpandedRecursive(child, expanded);
     }
   }
 
@@ -621,7 +702,22 @@ public class HelpCenterView extends BorderPane {
     return false;
   }
 
-  private boolean matchesFilter(DocEntry entry, String filter) {
+  private FilteredDocEntry filterDoc(DocEntry entry, String filter) {
+    if (entry == null) return null;
+    if (filter == null || filter.isBlank()) {
+      return new FilteredDocEntry(entry, entry.headings());
+    }
+    boolean docMatches = matchesDocFields(entry, filter);
+    if (docMatches) {
+      return new FilteredDocEntry(entry, entry.headings());
+    }
+    List<HeadingInfo> visibleHeadings = entry.headings().stream()
+        .filter(h -> h.text().toLowerCase(Locale.ROOT).contains(filter))
+        .toList();
+    return visibleHeadings.isEmpty() ? null : new FilteredDocEntry(entry, visibleHeadings);
+  }
+
+  private boolean matchesDocFields(DocEntry entry, String filter) {
     if (filter == null || filter.isBlank()) return true;
     return entry.title().toLowerCase(Locale.ROOT).contains(filter)
         || entry.relativePath().toLowerCase(Locale.ROOT).contains(filter)
@@ -635,6 +731,14 @@ public class HelpCenterView extends BorderPane {
     File pr = normalizeDir(projectRoot);
     if (!entry.isWorkspaceDoc()) return SECTION_PROJECT;
     if (pr != null && !isSameDirectory(pr, ws) && isUnderDirectory(entry.file(), pr)) return SECTION_PROJECT;
+    return classifyWorkspaceSection(path);
+  }
+
+  static String guideSectionKeyForWorkspacePath(String rawRelativePath) {
+    return classifyWorkspaceSection(normalizeStaticPath(rawRelativePath)).key();
+  }
+
+  private static GuideSection classifyWorkspaceSection(String path) {
     if (path.equals("readme.md")
         || path.equals("docs/index.md")
         || path.equals("docs/readme.md")
@@ -644,15 +748,22 @@ public class HelpCenterView extends BorderPane {
         || path.equals("scripting/readme.md")) {
       return SECTION_START;
     }
+    if (path.startsWith("docs/guides/vns-by-example")
+        || path.equals("docs/guides/vns-by-example.md")
+        || path.startsWith("docs/scripting/vns/")) {
+      return SECTION_VNS;
+    }
+    if (path.startsWith("docs/guides/jes-by-example")
+        || path.equals("docs/guides/jes-by-example.md")
+        || path.startsWith("docs/scripting/jes/")) {
+      return SECTION_JES;
+    }
     if (path.contains("generated-")
         || path.endsWith("changelog.md")
         || path.endsWith("contributing.md")
-        || path.endsWith("puppeteer-audit.md")
         || path.equals("license.md")) {
       return SECTION_REFERENCE;
     }
-    if (path.startsWith("docs/scripting/vns/")) return SECTION_VNS;
-    if (path.startsWith("docs/scripting/jes/")) return SECTION_JES;
     if (path.startsWith("docs/editor/puppeteer/") || path.startsWith("docs/scripting/timeline/")) return SECTION_PUPPETEER;
     if (path.startsWith("docs/scripting/ui/")) return SECTION_UI;
     if (path.startsWith("docs/editor/") || path.startsWith("editor/")) return SECTION_EDITOR;
@@ -667,6 +778,158 @@ public class HelpCenterView extends BorderPane {
     }
     if (path.startsWith("docs/guides/")) return SECTION_GUIDES;
     return SECTION_REFERENCE;
+  }
+
+  private GuideBucket classifyBucket(GuideSection section, DocEntry entry) {
+    return guideBucketForPath(section.key(), entry.relativePath());
+  }
+
+  static GuideBucket guideBucketForPath(String sectionKey, String rawRelativePath) {
+    String path = normalizeStaticPath(rawRelativePath);
+    String key = sectionKey == null ? "" : sectionKey.trim().toLowerCase(Locale.ROOT);
+    return switch (key) {
+      case "start" -> startBucket(path);
+      case "vns" -> vnsBucket(path);
+      case "jes" -> jesBucket(path);
+      case "puppeteer" -> puppeteerBucket(path);
+      case "ui" -> uiBucket(path);
+      case "editor" -> editorBucket(path);
+      case "runtime" -> runtimeBucket(path);
+      case "architecture" -> architectureBucket(path);
+      case "guides" -> guidesBucket(path);
+      case "project" -> projectBucket(path);
+      default -> referenceBucket(path);
+    };
+  }
+
+  private static GuideBucket startBucket(String path) {
+    if (path.equals("readme.md") || path.equals("docs/index.md") || path.equals("docs/readme.md")) {
+      return bucket("overview", "Overview And Indexes", "Primary entry points and docs maps", 0);
+    }
+    if (path.contains("getting-started") || path.contains("choose-your-path") || path.contains("common-file-types")) {
+      return bucket("first-project", "First Project Path", "Setup, file orientation, and first-time choices", 10);
+    }
+    return bucket("start-more", "More Starting Points", "Other onboarding docs", 20);
+  }
+
+  private static GuideBucket vnsBucket(String path) {
+    if (path.contains("vns-by-example")) return bucket("examples", "VNS By Example", "Progressive story scripting lessons", 0);
+    if (path.contains("/overview/")) return bucket("overview", "VNS Overview", "Concepts and quick reference", 10);
+    if (path.contains("/language/")) return bucket("language", "Language Reference", "Directives, dialogue, choices, and variables", 20);
+    if (path.contains("/presentation/")) return bucket("presentation", "Presentation", "Characters, audio, transitions, and text effects", 30);
+    if (path.contains("/flow/")) return bucket("flow", "Flow Control", "Labels, jumps, calls, returns, and branching", 40);
+    if (path.contains("/runtime/")) return bucket("runtime", "Runtime Systems", "Save, rollback, localization, settings, and scene lifecycle", 50);
+    if (path.contains("/integration/")) return bucket("integration", "Integration", "VNS, JES, and Java bridge workflows", 60);
+    if (path.contains("/internals/")) return bucket("internals", "Parser Internals", "Parser and implementation notes", 70);
+    return bucket("vns-more", "Other VNS Docs", "Additional VNS material", 90);
+  }
+
+  private static GuideBucket jesBucket(String path) {
+    if (path.contains("jes-by-example")) return bucket("examples", "JES By Example", "Progressive gameplay scripting lessons", 0);
+    if (path.contains("/overview/")) return bucket("overview", "JES Overview", "Concepts and quick reference", 10);
+    if (path.contains("/scene/")) return bucket("scene", "Scenes And Components", "Entity structure and component properties", 20);
+    if (path.contains("/timeline/")) return bucket("timeline", "Timeline DSL", "Animation actions, cues, easing, and properties", 30);
+    if (path.contains("/systems/")) return bucket("systems", "Engine Systems", "Input, camera, physics, and tilemaps", 40);
+    if (path.contains("/gameplay/")) return bucket("gameplay", "Gameplay Modules", "AI, RPG, and UI widget helpers", 50);
+    if (path.contains("/integration/")) return bucket("integration", "Integration", "Bridge and Java hook workflows", 60);
+    if (path.contains("/internals/")) return bucket("internals", "Parser Internals", "Tokenizer, parser, AST, and validation notes", 70);
+    return bucket("jes-more", "Other JES Docs", "Additional JES material", 90);
+  }
+
+  private static GuideBucket puppeteerBucket(String path) {
+    if (path.startsWith("docs/editor/puppeteer/")) {
+      if (path.endsWith("puppeteer-audit.md")) {
+        return bucket("roadmap", "Roadmap And Audit", "Hardening notes and future work", 70);
+      }
+      return bucket("editor", "Puppeteer Editor", "Visual timeline authoring and exported DSL", 0);
+    }
+    if (path.contains("/overview/")) return bucket("overview", "Timeline Overview", "Timeline scripting concepts", 10);
+    if (path.contains("/animation/")) return bucket("animation", "Timeline Animation", "Runtime animation data, keyframes, and hand coding", 20);
+    if (path.contains("/story/")) return bucket("story", "Story Arcs", "Timeline story graph and arc validation", 30);
+    return bucket("timeline-more", "Other Timeline Docs", "Additional animation and timeline material", 90);
+  }
+
+  private static GuideBucket uiBucket(String path) {
+    if (path.contains("/menus/")) return bucket("menus", "Menu Profiles And Screens", "Menu files, actions, screens, and styles", 0);
+    if (path.contains("/workflow/")) return bucket("workflow", "Text-First Workflow", "Authoring loops and validation workflow", 10);
+    if (path.contains("/structure/")) return bucket("structure", "Layout Structure", "Layouts, registry, inheritance, and button placement", 20);
+    if (path.contains("/components/")) return bucket("components", "UI Components", "Dialogue, choices, textbox controls, and character framing", 30);
+    if (path.contains("/styling/")) return bucket("styling", "Styling", "Colors, fonts, assets, and themes", 40);
+    if (path.contains("/screens/")) return bucket("screens", "Built-In Screens", "Save, settings, help, and screen patterns", 50);
+    if (path.contains("/tooling/")) return bucket("tooling", "Tooling And Diagnostics", "Visual tools, scenarios, and validation", 60);
+    if (path.contains("/reference/")) return bucket("reference", "Reference", "DSL cookbooks and syntax reference", 70);
+    return bucket("ui-more", "Other UI Docs", "Additional UI material", 90);
+  }
+
+  private static GuideBucket editorBucket(String path) {
+    if (path.startsWith("docs/editor/core/")) return bucket("core", "Core Editor", "Workspace, hub, settings, console, and core windows", 0);
+    if (path.startsWith("docs/editor/sidebars/overview/")) return bucket("sidebars-overview", "Sidebar Overview", "Chooser and panel map", 10);
+    if (path.startsWith("docs/editor/sidebars/left/")) return bucket("left-sidebars", "Left Sidebar Tools", "Project and story navigation panels", 20);
+    if (path.startsWith("docs/editor/sidebars/right/")) return bucket("right-sidebars", "Right Sidebar Tools", "Inspector, help, assets, diagnostics, and utilities", 30);
+    if (path.startsWith("docs/editor/tools/")) return bucket("tools", "Editor File Tools", "Tool-specific file format docs", 40);
+    return bucket("editor-more", "Other Editor Docs", "Additional editor material", 90);
+  }
+
+  private static GuideBucket runtimeBucket(String path) {
+    if (path.startsWith("docs/runtime/core/")) return bucket("runtime-core", "Runtime Core", "Runtime entry points and interop", 0);
+    if (path.startsWith("docs/runtime/systems/")) return bucket("runtime-systems", "Runtime Systems", "Assets, audio, display, save, and VN settings", 10);
+    if (path.startsWith("docs/project-setup/onboarding/")) return bucket("onboarding", "Project Onboarding", "New project setup and structure", 20);
+    if (path.startsWith("docs/project-setup/content/")) return bucket("content", "Project Content", "Title screen, localization, and text effects", 30);
+    if (path.startsWith("docs/project-setup/collaboration/")) return bucket("collaboration", "Collaboration", "Version-control workflows", 40);
+    if (path.startsWith("docs/project-setup/release/")) return bucket("release", "Build And Release", "Packaging, deployment, and release tasks", 50);
+    return bucket("runtime-more", "Other Runtime Docs", "Additional runtime and setup material", 90);
+  }
+
+  private static GuideBucket architectureBucket(String path) {
+    if (path.startsWith("docs/architecture/core/")) return bucket("core", "Core Architecture", "Engine architecture and 2D systems", 0);
+    if (path.startsWith("docs/architecture/quality/")) return bucket("quality", "Quality And Debugging", "Performance, debugging, and quality notes", 10);
+    return bucket("modules", "Module Docs", "Module-local architecture notes", 50);
+  }
+
+  private static GuideBucket guidesBucket(String path) {
+    if (path.contains("cookbook")) return bucket("cookbooks", "Cookbooks", "Task-based recipes", 0);
+    if (path.contains("integration")) return bucket("integration", "Integration Guides", "Cross-system recipes", 10);
+    return bucket("general", "General Guides", "Project and workflow guides", 20);
+  }
+
+  private static GuideBucket projectBucket(String path) {
+    int slash = path.indexOf('/');
+    String top = slash > 0 ? path.substring(0, slash) : "root";
+    String title = top.equals("root") ? "Project Root" : toTitle(top);
+    return bucket("project-" + top, title, "Project-local documentation", 0);
+  }
+
+  private static GuideBucket referenceBucket(String path) {
+    if (path.contains("generated-")) return bucket("generated", "Generated References", "Generated screenshots and output docs", 0);
+    if (path.endsWith("-audit.md")) return bucket("audits", "Audits And Roadmaps", "Audit notes and roadmap material", 10);
+    return bucket("reference", "Other Reference", "Low-frequency reference material", 90);
+  }
+
+  private static GuideBucket bucket(String key, String title, String subtitle, int rank) {
+    return new GuideBucket(key, title, subtitle, rank);
+  }
+
+  private boolean shouldShowBuckets(
+      GuideSection section,
+      List<Map.Entry<GuideBucket, List<FilteredDocEntry>>> bucketEntries
+  ) {
+    if (section == SECTION_PROJECT) return true;
+    if (bucketEntries.size() > 1) return true;
+    return !bucketEntries.isEmpty() && bucketEntries.get(0).getValue().size() > 6;
+  }
+
+  private boolean shouldExpandSection(GuideSection section, String filter) {
+    if (filter != null && !filter.isBlank()) return true;
+    return section == SECTION_START
+        || section == SECTION_VNS
+        || section == SECTION_JES
+        || section == SECTION_PUPPETEER
+        || section == SECTION_EDITOR;
+  }
+
+  private boolean shouldExpandBucket(GuideBucket bucket, String filter) {
+    if (filter != null && !filter.isBlank()) return true;
+    return bucket != null && bucket.rank() <= 20;
   }
 
   private int compareDocs(DocEntry left, DocEntry right) {
@@ -709,10 +972,12 @@ public class HelpCenterView extends BorderPane {
 
   private TreeItem<HelpNode> firstDocNode(TreeItem<HelpNode> root) {
     if (root == null) return null;
-    for (TreeItem<HelpNode> section : root.getChildren()) {
-      for (TreeItem<HelpNode> child : section.getChildren()) {
-        if (extractDocEntry(child) != null) return child;
-      }
+    if (root.getValue() != null && root.getValue().isDoc()) {
+      return root;
+    }
+    for (TreeItem<HelpNode> child : root.getChildren()) {
+      TreeItem<HelpNode> found = firstDocNode(child);
+      if (found != null) return found;
     }
     return null;
   }
@@ -1459,32 +1724,85 @@ public class HelpCenterView extends BorderPane {
     return path.replace('\\', '/');
   }
 
+  private static String normalizeStaticPath(String path) {
+    if (path == null) return "";
+    return path.replace('\\', '/').trim().toLowerCase(Locale.ROOT);
+  }
+
+  private static String toTitle(String raw) {
+    if (raw == null || raw.isBlank()) return "Docs";
+    String[] parts = raw.replace('-', ' ').replace('_', ' ').split("\\s+");
+    StringBuilder title = new StringBuilder();
+    for (String part : parts) {
+      if (part.isBlank()) continue;
+      if (title.length() > 0) title.append(' ');
+      title.append(Character.toUpperCase(part.charAt(0)));
+      if (part.length() > 1) title.append(part.substring(1));
+    }
+    return title.length() == 0 ? "Docs" : title.toString();
+  }
+
   private record DocEntry(
       File file,
       String sourceLabel,
       String relativePath,
       String title,
       String summary,
-      boolean isWorkspaceDoc
+      boolean isWorkspaceDoc,
+      List<HeadingInfo> headings
   ) {}
 
-  private record GuideSection(String key, String title, String subtitle) {}
+  record GuideSection(String key, String title, String subtitle) {}
 
-  private record HelpNode(String title, String subtitle, DocEntry doc, boolean section, int documentCount, int headingLevel) {
+  record GuideBucket(String key, String title, String subtitle, int rank) {}
+
+  private record FilteredDocEntry(DocEntry entry, List<HeadingInfo> visibleHeadings) {}
+
+  private enum HelpNodeKind {
+    SECTION,
+    GROUP,
+    DOC,
+    HEADING
+  }
+
+  private record HelpNode(
+      String title,
+      String subtitle,
+      DocEntry doc,
+      HelpNodeKind kind,
+      int documentCount,
+      int headingLevel
+  ) {
     private static HelpNode section(GuideSection section, int documentCount) {
-      return new HelpNode(section.title(), section.subtitle(), null, true, documentCount, 0);
+      return new HelpNode(section.title(), section.subtitle(), null, HelpNodeKind.SECTION, documentCount, 0);
+    }
+
+    private static HelpNode group(GuideBucket bucket, int documentCount) {
+      return new HelpNode(bucket.title(), bucket.subtitle(), null, HelpNodeKind.GROUP, documentCount, 0);
     }
 
     private static HelpNode doc(DocEntry entry) {
-      return new HelpNode(entry.title(), entry.summary(), entry, false, 0, 0);
+      return new HelpNode(entry.title(), entry.summary(), entry, HelpNodeKind.DOC, 0, 0);
     }
 
     private static HelpNode heading(DocEntry parentDoc, int level, String text) {
-      return new HelpNode(text, null, parentDoc, false, 0, level);
+      return new HelpNode(text, null, parentDoc, HelpNodeKind.HEADING, 0, level);
+    }
+
+    boolean section() {
+      return kind == HelpNodeKind.SECTION;
+    }
+
+    boolean group() {
+      return kind == HelpNodeKind.GROUP;
+    }
+
+    boolean isDoc() {
+      return kind == HelpNodeKind.DOC;
     }
 
     boolean isHeading() {
-      return headingLevel > 0;
+      return kind == HelpNodeKind.HEADING;
     }
   }
 
