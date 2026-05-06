@@ -44,7 +44,8 @@ class NewProjectScaffoldTemplateWiringTest {
       "scripts/tutorial/13_camera_and_staging.vns",
       "scripts/tutorial/14_localization_and_textkeys.vns",
       "scripts/tutorial/15_ui_layout_and_theme.vns",
-      "scripts/tutorial/16_testing_and_release.vns");
+      "scripts/tutorial/16_testing_and_release.vns",
+      "scripts/tutorial/17_inline_java_in_vns.vns");
 
   private static final Map<String, String> TOKENS = buildTokens();
 
@@ -61,7 +62,7 @@ class NewProjectScaffoldTemplateWiringTest {
 
   @Test
   void tutorialTemplatesRenderWithoutUnresolvedTokens() throws Exception {
-    assertEquals(16, TUTORIAL_TEMPLATE_PATHS.size(), "Tutorial template inventory changed");
+    assertEquals(17, TUTORIAL_TEMPLATE_PATHS.size(), "Tutorial template inventory changed");
     for (String path : TUTORIAL_TEMPLATE_PATHS) {
       String rendered = render(path);
       assertFalse(
@@ -102,13 +103,14 @@ class NewProjectScaffoldTemplateWiringTest {
   }
 
   @Test
-  void tutorialHubStillRoutesToAllSixteenLessons() throws Exception {
+  void tutorialHubStillRoutesToAllSeventeenLessons() throws Exception {
     String hub = render("scripts/story/tutorial_hub.vns");
     List<String> expectedTargets = List.of(
         "T01_Dialogue", "T02_Narration", "T03_Expressions", "T04_Images",
         "T05_Transitions", "T06_Audio", "T07_Variables", "T08_Movement",
         "T09_Puppeteer", "T10_Menus", "T11_Subroutines", "T12_BestPractices",
-        "T13_Camera", "T14_Localization", "T15_UILayout", "T16_TestingRelease");
+        "T13_Camera", "T14_Localization", "T15_UILayout", "T16_TestingRelease",
+        "T17_InlineJava");
     for (String target : expectedTargets) {
       assertTrue(hub.contains("[goto " + target + ":start]"), "Missing hub route for " + target);
     }
@@ -181,6 +183,7 @@ class NewProjectScaffoldTemplateWiringTest {
     tokens.put("LOCALIZATION_TARGET", "T14_Localization");
     tokens.put("UI_LAYOUT_TARGET", "T15_UILayout");
     tokens.put("TESTING_RELEASE_TARGET", "T16_TestingRelease");
+    tokens.put("INLINE_JAVA_TARGET", "T17_InlineJava");
     tokens.put("HUB_TARGET", "TutorialHub");
     tokens.put("CHARACTERS_SCRIPT_PATH", "scripts/definitions/characters.vns");
     tokens.put("BG_CROSSFADE", "[transition crossfade 600 field_evening]\n");

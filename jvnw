@@ -187,22 +187,18 @@ for arg in "${input_args[@]}"; do
         ;;
       build)
         alias_label="build"
-        prefer_configuration_cache=1
         forwarded_args+=("build")
         ;;
       ci)
         alias_label="ci"
-        prefer_configuration_cache=1
         forwarded_args+=("ci")
         ;;
       test)
         alias_label="test"
-        prefer_configuration_cache=1
         forwarded_args+=("test")
         ;;
       check)
         alias_label="check"
-        prefer_configuration_cache=1
         forwarded_args+=("check")
         ;;
       clean)
