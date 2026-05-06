@@ -46,8 +46,8 @@ public class InMemoryJavaCompiler {
 
   private static final Map<String, Map<String, Class<?>>> CLASS_CACHE = new ConcurrentHashMap<>();
 
-  // Number of preamble lines inserted before user code (for line remapping)
-  private static final int INLINE_PREAMBLE_LINES = 6;
+  // Per-class preamble line counts for accurate line remapping at both compile and runtime
+  private static final Map<String, Integer> PREAMBLE_LINES = new ConcurrentHashMap<>();
 
   /**
    * Execute an inline Java block with full context support.
@@ -62,17 +62,23 @@ public class InMemoryJavaCompiler {
     String scope = ctx.scenarioId != null ? ctx.scenarioId : "_global_";
     Map<String, Class<?>> scopeCache = CLASS_CACHE.computeIfAbsent(scope, k -> new ConcurrentHashMap<>());
     Class<?> clazz = scopeCache.get(className);
+    int preamble = computeInlinePreambleLines(ctx);
 
     if (clazz == null) {
       String source = generateInlineSource(className, ctx);
-      clazz = compileClass(className, source, ctx.scenarioId, ctx.sourceLine, ctx.sourceName);
+      clazz = compileClass(className, source, ctx.scenarioId, ctx.sourceLine, ctx.sourceName, preamble);
       scopeCache.put(className, clazz);
     }
 
     // Bind Vn facade and execute
+    String fqn = "com.jvn.core.vn.dynamic." + className;
     Vn.bind(scene);
     try {
       clazz.getMethod("execute", VnScene.class).invoke(null, scene);
+    } catch (java.lang.reflect.InvocationTargetException ite) {
+      Throwable cause = ite.getCause() != null ? ite.getCause() : ite;
+      int remappedLine = remapRuntimeLine(cause, fqn, preamble, ctx.sourceLine);
+      throw new JavaRuntimeException(cause, ctx.sourceName, remappedLine);
     } finally {
       Vn.unbind();
     }
@@ -91,7 +97,8 @@ public class InMemoryJavaCompiler {
     if (scopeCache.containsKey(cacheKey)) return; // already compiled
 
     String source = generateInitSource(fullClassName, userCode, imports);
-    Class<?> clazz = compileClass(fullClassName, source, scenarioId, sourceLine, sourceName);
+    int preamble = 3 + imports.size() + 1; // package + default imports + user imports + class decl
+    Class<?> clazz = compileClass(fullClassName, source, scenarioId, sourceLine, sourceName, preamble);
     scopeCache.put(cacheKey, clazz);
 
     // Register in context loader for this scenario
@@ -111,7 +118,8 @@ public class InMemoryJavaCompiler {
     if (scopeCache.containsKey(cacheKey)) return;
 
     String source = generateUserClassSource(fullClassName, userCode, imports);
-    Class<?> clazz = compileClass(fullClassName, source, scenarioId, sourceLine, sourceName);
+    int preamble = 3 + imports.size() + 1; // package + default imports + user imports + class decl
+    Class<?> clazz = compileClass(fullClassName, source, scenarioId, sourceLine, sourceName, preamble);
     scopeCache.put(cacheKey, clazz);
     registerContextClass(scenarioId, fullClassName, clazz);
   }
@@ -210,9 +218,18 @@ public class InMemoryJavaCompiler {
 
   // ─── Compilation ──────────────────────────────────────────────────
 
+  /**
+   * Compute the number of generated preamble lines before user code in an inline block.
+   * This must stay in sync with {@link #generateInlineSource}.
+   */
+  public static int computeInlinePreambleLines(ExecutionContext ctx) {
+    // package + 2 default imports + user imports + class decl + method decl + state decl + bind reads
+    return 6 + ctx.imports.size() + ctx.binds.size();
+  }
+
   private static Class<?> compileClass(String className, String sourceCode,
                                         String scenarioId, int scriptSourceLine,
-                                        String sourceName) throws Exception {
+                                        String sourceName, int preambleLines) throws Exception {
     JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
     if (compiler == null) {
       throw new IllegalStateException("No JavaCompiler available. Ensure you are running on a JDK, not a JRE.");
@@ -235,7 +252,7 @@ public class InMemoryJavaCompiler {
       for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics()) {
         long line = diagnostic.getLineNumber();
         // Remap line numbers: subtract preamble, add script source offset
-        long remapped = line - INLINE_PREAMBLE_LINES + scriptSourceLine;
+        long remapped = line - preambleLines + scriptSourceLine;
         if (remapped < scriptSourceLine) remapped = line; // fallback
         if (primaryLine < 0 && diagnostic.getKind() == Diagnostic.Kind.ERROR) {
           primaryLine = (int) remapped;
@@ -246,8 +263,27 @@ public class InMemoryJavaCompiler {
       throw new JavaCompilationException(errorMsg.toString(), sourceName, primaryLine > 0 ? primaryLine : scriptSourceLine);
     }
 
+    // Store preamble for runtime line remapping
+    String fqn = "com.jvn.core.vn.dynamic." + className;
+    PREAMBLE_LINES.put(fqn, preambleLines);
+
     registerContextClassBytes(scenarioId, fileManager.compiledBytes());
-    return fileManager.getClassLoader(null).loadClass("com.jvn.core.vn.dynamic." + className);
+    return fileManager.getClassLoader(null).loadClass(fqn);
+  }
+
+  /**
+   * Remap a runtime exception's stack trace line back to the VNS source line.
+   * Scans the exception's stack for a frame in the generated class and adjusts.
+   */
+  public static int remapRuntimeLine(Throwable cause, String generatedClassName, int preambleLines, int scriptSourceLine) {
+    if (cause == null) return scriptSourceLine;
+    for (StackTraceElement frame : cause.getStackTrace()) {
+      if (generatedClassName.equals(frame.getClassName()) && frame.getLineNumber() > 0) {
+        long remapped = frame.getLineNumber() - preambleLines + scriptSourceLine;
+        return remapped >= scriptSourceLine ? (int) remapped : frame.getLineNumber();
+      }
+    }
+    return scriptSourceLine;
   }
 
   // ─── Context Registry (shared classes per scenario) ────────────────
@@ -365,6 +401,24 @@ public class InMemoryJavaCompiler {
   }
 
   /**
+   * Exception carrying structured runtime error info for the error overlay.
+   * Wraps the original cause with remapped source location.
+   */
+  public static class JavaRuntimeException extends RuntimeException {
+    private final String sourceName;
+    private final int lineNumber;
+
+    public JavaRuntimeException(Throwable cause, String sourceName, int lineNumber) {
+      super(cause.getMessage(), cause);
+      this.sourceName = sourceName;
+      this.lineNumber = lineNumber;
+    }
+
+    public String getSourceName() { return sourceName; }
+    public int getLineNumber() { return lineNumber; }
+  }
+
+  /**
    * Exception carrying structured compilation diagnostics for the error overlay.
    */
   public static class JavaCompilationException extends RuntimeException {
@@ -394,7 +448,7 @@ public class InMemoryJavaCompiler {
       this.name = name;
     }
 
-    static BindDecl parse(String token) {
+    public static BindDecl parse(String token) {
       int colon = token.indexOf(':');
       if (colon < 0) return new BindDecl("Object", token);
       return new BindDecl(token.substring(0, colon), token.substring(colon + 1));

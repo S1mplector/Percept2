@@ -200,6 +200,10 @@ public final class Vn {
     state().setCurrentBackgroundId(backgroundId);
   }
 
+  public static String getBackground() {
+    return state().getCurrentBackgroundId();
+  }
+
   public static void jump(String label) {
     state().jumpToLabel(label);
   }
@@ -210,6 +214,70 @@ public final class Vn {
 
   public static void hud(String message, int durationMs) {
     state().showHudMessage(message, durationMs);
+  }
+
+  // --- Screen Effects ---
+
+  public static void screenShake(float intensity, long durationMs) {
+    state().triggerScreenShake(intensity, durationMs);
+  }
+
+  public static void flash(float r, float g, float b, float strength, long durationMs) {
+    state().triggerFlash(r, g, b, strength, durationMs);
+  }
+
+  public static void flash(long durationMs) {
+    state().triggerFlash(1f, 1f, 1f, 1f, durationMs);
+  }
+
+  // --- Character Queries ---
+
+  public static boolean isVisible(String characterId) {
+    return state().getCharacterPosition(characterId) != null;
+  }
+
+  public static String getExpression(String characterId) {
+    return state().getCharacterExpression(characterId);
+  }
+
+  public static com.jvn.core.vn.CharacterPosition getPosition(String characterId) {
+    return state().getCharacterPosition(characterId);
+  }
+
+  public static void clearCharacters() {
+    state().clearAllCharacters();
+  }
+
+  // --- UI Visibility ---
+
+  public static void hideUi() {
+    state().setUiHidden(true);
+  }
+
+  public static void showUi() {
+    state().setUiHidden(false);
+  }
+
+  public static void toggleUi() {
+    state().toggleUiHidden();
+  }
+
+  public static boolean isUiHidden() {
+    return state().isUiHidden();
+  }
+
+  // --- Scene State ---
+
+  public static boolean isComplete() {
+    return state().isScenarioComplete();
+  }
+
+  public static int nodeIndex() {
+    return state().getCurrentNodeIndex();
+  }
+
+  public static void wait(int durationMs) throws InterruptedException {
+    Thread.sleep(Math.max(0, durationMs));
   }
 
   // --- Utility ---
@@ -224,5 +292,9 @@ public final class Vn {
 
   public static void log(String message) {
     System.out.println("[VNS Java] " + message);
+  }
+
+  public static void log(String format, Object... args) {
+    System.out.println("[VNS Java] " + String.format(format, args));
   }
 }

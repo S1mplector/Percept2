@@ -21,7 +21,7 @@ import com.jvn.core.vn.ui.VnOverlayButtonSpec;
 import com.jvn.core.vn.ui.VnOverlayScreenSpec;
 
 /**
- * Basic interop implementation.
+ * Interoperability implementation.
  * Providers:
  *  - hud: show a temporary HUD message with the payload
  *  - java: invoke a static method using reflection, payload format:
@@ -152,6 +152,15 @@ public class DefaultVnInterop implements VnInterop {
       String msg = e.getMessage();
       if (msg == null || msg.length() > 120) msg = e.getClass().getSimpleName();
       scene.getState().showHudMessage("inline_java error: " + msg, 3000);
+      scene.setActiveError(VnErrorOverlay.compilationError(e.getSourceName(), e.getLineNumber(), msg));
+    } catch (com.jvn.core.vn.script.InMemoryJavaCompiler.JavaRuntimeException e) {
+      Throwable cause = e.getCause() != null ? e.getCause() : e;
+      String msg = cause.getClass().getSimpleName();
+      if (cause.getMessage() != null && !cause.getMessage().isBlank()) {
+        msg += ": " + cause.getMessage();
+      }
+      if (msg.length() > 120) msg = msg.substring(0, 120) + "…";
+      scene.getState().showHudMessage("inline_java runtime error: " + msg, 3000);
       scene.setActiveError(VnErrorOverlay.compilationError(e.getSourceName(), e.getLineNumber(), msg));
     } catch (Exception e) {
       String msg = e.getMessage();
