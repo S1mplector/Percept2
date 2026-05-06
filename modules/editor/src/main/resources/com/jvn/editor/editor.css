@@ -992,11 +992,32 @@
 }
 
 .project-explorer-tree {
-  -fx-background-color: #111111;
+  -fx-background-color:
+      radial-gradient(center 0% 100%, radius 86%, rgba(245, 197, 111, 0.14), rgba(245, 197, 111, 0.055) 31%, rgba(245, 197, 111, 0.0) 72%),
+      #111111;
   -fx-border-color: #2a2a2a;
   -fx-border-radius: 8;
   -fx-background-radius: 8;
   -fx-padding: 4;
+}
+
+.project-empty-state {
+  -fx-background-color: transparent;
+}
+
+.project-empty-icon {
+  -fx-min-width: 34px;
+  -fx-min-height: 34px;
+  -fx-pref-width: 34px;
+  -fx-pref-height: 34px;
+  -fx-max-width: 34px;
+  -fx-max-height: 34px;
+  -fx-opacity: 0.96;
+}
+
+.project-empty-copy {
+  -fx-text-fill: #999999;
+  -fx-text-alignment: center;
 }
 
 .project-explorer-tree .tree-cell {

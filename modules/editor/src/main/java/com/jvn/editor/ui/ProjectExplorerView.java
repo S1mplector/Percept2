@@ -44,14 +44,17 @@ public class ProjectExplorerView extends VBox {
     tree.setShowRoot(true);
     tree.getStyleClass().add("project-explorer-tree");
     
+    Region emptyIcon = CssIcon.prepare(new Region());
+    emptyIcon.getStyleClass().addAll("icon", "project-empty-icon", "icon-panel-project");
     Label emptyTitle = new Label("No project selected");
     emptyTitle.getStyleClass().add("sidebar-empty-title");
     Label emptyMessage = new Label("Open a project folder or create a new one to see files here.");
     emptyMessage.setWrapText(true);
-    emptyMessage.setStyle("-fx-text-fill: #999; -fx-text-alignment: center;");
-    emptyStateBox.getChildren().addAll(emptyTitle, emptyMessage);
+    emptyMessage.getStyleClass().add("project-empty-copy");
+    emptyStateBox.getChildren().addAll(emptyIcon, emptyTitle, emptyMessage);
     emptyStateBox.setAlignment(Pos.CENTER);
     emptyStateBox.setPadding(new Insets(16));
+    emptyStateBox.getStyleClass().add("project-empty-state");
     
     treeContainer.getChildren().add(emptyStateBox);
     VBox.setVgrow(treeContainer, Priority.ALWAYS);

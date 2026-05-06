@@ -942,11 +942,32 @@
 }
 
 .project-explorer-tree {
-  -fx-background-color: #f3f3f3;
+  -fx-background-color:
+      radial-gradient(center 0% 100%, radius 86%, rgba(184, 115, 36, 0.16), rgba(184, 115, 36, 0.055) 31%, rgba(184, 115, 36, 0.0) 72%),
+      #f3f3f3;
   -fx-border-color: #d5d5d5;
   -fx-border-radius: 8;
   -fx-background-radius: 8;
   -fx-padding: 4;
+}
+
+.project-empty-state {
+  -fx-background-color: transparent;
+}
+
+.project-empty-icon {
+  -fx-min-width: 34px;
+  -fx-min-height: 34px;
+  -fx-pref-width: 34px;
+  -fx-pref-height: 34px;
+  -fx-max-width: 34px;
+  -fx-max-height: 34px;
+  -fx-opacity: 0.96;
+}
+
+.project-empty-copy {
+  -fx-text-fill: #656565;
+  -fx-text-alignment: center;
 }
 
 .project-explorer-tree .tree-cell {

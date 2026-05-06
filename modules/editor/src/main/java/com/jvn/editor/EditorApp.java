@@ -194,6 +194,10 @@ public class EditorApp extends Application {
   private StackPane leftSidebarShell;
   private StackPane rightSidebarShell;
   private TabPane activeSidebarDragFrostPane;
+  private PauseTransition leftEmptySidebarAutoCloseDelay;
+  private PauseTransition rightEmptySidebarAutoCloseDelay;
+  private Timeline leftEmptySidebarCloseAnimation;
+  private Timeline rightEmptySidebarCloseAnimation;
   private boolean sidebarDragFrostSceneReleaseInstalled;
   private boolean editorFullscreen;
   private double[] savedCenterDividers;
@@ -265,6 +269,8 @@ public class EditorApp extends Application {
   private static final double SIDEBAR_DRAG_BLUR_RADIUS = 5.5;
   private static final double SIDEBAR_DRAG_FROST_OPACITY = 0.72;
   private static final Duration SIDEBAR_DRAG_FROST_DURATION = Duration.millis(135);
+  private static final Duration EMPTY_SIDEBAR_AUTO_CLOSE_DELAY = Duration.seconds(5);
+  private static final Duration EMPTY_SIDEBAR_CLOSE_DURATION = Duration.millis(520);
   private static final String SIDEBAR_DRAG_FROST_OVERLAY_KEY = "jvn.sidebarDragFrost.overlay";
   private static final String SIDEBAR_DRAG_FROST_BLUR_KEY = "jvn.sidebarDragFrost.blur";
   private static final String SIDEBAR_DRAG_FROST_BASE_EFFECT_KEY = "jvn.sidebarDragFrost.baseEffect";
@@ -2037,6 +2043,7 @@ public class EditorApp extends Application {
     rightTabs.getTabs().addAll(tabRightAdd);
     installAddTabBehavior(rightTabs, tabRightAdd, this::showRightAddMenu);
     rightTabs.setPrefWidth(360);
+    installEmptySidebarAutoClose(rightTabs);
     projView = new ProjectExplorerView();
     if (projectRoot != null) {
       projView.setRootDirectory(projectRoot);
@@ -2074,6 +2081,7 @@ public class EditorApp extends Application {
     installAddTabBehavior(leftTabs, tabLeftAdd, this::showLeftAddMenu);
     leftTabs.getSelectionModel().select(tabProject);
     leftTabs.setPrefWidth(300);
+    installEmptySidebarAutoClose(leftTabs);
     leftSidebarShell = createSidebarDragFrostShell(leftTabs, true);
     rightSidebarShell = createSidebarDragFrostShell(rightTabs, false);
     centerSplit = new SplitPane();
@@ -3408,13 +3416,17 @@ public class EditorApp extends Application {
       savedCenterDividers = new double[] { leftDivider, rightDivider };
     }
     refreshOpenPanelChooserIndicators();
+    scheduleEmptySidebarAutoClose(leftTabs);
+    scheduleEmptySidebarAutoClose(rightTabs);
   }
 
   private void detachConfiguredPanel(EditorSidebarPanel panel) {
     Tab tab = configuredPanelTab(panel);
     if (tab != null && tab.getTabPane() != null) {
+      TabPane pane = tab.getTabPane();
       tab.getTabPane().getTabs().remove(tab);
       refreshOpenPanelChooserIndicators();
+      scheduleEmptySidebarAutoClose(pane);
     }
   }
 
@@ -3679,9 +3691,179 @@ public class EditorApp extends Application {
     if (targetPane == rightTabs && firstRegularTab(rightTabs, tabRightAdd) != null && rightDivider >= 0.99) {
       rightDivider = 0.78;
     }
+    StackPane shell = targetPane == leftTabs ? leftSidebarShell : targetPane == rightTabs ? rightSidebarShell : null;
+    setEmptySidebarWidthCap(targetPane, false);
+    if (shell != null) shell.setOpacity(1.0);
     centerSplit.setDividerPositions(leftDivider, rightDivider);
     savedCenterDividers = new double[] { leftDivider, rightDivider };
     updateSidebarDividerHoverHints();
+    scheduleEmptySidebarAutoClose(targetPane);
+  }
+
+  private void installEmptySidebarAutoClose(TabPane pane) {
+    if (pane == null) return;
+    pane.getTabs().addListener((javafx.collections.ListChangeListener<Tab>) change ->
+        scheduleEmptySidebarAutoClose(pane));
+    pane.getSelectionModel().selectedItemProperty().addListener((o, ov, nv) ->
+        scheduleEmptySidebarAutoClose(pane));
+    pane.sceneProperty().addListener((o, ov, nv) -> scheduleEmptySidebarAutoClose(pane));
+    Platform.runLater(() -> scheduleEmptySidebarAutoClose(pane));
+  }
+
+  private void scheduleEmptySidebarAutoClose(TabPane pane) {
+    PauseTransition delay = emptySidebarDelayFor(pane);
+    if (delay == null) return;
+    delay.stop();
+    if (!shouldAutoCloseEmptySidebar(pane)) {
+      stopEmptySidebarCloseAnimation(pane);
+      return;
+    }
+    delay.setDuration(EMPTY_SIDEBAR_AUTO_CLOSE_DELAY);
+    delay.setOnFinished(e -> animateCloseEmptySidebar(pane));
+    delay.playFromStart();
+  }
+
+  private PauseTransition emptySidebarDelayFor(TabPane pane) {
+    if (pane == leftTabs) {
+      if (leftEmptySidebarAutoCloseDelay == null) {
+        leftEmptySidebarAutoCloseDelay = new PauseTransition(EMPTY_SIDEBAR_AUTO_CLOSE_DELAY);
+      }
+      return leftEmptySidebarAutoCloseDelay;
+    }
+    if (pane == rightTabs) {
+      if (rightEmptySidebarAutoCloseDelay == null) {
+        rightEmptySidebarAutoCloseDelay = new PauseTransition(EMPTY_SIDEBAR_AUTO_CLOSE_DELAY);
+      }
+      return rightEmptySidebarAutoCloseDelay;
+    }
+    return null;
+  }
+
+  private boolean shouldAutoCloseEmptySidebar(TabPane pane) {
+    if (pane == null || centerSplit == null || centerSplit.getDividers().size() < 2) return false;
+    if (hasSidebarToolTab(pane)) return false;
+    if (findPanelChooserTab(pane, pane == leftTabs) != null) return false;
+    if (pane == leftTabs) {
+      return centerSplit.getDividers().get(0).getPosition() > SIDEBAR_COLLAPSED_EPSILON;
+    }
+    if (pane == rightTabs) {
+      return centerSplit.getDividers().get(1).getPosition() < 1.0 - SIDEBAR_COLLAPSED_EPSILON;
+    }
+    return false;
+  }
+
+  private boolean hasSidebarToolTab(TabPane pane) {
+    if (pane == null) return false;
+    Tab addTab = getAddTabForPane(pane);
+    for (Tab tab : pane.getTabs()) {
+      if (tab == null || tab == addTab) continue;
+      if (PANEL_CHOOSER_TAB_ROLE.equals(tab.getProperties().get(PANEL_CHOOSER_TAB_ROLE))) continue;
+      return true;
+    }
+    return false;
+  }
+
+  private void animateCloseEmptySidebar(TabPane pane) {
+    if (!shouldAutoCloseEmptySidebar(pane) || centerSplit.getDividers().size() < 2) return;
+    Timeline existingAnimation = emptySidebarCloseAnimationFor(pane);
+    if (existingAnimation != null) {
+      existingAnimation.stop();
+    }
+
+    SplitPane.Divider divider = pane == leftTabs
+        ? centerSplit.getDividers().get(0)
+        : centerSplit.getDividers().get(1);
+    StackPane shell = pane == leftTabs ? leftSidebarShell : rightSidebarShell;
+    double target = pane == leftTabs ? 0.0 : 1.0;
+    setEmptySidebarWidthCap(pane, false);
+    if (shell != null) shell.setOpacity(1.0);
+
+    Timeline animation = shell == null
+        ? new Timeline(
+            new KeyFrame(Duration.ZERO,
+                new KeyValue(divider.positionProperty(), divider.getPosition(), Interpolator.EASE_BOTH)),
+            new KeyFrame(EMPTY_SIDEBAR_CLOSE_DURATION,
+                new KeyValue(divider.positionProperty(), target, Interpolator.EASE_BOTH)))
+        : new Timeline(
+            new KeyFrame(Duration.ZERO,
+                new KeyValue(divider.positionProperty(), divider.getPosition(), Interpolator.EASE_BOTH),
+                new KeyValue(shell.opacityProperty(), shell.getOpacity(), Interpolator.EASE_BOTH)),
+            new KeyFrame(EMPTY_SIDEBAR_CLOSE_DURATION,
+                new KeyValue(divider.positionProperty(), target, Interpolator.EASE_BOTH),
+                new KeyValue(shell.opacityProperty(), 0.0, Interpolator.EASE_BOTH)));
+    setEmptySidebarCloseAnimation(pane, animation);
+    animation.setOnFinished(e -> {
+      if (emptySidebarCloseAnimationFor(pane) == animation) {
+        setEmptySidebarCloseAnimation(pane, null);
+      }
+      if (pane == leftTabs) {
+        centerSplit.setDividerPositions(0.0, currentRightDividerPosition());
+      } else {
+        centerSplit.setDividerPositions(currentLeftDividerPosition(), 1.0);
+      }
+      if (shell != null) shell.setOpacity(1.0);
+      setEmptySidebarWidthCap(pane, true);
+      savedCenterDividers = centerSplit.getDividerPositions().clone();
+      updateSidebarDividerHoverHints();
+    });
+    animation.play();
+  }
+
+  private Timeline emptySidebarCloseAnimationFor(TabPane pane) {
+    if (pane == leftTabs) return leftEmptySidebarCloseAnimation;
+    if (pane == rightTabs) return rightEmptySidebarCloseAnimation;
+    return null;
+  }
+
+  private void setEmptySidebarCloseAnimation(TabPane pane, Timeline animation) {
+    if (pane == leftTabs) {
+      leftEmptySidebarCloseAnimation = animation;
+    } else if (pane == rightTabs) {
+      rightEmptySidebarCloseAnimation = animation;
+    }
+  }
+
+  private void stopEmptySidebarCloseAnimation(TabPane pane) {
+    Timeline animation = emptySidebarCloseAnimationFor(pane);
+    boolean stoppedAnimation = animation != null;
+    if (animation != null) {
+      animation.stop();
+      setEmptySidebarCloseAnimation(pane, null);
+    }
+    StackPane shell = pane == leftTabs ? leftSidebarShell : pane == rightTabs ? rightSidebarShell : null;
+    if (stoppedAnimation || !isSidebarCollapsed(pane)) {
+      setEmptySidebarWidthCap(pane, false);
+    }
+    if (shell != null) shell.setOpacity(1.0);
+  }
+
+  private boolean isSidebarCollapsed(TabPane pane) {
+    if (pane == null || centerSplit == null || centerSplit.getDividers().size() < 2) return false;
+    if (pane == leftTabs) {
+      return centerSplit.getDividers().get(0).getPosition() <= SIDEBAR_COLLAPSED_EPSILON;
+    }
+    if (pane == rightTabs) {
+      return centerSplit.getDividers().get(1).getPosition() >= 1.0 - SIDEBAR_COLLAPSED_EPSILON;
+    }
+    return false;
+  }
+
+  private void setEmptySidebarWidthCap(TabPane pane, boolean collapsed) {
+    StackPane shell = pane == leftTabs ? leftSidebarShell : pane == rightTabs ? rightSidebarShell : null;
+    if (shell == null || pane == null) return;
+    double max = collapsed ? 0.0 : Double.MAX_VALUE;
+    shell.setMaxWidth(max);
+    pane.setMaxWidth(max);
+  }
+
+  private double currentLeftDividerPosition() {
+    if (centerSplit == null || centerSplit.getDividers().isEmpty()) return 0.0;
+    return centerSplit.getDividers().get(0).getPosition();
+  }
+
+  private double currentRightDividerPosition() {
+    if (centerSplit == null || centerSplit.getDividers().size() < 2) return 1.0;
+    return centerSplit.getDividers().get(1).getPosition();
   }
 
   private StackPane createSidebarDragFrostShell(TabPane pane, boolean leftSide) {
@@ -3735,8 +3917,14 @@ public class EditorApp extends Application {
       installSidebarDragFrostHandlers(rightSidebarDividerNode, rightTabs);
       installSidebarDragFrostSceneReleaseHandler();
       if (centerSplit.getDividers().size() >= 2) {
-        centerSplit.getDividers().get(0).positionProperty().addListener((o, ov, nv) -> updateSidebarDividerHoverHints());
-        centerSplit.getDividers().get(1).positionProperty().addListener((o, ov, nv) -> updateSidebarDividerHoverHints());
+        centerSplit.getDividers().get(0).positionProperty().addListener((o, ov, nv) -> {
+          updateSidebarDividerHoverHints();
+          scheduleEmptySidebarAutoClose(leftTabs);
+        });
+        centerSplit.getDividers().get(1).positionProperty().addListener((o, ov, nv) -> {
+          updateSidebarDividerHoverHints();
+          scheduleEmptySidebarAutoClose(rightTabs);
+        });
       }
       updateSidebarDividerHoverHints();
     });
@@ -3749,11 +3937,13 @@ public class EditorApp extends Application {
 
     divider.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
       if (event.getButton() == MouseButton.PRIMARY) {
+        setEmptySidebarWidthCap(targetPane, false);
         beginSidebarDragFrost(targetPane);
       }
     });
     divider.addEventFilter(MouseEvent.MOUSE_DRAGGED, event -> {
       if (event.isPrimaryButtonDown()) {
+        setEmptySidebarWidthCap(targetPane, false);
         beginSidebarDragFrost(targetPane);
       }
     });
@@ -4800,6 +4990,7 @@ public class EditorApp extends Application {
     } else if (addTab != null && pane.getTabs().contains(addTab)) {
       pane.getSelectionModel().select(addTab);
     }
+    scheduleEmptySidebarAutoClose(pane);
   }
 
   private StackPane createSidebarEmptyState(String side) {
