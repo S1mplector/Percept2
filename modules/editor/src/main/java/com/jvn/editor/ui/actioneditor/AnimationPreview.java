@@ -179,6 +179,8 @@ public class AnimationPreview extends VBox {
     private AnimationProject project;
     private boolean onionSkinning = false;
     private int onionFrames = 3;
+    private boolean showInterpolationGhosts = false;
+    private int interpolationGhostCount = 5;
 
     private Entity2D selectedEntity;
     private String selectedEntityName;
@@ -414,6 +416,7 @@ public class AnimationPreview extends VBox {
             scene.setCamera(null);
             try {
                 if (onionSkinning && project != null) drawOnionSkins();
+                if (showInterpolationGhosts && project != null) drawInterpolationGhosts();
                 scene.render(blitter, viewportLogicalWidth, viewportLogicalHeight);
                 drawMotionPaths();
                 if (selectedEntity != null) drawSelectionHighlight(selectedEntity);
@@ -944,6 +947,129 @@ public class AnimationPreview extends VBox {
         gc.restore();
     }
 
+    private void drawInterpolationGhosts() {
+        if (project == null || selectedEntityName == null || selectedEntityName.isBlank()) return;
+        
+        EntityTrack track = project.getTrack(selectedEntityName);
+        if (track == null) return;
+        
+        java.util.List<Keyframe> xKeyframes = track.getKeyframes(PropertyType.X);
+        java.util.List<Keyframe> yKeyframes = track.getKeyframes(PropertyType.Y);
+        if (xKeyframes.isEmpty() || yKeyframes.isEmpty()) return;
+        
+        double now = project.getPlayheadMs();
+        double dur = project.getTotalDurationMs();
+        
+        // Find previous and next keyframes around current playhead
+        Keyframe prevKfX = null, nextKfX = null;
+        for (Keyframe kf : xKeyframes) {
+            if (kf.getTimeMs() <= now) {
+                if (prevKfX == null || kf.getTimeMs() > prevKfX.getTimeMs()) {
+                    prevKfX = kf;
+                }
+            } else {
+                if (nextKfX == null || kf.getTimeMs() < nextKfX.getTimeMs()) {
+                    nextKfX = kf;
+                }
+            }
+        }
+        
+        if (prevKfX == null || nextKfX == null) return;
+        
+        double startTime = prevKfX.getTimeMs();
+        double endTime = nextKfX.getTimeMs();
+        double span = endTime - startTime;
+        if (span <= 0) return;
+        
+        double z = Math.max(1e-6, displayScale);
+        int ghostCount = Math.max(2, Math.min(20, interpolationGhostCount));
+        
+        gc.save();
+        applyCameraTransform();
+        
+        Entity2D entity = scene != null ? scene.find(selectedEntityName) : null;
+        Image spriteImage = null;
+        double entityW = 20.0 / z;
+        double entityH = 20.0 / z;
+        if (entity instanceof com.jvn.core.scene2d.Sprite2D sprite) {
+            entityW = Math.max(1.0, sprite.getWidth());
+            entityH = Math.max(1.0, sprite.getHeight());
+            spriteImage = resolveSourceImage(sprite.getImagePath());
+        }
+        
+        boolean hasPivotX = !track.getKeyframes(PropertyType.PIVOT_X).isEmpty();
+        boolean hasPivotY = !track.getKeyframes(PropertyType.PIVOT_Y).isEmpty();
+        boolean hasRotation = !track.getKeyframes(PropertyType.ROTATION).isEmpty();
+        boolean hasScaleX = !track.getKeyframes(PropertyType.SCALE_X).isEmpty();
+        boolean hasScaleY = !track.getKeyframes(PropertyType.SCALE_Y).isEmpty();
+        
+        // Render ghost frames between keyframes
+        for (int i = 1; i <= ghostCount; i++) {
+            double t = startTime + (span * i / (ghostCount + 1));
+            if (t < 0 || t > dur) continue;
+            
+            double x = track.getValueAt(PropertyType.X, t);
+            double y = track.getValueAt(PropertyType.Y, t);
+            
+            // Opacity fades toward the edges
+            double alpha = 0.4 * (1.0 - Math.abs(i - (ghostCount + 1) / 2.0) / ((ghostCount + 1) / 2.0));
+            Color ghostColor = Color.web("#89b4fa", alpha);
+            
+            gc.setStroke(ghostColor);
+            gc.setLineWidth(1.5 / z);
+            
+            if (hasPivotX || hasPivotY || hasRotation || hasScaleX || hasScaleY) {
+                double pivX = hasPivotX ? track.getValueAt(PropertyType.PIVOT_X, t) : 0.5;
+                double pivY = hasPivotY ? track.getValueAt(PropertyType.PIVOT_Y, t) : 0.5;
+                double rot = hasRotation ? Math.toRadians(track.getValueAt(PropertyType.ROTATION, t)) : 0.0;
+                double sX = hasScaleX ? track.getValueAt(PropertyType.SCALE_X, t) : 1.0;
+                double sY = hasScaleY ? track.getValueAt(PropertyType.SCALE_Y, t) : 1.0;
+                
+                gc.save();
+                gc.translate(x, y);
+                gc.rotate(Math.toDegrees(rot));
+                gc.scale(sX, sY);
+                
+                double offX = -pivX * entityW;
+                double offY = -pivY * entityH;
+                
+                if (spriteImage != null) {
+                    gc.setGlobalAlpha(alpha + 0.1);
+                    gc.drawImage(spriteImage, offX, offY, entityW, entityH);
+                    gc.setStroke(ghostColor);
+                    gc.setLineWidth(2.0 / z);
+                    gc.strokeRect(offX, offY, entityW, entityH);
+                } else {
+                    gc.strokeRect(offX, offY, entityW, entityH);
+                }
+                
+                gc.setFill(ghostColor);
+                double pivDot = 2.0 / z / Math.max(0.01, Math.max(Math.abs(sX), Math.abs(sY)));
+                gc.fillOval(-pivDot, -pivDot, pivDot * 2, pivDot * 2);
+                gc.restore();
+            } else {
+                double offX = -0.5 * entityW;
+                double offY = -0.5 * entityH;
+                if (spriteImage != null) {
+                    gc.setGlobalAlpha(alpha + 0.1);
+                    gc.drawImage(spriteImage, x + offX, y + offY, entityW, entityH);
+                    gc.setStroke(ghostColor);
+                    gc.setLineWidth(2.0 / z);
+                    gc.strokeRect(x + offX, y + offY, entityW, entityH);
+                } else {
+                    gc.strokeRect(x + offX, y + offY, entityW, entityH);
+                }
+            }
+            
+            // Draw time label on ghost frame
+            gc.setFill(ghostColor);
+            gc.setFont(javafx.scene.text.Font.font(8.0 / z));
+            gc.fillText(String.format("%.0f", t), x + entityW / 2 + (2.0 / z), y);
+        }
+        
+        gc.restore();
+    }
+
     private void drawGrid(double minX, double minY, double w, double h) {
         double step = 100.0;
         if (step * displayScale < 8.0) return;
@@ -1037,6 +1163,10 @@ public class AnimationPreview extends VBox {
     public boolean isOnionSkinning() { return onionSkinning; }
     public void setOnionSkinning(boolean onionSkinning) { this.onionSkinning = onionSkinning; render(); }
     public void setOnionFrames(int frames) { this.onionFrames = Math.max(1, Math.min(10, frames)); }
+    public boolean isShowInterpolationGhosts() { return showInterpolationGhosts; }
+    public void setShowInterpolationGhosts(boolean show) { this.showInterpolationGhosts = show; render(); }
+    public int getInterpolationGhostCount() { return interpolationGhostCount; }
+    public void setInterpolationGhostCount(int count) { this.interpolationGhostCount = Math.max(2, Math.min(20, count)); render(); }
     public boolean isOrbitToolEnabled() { return orbitToolEnabled; }
     public void setOrbitToolEnabled(boolean enabled) { this.orbitToolEnabled = enabled; render(); }
     public boolean isOrbitAlignRotation() { return orbitAlignRotation; }

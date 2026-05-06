@@ -1527,6 +1527,8 @@ public class PuppeteerWindow extends Stage {
         miShowCodePane.setOnAction(e -> setCodePaneVisible(miShowCodePane.isSelected()));
         CheckMenuItem miOnionSkin = new CheckMenuItem("Onion Skin Preview");
         miOnionSkin.setOnAction(e -> animationPreview.setOnionSkinning(miOnionSkin.isSelected()));
+        CheckMenuItem miInterpolationGhosts = new CheckMenuItem("Interpolation Ghosts");
+        miInterpolationGhosts.setOnAction(e -> animationPreview.setShowInterpolationGhosts(miInterpolationGhosts.isSelected()));
         CheckMenuItem miShowSafeGuides = new CheckMenuItem("Show Safe Guides");
         miShowSafeGuides.setOnAction(e -> animationPreview.setShowSafeGuides(miShowSafeGuides.isSelected()));
         CheckMenuItem miShowTitleGuides = new CheckMenuItem("Show Title Guides");
@@ -1565,6 +1567,7 @@ public class PuppeteerWindow extends Stage {
         viewMenu.getItems().addAll(
             miShowCodePane,
             miOnionSkin,
+            miInterpolationGhosts,
             miShowSafeGuides,
             miShowTitleGuides,
             new SeparatorMenuItem(),
@@ -1582,6 +1585,7 @@ public class PuppeteerWindow extends Stage {
         viewMenu.setOnShowing(e -> {
             miShowCodePane.setSelected(codePaneVisible);
             miOnionSkin.setSelected(animationPreview.isOnionSkinning());
+            miInterpolationGhosts.setSelected(animationPreview.isShowInterpolationGhosts());
             miShowSafeGuides.setSelected(animationPreview.isShowSafeGuides());
             miShowTitleGuides.setSelected(animationPreview.isShowTitleGuides());
             miLayoutDynamic.setSelected(getToolbarLayoutMode() == AnimatedToolbarPane.LayoutMode.DYNAMIC);
