@@ -32,10 +32,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.CodeSource;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -227,7 +229,7 @@ public final class JvnHub {
     subtitle.setForeground(TEXT_MUTED);
     subtitle.setFont(subtitle.getFont().deriveFont(Font.PLAIN, 12f));
 
-    versionLabel.setText("v" + readDiskVersion());
+    versionLabel.setText(formatVersionLabel(readDiskVersion()));
     versionLabel.setForeground(ACCENT_NEUTRAL);
     versionLabel.setFont(versionLabel.getFont().deriveFont(Font.BOLD, 10f));
 
@@ -1318,6 +1320,56 @@ public final class JvnHub {
     return VERSION;
   }
 
+  private static String formatVersionLabel(String rawVersion) {
+    String version = displayVersionLabel(rawVersion);
+    if (!isRunningFromSource()) return version;
+    return "<html>" + version + "<br><span style='font-size:9px;font-weight:normal'>Running from source</span></html>";
+  }
+
+  private static String displayVersionLabel(String rawVersion) {
+    String raw = rawVersion == null ? "" : rawVersion.trim();
+    if (raw.isBlank() || raw.equalsIgnoreCase("dev") || raw.equalsIgnoreCase("vdev")) {
+      return "v0.1 Alpha";
+    }
+
+    String version = raw.startsWith("v") || raw.startsWith("V") ? raw.substring(1) : raw;
+    String lower = version.toLowerCase(Locale.ROOT);
+    String maturity = null;
+    if (lower.contains("alpha") || lower.contains("snapshot") || lower.contains("dev")) {
+      maturity = "Alpha";
+    } else if (lower.contains("beta")) {
+      maturity = "Beta";
+    } else if (lower.contains("rc")) {
+      maturity = "RC";
+    }
+
+    int suffix = version.indexOf('-');
+    if (suffix >= 0) version = version.substring(0, suffix);
+    int plus = version.indexOf('+');
+    if (plus >= 0) version = version.substring(0, plus);
+    version = version.trim();
+    if (version.isBlank()) version = "0.1";
+    return "v" + version + (maturity == null ? "" : " " + maturity);
+  }
+
+  private static boolean isRunningFromSource() {
+    String override = System.getProperty("jvn.runningFromSource");
+    if (override != null && !override.isBlank()) {
+      String normalized = override.trim().toLowerCase(Locale.ROOT);
+      return normalized.equals("true") || normalized.equals("1") || normalized.equals("yes");
+    }
+    try {
+      CodeSource source = JvnHub.class.getProtectionDomain().getCodeSource();
+      if (source == null || source.getLocation() == null) return false;
+      Path location = Path.of(source.getLocation().toURI()).toAbsolutePath().normalize();
+      if (Files.isDirectory(location)) return true;
+      String path = location.toString().replace('\\', '/').toLowerCase(Locale.ROOT);
+      return path.contains("/build/classes/") || path.contains("/out/production/");
+    } catch (Exception ignored) {
+      return false;
+    }
+  }
+
   /**
    * Re-reads the version + announcements file and updates the corresponding
    * Swing components. Safe to call from any thread; UI updates are dispatched
@@ -1327,7 +1379,7 @@ public final class JvnHub {
     String newVersion = readDiskVersion();
     List<Announcement> fresh = loadAnnouncements();
     SwingUtilities.invokeLater(() -> {
-      versionLabel.setText("v" + newVersion);
+      versionLabel.setText(formatVersionLabel(newVersion));
       announcements.clear();
       announcements.addAll(fresh);
       int unread = unreadCount();

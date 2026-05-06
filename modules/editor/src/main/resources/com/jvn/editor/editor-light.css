@@ -3197,6 +3197,12 @@
   -fx-text-fill: #4b4b4b;
 }
 
+.jvn-wordmark-source {
+  -fx-font-size: 9px;
+  -fx-font-weight: 800;
+  -fx-text-fill: #747474;
+}
+
 /* Master top toolbar: pure black */
 .master-toolbar {
   -fx-background-color: #ffffff;

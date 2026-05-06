@@ -50,6 +50,7 @@ fun JavaExec.configureJavaFxRuntime() {
 // This avoids the "JavaFX runtime components are missing" error.
 tasks.named<JavaExec>("run") {
   configureJavaFxRuntime()
+  systemProperty("jvn.version", rootProject.version.toString())
 }
 
 tasks.register<JavaExec>("runLauncher") {
@@ -58,6 +59,7 @@ tasks.register<JavaExec>("runLauncher") {
   classpath = sourceSets["main"].runtimeClasspath
   mainClass.set("com.jvn.editor.JvnLauncherApp")
   workingDir = rootProject.projectDir
+  systemProperty("jvn.version", rootProject.version.toString())
   configureJavaFxRuntime()
 }
 

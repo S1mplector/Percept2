@@ -230,12 +230,13 @@ public class JvnLauncherApp extends Application {
 
     BorderPane root = new BorderPane();
     root.getStyleClass().add("jvn-launcher-root");
+    AppBuildInfo.BuildInfo buildInfo = AppBuildInfo.resolve(JvnLauncherApp.class);
 
     welcomeView = new WelcomeCenterView();
     welcomeView.setWelcomeHeading("Welcome to JVN Launcher");
     welcomeView.setWelcomeIntro("");
-    welcomeView.setVersionChipVisible(false);
-    welcomeView.setEditorVersion(resolveVersionLabel());
+    welcomeView.setVersionChipVisible(true);
+    welcomeView.setEditorVersion(buildInfo.fullLabel());
     welcomeView.setWorkspaceRoot(workspaceRoot);
     welcomeView.setOnCreateProject(this::createNewProject);
     welcomeView.setOnOpenProjectDialog(this::chooseProjectDirectory);
@@ -417,7 +418,7 @@ public class JvnLauncherApp extends Application {
     MenuItem miAbout = new MenuItem("About JVN Launcher");
     miAbout.setOnAction(e -> EditorDialogs.info(primaryStage,
         "About JVN Launcher",
-        "JVN Launcher " + resolveVersionLabel()));
+        "JVN Launcher " + AppBuildInfo.resolve(JvnLauncherApp.class).fullLabel()));
     menuHelp.getItems().add(miAbout);
 
     menuBar.getMenus().addAll(menuFile, menuEdit, menuProject, menuView, menuHelp);
@@ -1054,16 +1055,6 @@ public class JvnLauncherApp extends Application {
       return "'" + value + "'";
     }
     return value;
-  }
-
-  private String resolveVersionLabel() {
-    String version = System.getProperty("jvn.version");
-    if (version != null && !version.isBlank()) return version.trim();
-    Package pkg = EditorApp.class.getPackage();
-    if (pkg != null && pkg.getImplementationVersion() != null && !pkg.getImplementationVersion().isBlank()) {
-      return pkg.getImplementationVersion().trim();
-    }
-    return "dev";
   }
 
   private String displayProjectName(File dir) {

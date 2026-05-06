@@ -95,6 +95,8 @@ import javafx.animation.Timeline;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
+import javafx.event.Event;
+import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -276,15 +278,15 @@ public class EditorApp extends Application {
   private static final Duration SIDEBAR_DRAG_FROST_DURATION = Duration.millis(135);
   private static final Duration EMPTY_SIDEBAR_AUTO_CLOSE_DELAY = Duration.seconds(5);
   private static final Duration EMPTY_SIDEBAR_CLOSE_DURATION = Duration.millis(520);
-  private static final Duration SIDEBAR_TAB_CLOSE_SETTLE_DURATION = Duration.millis(155);
-  private static final Duration SIDEBAR_EMPTY_AFTER_TAB_CLOSE_DELAY = Duration.millis(65);
+  private static final Duration SIDEBAR_TOOL_TAB_CLOSE_DURATION = Duration.millis(145);
   private static final String SIDEBAR_DRAG_FROST_OVERLAY_KEY = "jvn.sidebarDragFrost.overlay";
   private static final String SIDEBAR_DRAG_FROST_BLUR_KEY = "jvn.sidebarDragFrost.blur";
   private static final String SIDEBAR_DRAG_FROST_BASE_EFFECT_KEY = "jvn.sidebarDragFrost.baseEffect";
   private static final String SIDEBAR_DRAG_FROST_BASE_EFFECT_PRESENT_KEY = "jvn.sidebarDragFrost.baseEffectPresent";
   private static final String SIDEBAR_DRAG_FROST_ANIMATION_KEY = "jvn.sidebarDragFrost.animation";
   private static final String SIDEBAR_DRAG_FROST_HANDLER_KEY = "jvn.sidebarDragFrost.handlerInstalled";
-  private static final String SIDEBAR_TAB_CLOSE_ANIMATION_KEY = "jvn.sidebarTabClose.animation";
+  private static final String SIDEBAR_TOOL_TAB_CLOSE_INSTALLED_KEY = "jvn.sidebarToolTabClose.installed";
+  private static final String SIDEBAR_TOOL_TAB_CLOSE_ACTIVE_KEY = "jvn.sidebarToolTabClose.active";
   private static final String PANEL_CHOOSER_TAB_ROLE = "panel-chooser";
   private static final String PANEL_CHOOSER_REFRESH_KEY = "panel-chooser-refresh";
   private static final String PANEL_WINDOW_SUPPRESS_UNLOAD_KEY = "jvn.panelWindow.suppressUnload";
@@ -1265,7 +1267,7 @@ public class EditorApp extends Application {
     editorPreferences = editorPreferencesStore.load();
     layoutStudioWindowManager = new LayoutStudioWindowManager(primaryStage, this::doRunProject);
     BorderPane root = new BorderPane();
-    String editorVersion = resolveEditorVersion();
+    AppBuildInfo.BuildInfo buildInfo = AppBuildInfo.resolve(EditorApp.class);
 
     // Menu
     MenuBar mb = new MenuBar();
@@ -1870,7 +1872,7 @@ public class EditorApp extends Application {
     miAbout.setOnAction(e -> {
       EditorDialogs.show(primaryStage,
           "About JVN Editor",
-          "JVN Editor " + editorVersion,
+          "JVN Editor " + buildInfo.fullLabel(),
           createDialogDetailLabel("Java Vector Nexus — Visual Novel & 2D Game Toolkit"),
           EditorDialogs.ActionSpec.accent("close", "Close", null));
     });
@@ -1992,12 +1994,16 @@ public class EditorApp extends Application {
 
     Label wordmark = new Label("JVN");
     wordmark.getStyleClass().add("jvn-wordmark");
-    Label verLabel = new Label("v" + editorVersion);
+    Label verLabel = new Label(buildInfo.versionLabel());
     verLabel.getStyleClass().add("jvn-wordmark-version");
+    Label sourceLabel = new Label(buildInfo.sourceLabel());
+    sourceLabel.getStyleClass().add("jvn-wordmark-source");
+    sourceLabel.setVisible(buildInfo.runningFromSource());
+    sourceLabel.setManaged(buildInfo.runningFromSource());
     VBox logoBox = new VBox(2);
     logoBox.setAlignment(Pos.CENTER_RIGHT);
     logoBox.getStyleClass().add("jvn-wordmark-box");
-    logoBox.getChildren().addAll(wordmark, verLabel);
+    logoBox.getChildren().addAll(wordmark, verLabel, sourceLabel);
     VBox perfBox = new VBox(4, perf, perfGraph.getCanvas());
     perfBox.setAlignment(Pos.CENTER);
     perfBox.setFillWidth(true);
@@ -2900,8 +2906,69 @@ public class EditorApp extends Application {
   private Tab attachSidebarPanelTab(Tab tab, EditorSidebarPanel panel, TabPane targetPane) {
     if (tab == null) return null;
     applySidebarPanelGraphic(tab, panel);
+    installAnimatedSidebarToolTabClose(tab);
     attachPanelTabToPane(tab, targetPane);
     return tab;
+  }
+
+  private void installAnimatedSidebarToolTabClose(Tab tab) {
+    if (tab == null || Boolean.TRUE.equals(tab.getProperties().get(SIDEBAR_TOOL_TAB_CLOSE_INSTALLED_KEY))) return;
+    EventHandler<Event> originalClosed = tab.getOnClosed();
+    tab.getProperties().put(SIDEBAR_TOOL_TAB_CLOSE_INSTALLED_KEY, Boolean.TRUE);
+    tab.setOnCloseRequest(event -> {
+      if (Boolean.TRUE.equals(tab.getProperties().get(SIDEBAR_TOOL_TAB_CLOSE_ACTIVE_KEY))) {
+        event.consume();
+        return;
+      }
+      TabPane pane = tab.getTabPane();
+      if (pane == null || tab == getAddTabForPane(pane)
+          || PANEL_CHOOSER_TAB_ROLE.equals(tab.getProperties().get(PANEL_CHOOSER_TAB_ROLE))) {
+        return;
+      }
+      event.consume();
+      animateSidebarToolTabClose(tab, pane, originalClosed);
+    });
+  }
+
+  private void animateSidebarToolTabClose(Tab tab, TabPane pane, EventHandler<Event> originalClosed) {
+    if (tab == null || pane == null || !pane.getTabs().contains(tab)) return;
+    Node content = tab.getContent();
+    if (content == null) {
+      removeSidebarToolTabAfterAnimation(tab, pane, originalClosed);
+      return;
+    }
+
+    tab.getProperties().put(SIDEBAR_TOOL_TAB_CLOSE_ACTIVE_KEY, Boolean.TRUE);
+    tab.setClosable(false);
+    double startOpacity = content.getOpacity();
+    double startTranslate = content.getTranslateX();
+    double exitTranslate = startTranslate + (pane == leftTabs ? -18.0 : 18.0);
+
+    Timeline animation = new Timeline(
+        new KeyFrame(Duration.ZERO,
+            new KeyValue(content.opacityProperty(), startOpacity, Interpolator.EASE_OUT),
+            new KeyValue(content.translateXProperty(), startTranslate, Interpolator.EASE_OUT)),
+        new KeyFrame(SIDEBAR_TOOL_TAB_CLOSE_DURATION,
+            new KeyValue(content.opacityProperty(), 0.0, Interpolator.EASE_BOTH),
+            new KeyValue(content.translateXProperty(), exitTranslate, Interpolator.EASE_BOTH)));
+    animation.setOnFinished(e -> {
+      content.setOpacity(startOpacity);
+      content.setTranslateX(startTranslate);
+      removeSidebarToolTabAfterAnimation(tab, pane, originalClosed);
+    });
+    animation.play();
+  }
+
+  private void removeSidebarToolTabAfterAnimation(Tab tab, TabPane pane, EventHandler<Event> originalClosed) {
+    tab.getProperties().remove(SIDEBAR_TOOL_TAB_CLOSE_ACTIVE_KEY);
+    if (pane != null) {
+      pane.getTabs().remove(tab);
+    }
+    if (originalClosed != null) {
+      originalClosed.handle(new Event(tab, tab, Tab.CLOSED_EVENT));
+    }
+    refreshOpenPanelChooserIndicators();
+    scheduleEmptySidebarAutoClose(pane);
   }
 
   private void applySidebarToolStyle(Node node, EditorSidebarPanel panel) {
@@ -3715,85 +3782,12 @@ public class EditorApp extends Application {
 
   private void installEmptySidebarAutoClose(TabPane pane) {
     if (pane == null) return;
-    pane.getTabs().addListener((javafx.collections.ListChangeListener<Tab>) change -> {
-      boolean removedSidebarToolTab = false;
-      while (change.next()) {
-        if (!change.wasRemoved()) continue;
-        for (Tab removed : change.getRemoved()) {
-          if (isSidebarToolTab(pane, removed)) {
-            removedSidebarToolTab = true;
-            break;
-          }
-        }
-      }
-      if (removedSidebarToolTab) {
-        handleSidebarToolTabRemoved(pane);
-      } else {
-        scheduleEmptySidebarAutoClose(pane);
-      }
-    });
+    pane.getTabs().addListener((javafx.collections.ListChangeListener<Tab>) change ->
+        scheduleEmptySidebarAutoClose(pane));
     pane.getSelectionModel().selectedItemProperty().addListener((o, ov, nv) ->
         scheduleEmptySidebarAutoClose(pane));
     pane.sceneProperty().addListener((o, ov, nv) -> scheduleEmptySidebarAutoClose(pane));
     Platform.runLater(() -> scheduleEmptySidebarAutoClose(pane));
-  }
-
-  private void handleSidebarToolTabRemoved(TabPane pane) {
-    if (pane == null) return;
-    refreshOpenPanelChooserIndicators(pane);
-    if (shouldAutoCloseEmptySidebar(pane)) {
-      playSidebarTabCloseSettle(pane, true);
-      PauseTransition delay = emptySidebarDelayFor(pane);
-      if (delay == null) return;
-      delay.stop();
-      delay.setDuration(SIDEBAR_EMPTY_AFTER_TAB_CLOSE_DELAY);
-      delay.setOnFinished(e -> animateCloseEmptySidebar(pane));
-      delay.playFromStart();
-      return;
-    }
-    playSidebarTabCloseSettle(pane, false);
-    scheduleEmptySidebarAutoClose(pane);
-  }
-
-  private boolean isSidebarToolTab(TabPane pane, Tab tab) {
-    if (pane == null || tab == null) return false;
-    if (tab == getAddTabForPane(pane)) return false;
-    return !PANEL_CHOOSER_TAB_ROLE.equals(tab.getProperties().get(PANEL_CHOOSER_TAB_ROLE));
-  }
-
-  private void playSidebarTabCloseSettle(TabPane pane, boolean emptied) {
-    StackPane shell = pane == leftTabs ? leftSidebarShell : pane == rightTabs ? rightSidebarShell : null;
-    if (shell == null || shell.getScene() == null || isSidebarCollapsed(pane)) return;
-
-    Object existing = shell.getProperties().get(SIDEBAR_TAB_CLOSE_ANIMATION_KEY);
-    if (existing instanceof Timeline timeline) {
-      timeline.stop();
-    }
-
-    double direction = pane == leftTabs ? -1.0 : 1.0;
-    double startOpacity = emptied ? 0.88 : 0.82;
-    double startTranslate = emptied ? direction * 4.0 : direction * 8.0;
-    shell.setOpacity(startOpacity);
-    shell.setTranslateX(startTranslate);
-
-    Timeline settle = new Timeline(
-        new KeyFrame(Duration.ZERO,
-            new KeyValue(shell.opacityProperty(), startOpacity, Interpolator.EASE_OUT),
-            new KeyValue(shell.translateXProperty(), startTranslate, Interpolator.EASE_OUT)),
-        new KeyFrame(SIDEBAR_TAB_CLOSE_SETTLE_DURATION,
-            new KeyValue(shell.opacityProperty(), 1.0, Interpolator.EASE_BOTH),
-            new KeyValue(shell.translateXProperty(), 0.0, Interpolator.EASE_BOTH)));
-    shell.getProperties().put(SIDEBAR_TAB_CLOSE_ANIMATION_KEY, settle);
-    settle.setOnFinished(e -> {
-      if (shell.getProperties().get(SIDEBAR_TAB_CLOSE_ANIMATION_KEY) == settle) {
-        shell.getProperties().remove(SIDEBAR_TAB_CLOSE_ANIMATION_KEY);
-      }
-      if (!isSidebarCollapsed(pane)) {
-        shell.setOpacity(1.0);
-      }
-      shell.setTranslateX(0.0);
-    });
-    settle.play();
   }
 
   private void scheduleEmptySidebarAutoClose(TabPane pane) {
@@ -6844,14 +6838,4 @@ public class EditorApp extends Application {
     return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("linux");
   }
 
-  private String resolveEditorVersion() {
-    String version = System.getProperty("jvn.version");
-    if (version == null || version.isBlank()) {
-      Package pkg = EditorApp.class.getPackage();
-      version = (pkg != null && pkg.getImplementationVersion() != null)
-          ? pkg.getImplementationVersion()
-          : "dev";
-    }
-    return version;
-  }
 }
