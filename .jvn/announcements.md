@@ -8,6 +8,9 @@ Format:
 
 ----
 
+## 2026-05-06 — VNS/Java interop improvements
+Inline Java error reporting now has accurate line numbers when using `@jimport` or `@bind` directives, and runtime exceptions (NPE, ClassCast, etc.) are also remapped back to the original VNS source line. The error overlay now distinguishes between compilation errors and runtime errors with the correct source location.
+
 ## 2026-05-04 — Video and GIF support for Character Sprites
 The JVN engine now officially supports animated `.gif`, `.mp4`, and `.mov` formats for character sprites.
 Video playback is fully hardware-accelerated and uses a dynamic texture snapshotting system to ensure that all layer blending modes, color matrices, and z-ordering work nicely. You can freely mix and match these formats within the same `@charpreset`—for example, pairing a looping 3D `.mp4` character body with static `.png` facial expressions. Check out `docs/scripting/vns/presentation/vns-layered-charpresets.md` for more details.
