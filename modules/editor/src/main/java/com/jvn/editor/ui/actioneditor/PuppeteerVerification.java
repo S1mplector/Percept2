@@ -11,6 +11,15 @@ import java.util.Set;
 import com.jvn.core.animation.TimelineDataDiagnostics;
 
 final class PuppeteerVerification {
+    private static final int MAX_TIMELINE_NAME_LENGTH = 96;
+    private static final String TIMELINE_NAME_RULES =
+        "Use letters, numbers, underscores, dashes, or dots. Do not use spaces, slashes, '..', or reserved device names.";
+    private static final Set<String> RESERVED_FILE_NAMES = Set.of(
+        "con", "prn", "aux", "nul",
+        "com1", "com2", "com3", "com4", "com5", "com6", "com7", "com8", "com9",
+        "lpt1", "lpt2", "lpt3", "lpt4", "lpt5", "lpt6", "lpt7", "lpt8", "lpt9"
+    );
+
     enum Mode {
         EXPORT_CODE,
         REGISTER_RUNTIME
@@ -43,6 +52,69 @@ final class PuppeteerVerification {
         }
 
         return Collections.unmodifiableList(messages);
+    }
+
+    static List<TimelineDiagnostic.Message> validateTimelineName(String rawName) {
+        List<TimelineDiagnostic.Message> messages = new ArrayList<>();
+        String name = rawName == null ? "" : rawName.trim();
+        if (name.isBlank()) {
+            messages.add(new TimelineDiagnostic.Message(
+                TimelineDiagnostic.Severity.ERROR,
+                "(timeline)",
+                "Timeline name is empty",
+                "Set a name such as hero_entrance before registering"
+            ));
+            return Collections.unmodifiableList(messages);
+        }
+        if (name.length() > MAX_TIMELINE_NAME_LENGTH) {
+            messages.add(new TimelineDiagnostic.Message(
+                TimelineDiagnostic.Severity.ERROR,
+                name,
+                "Timeline name is too long (" + name.length() + " characters)",
+                "Keep timeline names under " + MAX_TIMELINE_NAME_LENGTH + " characters"
+            ));
+        }
+        if (".".equals(name) || "..".equals(name) || name.contains("..")) {
+            messages.add(new TimelineDiagnostic.Message(
+                TimelineDiagnostic.Severity.ERROR,
+                name,
+                "Timeline name cannot contain '..'",
+                TIMELINE_NAME_RULES
+            ));
+        }
+        if (name.indexOf('/') >= 0 || name.indexOf('\\') >= 0) {
+            messages.add(new TimelineDiagnostic.Message(
+                TimelineDiagnostic.Severity.ERROR,
+                name,
+                "Timeline name cannot contain path separators",
+                TIMELINE_NAME_RULES
+            ));
+        }
+        if (!name.matches("[A-Za-z0-9][A-Za-z0-9_.-]*")) {
+            messages.add(new TimelineDiagnostic.Message(
+                TimelineDiagnostic.Severity.ERROR,
+                name,
+                "Timeline name contains characters that are unsafe for JES files or VNS calls",
+                TIMELINE_NAME_RULES
+            ));
+        }
+        String lower = name.toLowerCase(java.util.Locale.ROOT);
+        int dot = lower.indexOf('.');
+        String base = dot >= 0 ? lower.substring(0, dot) : lower;
+        if (RESERVED_FILE_NAMES.contains(base)) {
+            messages.add(new TimelineDiagnostic.Message(
+                TimelineDiagnostic.Severity.ERROR,
+                name,
+                "Timeline name uses a reserved filename on some operating systems",
+                "Rename it to something project-specific, such as " + name + "_timeline"
+            ));
+        }
+        return Collections.unmodifiableList(messages);
+    }
+
+    static boolean isValidTimelineName(String rawName) {
+        return validateTimelineName(rawName).stream()
+            .noneMatch(message -> message.severity() == TimelineDiagnostic.Severity.ERROR);
     }
 
     private static void diagnoseContent(AnimationProject project, List<TimelineDiagnostic.Message> messages) {

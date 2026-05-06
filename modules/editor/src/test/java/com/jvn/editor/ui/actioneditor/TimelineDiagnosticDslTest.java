@@ -182,5 +182,39 @@ class TimelineDiagnosticDslTest {
             m.description().contains("volume must be numeric")
                 && m.hasLine()
                 && m.line() == 10));
+        assertTrue(messages.stream().anyMatch(m ->
+            m.description().contains("playAudio is missing an audio path")
+                && m.hasLine()
+                && m.line() == 2));
+    }
+
+    @Test
+    void flagsNoOpPropertyAndVisibilityActions() {
+        String code = """
+            timeline {
+              property "hero" {
+                key: ""
+                value: loud
+              }
+              visible "hero" {
+                visible: maybe
+              }
+            }
+            """;
+
+        List<TimelineDiagnostic.Message> messages = TimelineDiagnostic.diagnoseDsl(code);
+
+        assertTrue(messages.stream().anyMatch(m ->
+            m.description().contains("property action is missing key")
+                && m.hasLine()
+                && m.line() == 2));
+        assertTrue(messages.stream().anyMatch(m ->
+            m.description().contains("property value must be numeric")
+                && m.hasLine()
+                && m.line() == 2));
+        assertTrue(messages.stream().anyMatch(m ->
+            m.description().contains("visible value 'maybe'")
+                && m.hasLine()
+                && m.line() == 6));
     }
 }

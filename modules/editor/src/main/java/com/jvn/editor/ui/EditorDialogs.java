@@ -43,6 +43,29 @@ public final class EditorDialogs {
     DANGER
   }
 
+  private enum ErrorType {
+    PROJECT_CONTEXT("Project context"),
+    FILE_IO("File or disk"),
+    DSL_PARSE("DSL parse"),
+    JAVA_CODE("Java code"),
+    PROCESS("Process / Gradle"),
+    ASSET("Asset"),
+    AUDIO("Audio"),
+    VALIDATION("Validation"),
+    CLIPBOARD("Clipboard"),
+    UNKNOWN("Unknown");
+
+    private final String label;
+
+    ErrorType(String label) {
+      this.label = label;
+    }
+
+    String label() {
+      return label;
+    }
+  }
+
   public static final class ActionSpec {
     private final String id;
     private final String label;
@@ -241,7 +264,8 @@ public final class EditorDialogs {
                                                         String... recoveryHints) {
     String summary = normalizeDialogText(message, "The operation could not be completed.");
     Throwable root = rootCause(cause);
-    List<String> hints = recoveryHints(summary, root, recoveryHints);
+    ErrorType type = classifyError(summary, root, title);
+    List<String> hints = recoveryHints(type, summary, root, recoveryHints);
 
     VBox content = new VBox(12);
     content.getStyleClass().add("editor-dialog-error-content");
@@ -256,7 +280,8 @@ public final class EditorDialogs {
     badgeRow.getChildren().addAll(badge, context);
 
     VBox whatHappened = new VBox(5, sectionLabel("What happened"), bodyLabel(summary));
-    content.getChildren().addAll(badgeRow, whatHappened);
+    VBox typeBox = new VBox(5, sectionLabel("Type"), bodyLabel(type.label()));
+    content.getChildren().addAll(badgeRow, typeBox, whatHappened);
 
     if (root != null) {
       content.getChildren().add(new VBox(5, sectionLabel("Likely cause"), bodyLabel(causeSummary(root))));
@@ -271,7 +296,7 @@ public final class EditorDialogs {
       content.getChildren().add(hintBox);
     }
 
-    String report = buildErrorReport(title, summary, root, cause, hints);
+    String report = buildErrorReport(title, type, summary, root, cause, hints);
     TitledPane technicalDetails = technicalDetailsPane(report);
     content.getChildren().add(technicalDetails);
 
@@ -315,7 +340,7 @@ public final class EditorDialogs {
     return pane;
   }
 
-  private static List<String> recoveryHints(String summary, Throwable root, String... providedHints) {
+  private static List<String> recoveryHints(ErrorType type, String summary, Throwable root, String... providedHints) {
     LinkedHashSet<String> hints = new LinkedHashSet<>();
     if (providedHints != null) {
       for (String hint : providedHints) {
@@ -326,6 +351,18 @@ public final class EditorDialogs {
 
     String haystack = (summary + " " + (root == null ? "" : root.getMessage()))
         .toLowerCase(Locale.ROOT);
+    switch (type == null ? ErrorType.UNKNOWN : type) {
+      case PROJECT_CONTEXT -> hints.add("Reopen the project through the launcher so JVN has a valid project root.");
+      case FILE_IO -> hints.add("Confirm the file or folder exists and your account has the required read/write permission.");
+      case DSL_PARSE -> hints.add("Open the diagnostics panel for this DSL and fix the first parse error before retrying.");
+      case JAVA_CODE -> hints.add("Check the Java line number and compiler/runtime details, then rerun after the code compiles.");
+      case PROCESS -> hints.add("Check the run console or terminal output for the process exit reason.");
+      case ASSET -> hints.add("Verify referenced assets exist under the project folder and paths are relative to the project root.");
+      case AUDIO -> hints.add("Verify the audio file exists, uses a supported format, and is referenced by the correct channel.");
+      case VALIDATION -> hints.add("Correct the highlighted field or invalid value, then try the action again.");
+      case CLIPBOARD -> hints.add("Focus the editor window and try copying again.");
+      case UNKNOWN -> hints.add("Check the selected project, file, or folder and try the action again.");
+    }
     if (haystack.contains("workspace root")) {
       hints.add("Launch JVN from the repository root or reopen the project through the launcher.");
     }
@@ -343,6 +380,18 @@ public final class EditorDialogs {
         || haystack.contains("launch")) {
       hints.add("Check the run console or terminal output for process-specific errors.");
     }
+    if (haystack.contains("parse") || haystack.contains("syntax") || haystack.contains("dsl")) {
+      hints.add("Use the line-numbered diagnostics overlay to find the action, command, or property that failed.");
+    }
+    if (haystack.contains("java") || haystack.contains("compiler") || haystack.contains("compilation")) {
+      hints.add("Confirm JDK 21 is active and the inline Java block or Java source compiles.");
+    }
+    if (haystack.contains("asset") || haystack.contains("image") || haystack.contains("audio")) {
+      hints.add("Relink missing assets from inside the project folder rather than using temporary external paths.");
+    }
+    if (haystack.contains("timeline") || haystack.contains("puppeteer")) {
+      hints.add("Run Puppeteer verification and fix errors before exporting or registering the timeline.");
+    }
     if (hints.isEmpty()) {
       hints.add("Check the selected project, file, or folder and try the action again.");
     }
@@ -351,12 +400,14 @@ public final class EditorDialogs {
   }
 
   private static String buildErrorReport(String title,
+                                         ErrorType type,
                                          String summary,
                                          Throwable root,
                                          Throwable cause,
                                          List<String> hints) {
     StringBuilder report = new StringBuilder();
     report.append("Title: ").append(normalizeDialogText(title, "Error")).append('\n');
+    report.append("Type: ").append(type == null ? ErrorType.UNKNOWN.label() : type.label()).append('\n');
     report.append("Summary: ").append(summary).append('\n');
     if (root != null) {
       report.append("Root cause: ").append(causeSummary(root)).append('\n');
@@ -374,6 +425,49 @@ public final class EditorDialogs {
       report.append(stack.toString().stripTrailing());
     }
     return report.toString().stripTrailing();
+  }
+
+  private static ErrorType classifyError(String summary, Throwable root, String title) {
+    String haystack = ((title == null ? "" : title) + " "
+        + (summary == null ? "" : summary) + " "
+        + (root == null || root.getMessage() == null ? "" : root.getMessage()) + " "
+        + (root == null ? "" : root.getClass().getSimpleName()))
+        .toLowerCase(Locale.ROOT);
+    if (haystack.contains("workspace root") || haystack.contains("project root")
+        || haystack.contains("jvn.project") || haystack.contains("manifest")) {
+      return ErrorType.PROJECT_CONTEXT;
+    }
+    if (haystack.contains("parse") || haystack.contains("syntax") || haystack.contains("dsl")
+        || haystack.contains("vns") || haystack.contains("jes")) {
+      return ErrorType.DSL_PARSE;
+    }
+    if (haystack.contains("java") || haystack.contains("compiler") || haystack.contains("compilation")
+        || haystack.contains("jdk")) {
+      return ErrorType.JAVA_CODE;
+    }
+    if (haystack.contains("gradle") || haystack.contains("process") || haystack.contains("launch")
+        || haystack.contains("run")) {
+      return ErrorType.PROCESS;
+    }
+    if (haystack.contains("asset") || haystack.contains("image") || haystack.contains("sprite")
+        || haystack.contains("missing")) {
+      return ErrorType.ASSET;
+    }
+    if (haystack.contains("audio") || haystack.contains("media")) {
+      return ErrorType.AUDIO;
+    }
+    if (haystack.contains("save") || haystack.contains("write") || haystack.contains("read")
+        || haystack.contains("open") || haystack.contains("file") || haystack.contains("folder")
+        || haystack.contains("not found") || haystack.contains("denied")) {
+      return ErrorType.FILE_IO;
+    }
+    if (haystack.contains("invalid") || haystack.contains("validation") || haystack.contains("required")) {
+      return ErrorType.VALIDATION;
+    }
+    if (haystack.contains("clipboard") || haystack.contains("copy")) {
+      return ErrorType.CLIPBOARD;
+    }
+    return ErrorType.UNKNOWN;
   }
 
   private static String causeSummary(Throwable throwable) {

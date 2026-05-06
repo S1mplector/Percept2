@@ -184,4 +184,23 @@ class PuppeteerVerificationTest {
             message.severity() == TimelineDiagnostic.Severity.WARNING
                 && message.description().contains("Entity property X is stored on the camera track")));
     }
+
+    @Test
+    void timelineNameValidationBlocksUnsafeFileAndVnsNames() {
+        assertTrue(PuppeteerVerification.validateTimelineName("../bad name").stream().anyMatch(message ->
+            message.severity() == TimelineDiagnostic.Severity.ERROR
+                && message.description().contains("unsafe")));
+        assertTrue(PuppeteerVerification.validateTimelineName("../bad name").stream().anyMatch(message ->
+            message.severity() == TimelineDiagnostic.Severity.ERROR
+                && message.description().contains("path separators")));
+        assertTrue(PuppeteerVerification.validateTimelineName("con").stream().anyMatch(message ->
+            message.severity() == TimelineDiagnostic.Severity.ERROR
+                && message.description().contains("reserved filename")));
+    }
+
+    @Test
+    void timelineNameValidationAcceptsPortableNames() {
+        assertTrue(PuppeteerVerification.isValidTimelineName("hero_intro.v1"));
+        assertTrue(PuppeteerVerification.isValidTimelineName("battle-cut_02"));
+    }
 }

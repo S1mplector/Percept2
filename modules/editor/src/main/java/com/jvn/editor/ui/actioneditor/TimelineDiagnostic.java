@@ -255,7 +255,10 @@ public class TimelineDiagnostic {
         }
 
         for (EditorEventCue evt : project.getEditorEventCues()) {
-            if (evt.getType().isBlank()) {
+            String rawType = evt.getType() == null ? "" : evt.getType().trim();
+            String type = rawType.toLowerCase(Locale.ROOT);
+            Map<String, String> payload = evt.getPayloadView();
+            if (rawType.isBlank()) {
                 msgs.add(new Message(Severity.ERROR, "(event)",
                     "Event cue at " + evt.getTimeMs() + "ms has empty type",
                     "Set a type like 'expression', 'dialogue_marker', or 'script_call'"));
@@ -270,6 +273,7 @@ public class TimelineDiagnostic {
                         + "ms exceeds timeline duration " + formatNumber(durationMs) + "ms",
                     "Fit timeline duration to content or move cue earlier"));
             }
+            validateEditorEventCuePayload(msgs, evt, type, payload);
         }
 
         return Collections.unmodifiableList(msgs);
@@ -354,6 +358,7 @@ public class TimelineDiagnostic {
 
             int depth = 1;
             int j = i + 1;
+            Map<String, String> blockProps = new LinkedHashMap<>();
             while (j < lines.length && depth > 0) {
                 String blockRaw = lines[j];
                 String block = stripComments(blockRaw).trim();
@@ -371,6 +376,7 @@ public class TimelineDiagnostic {
                 if (prop.matches()) {
                     String key = prop.group(1).trim();
                     String value = prop.group(2).trim();
+                    blockProps.put(key.toLowerCase(Locale.ROOT), value);
                     validateActionProperty(out, action, key, value, blockLineNo);
                 } else if (!block.isBlank() && !"{".equals(block) && !"}".equals(block)) {
                     out.add(new Message(
@@ -395,10 +401,185 @@ public class TimelineDiagnostic {
                 break;
             }
 
+            validateActionBlock(out, action, withTarget.matches() ? withTarget.group(2) : "", blockProps, lineNo);
             i = j;
         }
 
         return Collections.unmodifiableList(out);
+    }
+
+    private static void validateEditorEventCuePayload(
+        List<Message> out,
+        EditorEventCue cue,
+        String type,
+        Map<String, String> payload
+    ) {
+        if (cue == null) return;
+        Map<String, String> safePayload = payload == null ? Map.of() : payload;
+        String target = safePayload.getOrDefault("target", "").trim();
+        if (Set.of("expression", "show", "hide", "replace").contains(type) && target.isBlank()) {
+            out.add(new Message(
+                Severity.WARNING,
+                "(event)",
+                "Event cue '" + type + "' at " + formatNumber(cue.getTimeMs()) + "ms has no target",
+                "Set the Target field so the cue affects a character or entity"
+            ));
+        }
+        if ("expression".equals(type)
+            && safePayload.getOrDefault("value", "").isBlank()
+            && safePayload.getOrDefault("expression", "").isBlank()
+            && safePayload.getOrDefault("path", "").isBlank()) {
+            out.add(new Message(
+                Severity.WARNING,
+                target.isBlank() ? "(event)" : target,
+                "Expression cue at " + formatNumber(cue.getTimeMs()) + "ms has no expression or image path",
+                "Set Value/Expression or Path before playback"
+            ));
+        }
+        if ("show".equals(type)
+            && safePayload.getOrDefault("value", "").isBlank()
+            && safePayload.getOrDefault("expression", "").isBlank()
+            && safePayload.getOrDefault("path", "").isBlank()) {
+            out.add(new Message(
+                Severity.INFO,
+                target.isBlank() ? "(event)" : target,
+                "Show cue at " + formatNumber(cue.getTimeMs()) + "ms only toggles visibility",
+                "Add Expression or Path if the cue should also select an image"
+            ));
+        }
+        if ("scene".equals(type)
+            && safePayload.getOrDefault("target", "").isBlank()
+            && safePayload.getOrDefault("id", "").isBlank()
+            && safePayload.getOrDefault("value", "").isBlank()
+            && safePayload.getOrDefault("path", "").isBlank()) {
+            out.add(new Message(
+                Severity.WARNING,
+                "(event)",
+                "Scene cue at " + formatNumber(cue.getTimeMs()) + "ms has no scene id or path",
+                "Set Scene/Value or Path so the cue can resolve a background"
+            ));
+        }
+        if ("script_call".equals(type)
+            && safePayload.getOrDefault("handler", "").isBlank()
+            && safePayload.getOrDefault("call", "").isBlank()
+            && safePayload.getOrDefault("name", "").isBlank()
+            && safePayload.getOrDefault("target", "").isBlank()) {
+            out.add(new Message(
+                Severity.WARNING,
+                "(event)",
+                "script_call cue at " + formatNumber(cue.getTimeMs()) + "ms has no handler",
+                "Set handler, call, name, or target to route the cue"
+            ));
+        }
+        for (Map.Entry<String, String> entry : safePayload.entrySet()) {
+            String key = entry.getKey() == null ? "" : entry.getKey().trim();
+            if (key.isBlank()) {
+                out.add(new Message(
+                    Severity.ERROR,
+                    "(event)",
+                    "Event cue at " + formatNumber(cue.getTimeMs()) + "ms contains an empty payload key",
+                    "Remove the blank payload row or give it a stable key"
+                ));
+            }
+        }
+    }
+
+    private static void validateActionBlock(
+        List<Message> out,
+        String action,
+        String target,
+        Map<String, String> props,
+        int lineNo
+    ) {
+        String actionNorm = action == null ? "" : action.toLowerCase(Locale.ROOT);
+        String safeTarget = target == null ? "" : target.trim();
+        Map<String, String> safeProps = props == null ? Map.of() : props;
+
+        if (requiresQuotedTarget(actionNorm) && safeTarget.isBlank()) {
+            out.add(new Message(
+                Severity.ERROR,
+                action,
+                "Action '" + action + "' requires a quoted target",
+                "Use syntax like " + action + " \"hero\" { ... }",
+                lineNo
+            ));
+        }
+
+        if ("property".equals(actionNorm)) {
+            String key = valueFor(safeProps, "key");
+            String value = valueFor(safeProps, "value");
+            if (stripQuotes(key).isBlank()) {
+                out.add(new Message(
+                    Severity.ERROR,
+                    action,
+                    "property action is missing key",
+                    "Set key to a custom channel such as effect.blur or dof.strength",
+                    lineNo
+                ));
+            }
+            if (value.isBlank()) {
+                out.add(new Message(
+                    Severity.ERROR,
+                    action,
+                    "property action is missing numeric value",
+                    "Set value to the target number for this custom channel",
+                    lineNo
+                ));
+            } else if (parseNumber(value) == null) {
+                out.add(new Message(
+                    Severity.ERROR,
+                    action,
+                    "property value must be numeric",
+                    "Use a number such as 0, 1, or 0.35",
+                    lineNo
+                ));
+            }
+        }
+
+        if ("visible".equals(actionNorm)) {
+            String raw = valueFor(safeProps, "value");
+            if (raw.isBlank()) raw = valueFor(safeProps, "visible");
+            if (raw.isBlank()) {
+                out.add(new Message(
+                    Severity.ERROR,
+                    action,
+                    "visible action is missing value",
+                    "Set value to true/false or 1/0",
+                    lineNo
+                ));
+            } else if (!isBooleanLike(raw) && parseNumber(raw) == null) {
+                out.add(new Message(
+                    Severity.WARNING,
+                    action,
+                    "visible value '" + stripQuotes(raw) + "' is not a standard boolean or number",
+                    "Use true/false or 1/0",
+                    lineNo
+                ));
+            }
+        }
+
+        if ("playaudio".equals(actionNorm)
+            && safeTarget.isBlank()
+            && stripQuotes(valueFor(safeProps, "path")).isBlank()
+            && stripQuotes(valueFor(safeProps, "id")).isBlank()) {
+            out.add(new Message(
+                Severity.ERROR,
+                action,
+                "playAudio is missing an audio path",
+                "Use playAudio \"assets/audio/sfx/click.wav\" { ... }",
+                lineNo
+            ));
+        }
+
+        if ("event".equals(actionNorm) && safeTarget.isBlank()) {
+            out.add(new Message(
+                Severity.ERROR,
+                action,
+                "event action requires a quoted event type",
+                "Use event \"script_call\" { ... }",
+                lineNo
+            ));
+        }
     }
 
     /**
@@ -765,6 +946,31 @@ public class TimelineDiagnostic {
             return trimmed.substring(1, trimmed.length() - 1).trim();
         }
         return trimmed;
+    }
+
+    private static boolean requiresQuotedTarget(String actionNorm) {
+        return Set.of(
+            "move", "depth", "pivot", "rotate", "scale", "fade", "visible",
+            "expression", "show", "hide", "replace", "playaudio"
+        ).contains(actionNorm);
+    }
+
+    private static String valueFor(Map<String, String> props, String key) {
+        if (props == null || key == null) return "";
+        String value = props.get(key.toLowerCase(Locale.ROOT));
+        return value == null ? "" : value.trim();
+    }
+
+    private static boolean isBooleanLike(String value) {
+        String normalized = stripQuotes(value).toLowerCase(Locale.ROOT);
+        return "true".equals(normalized)
+            || "false".equals(normalized)
+            || "on".equals(normalized)
+            || "off".equals(normalized)
+            || "yes".equals(normalized)
+            || "no".equals(normalized)
+            || "1".equals(normalized)
+            || "0".equals(normalized);
     }
 
     private static String firstToken(String text) {

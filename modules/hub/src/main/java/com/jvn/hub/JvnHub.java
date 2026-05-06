@@ -54,7 +54,6 @@ import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
@@ -664,7 +663,7 @@ public final class JvnHub {
         "The hub could not check whether local engine files have changed.",
         "Updating may still work, but Git may stop if local files would be overwritten.\n\n" + details,
         options,
-        JOptionPane.WARNING_MESSAGE);
+        UpdateDialogTone.WARNING);
     return choice == 0;
   }
 
@@ -677,7 +676,7 @@ public final class JvnHub {
           "Build output can be safely recreated. Clear these files before updating?\n\n"
               + preflight.summary(),
           options,
-          JOptionPane.QUESTION_MESSAGE);
+          UpdateDialogTone.QUESTION);
       return choice == 0 ? UpdatePreflightAction.CLEAN_AND_UPDATE : UpdatePreflightAction.CANCEL;
     }
 
@@ -689,39 +688,131 @@ public final class JvnHub {
             + "Choose Cancel if you want to keep or commit them first.\n\n"
             + preflight.summary(),
         options,
-        JOptionPane.WARNING_MESSAGE);
+        UpdateDialogTone.DANGER);
     return choice == 0 ? UpdatePreflightAction.CLEAN_AND_UPDATE : UpdatePreflightAction.CANCEL;
   }
 
-  private int showUpdateDialog(String title, String message, String details, String[] options, int type) {
-    JPanel panel = new JPanel(new BorderLayout(0, 8));
-    panel.setOpaque(false);
+  private int showUpdateDialog(
+      String title,
+      String message,
+      String details,
+      String[] options,
+      UpdateDialogTone tone
+  ) {
+    AtomicReference<Integer> result = new AtomicReference<>(1);
 
-    JLabel prompt = new JLabel("<html><b>" + escapeHtml(message) + "</b></html>");
-    panel.add(prompt, BorderLayout.NORTH);
+    JDialog dialog = new JDialog(frame, title, true);
+    dialog.setUndecorated(true);
+    dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
+    dialog.getRootPane().setBorder(BorderFactory.createLineBorder(tone.borderColor(), 1));
 
-    JTextArea detailArea = new JTextArea(details == null ? "" : details);
-    detailArea.setEditable(false);
-    detailArea.setFocusable(false);
-    detailArea.setLineWrap(true);
-    detailArea.setWrapStyleWord(true);
-    detailArea.setRows(10);
-    detailArea.setColumns(52);
-    detailArea.setOpaque(false);
+    JPanel card = new JPanel(new BorderLayout(0, 16));
+    card.setBackground(PANEL_BG);
+    card.setBorder(new EmptyBorder(18, 20, 18, 20));
+
+    JPanel header = new JPanel(new BorderLayout(14, 0));
+    header.setOpaque(false);
+    header.add(new JLabel(new UpdateDialogIcon(tone, 34)), BorderLayout.WEST);
+
+    JPanel titleStack = new JPanel();
+    titleStack.setOpaque(false);
+    titleStack.setLayout(new BoxLayout(titleStack, BoxLayout.Y_AXIS));
+
+    JLabel titleLabel = new JLabel(title == null || title.isBlank() ? "Update Engine" : title.trim());
+    titleLabel.setForeground(TEXT_PRIMARY);
+    titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD, 17f));
+    titleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+    JTextArea messageArea = dialogText(message, TEXT_SOFT, 12f, Font.BOLD);
+    messageArea.setAlignmentX(Component.LEFT_ALIGNMENT);
+    messageArea.setBorder(new EmptyBorder(4, 0, 0, 0));
+
+    titleStack.add(titleLabel);
+    titleStack.add(messageArea);
+    header.add(titleStack, BorderLayout.CENTER);
+
+    JButton close = iconOnlyButton(VectorIcon.of(VectorIcon.Kind.CLOSE, 12, TEXT_MUTED));
+    close.addActionListener(e -> {
+      result.set(1);
+      dialog.dispose();
+    });
+    header.add(close, BorderLayout.EAST);
+    card.add(header, BorderLayout.NORTH);
+
+    JTextArea detailArea = dialogText(details, LOG_TEXT, 11f, Font.PLAIN);
+    detailArea.setBorder(new EmptyBorder(10, 12, 10, 12));
+    detailArea.setCaretPosition(0);
+
     JScrollPane scroll = new JScrollPane(detailArea);
     scroll.setBorder(BorderFactory.createLineBorder(BORDER_NEUTRAL));
-    scroll.setPreferredSize(new Dimension(520, 190));
-    panel.add(scroll, BorderLayout.CENTER);
+    scroll.setBackground(BG);
+    scroll.getViewport().setBackground(BG);
+    scroll.setPreferredSize(new Dimension(540, 190));
+    styleScrollBar(scroll.getVerticalScrollBar());
+    styleScrollBar(scroll.getHorizontalScrollBar());
+    card.add(scroll, BorderLayout.CENTER);
 
-    return JOptionPane.showOptionDialog(
-        frame,
-        panel,
-        title,
-        JOptionPane.DEFAULT_OPTION,
-        type,
-        null,
-        options,
-        options[0]);
+    JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+    actions.setOpaque(false);
+
+    String cancelLabel = options != null && options.length > 1 && options[1] != null ? options[1] : "Cancel";
+    String primaryLabel = options != null && options.length > 0 && options[0] != null ? options[0] : "Update";
+
+    FlatButton cancel = new FlatButton(cancelLabel, null, null);
+    cancel.addActionListener(e -> {
+      result.set(1);
+      dialog.dispose();
+    });
+
+    FlatButton primary = new FlatButton(primaryLabel, null, tone.primaryColor());
+    primary.addActionListener(e -> {
+      result.set(0);
+      dialog.dispose();
+    });
+
+    actions.add(cancel);
+    actions.add(primary);
+    card.add(actions, BorderLayout.SOUTH);
+
+    dialog.setContentPane(card);
+    dialog.pack();
+    dialog.setMinimumSize(new Dimension(620, 330));
+    dialog.setLocationRelativeTo(frame);
+    dialog.getRootPane().setDefaultButton(primary);
+    dialog.getRootPane().registerKeyboardAction(
+        e -> {
+          result.set(1);
+          dialog.dispose();
+        },
+        javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_ESCAPE, 0),
+        JComponent.WHEN_IN_FOCUSED_WINDOW);
+    dialog.setVisible(true);
+
+    return result.get();
+  }
+
+  private static JTextArea dialogText(String text, Color color, float size, int style) {
+    JTextArea area = new JTextArea(text == null ? "" : text);
+    area.setEditable(false);
+    area.setFocusable(false);
+    area.setLineWrap(true);
+    area.setWrapStyleWord(true);
+    area.setOpaque(false);
+    area.setForeground(color);
+    area.setFont(area.getFont().deriveFont(style, size));
+    return area;
+  }
+
+  private static JButton iconOnlyButton(Icon icon) {
+    JButton button = new JButton(icon);
+    button.setBorder(new EmptyBorder(6, 6, 6, 6));
+    button.setContentAreaFilled(false);
+    button.setBorderPainted(false);
+    button.setFocusPainted(false);
+    button.setOpaque(false);
+    button.setRolloverEnabled(true);
+    button.setToolTipText("Close");
+    return button;
   }
 
   private void cleanBeforeUpdate(UpdatePreflight preflight) {
@@ -1513,6 +1604,78 @@ public final class JvnHub {
 
     private static Color withAlpha(Color color, float alpha) {
       return new Color(color.getRed(), color.getGreen(), color.getBlue(), Math.round(alpha * 255f));
+    }
+  }
+
+  private enum UpdateDialogTone {
+    QUESTION(ACCENT_NEUTRAL, BORDER_NEUTRAL),
+    WARNING(Color.decode("#d7b56d"), Color.decode("#6d5830")),
+    DANGER(ACCENT_ERROR, Color.decode("#6d3440"));
+
+    private final Color primary;
+    private final Color border;
+
+    UpdateDialogTone(Color primary, Color border) {
+      this.primary = primary;
+      this.border = border;
+    }
+
+    Color primaryColor() {
+      return primary;
+    }
+
+    Color borderColor() {
+      return border;
+    }
+  }
+
+  private static final class UpdateDialogIcon implements Icon {
+    private final UpdateDialogTone tone;
+    private final int size;
+
+    private UpdateDialogIcon(UpdateDialogTone tone, int size) {
+      this.tone = tone == null ? UpdateDialogTone.WARNING : tone;
+      this.size = Math.max(24, size);
+    }
+
+    @Override public int getIconWidth() { return size; }
+    @Override public int getIconHeight() { return size; }
+
+    @Override
+    public void paintIcon(Component c, Graphics g, int x, int y) {
+      Graphics2D g2 = (Graphics2D) g.create();
+      g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+      g2.translate(x, y);
+
+      float s = size;
+      Color accent = tone.primaryColor();
+      g2.setPaint(new LinearGradientPaint(
+          0f, 0f, 0f, s,
+          new float[] {0f, 1f},
+          new Color[] {alpha(accent, 0.22f), alpha(accent, 0.08f)}));
+      g2.fillOval(1, 1, size - 2, size - 2);
+
+      g2.setColor(accent);
+      g2.setStroke(new BasicStroke(1.3f));
+      g2.drawOval(1, 1, size - 2, size - 2);
+
+      g2.setStroke(new BasicStroke(Math.max(2f, s * 0.09f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+      if (tone == UpdateDialogTone.QUESTION) {
+        g2.draw(new Arc2D.Float(s * 0.24f, s * 0.24f, s * 0.52f, s * 0.52f, 35f, 285f, Arc2D.OPEN));
+        Path2D arrow = new Path2D.Float();
+        arrow.moveTo(s * 0.28f, s * 0.50f);
+        arrow.lineTo(s * 0.62f, s * 0.50f);
+        arrow.lineTo(s * 0.50f, s * 0.38f);
+        g2.draw(arrow);
+      } else {
+        g2.drawLine(Math.round(s * 0.50f), Math.round(s * 0.24f), Math.round(s * 0.50f), Math.round(s * 0.58f));
+        g2.fillOval(Math.round(s * 0.45f), Math.round(s * 0.70f), Math.round(s * 0.10f), Math.round(s * 0.10f));
+      }
+      g2.dispose();
+    }
+
+    private static Color alpha(Color color, float alpha) {
+      return new Color(color.getRed(), color.getGreen(), color.getBlue(), Math.round(Math.max(0f, Math.min(1f, alpha)) * 255f));
     }
   }
 

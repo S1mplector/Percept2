@@ -2,6 +2,8 @@ package com.jvn.editor.ui.actioneditor;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -272,6 +274,31 @@ public class PuppeteerWindow extends Stage {
         PropertyType.CAMERA_Y,
         PropertyType.CAMERA_ZOOM
     };
+
+    private enum PuppeteerErrorType {
+        VALIDATION("Validation"),
+        PROJECT_CONTEXT("Project context"),
+        CODE_PARSE("Code parse"),
+        EXPORT("Export"),
+        SAVE_IO("Save / disk"),
+        REGISTRATION("Runtime registration"),
+        PREVIEW("Preview"),
+        ASSET("Asset"),
+        AUDIO("Audio"),
+        CLIP("Animation clip"),
+        CLIPBOARD("Clipboard"),
+        UNKNOWN("Unknown");
+
+        private final String label;
+
+        PuppeteerErrorType(String label) {
+            this.label = label;
+        }
+
+        String label() {
+            return label;
+        }
+    }
 
     private record TransformInteractionState(
         String entityName,
@@ -726,11 +753,23 @@ public class PuppeteerWindow extends Stage {
         tfDuration.setOnAction(e -> {
             try {
                 double dur = Double.parseDouble(tfDuration.getText());
+                if (!Double.isFinite(dur) || dur < 0.0) {
+                    throw new NumberFormatException("Duration must be a finite non-negative number.");
+                }
                 this.project.setTotalDurationMs(dur);
                 keyframeEditor.setTimelineDurationMs(this.project.getTotalDurationMs());
                 timelinePanel.refresh();
                 refreshExportPreviewAndMarkDirty();
-            } catch (NumberFormatException ignored) {}
+            } catch (NumberFormatException ex) {
+                syncDurationUi();
+                showOverlayError(
+                    PuppeteerErrorType.VALIDATION,
+                    "Invalid Duration",
+                    "Puppeteer could not apply the timeline duration.",
+                    "Duration must be a finite non-negative number of milliseconds.",
+                    ex
+                );
+            }
         });
 
         Button btnFitDuration = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.rectSelect(), "Fit duration to content");
@@ -3052,6 +3091,7 @@ public class PuppeteerWindow extends Stage {
 
     private File resolveRegisteredJesFile(String timelineName) {
         if (projectRoot == null || timelineName == null || timelineName.isBlank()) return null;
+        if (!PuppeteerVerification.isValidTimelineName(timelineName)) return null;
         return projectRoot.toPath()
             .resolve("scripts").resolve("timelines").resolve(timelineName + ".jes")
             .toFile();
@@ -3061,6 +3101,7 @@ public class PuppeteerWindow extends Stage {
         if (draftStore == null) return;
         String name = tfTimelineName != null ? tfTimelineName.getText().trim() : "";
         if (name.isEmpty()) return;
+        if (!PuppeteerVerification.isValidTimelineName(name)) return;
         String code = codePreview != null ? codePreview.getCode() : null;
         if (code == null || code.isBlank()) return;
         draftStore.scheduleSave(name, code);
@@ -4608,9 +4649,41 @@ public class PuppeteerWindow extends Stage {
     }
 
     private void copyExportedCodeToClipboard() {
-        String code = CodeExporter.export(project);
-        copyToClipboard(code);
-        if (onCopyCode != null) onCopyCode.accept(code);
+        try {
+            String code = CodeExporter.export(project);
+            List<TimelineDiagnostic.Message> findings = new ArrayList<>(
+                PuppeteerVerification.diagnose(
+                    project,
+                    knownSceneEntities(),
+                    projectRoot,
+                    PuppeteerVerification.Mode.EXPORT_CODE
+                )
+            );
+            findings.addAll(TimelineDiagnostic.diagnoseDsl(code));
+            boolean hasErrors = findings.stream()
+                .anyMatch(message -> message.severity() == TimelineDiagnostic.Severity.ERROR);
+            if (hasErrors) {
+                showVerificationOverlay(
+                    "Export Blocked",
+                    "Puppeteer found export errors. Fix them before copying this timeline code.",
+                    findings,
+                    null,
+                    null
+                );
+                return;
+            }
+            copyToClipboard(code);
+            if (statusBar != null) statusBar.setText("Exported timeline code copied to clipboard");
+            if (onCopyCode != null) onCopyCode.accept(code);
+        } catch (Exception ex) {
+            showOverlayError(
+                PuppeteerErrorType.EXPORT,
+                "Export Failed",
+                "Could not generate timeline code.",
+                ex.getMessage(),
+                ex
+            );
+        }
     }
 
     private void pasteCopiedKeyframesAtPlayhead() {
@@ -4686,17 +4759,29 @@ public class PuppeteerWindow extends Stage {
     }
 
     private void refreshExportPreview() {
-        codePreview.setCode(compactExport ? CodeExporter.exportCompact(project) : CodeExporter.export(project));
-        List<TimelineDiagnostic.Message> diags = new ArrayList<>(
-            PuppeteerVerification.diagnose(
-                project,
-                knownSceneEntities(),
-                projectRoot,
-                PuppeteerVerification.Mode.EXPORT_CODE
-            )
-        );
-        diags.addAll(TimelineDiagnostic.diagnoseDsl(codePreview.getCode()));
-        codePreview.setDiagnostics(diags);
+        try {
+            codePreview.setCode(compactExport ? CodeExporter.exportCompact(project) : CodeExporter.export(project));
+            List<TimelineDiagnostic.Message> diags = new ArrayList<>(
+                PuppeteerVerification.diagnose(
+                    project,
+                    knownSceneEntities(),
+                    projectRoot,
+                    PuppeteerVerification.Mode.EXPORT_CODE
+                )
+            );
+            diags.addAll(TimelineDiagnostic.diagnoseDsl(codePreview.getCode()));
+            codePreview.setDiagnostics(diags);
+        } catch (Exception ex) {
+            codePreview.setDiagnostics(List.of(new TimelineDiagnostic.Message(
+                TimelineDiagnostic.Severity.ERROR,
+                "(export)",
+                "Code preview could not be regenerated: " + firstNonBlank(ex.getMessage(), ex.getClass().getSimpleName()),
+                "Review recent timeline edits, invalid numeric values, and custom property keys"
+            )));
+            if (statusBar != null) {
+                statusBar.setText("Code preview refresh failed: " + firstNonBlank(ex.getMessage(), ex.getClass().getSimpleName()));
+            }
+        }
         refreshSidebarTabs();
     }
 
@@ -6029,14 +6114,20 @@ public class PuppeteerWindow extends Stage {
 
     private void requestRegisterTimeline(Runnable onSuccess) {
         String name = tfTimelineName.getText().trim();
-        if (name.isEmpty()) {
-            showOverlayError(
-                "Missing Timeline Name",
-                "Set a timeline name before registering.",
-                "Use the timeline name field in the top toolbar."
+        List<TimelineDiagnostic.Message> nameFindings = PuppeteerVerification.validateTimelineName(name);
+        boolean hasNameErrors = nameFindings.stream()
+            .anyMatch(message -> message.severity() == TimelineDiagnostic.Severity.ERROR);
+        if (hasNameErrors) {
+            showVerificationOverlay(
+                "Registration Blocked",
+                "Puppeteer found timeline name problems. Fix the name before registering.",
+                nameFindings,
+                null,
+                null
             );
             return;
         }
+        project.setName(name);
         List<TimelineDiagnostic.Message> findings = PuppeteerVerification.diagnose(
             project,
             knownSceneEntities(),
@@ -6070,13 +6161,31 @@ public class PuppeteerWindow extends Stage {
     }
 
     private boolean performRegisterTimeline(String name, Runnable onSuccess) {
-        project.setSceneEntitySnapshots(captureSceneEntitySnapshots());
-        TimelineData data = project.toTimelineData(name);
-        TimelineRegistry.register(data);
-        String code = CodeExporter.exportNamed(project, name);
-        codePreview.setCode(code);
-        boolean saved = saveTimelineFile(name, code);
-        if (saved) {
+        try {
+            List<TimelineDiagnostic.Message> nameFindings = PuppeteerVerification.validateTimelineName(name);
+            boolean hasNameErrors = nameFindings.stream()
+                .anyMatch(message -> message.severity() == TimelineDiagnostic.Severity.ERROR);
+            if (hasNameErrors) {
+                showVerificationOverlay(
+                    "Registration Blocked",
+                    "Puppeteer found timeline name problems. Fix the name before registering.",
+                    nameFindings,
+                    null,
+                    null
+                );
+                return false;
+            }
+            project.setName(name);
+            project.setSceneEntitySnapshots(captureSceneEntitySnapshots());
+            TimelineData data = project.toTimelineData(name);
+            String code = CodeExporter.exportNamed(project, name);
+            codePreview.setCode(code);
+            boolean saved = saveTimelineFile(name, code);
+            if (!saved) {
+                setTitle("Puppeteer - " + name + " (save failed)");
+                return false;
+            }
+            TimelineRegistry.register(data);
             if (previewStaged) {
                 previewStaged = false;
                 previewBaselineProject = null;
@@ -6088,14 +6197,20 @@ public class PuppeteerWindow extends Stage {
             if (workspacePrefs != null) {
                 workspacePrefs.pushRecent(name, resolveRegisteredJesFile(name));
             }
-        } else {
-            // Registry succeeded but disk write failed — keep dirty
-            setTitle("Puppeteer - " + name + " (registered, save FAILED)");
+            if (onSuccess != null) {
+                onSuccess.run();
+            }
+            return true;
+        } catch (Exception ex) {
+            showOverlayError(
+                PuppeteerErrorType.REGISTRATION,
+                "Registration Failed",
+                "Puppeteer could not register this timeline for runtime playback.",
+                ex.getMessage(),
+                ex
+            );
+            return false;
         }
-        if (saved && onSuccess != null) {
-            onSuccess.run();
-        }
-        return saved;
     }
 
     private void showVerificationOverlay(
@@ -6219,7 +6334,11 @@ public class PuppeteerWindow extends Stage {
 
     private boolean saveTimelineFile(String name, String jesCode) {
         if (projectRoot == null) {
-            showSaveError(name, "No project root set. Timeline registered in memory only.");
+            showSaveError(name, "No project root is set. Open Puppeteer from a saved JVN project before registering.");
+            return false;
+        }
+        if (!PuppeteerVerification.isValidTimelineName(name)) {
+            showSaveError(name, "Timeline name is not safe to use as a .jes filename.");
             return false;
         }
         try {
@@ -6247,22 +6366,38 @@ public class PuppeteerWindow extends Stage {
 
     private void showSaveError(String name, String detail) {
         Platform.runLater(() -> showOverlayError(
+            PuppeteerErrorType.SAVE_IO,
             "Save Failed",
             "Could not save timeline '" + name + "' to disk.",
-            detail != null ? detail : "Unknown error"));
+            detail != null ? detail : "Unknown error",
+            null));
     }
 
     private void showOverlayError(String title, String header, String detail) {
+        showOverlayError(classifyPuppeteerError(title, header, detail, null), title, header, detail, null);
+    }
+
+    private void showOverlayError(PuppeteerErrorType type,
+                                  String title,
+                                  String header,
+                                  String detail,
+                                  Throwable cause) {
+        PuppeteerErrorType effectiveType = type == null
+            ? classifyPuppeteerError(title, header, detail, cause)
+            : type;
         String normalizedTitle = title == null || title.isBlank() ? "Puppeteer Error" : title.trim();
         String normalizedHeader = header == null || header.isBlank()
             ? "Puppeteer could not complete this action."
             : header.trim();
-        String normalizedDetail = detail == null || detail.isBlank() ? "Unknown error" : detail.trim();
-        List<String> hints = overlayErrorHints(normalizedHeader, normalizedDetail);
+        String normalizedDetail = firstNonBlank(detail, cause != null ? cause.getMessage() : "Unknown error").trim();
+        if (normalizedDetail.isBlank()) normalizedDetail = "Unknown error";
+        List<String> hints = overlayErrorHints(effectiveType, normalizedHeader, normalizedDetail);
 
         VBox content = new VBox(10);
         content.setFillWidth(true);
         content.getChildren().addAll(
+            overlaySectionLabel("Type"),
+            overlayBodyLabel(effectiveType.label(), "#9eb8d8"),
             overlaySectionLabel("What happened"),
             overlayBodyLabel(normalizedHeader, "#d8d8d8"),
             overlaySectionLabel("Details"),
@@ -6274,7 +6409,7 @@ public class PuppeteerWindow extends Stage {
             }
         }
 
-        String report = overlayErrorReport(normalizedTitle, normalizedHeader, normalizedDetail, hints);
+        String report = overlayErrorReport(effectiveType, normalizedTitle, normalizedHeader, normalizedDetail, hints, cause);
         overlayDialog.showDialog(
             normalizedTitle,
             "JVN could not complete this Puppeteer action.",
@@ -6298,21 +6433,41 @@ public class PuppeteerWindow extends Stage {
         return label;
     }
 
-    private List<String> overlayErrorHints(String header, String detail) {
+    private List<String> overlayErrorHints(PuppeteerErrorType type, String header, String detail) {
         LinkedHashSet<String> hints = new LinkedHashSet<>();
         String haystack = ((header == null ? "" : header) + " " + (detail == null ? "" : detail))
             .toLowerCase(Locale.ROOT);
+        switch (type == null ? PuppeteerErrorType.UNKNOWN : type) {
+            case VALIDATION -> hints.add("Correct the highlighted field or timeline diagnostic, then try again.");
+            case PROJECT_CONTEXT -> hints.add("Open Puppeteer from a project-backed scene or reopen the project in the editor.");
+            case CODE_PARSE -> hints.add("Check the edited JES timeline code for missing braces, missing quoted targets, or invalid values.");
+            case EXPORT -> hints.add("Open the code pane diagnostics and fix blocking export errors before copying or registering.");
+            case SAVE_IO -> hints.add("Confirm the project folder exists, is writable, and is not locked by another process.");
+            case REGISTRATION -> hints.add("Run Runtime Verification and fix errors before registering for VNS interop.");
+            case PREVIEW -> hints.add("Regenerate the code preview, then stage the code again once parser diagnostics are clear.");
+            case ASSET -> hints.add("Relink missing image or stage assets from inside the project folder.");
+            case AUDIO -> hints.add("Check the audio path, channel, and file format, then retry preview or registration.");
+            case CLIP -> hints.add("Verify the clip still matches the selected track and entity/property type.");
+            case CLIPBOARD -> hints.add("Try copying again after focusing the editor window.");
+            case UNKNOWN -> hints.add("Review the selected timeline, track, and project context, then try again.");
+        }
         if (haystack.contains("project root")) {
             hints.add("Open Puppeteer from a project-backed scene or reopen the project in the editor.");
         }
-        if (haystack.contains("save") || haystack.contains("disk")) {
-            hints.add("Confirm the project folder exists and is writable.");
+        if (haystack.contains("save") || haystack.contains("disk") || haystack.contains("write")) {
+            hints.add("Confirm the destination folder exists and your account can write to it.");
         }
-        if (haystack.contains("parse") || haystack.contains("code")) {
-            hints.add("Check the generated code for incomplete edits or syntax errors.");
+        if (haystack.contains("parse") || haystack.contains("code") || haystack.contains("syntax")) {
+            hints.add("Use the line-numbered diagnostics in the code pane to locate the bad action or property.");
         }
-        if (haystack.contains("clip")) {
-            hints.add("Verify the clip still matches the selected track and entity type.");
+        if (haystack.contains("asset") || haystack.contains("image") || haystack.contains("missing")) {
+            hints.add("Verify referenced files exist relative to the project root.");
+        }
+        if (haystack.contains("audio")) {
+            hints.add("Use music, sound, or voice channels and keep audio assets under the project folder.");
+        }
+        if (haystack.contains("timeline name") || haystack.contains("filename")) {
+            hints.add("Use a portable name like hero_intro_01 with no spaces or path separators.");
         }
         if (hints.isEmpty()) {
             hints.add("Review the selected timeline, track, and project context, then try again.");
@@ -6321,9 +6476,15 @@ public class PuppeteerWindow extends Stage {
         return new ArrayList<>(hints);
     }
 
-    private String overlayErrorReport(String title, String header, String detail, List<String> hints) {
+    private String overlayErrorReport(PuppeteerErrorType type,
+                                      String title,
+                                      String header,
+                                      String detail,
+                                      List<String> hints,
+                                      Throwable cause) {
         StringBuilder report = new StringBuilder();
         report.append("Title: ").append(title).append('\n');
+        report.append("Type: ").append(type == null ? PuppeteerErrorType.UNKNOWN.label() : type.label()).append('\n');
         report.append("Summary: ").append(header).append('\n');
         report.append("Details: ").append(detail).append('\n');
         if (hints != null && !hints.isEmpty()) {
@@ -6332,7 +6493,55 @@ public class PuppeteerWindow extends Stage {
                 report.append("- ").append(hint).append('\n');
             }
         }
+        if (cause != null) {
+            report.append('\n').append("Stack trace:").append('\n');
+            StringWriter stack = new StringWriter();
+            cause.printStackTrace(new PrintWriter(stack));
+            report.append(stack.toString().stripTrailing());
+        }
         return report.toString().stripTrailing();
+    }
+
+    private PuppeteerErrorType classifyPuppeteerError(String title, String header, String detail, Throwable cause) {
+        String haystack = ((title == null ? "" : title) + " "
+            + (header == null ? "" : header) + " "
+            + (detail == null ? "" : detail) + " "
+            + (cause == null || cause.getMessage() == null ? "" : cause.getMessage()))
+            .toLowerCase(Locale.ROOT);
+        if (haystack.contains("duration") || haystack.contains("timeline name") || haystack.contains("validation")) {
+            return PuppeteerErrorType.VALIDATION;
+        }
+        if (haystack.contains("project root") || haystack.contains("project-backed")) {
+            return PuppeteerErrorType.PROJECT_CONTEXT;
+        }
+        if (haystack.contains("parse") || haystack.contains("syntax") || haystack.contains("code")) {
+            return PuppeteerErrorType.CODE_PARSE;
+        }
+        if (haystack.contains("export") || haystack.contains("generate")) {
+            return PuppeteerErrorType.EXPORT;
+        }
+        if (haystack.contains("save") || haystack.contains("disk") || haystack.contains("write")) {
+            return PuppeteerErrorType.SAVE_IO;
+        }
+        if (haystack.contains("register") || haystack.contains("runtime")) {
+            return PuppeteerErrorType.REGISTRATION;
+        }
+        if (haystack.contains("preview")) {
+            return PuppeteerErrorType.PREVIEW;
+        }
+        if (haystack.contains("asset") || haystack.contains("image") || haystack.contains("missing")) {
+            return PuppeteerErrorType.ASSET;
+        }
+        if (haystack.contains("audio") || haystack.contains("media")) {
+            return PuppeteerErrorType.AUDIO;
+        }
+        if (haystack.contains("clip")) {
+            return PuppeteerErrorType.CLIP;
+        }
+        if (haystack.contains("clipboard") || haystack.contains("copy")) {
+            return PuppeteerErrorType.CLIPBOARD;
+        }
+        return PuppeteerErrorType.UNKNOWN;
     }
 
     private void copyToClipboard(String text) {
@@ -6469,9 +6678,11 @@ public class PuppeteerWindow extends Stage {
             refreshExportPreview();
         } catch (Exception ex) {
             Platform.runLater(() -> showOverlayError(
+                PuppeteerErrorType.CODE_PARSE,
                 "Preview Failed",
                 "Could not parse the edited code.",
-                ex.getMessage()));
+                ex.getMessage(),
+                ex));
         }
     }
 

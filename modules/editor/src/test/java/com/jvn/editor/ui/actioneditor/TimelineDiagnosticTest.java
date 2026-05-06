@@ -99,6 +99,23 @@ class TimelineDiagnosticTest {
     }
 
     @Test
+    void detectsEventCuesThatWouldDoNothingAtRuntime() {
+        AnimationProject project = new AnimationProject();
+        project.addEditorEventCue(new EditorEventCue(100, "expression", java.util.Map.of("target", "hero")));
+        project.addEditorEventCue(new EditorEventCue(200, "hide", java.util.Map.of()));
+        project.addEditorEventCue(new EditorEventCue(300, "script_call", java.util.Map.of("count", "4")));
+
+        List<TimelineDiagnostic.Message> msgs = TimelineDiagnostic.diagnose(project, null);
+
+        assertTrue(msgs.stream().anyMatch(m ->
+            m.description().contains("has no expression or image path")));
+        assertTrue(msgs.stream().anyMatch(m ->
+            m.description().contains("has no target")));
+        assertTrue(msgs.stream().anyMatch(m ->
+            m.description().contains("has no handler")));
+    }
+
+    @Test
     void detectsAudioCueConsistencyProblems() {
         AnimationProject project = new AnimationProject();
         project.setTotalDurationMs(1000);
