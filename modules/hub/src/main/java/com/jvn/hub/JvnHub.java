@@ -822,8 +822,7 @@ public final class JvnHub {
 
     if (os.contains("win")) {
       script = projectRoot.resolve("install-windows-launcher.ps1");
-      String powershell = commandExists("pwsh") ? "pwsh" : "powershell";
-      cmd.add(powershell);
+      cmd.add(windowsPowerShellCommand());
       cmd.add("-NoProfile");
       cmd.add("-ExecutionPolicy");
       cmd.add("Bypass");
@@ -1233,6 +1232,17 @@ public final class JvnHub {
     String name = os.contains("win") ? "gradlew.bat" : "gradlew";
     Path wrapper = projectRoot.resolve(name);
     return wrapper.toAbsolutePath().toString();
+  }
+
+  private String windowsPowerShellCommand() {
+    if (commandExists("pwsh")) return "pwsh";
+    for (String envName : List.of("SystemRoot", "WINDIR")) {
+      String root = System.getenv(envName);
+      if (root == null || root.isBlank()) continue;
+      Path candidate = Paths.get(root, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
+      if (Files.isRegularFile(candidate)) return candidate.toAbsolutePath().toString();
+    }
+    return "powershell.exe";
   }
 
   private boolean commandExists(String command) {

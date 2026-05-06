@@ -31,6 +31,14 @@ import javafx.stage.StageStyle;
  * Designed to be shown before the main editor stage is created.
  */
 public final class StartupSplashOverlay {
+  private static final String BG = "#101010";
+  private static final String BG_TOP = "#151515";
+  private static final String BG_BOTTOM = "#101010";
+  private static final String SURFACE = "#1c1c1c";
+  private static final String SURFACE_TOP = "#262626";
+  private static final String SURFACE_BOTTOM = "#1c1c1c";
+  private static final String BORDER = "#3a3a3a";
+
   private final Stage stage = new Stage(StageStyle.UNDECORATED);
   private final Label statusLabel = new Label("Starting JVN Editor...");
   private final Label subtitleLabel = new Label("Loading editor environment");
@@ -45,7 +53,7 @@ public final class StartupSplashOverlay {
   public StartupSplashOverlay(Path logoPath) {
     BorderPane root = new BorderPane();
     root.setPadding(new Insets(16));
-    root.setStyle("-fx-background-color: #000000;");
+    root.setStyle("-fx-background-color: linear-gradient(to bottom, " + BG_TOP + ", " + BG_BOTTOM + ");");
 
     ImageView logoView = new ImageView(loadLogo(logoPath));
     if (logoView.getImage() != null) {
@@ -74,9 +82,12 @@ public final class StartupSplashOverlay {
     logArea.setWrapText(true);
     logArea.setPrefRowCount(8);
     logArea.setStyle(
-        "-fx-control-inner-background: #000000;"
-            + " -fx-background-color: #000000;"
-            + " -fx-text-fill: #cfd8e6;"
+        "-fx-control-inner-background: " + SURFACE + ";"
+            + " -fx-background-color: linear-gradient(to bottom, " + SURFACE_TOP + ", " + SURFACE_BOTTOM + ");"
+            + " -fx-background-radius: 6;"
+            + " -fx-border-color: " + BORDER + ";"
+            + " -fx-border-radius: 6;"
+            + " -fx-text-fill: #cfcfcf;"
             + " -fx-highlight-fill: #294a73;"
             + " -fx-font-family: 'Menlo';"
             + " -fx-font-size: 11px;");
@@ -101,10 +112,10 @@ public final class StartupSplashOverlay {
     progressBar.setPrefHeight(10);
     progressBar.setStyle(
         "-fx-accent: " + progressAccent + ";"
-            + " -fx-control-inner-background: #000000;"
-            + " -fx-background-color: #000000;"
-            + " -fx-box-border: #000000;"
-            + " -fx-border-color: #000000;");
+            + " -fx-control-inner-background: " + BG + ";"
+            + " -fx-background-color: " + BG + ";"
+            + " -fx-box-border: " + BG + ";"
+            + " -fx-border-color: " + BG + ";");
     progressBar.skinProperty().addListener((obs, oldSkin, newSkin) -> styleProgressBarForBlackChrome());
     VBox footer = new VBox(6, statusLabel, detailLabel, actionBar, progressBar);
 
@@ -112,7 +123,7 @@ public final class StartupSplashOverlay {
     center.setPadding(new Insets(12, 0, 0, 0));
     root.setCenter(center);
 
-    Scene scene = new Scene(root, 560, 320, Color.BLACK);
+    Scene scene = new Scene(root, 560, 320, Color.web(BG));
     stage.setScene(scene);
     Platform.runLater(this::hideLogScrollBars);
     Platform.runLater(this::styleProgressBarForBlackChrome);
@@ -240,7 +251,10 @@ public final class StartupSplashOverlay {
   private void styleProgressBarForBlackChrome() {
     Node track = progressBar.lookup(".track");
     if (track instanceof Region region) {
-      region.setStyle("-fx-background-color: #000000; -fx-border-color: #000000;");
+      region.setStyle("-fx-background-color: linear-gradient(to bottom, #181818, #111111);"
+          + " -fx-border-color: #2a2a2a;"
+          + " -fx-background-radius: 5;"
+          + " -fx-border-radius: 5;");
     }
     Node bar = progressBar.lookup(".bar");
     if (bar instanceof Region region) {
@@ -273,9 +287,11 @@ public final class StartupSplashOverlay {
       button.setAlignment(Pos.CENTER_LEFT);
     }
     button.setStyle(
-        (accent ? "-fx-background-color: #163322;" : "-fx-background-color: #111111;")
+        (accent
+            ? "-fx-background-color: linear-gradient(to bottom, #245939, #1a412a);"
+            : "-fx-background-color: linear-gradient(to bottom, " + SURFACE_TOP + ", " + SURFACE_BOTTOM + ");")
             + (accent ? " -fx-text-fill: #e8fff2;" : " -fx-text-fill: #d8e0ec;")
-            + (accent ? " -fx-border-color: #28543d;" : " -fx-border-color: #273245;")
+            + (accent ? " -fx-border-color: #68b385;" : " -fx-border-color: " + BORDER + ";")
             + " -fx-border-radius: 6;"
             + " -fx-background-radius: 6;"
             + " -fx-padding: 6 14 6 14;");

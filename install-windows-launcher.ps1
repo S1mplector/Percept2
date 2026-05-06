@@ -117,7 +117,7 @@ $launcherPs1Content = @"
 `$ErrorActionPreference = "Stop"
 `$ProjectRoot = $projectRootLiteral
 `$LogFile = $logFileLiteral
-`$JvnBat = Join-Path `$ProjectRoot "jvn.bat"
+`$GradleBat = Join-Path `$ProjectRoot "gradlew.bat"
 
 function Write-LaunchLog([string]`$Message) {
   Add-Content -LiteralPath `$LogFile -Value `$Message
@@ -136,29 +136,25 @@ Write-LaunchLog "---- `$((Get-Date).ToString('yyyy-MM-ddTHH:mm:sszzz')) ----"
 Write-LaunchLog "[JVN] Project: `$ProjectRoot"
 Write-LaunchLog "[JVN] Starting Engine Hub..."
 
-if (-not (Test-Path -LiteralPath `$JvnBat)) {
-  Write-LaunchLog "[JVN] Missing jvn.bat in `$ProjectRoot"
-  Show-Failure "Missing jvn.bat in the project directory."
+if (-not (Test-Path -LiteralPath `$GradleBat)) {
+  Write-LaunchLog "[JVN] Missing gradlew.bat in `$ProjectRoot"
+  Show-Failure "Missing gradlew.bat in the project directory."
   exit 1
 }
 
 try {
-  `$psi = New-Object System.Diagnostics.ProcessStartInfo
-  `$psi.FileName = `$env:ComSpec
-  if ([string]::IsNullOrWhiteSpace(`$psi.FileName)) { `$psi.FileName = "cmd.exe" }
-  `$cmdLine = '"' + `$JvnBat + '" >> "' + `$LogFile + '" 2>&1'
-  `$psi.Arguments = '/d /s /c "' + `$cmdLine + '"'
-  `$psi.WorkingDirectory = `$ProjectRoot
-  `$psi.UseShellExecute = `$false
-  `$psi.CreateNoWindow = `$true
-  `$psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
-  `$process = [System.Diagnostics.Process]::Start(`$psi)
-  `$process.WaitForExit()
-  `$status = `$process.ExitCode
+  `$pushedLocation = `$false
+  Push-Location -LiteralPath `$ProjectRoot
+  `$pushedLocation = `$true
+  & `$GradleBat -q --console=plain -p `$ProjectRoot ":hub:run" >> `$LogFile 2>&1
+  `$status = `$LASTEXITCODE
+  if (`$null -eq `$status) { `$status = 0 }
 } catch {
   Write-LaunchLog "[JVN] Startup exception: `$(`$_.Exception.Message)"
   Show-Failure "Startup failed before the hub could run."
   exit 1
+} finally {
+  if (`$pushedLocation) { Pop-Location }
 }
 
 if (`$status -ne 0) {
