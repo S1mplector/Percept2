@@ -942,9 +942,7 @@
 }
 
 .project-explorer-tree {
-  -fx-background-color:
-      radial-gradient(center 0% 100%, radius 86%, rgba(184, 115, 36, 0.16), rgba(184, 115, 36, 0.055) 31%, rgba(184, 115, 36, 0.0) 72%),
-      #f3f3f3;
+  -fx-background-color: #f3f3f3;
   -fx-border-color: #d5d5d5;
   -fx-border-radius: 8;
   -fx-background-radius: 8;
