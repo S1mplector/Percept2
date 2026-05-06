@@ -234,7 +234,9 @@ public class PuppeteerWindow extends Stage {
     private final ActionEditorDialogOverlay overlayDialog = new ActionEditorDialogOverlay();
     private final Map<String, String> launchCharacterImagePaths = new LinkedHashMap<>();
     private final Map<String, String> launchBackgroundPaths = new LinkedHashMap<>();
-    private final Map<String, String> sceneBaselineImagePaths = new LinkedHashMap<>();
+    private final Map<String, String> launchAudioPaths = new LinkedHashMap<>();
+    private final List<List<com.jvn.editor.ui.actioneditor.TimelinePanel.ClipboardEntry>> clipboardHistory = new java.util.ArrayList<>();
+    private static final int MAX_CLIPBOARD_HISTORY = 10;
     private final Map<String, Boolean> sceneBaselineVisibility = new LinkedHashMap<>();
     private final Map<String, Map<String, Double>> sceneBaselineCustomProperties = new LinkedHashMap<>();
     private final Map<String, Double> sceneBaselineCameraCustomProperties = new LinkedHashMap<>();
@@ -863,6 +865,8 @@ public class PuppeteerWindow extends Stage {
         btnCopyKeyframes.setOnAction(e -> copySelectedKeyframesToClipboard());
         Button btnPasteKeyframes = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.contentPaste(), "Paste keyframes at playhead (Ctrl/Cmd+Alt+V)");
         btnPasteKeyframes.setOnAction(e -> pasteCopiedKeyframesAtPlayhead());
+        Button btnClipboardHistory = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.memory(), "Clipboard history");
+        btnClipboardHistory.setOnAction(e -> showClipboardHistoryPopup(btnClipboardHistory));
         Button btnDuplicateKeyframes = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.controlPointDuplicate(), "Duplicate selected keyframes by snap step (Ctrl/Cmd+Alt+D)");
         btnDuplicateKeyframes.setOnAction(e -> duplicateSelectedKeyframesBySnapStep());
         Button btnSaveClip = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.libraryAdd(), "Save selection as reusable clip");
@@ -932,6 +936,7 @@ public class PuppeteerWindow extends Stage {
         HBox keyframeOpsPrimaryRow = new HBox(4,
             btnCopyKeyframes,
             btnPasteKeyframes,
+            btnClipboardHistory,
             btnDuplicateKeyframes,
             btnBatchKeyframe,
             btnSaveClip,
@@ -3062,6 +3067,7 @@ public class PuppeteerWindow extends Stage {
         applyWorkspacePrefs();
 
         draftStore = new PuppeteerDraftStore(projectRoot);
+        draftStore.setOnSaveCallback(timelineName -> Platform.runLater(() -> showAutoSaveIndicator(timelineName)));
         previewRecorder = new PuppeteerPreviewRecorder(animationPreview.getPreviewCanvas());
 
         // Run on the next tick so the timeline name field has the resolved value.
@@ -4631,6 +4637,14 @@ public class PuppeteerWindow extends Stage {
 
     private void copySelectedKeyframesToClipboard() {
         timelinePanel.copySelectedKeyframes();
+        // Save to clipboard history
+        List<com.jvn.editor.ui.actioneditor.TimelinePanel.ClipboardEntry> current = timelinePanel.getCopiedKeyframes();
+        if (!current.isEmpty()) {
+            clipboardHistory.add(0, List.copyOf(current));
+            if (clipboardHistory.size() > MAX_CLIPBOARD_HISTORY) {
+                clipboardHistory.remove(clipboardHistory.size() - 1);
+            }
+        }
         refreshToolbarCommandSummary();
     }
 
@@ -6583,6 +6597,60 @@ public class PuppeteerWindow extends Stage {
         ClipboardContent content = new ClipboardContent();
         content.putString(text == null ? "" : text);
         Clipboard.getSystemClipboard().setContent(content);
+    }
+
+    private void showClipboardHistoryPopup(Button sourceButton) {
+        if (clipboardHistory.isEmpty()) {
+            if (statusBar != null) statusBar.setText("Clipboard history is empty");
+            return;
+        }
+
+        VBox content = new VBox(8);
+        for (int i = 0; i < clipboardHistory.size(); i++) {
+            List<com.jvn.editor.ui.actioneditor.TimelinePanel.ClipboardEntry> entries = clipboardHistory.get(i);
+            int index = i;
+            String description = describeClipboardEntry(entries);
+            Button restoreButton = buildOverlayMenuButton(
+                (i == 0 ? "Current: " : "Item " + (i + 1) + ": ") + description,
+                () -> restoreClipboardEntry(index)
+            );
+            content.getChildren().add(restoreButton);
+        }
+
+        overlayDialog.showDialog(
+            "Clipboard History",
+            "Select a previous clipboard entry to restore.",
+            content,
+            ActionEditorDialogOverlay.ActionSpec.neutral("Close", overlayDialog::hideOverlay).defaultFocus(true)
+        );
+    }
+
+    private String describeClipboardEntry(List<com.jvn.editor.ui.actioneditor.TimelinePanel.ClipboardEntry> entries) {
+        if (entries == null || entries.isEmpty()) return "Empty";
+        int count = entries.size();
+        String entity = entries.get(0).sourceName();
+        if (entity == null || entity.isBlank()) entity = "Unknown";
+        return count + " keyframe" + (count > 1 ? "s" : "") + " from " + entity;
+    }
+
+    private void restoreClipboardEntry(int index) {
+        if (index < 0 || index >= clipboardHistory.size()) return;
+        List<com.jvn.editor.ui.actioneditor.TimelinePanel.ClipboardEntry> entries = clipboardHistory.get(index);
+        timelinePanel.setCopiedKeyframes(entries);
+        overlayDialog.hideOverlay();
+        if (statusBar != null) statusBar.setText("Restored clipboard entry " + (index + 1));
+        refreshToolbarCommandSummary();
+    }
+
+    private void showAutoSaveIndicator(String timelineName) {
+        if (statusBar == null) return;
+        statusBar.setText("Auto-saved: " + timelineName);
+        javafx.util.Duration duration = javafx.util.Duration.seconds(3);
+        javafx.animation.KeyFrame keyFrame = new javafx.animation.KeyFrame(duration, e -> {
+            if (statusBar != null) statusBar.setText("");
+        });
+        javafx.animation.Timeline timeline = new javafx.animation.Timeline(keyFrame);
+        timeline.play();
     }
 
     private void captureProjectSnapshotBaseline() {

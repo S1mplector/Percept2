@@ -132,7 +132,7 @@ public class TimelinePanel extends VBox {
     private final Map<KeyframeSelectionModel.KeyframeRef, Double> dragStartTimes = new HashMap<>();
     private List<ClipboardEntry> copiedKeyframes = List.of();
 
-    private record ClipboardEntry(String sourceName,
+    public record ClipboardEntry(String sourceName,
                                   boolean group,
                                   PropertyType property,
                                   Keyframe keyframe,
@@ -472,6 +472,18 @@ public class TimelinePanel extends VBox {
             .thenComparingInt(e -> e.property().ordinal()));
         copiedKeyframes = List.copyOf(snapshot);
         return !copiedKeyframes.isEmpty();
+    }
+
+    public List<ClipboardEntry> getCopiedKeyframes() {
+        return List.copyOf(copiedKeyframes);
+    }
+
+    public void setCopiedKeyframes(List<ClipboardEntry> entries) {
+        if (entries == null) {
+            copiedKeyframes = List.of();
+        } else {
+            copiedKeyframes = List.copyOf(entries);
+        }
     }
 
     public boolean pasteCopiedKeyframesAtPlayhead() {

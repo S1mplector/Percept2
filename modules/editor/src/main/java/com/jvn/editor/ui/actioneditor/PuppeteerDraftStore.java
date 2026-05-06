@@ -12,6 +12,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 /**
  * Debounced autosave for Puppeteer timeline drafts.
@@ -37,6 +38,7 @@ public final class PuppeteerDraftStore {
     private final ScheduledExecutorService scheduler;
     private final AtomicReference<PendingSave> pending = new AtomicReference<>(null);
     private ScheduledFuture<?> scheduledTask;
+    private Consumer<String> onSaveCallback;
 
     public PuppeteerDraftStore(File projectRoot) {
         this(projectRoot, DEFAULT_DEBOUNCE_MS);
@@ -67,6 +69,11 @@ public final class PuppeteerDraftStore {
     public synchronized void flushNow() {
         if (scheduledTask != null) scheduledTask.cancel(false);
         writePendingSafely();
+    }
+
+    /** Set a callback to be invoked after a successful draft save. */
+    public synchronized void setOnSaveCallback(Consumer<String> callback) {
+        this.onSaveCallback = callback;
     }
 
     /** Delete the draft file for the given timeline (called after a successful Save & Register). */
@@ -123,6 +130,10 @@ public final class PuppeteerDraftStore {
                 + " @ " + System.currentTimeMillis() + "\n";
             Files.writeString(file, header + snapshot.code, StandardCharsets.UTF_8);
             Files.setLastModifiedTime(file, FileTime.fromMillis(System.currentTimeMillis()));
+            Consumer<String> callback = onSaveCallback;
+            if (callback != null) {
+                callback.accept(snapshot.timelineName);
+            }
         } catch (IOException ignored) {
             // Drafts are best-effort. Re-pushing pending would risk an infinite retry loop.
         }
