@@ -289,6 +289,16 @@ public class PuppeteerWindow extends Stage {
         AUDIO("Audio"),
         CLIP("Animation clip"),
         CLIPBOARD("Clipboard"),
+        TIMELINE("Timeline"),
+        KEYFRAME("Keyframe"),
+        PROPERTY("Property"),
+        ENTITY("Entity / Track"),
+        CAMERA("Camera"),
+        CUE("Cue"),
+        INTERPOLATION("Interpolation"),
+        IMPORT("Import"),
+        STATE("State"),
+        PLAYBACK("Playback"),
         UNKNOWN("Unknown");
 
         private final String label;
@@ -6421,6 +6431,16 @@ public class PuppeteerWindow extends Stage {
             case AUDIO -> hints.add("Check the audio path, channel, and file format, then retry preview or registration.");
             case CLIP -> hints.add("Verify the clip still matches the selected track and entity/property type.");
             case CLIPBOARD -> hints.add("Try copying again after focusing the editor window.");
+            case TIMELINE -> hints.add("Check timeline duration, loop region bounds, and playhead position. Use Fit Duration if needed.");
+            case KEYFRAME -> hints.add("Verify keyframe times are non-negative and properly sorted. Use Timeline Diagnostics to locate conflicts.");
+            case PROPERTY -> hints.add("Confirm the property is supported for the selected entity type. Check value ranges in the Keyframe Editor.");
+            case ENTITY -> hints.add("Ensure the entity exists in the project and is visible in the Entities tab. Check spelling and case sensitivity.");
+            case CAMERA -> hints.add("Verify camera bounds are within the viewport. Check DOF values are non-negative and within valid ranges.");
+            case CUE -> hints.add("Confirm audio cue files exist and event cue payloads are valid. Check cue timing is within timeline duration.");
+            case INTERPOLATION -> hints.add("Verify easing curve control points are valid. Try resetting to LINEAR or a built-in easing preset.");
+            case IMPORT -> hints.add("Check the source file exists and has a valid format. Ensure you have read permissions on the file.");
+            case STATE -> hints.add("Try undoing recent changes or reopening Puppeteer. Check if the command stack is corrupted.");
+            case PLAYBACK -> hints.add("Verify the timeline has keyframes to play. Check if auto-key is enabled and try setting a keyframe first.");
             case UNKNOWN -> hints.add("Review the selected timeline, track, and project context, then try again.");
         }
         if (haystack.contains("project root")) {
@@ -6440,6 +6460,15 @@ public class PuppeteerWindow extends Stage {
         }
         if (haystack.contains("timeline name") || haystack.contains("filename")) {
             hints.add("Use a portable name like hero_intro_01 with no spaces or path separators.");
+        }
+        if (haystack.contains("loop") || haystack.contains("in") || haystack.contains("out")) {
+            hints.add("Ensure loop IN is before loop OUT and both are within the timeline duration.");
+        }
+        if (haystack.contains("duration") && haystack.contains("negative")) {
+            hints.add("Timeline duration must be a positive number. Use Fit Duration to auto-adjust based on keyframes.");
+        }
+        if (haystack.contains("snap") || haystack.contains("grid")) {
+            hints.add("Adjust the snap step value or disable snapping if you need finer time resolution.");
         }
         if (hints.isEmpty()) {
             hints.add("Review the selected timeline, track, and project context, then try again.");
@@ -6512,6 +6541,36 @@ public class PuppeteerWindow extends Stage {
         }
         if (haystack.contains("clipboard") || haystack.contains("copy")) {
             return PuppeteerErrorType.CLIPBOARD;
+        }
+        if (haystack.contains("timeline") || haystack.contains("loop") || haystack.contains("playhead")) {
+            return PuppeteerErrorType.TIMELINE;
+        }
+        if (haystack.contains("keyframe") || haystack.contains("key") || haystack.contains("kf")) {
+            return PuppeteerErrorType.KEYFRAME;
+        }
+        if (haystack.contains("property") || haystack.contains("prop") || haystack.contains("channel")) {
+            return PuppeteerErrorType.PROPERTY;
+        }
+        if (haystack.contains("entity") || haystack.contains("track") || haystack.contains("sprite") || haystack.contains("character")) {
+            return PuppeteerErrorType.ENTITY;
+        }
+        if (haystack.contains("camera") || haystack.contains("dof") || haystack.contains("zoom") || haystack.contains("pan")) {
+            return PuppeteerErrorType.CAMERA;
+        }
+        if (haystack.contains("cue") || haystack.contains("event") || haystack.contains("marker")) {
+            return PuppeteerErrorType.CUE;
+        }
+        if (haystack.contains("easing") || haystack.contains("interpol") || haystack.contains("curve") || haystack.contains("bezier")) {
+            return PuppeteerErrorType.INTERPOLATION;
+        }
+        if (haystack.contains("import") || haystack.contains("load") || haystack.contains("read")) {
+            return PuppeteerErrorType.IMPORT;
+        }
+        if (haystack.contains("state") || haystack.contains("undo") || haystack.contains("redo") || haystack.contains("command")) {
+            return PuppeteerErrorType.STATE;
+        }
+        if (haystack.contains("playback") || haystack.contains("play") || haystack.contains("pause") || haystack.contains("stop")) {
+            return PuppeteerErrorType.PLAYBACK;
         }
         return PuppeteerErrorType.UNKNOWN;
     }
