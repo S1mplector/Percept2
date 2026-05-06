@@ -276,12 +276,15 @@ public class EditorApp extends Application {
   private static final Duration SIDEBAR_DRAG_FROST_DURATION = Duration.millis(135);
   private static final Duration EMPTY_SIDEBAR_AUTO_CLOSE_DELAY = Duration.seconds(5);
   private static final Duration EMPTY_SIDEBAR_CLOSE_DURATION = Duration.millis(520);
+  private static final Duration SIDEBAR_TAB_CLOSE_SETTLE_DURATION = Duration.millis(155);
+  private static final Duration SIDEBAR_EMPTY_AFTER_TAB_CLOSE_DELAY = Duration.millis(65);
   private static final String SIDEBAR_DRAG_FROST_OVERLAY_KEY = "jvn.sidebarDragFrost.overlay";
   private static final String SIDEBAR_DRAG_FROST_BLUR_KEY = "jvn.sidebarDragFrost.blur";
   private static final String SIDEBAR_DRAG_FROST_BASE_EFFECT_KEY = "jvn.sidebarDragFrost.baseEffect";
   private static final String SIDEBAR_DRAG_FROST_BASE_EFFECT_PRESENT_KEY = "jvn.sidebarDragFrost.baseEffectPresent";
   private static final String SIDEBAR_DRAG_FROST_ANIMATION_KEY = "jvn.sidebarDragFrost.animation";
   private static final String SIDEBAR_DRAG_FROST_HANDLER_KEY = "jvn.sidebarDragFrost.handlerInstalled";
+  private static final String SIDEBAR_TAB_CLOSE_ANIMATION_KEY = "jvn.sidebarTabClose.animation";
   private static final String PANEL_CHOOSER_TAB_ROLE = "panel-chooser";
   private static final String PANEL_CHOOSER_REFRESH_KEY = "panel-chooser-refresh";
   private static final String PANEL_WINDOW_SUPPRESS_UNLOAD_KEY = "jvn.panelWindow.suppressUnload";
