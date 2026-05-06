@@ -4646,6 +4646,17 @@ public class EditorApp extends Application {
     if (resolvedIconClass != null && !resolvedIconClass.isBlank()) {
       iconChip.getStyleClass().add(resolvedIconClass + "-chip");
     }
+    if (panel != null) {
+      Label versionBadge = new Label(panel.versionBadge());
+      versionBadge.setMouseTransparent(true);
+      versionBadge.getStyleClass().addAll("panel-chooser-version-badge", panel.versionStyleClass());
+      Tooltip versionTooltip = new Tooltip(panel.versionTooltip());
+      Tooltip.install(iconChip, versionTooltip);
+      versionBadge.setTooltip(versionTooltip);
+      StackPane.setAlignment(versionBadge, Pos.BOTTOM_CENTER);
+      StackPane.setMargin(versionBadge, new javafx.geometry.Insets(0, 1, 1, 1));
+      iconChip.getChildren().add(versionBadge);
+    }
 
     Label label = new Label(panelName);
     label.setMaxWidth(Double.MAX_VALUE);
@@ -4750,7 +4761,11 @@ public class EditorApp extends Application {
     row.setPadding(new javafx.geometry.Insets(4, 6, 4, 6));
     row.getStyleClass().add("panel-chooser-row");
     String filterKey = panelName.toLowerCase(Locale.ROOT)
-        + (panel != null ? " " + panel.key().toLowerCase(Locale.ROOT) : "");
+        + (panel != null
+            ? " " + panel.key().toLowerCase(Locale.ROOT)
+                + " " + panel.version().toLowerCase(Locale.ROOT)
+                + " " + panel.maturity().name().toLowerCase(Locale.ROOT)
+            : "");
     row.getProperties().put("chooserFilterKey", filterKey);
     row.setOnMouseClicked(e -> {
       if (e.getButton() != MouseButton.PRIMARY || e.getClickCount() < 2) return;
@@ -5304,6 +5319,15 @@ public class EditorApp extends Application {
       if (t != null) pane.getSelectionModel().select(t);
     }, () -> launchPanelAsWindow("Story Timeline", ensureTimelineView(), 600, 700, EditorSidebarPanel.TIMELINE), () -> {
       rememberPanelPlacement(EditorSidebarPanel.TIMELINE, EditorPanelPlacement.HIDDEN);
+      applyDefaultSidebarPreferences();
+    });
+
+    addChooserActionRow(pane, actions, EditorSidebarPanel.INSPECTOR, targetPlacement, "Inspector", null, () -> {
+      rememberPanelPlacement(EditorSidebarPanel.INSPECTOR, targetPlacement);
+      Tab t = ensureInspectorTab(pane);
+      if (t != null) pane.getSelectionModel().select(t);
+    }, () -> launchPanelAsWindow("Inspector", inspectorScroll, 420, 700, EditorSidebarPanel.INSPECTOR), () -> {
+      rememberPanelPlacement(EditorSidebarPanel.INSPECTOR, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
     });
 

@@ -5097,6 +5097,36 @@
   -fx-border-color: #a9a9a9;
 }
 
+.panel-chooser-version-badge {
+  -fx-padding: 0 3 0 3;
+  -fx-min-height: 10px;
+  -fx-pref-height: 10px;
+  -fx-max-height: 10px;
+  -fx-font-size: 7px;
+  -fx-font-weight: 800;
+  -fx-background-radius: 999;
+  -fx-border-radius: 999;
+  -fx-border-width: 1;
+  -fx-text-fill: #161616;
+}
+
+.panel-chooser-version-stable {
+  -fx-background-color: rgba(244, 244, 244, 0.96);
+  -fx-border-color: #9a9a9a;
+}
+
+.panel-chooser-version-beta {
+  -fx-background-color: rgba(255, 230, 194, 0.98);
+  -fx-border-color: #c47c25;
+  -fx-text-fill: #5f3510;
+}
+
+.panel-chooser-version-alpha {
+  -fx-background-color: rgba(255, 213, 223, 0.98);
+  -fx-border-color: #bf536c;
+  -fx-text-fill: #681f31;
+}
+
 .panel-chooser-heading {
   -fx-font-size: 14px;
   -fx-font-weight: 700;
