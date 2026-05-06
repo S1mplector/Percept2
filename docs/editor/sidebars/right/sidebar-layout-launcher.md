@@ -114,7 +114,106 @@ The bottom section shows the menu registry state:
 | **Default menu** | The menu ID configured as the startup menu |
 | **Registered menus** | List of all registered menu screen IDs |
 
-The registry panel validates cross-references — for example, if a menu screen references a layout or style that doesn't exist, it's flagged.
+### Inline Registry Editor
+
+The registry panel includes an **inline editor** for direct registry modification:
+
+| Control | Description |
+|---------|-------------|
+| **defaultMenu field** | Editable TextField for the startup menu ID |
+| **menus field** | Editable TextField for comma-separated menu IDs |
+| **layouts field** | Editable TextField for comma-separated layout IDs |
+| **styles field** | Editable TextField for comma-separated style IDs |
+| **Save Registry button** | Writes all fields to `config/menu/registry/menu.registry` |
+| **Open File button** | Opens the registry file in the text editor |
+
+Changes to the registry are applied immediately when clicking **Save Registry**, and the item list refreshes to reflect the new state.
+
+---
+
+## Enhanced Screen Item Cards
+
+Menu screen cards display comprehensive wiring information and validation status:
+
+### Card Elements
+
+| Element | Description |
+|---------|-------------|
+| **Layout/Style reference** | Shows the layout and style IDs referenced by the screen |
+| **Validation color** | Blue = valid reference found, Orange = missing reference |
+| **Quick-assign ComboBoxes** | Editable dropdowns for layout and style assignment |
+| **Navigation flow indicators** | Shows "Navigates to: load, settings" based on item actions |
+| **Validation warnings** | Orange border on cards with detected issues |
+| **Clone/Duplicate button** | Copies the screen file content and auto-registers in registry |
+
+### Quick-Assign Workflow
+
+The quick-assign ComboBoxes allow you to change layout or style references directly from the launcher:
+
+1. Click the layout or style ComboBox on a screen card
+2. Select from the pre-populated list of known IDs (discovered during scan)
+3. The change is written immediately to the `.menu` file via `quickAssignScreenProperty()`
+4. The card updates to reflect the new reference
+
+### Wiring Validation Warnings
+
+Screen cards show validation warnings for:
+
+| Issue | Description |
+|-------|-------------|
+| **Layout not found** | Referenced layout ID doesn't exist in the project |
+| **Style not found** | Referenced style ID doesn't exist in the project |
+| **Navigation target not found** | Item action references a menu that doesn't exist |
+| **Screen not registered** | Screen exists but isn't listed in menu.registry |
+| **File doesn't exist** | Screen is registered but the .menu file is missing |
+
+Warnings appear as an orange border on the card with a list of specific issues in the detail section.
+
+### Clone/Duplicate
+
+The **Clone/Duplicate** button on each screen card:
+
+1. Copies the entire content of the source `.menu` file
+2. Generates a new filename based on the source (e.g., `main.menu` → `main_copy.menu`)
+3. Auto-registers the new screen in the menu.registry
+4. Refreshes the item list to show the new screen
+
+This is useful for creating similar menu screens without manually copying files.
+
+---
+
+## Known ID Tracking
+
+During the `collectItems()` scan, the launcher maintains cross-reference maps:
+
+| Map | Purpose |
+|-----|---------|
+| `knownLayoutIds` | All discovered layout IDs for validation |
+| `knownStyleIds` | All discovered style IDs for validation |
+| `knownScreenIds` | All discovered screen IDs for navigation validation |
+
+These maps are used to:
+- Populate quick-assign ComboBoxes with valid options
+- Validate layout/style references on screen cards
+- Detect navigation targets that don't exist
+
+---
+
+## Registry State Tracking
+
+The launcher loads and tracks registry state via `loadRegistryState()`:
+
+| Property | Source |
+|----------|--------|
+| `registryDefaultMenu` | `defaultMenu` field in menu.registry |
+| `registryMenus` | `menus` field (comma-split) |
+| `registryLayouts` | `layouts` field (comma-split) |
+| `registryStyles` | `styles` field (comma-split) |
+
+This state is compared against discovered files to detect:
+- Screens that exist but aren't registered
+- Registered screens with missing files
+- Layouts/styles referenced but not declared in registry
 
 ---
 

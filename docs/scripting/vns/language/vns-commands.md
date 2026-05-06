@@ -884,11 +884,22 @@ A static facade class available in all Java blocks, providing concise access to 
 | `Vn.playSfx(trackId)` | Sound effect |
 | `Vn.playVoice(trackId)` / `Vn.stopVoice()` | Voice playback |
 | `Vn.setBackground(bgId)` | Change background |
+| `Vn.getBackground()` | Get current background ID |
 | `Vn.jump(label)` | Jump to label |
 | `Vn.hud(message)` / `Vn.hud(message, durationMs)` | Show HUD message |
 | `Vn.setPersistent(key, value)` / `Vn.getPersistent(key)` | Persistent store |
 | `Vn.currentScene()` / `Vn.currentState()` | Direct access |
-| `Vn.log(message)` | Debug logging |
+| `Vn.log(message)` / `Vn.log(format, args...)` | Debug logging (varargs overload) |
+| `Vn.screenShake(intensity, durationMs)` | Trigger screen shake effect |
+| `Vn.flash(r, g, b, strength, durationMs)` / `Vn.flash(durationMs)` | Trigger screen flash (white if RGB omitted) |
+| `Vn.isVisible(characterId)` | Check if character is visible |
+| `Vn.getExpression(characterId)` | Get character's current expression |
+| `Vn.getPosition(characterId)` | Get character's current position |
+| `Vn.clearCharacters()` | Hide all characters |
+| `Vn.hideUi()` / `Vn.showUi()` / `Vn.toggleUi()` / `Vn.isUiHidden()` | UI visibility control |
+| `Vn.isComplete()` | Check if scenario is complete |
+| `Vn.nodeIndex()` | Get current node index |
+| `Vn.wait(durationMs)` | Pause execution for specified duration |
 
 ### `[init java]` ... `[/init]` (Load-Time Initialization)
 
