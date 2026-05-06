@@ -324,7 +324,7 @@ Named exports include a compact metadata line:
 
 ---
 
-## 3. Timeline Registry — Bridging Puppeteer to VNS Runtime
+## 3. Timeline Registry and Bridging Puppeteer to VNS Runtime
 
 The `TimelineRegistry` is the bridge between the editor (Puppeteer) and the runtime (VNS playback).
 
@@ -342,11 +342,12 @@ The verification step is important because preview-safe authoring is not always 
 
 - camera keyframes are spread across multiple tracks
 - camera keyframes are mixed into a normal entity track instead of the dedicated runtime camera lane
-- an animated group depends on preview-only group motion that is not serialized into runtime `TimelineData`
+- an animated group has no runtime child entities to bake into
 - an audio cue references a file that is missing on disk
 
 What is runtime-safe now is broader than before:
 
+- grouped entity rigs: group X/Y, pivot, rotation, scale, depth, and alpha are baked into child tracks
 - event cues for `expression`, `show`, `hide`, `replace`, and `scene`
 - dedicated matrix, blur, color-matrix, and DOF channels
 - registry-backed or freeform custom numeric channels routed through `applyCustomProperty`
@@ -1055,7 +1056,7 @@ Entities and groups carry `layerOrder` metadata. Context-menu Raise (+10) / Lowe
 - **Single-scene scope** — Puppeteer operates on one scene at a time; cross-scene transitions must be authored separately
 - **Snapshot is static** — the VNS snapshot at launch time captures the state up to the cursor line; it does not update if the VNS script changes while Puppeteer is open
 - **No drag-from-asset-picker** — assets are added via button click; drag-and-drop onto the preview is not yet implemented
-- **Group properties** — groups only support X and Y animation; rotation, scale, and alpha on groups are not yet supported
+- **Group baking is scalar timeline output** — curved group rotation/scale is baked to child position samples for runtime playback; very long arcs may produce denser exported JES
 - **Async-only playback** — `[call jes_timeline ...]` always runs asynchronously; there is no blocking variant (use `[wait N]` to synchronize)
 - **No timeline chaining** — there is no built-in way to sequence named timelines; chain them manually with `[wait]` between `[call]` commands
 

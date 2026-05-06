@@ -473,6 +473,8 @@ The metadata is URL-encoded key/value text so paths and tags survive round-trip 
 
 `CodeExporter.exportWithGroups(project)` — same as standard but includes `// Group: <name>` comments for entity group structure.
 
+Puppeteer group tracks are editor metadata, not separate JES runtime nodes. During standard export and runtime registration, group X/Y, pivot, rotation, scale, depth, and alpha are baked into the affected child entity tracks. Child-part keyframes remain local before the parent group transform is applied, so layered character presets can move as one rig while individual parts still animate independently.
+
 ### Incremental Export
 
 `CodeExporter.exportIncremental(project)` — only emits events where property values have *changed* from their initial snapshot. Useful for animations that build on an existing scene state (e.g., launched from a VNS cursor position).
@@ -559,8 +561,8 @@ The exporter maps Puppeteer's `PropertyType` enum to JES action types and proper
 |-------------|--------|-----|---------|
 | `X` | `move` | `x` | 0 |
 | `Y` | `move` | `y` | 0 |
-| `PIVOT_X` | `pivot` | `ox` | 0 |
-| `PIVOT_Y` | `pivot` | `oy` | 0 |
+| `PIVOT_X` | `pivot` | `ox` | 0.5 |
+| `PIVOT_Y` | `pivot` | `oy` | 0.5 |
 | `ROTATION` | `rotate` | `deg` | 0 |
 | `SCALE_X` | `scale` | `sx` | 1.0 |
 | `SCALE_Y` | `scale` | `sy` | 1.0 |

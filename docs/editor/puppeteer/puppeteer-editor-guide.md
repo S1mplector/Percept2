@@ -247,7 +247,7 @@ This section is intentionally exhaustive and mirrors the current implementation 
 | Control | Type | Default | Action |
 |--------|------|---------|--------|
 | Property dropdown | combo box | `X` | Sets active property track for add-keyframe + nudging |
-| Values | selection-aware enum list | common `PropertyType` lanes | Entity lanes include `X`, `Y`, `Z`, `PIVOT_X`, `PIVOT_Y`, `ROTATION`, `SCALE_X`, `SCALE_Y`, `ALPHA`, `VISIBILITY`; runtime camera lanes include `CAMERA_X`, `CAMERA_Y`, `CAMERA_ZOOM`, and DOF properties |
+| Values | selection-aware enum list | common `PropertyType` lanes | Entity lanes include `X`, `Y`, `Z`, `PIVOT_X`, `PIVOT_Y`, `ROTATION`, `SCALE_X`, `SCALE_Y`, `ALPHA`, `VISIBILITY`; group lanes include `X`, `Y`, `Z`, `PIVOT_X`, `PIVOT_Y`, `ROTATION`, `SCALE_X`, `SCALE_Y`, `ALPHA`; runtime camera lanes include `CAMERA_X`, `CAMERA_Y`, `CAMERA_ZOOM`, and DOF properties |
 
 #### Keyframe Ops Group
 
@@ -766,7 +766,15 @@ Groups let you organize entities hierarchically and animate them as a unit.
 
 ### Group Animation
 
-When a group is selected, its own `EntityTrack` is editable with **X** and **Y** properties. Group keyframes animate all child entities as a unit — offsets are additive to individual entity animations.
+When a group is selected, its own `EntityTrack` is editable with **X**, **Y**, **Z**, **Pivot X/Y**, **Rotation**, **Scale X/Y**, and **Alpha** properties.
+
+Group transforms are resolved as a rig transform:
+
+- Child entity keyframes stay local to the layer or part
+- The group transform is applied on top using a shared pivot from the group's rest bounds
+- Group pivot keyframes move the rig's rotation/scale center within those bounds
+- Nested groups compose from the inner group outward
+- Runtime registration bakes the effective result into child entity tracks, so VNS playback matches the Puppeteer preview
 
 ### Layer Ordering
 
@@ -1247,7 +1255,7 @@ Unknown easing "ease_in_out_quard" on hero.X at 400ms
 - **Use snap** for consistent timing (50ms or 100ms steps work well for character animations)
 - **Fit duration** — click Fit to auto-size the timeline after adding keyframes
 - **Use onion skinning** (`Ctrl/Cmd+O`) to visualize motion paths and timing overlap
-- **Group related entities** — animate a character and their props as a unit
+- **Group related entities** — animate a character rig as a unit, then add part-level keys for hands, face layers, props, or accessories
 - **Layer order** — use Raise/Lower to control which entities render on top during overlaps
 - **Save clips** for reusable animation patterns (entrances, exits, emphasis effects)
 
@@ -1272,7 +1280,7 @@ Unknown easing "ease_in_out_quard" on hero.X at 400ms
 - **Single-scene scope** — Puppeteer operates on one scene at a time; cross-scene transitions must be authored separately
 - **Scene cues are in-scene swaps** — `scene` event cues can change the current background/cutaway state, but pushing/replacing whole engine scenes still belongs to surrounding VNS/JES logic
 - **Snapshot is static** — the VNS snapshot captures state at launch time and does not update if the script changes while Puppeteer is open
-- **Group properties** — groups only support X and Y animation (not rotation, scale, or alpha)
+- **Group baking is scalar timeline output** — group rotation and scale are baked into child position samples for runtime playback, so long curved moves can produce denser generated JES
 - **No drag-from-asset-picker** — assets are added via button click; drag-and-drop is not yet implemented
 
 ---

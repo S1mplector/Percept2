@@ -398,7 +398,9 @@ public class CodeExporter {
             ev.target = target;
             ev.startTime = time;
             ev.duration = 0.0;
-            ev.props.put("z", track.getValueAt(p1, time));
+            ev.props.put("z", effective && project != null
+                ? project.computeValueAt(target, p1, time, p1.getDefaultValue())
+                : track.getValueAt(p1, time));
             events.add(ev);
             return;
         }

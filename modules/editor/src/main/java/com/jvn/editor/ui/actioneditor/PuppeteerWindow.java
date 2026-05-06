@@ -99,6 +99,8 @@ public class PuppeteerWindow extends Stage {
         PropertyType.X,
         PropertyType.Y,
         PropertyType.Z,
+        PropertyType.PIVOT_X,
+        PropertyType.PIVOT_Y,
         PropertyType.ROTATION,
         PropertyType.SCALE_X,
         PropertyType.SCALE_Y,
@@ -640,7 +642,7 @@ public class PuppeteerWindow extends Stage {
 
             double time = interaction.timeMs();
             Map<String, Map<PropertyType, PuppeteerCommand.PropertySnapshot>> beforeStates = interaction.beforeStates();
-            Map<String, Map<PropertyType, PuppeteerCommand.PropertySnapshot>> afterStates = captureTransformSnapshots(time);
+            Map<String, Map<PropertyType, PuppeteerCommand.PropertySnapshot>> afterStates = captureTransformSnapshots(name, time);
             List<PuppeteerCommand> commands = buildTransformInteractionCommands(time, beforeStates, afterStates);
 
             if (commands.isEmpty()) {
@@ -652,6 +654,7 @@ public class PuppeteerWindow extends Stage {
 
             commandStack.execute(PuppeteerCommand.composite("Edit transform", commands));
             timelinePanel.refresh();
+            updatePreview();
             refreshExportPreviewAndMarkDirty();
         });
 
@@ -671,7 +674,8 @@ public class PuppeteerWindow extends Stage {
         keyframeEditor.setOnPivotPresetApplied((px, py) -> {
             String name = timelinePanel.getSelectedEntity();
             if (name == null || name.isBlank()) return;
-            EntityTrack track = this.project.getOrCreateTrack(name);
+            EntityTrack track = selectedTrackForEditing(true);
+            if (track == null) return;
             double time = this.project.getPlayheadMs();
             commandStack.execute(PuppeteerCommand.upsertKeyframe(track, PropertyType.PIVOT_X, time, px));
             commandStack.execute(PuppeteerCommand.upsertKeyframe(track, PropertyType.PIVOT_Y, time, py));
@@ -4013,59 +4017,27 @@ public class PuppeteerWindow extends Stage {
                 continue;
             }
             String entityName = track.getEntityName();
-            double baseZ = baselinePropertyValue(entityName, entity, PropertyType.Z);
+            Map<PropertyType, Double> baselineValues = new EnumMap<>(PropertyType.class);
+            for (PropertyType property : PropertyType.values()) {
+                if (property.isEntityProperty()) {
+                    baselineValues.put(property, baselinePropertyValue(entityName, entity, property));
+                }
+            }
+            AnimationProject.EffectiveEntityTransform effectiveTransform =
+                project.computeEffectiveEntityTransform(entityName, time, baselineValues);
+
             double z = project.hasEffectiveAnimation(entityName, PropertyType.Z)
-                ? project.computeValueAt(entityName, PropertyType.Z, time, baseZ)
+                ? effectiveTransform.z()
                 : project.computeEffectiveLayerOrder(entityName);
             entity.setZ(z);
 
-            double baseX = baselinePropertyValue(entityName, entity, PropertyType.X);
-            double baseY = baselinePropertyValue(entityName, entity, PropertyType.Y);
-            double x = project.hasEffectiveAnimation(entityName, PropertyType.X)
-                ? project.computeValueAt(entityName, PropertyType.X, time, baseX)
-                : baseX;
-            double y = project.hasEffectiveAnimation(entityName, PropertyType.Y)
-                ? project.computeValueAt(entityName, PropertyType.Y, time, baseY)
-                : baseY;
-            entity.setPosition(x, y);
+            entity.setPosition(effectiveTransform.x(), effectiveTransform.y());
 
-            double basePivotX = baselinePropertyValue(entityName, entity, PropertyType.PIVOT_X);
-            double basePivotY = baselinePropertyValue(entityName, entity, PropertyType.PIVOT_Y);
-            double pivotX = project.hasEffectiveAnimation(entityName, PropertyType.PIVOT_X)
-                ? project.computeValueAt(entityName, PropertyType.PIVOT_X, time, basePivotX)
-                : basePivotX;
-            double pivotY = project.hasEffectiveAnimation(entityName, PropertyType.PIVOT_Y)
-                ? project.computeValueAt(entityName, PropertyType.PIVOT_Y, time, basePivotY)
-                : basePivotY;
-            setEntityPivot(entity, pivotX, pivotY);
-
-            double baseRotation = baselinePropertyValue(entityName, entity, PropertyType.ROTATION);
-            double rotation = project.hasEffectiveAnimation(entityName, PropertyType.ROTATION)
-                ? project.computeValueAt(entityName, PropertyType.ROTATION, time, baseRotation)
-                : baseRotation;
-            entity.setRotationDeg(rotation);
-
-            double baseScaleX = baselinePropertyValue(entityName, entity, PropertyType.SCALE_X);
-            double baseScaleY = baselinePropertyValue(entityName, entity, PropertyType.SCALE_Y);
-            double scaleX = project.hasEffectiveAnimation(entityName, PropertyType.SCALE_X)
-                ? project.computeValueAt(entityName, PropertyType.SCALE_X, time, baseScaleX)
-                : baseScaleX;
-            double scaleY = project.hasEffectiveAnimation(entityName, PropertyType.SCALE_Y)
-                ? project.computeValueAt(entityName, PropertyType.SCALE_Y, time, baseScaleY)
-                : baseScaleY;
-            entity.setScale(scaleX, scaleY);
-
-            double baseAlpha = baselinePropertyValue(entityName, entity, PropertyType.ALPHA);
-            double alpha = project.hasEffectiveAnimation(entityName, PropertyType.ALPHA)
-                ? project.computeValueAt(entityName, PropertyType.ALPHA, time, baseAlpha)
-                : baseAlpha;
-            setEntityAlpha(entity, alpha);
-
-            double baseVisibility = baselinePropertyValue(entityName, entity, PropertyType.VISIBILITY);
-            double visibility = project.hasEffectiveAnimation(entityName, PropertyType.VISIBILITY)
-                ? project.computeValueAt(entityName, PropertyType.VISIBILITY, time, baseVisibility)
-                : baseVisibility;
-            entity.setVisible(visibility >= 0.5);
+            setEntityPivot(entity, effectiveTransform.pivotX(), effectiveTransform.pivotY());
+            entity.setRotationDeg(effectiveTransform.rotationDeg());
+            entity.setScale(effectiveTransform.scaleX(), effectiveTransform.scaleY());
+            setEntityAlpha(entity, effectiveTransform.alpha());
+            entity.setVisible(effectiveTransform.visibility() >= 0.5);
 
             double matrixMxx = project.hasEffectiveAnimation(entityName, PropertyType.MATRIX_MXX)
                 ? project.computeValueAt(entityName, PropertyType.MATRIX_MXX, time, baselinePropertyValue(entityName, entity, PropertyType.MATRIX_MXX))
@@ -6568,6 +6540,7 @@ public class PuppeteerWindow extends Stage {
             snapshot.put(entityName, props);
         }
         project.setInitialSnapshot(snapshot);
+        project.setSceneEntitySnapshots(captureSceneEntitySnapshots());
     }
 
     private List<AnimationProject.SceneEntitySnapshot> captureSceneEntitySnapshots() {
@@ -6750,6 +6723,14 @@ public class PuppeteerWindow extends Stage {
 
     private Map<String, Map<PropertyType, PuppeteerCommand.PropertySnapshot>> captureTransformSnapshots(String primaryEntityName, double timeMs) {
         Map<String, Map<PropertyType, PuppeteerCommand.PropertySnapshot>> snapshots = new LinkedHashMap<>();
+        if (primaryEntityName != null && !primaryEntityName.isBlank()) {
+            EntityGroup primaryGroup = project.getGroup(primaryEntityName);
+            if (primaryGroup != null) {
+                snapshots.put(primaryEntityName,
+                    captureTrackSnapshots(primaryGroup.getGroupTrack(), timeMs, TRANSFORM_INTERACTION_PROPERTIES, null));
+                return snapshots;
+            }
+        }
         Set<String> names = collectProjectEntityNames();
         if (primaryEntityName != null && !primaryEntityName.isBlank()) {
             names.add(primaryEntityName);
@@ -7129,6 +7110,21 @@ public class PuppeteerWindow extends Stage {
 
     private void collectResetCommands(EntityGroup group, double time, java.util.List<PuppeteerCommand> commands) {
         if (group == null || this.project == null) return;
+
+        if (!group.isLocked()) {
+            EntityTrack groupTrack = group.getGroupTrack();
+            if (groupTrack != null) {
+                commands.add(PuppeteerCommand.upsertKeyframe(groupTrack, PropertyType.X, time, PropertyType.X.getDefaultValue()));
+                commands.add(PuppeteerCommand.upsertKeyframe(groupTrack, PropertyType.Y, time, PropertyType.Y.getDefaultValue()));
+                commands.add(PuppeteerCommand.upsertKeyframe(groupTrack, PropertyType.Z, time, PropertyType.Z.getDefaultValue()));
+                commands.add(PuppeteerCommand.upsertKeyframe(groupTrack, PropertyType.PIVOT_X, time, PropertyType.PIVOT_X.getDefaultValue()));
+                commands.add(PuppeteerCommand.upsertKeyframe(groupTrack, PropertyType.PIVOT_Y, time, PropertyType.PIVOT_Y.getDefaultValue()));
+                commands.add(PuppeteerCommand.upsertKeyframe(groupTrack, PropertyType.ROTATION, time, PropertyType.ROTATION.getDefaultValue()));
+                commands.add(PuppeteerCommand.upsertKeyframe(groupTrack, PropertyType.SCALE_X, time, PropertyType.SCALE_X.getDefaultValue()));
+                commands.add(PuppeteerCommand.upsertKeyframe(groupTrack, PropertyType.SCALE_Y, time, PropertyType.SCALE_Y.getDefaultValue()));
+                commands.add(PuppeteerCommand.upsertKeyframe(groupTrack, PropertyType.ALPHA, time, PropertyType.ALPHA.getDefaultValue()));
+            }
+        }
         
         for (String childEntity : group.getChildEntityNames()) {
             EntityTrack track = this.project.getTrack(childEntity);
@@ -7143,14 +7139,6 @@ public class PuppeteerWindow extends Stage {
         for (String childGroup : group.getChildGroupNames()) {
             EntityGroup child = this.project.getGroup(childGroup);
             if (child != null && !child.isLocked()) {
-                EntityTrack track = child.getGroupTrack();
-                if (track != null) {
-                    commands.add(PuppeteerCommand.upsertKeyframe(track, PropertyType.X, time, PropertyType.X.getDefaultValue()));
-                    commands.add(PuppeteerCommand.upsertKeyframe(track, PropertyType.Y, time, PropertyType.Y.getDefaultValue()));
-                    commands.add(PuppeteerCommand.upsertKeyframe(track, PropertyType.ROTATION, time, PropertyType.ROTATION.getDefaultValue()));
-                    commands.add(PuppeteerCommand.upsertKeyframe(track, PropertyType.SCALE_X, time, PropertyType.SCALE_X.getDefaultValue()));
-                    commands.add(PuppeteerCommand.upsertKeyframe(track, PropertyType.SCALE_Y, time, PropertyType.SCALE_Y.getDefaultValue()));
-                }
                 collectResetCommands(child, time, commands);
             }
         }

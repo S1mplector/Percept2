@@ -2,6 +2,7 @@ package com.jvn.editor.ui.actioneditor;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -13,6 +14,7 @@ import com.jvn.core.animation.TimelineData;
 
 public class AnimationProject {
     private static final double MIN_DURATION_MS = 100.0;
+    private static final double GROUP_POSITION_BAKE_INTERVAL_MS = 100.0;
 
     private String name = "Untitled Animation";
     private double totalDurationMs = 3000;
@@ -30,7 +32,7 @@ public class AnimationProject {
     private final Map<String, double[]> orbitAnchors = new LinkedHashMap<>();
     private final Map<String, String> orbitAnchorSources = new LinkedHashMap<>();
     private final Map<String, double[]> orbitAnchorSourceOffsets = new LinkedHashMap<>();
-        private final Map<String, SceneEntitySnapshot> sceneEntitySnapshots = new LinkedHashMap<>();
+    private final Map<String, SceneEntitySnapshot> sceneEntitySnapshots = new LinkedHashMap<>();
     private StageContext stageContext;
 
     private double loopStartMs = -1;
@@ -61,6 +63,80 @@ public class AnimationProject {
 
         public boolean isPresent() {
             return !presetId.isBlank();
+        }
+    }
+
+    public record EffectiveEntityTransform(
+        double x,
+        double y,
+        double z,
+        double pivotX,
+        double pivotY,
+        double rotationDeg,
+        double scaleX,
+        double scaleY,
+        double alpha,
+        double visibility
+    ) {
+        public double value(PropertyType property) {
+            if (property == null) return 0.0;
+            return switch (property) {
+                case X -> x;
+                case Y -> y;
+                case Z -> z;
+                case PIVOT_X -> pivotX;
+                case PIVOT_Y -> pivotY;
+                case ROTATION -> rotationDeg;
+                case SCALE_X -> scaleX;
+                case SCALE_Y -> scaleY;
+                case ALPHA -> alpha;
+                case VISIBILITY -> visibility;
+                default -> property.getDefaultValue();
+            };
+        }
+    }
+
+    private record GroupBounds(double minX, double minY, double maxX, double maxY) {
+        static GroupBounds empty() {
+            return new GroupBounds(Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY,
+                Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY);
+        }
+
+        boolean isEmpty() {
+            return !Double.isFinite(minX) || !Double.isFinite(minY)
+                || !Double.isFinite(maxX) || !Double.isFinite(maxY)
+                || maxX < minX || maxY < minY;
+        }
+
+        double width() {
+            return isEmpty() ? 0.0 : maxX - minX;
+        }
+
+        double height() {
+            return isEmpty() ? 0.0 : maxY - minY;
+        }
+
+        GroupBounds include(double x, double y) {
+            if (!Double.isFinite(x) || !Double.isFinite(y)) return this;
+            return new GroupBounds(
+                Math.min(minX, x),
+                Math.min(minY, y),
+                Math.max(maxX, x),
+                Math.max(maxY, y)
+            );
+        }
+
+        GroupBounds include(double minX, double minY, double maxX, double maxY) {
+            if (!Double.isFinite(minX) || !Double.isFinite(minY)
+                || !Double.isFinite(maxX) || !Double.isFinite(maxY)) {
+                return this;
+            }
+            return new GroupBounds(
+                Math.min(this.minX, Math.min(minX, maxX)),
+                Math.min(this.minY, Math.min(minY, maxY)),
+                Math.max(this.maxX, Math.max(minX, maxX)),
+                Math.max(this.maxY, Math.max(minY, maxY))
+            );
         }
     }
 
@@ -579,6 +655,8 @@ public class AnimationProject {
         return property == PropertyType.X
             || property == PropertyType.Y
             || property == PropertyType.Z
+            || property == PropertyType.PIVOT_X
+            || property == PropertyType.PIVOT_Y
             || property == PropertyType.ROTATION
             || property == PropertyType.SCALE_X
             || property == PropertyType.SCALE_Y
@@ -732,29 +810,98 @@ public class AnimationProject {
 
     public double computeValueAt(String entityName, PropertyType property, double timeMs, double fallbackLocalValue) {
         EntityTrack track = entityTracks.get(entityName);
-        if (track == null) return fallbackLocalValue;
-
-        double localValue = track.hasKeyframes(property)
+        if (track == null || property == null) return fallbackLocalValue;
+        if (usesEffectiveGroupTransform(track, property)) {
+            Map<PropertyType, Double> fallback = new EnumMap<>(PropertyType.class);
+            fallback.put(property, fallbackLocalValue);
+            return computeEffectiveEntityTransform(entityName, timeMs, fallback).value(property);
+        }
+        return track.hasKeyframes(property)
             ? track.getValueAt(property, timeMs)
             : fallbackLocalValue;
+    }
 
-        if (track.hasParent() && property.isEntityProperty() && isAdditiveGroupProperty(property)) {
-            double parentValue = computeGroupValueAt(track.getParentGroupName(), property, timeMs);
-            return localValue + parentValue;
+    public EffectiveEntityTransform computeEffectiveEntityTransform(String entityName, double timeMs) {
+        return computeEffectiveEntityTransform(entityName, timeMs, Collections.emptyMap());
+    }
+
+    public EffectiveEntityTransform computeEffectiveEntityTransform(
+        String entityName,
+        double timeMs,
+        Map<PropertyType, Double> fallbackLocalValues
+    ) {
+        EntityTrack track = entityTracks.get(entityName);
+        if (track == null) {
+            return defaultEffectiveEntityTransform(fallbackLocalValues);
         }
-        if (track.hasParent() && property.isEntityProperty() && isMultiplicativeGroupProperty(property)) {
-            double parentValue = computeGroupValueAt(track.getParentGroupName(), property, timeMs);
-            return localValue * parentValue;
+
+        double x = localValueAt(track, PropertyType.X, timeMs, fallbackLocalValues);
+        double y = localValueAt(track, PropertyType.Y, timeMs, fallbackLocalValues);
+        double z = localValueAt(track, PropertyType.Z, timeMs, fallbackLocalValues);
+        double pivotX = localValueAt(track, PropertyType.PIVOT_X, timeMs, fallbackLocalValues);
+        double pivotY = localValueAt(track, PropertyType.PIVOT_Y, timeMs, fallbackLocalValues);
+        double rotation = localValueAt(track, PropertyType.ROTATION, timeMs, fallbackLocalValues);
+        double scaleX = localValueAt(track, PropertyType.SCALE_X, timeMs, fallbackLocalValues);
+        double scaleY = localValueAt(track, PropertyType.SCALE_Y, timeMs, fallbackLocalValues);
+        double alpha = localValueAt(track, PropertyType.ALPHA, timeMs, fallbackLocalValues);
+        double visibility = localValueAt(track, PropertyType.VISIBILITY, timeMs, fallbackLocalValues);
+
+        String cursor = track.getParentGroupName();
+        Set<String> visited = new HashSet<>();
+        while (cursor != null && visited.add(cursor)) {
+            EntityGroup group = groups.get(cursor);
+            if (group == null) break;
+            EntityTrack groupTrack = group.getGroupTrack();
+
+            double[] pivot = computeGroupPivot(group.getName(), timeMs);
+            double tx = groupTrack.hasKeyframes(PropertyType.X)
+                ? groupTrack.getValueAt(PropertyType.X, timeMs)
+                : 0.0;
+            double ty = groupTrack.hasKeyframes(PropertyType.Y)
+                ? groupTrack.getValueAt(PropertyType.Y, timeMs)
+                : 0.0;
+            double groupRotation = groupTrack.hasKeyframes(PropertyType.ROTATION)
+                ? groupTrack.getValueAt(PropertyType.ROTATION, timeMs)
+                : 0.0;
+            double groupScaleX = groupTrack.hasKeyframes(PropertyType.SCALE_X)
+                ? groupTrack.getValueAt(PropertyType.SCALE_X, timeMs)
+                : 1.0;
+            double groupScaleY = groupTrack.hasKeyframes(PropertyType.SCALE_Y)
+                ? groupTrack.getValueAt(PropertyType.SCALE_Y, timeMs)
+                : 1.0;
+
+            double dx = (x - pivot[0]) * groupScaleX;
+            double dy = (y - pivot[1]) * groupScaleY;
+            double radians = Math.toRadians(groupRotation);
+            double cos = Math.cos(radians);
+            double sin = Math.sin(radians);
+            x = pivot[0] + tx + dx * cos - dy * sin;
+            y = pivot[1] + ty + dx * sin + dy * cos;
+
+            if (groupTrack.hasKeyframes(PropertyType.Z)) {
+                z += groupTrack.getValueAt(PropertyType.Z, timeMs);
+            }
+            rotation += groupRotation;
+            scaleX *= groupScaleX;
+            scaleY *= groupScaleY;
+            if (groupTrack.hasKeyframes(PropertyType.ALPHA)) {
+                alpha *= groupTrack.getValueAt(PropertyType.ALPHA, timeMs);
+            }
+            cursor = group.getParentGroupName();
         }
-        return localValue;
+
+        return new EffectiveEntityTransform(x, y, z, pivotX, pivotY, rotation, scaleX, scaleY, alpha, visibility);
     }
 
     public boolean hasEffectiveAnimation(String entityName, PropertyType property) {
         EntityTrack track = entityTracks.get(entityName);
         if (track == null || property == null) return false;
         if (track.hasKeyframes(property)) return true;
-        return track.hasParent()
-            && property.isEntityProperty()
+        if (!track.hasParent() || !property.isEntityProperty()) return false;
+        if (property == PropertyType.X || property == PropertyType.Y) {
+            return hasGroupSpatialAnimation(track.getParentGroupName());
+        }
+        return isInheritedGroupProperty(property)
             && hasGroupAnimation(track.getParentGroupName(), property);
     }
 
@@ -763,7 +910,7 @@ public class AnimationProject {
         EntityTrack track = entityTracks.get(entityName);
         if (track == null) return Collections.emptyList();
         if (!property.isEntityProperty()) return track.getKeyframes(property);
-        if (!track.hasParent() || (!track.hasKeyframes(property) && !hasGroupAnimation(track.getParentGroupName(), property))) {
+        if (!hasEffectiveAnimation(entityName, property)) {
             return track.getKeyframes(property);
         }
 
@@ -807,26 +954,156 @@ public class AnimationProject {
         return total;
     }
 
-    private double computeGroupValueAt(String groupName, PropertyType property, double timeMs) {
-        double value = isMultiplicativeGroupProperty(property) ? 1.0 : 0.0;
-        java.util.Set<String> visited = new java.util.HashSet<>();
+    private EffectiveEntityTransform defaultEffectiveEntityTransform(Map<PropertyType, Double> fallbackLocalValues) {
+        return new EffectiveEntityTransform(
+            fallbackValue(fallbackLocalValues, PropertyType.X),
+            fallbackValue(fallbackLocalValues, PropertyType.Y),
+            fallbackValue(fallbackLocalValues, PropertyType.Z),
+            fallbackValue(fallbackLocalValues, PropertyType.PIVOT_X),
+            fallbackValue(fallbackLocalValues, PropertyType.PIVOT_Y),
+            fallbackValue(fallbackLocalValues, PropertyType.ROTATION),
+            fallbackValue(fallbackLocalValues, PropertyType.SCALE_X),
+            fallbackValue(fallbackLocalValues, PropertyType.SCALE_Y),
+            fallbackValue(fallbackLocalValues, PropertyType.ALPHA),
+            fallbackValue(fallbackLocalValues, PropertyType.VISIBILITY)
+        );
+    }
+
+    private double localValueAt(
+        EntityTrack track,
+        PropertyType property,
+        double timeMs,
+        Map<PropertyType, Double> fallbackLocalValues
+    ) {
+        if (track == null || property == null) return property != null ? property.getDefaultValue() : 0.0;
+        return track.hasKeyframes(property)
+            ? track.getValueAt(property, timeMs)
+            : resolveBasePropertyValue(track.getEntityName(), property, fallbackLocalValues);
+    }
+
+    private double resolveBasePropertyValue(
+        String entityName,
+        PropertyType property,
+        Map<PropertyType, Double> fallbackLocalValues
+    ) {
+        if (property == null) return 0.0;
+        Double initial = getInitialSnapshotValue(entityName, property);
+        if (initial != null && Double.isFinite(initial)) {
+            return initial;
+        }
+        SceneEntitySnapshot snapshot = sceneEntitySnapshots.get(entityName);
+        if (snapshot != null) {
+            return switch (property) {
+                case X -> snapshot.x();
+                case Y -> snapshot.y();
+                case Z -> snapshot.z();
+                case PIVOT_X -> snapshot.originX();
+                case PIVOT_Y -> snapshot.originY();
+                case ALPHA -> snapshot.alpha();
+                case VISIBILITY -> snapshot.visible() ? 1.0 : 0.0;
+                default -> property.getDefaultValue();
+            };
+        }
+        Double fallback = fallbackLocalValues != null ? fallbackLocalValues.get(property) : null;
+        if (fallback != null && Double.isFinite(fallback)) {
+            return fallback;
+        }
+        return property.getDefaultValue();
+    }
+
+    private static double fallbackValue(Map<PropertyType, Double> fallbackLocalValues, PropertyType property) {
+        Double value = fallbackLocalValues != null ? fallbackLocalValues.get(property) : null;
+        return value != null && Double.isFinite(value) ? value : property.getDefaultValue();
+    }
+
+    private double[] computeGroupPivot(String groupName, double timeMs) {
+        EntityGroup group = groups.get(groupName);
+        if (group == null) return new double[]{0.0, 0.0};
+        GroupBounds bounds = computeGroupBounds(groupName);
+        if (bounds.isEmpty()) {
+            return new double[]{0.0, 0.0};
+        }
+
+        EntityTrack groupTrack = group.getGroupTrack();
+        double pivotX = groupTrack.hasKeyframes(PropertyType.PIVOT_X)
+            ? groupTrack.getValueAt(PropertyType.PIVOT_X, timeMs)
+            : PropertyType.PIVOT_X.getDefaultValue();
+        double pivotY = groupTrack.hasKeyframes(PropertyType.PIVOT_Y)
+            ? groupTrack.getValueAt(PropertyType.PIVOT_Y, timeMs)
+            : PropertyType.PIVOT_Y.getDefaultValue();
+        pivotX = clamp01(pivotX);
+        pivotY = clamp01(pivotY);
+
+        return new double[]{
+            bounds.minX() + bounds.width() * pivotX,
+            bounds.minY() + bounds.height() * pivotY
+        };
+    }
+
+    private GroupBounds computeGroupBounds(String groupName) {
+        GroupBounds bounds = GroupBounds.empty();
+        for (String entityName : collectGroupEntityNames(groupName)) {
+            bounds = includeEntityRestBounds(bounds, entityName);
+        }
+        return bounds;
+    }
+
+    private GroupBounds includeEntityRestBounds(GroupBounds bounds, String entityName) {
+        SceneEntitySnapshot snapshot = sceneEntitySnapshots.get(entityName);
+        if (snapshot != null) {
+            double minX = snapshot.x() - snapshot.originX() * snapshot.width();
+            double minY = snapshot.y() - snapshot.originY() * snapshot.height();
+            return bounds.include(minX, minY, minX + snapshot.width(), minY + snapshot.height());
+        }
+
+        EntityTrack track = entityTracks.get(entityName);
+        double x = track != null && track.hasKeyframes(PropertyType.X)
+            ? track.getValueAt(PropertyType.X, 0.0)
+            : resolveBasePropertyValue(entityName, PropertyType.X, Collections.emptyMap());
+        double y = track != null && track.hasKeyframes(PropertyType.Y)
+            ? track.getValueAt(PropertyType.Y, 0.0)
+            : resolveBasePropertyValue(entityName, PropertyType.Y, Collections.emptyMap());
+        return bounds.include(x, y);
+    }
+
+    private boolean usesEffectiveGroupTransform(EntityTrack track, PropertyType property) {
+        return track != null
+            && track.hasParent()
+            && property != null
+            && property.isEntityProperty()
+            && (property == PropertyType.X
+                || property == PropertyType.Y
+                || isInheritedGroupProperty(property))
+            && (property == PropertyType.X || property == PropertyType.Y
+                ? hasGroupSpatialAnimation(track.getParentGroupName())
+                : hasGroupAnimation(track.getParentGroupName(), property));
+    }
+
+    private boolean hasGroupSpatialAnimation(String groupName) {
+        return hasAnyGroupAnimation(groupName,
+            PropertyType.X,
+            PropertyType.Y,
+            PropertyType.PIVOT_X,
+            PropertyType.PIVOT_Y,
+            PropertyType.ROTATION,
+            PropertyType.SCALE_X,
+            PropertyType.SCALE_Y);
+    }
+
+    private boolean hasAnyGroupAnimation(String groupName, PropertyType... properties) {
+        if (groupName == null || properties == null || properties.length == 0) return false;
+        Set<String> visited = new HashSet<>();
         String cursor = groupName;
-        while (cursor != null) {
-            if (!visited.add(cursor)) break;
+        while (cursor != null && visited.add(cursor)) {
             EntityGroup group = groups.get(cursor);
             if (group == null) break;
             EntityTrack groupTrack = group.getGroupTrack();
-            if (groupTrack.hasKeyframes(property)) {
-                double current = groupTrack.getValueAt(property, timeMs);
-                if (isMultiplicativeGroupProperty(property)) {
-                    value *= current;
-                } else {
-                    value += current;
-                }
+            for (PropertyType property : properties) {
+                if (property != null && groupTrack.hasKeyframes(property)) return true;
             }
             cursor = group.getParentGroupName();
         }
-        return value;
+        return false;
     }
 
     public double computeMaxTimeMs() {
@@ -1026,13 +1303,25 @@ public class AnimationProject {
         EntityTrack track = entityTracks.get(entityName);
         if (track == null || property == null || out == null) return;
         collectTimes(track.getKeyframes(property), out);
-        String cursor = track.getParentGroupName();
-        Set<String> visited = new HashSet<>();
-        while (cursor != null && visited.add(cursor)) {
-            EntityGroup group = groups.get(cursor);
-            if (group == null) break;
-            collectTimes(group.getGroupTrack().getKeyframes(property), out);
-            cursor = group.getParentGroupName();
+        if (!track.hasParent()) return;
+
+        if (property == PropertyType.X || property == PropertyType.Y) {
+            PropertyType paired = property == PropertyType.X ? PropertyType.Y : PropertyType.X;
+            collectTimes(track.getKeyframes(paired), out);
+            collectGroupTimes(track.getParentGroupName(), out,
+                PropertyType.X,
+                PropertyType.Y,
+                PropertyType.PIVOT_X,
+                PropertyType.PIVOT_Y,
+                PropertyType.ROTATION,
+                PropertyType.SCALE_X,
+                PropertyType.SCALE_Y);
+            addGroupPositionBakeSamples(track.getParentGroupName(), out);
+            return;
+        }
+
+        if (isInheritedGroupProperty(property)) {
+            collectGroupTimes(track.getParentGroupName(), out, property);
         }
     }
 
@@ -1041,16 +1330,84 @@ public class AnimationProject {
         if (track == null) return null;
         Keyframe local = track.findKeyframeAt(property, timeMs);
         if (local != null) return local;
-        String cursor = track.getParentGroupName();
+
+        if (property == PropertyType.X || property == PropertyType.Y) {
+            PropertyType paired = property == PropertyType.X ? PropertyType.Y : PropertyType.X;
+            Keyframe pairedLocal = track.findKeyframeAt(paired, timeMs);
+            if (pairedLocal != null) return pairedLocal;
+            Keyframe source = findGroupKeyframeAt(track.getParentGroupName(), timeMs,
+                PropertyType.X,
+                PropertyType.Y,
+                PropertyType.PIVOT_X,
+                PropertyType.PIVOT_Y,
+                PropertyType.ROTATION,
+                PropertyType.SCALE_X,
+                PropertyType.SCALE_Y);
+            if (source != null) return source;
+            return null;
+        }
+
+        return findGroupKeyframeAt(track.getParentGroupName(), timeMs, property);
+    }
+
+    private void collectGroupTimes(String groupName, Map<Long, Double> out, PropertyType... properties) {
+        if (groupName == null || out == null || properties == null) return;
         Set<String> visited = new HashSet<>();
+        String cursor = groupName;
         while (cursor != null && visited.add(cursor)) {
             EntityGroup group = groups.get(cursor);
             if (group == null) break;
-            Keyframe source = group.getGroupTrack().findKeyframeAt(property, timeMs);
-            if (source != null) return source;
+            EntityTrack groupTrack = group.getGroupTrack();
+            for (PropertyType property : properties) {
+                collectTimes(groupTrack.getKeyframes(property), out);
+            }
+            cursor = group.getParentGroupName();
+        }
+    }
+
+    private Keyframe findGroupKeyframeAt(String groupName, double timeMs, PropertyType... properties) {
+        if (groupName == null || properties == null) return null;
+        Set<String> visited = new HashSet<>();
+        String cursor = groupName;
+        while (cursor != null && visited.add(cursor)) {
+            EntityGroup group = groups.get(cursor);
+            if (group == null) break;
+            EntityTrack groupTrack = group.getGroupTrack();
+            for (PropertyType property : properties) {
+                Keyframe source = groupTrack.findKeyframeAt(property, timeMs);
+                if (source != null) return source;
+            }
             cursor = group.getParentGroupName();
         }
         return null;
+    }
+
+    private void addGroupPositionBakeSamples(String groupName, Map<Long, Double> out) {
+        if (groupName == null || out == null) return;
+        Map<Long, Double> arcTimes = new TreeMap<>();
+        collectGroupTimes(groupName, arcTimes,
+            PropertyType.PIVOT_X,
+            PropertyType.PIVOT_Y,
+            PropertyType.ROTATION,
+            PropertyType.SCALE_X,
+            PropertyType.SCALE_Y);
+        if (arcTimes.size() < 2) return;
+
+        List<Double> times = new ArrayList<>(arcTimes.values());
+        Collections.sort(times);
+        for (int i = 0; i < times.size() - 1; i++) {
+            double start = times.get(i);
+            double end = times.get(i + 1);
+            double span = end - start;
+            if (span <= GROUP_POSITION_BAKE_INTERVAL_MS) continue;
+            int steps = (int) Math.floor(span / GROUP_POSITION_BAKE_INTERVAL_MS);
+            for (int step = 1; step <= steps; step++) {
+                double sample = start + step * GROUP_POSITION_BAKE_INTERVAL_MS;
+                if (sample >= end - 0.001) continue;
+                long quantized = Math.round(sample * 1000.0);
+                out.putIfAbsent(quantized, sample);
+            }
+        }
     }
 
     private void collectTimes(List<Keyframe> keyframes, Map<Long, Double> out) {
@@ -1062,15 +1419,12 @@ public class AnimationProject {
         }
     }
 
-    private static boolean isAdditiveGroupProperty(PropertyType property) {
+    private static boolean isInheritedGroupProperty(PropertyType property) {
         return property == PropertyType.X
             || property == PropertyType.Y
             || property == PropertyType.Z
-            || property == PropertyType.ROTATION;
-    }
-
-    private static boolean isMultiplicativeGroupProperty(PropertyType property) {
-        return property == PropertyType.SCALE_X
+            || property == PropertyType.ROTATION
+            || property == PropertyType.SCALE_X
             || property == PropertyType.SCALE_Y
             || property == PropertyType.ALPHA;
     }
@@ -1137,6 +1491,13 @@ public class AnimationProject {
     private static double sanitizeNonNegativeFinite(double value, double fallback) {
         if (!Double.isFinite(value)) return fallback;
         return Math.max(0.0, value);
+    }
+
+    private static double clamp01(double value) {
+        if (!Double.isFinite(value)) return 0.5;
+        if (value < 0.0) return 0.0;
+        if (value > 1.0) return 1.0;
+        return value;
     }
 
     private static double sanitizeFinite(double value, double fallback) {

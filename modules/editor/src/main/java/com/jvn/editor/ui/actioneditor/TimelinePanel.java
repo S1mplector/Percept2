@@ -36,6 +36,8 @@ public class TimelinePanel extends VBox {
         PropertyType.X,
         PropertyType.Y,
         PropertyType.Z,
+        PropertyType.PIVOT_X,
+        PropertyType.PIVOT_Y,
         PropertyType.ROTATION,
         PropertyType.SCALE_X,
         PropertyType.SCALE_Y,
