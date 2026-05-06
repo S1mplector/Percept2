@@ -30,12 +30,8 @@ public final class MetallicJvnLogo extends StackPane {
         new Stop(0.58, Color.web("#9da8b2")),
         new Stop(0.76, Color.web("#eef3f7")),
         new Stop(1.0, Color.web("#59636d"))));
-    wordmark.setStroke(new LinearGradient(
-        0, 0, 1, 1, true, CycleMethod.NO_CYCLE,
-        new Stop(0.0, Color.web("#ffffff", 0.92)),
-        new Stop(0.52, Color.web("#7d8792", 0.88)),
-        new Stop(1.0, Color.web("#15191f", 0.95))));
-    wordmark.setStrokeWidth(Math.max(0.7, fontSize * 0.018));
+    wordmark.setStroke(null);
+    wordmark.setStrokeWidth(0);
     DropShadow shadow = new DropShadow();
     shadow.setRadius(Math.max(4.0, fontSize * 0.14));
     shadow.setOffsetY(Math.max(2.0, fontSize * 0.05));

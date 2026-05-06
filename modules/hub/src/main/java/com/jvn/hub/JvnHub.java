@@ -1966,7 +1966,6 @@ public final class JvnHub {
     private static final Color WORDMARK_MID = Color.decode("#9da8b2");
     private static final Color WORDMARK_LOW = Color.decode("#eef3f7");
     private static final Color WORDMARK_BOTTOM = Color.decode("#59636d");
-    private static final Color WORDMARK_EDGE = Color.decode("#15191f");
 
     private final int width;
     private final int height;
@@ -1999,14 +1998,14 @@ public final class JvnHub {
       g2.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
       g2.translate(x, y);
 
-      int jvnSize = Math.max(18, Math.round(height * 0.80f));
+      int jvnSize = Math.max(18, Math.round(height * 0.72f));
       Font jvnFont = new Font(Font.SANS_SERIF, Font.BOLD, jvnSize);
       g2.setFont(jvnFont);
       String jvn = "JVN";
       GlyphVector glyphs = jvnFont.createGlyphVector(g2.getFontRenderContext(), jvn);
       Rectangle bounds = glyphs.getPixelBounds(g2.getFontRenderContext(), 0, 0);
       double tx = (width - bounds.getWidth()) / 2.0 - bounds.getX();
-      double ty = (height - bounds.getHeight()) / 2.0 - bounds.getY();
+      double ty = (height - bounds.getHeight()) / 2.0 - bounds.getY() - Math.max(1.0, height * 0.03);
       Shape wordmark = AffineTransform.getTranslateInstance(tx, ty).createTransformedShape(glyphs.getOutline());
       Rectangle shapeBounds = wordmark.getBounds();
 
@@ -2028,9 +2027,6 @@ public final class JvnHub {
               WORDMARK_LOW,
               WORDMARK_BOTTOM
           });
-      g2.setStroke(new BasicStroke(Math.max(1.0f, height * 0.022f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-      g2.setColor(WORDMARK_EDGE);
-      g2.draw(wordmark);
       g2.setPaint(gradient);
       g2.fill(wordmark);
 

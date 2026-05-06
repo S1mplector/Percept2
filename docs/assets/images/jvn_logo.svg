@@ -11,11 +11,6 @@
       <stop offset="0.76" stop-color="#eef3f7"/>
       <stop offset="1" stop-color="#59636d"/>
     </linearGradient>
-    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/>
-      <stop offset="0.52" stop-color="#7d8792" stop-opacity="0.9"/>
-      <stop offset="1" stop-color="#15191f" stop-opacity="0.96"/>
-    </linearGradient>
     <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
       <stop offset="0" stop-color="#ff9d45"/>
       <stop offset="0.52" stop-color="#ffd39c"/>
@@ -33,10 +28,7 @@
           font-size="154"
           font-weight="900"
           letter-spacing="6"
-          fill="url(#metal)"
-          stroke="url(#edge)"
-          stroke-width="2.2"
-          paint-order="stroke fill">JVN</text>
+          fill="url(#metal)">JVN</text>
   </g>
 
   <g transform="translate(486 80)">
