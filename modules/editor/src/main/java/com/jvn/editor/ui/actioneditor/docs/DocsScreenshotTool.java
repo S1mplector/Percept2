@@ -2101,7 +2101,9 @@ public final class DocsScreenshotTool extends Application {
         Path candidate = configured == null || configured.isBlank()
             ? Path.of("").toAbsolutePath().normalize()
             : Path.of(configured).toAbsolutePath().normalize();
-        if (Files.isDirectory(candidate.resolve("docs")) && Files.isDirectory(candidate.resolve("editor"))) {
+        if (Files.isDirectory(candidate.resolve("docs"))
+            && (Files.isDirectory(candidate.resolve("editor"))
+                || Files.isDirectory(candidate.resolve("modules/editor")))) {
             return candidate;
         }
         throw new IllegalStateException("Could not resolve repository root. Use -Djvn.repoRoot=/abs/path.");
