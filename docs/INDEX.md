@@ -87,7 +87,7 @@ This index is the main route through the Java Vector Nexus documentation. It is 
 
 - [Puppeteer - Animation Timeline Editor](editor/puppeteer/puppeteer.md) - architecture and integration overview
 - [Puppeteer Editor Guide](editor/puppeteer/puppeteer-editor-guide.md) - day-to-day usage, panels, timeline, keyframes, registration
-- [Puppeteer JES Timeline DSL Reference](editor/puppeteer/puppeteer-jes-dsl.md) - exported syntax and examples
+- [Puppeteer JES Timeline DSL Reference](editor/puppeteer/puppeteer-jes-dsl.md) - exported syntax, JES parser compatibility, event cues, properties
 - [Generated Puppeteer Screenshots](editor/puppeteer/generated-puppeteer-screenshots.md) - generated visual reference
 
 ### Sidebar Utilities
@@ -201,7 +201,7 @@ This index is the main route through the Java Vector Nexus documentation. It is 
 - [JES Scripting](scripting/jes/overview/jes-scripting.md)
 - [JES Scenes & Entities](scripting/jes/scene/jes-scenes-entities.md)
 - [JES Component Reference](scripting/jes/scene/components.md)
-- [JES Timeline & Actions](scripting/jes/timeline/jes-timeline.md)
+- [JES Timeline & Actions](scripting/jes/timeline/jes-timeline.md) - timeline actions, Puppeteer aliases, event cues, custom properties
 - [JES Input Bindings](scripting/jes/systems/jes-input.md)
 - [JES Camera System](scripting/jes/systems/jes-camera.md)
 - [JES Physics & Collision](scripting/jes/systems/jes-physics.md)

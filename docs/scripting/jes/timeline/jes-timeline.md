@@ -23,6 +23,20 @@ scene "Demo" {
 
 Timelines execute one action at a time. An action that has a `dur` (duration) property blocks until it completes, then the next action starts.
 
+### Puppeteer-Compatible Timeline Dialect
+
+JES scene timelines accept the same core action vocabulary used by Puppeteer exports. Generated Puppeteer snippets can be pasted into a `.jes` scene `timeline { ... }` block without hand-converting common keys.
+
+| Purpose | Preferred JES key | Accepted aliases |
+|---------|-------------------|------------------|
+| Duration | `dur` | `duration` |
+| Rotation | `deg` | `angle`, `rotation` |
+| Scale X/Y | `sx`, `sy` | `x`, `y`, `scale_x`, `scale_y` |
+| Visibility value | `value` | `visible` |
+| Audio fade-in | `fadeinms` | `fadein_ms`, `fadein`, `fade_in` |
+
+Timed actions also accept `interp` for interpolation mode, and `easing` can use named easing values or parameterized literals such as `spring(...)`, `damped_spring(...)`, `curve(...)`, `cubic_bezier(...)`, and CSS-style `cubic-bezier(...)`.
+
 ---
 
 ## Entity Movement Actions
@@ -140,6 +154,24 @@ wait 50
 scale "character" { sx: 0.9 sy: 1.1 dur: 100 easing: ease_out_quad }
 wait 50
 scale "character" { sx: 1.0 sy: 1.0 dur: 150 easing: ease_in_out_sine }
+```
+
+### `depth`
+
+Tweens or sets an entity's render depth. Higher values render above lower values.
+
+```jes
+depth "entityName" { z: <depth> dur: <ms> easing: <type> }
+```
+
+**Examples:**
+
+```jes
+// Put the prompt above the character layer instantly
+depth "prompt" { z: 20 dur: 0 }
+
+// Animate a card forward through layered UI
+depth "card" { z: 8 dur: 160 easing: ease_out_quad }
 ```
 
 ### `fade`
@@ -322,6 +354,47 @@ Events are triggered by `invokeCall()` from input bindings, physics triggers, or
 
 ---
 
+## Event Cue Actions
+
+Event cue actions fire immediately at the current timeline position. They are routed through the scene's timeline event bridge, so VN interop, JES scene playback, and Java handlers can react to the same authored cue.
+
+### `event`
+
+Fires a generic event with arbitrary key-value payload data.
+
+```jes
+event "script_call" {
+  handler: spawnParticles
+  count: 12
+}
+```
+
+The event type is the quoted string after `event`. Payload values are kept as event properties and delivered to the registered handler or bridge.
+
+### Shortcut Event Actions
+
+JES also accepts the common Puppeteer shortcut actions. These parse to event cues internally.
+
+```jes
+expression "hero" { value: smile }
+show "hero" { path: "assets/characters/hero.png" position: center }
+hide "hero" {}
+replace "hero" { path: "assets/characters/hero_angry.png" }
+scene "bg_school" { path: "assets/bg/school.png" }
+```
+
+| Shortcut | Event type | Typical payload |
+|----------|------------|-----------------|
+| `expression "target"` | `expression` | `target`, `value` or `expression`, optional `path`, optional `position` |
+| `show "target"` | `show` | `target`, optional `expression`, `value`, `path`, `position`, `layer` |
+| `hide "target"` | `hide` | `target` |
+| `replace "target"` | `replace` | `target`, optional `expression`, `value`, `path` |
+| `scene "target"` | `scene` | optional `target`, `id`, `path`, `value` |
+
+Use `event "custom_type" { ... }` for project-specific Java or JES callbacks that do not map to a built-in visual-novel cue.
+
+---
+
 ## Audio Actions
 
 ### `playAudio`
@@ -329,7 +402,7 @@ Events are triggered by `invokeCall()` from input bindings, physics triggers, or
 Plays an audio file.
 
 ```jes
-playAudio "path/to/audio.ogg" { volume: <0.0-1.0> loop: <bool> bgm: <bool> }
+playAudio "path/to/audio.ogg" { volume: <0.0-1.0> loop: <bool> bgm: <bool> channel: <name> fadeinms: <ms> }
 ```
 
 | Property | Default | Description |
@@ -337,6 +410,8 @@ playAudio "path/to/audio.ogg" { volume: <0.0-1.0> loop: <bool> bgm: <bool> }
 | `volume` | 1.0 | Playback volume |
 | `loop` | false | Loop playback |
 | `bgm` | false | Treat as background music |
+| `channel` | auto | Audio channel name. Defaults to `music` when `bgm` is true, otherwise `sound` |
+| `fadeinms` | 0 | Fade-in duration in milliseconds. Aliases: `fadein_ms`, `fadein`, `fade_in` |
 
 **Examples:**
 
@@ -441,6 +516,24 @@ setParallax "mountains" { px: 0.5 py: 0.5 }
 
 // Fixed HUD element
 setParallax "score_label" { px: 0.0 py: 0.0 }
+```
+
+### `property`
+
+Tweens a numeric custom property on an entity or on the runtime camera. This is the path used by Puppeteer for advanced channels such as matrix values, blur, color matrix entries, depth-of-field values, and any project-defined numeric channel.
+
+```jes
+property "entityName" { key: "<property.key>" value: <number> dur: <ms> easing: <type> }
+```
+
+Use an empty target or `__camera__` to write a camera custom property:
+
+```jes
+// Entity blur channel
+property "hero" { key: "effect.blur" value: 6 dur: 180 easing: ease_out_quad }
+
+// Runtime camera depth-of-field channel
+property "__camera__" { key: "dof.strength" value: 0.35 duration: 240 easing: camera_glide }
 ```
 
 ---
@@ -574,6 +667,39 @@ All tween actions support an `easing` property. Available types:
 - `ease_in_*` — starts slow, ends fast
 - `ease_out_*` — starts fast, ends slow (most natural for UI)
 - `ease_in_out_*` — slow at both ends, fast in middle
+
+### Parameterized Easing Literals
+
+JES timeline actions also accept parameterized easing literals:
+
+```jes
+move "hero" { x: 500 dur: 420 easing: spring(220, 24, 1.0, 0) }
+cameraMove { x: 140 y: -20 dur: 800 easing: damped_spring(1.25, 1.10, 0.92, 0) }
+scale "title" { sx: 1.08 sy: 1.08 dur: 220 easing: cubic_bezier(0.25, 0.10, 0.25, 1.00) }
+fade "panel" { alpha: 1 dur: 260 easing: cubic-bezier(0.16, 1.0, 0.3, 1.0) }
+```
+
+Accepted forms:
+
+| Literal | Meaning |
+|---------|---------|
+| `spring(stiffness, damping, mass, velocity)` | Physical spring response |
+| `damped_spring(frequency, damping_ratio, response, velocity)` | Motion-design spring response |
+| `curve(x1, y1, x2, y2)` | Custom cubic curve shorthand |
+| `cubic_bezier(x1, y1, x2, y2)` | CSS-style cubic Bezier with underscore |
+| `cubic-bezier(x1, y1, x2, y2)` | CSS-style cubic Bezier spelling |
+
+Named reusable curves such as `hero_pop`, `ui_soft_in`, and `camera_glide` are also accepted.
+
+### Interpolation Modes
+
+Timed actions support an optional `interp` key:
+
+| Mode | Accepted values | Behavior |
+|------|-----------------|----------|
+| Tween | `tween` | Smooth interpolation using `easing` |
+| Hold | `hold`, `step_end`, `step_hold`, `constant` | Hold the previous value until the target time |
+| Step | `step`, `step_start`, `instant`, `jump` | Snap at the start of the segment |
 
 ---
 

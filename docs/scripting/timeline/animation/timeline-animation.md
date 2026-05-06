@@ -505,7 +505,12 @@ In addition to the enum-backed names, the timeline parser also accepts:
 
 - `spring(stiffness, damping, mass, velocity)`
 - `damped_spring(frequency, damping_ratio, response, velocity)`
+- `curve(x1, y1, x2, y2)`
+- `cubic_bezier(x1, y1, x2, y2)`
+- `cubic-bezier(x1, y1, x2, y2)`
 - named reusable curves: `hero_pop`, `ui_soft_in`, `camera_glide`
+
+Timed parser actions can also specify `interp`. `tween` is the default; `hold`, `step_end`, `step_hold`, and `constant` hold the previous value until the destination time; `step`, `step_start`, `instant`, and `jump` snap at the start of the segment.
 
 ---
 
@@ -698,13 +703,18 @@ move "hero" { x: 800 dur: 300 easing: ease_out_cubic }
 | Action | Regex Pattern | Track Name | Properties Mapped |
 |--------|--------------|------------|-------------------|
 | `move "name"` | `move\s+"([^"]+)"\s*\{` | `name` | x→X, y→Y |
+| `depth "name"` | `depth\s+"([^"]+)"\s*\{` | `name` | z→Z |
 | `pivot "name"` | `pivot\s+"([^"]+)"\s*\{` | `name` | ox→PIVOT_X, oy→PIVOT_Y |
-| `rotate "name"` | `rotate\s+"([^"]+)"\s*\{` | `name` | angle/rotation→ROTATION |
-| `scale "name"` | `scale\s+"([^"]+)"\s*\{` | `name` | x/scale_x→SCALE_X, y/scale_y→SCALE_Y |
+| `rotate "name"` | `rotate\s+"([^"]+)"\s*\{` | `name` | deg/angle/rotation→ROTATION |
+| `scale "name"` | `scale\s+"([^"]+)"\s*\{` | `name` | sx/x/scale_x→SCALE_X, sy/y/scale_y→SCALE_Y |
 | `fade "name"` | `fade\s+"([^"]+)"\s*\{` | `name` | alpha→ALPHA |
+| `visible "name"` | `visible\s+"([^"]+)"\s*\{` | `name` | value/visible→VISIBILITY |
+| `property "name"` | `property\s+"([^"]+)"\s*\{` | `name` or `__camera__` | key/value→customKeyframes[key] |
 | `cameraMove` | `cameraMove\s*\{` | `__camera__` | x→CAMERA_X, y→CAMERA_Y |
 | `cameraZoom` | `cameraZoom\s*\{` | `__camera__` | zoom→CAMERA_ZOOM |
 | `playAudio "path"` | `playAudio\s+"([^"]+)"\s*\{` | — | Creates AudioCue at cursor time |
+| `event "type"` | `event\s+"([^"]+)"\s*\{` | — | Creates EventCue at cursor time |
+| `expression` / `show` / `hide` / `replace` / `scene` | shortcut patterns | — | Creates built-in EventCue |
 | `wait N` | `wait\s+(\d+(?:\.\d+)?)` | — | Advances cursor by N |
 
 ### Block Parsing

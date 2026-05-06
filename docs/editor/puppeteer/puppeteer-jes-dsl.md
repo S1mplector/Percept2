@@ -15,6 +15,12 @@ Puppeteer exports animations as JES **timeline blocks** — a structured DSL tha
 2. **Registered** to the `TimelineRegistry` for VNS interop via `[call jes_timeline <name>]`
 3. **Embedded inline** in VNS scripts via `timeline { ... }` blocks
 
+### JES Parser Compatibility
+
+The full JES scene parser accepts Puppeteer timeline exports directly. `duration` is normalized to `dur`; `angle`/`rotation` normalize to `deg`; `x`/`y` and `scale_x`/`scale_y` normalize to `sx`/`sy`; event shortcuts such as `expression`, `show`, `hide`, `replace`, and `scene` become timeline event cues; and `depth`, `property`, custom easing literals, and `interp` are all shared with runtime timeline parsing.
+
+The editor diagnostics, JES parser, and timeline parser share the same action schema for generated timeline blocks, so hand-authored JES and Puppeteer output stay aligned.
+
 ---
 
 ## Top-Level Structure

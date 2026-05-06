@@ -371,7 +371,7 @@ Full documentation index: **`docs/INDEX.md`**
 - `docs/scripting/jes/overview/jes-scripting.md` — overview, quick start, quick reference
 - `docs/scripting/jes/scene/jes-scenes-entities.md` — scene structure, entity declarations, lifecycle, merging
 - `docs/scripting/jes/scene/components.md` — all 12 component types with properties
-- `docs/scripting/jes/timeline/jes-timeline.md` — 22 timeline actions: move, rotate, scale, fade, camera, audio, combat
+- `docs/scripting/jes/timeline/jes-timeline.md` — JES timeline actions, Puppeteer aliases, event cues, custom properties, easing/interp
 - `docs/scripting/jes/systems/jes-input.md` — keyboard mappings, continuous movement, custom handlers
 - `docs/scripting/jes/systems/jes-camera.md` — position, zoom, shake, follow, dead zones, parallax
 - `docs/scripting/jes/systems/jes-physics.md` — rigid bodies, sensors, triggers, restitution, raycasting
@@ -405,7 +405,7 @@ Full documentation index: **`docs/INDEX.md`**
 - `docs/editor/core/settings.md` — editor and launcher preferences, run defaults, handoff, sidebar defaults
 - `docs/editor/puppeteer/puppeteer.md` — Puppeteer overview, architecture, data pipeline, JES/VNS relationship
 - `docs/editor/puppeteer/puppeteer-editor-guide.md` — complete usage guide: UI panels, keyframes, 12 presets, 26 easing types, audio cues, camera, groups, layers
-- `docs/editor/puppeteer/puppeteer-jes-dsl.md` — exported timeline DSL: move, rotate, scale, fade, pivot, camera, audio, wait, parallel, easing values
+- `docs/editor/puppeteer/puppeteer-jes-dsl.md` — exported JES DSL, parser compatibility, event cues, properties, easing/interp
 - `docs/editor/sidebars/overview/sidebar-utilities.md` — landing page for the editor sidebar panels
 - `docs/editor/sidebars/left/sidebar-project-explorer.md` — file tree, create/rename/delete, run project
 - `docs/editor/sidebars/left/sidebar-story-timeline.md` — multi-arc story graph, arcs, links, clusters, validation
