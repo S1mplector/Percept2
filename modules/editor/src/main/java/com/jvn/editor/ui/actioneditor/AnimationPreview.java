@@ -954,8 +954,7 @@ public class AnimationPreview extends VBox {
         if (track == null) return;
 
         java.util.List<Keyframe> xKeyframes = track.getKeyframes(PropertyType.X);
-        java.util.List<Keyframe> yKeyframes = track.getKeyframes(PropertyType.Y);
-        if (xKeyframes.isEmpty() || yKeyframes.isEmpty()) return;
+        if (xKeyframes.isEmpty()) return;
 
         double now = project.getPlayheadMs();
         double dur = project.getTotalDurationMs();
