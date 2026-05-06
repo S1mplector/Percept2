@@ -15,12 +15,18 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Slider;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
@@ -79,6 +85,14 @@ public class TimelinePanel extends VBox {
     private final Canvas canvas;
     private final ScrollPane scrollPane;
     private final Pane canvasContainer;
+
+    // Zoom controls
+    private final HBox zoomHeader;
+    private final Slider zoomSlider;
+    private final Button btnZoomOut;
+    private final Button btnZoomIn;
+    private final Button btnZoomFit;
+    private final Label lblZoomLevel;
 
     private double pixelsPerMs = 0.2;
     private static final double MIN_PIXELS_PER_MS = 0.01;
@@ -142,6 +156,40 @@ public class TimelinePanel extends VBox {
         this.project = project;
         this.commandStack = commandStack;
 
+        // Initialize zoom controls
+        btnZoomOut = new Button("-");
+        btnZoomOut.setPrefWidth(30);
+        btnZoomOut.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #e6e6e6; -fx-border-color: #444; -fx-border-radius: 3;");
+        btnZoomOut.setOnAction(e -> zoomStep(0.8));
+
+        btnZoomIn = new Button("+");
+        btnZoomIn.setPrefWidth(30);
+        btnZoomIn.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #e6e6e6; -fx-border-color: #444; -fx-border-radius: 3;");
+        btnZoomIn.setOnAction(e -> zoomStep(1.2));
+
+        btnZoomFit = new Button("Fit");
+        btnZoomFit.setPrefWidth(50);
+        btnZoomFit.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #e6e6e6; -fx-border-color: #444; -fx-border-radius: 3;");
+        btnZoomFit.setOnAction(e -> zoomToFit());
+
+        lblZoomLevel = new Label(formatZoomLevel());
+        lblZoomLevel.setStyle("-fx-text-fill: #a6a6a6; -fx-font-size: 11px; -fx-min-width: 60;");
+
+        zoomSlider = new Slider(MIN_PIXELS_PER_MS, MAX_PIXELS_PER_MS, pixelsPerMs);
+        zoomSlider.setPrefWidth(150);
+        zoomSlider.setStyle("-fx-control-inner-background: #2a2a2a;");
+        zoomSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
+            pixelsPerMs = newVal.doubleValue();
+            clampScrollOffsets();
+            render();
+            lblZoomLevel.setText(formatZoomLevel());
+        });
+
+        zoomHeader = new HBox(6, btnZoomOut, zoomSlider, btnZoomIn, btnZoomFit, lblZoomLevel);
+        zoomHeader.setAlignment(Pos.CENTER_LEFT);
+        zoomHeader.setPadding(new Insets(6, 8, 6, 8));
+        zoomHeader.setStyle("-fx-background-color: #1a1a1a; -fx-border-color: #333; -fx-border-width: 0 0 1 0;");
+
         canvas = new Canvas(800, 400);
         canvasContainer = new Pane(canvas);
         scrollPane = new ScrollPane(canvasContainer);
@@ -152,8 +200,8 @@ public class TimelinePanel extends VBox {
         scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scrollPane.setStyle("-fx-background: #121212; -fx-background-color: #121212;");
 
+        getChildren().addAll(zoomHeader, scrollPane);
         VBox.setVgrow(scrollPane, Priority.ALWAYS);
-        getChildren().add(scrollPane);
         setStyle("-fx-background-color: #121212;");
 
         canvas.setOnMousePressed(this::handleMousePressed);
@@ -1205,6 +1253,8 @@ public class TimelinePanel extends VBox {
             double timeBefore = (mouseX - LABEL_WIDTH + scrollX) / pixelsPerMs;
             double factor = e.getDeltaY() > 0 ? 1.2 : 0.8;
             pixelsPerMs = Math.max(MIN_PIXELS_PER_MS, Math.min(MAX_PIXELS_PER_MS, pixelsPerMs * factor));
+            zoomSlider.setValue(pixelsPerMs);
+            lblZoomLevel.setText(formatZoomLevel());
             // Adjust scroll to keep the time under the mouse stable
             scrollX = Math.max(0, timeBefore * pixelsPerMs - (mouseX - LABEL_WIDTH));
             clampScrollOffsets();
@@ -1250,7 +1300,30 @@ public class TimelinePanel extends VBox {
         double duration = Math.max(100, project.getTotalDurationMs());
         pixelsPerMs = Math.max(MIN_PIXELS_PER_MS, Math.min(MAX_PIXELS_PER_MS, visible / duration));
         scrollX = 0;
+        zoomSlider.setValue(pixelsPerMs);
+        updateZoomLabel();
         render();
+    }
+
+    private void zoomStep(double factor) {
+        pixelsPerMs = Math.max(MIN_PIXELS_PER_MS, Math.min(MAX_PIXELS_PER_MS, pixelsPerMs * factor));
+        zoomSlider.setValue(pixelsPerMs);
+        clampScrollOffsets();
+        updateZoomLabel();
+        render();
+    }
+
+    private void updateZoomLabel() {
+        lblZoomLevel.setText(formatZoomLevel());
+    }
+
+    private String formatZoomLevel() {
+        double msPerPx = 1.0 / Math.max(MIN_PIXELS_PER_MS, pixelsPerMs);
+        if (msPerPx >= 1000) {
+            return String.format("%.1fs/px", msPerPx / 1000.0);
+        } else {
+            return String.format("%.0fms/px", msPerPx);
+        }
     }
 
     public boolean zoomToSelection() {
@@ -1266,6 +1339,8 @@ public class TimelinePanel extends VBox {
         double span = Math.max(100.0, end - start);
         pixelsPerMs = Math.max(MIN_PIXELS_PER_MS, Math.min(MAX_PIXELS_PER_MS, visible / span));
         scrollX = Math.max(0.0, start * pixelsPerMs - 12.0);
+        zoomSlider.setValue(pixelsPerMs);
+        updateZoomLabel();
         render();
         return true;
     }
