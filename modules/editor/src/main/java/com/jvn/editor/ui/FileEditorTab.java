@@ -93,6 +93,8 @@ public class FileEditorTab extends BorderPane {
 
   private Consumer<Entity2D> onSelected;
   private Consumer<String> onStatus;
+  private Consumer<String> onVnsTextChanged;
+  private Consumer<String> onDiagnosticsTextChanged;
   private Consumer<StoryboardOverlayState> onStoryboardOverlayAdjusted;
   private com.jvn.editor.commands.CommandStack commands;
   private File projectRoot;
@@ -179,8 +181,15 @@ public class FileEditorTab extends BorderPane {
     // Timeline sync between code and graph
     if (kind == Kind.TIMELINE && timelineEditor != null && timelineView != null) {
       if (file != null) timelineView.setTimelineFile(file);
-      timelineEditor.setOnTextChanged(text -> timelineView.fromText(text));
-      timelineView.setOnChanged(() -> timelineEditor.setTextNoEvent(timelineView.toDsl()));
+      timelineEditor.setOnTextChanged(text -> {
+        timelineView.fromText(text);
+        notifyDiagnosticsTextChanged(text);
+      });
+      timelineView.setOnChanged(() -> {
+        String text = timelineView.toDsl();
+        timelineEditor.setTextNoEvent(text);
+        notifyDiagnosticsTextChanged(text);
+      });
     } else if (kind == Kind.THEME) {
       String text = themeEditor.getText();
       if (text == null) text = "";
@@ -371,7 +380,10 @@ public class FileEditorTab extends BorderPane {
       if (themeEditor != null && themePreview != null) {
         String text = themeEditor.getText(); if (text == null) text = "";
         themePreview.setThemeFromText(text);
-        themeEditor.setOnTextChanged(t -> themePreview.setThemeFromText(t));
+        themeEditor.setOnTextChanged(t -> {
+          themePreview.setThemeFromText(t);
+          notifyDiagnosticsTextChanged(t);
+        });
       }
     } else if (kind == Kind.MENU_SCREEN) {
       setCenter(createStudioWorkspace("Menu Screen Studio", menuScreenVisualEditor, menuScreenEditor, 0.62, true));
@@ -498,7 +510,10 @@ public class FileEditorTab extends BorderPane {
         if (themeEditor != null) themeEditor.setText(text);
         if (themePreview != null) themePreview.setThemeFromText(text);
         if (themeEditor != null && themePreview != null) {
-          themeEditor.setOnTextChanged(t -> themePreview.setThemeFromText(t));
+          themeEditor.setOnTextChanged(t -> {
+            themePreview.setThemeFromText(t);
+            notifyDiagnosticsTextChanged(t);
+          });
         }
       } else if (kind == Kind.MENU_SCREEN) {
         String text = Files.exists(file.toPath()) ? Files.readString(file.toPath()) : "";
@@ -582,7 +597,33 @@ public class FileEditorTab extends BorderPane {
   }
 
   public void setOnVnsTextChanged(Consumer<String> listener) {
-    if (vnsEditor != null) vnsEditor.setOnTextChanged(listener);
+    this.onVnsTextChanged = listener;
+    installVnsTextChangedHandler();
+  }
+
+  public void setOnDiagnosticsTextChanged(Consumer<String> listener) {
+    this.onDiagnosticsTextChanged = listener;
+    if (kind == Kind.VNS) {
+      installVnsTextChangedHandler();
+    } else if (kind == Kind.JES && jesEditor != null) {
+      jesEditor.setOnTextChanged(this::notifyDiagnosticsTextChanged);
+    } else if (kind == Kind.JAVA && javaEditor != null) {
+      javaEditor.setOnTextChanged(this::notifyDiagnosticsTextChanged);
+    } else if (kind == Kind.OTHER && textEditor != null) {
+      textEditor.setOnTextChanged(this::notifyDiagnosticsTextChanged);
+    }
+  }
+
+  private void installVnsTextChangedHandler() {
+    if (vnsEditor == null) return;
+    vnsEditor.setOnTextChanged(text -> {
+      if (onVnsTextChanged != null) onVnsTextChanged.accept(text);
+      notifyDiagnosticsTextChanged(text);
+    });
+  }
+
+  private void notifyDiagnosticsTextChanged(String text) {
+    if (onDiagnosticsTextChanged != null) onDiagnosticsTextChanged.accept(text);
   }
 
   public void setOnVnsCaretLineChanged(Consumer<Integer> listener) {
@@ -1384,6 +1425,7 @@ public class FileEditorTab extends BorderPane {
       syncing[0] = true;
       menuScreenVisualEditor.setMenuText(text);
       syncing[0] = false;
+      notifyDiagnosticsTextChanged(text);
     });
     menuScreenVisualEditor.setOnMenuTextChanged(text -> {
       if (syncing[0]) return;
@@ -1391,6 +1433,7 @@ public class FileEditorTab extends BorderPane {
       syncing[0] = true;
       menuScreenEditor.setTextNoEvent(text);
       syncing[0] = false;
+      notifyDiagnosticsTextChanged(text);
     });
     String current = menuScreenEditor.getText();
     if (current == null) current = "";
@@ -1405,6 +1448,7 @@ public class FileEditorTab extends BorderPane {
       syncing[0] = true;
       menuLayoutVisualEditor.setLayoutText(text);
       syncing[0] = false;
+      notifyDiagnosticsTextChanged(text);
     });
     menuLayoutVisualEditor.setOnLayoutTextChanged(text -> {
       if (syncing[0]) return;
@@ -1412,6 +1456,7 @@ public class FileEditorTab extends BorderPane {
       syncing[0] = true;
       menuLayoutEditor.setTextNoEvent(text);
       syncing[0] = false;
+      notifyDiagnosticsTextChanged(text);
     });
     String current = menuLayoutEditor.getText();
     if (current == null) current = "";
@@ -1426,6 +1471,7 @@ public class FileEditorTab extends BorderPane {
       syncing[0] = true;
       menuStyleVisualEditor.setStyleText(text);
       syncing[0] = false;
+      notifyDiagnosticsTextChanged(text);
     });
     menuStyleVisualEditor.setOnStyleTextChanged(text -> {
       if (syncing[0]) return;
@@ -1433,6 +1479,7 @@ public class FileEditorTab extends BorderPane {
       syncing[0] = true;
       menuStyleEditor.setTextNoEvent(text);
       syncing[0] = false;
+      notifyDiagnosticsTextChanged(text);
     });
     String current = menuStyleEditor.getText();
     if (current == null) current = "";
@@ -1447,6 +1494,7 @@ public class FileEditorTab extends BorderPane {
       syncing[0] = true;
       dialogueLayoutVisualEditor.setLayoutText(text);
       syncing[0] = false;
+      notifyDiagnosticsTextChanged(text);
     });
     dialogueLayoutVisualEditor.setOnLayoutTextChanged(text -> {
       if (syncing[0]) return;
@@ -1454,6 +1502,7 @@ public class FileEditorTab extends BorderPane {
       syncing[0] = true;
       dialogueLayoutEditor.setTextNoEvent(text);
       syncing[0] = false;
+      notifyDiagnosticsTextChanged(text);
     });
     String current = dialogueLayoutEditor.getText();
     if (current == null) current = "";

@@ -23,20 +23,20 @@ import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
 
-/** Side panel showing live diagnostics for the active .vns file. */
+/** Side panel showing live diagnostics for the active script or DSL file. */
 public class VnsDiagnosticsView extends BorderPane {
   private static final String SEVERITY_ALL = "All";
   private static final String SEVERITY_ERRORS = "Errors";
   private static final String SEVERITY_WARNINGS = "Warnings";
 
-  private final Label titleLabel = new Label("VNS Diagnostics");
-  private final Label fileLabel = new Label("No active .vns file");
-  private final Label summaryLabel = new Label("Open a .vns script to see diagnostics.");
+  private final Label titleLabel = new Label("Diagnostics");
+  private final Label fileLabel = new Label("No active file");
+  private final Label summaryLabel = new Label("Open a script or DSL file to see diagnostics.");
   private final Label statsLabel = new Label("");
   private final Label errorCountLabel = new Label("0 Errors");
   private final Label warningCountLabel = new Label("0 Warnings");
-  private final Label filteredCountLabel = new Label("No script");
-  private final Label placeholderLabel = new Label("Open a .vns script to see diagnostics.");
+  private final Label filteredCountLabel = new Label("No file");
+  private final Label placeholderLabel = new Label("Open a script or DSL file to see diagnostics.");
   private final TextField filterField = new TextField();
   private final ComboBox<String> severityFilter = new ComboBox<>(
       FXCollections.observableArrayList(SEVERITY_ALL, SEVERITY_ERRORS, SEVERITY_WARNINGS)
@@ -47,7 +47,7 @@ public class VnsDiagnosticsView extends BorderPane {
   private final ListView<DiagnosticRow> listView = new ListView<>();
 
   private final List<DiagnosticRow> allRows = new ArrayList<>();
-  private boolean hasActiveScript;
+  private boolean hasActiveFile;
   private Consumer<Integer> onOpenLine;
   private Consumer<OpenTarget> onOpenTarget;
 
@@ -141,9 +141,10 @@ public class VnsDiagnosticsView extends BorderPane {
   }
 
   public void clear() {
-    hasActiveScript = false;
-    fileLabel.setText("No active .vns file");
-    summaryLabel.setText("Open a .vns script to see diagnostics.");
+    hasActiveFile = false;
+    fileLabel.setText("No active file");
+    fileLabel.setTooltip(null);
+    summaryLabel.setText("Open a script or DSL file to see diagnostics.");
     statsLabel.setText("");
     errorCountLabel.setText("0 Errors");
     warningCountLabel.setText("0 Warnings");
@@ -159,29 +160,49 @@ public class VnsDiagnosticsView extends BorderPane {
       return;
     }
 
-    hasActiveScript = true;
-    fileLabel.setText(scriptFile.getName());
-    fileLabel.setTooltip(new javafx.scene.control.Tooltip(scriptFile.getAbsolutePath()));
-    statsLabel.setText(buildStatsSummary(analysis.stats()));
+    List<Diagnostic> diagnostics = new ArrayList<>();
+    for (VnsScriptAnalyzer.Diagnostic issue : analysis.diagnostics()) {
+      diagnostics.add(Diagnostic.fromVns(issue));
+    }
+    setDiagnostics(scriptFile, "VNS", analysis.source(), buildStatsSummary(analysis.stats()), diagnostics);
+  }
+
+  public void setDiagnostics(File file,
+                             String languageLabel,
+                             String source,
+                             String statsSummary,
+                             List<Diagnostic> diagnostics) {
+    if (file == null) {
+      clear();
+      return;
+    }
+
+    String label = languageLabel == null || languageLabel.isBlank() ? "File" : languageLabel.trim();
+    hasActiveFile = true;
+    fileLabel.setText(file.getName());
+    fileLabel.setTooltip(new javafx.scene.control.Tooltip(file.getAbsolutePath()));
+    statsLabel.setText(statsSummary == null ? "" : statsSummary);
     allRows.clear();
 
     int errors = 0;
     int warnings = 0;
-    for (VnsScriptAnalyzer.Diagnostic issue : analysis.diagnostics()) {
-      allRows.add(buildRow(analysis.source(), issue));
+    List<Diagnostic> safeDiagnostics = diagnostics == null ? List.of() : diagnostics;
+    for (Diagnostic issue : safeDiagnostics) {
+      if (issue == null) continue;
+      allRows.add(buildRow(source, issue));
       if (issue.warning()) warnings++; else errors++;
     }
     errorCountLabel.setText(errors + (errors == 1 ? " Error" : " Errors"));
     warningCountLabel.setText(warnings + (warnings == 1 ? " Warning" : " Warnings"));
 
     if (errors == 0 && warnings == 0) {
-      summaryLabel.setText("No issues found.");
+      summaryLabel.setText(label + ": no issues found.");
     } else if (errors > 0 && warnings > 0) {
-      summaryLabel.setText(errors + " errors, " + warnings + " warnings");
+      summaryLabel.setText(label + ": " + errors + " errors, " + warnings + " warnings");
     } else if (errors > 0) {
-      summaryLabel.setText(errors + (errors == 1 ? " error" : " errors"));
+      summaryLabel.setText(label + ": " + errors + (errors == 1 ? " error" : " errors"));
     } else {
-      summaryLabel.setText(warnings + (warnings == 1 ? " warning" : " warnings"));
+      summaryLabel.setText(label + ": " + warnings + (warnings == 1 ? " warning" : " warnings"));
     }
 
     applyFilter();
@@ -268,13 +289,13 @@ public class VnsDiagnosticsView extends BorderPane {
   }
 
   private void updatePlaceholder(int filteredCount) {
-    if (!hasActiveScript) {
-      placeholderLabel.setText("Open a .vns script to see diagnostics.");
-      filteredCountLabel.setText("No script");
+    if (!hasActiveFile) {
+      placeholderLabel.setText("Open a script or DSL file to see diagnostics.");
+      filteredCountLabel.setText("No file");
       return;
     }
     if (allRows.isEmpty()) {
-      placeholderLabel.setText("No issues found for this script.");
+      placeholderLabel.setText("No issues found for this file.");
       filteredCountLabel.setText("0 issues");
       return;
     }
@@ -296,7 +317,7 @@ public class VnsDiagnosticsView extends BorderPane {
     clearFilterButton.setDisable(!hasFilter);
   }
 
-  private static DiagnosticRow buildRow(String source, VnsScriptAnalyzer.Diagnostic issue) {
+  private static DiagnosticRow buildRow(String source, Diagnostic issue) {
     int line = Math.max(1, issue.line() + 1);
     int column = computeOneBasedColumn(source, issue.line(), issue.start());
     String level = issue.warning() ? "Warning" : "Error";
@@ -334,10 +355,19 @@ public class VnsDiagnosticsView extends BorderPane {
                                 int oneBasedColumn,
                                 String level,
                                 String kindLabel) {
-    return buildSearchText(issue, oneBasedLine, oneBasedColumn, level, kindLabel, "");
+    return buildSearchText(Diagnostic.fromVns(issue), oneBasedLine, oneBasedColumn, level, kindLabel, "");
   }
 
   static String buildSearchText(VnsScriptAnalyzer.Diagnostic issue,
+                                int oneBasedLine,
+                                int oneBasedColumn,
+                                String level,
+                                String kindLabel,
+                                String sourceLine) {
+    return buildSearchText(Diagnostic.fromVns(issue), oneBasedLine, oneBasedColumn, level, kindLabel, sourceLine);
+  }
+
+  static String buildSearchText(Diagnostic issue,
                                 int oneBasedLine,
                                 int oneBasedColumn,
                                 String level,
@@ -417,14 +447,42 @@ public class VnsDiagnosticsView extends BorderPane {
   record SourcePreview(String sourceLine, String caretLine) {
   }
 
+  public record Diagnostic(boolean warning,
+                           String kind,
+                           String message,
+                           int start,
+                           int end,
+                           int line) {
+    public Diagnostic {
+      kind = kind == null || kind.isBlank() ? "issue" : kind.trim();
+      message = message == null ? "" : message.trim();
+      start = Math.max(0, start);
+      end = Math.max(start, end);
+      line = Math.max(0, line);
+    }
+
+    public static Diagnostic error(String kind, String message, int start, int end, int line) {
+      return new Diagnostic(false, kind, message, start, end, line);
+    }
+
+    public static Diagnostic warning(String kind, String message, int start, int end, int line) {
+      return new Diagnostic(true, kind, message, start, end, line);
+    }
+
+    static Diagnostic fromVns(VnsScriptAnalyzer.Diagnostic issue) {
+      if (issue == null) return error("issue", "", 0, 0, 0);
+      return new Diagnostic(issue.warning(), issue.kind(), issue.message(), issue.start(), issue.end(), issue.line());
+    }
+  }
+
   public record OpenTarget(int oneBasedLine,
                            int oneBasedColumn,
                            int startOffset,
                            int endOffset,
-                           VnsScriptAnalyzer.Diagnostic issue) {
+                           Diagnostic issue) {
   }
 
-  private record DiagnosticRow(VnsScriptAnalyzer.Diagnostic issue,
+  private record DiagnosticRow(Diagnostic issue,
                                int oneBasedLine,
                                int oneBasedColumn,
                                String level,

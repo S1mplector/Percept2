@@ -666,7 +666,7 @@ public final class DocsScreenshotTool extends Application {
 
     private static final ProfileSpec VNS_DIAGNOSTICS_PROFILE = basicSidebarProfile(
         "vns-diagnostics",
-        "VNS Diagnostics",
+        "Diagnostics",
         "docs/editor/sidebars/right/sidebar-vns-diagnostics.md",
         "docs/editor/sidebars/right/generated-vns-diagnostics-screenshots.md",
         "docs/assets/images/sidebars/vns-diagnostics",
@@ -1188,7 +1188,7 @@ public final class DocsScreenshotTool extends Application {
 
         VnsDiagnosticsView view = new VnsDiagnosticsView();
         view.setAnalysis(script.toFile(), VnsScriptAnalyzer.analyze(source, fixtureRoot.toFile()));
-        return openToolStage("Docs Screenshot Session - VNS Diagnostics", view, 980, 860);
+        return openToolStage("Docs Screenshot Session - Diagnostics", view, 980, 860);
     }
 
     private static Stage openStoryTimelineWindow(Path repoRoot) throws Exception {

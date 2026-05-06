@@ -58,6 +58,23 @@ class VnsDiagnosticsViewTest {
   }
 
   @Test
+  void buildSearchTextSupportsGenericDiagnostics() {
+    VnsDiagnosticsView.Diagnostic issue = VnsDiagnosticsView.Diagnostic.error(
+        "jes_parse_error",
+        "Expected entity block",
+        0,
+        1,
+        0
+    );
+
+    String haystack = VnsDiagnosticsView.buildSearchText(issue, 1, 1, "Error", "Jes parse error", "scene \"intro\"");
+    assertTrue(haystack.contains("jes_parse_error"));
+    assertTrue(haystack.contains("expected entity block"));
+    assertTrue(haystack.contains("scene \"intro\""));
+    assertTrue(haystack.contains("l1:1"));
+  }
+
+  @Test
   void sourceLineReturnsRequestedLineWithoutNewline() {
     String source = "label start\nsay alice Hello\njump missing";
 

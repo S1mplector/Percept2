@@ -27,6 +27,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import javax.tools.ToolProvider;
@@ -50,7 +51,10 @@ import com.jvn.editor.ui.ImageAttributesToolView;
 import com.jvn.editor.ui.ImageTintToolView;
 import com.jvn.editor.ui.ImageToolPanel;
 import com.jvn.editor.ui.InspectorView;
+import com.jvn.editor.ui.DslPropertyDiagnostics;
+import com.jvn.editor.ui.JesScriptAnalyzer;
 import com.jvn.editor.ui.LayeredImageVisualizerView;
+import com.jvn.editor.ui.LanguageDiagnostic;
 import com.jvn.editor.ui.LayoutEditorLauncherView;
 import com.jvn.editor.ui.LayoutStudioWindowManager;
 import com.jvn.editor.ui.MenuFlowEditorView;
@@ -77,6 +81,7 @@ import com.jvn.editor.ui.actioneditor.CodeImporter;
 import com.jvn.editor.ui.actioneditor.EntityTrack;
 import com.jvn.editor.ui.actioneditor.PuppeteerWindow;
 import com.jvn.editor.ui.actioneditor.PropertyType;
+import com.jvn.editor.ui.actioneditor.TimelineDiagnostic;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 import com.sun.management.OperatingSystemMXBean;
 
@@ -282,6 +287,8 @@ public class EditorApp extends Application {
   private static final String PANEL_WINDOW_SUPPRESS_UNLOAD_KEY = "jvn.panelWindow.suppressUnload";
   private static final String EDITOR_START_PROJECT_PROPERTY = "jvn.editor.openProject";
   private static final String EDITOR_OPEN_FILE_PROPERTY = "jvn.editor.openFile";
+  private static final Pattern DSL_DIAGNOSTIC_PATTERN =
+      Pattern.compile("^L(\\d+)\\s+(\\S+?):\\s+(.+?)(?:\\s+Quick fix:\\s+(.+))?$");
   private final EnumMap<EditorSidebarPanel, Stage> panelWindows =
       new EnumMap<>(EditorSidebarPanel.class);
   private Stage editorSettingsWindow;
@@ -1449,7 +1456,7 @@ public class EditorApp extends Application {
     miShowAssets.setOnAction(e -> selectAssetBrowserTab());
     MenuItem miShowScriptEditorWorkspace = new MenuItem("Text Editor Workspace");
     miShowScriptEditorWorkspace.setOnAction(e -> selectScriptEditorLauncherTab());
-    MenuItem miShowDiagnostics = new MenuItem("VNS Diagnostics");
+    MenuItem miShowDiagnostics = new MenuItem("Diagnostics");
     miShowDiagnostics.setOnAction(e -> selectVnsDiagnosticsTab());
     MenuItem miShowFlowMap = new MenuItem("Label Flow Map");
     miShowFlowMap.setOnAction(e -> selectVnsFlowMapTab());
@@ -1568,7 +1575,7 @@ public class EditorApp extends Application {
         miNavigatePhoneAssets, miNavigateStoryboard, miNavigateLayered, miNavigateImageAttributes, miNavigateImageTint);
 
     Menu menuNavigateAnalysis = new Menu("Analysis");
-    MenuItem miNavigateDiagnostics = new MenuItem("VNS Diagnostics");
+    MenuItem miNavigateDiagnostics = new MenuItem("Diagnostics");
     miNavigateDiagnostics.setOnAction(e -> selectVnsDiagnosticsTab());
     MenuItem miNavigateFlowMap = new MenuItem("Label Flow Map");
     miNavigateFlowMap.setOnAction(e -> selectVnsFlowMapTab());
@@ -1669,8 +1676,8 @@ public class EditorApp extends Application {
     MenuItem miImageTint = new MenuItem("Scene Lighting Studio");
     miImageTint.setOnAction(e -> selectImageTintToolTab());
 
-    Menu menuVnsTools = new Menu("VNS Analysis");
-    MenuItem miToolDiagnostics = new MenuItem("VNS Diagnostics");
+    Menu menuVnsTools = new Menu("Analysis");
+    MenuItem miToolDiagnostics = new MenuItem("Diagnostics");
     miToolDiagnostics.setOnAction(e -> selectVnsDiagnosticsTab());
     MenuItem miToolFlowMap = new MenuItem("Label Flow Map");
     miToolFlowMap.setOnAction(e -> selectVnsFlowMapTab());
@@ -1751,9 +1758,9 @@ public class EditorApp extends Application {
     MenuItem miWindowTimelineTool = new MenuItem("Timeline");
     miWindowTimelineTool.setOnAction(e ->
         launchPanelAsWindow("Story Timeline", ensureTimelineView(), 600, 700, EditorSidebarPanel.TIMELINE));
-    MenuItem miWindowDiagnostics = new MenuItem("VNS Diagnostics");
+    MenuItem miWindowDiagnostics = new MenuItem("Diagnostics");
     miWindowDiagnostics.setOnAction(e ->
-        launchPanelAsWindow("VNS Diagnostics", ensureVnsDiagnosticsView(), 700, 600, EditorSidebarPanel.VNS_DIAGNOSTICS));
+        launchPanelAsWindow("Diagnostics", ensureVnsDiagnosticsView(), 700, 600, EditorSidebarPanel.VNS_DIAGNOSTICS));
     MenuItem miWindowFlowMap = new MenuItem("Label Flow Map");
     miWindowFlowMap.setOnAction(e ->
         launchPanelAsWindow("Label Flow Map", ensureVnsFlowMapView(), 700, 600, EditorSidebarPanel.LABEL_FLOW));
@@ -3156,10 +3163,13 @@ public class EditorApp extends Application {
     });
     editor.setOnStatus(s -> status.setText(s));
     editor.setCommandStack(commands);
+    editor.setOnDiagnosticsTextChanged(text -> {
+      if (editor != getActiveFileTab()) return;
+      refreshVnsToolPanels(editor, text);
+    });
     if (editor.getKind() == FileEditorTab.Kind.VNS) {
       editor.setOnVnsTextChanged(text -> {
         if (editor != getActiveFileTab()) return;
-        refreshVnsToolPanels(editor, text);
         if (puppeteerLauncherPanel != null) {
           puppeteerLauncherPanel.setProjectRoot(projectRoot);
           puppeteerLauncherPanel.setActiveScriptFile(editor.getFile());
@@ -4182,7 +4192,7 @@ public class EditorApp extends Application {
 
   private void refreshVnsToolPanels(FileEditorTab fileTab, String currentText) {
     if (vnsDiagnosticsView == null && vnsFlowMapView == null) return;
-    if (fileTab == null || fileTab.getKind() != FileEditorTab.Kind.VNS) {
+    if (fileTab == null) {
       if (vnsDiagnosticsView != null) vnsDiagnosticsView.clear();
       if (vnsFlowMapView != null) vnsFlowMapView.clear();
       return;
@@ -4190,11 +4200,203 @@ public class EditorApp extends Application {
 
     File scriptFile = fileTab.getFile();
     String source = currentText != null ? currentText : fileTab.getCurrentTextSnapshot();
+    if (fileTab.getKind() != FileEditorTab.Kind.VNS) {
+      if (vnsFlowMapView != null) vnsFlowMapView.clear();
+      if (vnsDiagnosticsView != null) {
+        vnsDiagnosticsView.setDiagnostics(
+            scriptFile,
+            diagnosticsLanguageLabel(fileTab),
+            source,
+            diagnosticsStatsSummary(fileTab, source),
+            diagnosticsFor(fileTab, source));
+      }
+      return;
+    }
+
     File analysisRoot = resolveVnsProjectRoot(scriptFile);
 
     VnsScriptAnalyzer.Analysis analysis = VnsScriptAnalyzer.analyze(source, analysisRoot, scriptFile);
     if (vnsDiagnosticsView != null) vnsDiagnosticsView.setAnalysis(scriptFile, analysis);
     if (vnsFlowMapView != null) vnsFlowMapView.setAnalysis(scriptFile, analysis);
+  }
+
+  private List<VnsDiagnosticsView.Diagnostic> diagnosticsFor(FileEditorTab fileTab, String source) {
+    if (fileTab == null) return List.of();
+    String text = source == null ? "" : source;
+    return switch (fileTab.getKind()) {
+      case JES -> diagnosticsFromLanguage(JesScriptAnalyzer.analyze(
+          text,
+          projectRoot,
+          fileTab.getFile(),
+          JesScriptAnalyzer.Mode.JES_DOCUMENT).diagnostics());
+      case TIMELINE -> diagnosticsFromTimeline(text);
+      case MENU_SCREEN -> diagnosticsFromDslStrings(text, DslPropertyDiagnostics.menuScreenIssues(
+          text,
+          Set.of("titleText", "subtitleText", "hintsText", "layout", "layoutId",
+              "defaultItemStyle", "wrapSelection", "items", "backgroundAsset"),
+          Set.of("label", "style", "icon", "enabled", "action", "target",
+              "bgAsset", "bgSelectedAsset", "bgDisabledAsset",
+              "boundsX", "boundsY", "boundsWidth", "boundsHeight",
+              "slotPreviewEnabled", "slotPreviewPlaceholderAsset", "slotPreviewFrameAsset",
+              "slotPreviewX", "slotPreviewY", "slotPreviewWidth", "slotPreviewHeight",
+              "sliderX", "sliderY", "sliderWidth",
+              "sliderTrackAsset", "sliderBaseAsset", "sliderTrackHeight", "sliderShowFill",
+              "sliderFillAsset", "sliderFillActiveAsset", "sliderFillInactiveAsset",
+              "sliderKnobAsset", "sliderKnobActiveAsset", "sliderKnobInactiveAsset",
+              "sliderKnobWidth", "sliderKnobHeight", "sliderKnobOffsetX", "sliderKnobOffsetY",
+              "sliderResetAsset", "sliderResetActiveAsset", "sliderResetInactiveAsset",
+              "sliderResetX", "sliderResetY", "sliderResetWidth", "sliderResetHeight",
+              "toggleCheckedAsset", "toggleUncheckedAsset",
+              "toggleX", "toggleY", "toggleWidth", "toggleHeight")));
+      case MENU_LAYOUT -> diagnosticsFromDslStrings(text, DslPropertyDiagnostics.menuLayoutIssues(
+          text,
+          Set.of("listYStart", "lineHeight", "listWidthFactor", "textAlign", "hintsBottomMargin",
+              "titleY", "subtitleGap", "listXCenter", "titleX", "maxVisibleItems", "titleAlign", "hintsAlign", "hintsX")));
+      case MENU_STYLE -> diagnosticsFromDslStrings(text, DslPropertyDiagnostics.menuStyleIssues(
+          text,
+          Set.of("extends", "itemColor", "itemSelectedColor", "itemHoverColor", "itemDisabledColor",
+              "itemPrefix", "itemSelectedPrefix", "itemDisabledPrefix",
+              "itemFontFamily", "itemFontWeight", "itemFontSize",
+              "itemShadowColor", "itemShadowOffsetX", "itemShadowOffsetY", "itemOpacity",
+              "buttonAsset", "buttonSelectedAsset", "buttonHoverAsset", "buttonDisabledAsset",
+              "buttonTextPaddingX", "buttonTextPaddingY",
+              "titleColor", "titleFontFamily", "titleFontWeight", "titleFontSize", "titleShadowColor",
+              "hintsColor", "hintsFontFamily", "hintsFontWeight", "hintsFontSize",
+              "backgroundAsset", "backgroundColor", "backgroundOpacity")));
+      case DIALOGUE_LAYOUT -> diagnosticsFromDslStrings(text, DslPropertyDiagnostics.dialogueIssues(text, List.of()));
+      default -> List.of();
+    };
+  }
+
+  private List<VnsDiagnosticsView.Diagnostic> diagnosticsFromLanguage(List<LanguageDiagnostic> diagnostics) {
+    if (diagnostics == null || diagnostics.isEmpty()) return List.of();
+    List<VnsDiagnosticsView.Diagnostic> out = new ArrayList<>();
+    for (LanguageDiagnostic diagnostic : diagnostics) {
+      if (diagnostic == null || diagnostic.severity() == LanguageDiagnostic.Severity.INFO) continue;
+      boolean warning = diagnostic.severity() == LanguageDiagnostic.Severity.WARNING;
+      out.add(new VnsDiagnosticsView.Diagnostic(
+          warning,
+          diagnostic.code(),
+          diagnostic.message(),
+          diagnostic.startOffset(),
+          diagnostic.endOffset(),
+          diagnostic.line()));
+    }
+    return out;
+  }
+
+  private List<VnsDiagnosticsView.Diagnostic> diagnosticsFromTimeline(String source) {
+    List<TimelineDiagnostic.Message> messages = TimelineDiagnostic.diagnoseDsl(source);
+    if (messages.isEmpty()) return List.of();
+    List<VnsDiagnosticsView.Diagnostic> out = new ArrayList<>();
+    for (TimelineDiagnostic.Message message : messages) {
+      if (message == null || message.severity() == TimelineDiagnostic.Severity.INFO) continue;
+      int zeroBasedLine = Math.max(0, message.line() - 1);
+      int start = offsetForLineColumn(source, zeroBasedLine, 0);
+      int end = Math.max(start + 1, lineEndOffset(source, zeroBasedLine));
+      String kind = message.entityOrTrack() == null || message.entityOrTrack().isBlank()
+          ? "timeline"
+          : message.entityOrTrack();
+      String text = message.description();
+      if (message.quickFix() != null && !message.quickFix().isBlank()) {
+        text += " Quick fix: " + message.quickFix();
+      }
+      out.add(new VnsDiagnosticsView.Diagnostic(
+          message.severity() == TimelineDiagnostic.Severity.WARNING,
+          kind,
+          text,
+          start,
+          end,
+          zeroBasedLine));
+    }
+    return out;
+  }
+
+  private List<VnsDiagnosticsView.Diagnostic> diagnosticsFromDslStrings(String source, List<String> issues) {
+    if (issues == null || issues.isEmpty()) return List.of();
+    List<VnsDiagnosticsView.Diagnostic> out = new ArrayList<>();
+    for (String raw : issues) {
+      if (raw == null || raw.isBlank()) continue;
+      String issue = raw.trim();
+      java.util.regex.Matcher matcher = DSL_DIAGNOSTIC_PATTERN.matcher(issue);
+      int zeroBasedLine = 0;
+      String kind = "dsl";
+      String message = issue;
+      if (matcher.matches()) {
+        zeroBasedLine = Math.max(0, Integer.parseInt(matcher.group(1)) - 1);
+        kind = matcher.group(2);
+        message = matcher.group(3);
+        if (matcher.group(4) != null && !matcher.group(4).isBlank()) {
+          message += " Quick fix: " + matcher.group(4);
+        }
+      }
+      int start = offsetForLineColumn(source, zeroBasedLine, 0);
+      int end = Math.max(start + 1, lineEndOffset(source, zeroBasedLine));
+      boolean warning = !(message.toLowerCase(Locale.ROOT).contains("unknown")
+          || message.toLowerCase(Locale.ROOT).contains("invalid")
+          || message.toLowerCase(Locale.ROOT).contains("malformed"));
+      out.add(new VnsDiagnosticsView.Diagnostic(warning, kind, message, start, end, zeroBasedLine));
+    }
+    return out;
+  }
+
+  private String diagnosticsLanguageLabel(FileEditorTab fileTab) {
+    if (fileTab == null) return "File";
+    return switch (fileTab.getKind()) {
+      case JES -> "JES";
+      case TIMELINE -> "Puppeteer timeline";
+      case JAVA -> "Java";
+      case THEME -> "Theme DSL";
+      case MENU_SCREEN -> "Menu screen DSL";
+      case MENU_LAYOUT -> "Menu layout DSL";
+      case MENU_STYLE -> "Menu style DSL";
+      case DIALOGUE_LAYOUT -> "Dialogue layout DSL";
+      case OTHER -> "Text";
+      case VNS -> "VNS";
+    };
+  }
+
+  private String diagnosticsStatsSummary(FileEditorTab fileTab, String source) {
+    if (fileTab == null) return "";
+    String text = source == null ? "" : source;
+    long nonBlankLines = text.lines().filter(line -> !line.isBlank()).count();
+    return switch (fileTab.getKind()) {
+      case JES -> {
+        JesScriptAnalyzer.Analysis analysis = JesScriptAnalyzer.analyze(
+            text,
+            projectRoot,
+            fileTab.getFile(),
+            JesScriptAnalyzer.Mode.JES_DOCUMENT);
+        yield analysis.entityNames().size() + " entities"
+            + " | " + analysis.timelineLabelNames().size() + " timeline labels"
+            + " | " + nonBlankLines + " lines";
+      }
+      case TIMELINE -> nonBlankLines + " timeline DSL lines";
+      case MENU_SCREEN, MENU_LAYOUT, MENU_STYLE, DIALOGUE_LAYOUT, THEME -> nonBlankLines + " DSL lines";
+      default -> "No diagnostics provider for this file type";
+    };
+  }
+
+  private static int offsetForLineColumn(String source, int targetLine, int targetColumn) {
+    String text = source == null ? "" : source;
+    if (text.isEmpty()) return 0;
+    int line = 0;
+    int lineStart = 0;
+    for (int i = 0; i < text.length() && line < targetLine; i++) {
+      if (text.charAt(i) == '\n') {
+        line++;
+        lineStart = i + 1;
+      }
+    }
+    return Math.min(text.length(), lineStart + Math.max(0, targetColumn));
+  }
+
+  private static int lineEndOffset(String source, int targetLine) {
+    String text = source == null ? "" : source;
+    if (text.isEmpty()) return 0;
+    int start = offsetForLineColumn(text, targetLine, 0);
+    int next = text.indexOf('\n', start);
+    return next < 0 ? text.length() : next;
   }
 
   private void jumpToActiveVnsLine(int oneBasedLine) {
@@ -4206,9 +4408,9 @@ public class EditorApp extends Application {
   private void jumpToActiveVnsDiagnostic(VnsDiagnosticsView.OpenTarget target) {
     if (target == null) return;
     FileEditorTab ft = getActiveFileTab();
-    if (ft == null || ft.getKind() != FileEditorTab.Kind.VNS) return;
+    if (ft == null) return;
 
-    if (target.startOffset() >= 0) {
+    if (ft.getKind() == FileEditorTab.Kind.VNS && target.startOffset() >= 0) {
       ft.navigateToRange(target.startOffset(), target.endOffset());
       return;
     }
@@ -4573,7 +4775,7 @@ public class EditorApp extends Application {
     VnsDiagnosticsView diagnostics = ensureVnsDiagnosticsView();
     if (targetPane == null || diagnostics == null) return null;
     if (tabVnsDiagnostics == null) {
-      tabVnsDiagnostics = new Tab("VNS Diagnostics", diagnostics);
+      tabVnsDiagnostics = new Tab("Diagnostics", diagnostics);
       tabVnsDiagnostics.setClosable(true);
       tabVnsDiagnostics.setOnClosed(e -> {
         tabVnsDiagnostics = null;
@@ -5524,11 +5726,11 @@ public class EditorApp extends Application {
       applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(pane, actions, EditorSidebarPanel.VNS_DIAGNOSTICS, targetPlacement, "VNS Diagnostics", null, () -> {
+    addChooserActionRow(pane, actions, EditorSidebarPanel.VNS_DIAGNOSTICS, targetPlacement, "Diagnostics", null, () -> {
       rememberPanelPlacement(EditorSidebarPanel.VNS_DIAGNOSTICS, targetPlacement);
       Tab t = ensureVnsDiagnosticsTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("VNS Diagnostics", ensureVnsDiagnosticsView(), 700, 600, EditorSidebarPanel.VNS_DIAGNOSTICS), () -> {
+    }, () -> launchPanelAsWindow("Diagnostics", ensureVnsDiagnosticsView(), 700, 600, EditorSidebarPanel.VNS_DIAGNOSTICS), () -> {
       rememberPanelPlacement(EditorSidebarPanel.VNS_DIAGNOSTICS, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
     });
