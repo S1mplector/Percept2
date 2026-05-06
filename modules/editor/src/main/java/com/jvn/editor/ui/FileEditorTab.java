@@ -691,6 +691,7 @@ public class FileEditorTab extends BorderPane {
     if (viewport == null) return false;
     if (code == null || code.isBlank()) {
       jesScene = null;
+      viewport.clearActiveError();
       viewport.setBeforeSceneUpdateHook(null);
       viewport.setScene(null);
       return false;
@@ -698,15 +699,22 @@ public class FileEditorTab extends BorderPane {
     try {
       JesScene2D scene = JesLoader.load(code);
       if (scene == null) return false;
+      viewport.clearActiveError();
       bindJesScene(scene);
       return true;
     } catch (JesParseException ex) {
       boolean timelineLoaded = tryLoadTimelinePreview(code);
-      if (!timelineLoaded && onStatus != null) onStatus.accept("JES error: " + ex.getMessage());
+      if (!timelineLoaded) {
+        viewport.setActiveError(VnErrorOverlay.jesParseError(sourceNameForOverlay(), code, ex));
+        if (onStatus != null) onStatus.accept("JES error: " + ex.getMessage());
+      }
       return timelineLoaded;
     } catch (Exception ex) {
       boolean timelineLoaded = tryLoadTimelinePreview(code);
-      if (!timelineLoaded && onStatus != null) onStatus.accept("JES error: " + ex.getMessage());
+      if (!timelineLoaded) {
+        viewport.setActiveError(VnErrorOverlay.dslRuntimeError("JES", sourceNameForOverlay(), -1, ex.getMessage(), ex));
+        if (onStatus != null) onStatus.accept("JES error: " + ex.getMessage());
+      }
       return timelineLoaded;
     }
   }
@@ -730,6 +738,8 @@ public class FileEditorTab extends BorderPane {
     try {
       timelineData = TimelineDataParser.parse(timelineNameForPreview(), code);
     } catch (Exception ex) {
+      viewport.setActiveError(VnErrorOverlay.puppeteerJesParseError(sourceNameForOverlay(), code, ex));
+      if (onStatus != null) onStatus.accept("Puppeteer JES error: " + ex.getMessage());
       return false;
     }
     if (timelineData == null) return false;
@@ -739,9 +749,14 @@ public class FileEditorTab extends BorderPane {
     TimelineRunner runner = new TimelineRunner(timelineData, createTimelineSceneAccessor(previewScene));
     runner.applyFrame(0.0);
     bindJesScene(previewScene);
+    viewport.clearActiveError();
     viewport.setBeforeSceneUpdateHook(deltaMs -> runner.update(deltaMs));
     viewport.fitToContent();
     return true;
+  }
+
+  private String sourceNameForOverlay() {
+    return file == null ? null : file.getPath();
   }
 
   private String timelineNameForPreview() {

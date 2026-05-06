@@ -246,6 +246,10 @@ public class DefaultVnInterop implements VnInterop {
       started = true;
     } catch (Exception ex) {
       scene.getState().showHudMessage("inline timeline error: " + ex.getMessage(), 2000);
+      scene.setActiveError(VnErrorOverlay.puppeteerJesParseError(
+          scene.getState().getSourceScriptName(),
+          invocation.block(),
+          ex));
     }
     return started && invocation.waitForCompletion() ? VnInteropResult.block() : VnInteropResult.advance();
   }

@@ -11,6 +11,7 @@ import com.jvn.core.scene2d.Entity2D;
 import com.jvn.core.scene2d.Label2D;
 import com.jvn.core.scene2d.Panel2D;
 import com.jvn.core.scene2d.Scene2DBase;
+import com.jvn.core.vn.VnErrorOverlay;
 import com.jvn.editor.commands.CommandStack;
 import com.jvn.editor.commands.MoveEntityCommand;
 import com.jvn.fx.scene2d.FxBlitter2D;
@@ -38,6 +39,7 @@ public class ViewportView extends StackPane {
   private StoryboardOverlayState storyboardOverlay = StoryboardOverlayState.none();
   private int overlayViewportWidth = ProjectViewportSpec.DEFAULT_WIDTH;
   private int overlayViewportHeight = ProjectViewportSpec.DEFAULT_HEIGHT;
+  private VnErrorOverlay activeError;
 
   private boolean panning = false;
   private double panLastX, panLastY;
@@ -150,6 +152,14 @@ public class ViewportView extends StackPane {
     this.beforeSceneUpdateHook = hook;
   }
 
+  public void setActiveError(VnErrorOverlay error) {
+    this.activeError = error;
+  }
+
+  public void clearActiveError() {
+    this.activeError = null;
+  }
+
   public Input getInput() { return input; }
   public Camera2D getCamera() { return camera; }
 
@@ -206,7 +216,102 @@ public class ViewportView extends StackPane {
       gc.setFill(javafx.scene.paint.Color.WHITE);
       gc.fillText("Open a JES file to preview", 20, 30);
     }
+    if (activeError != null) {
+      drawErrorOverlay(activeError, surface.width, surface.height);
+    }
     gc.restore();
+  }
+
+  private void drawErrorOverlay(VnErrorOverlay error, double width, double height) {
+    if (error == null) return;
+    gc.save();
+    gc.setGlobalAlpha(0.97);
+    gc.setFill(javafx.scene.paint.Color.rgb(22, 24, 30));
+    gc.fillRect(0, 0, width, height);
+    gc.setGlobalAlpha(1.0);
+
+    double pad = Math.max(24, Math.min(44, width * 0.04));
+    double contentW = Math.max(120, width - pad * 2);
+    double y = pad;
+
+    gc.setFill(javafx.scene.paint.Color.rgb(255, 126, 126));
+    gc.setFont(javafx.scene.text.Font.font("System", javafx.scene.text.FontWeight.BOLD, Math.min(30, Math.max(22, height * 0.046))));
+    gc.fillText(error.getTitle(), pad, y + 30);
+    y += 54;
+
+    gc.setStroke(javafx.scene.paint.Color.rgb(83, 89, 108));
+    gc.setLineWidth(1.5);
+    gc.strokeLine(pad, y, pad + contentW, y);
+    y += 22;
+
+    gc.setFont(javafx.scene.text.Font.font("System", javafx.scene.text.FontWeight.NORMAL, 15));
+    gc.setFill(javafx.scene.paint.Color.rgb(190, 198, 214));
+    if (error.getSourceName() != null && !error.getSourceName().isBlank()) {
+      gc.fillText("File: " + error.getSourceName(), pad, y);
+      y += 22;
+    }
+    if (error.getLineNumber() > 0) {
+      gc.fillText("Line: " + error.getLineNumber(), pad, y);
+      y += 22;
+    }
+    gc.fillText("Type: " + error.getType().name().replace('_', ' '), pad, y);
+    y += 30;
+
+    if (error.getRawLine() != null && !error.getRawLine().isBlank()) {
+      y = drawOverlayBox("Script Line", error.getRawLine(), pad, y, contentW, Math.min(78, height * 0.14));
+      y += 12;
+    }
+    y = drawOverlayBox("Cause", error.getMessage(), pad, y, contentW, Math.min(104, height * 0.18));
+    y += 12;
+    if (error.getLikelyCause() != null && !error.getLikelyCause().isBlank()) {
+      drawOverlayBox("Likely Went Wrong", error.getLikelyCause(), pad, y, contentW, Math.min(118, height * 0.20));
+    }
+    gc.restore();
+  }
+
+  private double drawOverlayBox(String title, String body, double x, double y, double w, double h) {
+    gc.setFont(javafx.scene.text.Font.font("System", javafx.scene.text.FontWeight.BOLD, 16));
+    gc.setFill(javafx.scene.paint.Color.rgb(236, 240, 248));
+    gc.fillText(title + ":", x, y);
+    y += 10;
+    gc.setFill(javafx.scene.paint.Color.rgb(34, 37, 47));
+    gc.fillRoundRect(x, y, w, h, 8, 8);
+    gc.setStroke(javafx.scene.paint.Color.rgb(84, 91, 111));
+    gc.strokeRoundRect(x, y, w, h, 8, 8);
+    gc.setFont(javafx.scene.text.Font.font("Monospaced", javafx.scene.text.FontWeight.NORMAL, 14));
+    gc.setFill(javafx.scene.paint.Color.rgb(231, 235, 245));
+    drawWrappedOverlayText(body == null ? "(unknown)" : body, x + 12, y + 22, w - 24, h - 14);
+    return y + h;
+  }
+
+  private void drawWrappedOverlayText(String text, double x, double y, double maxW, double maxH) {
+    if (text == null || text.isBlank()) return;
+    String[] words = text.replace('\n', ' ').split("\\s+");
+    StringBuilder line = new StringBuilder();
+    double lineH = 17;
+    double cy = y;
+    for (String word : words) {
+      String candidate = line.isEmpty() ? word : line + " " + word;
+      if (measureOverlayText(candidate) > maxW && !line.isEmpty()) {
+        if (cy > y + maxH) return;
+        gc.fillText(line.toString(), x, cy);
+        cy += lineH;
+        line.setLength(0);
+        line.append(word);
+      } else {
+        line.setLength(0);
+        line.append(candidate);
+      }
+    }
+    if (!line.isEmpty() && cy <= y + maxH) {
+      gc.fillText(line.toString(), x, cy);
+    }
+  }
+
+  private double measureOverlayText(String text) {
+    javafx.scene.text.Text node = new javafx.scene.text.Text(text == null ? "" : text);
+    node.setFont(gc.getFont());
+    return node.getLayoutBounds().getWidth();
   }
 
   private void drawStoryboardOverlay(PreviewSurface surface) {
