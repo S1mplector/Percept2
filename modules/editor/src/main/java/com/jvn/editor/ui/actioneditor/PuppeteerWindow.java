@@ -240,6 +240,7 @@ public class PuppeteerWindow extends Stage {
     private final Map<String, Boolean> sceneBaselineVisibility = new LinkedHashMap<>();
     private final Map<String, Map<String, Double>> sceneBaselineCustomProperties = new LinkedHashMap<>();
     private final Map<String, Double> sceneBaselineCameraCustomProperties = new LinkedHashMap<>();
+    private final Map<String, String> sceneBaselineImagePaths = new LinkedHashMap<>();
     private boolean bypassCloseConfirmation = false;
     private boolean codePaneVisible = true;
     private double codePaneDividerPosition = 0.78;
