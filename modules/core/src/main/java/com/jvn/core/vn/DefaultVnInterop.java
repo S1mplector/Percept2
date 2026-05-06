@@ -116,28 +116,32 @@ public class DefaultVnInterop implements VnInterop {
       String target = tokens.length > 0 ? tokens[0] : "";
       int idx = target.lastIndexOf('#');
       if (idx < 0 || idx == target.length() - 1) {
-        scene.getState().showHudMessage("java: invalid target", 1800);
+        failJava(scene, "java: invalid target", new IllegalArgumentException("Expected Class#method"));
         return;
       }
       String clsName = target.substring(0, idx);
       String methodName = target.substring(idx + 1);
       if (!isJavaClassAllowed(clsName)) {
-        scene.getState().showHudMessage("java: class not allowed", 1800);
+        failJava(scene, "java: class not allowed", new SecurityException("Class is outside the allowed Java interop prefixes: " + clsName));
         return;
       }
       Object[] args = parseArgs(tokens, 1);
 
       Class<?> cls = Class.forName(clsName);
-      Method method = findStaticMethod(cls, methodName, args.length);
-      if (method == null) {
-        scene.getState().showHudMessage("java: method not found", 1800);
+      MethodSelection selection = findStaticMethod(cls, methodName, args);
+      if (selection.errorMessage() != null) {
+        failJava(scene, selection.errorMessage(), new NoSuchMethodException(clsName + "#" + methodName));
         return;
       }
+      Method method = selection.method();
       Object res = method.invoke(null, coerceArgs(method.getParameterTypes(), args));
       String msg = (res == null) ? "java: ok" : ("java: " + res);
       scene.getState().showHudMessage(msg, 2000);
+    } catch (java.lang.reflect.InvocationTargetException e) {
+      Throwable cause = e.getCause() != null ? e.getCause() : e;
+      failJava(scene, "java: " + cause.getClass().getSimpleName(), cause);
     } catch (Throwable t) {
-      scene.getState().showHudMessage("java: " + t.getClass().getSimpleName(), 2000);
+      failJava(scene, "java: " + t.getClass().getSimpleName(), t);
     }
   }
 
@@ -1513,14 +1517,66 @@ public class DefaultVnInterop implements VnInterop {
     }
   }
 
-  private static Method findStaticMethod(Class<?> cls, String name, int arity) {
+  private record MethodSelection(Method method, String errorMessage) {}
+
+  private static MethodSelection findStaticMethod(Class<?> cls, String name, Object[] args) {
+    int arity = args == null ? 0 : args.length;
+    Method best = null;
+    int bestScore = Integer.MAX_VALUE;
+    boolean ambiguous = false;
+    boolean sawName = false;
+    boolean sawArity = false;
     for (Method m : cls.getMethods()) {
       if (!java.lang.reflect.Modifier.isStatic(m.getModifiers())) continue;
       if (!m.getName().equals(name)) continue;
+      sawName = true;
       if (m.getParameterCount() != arity) continue;
-      return m;
+      sawArity = true;
+      int score = coercionScore(m.getParameterTypes(), args);
+      if (score < 0) continue;
+      if (score < bestScore) {
+        best = m;
+        bestScore = score;
+        ambiguous = false;
+      } else if (score == bestScore) {
+        ambiguous = true;
+      }
     }
-    return null;
+    if (best == null) {
+      if (!sawName) return new MethodSelection(null, "java: method not found");
+      if (!sawArity) return new MethodSelection(null, "java: method arity mismatch");
+      return new MethodSelection(null, "java: argument types not supported");
+    }
+    if (ambiguous) return new MethodSelection(null, "java: ambiguous method overload");
+    return new MethodSelection(best, null);
+  }
+
+  private static int coercionScore(Class<?>[] types, Object[] args) {
+    if (types == null || args == null || types.length != args.length) return -1;
+    int score = 0;
+    for (int i = 0; i < types.length; i++) {
+      int argScore = coercionScore(types[i], args[i]);
+      if (argScore < 0) return -1;
+      score += argScore;
+    }
+    return score;
+  }
+
+  private static int coercionScore(Class<?> type, Object value) {
+    Class<?> t = wrap(type);
+    if (value == null) return type != null && type.isPrimitive() ? -1 : 3;
+    if (t.isInstance(value)) return 0;
+    if (Number.class.isAssignableFrom(t)) {
+      if (value instanceof Number) return 1;
+      if (value instanceof String s && parseableNumber(t, s)) return 2;
+      return -1;
+    }
+    if (t == Boolean.class) {
+      if (value instanceof String s && isBooleanLiteral(s)) return 2;
+      return -1;
+    }
+    if (t == String.class) return 4;
+    return -1;
   }
 
   private static Object[] parseArgs(String[] tokens, int start) {
@@ -1557,25 +1613,88 @@ public class DefaultVnInterop implements VnInterop {
   }
 
   private static Object coerce(Class<?> t, Object v) {
-    if (v == null) return null;
-    if (t.isInstance(v)) return v;
-    if (t == int.class || t == Integer.class) {
+    if (v == null) {
+      if (t != null && t.isPrimitive()) {
+        throw new IllegalArgumentException("Cannot pass null to primitive parameter " + t.getSimpleName());
+      }
+      return null;
+    }
+    Class<?> wrapped = wrap(t);
+    if (wrapped.isInstance(v)) return v;
+    if (wrapped == Integer.class) {
       if (v instanceof Number n) return n.intValue();
-      try { return Integer.parseInt(v.toString()); } catch (Exception ignored) {}
+      return Integer.parseInt(v.toString());
     }
-    if (t == long.class || t == Long.class) {
+    if (wrapped == Long.class) {
       if (v instanceof Number n) return n.longValue();
-      try { return Long.parseLong(v.toString()); } catch (Exception ignored) {}
+      return Long.parseLong(v.toString());
     }
-    if (t == double.class || t == Double.class) {
+    if (wrapped == Double.class) {
       if (v instanceof Number n) return n.doubleValue();
-      try { return Double.parseDouble(v.toString()); } catch (Exception ignored) {}
+      return Double.parseDouble(v.toString());
     }
-    if (t == boolean.class || t == Boolean.class) {
+    if (wrapped == Float.class) {
+      if (v instanceof Number n) return n.floatValue();
+      return Float.parseFloat(v.toString());
+    }
+    if (wrapped == Short.class) {
+      if (v instanceof Number n) return n.shortValue();
+      return Short.parseShort(v.toString());
+    }
+    if (wrapped == Byte.class) {
+      if (v instanceof Number n) return n.byteValue();
+      return Byte.parseByte(v.toString());
+    }
+    if (wrapped == Boolean.class) {
       if (v instanceof Boolean b) return b;
-      return Boolean.parseBoolean(v.toString());
+      String s = v.toString();
+      if (!isBooleanLiteral(s)) throw new IllegalArgumentException("Expected boolean literal");
+      return Boolean.parseBoolean(s);
     }
-    return v.toString();
+    if (wrapped == String.class) {
+      return v.toString();
+    }
+    throw new IllegalArgumentException("Unsupported Java interop parameter type: " + t.getName());
+  }
+
+  private static Class<?> wrap(Class<?> type) {
+    if (type == null || !type.isPrimitive()) return type;
+    if (type == int.class) return Integer.class;
+    if (type == long.class) return Long.class;
+    if (type == double.class) return Double.class;
+    if (type == float.class) return Float.class;
+    if (type == short.class) return Short.class;
+    if (type == byte.class) return Byte.class;
+    if (type == boolean.class) return Boolean.class;
+    if (type == char.class) return Character.class;
+    return type;
+  }
+
+  private static boolean parseableNumber(Class<?> type, String raw) {
+    if (raw == null || raw.isBlank()) return false;
+    try {
+      if (type == Integer.class) Integer.parseInt(raw);
+      else if (type == Long.class) Long.parseLong(raw);
+      else if (type == Double.class) Double.parseDouble(raw);
+      else if (type == Float.class) Float.parseFloat(raw);
+      else if (type == Short.class) Short.parseShort(raw);
+      else if (type == Byte.class) Byte.parseByte(raw);
+      else return false;
+      return true;
+    } catch (NumberFormatException ex) {
+      return false;
+    }
+  }
+
+  private static boolean isBooleanLiteral(String raw) {
+    return "true".equalsIgnoreCase(raw) || "false".equalsIgnoreCase(raw);
+  }
+
+  private static void failJava(VnScene scene, String hudMessage, Throwable cause) {
+    if (scene == null || scene.getState() == null) return;
+    scene.getState().showHudMessage(hudMessage, 2000);
+    Exception overlayCause = cause instanceof Exception e ? e : new RuntimeException(cause);
+    scene.setActiveError(VnErrorOverlay.interopError("java", hudMessage, overlayCause));
   }
 
   private static boolean isJavaClassAllowed(String clsName) {

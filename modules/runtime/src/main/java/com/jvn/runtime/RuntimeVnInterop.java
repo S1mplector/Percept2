@@ -28,6 +28,7 @@ import com.jvn.core.scene2d.Sprite2D;
 import com.jvn.core.vn.CharacterPosition;
 import com.jvn.core.vn.DefaultVnInterop;
 import com.jvn.core.vn.VnArgTokenizer;
+import com.jvn.core.vn.VnErrorOverlay;
 import com.jvn.core.vn.VnExternalCommand;
 import com.jvn.core.vn.VnInterop;
 import com.jvn.core.vn.VnInteropResult;
@@ -440,12 +441,16 @@ public class RuntimeVnInterop implements VnInterop {
           return VnInteropResult.advance();
         }
       }
-    } catch (Exception ignored) {}
+    } catch (Exception ex) {
+      reportInteropFailure(scene, "jes", payload, ex);
+    }
     return VnInteropResult.advance();
   }
 
   private JesScene2D loadJes(String script, VnScene vnScene, String defaultReturnLabel, java.util.Map<String,Object> initProps) throws Exception {
-    if (script == null || script.isBlank()) return null;
+    if (script == null || script.isBlank()) {
+      throw new IllegalArgumentException("JES script path is required");
+    }
     AssetCatalog cat = new AssetCatalog();
     try (InputStream in = cat.open(AssetType.SCRIPT, script)) {
       JesScene2D js = JesLoader.load(in);
@@ -602,7 +607,9 @@ public class RuntimeVnInterop implements VnInterop {
           if (label != null && !label.isBlank()) newScene.getState().jumpToLabel(label);
           engine.scenes().replace(newScene);
         }
-      } catch (Exception ignored) {}
+      } catch (Exception ex) {
+        reportInteropFailure(scene, "vns", "goto " + target, ex);
+      }
       return VnInteropResult.advance();
     }
     String script = toks.isEmpty() ? null : toks.remove(0);
@@ -625,8 +632,21 @@ public class RuntimeVnInterop implements VnInterop {
           engine.scenes().replace(newScene);
           break;
       }
-    } catch (Exception ignored) {}
+    } catch (Exception ex) {
+      reportInteropFailure(scene, "vns", cmd + " " + script, ex);
+    }
     return VnInteropResult.advance();
+  }
+
+  private void reportInteropFailure(VnScene scene, String provider, String action, Exception ex) {
+    if (scene == null || scene.getState() == null) return;
+    String detail = ex == null ? "unknown error" : ex.getClass().getSimpleName();
+    if (ex != null && ex.getMessage() != null && !ex.getMessage().isBlank()) {
+      detail += ": " + ex.getMessage();
+    }
+    String message = provider + (action == null || action.isBlank() ? "" : " " + action) + " failed: " + detail;
+    scene.getState().showHudMessage(message, 2400);
+    scene.setActiveError(VnErrorOverlay.interopError(provider, message, ex));
   }
 
   private VnScene loadVnScene(String script, VnScene current) throws Exception {

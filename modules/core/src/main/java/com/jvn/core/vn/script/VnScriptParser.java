@@ -53,6 +53,9 @@ public class VnScriptParser {
   private static final Pattern CHOICE_CONDITION_SUFFIX_PATTERN = Pattern.compile("^(.*)\\[if\\s+(.+)]\\s*$", Pattern.CASE_INSENSITIVE);
   private static final Pattern IF_GOTO_PATTERN = Pattern.compile("^(.+?)\\s+goto\\s+(\\S+)\\s*$", Pattern.CASE_INSENSITIVE);
   private static final Pattern LABEL_NAME_PATTERN = Pattern.compile("^[A-Za-z_][A-Za-z0-9_.:-]*$");
+  private static final Pattern JAVA_IDENTIFIER_PATTERN = Pattern.compile("[A-Za-z_$][A-Za-z0-9_$]*");
+  private static final Pattern JAVA_IMPORT_PATTERN = Pattern.compile("(?:static\\s+)?[A-Za-z_$][A-Za-z0-9_$]*(?:\\.[A-Za-z_$][A-Za-z0-9_$]*)*(?:\\.\\*)?");
+  private static final Pattern JAVA_TYPE_PATTERN = Pattern.compile("[A-Za-z_$][A-Za-z0-9_$.]*(?:\\s*<[^;{}()]+>)?(?:\\s*\\[\\s*])*");
 
   public interface IncludeResolver {
     InputStream open(String path) throws IOException;
@@ -554,14 +557,20 @@ public class VnScriptParser {
       // @jimport directive
       if (trimmed.startsWith("@jimport ") || trimmed.startsWith("@jimport\t")) {
         String imp = trimmed.substring("@jimport".length()).trim();
-        if (!imp.isEmpty()) state.javaImports.add(imp);
+        if (!imp.isEmpty()) {
+          validateJavaImport(imp, sourceName, lineNumber, rawLine);
+          state.javaImports.add(imp);
+        }
         continue;
       }
 
       // @bind directive
       if (trimmed.startsWith("@bind ") || trimmed.startsWith("@bind\t")) {
         String bind = trimmed.substring("@bind".length()).trim();
-        if (!bind.isEmpty()) state.javaBinds.add(bind);
+        if (!bind.isEmpty()) {
+          validateJavaBind(bind, sourceName, lineNumber, rawLine);
+          state.javaBinds.add(bind);
+        }
         continue;
       }
 
@@ -2554,6 +2563,26 @@ public class VnScriptParser {
                            String rawLine) throws IOException {
     if (arg != null && !arg.isBlank()) {
       throw parseError(sourceName, lineNumber, "[" + cmd + "] does not accept arguments", rawLine);
+    }
+  }
+
+  private void validateJavaImport(String imp, String sourceName, int lineNumber, String rawLine) throws IOException {
+    if (!JAVA_IMPORT_PATTERN.matcher(imp).matches()) {
+      throw parseError(sourceName, lineNumber,
+          "@jimport must be a Java import path such as java.util.List or static com.example.Tools.*",
+          rawLine);
+    }
+  }
+
+  private void validateJavaBind(String bind, String sourceName, int lineNumber, String rawLine) throws IOException {
+    int colon = bind.indexOf(':');
+    String type = colon < 0 ? "Object" : bind.substring(0, colon).trim();
+    String name = colon < 0 ? bind.trim() : bind.substring(colon + 1).trim();
+    if (name.isEmpty() || !JAVA_IDENTIFIER_PATTERN.matcher(name).matches()) {
+      throw parseError(sourceName, lineNumber, "@bind variable name must be a valid Java identifier", rawLine);
+    }
+    if (type.isEmpty() || !JAVA_TYPE_PATTERN.matcher(type).matches()) {
+      throw parseError(sourceName, lineNumber, "@bind type must be a valid Java type name", rawLine);
     }
   }
 

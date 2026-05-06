@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -61,6 +62,25 @@ class DefaultVnInteropQuotedArgsTest {
     interop.handle(new VnExternalCommand("java", "java.lang.Math#max 1 2"), scene);
 
     assertEquals("java: class not allowed", scene.getState().getHudMessage());
+    assertNotNull(scene.getActiveError());
+    assertEquals(VnErrorOverlay.ErrorType.INTEROP_ERROR, scene.getActiveError().getType());
+  }
+
+  @Test
+  void javaInteropSelectsBestMatchingOverload() {
+    VnScenario scenario = new VnScenarioBuilder("java_overload")
+      .label("start")
+      .dialogue("Narrator", "Start")
+      .end()
+      .build();
+    VnScene scene = new VnScene(scenario);
+    DefaultVnInterop interop = new DefaultVnInterop();
+
+    interop.handle(new VnExternalCommand("java", Methods.class.getName() + "#overloaded 7"), scene);
+    assertEquals("java: int:7", scene.getState().getHudMessage());
+
+    interop.handle(new VnExternalCommand("java", Methods.class.getName() + "#overloaded 7.5"), scene);
+    assertEquals("java: double:7.5", scene.getState().getHudMessage());
   }
 
   @Test
@@ -240,6 +260,18 @@ class DefaultVnInteropQuotedArgsTest {
   public static class Methods {
     public static String join(String a, String b) {
       return a + "|" + b;
+    }
+
+    public static String overloaded(String value) {
+      return "string:" + value;
+    }
+
+    public static String overloaded(int value) {
+      return "int:" + value;
+    }
+
+    public static String overloaded(double value) {
+      return "double:" + value;
     }
   }
 

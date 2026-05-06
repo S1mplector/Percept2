@@ -21,6 +21,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.jvn.core.vn.VnArgTokenizer;
 import com.jvn.core.vn.script.MultipleParseErrorsException;
 import com.jvn.core.vn.script.VnParseException;
 import com.jvn.core.vn.script.VnScriptParser;
@@ -175,6 +176,8 @@ public final class VnsScriptAnalyzer {
               -1
           ));
         }
+      } else if (projectRoot != null) {
+        addScriptAssetDiagnostic(projectRoot, diagnostics, line, cmd, arg);
       }
     }
 
@@ -497,6 +500,69 @@ public final class VnsScriptAnalyzer {
     return resolved != null && resolved.exists() && resolved.isFile();
   }
 
+  private static void addScriptAssetDiagnostic(File projectRoot,
+                                               List<Diagnostic> diagnostics,
+                                               LineInfo line,
+                                               String cmd,
+                                               String arg) {
+    ScriptRef ref = scriptReference(cmd, arg);
+    if (ref == null || ref.path() == null || ref.path().isBlank()) return;
+    if (assetExists(projectRoot, ref.path())) return;
+    int pathStart = line.start + safeIndexOf(line.text, ref.path(), 0);
+    diagnostics.add(Diagnostic.error(
+        "missing_script",
+        "Missing " + ref.kind() + " script: " + ref.path(),
+        pathStart,
+        pathStart + ref.path().length(),
+        line.index,
+        null,
+        ref.path(),
+        -1
+    ));
+  }
+
+  private static ScriptRef scriptReference(String cmd, String arg) {
+    if (cmd == null) return null;
+    String normalized = cmd.toLowerCase(Locale.ROOT);
+    return switch (normalized) {
+      case "load" -> directScriptRef("VNS", firstToken(arg));
+      case "mainmenu" -> directScriptRef("VNS", firstToken(arg));
+      case "jes_push", "jes_replace" -> directScriptRef("JES", firstToken(arg));
+      case "vns" -> vnsPayloadRef(arg);
+      case "jes" -> jesPayloadRef(arg);
+      default -> null;
+    };
+  }
+
+  private static ScriptRef vnsPayloadRef(String arg) {
+    String[] toks = VnArgTokenizer.tokenizeToArray(arg);
+    if (toks.length < 2) return null;
+    String action = toks[0].toLowerCase(Locale.ROOT);
+    if ("push".equals(action) || "replace".equals(action)) return directScriptRef("VNS", toks[1]);
+    if ("goto".equals(action)) {
+      int colon = toks[1].indexOf(':');
+      if (colon > 0 && toks[1].substring(0, colon).contains(".")) {
+        return directScriptRef("VNS", toks[1].substring(0, colon));
+      }
+    }
+    return null;
+  }
+
+  private static ScriptRef jesPayloadRef(String arg) {
+    String[] toks = VnArgTokenizer.tokenizeToArray(arg);
+    if (toks.length < 2) return null;
+    String action = toks[0].toLowerCase(Locale.ROOT);
+    if ("push".equals(action) || "replace".equals(action)) return directScriptRef("JES", toks[1]);
+    return null;
+  }
+
+  private static ScriptRef directScriptRef(String kind, String path) {
+    if (path == null || path.isBlank()) return null;
+    return new ScriptRef(kind, path);
+  }
+
+  private record ScriptRef(String kind, String path) {}
+
   private static File resolveAssetPath(File projectRoot, String rawPath) {
     if (rawPath == null || rawPath.isBlank()) return null;
     String normalized = rawPath.trim().replace('\\', '/');
@@ -514,6 +580,8 @@ public final class VnsScriptAnalyzer {
     if (rel.startsWith("assets/")) rel = rel.substring("assets/".length());
 
     candidates.add("assets/" + rel);
+    candidates.add("scripts/" + rel);
+    candidates.add("assets/scripts/" + rel);
     candidates.add("assets/images/" + rel);
     candidates.add("assets/backgrounds/" + rel);
 

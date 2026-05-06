@@ -1810,6 +1810,22 @@ public class VnScriptParserTest {
     assertTrue(payload.contains("GameUtils.doSomething()"), "Payload should contain code");
   }
 
+  @Test
+  public void jimportRejectsMalformedImportBeforeJavaCompilation() {
+    String script = """
+      @scenario bad_import
+      @jimport java.util.List; System.exit(0)
+      [java]
+      int hp = 1;
+      [/java]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    IOException ex = assertThrows(IOException.class, () -> parser.parseFromString(script));
+    assertTrue(ex.getMessage().contains("@jimport must be a Java import path"));
+  }
+
   // ─── @bind tests ──────────────────────────────────────────────────
 
   @Test
@@ -1841,6 +1857,22 @@ public class VnScriptParserTest {
     String payload = javaNode.getExternalCommand().getPayload();
     assertTrue(payload.contains("int:hp"), "Payload should contain bind declaration");
     assertTrue(payload.contains("String:name"), "Payload should contain bind declaration");
+  }
+
+  @Test
+  public void bindRejectsMalformedVariableNameBeforeJavaCompilation() {
+    String script = """
+      @scenario bad_bind
+      @bind int:hp-value
+      [java]
+      hp = 1;
+      [/java]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    IOException ex = assertThrows(IOException.class, () -> parser.parseFromString(script));
+    assertTrue(ex.getMessage().contains("@bind variable name must be a valid Java identifier"));
   }
 
   // ─── [init java] tests ────────────────────────────────────────────

@@ -1,6 +1,7 @@
 package com.jvn.editor.ui;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -68,5 +69,27 @@ class VnsScriptAnalyzerIncludeTest {
     boolean hasParseError = analysis.diagnostics().stream()
         .anyMatch(d -> "parse_error".equalsIgnoreCase(d.kind()));
     assertFalse(hasParseError, "Expected analyzer to infer project root from scripts ancestor");
+  }
+
+  @Test
+  void analyzeReportsMissingBridgeScripts() throws Exception {
+    Path storyDir = Files.createDirectories(tempProjectRoot.resolve("scripts/story"));
+    Path script = storyDir.resolve("prologue.vns");
+
+    Files.writeString(script, """
+        @scenario bridge_scripts
+        @label start
+        [load story/missing_route.vns]
+        [jes_push scripts/missing_scene.jes]
+        [end]
+        """);
+
+    VnsScriptAnalyzer.Analysis analysis =
+        VnsScriptAnalyzer.analyze(Files.readString(script), tempProjectRoot.toFile(), script.toFile());
+
+    assertTrue(analysis.diagnostics().stream()
+        .anyMatch(d -> "missing_script".equals(d.kind()) && d.message().contains("story/missing_route.vns")));
+    assertTrue(analysis.diagnostics().stream()
+        .anyMatch(d -> "missing_script".equals(d.kind()) && d.message().contains("scripts/missing_scene.jes")));
   }
 }

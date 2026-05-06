@@ -43,6 +43,7 @@ import com.jvn.core.vn.VnScene;
  * </ul>
  */
 public class InMemoryJavaCompiler {
+  private static final int MAX_INLINE_CLASSES_PER_SCOPE = 128;
 
   private static final Map<String, Map<String, Class<?>>> CLASS_CACHE = new ConcurrentHashMap<>();
 
@@ -68,6 +69,7 @@ public class InMemoryJavaCompiler {
       String source = generateInlineSource(className, ctx);
       clazz = compileClass(className, source, ctx.scenarioId, ctx.sourceLine, ctx.sourceName, preamble);
       scopeCache.put(className, clazz);
+      trimInlineCache(scope, scopeCache);
     }
 
     // Bind Vn facade and execute
@@ -334,6 +336,40 @@ public class InMemoryJavaCompiler {
       SCENARIO_CLASS_BYTES.remove(scenarioId);
       CLASS_CACHE.remove(scenarioId);
     }
+  }
+
+  private static void trimInlineCache(String scope, Map<String, Class<?>> scopeCache) {
+    if (scopeCache == null || scopeCache.size() <= MAX_INLINE_CLASSES_PER_SCOPE) return;
+    int inlineCount = 0;
+    for (String key : scopeCache.keySet()) {
+      if (isInlineClassKey(key)) inlineCount++;
+    }
+    if (inlineCount <= MAX_INLINE_CLASSES_PER_SCOPE) return;
+    int removeCount = inlineCount - MAX_INLINE_CLASSES_PER_SCOPE;
+    for (String key : new ArrayList<>(scopeCache.keySet())) {
+      if (removeCount <= 0) break;
+      if (!isInlineClassKey(key)) continue;
+      scopeCache.remove(key);
+      removeScenarioInlineClass(scope, key);
+      removeCount--;
+    }
+  }
+
+  private static boolean isInlineClassKey(String key) {
+    return key != null && key.startsWith("InlineJavaBlock_");
+  }
+
+  private static void removeScenarioInlineClass(String scope, String simpleName) {
+    String effectiveScope = scope == null || scope.isBlank() ? "_global_" : scope;
+    String fqn = "com.jvn.core.vn.dynamic." + simpleName;
+    Map<String, Class<?>> classes = SCENARIO_CLASSES.get(effectiveScope);
+    if (classes != null) {
+      classes.remove(simpleName);
+      classes.remove(fqn);
+    }
+    Map<String, byte[]> bytes = SCENARIO_CLASS_BYTES.get(effectiveScope);
+    if (bytes != null) bytes.remove(fqn);
+    PREAMBLE_LINES.remove(fqn);
   }
 
   // ─── Payload Protocol ─────────────────────────────────────────────

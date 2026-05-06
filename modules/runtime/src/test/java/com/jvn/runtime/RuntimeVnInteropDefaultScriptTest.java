@@ -2,6 +2,7 @@ package com.jvn.runtime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
@@ -11,6 +12,7 @@ import com.jvn.core.engine.Engine;
 import com.jvn.core.menu.MainMenuScene;
 import com.jvn.core.menu.config.MenuActionType;
 import com.jvn.core.scene.Scene;
+import com.jvn.core.vn.VnErrorOverlay;
 import com.jvn.core.vn.VnExternalCommand;
 import com.jvn.core.vn.VnScenarioBuilder;
 import com.jvn.core.vn.VnScene;
@@ -53,6 +55,36 @@ class RuntimeVnInteropDefaultScriptTest {
     Scene top = engine.scenes().peek();
     VnScene started = assertInstanceOf(VnScene.class, top);
     assertEquals(explicitScript, started.getState().getSourceScriptName());
+  }
+
+  @Test
+  void missingVnsBridgeScriptShowsInteropError() {
+    Engine engine = new Engine(ApplicationConfig.builder().build());
+    RuntimeVnInterop interop = new RuntimeVnInterop(engine);
+    VnScene current = new VnScene(new VnScenarioBuilder("route").label("start").end().build());
+
+    interop.handle(new VnExternalCommand("vns", "replace story/does-not-exist.vns"), current);
+
+    VnErrorOverlay error = current.getActiveError();
+    assertNotNull(error);
+    assertEquals(VnErrorOverlay.ErrorType.INTEROP_ERROR, error.getType());
+    assertTrue(error.getMessage().contains("vns replace story/does-not-exist.vns failed"));
+    assertTrue(current.getState().getHudMessage().contains("vns replace story/does-not-exist.vns failed"));
+  }
+
+  @Test
+  void missingJesBridgeScriptShowsInteropError() {
+    Engine engine = new Engine(ApplicationConfig.builder().build());
+    RuntimeVnInterop interop = new RuntimeVnInterop(engine);
+    VnScene current = new VnScene(new VnScenarioBuilder("route").label("start").end().build());
+
+    interop.handle(new VnExternalCommand("jes", "push scripts/missing.jes"), current);
+
+    VnErrorOverlay error = current.getActiveError();
+    assertNotNull(error);
+    assertEquals(VnErrorOverlay.ErrorType.INTEROP_ERROR, error.getType());
+    assertTrue(error.getMessage().contains("jes push scripts/missing.jes failed"));
+    assertTrue(current.getState().getHudMessage().contains("jes push scripts/missing.jes failed"));
   }
 
   private static void activateNewGame(MainMenuScene mainMenu) {
