@@ -103,6 +103,7 @@ public class TimelineRunner {
 
         if (duration <= EPS) {
             triggerAudioInterval(prevElapsed, nextElapsed, 1.0, timeline.isLooping());
+            triggerEventInterval(prevElapsed, nextElapsed, 1.0, timeline.isLooping());
             elapsedMs = 0.0;
             if (!timeline.isLooping()) markFinished();
             applyFrame(elapsedMs);

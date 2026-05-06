@@ -217,6 +217,10 @@ public class RuntimeVnInterop implements VnInterop {
     Entity2D entity = target.isBlank() ? null : scene.find(target);
 
     switch (normalized) {
+      case "script_call":
+      case "scriptcall":
+        invokeJesScriptCallEvent(scene, safePayload);
+        break;
       case "show":
         if (entity != null) entity.setVisible(true);
         applySceneSpritePath(entity, safePayload.get("path"));
@@ -251,6 +255,10 @@ public class RuntimeVnInterop implements VnInterop {
     var state = scene.getState();
 
     switch (normalized) {
+      case "script_call":
+      case "scriptcall":
+        invokeVnScriptCallEvent(scene, safePayload);
+        break;
       case "expression":
       case "replace": {
         if (target.isBlank()) return;
@@ -294,6 +302,104 @@ public class RuntimeVnInterop implements VnInterop {
       default:
         break;
     }
+  }
+
+  private void invokeJesScriptCallEvent(JesScene2D scene, Map<String, String> payload) {
+    if (scene == null || payload == null) return;
+    String handler = firstNonBlank(
+        payload.get("handler"),
+        firstNonBlank(payload.get("call"), firstNonBlank(payload.get("name"), payload.get("target")))
+    );
+    if (handler == null || handler.isBlank()) return;
+    scene.invokeCall(handler, eventPayloadToProps(payload));
+  }
+
+  private void invokeVnScriptCallEvent(VnScene scene, Map<String, String> payload) {
+    if (scene == null || payload == null) return;
+    String provider = firstNonBlank(payload.get("provider"), payload.get("target"));
+    String command = firstNonBlank(
+        payload.get("command"),
+        firstNonBlank(payload.get("payload"), firstNonBlank(payload.get("value"), payload.get("arg")))
+    );
+    if (command == null || command.isBlank()) return;
+
+    String resolvedProvider = provider == null ? "" : provider.trim();
+    String resolvedPayload = command.trim();
+    if (resolvedProvider.isBlank()) {
+      String[] tokens = split(resolvedPayload);
+      if (tokens.length == 0) return;
+      resolvedProvider = tokens[0];
+      resolvedPayload = joinTokens(tokens, 1);
+    }
+    if (resolvedProvider.isBlank()) return;
+
+    try {
+      if ("vn".equalsIgnoreCase(resolvedProvider)) {
+        handleVnTimelineCommand(scene, resolvedPayload);
+        return;
+      }
+      RuntimeVnInterop.this.handle(new VnExternalCommand(resolvedProvider, resolvedPayload), scene);
+    } catch (Exception ex) {
+      reportInteropFailure(scene, "timeline", resolvedProvider + " " + resolvedPayload, ex);
+    }
+  }
+
+  private void handleVnTimelineCommand(VnScene scene, String command) {
+    if (scene == null || scene.getState() == null || command == null || command.isBlank()) return;
+    String[] toks = split(command);
+    if (toks.length == 0) return;
+    String op = toks[0].trim().toLowerCase(Locale.ROOT);
+    var state = scene.getState();
+    switch (op) {
+      case "show" -> {
+        if (toks.length < 2) return;
+        String target = toks[1];
+        CharacterPosition position = toks.length >= 3 ? parseCharacterPosition(toks[2]) : state.getCharacterPosition(target);
+        if (position == null) position = CharacterPosition.CENTER;
+        String expression = toks.length >= 4 ? toks[3] : state.getCharacterExpression(target);
+        state.showCharacterAnimated(position, target, expression == null || expression.isBlank() ? "neutral" : expression);
+      }
+      case "hide" -> {
+        if (toks.length < 2) return;
+        CharacterPosition position = state.getCharacterPosition(toks[1]);
+        if (position != null) state.hideCharacterAnimated(position);
+      }
+      case "expression", "expr", "replace" -> {
+        if (toks.length < 3) return;
+        String target = toks[1];
+        CharacterPosition position = state.getCharacterPosition(target);
+        if (position == null) position = CharacterPosition.CENTER;
+        state.showCharacterAnimated(position, target, toks[2]);
+      }
+      case "scene", "background", "bg" -> {
+        if (toks.length >= 2) state.setCurrentBackgroundId(toks[1]);
+      }
+      default -> {
+      }
+    }
+  }
+
+  private static Map<String, Object> eventPayloadToProps(Map<String, String> payload) {
+    Map<String, Object> props = new java.util.LinkedHashMap<>();
+    if (payload == null) return props;
+    for (Map.Entry<String, String> entry : payload.entrySet()) {
+      if (entry == null || entry.getKey() == null) continue;
+      String key = entry.getKey().trim();
+      if (key.isEmpty() || isScriptCallMetaKey(key)) continue;
+      props.put(key, parseScalar(entry.getValue()));
+    }
+    return props;
+  }
+
+  private static boolean isScriptCallMetaKey(String key) {
+    String normalized = key == null ? "" : key.trim().toLowerCase(Locale.ROOT);
+    return "handler".equals(normalized)
+        || "call".equals(normalized)
+        || "name".equals(normalized)
+        || "provider".equals(normalized)
+        || "command".equals(normalized)
+        || "payload".equals(normalized)
+        || "arg".equals(normalized);
   }
 
   private static void applySceneSpritePath(Entity2D entity, String rawPath) {
@@ -750,6 +856,26 @@ public class RuntimeVnInterop implements VnInterop {
 
   private static String safe(String s) { return s == null ? "" : s; }
   private static String[] split(String s) { return VnArgTokenizer.tokenizeToArray(s); }
+  private static String joinTokens(String[] tokens, int start) {
+    if (tokens == null || start >= tokens.length) return "";
+    StringBuilder sb = new StringBuilder();
+    for (int i = Math.max(0, start); i < tokens.length; i++) {
+      if (tokens[i] == null || tokens[i].isBlank()) continue;
+      if (!sb.isEmpty()) sb.append(' ');
+      sb.append(quoteIfNeeded(tokens[i]));
+    }
+    return sb.toString();
+  }
+
+  private static String quoteIfNeeded(String token) {
+    if (token == null) return "\"\"";
+    if (!token.isBlank() && token.chars().noneMatch(Character::isWhitespace)
+        && token.indexOf('"') < 0 && token.indexOf('\\') < 0) {
+      return token;
+    }
+    return "\"" + token.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+  }
+
   private String resolveDefaultScript(VnScene scene) {
     if (scene != null && scene.getState() != null) {
       String source = scene.getState().getSourceScriptName();

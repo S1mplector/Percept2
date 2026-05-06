@@ -16,8 +16,7 @@ Docs entrypoints:
 ## Architecture
 
 JVN is designed to be lightweight and predictable under load.
-- There is modular separation of runtime, scripting, renderer backends, and editor tooling.
-- Hot paths are data-oriented where possible (compact buffers, reduced allocation churn, pooled native buffers for batch workflows).
+-Runtime, scripting, renderer backends, and editor tooling are clearly separated and extensible. 
 
 Typical memory footprint for the core runtime together with the full editor is around **70-130 MB RAM** in normal desktop usage (project/content dependent).
 

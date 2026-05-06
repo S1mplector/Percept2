@@ -88,6 +88,21 @@ class TimelineEventCueTest {
     }
 
     @Test
+    void runnerTriggersEventCueOnCueOnlyTimeline() {
+        TimelineData data = new TimelineData("evt_zero", 0);
+        data.addEventCue(new TimelineData.EventCue(0, "script_call", Map.of("handler", "beat")));
+
+        RecordingAccessor scene = new RecordingAccessor();
+        TimelineRunner runner = new TimelineRunner(data, scene);
+
+        runner.update(1);
+
+        assertEquals(1, scene.eventTypes.size());
+        assertEquals("script_call", scene.eventTypes.get(0));
+        assertTrue(runner.isFinished());
+    }
+
+    @Test
     void runnerTriggersEventCueOnLoopBoundary() {
         TimelineData data = new TimelineData("evt_loop", 500);
         data.setLooping(true);
