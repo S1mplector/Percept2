@@ -4646,23 +4646,25 @@ public class EditorApp extends Application {
     if (resolvedIconClass != null && !resolvedIconClass.isBlank()) {
       iconChip.getStyleClass().add(resolvedIconClass + "-chip");
     }
+    Tooltip versionTooltip = panel == null ? null : new Tooltip(panel.versionTooltip());
     if (panel != null) {
-      Label versionBadge = new Label(panel.versionBadge());
-      versionBadge.setMouseTransparent(true);
-      versionBadge.getStyleClass().addAll("panel-chooser-version-badge", panel.versionStyleClass());
-      Tooltip versionTooltip = new Tooltip(panel.versionTooltip());
       Tooltip.install(iconChip, versionTooltip);
-      versionBadge.setTooltip(versionTooltip);
-      StackPane.setAlignment(versionBadge, Pos.BOTTOM_CENTER);
-      StackPane.setMargin(versionBadge, new javafx.geometry.Insets(0, 1, 1, 1));
-      iconChip.getChildren().add(versionBadge);
     }
 
     Label label = new Label(panelName);
     label.setMaxWidth(Double.MAX_VALUE);
-    HBox.setHgrow(label, Priority.ALWAYS);
     label.getStyleClass().add("panel-chooser-title");
     label.setWrapText(false);
+    HBox titleGroup = new HBox(6, label);
+    titleGroup.setAlignment(Pos.CENTER_LEFT);
+    titleGroup.setMaxWidth(Double.MAX_VALUE);
+    HBox.setHgrow(titleGroup, Priority.ALWAYS);
+    if (panel != null) {
+      Label versionBadge = new Label(panel.versionBadge());
+      versionBadge.getStyleClass().addAll("panel-chooser-version-badge", panel.versionStyleClass());
+      versionBadge.setTooltip(versionTooltip);
+      titleGroup.getChildren().add(versionBadge);
+    }
 
     Label placementBadge = new Label();
     placementBadge.getStyleClass().add("panel-chooser-placement-badge");
@@ -4756,7 +4758,7 @@ public class EditorApp extends Application {
       });
     }
 
-    HBox row = new HBox(8, iconChip, label, memoryGroup, placementBadge, dockBtn, popOutBtn);
+    HBox row = new HBox(8, iconChip, titleGroup, memoryGroup, placementBadge, dockBtn, popOutBtn);
     row.setAlignment(Pos.CENTER_LEFT);
     row.setPadding(new javafx.geometry.Insets(4, 6, 4, 6));
     row.getStyleClass().add("panel-chooser-row");

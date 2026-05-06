@@ -5098,11 +5098,10 @@
 }
 
 .panel-chooser-version-badge {
-  -fx-padding: 0 3 0 3;
-  -fx-min-height: 10px;
-  -fx-pref-height: 10px;
-  -fx-max-height: 10px;
-  -fx-font-size: 7px;
+  -fx-padding: 1 5 1 5;
+  -fx-min-height: 16px;
+  -fx-pref-height: 16px;
+  -fx-font-size: 9px;
   -fx-font-weight: 800;
   -fx-background-radius: 999;
   -fx-border-radius: 999;
