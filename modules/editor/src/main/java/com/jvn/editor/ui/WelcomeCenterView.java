@@ -95,9 +95,7 @@ public class WelcomeCenterView extends BorderPane {
   private final Button btnNewProject = new Button();
   private final Button btnOpenProject = new Button();
   private final Button btnRunProject = new Button();
-  private final Button btnOpenLast = new Button();
-  private final Button btnProjectExplorer = new Button();
-  private final Button btnHelpCenter = new Button();
+  private final Button btnBuildProject = new Button();
   private final Button btnRefresh = new Button();
   private final Button btnSettings = new Button();
   private final Button btnSpotlightRevealProject = new Button();
@@ -124,12 +122,11 @@ public class WelcomeCenterView extends BorderPane {
   private File projectRoot;
   private Runnable onCreateProject;
   private Runnable onOpenProjectDialog;
-  private Runnable onShowProjectExplorer;
-  private Runnable onShowHelpCenter;
   private Runnable onShowSettings;
   private Consumer<File> onOpenProject;
   private Consumer<File> onOpenRecentProject;
   private Consumer<File> onRunProject;
+  private Consumer<File> onBuildProject;
   private Consumer<File> onRevealProject;
   private Consumer<File> onOpenProjectFile;
 
@@ -206,15 +203,6 @@ public class WelcomeCenterView extends BorderPane {
     this.onOpenProjectDialog = onOpenProjectDialog;
   }
 
-  public void setOnShowProjectExplorer(Runnable onShowProjectExplorer) {
-    this.onShowProjectExplorer = onShowProjectExplorer;
-  }
-
-  public void setOnShowHelpCenter(Runnable onShowHelpCenter) {
-    this.onShowHelpCenter = onShowHelpCenter;
-    updateProjectActionButtons();
-  }
-
   public void setOnShowSettings(Runnable onShowSettings) {
     this.onShowSettings = onShowSettings;
     btnSettings.setDisable(busy || onShowSettings == null);
@@ -230,6 +218,12 @@ public class WelcomeCenterView extends BorderPane {
 
   public void setOnRunProject(Consumer<File> onRunProject) {
     this.onRunProject = onRunProject;
+    updateProjectActionButtons();
+  }
+
+  public void setOnBuildProject(Consumer<File> onBuildProject) {
+    this.onBuildProject = onBuildProject;
+    updateProjectActionButtons();
   }
 
   public void setOnRevealProject(Consumer<File> onRevealProject) {
@@ -296,14 +290,7 @@ public class WelcomeCenterView extends BorderPane {
       }
     });
     btnRunProject.setOnAction(e -> runLauncherProject(resolveLauncherProjectDir()));
-    btnOpenLast.setOnAction(e -> {
-      ProjectEntry first = recentProjects.isEmpty() ? null : recentProjects.get(0);
-      if (first != null) openRecentProject(first);
-    });
-    btnProjectExplorer.setOnAction(e -> openProjectExplorerFor(resolveLauncherProjectDir()));
-    btnHelpCenter.setOnAction(e -> {
-      if (onShowHelpCenter != null) onShowHelpCenter.run();
-    });
+    btnBuildProject.setOnAction(e -> buildLauncherProject(resolveLauncherProjectDir()));
     btnRefresh.setOnAction(e -> refresh());
     btnSettings.setOnAction(e -> {
       if (onShowSettings != null) onShowSettings.run();
@@ -314,18 +301,16 @@ public class WelcomeCenterView extends BorderPane {
     configureActionButton(btnNewProject, CssIcon.plus("#8bcf98"), "New Project", "Create a new project", "welcome-action-button-primary");
     configureActionButton(btnOpenProject, CssIcon.folder("#d5b36a"), "Open Project", "Choose an existing project", "welcome-action-button-secondary");
     configureActionButton(btnRunProject, CssIcon.play("#dd9a48"), "Run Project", "Run the selected project with the runtime", "welcome-action-button-secondary");
-    configureActionButton(btnOpenLast, CssIcon.arrowRight("#dccba2"), "Select Latest", "Select the most recent project", "welcome-action-button-secondary");
-    configureActionButton(btnProjectExplorer, CssIcon.list("#d6cab8"), "Project Explorer", "Jump to the Project Explorer tab", "welcome-action-button-secondary");
-    configureActionButton(btnHelpCenter, CssIcon.search("#d6cab8"), "Help Center", "Open Help Center documentation", "welcome-action-button-secondary");
+    configureActionButton(btnBuildProject, CssIcon.download("#8bcf98"), "Build", "Package the selected project for distribution", "welcome-action-button-secondary");
     configureActionButton(btnRefresh, CssIcon.redo("#d6cab8"), "Refresh Checks", "Refresh Welcome Center data and health checks", "welcome-action-button-secondary");
     configureIconButton(btnSettings, CssIcon.settings("#d6cab8"), "Settings", "Configure launcher and editor defaults");
     updateProjectActionButtons();
 
-    HBox primaryActions = new HBox(8, btnNewProject, btnOpenProject, btnRunProject, btnOpenLast);
+    HBox primaryActions = new HBox(8, btnNewProject, btnOpenProject, btnRunProject, btnBuildProject);
     primaryActions.getStyleClass().add("welcome-action-row");
     primaryActions.setAlignment(Pos.CENTER_LEFT);
 
-    HBox secondaryActions = new HBox(8, btnProjectExplorer, btnHelpCenter, btnRefresh);
+    HBox secondaryActions = new HBox(8, btnRefresh);
     secondaryActions.getStyleClass().add("welcome-action-row");
     secondaryActions.setAlignment(Pos.CENTER_LEFT);
 
@@ -436,9 +421,7 @@ public class WelcomeCenterView extends BorderPane {
     btnNewProject.setDisable(busy);
     btnOpenProject.setDisable(busy);
     btnRunProject.setDisable(busy || resolveLauncherProjectDir() == null || onRunProject == null);
-    btnOpenLast.setDisable(busy || recentProjects.isEmpty());
-    btnProjectExplorer.setDisable(busy || resolveLauncherProjectDir() == null || onShowProjectExplorer == null);
-    btnHelpCenter.setDisable(busy || onShowHelpCenter == null);
+    btnBuildProject.setDisable(busy || resolveLauncherProjectDir() == null || onBuildProject == null);
     btnRefresh.setDisable(busy);
     btnSettings.setDisable(busy || onShowSettings == null);
     btnHealthDetails.setDisable(busy);
@@ -456,7 +439,6 @@ public class WelcomeCenterView extends BorderPane {
       recentOverviewValueLabel.setText("0");
       recentOverviewDetailLabel.setText("No tracked projects");
       recentList.getSelectionModel().clearSelection();
-      btnOpenLast.setDisable(true);
       updateProjectActionButtons();
       updateProjectSpotlight();
       return;
@@ -482,7 +464,6 @@ public class WelcomeCenterView extends BorderPane {
     syncRecentSelection();
     updateProjectActionButtons();
     updateProjectSpotlight();
-    btnOpenLast.setDisable(busy || recentProjects.isEmpty());
   }
 
   private File resolveLauncherProjectDir() {
@@ -517,8 +498,7 @@ public class WelcomeCenterView extends BorderPane {
           "Choose an existing project");
     }
     btnRunProject.setDisable(busy || launcherProject == null || onRunProject == null);
-    btnProjectExplorer.setDisable(busy || launcherProject == null || onShowProjectExplorer == null);
-    btnHelpCenter.setDisable(busy || onShowHelpCenter == null);
+    btnBuildProject.setDisable(busy || launcherProject == null || onBuildProject == null);
     btnSettings.setDisable(busy || onShowSettings == null);
     btnSpotlightRevealProject.setDisable(busy || launcherProject == null || onRevealProject == null);
   }
@@ -569,18 +549,14 @@ public class WelcomeCenterView extends BorderPane {
     onRunProject.accept(dir);
   }
 
+  private void buildLauncherProject(File dir) {
+    if (dir == null || !dir.isDirectory() || onBuildProject == null) return;
+    onBuildProject.accept(dir);
+  }
+
   private void revealLauncherProject(File dir) {
     if (dir == null || !dir.isDirectory() || onRevealProject == null) return;
     onRevealProject.accept(dir);
-  }
-
-  private void openProjectExplorerFor(File dir) {
-    if (dir != null) {
-      activateLauncherProject(dir);
-    }
-    if (onShowProjectExplorer != null) {
-      onShowProjectExplorer.run();
-    }
   }
 
   private void updateProjectSpotlight() {

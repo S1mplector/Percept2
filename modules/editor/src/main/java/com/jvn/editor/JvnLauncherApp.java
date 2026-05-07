@@ -17,6 +17,7 @@ import com.jvn.editor.ui.EditorDialogs;
 import com.jvn.editor.ui.EditorPreferences;
 import com.jvn.editor.ui.EditorPreferencesStore;
 import com.jvn.editor.ui.EditorTheme;
+import com.jvn.editor.ui.GameBuildPublisherView;
 import com.jvn.editor.ui.LauncherSettingsView;
 import com.jvn.editor.ui.NewProjectWizard;
 import com.jvn.editor.ui.RunConsoleView;
@@ -61,7 +62,9 @@ public class JvnLauncherApp extends Application {
 
   private Stage primaryStage;
   private Stage settingsStage;
+  private Stage gameBuildPublisherStage;
   private WelcomeCenterView welcomeView;
+  private GameBuildPublisherView gameBuildPublisherView;
   private File workspaceRoot;
   private File currentProject;
   private EditorPreferencesStore editorPreferencesStore;
@@ -251,6 +254,7 @@ public class JvnLauncherApp extends Application {
       setCurrentProject(projectDir, false);
       runSelectedProject();
     });
+    welcomeView.setOnBuildProject(this::showGameBuildPublisher);
     welcomeView.setOnRevealProject(projectDir -> {
       if (projectDir == null || !projectDir.isDirectory()) return;
       try {
@@ -671,6 +675,59 @@ public class JvnLauncherApp extends Application {
       }
     }
     statusLabel.setText("Theme: " + (theme == EditorTheme.Theme.LIGHT ? "Light" : "Dark"));
+  }
+
+  private void showGameBuildPublisher(File projectDir) {
+    File project = normalizeProjectDirectory(projectDir);
+    if (project == null || !project.isDirectory()) {
+      EditorDialogs.info(primaryStage, "Build Project", "Select a project first.");
+      return;
+    }
+
+    File workspace = workspaceRoot != null ? workspaceRoot : resolveWorkspaceRoot();
+    if (workspace == null || !workspace.isDirectory()) {
+      EditorDialogs.error(
+          primaryStage,
+          "Build Project",
+          "Cannot locate the JVN workspace root.",
+          null,
+          "Launch the launcher from the JVN repository root.",
+          "Reopen the project through the launcher after the workspace root is available.");
+      return;
+    }
+
+    setCurrentProject(project, true);
+
+    if (gameBuildPublisherStage != null && gameBuildPublisherStage.isShowing()) {
+      if (gameBuildPublisherView != null) gameBuildPublisherView.setProjectRoot(project);
+      gameBuildPublisherStage.toFront();
+      gameBuildPublisherStage.requestFocus();
+      statusLabel.setText("Build window focused for " + displayProjectName(project));
+      return;
+    }
+
+    gameBuildPublisherView = new GameBuildPublisherView(workspace, project, request ->
+        runGradle(workspace, request.taskName(), request.args(), request.title()));
+
+    BorderPane popupRoot = new BorderPane(gameBuildPublisherView);
+    popupRoot.setStyle("-fx-background-color: #111;");
+    Scene scene = new Scene(popupRoot, 1040, 720);
+    EditorTheme.apply(scene);
+
+    Stage window = new Stage();
+    window.initOwner(primaryStage);
+    window.setTitle("JVN Game Build & Publish");
+    window.setScene(scene);
+    window.setMinWidth(880);
+    window.setMinHeight(620);
+    window.setOnHidden(e -> {
+      gameBuildPublisherStage = null;
+      gameBuildPublisherView = null;
+    });
+
+    gameBuildPublisherStage = window;
+    window.show();
+    statusLabel.setText("Build window opened for " + displayProjectName(project));
   }
 
   private void runSelectedProject() {
