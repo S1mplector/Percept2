@@ -1758,9 +1758,15 @@ public class VnScriptParser {
       case "call": {
         String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
         String[] toks = payload.split("\\s+", 2);
+        if (toks.length == 1) {
+          String label = toks[0].trim();
+          addLabelReference(state, label, sourceName, lineNumber, rawLine, "call");
+          state.builder.call(label);
+          return;
+        }
         String provider = toks[0].trim();
         if (provider.isBlank()) {
-          throw parseError(sourceName, lineNumber, "[call] requires a provider", rawLine);
+          throw parseError(sourceName, lineNumber, "[call] requires a label or provider", rawLine);
         }
         String providerPayload = toks.length > 1 ? toks[1] : "";
         state.builder.external(provider, providerPayload);

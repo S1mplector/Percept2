@@ -31,4 +31,39 @@ class VnsScriptAnalyzerStructuredDiagnosticTest {
     assertTrue(diagnostic.column() >= 0);
     assertTrue(diagnostic.startOffset() < diagnostic.endOffset());
   }
+
+  @Test
+  void treatsSingleArgumentCallAsSubroutineLabelReference() {
+    String source = """
+        @label start
+        [call shared_cutscene]
+        [end]
+
+        @label shared_cutscene
+        narrator "Inside"
+        [return]
+        """;
+
+    VnsScriptAnalyzer.Analysis analysis = VnsScriptAnalyzer.analyze(source, null);
+
+    assertTrue(analysis.diagnostics().stream().noneMatch(d -> "undefined_label".equals(d.kind())));
+    assertTrue(analysis.edges().stream().anyMatch(edge ->
+        "start".equals(edge.fromLabel())
+            && "shared_cutscene".equals(edge.toLabel())
+            && edge.kind() == VnsScriptAnalyzer.FlowEdgeKind.CALL));
+  }
+
+  @Test
+  void keepsProviderPayloadCallAsInteropNotLabelReference() {
+    String source = """
+        @label start
+        [call jes_timeline hero_entrance]
+        [end]
+        """;
+
+    VnsScriptAnalyzer.Analysis analysis = VnsScriptAnalyzer.analyze(source, null);
+
+    assertTrue(analysis.diagnostics().stream().noneMatch(d -> "undefined_label".equals(d.kind())));
+    assertTrue(analysis.edges().stream().noneMatch(edge -> "jes_timeline".equals(edge.toLabel())));
+  }
 }

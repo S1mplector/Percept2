@@ -53,9 +53,9 @@ Jumps to a label, optionally in another script arc.
 
 When using `Arc:label` form, runtime loads the target script and jumps to that label.
 
-### `[call <label>]` (subroutine)
+### `[call <label>]` (subroutine alias)
 
-Pushes the current position onto the call stack and jumps to a label. Use with `[return]`.
+With one argument, `[call]` is a legacy alias for `[gosub]`: it pushes the current position onto the call stack and jumps to a label. Use with `[return]`.
 
 ```vns
 [call shared_cutscene]
@@ -65,6 +65,8 @@ narrator: Back from the cutscene.
 narrator: This is a reusable cutscene.
 [return]
 ```
+
+For new scripts, prefer `[gosub <label>]` for subroutines so it stays visually distinct from `[call <provider> <payload>]` interop calls such as `[call jes_timeline hero_entrance]`.
 
 ### `[return]`
 

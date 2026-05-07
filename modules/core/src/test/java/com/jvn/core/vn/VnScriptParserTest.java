@@ -433,6 +433,58 @@ public class VnScriptParserTest {
   }
 
   @Test
+  public void callWithSingleLabelIsSubroutineAlias() throws Exception {
+    String script = """
+      @label start
+      narrator "Before"
+      [call shared_cutscene]
+      narrator "After"
+      [end]
+
+      @label shared_cutscene
+      narrator "Inside"
+      [return]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario = parser.parseFromString(script);
+
+    VnNode call = scenario.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.CALL)
+        .findFirst()
+        .orElseThrow();
+    assertEquals("shared_cutscene", call.getJumpLabel());
+
+    VnScene scene = new VnScene(scenario);
+    scene.setInterop(new DefaultVnInterop());
+    scene.onEnter();
+    assertEquals("Before", scene.getState().getHistory().getEntries().get(0).getText());
+    scene.advance();
+    assertEquals("Inside", scene.getState().getHistory().getEntries().get(1).getText());
+    scene.advance();
+    assertEquals("After", scene.getState().getHistory().getEntries().get(2).getText());
+  }
+
+  @Test
+  public void callWithProviderPayloadRemainsInteropCommand() throws Exception {
+    String script = """
+      @label start
+      [call jes_timeline hero_entrance]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario = parser.parseFromString(script);
+    VnNode external = scenario.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.EXTERNAL)
+        .findFirst()
+        .orElseThrow();
+
+    assertEquals("jes_timeline", external.getExternalCommand().getProvider());
+    assertEquals("hero_entrance", external.getExternalCommand().getPayload());
+  }
+
+  @Test
   public void rejectsUnknownCommandsWithStrictDiagnostics() {
     String script = """
       @label start

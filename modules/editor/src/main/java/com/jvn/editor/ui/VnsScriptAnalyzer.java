@@ -149,6 +149,10 @@ public final class VnsScriptAnalyzer {
         String target = firstToken(arg);
         int st = line.start + safeIndexOf(line.text, target, 0);
         refs.add(new LabelRef(target, st, st + target.length(), line.index));
+      } else if (("gosub".equals(cmd) || isSingleLabelCall(cmd, arg)) && !arg.isBlank()) {
+        String target = firstToken(arg);
+        int st = line.start + safeIndexOf(line.text, target, 0);
+        refs.add(new LabelRef(target, st, st + target.length(), line.index));
       } else if ("if".equals(cmd) && !arg.isBlank()) {
         Matcher m = IF_GOTO_PATTERN.matcher(arg);
         if (m.matches()) {
@@ -412,6 +416,12 @@ public final class VnsScriptAnalyzer {
           break;
         }
 
+        if ("gosub".equals(cmd) || isSingleLabelCall(cmd, arg)) {
+          String target = firstToken(arg);
+          addEdge(label.name(), target, line.index, FlowEdgeKind.CALL, labelsByName, dedupe, edges);
+          continue;
+        }
+
         if ("end".equals(cmd)) {
           terminal = true;
           break;
@@ -654,6 +664,12 @@ public final class VnsScriptAnalyzer {
     return sp < 0 ? t : t.substring(0, sp);
   }
 
+  private static boolean isSingleLabelCall(String cmd, String arg) {
+    if (!"call".equals(cmd) || arg == null) return false;
+    String t = arg.trim();
+    return !t.isEmpty() && t.indexOf(' ') < 0 && t.indexOf('\t') < 0;
+  }
+
   private static int safeIndexOf(String text, String needle, int fallback) {
     if (text == null || needle == null || needle.isEmpty()) return fallback;
     int idx = text.indexOf(needle);
@@ -804,6 +820,7 @@ public final class VnsScriptAnalyzer {
 
   public enum FlowEdgeKind {
     JUMP,
+    CALL,
     CHOICE,
     IF_GOTO,
     FALLTHROUGH

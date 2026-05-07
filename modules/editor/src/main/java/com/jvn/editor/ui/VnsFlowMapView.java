@@ -256,6 +256,7 @@ public class VnsFlowMapView extends BorderPane {
       case CHOICE -> Color.web("#8bd17c");
       case IF_GOTO -> Color.web("#f0b673");
       case FALLTHROUGH -> Color.web("#6b7280");
+      case CALL -> Color.web("#c792ea");
       case JUMP -> Color.web("#66d9ef");
     };
   }

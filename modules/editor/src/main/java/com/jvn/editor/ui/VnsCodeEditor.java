@@ -1282,7 +1282,11 @@ public class VnsCodeEditor extends BorderPane {
       out.add(new CodeAutoCompleter.Suggestion("[elif "));
       out.add(new CodeAutoCompleter.Suggestion("[else]"));
       out.add(new CodeAutoCompleter.Suggestion("[endif]"));
+      out.add(new CodeAutoCompleter.Suggestion("[call "));
+      out.add(new CodeAutoCompleter.Suggestion("[gosub "));
+      out.add(new CodeAutoCompleter.Suggestion("[return]"));
       out.add(new CodeAutoCompleter.Suggestion("[call hud "));
+      out.add(new CodeAutoCompleter.Suggestion("[call jes_timeline "));
       out.add(new CodeAutoCompleter.Suggestion("[java "));
       out.add(new CodeAutoCompleter.Suggestion("[mainmenu "));
       out.add(new CodeAutoCompleter.Suggestion("[load "));
@@ -1891,7 +1895,8 @@ public class VnsCodeEditor extends BorderPane {
     VNS_COMMAND_DOCS.put("choice", "Present choices. Usage: > text -> label");
     VNS_COMMAND_DOCS.put("transition", "Screen transition. Usage: [transition type=fade dur=500 bg=room] or [transition fade]");
     VNS_COMMAND_DOCS.put("volume", "Set volume. Usage: [volume channel level]");
-    VNS_COMMAND_DOCS.put("call", "Call a subroutine label. Usage: [call label]");
+    VNS_COMMAND_DOCS.put("call", "Call a subroutine label when used as [call label], or an interop provider when used as [call provider payload].");
+    VNS_COMMAND_DOCS.put("gosub", "Call a subroutine label. Usage: [gosub label]");
     VNS_COMMAND_DOCS.put("return", "Return from subroutine. Usage: [return]");
     VNS_COMMAND_DOCS.put("flag", "Set a boolean flag. Usage: [flag name]");
     VNS_COMMAND_DOCS.put("unflag", "Clear a boolean flag. Usage: [unflag name]");
