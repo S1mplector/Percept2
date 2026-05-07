@@ -115,10 +115,12 @@ public final class JvnHub {
   private final JLabel activityDetail = new JLabel("Choose an action to get started.");
   private final StepListPanel activitySteps = new StepListPanel();
   private final javax.swing.Timer spinnerTimer = new javax.swing.Timer(70, e -> activitySpinner.tick());
+  private final javax.swing.Timer autoStepTimer = new javax.swing.Timer(1800, e -> autoAdvanceDuringSilence());
   private final List<JButton> actionButtons = new ArrayList<>();
   private final AtomicReference<Process> runningProcess = new AtomicReference<>();
   private final AtomicBoolean updateCheckRunning = new AtomicBoolean(false);
   private int activeStepIndex = -1;
+  private String activeStepLabel = "";
 
   /** Currently-loaded announcements; refreshed on startup and after Update Engine. */
   private final List<Announcement> announcements = new ArrayList<>();
@@ -985,6 +987,7 @@ public final class JvnHub {
     setButtonsEnabled(false);
     setStatus("Running: " + label, ACCENT_NEUTRAL);
     startSteps(label);
+    startAutoStepTicker(label);
     setActivity("Working on " + label, "This can take a moment.", true, ACCENT_NEUTRAL);
     return true;
   }
@@ -1144,6 +1147,7 @@ public final class JvnHub {
   private void startSteps(String label) {
     List<String> steps = stepsForAction(label);
     SwingUtilities.invokeLater(() -> {
+      activeStepLabel = label == null ? "" : label.trim();
       activeStepIndex = steps.isEmpty() ? -1 : 0;
       activitySteps.setSteps(steps);
       if (activeStepIndex >= 0) activitySteps.setStatus(activeStepIndex, StepStatus.RUNNING);
@@ -1187,6 +1191,7 @@ public final class JvnHub {
 
   private void finishSteps(boolean success, String detail) {
     SwingUtilities.invokeLater(() -> {
+      stopAutoStepTicker();
       int count = activitySteps.stepCount();
       if (count > 0) {
         for (int i = 0; i < count; i++) {
@@ -1198,6 +1203,7 @@ public final class JvnHub {
         }
       }
       activeStepIndex = -1;
+      activeStepLabel = "";
       if (detail != null && !detail.isBlank()) activityDetail.setText(compactMessage(detail));
     });
   }
@@ -1209,20 +1215,42 @@ public final class JvnHub {
           "Read launch request",
           "Resolve engine workspace",
           "Locate Gradle wrapper",
+          "Prepare isolated Gradle home",
           "Start Gradle process",
+          "Attach live output stream",
           "Configure project modules",
+          "Check Java toolchain",
+          "Resolve project dependencies",
+          "Compile shared engine classes",
           "Build editor classpath",
-          "Start JavaFX editor",
-          "Wait for editor handoff");
+          "Process editor resources",
+          "Assemble runtime classpath",
+          "Start JavaFX toolkit",
+          "Load editor preferences",
+          "Initialize workspace services",
+          "Create editor window",
+          "Wait for editor handoff",
+          "Monitor editor process");
       case "run launcher" -> List.of(
           "Read launch request",
           "Resolve engine workspace",
           "Locate Gradle wrapper",
+          "Prepare isolated Gradle home",
           "Start Gradle process",
+          "Attach live output stream",
           "Configure project modules",
+          "Check Java toolchain",
+          "Resolve project dependencies",
+          "Compile shared engine classes",
           "Build launcher classpath",
-          "Start standalone launcher",
-          "Wait for launcher handoff");
+          "Process launcher resources",
+          "Assemble runtime classpath",
+          "Start JavaFX toolkit",
+          "Load launcher preferences",
+          "Scan project workspace",
+          "Create launcher window",
+          "Wait for launcher handoff",
+          "Monitor launcher process");
       case "build all" -> List.of(
           "Read build request",
           "Resolve engine workspace",
@@ -1278,19 +1306,19 @@ public final class JvnHub {
     String key = label == null ? "" : label.trim().toLowerCase(Locale.ROOT);
 
     if (lower.contains("preparing process environment")) {
-      advanceToStep(2, "Preparing command environment.");
+      advanceToStep(stepIndexFor(key, "prepare_environment"), "Preparing command environment.");
       return;
     }
     if (lower.contains("process started")) {
-      advanceToStep(3, "Background process started.");
+      advanceToStep(stepIndexFor(key, "process_started"), "Background process started.");
       return;
     }
     if (lower.contains("starting a gradle daemon") || lower.contains("daemon")) {
-      advanceToStep(3, "Starting Gradle daemon.");
+      advanceToStep(stepIndexFor(key, "process_started"), "Starting Gradle daemon.");
       return;
     }
     if (lower.contains("configure project") || lower.contains("calculating task graph")) {
-      advanceToStep(4, "Configuring Gradle project modules.");
+      advanceToStep(stepIndexFor(key, "configure"), "Configuring Gradle project modules.");
       return;
     }
     if (lower.startsWith("> task")) {
@@ -1322,29 +1350,110 @@ public final class JvnHub {
 
   private void handleGradleTaskStep(String key, String lowerTaskLine, String originalLine) {
     if (lowerTaskLine.contains("compiletest") || lowerTaskLine.contains(":testclasses")) {
-      advanceToStep(5, originalLine);
+      advanceToStep(stepIndexFor(key, "test_compile"), originalLine);
       return;
     }
     if (lowerTaskLine.matches(".*:test(\\s|$).*")) {
-      advanceToStep(6, originalLine);
+      advanceToStep(stepIndexFor(key, "test_run"), originalLine);
       return;
     }
-    if (lowerTaskLine.contains("compile") || lowerTaskLine.contains("processresources")
-        || lowerTaskLine.contains(":classes") || lowerTaskLine.contains(":jar")) {
-      advanceToStep(5, originalLine);
+    if ((key.equals("run editor") || key.equals("run launcher")) && lowerTaskLine.contains(":editor:compile")) {
+      advanceToStep(stepIndexFor(key, "app_compile"), originalLine);
+      return;
+    }
+    if ((key.equals("run editor") || key.equals("run launcher")) && lowerTaskLine.contains("processresources")) {
+      advanceToStep(stepIndexFor(key, "resources"), originalLine);
+      return;
+    }
+    if (lowerTaskLine.contains("compile")) {
+      advanceToStep(stepIndexFor(key, "compile"), originalLine);
+      return;
+    }
+    if (lowerTaskLine.contains(":classes") || lowerTaskLine.contains(":jar")) {
+      advanceToStep(stepIndexFor(key, "classpath"), originalLine);
       return;
     }
     if (lowerTaskLine.contains(":editor:runlauncher")) {
-      advanceToStep(6, "Starting standalone launcher.");
+      advanceToStep(stepIndexFor(key, "app_start"), "Starting standalone launcher.");
       return;
     }
     if (lowerTaskLine.contains(":editor:run")) {
-      advanceToStep(6, originalLine);
+      advanceToStep(stepIndexFor(key, "app_start"), originalLine);
       return;
     }
     if (lowerTaskLine.contains("assemble") || lowerTaskLine.contains("build")) {
       advanceToStep(key.equals("build all") ? 6 : 5, originalLine);
     }
+  }
+
+  private int stepIndexFor(String key, String milestone) {
+    boolean launch = "run editor".equals(key) || "run launcher".equals(key);
+    if (launch) {
+      return switch (milestone) {
+        case "prepare_environment" -> 3;
+        case "process_started" -> 4;
+        case "configure" -> 6;
+        case "compile" -> 9;
+        case "app_compile" -> 10;
+        case "resources" -> 11;
+        case "classpath" -> 12;
+        case "app_start" -> 13;
+        default -> activeStepIndex;
+      };
+    }
+    return switch (milestone) {
+      case "prepare_environment" -> 2;
+      case "process_started" -> 3;
+      case "configure" -> 4;
+      case "compile", "test_compile" -> 5;
+      case "test_run" -> 6;
+      case "classpath", "resources", "app_compile", "app_start" -> 5;
+      default -> activeStepIndex;
+    };
+  }
+
+  private void startAutoStepTicker(String label) {
+    SwingUtilities.invokeLater(() -> {
+      activeStepLabel = label == null ? "" : label.trim();
+      autoStepTimer.setInitialDelay(1200);
+      if (!autoStepTimer.isRunning()) autoStepTimer.start();
+    });
+  }
+
+  private void stopAutoStepTicker() {
+    if (autoStepTimer.isRunning()) autoStepTimer.stop();
+  }
+
+  private void autoAdvanceDuringSilence() {
+    if (activeStepIndex < 0 || activitySteps.stepCount() == 0) {
+      stopAutoStepTicker();
+      return;
+    }
+    String key = activeStepLabel == null ? "" : activeStepLabel.trim().toLowerCase(Locale.ROOT);
+    int limit = autoAdvanceLimit(key);
+    if (activeStepIndex >= limit) {
+      stopAutoStepTicker();
+      return;
+    }
+    int next = activeStepIndex + 1;
+    activitySteps.setStatus(activeStepIndex, StepStatus.DONE);
+    activeStepIndex = next;
+    activitySteps.setStatus(activeStepIndex, StepStatus.RUNNING);
+    activityDetail.setText(compactMessage(activitySteps.stepAt(activeStepIndex)));
+  }
+
+  private int autoAdvanceLimit(String key) {
+    int last = Math.max(0, activitySteps.stepCount() - 1);
+    if ("run editor".equals(key) || "run launcher".equals(key)) {
+      return Math.max(0, last - 1);
+    }
+    if ("build all".equals(key) || "run tests".equals(key)) {
+      return Math.max(0, last - 1);
+    }
+    if ("build shortcuts".equals(key) || "update engine".equals(key)) {
+      return Math.max(0, last - 1);
+    }
+    return Math.max(0, last - 1);
   }
 
   private void checkIncomingUpdates(boolean fetchFirst) {
@@ -1845,6 +1954,11 @@ public final class JvnHub {
     StepStatus statusAt(int index) {
       if (index < 0 || index >= statuses.size()) return StepStatus.PENDING;
       return statuses.get(index);
+    }
+
+    String stepAt(int index) {
+      if (index < 0 || index >= steps.size()) return "";
+      return steps.get(index);
     }
 
     void setStatus(int index, StepStatus status) {
