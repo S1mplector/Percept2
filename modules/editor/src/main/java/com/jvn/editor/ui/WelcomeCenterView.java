@@ -20,6 +20,7 @@ import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
+import com.jvn.editor.AppBuildInfo;
 import com.jvn.editor.vcs.GitVcsService;
 
 import javafx.animation.Animation;
@@ -77,6 +78,7 @@ public class WelcomeCenterView extends BorderPane {
   private final MetallicJvnLogo logoMark = new MetallicJvnLogo(118, 52);
   private final Label introLabel = new Label("Create, open, run, and inspect projects from one place.");
   private final Label versionLabel = new Label("Version: --");
+  private final Label sourceLabel = new Label();
   private final Label workspaceLabel = new Label("No workspace root configured.");
   private final Label projectLabel = new Label("No project is currently open.");
   private final Label statusLabel = new Label("Ready");
@@ -132,6 +134,8 @@ public class WelcomeCenterView extends BorderPane {
   private Consumer<File> onOpenProjectFile;
 
   private boolean busy;
+  private boolean versionVisible = true;
+  private boolean sourceVisible;
 
   public WelcomeCenterView() {
     buildUi();
@@ -140,7 +144,21 @@ public class WelcomeCenterView extends BorderPane {
 
   public void setEditorVersion(String version) {
     if (version == null || version.isBlank()) version = "dev";
-    versionLabel.setText("Version " + version.trim());
+    versionLabel.setText(version.trim());
+    sourceLabel.setText("");
+    sourceVisible = false;
+    applyBuildInfoVisibility();
+  }
+
+  public void setEditorBuildInfo(AppBuildInfo.BuildInfo buildInfo) {
+    if (buildInfo == null) {
+      setEditorVersion("dev");
+      return;
+    }
+    versionLabel.setText(buildInfo.versionLabel());
+    sourceLabel.setText(buildInfo.sourceLabel());
+    sourceVisible = buildInfo.runningFromSource();
+    applyBuildInfoVisibility();
   }
 
   public void setWelcomeHeading(String heading) {
@@ -154,8 +172,8 @@ public class WelcomeCenterView extends BorderPane {
   }
 
   public void setVersionChipVisible(boolean visible) {
-    versionLabel.setVisible(visible);
-    versionLabel.setManaged(visible);
+    versionVisible = visible;
+    applyBuildInfoVisibility();
   }
 
   public void setWorkspaceRoot(File workspaceRoot) {
@@ -252,7 +270,8 @@ public class WelcomeCenterView extends BorderPane {
 
     headingLabel.getStyleClass().add("welcome-heading");
     introLabel.getStyleClass().add("welcome-intro-text");
-    versionLabel.getStyleClass().add("welcome-version-chip");
+    versionLabel.getStyleClass().add("jvn-wordmark-version");
+    sourceLabel.getStyleClass().add("jvn-wordmark-source");
     workspaceLabel.getStyleClass().add("welcome-overview-detail");
     workspaceLabel.setWrapText(true);
     projectLabel.getStyleClass().add("welcome-overview-detail");
@@ -312,7 +331,9 @@ public class WelcomeCenterView extends BorderPane {
 
     Region headingSpacer = new Region();
     HBox.setHgrow(headingSpacer, Priority.ALWAYS);
-    HBox headingRow = new HBox(10, logoMark, headingLabel, versionLabel, headingSpacer, btnSettings);
+    VBox buildInfoBox = new VBox(2, versionLabel, sourceLabel);
+    buildInfoBox.setAlignment(Pos.CENTER_LEFT);
+    HBox headingRow = new HBox(10, logoMark, headingLabel, buildInfoBox, headingSpacer, btnSettings);
     headingRow.setAlignment(Pos.BASELINE_LEFT);
 
     VBox healthOverviewCard = buildHealthOverviewCard();
@@ -398,7 +419,16 @@ public class WelcomeCenterView extends BorderPane {
     center.getStyleClass().add("welcome-center-body");
     VBox.setVgrow(split, Priority.ALWAYS);
     setCenter(center);
+    applyBuildInfoVisibility();
     applyRecentFilter();
+  }
+
+  private void applyBuildInfoVisibility() {
+    versionLabel.setVisible(versionVisible);
+    versionLabel.setManaged(versionVisible);
+    boolean showSource = versionVisible && sourceVisible;
+    sourceLabel.setVisible(showSource);
+    sourceLabel.setManaged(showSource);
   }
 
   private void setBusy(boolean busy) {

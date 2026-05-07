@@ -236,7 +236,7 @@ public class JvnLauncherApp extends Application {
     welcomeView.setWelcomeHeading("Welcome to JVN Launcher");
     welcomeView.setWelcomeIntro("");
     welcomeView.setVersionChipVisible(true);
-    welcomeView.setEditorVersion(buildInfo.fullLabel());
+    welcomeView.setEditorBuildInfo(buildInfo);
     welcomeView.setWorkspaceRoot(workspaceRoot);
     welcomeView.setOnCreateProject(this::createNewProject);
     welcomeView.setOnOpenProjectDialog(this::chooseProjectDirectory);
