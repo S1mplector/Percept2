@@ -29,7 +29,7 @@ Run -> Build & Publish...
 Project Explorer -> Build
 ```
 
-The popup reads the current project's `jvn.project`, lets you set the release name/version, target, format, native package type, and release profile, then launches the matching Gradle task in the run console. It also reveals the output folder, copies CLI/publish notes, and can run the selected release profile.
+The popup reads the current project's `jvn.project`, lets you set the release name/version, target, format, native package type, and release profile, then launches the matching Gradle task in the run console. It also reveals the output folder, copies CLI/publish notes, shows checksum availability for completed artifacts, and can run the selected release profile.
 
 Before enabling build actions, the popup validates:
 
@@ -53,6 +53,7 @@ All CLI builds require `-PjvnGameProject=<dir>`. The path is used exactly as pro
 | `./jvnw dist-all -PjvnGameProject=<dir>` | Game archives for every supported target |
 | `./jvnw dist-runtime -PjvnGameProject=<dir>` | Self-contained desktop bundle for the current target |
 | `./jvnw dist-runtime-all -PjvnGameProject=<dir>` | Self-contained desktop bundles for every supported target |
+| `./jvnw dist-preflight -PjvnGameProject=<dir>` | Validate the selected package plan and write JSON/Markdown build reports |
 | `./jvnw runtime-cache` | Print cached prebuilt desktop runtimes |
 | `./jvnw runtime-cache-clear` | Clear cached prebuilt desktop runtimes |
 | `./jvnw native -PjvnGameProject=<dir>` | Current-host native package using the host default type |
@@ -89,6 +90,15 @@ Archives are written to:
 
 ```text
 <jvnBuildDir>/distributions/games/   (default: build/distributions/games/)
+```
+
+Each completed game artifact also receives a sibling `.sha256` file. The checksum sidecar is written after the package has been opened and checked for required launch content, so a missing checksum is a useful sign that the build did not finish its packaging verification step.
+
+`dist-preflight` writes both machine-readable and human-readable reports:
+
+```text
+<jvnBuildDir>/reports/jvn-game-build/build-plan.json
+<jvnBuildDir>/reports/jvn-game-build/build-plan.md
 ```
 
 ## Portable Targets

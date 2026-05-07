@@ -763,7 +763,7 @@ public class GameBuildPublisherView extends BorderPane {
     if (onBuildRequested != null) {
       onBuildRequested.accept(new BuildRequest("preflightJvnGameBuild", args.toArray(String[]::new), "Preflight Game Build"));
     }
-    statusLabel.setText("Started build preflight. The report will be written under build/reports/jvn-game-build/.");
+    statusLabel.setText("Started build preflight. JSON and Markdown reports will be written under build/reports/jvn-game-build/.");
     setNoteTone(statusLabel, "status");
   }
 
@@ -895,11 +895,17 @@ public class GameBuildPublisherView extends BorderPane {
 
   static List<ArtifactSummary> summarizeArtifacts(File outDir) {
     if (outDir == null || !outDir.isDirectory()) return List.of();
-    File[] files = outDir.listFiles(file -> file.isFile() && !file.isHidden());
+    File[] files = outDir.listFiles(file -> file.isFile()
+        && !file.isHidden()
+        && !file.getName().endsWith(".sha256"));
     if (files == null || files.length == 0) return List.of();
     List<ArtifactSummary> summaries = new ArrayList<>();
     for (File file : files) {
-      summaries.add(new ArtifactSummary(file.getName(), file.length(), file.lastModified()));
+      summaries.add(new ArtifactSummary(
+          file.getName(),
+          file.length(),
+          file.lastModified(),
+          new File(file.getParentFile(), file.getName() + ".sha256").isFile()));
     }
     summaries.sort((a, b) -> Long.compare(b.lastModifiedMillis(), a.lastModifiedMillis()));
     return List.copyOf(summaries);
@@ -917,6 +923,9 @@ public class GameBuildPublisherView extends BorderPane {
           .append(formatBytes(artifact.bytes()))
           .append("  ")
           .append(formatTimestamp(artifact.lastModifiedMillis()));
+      if (artifact.checksumAvailable()) {
+        out.append("  sha256");
+      }
     }
     if (artifacts.size() > shown) {
       out.append('\n').append("+").append(artifacts.size() - shown).append(" more");
@@ -1416,7 +1425,10 @@ public class GameBuildPublisherView extends BorderPane {
   private record BuildTaskSelection(String taskName, String title) {
   }
 
-  record ArtifactSummary(String name, long bytes, long lastModifiedMillis) {
+  record ArtifactSummary(String name, long bytes, long lastModifiedMillis, boolean checksumAvailable) {
+    ArtifactSummary(String name, long bytes, long lastModifiedMillis) {
+      this(name, bytes, lastModifiedMillis, false);
+    }
   }
 
   private record TargetChoice(String label, String taskName, String description, String outputToken) {

@@ -12,6 +12,7 @@ import java.net.URL
 import java.security.MessageDigest
 import java.time.Instant
 import java.util.Properties
+import java.util.zip.ZipFile
 
 plugins {
   java
@@ -529,6 +530,85 @@ fun sha256Hex(file: File): String {
     }
   }
   return digest.digest().joinToString("") { "%02x".format(it) }
+}
+
+fun artifactChecksumFile(artifact: File): File {
+  return File(artifact.parentFile, "${artifact.name}.sha256")
+}
+
+fun writeArtifactChecksum(artifact: File): File {
+  if (!artifact.isFile || artifact.length() <= 0L) {
+    throw GradleException("Packaged artifact is missing or empty: ${artifact.absolutePath}")
+  }
+  val checksum = sha256Hex(artifact)
+  val checksumFile = artifactChecksumFile(artifact)
+  checksumFile.parentFile.mkdirs()
+  checksumFile.writeText("$checksum  ${artifact.name}\n")
+  logger.lifecycle("JVN artifact checksum: ${checksumFile.absolutePath}")
+  return checksumFile
+}
+
+fun assertZipArtifactContains(artifact: File, label: String, requiredSuffixes: List<String>) {
+  if (!artifact.isFile || artifact.length() <= 0L) {
+    throw GradleException("$label artifact is missing or empty: ${artifact.absolutePath}")
+  }
+  ZipFile(artifact).use { zip ->
+    val names = mutableListOf<String>()
+    val entries = zip.entries()
+    while (entries.hasMoreElements()) {
+      val entry = entries.nextElement()
+      if (!entry.isDirectory) names += entry.name.replace('\\', '/')
+    }
+    val missing = requiredSuffixes.filter { suffix ->
+      names.none { name ->
+        if (suffix.endsWith("/")) name.contains(suffix) else name.endsWith(suffix)
+      }
+    }
+    if (missing.isNotEmpty()) {
+      throw GradleException(
+        "$label artifact ${artifact.name} is missing required packaged content: ${missing.joinToString(", ")}"
+      )
+    }
+  }
+}
+
+fun verifyPortableArtifact(target: JvnGameTarget, artifact: File) {
+  val launcherSuffix = if (target.windows) "/bin/${gameLauncherBaseName()}.bat" else "/bin/${gameLauncherBaseName()}"
+  assertZipArtifactContains(
+    artifact,
+    "Portable JVN game",
+    listOf(
+      launcherSuffix,
+      "/game/jvn.project",
+      "/lib/",
+      "/lib/javafx/",
+      "/README.txt",
+      "/BUILD-METADATA.txt"
+    )
+  )
+  writeArtifactChecksum(artifact)
+}
+
+fun verifyBundledRuntimeArtifact(target: JvnGameTarget, artifact: File) {
+  val launcherSuffix = if (target.windows) "/bin/${gameLauncherBaseName()}.bat" else "/bin/${gameLauncherBaseName()}"
+  assertZipArtifactContains(
+    artifact,
+    "Bundled-runtime JVN game",
+    listOf(
+      launcherSuffix,
+      "/game/jvn.project",
+      "/runtime/",
+      "/lib/",
+      "/lib/javafx/",
+      "/README.txt",
+      "/BUILD-METADATA.txt"
+    )
+  )
+  writeArtifactChecksum(artifact)
+}
+
+fun verifyNativeArtifact(artifact: File) {
+  writeArtifactChecksum(artifact)
 }
 
 fun gameBundledDistName(target: JvnGameTarget): String {
@@ -1089,6 +1169,8 @@ fun jvnGameBuildPlanMap(): Map<String, Any?> {
         "releaseTask" to (artifact.releaseTask ?: ""),
         "artifactPath" to artifact.artifact.absolutePath,
         "artifactName" to artifact.artifact.name,
+        "checksumPath" to artifactChecksumFile(artifact.artifact).absolutePath,
+        "sha256" to if (artifact.artifact.isFile) sha256Hex(artifact.artifact) else "",
         "packageType" to (artifact.packageType ?: ""),
         "runtimeRequirement" to artifact.runtimeRequirement,
         "exists" to artifact.artifact.exists(),
@@ -1102,6 +1184,50 @@ fun writeJvnGameBuildReport(): File {
   val reportFile = layout.buildDirectory.file("reports/jvn-game-build/build-plan.json").get().asFile
   reportFile.parentFile.mkdirs()
   reportFile.writeText(JsonOutput.prettyPrint(JsonOutput.toJson(jvnGameBuildPlanMap())))
+  return reportFile
+}
+
+fun writeJvnGameBuildMarkdownReport(): File {
+  val validation = validateGameProject()
+  validateSelectedReleaseProfile()
+  val reportFile = layout.buildDirectory.file("reports/jvn-game-build/build-plan.md").get().asFile
+  val artifacts = selectedJvnGamePlannedArtifacts()
+  reportFile.parentFile.mkdirs()
+  reportFile.writeText(buildString {
+    appendLine("# JVN Game Build Plan")
+    appendLine()
+    appendLine("- Generated: ${Instant.now()}")
+    appendLine("- Workspace: ${rootDir.absolutePath}")
+    appendLine("- Project: ${validation.dir.absolutePath}")
+    appendLine("- Game: ${gameDisplayName()} ${gameVersion()}")
+    appendLine("- Type: ${validation.type}")
+    appendLine("- Entry: ${validation.entryKey ?: "runtime discovery"}")
+    appendLine("- Mode: ${selectedJvnGamePackageMode()}")
+    appendLine("- Requested Target: ${selectedJvnGameTargetToken()}")
+    appendLine("- Release Profile: ${selectedReleaseProfile().name}")
+    appendLine("- Release Config: ${selectedReleaseProfile().file?.absolutePath ?: "(none)"}")
+    appendLine()
+    appendLine("## Artifacts")
+    appendLine()
+    artifacts.forEach { artifact ->
+      appendLine("- `${artifact.targetId}`")
+      appendLine("  - Build task: `${artifact.buildTask}`")
+      appendLine("  - Release task: `${artifact.releaseTask ?: "(none)"}`")
+      appendLine("  - Output: `${artifact.artifact.absolutePath}`")
+      appendLine("  - Checksum: `${artifactChecksumFile(artifact.artifact).absolutePath}`")
+      appendLine("  - Runtime: ${artifact.runtimeRequirement}")
+      if (artifact.packageType != null) appendLine("  - Package type: `${artifact.packageType}`")
+      appendLine("  - Exists now: ${artifact.artifact.exists()}")
+    }
+    appendLine()
+    appendLine("## Warnings")
+    appendLine()
+    if (validation.warnings.isEmpty()) {
+      appendLine("- None")
+    } else {
+      validation.warnings.forEach { warning -> appendLine("- $warning") }
+    }
+  })
   return reportFile
 }
 
@@ -1550,6 +1676,9 @@ val gameZipTasks = jvnGameTargets.map { target ->
         "**/Thumbs.db"
       )
     }
+    doLast {
+      verifyPortableArtifact(target, archiveFile.get().asFile)
+    }
   }
 }
 
@@ -1578,9 +1707,10 @@ tasks.register("validateJvnGameProject") {
 
 tasks.register("preflightJvnGameBuild") {
   group = "verification"
-  description = "Validates the selected JVN game build plan and writes build/reports/jvn-game-build/build-plan.json."
+  description = "Validates the selected JVN game build plan and writes JSON/Markdown build reports."
   doLast {
-    val reportFile = writeJvnGameBuildReport()
+    val jsonReportFile = writeJvnGameBuildReport()
+    val markdownReportFile = writeJvnGameBuildMarkdownReport()
     val plan = jvnGameBuildPlanMap()
     val artifacts = selectedJvnGamePlannedArtifacts()
     println("JVN game build preflight OK")
@@ -1594,7 +1724,8 @@ tasks.register("preflightJvnGameBuild") {
       val releaseTask = artifact.releaseTask?.let { " releaseTask=$it" } ?: ""
       println("    - ${artifact.targetId}: ${artifact.artifact.absolutePath} buildTask=${artifact.buildTask}$releaseTask")
     }
-    println("  report: ${reportFile.absolutePath}")
+    println("  json report: ${jsonReportFile.absolutePath}")
+    println("  markdown report: ${markdownReportFile.absolutePath}")
   }
 }
 
@@ -1784,6 +1915,9 @@ val bundledRuntimeZipTasks = jvnGameTargets.map { target ->
     from(providers.provider { bundledRuntimeRootDir(target) }) {
       into(providers.provider { gameBundledDistName(target) })
     }
+    doLast {
+      verifyBundledRuntimeArtifact(target, archiveFile.get().asFile)
+    }
   }
 
   tasks.register("releaseJvnGameBundledRuntime${target.taskSuffix}") {
@@ -1945,6 +2079,7 @@ tasks.register("packageJvnGameNativeCurrent") {
     }
     val metadataFile = bundledRuntimeZipDir().resolve("${gameNativeArtifactStem(packageType)}.metadata.txt")
     metadataFile.writeText(nativeBuildMetadata(packageType))
+    verifyNativeArtifact(distributionFile)
   }
 }
 

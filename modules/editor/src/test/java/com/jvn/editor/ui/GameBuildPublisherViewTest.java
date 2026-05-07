@@ -33,13 +33,16 @@ class GameBuildPublisherViewTest {
   void summarizeArtifactsOrdersNewestFirst() throws Exception {
     Path oldArtifact = Files.writeString(tempDir.resolve("old.zip"), "old");
     Path newArtifact = Files.writeString(tempDir.resolve("new.zip"), "newer");
+    Files.writeString(tempDir.resolve("new.zip.sha256"), "abc  new.zip\n");
     oldArtifact.toFile().setLastModified(1_000L);
     newArtifact.toFile().setLastModified(2_000L);
 
     List<GameBuildPublisherView.ArtifactSummary> artifacts =
         GameBuildPublisherView.summarizeArtifacts(tempDir.toFile());
 
+    assertEquals(2, artifacts.size());
     assertEquals("new.zip", artifacts.get(0).name());
+    assertTrue(artifacts.get(0).checksumAvailable());
     assertEquals("old.zip", artifacts.get(1).name());
   }
 
@@ -50,5 +53,13 @@ class GameBuildPublisherViewTest {
 
     assertTrue(text.contains("game.zip"));
     assertTrue(text.contains("1.5 KB"));
+  }
+
+  @Test
+  void artifactInventoryShowsChecksumMarkerWhenAvailable() {
+    String text = GameBuildPublisherView.formatArtifactInventory(List.of(
+        new GameBuildPublisherView.ArtifactSummary("game.zip", 1536L, 2_000L, true)));
+
+    assertTrue(text.contains("sha256"));
   }
 }
