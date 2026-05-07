@@ -113,10 +113,12 @@ public final class JvnHub {
   private final ActivitySpinner activitySpinner = new ActivitySpinner();
   private final JLabel activityTitle = new JLabel("Ready");
   private final JLabel activityDetail = new JLabel("Choose an action to get started.");
+  private final StepListPanel activitySteps = new StepListPanel();
   private final javax.swing.Timer spinnerTimer = new javax.swing.Timer(70, e -> activitySpinner.tick());
   private final List<JButton> actionButtons = new ArrayList<>();
   private final AtomicReference<Process> runningProcess = new AtomicReference<>();
   private final AtomicBoolean updateCheckRunning = new AtomicBoolean(false);
+  private int activeStepIndex = -1;
 
   /** Currently-loaded announcements; refreshed on startup and after Update Engine. */
   private final List<Announcement> announcements = new ArrayList<>();
@@ -201,9 +203,9 @@ public final class JvnHub {
 
     frame.setResizable(false);
     frame.pack();
-    frame.setMinimumSize(new Dimension(640, 460));
-    frame.setPreferredSize(new Dimension(640, 460));
-    frame.setSize(640, 460);
+    frame.setMinimumSize(new Dimension(640, 540));
+    frame.setPreferredSize(new Dimension(640, 540));
+    frame.setSize(640, 540);
     frame.setLocationRelativeTo(null);
 
     // Render the vector logo into a raster for the OS window icon.
@@ -495,16 +497,16 @@ public final class JvnHub {
     buttons.setOpaque(false);
 
     buttons.add(makeAction("Run Editor", "Launch the full JVN editor.",
-        VectorIcon.Kind.EDIT, false, () -> runGradle(":editor:run")));
+        VectorIcon.Kind.EDIT, false, () -> runGradle(":editor:run", "Run Editor")));
 
     buttons.add(makeAction("Run Launcher", "Launch the standalone JVN launcher.",
-        VectorIcon.Kind.ROCKET, false, () -> runGradle(":editor:runLauncher")));
+        VectorIcon.Kind.ROCKET, false, () -> runGradle(":editor:runLauncher", "Run Launcher")));
 
     buttons.add(makeAction("Build All", "Compile every module.",
-        VectorIcon.Kind.HAMMER, false, () -> runGradle("build")));
+        VectorIcon.Kind.HAMMER, false, () -> runGradle("build", "Build All")));
 
     buttons.add(makeAction("Run Tests", "Execute the full test suite.",
-        VectorIcon.Kind.CHECK, false, () -> runGradle("test")));
+        VectorIcon.Kind.CHECK, false, () -> runGradle("test", "Run Tests")));
 
     buttons.add(makeAction("Build Shortcuts", "Install Start Menu / Applications shortcuts for this OS.",
         VectorIcon.Kind.SHORTCUT, false, this::installShortcuts));
@@ -534,15 +536,24 @@ public final class JvnHub {
     text.add(activityTitle, BorderLayout.WEST);
     text.add(activityDetail, BorderLayout.CENTER);
 
-    JPanel panel = new JPanel(new BorderLayout(10, 0));
+    JPanel header = new JPanel(new BorderLayout(10, 0));
+    header.setOpaque(false);
+    header.add(activitySpinner, BorderLayout.WEST);
+    header.add(text, BorderLayout.CENTER);
+
+    activitySteps.setSteps(List.of(
+        "Choose an action",
+        "The hub will show every background stage here."));
+
+    JPanel panel = new JPanel(new BorderLayout(10, 8));
     panel.setBackground(PANEL_BG);
     panel.setBorder(BorderFactory.createCompoundBorder(
         BorderFactory.createLineBorder(BORDER_NEUTRAL),
         new EmptyBorder(8, 10, 8, 12)));
-    panel.add(activitySpinner, BorderLayout.WEST);
-    panel.add(text, BorderLayout.CENTER);
-    panel.setPreferredSize(new Dimension(0, 42));
-    panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
+    panel.add(header, BorderLayout.NORTH);
+    panel.add(activitySteps, BorderLayout.CENTER);
+    panel.setPreferredSize(new Dimension(0, 118));
+    panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 118));
     return panel;
   }
 
@@ -606,14 +617,16 @@ public final class JvnHub {
 
   // --- Task execution --------------------------------------------------------
 
-  private void runGradle(String task) {
-    if (!acquire(task)) return;
+  private void runGradle(String task, String label) {
+    if (!acquire(label)) return;
     List<String> cmd = new ArrayList<>();
     cmd.add(gradleCommand());
     cmd.add("--console=plain");
     cmd.add(task);
+    completeCurrentStep("Gradle command assembled.");
+    advanceStep("Starting background process.");
     appendLog("$ " + String.join(" ", cmd));
-    startProcess(cmd, task);
+    startProcess(cmd, label);
   }
 
   private void updateEngine() {
@@ -621,12 +634,20 @@ public final class JvnHub {
       appendLog("[hub] a task is already running; wait for it to finish or cancel it.");
       return;
     }
+    startSteps("Update Engine");
+    setActivity("Inspecting update readiness", "Checking Git worktree before pulling.", true, ACCENT_NEUTRAL);
     UpdatePreflight preflight = inspectUpdatePreflight();
+    completeCurrentStep("Git worktree inspected.");
     if (preflight.statusUnavailable()) {
-      if (!confirmUpdateWithUnknownStatus(preflight.statusError())) return;
+      if (!confirmUpdateWithUnknownStatus(preflight.statusError())) {
+        finishSteps(false, "Update cancelled before pull.");
+        setActivity("Update cancelled", "No engine files were changed.", false, TEXT_MUTED);
+        return;
+      }
     } else if (preflight.hasChanges()) {
       UpdatePreflightAction action = chooseUpdatePreflightAction(preflight);
       if (action == UpdatePreflightAction.CANCEL) {
+        finishSteps(false, "Update cancelled before pull.");
         setActivity("Update cancelled", "No engine files were changed.", false, TEXT_MUTED);
         return;
       }
@@ -637,9 +658,11 @@ public final class JvnHub {
   }
 
   private void startUpdateEngine() {
-    if (!acquire("git pull --rebase")) return;
+    if (!acquire("Update Engine")) return;
     if (updateEngineButton != null) updateEngineButton.setChecking(true);
     List<String> cmd = List.of("git", "pull", "--rebase");
+    completeCurrentStep("Git command assembled.");
+    advanceStep("Fetching from upstream.");
     appendLog("$ " + String.join(" ", cmd));
     startProcess(cmd, "Update Engine");
   }
@@ -818,6 +841,7 @@ public final class JvnHub {
   private void cleanBeforeUpdate(UpdatePreflight preflight) {
     setButtonsEnabled(false);
     setStatus("Cleaning before update", ACCENT_NEUTRAL);
+    startSteps("Clean Before Update");
     setActivity(
         preflight.onlyBuildOutput() ? "Clearing build output" : "Cleaning local engine changes",
         "Preparing the engine checkout for update.",
@@ -842,7 +866,10 @@ public final class JvnHub {
       }
 
       @Override protected void process(List<String> chunks) {
-        if (!chunks.isEmpty()) appendLog(chunks.get(chunks.size() - 1));
+        if (!chunks.isEmpty()) {
+          updateStepsFromOutput("Clean Before Update", chunks.get(chunks.size() - 1));
+          appendLog(chunks.get(chunks.size() - 1));
+        }
       }
 
       @Override protected void done() {
@@ -855,10 +882,12 @@ public final class JvnHub {
         }
         if (!ok) {
           setStatus("Clean failed", ACCENT_ERROR);
+          finishSteps(false, failure == null || failure.isBlank() ? "Clean failed." : failure);
           setActivity("Clean failed", failure == null || failure.isBlank() ? "Git could not clean the checkout." : failure,
               false, ACCENT_ERROR);
           return;
         }
+        finishSteps(true, "Checkout cleaned.");
         setActivity("Clean complete", "Starting engine update.", true, ACCENT_NEUTRAL);
         startUpdateEngine();
       }
@@ -902,6 +931,12 @@ public final class JvnHub {
   }
 
   private void installShortcuts() {
+    if (runningProcess.get() != null) {
+      appendLog("[hub] a task is already running; wait for it to finish or cancel it.");
+      return;
+    }
+    startSteps("Build Shortcuts");
+    setActivity("Preparing shortcuts", "Detecting operating system.", true, ACCENT_NEUTRAL);
     String os = System.getProperty("os.name", "").toLowerCase();
     List<String> cmd = new ArrayList<>();
     Path script;
@@ -924,14 +959,20 @@ public final class JvnHub {
       cmd.add("bash");
       cmd.add(script.toAbsolutePath().toString());
     }
+    completeCurrentStep("Operating system detected.");
+    advanceStep("Looking for shortcut installer.");
 
     if (!Files.isRegularFile(script)) {
       appendLog("[hub] shortcut installer not found: " + script.toAbsolutePath());
       setStatus("Failed: " + label, ACCENT_ERROR);
+      finishSteps(false, "Shortcut installer not found.");
+      setActivity("Failed: " + label, "Shortcut installer not found.", false, ACCENT_ERROR);
       return;
     }
 
     if (!acquire(label)) return;
+    completeCurrentStep("Installer command assembled.");
+    advanceStep("Starting shortcut installer.");
     appendLog("$ " + quoteCommandForLog(cmd));
     startProcess(cmd, label);
   }
@@ -943,6 +984,7 @@ public final class JvnHub {
     }
     setButtonsEnabled(false);
     setStatus("Running: " + label, ACCENT_NEUTRAL);
+    startSteps(label);
     setActivity("Working on " + label, "This can take a moment.", true, ACCENT_NEUTRAL);
     return true;
   }
@@ -953,6 +995,8 @@ public final class JvnHub {
     Color tone = exitCode == 0 ? ACCENT_GREEN : ACCENT_ERROR;
     String prefix = exitCode == 0 ? "Done" : "Failed (exit " + exitCode + ")";
     setStatus(prefix + ": " + label, tone);
+    finishSteps(exitCode == 0,
+        exitCode == 0 ? "All stages completed." : "Stopped before every stage completed.");
     setActivity(prefix + ": " + label,
         exitCode == 0 ? "Ready for the next action." : "Check the terminal or generated launcher log for details.",
         false,
@@ -976,29 +1020,35 @@ public final class JvnHub {
         }
         Process process;
         try {
+          publish("[hub] preparing process environment...");
           process = pb.start();
         } catch (IOException e) {
           publish("[hub] failed to start process: " + e.getMessage());
           return -1;
         }
         runningProcess.set(process);
+        publish("[hub] process started; reading live output...");
         try (BufferedReader reader = new BufferedReader(
             new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
           String line;
           while ((line = reader.readLine()) != null) {
             if (!line.isBlank()) {
               lastOutput = compactMessage(line);
+              publish(line);
             }
           }
         } catch (IOException e) {
           lastOutput = "Stream error: " + e.getMessage();
+          publish("[hub] " + lastOutput);
         }
         return process.waitFor();
       }
 
       @Override protected void process(List<String> chunks) {
         if (!chunks.isEmpty()) {
-          appendLog(chunks.get(chunks.size() - 1));
+          String line = chunks.get(chunks.size() - 1);
+          updateStepsFromOutput(label, line);
+          appendLog(line);
         }
       }
 
@@ -1089,6 +1139,212 @@ public final class JvnHub {
 
   private void setActivityDetail(String detail) {
     SwingUtilities.invokeLater(() -> activityDetail.setText(compactMessage(detail)));
+  }
+
+  private void startSteps(String label) {
+    List<String> steps = stepsForAction(label);
+    SwingUtilities.invokeLater(() -> {
+      activeStepIndex = steps.isEmpty() ? -1 : 0;
+      activitySteps.setSteps(steps);
+      if (activeStepIndex >= 0) activitySteps.setStatus(activeStepIndex, StepStatus.RUNNING);
+    });
+  }
+
+  private void completeCurrentStep(String detail) {
+    SwingUtilities.invokeLater(() -> {
+      if (activeStepIndex >= 0) activitySteps.setStatus(activeStepIndex, StepStatus.DONE);
+      if (detail != null && !detail.isBlank()) activityDetail.setText(compactMessage(detail));
+    });
+  }
+
+  private void advanceStep(String detail) {
+    SwingUtilities.invokeLater(() -> {
+      if (activeStepIndex >= 0) activitySteps.setStatus(activeStepIndex, StepStatus.DONE);
+      int next = Math.max(0, activeStepIndex + 1);
+      if (next < activitySteps.stepCount()) {
+        activeStepIndex = next;
+        activitySteps.setStatus(activeStepIndex, StepStatus.RUNNING);
+      }
+      if (detail != null && !detail.isBlank()) activityDetail.setText(compactMessage(detail));
+    });
+  }
+
+  private void advanceToStep(int targetIndex, String detail) {
+    SwingUtilities.invokeLater(() -> {
+      if (activitySteps.stepCount() == 0) return;
+      int target = Math.max(0, Math.min(targetIndex, activitySteps.stepCount() - 1));
+      if (activeStepIndex < 0) activeStepIndex = 0;
+      if (target > activeStepIndex) {
+        for (int i = activeStepIndex; i < target; i++) {
+          activitySteps.setStatus(i, StepStatus.DONE);
+        }
+        activeStepIndex = target;
+        activitySteps.setStatus(activeStepIndex, StepStatus.RUNNING);
+      }
+      if (detail != null && !detail.isBlank()) activityDetail.setText(compactMessage(detail));
+    });
+  }
+
+  private void finishSteps(boolean success, String detail) {
+    SwingUtilities.invokeLater(() -> {
+      int count = activitySteps.stepCount();
+      if (count > 0) {
+        for (int i = 0; i < count; i++) {
+          StepStatus status = success ? StepStatus.DONE : (i == activeStepIndex ? StepStatus.FAILED : activitySteps.statusAt(i));
+          if (!success && i > activeStepIndex && activitySteps.statusAt(i) == StepStatus.PENDING) {
+            status = StepStatus.PENDING;
+          }
+          activitySteps.setStatus(i, status);
+        }
+      }
+      activeStepIndex = -1;
+      if (detail != null && !detail.isBlank()) activityDetail.setText(compactMessage(detail));
+    });
+  }
+
+  private List<String> stepsForAction(String label) {
+    String key = label == null ? "" : label.trim().toLowerCase(Locale.ROOT);
+    return switch (key) {
+      case "run editor" -> List.of(
+          "Read launch request",
+          "Resolve engine workspace",
+          "Locate Gradle wrapper",
+          "Start Gradle process",
+          "Configure project modules",
+          "Build editor classpath",
+          "Start JavaFX editor",
+          "Wait for editor handoff");
+      case "run launcher" -> List.of(
+          "Read launch request",
+          "Resolve engine workspace",
+          "Locate Gradle wrapper",
+          "Start Gradle process",
+          "Configure project modules",
+          "Build launcher classpath",
+          "Start standalone launcher",
+          "Wait for launcher handoff");
+      case "build all" -> List.of(
+          "Read build request",
+          "Resolve engine workspace",
+          "Locate Gradle wrapper",
+          "Start Gradle process",
+          "Configure project modules",
+          "Compile source sets",
+          "Assemble module outputs",
+          "Finalize build result");
+      case "run tests" -> List.of(
+          "Read test request",
+          "Resolve engine workspace",
+          "Locate Gradle wrapper",
+          "Start Gradle process",
+          "Configure project modules",
+          "Compile test classes",
+          "Run test suites",
+          "Collect test reports");
+      case "build shortcuts" -> List.of(
+          "Detect operating system",
+          "Find shortcut installer",
+          "Prepare installer command",
+          "Start installer process",
+          "Create application entries",
+          "Verify shortcut install");
+      case "update engine" -> List.of(
+          "Inspect local Git state",
+          "Prepare update command",
+          "Fetch upstream changes",
+          "Rebase local checkout",
+          "Refresh version metadata",
+          "Reload announcements");
+      case "clean before update" -> List.of(
+          "Inspect local files",
+          "Select safe clean command",
+          "Restore tracked build output",
+          "Remove generated files",
+          "Confirm clean checkout");
+      default -> List.of(
+          "Read action request",
+          "Resolve engine workspace",
+          "Prepare command",
+          "Start background process",
+          "Read process output",
+          "Finalize result");
+    };
+  }
+
+  private void updateStepsFromOutput(String label, String rawLine) {
+    if (rawLine == null || rawLine.isBlank()) return;
+    String line = rawLine.trim();
+    String lower = line.toLowerCase(Locale.ROOT);
+    String key = label == null ? "" : label.trim().toLowerCase(Locale.ROOT);
+
+    if (lower.contains("preparing process environment")) {
+      advanceToStep(2, "Preparing command environment.");
+      return;
+    }
+    if (lower.contains("process started")) {
+      advanceToStep(3, "Background process started.");
+      return;
+    }
+    if (lower.contains("starting a gradle daemon") || lower.contains("daemon")) {
+      advanceToStep(3, "Starting Gradle daemon.");
+      return;
+    }
+    if (lower.contains("configure project") || lower.contains("calculating task graph")) {
+      advanceToStep(4, "Configuring Gradle project modules.");
+      return;
+    }
+    if (lower.startsWith("> task")) {
+      handleGradleTaskStep(key, lower, line);
+      return;
+    }
+    if (lower.contains("build successful") || lower.contains("build failed")) {
+      advanceToStep(99, line);
+      return;
+    }
+    if (key.equals("update engine")) {
+      if (lower.contains("fetch") || lower.contains("from ")) {
+        advanceToStep(2, "Fetching upstream changes.");
+      } else if (lower.contains("rebas") || lower.contains("updating") || lower.contains("fast-forward")) {
+        advanceToStep(3, "Applying engine update.");
+      }
+    } else if (key.equals("build shortcuts")) {
+      if (lower.contains("install") || lower.contains("shortcut") || lower.contains("application")) {
+        advanceToStep(4, "Creating OS shortcuts.");
+      }
+    } else if (key.equals("clean before update")) {
+      if (lower.contains("restore")) {
+        advanceToStep(2, "Restoring tracked build output.");
+      } else if (lower.contains("clean") || lower.contains("remov")) {
+        advanceToStep(3, "Removing generated files.");
+      }
+    }
+  }
+
+  private void handleGradleTaskStep(String key, String lowerTaskLine, String originalLine) {
+    if (lowerTaskLine.contains("compiletest") || lowerTaskLine.contains(":testclasses")) {
+      advanceToStep(5, originalLine);
+      return;
+    }
+    if (lowerTaskLine.matches(".*:test(\\s|$).*")) {
+      advanceToStep(6, originalLine);
+      return;
+    }
+    if (lowerTaskLine.contains("compile") || lowerTaskLine.contains("processresources")
+        || lowerTaskLine.contains(":classes") || lowerTaskLine.contains(":jar")) {
+      advanceToStep(5, originalLine);
+      return;
+    }
+    if (lowerTaskLine.contains(":editor:runlauncher")) {
+      advanceToStep(6, "Starting standalone launcher.");
+      return;
+    }
+    if (lowerTaskLine.contains(":editor:run")) {
+      advanceToStep(6, originalLine);
+      return;
+    }
+    if (lowerTaskLine.contains("assemble") || lowerTaskLine.contains("build")) {
+      advanceToStep(key.equals("build all") ? 6 : 5, originalLine);
+    }
   }
 
   private void checkIncomingUpdates(boolean fetchFirst) {
@@ -1539,6 +1795,219 @@ public final class JvnHub {
     int g = Math.round(color.getGreen() + (255 - color.getGreen()) * t);
     int b = Math.round(color.getBlue() + (255 - color.getBlue()) * t);
     return new Color(r, g, b, color.getAlpha());
+  }
+
+  private enum StepStatus {
+    PENDING,
+    RUNNING,
+    DONE,
+    FAILED
+  }
+
+  /** Checklist-style progress surface for long hub actions. */
+  private static final class StepListPanel extends JComponent {
+    private static final int ROW_HEIGHT = 22;
+    private static final int TOP_BLUR_BAND = 46;
+
+    private final List<String> steps = new ArrayList<>();
+    private final List<StepStatus> statuses = new ArrayList<>();
+    private final javax.swing.Timer scrollTimer;
+    private double scrollOffset = 0.0;
+    private double targetScrollOffset = 0.0;
+
+    StepListPanel() {
+      setOpaque(false);
+      setPreferredSize(new Dimension(0, 62));
+      setMinimumSize(new Dimension(0, 62));
+      scrollTimer = new javax.swing.Timer(16, e -> animateScroll());
+    }
+
+    void setSteps(List<String> newSteps) {
+      steps.clear();
+      statuses.clear();
+      scrollOffset = 0.0;
+      targetScrollOffset = 0.0;
+      if (scrollTimer.isRunning()) scrollTimer.stop();
+      if (newSteps != null) {
+        for (String step : newSteps) {
+          if (step == null || step.isBlank()) continue;
+          steps.add(step.trim());
+          statuses.add(StepStatus.PENDING);
+        }
+      }
+      repaint();
+    }
+
+    int stepCount() {
+      return steps.size();
+    }
+
+    StepStatus statusAt(int index) {
+      if (index < 0 || index >= statuses.size()) return StepStatus.PENDING;
+      return statuses.get(index);
+    }
+
+    void setStatus(int index, StepStatus status) {
+      if (index < 0 || index >= statuses.size()) return;
+      statuses.set(index, status == null ? StepStatus.PENDING : status);
+      retargetScroll();
+      repaint();
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+      Graphics2D g2 = (Graphics2D) g.create();
+      g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+      g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+      Shape oldClip = g2.getClip();
+      g2.clipRect(0, 0, getWidth(), getHeight());
+
+      Font stepFont = getFont().deriveFont(Font.PLAIN, 10f);
+      g2.setFont(stepFont);
+      FontMetrics fm = g2.getFontMetrics();
+
+      BufferedImage blurredDoneLayer = null;
+      Graphics2D blurG = null;
+      if (getWidth() > 0 && getHeight() > 0) {
+        blurredDoneLayer = new BufferedImage(getWidth(), getHeight(), BufferedImage.TYPE_INT_ARGB);
+        blurG = blurredDoneLayer.createGraphics();
+        blurG.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        blurG.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        blurG.setFont(stepFont);
+        blurG.clipRect(0, 0, getWidth(), Math.min(getHeight(), TOP_BLUR_BAND));
+      }
+
+      for (int i = 0; i < steps.size(); i++) {
+        StepStatus status = statuses.get(i);
+        int yTop = (int) Math.round(i * ROW_HEIGHT - scrollOffset);
+        int yCenter = yTop + ROW_HEIGHT / 2;
+        if (yTop > getHeight() + ROW_HEIGHT || yTop + ROW_HEIGHT < -ROW_HEIGHT) continue;
+
+        boolean blurCompleted = status == StepStatus.DONE && yTop < TOP_BLUR_BAND;
+        if (blurCompleted && blurG != null) {
+          drawStepRow(blurG, i, yCenter, fm, 0.68f, true);
+        } else {
+          drawStepRow(g2, i, yCenter, fm, 1.0f, false);
+        }
+      }
+
+      if (blurG != null) {
+        blurG.dispose();
+        BufferedImage softened = soften(blurredDoneLayer);
+        g2.drawImage(softened, 0, 0, null);
+        paintTopVeil(g2);
+      }
+      g2.setClip(oldClip);
+      g2.dispose();
+    }
+
+    private void drawStepRow(Graphics2D g2, int index, int y, FontMetrics fm, float alpha, boolean softened) {
+      StepStatus status = statuses.get(index);
+      Color color = switch (status) {
+        case DONE -> ACCENT_GREEN;
+        case RUNNING -> ACCENT_NEUTRAL;
+        case FAILED -> ACCENT_ERROR;
+        case PENDING -> TEXT_MUTED;
+      };
+
+      int cx = 8;
+      int r = 4;
+      g2.setColor(withAlpha(status == StepStatus.PENDING ? BORDER_NEUTRAL : color, alpha));
+      g2.setStroke(new BasicStroke(1.2f));
+      g2.drawOval(cx - r, y - r, r * 2, r * 2);
+      if (index < steps.size() - 1) {
+        g2.setColor(withAlpha(BORDER_NEUTRAL, softened ? 0.24f : 0.75f));
+        g2.drawLine(cx, y + r + 2, cx, y + ROW_HEIGHT - r - 2);
+      }
+
+      if (status == StepStatus.DONE) {
+        g2.setColor(withAlpha(ACCENT_GREEN, alpha));
+        g2.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        Path2D check = new Path2D.Float();
+        check.moveTo(cx - 5, y);
+        check.lineTo(cx - 1, y + 4);
+        check.lineTo(cx + 6, y - 5);
+        g2.draw(check);
+      } else if (status == StepStatus.RUNNING) {
+        g2.setColor(withAlpha(ACCENT_NEUTRAL, alpha));
+        g2.fillOval(cx - 2, y - 2, 4, 4);
+      } else if (status == StepStatus.FAILED) {
+        g2.setColor(withAlpha(ACCENT_ERROR, alpha));
+        g2.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g2.drawLine(cx - 4, y - 4, cx + 4, y + 4);
+        g2.drawLine(cx + 4, y - 4, cx - 4, y + 4);
+      }
+
+      g2.setColor(withAlpha(status == StepStatus.PENDING ? TEXT_MUTED : TEXT_SOFT, softened ? 0.54f : alpha));
+      String text = steps.get(index);
+      int textX = 22;
+      int maxW = Math.max(20, getWidth() - textX - 4);
+      while (fm.stringWidth(text) > maxW && text.length() > 4) {
+        text = text.substring(0, text.length() - 4) + "...";
+      }
+      g2.drawString(text, textX, y + (fm.getAscent() - fm.getDescent()) / 2 - 1);
+    }
+
+    private void paintTopVeil(Graphics2D g2) {
+      int band = Math.min(getHeight(), TOP_BLUR_BAND);
+      if (band <= 0) return;
+      g2.setPaint(new LinearGradientPaint(
+          0f,
+          0f,
+          0f,
+          band,
+          new float[] {0f, 1f},
+          new Color[] {withAlpha(PANEL_BG, 0.38f), withAlpha(PANEL_BG, 0.02f)}));
+      g2.fillRect(0, 0, getWidth(), band);
+    }
+
+    private void retargetScroll() {
+      int focus = focusedStepIndex();
+      int visibleRows = Math.max(1, getHeight() / ROW_HEIGHT);
+      double desired = Math.max(0, (focus - Math.max(1, visibleRows - 2)) * ROW_HEIGHT);
+      double max = Math.max(0, steps.size() * ROW_HEIGHT - getHeight());
+      targetScrollOffset = Math.max(0, Math.min(max, desired));
+      if (!scrollTimer.isRunning()) scrollTimer.start();
+    }
+
+    private int focusedStepIndex() {
+      for (int i = 0; i < statuses.size(); i++) {
+        if (statuses.get(i) == StepStatus.RUNNING || statuses.get(i) == StepStatus.FAILED) return i;
+      }
+      for (int i = 0; i < statuses.size(); i++) {
+        if (statuses.get(i) == StepStatus.PENDING) return i;
+      }
+      return Math.max(0, statuses.size() - 1);
+    }
+
+    private void animateScroll() {
+      double delta = targetScrollOffset - scrollOffset;
+      if (Math.abs(delta) < 0.35) {
+        scrollOffset = targetScrollOffset;
+        scrollTimer.stop();
+      } else {
+        scrollOffset += delta * 0.18;
+      }
+      repaint();
+    }
+
+    private static BufferedImage soften(BufferedImage source) {
+      if (source == null) return null;
+      float ninth = 1f / 9f;
+      float[] kernel = {
+          ninth, ninth, ninth,
+          ninth, ninth, ninth,
+          ninth, ninth, ninth
+      };
+      return new java.awt.image.ConvolveOp(
+          new java.awt.image.Kernel(3, 3, kernel),
+          java.awt.image.ConvolveOp.EDGE_NO_OP,
+          null).filter(source, null);
+    }
+
+    private static Color withAlpha(Color color, float alpha) {
+      return new Color(color.getRed(), color.getGreen(), color.getBlue(), Math.round(Math.max(0f, Math.min(1f, alpha)) * 255f));
+    }
   }
 
   /** Compact indeterminate spinner used in place of terminal-style output. */
