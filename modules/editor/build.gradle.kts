@@ -23,7 +23,8 @@ fun JavaExec.configureJavaFxRuntime() {
     "javafx.graphics",
     "javafx.base",
     "javafx.media",
-    "javafx.swing"
+    "javafx.swing",
+    "javafx.fxml"
   )
   doFirst {
     val runtimeFiles = classpath.files
@@ -32,6 +33,9 @@ fun JavaExec.configureJavaFxRuntime() {
     }
     val nonJavafxFiles = runtimeFiles.filterNot { file ->
       file.name.startsWith("javafx-") && file.name.endsWith(".jar")
+    }
+    if (javafxFiles.isEmpty()) {
+      throw GradleException("No JavaFX runtime jars found on the editor runtime classpath.")
     }
 
     // Keep non-JavaFX dependencies on the classpath to avoid JPMS split-package

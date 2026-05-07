@@ -1,7 +1,9 @@
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import org.gradle.api.file.DuplicatesStrategy
+import org.gradle.api.tasks.bundling.AbstractArchiveTask
 import org.gradle.api.tasks.bundling.Zip
+import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.api.tasks.testing.Test
 import org.gradle.jvm.tasks.Jar
 import org.gradle.jvm.toolchain.JavaToolchainService
@@ -131,7 +133,7 @@ data class JvnGamePlannedArtifact(
   val packageType: String?
 )
 
-val jvnJavaFxVersion = "21.0.3"
+val jvnJavaFxVersion = (findProperty("jvnJavaFxVersion") as String?)?.trim()?.ifBlank { null } ?: "21.0.3"
 val jvnJavaFxModules = listOf(
   "javafx-base",
   "javafx-graphics",
@@ -1975,18 +1977,11 @@ tasks.register("releaseJvnGameNativeCurrent") {
   }
 }
 
-val jvnCiVerificationTasks = listOf(
-  ":fx:compileJava",
-  ":runtime:compileJava",
-  ":editor:compileJava",
-  ":core:test",
-  ":scripting:test",
-  ":swing:test"
-)
+val jvnCiVerificationTasks = subprojects.map { "${it.path}:check" }
 
 tasks.register("ci") {
   group = "verification"
-  description = "Runs the compile and unit-test tasks that define the workspace CI contract."
+  description = "Runs every subproject check task so CI covers all modules, including hub and utility modules."
   dependsOn(jvnCiVerificationTasks)
 }
 
@@ -2017,6 +2012,16 @@ subprojects {
     toolchain {
       languageVersion.set(JavaLanguageVersion.of(configuredJavaVersion))
     }
+  }
+
+  tasks.withType<JavaCompile>().configureEach {
+    options.encoding = "UTF-8"
+    options.release.set(configuredJavaVersion)
+  }
+
+  tasks.withType<AbstractArchiveTask>().configureEach {
+    isPreserveFileTimestamps = false
+    isReproducibleFileOrder = true
   }
 
   tasks.withType<Test>().configureEach {

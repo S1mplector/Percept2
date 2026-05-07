@@ -27,7 +27,7 @@ sourceSets {
   }
 }
 
-val javafxVersion = "21.0.3"
+val javafxVersion = (rootProject.findProperty("jvnJavaFxVersion") as String?)?.trim()?.ifBlank { null } ?: "21.0.3"
 val osName = System.getProperty("os.name").lowercase()
 val arch = System.getProperty("os.arch").lowercase()
 val platform = when {
