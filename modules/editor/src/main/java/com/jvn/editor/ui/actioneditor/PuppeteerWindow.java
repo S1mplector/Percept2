@@ -149,6 +149,8 @@ public class PuppeteerWindow extends Stage {
     private final Button btnPause;
     private final Button btnStop;
     private final Button btnRewind;
+    private final Button btnUndo;
+    private final Button btnRedo;
     private final TextField tfDuration;
     private final ToggleButton cbLoop;
     private final Label lblTime;
@@ -690,8 +692,13 @@ public class PuppeteerWindow extends Stage {
             EntityTrack track = selectedTrackForEditing(true);
             if (track == null) return;
             double time = this.project.getPlayheadMs();
-            commandStack.execute(PuppeteerCommand.upsertKeyframe(track, PropertyType.PIVOT_X, time, px));
-            commandStack.execute(PuppeteerCommand.upsertKeyframe(track, PropertyType.PIVOT_Y, time, py));
+            commandStack.execute(PuppeteerCommand.composite(
+                "Apply pivot preset",
+                List.of(
+                    PuppeteerCommand.upsertKeyframe(track, PropertyType.PIVOT_X, time, px),
+                    PuppeteerCommand.upsertKeyframe(track, PropertyType.PIVOT_Y, time, py)
+                )
+            ));
             timelinePanel.refresh();
             updatePreview();
             refreshExportPreviewAndMarkDirty();
@@ -751,17 +758,24 @@ public class PuppeteerWindow extends Stage {
         btnPlay = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.play(), "Play (Space)");
         btnPause = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.pause(), "Pause (Space)");
         btnStop = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.stop(), "Stop");
+        btnUndo = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.undo(), "Undo (Ctrl/Cmd+Z)");
+        btnRedo = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.redo(), "Redo (Ctrl/Cmd+Shift+Z)");
 
         btnPlay.setOnAction(e -> play());
         btnPause.setOnAction(e -> pause());
         btnStop.setOnAction(e -> stop());
         btnRewind.setOnAction(e -> rewind());
+        btnUndo.setOnAction(e -> executeUndo());
+        btnRedo.setOnAction(e -> executeRedo());
+        refreshUndoRedoControls();
 
         lblTime = new Label("0 ms");
         lblTime.setStyle("-fx-text-fill: #e6e6e6; -fx-font-size: 12px; -fx-font-weight: bold; -fx-min-width: 72; -fx-alignment: center;");
 
         HBox transportBox = new HBox(4, btnRewind, btnPlay, btnPause, btnStop, makeSpacer(6), lblTime);
         transportBox.setAlignment(Pos.CENTER_LEFT);
+        HBox historyBox = new HBox(4, btnUndo, btnRedo);
+        historyBox.setAlignment(Pos.CENTER_LEFT);
 
         // --- Duration controls ---
         tfDuration = new TextField(String.valueOf((int) this.project.getTotalDurationMs()));
@@ -1126,6 +1140,7 @@ public class PuppeteerWindow extends Stage {
 
         // --- Assemble toolbar ---
         CollapsibleToolbarCluster transportCluster = registerToolbarCluster("transport", "Transport", transportBox);
+        CollapsibleToolbarCluster historyCluster = registerToolbarCluster("history", "History", historyBox);
         CollapsibleToolbarCluster durationCluster = registerToolbarCluster("duration", "Timeline", durationBox);
         CollapsibleToolbarCluster presetsCluster = registerToolbarCluster("presets", "Presets", presetButton);
         CollapsibleToolbarCluster propertyCluster = registerToolbarCluster("property", "Track", propertyBox);
@@ -1140,6 +1155,7 @@ public class PuppeteerWindow extends Stage {
 
         toolbarPane = new AnimatedToolbarPane(8, 5);
         toolbarPane.addCluster(transportCluster);
+        toolbarPane.addCluster(historyCluster);
         toolbarPane.addCluster(durationCluster);
         toolbarPane.addCluster(presetsCluster);
         toolbarPane.addCluster(propertyCluster);
@@ -1150,7 +1166,7 @@ public class PuppeteerWindow extends Stage {
         toolbarPane.addCluster(audioCluster);
         toolbarPane.addCluster(registerCluster);
         toolbarPane.addCluster(helpCluster);
-        toolbarPane.registerMarker("toolbar-group-transport-duration", transportCluster, durationCluster);
+        toolbarPane.registerMarker("toolbar-group-transport-duration", transportCluster, historyCluster, durationCluster);
         toolbarPane.registerMarker("toolbar-group-keyframe-ops", propertyCluster, keyframesCluster);
         toolbarPane.registerMarker("toolbar-group-preview-modes", snapCluster, previewCluster);
         toolbarPane.registerMarker("toolbar-group-orbit-audio-register", orbitCluster, audioCluster, registerCluster);
@@ -1682,6 +1698,7 @@ public class PuppeteerWindow extends Stage {
     }
 
     private void refreshToolbarCommandSummary() {
+        refreshUndoRedoControls();
         if (lblToolbarCommandSummary == null) return;
         List<String> parts = new ArrayList<>();
         parts.add(dirty ? "Unsaved" : "Saved");
@@ -1704,6 +1721,23 @@ public class PuppeteerWindow extends Stage {
             }
         }
         lblToolbarCommandSummary.setText(String.join("  •  ", parts));
+    }
+
+    private void refreshUndoRedoControls() {
+        if (btnUndo != null) {
+            btnUndo.setDisable(!commandStack.canUndo());
+            String undoText = commandStack.canUndo()
+                ? "Undo " + commandStack.undoDescription() + " (Ctrl/Cmd+Z)"
+                : "Undo (Ctrl/Cmd+Z)";
+            installToolbarTooltip(btnUndo, undoText);
+        }
+        if (btnRedo != null) {
+            btnRedo.setDisable(!commandStack.canRedo());
+            String redoText = commandStack.canRedo()
+                ? "Redo " + commandStack.redoDescription() + " (Ctrl/Cmd+Shift+Z)"
+                : "Redo (Ctrl/Cmd+Shift+Z)";
+            installToolbarTooltip(btnRedo, redoText);
+        }
     }
 
     private Tab buildSelectionTab() {
@@ -4702,14 +4736,18 @@ public class PuppeteerWindow extends Stage {
         if (!commandStack.canUndo()) return;
         commandStack.undo();
         timelinePanel.refresh();
+        updatePreview();
         refreshExportPreviewAndMarkDirty();
+        refreshUndoRedoControls();
     }
 
     private void executeRedo() {
         if (!commandStack.canRedo()) return;
         commandStack.redo();
         timelinePanel.refresh();
+        updatePreview();
         refreshExportPreviewAndMarkDirty();
+        refreshUndoRedoControls();
     }
 
     private void showPresetMenuOverlay() {
@@ -4756,6 +4794,7 @@ public class PuppeteerWindow extends Stage {
         double startTime = project.getPlayheadMs();
         commandStack.execute(PuppeteerCommand.applyPreset(track, preset, startTime));
         timelinePanel.refresh();
+        updatePreview();
         refreshExportPreviewAndMarkDirty();
     }
 
@@ -4851,8 +4890,8 @@ public class PuppeteerWindow extends Stage {
             {"Ctrl/Cmd + Alt + V", "Paste keyframes at playhead"},
             {"Ctrl/Cmd + Alt + D", "Duplicate keyframes"},
             {"Ctrl/Cmd + Shift + C", "Copy exported code"},
-            {"Ctrl/Cmd + Alt + Z", "Undo"},
-            {"Ctrl/Cmd + Alt + Y", "Redo"},
+            {"Ctrl/Cmd + Z", "Undo"},
+            {"Ctrl/Cmd + Shift + Z", "Redo"},
             {"Ctrl/Cmd + O", "Toggle onion skinning"},
             {"A", "Toggle orbit tool"},
             {"Shift + A", "Clear orbit anchor"}
@@ -6054,8 +6093,13 @@ public class PuppeteerWindow extends Stage {
         double viewportH = animationPreview.getHeight() > 0 ? animationPreview.getHeight() : 720;
         double time = project.getPlayheadMs();
         EntityTrack track = project.getOrCreateTrack(entityName);
-        commandStack.execute(PuppeteerCommand.upsertKeyframe(track, PropertyType.X, time, VnSlotHelper.slotX(slot, viewportW)));
-        commandStack.execute(PuppeteerCommand.upsertKeyframe(track, PropertyType.Y, time, VnSlotHelper.baselineY(viewportH)));
+        commandStack.execute(PuppeteerCommand.composite(
+            "Place entity at VN slot",
+            List.of(
+                PuppeteerCommand.upsertKeyframe(track, PropertyType.X, time, VnSlotHelper.slotX(slot, viewportW)),
+                PuppeteerCommand.upsertKeyframe(track, PropertyType.Y, time, VnSlotHelper.baselineY(viewportH))
+            )
+        ));
         timelinePanel.refresh();
         updatePreview();
         refreshExportPreviewAndMarkDirty();
