@@ -126,6 +126,8 @@ public final class JvnHub {
   private final List<Announcement> announcements = new ArrayList<>();
   /** IDs (date+title) of announcements the user has already opened in the dialog. */
   private final Set<String> readIds = new HashSet<>();
+  /** Header shortcut that opens the editor Help Center as a standalone window. */
+  private HeaderIconButton documentationButton;
   /** Bell button in the header; redrawn so the small badge reflects announcement count. */
   private AnnouncementsButton announcementsButton;
   /** Update button with a right-aligned incoming-commit badge. */
@@ -245,13 +247,20 @@ public final class JvnHub {
     left.add(titleBox);
     header.add(left, BorderLayout.WEST);
 
-    // --- Right: announcements bell -----------------------------------------
+    // --- Right: documentation + announcements -------------------------------
+    documentationButton = new HeaderIconButton(
+        VectorIcon.of(VectorIcon.Kind.DOCUMENTATION, 22, TEXT_PRIMARY),
+        "Documentation — open the Help Center");
+    documentationButton.addActionListener(e -> openDocumentation());
+    actionButtons.add(documentationButton);
+
     announcementsButton = new AnnouncementsButton();
     announcementsButton.refreshBadge(unreadCount());
     announcementsButton.addActionListener(e -> showAnnouncementsDialog());
 
-    JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+    JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
     right.setOpaque(false);
+    right.add(documentationButton);
     right.add(announcementsButton);
     header.add(right, BorderLayout.EAST);
 
@@ -629,6 +638,10 @@ public final class JvnHub {
     advanceStep("Starting background process.");
     appendLog("$ " + String.join(" ", cmd));
     startProcess(cmd, label);
+  }
+
+  private void openDocumentation() {
+    runGradle(":editor:runHelpCenter", "Help Center");
   }
 
   private void updateEngine() {
@@ -1251,6 +1264,25 @@ public final class JvnHub {
           "Create launcher window",
           "Wait for launcher handoff",
           "Monitor launcher process");
+      case "help center" -> List.of(
+          "Read documentation request",
+          "Resolve engine workspace",
+          "Locate Gradle wrapper",
+          "Prepare isolated Gradle home",
+          "Start Gradle process",
+          "Attach live output stream",
+          "Configure project modules",
+          "Check Java toolchain",
+          "Resolve documentation index",
+          "Compile shared editor classes",
+          "Build help center classpath",
+          "Process help resources",
+          "Assemble JavaFX runtime",
+          "Start JavaFX toolkit",
+          "Load workspace docs",
+          "Create Help Center window",
+          "Wait for Help Center handoff",
+          "Monitor Help Center process");
       case "build all" -> List.of(
           "Read build request",
           "Resolve engine workspace",
@@ -1357,11 +1389,11 @@ public final class JvnHub {
       advanceToStep(stepIndexFor(key, "test_run"), originalLine);
       return;
     }
-    if ((key.equals("run editor") || key.equals("run launcher")) && lowerTaskLine.contains(":editor:compile")) {
+    if (isEditorUiLaunch(key) && lowerTaskLine.contains(":editor:compile")) {
       advanceToStep(stepIndexFor(key, "app_compile"), originalLine);
       return;
     }
-    if ((key.equals("run editor") || key.equals("run launcher")) && lowerTaskLine.contains("processresources")) {
+    if (isEditorUiLaunch(key) && lowerTaskLine.contains("processresources")) {
       advanceToStep(stepIndexFor(key, "resources"), originalLine);
       return;
     }
@@ -1377,6 +1409,10 @@ public final class JvnHub {
       advanceToStep(stepIndexFor(key, "app_start"), "Starting standalone launcher.");
       return;
     }
+    if (lowerTaskLine.contains(":editor:runhelpcenter")) {
+      advanceToStep(stepIndexFor(key, "app_start"), "Starting Help Center.");
+      return;
+    }
     if (lowerTaskLine.contains(":editor:run")) {
       advanceToStep(stepIndexFor(key, "app_start"), originalLine);
       return;
@@ -1387,7 +1423,7 @@ public final class JvnHub {
   }
 
   private int stepIndexFor(String key, String milestone) {
-    boolean launch = "run editor".equals(key) || "run launcher".equals(key);
+    boolean launch = isEditorUiLaunch(key);
     if (launch) {
       return switch (milestone) {
         case "prepare_environment" -> 3;
@@ -1410,6 +1446,10 @@ public final class JvnHub {
       case "classpath", "resources", "app_compile", "app_start" -> 5;
       default -> activeStepIndex;
     };
+  }
+
+  private static boolean isEditorUiLaunch(String key) {
+    return "run editor".equals(key) || "run launcher".equals(key) || "help center".equals(key);
   }
 
   private void startAutoStepTicker(String label) {
@@ -2399,6 +2439,33 @@ public final class JvnHub {
     }
   }
 
+  /** Borderless header icon button with the same hover treatment as the bell. */
+  private static class HeaderIconButton extends JButton {
+    HeaderIconButton(Icon icon, String tooltip) {
+      setIcon(icon);
+      setToolTipText(tooltip);
+      setContentAreaFilled(false);
+      setBorderPainted(false);
+      setFocusPainted(false);
+      setOpaque(false);
+      setRolloverEnabled(true);
+      setBorder(new EmptyBorder(8, 8, 8, 8));
+      setPreferredSize(new Dimension(40, 40));
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+      if (getModel().isRollover() || getModel().isPressed()) {
+        Graphics2D h = (Graphics2D) g.create();
+        h.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        h.setColor(getModel().isPressed() ? PRESSED_BG : HOVER_BG);
+        h.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+        h.dispose();
+      }
+      super.paintComponent(g);
+    }
+  }
+
   /**
    * Borderless bell button with a small numeric badge in the top-right corner.
    * The badge auto-hides when the announcement count is zero. Painted entirely
@@ -2429,7 +2496,6 @@ public final class JvnHub {
 
     @Override
     protected void paintComponent(Graphics g) {
-      // Subtle hover halo so the bell signals interactivity.
       if (getModel().isRollover() || getModel().isPressed()) {
         Graphics2D h = (Graphics2D) g.create();
         h.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -2470,7 +2536,7 @@ public final class JvnHub {
    * configurable so the same {@link Kind} can be reused across contexts.
    */
   private static final class VectorIcon implements Icon {
-    enum Kind { PLAY, EDIT, ROCKET, HAMMER, CHECK, REFRESH, STOP, CLOSE, BELL, SHORTCUT }
+    enum Kind { PLAY, EDIT, ROCKET, HAMMER, CHECK, REFRESH, STOP, CLOSE, BELL, SHORTCUT, DOCUMENTATION }
 
     private final Kind kind;
     private final int size;
@@ -2691,6 +2757,42 @@ public final class JvnHub {
           // Clapper — small ball just below the flange.
           float clapper = s * 0.16f;
           g2.fill(new Ellipse2D.Float((s - clapper) / 2f, s * 0.74f, clapper, clapper));
+        }
+        case DOCUMENTATION -> {
+          // Document sheet with a folded corner and two guide lines.
+          float pad = s * 0.16f;
+          float fold = s * 0.22f;
+          Path2D sheet = new Path2D.Float();
+          sheet.moveTo(pad, pad);
+          sheet.lineTo(s - pad - fold, pad);
+          sheet.lineTo(s - pad, pad + fold);
+          sheet.lineTo(s - pad, s - pad);
+          sheet.lineTo(pad, s - pad);
+          sheet.closePath();
+          g2.fill(sheet);
+
+          g2.setColor(BG);
+          Path2D cut = new Path2D.Float();
+          cut.moveTo(s - pad - fold, pad);
+          cut.lineTo(s - pad - fold, pad + fold);
+          cut.lineTo(s - pad, pad + fold);
+          cut.closePath();
+          g2.fill(cut);
+
+          g2.setColor(color);
+          g2.setStroke(new BasicStroke(strokeMain, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+          Path2D foldLine = new Path2D.Float();
+          foldLine.moveTo(s - pad - fold, pad);
+          foldLine.lineTo(s - pad - fold, pad + fold);
+          foldLine.lineTo(s - pad, pad + fold);
+          g2.draw(foldLine);
+
+          g2.setColor(BG);
+          g2.setStroke(new BasicStroke(Math.max(1.2f, s * 0.08f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+          g2.drawLine(Math.round(pad + s * 0.12f), Math.round(s * 0.50f),
+                      Math.round(s - pad - s * 0.12f), Math.round(s * 0.50f));
+          g2.drawLine(Math.round(pad + s * 0.12f), Math.round(s * 0.66f),
+                      Math.round(s - pad - s * 0.22f), Math.round(s * 0.66f));
         }
       }
       g2.dispose();
