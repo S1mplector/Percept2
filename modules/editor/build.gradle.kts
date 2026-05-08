@@ -55,7 +55,11 @@ fun JavaExec.forwardHubLaunchSystemProps() {
     "jvn.hub.safeMode",
     "jvn.editor.safeMode",
     "jvn.launcher.safeMode",
-    "jvn.help.safeMode"
+    "jvn.help.safeMode",
+    "jvn.hub.developerMode",
+    "jvn.editor.developerMode",
+    "jvn.launcher.developerMode",
+    "jvn.help.developerMode"
   ).forEach { key ->
     val value = System.getProperty(key)
     if (!value.isNullOrBlank()) {

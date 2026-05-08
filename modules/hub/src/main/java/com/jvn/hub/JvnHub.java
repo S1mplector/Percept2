@@ -46,8 +46,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import javax.swing.BorderFactory;
+import javax.swing.AbstractButton;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.JCheckBox;
 import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JComponent;
@@ -58,6 +60,7 @@ import javax.swing.JPanel;
 import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
+import javax.swing.JTextField;
 import javax.swing.JToggleButton;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
@@ -99,6 +102,7 @@ public final class JvnHub {
   /** High-contrast neutral for emphasis (version tag, dates, running-task state). */
   private static final Color ACCENT_NEUTRAL = Color.decode("#c2c2c2");
   private static final Color ACCENT_GREEN   = Color.decode("#7ed39a");
+  private static final Color ACCENT_DEV     = Color.decode("#8cc5ff");
   private static final Color ACCENT_SAFE    = Color.decode("#ffd166");
   private static final Color ACCENT_ERROR   = Color.decode("#f38ba8");
   private static final Color LOG_TEXT       = Color.decode("#cfcfcf");
@@ -118,7 +122,7 @@ public final class JvnHub {
   private final StepListPanel activitySteps = new StepListPanel();
   private final javax.swing.Timer spinnerTimer = new javax.swing.Timer(70, e -> activitySpinner.tick());
   private final javax.swing.Timer autoStepTimer = new javax.swing.Timer(1800, e -> autoAdvanceDuringSilence());
-  private final List<JButton> actionButtons = new ArrayList<>();
+  private final List<AbstractButton> actionButtons = new ArrayList<>();
   private final AtomicReference<Process> runningProcess = new AtomicReference<>();
   private final AtomicBoolean updateCheckRunning = new AtomicBoolean(false);
   private int activeStepIndex = -1;
@@ -128,9 +132,26 @@ public final class JvnHub {
   private final List<Announcement> announcements = new ArrayList<>();
   /** IDs (date+title) of announcements the user has already opened in the dialog. */
   private final Set<String> readIds = new HashSet<>();
+  /** Developer Mode exposes engineering-focused actions and launch flags. */
+  private boolean developerModeEnabled = false;
+  private DeveloperModeToggleButton developerModeButton;
   /** Safe Mode launch toggle; applies to editor-side processes launched from the hub. */
   private boolean safeModeEnabled = false;
   private SafeModeToggleButton safeModeButton;
+  private JPanel actionGrid;
+  private JButton runEditorButton;
+  private JButton runLauncherButton;
+  private JButton buildAllButton;
+  private JButton runTestsButton;
+  private JButton gradleOptionsButton;
+  private JButton buildShortcutsButton;
+  private boolean gradleStacktraceEnabled = true;
+  private boolean gradleInfoLoggingEnabled = false;
+  private boolean gradleDebugLoggingEnabled = false;
+  private boolean gradleOfflineEnabled = false;
+  private boolean gradleRefreshDependenciesEnabled = false;
+  private boolean gradleNoBuildCacheEnabled = false;
+  private String gradleExtraArgs = "";
   /** Header shortcut for a lightweight local environment report. */
   private HeaderIconButton diagnosticsButton;
   /** Header shortcut for version, source, install, and update details. */
@@ -257,6 +278,10 @@ public final class JvnHub {
     header.add(left, BorderLayout.WEST);
 
     // --- Right: documentation + announcements -------------------------------
+    developerModeButton = new DeveloperModeToggleButton();
+    developerModeButton.addActionListener(e -> setDeveloperModeEnabled(developerModeButton.isSelected()));
+    actionButtons.add(developerModeButton);
+
     safeModeButton = new SafeModeToggleButton();
     safeModeButton.addActionListener(e -> setSafeModeEnabled(safeModeButton.isSelected()));
     actionButtons.add(safeModeButton);
@@ -285,6 +310,7 @@ public final class JvnHub {
 
     JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
     right.setOpaque(false);
+    right.add(developerModeButton);
     right.add(safeModeButton);
     right.add(diagnosticsButton);
     right.add(aboutButton);
@@ -531,37 +557,56 @@ public final class JvnHub {
   private record Announcement(String date, String title, String body) {}
 
   private JPanel buildCenter() {
-    // 5 actions laid out as a 3-row / 2-col grid; the last cell stays empty.
-    JPanel buttons = new JPanel(new GridLayout(3, 2, 10, 10));
-    buttons.setOpaque(false);
+    actionGrid = new JPanel(new GridLayout(3, 2, 10, 10));
+    actionGrid.setOpaque(false);
 
-    buttons.add(makeAction("Run Editor", "Launch the full JVN editor.",
-        VectorIcon.Kind.EDIT, false, () -> runGradle(":editor:run", "Run Editor")));
+    runEditorButton = makeAction("Run Editor", "Launch the full JVN editor.",
+        VectorIcon.Kind.EDIT, null, () -> runGradle(":editor:run", "Run Editor"));
 
-    buttons.add(makeAction("Run Launcher", "Launch the standalone JVN launcher.",
-        VectorIcon.Kind.ROCKET, false, () -> runGradle(":editor:runLauncher", "Run Launcher")));
+    runLauncherButton = makeAction("Run Launcher", "Launch the standalone JVN launcher.",
+        VectorIcon.Kind.ROCKET, null, () -> runGradle(":editor:runLauncher", "Run Launcher"));
 
-    buttons.add(makeAction("Build All", "Compile every module.",
-        VectorIcon.Kind.HAMMER, false, () -> runGradle("build", "Build All")));
+    buildAllButton = makeAction("Build All", "Compile every module.",
+        VectorIcon.Kind.HAMMER, null, () -> runGradle("build", "Build All"));
 
-    buttons.add(makeAction("Run Tests", "Execute the full test suite.",
-        VectorIcon.Kind.CHECK, false, () -> runGradle("test", "Run Tests")));
+    runTestsButton = makeAction("Run Tests", "Developer Mode: execute the full test suite.",
+        VectorIcon.Kind.CHECK, ACCENT_DEV, () -> runGradle("test", "Run Tests"));
 
-    buttons.add(makeAction("Build Shortcuts", "Install Start Menu / Applications shortcuts for this OS.",
-        VectorIcon.Kind.SHORTCUT, false, this::installShortcuts));
+    gradleOptionsButton = makeAction("Gradle Options", "Developer Mode: configure Gradle flags for hub actions.",
+        VectorIcon.Kind.SLIDERS, ACCENT_DEV, this::showGradleOptionsDialog);
+
+    buildShortcutsButton = makeAction("Build Shortcuts", "Install Start Menu / Applications shortcuts for this OS.",
+        VectorIcon.Kind.SHORTCUT, null, this::installShortcuts);
 
     updateEngineButton = new UpdateEngineButton("Update Engine",
         VectorIcon.of(VectorIcon.Kind.REFRESH, 16, ACCENT_NEUTRAL));
     updateEngineButton.setToolTipText("git pull --rebase");
     updateEngineButton.addActionListener(e -> updateEngine());
     actionButtons.add(updateEngineButton);
-    buttons.add(updateEngineButton);
+    rebuildActionGrid();
 
     JPanel center = new JPanel(new BorderLayout(0, 8));
     center.setOpaque(false);
-    center.add(buttons, BorderLayout.NORTH);
+    center.add(actionGrid, BorderLayout.NORTH);
     center.add(buildActivityPanel(), BorderLayout.SOUTH);
     return center;
+  }
+
+  private void rebuildActionGrid() {
+    if (actionGrid == null) return;
+    actionGrid.removeAll();
+    actionGrid.setLayout(new GridLayout(developerModeEnabled ? 4 : 3, 2, 10, 10));
+    actionGrid.add(runEditorButton);
+    actionGrid.add(runLauncherButton);
+    actionGrid.add(buildAllButton);
+    if (developerModeEnabled) {
+      actionGrid.add(runTestsButton);
+      actionGrid.add(gradleOptionsButton);
+    }
+    actionGrid.add(buildShortcutsButton);
+    actionGrid.add(updateEngineButton);
+    actionGrid.revalidate();
+    actionGrid.repaint();
   }
 
   private JPanel buildActivityPanel() {
@@ -648,10 +693,125 @@ public final class JvnHub {
     if (safeModeButton != null) safeModeButton.setSafeModeEnabled(enabled);
     String title = enabled ? "Safe Mode enabled" : "Safe Mode disabled";
     String detail = enabled
-        ? "Editor-side launches will use safe-mode flags and isolated Gradle state."
+        ? "Editor-side launches will use safe-mode flags without changing Gradle caches."
         : "Editor-side launches will use the standard engine startup path.";
     setStatus(title, enabled ? ACCENT_SAFE : TEXT_SOFT);
     setActivity(title, detail, false, enabled ? ACCENT_SAFE : TEXT_MUTED);
+  }
+
+  private void setDeveloperModeEnabled(boolean enabled) {
+    developerModeEnabled = enabled;
+    if (developerModeButton != null) developerModeButton.setDeveloperModeEnabled(enabled);
+    rebuildActionGrid();
+    String title = enabled ? "Developer Mode enabled" : "Developer Mode disabled";
+    String detail = enabled
+        ? "Run Tests is visible and editor-side launches receive developer-mode flags."
+        : "Developer-only actions are hidden from the main hub controls.";
+    setStatus(title, enabled ? ACCENT_DEV : TEXT_SOFT);
+    setActivity(title, detail, false, enabled ? ACCENT_DEV : TEXT_MUTED);
+  }
+
+  private void showGradleOptionsDialog() {
+    JDialog dialog = new JDialog(frame, "Developer Gradle Options", true);
+    dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
+
+    JPanel root = new JPanel(new BorderLayout(0, 14));
+    root.setBackground(BG);
+    root.setBorder(new EmptyBorder(16, 16, 16, 16));
+    root.add(dialogHeader("Developer Gradle Options", "Applied to hub Gradle actions while Developer Mode is enabled."), BorderLayout.NORTH);
+
+    JCheckBox stacktrace = optionCheckBox("Stacktrace", "Add --stacktrace to failures.", gradleStacktraceEnabled);
+    JCheckBox info = optionCheckBox("Info logging", "Add --info for more Gradle output.", gradleInfoLoggingEnabled);
+    JCheckBox debug = optionCheckBox("Debug logging", "Add --debug for very verbose Gradle output.", gradleDebugLoggingEnabled);
+    JCheckBox offline = optionCheckBox("Offline mode", "Add --offline and avoid network dependency resolution.", gradleOfflineEnabled);
+    JCheckBox refresh = optionCheckBox("Refresh dependencies", "Add --refresh-dependencies.", gradleRefreshDependenciesEnabled);
+    JCheckBox noBuildCache = optionCheckBox("No build cache", "Add --no-build-cache.", gradleNoBuildCacheEnabled);
+
+    JTextField extraArgs = new JTextField(gradleExtraArgs);
+    extraArgs.setForeground(TEXT_PRIMARY);
+    extraArgs.setBackground(BG);
+    extraArgs.setCaretColor(TEXT_PRIMARY);
+    extraArgs.setBorder(BorderFactory.createCompoundBorder(
+        BorderFactory.createLineBorder(BORDER_NEUTRAL),
+        new EmptyBorder(6, 8, 6, 8)));
+    extraArgs.setToolTipText("Extra Gradle arguments, for example: --scan -PmyFlag=true");
+
+    JPanel options = new JPanel();
+    options.setBackground(PANEL_BG);
+    options.setBorder(BorderFactory.createCompoundBorder(
+        BorderFactory.createLineBorder(BORDER_NEUTRAL),
+        new EmptyBorder(12, 12, 12, 12)));
+    options.setLayout(new BoxLayout(options, BoxLayout.Y_AXIS));
+    for (JCheckBox box : List.of(stacktrace, info, debug, offline, refresh, noBuildCache)) {
+      box.setAlignmentX(Component.LEFT_ALIGNMENT);
+      options.add(box);
+      options.add(Box.createVerticalStrut(6));
+    }
+    JLabel extraLabel = new JLabel("Extra arguments");
+    extraLabel.setForeground(TEXT_MUTED);
+    extraLabel.setFont(extraLabel.getFont().deriveFont(Font.BOLD, 10f));
+    extraLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+    extraArgs.setAlignmentX(Component.LEFT_ALIGNMENT);
+    options.add(Box.createVerticalStrut(4));
+    options.add(extraLabel);
+    options.add(Box.createVerticalStrut(4));
+    options.add(extraArgs);
+    root.add(options, BorderLayout.CENTER);
+
+    FlatButton reset = new FlatButton("Reset", null, null);
+    reset.addActionListener(e -> {
+      gradleStacktraceEnabled = true;
+      gradleInfoLoggingEnabled = false;
+      gradleDebugLoggingEnabled = false;
+      gradleOfflineEnabled = false;
+      gradleRefreshDependenciesEnabled = false;
+      gradleNoBuildCacheEnabled = false;
+      gradleExtraArgs = "";
+      dialog.dispose();
+      setStatus("Gradle options reset", ACCENT_DEV);
+      setActivity("Gradle options reset", describeGradleOptions(), false, ACCENT_DEV);
+    });
+
+    FlatButton cancel = new FlatButton("Cancel", null, null);
+    cancel.addActionListener(e -> dialog.dispose());
+
+    FlatButton apply = new FlatButton("Apply", VectorIcon.of(VectorIcon.Kind.CHECK, 14, ACCENT_DEV), ACCENT_DEV);
+    apply.addActionListener(e -> {
+      gradleStacktraceEnabled = stacktrace.isSelected();
+      gradleInfoLoggingEnabled = info.isSelected();
+      gradleDebugLoggingEnabled = debug.isSelected();
+      gradleOfflineEnabled = offline.isSelected();
+      gradleRefreshDependenciesEnabled = refresh.isSelected() && !offline.isSelected();
+      gradleNoBuildCacheEnabled = noBuildCache.isSelected();
+      gradleExtraArgs = extraArgs.getText() == null ? "" : extraArgs.getText().trim();
+      dialog.dispose();
+      setStatus("Gradle options updated", ACCENT_DEV);
+      setActivity("Gradle options updated", describeGradleOptions(), false, ACCENT_DEV);
+    });
+
+    JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+    footer.setOpaque(false);
+    footer.add(reset);
+    footer.add(cancel);
+    footer.add(apply);
+    root.add(footer, BorderLayout.SOUTH);
+
+    dialog.setContentPane(root);
+    dialog.pack();
+    dialog.setMinimumSize(new Dimension(520, 360));
+    dialog.setLocationRelativeTo(frame);
+    dialog.getRootPane().setDefaultButton(apply);
+    dialog.setVisible(true);
+  }
+
+  private JCheckBox optionCheckBox(String label, String tooltip, boolean selected) {
+    JCheckBox box = new JCheckBox(label, selected);
+    box.setToolTipText(tooltip);
+    box.setOpaque(false);
+    box.setForeground(TEXT_SOFT);
+    box.setFocusPainted(false);
+    box.setFont(box.getFont().deriveFont(Font.PLAIN, 12f));
+    return box;
   }
 
   private void showDiagnosticsReport() {
@@ -883,11 +1043,23 @@ public final class JvnHub {
         new HealthCheck(CheckStatus.INFO, "Install path",
             projectRoot.toAbsolutePath().toString(),
             "The hub uses this folder as its engine workspace."),
+        new HealthCheck(CheckStatus.INFO,
+            "Developer Mode",
+            developerModeEnabled ? "Enabled" : "Disabled",
+            developerModeEnabled
+                ? "Run Tests is visible and launch commands receive developer-mode flags."
+                : "Developer-focused actions are hidden from the main action grid."),
+        new HealthCheck(CheckStatus.INFO,
+            "Gradle options",
+            describeGradleOptions(),
+            developerModeEnabled
+                ? "These options are applied before the Gradle task name."
+                : "Enable Developer Mode to apply configurable Gradle options."),
         new HealthCheck(safeModeEnabled ? CheckStatus.WARN : CheckStatus.INFO,
             "Safe Mode",
             safeModeEnabled ? "Enabled" : "Disabled",
             safeModeEnabled
-                ? "Editor-side launches receive safe-mode flags and an isolated Gradle user home."
+                ? "Editor-side launches receive safe-mode flags while preserving the normal Gradle cache."
                 : "Editor-side launches use the standard startup path."),
         new HealthCheck(incoming > 0 ? CheckStatus.WARN : incoming == 0 ? CheckStatus.PASS : CheckStatus.INFO,
             "Update status", updateStatus, "Compared HEAD..@{upstream}."),
@@ -932,24 +1104,16 @@ public final class JvnHub {
     return footer;
   }
 
-  private JPanel infoRow(String label, String value) {
-    JPanel row = new JPanel(new BorderLayout(14, 0));
-    row.setOpaque(false);
-    JLabel left = new JLabel(label);
-    left.setForeground(TEXT_MUTED);
-    left.setFont(left.getFont().deriveFont(Font.BOLD, 10f));
-    left.setPreferredSize(new Dimension(92, 20));
-    JTextArea right = dialogText(value, TEXT_SOFT, 11f, Font.PLAIN);
-    row.add(left, BorderLayout.WEST);
-    row.add(right, BorderLayout.CENTER);
-    return row;
+  private JButton makeAction(String label, String tooltip, VectorIcon.Kind iconKind,
+                             boolean accent, Runnable action) {
+    return makeAction(label, tooltip, iconKind, accent ? ACCENT_NEUTRAL : null, action);
   }
 
   private JButton makeAction(String label, String tooltip, VectorIcon.Kind iconKind,
-                             boolean accent, Runnable action) {
-    Color foreground = accent ? ACCENT_NEUTRAL : TEXT_PRIMARY;
+                             Color accentOrNull, Runnable action) {
+    Color foreground = accentOrNull != null ? accentOrNull : TEXT_PRIMARY;
     Icon icon = iconKind != null ? VectorIcon.of(iconKind, 16, foreground) : null;
-    FlatButton button = new FlatButton(label, icon, accent ? ACCENT_NEUTRAL : null);
+    FlatButton button = new FlatButton(label, icon, accentOrNull);
     button.setToolTipText(tooltip);
     button.addActionListener(e -> action.run());
     actionButtons.add(button);
@@ -963,6 +1127,13 @@ public final class JvnHub {
     List<String> cmd = new ArrayList<>();
     cmd.add(gradleCommand());
     cmd.add("--console=plain");
+    if (developerModeEnabled) {
+      cmd.add("-Djvn.hub.developerMode=true");
+      cmd.add("-Djvn.editor.developerMode=true");
+      cmd.add("-Djvn.launcher.developerMode=true");
+      cmd.add("-Djvn.help.developerMode=true");
+      cmd.addAll(developerGradleOptions());
+    }
     if (safeModeEnabled) {
       cmd.add("-Djvn.hub.safeMode=true");
       cmd.add("-Djvn.editor.safeMode=true");
@@ -971,9 +1142,40 @@ public final class JvnHub {
     }
     cmd.add(task);
     completeCurrentStep("Gradle command assembled.");
-    advanceStep(safeModeEnabled ? "Starting background process in Safe Mode." : "Starting background process.");
+    advanceStep(modeLaunchDetail());
     appendLog("$ " + String.join(" ", cmd));
     startProcess(cmd, label);
+  }
+
+  private String modeLaunchDetail() {
+    if (developerModeEnabled && safeModeEnabled) return "Starting background process in Developer + Safe Mode.";
+    if (developerModeEnabled) return "Starting background process in Developer Mode.";
+    if (safeModeEnabled) return "Starting background process in Safe Mode.";
+    return "Starting background process.";
+  }
+
+  private List<String> developerGradleOptions() {
+    List<String> options = new ArrayList<>();
+    if (gradleStacktraceEnabled) options.add("--stacktrace");
+    if (gradleDebugLoggingEnabled) {
+      options.add("--debug");
+    } else if (gradleInfoLoggingEnabled) {
+      options.add("--info");
+    }
+    if (gradleOfflineEnabled) {
+      options.add("--offline");
+    } else if (gradleRefreshDependenciesEnabled) {
+      options.add("--refresh-dependencies");
+    }
+    if (gradleNoBuildCacheEnabled) options.add("--no-build-cache");
+    options.addAll(splitExtraGradleArgs(gradleExtraArgs));
+    return options;
+  }
+
+  private String describeGradleOptions() {
+    if (!developerModeEnabled) return "Developer Mode is off.";
+    List<String> options = developerGradleOptions();
+    return options.isEmpty() ? "No additional Gradle flags." : String.join(" ", options);
   }
 
   private void openDocumentation() {
@@ -1334,14 +1536,33 @@ public final class JvnHub {
       return false;
     }
     setButtonsEnabled(false);
-    setStatus("Running: " + label + (safeModeEnabled ? " (Safe Mode)" : ""), safeModeEnabled ? ACCENT_SAFE : ACCENT_NEUTRAL);
+    setStatus("Running: " + label + activeModeSuffix(), activeModeColor());
     startSteps(label);
     startAutoStepTicker(label);
-    setActivity("Working on " + label,
-        safeModeEnabled ? "Safe Mode is isolating launch state for this process." : "This can take a moment.",
-        true,
-        safeModeEnabled ? ACCENT_SAFE : ACCENT_NEUTRAL);
+    setActivity("Working on " + label, activeModeActivityDetail(), true, activeModeColor());
     return true;
+  }
+
+  private String activeModeSuffix() {
+    if (developerModeEnabled && safeModeEnabled) return " (Developer + Safe Mode)";
+    if (developerModeEnabled) return " (Developer Mode)";
+    if (safeModeEnabled) return " (Safe Mode)";
+    return "";
+  }
+
+  private Color activeModeColor() {
+    if (safeModeEnabled) return ACCENT_SAFE;
+    if (developerModeEnabled) return ACCENT_DEV;
+    return ACCENT_NEUTRAL;
+  }
+
+  private String activeModeActivityDetail() {
+    if (developerModeEnabled && safeModeEnabled) {
+      return "Developer diagnostics are enabled while launch state is isolated.";
+    }
+    if (developerModeEnabled) return "Developer Mode is exposing engineering-focused launch behavior.";
+    if (safeModeEnabled) return "Safe Mode flags are enabled for this process.";
+    return "This can take a moment.";
   }
 
   private void release(String label, int exitCode) {
@@ -1366,17 +1587,6 @@ public final class JvnHub {
         ProcessBuilder pb = new ProcessBuilder(command)
             .directory(projectRoot.toFile())
             .redirectErrorStream(true);
-        if (safeModeEnabled && !command.isEmpty()
-            && (command.get(0).endsWith("gradlew") || command.get(0).endsWith("gradlew.bat"))) {
-          Path safeGradleHome = projectRoot.resolve(".jvn-gradle-user-home").resolve("safe");
-          try {
-            Files.createDirectories(safeGradleHome);
-            pb.environment().put("GRADLE_USER_HOME", safeGradleHome.toAbsolutePath().toString());
-            publish("[hub] Safe Mode: using isolated Gradle user home " + safeGradleHome.toAbsolutePath());
-          } catch (IOException e) {
-            publish("[hub] Safe Mode: could not prepare isolated Gradle home: " + e.getMessage());
-          }
-        }
         // Gradle daemons can interact badly when invoked from within another Gradle
         // task JVM. --no-daemon keeps child gradle invocations self-contained.
         if (command.get(0).endsWith("gradlew") || command.get(0).endsWith("gradlew.bat")) {
@@ -1578,7 +1788,7 @@ public final class JvnHub {
           "Read launch request",
           "Resolve engine workspace",
           "Locate Gradle wrapper",
-          "Prepare isolated Gradle home",
+          "Apply safe-mode launch flags",
           "Start Gradle process",
           "Attach live output stream",
           "Configure project modules",
@@ -1598,7 +1808,7 @@ public final class JvnHub {
           "Read launch request",
           "Resolve engine workspace",
           "Locate Gradle wrapper",
-          "Prepare isolated Gradle home",
+          "Apply safe-mode launch flags",
           "Start Gradle process",
           "Attach live output stream",
           "Configure project modules",
@@ -1618,7 +1828,7 @@ public final class JvnHub {
           "Read documentation request",
           "Resolve engine workspace",
           "Locate Gradle wrapper",
-          "Prepare isolated Gradle home",
+          "Apply safe-mode launch flags",
           "Start Gradle process",
           "Attach live output stream",
           "Configure project modules",
@@ -2126,6 +2336,46 @@ public final class JvnHub {
     return String.join(" ", quoted);
   }
 
+  private static List<String> splitExtraGradleArgs(String raw) {
+    if (raw == null || raw.isBlank()) return List.of();
+    List<String> out = new ArrayList<>();
+    StringBuilder current = new StringBuilder();
+    boolean inSingle = false;
+    boolean inDouble = false;
+    boolean escaping = false;
+    for (int i = 0; i < raw.length(); i++) {
+      char ch = raw.charAt(i);
+      if (escaping) {
+        current.append(ch);
+        escaping = false;
+        continue;
+      }
+      if (ch == '\\' && !inSingle) {
+        escaping = true;
+        continue;
+      }
+      if (ch == '\'' && !inDouble) {
+        inSingle = !inSingle;
+        continue;
+      }
+      if (ch == '"' && !inSingle) {
+        inDouble = !inDouble;
+        continue;
+      }
+      if (Character.isWhitespace(ch) && !inSingle && !inDouble) {
+        if (current.length() > 0) {
+          out.add(current.toString());
+          current.setLength(0);
+        }
+        continue;
+      }
+      current.append(ch);
+    }
+    if (escaping) current.append('\\');
+    if (current.length() > 0) out.add(current.toString());
+    return out;
+  }
+
   private int readRequiredJavaVersion() {
     String raw = readGradleProperty("javaVersion");
     if (raw == null || raw.isBlank()) return -1;
@@ -2207,8 +2457,6 @@ public final class JvnHub {
   }
 
   private record HealthCheck(CheckStatus status, String title, String summary, String details) {}
-
-  private record InfoRow(String label, String value) {}
 
   private static String readVersion() {
     try (InputStream in = JvnHub.class.getResourceAsStream("/com/jvn/hub/version.properties")) {
@@ -2881,6 +3129,46 @@ public final class JvnHub {
     }
   }
 
+  /** Toggleable Developer Mode header control; blue when active, muted when inactive. */
+  private static final class DeveloperModeToggleButton extends JToggleButton {
+    DeveloperModeToggleButton() {
+      setDeveloperModeEnabled(false);
+      setContentAreaFilled(false);
+      setBorderPainted(false);
+      setFocusPainted(false);
+      setOpaque(false);
+      setRolloverEnabled(true);
+      setBorder(new EmptyBorder(8, 8, 8, 8));
+      setPreferredSize(new Dimension(40, 40));
+    }
+
+    void setDeveloperModeEnabled(boolean enabled) {
+      setSelected(enabled);
+      setIcon(VectorIcon.of(VectorIcon.Kind.DEVELOPER, 22, enabled ? ACCENT_DEV : TEXT_MUTED));
+      setToolTipText(enabled
+          ? "Developer Mode ON — tests and engineering launch flags are enabled"
+          : "Developer Mode OFF — click to show developer actions");
+      repaint();
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+      Graphics2D h = (Graphics2D) g.create();
+      h.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+      if (isSelected()) {
+        h.setColor(alpha(ACCENT_DEV, getModel().isPressed() ? 0.26f : getModel().isRollover() ? 0.20f : 0.14f));
+        h.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+        h.setColor(alpha(ACCENT_DEV, 0.70f));
+        h.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 10, 10);
+      } else if (getModel().isRollover() || getModel().isPressed()) {
+        h.setColor(getModel().isPressed() ? PRESSED_BG : HOVER_BG);
+        h.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+      }
+      h.dispose();
+      super.paintComponent(g);
+    }
+  }
+
   /** Toggleable Safe Mode header control; amber when active, muted when inactive. */
   private static final class SafeModeToggleButton extends JToggleButton {
     SafeModeToggleButton() {
@@ -2898,8 +3186,8 @@ public final class JvnHub {
       setSelected(enabled);
       setIcon(VectorIcon.of(VectorIcon.Kind.SHIELD, 22, enabled ? ACCENT_SAFE : TEXT_MUTED));
       setToolTipText(enabled
-          ? "Safe Mode ON — launches use isolated engine state"
-          : "Safe Mode OFF — click to isolate editor-side launches");
+          ? "Safe Mode ON — launches use safe-mode flags"
+          : "Safe Mode OFF — click to launch with safe-mode flags");
       repaint();
     }
 
@@ -3018,7 +3306,7 @@ public final class JvnHub {
    * configurable so the same {@link Kind} can be reused across contexts.
    */
   private static final class VectorIcon implements Icon {
-    enum Kind { PLAY, EDIT, ROCKET, HAMMER, CHECK, REFRESH, STOP, CLOSE, BELL, SHORTCUT, DOCUMENTATION, HEALTH, INFO, SHIELD }
+    enum Kind { PLAY, EDIT, ROCKET, HAMMER, CHECK, REFRESH, STOP, CLOSE, BELL, SHORTCUT, DOCUMENTATION, HEALTH, INFO, SHIELD, DEVELOPER, SLIDERS }
 
     private final Kind kind;
     private final int size;
@@ -3318,6 +3606,32 @@ public final class JvnHub {
           check.lineTo(s * 0.46f, s * 0.64f);
           check.lineTo(s * 0.68f, s * 0.40f);
           g2.draw(check);
+        }
+        case DEVELOPER -> {
+          g2.setStroke(new BasicStroke(strokeBold, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+          Path2D left = new Path2D.Float();
+          left.moveTo(s * 0.38f, s * 0.30f);
+          left.lineTo(s * 0.18f, s * 0.50f);
+          left.lineTo(s * 0.38f, s * 0.70f);
+          g2.draw(left);
+
+          Path2D right = new Path2D.Float();
+          right.moveTo(s * 0.62f, s * 0.30f);
+          right.lineTo(s * 0.82f, s * 0.50f);
+          right.lineTo(s * 0.62f, s * 0.70f);
+          g2.draw(right);
+
+          g2.drawLine(Math.round(s * 0.54f), Math.round(s * 0.22f),
+                      Math.round(s * 0.46f), Math.round(s * 0.78f));
+        }
+        case SLIDERS -> {
+          g2.setStroke(new BasicStroke(strokeMain, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+          float[] ys = {s * 0.28f, s * 0.50f, s * 0.72f};
+          float[] knobs = {s * 0.66f, s * 0.36f, s * 0.58f};
+          for (int i = 0; i < ys.length; i++) {
+            g2.drawLine(Math.round(s * 0.18f), Math.round(ys[i]), Math.round(s * 0.82f), Math.round(ys[i]));
+            g2.fill(new Ellipse2D.Float(knobs[i] - s * 0.07f, ys[i] - s * 0.07f, s * 0.14f, s * 0.14f));
+          }
         }
       }
       g2.dispose();
