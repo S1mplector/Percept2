@@ -126,6 +126,10 @@ public final class JvnHub {
   private final List<Announcement> announcements = new ArrayList<>();
   /** IDs (date+title) of announcements the user has already opened in the dialog. */
   private final Set<String> readIds = new HashSet<>();
+  /** Header shortcut for a lightweight local environment report. */
+  private HeaderIconButton diagnosticsButton;
+  /** Header shortcut for version, source, install, and update details. */
+  private HeaderIconButton aboutButton;
   /** Header shortcut that opens the editor Help Center as a standalone window. */
   private HeaderIconButton documentationButton;
   /** Bell button in the header; redrawn so the small badge reflects announcement count. */
@@ -248,6 +252,18 @@ public final class JvnHub {
     header.add(left, BorderLayout.WEST);
 
     // --- Right: documentation + announcements -------------------------------
+    diagnosticsButton = new HeaderIconButton(
+        VectorIcon.of(VectorIcon.Kind.HEALTH, 22, TEXT_PRIMARY),
+        "Diagnostics — run a lightweight health check");
+    diagnosticsButton.addActionListener(e -> showDiagnosticsReport());
+    actionButtons.add(diagnosticsButton);
+
+    aboutButton = new HeaderIconButton(
+        VectorIcon.of(VectorIcon.Kind.INFO, 22, TEXT_PRIMARY),
+        "About — version and install details");
+    aboutButton.addActionListener(e -> showAboutDialog());
+    actionButtons.add(aboutButton);
+
     documentationButton = new HeaderIconButton(
         VectorIcon.of(VectorIcon.Kind.DOCUMENTATION, 22, TEXT_PRIMARY),
         "Documentation — open the Help Center");
@@ -260,6 +276,8 @@ public final class JvnHub {
 
     JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
     right.setOpaque(false);
+    right.add(diagnosticsButton);
+    right.add(aboutButton);
     right.add(documentationButton);
     right.add(announcementsButton);
     header.add(right, BorderLayout.EAST);
@@ -613,6 +631,300 @@ public final class JvnHub {
     footer.add(left, BorderLayout.WEST);
     footer.add(right, BorderLayout.EAST);
     return footer;
+  }
+
+  private void showDiagnosticsReport() {
+    setStatus("Running health check", ACCENT_NEUTRAL);
+    setActivity("Running diagnostics", "Checking local engine setup.", true, ACCENT_NEUTRAL);
+    setButtonsEnabled(false);
+
+    new SwingWorker<List<HealthCheck>, Void>() {
+      @Override protected List<HealthCheck> doInBackground() {
+        return runHealthChecks();
+      }
+
+      @Override protected void done() {
+        setButtonsEnabled(true);
+        List<HealthCheck> checks;
+        try {
+          checks = get();
+        } catch (Exception e) {
+          checks = List.of(new HealthCheck(
+              CheckStatus.FAIL,
+              "Diagnostics",
+              "Health check failed to run.",
+              e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()));
+        }
+        long failures = checks.stream().filter(c -> c.status() == CheckStatus.FAIL).count();
+        long warnings = checks.stream().filter(c -> c.status() == CheckStatus.WARN).count();
+        Color tone = failures > 0 ? ACCENT_ERROR : warnings > 0 ? ACCENT_NEUTRAL : ACCENT_GREEN;
+        String title = failures > 0
+            ? "Health check found " + failures + " issue" + (failures == 1 ? "" : "s")
+            : warnings > 0
+                ? "Health check found " + warnings + " warning" + (warnings == 1 ? "" : "s")
+                : "Health check passed";
+        setStatus(title, tone);
+        setActivity(title, "Diagnostics report is ready.", false, tone);
+        showHealthDialog(checks);
+      }
+    }.execute();
+  }
+
+  private List<HealthCheck> runHealthChecks() {
+    List<HealthCheck> checks = new ArrayList<>();
+
+    int requiredJava = readRequiredJavaVersion();
+    int runtimeJava = parseJavaMajor(System.getProperty("java.version", ""));
+    boolean javaOk = requiredJava <= 0 || runtimeJava <= 0 || runtimeJava >= requiredJava;
+    checks.add(new HealthCheck(
+        javaOk ? CheckStatus.PASS : CheckStatus.FAIL,
+        "Java runtime",
+        "Running Java " + firstNonBlank(System.getProperty("java.version"), "unknown")
+            + (requiredJava > 0 ? "; project requests Java " + requiredJava + "." : "."),
+        "java.home=" + firstNonBlank(System.getProperty("java.home"), "unknown")));
+
+    Path wrapper = Path.of(gradleCommand());
+    boolean wrapperExists = Files.isRegularFile(wrapper);
+    boolean wrapperRunnable = wrapperExists && (System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win")
+        || Files.isExecutable(wrapper));
+    checks.add(new HealthCheck(
+        wrapperRunnable ? CheckStatus.PASS : CheckStatus.FAIL,
+        "Gradle wrapper",
+        wrapperRunnable ? "Wrapper is present and runnable." : "Gradle wrapper is missing or not executable.",
+        wrapper.toString()));
+
+    Path gitDir = projectRoot.resolve(".git");
+    CommandResult status = commandExists("git") && Files.isDirectory(gitDir)
+        ? runGit(List.of("git", "-c", "core.quotePath=false", "status", "--porcelain=v1", "--untracked-files=all"), 8)
+        : new CommandResult(-1, commandExists("git") ? ".git directory not found" : "git command not found");
+    if (status.exitCode == 0) {
+      List<GitStatusEntry> entries = parseGitStatus(status.output);
+      checks.add(new HealthCheck(
+          entries.isEmpty() ? CheckStatus.PASS : CheckStatus.WARN,
+          "Repository status",
+          entries.isEmpty()
+              ? "Working tree is clean."
+              : entries.size() + " local change" + (entries.size() == 1 ? "" : "s") + " detected.",
+          entries.isEmpty() ? "git status --porcelain returned no changes." : summarizeEntries(entries)));
+    } else {
+      checks.add(new HealthCheck(
+          CheckStatus.WARN,
+          "Repository status",
+          "Git status is unavailable.",
+          status.output.strip()));
+    }
+
+    String javafxVersion = readGradleProperty("jvnJavaFxVersion");
+    boolean hasJavaFxConfig = javafxVersion != null && !javafxVersion.isBlank()
+        && Files.isRegularFile(projectRoot.resolve("modules/editor/build.gradle.kts"));
+    checks.add(new HealthCheck(
+        hasJavaFxConfig ? CheckStatus.PASS : CheckStatus.WARN,
+        "JavaFX configuration",
+        hasJavaFxConfig
+            ? "Editor JavaFX runtime is configured for version " + javafxVersion + "."
+            : "JavaFX configuration could not be confirmed.",
+        "Validated gradle.properties and modules/editor/build.gradle.kts."));
+
+    Path stateDir = projectRoot.resolve(".jvn");
+    checks.add(checkWritableStateDirectory(stateDir));
+
+    int incoming = readIncomingCommitCount();
+    checks.add(new HealthCheck(
+        incoming < 0 ? CheckStatus.WARN : CheckStatus.PASS,
+        "Update status",
+        incoming > 0
+            ? incoming + " incoming commit" + (incoming == 1 ? "" : "s") + " available."
+            : incoming == 0
+                ? "Engine appears up to date with upstream."
+                : "Incoming update count is unavailable.",
+        incoming < 0 ? "No upstream configured, Git unavailable, or rev-list failed." : "Compared HEAD..@{upstream}."));
+
+    return checks;
+  }
+
+  private HealthCheck checkWritableStateDirectory(Path stateDir) {
+    try {
+      Files.createDirectories(stateDir);
+      Path probe = Files.createTempFile(stateDir, "health-", ".tmp");
+      Files.writeString(probe, "ok", StandardCharsets.UTF_8);
+      Files.deleteIfExists(probe);
+      return new HealthCheck(
+          CheckStatus.PASS,
+          "Writable .jvn state",
+          "Hub state directory is writable.",
+          stateDir.toAbsolutePath().toString());
+    } catch (IOException e) {
+      return new HealthCheck(
+          CheckStatus.FAIL,
+          "Writable .jvn state",
+          "Hub state directory is not writable.",
+          stateDir.toAbsolutePath() + "\n" + e.getMessage());
+    }
+  }
+
+  private void showHealthDialog(List<HealthCheck> checks) {
+    JDialog dialog = new JDialog(frame, "Diagnostics / Health Check", true);
+    dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
+
+    JPanel root = new JPanel(new BorderLayout(0, 12));
+    root.setBackground(BG);
+    root.setBorder(new EmptyBorder(16, 16, 16, 16));
+
+    long failures = checks.stream().filter(c -> c.status() == CheckStatus.FAIL).count();
+    long warnings = checks.stream().filter(c -> c.status() == CheckStatus.WARN).count();
+    String summary = failures > 0
+        ? failures + " issue" + (failures == 1 ? "" : "s") + " need attention"
+        : warnings > 0
+            ? warnings + " warning" + (warnings == 1 ? "" : "s") + " to review"
+            : "All lightweight checks passed";
+    root.add(dialogHeader("Diagnostics / Health Check", summary), BorderLayout.NORTH);
+
+    JPanel rows = new JPanel();
+    rows.setBackground(BG);
+    rows.setLayout(new BoxLayout(rows, BoxLayout.Y_AXIS));
+    for (int i = 0; i < checks.size(); i++) {
+      rows.add(healthCheckCard(checks.get(i)));
+      if (i < checks.size() - 1) rows.add(Box.createVerticalStrut(8));
+    }
+
+    JScrollPane scroll = new JScrollPane(rows);
+    scroll.setBorder(BorderFactory.createLineBorder(BORDER_NEUTRAL));
+    scroll.setBackground(BG);
+    scroll.getViewport().setBackground(BG);
+    scroll.setPreferredSize(new Dimension(620, 390));
+    styleScrollBar(scroll.getVerticalScrollBar());
+    styleScrollBar(scroll.getHorizontalScrollBar());
+    root.add(scroll, BorderLayout.CENTER);
+    root.add(dialogFooter(dialog), BorderLayout.SOUTH);
+
+    dialog.setContentPane(root);
+    dialog.pack();
+    dialog.setLocationRelativeTo(frame);
+    dialog.setVisible(true);
+  }
+
+  private JPanel healthCheckCard(HealthCheck check) {
+    JPanel card = new JPanel(new BorderLayout(10, 0));
+    card.setBackground(PANEL_BG);
+    card.setBorder(BorderFactory.createCompoundBorder(
+        BorderFactory.createLineBorder(check.status().color()),
+        new EmptyBorder(10, 12, 10, 12)));
+
+    JLabel icon = new JLabel(VectorIcon.of(check.status().icon(), 18, check.status().color()));
+    card.add(icon, BorderLayout.WEST);
+
+    JPanel text = new JPanel();
+    text.setOpaque(false);
+    text.setLayout(new BoxLayout(text, BoxLayout.Y_AXIS));
+    JLabel title = new JLabel(check.title());
+    title.setForeground(TEXT_PRIMARY);
+    title.setFont(title.getFont().deriveFont(Font.BOLD, 13f));
+    JTextArea summary = dialogText(check.summary(), TEXT_SOFT, 11f, Font.PLAIN);
+    JTextArea details = dialogText(check.details(), TEXT_MUTED, 10f, Font.PLAIN);
+    details.setBorder(new EmptyBorder(4, 0, 0, 0));
+    title.setAlignmentX(Component.LEFT_ALIGNMENT);
+    summary.setAlignmentX(Component.LEFT_ALIGNMENT);
+    details.setAlignmentX(Component.LEFT_ALIGNMENT);
+    text.add(title);
+    text.add(Box.createVerticalStrut(2));
+    text.add(summary);
+    if (check.details() != null && !check.details().isBlank()) {
+      text.add(details);
+    }
+    card.add(text, BorderLayout.CENTER);
+    return card;
+  }
+
+  private void showAboutDialog() {
+    String version = displayVersionLabel(readDiskVersion());
+    String sourceMode = isRunningFromSource() ? "Running from source" : "Packaged build";
+    String commit = readGitValue(List.of("git", "rev-parse", "--short", "HEAD"), "unknown");
+    String branch = readGitValue(List.of("git", "rev-parse", "--abbrev-ref", "HEAD"), "unknown");
+    int incoming = readIncomingCommitCount();
+    String updateStatus = incoming > 0
+        ? incoming + " incoming commit" + (incoming == 1 ? "" : "s") + " available"
+        : incoming == 0
+            ? "Up to date"
+            : "Unavailable";
+
+    List<InfoRow> rows = List.of(
+        new InfoRow("Version", version),
+        new InfoRow("Mode", sourceMode),
+        new InfoRow("Commit", commit + ("unknown".equals(branch) ? "" : " on " + branch)),
+        new InfoRow("Install Path", projectRoot.toAbsolutePath().toString()),
+        new InfoRow("Update Status", updateStatus),
+        new InfoRow("Java", firstNonBlank(System.getProperty("java.version"), "unknown")),
+        new InfoRow("OS", firstNonBlank(System.getProperty("os.name"), "unknown"))
+    );
+
+    JDialog dialog = new JDialog(frame, "About JVN Engine Hub", true);
+    dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
+
+    JPanel root = new JPanel(new BorderLayout(0, 14));
+    root.setBackground(BG);
+    root.setBorder(new EmptyBorder(16, 16, 16, 16));
+    root.add(dialogHeader("About JVN Engine Hub", version + " · " + sourceMode), BorderLayout.NORTH);
+
+    JPanel body = new JPanel(new BorderLayout(16, 0));
+    body.setBackground(BG);
+    body.add(new JLabel(new JvnLogoIcon(132, 76)), BorderLayout.WEST);
+
+    JPanel values = new JPanel(new GridLayout(rows.size(), 1, 0, 6));
+    values.setBackground(BG);
+    for (InfoRow row : rows) {
+      values.add(infoRow(row.label(), row.value()));
+    }
+    body.add(values, BorderLayout.CENTER);
+    root.add(body, BorderLayout.CENTER);
+    root.add(dialogFooter(dialog), BorderLayout.SOUTH);
+
+    dialog.setContentPane(root);
+    dialog.pack();
+    dialog.setMinimumSize(new Dimension(620, 330));
+    dialog.setLocationRelativeTo(frame);
+    dialog.setVisible(true);
+  }
+
+  private JPanel dialogHeader(String titleText, String subtitleText) {
+    JLabel title = new JLabel(titleText);
+    title.setForeground(TEXT_PRIMARY);
+    title.setFont(title.getFont().deriveFont(Font.BOLD, 16f));
+    JLabel subtitle = new JLabel(subtitleText == null ? "" : subtitleText);
+    subtitle.setForeground(TEXT_MUTED);
+    subtitle.setFont(subtitle.getFont().deriveFont(Font.PLAIN, 11f));
+
+    JPanel box = new JPanel();
+    box.setOpaque(false);
+    box.setLayout(new BoxLayout(box, BoxLayout.Y_AXIS));
+    title.setAlignmentX(Component.LEFT_ALIGNMENT);
+    subtitle.setAlignmentX(Component.LEFT_ALIGNMENT);
+    box.add(title);
+    box.add(Box.createVerticalStrut(2));
+    box.add(subtitle);
+    return box;
+  }
+
+  private JPanel dialogFooter(JDialog dialog) {
+    FlatButton close = new FlatButton("Close",
+        VectorIcon.of(VectorIcon.Kind.CLOSE, 14, TEXT_PRIMARY), null);
+    close.addActionListener(e -> dialog.dispose());
+    JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+    footer.setOpaque(false);
+    footer.add(close);
+    return footer;
+  }
+
+  private JPanel infoRow(String label, String value) {
+    JPanel row = new JPanel(new BorderLayout(14, 0));
+    row.setOpaque(false);
+    JLabel left = new JLabel(label);
+    left.setForeground(TEXT_MUTED);
+    left.setFont(left.getFont().deriveFont(Font.BOLD, 10f));
+    left.setPreferredSize(new Dimension(92, 20));
+    JTextArea right = dialogText(value, TEXT_SOFT, 11f, Font.PLAIN);
+    row.add(left, BorderLayout.WEST);
+    row.add(right, BorderLayout.CENTER);
+    return row;
   }
 
   private JButton makeAction(String label, String tooltip, VectorIcon.Kind iconKind,
@@ -1776,6 +2088,89 @@ public final class JvnHub {
     return String.join(" ", quoted);
   }
 
+  private int readRequiredJavaVersion() {
+    String raw = readGradleProperty("javaVersion");
+    if (raw == null || raw.isBlank()) return -1;
+    try {
+      return Integer.parseInt(raw.trim());
+    } catch (NumberFormatException ignored) {
+      return -1;
+    }
+  }
+
+  private String readGradleProperty(String key) {
+    if (key == null || key.isBlank()) return null;
+    Path props = projectRoot.resolve("gradle.properties");
+    if (!Files.isRegularFile(props)) return null;
+    Properties p = new Properties();
+    try (InputStream in = Files.newInputStream(props)) {
+      p.load(in);
+      return p.getProperty(key);
+    } catch (IOException ignored) {
+      return null;
+    }
+  }
+
+  private int readIncomingCommitCount() {
+    if (!commandExists("git") || !Files.isDirectory(projectRoot.resolve(".git"))) return -1;
+    CommandResult result = runGit(List.of("git", "rev-list", "--count", "HEAD..@{upstream}"), 8);
+    if (result.exitCode != 0) return -1;
+    try {
+      return Math.max(0, Integer.parseInt(result.output.strip()));
+    } catch (NumberFormatException ignored) {
+      return -1;
+    }
+  }
+
+  private String readGitValue(List<String> command, String fallback) {
+    if (!commandExists("git") || !Files.isDirectory(projectRoot.resolve(".git"))) return fallback;
+    CommandResult result = runGit(command, 5);
+    if (result.exitCode != 0) return fallback;
+    String value = result.output.strip();
+    return value.isBlank() ? fallback : value;
+  }
+
+  private static int parseJavaMajor(String version) {
+    if (version == null || version.isBlank()) return -1;
+    String v = version.trim();
+    try {
+      if (v.startsWith("1.")) {
+        int dot = v.indexOf('.', 2);
+        return Integer.parseInt(dot > 0 ? v.substring(2, dot) : v.substring(2));
+      }
+      int end = 0;
+      while (end < v.length() && Character.isDigit(v.charAt(end))) end++;
+      return end == 0 ? -1 : Integer.parseInt(v.substring(0, end));
+    } catch (NumberFormatException ignored) {
+      return -1;
+    }
+  }
+
+  private static String firstNonBlank(String value, String fallback) {
+    return value == null || value.isBlank() ? fallback : value.trim();
+  }
+
+  private enum CheckStatus {
+    PASS(ACCENT_GREEN, VectorIcon.Kind.CHECK),
+    WARN(ACCENT_NEUTRAL, VectorIcon.Kind.INFO),
+    FAIL(ACCENT_ERROR, VectorIcon.Kind.CLOSE);
+
+    private final Color color;
+    private final VectorIcon.Kind icon;
+
+    CheckStatus(Color color, VectorIcon.Kind icon) {
+      this.color = color;
+      this.icon = icon;
+    }
+
+    Color color() { return color; }
+    VectorIcon.Kind icon() { return icon; }
+  }
+
+  private record HealthCheck(CheckStatus status, String title, String summary, String details) {}
+
+  private record InfoRow(String label, String value) {}
+
   private static String readVersion() {
     try (InputStream in = JvnHub.class.getResourceAsStream("/com/jvn/hub/version.properties")) {
       if (in != null) {
@@ -2536,7 +2931,7 @@ public final class JvnHub {
    * configurable so the same {@link Kind} can be reused across contexts.
    */
   private static final class VectorIcon implements Icon {
-    enum Kind { PLAY, EDIT, ROCKET, HAMMER, CHECK, REFRESH, STOP, CLOSE, BELL, SHORTCUT, DOCUMENTATION }
+    enum Kind { PLAY, EDIT, ROCKET, HAMMER, CHECK, REFRESH, STOP, CLOSE, BELL, SHORTCUT, DOCUMENTATION, HEALTH, INFO }
 
     private final Kind kind;
     private final int size;
@@ -2793,6 +3188,30 @@ public final class JvnHub {
                       Math.round(s - pad - s * 0.12f), Math.round(s * 0.50f));
           g2.drawLine(Math.round(pad + s * 0.12f), Math.round(s * 0.66f),
                       Math.round(s - pad - s * 0.22f), Math.round(s * 0.66f));
+        }
+        case HEALTH -> {
+          // Pulse line inside a rounded monitor frame.
+          float pad = s * 0.12f;
+          float corner = s * 0.10f;
+          g2.setStroke(new BasicStroke(strokeMain, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+          g2.draw(new RoundRectangle2D.Float(pad, pad, s - pad * 2f, s - pad * 2f, corner, corner));
+          Path2D pulse = new Path2D.Float();
+          pulse.moveTo(s * 0.22f, s * 0.56f);
+          pulse.lineTo(s * 0.36f, s * 0.56f);
+          pulse.lineTo(s * 0.45f, s * 0.34f);
+          pulse.lineTo(s * 0.56f, s * 0.70f);
+          pulse.lineTo(s * 0.66f, s * 0.48f);
+          pulse.lineTo(s * 0.80f, s * 0.48f);
+          g2.setStroke(new BasicStroke(strokeBold, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+          g2.draw(pulse);
+        }
+        case INFO -> {
+          g2.setStroke(new BasicStroke(strokeMain, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+          g2.draw(new Ellipse2D.Float(s * 0.16f, s * 0.16f, s * 0.68f, s * 0.68f));
+          g2.fill(new Ellipse2D.Float(s * 0.46f, s * 0.28f, s * 0.08f, s * 0.08f));
+          g2.setStroke(new BasicStroke(strokeBold, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+          g2.drawLine(Math.round(s * 0.50f), Math.round(s * 0.46f),
+                      Math.round(s * 0.50f), Math.round(s * 0.70f));
         }
       }
       g2.dispose();
