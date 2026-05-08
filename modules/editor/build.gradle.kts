@@ -50,11 +50,26 @@ fun JavaExec.configureJavaFxRuntime() {
   }
 }
 
+fun JavaExec.forwardHubLaunchSystemProps() {
+  listOf(
+    "jvn.hub.safeMode",
+    "jvn.editor.safeMode",
+    "jvn.launcher.safeMode",
+    "jvn.help.safeMode"
+  ).forEach { key ->
+    val value = System.getProperty(key)
+    if (!value.isNullOrBlank()) {
+      systemProperty(key, value)
+    }
+  }
+}
+
 // Ensure JavaFX modules are available at runtime when launching via :editor:run
 // This avoids the "JavaFX runtime components are missing" error.
 tasks.named<JavaExec>("run") {
   configureJavaFxRuntime()
   systemProperty("jvn.version", rootProject.version.toString())
+  forwardHubLaunchSystemProps()
 }
 
 tasks.register<JavaExec>("runLauncher") {
@@ -64,6 +79,7 @@ tasks.register<JavaExec>("runLauncher") {
   mainClass.set("com.jvn.editor.JvnLauncherApp")
   workingDir = rootProject.projectDir
   systemProperty("jvn.version", rootProject.version.toString())
+  forwardHubLaunchSystemProps()
   configureJavaFxRuntime()
 }
 
@@ -76,6 +92,7 @@ tasks.register<JavaExec>("runHelpCenter") {
   systemProperty("jvn.version", rootProject.version.toString())
   systemProperty("jvn.repoRoot", rootProject.projectDir.absolutePath)
   systemProperty("jvn.help.workspaceRoot", rootProject.projectDir.absolutePath)
+  forwardHubLaunchSystemProps()
   configureJavaFxRuntime()
 }
 

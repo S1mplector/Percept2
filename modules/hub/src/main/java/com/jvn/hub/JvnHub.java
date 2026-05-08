@@ -58,6 +58,7 @@ import javax.swing.JPanel;
 import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
+import javax.swing.JToggleButton;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
@@ -98,6 +99,7 @@ public final class JvnHub {
   /** High-contrast neutral for emphasis (version tag, dates, running-task state). */
   private static final Color ACCENT_NEUTRAL = Color.decode("#c2c2c2");
   private static final Color ACCENT_GREEN   = Color.decode("#7ed39a");
+  private static final Color ACCENT_SAFE    = Color.decode("#ffd166");
   private static final Color ACCENT_ERROR   = Color.decode("#f38ba8");
   private static final Color LOG_TEXT       = Color.decode("#cfcfcf");
   private static final Color SCROLL_THUMB   = Color.decode("#2a2a2a");
@@ -126,6 +128,9 @@ public final class JvnHub {
   private final List<Announcement> announcements = new ArrayList<>();
   /** IDs (date+title) of announcements the user has already opened in the dialog. */
   private final Set<String> readIds = new HashSet<>();
+  /** Safe Mode launch toggle; applies to editor-side processes launched from the hub. */
+  private boolean safeModeEnabled = false;
+  private SafeModeToggleButton safeModeButton;
   /** Header shortcut for a lightweight local environment report. */
   private HeaderIconButton diagnosticsButton;
   /** Header shortcut for version, source, install, and update details. */
@@ -252,6 +257,10 @@ public final class JvnHub {
     header.add(left, BorderLayout.WEST);
 
     // --- Right: documentation + announcements -------------------------------
+    safeModeButton = new SafeModeToggleButton();
+    safeModeButton.addActionListener(e -> setSafeModeEnabled(safeModeButton.isSelected()));
+    actionButtons.add(safeModeButton);
+
     diagnosticsButton = new HeaderIconButton(
         VectorIcon.of(VectorIcon.Kind.HEALTH, 22, TEXT_PRIMARY),
         "Diagnostics — run a lightweight health check");
@@ -261,7 +270,7 @@ public final class JvnHub {
     aboutButton = new HeaderIconButton(
         VectorIcon.of(VectorIcon.Kind.INFO, 22, TEXT_PRIMARY),
         "About — version and install details");
-    aboutButton.addActionListener(e -> showAboutDialog());
+    aboutButton.addActionListener(e -> showAboutReport());
     actionButtons.add(aboutButton);
 
     documentationButton = new HeaderIconButton(
@@ -276,6 +285,7 @@ public final class JvnHub {
 
     JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
     right.setOpaque(false);
+    right.add(safeModeButton);
     right.add(diagnosticsButton);
     right.add(aboutButton);
     right.add(documentationButton);
@@ -633,6 +643,17 @@ public final class JvnHub {
     return footer;
   }
 
+  private void setSafeModeEnabled(boolean enabled) {
+    safeModeEnabled = enabled;
+    if (safeModeButton != null) safeModeButton.setSafeModeEnabled(enabled);
+    String title = enabled ? "Safe Mode enabled" : "Safe Mode disabled";
+    String detail = enabled
+        ? "Editor-side launches will use safe-mode flags and isolated Gradle state."
+        : "Editor-side launches will use the standard engine startup path.";
+    setStatus(title, enabled ? ACCENT_SAFE : TEXT_SOFT);
+    setActivity(title, detail, false, enabled ? ACCENT_SAFE : TEXT_MUTED);
+  }
+
   private void showDiagnosticsReport() {
     setStatus("Running health check", ACCENT_NEUTRAL);
     setActivity("Running diagnostics", "Checking local engine setup.", true, ACCENT_NEUTRAL);
@@ -665,7 +686,7 @@ public final class JvnHub {
                 : "Health check passed";
         setStatus(title, tone);
         setActivity(title, "Diagnostics report is ready.", false, tone);
-        showHealthDialog(checks);
+        showReportDialog("Diagnostics / Health Check", checks, healthSummary(checks));
       }
     }.execute();
   }
@@ -762,22 +783,25 @@ public final class JvnHub {
     }
   }
 
-  private void showHealthDialog(List<HealthCheck> checks) {
-    JDialog dialog = new JDialog(frame, "Diagnostics / Health Check", true);
+  private String healthSummary(List<HealthCheck> checks) {
+    long failures = checks.stream().filter(c -> c.status() == CheckStatus.FAIL).count();
+    long warnings = checks.stream().filter(c -> c.status() == CheckStatus.WARN).count();
+    return failures > 0
+        ? failures + " issue" + (failures == 1 ? "" : "s") + " need attention"
+        : warnings > 0
+            ? warnings + " warning" + (warnings == 1 ? "" : "s") + " to review"
+            : "All lightweight checks passed";
+  }
+
+  private void showReportDialog(String title, List<HealthCheck> checks, String summary) {
+    JDialog dialog = new JDialog(frame, title, true);
     dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
 
     JPanel root = new JPanel(new BorderLayout(0, 12));
     root.setBackground(BG);
     root.setBorder(new EmptyBorder(16, 16, 16, 16));
 
-    long failures = checks.stream().filter(c -> c.status() == CheckStatus.FAIL).count();
-    long warnings = checks.stream().filter(c -> c.status() == CheckStatus.WARN).count();
-    String summary = failures > 0
-        ? failures + " issue" + (failures == 1 ? "" : "s") + " need attention"
-        : warnings > 0
-            ? warnings + " warning" + (warnings == 1 ? "" : "s") + " to review"
-            : "All lightweight checks passed";
-    root.add(dialogHeader("Diagnostics / Health Check", summary), BorderLayout.NORTH);
+    root.add(dialogHeader(title, summary), BorderLayout.NORTH);
 
     JPanel rows = new JPanel();
     rows.setBackground(BG);
@@ -835,7 +859,7 @@ public final class JvnHub {
     return card;
   }
 
-  private void showAboutDialog() {
+  private void showAboutReport() {
     String version = displayVersionLabel(readDiskVersion());
     String sourceMode = isRunningFromSource() ? "Running from source" : "Packaged build";
     String commit = readGitValue(List.of("git", "rev-parse", "--short", "HEAD"), "unknown");
@@ -847,42 +871,36 @@ public final class JvnHub {
             ? "Up to date"
             : "Unavailable";
 
-    List<InfoRow> rows = List.of(
-        new InfoRow("Version", version),
-        new InfoRow("Mode", sourceMode),
-        new InfoRow("Commit", commit + ("unknown".equals(branch) ? "" : " on " + branch)),
-        new InfoRow("Install Path", projectRoot.toAbsolutePath().toString()),
-        new InfoRow("Update Status", updateStatus),
-        new InfoRow("Java", firstNonBlank(System.getProperty("java.version"), "unknown")),
-        new InfoRow("OS", firstNonBlank(System.getProperty("os.name"), "unknown"))
+    List<HealthCheck> report = List.of(
+        new HealthCheck(CheckStatus.INFO, "Version", version, sourceMode),
+        new HealthCheck(CheckStatus.INFO, "Source / build mode", sourceMode,
+            isRunningFromSource()
+                ? "Launched from compiled classes in the engine checkout."
+                : "Launched from a packaged runtime artifact."),
+        new HealthCheck(CheckStatus.INFO, "Git revision",
+            commit + ("unknown".equals(branch) ? "" : " on " + branch),
+            "Current engine checkout revision."),
+        new HealthCheck(CheckStatus.INFO, "Install path",
+            projectRoot.toAbsolutePath().toString(),
+            "The hub uses this folder as its engine workspace."),
+        new HealthCheck(safeModeEnabled ? CheckStatus.WARN : CheckStatus.INFO,
+            "Safe Mode",
+            safeModeEnabled ? "Enabled" : "Disabled",
+            safeModeEnabled
+                ? "Editor-side launches receive safe-mode flags and an isolated Gradle user home."
+                : "Editor-side launches use the standard startup path."),
+        new HealthCheck(incoming > 0 ? CheckStatus.WARN : incoming == 0 ? CheckStatus.PASS : CheckStatus.INFO,
+            "Update status", updateStatus, "Compared HEAD..@{upstream}."),
+        new HealthCheck(CheckStatus.INFO, "Java runtime",
+            firstNonBlank(System.getProperty("java.version"), "unknown"),
+            "java.home=" + firstNonBlank(System.getProperty("java.home"), "unknown")),
+        new HealthCheck(CheckStatus.INFO, "Operating system",
+            firstNonBlank(System.getProperty("os.name"), "unknown"),
+            firstNonBlank(System.getProperty("os.arch"), "unknown"))
     );
-
-    JDialog dialog = new JDialog(frame, "About JVN Engine Hub", true);
-    dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
-
-    JPanel root = new JPanel(new BorderLayout(0, 14));
-    root.setBackground(BG);
-    root.setBorder(new EmptyBorder(16, 16, 16, 16));
-    root.add(dialogHeader("About JVN Engine Hub", version + " · " + sourceMode), BorderLayout.NORTH);
-
-    JPanel body = new JPanel(new BorderLayout(16, 0));
-    body.setBackground(BG);
-    body.add(new JLabel(new JvnLogoIcon(132, 76)), BorderLayout.WEST);
-
-    JPanel values = new JPanel(new GridLayout(rows.size(), 1, 0, 6));
-    values.setBackground(BG);
-    for (InfoRow row : rows) {
-      values.add(infoRow(row.label(), row.value()));
-    }
-    body.add(values, BorderLayout.CENTER);
-    root.add(body, BorderLayout.CENTER);
-    root.add(dialogFooter(dialog), BorderLayout.SOUTH);
-
-    dialog.setContentPane(root);
-    dialog.pack();
-    dialog.setMinimumSize(new Dimension(620, 330));
-    dialog.setLocationRelativeTo(frame);
-    dialog.setVisible(true);
+    setStatus("Engine info ready", ACCENT_NEUTRAL);
+    setActivity("Engine info", version + " · " + sourceMode, false, ACCENT_NEUTRAL);
+    showReportDialog("About / Version Info", report, version + " · " + sourceMode);
   }
 
   private JPanel dialogHeader(String titleText, String subtitleText) {
@@ -945,9 +963,15 @@ public final class JvnHub {
     List<String> cmd = new ArrayList<>();
     cmd.add(gradleCommand());
     cmd.add("--console=plain");
+    if (safeModeEnabled) {
+      cmd.add("-Djvn.hub.safeMode=true");
+      cmd.add("-Djvn.editor.safeMode=true");
+      cmd.add("-Djvn.launcher.safeMode=true");
+      cmd.add("-Djvn.help.safeMode=true");
+    }
     cmd.add(task);
     completeCurrentStep("Gradle command assembled.");
-    advanceStep("Starting background process.");
+    advanceStep(safeModeEnabled ? "Starting background process in Safe Mode." : "Starting background process.");
     appendLog("$ " + String.join(" ", cmd));
     startProcess(cmd, label);
   }
@@ -1310,10 +1334,13 @@ public final class JvnHub {
       return false;
     }
     setButtonsEnabled(false);
-    setStatus("Running: " + label, ACCENT_NEUTRAL);
+    setStatus("Running: " + label + (safeModeEnabled ? " (Safe Mode)" : ""), safeModeEnabled ? ACCENT_SAFE : ACCENT_NEUTRAL);
     startSteps(label);
     startAutoStepTicker(label);
-    setActivity("Working on " + label, "This can take a moment.", true, ACCENT_NEUTRAL);
+    setActivity("Working on " + label,
+        safeModeEnabled ? "Safe Mode is isolating launch state for this process." : "This can take a moment.",
+        true,
+        safeModeEnabled ? ACCENT_SAFE : ACCENT_NEUTRAL);
     return true;
   }
 
@@ -1339,6 +1366,17 @@ public final class JvnHub {
         ProcessBuilder pb = new ProcessBuilder(command)
             .directory(projectRoot.toFile())
             .redirectErrorStream(true);
+        if (safeModeEnabled && !command.isEmpty()
+            && (command.get(0).endsWith("gradlew") || command.get(0).endsWith("gradlew.bat"))) {
+          Path safeGradleHome = projectRoot.resolve(".jvn-gradle-user-home").resolve("safe");
+          try {
+            Files.createDirectories(safeGradleHome);
+            pb.environment().put("GRADLE_USER_HOME", safeGradleHome.toAbsolutePath().toString());
+            publish("[hub] Safe Mode: using isolated Gradle user home " + safeGradleHome.toAbsolutePath());
+          } catch (IOException e) {
+            publish("[hub] Safe Mode: could not prepare isolated Gradle home: " + e.getMessage());
+          }
+        }
         // Gradle daemons can interact badly when invoked from within another Gradle
         // task JVM. --no-daemon keeps child gradle invocations self-contained.
         if (command.get(0).endsWith("gradlew") || command.get(0).endsWith("gradlew.bat")) {
@@ -2153,7 +2191,8 @@ public final class JvnHub {
   private enum CheckStatus {
     PASS(ACCENT_GREEN, VectorIcon.Kind.CHECK),
     WARN(ACCENT_NEUTRAL, VectorIcon.Kind.INFO),
-    FAIL(ACCENT_ERROR, VectorIcon.Kind.CLOSE);
+    FAIL(ACCENT_ERROR, VectorIcon.Kind.CLOSE),
+    INFO(TEXT_MUTED, VectorIcon.Kind.INFO);
 
     private final Color color;
     private final VectorIcon.Kind icon;
@@ -2339,6 +2378,14 @@ public final class JvnHub {
     int g = Math.round(color.getGreen() + (255 - color.getGreen()) * t);
     int b = Math.round(color.getBlue() + (255 - color.getBlue()) * t);
     return new Color(r, g, b, color.getAlpha());
+  }
+
+  private static Color alpha(Color color, float alpha) {
+    return new Color(
+        color.getRed(),
+        color.getGreen(),
+        color.getBlue(),
+        Math.round(Math.max(0f, Math.min(1f, alpha)) * 255f));
   }
 
   private enum StepStatus {
@@ -2834,6 +2881,46 @@ public final class JvnHub {
     }
   }
 
+  /** Toggleable Safe Mode header control; amber when active, muted when inactive. */
+  private static final class SafeModeToggleButton extends JToggleButton {
+    SafeModeToggleButton() {
+      setSafeModeEnabled(false);
+      setContentAreaFilled(false);
+      setBorderPainted(false);
+      setFocusPainted(false);
+      setOpaque(false);
+      setRolloverEnabled(true);
+      setBorder(new EmptyBorder(8, 8, 8, 8));
+      setPreferredSize(new Dimension(40, 40));
+    }
+
+    void setSafeModeEnabled(boolean enabled) {
+      setSelected(enabled);
+      setIcon(VectorIcon.of(VectorIcon.Kind.SHIELD, 22, enabled ? ACCENT_SAFE : TEXT_MUTED));
+      setToolTipText(enabled
+          ? "Safe Mode ON — launches use isolated engine state"
+          : "Safe Mode OFF — click to isolate editor-side launches");
+      repaint();
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+      Graphics2D h = (Graphics2D) g.create();
+      h.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+      if (isSelected()) {
+        h.setColor(alpha(ACCENT_SAFE, getModel().isPressed() ? 0.26f : getModel().isRollover() ? 0.20f : 0.14f));
+        h.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+        h.setColor(alpha(ACCENT_SAFE, 0.70f));
+        h.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 10, 10);
+      } else if (getModel().isRollover() || getModel().isPressed()) {
+        h.setColor(getModel().isPressed() ? PRESSED_BG : HOVER_BG);
+        h.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+      }
+      h.dispose();
+      super.paintComponent(g);
+    }
+  }
+
   /** Borderless header icon button with the same hover treatment as the bell. */
   private static class HeaderIconButton extends JButton {
     HeaderIconButton(Icon icon, String tooltip) {
@@ -2931,7 +3018,7 @@ public final class JvnHub {
    * configurable so the same {@link Kind} can be reused across contexts.
    */
   private static final class VectorIcon implements Icon {
-    enum Kind { PLAY, EDIT, ROCKET, HAMMER, CHECK, REFRESH, STOP, CLOSE, BELL, SHORTCUT, DOCUMENTATION, HEALTH, INFO }
+    enum Kind { PLAY, EDIT, ROCKET, HAMMER, CHECK, REFRESH, STOP, CLOSE, BELL, SHORTCUT, DOCUMENTATION, HEALTH, INFO, SHIELD }
 
     private final Kind kind;
     private final int size;
@@ -3212,6 +3299,25 @@ public final class JvnHub {
           g2.setStroke(new BasicStroke(strokeBold, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
           g2.drawLine(Math.round(s * 0.50f), Math.round(s * 0.46f),
                       Math.round(s * 0.50f), Math.round(s * 0.70f));
+        }
+        case SHIELD -> {
+          Path2D shield = new Path2D.Float();
+          shield.moveTo(s * 0.50f, s * 0.10f);
+          shield.curveTo(s * 0.66f, s * 0.20f, s * 0.78f, s * 0.22f, s * 0.84f, s * 0.24f);
+          shield.lineTo(s * 0.80f, s * 0.54f);
+          shield.curveTo(s * 0.76f, s * 0.74f, s * 0.62f, s * 0.86f, s * 0.50f, s * 0.92f);
+          shield.curveTo(s * 0.38f, s * 0.86f, s * 0.24f, s * 0.74f, s * 0.20f, s * 0.54f);
+          shield.lineTo(s * 0.16f, s * 0.24f);
+          shield.curveTo(s * 0.28f, s * 0.22f, s * 0.40f, s * 0.20f, s * 0.50f, s * 0.10f);
+          shield.closePath();
+          g2.fill(shield);
+          g2.setColor(BG);
+          g2.setStroke(new BasicStroke(Math.max(1.4f, s * 0.10f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+          Path2D check = new Path2D.Float();
+          check.moveTo(s * 0.34f, s * 0.52f);
+          check.lineTo(s * 0.46f, s * 0.64f);
+          check.lineTo(s * 0.68f, s * 0.40f);
+          g2.draw(check);
         }
       }
       g2.dispose();
