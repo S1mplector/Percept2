@@ -45,7 +45,12 @@ public final class PackagedHubLauncher {
 
       Bundle bundle = copyBundleToTempFile();
       Path projectRoot = ensureExtractedWorkspace(bundle);
+      if (hasFlag(args, "--extract-only")) {
+        System.out.println(projectRoot.toAbsolutePath().normalize());
+        return;
+      }
       List<String> delegatedArgs = new ArrayList<>(List.of(args));
+      delegatedArgs.removeIf("--extract-only"::equals);
       delegatedArgs.add("--project-root");
       delegatedArgs.add(projectRoot.toString());
       launchHub(delegatedArgs.toArray(String[]::new), projectRoot);
@@ -73,6 +78,14 @@ public final class PackagedHubLauncher {
       return Paths.get(prop).toAbsolutePath().normalize();
     }
     return null;
+  }
+
+  private static boolean hasFlag(String[] args, String flag) {
+    if (args == null || flag == null) return false;
+    for (String arg : args) {
+      if (flag.equals(arg)) return true;
+    }
+    return false;
   }
 
   private static Bundle copyBundleToTempFile() throws IOException, NoSuchAlgorithmException {

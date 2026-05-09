@@ -52,6 +52,12 @@ For development, you can also point the packaged launcher at an existing checkou
 java -jar build/distributions/jvn-engine-hub-<version>.jar --project-root /path/to/Java-Vector-Nexus
 ```
 
+To verify extraction without opening the GUI:
+
+```bash
+java -jar build/distributions/jvn-engine-hub-<version>.jar --extract-only
+```
+
 ## What It Does
 
 The hub exposes the main workspace actions as buttons:
