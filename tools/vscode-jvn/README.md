@@ -37,7 +37,7 @@ npm run package
 Then install the generated `.vsix`:
 
 ```sh
-code --install-extension jvn-language-tools-0.1.0.vsix
+code --install-extension jvn-language-tools-0.1.1.vsix
 ```
 
 Users can also install it through VS Code's Extensions view with **Install from VSIX...**.

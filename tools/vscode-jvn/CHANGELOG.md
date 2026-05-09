@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1
+
+- Add a custom JLT marketplace icon based on the JVN metallic wordmark.
+
 ## 0.1.0
 
 - Add TextMate grammars for VNS, JES, Story Map, and JVN config files.

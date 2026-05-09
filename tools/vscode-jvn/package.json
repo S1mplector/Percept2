@@ -2,7 +2,7 @@
   "name": "jvn-language-tools",
   "displayName": "JVN Language Tools",
   "description": "Syntax highlighting and snippets for Java Vector Nexus DSLs.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "Simplector",
   "license": "MIT",
   "repository": {
@@ -14,6 +14,7 @@
     "url": "https://github.com/S1mplector/Java-Vector-Nexus/issues"
   },
   "homepage": "https://github.com/S1mplector/Java-Vector-Nexus/tree/main/tools/vscode-jvn",
+  "icon": "images/jlt_icon.png",
   "engines": {
     "vscode": "^1.82.0"
   },
