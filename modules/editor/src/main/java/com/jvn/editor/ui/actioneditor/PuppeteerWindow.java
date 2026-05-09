@@ -143,7 +143,7 @@ public class PuppeteerWindow extends Stage {
     private final TimelinePanel timelinePanel;
     private final KeyframeEditor keyframeEditor;
     private final ConstraintEditor constraintEditor;
-    private final AnchorEditor anchorEditor;
+    private AnchorEditor anchorEditor;
     private final AnimationPreview animationPreview;
     private final CodePreviewPane codePreview;
 
@@ -605,6 +605,7 @@ public class PuppeteerWindow extends Stage {
 
         animationPreview.setOnEntitySelected(name -> {
             timelinePanel.setSelectedTarget(name, false);
+            anchorEditor.setSelectedEntityName(name);
         });
 
         animationPreview.setOnEntityMoved((name, pos) -> {

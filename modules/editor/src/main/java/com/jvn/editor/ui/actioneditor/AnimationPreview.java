@@ -2346,42 +2346,57 @@ public class AnimationPreview extends VBox {
 
     private void drawAnchors(Entity2D entity, double zoom) {
         if (project == null || entity == null || selectedEntityName == null) return;
-        
+
         Map<String, Anchor> anchors = project.getAnchorsForEntity(selectedEntityName);
         if (anchors == null || anchors.isEmpty()) return;
-        
+
         double z = Math.max(0.0001, zoom);
         EntityFrame frame = describeEntity(entity);
         if (frame == null) return;
-        
+
+        double ex = entity.getX();
+        double ey = entity.getY();
+        double cos = Math.cos(frame.rotationRad);
+        double sin = Math.sin(frame.rotationRad);
+
         for (Anchor anchor : anchors.values()) {
-            double anchorX, anchorY;
-            
+            double ax, ay;
+
             if (anchor.isRelative()) {
-                // Relative anchors are normalized (0-1) relative to entity dimensions
-                anchorX = entity.getX() + (anchor.getX() - 0.5) * frame.w * frame.scaleX;
-                anchorY = entity.getY() + (anchor.getY() - 0.5) * frame.h * frame.scaleY;
+                // Local offset from entity pivot, scaled and rotated with the entity
+                double lx = (anchor.getX() - frame.originX) * frame.w * frame.scaleX;
+                double ly = (anchor.getY() - frame.originY) * frame.h * frame.scaleY;
+                ax = ex + lx * cos - ly * sin;
+                ay = ey + lx * sin + ly * cos;
             } else {
-                // World-space anchors
-                anchorX = entity.getX() + anchor.getX();
-                anchorY = entity.getY() + anchor.getY();
+                // World-space offset — still rotate so the anchor moves with the entity
+                double lx = anchor.getX() * frame.scaleX;
+                double ly = anchor.getY() * frame.scaleY;
+                ax = ex + lx * cos - ly * sin;
+                ay = ey + lx * sin + ly * cos;
             }
-            
-            // Draw anchor point
-            double arm = 6.0 / z;
+
+            // Dashed line from entity pivot to anchor
+            gc.setStroke(Color.web("#a855f7", 0.55));
+            gc.setLineWidth(0.9 / z);
+            gc.setLineDashes(3.5 / z, 2.5 / z);
+            gc.strokeLine(ex, ey, ax, ay);
+            gc.setLineDashes((double[]) null);
+
+            // Crosshair
+            double arm    = 6.0 / z;
             double radius = 2.5 / z;
-            
             gc.setStroke(Color.web("#a855f7"));
-            gc.setLineWidth(1.2 / z);
-            gc.strokeLine(anchorX - arm, anchorY, anchorX + arm, anchorY);
-            gc.strokeLine(anchorX, anchorY - arm, anchorX, anchorY + arm);
+            gc.setLineWidth(1.3 / z);
+            gc.strokeLine(ax - arm, ay, ax + arm, ay);
+            gc.strokeLine(ax, ay - arm, ax, ay + arm);
             gc.setFill(Color.web("#a855f7", 0.9));
-            gc.fillOval(anchorX - radius, anchorY - radius, radius * 2.0, radius * 2.0);
-            
-            // Draw anchor label
-            gc.setFill(Color.web("#a855f7", 0.7));
+            gc.fillOval(ax - radius, ay - radius, radius * 2.0, radius * 2.0);
+
+            // Label
+            gc.setFill(Color.web("#c084fc", 0.85));
             gc.setFont(javafx.scene.text.Font.font(8.0 / z));
-            gc.fillText(anchor.getName(), anchorX + (8.0 / z), anchorY - (8.0 / z));
+            gc.fillText(anchor.getName(), ax + (8.0 / z), ay - (5.0 / z));
         }
     }
 
