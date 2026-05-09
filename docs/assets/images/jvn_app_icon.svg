@@ -32,7 +32,7 @@
     </filter>
   </defs>
 
-  <g transform="translate(66 161)">
+  <g transform="translate(9 136) scale(1.30)">
     <g filter="url(#brushSoftness)" opacity="0.92">
       <path d="M 28 150 C 92 124, 180 130, 336 94"
             fill="none"
