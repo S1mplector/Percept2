@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -134,6 +135,30 @@ public class AnimationClip {
                 target.addKeyframe(prop, kf);
             }
         }
+    }
+
+    /**
+     * Create a non-destructive reversed copy of this clip. Keyframe offsets are
+     * mirrored around the clip duration so the motion can be reused as an exit,
+     * return, or rewind gesture without changing the saved source clip.
+     */
+    public AnimationClip reversed() {
+        AnimationClip reversed = new AnimationClip(name + "_reversed");
+        reversed.durationMs = durationMs;
+        for (Map.Entry<PropertyType, List<ClipKeyframe>> entry : channels.entrySet()) {
+            List<ClipKeyframe> mirrored = new ArrayList<>();
+            for (ClipKeyframe keyframe : entry.getValue()) {
+                double offset = Math.max(0.0, durationMs - keyframe.getOffsetMs());
+                mirrored.add(new ClipKeyframe(
+                    offset,
+                    keyframe.getValue(),
+                    keyframe.getEasingSpec(),
+                    keyframe.getInterpolation()));
+            }
+            mirrored.sort(Comparator.comparingDouble(ClipKeyframe::getOffsetMs));
+            reversed.channels.put(entry.getKey(), mirrored);
+        }
+        return reversed;
     }
 
     // ---- Serialization ----

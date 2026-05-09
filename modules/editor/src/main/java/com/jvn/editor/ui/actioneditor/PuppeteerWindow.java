@@ -5908,6 +5908,10 @@ public class PuppeteerWindow extends Stage {
         applyModeBox.setValue("Layer On Top");
         applyModeBox.setStyle(STYLE_TEXT_FIELD);
 
+        CheckBox reverseClipCheck = new CheckBox("Reverse motion");
+        reverseClipCheck.setTooltip(new Tooltip("Apply the clip backwards without modifying the saved clip."));
+        reverseClipCheck.setStyle("-fx-text-fill: #d0d0d0;");
+
         Runnable refreshClipFilter = () -> {
             String query = filterField.getText() == null ? "" : filterField.getText().trim().toLowerCase(Locale.ROOT);
             clipList.getItems().clear();
@@ -5937,7 +5941,8 @@ public class PuppeteerWindow extends Stage {
 
         HBox options = new HBox(10,
             new VBox(4, makeToolbarLabel("Scale"), durationScaleField),
-            new VBox(4, makeToolbarLabel("Apply Mode"), applyModeBox)
+            new VBox(4, makeToolbarLabel("Apply Mode"), applyModeBox),
+            new VBox(4, makeToolbarLabel("Transform"), reverseClipCheck)
         );
         VBox preview = new VBox(6,
             makeToolbarLabel("Clip Preview"),
@@ -5974,7 +5979,10 @@ public class PuppeteerWindow extends Stage {
                 }
                 boolean replaceRange = "Replace Range".equals(applyModeBox.getValue());
                 try {
-                    applyClipToTrack(selectedClip.clip(), track, project.getPlayheadMs(), scale, replaceRange);
+                    AnimationClip clip = reverseClipCheck.isSelected()
+                        ? selectedClip.clip().reversed()
+                        : selectedClip.clip();
+                    applyClipToTrack(clip, track, project.getPlayheadMs(), scale, replaceRange);
                     timelinePanel.refresh();
                     refreshExportPreviewAndMarkDirty();
                     overlayDialog.hideOverlay();

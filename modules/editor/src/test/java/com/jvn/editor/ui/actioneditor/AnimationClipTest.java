@@ -54,6 +54,44 @@ class AnimationClipTest {
     }
 
     @Test
+    void reversedClipMirrorsOffsetsWithoutMutatingSource() {
+        EntityTrack source = new EntityTrack("sprite");
+        source.addKeyframe(PropertyType.X, new Keyframe(0, 0, Easing.Type.LINEAR));
+        source.addKeyframe(PropertyType.X, new Keyframe(250, 50, Easing.Type.EASE_OUT_QUAD));
+        source.addKeyframe(PropertyType.X, new Keyframe(1000, 100, Easing.Type.EASE_IN_QUAD));
+
+        AnimationClip clip = new AnimationClip("enter");
+        clip.captureFromTrack(source, 0, 1000);
+
+        AnimationClip reversed = clip.reversed();
+
+        assertEquals("enter_reversed", reversed.getName());
+        assertEquals(1000.0, reversed.getDurationMs(), 0.001);
+        assertEquals(0.0, clip.getChannels().get(PropertyType.X).get(0).getOffsetMs(), 0.001);
+        assertEquals(0.0, reversed.getChannels().get(PropertyType.X).get(0).getOffsetMs(), 0.001);
+        assertEquals(100.0, reversed.getChannels().get(PropertyType.X).get(0).getValue(), 0.001);
+        assertEquals(750.0, reversed.getChannels().get(PropertyType.X).get(1).getOffsetMs(), 0.001);
+        assertEquals(1000.0, reversed.getChannels().get(PropertyType.X).get(2).getOffsetMs(), 0.001);
+        assertEquals(0.0, reversed.getChannels().get(PropertyType.X).get(2).getValue(), 0.001);
+    }
+
+    @Test
+    void reversedClipAppliesAsReusableExitMotion() {
+        EntityTrack source = new EntityTrack("sprite");
+        source.addKeyframe(PropertyType.X, new Keyframe(0, -200, Easing.Type.LINEAR));
+        source.addKeyframe(PropertyType.X, new Keyframe(500, 0, Easing.Type.EASE_OUT_QUAD));
+
+        AnimationClip enter = new AnimationClip("slide_in");
+        enter.captureFromTrack(source, 0, 500);
+
+        EntityTrack target = new EntityTrack("sprite");
+        enter.reversed().applyToTrack(target, 1000, 1.0);
+
+        assertEquals(0.0, target.getValueAt(PropertyType.X, 1000), 0.01);
+        assertEquals(-200.0, target.getValueAt(PropertyType.X, 1500), 0.01);
+    }
+
+    @Test
     void serializeDeserializeRoundTrip() {
         EntityTrack source = new EntityTrack("sprite");
         source.addKeyframe(PropertyType.X, new Keyframe(0, 10, Easing.Type.LINEAR));
