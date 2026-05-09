@@ -15,14 +15,23 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+import com.jvn.core.animation.Easing;
+import com.jvn.core.animation.EasingSpec;
+
+import javafx.animation.AnimationTimer;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
+import javafx.scene.control.Menu;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.Slider;
+import javafx.scene.input.ContextMenuEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
@@ -132,6 +141,24 @@ public class TimelinePanel extends VBox {
     private final Map<KeyframeSelectionModel.KeyframeRef, Double> dragStartTimes = new HashMap<>();
     private List<ClipboardEntry> copiedKeyframes = List.of();
 
+    // Context menu / interaction state
+    private ContextMenu activeContextMenu;
+    private static EasingSpec easingClipboard;
+    private static Easing.Interpolation interpolationClipboard;
+
+    // Middle-mouse panning
+    private boolean middlePanning = false;
+    private double middlePanStartX;
+    private double middlePanStartY;
+    private double middlePanStartScrollX;
+    private double middlePanStartScrollY;
+
+    // Auto-scroll during keyframe drag
+    private AnimationTimer dragAutoScrollTimer;
+    private double lastDragMouseX;
+    private static final double AUTO_SCROLL_EDGE_PX = 40.0;
+    private static final double AUTO_SCROLL_MAX_SPEED_PX = 18.0;
+
     public record ClipboardEntry(String sourceName,
                                   boolean group,
                                   PropertyType property,
@@ -210,6 +237,7 @@ public class TimelinePanel extends VBox {
         canvas.setOnMouseClicked(this::handleMouseClicked);
         canvas.setOnMouseMoved(this::handleMouseMoved);
         canvas.setOnMouseExited(this::handleMouseExited);
+        canvas.setOnContextMenuRequested(this::handleContextMenuRequested);
         scrollPane.addEventFilter(ScrollEvent.SCROLL, this::handleScroll);
 
         widthProperty().addListener((obs, oldVal, newVal) -> {
@@ -330,16 +358,19 @@ public class TimelinePanel extends VBox {
     public void addKeyframeForAllEntities(double time, PropertyType property) {
         if (property == null) return;
         time = clampOrExpandTimeline(snapTime(Math.max(0, time)));
-        int count = 0;
+        List<PuppeteerCommand> cmds = new ArrayList<>();
         for (EntityTrack track : project.getTracks()) {
             double value = track.getValueAt(property, time);
-            track.upsertKeyframe(property, new Keyframe(time, value));
-            count++;
+            cmds.add(PuppeteerCommand.upsertKeyframe(track, property, time, value));
         }
-        if (count > 0) {
-            notifyEdited();
-            render();
+        if (cmds.isEmpty()) return;
+        if (commandStack != null) {
+            commandStack.execute(PuppeteerCommand.composite("Add keyframe for all entities", cmds));
+        } else {
+            for (PuppeteerCommand cmd : cmds) cmd.execute();
         }
+        notifyEdited();
+        render();
     }
 
     public void deleteSelectedKeyframe() {
@@ -1136,6 +1167,23 @@ public class TimelinePanel extends VBox {
         double x = e.getX();
         double y = e.getY();
 
+        dismissContextMenu();
+
+        if (e.getButton() == MouseButton.MIDDLE) {
+            middlePanning = true;
+            middlePanStartX = x;
+            middlePanStartY = y;
+            middlePanStartScrollX = scrollX;
+            middlePanStartScrollY = scrollY;
+            canvas.setCursor(javafx.scene.Cursor.MOVE);
+            e.consume();
+            return;
+        }
+
+        if (e.getButton() != MouseButton.PRIMARY) {
+            return;
+        }
+
         if (y < HEADER_HEIGHT + 5) {
             draggingPlayhead = true;
             updatePlayheadFromX(x);
@@ -1180,6 +1228,15 @@ public class TimelinePanel extends VBox {
     }
 
     private void handleMouseDragged(MouseEvent e) {
+        if (middlePanning) {
+            double dx = e.getX() - middlePanStartX;
+            double dy = e.getY() - middlePanStartY;
+            scrollX = Math.max(0.0, middlePanStartScrollX - dx);
+            scrollY = Math.max(0.0, middlePanStartScrollY - dy);
+            clampScrollOffsets();
+            render();
+            return;
+        }
         if (draggingPlayhead) {
             updatePlayheadFromX(e.getX());
         } else if (draggingKeyframe && selectedKeyframe != null) {
@@ -1194,6 +1251,8 @@ public class TimelinePanel extends VBox {
                 double next = clampOrExpandTimeline(snapTime(selectedKeyframe.getTimeMs() + dt));
                 selectedKeyframe.setTimeMs(next);
             }
+            lastDragMouseX = e.getX();
+            ensureDragAutoScrollRunning();
             render();
         } else if (marqueeSelecting) {
             marqueeEndX = e.getX();
@@ -1205,6 +1264,12 @@ public class TimelinePanel extends VBox {
 
     private void handleMouseReleased(MouseEvent e) {
         e.consume();
+        if (middlePanning) {
+            middlePanning = false;
+            canvas.setCursor(javafx.scene.Cursor.DEFAULT);
+            return;
+        }
+        stopDragAutoScroll();
         if (draggingKeyframe && selectedEntity != null) {
             // Build undo commands for the drag
             if (commandStack != null && !dragStartTimes.isEmpty()) {
@@ -1627,9 +1692,9 @@ public class TimelinePanel extends VBox {
         for (TrackRow row : buildVisibleRows()) {
             if (row.property() == null) continue;
             if (row.track() == null) continue;
+            // Marquee includes any track row whose band overlaps the marquee Y-range,
+            // not just rows whose center is fully inside.
             if (row.y() + row.height() < y1 || row.y() > y2) continue;
-            double cy = row.y() + row.height() / 2;
-            if (cy < y1 || cy > y2) continue;
             for (Keyframe keyframe : row.track().getKeyframes(row.property())) {
                 double kx = LABEL_WIDTH + keyframe.getTimeMs() * pixelsPerMs - scrollX;
                 if (kx >= x1 && kx <= x2) {
@@ -1972,5 +2037,351 @@ public class TimelinePanel extends VBox {
         if (onTargetSelectionChanged != null) {
             onTargetSelectionChanged.accept(selectedEntity, selectedGroup);
         }
+    }
+
+    // ---------------------------------------------------------------------
+    // Auto-scroll while dragging keyframes near the canvas horizontal edges
+    // ---------------------------------------------------------------------
+
+    private void ensureDragAutoScrollRunning() {
+        if (dragAutoScrollTimer != null) return;
+        dragAutoScrollTimer = new AnimationTimer() {
+            @Override public void handle(long now) {
+                if (!draggingKeyframe) {
+                    stopDragAutoScroll();
+                    return;
+                }
+                double width = canvas.getWidth();
+                double leftEdge = LABEL_WIDTH + AUTO_SCROLL_EDGE_PX;
+                double rightEdge = width - AUTO_SCROLL_EDGE_PX;
+                double speed = 0.0;
+                if (lastDragMouseX < leftEdge) {
+                    double t = Math.max(0.0, Math.min(1.0, (leftEdge - lastDragMouseX) / AUTO_SCROLL_EDGE_PX));
+                    speed = -AUTO_SCROLL_MAX_SPEED_PX * t;
+                } else if (lastDragMouseX > rightEdge) {
+                    double t = Math.max(0.0, Math.min(1.0, (lastDragMouseX - rightEdge) / AUTO_SCROLL_EDGE_PX));
+                    speed = AUTO_SCROLL_MAX_SPEED_PX * t;
+                }
+                if (Math.abs(speed) < 0.5) return;
+                double prevScroll = scrollX;
+                scrollX = Math.max(0.0, scrollX + speed);
+                clampScrollOffsets();
+                double effectiveDelta = scrollX - prevScroll;
+                if (Math.abs(effectiveDelta) < 0.001) return;
+                // Apply equivalent time delta to dragged keyframes so they keep up with view
+                double timeDelta = effectiveDelta / pixelsPerMs;
+                if (!dragStartTimes.isEmpty()) {
+                    for (Map.Entry<KeyframeSelectionModel.KeyframeRef, Double> entry : dragStartTimes.entrySet()) {
+                        Keyframe moving = entry.getKey().keyframe();
+                        double next = clampOrExpandTimeline(snapTime(moving.getTimeMs() + timeDelta));
+                        moving.setTimeMs(next);
+                    }
+                } else if (selectedKeyframe != null) {
+                    double next = clampOrExpandTimeline(snapTime(selectedKeyframe.getTimeMs() + timeDelta));
+                    selectedKeyframe.setTimeMs(next);
+                }
+                render();
+            }
+        };
+        dragAutoScrollTimer.start();
+    }
+
+    private void stopDragAutoScroll() {
+        if (dragAutoScrollTimer != null) {
+            dragAutoScrollTimer.stop();
+            dragAutoScrollTimer = null;
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // Right-click context menu
+    // ---------------------------------------------------------------------
+
+    private void dismissContextMenu() {
+        if (activeContextMenu != null && activeContextMenu.isShowing()) {
+            activeContextMenu.hide();
+        }
+        activeContextMenu = null;
+    }
+
+    private void handleContextMenuRequested(ContextMenuEvent e) {
+        double x = e.getX();
+        double y = e.getY();
+        dismissContextMenu();
+
+        ContextMenu menu;
+        KeyframeHit hit = findKeyframeAt(x, y);
+        if (hit != null) {
+            ensureKeyframeIsSelected(hit);
+            menu = buildKeyframeContextMenu(hit);
+        } else {
+            TrackRow row = findRowAt(y);
+            if (row != null && row.property() != null) {
+                selectedEntity = row.selectionName();
+                selectedGroup = row.group();
+                selectedProperty = row.property();
+                notifyTargetSelectionChanged();
+                render();
+                menu = buildRowContextMenu(row, x);
+            } else {
+                menu = buildEmptyContextMenu(x);
+            }
+        }
+
+        if (menu == null) return;
+        activeContextMenu = menu;
+        menu.show(canvas, e.getScreenX(), e.getScreenY());
+        e.consume();
+    }
+
+    private void ensureKeyframeIsSelected(KeyframeHit hit) {
+        KeyframeSelectionModel.KeyframeRef ref =
+            KeyframeSelectionModel.ref(storageNameForRow(hit.row()), hit.row().property(), hit.keyframe());
+        if (!selectionModel.isSelected(ref)) {
+            selectionModel.clearSelection();
+            selectionModel.select(ref);
+        }
+        selectedEntity = hit.row().selectionName();
+        selectedGroup = hit.row().group();
+        selectedProperty = hit.row().property();
+        selectedKeyframe = hit.keyframe();
+        notifyTargetSelectionChanged();
+        notifyKeyframeSelectionChanged();
+        render();
+    }
+
+    private ContextMenu buildKeyframeContextMenu(KeyframeHit hit) {
+        ContextMenu menu = new ContextMenu();
+        int count = Math.max(1, selectionModel.getSelectionCount());
+        Keyframe primary = hit.keyframe();
+        PropertyType property = hit.row().property();
+
+        MenuItem miHeader = new MenuItem(count > 1
+            ? count + " keyframes selected"
+            : property.getDisplayName() + " @ " + formatTime(primary.getTimeMs()));
+        miHeader.setDisable(true);
+        menu.getItems().add(miHeader);
+        menu.getItems().add(new SeparatorMenuItem());
+
+        MenuItem miCopy = new MenuItem("Copy");
+        miCopy.setOnAction(ev -> { copySelectedKeyframes(); });
+        MenuItem miCut = new MenuItem("Cut");
+        miCut.setOnAction(ev -> { copySelectedKeyframes(); deleteSelectedKeyframe(); });
+        MenuItem miDuplicate = new MenuItem("Duplicate (+snap step)");
+        miDuplicate.setOnAction(ev -> { duplicateSelectedKeyframes(snapStepMs); notifyEdited(); });
+        MenuItem miCopyEasing = new MenuItem("Copy Easing");
+        miCopyEasing.setOnAction(ev -> {
+            easingClipboard = primary.getEasingSpec();
+            interpolationClipboard = primary.getInterpolation();
+        });
+        MenuItem miPasteEasing = new MenuItem("Paste Easing");
+        miPasteEasing.setDisable(easingClipboard == null);
+        miPasteEasing.setOnAction(ev -> {
+            applyEasingToSelectionOrPrimary(easingClipboard, interpolationClipboard);
+        });
+        MenuItem miDelete = new MenuItem("Delete");
+        miDelete.setOnAction(ev -> deleteSelectedKeyframe());
+
+        menu.getItems().addAll(miCopy, miCut, miDuplicate,
+            new SeparatorMenuItem(),
+            miCopyEasing, miPasteEasing,
+            new SeparatorMenuItem());
+
+        Menu easingPresets = new Menu("Set Easing");
+        easingPresets.getItems().addAll(
+            easingMenuItem("Linear", Easing.Type.LINEAR),
+            easingMenuItem("Ease In (Quad)", Easing.Type.EASE_IN_QUAD),
+            easingMenuItem("Ease Out (Quad)", Easing.Type.EASE_OUT_QUAD),
+            easingMenuItem("Ease In-Out (Quad)", Easing.Type.EASE_IN_OUT_QUAD),
+            new SeparatorMenuItem(),
+            easingMenuItem("Ease In (Cubic)", Easing.Type.EASE_IN_CUBIC),
+            easingMenuItem("Ease Out (Cubic)", Easing.Type.EASE_OUT_CUBIC),
+            easingMenuItem("Ease In-Out (Cubic)", Easing.Type.EASE_IN_OUT_CUBIC)
+        );
+        Menu interpMenu = new Menu("Interpolation");
+        for (Easing.Interpolation interp : Easing.Interpolation.values()) {
+            MenuItem mi = new MenuItem(interp.name());
+            mi.setOnAction(ev -> applyInterpolationToSelectionOrPrimary(interp));
+            interpMenu.getItems().add(mi);
+        }
+        menu.getItems().addAll(easingPresets, interpMenu, new SeparatorMenuItem());
+
+        MenuItem miSnapToPlayhead = new MenuItem("Move to Playhead");
+        miSnapToPlayhead.setOnAction(ev -> moveSelectionToTime(project.getPlayheadMs()));
+        MenuItem miPlayheadToHere = new MenuItem("Playhead to This Keyframe");
+        miPlayheadToHere.setOnAction(ev -> {
+            project.setPlayheadMs(primary.getTimeMs());
+            if (onPlayheadChanged != null) onPlayheadChanged.accept(primary.getTimeMs());
+            render();
+        });
+        MenuItem miSelectColumn = new MenuItem("Select Column at Time");
+        miSelectColumn.setOnAction(ev -> selectKeyframesAtTime(primary.getTimeMs(), 0.5));
+        MenuItem miSelectTrack = new MenuItem("Select All on Track");
+        miSelectTrack.setOnAction(ev -> selectAllKeyframesOnTrack(hit.row()));
+        menu.getItems().addAll(miSnapToPlayhead, miPlayheadToHere, miSelectColumn, miSelectTrack,
+            new SeparatorMenuItem(), miDelete);
+        return menu;
+    }
+
+    private MenuItem easingMenuItem(String label, Easing.Type type) {
+        MenuItem mi = new MenuItem(label);
+        mi.setOnAction(ev -> applyEasingToSelectionOrPrimary(EasingSpec.of(type), null));
+        return mi;
+    }
+
+    private ContextMenu buildRowContextMenu(TrackRow row, double mouseX) {
+        ContextMenu menu = new ContextMenu();
+        double rowTime = clampToTimeline((mouseX - LABEL_WIDTH + scrollX) / pixelsPerMs);
+        MenuItem header = new MenuItem(row.displayLabel() + (row.property() != null ? "  /  " + row.property().getDisplayName() : ""));
+        header.setDisable(true);
+        menu.getItems().add(header);
+        menu.getItems().add(new SeparatorMenuItem());
+
+        MenuItem miAddHere = new MenuItem(String.format(Locale.ROOT, "Add Keyframe Here (%s)", formatTime(rowTime)));
+        miAddHere.setOnAction(ev -> addKeyframeAtTime(rowTime));
+        MenuItem miAddPlayhead = new MenuItem("Add Keyframe at Playhead");
+        miAddPlayhead.setOnAction(ev -> addKeyframeAtPlayhead());
+        MenuItem miPaste = new MenuItem("Paste at Playhead");
+        miPaste.setDisable(copiedKeyframes.isEmpty());
+        miPaste.setOnAction(ev -> pasteCopiedKeyframesAtPlayhead());
+        MenuItem miSelectAll = new MenuItem("Select All on Track");
+        miSelectAll.setOnAction(ev -> selectAllKeyframesOnTrack(row));
+        MenuItem miClearTrack = new MenuItem("Clear All on Track");
+        miClearTrack.setOnAction(ev -> clearAllKeyframesOnTrack(row));
+        menu.getItems().addAll(miAddHere, miAddPlayhead, miPaste, new SeparatorMenuItem(), miSelectAll, miClearTrack);
+        return menu;
+    }
+
+    private ContextMenu buildEmptyContextMenu(double mouseX) {
+        ContextMenu menu = new ContextMenu();
+        MenuItem miPaste = new MenuItem("Paste at Playhead");
+        miPaste.setDisable(copiedKeyframes.isEmpty());
+        miPaste.setOnAction(ev -> pasteCopiedKeyframesAtPlayhead());
+        MenuItem miZoomFit = new MenuItem("Zoom to Fit");
+        miZoomFit.setOnAction(ev -> zoomToFit());
+        MenuItem miZoomSel = new MenuItem("Zoom to Selection");
+        miZoomSel.setOnAction(ev -> zoomToSelection());
+        menu.getItems().addAll(miPaste, new SeparatorMenuItem(), miZoomFit, miZoomSel);
+        return menu;
+    }
+
+    // ---------------------------------------------------------------------
+    // Public/internal helpers used by context menu and external shortcuts
+    // ---------------------------------------------------------------------
+
+    public void applyEasingToSelectionOrPrimary(EasingSpec spec, Easing.Interpolation interpolation) {
+        if (spec == null && interpolation == null) return;
+        List<Keyframe> targets = collectSelectionTargets();
+        if (targets.isEmpty()) return;
+        List<PuppeteerCommand> cmds = new ArrayList<>();
+        for (Keyframe kf : targets) {
+            EasingSpec oldSpec = kf.getEasingSpec();
+            Easing.Interpolation oldInterp = kf.getInterpolation();
+            EasingSpec newSpec = spec != null ? spec : oldSpec;
+            Easing.Interpolation newInterp = interpolation != null ? interpolation : oldInterp;
+            if (Objects.equals(oldSpec, newSpec) && oldInterp == newInterp) continue;
+            cmds.add(new PuppeteerCommand("Change easing",
+                () -> { kf.setEasingSpec(newSpec); kf.setInterpolation(newInterp); },
+                () -> { kf.setEasingSpec(oldSpec); kf.setInterpolation(oldInterp); }
+            ));
+        }
+        if (cmds.isEmpty()) return;
+        if (commandStack != null) {
+            commandStack.execute(PuppeteerCommand.composite("Apply easing", cmds));
+        } else {
+            for (PuppeteerCommand cmd : cmds) cmd.execute();
+        }
+        notifyEdited();
+        render();
+    }
+
+    public void applyInterpolationToSelectionOrPrimary(Easing.Interpolation interpolation) {
+        applyEasingToSelectionOrPrimary(null, interpolation);
+    }
+
+    private List<Keyframe> collectSelectionTargets() {
+        List<Keyframe> targets = new ArrayList<>();
+        if (selectionModel.hasSelection()) {
+            for (KeyframeSelectionModel.KeyframeRef ref : selectionModel.getSelectedOrdered()) {
+                if (ref != null && ref.keyframe() != null) targets.add(ref.keyframe());
+            }
+        } else if (selectedKeyframe != null) {
+            targets.add(selectedKeyframe);
+        }
+        return targets;
+    }
+
+    private void moveSelectionToTime(double timeMs) {
+        List<Keyframe> targets = collectSelectionTargets();
+        if (targets.isEmpty()) return;
+        List<PuppeteerCommand> cmds = new ArrayList<>();
+        double snapped = clampOrExpandTimeline(snapTime(timeMs));
+        for (Keyframe kf : targets) {
+            double oldTime = kf.getTimeMs();
+            if (Math.abs(oldTime - snapped) < 0.001) continue;
+            cmds.add(PuppeteerCommand.moveKeyframe(kf, oldTime, snapped));
+        }
+        if (cmds.isEmpty()) return;
+        if (commandStack != null) {
+            commandStack.execute(PuppeteerCommand.composite("Move keyframes to time", cmds));
+        } else {
+            for (PuppeteerCommand cmd : cmds) cmd.execute();
+        }
+        // Resort affected tracks
+        EntityTrack track = selectedTrack(false);
+        if (track != null && selectedProperty != null) track.sortKeyframes(selectedProperty);
+        notifyEdited();
+        render();
+    }
+
+    public void selectKeyframesAtTime(double timeMs, double toleranceMs) {
+        selectionModel.clearSelection();
+        for (TrackRow row : buildVisibleRows()) {
+            if (row.property() == null || row.track() == null) continue;
+            for (Keyframe kf : row.track().getKeyframes(row.property())) {
+                if (Math.abs(kf.getTimeMs() - timeMs) <= toleranceMs) {
+                    selectionModel.select(KeyframeSelectionModel.ref(storageNameForRow(row), row.property(), kf));
+                }
+            }
+        }
+        selectedKeyframe = selectionModel.getSelectedOrdered().stream()
+            .reduce((a, b) -> b)
+            .map(KeyframeSelectionModel.KeyframeRef::keyframe)
+            .orElse(null);
+        notifyKeyframeSelectionChanged();
+        render();
+    }
+
+    void selectAllKeyframesOnTrack(TrackRow row) {
+        if (row == null || row.track() == null || row.property() == null) return;
+        selectionModel.clearSelection();
+        String storage = storageNameForRow(row);
+        for (Keyframe kf : row.track().getKeyframes(row.property())) {
+            selectionModel.select(KeyframeSelectionModel.ref(storage, row.property(), kf));
+        }
+        selectedKeyframe = selectionModel.getSelectedOrdered().stream()
+            .reduce((a, b) -> b)
+            .map(KeyframeSelectionModel.KeyframeRef::keyframe)
+            .orElse(null);
+        notifyKeyframeSelectionChanged();
+        render();
+    }
+
+    void clearAllKeyframesOnTrack(TrackRow row) {
+        if (row == null || row.track() == null || row.property() == null) return;
+        List<Keyframe> kfs = new ArrayList<>(row.track().getKeyframes(row.property()));
+        if (kfs.isEmpty()) return;
+        List<PuppeteerCommand> cmds = new ArrayList<>();
+        for (Keyframe kf : kfs) {
+            cmds.add(PuppeteerCommand.removeKeyframe(row.track(), row.property(), kf));
+        }
+        if (commandStack != null) {
+            commandStack.execute(PuppeteerCommand.composite("Clear track keyframes", cmds));
+        } else {
+            for (PuppeteerCommand cmd : cmds) cmd.execute();
+        }
+        clearKeyframeSelection();
+        notifyEdited();
+        render();
     }
 }

@@ -398,7 +398,8 @@ public class KeyframeEditor extends VBox {
         HBox.setHgrow(easingBox, Priority.ALWAYS);
         Label easingHint = new Label("Tweens can use library presets or be converted into an editable bezier curve.");
         easingHint.setStyle(SUBTLE_HINT_STYLE);
-        VBox easingSection = buildSection("Interpolation + Easing", easingSectionRow, easingHint);
+        FlowPane quickEasingStrip = buildQuickEasingStrip();
+        VBox easingSection = buildSection("Interpolation + Easing", easingSectionRow, quickEasingStrip, easingHint);
 
         HBox curveToolbar = new HBox(8, new Label("Curve Workspace"), createSpacer(), btnPlayStopAnim, btnEditCurve, btnUpdateCurvePreset, btnExpandCurveEditor);
         curveToolbar.setAlignment(Pos.CENTER_LEFT);
@@ -701,6 +702,37 @@ public class KeyframeEditor extends VBox {
             box.getChildren().addAll(content);
         }
         return box;
+    }
+
+    private FlowPane buildQuickEasingStrip() {
+        FlowPane strip = new FlowPane(6, 6);
+        strip.setAlignment(Pos.CENTER_LEFT);
+        strip.setMaxWidth(Double.MAX_VALUE);
+        strip.getChildren().addAll(
+            buildQuickEasingButton("Linear", Easing.Type.LINEAR),
+            buildQuickEasingButton("In", Easing.Type.EASE_IN_QUAD),
+            buildQuickEasingButton("Out", Easing.Type.EASE_OUT_QUAD),
+            buildQuickEasingButton("In-Out", Easing.Type.EASE_IN_OUT_QUAD),
+            buildQuickEasingButton("Cubic Out", Easing.Type.EASE_OUT_CUBIC),
+            buildQuickEasingButton("Bounce", Easing.Type.EASE_OUT_BOUNCE)
+        );
+        return strip;
+    }
+
+    private Button buildQuickEasingButton(String label, Easing.Type type) {
+        Button button = new Button(label);
+        button.setStyle(SECONDARY_BUTTON_STYLE);
+        button.setTooltip(new Tooltip("Apply " + label + " easing to the selected keyframe(s)"));
+        button.setOnAction(e -> {
+            if (currentKeyframe == null && currentSelection.isEmpty()) return;
+            EasingSpec spec = EasingSpec.of(type);
+            syncCurveEditBaseline(spec);
+            applyExplicitEasingSpec(spec);
+            syncPresetEditSessionFromSelection(false);
+            refreshPresetUiState();
+            if (onKeyframeChanged != null) onKeyframeChanged.run();
+        });
+        return button;
     }
 
     private Region createSpacer() {
