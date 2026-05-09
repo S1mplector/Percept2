@@ -1163,6 +1163,9 @@ public class AnimationProject {
         copy.setOrbitAnchors(getOrbitAnchorsView());
         copy.setOrbitAnchorSources(getOrbitAnchorSourcesView());
         copy.setOrbitAnchorSourceOffsets(getOrbitAnchorSourceOffsetsView());
+        for (Map.Entry<String, Constraint> entry : constraints.entrySet()) {
+            copy.constraints.put(entry.getKey(), entry.getValue());
+        }
         for (EntityTrack t : entityTracks.values()) {
             copy.entityTracks.put(t.getEntityName(), t.copy());
         }

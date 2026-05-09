@@ -926,9 +926,6 @@ public class AnimationPreview extends VBox {
                 if (hasPivotX || hasPivotY || hasRotation || hasScaleX || hasScaleY) {
                     double pivX = hasPivotX ? track.getValueAt(PropertyType.PIVOT_X, t) : 0.5;
                     double pivY = hasPivotY ? track.getValueAt(PropertyType.PIVOT_Y, t) : 0.5;
-                    double rot = hasRotation ? Math.toRadians(track.getValueAt(PropertyType.ROTATION, t)) : 0.0;
-                    double sX = hasScaleX ? track.getValueAt(PropertyType.SCALE_X, t) : 1.0;
-                    double sY = hasScaleY ? track.getValueAt(PropertyType.SCALE_Y, t) : 1.0;
 
                     gc.save();
                     gc.translate(x, y);
@@ -1048,8 +1045,19 @@ public class AnimationPreview extends VBox {
             double t = startTime + (span * i / (ghostCount + 1));
             if (t < 0 || t > dur) continue;
             
-            double x = track.getValueAt(PropertyType.X, t);
-            double y = track.getValueAt(PropertyType.Y, t);
+            double baseX = track.getValueAt(PropertyType.X, t);
+            double baseY = track.getValueAt(PropertyType.Y, t);
+            double baseRot = hasRotation ? track.getValueAt(PropertyType.ROTATION, t) : 0.0;
+            double baseScaleX = hasScaleX ? track.getValueAt(PropertyType.SCALE_X, t) : 1.0;
+            double baseScaleY = hasScaleY ? track.getValueAt(PropertyType.SCALE_Y, t) : 1.0;
+            
+            ConstraintEvaluator.ConstrainedTransform constrained = getConstrainedTransform(
+                track.getEntityName(), baseX, baseY, baseRot, baseScaleX, baseScaleY, t);
+            double x = constrained.x;
+            double y = constrained.y;
+            double rot = Math.toRadians(constrained.rotationDeg);
+            double sX = constrained.scaleX;
+            double sY = constrained.scaleY;
             
             // Opacity fades toward the edges
             double alpha = 0.4 * (1.0 - Math.abs(i - (ghostCount + 1) / 2.0) / ((ghostCount + 1) / 2.0));
@@ -1061,9 +1069,6 @@ public class AnimationPreview extends VBox {
             if (hasPivotX || hasPivotY || hasRotation || hasScaleX || hasScaleY) {
                 double pivX = hasPivotX ? track.getValueAt(PropertyType.PIVOT_X, t) : 0.5;
                 double pivY = hasPivotY ? track.getValueAt(PropertyType.PIVOT_Y, t) : 0.5;
-                double rot = hasRotation ? Math.toRadians(track.getValueAt(PropertyType.ROTATION, t)) : 0.0;
-                double sX = hasScaleX ? track.getValueAt(PropertyType.SCALE_X, t) : 1.0;
-                double sY = hasScaleY ? track.getValueAt(PropertyType.SCALE_Y, t) : 1.0;
                 
                 gc.save();
                 gc.translate(x, y);
