@@ -1281,6 +1281,7 @@ public class VnsCodeEditor extends BorderPane {
       out.add(new CodeAutoCompleter.Suggestion("[visualizer "));
       out.add(new CodeAutoCompleter.Suggestion("[set "));
       out.add(new CodeAutoCompleter.Suggestion("[inc "));
+      out.add(new CodeAutoCompleter.Suggestion("[dec "));
       out.add(new CodeAutoCompleter.Suggestion("[persistent "));
       out.add(new CodeAutoCompleter.Suggestion("[if "));
       out.add(new CodeAutoCompleter.Suggestion("[elif "));
