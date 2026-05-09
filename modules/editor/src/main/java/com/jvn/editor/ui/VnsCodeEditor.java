@@ -2134,6 +2134,7 @@ public class VnsCodeEditor extends BorderPane {
       {"Play Voice", "[voice voice_file]"},
       {"Particles", "[particles preset=rain intensity=0.5 layer=100 opacity=0.8 wind=20]"},
       {"Weather", "[weather preset=snow intensity=0.4 layer=120 duration=3000]"},
+      {"Audio Visualizer", "[visualizer on bars=48]"},
       {"Wait", "[wait 1.0]"},
       {"Transition", "[transition type=fade dur=500 bg=background_name]"},
       {"Stage Preset", "@stagepreset preset_id config/stage/preset.stagepreset"},
