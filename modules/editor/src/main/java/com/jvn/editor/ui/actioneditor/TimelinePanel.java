@@ -2327,11 +2327,28 @@ public class TimelinePanel extends VBox {
         } else {
             for (PuppeteerCommand cmd : cmds) cmd.execute();
         }
-        // Resort affected tracks
-        EntityTrack track = selectedTrack(false);
-        if (track != null && selectedProperty != null) track.sortKeyframes(selectedProperty);
+        sortMovedSelectionTargets();
         notifyEdited();
         render();
+    }
+
+    private void sortMovedSelectionTargets() {
+        Set<String> sortedChannels = new HashSet<>();
+        if (selectionModel.hasSelection()) {
+            for (KeyframeSelectionModel.KeyframeRef ref : selectionModel.getSelectedOrdered()) {
+                if (ref == null || ref.property() == null) continue;
+                EntityTrack track = project.getTrack(ref.entityName());
+                if (track == null) continue;
+                String channelKey = ref.entityName() + "\u0000" + ref.property().name();
+                if (sortedChannels.add(channelKey)) {
+                    track.sortKeyframes(ref.property());
+                }
+            }
+        }
+        if (sortedChannels.isEmpty()) {
+            EntityTrack track = selectedTrack(false);
+            if (track != null && selectedProperty != null) track.sortKeyframes(selectedProperty);
+        }
     }
 
     public void selectKeyframesAtTime(double timeMs, double toleranceMs) {
