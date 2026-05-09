@@ -24,6 +24,10 @@ For distribution, build the packaged Engine Hub jar:
 ./scripts/package-engine-hub.sh
 ```
 
+```powershell
+.\scripts\package-engine-hub.ps1
+```
+
 Or run the Gradle task directly:
 
 ```bash
