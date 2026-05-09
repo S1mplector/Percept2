@@ -92,7 +92,7 @@ public class VnsCodeEditor extends BorderPane {
   private static final String FORMAT_PATTERN = "\\{/?[bius]\\}|\\{color=[^}]*\\}|\\{/color\\}";
   private static final String DIRECTIVE_PATTERN = "@(?:scenario|character|background|charimg|charlayer|charpreset|stagepreset|position|label|define|include|var|bind|jimport|external)\\b";
   private static final String CMD_OPEN_PATTERN =
-      "\\[(?:show|hide|jump|end|wait|bg|background"
+      "\\[(?:show|move|hide|jump|end|wait|bg|background"
     + "|bgm_crossfade|bgm_fadeout|bgm_resume|bgm_pause|bgm_seek|bgm_stop|bgm"
     + "|particles|particle|weather|pfx|fx"
     + "|audio_resume_all|audio_pause_all|audio_stop_all|audio|sfx_stop|sfx|voice_stop|voice|volume|textspeed|autodelay"
