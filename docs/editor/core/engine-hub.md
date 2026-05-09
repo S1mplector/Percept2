@@ -42,6 +42,18 @@ Run it with:
 java -jar build/distributions/jvn-engine-hub-<version>.jar
 ```
 
+To build the larger package with a warmed Gradle dependency cache:
+
+```bash
+./scripts/package-engine-hub.sh --with-cache
+```
+
+```powershell
+.\scripts\package-engine-hub.ps1 --with-cache
+```
+
+That artifact is written to `build/distributions/jvn-engine-hub-cached-<version>.jar`. It extracts a local `.jvn-gradle-user-home` next to the bundled engine workspace and the hub automatically uses it for Gradle actions. This reduces first-run dependency work on slower machines by carrying the Gradle wrapper, dependency cache, and the host Java 21 toolchain cache, but the jar is larger and the cache is platform-sensitive for the Java toolchain and native JavaFX artifacts.
+
 This jar contains a clean copy of the engine workspace. On first launch it extracts that workspace under `~/.jvn/engine-hub/<version>/<bundle-hash>/engine` and starts the normal hub against it. The hub can then launch the editor, launcher, Gradle builds, shortcut installers, docs, and updates from the extracted workspace.
 
 To override the extraction cache location:

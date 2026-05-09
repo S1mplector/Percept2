@@ -107,3 +107,103 @@ tasks.register<Jar>("packageEngineHubJar") {
     rename { "packaged-engine.zip" }
   }
 }
+
+val packagedGradleCacheHome = layout.buildDirectory.dir("packaged-gradle-cache/home")
+
+val preparePackagedGradleCache = tasks.register<Exec>("preparePackagedGradleCache") {
+  group = "distribution"
+  description = "Warms an isolated Gradle user home for the cached Engine Hub jar."
+  val cacheHome = packagedGradleCacheHome
+  inputs.files(
+      rootProject.layout.projectDirectory.file("settings.gradle.kts"),
+      rootProject.layout.projectDirectory.file("build.gradle.kts"),
+      rootProject.layout.projectDirectory.file("gradle.properties"))
+  outputs.dir(cacheHome)
+
+  doFirst {
+    delete(cacheHome)
+    cacheHome.get().asFile.mkdirs()
+  }
+
+  workingDir = rootProject.rootDir
+  environment("GRADLE_USER_HOME", cacheHome.get().asFile.absolutePath)
+  commandLine(
+      if (System.getProperty("os.name").lowercase().contains("win")) "gradlew.bat" else "./gradlew",
+      "--no-daemon",
+      "--console=plain",
+      ":core:compileJava",
+      ":fx:compileJava",
+      ":audio:compileJava",
+      ":scripting:compileJava",
+      ":runtime:compileJava",
+      ":editor:compileJava",
+      ":hub:compileJava")
+}
+
+val stripPackagedGradleCache = tasks.register("stripPackagedGradleCache") {
+  group = "distribution"
+  description = "Removes volatile or machine-local files from the packaged Gradle cache."
+  dependsOn(preparePackagedGradleCache)
+  val cacheHome = packagedGradleCacheHome
+  inputs.dir(cacheHome)
+  outputs.dir(cacheHome)
+
+  doLast {
+    val home = cacheHome.get().asFile
+    delete(
+        home.resolve("daemon"),
+        home.resolve("notifications"),
+        home.resolve("workers"),
+        home.resolve("caches/build-cache-1"),
+        home.resolve("caches/journal-1"))
+    fileTree(home) {
+      include("**/*.lock")
+      include("**/*.log")
+      include("**/gc.properties")
+      include("**/fileHashes.lock")
+      include("**/executionHistory.lock")
+      include("jdks/*.tar.gz")
+      include("jdks/*.zip")
+    }.files.forEach { delete(it) }
+  }
+}
+
+val packagedGradleCacheZip = tasks.register<Zip>("packagedGradleCacheZip") {
+  group = "distribution"
+  description = "Zips the warmed Gradle dependency cache for the cached Engine Hub jar."
+  dependsOn(stripPackagedGradleCache)
+  archiveFileName.set("packaged-gradle-cache.zip")
+  destinationDirectory.set(layout.buildDirectory.dir("packaged-engine"))
+  isZip64 = true
+  from(packagedGradleCacheHome) {
+    into(".jvn-gradle-user-home")
+    includeEmptyDirs = false
+  }
+}
+
+tasks.register<Jar>("packageEngineHubJarWithCache") {
+  group = "distribution"
+  description = "Builds a launchable Engine Hub jar with the engine workspace and a warmed Gradle cache."
+  dependsOn(tasks.named("classes"), packagedEngineWorkspaceZip, packagedGradleCacheZip)
+  archiveBaseName.set("jvn-engine-hub-cached")
+  archiveVersion.set(rootProject.version.toString())
+  destinationDirectory.set(rootProject.layout.buildDirectory.dir("distributions"))
+  duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+  manifest {
+    attributes(
+        "Main-Class" to "com.jvn.hub.PackagedHubLauncher",
+        "Implementation-Title" to "JVN Engine Hub",
+        "Implementation-Version" to rootProject.version.toString())
+  }
+
+  from(sourceSets.main.get().output)
+  from(packagedEngineWorkspaceZip) {
+    into("com/jvn/hub")
+    rename { "packaged-engine.zip" }
+  }
+  from(packagedGradleCacheZip) {
+    into("com/jvn/hub")
+    rename { "packaged-gradle-cache.zip" }
+  }
+}

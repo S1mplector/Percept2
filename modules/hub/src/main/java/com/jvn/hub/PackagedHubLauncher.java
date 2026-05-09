@@ -28,9 +28,11 @@ import java.util.zip.ZipInputStream;
  */
 public final class PackagedHubLauncher {
   private static final String BUNDLE_RESOURCE = "/com/jvn/hub/packaged-engine.zip";
+  private static final String GRADLE_CACHE_RESOURCE = "/com/jvn/hub/packaged-gradle-cache.zip";
   private static final String INSTALL_ROOT_PROPERTY = "jvn.packagedEngineRoot";
   private static final String INSTALL_ROOT_ENV = "JVN_PACKAGED_ENGINE_ROOT";
   private static final String MARKER_FILE = ".jvn-packaged-engine.properties";
+  private static final String GRADLE_CACHE_MARKER_FILE = ".jvn-packaged-gradle-cache.properties";
 
   private PackagedHubLauncher() {
   }
@@ -45,6 +47,12 @@ public final class PackagedHubLauncher {
 
       Bundle bundle = copyBundleToTempFile();
       Path projectRoot = ensureExtractedWorkspace(bundle);
+      Bundle gradleCache = copyOptionalBundleToTempFile(
+          GRADLE_CACHE_RESOURCE,
+          "jvn-packaged-gradle-cache-");
+      if (gradleCache != null) {
+        ensureExtractedGradleCache(projectRoot, gradleCache);
+      }
       if (hasFlag(args, "--extract-only")) {
         System.out.println(projectRoot.toAbsolutePath().normalize());
         return;
@@ -89,12 +97,22 @@ public final class PackagedHubLauncher {
   }
 
   private static Bundle copyBundleToTempFile() throws IOException, NoSuchAlgorithmException {
+    Bundle bundle = copyOptionalBundleToTempFile(BUNDLE_RESOURCE, "jvn-packaged-engine-");
+    if (bundle == null) {
+      throw new IOException("missing bundled engine workspace resource: " + BUNDLE_RESOURCE);
+    }
+    return bundle;
+  }
+
+  private static Bundle copyOptionalBundleToTempFile(String resource, String prefix)
+      throws IOException, NoSuchAlgorithmException {
     MessageDigest digest = MessageDigest.getInstance("SHA-256");
-    Path temp = Files.createTempFile("jvn-packaged-engine-", ".zip");
+    Path temp = Files.createTempFile(prefix, ".zip");
     temp.toFile().deleteOnExit();
-    try (InputStream raw = PackagedHubLauncher.class.getResourceAsStream(BUNDLE_RESOURCE)) {
+    try (InputStream raw = PackagedHubLauncher.class.getResourceAsStream(resource)) {
       if (raw == null) {
-        throw new IOException("missing bundled engine workspace resource: " + BUNDLE_RESOURCE);
+        Files.deleteIfExists(temp);
+        return null;
       }
       try (DigestInputStream in = new DigestInputStream(new BufferedInputStream(raw), digest)) {
         Files.copy(in, temp, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
@@ -121,6 +139,19 @@ public final class PackagedHubLauncher {
     ensureGradleWrapperExecutable(projectRoot);
     writeMarker(marker, version, bundle.sha256());
     return projectRoot;
+  }
+
+  private static void ensureExtractedGradleCache(Path projectRoot, Bundle cache) throws IOException {
+    Path cacheHome = projectRoot.resolve(".jvn-gradle-user-home");
+    Path marker = cacheHome.resolve(GRADLE_CACHE_MARKER_FILE);
+    if (cacheReady(marker, cache.sha256())) {
+      return;
+    }
+    deleteRecursively(cacheHome);
+    Files.createDirectories(projectRoot);
+    unzip(cache.zipFile(), projectRoot);
+    ensureGradleCacheExecutables(cacheHome);
+    writeGradleCacheMarker(marker, cache.sha256());
   }
 
   private static Path installBase() {
@@ -167,6 +198,17 @@ public final class PackagedHubLauncher {
     return sha256.equals(props.getProperty("sha256"));
   }
 
+  private static boolean cacheReady(Path marker, String sha256) {
+    if (!Files.isRegularFile(marker)) return false;
+    Properties props = new Properties();
+    try (InputStream in = Files.newInputStream(marker)) {
+      props.load(in);
+    } catch (IOException e) {
+      return false;
+    }
+    return sha256.equals(props.getProperty("sha256"));
+  }
+
   private static void writeMarker(Path marker, String version, String sha256) throws IOException {
     Properties props = new Properties();
     props.setProperty("version", version);
@@ -174,6 +216,16 @@ public final class PackagedHubLauncher {
     props.setProperty("projectRoot", marker.getParent().resolve("engine").toString());
     try (var out = Files.newBufferedWriter(marker, StandardCharsets.UTF_8)) {
       props.store(out, "JVN packaged engine workspace. Auto-generated.");
+    }
+  }
+
+  private static void writeGradleCacheMarker(Path marker, String sha256) throws IOException {
+    Files.createDirectories(marker.getParent());
+    Properties props = new Properties();
+    props.setProperty("sha256", sha256);
+    props.setProperty("gradleUserHome", marker.getParent().toString());
+    try (var out = Files.newBufferedWriter(marker, StandardCharsets.UTF_8)) {
+      props.store(out, "JVN packaged Gradle cache. Auto-generated.");
     }
   }
 
@@ -189,6 +241,23 @@ public final class PackagedHubLauncher {
         path.toFile().setExecutable(true, false);
       }
     }
+  }
+
+  private static void ensureGradleCacheExecutables(Path cacheHome) throws IOException {
+    if (isWindows() || !Files.isDirectory(cacheHome)) return;
+    Path jdks = cacheHome.resolve("jdks");
+    if (!Files.isDirectory(jdks)) return;
+    try (var walk = Files.walk(jdks)) {
+      walk.filter(Files::isRegularFile)
+          .filter(PackagedHubLauncher::isLikelyJdkExecutable)
+          .forEach(path -> path.toFile().setExecutable(true, false));
+    }
+  }
+
+  private static boolean isLikelyJdkExecutable(Path path) {
+    String normalized = path.toString().replace('\\', '/');
+    String name = path.getFileName() == null ? "" : path.getFileName().toString();
+    return normalized.contains("/bin/") || "jspawnhelper".equals(name);
   }
 
   private static void deleteRecursively(Path path) throws IOException {

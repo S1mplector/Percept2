@@ -1613,6 +1613,10 @@ public final class JvnHub {
           List<String> augmented = new ArrayList<>(command);
           augmented.add(1, "--no-daemon");
           pb.command(augmented);
+          Path packagedGradleHome = projectRoot.resolve(".jvn-gradle-user-home");
+          if (Files.isDirectory(packagedGradleHome)) {
+            pb.environment().put("GRADLE_USER_HOME", packagedGradleHome.toAbsolutePath().toString());
+          }
         }
         Process process;
         try {
