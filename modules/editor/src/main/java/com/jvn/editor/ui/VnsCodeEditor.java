@@ -1888,6 +1888,9 @@ public class VnsCodeEditor extends BorderPane {
     VNS_COMMAND_DOCS.put("pfx", "Short alias for particles. Usage: [pfx snow intensity=0.5 opacity=0.8 wind=20]");
     VNS_COMMAND_DOCS.put("fx", "Short alias for particles. Usage: [fx rain intensity=0.7 speed=1.2 tint=#88aaff]");
     VNS_COMMAND_DOCS.put("set", "Set a variable. Usage: [set var_name value]");
+    VNS_COMMAND_DOCS.put("mul", "Multiply a numeric variable. Usage: [mul var_name amount]");
+    VNS_COMMAND_DOCS.put("div", "Divide a numeric variable. Usage: [div var_name amount]");
+    VNS_COMMAND_DOCS.put("toggle", "Toggle a boolean variable. Usage: [toggle var_name]");
     VNS_COMMAND_DOCS.put("if", "Conditional branch. Usage: [if condition] ... [endif]");
     VNS_COMMAND_DOCS.put("elif", "Else-if branch. Usage: [elif condition]");
     VNS_COMMAND_DOCS.put("else", "Else branch. Usage: [else]");
@@ -1904,6 +1907,9 @@ public class VnsCodeEditor extends BorderPane {
     VNS_COMMAND_DOCS.put("hud", "Show/hide HUD element. Usage: [hud element state]");
     VNS_COMMAND_DOCS.put("java", "Execute Java code. Usage: [java class.method]");
     VNS_COMMAND_DOCS.put("jes", "Execute JES command. Usage: [jes command]");
+    VNS_COMMAND_DOCS.put("goto", "Navigate to a local label or another script label. Usage: [goto label] or [goto script:label]");
+    VNS_COMMAND_DOCS.put("load", "Replace the current VNS script. Usage: [load scripts/story/chapter2.vns]");
+    VNS_COMMAND_DOCS.put("phone", "Run phone UI commands. Usage: [phone open] or [phone chat contact_id]");
     VNS_COMMAND_DOCS.put("menu", "Open a menu. Usage: [menu menu_name]");
     VNS_COMMAND_DOCS.put("@scenario", "Declare scenario metadata. Usage: @scenario name");
     VNS_COMMAND_DOCS.put("@character", "Declare a character. Usage: @character id display_name");
