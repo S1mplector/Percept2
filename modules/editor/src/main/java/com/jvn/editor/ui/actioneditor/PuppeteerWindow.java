@@ -6025,9 +6025,10 @@ public class PuppeteerWindow extends Stage {
     private static String clipMetaLine(AnimationClip clip) {
         if (clip == null) return "Invalid clip";
         return String.format(
-            "%.0fms  •  %d channel(s)",
+            "%.0fms  •  %d channel(s)  •  %d key(s)",
             clip.getDurationMs(),
-            clip.getChannels().size()
+            clip.getChannels().size(),
+            clip.getKeyframeCount()
         );
     }
 

@@ -88,6 +88,14 @@ public class AnimationClip {
         return Collections.unmodifiableMap(channels);
     }
 
+    public int getKeyframeCount() {
+        int total = 0;
+        for (List<ClipKeyframe> keyframes : channels.values()) {
+            total += keyframes.size();
+        }
+        return total;
+    }
+
     /**
      * Capture a range from an EntityTrack as clip data.
      *

@@ -23,6 +23,7 @@ class AnimationClipTest {
 
         assertEquals(200.0, clip.getDurationMs(), 0.001);
         assertEquals(2, clip.getChannels().size());
+        assertEquals(4, clip.getKeyframeCount());
         assertEquals(2, clip.getChannels().get(PropertyType.X).size());
         assertEquals(2, clip.getChannels().get(PropertyType.Y).size());
 
