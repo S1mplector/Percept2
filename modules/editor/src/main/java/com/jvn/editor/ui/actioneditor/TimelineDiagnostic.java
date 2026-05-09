@@ -50,6 +50,9 @@ public class TimelineDiagnostic {
     private static final Pattern ACTION_NO_TARGET_PATTERN = Pattern.compile("^(\\w+)\\s*\\{\\s*$", Pattern.CASE_INSENSITIVE);
     private static final Pattern PROP_PATTERN = Pattern.compile("^(\\w+)\\s*:\\s*(.+)$");
     private static final Map<String, Set<String>> ACTION_KEYS;
+    private static final double SUB_FRAME_TWEEN_MS = 16.0;
+    private static final double OVERLAP_SEGMENT_MS = 1.0;
+    private static final double VALUE_EPSILON = 0.0001;
 
     static {
         Set<String> easings = new LinkedHashSet<>();
@@ -164,6 +167,20 @@ public class TimelineDiagnostic {
                                 "Clamp to " + Math.max(0, Math.min(1, kf.getValue()))));
                         }
                     }
+                    if (prop == PropertyType.VISIBILITY) {
+                        if (kf.getValue() < 0.0 || kf.getValue() > 1.0) {
+                            msgs.add(new Message(Severity.WARNING, entity,
+                                "Visibility value " + formatNumber(kf.getValue()) + " at "
+                                    + formatNumber(kf.getTimeMs()) + "ms is out of [0,1] range",
+                                "Use 0/1 for visibility, or animate Opacity for fades"));
+                        } else if (Math.abs(kf.getValue()) > VALUE_EPSILON
+                            && Math.abs(kf.getValue() - 1.0) > VALUE_EPSILON) {
+                            msgs.add(new Message(Severity.INFO, entity,
+                                "Visibility value " + formatNumber(kf.getValue()) + " at "
+                                    + formatNumber(kf.getTimeMs()) + "ms is fractional",
+                                "Use Opacity for partial transparency and Visibility for on/off cuts"));
+                        }
+                    }
                     if (prop == PropertyType.CAMERA_ZOOM) {
                         if (kf.getValue() <= 0.0) {
                             msgs.add(new Message(Severity.WARNING, entity,
@@ -186,6 +203,13 @@ public class TimelineDiagnostic {
                                 "Clamp to " + Math.max(0, Math.min(1, kf.getValue()))));
                         }
                     }
+                    if ((prop == PropertyType.SCALE_X || prop == PropertyType.SCALE_Y)
+                        && Math.abs(kf.getValue()) < VALUE_EPSILON) {
+                        msgs.add(new Message(Severity.WARNING, entity,
+                            prop.getDisplayName() + " is near zero at "
+                                + formatNumber(kf.getTimeMs()) + "ms",
+                            "Use a tiny non-zero scale or fade opacity if the entity should disappear"));
+                    }
                     if (kf.getEasing() != null && kf.getEasing() != Easing.Type.CUSTOM) {
                         String easingName = kf.getEasing().name().toLowerCase(Locale.ROOT);
                         if (!KNOWN_EASINGS.contains(easingName)) {
@@ -195,6 +219,7 @@ public class TimelineDiagnostic {
                         }
                     }
                 }
+                diagnoseKeyframeSpacing(msgs, entity, prop, kfs);
             }
         }
 
@@ -277,6 +302,46 @@ public class TimelineDiagnostic {
         }
 
         return Collections.unmodifiableList(msgs);
+    }
+
+    private static void diagnoseKeyframeSpacing(
+        List<Message> out,
+        String entity,
+        PropertyType property,
+        List<Keyframe> keyframes
+    ) {
+        if (out == null || property == null || keyframes == null || keyframes.size() < 2) return;
+        for (int i = 0; i < keyframes.size() - 1; i++) {
+            Keyframe start = keyframes.get(i);
+            Keyframe end = keyframes.get(i + 1);
+            double span = end.getTimeMs() - start.getTimeMs();
+            double delta = Math.abs(end.getValue() - start.getValue());
+            if (delta <= VALUE_EPSILON) continue;
+
+            if (span >= 0.0 && span <= OVERLAP_SEGMENT_MS) {
+                out.add(new Message(Severity.WARNING, entity,
+                    property.getDisplayName() + " has two different values within "
+                        + formatNumber(Math.max(0.0, span)) + "ms near "
+                        + formatNumber(end.getTimeMs()) + "ms",
+                    "Separate the keyframes or use HOLD/STEP for an intentional cut"));
+                continue;
+            }
+
+            if (end.getInterpolation() == Easing.Interpolation.TWEEN && span > 0.0 && span < SUB_FRAME_TWEEN_MS) {
+                out.add(new Message(Severity.INFO, entity,
+                    property.getDisplayName() + " tween from " + formatNumber(start.getTimeMs())
+                        + "ms to " + formatNumber(end.getTimeMs())
+                        + "ms is shorter than one 60fps frame",
+                    "Extend the segment or switch to HOLD/STEP if this should be a pop"));
+            }
+
+            if (property == PropertyType.VISIBILITY && end.getInterpolation() == Easing.Interpolation.TWEEN) {
+                out.add(new Message(Severity.WARNING, entity,
+                    "Visibility uses TWEEN between " + formatNumber(start.getTimeMs())
+                        + "ms and " + formatNumber(end.getTimeMs()) + "ms",
+                    "Use HOLD/STEP for visibility cuts, or animate Opacity for fades"));
+            }
+        }
     }
 
     /**

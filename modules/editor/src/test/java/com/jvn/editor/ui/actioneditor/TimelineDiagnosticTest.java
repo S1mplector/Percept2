@@ -3,6 +3,8 @@ package com.jvn.editor.ui.actioneditor;
 import java.util.List;
 import java.util.Set;
 
+import com.jvn.core.animation.Easing;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -63,6 +65,52 @@ class TimelineDiagnosticTest {
         List<TimelineDiagnostic.Message> msgs = TimelineDiagnostic.diagnose(project, null);
         assertEquals(2, msgs.size());
         assertTrue(msgs.stream().allMatch(m -> m.quickFix() != null));
+    }
+
+    @Test
+    void detectsVisibilityTweenAndFractionalVisibility() {
+        AnimationProject project = new AnimationProject();
+        EntityTrack track = project.getOrCreateTrack("sprite");
+        track.addKeyframe(PropertyType.VISIBILITY, new Keyframe(0, 0, Easing.Type.LINEAR, Easing.Interpolation.HOLD));
+        track.addKeyframe(PropertyType.VISIBILITY, new Keyframe(500, 0.5, Easing.Type.LINEAR, Easing.Interpolation.TWEEN));
+
+        List<TimelineDiagnostic.Message> msgs = TimelineDiagnostic.diagnose(project, Set.of("sprite"));
+
+        assertTrue(msgs.stream().anyMatch(m ->
+            m.description().contains("Visibility value 0.5")
+                && m.severity() == TimelineDiagnostic.Severity.INFO));
+        assertTrue(msgs.stream().anyMatch(m ->
+            m.description().contains("Visibility uses TWEEN")
+                && m.severity() == TimelineDiagnostic.Severity.WARNING));
+    }
+
+    @Test
+    void detectsNearZeroScaleAndSubFrameTweens() {
+        AnimationProject project = new AnimationProject();
+        EntityTrack track = project.getOrCreateTrack("sprite");
+        track.addKeyframe(PropertyType.SCALE_X, new Keyframe(0, 1));
+        track.addKeyframe(PropertyType.SCALE_X, new Keyframe(8, 0));
+
+        List<TimelineDiagnostic.Message> msgs = TimelineDiagnostic.diagnose(project, Set.of("sprite"));
+
+        assertTrue(msgs.stream().anyMatch(m ->
+            m.description().contains("Scale X is near zero")));
+        assertTrue(msgs.stream().anyMatch(m ->
+            m.description().contains("shorter than one 60fps frame")));
+    }
+
+    @Test
+    void detectsOverlappingKeyframesWithDifferentValues() {
+        AnimationProject project = new AnimationProject();
+        EntityTrack track = project.getOrCreateTrack("sprite");
+        track.setKeyframes(PropertyType.X, List.of(
+            new Keyframe(100, 0),
+            new Keyframe(100.5, 80)));
+
+        List<TimelineDiagnostic.Message> msgs = TimelineDiagnostic.diagnose(project, Set.of("sprite"));
+
+        assertTrue(msgs.stream().anyMatch(m ->
+            m.description().contains("Position X has two different values within 0.5ms")));
     }
 
     @Test
