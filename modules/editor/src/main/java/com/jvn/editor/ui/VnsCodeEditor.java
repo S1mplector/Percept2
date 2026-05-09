@@ -96,7 +96,7 @@ public class VnsCodeEditor extends BorderPane {
     + "|bgm_crossfade|bgm_fadeout|bgm_resume|bgm_pause|bgm_seek|bgm_stop|bgm"
     + "|particles|particle|weather|pfx|fx"
     + "|audio_resume_all|audio_pause_all|audio_stop_all|audio|sfx_stop|sfx|voice_stop|voice|volume|textspeed|autodelay"
-    + "|hud|save|quickload|skip|auto|ui|history|screen|phone"
+    + "|hud|save|quickload|skip|auto|mode|ui|history|screen|phone"
     + "|jes_push|jes_replace|jes_pop|jes_call|jes|java"
     + "|transition|stage|menu|settings|mainmenu|load|goto"
     + "|set|inc|dec|mul|div|toggle|flag|unflag|clear|persistent"
@@ -1909,6 +1909,7 @@ public class VnsCodeEditor extends BorderPane {
     VNS_COMMAND_DOCS.put("flag", "Set a boolean flag. Usage: [flag name]");
     VNS_COMMAND_DOCS.put("unflag", "Clear a boolean flag. Usage: [unflag name]");
     VNS_COMMAND_DOCS.put("hud", "Show/hide HUD element. Usage: [hud element state]");
+    VNS_COMMAND_DOCS.put("mode", "Switch runtime presentation mode. Usage: [mode dialogue standard], [mode nvl on], or [mode bubble toggle]");
     VNS_COMMAND_DOCS.put("java", "Execute Java code. Usage: [java class.method]");
     VNS_COMMAND_DOCS.put("jes", "Execute JES command. Usage: [jes command]");
     VNS_COMMAND_DOCS.put("goto", "Navigate to a local label or another script label. Usage: [goto label] or [goto script:label]");
