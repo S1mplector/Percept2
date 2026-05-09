@@ -141,6 +141,14 @@ final class PuppeteerVerification {
             if (cue == null) continue;
             String path = cue.getAudioFile() == null ? "" : cue.getAudioFile().trim();
             if (path.isBlank()) continue;
+            if (isAbsolutePath(path)) {
+                messages.add(new TimelineDiagnostic.Message(
+                    TimelineDiagnostic.Severity.WARNING,
+                    "(audio)",
+                    "Audio cue file '" + path + "' uses an absolute path and may not work in packaged builds",
+                    "Import the file into the project and reference it with a relative path"
+                ));
+            }
             Path resolved = resolveProjectPath(projectRoot, path);
             if (resolved == null || !Files.isRegularFile(resolved)) {
                 messages.add(new TimelineDiagnostic.Message(
@@ -167,6 +175,14 @@ final class PuppeteerVerification {
             for (String part : imagePath.split("\\|")) {
                 String path = part == null ? "" : part.trim();
                 if (path.isBlank()) continue;
+                if (isAbsolutePath(path)) {
+                    messages.add(new TimelineDiagnostic.Message(
+                        TimelineDiagnostic.Severity.WARNING,
+                        snapshot.name().isBlank() ? "(scene)" : snapshot.name(),
+                        "Scene asset '" + path + "' uses an absolute path and may not work in packaged builds",
+                        "Import the asset into the project and reference it with a relative path"
+                    ));
+                }
                 Path resolved = resolveProjectPath(projectRoot, path);
                 if (resolved == null || !Files.isRegularFile(resolved)) {
                     messages.add(new TimelineDiagnostic.Message(
@@ -281,6 +297,11 @@ final class PuppeteerVerification {
             return projectRoot.toPath().resolve(path.replace('\\', '/')).normalize();
         }
         return direct.normalize();
+    }
+
+    private static boolean isAbsolutePath(String rawPath) {
+        if (rawPath == null || rawPath.isBlank()) return false;
+        return Path.of(rawPath.trim()).isAbsolute();
     }
 
     private static boolean isAnimated(EntityTrack track) {

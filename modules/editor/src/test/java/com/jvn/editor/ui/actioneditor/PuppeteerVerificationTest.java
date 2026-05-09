@@ -108,6 +108,27 @@ class PuppeteerVerificationTest {
     }
 
     @Test
+    void runtimeRegistrationWarnsForAbsoluteAudioPaths() throws Exception {
+        Path audio = Files.createTempFile("puppeteer-absolute-audio", ".wav");
+        AnimationProject project = new AnimationProject();
+        project.addAudioCue(new AudioCue(100, audio.toString(), "sound"));
+
+        List<TimelineDiagnostic.Message> messages = PuppeteerVerification.diagnose(
+            project,
+            null,
+            audio.getParent().toFile(),
+            PuppeteerVerification.Mode.REGISTER_RUNTIME
+        );
+
+        assertTrue(messages.stream().anyMatch(message ->
+            message.severity() == TimelineDiagnostic.Severity.WARNING
+                && message.description().contains("uses an absolute path")));
+        assertTrue(messages.stream().noneMatch(message ->
+            message.severity() == TimelineDiagnostic.Severity.ERROR
+                && message.description().contains("does not exist on disk")));
+    }
+
+    @Test
     void runtimeRegistrationFlagsMissingSceneEntityAsset() throws Exception {
         Path projectRoot = Files.createTempDirectory("puppeteer-scene-assets");
         AnimationProject project = new AnimationProject();
@@ -137,6 +158,41 @@ class PuppeteerVerificationTest {
             message.severity() == TimelineDiagnostic.Severity.ERROR
                 && message.entityOrTrack().equals("hero")
                 && message.description().contains("Scene asset 'assets/characters/missing.png'")));
+    }
+
+    @Test
+    void runtimeRegistrationWarnsForAbsoluteSceneAssetPaths() throws Exception {
+        Path image = Files.createTempFile("puppeteer-absolute-scene", ".png");
+        AnimationProject project = new AnimationProject();
+        project.setSceneEntitySnapshots(List.of(new AnimationProject.SceneEntitySnapshot(
+            "hero",
+            "sprite",
+            image.toString(),
+            0,
+            0,
+            100,
+            200,
+            0.5,
+            1.0,
+            0,
+            true,
+            1.0
+        )));
+
+        List<TimelineDiagnostic.Message> messages = PuppeteerVerification.diagnose(
+            project,
+            Set.of("hero"),
+            image.getParent().toFile(),
+            PuppeteerVerification.Mode.REGISTER_RUNTIME
+        );
+
+        assertTrue(messages.stream().anyMatch(message ->
+            message.severity() == TimelineDiagnostic.Severity.WARNING
+                && message.entityOrTrack().equals("hero")
+                && message.description().contains("uses an absolute path")));
+        assertTrue(messages.stream().noneMatch(message ->
+            message.severity() == TimelineDiagnostic.Severity.ERROR
+                && message.description().contains("does not exist on disk")));
     }
 
     @Test
