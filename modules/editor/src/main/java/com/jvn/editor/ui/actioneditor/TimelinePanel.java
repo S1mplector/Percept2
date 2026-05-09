@@ -377,9 +377,7 @@ public class TimelinePanel extends VBox {
         List<PuppeteerCommand> cmds = new ArrayList<>();
         if (selectionModel.hasSelection()) {
             for (KeyframeSelectionModel.KeyframeRef ref : new ArrayList<>(selectionModel.getSelected())) {
-                EntityTrack track = ref.entityName() != null
-                    ? project.getTrack(ref.entityName())
-                    : null;
+                EntityTrack track = resolveTrackForRef(ref);
                 if (track == null || ref.property() == null || ref.keyframe() == null) continue;
                 cmds.add(PuppeteerCommand.removeKeyframe(track, ref.property(), ref.keyframe()));
             }
@@ -1730,6 +1728,18 @@ public class TimelinePanel extends VBox {
             return group != null ? group.getGroupTrack() : null;
         }
         return createForEntity ? project.getOrCreateTrack(selectedEntity) : project.getTrack(selectedEntity);
+    }
+
+    private EntityTrack resolveTrackForRef(KeyframeSelectionModel.KeyframeRef ref) {
+        if (ref == null || ref.entityName() == null || ref.entityName().isBlank()) return null;
+        if (isRuntimeCameraTarget(ref.entityName())) {
+            return resolveRuntimeCameraTrack(false);
+        }
+        // Check if it's a group
+        EntityGroup group = project.getGroup(ref.entityName());
+        if (group != null) return group.getGroupTrack();
+        // Otherwise treat as entity
+        return project.getTrack(ref.entityName());
     }
 
     private EntityTrack selectedGroupTrack() {

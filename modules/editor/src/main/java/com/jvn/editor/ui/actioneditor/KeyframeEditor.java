@@ -154,6 +154,9 @@ public class KeyframeEditor extends VBox {
     private java.util.function.BiConsumer<Double, Double> onPivotPresetApplied;
     private java.util.function.Consumer<Boolean> onCurveEditorExpandedChanged;
 
+    private static EasingSpec easingClipboardSpec;
+    private static Easing.Interpolation easingClipboardInterp;
+
     public KeyframeEditor() {
         setSpacing(10);
         setPadding(new Insets(10, 10, 8, 10));
@@ -714,9 +717,26 @@ public class KeyframeEditor extends VBox {
             buildQuickEasingButton("Out", Easing.Type.EASE_OUT_QUAD),
             buildQuickEasingButton("In-Out", Easing.Type.EASE_IN_OUT_QUAD),
             buildQuickEasingButton("Cubic Out", Easing.Type.EASE_OUT_CUBIC),
-            buildQuickEasingButton("Bounce", Easing.Type.EASE_OUT_BOUNCE)
+            buildQuickEasingButton("Bounce", Easing.Type.EASE_OUT_BOUNCE),
+            buildCopyPasteButtons()
         );
         return strip;
+    }
+
+    private HBox buildCopyPasteButtons() {
+        Button btnCopy = new Button("Copy");
+        btnCopy.setStyle(SECONDARY_BUTTON_STYLE);
+        btnCopy.setTooltip(new Tooltip("Copy easing from selected keyframe"));
+        btnCopy.setOnAction(e -> copyEasingToClipboard());
+
+        Button btnPaste = new Button("Paste");
+        btnPaste.setStyle(SECONDARY_BUTTON_STYLE);
+        btnPaste.setTooltip(new Tooltip("Paste easing to selected keyframe(s)"));
+        btnPaste.setOnAction(e -> pasteEasingFromClipboard());
+
+        HBox box = new HBox(4, btnCopy, btnPaste);
+        box.setAlignment(Pos.CENTER_LEFT);
+        return box;
     }
 
     private Button buildQuickEasingButton(String label, Easing.Type type) {
@@ -2064,7 +2084,45 @@ public class KeyframeEditor extends VBox {
         };
     }
 
+    private static double clamp(double value, double min, double max) {
+        if (max < min) return min;
+        return Math.max(min, Math.min(max, value));
+    }
+
     private static double clampUnitRange(double value) {
         return Math.max(0.0, Math.min(1.0, value));
+    }
+
+    private void copyEasingToClipboard() {
+        if (currentKeyframe != null) {
+            easingClipboardSpec = currentKeyframe.getEasingSpec();
+            easingClipboardInterp = currentKeyframe.getInterpolation();
+        } else if (!currentSelection.isEmpty()) {
+            Keyframe first = currentSelection.get(0);
+            easingClipboardSpec = first.getEasingSpec();
+            easingClipboardInterp = first.getInterpolation();
+        }
+    }
+
+    private void pasteEasingFromClipboard() {
+        if (easingClipboardSpec == null && easingClipboardInterp == null) return;
+        if (easingClipboardSpec != null) {
+            syncCurveEditBaseline(easingClipboardSpec);
+            applyExplicitEasingSpec(easingClipboardSpec);
+        }
+        if (easingClipboardInterp != null) {
+            if (!currentSelection.isEmpty()) {
+                for (Keyframe kf : currentSelection) {
+                    kf.setInterpolation(easingClipboardInterp);
+                }
+                cbInterpolation.setValue(easingClipboardInterp);
+            } else if (currentKeyframe != null) {
+                currentKeyframe.setInterpolation(easingClipboardInterp);
+                cbInterpolation.setValue(easingClipboardInterp);
+            }
+        }
+        syncPresetEditSessionFromSelection(false);
+        refreshPresetUiState();
+        if (onKeyframeChanged != null) onKeyframeChanged.run();
     }
 }
