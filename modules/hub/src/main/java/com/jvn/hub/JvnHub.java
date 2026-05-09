@@ -242,8 +242,28 @@ public final class JvnHub {
     frame.setSize(640, 540);
     frame.setLocationRelativeTo(null);
 
-    // Render the vector logo into a raster for the OS window icon.
-    frame.setIconImage(JvnLogoIcon.renderToImage(128, 128));
+    installApplicationIcon(frame);
+  }
+
+  private static void installApplicationIcon(JFrame frame) {
+    if (frame == null) return;
+    BufferedImage icon512 = JvnLogoIcon.renderToImage(512, 512);
+    frame.setIconImages(List.of(
+        JvnLogoIcon.renderToImage(16, 16),
+        JvnLogoIcon.renderToImage(32, 32),
+        JvnLogoIcon.renderToImage(64, 64),
+        JvnLogoIcon.renderToImage(128, 128),
+        icon512));
+    try {
+      if (java.awt.Taskbar.isTaskbarSupported()) {
+        java.awt.Taskbar taskbar = java.awt.Taskbar.getTaskbar();
+        if (taskbar.isSupported(java.awt.Taskbar.Feature.ICON_IMAGE)) {
+          taskbar.setIconImage(icon512);
+        }
+      }
+    } catch (UnsupportedOperationException | SecurityException ignored) {
+      // Some desktop environments expose the Taskbar API but reject icon changes.
+    }
   }
 
   private JPanel buildHeader() {
