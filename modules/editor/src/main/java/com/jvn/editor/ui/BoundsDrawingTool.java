@@ -125,6 +125,7 @@ public class BoundsDrawingTool extends BorderPane {
   private static final double CANVAS_PADDING = 8.0;
   private static final double HANDLE_SIZE = 8.0;
   private static final double SNAP_THRESHOLD = 6.0;
+  private static final double MIN_BOUND_SIZE = 0.01;
   private static final double ZOOM_MIN = 0.5;
   private static final double ZOOM_MAX = 6.0;
   private static final double ZOOM_STEP = 1.2;
@@ -521,8 +522,7 @@ public class BoundsDrawingTool extends BorderPane {
       double dy = (my - dragStartMY) / ch;
 
       if (dragAction == DragAction.MOVE) {
-        b.setX(clamp01(dragOrigX + dx));
-        b.setY(clamp01(dragOrigY + dy));
+        setNormalizedBounds(b, dragOrigX + dx, dragOrigY + dy, b.getW(), b.getH());
       } else if (dragAction == DragAction.RESIZE) {
         applyResize(b, dx, dy);
       }
@@ -631,18 +631,18 @@ public class BoundsDrawingTool extends BorderPane {
     boolean resize = e.isAltDown();
     if (resize) {
       switch (code) {
-        case LEFT -> b.setW(clamp(b.getW() - step, 0.01, 1.0));
-        case RIGHT -> b.setW(clamp(b.getW() + step, 0.01, 1.0));
-        case UP -> b.setH(clamp(b.getH() - step, 0.01, 1.0));
-        case DOWN -> b.setH(clamp(b.getH() + step, 0.01, 1.0));
+        case LEFT -> setNormalizedBounds(b, b.getX(), b.getY(), b.getW() - step, b.getH());
+        case RIGHT -> setNormalizedBounds(b, b.getX(), b.getY(), b.getW() + step, b.getH());
+        case UP -> setNormalizedBounds(b, b.getX(), b.getY(), b.getW(), b.getH() - step);
+        case DOWN -> setNormalizedBounds(b, b.getX(), b.getY(), b.getW(), b.getH() + step);
         default -> { return; }
       }
     } else {
       switch (code) {
-        case LEFT -> b.setX(clamp01(b.getX() - step));
-        case RIGHT -> b.setX(clamp01(b.getX() + step));
-        case UP -> b.setY(clamp01(b.getY() - step));
-        case DOWN -> b.setY(clamp01(b.getY() + step));
+        case LEFT -> setNormalizedBounds(b, b.getX() - step, b.getY(), b.getW(), b.getH());
+        case RIGHT -> setNormalizedBounds(b, b.getX() + step, b.getY(), b.getW(), b.getH());
+        case UP -> setNormalizedBounds(b, b.getX(), b.getY() - step, b.getW(), b.getH());
+        case DOWN -> setNormalizedBounds(b, b.getX(), b.getY() + step, b.getW(), b.getH());
         default -> { return; }
       }
     }
@@ -716,10 +716,7 @@ public class BoundsDrawingTool extends BorderPane {
         h = clamp(dragOrigH + dyNorm, 0.01, 1.0);
         break;
     }
-    b.setX(x);
-    b.setY(y);
-    b.setW(w);
-    b.setH(h);
+    setNormalizedBounds(b, x, y, w, h);
   }
 
   // ── Point-nail → bounds generation ──
@@ -1005,10 +1002,7 @@ public class BoundsDrawingTool extends BorderPane {
     Double nw = parseDouble(wField.getText());
     Double nh = parseDouble(hField.getText());
     if (nx == null || ny == null || nw == null || nh == null) return;
-    b.setX(clamp01(nx));
-    b.setY(clamp01(ny));
-    b.setW(clamp(nw, 0.01, 1.0));
-    b.setH(clamp(nh, 0.01, 1.0));
+    setNormalizedBounds(b, nx, ny, nw, nh);
     refreshListDisplay();
     redraw();
     emitChange();
@@ -1071,8 +1065,8 @@ public class BoundsDrawingTool extends BorderPane {
     BoundEntry duplicate = new BoundEntry(
         next,
         source.getLabel(),
-        clamp01(source.getX() + 0.015),
-        clamp01(source.getY() + 0.015),
+        clampBoundOrigin(source.getX() + 0.015, source.getW()),
+        clampBoundOrigin(source.getY() + 0.015, source.getH()),
         source.getW(),
         source.getH(),
         source.getLocalPoints()
@@ -1180,10 +1174,7 @@ public class BoundsDrawingTool extends BorderPane {
         : List.copyOf(localPoints);
     if (isRedrawTargetActive()) {
       BoundEntry target = bounds.get(redrawTargetIndex);
-      target.setX(clamp01(x));
-      target.setY(clamp01(y));
-      target.setW(clamp(w, 0.01, 1.0));
-      target.setH(clamp(h, 0.01, 1.0));
+      setNormalizedBounds(target, x, y, w, h);
       target.setLocalPoints(local);
       selectedIndex = redrawTargetIndex;
       boundsList.getSelectionModel().select(selectedIndex);
@@ -1195,7 +1186,16 @@ public class BoundsDrawingTool extends BorderPane {
       emitChange();
       return;
     }
-    addBound(new BoundEntry(nextGeneratedId(), null, clamp01(x), clamp01(y), clamp(w, 0.01, 1.0), clamp(h, 0.01, 1.0), local));
+    double normalizedW = clampBoundSize(w);
+    double normalizedH = clampBoundSize(h);
+    addBound(new BoundEntry(
+        nextGeneratedId(),
+        null,
+        clampBoundOrigin(x, normalizedW),
+        clampBoundOrigin(y, normalizedH),
+        normalizedW,
+        normalizedH,
+        local));
   }
 
   private String nextGeneratedId() {
@@ -1384,6 +1384,25 @@ public class BoundsDrawingTool extends BorderPane {
     return String.format(Locale.ROOT, "%.4f", value)
         .replaceAll("0+$", "")
         .replaceAll("\\.$", "");
+  }
+
+  private static void setNormalizedBounds(BoundEntry entry, double x, double y, double w, double h) {
+    if (entry == null) return;
+    double normalizedW = clampBoundSize(w);
+    double normalizedH = clampBoundSize(h);
+    entry.setX(clampBoundOrigin(x, normalizedW));
+    entry.setY(clampBoundOrigin(y, normalizedH));
+    entry.setW(normalizedW);
+    entry.setH(normalizedH);
+  }
+
+  static double clampBoundOrigin(double origin, double size) {
+    double normalizedSize = clampBoundSize(size);
+    return clamp(origin, 0.0, Math.max(0.0, 1.0 - normalizedSize));
+  }
+
+  static double clampBoundSize(double size) {
+    return clamp(size, MIN_BOUND_SIZE, 1.0);
   }
 
   private static double clamp01(double v) { return clamp(v, 0, 1); }
