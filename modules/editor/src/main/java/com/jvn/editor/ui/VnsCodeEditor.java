@@ -1278,6 +1278,7 @@ public class VnsCodeEditor extends BorderPane {
       out.add(new CodeAutoCompleter.Suggestion("[audio_resume_all]"));
       out.add(new CodeAutoCompleter.Suggestion("[audio "));
       out.add(new CodeAutoCompleter.Suggestion("[mode "));
+      out.add(new CodeAutoCompleter.Suggestion("[visualizer "));
       out.add(new CodeAutoCompleter.Suggestion("[set "));
       out.add(new CodeAutoCompleter.Suggestion("[if "));
       out.add(new CodeAutoCompleter.Suggestion("[elif "));
