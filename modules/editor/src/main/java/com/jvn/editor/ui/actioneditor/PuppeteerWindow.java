@@ -142,6 +142,7 @@ public class PuppeteerWindow extends Stage {
     private final EntitySelector entitySelector;
     private final TimelinePanel timelinePanel;
     private final KeyframeEditor keyframeEditor;
+    private final ConstraintEditor constraintEditor;
     private final AnimationPreview animationPreview;
     private final CodePreviewPane codePreview;
 
@@ -1213,7 +1214,15 @@ public class PuppeteerWindow extends Stage {
         selectionTab.setClosable(false);
         Tab sceneTab = buildSceneTab();
         sceneTab.setClosable(false);
-        TabPane leftTabs = new TabPane(entitiesTab, selectionTab, sceneTab);
+        constraintEditor = new ConstraintEditor();
+        constraintEditor.setProject(this.project);
+        constraintEditor.setOnConstraintChanged(() -> {
+            animationPreview.render();
+            timelinePanel.refresh();
+        });
+        Tab constraintsTab = new Tab("Constraints", constraintEditor);
+        constraintsTab.setClosable(false);
+        TabPane leftTabs = new TabPane(entitiesTab, selectionTab, sceneTab, constraintsTab);
         leftTabs.setMinWidth(0);
         leftTabs.setMaxWidth(Double.MAX_VALUE);
         leftTabs.setTabMinWidth(56);

@@ -33,6 +33,7 @@ public class AnimationProject {
     private final Map<String, String> orbitAnchorSources = new LinkedHashMap<>();
     private final Map<String, double[]> orbitAnchorSourceOffsets = new LinkedHashMap<>();
     private final Map<String, SceneEntitySnapshot> sceneEntitySnapshots = new LinkedHashMap<>();
+    private final Map<String, Constraint> constraints = new LinkedHashMap<>();
     private StageContext stageContext;
 
     private double loopStartMs = -1;
@@ -378,6 +379,34 @@ public class AnimationProject {
 
     public void clearStageContext() {
         this.stageContext = null;
+    }
+
+    // Constraint management
+    public Map<String, Constraint> getConstraintsView() {
+        return Collections.unmodifiableMap(new LinkedHashMap<>(constraints));
+    }
+
+    public Constraint getConstraint(String entityName) {
+        if (entityName == null || entityName.isBlank()) return null;
+        return constraints.get(entityName);
+    }
+
+    public void setConstraint(String entityName, Constraint constraint) {
+        if (entityName == null || entityName.isBlank()) return;
+        if (constraint == null) {
+            constraints.remove(entityName);
+        } else {
+            constraints.put(entityName, constraint);
+        }
+    }
+
+    public void removeConstraint(String entityName) {
+        if (entityName == null || entityName.isBlank()) return;
+        constraints.remove(entityName);
+    }
+
+    public void clearConstraints() {
+        constraints.clear();
     }
 
     public void setOrbitAnchors(Map<String, double[]> anchors) {
