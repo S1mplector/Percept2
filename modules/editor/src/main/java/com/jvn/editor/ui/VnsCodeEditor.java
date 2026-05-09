@@ -2137,6 +2137,7 @@ public class VnsCodeEditor extends BorderPane {
       {"Stage Preset", "@stagepreset preset_id config/stage/preset.stagepreset"},
       {"Apply Stage", "[stage preset_id dur=500]"},
       {"Custom Position", "@position balcony 0.30 0.60"},
+      {"Dialogue Mode", "[mode dialogue standard]"},
       {"If Block", "[if condition]\n  # true branch\n[endif]"},
       {"If-Else Block", "[if condition]\n  # true branch\n[else]\n  # false branch\n[endif]"},
       {"Set Variable", "[set variable_name value]"},
