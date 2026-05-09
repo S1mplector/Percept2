@@ -242,7 +242,7 @@ Native packaging uses `jpackage` with:
 - a prebuilt runtime image from `createJvnGameRuntimeImageCurrent`
 - `com.jvn.runtime.GamePackageLauncher` as the package entrypoint
 
-Current-host native app versions must satisfy installer rules, so JVN derives a numeric native version automatically when the game version is a development label such as `0.1-SNAPSHOT`. Override it with `-PjvnNativeVersion=...` when needed.
+Current-host native app versions must satisfy installer rules, so JVN derives a numeric native version automatically when the game version is a development label such as `0.1.2-SNAPSHOT`. Override it with `-PjvnNativeVersion=...` when needed.
 
 ## Release Profiles
 

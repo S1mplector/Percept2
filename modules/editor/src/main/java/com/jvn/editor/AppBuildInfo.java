@@ -6,8 +6,7 @@ import java.security.CodeSource;
 import java.util.Locale;
 
 public final class AppBuildInfo {
-  private static final String FALLBACK_VERSION = "0.1";
-  private static final String FALLBACK_MATURITY = "Alpha";
+  private static final String FALLBACK_VERSION = "0.1.2";
 
   private AppBuildInfo() {
   }
@@ -19,7 +18,7 @@ public final class AppBuildInfo {
   static String displayVersionLabel(String rawVersion) {
     String raw = rawVersion == null ? "" : rawVersion.trim();
     if (raw.isBlank() || raw.equalsIgnoreCase("dev") || raw.equalsIgnoreCase("vdev")) {
-      return "v" + FALLBACK_VERSION + " " + FALLBACK_MATURITY;
+      return "v" + FALLBACK_VERSION;
     }
 
     String version = raw.startsWith("v") || raw.startsWith("V") ? raw.substring(1) : raw;

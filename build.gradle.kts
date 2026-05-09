@@ -19,7 +19,7 @@ plugins {
 }
 
 val jvnGroup = (findProperty("jvnGroup") as String?) ?: "com.jvn"
-val jvnVersion = (findProperty("jvnVersion") as String?) ?: "0.1-SNAPSHOT"
+val jvnVersion = (findProperty("jvnVersion") as String?) ?: "0.1.2"
 val jvnBuildDirOverride = (findProperty("jvnBuildDir") as String?)
   ?.trim()
   ?.takeIf { it.isNotBlank() }
