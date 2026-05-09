@@ -2286,17 +2286,8 @@ public class AnimationPreview extends VBox {
         gc.setStroke(Color.web("#f0b673"));
         gc.setLineWidth(2.0 / z);
         gc.setLineDashes(6.0 / z, 4.0 / z);
-        gc.strokePolygon(wx, wy, 4);
-        gc.setLineDashes((double[]) null);
-
-        if (supportsPivotEntity(entity)) {
-            drawPivotHandleWorld(entity, z);
-            drawRotateHandleWorld(entity, z);
-        }
-
-        if (draggingRotate && rotateDragState != null && entity == selectedEntity) {
+        if (rotateDragState != null) {
             double dashOffset = (System.currentTimeMillis() / 20.0) % 20.0;
-            gc.setStroke(Color.web("#a08af0", 0.8));
             gc.setLineWidth(1.5 / z);
             gc.setLineDashes(5.0 / z, 5.0 / z);
             gc.setLineDashOffset(-dashOffset / z);
@@ -2309,6 +2300,7 @@ public class AnimationPreview extends VBox {
         if (selectedEntityName != null && hasOrbitAnchor(selectedEntityName)) {
             drawOrbitAnchorWorld(selectedEntityName, entity, z);
         }
+        drawAnchors(entity, z);
 
         if (selectedEntityName != null) {
             gc.setFill(Color.web("#f0b673"));
@@ -2350,6 +2342,47 @@ public class AnimationPreview extends VBox {
         gc.fillText("X", xHandle[0] + (4.0 / z), xHandle[1] - (4.0 / z));
         gc.setFill(Color.web("#9ef0a5", 0.75));
         gc.fillText("Y", yHandle[0] + (4.0 / z), yHandle[1] - (4.0 / z));
+    }
+
+    private void drawAnchors(Entity2D entity, double zoom) {
+        if (project == null || entity == null || selectedEntityName == null) return;
+        
+        Map<String, Anchor> anchors = project.getAnchorsForEntity(selectedEntityName);
+        if (anchors == null || anchors.isEmpty()) return;
+        
+        double z = Math.max(0.0001, zoom);
+        EntityFrame frame = describeEntity(entity);
+        if (frame == null) return;
+        
+        for (Anchor anchor : anchors.values()) {
+            double anchorX, anchorY;
+            
+            if (anchor.isRelative()) {
+                // Relative anchors are normalized (0-1) relative to entity dimensions
+                anchorX = entity.getX() + (anchor.getX() - 0.5) * frame.w * frame.scaleX;
+                anchorY = entity.getY() + (anchor.getY() - 0.5) * frame.h * frame.scaleY;
+            } else {
+                // World-space anchors
+                anchorX = entity.getX() + anchor.getX();
+                anchorY = entity.getY() + anchor.getY();
+            }
+            
+            // Draw anchor point
+            double arm = 6.0 / z;
+            double radius = 2.5 / z;
+            
+            gc.setStroke(Color.web("#a855f7"));
+            gc.setLineWidth(1.2 / z);
+            gc.strokeLine(anchorX - arm, anchorY, anchorX + arm, anchorY);
+            gc.strokeLine(anchorX, anchorY - arm, anchorX, anchorY + arm);
+            gc.setFill(Color.web("#a855f7", 0.9));
+            gc.fillOval(anchorX - radius, anchorY - radius, radius * 2.0, radius * 2.0);
+            
+            // Draw anchor label
+            gc.setFill(Color.web("#a855f7", 0.7));
+            gc.setFont(javafx.scene.text.Font.font(8.0 / z));
+            gc.fillText(anchor.getName(), anchorX + (8.0 / z), anchorY - (8.0 / z));
+        }
     }
 
     private boolean supportsPivotEntity(Entity2D entity) {

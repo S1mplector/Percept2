@@ -34,6 +34,7 @@ public class AnimationProject {
     private final Map<String, double[]> orbitAnchorSourceOffsets = new LinkedHashMap<>();
     private final Map<String, SceneEntitySnapshot> sceneEntitySnapshots = new LinkedHashMap<>();
     private final Map<String, Constraint> constraints = new LinkedHashMap<>();
+    private final Map<String, Map<String, Anchor>> entityAnchors = new LinkedHashMap<>();
     private StageContext stageContext;
 
     private double loopStartMs = -1;
@@ -407,6 +408,57 @@ public class AnimationProject {
 
     public void clearConstraints() {
         constraints.clear();
+    }
+
+    // Anchor management
+    public Map<String, Map<String, Anchor>> getEntityAnchorsView() {
+        Map<String, Map<String, Anchor>> copy = new LinkedHashMap<>();
+        for (Map.Entry<String, Map<String, Anchor>> entry : entityAnchors.entrySet()) {
+            copy.put(entry.getKey(), new LinkedHashMap<>(entry.getValue()));
+        }
+        return Collections.unmodifiableMap(copy);
+    }
+
+    public Map<String, Anchor> getAnchorsForEntity(String entityName) {
+        if (entityName == null || entityName.isBlank()) return null;
+        Map<String, Anchor> anchors = entityAnchors.get(entityName);
+        if (anchors == null) return null;
+        return Collections.unmodifiableMap(new LinkedHashMap<>(anchors));
+    }
+
+    public Anchor getAnchor(String entityName, String anchorName) {
+        if (entityName == null || entityName.isBlank()) return null;
+        if (anchorName == null || anchorName.isBlank()) return null;
+        Map<String, Anchor> anchors = entityAnchors.get(entityName);
+        if (anchors == null) return null;
+        return anchors.get(anchorName);
+    }
+
+    public void setAnchor(String entityName, Anchor anchor) {
+        if (entityName == null || entityName.isBlank()) return;
+        if (anchor == null) return;
+        entityAnchors.computeIfAbsent(entityName, k -> new LinkedHashMap<>()).put(anchor.getName(), anchor);
+    }
+
+    public void removeAnchor(String entityName, String anchorName) {
+        if (entityName == null || entityName.isBlank()) return;
+        if (anchorName == null || anchorName.isBlank()) return;
+        Map<String, Anchor> anchors = entityAnchors.get(entityName);
+        if (anchors != null) {
+            anchors.remove(anchorName);
+            if (anchors.isEmpty()) {
+                entityAnchors.remove(entityName);
+            }
+        }
+    }
+
+    public void clearAnchorsForEntity(String entityName) {
+        if (entityName == null || entityName.isBlank()) return;
+        entityAnchors.remove(entityName);
+    }
+
+    public void clearAllAnchors() {
+        entityAnchors.clear();
     }
 
     public void setOrbitAnchors(Map<String, double[]> anchors) {
@@ -1165,6 +1217,9 @@ public class AnimationProject {
         copy.setOrbitAnchorSourceOffsets(getOrbitAnchorSourceOffsetsView());
         for (Map.Entry<String, Constraint> entry : constraints.entrySet()) {
             copy.constraints.put(entry.getKey(), entry.getValue());
+        }
+        for (Map.Entry<String, Map<String, Anchor>> entry : entityAnchors.entrySet()) {
+            copy.entityAnchors.put(entry.getKey(), new LinkedHashMap<>(entry.getValue()));
         }
         for (EntityTrack t : entityTracks.values()) {
             copy.entityTracks.put(t.getEntityName(), t.copy());
