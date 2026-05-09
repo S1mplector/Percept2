@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2
+
+- Add matching SVG icons for VNS, JES, Story Map, Menu, Layout, Style/Theme, and Stage Preset DSLs.
+
 ## 0.1.1
 
 - Add a custom JLT marketplace icon based on the JVN metallic wordmark.

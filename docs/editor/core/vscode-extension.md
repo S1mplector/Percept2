@@ -10,6 +10,18 @@ The JVN VS Code extension lives at `tools/vscode-jvn`. It provides external-edit
 - JVN config files (`.layout`, `.menu`, `.registry`, `.settings`, `.stagepreset`, `.style`, `.theme`, `jvn.project`) with sections, keys, values, placeholders, colors, and comments.
 - Snippets for common VNS, JES, Story Map, and menu/config patterns.
 
+## DSL Icon Set
+
+| DSL | Icon | Files |
+| --- | --- | --- |
+| VNS | <img src="../../../tools/vscode-jvn/images/dsl/vns.svg" width="56" alt="VNS icon"> | `.vns` |
+| JES | <img src="../../../tools/vscode-jvn/images/dsl/jes.svg" width="56" alt="JES icon"> | `.jes` |
+| Story Map | <img src="../../../tools/vscode-jvn/images/dsl/storymap.svg" width="56" alt="Story Map icon"> | `.storymap`, `.timeline` |
+| Menu | <img src="../../../tools/vscode-jvn/images/dsl/menu.svg" width="56" alt="Menu icon"> | `.menu`, `.registry` |
+| Layout | <img src="../../../tools/vscode-jvn/images/dsl/layout.svg" width="56" alt="Layout icon"> | `.layout` |
+| Style / Theme | <img src="../../../tools/vscode-jvn/images/dsl/style.svg" width="56" alt="Style icon"> | `.style`, `.theme` |
+| Stage Preset | <img src="../../../tools/vscode-jvn/images/dsl/stagepreset.svg" width="56" alt="Stage Preset icon"> | `.stagepreset` |
+
 ## Run In Development Mode
 
 ```sh
@@ -33,7 +45,7 @@ Restart VS Code after copying.
 ```sh
 cd tools/vscode-jvn
 npm run package
-code --install-extension jvn-language-tools-0.1.1.vsix
+code --install-extension jvn-language-tools-0.1.2.vsix
 ```
 
 VS Code also supports installing the generated `.vsix` from the Extensions view with **Install from VSIX...**.
