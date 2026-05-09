@@ -738,6 +738,15 @@ public class TimelinePanel extends VBox {
         gc.setFill(TEXT_COLOR);
         gc.setFont(javafx.scene.text.Font.font(12));
         gc.fillText(label, 8, y + 16);
+        
+        // Draw constraint indicator
+        if (!groupTrack && !runtimeCameraTrack && project != null) {
+            Constraint constraint = project.getConstraint(selectionName);
+            if (constraint != null) {
+                drawConstraintIndicator(gc, width, y, constraint);
+            }
+        }
+        
         drawTrackGridLines(gc, y, width);
         y += TRACK_HEIGHT;
 
@@ -770,20 +779,14 @@ public class TimelinePanel extends VBox {
 
     private void drawTrackGridLines(GraphicsContext gc, double y, double width) {
         double step = computeGridStep();
-        double minorStep = Math.max(10.0, step / 5.0);
-        double duration = project.getTotalDurationMs();
+        double duration = project != null ? project.getTotalDurationMs() : 3000;
         double viewStart = Math.max(0.0, scrollX / pixelsPerMs);
         double viewEnd = Math.min(duration, Math.max(0.0, (scrollX + width - LABEL_WIDTH) / pixelsPerMs));
-
-        gc.setStroke(Color.web("#242424", 0.58));
-        gc.setLineWidth(0.35);
-        for (double t = Math.floor(viewStart / minorStep) * minorStep; t <= viewEnd; t += minorStep) {
-            if (t < 0) continue;
-            if (isMajorGridLine(t, step)) continue;
-            double x = LABEL_WIDTH + t * pixelsPerMs - scrollX;
-            if (x >= LABEL_WIDTH && x <= width) {
-                gc.strokeLine(x, y, x, y + TRACK_HEIGHT);
-            }
+        
+        for (double x = 0; x < width; x += step) {
+            gc.setStroke(Color.web("#333333", 0.3));
+            gc.setLineWidth(1.0);
+            gc.strokeLine(x, y, x, y + TRACK_HEIGHT);
         }
 
         gc.setStroke(GRID_COLOR);
@@ -799,6 +802,30 @@ public class TimelinePanel extends VBox {
         gc.strokeLine(0, y + TRACK_HEIGHT - 0.5, width, y + TRACK_HEIGHT - 0.5);
         gc.setStroke(Color.web("#333333"));
         gc.strokeLine(LABEL_WIDTH, y, LABEL_WIDTH, y + TRACK_HEIGHT);
+    }
+    
+    private void drawConstraintIndicator(GraphicsContext gc, double width, double y, Constraint constraint) {
+        // Draw a small icon/indicator on the right side of the track header
+        double iconSize = 12;
+        double iconX = width - iconSize - 8;
+        double iconY = y + (TRACK_HEIGHT - iconSize) / 2;
+        
+        if (constraint.getType() == Constraint.Type.PARENT_CHILD) {
+            // Draw parent-child icon (chain link style)
+            gc.setStroke(Color.web("#ffaa00", 0.8));
+            gc.setLineWidth(2.0);
+            gc.strokeOval(iconX, iconY, iconSize, iconSize);
+            gc.setFill(Color.web("#ffaa00", 0.8));
+            gc.fillOval(iconX + 3, iconY + 3, 3, 3);
+            gc.fillOval(iconX + 6, iconY + 6, 3, 3);
+        } else if (constraint.getType() == Constraint.Type.LOOK_AT) {
+            // Draw look-at icon (eye style)
+            gc.setStroke(Color.web("#00aaff", 0.8));
+            gc.setLineWidth(2.0);
+            gc.strokeOval(iconX, iconY, iconSize, iconSize);
+            gc.setFill(Color.web("#00aaff", 0.8));
+            gc.fillOval(iconX + 4, iconY + 4, 4, 4);
+        }
     }
 
     private void drawKeyframes(GraphicsContext gc, String selectionName, EntityTrack track, PropertyType prop, double y, double width) {

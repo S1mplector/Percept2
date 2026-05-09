@@ -28,6 +28,22 @@ import javafx.scene.paint.Color;
 
 public class AnimationPreview extends VBox {
     private static final double PIVOT_MIN = 0.0;
+    
+    /**
+     * Get the constrained transform for an entity at a given time.
+     * Applies parent-child and look-at constraints if present.
+     */
+    private ConstraintEvaluator.ConstrainedTransform getConstrainedTransform(
+            String entityName, double baseX, double baseY, double baseRotationDeg,
+            double baseScaleX, double baseScaleY, double timeMs) {
+        if (project == null) {
+            return new ConstraintEvaluator.ConstrainedTransform(baseX, baseY, baseRotationDeg, baseScaleX, baseScaleY);
+        }
+        
+        Constraint constraint = project.getConstraint(entityName);
+        return ConstraintEvaluator.evaluate(entityName, baseX, baseY, baseRotationDeg, baseScaleX, baseScaleY,
+            constraint, project, timeMs);
+    }
     private static final double PIVOT_MAX = 1.0;
     private static final double TRANSFORM_EPSILON = 1e-6;
     private static final double VIEW_ZOOM_MIN = 0.35;
@@ -887,8 +903,19 @@ public class AnimationPreview extends VBox {
                 double t = now + i * step;
                 if (t < 0 || t > dur) continue;
 
-                double x = track.getValueAt(PropertyType.X, t);
-                double y = track.getValueAt(PropertyType.Y, t);
+                double baseX = track.getValueAt(PropertyType.X, t);
+                double baseY = track.getValueAt(PropertyType.Y, t);
+                double baseRot = hasRotation ? track.getValueAt(PropertyType.ROTATION, t) : 0.0;
+                double baseScaleX = hasScaleX ? track.getValueAt(PropertyType.SCALE_X, t) : 1.0;
+                double baseScaleY = hasScaleY ? track.getValueAt(PropertyType.SCALE_Y, t) : 1.0;
+                
+                ConstraintEvaluator.ConstrainedTransform constrained = getConstrainedTransform(
+                    track.getEntityName(), baseX, baseY, baseRot, baseScaleX, baseScaleY, t);
+                double x = constrained.x;
+                double y = constrained.y;
+                double rot = Math.toRadians(constrained.rotationDeg);
+                double sX = constrained.scaleX;
+                double sY = constrained.scaleY;
 
                 double alpha = 0.3 * (1.0 - Math.abs(i) / (double)(onionFrames + 1));
                 Color color = i < 0 ? Color.web("#f38ba8", alpha) : Color.web("#58d68d", alpha);
