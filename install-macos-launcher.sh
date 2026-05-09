@@ -83,33 +83,14 @@ xml_escape() {
   printf "%s" "$value"
 }
 
-write_svg_icon() {
+copy_svg_icon() {
   local icon_file="$SUPPORT_DIR/jvn-engine-hub.svg"
-  local version_label="$1"
-  [[ "$version_label" == v* ]] || version_label="v$version_label"
-  version_label="$(xml_escape "$version_label")"
+  local source_icon="$SCRIPT_DIR/docs/assets/images/jvn_logo.svg"
+  if [[ ! -f "$source_icon" ]]; then
+    die "JVN SVG logo was not found at: $source_icon"
+  fi
   mkdir -p "$SUPPORT_DIR"
-  cat > "$icon_file" <<SVG
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="JVN ${version_label}">
-  <defs>
-    <linearGradient id="bg" x1="24" y1="24" x2="232" y2="232" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#121826"/>
-      <stop offset="0.55" stop-color="#1e2d4c"/>
-      <stop offset="1" stop-color="#0b111f"/>
-    </linearGradient>
-    <linearGradient id="mark" x1="56" y1="42" x2="204" y2="206" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#ffb35c"/>
-      <stop offset="0.48" stop-color="#ff6f3c"/>
-      <stop offset="1" stop-color="#4fb7ff"/>
-    </linearGradient>
-  </defs>
-  <rect x="18" y="18" width="220" height="220" rx="44" fill="url(#bg)"/>
-  <text x="128" y="137" text-anchor="middle" font-family="Arial, sans-serif" font-size="70" font-weight="900" fill="url(#mark)" opacity="0.96">JVN</text>
-  <rect x="54" y="182" width="148" height="32" rx="16" fill="#07101f" opacity="0.74"/>
-  <text x="128" y="204" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#ffcf91">${version_label}</text>
-</svg>
-SVG
+  cp "$source_icon" "$icon_file"
   echo "$icon_file"
 }
 
@@ -123,7 +104,7 @@ create_icns_icon() {
   rm -rf "$iconset"
   mkdir -p "$iconset"
 
-  # Prefer rendering the generated SVG so the icon includes the current version.
+  # Prefer rendering the canonical repo SVG so shortcut artwork stays in sync.
   if command -v qlmanage >/dev/null 2>&1; then
     rm -f "$SUPPORT_DIR/jvn-engine-hub.svg.png" "$source_png"
     qlmanage -t -s 1024 -o "$SUPPORT_DIR" "$svg_file" >/dev/null 2>&1 || true
@@ -137,19 +118,6 @@ create_icns_icon() {
     if [[ -f "$source_png" ]]; then
       rendered="$source_png"
     fi
-  fi
-
-  # Last-resort fallback: still produce a real macOS icon from the existing PNG.
-  if [[ -z "$rendered" ]]; then
-    for candidate in \
-        "$SCRIPT_DIR/docs/assets/images/jvn_logo_os.png" \
-        "$SCRIPT_DIR/docs/assets/images/jvn_logo.png" \
-        "$SCRIPT_DIR/modules/editor/src/main/resources/com/jvn/editor/images/jvn_logo.png"; do
-      if [[ -f "$candidate" ]]; then
-        rendered="$candidate"
-        break
-      fi
-    done
   fi
 
   if [[ -z "$rendered" || ! -f "$rendered" ]]; then
@@ -185,7 +153,7 @@ mkdir -p "$APP_BUNDLE/Contents/MacOS" "$APP_BUNDLE/Contents/Resources" "$LOG_DIR
 rm -f "$SUPPORT_DIR/launch-jvn-engine-hub.command"
 
 version="$(read_project_version)"
-svg_icon="$(write_svg_icon "$version")"
+svg_icon="$(copy_svg_icon)"
 icns_icon="$(create_icns_icon "$svg_icon")"
 project_q="$(shell_quote "$SCRIPT_DIR")"
 log_q="$(shell_quote "$LOG_FILE")"
@@ -460,7 +428,7 @@ fi
 xattr -dr com.apple.quarantine "$APP_BUNDLE" 2>/dev/null || true
 
 echo "[installer] installed app: $APP_BUNDLE"
-echo "[installer] generated SVG icon: $svg_icon"
+echo "[installer] installed SVG icon: $svg_icon"
 if [[ -n "$icns_icon" ]]; then
   echo "[installer] generated macOS app icon: $icns_icon"
 else

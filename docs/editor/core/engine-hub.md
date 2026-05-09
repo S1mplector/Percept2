@@ -61,6 +61,8 @@ You can also run the installers directly from the repository root.
 
 The installers are user-local. They should not be run with `sudo` or Administrator elevation.
 
+Installed shortcuts use the repository logo at `docs/assets/images/jvn_logo.svg` as the canonical icon artwork. Linux installs the SVG directly, macOS converts that SVG into the app bundle `.icns`, and Windows stores the SVG alongside the hidden launcher and assigns it to the generated shortcuts when supported by the shell.
+
 ## Shortcut Logs
 
 Installed shortcuts launch without opening a terminal. If startup fails, check the launcher log:

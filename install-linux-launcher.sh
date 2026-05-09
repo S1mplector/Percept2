@@ -54,15 +54,6 @@ desktop_quote() {
   printf '"%s"' "$value"
 }
 
-xml_escape() {
-  local value="$1"
-  value="${value//&/&amp;}"
-  value="${value//</&lt;}"
-  value="${value//>/&gt;}"
-  value="${value//\"/&quot;}"
-  printf "%s" "$value"
-}
-
 die() {
   local message="$1"
   echo "[installer] error: $message" >&2
@@ -92,20 +83,6 @@ if [[ "${EUID:-$(id -u)}" -eq 0 && -z "${JVN_ALLOW_ROOT_INSTALL:-}" ]]; then
   die "Do not run this installer with sudo. It installs only for the current desktop user."
 fi
 
-read_project_version() {
-  local version=""
-  if [[ -f "$SCRIPT_DIR/gradle.properties" ]]; then
-    version="$(sed -nE 's/^[[:space:]]*jvnVersion[[:space:]]*=[[:space:]]*([^[:space:]]+).*$/\1/p' "$SCRIPT_DIR/gradle.properties" | head -n 1)"
-  fi
-  if [[ -z "$version" && -f "$SCRIPT_DIR/build.gradle.kts" ]]; then
-    version="$(sed -nE 's/.*val[[:space:]]+jvnVersion[[:space:]]*=.*\?:[[:space:]]*"([^"]+)".*/\1/p' "$SCRIPT_DIR/build.gradle.kts" | head -n 1)"
-  fi
-  if [[ -z "$version" ]]; then
-    version="dev"
-  fi
-  printf "%s" "$version"
-}
-
 ensure_executable() {
   local file="$1"
   local label="$2"
@@ -122,39 +99,12 @@ ensure_executable() {
 }
 
 write_icon() {
-  local version="$1"
-  local version_label="$version"
-  if [[ "$version_label" != v* ]]; then
-    version_label="v$version_label"
+  local source_icon="$SCRIPT_DIR/docs/assets/images/jvn_logo.svg"
+  if [[ ! -f "$source_icon" ]]; then
+    die "JVN SVG logo was not found at: $source_icon"
   fi
-  version_label="$(xml_escape "$version_label")"
-
   mkdir -p "$ICON_DIR"
-  cat > "$ICON_FILE" <<SVG
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="JVN ${version_label}">
-  <defs>
-    <linearGradient id="bg" x1="24" y1="24" x2="232" y2="232" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#121826"/>
-      <stop offset="0.55" stop-color="#1e2d4c"/>
-      <stop offset="1" stop-color="#0b111f"/>
-    </linearGradient>
-    <linearGradient id="mark" x1="56" y1="42" x2="204" y2="206" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#ffb35c"/>
-      <stop offset="0.48" stop-color="#ff6f3c"/>
-      <stop offset="1" stop-color="#4fb7ff"/>
-    </linearGradient>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000000" flood-opacity="0.42"/>
-    </filter>
-  </defs>
-  <rect x="18" y="18" width="220" height="220" rx="44" fill="url(#bg)" filter="url(#shadow)"/>
-  <path d="M72 207h112c15 0 27-12 27-27V67" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity="0.17"/>
-  <text x="128" y="137" text-anchor="middle" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="70" font-weight="900" fill="url(#mark)" opacity="0.96">JVN</text>
-  <rect x="54" y="182" width="148" height="32" rx="16" fill="#07101f" opacity="0.74"/>
-  <text x="128" y="204" text-anchor="middle" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="700" fill="#ffcf91">${version_label}</text>
-</svg>
-SVG
+  cp "$source_icon" "$ICON_FILE"
   chmod 0644 "$ICON_FILE"
 }
 
@@ -244,8 +194,7 @@ echo "[installer] Project directory: $SCRIPT_DIR"
 ensure_executable "$SCRIPT_DIR/jvn" "JVN launcher script"
 ensure_executable "$SCRIPT_DIR/gradlew" "Gradle wrapper"
 
-version="$(read_project_version)"
-write_icon "$version"
+write_icon
 write_wrapper
 write_desktop_entry
 

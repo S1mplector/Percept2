@@ -26,68 +26,28 @@ function Fail([string]$Message) {
   exit 1
 }
 
-function XmlEscape([string]$Value) {
-  return [System.Security.SecurityElement]::Escape($Value)
-}
-
 function PsQuote([string]$Value) {
   return "'" + $Value.Replace("'", "''") + "'"
 }
 
-function Read-ProjectVersion([string]$Root) {
-  $gradleProps = Join-Path $Root "gradle.properties"
-  if (Test-Path -LiteralPath $gradleProps) {
-    $line = Get-Content -LiteralPath $gradleProps | Where-Object { $_ -match '^\s*jvnVersion\s*=' } | Select-Object -First 1
-    if ($line -and $line -match '^\s*jvnVersion\s*=\s*(\S+)') {
-      return $Matches[1]
-    }
+function Copy-SvgIcon([string]$Root, [string]$Path) {
+  $source = Join-Path $Root "docs\assets\images\jvn_logo.svg"
+  if (-not (Test-Path -LiteralPath $source)) {
+    Fail "JVN SVG logo was not found at $source"
   }
-
-  $buildFile = Join-Path $Root "build.gradle.kts"
-  if (Test-Path -LiteralPath $buildFile) {
-    $line = Get-Content -LiteralPath $buildFile | Where-Object { $_ -match 'val\s+jvnVersion' } | Select-Object -First 1
-    if ($line -and $line -match '\?:\s*"([^"]+)"') {
-      return $Matches[1]
-    }
-  }
-  return "dev"
+  Copy-Item -LiteralPath $source -Destination $Path -Force
 }
 
-function Write-SvgIcon([string]$Path, [string]$Version) {
-  $label = $Version
-  if (-not $label.StartsWith("v")) { $label = "v$label" }
-  $label = XmlEscape $label
-  $svg = @"
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="JVN $label">
-  <defs>
-    <linearGradient id="bg" x1="24" y1="24" x2="232" y2="232" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#121826"/>
-      <stop offset="0.55" stop-color="#1e2d4c"/>
-      <stop offset="1" stop-color="#0b111f"/>
-    </linearGradient>
-    <linearGradient id="mark" x1="56" y1="42" x2="204" y2="206" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#ffb35c"/>
-      <stop offset="0.48" stop-color="#ff6f3c"/>
-      <stop offset="1" stop-color="#4fb7ff"/>
-    </linearGradient>
-  </defs>
-  <rect x="18" y="18" width="220" height="220" rx="44" fill="url(#bg)"/>
-  <text x="128" y="137" text-anchor="middle" font-family="Arial, sans-serif" font-size="70" font-weight="900" fill="url(#mark)" opacity="0.96">JVN</text>
-  <rect x="54" y="182" width="148" height="32" rx="16" fill="#07101f" opacity="0.74"/>
-  <text x="128" y="204" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#ffcf91">$label</text>
-</svg>
-"@
-  Set-Content -LiteralPath $Path -Value $svg -Encoding UTF8
-}
-
-function New-Shortcut([string]$ShortcutPath, [string]$TargetPath, [string]$Arguments, [string]$WorkingDirectory, [string]$Description) {
+function New-Shortcut([string]$ShortcutPath, [string]$TargetPath, [string]$Arguments, [string]$WorkingDirectory, [string]$Description, [string]$IconPath) {
   $shell = New-Object -ComObject WScript.Shell
   $shortcut = $shell.CreateShortcut($ShortcutPath)
   $shortcut.TargetPath = $TargetPath
   $shortcut.Arguments = $Arguments
   $shortcut.WorkingDirectory = $WorkingDirectory
   $shortcut.Description = $Description
+  if ($IconPath) {
+    $shortcut.IconLocation = $IconPath
+  }
   $shortcut.Save()
 }
 
@@ -107,8 +67,7 @@ $LogFile = Join-Path $LogDir "launcher.log"
 
 New-Item -ItemType Directory -Force -Path $InstallDir, $LogDir | Out-Null
 
-$Version = Read-ProjectVersion $ProjectRoot
-Write-SvgIcon $IconSvg $Version
+Copy-SvgIcon $ProjectRoot $IconSvg
 
 $projectRootLiteral = PsQuote $ProjectRoot
 $logFileLiteral = PsQuote $LogFile
@@ -176,13 +135,13 @@ $StartMenuDir = Join-Path ([Environment]::GetFolderPath("StartMenu")) "Programs"
 $StartShortcut = Join-Path $StartMenuDir "JVN Engine Hub.lnk"
 New-Item -ItemType Directory -Force -Path $StartMenuDir | Out-Null
 $Wscript = Join-Path $env:WINDIR "System32\wscript.exe"
-New-Shortcut $StartShortcut $Wscript "`"$LauncherVbs`"" $ProjectRoot "Launch Java Vector Nexus Engine Hub"
+New-Shortcut $StartShortcut $Wscript "`"$LauncherVbs`"" $ProjectRoot "Launch Java Vector Nexus Engine Hub" $IconSvg
 
 if (-not $NoDesktop) {
   $DesktopDir = [Environment]::GetFolderPath("Desktop")
   if ($DesktopDir) {
     $DesktopShortcut = Join-Path $DesktopDir "JVN Engine Hub.lnk"
-    New-Shortcut $DesktopShortcut $Wscript "`"$LauncherVbs`"" $ProjectRoot "Launch Java Vector Nexus Engine Hub"
+    New-Shortcut $DesktopShortcut $Wscript "`"$LauncherVbs`"" $ProjectRoot "Launch Java Vector Nexus Engine Hub" $IconSvg
   }
 }
 
@@ -192,5 +151,5 @@ if (-not $NoDesktop -and $DesktopShortcut) {
 }
 Write-Host "[installer] installed hidden PowerShell launcher: $LauncherPs1"
 Write-Host "[installer] installed hidden WSH launcher: $LauncherVbs"
-Write-Host "[installer] generated SVG icon: $IconSvg"
+Write-Host "[installer] installed SVG icon: $IconSvg"
 Write-Host "[installer] launch log: $LogFile"
