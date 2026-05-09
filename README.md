@@ -15,6 +15,18 @@ Docs entrypoints:
 - [JVN Editor Docs](docs/editor/README.md)
 - [JVN Build And Release Docs](docs/project-setup/release/README.md)
 
+## JVN Language Tools For VS Code
+
+<div align="left">
+  <a href="https://marketplace.visualstudio.com/items?itemName=Simplector.jvn-language-tools&ssr=false#review-details">
+    <img src="tools/vscode-jvn/images/jlt_icon.png" width="120" alt="JVN Language Tools logo">
+  </a>
+</div>
+
+JVN Language Tools is available on the Visual Studio Marketplace for VNS, JES, Story Map, and JVN config syntax highlighting and snippets:
+
+[Install JVN Language Tools for VS Code](https://marketplace.visualstudio.com/items?itemName=Simplector.jvn-language-tools&ssr=false#review-details)
+
 ## Architecture
 
 JVN is designed to be lightweight and predictable under load.
