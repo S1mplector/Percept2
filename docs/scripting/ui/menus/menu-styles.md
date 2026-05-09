@@ -66,6 +66,15 @@ itemDisabledPrefix=-
 | `itemSelectedPrefix` | Prefix for selected item (e.g., `"> "`) |
 | `itemDisabledPrefix` | Prefix for disabled items (e.g., `"- "`) |
 
+Set a prefix key to an explicit blank value to clear an inherited prefix:
+
+```properties
+itemSelectedPrefix=
+```
+
+This is useful for art-driven menus where selected or hovered button artwork
+already communicates focus and a text arrow would be duplicated.
+
 ---
 
 ## Item Font

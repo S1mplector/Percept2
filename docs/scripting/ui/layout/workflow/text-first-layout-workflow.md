@@ -318,6 +318,8 @@ itemDisabledColor=#7D8CA8            # Disabled item text color
 itemPrefix=                          # (optional) Normal state prefix (empty = none)
 itemSelectedPrefix=▶                 # (optional) Prefix when selected
 itemDisabledPrefix=•                 # (optional) Prefix when disabled
+# To clear an inherited prefix, keep the value explicitly blank:
+# itemSelectedPrefix=
 
 # ── Item Font ──
 itemFontFamily=Segoe UI              # (optional) Font family name

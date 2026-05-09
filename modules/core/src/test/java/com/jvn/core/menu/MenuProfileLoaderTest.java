@@ -227,6 +227,24 @@ class MenuProfileLoaderTest {
   }
 
   @Test
+  void preservesExplicitBlankStylePrefixes() throws Exception {
+    Path root = Files.createTempDirectory("jvn-menu-blank-prefixes-");
+    Files.createDirectories(root.resolve("config/menu/styles"));
+    Files.writeString(root.resolve("config/menu/styles/quiet.style"), """
+        itemPrefix=
+        itemSelectedPrefix=
+        itemDisabledPrefix=
+        """);
+
+    AssetCatalog assets = new AssetCatalog(new FilesystemAssetManager(root));
+    MenuProfile profile = MenuProfileLoader.load(assets);
+
+    assertEquals("", profile.style("quiet").itemPrefix());
+    assertEquals("", profile.style("quiet").itemSelectedPrefix());
+    assertEquals("", profile.style("quiet").itemDisabledPrefix());
+  }
+
+  @Test
   void settingsMenuTargetsAreNotFlaggedAsUnused() throws Exception {
     Path root = Files.createTempDirectory("jvn-menu-settings-target-");
     Files.createDirectories(root.resolve("config/menu/menus"));

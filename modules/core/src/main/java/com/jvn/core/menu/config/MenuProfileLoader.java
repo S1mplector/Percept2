@@ -411,9 +411,9 @@ public final class MenuProfileLoader {
         normalize(p.getProperty("itemHoverColor"), base.itemHoverColor()),
         normalize(p.getProperty("itemDisabledColor"), base.itemDisabledColor()),
         // Prefixes
-        normalize(p.getProperty("itemPrefix"), base.itemPrefix()),
-        normalize(p.getProperty("itemSelectedPrefix"), base.itemSelectedPrefix()),
-        normalize(p.getProperty("itemDisabledPrefix"), base.itemDisabledPrefix()),
+        normalizePrefix(p.getProperty("itemPrefix"), base.itemPrefix()),
+        normalizePrefix(p.getProperty("itemSelectedPrefix"), base.itemSelectedPrefix()),
+        normalizePrefix(p.getProperty("itemDisabledPrefix"), base.itemDisabledPrefix()),
         // Font
         normalize(p.getProperty("itemFontFamily"), base.itemFontFamily()),
         normalize(p.getProperty("itemFontWeight"), base.itemFontWeight()),
@@ -918,6 +918,11 @@ public final class MenuProfileLoader {
     if (v == null) return def;
     String t = v.trim();
     return t.isEmpty() ? def : t;
+  }
+
+  private static String normalizePrefix(String v, String def) {
+    if (v == null) return def;
+    return v.trim();
   }
 
   private static String configuredText(Properties properties, String key, String inheritedValue) {

@@ -49,9 +49,9 @@ public record MenuStyleSpec(
     itemSelectedColor = normalize(itemSelectedColor, null);
     itemHoverColor = normalize(itemHoverColor, null);
     itemDisabledColor = normalize(itemDisabledColor, null);
-    itemPrefix = normalize(itemPrefix, null);
-    itemSelectedPrefix = normalize(itemSelectedPrefix, null);
-    itemDisabledPrefix = normalize(itemDisabledPrefix, null);
+    itemPrefix = normalizePrefix(itemPrefix, null);
+    itemSelectedPrefix = normalizePrefix(itemSelectedPrefix, null);
+    itemDisabledPrefix = normalizePrefix(itemDisabledPrefix, null);
     itemFontFamily = normalize(itemFontFamily, null);
     itemFontWeight = normalize(itemFontWeight, null);
     if (itemFontSize != null && itemFontSize <= 0) itemFontSize = null;
@@ -83,6 +83,11 @@ public record MenuStyleSpec(
     if (v == null) return def;
     String t = v.trim();
     return t.isEmpty() ? def : t;
+  }
+
+  private static String normalizePrefix(String v, String def) {
+    if (v == null) return def;
+    return v.trim();
   }
 
   private static double clamp(double v, double min, double max) {
