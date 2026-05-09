@@ -99,7 +99,7 @@ public class VnsCodeEditor extends BorderPane {
     + "|hud|save|quickload|skip|auto|ui|history|screen|phone"
     + "|jes_push|jes_replace|jes_pop|jes_call|jes|java"
     + "|transition|stage|menu|settings|mainmenu|load|goto"
-    + "|set|inc|dec|mul|div|toggle|flag|unflag|clear"
+    + "|set|inc|dec|mul|div|toggle|flag|unflag|clear|persistent"
     + "|if|elif|else|endif|/if"
     + "|call|gosub|return|character|char|choice)\\b";
   private static final String ARROW_PATTERN = "->";
@@ -1894,6 +1894,7 @@ public class VnsCodeEditor extends BorderPane {
     VNS_COMMAND_DOCS.put("div", "Divide a numeric variable. Usage: [div var_name amount]");
     VNS_COMMAND_DOCS.put("toggle", "Toggle a boolean variable. Usage: [toggle var_name]");
     VNS_COMMAND_DOCS.put("clear", "Clear a variable. Usage: [clear var_name]");
+    VNS_COMMAND_DOCS.put("persistent", "Manage persistent variables across saves. Usage: [persistent set key value], [persistent load key], or [persistent reset]");
     VNS_COMMAND_DOCS.put("if", "Conditional branch. Usage: [if condition] ... [endif]");
     VNS_COMMAND_DOCS.put("elif", "Else-if branch. Usage: [elif condition]");
     VNS_COMMAND_DOCS.put("else", "Else branch. Usage: [else]");
