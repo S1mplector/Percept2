@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="520" height="190" viewBox="0 0 520 190" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="380" height="190" viewBox="0 0 380 190" role="img" aria-labelledby="title desc">
   <title id="title">JVN logo</title>
-  <desc id="desc">A background-free metallic JVN wordmark with a restrained orange brush swipe behind it and the v0.1.2 version label to the right.</desc>
+  <desc id="desc">A background-free metallic JVN wordmark with a restrained orange brush swipe behind it.</desc>
   <defs>
     <linearGradient id="brushOrange" x1="24" y1="152" x2="340" y2="96" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#ff7a1a" stop-opacity="0.08"/>
@@ -59,13 +59,5 @@
           font-weight="900"
           letter-spacing="6"
           fill="url(#metal)">JVN</text>
-  </g>
-
-  <g transform="translate(368 102)">
-    <text x="0" y="0"
-          font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
-          font-size="18"
-          font-weight="800"
-          fill="#121821">v0.1.2</text>
   </g>
 </svg>

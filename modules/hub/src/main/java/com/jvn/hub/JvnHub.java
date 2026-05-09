@@ -3696,6 +3696,8 @@ public final class JvnHub {
       Shape wordmark = AffineTransform.getTranslateInstance(tx, ty).createTransformedShape(glyphs.getOutline());
       Rectangle shapeBounds = wordmark.getBounds();
 
+      paintBrushSwipe(g2, width, height);
+
       g2.setColor(new Color(0, 0, 0, 95));
       g2.translate(0, Math.max(1, height * 0.05));
       g2.fill(wordmark);
@@ -3718,6 +3720,57 @@ public final class JvnHub {
       g2.fill(wordmark);
 
       g2.dispose();
+    }
+
+    private static void paintBrushSwipe(Graphics2D g2, int width, int height) {
+      Path2D main = new Path2D.Double();
+      main.moveTo(width * 0.08, height * 0.76);
+      main.curveTo(
+          width * 0.24, height * 0.58,
+          width * 0.47, height * 0.66,
+          width * 0.88, height * 0.44);
+      g2.setPaint(new LinearGradientPaint(
+          0f, 0f,
+          (float) width, 0f,
+          new float[] {0f, 0.18f, 0.56f, 0.84f, 1f},
+          new Color[] {
+              new Color(255, 122, 26, 15),
+              new Color(255, 143, 36, 118),
+              new Color(242, 106, 33, 148),
+              new Color(255, 179, 71, 78),
+              new Color(255, 122, 26, 10)
+          }));
+      g2.setStroke(new BasicStroke(
+          Math.max(7f, height * 0.22f),
+          BasicStroke.CAP_ROUND,
+          BasicStroke.JOIN_ROUND));
+      g2.draw(main);
+
+      Path2D highlight = new Path2D.Double();
+      highlight.moveTo(width * 0.17, height * 0.84);
+      highlight.curveTo(
+          width * 0.36, height * 0.70,
+          width * 0.56, height * 0.74,
+          width * 0.80, height * 0.58);
+      g2.setColor(new Color(255, 179, 71, 55));
+      g2.setStroke(new BasicStroke(
+          Math.max(1.8f, height * 0.045f),
+          BasicStroke.CAP_ROUND,
+          BasicStroke.JOIN_ROUND));
+      g2.draw(highlight);
+
+      Path2D texture = new Path2D.Double();
+      texture.moveTo(width * 0.12, height * 0.64);
+      texture.curveTo(
+          width * 0.33, height * 0.50,
+          width * 0.57, height * 0.55,
+          width * 0.92, height * 0.32);
+      g2.setColor(new Color(243, 107, 33, 40));
+      g2.setStroke(new BasicStroke(
+          Math.max(2.4f, height * 0.07f),
+          BasicStroke.CAP_ROUND,
+          BasicStroke.JOIN_ROUND));
+      g2.draw(texture);
     }
   }
 
