@@ -9,6 +9,17 @@ The JVN VS Code extension lives at `tools/vscode-jvn`. It provides external-edit
 - Story Map files (`.storymap`, legacy `.timeline`) with arcs, links, scripts, positions, colors, and metadata.
 - JVN config files (`.layout`, `.menu`, `.registry`, `.settings`, `.stagepreset`, `.style`, `.theme`, `jvn.project`) with sections, keys, values, placeholders, colors, and comments.
 - Snippets for common VNS, JES, Story Map, and menu/config patterns.
+- An optional **JVN DSL Icons** file icon theme for the VS Code Explorer.
+
+## File Icons
+
+VS Code explorer icons come from the active **File Icon Theme**. Installing JVN Language Tools registers the theme, but VS Code does not switch to it automatically.
+
+To enable it:
+
+1. Open Command Palette.
+2. Run **Preferences: File Icon Theme**.
+3. Select **JVN DSL Icons**.
 
 ## DSL Icon Set
 
@@ -45,7 +56,7 @@ Restart VS Code after copying.
 ```sh
 cd tools/vscode-jvn
 npm run package
-code --install-extension jvn-language-tools-0.1.2.vsix
+code --install-extension jvn-language-tools-0.1.3.vsix
 ```
 
 VS Code also supports installing the generated `.vsix` from the Extensions view with **Install from VSIX...**.

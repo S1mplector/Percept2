@@ -1,0 +1,63 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vscode/main/src/vs/workbench/services/themes/common/iconThemeSchema.json",
+  "hidesExplorerArrows": false,
+  "file": "_jvn_generic_file",
+  "folder": "_jvn_folder",
+  "folderExpanded": "_jvn_folder_open",
+  "iconDefinitions": {
+    "_jvn_generic_file": {
+      "iconPath": "../images/fileicons/generic-file.svg"
+    },
+    "_jvn_folder": {
+      "iconPath": "../images/fileicons/generic-folder.svg"
+    },
+    "_jvn_folder_open": {
+      "iconPath": "../images/fileicons/generic-folder-open.svg"
+    },
+    "_jvn_vns": {
+      "iconPath": "../images/dsl/vns.svg"
+    },
+    "_jvn_jes": {
+      "iconPath": "../images/dsl/jes.svg"
+    },
+    "_jvn_storymap": {
+      "iconPath": "../images/dsl/storymap.svg"
+    },
+    "_jvn_menu": {
+      "iconPath": "../images/dsl/menu.svg"
+    },
+    "_jvn_layout": {
+      "iconPath": "../images/dsl/layout.svg"
+    },
+    "_jvn_style": {
+      "iconPath": "../images/dsl/style.svg"
+    },
+    "_jvn_stagepreset": {
+      "iconPath": "../images/dsl/stagepreset.svg"
+    }
+  },
+  "languageIds": {
+    "jvn-vns": "_jvn_vns",
+    "jvn-jes": "_jvn_jes",
+    "jvn-storymap": "_jvn_storymap",
+    "jvn-config": "_jvn_menu"
+  },
+  "fileExtensions": {
+    "vns": "_jvn_vns",
+    "jes": "_jvn_jes",
+    "storymap": "_jvn_storymap",
+    "timeline": "_jvn_storymap",
+    "menu": "_jvn_menu",
+    "registry": "_jvn_menu",
+    "layout": "_jvn_layout",
+    "style": "_jvn_style",
+    "theme": "_jvn_style",
+    "stagepreset": "_jvn_stagepreset"
+  },
+  "fileNames": {
+    "jvn.project": "_jvn_menu"
+  },
+  "fileNamesExpanded": {
+    "menu.registry": "_jvn_menu"
+  }
+}

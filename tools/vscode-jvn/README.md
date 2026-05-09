@@ -26,7 +26,20 @@ SVG icon sources live in `images/dsl/`; this README uses PNG previews because th
 - Comment, bracket, quote, and folding behavior tuned for each DSL.
 - Snippets for common VNS, JES, Story Map, and config structures.
 - File associations for project files that VS Code would otherwise treat as plain text.
+- Optional **JVN DSL Icons** file icon theme for DSL files in the Explorer.
 - Passive operation: no background scanner, no project mutation, no extension-host startup cost.
+
+## File Icons In Explorer
+
+VS Code file explorer icons are controlled by the active **File Icon Theme**. Installing JLT registers the icon theme, but VS Code will not switch to it automatically.
+
+To use the JVN DSL icons:
+
+1. Open Command Palette.
+2. Run **Preferences: File Icon Theme**.
+3. Select **JVN DSL Icons**.
+
+This theme gives JVN-specific icons to `.vns`, `.jes`, `.storymap`, `.timeline`, `.menu`, `.registry`, `.layout`, `.style`, `.theme`, `.stagepreset`, and `jvn.project`.
 
 ## Practical Workflow
 
@@ -107,7 +120,7 @@ npm run package
 Then install the generated `.vsix`:
 
 ```sh
-code --install-extension jvn-language-tools-0.1.2.vsix
+code --install-extension jvn-language-tools-0.1.3.vsix
 ```
 
 Users can also install it through VS Code's Extensions view with **Install from VSIX...**.

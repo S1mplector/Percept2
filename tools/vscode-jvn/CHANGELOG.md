@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3
+
+- Add the optional JVN DSL Icons file icon theme for VS Code Explorer file icons.
+
 ## 0.1.2
 
 - Add matching SVG icons for VNS, JES, Story Map, Menu, Layout, Style/Theme, and Stage Preset DSLs.

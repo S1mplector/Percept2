@@ -2,7 +2,7 @@
   "name": "jvn-language-tools",
   "displayName": "JVN Language Tools",
   "description": "Syntax highlighting and snippets for Java Vector Nexus DSLs.",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "publisher": "Simplector",
   "license": "MIT",
   "repository": {
@@ -114,6 +114,13 @@
         "language": "jvn-config",
         "scopeName": "source.jvn-config",
         "path": "./syntaxes/config.tmLanguage.json"
+      }
+    ],
+    "iconThemes": [
+      {
+        "id": "jvn-dsl-icons",
+        "label": "JVN DSL Icons",
+        "path": "./fileicons/jvn-dsl-icon-theme.json"
       }
     ],
     "snippets": [
