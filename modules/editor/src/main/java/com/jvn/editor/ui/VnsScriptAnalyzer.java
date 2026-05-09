@@ -150,6 +150,8 @@ public final class VnsScriptAnalyzer {
         if (isLocalGotoTarget(target)) {
           int st = line.start + safeIndexOf(line.text, target, 0);
           refs.add(new LabelRef(target, st, st + target.length(), line.index));
+        } else if ("goto".equals(cmd) && projectRoot != null) {
+          addScriptAssetDiagnostic(projectRoot, diagnostics, line, cmd, arg);
         }
       } else if (("gosub".equals(cmd) || isSingleLabelCall(cmd, arg)) && !arg.isBlank()) {
         String target = firstToken(arg);
@@ -540,6 +542,7 @@ public final class VnsScriptAnalyzer {
     String normalized = cmd.toLowerCase(Locale.ROOT);
     return switch (normalized) {
       case "load" -> directScriptRef("VNS", firstToken(arg));
+      case "goto" -> gotoScriptRef(firstToken(arg));
       case "mainmenu" -> directScriptRef("VNS", firstToken(arg));
       case "jes_push", "jes_replace" -> directScriptRef("JES", firstToken(arg));
       case "vns" -> vnsPayloadRef(arg);
@@ -560,6 +563,15 @@ public final class VnsScriptAnalyzer {
       }
     }
     return null;
+  }
+
+  private static ScriptRef gotoScriptRef(String target) {
+    if (target == null || target.isBlank()) return null;
+    int colon = target.indexOf(':');
+    if (colon <= 0) return null;
+    String script = target.substring(0, colon);
+    if (script.indexOf('.') < 0 && !script.contains("/")) return null;
+    return directScriptRef("VNS", script);
   }
 
   private static ScriptRef jesPayloadRef(String arg) {

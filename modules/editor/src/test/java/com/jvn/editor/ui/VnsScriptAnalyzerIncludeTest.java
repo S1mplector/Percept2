@@ -80,6 +80,7 @@ class VnsScriptAnalyzerIncludeTest {
         @scenario bridge_scripts
         @label start
         [load story/missing_route.vns]
+        [goto story/missing_chapter.vns:start]
         [jes_push scripts/missing_scene.jes]
         [end]
         """);
@@ -89,6 +90,8 @@ class VnsScriptAnalyzerIncludeTest {
 
     assertTrue(analysis.diagnostics().stream()
         .anyMatch(d -> "missing_script".equals(d.kind()) && d.message().contains("story/missing_route.vns")));
+    assertTrue(analysis.diagnostics().stream()
+        .anyMatch(d -> "missing_script".equals(d.kind()) && d.message().contains("story/missing_chapter.vns")));
     assertTrue(analysis.diagnostics().stream()
         .anyMatch(d -> "missing_script".equals(d.kind()) && d.message().contains("scripts/missing_scene.jes")));
   }
