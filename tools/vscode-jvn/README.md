@@ -2,103 +2,87 @@
 
 <img src="images/jlt_icon.png" width="120" alt="JVN Language Tools logo">
 
-Syntax highlighting, editor behavior, and snippets for Java Vector Nexus projects in VS Code.
+**JVN Language Tools** brings Java Vector Nexus project files into VS Code with readable syntax highlighting, useful snippets, and recognizable file icons for the JVN DSL family.
 
-JLT is meant for day-to-day script and config editing beside the JVN editor. Use VS Code when you want fast multi-file editing, search/replace, Git review, or broad project navigation. Use the JVN editor when you need live diagnostics, previews, visual tools, Puppeteer editing, asset pickers, or runtime-aware validation.
+It is built for writers, scripters, technical artists, and developers who work directly with JVN projects and want VS Code to understand the files they touch every day.
 
-## Supported Files
+## Why Install It
 
-| DSL | Icon | Files | Development Use |
+JVN projects use several small domain-specific languages instead of one giant project format. That keeps game projects flexible, but plain VS Code treats those files as anonymous text.
+
+JLT makes those files easier to scan, review, and edit:
+
+- Story scripts become visibly structured by dialogue, commands, labels, choices, and formatting.
+- JES scenes and timelines become easier to read by separating entities, components, actions, literals, and properties.
+- Story Map files stand out as route/link planning documents.
+- Menu, layout, style, theme, and stage preset files get consistent highlighting instead of plain text.
+- Common structures are available as snippets, reducing repetitive typing and small syntax mistakes.
+- JVN-specific file icons make project folders easier to navigate at a glance.
+
+## What It Supports
+
+| Area | Icon | Files | What It Helps With |
 | --- | --- | --- | --- |
-| VNS | <img src="images/dsl/vns.png" width="48" alt="VNS icon"> | `.vns` | Story scripts, dialogue, labels, choices, VN/JES bridge calls |
-| JES | <img src="images/dsl/jes.png" width="48" alt="JES icon"> | `.jes` | Scenes, entities, components, animation timelines, minigames |
-| Story Map | <img src="images/dsl/storymap.png" width="48" alt="Story Map icon"> | `.storymap`, `.timeline` | Route/arc planning and script-link maps |
-| Menu | <img src="images/dsl/menu.png" width="48" alt="Menu icon"> | `.menu`, `.registry` | Menu screens, item actions, menu registration |
-| Layout | <img src="images/dsl/layout.png" width="48" alt="Layout icon"> | `.layout` | UI bounds, button placement, screen layout geometry |
-| Style / Theme | <img src="images/dsl/style.png" width="48" alt="Style icon"> | `.style`, `.theme` | Colors, fonts, skins, theme-level presentation |
-| Stage Preset | <img src="images/dsl/stagepreset.png" width="48" alt="Stage Preset icon"> | `.stagepreset` | Lighting and tint presets exported from editor tools |
+| VNS Story Scripts | <img src="images/dsl/vns.png" width="48" alt="VNS icon"> | `.vns` | Dialogue, labels, choices, VN commands, JES bridge calls |
+| JES Scenes | <img src="images/dsl/jes.png" width="48" alt="JES icon"> | `.jes` | Scenes, entities, components, actions, animation timelines |
+| Story Maps | <img src="images/dsl/storymap.png" width="48" alt="Story Map icon"> | `.storymap`, `.timeline` | Arcs, route links, script planning, legacy timeline maps |
+| Menus | <img src="images/dsl/menu.png" width="48" alt="Menu icon"> | `.menu`, `.registry` | Menu screens, item actions, menu registration |
+| Layouts | <img src="images/dsl/layout.png" width="48" alt="Layout icon"> | `.layout` | UI bounds, button placement, screen geometry |
+| Styles And Themes | <img src="images/dsl/style.png" width="48" alt="Style icon"> | `.style`, `.theme` | Colors, fonts, skins, shared presentation rules |
+| Stage Presets | <img src="images/dsl/stagepreset.png" width="48" alt="Stage Preset icon"> | `.stagepreset` | Lighting, tint, contrast, and staging presets |
 
-SVG icon sources live in `images/dsl/`; this README uses PNG previews because the VS Code Marketplace blocks SVG images in extension READMEs.
+## Everyday Use
 
-## What You Get
+Use JLT when you want to:
 
-- Syntax highlighting for JVN script/config files.
-- Comment, bracket, quote, and folding behavior tuned for each DSL.
-- Snippets for common VNS, JES, Story Map, and config structures.
-- File associations for project files that VS Code would otherwise treat as plain text.
-- Optional **JVN DSL Icons** file icon theme for DSL files in the Explorer.
-- Passive operation: no background scanner, no project mutation, no extension-host startup cost.
+- Review a branch that changes scripts, menus, layouts, or route maps.
+- Edit multiple VNS scenes with VS Code search and source control.
+- Quickly inspect JES scene structure without launching the full editor.
+- Keep menu/style/layout files readable during UI iteration.
+- Work on JVN projects from a lightweight external editor.
 
-## File Icons In Explorer
+Use the full JVN editor when you need runtime-aware tools such as live diagnostics, previews, Puppeteer editing, asset pickers, visual layout tools, or build/export validation.
 
-VS Code file explorer icons are controlled by the active **File Icon Theme**. Installing JLT registers the icon theme, but VS Code will not switch to it automatically.
+## File Icons
 
-To use the JVN DSL icons:
+JLT includes an optional **JVN DSL Icons** file icon theme.
 
-1. Open Command Palette.
+To enable it:
+
+1. Open the VS Code Command Palette.
 2. Run **Preferences: File Icon Theme**.
 3. Select **JVN DSL Icons**.
 
-This theme gives JVN-specific icons to `.vns`, `.jes`, `.storymap`, `.timeline`, `.menu`, `.registry`, `.layout`, `.style`, `.theme`, `.stagepreset`, and `jvn.project`.
+VS Code does not switch icon themes automatically after installing an extension, so this step is required if you want the custom file icons in the Explorer.
 
-## Practical Workflow
+## Snippets
 
-1. Open a JVN game project folder in VS Code.
-2. Edit story flow in `scripts/**/*.vns`.
-3. Jump to related animation/minigame files in `.jes`.
-4. Use workspace search for labels, asset ids, menu actions, or variables.
-5. Switch back to the JVN editor for preview, diagnostics, visual staging, and build/export checks.
+JLT includes snippets for common project structures:
 
-This extension intentionally complements the JVN editor. It does not try to replace the runtime-aware tools already built into JVN.
+- VNS: scenarios, characters, backgrounds, character show commands, choices, conditionals, JES scene pushes, and timeline calls.
+- JES: scene blocks, sprite entities, timelines, move/fade actions, parallel blocks, and audio cues.
+- Story Map: arcs, links, and clusters.
+- Config: menu items, layout button bounds, style colors, and stage preset skeletons.
 
-## Useful Snippet Prefixes
+Type a snippet prefix in a supported file and use VS Code completion to insert it.
 
-VNS:
+## Design Goal
 
-- `scenario` - scenario header with include and start label
-- `character` - character declaration and neutral image
-- `background` - reusable background alias
-- `show` - character show command
-- `choice` - branching choice block
-- `if` - conditional dialogue block
-- `jespush` - push a JES scene and return to VNS
-- `timeline` - inline VNS timeline block
-- `calltimeline` - run a registered JES timeline
+JLT is intentionally lightweight. It improves project readability and editing speed without running a background analyzer or mutating your project.
 
-JES:
+Runtime validation remains the job of the JVN editor, where the engine has access to project context, assets, previews, and internal analyzers.
 
-- `scene` - scene block
-- `sprite` - sprite entity
-- `timeline` - timeline block
-- `move` - move action
-- `fade` - fade action
-- `parallel` - parallel timeline actions
-- `audio` - play audio cue
+## Current Scope
 
-Story Map:
+This version provides:
 
-- `arc` - route/story arc node
-- `link` - arc-to-arc link
-- `cluster` - route cluster metadata
+- Syntax highlighting
+- Snippets
+- Language-specific brackets/comments/folding
+- File associations
+- Optional file icon theme
 
-Config:
-
-- `menuitem` - menu item label/action/target
-- `layoutbutton` - common button bounds
-- `stylecolors` - fill/stroke/text colors
-- `stagepreset` - lighting preset skeleton
-
-## Recommended Editing Habits
-
-- Keep VNS labels and Story Map arc ids stable; they are good search anchors.
-- Use snippets for repeated structure, then adjust names and paths immediately.
-- Keep generated visual assets and hand-written script/config changes in separate commits when possible.
-- Run the JVN editor diagnostics before treating VS Code edits as final.
-- Prefer the JVN editor for refactors that need asset awareness or live runtime context.
-
-## Current Limitations
-
-JLT is a lightweight language package. It does not currently provide:
+It does not yet provide:
 
 - Parser diagnostics
 - Go-to-definition
@@ -107,50 +91,4 @@ JLT is a lightweight language package. It does not currently provide:
 - Label graph validation
 - Runtime preview
 
-Those features belong in the JVN editor for now. A future language server can share analyzer code once the external API is stable.
-
-## Install From VSIX
-
-Package the extension:
-
-```sh
-npm run package
-```
-
-Then install the generated `.vsix`:
-
-```sh
-code --install-extension jvn-language-tools-0.1.3.vsix
-```
-
-Users can also install it through VS Code's Extensions view with **Install from VSIX...**.
-
-## Extension Development
-
-Run this extension directly from the repository:
-
-```sh
-code --extensionDevelopmentPath="$PWD"
-```
-
-Install it into your local VS Code extensions folder without packaging:
-
-```sh
-mkdir -p "$HOME/.vscode/extensions/jvn-language-tools"
-rsync -a --delete ./ "$HOME/.vscode/extensions/jvn-language-tools/"
-```
-
-Restart VS Code after copying.
-
-Package through the official VS Code extension tool:
-
-```sh
-npm run package
-```
-
-Publish to the Marketplace:
-
-```sh
-npx @vscode/vsce login Simplector
-npm run publish
-```
+Those are good candidates for a future language server once JVN exposes a stable analyzer API for external tools.

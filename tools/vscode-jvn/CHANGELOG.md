@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.4
+
+- Rewrite the Marketplace README around practical project value and day-to-day JVN workflows.
+
 ## 0.1.3
 
 - Add the optional JVN DSL Icons file icon theme for VS Code Explorer file icons.
