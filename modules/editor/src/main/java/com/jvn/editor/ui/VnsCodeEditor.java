@@ -96,10 +96,10 @@ public class VnsCodeEditor extends BorderPane {
     + "|bgm_crossfade|bgm_fadeout|bgm_resume|bgm_pause|bgm_seek|bgm_stop|bgm"
     + "|particles|particle|weather|pfx|fx"
     + "|audio_resume_all|audio_pause_all|audio_stop_all|audio|sfx_stop|sfx|voice_stop|voice|volume|textspeed|autodelay"
-    + "|hud|save|quickload|skip|auto|ui|history|screen"
+    + "|hud|save|quickload|skip|auto|ui|history|screen|phone"
     + "|jes_push|jes_replace|jes_pop|jes_call|jes|java"
     + "|transition|stage|menu|settings|mainmenu|load|goto"
-    + "|set|inc|dec|flag|unflag|clear"
+    + "|set|inc|dec|mul|div|toggle|flag|unflag|clear"
     + "|if|elif|else|endif|/if"
     + "|call|gosub|return|character|char|choice)\\b";
   private static final String ARROW_PATTERN = "->";
