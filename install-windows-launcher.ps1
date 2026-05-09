@@ -31,9 +31,9 @@ function PsQuote([string]$Value) {
 }
 
 function Copy-SvgIcon([string]$Root, [string]$Path) {
-  $source = Join-Path $Root "docs\assets\images\jvn_logo.svg"
+  $source = Join-Path $Root "docs\assets\images\jvn_app_icon.svg"
   if (-not (Test-Path -LiteralPath $source)) {
-    Fail "JVN SVG logo was not found at $source"
+    Fail "JVN SVG app icon was not found at $source"
   }
   Copy-Item -LiteralPath $source -Destination $Path -Force
 }

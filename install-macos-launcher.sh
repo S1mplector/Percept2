@@ -85,9 +85,9 @@ xml_escape() {
 
 copy_svg_icon() {
   local icon_file="$SUPPORT_DIR/jvn-engine-hub.svg"
-  local source_icon="$SCRIPT_DIR/docs/assets/images/jvn_logo.svg"
+  local source_icon="$SCRIPT_DIR/docs/assets/images/jvn_app_icon.svg"
   if [[ ! -f "$source_icon" ]]; then
-    die "JVN SVG logo was not found at: $source_icon"
+    die "JVN SVG app icon was not found at: $source_icon"
   fi
   mkdir -p "$SUPPORT_DIR"
   cp "$source_icon" "$icon_file"

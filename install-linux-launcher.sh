@@ -99,9 +99,9 @@ ensure_executable() {
 }
 
 write_icon() {
-  local source_icon="$SCRIPT_DIR/docs/assets/images/jvn_logo.svg"
+  local source_icon="$SCRIPT_DIR/docs/assets/images/jvn_app_icon.svg"
   if [[ ! -f "$source_icon" ]]; then
-    die "JVN SVG logo was not found at: $source_icon"
+    die "JVN SVG app icon was not found at: $source_icon"
   fi
   mkdir -p "$ICON_DIR"
   cp "$source_icon" "$ICON_FILE"
