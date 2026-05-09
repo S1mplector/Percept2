@@ -5111,10 +5111,10 @@ public class EditorApp extends Application {
     titleGroup.setMaxWidth(Double.MAX_VALUE);
     HBox.setHgrow(titleGroup, Priority.ALWAYS);
     if (panel != null) {
-      Label versionBadge = new Label(panel.versionBadge());
-      versionBadge.getStyleClass().addAll("panel-chooser-version-badge", panel.versionStyleClass());
-      versionBadge.setTooltip(versionTooltip);
-      titleGroup.getChildren().add(versionBadge);
+      Label versionText = new Label(panel.versionBadge());
+      versionText.getStyleClass().addAll("panel-chooser-version-text", panel.versionStyleClass());
+      versionText.setTooltip(versionTooltip);
+      titleGroup.getChildren().add(versionText);
     }
 
     Label placementBadge = new Label();

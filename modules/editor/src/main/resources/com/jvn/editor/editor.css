@@ -5326,33 +5326,23 @@
   -fx-border-color: #4a4a4a;
 }
 
-.panel-chooser-version-badge {
-  -fx-padding: 1 5 1 5;
-  -fx-min-height: 16px;
-  -fx-pref-height: 16px;
-  -fx-font-size: 9px;
-  -fx-font-weight: 800;
-  -fx-background-radius: 999;
-  -fx-border-radius: 999;
-  -fx-border-width: 1;
-  -fx-text-fill: #eeeeee;
+.panel-chooser-version-text {
+  -fx-padding: 0 0 0 2;
+  -fx-font-size: 10px;
+  -fx-font-weight: 700;
+  -fx-text-fill: #9a9a9a;
 }
 
 .panel-chooser-version-stable {
-  -fx-background-color: rgba(36, 36, 36, 0.96);
-  -fx-border-color: #6a6a6a;
+  -fx-text-fill: #9a9a9a;
 }
 
 .panel-chooser-version-beta {
-  -fx-background-color: rgba(49, 35, 24, 0.98);
-  -fx-border-color: #d39a4c;
-  -fx-text-fill: #ffd596;
+  -fx-text-fill: #d39a4c;
 }
 
 .panel-chooser-version-alpha {
-  -fx-background-color: rgba(55, 30, 39, 0.98);
-  -fx-border-color: #d76b86;
-  -fx-text-fill: #ffc2cf;
+  -fx-text-fill: #d76b86;
 }
 
 .panel-chooser-heading {
