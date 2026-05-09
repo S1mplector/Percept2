@@ -1,7 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="520" height="190" viewBox="0 0 520 190" role="img" aria-labelledby="title desc">
   <title id="title">JVN logo</title>
-  <desc id="desc">A background-free metallic JVN wordmark with the v0.1.2 version label to the right.</desc>
+  <desc id="desc">A background-free metallic JVN wordmark with a restrained orange brush swipe behind it and the v0.1.2 version label to the right.</desc>
   <defs>
+    <linearGradient id="brushOrange" x1="24" y1="152" x2="340" y2="96" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff7a1a" stop-opacity="0.08"/>
+      <stop offset="0.16" stop-color="#ff8f24" stop-opacity="0.52"/>
+      <stop offset="0.54" stop-color="#f26a21" stop-opacity="0.82"/>
+      <stop offset="0.82" stop-color="#ffb347" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#ff7a1a" stop-opacity="0.04"/>
+    </linearGradient>
+    <filter id="brushSoftness" x="-8%" y="-35%" width="116%" height="170%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="0.55" result="softAlpha"/>
+      <feOffset in="softAlpha" dx="0" dy="2" result="offsetAlpha"/>
+      <feMerge>
+        <feMergeNode in="offsetAlpha"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
     <linearGradient id="metal" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#ffffff"/>
       <stop offset="0.14" stop-color="#cfd8df"/>
@@ -16,6 +31,26 @@
       <feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#ffffff" flood-opacity="0.22"/>
     </filter>
   </defs>
+
+  <g filter="url(#brushSoftness)" opacity="0.92">
+    <path d="M 28 150 C 92 124, 180 130, 336 94"
+          fill="none"
+          stroke="url(#brushOrange)"
+          stroke-width="28"
+          stroke-linecap="round"/>
+    <path d="M 66 161 C 132 142, 211 143, 308 121"
+          fill="none"
+          stroke="#ffb347"
+          stroke-opacity="0.22"
+          stroke-width="5"
+          stroke-linecap="round"/>
+    <path d="M 47 132 C 125 111, 212 111, 356 77"
+          fill="none"
+          stroke="#f36b21"
+          stroke-opacity="0.16"
+          stroke-width="8"
+          stroke-linecap="round"/>
+  </g>
 
   <g filter="url(#wordmarkShadow)">
     <text x="8" y="136"
