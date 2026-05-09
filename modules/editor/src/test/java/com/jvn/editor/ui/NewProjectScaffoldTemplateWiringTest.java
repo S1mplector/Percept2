@@ -98,7 +98,7 @@ class NewProjectScaffoldTemplateWiringTest {
     assertTrue(branch.contains("[goto Epilogue:start]"));
 
     String epilogue = render("scripts/story/epilogue_sample.vns");
-    assertTrue(epilogue.contains("config/timeline/story.timeline"));
+    assertTrue(epilogue.contains("config/story/story.storymap"));
     assertTrue(epilogue.contains("[end]"));
   }
 
@@ -163,7 +163,7 @@ class NewProjectScaffoldTemplateWiringTest {
     tokens.put("STORY_TUTORIAL_SCRIPT_PATH", "scripts/story/tutorial_hub.vns");
     tokens.put("STORY_BRANCH_SCRIPT_PATH", "scripts/story/branch_demo.vns");
     tokens.put("STORY_EPILOGUE_SCRIPT_PATH", "scripts/story/epilogue.vns");
-    tokens.put("TIMELINE_PATH", "config/timeline/story.timeline");
+    tokens.put("STORY_MAP_PATH", "config/story/story.storymap");
     tokens.put("BG_DECL", "@background field_day assets/demo/backgrounds/game.png\n\n");
     tokens.put("BG_START", "[bg field_day]\n");
     tokens.put("BG_TRANSITION", "[transition fade 400]\n");

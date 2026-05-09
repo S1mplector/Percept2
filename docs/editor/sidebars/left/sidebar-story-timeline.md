@@ -1,4 +1,4 @@
-# Sidebar — Story Timeline
+# Sidebar — Story Map
 
 Multi-arc story planning tool for VNS projects. Manages narrative arcs, links between them, and visualizes the story graph.
 
@@ -8,11 +8,11 @@ Source: `modules/editor/src/main/java/com/jvn/editor/ui/StoryTimelineView.java`
 
 ## Overview
 
-The Story Timeline lets authors plan and visualize the high-level narrative structure of a VNS project. Each story beat is an **arc** that points to a `.vns` script file, and arcs are connected by **links** that represent narrative transitions.
+The Story Map lets authors plan and visualize the high-level narrative structure of a VNS project. Each story beat is an **arc** that points to a `.vns` script file, and arcs are connected by **links** that represent narrative transitions.
 
 - **Default side:** Left
-- **Tab name:** Timeline
-- **State file:** `config/timeline/story.timeline` (legacy fallback files are still loadable)
+- **Tab name:** Story Map
+- **Project file:** `config/story/story.storymap` (legacy fallback files are still loadable)
 
 ---
 
@@ -53,7 +53,7 @@ The view is split vertically:
 - **Top 76%** — story graph canvas in a scrollable, pannable viewport
 - **Bottom 24%** — tabbed list views for Arcs and Links
 
-![Story Timeline Overview](../../../assets/images/sidebars/story-timeline/story_timeline_ui_full.png)
+![Story Map Overview](../../../assets/images/sidebars/story-timeline/story_timeline_ui_full.png)
 
 ---
 
@@ -70,7 +70,7 @@ The view is split vertically:
 | **Delete Selected** | Removes the selected arc (and all its links) or the selected link. |
 | **Find** | Text field that highlights matching arc nodes on the graph. |
 
-![Timeline Toolbar](../../../assets/images/sidebars/story-timeline/story_timeline_toolbar.png)
+![Story Map Toolbar](../../../assets/images/sidebars/story-timeline/story_timeline_toolbar.png)
 
 ### Secondary Row
 
@@ -200,7 +200,7 @@ You can drag `.vns` files directly from the OS file manager or the Project Explo
 
 ## File Format
 
-The timeline is persisted as a line-delimited text file (`.jvn/story-timeline.txt`):
+The timeline is persisted as a line-delimited text file (`.jvn/story-map.txt`):
 
 ```text
 ARC|Prologue|scripts/prologue.vns|start|40.0|40.0

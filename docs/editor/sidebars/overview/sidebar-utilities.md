@@ -41,7 +41,7 @@ If you only need a quick answer:
 | # | Panel | Sub-Document | Default Side | Purpose |
 |---|-------|-------------|-------------|---------|
 | 1 | Project Explorer | **[sidebar-project-explorer.md](../left/sidebar-project-explorer.md)** | Left | File tree, create/rename/delete files, run project |
-| 2 | Story Timeline | **[sidebar-story-timeline.md](../left/sidebar-story-timeline.md)** | Left | Multi-arc story graph with arc/link management |
+| 2 | Story Map | **[sidebar-story-timeline.md](../left/sidebar-story-timeline.md)** | Left | Multi-arc story graph with arc/link management |
 | 3 | Inspector | **[sidebar-inspector.md](../right/sidebar-inspector.md)** | Right | Entity property editing for JES scenes |
 | 4 | Puppeteer Launcher | **[sidebar-puppeteer-launcher.md](../right/sidebar-puppeteer-launcher.md)** | Right | VNS scene snapshot, stage-context handoff, and Puppeteer launch |
 | 5 | VNS Diagnostics | **[sidebar-vns-diagnostics.md](../right/sidebar-vns-diagnostics.md)** | Right | Live error/warning list for .vns scripts |
@@ -104,7 +104,7 @@ Several sidebar utilities persist their state in the project's `.jvn/` directory
 | Image Attributes Tool | `.jvn/image-attributes-tool.properties` |
 | Scene Lighting Studio | `.jvn/image-tint-tool.properties` |
 | Storyboard Overlay | `.jvn/storyboard-overlay.properties` |
-| Story Timeline | `.jvn/story-timeline.txt` |
+| Story Map | `.jvn/story-map.txt` |
 | Version Control | Git state (`.git/`) |
 
 ---

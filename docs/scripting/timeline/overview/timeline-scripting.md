@@ -1,12 +1,12 @@
-# Timeline Scripting
+# Story Map And Timeline Scripting
 
-JVN has two distinct timeline systems that serve fundamentally different purposes. This landing page explains both, when to use each, and how they integrate with the rest of the engine.
+JVN has two distinct sequencing DSLs that serve fundamentally different purposes. This landing page explains the Story Map for narrative structure and animation timelines for runtime choreography.
 
 ---
 
-## The Two Timeline Systems
+## The Two Systems
 
-### 1. Story Timeline — Narrative Structure
+### 1. Story Map — Narrative Structure
 
 A DSL for mapping your game's narrative architecture — which scripts exist, how they connect, and how the player can traverse them. Think of it as a **story map**.
 
@@ -19,8 +19,8 @@ link Intro:intro_choice -> Chapter1:start
 link Chapter1:offer_side -> SideQuest:entry_side
 ```
 
-- **File:** `config/timeline/story.timeline`
-- **Editor:** Story Timeline sidebar panel (visual graph editor)
+- **File:** `config/story/story.storymap`
+- **Editor:** Story Map sidebar panel (visual graph editor)
 - **Purpose:** Authoring-time planning and validation, not runtime execution
 - **Full reference:** [Story Arcs & Links DSL](../story/timeline-story-arcs.md)
 
@@ -46,12 +46,12 @@ timeline {
 
 ## Side-by-Side Comparison
 
-| Aspect | Story Timeline | Animation Timeline |
+| Aspect | Story Map | Animation Timeline |
 |--------|---------------|-------------------|
 | **Purpose** | Map narrative structure | Animate entities over time |
 | **Scope** | Entire project | Single scene/sequence |
 | **Created by** | Story graph editor or DSL text | Puppeteer editor or JES code |
-| **File format** | `.timeline` (arc/link DSL) | `TimelineData` (Java object) |
+| **File format** | `.storymap` (arc/link DSL) | `TimelineData` (Java object) |
 | **Runtime role** | Authoring & validation only | Active playback via `TimelineRunner` |
 | **VNS integration** | `[goto Arc:label]` | `[call jes_timeline name]` or `[external jes_timeline name]` |
 | **Entities involved** | VNS scripts (arcs) | JES scene entities |
@@ -62,7 +62,7 @@ timeline {
 
 ## When to Use Which
 
-### Use Story Timeline when you need to:
+### Use Story Map when you need to:
 
 - Plan a branching narrative with multiple routes
 - Visualize which scripts connect to which
@@ -82,11 +82,11 @@ timeline {
 
 ---
 
-## Story Timeline Quick Start
+## Story Map Quick Start
 
 ### 1. Create the file
 
-Create `config/timeline/story.timeline` in your project.
+Create `config/story/story.storymap` in your project.
 
 ### 2. Declare arcs
 
@@ -111,7 +111,7 @@ link Chapter1:succeed -> GoodEnd:start
 
 ### 4. Visualize
 
-Open the Story Timeline sidebar panel to see the graph. Arcs appear as nodes, links as directed edges. Clusters are color-coded groups.
+Open the Story Map sidebar panel to see the graph. Arcs appear as nodes, links as directed edges. Clusters are color-coded groups.
 
 ---
 
@@ -271,7 +271,7 @@ See [Hand-Coding Timelines](../animation/timeline-hand-coding.md) for a complete
 
 ## Story Patterns
 
-The Story Timeline DSL supports several common narrative patterns:
+The Story Map DSL supports several common narrative patterns:
 
 | Pattern | Description | Example |
 |---------|-------------|---------|

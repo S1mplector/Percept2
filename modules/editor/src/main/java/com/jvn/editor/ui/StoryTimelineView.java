@@ -35,6 +35,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.function.Consumer;
 
+import com.jvn.core.project.StoryMapPaths;
+
 public class StoryTimelineView extends BorderPane {
   static final Pattern ARC_DSL_LINE = Pattern.compile(
       "^\\s*arc\\s+(?:\"((?:[^\"\\\\]|\\\\.)+)\"|(\\S+))"
@@ -144,7 +146,7 @@ public class StoryTimelineView extends BorderPane {
       }
     }
     if (sb.length() == 0) {
-      EditorDialogs.info(getScene() == null ? null : getScene().getWindow(), "Validate", "Timeline OK");
+      EditorDialogs.info(getScene() == null ? null : getScene().getWindow(), "Validate", "Story map OK");
     } else {
       EditorDialogs.showTextBlock(
           getScene() == null ? null : getScene().getWindow(),
@@ -176,7 +178,7 @@ public class StoryTimelineView extends BorderPane {
   private final ListView<Link> links = new ListView<>();
   private final StoryGraphPane graph = new StoryGraphPane();
   private final ScrollPane graphScroll = new ScrollPane(graph);
-  private final Label graphHint = new Label("Add an arc or drag a .vns script here to start your timeline.");
+  private final Label graphHint = new Label("Add an arc or drag a .vns script here to start your story map.");
   private final List<Button> toolbarIconButtons = new ArrayList<>();
   private static final double MIN_ZOOM = 0.6;
   private static final double MAX_ZOOM = 2.0;
@@ -788,14 +790,7 @@ public class StoryTimelineView extends BorderPane {
   }
 
   private File defaultTimelineFile() {
-    if (projectRoot == null) return null;
-    File modern = new File(projectRoot, "config/timeline/story.timeline");
-    if (modern.exists()) return modern;
-    File legacyStoryDir = new File(projectRoot, "story/story.timeline");
-    if (legacyStoryDir.exists()) return legacyStoryDir;
-    File legacyRoot = new File(projectRoot, "story.timeline");
-    if (legacyRoot.exists()) return legacyRoot;
-    return modern;
+    return StoryMapPaths.resolveForProjectRoot(projectRoot);
   }
 
   private static String nn(String s) { return s == null ? "" : s; }

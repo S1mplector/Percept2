@@ -20,6 +20,7 @@ import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
+import com.jvn.core.project.StoryMapPaths;
 import com.jvn.editor.AppBuildInfo;
 import com.jvn.editor.vcs.GitVcsService;
 
@@ -671,7 +672,7 @@ public class WelcomeCenterView extends BorderPane {
     }
 
     File entryScript = resolveProjectFile(projectDir, manifest.getProperty("entryVns", "scripts/story/prologue.vns"));
-    File timelineFile = resolveProjectFile(projectDir, manifest.getProperty("timeline", "config/timeline/story.timeline"));
+    File timelineFile = StoryMapPaths.resolveExistingOrDefault(projectDir, manifest);
     File readmeFile = new File(projectDir, "README.md");
     File docsDir = new File(projectDir, "docs");
     long modified = exists ? projectTimestamp(projectDir.toPath()) : 0L;
@@ -1073,7 +1074,7 @@ public class WelcomeCenterView extends BorderPane {
 
     List<String> missing = new ArrayList<>();
     requireProjectFile(project, manifest.getProperty("entryVns", "scripts/story/prologue.vns"), missing);
-    requireProjectFile(project, manifest.getProperty("timeline", "config/timeline/story.timeline"), missing);
+    requireProjectFile(project, StoryMapPaths.resolveExistingOrDefault(project.toFile(), manifest), missing);
     requireProjectFile(project, manifest.getProperty("settingsFile", "config/settings/vn.settings"), missing);
     requireProjectFile(project, manifest.getProperty("dialogueLayout", "config/ui/dialogue.layout"), missing);
 
@@ -1308,6 +1309,16 @@ public class WelcomeCenterView extends BorderPane {
     String normalized = relativePath.trim().replace('\\', '/');
     Path file = projectRoot.resolve(normalized).normalize();
     if (!Files.isRegularFile(file)) missing.add(normalized);
+  }
+
+  private void requireProjectFile(Path projectRoot, File file, List<String> missing) {
+    if (projectRoot == null || file == null) return;
+    if (Files.isRegularFile(file.toPath())) return;
+    try {
+      missing.add(projectRoot.toAbsolutePath().normalize().relativize(file.toPath().toAbsolutePath().normalize()).toString().replace('\\', '/'));
+    } catch (Exception ex) {
+      missing.add(file.getPath().replace('\\', '/'));
+    }
   }
 
   private int readRequiredJavaVersion() {

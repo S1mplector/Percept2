@@ -25,7 +25,7 @@ Wizard class:
    - high-resolution presets up to 4K (`3840x2160`)
    - custom width/height override for non-standard targets (ultrawide, handheld, kiosk)
    - menu theme preset
-   - entry script/timeline/dialogue layout preview
+   - entry script/story map/dialogue layout preview
 
 3. **Feature Modules**
    - sample prologue script
@@ -189,7 +189,7 @@ Entries are uncommented only for the features you enable, keeping the locale fil
 <project>/
 |-- config/
 |   |-- settings/vn.settings
-|   |-- timeline/story.timeline
+|   |-- story/story.storymap
 |   |-- ui/dialogue.layout
 |   `-- menu/
 |       |-- theme/menu.theme

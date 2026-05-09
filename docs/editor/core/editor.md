@@ -233,7 +233,7 @@ All visual editors sync back to plain text properties content, preserving source
 
 The wizard creates a layered VN project scaffold with:
 
-- `config/settings`, `config/timeline`, `config/ui`, `config/menu/...`
+- `config/settings`, `config/story`, `config/ui`, `config/menu/...`
 - `scripts/story`, `scripts/common`, `scripts/system`
 - structured `assets/` subfolders for backgrounds/characters/audio/ui/fonts
 - `jvn.project` manifest with entry script and config paths

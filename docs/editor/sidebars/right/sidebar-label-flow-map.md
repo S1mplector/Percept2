@@ -164,4 +164,4 @@ This means the flow map and diagnostics panel always show consistent data from t
 - [Sidebar Utilities Overview](../overview/sidebar-utilities.md) — all sidebar panels
 - [VNS Diagnostics](sidebar-vns-diagnostics.md) — text-based diagnostic companion
 - [VNS Scripting](../../../scripting/vns/overview/vns-scripting.md) — VNS script format and commands
-- [Story Timeline](../left/sidebar-story-timeline.md) — cross-script arc-level flow
+- [Story Map](../left/sidebar-story-timeline.md) — cross-script arc-level flow

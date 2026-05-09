@@ -78,6 +78,7 @@ public final class ProjectHealthChecker {
     List<Diagnostic> diagnostics = new ArrayList<>();
     Properties manifest = loadManifest(projectRoot);
     inspectEntryScript(projectRoot, assets, manifest, diagnostics);
+    inspectStoryMap(projectRoot, manifest, diagnostics);
     inspectMenu(assets, diagnostics);
     inspectDialogue(projectRoot, assets, diagnostics);
     inspectPhone(projectRoot, diagnostics);
@@ -158,6 +159,28 @@ public final class ProjectHealthChecker {
           warnMissingAsset(assets, diagnostics, "menu", location + "#" + item.id(), extra.getValue());
         }
       }
+    }
+  }
+
+  private static void inspectStoryMap(File projectRoot, Properties manifest, List<Diagnostic> diagnostics) {
+    String configured = StoryMapPaths.configuredPath(manifest);
+    if (configured != null && !new File(projectRoot, configured).isFile()) {
+      diagnostics.add(new Diagnostic(
+          Severity.WARNING,
+          "story-map",
+          configured,
+          "Configured story map file is missing"
+      ));
+    }
+    String storyMap = manifest == null ? null : manifest.getProperty(StoryMapPaths.MANIFEST_KEY);
+    String legacyTimeline = manifest == null ? null : manifest.getProperty(StoryMapPaths.LEGACY_MANIFEST_KEY);
+    if ((storyMap == null || storyMap.isBlank()) && legacyTimeline != null && !legacyTimeline.isBlank()) {
+      diagnostics.add(new Diagnostic(
+          Severity.WARNING,
+          "story-map",
+          "jvn.project",
+          "Manifest uses legacy `timeline`; prefer `storyMap=" + StoryMapPaths.DEFAULT_PATH + "`"
+      ));
     }
   }
 

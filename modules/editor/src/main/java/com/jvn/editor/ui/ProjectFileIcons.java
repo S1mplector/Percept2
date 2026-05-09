@@ -37,7 +37,7 @@ final class ProjectFileIcons {
     if (lower.endsWith(".menu") || lower.endsWith(".registry")) return Kind.MENU;
     if (lower.endsWith(".layout")) return Kind.LAYOUT;
     if (lower.endsWith(".style") || lower.endsWith(".theme")) return Kind.STYLE;
-    if (lower.endsWith(".timeline") || lower.endsWith(".jes")) return Kind.TIMELINE;
+    if (lower.endsWith(".storymap") || lower.endsWith(".timeline") || lower.endsWith(".jes")) return Kind.TIMELINE;
     return Kind.DOCUMENT;
   }
 

@@ -16,6 +16,7 @@ class ProjectFileIconsTest {
     assertEquals(ProjectFileIcons.Kind.LAYOUT, ProjectFileIcons.kindFor("dialogue.layout", false, false));
     assertEquals(ProjectFileIcons.Kind.STYLE, ProjectFileIcons.kindFor("default.style", false, false));
     assertEquals(ProjectFileIcons.Kind.STYLE, ProjectFileIcons.kindFor("menu.theme", false, false));
+    assertEquals(ProjectFileIcons.Kind.TIMELINE, ProjectFileIcons.kindFor("story.storymap", false, false));
     assertEquals(ProjectFileIcons.Kind.TIMELINE, ProjectFileIcons.kindFor("story.timeline", false, false));
     assertEquals(ProjectFileIcons.Kind.TIMELINE, ProjectFileIcons.kindFor("intro.jes", false, false));
     assertEquals(ProjectFileIcons.Kind.DOCUMENT, ProjectFileIcons.kindFor("README.md", false, false));

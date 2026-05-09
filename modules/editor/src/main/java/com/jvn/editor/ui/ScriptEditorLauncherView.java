@@ -1498,7 +1498,7 @@ public class ScriptEditorLauncherView extends BorderPane {
       case JES -> "JES Scene";
       case VNS -> "VNS Script";
       case JAVA -> "Java Source";
-      case TIMELINE -> "Timeline";
+      case TIMELINE -> "Story Map";
       case THEME -> "Theme";
       case MENU_SCREEN -> "Menu Screen";
       case MENU_LAYOUT -> "Menu Layout";

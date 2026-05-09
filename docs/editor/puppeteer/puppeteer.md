@@ -1068,7 +1068,7 @@ Entities and groups carry `layerOrder` metadata. Context-menu Raise (+10) / Lowe
 - [Puppeteer JES DSL Reference](puppeteer-jes-dsl.md) — complete exported timeline syntax: actions, depth/visible, property channels, event cues, easing, spring, Bézier, export modes
 - [Hand-Coding Timelines](../../scripting/timeline/animation/timeline-hand-coding.md) — writing timelines by hand, time cursor model, 18 examples, reusable templates
 - [Puppeteer Animation Timelines](../../scripting/timeline/animation/timeline-animation.md) — TimelineData model, TimelineRunner, TimelineRegistry, event cues, audio cues, SceneAccessor
-- [Timeline Overview](../../scripting/timeline/overview/timeline-scripting.md) — story vs animation timelines
+- [Timeline Overview](../../scripting/timeline/overview/timeline-scripting.md) — story maps vs animation timelines
 - [JES Timeline & Actions](../../scripting/jes/timeline/jes-timeline.md) — JES runtime timeline actions (superset: combat, flow control, loops)
 - [Puppeteer Launcher Panel](../sidebars/right/sidebar-puppeteer-launcher.md) — VNS snapshot resolution details
 - [VNS Characters](../../scripting/vns/presentation/vns-characters.md) — character positions and layering (the VNS context Puppeteer launches from)

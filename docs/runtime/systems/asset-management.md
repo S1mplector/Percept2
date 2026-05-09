@@ -121,7 +121,7 @@ MyProject/
 │   ├── ui/                 # Dialogue layout
 │   ├── menu/               # Menu configuration
 │   ├── settings/           # VN settings
-│   └── timeline/           # Story timeline
+│   └── story/              # Story map
 ├── save/                   # Save files (gitignored)
 ├── jvn.project             # Project manifest
 └── README.md

@@ -1,6 +1,6 @@
-# Story Timeline — Arcs & Links DSL
+# Story Map — Arcs & Links DSL
 
-Complete reference for the story timeline DSL that maps narrative arcs, script files, entry labels, clusters, and arc-to-arc links into a visual graph.
+Complete reference for the story map DSL that maps narrative arcs, script files, entry labels, clusters, and arc-to-arc links into a visual graph.
 
 Editor: `modules/editor/src/main/java/com/jvn/editor/ui/StoryTimelineView.java`
 Code editor: `modules/editor/src/main/java/com/jvn/editor/ui/TimelineCodeEditor.java`
@@ -9,7 +9,7 @@ Code editor: `modules/editor/src/main/java/com/jvn/editor/ui/TimelineCodeEditor.
 
 ## Overview
 
-The story timeline is a **project-level navigation map** of your VNS scripts. It does not execute story logic — VNS labels, jumps, and choices handle runtime flow. Instead, the timeline provides:
+The story map is a **project-level navigation map** of your VNS scripts. It does not execute story logic — VNS labels, jumps, and choices handle runtime flow. Instead, the map provides:
 
 - A visual graph of all narrative arcs
 - Validation that script files and labels exist
@@ -24,12 +24,13 @@ The story timeline is a **project-level navigation map** of your VNS scripts. It
 Default path:
 
 ```text
-config/timeline/story.timeline
+config/story/story.storymap
 ```
 
 Legacy fallbacks (still recognized on load):
 
 ```text
+config/timeline/story.timeline
 story/story.timeline
 story.timeline
 ```

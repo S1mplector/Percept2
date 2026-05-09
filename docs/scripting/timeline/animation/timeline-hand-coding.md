@@ -1788,4 +1788,4 @@ vnState.addTimelineRunner(runner);
 - [Puppeteer Editor Guide](../../../editor/puppeteer/puppeteer-editor-guide.md) — visual keyframe editor usage
 - [JES Timeline & Actions](../../jes/timeline/jes-timeline.md) — JES runtime timeline actions (superset including combat, flow control)
 - [Puppeteer Animation Timelines](timeline-animation.md) — TimelineData model, TimelineRunner, TimelineRegistry
-- [Timeline Overview](../overview/timeline-scripting.md) — story timelines vs animation timelines
+- [Timeline Overview](../overview/timeline-scripting.md) — story maps vs animation timelines

@@ -95,7 +95,7 @@ This index is the main route through the Java Vector Nexus documentation. It is 
 
 - [Sidebar Utilities Overview](editor/sidebars/overview/sidebar-utilities.md) - quick chooser for all sidebar panels
 - [Project Explorer](editor/sidebars/left/sidebar-project-explorer.md) - file tree, run/build, context actions
-- [Story Timeline](editor/sidebars/left/sidebar-story-timeline.md) - story graph and arc/link management
+- [Story Map](editor/sidebars/left/sidebar-story-timeline.md) - story graph and arc/link management
 - [Inspector](editor/sidebars/right/sidebar-inspector.md) - JES entity property editing
 - [Puppeteer Launcher](editor/sidebars/right/sidebar-puppeteer-launcher.md) - VNS scene snapshot and animation launch/reopen
 - [VNS Diagnostics](editor/sidebars/right/sidebar-vns-diagnostics.md) - live script problems and click-to-jump
@@ -118,7 +118,7 @@ This index is the main route through the Java Vector Nexus documentation. It is 
 - [Generated Welcome Center Screenshots](editor/core/generated-welcome-center-screenshots.md)
 - [Generated Run Console Screenshots](editor/core/generated-run-console-screenshots.md)
 - [Generated Project Explorer Screenshots](editor/sidebars/left/generated-project-explorer-screenshots.md)
-- [Generated Story Timeline Screenshots](editor/sidebars/left/generated-story-timeline-screenshots.md)
+- [Generated Story Map Screenshots](editor/sidebars/left/generated-story-timeline-screenshots.md)
 - [Generated Asset Browser Screenshots](editor/sidebars/right/generated-asset-browser-screenshots.md)
 - [Generated Help Center Screenshots](editor/sidebars/right/generated-help-center-screenshots.md)
 - [Generated Image Attributes Screenshots](editor/sidebars/right/generated-image-attributes-screenshots.md)
@@ -216,7 +216,7 @@ This index is the main route through the Java Vector Nexus documentation. It is 
 ## Timeline
 
 - [Timeline Scripting](scripting/timeline/overview/timeline-scripting.md)
-- [Story Timeline - Arcs & Links DSL](scripting/timeline/story/timeline-story-arcs.md)
+- [Story Map - Arcs & Links DSL](scripting/timeline/story/timeline-story-arcs.md)
 - [Puppeteer Animation Timelines](scripting/timeline/animation/timeline-animation.md)
 - [Hand-Coding Puppeteer Timelines](scripting/timeline/animation/timeline-hand-coding.md)
 

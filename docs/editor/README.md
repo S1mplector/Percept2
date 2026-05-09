@@ -34,7 +34,7 @@ Use this hub when your work is primarily inside the editor: opening projects, au
 2. [Puppeteer Editor Guide](puppeteer/puppeteer-editor-guide.md)
 3. [Scene Lighting Studio](sidebars/right/sidebar-image-tint-tool.md)
 4. [Storyboard Overlay](sidebars/right/sidebar-storyboard-overlay.md)
-5. [Story Timeline](sidebars/left/sidebar-story-timeline.md)
+5. [Story Map](sidebars/left/sidebar-story-timeline.md)
 
 ### I need layout, menu, or image tools
 

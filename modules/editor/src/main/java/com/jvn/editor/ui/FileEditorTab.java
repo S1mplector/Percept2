@@ -222,7 +222,7 @@ public class FileEditorTab extends BorderPane {
     if (name.endsWith(".jes") || name.endsWith(".txt")) return Kind.JES;
     if (name.endsWith(".vns")) return Kind.VNS;
     if (name.endsWith(".java")) return Kind.JAVA;
-    if (name.endsWith(".timeline")) return Kind.TIMELINE;
+    if (name.endsWith(".storymap") || name.endsWith(".timeline")) return Kind.TIMELINE;
     if (name.endsWith(".theme") || "menu.theme".equals(name)) return Kind.THEME;
     if (name.endsWith(".menu")) return Kind.MENU_SCREEN;
     if (name.endsWith(".layout") && (path.contains("/config/menu/layouts/") || path.contains("/menu/layouts/") || path.contains("/config/menu/"))) {
@@ -1600,7 +1600,7 @@ public class FileEditorTab extends BorderPane {
     if (vnsDetachedOnly) return "Runtime preview opens in its own window";
     return switch (kind) {
       case JES -> "Scene preview and source editor";
-      case TIMELINE -> "Timeline preview and source editor";
+      case TIMELINE -> "Story Map preview and source editor";
       case THEME -> "Theme preview and source editor";
       default -> "Preview, source, and split modes";
     };

@@ -103,7 +103,7 @@ The wizard generates a complete project scaffold:
 MyProject/
 ├── config/
 │   ├── settings/vn.settings
-│   ├── timeline/story.timeline
+│   ├── story/story.storymap
 │   ├── ui/dialogue.layout
 │   └── menu/
 │       ├── registry/menu.registry
@@ -258,7 +258,7 @@ Reference them in your VNS scripts:
 
 ## Step 8: Use the Timeline Graph
 
-Open `config/timeline/story.timeline` to see the narrative structure graph.
+Open `config/story/story.storymap` to see the narrative structure graph.
 
 - Each **arc** represents a VNS script file and entry label
 - **Links** show how arcs connect (branches, returns)

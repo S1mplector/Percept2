@@ -226,7 +226,7 @@ Editor currently features:
   - `config/ui/dialogue.layout`
   - `config/menu/menus/*.menu`
   - `config/menu/layouts/*.layout`
-- Timeline graph + DSL editor (`config/timeline/story.timeline`).
+- Story Map graph + DSL editor (`config/story/story.storymap`).
 - In-editor Help Center (`F1`).
 
 ## Simp3 Backend (Default)
@@ -270,7 +270,7 @@ New projects created from the editor wizard are scaffolded in this shape:
 <project>/
 |-- config/
 |   |-- settings/vn.settings
-|   |-- timeline/story.timeline
+|   |-- story/story.storymap
 |   |-- ui/dialogue.layout
 |   `-- menu/
 |       |-- theme/menu.theme

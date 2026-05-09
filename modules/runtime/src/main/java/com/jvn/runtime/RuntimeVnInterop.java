@@ -22,6 +22,7 @@ import com.jvn.core.phone.VnPhoneCommands;
 import com.jvn.core.phone.VnPhoneData;
 import com.jvn.core.phone.VnPhonePropertiesCodec;
 import com.jvn.core.phone.VnPhoneStateStore;
+import com.jvn.core.project.StoryMapPaths;
 import com.jvn.core.scene.Scene;
 import com.jvn.core.scene2d.Entity2D;
 import com.jvn.core.scene2d.Sprite2D;
@@ -781,8 +782,8 @@ public class RuntimeVnInterop implements VnInterop {
     if (arcName == null || arcName.isBlank()) return fallback;
     String projectRoot = System.getProperty("jvn.assets.root");
     if (projectRoot == null || projectRoot.isBlank()) return fallback;
-    File timelineFile = new File(projectRoot, "config/timeline/story.timeline");
-    if (!timelineFile.isFile()) return fallback;
+    File timelineFile = StoryMapPaths.resolveForProjectRoot(new File(projectRoot));
+    if (timelineFile == null || !timelineFile.isFile()) return fallback;
     java.util.regex.Pattern arcPattern = java.util.regex.Pattern.compile(
         "^\\s*arc\\s+(?:\"([^\"]+)\"|(\\S+))\\s+script\\s+(?:\"([^\"]+)\"|(\\S+)).*$");
     try {

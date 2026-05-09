@@ -32,6 +32,7 @@ import java.util.regex.Pattern;
 
 import javax.tools.ToolProvider;
 
+import com.jvn.core.project.StoryMapPaths;
 import com.jvn.core.scene2d.Entity2D;
 import com.jvn.editor.commands.CommandStack;
 import com.jvn.editor.ui.AssetBrowserView;
@@ -260,13 +261,10 @@ public class EditorApp extends Application {
   private static final Color GRID_BG = Color.color(0.08, 0.08, 0.08, 0.8);
   private static final Color GRID_LINE = Color.color(1, 1, 1, 0.08);
   private static final String[] EDITABLE_EXTENSIONS = new String[] {
-      ".jes", ".txt", ".vns", ".java", ".timeline", ".theme", ".menu", ".layout", ".style", ".registry",
+      ".jes", ".txt", ".vns", ".java", ".storymap", ".timeline", ".theme", ".menu", ".layout", ".style", ".registry",
       ".settings", ".project", ".properties", ".md", ".json",
       ".yaml", ".yml", ".toml", ".ini", ".cfg", ".xml", ".csv", ".tsv"
   };
-  private static final String DEFAULT_TIMELINE_PATH = "config/timeline/story.timeline";
-  private static final String LEGACY_TIMELINE_PATH = "story/story.timeline";
-  private static final String LEGACY_TIMELINE_ROOT_PATH = "story.timeline";
   private static final long MIN_STARTUP_SPLASH_MS = 900L;
   private static final long STARTUP_STEP_DELAY_MS = 170L;
   private static final DateTimeFormatter STARTUP_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
@@ -453,21 +451,8 @@ public class EditorApp extends Application {
     } catch (Exception ignore) { return null; }
   }
 
-  private File resolveTimelineFile(File root, Properties mf) {
-    if (root == null) return null;
-    if (mf != null) {
-      String configured = mf.getProperty("timeline");
-      if (configured != null && !configured.isBlank()) {
-        return new File(root, configured.trim());
-      }
-    }
-    File modern = new File(root, DEFAULT_TIMELINE_PATH);
-    if (modern.exists()) return modern;
-    File legacyStoryDir = new File(root, LEGACY_TIMELINE_PATH);
-    if (legacyStoryDir.exists()) return legacyStoryDir;
-    File legacyRoot = new File(root, LEGACY_TIMELINE_ROOT_PATH);
-    if (legacyRoot.exists()) return legacyRoot;
-    return modern;
+  private File resolveStoryMapFile(File root, Properties mf) {
+    return StoryMapPaths.resolveExistingOrDefault(root, mf);
   }
 
   private void configureProjectContext(File root, Properties mf) {
@@ -479,7 +464,7 @@ public class EditorApp extends Application {
       }
     }
     if (timelineView != null) {
-      timelineView.setTimelineFile(resolveTimelineFile(root, mf));
+      timelineView.setTimelineFile(resolveStoryMapFile(root, mf));
       timelineView.setProjectRoot(root);
     }
     if (settingsEditor != null) settingsEditor.setProjectRoot(root);
@@ -1450,7 +1435,7 @@ public class EditorApp extends Application {
     miShowProject.setOnAction(e -> selectProjectTab());
     MenuItem miShowWelcomePanel = new MenuItem("Workspace Hub");
     miShowWelcomePanel.setOnAction(e -> selectWorkspaceHubTab());
-    MenuItem miShowTimeline = new MenuItem("Story Timeline");
+    MenuItem miShowTimeline = new MenuItem("Story Map");
     miShowTimeline.setOnAction(e -> selectTimelineTab());
     MenuItem miShowInspector = new MenuItem("Inspector");
     miShowInspector.setOnAction(e -> selectInspectorTab());
@@ -1541,7 +1526,7 @@ public class EditorApp extends Application {
     miNavigateWelcome.setOnAction(e -> selectWorkspaceHubTab());
     MenuItem miNavigateProject = new MenuItem("Project Explorer");
     miNavigateProject.setOnAction(e -> selectProjectTab());
-    MenuItem miNavigateTimeline = new MenuItem("Story Timeline");
+    MenuItem miNavigateTimeline = new MenuItem("Story Map");
     miNavigateTimeline.setOnAction(e -> selectTimelineTab());
     MenuItem miNavigateInspector = new MenuItem("Inspector");
     miNavigateInspector.setOnAction(e -> selectInspectorTab());
@@ -1741,7 +1726,7 @@ public class EditorApp extends Application {
     miWindowWelcome.setOnAction(e -> selectWorkspaceHubTab());
     MenuItem miWindowProject = new MenuItem("Project Explorer");
     miWindowProject.setOnAction(e -> selectProjectTab());
-    MenuItem miWindowTimeline = new MenuItem("Story Timeline");
+    MenuItem miWindowTimeline = new MenuItem("Story Map");
     miWindowTimeline.setOnAction(e -> selectTimelineTab());
     MenuItem miWindowInspector = new MenuItem("Inspector");
     miWindowInspector.setOnAction(e -> selectInspectorTab());
@@ -1761,9 +1746,9 @@ public class EditorApp extends Application {
         miWindowSettings);
 
     Menu menuWindowTools = new Menu("Open Tool Window");
-    MenuItem miWindowTimelineTool = new MenuItem("Timeline");
+    MenuItem miWindowTimelineTool = new MenuItem("Story Map");
     miWindowTimelineTool.setOnAction(e ->
-        launchPanelAsWindow("Story Timeline", ensureTimelineView(), 600, 700, EditorSidebarPanel.TIMELINE));
+        launchPanelAsWindow("Story Map", ensureTimelineView(), 600, 700, EditorSidebarPanel.TIMELINE));
     MenuItem miWindowDiagnostics = new MenuItem("Diagnostics");
     miWindowDiagnostics.setOnAction(e ->
         launchPanelAsWindow("Diagnostics", ensureVnsDiagnosticsView(), 700, 600, EditorSidebarPanel.VNS_DIAGNOSTICS));
@@ -2554,7 +2539,7 @@ public class EditorApp extends Application {
       case JES -> "JES Scene";
       case VNS -> "VNS Script";
       case JAVA -> "Java Source";
-      case TIMELINE -> "Timeline";
+      case TIMELINE -> "Story Map";
       case THEME -> "Theme";
       case MENU_SCREEN -> "Menu Screen";
       case MENU_LAYOUT -> "Menu Layout";
@@ -3753,7 +3738,7 @@ public class EditorApp extends Application {
     if (projectRoot != null) {
       Properties mf = loadManifest(projectRoot);
       if (mf != null) {
-        timelineView.setTimelineFile(resolveTimelineFile(projectRoot, mf));
+        timelineView.setTimelineFile(resolveStoryMapFile(projectRoot, mf));
       }
       timelineView.setProjectRoot(projectRoot);
     }
@@ -4414,7 +4399,7 @@ public class EditorApp extends Application {
     if (fileTab == null) return "File";
     return switch (fileTab.getKind()) {
       case JES -> "JES";
-      case TIMELINE -> "Puppeteer timeline";
+      case TIMELINE -> "Story Map DSL";
       case JAVA -> "Java";
       case THEME -> "Theme DSL";
       case MENU_SCREEN -> "Menu screen DSL";
@@ -4441,7 +4426,7 @@ public class EditorApp extends Application {
             + " | " + analysis.timelineLabelNames().size() + " timeline labels"
             + " | " + nonBlankLines + " lines";
       }
-      case TIMELINE -> nonBlankLines + " timeline DSL lines";
+      case TIMELINE -> nonBlankLines + " story map DSL lines";
       case MENU_SCREEN, MENU_LAYOUT, MENU_STYLE, DIALOGUE_LAYOUT, THEME -> nonBlankLines + " DSL lines";
       default -> "No diagnostics provider for this file type";
     };
@@ -4801,7 +4786,7 @@ public class EditorApp extends Application {
     StoryTimelineView timeline = ensureTimelineView();
     if (targetPane == null || timeline == null) return null;
     if (tabTimeline == null) {
-      tabTimeline = new Tab("Timeline", timeline);
+      tabTimeline = new Tab("Story Map", timeline);
       tabTimeline.setClosable(true);
       tabTimeline.setOnClosed(e -> {
         tabTimeline = null;
@@ -5778,11 +5763,11 @@ public class EditorApp extends Application {
       applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(pane, actions, EditorSidebarPanel.TIMELINE, targetPlacement, "Timeline", null, () -> {
+    addChooserActionRow(pane, actions, EditorSidebarPanel.TIMELINE, targetPlacement, "Story Map", null, () -> {
       rememberPanelPlacement(EditorSidebarPanel.TIMELINE, targetPlacement);
       Tab t = ensureTimelineTab(pane);
       if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("Story Timeline", ensureTimelineView(), 600, 700, EditorSidebarPanel.TIMELINE), () -> {
+    }, () -> launchPanelAsWindow("Story Map", ensureTimelineView(), 600, 700, EditorSidebarPanel.TIMELINE), () -> {
       rememberPanelPlacement(EditorSidebarPanel.TIMELINE, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
     });

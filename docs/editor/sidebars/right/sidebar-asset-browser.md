@@ -101,7 +101,7 @@ The ComboBox restricts the list to a single asset type. Combined with the text f
 Assets can be dragged from the list into:
 - **Text editors** — drops the relative path as text
 - **Other panels** — panels that accept string drops can receive the asset path
-- **Story Timeline graph** — `.vns` files can be dropped to create arcs
+- **Story Map graph** — `.vns` files can be dropped to create arcs
 
 The drag transfer mode is `COPY` with the relative path as string content.
 

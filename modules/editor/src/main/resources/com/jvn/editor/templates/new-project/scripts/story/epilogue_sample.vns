@@ -40,7 +40,7 @@ narrator: {color=#8888cc}[endif]{/color}
 [show lavender center happy]
 Lavender: The full arc structure of this project:
 narrator: {color=#8888cc}prologue{/color} → {color=#8888cc}branch demo{/color} → {color=#8888cc}epilogue (you are here){/color}
-narrator: Open {b}{{TIMELINE_PATH}}{/b} in the editor to see the arc graph visually.
+narrator: Open the Story Map at {b}{{STORY_MAP_PATH}}{/b} in the editor to see the arc graph visually.
 
 Lavender: That's the complete demo. To start building your own game:
 narrator: {b}1.{/b} Replace the prologue content with your opening scene.

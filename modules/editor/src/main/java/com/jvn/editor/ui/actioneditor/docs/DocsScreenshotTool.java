@@ -676,7 +676,7 @@ public final class DocsScreenshotTool extends Application {
 
     private static final ProfileSpec STORY_TIMELINE_PROFILE = new ProfileSpec(
         "story-timeline",
-        "Story Timeline",
+        "Story Map",
         "docs/editor/sidebars/left/sidebar-story-timeline.md",
         "docs/editor/sidebars/left/generated-story-timeline-screenshots.md",
         "docs/assets/images/sidebars/story-timeline",
@@ -689,8 +689,8 @@ public final class DocsScreenshotTool extends Application {
                 "full",
                 "full",
                 "story_timeline_ui_full.png",
-                "Story Timeline Overview",
-                "Complete Story Timeline workspace with toolbar, graph canvas, and arc/link tabs.",
+                "Story Map Overview",
+                "Complete Story Map workspace with toolbar, graph canvas, and arc/link tabs.",
                 0,
                 1220,
                 0,
@@ -704,7 +704,7 @@ public final class DocsScreenshotTool extends Application {
                 "toolbar",
                 "toolbar",
                 "story_timeline_toolbar.png",
-                "Timeline Toolbar",
+                "Story Map Toolbar",
                 "Create/edit/open arcs, auto-layout, fit, validate, find, and cluster filtering controls.",
                 8,
                 1180,
@@ -1194,7 +1194,7 @@ public final class DocsScreenshotTool extends Application {
     private static Stage openStoryTimelineWindow(Path repoRoot) throws Exception {
         StoryTimelineView view = new StoryTimelineView();
         view.setProjectRoot(ensureDocsFixtureProject(repoRoot).toFile());
-        return openToolStage("Docs Screenshot Session - Story Timeline", view, 1600, 980);
+        return openToolStage("Docs Screenshot Session - Story Map", view, 1600, 980);
     }
 
     private static Stage openWelcomeCenterWindow(Path repoRoot) throws Exception {
@@ -1439,7 +1439,7 @@ public final class DocsScreenshotTool extends Application {
             )
         );
         writeTextFile(
-            fixtureRoot.resolve("config/timeline/story.timeline"),
+            fixtureRoot.resolve("config/story/story.storymap"),
             String.join("\n",
                 "arc \"Prologue\" script \"scripts/story/prologue.vns\" entry \"start\" cluster \"Main\" priority 10 color \"#84c7ff\" tags \"intro,main\" at 80,80",
                 "arc \"Route A\" script \"scripts/story/route_a.vns\" entry \"start\" cluster \"Routes\" priority 6 color \"#88e0b7\" tags \"branch,a\" at 420,40",

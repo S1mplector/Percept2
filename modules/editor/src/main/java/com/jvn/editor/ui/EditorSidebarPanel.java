@@ -5,7 +5,7 @@ import java.util.Map;
 
 public enum EditorSidebarPanel {
   PROJECT("project", "Project", EditorPanelPlacement.LEFT, true, "icon-panel-project", "project_inspector_orange_transparent.png", "1.8", Maturity.STABLE),
-  TIMELINE("timeline", "Timeline", EditorPanelPlacement.HIDDEN, true, "icon-panel-timeline", "timeline_editor_orange_transparent.png", "1.2", Maturity.STABLE),
+  TIMELINE("timeline", "Story Map", EditorPanelPlacement.HIDDEN, true, "icon-panel-timeline", "timeline_editor_orange_transparent.png", "1.2", Maturity.STABLE),
   INSPECTOR("inspector", "Inspector", EditorPanelPlacement.HIDDEN, false, "icon-panel-inspector", "project_inspector_orange_transparent.png", "1.0", Maturity.STABLE),
   VNS_DIAGNOSTICS("vns_diagnostics", "Diagnostics", EditorPanelPlacement.HIDDEN, true, "icon-panel-diagnostics", "vns_diagnostics_orange_transparent.png", "1.1.1", Maturity.STABLE),
   LABEL_FLOW("label_flow", "Label Flow", EditorPanelPlacement.HIDDEN, false, "icon-panel-flow", "label_flow_inspector_orange_transparent.png", "0.9", Maturity.BETA),

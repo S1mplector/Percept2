@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
 
+import com.jvn.core.project.StoryMapPaths;
 import com.jvn.editor.vcs.GitVcsService;
 
 import javafx.css.Styleable;
@@ -192,7 +193,7 @@ public class NewProjectWizard extends Stage {
   private static final String ARC_T17_INLINE_JAVA = "T17_InlineJava";
   private static final String CHARACTERS_SCRIPT_PATH = "scripts/definitions/characters.vns";
   private static final String CHARACTERS_INCLUDE_PATH = "/definitions/characters.vns";
-  private static final String TIMELINE_PATH = "config/timeline/story.timeline";
+  private static final String STORY_MAP_PATH = StoryMapPaths.DEFAULT_PATH;
   private static final String SETTINGS_PATH = "config/settings/vn.settings";
   private static final String DIALOGUE_LAYOUT_PATH = "config/ui/dialogue.layout";
   private static final String MENU_THEME_PATH = "config/menu/theme/menu.theme";
@@ -511,7 +512,7 @@ public class NewProjectWizard extends Stage {
     Label entryInfo = new Label(
         "Entry script: " + ENTRY_SCRIPT_PATH + "\n" +
         "Arc scripts: " + STORY_TUTORIAL_SCRIPT_PATH + ", " + STORY_BRANCH_SCRIPT_PATH + ", " + STORY_EPILOGUE_SCRIPT_PATH + "\n" +
-        "Timeline file: " + TIMELINE_PATH + "\n" +
+        "Story map: " + STORY_MAP_PATH + "\n" +
         "Dialogue layout: " + DIALOGUE_LAYOUT_PATH + "\n" +
         "Menu registry: " + MENU_REGISTRY_PATH
     );
@@ -1152,8 +1153,8 @@ public class NewProjectWizard extends Stage {
     sb.append("\u251c\u2500\u2500 config/\n");
     sb.append("\u2502   \u251c\u2500\u2500 settings/\n");
     sb.append("\u2502   \u2502   \u2514\u2500\u2500 vn.settings\n");
-    sb.append("\u2502   \u251c\u2500\u2500 timeline/\n");
-    sb.append("\u2502   \u2502   \u2514\u2500\u2500 story.timeline\n");
+    sb.append("\u2502   \u251c\u2500\u2500 story/\n");
+    sb.append("\u2502   \u2502   \u2514\u2500\u2500 story.storymap\n");
     sb.append("\u2502   \u251c\u2500\u2500 ui/\n");
     sb.append("\u2502   \u2502   \u2514\u2500\u2500 dialogue.layout\n");
     sb.append("\u2502   \u251c\u2500\u2500 locales/\n");
@@ -1478,7 +1479,7 @@ public class NewProjectWizard extends Stage {
         includeDemoAssets,
         useLayeredLavenderDemo
     );
-    createStoryTimeline(dir, displayName, includeTutorialPack);
+    createStoryMap(dir, displayName, includeTutorialPack);
 
     createSettings(dir);
     createDialogueLayout(dir);
@@ -1578,7 +1579,7 @@ public class NewProjectWizard extends Stage {
   private void createDirectories(File dir, boolean includeMenuPack, boolean includeDemoAssets) throws Exception {
     // Config
     ensureDirectory(dir, "config/settings");
-    ensureDirectory(dir, "config/timeline");
+    ensureDirectory(dir, "config/story");
     ensureDirectory(dir, "config/ui");
     ensureDirectory(dir, "config/locales");
     ensureDirectory(dir, "config/puppeteer/clips");
@@ -1792,7 +1793,7 @@ public class NewProjectWizard extends Stage {
     manifest.setProperty("type", "vn");
     manifest.setProperty("entryVns", ENTRY_SCRIPT_PATH);
     manifest.setProperty("entryLabel", "start");
-    manifest.setProperty("timeline", TIMELINE_PATH);
+    manifest.setProperty(StoryMapPaths.MANIFEST_KEY, STORY_MAP_PATH);
     manifest.setProperty("settingsFile", SETTINGS_PATH);
     manifest.setProperty("dialogueLayout", DIALOGUE_LAYOUT_PATH);
     if (includeMenuPack) {
@@ -2097,7 +2098,7 @@ public class NewProjectWizard extends Stage {
     tokens.put("EPILOGUE_TARGET", epilogueTarget);
     tokens.put("STORY_BRANCH_SCRIPT_PATH", STORY_BRANCH_SCRIPT_PATH);
     tokens.put("STORY_EPILOGUE_SCRIPT_PATH", STORY_EPILOGUE_SCRIPT_PATH);
-    tokens.put("TIMELINE_PATH", TIMELINE_PATH);
+    tokens.put("STORY_MAP_PATH", STORY_MAP_PATH);
     tokens.put("BG_DECL", backgroundDecl);
     tokens.put("BG_START", backgroundStart);
     tokens.put("BG_TRANSITION", backgroundTransition);
@@ -2107,9 +2108,9 @@ public class NewProjectWizard extends Stage {
     writeScaffoldTemplateScript(dir, STORY_EPILOGUE_SCRIPT_PATH, "scripts/story/epilogue_sample.vns", tokens);
   }
 
-  private void createStoryTimeline(File dir, String displayName, boolean includeTutorialPack) throws Exception {
-    try (FileWriter fw = new FileWriter(new File(dir, TIMELINE_PATH))) {
-      fw.write("# Story Timeline for " + displayName + "\n");
+  private void createStoryMap(File dir, String displayName, boolean includeTutorialPack) throws Exception {
+    try (FileWriter fw = new FileWriter(new File(dir, STORY_MAP_PATH))) {
+      fw.write("# Story Map for " + displayName + "\n");
       fw.write("# Author: " + txtAuthor.getText().trim() + "\n");
       fw.write("# Starter arc workflow: prologue entry + route split + epilogue merge.\n\n");
 
@@ -2676,7 +2677,7 @@ public class NewProjectWizard extends Stage {
       fw.write("- Script: `" + ENTRY_SCRIPT_PATH + "`\n");
       fw.write("- Arc scripts: `" + STORY_TUTORIAL_SCRIPT_PATH + "`, `" + STORY_BRANCH_SCRIPT_PATH + "`, `" + STORY_EPILOGUE_SCRIPT_PATH + "`\n");
       fw.write("- Shared character definitions: `" + CHARACTERS_SCRIPT_PATH + "` (included by all story scripts)\n");
-      fw.write("- Timeline: `" + TIMELINE_PATH + "`\n");
+      fw.write("- Story map: `" + STORY_MAP_PATH + "`\n");
       fw.write("- Settings: `" + SETTINGS_PATH + "`\n");
       fw.write("- Dialogue layout: `" + DIALOGUE_LAYOUT_PATH + "`\n\n");
       if (chkTutorialPack != null && chkTutorialPack.isSelected()) {
@@ -2703,7 +2704,7 @@ public class NewProjectWizard extends Stage {
       fw.write(step++ + ". Open this folder in the JVN Editor.\n");
       fw.write(step++ + ". Edit `" + ENTRY_SCRIPT_PATH + "` and the connected arc scripts in `scripts/story/`.\n");
       fw.write(step++ + ". Keep shared character declarations in `" + CHARACTERS_SCRIPT_PATH + "` and import with `@include " + CHARACTERS_INCLUDE_PATH + "`.\n");
-      fw.write(step++ + ". Open `" + TIMELINE_PATH + "` and inspect/edit arc links.\n");
+      fw.write(step++ + ". Open `" + STORY_MAP_PATH + "` and inspect/edit arc links.\n");
       fw.write(step++ + ". Edit `" + DIALOGUE_LAYOUT_PATH + "` in text first, then run runtime to validate.\n");
       if (chkTutorialPack != null && chkTutorialPack.isSelected()) {
         fw.write(step++ + ". Use `scripts/story/tutorial_hub.vns` as the launch point for the guided lesson scripts in `scripts/tutorial/`.\n");

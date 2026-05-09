@@ -49,8 +49,8 @@ MyProject/
 │   │       └── menu.theme
 │   ├── settings/
 │   │   └── vn.settings
-│   └── timeline/
-│       └── story.timeline
+│   └── story/
+│       └── story.storymap
 │
 ├── assets/                         # All media assets
 │   ├── backgrounds/                # Scene backgrounds
@@ -87,7 +87,7 @@ type=vn
 
 entryVns=scripts/story/prologue.vns
 entryLabel=start
-timeline=config/timeline/story.timeline
+storyMap=config/story/story.storymap
 
 settingsFile=config/settings/vn.settings
 dialogueLayout=config/ui/dialogue.layout
@@ -196,10 +196,10 @@ config/settings/vn.settings
 
 Default VN playback settings for the project.
 
-### `config/timeline/` — Story Timeline
+### `config/story/` — Story Map
 
 ```text
-config/timeline/story.timeline
+config/story/story.storymap
 ```
 
 The narrative arc graph.
@@ -305,7 +305,8 @@ assets/ui/
 |-----------|------|----------|
 | `.vns` | VNS script | VNS code editor + preview |
 | `.jes` | JES script | JES code editor + viewport |
-| `.timeline` | Story timeline | Timeline graph editor |
+| `.storymap` | Story map | Story Map graph editor |
+| `.timeline` | Legacy story map | Story Map graph editor |
 | `.layout` | Menu layout | Menu Layout Visual Editor |
 | `.style` | Menu style | Menu Style Visual Editor |
 | `.menu` | Menu screen | Menu Screen Visual Editor |

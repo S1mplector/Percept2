@@ -33,6 +33,7 @@ import com.jvn.core.phone.VnPhoneCommands;
 import com.jvn.core.phone.VnPhoneData;
 import com.jvn.core.phone.VnPhonePropertiesCodec;
 import com.jvn.core.phone.VnPhoneStateStore;
+import com.jvn.core.project.StoryMapPaths;
 import com.jvn.core.scene.Scene;
 import com.jvn.core.vn.DefaultVnInterop;
 import com.jvn.core.vn.VnErrorOverlay;
@@ -819,7 +820,8 @@ public class VnPreviewView extends StackPane {
 
   private String resolveTimelineArcScript(String arcName) {
     if (projectRoot == null || arcName == null || arcName.isBlank()) return null;
-    File timeline = new File(projectRoot, "config/timeline/story.timeline");
+    File timeline = StoryMapPaths.resolveForProjectRoot(projectRoot);
+    if (timeline == null) return null;
     if (!timeline.isFile()) return null;
     try {
       for (String line : Files.readAllLines(timeline.toPath())) {
