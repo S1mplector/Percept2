@@ -49,10 +49,10 @@ npm run package
 
 ## Publish
 
-1. Create or choose a Visual Studio Marketplace publisher id.
+1. Create or choose the Visual Studio Marketplace publisher id `Simplector`.
 2. Make sure the `publisher` field in `tools/vscode-jvn/package.json` matches that id.
 3. Create an Azure DevOps personal access token with Marketplace manage scope.
-4. Log in once with `npx @vscode/vsce login <publisher-id>`.
+4. Log in once with `npx @vscode/vsce login Simplector`.
 5. Publish with `npm run publish`.
 
 The extension is intentionally passive for now. It does not run analyzers or project scans; the source of truth for live diagnostics remains the JVN editor.

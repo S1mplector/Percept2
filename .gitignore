@@ -17,6 +17,7 @@ out/
 
 # VSCode
 .vscode/
+*.vsix
 
 # OS
 .DS_Store

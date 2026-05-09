@@ -52,13 +52,13 @@ npm run package
 
 ## Publish To Marketplace
 
-1. Create or choose a Visual Studio Marketplace publisher id.
+1. Create or choose the Visual Studio Marketplace publisher id `Simplector`.
 2. Make sure `publisher` in `package.json` matches that id.
 3. Create an Azure DevOps personal access token with Marketplace manage scope.
 4. Log in once:
 
 ```sh
-npx @vscode/vsce login <publisher-id>
+npx @vscode/vsce login Simplector
 ```
 
 5. Publish:
