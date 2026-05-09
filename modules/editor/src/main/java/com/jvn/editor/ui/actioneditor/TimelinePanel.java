@@ -2337,7 +2337,7 @@ public class TimelinePanel extends VBox {
         if (selectionModel.hasSelection()) {
             for (KeyframeSelectionModel.KeyframeRef ref : selectionModel.getSelectedOrdered()) {
                 if (ref == null || ref.property() == null) continue;
-                EntityTrack track = project.getTrack(ref.entityName());
+                EntityTrack track = trackForStorageName(ref.entityName());
                 if (track == null) continue;
                 String channelKey = ref.entityName() + "\u0000" + ref.property().name();
                 if (sortedChannels.add(channelKey)) {
@@ -2349,6 +2349,15 @@ public class TimelinePanel extends VBox {
             EntityTrack track = selectedTrack(false);
             if (track != null && selectedProperty != null) track.sortKeyframes(selectedProperty);
         }
+    }
+
+    private EntityTrack trackForStorageName(String name) {
+        if (name == null || name.isBlank()) return null;
+        if (isRuntimeCameraTarget(name)) return resolveRuntimeCameraTrack(false);
+        EntityTrack track = project.getTrack(name);
+        if (track != null) return track;
+        EntityGroup group = project.getGroup(name);
+        return group != null ? group.getGroupTrack() : null;
     }
 
     public void selectKeyframesAtTime(double timeMs, double toleranceMs) {
