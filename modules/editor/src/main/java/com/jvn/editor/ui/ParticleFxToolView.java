@@ -23,6 +23,8 @@ import javafx.scene.control.Slider;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TextField;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
@@ -271,14 +273,24 @@ public class ParticleFxToolView extends BorderPane {
     if (onInsertCommand != null) {
       onInsertCommand.accept(command);
       statusLabel.setText("Inserted " + command + ".");
+    } else {
+      copyToSystemClipboard(command);
+      statusLabel.setText("No script editor target. Copied " + command + " instead.");
     }
   }
 
   private void copyCommand(String command) {
+    copyToSystemClipboard(command);
     if (onCopyCommand != null) {
       onCopyCommand.accept(command);
-      statusLabel.setText("Copied " + command + ".");
     }
+    statusLabel.setText("Copied " + command + ".");
+  }
+
+  private static void copyToSystemClipboard(String command) {
+    ClipboardContent content = new ClipboardContent();
+    content.putString(command == null ? "" : command);
+    Clipboard.getSystemClipboard().setContent(content);
   }
 
   private static Slider unitSlider(double value) {
