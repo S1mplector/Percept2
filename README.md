@@ -6,7 +6,7 @@
   <strong>Current version:</strong> v0.1.2 <em></em>
 </div>
 
-JVN is a modular cross-platform Visual Novel engine and 2D animation toolkit written in Java. 
+JVN is a modular cross-platform Visual Novel engine and 2D animation toolkit written in Java, Clojure and Scala. 
 
 Docs entrypoints:
 
