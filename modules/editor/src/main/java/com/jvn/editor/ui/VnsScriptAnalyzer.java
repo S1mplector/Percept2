@@ -145,10 +145,12 @@ public final class VnsScriptAnalyzer {
       String cmd = parts[0].toLowerCase(Locale.ROOT);
       String arg = parts.length > 1 ? parts[1].trim() : "";
 
-      if ("jump".equals(cmd) && !arg.isBlank()) {
+      if (("jump".equals(cmd) || "goto".equals(cmd)) && !arg.isBlank()) {
         String target = firstToken(arg);
-        int st = line.start + safeIndexOf(line.text, target, 0);
-        refs.add(new LabelRef(target, st, st + target.length(), line.index));
+        if (isLocalGotoTarget(target)) {
+          int st = line.start + safeIndexOf(line.text, target, 0);
+          refs.add(new LabelRef(target, st, st + target.length(), line.index));
+        }
       } else if (("gosub".equals(cmd) || isSingleLabelCall(cmd, arg)) && !arg.isBlank()) {
         String target = firstToken(arg);
         int st = line.start + safeIndexOf(line.text, target, 0);
@@ -409,9 +411,11 @@ public final class VnsScriptAnalyzer {
         String cmd = parts[0].toLowerCase(Locale.ROOT);
         String arg = parts.length > 1 ? parts[1].trim() : "";
 
-        if ("jump".equals(cmd)) {
+        if ("jump".equals(cmd) || "goto".equals(cmd)) {
           String target = firstToken(arg);
-          addEdge(label.name(), target, line.index, FlowEdgeKind.JUMP, labelsByName, dedupe, edges);
+          if (isLocalGotoTarget(target)) {
+            addEdge(label.name(), target, line.index, FlowEdgeKind.JUMP, labelsByName, dedupe, edges);
+          }
           terminal = true;
           break;
         }
@@ -668,6 +672,11 @@ public final class VnsScriptAnalyzer {
     if (!"call".equals(cmd) || arg == null) return false;
     String t = arg.trim();
     return !t.isEmpty() && t.indexOf(' ') < 0 && t.indexOf('\t') < 0;
+  }
+
+  private static boolean isLocalGotoTarget(String target) {
+    if (target == null || target.isBlank()) return false;
+    return target.indexOf(':') < 0;
   }
 
   private static int safeIndexOf(String text, String needle, int fallback) {

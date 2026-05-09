@@ -66,4 +66,41 @@ class VnsScriptAnalyzerStructuredDiagnosticTest {
     assertTrue(analysis.diagnostics().stream().noneMatch(d -> "undefined_label".equals(d.kind())));
     assertTrue(analysis.edges().stream().noneMatch(edge -> "jes_timeline".equals(edge.toLabel())));
   }
+
+  @Test
+  void treatsLocalGotoAsTerminatingFlowEdge() {
+    String source = """
+        @label start
+        [goto ending]
+
+        @label unreachable_middle
+        narrator "Should not be reachable from start."
+
+        @label ending
+        [end]
+        """;
+
+    VnsScriptAnalyzer.Analysis analysis = VnsScriptAnalyzer.analyze(source, null);
+
+    assertTrue(analysis.diagnostics().stream().noneMatch(d -> "undefined_label".equals(d.kind())));
+    assertTrue(analysis.edges().stream().anyMatch(edge ->
+        "start".equals(edge.fromLabel())
+            && "ending".equals(edge.toLabel())
+            && edge.kind() == VnsScriptAnalyzer.FlowEdgeKind.JUMP));
+    assertTrue(analysis.diagnostics().stream().anyMatch(d ->
+        "unreachable_label".equals(d.kind()) && "unreachable_middle".equals(d.label())));
+  }
+
+  @Test
+  void leavesCrossScriptGotoOutOfLocalLabelValidation() {
+    String source = """
+        @label start
+        [goto RouteA:start]
+        """;
+
+    VnsScriptAnalyzer.Analysis analysis = VnsScriptAnalyzer.analyze(source, null);
+
+    assertTrue(analysis.diagnostics().stream().noneMatch(d -> "undefined_label".equals(d.kind())));
+    assertTrue(analysis.edges().stream().noneMatch(edge -> "RouteA:start".equals(edge.toLabel())));
+  }
 }
