@@ -90,7 +90,7 @@ public class VnsCodeEditor extends BorderPane {
   private static final String COMMENT_PATTERN = "(?m)#.*$";
   private static final String STRING_PATTERN = "\"([^\\\\\"]|\\\\.)*\"";
   private static final String FORMAT_PATTERN = "\\{/?[bius]\\}|\\{color=[^}]*\\}|\\{/color\\}";
-  private static final String DIRECTIVE_PATTERN = "@(?:scenario|character|background|charimg|charlayer|charpreset|label|define|include|var)\\b";
+  private static final String DIRECTIVE_PATTERN = "@(?:scenario|character|background|charimg|charlayer|charpreset|stagepreset|position|label|define|include|var|bind|jimport|external)\\b";
   private static final String CMD_OPEN_PATTERN =
       "\\[(?:show|hide|jump|end|wait|bg|background"
     + "|bgm_crossfade|bgm_fadeout|bgm_resume|bgm_pause|bgm_seek|bgm_stop|bgm"
@@ -98,7 +98,7 @@ public class VnsCodeEditor extends BorderPane {
     + "|audio_resume_all|audio_pause_all|audio_stop_all|audio|sfx_stop|sfx|voice_stop|voice|volume|textspeed|autodelay"
     + "|hud|save|quickload|skip|auto|ui|history|screen"
     + "|jes_push|jes_replace|jes_pop|jes_call|jes|java"
-    + "|transition|menu|settings|mainmenu|load|goto"
+    + "|transition|stage|menu|settings|mainmenu|load|goto"
     + "|set|inc|dec|flag|unflag|clear"
     + "|if|elif|else|endif|/if"
     + "|call|gosub|return|character|char|choice)\\b";
@@ -1894,6 +1894,7 @@ public class VnsCodeEditor extends BorderPane {
     VNS_COMMAND_DOCS.put("endif", "End conditional block. Usage: [endif]");
     VNS_COMMAND_DOCS.put("choice", "Present choices. Usage: > text -> label");
     VNS_COMMAND_DOCS.put("transition", "Screen transition. Usage: [transition type=fade dur=500 bg=room] or [transition fade]");
+    VNS_COMMAND_DOCS.put("stage", "Apply a stage lighting preset. Usage: [stage preset_id dur=500]");
     VNS_COMMAND_DOCS.put("volume", "Set volume. Usage: [volume channel level]");
     VNS_COMMAND_DOCS.put("call", "Call a subroutine label when used as [call label], or an interop provider when used as [call provider payload].");
     VNS_COMMAND_DOCS.put("gosub", "Call a subroutine label. Usage: [gosub label]");
@@ -1914,6 +1915,11 @@ public class VnsCodeEditor extends BorderPane {
     VNS_COMMAND_DOCS.put("@charimg", "Declare character image. Usage: @charimg char_id path");
     VNS_COMMAND_DOCS.put("@charlayer", "Declare character layer. Usage: @charlayer char_id layer path");
     VNS_COMMAND_DOCS.put("@charpreset", "Declare character preset. Usage: @charpreset char_id preset layers");
+    VNS_COMMAND_DOCS.put("@stagepreset", "Declare a stage lighting preset file. Usage: @stagepreset id path/to/preset.stagepreset");
+    VNS_COMMAND_DOCS.put("@position", "Declare a custom character position. Usage: @position id x [y]");
+    VNS_COMMAND_DOCS.put("@bind", "Bind a Java interop variable. Usage: @bind Type:variableName");
+    VNS_COMMAND_DOCS.put("@jimport", "Import a Java package or class for VNS Java interop. Usage: @jimport com.example.GameHooks");
+    VNS_COMMAND_DOCS.put("@external", "Declare an editor/runtime interop cue. Usage: @external jes_timeline timeline_id");
   }
 
   private final Tooltip hoverTooltip = new Tooltip();
@@ -2116,10 +2122,16 @@ public class VnsCodeEditor extends BorderPane {
       {"Weather", "[weather preset=snow intensity=0.4 layer=120 duration=3000]"},
       {"Wait", "[wait 1.0]"},
       {"Transition", "[transition type=fade dur=500 bg=background_name]"},
+      {"Stage Preset", "@stagepreset preset_id config/stage/preset.stagepreset"},
+      {"Apply Stage", "[stage preset_id dur=500]"},
+      {"Custom Position", "@position balcony 0.30 0.60"},
       {"If Block", "[if condition]\n  # true branch\n[endif]"},
       {"If-Else Block", "[if condition]\n  # true branch\n[else]\n  # false branch\n[endif]"},
       {"Set Variable", "[set variable_name value]"},
       {"Flag", "[flag flag_name]"},
+      {"Java Bind", "@bind String:playerName"},
+      {"Java Import", "@jimport com.example.GameHooks"},
+      {"Puppeteer Timeline Cue", "@external jes_timeline timeline_id"},
       {"Character Decl", "@character id \"Display Name\""},
       {"Background Decl", "@background alias path/to/image.png"},
       {"Include", "@include path/to/script.vns"},
