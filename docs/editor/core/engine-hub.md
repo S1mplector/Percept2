@@ -16,6 +16,42 @@ jvn.bat
 
 The hub runs through the Gradle wrapper so the classpath and Java toolchain stay consistent with the rest of the workspace.
 
+## Package A Self-Contained Hub Jar
+
+For distribution, build the packaged Engine Hub jar:
+
+```bash
+./scripts/package-engine-hub.sh
+```
+
+Or run the Gradle task directly:
+
+```bash
+./gradlew :hub:packageEngineHubJar
+```
+
+The artifact is written to `build/distributions/jvn-engine-hub-<version>.jar`.
+
+Run it with:
+
+```bash
+java -jar build/distributions/jvn-engine-hub-<version>.jar
+```
+
+This jar contains a clean copy of the engine workspace. On first launch it extracts that workspace under `~/.jvn/engine-hub/<version>/<bundle-hash>/engine` and starts the normal hub against it. The hub can then launch the editor, launcher, Gradle builds, shortcut installers, docs, and updates from the extracted workspace.
+
+To override the extraction cache location:
+
+```bash
+java -Djvn.packagedEngineRoot=/path/to/cache -jar build/distributions/jvn-engine-hub-<version>.jar
+```
+
+For development, you can also point the packaged launcher at an existing checkout:
+
+```bash
+java -jar build/distributions/jvn-engine-hub-<version>.jar --project-root /path/to/Java-Vector-Nexus
+```
+
 ## What It Does
 
 The hub exposes the main workspace actions as buttons:

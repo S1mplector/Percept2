@@ -49,3 +49,58 @@ tasks.named<JavaExec>("run") {
   // Keep the launching console quiet: the hub is a GUI.
   standardInput = System.`in`
 }
+
+val packagedEngineWorkspaceZip = tasks.register<Zip>("packagedEngineWorkspaceZip") {
+  group = "distribution"
+  description = "Zips a clean engine workspace for the self-contained Engine Hub jar."
+  archiveFileName.set("packaged-engine-workspace.zip")
+  destinationDirectory.set(layout.buildDirectory.dir("packaged-engine"))
+  isZip64 = true
+
+  from(rootProject.rootDir) {
+    into("engine")
+    includeEmptyDirs = false
+    exclude(
+        ".git/**",
+        ".gradle/**",
+        ".jvn-gradle-user-home/**",
+        ".idea/**",
+        ".vscode/**",
+        "**/.DS_Store",
+        "build/**",
+        "**/build/**",
+        "**/out/**",
+        "**/target/**",
+        "**/.pytest_cache/**",
+        "**/__pycache__/**",
+        "tools/vscode-jvn/node_modules/**",
+        "tools/vscode-jvn/*.vsix",
+        "jvn",
+        "jvn.bat",
+        "jvn.desktop",
+        "JVN.command")
+  }
+}
+
+tasks.register<Jar>("packageEngineHubJar") {
+  group = "distribution"
+  description = "Builds one launchable jar that bundles the engine workspace and starts the Engine Hub."
+  dependsOn(tasks.named("classes"), packagedEngineWorkspaceZip)
+  archiveBaseName.set("jvn-engine-hub")
+  archiveVersion.set(rootProject.version.toString())
+  destinationDirectory.set(rootProject.layout.buildDirectory.dir("distributions"))
+  duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+  manifest {
+    attributes(
+        "Main-Class" to "com.jvn.hub.PackagedHubLauncher",
+        "Implementation-Title" to "JVN Engine Hub",
+        "Implementation-Version" to rootProject.version.toString())
+  }
+
+  from(sourceSets.main.get().output)
+  from(packagedEngineWorkspaceZip) {
+    into("com/jvn/hub")
+    rename { "packaged-engine.zip" }
+  }
+}
