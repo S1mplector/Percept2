@@ -99,6 +99,10 @@ public enum EditorSidebarPanel {
     return true;
   }
 
+  public boolean supportsDocking() {
+    return this != SCRIPT_EDITOR;
+  }
+
   public static Map<EditorSidebarPanel, EditorPanelPlacement> defaultPlacements() {
     Map<EditorSidebarPanel, EditorPanelPlacement> placements =
         new EnumMap<>(EditorSidebarPanel.class);

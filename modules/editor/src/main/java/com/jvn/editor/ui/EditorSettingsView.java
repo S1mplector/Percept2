@@ -19,6 +19,7 @@ import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToolBar;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
@@ -195,7 +196,13 @@ public class EditorSettingsView extends BorderPane {
       if (!panel.editableInSettings()) continue;
       Label label = fieldLabel(panel.displayName());
       ComboBox<EditorPanelPlacement> combo = new ComboBox<>();
-      combo.getItems().addAll(EditorPanelPlacement.values());
+      if (panel.supportsDocking()) {
+        combo.getItems().addAll(EditorPanelPlacement.values());
+      } else {
+        combo.getItems().add(EditorPanelPlacement.HIDDEN);
+        combo.setDisable(true);
+        combo.setTooltip(new Tooltip(panel.displayName() + " opens only as a pop-out tool."));
+      }
       combo.setMaxWidth(Double.MAX_VALUE);
       combo.getStyleClass().add("editor-settings-combo");
       CheckBox chooserVisible = new CheckBox();

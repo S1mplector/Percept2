@@ -3425,6 +3425,9 @@ public class EditorApp extends Application {
     }
     for (EditorSidebarPanel panel : EditorSidebarPanel.values()) {
       EditorPanelPlacement placement = editorPreferences.getPlacement(panel);
+      if (!panel.supportsDocking()) {
+        continue;
+      }
       if (loadOnDemand
           && panel != EditorSidebarPanel.PROJECT
           && !attachedBeforeRefresh.contains(panel)) {
@@ -3526,6 +3529,7 @@ public class EditorApp extends Application {
 
   private Tab ensureSidebarPanel(EditorSidebarPanel panel, TabPane targetPane) {
     if (panel == null || targetPane == null) return null;
+    if (!panel.supportsDocking()) return null;
     return switch (panel) {
       case PROJECT -> ensureProjectTab(targetPane);
       case TIMELINE -> ensureTimelineTab(targetPane);
@@ -5141,6 +5145,7 @@ public class EditorApp extends Application {
       dockBtn.setOnAction(e -> embedAction.run());
     } else {
       dockBtn.setDisable(true);
+      dockBtn.setTooltip(new Tooltip("Pop-out only"));
     }
 
     Button popOutBtn = new Button();
@@ -5172,6 +5177,12 @@ public class EditorApp extends Application {
       placementBadge.setManaged(true);
       placementBadge.setVisible(true);
       updateChooserPlacementBadge(placementBadge, placement, attached, placementTooltip);
+      if (!panel.supportsDocking()) {
+        dockBtn.setGraphic(CssIcon.popOut("#9a9a9a"));
+        dockBtn.setTooltip(new Tooltip("Pop-out only"));
+        dockBtn.setDisable(true);
+        return;
+      }
       if (placement == EditorPanelPlacement.HIDDEN || !attached) {
         dockBtn.setGraphic(CssIcon.plus("#d6dbe5"));
         dockBtn.setTooltip(new Tooltip(
@@ -5219,8 +5230,15 @@ public class EditorApp extends Application {
     row.setOnMouseClicked(e -> {
       if (e.getButton() != MouseButton.PRIMARY || e.getClickCount() < 2) return;
       if (isInsideChooserIconButton(e.getTarget())) return;
-      if (dockAction == null) return;
-      dockAction.run();
+      if (dockAction != null) {
+        dockAction.run();
+      } else if (windowAction != null) {
+        windowAction.run();
+        dismissPanelChooser(chooserPane);
+        refreshState.run();
+      } else {
+        return;
+      }
       e.consume();
     });
     row.getProperties().put(PANEL_CHOOSER_REFRESH_KEY, refreshState);
@@ -5260,7 +5278,7 @@ public class EditorApp extends Application {
 
     String placement = "right".equalsIgnoreCase(side) ? "right" : "left";
     Label message = new Label(
-        "Click the green + tab above to add a " + placement + " sidebar tool like Help, Text Editor, Puppeteer Launcher, or Scene Lighting Studio.");
+        "Click the green + tab above to add a " + placement + " sidebar tool like Help, Puppeteer Launcher, or Scene Lighting Studio.");
     message.getStyleClass().add("sidebar-empty-copy");
     message.setWrapText(true);
 
@@ -5944,18 +5962,12 @@ public class EditorApp extends Application {
       applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(pane, actions, EditorSidebarPanel.SCRIPT_EDITOR, targetPlacement, "Text Editor", null, () -> {
-      rememberPanelPlacement(EditorSidebarPanel.SCRIPT_EDITOR, targetPlacement);
-      ScriptEditorLauncherView launcher = ensureScriptEditorLauncherView();
-      launcher.setProjectRoot(projectRoot);
-      launcher.setWorkspaceRoot(resolveWorkspaceRoot());
-      Tab t = ensureScriptEditorLauncherTab(pane);
-      if (t != null) pane.getSelectionModel().select(t);
-    }, () -> {
+    addChooserActionRow(pane, actions, EditorSidebarPanel.SCRIPT_EDITOR, targetPlacement, "Text Editor", null, null, () -> {
       ScriptEditorLauncherView launcher = ensureScriptEditorLauncherView();
       launcher.setProjectRoot(projectRoot);
       launcher.setWorkspaceRoot(resolveWorkspaceRoot());
       launcher.launchEditorWindow();
+      rememberPanelPlacement(EditorSidebarPanel.SCRIPT_EDITOR, EditorPanelPlacement.HIDDEN);
     }, () -> {
       rememberPanelPlacement(EditorSidebarPanel.SCRIPT_EDITOR, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
@@ -6044,16 +6056,11 @@ public class EditorApp extends Application {
   }
 
   private void selectScriptEditorLauncherTab() {
-    Tab t = (tabScriptEditorLauncher != null && tabScriptEditorLauncher.getTabPane() != null)
-        ? tabScriptEditorLauncher
-        : ensureScriptEditorLauncherTab(rightTabs);
-    if (t != null && t.getTabPane() != null) {
-      t.getTabPane().getSelectionModel().select(t);
-    }
-    if (scriptEditorLauncherView != null) {
-      scriptEditorLauncherView.setProjectRoot(projectRoot);
-      scriptEditorLauncherView.setWorkspaceRoot(resolveWorkspaceRoot());
-    }
+    ScriptEditorLauncherView launcher = ensureScriptEditorLauncherView();
+    launcher.setProjectRoot(projectRoot);
+    launcher.setWorkspaceRoot(resolveWorkspaceRoot());
+    launcher.launchEditorWindow();
+    rememberPanelPlacement(EditorSidebarPanel.SCRIPT_EDITOR, EditorPanelPlacement.HIDDEN);
   }
 
   private void selectMenuFlowTab() {

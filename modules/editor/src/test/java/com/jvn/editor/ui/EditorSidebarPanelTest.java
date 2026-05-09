@@ -3,6 +3,7 @@ package com.jvn.editor.ui;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class EditorSidebarPanelTest {
 
@@ -16,5 +17,11 @@ class EditorSidebarPanelTest {
   void helpPanelVersionReflectsGuideTreeUpgrade() {
     assertEquals("1.2.1", EditorSidebarPanel.HELP.version());
     assertEquals("v1.2.1", EditorSidebarPanel.HELP.versionBadge());
+  }
+
+  @Test
+  void scriptEditorIsPopOutOnly() {
+    assertFalse(EditorSidebarPanel.SCRIPT_EDITOR.supportsDocking());
+    assertEquals(EditorPanelPlacement.HIDDEN, EditorSidebarPanel.SCRIPT_EDITOR.defaultPlacement());
   }
 }

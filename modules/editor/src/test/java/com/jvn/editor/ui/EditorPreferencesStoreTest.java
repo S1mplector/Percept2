@@ -164,4 +164,13 @@ class EditorPreferencesStoreTest {
     preferences.setCodeEditorFontSize(-10);
     assertEquals(EditorPreferences.MIN_CODE_EDITOR_FONT_SIZE, preferences.getCodeEditorFontSize());
   }
+
+  @Test
+  void popOutOnlyPanelsIgnoreDockedPlacements() {
+    EditorPreferences preferences = EditorPreferences.defaults();
+
+    preferences.setPlacement(EditorSidebarPanel.SCRIPT_EDITOR, EditorPanelPlacement.RIGHT);
+
+    assertEquals(EditorPanelPlacement.HIDDEN, preferences.getPlacement(EditorSidebarPanel.SCRIPT_EDITOR));
+  }
 }

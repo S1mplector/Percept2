@@ -276,11 +276,18 @@ public final class EditorPreferences {
 
   public EditorPanelPlacement getPlacement(EditorSidebarPanel panel) {
     if (panel == null) return EditorPanelPlacement.HIDDEN;
-    return panelPlacements.getOrDefault(panel, panel.defaultPlacement());
+    EditorPanelPlacement placement = panelPlacements.getOrDefault(panel, panel.defaultPlacement());
+    if (!panel.supportsDocking() && placement != EditorPanelPlacement.HIDDEN) {
+      return EditorPanelPlacement.HIDDEN;
+    }
+    return placement;
   }
 
   public void setPlacement(EditorSidebarPanel panel, EditorPanelPlacement placement) {
     if (panel == null || placement == null) return;
+    if (!panel.supportsDocking() && placement != EditorPanelPlacement.HIDDEN) {
+      placement = EditorPanelPlacement.HIDDEN;
+    }
     panelPlacements.put(panel, placement);
   }
 
