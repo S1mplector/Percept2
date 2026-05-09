@@ -1,0 +1,64 @@
+{
+  "Scene": {
+    "prefix": "scene",
+    "body": [
+      "scene \"${1:scene_id}\" {",
+      "  ${2:// entities}",
+      "}"
+    ],
+    "description": "Create a JES scene block."
+  },
+  "Sprite Entity": {
+    "prefix": "sprite",
+    "body": [
+      "entity \"${1:entity_id}\" {",
+      "  component Sprite2D {",
+      "    image: \"${2:assets/image.png}\"",
+      "    x: ${3:0}",
+      "    y: ${4:0}",
+      "  }",
+      "}"
+    ],
+    "description": "Create a sprite entity."
+  },
+  "Timeline": {
+    "prefix": "timeline",
+    "body": [
+      "timeline \"${1:timeline_id}\" {",
+      "  ${2:move} \"${3:entity_id}\" ${4:0} ${5:0} ${6:500}",
+      "}"
+    ],
+    "description": "Create a JES timeline block."
+  },
+  "Move Action": {
+    "prefix": "move",
+    "body": [
+      "move \"${1:entity_id}\" ${2:x} ${3:y} ${4:durationMs}"
+    ],
+    "description": "Move an entity over time."
+  },
+  "Fade Action": {
+    "prefix": "fade",
+    "body": [
+      "fade \"${1:entity_id}\" ${2:alpha} ${3:durationMs}"
+    ],
+    "description": "Fade an entity over time."
+  },
+  "Parallel Block": {
+    "prefix": "parallel",
+    "body": [
+      "parallel {",
+      "  ${1:move \"entity\" 0 0 500}",
+      "  ${2:fade \"entity\" 1 500}",
+      "}"
+    ],
+    "description": "Run timeline actions in parallel."
+  },
+  "Audio Cue": {
+    "prefix": "audio",
+    "body": [
+      "playAudio \"${1:audio_id}\" volume ${2:1.0}"
+    ],
+    "description": "Play audio from a JES timeline."
+  }
+}

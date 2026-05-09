@@ -1,0 +1,105 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "JVN Story Map",
+  "scopeName": "source.jvn-storymap",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#colors"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#arrows"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#properties"
+    },
+    {
+      "include": "#punctuation"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.number-sign.jvn-storymap",
+          "match": "^\\s*#.*$"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.jvn-storymap",
+          "match": "\"(?:[^\"\\\\]|\\\\.)*\""
+        }
+      ]
+    },
+    "colors": {
+      "patterns": [
+        {
+          "name": "constant.other.color.rgb-value.jvn-storymap",
+          "match": "#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})(?=$|\\s|[,;}])"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.storymap.jvn-storymap",
+          "match": "\\b(?:arc|link|script|entry|cluster|priority|color|tags|at|from|to|label|title|note)\\b"
+        }
+      ]
+    },
+    "arrows": {
+      "patterns": [
+        {
+          "name": "keyword.operator.arrow.jvn-storymap",
+          "match": "->"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.jvn-storymap",
+          "match": "-?\\b\\d+(?:\\.\\d+)?\\b"
+        }
+      ]
+    },
+    "properties": {
+      "patterns": [
+        {
+          "name": "variable.other.property.jvn-storymap",
+          "match": "\\b[A-Za-z_][\\w.-]*(?=\\s*:)"
+        }
+      ]
+    },
+    "punctuation": {
+      "patterns": [
+        {
+          "name": "punctuation.section.block.jvn-storymap",
+          "match": "[{}()[\\]]"
+        },
+        {
+          "name": "punctuation.separator.jvn-storymap",
+          "match": "[:,]"
+        },
+        {
+          "name": "keyword.operator.jvn-storymap",
+          "match": "[=+\\-*/%<>]"
+        }
+      ]
+    }
+  }
+}

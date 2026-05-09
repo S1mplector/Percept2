@@ -1,0 +1,41 @@
+{
+  "Menu Item": {
+    "prefix": "menuitem",
+    "body": [
+      "item.${1:id}.label=${2:Label}",
+      "item.${1:id}.action=${3:open_menu}",
+      "item.${1:id}.target=${4:target_menu}"
+    ],
+    "description": "Create a menu item entry."
+  },
+  "Layout Button": {
+    "prefix": "layoutbutton",
+    "body": [
+      "${1:button}.x=${2:0}",
+      "${1:button}.y=${3:0}",
+      "${1:button}.width=${4:240}",
+      "${1:button}.height=${5:56}"
+    ],
+    "description": "Create common layout dimensions for a button-like element."
+  },
+  "Style Colors": {
+    "prefix": "stylecolors",
+    "body": [
+      "${1:prefix}.fill=${2:#f6e497}",
+      "${1:prefix}.stroke=${3:#111111}",
+      "${1:prefix}.text=${4:#111111}"
+    ],
+    "description": "Create common style color entries."
+  },
+  "Stage Preset": {
+    "prefix": "stagepreset",
+    "body": [
+      "name=${1:preset_name}",
+      "tint=${2:#ffffff}",
+      "brightness=${3:1.0}",
+      "contrast=${4:1.0}",
+      "saturation=${5:1.0}"
+    ],
+    "description": "Create a stage preset skeleton."
+  }
+}

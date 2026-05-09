@@ -1,0 +1,132 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "JVN Config",
+  "scopeName": "source.jvn-config",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#sections"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#colors"
+    },
+    {
+      "include": "#placeholders"
+    },
+    {
+      "include": "#booleans"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#keys"
+    },
+    {
+      "include": "#punctuation"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.number-sign.jvn-config",
+          "match": "^\\s*#.*$"
+        }
+      ]
+    },
+    "sections": {
+      "patterns": [
+        {
+          "name": "meta.section.jvn-config",
+          "match": "^\\s*(\\[)([^\\]]+)(\\])",
+          "captures": {
+            "1": {
+              "name": "punctuation.definition.section.begin.jvn-config"
+            },
+            "2": {
+              "name": "entity.name.section.jvn-config"
+            },
+            "3": {
+              "name": "punctuation.definition.section.end.jvn-config"
+            }
+          }
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.jvn-config",
+          "match": "\"(?:[^\"\\\\]|\\\\.)*\""
+        }
+      ]
+    },
+    "colors": {
+      "patterns": [
+        {
+          "name": "constant.other.color.rgb-value.jvn-config",
+          "match": "#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})(?=$|\\s|[,;}])"
+        }
+      ]
+    },
+    "placeholders": {
+      "patterns": [
+        {
+          "name": "variable.other.placeholder.jvn-config",
+          "match": "\\{[A-Za-z_][\\w.-]*\\}"
+        }
+      ]
+    },
+    "booleans": {
+      "patterns": [
+        {
+          "name": "constant.language.boolean.jvn-config",
+          "match": "\\b(?:true|false|yes|no|on|off)\\b"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.jvn-config",
+          "match": "-?\\b\\d+(?:\\.\\d+)?(?:px|em|rem|%)?(?=$|\\s|[,;])"
+        }
+      ]
+    },
+    "keys": {
+      "patterns": [
+        {
+          "name": "variable.other.key.jvn-config",
+          "match": "^\\s*([A-Za-z_][\\w.-]*)(?=\\s*[=:])",
+          "captures": {
+            "1": {
+              "name": "variable.other.key.jvn-config"
+            }
+          }
+        },
+        {
+          "name": "variable.other.property.jvn-config",
+          "match": "\\b[A-Za-z_][\\w.-]*(?=\\s*:)"
+        }
+      ]
+    },
+    "punctuation": {
+      "patterns": [
+        {
+          "name": "keyword.operator.assignment.jvn-config",
+          "match": "[=:]"
+        },
+        {
+          "name": "punctuation.separator.jvn-config",
+          "match": ","
+        }
+      ]
+    }
+  }
+}

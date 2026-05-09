@@ -1,0 +1,33 @@
+{
+  "Story Arc": {
+    "prefix": "arc",
+    "body": [
+      "arc \"${1:arc_id}\" {",
+      "  title: \"${2:Arc Title}\"",
+      "  script: \"${3:scripts/${1:arc_id}.vns}\"",
+      "  entry: \"${4:start}\"",
+      "  at: ${5:0}, ${6:0}",
+      "}"
+    ],
+    "description": "Create a Story Map arc."
+  },
+  "Story Link": {
+    "prefix": "link",
+    "body": [
+      "link \"${1:from_arc}\" -> \"${2:to_arc}\" {",
+      "  label: \"${3:choice_label}\"",
+      "}"
+    ],
+    "description": "Link two Story Map arcs."
+  },
+  "Story Cluster": {
+    "prefix": "cluster",
+    "body": [
+      "cluster \"${1:route_id}\" {",
+      "  title: \"${2:Route Title}\"",
+      "  color: \"${3:#f0a34a}\"",
+      "}"
+    ],
+    "description": "Create a Story Map cluster."
+  }
+}

@@ -1,0 +1,156 @@
+{
+  "name": "jvn-language-tools",
+  "displayName": "JVN Language Tools",
+  "description": "Syntax highlighting and snippets for Java Vector Nexus DSLs.",
+  "version": "0.1.0",
+  "publisher": "jvn",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/S1mplector/Java-Vector-Nexus.git",
+    "directory": "tools/vscode-jvn"
+  },
+  "bugs": {
+    "url": "https://github.com/S1mplector/Java-Vector-Nexus/issues"
+  },
+  "homepage": "https://github.com/S1mplector/Java-Vector-Nexus/tree/main/tools/vscode-jvn",
+  "engines": {
+    "vscode": "^1.82.0"
+  },
+  "scripts": {
+    "package": "npx @vscode/vsce package",
+    "publish": "npx @vscode/vsce publish"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets"
+  ],
+  "keywords": [
+    "jvn",
+    "java vector nexus",
+    "visual novel",
+    "vns",
+    "jes",
+    "storymap"
+  ],
+  "galleryBanner": {
+    "color": "#111111",
+    "theme": "dark"
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "jvn-vns",
+        "aliases": [
+          "JVN VNS",
+          "VNS"
+        ],
+        "extensions": [
+          ".vns"
+        ],
+        "configuration": "./language-configuration/vns.language-configuration.json"
+      },
+      {
+        "id": "jvn-jes",
+        "aliases": [
+          "JVN JES",
+          "JES"
+        ],
+        "extensions": [
+          ".jes"
+        ],
+        "configuration": "./language-configuration/jes.language-configuration.json"
+      },
+      {
+        "id": "jvn-storymap",
+        "aliases": [
+          "JVN Story Map",
+          "Story Map"
+        ],
+        "extensions": [
+          ".storymap",
+          ".timeline"
+        ],
+        "configuration": "./language-configuration/storymap.language-configuration.json"
+      },
+      {
+        "id": "jvn-config",
+        "aliases": [
+          "JVN Config"
+        ],
+        "extensions": [
+          ".layout",
+          ".menu",
+          ".registry",
+          ".settings",
+          ".stagepreset",
+          ".style",
+          ".theme"
+        ],
+        "filenames": [
+          "jvn.project"
+        ],
+        "configuration": "./language-configuration/config.language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "jvn-vns",
+        "scopeName": "source.jvn-vns",
+        "path": "./syntaxes/vns.tmLanguage.json"
+      },
+      {
+        "language": "jvn-jes",
+        "scopeName": "source.jvn-jes",
+        "path": "./syntaxes/jes.tmLanguage.json"
+      },
+      {
+        "language": "jvn-storymap",
+        "scopeName": "source.jvn-storymap",
+        "path": "./syntaxes/storymap.tmLanguage.json"
+      },
+      {
+        "language": "jvn-config",
+        "scopeName": "source.jvn-config",
+        "path": "./syntaxes/config.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "jvn-vns",
+        "path": "./snippets/vns.code-snippets"
+      },
+      {
+        "language": "jvn-jes",
+        "path": "./snippets/jes.code-snippets"
+      },
+      {
+        "language": "jvn-storymap",
+        "path": "./snippets/storymap.code-snippets"
+      },
+      {
+        "language": "jvn-config",
+        "path": "./snippets/config.code-snippets"
+      }
+    ],
+    "configurationDefaults": {
+      "[jvn-vns]": {
+        "editor.wordWrap": "on",
+        "editor.quickSuggestions": {
+          "comments": false,
+          "strings": false,
+          "other": true
+        }
+      },
+      "[jvn-jes]": {
+        "editor.wordWrap": "off"
+      },
+      "[jvn-storymap]": {
+        "editor.wordWrap": "off"
+      },
+      "[jvn-config]": {
+        "editor.wordWrap": "off"
+      }
+    }
+  }
+}

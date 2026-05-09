@@ -1,0 +1,205 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "JVN VNS",
+  "scopeName": "source.jvn-vns",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#formatting"
+    },
+    {
+      "include": "#directives"
+    },
+    {
+      "include": "#command-blocks"
+    },
+    {
+      "include": "#choice-lines"
+    },
+    {
+      "include": "#speakers"
+    },
+    {
+      "include": "#timeline"
+    },
+    {
+      "include": "#values"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#punctuation"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.number-sign.jvn-vns",
+          "match": "#.*$"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.jvn-vns",
+          "match": "\"(?:[^\"\\\\]|\\\\.)*\""
+        }
+      ]
+    },
+    "formatting": {
+      "patterns": [
+        {
+          "name": "constant.character.formatting.jvn-vns",
+          "match": "\\{/?(?:b|i|u|s)\\}|\\{color=[^}]*\\}|\\{/color\\}|\\{size=[^}]*\\}|\\{/size\\}"
+        }
+      ]
+    },
+    "directives": {
+      "patterns": [
+        {
+          "name": "meta.directive.jvn-vns",
+          "match": "^\\s*(@)(scenario|character|background|charimg|charlayer|charpreset|position|label|define|include|var|music|sound|external)\\b",
+          "captures": {
+            "1": {
+              "name": "punctuation.definition.directive.jvn-vns"
+            },
+            "2": {
+              "name": "keyword.control.directive.jvn-vns"
+            }
+          }
+        }
+      ]
+    },
+    "command-blocks": {
+      "patterns": [
+        {
+          "name": "meta.command.jvn-vns",
+          "begin": "(\\[)(/?[A-Za-z_][\\w.-]*)\\b",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.section.command.begin.jvn-vns"
+            },
+            "2": {
+              "name": "keyword.control.command.jvn-vns"
+            }
+          },
+          "end": "(\\])",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.section.command.end.jvn-vns"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#strings"
+            },
+            {
+              "include": "#values"
+            },
+            {
+              "include": "#numbers"
+            },
+            {
+              "name": "variable.parameter.jvn-vns",
+              "match": "\\b[A-Za-z_][\\w.-]*(?=\\s*=)"
+            },
+            {
+              "name": "keyword.operator.jvn-vns",
+              "match": "->|==|!=|<=|>=|[=<>:+\\-*/%,]"
+            }
+          ]
+        }
+      ]
+    },
+    "choice-lines": {
+      "patterns": [
+        {
+          "name": "meta.choice.jvn-vns",
+          "match": "^\\s*(>)(.*?)(\\s+->\\s+)([A-Za-z_][\\w.-]*)\\s*$",
+          "captures": {
+            "1": {
+              "name": "punctuation.definition.choice.jvn-vns"
+            },
+            "2": {
+              "name": "string.unquoted.choice-text.jvn-vns"
+            },
+            "3": {
+              "name": "keyword.operator.arrow.jvn-vns"
+            },
+            "4": {
+              "name": "entity.name.label.jvn-vns"
+            }
+          }
+        },
+        {
+          "name": "punctuation.definition.choice.jvn-vns",
+          "match": "^\\s*>"
+        }
+      ]
+    },
+    "speakers": {
+      "patterns": [
+        {
+          "name": "meta.speaker.jvn-vns",
+          "match": "^\\s*([^\\s#:@\\[][^:]{0,40})(:)",
+          "captures": {
+            "1": {
+              "name": "entity.name.character.jvn-vns"
+            },
+            "2": {
+              "name": "punctuation.separator.speaker.jvn-vns"
+            }
+          }
+        }
+      ]
+    },
+    "timeline": {
+      "patterns": [
+        {
+          "name": "keyword.control.timeline.jvn-vns",
+          "match": "^\\s*timeline\\b"
+        }
+      ]
+    },
+    "values": {
+      "patterns": [
+        {
+          "name": "constant.language.boolean.jvn-vns",
+          "match": "\\b(?:true|false|on|off|yes|no)\\b"
+        },
+        {
+          "name": "support.constant.value.jvn-vns",
+          "match": "\\b(?:left|right|center|far_left|far_right|fade|dissolve|crossfade|slide_left|slide_right|wipe|snow|rain|sakura|fireflies|dust|leaves|goto|loop|neutral)\\b"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.jvn-vns",
+          "match": "-?\\b\\d+(?:\\.\\d+)?\\b"
+        }
+      ]
+    },
+    "punctuation": {
+      "patterns": [
+        {
+          "name": "keyword.operator.arrow.jvn-vns",
+          "match": "->"
+        },
+        {
+          "name": "punctuation.separator.jvn-vns",
+          "match": "[\\[\\]()>:,=]"
+        }
+      ]
+    }
+  }
+}

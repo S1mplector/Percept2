@@ -1,0 +1,85 @@
+{
+  "Scenario Header": {
+    "prefix": "scenario",
+    "body": [
+      "@scenario ${1:chapter_id}",
+      "@include scripts/definitions/characters.vns",
+      "",
+      "@label start",
+      "${2:Narrator}: ${3:Opening line.}"
+    ],
+    "description": "Create a VNS scenario header and start label."
+  },
+  "Character Declaration": {
+    "prefix": "character",
+    "body": [
+      "@character ${1:id} ${2:Display Name}",
+      "@charimg ${1:id} neutral ${3:assets/characters/${1:id}/neutral.png}"
+    ],
+    "description": "Declare a VNS character and neutral image."
+  },
+  "Background Declaration": {
+    "prefix": "background",
+    "body": [
+      "@background ${1:room} ${2:assets/backgrounds/room.png}"
+    ],
+    "description": "Declare a reusable background alias."
+  },
+  "Show Character": {
+    "prefix": "show",
+    "body": [
+      "[show ${1:character_id} pos=${2:center} expr=${3:neutral} layer=${4:10}]"
+    ],
+    "description": "Show a character with position, expression, and layer."
+  },
+  "Choice Branch": {
+    "prefix": "choice",
+    "body": [
+      "[choice]",
+      "> ${1:First choice} -> ${2:first_label}",
+      "> ${3:Second choice} -> ${4:second_label}"
+    ],
+    "description": "Create a VNS choice block."
+  },
+  "Conditional Block": {
+    "prefix": "if",
+    "body": [
+      "[if ${1:flag_name}]",
+      "${2:Speaker}: ${3:Conditional line.}",
+      "[else]",
+      "${4:Speaker}: ${5:Fallback line.}",
+      "[endif]"
+    ],
+    "description": "Create an if/else block."
+  },
+  "Jump Label": {
+    "prefix": "label",
+    "body": [
+      "@label ${1:label_name}"
+    ],
+    "description": "Create a VNS label."
+  },
+  "JES Push": {
+    "prefix": "jespush",
+    "body": [
+      "[jes push ${1:scenes/minigame.jes} label ${2:after_minigame} with ${3:difficulty=normal}]"
+    ],
+    "description": "Push a JES scene and return to a VNS label."
+  },
+  "Inline Timeline": {
+    "prefix": "timeline",
+    "body": [
+      "timeline ${1:animation_name} {",
+      "  move ${2:entity} to ${3:0} ${4:0} dur ${5:500}",
+      "}"
+    ],
+    "description": "Create an inline VNS timeline block."
+  },
+  "Call Timeline": {
+    "prefix": "calltimeline",
+    "body": [
+      "[call jes_timeline ${1:animation_name}]"
+    ],
+    "description": "Run a registered JES timeline from VNS."
+  }
+}

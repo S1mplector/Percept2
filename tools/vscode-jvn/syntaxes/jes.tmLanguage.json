@@ -1,0 +1,161 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "JVN JES",
+  "scopeName": "source.jvn-jes",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#colors"
+    },
+    {
+      "include": "#component-types"
+    },
+    {
+      "include": "#actions"
+    },
+    {
+      "include": "#structural"
+    },
+    {
+      "include": "#builtins"
+    },
+    {
+      "include": "#booleans"
+    },
+    {
+      "include": "#value-keywords"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#properties"
+    },
+    {
+      "include": "#punctuation"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.metadata.jvn-jes",
+          "match": "^\\s*//\\s*@jvn-[A-Za-z0-9_-].*$"
+        },
+        {
+          "name": "comment.line.double-slash.jvn-jes",
+          "match": "//.*$"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.jvn-jes",
+          "match": "\"(?:[^\"\\\\]|\\\\.)*\""
+        }
+      ]
+    },
+    "colors": {
+      "patterns": [
+        {
+          "name": "constant.other.color.rgb-value.jvn-jes",
+          "match": "#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})\\b"
+        }
+      ]
+    },
+    "component-types": {
+      "patterns": [
+        {
+          "name": "support.class.component.jvn-jes",
+          "match": "\\b(?:Panel2D|Sprite2D|Label2D|ParticleEmitter2D|PhysicsBody2D|Character2D|Stats|Inventory|Equipment|Ai2D|Button2D|Slider2D)\\b"
+        }
+      ]
+    },
+    "actions": {
+      "patterns": [
+        {
+          "name": "keyword.control.action.jvn-jes",
+          "match": "\\b(?:move|depth|pivot|rotate|scale|fade|visible|expression|show|hide|replace|event|property|walkToTile|wait|call|cameraMove|cameraZoom|cameraShake|cameraFollow|damage|heal|waitForCall|playAudio|stopAudio|emitParticles|setParallax|loop|parallel|label|jump)\\b"
+        }
+      ]
+    },
+    "structural": {
+      "patterns": [
+        {
+          "name": "keyword.control.structure.jvn-jes",
+          "match": "\\b(?:scene|entity|component|tileset|map|layer|item|on|timeline)\\b"
+        },
+        {
+          "name": "keyword.control.binding.jvn-jes",
+          "match": "\\b(?:key|do)\\b"
+        }
+      ]
+    },
+    "builtins": {
+      "patterns": [
+        {
+          "name": "support.function.builtin.jvn-jes",
+          "match": "\\b(?:rgb|rgba)\\b"
+        }
+      ]
+    },
+    "booleans": {
+      "patterns": [
+        {
+          "name": "constant.language.boolean.jvn-jes",
+          "match": "\\b(?:true|false)\\b"
+        }
+      ]
+    },
+    "value-keywords": {
+      "patterns": [
+        {
+          "name": "support.constant.value.jvn-jes",
+          "match": "\\b(?:shape|circle|box|static|sensor|additive|left|center|right)\\b"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.jvn-jes",
+          "match": "-?\\b\\d+(?:\\.\\d+)?\\b"
+        }
+      ]
+    },
+    "properties": {
+      "patterns": [
+        {
+          "name": "variable.other.property.jvn-jes",
+          "match": "\\b[A-Za-z_][\\w.-]*(?=\\s*:)"
+        },
+        {
+          "name": "variable.parameter.jvn-jes",
+          "match": "\\b[A-Za-z_][\\w.-]*(?=\\s*=)"
+        }
+      ]
+    },
+    "punctuation": {
+      "patterns": [
+        {
+          "name": "punctuation.section.block.jvn-jes",
+          "match": "[{}()]"
+        },
+        {
+          "name": "punctuation.separator.jvn-jes",
+          "match": "[:,]"
+        },
+        {
+          "name": "keyword.operator.jvn-jes",
+          "match": "->|==|!=|<=|>=|[=+\\-*/%<>]"
+        }
+      ]
+    }
+  }
+}

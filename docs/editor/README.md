@@ -7,6 +7,7 @@ Use this hub when your work is primarily inside the editor: opening projects, au
 - [JVN Engine Hub](core/engine-hub.md) — desktop control panel, Build Shortcuts, installed launcher paths, and logs
 - [Editor Guide](core/editor.md) — main layout, project run behavior, build/publish flow, editing modes
 - [Editor And Launcher Settings](core/settings.md) — preferences, startup behavior, run defaults, sidebar defaults
+- [VS Code Extension](core/vscode-extension.md) — external-editor syntax highlighting and snippets for JVN DSLs
 - [Sidebar Utilities Overview](sidebars/overview/sidebar-utilities.md) — map of the editor's auxiliary tools
 - [Puppeteer Editor Guide](puppeteer/puppeteer-editor-guide.md) — visual animation authoring and timeline registration
 - [Scene Lighting Studio](sidebars/right/sidebar-image-tint-tool.md) — lighting, grading, setup export, and stage-preset handoff
@@ -56,6 +57,7 @@ Use this hub when your work is primarily inside the editor: opening projects, au
 - [Tilemap Editor](core/tilemap-editor.md)
 - [Puppeteer Design Notes](core/action-editor-design.md)
 - [Help Center Guide Tree](core/help-center-guide-tree.md)
+- [VS Code Extension](core/vscode-extension.md)
 
 ### Sidebars
 

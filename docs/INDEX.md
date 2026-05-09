@@ -83,6 +83,7 @@ This index is the main route through the Java Vector Nexus documentation. It is 
 - [Puppeteer Design Notes](editor/core/action-editor-design.md) - current animation editor architecture and data flow
 - [Help Center](editor/core/help-center.md) - in-editor documentation browser
 - [Help Center Guide Tree](editor/core/help-center-guide-tree.md) - guide tree taxonomy, topic folders, and heading-aware search
+- [VS Code Extension](editor/core/vscode-extension.md) - external-editor syntax highlighting and snippets for VNS, JES, Story Map, and config files
 
 ### Puppeteer
 
