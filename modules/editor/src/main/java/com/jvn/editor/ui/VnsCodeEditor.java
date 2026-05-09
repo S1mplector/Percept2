@@ -2144,6 +2144,7 @@ public class VnsCodeEditor extends BorderPane {
       {"Multiply Variable", "[mul variable_name 1]"},
       {"Toggle Variable", "[toggle flag_name]"},
       {"Clear Variable", "[clear variable_name]"},
+      {"Persistent Variable", "[persistent set key value]"},
       {"Flag", "[flag flag_name]"},
       {"Java Bind", "@bind String:playerName"},
       {"Java Import", "@jimport com.example.GameHooks"},
