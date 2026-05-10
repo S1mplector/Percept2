@@ -104,7 +104,15 @@ public class PuppeteerWindow extends Stage {
         PropertyType.ROTATION,
         PropertyType.SCALE_X,
         PropertyType.SCALE_Y,
-        PropertyType.ALPHA
+        PropertyType.ALPHA,
+        PropertyType.VISIBILITY,
+        PropertyType.MATRIX_MXX,
+        PropertyType.MATRIX_MXY,
+        PropertyType.MATRIX_MYX,
+        PropertyType.MATRIX_MYY,
+        PropertyType.MATRIX_TX,
+        PropertyType.MATRIX_TY,
+        PropertyType.BLUR
     );
     private static final List<PropertyType> ENTITY_MATRIX_PROPERTY_CHOICES = List.of(
         PropertyType.MATRIX_MXX,
@@ -4137,12 +4145,61 @@ public class PuppeteerWindow extends Stage {
             double matrixTy = project.hasEffectiveAnimation(entityName, PropertyType.MATRIX_TY)
                 ? project.computeValueAt(entityName, PropertyType.MATRIX_TY, time, baselinePropertyValue(entityName, entity, PropertyType.MATRIX_TY))
                 : baselinePropertyValue(entityName, entity, PropertyType.MATRIX_TY);
+            // Compose parent-group supplemental matrices (outermost group applied last)
+            {
+                String grpCursor = project.getEntityParentGroupName(entityName);
+                Set<String> grpVisited = new LinkedHashSet<>();
+                while (grpCursor != null && grpVisited.add(grpCursor)) {
+                    EntityGroup grp = project.getGroup(grpCursor);
+                    if (grp == null) break;
+                    EntityTrack grpTrack = grp.getGroupTrack();
+                    boolean hasMatrix = grpTrack.hasKeyframes(PropertyType.MATRIX_MXX)
+                        || grpTrack.hasKeyframes(PropertyType.MATRIX_MXY)
+                        || grpTrack.hasKeyframes(PropertyType.MATRIX_MYX)
+                        || grpTrack.hasKeyframes(PropertyType.MATRIX_MYY)
+                        || grpTrack.hasKeyframes(PropertyType.MATRIX_TX)
+                        || grpTrack.hasKeyframes(PropertyType.MATRIX_TY);
+                    if (hasMatrix) {
+                        double gMxx = grpTrack.hasKeyframes(PropertyType.MATRIX_MXX) ? grpTrack.getValueAt(PropertyType.MATRIX_MXX, time) : 1.0;
+                        double gMxy = grpTrack.hasKeyframes(PropertyType.MATRIX_MXY) ? grpTrack.getValueAt(PropertyType.MATRIX_MXY, time) : 0.0;
+                        double gMyx = grpTrack.hasKeyframes(PropertyType.MATRIX_MYX) ? grpTrack.getValueAt(PropertyType.MATRIX_MYX, time) : 0.0;
+                        double gMyy = grpTrack.hasKeyframes(PropertyType.MATRIX_MYY) ? grpTrack.getValueAt(PropertyType.MATRIX_MYY, time) : 1.0;
+                        double gTx  = grpTrack.hasKeyframes(PropertyType.MATRIX_TX)  ? grpTrack.getValueAt(PropertyType.MATRIX_TX,  time) : 0.0;
+                        double gTy  = grpTrack.hasKeyframes(PropertyType.MATRIX_TY)  ? grpTrack.getValueAt(PropertyType.MATRIX_TY,  time) : 0.0;
+                        // G * E  (group transform wraps entity transform)
+                        double rMxx = gMxx * matrixMxx + gMxy * matrixMyx;
+                        double rMxy = gMxx * matrixMxy + gMxy * matrixMyy;
+                        double rMyx = gMyx * matrixMxx + gMyy * matrixMyx;
+                        double rMyy = gMyx * matrixMxy + gMyy * matrixMyy;
+                        double rTx  = gMxx * matrixTx  + gMxy * matrixTy  + gTx;
+                        double rTy  = gMyx * matrixTx  + gMyy * matrixTy  + gTy;
+                        matrixMxx = rMxx; matrixMxy = rMxy;
+                        matrixMyx = rMyx; matrixMyy = rMyy;
+                        matrixTx  = rTx;  matrixTy  = rTy;
+                    }
+                    grpCursor = grp.getParentGroupName();
+                }
+            }
             entity.setSupplementalTransform(matrixMxx, matrixMxy, matrixMyx, matrixMyy, matrixTx, matrixTy);
 
             double baseBlur = baselinePropertyValue(entityName, entity, PropertyType.BLUR);
             double blur = project.hasEffectiveAnimation(entityName, PropertyType.BLUR)
                 ? project.computeValueAt(entityName, PropertyType.BLUR, time, baseBlur)
                 : baseBlur;
+            // Add blur contributions from parent groups
+            {
+                String grpCursor = project.getEntityParentGroupName(entityName);
+                Set<String> grpVisited = new LinkedHashSet<>();
+                while (grpCursor != null && grpVisited.add(grpCursor)) {
+                    EntityGroup grp = project.getGroup(grpCursor);
+                    if (grp == null) break;
+                    EntityTrack grpTrack = grp.getGroupTrack();
+                    if (grpTrack.hasKeyframes(PropertyType.BLUR)) {
+                        blur += grpTrack.getValueAt(PropertyType.BLUR, time);
+                    }
+                    grpCursor = grp.getParentGroupName();
+                }
+            }
             entity.setBlurRadius(blur);
 
             for (String customPropertyKey : track.getAnimatedCustomProperties()) {

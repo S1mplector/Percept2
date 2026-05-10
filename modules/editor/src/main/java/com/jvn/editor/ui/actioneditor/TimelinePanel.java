@@ -56,7 +56,15 @@ public class TimelinePanel extends VBox {
         PropertyType.ROTATION,
         PropertyType.SCALE_X,
         PropertyType.SCALE_Y,
-        PropertyType.ALPHA
+        PropertyType.ALPHA,
+        PropertyType.VISIBILITY,
+        PropertyType.MATRIX_MXX,
+        PropertyType.MATRIX_MXY,
+        PropertyType.MATRIX_MYX,
+        PropertyType.MATRIX_MYY,
+        PropertyType.MATRIX_TX,
+        PropertyType.MATRIX_TY,
+        PropertyType.BLUR
     };
     private static final PropertyType[] CAMERA_PROPERTIES = {
         PropertyType.CAMERA_X,

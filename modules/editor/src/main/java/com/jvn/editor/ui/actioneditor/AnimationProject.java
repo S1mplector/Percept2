@@ -640,6 +640,11 @@ public class AnimationProject {
 
     public EntityGroup getGroup(String name) { return groups.get(name); }
 
+    public String getEntityParentGroupName(String entityName) {
+        EntityTrack track = entityTracks.get(entityName);
+        return track != null ? track.getParentGroupName() : null;
+    }
+
     public EntityGroup getOrCreateGroup(String name) {
         EntityGroup existing = groups.get(name);
         if (existing != null) return existing;
@@ -741,7 +746,15 @@ public class AnimationProject {
             || property == PropertyType.ROTATION
             || property == PropertyType.SCALE_X
             || property == PropertyType.SCALE_Y
-            || property == PropertyType.ALPHA;
+            || property == PropertyType.ALPHA
+            || property == PropertyType.VISIBILITY
+            || property == PropertyType.MATRIX_MXX
+            || property == PropertyType.MATRIX_MXY
+            || property == PropertyType.MATRIX_MYX
+            || property == PropertyType.MATRIX_MYY
+            || property == PropertyType.MATRIX_TX
+            || property == PropertyType.MATRIX_TY
+            || property == PropertyType.BLUR;
     }
 
     public void addEntityToGroup(String entityName, String groupName) {
@@ -967,6 +980,10 @@ public class AnimationProject {
             scaleY *= groupScaleY;
             if (groupTrack.hasKeyframes(PropertyType.ALPHA)) {
                 alpha *= groupTrack.getValueAt(PropertyType.ALPHA, timeMs);
+            }
+            if (groupTrack.hasKeyframes(PropertyType.VISIBILITY)
+                    && groupTrack.getValueAt(PropertyType.VISIBILITY, timeMs) < 0.5) {
+                visibility = 0.0;
             }
             cursor = group.getParentGroupName();
         }
@@ -1513,7 +1530,8 @@ public class AnimationProject {
             || property == PropertyType.ROTATION
             || property == PropertyType.SCALE_X
             || property == PropertyType.SCALE_Y
-            || property == PropertyType.ALPHA;
+            || property == PropertyType.ALPHA
+            || property == PropertyType.VISIBILITY;
     }
 
     private static void replaceName(List<String> values, String currentName, String nextName) {
