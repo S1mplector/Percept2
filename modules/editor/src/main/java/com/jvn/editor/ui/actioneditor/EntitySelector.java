@@ -58,6 +58,8 @@ public class EntitySelector extends VBox {
     private BiConsumer<String, Boolean> onEntityLockChanged;
     private BiConsumer<String, Boolean> onGroupLockChanged;
     private Consumer<String> onGroupResetRequested;
+    private BiConsumer<String, Boolean> onEntitySoloChanged;
+    private String soloedEntityName = null;
 
     public EntitySelector() {
         setSpacing(0);
@@ -93,6 +95,11 @@ public class EntitySelector extends VBox {
                 String encoded = newVal.getValue();
                 String name = decodeTreeValue(encoded);
                 boolean group = isEncodedGroupValue(encoded);
+                // Solo guard: if a different entity is soloed, snap selection back
+                if (soloedEntityName != null && !group && !soloedEntityName.equals(name)) {
+                    Platform.runLater(() -> selectEntity(soloedEntityName));
+                    return;
+                }
                 if (onSelectionChanged != null) {
                     onSelectionChanged.accept(name, group);
                 } else if (onEntitySelected != null) {
@@ -147,6 +154,15 @@ public class EntitySelector extends VBox {
     public void setOnEntityLockChanged(BiConsumer<String, Boolean> callback) { this.onEntityLockChanged = callback; }
     public void setOnGroupLockChanged(BiConsumer<String, Boolean> callback) { this.onGroupLockChanged = callback; }
     public void setOnGroupResetRequested(Consumer<String> callback) { this.onGroupResetRequested = callback; }
+    public void setOnEntitySoloChanged(BiConsumer<String, Boolean> callback) { this.onEntitySoloChanged = callback; }
+
+    public String getSoloedEntityName() { return soloedEntityName; }
+
+    public void clearSolo() {
+        if (soloedEntityName == null) return;
+        soloedEntityName = null;
+        treeView.refresh();
+    }
 
     public void setScene(JesScene2D scene) {
         this.scene = scene;
@@ -592,11 +608,12 @@ public class EntitySelector extends VBox {
         private final Canvas icon = new Canvas(16, 16);
         private final Canvas visibilityIcon = new Canvas(14, 14);
         private final Canvas lockIcon = new Canvas(14, 14);
+        private final Canvas soloIcon = new Canvas(14, 14);
         private final Canvas resetIcon = new Canvas(14, 14);
         private final Label label = new Label();
         private final Region spacer = new Region();
         private final Label layerBadge = new Label();
-        private final HBox row = new HBox(6, icon, label, spacer, resetIcon, lockIcon, visibilityIcon, layerBadge);
+        private final HBox row = new HBox(6, icon, label, spacer, resetIcon, lockIcon, soloIcon, visibilityIcon, layerBadge);
         private final Canvas lassoCanvas = new Canvas();
         private final StackPane cellRoot = new StackPane(row, lassoCanvas);
         private final Timeline lassoTimeline;
@@ -645,6 +662,20 @@ public class EntitySelector extends VBox {
                     if (onEntityLockChanged != null) onEntityLockChanged.accept(name, nextLocked);
                 }
                 drawLockIcon(lockIcon.getGraphicsContext2D(), nextLocked);
+                event.consume();
+            });
+
+            soloIcon.setCursor(Cursor.HAND);
+            soloIcon.setOnMouseClicked(event -> {
+                if (isEmpty() || getItem() == null) return;
+                String encoded = getItem();
+                if (isEncodedGroupValue(encoded)) return;
+                String name = decodeTreeValue(encoded);
+                boolean nowSoloed = !name.equals(soloedEntityName);
+                soloedEntityName = nowSoloed ? name : null;
+                if (onEntitySoloChanged != null) onEntitySoloChanged.accept(name, nowSoloed);
+                if (nowSoloed) selectEntity(name);
+                treeView.refresh();
                 event.consume();
             });
 
