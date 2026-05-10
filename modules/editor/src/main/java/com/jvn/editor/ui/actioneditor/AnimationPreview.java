@@ -4,6 +4,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
@@ -196,7 +197,17 @@ public class AnimationPreview extends VBox {
     private boolean onionSkinning = false;
     private int onionFrames = 3;
     private boolean showInterpolationGhosts = false;
+    private boolean showSpriteRegions = false;
+    private SpritePixelAnalyzer pixelAnalyzer;
+    private final Map<String, List<SpritePixelAnalyzer.DetectedRegion>> spriteRegionCache = new HashMap<>();
     private int interpolationGhostCount = 5;
+
+    private boolean anchorPlacementMode = false;
+    private Consumer<double[]> onAnchorPlacementAt;
+
+    private javafx.animation.AnimationTimer spriteRegionAnimTimer;
+    private long spriteRegionLastRenderNs = 0;
+    private static final long SPRITE_REGION_RENDER_INTERVAL_NS = 40_000_000L; // 25 fps for marching ants
 
     private Entity2D selectedEntity;
     private String selectedEntityName;
@@ -298,6 +309,8 @@ public class AnimationPreview extends VBox {
 
     public void setProjectRoot(java.io.File root) {
         projectRoot = root;
+        pixelAnalyzer = new SpritePixelAnalyzer(root);
+        spriteRegionCache.clear();
         sourceImageSizeCache.clear();
         sourceImageCache.clear();
         missingSourceImagePaths.clear();
@@ -442,6 +455,9 @@ public class AnimationPreview extends VBox {
                         if (member != null) drawSelectionHighlight(member);
                     }
                 }
+                drawGroupDimming();
+                drawSelectedEntityRegionBorder();
+                if (showSpriteRegions) drawSpriteRegions();
             } finally {
                 scene.setCamera(activeCamera);
             }
@@ -475,6 +491,17 @@ public class AnimationPreview extends VBox {
             gc.fillRoundRect(ox - 4, oy - textH + 2, textW + 8, textH + 4, 4, 4);
             gc.setFill(Color.web("#8bd2ff"));
             gc.fillText(matrixOverlayText, ox, oy);
+        }
+        if (anchorPlacementMode) {
+            String hint = selectedEntity != null
+                ? "Anchor Placement  —  click on the entity to place  |  Esc to cancel"
+                : "Anchor Placement  —  select an entity first";
+            gc.setFont(javafx.scene.text.Font.font("Monospaced", 11));
+            double textW = hint.length() * 6.6;
+            gc.setFill(Color.web("#1a0e2a", 0.88));
+            gc.fillRoundRect(10, h - 28, textW + 16, 20, 6, 6);
+            gc.setFill(Color.web("#c084fc", 0.97));
+            gc.fillText(hint, 18, h - 13);
         }
     }
 
@@ -1172,6 +1199,7 @@ public class AnimationPreview extends VBox {
         pivotDragState = null;
         matrixDragState = null;
         matrixOverlayText = null;
+        startSpriteRegionAnimation();
         if (changed) render();
     }
 
@@ -1190,6 +1218,7 @@ public class AnimationPreview extends VBox {
         pivotDragState = null;
         matrixDragState = null;
         matrixOverlayText = null;
+        stopSpriteRegionAnimation();
         if (changed) render();
     }
 
@@ -1202,7 +1231,28 @@ public class AnimationPreview extends VBox {
         pivotDragState = null;
         matrixDragState = null;
         matrixOverlayText = null;
+        stopSpriteRegionAnimation();
         if (changed) render();
+    }
+
+    private void startSpriteRegionAnimation() {
+        if (spriteRegionAnimTimer != null) return;
+        spriteRegionAnimTimer = new javafx.animation.AnimationTimer() {
+            @Override public void handle(long now) {
+                if (now - spriteRegionLastRenderNs >= SPRITE_REGION_RENDER_INTERVAL_NS) {
+                    spriteRegionLastRenderNs = now;
+                    render();
+                }
+            }
+        };
+        spriteRegionAnimTimer.start();
+    }
+
+    private void stopSpriteRegionAnimation() {
+        if (spriteRegionAnimTimer != null) {
+            spriteRegionAnimTimer.stop();
+            spriteRegionAnimTimer = null;
+        }
     }
 
     public boolean isOnionSkinning() { return onionSkinning; }
@@ -1210,7 +1260,45 @@ public class AnimationPreview extends VBox {
     public void setOnionFrames(int frames) { this.onionFrames = Math.max(1, Math.min(10, frames)); }
     public boolean isShowInterpolationGhosts() { return showInterpolationGhosts; }
     public void setShowInterpolationGhosts(boolean show) { this.showInterpolationGhosts = show; render(); }
+
+    public boolean isShowSpriteRegions() { return showSpriteRegions; }
+    public void setShowSpriteRegions(boolean show) { this.showSpriteRegions = show; render(); }
     public int getInterpolationGhostCount() { return interpolationGhostCount; }
+
+    public boolean isAnchorPlacementMode() { return anchorPlacementMode; }
+    public void setAnchorPlacementMode(boolean enabled) { anchorPlacementMode = enabled; render(); }
+    public void setOnAnchorPlacementAt(Consumer<double[]> callback) { this.onAnchorPlacementAt = callback; }
+
+    /**
+     * Computes the world-space position of a named anchor on the given entity and sets
+     * it as that entity's orbit pivot, enabling rotation around the anchor point.
+     */
+    public void useAnchorAsOrbitPivot(String entityName, String anchorName) {
+        if (entityName == null || anchorName == null || project == null || scene == null) return;
+        Entity2D entity = scene.find(entityName);
+        if (entity == null) return;
+        Anchor anchor = project.getAnchor(entityName, anchorName);
+        if (anchor == null) return;
+        EntityFrame frame = describeEntity(entity);
+        if (frame == null) return;
+        double[] worldPos = computeAnchorWorldPosition(anchor, entity, frame);
+        setOrbitAnchor(entityName, worldPos[0], worldPos[1]);
+        render();
+    }
+
+    private double[] computeAnchorWorldPosition(Anchor anchor, Entity2D entity, EntityFrame frame) {
+        double ex = entity.getX();
+        double ey = entity.getY();
+        if (anchor.isRelative()) {
+            double cos = Math.cos(frame.rotationRad);
+            double sin = Math.sin(frame.rotationRad);
+            double lx = (anchor.getX() - frame.originX) * frame.w * frame.scaleX;
+            double ly = (anchor.getY() - frame.originY) * frame.h * frame.scaleY;
+            return new double[]{ex + lx * cos - ly * sin, ey + lx * sin + ly * cos};
+        } else {
+            return new double[]{anchor.getX(), anchor.getY()};
+        }
+    }
     public void setInterpolationGhostCount(int count) { this.interpolationGhostCount = Math.max(2, Math.min(20, count)); render(); }
     public boolean isOrbitToolEnabled() { return orbitToolEnabled; }
     public void setOrbitToolEnabled(boolean enabled) { this.orbitToolEnabled = enabled; render(); }
@@ -1823,6 +1911,33 @@ public class AnimationPreview extends VBox {
                     render();
                     return;
                 }
+                // Anchor placement mode: click on the selected entity to set anchor position
+                if (anchorPlacementMode && selectedEntity != null) {
+                    double[] world = screenToWorld(e.getX(), e.getY());
+                    double[] corners = getEntityCorners(selectedEntity);
+                    if (containsPointInQuad(corners, world[0], world[1])) {
+                        EntityFrame frame = describeEntity(selectedEntity);
+                        if (frame != null) {
+                            double dx = world[0] - selectedEntity.getX();
+                            double dy = world[1] - selectedEntity.getY();
+                            double cos = Math.cos(-frame.rotationRad);
+                            double sin = Math.sin(-frame.rotationRad);
+                            double unrotX = dx * cos - dy * sin;
+                            double unrotY = dx * sin + dy * cos;
+                            double localX = unrotX / Math.max(1e-6, frame.scaleX);
+                            double localY = unrotY / Math.max(1e-6, frame.scaleY);
+                            double relX = Math.max(0.0, Math.min(1.0, frame.originX + localX / Math.max(1e-6, frame.w)));
+                            double relY = Math.max(0.0, Math.min(1.0, frame.originY + localY / Math.max(1e-6, frame.h)));
+                            if (onAnchorPlacementAt != null) {
+                                onAnchorPlacementAt.accept(new double[]{relX, relY});
+                            }
+                            anchorPlacementMode = false;
+                            render();
+                            return;
+                        }
+                    }
+                }
+
                 if (runtimeCameraSelected && isNearRuntimeFrameHandle(e.getX(), e.getY())) {
                     draggingCameraFrame = true;
                     dragCameraStartX = e.getX();
@@ -2190,6 +2305,15 @@ public class AnimationPreview extends VBox {
                 render();
             }
         });
+
+        canvas.setFocusTraversable(true);
+        canvas.setOnKeyPressed(e -> {
+            if (e.getCode() == javafx.scene.input.KeyCode.ESCAPE && anchorPlacementMode) {
+                anchorPlacementMode = false;
+                render();
+                e.consume();
+            }
+        });
     }
 
     private void beginMoveInteraction(String entityName, Entity2D entity) {
@@ -2363,17 +2487,15 @@ public class AnimationPreview extends VBox {
             double ax, ay;
 
             if (anchor.isRelative()) {
-                // Local offset from entity pivot, scaled and rotated with the entity
+                // Entity-local normalized coords: (0,0) = top-left, (1,1) = bottom-right
                 double lx = (anchor.getX() - frame.originX) * frame.w * frame.scaleX;
                 double ly = (anchor.getY() - frame.originY) * frame.h * frame.scaleY;
                 ax = ex + lx * cos - ly * sin;
                 ay = ey + lx * sin + ly * cos;
             } else {
-                // World-space offset — still rotate so the anchor moves with the entity
-                double lx = anchor.getX() * frame.scaleX;
-                double ly = anchor.getY() * frame.scaleY;
-                ax = ex + lx * cos - ly * sin;
-                ay = ey + lx * sin + ly * cos;
+                // World-space: the anchor position is already in world coordinates
+                ax = anchor.getX();
+                ay = anchor.getY();
             }
 
             // Dashed line from entity pivot to anchor
@@ -2397,6 +2519,201 @@ public class AnimationPreview extends VBox {
             gc.setFill(Color.web("#c084fc", 0.85));
             gc.setFont(javafx.scene.text.Font.font(8.0 / z));
             gc.fillText(anchor.getName(), ax + (8.0 / z), ay - (5.0 / z));
+        }
+    }
+
+    private void drawGroupDimming() {
+        if (project == null || selectedEntityName == null || selectedEntityName.isBlank() || scene == null) return;
+
+        EntityTrack selectedTrack = project.getTrack(selectedEntityName);
+        if (selectedTrack == null) return;
+
+        String parentGroupName = selectedTrack.getParentGroupName();
+        if (parentGroupName == null || parentGroupName.isBlank()) return;
+
+        // Check if selected entity IS the group track (top entity of the group)
+        EntityGroup group = project.getGroup(parentGroupName);
+        if (group != null && group.getGroupTrack().getEntityName().equals(selectedEntityName)) {
+            // Group track selected - don't dim anything
+            return;
+        }
+
+        // Selected entity is a child of the group - draw light grey borders on other entities
+        List<String> groupEntityNames = project.collectGroupEntityNames(parentGroupName);
+        if (groupEntityNames.isEmpty()) return;
+
+        for (String entityName : groupEntityNames) {
+            if (entityName.equals(selectedEntityName)) continue; // Don't border the selected entity
+
+            Entity2D entity = scene.find(entityName);
+            if (entity == null || !entity.isVisible()) continue;
+
+            double[] corners = getEntityCorners(entity);
+            if (corners.length < 8) continue;
+
+            // Draw light grey border outline
+            gc.save();
+            gc.setStroke(Color.web("#888888", 0.5));
+            gc.setLineWidth(1.5);
+            gc.beginPath();
+            gc.moveTo(corners[0], corners[1]);
+            gc.lineTo(corners[2], corners[3]);
+            gc.lineTo(corners[4], corners[5]);
+            gc.lineTo(corners[6], corners[7]);
+            gc.closePath();
+            gc.stroke();
+            gc.restore();
+        }
+    }
+
+    /**
+     * Draws an animated marching-ants border around the opaque pixel regions of the
+     * currently selected sprite entity. Called every frame by the sprite region timer.
+     */
+    private void drawSelectedEntityRegionBorder() {
+        if (pixelAnalyzer == null || selectedEntity == null) return;
+        if (!(selectedEntity instanceof com.jvn.core.scene2d.Sprite2D sprite)) return;
+
+        String imagePath = sprite.getImagePath();
+        if (imagePath == null || imagePath.isBlank()) return;
+
+        EntityFrame frame = describeEntity(selectedEntity);
+        if (frame == null) return;
+
+        double spriteW = sprite.getWidth();
+        double spriteH = sprite.getHeight();
+        double entityX = selectedEntity.getX();
+        double entityY = selectedEntity.getY();
+        double cos = Math.cos(frame.rotationRad);
+        double sin = Math.sin(frame.rotationRad);
+        double z = Math.max(1e-6, displayScale);
+        double dashOffset = (System.currentTimeMillis() / 40.0) % 16.0;
+
+        gc.save();
+        gc.setStroke(Color.web("#c084fc", 0.92));
+        gc.setLineWidth(1.8 / z);
+        gc.setLineDashes(5.0 / z, 3.0 / z);
+        gc.setLineDashOffset(-dashOffset / z);
+
+        for (String layerPath : imagePath.split("\\|")) {
+            String path = layerPath == null ? "" : layerPath.trim();
+            if (path.isEmpty()) continue;
+
+            List<SpritePixelAnalyzer.DetectedRegion> regions =
+                spriteRegionCache.computeIfAbsent(path, pixelAnalyzer::detectRegions);
+            if (regions.isEmpty()) continue;
+
+            double[] imageSize = resolveImageSize(path);
+            if (imageSize == null) continue;
+            double imgToSpriteX = spriteW / Math.max(1.0, imageSize[0]);
+            double imgToSpriteY = spriteH / Math.max(1.0, imageSize[1]);
+
+            for (SpritePixelAnalyzer.DetectedRegion region : regions) {
+                // Image px → sprite-display px → apply origin offset and entity scale
+                double lx = (-frame.originX * spriteW + region.minX * imgToSpriteX) * frame.scaleX;
+                double ly = (-frame.originY * spriteH + region.minY * imgToSpriteY) * frame.scaleY;
+                double lw = region.width  * imgToSpriteX * frame.scaleX;
+                double lh = region.height * imgToSpriteY * frame.scaleY;
+
+                // Rotate the four corners into world space
+                double[] c = new double[8];
+                c[0] = entityX + lx * cos - ly * sin;
+                c[1] = entityY + lx * sin + ly * cos;
+                c[2] = entityX + (lx + lw) * cos - ly * sin;
+                c[3] = entityY + (lx + lw) * sin + ly * cos;
+                c[4] = entityX + (lx + lw) * cos - (ly + lh) * sin;
+                c[5] = entityY + (lx + lw) * sin + (ly + lh) * cos;
+                c[6] = entityX + lx * cos - (ly + lh) * sin;
+                c[7] = entityY + lx * sin + (ly + lh) * cos;
+
+                gc.beginPath();
+                gc.moveTo(c[0], c[1]);
+                gc.lineTo(c[2], c[3]);
+                gc.lineTo(c[4], c[5]);
+                gc.lineTo(c[6], c[7]);
+                gc.closePath();
+                gc.stroke();
+            }
+        }
+
+        gc.setLineDashes((double[]) null);
+        gc.restore();
+    }
+
+    /**
+     * Draws static (non-animated) region borders for all visible sprite entities.
+     * Only active when the "Show Sprite Regions" debug toggle is on.
+     * Skips the selected entity — it already gets the animated border above.
+     */
+    private void drawSpriteRegions() {
+        if (pixelAnalyzer == null || scene == null) return;
+
+        double z = Math.max(1e-6, displayScale);
+
+        for (Entity2D entity : scene.getChildren()) {
+            if (!(entity instanceof com.jvn.core.scene2d.Sprite2D sprite)) continue;
+            if (!entity.isVisible()) continue;
+            if (entity == selectedEntity) continue; // already drawn with animation
+
+            String imagePath = sprite.getImagePath();
+            if (imagePath == null || imagePath.isBlank()) continue;
+
+            EntityFrame frame = describeEntity(entity);
+            if (frame == null) continue;
+
+            double spriteW = sprite.getWidth();
+            double spriteH = sprite.getHeight();
+            double entityX = entity.getX();
+            double entityY = entity.getY();
+            double cos = Math.cos(frame.rotationRad);
+            double sin = Math.sin(frame.rotationRad);
+
+            gc.save();
+            gc.setStroke(Color.web("#00ffcc", 0.45));
+            gc.setLineWidth(1.0 / z);
+            gc.setLineDashes(4.0 / z, 3.0 / z);
+
+            for (String layerPath : imagePath.split("\\|")) {
+                String path = layerPath == null ? "" : layerPath.trim();
+                if (path.isEmpty()) continue;
+
+                List<SpritePixelAnalyzer.DetectedRegion> regions =
+                    spriteRegionCache.computeIfAbsent(path, pixelAnalyzer::detectRegions);
+                if (regions.isEmpty()) continue;
+
+                double[] imageSize = resolveImageSize(path);
+                if (imageSize == null) continue;
+                double imgToSpriteX = spriteW / Math.max(1.0, imageSize[0]);
+                double imgToSpriteY = spriteH / Math.max(1.0, imageSize[1]);
+
+                for (SpritePixelAnalyzer.DetectedRegion region : regions) {
+                    double lx = (-frame.originX * spriteW + region.minX * imgToSpriteX) * frame.scaleX;
+                    double ly = (-frame.originY * spriteH + region.minY * imgToSpriteY) * frame.scaleY;
+                    double lw = region.width  * imgToSpriteX * frame.scaleX;
+                    double lh = region.height * imgToSpriteY * frame.scaleY;
+
+                    double[] c = new double[8];
+                    c[0] = entityX + lx * cos - ly * sin;
+                    c[1] = entityY + lx * sin + ly * cos;
+                    c[2] = entityX + (lx + lw) * cos - ly * sin;
+                    c[3] = entityY + (lx + lw) * sin + ly * cos;
+                    c[4] = entityX + (lx + lw) * cos - (ly + lh) * sin;
+                    c[5] = entityY + (lx + lw) * sin + (ly + lh) * cos;
+                    c[6] = entityX + lx * cos - (ly + lh) * sin;
+                    c[7] = entityY + lx * sin + (ly + lh) * cos;
+
+                    gc.beginPath();
+                    gc.moveTo(c[0], c[1]);
+                    gc.lineTo(c[2], c[3]);
+                    gc.lineTo(c[4], c[5]);
+                    gc.lineTo(c[6], c[7]);
+                    gc.closePath();
+                    gc.stroke();
+                }
+            }
+
+            gc.setLineDashes((double[]) null);
+            gc.restore();
         }
     }
 

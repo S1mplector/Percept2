@@ -1,402 +1,606 @@
 package com.jvn.editor.ui.actioneditor;
 
+import java.io.File;
 import java.util.Map;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
-import javafx.scene.control.CheckBox;
-import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
-import javafx.scene.control.ListCell;
-import javafx.scene.control.ListView;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
-import javafx.scene.control.Spinner;
-import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
-import javafx.scene.layout.ColumnConstraints;
-import javafx.scene.layout.GridPane;
+import javafx.scene.image.Image;
+import javafx.scene.input.KeyCode;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
 import javafx.scene.shape.Rectangle;
 
 /**
- * UI panel for managing named anchor points on entities.
- * Anchors define custom rotation/attachment pivots (e.g. an elbow on an arm
- * sprite) that animators can rotate around independently of the entity's
- * default origin.
+ * Minimal visual anchor editor. Automatically mirrors the entity selected via the
+ * Entities tab or viewport — no dropdown needed. A zoomable, scrollable mini canvas
+ * shows the sprite; clicking on the sprite places an anchor at that normalized
+ * position. Each anchor can be promoted to the entity's orbit-rotation pivot.
  */
 public class AnchorEditor extends VBox {
 
-    private static final String LABEL_STYLE    = "-fx-text-fill: #a0a0a0; -fx-font-size: 11px;";
-    private static final String SECTION_STYLE  = "-fx-text-fill: #c0c0c0; -fx-font-size: 11px; -fx-font-weight: bold;";
-    private static final String FIELD_STYLE    = "-fx-background-color: #2d2d2d; -fx-text-fill: #e0e0e0; "
-                                                + "-fx-border-color: #444; -fx-border-radius: 3; -fx-background-radius: 3;";
-    private static final String BTN_PRIMARY    = "-fx-background-color: #1a6ea8; -fx-text-fill: white; "
-                                                + "-fx-background-radius: 3; -fx-font-size: 11px;";
-    private static final String BTN_DANGER     = "-fx-background-color: #7a1e1e; -fx-text-fill: #e0e0e0; "
-                                                + "-fx-background-radius: 3; -fx-font-size: 11px;";
+    // ── Style constants ──────────────────────────────────────────────────────
+    private static final String S_HEADER   = "-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #e0e0e0;";
+    private static final String S_SECTION  = "-fx-text-fill: #c0c0c0; -fx-font-size: 11px; -fx-font-weight: bold;";
+    private static final String S_DIM      = "-fx-text-fill: #666; -fx-font-size: 10px;";
+    private static final String S_FIELD    = "-fx-background-color: #2d2d2d; -fx-text-fill: #e0e0e0; "
+                                           + "-fx-border-color: #444; -fx-border-radius: 3; -fx-background-radius: 3;";
+    private static final String S_BTN_CONFIRM = "-fx-background-color: #1a4a6e; -fx-text-fill: #7bc0ff; "
+                                              + "-fx-background-radius: 3; -fx-font-size: 11px;";
+    private static final String S_BTN_CANCEL  = "-fx-background-color: #2a2a2a; -fx-text-fill: #888; "
+                                              + "-fx-background-radius: 3; -fx-font-size: 11px;";
+    private static final String S_BTN_PIVOT   = "-fx-background-color: #1a3a20; -fx-text-fill: #58d68d; "
+                                              + "-fx-border-color: #2e7d45; -fx-background-radius: 3; "
+                                              + "-fx-font-size: 10px; -fx-padding: 2 6 2 6;";
+    private static final String S_BTN_REMOVE  = "-fx-background-color: #7a1e1e; -fx-text-fill: #e0e0e0; "
+                                              + "-fx-background-radius: 3; -fx-font-size: 10px; -fx-padding: 2 6 2 6;";
+    private static final String S_BTN_ZOOM    = "-fx-background-color: #2a2a2a; -fx-text-fill: #bbb; "
+                                              + "-fx-background-radius: 3; -fx-font-size: 12px; "
+                                              + "-fx-min-width: 24; -fx-pref-width: 24; -fx-max-width: 24; "
+                                              + "-fx-min-height: 20; -fx-pref-height: 20;";
 
+    private static final int    CANVAS_BASE_H = 190;
+    private static final double PAD           = 10.0;
+    private static final double DOT_R         = 5.0;
+    private static final double HIT_R         = DOT_R * 2.5;
+    private static final double ZOOM_MIN      = 0.25;
+    private static final double ZOOM_MAX      = 5.0;
+    private static final double ZOOM_STEP     = 1.4;
+
+    // ── State ────────────────────────────────────────────────────────────────
     private AnimationProject project;
-    private Runnable onAnchorChanged;
+    private AnimationPreview preview;
+    private File             projectRoot;
+    private Runnable         onAnchorChanged;
 
-    private ComboBox<String> cmbEntity;
-    private ListView<String> anchorListView;
-    private Label lblNoAnchors;
-    private Label lblFormTitle;
-    private TextField txtAnchorName;
-    private Spinner<Double> spAnchorX;
-    private Spinner<Double> spAnchorY;
-    private CheckBox cbRelative;
-    private Button btnApply;
-    private Button btnRemove;
-    private Button btnNew;
+    private String currentEntityName;
+    private Image  spriteImage;
+    private String selectedAnchorName;
 
+    // zoom
+    private double canvasZoom = 1.0;
+    private Label  lblZoom;
+
+    // pending placement (normalized coords, or -1 when inactive)
+    private double pendingRelX = -1;
+    private double pendingRelY = -1;
+
+    // ── UI nodes ─────────────────────────────────────────────────────────────
+    private Label      lblEntityName;
+    private Canvas     miniCanvas;
+    private GraphicsContext gc;
+    private ScrollPane canvasScroll;
+    private HBox       pendingRow;
+    private TextField  txtPendingName;
+    private VBox       anchorsContainer;
+    private Label      lblNoAnchors;
+
+    // ── Constructor ──────────────────────────────────────────────────────────
     public AnchorEditor() {
         setSpacing(0);
         setFillWidth(true);
         buildUI();
     }
 
+    // ── Build UI ─────────────────────────────────────────────────────────────
     private void buildUI() {
+        // Header
         Label header = new Label("Anchors");
-        header.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #e0e0e0;");
+        header.setStyle(S_HEADER);
         header.setPadding(new Insets(10, 10, 6, 10));
 
-        // ── Entity selector ───────────────────────────────────────────────
-        VBox entitySection = new VBox(4);
-        entitySection.setPadding(new Insets(8, 10, 8, 10));
+        // Entity chip
+        Circle chipDot = new Circle(4, Color.web("#a855f7"));
+        lblEntityName = new Label("No entity selected");
+        lblEntityName.setStyle("-fx-text-fill: #555; -fx-font-size: 11px; -fx-font-style: italic;");
+        HBox chipRow = new HBox(6, chipDot, lblEntityName);
+        chipRow.setAlignment(Pos.CENTER_LEFT);
+        chipRow.setPadding(new Insets(6, 10, 6, 10));
 
-        Label lblEntityHdr = new Label("Entity");
-        lblEntityHdr.setStyle(SECTION_STYLE);
+        // Canvas + scroll pane
+        miniCanvas = new Canvas(300, CANVAS_BASE_H);
+        gc = miniCanvas.getGraphicsContext2D();
+        miniCanvas.setOnMousePressed(e -> onCanvasClick(e.getX(), e.getY()));
 
-        cmbEntity = new ComboBox<>();
-        cmbEntity.setPromptText("Select entity…");
-        cmbEntity.setMaxWidth(Double.MAX_VALUE);
-        cmbEntity.setCellFactory(lv -> new EntityCell());
-        cmbEntity.setButtonCell(new EntityCell());
-        cmbEntity.setOnAction(e -> onEntitySelected());
-
-        entitySection.getChildren().addAll(lblEntityHdr, cmbEntity);
-
-        // ── Anchor list ───────────────────────────────────────────────────
-        VBox listSection = new VBox(4);
-        listSection.setPadding(new Insets(8, 10, 6, 10));
-
-        Label lblListHdr = new Label("Defined Anchors");
-        lblListHdr.setStyle(SECTION_STYLE);
-
-        anchorListView = new ListView<>();
-        anchorListView.setPrefHeight(110);
-        anchorListView.setMinHeight(60);
-        anchorListView.setStyle("-fx-background-color: #1e1e1e; -fx-border-color: #3a3a3a; -fx-border-width: 1;");
-        anchorListView.setCellFactory(lv -> new AnchorCell());
-        anchorListView.getSelectionModel().selectedItemProperty()
-                      .addListener((obs, old, val) -> onAnchorSelected(val));
-
-        lblNoAnchors = new Label("No anchors defined for this entity.");
-        lblNoAnchors.setStyle("-fx-text-fill: #666; -fx-font-size: 10.5px; -fx-font-style: italic;");
-        lblNoAnchors.setPadding(new Insets(2, 0, 0, 0));
-        lblNoAnchors.setVisible(false);
-        lblNoAnchors.setManaged(false);
-
-        listSection.getChildren().addAll(lblListHdr, anchorListView, lblNoAnchors);
-
-        // ── Anchor form ───────────────────────────────────────────────────
-        VBox formSection = new VBox(6);
-        formSection.setPadding(new Insets(8, 10, 10, 10));
-
-        lblFormTitle = new Label("New Anchor");
-        lblFormTitle.setStyle(SECTION_STYLE);
-
-        Label lblName = new Label("Name");
-        lblName.setStyle(LABEL_STYLE);
-
-        txtAnchorName = new TextField();
-        txtAnchorName.setPromptText("e.g. elbow, shoulder, wrist");
-        txtAnchorName.setStyle(FIELD_STYLE);
-        txtAnchorName.setMaxWidth(Double.MAX_VALUE);
-
-        cbRelative = new CheckBox("Normalized (0–1 per axis)");
-        cbRelative.setSelected(true);
-        cbRelative.setStyle("-fx-text-fill: #b0b0b0; -fx-font-size: 11px;");
-        Tooltip relTip = new Tooltip(
-            "When on:  (0.5, 0.5) = sprite center\n" +
-            "          (0, 0)     = top-left corner\n" +
-            "          (1, 1)     = bottom-right corner\n\n" +
-            "When off: values are pixel offsets from\n" +
-            "          the entity's world position.");
-        relTip.setWrapText(true);
-        Tooltip.install(cbRelative, relTip);
-        cbRelative.setOnAction(e -> updateSpinnerRange());
-
-        GridPane posGrid = new GridPane();
-        posGrid.setHgap(8);
-        posGrid.setVgap(5);
-        ColumnConstraints colLabel = new ColumnConstraints(24);
-        ColumnConstraints colSpinner = new ColumnConstraints();
-        colSpinner.setHgrow(Priority.ALWAYS);
-        colSpinner.setFillWidth(true);
-        posGrid.getColumnConstraints().addAll(colLabel, colSpinner);
-
-        Label lblX = new Label("X");
-        lblX.setStyle(LABEL_STYLE);
-        spAnchorX = new Spinner<>(0.0, 1.0, 0.5, 0.05);
-        spAnchorX.setMaxWidth(Double.MAX_VALUE);
-        spAnchorX.setEditable(true);
-
-        Label lblY = new Label("Y");
-        lblY.setStyle(LABEL_STYLE);
-        spAnchorY = new Spinner<>(0.0, 1.0, 0.5, 0.05);
-        spAnchorY.setMaxWidth(Double.MAX_VALUE);
-        spAnchorY.setEditable(true);
-
-        posGrid.add(lblX, 0, 0);
-        posGrid.add(spAnchorX, 1, 0);
-        posGrid.add(lblY, 0, 1);
-        posGrid.add(spAnchorY, 1, 1);
-
-        btnApply = new Button("Add Anchor");
-        btnApply.setStyle(BTN_PRIMARY);
-        btnApply.setMaxWidth(Double.MAX_VALUE);
-        btnApply.setOnAction(e -> applyAnchor());
-        HBox.setHgrow(btnApply, Priority.ALWAYS);
-
-        btnRemove = new Button("Remove");
-        btnRemove.setStyle(BTN_DANGER);
-        btnRemove.setDisable(true);
-        btnRemove.setOnAction(e -> removeAnchor());
-
-        btnNew = new Button("New");
-        btnNew.setStyle("-fx-background-color: #2d2d2d; -fx-text-fill: #c0c0c0; "
-                      + "-fx-border-color: #555; -fx-border-radius: 3; -fx-background-radius: 3; -fx-font-size: 11px;");
-        btnNew.setDisable(true);
-        btnNew.setOnAction(e -> clearForm(true));
-
-        HBox btnRow = new HBox(5, btnApply, btnRemove, btnNew);
-        btnRow.setAlignment(Pos.CENTER_LEFT);
-
-        formSection.getChildren().addAll(
-            lblFormTitle,
-            lblName, txtAnchorName,
-            cbRelative, posGrid,
-            btnRow
+        canvasScroll = new ScrollPane(miniCanvas);
+        canvasScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        canvasScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        canvasScroll.setFitToWidth(false);
+        canvasScroll.setFitToHeight(false);
+        canvasScroll.setStyle(
+            "-fx-background: #141414; -fx-background-color: #141414; "
+            + "-fx-border-color: transparent;"
         );
+        canvasScroll.setMaxHeight(CANVAS_BASE_H + 2);
+        canvasScroll.setPrefHeight(CANVAS_BASE_H + 2);
+
+        // Listen to viewport width to resize canvas
+        canvasScroll.viewportBoundsProperty().addListener((obs, ov, nv) -> {
+            if (nv != null && nv.getWidth() > 0) updateCanvasSize(nv.getWidth());
+        });
+        // Also fall back to VBox width when viewport not yet measured
+        widthProperty().addListener((obs, ov, nv) -> {
+            double vw = canvasScroll.getViewportBounds() != null
+                ? canvasScroll.getViewportBounds().getWidth() : 0;
+            updateCanvasSize(vw > 0 ? vw : nv.doubleValue());
+        });
+
+        // Zoom bar
+        Button btnZoomOut = new Button("−");
+        btnZoomOut.setStyle(S_BTN_ZOOM);
+        btnZoomOut.setOnAction(e -> applyZoom(canvasZoom / ZOOM_STEP));
+
+        Button btnZoomIn = new Button("+");
+        btnZoomIn.setStyle(S_BTN_ZOOM);
+        btnZoomIn.setOnAction(e -> applyZoom(canvasZoom * ZOOM_STEP));
+
+        Button btnZoomReset = new Button("1:1");
+        btnZoomReset.setStyle(S_BTN_ZOOM + "-fx-min-width: 30; -fx-pref-width: 30;");
+        btnZoomReset.setOnAction(e -> applyZoom(1.0));
+
+        lblZoom = new Label("100%");
+        lblZoom.setStyle("-fx-text-fill: #777; -fx-font-size: 10px;");
+
+        HBox zoomBar = new HBox(4, btnZoomOut, lblZoom, btnZoomIn, btnZoomReset);
+        zoomBar.setAlignment(Pos.CENTER_LEFT);
+        zoomBar.setPadding(new Insets(3, 8, 3, 8));
+        zoomBar.setStyle("-fx-background-color: #1a1a1a;");
+
+        // Pending-anchor name row
+        txtPendingName = new TextField();
+        txtPendingName.setPromptText("Anchor name (e.g. elbow) — Enter to confirm, Esc to cancel");
+        txtPendingName.setStyle(S_FIELD);
+        HBox.setHgrow(txtPendingName, Priority.ALWAYS);
+        txtPendingName.setOnKeyPressed(e -> {
+            if (e.getCode() == KeyCode.ENTER)  confirmPending();
+            if (e.getCode() == KeyCode.ESCAPE) cancelPending();
+        });
+
+        Button btnPlace  = new Button("Place");
+        btnPlace.setStyle(S_BTN_CONFIRM);
+        btnPlace.setOnAction(e -> confirmPending());
+
+        Button btnCancel = new Button("Cancel");
+        btnCancel.setStyle(S_BTN_CANCEL);
+        btnCancel.setOnAction(e -> cancelPending());
+
+        pendingRow = new HBox(5, txtPendingName, btnPlace, btnCancel);
+        pendingRow.setPadding(new Insets(5, 8, 4, 8));
+        pendingRow.setAlignment(Pos.CENTER_LEFT);
+        pendingRow.setStyle("-fx-background-color: #1a1124; -fx-border-color: #5b21b6; "
+                          + "-fx-border-width: 0 0 0 3;");
+        setPendingRowVisible(false);
+
+        // Anchor list
+        Label lblHdr = new Label("Defined Anchors");
+        lblHdr.setStyle(S_SECTION);
+        lblHdr.setPadding(new Insets(8, 10, 4, 10));
+
+        lblNoAnchors = new Label("No anchors yet — click anywhere on the sprite above to place one.");
+        lblNoAnchors.setStyle(S_DIM);
+        lblNoAnchors.setPadding(new Insets(2, 10, 6, 10));
+        lblNoAnchors.setWrapText(true);
+
+        anchorsContainer = new VBox(2);
+        anchorsContainer.setPadding(new Insets(0, 6, 6, 6));
+
+        ScrollPane scroll = new ScrollPane(anchorsContainer);
+        scroll.setFitToWidth(true);
+        scroll.setMaxHeight(180);
+        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
 
         getChildren().addAll(
             header, new Separator(),
-            entitySection, new Separator(),
-            listSection, new Separator(),
-            formSection
+            chipRow, new Separator(),
+            zoomBar, canvasScroll, pendingRow,
+            new Separator(),
+            lblHdr, lblNoAnchors, scroll
         );
+
+        redrawCanvas();
     }
 
-    // ── Public API ────────────────────────────────────────────────────────
+    // ── Zoom ─────────────────────────────────────────────────────────────────
+
+    private void applyZoom(double z) {
+        canvasZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
+        int pct = (int) Math.round(canvasZoom * 100);
+        lblZoom.setText(pct + "%");
+        double vw = canvasScroll.getViewportBounds() != null
+            ? canvasScroll.getViewportBounds().getWidth() : getWidth();
+        if (vw <= 0) vw = getWidth();
+        updateCanvasSize(vw);
+    }
+
+    private void updateCanvasSize(double viewportWidth) {
+        if (viewportWidth <= 0) return;
+        double cw = Math.max(viewportWidth, viewportWidth * canvasZoom);
+        double ch = CANVAS_BASE_H * canvasZoom;
+        canvasScroll.setMaxHeight(Math.min(ch + 2, CANVAS_BASE_H * 2));
+        canvasScroll.setPrefHeight(Math.min(ch + 2, CANVAS_BASE_H * 2));
+        miniCanvas.setWidth(cw);
+        miniCanvas.setHeight(ch);
+        redrawCanvas();
+    }
+
+    // ── Public API ───────────────────────────────────────────────────────────
 
     public void setProject(AnimationProject project) {
         this.project = project;
-        refreshEntityList();
+        refreshAnchorList();
+        redrawCanvas();
+    }
+
+    public void setProjectRoot(File root) {
+        this.projectRoot = root;
+        if (currentEntityName != null) loadEntityImage(currentEntityName);
+        redrawCanvas();
     }
 
     public void setOnAnchorChanged(Runnable cb) {
         this.onAnchorChanged = cb;
     }
 
+    public void setAnimationPreview(AnimationPreview previewCanvas) {
+        this.preview = previewCanvas;
+    }
+
     /**
-     * Called when the user selects an entity in the AnimationPreview so the
-     * anchor editor can automatically switch to that entity's anchors.
+     * Called by PuppeteerWindow whenever the viewport / timeline / entity-tab selection changes.
+     * Pass {@code null} when no entity (group, camera, or nothing) is selected.
      */
     public void setSelectedEntityName(String entityName) {
-        if (entityName == null) return;
-        if (cmbEntity.getItems().contains(entityName)
-                && !entityName.equals(cmbEntity.getValue())) {
-            cmbEntity.setValue(entityName);
+        if (entityName != null && entityName.equals(currentEntityName)) return;
+        currentEntityName = entityName;
+        selectedAnchorName = null;
+        clearPending();
+        updateEntityChip();
+        loadEntityImage(entityName);
+        refreshAnchorList();
+        redrawCanvas();
+    }
+
+    // ── Entity chip ──────────────────────────────────────────────────────────
+
+    private void updateEntityChip() {
+        if (currentEntityName == null || currentEntityName.isBlank()) {
+            lblEntityName.setText("No entity selected");
+            lblEntityName.setStyle("-fx-text-fill: #555; -fx-font-size: 11px; -fx-font-style: italic;");
+        } else {
+            lblEntityName.setText(currentEntityName);
+            lblEntityName.setStyle("-fx-text-fill: #d8b4fe; -fx-font-size: 11px; -fx-font-weight: bold;");
         }
     }
 
-    // ── Internal helpers ──────────────────────────────────────────────────
+    // ── Image loading ────────────────────────────────────────────────────────
 
-    private void refreshEntityList() {
-        if (project == null) return;
-        String prev = cmbEntity.getValue();
-        cmbEntity.getItems().clear();
-        for (EntityTrack t : project.getTracks()) {
-            cmbEntity.getItems().add(t.getEntityName());
-        }
-        if (prev != null && cmbEntity.getItems().contains(prev)) {
-            cmbEntity.setValue(prev);
+    private void loadEntityImage(String entityName) {
+        spriteImage = null;
+        if (entityName == null || entityName.isBlank() || project == null) return;
+        AnimationProject.SceneEntitySnapshot snap = project.getSceneEntitySnapshot(entityName);
+        if (snap != null && !snap.imagePath().isBlank()) {
+            spriteImage = resolveImage(snap.imagePath().split("\\|")[0].trim());
         }
     }
 
-    private void onEntitySelected() {
-        String entityName = cmbEntity.getValue();
-        anchorListView.getItems().clear();
-        clearForm(false);
-        if (entityName == null || entityName.isBlank() || project == null) {
-            setListVisible(false);
+    private Image resolveImage(String path) {
+        if (path == null || path.isBlank()) return null;
+        try {
+            File f = new File(path);
+            if (f.isAbsolute() && f.exists()) return new Image(f.toURI().toString(), false);
+        } catch (Exception ignored) {}
+        try {
+            if (projectRoot != null) {
+                File rel = new File(projectRoot, path);
+                if (rel.exists()) return new Image(rel.toURI().toString(), false);
+            }
+        } catch (Exception ignored) {}
+        try {
+            java.net.URL url = getClass().getClassLoader().getResource(path);
+            if (url != null) return new Image(url.toExternalForm(), false);
+        } catch (Exception ignored) {}
+        return null;
+    }
+
+    // ── Canvas ───────────────────────────────────────────────────────────────
+
+    private void onCanvasClick(double cx, double cy) {
+        if (currentEntityName == null) return;
+
+        // Hit-test existing anchors first
+        String hit = anchorNear(cx, cy);
+        if (hit != null) {
+            selectedAnchorName = hit.equals(selectedAnchorName) ? null : hit;
+            clearPending();
+            refreshAnchorList();
+            redrawCanvas();
             return;
         }
-        setListVisible(true);
-        refreshAnchorList(entityName);
+
+        // Otherwise start a new placement
+        double[] norm = canvasToNorm(cx, cy);
+        if (norm == null) return;
+        pendingRelX = norm[0];
+        pendingRelY = norm[1];
+        setPendingRowVisible(true);
+        txtPendingName.clear();
+        txtPendingName.requestFocus();
+        redrawCanvas();
     }
 
-    private void refreshAnchorList(String entityName) {
-        anchorListView.getItems().clear();
-        Map<String, Anchor> anchors = project.getAnchorsForEntity(entityName);
-        boolean hasAnchors = anchors != null && !anchors.isEmpty();
-        if (hasAnchors) {
-            anchorListView.getItems().addAll(anchors.keySet());
+    private void redrawCanvas() {
+        double cw = miniCanvas.getWidth();
+        double ch = miniCanvas.getHeight();
+        if (cw <= 0 || ch <= 0) return;
+
+        gc.setFill(Color.web("#141414"));
+        gc.fillRect(0, 0, cw, ch);
+
+        if (currentEntityName == null) {
+            // No entity selected — show centered hint
+            gc.setFill(Color.web("#3a3a3a"));
+            gc.setFont(javafx.scene.text.Font.font("System", 11));
+            String hint = "Select an entity from the Entities tab";
+            gc.fillText(hint, PAD, ch / 2.0 + 4);
+            drawCanvasBorder(cw, ch);
+            return;
         }
+
+        double[] b = imgBounds(cw, ch);
+        double imgX = b[0], imgY = b[1], imgW = b[2], imgH = b[3];
+
+        // Sprite or placeholder
+        if (spriteImage != null && !spriteImage.isError()) {
+            gc.drawImage(spriteImage, imgX, imgY, imgW, imgH);
+        } else {
+            gc.setFill(Color.web("#222"));
+            gc.fillRect(imgX, imgY, imgW, imgH);
+            gc.setStroke(Color.web("#3a3a3a"));
+            gc.setLineWidth(1);
+            gc.strokeRect(imgX + 0.5, imgY + 0.5, imgW - 1, imgH - 1);
+            gc.setFill(Color.web("#555"));
+            gc.setFont(javafx.scene.text.Font.font(10));
+            gc.fillText("sprite unavailable", imgX + 6, imgY + imgH / 2 + 4);
+        }
+
+        // Existing anchors
+        if (project != null) {
+            Map<String, Anchor> anchors = project.getAnchorsForEntity(currentEntityName);
+            if (anchors != null) {
+                for (Map.Entry<String, Anchor> e : anchors.entrySet()) {
+                    Anchor a = e.getValue();
+                    if (!a.isRelative()) continue;
+                    boolean sel = e.getKey().equals(selectedAnchorName);
+                    double ax = imgX + a.getX() * imgW;
+                    double ay = imgY + a.getY() * imgH;
+                    drawDot(ax, ay, sel ? Color.web("#f0b673") : Color.web("#a855f7"), sel);
+                    gc.setFill(sel ? Color.web("#f0e0a0") : Color.web("#c084fc", 0.9));
+                    gc.setFont(javafx.scene.text.Font.font(9));
+                    gc.fillText(e.getKey(), ax + DOT_R + 3, ay + 4);
+                }
+            }
+        }
+
+        // Pending anchor (half-transparent orange dot)
+        if (pendingRelX >= 0) {
+            gc.setGlobalAlpha(0.7);
+            drawDot(imgX + pendingRelX * imgW, imgY + pendingRelY * imgH, Color.web("#f0b673"), false);
+            gc.setGlobalAlpha(1.0);
+        }
+
+        // Bottom instruction overlay (always visible when entity selected + no pending)
+        if (pendingRelX < 0) {
+            double overlayH = 18;
+            gc.setFill(Color.web("#000", 0.55));
+            gc.fillRect(0, ch - overlayH, cw, overlayH);
+            gc.setFill(Color.web("#a0a0a0"));
+            gc.setFont(javafx.scene.text.Font.font(9.5));
+            gc.fillText("Click on sprite to place anchor  ·  Click dot to select", PAD, ch - 5);
+        }
+
+        drawCanvasBorder(cw, ch);
+    }
+
+    private void drawDot(double cx, double cy, Color color, boolean selected) {
+        if (selected) {
+            double r2 = DOT_R + 3;
+            gc.setFill(Color.web("#fff", 0.18));
+            gc.fillOval(cx - r2, cy - r2, r2 * 2, r2 * 2);
+            gc.setStroke(Color.web("#fff", 0.55));
+            gc.setLineWidth(0.8);
+            gc.strokeOval(cx - r2, cy - r2, r2 * 2, r2 * 2);
+        }
+        gc.setFill(color);
+        gc.fillOval(cx - DOT_R, cy - DOT_R, DOT_R * 2, DOT_R * 2);
+        gc.setStroke(Color.web("#000", 0.4));
+        gc.setLineWidth(0.7);
+        double arm = DOT_R + 3;
+        gc.strokeLine(cx - arm, cy, cx + arm, cy);
+        gc.strokeLine(cx, cy - arm, cx, cy + arm);
+    }
+
+    private void drawCanvasBorder(double cw, double ch) {
+        gc.setStroke(Color.web("#2a2a2a"));
+        gc.setLineWidth(1);
+        gc.strokeRect(0.5, 0.5, cw - 1, ch - 1);
+    }
+
+    /** [x, y, w, h] rect in canvas space where the sprite is drawn (with PAD, aspect-correct). */
+    private double[] imgBounds(double cw, double ch) {
+        double availW = cw - PAD * 2;
+        double availH = ch - PAD * 2 - 18; // leave room for the bottom instruction strip
+        double imgW, imgH;
+
+        if (spriteImage != null && !spriteImage.isError()
+                && spriteImage.getWidth() > 0 && spriteImage.getHeight() > 0) {
+            double iw = spriteImage.getWidth();
+            double ih = spriteImage.getHeight();
+            double scale = Math.min(availW / iw, availH / ih);
+            imgW = iw * scale;
+            imgH = ih * scale;
+        } else {
+            imgW = availW;
+            imgH = availH * 0.65;
+        }
+
+        double imgX = PAD + (availW - imgW) / 2.0;
+        double imgY = PAD + (availH - imgH) / 2.0;
+        return new double[]{imgX, imgY, imgW, imgH};
+    }
+
+    /** Canvas click → normalized (0–1) sprite coords.  Returns null if click was outside the sprite rect. */
+    private double[] canvasToNorm(double cx, double cy) {
+        double[] b = imgBounds(miniCanvas.getWidth(), miniCanvas.getHeight());
+        double rx = (cx - b[0]) / b[2];
+        double ry = (cy - b[1]) / b[3];
+        if (rx < 0 || rx > 1 || ry < 0 || ry > 1) return null;
+        return new double[]{rx, ry};
+    }
+
+    /** First anchor whose canvas dot is within HIT_R pixels of (cx, cy). */
+    private String anchorNear(double cx, double cy) {
+        if (project == null || currentEntityName == null) return null;
+        Map<String, Anchor> anchors = project.getAnchorsForEntity(currentEntityName);
+        if (anchors == null) return null;
+        double[] b = imgBounds(miniCanvas.getWidth(), miniCanvas.getHeight());
+        String best = null;
+        double bestDist = HIT_R;
+        for (Map.Entry<String, Anchor> e : anchors.entrySet()) {
+            Anchor a = e.getValue();
+            if (!a.isRelative()) continue;
+            double ax = b[0] + a.getX() * b[2];
+            double ay = b[1] + a.getY() * b[3];
+            double d = Math.hypot(cx - ax, cy - ay);
+            if (d < bestDist) { bestDist = d; best = e.getKey(); }
+        }
+        return best;
+    }
+
+    // ── Pending anchor ───────────────────────────────────────────────────────
+
+    private void setPendingRowVisible(boolean v) {
+        pendingRow.setVisible(v);
+        pendingRow.setManaged(v);
+    }
+
+    private void confirmPending() {
+        if (currentEntityName == null || project == null) { cancelPending(); return; }
+        String name = txtPendingName.getText().trim();
+        if (name.isBlank()) name = autoName();
+        project.setAnchor(currentEntityName, new Anchor(name, pendingRelX, pendingRelY, true));
+        clearPending();
+        refreshAnchorList();
+        redrawCanvas();
+        if (onAnchorChanged != null) onAnchorChanged.run();
+        if (preview != null) preview.render();
+    }
+
+    private void cancelPending() {
+        pendingRelX = -1;
+        pendingRelY = -1;
+        setPendingRowVisible(false);
+        redrawCanvas();
+    }
+
+    private void clearPending() {
+        pendingRelX = -1;
+        pendingRelY = -1;
+        setPendingRowVisible(false);
+        if (txtPendingName != null) txtPendingName.clear();
+    }
+
+    private String autoName() {
+        Map<String, Anchor> existing = project == null || currentEntityName == null
+            ? null : project.getAnchorsForEntity(currentEntityName);
+        int n = (existing == null) ? 0 : existing.size();
+        String name;
+        do { name = "joint_" + (++n); }
+        while (existing != null && existing.containsKey(name));
+        return name;
+    }
+
+    // ── Anchor list ──────────────────────────────────────────────────────────
+
+    private void refreshAnchorList() {
+        anchorsContainer.getChildren().clear();
+        Map<String, Anchor> anchors = project == null || currentEntityName == null
+            ? null : project.getAnchorsForEntity(currentEntityName);
+
+        boolean hasAnchors = anchors != null && !anchors.isEmpty();
         lblNoAnchors.setVisible(!hasAnchors);
         lblNoAnchors.setManaged(!hasAnchors);
-        anchorListView.setVisible(hasAnchors);
-        anchorListView.setManaged(hasAnchors);
-    }
 
-    private void setListVisible(boolean show) {
-        lblNoAnchors.setVisible(!show);
-        lblNoAnchors.setManaged(!show);
-        anchorListView.setVisible(show);
-        anchorListView.setManaged(show);
-    }
-
-    private void onAnchorSelected(String anchorName) {
-        if (anchorName == null) {
-            clearForm(false);
-            btnRemove.setDisable(true);
-            btnNew.setDisable(true);
-            return;
-        }
-        String entityName = cmbEntity.getValue();
-        if (entityName == null || project == null) return;
-
-        Anchor anchor = project.getAnchor(entityName, anchorName);
-        if (anchor == null) return;
-
-        txtAnchorName.setText(anchor.getName());
-        cbRelative.setSelected(anchor.isRelative());
-        updateSpinnerRange();
-        spAnchorX.getValueFactory().setValue(anchor.getX());
-        spAnchorY.getValueFactory().setValue(anchor.getY());
-
-        lblFormTitle.setText("Edit Anchor");
-        btnApply.setText("Update Anchor");
-        btnRemove.setDisable(false);
-        btnNew.setDisable(false);
-    }
-
-    private void clearForm(boolean resetName) {
-        if (resetName) txtAnchorName.clear();
-        cbRelative.setSelected(true);
-        updateSpinnerRange();
-        spAnchorX.getValueFactory().setValue(0.5);
-        spAnchorY.getValueFactory().setValue(0.5);
-        lblFormTitle.setText("New Anchor");
-        btnApply.setText("Add Anchor");
-        btnRemove.setDisable(true);
-        btnNew.setDisable(true);
-        anchorListView.getSelectionModel().clearSelection();
-    }
-
-    private void updateSpinnerRange() {
-        boolean rel  = cbRelative.isSelected();
-        double  min  = rel ? 0.0 : -9999.0;
-        double  max  = rel ? 1.0 : 9999.0;
-        double  step = rel ? 0.05 : 1.0;
-        double  curX = spAnchorX.getValue();
-        double  curY = spAnchorY.getValue();
-        spAnchorX.setValueFactory(new SpinnerValueFactory.DoubleSpinnerValueFactory(
-            min, max, clamp(curX, min, max), step));
-        spAnchorY.setValueFactory(new SpinnerValueFactory.DoubleSpinnerValueFactory(
-            min, max, clamp(curY, min, max), step));
-        spAnchorX.setEditable(true);
-        spAnchorY.setEditable(true);
-    }
-
-    private void applyAnchor() {
-        String entityName = cmbEntity.getValue();
-        String name       = txtAnchorName.getText();
-        if (entityName == null || entityName.isBlank() || project == null) return;
-        if (name == null || name.isBlank()) return;
-
-        commitSpinners();
-        Anchor anchor = new Anchor(name, spAnchorX.getValue(), spAnchorY.getValue(), cbRelative.isSelected());
-        project.setAnchor(entityName, anchor);
-        refreshAnchorList(entityName);
-        anchorListView.getSelectionModel().select(name);
-        if (onAnchorChanged != null) onAnchorChanged.run();
-    }
-
-    private void removeAnchor() {
-        String entityName  = cmbEntity.getValue();
-        String anchorName  = anchorListView.getSelectionModel().getSelectedItem();
-        if (entityName == null || anchorName == null || project == null) return;
-
-        project.removeAnchor(entityName, anchorName);
-        refreshAnchorList(entityName);
-        clearForm(true);
-        if (onAnchorChanged != null) onAnchorChanged.run();
-    }
-
-    private void commitSpinners() {
-        try { spAnchorX.commitValue(); } catch (Exception ignored) {}
-        try { spAnchorY.commitValue(); } catch (Exception ignored) {}
-    }
-
-    private static double clamp(double v, double min, double max) {
-        return Math.min(max, Math.max(min, v));
-    }
-
-    // ── List cells ────────────────────────────────────────────────────────
-
-    private static final class EntityCell extends ListCell<String> {
-        @Override protected void updateItem(String item, boolean empty) {
-            super.updateItem(item, empty);
-            setText(empty || item == null ? null : item);
-            setStyle("-fx-text-fill: #d0d0d0; -fx-font-size: 11px;");
-        }
-    }
-
-    private final class AnchorCell extends ListCell<String> {
-        @Override protected void updateItem(String name, boolean empty) {
-            super.updateItem(name, empty);
-            if (empty || name == null) {
-                setGraphic(null);
-                setText(null);
-                return;
+        if (hasAnchors) {
+            for (Map.Entry<String, Anchor> e : anchors.entrySet()) {
+                anchorsContainer.getChildren().add(anchorRow(e.getKey(), e.getValue()));
             }
-            String entityName = cmbEntity.getValue();
-            Anchor anchor = (entityName != null && project != null)
-                ? project.getAnchor(entityName, name) : null;
-
-            if (anchor != null) {
-                String coords = anchor.isRelative()
-                    ? String.format("(%.2f, %.2f)  rel", anchor.getX(), anchor.getY())
-                    : String.format("(%+.1f, %+.1f) px",  anchor.getX(), anchor.getY());
-
-                Rectangle dot = new Rectangle(7, 7, Color.web("#a855f7"));
-                dot.setArcWidth(2); dot.setArcHeight(2);
-
-                Label nameLabel = new Label(name);
-                nameLabel.setStyle("-fx-text-fill: #d0d0d0; -fx-font-size: 11px;");
-
-                Label coordLabel = new Label(coords);
-                coordLabel.setStyle("-fx-text-fill: #888; -fx-font-size: 10px;");
-                HBox.setHgrow(coordLabel, Priority.ALWAYS);
-                coordLabel.setAlignment(Pos.CENTER_RIGHT);
-
-                HBox row = new HBox(6, dot, nameLabel, coordLabel);
-                row.setAlignment(Pos.CENTER_LEFT);
-                setGraphic(row);
-                setText(null);
-            } else {
-                setText(name);
-                setGraphic(null);
-            }
-            setStyle("-fx-background-color: transparent;");
         }
+    }
+
+    private HBox anchorRow(String name, Anchor anchor) {
+        boolean sel = name.equals(selectedAnchorName);
+
+        Rectangle dot = new Rectangle(8, 8, sel ? Color.web("#f0b673") : Color.web("#a855f7"));
+        dot.setArcWidth(2);
+        dot.setArcHeight(2);
+
+        Label lblName = new Label(name);
+        lblName.setStyle(sel
+            ? "-fx-text-fill: #f0e0a0; -fx-font-size: 11px; -fx-font-weight: bold;"
+            : "-fx-text-fill: #d0d0d0; -fx-font-size: 11px;");
+        HBox.setHgrow(lblName, Priority.ALWAYS);
+
+        Label lblCoords = new Label(String.format("%.2f, %.2f", anchor.getX(), anchor.getY()));
+        lblCoords.setStyle(S_DIM);
+
+        Button btnPivot = new Button("Pivot");
+        btnPivot.setStyle(S_BTN_PIVOT);
+        btnPivot.setTooltip(new Tooltip("Use this anchor as the orbit rotation pivot for this entity"));
+        btnPivot.setOnAction(e -> {
+            if (preview != null && currentEntityName != null) {
+                preview.setOrbitToolEnabled(true);
+                preview.useAnchorAsOrbitPivot(currentEntityName, name);
+            }
+        });
+
+        Button btnRemove = new Button("×");
+        btnRemove.setStyle(S_BTN_REMOVE);
+        btnRemove.setOnAction(e -> {
+            if (project == null || currentEntityName == null) return;
+            project.removeAnchor(currentEntityName, name);
+            if (name.equals(selectedAnchorName)) selectedAnchorName = null;
+            refreshAnchorList();
+            redrawCanvas();
+            if (onAnchorChanged != null) onAnchorChanged.run();
+            if (preview != null) preview.render();
+        });
+
+        HBox row = new HBox(6, dot, lblName, lblCoords, btnPivot, btnRemove);
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.setPadding(new Insets(3, 4, 3, 4));
+        row.setStyle(sel
+            ? "-fx-background-color: #1e1424; -fx-background-radius: 4;"
+            : "-fx-background-color: transparent;");
+
+        row.setOnMousePressed(e -> {
+            selectedAnchorName = name.equals(selectedAnchorName) ? null : name;
+            clearPending();
+            refreshAnchorList();
+            redrawCanvas();
+        });
+
+        return row;
     }
 }

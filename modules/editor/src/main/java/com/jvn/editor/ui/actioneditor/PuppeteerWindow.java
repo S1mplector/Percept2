@@ -442,12 +442,15 @@ public class PuppeteerWindow extends Stage {
             if (timelinePanel.isRuntimeCameraSelected()) {
                 entitySelector.selectEntity(null);
                 animationPreview.clearSelection();
+                anchorEditor.setSelectedEntityName(null);
             } else if (isGroup) {
                 entitySelector.selectGroup(name);
                 animationPreview.selectGroup(name);
+                anchorEditor.setSelectedEntityName(null);
             } else {
                 entitySelector.selectEntity(name);
                 animationPreview.selectEntity(name);
+                anchorEditor.setSelectedEntityName(name);
             }
             PropertyType selectedProp = timelinePanel.getSelectedProperty();
             if (selectedProp != null && cbProperty != null && cbProperty.getValue() != selectedProp) {
@@ -757,12 +760,12 @@ public class PuppeteerWindow extends Stage {
         });
 
         // --- Transport controls ---
-        btnRewind = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.skipPrevious(), "Rewind (Home)");
-        btnPlay = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.play(), "Play (Space)");
-        btnPause = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.pause(), "Pause (Space)");
-        btnStop = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.stop(), "Stop");
-        btnUndo = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.undo(), "Undo (Ctrl/Cmd+Z)");
-        btnRedo = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.redo(), "Redo (Ctrl/Cmd+Shift+Z)");
+        btnRewind = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.skipPrevious("#7ab3e0"), "Rewind (Home)");
+        btnPlay = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.play("#57c464"), "Play (Space)");
+        btnPause = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.pause("#f0c030"), "Pause (Space)");
+        btnStop = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.stop("#e05050"), "Stop");
+        btnUndo = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.undo("#7ab3e0"), "Undo (Ctrl/Cmd+Z)");
+        btnRedo = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.redo("#7ab3e0"), "Redo (Ctrl/Cmd+Shift+Z)");
 
         btnPlay.setOnAction(e -> play());
         btnPause.setOnAction(e -> pause());
@@ -815,14 +818,14 @@ public class PuppeteerWindow extends Stage {
             refreshExportPreviewAndMarkDirty();
         });
 
-        cbLoop = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.loop(), "Loop timeline playback");
+        cbLoop = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.loop("#3cbcaa"), "Loop timeline playback");
         cbLoop.setSelected(this.project.isLooping());
         cbLoop.setOnAction(e -> {
             this.project.setLooping(cbLoop.isSelected());
             refreshExportPreviewAndMarkDirty();
         });
 
-        Button btnLoopIn = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.verticalAlignBottom(), "Set loop IN at playhead");
+        Button btnLoopIn = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.verticalAlignBottom("#3cbcaa"), "Set loop IN at playhead");
         btnLoopIn.setOnAction(e -> {
             double inMs = project.getPlayheadMs();
             double outMs = project.hasLoopRegion() ? project.getLoopEndMs() : project.getTotalDurationMs();
@@ -833,7 +836,7 @@ public class PuppeteerWindow extends Stage {
             }
         });
 
-        Button btnLoopOut = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.verticalAlignTop(), "Set loop OUT at playhead");
+        Button btnLoopOut = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.verticalAlignTop("#3cbcaa"), "Set loop OUT at playhead");
         btnLoopOut.setOnAction(e -> {
             double outMs = project.getPlayheadMs();
             double inMs = project.hasLoopRegion() ? project.getLoopStartMs() : 0;
@@ -883,7 +886,7 @@ public class PuppeteerWindow extends Stage {
         btnCopyKeyframes.setOnAction(e -> copySelectedKeyframesToClipboard());
         Button btnPasteKeyframes = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.contentPaste(), "Paste keyframes at playhead (Ctrl/Cmd+Alt+V)");
         btnPasteKeyframes.setOnAction(e -> pasteCopiedKeyframesAtPlayhead());
-        Button btnClipboardHistory = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.memory(), "Clipboard history");
+        Button btnClipboardHistory = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.timeline(), "Clipboard history");
         btnClipboardHistory.setOnAction(e -> showClipboardHistoryPopup(btnClipboardHistory));
         Button btnDuplicateKeyframes = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.controlPointDuplicate(), "Duplicate selected keyframes by snap step (Ctrl/Cmd+Alt+D)");
         btnDuplicateKeyframes.setOnAction(e -> duplicateSelectedKeyframesBySnapStep());
@@ -907,12 +910,12 @@ public class PuppeteerWindow extends Stage {
         btnZoomFit.setOnAction(e -> timelinePanel.zoomToFit());
         Button btnFocusSelection = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.myLocation(), "Zoom timeline to the current selection or active track");
         btnFocusSelection.setOnAction(e -> timelinePanel.zoomToSelection());
-        Button btnPrevKeyframe = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.fastRewind(), "Jump playhead to previous keyframe (Page Up)");
+        Button btnPrevKeyframe = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.fastRewind("#7ab3e0"), "Jump playhead to previous keyframe (Page Up)");
         btnPrevKeyframe.setOnAction(e -> timelinePanel.jumpPlayheadToPreviousKeyframe());
-        Button btnNextKeyframe = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.fastForward(), "Jump playhead to next keyframe (Page Down)");
+        Button btnNextKeyframe = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.fastForward("#7ab3e0"), "Jump playhead to next keyframe (Page Down)");
         btnNextKeyframe.setOnAction(e -> timelinePanel.jumpPlayheadToNextKeyframe());
 
-        ToggleButton cbRipple = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.wrapText(), "Ripple-retime: shift following keys when nudging a selection");
+        ToggleButton cbRipple = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.link("#f0a830"), "Ripple-retime: shift following keys when nudging a selection");
         cbRipple.setSelected(timelinePanel.isRippleRetimeEnabled());
         cbRipple.setOnAction(e -> timelinePanel.setRippleRetimeEnabled(cbRipple.isSelected()));
 
@@ -1026,7 +1029,7 @@ public class PuppeteerWindow extends Stage {
         });
 
         cbRuntimePreview = makeToolbarIconToggle(
-            com.jvn.editor.ui.CssIcon.play(),
+            com.jvn.editor.ui.CssIcon.movie("#9b72d4"),
             "Runtime data preview: render through TimelineData/TimelineRunner"
         );
         cbRuntimePreview.setSelected(runtimeParityPreview);
@@ -1037,7 +1040,7 @@ public class PuppeteerWindow extends Stage {
         });
 
         // --- Auto-key toggle ---
-        ToggleButton cbAutoKey = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.fiberSmartRecord(), "Auto-key: automatically insert keyframe on drag");
+        ToggleButton cbAutoKey = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.fiberSmartRecord("#e05050"), "Auto-key: automatically insert keyframe on drag");
         cbAutoKey.setSelected(false);
         cbAutoKey.setOnAction(e -> autoKeyEnabled = cbAutoKey.isSelected());
         Label lblAutoKey = new Label("Auto");
@@ -1056,7 +1059,7 @@ public class PuppeteerWindow extends Stage {
         HBox previewSnapBox = new HBox(4, cbSnapGrid, cbSnapEntity, cbRuntimePreview, cbSpeed, cbWheelMode);
         previewSnapBox.setAlignment(Pos.CENTER_LEFT);
 
-        cbOrbitTool = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.threeSixty(), "Enable orbit-anchor tool. Shift+click preview to place anchor. Alt+Shift+click another entity to link the anchor at the exact cursor point (joint/nail).");
+        cbOrbitTool = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.threeSixty("#9b72d4"), "Enable orbit-anchor tool. Shift+click preview to place anchor. Alt+Shift+click another entity to link the anchor at the exact cursor point (joint/nail).");
         cbOrbitTool.setSelected(animationPreview.isOrbitToolEnabled());
         cbOrbitTool.setOnAction(e -> animationPreview.setOrbitToolEnabled(cbOrbitTool.isSelected()));
 
@@ -1226,6 +1229,7 @@ public class PuppeteerWindow extends Stage {
         constraintsTab.setClosable(false);
         anchorEditor = new AnchorEditor();
         anchorEditor.setProject(this.project);
+        anchorEditor.setAnimationPreview(animationPreview);
         anchorEditor.setOnAnchorChanged(() -> {
             animationPreview.render();
             timelinePanel.refresh();
@@ -1296,7 +1300,7 @@ public class PuppeteerWindow extends Stage {
         btnPreviewFullscreen.setVisible(false);
         btnPreviewFullscreen.setOnAction(e -> enterFullscreenPreview());
 
-        btnPreviewBack = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.undo(), "Return to the standard editor workspace");
+        btnPreviewBack = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.arrowLeft(), "Return to the standard editor workspace");
         btnPreviewBack.getStyleClass().add("puppeteer-preview-overlay-button");
         btnPreviewBack.getStyleClass().add("puppeteer-preview-overlay-button-back");
         btnPreviewBack.setText("◀ Back to Editor");
@@ -3101,6 +3105,7 @@ public class PuppeteerWindow extends Stage {
         }
         keyframeEditor.setProjectRoot(root);
         codePreview.setProjectRoot(root);
+        anchorEditor.setProjectRoot(root);
         updateViewportInfoLabel();
         refreshSidebarTabs();
         installWorkspaceServicesForProjectRoot();
@@ -3119,6 +3124,7 @@ public class PuppeteerWindow extends Stage {
 
         workspacePrefs = PuppeteerWorkspacePrefs.load(projectRoot);
         applyWorkspacePrefs();
+        PuppeteerAnchorStore.load(projectRoot, project);
 
         draftStore = new PuppeteerDraftStore(projectRoot);
         draftStore.setOnSaveCallback(timelineName -> Platform.runLater(() -> showAutoSaveIndicator(timelineName)));
@@ -5626,10 +5632,13 @@ public class PuppeteerWindow extends Stage {
         // Background best-effort persistence — never blocks the FX thread.
         final PuppeteerWorkspacePrefs prefsToSave = prefsSnapshot;
         final PuppeteerDraftStore draftsToFlush = draftSnapshot;
-        if (prefsToSave != null || draftsToFlush != null) {
+        final java.io.File anchorRoot = projectRoot;
+        final AnimationProject anchorProject = project;
+        if (prefsToSave != null || draftsToFlush != null || anchorRoot != null) {
             Thread cleanup = new Thread(() -> {
                 try { if (prefsToSave != null) prefsToSave.save(); } catch (Throwable ignored) {}
                 try { if (draftsToFlush != null) draftsToFlush.shutdown(); } catch (Throwable ignored) {}
+                try { PuppeteerAnchorStore.save(anchorRoot, anchorProject); } catch (Throwable ignored) {}
             }, "puppeteer-close-cleanup");
             cleanup.setDaemon(true);
             cleanup.start();
@@ -6258,6 +6267,7 @@ public class PuppeteerWindow extends Stage {
                 setTitle("Puppeteer - " + name + " (save failed)");
                 return false;
             }
+            PuppeteerAnchorStore.save(projectRoot, project);
             TimelineRegistry.register(data);
             if (previewStaged) {
                 previewStaged = false;
