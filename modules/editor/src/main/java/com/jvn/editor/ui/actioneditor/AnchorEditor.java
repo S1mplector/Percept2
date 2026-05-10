@@ -2,6 +2,7 @@ package com.jvn.editor.ui.actioneditor;
 
 import java.io.File;
 import java.util.Map;
+import java.util.function.BiConsumer;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -45,10 +46,11 @@ public class AnchorEditor extends VBox {
                                               + "-fx-font-size: 10px; -fx-padding: 2 6 2 6;";
     private static final String S_BTN_REMOVE  = "-fx-background-color: #7a1e1e; -fx-text-fill: #e0e0e0; "
                                               + "-fx-background-radius: 3; -fx-font-size: 10px; -fx-padding: 2 6 2 6;";
-    private static final String S_BTN_ZOOM    = "-fx-background-color: #2a2a2a; -fx-text-fill: #bbb; "
+    private static final String S_BTN_ZOOM    = "-fx-background-color: #383838; -fx-text-fill: #d0d0d0; "
                                               + "-fx-background-radius: 3; -fx-font-size: 12px; "
-                                              + "-fx-min-width: 24; -fx-pref-width: 24; -fx-max-width: 24; "
-                                              + "-fx-min-height: 20; -fx-pref-height: 20;";
+                                              + "-fx-min-width: 26; -fx-pref-width: 26; -fx-max-width: 26; "
+                                              + "-fx-min-height: 22; -fx-pref-height: 22; "
+                                              + "-fx-border-color: #505050; -fx-border-radius: 3;";
 
     private static final int    CANVAS_BASE_H = 190;
     private static final double PAD           = 10.0;
@@ -63,6 +65,10 @@ public class AnchorEditor extends VBox {
     private AnimationPreview preview;
     private File             projectRoot;
     private Runnable         onAnchorChanged;
+    /** Called with (entityName, anchor) when a new anchor is confirmed. */
+    private BiConsumer<String, Anchor> onAnchorPlaced;
+    /** Called with (entityName, anchor) when the user clicks "Pivot" on an anchor row. */
+    private BiConsumer<String, Anchor> onAnchorUsedAsPivot;
 
     private String currentEntityName;
     private Image  spriteImage;
@@ -124,6 +130,18 @@ public class AnchorEditor extends VBox {
         );
         canvasScroll.setMaxHeight(CANVAS_BASE_H + 2);
         canvasScroll.setPrefHeight(CANVAS_BASE_H + 2);
+        canvasScroll.setOnScroll(e -> {
+            if (e.isControlDown() || e.isShortcutDown()) {
+                applyZoom(e.getDeltaY() > 0 ? canvasZoom * ZOOM_STEP : canvasZoom / ZOOM_STEP);
+                e.consume();
+            }
+        });
+        miniCanvas.setOnScroll(e -> {
+            if (e.isControlDown() || e.isShortcutDown()) {
+                applyZoom(e.getDeltaY() > 0 ? canvasZoom * ZOOM_STEP : canvasZoom / ZOOM_STEP);
+                e.consume();
+            }
+        });
 
         // Listen to viewport width to resize canvas
         canvasScroll.viewportBoundsProperty().addListener((obs, ov, nv) -> {
@@ -150,12 +168,19 @@ public class AnchorEditor extends VBox {
         btnZoomReset.setOnAction(e -> applyZoom(1.0));
 
         lblZoom = new Label("100%");
-        lblZoom.setStyle("-fx-text-fill: #777; -fx-font-size: 10px;");
+        lblZoom.setStyle("-fx-text-fill: #aaa; -fx-font-size: 10px; -fx-min-width: 36; -fx-alignment: center;");
 
-        HBox zoomBar = new HBox(4, btnZoomOut, lblZoom, btnZoomIn, btnZoomReset);
+        Label zoomLabel = new Label("Zoom:");
+        zoomLabel.setStyle("-fx-text-fill: #777; -fx-font-size: 10px;");
+
+        HBox zoomBar = new HBox(5, zoomLabel, btnZoomOut, lblZoom, btnZoomIn, btnZoomReset);
         zoomBar.setAlignment(Pos.CENTER_LEFT);
-        zoomBar.setPadding(new Insets(3, 8, 3, 8));
-        zoomBar.setStyle("-fx-background-color: #1a1a1a;");
+        zoomBar.setPadding(new Insets(4, 8, 4, 8));
+        zoomBar.setStyle(
+            "-fx-background-color: #252525; "
+            + "-fx-border-color: #333 transparent #333 transparent; "
+            + "-fx-border-width: 1 0 1 0;"
+        );
 
         // Pending-anchor name row
         txtPendingName = new TextField();
@@ -204,7 +229,7 @@ public class AnchorEditor extends VBox {
         getChildren().addAll(
             header, new Separator(),
             chipRow, new Separator(),
-            zoomBar, canvasScroll, pendingRow,
+            canvasScroll, zoomBar, pendingRow,
             new Separator(),
             lblHdr, lblNoAnchors, scroll
         );
@@ -251,6 +276,22 @@ public class AnchorEditor extends VBox {
 
     public void setOnAnchorChanged(Runnable cb) {
         this.onAnchorChanged = cb;
+    }
+
+    /**
+     * Called with (entityName, anchor) immediately after a new anchor is confirmed.
+     * PuppeteerWindow uses this to seed PIVOT_X/Y keyframes at t=0.
+     */
+    public void setOnAnchorPlaced(BiConsumer<String, Anchor> cb) {
+        this.onAnchorPlaced = cb;
+    }
+
+    /**
+     * Called with (entityName, anchor) when the user clicks "Set as Pivot" on an anchor row.
+     * PuppeteerWindow uses this to insert PIVOT_X/Y keyframes at the current playhead time.
+     */
+    public void setOnAnchorUsedAsPivot(BiConsumer<String, Anchor> cb) {
+        this.onAnchorUsedAsPivot = cb;
     }
 
     public void setAnimationPreview(AnimationPreview previewCanvas) {
@@ -499,11 +540,13 @@ public class AnchorEditor extends VBox {
         if (currentEntityName == null || project == null) { cancelPending(); return; }
         String name = txtPendingName.getText().trim();
         if (name.isBlank()) name = autoName();
-        project.setAnchor(currentEntityName, new Anchor(name, pendingRelX, pendingRelY, true));
+        Anchor placed = new Anchor(name, pendingRelX, pendingRelY, true);
+        project.setAnchor(currentEntityName, placed);
         clearPending();
         refreshAnchorList();
         redrawCanvas();
         if (onAnchorChanged != null) onAnchorChanged.run();
+        if (onAnchorPlaced != null) onAnchorPlaced.accept(currentEntityName, placed);
         if (preview != null) preview.render();
     }
 
@@ -542,7 +585,7 @@ public class AnchorEditor extends VBox {
         lblNoAnchors.setVisible(!hasAnchors);
         lblNoAnchors.setManaged(!hasAnchors);
 
-        if (hasAnchors) {
+        if (hasAnchors && anchors != null) {
             for (Map.Entry<String, Anchor> e : anchors.entrySet()) {
                 anchorsContainer.getChildren().add(anchorRow(e.getKey(), e.getValue()));
             }
@@ -565,14 +608,16 @@ public class AnchorEditor extends VBox {
         Label lblCoords = new Label(String.format("%.2f, %.2f", anchor.getX(), anchor.getY()));
         lblCoords.setStyle(S_DIM);
 
-        Button btnPivot = new Button("Pivot");
+        Button btnPivot = new Button("Set Pivot");
         btnPivot.setStyle(S_BTN_PIVOT);
-        btnPivot.setTooltip(new Tooltip("Use this anchor as the orbit rotation pivot for this entity"));
+        btnPivot.setTooltip(new Tooltip("Use this anchor as the rotation pivot (adds PIVOT_X/Y keyframe at current time)"));
         btnPivot.setOnAction(e -> {
-            if (preview != null && currentEntityName != null) {
+            if (currentEntityName == null) return;
+            if (preview != null) {
                 preview.setOrbitToolEnabled(true);
                 preview.useAnchorAsOrbitPivot(currentEntityName, name);
             }
+            if (onAnchorUsedAsPivot != null) onAnchorUsedAsPivot.accept(currentEntityName, anchor);
         });
 
         Button btnRemove = new Button("×");

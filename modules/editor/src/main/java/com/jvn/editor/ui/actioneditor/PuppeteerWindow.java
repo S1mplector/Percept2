@@ -1242,6 +1242,34 @@ public class PuppeteerWindow extends Stage {
             animationPreview.render();
             timelinePanel.refresh();
         });
+        anchorEditor.setOnAnchorPlaced((entityName, anchor) -> {
+            // Seed PIVOT_X/Y at t=0 when a new anchor is placed and no pivot exists yet
+            if (entityName == null || !anchor.isRelative()) return;
+            EntityTrack track = project.getOrCreateTrack(entityName);
+            if (track.getKeyframes(PropertyType.PIVOT_X).isEmpty()
+                    && track.getKeyframes(PropertyType.PIVOT_Y).isEmpty()) {
+                track.upsertKeyframe(PropertyType.PIVOT_X, new Keyframe(0.0, anchor.getX()));
+                track.upsertKeyframe(PropertyType.PIVOT_Y, new Keyframe(0.0, anchor.getY()));
+                timelinePanel.refresh();
+                updatePreview();
+            }
+        });
+        anchorEditor.setOnAnchorUsedAsPivot((entityName, anchor) -> {
+            // Insert PIVOT_X/Y keyframes at the current playhead time
+            if (entityName == null || !anchor.isRelative()) return;
+            EntityTrack track = project.getOrCreateTrack(entityName);
+            double time = project.getPlayheadMs();
+            commandStack.execute(PuppeteerCommand.composite(
+                "Set rotation pivot to anchor",
+                List.of(
+                    PuppeteerCommand.upsertKeyframe(track, PropertyType.PIVOT_X, time, anchor.getX()),
+                    PuppeteerCommand.upsertKeyframe(track, PropertyType.PIVOT_Y, time, anchor.getY())
+                )
+            ));
+            timelinePanel.refresh();
+            updatePreview();
+            refreshExportPreviewAndMarkDirty();
+        });
         Tab anchorsTab = new Tab("Anchors", anchorEditor);
         anchorsTab.setClosable(false);
         TabPane leftTabs = new TabPane(entitiesTab, selectionTab, sceneTab, constraintsTab, anchorsTab);
