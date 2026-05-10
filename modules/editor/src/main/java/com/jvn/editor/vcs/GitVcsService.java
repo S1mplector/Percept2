@@ -10,11 +10,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.logging.Logger;
 
 /**
  * Local Git integration service for editor workflows.
  */
 public class GitVcsService {
+  private static final Logger log = Logger.getLogger(GitVcsService.class.getName());
   private static final String GITIGNORE_BLOCK_START = "# --- JVN Git Defaults (managed) BEGIN ---";
   private static final String GITIGNORE_BLOCK_END = "# --- JVN Git Defaults (managed) END ---";
 
@@ -483,7 +485,8 @@ public class GitVcsService {
   private int parseTrailingInt(String raw) {
     try {
       return Integer.parseInt(raw.trim());
-    } catch (Exception ignored) {
+    } catch (Exception e) {
+      log.warning("Failed to parse trailing int: " + raw + " - " + e.getMessage());
       return 0;
     }
   }
@@ -519,6 +522,7 @@ public class GitVcsService {
       }
       return new CommandResult(command, exit, output);
     } catch (Exception ex) {
+      log.warning("Failed to execute command: " + command + " - " + ex.getMessage());
       return new CommandResult(command, 126, ex.getMessage() == null ? "Failed to execute command." : ex.getMessage());
     }
   }

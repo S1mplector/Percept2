@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Consumer;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -49,6 +50,7 @@ import javafx.stage.Popup;
 import javafx.stage.Stage;
 
 public class VnsCodeEditor extends BorderPane {
+  private static final Logger log = Logger.getLogger(VnsCodeEditor.class.getName());
   private final CodeArea codeArea = new CodeArea();
   private final Label lintLabel = new Label("No issues");
   private CodeAutoCompleter completer;
@@ -1147,7 +1149,8 @@ public class VnsCodeEditor extends BorderPane {
           out.add(rel.toString().replace('\\', '/'));
         });
       }
-    } catch (Exception ignored) {
+    } catch (Exception e) {
+      log.warning("Failed to collect image assets: " + e.getMessage());
     }
   }
 
@@ -1475,7 +1478,8 @@ public class VnsCodeEditor extends BorderPane {
     if (!m.find()) return -1;
     try {
       return Integer.parseInt(m.group(1));
-    } catch (Exception ignored) {
+    } catch (Exception e) {
+      log.warning("Failed to parse line from message: " + message + " - " + e.getMessage());
       return -1;
     }
   }

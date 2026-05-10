@@ -4,8 +4,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.CodeSource;
 import java.util.Locale;
+import java.util.logging.Logger;
 
 public final class AppBuildInfo {
+  private static final Logger log = Logger.getLogger(AppBuildInfo.class.getName());
   private static final String FALLBACK_VERSION = "0.1.2";
 
   private AppBuildInfo() {
@@ -66,7 +68,8 @@ public final class AppBuildInfo {
       if (Files.isDirectory(location)) return true;
       String path = location.toString().replace('\\', '/').toLowerCase(Locale.ROOT);
       return path.contains("/build/classes/") || path.contains("/out/production/");
-    } catch (Exception ignored) {
+    } catch (Exception e) {
+      log.warning("Failed to determine if running from source: " + e.getMessage());
       return false;
     }
   }

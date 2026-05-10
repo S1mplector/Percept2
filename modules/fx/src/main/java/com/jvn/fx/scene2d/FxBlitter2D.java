@@ -8,10 +8,13 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import com.jvn.core.scene2d.Blitter2D;
 
 import javafx.geometry.VPos;
+import javafx.scene.SnapshotParameters;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.effect.BlendMode;
 import javafx.scene.effect.Effect;
@@ -20,16 +23,17 @@ import javafx.scene.image.Image;
 import javafx.scene.image.PixelReader;
 import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
+import javafx.scene.media.Media;
+import javafx.scene.media.MediaPlayer;
+import javafx.scene.media.MediaView;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
-import javafx.scene.media.Media;
-import javafx.scene.media.MediaPlayer;
-import javafx.scene.media.MediaView;
-import javafx.scene.SnapshotParameters;
 
 public class FxBlitter2D implements Blitter2D {
+  private static final Logger log = Logger.getLogger(FxBlitter2D.class.getName());
+
   private static final double[] IDENTITY_COLOR_MATRIX = new double[] {
       1.0, 0.0, 0.0, 0.0, 0.0,
       0.0, 1.0, 0.0, 0.0, 0.0,
@@ -327,7 +331,9 @@ public class FxBlitter2D implements Blitter2D {
         java.io.File pf = new java.io.File(projectRoot, path);
         if (pf.exists()) return pf.toURI().toString();
       }
-    } catch (Exception e) { /* fall through */ }
+    } catch (Exception e) {
+      log.log(Level.WARNING, "Failed to resolve asset path: " + path, e);
+    }
     return null;
   }
 

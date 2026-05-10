@@ -18,6 +18,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
+import java.util.logging.Logger;
 import java.util.stream.Stream;
 
 import com.jvn.core.project.StoryMapPaths;
@@ -35,6 +36,7 @@ import javafx.collections.ObservableList;
 import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.ContextMenu;
@@ -48,7 +50,6 @@ import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyCode;
-import javafx.scene.Scene;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -63,6 +64,7 @@ import javafx.util.Duration;
  * Startup workspace dashboard for editor users.
  */
 public class WelcomeCenterView extends BorderPane {
+  private static final Logger log = Logger.getLogger(WelcomeCenterView.class.getName());
   private static final int RECENT_LIMIT = 10;
   private static final int RECENT_HISTORY_LIMIT = 40;
   private static final DateTimeFormatter DATE_FORMAT =
@@ -637,7 +639,8 @@ public class WelcomeCenterView extends BorderPane {
       try (InputStream in = Files.newInputStream(manifestFile.toPath())) {
         manifest.load(in);
         manifestLoaded = true;
-      } catch (Exception ignore) {
+      } catch (Exception e) {
+        log.warning("Failed to load project manifest: " + e.getMessage());
         manifestLoaded = false;
       }
     }

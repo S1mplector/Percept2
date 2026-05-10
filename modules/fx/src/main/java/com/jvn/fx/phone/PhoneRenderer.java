@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.logging.Logger;
 
 import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
@@ -40,6 +41,8 @@ import javafx.scene.shape.Rectangle;
  * styled JavaFX layer shown above it.</p>
  */
 public final class PhoneRenderer extends StackPane {
+  private static final Logger log = Logger.getLogger(PhoneRenderer.class.getName());
+
   private static final double SHELL_WIDTH = 340.0;
   private static final double SHELL_HEIGHT = 700.0;
 
@@ -1085,7 +1088,8 @@ public final class PhoneRenderer extends StackPane {
           File fromRoot = new File(projectRoot, normalized);
           if (fromRoot.exists()) return new Image(fromRoot.toURI().toString());
         }
-      } catch (Exception ignored) {
+      } catch (Exception e) {
+        log.warning("Failed to load phone asset: " + p + " - " + e.getMessage());
       }
       return null;
     });

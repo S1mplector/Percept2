@@ -9,12 +9,14 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Logger;
 
 import com.jvn.editor.ui.EditorDialogs;
 
 import javafx.application.Platform;
 
 final class EditorCrashSupport {
+  private static final Logger log = Logger.getLogger(EditorCrashSupport.class.getName());
   private static final AtomicBoolean INSTALLED = new AtomicBoolean(false);
   private static final AtomicBoolean SHOWING_ALERT = new AtomicBoolean(false);
   private static final DateTimeFormatter FILE_TIME = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
@@ -34,7 +36,8 @@ final class EditorCrashSupport {
       Path logFile = dir.resolve("editor-crash-" + FILE_TIME.format(LocalDateTime.now()) + ".log");
       Files.writeString(logFile, buildCrashReport(throwable, thread), StandardCharsets.UTF_8);
       return logFile;
-    } catch (Exception ignored) {
+    } catch (Exception e) {
+      log.warning("Failed to write crash log: " + e.getMessage());
       return null;
     }
   }
