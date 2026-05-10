@@ -11,8 +11,6 @@ import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
-import javafx.beans.value.ChangeListener;
-import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
@@ -738,13 +736,29 @@ public class EntitySelector extends VBox {
                     visibilityIcon.setManaged(false);
                     visibilityIcon.getGraphicsContext2D().clearRect(0, 0, visibilityIcon.getWidth(), visibilityIcon.getHeight());
 
+                    soloIcon.setVisible(false);
+                    soloIcon.setManaged(false);
+                    soloIcon.getGraphicsContext2D().clearRect(0, 0, soloIcon.getWidth(), soloIcon.getHeight());
+
                     resetIcon.setVisible(true);
                     resetIcon.setManaged(true);
                     drawResetIcon(resetIcon.getGraphicsContext2D());
                 } else {
+                    boolean isSoloed = name.equals(soloedEntityName);
+                    boolean otherSoloed = soloedEntityName != null && !isSoloed;
+
                     visibilityIcon.setVisible(true);
                     visibilityIcon.setManaged(true);
                     drawVisibilityIcon(visibilityIcon.getGraphicsContext2D(), isVisible);
+
+                    soloIcon.setVisible(true);
+                    soloIcon.setManaged(true);
+                    drawSoloIcon(soloIcon.getGraphicsContext2D(), isSoloed);
+
+                    // Dim label when another entity is soloed
+                    if (otherSoloed) {
+                        label.setTextFill(Color.web("#3a3f4a"));
+                    }
 
                     resetIcon.setVisible(false);
                     resetIcon.setManaged(false);
@@ -931,6 +945,29 @@ public class EntitySelector extends VBox {
             } else {
                 gc.strokeArc(4.0, 0.0, w - 8.0, 8.0, 0, 180, javafx.scene.shape.ArcType.OPEN);
                 gc.strokeLine(4.0, 4.0, 4.0, 6.0); // Open gap
+            }
+        }
+
+        private void drawSoloIcon(GraphicsContext gc, boolean soloed) {
+            double w = soloIcon.getWidth();
+            double h = soloIcon.getHeight();
+            gc.clearRect(0, 0, w, h);
+            double cx = w / 2.0, cy = h / 2.0, r = 4.5;
+            if (soloed) {
+                // Filled circle — bright gold
+                gc.setFill(Color.web("#f5c842"));
+                gc.fillOval(cx - r, cy - r, r * 2, r * 2);
+                gc.setStroke(Color.web("#c9970a"));
+                gc.setLineWidth(0.8);
+                gc.strokeOval(cx - r, cy - r, r * 2, r * 2);
+            } else {
+                // Ring only — dim
+                gc.setStroke(Color.web("#4a5060"));
+                gc.setLineWidth(1.2);
+                gc.strokeOval(cx - r, cy - r, r * 2, r * 2);
+                // Small center dot so it reads as a radio button
+                gc.setFill(Color.web("#4a5060"));
+                gc.fillOval(cx - 1.2, cy - 1.2, 2.4, 2.4);
             }
         }
     }

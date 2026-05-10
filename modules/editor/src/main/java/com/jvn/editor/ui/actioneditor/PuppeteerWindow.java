@@ -548,6 +548,14 @@ public class PuppeteerWindow extends Stage {
             entitySelector.selectGroup(groupName);
         });
 
+        entitySelector.setOnEntitySoloChanged((entityName, soloed) -> {
+            // When solo is toggled, force-select the soloed entity and update the timeline
+            if (soloed) {
+                timelinePanel.setSelectedEntity(entityName);
+            }
+            timelinePanel.refresh();
+        });
+
         entitySelector.setOnGroupResetRequested(groupName -> {
             EntityGroup group = this.project.getGroup(groupName);
             if (group == null) return;
