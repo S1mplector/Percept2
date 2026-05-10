@@ -1243,27 +1243,44 @@ public class PuppeteerWindow extends Stage {
             timelinePanel.refresh();
         });
         anchorEditor.setOnAnchorPlaced((entityName, anchor) -> {
-            // Seed PIVOT_X/Y at t=0 when a new anchor is placed and no pivot exists yet
+            // Seed PIVOT_X/Y + compensated X/Y at t=0 when no pivot keyframes exist yet
             if (entityName == null || !anchor.isRelative()) return;
             EntityTrack track = project.getOrCreateTrack(entityName);
-            if (track.getKeyframes(PropertyType.PIVOT_X).isEmpty()
-                    && track.getKeyframes(PropertyType.PIVOT_Y).isEmpty()) {
-                track.upsertKeyframe(PropertyType.PIVOT_X, new Keyframe(0.0, anchor.getX()));
-                track.upsertKeyframe(PropertyType.PIVOT_Y, new Keyframe(0.0, anchor.getY()));
-                timelinePanel.refresh();
-                updatePreview();
-            }
+            if (!track.getKeyframes(PropertyType.PIVOT_X).isEmpty()
+                    || !track.getKeyframes(PropertyType.PIVOT_Y).isEmpty()) return;
+            com.jvn.core.scene2d.Entity2D ent = scene != null ? scene.find(entityName) : null;
+            double newPX = anchor.getX(), newPY = anchor.getY();
+            double oldPX = ent != null ? ent.getOriginX() : 0.5;
+            double oldPY = ent != null ? ent.getOriginY() : 0.5;
+            double baseX = baselinePropertyValue(entityName, ent, PropertyType.X);
+            double baseY = baselinePropertyValue(entityName, ent, PropertyType.Y);
+            double[] comp = pivotCompensation(ent, newPX, newPY, oldPX, oldPY);
+            track.upsertKeyframe(PropertyType.PIVOT_X, new Keyframe(0.0, newPX));
+            track.upsertKeyframe(PropertyType.PIVOT_Y, new Keyframe(0.0, newPY));
+            track.upsertKeyframe(PropertyType.X, new Keyframe(0.0, baseX + comp[0]));
+            track.upsertKeyframe(PropertyType.Y, new Keyframe(0.0, baseY + comp[1]));
+            timelinePanel.refresh();
+            updatePreview();
         });
         anchorEditor.setOnAnchorUsedAsPivot((entityName, anchor) -> {
-            // Insert PIVOT_X/Y keyframes at the current playhead time
+            // Insert PIVOT_X/Y + compensated X/Y at the current playhead time
             if (entityName == null || !anchor.isRelative()) return;
+            com.jvn.core.scene2d.Entity2D ent = scene != null ? scene.find(entityName) : null;
             EntityTrack track = project.getOrCreateTrack(entityName);
             double time = project.getPlayheadMs();
+            double newPX = anchor.getX(), newPY = anchor.getY();
+            double oldPX = ent != null ? ent.getOriginX() : 0.5;
+            double oldPY = ent != null ? ent.getOriginY() : 0.5;
+            double curX  = ent != null ? ent.getX() : baselinePropertyValue(entityName, ent, PropertyType.X);
+            double curY  = ent != null ? ent.getY() : baselinePropertyValue(entityName, ent, PropertyType.Y);
+            double[] comp = pivotCompensation(ent, newPX, newPY, oldPX, oldPY);
             commandStack.execute(PuppeteerCommand.composite(
                 "Set rotation pivot to anchor",
                 List.of(
-                    PuppeteerCommand.upsertKeyframe(track, PropertyType.PIVOT_X, time, anchor.getX()),
-                    PuppeteerCommand.upsertKeyframe(track, PropertyType.PIVOT_Y, time, anchor.getY())
+                    PuppeteerCommand.upsertKeyframe(track, PropertyType.PIVOT_X, time, newPX),
+                    PuppeteerCommand.upsertKeyframe(track, PropertyType.PIVOT_Y, time, newPY),
+                    PuppeteerCommand.upsertKeyframe(track, PropertyType.X, time, curX + comp[0]),
+                    PuppeteerCommand.upsertKeyframe(track, PropertyType.Y, time, curY + comp[1])
                 )
             ));
             timelinePanel.refresh();
@@ -4491,6 +4508,30 @@ public class PuppeteerWindow extends Stage {
 
     private static void setEntityPivot(com.jvn.core.scene2d.Entity2D entity, double pivotX, double pivotY) {
         entity.setOrigin(clampPivot(pivotX), clampPivot(pivotY));
+    }
+
+    /**
+     * Computes the world-space position delta needed to keep an entity visually
+     * stationary when its pivot changes from (oldPX, oldPY) to (newPX, newPY).
+     * Returns [deltaX, deltaY] to add to the entity's current position.
+     */
+    private static double[] pivotCompensation(com.jvn.core.scene2d.Entity2D entity,
+                                               double newPX, double newPY,
+                                               double oldPX, double oldPY) {
+        if (entity == null) return new double[]{0.0, 0.0};
+        double w = 1.0, h = 1.0;
+        if (entity instanceof com.jvn.core.scene2d.Sprite2D sp) {
+            w = Math.max(1.0, sp.getWidth());
+            h = Math.max(1.0, sp.getHeight());
+        }
+        double scaleX  = entity.getScaleX();
+        double scaleY  = entity.getScaleY();
+        double rotRad  = Math.toRadians(entity.getRotationDeg());
+        double cos     = Math.cos(rotRad);
+        double sin     = Math.sin(rotRad);
+        double dx      = (newPX - oldPX) * w * scaleX;
+        double dy      = (newPY - oldPY) * h * scaleY;
+        return new double[]{dx * cos - dy * sin, dx * sin + dy * cos};
     }
 
     private static double clampPivot(double value) {
