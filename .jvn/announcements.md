@@ -8,6 +8,9 @@ Format:
 
 ----
 
+## 2026-05-10 — Puppeteer group anchors and constraint removal
+The Puppeteer Anchors window now supports group entities. When a group is selected in the Entities tab, it appears in the Anchors window with a "[Group]" prefix and orange color indicator. Groups display a placeholder bounding box instead of a sprite image, allowing anchors to be placed on the group's normalized coordinate space.
+
 ## 2026-05-06 — VNS/Java interop improvements
 Inline Java error reporting now has accurate line numbers when using `@jimport` or `@bind` directives, and runtime exceptions (NPE, ClassCast, etc.) are also remapped back to the original VNS source line. The error overlay now distinguishes between compilation errors and runtime errors with the correct source location.
 
