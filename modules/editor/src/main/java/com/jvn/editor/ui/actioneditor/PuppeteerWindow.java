@@ -1828,25 +1828,25 @@ public class PuppeteerWindow extends Stage {
             timelinePanel.addKeyframeAtPlayhead();
             refreshExportPreviewAndMarkDirty();
             refreshSidebarTabs();
-        });
+        }, "Add a keyframe at the current playhead for the selected entity");
         btnSidebarFocusSelection = buildSidebarActionButton("Focus Timeline", () -> {
             timelinePanel.zoomToSelection();
             refreshSidebarTabs();
-        });
+        }, "Zoom the timeline to show the selected keyframes");
         Button btnPrevKey = buildSidebarActionButton("Prev Key", () -> {
             if (timelinePanel.jumpPlayheadToPreviousKeyframe()) {
                 updateTimeLabel();
                 updatePreview();
             }
             refreshSidebarTabs();
-        });
+        }, "Jump to the previous keyframe");
         Button btnNextKey = buildSidebarActionButton("Next Key", () -> {
             if (timelinePanel.jumpPlayheadToNextKeyframe()) {
                 updateTimeLabel();
                 updatePreview();
             }
             refreshSidebarTabs();
-        });
+        }, "Jump to the next keyframe");
         btnSidebarClearSelection = buildSidebarActionButton("Clear", () -> {
             entitySelector.selectEntity(null);
             animationPreview.clearSelection();
@@ -1854,7 +1854,7 @@ public class PuppeteerWindow extends Stage {
             keyframeEditor.setSelectionContext(null, false, false);
             keyframeEditor.setKeyframe(null, null);
             refreshSidebarTabs();
-        });
+        }, "Clear the current selection in the timeline and viewport");
 
         HBox selectionActionsPrimary = buildSidebarButtonRow(btnSidebarAddKeyframe, btnSidebarFocusSelection);
         HBox selectionActionsSecondary = buildSidebarButtonRow(btnPrevKey, btnNextKey, btnSidebarClearSelection);
@@ -1905,13 +1905,13 @@ public class PuppeteerWindow extends Stage {
         Button btnFitPreview = buildSidebarActionButton("Fit Preview", () -> {
             animationPreview.fitToContent();
             refreshSidebarTabs();
-        });
-        btnSidebarPreviewLayout = buildSidebarActionButton("Focus Preview", this::togglePreviewFocusMode);
+        }, "Fit the preview viewport to show all scene content");
+        btnSidebarPreviewLayout = buildSidebarActionButton("Focus Preview", this::togglePreviewFocusMode, "Toggle between workspace and focused preview layout");
         btnSidebarCodePane = buildSidebarActionButton("Hide Code Pane", () -> {
             setCodePaneVisible(!isCodePaneVisible());
             refreshSidebarTabs();
-        });
-        Button btnRefreshCode = buildSidebarActionButton("Refresh Code", this::refreshExportPreview);
+        }, "Toggle visibility of the VNS code preview pane");
+        Button btnRefreshCode = buildSidebarActionButton("Refresh Code", this::refreshExportPreview, "Regenerate the VNS code from the current timeline");
 
         HBox previewActions = buildSidebarButtonRow(btnFitPreview, btnSidebarPreviewLayout);
         HBox workspaceActions = buildSidebarButtonRow(btnSidebarCodePane, btnRefreshCode);
@@ -1959,8 +1959,8 @@ public class PuppeteerWindow extends Stage {
             grid.add(field, col + 1, row);
         }
 
-        Button btnFillIdentity = buildSidebarActionButton("Fill Identity", this::fillSidebarMatrixIdentity);
-        Button btnKeyMatrix = buildSidebarActionButton("Key At Playhead", this::applySidebarMatrixKeyframes);
+        Button btnFillIdentity = buildSidebarActionButton("Fill Identity", this::fillSidebarMatrixIdentity, "Reset the matrix to identity (no transformation)");
+        Button btnKeyMatrix = buildSidebarActionButton("Key At Playhead", this::applySidebarMatrixKeyframes, "Key the current matrix values at the playhead");
         return new VBox(8, grid, buildSidebarButtonRow(btnFillIdentity, btnKeyMatrix));
     }
 
@@ -1981,8 +1981,8 @@ public class PuppeteerWindow extends Stage {
                 grid.add(field, col + 1, row);
             }
         }
-        Button btnFillIdentity = buildSidebarActionButton("Fill Identity", this::fillSidebarColorMatrixIdentity);
-        Button btnKeyColors = buildSidebarActionButton("Key At Playhead", this::applySidebarColorMatrixKeyframes);
+        Button btnFillIdentity = buildSidebarActionButton("Fill Identity", this::fillSidebarColorMatrixIdentity, "Reset the color matrix to identity (no color transformation)");
+        Button btnKeyColors = buildSidebarActionButton("Key At Playhead", this::applySidebarColorMatrixKeyframes, "Key the current color matrix values at the playhead");
         body.getChildren().addAll(lblSidebarAdvancedHint, grid, buildSidebarButtonRow(btnFillIdentity, btnKeyColors));
         return body;
     }
@@ -2000,8 +2000,8 @@ public class PuppeteerWindow extends Stage {
             grid.add(label, 0, i);
             grid.add(field, 1, i);
         }
-        Button btnReset = buildSidebarActionButton("Fill Neutral", this::fillSidebarDofNeutral);
-        Button btnKey = buildSidebarActionButton("Key At Playhead", this::applySidebarDofKeyframes);
+        Button btnReset = buildSidebarActionButton("Fill Neutral", this::fillSidebarDofNeutral, "Reset DOF settings to neutral (no blur)");
+        Button btnKey = buildSidebarActionButton("Key At Playhead", this::applySidebarDofKeyframes, "Key the current DOF values at the playhead");
         return new VBox(8, grid, buildSidebarButtonRow(btnReset, btnKey));
     }
 
@@ -2022,8 +2022,8 @@ public class PuppeteerWindow extends Stage {
         lblKey.setStyle(STYLE_SIDEBAR_META_LABEL);
         Label lblValue = new Label("Value");
         lblValue.setStyle(STYLE_SIDEBAR_META_LABEL);
-        Button btnKey = buildSidebarActionButton("Key At Playhead", this::applySidebarCustomPropertyKeyframe);
-        Button btnRemove = buildSidebarActionButton("Remove Key", this::removeSidebarCustomPropertyKeyframe);
+        Button btnKey = buildSidebarActionButton("Key At Playhead", this::applySidebarCustomPropertyKeyframe, "Key the custom property value at the playhead");
+        Button btnRemove = buildSidebarActionButton("Remove Key", this::removeSidebarCustomPropertyKeyframe, "Remove the keyframe for this custom property at the playhead");
         VBox body = new VBox(6,
             lblKey,
             cbSidebarCustomPropertyKey,
@@ -2106,10 +2106,17 @@ public class PuppeteerWindow extends Stage {
     }
 
     private Button buildSidebarActionButton(String text, Runnable action) {
+        return buildSidebarActionButton(text, action, null);
+    }
+
+    private Button buildSidebarActionButton(String text, Runnable action, String tooltip) {
         Button button = new Button(text);
         button.setMaxWidth(Double.MAX_VALUE);
         button.setAlignment(Pos.CENTER_LEFT);
         button.setStyle(STYLE_BTN_DARK);
+        if (tooltip != null && !tooltip.isBlank()) {
+            button.setTooltip(new Tooltip(tooltip));
+        }
         button.setOnAction(event -> {
             if (action != null) {
                 action.run();
