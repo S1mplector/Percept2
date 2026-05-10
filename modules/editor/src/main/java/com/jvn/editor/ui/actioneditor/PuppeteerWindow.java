@@ -450,15 +450,15 @@ public class PuppeteerWindow extends Stage {
             if (timelinePanel.isRuntimeCameraSelected()) {
                 entitySelector.selectEntity(null);
                 animationPreview.clearSelection();
-                anchorEditor.setSelectedEntityName(null);
+                anchorEditor.setSelectedEntityName(null, false);
             } else if (isGroup) {
                 entitySelector.selectGroup(name);
                 animationPreview.selectGroup(name);
-                anchorEditor.setSelectedEntityName(null);
+                anchorEditor.setSelectedEntityName(name, true);
             } else {
                 entitySelector.selectEntity(name);
                 animationPreview.selectEntity(name);
-                anchorEditor.setSelectedEntityName(name);
+                anchorEditor.setSelectedEntityName(name, false);
             }
             PropertyType selectedProp = timelinePanel.getSelectedProperty();
             if (selectedProp != null && cbProperty != null && cbProperty.getValue() != selectedProp) {
@@ -470,6 +470,7 @@ public class PuppeteerWindow extends Stage {
 
         entitySelector.setOnSelectionChanged((name, isGroup) -> {
             timelinePanel.setSelectedTarget(name, isGroup);
+            anchorEditor.setSelectedEntityName(name, isGroup);
             refreshPropertyPickerChoices();
         });
 
@@ -624,7 +625,7 @@ public class PuppeteerWindow extends Stage {
 
         animationPreview.setOnEntitySelected(name -> {
             timelinePanel.setSelectedTarget(name, false);
-            anchorEditor.setSelectedEntityName(name);
+            anchorEditor.setSelectedEntityName(name, false);
         });
 
         animationPreview.setOnEntityMoved((name, pos) -> {

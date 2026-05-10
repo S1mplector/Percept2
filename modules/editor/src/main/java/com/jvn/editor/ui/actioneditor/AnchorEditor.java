@@ -70,7 +70,8 @@ public class AnchorEditor extends VBox {
     /** Called with (entityName, anchor) when the user clicks "Pivot" on an anchor row. */
     private BiConsumer<String, Anchor> onAnchorUsedAsPivot;
 
-    private String currentEntityName;
+    private String  currentEntityName;
+    private boolean currentEntityIsGroup;
     private Image  spriteImage;
     private String selectedAnchorName;
 
@@ -303,8 +304,18 @@ public class AnchorEditor extends VBox {
      * Pass {@code null} when no entity (group, camera, or nothing) is selected.
      */
     public void setSelectedEntityName(String entityName) {
-        if (entityName != null && entityName.equals(currentEntityName)) return;
+        setSelectedEntityName(entityName, false);
+    }
+
+    /**
+     * Called by PuppeteerWindow whenever the viewport / timeline / entity-tab selection changes.
+     * Pass {@code null} when no entity (group, camera, or nothing) is selected.
+     * @param isGroup true if the selected entity is a group, false otherwise
+     */
+    public void setSelectedEntityName(String entityName, boolean isGroup) {
+        if (entityName != null && entityName.equals(currentEntityName) && isGroup == currentEntityIsGroup) return;
         currentEntityName = entityName;
+        currentEntityIsGroup = isGroup;
         selectedAnchorName = null;
         clearPending();
         updateEntityChip();
@@ -320,8 +331,11 @@ public class AnchorEditor extends VBox {
             lblEntityName.setText("No entity selected");
             lblEntityName.setStyle("-fx-text-fill: #555; -fx-font-size: 11px; -fx-font-style: italic;");
         } else {
-            lblEntityName.setText(currentEntityName);
-            lblEntityName.setStyle("-fx-text-fill: #d8b4fe; -fx-font-size: 11px; -fx-font-weight: bold;");
+            String label = currentEntityIsGroup ? "[Group] " + currentEntityName : currentEntityName;
+            lblEntityName.setText(label);
+            lblEntityName.setStyle(currentEntityIsGroup
+                ? "-fx-text-fill: #f0b673; -fx-font-size: 11px; -fx-font-weight: bold;"
+                : "-fx-text-fill: #d8b4fe; -fx-font-size: 11px; -fx-font-weight: bold;");
         }
     }
 
@@ -403,7 +417,17 @@ public class AnchorEditor extends VBox {
         double imgX = b[0], imgY = b[1], imgW = b[2], imgH = b[3];
 
         // Sprite or placeholder
-        if (spriteImage != null && !spriteImage.isError()) {
+        if (currentEntityIsGroup) {
+            // Groups don't have sprite images - show a group placeholder
+            gc.setFill(Color.web("#2a2a2a"));
+            gc.fillRect(imgX, imgY, imgW, imgH);
+            gc.setStroke(Color.web("#f0b673"));
+            gc.setLineWidth(2);
+            gc.strokeRect(imgX + 0.5, imgY + 0.5, imgW - 1, imgH - 1);
+            gc.setFill(Color.web("#f0b673"));
+            gc.setFont(javafx.scene.text.Font.font(10));
+            gc.fillText("Group bounds", imgX + 6, imgY + imgH / 2 + 4);
+        } else if (spriteImage != null && !spriteImage.isError()) {
             gc.drawImage(spriteImage, imgX, imgY, imgW, imgH);
         } else {
             gc.setFill(Color.web("#222"));
@@ -448,7 +472,10 @@ public class AnchorEditor extends VBox {
             gc.fillRect(0, ch - overlayH, cw, overlayH);
             gc.setFill(Color.web("#a0a0a0"));
             gc.setFont(javafx.scene.text.Font.font(9.5));
-            gc.fillText("Click on sprite to place anchor  ·  Click dot to select", PAD, ch - 5);
+            String hint = currentEntityIsGroup
+                ? "Click on group bounds to place anchor  ·  Click dot to select"
+                : "Click on sprite to place anchor  ·  Click dot to select";
+            gc.fillText(hint, PAD, ch - 5);
         }
 
         drawCanvasBorder(cw, ch);
