@@ -738,6 +738,21 @@ public class PuppeteerWindow extends Stage {
             refreshExportPreviewAndMarkDirty();
         });
 
+        animationPreview.setOnEntityScaleChanged((name, scale) -> {
+            if (name == null || scale == null || scale.length < 2) return;
+            double scaleX = scale[0], scaleY = scale[1];
+            if (!Double.isFinite(scaleX) || !Double.isFinite(scaleY)) return;
+            EntityTrack track = this.project.getOrCreateTrack(name);
+            double time = this.project.getPlayheadMs();
+            if (activeTransformInteraction != null && name.equals(activeTransformInteraction.entityName())) {
+                time = activeTransformInteraction.timeMs();
+            }
+            track.upsertKeyframe(PropertyType.SCALE_X, new Keyframe(time, scaleX));
+            track.upsertKeyframe(PropertyType.SCALE_Y, new Keyframe(time, scaleY));
+            timelinePanel.refresh();
+            refreshExportPreviewAndMarkDirty();
+        });
+
         animationPreview.setOnEntityMatrixChanged((name, matrixValues) -> {
             if (name == null || name.isBlank() || matrixValues == null || matrixValues.length < 6) return;
             EntityTrack track = this.project.getOrCreateTrack(name);
