@@ -611,7 +611,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     filterRowAttrs.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(attributeFilterField, Priority.ALWAYS);
 
-    VBox groupsRoot = new VBox(4, filterRowAttrs, groupsLabel, groupStatsLabel, groupTools, groupBox);
+    VBox groupsRoot = new VBox(4, filterRowAttrs, groupsLabelRow, groupStatsLabel, groupTools, groupBox);
     groupsRoot.setPadding(new Insets(2));
     ScrollPane groupsScroll = new ScrollPane(groupsRoot);
     groupsScroll.setFitToWidth(true);
