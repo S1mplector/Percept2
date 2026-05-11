@@ -77,6 +77,11 @@ public class GameBuildPublisherView extends BorderPane {
   private Button presetPortableButton;
   private Button presetDesktopButton;
   private Button presetNativeButton;
+  private Button btnBrowseOutputDir;
+  private Button btnResetOutputDir;
+  private Button zipOutputButton;
+  private final TextField outputDirField = new TextField();
+  private File customOutputDir = null;
 
   public GameBuildPublisherView(File workspaceRoot, File projectRoot, Consumer<BuildRequest> onBuildRequested) {
     this.workspaceRoot = workspaceRoot;
@@ -205,6 +210,21 @@ public class GameBuildPublisherView extends BorderPane {
     styleOption(offlineModeCheck);
     styleOption(refreshRuntimeCheck);
 
+    outputDirField.setEditable(false);
+    outputDirField.setFocusTraversable(false);
+    styleField(outputDirField);
+    outputDirField.setPromptText("(workspace default)");
+    btnBrowseOutputDir = button("Browse...", ButtonTone.SECONDARY, false);
+    btnBrowseOutputDir.setOnAction(e -> browseOutputDir());
+    btnResetOutputDir = button("Reset", ButtonTone.SECONDARY, false);
+    btnResetOutputDir.setOnAction(e -> resetOutputDir());
+    btnResetOutputDir.setDisable(true);
+    Label outputDirLabel = label("Output Folder");
+    HBox outputDirRow = new HBox(6, outputDirLabel, outputDirField, btnBrowseOutputDir, btnResetOutputDir);
+    outputDirRow.setAlignment(Pos.CENTER_LEFT);
+    HBox.setHgrow(outputDirField, Priority.ALWAYS);
+    outputDirLabel.setMinWidth(120);
+
     VBox projectCard = card("Game", form, manifestLabel);
 
     FlowPane badgeRow = new FlowPane(6, 6, formatBadgeLabel, targetBadgeLabel, runtimeBadgeLabel, releaseBadgeLabel);
@@ -222,7 +242,7 @@ public class GameBuildPublisherView extends BorderPane {
     FlowPane utilitiesRow = new FlowPane(8, 8, openProjectButton, openReleaseConfigButton, revealRuntimeCacheButton, clearRuntimeCacheButton);
     utilitiesRow.setAlignment(Pos.CENTER_LEFT);
 
-    VBox planCard = card("Build Plan", badgeRow, buildPlanTitleLabel, buildPlanBodyLabel, buildPlanHintLabel, outputLabel, validationLabel, releaseConfigLabel, utilitiesRow);
+    VBox planCard = card("Build Plan", badgeRow, buildPlanTitleLabel, buildPlanBodyLabel, buildPlanHintLabel, outputLabel, outputDirRow, validationLabel, releaseConfigLabel, utilitiesRow);
 
     Label buildHelp = new Label("Portable zips still need Java on the player machine. Desktop bundles include a prebuilt runtime for the selected target, so players do not need Java installed. The first bundle build for a target downloads and caches that runtime locally. Native packages use jpackage and stay host-specific.");
     buildHelp.setWrapText(true);
@@ -251,19 +271,28 @@ public class GameBuildPublisherView extends BorderPane {
     optionsRow.setAlignment(Pos.CENTER_LEFT);
     optionsRow.getStyleClass().add("build-publisher-options");
 
-    FlowPane buildRow = new FlowPane(8, 8,
-        buildSelectedButton,
-        buildAllButton,
-        preflightButton,
-        releaseButton,
-        copyCliButton,
-        reveal,
-        refreshArtifactsButton,
-        cleanOutputButton,
-        notes);
-    buildRow.setAlignment(Pos.CENTER_LEFT);
+    zipOutputButton = button("Zip Output Folder", ButtonTone.SECONDARY, false);
+    zipOutputButton.setOnAction(e -> zipOutputFolder());
+    zipOutputButton.setDisable(true);
 
-    VBox actionCard = card("Actions", buildHelp, optionsRow, commandPreviewLabel, buildRow, artifactInventoryLabel, statusLabel);
+    Label buildActionsLabel = new Label("Build");
+    buildActionsLabel.getStyleClass().add("build-publisher-section-label");
+    Label toolsLabel = new Label("Tools & Artifacts");
+    toolsLabel.getStyleClass().add("build-publisher-section-label");
+
+    FlowPane buildPrimaryRow = new FlowPane(8, 8, buildSelectedButton, buildAllButton, preflightButton, releaseButton);
+    buildPrimaryRow.setAlignment(Pos.CENTER_LEFT);
+    FlowPane buildUtilityRow = new FlowPane(8, 8, copyCliButton, reveal, refreshArtifactsButton, zipOutputButton, notes);
+    buildUtilityRow.setAlignment(Pos.CENTER_LEFT);
+    FlowPane buildDangerRow = new FlowPane(8, 8, cleanOutputButton);
+    buildDangerRow.setAlignment(Pos.CENTER_LEFT);
+    javafx.scene.control.Separator actionSep = new javafx.scene.control.Separator();
+
+    VBox actionCard = card("Actions", buildHelp, optionsRow, commandPreviewLabel,
+        buildActionsLabel, buildPrimaryRow,
+        toolsLabel, buildUtilityRow,
+        actionSep, buildDangerRow,
+        artifactInventoryLabel, statusLabel);
 
     Label nativeNote = new Label("Desktop bundles build locally for Windows, Linux, macOS Intel, and macOS Apple Silicon. Native installers still build on the matching host OS only.");
     nativeNote.setWrapText(true);
@@ -421,7 +450,9 @@ public class GameBuildPublisherView extends BorderPane {
 
   private void applyValidation(ValidationResult result) {
     PackageMode mode = selectedPackageMode();
-    boolean supportsBuildAll = mode != PackageMode.NATIVE_PACKAGE;
+    TargetChoice currentTarget = targetBox.getValue();
+    boolean targetIsAll = currentTarget != null && "all".equals(currentTarget.outputToken());
+    boolean supportsBuildAll = mode != PackageMode.NATIVE_PACKAGE && !targetIsAll;
     nativeTypeBox.setDisable(mode != PackageMode.NATIVE_PACKAGE);
     nativeTypeBox.setManaged(mode == PackageMode.NATIVE_PACKAGE);
     nativeTypeBox.setVisible(mode == PackageMode.NATIVE_PACKAGE);
@@ -525,6 +556,11 @@ public class GameBuildPublisherView extends BorderPane {
     if (clearRuntimeCacheButton != null) clearRuntimeCacheButton.setDisable(!allowCache || (result != null && !result.errors().isEmpty() && selectedPackageMode() == PackageMode.NATIVE_PACKAGE));
     if (cleanOutputButton != null) cleanOutputButton.setDisable(!allowCache);
     if (refreshArtifactsButton != null) refreshArtifactsButton.setDisable(!allowCache);
+    if (zipOutputButton != null) {
+      File outDir = buildDistributionsDir();
+      File[] outFiles = outDir.isDirectory() ? outDir.listFiles(f -> f.isFile() && !f.isHidden()) : null;
+      zipOutputButton.setDisable(outFiles == null || outFiles.length == 0);
+    }
   }
 
   private void refreshCommandPreview(ValidationResult result) {
@@ -677,6 +713,7 @@ public class GameBuildPublisherView extends BorderPane {
                 + (nativeType == null ? "native" : nativeType.token()) + ext).getPath());
       }
     }
+    updateOutputDirField();
   }
 
   private void buildSelectedTarget() {
@@ -831,6 +868,9 @@ public class GameBuildPublisherView extends BorderPane {
         args.add("-PjvnNativePackageType=" + nativeType.token());
       }
     }
+    if (customOutputDir != null) {
+      args.add("-PjvnBuildOutputDir=" + customOutputDir.getAbsolutePath());
+    }
     return args;
   }
 
@@ -913,11 +953,14 @@ public class GameBuildPublisherView extends BorderPane {
 
   static String formatArtifactInventory(List<ArtifactSummary> artifacts) {
     if (artifacts == null || artifacts.isEmpty()) return "none yet";
+    long totalBytes = 0;
+    for (ArtifactSummary a : artifacts) totalBytes += a.bytes();
     StringBuilder out = new StringBuilder();
+    out.append(artifacts.size()).append(artifacts.size() == 1 ? " artifact" : " artifacts")
+        .append("  ").append(formatBytes(totalBytes)).append(" total\n");
     int shown = Math.min(artifacts.size(), 6);
     for (int i = 0; i < shown; i++) {
       ArtifactSummary artifact = artifacts.get(i);
-      if (i > 0) out.append('\n');
       out.append(artifact.name())
           .append("  ")
           .append(formatBytes(artifact.bytes()))
@@ -926,9 +969,10 @@ public class GameBuildPublisherView extends BorderPane {
       if (artifact.checksumAvailable()) {
         out.append("  sha256");
       }
+      if (i < shown - 1 || artifacts.size() > shown) out.append('\n');
     }
     if (artifacts.size() > shown) {
-      out.append('\n').append("+").append(artifacts.size() - shown).append(" more");
+      out.append("+").append(artifacts.size() - shown).append(" more");
     }
     return out.toString();
   }
@@ -1018,7 +1062,79 @@ public class GameBuildPublisherView extends BorderPane {
     return GradleWorkspaceLayout.buildDir(workspaceRoot == null ? null : workspaceRoot.toPath()).toFile();
   }
 
+  private void browseOutputDir() {
+    javafx.stage.DirectoryChooser chooser = new javafx.stage.DirectoryChooser();
+    chooser.setTitle("Choose Build Output Folder");
+    File current = buildDistributionsDir();
+    if (current.exists()) chooser.setInitialDirectory(current);
+    else if (current.getParentFile() != null && current.getParentFile().exists())
+      chooser.setInitialDirectory(current.getParentFile());
+    File chosen = chooser.showDialog(getScene() == null ? null : getScene().getWindow());
+    if (chosen == null) return;
+    customOutputDir = chosen;
+    updateOutputDirField();
+    refreshFormState();
+    refreshArtifactInventory();
+  }
+
+  private void resetOutputDir() {
+    customOutputDir = null;
+    updateOutputDirField();
+    refreshFormState();
+    refreshArtifactInventory();
+  }
+
+  private void updateOutputDirField() {
+    if (outputDirField == null) return;
+    outputDirField.setText(buildDistributionsDir().getAbsolutePath());
+    if (btnResetOutputDir != null) btnResetOutputDir.setDisable(customOutputDir == null);
+  }
+
+  private void zipOutputFolder() {
+    File outDir = buildDistributionsDir();
+    File[] outFiles = outDir.isDirectory() ? outDir.listFiles(f -> f.isFile() && !f.isHidden()) : null;
+    if (outFiles == null || outFiles.length == 0) {
+      statusLabel.setText("Nothing to zip: output folder is empty or does not exist.");
+      setNoteTone(statusLabel, "warn");
+      return;
+    }
+    String stem = safeToken(nameField.getText()) + "-" + safeToken(versionField.getText());
+    String timestamp = DateTimeFormatter.ofPattern("yyyyMMdd-HHmm")
+        .withZone(ZoneId.systemDefault())
+        .format(Instant.now());
+    File parent = outDir.getParentFile() != null ? outDir.getParentFile() : outDir;
+    File zipFile = new File(parent, stem + "-builds-" + timestamp + ".zip");
+    try {
+      zipDirectory(outDir, zipFile);
+      statusLabel.setText("Zipped to: " + zipFile.getAbsolutePath());
+      setNoteTone(statusLabel, "ok");
+    } catch (Exception ex) {
+      statusLabel.setText("Zip failed: " + ex.getMessage());
+      setNoteTone(statusLabel, "error");
+    }
+  }
+
+  private static void zipDirectory(File sourceDir, File zipFile) throws java.io.IOException {
+    java.nio.file.Path sourcePath = sourceDir.toPath();
+    try (java.util.zip.ZipOutputStream zos = new java.util.zip.ZipOutputStream(
+        new java.io.BufferedOutputStream(new java.io.FileOutputStream(zipFile)))) {
+      java.nio.file.Files.walk(sourcePath)
+          .filter(p -> !java.nio.file.Files.isDirectory(p))
+          .forEach(path -> {
+            String entry = sourcePath.relativize(path).toString().replace('\\', '/');
+            try {
+              zos.putNextEntry(new java.util.zip.ZipEntry(entry));
+              java.nio.file.Files.copy(path, zos);
+              zos.closeEntry();
+            } catch (java.io.IOException ex) {
+              throw new java.io.UncheckedIOException(ex);
+            }
+          });
+    }
+  }
+
   private File buildDistributionsDir() {
+    if (customOutputDir != null) return customOutputDir;
     return new File(workspaceBuildDir(), "distributions/games");
   }
 
