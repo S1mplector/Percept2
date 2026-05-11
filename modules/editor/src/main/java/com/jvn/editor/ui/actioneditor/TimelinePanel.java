@@ -40,6 +40,7 @@ import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.stage.Window;
 
 public class TimelinePanel extends VBox {
     private static final double TRACK_HEIGHT = 24;
@@ -153,6 +154,7 @@ public class TimelinePanel extends VBox {
     private ContextMenu activeContextMenu;
     private static EasingSpec easingClipboard;
     private static Easing.Interpolation interpolationClipboard;
+    private EasingCurveDialog easingCurveDialog;
 
     // Middle-mouse panning
     private boolean middlePanning = false;
@@ -1346,12 +1348,24 @@ public class TimelinePanel extends VBox {
 
     private void handleMouseClicked(MouseEvent e) {
         if (e.getButton() == MouseButton.PRIMARY && e.getClickCount() == 2) {
+            double x = e.getX();
             double y = e.getY();
             if (y > HEADER_HEIGHT) {
-                selectTrackAt(y);
-                double time = (e.getX() - LABEL_WIDTH + scrollX) / pixelsPerMs;
-                time = Math.max(0, time);
-                addKeyframeAtTime(time);
+                KeyframeHit hit = findKeyframeAt(x, y);
+                if (hit != null) {
+                    selectedEntity = hit.row().selectionName();
+                    selectedGroup = hit.row().group();
+                    selectedProperty = hit.row().property();
+                    selectPrimaryKeyframe(hit.row(), hit.keyframe());
+                    notifyTargetSelectionChanged();
+                    notifyKeyframeSelectionChanged();
+                    render();
+                    openEasingCurveEditor();
+                } else {
+                    selectTrackAt(y);
+                    double time = Math.max(0, (x - LABEL_WIDTH + scrollX) / pixelsPerMs);
+                    addKeyframeAtTime(time);
+                }
             }
         }
     }
@@ -2208,6 +2222,11 @@ public class TimelinePanel extends VBox {
         menu.getItems().add(miHeader);
         menu.getItems().add(new SeparatorMenuItem());
 
+        MenuItem miEditCurve = new MenuItem("Edit Easing Curve...");
+        miEditCurve.setOnAction(ev -> openEasingCurveEditor());
+        menu.getItems().add(miEditCurve);
+        menu.getItems().add(new SeparatorMenuItem());
+
         MenuItem miCopy = new MenuItem("Copy");
         miCopy.setOnAction(ev -> { copySelectedKeyframes(); });
         MenuItem miCut = new MenuItem("Cut");
@@ -2313,6 +2332,26 @@ public class TimelinePanel extends VBox {
     // ---------------------------------------------------------------------
     // Public/internal helpers used by context menu and external shortcuts
     // ---------------------------------------------------------------------
+
+    public void openEasingCurveEditor() {
+        Keyframe primary = selectedKeyframe != null ? selectedKeyframe
+            : selectionModel.getSelectedOrdered().stream()
+                .map(KeyframeSelectionModel.KeyframeRef::keyframe)
+                .filter(Objects::nonNull)
+                .findFirst().orElse(null);
+        if (primary == null) return;
+        String title = (selectedEntity != null ? selectedEntity : "?")
+            + " / " + (selectedProperty != null ? selectedProperty.getDisplayName() : "?")
+            + "  " + formatTime(primary.getTimeMs());
+        if (easingCurveDialog != null && easingCurveDialog.isShowing()) {
+            easingCurveDialog.close();
+        }
+        Window owner = canvas.getScene() != null ? canvas.getScene().getWindow() : null;
+        easingCurveDialog = new EasingCurveDialog(owner, primary.getEasingSpec(),
+            primary.getInterpolation(), title,
+            (spec, interp) -> applyEasingToSelectionOrPrimary(spec, interp));
+        easingCurveDialog.show();
+    }
 
     public void applyEasingToSelectionOrPrimary(EasingSpec spec, Easing.Interpolation interpolation) {
         if (spec == null && interpolation == null) return;
