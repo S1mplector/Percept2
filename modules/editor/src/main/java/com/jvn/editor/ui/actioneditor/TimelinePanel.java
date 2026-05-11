@@ -150,6 +150,11 @@ public class TimelinePanel extends VBox {
     private final Map<KeyframeSelectionModel.KeyframeRef, Double> dragStartTimes = new HashMap<>();
     private List<ClipboardEntry> copiedKeyframes = List.of();
 
+    // Graph editor mode
+    private boolean graphMode = false;
+    private final GraphEditorPanel graphEditorPanel;
+    private final Button btnGraphToggle;
+
     // Context menu / interaction state
     private ContextMenu activeContextMenu;
     private static EasingSpec easingClipboard;
@@ -222,7 +227,12 @@ public class TimelinePanel extends VBox {
             lblZoomLevel.setText(formatZoomLevel());
         });
 
-        zoomHeader = new HBox(6, btnZoomOut, zoomSlider, btnZoomIn, btnZoomFit, lblZoomLevel);
+        btnGraphToggle = new Button("Graph");
+        btnGraphToggle.setPrefWidth(52);
+        btnGraphToggle.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #a6a6a6; -fx-border-color: #444; -fx-border-radius: 3;");
+        btnGraphToggle.setOnAction(e -> toggleGraphMode());
+
+        zoomHeader = new HBox(6, btnZoomOut, zoomSlider, btnZoomIn, btnZoomFit, lblZoomLevel, btnGraphToggle);
         zoomHeader.setAlignment(Pos.CENTER_LEFT);
         zoomHeader.setPadding(new Insets(6, 8, 6, 8));
         zoomHeader.setStyle("-fx-background-color: #1a1a1a; -fx-border-color: #333; -fx-border-width: 0 0 1 0;");
@@ -237,8 +247,17 @@ public class TimelinePanel extends VBox {
         scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scrollPane.setStyle("-fx-background: #121212; -fx-background-color: #121212;");
 
-        getChildren().addAll(zoomHeader, scrollPane);
+        graphEditorPanel = new GraphEditorPanel(project, commandStack, selectionModel);
+        graphEditorPanel.setOnEdited(this::notifyEdited);
+        graphEditorPanel.setOnKeyframeSelected(kf -> { selectedKeyframe = kf; notifyKeyframeSelectionChanged(); });
+        graphEditorPanel.setOnPlayheadChanged(t -> { if (onPlayheadChanged != null) onPlayheadChanged.accept(t); });
+        graphEditorPanel.setOnOpenEasingEditor(this::openEasingCurveEditor);
+        graphEditorPanel.setVisible(false);
+        graphEditorPanel.setManaged(false);
+
+        getChildren().addAll(zoomHeader, scrollPane, graphEditorPanel);
         VBox.setVgrow(scrollPane, Priority.ALWAYS);
+        VBox.setVgrow(graphEditorPanel, Priority.ALWAYS);
         setStyle("-fx-background-color: #121212;");
 
         canvas.setOnMousePressed(this::handleMousePressed);
@@ -639,7 +658,25 @@ public class TimelinePanel extends VBox {
         return HEADER_HEIGHT + trackCount * TRACK_HEIGHT + 50;
     }
 
+    private void toggleGraphMode() {
+        graphMode = !graphMode;
+        scrollPane.setVisible(!graphMode);
+        scrollPane.setManaged(!graphMode);
+        graphEditorPanel.setVisible(graphMode);
+        graphEditorPanel.setManaged(graphMode);
+        String style = "-fx-border-color: #444; -fx-border-radius: 3; -fx-font-size: 11px;";
+        btnGraphToggle.setStyle(graphMode
+            ? "-fx-background-color: #1e3450; -fx-text-fill: #4da3ff; " + style
+            : "-fx-background-color: #2a2a2a; -fx-text-fill: #a6a6a6; " + style);
+        render();
+    }
+
     private void render() {
+        if (graphMode) {
+            graphEditorPanel.sync(scrollX, pixelsPerMs,
+                selectedEntity, selectedGroup, selectedProperty, selectedKeyframe);
+            return;
+        }
         GraphicsContext gc = canvas.getGraphicsContext2D();
         double w = canvas.getWidth();
         double h = canvas.getHeight();
