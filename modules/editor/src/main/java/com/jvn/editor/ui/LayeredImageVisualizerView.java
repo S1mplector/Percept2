@@ -35,6 +35,8 @@ import com.jvn.core.vn.ui.VnUiStyleSpec;
 
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.event.ActionEvent;
@@ -316,8 +318,9 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
     refreshCatalogButton = iconButton(CssIcon.redo("#7ec8e3"), "Refresh set scan", this::onCatalogRefreshRequested);
     updateRefreshButtonUi(false);
+    Button newSetButton = iconButton(CssIcon.plus("#9ed67a"), "Create a new layered set from scratch", this::showNewSetDialog);
 
-    HBox setRow = new HBox(4, new Label("Set"), setBox, refreshCatalogButton);
+    HBox setRow = new HBox(4, new Label("Set"), setBox, refreshCatalogButton, newSetButton);
     setRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(setBox, Priority.ALWAYS);
 
@@ -3246,6 +3249,409 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     status("Deleted preset: " + name);
   }
 
+  private void showNewSetDialog() {
+    // ── In-dialog data model ─────────────────────────────────────────────────
+    ObservableList<String> groupNames = FXCollections.observableArrayList();
+    Map<String, List<NewSetOption>> groupOptionMap = new HashMap<>();
+    String[] selectedGroup = {null};
+
+    // ── Header fields ────────────────────────────────────────────────────────
+    final String FIELD_STYLE = "-fx-prompt-text-fill: #666;";
+    final String FIELD_ERROR_STYLE = "-fx-prompt-text-fill: #666; -fx-border-color: #f38ba8; -fx-border-radius: 3;";
+
+    TextField setIdField = new TextField();
+    setIdField.setPromptText("e.g. char01_casual");
+    setIdField.setStyle(FIELD_STYLE);
+
+    TextField charIdField = new TextField();
+    charIdField.setPromptText("e.g. char01");
+    charIdField.setStyle(FIELD_STYLE);
+    charIdField.setTooltip(new Tooltip(
+        "The character identifier written into @charlayer and @charpreset lines.\n"
+        + "Must match the character tag used in your scripts (e.g. char01)."));
+
+    Label setIdError = new Label("Set ID is required.");
+    setIdError.setStyle("-fx-text-fill: #f38ba8; -fx-font-size: 9px; -fx-padding: 1 0 0 2;");
+    setIdError.setVisible(false);
+    setIdError.setManaged(false);
+
+    Label charIdError = new Label("Character ID is required — it becomes the first argument in every @charlayer line.");
+    charIdError.setStyle("-fx-text-fill: #f38ba8; -fx-font-size: 9px; -fx-padding: 1 0 0 2;");
+    charIdError.setVisible(false);
+    charIdError.setManaged(false);
+
+    // ── Snippet preview ──────────────────────────────────────────────────────
+    TextArea snippetArea = new TextArea();
+    snippetArea.setEditable(false);
+    snippetArea.setPrefRowCount(6);
+    snippetArea.setStyle("-fx-font-family: 'Consolas', 'Menlo', monospace; -fx-font-size: 10px;");
+
+    Runnable updateSnippet = () -> {
+      String charId = charIdField.getText().trim();
+      if (charId.isBlank()) charId = "char";
+      StringBuilder sb = new StringBuilder();
+      Map<String, Integer> idCounts = new HashMap<>();
+      List<String> firstLayerIds = new ArrayList<>();
+      for (String grp : groupNames) {
+        List<NewSetOption> opts = groupOptionMap.getOrDefault(grp, List.of());
+        boolean first = true;
+        for (NewSetOption opt : opts) {
+          if (opt.relativePath.isBlank()) continue;
+          String base = !opt.layerId.isBlank() ? sanitizeId(opt.layerId)
+              : sanitizeId(grp) + "_" + sanitizeId(opt.label.isBlank() ? "variant" : opt.label);
+          if (base.isBlank()) base = "layer";
+          int n = idCounts.getOrDefault(base, 0);
+          String lid = n == 0 ? base : base + n;
+          idCounts.put(base, n + 1);
+          sb.append("@charlayer ").append(charId).append(' ').append(lid).append(' ').append(opt.relativePath).append('\n');
+          if (first) { firstLayerIds.add(lid); first = false; }
+        }
+      }
+      if (!firstLayerIds.isEmpty()) {
+        sb.append("@charpreset ").append(charId).append(" neutral");
+        for (String lid : firstLayerIds) sb.append(" $").append(lid);
+        sb.append('\n');
+      }
+      snippetArea.setText(sb.isEmpty() ? "# Add groups and options to see generated snippet" : sb.toString());
+    };
+
+    // ── Option rows ──────────────────────────────────────────────────────────
+    VBox optionRowsBox = new VBox(4);
+    optionRowsBox.setPadding(new Insets(4));
+    Label rightTitle = new Label("Select a group to edit its options");
+    rightTitle.setStyle("-fx-text-fill: #888; -fx-font-size: 10px; -fx-padding: 2 0 4 0;");
+
+    Runnable[] rebuildOpts = {null};
+    rebuildOpts[0] = () -> {
+      optionRowsBox.getChildren().clear();
+      String grp = selectedGroup[0];
+      if (grp == null) return;
+      List<NewSetOption> opts = groupOptionMap.computeIfAbsent(grp, k -> new ArrayList<>());
+      rightTitle.setText("Options for: " + grp + "  (" + opts.size() + " option" + (opts.size() == 1 ? "" : "s") + ")");
+      for (int i = 0; i < opts.size(); i++) {
+        NewSetOption opt = opts.get(i);
+        final int idx = i;
+
+        Label numLabel = new Label(String.valueOf(i + 1));
+        numLabel.setStyle("-fx-text-fill: #555; -fx-font-size: 9px; -fx-min-width: 16; -fx-alignment: center-right;");
+
+        TextField fileField = new TextField(opt.relativePath);
+        fileField.setEditable(false);
+        fileField.setPromptText("No file selected");
+        fileField.setStyle("-fx-font-size: 9px; -fx-prompt-text-fill: #666;");
+        HBox.setHgrow(fileField, Priority.ALWAYS);
+
+        Button browseBtn = new Button("Browse…");
+        browseBtn.setStyle("-fx-font-size: 9px;");
+        browseBtn.setOnAction(ev -> {
+          FileChooser fc = new FileChooser();
+          fc.setTitle("Select layer image");
+          fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Images", "*.png", "*.jpg", "*.jpeg", "*.webp"));
+          if (projectRoot != null && projectRoot.isDirectory()) fc.setInitialDirectory(projectRoot);
+          File chosen = fc.showOpenDialog(optionRowsBox.getScene().getWindow());
+          if (chosen == null) return;
+          opt.file = chosen;
+          try {
+            opt.relativePath = projectRoot != null
+                ? projectRoot.toPath().relativize(chosen.toPath()).toString().replace('\\', '/')
+                : chosen.getAbsolutePath();
+          } catch (Exception ignored) {
+            opt.relativePath = chosen.getAbsolutePath();
+          }
+          fileField.setText(opt.relativePath);
+          if (opt.label.isBlank()) {
+            String inferred = inferLabelFromFilenameForGroup(chosen.getName().replaceAll("\\.[^.]+$", ""), grp);
+            opt.label = inferred.isBlank() ? chosen.getName().replaceAll("\\.[^.]+$", "") : inferred;
+          }
+          updateSnippet.run();
+          rebuildOpts[0].run();
+        });
+
+        TextField labelField = new TextField(opt.label);
+        labelField.setPromptText("Label");
+        labelField.setPrefWidth(100);
+        labelField.setStyle("-fx-prompt-text-fill: #666;");
+        labelField.textProperty().addListener((o, ov, nv) -> { opt.label = nv; updateSnippet.run(); });
+
+        TextField layerIdField = new TextField(opt.layerId);
+        layerIdField.setPromptText("Layer ID (optional)");
+        layerIdField.setPrefWidth(120);
+        layerIdField.setStyle("-fx-prompt-text-fill: #666;");
+        layerIdField.textProperty().addListener((o, ov, nv) -> { opt.layerId = nv; updateSnippet.run(); });
+
+        Button upBtn = new Button("↑");
+        upBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #888; -fx-padding: 2 4;");
+        upBtn.setDisable(i == 0);
+        upBtn.setOnAction(ev -> {
+          if (idx > 0) { Collections.swap(opts, idx, idx - 1); rebuildOpts[0].run(); updateSnippet.run(); }
+        });
+
+        Button downBtn = new Button("↓");
+        downBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #888; -fx-padding: 2 4;");
+        downBtn.setDisable(i == opts.size() - 1);
+        downBtn.setOnAction(ev -> {
+          if (idx < opts.size() - 1) { Collections.swap(opts, idx, idx + 1); rebuildOpts[0].run(); updateSnippet.run(); }
+        });
+
+        Button removeBtn = new Button("×");
+        removeBtn.setStyle("-fx-text-fill: #f38ba8; -fx-background-color: transparent; -fx-font-size: 12px; -fx-padding: 0 4;");
+        removeBtn.setOnAction(ev -> { opts.remove(idx); rebuildOpts[0].run(); updateSnippet.run(); });
+
+        HBox row = new HBox(4, numLabel, fileField, browseBtn, labelField, layerIdField, upBtn, downBtn, removeBtn);
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.setStyle("-fx-padding: 4 6; -fx-background-color: #1e1e1e; -fx-background-radius: 3;");
+        optionRowsBox.getChildren().add(row);
+      }
+
+      Button addOptBtn = new Button("+ Add Option");
+      addOptBtn.setStyle("-fx-font-size: 10px;");
+      addOptBtn.setOnAction(ev -> { opts.add(new NewSetOption()); rebuildOpts[0].run(); updateSnippet.run(); });
+      optionRowsBox.getChildren().add(addOptBtn);
+    };
+
+    // ── Group list ───────────────────────────────────────────────────────────
+    ListView<String> groupListView = new ListView<>(groupNames);
+    groupListView.setPrefWidth(200);
+    VBox.setVgrow(groupListView, Priority.ALWAYS);
+
+    groupListView.getSelectionModel().selectedItemProperty().addListener((o, ov, nv) -> {
+      selectedGroup[0] = nv;
+      rebuildOpts[0].run();
+    });
+
+    TextField groupNameField = new TextField();
+    groupNameField.setPromptText("Group name (e.g. eyes)");
+    groupNameField.setStyle(FIELD_STYLE);
+    HBox.setHgrow(groupNameField, Priority.ALWAYS);
+
+    // Clicking a group populates the name field for easy rename
+    groupListView.getSelectionModel().selectedItemProperty().addListener((o, ov, nv) -> {
+      if (nv != null) groupNameField.setText(nv);
+    });
+
+    Runnable doAddOrRenameGroup = () -> {
+      String raw = groupNameField.getText().trim();
+      String name = sanitizeId(raw.isEmpty() ? raw : raw);
+      if (name.isBlank()) return;
+      String current = groupListView.getSelectionModel().getSelectedItem();
+      if (name.equals(current)) return;
+      if (groupNames.contains(name)) {
+        // Just select the existing group
+        groupListView.getSelectionModel().select(name);
+        return;
+      }
+      if (current != null && groupNames.contains(current)) {
+        // Rename: swap key in map, update name in list
+        List<NewSetOption> opts = groupOptionMap.remove(current);
+        groupOptionMap.put(name, opts != null ? opts : new ArrayList<>());
+        int idx = groupNames.indexOf(current);
+        groupNames.set(idx, name);
+        if (Objects.equals(selectedGroup[0], current)) selectedGroup[0] = name;
+        groupListView.getSelectionModel().select(name);
+      } else {
+        groupNames.add(name);
+        groupOptionMap.put(name, new ArrayList<>());
+        groupListView.getSelectionModel().select(name);
+      }
+      updateSnippet.run();
+    };
+
+    Button addGroupBtn = new Button("Add / Rename");
+    addGroupBtn.setOnAction(e -> doAddOrRenameGroup.run());
+    groupNameField.setOnAction(e -> doAddOrRenameGroup.run());
+
+    Button removeGroupBtn = new Button("Remove");
+    removeGroupBtn.setStyle("-fx-text-fill: #f38ba8;");
+    removeGroupBtn.setOnAction(e -> {
+      String name = groupListView.getSelectionModel().getSelectedItem();
+      if (name == null) return;
+      groupNames.remove(name);
+      groupOptionMap.remove(name);
+      if (Objects.equals(selectedGroup[0], name)) {
+        selectedGroup[0] = null;
+        optionRowsBox.getChildren().clear();
+        rightTitle.setText("Select a group to edit its options");
+      }
+      updateSnippet.run();
+    });
+
+    Button groupUpBtn = new Button("↑");
+    groupUpBtn.setOnAction(e -> {
+      int idx = groupListView.getSelectionModel().getSelectedIndex();
+      if (idx <= 0) return;
+      String item = groupNames.remove(idx);
+      groupNames.add(idx - 1, item);
+      groupListView.getSelectionModel().select(idx - 1);
+      updateSnippet.run();
+    });
+
+    Button groupDownBtn = new Button("↓");
+    groupDownBtn.setOnAction(e -> {
+      int idx = groupListView.getSelectionModel().getSelectedIndex();
+      if (idx < 0 || idx >= groupNames.size() - 1) return;
+      String item = groupNames.remove(idx);
+      groupNames.add(idx + 1, item);
+      groupListView.getSelectionModel().select(idx + 1);
+      updateSnippet.run();
+    });
+
+    // ── Layout ───────────────────────────────────────────────────────────────
+    setIdField.textProperty().addListener((o, ov, nv) -> {
+      updateSnippet.run();
+      if (!nv.trim().isBlank()) {
+        setIdError.setVisible(false);
+        setIdError.setManaged(false);
+        setIdField.setStyle(FIELD_STYLE);
+      }
+    });
+    charIdField.textProperty().addListener((o, ov, nv) -> {
+      updateSnippet.run();
+      if (!nv.trim().isBlank()) {
+        charIdError.setVisible(false);
+        charIdError.setManaged(false);
+        charIdField.setStyle(FIELD_STYLE);
+      }
+    });
+
+    VBox setIdBox = new VBox(2, setIdField, setIdError);
+    HBox.setHgrow(setIdBox, Priority.ALWAYS);
+    Label charIdHint = new Label("(?)");
+    charIdHint.setStyle("-fx-text-fill: #666; -fx-font-size: 9px; -fx-cursor: hand;");
+    charIdHint.setTooltip(new Tooltip(
+        "The character identifier written into @charlayer and @charpreset lines.\n"
+        + "Must match the character tag used in your scripts (e.g. char01)."));
+    VBox charIdBox = new VBox(2, charIdField, charIdError);
+    HBox.setHgrow(charIdBox, Priority.ALWAYS);
+
+    HBox charIdLabelRow = new HBox(3, new Label("Character ID:"), charIdHint);
+    charIdLabelRow.setAlignment(Pos.CENTER_LEFT);
+
+    HBox headerRow = new HBox(8,
+        new Label("Set ID:"), setIdBox,
+        charIdLabelRow, charIdBox);
+    headerRow.setAlignment(Pos.TOP_CENTER);
+    headerRow.setPadding(new Insets(8, 8, 4, 8));
+
+    HBox groupInputRow = new HBox(4, groupNameField, addGroupBtn);
+    groupInputRow.setAlignment(Pos.CENTER_LEFT);
+    HBox groupBtnRow = new HBox(4, groupUpBtn, groupDownBtn, removeGroupBtn);
+    groupBtnRow.setAlignment(Pos.CENTER_LEFT);
+    Label groupsHeader = new Label("Groups  (top = rendered first)");
+    groupsHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 10px;");
+    VBox leftPanel = new VBox(4, groupsHeader, groupListView, groupInputRow, groupBtnRow);
+    leftPanel.setPadding(new Insets(8));
+    VBox.setVgrow(groupListView, Priority.ALWAYS);
+
+    ScrollPane optionScroll = new ScrollPane(optionRowsBox);
+    optionScroll.setFitToWidth(true);
+    optionScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+    VBox.setVgrow(optionScroll, Priority.ALWAYS);
+    VBox rightPanel = new VBox(4, rightTitle, optionScroll);
+    rightPanel.setPadding(new Insets(8));
+    VBox.setVgrow(optionScroll, Priority.ALWAYS);
+
+    SplitPane split = new SplitPane(leftPanel, rightPanel);
+    split.setDividerPositions(0.28);
+    SplitPane.setResizableWithParent(leftPanel, false);
+
+    Label snippetHint = new Label("Generated snippet — copy this into your script or use \"Add to Tool\" to preview immediately:");
+    snippetHint.setStyle("-fx-font-size: 9px; -fx-text-fill: #666;");
+    Button copySnippetBtn = new Button("Copy Snippet");
+    copySnippetBtn.setStyle("-fx-font-size: 10px;");
+    copySnippetBtn.setOnAction(e -> {
+      ClipboardContent cc = new ClipboardContent();
+      cc.putString(snippetArea.getText());
+      Clipboard.getSystemClipboard().setContent(cc);
+    });
+    HBox snippetHeader = new HBox(8, snippetHint, copySnippetBtn);
+    snippetHeader.setAlignment(Pos.CENTER_LEFT);
+
+    Button addToToolBtn = new Button("Add to Tool");
+    addToToolBtn.setStyle("-fx-background-color: #3a5a3a; -fx-text-fill: #9ed67a; -fx-font-weight: bold;");
+    Tooltip.install(addToToolBtn, new Tooltip("Register this set in the visualizer so you can preview it immediately (not saved to disk)"));
+    Button closeBtn = new Button("Close");
+    Region btnSpacer = new Region();
+    HBox.setHgrow(btnSpacer, Priority.ALWAYS);
+    HBox actionRow = new HBox(8, addToToolBtn, btnSpacer, closeBtn);
+    actionRow.setAlignment(Pos.CENTER_LEFT);
+    actionRow.setPadding(new Insets(8));
+
+    VBox bottomPane = new VBox(4, snippetHeader, snippetArea, actionRow);
+    bottomPane.setPadding(new Insets(0, 8, 0, 8));
+
+    BorderPane root = new BorderPane();
+    root.setStyle("-fx-background-color: #1a1a1a; -fx-font-size: 11px;");
+    root.setTop(headerRow);
+    root.setCenter(split);
+    root.setBottom(bottomPane);
+
+    // ── Stage ────────────────────────────────────────────────────────────────
+    javafx.stage.Stage dialog = new javafx.stage.Stage();
+    dialog.setTitle("New Layered Set");
+    dialog.initOwner(getScene() != null ? getScene().getWindow() : null);
+    dialog.initModality(javafx.stage.Modality.WINDOW_MODAL);
+    javafx.scene.Scene dialogScene = new javafx.scene.Scene(root, 960, 620);
+    if (getScene() != null) dialogScene.getStylesheets().addAll(getScene().getStylesheets());
+    dialog.setScene(dialogScene);
+
+    // ── Add to Tool ───────────────────────────────────────────────────────────
+    addToToolBtn.setOnAction(e -> {
+      String setId = setIdField.getText().trim();
+      String charId = charIdField.getText().trim();
+      boolean valid = true;
+
+      if (setId.isBlank()) {
+        setIdError.setVisible(true);
+        setIdError.setManaged(true);
+        setIdField.setStyle(FIELD_ERROR_STYLE);
+        if (valid) setIdField.requestFocus();
+        valid = false;
+      }
+      if (charId.isBlank()) {
+        charIdError.setVisible(true);
+        charIdError.setManaged(true);
+        charIdField.setStyle(FIELD_ERROR_STYLE);
+        if (valid) charIdField.requestFocus();
+        valid = false;
+      }
+      if (!valid) return;
+
+      boolean hasOptions = groupNames.stream().anyMatch(g -> {
+        List<NewSetOption> opts = groupOptionMap.get(g);
+        return opts != null && opts.stream().anyMatch(o -> !o.relativePath.isBlank());
+      });
+      if (!hasOptions) {
+        status("Add at least one option with a file before adding to tool.");
+        return;
+      }
+      LayeredSet newSet = new LayeredSet(setId);
+      newSet.characterId = sanitizeId(charId);
+      for (String grp : groupNames) {
+        List<NewSetOption> opts = groupOptionMap.getOrDefault(grp, List.of());
+        int order = 0;
+        for (NewSetOption opt : opts) {
+          if (opt.relativePath.isBlank()) continue;
+          newSet.add(new LayerOption(
+              opt.label.isBlank() ? opt.relativePath : opt.label,
+              grp, opt.relativePath, opt.file, order++, opt.layerId));
+        }
+        if (!opts.isEmpty()) newSet.defaultGroupOrder.add(grp);
+      }
+      sets.put(setId, newSet);
+      refreshSetOptions();
+      applyingState = true;
+      setBox.getSelectionModel().select(setId);
+      applyingState = false;
+      onSetSelectionChanged();
+      status("Added set \"" + setId + "\" to tool.");
+      dialog.close();
+    });
+
+    closeBtn.setOnAction(e -> dialog.close());
+    updateSnippet.run();
+    dialog.show();
+  }
+
   private String uniquePresetKey(String setId, String baseName) {
     String seed = sanitizeId(baseName);
     if (seed.isBlank()) seed = "preset";
@@ -4369,6 +4775,13 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       out.append("# label: ").append(label).append('\n');
     }
     return out.toString();
+  }
+
+  private static class NewSetOption {
+    File file;
+    String relativePath = "";
+    String label = "";
+    String layerId = "";
   }
 
 }
