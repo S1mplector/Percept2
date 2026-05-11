@@ -100,7 +100,7 @@ public enum EditorSidebarPanel {
   }
 
   public boolean supportsDocking() {
-    return this != SCRIPT_EDITOR;
+    return this != SCRIPT_EDITOR && this != LAYERED_IMAGES;
   }
 
   public static Map<EditorSidebarPanel, EditorPanelPlacement> defaultPlacements() {

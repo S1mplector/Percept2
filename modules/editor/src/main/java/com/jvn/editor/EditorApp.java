@@ -37,6 +37,7 @@ import com.jvn.core.scene2d.Entity2D;
 import com.jvn.editor.commands.CommandStack;
 import com.jvn.editor.ui.AssetBrowserView;
 import com.jvn.editor.ui.CssIcon;
+import com.jvn.editor.ui.DslPropertyDiagnostics;
 import com.jvn.editor.ui.EditorDialogs;
 import com.jvn.editor.ui.EditorPanelPlacement;
 import com.jvn.editor.ui.EditorPreferences;
@@ -52,10 +53,9 @@ import com.jvn.editor.ui.ImageAttributesToolView;
 import com.jvn.editor.ui.ImageTintToolView;
 import com.jvn.editor.ui.ImageToolPanel;
 import com.jvn.editor.ui.InspectorView;
-import com.jvn.editor.ui.DslPropertyDiagnostics;
 import com.jvn.editor.ui.JesScriptAnalyzer;
-import com.jvn.editor.ui.LayeredImageVisualizerView;
 import com.jvn.editor.ui.LanguageDiagnostic;
+import com.jvn.editor.ui.LayeredImageVisualizerView;
 import com.jvn.editor.ui.LayoutEditorLauncherView;
 import com.jvn.editor.ui.LayoutStudioWindowManager;
 import com.jvn.editor.ui.MenuFlowEditorView;
@@ -70,9 +70,9 @@ import com.jvn.editor.ui.RunConsoleView;
 import com.jvn.editor.ui.ScriptEditorLauncherView;
 import com.jvn.editor.ui.SettingsEditorView;
 import com.jvn.editor.ui.StartupSplashOverlay;
+import com.jvn.editor.ui.StoryTimelineView;
 import com.jvn.editor.ui.StoryboardOverlayState;
 import com.jvn.editor.ui.StoryboardOverlayView;
-import com.jvn.editor.ui.StoryTimelineView;
 import com.jvn.editor.ui.TilemapEditorView;
 import com.jvn.editor.ui.VersionControlView;
 import com.jvn.editor.ui.VnsDiagnosticsView;
@@ -81,8 +81,8 @@ import com.jvn.editor.ui.VnsScriptAnalyzer;
 import com.jvn.editor.ui.actioneditor.AnimationProject;
 import com.jvn.editor.ui.actioneditor.CodeImporter;
 import com.jvn.editor.ui.actioneditor.EntityTrack;
-import com.jvn.editor.ui.actioneditor.PuppeteerWindow;
 import com.jvn.editor.ui.actioneditor.PropertyType;
+import com.jvn.editor.ui.actioneditor.PuppeteerWindow;
 import com.jvn.editor.ui.actioneditor.TimelineDiagnostic;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 import com.sun.management.OperatingSystemMXBean;
@@ -121,8 +121,12 @@ import javafx.scene.control.SplitPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TextField;
-import javafx.scene.control.Tooltip;
 import javafx.scene.control.ToggleGroup;
+import javafx.scene.control.Tooltip;
+import javafx.scene.effect.Effect;
+import javafx.scene.effect.GaussianBlur;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.DragEvent;
@@ -133,10 +137,6 @@ import javafx.scene.input.KeyCombination;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.TransferMode;
-import javafx.scene.effect.Effect;
-import javafx.scene.effect.GaussianBlur;
-import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -6130,13 +6130,9 @@ public class EditorApp extends Application {
   }
 
   private void selectLayeredImageVisualizerTab() {
-    Tab t = (tabLayeredImageVisualizer != null && tabLayeredImageVisualizer.getTabPane() != null)
-        ? tabLayeredImageVisualizer
-        : ensureLayeredImageVisualizerTab(rightTabs);
-    if (t != null && t.getTabPane() != null) {
-      t.getTabPane().getSelectionModel().select(t);
-    }
-    if (layeredImageVisualizerView != null) layeredImageVisualizerView.refreshCatalog();
+      LayeredImageVisualizerView view = ensureLayeredImageVisualizerView();
+    if (view != null) view.refreshCatalog();
+    launchPanelAsWindow("Layered Image Visualizer", view, 900, 700, EditorSidebarPanel.LAYERED_IMAGES);
   }
 
   private void selectImageAttributesToolTab() {

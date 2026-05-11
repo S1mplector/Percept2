@@ -147,6 +147,12 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
           + "-fx-border-width: 1; -fx-border-color: #5a5a5a; -fx-background-color: rgba(255,255,255,0.08);";
   private static final String GALLERY_LABEL_STYLE = "-fx-font-size: 9px; -fx-text-fill: #9a9a9a;";
   private static final String GALLERY_LABEL_SELECTED_STYLE = "-fx-font-size: 9px; -fx-text-fill: #e0e0e0;";
+  private static final String TILE_NORMAL_STYLE =
+      "-fx-cursor: hand; -fx-padding: 3; -fx-background-radius: 4; -fx-border-radius: 4; "
+          + "-fx-border-width: 2; -fx-border-color: transparent;";
+  private static final String TILE_SELECTED_STYLE =
+      "-fx-cursor: hand; -fx-padding: 3; -fx-background-radius: 4; -fx-border-radius: 4; "
+          + "-fx-border-width: 2; -fx-border-color: #5a9fd4; -fx-background-color: rgba(90,159,212,0.12);";
   private static final String DEFAULT_SHORTFORMS = String.join("\n",
       "# Example:",
       "# happy = eyes=neutral mouth=happy",
@@ -196,7 +202,11 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   private final Map<String, ComboBox<LayerOption>> selectors = new LinkedHashMap<>();
   private final Map<String, CheckBox> activeGroupChecks = new LinkedHashMap<>();
   private final Map<String, CheckBox> swapGroupChecks = new LinkedHashMap<>();
-  private final Map<String, HBox> groupRows = new LinkedHashMap<>();
+  private final Map<String, Region> groupRows = new LinkedHashMap<>();
+  private final Map<String, Map<LayerOption, Region>> groupTileNodes = new LinkedHashMap<>();
+  private final Map<String, FlowPane> groupTilePanes = new LinkedHashMap<>();
+  private final Map<String, Button> groupCollapseBtns = new LinkedHashMap<>();
+  private final Map<String, Label> groupHeaderLabels = new LinkedHashMap<>();
   private final Map<String, String> shortforms = new LinkedHashMap<>();
   private final List<String> groupOrder = new ArrayList<>();
   private final Map<String, LayeredSet> sets = new LinkedHashMap<>();
@@ -534,7 +544,17 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     Button activeNoneButton = iconButton(CssIcon.minus("#f0b673"), "Mark all groups inactive for randomization", () -> setAllGroupsActive(false));
     Button swapAllButton = iconButton(CssIcon.check("#8ab4f8"), "Mark all groups for swap", () -> setAllSwapGroups(true));
     Button swapNoneButton = iconButton(CssIcon.minus("#8ab4f8"), "Clear swap marks", () -> setAllSwapGroups(false));
-    HBox groupTools = new HBox(4, activeAllButton, activeNoneButton, swapAllButton, swapNoneButton);
+    Button collapseAllButton = new Button("▶▶");
+    collapseAllButton.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #888; -fx-font-size: 9px; -fx-padding: 2 6; -fx-background-radius: 3;");
+    collapseAllButton.setTooltip(new Tooltip("Collapse all groups"));
+    collapseAllButton.setFocusTraversable(false);
+    collapseAllButton.setOnAction(e -> setAllGroupsCollapsed(true));
+    Button expandAllButton = new Button("▼▼");
+    expandAllButton.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #888; -fx-font-size: 9px; -fx-padding: 2 6; -fx-background-radius: 3;");
+    expandAllButton.setTooltip(new Tooltip("Expand all groups"));
+    expandAllButton.setFocusTraversable(false);
+    expandAllButton.setOnAction(e -> setAllGroupsCollapsed(false));
+    HBox groupTools = new HBox(4, activeAllButton, activeNoneButton, swapAllButton, swapNoneButton, collapseAllButton, expandAllButton);
     groupTools.setAlignment(Pos.CENTER_LEFT);
 
     attributeFilterField.setPromptText("Filter attributes/groups...");
@@ -736,6 +756,10 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     activeGroupChecks.clear();
     swapGroupChecks.clear();
     groupRows.clear();
+    groupTileNodes.clear();
+    groupTilePanes.clear();
+    groupCollapseBtns.clear();
+    groupHeaderLabels.clear();
     groupOrder.clear();
     groupBox.getChildren().clear();
     imageCache.clear();
@@ -911,6 +935,10 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       activeGroupChecks.clear();
       swapGroupChecks.clear();
       groupRows.clear();
+      groupTileNodes.clear();
+      groupTilePanes.clear();
+      groupCollapseBtns.clear();
+      groupHeaderLabels.clear();
       groupOrder.clear();
       groupBox.getChildren().clear();
       presetNameToKey.clear();
@@ -1300,6 +1328,10 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     activeGroupChecks.clear();
     swapGroupChecks.clear();
     groupRows.clear();
+    groupTileNodes.clear();
+    groupTilePanes.clear();
+    groupCollapseBtns.clear();
+    groupHeaderLabels.clear();
     groupOrder.clear();
     groupBox.getChildren().clear();
     imageCache.clear();
@@ -1373,7 +1405,24 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
       Button downButton = iconButton(CssIcon.arrowDown("#b0b8c8"), "Move this group down in render order", () -> moveGroup(groupName, 1));
 
+      boolean isBgGroup = isLikelyBackgroundGroupName(groupName);
+      String labelColor = isBgGroup ? "-fx-text-fill: #f0b673;" : "-fx-text-fill: #d0d0d0;";
+      Label groupLabel = new Label(groupName + " (" + options.size() + ")");
+      groupLabel.setStyle(
+          "-fx-font-family: 'Consolas', 'Menlo', 'DejaVu Sans Mono', monospace; "
+          + "-fx-font-size: 11px; -fx-font-weight: 600; " + labelColor);
+      if (isBgGroup) {
+        groupLabel.setTooltip(new Tooltip("Background group — suppressed from snippet export when foreground layers are active"));
+      }
+
       combo.valueProperty().addListener((o, ov, nv) -> {
+        updateGroupTileStyles(groupName, groupTileNodes.get(groupName), nv);
+        Label lbl = groupHeaderLabels.get(groupName);
+        if (lbl != null) {
+          String selName = (nv == null || nv.isNone()) ? "(none)"
+              : (nv.layerId != null && !nv.layerId.isBlank() ? nv.layerId : nv.label);
+          lbl.setText(groupName + " (" + options.size() + ")  ·  " + selName);
+        }
         if (applyingState) {
           redrawPreview();
           return;
@@ -1383,23 +1432,67 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
         persistCurrentSetState();
       });
 
-      Label groupLabel = new Label(groupName + " (" + options.size() + ")");
-      groupLabel.setMinWidth(110);
-      boolean isBgGroup = isLikelyBackgroundGroupName(groupName);
-      String labelColor = isBgGroup ? "-fx-text-fill: #f0b673;" : "";
-      groupLabel.setStyle("-fx-font-family: 'Consolas', 'Menlo', 'DejaVu Sans Mono', monospace; -fx-font-size: 11px; " + labelColor);
-      if (isBgGroup) {
-        groupLabel.setTooltip(new Tooltip("Background group — suppressed from snippet export when foreground layers are active"));
+      Button collapseBtn = new Button("▼");
+      collapseBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #888; -fx-font-size: 9px; -fx-padding: 2 4;");
+      collapseBtn.setFocusTraversable(false);
+      collapseBtn.setMinSize(22, 22);
+
+      Region headerSpacer = new Region();
+      HBox.setHgrow(headerSpacer, Priority.ALWAYS);
+      HBox headerButtons = new HBox(3, prevButton, nextButton, openButton, upButton, downButton);
+      headerButtons.setAlignment(Pos.CENTER_RIGHT);
+
+      HBox headerRow = new HBox(4, collapseBtn, activeCheck, swapCheck, groupLabel, headerSpacer, headerButtons);
+      headerRow.setAlignment(Pos.CENTER_LEFT);
+      headerRow.setStyle("-fx-padding: 5 2 5 2;");
+
+      // Thumbnail tile grid
+      FlowPane tilesPane = new FlowPane(4, 4);
+      tilesPane.setPadding(new Insets(2, 2, 6, 2));
+
+      Map<LayerOption, Region> tileMap = new LinkedHashMap<>();
+      LayerOption noneOption = combo.getItems().get(0);
+      Region noneTile = buildLayerTile(noneOption);
+      noneTile.setOnMouseClicked(e -> combo.getSelectionModel().select(noneOption));
+      tileMap.put(noneOption, noneTile);
+      tilesPane.getChildren().add(noneTile);
+
+      for (LayerOption option : options) {
+        Region tile = buildLayerTile(option);
+        tile.setOnMouseClicked(e -> combo.getSelectionModel().select(option));
+        tileMap.put(option, tile);
+        tilesPane.getChildren().add(tile);
+      }
+      groupTileNodes.put(groupName, tileMap);
+      groupTilePanes.put(groupName, tilesPane);
+      groupCollapseBtns.put(groupName, collapseBtn);
+      groupHeaderLabels.put(groupName, groupLabel);
+      updateGroupTileStyles(groupName, tileMap, combo.getValue());
+
+      collapseBtn.setOnAction(e -> {
+        boolean visible = tilesPane.isManaged();
+        tilesPane.setManaged(!visible);
+        tilesPane.setVisible(!visible);
+        collapseBtn.setText(!visible ? "▼" : "▶");
+      });
+
+      // Auto-collapse groups with many options so the panel doesn't overflow
+      if (options.size() > 6) {
+        tilesPane.setManaged(false);
+        tilesPane.setVisible(false);
+        collapseBtn.setText("▶");
       }
 
-      HBox row = new HBox(6, activeCheck, swapCheck, groupLabel, combo, prevButton, nextButton, openButton, upButton, downButton);
-      row.setAlignment(Pos.CENTER_LEFT);
-      HBox.setHgrow(combo, Priority.ALWAYS);
+      combo.setManaged(false);
+      combo.setVisible(false);
+
+      VBox groupSection = new VBox(0, headerRow, tilesPane, combo);
+      groupSection.setStyle("-fx-border-color: #282828; -fx-border-width: 0 0 1 0;");
 
       selectors.put(groupName, combo);
       activeGroupChecks.put(groupName, activeCheck);
       swapGroupChecks.put(groupName, swapCheck);
-      groupRows.put(groupName, row);
+      groupRows.put(groupName, groupSection);
       groupOrder.add(groupName);
     }
 
@@ -1422,7 +1515,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     String filter = sanitizeId(attributeFilterField.getText());
     for (String groupName : groupOrder) {
       if (!matchesAttributeFilter(groupName, filter)) continue;
-      HBox row = groupRows.get(groupName);
+      Region row = groupRows.get(groupName);
       if (row != null) groupBox.getChildren().add(row);
     }
     if (groupBox.getChildren().isEmpty()) {
@@ -1431,6 +1524,54 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       groupBox.getChildren().add(empty);
     }
     updateGroupStats();
+  }
+
+  private Region buildLayerTile(LayerOption option) {
+    StackPane imgContainer = new StackPane();
+    imgContainer.setMinSize(64, 68);
+    imgContainer.setMaxSize(64, 68);
+    imgContainer.setStyle("-fx-background-color: #1a1a1a; -fx-background-radius: 3;");
+    if (option == null || option.isNone()) {
+      Label dash = new Label("—");
+      dash.setStyle("-fx-text-fill: #444; -fx-font-size: 18px;");
+      imgContainer.getChildren().add(dash);
+    } else if (option.file != null && option.file.isFile()) {
+      javafx.scene.image.Image img = imageCache.computeIfAbsent(
+          option.relativePath + ":t",
+          k -> new javafx.scene.image.Image(option.file.toURI().toString(), 64, 68, true, true, true));
+      javafx.scene.image.ImageView iv = new javafx.scene.image.ImageView(img);
+      iv.setFitWidth(64);
+      iv.setFitHeight(68);
+      iv.setPreserveRatio(true);
+      iv.setSmooth(true);
+      imgContainer.getChildren().add(iv);
+    } else {
+      Label missing = new Label("?");
+      missing.setStyle("-fx-text-fill: #555; -fx-font-size: 18px;");
+      imgContainer.getChildren().add(missing);
+    }
+    String displayName = (option == null || option.isNone()) ? "(none)"
+        : (option.layerId != null && !option.layerId.isBlank() ? option.layerId : option.label);
+    Label nameLabel = new Label(displayName);
+    nameLabel.setMaxWidth(72);
+    nameLabel.setStyle("-fx-font-size: 9px; -fx-text-fill: #9a9a9a; -fx-alignment: center;");
+    VBox tile = new VBox(2, imgContainer, nameLabel);
+    tile.setAlignment(javafx.geometry.Pos.TOP_CENTER);
+    tile.setCursor(javafx.scene.Cursor.HAND);
+    tile.setStyle(TILE_NORMAL_STYLE);
+    return tile;
+  }
+
+  private void updateGroupTileStyles(String groupName, Map<LayerOption, Region> tileMap, LayerOption selected) {
+    if (tileMap == null) return;
+    tileMap.forEach((opt, tile) -> {
+      boolean match = opt == selected
+          || (opt != null && selected != null
+              && ((opt.isNone() && selected.isNone())
+                  || (opt.file != null && selected.file != null
+                      && Objects.equals(opt.relativePath, selected.relativePath))));
+      tile.setStyle(match ? TILE_SELECTED_STYLE : TILE_NORMAL_STYLE);
+    });
   }
 
   private void updateGroupStats() {
@@ -1502,6 +1643,15 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       check.setSelected(active);
     }
     persistCurrentSetState();
+  }
+
+  private void setAllGroupsCollapsed(boolean collapsed) {
+    groupTilePanes.forEach((name, pane) -> {
+      pane.setManaged(!collapsed);
+      pane.setVisible(!collapsed);
+      Button btn = groupCollapseBtns.get(name);
+      if (btn != null) btn.setText(collapsed ? "▶" : "▼");
+    });
   }
 
   private void swapMarkedGroups(int direction) {
