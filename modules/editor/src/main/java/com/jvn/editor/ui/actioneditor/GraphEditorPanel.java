@@ -132,21 +132,60 @@ public class GraphEditorPanel extends Pane {
 
     public void autoFitY() {
         EntityTrack track = resolveTrack();
-        if (track == null) { valueViewMin = -1; valueViewMax = 1; return; }
-        List<PropertyType> props = animatedProperties(track);
-        if (props.isEmpty()) { valueViewMin = -1; valueViewMax = 1; return; }
+        PropertyType prop = selectedProperty;
 
-        double min = Double.MAX_VALUE, max = -Double.MAX_VALUE;
-        for (PropertyType p : props) {
-            for (Keyframe kf : track.getKeyframes(p)) {
+        // Prefer fitting to the selected property only; fall back to first animated property
+        if (track != null && prop != null && !track.hasKeyframes(prop)) prop = null;
+        if (track != null && prop == null) {
+            List<PropertyType> animated = animatedProperties(track);
+            if (!animated.isEmpty()) prop = animated.get(0);
+        }
+
+        if (track != null && prop != null && track.hasKeyframes(prop)) {
+            double min = Double.MAX_VALUE, max = -Double.MAX_VALUE;
+            for (Keyframe kf : track.getKeyframes(prop)) {
                 min = Math.min(min, kf.getValue());
                 max = Math.max(max, kf.getValue());
             }
+            // Enforce a minimum visible range so a flat track isn't a single pixel
+            double naturalRange = max - min;
+            double defaultRange = defaultRangeFor(prop);
+            if (naturalRange < defaultRange * 0.05) {
+                double center = (min + max) / 2.0;
+                min = center - defaultRange * 0.15;
+                max = center + defaultRange * 0.15;
+            }
+            double pad = Math.max(defaultRange * 0.05, (max - min) * 0.2);
+            valueViewMin = min - pad;
+            valueViewMax = max + pad;
+        } else {
+            // No keyframes — show a sensible default range for the property
+            double range = prop != null ? defaultRangeFor(prop) : 2.0;
+            valueViewMin = -range * 0.1;
+            valueViewMax =  range * 0.9;
         }
-        if (min == max) { min -= 1; max += 1; }
-        double pad = Math.max(0.5, (max - min) * 0.2);
-        valueViewMin = min - pad;
-        valueViewMax = max + pad;
+    }
+
+    /** Returns a "typical full range" for a property, used for padding and minimum span. */
+    private static double defaultRangeFor(PropertyType prop) {
+        if (prop == null) return 2.0;
+        return switch (prop) {
+            case X, Y, Z,
+                 PIVOT_X, PIVOT_Y,
+                 MATRIX_TX, MATRIX_TY       -> 400.0;   // pixel coords
+            case ROTATION                   -> 360.0;
+            case SCALE_X, SCALE_Y,
+                 MATRIX_MXX, MATRIX_MYY     ->   2.0;   // scale ~0..2
+            case MATRIX_MXY, MATRIX_MYX     ->   1.0;
+            case ALPHA                      ->   1.0;   // 0..1
+            case VISIBILITY                 ->   1.0;
+            case BLUR                       ->  20.0;
+            case CAMERA_X, CAMERA_Y         -> 400.0;
+            case CAMERA_ZOOM                ->   3.0;
+            case CAMERA_DOF_FOCUS           -> 400.0;
+            case CAMERA_DOF_STRENGTH,
+                 CAMERA_DOF_MAX_BLUR        ->  20.0;
+        };
     }
 
     // -------------------------------------------------------------------------
