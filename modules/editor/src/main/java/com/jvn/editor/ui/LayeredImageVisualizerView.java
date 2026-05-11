@@ -3249,6 +3249,41 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     status("Deleted preset: " + name);
   }
 
+  private Button helpButton(String title, String body) {
+    Button btn = new Button("?");
+    btn.setStyle(
+        "-fx-background-color: #253545; -fx-text-fill: #7ec8e3; -fx-font-size: 9px; "
+        + "-fx-font-weight: bold; -fx-min-width: 18; -fx-min-height: 18; "
+        + "-fx-padding: 0 5; -fx-background-radius: 9; -fx-cursor: hand;");
+    btn.setFocusTraversable(false);
+    btn.setTooltip(new Tooltip("Click for help: " + title));
+    btn.setOnAction(e -> {
+      Label titleLabel = new Label(title);
+      titleLabel.setStyle("-fx-text-fill: #e8e8e8; -fx-font-size: 13px; -fx-font-weight: bold;");
+      Label bodyLabel = new Label(body);
+      bodyLabel.setWrapText(true);
+      bodyLabel.setStyle("-fx-text-fill: #c8c8c8; -fx-font-size: 11px; -fx-line-spacing: 3;");
+      bodyLabel.setPrefWidth(440);
+      Button okBtn = new Button("Got it");
+      okBtn.setStyle("-fx-font-size: 11px;");
+      VBox root = new VBox(10, titleLabel, bodyLabel, okBtn);
+      root.setPadding(new Insets(16));
+      root.setStyle("-fx-background-color: #1e1e1e;");
+      javafx.stage.Stage helpStage = new javafx.stage.Stage();
+      helpStage.setTitle(title);
+      helpStage.initOwner(getScene() != null ? getScene().getWindow() : null);
+      helpStage.initModality(javafx.stage.Modality.NONE);
+      javafx.scene.Scene helpScene = new javafx.scene.Scene(root);
+      if (getScene() != null) helpScene.getStylesheets().addAll(getScene().getStylesheets());
+      helpStage.setScene(helpScene);
+      helpStage.setWidth(490);
+      helpStage.sizeToScene();
+      okBtn.setOnAction(ev -> helpStage.close());
+      helpStage.show();
+    });
+    return btn;
+  }
+
   private void showNewSetDialog() {
     // ── In-dialog data model ─────────────────────────────────────────────────
     ObservableList<String> groupNames = FXCollections.observableArrayList();
@@ -3513,22 +3548,104 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       }
     });
 
+    // ── Help button content ──────────────────────────────────────────────────
+    Button setIdHelp = helpButton("Set ID", """
+        A unique identifier for this collection of layers within the Layered Image Visualizer.
+
+        This is used to:
+          • Track your selections and saved presets between sessions.
+          • Identify this set in the tool's Set dropdown.
+
+        It does not appear in generated script code.
+
+        Naming tips:
+          • Use a simple lowercase identifier, e.g. char01, char01_casual, npc_shopkeeper.
+          • Letters, numbers, and underscores only.
+          • Use something descriptive that helps you recognise the set in the dropdown.""");
+
+    Button charIdHelp = helpButton("Character ID", """
+        The character tag that appears in every @charlayer and @charpreset line generated for this set.
+
+        Example output:
+          @charlayer char01 eyes_happy images/char01/eyes/happy.png
+                     ^^^^^^
+          @charpreset char01 neutral $eyes_happy $mouth_smile
+                      ^^^^^^
+
+        This must match the character tag already used in your project scripts. \
+        For example, if your scripts contain  @show char01 angry,  \
+        the Character ID should be  char01.
+
+        Tip: it is usually the part before the first underscore in the Set ID \
+        — for example, char01 from char01_casual.""");
+
+    Button groupsHelp = helpButton("Layer Groups", """
+        Groups represent the individual body parts or visual layers of a character \
+        (e.g. body, eyes, mouth, hair).
+
+        Each group is a slot that holds multiple image options. In the visualizer, \
+        each group appears as a thumbnail grid where you pick which variant to show.
+
+        Render order: groups higher in the list are drawn below groups lower in the list \
+        — like layers in Photoshop. For example:
+          1. body    ← drawn first (furthest back)
+          2. arms
+          3. eyes
+          4. mouth   ← drawn last (on top)
+
+        Tips:
+          • Name groups with simple lowercase identifiers (eyes, mouth, hair).
+          • Groups named bg or background are automatically treated as background layers \
+        and excluded from certain snippet exports when foreground layers are active.
+          • Type a name and press Enter or 'Add / Rename' to create a group.
+          • Click a group to select it, change the name field, and press Enter to rename it.""");
+
+    Button optionsHelp = helpButton("Layer Options", """
+        Options are the individual image variants within a group.
+
+        For example, if the group is 'eyes', options might be: happy, sad, angry, closed.
+
+        Fields:
+          • Label — The display name shown in the thumbnail grid. \
+        Auto-inferred from the filename if left blank.
+          • Layer ID — An optional identifier used in the generated @charlayer line. \
+        If blank, it is auto-generated from the group name and label (e.g. eyes_happy). \
+        Use this to override the generated ID with a specific value like e1 or eyes_a.
+          • Browse — Pick the PNG/JPG/WebP image file for this option from your project directory.
+
+        The top option in each group is used as the sample choice in the snippet preview.""");
+
+    Button snippetHelp = helpButton("Generated Snippet", """
+        This snippet shows the VNS script declarations that will be created for this layer set.
+
+        @charlayer — Declares one image layer for a character:
+          @charlayer <charId> <layerId> <imagePath>
+
+        @charpreset — Defines a preset (a named combination of layers):
+          @charpreset <charId> <presetName> $<layerId1> $<layerId2> ...
+
+        The 'neutral' preset shown is a sample using the first option from each group.
+
+        To make this set permanent (surviving project rescans):
+          1. Click 'Copy Snippet' to copy the declarations.
+          2. Paste them into a .vns script file in your project.
+          3. Re-scan the catalog — the set will appear in the tool automatically.
+
+        'Add to Tool' registers the set in memory for the current session only \
+        — it will not persist after restarting the editor.""");
+
+    // ── Layout ───────────────────────────────────────────────────────────────
     VBox setIdBox = new VBox(2, setIdField, setIdError);
     HBox.setHgrow(setIdBox, Priority.ALWAYS);
-    Label charIdHint = new Label("(?)");
-    charIdHint.setStyle("-fx-text-fill: #666; -fx-font-size: 9px; -fx-cursor: hand;");
-    charIdHint.setTooltip(new Tooltip(
-        "The character identifier written into @charlayer and @charpreset lines.\n"
-        + "Must match the character tag used in your scripts (e.g. char01)."));
     VBox charIdBox = new VBox(2, charIdField, charIdError);
     HBox.setHgrow(charIdBox, Priority.ALWAYS);
 
-    HBox charIdLabelRow = new HBox(3, new Label("Character ID:"), charIdHint);
+    HBox setIdLabelRow = new HBox(3, new Label("Set ID:"), setIdHelp);
+    setIdLabelRow.setAlignment(Pos.CENTER_LEFT);
+    HBox charIdLabelRow = new HBox(3, new Label("Character ID:"), charIdHelp);
     charIdLabelRow.setAlignment(Pos.CENTER_LEFT);
 
-    HBox headerRow = new HBox(8,
-        new Label("Set ID:"), setIdBox,
-        charIdLabelRow, charIdBox);
+    HBox headerRow = new HBox(8, setIdLabelRow, setIdBox, charIdLabelRow, charIdBox);
     headerRow.setAlignment(Pos.TOP_CENTER);
     headerRow.setPadding(new Insets(8, 8, 4, 8));
 
@@ -3536,17 +3653,21 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     groupInputRow.setAlignment(Pos.CENTER_LEFT);
     HBox groupBtnRow = new HBox(4, groupUpBtn, groupDownBtn, removeGroupBtn);
     groupBtnRow.setAlignment(Pos.CENTER_LEFT);
-    Label groupsHeader = new Label("Groups  (top = rendered first)");
-    groupsHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 10px;");
+    Label groupsHeaderLabel = new Label("Groups  (top = rendered first)");
+    groupsHeaderLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 10px;");
+    HBox groupsHeader = new HBox(4, groupsHeaderLabel, groupsHelp);
+    groupsHeader.setAlignment(Pos.CENTER_LEFT);
     VBox leftPanel = new VBox(4, groupsHeader, groupListView, groupInputRow, groupBtnRow);
     leftPanel.setPadding(new Insets(8));
     VBox.setVgrow(groupListView, Priority.ALWAYS);
 
+    HBox rightTitleRow = new HBox(4, rightTitle, optionsHelp);
+    rightTitleRow.setAlignment(Pos.CENTER_LEFT);
     ScrollPane optionScroll = new ScrollPane(optionRowsBox);
     optionScroll.setFitToWidth(true);
     optionScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
     VBox.setVgrow(optionScroll, Priority.ALWAYS);
-    VBox rightPanel = new VBox(4, rightTitle, optionScroll);
+    VBox rightPanel = new VBox(4, rightTitleRow, optionScroll);
     rightPanel.setPadding(new Insets(8));
     VBox.setVgrow(optionScroll, Priority.ALWAYS);
 
@@ -3563,7 +3684,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       cc.putString(snippetArea.getText());
       Clipboard.getSystemClipboard().setContent(cc);
     });
-    HBox snippetHeader = new HBox(8, snippetHint, copySnippetBtn);
+    HBox snippetHeader = new HBox(8, snippetHint, snippetHelp, copySnippetBtn);
     snippetHeader.setAlignment(Pos.CENTER_LEFT);
 
     Button addToToolBtn = new Button("Add to Tool");
