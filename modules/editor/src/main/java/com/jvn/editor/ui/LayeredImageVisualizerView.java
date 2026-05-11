@@ -543,8 +543,45 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     actionsPane.setCollapsible(true);
 
     // ── Layer groups section ──
-    Label groupsLabel = new Label("Layer Groups");
+    Label groupsLabel = new Label("Layer Groups  ·  top = behind  ·  bottom = in front");
     groupsLabel.setStyle("-fx-font-size: 11px; -fx-font-weight: 700;");
+    Button groupsOrderHelp = helpButton("Layer Render Order", """
+        Groups are drawn from top to bottom — the group at the TOP of the list is drawn \
+        first and appears behind all other groups. The group at the BOTTOM is drawn last \
+        and appears on top of everything else.
+
+        Think of it like a stack of transparent sheets:
+          sheet 1 (top of list)    ← furthest back, behind all others
+          sheet 2
+          sheet 3
+          sheet N (bottom of list) ← frontmost, on top of all others
+
+        ── Typical character layer order (top → bottom) ──
+
+          1. bg / background      drawn first → behind character
+          2. shadow               under the character
+          3. arm_behind           the arm that goes behind the torso
+          4. tail / wing_behind   body parts that sit behind the torso
+          5. body / torso         the main body/clothing
+          6. arm_front            arm in front of the torso
+          7. face / blush         face overlays
+          8. eyes_base            whites of the eyes
+          9. eyes / iris          coloured irises, pupils
+         10. mouth                mouth/expression
+         11. hair                 hair on top of face
+         12. accessories          hats, glasses, etc. — topmost
+
+        ── Common mistakes ──
+
+        • Putting tail at the BOTTOM of the list will render it on top of the body.
+          Move it ABOVE body so body covers it.
+
+        • Putting hair ABOVE eyes means eyes will render on top of hair.
+          Hair should be below eyes in the list only if eyes peek through hair.
+
+        Use the ↑/↓ arrows on each group, or open the Layer Order tab for drag-and-drop reordering.""");
+    HBox groupsLabelRow = new HBox(4, groupsLabel, groupsOrderHelp);
+    groupsLabelRow.setAlignment(Pos.CENTER_LEFT);
 
     Button activeAllButton = iconButton(CssIcon.check("#9ed67a"), "Mark all groups active for randomization", () -> setAllGroupsActive(true));
     Button activeNoneButton = iconButton(CssIcon.minus("#f0b673"), "Mark all groups inactive for randomization", () -> setAllGroupsActive(false));
@@ -1670,12 +1707,20 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
           }
           int listIdx = getIndex();
           int totalGroups = layerOrderList.getItems().size();
-          // listIdx 0 = drawn first (bottom z); last = drawn last (top z)
+          // listIdx 0 = drawn first (behind everything); last = drawn last (on top)
           int zNum = listIdx + 1;
 
+          // Colour: dim for low (background) items, brighter for high (foreground)
+          int total2 = layerOrderList.getItems().size();
+          double frac = total2 <= 1 ? 1 : (double) listIdx / (total2 - 1);
+          String zColor = String.format("#%02x%02x%02x",
+              (int) (0x44 + frac * (0xaa - 0x44)),
+              (int) (0x44 + frac * (0xaa - 0x44)),
+              (int) (0x44 + frac * (0xaa - 0x44)));
           Label zLabel = new Label(String.format("%2d", zNum));
           zLabel.setMinWidth(24);
-          zLabel.setStyle("-fx-font-family: monospace; -fx-font-size: 10px; -fx-text-fill: #555; -fx-alignment: center-right;");
+          zLabel.setStyle("-fx-font-family: monospace; -fx-font-size: 10px; -fx-text-fill: "
+              + zColor + "; -fx-alignment: center-right;");
 
           Label nameLabel = new Label(groupName);
           nameLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #d0d0d0;");
@@ -1754,12 +1799,19 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       return cell;
     });
 
-    Label hint = new Label("Drag rows or use ↑/↓ to reorder. Lower rows are drawn first (background); upper rows are drawn last (foreground).");
-    hint.setWrapText(true);
-    hint.setStyle("-fx-font-size: 9px; -fx-text-fill: #555; -fx-padding: 4 4 2 4;");
+    Label hint = new Label("Drag rows or use ↑/↓ to reorder.");
+    hint.setStyle("-fx-font-size: 9px; -fx-text-fill: #555; -fx-padding: 4 4 0 4;");
 
-    VBox panel = new VBox(4, hint, layerOrderList);
-    panel.setPadding(new Insets(4));
+    Label topAnchor = new Label("▲  top of list  =  drawn first  =  behind everything (background)");
+    topAnchor.setStyle("-fx-font-size: 9px; -fx-text-fill: #3a5a3a; -fx-padding: 2 4 1 4; "
+        + "-fx-background-color: #1a2a1a; -fx-border-color: #2a4a2a; -fx-border-width: 0 0 1 0;");
+
+    Label bottomAnchor = new Label("▼  bottom of list  =  drawn last  =  on top of everything (foreground)");
+    bottomAnchor.setStyle("-fx-font-size: 9px; -fx-text-fill: #5a3a7a; -fx-padding: 1 4 2 4; "
+        + "-fx-background-color: #1a1a2a; -fx-border-color: #3a2a5a; -fx-border-width: 1 0 0 0;");
+
+    VBox panel = new VBox(0, hint, topAnchor, layerOrderList, bottomAnchor);
+    panel.setPadding(new Insets(4, 4, 4, 4));
     VBox.setVgrow(layerOrderList, Priority.ALWAYS);
     return panel;
   }
@@ -3586,12 +3638,12 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
         Each group is a slot that holds multiple image options. In the visualizer, \
         each group appears as a thumbnail grid where you pick which variant to show.
 
-        Render order: groups higher in the list are drawn below groups lower in the list \
-        — like layers in Photoshop. For example:
-          1. body    ← drawn first (furthest back)
-          2. arms
-          3. eyes
-          4. mouth   ← drawn last (on top)
+        Render order: groups at the TOP of the list are drawn first (behind everything). \
+        Groups at the BOTTOM are drawn last (on top of everything). For example:
+          1. arm_behind  ← drawn first  → behind the body
+          2. tail        ← drawn second → behind the body too
+          3. body        ← drawn third  → covers arm_behind and tail
+          4. arm_front   ← drawn last   → on top of body
 
         Tips:
           • Name groups with simple lowercase identifiers (eyes, mouth, hair).
@@ -3653,7 +3705,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     groupInputRow.setAlignment(Pos.CENTER_LEFT);
     HBox groupBtnRow = new HBox(4, groupUpBtn, groupDownBtn, removeGroupBtn);
     groupBtnRow.setAlignment(Pos.CENTER_LEFT);
-    Label groupsHeaderLabel = new Label("Groups  (top = rendered first)");
+    Label groupsHeaderLabel = new Label("Groups  (top = behind · bottom = in front)");
     groupsHeaderLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 10px;");
     HBox groupsHeader = new HBox(4, groupsHeaderLabel, groupsHelp);
     groupsHeader.setAlignment(Pos.CENTER_LEFT);
