@@ -64,9 +64,11 @@ import javafx.scene.image.Image;
 import javafx.scene.image.WritableImage;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
+import javafx.scene.input.Dragboard;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.input.TransferMode;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
@@ -207,6 +209,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   private final Map<String, FlowPane> groupTilePanes = new LinkedHashMap<>();
   private final Map<String, Button> groupCollapseBtns = new LinkedHashMap<>();
   private final Map<String, Label> groupHeaderLabels = new LinkedHashMap<>();
+  private final ListView<String> layerOrderList = new ListView<>();
   private final Map<String, String> shortforms = new LinkedHashMap<>();
   private final List<String> groupOrder = new ArrayList<>();
   private final Map<String, LayeredSet> sets = new LinkedHashMap<>();
@@ -617,7 +620,8 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     Tab attributesTab = new Tab("Attributes", groupsScroll);
     Tab typedTab = new Tab("Typed", typedRoot);
     Tab shortformsTab = new Tab("Shortforms", shortformsRoot);
-    groupsTabs.getTabs().addAll(attributesTab, typedTab, shortformsTab);
+    Tab layerOrderTab = new Tab("Layer Order", buildLayerOrderPanel());
+    groupsTabs.getTabs().addAll(attributesTab, typedTab, shortformsTab, layerOrderTab);
 
     // ── Gallery section ──
     galleryPane.setPadding(new Insets(4));
@@ -1401,9 +1405,9 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
       Button openButton = iconButton(CssIcon.folder("#7ec8e3"), "Open selected image in OS viewer", () -> openSelectedImage(combo.getValue()));
 
-      Button upButton = iconButton(CssIcon.arrowUp("#b0b8c8"), "Move this group up in render order", () -> moveGroup(groupName, -1));
+      Button upButton = iconButton(CssIcon.arrowUp("#b0b8c8"), "Move this group up in render order", () -> moveGroupInOrder(groupName, -1));
 
-      Button downButton = iconButton(CssIcon.arrowDown("#b0b8c8"), "Move this group down in render order", () -> moveGroup(groupName, 1));
+      Button downButton = iconButton(CssIcon.arrowDown("#b0b8c8"), "Move this group down in render order", () -> moveGroupInOrder(groupName, 1));
 
       boolean isBgGroup = isLikelyBackgroundGroupName(groupName);
       String labelColor = isBgGroup ? "-fx-text-fill: #f0b673;" : "-fx-text-fill: #d0d0d0;";
@@ -1423,6 +1427,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
               : (nv.layerId != null && !nv.layerId.isBlank() ? nv.layerId : nv.label);
           lbl.setText(groupName + " (" + options.size() + ")  ·  " + selName);
         }
+        layerOrderList.refresh();
         if (applyingState) {
           redrawPreview();
           return;
@@ -1524,6 +1529,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       groupBox.getChildren().add(empty);
     }
     updateGroupStats();
+    refreshLayerOrderList();
   }
 
   private Region buildLayerTile(LayerOption option) {
@@ -1620,17 +1626,6 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     combo.getSelectionModel().select(next);
   }
 
-  private void moveGroup(String groupName, int delta) {
-    int idx = groupOrder.indexOf(groupName);
-    if (idx < 0) return;
-    int next = idx + delta;
-    if (next < 0 || next >= groupOrder.size()) return;
-    Collections.swap(groupOrder, idx, next);
-    refreshGroupRows();
-    redrawPreview();
-    persistCurrentSetState();
-  }
-
   private void setAllGroupsActive(boolean active) {
     for (CheckBox check : activeGroupChecks.values()) {
       check.setSelected(active);
@@ -1652,6 +1647,134 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       Button btn = groupCollapseBtns.get(name);
       if (btn != null) btn.setText(collapsed ? "▶" : "▼");
     });
+  }
+
+  private VBox buildLayerOrderPanel() {
+    layerOrderList.setStyle("-fx-background-color: #1a1a1a;");
+    layerOrderList.setFocusTraversable(false);
+    VBox.setVgrow(layerOrderList, Priority.ALWAYS);
+
+    layerOrderList.setCellFactory(lv -> {
+      ListCell<String> cell = new ListCell<>() {
+        @Override
+        protected void updateItem(String groupName, boolean empty) {
+          super.updateItem(groupName, empty);
+          if (empty || groupName == null) {
+            setGraphic(null);
+            setText(null);
+            setStyle("");
+            return;
+          }
+          int listIdx = getIndex();
+          int totalGroups = layerOrderList.getItems().size();
+          // listIdx 0 = drawn first (bottom z); last = drawn last (top z)
+          int zNum = listIdx + 1;
+
+          Label zLabel = new Label(String.format("%2d", zNum));
+          zLabel.setMinWidth(24);
+          zLabel.setStyle("-fx-font-family: monospace; -fx-font-size: 10px; -fx-text-fill: #555; -fx-alignment: center-right;");
+
+          Label nameLabel = new Label(groupName);
+          nameLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #d0d0d0;");
+          HBox.setHgrow(nameLabel, Priority.ALWAYS);
+
+          ComboBox<LayerOption> combo = selectors.get(groupName);
+          LayerOption selected = combo != null ? combo.getValue() : null;
+          String selName = (selected == null || selected.isNone()) ? ""
+              : (selected.layerId != null && !selected.layerId.isBlank() ? selected.layerId : selected.label);
+          Label selLabel = new Label(selName);
+          selLabel.setStyle("-fx-font-size: 9px; -fx-text-fill: #666; -fx-padding: 0 4 0 0;");
+          selLabel.setMaxWidth(80);
+
+          Label handle = new Label("⣿");
+          handle.setStyle("-fx-text-fill: #3a3a3a; -fx-font-size: 12px; -fx-padding: 0 4 0 2; -fx-cursor: open-hand;");
+
+          Button upBtn = new Button("↑");
+          upBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #666; -fx-font-size: 10px; -fx-padding: 1 3;");
+          upBtn.setFocusTraversable(false);
+          upBtn.setDisable(listIdx == 0);
+          upBtn.setOnAction(e -> moveGroupInOrder(groupName, -1));
+
+          Button downBtn = new Button("↓");
+          downBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #666; -fx-font-size: 10px; -fx-padding: 1 3;");
+          downBtn.setFocusTraversable(false);
+          downBtn.setDisable(listIdx == totalGroups - 1);
+          downBtn.setOnAction(e -> moveGroupInOrder(groupName, 1));
+
+          HBox row = new HBox(2, handle, zLabel, nameLabel, selLabel, upBtn, downBtn);
+          row.setAlignment(Pos.CENTER_LEFT);
+          row.setStyle("-fx-padding: 2 4;");
+          setGraphic(row);
+          setText(null);
+          setStyle("-fx-background-color: transparent; -fx-border-color: transparent;");
+        }
+      };
+
+      cell.setOnDragDetected(e -> {
+        if (cell.isEmpty()) return;
+        Dragboard db = cell.startDragAndDrop(TransferMode.MOVE);
+        ClipboardContent cc = new ClipboardContent();
+        cc.putString(cell.getItem());
+        db.setContent(cc);
+        e.consume();
+      });
+
+      cell.setOnDragOver(e -> {
+        if (e.getDragboard().hasString() && !cell.isEmpty()
+            && !cell.getItem().equals(e.getDragboard().getString())) {
+          e.acceptTransferModes(TransferMode.MOVE);
+          cell.setStyle("-fx-background-color: #2a3a4a; -fx-border-color: transparent;");
+        }
+        e.consume();
+      });
+
+      cell.setOnDragExited(e -> cell.setStyle("-fx-background-color: transparent; -fx-border-color: transparent;"));
+
+      cell.setOnDragDropped(e -> {
+        String dragged = e.getDragboard().getString();
+        String target = cell.getItem();
+        if (dragged != null && target != null && !dragged.equals(target)) {
+          int fromIdx = groupOrder.indexOf(dragged);
+          int toIdx = groupOrder.indexOf(target);
+          if (fromIdx >= 0 && toIdx >= 0) {
+            groupOrder.remove(fromIdx);
+            groupOrder.add(toIdx, dragged);
+            refreshGroupRows();
+            redrawPreview();
+            persistCurrentSetState();
+          }
+        }
+        e.setDropCompleted(true);
+        e.consume();
+      });
+
+      return cell;
+    });
+
+    Label hint = new Label("Drag rows or use ↑/↓ to reorder. Lower rows are drawn first (background); upper rows are drawn last (foreground).");
+    hint.setWrapText(true);
+    hint.setStyle("-fx-font-size: 9px; -fx-text-fill: #555; -fx-padding: 4 4 2 4;");
+
+    VBox panel = new VBox(4, hint, layerOrderList);
+    panel.setPadding(new Insets(4));
+    VBox.setVgrow(layerOrderList, Priority.ALWAYS);
+    return panel;
+  }
+
+  private void refreshLayerOrderList() {
+    layerOrderList.getItems().setAll(groupOrder);
+    layerOrderList.refresh();
+  }
+
+  private void moveGroupInOrder(String groupName, int delta) {
+    int idx = groupOrder.indexOf(groupName);
+    if (idx < 0) return;
+    int next = idx + delta;
+    if (next < 0 || next >= groupOrder.size()) return;
+    Collections.swap(groupOrder, idx, next);
+    refreshGroupRows();
+    redrawPreview();
+    persistCurrentSetState();
   }
 
   private void swapMarkedGroups(int direction) {
