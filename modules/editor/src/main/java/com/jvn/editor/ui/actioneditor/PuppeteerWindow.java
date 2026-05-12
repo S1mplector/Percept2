@@ -1189,6 +1189,24 @@ public class PuppeteerWindow extends Stage {
         CollapsibleToolbarCluster orbitCluster = registerToolbarCluster("orbit", "Orbit", orbitBox);
         CollapsibleToolbarCluster audioCluster = registerToolbarCluster("audio", "Cues", cueBox);
         CollapsibleToolbarCluster registerCluster = registerToolbarCluster("register", "Register", nameBox);
+
+        // --- Export cluster ---
+        Button btnExportGif = makeToolbarIconButton(
+            com.jvn.editor.ui.CssIcon.fiberSmartRecord("#e57373"), "Record preview as GIF animation");
+        btnExportGif.setOnAction(e -> showRecordGifDialog());
+        Button btnExportCopyCode = makeToolbarIconButton(
+            com.jvn.editor.ui.CssIcon.copy("#a8d0f0"), "Copy exported JES code to clipboard");
+        btnExportCopyCode.setOnAction(e -> copyExportedCodeToClipboard());
+        HBox exportBox = new HBox(4, btnExportGif, btnExportCopyCode);
+        exportBox.setAlignment(Pos.CENTER_LEFT);
+        CollapsibleToolbarCluster exportCluster = registerToolbarCluster("export", "Export", exportBox);
+
+        // --- Diagnostics cluster ---
+        Button btnVerify = makeToolbarIconButton(
+            com.jvn.editor.ui.CssIcon.list("#90d090"), "Verify runtime timeline registration");
+        btnVerify.setOnAction(e -> showRuntimeVerificationReport());
+        CollapsibleToolbarCluster diagnosticsCluster = registerToolbarCluster("diagnostics", "Diagnostics", btnVerify);
+
         CollapsibleToolbarCluster helpCluster = registerToolbarCluster("help", "Help", btnHelp);
 
         toolbarPane = new AnimatedToolbarPane(8, 5);
@@ -1203,11 +1221,14 @@ public class PuppeteerWindow extends Stage {
         toolbarPane.addCluster(orbitCluster);
         toolbarPane.addCluster(audioCluster);
         toolbarPane.addCluster(registerCluster);
+        toolbarPane.addCluster(exportCluster);
+        toolbarPane.addCluster(diagnosticsCluster);
         toolbarPane.addCluster(helpCluster);
         toolbarPane.registerMarker("toolbar-group-transport-duration", transportCluster, historyCluster, durationCluster);
         toolbarPane.registerMarker("toolbar-group-keyframe-ops", propertyCluster, keyframesCluster);
         toolbarPane.registerMarker("toolbar-group-preview-modes", snapCluster, previewCluster);
         toolbarPane.registerMarker("toolbar-group-orbit-audio-register", orbitCluster, audioCluster, registerCluster);
+        toolbarPane.registerMarker("toolbar-group-export-help", exportCluster, diagnosticsCluster, helpCluster);
         toolbarPane.setId("puppeteer-toolbar");
         toolbarPane.setPadding(TOOLBAR_PADDING_DYNAMIC);
         toolbarPane.setMinHeight(Region.USE_PREF_SIZE);
@@ -1637,6 +1658,116 @@ public class PuppeteerWindow extends Stage {
             miPlaceInSlot.setDisable(!entityTarget);
         });
 
+        // === Timeline menu ===
+        MenuItem miJumpStart = new MenuItem("Jump to Start");
+        miJumpStart.setAccelerator(new KeyCodeCombination(KeyCode.HOME));
+        miJumpStart.setOnAction(e -> rewind());
+
+        MenuItem miJumpEnd = new MenuItem("Jump to End");
+        miJumpEnd.setAccelerator(new KeyCodeCombination(KeyCode.END));
+        miJumpEnd.setOnAction(e -> {
+            if (project == null) return;
+            project.setPlayheadMs(project.getTotalDurationMs());
+            updateTimeLabel();
+            updatePreview();
+            timelinePanel.refresh();
+        });
+
+        MenuItem miTimelinePrevKey = new MenuItem("Previous Keyframe");
+        miTimelinePrevKey.setAccelerator(new KeyCodeCombination(KeyCode.LEFT, KeyCombination.SHORTCUT_DOWN));
+        miTimelinePrevKey.setOnAction(e -> {
+            if (timelinePanel.jumpPlayheadToPreviousKeyframe()) { updateTimeLabel(); updatePreview(); }
+            refreshSidebarTabs();
+        });
+
+        MenuItem miTimelineNextKey = new MenuItem("Next Keyframe");
+        miTimelineNextKey.setAccelerator(new KeyCodeCombination(KeyCode.RIGHT, KeyCombination.SHORTCUT_DOWN));
+        miTimelineNextKey.setOnAction(e -> {
+            if (timelinePanel.jumpPlayheadToNextKeyframe()) { updateTimeLabel(); updatePreview(); }
+            refreshSidebarTabs();
+        });
+
+        MenuItem miTimelineFocusSel = new MenuItem("Focus Timeline on Selection");
+        miTimelineFocusSel.setOnAction(e -> timelinePanel.zoomToSelection());
+        MenuItem miTimelineZoomFit = new MenuItem("Zoom Timeline to Fit");
+        miTimelineZoomFit.setOnAction(e -> timelinePanel.zoomToFit());
+
+        Menu timelineMenu = new Menu("Timeline");
+        timelineMenu.getItems().addAll(
+            miJumpStart, miJumpEnd,
+            new SeparatorMenuItem(),
+            miTimelinePrevKey, miTimelineNextKey,
+            new SeparatorMenuItem(),
+            miTimelineFocusSel, miTimelineZoomFit
+        );
+        timelineMenu.setOnShowing(e -> {
+            boolean hasTarget = timelinePanel != null && timelinePanel.getSelectedEntity() != null
+                && !timelinePanel.getSelectedEntity().isBlank();
+            boolean hasSelection = timelinePanel != null && timelinePanel.getSelectionCount() > 0;
+            miTimelinePrevKey.setDisable(!hasTarget);
+            miTimelineNextKey.setDisable(!hasTarget);
+            miTimelineFocusSel.setDisable(!hasSelection);
+        });
+
+        // === Scene menu ===
+        MenuItem miSceneImport = new MenuItem("Import Assets...");
+        miSceneImport.setOnAction(e -> showAssetImporterWindow());
+
+        MenuItem miSceneAddCue = new MenuItem("Add Audio Cue at Playhead");
+        miSceneAddCue.setOnAction(e -> showAddAudioCueDialog());
+
+        MenuItem miSceneClearCues = new MenuItem("Clear All Audio Cues");
+        miSceneClearCues.setOnAction(e -> {
+            if (project == null || project.getAudioCues().isEmpty()) return;
+            overlayDialog.showDialog("Clear Audio Cues",
+                "Remove all audio cues from this animation? This cannot be undone from the cue panel.",
+                null,
+                ActionEditorDialogOverlay.ActionSpec.neutral("Cancel", overlayDialog::hideOverlay).defaultFocus(true),
+                ActionEditorDialogOverlay.ActionSpec.danger("Clear", () -> {
+                    project.clearAudioCues();
+                    timelinePanel.refresh();
+                    refreshExportPreviewAndMarkDirty();
+                }));
+        });
+
+        MenuItem miSceneManageEvents = new MenuItem("Manage Event Cues...");
+        miSceneManageEvents.setOnAction(e -> showEventCueManagerDialog(null));
+
+        MenuItem miSceneClearEvents = new MenuItem("Clear All Event Cues");
+        miSceneClearEvents.setOnAction(e -> {
+            if (project == null || project.getEditorEventCues().isEmpty()) return;
+            overlayDialog.showDialog("Clear Event Cues",
+                "Remove all timeline event cues from this animation?",
+                null,
+                ActionEditorDialogOverlay.ActionSpec.neutral("Cancel", overlayDialog::hideOverlay).defaultFocus(true),
+                ActionEditorDialogOverlay.ActionSpec.danger("Clear", () -> {
+                    project.clearEditorEventCues();
+                    timelinePanel.refresh();
+                    updatePreview();
+                    refreshExportPreviewAndMarkDirty();
+                }));
+        });
+
+        MenuItem miSceneFitPreview = new MenuItem("Fit Preview Viewport");
+        miSceneFitPreview.setOnAction(e -> animationPreview.fitToContent());
+
+        Menu sceneMenu = new Menu("Scene");
+        sceneMenu.getItems().addAll(
+            miSceneImport,
+            new SeparatorMenuItem(),
+            miSceneAddCue, miSceneClearCues,
+            new SeparatorMenuItem(),
+            miSceneManageEvents, miSceneClearEvents,
+            new SeparatorMenuItem(),
+            miSceneFitPreview
+        );
+        sceneMenu.setOnShowing(e -> {
+            boolean hasRoot = projectRoot != null && projectRoot.isDirectory();
+            miSceneImport.setDisable(!hasRoot);
+            miSceneClearCues.setDisable(project == null || project.getAudioCues().isEmpty());
+            miSceneClearEvents.setDisable(project == null || project.getEditorEventCues().isEmpty());
+        });
+
         CheckMenuItem miShowCodePane = new CheckMenuItem("Show Code Pane");
         miShowCodePane.setOnAction(e -> setCodePaneVisible(miShowCodePane.isSelected()));
         CheckMenuItem miOnionSkin = new CheckMenuItem("Onion Skin Preview");
@@ -1771,7 +1902,7 @@ public class PuppeteerWindow extends Stage {
         Menu helpMenu = new Menu("Help");
         helpMenu.getItems().add(miShowShortcuts);
 
-        MenuBar menuBar = new MenuBar(fileMenu, editMenu, viewMenu, playbackMenu, helpMenu);
+        MenuBar menuBar = new MenuBar(fileMenu, editMenu, timelineMenu, viewMenu, playbackMenu, sceneMenu, helpMenu);
         menuBar.setUseSystemMenuBar(false);
         menuBar.setFocusTraversable(false);
         menuBar.setMinHeight(Region.USE_PREF_SIZE);

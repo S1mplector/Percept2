@@ -3703,8 +3703,8 @@ The editor.css file defines the visual styling for the editor module, including 
 }
 
 .help-button {
-  -fx-background-color: #253545;
-  -fx-text-fill: #7ec8e3;
+  -fx-background-color: #3c3c3c;
+  -fx-text-fill: #c0c0c0;
   -fx-font-size: 9px;
   -fx-font-weight: bold;
   -fx-min-width: 18;
@@ -3717,7 +3717,8 @@ The editor.css file defines the visual styling for the editor module, including 
 }
 
 .help-button:hover {
-  -fx-background-color: #2e4459;
+  -fx-background-color: #505050;
+  -fx-text-fill: #e0e0e0;
 }
 
 .help-stats-label {

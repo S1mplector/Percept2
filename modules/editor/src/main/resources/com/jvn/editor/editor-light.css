@@ -3624,8 +3624,8 @@
 }
 
 .help-button {
-  -fx-background-color: #d0e6f5;
-  -fx-text-fill: #1a5f8a;
+  -fx-background-color: #c4c4c4;
+  -fx-text-fill: #2e2e2e;
   -fx-font-size: 9px;
   -fx-font-weight: bold;
   -fx-min-width: 18;
@@ -3638,7 +3638,8 @@
 }
 
 .help-button:hover {
-  -fx-background-color: #b8d6ec;
+  -fx-background-color: #aeaeae;
+  -fx-text-fill: #1a1a1a;
 }
 
 .help-stats-label {
