@@ -5,10 +5,13 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
@@ -19,6 +22,7 @@ import javafx.scene.layout.VBox;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
@@ -28,6 +32,9 @@ public class VnsDiagnosticsView extends BorderPane {
   private static final String SEVERITY_ALL = "All";
   private static final String SEVERITY_ERRORS = "Errors";
   private static final String SEVERITY_WARNINGS = "Warnings";
+
+  private enum SortMode { LINE, SEVERITY }
+  private SortMode sortMode = SortMode.LINE;
 
   private final Label titleLabel = new Label("Diagnostics");
   private final Label fileLabel = new Label("No active file");
@@ -44,6 +51,9 @@ public class VnsDiagnosticsView extends BorderPane {
   private final Button openSelectedButton = actionButton("Open", CssIcon.expand("#7ec8e3"));
   private final Button copyDiagnosticsButton = actionButton("Copy", CssIcon.copy("#a8d0f0"));
   private final Button clearFilterButton = actionButton("Clear Filter", CssIcon.clearX("#f0a080"));
+  private final Button prevButton = actionButton("↑", null);
+  private final Button nextButton = actionButton("↓", null);
+  private final Button sortButton = actionButton("By Line", null);
   private final ListView<DiagnosticRow> listView = new ListView<>();
 
   private final List<DiagnosticRow> allRows = new ArrayList<>();
@@ -105,6 +115,21 @@ public class VnsDiagnosticsView extends BorderPane {
     copyDiagnosticsButton.setOnAction(e -> copyVisibleDiagnostics());
     clearFilterButton.setOnAction(e -> clearFilters());
 
+    prevButton.setTooltip(new Tooltip("Previous diagnostic (wraps around)"));
+    prevButton.setOnAction(e -> navigateDiagnostic(-1));
+    nextButton.setTooltip(new Tooltip("Next diagnostic (wraps around)"));
+    nextButton.setOnAction(e -> navigateDiagnostic(+1));
+    sortButton.setTooltip(new Tooltip("Sorted by line number — click to sort errors first"));
+    sortButton.setOnAction(e -> {
+      sortMode = sortMode == SortMode.LINE ? SortMode.SEVERITY : SortMode.LINE;
+      boolean bySeverity = sortMode == SortMode.SEVERITY;
+      sortButton.setText(bySeverity ? "By Severity" : "By Line");
+      sortButton.setTooltip(new Tooltip(bySeverity
+          ? "Errors shown first — click to sort by line number"
+          : "Sorted by line number — click to sort errors first"));
+      applyFilter();
+    });
+
     HBox titleRow = new HBox(8, titleLabel, SidebarToolHelp.button(this, "VNS Diagnostics", """
         The Diagnostics panel scans the active .vns script file and reports \
 errors, warnings, and informational messages in real time.
@@ -129,12 +154,12 @@ or severity, and the copy button to export the full list for sharing."""));
     header.setPadding(new Insets(10, 10, 6, 10));
     header.getStyleClass().add("vns-diagnostics-header");
 
-    HBox filterRow = new HBox(8, filterField, severityFilter);
+    HBox filterRow = new HBox(8, filterField, severityFilter, sortButton);
     filterRow.setPadding(new Insets(0, 10, 8, 10));
     HBox.setHgrow(filterField, Priority.ALWAYS);
     filterRow.getStyleClass().add("vns-diagnostics-filter-row");
 
-    HBox actionRow = new HBox(8, openSelectedButton, copyDiagnosticsButton, clearFilterButton, filteredCountLabel);
+    HBox actionRow = new HBox(8, openSelectedButton, prevButton, nextButton, copyDiagnosticsButton, clearFilterButton, filteredCountLabel);
     actionRow.setAlignment(Pos.CENTER_LEFT);
     actionRow.setPadding(new Insets(0, 10, 8, 10));
     actionRow.getStyleClass().add("vns-diagnostics-action-row");
@@ -231,6 +256,10 @@ or severity, and the copy button to export the full list for sharing."""));
       if (!normalized.isEmpty() && !row.searchText().contains(normalized)) continue;
       filtered.add(row);
     }
+    if (sortMode == SortMode.SEVERITY) {
+      filtered.sort(Comparator.comparingInt((DiagnosticRow r) -> r.issue().warning() ? 1 : 0)
+          .thenComparingInt(DiagnosticRow::oneBasedLine));
+    }
     listView.setItems(FXCollections.observableArrayList(filtered));
     if (previousSelection != null && filtered.contains(previousSelection)) {
       listView.getSelectionModel().select(previousSelection);
@@ -272,6 +301,28 @@ or severity, and the copy button to export the full list for sharing."""));
     filterField.clear();
     severityFilter.setValue(SEVERITY_ALL);
     if (!changed) applyFilter();
+  }
+
+  private void navigateDiagnostic(int delta) {
+    var items = listView.getItems();
+    if (items.isEmpty()) return;
+    int current = listView.getSelectionModel().getSelectedIndex();
+    int next = current < 0 ? 0 : (current + delta + items.size()) % items.size();
+    listView.getSelectionModel().select(next);
+    listView.scrollTo(next);
+    openSelectedRow();
+  }
+
+  private void copySingleDiagnostic(DiagnosticRow row) {
+    StringBuilder out = new StringBuilder();
+    out.append(row.level()).append(" ").append(row.locationText()).append(" ")
+        .append(row.kindLabel()).append(": ").append(row.issue().message());
+    if (!row.sourceLine().isBlank()) {
+      out.append(System.lineSeparator()).append("  ").append(row.sourceLine());
+    }
+    ClipboardContent content = new ClipboardContent();
+    content.putString(out.toString().strip());
+    Clipboard.getSystemClipboard().setContent(content);
   }
 
   private void copyVisibleDiagnostics() {
@@ -326,6 +377,8 @@ or severity, and the copy button to export the full list for sharing."""));
     boolean hasFilter = (filterField.getText() != null && !filterField.getText().isBlank())
         || !SEVERITY_ALL.equals(severityFilter.getValue());
     openSelectedButton.setDisable(!hasSelection);
+    prevButton.setDisable(!hasVisibleRows);
+    nextButton.setDisable(!hasVisibleRows);
     copyDiagnosticsButton.setDisable(!hasVisibleRows);
     clearFilterButton.setDisable(!hasFilter);
   }
@@ -513,7 +566,7 @@ or severity, and the copy button to export the full list for sharing."""));
     }
   }
 
-  private static final class DiagnosticCell extends ListCell<DiagnosticRow> {
+  private final class DiagnosticCell extends ListCell<DiagnosticRow> {
     private final Label severityBadge = new Label();
     private final Label locationBadge = new Label();
     private final Label kindBadge = new Label();
@@ -523,6 +576,7 @@ or severity, and the copy button to export the full list for sharing."""));
     private final Label hintLabel = new Label("Enter or double-click to jump");
     private final HBox metaRow = new HBox(6, severityBadge, locationBadge, kindBadge);
     private final VBox content = new VBox(6, metaRow, messageLabel, sourceLabel, caretLabel, hintLabel);
+    private final ContextMenu rowMenu;
 
     private DiagnosticCell(ListView<DiagnosticRow> parentList) {
       severityBadge.getStyleClass().add("vns-diagnostics-badge");
@@ -537,9 +591,23 @@ or severity, and the copy button to export the full list for sharing."""));
       sourceLabel.setWrapText(true);
       caretLabel.getStyleClass().add("vns-diagnostics-caret-line");
       hintLabel.getStyleClass().add("vns-diagnostics-hint");
+      hintLabel.visibleProperty().bind(selectedProperty());
+      hintLabel.managedProperty().bind(selectedProperty());
       metaRow.setAlignment(Pos.CENTER_LEFT);
       content.getStyleClass().add("vns-diagnostics-row");
       content.setFillWidth(true);
+
+      MenuItem jumpItem = new MenuItem("Jump to Line");
+      jumpItem.setOnAction(e -> {
+        DiagnosticRow row = getItem();
+        if (row != null) { listView.getSelectionModel().select(row); openSelectedRow(); }
+      });
+      MenuItem copyItem = new MenuItem("Copy Diagnostic");
+      copyItem.setOnAction(e -> {
+        DiagnosticRow row = getItem();
+        if (row != null) copySingleDiagnostic(row);
+      });
+      rowMenu = new ContextMenu(jumpItem, copyItem);
     }
 
     @Override
@@ -548,9 +616,11 @@ or severity, and the copy button to export the full list for sharing."""));
       if (empty || item == null) {
         setText(null);
         setGraphic(null);
+        setContextMenu(null);
         getStyleClass().remove("vns-diagnostics-cell");
         return;
       }
+      setContextMenu(rowMenu);
 
       if (!getStyleClass().contains("vns-diagnostics-cell")) {
         getStyleClass().add("vns-diagnostics-cell");
