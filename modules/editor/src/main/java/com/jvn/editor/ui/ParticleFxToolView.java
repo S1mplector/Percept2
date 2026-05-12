@@ -114,8 +114,26 @@ public class ParticleFxToolView extends BorderPane {
     HBox actions = new HBox(8, insertButton, copyButton, stopButton);
     actions.setAlignment(Pos.CENTER_LEFT);
 
-    Label header = new Label("Particle FX");
-    header.getStyleClass().addAll("editor-settings-header", "sidebar-tool-title");
+    Label headerLabel = new Label("Particle FX");
+    headerLabel.getStyleClass().addAll("editor-settings-header", "sidebar-tool-title");
+    HBox header = new HBox(6, headerLabel, SidebarToolHelp.button(this, "Particle FX", """
+        Particle FX generates VNS particle-effect commands for atmospheric \
+scene elements: rain, snow, falling petals, fireflies, dust motes, and leaves.
+
+How to use:
+  1. Choose an effect type from the dropdown.
+  2. Adjust the sliders — density, speed, size, wind drift, and opacity — \
+using the live preview to see the result.
+  3. Click "Copy Command" to copy the finished @particle command to the \
+clipboard, then paste it into your .vns script.
+
+The generated command uses the @particle directive:
+  @particle <type> density=<n> speed=<n> ...
+
+Particles run as an overlay on the game viewport and can be layered on top \
+of backgrounds, characters, or both. Multiple @particle commands can be \
+active simultaneously; use @particle stop to clear them all."""));
+    header.setAlignment(Pos.CENTER_LEFT);
     Label intro = new Label("Build VNS particle commands for rain, snow, petals, fireflies, dust, and leaves.");
     intro.setWrapText(true);
     intro.getStyleClass().add("editor-settings-copy");

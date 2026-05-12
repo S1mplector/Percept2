@@ -169,6 +169,25 @@ public class MenuFlowEditorView extends BorderPane {
   private void buildUi() {
     Label title = new Label("Menu Flow Editor");
     title.getStyleClass().addAll("menu-flow-title", "sidebar-tool-title");
+    HBox titleRow = new HBox(6, title, SidebarToolHelp.button(this, "Menu Flow Editor", """
+        The Menu Flow Editor lets you design and wire the navigation graph for \
+your game's screen-based menus (title screen, pause menu, settings, etc.).
+
+Concepts:
+  • Screen — a named UI state (e.g. MAIN_MENU, SETTINGS, CREDITS). Each \
+screen corresponds to a layout file the runtime will display.
+  • Flow edge — a directional link showing which screen opens when the player \
+takes a particular action (pressing a button on MAIN_MENU leads to SETTINGS).
+  • Wire Mode — click a source item, then click a target screen node on the \
+canvas to create a flow edge without typing.
+
+Workflow:
+  1. Click "Add Screen" to create a new screen node.
+  2. Assign a layout file to the screen using the wiring panel.
+  3. Use Wire Mode or the quick-target field to connect screens.
+  4. Inspect and rename items in the item table on the left.
+  5. Save — changes are written to the menu registry file."""));
+    titleRow.setAlignment(Pos.CENTER_LEFT);
 
     projectLabel.getStyleClass().add("menu-flow-project-label");
     projectLabel.setTextOverrun(OverrunStyle.LEADING_ELLIPSIS);
@@ -187,7 +206,7 @@ public class MenuFlowEditorView extends BorderPane {
     toolbar.getStyleClass().add("menu-flow-toolbar");
     toolbar.setAlignment(Pos.CENTER_LEFT);
 
-    VBox top = new VBox(8, title, projectLabel, toolbar, statusLabel);
+    VBox top = new VBox(8, titleRow, projectLabel, toolbar, statusLabel);
     top.getStyleClass().addAll("menu-flow-header", "sidebar-tool-header");
     setTop(top);
 

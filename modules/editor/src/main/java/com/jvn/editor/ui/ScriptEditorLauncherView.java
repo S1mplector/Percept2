@@ -161,6 +161,22 @@ public class ScriptEditorLauncherView extends BorderPane {
         8,
         CssIcon.list("#d0d0d0"),
         titleLabel,
+        SidebarToolHelp.button(this, "Text Editor", """
+            The Text Editor panel browses and manages all text-based project \
+files (.vns scripts, .jes timelines, .jvl layouts, and plain text assets).
+
+From here you can:
+  • Browse the full project file tree grouped by type
+  • Open any file in the main editor tab by double-clicking it
+  • Open the standalone tabbed text window for a distraction-free writing view
+  • Create a new .vns script using the project template
+  • Refresh the file tree after adding or deleting files externally
+
+The stat chips at the top show a live count of discovered scripts, folders, \
+and VNS label blocks across the project, giving you a quick sense of scope.
+
+The Reveal button opens the selected file's parent folder in Finder / \
+Explorer for external editing or drag-and-drop asset workflows."""),
         titleSpacer,
         compactStatChip("Files", scriptsStat),
         compactStatChip("Folders", foldersStat),

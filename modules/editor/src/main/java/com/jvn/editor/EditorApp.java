@@ -58,6 +58,7 @@ import com.jvn.editor.ui.LanguageDiagnostic;
 import com.jvn.editor.ui.LayeredImageVisualizerView;
 import com.jvn.editor.ui.LayoutEditorLauncherView;
 import com.jvn.editor.ui.LayoutStudioWindowManager;
+import com.jvn.editor.ui.MaintenanceOverlay;
 import com.jvn.editor.ui.MenuFlowEditorView;
 import com.jvn.editor.ui.MetallicJvnLogo;
 import com.jvn.editor.ui.NewProjectWizard;
@@ -1769,7 +1770,7 @@ public class EditorApp extends Application {
     });
     MenuItem miWindowPhoneAssets = new MenuItem("Phone Assets");
     miWindowPhoneAssets.setOnAction(e ->
-        launchPanelAsWindow("Phone Assets", ensurePhoneAssetsToolView(), 920, 760, EditorSidebarPanel.PHONE_ASSETS));
+        launchPanelAsWindow("Phone Assets", MaintenanceOverlay.wrap(ensurePhoneAssetsToolView(), "Late May 2026"), 920, 760, EditorSidebarPanel.PHONE_ASSETS));
     MenuItem miWindowStoryboard = new MenuItem("Storyboard Overlay");
     miWindowStoryboard.setOnAction(e -> {
       StoryboardOverlayView view = ensureStoryboardOverlayView();
@@ -4919,7 +4920,7 @@ public class EditorApp extends Application {
     PhoneAssetsToolView phoneAssets = ensurePhoneAssetsToolView();
     if (targetPane == null || phoneAssets == null) return null;
     if (tabPhoneAssetsTool == null) {
-      tabPhoneAssetsTool = new Tab("Phone Assets", phoneAssets);
+      tabPhoneAssetsTool = new Tab("Phone Assets", MaintenanceOverlay.wrap(phoneAssets, "Late May 2026"));
       tabPhoneAssetsTool.setClosable(true);
       tabPhoneAssetsTool.setOnClosed(e -> {
         tabPhoneAssetsTool = null;

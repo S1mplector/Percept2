@@ -170,6 +170,24 @@ public class ImageAttributesToolView extends BorderPane implements ImageToolPane
   private void buildUi() {
     Label title = new Label(TOOL_TITLE);
     title.getStyleClass().add("sidebar-tool-title");
+    HBox titleRow = new HBox(6, title, SidebarToolHelp.button(this, TOOL_TITLE, """
+        The Image Attributes Tool lets you visually preview and export image \
+attribute declarations for use in VNS scripts.
+
+Workflow:
+  1. Select an image tag from the Tag dropdown (or type one in the filter).
+  2. The preview canvas shows that image at its natural size.
+  3. Drag the preview to pan, scroll to zoom, double-click to reset.
+  4. Switch to the attributes view (bottom section) to inspect and copy \
+the attribute string for use in @imgattr or a script tag.
+
+Profiles save the current tag + attribute combination so you can quickly \
+restore a previously tuned setup without retyping. Profiles are stored \
+per-project.
+
+The Script field shows the exact attribute string to paste into a \
+dialogue line or @imgattr command. Clicking Copy puts it on the clipboard."""));
+    titleRow.setAlignment(Pos.CENTER_LEFT);
     summaryLabel.getStyleClass().add("sidebar-tool-summary");
     summaryLabel.setWrapText(true);
     interactionHintLabel.getStyleClass().add("sidebar-tool-subtitle");
@@ -268,7 +286,7 @@ public class ImageAttributesToolView extends BorderPane implements ImageToolPane
     HBox.setHgrow(profileNameField, Priority.ALWAYS);
 
     VBox top = new VBox(8,
-        title,
+        titleRow,
         summaryLabel,
         tagFilterRow,
         tagRow,

@@ -105,7 +105,20 @@ public class VnsDiagnosticsView extends BorderPane {
     copyDiagnosticsButton.setOnAction(e -> copyVisibleDiagnostics());
     clearFilterButton.setOnAction(e -> clearFilters());
 
-    HBox titleRow = new HBox(8, titleLabel);
+    HBox titleRow = new HBox(8, titleLabel, SidebarToolHelp.button(this, "VNS Diagnostics", """
+        The Diagnostics panel scans the active .vns script file and reports \
+errors, warnings, and informational messages in real time.
+
+Severity levels:
+  • Error   — something that will prevent the script from running correctly \
+(e.g. an undefined character ID, a missing @label target)
+  • Warning — a potential problem that won't block execution but may produce \
+unexpected results (e.g. unreachable labels, duplicate keys)
+  • Info    — style suggestions and best-practice hints
+
+Clicking a diagnostic entry jumps the editor cursor to the affected line so \
+you can fix it immediately. Use the filter bar to narrow results by keyword \
+or severity, and the copy button to export the full list for sharing."""));
     titleRow.setAlignment(Pos.CENTER_LEFT);
     titleRow.getStyleClass().add("vns-diagnostics-title-row");
 

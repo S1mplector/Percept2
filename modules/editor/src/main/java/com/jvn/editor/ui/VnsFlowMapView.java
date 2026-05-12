@@ -7,8 +7,10 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
+import javafx.geometry.Pos;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Line;
 import javafx.scene.shape.Polygon;
@@ -50,7 +52,21 @@ public class VnsFlowMapView extends BorderPane {
     summaryLabel.getStyleClass().add("sidebar-tool-summary");
     summaryLabel.setWrapText(true);
 
-    VBox header = new VBox(6, titleLabel, fileLabel, summaryLabel);
+    HBox titleRow = new HBox(6, titleLabel, SidebarToolHelp.button(this, "Label Flow Map", """
+        The Label Flow Map visualises the @label graph of the active .vns \
+script as a navigable node diagram.
+
+Each node represents a label block. Directed edges show which labels are \
+reachable from choices, jumps (@goto), or fall-through. This helps you:
+  • Spot dead-end labels that can never be reached
+  • Find labels that have no outgoing connections (potential dead ends)
+  • Trace the story path from a given label without reading raw script
+
+Clicking a node in the diagram jumps the script editor to that label's \
+opening line. The map refreshes automatically when you save or switch the \
+active .vns file."""));
+    titleRow.setAlignment(Pos.CENTER_LEFT);
+    VBox header = new VBox(6, titleRow, fileLabel, summaryLabel);
     header.setPadding(new Insets(10, 10, 8, 10));
     header.getStyleClass().add("sidebar-tool-header");
     setTop(header);

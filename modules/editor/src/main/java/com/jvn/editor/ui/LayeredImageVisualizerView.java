@@ -3302,35 +3302,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   }
 
   private Button helpButton(String title, String body) {
-    Button btn = new Button("?");
-    btn.getStyleClass().add("help-button");
-    btn.setFocusTraversable(false);
-    btn.setTooltip(new Tooltip("Click for help: " + title));
-    btn.setOnAction(e -> {
-      Label titleLabel = new Label(title);
-      titleLabel.setStyle("-fx-text-fill: #e8e8e8; -fx-font-size: 13px; -fx-font-weight: bold;");
-      Label bodyLabel = new Label(body);
-      bodyLabel.setWrapText(true);
-      bodyLabel.setStyle("-fx-text-fill: #c8c8c8; -fx-font-size: 11px; -fx-line-spacing: 3;");
-      bodyLabel.setPrefWidth(440);
-      Button okBtn = new Button("Got it");
-      okBtn.setStyle("-fx-font-size: 11px;");
-      VBox root = new VBox(10, titleLabel, bodyLabel, okBtn);
-      root.setPadding(new Insets(16));
-      root.setStyle("-fx-background-color: #1e1e1e;");
-      javafx.stage.Stage helpStage = new javafx.stage.Stage();
-      helpStage.setTitle(title);
-      helpStage.initOwner(getScene() != null ? getScene().getWindow() : null);
-      helpStage.initModality(javafx.stage.Modality.NONE);
-      javafx.scene.Scene helpScene = new javafx.scene.Scene(root);
-      if (getScene() != null) helpScene.getStylesheets().addAll(getScene().getStylesheets());
-      helpStage.setScene(helpScene);
-      helpStage.setWidth(490);
-      helpStage.sizeToScene();
-      okBtn.setOnAction(ev -> helpStage.close());
-      helpStage.show();
-    });
-    return btn;
+    return SidebarToolHelp.button(this, title, body);
   }
 
   private void showNewSetDialog() {

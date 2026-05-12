@@ -98,6 +98,24 @@ public class LayoutEditorLauncherView extends BorderPane {
 
     Label title = new Label("Layout Editors");
     title.getStyleClass().addAll("layout-launcher-title", "sidebar-tool-title");
+    HBox titleRow = new HBox(6, title, SidebarToolHelp.button(this, "Layout Editors", """
+        The Layout Editors panel manages dialogue box and UI layout files for \
+your project.
+
+Layout files (*.jvl) define the visual style and positioning of text \
+containers, speaker name boxes, and other on-screen UI elements shown during \
+gameplay.
+
+From this panel you can:
+  • Browse all layout files discovered in the project
+  • Open a layout in the WYSIWYG Layout Editor for visual editing
+  • Create a new blank layout from the template
+  • Wire a layout to a script channel so it applies during dialogue
+
+Each layout card shows the file name, the channel it's assigned to, and \
+quick action buttons to open or rewire it. Use the filter bar to search \
+across large projects."""));
+    titleRow.setAlignment(Pos.CENTER_LEFT);
 
     filterField.setPromptText("Filter layout files...");
     filterField.getStyleClass().add("layout-launcher-field");
@@ -115,7 +133,7 @@ public class LayoutEditorLauncherView extends BorderPane {
 
     summaryLabel.getStyleClass().addAll("layout-launcher-summary", "sidebar-tool-summary");
 
-    VBox top = new VBox(8, title, summaryLabel, topActions, new Separator());
+    VBox top = new VBox(8, titleRow, summaryLabel, topActions, new Separator());
     top.getStyleClass().addAll("layout-launcher-header", "sidebar-tool-header");
     setTop(top);
 

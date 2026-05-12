@@ -118,7 +118,23 @@ public class AssetBrowserView extends BorderPane {
     HBox.setHgrow(filterField, Priority.ALWAYS);
     typeFilter.setPrefWidth(100);
 
-    VBox header = new VBox(6, titleLabel, rootLabel, filterRow);
+    HBox titleRow = new HBox(6, titleLabel, SidebarToolHelp.button(this, "Asset Browser", """
+        The Asset Browser shows all media files (images, audio, fonts, etc.) \
+found inside your project's assets directory.
+
+Use the filter bar to narrow results by filename. The type dropdown limits \
+results to a specific file extension category.
+
+Clicking an asset shows a preview, its relative path, and metadata in the \
+panel below. From there you can:
+  • Copy path — copy the relative path to use in scripts or dialogue
+  • Open      — open the file in the system default application
+  • Use Asset — insert the asset reference at the current editor cursor
+
+Assets are read-only here; to add or remove project assets use your OS \
+file manager or version control tools."""));
+    titleRow.setAlignment(Pos.CENTER_LEFT);
+    VBox header = new VBox(6, titleRow, rootLabel, filterRow);
     header.setPadding(new Insets(10, 10, 8, 10));
     header.getStyleClass().add("sidebar-tool-header");
 

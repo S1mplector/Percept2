@@ -242,7 +242,25 @@ public class StoryboardOverlayView extends BorderPane {
     HBox navigationRow = new HBox(8, previousButton, nextButton, matchButton, revealButton);
     navigationRow.setAlignment(Pos.CENTER_LEFT);
 
-    VBox header = new VBox(6, titleLabel, summaryLabel, targetLabel, sourceLabel, framesSummaryLabel, matchLabel, folderRow, filterField, filterHintLabel, overlayRow, navigationRow, statusLabel);
+    HBox titleRow = new HBox(6, titleLabel, SidebarToolHelp.button(this, "Storyboard Overlay", """
+        The Storyboard Overlay pins a storyboard image frame flush over the \
+active VNS or JES preview window for shot matching and staging reference.
+
+How to use:
+  1. Point the tool at a folder containing your storyboard images \
+(PNG, JPG, or WebP).
+  2. The tool scans the folder and lists all frames.
+  3. Enable the overlay and select a frame to show it over the current preview.
+  4. Use the Prev / Next buttons or click a frame in the list to navigate.
+  5. Adjust the overlay opacity slider so you can see both layers.
+
+"Follow active scene" mode automatically matches the overlay frame to the \
+label name of the currently active script scene when a frame filename starts \
+with or contains the label name — useful for structured storyboard exports.
+
+"Hide UI" collapses editor chrome so you can compare composition cleanly."""));
+    titleRow.setAlignment(Pos.CENTER_LEFT);
+    VBox header = new VBox(6, titleRow, summaryLabel, targetLabel, sourceLabel, framesSummaryLabel, matchLabel, folderRow, filterField, filterHintLabel, overlayRow, navigationRow, statusLabel);
     header.setPadding(new Insets(10, 10, 8, 10));
 
     VBox previewBox = new VBox(8, previewImage, previewPathLabel, previewMetaLabel);

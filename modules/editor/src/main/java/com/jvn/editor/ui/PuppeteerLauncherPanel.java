@@ -25,20 +25,16 @@ import com.jvn.editor.ui.actioneditor.PropertyType;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.Scene;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
-import javafx.scene.control.TextArea;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
-import javafx.stage.Modality;
-import javafx.stage.Stage;
 
 /**
  * Right-panel extension that shows the VNS scene snapshot at the current cursor line
@@ -367,32 +363,7 @@ button then opens it in the editor."""));
   }
 
   private Button helpButton(String title, String body) {
-    Button btn = new Button("?");
-    btn.getStyleClass().add("help-button");
-    btn.setFocusTraversable(false);
-    btn.setOnAction(e -> {
-      Stage stage = new Stage();
-      stage.initModality(Modality.NONE);
-      stage.initOwner(getScene() != null ? getScene().getWindow() : null);
-      stage.setTitle(title);
-      TextArea area = new TextArea(body);
-      area.setEditable(false);
-      area.setWrapText(true);
-      area.setStyle("-fx-control-inner-background: #1e1e1e; -fx-text-fill: #e0e0e0;"
-          + "-fx-font-size: 12px; -fx-background-color: #1e1e1e;");
-      Button close = new Button("Got it");
-      close.setDefaultButton(true);
-      close.setOnAction(ev -> stage.close());
-      VBox root = new VBox(10, area, close);
-      root.setPadding(new Insets(14));
-      root.setAlignment(Pos.BOTTOM_RIGHT);
-      VBox.setVgrow(area, Priority.ALWAYS);
-      Scene scene = new Scene(root, 490, 340);
-      if (getScene() != null) scene.getStylesheets().addAll(getScene().getStylesheets());
-      stage.setScene(scene);
-      stage.show();
-    });
-    return btn;
+    return SidebarToolHelp.button(this, title, body);
   }
 
   public void setOnLaunch(Consumer<LaunchRequest> handler) {

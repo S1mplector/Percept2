@@ -564,7 +564,25 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     sidebarHideButton.getStyleClass().add("image-tool-sidebar-toggle");
     Region sidebarHeaderSpacer = new Region();
     HBox.setHgrow(sidebarHeaderSpacer, Priority.ALWAYS);
-    HBox sidebarHeader = new HBox(8, title, sidebarHeaderSpacer, sidebarHideButton);
+    HBox sidebarHeader = new HBox(8, title, SidebarToolHelp.button(this, TOOL_TITLE, """
+        Scene Lighting Studio lets you build and preview multi-layer colour \
+grade setups ("light rigs") and apply them to character and background images.
+
+Core concepts:
+  • Subject image — the character or background you're grading
+  • Light rig    — a named collection of light sources; each light has a \
+colour, shape (directional, ambient, spot), and layer (character / background)
+  • Export       — renders the graded image to disk for use in the game
+
+Typical workflow:
+  1. Select a character tag or background image from the tag dropdowns.
+  2. Drag the subject in the preview to test scene framing.
+  3. Add lights from the Lights section and adjust their colour and shape.
+  4. Save the setup under a name for reuse across sessions.
+  5. Export the result when you're satisfied.
+
+The cross handle controls the shadow fall target and the diamond handle \
+sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
     sidebarHeader.setAlignment(Pos.CENTER_LEFT);
     sidebarHeader.getStyleClass().add("sidebar-tool-header");
 

@@ -249,9 +249,30 @@ public class VersionControlView extends BorderPane {
     VBox statusBox = new VBox(2, branchLabel, remoteRow, syncLabel, summaryLabel, conflictLabel);
     statusBox.getStyleClass().add("vcs-status-stack");
 
+    HBox titleRow = new HBox(6, titleLabel, SidebarToolHelp.button(this, "Version Control", """
+        The Version Control panel provides Git integration for your JVN project.
+
+Core workflow:
+  • Stage files — tick the checkboxes next to changed files
+  • Write a commit message and click Commit to record a snapshot
+  • Push / Pull sync your local commits with the remote repository
+
+Branch management:
+  • The current branch is shown in the header
+  • Use the branch row to create or switch branches
+
+Remote setup:
+  If your project doesn't have a remote yet, the panel will guide you through \
+connecting to GitHub or another host. You can use Option A (create a new \
+GitHub repo via the gh CLI) or Option B (paste an existing remote URL).
+
+The Changes list shows files that differ from the last commit. \
+The Log shows recent commits on the current branch."""));
+    titleRow.setAlignment(Pos.CENTER_LEFT);
+
     VBox top = new VBox(
         6,
-        titleLabel,
+        titleRow,
         repoLabel,
         toolLabel,
         statusBox,
