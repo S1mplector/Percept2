@@ -125,6 +125,7 @@ public final class JvnHub {
   private final List<AbstractButton> actionButtons = new ArrayList<>();
   private final AtomicReference<Process> runningProcess = new AtomicReference<>();
   private final AtomicBoolean updateCheckRunning = new AtomicBoolean(false);
+  private int lastKnownIncoming = -1;
   private int activeStepIndex = -1;
   private String activeStepLabel = "";
 
@@ -581,13 +582,13 @@ public final class JvnHub {
     actionGrid.setOpaque(false);
 
     runEditorButton = makeAction("Run Editor", "Launch the full JVN editor.",
-        VectorIcon.Kind.EDIT, null, () -> runGradle(":editor:run", "Run Editor"));
+        VectorIcon.Kind.EDIT, null, () -> guardedRun("Run Editor", () -> runGradle(":editor:run", "Run Editor")));
 
     runLauncherButton = makeAction("Run Launcher", "Launch the standalone JVN launcher.",
-        VectorIcon.Kind.ROCKET, null, () -> runGradle(":editor:runLauncher", "Run Launcher"));
+        VectorIcon.Kind.ROCKET, null, () -> guardedRun("Run Launcher", () -> runGradle(":editor:runLauncher", "Run Launcher")));
 
     buildAllButton = makeAction("Build All", "Compile every module.",
-        VectorIcon.Kind.HAMMER, null, () -> runGradle("build", "Build All"));
+        VectorIcon.Kind.HAMMER, null, () -> guardedRun("Build All", () -> runGradle("build", "Build All")));
 
     runTestsButton = makeAction("Run Tests", "Developer Mode: execute the full test suite.",
         VectorIcon.Kind.CHECK, ACCENT_DEV, () -> runGradle("test", "Run Tests"));
@@ -596,7 +597,7 @@ public final class JvnHub {
         VectorIcon.Kind.SLIDERS, ACCENT_DEV, this::showGradleOptionsDialog);
 
     buildShortcutsButton = makeAction("Build Shortcuts", "Install Start Menu / Applications shortcuts for this OS.",
-        VectorIcon.Kind.SHORTCUT, null, this::installShortcuts);
+        VectorIcon.Kind.SHORTCUT, null, () -> guardedRun("Build Shortcuts", this::installShortcuts));
 
     updateEngineButton = new UpdateEngineButton("Update Engine",
         VectorIcon.of(VectorIcon.Kind.REFRESH, 16, ACCENT_NEUTRAL));
@@ -1141,6 +1142,34 @@ public final class JvnHub {
   }
 
   // --- Task execution --------------------------------------------------------
+
+  /**
+   * Runs {@code action} immediately, or first warns the user that the engine is behind
+   * origin when the last update check reported one or more incoming commits.
+   * Choosing "Update Now" triggers {@link #updateEngine()}; "Run Anyway" proceeds with
+   * the original action; closing the dialog cancels entirely.
+   */
+  private void guardedRun(String label, Runnable action) {
+    if (lastKnownIncoming <= 0) {
+      action.run();
+      return;
+    }
+    String commitWord = lastKnownIncoming == 1 ? "commit" : "commits";
+    int choice = showUpdateDialog(
+        "Engine Update Available",
+        "Your engine is " + lastKnownIncoming + " " + commitWord + " behind origin.",
+        "Running '" + label + "' without updating may cause unexpected behaviour "
+            + "or use outdated project files.\n\n"
+            + "Click 'Update Now' to pull the latest changes first, "
+            + "or 'Run Anyway' to continue with the current version.",
+        new String[]{"Update Now", "Run Anyway"},
+        UpdateDialogTone.WARNING);
+    if (choice == 0) {
+      updateEngine();
+    } else {
+      action.run();
+    }
+  }
 
   private void runGradle(String task, String label) {
     if (!acquire(label)) return;
@@ -2083,10 +2112,12 @@ public final class JvnHub {
   private void checkIncomingUpdates(boolean fetchFirst) {
     if (updateEngineButton == null) return;
     if (!Files.isDirectory(projectRoot.resolve(".git"))) {
+      lastKnownIncoming = -1;
       updateEngineButton.setIncomingCount(-1);
       return;
     }
     if (!commandExists("git")) {
+      lastKnownIncoming = -1;
       updateEngineButton.setIncomingCount(-1);
       return;
     }
@@ -2115,6 +2146,7 @@ public final class JvnHub {
         } catch (Exception ignored) {
           // Keep the badge hidden when Git cannot report an upstream count.
         }
+        lastKnownIncoming = count;
         updateEngineButton.setIncomingCount(count);
       }
     }.execute();
