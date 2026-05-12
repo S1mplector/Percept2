@@ -69,6 +69,13 @@ public class VnsDiagnosticsView extends BorderPane {
     summaryLabel.setWrapText(true);
     statsLabel.getStyleClass().add("vns-diagnostics-stats");
     statsLabel.setWrapText(true);
+    statsLabel.setVisible(false);
+    statsLabel.setManaged(false);
+    statsLabel.textProperty().addListener((obs, old, text) -> {
+      boolean hasText = text != null && !text.isBlank();
+      statsLabel.setVisible(hasText);
+      statsLabel.setManaged(hasText);
+    });
     filteredCountLabel.getStyleClass().add("vns-diagnostics-filter-count");
     errorCountLabel.getStyleClass().addAll("vns-diagnostics-chip", "vns-diagnostics-chip-error");
     warningCountLabel.getStyleClass().addAll("vns-diagnostics-chip", "vns-diagnostics-chip-warning");
@@ -422,15 +429,6 @@ or severity, and the copy button to export the full list for sharing."""));
                                 String level,
                                 String kindLabel) {
     return buildSearchText(Diagnostic.fromVns(issue), oneBasedLine, oneBasedColumn, level, kindLabel, "");
-  }
-
-  static String buildSearchText(VnsScriptAnalyzer.Diagnostic issue,
-                                int oneBasedLine,
-                                int oneBasedColumn,
-                                String level,
-                                String kindLabel,
-                                String sourceLine) {
-    return buildSearchText(Diagnostic.fromVns(issue), oneBasedLine, oneBasedColumn, level, kindLabel, sourceLine);
   }
 
   static String buildSearchText(Diagnostic issue,
