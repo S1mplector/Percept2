@@ -51,7 +51,7 @@ public final class MaintenanceOverlay extends StackPane {
     iconTitle.setAlignment(Pos.CENTER_LEFT);
 
     // ── Body ────────────────────────────────────────────────────────────
-    Label subtitle = new Label("This tool is temporarily unavailable.");
+    Label subtitle = new Label("This tool seems to be temporarily unavailable.");
     subtitle.setStyle("-fx-font-size: 12px; -fx-text-fill: #cccccc;");
     subtitle.setWrapText(true);
 
