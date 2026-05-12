@@ -5,6 +5,7 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
+import com.jvn.editor.ui.SidebarToolHelp;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 
 import javafx.animation.Animation;
@@ -69,6 +70,15 @@ public class EntitySelector extends VBox {
 
         Label header = new Label("Entities");
         header.setStyle("-fx-font-weight: bold; -fx-text-fill: #e6e6e6; -fx-font-size: 12px;");
+        HBox headerRow = new HBox(6, header, SidebarToolHelp.button(this, "Entities",
+            "Lists all animatable objects and groups in the current scene.\n\n" +
+            "• Entities are scene2D nodes (sprites, labels, cameras) loaded at runtime and available for animation.\n" +
+            "• Groups let you animate multiple entities together on a single coordinated track.\n" +
+            "• Click an entity to activate its track in the timeline.\n" +
+            "• Use the filter field to quickly find an entity by name.\n" +
+            "• \"+ Group\" creates a new animation group.\n" +
+            "• \"Actions\" shows bulk operations such as solo, hide, and delete."));
+        headerRow.setAlignment(Pos.CENTER_LEFT);
 
         filterField = new TextField();
         filterField.setPromptText("Filter entities...");
@@ -124,7 +134,7 @@ public class EntitySelector extends VBox {
         groupPromptOverlay = new ActionEditorTextPromptOverlay();
         actionOverlay = new ActionEditorDialogOverlay();
 
-        content.getChildren().addAll(header, filterField, lblEmptyHint, treeView, toolbar);
+        content.getChildren().addAll(headerRow, filterField, lblEmptyHint, treeView, toolbar);
         StackPane contentStack = new StackPane(content, actionOverlay, groupPromptOverlay);
         contentStack.setMinWidth(0);
         VBox.setVgrow(contentStack, Priority.ALWAYS);

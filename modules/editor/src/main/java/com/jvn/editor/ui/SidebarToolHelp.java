@@ -11,6 +11,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
+import javafx.stage.Window;
 
 /** Factory for the standardised sidebar-tool help (?) button. */
 public final class SidebarToolHelp {
@@ -30,32 +31,58 @@ public final class SidebarToolHelp {
     btn.setFocusTraversable(false);
     btn.setTooltip(new Tooltip("Click for help: " + title));
     btn.setOnAction(e -> {
-      Stage stage = new Stage();
-      stage.initModality(Modality.NONE);
-      stage.initOwner(owner.getScene() != null ? owner.getScene().getWindow() : null);
-      stage.setTitle(title);
-
-      TextArea area = new TextArea(body);
-      area.setEditable(false);
-      area.setWrapText(true);
-      area.setStyle("-fx-control-inner-background: #1e1e1e; -fx-text-fill: #e0e0e0;"
-          + "-fx-font-size: 12px; -fx-background-color: #1e1e1e;");
-
-      Button close = new Button("Got it");
-      close.setDefaultButton(true);
-      close.setOnAction(ev -> stage.close());
-
-      VBox root = new VBox(10, area, close);
-      root.setPadding(new Insets(14));
-      root.setAlignment(Pos.BOTTOM_RIGHT);
-      VBox.setVgrow(area, Priority.ALWAYS);
-
-      Scene scene = new Scene(root, 490, 340);
       Scene ownerScene = owner.getScene();
-      if (ownerScene != null) scene.getStylesheets().addAll(ownerScene.getStylesheets());
-      stage.setScene(scene);
-      stage.show();
+      openHelp(ownerScene != null ? ownerScene.getWindow() : null,
+               ownerScene != null ? ownerScene.getStylesheets() : null,
+               title, body);
     });
     return btn;
+  }
+
+  /**
+   * Creates a {@code ?} button owned by a {@link Window} (e.g. a {@link Stage}) rather than a Node.
+   * Use this when the button lives inside a non-Node host such as {@code PuppeteerWindow}.
+   */
+  public static Button button(Window ownerWindow, String title, String body) {
+    Button btn = new Button("?");
+    btn.getStyleClass().add("help-button");
+    btn.setFocusTraversable(false);
+    btn.setTooltip(new Tooltip("Click for help: " + title));
+    btn.setOnAction(e -> {
+      Scene ownerScene = ownerWindow != null ? ownerWindow.getScene() : null;
+      openHelp(ownerWindow,
+               ownerScene != null ? ownerScene.getStylesheets() : null,
+               title, body);
+    });
+    return btn;
+  }
+
+  private static void openHelp(Window ownerWindow,
+                                java.util.List<String> stylesheets,
+                                String title, String body) {
+    Stage stage = new Stage();
+    stage.initModality(Modality.NONE);
+    stage.initOwner(ownerWindow);
+    stage.setTitle(title);
+
+    TextArea area = new TextArea(body);
+    area.setEditable(false);
+    area.setWrapText(true);
+    area.setStyle("-fx-control-inner-background: #1e1e1e; -fx-text-fill: #e0e0e0;"
+        + "-fx-font-size: 12px; -fx-background-color: #1e1e1e;");
+
+    Button close = new Button("Got it");
+    close.setDefaultButton(true);
+    close.setOnAction(ev -> stage.close());
+
+    VBox root = new VBox(10, area, close);
+    root.setPadding(new Insets(14));
+    root.setAlignment(Pos.BOTTOM_RIGHT);
+    VBox.setVgrow(area, Priority.ALWAYS);
+
+    Scene scene = new Scene(root, 490, 340);
+    if (stylesheets != null) scene.getStylesheets().addAll(stylesheets);
+    stage.setScene(scene);
+    stage.show();
   }
 }

@@ -10,6 +10,7 @@ import com.jvn.core.animation.EasingSpec;
 import com.jvn.editor.ui.CssIcon;
 import com.jvn.editor.ui.EditorDialogs;
 import com.jvn.editor.ui.ProjectViewportSpec;
+import com.jvn.editor.ui.SidebarToolHelp;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -170,7 +171,18 @@ public class KeyframeEditor extends VBox {
         lblSelectionMode = new Label("No Selection");
         lblSelectionMode.setStyle(BADGE_IDLE_STYLE);
 
-        HBox headerRow = new HBox(8, header, createSpacer(), lblSelectionMode);
+        HBox headerRow = new HBox(8, header,
+            SidebarToolHelp.button(this, "Keyframe Editor",
+                "Inspect and edit the selected keyframe's properties.\n\n" +
+                "• Time — position of the keyframe on the timeline in milliseconds\n" +
+                "• Value — the numeric value of the animated property at this keyframe\n" +
+                "• Easing — the interpolation curve applied from this keyframe to the next\n" +
+                "  – Click \"…\" to open the curve editor for precise bezier control\n" +
+                "  – \"Presets\" opens the saved easing preset library\n" +
+                "• Pivot Anchors — quick-set pivot X/Y presets (top-left, center, etc.)\n\n" +
+                "Multi-selection mode activates when two or more keyframes are selected,\n" +
+                "enabling batch time/value offsets across the entire selection."),
+            createSpacer(), lblSelectionMode);
         headerRow.setAlignment(Pos.CENTER_LEFT);
 
         lblEmptyHint = new Label("Select a keyframe in the timeline to edit timing, value, easing, and curve behavior here.");

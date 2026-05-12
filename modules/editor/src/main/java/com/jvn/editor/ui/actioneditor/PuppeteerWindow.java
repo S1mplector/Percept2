@@ -28,6 +28,7 @@ import com.jvn.core.vn.stage.VnStagePresetLoader;
 import com.jvn.editor.ui.EditorTheme;
 import com.jvn.editor.ui.ProjectViewportSpec;
 import com.jvn.editor.ui.PuppeteerLauncherPanel;
+import com.jvn.editor.ui.SidebarToolHelp;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 
 import javafx.animation.AnimationTimer;
@@ -1876,15 +1877,49 @@ public class PuppeteerWindow extends Stage {
 
         sidebarAdvancedUnavailableCard = buildSidebarCard(
             "Advanced",
+            "The Matrix / Blur, Color Matrix, Camera DOF, and Custom Channels inspectors are available when an entity track or the runtime camera track is selected.\n\nSelect an entity or the camera in the timeline, then return to this tab to access the advanced controls.",
             createSidebarHintLabel("Advanced transform and custom-channel authoring is available for entity and runtime camera tracks."));
-        sidebarMatrixCard = buildSidebarCard("Matrix / Blur", buildSidebarMatrixInspector());
-        sidebarColorMatrixCard = buildSidebarCard("Color Matrix", buildSidebarColorMatrixInspector());
-        sidebarCameraDofCard = buildSidebarCard("Camera DOF", buildSidebarCameraDofInspector());
-        sidebarCustomChannelsCard = buildSidebarCard("Custom Channels", buildSidebarCustomChannelInspector());
+        sidebarMatrixCard = buildSidebarCard("Matrix / Blur",
+            "Raw 2D transform coefficients for advanced per-keyframe control.\n\n" +
+            "• MXX / MXY — first column of the 2×2 linear transform (scale X and horizontal shear)\n" +
+            "• MYX / MYY — second column (vertical shear and scale Y)\n" +
+            "• TX / TY — translation offsets applied after the linear transform\n" +
+            "• Blur — Gaussian blur radius in scene units (0 = sharp)\n\n" +
+            "Identity: MXX=1, MXY=0, MYX=0, MYY=1, TX=0, TY=0, Blur=0.\n" +
+            "\"Fill Identity\" resets all fields. \"Key At Playhead\" writes all values as a single keyframe.",
+            buildSidebarMatrixInspector());
+        sidebarColorMatrixCard = buildSidebarCard("Color Matrix",
+            "A 4×5 RGBA color transform matrix applied per-pixel to the entity.\n\n" +
+            "Each row targets an output channel (R, G, B, A). Each row of 5 values computes:\n" +
+            "  out = m_0·R + m_1·G + m_2·B + m_3·A + m_4\n\n" +
+            "The fifth column (m_4) is a constant offset added to the channel (0–1 range).\n\n" +
+            "Identity: diagonal = 1, all other values = 0.\n" +
+            "\"Fill Identity\" resets to no color transformation. \"Key At Playhead\" writes all 20 values.",
+            buildSidebarColorMatrixInspector());
+        sidebarCameraDofCard = buildSidebarCard("Camera DOF",
+            "Depth of Field applies a focus-blur effect to the scene camera.\n\n" +
+            "• Focus — Z depth of the focal plane; entities at this depth appear sharp\n" +
+            "• Strength — defocus rate for entities moving away from the focal plane\n" +
+            "• Max Blur — upper limit on the blur radius applied to out-of-focus entities\n\n" +
+            "Set Strength to 0 to disable DOF. \"Fill Neutral\" resets all values to no-blur defaults.",
+            buildSidebarCameraDofInspector());
+        sidebarCustomChannelsCard = buildSidebarCard("Custom Channels",
+            "Key arbitrary numeric properties beyond the standard property types.\n\n" +
+            "• Enter a dot-separated key (e.g. my.effect.intensity) to create a freeform channel.\n" +
+            "• Known engine keys (color.m00, dof.focus, etc.) appear in the dropdown for quick access.\n" +
+            "• Dedicated matrix and color matrix keys are mirrored by the inspectors above.\n\n" +
+            "Values are keyed at the current playhead using the selected easing and interpolation.",
+            buildSidebarCustomChannelInspector());
 
         ScrollPane content = buildSidebarTabContent(
             buildSidebarCard(
                 "Selection",
+                "Shows the current editing context in the timeline.\n\n" +
+                "• Target — the entity or group whose track is active\n" +
+                "• Scope — whether the full entity or a single property track is selected\n" +
+                "• Property — the currently active property type (X, Rotation, Alpha, etc.)\n" +
+                "• Playhead — current time position in milliseconds\n" +
+                "• Selected Keyframes — count of highlighted keyframes in the timeline",
                 buildSidebarInfoBlock("Target", lblSidebarSelectionTarget),
                 buildSidebarInfoBlock("Scope", lblSidebarSelectionScope),
                 buildSidebarInfoBlock("Property", lblSidebarSelectionProperty),
@@ -1893,6 +1928,11 @@ public class PuppeteerWindow extends Stage {
             ),
             buildSidebarCard(
                 "Actions",
+                "Keyframe actions for the current selection.\n\n" +
+                "• Add Keyframe — inserts a keyframe at the playhead for the selected entity and property\n" +
+                "• Focus Timeline — zooms the timeline to fit all selected keyframes on screen\n" +
+                "• Prev / Next Key — moves the playhead to the nearest keyframe on either side\n" +
+                "• Clear — deselects all entities and keyframes",
                 selectionActionsPrimary,
                 selectionActionsSecondary
             ),
@@ -1934,6 +1974,12 @@ public class PuppeteerWindow extends Stage {
         ScrollPane content = buildSidebarTabContent(
             buildSidebarCard(
                 "Project",
+                "Overview of the current animation project.\n\n" +
+                "• Tracks — total entity tracks in the timeline\n" +
+                "• Groups — entity groups for coordinated multi-track animation\n" +
+                "• Duration — total timeline length in milliseconds\n" +
+                "• Orbit Anchors — named pivot points used by the orbit animation tool\n" +
+                "• Lighting Stage — the VN stage preset loaded for lighting reference",
                 buildSidebarInfoBlock("Tracks", lblSidebarSceneTracks),
                 buildSidebarInfoBlock("Groups", lblSidebarSceneGroups),
                 buildSidebarInfoBlock("Duration", lblSidebarSceneDuration),
@@ -1942,6 +1988,14 @@ public class PuppeteerWindow extends Stage {
             ),
             buildSidebarCard(
                 "Preview",
+                "Live preview viewport state and layout controls.\n\n" +
+                "• Viewport — current canvas resolution and pan/zoom offset\n" +
+                "• Camera — whether a runtime camera track is active\n" +
+                "• Code Pane — whether the JES export panel is currently shown\n\n" +
+                "\"Fit Preview\" resets zoom to show all scene content.\n" +
+                "\"Focus Preview\" switches to a full-screen preview layout, hiding the timeline.\n" +
+                "\"Hide/Show Code Pane\" toggles the right-side JES output panel.\n" +
+                "\"Refresh Code\" regenerates JES from the current timeline state.",
                 buildSidebarInfoBlock("Viewport", lblSidebarSceneViewport),
                 buildSidebarInfoBlock("Camera", lblSidebarSceneCamera),
                 buildSidebarInfoBlock("Code Pane", lblSidebarSceneCodePane),
@@ -2098,6 +2152,22 @@ public class PuppeteerWindow extends Stage {
         card.setStyle(STYLE_SIDEBAR_CARD);
         card.setMinWidth(0);
         card.getChildren().add(titleLabel);
+        if (content != null) {
+            card.getChildren().addAll(content);
+        }
+        return card;
+    }
+
+    private VBox buildSidebarCard(String title, String helpText, Node... content) {
+        Label titleLabel = new Label(title);
+        titleLabel.setStyle(STYLE_SIDEBAR_CARD_TITLE);
+        HBox titleRow = new HBox(4, titleLabel, SidebarToolHelp.button(this, title, helpText));
+        titleRow.setAlignment(Pos.CENTER_LEFT);
+
+        VBox card = new VBox(8);
+        card.setStyle(STYLE_SIDEBAR_CARD);
+        card.setMinWidth(0);
+        card.getChildren().add(titleRow);
         if (content != null) {
             card.getChildren().addAll(content);
         }
