@@ -152,6 +152,7 @@ public final class JvnHub {
   private boolean gradleOfflineEnabled = false;
   private boolean gradleRefreshDependenciesEnabled = false;
   private boolean gradleNoBuildCacheEnabled = false;
+  private boolean gradleNoDaemonEnabled = false;
   private String gradleExtraArgs = "";
   /** Header shortcut for a lightweight local environment report. */
   private HeaderIconButton diagnosticsButton;
@@ -747,6 +748,7 @@ public final class JvnHub {
     JCheckBox offline = optionCheckBox("Offline mode", "Add --offline and avoid network dependency resolution.", gradleOfflineEnabled);
     JCheckBox refresh = optionCheckBox("Refresh dependencies", "Add --refresh-dependencies.", gradleRefreshDependenciesEnabled);
     JCheckBox noBuildCache = optionCheckBox("No build cache", "Add --no-build-cache.", gradleNoBuildCacheEnabled);
+    JCheckBox noDaemon = optionCheckBox("No daemon", "Add --no-daemon. Enable only when invoking via ./gradlew :hub:run to avoid nested-daemon conflicts. Leave off for normal hub launches to allow daemon reuse.", gradleNoDaemonEnabled);
 
     JTextField extraArgs = new JTextField(gradleExtraArgs);
     extraArgs.setForeground(TEXT_PRIMARY);
@@ -763,7 +765,7 @@ public final class JvnHub {
         BorderFactory.createLineBorder(BORDER_NEUTRAL),
         new EmptyBorder(12, 12, 12, 12)));
     options.setLayout(new BoxLayout(options, BoxLayout.Y_AXIS));
-    for (JCheckBox box : List.of(stacktrace, info, debug, offline, refresh, noBuildCache)) {
+    for (JCheckBox box : List.of(stacktrace, info, debug, offline, refresh, noBuildCache, noDaemon)) {
       box.setAlignmentX(Component.LEFT_ALIGNMENT);
       options.add(box);
       options.add(Box.createVerticalStrut(6));
@@ -787,6 +789,7 @@ public final class JvnHub {
       gradleOfflineEnabled = false;
       gradleRefreshDependenciesEnabled = false;
       gradleNoBuildCacheEnabled = false;
+      gradleNoDaemonEnabled = false;
       gradleExtraArgs = "";
       dialog.dispose();
       setStatus("Gradle options reset", ACCENT_DEV);
@@ -804,6 +807,7 @@ public final class JvnHub {
       gradleOfflineEnabled = offline.isSelected();
       gradleRefreshDependenciesEnabled = refresh.isSelected() && !offline.isSelected();
       gradleNoBuildCacheEnabled = noBuildCache.isSelected();
+      gradleNoDaemonEnabled = noDaemon.isSelected();
       gradleExtraArgs = extraArgs.getText() == null ? "" : extraArgs.getText().trim();
       dialog.dispose();
       setStatus("Gradle options updated", ACCENT_DEV);
@@ -1176,6 +1180,7 @@ public final class JvnHub {
     List<String> cmd = new ArrayList<>();
     cmd.add(gradleCommand());
     cmd.add("--console=plain");
+    if (gradleNoDaemonEnabled) cmd.add("--no-daemon");
     if (developerModeEnabled) {
       cmd.add("-Djvn.hub.developerMode=true");
       cmd.add("-Djvn.editor.developerMode=true");
@@ -1217,6 +1222,7 @@ public final class JvnHub {
       options.add("--refresh-dependencies");
     }
     if (gradleNoBuildCacheEnabled) options.add("--no-build-cache");
+    if (gradleNoDaemonEnabled) options.add("--no-daemon");
     options.addAll(splitExtraGradleArgs(gradleExtraArgs));
     return options;
   }
@@ -1636,12 +1642,7 @@ public final class JvnHub {
         ProcessBuilder pb = new ProcessBuilder(command)
             .directory(projectRoot.toFile())
             .redirectErrorStream(true);
-        // Gradle daemons can interact badly when invoked from within another Gradle
-        // task JVM. --no-daemon keeps child gradle invocations self-contained.
         if (command.get(0).endsWith("gradlew") || command.get(0).endsWith("gradlew.bat")) {
-          List<String> augmented = new ArrayList<>(command);
-          augmented.add(1, "--no-daemon");
-          pb.command(augmented);
           Path packagedGradleHome = projectRoot.resolve(".jvn-gradle-user-home");
           if (Files.isDirectory(packagedGradleHome)) {
             pb.environment().put("GRADLE_USER_HOME", packagedGradleHome.toAbsolutePath().toString());
