@@ -1,3 +1,7 @@
+/*
+The editor.css file defines the visual styling for the editor module, including icons, runtime console, and version control system (VCS) components. It establishes a cohesive dark theme with specific color schemes for various UI elements, ensuring a consistent and polished user experience across the editor's interface. The styles include base settings for icons, buttons, text fields, lists, and specialized components like the runtime console and VCS panels, with attention to states such as hover, pressed, disabled, and focused.
+*/
+
 /* Icon base */
 .icon,
 .jvn-fx-icon,
@@ -938,6 +942,31 @@
 .tree-view { -fx-background-color: #121212; }
 .tree-cell { -fx-background-color: #121212; -fx-text-fill: #e6e6e6; }
 .tree-cell:filled:selected, .tree-cell:filled:selected:hover { -fx-background-color: #2a2a2a; -fx-text-fill: #e6e6e6; }
+
+/* CheckBox — global dark override */
+.check-box {
+  -fx-text-fill: #d8d8d8;
+  -fx-font-size: 11px;
+}
+.check-box .box {
+  -fx-background-color: #1c1c1c;
+  -fx-border-color: #404040;
+  -fx-border-radius: 4;
+  -fx-background-radius: 4;
+}
+.check-box:hover .box {
+  -fx-border-color: #606060;
+}
+.check-box:selected .box {
+  -fx-background-color: #252525;
+  -fx-border-color: #888888;
+}
+.check-box:selected .mark {
+  -fx-background-color: #c8c8c8;
+}
+.check-box:disabled {
+  -fx-opacity: 0.46;
+}
 
 .project-run-button {
   -fx-background-color: linear-gradient(to bottom, #1fb65a, #169646);

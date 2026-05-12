@@ -889,6 +889,14 @@
 .tree-cell { -fx-background-color: #ededed; -fx-text-fill: #191919; }
 .tree-cell:filled:selected, .tree-cell:filled:selected:hover { -fx-background-color: #d5d5d5; -fx-text-fill: #191919; }
 
+/* CheckBox — global light override */
+.check-box { -fx-text-fill: #2e2e2e; -fx-font-size: 11px; }
+.check-box .box { -fx-background-color: #f4f4f4; -fx-border-color: #b4b4b4; -fx-border-radius: 4; -fx-background-radius: 4; }
+.check-box:hover .box { -fx-border-color: #888888; }
+.check-box:selected .box { -fx-background-color: #ebebeb; -fx-border-color: #707070; }
+.check-box:selected .mark { -fx-background-color: #2e2e2e; }
+.check-box:disabled { -fx-opacity: 0.46; }
+
 .project-run-button {
   -fx-background-color: linear-gradient(to bottom, #1fb65a, #169646);
   -fx-border-color: #32d774;
