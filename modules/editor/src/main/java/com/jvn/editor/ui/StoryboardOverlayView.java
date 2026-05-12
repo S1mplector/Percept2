@@ -35,6 +35,7 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -227,17 +228,24 @@ public class StoryboardOverlayView extends BorderPane {
     previewMetaLabel.setWrapText(true);
     previewMetaLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #99aabb;");
 
-    Label filterHintLabel = new Label("Down: jump to list  •  Enter: select single result  •  Cmd/Ctrl+F: focus filter");
-    filterHintLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #7f8da0;");
+    Label filterHintLabel = new Label("↓ list  •  Enter: pick single  •  ⌘/Ctrl+F: focus");
+    filterHintLabel.getStyleClass().add("sidebar-tool-subtitle");
     filterHintLabel.setWrapText(true);
 
     HBox folderRow = new HBox(6, folderField, browseButton, autoButton, refreshButton);
     HBox.setHgrow(folderField, Priority.ALWAYS);
 
-    HBox overlayRow =
-        new HBox(10, enabledCheck, followActiveCheck, hideUiCheck, new Label("Opacity"), opacitySlider, opacityValueLabel);
-    overlayRow.setAlignment(Pos.CENTER_LEFT);
+    FlowPane checksRow = new FlowPane(12, 6, enabledCheck, followActiveCheck, hideUiCheck);
+    checksRow.setAlignment(Pos.CENTER_LEFT);
+
+    Label opacityLabel = new Label("Opacity");
+    opacityLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #9aabb8;");
+    opacityValueLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #c8c8c8; -fx-min-width: 30;");
+    HBox opacityRow = new HBox(8, opacityLabel, opacitySlider, opacityValueLabel);
+    opacityRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(opacitySlider, Priority.ALWAYS);
+
+    VBox overlayControls = new VBox(6, checksRow, opacityRow);
 
     HBox navigationRow = new HBox(8, previousButton, nextButton, matchButton, revealButton);
     navigationRow.setAlignment(Pos.CENTER_LEFT);
@@ -260,7 +268,7 @@ with or contains the label name — useful for structured storyboard exports.
 
 "Hide UI" collapses editor chrome so you can compare composition cleanly."""));
     titleRow.setAlignment(Pos.CENTER_LEFT);
-    VBox header = new VBox(6, titleRow, summaryLabel, targetLabel, sourceLabel, framesSummaryLabel, matchLabel, folderRow, filterField, filterHintLabel, overlayRow, navigationRow, statusLabel);
+    VBox header = new VBox(6, titleRow, summaryLabel, targetLabel, sourceLabel, framesSummaryLabel, matchLabel, folderRow, filterField, filterHintLabel, overlayControls, navigationRow, statusLabel);
     header.setPadding(new Insets(10, 10, 8, 10));
 
     VBox previewBox = new VBox(8, previewImage, previewPathLabel, previewMetaLabel);

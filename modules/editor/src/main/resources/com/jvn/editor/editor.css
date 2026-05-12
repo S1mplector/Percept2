@@ -6472,6 +6472,31 @@
   -fx-border-color: #e2be5c;
 }
 
+.sidebar-tool-root .check-box {
+  -fx-text-fill: #d8d8d8;
+  -fx-font-size: 11px;
+}
+
+.sidebar-tool-root .check-box .box {
+  -fx-background-color: #1c1c1c;
+  -fx-border-color: #404040;
+  -fx-border-radius: 4;
+  -fx-background-radius: 4;
+}
+
+.sidebar-tool-root .check-box:hover .box {
+  -fx-border-color: #606060;
+}
+
+.sidebar-tool-root .check-box:selected .box {
+  -fx-background-color: #252525;
+  -fx-border-color: #888888;
+}
+
+.sidebar-tool-root .check-box:selected .mark {
+  -fx-background-color: #c8c8c8;
+}
+
 .sidebar-tool-card,
 .sidebar-tool-card-suggested,
 .sidebar-tool-card-disabled,
