@@ -24,16 +24,21 @@ import com.jvn.editor.ui.actioneditor.EntityTrack;
 import com.jvn.editor.ui.actioneditor.PropertyType;
 
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Scene;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
 
 /**
  * Right-panel extension that shows the VNS scene snapshot at the current cursor line
@@ -98,6 +103,31 @@ public class PuppeteerLauncherPanel extends VBox {
 
     lblHeader = new Label("Puppeteer Launcher");
     lblHeader.getStyleClass().add("sidebar-tool-title");
+    HBox headerRow = new HBox(6, lblHeader, helpButton("What is Puppeteer?", """
+        Puppeteer is an animation authoring tool that lets you preview and build \
+character animations in real time.
+
+It reads the current cursor position in your VNS script and reconstructs the \
+scene state at that exact line — backgrounds, characters, layers, expressions, \
+and stage layout — so the preview starts from exactly where your story is.
+
+Common workflow:
+  1. Place your cursor somewhere in a .vns script.
+  2. Press "Launch @ Cursor" to open Puppeteer with that scene.
+  3. Build or adjust an animation on a character.
+  4. Save the animation as a .jes timeline file.
+  5. Reference it in your script with @external jes_timeline <id>.
+
+The three launch modes differ in where the scene snapshot is taken from:
+  • @ Cursor     — exact cursor line (most precise)
+  • @ Label Start — first line of the active @label block
+  • @ Scene Start — most recent background change in the active label
+
+Registered Animations below shows all .jes timelines discovered under \
+scripts/timelines/ in your project, so you can open or reuse them without \
+leaving this panel."""));
+    HBox.setHgrow(lblHeader, Priority.ALWAYS);
+    headerRow.setAlignment(Pos.CENTER_LEFT);
 
     lblLine = new Label("Line: —");
     lblLine.getStyleClass().add("sidebar-tool-subtitle");
@@ -107,8 +137,26 @@ public class PuppeteerLauncherPanel extends VBox {
     lblLineText.setWrapText(true);
     lblLineText.setMaxWidth(260);
 
-    Label snapshotHeader = new Label("Scene Snapshot at Cursor");
-    snapshotHeader.getStyleClass().add("sidebar-tool-section-title");
+    Label snapshotHeaderLbl = new Label("Scene Snapshot at Cursor");
+    snapshotHeaderLbl.getStyleClass().add("sidebar-tool-section-title");
+    HBox snapshotHeader = new HBox(6, snapshotHeaderLbl, helpButton("Scene Snapshot", """
+        A scene snapshot is Puppeteer's reconstruction of everything visible \
+on screen at a specific script line.
+
+It reads your VNS script from the top up to the chosen line and collects:
+  • Background — the current stage background image
+  • Stage preset — camera framing, scale, and position
+  • Timeline — any jes_timeline block active at that line
+  • Visible characters — every @charimg, @charlayer, or @charpreset \
+command that hasn't been hidden
+  • Character expressions and positions
+
+The snapshot is passed to Puppeteer as the starting scene, so you always \
+animate from a contextually correct state.
+
+If any required data is missing or ambiguous (e.g. a character referenced \
+before being declared), a warning will appear in Snapshot Diagnostics below."""));
+    snapshotHeader.setAlignment(Pos.CENTER_LEFT);
 
     lblLabel = new Label("Label: —");
     lblLabel.getStyleClass().add("sidebar-tool-subtitle");
@@ -125,20 +173,71 @@ public class PuppeteerLauncherPanel extends VBox {
     lblSummary = new Label("Snapshot: —");
     lblSummary.getStyleClass().add("sidebar-tool-summary");
 
-    Label charsHeader = new Label("Visible Characters:");
-    charsHeader.getStyleClass().add("sidebar-tool-section-title");
+    Label charsHeaderLbl = new Label("Visible Characters:");
+    charsHeaderLbl.getStyleClass().add("sidebar-tool-section-title");
+    HBox charsHeader = new HBox(6, charsHeaderLbl, helpButton("Visible Characters", """
+        This section lists every character that is visible on screen at the \
+chosen snapshot line.
+
+A character is counted as visible if a @charimg, @charlayer, or @charpreset \
+command has made it appear and no subsequent @external character <id> hide \
+or equivalent command has hidden it before the cursor line.
+
+Each entry shows:
+  • Character ID
+  • Active expression or layer-set name
+  • Screen position (far_left / left / center / right / far_right)
+
+Characters listed here will be present in Puppeteer's starting scene, so \
+any animation you author begins from the correct stage layout."""));
+    charsHeader.setAlignment(Pos.CENTER_LEFT);
 
     characterList = new VBox(2);
     characterList.setPadding(new Insets(0, 0, 0, 8));
 
-    Label diagnosticsHeader = new Label("Snapshot Diagnostics:");
-    diagnosticsHeader.getStyleClass().add("sidebar-tool-section-title");
+    Label diagnosticsHeaderLbl = new Label("Snapshot Diagnostics:");
+    diagnosticsHeaderLbl.getStyleClass().add("sidebar-tool-section-title");
+    HBox diagnosticsHeader = new HBox(6, diagnosticsHeaderLbl, helpButton("Snapshot Diagnostics", """
+        Diagnostics report anything that looks wrong or incomplete in the \
+scene snapshot at the selected line.
+
+Common warnings:
+  • "Character X referenced before declaration" — a @charimg or @charlayer \
+uses a character ID that hasn't been set up earlier in the script.
+  • "Background not set" — no background has been declared up to this line; \
+Puppeteer will open with an empty stage.
+  • "Stage preset not found" — the @stagepreset name doesn't match any known \
+preset in the project assets.
+  • "Timeline binding missing" — a @external jes_timeline reference points \
+to a file that doesn't exist on disk.
+
+Click "Jump To Issue" to jump your editor cursor to the first problematic \
+line so you can fix it before launching."""));
+    diagnosticsHeader.setAlignment(Pos.CENTER_LEFT);
 
     diagnosticsList = new VBox(2);
     diagnosticsList.setPadding(new Insets(0, 0, 0, 8));
 
     lblRegisteredHeader = new Label("Registered Animations");
     lblRegisteredHeader.getStyleClass().add("sidebar-tool-section-title");
+    HBox registeredHeaderRow = new HBox(6, lblRegisteredHeader, helpButton("Registered Animations", """
+        Registered Animations are .jes timeline files that Puppeteer has \
+discovered in your project's scripts/timelines/ directory.
+
+A .jes file is created whenever you save an animation inside Puppeteer. \
+Each file represents a named animation sequence — character movements, \
+expression changes, layer transitions, etc.
+
+To reference a timeline in a .vns script use:
+  @external jes_timeline <timeline-id>
+
+You can also write the timeline ID directly in dialogue:
+  [jes_timeline my_anim_id]
+
+Each card in this list shows the timeline's ID, file name, and the \
+characters it involves. Clicking a card selects it; the Open Timeline \
+button then opens it in the editor."""));
+    registeredHeaderRow.setAlignment(Pos.CENTER_LEFT);
 
     lblRegisteredSummary = new Label("No registered timelines found yet.");
     lblRegisteredSummary.getStyleClass().add("sidebar-tool-subtitle");
@@ -239,7 +338,7 @@ public class PuppeteerLauncherPanel extends VBox {
     HBox.setHgrow(btnOpenIssue, Priority.ALWAYS);
 
     getChildren().addAll(
-        lblHeader,
+        headerRow,
         new Separator(),
         lblLine,
         lblLineText,
@@ -259,12 +358,41 @@ public class PuppeteerLauncherPanel extends VBox {
         openRow,
         actionRow,
         new Separator(),
-        lblRegisteredHeader,
+        registeredHeaderRow,
         lblRegisteredSummary,
         registeredTimelineScroll
     );
 
     updateEmpty();
+  }
+
+  private Button helpButton(String title, String body) {
+    Button btn = new Button("?");
+    btn.getStyleClass().add("help-button");
+    btn.setFocusTraversable(false);
+    btn.setOnAction(e -> {
+      Stage stage = new Stage();
+      stage.initModality(Modality.NONE);
+      stage.initOwner(getScene() != null ? getScene().getWindow() : null);
+      stage.setTitle(title);
+      TextArea area = new TextArea(body);
+      area.setEditable(false);
+      area.setWrapText(true);
+      area.setStyle("-fx-control-inner-background: #1e1e1e; -fx-text-fill: #e0e0e0;"
+          + "-fx-font-size: 12px; -fx-background-color: #1e1e1e;");
+      Button close = new Button("Got it");
+      close.setDefaultButton(true);
+      close.setOnAction(ev -> stage.close());
+      VBox root = new VBox(10, area, close);
+      root.setPadding(new Insets(14));
+      root.setAlignment(Pos.BOTTOM_RIGHT);
+      VBox.setVgrow(area, Priority.ALWAYS);
+      Scene scene = new Scene(root, 490, 340);
+      if (getScene() != null) scene.getStylesheets().addAll(getScene().getStylesheets());
+      stage.setScene(scene);
+      stage.show();
+    });
+    return btn;
   }
 
   public void setOnLaunch(Consumer<LaunchRequest> handler) {

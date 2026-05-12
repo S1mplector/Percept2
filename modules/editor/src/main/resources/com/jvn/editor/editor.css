@@ -3673,6 +3673,24 @@
   -fx-border-color: #565656;
 }
 
+.help-button {
+  -fx-background-color: #253545;
+  -fx-text-fill: #7ec8e3;
+  -fx-font-size: 9px;
+  -fx-font-weight: bold;
+  -fx-min-width: 18;
+  -fx-min-height: 18;
+  -fx-max-width: 18;
+  -fx-max-height: 18;
+  -fx-padding: 0 5;
+  -fx-background-radius: 9;
+  -fx-cursor: hand;
+}
+
+.help-button:hover {
+  -fx-background-color: #2e4459;
+}
+
 .help-stats-label {
   -fx-font-size: 11px;
   -fx-text-fill: #8f8f8f;

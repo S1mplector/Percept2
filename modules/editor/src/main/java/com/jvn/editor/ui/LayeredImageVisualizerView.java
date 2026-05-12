@@ -3303,10 +3303,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
   private Button helpButton(String title, String body) {
     Button btn = new Button("?");
-    btn.setStyle(
-        "-fx-background-color: #253545; -fx-text-fill: #7ec8e3; -fx-font-size: 9px; "
-        + "-fx-font-weight: bold; -fx-min-width: 18; -fx-min-height: 18; "
-        + "-fx-padding: 0 5; -fx-background-radius: 9; -fx-cursor: hand;");
+    btn.getStyleClass().add("help-button");
     btn.setFocusTraversable(false);
     btn.setTooltip(new Tooltip("Click for help: " + title));
     btn.setOnAction(e -> {
