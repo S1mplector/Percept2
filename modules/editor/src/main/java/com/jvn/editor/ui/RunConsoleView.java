@@ -19,6 +19,8 @@ import com.sun.management.OperatingSystemMXBean;
 
 import javafx.animation.AnimationTimer;
 import javafx.application.Platform;
+import javafx.beans.property.DoubleProperty;
+import javafx.beans.property.SimpleDoubleProperty;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -70,6 +72,8 @@ public class RunConsoleView extends BorderPane {
 
     private final ListView<String> outputList = new ListView<>();
     private final ProgressIndicator launchProgressIndicator = new ProgressIndicator();
+    private final DoubleProperty launchProgressValue = new SimpleDoubleProperty(0.0);
+    private final Region launchProgressFill = new Region();
     private final Label launchActivityLabel = new Label();
     private final Label launchDetailLabel = new Label();
     private final Label stateLabel = new Label();
@@ -120,6 +124,7 @@ public class RunConsoleView extends BorderPane {
     private volatile boolean compileMilestoneAnnounced = false;
     private volatile boolean launchMilestoneAnnounced = false;
     private volatile boolean runtimeMilestoneAnnounced = false;
+    private volatile boolean processExited = false;
     private String launchToolLabel = "Gradle wrapper";
     private String launchTaskLabel = "";
     private String launchWorkspaceLabel = "";
@@ -258,6 +263,8 @@ public class RunConsoleView extends BorderPane {
         compileMilestoneAnnounced = false;
         launchMilestoneAnnounced = false;
         runtimeMilestoneAnnounced = false;
+        processExited = false;
+        launchProgressValue.set(0.04);
         setState(EngineState.BUILDING);
         appendInfoMessage("Preparing " + launchToolLabel + "...");
         refreshLaunchBanner();
@@ -460,8 +467,10 @@ public class RunConsoleView extends BorderPane {
                 setState(EngineState.FAILED);
                 appendInfoMessage("Process exited with code " + exitCode);
             }
+            processExited = true;
             long elapsed = (System.currentTimeMillis() - startTime) / 1000;
             elapsedLabel.setText(formatElapsed(elapsed) + " (finished)");
+            refreshLaunchBanner();
         });
     }
 
@@ -474,7 +483,7 @@ public class RunConsoleView extends BorderPane {
         else Platform.runLater(task);
     }
 
-    private VBox createLaunchBanner() {
+    private StackPane createLaunchBanner() {
         launchProgressIndicator.setMaxSize(18, 18);
         launchProgressIndicator.setPrefSize(18, 18);
         launchProgressIndicator.setMouseTransparent(true);
@@ -482,8 +491,24 @@ public class RunConsoleView extends BorderPane {
         VBox labels = new VBox(4, launchActivityLabel, launchDetailLabel);
         HBox row = new HBox(10, launchProgressIndicator, labels);
         row.setAlignment(Pos.CENTER_LEFT);
+        row.setMaxWidth(Double.MAX_VALUE);
+        row.getStyleClass().add("run-console-launch-content");
         HBox.setHgrow(labels, Priority.ALWAYS);
-        VBox box = new VBox(row);
+
+        Region progressLayer = new Region();
+        progressLayer.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        progressLayer.getStyleClass().add("run-console-launch-progress-layer");
+        launchProgressFill.getStyleClass().add("run-console-launch-progress-fill");
+        launchProgressFill.setMouseTransparent(true);
+        launchProgressFill.prefWidthProperty().bind(progressLayer.widthProperty().multiply(launchProgressValue));
+        launchProgressFill.prefHeightProperty().bind(progressLayer.heightProperty());
+        StackPane progressStack = new StackPane(launchProgressFill);
+        progressStack.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        progressStack.setMouseTransparent(true);
+        progressStack.getStyleClass().add("run-console-launch-progress-stack");
+        StackPane.setAlignment(launchProgressFill, Pos.CENTER_LEFT);
+
+        StackPane box = new StackPane(progressLayer, progressStack, row);
         box.getStyleClass().add("run-console-launch-shell");
         return box;
     }
@@ -531,6 +556,7 @@ public class RunConsoleView extends BorderPane {
         Runnable task = () -> {
             launchActivityLabel.setText(currentActivityText());
             launchDetailLabel.setText(currentDetailText());
+            updateLaunchProgress();
         };
         if (Platform.isFxApplicationThread()) task.run();
         else Platform.runLater(task);
@@ -569,6 +595,43 @@ public class RunConsoleView extends BorderPane {
         if (!launchTaskLabel.isBlank()) context += " -> " + launchTaskLabel;
         if (!launchWorkspaceLabel.isBlank()) context += " @ " + launchWorkspaceLabel;
         return context;
+    }
+
+    private void updateLaunchProgress() {
+        double progress = computeLaunchProgress();
+        launchProgressValue.set(progress);
+        launchProgressIndicator.setProgress(
+            engineState == EngineState.BUILDING || engineState == EngineState.STARTING
+                ? progress
+                : ProgressIndicator.INDETERMINATE_PROGRESS);
+        String fillColor = switch (engineState) {
+            case FAILED -> "rgba(255, 99, 132, 0.24)";
+            case RUNNING, STOPPED -> "rgba(78, 201, 131, 0.22)";
+            case STARTING -> "rgba(88, 211, 216, 0.20)";
+            case BUILDING -> "rgba(240, 183, 95, 0.20)";
+        };
+        launchProgressFill.setStyle("-fx-background-color: " + fillColor + "; -fx-background-radius: 8;");
+    }
+
+    private double computeLaunchProgress() {
+        if (engineState == EngineState.RUNNING || engineState == EngineState.STOPPED || processExited) {
+            return 1.0;
+        }
+        if (engineState == EngineState.FAILED) {
+            return Math.max(launchProgressValue.get(), 1.0);
+        }
+        if (engineState == EngineState.STARTING) {
+            return runtimeMilestoneAnnounced ? 0.92 : 0.78;
+        }
+
+        double progress = 0.06;
+        if (sawGradleBootstrap) progress = 0.16;
+        if (compileMilestoneAnnounced) progress = Math.max(progress, 0.34);
+        if (!compiledModules.isEmpty()) {
+            progress = Math.max(progress, 0.34 + Math.min(0.34, compiledModules.size() * 0.055));
+        }
+        if (launchMilestoneAnnounced) progress = Math.max(progress, 0.74);
+        return Math.min(0.76, Math.max(0.0, progress));
     }
 
     private static boolean isEngineOutputLine(String rawLine) {
