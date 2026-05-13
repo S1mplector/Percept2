@@ -27,7 +27,7 @@ The build wrapper now exposes faster daily workflow commands: `./jvnw compile`, 
 
 The Build & Publish quick-mode presets now use the same animated orange selected arrow from the launcher project list, making the active release flow easier to spot at a glance.
 
-The editor workspace welcome chip now shows a compact project dashboard with workspace, project, manifest entry, script/asset counts, runtime version, and last-modified context.
+The editor workspace welcome chip now has a more professional editor-dashboard layout with a status pill, workspace/project context, entry readiness, script/asset counts, runtime version, and last-modified context.
 
 ## 2026-05-10 — Puppeteer group anchors and constraint removal
 The Puppeteer Anchors window now supports group entities. When a group is selected in the Entities tab, it appears in the Anchors window with a "[Group]" prefix and orange color indicator. Groups display a placeholder bounding box instead of a sprite image, allowing anchors to be placed on the group's normalized coordinate space.
