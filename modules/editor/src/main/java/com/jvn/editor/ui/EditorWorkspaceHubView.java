@@ -1,6 +1,12 @@
 package com.jvn.editor.ui;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
+import java.util.Properties;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -9,6 +15,7 @@ import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -18,9 +25,21 @@ import javafx.scene.layout.VBox;
  * Lightweight in-editor hub tab that replaces the full launcher-style welcome view.
  */
 public class EditorWorkspaceHubView extends BorderPane {
-  private final Label headingLabel = new Label("Welcome to JVN Editor");
-  private final Label workspaceLabel = new Label("Workspace: --");
-  private final Label projectLabel = new Label("Project: no project selected");
+  private static final int COUNT_LIMIT = 999;
+  private static final DateTimeFormatter MODIFIED_FORMAT =
+      DateTimeFormatter.ofPattern("MMM d, HH:mm").withZone(ZoneId.systemDefault());
+
+  private final Label headingLabel = new Label("JVN Editor Workspace");
+  private final Label introLabel = new Label("Project context, release readiness, and common editor actions.");
+  private final Label runtimeChipLabel = new Label();
+  private final Label workspaceValueLabel = new Label("--");
+  private final Label workspaceDetailLabel = new Label("No workspace resolved");
+  private final Label projectValueLabel = new Label("No project selected");
+  private final Label projectDetailLabel = new Label("Open or create a project to enable project tools");
+  private final Label manifestValueLabel = new Label("No manifest");
+  private final Label manifestDetailLabel = new Label("jvn.project not loaded");
+  private final Label contentValueLabel = new Label("--");
+  private final Label contentDetailLabel = new Label("Scripts and assets unavailable");
   private final Label statusLabel = new Label("Choose an action to continue.");
 
   private final Button btnNewProject = new Button();
@@ -46,13 +65,13 @@ public class EditorWorkspaceHubView extends BorderPane {
 
   public void setWorkspaceRoot(File workspaceRoot) {
     this.workspaceRoot = normalizeDir(workspaceRoot);
-    workspaceLabel.setText("Workspace: " + displayPath(this.workspaceRoot));
+    refreshSummary();
   }
 
   public void setCurrentProject(File projectRoot) {
     this.projectRoot = normalizeDir(projectRoot);
-    projectLabel.setText("Project: " + displayName(this.projectRoot));
     btnRunProject.setDisable(this.projectRoot == null);
+    refreshSummary();
   }
 
   public void setOnCreateProject(Runnable onCreateProject) {
@@ -85,8 +104,8 @@ public class EditorWorkspaceHubView extends BorderPane {
     setPadding(new Insets(14));
 
     headingLabel.getStyleClass().add("welcome-heading");
-    workspaceLabel.getStyleClass().add("welcome-overview-detail");
-    projectLabel.getStyleClass().add("welcome-overview-detail");
+    introLabel.getStyleClass().add("welcome-intro-text");
+    runtimeChipLabel.getStyleClass().add("welcome-version-chip");
     statusLabel.getStyleClass().add("welcome-status-text");
 
     configureActionButton(
@@ -145,11 +164,19 @@ public class EditorWorkspaceHubView extends BorderPane {
 
     Region headingSpacer = new Region();
     HBox.setHgrow(headingSpacer, Priority.ALWAYS);
-    HBox headingRow = new HBox(8, headingLabel, headingSpacer, btnSettings);
+    HBox headingRow = new HBox(8, headingLabel, headingSpacer, runtimeChipLabel, btnSettings);
     headingRow.setAlignment(Pos.CENTER_LEFT);
 
-    VBox hero = new VBox(12, headingRow, workspaceLabel, projectLabel, rowPrimary, rowSecondary, statusLabel);
-    hero.setPadding(new Insets(12));
+    FlowPane summaryGrid = new FlowPane(10, 10,
+        summaryCard("Workspace", workspaceValueLabel, workspaceDetailLabel),
+        summaryCard("Project", projectValueLabel, projectDetailLabel),
+        summaryCard("Manifest", manifestValueLabel, manifestDetailLabel),
+        summaryCard("Content", contentValueLabel, contentDetailLabel));
+    summaryGrid.getStyleClass().add("editor-workspace-summary-grid");
+    summaryGrid.setAlignment(Pos.CENTER_LEFT);
+
+    VBox hero = new VBox(14, headingRow, introLabel, summaryGrid, rowPrimary, rowSecondary, statusLabel);
+    hero.setPadding(new Insets(18));
     hero.getStyleClass().add("welcome-hero-card");
 
     Region fill = new Region();
@@ -157,6 +184,66 @@ public class EditorWorkspaceHubView extends BorderPane {
     VBox content = new VBox(10, hero, fill);
     content.getStyleClass().add("welcome-center-body");
     setCenter(content);
+    refreshSummary();
+  }
+
+  private VBox summaryCard(String title, Label value, Label detail) {
+    Label titleLabel = new Label(title);
+    titleLabel.getStyleClass().add("editor-workspace-summary-title");
+    value.getStyleClass().add("editor-workspace-summary-value");
+    value.setWrapText(false);
+    detail.getStyleClass().add("editor-workspace-summary-detail");
+    detail.setWrapText(true);
+
+    VBox card = new VBox(4, titleLabel, value, detail);
+    card.getStyleClass().add("editor-workspace-summary-card");
+    card.setMinWidth(170);
+    card.setPrefWidth(210);
+    return card;
+  }
+
+  private void refreshSummary() {
+    runtimeChipLabel.setText(runtimeChipText());
+
+    if (workspaceRoot == null) {
+      workspaceValueLabel.setText("No workspace");
+      workspaceDetailLabel.setText("Launch from a JVN checkout to enable workspace tasks");
+    } else {
+      workspaceValueLabel.setText(displayName(workspaceRoot));
+      workspaceDetailLabel.setText(displayPath(workspaceRoot));
+    }
+
+    if (projectRoot == null) {
+      projectValueLabel.setText("No project selected");
+      projectDetailLabel.setText("Open or create a project to enable run/build tools");
+      manifestValueLabel.setText("No manifest");
+      manifestDetailLabel.setText("jvn.project not loaded");
+      contentValueLabel.setText("--");
+      contentDetailLabel.setText("Scripts and assets unavailable");
+      statusLabel.setText("Open a project or create a new one to start authoring.");
+      return;
+    }
+
+    projectValueLabel.setText(displayName(projectRoot));
+    projectDetailLabel.setText(displayPath(projectRoot));
+
+    Properties manifest = loadManifest(projectRoot);
+    if (manifest == null) {
+      manifestValueLabel.setText("Missing jvn.project");
+      manifestDetailLabel.setText("Create or open a valid JVN project manifest");
+    } else {
+      String type = manifest.getProperty("type", "vn").trim().toLowerCase(Locale.ROOT);
+      String entryKey = "jes".equals(type) ? "entry" : "entryVns";
+      String entry = manifest.getProperty(entryKey, "jes".equals(type) ? "scripts/main.jes" : "(auto)").trim();
+      manifestValueLabel.setText(type.toUpperCase(Locale.ROOT) + " project");
+      manifestDetailLabel.setText(entryKey + "=" + (entry.isBlank() ? "(auto)" : entry));
+    }
+
+    int scriptCount = countFiles(new File(projectRoot, "scripts"), 0, ".vns", ".jes");
+    int assetCount = countFiles(new File(projectRoot, "assets"), 0);
+    contentValueLabel.setText(compactCount(scriptCount, "script") + " / " + compactCount(assetCount, "asset"));
+    contentDetailLabel.setText("Modified " + MODIFIED_FORMAT.format(Instant.ofEpochMilli(projectRoot.lastModified())));
+    statusLabel.setText("Ready: project tools are available for " + displayName(projectRoot) + ".");
   }
 
   private static void configureActionButton(Button button,
@@ -220,6 +307,59 @@ public class EditorWorkspaceHubView extends BorderPane {
   private File normalizeDir(File dir) {
     if (dir == null || !dir.exists() || !dir.isDirectory()) return null;
     return dir.getAbsoluteFile();
+  }
+
+  private Properties loadManifest(File dir) {
+    if (dir == null) return null;
+    File manifest = new File(dir, "jvn.project");
+    if (!manifest.isFile()) return null;
+    try (FileInputStream in = new FileInputStream(manifest)) {
+      Properties props = new Properties();
+      props.load(in);
+      return props;
+    } catch (Exception ignored) {
+      return null;
+    }
+  }
+
+  private int countFiles(File dir, int current, String... extensions) {
+    if (dir == null || !dir.isDirectory() || current >= COUNT_LIMIT) return current;
+    File[] files = dir.listFiles();
+    if (files == null) return current;
+    int total = current;
+    for (File file : files) {
+      if (file == null || file.isHidden()) continue;
+      if (file.isDirectory()) {
+        total = countFiles(file, total, extensions);
+      } else if (matchesExtension(file, extensions)) {
+        total++;
+      }
+      if (total >= COUNT_LIMIT) return COUNT_LIMIT;
+    }
+    return total;
+  }
+
+  private boolean matchesExtension(File file, String... extensions) {
+    if (file == null || !file.isFile()) return false;
+    if (extensions == null || extensions.length == 0) return true;
+    String name = file.getName().toLowerCase(Locale.ROOT);
+    for (String extension : extensions) {
+      if (extension != null && name.endsWith(extension.toLowerCase(Locale.ROOT))) return true;
+    }
+    return false;
+  }
+
+  private String compactCount(int count, String noun) {
+    String value = count >= COUNT_LIMIT ? COUNT_LIMIT + "+" : Integer.toString(Math.max(0, count));
+    return value + " " + noun + (count == 1 ? "" : "s");
+  }
+
+  private String runtimeChipText() {
+    String version = System.getProperty("jvn.version", "").trim();
+    String javaVersion = System.getProperty("java.version", "").trim();
+    String build = version.isBlank() ? "dev" : version;
+    String javaMajor = javaVersion.isBlank() ? "Java ?" : "Java " + javaVersion.split("\\.")[0];
+    return "JVN " + build + " | " + javaMajor;
   }
 
   private String displayPath(File dir) {

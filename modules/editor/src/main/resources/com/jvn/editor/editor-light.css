@@ -4360,6 +4360,39 @@
   -fx-border-radius: 999;
 }
 
+.editor-workspace-summary-grid {
+  -fx-alignment: center-left;
+}
+
+.editor-workspace-summary-card {
+  -fx-padding: 10 12 10 12;
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255,255,255,0.92), rgba(255,255,255,0.42)),
+      #e9e9e9;
+  -fx-border-color: #d0d0d0;
+  -fx-border-width: 1;
+  -fx-border-radius: 10;
+  -fx-background-radius: 10;
+}
+
+.editor-workspace-summary-title {
+  -fx-text-fill: #757575;
+  -fx-font-size: 9px;
+  -fx-font-weight: 900;
+}
+
+.editor-workspace-summary-value {
+  -fx-text-fill: #151515;
+  -fx-font-size: 13px;
+  -fx-font-weight: 800;
+}
+
+.editor-workspace-summary-detail {
+  -fx-text-fill: #666666;
+  -fx-font-size: 10px;
+  -fx-font-weight: 600;
+}
+
 .welcome-overview-row,
 .welcome-action-row {
   -fx-alignment: center-left;
