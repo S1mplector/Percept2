@@ -8,6 +8,11 @@ Format:
 
 ----
 
+## 2026-05-13 — Puppeteer persistence and charpreset exports
+Puppeteer now preserves more editor-side animation state when saving and reopening timelines, including group locks, constraints, named anchors, and orbit-anchor tooling data. Parent-child constraints also respect grouped parent transforms more reliably.
+
+The Layered Image Visualizer export panel now puts the runtime-ready `@charlayer` + `@charpreset` workflow up front, with direct copy and `.vns` snippet export actions alongside PNG and editor-only `.layersetup` export.
+
 ## 2026-05-10 — Puppeteer group anchors and constraint removal
 The Puppeteer Anchors window now supports group entities. When a group is selected in the Entities tab, it appears in the Anchors window with a "[Group]" prefix and orange color indicator. Groups display a placeholder bounding box instead of a sprite image, allowing anchors to be placed on the group's normalized coordinate space.
 
