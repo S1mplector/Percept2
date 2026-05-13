@@ -139,6 +139,7 @@ public class MenuFlowEditorView extends BorderPane {
   private boolean registryDirty;
   private String registryRelativePath = DEFAULT_MENU_REGISTRY_PATH;
   private String registryDefaultMenu = "";
+  private String preferredSelectedScreenId = "";
 
   private enum WireMode { NONE, OPEN_MENU }
   private WireMode wireMode = WireMode.NONE;
@@ -154,6 +155,9 @@ public class MenuFlowEditorView extends BorderPane {
   }
 
   public void setProjectRoot(File projectRoot) {
+    if (!sameFile(this.projectRoot, projectRoot)) {
+      preferredSelectedScreenId = "";
+    }
     this.projectRoot = projectRoot;
     loadProjectMenus();
   }
@@ -552,6 +556,9 @@ Workflow:
   }
 
   private void loadProjectMenus() {
+    String selectionToRestore = selectedScreen == null
+        ? sanitizeId(preferredSelectedScreenId)
+        : sanitizeId(selectedScreen.id);
     screensById.clear();
     selectedScreen = null;
     wireMode = WireMode.NONE;
@@ -585,7 +592,8 @@ Workflow:
     }
 
     autoLayoutScreensIfMissing();
-    selectedScreen = screensById.values().stream().findFirst().orElse(null);
+    selectedScreen = selectScreenAfterReload(selectionToRestore);
+    preferredSelectedScreenId = selectedScreen == null ? "" : selectedScreen.id;
     itemTable.setItems(selectedScreen == null ? FXCollections.observableArrayList() : selectedScreen.items);
     refreshQuickTargetOptions();
     refreshRegistryEditorState();
@@ -1091,6 +1099,7 @@ Workflow:
   private void selectScreen(MenuScreenModel screen) {
     if (screen == null) return;
     selectedScreen = screen;
+    preferredSelectedScreenId = screen.id;
     itemTable.setItems(screen.items);
     if (!screen.items.isEmpty()) itemTable.getSelectionModel().select(0);
     wireMode = WireMode.NONE;
@@ -1176,6 +1185,7 @@ Workflow:
     screen.dirty = true;
 
     screensById.put(id, screen);
+    preferredSelectedScreenId = id;
     refreshQuickTargetOptions();
     autoLayoutScreensIfMissing();
     selectScreen(screen);
@@ -1529,6 +1539,20 @@ Workflow:
     } else if (!current.isBlank()) quickTargetCombo.getEditor().setText(current);
   }
 
+  private MenuScreenModel selectScreenAfterReload(String preferredId) {
+    String normalized = sanitizeId(preferredId);
+    if (!normalized.isBlank()) {
+      MenuScreenModel restored = screensById.get(normalized);
+      if (restored != null) return restored;
+    }
+    String defaultId = sanitizeId(registryDefaultMenu);
+    if (!defaultId.isBlank()) {
+      MenuScreenModel defaultScreen = screensById.get(defaultId);
+      if (defaultScreen != null) return defaultScreen;
+    }
+    return screensById.values().stream().findFirst().orElse(null);
+  }
+
   private String quickTargetInput() {
     String value = quickTargetCombo.isEditable()
         ? normalize(quickTargetCombo.getEditor().getText(), normalize(quickTargetCombo.getValue(), ""))
@@ -1794,6 +1818,16 @@ Workflow:
 
   private static Properties loadManifest(File root) {
     return loadProperties(new File(root, "jvn.project"));
+  }
+
+  private static boolean sameFile(File a, File b) {
+    if (a == b) return true;
+    if (a == null || b == null) return false;
+    try {
+      return a.getCanonicalFile().equals(b.getCanonicalFile());
+    } catch (Exception ignored) {
+      return a.getAbsoluteFile().equals(b.getAbsoluteFile());
+    }
   }
 
   private static Properties loadProperties(File file) {
