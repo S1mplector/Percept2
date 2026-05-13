@@ -131,6 +131,88 @@ show_help() {
   print_help_row "./jvnw gradle :editor:compileJava" "Target a single Gradle task manually"
 }
 
+java_major_version() {
+  local version_line version
+  version_line="$(java -version 2>&1 | sed -n '1p')" || return 1
+  if [[ "$version_line" =~ \"([^\"]+)\" ]]; then
+    version="${BASH_REMATCH[1]}"
+  elif [[ "$version_line" =~ ([0-9]+)(\.[0-9]+)* ]]; then
+    version="${BASH_REMATCH[1]}"
+  else
+    return 1
+  fi
+
+  if [[ "$version" == 1.* ]]; then
+    version="${version#1.}"
+  fi
+  printf '%s\n' "${version%%.*}"
+}
+
+gradle_wrapper_version() {
+  local properties_path="$SCRIPT_DIR/gradle/wrapper/gradle-wrapper.properties"
+  [[ -f "$properties_path" ]] || return 1
+  sed -nE 's#^distributionUrl=.*gradle-([0-9]+(\.[0-9]+){1,2})-(bin|all)\.zip.*$#\1#p' "$properties_path" | head -n 1
+}
+
+gradle_supports_java_runtime() {
+  local gradle_version="$1"
+  local java_major="$2"
+  local gradle_major gradle_minor min_gradle_major min_gradle_minor
+
+  gradle_major="${gradle_version%%.*}"
+  gradle_minor="${gradle_version#*.}"
+  gradle_minor="${gradle_minor%%.*}"
+
+  if (( java_major >= 26 )); then
+    min_gradle_major=9
+    min_gradle_minor=4
+  elif (( java_major >= 25 )); then
+    min_gradle_major=9
+    min_gradle_minor=1
+  else
+    return 0
+  fi
+
+  if (( gradle_major < min_gradle_major )); then
+    return 1
+  fi
+  if (( gradle_major == min_gradle_major && gradle_minor < min_gradle_minor )); then
+    return 1
+  fi
+
+  return 0
+}
+
+minimum_gradle_for_java_runtime() {
+  local java_major="$1"
+  if (( java_major >= 26 )); then
+    printf '9.4.0'
+  elif (( java_major >= 25 )); then
+    printf '9.1.0'
+  else
+    printf '%s' 'current'
+  fi
+}
+
+check_java_gradle_compatibility() {
+  local java_major gradle_version java_runtime min_gradle
+  java_major="$(java_major_version)" || return 0
+  gradle_version="$(gradle_wrapper_version)" || return 0
+  gradle_supports_java_runtime "$gradle_version" "$java_major" && return 0
+
+  min_gradle="$(minimum_gradle_for_java_runtime "$java_major")"
+  java_runtime="$(java -version 2>&1 | sed -n '1p')"
+  printf '%s\n' "$(paint "${style_bold}${tone_error}" "[FAIL]") Gradle $gradle_version cannot run on Java $java_major."
+  printf '  Detected: %s\n' "${java_runtime:-Java runtime unknown}"
+  printf '  This workspace compiles with the Java 21 toolchain, but Gradle must start on a compatible launcher JDK first.\n'
+  printf '  Use JDK 21 for this shell, then retry:\n'
+  printf '    export JAVA_HOME=$(/usr/libexec/java_home -v 21)\n'
+  printf '    ./gradlew --stop\n'
+  printf '    ./jvnw editor\n'
+  printf '  Or upgrade the Gradle wrapper to %s+ before running on Java %s.\n' "$min_gradle" "$java_major"
+  exit 1
+}
+
 declare -a input_args=()
 if [[ $# -gt 0 ]]; then
   for arg in "$@"; do
@@ -142,25 +224,29 @@ if [[ $# -gt 0 ]]; then
   done
 fi
 
+if [[ "$raw_mode" != "1" ]]; then
+  if [[ ${#input_args[@]} -eq 0 ]]; then
+    show_help
+    exit 0
+  fi
+
+  if [[ ${#input_args[@]} -eq 1 ]]; then
+    case "${input_args[0]}" in
+      help|-h|--help)
+        show_help
+        exit 0
+        ;;
+    esac
+  fi
+fi
+
+check_java_gradle_compatibility
+
 if [[ "$raw_mode" == "1" ]]; then
   if [[ ${#input_args[@]} -gt 0 ]]; then
     exec "$GRADLEW_PATH" "${input_args[@]}"
   fi
   exec "$GRADLEW_PATH"
-fi
-
-if [[ ${#input_args[@]} -eq 0 ]]; then
-  show_help
-  exit 0
-fi
-
-if [[ ${#input_args[@]} -eq 1 ]]; then
-  case "${input_args[0]}" in
-    help|-h|--help)
-      show_help
-      exit 0
-      ;;
-  esac
 fi
 
 declare -a forwarded_args=()
