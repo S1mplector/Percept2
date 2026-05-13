@@ -1290,7 +1290,8 @@ public class PuppeteerWindow extends Stage {
         anchorEditor.setOnAnchorPlaced((entityName, anchor) -> {
             // Seed PIVOT_X/Y + compensated X/Y at t=0 when no pivot keyframes exist yet
             if (entityName == null || !anchor.isRelative()) return;
-            EntityTrack track = project.getOrCreateTrack(entityName);
+            EntityTrack track = resolveAnimatedTrack(entityName, true);
+            if (track == null) return;
             if (!track.getKeyframes(PropertyType.PIVOT_X).isEmpty()
                     || !track.getKeyframes(PropertyType.PIVOT_Y).isEmpty()) return;
             com.jvn.core.scene2d.Entity2D ent = scene != null ? scene.find(entityName) : null;
@@ -1311,7 +1312,8 @@ public class PuppeteerWindow extends Stage {
             // Insert PIVOT_X/Y + compensated X/Y at the current playhead time
             if (entityName == null || !anchor.isRelative()) return;
             com.jvn.core.scene2d.Entity2D ent = scene != null ? scene.find(entityName) : null;
-            EntityTrack track = project.getOrCreateTrack(entityName);
+            EntityTrack track = resolveAnimatedTrack(entityName, true);
+            if (track == null) return;
             double time = project.getPlayheadMs();
             double newPX = anchor.getX(), newPY = anchor.getY();
             double oldPX = ent != null ? ent.getOriginX() : 0.5;

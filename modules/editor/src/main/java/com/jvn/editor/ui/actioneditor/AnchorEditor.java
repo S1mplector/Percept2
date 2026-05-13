@@ -1,6 +1,9 @@
 package com.jvn.editor.ui.actioneditor;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
 
@@ -60,6 +63,39 @@ public class AnchorEditor extends VBox {
     private static final double ZOOM_MAX      = 5.0;
     private static final double ZOOM_STEP     = 1.4;
 
+    private record GroupVisualItem(
+        String entityName,
+        AnimationProject.SceneEntitySnapshot snapshot,
+        Image image,
+        double minX,
+        double minY,
+        double maxX,
+        double maxY
+    ) {}
+
+    private record GroupVisualBounds(
+        List<GroupVisualItem> items,
+        double minX,
+        double minY,
+        double maxX,
+        double maxY
+    ) {
+        boolean isEmpty() {
+            return items == null || items.isEmpty()
+                || !Double.isFinite(minX) || !Double.isFinite(minY)
+                || !Double.isFinite(maxX) || !Double.isFinite(maxY)
+                || maxX <= minX || maxY <= minY;
+        }
+
+        double width() {
+            return isEmpty() ? 0.0 : maxX - minX;
+        }
+
+        double height() {
+            return isEmpty() ? 0.0 : maxY - minY;
+        }
+    }
+
     // ── State ────────────────────────────────────────────────────────────────
     private AnimationProject project;
     private AnimationPreview preview;
@@ -73,6 +109,7 @@ public class AnchorEditor extends VBox {
     private String  currentEntityName;
     private boolean currentEntityIsGroup;
     private Image  spriteImage;
+    private GroupVisualBounds groupVisualBounds;
     private String selectedAnchorName;
 
     // zoom
@@ -343,11 +380,52 @@ public class AnchorEditor extends VBox {
 
     private void loadEntityImage(String entityName) {
         spriteImage = null;
+        groupVisualBounds = null;
         if (entityName == null || entityName.isBlank() || project == null) return;
+        if (currentEntityIsGroup) {
+            groupVisualBounds = buildGroupVisualBounds(entityName);
+            return;
+        }
         AnimationProject.SceneEntitySnapshot snap = project.getSceneEntitySnapshot(entityName);
         if (snap != null && !snap.imagePath().isBlank()) {
             spriteImage = resolveImage(snap.imagePath().split("\\|")[0].trim());
         }
+    }
+
+    private GroupVisualBounds buildGroupVisualBounds(String groupName) {
+        if (project == null || groupName == null || groupName.isBlank()) return null;
+        List<GroupVisualItem> items = new ArrayList<>();
+        double minX = Double.POSITIVE_INFINITY;
+        double minY = Double.POSITIVE_INFINITY;
+        double maxX = Double.NEGATIVE_INFINITY;
+        double maxY = Double.NEGATIVE_INFINITY;
+
+        for (String entityName : project.collectGroupEntityNames(groupName)) {
+            AnimationProject.SceneEntitySnapshot snap = project.getSceneEntitySnapshot(entityName);
+            if (snap == null) continue;
+            double itemMinX = snap.x() - snap.originX() * snap.width();
+            double itemMinY = snap.y() - snap.originY() * snap.height();
+            double itemMaxX = itemMinX + snap.width();
+            double itemMaxY = itemMinY + snap.height();
+            if (!Double.isFinite(itemMinX) || !Double.isFinite(itemMinY)
+                    || !Double.isFinite(itemMaxX) || !Double.isFinite(itemMaxY)) {
+                continue;
+            }
+            Image image = null;
+            if (!snap.imagePath().isBlank()) {
+                image = resolveImage(snap.imagePath().split("\\|")[0].trim());
+            }
+            items.add(new GroupVisualItem(entityName, snap, image, itemMinX, itemMinY, itemMaxX, itemMaxY));
+            minX = Math.min(minX, itemMinX);
+            minY = Math.min(minY, itemMinY);
+            maxX = Math.max(maxX, itemMaxX);
+            maxY = Math.max(maxY, itemMaxY);
+        }
+
+        items.sort(Comparator
+            .comparingDouble((GroupVisualItem item) -> item.snapshot().z())
+            .thenComparing(GroupVisualItem::entityName, String.CASE_INSENSITIVE_ORDER));
+        return new GroupVisualBounds(items, minX, minY, maxX, maxY);
     }
 
     private Image resolveImage(String path) {
@@ -422,17 +500,9 @@ public class AnchorEditor extends VBox {
         double[] b = imgBounds(cw, ch);
         double imgX = b[0], imgY = b[1], imgW = b[2], imgH = b[3];
 
-        // Sprite or placeholder
+        // Sprite, group contents, or placeholder
         if (currentEntityIsGroup) {
-            // Groups don't have sprite images - show a group placeholder
-            gc.setFill(Color.web("#2a2a2a"));
-            gc.fillRect(imgX, imgY, imgW, imgH);
-            gc.setStroke(Color.web("#f0b673"));
-            gc.setLineWidth(2);
-            gc.strokeRect(imgX + 0.5, imgY + 0.5, imgW - 1, imgH - 1);
-            gc.setFill(Color.web("#f0b673"));
-            gc.setFont(javafx.scene.text.Font.font(10));
-            gc.fillText("Group bounds", imgX + 6, imgY + imgH / 2 + 4);
+            drawGroupVisual(imgX, imgY, imgW, imgH);
         } else if (spriteImage != null && !spriteImage.isError()) {
             gc.drawImage(spriteImage, imgX, imgY, imgW, imgH);
         } else {
@@ -479,7 +549,7 @@ public class AnchorEditor extends VBox {
             gc.setFill(Color.web("#a0a0a0"));
             gc.setFont(javafx.scene.text.Font.font(9.5));
             String hint = currentEntityIsGroup
-                ? "Click on group bounds to place anchor  ·  Click dot to select"
+                ? "Click on group contents to place anchor  ·  Click dot to select"
                 : "Click on sprite to place anchor  ·  Click dot to select";
             gc.fillText(hint, PAD, ch - 5);
         }
@@ -505,6 +575,40 @@ public class AnchorEditor extends VBox {
         gc.strokeLine(cx, cy - arm, cx, cy + arm);
     }
 
+    private void drawGroupVisual(double imgX, double imgY, double imgW, double imgH) {
+        gc.setFill(Color.web("#202020"));
+        gc.fillRect(imgX, imgY, imgW, imgH);
+        gc.setStroke(Color.web("#f0b673"));
+        gc.setLineWidth(2);
+        gc.strokeRect(imgX + 0.5, imgY + 0.5, imgW - 1, imgH - 1);
+
+        if (groupVisualBounds == null || groupVisualBounds.isEmpty()) {
+            gc.setFill(Color.web("#f0b673"));
+            gc.setFont(javafx.scene.text.Font.font(10));
+            gc.fillText("Group bounds", imgX + 6, imgY + imgH / 2 + 4);
+            return;
+        }
+
+        for (GroupVisualItem item : groupVisualBounds.items()) {
+            double x = imgX + ((item.minX() - groupVisualBounds.minX()) / groupVisualBounds.width()) * imgW;
+            double y = imgY + ((item.minY() - groupVisualBounds.minY()) / groupVisualBounds.height()) * imgH;
+            double w = Math.max(1.0, (item.maxX() - item.minX()) / groupVisualBounds.width() * imgW);
+            double h = Math.max(1.0, (item.maxY() - item.minY()) / groupVisualBounds.height() * imgH);
+            Image image = item.image();
+            if (image != null && !image.isError()) {
+                gc.setGlobalAlpha(Math.max(0.15, Math.min(1.0, item.snapshot().alpha())));
+                gc.drawImage(image, x, y, w, h);
+                gc.setGlobalAlpha(1.0);
+            } else {
+                gc.setFill(Color.web("#333333", 0.80));
+                gc.fillRect(x, y, w, h);
+                gc.setStroke(Color.web("#777777", 0.65));
+                gc.setLineWidth(1);
+                gc.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+            }
+        }
+    }
+
     private void drawCanvasBorder(double cw, double ch) {
         gc.setStroke(Color.web("#2a2a2a"));
         gc.setLineWidth(1);
@@ -517,7 +621,11 @@ public class AnchorEditor extends VBox {
         double availH = ch - PAD * 2 - 18; // leave room for the bottom instruction strip
         double imgW, imgH;
 
-        if (spriteImage != null && !spriteImage.isError()
+        if (currentEntityIsGroup && groupVisualBounds != null && !groupVisualBounds.isEmpty()) {
+            double scale = Math.min(availW / groupVisualBounds.width(), availH / groupVisualBounds.height());
+            imgW = groupVisualBounds.width() * scale;
+            imgH = groupVisualBounds.height() * scale;
+        } else if (spriteImage != null && !spriteImage.isError()
                 && spriteImage.getWidth() > 0 && spriteImage.getHeight() > 0) {
             double iw = spriteImage.getWidth();
             double ih = spriteImage.getHeight();
