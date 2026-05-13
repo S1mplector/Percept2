@@ -3,6 +3,7 @@ package com.jvn.editor.ui.actioneditor;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
@@ -63,14 +64,22 @@ public class AnchorEditor extends VBox {
     private static final double ZOOM_MAX      = 5.0;
     private static final double ZOOM_STEP     = 1.4;
 
-    private record GroupVisualItem(
-        String entityName,
-        AnimationProject.SceneEntitySnapshot snapshot,
-        Image image,
+    private record GroupVisualRegion(
+        double sourceX,
+        double sourceY,
+        double sourceW,
+        double sourceH,
         double minX,
         double minY,
         double maxX,
         double maxY
+    ) {}
+
+    private record GroupVisualItem(
+        String entityName,
+        AnimationProject.SceneEntitySnapshot snapshot,
+        Image image,
+        List<GroupVisualRegion> regions
     ) {}
 
     private record GroupVisualBounds(
@@ -100,6 +109,8 @@ public class AnchorEditor extends VBox {
     private AnimationProject project;
     private AnimationPreview preview;
     private File             projectRoot;
+    private SpritePixelAnalyzer pixelAnalyzer;
+    private final Map<String, List<SpritePixelAnalyzer.DetectedRegion>> spriteRegionCache = new HashMap<>();
     private Runnable         onAnchorChanged;
     /** Called with (entityName, anchor) when a new anchor is confirmed. */
     private BiConsumer<String, Anchor> onAnchorPlaced;
@@ -205,13 +216,18 @@ public class AnchorEditor extends VBox {
         btnZoomReset.setStyle(S_BTN_ZOOM + "-fx-min-width: 30; -fx-pref-width: 30;");
         btnZoomReset.setOnAction(e -> applyZoom(1.0));
 
+        Button btnViewportPlace = new Button("Viewport");
+        btnViewportPlace.setStyle(S_BTN_ZOOM + "-fx-min-width: 70; -fx-pref-width: 70; -fx-max-width: 70;");
+        btnViewportPlace.setTooltip(new Tooltip("Place the next anchor in the main viewport with focused zoom"));
+        btnViewportPlace.setOnAction(e -> beginViewportPlacement());
+
         lblZoom = new Label("100%");
         lblZoom.setStyle("-fx-text-fill: #aaa; -fx-font-size: 10px; -fx-min-width: 36; -fx-alignment: center;");
 
         Label zoomLabel = new Label("Zoom:");
         zoomLabel.setStyle("-fx-text-fill: #777; -fx-font-size: 10px;");
 
-        HBox zoomBar = new HBox(5, zoomLabel, btnZoomOut, lblZoom, btnZoomIn, btnZoomReset);
+        HBox zoomBar = new HBox(5, zoomLabel, btnZoomOut, lblZoom, btnZoomIn, btnZoomReset, btnViewportPlace);
         zoomBar.setAlignment(Pos.CENTER_LEFT);
         zoomBar.setPadding(new Insets(4, 8, 4, 8));
         zoomBar.setStyle(
@@ -308,6 +324,8 @@ public class AnchorEditor extends VBox {
 
     public void setProjectRoot(File root) {
         this.projectRoot = root;
+        this.pixelAnalyzer = new SpritePixelAnalyzer(root);
+        this.spriteRegionCache.clear();
         if (currentEntityName != null) loadEntityImage(currentEntityName);
         redrawCanvas();
     }
@@ -403,29 +421,79 @@ public class AnchorEditor extends VBox {
         for (String entityName : project.collectGroupEntityNames(groupName)) {
             AnimationProject.SceneEntitySnapshot snap = project.getSceneEntitySnapshot(entityName);
             if (snap == null) continue;
-            double itemMinX = snap.x() - snap.originX() * snap.width();
-            double itemMinY = snap.y() - snap.originY() * snap.height();
-            double itemMaxX = itemMinX + snap.width();
-            double itemMaxY = itemMinY + snap.height();
-            if (!Double.isFinite(itemMinX) || !Double.isFinite(itemMinY)
-                    || !Double.isFinite(itemMaxX) || !Double.isFinite(itemMaxY)) {
-                continue;
+            List<GroupVisualItem> entityItems = buildGroupVisualItems(entityName, snap);
+            if (entityItems.isEmpty()) continue;
+            for (GroupVisualItem item : entityItems) {
+                items.add(item);
+                for (GroupVisualRegion region : item.regions()) {
+                    minX = Math.min(minX, region.minX());
+                    minY = Math.min(minY, region.minY());
+                    maxX = Math.max(maxX, region.maxX());
+                    maxY = Math.max(maxY, region.maxY());
+                }
             }
-            Image image = null;
-            if (!snap.imagePath().isBlank()) {
-                image = resolveImage(snap.imagePath().split("\\|")[0].trim());
-            }
-            items.add(new GroupVisualItem(entityName, snap, image, itemMinX, itemMinY, itemMaxX, itemMaxY));
-            minX = Math.min(minX, itemMinX);
-            minY = Math.min(minY, itemMinY);
-            maxX = Math.max(maxX, itemMaxX);
-            maxY = Math.max(maxY, itemMaxY);
         }
 
         items.sort(Comparator
             .comparingDouble((GroupVisualItem item) -> item.snapshot().z())
             .thenComparing(GroupVisualItem::entityName, String.CASE_INSENSITIVE_ORDER));
         return new GroupVisualBounds(items, minX, minY, maxX, maxY);
+    }
+
+    private List<GroupVisualItem> buildGroupVisualItems(String entityName, AnimationProject.SceneEntitySnapshot snap) {
+        if (snap == null) return List.of();
+        String imageSpec = snap.imagePath();
+        if (imageSpec == null || imageSpec.isBlank()) {
+            double minX = snap.x() - snap.originX() * snap.width();
+            double minY = snap.y() - snap.originY() * snap.height();
+            return List.of(new GroupVisualItem(entityName, snap, null,
+                List.of(new GroupVisualRegion(0, 0, snap.width(), snap.height(), minX, minY, minX + snap.width(), minY + snap.height()))));
+        }
+
+        List<GroupVisualItem> items = new ArrayList<>();
+        for (String layerPath : imageSpec.split("\\|")) {
+            String path = layerPath == null ? "" : layerPath.trim();
+            if (path.isEmpty()) continue;
+            Image image = resolveImage(path);
+            List<GroupVisualRegion> regions = buildVisibleRegions(snap, path, image);
+            if (regions.isEmpty()) continue;
+            items.add(new GroupVisualItem(entityName, snap, image, regions));
+        }
+        return items;
+    }
+
+    private List<GroupVisualRegion> buildVisibleRegions(AnimationProject.SceneEntitySnapshot snap, String path, Image image) {
+        double imageW = image != null && !image.isError() && image.getWidth() > 1 ? image.getWidth() : snap.width();
+        double imageH = image != null && !image.isError() && image.getHeight() > 1 ? image.getHeight() : snap.height();
+        double imgToSpriteX = snap.width() / Math.max(1.0, imageW);
+        double imgToSpriteY = snap.height() / Math.max(1.0, imageH);
+        List<SpritePixelAnalyzer.DetectedRegion> detected = pixelAnalyzer != null
+            ? spriteRegionCache.computeIfAbsent(path, pixelAnalyzer::detectRegions)
+            : List.of();
+        if (detected.isEmpty()) {
+            double minX = snap.x() - snap.originX() * snap.width();
+            double minY = snap.y() - snap.originY() * snap.height();
+            return List.of(new GroupVisualRegion(0, 0, imageW, imageH, minX, minY, minX + snap.width(), minY + snap.height()));
+        }
+
+        List<GroupVisualRegion> regions = new ArrayList<>();
+        for (SpritePixelAnalyzer.DetectedRegion region : detected) {
+            double minX = snap.x() - snap.originX() * snap.width() + region.minX * imgToSpriteX;
+            double minY = snap.y() - snap.originY() * snap.height() + region.minY * imgToSpriteY;
+            double width = region.width * imgToSpriteX;
+            double height = region.height * imgToSpriteY;
+            regions.add(new GroupVisualRegion(
+                region.minX,
+                region.minY,
+                region.width,
+                region.height,
+                minX,
+                minY,
+                minX + width,
+                minY + height
+            ));
+        }
+        return regions;
     }
 
     private Image resolveImage(String path) {
@@ -473,6 +541,24 @@ public class AnchorEditor extends VBox {
         if (norm == null) return;
         pendingRelX = norm[0];
         pendingRelY = norm[1];
+        setPendingRowVisible(true);
+        txtPendingName.clear();
+        txtPendingName.requestFocus();
+        redrawCanvas();
+    }
+
+    private void beginViewportPlacement() {
+        if (preview == null || currentEntityName == null || currentEntityName.isBlank()) return;
+        clearPending();
+        preview.setAnchorPlacementMode(true);
+        preview.focusAnchorPlacementOnSelection();
+        preview.render();
+    }
+
+    public void startPendingPlacement(double relX, double relY) {
+        if (currentEntityName == null) return;
+        pendingRelX = Math.max(0.0, Math.min(1.0, relX));
+        pendingRelY = Math.max(0.0, Math.min(1.0, relY));
         setPendingRowVisible(true);
         txtPendingName.clear();
         txtPendingName.requestFocus();
@@ -590,21 +676,23 @@ public class AnchorEditor extends VBox {
         }
 
         for (GroupVisualItem item : groupVisualBounds.items()) {
-            double x = imgX + ((item.minX() - groupVisualBounds.minX()) / groupVisualBounds.width()) * imgW;
-            double y = imgY + ((item.minY() - groupVisualBounds.minY()) / groupVisualBounds.height()) * imgH;
-            double w = Math.max(1.0, (item.maxX() - item.minX()) / groupVisualBounds.width() * imgW);
-            double h = Math.max(1.0, (item.maxY() - item.minY()) / groupVisualBounds.height() * imgH);
-            Image image = item.image();
-            if (image != null && !image.isError()) {
-                gc.setGlobalAlpha(Math.max(0.15, Math.min(1.0, item.snapshot().alpha())));
-                gc.drawImage(image, x, y, w, h);
-                gc.setGlobalAlpha(1.0);
-            } else {
-                gc.setFill(Color.web("#333333", 0.80));
-                gc.fillRect(x, y, w, h);
-                gc.setStroke(Color.web("#777777", 0.65));
-                gc.setLineWidth(1);
-                gc.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+            for (GroupVisualRegion region : item.regions()) {
+                double x = imgX + ((region.minX() - groupVisualBounds.minX()) / groupVisualBounds.width()) * imgW;
+                double y = imgY + ((region.minY() - groupVisualBounds.minY()) / groupVisualBounds.height()) * imgH;
+                double w = Math.max(1.0, (region.maxX() - region.minX()) / groupVisualBounds.width() * imgW);
+                double h = Math.max(1.0, (region.maxY() - region.minY()) / groupVisualBounds.height() * imgH);
+                Image image = item.image();
+                if (image != null && !image.isError()) {
+                    gc.setGlobalAlpha(Math.max(0.15, Math.min(1.0, item.snapshot().alpha())));
+                    gc.drawImage(image, region.sourceX(), region.sourceY(), region.sourceW(), region.sourceH(), x, y, w, h);
+                    gc.setGlobalAlpha(1.0);
+                } else {
+                    gc.setFill(Color.web("#333333", 0.80));
+                    gc.fillRect(x, y, w, h);
+                    gc.setStroke(Color.web("#777777", 0.65));
+                    gc.setLineWidth(1);
+                    gc.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+                }
             }
         }
     }
@@ -687,6 +775,10 @@ public class AnchorEditor extends VBox {
         refreshAnchorList();
         redrawCanvas();
         if (onAnchorChanged != null) onAnchorChanged.run();
+        if (preview != null) {
+            preview.setOrbitToolEnabled(true);
+            preview.useAnchorAsOrbitPivot(currentEntityName, name);
+        }
         if (onAnchorPlaced != null) onAnchorPlaced.accept(currentEntityName, placed);
         if (preview != null) preview.render();
     }

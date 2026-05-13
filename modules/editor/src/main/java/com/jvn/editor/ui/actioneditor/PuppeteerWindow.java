@@ -1283,6 +1283,10 @@ public class PuppeteerWindow extends Stage {
         anchorEditor = new AnchorEditor();
         anchorEditor.setProject(this.project);
         anchorEditor.setAnimationPreview(animationPreview);
+        animationPreview.setOnAnchorPlacementAt(coords -> {
+            if (coords == null || coords.length < 2) return;
+            anchorEditor.startPendingPlacement(coords[0], coords[1]);
+        });
         anchorEditor.setOnAnchorChanged(() -> {
             animationPreview.render();
             timelinePanel.refresh();
