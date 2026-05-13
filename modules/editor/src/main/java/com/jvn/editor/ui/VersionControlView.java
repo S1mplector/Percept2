@@ -127,7 +127,7 @@ public class VersionControlView extends BorderPane {
   private final ComboBox<String> cbBranch = new ComboBox<>();
   private final Button btnNewBranch = actionButton(
       "New Branch",
-      CssIcon.rocket(ICON_BRANCH),
+      CssIcon.branchPlus(ICON_BRANCH),
       "Create a branch with the typed name and switch to it.",
       "vcs-action-button-neutral");
 

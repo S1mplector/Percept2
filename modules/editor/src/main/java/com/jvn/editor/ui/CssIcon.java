@@ -104,6 +104,8 @@ public final class CssIcon {
       "M4 20q-.825 0-1.412-.587Q2 18.825 2 18V6q0-.825.588-1.412Q3.175 4 4 4h16q.825 0 1.413.588Q22 5.175 22 6v12q0 .825-.587 1.413Q20.825 20 20 20H4Zm0-2h16V6H4v12Zm3-2h10v-2H7v2Zm-4-4h2V8H3v4Zm4 0h14V8H7v4ZM4 6v12V6Z";
   private static final String PATH_ROCKET =
       "M14.05 18.3 12 16.25v-3.4l2.05-2.05H17.4l2.05 2.05v3.4l-2.05 2.05h-3.35ZM12 22v-3H8v3h4Zm0-4v-3.4l2.05-2.05h3.35L19.45 14.6v3.4ZM8 14H5v-4h3v4Zm4-4V6.6L9.95 4.55H6.6L4.55 6.6v3.4H8v-4h4Zm12 4v-4h-3v4h3Zm0-4h-3V6.6L18.95 4.55h-3.35L13.55 6.6V10h4v-4h4v4ZM8 6H5V3h3v3Zm12 0h-3V3h3v3Z";
+  private static final String PATH_BRANCH_PLUS =
+      "M6 4a3 3 0 1 0 2 5.236v2.264c0 2.485 2.015 4.5 4.5 4.5H15a3 3 0 1 0 0-2h-2.5A2.5 2.5 0 0 1 10 11.5V9.236A3 3 0 0 0 6 4Zm0 2a1 1 0 1 1 0 2 1 1 0 0 1 0-2Zm12 7a1 1 0 1 1 0 2 1 1 0 0 1 0-2Zm1-10v3h3v2h-3v3h-2V8h-3V6h3V3h2Z";
   private static final String PATH_MOVIE =
       "M4 20q-.825 0-1.412-.587Q2 18.825 2 18V6q0-.825.588-1.412Q3.175 4 4 4h16q.825 0 1.413.588Q22 5.175 22 6v12q0 .825-.587 1.413Q20.825 20 20 20H4Zm0-2h16V6h-2v2h-2V6h-2v2h-2V6h-2v2H8V6H6v2H4v10Zm6-1l5.5-4-5.5-4v8Z";
   private static final String PATH_LABEL =
@@ -162,6 +164,7 @@ public final class CssIcon {
   public static Region delete(String color) { return icon(PATH_DELETE, color, 14); }
   public static Region timeline(String color) { return icon(PATH_TIMELINE, color, 14); }
   public static Region rocket(String color) { return icon(PATH_ROCKET, color, 14); }
+  public static Region branchPlus(String color) { return icon(PATH_BRANCH_PLUS, color, 15); }
   public static Region movie(String color) { return icon(PATH_MOVIE, color, 14); }
   public static Region label(String color) { return icon(PATH_LABEL, color, 14); }
   public static Region auto(String color) { return icon(PATH_AUTO, color, 14); }
@@ -215,6 +218,7 @@ public final class CssIcon {
   public static Region delete() { return delete("#b0b8c8"); }
   public static Region timeline() { return timeline("#b0b8c8"); }
   public static Region rocket() { return rocket("#b0b8c8"); }
+  public static Region branchPlus() { return branchPlus("#b0b8c8"); }
   public static Region movie() { return movie("#b0b8c8"); }
   public static Region label() { return label("#b0b8c8"); }
   public static Region auto() { return auto("#b0b8c8"); }

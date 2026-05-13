@@ -747,6 +747,56 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-border-color: #8a8a8a;
 }
 
+.combo-box.vcs-combo {
+  -fx-background-color: #1c1c1c;
+  -fx-border-color: #373737;
+  -fx-border-radius: 6;
+  -fx-background-radius: 6;
+}
+
+.combo-box.vcs-combo .list-cell {
+  -fx-background-color: #1c1c1c;
+  -fx-text-fill: #f2f2f2;
+}
+
+.combo-box.vcs-combo:editable > .text-field {
+  -fx-background-color: #1c1c1c;
+  -fx-text-fill: #f2f2f2;
+  -fx-prompt-text-fill: #9a9a9a;
+  -fx-highlight-fill: #365d86;
+  -fx-highlight-text-fill: #ffffff;
+  -fx-caret-color: #ffffff;
+}
+
+.combo-box.vcs-combo .arrow-button {
+  -fx-background-color: #282828;
+  -fx-background-radius: 0 6 6 0;
+}
+
+.combo-box.vcs-combo .arrow {
+  -fx-background-color: #e2e2e2;
+}
+
+.vcs-combo .combo-box-popup > .list-view,
+.vcs-combo-popup .list-view {
+  -fx-background-color: #1c1c1c;
+  -fx-border-color: #373737;
+}
+
+.vcs-combo .combo-box-popup > .list-view .list-cell,
+.vcs-combo-popup .list-cell {
+  -fx-background-color: #1c1c1c;
+  -fx-text-fill: #f2f2f2;
+}
+
+.vcs-combo .combo-box-popup > .list-view .list-cell:hover,
+.vcs-combo .combo-box-popup > .list-view .list-cell:filled:selected,
+.vcs-combo-popup .list-cell:hover,
+.vcs-combo-popup .list-cell:filled:selected {
+  -fx-background-color: #2f2f2f;
+  -fx-text-fill: #f2f2f2;
+}
+
 .vcs-log {
   -fx-text-fill: #dcdcdc;
 }

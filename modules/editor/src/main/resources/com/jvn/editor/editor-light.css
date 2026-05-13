@@ -693,6 +693,56 @@
   -fx-border-color: #6f8fad;
 }
 
+.combo-box.vcs-combo {
+  -fx-background-color: #e3e3e3;
+  -fx-border-color: #c8c8c8;
+  -fx-border-radius: 6;
+  -fx-background-radius: 6;
+}
+
+.combo-box.vcs-combo .list-cell {
+  -fx-background-color: #e3e3e3;
+  -fx-text-fill: #0d0d0d;
+}
+
+.combo-box.vcs-combo:editable > .text-field {
+  -fx-background-color: #e3e3e3;
+  -fx-text-fill: #0d0d0d;
+  -fx-prompt-text-fill: #555555;
+  -fx-highlight-fill: #b9d8f2;
+  -fx-highlight-text-fill: #161616;
+  -fx-caret-color: #161616;
+}
+
+.combo-box.vcs-combo .arrow-button {
+  -fx-background-color: #d7d7d7;
+  -fx-background-radius: 0 6 6 0;
+}
+
+.combo-box.vcs-combo .arrow {
+  -fx-background-color: #1d1d1d;
+}
+
+.vcs-combo .combo-box-popup > .list-view,
+.vcs-combo-popup .list-view {
+  -fx-background-color: #e3e3e3;
+  -fx-border-color: #c8c8c8;
+}
+
+.vcs-combo .combo-box-popup > .list-view .list-cell,
+.vcs-combo-popup .list-cell {
+  -fx-background-color: #e3e3e3;
+  -fx-text-fill: #0d0d0d;
+}
+
+.vcs-combo .combo-box-popup > .list-view .list-cell:hover,
+.vcs-combo .combo-box-popup > .list-view .list-cell:filled:selected,
+.vcs-combo-popup .list-cell:hover,
+.vcs-combo-popup .list-cell:filled:selected {
+  -fx-background-color: #d0d0d0;
+  -fx-text-fill: #0d0d0d;
+}
+
 .vcs-log {
   -fx-text-fill: #202020;
 }
