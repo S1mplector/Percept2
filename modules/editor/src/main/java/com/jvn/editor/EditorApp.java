@@ -5291,6 +5291,7 @@ public class EditorApp extends Application {
     if (pane == null) return;
     Tab chooser = null;
     Tab selected = pane.getSelectionModel().getSelectedItem();
+    Tab selectedPanel = isRegularSidebarTab(pane, selected) ? selected : null;
     if (selected != null && PANEL_CHOOSER_TAB_ROLE.equals(selected.getProperties().get(PANEL_CHOOSER_TAB_ROLE))) {
       chooser = selected;
     }
@@ -5301,12 +5302,20 @@ public class EditorApp extends Application {
     Tab fallback = firstRegularTab(pane, getAddTabForPane(pane));
     Tab addTab = getAddTabForPane(pane);
     pane.getTabs().remove(chooser);
-    if (fallback != null && pane.getTabs().contains(fallback)) {
+    if (selectedPanel != null && pane.getTabs().contains(selectedPanel)) {
+      pane.getSelectionModel().select(selectedPanel);
+    } else if (fallback != null && pane.getTabs().contains(fallback)) {
       pane.getSelectionModel().select(fallback);
     } else if (addTab != null && pane.getTabs().contains(addTab)) {
       pane.getSelectionModel().select(addTab);
     }
     scheduleEmptySidebarAutoClose(pane);
+  }
+
+  private boolean isRegularSidebarTab(TabPane pane, Tab tab) {
+    if (pane == null || tab == null) return false;
+    if (tab == getAddTabForPane(pane)) return false;
+    return !PANEL_CHOOSER_TAB_ROLE.equals(tab.getProperties().get(PANEL_CHOOSER_TAB_ROLE));
   }
 
   private StackPane createSidebarEmptyState(String side) {
