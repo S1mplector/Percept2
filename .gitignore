@@ -32,7 +32,7 @@ Thumbs.db
 # Local libs
 libs/*.jar
 
-demo-game/
+/demo-game/
 # Local editor Gradle home
 .jvn-gradle-user-home/
 
