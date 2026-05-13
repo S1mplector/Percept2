@@ -15,6 +15,10 @@ The Layered Image Visualizer export panel now puts the runtime-ready `@charlayer
 
 Developer Mode from the Engine Hub now gives the editor and launcher a collapsed top `Logs` panel for quick log-file viewing, plus launcher-to-editor Developer Mode handoff and child-process log capture.
 
+Developer Mode also adds a `DevTools` menu to the editor and launcher with runtime diagnostics, manual GC, log refresh, editor heap configuration for launcher-started editor sessions, and a capture-output toggle.
+
+The Version Control sidebar now uses clearer snapshot/sync language, checks for incoming remote work, highlights the next recommended action, adds more helpful tooltips and colored buttons, and refreshes status reliably after operations.
+
 ## 2026-05-10 — Puppeteer group anchors and constraint removal
 The Puppeteer Anchors window now supports group entities. When a group is selected in the Entities tab, it appears in the Anchors window with a "[Group]" prefix and orange color indicator. Groups display a placeholder bounding box instead of a sprite image, allowing anchors to be placed on the group's normalized coordinate space.
 

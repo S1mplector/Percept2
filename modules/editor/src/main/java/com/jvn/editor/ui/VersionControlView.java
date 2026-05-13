@@ -1,6 +1,9 @@
 package com.jvn.editor.ui;
 
 import java.io.File;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -19,6 +22,7 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
@@ -29,6 +33,7 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
 
@@ -36,6 +41,9 @@ import javafx.util.Duration;
  * Team-focused Git control panel for JVN projects.
  */
 public class VersionControlView extends BorderPane {
+  private static final long REMOTE_CHECK_INTERVAL_MS = 120_000L;
+  private static final DateTimeFormatter CHECK_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
+
   private final GitVcsService vcs = new GitVcsService();
   private final ExecutorService worker = Executors.newSingleThreadExecutor(r -> {
     Thread t = new Thread(r, "jvn-vcs-worker");
@@ -48,7 +56,10 @@ public class VersionControlView extends BorderPane {
   private final Label toolLabel = new Label("Git: --");
   private final Label branchLabel = new Label("Branch: --");
   private final Label syncLabel = new Label("Sync: --");
+  private final Label incomingLabel = new Label("Incoming: --");
   private final Label summaryLabel = new Label("Status: --");
+  private final Label nextStepLabel = new Label("Open a project to begin.");
+  private final Label lastRemoteCheckLabel = new Label("Online check: --");
   private final Label conflictLabel = new Label();
   private final Label remoteLabel = new Label("Remote: not configured");
   private final Button btnConfigureRemote = new Button("Add Remote");
@@ -60,26 +71,72 @@ public class VersionControlView extends BorderPane {
 
   private final CheckBox chkInitCommit = new CheckBox("Create initial commit");
 
-  private final Button btnRefresh = iconButton(CssIcon.redo(), "Refresh status");
+  private final Button btnRefresh = actionButton(
+      "Refresh",
+      CssIcon.redo(),
+      "Refresh the project status and check whether the online repository has new work.",
+      "vcs-action-button-neutral");
   private final Button btnInitialize = new Button("Initialize");
-  private final Button btnFetch = iconButton(CssIcon.download(), "Fetch all remotes");
-  private final Button btnPull = iconButton(CssIcon.arrowDown(), "Pull with rebase");
-  private final Button btnPush = iconButton(CssIcon.arrowUp(), "Push to remote");
-  private final Button btnCommit = iconButton(CssIcon.save(), "Commit all changes");
-  private final Button btnStash = iconButton(CssIcon.memory(), "Stash changes");
-  private final Button btnStashPop = iconButton(CssIcon.popOut(), "Pop stash");
-  private final Button btnStageSelected = iconButton(CssIcon.plus(), "Stage selected");
-  private final Button btnUnstageSelected = iconButton(CssIcon.minus(), "Unstage selected");
-  private final Button btnDiscardSelected = iconButton(CssIcon.delete(), "Discard changes");
-  private final Button btnDiffSelected = iconButton(CssIcon.search(), "Show diff");
+  private final Button btnFetch = actionButton(
+      "Check Online",
+      CssIcon.download(),
+      "Contact the remote repository and check for work you do not have yet.",
+      "vcs-action-button-accent");
+  private final Button btnPull = actionButton(
+      "Get Updates",
+      CssIcon.arrowDown(),
+      "Download incoming commits and replay your local work on top.",
+      "vcs-action-button-warning");
+  private final Button btnPush = actionButton(
+      "Send Online",
+      CssIcon.arrowUp(),
+      "Upload your saved snapshots to the remote repository.",
+      "vcs-action-button-success");
+  private final Button btnCommit = actionButton(
+      "Save Snapshot",
+      CssIcon.save(),
+      "Save all current project changes into a local version snapshot.",
+      "vcs-action-button-success");
+  private final Button btnStash = actionButton(
+      "Shelve",
+      CssIcon.memory(),
+      "Temporarily put current changes aside without saving a snapshot.",
+      "vcs-action-button-neutral");
+  private final Button btnStashPop = actionButton(
+      "Restore Shelf",
+      CssIcon.popOut(),
+      "Bring back the latest shelved changes.",
+      "vcs-action-button-neutral");
+  private final Button btnStageSelected = iconButton(CssIcon.plus(), "Mark the selected file for the next Git commit.");
+  private final Button btnUnstageSelected = iconButton(CssIcon.minus(), "Remove the selected file from the staged Git area.");
+  private final Button btnDiscardSelected = iconButton(CssIcon.delete(), "Permanently discard the selected file change.");
+  private final Button btnDiffSelected = iconButton(CssIcon.search(), "Show the selected file diff in the activity log.");
   private final ComboBox<String> cbBranch = new ComboBox<>();
-  private final Button btnNewBranch = iconButton(CssIcon.rocket(), "Create branch");
+  private final Button btnNewBranch = actionButton(
+      "New Branch",
+      CssIcon.rocket(),
+      "Create a branch with the typed name and switch to it.",
+      "vcs-action-button-neutral");
 
-  private static Button iconButton(javafx.scene.layout.Region iconClass, String tooltip) {
+  private static Button iconButton(Region iconClass, String tooltip) {
     Button btn = new Button();
     btn.getStyleClass().add("vcs-icon-btn");
     btn.setGraphic(iconClass);
     btn.setTooltip(new Tooltip(tooltip));
+    return btn;
+  }
+
+  private static Button actionButton(Region iconClass, String tooltip, String... styleClasses) {
+    return actionButton(null, iconClass, tooltip, styleClasses);
+  }
+
+  private static Button actionButton(String text, Region iconClass, String tooltip, String... styleClasses) {
+    Button btn = new Button(text == null ? "" : text);
+    btn.getStyleClass().add("vcs-action-button");
+    if (styleClasses != null) btn.getStyleClass().addAll(styleClasses);
+    btn.setGraphic(iconClass);
+    btn.setTooltip(new Tooltip(tooltip));
+    btn.setContentDisplay(ContentDisplay.LEFT);
     return btn;
   }
 
@@ -91,6 +148,16 @@ public class VersionControlView extends BorderPane {
   private boolean gitAvailable;
   private boolean repositoryInitialized;
   private boolean busy;
+  private boolean currentHasRemote;
+  private boolean currentHasUpstream;
+  private boolean currentHasConflicts;
+  private boolean updatingBranchSelection;
+  private int currentAhead;
+  private int currentBehind;
+  private int currentChangeCount;
+  private long lastRemoteCheckMs = -1L;
+  private String lastRemoteCheckDisplay = "Online check: not checked yet";
+  private String currentBranch = "";
   private Consumer<String> onOpenRelativePath;
   private Timeline autoRefreshTimer;
   private boolean disposed;
@@ -100,6 +167,10 @@ public class VersionControlView extends BorderPane {
     titleLabel.getStyleClass().addAll("vcs-title", "sidebar-tool-title");
     repoLabel.getStyleClass().addAll("vcs-muted", "sidebar-tool-subtitle");
     toolLabel.getStyleClass().add("vcs-muted");
+    incomingLabel.getStyleClass().addAll("vcs-sync-chip", "vcs-sync-neutral");
+    lastRemoteCheckLabel.getStyleClass().add("vcs-muted");
+    nextStepLabel.getStyleClass().addAll("vcs-next-step", "vcs-next-step-info");
+    nextStepLabel.setWrapText(true);
     conflictLabel.getStyleClass().add("vcs-conflict");
     conflictLabel.setVisible(false);
     conflictLabel.setManaged(false);
@@ -115,7 +186,7 @@ public class VersionControlView extends BorderPane {
 
     chkInitCommit.setSelected(true);
 
-    txtCommitMessage.setPromptText("Commit message...");
+    txtCommitMessage.setPromptText("Describe what changed...");
     txtCommitMessage.setOnKeyPressed(e -> {
       if (e.getCode() == KeyCode.ENTER && !txtCommitMessage.getText().isBlank()) runCommit();
     });
@@ -138,13 +209,14 @@ public class VersionControlView extends BorderPane {
       if (entry == null) return;
       openChangedEntry(entry);
     });
+    listChanges.getSelectionModel().selectedItemProperty().addListener((obs, oldEntry, newEntry) -> updateControlsForState());
 
-    btnRefresh.setOnAction(e -> refreshStatus());
+    btnRefresh.setOnAction(e -> refreshStatus(true));
     btnInitialize.setOnAction(e -> initializeRepository());
-    btnInitialize.getStyleClass().add("vcs-icon-btn");
-    
-    
+    btnInitialize.getStyleClass().addAll("vcs-action-button", "vcs-action-button-success");
     btnInitialize.setGraphic(CssIcon.plus());
+    btnInitialize.setContentDisplay(ContentDisplay.LEFT);
+    btnInitialize.setTooltip(new Tooltip("Create Git tracking for this project so snapshots and sync are available."));
     btnFetch.setOnAction(e -> runFetch());
     btnPull.setOnAction(e -> runPull());
     btnPush.setOnAction(e -> runPush());
@@ -156,23 +228,28 @@ public class VersionControlView extends BorderPane {
     btnDiscardSelected.setOnAction(e -> runDiscardSelected());
     btnDiffSelected.setOnAction(e -> runDiffSelected());
     btnNewBranch.setOnAction(e -> runCreateBranch());
-    cbBranch.setEditable(false);
-    cbBranch.setPromptText("Switch branch...");
+    cbBranch.setEditable(true);
+    cbBranch.setPromptText("Branch name...");
     cbBranch.setOnAction(e -> {
+      if (updatingBranchSelection) return;
       String selected = cbBranch.getValue();
+      if ((selected == null || selected.isBlank()) && cbBranch.getEditor() != null) {
+        selected = cbBranch.getEditor().getText();
+      }
+      if (selected == null || selected.isBlank() || selected.equals(currentBranch)) return;
       if (selected != null && !selected.isBlank()) runSwitchBranch(selected);
     });
 
     // Sync toolbar: refresh, fetch, pull, push
-    HBox syncRow = new HBox(4, btnRefresh, btnFetch, btnPull, btnPush);
+    HBox syncRow = new HBox(6, btnRefresh, btnFetch, btnPull, btnPush);
     syncRow.setAlignment(Pos.CENTER_LEFT);
 
     // Stash toolbar
-    HBox stashRow = new HBox(4, btnStash, btnStashPop);
+    HBox stashRow = new HBox(6, btnStash, btnStashPop);
     stashRow.setAlignment(Pos.CENTER_LEFT);
 
     // Combined toolbar
-    HBox toolbar = new HBox(12, syncRow, stashRow);
+    VBox toolbar = new VBox(6, syncRow, stashRow);
     toolbar.setAlignment(Pos.CENTER_LEFT);
     toolbar.setPadding(new Insets(4, 0, 4, 0));
 
@@ -228,13 +305,14 @@ public class VersionControlView extends BorderPane {
     setupBox.setManaged(false);
 
     // Commit row
-    HBox commitRow = new HBox(4, txtCommitMessage, btnCommit);
+    HBox commitRow = new HBox(6, txtCommitMessage, btnCommit);
     HBox.setHgrow(txtCommitMessage, Priority.ALWAYS);
     commitRow.setAlignment(Pos.CENTER_LEFT);
 
     // Branch row
-    cbBranch.setMaxWidth(120);
-    HBox branchRow = new HBox(4, cbBranch, btnNewBranch);
+    cbBranch.setMaxWidth(Double.MAX_VALUE);
+    HBox branchRow = new HBox(6, cbBranch, btnNewBranch);
+    HBox.setHgrow(cbBranch, Priority.ALWAYS);
     branchRow.setAlignment(Pos.CENTER_LEFT);
 
     // File action toolbar
@@ -246,7 +324,7 @@ public class VersionControlView extends BorderPane {
     remoteRow.setAlignment(Pos.CENTER_LEFT);
 
     // Header section
-    VBox statusBox = new VBox(2, branchLabel, remoteRow, syncLabel, summaryLabel, conflictLabel);
+    VBox statusBox = new VBox(4, nextStepLabel, branchLabel, remoteRow, incomingLabel, syncLabel, summaryLabel, lastRemoteCheckLabel, conflictLabel);
     statusBox.getStyleClass().add("vcs-status-stack");
 
     HBox titleRow = new HBox(6, titleLabel, SidebarToolHelp.button(this, "Version Control", """
@@ -317,95 +395,301 @@ The Log shows recent commits on the current branch."""));
     if (disposed) return;
     this.projectRoot = projectRoot;
     repoLabel.setText(projectRoot == null ? "No project loaded" : "Project: " + projectRoot.getAbsolutePath());
-    refreshStatus();
+    refreshStatus(true);
   }
 
   public void refreshStatus() {
+    refreshStatus(false);
+  }
+
+  private void refreshStatus(boolean checkRemote) {
     if (disposed) return;
-    runAsync("Refresh status", () -> {
-      boolean git = vcs.isGitAvailable();
-      Platform.runLater(() -> {
-        gitAvailable = git;
-        updateToolAvailabilityLabel(git);
-      });
+    runAsync("Refresh status", () -> loadStatus(checkRemote));
+  }
 
-      if (projectRoot == null) {
-        Platform.runLater(() -> {
-          repositoryInitialized = false;
-          branchLabel.setText("Branch: --");
-          syncLabel.setText("Sync: --");
-          summaryLabel.setText("Status: no project selected");
-          listChanges.getItems().clear();
-          setInitControlsVisible(false, null);
-          updateControlsForState();
-        });
-        return;
-      }
-
-      if (!git) {
-        Platform.runLater(() -> {
-          repositoryInitialized = false;
-          branchLabel.setText("Branch: --");
-          syncLabel.setText("Sync: --");
-          summaryLabel.setText("Status: Git unavailable");
-          listChanges.getItems().clear();
-          setInitControlsVisible(false, null);
-          updateControlsForState();
-        });
-        return;
-      }
-
-      if (!vcs.isRepository(projectRoot)) {
-        Platform.runLater(() -> {
-          repositoryInitialized = false;
-          branchLabel.setText("Branch: (not initialized)");
-          syncLabel.setText("Sync: --");
-          summaryLabel.setText("Status: repository not initialized");
-          listChanges.getItems().clear();
-          setInitControlsVisible(true, "This project is not a repository yet. Initialize it to enable commit/pull/push.");
-          updateControlsForState();
-        });
-        appendLog("Repository is not initialized. Use Initialize Repository.");
-        return;
-      }
-
-      try {
-        GitVcsService.RepositoryStatus status = vcs.getRepositoryStatus(projectRoot);
-        boolean hasRemote = vcs.hasRemote(projectRoot);
-        String remoteUrl = hasRemote ? vcs.getRemoteUrl(projectRoot) : null;
-        Platform.runLater(() -> {
-          repositoryInitialized = true;
-          branchLabel.setText("Branch: " + safe(status.branch()));
-          String upstream = status.upstream() == null || status.upstream().isBlank() ? "(no upstream)" : status.upstream();
-          syncLabel.setText("Sync: " + upstream + "  [ahead " + status.ahead() + ", behind " + status.behind() + "]");
-          if (status.clean()) {
-            summaryLabel.setText("Status: clean working tree");
-          } else {
-            summaryLabel.setText("Status: " + status.entries().size() + " changed files");
-          }
-          // Update remote status and setup guide
-          remoteLabel.getStyleClass().removeAll("vcs-remote-configured", "vcs-remote-missing");
-          if (hasRemote && remoteUrl != null) {
-            remoteLabel.setText("Remote: " + remoteUrl);
-            remoteLabel.getStyleClass().add("vcs-remote-configured");
-            btnConfigureRemote.setText("Change");
-            setupBox.setVisible(false);
-            setupBox.setManaged(false);
-          } else {
-            remoteLabel.setText("Remote: not configured");
-            remoteLabel.getStyleClass().add("vcs-remote-missing");
-            btnConfigureRemote.setText("Add Remote");
-            setupBox.setVisible(true);
-            setupBox.setManaged(true);
-          }
-          listChanges.setItems(FXCollections.observableArrayList(status.entries()));
-          setInitControlsVisible(false, null);
-          updateControlsForState();
-        });
-      } catch (Exception ex) {
-        appendLog(ex.getMessage());
-      }
+  private void loadStatus(boolean forceRemoteCheck) {
+    boolean git = vcs.isGitAvailable();
+    Platform.runLater(() -> {
+      gitAvailable = git;
+      updateToolAvailabilityLabel(git);
     });
+
+    if (projectRoot == null) {
+      Platform.runLater(() -> applyNoProjectState());
+      return;
+    }
+
+    if (!git) {
+      Platform.runLater(() -> applyGitMissingState());
+      return;
+    }
+
+    if (!vcs.isRepository(projectRoot)) {
+      Platform.runLater(() -> applyNotInitializedState());
+      return;
+    }
+
+    try {
+      boolean hasRemote = vcs.hasRemote(projectRoot);
+      String remoteCheckText = lastRemoteCheckText();
+      if (!hasRemote) {
+        remoteCheckText = "Online check: remote not connected";
+      }
+      if (hasRemote && shouldCheckRemote(forceRemoteCheck)) {
+        try {
+          GitVcsService.CommandResult fetch = vcs.fetch(projectRoot);
+          lastRemoteCheckMs = System.currentTimeMillis();
+          remoteCheckText = "Online check: " + LocalTime.now().format(CHECK_TIME_FORMAT);
+          if (!fetch.success()) {
+            remoteCheckText += " (failed)";
+          }
+          lastRemoteCheckDisplay = remoteCheckText;
+        } catch (Exception ex) {
+          lastRemoteCheckMs = System.currentTimeMillis();
+          remoteCheckText = "Online check failed: " + safeMessage(ex);
+          lastRemoteCheckDisplay = remoteCheckText;
+          appendLog("Online check failed: " + safeMessage(ex));
+        }
+      }
+
+      GitVcsService.RepositoryStatus status = vcs.getRepositoryStatus(projectRoot);
+      String remoteUrl = hasRemote ? vcs.getRemoteUrl(projectRoot) : null;
+      List<String> branches = vcs.listBranches(projectRoot);
+      boolean hasConflicts = hasConflicts(status);
+      String finalRemoteCheckText = remoteCheckText;
+      Platform.runLater(() -> applyRepositoryStatus(status, hasRemote, remoteUrl, branches, hasConflicts, finalRemoteCheckText));
+    } catch (Exception ex) {
+      appendLog(safeMessage(ex));
+      Platform.runLater(() -> {
+        setNextStep("Could not read version-control status. See Activity for details.", "vcs-next-step-danger");
+        updateControlsForState();
+      });
+    }
+  }
+
+  private void applyNoProjectState() {
+    repositoryInitialized = false;
+    currentHasRemote = false;
+    currentHasUpstream = false;
+    currentHasConflicts = false;
+    currentAhead = 0;
+    currentBehind = 0;
+    currentChangeCount = 0;
+    currentBranch = "";
+    branchLabel.setText("Branch: --");
+    incomingLabel.setText("Incoming: --");
+    syncLabel.setText("Sync: --");
+    summaryLabel.setText("Status: no project selected");
+    lastRemoteCheckLabel.setText("Online check: --");
+    remoteLabel.setText("Remote: not configured");
+    listChanges.getItems().clear();
+    cbBranch.getItems().clear();
+    setSetupVisible(false);
+    setInitControlsVisible(false, null);
+    setNextStep("Open a project to begin.", "vcs-next-step-info");
+    updateControlsForState();
+  }
+
+  private void applyGitMissingState() {
+    repositoryInitialized = false;
+    currentHasRemote = false;
+    currentHasUpstream = false;
+    currentHasConflicts = false;
+    currentAhead = 0;
+    currentBehind = 0;
+    currentChangeCount = 0;
+    branchLabel.setText("Branch: --");
+    incomingLabel.setText("Incoming: --");
+    syncLabel.setText("Sync: --");
+    summaryLabel.setText("Status: Git unavailable");
+    listChanges.getItems().clear();
+    cbBranch.getItems().clear();
+    setSetupVisible(false);
+    setInitControlsVisible(false, null);
+    setNextStep("Install Git before using version control.", "vcs-next-step-danger");
+    updateControlsForState();
+  }
+
+  private void applyNotInitializedState() {
+    repositoryInitialized = false;
+    currentHasRemote = false;
+    currentHasUpstream = false;
+    currentHasConflicts = false;
+    currentAhead = 0;
+    currentBehind = 0;
+    currentChangeCount = 0;
+    currentBranch = "";
+    branchLabel.setText("Branch: not initialized");
+    incomingLabel.setText("Incoming: unavailable until initialized");
+    syncLabel.setText("Sync: not connected");
+    summaryLabel.setText("Status: repository not initialized");
+    listChanges.getItems().clear();
+    cbBranch.getItems().clear();
+    setSetupVisible(false);
+    setInitControlsVisible(true, "This project is not a repository yet. Initialize it to enable snapshots, backup, and sync.");
+    setNextStep("Start here: initialize version control for this project.", "vcs-next-step-warning");
+    updateControlsForState();
+  }
+
+  private void applyRepositoryStatus(GitVcsService.RepositoryStatus status,
+                                     boolean hasRemote,
+                                     String remoteUrl,
+                                     List<String> branches,
+                                     boolean hasConflicts,
+                                     String remoteCheckText) {
+    repositoryInitialized = true;
+    currentHasRemote = hasRemote;
+    currentHasUpstream = status.upstream() != null && !status.upstream().isBlank();
+    currentHasConflicts = hasConflicts;
+    currentAhead = Math.max(0, status.ahead());
+    currentBehind = Math.max(0, status.behind());
+    currentChangeCount = status.entries() == null ? 0 : status.entries().size();
+    currentBranch = safe(status.branch());
+
+    branchLabel.setText("Branch: " + currentBranch);
+    String upstream = status.upstream() == null || status.upstream().isBlank() ? "not linked to online branch" : status.upstream();
+    syncLabel.setText("Outgoing: " + currentAhead + " local snapshot" + plural(currentAhead) + " not uploaded (" + upstream + ")");
+    summaryLabel.setText(status.clean()
+        ? "Status: no local file changes"
+        : "Status: " + currentChangeCount + " changed file" + plural(currentChangeCount));
+    incomingLabel.setText(buildIncomingText(hasRemote, currentBehind));
+    lastRemoteCheckLabel.setText(remoteCheckText == null || remoteCheckText.isBlank() ? lastRemoteCheckText() : remoteCheckText);
+    conflictLabel.setText(hasConflicts ? "Conflicts need manual resolution before syncing." : "");
+    conflictLabel.setVisible(hasConflicts);
+    conflictLabel.setManaged(hasConflicts);
+
+    remoteLabel.getStyleClass().removeAll("vcs-remote-configured", "vcs-remote-missing");
+    if (hasRemote && remoteUrl != null && !remoteUrl.isBlank()) {
+      remoteLabel.setText("Remote: " + remoteUrl);
+      remoteLabel.getStyleClass().add("vcs-remote-configured");
+      btnConfigureRemote.setText("Change");
+      setSetupVisible(false);
+    } else {
+      remoteLabel.setText("Remote: not configured");
+      remoteLabel.getStyleClass().add("vcs-remote-missing");
+      btnConfigureRemote.setText("Add Remote");
+      setSetupVisible(true);
+    }
+
+    listChanges.setItems(FXCollections.observableArrayList(status.entries()));
+    updateBranchChoices(branches, currentBranch);
+    setInitControlsVisible(false, null);
+    updateNextStep(status, hasRemote, hasConflicts);
+    updateSyncChipStyle();
+    updateControlsForState();
+  }
+
+  private boolean shouldCheckRemote(boolean forceRemoteCheck) {
+    if (forceRemoteCheck) return true;
+    return lastRemoteCheckMs < 0L || System.currentTimeMillis() - lastRemoteCheckMs >= REMOTE_CHECK_INTERVAL_MS;
+  }
+
+  private String lastRemoteCheckText() {
+    return lastRemoteCheckDisplay;
+  }
+
+  private String buildIncomingText(boolean hasRemote, int behind) {
+    if (!hasRemote) return "Incoming: remote not connected";
+    if (behind > 0) return "Incoming: " + behind + " online snapshot" + plural(behind) + " waiting";
+    return "Incoming: none found";
+  }
+
+  private void updateNextStep(GitVcsService.RepositoryStatus status, boolean hasRemote, boolean hasConflicts) {
+    if (hasConflicts) {
+      setNextStep("Resolve the listed conflicts before saving or syncing.", "vcs-next-step-danger");
+    } else if (!hasRemote) {
+      setNextStep("Recommended: connect a remote repository so the project can be backed up online.", "vcs-next-step-warning");
+    } else if (currentBehind > 0) {
+      setNextStep("Get Updates first. The online repository has work this copy does not have yet.", "vcs-next-step-warning");
+    } else if (currentChangeCount > 0) {
+      setNextStep("Describe the change and click Save Snapshot.", "vcs-next-step-info");
+    } else if (currentAhead > 0 || !currentHasUpstream) {
+      setNextStep("Send Online to upload your saved snapshot" + plural(Math.max(1, currentAhead)) + ".", "vcs-next-step-success");
+    } else {
+      setNextStep("Everything is up to date.", "vcs-next-step-success");
+    }
+  }
+
+  private void setNextStep(String text, String toneClass) {
+    nextStepLabel.setText(text == null || text.isBlank() ? "Status unavailable." : text);
+    nextStepLabel.getStyleClass().removeAll(
+        "vcs-next-step-info",
+        "vcs-next-step-success",
+        "vcs-next-step-warning",
+        "vcs-next-step-danger");
+    nextStepLabel.getStyleClass().add(toneClass == null || toneClass.isBlank() ? "vcs-next-step-info" : toneClass);
+  }
+
+  private void updateBranchChoices(List<String> branches, String selectedBranch) {
+    updatingBranchSelection = true;
+    try {
+      cbBranch.setItems(FXCollections.observableArrayList(branches == null ? List.of() : branches));
+      cbBranch.setValue(selectedBranch == null || selectedBranch.isBlank() ? null : selectedBranch);
+      if (cbBranch.getEditor() != null) {
+        cbBranch.getEditor().setText(selectedBranch == null ? "" : selectedBranch);
+      }
+    } finally {
+      updatingBranchSelection = false;
+    }
+  }
+
+  private void setSetupVisible(boolean visible) {
+    setupBox.setVisible(visible);
+    setupBox.setManaged(visible);
+  }
+
+  private boolean hasConflicts(GitVcsService.RepositoryStatus status) {
+    if (status == null || status.entries() == null) return false;
+    for (GitVcsService.StatusEntry entry : status.entries()) {
+      String index = entry.indexStatus();
+      String workTree = entry.workTreeStatus();
+      if ("U".equals(index) || "U".equals(workTree)) return true;
+      if ("D".equals(index) && "D".equals(workTree)) return true;
+      if ("A".equals(index) && "A".equals(workTree)) return true;
+    }
+    return false;
+  }
+
+  private void updateSyncChipStyle() {
+    incomingLabel.getStyleClass().removeAll("vcs-sync-neutral", "vcs-sync-success", "vcs-sync-warning", "vcs-sync-danger");
+    if (currentHasConflicts) {
+      incomingLabel.getStyleClass().add("vcs-sync-danger");
+    } else if (!currentHasRemote || currentBehind > 0) {
+      incomingLabel.getStyleClass().add("vcs-sync-warning");
+    } else {
+      incomingLabel.getStyleClass().add("vcs-sync-success");
+    }
+  }
+
+  private void updateActionEmphasis() {
+    clearActionState(btnCommit);
+    clearActionState(btnPull);
+    clearActionState(btnPush);
+    clearActionState(btnFetch);
+    if (currentHasConflicts) {
+      btnCommit.getStyleClass().add("vcs-action-state-danger");
+      btnPull.getStyleClass().add("vcs-action-state-danger");
+      btnPush.getStyleClass().add("vcs-action-state-danger");
+    } else if (currentBehind > 0) {
+      btnPull.getStyleClass().add("vcs-action-state-attention");
+    } else if (currentChangeCount > 0) {
+      btnCommit.getStyleClass().add("vcs-action-state-attention");
+    } else if (currentAhead > 0 || (repositoryInitialized && currentHasRemote && !currentHasUpstream)) {
+      btnPush.getStyleClass().add("vcs-action-state-attention");
+    } else if (repositoryInitialized && currentHasRemote) {
+      btnFetch.getStyleClass().add("vcs-action-state-ready");
+    }
+  }
+
+  private void clearActionState(Button button) {
+    button.getStyleClass().removeAll(
+        "vcs-action-state-attention",
+        "vcs-action-state-ready",
+        "vcs-action-state-danger");
+  }
+
+  private String plural(int count) {
+    return count == 1 ? "" : "s";
   }
 
   private void initializeRepository() {
@@ -421,7 +705,7 @@ The Log shows recent commits on the current branch."""));
       } catch (Exception ex) {
         appendLog(ex.getMessage());
       }
-      refreshStatus();
+      loadStatus(true);
     });
   }
 
@@ -433,10 +717,14 @@ The Log shows recent commits on the current branch."""));
       }
       try {
         appendCommandResult(vcs.fetch(projectRoot));
+        lastRemoteCheckMs = System.currentTimeMillis();
+        lastRemoteCheckDisplay = "Online check: " + LocalTime.now().format(CHECK_TIME_FORMAT);
       } catch (Exception ex) {
+        lastRemoteCheckMs = System.currentTimeMillis();
+        lastRemoteCheckDisplay = "Online check failed: " + safeMessage(ex);
         appendLog(ex.getMessage());
       }
-      refreshStatus();
+      loadStatus(false);
     });
   }
 
@@ -457,7 +745,7 @@ The Log shows recent commits on the current branch."""));
       } catch (Exception ex) {
         appendLog(ex.getMessage());
       }
-      refreshStatus();
+      loadStatus(false);
     });
   }
 
@@ -472,7 +760,7 @@ The Log shows recent commits on the current branch."""));
       } catch (Exception ex) {
         appendLog(ex.getMessage());
       }
-      refreshStatus();
+      loadStatus(true);
     });
   }
 
@@ -487,7 +775,7 @@ The Log shows recent commits on the current branch."""));
       } catch (Exception ex) {
         appendLog(ex.getMessage());
       }
-      refreshStatus();
+      loadStatus(true);
     });
   }
 
@@ -499,7 +787,7 @@ The Log shows recent commits on the current branch."""));
       } catch (Exception ex) {
         appendLog("Stash failed: " + ex.getMessage());
       }
-      refreshStatus();
+      loadStatus(false);
     });
   }
 
@@ -511,7 +799,7 @@ The Log shows recent commits on the current branch."""));
       } catch (Exception ex) {
         appendLog("Stash pop failed: " + ex.getMessage());
       }
-      refreshStatus();
+      loadStatus(false);
     });
   }
 
@@ -525,7 +813,7 @@ The Log shows recent commits on the current branch."""));
       } catch (Exception ex) {
         appendLog("Stage failed: " + ex.getMessage());
       }
-      refreshStatus();
+      loadStatus(false);
     });
   }
 
@@ -539,13 +827,22 @@ The Log shows recent commits on the current branch."""));
       } catch (Exception ex) {
         appendLog("Unstage failed: " + ex.getMessage());
       }
-      refreshStatus();
+      loadStatus(false);
     });
   }
 
   private void runDiscardSelected() {
     GitVcsService.StatusEntry entry = listChanges.getSelectionModel().getSelectedItem();
     if (entry == null) return;
+    if (!EditorDialogs.confirm(
+        getScene() == null ? null : getScene().getWindow(),
+        "Discard File Change",
+        "Discard changes in " + entry.path() + "? This cannot be undone.",
+        "Discard",
+        true)) {
+      appendLog("Discard cancelled.");
+      return;
+    }
     runAsync("Discard", () -> {
       try {
         vcs.discardFile(projectRoot, entry.path());
@@ -553,7 +850,7 @@ The Log shows recent commits on the current branch."""));
       } catch (Exception ex) {
         appendLog("Discard failed: " + ex.getMessage());
       }
-      refreshStatus();
+      loadStatus(false);
     });
   }
 
@@ -581,23 +878,29 @@ The Log shows recent commits on the current branch."""));
       } catch (Exception ex) {
         appendLog("Branch switch failed: " + ex.getMessage());
       }
-      refreshStatus();
+      loadStatus(false);
     });
   }
 
   private void runCreateBranch() {
     String name = cbBranch.getEditor() != null ? cbBranch.getEditor().getText() : null;
+    if (name == null || name.isBlank()) name = cbBranch.getValue();
     if (name == null || name.isBlank()) {
       appendLog("Enter a branch name in the branch selector to create a new branch.");
       return;
     }
+    if (name.equals(currentBranch)) {
+      appendLog("You are already on branch: " + name);
+      return;
+    }
+    String branchToCreate = name.trim();
     runAsync("Create branch", () -> {
       try {
-        appendCommandResult(vcs.createBranch(projectRoot, name.trim()));
+        appendCommandResult(vcs.createBranch(projectRoot, branchToCreate));
       } catch (Exception ex) {
         appendLog("Create branch failed: " + ex.getMessage());
       }
-      refreshStatus();
+      loadStatus(false);
     });
   }
 
@@ -726,7 +1029,7 @@ The Log shows recent commits on the current branch."""));
       } catch (Exception ex) {
         appendLog("Create GitHub repo failed: " + ex.getMessage());
       }
-      refreshStatus();
+      loadStatus(true);
     });
   }
 
@@ -738,7 +1041,7 @@ The Log shows recent commits on the current branch."""));
       } catch (Exception ex) {
         appendLog("Add remote failed: " + ex.getMessage());
       }
-      refreshStatus();
+      loadStatus(true);
     });
   }
 
@@ -793,24 +1096,29 @@ The Log shows recent commits on the current branch."""));
   private void updateControlsForState() {
     boolean hasProject = projectRoot != null;
     boolean repoReady = hasProject && gitAvailable && repositoryInitialized;
+    boolean hasSelection = listChanges.getSelectionModel().getSelectedItem() != null;
+    boolean hasChanges = currentChangeCount > 0;
+    boolean canSync = repoReady && currentHasRemote && !currentHasConflicts;
 
     btnRefresh.setDisable(busy);
     btnInitialize.setDisable(busy || !hasProject || !gitAvailable || repositoryInitialized);
-    btnFetch.setDisable(busy || !repoReady);
-    btnPull.setDisable(busy || !repoReady);
-    btnPush.setDisable(busy || !repoReady);
-    btnCommit.setDisable(busy || !repoReady);
-    btnStash.setDisable(busy || !repoReady);
+    btnFetch.setDisable(busy || !repoReady || !currentHasRemote);
+    btnPull.setDisable(busy || !canSync);
+    btnPush.setDisable(busy || !canSync || currentBehind > 0 || (currentAhead == 0 && currentHasUpstream));
+    btnCommit.setDisable(busy || !repoReady || !hasChanges || currentHasConflicts);
+    btnStash.setDisable(busy || !repoReady || !hasChanges);
     btnStashPop.setDisable(busy || !repoReady);
-    btnStageSelected.setDisable(busy || !repoReady);
-    btnUnstageSelected.setDisable(busy || !repoReady);
-    btnDiscardSelected.setDisable(busy || !repoReady);
-    btnDiffSelected.setDisable(busy || !repoReady);
+    btnStageSelected.setDisable(busy || !repoReady || !hasSelection);
+    btnUnstageSelected.setDisable(busy || !repoReady || !hasSelection);
+    btnDiscardSelected.setDisable(busy || !repoReady || !hasSelection);
+    btnDiffSelected.setDisable(busy || !repoReady || !hasSelection);
     cbBranch.setDisable(busy || !repoReady);
     btnNewBranch.setDisable(busy || !repoReady);
     txtCommitMessage.setDisable(busy || !repoReady);
     listChanges.setDisable(!repoReady);
     chkInitCommit.setDisable(busy || !hasProject || repositoryInitialized);
+    btnConfigureRemote.setDisable(busy || !repoReady);
+    updateActionEmphasis();
   }
 
   private void setInitControlsVisible(boolean visible, String hintText) {
@@ -835,6 +1143,12 @@ The Log shows recent commits on the current branch."""));
     return value == null || value.isBlank() ? "--" : value;
   }
 
+  private String safeMessage(Throwable ex) {
+    if (ex == null) return "Unknown error";
+    String message = ex.getMessage();
+    return message == null || message.isBlank() ? ex.getClass().getSimpleName() : message.trim();
+  }
+
   public void dispose() {
     if (disposed) return;
     disposed = true;
@@ -851,15 +1165,29 @@ The Log shows recent commits on the current branch."""));
       super.updateItem(item, empty);
       if (empty || item == null) {
         setText(null);
-        getStyleClass().removeAll("vcs-status-untracked", "vcs-status-modified", "vcs-status-added", "vcs-status-deleted", "vcs-status-renamed");
+        getStyleClass().removeAll(
+            "vcs-status-untracked",
+            "vcs-status-modified",
+            "vcs-status-added",
+            "vcs-status-deleted",
+            "vcs-status-renamed",
+            "vcs-status-conflict");
         return;
       }
 
-      setText(item.code() + "  " + item.path());
-      getStyleClass().removeAll("vcs-status-untracked", "vcs-status-modified", "vcs-status-added", "vcs-status-deleted", "vcs-status-renamed");
+      setText(friendlyStatus(item) + " - " + item.path());
+      getStyleClass().removeAll(
+          "vcs-status-untracked",
+          "vcs-status-modified",
+          "vcs-status-added",
+          "vcs-status-deleted",
+          "vcs-status-renamed",
+          "vcs-status-conflict");
 
       String code = item.code().toUpperCase(Locale.ROOT);
-      if (item.isUntracked()) {
+      if (isConflict(item)) {
+        getStyleClass().add("vcs-status-conflict");
+      } else if (item.isUntracked()) {
         getStyleClass().add("vcs-status-untracked");
       } else if (code.contains("M")) {
         getStyleClass().add("vcs-status-modified");
@@ -870,6 +1198,27 @@ The Log shows recent commits on the current branch."""));
       } else if (code.contains("R") || code.contains("C")) {
         getStyleClass().add("vcs-status-renamed");
       }
+    }
+
+    private static String friendlyStatus(GitVcsService.StatusEntry item) {
+      if (isConflict(item)) return "Conflict";
+      if (item.isUntracked()) return "New";
+      String code = item.code().toUpperCase(Locale.ROOT);
+      if (code.contains("A")) return "Added";
+      if (code.contains("D")) return "Deleted";
+      if (code.contains("R")) return "Renamed";
+      if (code.contains("C")) return "Copied";
+      if (code.contains("M")) return "Changed";
+      return "Updated";
+    }
+
+    private static boolean isConflict(GitVcsService.StatusEntry item) {
+      String index = item.indexStatus();
+      String workTree = item.workTreeStatus();
+      return "U".equals(index)
+          || "U".equals(workTree)
+          || ("D".equals(index) && "D".equals(workTree))
+          || ("A".equals(index) && "A".equals(workTree));
     }
   }
 }

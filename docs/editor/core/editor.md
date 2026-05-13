@@ -49,6 +49,7 @@ Launch command:
 - Main actions: `Open`, `Save`, `Undo`, `Redo`, `Apply Code`, `Fullscreen`
 - Status + performance strip (CPU/GPU/RAM/FPS)
 - In Engine Hub Developer Mode, a collapsed `Logs` panel appears under the top bar for crude log-file viewing.
+- In Engine Hub Developer Mode, a `DevTools` menu appears in the menu bar for runtime diagnostics, log refresh, manual GC, and next-launch editor heap settings.
 - `Cmd/Ctrl+,` opens Editor Settings.
 
 ### Left panel: Project Explorer

@@ -38,6 +38,7 @@ import com.jvn.editor.commands.CommandStack;
 import com.jvn.editor.ui.AssetBrowserView;
 import com.jvn.editor.ui.CssIcon;
 import com.jvn.editor.ui.DeveloperLogPanel;
+import com.jvn.editor.ui.DeveloperToolsMenu;
 import com.jvn.editor.ui.DslPropertyDiagnostics;
 import com.jvn.editor.ui.EditorDialogs;
 import com.jvn.editor.ui.EditorPanelPlacement;
@@ -1887,7 +1888,11 @@ public class EditorApp extends Application {
         new SeparatorMenuItem(),
         miAbout);
 
-    mb.getMenus().addAll(menuFile, menuEdit, menuView, menuNavigate, menuRun, menuBuild, menuTools, menuVcs, menuWindow, menuHelp);
+    mb.getMenus().addAll(menuFile, menuEdit, menuView, menuNavigate, menuRun, menuBuild, menuTools, menuVcs, menuWindow);
+    if (DEVELOPER_MODE) {
+      mb.getMenus().add(DeveloperToolsMenu.create("JVN Editor", this::dialogOwner, this::refreshDeveloperLogs));
+    }
+    mb.getMenus().add(menuHelp);
 
     Label toolbarCommandSummary = new Label();
     toolbarCommandSummary.getStyleClass().add("main-editor-command-summary");

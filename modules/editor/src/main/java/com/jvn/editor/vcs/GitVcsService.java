@@ -325,7 +325,13 @@ public class GitVcsService {
 
   public CommandResult discardFile(File root, String path) throws GitVcsException {
     requireRepository(root);
-    CommandResult result = execute(root, List.of("git", "checkout", "--", path), false);
+    if (path == null || path.isBlank()) throw new GitVcsException("File path cannot be empty.");
+    CommandResult result;
+    if (isUntracked(root, path)) {
+      result = execute(root, List.of("git", "clean", "-f", "--", path), false);
+    } else {
+      result = execute(root, List.of("git", "restore", "--", path), false);
+    }
     ensureSuccess(result, "Failed to discard changes in: " + path);
     return result;
   }
@@ -349,6 +355,12 @@ public class GitVcsService {
     CommandResult push = execute(root, List.of("git", "push"), false);
     ensureSuccess(push, "Failed to push changes.");
     return push;
+  }
+
+  private boolean isUntracked(File root, String path) throws GitVcsException {
+    requireRepository(root);
+    CommandResult result = execute(root, List.of("git", "status", "--porcelain", "--", path), true);
+    return result.success() && result.output().lines().anyMatch(line -> line.startsWith("?? "));
   }
 
   private void requireDirectory(File root) throws GitVcsException {

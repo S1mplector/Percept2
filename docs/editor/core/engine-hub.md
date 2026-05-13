@@ -97,6 +97,8 @@ In Developer Mode, both the editor and launcher add a collapsed **Logs** panel a
 
 When the launcher opens the editor in Developer Mode, it also forwards Developer Mode to the editor and captures that child process output under the workspace `.jvn/logs` folder.
 
+Developer Mode also adds a **DevTools** menu to the editor and launcher menu bars. It includes runtime/JVM diagnostics, manual GC, log-panel refresh, a developer settings file shortcut, a launcher output-capture toggle, and an editor JVM heap setting. The heap setting is stored in `~/.jvn-editor/devtools.properties` and applies to the next editor launch started from the launcher.
+
 ## Install Desktop Shortcuts
 
 Open the hub and click **Build Shortcuts**. It chooses the right installer for the current OS:

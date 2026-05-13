@@ -16,6 +16,7 @@ import java.util.Properties;
 
 import com.jvn.editor.ui.EditorDialogs;
 import com.jvn.editor.ui.DeveloperLogPanel;
+import com.jvn.editor.ui.DeveloperToolsMenu;
 import com.jvn.editor.ui.EditorPreferences;
 import com.jvn.editor.ui.EditorPreferencesStore;
 import com.jvn.editor.ui.EditorTheme;
@@ -436,7 +437,11 @@ public class JvnLauncherApp extends Application {
         "JVN Launcher " + AppBuildInfo.resolve(JvnLauncherApp.class).fullLabel()));
     menuHelp.getItems().add(miAbout);
 
-    menuBar.getMenus().addAll(menuFile, menuEdit, menuProject, menuView, menuHelp);
+    menuBar.getMenus().addAll(menuFile, menuEdit, menuProject, menuView);
+    if (DEVELOPER_MODE) {
+      menuBar.getMenus().add(DeveloperToolsMenu.create("JVN Launcher", () -> primaryStage, this::refreshDeveloperLogs));
+    }
+    menuBar.getMenus().add(menuHelp);
     return menuBar;
   }
 
@@ -926,6 +931,7 @@ public class JvnLauncherApp extends Application {
       List<String> command = new ArrayList<>();
       command.add(resolveJavaExecutable());
       command.addAll(resolveForwardedJvmArgs());
+      command.addAll(DeveloperToolsMenu.configuredEditorJvmArgs());
       command.add("-cp");
       command.add(System.getProperty("java.class.path", ""));
       String editorTheme = editorPreferences == null
@@ -948,7 +954,7 @@ public class JvnLauncherApp extends Application {
         pb.directory(workspaceRoot);
       }
       Path developerLog = null;
-      if (DEVELOPER_MODE) {
+      if (DEVELOPER_MODE && DeveloperToolsMenu.isCaptureEditorProcessOutputEnabled()) {
         developerLog = createDeveloperProcessLogFile("editor-process");
         pb.redirectErrorStream(true);
         pb.redirectOutput(developerLog.toFile());

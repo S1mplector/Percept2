@@ -626,6 +626,100 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-border-color: #559bd0;
 }
 
+.vcs-action-button-neutral {
+  -fx-background-color: #242424;
+  -fx-border-color: #444444;
+  -fx-text-fill: #e8e8e8;
+}
+
+.vcs-action-button-warning {
+  -fx-background-color: #8a5a1f;
+  -fx-border-color: #d08a35;
+}
+
+.vcs-action-button-danger {
+  -fx-background-color: #8f3248;
+  -fx-border-color: #f38ba8;
+}
+
+.vcs-action-state-attention {
+  -fx-effect: dropshadow(gaussian, rgba(240, 182, 115, 0.52), 12, 0.28, 0, 0);
+}
+
+.vcs-action-state-ready {
+  -fx-effect: dropshadow(gaussian, rgba(139, 209, 124, 0.32), 10, 0.18, 0, 0);
+}
+
+.vcs-action-state-danger {
+  -fx-effect: dropshadow(gaussian, rgba(243, 139, 168, 0.46), 12, 0.24, 0, 0);
+}
+
+.vcs-next-step {
+  -fx-padding: 7 9 7 9;
+  -fx-background-radius: 7;
+  -fx-border-radius: 7;
+  -fx-border-width: 1;
+  -fx-font-size: 11px;
+  -fx-font-weight: 800;
+}
+
+.vcs-next-step-info {
+  -fx-text-fill: #b9d8f2;
+  -fx-background-color: #172230;
+  -fx-border-color: #385b7a;
+}
+
+.vcs-next-step-success {
+  -fx-text-fill: #bde8b8;
+  -fx-background-color: #172719;
+  -fx-border-color: #356b3d;
+}
+
+.vcs-next-step-warning {
+  -fx-text-fill: #f0d29f;
+  -fx-background-color: #2a241c;
+  -fx-border-color: #6f5735;
+}
+
+.vcs-next-step-danger {
+  -fx-text-fill: #f4b2c5;
+  -fx-background-color: #311a23;
+  -fx-border-color: #73364a;
+}
+
+.vcs-sync-chip {
+  -fx-padding: 4 8 4 8;
+  -fx-background-radius: 999;
+  -fx-border-radius: 999;
+  -fx-border-width: 1;
+  -fx-font-size: 11px;
+  -fx-font-weight: 800;
+}
+
+.vcs-sync-neutral {
+  -fx-text-fill: #b8b8b8;
+  -fx-background-color: #1e1e1e;
+  -fx-border-color: #3c3c3c;
+}
+
+.vcs-sync-success {
+  -fx-text-fill: #bde8b8;
+  -fx-background-color: #172719;
+  -fx-border-color: #356b3d;
+}
+
+.vcs-sync-warning {
+  -fx-text-fill: #f0d29f;
+  -fx-background-color: #2a241c;
+  -fx-border-color: #6f5735;
+}
+
+.vcs-sync-danger {
+  -fx-text-fill: #f4b2c5;
+  -fx-background-color: #311a23;
+  -fx-border-color: #73364a;
+}
+
 .vcs-text-field,
 .vcs-combo,
 .vcs-log,
@@ -661,6 +755,11 @@ The editor.css file defines the visual styling for the editor module, including 
 
 .vcs-status-deleted {
   -fx-text-fill: #f38ba8;
+}
+
+.vcs-status-conflict {
+  -fx-text-fill: #ff9bb8;
+  -fx-font-weight: 800;
 }
 
 .vcs-status-renamed {

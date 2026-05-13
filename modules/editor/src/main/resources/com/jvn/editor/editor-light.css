@@ -572,6 +572,100 @@
   -fx-border-color: #438fc7;
 }
 
+.vcs-action-button-neutral {
+  -fx-background-color: #e2e2e2;
+  -fx-border-color: #c2c2c2;
+  -fx-text-fill: #202020;
+}
+
+.vcs-action-button-warning {
+  -fx-background-color: #b56f21;
+  -fx-border-color: #d88c35;
+}
+
+.vcs-action-button-danger {
+  -fx-background-color: #b84c66;
+  -fx-border-color: #d96f89;
+}
+
+.vcs-action-state-attention {
+  -fx-effect: dropshadow(gaussian, rgba(181, 111, 33, 0.42), 12, 0.24, 0, 0);
+}
+
+.vcs-action-state-ready {
+  -fx-effect: dropshadow(gaussian, rgba(47, 140, 69, 0.28), 10, 0.16, 0, 0);
+}
+
+.vcs-action-state-danger {
+  -fx-effect: dropshadow(gaussian, rgba(184, 76, 102, 0.38), 12, 0.22, 0, 0);
+}
+
+.vcs-next-step {
+  -fx-padding: 7 9 7 9;
+  -fx-background-radius: 7;
+  -fx-border-radius: 7;
+  -fx-border-width: 1;
+  -fx-font-size: 11px;
+  -fx-font-weight: 800;
+}
+
+.vcs-next-step-info {
+  -fx-text-fill: #235d83;
+  -fx-background-color: #e4f0fa;
+  -fx-border-color: #77a9cf;
+}
+
+.vcs-next-step-success {
+  -fx-text-fill: #2f783f;
+  -fx-background-color: #e7f5e8;
+  -fx-border-color: #83c68b;
+}
+
+.vcs-next-step-warning {
+  -fx-text-fill: #9a6128;
+  -fx-background-color: #fbf1e2;
+  -fx-border-color: #c28a43;
+}
+
+.vcs-next-step-danger {
+  -fx-text-fill: #9d3e56;
+  -fx-background-color: #fde8ef;
+  -fx-border-color: #d96f89;
+}
+
+.vcs-sync-chip {
+  -fx-padding: 4 8 4 8;
+  -fx-background-radius: 999;
+  -fx-border-radius: 999;
+  -fx-border-width: 1;
+  -fx-font-size: 11px;
+  -fx-font-weight: 800;
+}
+
+.vcs-sync-neutral {
+  -fx-text-fill: #505050;
+  -fx-background-color: #e8e8e8;
+  -fx-border-color: #c8c8c8;
+}
+
+.vcs-sync-success {
+  -fx-text-fill: #2f783f;
+  -fx-background-color: #e7f5e8;
+  -fx-border-color: #83c68b;
+}
+
+.vcs-sync-warning {
+  -fx-text-fill: #9a6128;
+  -fx-background-color: #fbf1e2;
+  -fx-border-color: #c28a43;
+}
+
+.vcs-sync-danger {
+  -fx-text-fill: #9d3e56;
+  -fx-background-color: #fde8ef;
+  -fx-border-color: #d96f89;
+}
+
 .vcs-text-field,
 .vcs-combo,
 .vcs-log,
@@ -607,6 +701,11 @@
 
 .vcs-status-deleted {
   -fx-text-fill: #b84c66;
+}
+
+.vcs-status-conflict {
+  -fx-text-fill: #b84c66;
+  -fx-font-weight: 800;
 }
 
 .vcs-status-renamed {
