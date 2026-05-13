@@ -1037,6 +1037,7 @@ public class AnimationPreview extends VBox {
             boolean hasRotation = !track.getKeyframes(PropertyType.ROTATION).isEmpty();
             boolean hasScaleX = !track.getKeyframes(PropertyType.SCALE_X).isEmpty();
             boolean hasScaleY = !track.getKeyframes(PropertyType.SCALE_Y).isEmpty();
+            boolean hasMirrorX = !track.getKeyframes(PropertyType.MIRROR_X).isEmpty();
 
             Entity2D entity = scene != null ? scene.find(track.getEntityName()) : null;
             Image spriteImage = null;
@@ -1057,6 +1058,7 @@ public class AnimationPreview extends VBox {
                 double baseY = track.getValueAt(PropertyType.Y, t);
                 double baseRot = hasRotation ? track.getValueAt(PropertyType.ROTATION, t) : 0.0;
                 double baseScaleX = hasScaleX ? track.getValueAt(PropertyType.SCALE_X, t) : 1.0;
+                if (hasMirrorX) baseScaleX *= mirrorFactor(track.getValueAt(PropertyType.MIRROR_X, t));
                 double baseScaleY = hasScaleY ? track.getValueAt(PropertyType.SCALE_Y, t) : 1.0;
                 
                 ConstraintEvaluator.ConstrainedTransform constrained = getConstrainedTransform(
@@ -1073,7 +1075,7 @@ public class AnimationPreview extends VBox {
                 gc.setStroke(color);
                 gc.setLineWidth(1.5 / z);
 
-                if (hasPivotX || hasPivotY || hasRotation || hasScaleX || hasScaleY) {
+                if (hasPivotX || hasPivotY || hasRotation || hasScaleX || hasScaleY || hasMirrorX) {
                     double pivX = hasPivotX ? track.getValueAt(PropertyType.PIVOT_X, t) : 0.5;
                     double pivY = hasPivotY ? track.getValueAt(PropertyType.PIVOT_Y, t) : 0.5;
 
@@ -1189,6 +1191,7 @@ public class AnimationPreview extends VBox {
         boolean hasRotation = !track.getKeyframes(PropertyType.ROTATION).isEmpty();
         boolean hasScaleX = !track.getKeyframes(PropertyType.SCALE_X).isEmpty();
         boolean hasScaleY = !track.getKeyframes(PropertyType.SCALE_Y).isEmpty();
+        boolean hasMirrorX = !track.getKeyframes(PropertyType.MIRROR_X).isEmpty();
         
         // Render ghost frames between keyframes
         for (int i = 1; i <= ghostCount; i++) {
@@ -1199,6 +1202,7 @@ public class AnimationPreview extends VBox {
             double baseY = track.getValueAt(PropertyType.Y, t);
             double baseRot = hasRotation ? track.getValueAt(PropertyType.ROTATION, t) : 0.0;
             double baseScaleX = hasScaleX ? track.getValueAt(PropertyType.SCALE_X, t) : 1.0;
+            if (hasMirrorX) baseScaleX *= mirrorFactor(track.getValueAt(PropertyType.MIRROR_X, t));
             double baseScaleY = hasScaleY ? track.getValueAt(PropertyType.SCALE_Y, t) : 1.0;
             
             ConstraintEvaluator.ConstrainedTransform constrained = getConstrainedTransform(
@@ -1216,7 +1220,7 @@ public class AnimationPreview extends VBox {
             gc.setStroke(ghostColor);
             gc.setLineWidth(1.5 / z);
             
-            if (hasPivotX || hasPivotY || hasRotation || hasScaleX || hasScaleY) {
+            if (hasPivotX || hasPivotY || hasRotation || hasScaleX || hasScaleY || hasMirrorX) {
                 double pivX = hasPivotX ? track.getValueAt(PropertyType.PIVOT_X, t) : 0.5;
                 double pivY = hasPivotY ? track.getValueAt(PropertyType.PIVOT_Y, t) : 0.5;
                 
@@ -3386,6 +3390,11 @@ public class AnimationPreview extends VBox {
     private static double normalizeScale(double value) {
         if (Math.abs(value) >= TRANSFORM_EPSILON) return value;
         return value < 0.0 ? -TRANSFORM_EPSILON : TRANSFORM_EPSILON;
+    }
+
+    private static double mirrorFactor(double mirrorX) {
+        if (!Double.isFinite(mirrorX)) return 1.0;
+        return Math.cos(clamp(mirrorX, 0.0, 1.0) * Math.PI);
     }
 
     private static double clamp(double value, double min, double max) {

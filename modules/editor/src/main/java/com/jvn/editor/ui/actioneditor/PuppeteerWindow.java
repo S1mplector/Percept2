@@ -105,6 +105,7 @@ public class PuppeteerWindow extends Stage {
         PropertyType.ROTATION,
         PropertyType.SCALE_X,
         PropertyType.SCALE_Y,
+        PropertyType.MIRROR_X,
         PropertyType.ALPHA,
         PropertyType.VISIBILITY,
         PropertyType.MATRIX_MXX,
@@ -284,7 +285,8 @@ public class PuppeteerWindow extends Stage {
         PropertyType.MATRIX_MYX,
         PropertyType.MATRIX_MYY,
         PropertyType.MATRIX_TX,
-        PropertyType.MATRIX_TY
+        PropertyType.MATRIX_TY,
+        PropertyType.MIRROR_X
     };
     private static final PropertyType[] CAMERA_INTERACTION_PROPERTIES = {
         PropertyType.CAMERA_X,
@@ -7521,6 +7523,7 @@ public class PuppeteerWindow extends Stage {
             case ROTATION -> entity.getRotationDeg();
             case SCALE_X -> entity.getScaleX();
             case SCALE_Y -> entity.getScaleY();
+            case MIRROR_X -> property.getDefaultValue();
             case ALPHA -> getEntityAlpha(entity);
             case VISIBILITY -> entity.isVisible() ? 1.0 : 0.0;
             case MATRIX_MXX -> entity.getMatrixMxx();
@@ -7725,6 +7728,7 @@ public class PuppeteerWindow extends Stage {
                 commands.add(PuppeteerCommand.upsertKeyframe(groupTrack, PropertyType.ROTATION, time, PropertyType.ROTATION.getDefaultValue()));
                 commands.add(PuppeteerCommand.upsertKeyframe(groupTrack, PropertyType.SCALE_X, time, PropertyType.SCALE_X.getDefaultValue()));
                 commands.add(PuppeteerCommand.upsertKeyframe(groupTrack, PropertyType.SCALE_Y, time, PropertyType.SCALE_Y.getDefaultValue()));
+                commands.add(PuppeteerCommand.upsertKeyframe(groupTrack, PropertyType.MIRROR_X, time, PropertyType.MIRROR_X.getDefaultValue()));
                 commands.add(PuppeteerCommand.upsertKeyframe(groupTrack, PropertyType.ALPHA, time, PropertyType.ALPHA.getDefaultValue()));
             }
         }
@@ -7737,6 +7741,7 @@ public class PuppeteerWindow extends Stage {
                 commands.add(PuppeteerCommand.upsertKeyframe(track, PropertyType.ROTATION, time, PropertyType.ROTATION.getDefaultValue()));
                 commands.add(PuppeteerCommand.upsertKeyframe(track, PropertyType.SCALE_X, time, PropertyType.SCALE_X.getDefaultValue()));
                 commands.add(PuppeteerCommand.upsertKeyframe(track, PropertyType.SCALE_Y, time, PropertyType.SCALE_Y.getDefaultValue()));
+                commands.add(PuppeteerCommand.upsertKeyframe(track, PropertyType.MIRROR_X, time, PropertyType.MIRROR_X.getDefaultValue()));
             }
         }
         for (String childGroup : group.getChildGroupNames()) {

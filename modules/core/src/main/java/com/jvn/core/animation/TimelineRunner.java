@@ -2,7 +2,9 @@ package com.jvn.core.animation;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.jvn.core.scene2d.Entity2D;
 import com.jvn.core.scene2d.Label2D;
@@ -46,6 +48,9 @@ public class TimelineRunner {
 
     /** Event cues sorted by time for efficient triggering during playback. */
     private final List<TimelineData.EventCue> sortedEventCues;
+
+    /** Initial entity scale captured before mirror channels start modifying it. */
+    private final Map<String, double[]> baseScaleByEntity = new HashMap<>();
 
     /** Current playhead position in milliseconds. */
     private double elapsedMs = 0;
@@ -179,13 +184,22 @@ public class TimelineRunner {
                 double rot = track.getValueAt(TimelineData.Property.ROTATION, timeMs);
                 entity.setRotationDeg(rot);
             }
-            if (track.hasKeyframes(TimelineData.Property.SCALE_X) || track.hasKeyframes(TimelineData.Property.SCALE_Y)) {
-                double sx = track.hasKeyframes(TimelineData.Property.SCALE_X)
+            boolean hasScaleX = track.hasKeyframes(TimelineData.Property.SCALE_X);
+            boolean hasScaleY = track.hasKeyframes(TimelineData.Property.SCALE_Y);
+            boolean hasMirrorX = track.hasKeyframes(TimelineData.Property.MIRROR_X);
+            if (hasScaleX || hasScaleY || hasMirrorX) {
+                double[] baseScale = hasMirrorX ? baseScaleFor(track.getEntityName(), entity) : null;
+                double sx = hasScaleX
                     ? track.getValueAt(TimelineData.Property.SCALE_X, timeMs)
-                    : entity.getScaleX();
-                double sy = track.hasKeyframes(TimelineData.Property.SCALE_Y)
+                    : hasMirrorX && baseScale != null
+                        ? baseScale[0]
+                        : entity.getScaleX();
+                double sy = hasScaleY
                     ? track.getValueAt(TimelineData.Property.SCALE_Y, timeMs)
                     : entity.getScaleY();
+                if (hasMirrorX) {
+                    sx *= mirrorFactor(track.getValueAt(TimelineData.Property.MIRROR_X, timeMs));
+                }
                 entity.setScale(sx, sy);
             }
             if (track.hasKeyframes(TimelineData.Property.ALPHA)) {
@@ -198,6 +212,22 @@ public class TimelineRunner {
             }
 
         }
+    }
+
+    private double[] baseScaleFor(String entityName, Entity2D entity) {
+        String key = entityName != null && !entityName.isBlank()
+            ? entityName
+            : Integer.toHexString(System.identityHashCode(entity));
+        return baseScaleByEntity.computeIfAbsent(key, ignored -> new double[]{
+            entity != null ? entity.getScaleX() : 1.0,
+            entity != null ? entity.getScaleY() : 1.0
+        });
+    }
+
+    private static double mirrorFactor(double mirrorX) {
+        if (!Double.isFinite(mirrorX)) return 1.0;
+        double clamped = Math.max(0.0, Math.min(1.0, mirrorX));
+        return Math.cos(clamped * Math.PI);
     }
 
     /** Trigger audio cues whose time falls within the given absolute interval. */

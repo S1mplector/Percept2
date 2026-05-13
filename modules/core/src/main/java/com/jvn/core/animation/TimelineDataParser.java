@@ -9,7 +9,7 @@ import com.jvn.core.scene2d.Entity2D;
 /**
  * Lightweight parser that converts inline JES timeline blocks into {@link TimelineData}.
  * Supports: move, pivot, wait, rotate, scale, fade, visible, cameraMove,
- * cameraZoom, playAudio.
+ * cameraZoom, mirror, playAudio.
  *
  * <pre>
  * timeline {
@@ -41,6 +41,8 @@ public class TimelineDataParser {
         "rotate\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
     private static final Pattern SCALE_PATTERN = Pattern.compile(
         "scale\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
+    private static final Pattern MIRROR_PATTERN = Pattern.compile(
+        "mirror\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
     private static final Pattern FADE_PATTERN = Pattern.compile(
         "fade\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
     private static final Pattern VISIBLE_PATTERN = Pattern.compile(
@@ -324,6 +326,39 @@ public class TimelineDataParser {
                     addTweenKeyframe(
                         track,
                         TimelineData.Property.SCALE_Y,
+                        cursor,
+                        endTime,
+                        val,
+                        easingSpec,
+                        interpolation,
+                        easingSpec.getParameters()
+                    );
+                }
+                if (endTime > maxTime) maxTime = endTime;
+                continue;
+            }
+
+            // mirror "entity" { mirrorX: 1 dur: 400 }
+            Matcher mirrorM = MIRROR_PATTERN.matcher(trimmed);
+            if (mirrorM.find()) {
+                String entity = mirrorM.group(1);
+                i++;
+                ActionBlock ab = readBlock(lines, i);
+                i = ab.endIndex;
+
+                double dur = ab.getDuration();
+                EasingSpec easingSpec = parseEasingSpec(ab.getString("easing", "linear"));
+                Easing.Interpolation interpolation = parseInterpolation(ab.getString("interp", "tween"));
+                double endTime = cursor + dur;
+                TimelineData.Track track = getOrCreateTrack(data, entity);
+
+                if (ab.hasAny("mirrorx", "mirror_x", "flipx", "flip_x", "x", "value")) {
+                    double val = ab.hasAny("flipx", "flip_x", "value")
+                        ? (ab.getBooleanAny(false, "flipx", "flip_x", "value") ? 1.0 : ab.getDoubleAny(0.0, "flipx", "flip_x", "value"))
+                        : ab.getDoubleAny(0.0, "mirrorx", "mirror_x", "x");
+                    addTweenKeyframe(
+                        track,
+                        TimelineData.Property.MIRROR_X,
                         cursor,
                         endTime,
                         val,
@@ -757,6 +792,14 @@ public class TimelineDataParser {
             String t = v.trim();
             if ("true".equalsIgnoreCase(t) || "1".equals(t) || "yes".equalsIgnoreCase(t)) return true;
             if ("false".equalsIgnoreCase(t) || "0".equals(t) || "no".equalsIgnoreCase(t)) return false;
+            return def;
+        }
+
+        boolean getBooleanAny(boolean def, String... keys) {
+            if (keys == null) return def;
+            for (String key : keys) {
+                if (props.containsKey(key)) return getBoolean(key, def);
+            }
             return def;
         }
 

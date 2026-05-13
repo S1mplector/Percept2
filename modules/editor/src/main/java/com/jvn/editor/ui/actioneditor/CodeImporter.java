@@ -156,6 +156,7 @@ public class CodeImporter {
             case ROTATION -> PropertyType.ROTATION;
             case SCALE_X -> PropertyType.SCALE_X;
             case SCALE_Y -> PropertyType.SCALE_Y;
+            case MIRROR_X -> PropertyType.MIRROR_X;
             case ALPHA -> PropertyType.ALPHA;
             case VISIBILITY -> PropertyType.VISIBILITY;
             case CAMERA_X -> PropertyType.CAMERA_X;
@@ -184,6 +185,7 @@ public class CodeImporter {
             props.put(PropertyType.ROTATION, 0.0);
             props.put(PropertyType.SCALE_X, 1.0);
             props.put(PropertyType.SCALE_Y, 1.0);
+            props.put(PropertyType.MIRROR_X, 0.0);
             props.put(PropertyType.ALPHA, snapshot.alpha());
             props.put(PropertyType.VISIBILITY, snapshot.visible() ? 1.0 : 0.0);
             props.put(PropertyType.MATRIX_MXX, 1.0);

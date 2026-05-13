@@ -6456,6 +6456,7 @@ public class EditorApp extends Application {
       props.put(PropertyType.ROTATION, entity.getRotationDeg());
       props.put(PropertyType.SCALE_X, entity.getScaleX());
       props.put(PropertyType.SCALE_Y, entity.getScaleY());
+      props.put(PropertyType.MIRROR_X, PropertyType.MIRROR_X.getDefaultValue());
       props.put(PropertyType.ALPHA, entityAlpha(entity));
       props.put(PropertyType.VISIBILITY, entity.isVisible() ? 1.0 : 0.0);
       props.put(PropertyType.MATRIX_MXX, entity.getMatrixMxx());

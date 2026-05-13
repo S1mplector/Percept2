@@ -1421,7 +1421,7 @@ public class KeyframeEditor extends VBox {
             case X, Y, CAMERA_X, CAMERA_Y -> large ? 10.0 : 1.0;
             case Z -> large ? 5.0 : 1.0;
             case ROTATION -> large ? 15.0 : 1.0;
-            case SCALE_X, SCALE_Y, CAMERA_ZOOM -> large ? 0.10 : 0.01;
+            case SCALE_X, SCALE_Y, MIRROR_X, CAMERA_ZOOM -> large ? 0.10 : 0.01;
             case ALPHA, PIVOT_X, PIVOT_Y, VISIBILITY -> large ? 0.05 : 0.01;
             case MATRIX_MXX, MATRIX_MXY, MATRIX_MYX, MATRIX_MYY -> large ? 0.10 : 0.01;
             case MATRIX_TX, MATRIX_TY, CAMERA_DOF_FOCUS -> large ? 10.0 : 1.0;
@@ -1602,6 +1602,9 @@ public class KeyframeEditor extends VBox {
             }
             case SCALE_X, SCALE_Y, CAMERA_ZOOM -> {
                 sliderValue.setMin(0.01); sliderValue.setMax(5.0);
+            }
+            case MIRROR_X -> {
+                sliderValue.setMin(0.0); sliderValue.setMax(1.0);
             }
             case ALPHA -> {
                 sliderValue.setMin(0.0); sliderValue.setMax(1.0);

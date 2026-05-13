@@ -176,6 +176,7 @@ public class GraphEditorPanel extends Pane {
             case ROTATION                   -> 360.0;
             case SCALE_X, SCALE_Y,
                  MATRIX_MXX, MATRIX_MYY     ->   2.0;   // scale ~0..2
+            case MIRROR_X                   ->   1.0;
             case MATRIX_MXY, MATRIX_MYX     ->   1.0;
             case ALPHA                      ->   1.0;   // 0..1
             case VISIBILITY                 ->   1.0;
@@ -714,7 +715,7 @@ public class GraphEditorPanel extends Pane {
             case Z                             -> Color.web("#8bc4ff");
             case PIVOT_X, PIVOT_Y              -> Color.web("#f7d07a");
             case ROTATION                      -> Color.web("#c77dff");
-            case SCALE_X, SCALE_Y              -> Color.web("#58d68d");
+            case SCALE_X, SCALE_Y, MIRROR_X    -> Color.web("#58d68d");
             case ALPHA                         -> Color.web("#f38ba8");
             case VISIBILITY                    -> Color.web("#f5e663");
             case MATRIX_MXX, MATRIX_MXY,

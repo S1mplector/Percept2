@@ -57,6 +57,7 @@ public class TimelinePanel extends VBox {
         PropertyType.ROTATION,
         PropertyType.SCALE_X,
         PropertyType.SCALE_Y,
+        PropertyType.MIRROR_X,
         PropertyType.ALPHA,
         PropertyType.VISIBILITY,
         PropertyType.MATRIX_MXX,
@@ -88,7 +89,7 @@ public class TimelinePanel extends VBox {
             case Z -> Color.web("#8bc4ff");
             case PIVOT_X, PIVOT_Y -> Color.web("#f7d07a");
             case ROTATION -> Color.web("#c77dff");
-            case SCALE_X, SCALE_Y -> Color.web("#58d68d");
+            case SCALE_X, SCALE_Y, MIRROR_X -> Color.web("#58d68d");
             case ALPHA -> Color.web("#f38ba8");
             case VISIBILITY -> Color.web("#f5e663");
             case MATRIX_MXX, MATRIX_MXY, MATRIX_MYX, MATRIX_MYY, MATRIX_TX, MATRIX_TY -> Color.web("#7ec8e3");

@@ -40,7 +40,7 @@ public class TimelineData {
      * camera properties map to {@link SceneAccessor} hooks.
      */
     public enum Property {
-        X, Y, Z, PIVOT_X, PIVOT_Y, ROTATION, SCALE_X, SCALE_Y, ALPHA, VISIBILITY,
+        X, Y, Z, PIVOT_X, PIVOT_Y, ROTATION, SCALE_X, SCALE_Y, MIRROR_X, ALPHA, VISIBILITY,
         CAMERA_X, CAMERA_Y, CAMERA_ZOOM
     }
 
