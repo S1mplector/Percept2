@@ -830,6 +830,7 @@ public class AnimationProject {
         EntityGroup renamed = new EntityGroup(nextName);
         renamed.setParentGroupName(source.getParentGroupName());
         renamed.setExpanded(source.isExpanded());
+        renamed.setLocked(source.isLocked());
         renamed.setLayerOrder(source.getLayerOrder());
         for (String childEntity : source.getChildEntityNames()) {
             renamed.addChildEntity(childEntity);
@@ -842,6 +843,7 @@ public class AnimationProject {
         EntityTrack renamedTrack = renamed.getGroupTrack();
         renamedTrack.setExpanded(sourceTrack.isExpanded());
         renamedTrack.setVisible(sourceTrack.isVisible());
+        renamedTrack.setLocked(sourceTrack.isLocked());
         renamedTrack.setLayerOrder(sourceTrack.getLayerOrder());
         for (PropertyType property : PropertyType.values()) {
             List<Keyframe> sourceKeyframes = sourceTrack.getKeyframes(property);
@@ -851,6 +853,15 @@ public class AnimationProject {
                 copied.add(keyframe.copy());
             }
             renamedTrack.setKeyframes(property, copied);
+        }
+        for (String customKey : sourceTrack.getAnimatedCustomProperties()) {
+            List<Keyframe> sourceKeyframes = sourceTrack.getCustomKeyframes(customKey);
+            if (sourceKeyframes.isEmpty()) continue;
+            List<Keyframe> copied = new ArrayList<>();
+            for (Keyframe keyframe : sourceKeyframes) {
+                copied.add(keyframe.copy());
+            }
+            renamedTrack.setCustomKeyframes(customKey, copied);
         }
 
         LinkedHashMap<String, EntityGroup> updated = new LinkedHashMap<>();
@@ -1383,6 +1394,17 @@ public class AnimationProject {
         this.setOrbitAnchors(other.getOrbitAnchorsView());
         this.setOrbitAnchorSources(other.getOrbitAnchorSourcesView());
         this.setOrbitAnchorSourceOffsets(other.getOrbitAnchorSourceOffsetsView());
+        this.constraints.clear();
+        for (Map.Entry<String, Constraint> entry : other.constraints.entrySet()) {
+            if (entry.getKey() != null && entry.getValue() != null) {
+                this.constraints.put(entry.getKey(), entry.getValue());
+            }
+        }
+        this.entityAnchors.clear();
+        for (Map.Entry<String, Map<String, Anchor>> entry : other.entityAnchors.entrySet()) {
+            if (entry.getKey() == null || entry.getKey().isBlank() || entry.getValue() == null) continue;
+            this.entityAnchors.put(entry.getKey(), new LinkedHashMap<>(entry.getValue()));
+        }
         this.setInitialSnapshot(other.initialSnapshot);
         this.setSceneEntitySnapshots(other.sceneEntitySnapshots.values());
         this.setStageContext(other.stageContext);

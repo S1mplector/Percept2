@@ -164,6 +164,48 @@ class CodeRoundTripTest {
     }
 
     @Test
+    void editorMetadataRoundTripPreservesRiggingAndToolingState() {
+        AnimationProject project = new AnimationProject();
+        project.setName("rigged_tooling");
+
+        EntityGroup rig = project.getOrCreateGroup("hero_rig");
+        rig.setLocked(true);
+        rig.getGroupTrack().addCustomKeyframe("rig.custom", new Keyframe(250, 42, Easing.Type.LINEAR));
+
+        EntityTrack shoulder = project.getOrCreateTrack("shoulder");
+        shoulder.addKeyframe(PropertyType.X, new Keyframe(0, 100, Easing.Type.LINEAR));
+
+        EntityTrack hand = project.getOrCreateTrack("hand");
+        hand.setLocked(true);
+        hand.setVisible(false);
+        project.addEntityToGroup("hand", "hero_rig");
+
+        project.setOrbitAnchor("hand", 120, 140);
+        project.setOrbitAnchorSource("hand", "shoulder", 10, 15);
+        project.setConstraint("hand", Constraint.parentChild("shoulder", 4, 5, false, true));
+        project.setAnchor("hand", Anchor.relative("wrist", 0.6, 0.7));
+
+        String exported = CodeExporter.exportNamed(project, "rigged_tooling");
+        assertTrue(exported.contains("@jvn-puppeteer-orbit"));
+        assertTrue(exported.contains("@jvn-puppeteer-constraint"));
+        assertTrue(exported.contains("@jvn-puppeteer-anchor"));
+
+        AnimationProject imported = CodeImporter.importCode("rigged_tooling", exported);
+        assertTrue(imported.getGroup("hero_rig").isLocked());
+        assertTrue(imported.getTrack("hand").isLocked());
+        assertFalse(imported.getTrack("hand").isVisible());
+        assertEquals(42.0,
+            imported.getGroup("hero_rig").getGroupTrack().getCustomValueAt("rig.custom", 250, 0),
+            0.001);
+
+        assertArrayEquals(new double[]{120, 140}, imported.getOrbitAnchor("hand"), 0.001);
+        assertEquals("shoulder", imported.getOrbitAnchorSourcesView().get("hand"));
+        assertArrayEquals(new double[]{10, 15}, imported.getOrbitAnchorSourceOffsetsView().get("hand"), 0.001);
+        assertEquals(Constraint.parentChild("shoulder", 4, 5, false, true), imported.getConstraint("hand"));
+        assertEquals(Anchor.relative("wrist", 0.6, 0.7), imported.getAnchor("hand", "wrist"));
+    }
+
+    @Test
     void cameraAndAudioRoundTrip() {
         String original = """
             timeline {

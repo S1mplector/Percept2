@@ -74,15 +74,28 @@ public class EntityGroup {
         EntityGroup copy = new EntityGroup(name);
         copy.parentGroupName = parentGroupName;
         copy.expanded = expanded;
+        copy.locked = locked;
         copy.layerOrder = layerOrder;
         copy.childEntityNames.addAll(childEntityNames);
         copy.childGroupNames.addAll(childGroupNames);
+        copy.groupTrack.setExpanded(groupTrack.isExpanded());
+        copy.groupTrack.setVisible(groupTrack.isVisible());
+        copy.groupTrack.setLocked(groupTrack.isLocked());
+        copy.groupTrack.setLayerOrder(groupTrack.getLayerOrder());
         for (PropertyType p : PropertyType.values()) {
             List<Keyframe> src = groupTrack.getKeyframes(p);
             if (!src.isEmpty()) {
                 List<Keyframe> dst = new ArrayList<>();
                 for (Keyframe kf : src) dst.add(kf.copy());
                 copy.groupTrack.setKeyframes(p, dst);
+            }
+        }
+        for (String customKey : groupTrack.getAnimatedCustomProperties()) {
+            List<Keyframe> src = groupTrack.getCustomKeyframes(customKey);
+            if (!src.isEmpty()) {
+                List<Keyframe> dst = new ArrayList<>();
+                for (Keyframe kf : src) dst.add(kf.copy());
+                copy.groupTrack.setCustomKeyframes(customKey, dst);
             }
         }
         return copy;

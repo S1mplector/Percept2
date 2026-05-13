@@ -254,4 +254,32 @@ class AnimationProjectGroupHierarchyTest {
     assertEquals(50.0, runtimeHand.getValueAt(TimelineData.Property.Y, 300), 0.0001);
     assertTrue(runtimeHand.getKeyframes(TimelineData.Property.X).size() >= 4);
   }
+
+  @Test
+  void parentChildConstraintFollowsEffectiveGroupedParentTransform() {
+    AnimationProject project = new AnimationProject();
+    project.getOrCreateGroup("hero");
+
+    EntityTrack shoulder = project.getOrCreateTrack("shoulder");
+    shoulder.upsertKeyframe(PropertyType.X, new Keyframe(0, 100));
+    shoulder.upsertKeyframe(PropertyType.Y, new Keyframe(0, 40));
+    project.addEntityToGroup("shoulder", "hero");
+    project.getGroup("hero").getGroupTrack().upsertKeyframe(PropertyType.X, new Keyframe(0, 20));
+    project.getGroup("hero").getGroupTrack().upsertKeyframe(PropertyType.Y, new Keyframe(0, 5));
+
+    ConstraintEvaluator.ConstrainedTransform transform = ConstraintEvaluator.evaluate(
+        "hand",
+        0,
+        0,
+        0,
+        1,
+        1,
+        Constraint.parentChild("shoulder", 10, 3, true, true),
+        project,
+        0
+    );
+
+    assertEquals(130.0, transform.x, 0.0001);
+    assertEquals(48.0, transform.y, 0.0001);
+  }
 }

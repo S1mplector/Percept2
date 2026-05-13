@@ -28,6 +28,9 @@ public class CodeImporter {
     private static final String TRACK_META_PREFIX = "// @jvn-puppeteer-track";
     private static final String KEY_META_PREFIX = "// @jvn-puppeteer-key";
     private static final String CUSTOM_KEY_META_PREFIX = "// @jvn-puppeteer-custom-key";
+    private static final String ORBIT_META_PREFIX = "// @jvn-puppeteer-orbit";
+    private static final String CONSTRAINT_META_PREFIX = "// @jvn-puppeteer-constraint";
+    private static final String ANCHOR_META_PREFIX = "// @jvn-puppeteer-anchor";
 
     /**
      * Import a JES timeline DSL block into a new {@link AnimationProject}.
@@ -215,6 +218,15 @@ public class CodeImporter {
             } else if (line.startsWith(KEY_META_PREFIX)) {
                 KeyMeta key = KeyMeta.from(parseAttributes(line.substring(KEY_META_PREFIX.length()).trim()), false);
                 if (key != null) metadata.keys.add(key);
+            } else if (line.startsWith(ORBIT_META_PREFIX)) {
+                OrbitMeta orbit = OrbitMeta.from(parseAttributes(line.substring(ORBIT_META_PREFIX.length()).trim()));
+                if (orbit != null) metadata.orbits.add(orbit);
+            } else if (line.startsWith(CONSTRAINT_META_PREFIX)) {
+                ConstraintMeta constraint = ConstraintMeta.from(parseAttributes(line.substring(CONSTRAINT_META_PREFIX.length()).trim()));
+                if (constraint != null) metadata.constraints.add(constraint);
+            } else if (line.startsWith(ANCHOR_META_PREFIX)) {
+                AnchorMeta anchor = AnchorMeta.from(parseAttributes(line.substring(ANCHOR_META_PREFIX.length()).trim()));
+                if (anchor != null) metadata.anchors.add(anchor);
             }
         }
         metadata.groups.removeIf(group -> group == null || group.name().isBlank());
@@ -232,6 +244,9 @@ public class CodeImporter {
         private final List<TrackMeta> tracks = new ArrayList<>();
         private final List<KeyMeta> keys = new ArrayList<>();
         private final List<KeyMeta> customKeys = new ArrayList<>();
+        private final List<OrbitMeta> orbits = new ArrayList<>();
+        private final List<ConstraintMeta> constraints = new ArrayList<>();
+        private final List<AnchorMeta> anchors = new ArrayList<>();
 
         void applyProjectAttributes(Map<String, String> attrs) {
             durationMs = parseOptionalDouble(attrs.get("duration"));
@@ -242,7 +257,13 @@ public class CodeImporter {
         }
 
         boolean hasEditorModel() {
-            return !groups.isEmpty() || !tracks.isEmpty() || !keys.isEmpty() || !customKeys.isEmpty();
+            return !groups.isEmpty()
+                || !tracks.isEmpty()
+                || !keys.isEmpty()
+                || !customKeys.isEmpty()
+                || !orbits.isEmpty()
+                || !constraints.isEmpty()
+                || !anchors.isEmpty();
         }
 
         void applySettings(AnimationProject project) {
@@ -294,6 +315,7 @@ public class CodeImporter {
                 EntityGroup entityGroup = restored.getOrCreateGroup(group.name());
                 entityGroup.setLayerOrder(group.layer());
                 entityGroup.setExpanded(group.expanded());
+                entityGroup.setLocked(group.locked());
             }
             for (GroupMeta group : groups) {
                 if (!group.parent().isBlank()) {
@@ -307,6 +329,7 @@ public class CodeImporter {
                 track.setLayerOrder(trackMeta.layer());
                 track.setExpanded(trackMeta.expanded());
                 track.setVisible(trackMeta.visible());
+                track.setLocked(trackMeta.locked());
                 if (!trackMeta.parent().isBlank()) {
                     restored.getOrCreateGroup(trackMeta.parent());
                     restored.addEntityToGroup(trackMeta.name(), trackMeta.parent());
@@ -323,6 +346,18 @@ public class CodeImporter {
                 if (track == null || key.customKey().isBlank()) continue;
                 track.upsertCustomKeyframe(key.customKey(), key.toKeyframe());
             }
+            for (OrbitMeta orbit : orbits) {
+                restored.setOrbitAnchor(orbit.target(), orbit.x(), orbit.y());
+                if (!orbit.source().isBlank()) {
+                    restored.setOrbitAnchorSource(orbit.target(), orbit.source(), orbit.offsetX(), orbit.offsetY());
+                }
+            }
+            for (ConstraintMeta constraint : constraints) {
+                restored.setConstraint(constraint.target(), constraint.toConstraint());
+            }
+            for (AnchorMeta anchor : anchors) {
+                restored.setAnchor(anchor.entity(), new Anchor(anchor.name(), anchor.x(), anchor.y(), anchor.relative()));
+            }
             return restored;
         }
 
@@ -335,25 +370,87 @@ public class CodeImporter {
         }
     }
 
-    private record GroupMeta(String name, String parent, int layer, boolean expanded) {
+    private record GroupMeta(String name, String parent, int layer, boolean expanded, boolean locked) {
         static GroupMeta from(Map<String, String> attrs) {
             return new GroupMeta(
                 decode(attrs.get("name")),
                 decode(attrs.get("parent")),
                 parseInt(attrs.get("layer"), 0),
-                parseBoolean(attrs.get("expanded"), true)
+                parseBoolean(attrs.get("expanded"), true),
+                parseBoolean(attrs.get("locked"), false)
             );
         }
     }
 
-    private record TrackMeta(String name, String parent, boolean visible, boolean expanded, int layer) {
+    private record TrackMeta(String name, String parent, boolean visible, boolean expanded, boolean locked, int layer) {
         static TrackMeta from(Map<String, String> attrs) {
             return new TrackMeta(
                 decode(attrs.get("name")),
                 decode(attrs.get("parent")),
                 parseBoolean(attrs.get("visible"), true),
                 parseBoolean(attrs.get("expanded"), true),
+                parseBoolean(attrs.get("locked"), false),
                 parseInt(attrs.get("layer"), 0)
+            );
+        }
+    }
+
+    private record OrbitMeta(String target, double x, double y, String source, double offsetX, double offsetY) {
+        static OrbitMeta from(Map<String, String> attrs) {
+            String target = decode(attrs.get("target"));
+            if (target.isBlank()) return null;
+            return new OrbitMeta(
+                target,
+                parseDouble(attrs.get("x"), 0.0),
+                parseDouble(attrs.get("y"), 0.0),
+                decode(attrs.get("source")),
+                parseDouble(attrs.get("offsetX"), 0.0),
+                parseDouble(attrs.get("offsetY"), 0.0)
+            );
+        }
+    }
+
+    private record ConstraintMeta(
+        String target,
+        Constraint.Type type,
+        String source,
+        double offsetX,
+        double offsetY,
+        boolean inheritRotation,
+        boolean inheritScale
+    ) {
+        static ConstraintMeta from(Map<String, String> attrs) {
+            String target = decode(attrs.get("target"));
+            String source = decode(attrs.get("source"));
+            Constraint.Type type = parseConstraintType(decode(attrs.get("type")));
+            if (target.isBlank() || source.isBlank() || type == null) return null;
+            return new ConstraintMeta(
+                target,
+                type,
+                source,
+                parseDouble(attrs.get("offsetX"), 0.0),
+                parseDouble(attrs.get("offsetY"), 0.0),
+                parseBoolean(attrs.get("inheritRot"), true),
+                parseBoolean(attrs.get("inheritScale"), true)
+            );
+        }
+
+        Constraint toConstraint() {
+            return new Constraint(type, source, offsetX, offsetY, inheritRotation, inheritScale);
+        }
+    }
+
+    private record AnchorMeta(String entity, String name, double x, double y, boolean relative) {
+        static AnchorMeta from(Map<String, String> attrs) {
+            String entity = decode(attrs.get("entity"));
+            String name = decode(attrs.get("name"));
+            if (entity.isBlank() || name.isBlank()) return null;
+            return new AnchorMeta(
+                entity,
+                name,
+                parseDouble(attrs.get("x"), 0.5),
+                parseDouble(attrs.get("y"), 0.5),
+                parseBoolean(attrs.get("relative"), true)
             );
         }
     }
@@ -523,5 +620,14 @@ public class CodeImporter {
             if (property.getCode().equals(code)) return property;
         }
         return null;
+    }
+
+    private static Constraint.Type parseConstraintType(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        try {
+            return Constraint.Type.valueOf(raw.trim().toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
     }
 }

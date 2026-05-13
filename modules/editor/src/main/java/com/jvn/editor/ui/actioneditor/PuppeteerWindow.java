@@ -7249,10 +7249,31 @@ public class PuppeteerWindow extends Stage {
         Map<String, double[]> anchorSnapshot = project.getOrbitAnchorsView();
         Map<String, String> anchorSourceSnapshot = project.getOrbitAnchorSourcesView();
         Map<String, double[]> anchorOffsetSnapshot = project.getOrbitAnchorSourceOffsetsView();
+        Map<String, Constraint> constraintSnapshot = project.getConstraintsView();
+        Map<String, Map<String, Anchor>> namedAnchorSnapshot = project.getEntityAnchorsView();
+        boolean importedHasOrbitAnchors = !imported.getOrbitAnchorsView().isEmpty();
+        boolean importedHasConstraints = !imported.getConstraintsView().isEmpty();
+        boolean importedHasNamedAnchors = !imported.getEntityAnchorsView().isEmpty();
         project.replaceFrom(imported);
-        project.setOrbitAnchors(anchorSnapshot);
-        project.setOrbitAnchorSources(anchorSourceSnapshot);
-        project.setOrbitAnchorSourceOffsets(anchorOffsetSnapshot);
+        if (!importedHasOrbitAnchors) {
+            project.setOrbitAnchors(anchorSnapshot);
+            project.setOrbitAnchorSources(anchorSourceSnapshot);
+            project.setOrbitAnchorSourceOffsets(anchorOffsetSnapshot);
+        }
+        if (!importedHasConstraints && !constraintSnapshot.isEmpty()) {
+            project.clearConstraints();
+            for (Map.Entry<String, Constraint> entry : constraintSnapshot.entrySet()) {
+                project.setConstraint(entry.getKey(), entry.getValue());
+            }
+        }
+        if (!importedHasNamedAnchors && !namedAnchorSnapshot.isEmpty()) {
+            project.clearAllAnchors();
+            for (Map.Entry<String, Map<String, Anchor>> entry : namedAnchorSnapshot.entrySet()) {
+                for (Anchor anchor : entry.getValue().values()) {
+                    project.setAnchor(entry.getKey(), anchor);
+                }
+            }
+        }
         project.pruneOrbitAnchors(collectProjectEntityNames());
         project.setPlayheadMs(playhead);
         activeTransformInteraction = null;

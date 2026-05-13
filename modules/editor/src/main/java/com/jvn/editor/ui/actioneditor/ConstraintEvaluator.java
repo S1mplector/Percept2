@@ -62,17 +62,23 @@ public class ConstraintEvaluator {
             return new ConstrainedTransform(baseX, baseY, baseRotationDeg, baseScaleX, baseScaleY);
         }
         
-        EntityTrack targetTrack = project.getTrack(targetName);
-        if (targetTrack == null) {
+        if (project.getTrack(targetName) == null) {
+            return new ConstrainedTransform(baseX, baseY, baseRotationDeg, baseScaleX, baseScaleY);
+        }
+
+        AnimationProject.EffectiveEntityTransform targetTransform =
+            project.computeEffectiveEntityTransform(targetName, timeMs);
+        if (targetTransform == null) {
             return new ConstrainedTransform(baseX, baseY, baseRotationDeg, baseScaleX, baseScaleY);
         }
         
-        // Get parent's base transform (without constraints to avoid infinite recursion)
-        double parentX = targetTrack.getValueAt(PropertyType.X, timeMs);
-        double parentY = targetTrack.getValueAt(PropertyType.Y, timeMs);
-        double parentRot = targetTrack.getValueAt(PropertyType.ROTATION, timeMs);
-        double parentScaleX = targetTrack.getValueAt(PropertyType.SCALE_X, timeMs);
-        double parentScaleY = targetTrack.getValueAt(PropertyType.SCALE_Y, timeMs);
+        // Use the target's group-aware transform. This intentionally excludes
+        // target constraints, avoiding recursion while respecting parent rigs.
+        double parentX = targetTransform.x();
+        double parentY = targetTransform.y();
+        double parentRot = targetTransform.rotationDeg();
+        double parentScaleX = targetTransform.scaleX();
+        double parentScaleY = targetTransform.scaleY();
         
         // Apply constraint based on type
         return switch (constraint.getType()) {

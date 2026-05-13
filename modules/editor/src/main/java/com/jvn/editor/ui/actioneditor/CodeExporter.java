@@ -87,6 +87,7 @@ public class CodeExporter {
                 .append(" parent=").append(encode(group.getParentGroupName()))
                 .append(" layer=").append(group.getLayerOrder())
                 .append(" expanded=").append(group.isExpanded() ? "1" : "0")
+                .append(" locked=").append(group.isLocked() ? "1" : "0")
                 .append("\n");
         }
 
@@ -98,6 +99,7 @@ public class CodeExporter {
             if (group == null) continue;
             appendTrackKeyframeMetadata(sb, group.getGroupTrack(), true);
         }
+        appendRiggingMetadata(sb, project);
         sb.append("\n");
     }
 
@@ -108,8 +110,63 @@ public class CodeExporter {
             .append(" parent=").append(encode(track.getParentGroupName()))
             .append(" visible=").append(track.isVisible() ? "1" : "0")
             .append(" expanded=").append(track.isExpanded() ? "1" : "0")
+            .append(" locked=").append(track.isLocked() ? "1" : "0")
             .append(" layer=").append(track.getLayerOrder())
             .append("\n");
+    }
+
+    private static void appendRiggingMetadata(StringBuilder sb, AnimationProject project) {
+        if (sb == null || project == null) return;
+        for (Map.Entry<String, double[]> entry : project.getOrbitAnchorsView().entrySet()) {
+            String target = entry.getKey();
+            double[] anchor = entry.getValue();
+            if (target == null || target.isBlank() || anchor == null || anchor.length < 2) continue;
+            sb.append("// @jvn-puppeteer-orbit")
+                .append(" target=").append(encode(target))
+                .append(" x=").append(formatMetadataNumber(anchor[0]))
+                .append(" y=").append(formatMetadataNumber(anchor[1]));
+            String source = project.getOrbitAnchorSourcesView().get(target);
+            if (source != null && !source.isBlank()) {
+                sb.append(" source=").append(encode(source));
+                double[] offset = project.getOrbitAnchorSourceOffsetsView().get(target);
+                if (offset != null && offset.length >= 2) {
+                    sb.append(" offsetX=").append(formatMetadataNumber(offset[0]))
+                        .append(" offsetY=").append(formatMetadataNumber(offset[1]));
+                }
+            }
+            sb.append("\n");
+        }
+
+        for (Map.Entry<String, Constraint> entry : project.getConstraintsView().entrySet()) {
+            String target = entry.getKey();
+            Constraint constraint = entry.getValue();
+            if (target == null || target.isBlank() || constraint == null || constraint.getType() == null) continue;
+            sb.append("// @jvn-puppeteer-constraint")
+                .append(" target=").append(encode(target))
+                .append(" type=").append(encode(constraint.getType().name()))
+                .append(" source=").append(encode(constraint.getTargetEntityName()))
+                .append(" offsetX=").append(formatMetadataNumber(constraint.getOffsetX()))
+                .append(" offsetY=").append(formatMetadataNumber(constraint.getOffsetY()))
+                .append(" inheritRot=").append(constraint.isInheritRotation() ? "1" : "0")
+                .append(" inheritScale=").append(constraint.isInheritScale() ? "1" : "0")
+                .append("\n");
+        }
+
+        for (Map.Entry<String, Map<String, Anchor>> entityEntry : project.getEntityAnchorsView().entrySet()) {
+            String entity = entityEntry.getKey();
+            Map<String, Anchor> anchors = entityEntry.getValue();
+            if (entity == null || entity.isBlank() || anchors == null || anchors.isEmpty()) continue;
+            for (Anchor anchor : anchors.values()) {
+                if (anchor == null || anchor.getName() == null || anchor.getName().isBlank()) continue;
+                sb.append("// @jvn-puppeteer-anchor")
+                    .append(" entity=").append(encode(entity))
+                    .append(" name=").append(encode(anchor.getName()))
+                    .append(" x=").append(formatMetadataNumber(anchor.getX()))
+                    .append(" y=").append(formatMetadataNumber(anchor.getY()))
+                    .append(" relative=").append(anchor.isRelative() ? "1" : "0")
+                    .append("\n");
+            }
+        }
     }
 
     private static void appendTrackKeyframeMetadata(StringBuilder sb, EntityTrack track, boolean groupTrack) {
