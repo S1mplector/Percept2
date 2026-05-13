@@ -1187,24 +1187,18 @@ public class NewProjectWizard extends Stage {
       sb.append("\u2502       \u2502   \u251c\u2500\u2500 submenu.layout\n");
       sb.append("\u2502       \u2502   \u251c\u2500\u2500 settings.layout\n");
       sb.append("\u2502       \u2502   \u2514\u2500\u2500 slots.layout\n");
-      sb.append("\u2502       \u251c\u2500\u2500 styles/\n");
-      sb.append("\u2502       \u2502   \u251c\u2500\u2500 default.style\n");
-      sb.append("\u2502       \u2502   \u251c\u2500\u2500 submenu.style\n");
-      sb.append("\u2502       \u2502   \u251c\u2500\u2500 settings.style\n");
-      sb.append("\u2502       \u2502   \u2514\u2500\u2500 slot.style\n");
-      sb.append("\u2502       \u2514\u2500\u2500 assets/\n");
-      sb.append("\u2502           \u251c\u2500\u2500 buttons/\n");
-      sb.append("\u2502           \u2514\u2500\u2500 icons/\n");
+      sb.append("\u2502       \u2514\u2500\u2500 styles/\n");
+      sb.append("\u2502           \u251c\u2500\u2500 default.style\n");
+      sb.append("\u2502           \u251c\u2500\u2500 submenu.style\n");
+      sb.append("\u2502           \u251c\u2500\u2500 settings.style\n");
+      sb.append("\u2502           \u2514\u2500\u2500 slot.style\n");
     } else if (blankMenus) {
       sb.append("\u2502   \u2514\u2500\u2500 menu/                    (blank \u2013 build from scratch)\n");
       sb.append("\u2502       \u251c\u2500\u2500 registry/\n");
       sb.append("\u2502       \u2502   \u2514\u2500\u2500 menu.registry    (empty)\n");
       sb.append("\u2502       \u251c\u2500\u2500 menus/               (add .menu files here)\n");
       sb.append("\u2502       \u251c\u2500\u2500 layouts/             (add .layout files here)\n");
-      sb.append("\u2502       \u251c\u2500\u2500 styles/              (add .style files here)\n");
-      sb.append("\u2502       \u2514\u2500\u2500 assets/\n");
-      sb.append("\u2502           \u251c\u2500\u2500 buttons/\n");
-      sb.append("\u2502           \u2514\u2500\u2500 icons/\n");
+      sb.append("\u2502       \u2514\u2500\u2500 styles/              (add .style files here)\n");
     }
     sb.append("\u251c\u2500\u2500 scripts/\n");
     sb.append("\u2502   \u251c\u2500\u2500 story/\n");
@@ -1239,27 +1233,16 @@ public class NewProjectWizard extends Stage {
     sb.append("\u2502   \u251c\u2500\u2500 common/\n");
     sb.append("\u2502   \u2514\u2500\u2500 system/\n");
     sb.append("\u251c\u2500\u2500 assets/\n");
-    sb.append("\u2502   \u251c\u2500\u2500 backgrounds/\n");
-    sb.append("\u2502   \u251c\u2500\u2500 characters/\n");
-    sb.append("\u2502   \u2502   \u251c\u2500\u2500 sprites/\n");
-    sb.append("\u2502   \u2502   \u2514\u2500\u2500 portraits/\n");
-    sb.append("\u2502   \u251c\u2500\u2500 cg/\n");
-    sb.append("\u2502   \u251c\u2500\u2500 effects/\n");
-    sb.append("\u2502   \u251c\u2500\u2500 video/\n");
     if (includeDemoAssets) {
-      sb.append("\u2502   \u251c\u2500\u2500 demo/\n");
-      sb.append("\u2502   \u2502   \u251c\u2500\u2500 backgrounds/\n");
-      sb.append("\u2502   \u2502   \u2502   \u2514\u2500\u2500 field/\n");
-      sb.append("\u2502   \u2502   \u251c\u2500\u2500 characters/\n");
-      sb.append("\u2502   \u2502   \u2502   \u2514\u2500\u2500 lavender/\n");
-      sb.append("\u2502   \u2502   \u2514\u2500\u2500 audio/\n");
+      sb.append("\u2502   \u2514\u2500\u2500 demo/\n");
+      sb.append("\u2502       \u251c\u2500\u2500 backgrounds/\n");
+      sb.append("\u2502       \u2502   \u2514\u2500\u2500 field/\n");
+      sb.append("\u2502       \u251c\u2500\u2500 characters/\n");
+      sb.append("\u2502       \u2502   \u2514\u2500\u2500 lavender/\n");
+      sb.append("\u2502       \u2514\u2500\u2500 audio/\n");
+    } else {
+      sb.append("\u2502   \u2514\u2500\u2500 (add art, audio, and fonts as needed)\n");
     }
-    sb.append("\u2502   \u251c\u2500\u2500 ui/\n");
-    sb.append("\u2502   \u251c\u2500\u2500 fonts/\n");
-    sb.append("\u2502   \u2514\u2500\u2500 audio/\n");
-    sb.append("\u2502       \u251c\u2500\u2500 bgm/\n");
-    sb.append("\u2502       \u251c\u2500\u2500 sfx/\n");
-    sb.append("\u2502       \u2514\u2500\u2500 voices/\n");
     sb.append("\u251c\u2500\u2500 save/\n");
     if (shouldSetupGit()) {
       sb.append("\u251c\u2500\u2500 .gitignore\n");
@@ -1465,7 +1448,7 @@ public class NewProjectWizard extends Stage {
     if (!dir.isDirectory()) {
       throw new Exception("Project path is not a directory: " + dir.getAbsolutePath());
     }
-    createDirectories(dir, includeMenuPack, includeDemoAssets);
+    createDirectories(dir, includeMenuPack);
     boolean useLayeredLavenderDemo = false;
     if (includeDemoAssets) {
       useLayeredLavenderDemo = copyBundledDemoAssets(dir);
@@ -1579,7 +1562,7 @@ public class NewProjectWizard extends Stage {
     }
   }
 
-  private void createDirectories(File dir, boolean includeMenuPack, boolean includeDemoAssets) throws Exception {
+  private void createDirectories(File dir, boolean includeMenuPack) throws Exception {
     // Config
     ensureDirectory(dir, "config/settings");
     ensureDirectory(dir, "config/story");
@@ -1591,8 +1574,6 @@ public class NewProjectWizard extends Stage {
       ensureDirectory(dir, "config/menu/menus");
       ensureDirectory(dir, "config/menu/layouts");
       ensureDirectory(dir, "config/menu/styles");
-      ensureDirectory(dir, "config/menu/assets/buttons");
-      ensureDirectory(dir, "config/menu/assets/icons");
     }
     if (includeMenuPack) {
       ensureDirectory(dir, "config/menu/theme");
@@ -1607,22 +1588,7 @@ public class NewProjectWizard extends Stage {
     ensureDirectory(dir, "scripts/system");
 
     // Assets
-    ensureDirectory(dir, "assets/backgrounds");
-    ensureDirectory(dir, "assets/characters/sprites");
-    ensureDirectory(dir, "assets/characters/portraits");
-    ensureDirectory(dir, "assets/cg");
-    ensureDirectory(dir, "assets/effects");
-    ensureDirectory(dir, "assets/video");
-    if (includeDemoAssets) {
-      ensureDirectory(dir, "assets/demo/backgrounds");
-      ensureDirectory(dir, "assets/demo/characters");
-      ensureDirectory(dir, "assets/demo/audio");
-    }
-    ensureDirectory(dir, "assets/ui");
-    ensureDirectory(dir, "assets/fonts");
-    ensureDirectory(dir, "assets/audio/bgm");
-    ensureDirectory(dir, "assets/audio/sfx");
-    ensureDirectory(dir, "assets/audio/voices");
+    ensureDirectory(dir, "assets");
 
     // Save location
     ensureDirectory(dir, "save");
