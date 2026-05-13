@@ -211,10 +211,12 @@ Explorer for external editing or drag-and-drop asset workflows."""),
 
     filterField.setPromptText("Filter files, paths, or labels...");
     filterField.getStyleClass().add("script-editor-field");
+    filterField.setTooltip(new Tooltip("Filter the workspace tree by file, path, or VNS label"));
     HBox.setHgrow(filterField, Priority.ALWAYS);
 
     searchField.setPromptText("Search in text files…");
     searchField.getStyleClass().add("script-editor-field");
+    searchField.setTooltip(new Tooltip("Search inside all project text files"));
     HBox.setHgrow(searchField, Priority.ALWAYS);
     searchResults.setPadding(new Insets(4, 0, 0, 0));
 
@@ -226,6 +228,7 @@ Explorer for external editing or drag-and-drop asset workflows."""),
 
     explorerTree.setShowRoot(true);
     explorerTree.getStyleClass().add("script-editor-tree");
+    explorerTree.setTooltip(new Tooltip("Text workspace tree. Double-click or press Enter to open a file."));
     explorerTree.setCellFactory(tree -> new TreeCell<>() {
       @Override
       protected void updateItem(ExplorerNode item, boolean empty) {

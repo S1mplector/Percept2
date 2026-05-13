@@ -16,6 +16,7 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToolBar;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
@@ -66,9 +67,11 @@ public class LauncherSettingsView extends BorderPane {
     Button reloadButton = new Button("Reload");
     reloadButton.setOnAction(e -> reload());
     reloadButton.getStyleClass().add("editor-settings-button");
+    reloadButton.setTooltip(new Tooltip("Reload launcher settings from disk"));
     Button saveButton = new Button("Save");
     saveButton.setOnAction(e -> save());
     saveButton.getStyleClass().add("editor-settings-button");
+    saveButton.setTooltip(new Tooltip("Save launcher settings"));
     Button defaultsButton = new Button("Defaults");
     defaultsButton.setOnAction(e -> {
       EditorPreferences defaults = store.load();
@@ -88,6 +91,7 @@ public class LauncherSettingsView extends BorderPane {
       statusLabel.setText("Launcher defaults restored in form");
     });
     defaultsButton.getStyleClass().add("editor-settings-button");
+    defaultsButton.setTooltip(new Tooltip("Restore launcher defaults in the form"));
     toolbar.getItems().addAll(reloadButton, saveButton, defaultsButton);
     setTop(toolbar);
 
@@ -111,6 +115,7 @@ public class LauncherSettingsView extends BorderPane {
 
     settingsFilterField.setPromptText("Filter settings...");
     settingsFilterField.getStyleClass().addAll("editor-settings-text-field", "editor-settings-search-field");
+    settingsFilterField.setTooltip(new Tooltip("Filter launcher settings sections"));
     settingsFilterField.textProperty().addListener((obs, oldValue, newValue) -> applySettingsFilter());
 
     defaultTextEditorCombo.getItems().addAll(
@@ -124,6 +129,7 @@ public class LauncherSettingsView extends BorderPane {
 
     customTextEditorCommandField.setPromptText("Example: code --reuse-window {file}");
     customTextEditorCommandField.getStyleClass().add("editor-settings-text-field");
+    customTextEditorCommandField.setTooltip(new Tooltip("Command template for opening files in a custom text editor"));
     restoreLastProjectCheck.getStyleClass().add("editor-settings-check");
     keepLauncherOpenCheck.getStyleClass().add("editor-settings-check");
     confirmOpenEditorCheck.getStyleClass().add("editor-settings-check");
@@ -133,12 +139,15 @@ public class LauncherSettingsView extends BorderPane {
     lastProjectPathField.setEditable(false);
     lastProjectPathField.setPromptText("No project stored yet");
     lastProjectPathField.getStyleClass().add("editor-settings-text-field");
+    lastProjectPathField.setTooltip(new Tooltip("Project path restored by the launcher at startup"));
 
     Button useCurrentProjectButton = new Button("Use Current");
     useCurrentProjectButton.getStyleClass().add("editor-settings-button");
+    useCurrentProjectButton.setTooltip(new Tooltip("Store the current project as the launcher startup project"));
     useCurrentProjectButton.setOnAction(e -> useCurrentProject());
     Button clearProjectButton = new Button("Clear");
     clearProjectButton.getStyleClass().add("editor-settings-button");
+    clearProjectButton.setTooltip(new Tooltip("Clear the stored startup project path"));
     clearProjectButton.setOnAction(e -> lastProjectPathField.clear());
     HBox lastProjectControls =
         new HBox(8, lastProjectPathField, useCurrentProjectButton, clearProjectButton);

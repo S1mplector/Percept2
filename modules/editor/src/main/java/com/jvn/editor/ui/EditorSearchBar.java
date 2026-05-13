@@ -11,6 +11,7 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -41,13 +42,17 @@ public class EditorSearchBar extends VBox {
   public EditorSearchBar() {
     setSpacing(2);
     setPadding(new Insets(6, 10, 6, 10));
-    setStyle("-fx-background-color: #1f1f1f; -fx-border-color: #343434; -fx-border-width: 0 0 1 0;");
+    getStyleClass().add("editor-search-bar");
 
     searchField.setPromptText("Find...");
+    searchField.getStyleClass().add("editor-search-field");
+    searchField.setTooltip(new Tooltip("Find text in the current editor"));
     searchField.setPrefWidth(200);
     HBox.setHgrow(searchField, Priority.NEVER);
 
     replaceField.setPromptText("Replace...");
+    replaceField.getStyleClass().add("editor-search-field");
+    replaceField.setTooltip(new Tooltip("Replacement text for the current match"));
     replaceField.setPrefWidth(200);
     HBox.setHgrow(replaceField, Priority.NEVER);
 
@@ -84,15 +89,25 @@ public class EditorSearchBar extends VBox {
       if (onClose != null) onClose.run();
     });
 
-    statusLabel.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
+    statusLabel.getStyleClass().add("editor-search-status");
     statusLabel.setMinWidth(80);
 
-    replaceButton.setStyle("-fx-font-size: 11px; -fx-padding: 2 8 2 8;");
-    replaceAllButton.setStyle("-fx-font-size: 11px; -fx-padding: 2 8 2 8;");
+    prevButton.getStyleClass().add("editor-search-button");
+    nextButton.getStyleClass().add("editor-search-button");
+    replaceButton.getStyleClass().add("editor-search-button");
+    replaceAllButton.getStyleClass().add("editor-search-button");
+    closeButton.getStyleClass().add("editor-search-button");
+    prevButton.setTooltip(new Tooltip("Find previous match (Shift+Enter)"));
+    nextButton.setTooltip(new Tooltip("Find next match (Enter)"));
+    replaceButton.setTooltip(new Tooltip("Replace the current match"));
+    replaceAllButton.setTooltip(new Tooltip("Replace all matches"));
+    closeButton.setTooltip(new Tooltip("Close find bar (Esc)"));
 
     findRow.setAlignment(Pos.CENTER_LEFT);
+    Label findLabel = new Label("Find:");
+    findLabel.getStyleClass().add("editor-search-label");
     findRow.getChildren().addAll(
-        new Label("Find:"),
+        findLabel,
         searchField,
         prevButton,
         nextButton,
@@ -101,8 +116,10 @@ public class EditorSearchBar extends VBox {
     );
 
     replaceRow.setAlignment(Pos.CENTER_LEFT);
+    Label replaceLabel = new Label("Replace:");
+    replaceLabel.getStyleClass().add("editor-search-label");
     replaceRow.getChildren().addAll(
-        new Label("Replace:"),
+        replaceLabel,
         replaceField,
         replaceButton,
         replaceAllButton

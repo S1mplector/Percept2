@@ -308,6 +308,7 @@ public class StoryTimelineView extends BorderPane {
     Button bValidate = iconButton("Validate", CssIcon.check(), e -> validate());
     TextField tfSearch = new TextField();
     tfSearch.setPromptText("Find arc...");
+    tfSearch.setTooltip(new Tooltip("Find and highlight story arcs by name"));
     tfSearch.setPrefWidth(180);
     tfSearch.textProperty().addListener((o, ov, nv) -> graph.highlight(nv));
     HBox.setHgrow(tfSearch, Priority.ALWAYS);
@@ -324,6 +325,7 @@ public class StoryTimelineView extends BorderPane {
     clusterFilter = new ComboBox<>();
     clusterFilter.setPrefWidth(170);
     clusterFilter.setPromptText("All");
+    clusterFilter.setTooltip(new Tooltip("Filter story arcs by cluster"));
     clusterFilter.valueProperty().addListener((o,ov,nv) -> {
       if (nv == null || nv.equals("All")) graph.setFilterCluster(null); else graph.setFilterCluster(nv);
     });

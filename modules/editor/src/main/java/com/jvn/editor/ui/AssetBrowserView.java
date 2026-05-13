@@ -18,6 +18,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.Clipboard;
@@ -54,11 +55,14 @@ public class AssetBrowserView extends BorderPane {
     rootLabel.getStyleClass().add("sidebar-tool-subtitle");
 
     filterField.setPromptText("Filter assets...");
+    filterField.getStyleClass().add("sidebar-tool-search-field");
+    filterField.setTooltip(new Tooltip("Filter assets by filename or path"));
     filterField.textProperty().addListener((obs, oldValue, newValue) -> applyFilter());
 
     typeFilter.getItems().addAll("All Types", "Image", "Audio", "Video", "Font", "Data", "File");
     typeFilter.setValue("All Types");
     typeFilter.setMaxWidth(Double.MAX_VALUE);
+    typeFilter.setTooltip(new Tooltip("Limit asset results to one file type"));
     typeFilter.valueProperty().addListener((obs, oldValue, newValue) -> applyFilter());
 
     listView.setCellFactory(lv -> new AssetCell());
@@ -99,14 +103,17 @@ public class AssetBrowserView extends BorderPane {
       content.putString(item.relativePath());
       Clipboard.getSystemClipboard().setContent(content);
     });
+    copyPathButton.setTooltip(new Tooltip("Copy the selected asset's project-relative path"));
 
     openButton.setOnAction(e -> {
       AssetItem item = listView.getSelectionModel().getSelectedItem();
       if (item == null) return;
       openAsset(item.file());
     });
+    openButton.setTooltip(new Tooltip("Open the selected asset in the system default app"));
 
     Button useAssetButton = new Button("Use Asset");
+    useAssetButton.setTooltip(new Tooltip("Send the selected asset path to the active editor tool"));
     useAssetButton.setOnAction(e -> {
       AssetItem item = listView.getSelectionModel().getSelectedItem();
       if (item != null && onAssetSelected != null) {

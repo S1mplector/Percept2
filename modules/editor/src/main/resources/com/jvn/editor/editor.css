@@ -1096,6 +1096,46 @@ The editor.css file defines the visual styling for the editor module, including 
 }
 .text-input .prompt-text, .text-field .prompt-text, .text-area .prompt-text { -fx-fill: #777777; }
 
+.editor-search-bar {
+  -fx-background-color: #1f1f1f;
+  -fx-border-color: #343434;
+  -fx-border-width: 0 0 1 0;
+}
+
+.editor-search-label {
+  -fx-text-fill: #d6d6d6;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+}
+
+.editor-search-field {
+  -fx-background-color: #121212;
+  -fx-text-fill: #f0f0f0;
+  -fx-prompt-text-fill: #858585;
+  -fx-highlight-fill: #555555;
+  -fx-highlight-text-fill: #ffffff;
+  -fx-border-color: #3a3a3a;
+  -fx-border-radius: 6;
+  -fx-background-radius: 6;
+  -fx-padding: 5 8 5 8;
+}
+
+.editor-search-field:focused {
+  -fx-background-color: #171717;
+  -fx-border-color: #8a8a8a;
+  -fx-effect: none;
+}
+
+.editor-search-status {
+  -fx-text-fill: #a0a0a0;
+  -fx-font-size: 11px;
+}
+
+.editor-search-button {
+  -fx-font-size: 11px;
+  -fx-padding: 2 8 2 8;
+}
+
 /* ListView */
 .list-view { -fx-background-color: #121212; }
 .list-cell { -fx-background-color: #121212; -fx-text-fill: #e6e6e6; }
@@ -6635,6 +6675,32 @@ The editor.css file defines the visual styling for the editor module, including 
 .sidebar-tool-root {
   -fx-background-color: #0f0f0f;
   -fx-control-inner-background: #111111;
+}
+
+.sidebar-tool-root .text-input,
+.sidebar-tool-root .text-field,
+.sidebar-tool-root .text-area,
+.sidebar-tool-search-field {
+  -fx-background-color: #151515;
+  -fx-text-fill: #ededed;
+  -fx-prompt-text-fill: #7b7b7b;
+  -fx-highlight-fill: #555555;
+  -fx-highlight-text-fill: #ffffff;
+  -fx-border-color: #343434;
+  -fx-border-radius: 8;
+  -fx-background-radius: 8;
+}
+
+.sidebar-tool-root .text-input:focused,
+.sidebar-tool-root .text-field:focused,
+.sidebar-tool-root .text-area:focused,
+.sidebar-tool-search-field:focused {
+  -fx-background-color: #181818;
+  -fx-border-color: #777777;
+}
+
+.sidebar-tool-root .text-area .content {
+  -fx-background-color: #151515;
 }
 
 .sidebar-tool-scroll,

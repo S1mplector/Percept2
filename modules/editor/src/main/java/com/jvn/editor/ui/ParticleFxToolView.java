@@ -23,6 +23,7 @@ import javafx.scene.control.Slider;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.BorderPane;
@@ -106,10 +107,13 @@ public class ParticleFxToolView extends BorderPane {
         column(180, Priority.ALWAYS));
 
     Button insertButton = new Button("Insert");
+    insertButton.setTooltip(new Tooltip("Insert the generated particle start command at the cursor"));
     insertButton.setOnAction(e -> insertCommand(buildStartCommand()));
     Button copyButton = new Button("Copy");
+    copyButton.setTooltip(new Tooltip("Copy the generated particle start command"));
     copyButton.setOnAction(e -> copyCommand(buildStartCommand()));
     Button stopButton = new Button("Insert Stop");
+    stopButton.setTooltip(new Tooltip("Insert a command that stops active particle effects"));
     stopButton.setOnAction(e -> insertCommand("[particles stop]"));
     HBox actions = new HBox(8, insertButton, copyButton, stopButton);
     actions.setAlignment(Pos.CENTER_LEFT);

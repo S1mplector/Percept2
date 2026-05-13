@@ -1042,6 +1042,46 @@
 }
 .text-input .prompt-text, .text-field .prompt-text, .text-area .prompt-text { -fx-fill: #888888; }
 
+.editor-search-bar {
+  -fx-background-color: #ededed;
+  -fx-border-color: #d0d0d0;
+  -fx-border-width: 0 0 1 0;
+}
+
+.editor-search-label {
+  -fx-text-fill: #2e2e2e;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+}
+
+.editor-search-field {
+  -fx-background-color: #f4f4f4;
+  -fx-text-fill: #111111;
+  -fx-prompt-text-fill: #858585;
+  -fx-highlight-fill: #b8b8b8;
+  -fx-highlight-text-fill: #050505;
+  -fx-border-color: #c7c7c7;
+  -fx-border-radius: 6;
+  -fx-background-radius: 6;
+  -fx-padding: 5 8 5 8;
+}
+
+.editor-search-field:focused {
+  -fx-background-color: #ffffff;
+  -fx-border-color: #7a7a7a;
+  -fx-effect: none;
+}
+
+.editor-search-status {
+  -fx-text-fill: #676767;
+  -fx-font-size: 11px;
+}
+
+.editor-search-button {
+  -fx-font-size: 11px;
+  -fx-padding: 2 8 2 8;
+}
+
 /* ListView */
 .list-view { -fx-background-color: #ededed; }
 .list-cell { -fx-background-color: #ededed; -fx-text-fill: #191919; }
@@ -6478,6 +6518,32 @@
 .sidebar-tool-root {
   -fx-background-color: #efefef;
   -fx-control-inner-background: #f4f4f4;
+}
+
+.sidebar-tool-root .text-input,
+.sidebar-tool-root .text-field,
+.sidebar-tool-root .text-area,
+.sidebar-tool-search-field {
+  -fx-background-color: #f3f3f3;
+  -fx-text-fill: #171717;
+  -fx-prompt-text-fill: #858585;
+  -fx-highlight-fill: #c2c2c2;
+  -fx-highlight-text-fill: #050505;
+  -fx-border-color: #cfcfcf;
+  -fx-border-radius: 8;
+  -fx-background-radius: 8;
+}
+
+.sidebar-tool-root .text-input:focused,
+.sidebar-tool-root .text-field:focused,
+.sidebar-tool-root .text-area:focused,
+.sidebar-tool-search-field:focused {
+  -fx-background-color: #ffffff;
+  -fx-border-color: #8a8a8a;
+}
+
+.sidebar-tool-root .text-area .content {
+  -fx-background-color: #f3f3f3;
 }
 
 .sidebar-tool-scroll,
