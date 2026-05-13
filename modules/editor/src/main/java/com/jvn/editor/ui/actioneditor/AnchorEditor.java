@@ -8,8 +8,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
 
+import javafx.animation.AnimationTimer;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
@@ -26,6 +28,7 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Rectangle;
+import javafx.stage.Stage;
 
 /**
  * Minimal visual anchor editor. Automatically mirrors the entity selected via the
@@ -57,12 +60,14 @@ public class AnchorEditor extends VBox {
                                               + "-fx-border-color: #505050; -fx-border-radius: 3;";
 
     private static final int    CANVAS_BASE_H = 190;
+    private static final int    CANVAS_FULLSCREEN_H = 620;
     private static final double PAD           = 10.0;
     private static final double DOT_R         = 5.0;
     private static final double HIT_R         = DOT_R * 2.5;
     private static final double ZOOM_MIN      = 0.25;
     private static final double ZOOM_MAX      = 5.0;
     private static final double ZOOM_STEP     = 1.4;
+    private static final long   ZOOM_ANIM_NS  = 160_000_000L;
 
     private record GroupVisualRegion(
         double sourceX,
@@ -105,6 +110,13 @@ public class AnchorEditor extends VBox {
         }
     }
 
+    private record ZoomFocus(
+        double relX,
+        double relY,
+        double viewportX,
+        double viewportY
+    ) {}
+
     // ── State ────────────────────────────────────────────────────────────────
     private AnimationProject project;
     private AnimationPreview preview;
@@ -126,6 +138,10 @@ public class AnchorEditor extends VBox {
     // zoom
     private double canvasZoom = 1.0;
     private Label  lblZoom;
+    private AnimationTimer zoomAnimator;
+    private boolean fullscreenMode;
+    private Stage fullscreenStage;
+    private AnchorEditor fullscreenEditor;
 
     // pending placement (normalized coords, or -1 when inactive)
     private double pendingRelX = -1;
@@ -143,6 +159,11 @@ public class AnchorEditor extends VBox {
 
     // ── Constructor ──────────────────────────────────────────────────────────
     public AnchorEditor() {
+        this(false);
+    }
+
+    private AnchorEditor(boolean fullscreenMode) {
+        this.fullscreenMode = fullscreenMode;
         setSpacing(0);
         setFillWidth(true);
         buildUI();
@@ -177,17 +198,27 @@ public class AnchorEditor extends VBox {
             "-fx-background: #141414; -fx-background-color: #141414; "
             + "-fx-border-color: transparent;"
         );
-        canvasScroll.setMaxHeight(CANVAS_BASE_H + 2);
-        canvasScroll.setPrefHeight(CANVAS_BASE_H + 2);
+        canvasScroll.setMaxHeight(fullscreenMode ? Double.MAX_VALUE : CANVAS_BASE_H + 2);
+        canvasScroll.setPrefHeight(canvasBaseHeight() + 2);
+        VBox.setVgrow(canvasScroll, fullscreenMode ? Priority.ALWAYS : Priority.NEVER);
         canvasScroll.setOnScroll(e -> {
             if (e.isControlDown() || e.isShortcutDown()) {
-                applyZoom(e.getDeltaY() > 0 ? canvasZoom * ZOOM_STEP : canvasZoom / ZOOM_STEP);
+                double[] focus = canvasFocusFromViewportEvent(e.getX(), e.getY());
+                smoothZoomTo(
+                    e.getDeltaY() > 0 ? canvasZoom * ZOOM_STEP : canvasZoom / ZOOM_STEP,
+                    focus[0],
+                    focus[1]
+                );
                 e.consume();
             }
         });
         miniCanvas.setOnScroll(e -> {
             if (e.isControlDown() || e.isShortcutDown()) {
-                applyZoom(e.getDeltaY() > 0 ? canvasZoom * ZOOM_STEP : canvasZoom / ZOOM_STEP);
+                smoothZoomTo(
+                    e.getDeltaY() > 0 ? canvasZoom * ZOOM_STEP : canvasZoom / ZOOM_STEP,
+                    e.getX(),
+                    e.getY()
+                );
                 e.consume();
             }
         });
@@ -206,20 +237,34 @@ public class AnchorEditor extends VBox {
         // Zoom bar
         Button btnZoomOut = new Button("−");
         btnZoomOut.setStyle(S_BTN_ZOOM);
-        btnZoomOut.setOnAction(e -> applyZoom(canvasZoom / ZOOM_STEP));
+        btnZoomOut.setOnAction(e -> smoothZoomTo(canvasZoom / ZOOM_STEP));
 
         Button btnZoomIn = new Button("+");
         btnZoomIn.setStyle(S_BTN_ZOOM);
-        btnZoomIn.setOnAction(e -> applyZoom(canvasZoom * ZOOM_STEP));
+        btnZoomIn.setOnAction(e -> smoothZoomTo(canvasZoom * ZOOM_STEP));
 
         Button btnZoomReset = new Button("1:1");
         btnZoomReset.setStyle(S_BTN_ZOOM + "-fx-min-width: 30; -fx-pref-width: 30;");
-        btnZoomReset.setOnAction(e -> applyZoom(1.0));
+        btnZoomReset.setOnAction(e -> smoothZoomTo(1.0));
 
         Button btnViewportPlace = new Button("Viewport");
         btnViewportPlace.setStyle(S_BTN_ZOOM + "-fx-min-width: 70; -fx-pref-width: 70; -fx-max-width: 70;");
         btnViewportPlace.setTooltip(new Tooltip("Place the next anchor in the main viewport with focused zoom"));
         btnViewportPlace.setOnAction(e -> beginViewportPlacement());
+
+        Button btnFullscreen = new Button(fullscreenMode ? "Exit Fullscreen" : "Fullscreen");
+        btnFullscreen.setStyle(S_BTN_ZOOM + "-fx-min-width: 86; -fx-pref-width: 86; -fx-max-width: 110;");
+        btnFullscreen.setTooltip(new Tooltip(fullscreenMode
+            ? "Close the fullscreen anchor editor"
+            : "Open a fullscreen anchor editor for precise placement"));
+        btnFullscreen.setOnAction(e -> {
+            if (fullscreenMode) {
+                Stage stage = (Stage) getScene().getWindow();
+                stage.close();
+            } else {
+                openFullscreenEditor();
+            }
+        });
 
         lblZoom = new Label("100%");
         lblZoom.setStyle("-fx-text-fill: #aaa; -fx-font-size: 10px; -fx-min-width: 36; -fx-alignment: center;");
@@ -227,7 +272,7 @@ public class AnchorEditor extends VBox {
         Label zoomLabel = new Label("Zoom:");
         zoomLabel.setStyle("-fx-text-fill: #777; -fx-font-size: 10px;");
 
-        HBox zoomBar = new HBox(5, zoomLabel, btnZoomOut, lblZoom, btnZoomIn, btnZoomReset, btnViewportPlace);
+        HBox zoomBar = new HBox(5, zoomLabel, btnZoomOut, lblZoom, btnZoomIn, btnZoomReset, btnViewportPlace, btnFullscreen);
         zoomBar.setAlignment(Pos.CENTER_LEFT);
         zoomBar.setPadding(new Insets(4, 8, 4, 8));
         zoomBar.setStyle(
@@ -276,7 +321,7 @@ public class AnchorEditor extends VBox {
 
         ScrollPane scroll = new ScrollPane(anchorsContainer);
         scroll.setFitToWidth(true);
-        scroll.setMaxHeight(180);
+        scroll.setMaxHeight(fullscreenMode ? 240 : 180);
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
 
@@ -293,25 +338,137 @@ public class AnchorEditor extends VBox {
 
     // ── Zoom ─────────────────────────────────────────────────────────────────
 
-    private void applyZoom(double z) {
-        canvasZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
+    private void smoothZoomTo(double targetZoom) {
+        double[] center = viewportCenterCanvasPoint();
+        smoothZoomTo(targetZoom, center[0], center[1]);
+    }
+
+    private void smoothZoomTo(double targetZoom, double focusCanvasX, double focusCanvasY) {
+        double target = clampZoom(targetZoom);
+        if (Math.abs(target - canvasZoom) < 0.001) return;
+        if (zoomAnimator != null) zoomAnimator.stop();
+
+        ZoomFocus focus = buildZoomFocus(focusCanvasX, focusCanvasY);
+        double start = canvasZoom;
+        zoomAnimator = new AnimationTimer() {
+            private long startedAt = -1L;
+
+            @Override
+            public void handle(long now) {
+                if (startedAt < 0L) startedAt = now;
+                double t = Math.min(1.0, (now - startedAt) / (double) ZOOM_ANIM_NS);
+                double eased = 1.0 - Math.pow(1.0 - t, 3);
+                setZoomImmediate(start + (target - start) * eased, focus);
+                if (t >= 1.0) {
+                    stop();
+                    zoomAnimator = null;
+                    setZoomImmediate(target, focus);
+                }
+            }
+        };
+        zoomAnimator.start();
+    }
+
+    private void setZoomImmediate(double z, ZoomFocus focus) {
+        canvasZoom = clampZoom(z);
         int pct = (int) Math.round(canvasZoom * 100);
         lblZoom.setText(pct + "%");
         double vw = canvasScroll.getViewportBounds() != null
             ? canvasScroll.getViewportBounds().getWidth() : getWidth();
         if (vw <= 0) vw = getWidth();
-        updateCanvasSize(vw);
+        updateCanvasSize(vw, focus);
+    }
+
+    private double clampZoom(double z) {
+        return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
     }
 
     private void updateCanvasSize(double viewportWidth) {
+        updateCanvasSize(viewportWidth, null);
+    }
+
+    private void updateCanvasSize(double viewportWidth, ZoomFocus focus) {
         if (viewportWidth <= 0) return;
         double cw = Math.max(viewportWidth, viewportWidth * canvasZoom);
-        double ch = CANVAS_BASE_H * canvasZoom;
-        canvasScroll.setMaxHeight(Math.min(ch + 2, CANVAS_BASE_H * 2));
-        canvasScroll.setPrefHeight(Math.min(ch + 2, CANVAS_BASE_H * 2));
+        double ch = canvasBaseHeight() * canvasZoom;
+        if (fullscreenMode) {
+            canvasScroll.setMaxHeight(Double.MAX_VALUE);
+            canvasScroll.setPrefHeight(Math.min(ch + 2, canvasBaseHeight() + 160));
+        } else {
+            canvasScroll.setMaxHeight(Math.min(ch + 2, CANVAS_BASE_H * 2));
+            canvasScroll.setPrefHeight(Math.min(ch + 2, CANVAS_BASE_H * 2));
+        }
         miniCanvas.setWidth(cw);
         miniCanvas.setHeight(ch);
+        restoreZoomFocus(focus, cw, ch);
         redrawCanvas();
+    }
+
+    private int canvasBaseHeight() {
+        return fullscreenMode ? CANVAS_FULLSCREEN_H : CANVAS_BASE_H;
+    }
+
+    private ZoomFocus buildZoomFocus(double canvasX, double canvasY) {
+        double cw = Math.max(1.0, miniCanvas.getWidth());
+        double ch = Math.max(1.0, miniCanvas.getHeight());
+        double[] scroll = currentScrollPixels();
+        double relX = Math.max(0.0, Math.min(1.0, canvasX / cw));
+        double relY = Math.max(0.0, Math.min(1.0, canvasY / ch));
+        return new ZoomFocus(relX, relY, canvasX - scroll[0], canvasY - scroll[1]);
+    }
+
+    private double[] viewportCenterCanvasPoint() {
+        double[] scroll = currentScrollPixels();
+        double vw = viewportWidth();
+        double vh = viewportHeight();
+        return new double[]{scroll[0] + vw / 2.0, scroll[1] + vh / 2.0};
+    }
+
+    private double[] canvasFocusFromViewportEvent(double viewportX, double viewportY) {
+        double[] scroll = currentScrollPixels();
+        return new double[]{scroll[0] + viewportX, scroll[1] + viewportY};
+    }
+
+    private double[] currentScrollPixels() {
+        double cw = Math.max(0.0, miniCanvas.getWidth());
+        double ch = Math.max(0.0, miniCanvas.getHeight());
+        double vw = viewportWidth();
+        double vh = viewportHeight();
+        double maxX = Math.max(0.0, cw - vw);
+        double maxY = Math.max(0.0, ch - vh);
+        return new double[]{canvasScroll.getHvalue() * maxX, canvasScroll.getVvalue() * maxY};
+    }
+
+    private void restoreZoomFocus(ZoomFocus focus, double canvasW, double canvasH) {
+        if (focus == null) return;
+        double vw = viewportWidth();
+        double vh = viewportHeight();
+        double maxX = Math.max(0.0, canvasW - vw);
+        double maxY = Math.max(0.0, canvasH - vh);
+        if (maxX > 0.0) {
+            double scrollX = focus.relX() * canvasW - focus.viewportX();
+            canvasScroll.setHvalue(Math.max(0.0, Math.min(1.0, scrollX / maxX)));
+        } else {
+            canvasScroll.setHvalue(0.0);
+        }
+        if (maxY > 0.0) {
+            double scrollY = focus.relY() * canvasH - focus.viewportY();
+            canvasScroll.setVvalue(Math.max(0.0, Math.min(1.0, scrollY / maxY)));
+        } else {
+            canvasScroll.setVvalue(0.0);
+        }
+    }
+
+    private double viewportWidth() {
+        return canvasScroll.getViewportBounds() == null || canvasScroll.getViewportBounds().getWidth() <= 0
+            ? Math.max(1.0, canvasScroll.getWidth())
+            : canvasScroll.getViewportBounds().getWidth();
+    }
+
+    private double viewportHeight() {
+        return canvasScroll.getViewportBounds() == null || canvasScroll.getViewportBounds().getHeight() <= 0
+            ? Math.max(1.0, canvasScroll.getHeight())
+            : canvasScroll.getViewportBounds().getHeight();
     }
 
     // ── Public API ───────────────────────────────────────────────────────────
@@ -320,6 +477,7 @@ public class AnchorEditor extends VBox {
         this.project = project;
         refreshAnchorList();
         redrawCanvas();
+        syncFullscreenEditorState();
     }
 
     public void setProjectRoot(File root) {
@@ -328,10 +486,12 @@ public class AnchorEditor extends VBox {
         this.spriteRegionCache.clear();
         if (currentEntityName != null) loadEntityImage(currentEntityName);
         redrawCanvas();
+        syncFullscreenEditorState();
     }
 
     public void setOnAnchorChanged(Runnable cb) {
         this.onAnchorChanged = cb;
+        syncFullscreenEditorCallbacks();
     }
 
     /**
@@ -340,6 +500,7 @@ public class AnchorEditor extends VBox {
      */
     public void setOnAnchorPlaced(BiConsumer<String, Anchor> cb) {
         this.onAnchorPlaced = cb;
+        syncFullscreenEditorCallbacks();
     }
 
     /**
@@ -348,10 +509,12 @@ public class AnchorEditor extends VBox {
      */
     public void setOnAnchorUsedAsPivot(BiConsumer<String, Anchor> cb) {
         this.onAnchorUsedAsPivot = cb;
+        syncFullscreenEditorCallbacks();
     }
 
     public void setAnimationPreview(AnimationPreview previewCanvas) {
         this.preview = previewCanvas;
+        syncFullscreenEditorState();
     }
 
     /**
@@ -377,6 +540,84 @@ public class AnchorEditor extends VBox {
         loadEntityImage(entityName);
         refreshAnchorList();
         redrawCanvas();
+        syncFullscreenEditorState();
+    }
+
+    private void openFullscreenEditor() {
+        if (fullscreenStage != null && fullscreenStage.isShowing()) {
+            fullscreenStage.requestFocus();
+            fullscreenStage.toFront();
+            return;
+        }
+
+        fullscreenEditor = new AnchorEditor(true);
+        fullscreenEditor.setStyle("-fx-background-color: #181818;");
+        syncFullscreenEditorCallbacks();
+        syncFullscreenEditorState();
+
+        fullscreenStage = new Stage();
+        fullscreenStage.setTitle(fullscreenTitle());
+        Scene scene = new Scene(fullscreenEditor, 1200, 820);
+        scene.setFill(Color.web("#181818"));
+        fullscreenStage.setScene(scene);
+        fullscreenStage.setFullScreenExitHint("");
+        fullscreenStage.setOnHidden(e -> {
+            if (fullscreenEditor != null) {
+                fullscreenEditor.stopZoomAnimation();
+            }
+            fullscreenEditor = null;
+            fullscreenStage = null;
+            refreshAnchorList();
+            redrawCanvas();
+        });
+        fullscreenStage.show();
+        fullscreenStage.setFullScreen(true);
+    }
+
+    private void syncFullscreenEditorState() {
+        if (fullscreenEditor == null) return;
+        fullscreenEditor.setProject(project);
+        fullscreenEditor.setProjectRoot(projectRoot);
+        fullscreenEditor.setAnimationPreview(preview);
+        fullscreenEditor.setSelectedEntityName(currentEntityName, currentEntityIsGroup);
+        fullscreenEditor.selectedAnchorName = selectedAnchorName;
+        fullscreenEditor.refreshAnchorList();
+        fullscreenEditor.redrawCanvas();
+        if (fullscreenStage != null) fullscreenStage.setTitle(fullscreenTitle());
+    }
+
+    private void syncFullscreenEditorCallbacks() {
+        if (fullscreenEditor == null) return;
+        fullscreenEditor.setOnAnchorChanged(() -> {
+            refreshAnchorList();
+            redrawCanvas();
+            if (onAnchorChanged != null) onAnchorChanged.run();
+        });
+        fullscreenEditor.setOnAnchorPlaced((entityName, anchor) -> {
+            refreshAnchorList();
+            redrawCanvas();
+            if (onAnchorPlaced != null) onAnchorPlaced.accept(entityName, anchor);
+        });
+        fullscreenEditor.setOnAnchorUsedAsPivot((entityName, anchor) -> {
+            selectedAnchorName = anchor == null ? selectedAnchorName : anchor.getName();
+            refreshAnchorList();
+            redrawCanvas();
+            if (onAnchorUsedAsPivot != null) onAnchorUsedAsPivot.accept(entityName, anchor);
+        });
+    }
+
+    private String fullscreenTitle() {
+        String entity = currentEntityName == null || currentEntityName.isBlank()
+            ? "No Entity"
+            : currentEntityName;
+        return "Anchor Editor - " + entity;
+    }
+
+    private void stopZoomAnimation() {
+        if (zoomAnimator != null) {
+            zoomAnimator.stop();
+            zoomAnimator = null;
+        }
     }
 
     // ── Entity chip ──────────────────────────────────────────────────────────
