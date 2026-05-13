@@ -7,12 +7,17 @@ import javafx.scene.paint.CycleMethod;
 import javafx.scene.paint.RadialGradient;
 import javafx.scene.paint.Stop;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Renders a circular radial spectrum visualization.
  * Displays audio frequency data as bars radiating from the center in a circular pattern.
  */
 public class CircularSpectrumRenderer {
-    
+
+    private static final Logger log = LoggerFactory.getLogger(CircularSpectrumRenderer.class);
+
     private final VisualizerConfig config;
     private double[] smoothedData;
     private double animationPhase = 0.0;
@@ -31,11 +36,10 @@ public class CircularSpectrumRenderer {
      * @param height Canvas height
      */
     public void render(GraphicsContext gc, double[] spectrum, double width, double height) {
-        // Debug log first few renders
-        if (Math.random() < 0.01) { // Log 1% of renders
-            System.out.println("CircularSpectrumRenderer.render() - Canvas: " + width + "x" + height);
+        if (log.isTraceEnabled() && Math.random() < 0.01) {
+            log.trace("CircularSpectrumRenderer.render() - Canvas: {}x{}", width, height);
             if (spectrum != null && spectrum.length > 0) {
-                System.out.println("  First spectrum value: " + spectrum[0]);
+                log.trace("  First spectrum value: {}", spectrum[0]);
             }
         }
         
@@ -67,8 +71,8 @@ public class CircularSpectrumRenderer {
         }
         
         if (!hasData) {
-            if (Math.random() < 0.01) {
-                System.out.println("  No significant spectrum data to render - drawing test pattern");
+            if (log.isTraceEnabled() && Math.random() < 0.01) {
+                log.trace("  No significant spectrum data to render - drawing test pattern");
             }
             // Draw a test pattern when there's no data
             drawTestPattern(gc, centerX, centerY, radius);

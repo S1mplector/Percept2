@@ -401,6 +401,7 @@ across large projects."""));
         }
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
   }
 
@@ -700,6 +701,7 @@ across large projects."""));
           .stream()
           .toList();
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return List.of();
     }
   }
@@ -737,6 +739,7 @@ across large projects."""));
     try (FileInputStream fis = new FileInputStream(file)) {
       p.load(fis);
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
     return p;
   }
@@ -754,6 +757,7 @@ across large projects."""));
         return rootPath.relativize(abs).toString().replace('\\', '/');
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
     return "";
   }
@@ -779,6 +783,7 @@ across large projects."""));
     try {
       return Double.parseDouble(raw.trim());
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return null;
     }
   }
@@ -858,6 +863,7 @@ across large projects."""));
           p.store(fos, "Menu registry - edited via Layout Editor");
         }
       } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       }
       refreshStatus();
     });
@@ -876,6 +882,7 @@ across large projects."""));
             fw.write(LayoutDslTemplates.defaultMenuRegistryTemplate().replace("\n", System.lineSeparator()));
           }
         } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
         }
       }
       onOpenFile.accept(registryFile);
@@ -941,6 +948,7 @@ across large projects."""));
       try {
         Files.copy(source.toPath(), dest.toPath());
       } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
         return;
       }
       updateRegistryForNewFile(name, item.type());
@@ -964,6 +972,7 @@ across large projects."""));
     try (java.io.FileOutputStream fos = new java.io.FileOutputStream(file)) {
       p.store(fos, "Menu screen - quick-assign via Layout Editor");
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
     // Don't full-refresh to avoid losing focus, but update the cached data
   }
@@ -1111,6 +1120,7 @@ across large projects."""));
         registry.store(fos, "Menu registry - auto-updated by Layout Editor");
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
   }
 

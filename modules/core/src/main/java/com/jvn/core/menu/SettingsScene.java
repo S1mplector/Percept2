@@ -44,6 +44,7 @@ public class SettingsScene implements Scene {
   private static final String KEY_DISPLAY_WIDTH = "display_width";
   private static final String KEY_DISPLAY_HEIGHT = "display_height";
   private static final String KEY_AUTO_FIT_RESOLUTION = "auto_fit_resolution";
+  private static final String KEY_ACCESSIBILITY_THEME = "accessibility_theme";
   private static final String KEY_BACK = "back";
 
   private final VnSettings settings;
@@ -385,6 +386,7 @@ public class SettingsScene implements Scene {
       case KEY_DISPLAY_WIDTH -> settings.setDisplayWidth(settings.getDisplayWidth() + delta * 64);
       case KEY_DISPLAY_HEIGHT -> settings.setDisplayHeight(settings.getDisplayHeight() + delta * 36);
       case KEY_AUTO_FIT_RESOLUTION -> settings.setAutoFitResolution(!settings.isAutoFitResolution());
+      case KEY_ACCESSIBILITY_THEME -> settings.setAccessibilityTheme(cycleAccessibilityTheme(settings.getAccessibilityTheme(), delta));
       case KEY_INPUT_PROFILE -> {
         if (delta > 0) saveBindingsToDisk();
         else loadBindingsFromDisk();
@@ -409,6 +411,7 @@ public class SettingsScene implements Scene {
       case KEY_SKIP_AFTER_CHOICES -> settings.setSkipAfterChoices(!settings.isSkipAfterChoices());
       case KEY_CLICK_REVEAL_BEFORE_ADVANCE -> settings.setClickRevealBeforeAdvance(!settings.isClickRevealBeforeAdvance());
       case KEY_AUTO_FIT_RESOLUTION -> settings.setAutoFitResolution(!settings.isAutoFitResolution());
+      case KEY_ACCESSIBILITY_THEME -> settings.setAccessibilityTheme(cycleAccessibilityTheme(settings.getAccessibilityTheme(), 1));
       case KEY_INPUT_PROFILE -> loadBindingsFromDisk();
       case KEY_BACK -> closeRequested = true;
       default -> {
@@ -490,6 +493,7 @@ public class SettingsScene implements Scene {
       case KEY_DISPLAY_WIDTH -> settings.setDisplayWidth(defaults.getDisplayWidth());
       case KEY_DISPLAY_HEIGHT -> settings.setDisplayHeight(defaults.getDisplayHeight());
       case KEY_AUTO_FIT_RESOLUTION -> settings.setAutoFitResolution(defaults.isAutoFitResolution());
+      case KEY_ACCESSIBILITY_THEME -> settings.setAccessibilityTheme(defaults.getAccessibilityTheme());
       default -> {
       }
     }
@@ -509,7 +513,9 @@ public class SettingsScene implements Scene {
   public void onExit() {
     try {
       new VnSettingsStore().save(settings);
-    } catch (Exception ignored) {}
+    } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
   }
 
   public String getBindingStatus() { return bindingStatus; }
@@ -566,6 +572,8 @@ public class SettingsScene implements Scene {
     out.add(defaultRow(KEY_DISPLAY_WIDTH, style));
     out.add(defaultRow(KEY_DISPLAY_HEIGHT, style));
     out.add(defaultRow(KEY_AUTO_FIT_RESOLUTION, style));
+    // Accessibility
+    out.add(defaultRow(KEY_ACCESSIBILITY_THEME, style));
     // Navigation
     out.add(defaultRow(KEY_BACK, style));
     return out;
@@ -900,6 +908,7 @@ public class SettingsScene implements Scene {
       case KEY_DISPLAY_HEIGHT -> fallbackLocalized("settings.display_height", "Screen Height");
       case KEY_AUTO_FIT_RESOLUTION -> fallbackLocalized("settings.auto_fit_resolution", "Auto-Fit Resolution");
       case KEY_INPUT_PROFILE -> "Input Profile";
+      case KEY_ACCESSIBILITY_THEME -> fallbackLocalized("settings.accessibility_theme", "Accessibility Theme");
       case KEY_BACK -> fallbackLocalized("common.back", "Back");
       default -> titleize(key);
     };
@@ -927,6 +936,11 @@ public class SettingsScene implements Scene {
       case KEY_DISPLAY_HEIGHT -> settings.getDisplayHeight() + "px";
       case KEY_AUTO_FIT_RESOLUTION -> settings.isAutoFitResolution() ? "On" : "Off";
       case KEY_INPUT_PROFILE -> "Save/Load";
+      case KEY_ACCESSIBILITY_THEME -> switch (settings.getAccessibilityTheme()) {
+        case "highcontrast" -> "High Contrast";
+        case "opendyslexic" -> "OpenDyslexic";
+        default -> "None";
+      };
       default -> null;
     };
   }
@@ -1005,6 +1019,7 @@ public class SettingsScene implements Scene {
       case "display_height", "screen_height", "height", "resolution_height" -> KEY_DISPLAY_HEIGHT;
       case "auto_fit_resolution", "autofit", "auto_fit", "fit_resolution" -> KEY_AUTO_FIT_RESOLUTION;
       case "input", "input_profile", "bindings", "input_bindings" -> KEY_INPUT_PROFILE;
+      case "accessibility_theme", "a11y_theme", "accessibility", "theme" -> KEY_ACCESSIBILITY_THEME;
       case "back", "close", "return" -> KEY_BACK;
       default -> v;
     };
@@ -1026,6 +1041,7 @@ public class SettingsScene implements Scene {
            KEY_DISPLAY_WIDTH,
            KEY_DISPLAY_HEIGHT,
            KEY_AUTO_FIT_RESOLUTION,
+           KEY_ACCESSIBILITY_THEME,
            KEY_INPUT_PROFILE -> true;
       default -> false;
     };
@@ -1049,6 +1065,16 @@ public class SettingsScene implements Scene {
       }
     }
     return out.toString();
+  }
+
+  private static String cycleAccessibilityTheme(String current, int delta) {
+    String[] themes = {"none", "highcontrast", "opendyslexic"};
+    int idx = 0;
+    for (int i = 0; i < themes.length; i++) {
+      if (themes[i].equalsIgnoreCase(current)) { idx = i; break; }
+    }
+    int next = ((idx + delta) % themes.length + themes.length) % themes.length;
+    return themes[next];
   }
 
   private String toPct(float v) {

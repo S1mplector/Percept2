@@ -20,10 +20,15 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * UI card representing a single album.
  */
 public class AlbumCard extends StackPane {
+
+    private static final Logger log = LoggerFactory.getLogger(AlbumCard.class);
 
     private final Album album;
     private final AlbumRepository albumRepository;
@@ -236,10 +241,10 @@ public class AlbumCard extends StackPane {
             // Notify parent container to refresh the UI
             notifyParentOfDeletion();
             
-            System.out.println("Album deleted successfully: " + album.getTitle());
-            
+            log.info("Album deleted successfully: {}", album.getTitle());
+
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Error deleting album '{}'", album.getTitle(), e);
             Alert alert = new Alert(Alert.AlertType.ERROR);
             alert.setTitle("Delete Error");
             alert.setHeaderText("Error deleting album");
@@ -275,9 +280,9 @@ public class AlbumCard extends StackPane {
             java.io.File file = new java.io.File(filePath);
             if (file.exists()) {
                 if (!file.delete()) {
-                    System.err.println("Failed to delete file: " + filePath);
+                    log.warn("Failed to delete file: {}", filePath);
                 } else {
-                    System.out.println("Deleted file: " + filePath);
+                    log.debug("Deleted file: {}", filePath);
                 }
             }
         }
@@ -308,7 +313,7 @@ public class AlbumCard extends StackPane {
                 String[] contents = dir.list();
                 if (contents != null && contents.length == 0) {
                     if (dir.delete()) {
-                        System.out.println("Deleted empty directory: " + dirPath);
+                        log.debug("Deleted empty directory: {}", dirPath);
                     }
                 }
             }
@@ -361,7 +366,7 @@ public class AlbumCard extends StackPane {
 
             dlg.showAndWait();
         } catch (Exception ex) {
-            ex.printStackTrace();
+            log.error("Could not open album settings dialog", ex);
             javafx.scene.control.Alert alert = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.ERROR);
             alert.setTitle("Error");
             alert.setHeaderText("Could not open album settings dialog");
@@ -386,7 +391,7 @@ public class AlbumCard extends StackPane {
                 try {
                     renameAlbumDirectory(result.getNewName());
                 } catch (Exception ex) {
-                    ex.printStackTrace();
+                    log.error("Could not rename album directory for '{}'", result.getNewName(), ex);
                     javafx.scene.control.Alert alert = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.ERROR);
                     alert.setTitle("Rename Error");
                     alert.setHeaderText("Could not rename album directory");
@@ -427,7 +432,7 @@ public class AlbumCard extends StackPane {
             album.getSongs().forEach(songRepository::save);
             
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Error processing album edit for '{}'", album.getTitle(), e);
             Alert alert = new Alert(Alert.AlertType.ERROR);
             alert.setTitle("Error");
             alert.setHeaderText("Error processing album edit");
@@ -466,10 +471,10 @@ public class AlbumCard extends StackPane {
             Image newImage = new Image(targetPath.toUri().toString(), 90, 90, true, true);
             coverView.setImage(newImage);
             
-            System.out.println("Custom album art saved: " + targetPath);
-            
+            log.info("Custom album art saved: {}", targetPath);
+
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Error saving album art for '{}'", album.getTitle(), e);
             Alert alert = new Alert(Alert.AlertType.ERROR);
             alert.setTitle("Error");
             alert.setHeaderText("Error saving album art");

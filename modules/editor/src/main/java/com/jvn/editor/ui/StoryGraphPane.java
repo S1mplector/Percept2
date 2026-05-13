@@ -846,6 +846,7 @@ public class StoryGraphPane extends Pane {
           pause.play();
         }
       } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       }
     }
   }
@@ -1320,6 +1321,7 @@ public class StoryGraphPane extends Pane {
     try {
       return Color.web(raw.trim());
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return null;
     }
   }

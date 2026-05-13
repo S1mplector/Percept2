@@ -27,23 +27,41 @@ public class VnSettingsStore {
         try (FileInputStream in = new FileInputStream(settingsPath.toFile())) {
           p.load(in);
         }
-        try { s.setTextSpeed(Integer.parseInt(p.getProperty("text_speed", Integer.toString(s.getTextSpeed())))); } catch (Exception ignored) {}
-        try { s.setBgmVolume(Float.parseFloat(p.getProperty("bgm_volume", Float.toString(s.getBgmVolume())))); } catch (Exception ignored) {}
-        try { s.setSfxVolume(Float.parseFloat(p.getProperty("sfx_volume", Float.toString(s.getSfxVolume())))); } catch (Exception ignored) {}
-        try { s.setVoiceVolume(Float.parseFloat(p.getProperty("voice_volume", Float.toString(s.getVoiceVolume())))); } catch (Exception ignored) {}
-        try { s.setAutoPlayDelay(Long.parseLong(p.getProperty("auto_play_delay", Long.toString(s.getAutoPlayDelay())))); } catch (Exception ignored) {}
-        try { s.setSkipUnreadText(Boolean.parseBoolean(p.getProperty("skip_unread_text", Boolean.toString(s.isSkipUnreadText())))); } catch (Exception ignored) {}
-        try { s.setSkipAfterChoices(Boolean.parseBoolean(p.getProperty("skip_after_choices", Boolean.toString(s.isSkipAfterChoices())))); } catch (Exception ignored) {}
-        try { s.setClickRevealBeforeAdvance(Boolean.parseBoolean(p.getProperty("click_reveal_before_advance", Boolean.toString(s.isClickRevealBeforeAdvance())))); } catch (Exception ignored) {}
-        try { s.setPhysicsFixedStepMs(Long.parseLong(p.getProperty("physics_fixed_step_ms", Long.toString(s.getPhysicsFixedStepMs())))); } catch (Exception ignored) {}
-        try { s.setPhysicsMaxSubSteps(Integer.parseInt(p.getProperty("physics_max_substeps", Integer.toString(s.getPhysicsMaxSubSteps())))); } catch (Exception ignored) {}
-        try { s.setPhysicsDefaultFriction(Double.parseDouble(p.getProperty("physics_default_friction", Double.toString(s.getPhysicsDefaultFriction())))); } catch (Exception ignored) {}
-        try { s.setInputProfilePath(p.getProperty("input_profile_path", s.getInputProfilePath())); } catch (Exception ignored) {}
-        try { s.setInputProfileSerialized(p.getProperty("input_profile_serialized", s.getInputProfileSerialized())); } catch (Exception ignored) {}
-        try { s.setDisplayWidth(Integer.parseInt(p.getProperty("display_width", Integer.toString(s.getDisplayWidth())))); } catch (Exception ignored) {}
-        try { s.setDisplayHeight(Integer.parseInt(p.getProperty("display_height", Integer.toString(s.getDisplayHeight())))); } catch (Exception ignored) {}
+        try { s.setTextSpeed(Integer.parseInt(p.getProperty("text_speed", Integer.toString(s.getTextSpeed())))); } catch (Exception ignored) { // reason: malformed settings value; property retains its default
+        }
+        try { s.setBgmVolume(Float.parseFloat(p.getProperty("bgm_volume", Float.toString(s.getBgmVolume())))); } catch (Exception ignored) { // reason: malformed settings value; property retains its default
+        }
+        try { s.setSfxVolume(Float.parseFloat(p.getProperty("sfx_volume", Float.toString(s.getSfxVolume())))); } catch (Exception ignored) { // reason: malformed settings value; property retains its default
+        }
+        try { s.setVoiceVolume(Float.parseFloat(p.getProperty("voice_volume", Float.toString(s.getVoiceVolume())))); } catch (Exception ignored) { // reason: malformed settings value; property retains its default
+        }
+        try { s.setAutoPlayDelay(Long.parseLong(p.getProperty("auto_play_delay", Long.toString(s.getAutoPlayDelay())))); } catch (Exception ignored) { // reason: malformed settings value; property retains its default
+        }
+        try { s.setSkipUnreadText(Boolean.parseBoolean(p.getProperty("skip_unread_text", Boolean.toString(s.isSkipUnreadText())))); } catch (Exception ignored) { // reason: malformed settings value; property retains its default
+        }
+        try { s.setSkipAfterChoices(Boolean.parseBoolean(p.getProperty("skip_after_choices", Boolean.toString(s.isSkipAfterChoices())))); } catch (Exception ignored) { // reason: malformed settings value; property retains its default
+        }
+        try { s.setClickRevealBeforeAdvance(Boolean.parseBoolean(p.getProperty("click_reveal_before_advance", Boolean.toString(s.isClickRevealBeforeAdvance())))); } catch (Exception ignored) { // reason: malformed settings value; property retains its default
+        }
+        try { s.setPhysicsFixedStepMs(Long.parseLong(p.getProperty("physics_fixed_step_ms", Long.toString(s.getPhysicsFixedStepMs())))); } catch (Exception ignored) { // reason: malformed settings value; property retains its default
+        }
+        try { s.setPhysicsMaxSubSteps(Integer.parseInt(p.getProperty("physics_max_substeps", Integer.toString(s.getPhysicsMaxSubSteps())))); } catch (Exception ignored) { // reason: malformed settings value; property retains its default
+        }
+        try { s.setPhysicsDefaultFriction(Double.parseDouble(p.getProperty("physics_default_friction", Double.toString(s.getPhysicsDefaultFriction())))); } catch (Exception ignored) { // reason: malformed settings value; property retains its default
+        }
+        try { s.setInputProfilePath(p.getProperty("input_profile_path", s.getInputProfilePath())); } catch (Exception ignored) { // reason: malformed settings value; property retains its default
+        }
+        try { s.setInputProfileSerialized(p.getProperty("input_profile_serialized", s.getInputProfileSerialized())); } catch (Exception ignored) { // reason: malformed settings value; property retains its default
+        }
+        try { s.setDisplayWidth(Integer.parseInt(p.getProperty("display_width", Integer.toString(s.getDisplayWidth())))); } catch (Exception ignored) { // reason: malformed settings value; property retains its default
+        }
+        try { s.setDisplayHeight(Integer.parseInt(p.getProperty("display_height", Integer.toString(s.getDisplayHeight())))); } catch (Exception ignored) { // reason: malformed settings value; property retains its default
+        }
+        try { s.setAccessibilityTheme(p.getProperty("accessibility_theme", s.getAccessibilityTheme())); } catch (Exception ignored) { // reason: malformed settings value; property retains its default
+        }
       }
     } catch (Exception ignored) {
+      // reason: settings file missing or unreadable; all properties retain their defaults
     }
     return s;
   }
@@ -68,10 +86,12 @@ public class VnSettingsStore {
       p.setProperty("input_profile_serialized", s.getInputProfileSerialized());
       p.setProperty("display_width", Integer.toString(s.getDisplayWidth()));
       p.setProperty("display_height", Integer.toString(s.getDisplayHeight()));
+      p.setProperty("accessibility_theme", s.getAccessibilityTheme());
       try (FileOutputStream out = new FileOutputStream(settingsPath.toFile())) {
         p.store(out, "JVN Settings");
       }
     } catch (Exception ignored) {
+      // reason: settings could not be persisted; in-memory state is still valid
     }
   }
 

@@ -22,11 +22,16 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.util.Duration;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Controller responsible for all audio playback functionality.
  * Handles play/pause, volume, seeking, album art display, and keyboard shortcuts.
  */
 public class AudioController {
+
+    private static final Logger log = LoggerFactory.getLogger(AudioController.class);
     
     // FXML Controls
     @FXML private Button previousButton;
@@ -324,7 +329,7 @@ public class AudioController {
     @FXML
     void handlePlayPause() {
         if (currentPlaylist.isEmpty()) {
-            System.out.println("No songs in library to play");
+            log.debug("No songs in library to play");
             return;
         }
         

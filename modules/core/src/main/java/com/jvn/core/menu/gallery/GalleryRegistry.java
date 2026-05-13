@@ -105,7 +105,9 @@ public final class GalleryRegistry {
     // Try classpath
     try (InputStream is = GalleryRegistry.class.getClassLoader().getResourceAsStream(path)) {
       if (is != null) return parse(is);
-    } catch (IOException ignored) {}
+    } catch (IOException ignored) {
+            // reason: I/O failure on best-effort save/load; in-memory state remains valid
+        }
     return new GalleryRegistry(List.of());
   }
 

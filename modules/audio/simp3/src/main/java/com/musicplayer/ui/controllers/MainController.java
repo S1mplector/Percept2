@@ -98,7 +98,12 @@ import javafx.stage.Stage;
 import javafx.util.Duration;
 import com.musicplayer.ui.dialogs.AudioConversionDialog;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class MainController implements Initializable, IControllerCommunication {
+
+    private static final Logger log = LoggerFactory.getLogger(MainController.class);
     
     @FXML private ListView<String> libraryListView;
     @FXML private ListView<Playlist> playlistsListView;
@@ -426,18 +431,22 @@ public class MainController implements Initializable, IControllerCommunication {
                     if (themeLightMenuItem != null) themeLightMenuItem.setSelected(theme == com.musicplayer.data.models.Settings.Theme.LIGHT);
                     if (themeDarkMenuItem != null) themeDarkMenuItem.setSelected(theme == com.musicplayer.data.models.Settings.Theme.DARK);
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
         });
         
         // Start auto-update check after initialization
         updateService.startAutoUpdateCheck();
         
-        System.out.println("MainController initialized.");
+        log.info("MainController initialized.");
 
         // Apply last known volume immediately
         try {
             audioPlayerService.setVolume(settingsService.getLastVolume());
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
 
         // Persist volume on change
         audioPlayerService.volumeProperty().addListener((o, ov, nv) -> {
@@ -620,7 +629,7 @@ public class MainController implements Initializable, IControllerCommunication {
         File selectedDirectory = directoryChooser.showDialog(selectMusicFolderButton.getScene().getWindow());
         
         if (selectedDirectory != null) {
-            System.out.println("Selected music folder: " + selectedDirectory.getAbsolutePath());
+            log.info("Selected music folder: {}", selectedDirectory.getAbsolutePath());
             
             // Check if there's existing data and ask user what to do
             if (musicLibraryManager.hasExistingData()) {
@@ -738,27 +747,29 @@ public class MainController implements Initializable, IControllerCommunication {
      * Cleanup method to dispose of resources when the application is closing.
      */
     public void cleanup() {
-        System.out.println("Shutting down application...");
-        
+        log.info("Shutting down application...");
+
         // Save library data to persistent storage
         if (musicLibraryManager != null) {
-            try { musicLibraryManager.shutdown(); } catch (Exception ignored) {}
+            try { musicLibraryManager.shutdown(); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
             musicLibraryManager.forceSave();
-            System.out.println("Library data saved to storage");
+            log.info("Library data saved to storage");
         }
-        
+
         // Save playlist data to persistent storage
         if (playlistManager != null) {
             playlistManager.forceSave();
-            System.out.println("Playlist data saved to storage");
+            log.info("Playlist data saved to storage");
         }
-        
+
         // Save favorites data to persistent storage
         if (favoritesService != null) {
             favoritesService.forceSave();
-            System.out.println("Favorites data saved to storage");
+            log.info("Favorites data saved to storage");
         }
-        
+
         // Persist a final snapshot of playback state BEFORE disposing audio resources
         // so we capture the real currentTime and volume instead of reset defaults.
         persistLastPlaybackSnapshot();
@@ -766,22 +777,22 @@ public class MainController implements Initializable, IControllerCommunication {
         // Cleanup visualizer controller
         if (visualizerController != null) {
             visualizerController.cleanup();
-            System.out.println("Visualizer controller cleanup completed");
+            log.info("Visualizer controller cleanup completed");
         }
-        
+
         // Dispose of audio resources through playback controller
         if (playbackController != null) {
             playbackController.cleanup();
-            System.out.println("Playback controller cleanup completed");
+            log.info("Playback controller cleanup completed");
         }
-        
+
         // Shutdown update service
         if (updateService != null) {
             updateService.shutdown();
-            System.out.println("Update service shutdown");
+            log.info("Update service shutdown");
         }
-        
-        System.out.println("Application shutdown complete");
+
+        log.info("Application shutdown complete");
     }
 
     private void persistLastPlaybackSnapshot() {
@@ -835,7 +846,9 @@ public class MainController implements Initializable, IControllerCommunication {
         // Re-apply volume after bindings are established to avoid UI overriding it
         try {
             audioPlayerService.setVolume(settingsService.getLastVolume());
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
     }
     
     /**
@@ -1250,7 +1263,7 @@ public class MainController implements Initializable, IControllerCommunication {
 
             dialog.showAndWait();
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Could not open settings dialog", e);
             Alert alert = new Alert(Alert.AlertType.ERROR);
             alert.setTitle("Error");
             alert.setHeaderText("Could not open settings");
@@ -1264,7 +1277,9 @@ public class MainController implements Initializable, IControllerCommunication {
     // ========================
     @FXML
     private void handleExit() {
-        try { cleanup(); } catch (Exception ignored) {}
+        try { cleanup(); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
         Platform.exit();
     }
 
@@ -1536,7 +1551,9 @@ public class MainController implements Initializable, IControllerCommunication {
                         if (s == null) return;
                         int newRating = idx + 1;
                         s.setRating(newRating);
-                        try { songRepository.save(s); } catch (Exception ignored) {}
+                        try { songRepository.save(s); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
                         updateStars(newRating);
                         if (songsTableView != null) songsTableView.refresh();
                     });
@@ -1618,7 +1635,7 @@ public class MainController implements Initializable, IControllerCommunication {
     private void handleMissingFiles() {
         // Check if error dialogs are suppressed (e.g., during library scanning)
         if (audioPlayerService.isErrorDialogsSuppressed()) {
-            System.out.println("Error dialogs suppressed - skipping missing files dialog");
+            log.debug("Error dialogs suppressed - skipping missing files dialog");
             return;
         }
         

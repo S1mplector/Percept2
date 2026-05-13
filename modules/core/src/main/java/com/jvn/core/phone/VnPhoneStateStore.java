@@ -24,6 +24,7 @@ public final class VnPhoneStateStore {
       try {
         return VnPhonePropertiesCodec.loadFromString(text);
       } catch (IOException ignored) {
+            // reason: I/O failure on best-effort save/load; in-memory state remains valid
       }
     }
     return seedSupplier == null ? new VnPhoneData() : safeSeed(seedSupplier);
@@ -39,6 +40,7 @@ public final class VnPhoneStateStore {
       VnPhoneData data = seedSupplier.get();
       return data == null ? new VnPhoneData() : data;
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return new VnPhoneData();
     }
   }

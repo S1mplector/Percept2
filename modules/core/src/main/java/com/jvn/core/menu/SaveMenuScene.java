@@ -359,7 +359,10 @@ public class SaveMenuScene implements Scene {
       if (bgId == null) return null;
       VnBackground bg = state.getScenario().getBackground(bgId);
       return bg != null ? bg.getImagePath() : null;
-    } catch (Exception ignored) { return null; }
+    } catch (Exception ignored) {
+      // reason: background preview is display-only; unreadable scene state yields null
+      return null;
+    }
   }
 
   public Long getSelectedTimestamp() {
@@ -367,7 +370,10 @@ public class SaveMenuScene implements Scene {
     if (name == null) return null;
     try {
       return saveManager.load(name).getSaveTimestamp();
-    } catch (Exception ignored) { return null; }
+    } catch (Exception ignored) {
+      // reason: timestamp is display-only; unreadable save slot yields null
+      return null;
+    }
   }
 
   public String getCurrentRpgSummary() {

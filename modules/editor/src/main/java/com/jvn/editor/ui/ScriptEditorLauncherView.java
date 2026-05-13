@@ -1139,6 +1139,7 @@ Explorer for external editing or drag-and-drop asset workflows."""),
         }
       });
     } catch (IOException ignored) {
+            // reason: I/O failure on best-effort save/load; in-memory state remains valid
     }
     return item;
   }

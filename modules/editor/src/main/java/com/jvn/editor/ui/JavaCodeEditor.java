@@ -302,7 +302,9 @@ public class JavaCodeEditor extends BorderPane {
     if (text == null) return -1;
     java.util.regex.Matcher m = java.util.regex.Pattern.compile("L(\\d+)").matcher(text);
     if (m.find()) {
-      try { return Integer.parseInt(m.group(1)); } catch (Exception ignored) {}
+      try { return Integer.parseInt(m.group(1)); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
     }
     return -1;
   }

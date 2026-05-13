@@ -55,6 +55,7 @@ public final class EditorPreferencesStore {
       try (InputStream in = Files.newInputStream(preferencesFile)) {
         props.load(in);
       } catch (IOException ignored) {
+            // reason: I/O failure on best-effort save/load; in-memory state remains valid
       }
     }
     return fromProperties(props);
@@ -216,6 +217,7 @@ public final class EditorPreferencesStore {
     try {
       return Integer.parseInt(raw.trim());
     } catch (NumberFormatException ignored) {
+// reason: malformed numeric text input; caller uses fallback value
       return fallback;
     }
   }
@@ -225,6 +227,7 @@ public final class EditorPreferencesStore {
     try {
       return Double.parseDouble(raw.trim());
     } catch (NumberFormatException ignored) {
+// reason: malformed numeric text input; caller uses fallback value
       return fallback;
     }
   }
@@ -235,6 +238,7 @@ public final class EditorPreferencesStore {
     try {
       return EditorPanelPlacement.valueOf(raw.trim().toUpperCase());
     } catch (IllegalArgumentException ignored) {
+            // reason: invalid argument from untrusted input; caller handles absent result
       return fallback;
     }
   }

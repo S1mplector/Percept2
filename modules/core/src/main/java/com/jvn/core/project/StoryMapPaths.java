@@ -77,6 +77,7 @@ public final class StoryMapPaths {
       manifest.load(in);
       return manifest;
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return null;
     }
   }

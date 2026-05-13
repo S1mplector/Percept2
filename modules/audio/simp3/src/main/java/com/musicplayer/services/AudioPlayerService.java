@@ -2,6 +2,9 @@ package com.musicplayer.services;
 
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.musicplayer.core.audio.AudioEngine;
 import com.musicplayer.core.audio.HybridAudioEngine;
 import com.musicplayer.core.playlist.AdvancedPlaylistEngine;
@@ -17,6 +20,9 @@ import javafx.beans.property.ObjectProperty;
  * Provides comprehensive playback control with advanced playlist features.
  */
 public class AudioPlayerService {
+
+    private static final Logger log = LoggerFactory.getLogger(AudioPlayerService.class);
+
     private final AudioEngine audioEngine;
     private final PlaylistEngine playlistEngine;
     private Runnable customErrorCallback;
@@ -29,7 +35,7 @@ public class AudioPlayerService {
         // Set up audio engine callbacks
         audioEngine.setOnSongEnded(this::handleSongEnded);
         audioEngine.setOnError(() -> {
-            System.err.println("Audio playback error occurred");
+            log.error("Audio playback error occurred");
             if (customErrorCallback != null && !suppressErrorDialogs) {
                 customErrorCallback.run();
             }

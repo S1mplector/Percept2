@@ -78,6 +78,7 @@ public final class EasingSpec {
     try {
       return of(Easing.Type.valueOf(normalized));
     } catch (Exception ignored) {
+      // reason: unrecognized enum name from script; caller uses null to signal parse failure
       return null;
     }
   }
@@ -155,6 +156,7 @@ public final class EasingSpec {
       try {
         values[i] = Double.parseDouble(parts[i].trim());
       } catch (Exception ignored) {
+        // reason: malformed numeric argument in script easing string; null signals parse failure
         return null;
       }
     }

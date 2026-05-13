@@ -109,6 +109,7 @@ final class StoryboardOverlayCatalog {
       }
       return path.toAbsolutePath().normalize();
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return null;
     }
   }
@@ -133,6 +134,7 @@ final class StoryboardOverlayCatalog {
               .thenComparing(Path::toString, String.CASE_INSENSITIVE_ORDER))
           .forEach(candidates::add);
     } catch (IOException ignored) {
+            // reason: I/O failure on best-effort save/load; in-memory state remains valid
     }
     return new ArrayList<>(candidates);
   }
@@ -150,6 +152,7 @@ final class StoryboardOverlayCatalog {
             .sorted(Comparator.comparing(Path::toString, String.CASE_INSENSITIVE_ORDER))
             .forEach(images::add);
       } catch (IOException ignored) {
+            // reason: I/O failure on best-effort save/load; in-memory state remains valid
       }
     }
     return new ArrayList<>(images);

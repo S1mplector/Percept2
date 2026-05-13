@@ -1307,6 +1307,7 @@ public class KeyframeEditor extends VBox {
             tfTime.setText(String.format("%.0f", time));
             setFieldError(tfTime, false);
         } catch (NumberFormatException ignored) {
+// reason: malformed numeric text input; caller uses fallback value
             setFieldError(tfTime, true);
             hasError = true;
         }
@@ -1318,6 +1319,7 @@ public class KeyframeEditor extends VBox {
             tfValue.setText(String.format("%.2f", value));
             setFieldError(tfValue, false);
         } catch (NumberFormatException ignored) {
+// reason: malformed numeric text input; caller uses fallback value
             setFieldError(tfValue, true);
             hasError = true;
         }

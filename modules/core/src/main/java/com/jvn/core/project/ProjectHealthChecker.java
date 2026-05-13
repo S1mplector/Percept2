@@ -293,6 +293,7 @@ public final class ProjectHealthChecker {
     try {
       return assets != null && type != null && path != null && assets.exists(type, path);
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return false;
     }
   }
@@ -314,6 +315,7 @@ public final class ProjectHealthChecker {
       props.load(new InputStreamReader(in, StandardCharsets.UTF_8));
       return props;
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return null;
     }
   }

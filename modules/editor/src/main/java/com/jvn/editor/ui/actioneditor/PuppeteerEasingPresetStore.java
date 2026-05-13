@@ -63,6 +63,7 @@ final class PuppeteerEasingPresetStore {
     try (var reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
       properties.load(reader);
     } catch (IOException ignored) {
+            // reason: I/O failure on best-effort save/load; in-memory state remains valid
       return List.of();
     }
 

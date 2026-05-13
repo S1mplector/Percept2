@@ -2,6 +2,9 @@ package com.jvn.core.assets;
 
 import java.io.File;
 import java.net.URL;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -14,6 +17,7 @@ import java.util.List;
  * audio backends resolve the same candidates in the same order.</p>
  */
 public final class AudioAssetResolver {
+  private static final Logger log = LoggerFactory.getLogger(AudioAssetResolver.class);
   private AudioAssetResolver() {
   }
 
@@ -45,6 +49,8 @@ public final class AudioAssetResolver {
         if (strippedCwd != null) return strippedCwd;
       }
     } catch (Exception ignored) {
+      // reason: cwd-prefix stripping is best-effort; next candidate paths will be tried
+      log.trace("cwd-prefix strip failed for '{}': {}", id, ignored.toString());
     }
 
     for (String candidate : candidatePaths(id)) {

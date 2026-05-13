@@ -952,6 +952,7 @@ public class VnState {
       try {
         return Double.parseDouble(s.trim());
       } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
         return 0.0;
       }
     }

@@ -145,48 +145,48 @@ public class PuppeteerWindow extends Stage {
     private static final String PUPPETEER_FROST_ANIMATION_KEY = "jvn.puppeteerFrost.animation";
     private static final String PUPPETEER_FROST_HANDLER_KEY = "jvn.puppeteerFrost.handlerInstalled";
 
-    private final AnimationProject project;
-    private JesScene2D scene;
+    public final AnimationProject project;
+    public JesScene2D scene;
 
     private final EntitySelector entitySelector;
-    private final TimelinePanel timelinePanel;
-    private final KeyframeEditor keyframeEditor;
+    public final TimelinePanel timelinePanel;
+    public final KeyframeEditor keyframeEditor;
     private AnchorEditor anchorEditor;
-    private final AnimationPreview animationPreview;
-    private final CodePreviewPane codePreview;
+    public final AnimationPreview animationPreview;
+    public final CodePreviewPane codePreview;
 
-    private final Button btnPlay;
-    private final Button btnPause;
-    private final Button btnStop;
-    private final Button btnRewind;
-    private final Button btnUndo;
-    private final Button btnRedo;
+    final Button btnPlay;
+    final Button btnPause;
+    final Button btnStop;
+    final Button btnRewind;
+    final Button btnUndo;
+    final Button btnRedo;
     private final TextField tfDuration;
-    private final ToggleButton cbLoop;
+    public final ToggleButton cbLoop;
     private final Label lblTime;
     private ComboBox<PropertyType> cbProperty;
     private ToggleButton cbSnap;
     private TextField tfSnapMs;
-    private ToggleButton cbOrbitTool;
+    ToggleButton cbOrbitTool;
     private ToggleButton cbOrbitAlign;
     private ToggleButton cbRuntimePreview;
 
-    private AnimationTimer playbackTimer;
-    private long lastNanos = 0;
+    AnimationTimer playbackTimer;
+    long lastNanos = 0;
     private double playbackSpeed = 1.0;
     private boolean autoKeyEnabled = false;
     private boolean runtimeParityPreview = false;
 
-    private final PuppeteerCommand.Stack commandStack = new PuppeteerCommand.Stack();
+    public final PuppeteerCommand.Stack commandStack = new PuppeteerCommand.Stack();
     private final KeyframeSelectionModel selectionModel;
-    private Consumer<String> onCopyCode;
-    private final TextField tfTimelineName;
-    private final Map<String, CollapsibleToolbarCluster> toolbarClusters = new LinkedHashMap<>();
+    Consumer<String> onCopyCode;
+    public final TextField tfTimelineName;
+    public final Map<String, CollapsibleToolbarCluster> toolbarClusters = new LinkedHashMap<>();
     private AnimatedToolbarPane toolbarPane;
     private HBox toolbarCommandBar;
     private VBox toolbarShell;
     private Label lblToolbarCommandSummary;
-    private Label statusBar;
+    Label statusBar;
     private Label viewportInfoLabel;
     private Button btnSidebarPreviewLayout;
     private BorderPane previewPane;
@@ -236,25 +236,25 @@ public class PuppeteerWindow extends Stage {
     private StackPane codePreviewFrostShell;
     private Node activePuppeteerFrostNode;
     private boolean puppeteerFrostSceneReleaseInstalled = false;
-    private boolean dirty = false;
+    public boolean dirty = false;
     private boolean compactExport = false;
-    private boolean previewStaged = false;
+    public boolean previewStaged = false;
     private boolean dirtyBeforePreviewStage = false;
     private AnimationProject previewBaselineProject;
     private TransformInteractionState activeTransformInteraction;
     private CameraInteractionState activeCameraInteraction;
-    private final ActionEditorDialogOverlay overlayDialog = new ActionEditorDialogOverlay();
+    public final ActionEditorDialogOverlay overlayDialog = new ActionEditorDialogOverlay();
     private final Map<String, String> launchCharacterImagePaths = new LinkedHashMap<>();
     private final Map<String, String> launchBackgroundPaths = new LinkedHashMap<>();
     private final Map<String, String> launchAudioPaths = new LinkedHashMap<>();
-    private final List<List<com.jvn.editor.ui.actioneditor.TimelinePanel.ClipboardEntry>> clipboardHistory = new java.util.ArrayList<>();
-    private static final int MAX_CLIPBOARD_HISTORY = 10;
+    final List<List<com.jvn.editor.ui.actioneditor.TimelinePanel.ClipboardEntry>> clipboardHistory = new java.util.ArrayList<>();
+    static final int MAX_CLIPBOARD_HISTORY = 10;
     private final Map<String, Boolean> sceneBaselineVisibility = new LinkedHashMap<>();
     private final Map<String, Map<String, Double>> sceneBaselineCustomProperties = new LinkedHashMap<>();
     private final Map<String, Double> sceneBaselineCameraCustomProperties = new LinkedHashMap<>();
     private final Map<String, String> sceneBaselineImagePaths = new LinkedHashMap<>();
     private boolean bypassCloseConfirmation = false;
-    private boolean codePaneVisible = true;
+    public boolean codePaneVisible = true;
     private double codePaneDividerPosition = 0.78;
     private boolean previewFocusMode = false;
     private double previewFocusDividerPosition = 0.72;
@@ -292,7 +292,7 @@ public class PuppeteerWindow extends Stage {
         PropertyType.CAMERA_ZOOM
     };
 
-    private enum PuppeteerErrorType {
+    enum PuppeteerErrorType {
         VALIDATION("Validation"),
         PROJECT_CONTEXT("Project context"),
         CODE_PARSE("Code parse"),
@@ -1920,7 +1920,7 @@ public class PuppeteerWindow extends Stage {
         return bar;
     }
 
-    private void refreshToolbarCommandSummary() {
+    void refreshToolbarCommandSummary() {
         refreshUndoRedoControls();
         if (lblToolbarCommandSummary == null) return;
         List<String> parts = new ArrayList<>();
@@ -1946,7 +1946,7 @@ public class PuppeteerWindow extends Stage {
         lblToolbarCommandSummary.setText(String.join("  •  ", parts));
     }
 
-    private void refreshUndoRedoControls() {
+    void refreshUndoRedoControls() {
         if (btnUndo != null) {
             btnUndo.setDisable(!commandStack.canUndo());
             String undoText = commandStack.canUndo()
@@ -2356,7 +2356,7 @@ public class PuppeteerWindow extends Stage {
         return row;
     }
 
-    private void refreshSidebarTabs() {
+    public void refreshSidebarTabs() {
         String selectedName = timelinePanel != null ? timelinePanel.getSelectedEntity() : null;
         boolean selectedGroup = timelinePanel != null && timelinePanel.isSelectedGroup();
         boolean runtimeCamera = timelinePanel != null && timelinePanel.isRuntimeCameraSelected();
@@ -3365,7 +3365,7 @@ public class PuppeteerWindow extends Stage {
         );
     }
 
-    private java.io.File projectRoot;
+    public java.io.File projectRoot;
     private java.io.File scriptTargetFile;
     private PuppeteerLauncherPanel.SceneSnapshot launchSceneSnapshot;
     private PuppeteerWorkspacePrefs workspacePrefs;
@@ -3467,7 +3467,7 @@ public class PuppeteerWindow extends Stage {
         draftStore.scheduleSave(name, code);
     }
 
-    private void showRecordGifDialog() {
+    public void showRecordGifDialog() {
         if (previewRecorder == null || projectRoot == null) {
             overlayDialog.showDialog(
                 "Record Preview as GIF",
@@ -3873,7 +3873,7 @@ public class PuppeteerWindow extends Stage {
         }
     }
 
-    private void showAssetImporterWindow() {
+    public void showAssetImporterWindow() {
         if (assetImporterWindow != null) {
             assetImporterWindow.show();
             assetImporterWindow.toFront();
@@ -4203,7 +4203,7 @@ public class PuppeteerWindow extends Stage {
 
     public void setOnCopyCode(Consumer<String> callback) { this.onCopyCode = callback; }
 
-    private void play() {
+    public void play() {
         if (project.isPlaying()) return;
         project.setPlaying(true);
         lastNanos = System.nanoTime();
@@ -4211,13 +4211,13 @@ public class PuppeteerWindow extends Stage {
         refreshTransportButtonStates();
     }
 
-    private void pause() {
+    public void pause() {
         project.setPlaying(false);
         playbackTimer.stop();
         refreshTransportButtonStates();
     }
 
-    private void stop() {
+    public void stop() {
         pause();
         project.setPlayheadMs(0);
         timelinePanel.setPlayhead(0);
@@ -4225,7 +4225,7 @@ public class PuppeteerWindow extends Stage {
         updatePreview();
     }
 
-    private void rewind() {
+    public void rewind() {
         project.setPlayheadMs(0);
         timelinePanel.setPlayhead(0);
         updateTimeLabel();
@@ -4265,7 +4265,7 @@ public class PuppeteerWindow extends Stage {
         refreshTransportButtonStates();
     }
 
-    private void updateTimeLabel() {
+    public void updateTimeLabel() {
         lblTime.setText(String.format("%.0f ms", project.getPlayheadMs()));
         refreshSidebarTabs();
     }
@@ -4298,7 +4298,7 @@ public class PuppeteerWindow extends Stage {
         }
     }
 
-    private void updatePreview() {
+    public void updatePreview() {
         if (scene == null) return;
 
         double time = project.getPlayheadMs();
@@ -4764,7 +4764,7 @@ public class PuppeteerWindow extends Stage {
         return value;
     }
 
-    private void refreshTransportButtonStates() {
+    void refreshTransportButtonStates() {
         refreshTransportButtonState(btnPlay, btnPause);
     }
 
@@ -4783,11 +4783,11 @@ public class PuppeteerWindow extends Stage {
         }
     }
 
-    private boolean isPreviewFullscreenActive() {
+    public boolean isPreviewFullscreenActive() {
         return previewFocusMode;
     }
 
-    private void togglePreviewFocusMode() {
+    public void togglePreviewFocusMode() {
         if (isPreviewFullscreenActive()) exitFullscreenPreview();
         else enterFullscreenPreview();
     }
@@ -4816,7 +4816,7 @@ public class PuppeteerWindow extends Stage {
         });
     }
 
-    private void exitFullscreenPreview() {
+    void exitFullscreenPreview() {
         if (!previewFocusMode) return;
         previewFocusDividerPosition = readDividerPosition(previewFocusSplit, previewFocusDividerPosition);
 
@@ -5044,7 +5044,7 @@ public class PuppeteerWindow extends Stage {
         );
     }
 
-    private void copySelectedKeyframesToClipboard() {
+    public void copySelectedKeyframesToClipboard() {
         timelinePanel.copySelectedKeyframes();
         // Save to clipboard history
         List<com.jvn.editor.ui.actioneditor.TimelinePanel.ClipboardEntry> current = timelinePanel.getCopiedKeyframes();
@@ -5057,7 +5057,7 @@ public class PuppeteerWindow extends Stage {
         refreshToolbarCommandSummary();
     }
 
-    private void copyExportedCodeToClipboard() {
+    public void copyExportedCodeToClipboard() {
         try {
             String code = CodeExporter.export(project);
             List<TimelineDiagnostic.Message> findings = new ArrayList<>(
@@ -5095,18 +5095,18 @@ public class PuppeteerWindow extends Stage {
         }
     }
 
-    private void pasteCopiedKeyframesAtPlayhead() {
+    public void pasteCopiedKeyframesAtPlayhead() {
         timelinePanel.pasteCopiedKeyframesAtPlayhead();
         refreshToolbarCommandSummary();
     }
 
-    private void duplicateSelectedKeyframesBySnapStep() {
+    public void duplicateSelectedKeyframesBySnapStep() {
         double delta = Math.max(1.0, timelinePanel.getSnapStepMs());
         timelinePanel.duplicateSelectedKeyframes(delta);
         refreshToolbarCommandSummary();
     }
 
-    private void executeUndo() {
+    public void executeUndo() {
         if (!commandStack.canUndo()) return;
         commandStack.undo();
         timelinePanel.refresh();
@@ -5115,7 +5115,7 @@ public class PuppeteerWindow extends Stage {
         refreshUndoRedoControls();
     }
 
-    private void executeRedo() {
+    public void executeRedo() {
         if (!commandStack.canRedo()) return;
         commandStack.redo();
         timelinePanel.refresh();
@@ -5124,7 +5124,7 @@ public class PuppeteerWindow extends Stage {
         refreshUndoRedoControls();
     }
 
-    private void showPresetMenuOverlay() {
+    public void showPresetMenuOverlay() {
         VBox content = new VBox(10);
         String lastCategory = "";
         for (AnimationPreset preset : AnimationPreset.ALL) {
@@ -5146,7 +5146,7 @@ public class PuppeteerWindow extends Stage {
         );
     }
 
-    private void showSlotMenuOverlay() {
+    public void showSlotMenuOverlay() {
         VBox content = new VBox(8);
         for (VnSlotHelper.Slot slot : VnSlotHelper.Slot.values()) {
             content.getChildren().add(buildOverlayMenuButton(
@@ -5172,7 +5172,7 @@ public class PuppeteerWindow extends Stage {
         refreshExportPreviewAndMarkDirty();
     }
 
-    private void refreshExportPreview() {
+    public void refreshExportPreview() {
         try {
             codePreview.setCode(compactExport ? CodeExporter.exportCompact(project) : CodeExporter.export(project));
             List<TimelineDiagnostic.Message> diags = new ArrayList<>(
@@ -5208,7 +5208,7 @@ public class PuppeteerWindow extends Stage {
         }
     }
 
-    private void refreshExportPreviewAndMarkDirty() {
+    public void refreshExportPreviewAndMarkDirty() {
         refreshExportPreview();
         setDirty(true);
         updateStatusBar();
@@ -5242,7 +5242,7 @@ public class PuppeteerWindow extends Stage {
         );
     }
 
-    private void showShortcutsOverlay() {
+    public void showShortcutsOverlay() {
         GridPane grid = new GridPane();
         grid.setHgap(16);
         grid.setVgap(10);
@@ -5316,7 +5316,7 @@ public class PuppeteerWindow extends Stage {
         }
     }
 
-    private void showAddAudioCueDialog() {
+    public void showAddAudioCueDialog() {
         TextField tfPath = new TextField();
         tfPath.setPromptText("assets/audio/music/softbreeze.mp3");
         tfPath.setStyle(STYLE_TEXT_FIELD);
@@ -5498,7 +5498,7 @@ public class PuppeteerWindow extends Stage {
         );
     }
 
-    private void showEventCueManagerDialog(EditorEventCue initialSelection) {
+    public void showEventCueManagerDialog(EditorEventCue initialSelection) {
         List<String> presets = List.of(
             "expression",
             "show",
@@ -5925,7 +5925,7 @@ public class PuppeteerWindow extends Stage {
         return null;
     }
 
-    private void requestWindowClose() {
+    public void requestWindowClose() {
         if (!dirty && !previewStaged) {
             stopAudioPreview();
             closeNow();
@@ -6166,11 +6166,11 @@ public class PuppeteerWindow extends Stage {
         }
     }
 
-    private boolean hasSavedClips() {
+    public boolean hasSavedClips() {
         return !scanClipLibrary().isEmpty();
     }
 
-    private void saveSelectionAsClip() {
+    public void saveSelectionAsClip() {
         EntityTrack track = selectedTrackForEditing(false);
         if (track == null) return;
         double start = project.hasLoopRegion() ? project.getLoopStartMs() : 0;
@@ -6235,7 +6235,7 @@ public class PuppeteerWindow extends Stage {
         );
     }
 
-    private void loadAndApplyClip() {
+    public void loadAndApplyClip() {
         EntityTrack track = selectedTrackForEditing(true);
         if (track == null || projectRoot == null) return;
         List<ClipLibraryEntry> entries = scanClipLibrary();
@@ -6493,7 +6493,7 @@ public class PuppeteerWindow extends Stage {
 
     public KeyframeSelectionModel getSelectionModel() { return selectionModel; }
 
-    private void showRuntimeVerificationReport() {
+    public void showRuntimeVerificationReport() {
         List<TimelineDiagnostic.Message> findings = PuppeteerVerification.diagnose(
             project,
             knownSceneEntities(),
@@ -6539,11 +6539,11 @@ public class PuppeteerWindow extends Stage {
         }
     }
 
-    private void requestRegisterTimeline() {
+    public void requestRegisterTimeline() {
         requestRegisterTimeline(null);
     }
 
-    private void requestRegisterTimeline(Runnable onSuccess) {
+    public void requestRegisterTimeline(Runnable onSuccess) {
         String name = tfTimelineName.getText().trim();
         List<TimelineDiagnostic.Message> nameFindings = PuppeteerVerification.validateTimelineName(name);
         boolean hasNameErrors = nameFindings.stream()
@@ -6645,7 +6645,7 @@ public class PuppeteerWindow extends Stage {
         }
     }
 
-    private void showVerificationOverlay(
+    void showVerificationOverlay(
         String title,
         String header,
         List<TimelineDiagnostic.Message> findings,
@@ -6805,11 +6805,11 @@ public class PuppeteerWindow extends Stage {
             null));
     }
 
-    private void showOverlayError(String title, String header, String detail) {
+    void showOverlayError(String title, String header, String detail) {
         showOverlayError(classifyPuppeteerError(title, header, detail, null), title, header, detail, null);
     }
 
-    private void showOverlayError(PuppeteerErrorType type,
+    void showOverlayError(PuppeteerErrorType type,
                                   String title,
                                   String header,
                                   String detail,
@@ -7025,13 +7025,13 @@ public class PuppeteerWindow extends Stage {
         return PuppeteerErrorType.UNKNOWN;
     }
 
-    private void copyToClipboard(String text) {
+    void copyToClipboard(String text) {
         ClipboardContent content = new ClipboardContent();
         content.putString(text == null ? "" : text);
         Clipboard.getSystemClipboard().setContent(content);
     }
 
-    private void showClipboardHistoryPopup(Button sourceButton) {
+    void showClipboardHistoryPopup(Button sourceButton) {
         if (clipboardHistory.isEmpty()) {
             if (statusBar != null) statusBar.setText("Clipboard history is empty");
             return;
@@ -7187,7 +7187,7 @@ public class PuppeteerWindow extends Stage {
         return rawPath.trim();
     }
 
-    private Set<String> knownSceneEntities() {
+    Set<String> knownSceneEntities() {
         if (scene == null) return null;
         Set<String> names = new LinkedHashSet<>();
         for (String name : scene.names()) {
@@ -7196,7 +7196,7 @@ public class PuppeteerWindow extends Stage {
         return names.isEmpty() ? null : names;
     }
 
-    private void stagePreviewFromCode() {
+    public void stagePreviewFromCode() {
         String code = codePreview.getCode();
         String name = tfTimelineName.getText().trim();
         if (name.isBlank()) name = project.getName();
@@ -7222,7 +7222,7 @@ public class PuppeteerWindow extends Stage {
         }
     }
 
-    private void commitStagedPreview() {
+    public void commitStagedPreview() {
         if (!previewStaged) return;
         previewStaged = false;
         previewBaselineProject = null;
@@ -7231,7 +7231,7 @@ public class PuppeteerWindow extends Stage {
         refreshExportPreview();
     }
 
-    private void discardStagedPreview() {
+    public void discardStagedPreview() {
         if (!previewStaged) return;
         if (previewBaselineProject != null) {
             applyImportedProject(previewBaselineProject);
@@ -7651,7 +7651,7 @@ public class PuppeteerWindow extends Stage {
         return adjacent.isEmpty() ? null : adjacent;
     }
 
-    private EntityTrack selectedTrackForEditing(boolean createEntityTrack) {
+    public EntityTrack selectedTrackForEditing(boolean createEntityTrack) {
         String name = timelinePanel.getSelectedEntity();
         if (name == null || name.isBlank()) return null;
         if (TimelinePanel.isRuntimeCameraTarget(name)) {

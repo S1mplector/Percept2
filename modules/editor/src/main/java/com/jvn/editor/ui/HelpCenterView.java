@@ -418,6 +418,7 @@ public class HelpCenterView extends BorderPane {
           .filter(path -> !shouldSkipMarkdownPath(base.toPath(), path))
           .forEach(path -> addDoc(base, path.toFile(), source, docs, seen, workspaceDoc));
     } catch (IOException ignored) {
+            // reason: I/O failure on best-effort save/load; in-memory state remains valid
     }
   }
 
@@ -1415,6 +1416,7 @@ public class HelpCenterView extends BorderPane {
         return;
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
     Path localPath = resolveLocalPath(resolvedTarget);
     if (localPath != null && Files.isRegularFile(localPath)) {
@@ -1427,6 +1429,7 @@ public class HelpCenterView extends BorderPane {
           return;
         }
       } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       }
       return;
     }
@@ -1461,6 +1464,7 @@ public class HelpCenterView extends BorderPane {
         return asPath.normalize();
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
     if (activeDocEntry != null && activeDocEntry.file() != null) {
       File parent = activeDocEntry.file().getParentFile();
@@ -1558,6 +1562,7 @@ public class HelpCenterView extends BorderPane {
     try {
       return Integer.parseInt(raw.trim());
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return fallback;
     }
   }
@@ -1591,6 +1596,7 @@ public class HelpCenterView extends BorderPane {
         }
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
     return fallback;
   }
@@ -1622,6 +1628,7 @@ public class HelpCenterView extends BorderPane {
         }
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
     return results;
   }
@@ -1661,6 +1668,7 @@ public class HelpCenterView extends BorderPane {
       String summary = paragraph.toString().trim();
       if (!summary.isBlank()) return compactSummary(summary, 190);
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
     return "No summary available yet.";
   }

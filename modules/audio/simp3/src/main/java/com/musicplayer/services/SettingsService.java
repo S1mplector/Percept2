@@ -3,6 +3,9 @@ package com.musicplayer.services;
 import java.io.File;
 import java.io.IOException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -14,7 +17,9 @@ import com.musicplayer.data.models.Settings;
  * Service for managing application settings.
  */
 public class SettingsService {
-    
+
+    private static final Logger log = LoggerFactory.getLogger(SettingsService.class);
+
     /**
      * System property to override data directory location for settings persistence.
      * Useful for tests to isolate filesystem effects.
@@ -50,9 +55,9 @@ public class SettingsService {
         if (settingsFile.exists()) {
             try {
                 settings = objectMapper.readValue(settingsFile, Settings.class);
-                System.out.println("Loaded settings from file");
+                log.debug("Loaded settings from file");
             } catch (IOException e) {
-                System.err.println("Failed to load settings: " + e.getMessage());
+                log.error("Failed to load settings", e);
                 settings = new Settings(); // Use defaults
             }
         } else {
@@ -128,9 +133,9 @@ public class SettingsService {
         
         try {
             objectMapper.writeValue(settingsFile, settings);
-            System.out.println("Settings saved to file");
+            log.debug("Settings saved to file");
         } catch (IOException e) {
-            System.err.println("Failed to save settings: " + e.getMessage());
+            log.error("Failed to save settings", e);
         }
     }
     

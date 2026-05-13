@@ -204,9 +204,11 @@ file manager or version control tools."""));
               String type = typeFor(path.getFileName().toString());
               allItems.add(new AssetItem(file, rel, type));
             } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
             }
           });
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
   }
 
@@ -266,6 +268,7 @@ file manager or version control tools."""));
     try {
       java.awt.Desktop.getDesktop().open(file);
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
   }
 

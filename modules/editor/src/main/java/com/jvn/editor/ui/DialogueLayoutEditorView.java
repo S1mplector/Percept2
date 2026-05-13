@@ -379,6 +379,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     try {
       if (text != null && !text.isBlank()) rawProperties.load(new StringReader(text));
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       // Keep defaults for invalid input.
     }
     VnUiLayoutLoader.LoadResult parsed = VnUiLayoutLoader.parseWithDiagnostics(
@@ -959,6 +960,7 @@ public class DialogueLayoutEditorView extends BorderPane {
           java.nio.file.StandardCopyOption.REPLACE_EXISTING);
       return toProjectRelativePath(destination);
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return target != null ? normalizeAssetPath(target.getText()) : null;
     }
   }
@@ -2076,6 +2078,7 @@ public class DialogueLayoutEditorView extends BorderPane {
         return Color.rgb(r, g, b);
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return RUNTIME_TEXT_COLOR;
     }
     return RUNTIME_TEXT_COLOR;
@@ -3416,6 +3419,7 @@ public class DialogueLayoutEditorView extends BorderPane {
         try {
           return Double.parseDouble(string.trim());
         } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
           return vf.getValue();
         }
       }
@@ -3494,6 +3498,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     try {
       return Color.web(raw.trim());
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return fallback;
     }
   }
@@ -3548,6 +3553,7 @@ public class DialogueLayoutEditorView extends BorderPane {
       previewAssetCache.put(normalized, image);
       return image;
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       previewAssetCache.remove(normalized);
       return null;
     }
@@ -3588,6 +3594,7 @@ public class DialogueLayoutEditorView extends BorderPane {
         return root.relativize(abs).toString().replace('\\', '/');
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       // Fall through to absolute path.
     }
     return file.getAbsolutePath().replace('\\', '/');

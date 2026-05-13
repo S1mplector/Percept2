@@ -183,6 +183,7 @@ public final class VnSaveSerializer {
                         try {
                             callStack.add(Integer.parseInt(String.valueOf(value)));
                         } catch (NumberFormatException ignored) {
+// reason: malformed numeric text input; caller uses fallback value
                         }
                     }
                 }
@@ -490,6 +491,7 @@ public final class VnSaveSerializer {
             }
             return Base64.getEncoder().encodeToString(baos.toByteArray());
         } catch (IOException ignored) {
+            // reason: I/O failure on best-effort save/load; in-memory state remains valid
             return null;
         }
     }
@@ -502,6 +504,7 @@ public final class VnSaveSerializer {
                 return ois.readObject();
             }
         } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
             return null;
         }
     }

@@ -1058,6 +1058,7 @@ public class NewProjectWizard extends Stage {
       int value = Integer.parseInt(raw.trim());
       return value >= 320 && value <= 8192;
     } catch (NumberFormatException ignored) {
+// reason: malformed numeric text input; caller uses fallback value
       return false;
     }
   }
@@ -1543,6 +1544,7 @@ public class NewProjectWizard extends Stage {
       try {
         deleteDirectoryRecursively(projectDir.toPath());
       } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
         // Best-effort rollback. The original creation exception is shown to the user.
       }
     }
@@ -1555,6 +1557,7 @@ public class NewProjectWizard extends Stage {
           }
         }
       } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
         // Non-fatal cleanup path.
       }
     }
@@ -1757,6 +1760,7 @@ public class NewProjectWizard extends Stage {
       if (value > 8192) return 8192;
       return value;
     } catch (NumberFormatException ignored) {
+// reason: malformed numeric text input; caller uses fallback value
       return fallback;
     }
   }
@@ -2271,6 +2275,7 @@ public class NewProjectWizard extends Stage {
       int scaled = (int) Math.round(original * scale);
       return text.substring(0, valStart) + scaled + text.substring(valEnd);
     } catch (NumberFormatException ignored) {
+// reason: malformed numeric text input; caller uses fallback value
       return text;
     }
   }

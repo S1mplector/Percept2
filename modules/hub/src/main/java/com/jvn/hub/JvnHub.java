@@ -509,6 +509,7 @@ public final class JvnHub {
     try (InputStream in = Files.newInputStream(file)) {
       props.load(in);
     } catch (IOException ignored) {
+            // reason: I/O failure on best-effort save/load; in-memory state remains valid
       return new HashSet<>();
     }
     Set<String> out = new HashSet<>();
@@ -2145,6 +2146,7 @@ public final class JvnHub {
         try {
           count = get();
         } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
           // Keep the badge hidden when Git cannot report an upstream count.
         }
         lastKnownIncoming = count;
@@ -2173,6 +2175,7 @@ public final class JvnHub {
           if (output.length() < 4096) output.append(line).append('\n');
         }
       } catch (IOException ignored) {
+            // reason: I/O failure on best-effort save/load; in-memory state remains valid
         // Best-effort capture only.
       }
     }, "jvn-hub-git-output");
@@ -2439,6 +2442,7 @@ public final class JvnHub {
     try {
       return Integer.parseInt(raw.trim());
     } catch (NumberFormatException ignored) {
+// reason: malformed numeric text input; caller uses fallback value
       return -1;
     }
   }
@@ -2452,6 +2456,7 @@ public final class JvnHub {
       p.load(in);
       return p.getProperty(key);
     } catch (IOException ignored) {
+            // reason: I/O failure on best-effort save/load; in-memory state remains valid
       return null;
     }
   }
@@ -2463,6 +2468,7 @@ public final class JvnHub {
     try {
       return Math.max(0, Integer.parseInt(result.output.strip()));
     } catch (NumberFormatException ignored) {
+// reason: malformed numeric text input; caller uses fallback value
       return -1;
     }
   }
@@ -2487,6 +2493,7 @@ public final class JvnHub {
       while (end < v.length() && Character.isDigit(v.charAt(end))) end++;
       return end == 0 ? -1 : Integer.parseInt(v.substring(0, end));
     } catch (NumberFormatException ignored) {
+// reason: malformed numeric text input; caller uses fallback value
       return -1;
     }
   }
@@ -2524,6 +2531,7 @@ public final class JvnHub {
         if (v != null && !v.isBlank()) return v.trim();
       }
     } catch (IOException ignored) {
+            // reason: I/O failure on best-effort save/load; in-memory state remains valid
       // fall through
     }
     return "dev";
@@ -2543,6 +2551,7 @@ public final class JvnHub {
         String v = p.getProperty("jvnVersion");
         if (v != null && !v.isBlank()) return v.trim();
       } catch (IOException ignored) {
+            // reason: I/O failure on best-effort save/load; in-memory state remains valid
         // fall through
       }
     }
@@ -2595,6 +2604,7 @@ public final class JvnHub {
       String path = location.toString().replace('\\', '/').toLowerCase(Locale.ROOT);
       return path.contains("/build/classes/") || path.contains("/out/production/");
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return false;
     }
   }

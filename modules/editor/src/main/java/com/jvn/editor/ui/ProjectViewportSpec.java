@@ -48,6 +48,7 @@ public final class ProjectViewportSpec {
         height = firstPositiveInt(height, p.getProperty("height"));
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       // Fall back to defaults when project manifest can't be read.
     }
 
@@ -67,6 +68,7 @@ public final class ProjectViewportSpec {
         int value = Integer.parseInt(raw.trim());
         if (value > 0) return value;
       } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
         // Keep scanning remaining candidates.
       }
     }

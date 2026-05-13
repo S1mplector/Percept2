@@ -1,5 +1,8 @@
 package com.jvn.core.menu;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
 import com.jvn.core.audio.AudioFacade;
@@ -40,6 +43,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class LoadMenuScene implements Scene {
+  private static final Logger log = LoggerFactory.getLogger(LoadMenuScene.class);
   private static final Logger LOG = LoggerFactory.getLogger(LoadMenuScene.class);
   private static final String FAVORITES_FILE_NAME = ".load-favorites.properties";
   private static final String FAVORITES_PROPERTY = "favorites";
@@ -101,6 +105,7 @@ public class LoadMenuScene implements Scene {
       VnSaveData data = saveManager.load(name);
       return data.getSaveTimestamp();
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return null;
     }
   }
@@ -112,6 +117,7 @@ public class LoadMenuScene implements Scene {
       VnSaveData data = saveManager.load(name);
       return data.getScenarioId();
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return null;
     }
   }
@@ -123,6 +129,7 @@ public class LoadMenuScene implements Scene {
       VnSaveData data = saveManager.load(name);
       return data.getCurrentNodeIndex();
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return null;
     }
   }
@@ -150,7 +157,8 @@ public class LoadMenuScene implements Scene {
       }
       filtered.sort(Comparator.comparing((String n) -> times.getOrDefault(n, 0L)).reversed());
     } catch (Exception e) {
-      // ignore sort issues, fall back to unsorted
+      // reason: timestamp-based sort is best-effort; unsorted list is a safe fallback
+      log.warn("Save list sort failed, falling back to insertion order", e);
     }
     saves.addAll(filtered);
     if (selectedName != null) {
@@ -458,7 +466,10 @@ public class LoadMenuScene implements Scene {
     try {
       VnSaveData data = saveManager.load(name);
       return summarizeRpgState(data.getRpgState());
-    } catch (Exception ignored) { return null; }
+    } catch (Exception ignored) {
+      // reason: RPG state summary is display-only; unreadable save data yields null preview
+      return null;
+    }
   }
 
   public boolean deleteSelected() {
@@ -508,6 +519,7 @@ public class LoadMenuScene implements Scene {
       com.jvn.core.vn.VnBackground bg = scen.getBackground(bgId);
       return bg != null ? bg.getImagePath() : null;
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return null;
     }
   }
@@ -542,6 +554,7 @@ public class LoadMenuScene implements Scene {
       }
       engine.scenes().push(scene);
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
   }
 

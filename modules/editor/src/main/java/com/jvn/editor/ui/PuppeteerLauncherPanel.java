@@ -912,6 +912,7 @@ button then opens it in the editor."""));
           .sorted((left, right) -> left.toString().compareToIgnoreCase(right.toString()))
           .forEach(path -> files.add(path.toFile()));
     } catch (IOException ignored) {
+            // reason: I/O failure on best-effort save/load; in-memory state remains valid
     }
     return files;
   }
@@ -1715,6 +1716,7 @@ button then opens it in the editor."""));
                     includeStack);
               }
             } catch (IOException ignored) {
+            // reason: I/O failure on best-effort save/load; in-memory state remains valid
             }
           }
           continue;

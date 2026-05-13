@@ -652,6 +652,7 @@ public class StoryTimelineView extends BorderPane {
       if (raw == null || raw.isBlank()) return fallback;
       return Integer.parseInt(raw.trim());
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return fallback;
     }
   }
@@ -737,7 +738,9 @@ public class StoryTimelineView extends BorderPane {
       onRunArc.accept(a);
       return;
     }
-    try { java.awt.Desktop.getDesktop().open(resolveFile(a.script)); } catch (Exception ignored) {}
+    try { java.awt.Desktop.getDesktop().open(resolveFile(a.script)); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
   }
 
   private void runSelectedLink() {
@@ -776,7 +779,9 @@ public class StoryTimelineView extends BorderPane {
     if (parent != null && !parent.exists()) parent.mkdirs();
     try (PrintWriter pw = new PrintWriter(new FileWriter(f))) {
       pw.print(toDsl());
-    } catch (Exception ignored) {}
+    } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
   }
 
   private void load() {
@@ -786,7 +791,9 @@ public class StoryTimelineView extends BorderPane {
     try {
       String text = java.nio.file.Files.readString(f.toPath());
       fromText(text);
-    } catch (Exception ignored) {}
+    } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
   }
 
   private File defaultTimelineFile() {
@@ -1135,6 +1142,7 @@ public class StoryTimelineView extends BorderPane {
       if (raw == null || raw.isBlank()) return fallback;
       return Double.parseDouble(raw.trim());
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return fallback;
     }
   }

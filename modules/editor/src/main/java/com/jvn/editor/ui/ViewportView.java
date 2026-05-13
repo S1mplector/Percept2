@@ -204,6 +204,7 @@ public class ViewportView extends StackPane {
         try {
           beforeSceneUpdateHook.accept(deltaMs);
         } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
         }
       }
       scene.update(deltaMs);

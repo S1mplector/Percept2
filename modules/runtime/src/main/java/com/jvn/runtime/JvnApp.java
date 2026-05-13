@@ -17,6 +17,7 @@ import com.jvn.core.menu.MainMenuScene;
 import com.jvn.core.project.ProjectHealthChecker;
 import com.jvn.fx.FxLauncher;
 import com.jvn.fx.audio.FxAudioService;
+import com.jvn.runtime.hotreload.HotReloadServer;
 import com.jvn.core.audio.AudioFacade;
 import com.jvn.scripting.jes.JesLoader;
 import com.jvn.scripting.jes.runtime.JesScene2D;
@@ -35,6 +36,7 @@ public class JvnApp {
   private static final String DEFAULT_ENTRY_SCRIPT = "story/prologue.vns";
 
   public static void main(String[] args) {
+    RuntimeCrashSupport.install();
     ApplicationConfig.Builder builder = ApplicationConfig.builder().title("JVN Runtime").width(960).height(540);
     String scriptName = null;
     String locale = "en";
@@ -268,7 +270,15 @@ public class JvnApp {
     
     // Create engine and show scene
     Engine engine = new Engine(cfg);
-    engine.setVnInteropFactory(e -> new RuntimeVnInterop(e));
+    RuntimeVnInterop[] interopRef = new RuntimeVnInterop[1];
+    engine.setVnInteropFactory(e -> {
+      interopRef[0] = new RuntimeVnInterop(e);
+      return interopRef[0];
+    });
+    HotReloadServer.startIfEnabled(path -> {
+      RuntimeVnInterop interop = interopRef[0];
+      if (interop != null) interop.reloadScenario(path);
+    });
     engine.start();
 
     if (jesScript != null) {
@@ -297,7 +307,9 @@ public class JvnApp {
           audio.setSfxVolume(settingsModel.getSfxVolume());
           audio.setVoiceVolume(settingsModel.getVoiceVolume());
         }
-      } catch (Exception ignored) {}
+      } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
       MainMenuScene menu = new MainMenuScene(engine, settingsModel, saveManager, resolvedEntryScript, audio);
       if (settingsModel != null) {
         engine.setFixedUpdateStepMs(settingsModel.getPhysicsFixedStepMs(), settingsModel.getPhysicsMaxSubSteps());
@@ -308,7 +320,8 @@ public class JvnApp {
     if ("swing".equalsIgnoreCase(ui)) {
       com.jvn.swing.SwingLauncher.launch(engine);
     } else {
-      FxLauncher.launch(engine, showPerfHud);
+      String a11yTheme = new VnSettingsStore().load().getAccessibilityTheme();
+      FxLauncher.launch(engine, showPerfHud, a11yTheme);
     }
   }
 
@@ -392,6 +405,7 @@ public class JvnApp {
       int parsed = Integer.parseInt(raw.trim());
       return parsed > 0 ? parsed : null;
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return null;
     }
   }

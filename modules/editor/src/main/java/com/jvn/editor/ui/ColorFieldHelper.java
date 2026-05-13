@@ -63,6 +63,7 @@ public final class ColorFieldHelper {
         try {
             return Color.web(text.trim());
         } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
             return null;
         }
     }

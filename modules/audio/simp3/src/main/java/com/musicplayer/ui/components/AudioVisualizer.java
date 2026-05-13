@@ -8,10 +8,15 @@ import javafx.scene.paint.Color;
 import javafx.scene.paint.LinearGradient;
 import javafx.scene.paint.Stop;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Enhanced audio visualizer with spectrum bars and waveform display modes.
  */
 public class AudioVisualizer extends Canvas {
+
+    private static final Logger log = LoggerFactory.getLogger(AudioVisualizer.class);
 
     public enum VisualizationType {
         SPECTRUM_BARS,
@@ -250,7 +255,7 @@ public class AudioVisualizer extends Canvas {
                     }
                 } catch (Exception e) {
                     // Log but don't crash - prevent UI freezing
-                    System.err.println("Error in visualizer animation: " + e.getMessage());
+                    log.warn("Error in visualizer animation: {}", e.getMessage());
                 }
             }
         };

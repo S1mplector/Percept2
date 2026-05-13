@@ -49,6 +49,8 @@ import com.jvn.fx.phone.PhoneRenderer;
 import com.jvn.fx.render.FxSceneRendererRegistry;
 import com.jvn.fx.scene2d.FxBlitter2D;
 import com.jvn.fx.ui.ProjectFontResolver;
+import com.jvn.core.diagnostics.PerformanceHud;
+import com.jvn.fx.diagnostics.FxPerformanceHudOverlay;
 import com.jvn.fx.vn.VnRenderer;
 import com.sun.management.OperatingSystemMXBean;
 
@@ -85,6 +87,7 @@ public class FxLauncher extends Application {
   private static final double PERF_FPS_SMOOTH_ALPHA = 0.20;
   private static Engine engine;
   private static boolean showPerfHud;
+  private static String pendingAccessibilityTheme = "none";
   private AnimationTimer timer;
   private Canvas canvas;
   private GraphicsContext gc;
@@ -108,6 +111,8 @@ public class FxLauncher extends Application {
   private Label perfJvmLabel;
   private Label perfFpsLabel;
   private long lastPerfHudUpdateNs = -1L;
+  private final PerformanceHud hudData = new PerformanceHud();
+  private final FxPerformanceHudOverlay hudOverlay = new FxPerformanceHudOverlay(hudData);
   private double smoothedProcessCpu = Double.NaN;
   private double smoothedFps = Double.NaN;
   private boolean firstFrameRendered;
@@ -119,6 +124,13 @@ public class FxLauncher extends Application {
   public static void launch(Engine eng, boolean perfHudEnabled) {
     engine = eng;
     showPerfHud = perfHudEnabled;
+    Application.launch();
+  }
+
+  public static void launch(Engine eng, boolean perfHudEnabled, String accessibilityTheme) {
+    engine = eng;
+    showPerfHud = perfHudEnabled;
+    pendingAccessibilityTheme = accessibilityTheme != null ? accessibilityTheme : "none";
     Application.launch();
   }
 
@@ -177,6 +189,9 @@ public class FxLauncher extends Application {
     this.runtimeProjectRoot = resolveAssetsRoot();
     this.vnRenderer.setProjectRoot(runtimeProjectRoot);
     this.menuRenderer.setProjectRoot(runtimeProjectRoot);
+    if (pendingAccessibilityTheme != null && !"none".equals(pendingAccessibilityTheme)) {
+      this.vnRenderer.setAccessibilityTheme(pendingAccessibilityTheme);
+    }
     this.phoneRenderer.setProjectRoot(runtimeProjectRoot);
     this.blitter2D = new FxBlitter2D(gc);
     this.rendererRegistry = createRendererRegistry();
@@ -258,6 +273,9 @@ public class FxLauncher extends Application {
         if (currentScene instanceof VnScene vn) {
           engine.scenes().push(new SaveMenuScene(engine, new com.jvn.core.vn.save.VnSaveManager(), vn));
         }
+      } else if (e.getCode() == KeyCode.F3) {
+        // F3 = Toggle performance HUD overlay
+        hudOverlay.toggle();
       } else if (e.getCode() == KeyCode.F10) {
         // F10 = Launch 2D demo scene (developer shortcut)
         if (engine != null) engine.scenes().push(new Example2DScene());
@@ -472,6 +490,8 @@ public class FxLauncher extends Application {
           } else {
             drawDefaultScene(w, h);
           }
+          hudData.tick(now);
+          hudOverlay.render(gc, w, h);
           hideRuntimeLoadingOverlayAfterFirstFrame();
         }
       }
@@ -681,6 +701,7 @@ public class FxLauncher extends Application {
         if (!image.isError() && image.getWidth() > 0 && image.getHeight() > 0) return image;
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
 
     try {
@@ -690,6 +711,7 @@ public class FxLauncher extends Application {
         if (!image.isError() && image.getWidth() > 0 && image.getHeight() > 0) return image;
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
 
     try {
@@ -699,6 +721,7 @@ public class FxLauncher extends Application {
         if (!image.isError() && image.getWidth() > 0 && image.getHeight() > 0) return image;
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
 
     try {
@@ -711,6 +734,7 @@ public class FxLauncher extends Application {
         }
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
     return null;
   }
@@ -813,6 +837,7 @@ public class FxLauncher extends Application {
         int parsed = Integer.parseInt(raw.trim());
         if (parsed > 0) return parsed;
       } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       }
     }
     return 0;
@@ -900,7 +925,9 @@ public class FxLauncher extends Application {
       VnScene vn = (VnScene) currentScene;
       boolean success = vn.quickSave();
       if (success) {
-        try { writeQuickSaveThumbnail(vn); } catch (Exception ignored) {}
+        try { writeQuickSaveThumbnail(vn); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
       }
       // HUD toast
       vn.getState().showHudMessage(success ? "Quick saved" : "Quick save failed", 1500);
@@ -1018,7 +1045,9 @@ public class FxLauncher extends Application {
       Files.createDirectories(d);
       File out = d.resolve(slotName + ".png").toFile();
       captureVnThumbnail(vnScene, out);
-    } catch (Exception ignored) {}
+    } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
   }
 
   private void handleMouseClick(double x, double y) {
@@ -1457,6 +1486,7 @@ public class FxLauncher extends Application {
       File out = d.resolve(name + ".png").toFile();
       captureVnThumbnail(vnScene, out);
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
   }
 
@@ -1598,6 +1628,7 @@ public class FxLauncher extends Application {
             return configured.trim();
           }
         } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
         }
       }
     }
@@ -1807,6 +1838,9 @@ public class FxLauncher extends Application {
     if (engine != null && engine.isStarted()) {
       engine.stop();
     }
+    if (vnRenderer != null) vnRenderer.dispose();
+    if (menuRenderer != null) menuRenderer.dispose();
+    if (phoneRenderer != null) phoneRenderer.dispose();
   }
 
   private static void applyLinuxDefaultWindowState(Stage stage) {

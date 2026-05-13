@@ -1398,7 +1398,8 @@ public class EditorApp extends Application {
           int line = Integer.parseInt(text.trim());
           FileEditorTab ft = getActiveFileTab();
           if (ft != null) ft.navigateToLine(line);
-        } catch (NumberFormatException ignored) {}
+        } catch (NumberFormatException ignored) { // reason: malformed numeric text input; caller uses fallback value
+        }
       });
     });
     MenuItem miReload = new MenuItem("Reload from Disk");
@@ -2081,7 +2082,9 @@ public class EditorApp extends Application {
       if (isEditableFile(f)) {
         openFile(f);
       } else {
-        try { java.awt.Desktop.getDesktop().open(f); } catch (Exception ignored) {}
+        try { java.awt.Desktop.getDesktop().open(f); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
       }
     });
     projView.setOnRunProject(projectDir -> {
@@ -3274,6 +3277,7 @@ public class EditorApp extends Application {
       try {
         editor.dispose();
       } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       }
     });
     filesTabs.getTabs().add(tab);
@@ -3588,6 +3592,7 @@ public class EditorApp extends Application {
     try {
       java.awt.Desktop.getDesktop().open(target);
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
   }
 
@@ -4235,6 +4240,7 @@ public class EditorApp extends Application {
       try {
         ft.dispose();
       } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       }
     }
     filesTabs.getTabs().remove(tab);
@@ -4249,6 +4255,7 @@ public class EditorApp extends Application {
       try {
         ft.stopPreviewAudio();
       } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       }
     }
   }
@@ -4260,6 +4267,7 @@ public class EditorApp extends Application {
       try {
         ft.stopPreviewAudio();
       } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       }
     }
   }
@@ -4271,6 +4279,7 @@ public class EditorApp extends Application {
         try {
           ft.dispose();
         } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
         }
       }
     }
@@ -4554,6 +4563,7 @@ public class EditorApp extends Application {
     try {
       sourceTab.stopPreviewAudio();
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
 
     // Create a new fullscreen stage with VN preview
@@ -4618,18 +4628,22 @@ public class EditorApp extends Application {
       try {
         timer.stop();
       } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       }
       try {
         fullscreenPreview.stopAudio();
       } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       }
       try {
         fullscreenPreview.dispose();
       } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       }
       try {
         sourceTab.stopPreviewAudio();
       } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       }
     };
     fullscreenStage.setOnCloseRequest(e -> cleanup.run());
@@ -6673,6 +6687,7 @@ public class EditorApp extends Application {
         width = image.getWidth() * (height / image.getHeight());
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
     return new double[] { width, height };
   }

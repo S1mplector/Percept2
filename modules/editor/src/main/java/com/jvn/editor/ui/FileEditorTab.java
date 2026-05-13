@@ -15,6 +15,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.function.Consumer;
 
+import com.jvn.editor.hotreload.HotReloadClient;
 import com.jvn.core.animation.SceneAccessor;
 import com.jvn.core.animation.TimelineData;
 import com.jvn.core.animation.TimelineDataParser;
@@ -583,6 +584,9 @@ public class FileEditorTab extends BorderPane {
       }
       savedSnapshot = getCurrentText();
       if (onStatus != null) onStatus.accept("Saved: " + target.getName());
+      if (kind == Kind.VNS) {
+        HotReloadClient.sendReload(resolveVnsScriptKey());
+      }
     } catch (Exception ex) {
       if (onStatus != null) onStatus.accept("Save failed");
     }

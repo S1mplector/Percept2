@@ -1332,6 +1332,7 @@ dialogue line or @imgattr command. Clicking Copy puts it on the clipboard."""));
     try (InputStream in = Files.newInputStream(file)) {
       persisted.load(in);
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
   }
 
@@ -1345,6 +1346,7 @@ dialogue line or @imgattr command. Clicking Copy puts it on the clipboard."""));
         persisted.store(out, "JVN Image Attributes Tool State");
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
   }
 
@@ -1400,6 +1402,7 @@ dialogue line or @imgattr command. Clicking Copy puts it on the clipboard."""));
       try {
         sortKey = Integer.parseInt(m.group(1));
       } catch (NumberFormatException ignored) {
+// reason: malformed numeric text input; caller uses fallback value
       }
     }
 
@@ -1686,6 +1689,7 @@ dialogue line or @imgattr command. Clicking Copy puts it on the clipboard."""));
       double parsed = Double.parseDouble(value);
       return Double.isFinite(parsed) ? parsed : fallback;
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return fallback;
     }
   }

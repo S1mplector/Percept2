@@ -72,6 +72,7 @@ public class VnPersistentStore {
       try {
         current = Double.parseDouble(text.trim());
       } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
         current = 0.0;
       }
     }
@@ -89,6 +90,7 @@ public class VnPersistentStore {
       String json = Files.readString(file, StandardCharsets.UTF_8);
       values.putAll(parseJsonObject(json));
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
   }
 
@@ -99,6 +101,7 @@ public class VnPersistentStore {
       if (parent != null) Files.createDirectories(parent);
       Files.writeString(file, toJson(values), StandardCharsets.UTF_8);
     } catch (IOException ignored) {
+            // reason: I/O failure on best-effort save/load; in-memory state remains valid
     }
   }
 
@@ -112,6 +115,7 @@ public class VnPersistentStore {
       if (text.contains(".")) return Double.parseDouble(text);
       return Integer.parseInt(text);
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return text;
     }
   }
@@ -219,6 +223,7 @@ public class VnPersistentStore {
         if (token.contains(".")) return Double.parseDouble(token);
         return Integer.parseInt(token);
       } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
         return token;
       }
     }

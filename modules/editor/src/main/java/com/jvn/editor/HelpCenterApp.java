@@ -59,6 +59,7 @@ public final class HelpCenterApp extends Application {
     try {
       Desktop.getDesktop().open(file);
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       // The preview remains usable even if the host OS cannot open Markdown files.
     }
   }

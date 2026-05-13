@@ -5,6 +5,9 @@ import com.jvn.core.vn.VnState;
 
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Facade API for inline Java code inside VNS scripts.
  * Provides convenient static methods accessible from [java] blocks,
@@ -23,6 +26,8 @@ import java.util.Map;
  * and cleared afterwards.
  */
 public final class Vn {
+
+  private static final Logger log = LoggerFactory.getLogger(Vn.class);
 
   private static final ThreadLocal<VnScene> CURRENT_SCENE = new ThreadLocal<>();
 
@@ -291,10 +296,10 @@ public final class Vn {
   }
 
   public static void log(String message) {
-    System.out.println("[VNS Java] " + message);
+    log.debug("[VNS Java] {}", message);
   }
 
   public static void log(String format, Object... args) {
-    System.out.println("[VNS Java] " + String.format(format, args));
+    log.debug("[VNS Java] " + format, args);
   }
 }

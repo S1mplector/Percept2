@@ -19,8 +19,11 @@ import com.jvn.core.scene2d.ParticleEmitter2D;
 import com.jvn.core.scene2d.Scene2DBase;
 import com.jvn.core.scene2d.TileMap2D;
 import com.jvn.scripting.jes.ast.JesAst;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class JesScene2D extends Scene2DBase {
+  private static final Logger log = LoggerFactory.getLogger(JesScene2D.class);
   private final PhysicsWorld2D world = new PhysicsWorld2D();
   private boolean debug = false;
   private PhysicsDebugOverlay2D debugOverlay;
@@ -272,9 +275,15 @@ public class JesScene2D extends Scene2DBase {
     }
     Consumer<Map<String,Object>> h = callHandlers.get(name);
     if (h != null) {
-      try { h.accept(actualProps); } catch (Exception ignored) {}
+      try { h.accept(actualProps); } catch (Exception ignored) {
+        // reason: user-registered callback must not crash the animation loop
+        log.warn("JesScene2D: call handler '{}' threw an exception", name, ignored);
+      }
     } else if (actionHandler != null) {
-      try { actionHandler.accept(name, actualProps); } catch (Exception ignored) {}
+      try { actionHandler.accept(name, actualProps); } catch (Exception ignored) {
+        // reason: user-registered callback must not crash the animation loop
+        log.warn("JesScene2D: action handler '{}' threw an exception", name, ignored);
+      }
     }
   }
   public void setPlayerName(String name) { this.playerName = name; }
@@ -369,7 +378,10 @@ public class JesScene2D extends Scene2DBase {
       case "call" -> {
         Consumer<Map<String,Object>> h = callHandlers.get(a.target);
         if (h != null) {
-          try { h.accept(a.props == null ? java.util.Collections.emptyMap() : a.props); } catch (Exception ignored) {}
+          try { h.accept(a.props == null ? java.util.Collections.emptyMap() : a.props); } catch (Exception ignored) {
+            // reason: user-registered callback must not crash the animation loop
+            log.warn("JesScene2D: timeline call handler '{}' threw an exception", a.target, ignored);
+          }
         }
         return true;
       }
@@ -585,13 +597,19 @@ public class JesScene2D extends Scene2DBase {
       }
       case "playAudio" -> {
         if (actionHandler != null) {
-          try { actionHandler.accept("playAudio", a.props); } catch (Exception ignored) {}
+          try { actionHandler.accept("playAudio", a.props); } catch (Exception ignored) {
+            // reason: user-registered callback must not crash the animation loop
+            log.warn("JesScene2D: playAudio action handler threw an exception", ignored);
+          }
         }
         return true;
       }
       case "stopAudio" -> {
         if (actionHandler != null) {
-          try { actionHandler.accept("stopAudio", a.props); } catch (Exception ignored) {}
+          try { actionHandler.accept("stopAudio", a.props); } catch (Exception ignored) {
+            // reason: user-registered callback must not crash the animation loop
+            log.warn("JesScene2D: stopAudio action handler threw an exception", ignored);
+          }
         }
         return true;
       }
@@ -638,7 +656,10 @@ public class JesScene2D extends Scene2DBase {
       case "call" -> {
         Consumer<Map<String,Object>> h = callHandlers.get(a.target);
         if (h != null) {
-          try { h.accept(a.props == null ? java.util.Collections.emptyMap() : a.props); } catch (Exception ignored) {}
+          try { h.accept(a.props == null ? java.util.Collections.emptyMap() : a.props); } catch (Exception ignored) {
+            // reason: user-registered callback must not crash the animation loop
+            log.warn("JesScene2D: sequential timeline call handler '{}' threw an exception", a.target, ignored);
+          }
         }
         tlIndex++;
         tlElapsedMs = 0;
@@ -903,13 +924,19 @@ public class JesScene2D extends Scene2DBase {
       }
       case "playAudio" -> {
         if (actionHandler != null) {
-          try { actionHandler.accept("playAudio", a.props); } catch (Exception ignored) {}
+          try { actionHandler.accept("playAudio", a.props); } catch (Exception ignored) {
+            // reason: user-registered callback must not crash the animation loop
+            log.warn("JesScene2D: playAudio sequential handler threw an exception", ignored);
+          }
         }
         tlIndex++; tlElapsedMs = 0;
       }
       case "stopAudio" -> {
         if (actionHandler != null) {
-          try { actionHandler.accept("stopAudio", a.props); } catch (Exception ignored) {}
+          try { actionHandler.accept("stopAudio", a.props); } catch (Exception ignored) {
+            // reason: user-registered callback must not crash the animation loop
+            log.warn("JesScene2D: stopAudio sequential handler threw an exception", ignored);
+          }
         }
         tlIndex++; tlElapsedMs = 0;
       }
@@ -1110,7 +1137,10 @@ public class JesScene2D extends Scene2DBase {
       default -> false;
     };
     if (!handled && actionHandler != null) {
-      try { actionHandler.accept(b.action, b.props); } catch (Exception ignored) {}
+      try { actionHandler.accept(b.action, b.props); } catch (Exception ignored) {
+        // reason: user-registered callback must not crash the animation loop
+        log.warn("JesScene2D: input binding action handler '{}' threw an exception", b.action, ignored);
+      }
     }
   }
 

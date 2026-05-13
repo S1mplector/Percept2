@@ -355,17 +355,23 @@ public class AnchorEditor extends VBox {
         try {
             File f = new File(path);
             if (f.isAbsolute() && f.exists()) return new Image(f.toURI().toString(), false);
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
         try {
             if (projectRoot != null) {
                 File rel = new File(projectRoot, path);
                 if (rel.exists()) return new Image(rel.toURI().toString(), false);
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
         try {
             java.net.URL url = getClass().getClassLoader().getResource(path);
             if (url != null) return new Image(url.toExternalForm(), false);
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
         return null;
     }
 

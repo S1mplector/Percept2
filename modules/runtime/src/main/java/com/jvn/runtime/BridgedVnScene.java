@@ -20,7 +20,9 @@ public class BridgedVnScene extends VnScene {
   @Override
   public void onEnter() {
     if (onEnter != null) {
-      try { onEnter.run(); } catch (Exception ignored) {}
+      try { onEnter.run(); } catch (Exception ignored) {
+        // reason: lifecycle callback must not interrupt scene transitions
+      }
     }
     super.onEnter();
   }
@@ -28,7 +30,9 @@ public class BridgedVnScene extends VnScene {
   @Override
   public void onExit() {
     if (onExit != null) {
-      try { onExit.run(); } catch (Exception ignored) {}
+      try { onExit.run(); } catch (Exception ignored) {
+        // reason: lifecycle callback must not interrupt scene transitions
+      }
     }
     super.onExit();
   }

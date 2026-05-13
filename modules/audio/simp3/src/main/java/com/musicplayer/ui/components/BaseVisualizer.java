@@ -6,10 +6,15 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.paint.Color;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Base class for audio visualizers containing shared functionality.
  */
 public abstract class BaseVisualizer extends Canvas {
+
+    private static final Logger log = LoggerFactory.getLogger(BaseVisualizer.class);
     
     protected final int numBands;
     protected final float[] displayMagnitudes;
@@ -104,7 +109,7 @@ public abstract class BaseVisualizer extends Canvas {
             draw();
         } catch (Exception e) {
             // Log error but don't crash - prevent visualizer freezing
-            System.err.println("Error updating visualizer: " + e.getMessage());
+            log.warn("Error updating visualizer: {}", e.getMessage());
         }
     }
     
@@ -154,7 +159,7 @@ public abstract class BaseVisualizer extends Canvas {
                     }
                 } catch (Exception e) {
                     // Log but don't crash - prevent UI freezing
-                    System.err.println("Error in visualizer animation: " + e.getMessage());
+                    log.warn("Error in visualizer animation: {}", e.getMessage());
                 }
             }
         };

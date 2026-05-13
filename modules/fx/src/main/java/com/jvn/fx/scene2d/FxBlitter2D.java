@@ -8,8 +8,8 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.jvn.core.scene2d.Blitter2D;
 
@@ -32,7 +32,7 @@ import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
 
 public class FxBlitter2D implements Blitter2D {
-  private static final Logger log = Logger.getLogger(FxBlitter2D.class.getName());
+  private static final Logger log = LoggerFactory.getLogger(FxBlitter2D.class);
 
   private static final double[] IDENTITY_COLOR_MATRIX = new double[] {
       1.0, 0.0, 0.0, 0.0, 0.0,
@@ -332,7 +332,7 @@ public class FxBlitter2D implements Blitter2D {
         if (pf.exists()) return pf.toURI().toString();
       }
     } catch (Exception e) {
-      log.log(Level.WARNING, "Failed to resolve asset path: " + path, e);
+      log.warn("Failed to resolve asset path: {}", path, e);
     }
     return null;
   }
@@ -457,7 +457,7 @@ public class FxBlitter2D implements Blitter2D {
   private void reportMissing(String path) {
     if (path == null || path.isBlank()) return;
     if (missing.add(path)) {
-      System.err.println("FX: missing image asset '" + path + "'");
+      log.warn("FX: missing image asset '{}'", path);
     }
   }
 }

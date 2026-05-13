@@ -279,6 +279,7 @@ public final class PackagedHubLauncher {
         if (version != null && !version.isBlank()) return version.trim();
       }
     } catch (IOException ignored) {
+            // reason: I/O failure on best-effort save/load; in-memory state remains valid
       // Fall through to the manifest/default path.
     }
     String implementationVersion = PackagedHubLauncher.class.getPackage().getImplementationVersion();

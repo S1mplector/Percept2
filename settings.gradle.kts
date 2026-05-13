@@ -3,6 +3,9 @@ pluginManagement {
     gradlePluginPortal()
     mavenCentral()
   }
+  plugins {
+    id("net.ltgt.errorprone") version "4.0.1"
+  }
 }
 
 plugins {

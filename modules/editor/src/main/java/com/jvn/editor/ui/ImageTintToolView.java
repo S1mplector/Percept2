@@ -1682,7 +1682,9 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
             TintZone z = loadZoneFromPrefix(persisted, prefix + "zone." + i + ".", i);
             tintZones.add(z);
             loaded++;
-          } catch (Exception ignored) { /* F: skip malformed */ }
+          } catch (Exception ignored) {
+            // reason: malformed zone entry in persisted state; skip and continue loading remaining zones
+          }
         }
         refreshZoneList();
         if (!tintZones.isEmpty()) selectZone(0);
@@ -3128,6 +3130,7 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
       imageCache.put(normalized, image);
       return image;
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return null;
     }
   }
@@ -3333,6 +3336,7 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
     try (InputStream in = Files.newInputStream(file)) {
       persisted.load(in);
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
   }
 
@@ -3358,6 +3362,7 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
         persisted.store(out, "JVN Scene Lighting Studio State");
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
   }
 
@@ -3755,6 +3760,7 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
         }
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
     return file.getAbsolutePath();
   }
@@ -4127,6 +4133,7 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
         parsePresetDeclarations(root.resolve(relative), layersByCharacter, declarations);
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return out;
     }
 
@@ -4148,6 +4155,7 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
     try {
       lines = Files.readAllLines(scriptFile, StandardCharsets.UTF_8);
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return;
     }
     for (String rawLine : lines) {
@@ -4255,6 +4263,7 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
       try {
         slider.setValue(Double.parseDouble(valueField.getText().trim()));
       } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       }
     });
     HBox row = new HBox(8, l, slider, valueField);
@@ -4372,6 +4381,7 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
     try {
       return Color.web(value);
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return fallback == null ? Color.WHITE : fallback;
     }
   }
@@ -4418,6 +4428,7 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
       double parsed = Double.parseDouble(n);
       return Double.isFinite(parsed) ? parsed : fallback;
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return fallback;
     }
   }
@@ -6913,7 +6924,9 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
     for (int i = 0; i < count; i++) {
       try {
         sceneLights.add(loadLightFromPrefix(persisted, prefix + i + ".", i));
-      } catch (Exception ignored) {}
+      } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
     }
     refreshLightList();
     if (!sceneLights.isEmpty()) selectLight(0);
@@ -7084,7 +7097,8 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
         if (xy.length == 2) {
           try {
             pts.add(new double[]{Double.parseDouble(xy[0].trim()), Double.parseDouble(xy[1].trim())});
-          } catch (NumberFormatException ignored) {}
+          } catch (NumberFormatException ignored) { // reason: malformed numeric text input; caller uses fallback value
+        }
         }
       }
       if (pts.size() >= 3) z.polygon = pts;
@@ -7314,7 +7328,9 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
               SceneLight light = loadLightFromNormalized(props, "light." + i + ".", i);
               sceneLights.add(light);
               loaded++;
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
           }
           refreshLightList();
           if (!sceneLights.isEmpty()) selectLight(0);
@@ -7340,7 +7356,10 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
               TintZone tz = loadZoneFromNormalized(props, "zone." + i + ".", i);
               tintZones.add(tz);
               loaded++;
-            } catch (Exception ignored) { skipped++; }
+            } catch (Exception ignored) {
+              // reason: malformed zone in clip data; increment skip counter and continue
+              skipped++;
+            }
           }
           refreshZoneList();
           if (!tintZones.isEmpty()) selectZone(0);
@@ -7405,7 +7424,8 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
         if (xy.length == 2) {
           try {
             pts.add(new double[]{Double.parseDouble(xy[0].trim()), Double.parseDouble(xy[1].trim())});
-          } catch (NumberFormatException ignored) {}
+          } catch (NumberFormatException ignored) { // reason: malformed numeric text input; caller uses fallback value
+        }
         }
       }
       if (pts.size() >= 3) z.polygon = pts;

@@ -20,6 +20,8 @@ public class VnSettings {
   private int displayWidth = 1920;
   private int displayHeight = 1080;
   private boolean autoFitResolution = false;
+  /** Accessibility theme preset: "none", "highcontrast", or "opendyslexic". */
+  private String accessibilityTheme = "none";
 
   public int getTextSpeed() { return textSpeed; }
   public void setTextSpeed(int speed) { this.textSpeed = Math.max(1, Math.min(speed, 200)); }
@@ -76,6 +78,11 @@ public class VnSettings {
   public boolean isAutoFitResolution() { return autoFitResolution; }
   public void setAutoFitResolution(boolean autoFit) { this.autoFitResolution = autoFit; }
 
+  public String getAccessibilityTheme() { return accessibilityTheme; }
+  public void setAccessibilityTheme(String theme) {
+    this.accessibilityTheme = (theme == null || theme.isBlank()) ? "none" : theme.trim().toLowerCase(java.util.Locale.ROOT);
+  }
+
   public VnSettings copy() {
     VnSettings copy = new VnSettings();
     copy.textSpeed = this.textSpeed;
@@ -94,6 +101,7 @@ public class VnSettings {
     copy.displayWidth = this.displayWidth;
     copy.displayHeight = this.displayHeight;
     copy.autoFitResolution = this.autoFitResolution;
+    copy.accessibilityTheme = this.accessibilityTheme;
     return copy;
   }
 }

@@ -169,20 +169,34 @@ public class SettingsEditorView extends BorderPane {
       File parent = f.getParentFile();
       if (parent != null) parent.mkdirs();
       try (FileOutputStream fos = new FileOutputStream(f)) { p.store(fos, "VN Settings"); }
-    } catch (Exception ignored) {}
+    } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
   }
 
   private void load() {
     File f = settingsFile();
     if (f == null || !f.exists()) return;
     Properties p = new Properties();
-    try (FileInputStream fis = new FileInputStream(f)) { p.load(fis); } catch (Exception ignored) {}
+    try (FileInputStream fis = new FileInputStream(f)) { p.load(fis); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
     SettingsModel s = new SettingsModel();
-    try { s.setTextSpeed(Integer.parseInt(p.getProperty("textSpeed", "40"))); } catch (Exception ignored) {}
-    try { s.setBgmVolume(Float.parseFloat(p.getProperty("bgm", "0.7"))); } catch (Exception ignored) {}
-    try { s.setSfxVolume(Float.parseFloat(p.getProperty("sfx", "0.7"))); } catch (Exception ignored) {}
-    try { s.setVoiceVolume(Float.parseFloat(p.getProperty("voice", "0.7"))); } catch (Exception ignored) {}
-    try { s.setAutoPlayDelay(Long.parseLong(p.getProperty("autoPlayDelay", "1500"))); } catch (Exception ignored) {}
+    try { s.setTextSpeed(Integer.parseInt(p.getProperty("textSpeed", "40"))); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
+    try { s.setBgmVolume(Float.parseFloat(p.getProperty("bgm", "0.7"))); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
+    try { s.setSfxVolume(Float.parseFloat(p.getProperty("sfx", "0.7"))); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
+    try { s.setVoiceVolume(Float.parseFloat(p.getProperty("voice", "0.7"))); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
+    try { s.setAutoPlayDelay(Long.parseLong(p.getProperty("autoPlayDelay", "1500"))); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
     s.setSkipUnreadText(Boolean.parseBoolean(p.getProperty("skipUnread", "false")));
     s.setSkipAfterChoices(Boolean.parseBoolean(p.getProperty("skipAfterChoices", "false")));
     setFromModel(s);
@@ -209,6 +223,7 @@ public class SettingsEditorView extends BorderPane {
       if (rel.isEmpty()) rel = fallback;
       return new File(projectRoot, rel);
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return new File(projectRoot, fallback);
     }
   }

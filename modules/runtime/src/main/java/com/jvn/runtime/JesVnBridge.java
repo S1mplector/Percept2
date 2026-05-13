@@ -59,7 +59,9 @@ public class JesVnBridge {
           if (label != null) ev.put("label", label);
           jes.invokeCall("vnsEnded", ev);
           if (popOnExit) {
-            try { engine.scenes().pop(); } catch (Exception ignored) {}
+            try { engine.scenes().pop(); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
           }
         });
       }
@@ -68,7 +70,9 @@ public class JesVnBridge {
       } else {
         engine.scenes().push(vn);
       }
-    } catch (Exception ignored) {}
+    } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
   }
 
   private VnScene loadVnScene(String script, VnScene current) throws Exception {

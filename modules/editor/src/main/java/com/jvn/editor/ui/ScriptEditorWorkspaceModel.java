@@ -123,6 +123,7 @@ public final class ScriptEditorWorkspaceModel {
           }
         }
       } catch (IOException ignored) {
+            // reason: I/O failure on best-effort save/load; in-memory state remains valid
       }
     }
     return hits;
@@ -207,6 +208,7 @@ public final class ScriptEditorWorkspaceModel {
     try {
       collectTextFiles(launchRoot, contentRoot, contentRoot, files);
     } catch (IOException ignored) {
+            // reason: I/O failure on best-effort save/load; in-memory state remains valid
     }
     files.sort(Comparator.comparing(entry -> entry.relativePath().toLowerCase(Locale.ROOT)));
     return files;

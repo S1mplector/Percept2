@@ -79,7 +79,9 @@ public class PinboardPanel extends VBox {
             iv.setFitHeight(16);
             iv.setPreserveRatio(true);
             manageButton.setGraphic(iv);
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);

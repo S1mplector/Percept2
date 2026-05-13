@@ -209,7 +209,8 @@ public class JesLoader {
             if (fill instanceof double[] arr) lbl.setColor(arr[0], arr[1], arr[2], arr[3]);
             lbl.setFont("SansSerif", size, bold);
             String align = str(c, "align", "LEFT");
-            try { lbl.setAlign(Label2D.Align.valueOf(align.toUpperCase())); } catch (Exception ignored) {}
+            try { lbl.setAlign(Label2D.Align.valueOf(align.toUpperCase())); } catch (Exception ignored) { // reason: unrecognized value from script; silently skipped
+            }
             scene.add(lbl);
             scene.registerEntity(e.name, lbl);
           }
@@ -355,7 +356,8 @@ public class JesLoader {
                 if (star >= 0) {
                   id = token.substring(0, star).trim();
                   String cntStr = token.substring(star + 1).trim();
-                  try { count = Integer.parseInt(cntStr); } catch (NumberFormatException ignored) {}
+                  try { count = Integer.parseInt(cntStr); } catch (NumberFormatException ignored) { // reason: unrecognized value from script; silently skipped
+                  }
                   if (count <= 0) count = 1;
                 }
                 if (id.isEmpty()) continue;
@@ -501,11 +503,14 @@ public class JesLoader {
             try {
               int idx = Integer.parseInt(sVal);
               tm.setTile(x, y, idx);
-            } catch (NumberFormatException ignored) {}
+            } catch (NumberFormatException ignored) { // reason: unrecognized value from script; silently skipped
+            }
           }
           y++;
         }
       }
-    } catch (Exception ignored) {}
+    } catch (Exception ignored) {
+      // reason: closing already-closed resource
+    }
   }
 }

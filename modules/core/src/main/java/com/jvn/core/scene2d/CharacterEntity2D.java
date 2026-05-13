@@ -234,7 +234,8 @@ public class CharacterEntity2D extends Entity2D {
           int single = Integer.parseInt(range);
           out.put(name, new int[]{ single });
         }
-      } catch (NumberFormatException ignored) {}
+      } catch (NumberFormatException ignored) { // reason: malformed numeric text input; caller uses fallback value
+        }
     }
     return out;
   }

@@ -8,11 +8,16 @@ import javafx.scene.layout.StackPane;
 import javafx.util.Duration;
 import com.musicplayer.data.models.Settings;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Container component that manages the visualizer canvas and animation loop.
  * Extends StackPane for easy integration with existing album art container.
  */
 public class AudioVisualizerPane extends StackPane {
+
+    private static final Logger log = LoggerFactory.getLogger(AudioVisualizerPane.class);
     
     private static final int SPECTRUM_BANDS = 64;
     
@@ -65,10 +70,10 @@ public class AudioVisualizerPane extends StackPane {
         
         // Debug canvas size changes
         canvas.widthProperty().addListener((obs, oldVal, newVal) -> {
-            System.out.println("Visualizer canvas width changed: " + oldVal + " -> " + newVal);
+            log.debug("Visualizer canvas width changed: {} -> {}", oldVal, newVal);
         });
         canvas.heightProperty().addListener((obs, oldVal, newVal) -> {
-            System.out.println("Visualizer canvas height changed: " + oldVal + " -> " + newVal);
+            log.debug("Visualizer canvas height changed: {} -> {}", oldVal, newVal);
         });
         
         // Initially hidden
@@ -111,10 +116,9 @@ public class AudioVisualizerPane extends StackPane {
                 if (isActive && canvas != null) {
                     GraphicsContext gc = canvas.getGraphicsContext2D();
                     
-                    // Debug first few frames
-                    if (lastFrameTime < 5_000_000_000L) { // First 5 seconds
-                        System.out.println("Rendering frame - Canvas: " + canvas.getWidth() + "x" + canvas.getHeight() +
-                                         ", Visible: " + isVisible() + ", Opacity: " + getOpacity());
+                    if (log.isTraceEnabled() && lastFrameTime < 5_000_000_000L) {
+                        log.trace("Rendering frame - Canvas: {}x{}, Visible: {}, Opacity: {}",
+                            canvas.getWidth(), canvas.getHeight(), isVisible(), getOpacity());
                     }
                     
                     renderer.render(gc, spectrumData, canvas.getWidth(), canvas.getHeight());
@@ -127,26 +131,24 @@ public class AudioVisualizerPane extends StackPane {
      * Start the visualizer.
      */
     public void start() {
-        System.out.println("AudioVisualizerPane.start() called - isActive: " + isActive);
+        log.debug("AudioVisualizerPane.start() called - isActive: {}", isActive);
         if (!isActive) {
             isActive = true;
             setVisible(true);
             setOpacity(0); // Start from transparent
             startAnimation(); // Start animation immediately
             fadeIn.play(); // Then fade in
-            
+
             // Force layout update to ensure canvas is properly sized
             requestLayout();
             applyCss();
             layout();
-            
-            // Debug info
-            System.out.println("Visualizer started - Canvas size: " + canvas.getWidth() + "x" + canvas.getHeight());
-            System.out.println("Visualizer pane size: " + getWidth() + "x" + getHeight());
-            
-            // If the pane has no size, set a minimum size to ensure canvas gets sized
+
+            log.debug("Visualizer started - Canvas size: {}x{}", canvas.getWidth(), canvas.getHeight());
+            log.debug("Visualizer pane size: {}x{}", getWidth(), getHeight());
+
             if (getWidth() == 0 || getHeight() == 0) {
-                System.out.println("Pane has no size, setting minimum size");
+                log.debug("Pane has no size, setting minimum size");
                 setMinWidth(80);
                 setMinHeight(80);
                 setPrefWidth(80);
@@ -184,9 +186,8 @@ public class AudioVisualizerPane extends StackPane {
             if (isActive) {
                 // Debug spectrum data
                 if (Math.random() < 0.01) { // Log 1% of updates to avoid spam
-                    System.out.println("AudioVisualizerPane spectrum update - Active: " + isActive +
-                                     ", Visible: " + isVisible() + ", Canvas: " + canvas.getWidth() + "x" + canvas.getHeight() +
-                                     ", First magnitude: " + magnitudes[0]);
+                    log.trace("AudioVisualizerPane spectrum update - Active: {}, Visible: {}, Canvas: {}x{}, First magnitude: {}",
+                        isActive, isVisible(), canvas.getWidth(), canvas.getHeight(), magnitudes[0]);
                 }
                 
                 // Convert float array to double array

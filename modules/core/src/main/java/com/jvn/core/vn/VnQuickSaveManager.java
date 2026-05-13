@@ -5,10 +5,14 @@ import com.jvn.core.vn.save.VnSaveManager;
 
 import java.io.IOException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Manages quick save/load functionality (F5/F9 keys)
  */
 public class VnQuickSaveManager {
+  private static final Logger log = LoggerFactory.getLogger(VnQuickSaveManager.class);
   private final VnSaveManager saveManager;
   private static final String QUICK_SAVE_NAME = "_quicksave";
   
@@ -28,7 +32,7 @@ public class VnQuickSaveManager {
       saveManager.save(state, QUICK_SAVE_NAME);
       return true;
     } catch (IOException e) {
-      System.err.println("Quick save failed: " + e.getMessage());
+      log.error("Quick save failed: {}", e.getMessage());
       return false;
     }
   }
@@ -40,7 +44,7 @@ public class VnQuickSaveManager {
     try {
       return saveManager.load(QUICK_SAVE_NAME);
     } catch (IOException | ClassNotFoundException e) {
-      System.err.println("Quick load failed: " + e.getMessage());
+      log.error("Quick load failed: {}", e.getMessage());
       return null;
     }
   }
@@ -60,7 +64,7 @@ public class VnQuickSaveManager {
       saveManager.autosave(state);
       return true;
     } catch (IOException e) {
-      System.err.println("Autosave failed: " + e.getMessage());
+      log.error("Autosave failed: {}", e.getMessage());
       return false;
     }
   }
@@ -72,7 +76,7 @@ public class VnQuickSaveManager {
     try {
       return saveManager.loadLatestAutoSave();
     } catch (IOException | ClassNotFoundException e) {
-      System.err.println("Autosave load failed: " + e.getMessage());
+      log.error("Autosave load failed: {}", e.getMessage());
       return null;
     }
   }
@@ -90,7 +94,7 @@ public class VnQuickSaveManager {
     
     // Verify scenario matches
     if (!saveData.getScenarioId().equals(scenario.getId())) {
-      System.err.println("Quick save is for different scenario");
+      log.warn("Quick save is for different scenario");
       return false;
     }
     
@@ -107,7 +111,7 @@ public class VnQuickSaveManager {
 
     // Verify scenario matches.
     if (scenario == null || saveData.getScenarioId() == null || !saveData.getScenarioId().equals(scenario.getId())) {
-      System.err.println("Autosave is for different scenario");
+      log.warn("Autosave is for different scenario");
       return false;
     }
 

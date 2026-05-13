@@ -40,6 +40,7 @@ public class MenuThemePreviewView extends StackPane {
       t.apply(p);
       this.renderer.setTheme(t);
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       // keep defaults
     }
   }

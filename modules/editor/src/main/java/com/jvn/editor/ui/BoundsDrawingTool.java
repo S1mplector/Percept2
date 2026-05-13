@@ -1375,6 +1375,7 @@ public class BoundsDrawingTool extends BorderPane {
     try {
       return Double.parseDouble(raw.trim());
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return null;
     }
   }

@@ -1,9 +1,18 @@
 package com.jvn.fx.vn;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
+import java.util.ServiceLoader;
+import com.jvn.fx.RenderThreadGuard;
+import com.jvn.core.accessibility.AccessibilityThemeLoader;
+import com.jvn.core.accessibility.TextToSpeechService;
+import com.jvn.core.accessibility.NoopTextToSpeechService;
+import com.jvn.core.assets.BoundedImageCache;
+import com.jvn.core.config.VnConfig;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -60,10 +69,12 @@ import javafx.scene.text.FontWeight;
  * Renders visual novel elements using JavaFX Canvas
  */
 public class VnRenderer {
+  private static final Logger log = LoggerFactory.getLogger(VnRenderer.class);
+
   private final GraphicsContext gc;
-  private final Map<String, Image> imageCache = new HashMap<>();
-  private final Map<String, Image> stageBackgroundCache = new HashMap<>();
-  private final Map<String, Image> stageCharacterCache = new HashMap<>();
+  private BoundedImageCache<Image> imageCache = new BoundedImageCache<>(VnConfig.defaults().getImageCacheMaxEntries());
+  private BoundedImageCache<Image> stageBackgroundCache = new BoundedImageCache<>(VnConfig.defaults().getImageCacheMaxEntries());
+  private BoundedImageCache<Image> stageCharacterCache = new BoundedImageCache<>(VnConfig.defaults().getImageCacheMaxEntries());
   private final FxTextMetrics textMetrics = new FxTextMetrics();
   private Font nameFont;
   private Font dialogueFont;
@@ -79,12 +90,17 @@ public class VnRenderer {
   private AudioFacade audioFacade;
   private VnUiLayoutSpec uiLayout;
   private VnUiStyleSpec uiStyle = VnUiStyleSpec.defaults();
+  private AccessibilityThemeLoader accessibilityTheme = AccessibilityThemeLoader.load("none");
   private List<VnUiActionButtonSpec> textBoxButtons = List.of();
   private VnCharacterSceneAccessor timelineAccessor;
   private double styleCharacterHeightFactor = DEFAULT_CHARACTER_HEIGHT_FACTOR;
   private double styleCharacterBaselineY = DEFAULT_CHARACTER_BASELINE_Y;
   private double characterHeightFactor = DEFAULT_CHARACTER_HEIGHT_FACTOR;
   private double characterBaselineY = DEFAULT_CHARACTER_BASELINE_Y;
+
+  private final TextToSpeechService tts = ServiceLoader.load(TextToSpeechService.class)
+      .findFirst().orElseGet(NoopTextToSpeechService::new);
+  private String lastTtsNodeId = null;
 
   public void setTimelineAccessor(VnCharacterSceneAccessor accessor) { this.timelineAccessor = accessor; }
   public void setAudioFacade(AudioFacade facade) { this.audioFacade = facade; }
@@ -182,9 +198,10 @@ public class VnRenderer {
     this.gc = gc;
     this.particleBlitter = new FxBlitter2D(gc);
     resetParticleState();
-    this.nameFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.BOLD, DEFAULT_NAME_FONT_SIZE);
-    this.dialogueFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.NORMAL, DEFAULT_DIALOGUE_FONT_SIZE);
-    this.choiceFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.NORMAL, DEFAULT_CHOICE_FONT_SIZE);
+    double fscale = VnConfig.defaults().getUiFontScale();
+    this.nameFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.BOLD, DEFAULT_NAME_FONT_SIZE * fscale);
+    this.dialogueFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.NORMAL, DEFAULT_DIALOGUE_FONT_SIZE * fscale);
+    this.choiceFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.NORMAL, DEFAULT_CHOICE_FONT_SIZE * fscale);
     Arrays.fill(visualizerWidthMultipliers, 1.0);
     reloadUiLayout();
   }
@@ -228,6 +245,11 @@ public class VnRenderer {
     applyUiStyle(this.uiStyle);
   }
 
+  public void setAccessibilityTheme(String themeName) {
+    this.accessibilityTheme = AccessibilityThemeLoader.load(themeName);
+    applyUiStyle(this.uiStyle);
+  }
+
   public List<VnUiActionButtonSpec> getTextBoxButtons() {
     return textBoxButtons;
   }
@@ -250,6 +272,7 @@ public class VnRenderer {
    * Render the complete VN scene
    */
   public void render(VnState state, VnScenario scenario, double width, double height) {
+    RenderThreadGuard.requireFxThread("VnRenderer.render");
     this.currentState = state;
     applyRuntimeCharacterFramingOverrides(state);
     VnStagePreset activeStage = resolveActiveStagePreset(state, scenario);
@@ -332,6 +355,13 @@ public class VnRenderer {
     // Render current node content (unless UI is hidden)
     VnNode currentNode = state.getCurrentNode();
     if (currentNode != null && !state.isUiHidden()) {
+      if (currentNode.getType() == VnNodeType.DIALOGUE && currentNode.getDialogue() != null) {
+        String nodeKey = String.valueOf(currentNode.getSourceLine());
+        if (!nodeKey.equals(lastTtsNodeId) && VnConfig.defaults().isTtsEnabled()) {
+          lastTtsNodeId = nodeKey;
+          tts.speak(currentNode.getDialogue().getText(), java.util.Locale.getDefault());
+        }
+      }
       switch (currentNode.getType()) {
         case DIALOGUE:
           renderDialogue(currentNode.getDialogue(), state, width, height, -1);
@@ -1213,11 +1243,12 @@ public class VnRenderer {
     Color activeNameBoxFillColor = defaultDialogueStyle ? NAME_BOX_COLOR : nameBoxFillColor;
     Color activeNameTextFillColor = defaultDialogueStyle ? Color.web("#FFD78A") : nameTextFillColor;
     Color activeDialogueTextFillColor = defaultDialogueStyle ? TEXT_COLOR : dialogueTextFillColor;
+    double fscale = VnConfig.defaults().getUiFontScale();
     Font activeNameFont = defaultDialogueStyle
-        ? Font.font(DEFAULT_FONT_FAMILY, FontWeight.BOLD, DEFAULT_NAME_FONT_SIZE)
+        ? Font.font(DEFAULT_FONT_FAMILY, FontWeight.BOLD, DEFAULT_NAME_FONT_SIZE * fscale)
         : nameFont;
     Font activeDialogueFont = defaultDialogueStyle
-        ? Font.font(DEFAULT_FONT_FAMILY, FontWeight.NORMAL, DEFAULT_DIALOGUE_FONT_SIZE)
+        ? Font.font(DEFAULT_FONT_FAMILY, FontWeight.NORMAL, DEFAULT_DIALOGUE_FONT_SIZE * fscale)
         : dialogueFont;
     double activeNameBoxOpacity = defaultDialogueStyle ? 1.0 : nameBoxRenderOpacity;
 
@@ -1707,7 +1738,9 @@ public class VnRenderer {
         int b = Integer.parseInt(h.substring(4, 6), 16);
         return Color.rgb(r, g, b);
       }
-    } catch (Exception ignored) {}
+    } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
     return TEXT_COLOR;
   }
 
@@ -1817,6 +1850,59 @@ public class VnRenderer {
     );
     this.characterHeightFactor = styleCharacterHeightFactor;
     this.characterBaselineY = styleCharacterBaselineY;
+
+    // Apply accessibility theme overrides on top of the resolved style.
+    if (accessibilityTheme != null && accessibilityTheme.isActive()) {
+      applyAccessibilityThemeOverrides(accessibilityTheme);
+    }
+  }
+
+  private void applyAccessibilityThemeOverrides(AccessibilityThemeLoader theme) {
+    // Colours
+    dialogueTextFillColor  = parseColor(theme.dialogueTextColor(null),  dialogueTextFillColor);
+    textBoxFillColor       = parseColor(theme.dialogueTextboxColor(null), textBoxFillColor);
+    textBoxAssetOverlayOpacity = theme.dialogueTextboxOpacity(textBoxAssetOverlayOpacity);
+    nameBoxFillColor       = parseColor(theme.nameBoxColor(null),        nameBoxFillColor);
+    nameBoxRenderOpacity   = theme.nameBoxOpacity(nameBoxRenderOpacity);
+    nameTextFillColor      = parseColor(theme.nameTextColor(null),       nameTextFillColor);
+    choiceBgColor          = parseColor(theme.choiceBackgroundColor(null), choiceBgColor);
+    choiceTextColor        = parseColor(theme.choiceTextColor(null),     choiceTextColor);
+    choiceHoverColor       = parseColor(theme.choiceHoverColor(null),    choiceHoverColor);
+    choiceHoverTextColor   = parseColor(theme.choiceHoverTextColor(null), choiceHoverTextColor);
+    choiceBorderColor      = parseColor(theme.choiceBorderColor(null),   choiceBorderColor);
+    choiceHoverBorderColor = parseColor(theme.choiceHoverBorderColor(null), choiceHoverBorderColor);
+    choiceBorderWidth      = theme.choiceBorderWidth(choiceBorderWidth);
+    choiceCornerRadius     = theme.choiceCornerRadius(choiceCornerRadius);
+    nvlPanelFillColor      = parseColor(theme.nvlPanelColor(null),       nvlPanelFillColor);
+    nvlPanelOpacity        = theme.nvlPanelOpacity(nvlPanelOpacity);
+    nvlTextFillColor       = parseColor(theme.nvlTextColor(null),        nvlTextFillColor);
+    nvlSpeakerTextFillColor = parseColor(theme.nvlSpeakerTextColor(null), nvlSpeakerTextFillColor);
+    bubbleFillColor        = parseColor(theme.bubbleColor(null),         bubbleFillColor);
+    bubbleOpacity          = theme.bubbleOpacity(bubbleOpacity);
+    bubbleTextFillColor    = parseColor(theme.bubbleTextColor(null),     bubbleTextFillColor);
+    bubbleSpeakerTextFillColor = parseColor(theme.bubbleSpeakerTextColor(null), bubbleSpeakerTextFillColor);
+    bubbleBorderFillColor  = parseColor(theme.bubbleBorderColor(null),   bubbleBorderFillColor);
+    bubbleBorderWidth      = theme.bubbleBorderWidth(bubbleBorderWidth);
+
+    // Fonts — override family/weight if theme specifies them
+    String themeNameFamily = theme.nameTextFontFamily(null);
+    if (themeNameFamily != null) {
+      FontWeight w = parseFontWeight(theme.nameTextFontWeight(null), FontWeight.BOLD);
+      int sz = nameFont != null ? (int) nameFont.getSize() : DEFAULT_NAME_FONT_SIZE;
+      this.nameFont = ProjectFontResolver.resolve(projectRoot, themeNameFamily, w, sz, DEFAULT_FONT_FAMILY);
+    }
+    String themeDialogueFamily = theme.dialogueTextFontFamily(null);
+    if (themeDialogueFamily != null) {
+      FontWeight w = parseFontWeight(theme.dialogueTextFontWeight(null), FontWeight.NORMAL);
+      int sz = dialogueFont != null ? (int) dialogueFont.getSize() : DEFAULT_DIALOGUE_FONT_SIZE;
+      this.dialogueFont = ProjectFontResolver.resolve(projectRoot, themeDialogueFamily, w, sz, DEFAULT_FONT_FAMILY);
+    }
+    String themeChoiceFamily = theme.choiceFontFamily(null);
+    if (themeChoiceFamily != null) {
+      FontWeight w = parseFontWeight(theme.choiceFontWeight(null), FontWeight.NORMAL);
+      int sz = choiceFont != null ? (int) choiceFont.getSize() : DEFAULT_CHOICE_FONT_SIZE;
+      this.choiceFont = ProjectFontResolver.resolve(projectRoot, themeChoiceFamily, w, sz, DEFAULT_FONT_FAMILY);
+    }
   }
 
   private void applyRuntimeCharacterFramingOverrides(VnState state) {
@@ -1848,6 +1934,7 @@ public class VnRenderer {
       try {
         return Double.parseDouble(s.trim());
       } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
         return null;
       }
     }
@@ -1952,6 +2039,7 @@ public class VnRenderer {
     try {
       return Color.web(raw.trim());
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return fallback;
     }
   }
@@ -1961,6 +2049,7 @@ public class VnRenderer {
     try {
       return FontWeight.valueOf(raw.trim().toUpperCase());
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return def;
     }
   }
@@ -2132,7 +2221,8 @@ public class VnRenderer {
     if (t.equalsIgnoreCase("true")) return Boolean.TRUE;
     if (t.equalsIgnoreCase("false")) return Boolean.FALSE;
     try { if (t.contains(".")) return Double.parseDouble(t); else return Integer.parseInt(t); }
-    catch (Exception ignored) {}
+    catch (Exception ignored) { // reason: not a number; caller treats it as a string
+    }
     return t;
   }
 
@@ -2772,19 +2862,19 @@ public class VnRenderer {
         // Prefer configured asset manager (runtime/editor project overlay support).
         var assetUrl = new AssetCatalog().url(AssetType.IMAGE, p);
         if (assetUrl != null) {
-          return new Image(assetUrl.toExternalForm());
+          return new Image(assetUrl.toExternalForm(), 0, 0, false, false, true);
         }
 
         // Try to load from classpath
         var url = getClass().getClassLoader().getResource(p);
         if (url != null) {
-          return new Image(url.toExternalForm());
+          return new Image(url.toExternalForm(), 0, 0, false, false, true);
         }
         // Fallback: filesystem (absolute or relative to project root)
         // 1) Absolute or working-directory-relative
         File f = new File(p);
         if (f.exists()) {
-          return new Image(f.toURI().toString());
+          return new Image(f.toURI().toString(), 0, 0, false, false, true);
         }
         // 2) Relative to project root (if provided)
         if (projectRoot != null) {
@@ -2796,11 +2886,11 @@ public class VnRenderer {
           }
           File pf = new File(projectRoot, normalized);
           if (pf.exists()) {
-            return new Image(pf.toURI().toString());
+            return new Image(pf.toURI().toString(), 0, 0, false, false, true);
           }
         }
       } catch (Exception e) {
-        System.err.println("Failed to load image: " + path);
+        log.warn("Failed to load image: {}", path);
       }
       return null;
     });
@@ -2832,6 +2922,17 @@ public class VnRenderer {
 
   public void clearCache() {
     imageCache.clear();
+    textMetrics.clear();
+  }
+
+  private boolean disposed = false;
+
+  public void dispose() {
+    if (disposed) return;
+    disposed = true;
+    imageCache.clear();
+    stageBackgroundCache.clear();
+    stageCharacterCache.clear();
     textMetrics.clear();
   }
 

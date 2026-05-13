@@ -291,6 +291,7 @@ public class VnErrorOverlay {
       Object value = cause.getClass().getMethod(methodName).invoke(cause);
       if (value instanceof Number n) return n.intValue();
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
     return fallback;
   }

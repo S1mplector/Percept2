@@ -140,6 +140,7 @@ public final class VnStagePresetLoader {
     try {
       return raw == null ? fallback : Integer.parseInt(raw.trim());
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return fallback;
     }
   }
@@ -177,6 +178,7 @@ public final class VnStagePresetLoader {
     try {
       return raw == null ? fallback : Double.parseDouble(raw.trim());
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return fallback;
     }
   }

@@ -231,10 +231,14 @@ public final class PuppeteerPreviewRecorder {
             active = false;
             try {
                 if (gifWriter != null) gifWriter.close();
-            } catch (IOException ignored) {}
+            } catch (IOException ignored) {
+            // reason: I/O failure on best-effort save/load; in-memory state remains valid
+        }
             try {
                 if (gifStream != null) gifStream.close();
-            } catch (IOException ignored) {}
+            } catch (IOException ignored) {
+            // reason: I/O failure on best-effort save/load; in-memory state remains valid
+        }
             if (success && gifFile != null && gifFile.isFile()) outputs.add(gifFile);
             Result result = success ? Result.ok(outputs) : Result.fail(error);
             Platform.runLater(() -> hooks.onFinished(result));

@@ -17,13 +17,18 @@ import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.ArrayList;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * JSON-based storage implementation for persisting music library data.
  * This class handles saving and loading songs, albums, artists, and playlists
  * to/from JSON files in the user's data directory.
  */
 public class JsonLibraryStorage implements LibraryStorage {
-    
+
+    private static final Logger log = LoggerFactory.getLogger(JsonLibraryStorage.class);
+
     private static final String APP_DATA_DIR = "SiMP3";
     private static final String SONGS_FILE = "songs.json";
     private static final String ALBUMS_FILE = "albums.json";
@@ -67,7 +72,7 @@ public class JsonLibraryStorage implements LibraryStorage {
         try {
             Files.createDirectories(dataDirectory);
         } catch (IOException e) {
-            System.err.println("Failed to create data directory: " + e.getMessage());
+            log.error("Failed to create data directory", e);
             throw new RuntimeException("Cannot create application data directory", e);
         }
     }
@@ -88,7 +93,7 @@ public class JsonLibraryStorage implements LibraryStorage {
         try {
             return objectMapper.readValue(songsFile, new TypeReference<List<Song>>() {});
         } catch (IOException e) {
-            System.err.println("Failed to load songs from storage: " + e.getMessage());
+            log.error("Failed to load songs from storage", e);
             // Return empty list if file is corrupted
             return new ArrayList<>();
         }
@@ -110,7 +115,7 @@ public class JsonLibraryStorage implements LibraryStorage {
         try {
             return objectMapper.readValue(albumsFile, new TypeReference<List<Album>>() {});
         } catch (IOException e) {
-            System.err.println("Failed to load albums from storage: " + e.getMessage());
+            log.error("Failed to load albums from storage", e);
             return new ArrayList<>();
         }
     }
@@ -131,7 +136,7 @@ public class JsonLibraryStorage implements LibraryStorage {
         try {
             return objectMapper.readValue(artistsFile, new TypeReference<List<Artist>>() {});
         } catch (IOException e) {
-            System.err.println("Failed to load artists from storage: " + e.getMessage());
+            log.error("Failed to load artists from storage", e);
             return new ArrayList<>();
         }
     }
@@ -152,7 +157,7 @@ public class JsonLibraryStorage implements LibraryStorage {
         try {
             return objectMapper.readValue(playlistsFile, new TypeReference<List<Playlist>>() {});
         } catch (IOException e) {
-            System.err.println("Failed to load playlists from storage: " + e.getMessage());
+            log.error("Failed to load playlists from storage", e);
             return new ArrayList<>();
         }
     }

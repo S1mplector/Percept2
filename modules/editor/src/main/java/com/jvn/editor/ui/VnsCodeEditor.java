@@ -14,10 +14,15 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
-import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import com.jvn.core.assets.AsyncAssetLoader;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.fxmisc.flowless.VirtualizedScrollPane;
 import org.fxmisc.richtext.CodeArea;
@@ -25,6 +30,7 @@ import org.fxmisc.richtext.event.MouseOverTextEvent;
 import org.fxmisc.richtext.model.StyleSpans;
 import org.fxmisc.richtext.model.StyleSpansBuilder;
 
+import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -48,9 +54,10 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.stage.Popup;
 import javafx.stage.Stage;
+import javafx.util.Duration;
 
 public class VnsCodeEditor extends BorderPane {
-  private static final Logger log = Logger.getLogger(VnsCodeEditor.class.getName());
+  private static final Logger log = LoggerFactory.getLogger(VnsCodeEditor.class);
   private final CodeArea codeArea = new CodeArea();
   private final Label lintLabel = new Label("No issues");
   private CodeAutoCompleter completer;
@@ -88,6 +95,11 @@ public class VnsCodeEditor extends BorderPane {
   private boolean splitActive = false;
   private CodeArea splitCodeArea;
   private SplitPane splitPane;
+
+  // Debounce for parse/analysis — avoids parsing on every keystroke
+  private final PauseTransition analysisDebounce = new PauseTransition(Duration.millis(300));
+  private String pendingAnalysisText = "";
+  private final AtomicLong parseGeneration = new AtomicLong(0);
 
   private static final String COMMENT_PATTERN = "(?m)#.*$";
   private static final String STRING_PATTERN = "\"([^\\\\\"]|\\\\.)*\"";
@@ -820,9 +832,26 @@ public class VnsCodeEditor extends BorderPane {
   }
 
   private void applyAnalysis(String text) {
-    issues = computeIssues(text == null ? "" : text);
-    codeArea.setStyleSpans(0, computeHighlightingWithIssues(text == null ? "" : text, issues));
-    refreshIssuePresentation();
+    String safe = text == null ? "" : text;
+    // Syntax highlighting is cheap — apply immediately
+    codeArea.setStyleSpans(0, computeHighlightingWithIssues(safe, issues));
+    // Debounce the expensive parse so rapid keystrokes don't pile up
+    pendingAnalysisText = safe;
+    analysisDebounce.setOnFinished(e -> {
+      String snapshot = pendingAnalysisText;
+      long generation = parseGeneration.incrementAndGet();
+      AsyncAssetLoader.getExecutor().execute(() -> {
+        List<Issue> computed = computeIssues(snapshot);
+        if (parseGeneration.get() == generation) {
+          Platform.runLater(() -> {
+            issues = computed;
+            codeArea.setStyleSpans(0, computeHighlightingWithIssues(snapshot, issues));
+            refreshIssuePresentation();
+          });
+        }
+      });
+    });
+    analysisDebounce.playFromStart();
   }
 
   private StyleSpans<Collection<String>> computeHighlightingWithIssues(String text, List<Issue> currentIssues) {
@@ -1150,7 +1179,7 @@ public class VnsCodeEditor extends BorderPane {
         });
       }
     } catch (Exception e) {
-      log.warning("Failed to collect image assets: " + e.getMessage());
+      log.warn("Failed to collect image assets: {}", e.getMessage());
     }
   }
 
@@ -1479,7 +1508,7 @@ public class VnsCodeEditor extends BorderPane {
     try {
       return Integer.parseInt(m.group(1));
     } catch (Exception e) {
-      log.warning("Failed to parse line from message: " + message + " - " + e.getMessage());
+      log.warn("Failed to parse line from message: {} - {}", message, e.getMessage());
       return -1;
     }
   }
@@ -1824,7 +1853,9 @@ public class VnsCodeEditor extends BorderPane {
     for (Span s : compress(spans)) {
       out.add(s.styles, Math.max(0, s.end - s.start));
     }
-    try { codeArea.setStyleSpans(0, out.create()); } catch (Exception ignored) {}
+    try { codeArea.setStyleSpans(0, out.create()); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -2071,7 +2102,8 @@ public class VnsCodeEditor extends BorderPane {
       try {
         int line = Integer.parseInt(val.trim());
         goToLine(line);
-      } catch (NumberFormatException ignored) {}
+      } catch (NumberFormatException ignored) { // reason: malformed numeric text input; caller uses fallback value
+        }
     });
   }
 

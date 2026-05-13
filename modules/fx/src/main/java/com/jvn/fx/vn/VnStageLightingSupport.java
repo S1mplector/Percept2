@@ -294,6 +294,7 @@ final class VnStageLightingSupport {
       if (raw == null || raw.isBlank()) return fallback;
       return Color.web(raw.trim());
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return fallback;
     }
   }

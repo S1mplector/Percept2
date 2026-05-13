@@ -13,11 +13,16 @@ import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
 import javafx.stage.Window;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Controller for managing audio conversion functionality.
  * Handles conversion of audio files to JavaFX-compatible formats for full feature support.
  */
 public class AudioConversionController {
+
+    private static final Logger log = LoggerFactory.getLogger(AudioConversionController.class);
     
     private final AudioConversionService conversionService;
     private final MusicLibraryManager musicLibraryManager;
@@ -156,7 +161,7 @@ public class AudioConversionController {
                 @Override
                 public void onError(String fileName, Exception error) {
                     // Log error but don't interrupt user experience
-                    System.err.println("Auto-conversion failed for " + fileName + ": " + error.getMessage());
+                    log.warn("Auto-conversion failed for {}: {}", fileName, error.getMessage());
                 }
             });
         }

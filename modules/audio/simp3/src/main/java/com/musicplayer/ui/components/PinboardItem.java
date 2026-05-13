@@ -98,7 +98,9 @@ public class PinboardItem extends HBox {
             if (is != null) {
                 iconView.setImage(new Image(is));
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
     }
     
     public String getItemId() {

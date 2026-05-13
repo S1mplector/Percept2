@@ -16,14 +16,14 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
-final class ActionEditorDialogOverlay extends StackPane {
+public final class ActionEditorDialogOverlay extends StackPane {
     enum ButtonStyle {
         NEUTRAL,
         ACCENT,
         DANGER
     }
 
-    static final class ActionSpec {
+    public static final class ActionSpec {
         private final String label;
         private final ButtonStyle style;
         private final boolean closeOnAction;
@@ -44,7 +44,7 @@ final class ActionEditorDialogOverlay extends StackPane {
             this.action = action != null ? action : () -> {};
         }
 
-        static ActionSpec neutral(String label, Runnable action) {
+        public static ActionSpec neutral(String label, Runnable action) {
             return new ActionSpec(label, ButtonStyle.NEUTRAL, true, false, action);
         }
 
@@ -52,7 +52,7 @@ final class ActionEditorDialogOverlay extends StackPane {
             return new ActionSpec(label, ButtonStyle.ACCENT, true, true, action);
         }
 
-        static ActionSpec danger(String label, Runnable action) {
+        public static ActionSpec danger(String label, Runnable action) {
             return new ActionSpec(label, ButtonStyle.DANGER, true, false, action);
         }
 
@@ -64,7 +64,7 @@ final class ActionEditorDialogOverlay extends StackPane {
             return new ActionSpec(label, style, value, defaultFocus, action);
         }
 
-        ActionSpec defaultFocus(boolean value) {
+        public ActionSpec defaultFocus(boolean value) {
             return new ActionSpec(label, style, closeOnAction, value, action);
         }
     }
@@ -139,7 +139,7 @@ final class ActionEditorDialogOverlay extends StackPane {
         });
     }
 
-    void showDialog(String title, String message, Node content, ActionSpec... actions) {
+    public void showDialog(String title, String message, Node content, ActionSpec... actions) {
         titleLabel.setText(title == null || title.isBlank() ? "Dialog" : title.trim());
         String normalizedMessage = message == null ? "" : message.trim();
         messageLabel.setText(normalizedMessage);
@@ -192,7 +192,7 @@ final class ActionEditorDialogOverlay extends StackPane {
         });
     }
 
-    void hideOverlay() {
+    public void hideOverlay() {
         setVisible(false);
         setManaged(false);
         bodyBox.getChildren().clear();

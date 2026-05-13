@@ -588,6 +588,7 @@ public final class VnPhonePropertiesCodec {
     try {
       return Integer.parseInt(token.trim());
     } catch (NumberFormatException ignored) {
+// reason: malformed numeric text input; caller uses fallback value
       return fallback;
     }
   }
@@ -737,6 +738,7 @@ public final class VnPhonePropertiesCodec {
       try {
         if (assets.exists(type, path)) return true;
       } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       }
     }
     return false;

@@ -90,7 +90,9 @@ public class MenuTheme {
         p.load(new InputStreamReader(in, StandardCharsets.UTF_8));
         t.apply(p);
         break;
-      } catch (Exception ignored) {}
+      } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
     }
     return t;
   }
@@ -248,7 +250,9 @@ public class MenuTheme {
           return Color.color(r, g, b, a);
         }
       }
-    } catch (Exception ignored) { }
+    } catch (Exception ignored) {
+      // reason: malformed color string in theme properties; return default color
+    }
     return def;
   }
 

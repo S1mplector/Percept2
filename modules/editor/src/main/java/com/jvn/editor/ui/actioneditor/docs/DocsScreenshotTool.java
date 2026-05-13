@@ -952,7 +952,9 @@ public final class DocsScreenshotTool extends Application {
         } catch (Exception ex) {
             ex.printStackTrace(System.err);
             if (window != null) {
-                try { window.close(); } catch (Exception ignored) {}
+                try { window.close(); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
             }
             runNextProfile();
         }
@@ -1033,7 +1035,9 @@ public final class DocsScreenshotTool extends Application {
         } catch (Exception ex) {
             ex.printStackTrace(System.err);
         } finally {
-            try { stage.close(); } catch (Exception ignored) {}
+            try { stage.close(); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
             runNextProfile();
         }
     }

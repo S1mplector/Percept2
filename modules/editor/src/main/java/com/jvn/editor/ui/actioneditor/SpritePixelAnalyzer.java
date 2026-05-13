@@ -167,6 +167,7 @@ public class SpritePixelAnalyzer {
             java.net.URL url = getClass().getClassLoader().getResource(path);
             if (url != null) return new Image(url.toExternalForm());
         } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
         }
         return null;
     }

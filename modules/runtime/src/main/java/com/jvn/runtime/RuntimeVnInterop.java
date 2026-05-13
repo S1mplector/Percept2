@@ -1,11 +1,15 @@
 package com.jvn.runtime;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.jvn.core.animation.SceneAccessor;
 import com.jvn.core.assets.AssetCatalog;
@@ -33,6 +37,7 @@ import com.jvn.core.vn.VnErrorOverlay;
 import com.jvn.core.vn.VnExternalCommand;
 import com.jvn.core.vn.VnInterop;
 import com.jvn.core.vn.VnInteropResult;
+import com.jvn.core.vn.VnNode;
 import com.jvn.core.vn.VnScenario;
 import com.jvn.core.vn.VnScenarioLoader;
 import com.jvn.core.vn.VnScene;
@@ -42,6 +47,7 @@ import com.jvn.scripting.jes.JesLoader;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 
 public class RuntimeVnInterop implements VnInterop {
+  private static final Logger log = LoggerFactory.getLogger(RuntimeVnInterop.class);
   private static final String DEFAULT_ENTRY_SCRIPT = "story/prologue.vns";
   private final Engine engine;
   private final DefaultVnInterop base = new DefaultVnInterop();
@@ -181,6 +187,46 @@ public class RuntimeVnInterop implements VnInterop {
       configureDefaultSceneAccessor();
     } else {
       base.setSceneAccessor(accessor);
+    }
+  }
+
+  /**
+   * Reload the VN script at {@code path} in-place, seeking to the node whose
+   * source line is closest to the current position.  Safe to call from any thread.
+   */
+  public void reloadScenario(String path) {
+    if (path == null || path.isBlank()) return;
+    try {
+      VnScenario newScenario = scenarioLoader.load(path.trim());
+      VnScene vn = topVnScene();
+      if (vn == null) {
+        log.warn("HotReload: no active VnScene — reload of '{}' ignored", path);
+        return;
+      }
+      int currentLine = -1;
+      VnNode currentNode = vn.getState().getCurrentNode();
+      if (currentNode != null) currentLine = currentNode.getSourceLine();
+
+      vn.getState().setScenario(newScenario);
+
+      // seek to the node whose source line is closest to the pre-reload position
+      if (currentLine >= 0) {
+        List<VnNode> nodes = newScenario.getNodes();
+        int bestIndex = 0;
+        int bestDist = Integer.MAX_VALUE;
+        for (int i = 0; i < nodes.size(); i++) {
+          int dist = Math.abs(nodes.get(i).getSourceLine() - currentLine);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestIndex = i;
+          }
+        }
+        vn.getState().setCurrentNodeIndex(bestIndex);
+      }
+      RuntimeCrashSupport.updateVnStateSnapshot("hot-reloaded:" + path);
+      log.info("HotReload: scenario '{}' reloaded successfully", path);
+    } catch (IOException e) {
+      log.warn("HotReload: failed to reload '{}': {}", path, e.getMessage());
     }
   }
 
@@ -594,7 +640,9 @@ public class RuntimeVnInterop implements VnInterop {
       js.registerCall("return", doReturn);
       js.registerCall("vns", doReturn); // alias
       if (initProps != null && !initProps.isEmpty()) {
-        try { js.invokeCall("init", initProps); } catch (Exception ignored) {}
+        try { js.invokeCall("init", initProps); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
       }
       return js;
     }
@@ -798,6 +846,7 @@ public class RuntimeVnInterop implements VnInterop {
         }
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
     return fallback;
   }
@@ -901,7 +950,8 @@ public class RuntimeVnInterop implements VnInterop {
     if (t.equalsIgnoreCase("true")) return Boolean.TRUE;
     if (t.equalsIgnoreCase("false")) return Boolean.FALSE;
     try { if (t.contains(".")) return Double.parseDouble(t); else return Integer.parseInt(t); }
-    catch (Exception ignored) {}
+    catch (Exception ignored) { // reason: not a number; caller treats it as a string
+    }
     return t;
   }
 }

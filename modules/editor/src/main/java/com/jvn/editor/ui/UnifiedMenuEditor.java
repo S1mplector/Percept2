@@ -124,7 +124,9 @@ public class UnifiedMenuEditor extends BorderPane {
 
     // Parse current layout
     Properties layoutProps = new Properties();
-    try { layoutProps.load(new StringReader(layoutEditor.getLayoutText())); } catch (Exception ignored) {}
+    try { layoutProps.load(new StringReader(layoutEditor.getLayoutText())); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
     double listYStart = parseDouble(layoutProps.getProperty("listYStart"), 0.35);
     double lineHeight = parseDouble(layoutProps.getProperty("lineHeight"), 40);
     double listWidthFactor = parseDouble(layoutProps.getProperty("listWidthFactor"), 1.0);
@@ -142,7 +144,9 @@ public class UnifiedMenuEditor extends BorderPane {
 
     // Parse current style
     Properties styleProps = new Properties();
-    try { styleProps.load(new StringReader(styleEditor.getStyleText())); } catch (Exception ignored) {}
+    try { styleProps.load(new StringReader(styleEditor.getStyleText())); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
     Color itemColor = parseColor(styleProps.getProperty("itemColor"), Color.web("#D3D3D3"));
     Color selectedColor = parseColor(styleProps.getProperty("itemSelectedColor"), Color.web("#FFFF00"));
     Color disabledColor = parseColor(styleProps.getProperty("itemDisabledColor"), Color.web("#808080"));

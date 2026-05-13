@@ -86,6 +86,7 @@ final class AssetPickerSupport {
       Desktop.getDesktop().open(openTarget);
       return true;
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return false;
     }
   }

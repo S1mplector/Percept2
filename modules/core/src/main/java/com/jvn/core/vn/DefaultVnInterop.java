@@ -392,9 +392,13 @@ public class DefaultVnInterop implements VnInterop {
     Object cur = vars.get(key);
     double curVal = 0.0;
     if (cur instanceof Number n) curVal = n.doubleValue();
-    else if (cur instanceof String s) try { curVal = Double.parseDouble(s); } catch (Exception ignored) {}
+    else if (cur instanceof String s) try { curVal = Double.parseDouble(s); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
     double delta = 1.0;
-    try { delta = Double.parseDouble(deltaStr); } catch (Exception ignored) {}
+    try { delta = Double.parseDouble(deltaStr); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
     double res = inc ? curVal + delta : curVal - delta;
     if (isWhole(res)) vars.put(key, (int)Math.round(res)); else vars.put(key, res);
   }
@@ -403,9 +407,13 @@ public class DefaultVnInterop implements VnInterop {
     Object cur = vars.get(key);
     double curVal = 0.0;
     if (cur instanceof Number n) curVal = n.doubleValue();
-    else if (cur instanceof String s) try { curVal = Double.parseDouble(s); } catch (Exception ignored) {}
+    else if (cur instanceof String s) try { curVal = Double.parseDouble(s); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
     double factor = 1.0;
-    try { factor = Double.parseDouble(factorStr); } catch (Exception ignored) {}
+    try { factor = Double.parseDouble(factorStr); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
     double res = curVal * factor;
     if (isWhole(res)) vars.put(key, (int)Math.round(res)); else vars.put(key, res);
   }
@@ -414,9 +422,13 @@ public class DefaultVnInterop implements VnInterop {
     Object cur = vars.get(key);
     double curVal = 0.0;
     if (cur instanceof Number n) curVal = n.doubleValue();
-    else if (cur instanceof String s) try { curVal = Double.parseDouble(s); } catch (Exception ignored) {}
+    else if (cur instanceof String s) try { curVal = Double.parseDouble(s); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
     double divisor = 1.0;
-    try { divisor = Double.parseDouble(divisorStr); } catch (Exception ignored) {}
+    try { divisor = Double.parseDouble(divisorStr); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
     if (Math.abs(divisor) < 1e-15) return;
     double res = curVal / divisor;
     if (isWhole(res)) vars.put(key, (int)Math.round(res)); else vars.put(key, res);
@@ -438,6 +450,7 @@ public class DefaultVnInterop implements VnInterop {
     try {
       ok = VnConditionEvaluator.evaluate(expression, scene.getState().getVariables());
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return false;
     }
     if (ok) {
@@ -455,13 +468,17 @@ public class DefaultVnInterop implements VnInterop {
     switch (cmd) {
       case "textspeed": {
         if (toks.length >= 2) {
-          try { s.setTextSpeed(Integer.parseInt(toks[1])); } catch (Exception ignored) {}
+          try { s.setTextSpeed(Integer.parseInt(toks[1])); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
         }
         break;
       }
       case "autodelay": {
         if (toks.length >= 2) {
-          try { s.setAutoPlayDelay(Long.parseLong(toks[1])); } catch (Exception ignored) {}
+          try { s.setAutoPlayDelay(Long.parseLong(toks[1])); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
         }
         break;
       }
@@ -479,7 +496,9 @@ public class DefaultVnInterop implements VnInterop {
               if ("sfx".equals(which)) scene.getAudioFacade().setSfxVolume(s.getSfxVolume());
               if ("voice".equals(which)) scene.getAudioFacade().setVoiceVolume(s.getVoiceVolume());
             }
-          } catch (Exception ignored) {}
+          } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
         }
         break;
       }
@@ -684,6 +703,7 @@ public class DefaultVnInterop implements VnInterop {
       try {
         return VnAudioVisualizerConfig.clampBars(Integer.parseInt(s.trim()));
       } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       }
     }
     return VnAudioVisualizerConfig.DEFAULT_BARS;
@@ -706,6 +726,7 @@ public class DefaultVnInterop implements VnInterop {
       try {
         return Integer.parseInt(s.trim());
       } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       }
     }
     return VnAudioVisualizerConfig.DEFAULT_Z;
@@ -766,6 +787,7 @@ public class DefaultVnInterop implements VnInterop {
             if (parsed <= 0) warnings.add("bars>0");
             else bars = VnAudioVisualizerConfig.clampBars(parsed);
           } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
             warnings.add("bad bars");
           }
         }
@@ -775,6 +797,7 @@ public class DefaultVnInterop implements VnInterop {
           try {
             alpha = VnAudioVisualizerConfig.clampAlpha(Double.parseDouble(value.trim()));
           } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
             warnings.add("bad alpha");
           }
         }
@@ -796,6 +819,7 @@ public class DefaultVnInterop implements VnInterop {
           try {
             height = VnAudioVisualizerConfig.clampHeight(Double.parseDouble(value.trim()));
           } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
             warnings.add("bad height");
           }
         }
@@ -803,6 +827,7 @@ public class DefaultVnInterop implements VnInterop {
           try {
             z = Integer.parseInt(value.trim());
           } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
             warnings.add("bad z");
           }
         }
@@ -876,7 +901,9 @@ public class DefaultVnInterop implements VnInterop {
       case "hide": scene.getState().setHistoryOverlayShown(false); break;
       case "scroll": {
         if (toks.length >= 2) {
-          try { int d = Integer.parseInt(toks[1]); scene.getState().scrollHistoryByLines(d); } catch (Exception ignored) {}
+          try { int d = Integer.parseInt(toks[1]); scene.getState().scrollHistoryByLines(d); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
         }
         break;
       }
@@ -932,7 +959,9 @@ public class DefaultVnInterop implements VnInterop {
         break;
       case "seek":
         if (toks.length >= 2) {
-          try { a.seekBgmSeconds(Double.parseDouble(toks[1])); } catch (Exception ignored) {}
+          try { a.seekBgmSeconds(Double.parseDouble(toks[1])); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
         }
         break;
       case "crossfade":
@@ -991,6 +1020,7 @@ public class DefaultVnInterop implements VnInterop {
         }
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
   }
 
@@ -1517,6 +1547,7 @@ public class DefaultVnInterop implements VnInterop {
     try {
       return Easing.Type.valueOf(upper);
     } catch (IllegalArgumentException ignored) {
+            // reason: invalid argument from untrusted input; caller handles absent result
       return null;
     }
   }
@@ -1604,7 +1635,8 @@ public class DefaultVnInterop implements VnInterop {
     if (t.equalsIgnoreCase("true")) return Boolean.TRUE;
     if (t.equalsIgnoreCase("false")) return Boolean.FALSE;
     try { if (t.contains(".")) return Double.parseDouble(t); else return Integer.parseInt(t); }
-    catch (Exception ignored) {}
+    catch (Exception ignored) { // reason: not a number; caller treats it as a string
+    }
     return t;
   }
 
@@ -1730,17 +1762,23 @@ public class DefaultVnInterop implements VnInterop {
   }
 
   private static float parseFloatSafe(String s, float fallback) {
-    try { return Float.parseFloat(s); } catch (Exception ignored) {}
+    try { return Float.parseFloat(s); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
     return fallback;
   }
 
   private static double parseDoubleSafe(String s, double fallback) {
-    try { return Double.parseDouble(s); } catch (Exception ignored) {}
+    try { return Double.parseDouble(s); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
     return fallback;
   }
 
   private static long parseLongSafe(String s, long fallback) {
-    try { return Long.parseLong(s); } catch (Exception ignored) {}
+    try { return Long.parseLong(s); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
     return fallback;
   }
 

@@ -1,10 +1,15 @@
 package com.jvn.fx.menu;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.jvn.fx.RenderThreadGuard;
 import com.jvn.core.assets.AssetCatalog;
+import com.jvn.core.assets.BoundedImageCache;
 import com.jvn.core.assets.AssetType;
 import com.jvn.core.localization.Localization;
 import com.jvn.core.menu.HistoryMenuScene;
@@ -20,6 +25,7 @@ import com.jvn.core.menu.gallery.GalleryEntry;
 import com.jvn.core.menu.gallery.GalleryScene;
 import com.jvn.core.menu.gallery.MusicRoomEntry;
 import com.jvn.core.menu.gallery.MusicRoomScene;
+import com.jvn.core.config.VnConfig;
 import com.jvn.core.ui.BoundsPointCodec;
 import com.jvn.fx.ui.FxTextMetrics;
 import com.jvn.fx.ui.ProjectFontResolver;
@@ -32,6 +38,8 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 
 public class MenuRenderer {
+  private static final Logger log = LoggerFactory.getLogger(MenuRenderer.class);
+
   private static final double SUBMENU_BACKGROUND_BLUR_RADIUS = 14.0;
   private static final Color SUBMENU_FROST_TINT = Color.rgb(224, 236, 255, 0.28);
   private static final String LOAD_CYCLE_LEFT_ACTIVE_ASSET = "assets/ui/load/controls/page_turn_left_active.png";
@@ -46,7 +54,7 @@ public class MenuRenderer {
 
   private final GraphicsContext gc;
   private MenuTheme theme;
-  private final java.util.Map<String, Image> imageCache = new java.util.HashMap<>();
+  private final BoundedImageCache<Image> imageCache = new BoundedImageCache<>(256);
   private final FxTextMetrics textMetrics = new FxTextMetrics();
   private File projectRoot;
 
@@ -77,6 +85,7 @@ public class MenuRenderer {
   }
 
   public void renderMainMenu(MainMenuScene scene, double w, double h) {
+    RenderThreadGuard.requireFxThread("MenuRenderer.renderMainMenu");
     MenuLayoutSpec layout = scene != null ? scene.getMenuLayout() : null;
     MenuStyleSpec screenStyle = scene != null ? scene.getDefaultMenuStyle() : null;
     String screenBg = scene != null && scene.getMenuScreen() != null ? scene.getMenuScreen().backgroundAsset() : null;
@@ -626,6 +635,7 @@ public class MenuRenderer {
           if (!img.isError() && img.getWidth() > 0 && img.getHeight() > 0) return img;
         }
       } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       }
 
       // Try classpath first
@@ -641,7 +651,7 @@ public class MenuRenderer {
         if (!img.isError() && img.getWidth() > 0 && img.getHeight() > 0) return img;
       }
     } catch (Exception e) {
-      System.err.println("Failed to load menu image: " + path);
+      log.warn("Failed to load menu image: {}", path);
     }
     return null;
   }
@@ -675,6 +685,15 @@ public class MenuRenderer {
   }
 
   public void clearTextMeasureCache() {
+    textMetrics.clear();
+  }
+
+  private boolean disposed = false;
+
+  public void dispose() {
+    if (disposed) return;
+    disposed = true;
+    imageCache.clear();
     textMetrics.clear();
   }
 
@@ -1532,6 +1551,7 @@ public class MenuRenderer {
     try {
       return Integer.parseInt(raw.trim());
     } catch (NumberFormatException ignored) {
+// reason: malformed numeric text input; caller uses fallback value
       return defaultValue;
     }
   }
@@ -2262,9 +2282,10 @@ public class MenuRenderer {
         item != null ? item.fontFamily() : null,
         style != null ? style.itemFontFamily() : null,
         theme.getItemFont().getFamily());
-    double size = item != null && item.fontSize() != null ? item.fontSize()
+    double scale = VnConfig.defaults().getUiFontScale();
+    double size = (item != null && item.fontSize() != null ? item.fontSize()
         : style != null && style.itemFontSize() != null ? style.itemFontSize()
-        : theme.getItemFont().getSize();
+        : theme.getItemFont().getSize()) * scale;
     String weightRaw = firstNonBlank(
         item != null ? item.fontWeight() : null,
         style != null ? style.itemFontWeight() : null);
@@ -2278,7 +2299,8 @@ public class MenuRenderer {
   private Font resolveTitleFont(MenuStyleSpec style) {
     if (style == null) return theme.getTitleFont();
     String family = firstNonBlank(style.titleFontFamily(), theme.getTitleFont().getFamily());
-    double size = style.titleFontSize() != null ? style.titleFontSize() : theme.getTitleFont().getSize();
+    double scale = VnConfig.defaults().getUiFontScale();
+    double size = (style.titleFontSize() != null ? style.titleFontSize() : theme.getTitleFont().getSize()) * scale;
     FontWeight weight = parseFontWeight(style.titleFontWeight(), FontWeight.BOLD);
     return ProjectFontResolver.resolve(projectRoot, family, weight, size, theme.getTitleFont().getFamily());
   }
@@ -2297,7 +2319,8 @@ public class MenuRenderer {
   private Font resolveHintFont(MenuStyleSpec style) {
     if (style == null) return theme.getHintFont();
     String family = firstNonBlank(style.hintsFontFamily(), theme.getHintFont().getFamily());
-    double size = style.hintsFontSize() != null ? style.hintsFontSize() : theme.getHintFont().getSize();
+    double scale = VnConfig.defaults().getUiFontScale();
+    double size = (style.hintsFontSize() != null ? style.hintsFontSize() : theme.getHintFont().getSize()) * scale;
     FontWeight weight = parseFontWeight(style.hintsFontWeight(), FontWeight.NORMAL);
     return ProjectFontResolver.resolve(projectRoot, family, weight, size, theme.getHintFont().getFamily());
   }
@@ -2307,6 +2330,7 @@ public class MenuRenderer {
     try {
       return FontWeight.valueOf(raw.trim().toUpperCase());
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return def;
     }
   }
@@ -2346,6 +2370,7 @@ public class MenuRenderer {
         }
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
     return def;
   }

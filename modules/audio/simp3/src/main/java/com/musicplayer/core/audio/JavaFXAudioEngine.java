@@ -2,6 +2,9 @@ package com.musicplayer.core.audio;
 
 import java.io.File;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.musicplayer.data.models.Song;
 
 import javafx.beans.property.BooleanProperty;
@@ -19,7 +22,9 @@ import javafx.util.Duration;
  * Uses JavaFX Media API for audio playback functionality.
  */
 public class JavaFXAudioEngine implements AudioEngine {
-    
+
+    private static final Logger log = LoggerFactory.getLogger(JavaFXAudioEngine.class);
+
     private MediaPlayer mediaPlayer;
     private Song currentSong;
     
@@ -54,7 +59,7 @@ public class JavaFXAudioEngine implements AudioEngine {
         
         File audioFile = new File(song.getFilePath());
         if (!audioFile.exists()) {
-            System.err.println("Audio file not found: " + song.getFilePath());
+            log.warn("Audio file not found: {}", song.getFilePath());
             if (onErrorCallback != null) {
                 onErrorCallback.run();
             }
@@ -82,12 +87,12 @@ public class JavaFXAudioEngine implements AudioEngine {
             
             this.currentSong = song;
             currentSongProperty.set(song);
-            
-            System.out.println("Loaded song: " + song.getTitle());
+
+            log.debug("Loaded song: {}", song.getTitle());
             return true;
-            
+
         } catch (Exception e) {
-            System.err.println("Error loading audio file: " + e.getMessage());
+            log.error("Error loading audio file", e);
             if (onErrorCallback != null) {
                 onErrorCallback.run();
             }
@@ -99,27 +104,27 @@ public class JavaFXAudioEngine implements AudioEngine {
         mediaPlayer.setOnReady(() -> {
             totalTime.set(mediaPlayer.getTotalDuration().toSeconds());
             mediaPlayer.setVolume(volume.get());
-            System.out.println("Media ready - Duration: " + formatTime(getTotalTime()));
+            log.debug("Media ready - Duration: {}", formatTime(getTotalTime()));
         });
-        
+
         mediaPlayer.setOnPlaying(() -> {
             playing.set(true);
-            System.out.println("Playing: " + (currentSong != null ? currentSong.getTitle() : "Unknown"));
+            log.debug("Playing: {}", currentSong != null ? currentSong.getTitle() : "Unknown");
         });
-        
+
         mediaPlayer.setOnPaused(() -> {
             playing.set(false);
-            System.out.println("Paused: " + (currentSong != null ? currentSong.getTitle() : "Unknown"));
+            log.debug("Paused: {}", currentSong != null ? currentSong.getTitle() : "Unknown");
         });
-        
+
         mediaPlayer.setOnStopped(() -> {
             playing.set(false);
-            System.out.println("Stopped: " + (currentSong != null ? currentSong.getTitle() : "Unknown"));
+            log.debug("Stopped: {}", currentSong != null ? currentSong.getTitle() : "Unknown");
         });
-        
+
         mediaPlayer.setOnEndOfMedia(() -> {
             playing.set(false);
-            System.out.println("End of media: " + (currentSong != null ? currentSong.getTitle() : "Unknown"));
+            log.debug("End of media: {}", currentSong != null ? currentSong.getTitle() : "Unknown");
             if (onSongEndedCallback != null) {
                 onSongEndedCallback.run();
             }
@@ -132,7 +137,7 @@ public class JavaFXAudioEngine implements AudioEngine {
         });
         
         mediaPlayer.setOnError(() -> {
-            System.err.println("Media player error: " + mediaPlayer.getError().getMessage());
+            log.error("Media player error: {}", mediaPlayer.getError().getMessage());
             playing.set(false);
             if (onErrorCallback != null) {
                 onErrorCallback.run();
@@ -145,7 +150,7 @@ public class JavaFXAudioEngine implements AudioEngine {
         if (mediaPlayer != null) {
             mediaPlayer.play();
         } else {
-            System.err.println("No media loaded for playback");
+            log.warn("No media loaded for playback");
         }
     }
     

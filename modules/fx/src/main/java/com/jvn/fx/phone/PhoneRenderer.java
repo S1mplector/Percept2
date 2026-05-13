@@ -1,13 +1,16 @@
 package com.jvn.fx.phone;
 
 import java.io.File;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.logging.Logger;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.jvn.fx.RenderThreadGuard;
 import com.jvn.core.assets.AssetCatalog;
+import com.jvn.core.assets.BoundedImageCache;
 import com.jvn.core.assets.AssetType;
 import com.jvn.core.phone.PhoneScene;
 import com.jvn.core.phone.VnPhoneData;
@@ -41,7 +44,7 @@ import javafx.scene.shape.Rectangle;
  * styled JavaFX layer shown above it.</p>
  */
 public final class PhoneRenderer extends StackPane {
-  private static final Logger log = Logger.getLogger(PhoneRenderer.class.getName());
+  private static final Logger log = LoggerFactory.getLogger(PhoneRenderer.class);
 
   private static final double SHELL_WIDTH = 340.0;
   private static final double SHELL_HEIGHT = 700.0;
@@ -89,8 +92,8 @@ public final class PhoneRenderer extends StackPane {
   private final Label footerLabel = new Label("Esc closes");
   private final VBox bottomChrome = new VBox(4);
 
-  private final Map<String, Image> imageCache = new HashMap<>();
-  private final Map<String, AlphaBounds> alphaBoundsCache = new HashMap<>();
+  private final BoundedImageCache<Image> imageCache = new BoundedImageCache<>(256);
+  private final Map<String, AlphaBounds> alphaBoundsCache = new java.util.HashMap<>();
 
   private PhoneScene sceneModel;
   private File projectRoot;
@@ -281,6 +284,15 @@ public final class PhoneRenderer extends StackPane {
     refresh();
   }
 
+  private boolean disposed = false;
+
+  public void dispose() {
+    if (disposed) return;
+    disposed = true;
+    imageCache.clear();
+    alphaBoundsCache.clear();
+  }
+
   public PhoneScene getSceneModel() {
     return sceneModel;
   }
@@ -389,6 +401,7 @@ public final class PhoneRenderer extends StackPane {
   }
 
   public void refresh() {
+    RenderThreadGuard.requireFxThread("PhoneRenderer.refresh");
     if (sceneModel == null) {
       wallpaperView.setImage(null);
       homeList.getChildren().clear();
@@ -1089,7 +1102,7 @@ public final class PhoneRenderer extends StackPane {
           if (fromRoot.exists()) return new Image(fromRoot.toURI().toString());
         }
       } catch (Exception e) {
-        log.warning("Failed to load phone asset: " + p + " - " + e.getMessage());
+        log.warn("Failed to load phone asset: {} - {}", p, e.getMessage());
       }
       return null;
     });

@@ -83,6 +83,7 @@ public final class PuppeteerDraftStore {
             Path file = draftPath(timelineName);
             Files.deleteIfExists(file);
         } catch (IOException ignored) {
+            // reason: I/O failure on best-effort save/load; in-memory state remains valid
         }
     }
 
@@ -135,6 +136,7 @@ public final class PuppeteerDraftStore {
                 callback.accept(snapshot.timelineName);
             }
         } catch (IOException ignored) {
+            // reason: I/O failure on best-effort save/load; in-memory state remains valid
             // Drafts are best-effort. Re-pushing pending would risk an infinite retry loop.
         }
     }

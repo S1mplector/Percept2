@@ -11,12 +11,17 @@ import com.musicplayer.services.SettingsService;
 import com.musicplayer.ui.components.VisualizerManager;
 import com.musicplayer.ui.windows.MiniPlayerWindow;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Controller responsible for managing audio visualizer state and behavior.
  * Handles coordination between main window and mini player visualizers,
  * ensuring consistent behavior and preventing conflicts.
  */
 public class VisualizerController {
+
+    private static final Logger log = LoggerFactory.getLogger(VisualizerController.class);
     
     private final AudioPlayerService audioPlayerService;
     private final SettingsService settingsService;
@@ -119,7 +124,7 @@ public class VisualizerController {
         
         isMainVisualizerActive = true;
         
-        System.out.println("Main visualizer activated");
+        log.debug("Main visualizer activated");
     }
     
     /**
@@ -145,7 +150,7 @@ public class VisualizerController {
         
         isMainVisualizerActive = false;
         
-        System.out.println("Main visualizer deactivated (mini player active: " + miniPlayerActive + ")");
+        log.debug("Main visualizer deactivated (mini player active: {})", miniPlayerActive);
     }
     
     /**
@@ -180,7 +185,7 @@ public class VisualizerController {
                     if (mainVisualizerManager != null) {
                         mainVisualizerManager.pause();
                     }
-                    System.out.println("Window minimized - main visualizer paused");
+                    log.debug("Window minimized - main visualizer paused");
                 } else {
                     // Window restored - update visualizer state
                     Platform.runLater(() -> {
@@ -230,7 +235,7 @@ public class VisualizerController {
                     root.setBottom(stack);
                 }
             } catch (Exception e) {
-                System.err.println("Error updating visualizer layout: " + e.getMessage());
+                log.warn("Error updating visualizer layout: {}", e.getMessage());
             }
         });
     }
@@ -313,12 +318,12 @@ public class VisualizerController {
                     if (mainVisualizerManager != null) {
                         mainVisualizerManager.pause();
                     }
-                    System.out.println("Window minimized - main visualizer paused");
+                    log.debug("Window minimized - main visualizer paused");
                 } else {
                     // Window is restored - update visualizer state
                     javafx.application.Platform.runLater(() -> {
                         updateMainVisualizerState();
-                        System.out.println("Window restored - visualizer state updated");
+                        log.debug("Window restored - visualizer state updated");
                     });
                 }
             });

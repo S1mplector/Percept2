@@ -280,6 +280,7 @@ public final class VnsScriptAnalyzer {
         return inferred;
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
     return projectRoot;
   }
@@ -311,6 +312,7 @@ public final class VnsScriptAnalyzer {
         return root.relativize(file).toString().replace('\\', '/');
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
     return sourceFile.getName();
   }
@@ -632,6 +634,7 @@ public final class VnsScriptAnalyzer {
     try {
       return Integer.parseInt(m.group(1));
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return -1;
     }
   }

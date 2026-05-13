@@ -4,8 +4,8 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.jaudiotagger.audio.AudioFile;
 import org.jaudiotagger.audio.AudioFileIO;
@@ -122,8 +122,7 @@ public class MiniPlayerWindow {
     private Label sleepTimerLabel;
     private int remainingMinutes = 0;
     
-    // Logger for album art loading
-    private static final Logger LOGGER = Logger.getLogger(MiniPlayerWindow.class.getName());
+    private static final Logger log = LoggerFactory.getLogger(MiniPlayerWindow.class);
     
     public MiniPlayerWindow(AudioPlayerService audioPlayerService, Stage mainStage,
                            SettingsService settingsService, FavoritesService favoritesService,
@@ -1012,7 +1011,7 @@ public class MiniPlayerWindow {
                     }
                 }
             } catch (Exception e) {
-                LOGGER.log(Level.WARNING, "Failed to load album art for: " + song.getFilePath(), e);
+                log.warn("Failed to load album art for: {}", song.getFilePath(), e);
             }
             return null;
         }).thenAcceptAsync(img -> {
@@ -1240,7 +1239,7 @@ public class MiniPlayerWindow {
      * Connect audio spectrum listener to visualizer.
      */
     private void connectSpectrumListener() {
-        System.out.println("Connecting spectrum listener for mini player visualizer");
+        log.debug("Connecting spectrum listener for mini player visualizer");
         
         // Ensure visualizer is started if enabled in settings
         if (settingsService != null && settingsService.getSettings().isVisualizerEnabled()) {
@@ -1330,7 +1329,7 @@ public class MiniPlayerWindow {
      * Press Ctrl+T to trigger this test.
      */
     private void testVisualizerWithDummyData() {
-        System.out.println("=== TESTING VISUALIZER WITH DUMMY DATA ===");
+        log.debug("=== TESTING VISUALIZER WITH DUMMY DATA ===");
         
         // Create an animation timer to continuously send dummy data
         javafx.animation.AnimationTimer dummyDataTimer = new javafx.animation.AnimationTimer() {
@@ -1362,13 +1361,13 @@ public class MiniPlayerWindow {
         };
         
         dummyDataTimer.start();
-        System.out.println("Started dummy data animation timer");
-        
+        log.debug("Started dummy data animation timer");
+
         // Stop after 10 seconds
         javafx.animation.Timeline stopTimer = new javafx.animation.Timeline(
             new javafx.animation.KeyFrame(javafx.util.Duration.seconds(10), e -> {
                 dummyDataTimer.stop();
-                System.out.println("Stopped dummy data animation timer");
+                log.debug("Stopped dummy data animation timer");
             })
         );
         stopTimer.play();

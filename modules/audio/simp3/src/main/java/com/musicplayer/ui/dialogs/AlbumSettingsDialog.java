@@ -84,7 +84,9 @@ public class AlbumSettingsDialog extends Stage {
         // Apply same stylesheet if available
         try {
             scene.getStylesheets().add(getClass().getResource("/css/app.css").toExternalForm());
-        } catch (Exception ignored) { }
+        } catch (Exception ignored) {
+            // reason: stylesheet is optional; missing resource should not block dialog creation
+        }
 
         setScene(scene);
     }

@@ -138,6 +138,7 @@ public final class GamePackageLauncher {
     try (FileInputStream in = new FileInputStream(manifest)) {
       props.load(in);
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
     return props;
   }

@@ -538,6 +538,7 @@ public class MenuScreenVisualEditor extends BorderPane {
         try {
           return Double.parseDouble(string.trim());
         } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
           return null;
         }
       }
@@ -1574,6 +1575,7 @@ public class MenuScreenVisualEditor extends BorderPane {
         return image;
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
     return null;
   }
@@ -2044,6 +2046,7 @@ public class MenuScreenVisualEditor extends BorderPane {
       if (!Double.isFinite(value)) throw new NumberFormatException("non-finite");
       return value;
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       parseDiagnostics.add("Invalid number for '" + key + "': '" + raw + "'");
       return null;
     }
@@ -2064,6 +2067,7 @@ public class MenuScreenVisualEditor extends BorderPane {
     try {
       return Double.parseDouble(raw.trim());
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return null;
     }
   }
@@ -2117,6 +2121,7 @@ public class MenuScreenVisualEditor extends BorderPane {
         return root.relativize(abs).toString().replace('\\', '/');
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
     return file.getAbsolutePath().replace('\\', '/');
   }

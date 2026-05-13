@@ -221,7 +221,9 @@ public class InspectorView extends VBox {
           setter.accept(v);
         }
         setStatus.accept("Updated " + label + " = " + tf.getText());
-      } catch (Exception ignored) {}
+      } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
     };
     tf.setOnAction(e -> commit.run());
     tf.setOnKeyReleased(e -> { if ("ENTER".equals(e.getCode().toString())) commit.run(); });

@@ -431,6 +431,7 @@ public final class DslPropertyDiagnostics {
       Color.web(value.trim());
       return true;
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return false;
     }
   }
@@ -442,6 +443,7 @@ public final class DslPropertyDiagnostics {
       if (!Double.isFinite(parsed)) return null;
       return parsed;
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return null;
     }
   }

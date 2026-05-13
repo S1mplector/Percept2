@@ -155,7 +155,9 @@ public class MenuThemeEditorView extends BorderPane {
       if (!tfLabelQuit.getText().trim().isEmpty()) p.setProperty("label.quit", tfLabelQuit.getText().trim());
 
       try (FileOutputStream fos = new FileOutputStream(f)) { p.store(fos, "Menu Theme"); }
-    } catch (Exception ignored) { }
+    } catch (Exception ignored) {
+      // reason: theme save failure is best-effort; UI state remains valid
+    }
   }
 
   private void load() {
@@ -172,15 +174,21 @@ public class MenuThemeEditorView extends BorderPane {
 
       tfTitleFont.setText(p.getProperty("titleFontFamily", tfTitleFont.getText()));
       cbTitleWeight.getSelectionModel().select(p.getProperty("titleFontWeight", cbTitleWeight.getValue()));
-      try { spTitleSize.getValueFactory().setValue(Integer.parseInt(p.getProperty("titleFontSize", Integer.toString(spTitleSize.getValue())))); } catch (Exception ignored) {}
+      try { spTitleSize.getValueFactory().setValue(Integer.parseInt(p.getProperty("titleFontSize", Integer.toString(spTitleSize.getValue())))); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
 
       tfItemFont.setText(p.getProperty("itemFontFamily", tfItemFont.getText()));
       cbItemWeight.getSelectionModel().select(p.getProperty("itemFontWeight", cbItemWeight.getValue()));
-      try { spItemSize.getValueFactory().setValue(Integer.parseInt(p.getProperty("itemFontSize", Integer.toString(spItemSize.getValue())))); } catch (Exception ignored) {}
+      try { spItemSize.getValueFactory().setValue(Integer.parseInt(p.getProperty("itemFontSize", Integer.toString(spItemSize.getValue())))); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
 
       tfHintFont.setText(p.getProperty("hintFontFamily", tfHintFont.getText()));
       cbHintWeight.getSelectionModel().select(p.getProperty("hintFontWeight", cbHintWeight.getValue()));
-      try { spHintSize.getValueFactory().setValue(Integer.parseInt(p.getProperty("hintFontSize", Integer.toString(spHintSize.getValue())))); } catch (Exception ignored) {}
+      try { spHintSize.getValueFactory().setValue(Integer.parseInt(p.getProperty("hintFontSize", Integer.toString(spHintSize.getValue())))); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
 
       tfTitleText.setText(p.getProperty("titleText", ""));
       tfLabelNew.setText(p.getProperty("label.new", ""));
@@ -188,6 +196,7 @@ public class MenuThemeEditorView extends BorderPane {
       tfLabelSettings.setText(p.getProperty("label.settings", ""));
       tfLabelQuit.setText(p.getProperty("label.quit", ""));
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       setDefaults();
     }
   }
@@ -202,6 +211,7 @@ public class MenuThemeEditorView extends BorderPane {
       if (rel.isEmpty()) rel = fallback;
       return new File(projectRoot, rel);
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return new File(projectRoot, fallback);
     }
   }

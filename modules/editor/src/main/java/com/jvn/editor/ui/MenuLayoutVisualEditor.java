@@ -790,6 +790,7 @@ public class MenuLayoutVisualEditor extends BorderPane {
         int v = Integer.parseInt(maxVisRaw.trim());
         if (v > 0) maxVisibleItems = v;
       } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
         diagnostics.add("Invalid integer for 'maxVisibleItems': '" + maxVisRaw + "'");
       }
     }
@@ -930,6 +931,7 @@ public class MenuLayoutVisualEditor extends BorderPane {
         try {
           return Double.parseDouble(string.trim());
         } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
           return vf.getValue();
         }
       }
@@ -974,6 +976,7 @@ public class MenuLayoutVisualEditor extends BorderPane {
       if (!Double.isFinite(parsed)) throw new NumberFormatException("non-finite");
       return parsed;
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       if (diagnostics != null && key != null) {
         diagnostics.add("Invalid number for '" + key + "': '" + value + "' (using " + fallback + ")");
       }

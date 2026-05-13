@@ -7,6 +7,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.musicplayer.data.models.Song;
 import com.musicplayer.data.storage.LibraryStorage;
 
@@ -15,7 +18,9 @@ import com.musicplayer.data.storage.LibraryStorage;
  * to save and load data across application sessions.
  */
 public class PersistentSongRepository implements SongRepository {
-    
+
+    private static final Logger log = LoggerFactory.getLogger(PersistentSongRepository.class);
+
     private final Map<Long, Song> songs = new HashMap<>();
     private final AtomicLong idCounter = new AtomicLong();
     private final LibraryStorage storage;
@@ -46,9 +51,9 @@ public class PersistentSongRepository implements SongRepository {
                 }
                 idCounter.set(maxId);
                 isLoaded = true;
-                System.out.println("Loaded " + savedSongs.size() + " songs from storage");
+                log.debug("Loaded {} songs from storage", savedSongs.size());
             } catch (IOException e) {
-                System.err.println("Failed to load songs from storage: " + e.getMessage());
+                log.error("Failed to load songs from storage", e);
                 isLoaded = true;
             }
         }
@@ -62,7 +67,7 @@ public class PersistentSongRepository implements SongRepository {
             try {
                 storage.saveSongs(new ArrayList<>(songs.values()));
             } catch (IOException e) {
-                System.err.println("Failed to save songs to storage: " + e.getMessage());
+                log.error("Failed to save songs to storage", e);
             }
         }
     }

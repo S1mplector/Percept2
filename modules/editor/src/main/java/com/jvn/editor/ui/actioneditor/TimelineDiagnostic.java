@@ -1088,6 +1088,7 @@ public class TimelineDiagnostic {
         try {
             return Double.parseDouble(text.trim());
         } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
             return null;
         }
     }

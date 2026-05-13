@@ -52,6 +52,7 @@ public final class PuppeteerWorkspacePrefs {
         try (InputStream in = Files.newInputStream(file.toPath())) {
             props.load(in);
         } catch (IOException ignored) {
+            // reason: I/O failure on best-effort save/load; in-memory state remains valid
             return prefs;
         }
         for (String name : props.stringPropertyNames()) {
@@ -156,7 +157,8 @@ public final class PuppeteerWorkspacePrefs {
             String path = parts.length > 1 ? parts[1].trim() : "";
             long lastUsed = 0L;
             if (parts.length > 2) {
-                try { lastUsed = Long.parseLong(parts[2].trim()); } catch (NumberFormatException ignored) {}
+                try { lastUsed = Long.parseLong(parts[2].trim()); } catch (NumberFormatException ignored) { // reason: malformed numeric text input; caller uses fallback value
+        }
             }
             recent.add(new RecentTimeline(name, path, lastUsed));
         }

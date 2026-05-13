@@ -10,6 +10,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.musicplayer.data.models.Song;
@@ -19,7 +22,9 @@ import com.musicplayer.data.models.Song;
  * Stores favorites as a set of song IDs in a JSON file.
  */
 public class FavoritesService {
-    
+
+    private static final Logger log = LoggerFactory.getLogger(FavoritesService.class);
+
     private static final String FAVORITES_FILE = "favorites.json";
     /**
      * System property to override data directory location for persistence.
@@ -166,10 +171,10 @@ public class FavoritesService {
                 );
                 favoriteSongIds.clear();
                 favoriteSongIds.addAll(loaded);
-                System.out.println("Loaded " + favoriteSongIds.size() + " favorite songs");
+                log.debug("Loaded {} favorite songs", favoriteSongIds.size());
             }
         } catch (IOException e) {
-            System.err.println("Error loading favorites: " + e.getMessage());
+            log.error("Error loading favorites", e);
         }
     }
     
@@ -181,7 +186,7 @@ public class FavoritesService {
             objectMapper.writerWithDefaultPrettyPrinter()
                     .writeValue(favoritesPath.toFile(), favoriteSongIds);
         } catch (IOException e) {
-            System.err.println("Error saving favorites: " + e.getMessage());
+            log.error("Error saving favorites", e);
         }
     }
     

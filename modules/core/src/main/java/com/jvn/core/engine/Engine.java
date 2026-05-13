@@ -3,6 +3,9 @@ package com.jvn.core.engine;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.jvn.core.config.ApplicationConfig;
 import com.jvn.core.input.Input;
 import com.jvn.core.menu.MenuActionHandler;
@@ -58,6 +61,8 @@ import com.jvn.core.vn.VnInteropFactory;
  * @see FrameStats
  */
 public class Engine {
+
+  private static final Logger log = LoggerFactory.getLogger(Engine.class);
 
   /** Immutable application configuration snapshot provided at construction time. */
   private final ApplicationConfig config;
@@ -341,9 +346,7 @@ public class Engine {
   }
 
   private static void reportListenerFailure(String phase, Throwable t) {
-    System.err.println("Engine: " + phase + " threw " + t.getClass().getSimpleName()
-        + ": " + t.getMessage());
-    t.printStackTrace(System.err);
+    log.error("Engine: {} threw {}: {}", phase, t.getClass().getSimpleName(), t.getMessage(), t);
   }
 
   // ──────────────────────────────────────────────────────────────────────────

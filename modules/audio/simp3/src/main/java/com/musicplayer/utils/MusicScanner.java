@@ -10,12 +10,17 @@ import org.jaudiotagger.audio.AudioFileIO;
 import org.jaudiotagger.tag.FieldKey;
 import org.jaudiotagger.tag.Tag;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.musicplayer.data.models.Song;
 
 /**
  * Utility class for scanning music folders and extracting metadata from audio files.
  */
 public class MusicScanner {
+
+    private static final Logger log = LoggerFactory.getLogger(MusicScanner.class);
     
     private static final String[] SUPPORTED_EXTENSIONS = {
         ".mp3", ".m4a", ".flac", ".wav", ".ogg", ".opus", 
@@ -32,13 +37,13 @@ public class MusicScanner {
         List<Song> songs = new ArrayList<>();
         
         if (directory == null || !directory.exists() || !directory.isDirectory()) {
-            System.err.println("Invalid directory provided for scanning: " + directory);
+            log.warn("Invalid directory provided for scanning: {}", directory);
             return songs;
         }
-        
-        System.out.println("Starting recursive scan of: " + directory.getAbsolutePath());
+
+        log.debug("Starting recursive scan of: {}", directory.getAbsolutePath());
         scanDirectoryRecursive(directory, songs, 0);
-        System.out.println("Scan completed. Found " + songs.size() + " music files total.");
+        log.debug("Scan completed. Found {} music files total.", songs.size());
         return songs;
     }
     
@@ -55,31 +60,30 @@ public class MusicScanner {
     private static void scanDirectoryRecursive(File directory, List<Song> songs, int depth) {
         File[] files = directory.listFiles();
         if (files == null) {
-            System.err.println("Could not read directory: " + directory.getAbsolutePath());
+            log.warn("Could not read directory: {}", directory.getAbsolutePath());
             return;
         }
-        
-        String indent = "  ".repeat(depth);
-        System.out.println(indent + "Scanning: " + directory.getName() + " (" + files.length + " items)");
-        
+
+        log.debug("Scanning: {} ({} items)", directory.getName(), files.length);
+
         for (File file : files) {
             // Skip hidden files and system directories
             if (file.isHidden() || file.getName().startsWith(".")) {
                 continue;
             }
-            
+
             if (file.isDirectory()) {
                 // Recursively scan subdirectories
-                System.out.println(indent + "  Entering subdirectory: " + file.getName());
+                log.debug("Entering subdirectory: {}", file.getName());
                 scanDirectoryRecursive(file, songs, depth + 1);
             } else if (file.isFile() && isSupportedAudioFile(file)) {
                 // Extract metadata from audio file
-                System.out.println(indent + "  Found music file: " + file.getName());
+                log.debug("Found music file: {}", file.getName());
                 Song song = extractMetadata(file);
                 if (song != null) {
                     songs.add(song);
                 } else {
-                    System.err.println(indent + "    Failed to extract metadata from: " + file.getName());
+                    log.warn("Failed to extract metadata from: {}", file.getName());
                 }
             }
         }
@@ -120,7 +124,9 @@ public class MusicScanner {
                     }
                 }
                 String yearStr = null;
-                try { yearStr = tag.getFirst(FieldKey.YEAR); } catch (Exception ignored) {}
+                try { yearStr = tag.getFirst(FieldKey.YEAR); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
                 if (yearStr != null && !yearStr.isBlank()) {
                     String y = yearStr.trim();
                     if (y.length() >= 4) {
@@ -161,9 +167,8 @@ public class MusicScanner {
             return song;
             
         } catch (Exception e) {
-            System.err.println("Error reading metadata from file: " + file.getAbsolutePath());
-            System.err.println("Error: " + e.getMessage());
-            
+            log.error("Error reading metadata from file: {}", file.getAbsolutePath(), e);
+
             // Create a basic song object with file information
             Song song = new Song();
             song.setFilePath(file.getAbsolutePath());

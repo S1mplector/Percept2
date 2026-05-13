@@ -3,6 +3,9 @@ package com.jvn.core.localization;
 import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
@@ -23,6 +26,8 @@ import java.util.Properties;
  * @see LocalizedScriptLoader
  */
 public final class Localization {
+
+  private static final Logger log = LoggerFactory.getLogger(Localization.class);
 
   /** Classpath base directory for string tables. */
   private static final String BASE = "game/strings/";
@@ -64,6 +69,8 @@ public final class Localization {
           return;
         }
       } catch (IOException ignored) {
+        // reason: trying next candidate (locale fallback); caller handles missing table gracefully
+        log.trace("Could not load locale file '{}': {}", path, ignored.toString());
       }
     }
   }
@@ -91,6 +98,8 @@ public final class Localization {
             return assets.open(type, path);
           }
         } catch (Exception ignored) {
+          // reason: AssetCatalog.exists/open may throw on unknown asset types; classpath fallback follows
+          log.trace("AssetCatalog probe failed for '{}' type {}: {}", path, type, ignored.toString());
         }
       }
     }

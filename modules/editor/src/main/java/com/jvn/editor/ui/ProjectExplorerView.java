@@ -224,7 +224,9 @@ public class ProjectExplorerView extends VBox {
 
   private void openFile(File f) {
     if (onOpenFile != null) { onOpenFile.accept(f); return; }
-    try { Desktop.getDesktop().open(f); } catch (Exception ignored) {}
+    try { Desktop.getDesktop().open(f); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
   }
 
   private boolean sameFile(File a, File b) {
@@ -234,7 +236,9 @@ public class ProjectExplorerView extends VBox {
 
   private void revealSelected() {
     File f = getSelectedFile(); if (f == null) return;
-    try { Desktop.getDesktop().open(f.isDirectory() ? f : f.getParentFile()); } catch (Exception ignored) {}
+    try { Desktop.getDesktop().open(f.isDirectory() ? f : f.getParentFile()); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
   }
 
   private File currentTargetDirectory() {
@@ -260,7 +264,9 @@ public class ProjectExplorerView extends VBox {
     try (FileWriter fw = new FileWriter(f)) {
       String sceneName = base.replaceAll("\\.jes$", "");
       fw.write("scene \"" + sceneName + "\" {\n}\n");
-    } catch (Exception ignored) {}
+    } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
     refresh();
     selectPath(f);
   }
@@ -286,7 +292,9 @@ public class ProjectExplorerView extends VBox {
                "@character narrator \"Narrator\"\n\n" +
                "Narrator: Hello!\n\n" +
                "[end]\n");
-    } catch (Exception ignored) {}
+    } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
     refresh();
     selectPath(f);
   }
@@ -336,13 +344,17 @@ public class ProjectExplorerView extends VBox {
         true)) {
       return;
     }
-    try { deleteRecursive(f.toPath()); } catch (Exception ignored) {}
+    try { deleteRecursive(f.toPath()); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
     refresh();
   }
 
   private void deleteRecursive(Path p) throws Exception {
     if (Files.isDirectory(p)) {
-      try (var s = Files.list(p)) { s.forEach(pp -> { try { deleteRecursive(pp); } catch (Exception ignored) {} }); }
+      try (var s = Files.list(p)) { s.forEach(pp -> { try { deleteRecursive(pp); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            } }); }
     }
     Files.deleteIfExists(p);
   }
@@ -377,7 +389,9 @@ public class ProjectExplorerView extends VBox {
     try (FileWriter fw = new FileWriter(f)) {
       if (!pkg.isEmpty()) fw.write("package " + pkg + ";\n\n");
       fw.write("public class " + cls + " {\n}\n");
-    } catch (Exception ignored) {}
+    } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
     refresh();
     selectPath(f);
   }

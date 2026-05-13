@@ -8,6 +8,9 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -23,6 +26,7 @@ import com.jvn.core.vn.VnState;
  * Manages saving and loading VN game state.
  */
 public class VnSaveManager {
+  private static final Logger log = LoggerFactory.getLogger(VnSaveManager.class);
   private static final String SAVE_EXTENSION = ".json";
   private static final String LEGACY_EXTENSION = ".sav";
   private static final String TEMP_SUFFIX = ".tmp";
@@ -36,7 +40,7 @@ public class VnSaveManager {
     try {
       Files.createDirectories(saveDirectory);
     } catch (IOException e) {
-      System.err.println("Failed to create save directory: " + e.getMessage());
+      log.error("Failed to create save directory: {}", e.getMessage());
     }
   }
 
@@ -190,7 +194,7 @@ public class VnSaveManager {
         writeAtomically(jsonFile, data);
         Files.deleteIfExists(legacyFile); // Clean up legacy file after successful migration
       } catch (IOException e) {
-        System.err.println("Warning: could not migrate legacy save to JSON: " + e.getMessage());
+        log.warn("Could not migrate legacy save to JSON: {}", e.getMessage());
       }
     } else {
       throw new FileNotFoundException("Save file not found: " + saveName);
@@ -201,7 +205,7 @@ public class VnSaveManager {
       try {
         writeAtomically(jsonFile, data);
       } catch (IOException e) {
-        System.err.println("Warning: migrated save could not be written back: " + e.getMessage());
+        log.warn("Migrated save could not be written back: {}", e.getMessage());
       }
     }
 
@@ -224,6 +228,7 @@ public class VnSaveManager {
           best = name;
         }
       } catch (Exception ignored) {
+        // reason: slot metadata unreadable; skip to next candidate
       }
     }
     if (best == null) {
@@ -292,6 +297,7 @@ public class VnSaveManager {
         Path thumb = saveDirectory.resolve(slot + ".png");
         Files.deleteIfExists(thumb);
       } catch (Exception ignored) {
+        // reason: thumbnail deletion is best-effort; save slot itself is already removed
       }
       return deletedJson || deletedLegacy;
     } catch (IOException e) {
@@ -316,6 +322,7 @@ public class VnSaveManager {
           Files.move(oldPng, newPng, StandardCopyOption.REPLACE_EXISTING);
         }
       } catch (Exception ignored) {
+        // reason: sidecar thumbnail rename is best-effort; the save slot itself was renamed
       }
       return true;
     } catch (IOException e) {
@@ -346,6 +353,7 @@ public class VnSaveManager {
         CharacterPosition cp = CharacterPosition.predefined(positionName);
         if (cp != null) definedPositions.put(characterId, cp);
       } catch (Exception ignored) {
+        // reason: unknown predefined position name in save data; character entry skipped
       }
     }
 
@@ -363,10 +371,12 @@ public class VnSaveManager {
           try {
             layer = Integer.parseInt(data[2]);
           } catch (NumberFormatException ignored) {
+// reason: malformed numeric text input; caller uses fallback value
           }
         }
         if (charId != null) state.showCharacter(position, charId, expr, layer);
       } catch (IllegalArgumentException ignored) {
+        // reason: invalid argument from untrusted input; caller handles absent result
       }
     }
     state.setGlobalPositionState(saveData.getGlobalPositionCharacters(), definedPositions);
@@ -433,6 +443,7 @@ public class VnSaveManager {
     try {
       Files.deleteIfExists(tempPath);
     } catch (Exception ignored) {
+      // reason: pre-existing temp file deletion is best-effort; write proceeds regardless
     }
 
     Files.write(tempPath, payload);
@@ -445,6 +456,7 @@ public class VnSaveManager {
       try {
         Files.deleteIfExists(tempPath);
       } catch (Exception ignored) {
+        // reason: post-move temp file cleanup is best-effort; write already succeeded
       }
     }
   }

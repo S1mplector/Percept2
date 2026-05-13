@@ -1127,6 +1127,7 @@ public class AssetPickerPanel extends VBox {
             try {
                 lines = Files.readAllLines(scriptPath, StandardCharsets.UTF_8);
             } catch (IOException ignored) {
+            // reason: I/O failure on best-effort save/load; in-memory state remains valid
                 continue;
             }
             for (String rawLine : lines) {
@@ -1524,6 +1525,7 @@ public class AssetPickerPanel extends VBox {
             Image image = new Image(file.toURI().toString(), 640, 640, true, true, false);
             return image.isError() ? null : image;
         } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
             return null;
         }
     }
@@ -1548,6 +1550,7 @@ public class AssetPickerPanel extends VBox {
                 maxWidth = Math.max(maxWidth, image.getWidth());
                 maxHeight = Math.max(maxHeight, image.getHeight());
             } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
             }
         }
         if (images.isEmpty() || maxWidth <= 0.0 || maxHeight <= 0.0) {
@@ -1923,6 +1926,7 @@ public class AssetPickerPanel extends VBox {
             try {
                 thumb.setImage(item.previewImage());
             } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
                 thumb.setImage(null);
             }
 

@@ -3085,6 +3085,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
         }
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
     return file.getAbsolutePath();
   }
@@ -3435,6 +3436,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
                 ? projectRoot.toPath().relativize(chosen.toPath()).toString().replace('\\', '/')
                 : chosen.getAbsolutePath();
           } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
             opt.relativePath = chosen.getAbsolutePath();
           }
           fileField.setText(opt.relativePath);

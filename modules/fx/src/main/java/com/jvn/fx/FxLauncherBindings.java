@@ -23,7 +23,9 @@ final class FxLauncherBindings {
         ActionBindingProfileStore store = new ActionBindingProfileStore(settings.getInputProfilePath());
         // if a saved profile exists, prefer it
         profile = store.load();
-      } catch (Exception ignored) {}
+      } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
     }
     ActionMap map = new ActionMap(new com.jvn.core.input.Input()); // placeholder Input; replaced by engine in launcher
     map.loadProfile(profile);

@@ -3,6 +3,9 @@ package com.jvn.core.scene;
 import java.util.ArrayDeque;
 import java.util.Deque;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Stack-based scene manager that controls the active {@link Scene} lifecycle.
  *
@@ -29,6 +32,8 @@ import java.util.Deque;
  * @see com.jvn.core.engine.Engine
  */
 public class SceneManager {
+
+  private static final Logger log = LoggerFactory.getLogger(SceneManager.class);
 
   /** LIFO scene stack. The element at the top (head) is the active scene. */
   private final Deque<Scene> stack = new ArrayDeque<>();
@@ -134,10 +139,8 @@ public class SceneManager {
     try {
       call.apply(scene);
     } catch (RuntimeException ex) {
-      System.err.println("SceneManager: " + phase + " on "
-          + scene.getClass().getSimpleName() + " threw "
-          + ex.getClass().getSimpleName() + ": " + ex.getMessage());
-      ex.printStackTrace(System.err);
+      log.error("SceneManager: {} on {} threw {}: {}", phase,
+          scene.getClass().getSimpleName(), ex.getClass().getSimpleName(), ex.getMessage(), ex);
     }
   }
 

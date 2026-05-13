@@ -437,6 +437,7 @@ public class GameBuildPublisherView extends BorderPane {
       props.load(in);
       return props;
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return null;
     }
   }
@@ -1303,6 +1304,7 @@ public class GameBuildPublisherView extends BorderPane {
     try (FileInputStream in = new FileInputStream(file)) {
       props.load(in);
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return new Properties();
     }
     return props;
@@ -1340,6 +1342,7 @@ public class GameBuildPublisherView extends BorderPane {
     try {
       return a.getCanonicalFile().equals(b.getCanonicalFile());
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return a.getAbsoluteFile().equals(b.getAbsoluteFile());
     }
   }
@@ -1418,6 +1421,7 @@ public class GameBuildPublisherView extends BorderPane {
           .toString()
           .replace('\\', '/');
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return file.getPath();
     }
   }

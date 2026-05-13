@@ -837,6 +837,7 @@ public class VnPreviewView extends StackPane {
         }
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
     return null;
   }
@@ -893,6 +894,7 @@ public class VnPreviewView extends StackPane {
         }
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
 
     try {
@@ -905,6 +907,7 @@ public class VnPreviewView extends StackPane {
         if (!image.isError() && image.getWidth() > 0 && image.getHeight() > 0) return image;
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
     return null;
   }
@@ -1382,6 +1385,7 @@ public class VnPreviewView extends StackPane {
           new AssetCatalog(new FilesystemAssetManager(projectRoot.toPath())));
       return load.profile();
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return null;
     }
   }
@@ -1530,6 +1534,7 @@ public class VnPreviewView extends StackPane {
         }
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
     return VnPhonePropertiesCodec.loadSeedFromAssets();
   }
@@ -1539,6 +1544,7 @@ public class VnPreviewView extends StackPane {
       try {
         audio.stopAllAudio();
       } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       }
     }
   }
@@ -1576,6 +1582,7 @@ public class VnPreviewView extends StackPane {
       props.load(in);
       return resolveAudioBackend(props);
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return "auto";
     }
   }

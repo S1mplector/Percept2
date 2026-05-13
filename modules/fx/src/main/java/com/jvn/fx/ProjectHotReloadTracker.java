@@ -197,6 +197,7 @@ final class ProjectHotReloadTracker implements AutoCloseable {
       registerRecursively(watcher, projectRootPath);
       return watcher;
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       closeQuietly(watcher);
       return null;
     }
@@ -299,6 +300,7 @@ final class ProjectHotReloadTracker implements AutoCloseable {
     try {
       registerRecursively(watchService, projectRootPath);
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
   }
 
@@ -307,6 +309,7 @@ final class ProjectHotReloadTracker implements AutoCloseable {
     try {
       registerRecursively(watchService, path);
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       markAllDirty();
     }
   }
@@ -402,6 +405,7 @@ final class ProjectHotReloadTracker implements AutoCloseable {
     try {
       watcher.close();
     } catch (IOException ignored) {
+            // reason: I/O failure on best-effort save/load; in-memory state remains valid
     }
   }
 
@@ -413,6 +417,7 @@ final class ProjectHotReloadTracker implements AutoCloseable {
       WatchEvent.Modifier high = (WatchEvent.Modifier) Enum.valueOf(modifierClass, "HIGH");
       return new WatchEvent.Modifier[] { high };
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return new WatchEvent.Modifier[0];
     }
   }
@@ -437,6 +442,7 @@ final class ProjectHotReloadTracker implements AutoCloseable {
           hash *= 1099511628211L;
         }
       } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       }
     }
     return new Snapshot(hash);
@@ -452,6 +458,7 @@ final class ProjectHotReloadTracker implements AutoCloseable {
     try (var stream = Files.walk(path)) {
       stream.filter(Files::isRegularFile).forEach(files::add);
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
   }
 }

@@ -1,5 +1,8 @@
 package com.jvn.swing;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.jvn.core.scene2d.Blitter2D;
 
 import java.awt.*;
@@ -20,6 +23,8 @@ import java.net.URL;
 import javax.imageio.ImageIO;
 
 public class SwingBlitter2D implements Blitter2D {
+  private static final Logger log = LoggerFactory.getLogger(SwingBlitter2D.class);
+
   private Graphics2D g2;
   private Paint fillPaint = new Color(255,255,255,255);
   private Color stroke = new Color(255,255,255,255);
@@ -405,7 +410,7 @@ public class SwingBlitter2D implements Blitter2D {
   private void reportMissing(String path) {
     if (path == null || path.isBlank()) return;
     if (missing.add(path)) {
-      System.err.println("Swing: missing image asset '" + path + "'");
+      log.warn("Swing: missing image asset '{}'", path);
     }
   }
 }

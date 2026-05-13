@@ -1802,6 +1802,7 @@ Workflow:
     try (FileInputStream in = new FileInputStream(file)) {
       properties.load(in);
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
     return properties;
   }
@@ -1822,6 +1823,7 @@ Workflow:
         return root.relativize(abs).toString().replace('\\', '/');
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
     return file.getAbsolutePath().replace('\\', '/');
   }

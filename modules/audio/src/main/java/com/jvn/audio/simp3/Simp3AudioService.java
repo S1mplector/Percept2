@@ -180,12 +180,16 @@ public class Simp3AudioService implements AudioFacade {
       try {
         engine.pause();
       } catch (Exception ignored) {
+        // reason: audio backend operation is non-critical; failure is recoverable
+        log.trace("pauseAllAudio: sfx engine pause failed: {}", ignored.toString());
       }
     }
     for (AudioEngine engine : new ArrayList<>(voiceEngines)) {
       try {
         engine.pause();
       } catch (Exception ignored) {
+        // reason: audio backend operation is non-critical; failure is recoverable
+        log.trace("pauseAllAudio: voice engine pause failed: {}", ignored.toString());
       }
     }
   }
@@ -197,12 +201,16 @@ public class Simp3AudioService implements AudioFacade {
       try {
         engine.play();
       } catch (Exception ignored) {
+        // reason: audio backend operation is non-critical; failure is recoverable
+        log.trace("resumeAllAudio: sfx engine play failed: {}", ignored.toString());
       }
     }
     for (AudioEngine engine : new ArrayList<>(voiceEngines)) {
       try {
         engine.play();
       } catch (Exception ignored) {
+        // reason: audio backend operation is non-critical; failure is recoverable
+        log.trace("resumeAllAudio: voice engine play failed: {}", ignored.toString());
       }
     }
   }
@@ -342,6 +350,8 @@ public class Simp3AudioService implements AudioFacade {
     try {
       engine.setAudioSpectrumListener(bgmSpectrumListener);
     } catch (Exception ignored) {
+      // reason: audio backend operation is non-critical; failure is recoverable
+      log.trace("attachBgmSpectrumListener: setAudioSpectrumListener failed: {}", ignored.toString());
     }
   }
 
@@ -422,10 +432,12 @@ public class Simp3AudioService implements AudioFacade {
     try {
       engine.stop();
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
     try {
       engine.dispose();
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
   }
 
@@ -441,6 +453,8 @@ public class Simp3AudioService implements AudioFacade {
         try {
           return new File(url.toURI());
         } catch (Exception ignored) {
+          // reason: audio backend operation is non-critical; failure is recoverable
+          log.trace("resolveToFile: URL-to-URI conversion failed for id={}: {}", id, ignored.toString());
         }
       }
 

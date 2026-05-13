@@ -352,6 +352,7 @@ public final class VnPhoneCommands {
     try {
       return Integer.parseInt(token.trim());
     } catch (NumberFormatException ignored) {
+// reason: malformed numeric text input; caller uses fallback value
       return fallback;
     }
   }

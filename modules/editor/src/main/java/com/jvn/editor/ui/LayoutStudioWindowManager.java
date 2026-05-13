@@ -148,6 +148,7 @@ public class LayoutStudioWindowManager {
     try {
       return file.getCanonicalPath();
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return file.getAbsolutePath();
     }
   }
@@ -1004,6 +1005,7 @@ public class LayoutStudioWindowManager {
           return root.relativize(abs).toString().replace('\\', '/');
         }
       } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       }
       return pathFile.getAbsolutePath().replace('\\', '/');
     }
@@ -1145,6 +1147,7 @@ public class LayoutStudioWindowManager {
         try {
           Files.deleteIfExists(temp);
         } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
         }
       }
     }

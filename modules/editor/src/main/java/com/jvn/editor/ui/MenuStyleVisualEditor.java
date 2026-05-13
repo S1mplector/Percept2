@@ -245,6 +245,7 @@ public class MenuStyleVisualEditor extends BorderPane {
     try {
       spItemFontSize.getValueFactory().setValue(Integer.parseInt(rawProperties.getProperty("itemFontSize", Integer.toString(spItemFontSize.getValue()))));
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       parseDiagnostics.add("Invalid integer for 'itemFontSize': '" + rawProperties.getProperty("itemFontSize") + "'");
     }
 
@@ -271,6 +272,7 @@ public class MenuStyleVisualEditor extends BorderPane {
     try {
       spTitleFontSize.getValueFactory().setValue(Integer.parseInt(rawProperties.getProperty("titleFontSize", Integer.toString(spTitleFontSize.getValue()))));
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       parseDiagnostics.add("Invalid integer for 'titleFontSize': '" + rawProperties.getProperty("titleFontSize") + "'");
     }
     tfTitleShadowColor.setText(rawProperties.getProperty("titleShadowColor", ""));
@@ -282,6 +284,7 @@ public class MenuStyleVisualEditor extends BorderPane {
     try {
       spHintsFontSize.getValueFactory().setValue(Integer.parseInt(rawProperties.getProperty("hintsFontSize", Integer.toString(spHintsFontSize.getValue()))));
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       parseDiagnostics.add("Invalid integer for 'hintsFontSize': '" + rawProperties.getProperty("hintsFontSize") + "'");
     }
 
@@ -584,6 +587,7 @@ public class MenuStyleVisualEditor extends BorderPane {
     try {
       Color.web(normalized);
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       warnings.add(key + " is not a valid color: " + normalized);
     }
   }
@@ -850,6 +854,7 @@ public class MenuStyleVisualEditor extends BorderPane {
       java.nio.file.Files.copy(selected.toPath(), dest.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
       return toProjectRelativePath(dest);
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return targetField != null ? normalize(targetField.getText(), "") : null;
     }
   }
@@ -873,6 +878,7 @@ public class MenuStyleVisualEditor extends BorderPane {
       Image image = new Image(asset.toURI().toString(), false);
       return image.isError() ? null : image;
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return null;
     }
   }
@@ -905,6 +911,7 @@ public class MenuStyleVisualEditor extends BorderPane {
         return root.relativize(abs).toString().replace('\\', '/');
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
     return file.getAbsolutePath().replace('\\', '/');
   }
@@ -949,6 +956,7 @@ public class MenuStyleVisualEditor extends BorderPane {
         try {
           return Double.parseDouble(string.trim());
         } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
           return vf.getValue();
         }
       }
@@ -975,6 +983,7 @@ public class MenuStyleVisualEditor extends BorderPane {
     try {
       return Double.parseDouble(raw.trim());
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return fallback;
     }
   }
@@ -996,6 +1005,7 @@ public class MenuStyleVisualEditor extends BorderPane {
     try {
       return Color.web(raw.trim());
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return fallback;
     }
   }

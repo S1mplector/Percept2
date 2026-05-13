@@ -420,6 +420,7 @@ public class FxAudioService implements AudioFacade {
         Platform.runLater(action);
       }
     } catch (IllegalStateException ignored) {
+            // reason: JavaFX state race on shutdown; not actionable at call site
       action.run();
     }
   }

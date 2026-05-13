@@ -2,8 +2,8 @@ package com.jvn.core.vn;
 
 import java.util.Locale;
 import java.util.function.BooleanSupplier;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.jvn.core.audio.AudioFacade;
 import com.jvn.core.scene.Scene;
@@ -18,7 +18,7 @@ import com.jvn.core.vn.rollback.VnRollbackEntry;
  */
 public class VnScene implements Scene {
   private static final int MAX_INSTANT_CHAIN = 1000; // Safety limit for instant node chains
-  private static final Logger LOGGER = Logger.getLogger(VnScene.class.getName());
+  private static final Logger log = LoggerFactory.getLogger(VnScene.class);
 
   private final VnState state;
   private VnScenario scenario;
@@ -346,6 +346,7 @@ public class VnScene implements Scene {
     try {
       return VnConditionEvaluator.evaluate(cond, state.getVariables());
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return false;
     }
   }
@@ -471,7 +472,7 @@ public class VnScene implements Scene {
     }
 
     // Safety: if we hit MAX_INSTANT_CHAIN, log warning but don't crash
-    System.err.println("[VnScene] Warning: Hit max instant chain limit (" + MAX_INSTANT_CHAIN + "). Possible infinite loop in script.");
+    log.warn("Hit max instant chain limit ({}). Possible infinite loop in script.", MAX_INSTANT_CHAIN);
   }
 
   private void processDialogueNode(VnNode node) {
@@ -546,7 +547,7 @@ public class VnScene implements Scene {
     if (ex != null && ex.getMessage() != null && !ex.getMessage().isBlank()) {
       detail += ": " + ex.getMessage();
     }
-    LOGGER.log(Level.WARNING, "VN " + context + " interop failed for provider '" + provider + "'", ex);
+    log.warn("VN {} interop failed for provider '{}'", context, provider, ex);
     state.showHudMessage("VN " + context + " [" + provider + "] failed: " + detail, 2200);
     setActiveError(VnErrorOverlay.interopError(provider, detail, ex));
   }

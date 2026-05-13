@@ -142,6 +142,7 @@ public class YouTubeDownloadService {
                 }
             }
         } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
         }
         return -1;
     }
@@ -188,7 +189,9 @@ public class YouTubeDownloadService {
                     }
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
         return null;
     }
 

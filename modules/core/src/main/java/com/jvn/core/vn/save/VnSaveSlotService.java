@@ -142,7 +142,9 @@ public final class VnSaveSlotService {
             deleted |= Files.deleteIfExists(saveDirectory.resolve(name + JSON_EXT));
             deleted |= Files.deleteIfExists(saveDirectory.resolve(name + LEGACY_EXT));
             deleted |= Files.deleteIfExists(saveDirectory.resolve(name + THUMB_EXT));
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
         return deleted;
     }
 
@@ -156,7 +158,9 @@ public final class VnSaveSlotService {
     private void ensureDirectoryExists() {
         try {
             Files.createDirectories(saveDirectory);
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
     }
 
     /**

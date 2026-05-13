@@ -269,7 +269,9 @@ public class RunConsoleView extends BorderPane {
                 while ((line = r.readLine()) != null) {
                     appendLine(line);
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
 
             int exitCode = -1;
             try {

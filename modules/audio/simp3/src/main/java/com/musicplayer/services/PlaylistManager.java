@@ -4,6 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.musicplayer.data.models.Playlist;
 import com.musicplayer.data.models.Song;
 import com.musicplayer.data.repositories.PersistentPlaylistRepository;
@@ -15,7 +18,9 @@ import com.musicplayer.data.repositories.PlaylistRepository;
  * for the UI controllers.
  */
 public class PlaylistManager {
-    
+
+    private static final Logger log = LoggerFactory.getLogger(PlaylistManager.class);
+
     private final PlaylistRepository playlistRepository;
     
     // Callback for notifying when playlists change
@@ -29,7 +34,7 @@ public class PlaylistManager {
             PersistentPlaylistRepository persistentRepo = (PersistentPlaylistRepository) playlistRepository;
             List<Playlist> existingPlaylists = persistentRepo.findAll();
             if (!existingPlaylists.isEmpty()) {
-                System.out.println("Found existing playlists: " + existingPlaylists.size());
+                log.debug("Found existing playlists: {}", existingPlaylists.size());
             }
         }
     }
@@ -41,7 +46,7 @@ public class PlaylistManager {
     public void initializePlaylists() {
         List<Playlist> existingPlaylists = getAllPlaylists();
         if (!existingPlaylists.isEmpty() && playlistUpdateCallback != null) {
-            System.out.println("Initializing UI with " + existingPlaylists.size() + " existing playlists");
+            log.debug("Initializing UI with {} existing playlists", existingPlaylists.size());
             playlistUpdateCallback.accept(existingPlaylists);
         }
     }
@@ -77,8 +82,8 @@ public class PlaylistManager {
         Playlist newPlaylist = new Playlist();
         newPlaylist.setName(name.trim());
         playlistRepository.save(newPlaylist);
-        
-        System.out.println("Created new playlist: " + name);
+
+        log.debug("Created new playlist: {}", name);
         
         // Notify callback if set
         notifyPlaylistUpdate();
@@ -114,8 +119,8 @@ public class PlaylistManager {
         String oldName = playlist.getName();
         playlist.setName(newName.trim());
         playlistRepository.save(playlist);
-        
-        System.out.println("Renamed playlist '" + oldName + "' to '" + newName + "'");
+
+        log.debug("Renamed playlist '{}' to '{}'", oldName, newName);
         
         // Notify callback if set
         notifyPlaylistUpdate();
@@ -137,8 +142,8 @@ public class PlaylistManager {
         
         String playlistName = playlist.getName();
         playlistRepository.delete(playlistId);
-        
-        System.out.println("Deleted playlist: " + playlistName);
+
+        log.debug("Deleted playlist: {}", playlistName);
         
         // Notify callback if set
         notifyPlaylistUpdate();
@@ -166,8 +171,8 @@ public class PlaylistManager {
         
         playlist.addSong(song);
         playlistRepository.save(playlist);
-        
-        System.out.println("Added song '" + song.getTitle() + "' to playlist '" + playlist.getName() + "'");
+
+        log.debug("Added song '{}' to playlist '{}'", song.getTitle(), playlist.getName());
         
         // Notify callback if set
         notifyPlaylistUpdate();
@@ -191,7 +196,7 @@ public class PlaylistManager {
         boolean removed = playlist.getSongs().remove(song);
         if (removed) {
             playlistRepository.save(playlist);
-            System.out.println("Removed song '" + song.getTitle() + "' from playlist '" + playlist.getName() + "'");
+            log.debug("Removed song '{}' from playlist '{}'", song.getTitle(), playlist.getName());
             
             // Notify callback if set
             notifyPlaylistUpdate();
@@ -274,7 +279,7 @@ public class PlaylistManager {
             playlistRepository.delete(playlist.getId());
         }
         
-        System.out.println("Cleared all playlists");
+        log.debug("Cleared all playlists");
         
         // Notify callback if set
         notifyPlaylistUpdate();

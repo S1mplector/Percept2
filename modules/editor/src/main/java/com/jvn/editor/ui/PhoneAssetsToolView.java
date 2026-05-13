@@ -2259,6 +2259,7 @@ public class PhoneAssetsToolView extends BorderPane {
         return normalizeRelativePath(root.relativize(target).toString());
       }
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
     return file.getAbsolutePath().replace('\\', '/');
   }
@@ -2498,6 +2499,7 @@ public class PhoneAssetsToolView extends BorderPane {
     try {
       return Integer.parseInt(raw.trim());
     } catch (NumberFormatException ignored) {
+// reason: malformed numeric text input; caller uses fallback value
       return fallback;
     }
   }

@@ -16,6 +16,9 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.nio.file.SimpleFileVisitor;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.musicplayer.data.models.Song;
 import com.musicplayer.data.repositories.PersistentSongRepository;
 import com.musicplayer.data.repositories.SongRepository;
@@ -27,7 +30,9 @@ import com.musicplayer.utils.MusicScanner;
  * for the UI controllers.
  */
 public class MusicLibraryManager {
-    
+
+    private static final Logger log = LoggerFactory.getLogger(MusicLibraryManager.class);
+
     private final SongRepository songRepository;
     private File currentMusicFolder;
     
@@ -46,7 +51,7 @@ public class MusicLibraryManager {
         if (songRepository instanceof PersistentSongRepository) {
             PersistentSongRepository persistentRepo = (PersistentSongRepository) songRepository;
             if (persistentRepo.size() > 0) {
-                System.out.println("Found existing library with " + persistentRepo.size() + " songs");
+                log.debug("Found existing library with {} songs", persistentRepo.size());
                 // Try to restore last music folder from first song's path
                 List<Song> songs = persistentRepo.findAll();
                 if (!songs.isEmpty() && songs.get(0).getFilePath() != null) {
@@ -88,7 +93,7 @@ public class MusicLibraryManager {
     public void initializeLibrary() {
         List<Song> existingSongs = getAllSongs();
         if (!existingSongs.isEmpty() && libraryUpdateCallback != null) {
-            System.out.println("Initializing UI with " + existingSongs.size() + " existing songs");
+            log.debug("Initializing UI with {} existing songs", existingSongs.size());
             libraryUpdateCallback.accept(existingSongs);
         }
     }
@@ -135,7 +140,7 @@ public class MusicLibraryManager {
      */
     public void scanMusicFolder(File folder, boolean clearExisting) {
         if (folder == null || !folder.exists() || !folder.isDirectory()) {
-            System.err.println("Invalid folder provided for scanning: " + folder);
+            log.warn("Invalid folder provided for scanning: {}", folder);
             return;
         }
 
@@ -155,7 +160,7 @@ public class MusicLibraryManager {
         // Run scanning in a separate thread to avoid blocking the UI
         Thread scanThread = new Thread(() -> {
             try {
-                System.out.println("Starting scan of folder: " + folder.getAbsolutePath());
+                log.debug("Starting scan of folder: {}", folder.getAbsolutePath());
                 
                 // Clear existing songs from repository if requested
                 if (clearExisting) {
@@ -192,7 +197,7 @@ public class MusicLibraryManager {
                     songRepository.save(song);
                 }
                 
-                System.out.println("Scan complete. Found " + scannedSongs.size() + " songs.");
+                log.debug("Scan complete. Found {} songs.", scannedSongs.size());
                 
                 // Notify callback of library update (if set)
                 if (libraryUpdateCallback != null) {
@@ -203,8 +208,7 @@ public class MusicLibraryManager {
                 }
                 
             } catch (Exception e) {
-                System.err.println("Error during music folder scan: " + e.getMessage());
-                e.printStackTrace();
+                log.error("Error during music folder scan", e);
             }
         });
         
@@ -301,11 +305,11 @@ public class MusicLibraryManager {
      */
     public void rescanCurrentFolder() {
         if (currentMusicFolder == null || !currentMusicFolder.exists()) {
-            System.out.println("No current music folder set or folder doesn't exist. Cannot rescan.");
+            log.debug("No current music folder set or folder doesn't exist. Cannot rescan.");
             return;
         }
-        
-        System.out.println("Starting full rescan of current music folder: " + currentMusicFolder.getAbsolutePath());
+
+        log.debug("Starting full rescan of current music folder: {}", currentMusicFolder.getAbsolutePath());
         
         // Use the proven scanMusicFolder logic with clearExisting=true
         // This ensures a complete refresh just like "Clear & Scan New Folder"
@@ -380,7 +384,9 @@ public class MusicLibraryManager {
                         File f = child.toFile();
                         if (kind == StandardWatchEventKinds.ENTRY_CREATE) {
                             if (f.isDirectory()) {
-                                try { registerAll(child); } catch (Exception ignored) {}
+                                try { registerAll(child); } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
                                 List<Song> songs = MusicScanner.scanDirectory(f);
                                 if (!songs.isEmpty()) {
                                     applyScanResults(songs);
@@ -423,7 +429,7 @@ public class MusicLibraryManager {
             watcherThread.setName("MusicWatcher-" + folder.getName());
             watcherThread.start();
         } catch (IOException e) {
-            System.err.println("Failed to start watcher: " + e.getMessage());
+            log.warn("Failed to start watcher: {}", e.getMessage());
         }
     }
 

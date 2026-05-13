@@ -7,6 +7,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.musicplayer.data.models.Playlist;
 import com.musicplayer.data.storage.LibraryStorage;
 
@@ -15,7 +18,9 @@ import com.musicplayer.data.storage.LibraryStorage;
  * to save and load data across application sessions.
  */
 public class PersistentPlaylistRepository implements PlaylistRepository {
-    
+
+    private static final Logger log = LoggerFactory.getLogger(PersistentPlaylistRepository.class);
+
     private final Map<Long, Playlist> playlists = new HashMap<>();
     private final AtomicLong idCounter = new AtomicLong();
     private final LibraryStorage storage;
@@ -48,10 +53,10 @@ public class PersistentPlaylistRepository implements PlaylistRepository {
             // Set the ID counter to continue from the highest existing ID
             idCounter.set(maxId);
             isLoaded = true;
-            
-            System.out.println("Loaded " + savedPlaylists.size() + " playlists from storage");
+
+            log.debug("Loaded {} playlists from storage", savedPlaylists.size());
         } catch (IOException e) {
-            System.err.println("Failed to load playlists from storage: " + e.getMessage());
+            log.error("Failed to load playlists from storage", e);
             // Continue with empty repository if loading fails
             isLoaded = true;
         }
@@ -64,7 +69,7 @@ public class PersistentPlaylistRepository implements PlaylistRepository {
         try {
             storage.savePlaylists(new ArrayList<>(playlists.values()));
         } catch (IOException e) {
-            System.err.println("Failed to save playlists to storage: " + e.getMessage());
+            log.error("Failed to save playlists to storage", e);
         }
     }
     

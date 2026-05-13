@@ -630,6 +630,7 @@ with or contains the label name — useful for structured storyboard exports.
       opacitySlider.setValue(parseOpacity(persisted.getProperty(KEY_OPACITY), 35.0));
       opacityValueLabel.setText(Integer.toString((int) Math.round(opacitySlider.getValue())) + "%");
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     } finally {
       applyingState = false;
     }
@@ -656,6 +657,7 @@ with or contains the label name — useful for structured storyboard exports.
       persisted.clear();
       persisted.putAll(props);
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
     }
   }
 
@@ -712,6 +714,7 @@ with or contains the label name — useful for structured storyboard exports.
       if (!Double.isFinite(value)) return fallback;
       return Math.max(5.0, Math.min(100.0, value));
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return fallback;
     }
   }

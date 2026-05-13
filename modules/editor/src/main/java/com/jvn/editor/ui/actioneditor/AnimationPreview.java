@@ -854,6 +854,7 @@ public class AnimationPreview extends VBox {
             java.net.URL classpath = getClass().getClassLoader().getResource(path);
             if (classpath != null) return new Image(classpath.toExternalForm(), false);
         } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
         }
         try {
             java.io.File absolute = new java.io.File(path);
@@ -861,6 +862,7 @@ public class AnimationPreview extends VBox {
                 return new Image(absolute.toURI().toString(), false);
             }
         } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
         }
         try {
             if (projectRoot != null) {
@@ -868,6 +870,7 @@ public class AnimationPreview extends VBox {
                 if (relative.isFile()) return new Image(relative.toURI().toString(), false);
             }
         } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
         }
         return null;
     }

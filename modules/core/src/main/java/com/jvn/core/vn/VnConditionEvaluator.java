@@ -57,6 +57,7 @@ public final class VnConditionEvaluator {
     try {
       return Double.parseDouble(s);
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return 0.0;
     }
   }
@@ -73,6 +74,7 @@ public final class VnConditionEvaluator {
     try {
       return Math.abs(Double.parseDouble(s)) > 1e-12;
     } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
       return true;
     }
   }

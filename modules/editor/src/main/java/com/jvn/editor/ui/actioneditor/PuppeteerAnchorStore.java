@@ -70,7 +70,9 @@ public final class PuppeteerAnchorStore {
             try (OutputStream out = Files.newOutputStream(dir.resolve(FILENAME))) {
                 props.store(out, "Puppeteer named anchors");
             }
-        } catch (IOException ignored) {}
+        } catch (IOException ignored) {
+            // reason: I/O failure on best-effort save/load; in-memory state remains valid
+        }
     }
 
     // ── Load ─────────────────────────────────────────────────────────────────
@@ -89,6 +91,7 @@ public final class PuppeteerAnchorStore {
         try (InputStream in = Files.newInputStream(file.toPath())) {
             props.load(in);
         } catch (IOException ignored) {
+            // reason: I/O failure on best-effort save/load; in-memory state remains valid
             return;
         }
 
@@ -114,7 +117,9 @@ public final class PuppeteerAnchorStore {
         try {
             File f = resolveFile(projectRoot);
             if (f != null && f.isFile()) f.delete();
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+            }
     }
 
     private static File resolveFile(File projectRoot) {
