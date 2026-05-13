@@ -12,11 +12,17 @@ import java.util.Locale;
 import java.util.Properties;
 import java.util.function.Consumer;
 
+import javafx.animation.Animation;
+import javafx.animation.Interpolator;
+import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
+import javafx.animation.Timeline;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
@@ -27,7 +33,10 @@ import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.util.Duration;
 
 /**
  * Popup panel for packaging the currently opened JVN game project.
@@ -77,6 +86,9 @@ public class GameBuildPublisherView extends BorderPane {
   private Button presetPortableButton;
   private Button presetDesktopButton;
   private Button presetNativeButton;
+  private final AnimatedPresetArrowIndicator presetPortableIndicator = new AnimatedPresetArrowIndicator();
+  private final AnimatedPresetArrowIndicator presetDesktopIndicator = new AnimatedPresetArrowIndicator();
+  private final AnimatedPresetArrowIndicator presetNativeIndicator = new AnimatedPresetArrowIndicator();
   private Button btnBrowseOutputDir;
   private Button btnResetOutputDir;
   private Button zipOutputButton;
@@ -112,7 +124,7 @@ public class GameBuildPublisherView extends BorderPane {
 
     presetPortableButton = button("Current Portable", ButtonTone.SECONDARY, true);
     presetPortableButton.setOnAction(e -> applyPreset(PackageMode.PORTABLE_ZIP, currentTargetToken()));
-    presetDesktopButton = button("Desktop Bundles", ButtonTone.PRIMARY, true);
+    presetDesktopButton = button("Desktop Bundles", ButtonTone.SECONDARY, true);
     presetDesktopButton.setOnAction(e -> applyPreset(PackageMode.BUNDLED_RUNTIME_ZIP, "all"));
     presetNativeButton = button("Native Current", ButtonTone.SECONDARY, true);
     presetNativeButton.setOnAction(e -> applyPreset(PackageMode.NATIVE_PACKAGE, currentTargetToken()));
@@ -441,6 +453,7 @@ public class GameBuildPublisherView extends BorderPane {
     refreshOutputPreview();
     ValidationResult result = validateForm();
     applyValidation(result);
+    refreshPresetButtons();
     refreshBuildPlan(result);
     refreshActionButtons(result);
     refreshUtilityButtons(result);
@@ -493,6 +506,34 @@ public class GameBuildPublisherView extends BorderPane {
     validationLabel.setText("Validated: project, manifest, entry file, target, and output folder are ready.");
     setNoteTone(validationLabel, "ok");
     setNoteTone(statusLabel, "status");
+  }
+
+  private void refreshPresetButtons() {
+    PackageMode mode = selectedPackageMode();
+    String targetToken = targetBox.getValue() == null ? "" : targetBox.getValue().outputToken();
+    updatePresetButton(
+        presetPortableButton,
+        presetPortableIndicator,
+        mode == PackageMode.PORTABLE_ZIP && currentTargetToken().equals(targetToken));
+    updatePresetButton(
+        presetDesktopButton,
+        presetDesktopIndicator,
+        mode == PackageMode.BUNDLED_RUNTIME_ZIP && "all".equals(targetToken));
+    updatePresetButton(
+        presetNativeButton,
+        presetNativeIndicator,
+        mode == PackageMode.NATIVE_PACKAGE && currentTargetToken().equals(targetToken));
+  }
+
+  private void updatePresetButton(Button button, AnimatedPresetArrowIndicator indicator, boolean selected) {
+    if (button == null || indicator == null) return;
+    button.getStyleClass().removeAll("build-publisher-button-primary", "build-publisher-button-secondary");
+    button.getStyleClass().add(selected ? "build-publisher-button-primary" : "build-publisher-button-secondary");
+    button.setGraphic(selected ? indicator : null);
+    button.setContentDisplay(selected ? ContentDisplay.LEFT : ContentDisplay.TEXT_ONLY);
+    button.setGraphicTextGap(selected ? 6 : 0);
+    button.setAccessibleText((selected ? "Selected preset: " : "Preset: ") + button.getText());
+    indicator.setActive(selected);
   }
 
   private void refreshBuildPlan(ValidationResult result) {
@@ -1565,5 +1606,60 @@ public class GameBuildPublisherView extends BorderPane {
     PRIMARY,
     SECONDARY,
     DANGER
+  }
+
+  private static final class AnimatedPresetArrowIndicator extends StackPane {
+    private final Region arrow = CssIcon.arrowLeft("#e08a2e");
+    private final Timeline timeline;
+    private boolean active;
+
+    private AnimatedPresetArrowIndicator() {
+      getStyleClass().add("welcome-project-current-arrow");
+      setMinSize(14, 12);
+      setPrefSize(14, 12);
+      setMaxSize(14, 12);
+      setPickOnBounds(false);
+
+      arrow.setScaleX(1.1);
+      arrow.setScaleY(1.1);
+      getChildren().add(arrow);
+
+      resetAnimationState();
+      timeline = new Timeline(
+          new KeyFrame(Duration.ZERO,
+              new KeyValue(arrow.translateXProperty(), 1.4, Interpolator.EASE_BOTH),
+              new KeyValue(arrow.opacityProperty(), 0.74, Interpolator.EASE_BOTH)),
+          new KeyFrame(Duration.millis(320),
+              new KeyValue(arrow.translateXProperty(), -2.2, Interpolator.EASE_BOTH),
+              new KeyValue(arrow.opacityProperty(), 1.0, Interpolator.EASE_BOTH)),
+          new KeyFrame(Duration.millis(760),
+              new KeyValue(arrow.translateXProperty(), 1.4, Interpolator.EASE_BOTH),
+              new KeyValue(arrow.opacityProperty(), 0.74, Interpolator.EASE_BOTH)));
+      timeline.setCycleCount(Animation.INDEFINITE);
+      sceneProperty().addListener((obs, oldScene, newScene) -> {
+        if (newScene == null) {
+          timeline.stop();
+          resetAnimationState();
+        } else if (active) {
+          timeline.playFromStart();
+        }
+      });
+    }
+
+    private void setActive(boolean active) {
+      if (this.active == active) return;
+      this.active = active;
+      if (!active) {
+        timeline.stop();
+        resetAnimationState();
+      } else if (getScene() != null) {
+        timeline.playFromStart();
+      }
+    }
+
+    private void resetAnimationState() {
+      arrow.setTranslateX(1.4);
+      arrow.setOpacity(0.74);
+    }
   }
 }
