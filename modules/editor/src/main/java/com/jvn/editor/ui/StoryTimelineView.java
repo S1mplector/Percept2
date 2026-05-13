@@ -335,6 +335,20 @@ public class StoryTimelineView extends BorderPane {
     Region rowSpacer = new Region();
     HBox.setHgrow(rowSpacer, Priority.ALWAYS);
 
+    Label titleLabel = new Label("Story Map");
+    titleLabel.getStyleClass().add("sidebar-tool-title");
+    HBox titleRow = new HBox(6, titleLabel, SidebarToolHelp.button(this, "Story Map", """
+        The Story Map organises .vns scripts into named arcs and links so you can \
+see and edit the structure of a project at a higher level than a single script.
+
+Arcs point at script files and optional entry labels. Links represent story \
+transitions between arcs and can copy goto snippets back into script text.
+
+Use the graph to drag arcs into place, run or select nodes, and inspect the \
+flow between story sections. Drop .vns files onto the graph to create arcs \
+quickly, then use Validate to catch missing scripts or labels."""));
+    titleRow.setAlignment(Pos.CENTER_LEFT);
+
     HBox rowPrimary = new HBox(6,
       bAddArc, bAddLink, sepA, bEdit, bOpen, bDelete, rowSpacer, new Label("Find"), tfSearch
     );
@@ -344,7 +358,7 @@ public class StoryTimelineView extends BorderPane {
     );
     rowSecondary.setAlignment(Pos.CENTER_LEFT);
 
-    VBox toolbar = new VBox(6, rowPrimary, rowSecondary);
+    VBox toolbar = new VBox(6, titleRow, rowPrimary, rowSecondary);
     toolbar.getStyleClass().add("timeline-toolbar");
     toolbar.setPadding(new Insets(8, 8, 6, 8));
     setTop(toolbar);
