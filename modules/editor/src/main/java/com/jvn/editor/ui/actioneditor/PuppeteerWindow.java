@@ -737,6 +737,7 @@ public class PuppeteerWindow extends Stage {
 
         animationPreview.setOnEntityRotationChanged((name, rotationDeg) -> {
             if (name == null || rotationDeg == null || !Double.isFinite(rotationDeg)) return;
+            boolean groupTarget = this.project.getGroup(name) != null;
             EntityTrack track = resolveAnimatedTrack(name, true);
             if (track == null) return;
             double time = this.project.getPlayheadMs();
@@ -745,6 +746,9 @@ public class PuppeteerWindow extends Stage {
             }
             track.upsertKeyframe(PropertyType.ROTATION, new Keyframe(time, rotationDeg));
             timelinePanel.refresh();
+            if (groupTarget) {
+                updatePreview();
+            }
             refreshExportPreviewAndMarkDirty();
         });
 
