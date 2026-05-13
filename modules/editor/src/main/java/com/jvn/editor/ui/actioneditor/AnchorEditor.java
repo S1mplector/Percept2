@@ -11,7 +11,6 @@ import java.util.function.BiConsumer;
 import javafx.animation.AnimationTimer;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
@@ -28,7 +27,6 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Rectangle;
-import javafx.stage.Stage;
 
 /**
  * Minimal visual anchor editor. Automatically mirrors the entity selected via the
@@ -60,7 +58,7 @@ public class AnchorEditor extends VBox {
                                               + "-fx-border-color: #505050; -fx-border-radius: 3;";
 
     private static final int    CANVAS_BASE_H = 190;
-    private static final int    CANVAS_FULLSCREEN_H = 620;
+    private static final int    CANVAS_EXPANDED_H = 520;
     private static final double PAD           = 10.0;
     private static final double DOT_R         = 5.0;
     private static final double HIT_R         = DOT_R * 2.5;
@@ -139,9 +137,8 @@ public class AnchorEditor extends VBox {
     private double canvasZoom = 1.0;
     private Label  lblZoom;
     private AnimationTimer zoomAnimator;
-    private boolean fullscreenMode;
-    private Stage fullscreenStage;
-    private AnchorEditor fullscreenEditor;
+    private boolean canvasExpanded;
+    private Button btnExpandCanvas;
 
     // pending placement (normalized coords, or -1 when inactive)
     private double pendingRelX = -1;
@@ -156,14 +153,10 @@ public class AnchorEditor extends VBox {
     private TextField  txtPendingName;
     private VBox       anchorsContainer;
     private Label      lblNoAnchors;
+    private ScrollPane anchorListScroll;
 
     // ── Constructor ──────────────────────────────────────────────────────────
     public AnchorEditor() {
-        this(false);
-    }
-
-    private AnchorEditor(boolean fullscreenMode) {
-        this.fullscreenMode = fullscreenMode;
         setSpacing(0);
         setFillWidth(true);
         buildUI();
@@ -198,9 +191,9 @@ public class AnchorEditor extends VBox {
             "-fx-background: #141414; -fx-background-color: #141414; "
             + "-fx-border-color: transparent;"
         );
-        canvasScroll.setMaxHeight(fullscreenMode ? Double.MAX_VALUE : CANVAS_BASE_H + 2);
+        canvasScroll.setMaxHeight(CANVAS_BASE_H + 2);
         canvasScroll.setPrefHeight(canvasBaseHeight() + 2);
-        VBox.setVgrow(canvasScroll, fullscreenMode ? Priority.ALWAYS : Priority.NEVER);
+        VBox.setVgrow(canvasScroll, Priority.NEVER);
         canvasScroll.setOnScroll(e -> {
             if (e.isControlDown() || e.isShortcutDown()) {
                 double[] focus = canvasFocusFromViewportEvent(e.getX(), e.getY());
@@ -252,19 +245,10 @@ public class AnchorEditor extends VBox {
         btnViewportPlace.setTooltip(new Tooltip("Place the next anchor in the main viewport with focused zoom"));
         btnViewportPlace.setOnAction(e -> beginViewportPlacement());
 
-        Button btnFullscreen = new Button(fullscreenMode ? "Exit Fullscreen" : "Fullscreen");
-        btnFullscreen.setStyle(S_BTN_ZOOM + "-fx-min-width: 86; -fx-pref-width: 86; -fx-max-width: 110;");
-        btnFullscreen.setTooltip(new Tooltip(fullscreenMode
-            ? "Close the fullscreen anchor editor"
-            : "Open a fullscreen anchor editor for precise placement"));
-        btnFullscreen.setOnAction(e -> {
-            if (fullscreenMode) {
-                Stage stage = (Stage) getScene().getWindow();
-                stage.close();
-            } else {
-                openFullscreenEditor();
-            }
-        });
+        btnExpandCanvas = new Button("Expand");
+        btnExpandCanvas.setStyle(S_BTN_ZOOM + "-fx-min-width: 74; -fx-pref-width: 74; -fx-max-width: 84;");
+        btnExpandCanvas.setOnAction(e -> setCanvasExpanded(!canvasExpanded));
+        updateCanvasExpandButton();
 
         lblZoom = new Label("100%");
         lblZoom.setStyle("-fx-text-fill: #aaa; -fx-font-size: 10px; -fx-min-width: 36; -fx-alignment: center;");
@@ -272,7 +256,7 @@ public class AnchorEditor extends VBox {
         Label zoomLabel = new Label("Zoom:");
         zoomLabel.setStyle("-fx-text-fill: #777; -fx-font-size: 10px;");
 
-        HBox zoomBar = new HBox(5, zoomLabel, btnZoomOut, lblZoom, btnZoomIn, btnZoomReset, btnViewportPlace, btnFullscreen);
+        HBox zoomBar = new HBox(5, zoomLabel, btnZoomOut, lblZoom, btnZoomIn, btnZoomReset, btnViewportPlace, btnExpandCanvas);
         zoomBar.setAlignment(Pos.CENTER_LEFT);
         zoomBar.setPadding(new Insets(4, 8, 4, 8));
         zoomBar.setStyle(
@@ -319,18 +303,18 @@ public class AnchorEditor extends VBox {
         anchorsContainer = new VBox(2);
         anchorsContainer.setPadding(new Insets(0, 6, 6, 6));
 
-        ScrollPane scroll = new ScrollPane(anchorsContainer);
-        scroll.setFitToWidth(true);
-        scroll.setMaxHeight(fullscreenMode ? 240 : 180);
-        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        anchorListScroll = new ScrollPane(anchorsContainer);
+        anchorListScroll.setFitToWidth(true);
+        anchorListScroll.setMaxHeight(180);
+        anchorListScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        anchorListScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
 
         getChildren().addAll(
             header, new Separator(),
             chipRow, new Separator(),
             canvasScroll, zoomBar, pendingRow,
             new Separator(),
-            lblHdr, lblNoAnchors, scroll
+            lblHdr, lblNoAnchors, anchorListScroll
         );
 
         redrawCanvas();
@@ -391,7 +375,7 @@ public class AnchorEditor extends VBox {
         if (viewportWidth <= 0) return;
         double cw = Math.max(viewportWidth, viewportWidth * canvasZoom);
         double ch = canvasBaseHeight() * canvasZoom;
-        if (fullscreenMode) {
+        if (canvasExpanded) {
             canvasScroll.setMaxHeight(Double.MAX_VALUE);
             canvasScroll.setPrefHeight(Math.min(ch + 2, canvasBaseHeight() + 160));
         } else {
@@ -405,7 +389,31 @@ public class AnchorEditor extends VBox {
     }
 
     private int canvasBaseHeight() {
-        return fullscreenMode ? CANVAS_FULLSCREEN_H : CANVAS_BASE_H;
+        return canvasExpanded ? CANVAS_EXPANDED_H : CANVAS_BASE_H;
+    }
+
+    private void setCanvasExpanded(boolean expanded) {
+        canvasExpanded = expanded;
+        VBox.setVgrow(canvasScroll, expanded ? Priority.ALWAYS : Priority.NEVER);
+        if (anchorListScroll != null) {
+            anchorListScroll.setMaxHeight(expanded ? 140 : 180);
+        }
+        updateCanvasExpandButton();
+        double vw = canvasScroll.getViewportBounds() != null
+            ? canvasScroll.getViewportBounds().getWidth()
+            : getWidth();
+        updateCanvasSize(vw > 0 ? vw : getWidth());
+    }
+
+    private void updateCanvasExpandButton() {
+        if (btnExpandCanvas == null) return;
+        btnExpandCanvas.setText(canvasExpanded ? "Compact" : "Expand");
+        btnExpandCanvas.setTooltip(new Tooltip(canvasExpanded
+            ? "Return the anchor canvas to its compact height"
+            : "Grow the anchor canvas inside this panel for precise placement"));
+        btnExpandCanvas.setStyle(S_BTN_ZOOM
+            + "-fx-min-width: 74; -fx-pref-width: 74; -fx-max-width: 84;"
+            + (canvasExpanded ? "-fx-background-color: #4a3a16; -fx-text-fill: #f4d58a;" : ""));
     }
 
     private ZoomFocus buildZoomFocus(double canvasX, double canvasY) {
@@ -477,7 +485,6 @@ public class AnchorEditor extends VBox {
         this.project = project;
         refreshAnchorList();
         redrawCanvas();
-        syncFullscreenEditorState();
     }
 
     public void setProjectRoot(File root) {
@@ -486,12 +493,10 @@ public class AnchorEditor extends VBox {
         this.spriteRegionCache.clear();
         if (currentEntityName != null) loadEntityImage(currentEntityName);
         redrawCanvas();
-        syncFullscreenEditorState();
     }
 
     public void setOnAnchorChanged(Runnable cb) {
         this.onAnchorChanged = cb;
-        syncFullscreenEditorCallbacks();
     }
 
     /**
@@ -500,7 +505,6 @@ public class AnchorEditor extends VBox {
      */
     public void setOnAnchorPlaced(BiConsumer<String, Anchor> cb) {
         this.onAnchorPlaced = cb;
-        syncFullscreenEditorCallbacks();
     }
 
     /**
@@ -509,12 +513,10 @@ public class AnchorEditor extends VBox {
      */
     public void setOnAnchorUsedAsPivot(BiConsumer<String, Anchor> cb) {
         this.onAnchorUsedAsPivot = cb;
-        syncFullscreenEditorCallbacks();
     }
 
     public void setAnimationPreview(AnimationPreview previewCanvas) {
         this.preview = previewCanvas;
-        syncFullscreenEditorState();
     }
 
     /**
@@ -540,84 +542,6 @@ public class AnchorEditor extends VBox {
         loadEntityImage(entityName);
         refreshAnchorList();
         redrawCanvas();
-        syncFullscreenEditorState();
-    }
-
-    private void openFullscreenEditor() {
-        if (fullscreenStage != null && fullscreenStage.isShowing()) {
-            fullscreenStage.requestFocus();
-            fullscreenStage.toFront();
-            return;
-        }
-
-        fullscreenEditor = new AnchorEditor(true);
-        fullscreenEditor.setStyle("-fx-background-color: #181818;");
-        syncFullscreenEditorCallbacks();
-        syncFullscreenEditorState();
-
-        fullscreenStage = new Stage();
-        fullscreenStage.setTitle(fullscreenTitle());
-        Scene scene = new Scene(fullscreenEditor, 1200, 820);
-        scene.setFill(Color.web("#181818"));
-        fullscreenStage.setScene(scene);
-        fullscreenStage.setFullScreenExitHint("");
-        fullscreenStage.setOnHidden(e -> {
-            if (fullscreenEditor != null) {
-                fullscreenEditor.stopZoomAnimation();
-            }
-            fullscreenEditor = null;
-            fullscreenStage = null;
-            refreshAnchorList();
-            redrawCanvas();
-        });
-        fullscreenStage.show();
-        fullscreenStage.setFullScreen(true);
-    }
-
-    private void syncFullscreenEditorState() {
-        if (fullscreenEditor == null) return;
-        fullscreenEditor.setProject(project);
-        fullscreenEditor.setProjectRoot(projectRoot);
-        fullscreenEditor.setAnimationPreview(preview);
-        fullscreenEditor.setSelectedEntityName(currentEntityName, currentEntityIsGroup);
-        fullscreenEditor.selectedAnchorName = selectedAnchorName;
-        fullscreenEditor.refreshAnchorList();
-        fullscreenEditor.redrawCanvas();
-        if (fullscreenStage != null) fullscreenStage.setTitle(fullscreenTitle());
-    }
-
-    private void syncFullscreenEditorCallbacks() {
-        if (fullscreenEditor == null) return;
-        fullscreenEditor.setOnAnchorChanged(() -> {
-            refreshAnchorList();
-            redrawCanvas();
-            if (onAnchorChanged != null) onAnchorChanged.run();
-        });
-        fullscreenEditor.setOnAnchorPlaced((entityName, anchor) -> {
-            refreshAnchorList();
-            redrawCanvas();
-            if (onAnchorPlaced != null) onAnchorPlaced.accept(entityName, anchor);
-        });
-        fullscreenEditor.setOnAnchorUsedAsPivot((entityName, anchor) -> {
-            selectedAnchorName = anchor == null ? selectedAnchorName : anchor.getName();
-            refreshAnchorList();
-            redrawCanvas();
-            if (onAnchorUsedAsPivot != null) onAnchorUsedAsPivot.accept(entityName, anchor);
-        });
-    }
-
-    private String fullscreenTitle() {
-        String entity = currentEntityName == null || currentEntityName.isBlank()
-            ? "No Entity"
-            : currentEntityName;
-        return "Anchor Editor - " + entity;
-    }
-
-    private void stopZoomAnimation() {
-        if (zoomAnimator != null) {
-            zoomAnimator.stop();
-            zoomAnimator = null;
-        }
     }
 
     // ── Entity chip ──────────────────────────────────────────────────────────
