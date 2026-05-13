@@ -21,6 +21,10 @@ The Version Control sidebar now uses clearer snapshot/sync language, checks for 
 
 The Version Control changes list now supports multi-select and shift-select ranges, so staging, unstaging, discarding, and diff inspection can be applied to several files at once.
 
+The runtime console toolbar now uses clearer colored JavaFX icons for run, stop, clear, and copy actions.
+
+The build wrapper now exposes faster daily workflow commands: `./jvnw compile`, `./jvnw quick`, and `./jvnw build-info`, with matching Gradle tasks for compile-only checks, a focused verification slice, and build environment diagnostics.
+
 ## 2026-05-10 — Puppeteer group anchors and constraint removal
 The Puppeteer Anchors window now supports group entities. When a group is selected in the Entities tab, it appears in the Anchors window with a "[Group]" prefix and orange color indicator. Groups display a placeholder bounding box instead of a sprite image, allowing anchors to be placed on the group's normalized coordinate space.
 

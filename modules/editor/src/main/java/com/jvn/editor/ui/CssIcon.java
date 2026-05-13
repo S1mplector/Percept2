@@ -149,6 +149,10 @@ public final class CssIcon {
   public static Region copy(String color)      { return icon(PATH_COPY, color, 14); }
   public static Region play(String color)      { return icon(PATH_PLAY, color, 14); }
   public static Region stop(String color)      { return icon(PATH_STOP, color, 12); }
+  public static Region runtimePlay()           { return icon(PATH_PLAY, "#83e4a1", 17); }
+  public static Region runtimeStop()           { return icon(PATH_STOP, "#f39aaa", 15); }
+  public static Region runtimeClear()          { return icon(PATH_CLEAR_X, "#f5c46b", 16); }
+  public static Region runtimeCopy()           { return icon(PATH_COPY, "#9ad4ff", 16); }
   public static Region popOut(String color)    { return icon(PATH_POP_OUT, color, 14); }
   public static Region dock(String color)      { return icon(PATH_DOCK, color, 14); }
   public static Region rectSelect(String color) { return icon(PATH_RECT_SELECT, color, 14); }

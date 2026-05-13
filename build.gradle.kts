@@ -2112,7 +2112,88 @@ tasks.register("releaseJvnGameNativeCurrent") {
   }
 }
 
+val jvnCompileAllTasks = subprojects.map { "${it.path}:compileJava" }
+val jvnQuickCheckTasks = listOf(
+  ":core:test",
+  ":scripting:test",
+  ":fx:test",
+  ":runtime:test",
+  ":swing:test"
+)
 val jvnCiVerificationTasks = subprojects.map { "${it.path}:check" }
+val jvnBuildEnvironmentVersion = version.toString()
+val jvnBuildEnvironmentGroup = group.toString()
+val jvnBuildEnvironmentGradleVersion = gradle.gradleVersion
+val jvnBuildEnvironmentBuildDir = layout.buildDirectory.get().asFile.absolutePath
+val jvnBuildEnvironmentModules = subprojects.joinToString(", ") { it.path }
+
+tasks.register("compileAll") {
+  group = "build"
+  description = "Compiles every JVN module without running tests. Useful for fast edit/compile feedback."
+  dependsOn(jvnCompileAllTasks)
+}
+
+tasks.register("quickCheck") {
+  group = "verification"
+  description = "Compiles all modules and runs the fast core/runtime verification slice. Use ci for the full suite."
+  dependsOn("compileAll")
+  dependsOn(jvnQuickCheckTasks)
+}
+
+tasks.register("runEditor") {
+  group = "application"
+  description = "Runs the JVN editor from the root project."
+  dependsOn(":editor:run")
+}
+
+tasks.register("runLauncher") {
+  group = "application"
+  description = "Runs the standalone JVN launcher from the root project."
+  dependsOn(":editor:runLauncher")
+}
+
+tasks.register("runHelpCenter") {
+  group = "application"
+  description = "Runs the standalone JVN Help Center from the root project."
+  dependsOn(":editor:runHelpCenter")
+}
+
+tasks.register("runHub") {
+  group = "application"
+  description = "Runs the Engine Hub from the root project."
+  dependsOn(":hub:run")
+}
+
+tasks.register("printJvnBuildEnvironment") {
+  group = "help"
+  description = "Prints the active JVN build, Java, Gradle, JavaFX, and module configuration."
+  doLast {
+    println("JVN build environment")
+    println("  version: $jvnBuildEnvironmentVersion")
+    println("  group: $jvnBuildEnvironmentGroup")
+    println("  Gradle: $jvnBuildEnvironmentGradleVersion")
+    println("  Java toolchain: $configuredJavaVersion")
+    println("  Java runtime: ${System.getProperty("java.version")} (${System.getProperty("java.vendor")})")
+    println("  Java home: ${System.getProperty("java.home")}")
+    println("  JavaFX: $jvnJavaFxVersion")
+    println("  build dir: $jvnBuildEnvironmentBuildDir")
+    println("  modules: $jvnBuildEnvironmentModules")
+  }
+}
+
+tasks.register("buildSystemHelp") {
+  group = "help"
+  description = "Prints the recommended JVN build commands."
+  doLast {
+    println("Recommended JVN build commands")
+    println("  ./jvnw compile       Compile every module")
+    println("  ./jvnw quick         Compile all modules and run fast core/runtime tests")
+    println("  ./jvnw build         Full Gradle build")
+    println("  ./jvnw ci            Full project verification")
+    println("  ./jvnw build-info    Print Java, Gradle, JavaFX, and module configuration")
+    println("  ./jvnw dist-preflight -PjvnGameProject=<dir>  Validate a game release plan")
+  }
+}
 
 tasks.register("ci") {
   group = "verification"

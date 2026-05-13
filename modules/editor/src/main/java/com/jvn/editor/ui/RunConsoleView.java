@@ -75,10 +75,10 @@ public class RunConsoleView extends BorderPane {
     private final Label stateLabel = new Label();
     private final Label elapsedLabel = new Label();
     private final ToggleButton showAllToggle = new ToggleButton("Build Output");
-    private final Button runBtn = iconButton(CssIcon.play(), "Run current build again");
-    private final Button copyBtn = iconButton(CssIcon.copy(), "Copy traceback to clipboard");
-    private final Button clearBtn = iconButton(CssIcon.clearX(), "Clear output");
-    private final Button stopBtn = iconButton(CssIcon.stop(), "Stop current build");
+    private final Button runBtn = iconButton(CssIcon.runtimePlay(), "Run current build again");
+    private final Button copyBtn = iconButton(CssIcon.runtimeCopy(), "Copy traceback to clipboard");
+    private final Button clearBtn = iconButton(CssIcon.runtimeClear(), "Clear output");
+    private final Button stopBtn = iconButton(CssIcon.runtimeStop(), "Stop current build");
 
     // Enhanced UI components
     private final TextField searchField = new TextField();

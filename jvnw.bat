@@ -46,6 +46,12 @@ if /I "%command%"=="editor" set "resolved=:editor:run"
 if /I "%command%"=="runtime" set "resolved=:runtime:run"
 if /I "%command%"=="run" set "resolved=:runtime:run"
 if /I "%command%"=="game" set "resolved=:runtime:run"
+if /I "%command%"=="compile" set "resolved=compileAll"
+if /I "%command%"=="compile-all" set "resolved=compileAll"
+if /I "%command%"=="compileAll" set "resolved=compileAll"
+if /I "%command%"=="quick" set "resolved=quickCheck"
+if /I "%command%"=="quick-check" set "resolved=quickCheck"
+if /I "%command%"=="quickCheck" set "resolved=quickCheck"
 if /I "%command%"=="build" set "resolved=build"
 if /I "%command%"=="ci" set "resolved=ci"
 if /I "%command%"=="test" set "resolved=test"
@@ -82,6 +88,9 @@ if /I "%command%"=="dist-clean" set "resolved=cleanJvnGameDistributions"
 if /I "%command%"=="distClean" set "resolved=cleanJvnGameDistributions"
 if /I "%command%"=="clean-dist" set "resolved=cleanJvnGameDistributions"
 if /I "%command%"=="cleanDist" set "resolved=cleanJvnGameDistributions"
+if /I "%command%"=="build-info" set "resolved=printJvnBuildEnvironment"
+if /I "%command%"=="buildInfo" set "resolved=printJvnBuildEnvironment"
+if /I "%command%"=="doctor" set "resolved=printJvnBuildEnvironment"
 if /I "%command%"=="jar" set "resolved=:runtime:jar"
 
 set "console_arg=--console=plain"
@@ -130,6 +139,8 @@ echo Common commands:
 echo   jvnw launcher   Run the standalone launcher
 echo   jvnw editor     Run the editor
 echo   jvnw runtime    Run the runtime
+echo   jvnw compile    Compile every module without running tests
+echo   jvnw quick      Compile all modules and run the fast verification slice
 echo   jvnw build      Build the workspace
 echo   jvnw ci         Run the compile/test workflow used by CI
 echo   jvnw test       Run the test suite
@@ -145,6 +156,7 @@ echo   jvnw runtime-cache                             Show cached prebuilt deskt
 echo   jvnw runtime-cache-clear                       Clear cached prebuilt desktop runtimes
 echo   jvnw native -PjvnGameProject=^<dir^>            Create a native package for this host
 echo   jvnw release-native -PjvnGameProject=^<dir^>    Build native package and run release hooks
+echo   jvnw build-info Print Java, Gradle, JavaFX, and module configuration
 echo   jvnw jar        Build the runtime jar
 echo.
 echo Advanced usage:

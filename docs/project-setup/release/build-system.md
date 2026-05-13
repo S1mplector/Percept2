@@ -47,6 +47,17 @@ The popup is described from the editor side in [Editor Guide](../../editor/core/
 
 All CLI builds require `-PjvnGameProject=<dir>`. The path is used exactly as provided, so quote paths with spaces or intentional trailing whitespace.
 
+For engine development, the root build now exposes a few short feedback-loop commands:
+
+| Command | Purpose |
+|---------|---------|
+| `./jvnw compile` / `./gradlew compileAll` | Compile every module without running tests |
+| `./jvnw quick` / `./gradlew quickCheck` | Compile every module and run the fast core/runtime verification slice |
+| `./jvnw build-info` / `./gradlew printJvnBuildEnvironment` | Print active Java, Gradle, JavaFX, build-dir, and module configuration |
+| `./gradlew buildSystemHelp` | Print the recommended build commands from Gradle |
+
+Use `./jvnw quick` while iterating and `./jvnw ci` before sharing a larger change.
+
 | Command | Output |
 |---------|--------|
 | `./jvnw dist -PjvnGameProject=<dir>` | Game archive for the current host OS/arch |

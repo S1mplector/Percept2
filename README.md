@@ -98,11 +98,14 @@ Useful JVN commands:
 ./jvnw launcher
 ./jvnw editor
 ./jvnw runtime
+./jvnw compile
+./jvnw quick
 ./jvnw build
 ./jvnw ci
 ./jvnw test
 ./jvnw check
 ./jvnw clean
+./jvnw build-info
 ./jvnw dist -PjvnGameProject=/path/to/game
 ./jvnw dist-all -PjvnGameProject=/path/to/game
 ./jvnw dist-runtime -PjvnGameProject=/path/to/game
@@ -139,6 +142,9 @@ Default wrapper commands:
 ./jvnw test
 ./jvnw check
 ./jvnw clean
+./jvnw compile
+./jvnw quick
+./jvnw build-info
 ./jvnw dist -PjvnGameProject=/path/to/game
 ./jvnw dist-all -PjvnGameProject=/path/to/game
 ./jvnw dist-runtime -PjvnGameProject=/path/to/game
@@ -152,12 +158,15 @@ Default wrapper commands:
 Optional direct Gradle tasks for focused work:
 
 ```bash
+./gradlew compileAll
+./gradlew quickCheck
+./gradlew printJvnBuildEnvironment
 ./gradlew ci
 ./gradlew :core:compileJava :scripting:compileJava :fx:compileJava :runtime:compileJava :editor:compileJava
 ./gradlew :core:test :scripting:test :swing:test
 ```
 
-Gradle build cache is enabled by default. `./jvnw build`, `./jvnw ci`, `./jvnw test`, and `./jvnw check` also opt into configuration cache automatically.
+Gradle build cache is enabled by default. `./jvnw compile`, `./jvnw quick`, `./jvnw build`, `./jvnw ci`, `./jvnw test`, `./jvnw check`, `./jvnw clean`, and `./jvnw jar` also opt into configuration cache automatically on macOS/Linux.
 
 Game archives are written to `build/distributions/games/` by default. Set `jvnBuildDir=<dir>` in `gradle.properties` or pass `-PjvnBuildDir=<dir>` to relocate workspace build outputs; relative paths resolve from the workspace root.
 

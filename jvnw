@@ -100,6 +100,8 @@ show_help() {
   print_help_row "./jvnw launcher" "Run the standalone launcher"
   print_help_row "./jvnw editor" "Run the editor"
   print_help_row "./jvnw runtime" "Run the runtime"
+  print_help_row "./jvnw compile" "Compile every module without running tests"
+  print_help_row "./jvnw quick" "Compile all modules and run the fast verification slice"
   print_help_row "./jvnw build" "Build the workspace"
   print_help_row "./jvnw ci" "Run the compile/test workflow used by CI"
   print_help_row "./jvnw test" "Run the test suite"
@@ -115,6 +117,7 @@ show_help() {
   print_help_row "./jvnw runtime-cache-clear" "Clear cached prebuilt desktop runtimes"
   print_help_row "./jvnw native -PjvnGameProject=<dir>" "Create a native package for this host"
   print_help_row "./jvnw release-native -PjvnGameProject=<dir>" "Build native package and run release profile hooks for this host"
+  print_help_row "./jvnw build-info" "Print Java, Gradle, JavaFX, and module configuration"
   print_help_row "./jvnw jar" "Build the runtime jar"
   printf '\n'
   printf '%s\n' "$(paint "${style_bold}${tone_info}" "Advanced usage")"
@@ -185,25 +188,40 @@ for arg in "${input_args[@]}"; do
         alias_label="runtime"
         forwarded_args+=(":runtime:run")
         ;;
+      compile|compile-all|compileAll)
+        alias_label="compile"
+        forwarded_args+=("compileAll")
+        prefer_configuration_cache=1
+        ;;
+      quick|quick-check|quickCheck)
+        alias_label="quick"
+        forwarded_args+=("quickCheck")
+        prefer_configuration_cache=1
+        ;;
       build)
         alias_label="build"
         forwarded_args+=("build")
+        prefer_configuration_cache=1
         ;;
       ci)
         alias_label="ci"
         forwarded_args+=("ci")
+        prefer_configuration_cache=1
         ;;
       test)
         alias_label="test"
         forwarded_args+=("test")
+        prefer_configuration_cache=1
         ;;
       check)
         alias_label="check"
         forwarded_args+=("check")
+        prefer_configuration_cache=1
         ;;
       clean)
         alias_label="clean"
         forwarded_args+=("clean")
+        prefer_configuration_cache=1
         ;;
       dist)
         alias_label="dist"
@@ -245,9 +263,14 @@ for arg in "${input_args[@]}"; do
         alias_label="release-native"
         forwarded_args+=("releaseJvnGameNativeCurrent")
         ;;
+      build-info|buildInfo|doctor)
+        alias_label="build-info"
+        forwarded_args+=("printJvnBuildEnvironment")
+        ;;
       jar)
         alias_label="jar"
         forwarded_args+=(":runtime:jar")
+        prefer_configuration_cache=1
         ;;
       gradle)
         alias_label="gradle"
@@ -309,13 +332,13 @@ resolved_target=""
 wrapper_mode="Gradle task"
 
 case "$alias_label" in
-  launcher|editor|runtime|build|ci|test|check|clean|dist|dist-all|dist-runtime|dist-runtime-all|dist-preflight|dist-clean|runtime-cache|runtime-cache-clear|native|release-native|jar)
+  launcher|editor|runtime|compile|quick|build|ci|test|check|clean|dist|dist-all|dist-runtime|dist-runtime-all|dist-preflight|dist-clean|runtime-cache|runtime-cache-clear|native|release-native|build-info|jar)
     command_label="$alias_label"
     ;;
 esac
 
 case "$alias_label" in
-  launcher|editor|runtime|build|ci|test|check|clean|dist|dist-all|dist-runtime|dist-runtime-all|dist-preflight|dist-clean|runtime-cache|runtime-cache-clear|native|release-native|jar)
+  launcher|editor|runtime|compile|quick|build|ci|test|check|clean|dist|dist-all|dist-runtime|dist-runtime-all|dist-preflight|dist-clean|runtime-cache|runtime-cache-clear|native|release-native|build-info|jar)
     wrapper_mode="JVN shortcut"
     ;;
   gradle)
@@ -324,6 +347,12 @@ case "$alias_label" in
 esac
 
 case "$alias_label" in
+  compile)
+    done_message="Compilation OK."
+    ;;
+  quick)
+    done_message="Quick verification OK."
+    ;;
   build)
     done_message="Workspace build OK."
     ;;
@@ -356,6 +385,9 @@ case "$alias_label" in
     ;;
   dist-clean)
     done_message="Game build artifacts cleaned."
+    ;;
+  build-info)
+    done_message="Build environment printed."
     ;;
   jar)
     done_message="Runtime jar ready."
@@ -455,6 +487,9 @@ is_real_error_line() {
 should_surface_line() {
   local line="$1"
   if [[ "$debug_mode" == "1" || "$alias_label" == "gradle" ]]; then
+    return 0
+  fi
+  if [[ "$alias_label" == "build-info" ]]; then
     return 0
   fi
   case "$line" in
