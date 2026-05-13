@@ -21,7 +21,7 @@ A `.layersetup` file records which image is currently selected for every layer g
 #
 # This file records a layer selection from the Layered Image Visualizer.
 # To restore this configuration, open the visualizer in the JVN editor
-# and click the Import button (folder icon in the file-ops toolbar),
+# and click Import Setup in the Export section,
 # then choose this .layersetup file.
 
 set=assets/demo
@@ -56,8 +56,8 @@ Lines starting with `#` are comments and are ignored during import. Blank lines 
 
 1. Open the **Layered Image Visualizer** sidebar in the editor.
 2. Select a layer set and configure your desired layer options per group.
-3. In the **file-ops toolbar** (below the tool row), click the **save icon** (green).
-4. Choose a destination and filename (defaults to `<set_id>.layersetup`).
+3. In the main **Export** section, click **Layer Setup** for the configured export folder or **Setup As** to choose a destination.
+4. The default filename follows the current export base name and ends in `.layersetup`.
 
 The file will contain the current set, character ID, expression, and every `layer.<group>=<path>` assignment.
 
@@ -67,7 +67,7 @@ The file will contain the current set, character ID, expression, and every `laye
 
 1. Open the **Layered Image Visualizer** sidebar.
 2. Make sure the correct layer set is selected (the import will match group names against the current set's groups).
-3. In the **file-ops toolbar**, click the **folder icon** (yellow).
+3. In the main **Export** section, click **Import Setup**.
 4. Select the `.layersetup` file.
 
 The visualizer will:
@@ -80,13 +80,16 @@ A status message will report how many layers were successfully applied.
 
 ---
 
-## Quick Charpreset Export
+## Runtime Charpreset Export
 
-Instead of exporting to a file, you can copy a **`@charpreset`** snippet directly to the clipboard:
+For runtime script work, prefer exporting a **charpreset snippet** instead of a
+`.layersetup` file. The snippet contains the `@charlayer` declarations plus the
+`@charpreset` declaration that VNS can parse directly.
 
 1. Configure your layers as desired.
-2. Click the **copy icon** (purple) in the file-ops toolbar.
-3. The generated `@charpreset` snippet is now on your clipboard, ready to paste into a `.vns` script.
+2. In the main **Export** section, click **Copy Charpreset** to copy it, or
+   **Save Charpreset** / **Charpreset As** to write a `.vns` snippet file.
+3. Paste or include the generated declarations in a `.vns` script.
 
 Example output:
 
@@ -96,7 +99,10 @@ Example output:
 @charpreset lavender base_closed_day_smile $eyes_closed | $mouth_smile
 ```
 
-This is equivalent to selecting **"@charpreset only"** in the snippet format ComboBox and clicking **Copy Snippet**, but as a one-click action.
+This is equivalent to selecting **"@charpreset only"** in the snippet format
+ComboBox and clicking **Copy Snippet**, but the main Export section makes it the
+obvious runtime-facing path. Saved snippet files use names like
+`lavender_happy_charpreset.vns`.
 
 ---
 
@@ -104,7 +110,7 @@ This is equivalent to selecting **"@charpreset only"** in the snippet format Com
 
 - **Preset sharing** — commit `.layersetup` files alongside your character assets so other team members can quickly load known-good expressions.
 - **Expression catalog** — export one `.layersetup` per expression to build a reference library.
-- **Script authoring** — use the charpreset quick-export to copy paste-ready `@charpreset` declarations directly into your VNS scripts.
+- **Script authoring** — use the charpreset export controls to copy or save paste-ready `@charpreset` declarations directly for VNS scripts.
 - **QA snapshots** — export both the `.layersetup` and a composited PNG for visual regression tracking.
 
 ---

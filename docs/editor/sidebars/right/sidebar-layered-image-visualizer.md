@@ -64,6 +64,7 @@ The sidebar size and collapsed state are persisted.
 | **Option** | One selectable entry inside a group |
 | **Preset** | A named full-set selection snapshot |
 | **Shortform** | A reusable alias for a partial expression spec |
+| **Charpreset snippet** | Runtime-ready `.vns` text containing `@charlayer` and `@charpreset` declarations |
 | **Setup file** | A `.layersetup` export containing editor-only selection state |
 
 ---
@@ -121,15 +122,23 @@ Export is a dedicated section with persistent working-folder support.
 
 Available flows:
 
+- **Copy Charpreset** — copy runtime-ready `@charlayer` + `@charpreset` declarations
+- **Save Charpreset** — quick-export those declarations as a `.vns` snippet
+- **Charpreset As** — choose the `.vns` snippet destination manually
 - **PNG** — quick-export current flattened composite
 - **PNG As** — choose the output file manually
-- **Setup** — quick-export `.layersetup`
-- **Setup As** — choose `.layersetup` destination manually
+- **Layer Setup** — quick-export editor-only `.layersetup`
+- **Setup As** — choose editor-only `.layersetup` destination manually
 - **PNG + Setup** — export both in one step
-- **Import** — restore from `.layersetup`
+- **Import Setup** — restore from `.layersetup`
 - **Choose Folder / Reveal** — manage the working export folder
 
 Custom export naming and auto naming are both supported.
+
+The export summary names the runtime artifact first, for example
+`Runtime: lavender_happy_charpreset.vns`, then the PNG and editor setup files.
+Use the charpreset export for script/runtime work; use `.layersetup` when you
+want to reopen the exact layer selection inside the editor.
 
 ### Preview and Framing
 
@@ -163,6 +172,10 @@ Use the copy/export controls depending on whether you want:
 - a script snippet
 - a flattened PNG
 - an editor-only `.layersetup`
+
+The main Export section mirrors the important `@charpreset only` action so the
+recommended reusable-character workflow does not depend on opening Script
+controls first.
 
 ---
 

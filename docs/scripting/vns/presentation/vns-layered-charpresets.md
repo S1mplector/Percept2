@@ -320,8 +320,8 @@ The **Layered Image Visualizer** sidebar panel provides a visual workflow for ex
 4. Toggle layer options per group (eyes, mouth, brow, etc.) using the ComboBox selectors
 5. Preview the composited result in real-time on the canvas
 6. Set the **Character ID** and **Expression** fields
-7. Choose an **export format** from the dropdown
-8. Click **Copy** to copy the generated VNS snippet to your clipboard
+7. In the main **Export** section, click **Copy Charpreset** or **Save Charpreset**
+8. Paste the generated declarations into your script, or keep the saved `_charpreset.vns` snippet as a source file to include/copy from
 
 ### Export formats
 
@@ -335,13 +335,26 @@ The **Layered Image Visualizer** sidebar panel provides a visual workflow for ex
 | **[show] only** | Just `[show aria center @happy]` |
 | **Recipe comments** | Full commented recipe with both `@charpreset` and `@charimg` forms |
 
+The recommended reusable-character path is exposed directly in the main Export
+section:
+
+| Export control | Use it for |
+|----------------|------------|
+| **Copy Charpreset** | Copy `@charlayer` + `@charpreset` declarations to the clipboard |
+| **Save Charpreset** | Save those declarations as `<tag>_<expression>_charpreset.vns` in the configured export folder |
+| **Charpreset As** | Choose a specific `.vns` snippet destination |
+
+The `.layersetup` controls in the same panel are editor-only snapshots for
+reopening a layer selection inside the visualizer. They are not parsed by the
+runtime.
+
 ### Generating multiple expressions quickly
 
 1. Select layer options for your first expression (e.g., neutral eyes + neutral mouth)
-2. Export as `@charpreset + [show]`
+2. Export as `@charpreset + [show]` or use **Copy Charpreset** from the main Export section
 3. Paste the `@charlayer` declarations into your script header
 4. Change the layer selections (e.g., switch to happy eyes + smile mouth)
-5. Export as `@charpreset only`
+5. Export as `@charpreset only`, **Copy Charpreset**, or **Save Charpreset**
 6. Paste just the `@charpreset` line — the `@charlayer` declarations are already in the header
 
 The **Randomize** button is useful for discovering interesting expression combinations you might not have considered.

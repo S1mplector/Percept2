@@ -91,7 +91,7 @@ import javafx.util.StringConverter;
  *
  * <h3>.layersetup files</h3>
  * The visualizer can export the current layer selection to a {@code .layersetup}
- * file via the save icon in the file-ops toolbar. This file is a simple
+ * file via the Layer Setup action in the Export section. This file is a simple
  * key=value text format that records which image is selected for each layer
  * group. It can later be re-imported into the visualizer (via the folder icon)
  * to restore the exact same layer configuration — useful for sharing presets
@@ -4951,7 +4951,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     out.append("#\n");
     out.append("# This file records a layer selection from the Layered Image Visualizer.\n");
     out.append("# To restore this configuration, open the visualizer in the JVN editor\n");
-    out.append("# and click the Import button (folder icon in the file-ops toolbar),\n");
+    out.append("# and click Import Setup in the Export section,\n");
     out.append("# then choose this .layersetup file. The visualizer will match each\n");
     out.append("# layer.<group> entry to the corresponding group selector and select\n");
     out.append("# the image whose path (or label) matches the stored value.\n");

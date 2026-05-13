@@ -322,6 +322,12 @@ Named exports include a compact metadata line:
 
 `CodeImporter` reads that metadata back when reopening registered timelines. The Scene sidebar also shows the active Lighting Stage so authors know which lighting setup the animation was staged against.
 
+Named exports also carry editor-only Puppeteer metadata for reopening the full
+authoring model: scene entity snapshots, group hierarchy, track/group locks,
+layer order, loop settings, constraints, named anchors, and orbit-anchor source
+links. Runtime timeline parsers ignore these comments, but the editor uses them
+to restore the project when a registered animation is reopened.
+
 ---
 
 ## 3. Timeline Registry and Bridging Puppeteer to VNS Runtime
@@ -1029,7 +1035,7 @@ The **Assets** tab scans the project for image files (png, jpg, gif, bmp, webp) 
 The easing picker (`EasingPickerModel`) is searchable — type part of a family name or semantic label to filter. The visual `EasingCurveEditor` renders the selected curve live (grid, linear reference line, blue output curve, start/end markers). For `CUSTOM` cubic Bézier and multi-point `curve(...)` entries, control points are directly draggable. Project-level presets are persisted via `PuppeteerEasingPresetStore` into `config/puppeteer/easing-presets.properties`.
 
 ### Round-Trip Code Editing
-`CodeImporter` parses exported JES timeline blocks (including Puppeteer metadata comments) back into an `AnimationProject`. This enables a visual → text → visual round-trip workflow for collaborative editing and hand-tuning. The code panel provides Preview Parse → Commit/Discard staging.
+`CodeImporter` parses exported JES timeline blocks (including Puppeteer metadata comments) back into an `AnimationProject`. This enables a visual → text → visual round-trip workflow for collaborative editing and hand-tuning. The code panel provides Preview Parse → Commit/Discard staging. Named exports preserve editor state such as groups, locks, constraints, named anchors, and orbit-anchor tooling data so registered animations can be reopened for later work without losing rigging context.
 
 ### Timeline Diagnostics
 `TimelineDiagnostic` validates timelines during registration and code preview. It catches alpha/zoom/pivot range issues, missing entities, empty event types, unknown easing names (with edit-distance suggestions), camera key misplacement, and missing audio files.
@@ -1045,6 +1051,10 @@ Entities and groups carry `layerOrder` metadata. Context-menu Raise (+10) / Lowe
 
 ### Draft Auto-Save
 `PuppeteerDraftStore` auto-saves unsaved work periodically. If Puppeteer is reopened after a crash or accidental close, the draft is restored automatically with a notification.
+
+Drafts are separate from registered timeline files. A successful Save & Register
+writes the named `.jes` timeline with reopen metadata and clears the matching
+draft.
 
 ### Preview Recorder
 `PuppeteerPreviewRecorder` captures the preview canvas to image sequences or animated GIFs for documentation and asset review workflows.

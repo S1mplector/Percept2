@@ -1102,7 +1102,12 @@ Click **Copy Code** (button in the right code panel) or use **Ctrl/Cmd+Shift+C**
 | **Standard** | `CodeExporter.export()` | Full timeline with all events |
 | **With Groups** | `CodeExporter.exportWithGroups()` | Includes group comment annotations |
 | **Incremental** | `CodeExporter.exportIncremental()` | Only changed properties (compared to initial snapshot) |
-| **Named** | `CodeExporter.exportNamed()` | Adds header comments with timeline name, VNS usage hint, and Puppeteer metadata such as stage context when present |
+| **Named** | `CodeExporter.exportNamed()` | Adds header comments with timeline name, VNS usage hint, and Puppeteer metadata such as scene snapshots, stage context, groups, locks, constraints, anchors, and orbit anchors |
+
+Named exports are the best format for animations you expect to reopen in
+Puppeteer later. Runtime parsers ignore the metadata comments, but
+`CodeImporter` uses them to restore the editor model instead of only rebuilding
+the baked runtime timeline.
 
 ### Unsaved Changes
 
@@ -1139,7 +1144,9 @@ The right-side **Timeline Code** panel shows the live-generated JES source and p
 - Audio cues (`playAudio`)
 - Event cues (`event "type" { ... }`)
 - Easing values including spring functions, named curves, and custom cubic Bézier
-- Puppeteer metadata comments (timeline name, stage context, entity metadata)
+- Puppeteer metadata comments (timeline name, stage context, entity metadata,
+  groups, track locks/visibility, group locks, orbit anchors, constraints, and
+  named anchors)
 - Duration and loop settings from header metadata
 
 ### Round-Trip Fidelity
@@ -1148,7 +1155,8 @@ The export → import cycle preserves:
 - Keyframe times, values, and easing specifications
 - Audio cue timing, paths, channels, volumes, and fade settings
 - Event cue types and full payload maps
-- Entity names and property assignments
+- Entity names, group hierarchy, locks, layer ordering, and property assignments
+- Puppeteer rigging/tooling state such as constraints, named anchors, and orbit-anchor source links
 - Timeline duration and loop flag
 
 Easing defaults to `LINEAR` when not explicitly specified (both in export and import), ensuring deterministic round-trip behavior.
