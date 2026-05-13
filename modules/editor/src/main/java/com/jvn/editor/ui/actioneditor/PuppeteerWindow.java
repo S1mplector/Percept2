@@ -549,12 +549,20 @@ public class PuppeteerWindow extends Stage {
             entitySelector.selectGroup(groupName);
         });
 
-        entitySelector.setOnEntitySoloChanged((entityName, soloed) -> {
-            // When solo is toggled, force-select the soloed entity and update the timeline
+        entitySelector.setOnSelectionSoloChanged((name, isGroup, soloed) -> {
+            // When solo is toggled, force-select the soloed target and update the timeline.
             if (soloed) {
-                timelinePanel.setSelectedEntity(entityName);
+                timelinePanel.setSelectedTarget(name, isGroup);
+                if (isGroup) {
+                    animationPreview.selectGroup(name);
+                    anchorEditor.setSelectedEntityName(name, true);
+                } else {
+                    animationPreview.selectEntity(name);
+                    anchorEditor.setSelectedEntityName(name, false);
+                }
             }
             timelinePanel.refresh();
+            refreshPropertyPickerChoices();
         });
 
         entitySelector.setOnGroupResetRequested(groupName -> {

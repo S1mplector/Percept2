@@ -58,7 +58,9 @@ public class EntitySelector extends VBox {
     private BiConsumer<String, Boolean> onGroupLockChanged;
     private Consumer<String> onGroupResetRequested;
     private BiConsumer<String, Boolean> onEntitySoloChanged;
+    private SelectionSoloRequest onSelectionSoloChanged;
     private String soloedEntityName = null;
+    private boolean soloedSelectionIsGroup = false;
 
     public EntitySelector() {
         setSpacing(0);
@@ -103,9 +105,15 @@ public class EntitySelector extends VBox {
                 String encoded = newVal.getValue();
                 String name = decodeTreeValue(encoded);
                 boolean group = isEncodedGroupValue(encoded);
-                // Solo guard: if a different entity is soloed, snap selection back
-                if (soloedEntityName != null && !group && !soloedEntityName.equals(name)) {
-                    Platform.runLater(() -> selectEntity(soloedEntityName));
+                // Solo guard: if a different target is soloed, snap selection back
+                if (soloedEntityName != null && (group != soloedSelectionIsGroup || !soloedEntityName.equals(name))) {
+                    Platform.runLater(() -> {
+                        if (soloedSelectionIsGroup) {
+                            selectGroup(soloedEntityName);
+                        } else {
+                            selectEntity(soloedEntityName);
+                        }
+                    });
                     return;
                 }
                 if (onSelectionChanged != null) {
@@ -163,12 +171,15 @@ public class EntitySelector extends VBox {
     public void setOnGroupLockChanged(BiConsumer<String, Boolean> callback) { this.onGroupLockChanged = callback; }
     public void setOnGroupResetRequested(Consumer<String> callback) { this.onGroupResetRequested = callback; }
     public void setOnEntitySoloChanged(BiConsumer<String, Boolean> callback) { this.onEntitySoloChanged = callback; }
+    public void setOnSelectionSoloChanged(SelectionSoloRequest callback) { this.onSelectionSoloChanged = callback; }
 
     public String getSoloedEntityName() { return soloedEntityName; }
+    public boolean isSoloedSelectionGroup() { return soloedEntityName != null && soloedSelectionIsGroup; }
 
     public void clearSolo() {
         if (soloedEntityName == null) return;
         soloedEntityName = null;
+        soloedSelectionIsGroup = false;
         treeView.refresh();
     }
 
@@ -677,12 +688,23 @@ public class EntitySelector extends VBox {
             soloIcon.setOnMouseClicked(event -> {
                 if (isEmpty() || getItem() == null) return;
                 String encoded = getItem();
-                if (isEncodedGroupValue(encoded)) return;
+                boolean isGroup = isEncodedGroupValue(encoded);
                 String name = decodeTreeValue(encoded);
-                boolean nowSoloed = !name.equals(soloedEntityName);
+                boolean nowSoloed = !(name.equals(soloedEntityName) && soloedSelectionIsGroup == isGroup);
                 soloedEntityName = nowSoloed ? name : null;
-                if (onEntitySoloChanged != null) onEntitySoloChanged.accept(name, nowSoloed);
-                if (nowSoloed) selectEntity(name);
+                soloedSelectionIsGroup = nowSoloed && isGroup;
+                if (onSelectionSoloChanged != null) {
+                    onSelectionSoloChanged.accept(name, isGroup, nowSoloed);
+                } else if (!isGroup && onEntitySoloChanged != null) {
+                    onEntitySoloChanged.accept(name, nowSoloed);
+                }
+                if (nowSoloed) {
+                    if (isGroup) {
+                        selectGroup(name);
+                    } else {
+                        selectEntity(name);
+                    }
+                }
                 treeView.refresh();
                 event.consume();
             });
@@ -741,22 +763,25 @@ public class EntitySelector extends VBox {
                 lockIcon.setManaged(true);
                 drawLockIcon(lockIcon.getGraphicsContext2D(), isLocked);
 
+                boolean isSoloed = name.equals(soloedEntityName) && soloedSelectionIsGroup == isGroup;
+                boolean otherSoloed = soloedEntityName != null && !isSoloed;
+                if (otherSoloed) {
+                    label.setTextFill(Color.web("#3a3f4a"));
+                }
+
                 if (isGroup) {
                     visibilityIcon.setVisible(false);
                     visibilityIcon.setManaged(false);
                     visibilityIcon.getGraphicsContext2D().clearRect(0, 0, visibilityIcon.getWidth(), visibilityIcon.getHeight());
 
-                    soloIcon.setVisible(false);
-                    soloIcon.setManaged(false);
-                    soloIcon.getGraphicsContext2D().clearRect(0, 0, soloIcon.getWidth(), soloIcon.getHeight());
+                    soloIcon.setVisible(true);
+                    soloIcon.setManaged(true);
+                    drawSoloIcon(soloIcon.getGraphicsContext2D(), isSoloed);
 
                     resetIcon.setVisible(true);
                     resetIcon.setManaged(true);
                     drawResetIcon(resetIcon.getGraphicsContext2D());
                 } else {
-                    boolean isSoloed = name.equals(soloedEntityName);
-                    boolean otherSoloed = soloedEntityName != null && !isSoloed;
-
                     visibilityIcon.setVisible(true);
                     visibilityIcon.setManaged(true);
                     drawVisibilityIcon(visibilityIcon.getGraphicsContext2D(), isVisible);
@@ -764,11 +789,6 @@ public class EntitySelector extends VBox {
                     soloIcon.setVisible(true);
                     soloIcon.setManaged(true);
                     drawSoloIcon(soloIcon.getGraphicsContext2D(), isSoloed);
-
-                    // Dim label when another entity is soloed
-                    if (otherSoloed) {
-                        label.setTextFill(Color.web("#3a3f4a"));
-                    }
 
                     resetIcon.setVisible(false);
                     resetIcon.setManaged(false);
@@ -985,6 +1005,11 @@ public class EntitySelector extends VBox {
     @FunctionalInterface
     public interface AddToGroupRequest {
         void accept(String selectionName, boolean selectionIsGroup, String targetGroupName);
+    }
+
+    @FunctionalInterface
+    public interface SelectionSoloRequest {
+        void accept(String selectionName, boolean selectionIsGroup, boolean soloed);
     }
 
     private void drawResetIcon(GraphicsContext gc) {
