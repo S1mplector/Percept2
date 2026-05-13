@@ -272,6 +272,7 @@ public class AnimationPreview extends VBox {
     private final Set<String> selectedGroupMemberNames = new HashSet<>();
     private boolean draggingEntity = false;
     private boolean draggingGroup = false;
+    private boolean draggingGroupRotate = false;
     private boolean draggingPivot = false;
     private boolean draggingRotate = false;
     private boolean draggingScale = false;
@@ -283,6 +284,7 @@ public class AnimationPreview extends VBox {
     private PivotDragState pivotDragState;
     private MatrixDragState matrixDragState;
     private RotateDragState rotateDragState;
+    private final Map<String, FollowerState> groupRotateMemberStartStates = new HashMap<>();
     private double dragEntityStartX, dragEntityStartY;
     private double groupDragStartTrackX, groupDragStartTrackY;
     private double groupDragAccumX, groupDragAccumY;
@@ -1320,7 +1322,10 @@ public class AnimationPreview extends VBox {
         selectedGroupMemberNames.clear();
         pivotDragState = null;
         matrixDragState = null;
+        rotateDragState = null;
+        groupRotateMemberStartStates.clear();
         matrixOverlayText = null;
+        draggingGroupRotate = false;
         startSpriteRegionAnimation();
         if (changed) render();
     }
@@ -1339,7 +1344,10 @@ public class AnimationPreview extends VBox {
         selectedGroupMemberNames.addAll(nextMembers);
         pivotDragState = null;
         matrixDragState = null;
+        rotateDragState = null;
+        groupRotateMemberStartStates.clear();
         matrixOverlayText = null;
+        draggingGroupRotate = false;
         startSpriteRegionAnimation();
         if (changed) render();
     }
@@ -1353,8 +1361,11 @@ public class AnimationPreview extends VBox {
         pivotDragState = null;
         scaleDragState = null;
         matrixDragState = null;
+        rotateDragState = null;
+        groupRotateMemberStartStates.clear();
         matrixOverlayText = null;
         draggingScale = false;
+        draggingGroupRotate = false;
         stopSpriteRegionAnimation();
         if (changed) render();
     }
@@ -1910,8 +1921,20 @@ public class AnimationPreview extends VBox {
 
     private boolean isNearRotateHandle(double screenX, double screenY) {
         if (selectedEntity == null) return false;
-        double px = worldToScreenX(selectedEntity.getX());
-        double py = worldToScreenY(selectedEntity.getY());
+        return isNearRotateHandleAtWorld(selectedEntity.getX(), selectedEntity.getY(), screenX, screenY);
+    }
+
+    private boolean isNearGroupRotateHandle(double screenX, double screenY) {
+        if (selectedGroupName == null || selectedGroupName.isBlank()) return false;
+        WorldBounds bounds = computeGroupVisualBounds(selectedGroupName);
+        if (bounds == null || bounds.isEmpty()) return false;
+        double[] center = rotationCenterForTarget(selectedGroupName, bounds);
+        return isNearRotateHandleAtWorld(center[0], center[1], screenX, screenY);
+    }
+
+    private boolean isNearRotateHandleAtWorld(double worldX, double worldY, double screenX, double screenY) {
+        double px = worldToScreenX(worldX);
+        double py = worldToScreenY(worldY);
         double dist = Math.hypot(screenX - px, screenY - py);
         double targetDist = 45.0; // distance of rotation handle from pivot
         return Math.abs(dist - targetDist) <= 8.0;
@@ -2052,6 +2075,7 @@ public class AnimationPreview extends VBox {
                     clearSelection();
                     draggingEntity = false;
                     draggingGroup = false;
+                    draggingGroupRotate = false;
                     draggingOrbit = false;
                     draggingPivot = false;
                     draggingRotate = false;
@@ -2116,8 +2140,9 @@ public class AnimationPreview extends VBox {
                     return;
                 }
 
-                if (rotateShortcutHeld && selectedEntity != null && selectedEntityName != null) {
-                    if (beginRotateInteraction(e.getX(), e.getY())) return;
+                if (rotateShortcutHeld) {
+                    if (selectedGroupName != null && beginGroupRotateInteraction(e.getX(), e.getY())) return;
+                    if (selectedEntity != null && selectedEntityName != null && beginRotateInteraction(e.getX(), e.getY())) return;
                 }
 
                 if (orbitToolEnabled && e.isShiftDown() && e.isAltDown()) {
@@ -2204,6 +2229,10 @@ public class AnimationPreview extends VBox {
                     if (beginRotateInteraction(e.getX(), e.getY())) return;
                 }
 
+                if (selectedGroupName != null && isNearGroupRotateHandle(e.getX(), e.getY())) {
+                    if (beginGroupRotateInteraction(e.getX(), e.getY())) return;
+                }
+
                 String hitName = findEntityNameAt(e.getX(), e.getY(), selectedGroupName == null);
                 if (hitName != null) {
                     if (selectedGroupName != null && selectedGroupMemberNames.contains(hitName)) {
@@ -2235,6 +2264,7 @@ public class AnimationPreview extends VBox {
                     clearSelection();
                     draggingEntity = false;
                     draggingGroup = false;
+                    draggingGroupRotate = false;
                     draggingOrbit = false;
                     draggingRotate = false;
                     pivotDragState = null;
@@ -2303,19 +2333,10 @@ public class AnimationPreview extends VBox {
                     onEntityMoved.accept(selectedEntityName, new double[]{nextX, nextY});
                 }
                 render();
+            } else if (draggingGroupRotate && rotateDragState != null && selectedGroupName != null) {
+                applyGroupRotateDrag(e.getX(), e.getY());
             } else if (draggingRotate && rotateDragState != null && selectedEntity != null && selectedEntityName != null) {
-                double[] world = screenToWorld(e.getX(), e.getY());
-                rotateDragState.currentMouseWorldX = world[0];
-                rotateDragState.currentMouseWorldY = world[1];
-                double currentAngle = Math.atan2(world[1] - rotateDragState.pivotY, world[0] - rotateDragState.pivotX);
-                
-                double dThetaRad = currentAngle - rotateDragState.lastMouseAngleRad;
-                while (dThetaRad > Math.PI) dThetaRad -= 2 * Math.PI;
-                while (dThetaRad < -Math.PI) dThetaRad += 2 * Math.PI;
-                
-                rotateDragState.lastMouseAngleRad = currentAngle;
-                rotateDragState.accumulatedThetaRad += dThetaRad;
-                
+                if (!updateRotateDragState(e.getX(), e.getY())) return;
                 double totalDThetaRad = rotateDragState.accumulatedThetaRad;
                 double dThetaDeg = Math.toDegrees(totalDThetaRad);
                 
@@ -2477,6 +2498,7 @@ public class AnimationPreview extends VBox {
             draggingCameraFrame = false;
             draggingEntity = false;
             draggingGroup = false;
+            draggingGroupRotate = false;
             draggingPivot = false;
             draggingOrbit = false;
             draggingRotate = false;
@@ -2485,6 +2507,7 @@ public class AnimationPreview extends VBox {
             pivotDragState = null;
             matrixDragState = null;
             rotateDragState = null;
+            groupRotateMemberStartStates.clear();
             scaleDragState = null;
             pivotAxisLocked = false;
             if (pivotOverlayText != null) {
@@ -2536,6 +2559,89 @@ public class AnimationPreview extends VBox {
         draggingRotate = true;
         beginMoveInteraction(selectedEntityName, selectedEntity);
         return true;
+    }
+
+    private boolean beginGroupRotateInteraction(double screenX, double screenY) {
+        if (selectedGroupName == null || selectedGroupName.isBlank() || project == null || scene == null) return false;
+        EntityGroup group = project.getGroup(selectedGroupName);
+        if (group == null || group.isLocked()) return false;
+        refreshSelectedGroupMembers();
+        if (selectedGroupMemberNames.isEmpty()) return false;
+
+        WorldBounds bounds = computeGroupVisualBounds(selectedGroupName);
+        if (bounds == null || bounds.isEmpty()) return false;
+        double[] center = rotationCenterForTarget(selectedGroupName, bounds);
+        double[] world = screenToWorld(screenX, screenY);
+        if (!Double.isFinite(world[0]) || !Double.isFinite(world[1])) return false;
+
+        double angle = Math.atan2(world[1] - center[1], world[0] - center[0]);
+        double baseRotation = group.getGroupTrack().getValueAt(PropertyType.ROTATION, project.getPlayheadMs());
+        rotateDragState = new RotateDragState(center[0], center[1], angle, baseRotation);
+        rotateDragState.currentMouseWorldX = world[0];
+        rotateDragState.currentMouseWorldY = world[1];
+        groupRotateMemberStartStates.clear();
+        for (String memberName : selectedGroupMemberNames) {
+            Entity2D member = scene.find(memberName);
+            if (member != null) {
+                groupRotateMemberStartStates.put(
+                    memberName,
+                    new FollowerState(member.getX(), member.getY(), member.getRotationDeg())
+                );
+            }
+        }
+        if (groupRotateMemberStartStates.isEmpty()) {
+            rotateDragState = null;
+            return false;
+        }
+        draggingGroupRotate = true;
+        beginGroupMoveInteraction(selectedGroupName);
+        return true;
+    }
+
+    private boolean updateRotateDragState(double screenX, double screenY) {
+        if (rotateDragState == null) return false;
+        double[] world = screenToWorld(screenX, screenY);
+        if (!Double.isFinite(world[0]) || !Double.isFinite(world[1])) return false;
+        rotateDragState.currentMouseWorldX = world[0];
+        rotateDragState.currentMouseWorldY = world[1];
+        double currentAngle = Math.atan2(world[1] - rotateDragState.pivotY, world[0] - rotateDragState.pivotX);
+
+        double dThetaRad = currentAngle - rotateDragState.lastMouseAngleRad;
+        while (dThetaRad > Math.PI) dThetaRad -= 2 * Math.PI;
+        while (dThetaRad < -Math.PI) dThetaRad += 2 * Math.PI;
+
+        rotateDragState.lastMouseAngleRad = currentAngle;
+        rotateDragState.accumulatedThetaRad += dThetaRad;
+        return true;
+    }
+
+    private void applyGroupRotateDrag(double screenX, double screenY) {
+        if (!updateRotateDragState(screenX, screenY) || rotateDragState == null || selectedGroupName == null) return;
+        double totalDThetaRad = rotateDragState.accumulatedThetaRad;
+        double dThetaDeg = Math.toDegrees(totalDThetaRad);
+        double newRotation = rotateDragState.baseRotationDeg + dThetaDeg;
+
+        if (scene != null) {
+            for (Map.Entry<String, FollowerState> entry : groupRotateMemberStartStates.entrySet()) {
+                Entity2D member = scene.find(entry.getKey());
+                FollowerState state = entry.getValue();
+                if (member == null || state == null) continue;
+                double dx = state.startX - rotateDragState.pivotX;
+                double dy = state.startY - rotateDragState.pivotY;
+                double newX = rotateDragState.pivotX + dx * Math.cos(totalDThetaRad) - dy * Math.sin(totalDThetaRad);
+                double newY = rotateDragState.pivotY + dx * Math.sin(totalDThetaRad) + dy * Math.cos(totalDThetaRad);
+                member.setPosition(
+                    clamp(newX, -WORLD_POSITION_LIMIT, WORLD_POSITION_LIMIT),
+                    clamp(newY, -WORLD_POSITION_LIMIT, WORLD_POSITION_LIMIT)
+                );
+                member.setRotationDeg(state.startRotationDeg + dThetaDeg);
+            }
+        }
+
+        if (onEntityRotationChanged != null) {
+            onEntityRotationChanged.accept(selectedGroupName, newRotation);
+        }
+        render();
     }
 
     private void seedRotateFollowerStates() {

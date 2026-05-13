@@ -737,7 +737,8 @@ public class PuppeteerWindow extends Stage {
 
         animationPreview.setOnEntityRotationChanged((name, rotationDeg) -> {
             if (name == null || rotationDeg == null || !Double.isFinite(rotationDeg)) return;
-            EntityTrack track = this.project.getOrCreateTrack(name);
+            EntityTrack track = resolveAnimatedTrack(name, true);
+            if (track == null) return;
             double time = this.project.getPlayheadMs();
             if (activeTransformInteraction != null && name.equals(activeTransformInteraction.entityName())) {
                 time = activeTransformInteraction.timeMs();
