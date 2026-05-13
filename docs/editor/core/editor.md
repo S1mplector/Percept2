@@ -48,6 +48,7 @@ Launch command:
 - Menus: `File`, `Edit`, `View`, `Navigate`, `Run`, `Build`, `Tools`, `Version Control`, `Window`, `Help`
 - Main actions: `Open`, `Save`, `Undo`, `Redo`, `Apply Code`, `Fullscreen`
 - Status + performance strip (CPU/GPU/RAM/FPS)
+- In Engine Hub Developer Mode, a collapsed `Logs` panel appears under the top bar for crude log-file viewing.
 - `Cmd/Ctrl+,` opens Editor Settings.
 
 ### Left panel: Project Explorer

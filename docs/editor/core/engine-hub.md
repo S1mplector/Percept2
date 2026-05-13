@@ -89,6 +89,14 @@ The hub exposes the main workspace actions as buttons:
 
 The hub shows a compact status strip instead of a terminal-style output panel. Long task output is reduced to simple progress and completion messages.
 
+## Developer Mode
+
+Developer Mode is toggled from the Engine Hub. When enabled, hub-launched editor and launcher windows receive `jvn.editor.developerMode=true` and `jvn.launcher.developerMode=true`.
+
+In Developer Mode, both the editor and launcher add a collapsed **Logs** panel at the top of the window. Expand it to scan recent log-like files from the selected project, workspace `.jvn/logs`, workspace `logs`, Gradle daemon logs, build temp logs, and the user log directory. The panel is intentionally simple: choose a file, refresh, copy the visible tail, or reveal the log folder.
+
+When the launcher opens the editor in Developer Mode, it also forwards Developer Mode to the editor and captures that child process output under the workspace `.jvn/logs` folder.
+
 ## Install Desktop Shortcuts
 
 Open the hub and click **Build Shortcuts**. It chooses the right installer for the current OS:

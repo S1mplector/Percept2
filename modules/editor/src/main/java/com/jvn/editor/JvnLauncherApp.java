@@ -6,6 +6,7 @@ import java.io.InputStream;
 import java.lang.management.ManagementFactory;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -14,6 +15,7 @@ import java.util.Locale;
 import java.util.Properties;
 
 import com.jvn.editor.ui.EditorDialogs;
+import com.jvn.editor.ui.DeveloperLogPanel;
 import com.jvn.editor.ui.EditorPreferences;
 import com.jvn.editor.ui.EditorPreferencesStore;
 import com.jvn.editor.ui.EditorTheme;
@@ -44,6 +46,7 @@ import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
 import javafx.stage.Window;
@@ -59,6 +62,8 @@ public class JvnLauncherApp extends Application {
   private static final long MIN_STARTUP_SPLASH_MS = 650L;
   private static final long STARTUP_STEP_DELAY_MS = 130L;
   private static final DateTimeFormatter STARTUP_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
+  private static final DateTimeFormatter PROCESS_LOG_TIME = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
+  private static final boolean DEVELOPER_MODE = Boolean.getBoolean("jvn.launcher.developerMode");
 
   private Stage primaryStage;
   private Stage settingsStage;
@@ -73,6 +78,7 @@ public class JvnLauncherApp extends Application {
   private final Label statusLabel = new Label("Ready");
   private MenuItem runProjectMenuItem;
   private MenuItem copyProjectPathMenuItem;
+  private DeveloperLogPanel developerLogPanel;
 
   public static void main(String[] args) {
     launch(args);
@@ -279,7 +285,12 @@ public class JvnLauncherApp extends Application {
     statusBar.setPadding(new Insets(8, 4, 2, 4));
 
     MenuBar menuBar = buildMenuBar();
-    root.setTop(menuBar);
+    if (DEVELOPER_MODE) {
+      developerLogPanel = new DeveloperLogPanel("Logs", this::developerLogRoots);
+      root.setTop(new VBox(menuBar, developerLogPanel));
+    } else {
+      root.setTop(menuBar);
+    }
     root.setCenter(welcomeView);
     root.setBottom(statusBar);
     BorderPane.setMargin(welcomeView, new Insets(12, 12, 0, 12));
@@ -465,7 +476,20 @@ public class JvnLauncherApp extends Application {
       }
     }
     rememberLauncherProjectSelection(resolved);
+    refreshDeveloperLogs();
     refreshButtonState();
+  }
+
+  private List<Path> developerLogRoots() {
+    List<Path> roots = new ArrayList<>();
+    if (currentProject != null) roots.add(currentProject.toPath());
+    if (workspaceRoot != null) roots.add(workspaceRoot.toPath());
+    roots.add(Path.of(System.getProperty("user.dir", ".")));
+    return roots;
+  }
+
+  private void refreshDeveloperLogs() {
+    if (developerLogPanel != null) developerLogPanel.refresh();
   }
 
   private void refreshButtonState() {
@@ -908,6 +932,9 @@ public class JvnLauncherApp extends Application {
           ? EditorPreferences.LAUNCHER_THEME_DARK
           : EditorPreferences.normalizeEditorTheme(editorPreferences.getEditorTheme());
       command.add("-Djvn.editor.theme=" + editorTheme);
+      if (DEVELOPER_MODE) {
+        command.add("-Djvn.editor.developerMode=true");
+      }
       if (projectDir != null && projectDir.isDirectory()) {
         command.add("-D" + EDITOR_OPEN_PROJECT_PROPERTY + "=" + projectDir.getAbsolutePath());
       }
@@ -920,9 +947,17 @@ public class JvnLauncherApp extends Application {
       if (workspaceRoot != null && workspaceRoot.isDirectory()) {
         pb.directory(workspaceRoot);
       }
-      pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
-      pb.redirectError(ProcessBuilder.Redirect.DISCARD);
+      Path developerLog = null;
+      if (DEVELOPER_MODE) {
+        developerLog = createDeveloperProcessLogFile("editor-process");
+        pb.redirectErrorStream(true);
+        pb.redirectOutput(developerLog.toFile());
+      } else {
+        pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+        pb.redirectError(ProcessBuilder.Redirect.DISCARD);
+      }
       Process editorProcess = pb.start();
+      refreshDeveloperLogs();
 
       if (startupFile != null && startupFile.isFile()) {
         statusLabel.setText("Editor launched for " + startupFile.getName());
@@ -930,6 +965,9 @@ public class JvnLauncherApp extends Application {
         statusLabel.setText(projectDir == null
             ? "Editor launched"
             : "Editor launched for " + projectDir.getName());
+      }
+      if (developerLog != null) {
+        statusLabel.setText(statusLabel.getText() + " (log: " + developerLog.getFileName() + ")");
       }
 
       if (editorPreferences == null || !editorPreferences.isLauncherKeepOpenAfterEditorLaunch()) {
@@ -946,6 +984,16 @@ public class JvnLauncherApp extends Application {
           "Confirm the workspace root contains the editor Gradle project.",
           "Check that Java can start a new process from this launcher session.");
     }
+  }
+
+  private Path createDeveloperProcessLogFile(String prefix) throws Exception {
+    Path base = workspaceRoot != null && workspaceRoot.isDirectory()
+        ? workspaceRoot.toPath()
+        : Path.of(System.getProperty("user.dir", "."));
+    Path dir = base.resolve(".jvn").resolve("logs");
+    Files.createDirectories(dir);
+    String safePrefix = prefix == null || prefix.isBlank() ? "process" : prefix.trim();
+    return dir.resolve(safePrefix + "-" + PROCESS_LOG_TIME.format(LocalDateTime.now()) + ".log");
   }
 
   private boolean confirmOpenEditorLaunch(File projectDir, File startupFile) {

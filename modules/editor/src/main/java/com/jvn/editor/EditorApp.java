@@ -37,6 +37,7 @@ import com.jvn.core.scene2d.Entity2D;
 import com.jvn.editor.commands.CommandStack;
 import com.jvn.editor.ui.AssetBrowserView;
 import com.jvn.editor.ui.CssIcon;
+import com.jvn.editor.ui.DeveloperLogPanel;
 import com.jvn.editor.ui.DslPropertyDiagnostics;
 import com.jvn.editor.ui.EditorDialogs;
 import com.jvn.editor.ui.EditorPanelPlacement;
@@ -292,6 +293,7 @@ public class EditorApp extends Application {
   private static final String PANEL_WINDOW_SUPPRESS_UNLOAD_KEY = "jvn.panelWindow.suppressUnload";
   private static final String EDITOR_START_PROJECT_PROPERTY = "jvn.editor.openProject";
   private static final String EDITOR_OPEN_FILE_PROPERTY = "jvn.editor.openFile";
+  private static final boolean DEVELOPER_MODE = Boolean.getBoolean("jvn.editor.developerMode");
   private static final Pattern DSL_DIAGNOSTIC_PATTERN =
       Pattern.compile("^L(\\d+)\\s+(\\S+?):\\s+(.+?)(?:\\s+Quick fix:\\s+(.+))?$");
   private final EnumMap<EditorSidebarPanel, Stage> panelWindows =
@@ -299,6 +301,7 @@ public class EditorApp extends Application {
   private Stage editorSettingsWindow;
   private Stage gameBuildPublisherWindow;
   private GameBuildPublisherView gameBuildPublisherView;
+  private DeveloperLogPanel developerLogPanel;
 
   public static void main(String[] args) {
     launch(args);
@@ -308,6 +311,19 @@ public class EditorApp extends Application {
     if (status != null && status.getScene() != null) return status.getScene().getWindow();
     if (filesTabs != null && filesTabs.getScene() != null) return filesTabs.getScene().getWindow();
     return null;
+  }
+
+  private List<Path> developerLogRoots() {
+    List<Path> roots = new ArrayList<>();
+    if (projectRoot != null) roots.add(projectRoot.toPath());
+    File workspace = resolveWorkspaceRoot();
+    if (workspace != null) roots.add(workspace.toPath());
+    roots.add(Path.of(System.getProperty("user.dir", ".")));
+    return roots;
+  }
+
+  private void refreshDeveloperLogs() {
+    if (developerLogPanel != null) developerLogPanel.refresh();
   }
 
   private void setEditorTheme(EditorTheme.Theme theme) {
@@ -441,6 +457,7 @@ public class EditorApp extends Application {
     if (workspaceHubView != null) {
       workspaceHubView.setCurrentProject(dir);
     }
+    refreshDeveloperLogs();
     refreshMainCommandUi.run();
   }
 
@@ -2003,6 +2020,10 @@ public class EditorApp extends Application {
 
     // Layout
     VBox top = new VBox(commandBar, toolbar);
+    if (DEVELOPER_MODE) {
+      developerLogPanel = new DeveloperLogPanel("Logs", this::developerLogRoots);
+      top.getChildren().add(developerLogPanel);
+    }
     top.getStyleClass().add("master-toolbar-shell");
     root.setTop(top);
     // Center: per-file tabs with embedded preview
