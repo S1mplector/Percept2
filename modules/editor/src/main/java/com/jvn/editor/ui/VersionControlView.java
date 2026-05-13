@@ -26,6 +26,7 @@ import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
+import javafx.scene.control.SelectionMode;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
@@ -43,6 +44,18 @@ import javafx.util.Duration;
 public class VersionControlView extends BorderPane {
   private static final long REMOTE_CHECK_INTERVAL_MS = 120_000L;
   private static final DateTimeFormatter CHECK_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
+  private static final String ICON_REFRESH = "#8ecaff";
+  private static final String ICON_ONLINE = "#69d7ff";
+  private static final String ICON_PULL = "#f2c86b";
+  private static final String ICON_PUSH = "#79df93";
+  private static final String ICON_COMMIT = "#8bb8ff";
+  private static final String ICON_SHELF = "#c29cff";
+  private static final String ICON_RESTORE = "#ffcf7a";
+  private static final String ICON_STAGE = "#80e08d";
+  private static final String ICON_UNSTAGE = "#f0b673";
+  private static final String ICON_DISCARD = "#ff7f9f";
+  private static final String ICON_DIFF = "#8ecaff";
+  private static final String ICON_BRANCH = "#b7a7ff";
 
   private final GitVcsService vcs = new GitVcsService();
   private final ExecutorService worker = Executors.newSingleThreadExecutor(r -> {
@@ -73,48 +86,48 @@ public class VersionControlView extends BorderPane {
 
   private final Button btnRefresh = actionButton(
       "Refresh",
-      CssIcon.redo(),
+      CssIcon.redo(ICON_REFRESH),
       "Refresh the project status and check whether the online repository has new work.",
       "vcs-action-button-neutral");
   private final Button btnInitialize = new Button("Initialize");
   private final Button btnFetch = actionButton(
       "Check Online",
-      CssIcon.download(),
+      CssIcon.download(ICON_ONLINE),
       "Contact the remote repository and check for work you do not have yet.",
       "vcs-action-button-accent");
   private final Button btnPull = actionButton(
       "Get Updates",
-      CssIcon.arrowDown(),
+      CssIcon.arrowDown(ICON_PULL),
       "Download incoming commits and replay your local work on top.",
       "vcs-action-button-warning");
   private final Button btnPush = actionButton(
       "Send Online",
-      CssIcon.arrowUp(),
+      CssIcon.arrowUp(ICON_PUSH),
       "Upload your saved snapshots to the remote repository.",
       "vcs-action-button-success");
   private final Button btnCommit = actionButton(
       "Save Snapshot",
-      CssIcon.save(),
+      CssIcon.save(ICON_COMMIT),
       "Save all current project changes into a local version snapshot.",
       "vcs-action-button-success");
   private final Button btnStash = actionButton(
       "Shelve",
-      CssIcon.memory(),
+      CssIcon.folder(ICON_SHELF),
       "Temporarily put current changes aside without saving a snapshot.",
       "vcs-action-button-neutral");
   private final Button btnStashPop = actionButton(
       "Restore Shelf",
-      CssIcon.popOut(),
+      CssIcon.popOut(ICON_RESTORE),
       "Bring back the latest shelved changes.",
       "vcs-action-button-neutral");
-  private final Button btnStageSelected = iconButton(CssIcon.plus(), "Mark the selected file for the next Git commit.");
-  private final Button btnUnstageSelected = iconButton(CssIcon.minus(), "Remove the selected file from the staged Git area.");
-  private final Button btnDiscardSelected = iconButton(CssIcon.delete(), "Permanently discard the selected file change.");
-  private final Button btnDiffSelected = iconButton(CssIcon.search(), "Show the selected file diff in the activity log.");
+  private final Button btnStageSelected = iconButton(CssIcon.plusBold(ICON_STAGE), "Mark the selected file(s) for the next Git commit.");
+  private final Button btnUnstageSelected = iconButton(CssIcon.minus(ICON_UNSTAGE), "Remove the selected file(s) from the staged Git area.");
+  private final Button btnDiscardSelected = iconButton(CssIcon.delete(ICON_DISCARD), "Permanently discard the selected file change(s).");
+  private final Button btnDiffSelected = iconButton(CssIcon.search(ICON_DIFF), "Show selected file diff(s) in the activity log.");
   private final ComboBox<String> cbBranch = new ComboBox<>();
   private final Button btnNewBranch = actionButton(
       "New Branch",
-      CssIcon.rocket(),
+      CssIcon.rocket(ICON_BRANCH),
       "Create a branch with the typed name and switch to it.",
       "vcs-action-button-neutral");
 
@@ -197,6 +210,7 @@ public class VersionControlView extends BorderPane {
 
     listChanges.setPlaceholder(new Label("No changed files"));
     listChanges.setCellFactory(lv -> new StatusCell());
+    listChanges.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
     listChanges.setOnMouseClicked(e -> {
       if (e.getClickCount() < 2) return;
       GitVcsService.StatusEntry entry = listChanges.getSelectionModel().getSelectedItem();
@@ -210,11 +224,13 @@ public class VersionControlView extends BorderPane {
       openChangedEntry(entry);
     });
     listChanges.getSelectionModel().selectedItemProperty().addListener((obs, oldEntry, newEntry) -> updateControlsForState());
+    listChanges.getSelectionModel().getSelectedItems().addListener(
+        (javafx.collections.ListChangeListener<GitVcsService.StatusEntry>) change -> updateControlsForState());
 
     btnRefresh.setOnAction(e -> refreshStatus(true));
     btnInitialize.setOnAction(e -> initializeRepository());
     btnInitialize.getStyleClass().addAll("vcs-action-button", "vcs-action-button-success");
-    btnInitialize.setGraphic(CssIcon.plus());
+    btnInitialize.setGraphic(CssIcon.plusBold(ICON_STAGE));
     btnInitialize.setContentDisplay(ContentDisplay.LEFT);
     btnInitialize.setTooltip(new Tooltip("Create Git tracking for this project so snapshots and sync are available."));
     btnFetch.setOnAction(e -> runFetch());
@@ -804,12 +820,16 @@ The Log shows recent commits on the current branch."""));
   }
 
   private void runStageSelected() {
-    GitVcsService.StatusEntry entry = listChanges.getSelectionModel().getSelectedItem();
-    if (entry == null) return;
+    List<GitVcsService.StatusEntry> entries = selectedChangeEntries();
+    if (entries.isEmpty()) return;
     runAsync("Stage", () -> {
+      int changed = 0;
       try {
-        vcs.stageFile(projectRoot, entry.path());
-        appendLog("Staged: " + entry.path());
+        for (GitVcsService.StatusEntry entry : entries) {
+          vcs.stageFile(projectRoot, entry.path());
+          changed++;
+        }
+        appendLog("Staged " + changed + " file" + plural(changed) + ".");
       } catch (Exception ex) {
         appendLog("Stage failed: " + ex.getMessage());
       }
@@ -818,12 +838,16 @@ The Log shows recent commits on the current branch."""));
   }
 
   private void runUnstageSelected() {
-    GitVcsService.StatusEntry entry = listChanges.getSelectionModel().getSelectedItem();
-    if (entry == null) return;
+    List<GitVcsService.StatusEntry> entries = selectedChangeEntries();
+    if (entries.isEmpty()) return;
     runAsync("Unstage", () -> {
+      int changed = 0;
       try {
-        vcs.unstageFile(projectRoot, entry.path());
-        appendLog("Unstaged: " + entry.path());
+        for (GitVcsService.StatusEntry entry : entries) {
+          vcs.unstageFile(projectRoot, entry.path());
+          changed++;
+        }
+        appendLog("Unstaged " + changed + " file" + plural(changed) + ".");
       } catch (Exception ex) {
         appendLog("Unstage failed: " + ex.getMessage());
       }
@@ -832,21 +856,28 @@ The Log shows recent commits on the current branch."""));
   }
 
   private void runDiscardSelected() {
-    GitVcsService.StatusEntry entry = listChanges.getSelectionModel().getSelectedItem();
-    if (entry == null) return;
+    List<GitVcsService.StatusEntry> entries = selectedChangeEntries();
+    if (entries.isEmpty()) return;
+    String target = entries.size() == 1
+        ? entries.get(0).path()
+        : entries.size() + " selected files";
     if (!EditorDialogs.confirm(
         getScene() == null ? null : getScene().getWindow(),
-        "Discard File Change",
-        "Discard changes in " + entry.path() + "? This cannot be undone.",
+        entries.size() == 1 ? "Discard File Change" : "Discard Selected File Changes",
+        "Discard changes in " + target + "? This cannot be undone.",
         "Discard",
         true)) {
       appendLog("Discard cancelled.");
       return;
     }
     runAsync("Discard", () -> {
+      int changed = 0;
       try {
-        vcs.discardFile(projectRoot, entry.path());
-        appendLog("Discarded: " + entry.path());
+        for (GitVcsService.StatusEntry entry : entries) {
+          vcs.discardFile(projectRoot, entry.path());
+          changed++;
+        }
+        appendLog("Discarded " + changed + " file" + plural(changed) + ".");
       } catch (Exception ex) {
         appendLog("Discard failed: " + ex.getMessage());
       }
@@ -855,16 +886,20 @@ The Log shows recent commits on the current branch."""));
   }
 
   private void runDiffSelected() {
-    GitVcsService.StatusEntry entry = listChanges.getSelectionModel().getSelectedItem();
-    if (entry == null) return;
+    List<GitVcsService.StatusEntry> entries = selectedChangeEntries();
+    if (entries.isEmpty()) return;
     runAsync("Diff", () -> {
       try {
-        String diff = vcs.diffFile(projectRoot, entry.path());
-        if (diff.isBlank()) {
-          appendLog("No diff available for: " + entry.path());
-        } else {
-          appendLog("--- diff " + entry.path() + " ---\n" + diff);
+        StringBuilder output = new StringBuilder();
+        for (GitVcsService.StatusEntry entry : entries) {
+          String diff = vcs.diffFile(projectRoot, entry.path());
+          if (diff.isBlank()) {
+            output.append("No diff available for: ").append(entry.path()).append("\n\n");
+          } else {
+            output.append("--- diff ").append(entry.path()).append(" ---\n").append(diff).append("\n\n");
+          }
         }
+        appendLog(output.toString().strip());
       } catch (Exception ex) {
         appendLog("Diff failed: " + ex.getMessage());
       }
@@ -1066,6 +1101,10 @@ The Log shows recent commits on the current branch."""));
     onOpenRelativePath.accept(relative);
   }
 
+  private List<GitVcsService.StatusEntry> selectedChangeEntries() {
+    return List.copyOf(listChanges.getSelectionModel().getSelectedItems());
+  }
+
   private void updateToolAvailabilityLabel(boolean git) {
     toolLabel.setText("Git: " + (git ? "ok" : "missing"));
   }
@@ -1096,7 +1135,7 @@ The Log shows recent commits on the current branch."""));
   private void updateControlsForState() {
     boolean hasProject = projectRoot != null;
     boolean repoReady = hasProject && gitAvailable && repositoryInitialized;
-    boolean hasSelection = listChanges.getSelectionModel().getSelectedItem() != null;
+    boolean hasSelection = !listChanges.getSelectionModel().getSelectedItems().isEmpty();
     boolean hasChanges = currentChangeCount > 0;
     boolean canSync = repoReady && currentHasRemote && !currentHasConflicts;
 

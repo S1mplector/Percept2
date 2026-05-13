@@ -562,6 +562,11 @@
   -fx-text-fill: #ffffff;
 }
 
+.vcs-action-button .jvn-fx-icon,
+.vcs-icon-btn .jvn-fx-icon {
+  -fx-opacity: 1.0;
+}
+
 .vcs-action-button-success {
   -fx-background-color: #238636;
   -fx-border-color: #2ea043;
@@ -674,6 +679,18 @@
   -fx-border-color: #d0d0d0;
   -fx-border-radius: 7;
   -fx-background-radius: 7;
+}
+
+.vcs-text-field {
+  -fx-text-fill: #161616;
+  -fx-prompt-text-fill: #555555;
+  -fx-highlight-fill: #b9d8f2;
+  -fx-highlight-text-fill: #161616;
+  -fx-caret-color: #161616;
+}
+
+.vcs-text-field:focused {
+  -fx-border-color: #6f8fad;
 }
 
 .vcs-log {

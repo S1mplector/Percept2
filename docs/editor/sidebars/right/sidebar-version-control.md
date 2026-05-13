@@ -132,6 +132,8 @@ A `ListView` showing all files with uncommitted changes. Each entry shows:
 | Action | Result |
 |--------|--------|
 | **Click** | Selects the file for per-file actions |
+| **Shift-click** | Selects a range of changed files |
+| **Cmd/Ctrl-click** | Adds or removes individual files from the selection |
 | **Double-click** | Opens the file in the editor |
 | **Enter** | Same as double-click |
 
@@ -139,10 +141,10 @@ A `ListView` showing all files with uncommitted changes. Each entry shows:
 
 | Button | Icon Class | Tooltip | Git Command |
 |--------|-----------|---------|-------------|
-| **Stage** | `vcs-icon-stage` | Stage selected | `git add <file>` |
-| **Unstage** | `vcs-icon-unstage` | Unstage selected | `git reset HEAD <file>` |
-| **Discard** | `vcs-icon-discard` | Discard changes after confirmation | `git restore -- <file>` or `git clean -f -- <file>` for untracked files |
-| **Diff** | `vcs-icon-diff` | Show diff | `git diff <file>` (shown in log area) |
+| **Stage** | `vcs-icon-stage` | Stage selected file(s) | `git add <file>` for each selected file |
+| **Unstage** | `vcs-icon-unstage` | Unstage selected file(s) | `git reset HEAD <file>` for each selected file |
+| **Discard** | `vcs-icon-discard` | Discard selected file changes after confirmation | `git restore -- <file>` or `git clean -f -- <file>` for each selected file |
+| **Diff** | `vcs-icon-diff` | Show selected diff(s) | `git diff <file>` for each selected file, shown in the log area |
 
 **Warning:** The Discard action permanently removes uncommitted changes to the selected file.
 

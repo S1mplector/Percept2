@@ -19,6 +19,8 @@ Developer Mode also adds a `DevTools` menu to the editor and launcher with runti
 
 The Version Control sidebar now uses clearer snapshot/sync language, checks for incoming remote work, highlights the next recommended action, adds more helpful tooltips and colored buttons, and refreshes status reliably after operations.
 
+The Version Control changes list now supports multi-select and shift-select ranges, so staging, unstaging, discarding, and diff inspection can be applied to several files at once.
+
 ## 2026-05-10 — Puppeteer group anchors and constraint removal
 The Puppeteer Anchors window now supports group entities. When a group is selected in the Entities tab, it appears in the Anchors window with a "[Group]" prefix and orange color indicator. Groups display a placeholder bounding box instead of a sprite image, allowing anchors to be placed on the group's normalized coordinate space.
 

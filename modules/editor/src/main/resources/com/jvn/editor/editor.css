@@ -616,6 +616,11 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-text-fill: #ffffff;
 }
 
+.vcs-action-button .jvn-fx-icon,
+.vcs-icon-btn .jvn-fx-icon {
+  -fx-opacity: 1.0;
+}
+
 .vcs-action-button-success {
   -fx-background-color: #238636;
   -fx-border-color: #3fb950;
@@ -728,6 +733,18 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-border-color: #303030;
   -fx-border-radius: 7;
   -fx-background-radius: 7;
+}
+
+.vcs-text-field {
+  -fx-text-fill: #ffffff;
+  -fx-prompt-text-fill: #f1f1f1;
+  -fx-highlight-fill: #365d86;
+  -fx-highlight-text-fill: #ffffff;
+  -fx-caret-color: #ffffff;
+}
+
+.vcs-text-field:focused {
+  -fx-border-color: #8a8a8a;
 }
 
 .vcs-log {
