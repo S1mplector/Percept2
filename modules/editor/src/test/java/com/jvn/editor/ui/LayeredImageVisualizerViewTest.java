@@ -30,6 +30,14 @@ class LayeredImageVisualizerViewTest {
   }
 
   @Test
+  void buildCharpresetSnippetFileNameUsesRuntimeFacingSuffix() {
+    assertEquals("john_doe_happy_charpreset.vns",
+        LayeredImageVisualizerView.buildCharpresetSnippetFileName("john_doe_happy"));
+    assertEquals("john_doe_happy_charpreset.vns",
+        LayeredImageVisualizerView.buildCharpresetSnippetFileName("john_doe_happy_charpreset"));
+  }
+
+  @Test
   void sanitizeIdNormalizesToSnakeCaseLower() {
     assertEquals("body_face_happy", LayeredImageVisualizerView.sanitizeId("Body Face-Happy"));
     assertEquals("eyes_2", LayeredImageVisualizerView.sanitizeId(" Eyes 2 "));

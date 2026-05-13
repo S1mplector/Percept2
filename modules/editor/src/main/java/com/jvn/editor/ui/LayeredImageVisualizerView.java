@@ -485,12 +485,15 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
     Button chooseExportFolderButton = iconButton(CssIcon.folder("#f5c46b"), "Choose export folder", this::chooseExportDirectory);
     Button revealExportFolderButton = iconButton(CssIcon.link("#9cc7ff"), "Reveal export folder in file manager", this::revealExportDirectory);
+    Button copyCharpresetExportButton = actionButton("Copy Charpreset", CssIcon.copy("#c6a0f6"), "Copy runtime-ready @charlayer + @charpreset declarations", this::copyCharpresetSnippet);
+    Button exportCharpresetButton = actionButton("Save Charpreset", CssIcon.save("#c6a0f6"), "Quick export @charlayer + @charpreset declarations as a .vns snippet", this::quickExportCharpresetToFile);
+    Button exportCharpresetAsButton = actionButton("Charpreset As", CssIcon.download("#c6a0f6"), "Choose a .vns snippet destination", this::exportCharpresetToFileAs);
     Button exportPngButton = actionButton("PNG", CssIcon.download("#8ab4f8"), "Quick export composited PNG to the configured folder", this::quickExportCompositePng);
     Button exportPngAsButton = actionButton("PNG As", CssIcon.save("#8ab4f8"), "Choose a PNG destination", this::exportCompositePngAs);
-    Button exportSetupBtn = actionButton("Setup", CssIcon.save("#9ed67a"), "Quick export .layersetup to the configured folder", this::quickExportSetupToFile);
-    Button exportSetupAsButton = actionButton("Setup As", CssIcon.download("#9ed67a"), "Choose a .layersetup destination", this::exportSetupToFileAs);
-    Button importSetupBtn = actionButton("Import", CssIcon.folder("#f5c46b"), "Import setup from .layersetup file", this::importSetupFromFile);
-    Button exportBundleButton = actionButton("PNG + Setup", CssIcon.download("#d8c48a"), "Quick export both PNG and .layersetup to the configured folder", this::quickExportBundle);
+    Button exportSetupBtn = actionButton("Layer Setup", CssIcon.save("#9ed67a"), "Quick export editor-only .layersetup to the configured folder", this::quickExportSetupToFile);
+    Button exportSetupAsButton = actionButton("Setup As", CssIcon.download("#9ed67a"), "Choose an editor-only .layersetup destination", this::exportSetupToFileAs);
+    Button importSetupBtn = actionButton("Import Setup", CssIcon.folder("#f5c46b"), "Import setup from .layersetup file", this::importSetupFromFile);
+    Button exportBundleButton = actionButton("PNG + Setup", CssIcon.download("#d8c48a"), "Quick export both PNG and editor-only .layersetup to the configured folder", this::quickExportBundle);
     HBox exportDirRow = new HBox(4, new Label("Folder"), exportDirectoryField, chooseExportFolderButton, revealExportFolderButton);
     exportDirRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(exportDirectoryField, Priority.ALWAYS);
@@ -500,6 +503,11 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     HBox exportBundleRow = new HBox(4, exportBundleButton);
     exportBundleRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(exportBundleButton, Priority.ALWAYS);
+    HBox charpresetRow = new HBox(4, copyCharpresetExportButton, exportCharpresetButton, exportCharpresetAsButton);
+    charpresetRow.setAlignment(Pos.CENTER_LEFT);
+    HBox.setHgrow(copyCharpresetExportButton, Priority.ALWAYS);
+    HBox.setHgrow(exportCharpresetButton, Priority.ALWAYS);
+    HBox.setHgrow(exportCharpresetAsButton, Priority.ALWAYS);
     HBox filePngRow = new HBox(4, exportPngButton, exportPngAsButton);
     filePngRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(exportPngButton, Priority.ALWAYS);
@@ -511,7 +519,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     HBox.setHgrow(importSetupBtn, Priority.ALWAYS);
     TitledPane exportPane = new TitledPane(
         "Export",
-        new VBox(4, exportDirRow, exportNameRow, exportInfoLabel, exportBundleRow, filePngRow, fileSetupRow));
+        new VBox(4, exportDirRow, exportNameRow, exportInfoLabel, charpresetRow, exportBundleRow, filePngRow, fileSetupRow));
     exportPane.setExpanded(true);
     exportPane.setAnimated(false);
     exportPane.setCollapsible(true);
@@ -2931,7 +2939,10 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     exportNameField.setDisable(!customExportNameCheck.isSelected());
     File directory = resolveExportDirectory();
     exportDirectoryField.setText(directory == null ? "(choose folder)" : describePathRelativeToProject(directory));
-    exportInfoLabel.setText("PNG: " + buildCompositePngFileName() + "\nSetup: " + buildLayerSetupFileName());
+    exportInfoLabel.setText(
+        "Runtime: " + buildCharpresetSnippetFileName()
+            + "\nPNG: " + buildCompositePngFileName()
+            + "\nEditor setup: " + buildLayerSetupFileName());
   }
 
   private File configuredExportDirectory() {
@@ -3015,6 +3026,18 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
   private String buildLayerSetupFileName() {
     return buildExportFileName(currentExportBaseName(), "layersetup");
+  }
+
+  private String buildCharpresetSnippetFileName() {
+    return buildCharpresetSnippetFileName(currentExportBaseName());
+  }
+
+  static String buildCharpresetSnippetFileName(String baseName) {
+    String stem = sanitizeExportStem(baseName, "charpreset");
+    if (!stem.endsWith("_charpreset")) {
+      stem = stem + "_charpreset";
+    }
+    return buildExportFileName(stem, "vns");
   }
 
   static String buildDefaultExportStem(String setId, String characterId, String expressionId) {
@@ -4772,6 +4795,21 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     writeLayerSetupFile(file, buildFullSetupText());
   }
 
+  private void quickExportCharpresetToFile() {
+    File file = resolveQuickExportFile(buildCharpresetSnippetFileName());
+    if (file == null) {
+      status("Choose an export folder first.");
+      return;
+    }
+    writeCharpresetSnippetFile(file, buildSnippet(SNIPPET_CHARPRESET));
+  }
+
+  private void exportCharpresetToFileAs() {
+    File file = chooseSaveFile("Export Charpreset Snippet", "VNS Snippet", "*.vns", buildCharpresetSnippetFileName());
+    if (file == null) return;
+    writeCharpresetSnippetFile(file, buildSnippet(SNIPPET_CHARPRESET));
+  }
+
   private void writeLayerSetupFile(File file, String text) {
     writeLayerSetupFile(file, text, true);
   }
@@ -4789,6 +4827,22 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     } catch (Exception ex) {
       status("Setup export failed: " + ex.getMessage());
       return false;
+    }
+  }
+
+  private void writeCharpresetSnippetFile(File file, String text) {
+    if (text == null || text.isBlank()) {
+      status("No layers selected — nothing to export.");
+      return;
+    }
+    try {
+      Path parent = file.toPath().getParent();
+      if (parent != null) Files.createDirectories(parent);
+      Files.writeString(file.toPath(), text, StandardCharsets.UTF_8);
+      setConfiguredExportDirectory(file.getParentFile());
+      status("Exported charpreset: " + describePathRelativeToProject(file));
+    } catch (Exception ex) {
+      status("Charpreset export failed: " + ex.getMessage());
     }
   }
 
