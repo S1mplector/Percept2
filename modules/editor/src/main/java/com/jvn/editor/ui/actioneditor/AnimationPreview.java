@@ -203,6 +203,45 @@ public class AnimationPreview extends VBox {
         }
     }
 
+    private static final class WorldBounds {
+        double minX = Double.POSITIVE_INFINITY;
+        double minY = Double.POSITIVE_INFINITY;
+        double maxX = Double.NEGATIVE_INFINITY;
+        double maxY = Double.NEGATIVE_INFINITY;
+
+        boolean isEmpty() {
+            return !Double.isFinite(minX) || !Double.isFinite(minY)
+                || !Double.isFinite(maxX) || !Double.isFinite(maxY)
+                || maxX <= minX || maxY <= minY;
+        }
+
+        double width() { return isEmpty() ? 0.0 : maxX - minX; }
+        double height() { return isEmpty() ? 0.0 : maxY - minY; }
+        double centerX() { return (minX + maxX) * 0.5; }
+        double centerY() { return (minY + maxY) * 0.5; }
+
+        void include(double x, double y) {
+            if (!Double.isFinite(x) || !Double.isFinite(y)) return;
+            minX = Math.min(minX, x);
+            minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x);
+            maxY = Math.max(maxY, y);
+        }
+
+        void include(double[] corners) {
+            if (corners == null || corners.length < 2) return;
+            for (int i = 0; i + 1 < corners.length; i += 2) {
+                include(corners[i], corners[i + 1]);
+            }
+        }
+
+        void include(WorldBounds other) {
+            if (other == null || other.isEmpty()) return;
+            include(other.minX, other.minY);
+            include(other.maxX, other.maxY);
+        }
+    }
+
     private final Canvas canvas;
     public Canvas getPreviewCanvas() { return canvas; }
     private final GraphicsContext gc;
@@ -298,6 +337,7 @@ public class AnimationPreview extends VBox {
     private double viewZoomFactor = 1.0;
     private double viewPanX = 0.0;
     private double viewPanY = 0.0;
+    private javafx.animation.Timeline viewportFocusAnimation;
 
     public double getViewPanX() { return viewPanX; }
     public double getViewPanY() { return viewPanY; }
@@ -373,6 +413,13 @@ public class AnimationPreview extends VBox {
             scene.setInput(input);
             scene.setCamera(camera);
             Set<String> names = new HashSet<>(scene.names());
+            if (project != null) {
+                for (EntityGroup group : project.getGroups()) {
+                    if (group != null && group.getName() != null && !group.getName().isBlank()) {
+                        names.add(group.getName());
+                    }
+                }
+            }
             java.util.List<String> removed = new java.util.ArrayList<>();
             orbitAnchors.keySet().removeIf(name -> {
                 boolean drop = !names.contains(name);
@@ -471,13 +518,11 @@ public class AnimationPreview extends VBox {
                 drawMotionPaths();
                 if (selectedEntity != null) drawSelectionHighlight(selectedEntity);
                 if (selectedGroupName != null && !selectedGroupMemberNames.isEmpty()) {
-                    for (String memberName : selectedGroupMemberNames) {
-                        Entity2D member = scene.find(memberName);
-                        if (member != null) drawSelectionHighlight(member);
-                    }
+                    drawGroupSelectionHighlight(selectedGroupName);
                 }
                 drawGroupDimming();
                 drawSelectedEntityRegionBorder();
+                drawSelectedGroupRegionBorder();
                 if (showSpriteRegions) drawSpriteRegions();
             } finally {
                 scene.setCamera(activeCamera);
@@ -714,6 +759,57 @@ public class AnimationPreview extends VBox {
         double padX = Math.max(24.0, width * 0.06);
         double padY = Math.max(24.0, height * 0.06);
         return new double[] { minX - padX, minY - padY, maxX + padX, maxY + padY };
+    }
+
+    private void focusWorldBounds(WorldBounds target, boolean animate) {
+        if (target == null || target.isEmpty()) return;
+        double canvasW = Math.max(1.0, canvas.getWidth());
+        double canvasH = Math.max(1.0, canvas.getHeight());
+        double[] baseBounds = computeDisplayBoundsWorld();
+        double baseWidth = Math.max(1.0, baseBounds[2] - baseBounds[0]);
+        double baseHeight = Math.max(1.0, baseBounds[3] - baseBounds[1]);
+        double baseScale = Math.max(1e-6, ViewportScaler2D.fit(baseWidth, baseHeight, canvasW, canvasH).scale());
+        double targetWidth = Math.max(24.0, target.width() * 1.65);
+        double targetHeight = Math.max(24.0, target.height() * 1.65);
+        double targetScale = Math.min(canvasW / targetWidth, canvasH / targetHeight);
+        double nextZoom = clamp(targetScale / baseScale, VIEW_ZOOM_MIN, VIEW_ZOOM_MAX);
+        double baseCenterX = (baseBounds[0] + baseBounds[2]) * 0.5;
+        double baseCenterY = (baseBounds[1] + baseBounds[3]) * 0.5;
+        double nextPanX = target.centerX() - baseCenterX;
+        double nextPanY = target.centerY() - baseCenterY;
+
+        if (viewportFocusAnimation != null) {
+            viewportFocusAnimation.stop();
+            viewportFocusAnimation = null;
+        }
+        if (!animate) {
+            setViewPanAndZoom(nextPanX, nextPanY, nextZoom);
+            return;
+        }
+
+        double startPanX = viewPanX;
+        double startPanY = viewPanY;
+        double startZoom = viewZoomFactor;
+        javafx.beans.property.DoubleProperty t = new javafx.beans.property.SimpleDoubleProperty(0.0);
+        t.addListener((obs, oldValue, newValue) -> {
+            double p = smoothStep(newValue.doubleValue());
+            viewPanX = lerp(startPanX, nextPanX, p);
+            viewPanY = lerp(startPanY, nextPanY, p);
+            viewZoomFactor = lerp(startZoom, nextZoom, p);
+            if (getParent() != null) getParent().requestLayout();
+            render();
+        });
+        viewportFocusAnimation = new javafx.animation.Timeline(
+            new javafx.animation.KeyFrame(javafx.util.Duration.ZERO,
+                new javafx.animation.KeyValue(t, 0.0)),
+            new javafx.animation.KeyFrame(javafx.util.Duration.millis(260),
+                new javafx.animation.KeyValue(t, 1.0, javafx.animation.Interpolator.EASE_BOTH))
+        );
+        viewportFocusAnimation.setOnFinished(event -> {
+            viewportFocusAnimation = null;
+            setViewPanAndZoom(nextPanX, nextPanY, nextZoom);
+        });
+        viewportFocusAnimation.play();
     }
 
     private final double[] backgroundBoundsAccumulator = new double[4];
@@ -1243,7 +1339,7 @@ public class AnimationPreview extends VBox {
         pivotDragState = null;
         matrixDragState = null;
         matrixOverlayText = null;
-        stopSpriteRegionAnimation();
+        startSpriteRegionAnimation();
         if (changed) render();
     }
 
@@ -1296,6 +1392,17 @@ public class AnimationPreview extends VBox {
     public void setAnchorPlacementMode(boolean enabled) { anchorPlacementMode = enabled; render(); }
     public void setOnAnchorPlacementAt(Consumer<double[]> callback) { this.onAnchorPlacementAt = callback; }
 
+    public void focusAnchorPlacementOnSelection() {
+        WorldBounds bounds = null;
+        if (selectedEntity != null) {
+            bounds = computeEntityVisualBounds(selectedEntity);
+        } else if (selectedGroupName != null) {
+            bounds = computeGroupVisualBounds(selectedGroupName);
+        }
+        if (bounds == null || bounds.isEmpty()) return;
+        focusWorldBounds(bounds, true);
+    }
+
     /**
      * Computes the world-space position of a named anchor on the given entity and sets
      * it as that entity's orbit pivot, enabling rotation around the anchor point.
@@ -1303,14 +1410,31 @@ public class AnimationPreview extends VBox {
     public void useAnchorAsOrbitPivot(String entityName, String anchorName) {
         if (entityName == null || anchorName == null || project == null || scene == null) return;
         Entity2D entity = scene.find(entityName);
-        if (entity == null) return;
         Anchor anchor = project.getAnchor(entityName, anchorName);
         if (anchor == null) return;
+        if (entity == null && project.getGroup(entityName) != null) {
+            WorldBounds bounds = computeGroupVisualBounds(entityName);
+            if (bounds == null || bounds.isEmpty()) return;
+            double[] worldPos = computeAnchorWorldPosition(anchor, bounds);
+            setOrbitAnchor(entityName, worldPos[0], worldPos[1]);
+            render();
+            return;
+        }
+        if (entity == null) return;
         EntityFrame frame = describeEntity(entity);
         if (frame == null) return;
         double[] worldPos = computeAnchorWorldPosition(anchor, entity, frame);
         setOrbitAnchor(entityName, worldPos[0], worldPos[1]);
         render();
+    }
+
+    private double[] computeAnchorWorldPosition(Anchor anchor, WorldBounds bounds) {
+        if (anchor == null || bounds == null || bounds.isEmpty()) return new double[]{0.0, 0.0};
+        if (!anchor.isRelative()) return new double[]{anchor.getX(), anchor.getY()};
+        return new double[]{
+            bounds.minX + bounds.width() * anchor.getX(),
+            bounds.minY + bounds.height() * anchor.getY()
+        };
     }
 
     private double[] computeAnchorWorldPosition(Anchor anchor, Entity2D entity, EntityFrame frame) {
@@ -2451,6 +2575,100 @@ public class AnimationPreview extends VBox {
         selectedGroupMemberNames.addAll(project.collectGroupEntityNames(selectedGroupName));
     }
 
+    private WorldBounds computeGroupVisualBounds(String groupName) {
+        if (project == null || scene == null || groupName == null || groupName.isBlank()) return null;
+        WorldBounds bounds = new WorldBounds();
+        for (String memberName : project.collectGroupEntityNames(groupName)) {
+            Entity2D member = scene.find(memberName);
+            if (member == null || !member.isVisible()) continue;
+            bounds.include(computeEntityVisualBounds(member));
+        }
+        return bounds.isEmpty() ? null : bounds;
+    }
+
+    private WorldBounds computeEntityVisualBounds(Entity2D entity) {
+        if (entity == null) return null;
+        WorldBounds bounds = new WorldBounds();
+        if (pixelAnalyzer != null && entity instanceof com.jvn.core.scene2d.Sprite2D sprite) {
+            EntityFrame frame = describeEntity(entity);
+            if (frame != null) {
+                double spriteW = sprite.getWidth();
+                double spriteH = sprite.getHeight();
+                String imagePath = sprite.getImagePath();
+                if (imagePath != null && !imagePath.isBlank()) {
+                    for (String layerPath : imagePath.split("\\|")) {
+                        String path = layerPath == null ? "" : layerPath.trim();
+                        if (path.isEmpty()) continue;
+                        List<SpritePixelAnalyzer.DetectedRegion> regions =
+                            spriteRegionCache.computeIfAbsent(path, pixelAnalyzer::detectRegions);
+                        if (regions.isEmpty()) continue;
+                        double[] imageSize = resolveImageSize(path);
+                        if (imageSize == null) continue;
+                        double imgToSpriteX = spriteW / Math.max(1.0, imageSize[0]);
+                        double imgToSpriteY = spriteH / Math.max(1.0, imageSize[1]);
+                        for (SpritePixelAnalyzer.DetectedRegion region : regions) {
+                            bounds.include(regionWorldCorners(frame, spriteW, spriteH, imgToSpriteX, imgToSpriteY, region));
+                        }
+                    }
+                }
+            }
+        }
+        if (bounds.isEmpty()) {
+            bounds.include(getEntityCorners(entity));
+        }
+        return bounds.isEmpty() ? null : bounds;
+    }
+
+    private double[] regionWorldCorners(EntityFrame frame,
+                                        double spriteW,
+                                        double spriteH,
+                                        double imgToSpriteX,
+                                        double imgToSpriteY,
+                                        SpritePixelAnalyzer.DetectedRegion region) {
+        double lx = (-frame.originX * spriteW + region.minX * imgToSpriteX) * frame.scaleX;
+        double ly = (-frame.originY * spriteH + region.minY * imgToSpriteY) * frame.scaleY;
+        double lw = region.width * imgToSpriteX * frame.scaleX;
+        double lh = region.height * imgToSpriteY * frame.scaleY;
+        double cos = Math.cos(frame.rotationRad);
+        double sin = Math.sin(frame.rotationRad);
+        return new double[]{
+            frame.x + lx * cos - ly * sin,
+            frame.y + lx * sin + ly * cos,
+            frame.x + (lx + lw) * cos - ly * sin,
+            frame.y + (lx + lw) * sin + ly * cos,
+            frame.x + (lx + lw) * cos - (ly + lh) * sin,
+            frame.y + (lx + lw) * sin + (ly + lh) * cos,
+            frame.x + lx * cos - (ly + lh) * sin,
+            frame.y + lx * sin + (ly + lh) * cos
+        };
+    }
+
+    private void drawGroupSelectionHighlight(String groupName) {
+        WorldBounds bounds = computeGroupVisualBounds(groupName);
+        if (bounds == null || bounds.isEmpty()) return;
+        double z = Math.max(1e-6, displayScale);
+        double dashOffset = (System.currentTimeMillis() / 35.0) % 18.0;
+
+        gc.save();
+        applyCameraTransform();
+        gc.setStroke(Color.web("#f0b673", 0.9));
+        gc.setLineWidth(1.6 / z);
+        gc.setLineDashes(6.0 / z, 4.0 / z);
+        gc.setLineDashOffset(-dashOffset / z);
+        gc.strokeRect(bounds.minX, bounds.minY, bounds.width(), bounds.height());
+        gc.setLineDashes((double[]) null);
+        gc.setLineDashOffset(0);
+
+        double[] center = rotationCenterForTarget(groupName, bounds);
+        drawRotateHandleAtWorld(center[0], center[1], z);
+        drawOrbitAnchorForTarget(groupName, center[0], center[1], z);
+
+        gc.setFill(Color.web("#f0b673"));
+        gc.setFont(javafx.scene.text.Font.font(javafx.scene.text.Font.getDefault().getFamily(), 10.0 / z));
+        gc.fillText("[Group] " + groupName, bounds.minX, bounds.minY - (6.0 / z));
+        gc.restore();
+    }
+
     private void drawSelectionHighlight(Entity2D entity) {
         if (entity == null) return;
         double z = Math.max(1e-6, displayScale);
@@ -2952,6 +3170,15 @@ public class AnimationPreview extends VBox {
         if (value < min) return min;
         if (value > max) return max;
         return value;
+    }
+
+    private static double lerp(double a, double b, double t) {
+        return a + (b - a) * t;
+    }
+
+    private static double smoothStep(double t) {
+        double x = clamp(t, 0.0, 1.0);
+        return x * x * (3.0 - 2.0 * x);
     }
 
     private void applyCameraTransform() {
