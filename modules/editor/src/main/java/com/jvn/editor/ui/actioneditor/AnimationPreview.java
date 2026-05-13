@@ -276,6 +276,7 @@ public class AnimationPreview extends VBox {
     private boolean draggingRotate = false;
     private boolean draggingScale = false;
     private ScaleDragState scaleDragState;
+    private boolean rotateShortcutHeld = false;
     private boolean draggingOrbit = false;
     private boolean draggingOrbitAnchor = false;
     private boolean draggingCameraFrame = false;
@@ -2038,6 +2039,7 @@ public class AnimationPreview extends VBox {
         final boolean[] panning = {false};
 
         canvas.setOnMousePressed(e -> {
+            canvas.requestFocus();
             if (e.isMiddleButtonDown() || e.isSecondaryButtonDown()) {
                 panning[0] = true;
                 panStart[0] = e.getX();
@@ -2113,6 +2115,11 @@ public class AnimationPreview extends VBox {
                     }
                     return;
                 }
+
+                if (rotateShortcutHeld && selectedEntity != null && selectedEntityName != null) {
+                    if (beginRotateInteraction(e.getX(), e.getY())) return;
+                }
+
                 if (orbitToolEnabled && e.isShiftDown() && e.isAltDown()) {
                     if (selectedEntityName != null && !selectedEntityName.isBlank()) {
                         String anchorSource = findEntityNameAt(e.getX(), e.getY(), false);
@@ -2194,24 +2201,7 @@ public class AnimationPreview extends VBox {
                 }
 
                 if (selectedEntity != null && isNearRotateHandle(e.getX(), e.getY())) {
-                    if (resolveEntityLocked(selectedEntityName)) return;
-                    double[] world = screenToWorld(e.getX(), e.getY());
-                    double angle = Math.atan2(world[1] - selectedEntity.getY(), world[0] - selectedEntity.getX());
-                    rotateDragState = new RotateDragState(selectedEntity.getX(), selectedEntity.getY(), angle, selectedEntity.getRotationDeg());
-                    if (orbitAnchorSources != null && scene != null) {
-                        for (java.util.Map.Entry<String, String> entry : orbitAnchorSources.entrySet()) {
-                            if (selectedEntityName.equals(entry.getValue())) {
-                                String followerName = entry.getKey();
-                                Entity2D follower = scene.find(followerName);
-                                if (follower != null) {
-                                    rotateDragState.followers.put(followerName, new FollowerState(follower.getX(), follower.getY(), follower.getRotationDeg()));
-                                }
-                            }
-                        }
-                    }
-                    draggingRotate = true;
-                    beginMoveInteraction(selectedEntityName, selectedEntity);
-                    return;
+                    if (beginRotateInteraction(e.getX(), e.getY())) return;
                 }
 
                 String hitName = findEntityNameAt(e.getX(), e.getY(), selectedGroupName == null);
@@ -2509,12 +2499,59 @@ public class AnimationPreview extends VBox {
 
         canvas.setFocusTraversable(true);
         canvas.setOnKeyPressed(e -> {
+            if (e.getCode() == javafx.scene.input.KeyCode.R) {
+                rotateShortcutHeld = true;
+            }
             if (e.getCode() == javafx.scene.input.KeyCode.ESCAPE && anchorPlacementMode) {
                 anchorPlacementMode = false;
                 render();
                 e.consume();
             }
         });
+        canvas.setOnKeyReleased(e -> {
+            if (e.getCode() == javafx.scene.input.KeyCode.R) {
+                rotateShortcutHeld = false;
+            }
+        });
+        canvas.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
+            if (!isFocused) rotateShortcutHeld = false;
+        });
+    }
+
+    private boolean beginRotateInteraction(double screenX, double screenY) {
+        if (selectedEntity == null || selectedEntityName == null || selectedEntityName.isBlank()) return false;
+        if (resolveEntityLocked(selectedEntityName)) return false;
+        double[] world = screenToWorld(screenX, screenY);
+        if (!Double.isFinite(world[0]) || !Double.isFinite(world[1])) return false;
+        double angle = Math.atan2(world[1] - selectedEntity.getY(), world[0] - selectedEntity.getX());
+        rotateDragState = new RotateDragState(
+            selectedEntity.getX(),
+            selectedEntity.getY(),
+            angle,
+            selectedEntity.getRotationDeg()
+        );
+        seedRotateFollowerStates();
+        rotateDragState.currentMouseWorldX = world[0];
+        rotateDragState.currentMouseWorldY = world[1];
+        draggingRotate = true;
+        beginMoveInteraction(selectedEntityName, selectedEntity);
+        return true;
+    }
+
+    private void seedRotateFollowerStates() {
+        if (rotateDragState == null || selectedEntityName == null || orbitAnchorSources == null || scene == null) return;
+        for (java.util.Map.Entry<String, String> entry : orbitAnchorSources.entrySet()) {
+            if (selectedEntityName.equals(entry.getValue())) {
+                String followerName = entry.getKey();
+                Entity2D follower = scene.find(followerName);
+                if (follower != null) {
+                    rotateDragState.followers.put(
+                        followerName,
+                        new FollowerState(follower.getX(), follower.getY(), follower.getRotationDeg())
+                    );
+                }
+            }
+        }
     }
 
     private void beginMoveInteraction(String entityName, Entity2D entity) {
