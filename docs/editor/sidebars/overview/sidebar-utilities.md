@@ -1,6 +1,6 @@
 # Editor — Sidebar Utilities
 
-Complete reference for all 18 documented sidebar panels available in the JVN editor. Each panel has its own dedicated sub-document with full details, examples, and usage guides.
+Complete reference for all 17 documented sidebar panels available in the JVN editor. Each panel has its own dedicated sub-document with full details, examples, and usage guides.
 
 Panels can be added to either the left or right sidebar via the **+** tab. Each panel is independently closable and repositionable.
 
@@ -57,7 +57,6 @@ If you only need a quick answer:
 | 15 | Version Control | **[sidebar-version-control.md](../right/sidebar-version-control.md)** | Right | Git operations: commit, push, pull, branch, stash |
 | 16 | Help Center | **[sidebar-help-center.md](../right/sidebar-help-center.md)** | Right | In-app documentation browser with topic folders and heading-aware search |
 | 17 | Text Editor | **[sidebar-script-editor.md](../right/sidebar-script-editor.md)** | Right | JVN text file explorer, VNS label outline, include graph, pop-out editor window |
-| 18 | Audio Synth Controls | **[sidebar-audio-synth-controls.md](../right/sidebar-audio-synth-controls.md)** | Right | Real-time audio synthesis authoring and preview with VNS command generation |
 
 ### Adding Panels
 

@@ -1,0 +1,62 @@
+name: Documentation Lint
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'modules/**'
+      - '.github/workflows/doc-lint.yml'
+      - 'scripts/doc-lint.mjs'
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Run Documentation Lint
+        run: node scripts/doc-lint.mjs
+        continue-on-error: true
+
+      - name: Check for critical errors
+        run: |
+          if [ $? -eq 1 ]; then
+            echo "❌ Documentation lint found errors"
+            exit 1
+          fi
+          echo "✅ Documentation lint passed"
+
+      - name: Comment on PR (if errors)
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '❌ **Documentation Lint Failed**\n\nPlease run `node scripts/doc-lint.mjs` locally and fix the errors before pushing.\n\nCommon fixes:\n- Update relative links if files were moved\n- Verify symbols still exist in code\n- Check image asset paths\n\nSee [Docs Maintenance Guide](docs/MAINTENANCE.md) for help.'
+            })
+
+      - name: Suggest fixes (if PR)
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "💡 **Doc-Lint Checklist**"
+          echo "- [ ] All links are valid relative paths"
+          echo "- [ ] Class/method names match current code"
+          echo "- [ ] Image assets referenced exist"
+          echo "- [ ] New docs added to INDEX.md"
+          echo ""
+          echo "Run locally: `node scripts/doc-lint.mjs`"

@@ -43,7 +43,7 @@ Entity lifecycle: `update(deltaMs)` is called every frame. `render(Blitter2D)` d
 | `Panel2D` | Colored rectangle, background panel |
 | `TileMap2D` | Tile-based map rendering with layers |
 | `ParticleEmitter2D` | Particle effects (emission rate, lifetime, spread) |
-| `Character2D` | RPG character with stats, inventory, equipment |
+| `CharacterEntity2D` | RPG character with stats, inventory, equipment |
 | `Button2D` | Interactive UI button with hover/press states |
 | `Slider2D` | Draggable slider UI widget |
 
