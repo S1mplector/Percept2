@@ -248,7 +248,10 @@ public class VnScene implements Scene {
         if (state.getTextRevealProgress() < textLength) {
           textRevealTimer += deltaMs;
           long textSpeed = state.getSettings().getTextSpeed();
-          if (textRevealTimer >= textSpeed) {
+          if (textSpeed <= 0) {
+            state.setTextRevealProgress(textLength);
+            textRevealTimer = 0;
+          } else if (textRevealTimer >= textSpeed) {
             state.incrementTextReveal(1);
             textRevealTimer = 0;
           }

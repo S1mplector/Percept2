@@ -4,7 +4,7 @@ package com.jvn.core.vn;
  * Configuration settings for visual novel playback
  */
 public class VnSettings {
-  private int textSpeed = 30; // ms per character
+  private int textSpeed = 30; // ms per character; 0 means instant text
   private float bgmVolume = 0.7f;
   private float sfxVolume = 0.8f;
   private float voiceVolume = 1.0f;
@@ -24,7 +24,7 @@ public class VnSettings {
   private String accessibilityTheme = "none";
 
   public int getTextSpeed() { return textSpeed; }
-  public void setTextSpeed(int speed) { this.textSpeed = Math.max(1, Math.min(speed, 200)); }
+  public void setTextSpeed(int speed) { this.textSpeed = Math.max(0, Math.min(speed, 200)); }
 
   public float getBgmVolume() { return bgmVolume; }
   public void setBgmVolume(float volume) { this.bgmVolume = Math.max(0f, Math.min(volume, 1f)); }

@@ -26,6 +26,7 @@ class VnUiLayoutLoaderTest {
     p.setProperty("nameTextBottomPadding", "4");
     p.setProperty("nameTextYAlign", "0.5");
     p.setProperty("choiceYStart", "0.2");
+    p.setProperty("choiceYAnchor", "0.5");
     p.setProperty("choiceWidthFactor", "0.72");
     p.setProperty("choiceTextTopPadding", "8");
     p.setProperty("choiceTextBottomPadding", "6");
@@ -42,6 +43,7 @@ class VnUiLayoutLoaderTest {
     assertEquals(4.0, spec.nameTextBottomPadding(), 1e-6);
     assertEquals(0.5, spec.nameTextYAlign(), 1e-6);
     assertEquals(0.2, spec.choiceYStart(), 1e-6);
+    assertEquals(0.5, spec.choiceYAnchor(), 1e-6);
     assertEquals(0.72, spec.choiceWidthFactor(), 1e-6);
     assertEquals(8.0, spec.choiceTextTopPadding(), 1e-6);
     assertEquals(6.0, spec.choiceTextBottomPadding(), 1e-6);
@@ -60,10 +62,12 @@ class VnUiLayoutLoaderTest {
     assertTrue(p.containsKey("dialogueTextHorizontalPadding"));
     assertTrue(p.containsKey("nameTextYAlign"));
     assertTrue(p.containsKey("choiceYStart"));
+    assertTrue(p.containsKey("choiceYAnchor"));
     assertTrue(p.containsKey("choiceTextYAlign"));
     assertTrue(p.containsKey("nvlX"));
     assertTrue(p.containsKey("bubbleTailSize"));
     assertEquals("0.75", p.getProperty("textBoxY"));
+    assertEquals("0", p.getProperty("choiceYAnchor"));
   }
 
   @Test
@@ -174,6 +178,7 @@ class VnUiLayoutLoaderTest {
     p.setProperty("dialogueTextRightPadding", "28");
     p.setProperty("dialogueTextXAlign", "0.25");
     p.setProperty("choiceWidthFactor", "0.78");
+    p.setProperty("choiceYAnchor", "0.5");
     p.setProperty("choiceHeight", "62");
     p.setProperty("choiceGap", "14");
     p.setProperty("choiceTextXAlign", "0.5");
@@ -197,6 +202,7 @@ class VnUiLayoutLoaderTest {
     assertEquals(28.0, layout.dialogueTextRightPadding(), 1e-6);
     assertEquals(0.25, style.dialogueTextXAlign(), 1e-6);
     assertEquals(0.78, layout.choiceWidthFactor(), 1e-6);
+    assertEquals(0.5, layout.choiceYAnchor(), 1e-6);
     assertEquals(62.0, layout.choiceHeight(), 1e-6);
     assertEquals(14.0, layout.choiceGap(), 1e-6);
     assertEquals(0.5, style.choiceTextXAlign(), 1e-6);
@@ -207,6 +213,7 @@ class VnUiLayoutLoaderTest {
     assertEquals("assets/ui/nvl_panel.png", style.nvlPanelAssetPath());
     assertEquals("assets/ui/choice_selected.png", serialized.getProperty("choiceButtonSelectedAsset"));
     assertEquals("assets/ui/choice_disabled.png", serialized.getProperty("choiceButtonDisabledAsset"));
+    assertEquals("0.5", serialized.getProperty("choiceYAnchor"));
     assertEquals("assets/ui/nvl_panel.png", serialized.getProperty("nvlPanelAsset"));
   }
 
@@ -219,7 +226,7 @@ class VnUiLayoutLoaderTest {
         20.0, 10.0, 0.5, -1.0, 0.6,
         50.0, 10.0, 20.0, false,
         0.06, 0.08, 0.88, 0.74, 28.0, 180.0, 16.0, 7,
-        0.31, 104.0, 20.0, 32.0, 22.0
+        0.31, 104.0, 20.0, 32.0, 22.0, 0.25
     );
     VnUiStyleSpec style = new VnUiStyleSpec(
         null, null, null, null,
@@ -244,6 +251,7 @@ class VnUiLayoutLoaderTest {
     assertEquals("0.06", p.getProperty("nvlX"));
     assertEquals("7", p.getProperty("nvlMaxEntries"));
     assertEquals("0.31", p.getProperty("bubbleWidthFactor"));
+    assertEquals("0.25", p.getProperty("choiceYAnchor"));
     assertEquals("#08111acc", p.getProperty("nvlPanelColor"));
     assertEquals("#203040", p.getProperty("bubbleColor"));
     assertEquals("18", p.getProperty("bubbleCornerRadius"));
@@ -261,7 +269,7 @@ class VnUiLayoutLoaderTest {
         8.0, 6.0, 1.0,
         false,
         0.08, 0.10, 0.84, 0.72, 24.0, 160.0, 18.0, 6,
-        0.28, 92.0, 18.0, 26.0, 18.0
+        0.28, 92.0, 18.0, 26.0, 18.0, 0.0
     );
 
     Properties p = VnUiLayoutLoader.toProperties(layout);

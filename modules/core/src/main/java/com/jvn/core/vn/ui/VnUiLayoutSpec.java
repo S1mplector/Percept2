@@ -47,7 +47,8 @@ public record VnUiLayoutSpec(
     double bubbleMinHeight,
     double bubbleTextPadding,
     double bubbleYOffset,
-    double bubbleTailSize
+    double bubbleTailSize,
+    double choiceYAnchor
 ) {
   public VnUiLayoutSpec(
       double textBoxX, double textBoxY, double textBoxWidth, double textBoxHeight,
@@ -92,7 +93,8 @@ public record VnUiLayoutSpec(
         choiceHeight, choiceGap, choiceTextXPadding,
         choiceTextTopPadding, choiceTextBottomPadding, choiceTextYAlign, false,
         0.08, 0.10, 0.84, 0.72, 24.0, 160.0, 18.0, 6,
-        0.28, 92.0, 18.0, 26.0, 18.0);
+        0.28, 92.0, 18.0, 26.0, 18.0,
+        0.0);
   }
 
   public VnUiLayoutSpec(
@@ -122,7 +124,39 @@ public record VnUiLayoutSpec(
         nameBoxAutoWidth,
         nvlX, nvlY, nvlWidth, nvlHeight,
         nvlPadding, nvlSpeakerWidth, nvlEntryGap, nvlMaxEntries,
-        bubbleWidthFactor, bubbleMinHeight, bubbleTextPadding, bubbleYOffset, bubbleTailSize);
+        bubbleWidthFactor, bubbleMinHeight, bubbleTextPadding, bubbleYOffset, bubbleTailSize,
+        0.0);
+  }
+
+  public VnUiLayoutSpec(
+      double textBoxX, double textBoxY, double textBoxWidth, double textBoxHeight,
+      double textBoxPadding,
+      double nameBoxXOffset, double nameBoxYOffset, double nameBoxWidth, double nameBoxHeight,
+      double nameTextXOffset, double nameTextBaselineOffset,
+      double dialogueTextHorizontalPadding, double dialogueTextTopPadding,
+      double dialogueTextRightPadding, double dialogueTextBottomPadding,
+      double choiceXCenter, double choiceYStart, double choiceWidthFactor,
+      double choiceHeight, double choiceGap, double choiceTextXPadding,
+      boolean nameBoxAutoWidth,
+      double nvlX, double nvlY, double nvlWidth, double nvlHeight,
+      double nvlPadding, double nvlSpeakerWidth, double nvlEntryGap, int nvlMaxEntries,
+      double bubbleWidthFactor, double bubbleMinHeight, double bubbleTextPadding,
+      double bubbleYOffset, double bubbleTailSize, double choiceYAnchor
+  ) {
+    this(textBoxX, textBoxY, textBoxWidth, textBoxHeight, textBoxPadding,
+        nameBoxXOffset, nameBoxYOffset, nameBoxWidth, nameBoxHeight,
+        nameTextXOffset, nameTextBaselineOffset,
+        0.0, 0.0, -1.0,
+        dialogueTextHorizontalPadding, dialogueTextTopPadding,
+        dialogueTextRightPadding, dialogueTextBottomPadding,
+        choiceXCenter, choiceYStart, choiceWidthFactor,
+        choiceHeight, choiceGap, choiceTextXPadding,
+        0.0, 0.0, -1.0,
+        nameBoxAutoWidth,
+        nvlX, nvlY, nvlWidth, nvlHeight,
+        nvlPadding, nvlSpeakerWidth, nvlEntryGap, nvlMaxEntries,
+        bubbleWidthFactor, bubbleMinHeight, bubbleTextPadding, bubbleYOffset, bubbleTailSize,
+        choiceYAnchor);
   }
 
   public VnUiLayoutSpec(
@@ -171,7 +205,40 @@ public record VnUiLayoutSpec(
         choiceHeight, choiceGap, choiceTextXPadding,
         choiceTextTopPadding, choiceTextBottomPadding, choiceTextYAlign, nameBoxAutoWidth,
         0.08, 0.10, 0.84, 0.72, 24.0, 160.0, 18.0, 6,
-        0.28, 92.0, 18.0, 26.0, 18.0);
+        0.28, 92.0, 18.0, 26.0, 18.0,
+        0.0);
+  }
+
+  public VnUiLayoutSpec(
+      double textBoxX, double textBoxY, double textBoxWidth, double textBoxHeight,
+      double textBoxPadding,
+      double nameBoxXOffset, double nameBoxYOffset, double nameBoxWidth, double nameBoxHeight,
+      double nameTextXOffset, double nameTextBaselineOffset,
+      double nameTextTopPadding, double nameTextBottomPadding, double nameTextYAlign,
+      double dialogueTextHorizontalPadding, double dialogueTextTopPadding,
+      double dialogueTextRightPadding, double dialogueTextBottomPadding,
+      double choiceXCenter, double choiceYStart, double choiceWidthFactor,
+      double choiceHeight, double choiceGap, double choiceTextXPadding,
+      double choiceTextTopPadding, double choiceTextBottomPadding, double choiceTextYAlign,
+      boolean nameBoxAutoWidth,
+      double nvlX, double nvlY, double nvlWidth, double nvlHeight,
+      double nvlPadding, double nvlSpeakerWidth, double nvlEntryGap, int nvlMaxEntries,
+      double bubbleWidthFactor, double bubbleMinHeight, double bubbleTextPadding,
+      double bubbleYOffset, double bubbleTailSize
+  ) {
+    this(textBoxX, textBoxY, textBoxWidth, textBoxHeight, textBoxPadding,
+        nameBoxXOffset, nameBoxYOffset, nameBoxWidth, nameBoxHeight,
+        nameTextXOffset, nameTextBaselineOffset,
+        nameTextTopPadding, nameTextBottomPadding, nameTextYAlign,
+        dialogueTextHorizontalPadding, dialogueTextTopPadding,
+        dialogueTextRightPadding, dialogueTextBottomPadding,
+        choiceXCenter, choiceYStart, choiceWidthFactor,
+        choiceHeight, choiceGap, choiceTextXPadding,
+        choiceTextTopPadding, choiceTextBottomPadding, choiceTextYAlign, nameBoxAutoWidth,
+        nvlX, nvlY, nvlWidth, nvlHeight,
+        nvlPadding, nvlSpeakerWidth, nvlEntryGap, nvlMaxEntries,
+        bubbleWidthFactor, bubbleMinHeight, bubbleTextPadding, bubbleYOffset, bubbleTailSize,
+        0.0);
   }
 
   public VnUiLayoutSpec {
@@ -227,6 +294,7 @@ public record VnUiLayoutSpec(
     bubbleTextPadding = max(sane(bubbleTextPadding, 18.0), 4.0);
     bubbleYOffset = sane(bubbleYOffset, 26.0);
     bubbleTailSize = clamp(sane(bubbleTailSize, 18.0), 4.0, 64.0);
+    choiceYAnchor = clamp(sane(choiceYAnchor, 0.0), 0.0, 1.0);
   }
 
   public static VnUiLayoutSpec defaults() {
@@ -271,7 +339,8 @@ public record VnUiLayoutSpec(
         92.0,
         18.0,
         26.0,
-        18.0
+        18.0,
+        0.0
     );
   }
 
