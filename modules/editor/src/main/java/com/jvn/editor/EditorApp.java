@@ -4960,6 +4960,21 @@ public class EditorApp extends Application {
     return MaintenanceOverlay.wrap(content == null ? new StackPane() : content, MAINTENANCE_LATE_MAY_2026);
   }
 
+  private boolean isUnderMaintenancePanel(EditorSidebarPanel panel) {
+    return panel == EditorSidebarPanel.PHONE_ASSETS
+        || panel == EditorSidebarPanel.STORYBOARD_OVERLAY
+        || panel == EditorSidebarPanel.IMAGE_ATTRIBUTES
+        || panel == EditorSidebarPanel.MENU_FLOW;
+  }
+
+  private String maintenanceText(EditorSidebarPanel panel, String panelName) {
+    String name = panelName == null || panelName.isBlank()
+        ? panel != null ? panel.displayName() : "This tool"
+        : panelName;
+    return name + " is under maintenance until " + MAINTENANCE_LATE_MAY_2026
+        + ". You can still open it, but expect incomplete behavior.";
+  }
+
   private boolean isMaintenanceWrapped(Tab tab) {
     return tab != null && tab.getContent() instanceof MaintenanceOverlay;
   }
@@ -5266,18 +5281,23 @@ public class EditorApp extends Application {
       });
     }
 
+    boolean underMaintenance = isUnderMaintenancePanel(panel);
+
     HBox row = new HBox(8, iconChip, titleGroup, memoryGroup, placementBadge, dockBtn, popOutBtn);
     row.setAlignment(Pos.CENTER_LEFT);
     row.setPadding(new javafx.geometry.Insets(4, 6, 4, 6));
+    row.setMaxWidth(Double.MAX_VALUE);
     row.getStyleClass().add("panel-chooser-row");
+    if (underMaintenance) {
+      row.getStyleClass().add("panel-chooser-row-maintenance");
+    }
     String filterKey = panelName.toLowerCase(Locale.ROOT)
         + (panel != null
             ? " " + panel.key().toLowerCase(Locale.ROOT)
                 + " " + panel.version().toLowerCase(Locale.ROOT)
                 + " " + panel.maturity().name().toLowerCase(Locale.ROOT)
             : "");
-    row.getProperties().put("chooserFilterKey", filterKey);
-    row.setOnMouseClicked(e -> {
+    EventHandler<MouseEvent> openOnDoubleClick = e -> {
       if (e.getButton() != MouseButton.PRIMARY || e.getClickCount() < 2) return;
       if (isInsideChooserIconButton(e.getTarget())) return;
       if (dockAction != null) {
@@ -5290,10 +5310,40 @@ public class EditorApp extends Application {
         return;
       }
       e.consume();
-    });
-    row.getProperties().put(PANEL_CHOOSER_REFRESH_KEY, refreshState);
+    };
     refreshState.run();
-    actions.getChildren().add(row);
+
+    Node chooserNode = row;
+    if (underMaintenance) {
+      StackPane shell = new StackPane(row);
+      shell.setMaxWidth(Double.MAX_VALUE);
+      shell.getStyleClass().add("panel-chooser-maintenance-shell");
+
+      Region veil = new Region();
+      veil.getStyleClass().add("panel-chooser-maintenance-veil");
+      veil.setMouseTransparent(true);
+      veil.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+
+      Label badge = new Label("UNDER MAINTENANCE");
+      badge.getStyleClass().add("panel-chooser-maintenance-badge");
+      Label eta = new Label(MAINTENANCE_LATE_MAY_2026);
+      eta.getStyleClass().add("panel-chooser-maintenance-eta");
+      HBox overlay = new HBox(6, badge, eta);
+      overlay.getStyleClass().add("panel-chooser-maintenance-overlay");
+      overlay.setAlignment(Pos.CENTER_RIGHT);
+      overlay.setMouseTransparent(true);
+      overlay.setPadding(new Insets(0, 78, 0, 0));
+      overlay.setMaxWidth(Double.MAX_VALUE);
+      StackPane.setAlignment(overlay, Pos.CENTER_RIGHT);
+
+      shell.getChildren().addAll(veil, overlay);
+      Tooltip.install(shell, new Tooltip(maintenanceText(panel, panelName)));
+      chooserNode = shell;
+    }
+    chooserNode.getProperties().put("chooserFilterKey", filterKey);
+    chooserNode.getProperties().put(PANEL_CHOOSER_REFRESH_KEY, refreshState);
+    chooserNode.setOnMouseClicked(openOnDoubleClick);
+    actions.getChildren().add(chooserNode);
   }
 
   private void dismissPanelChooser(TabPane pane) {
@@ -5410,19 +5460,18 @@ public class EditorApp extends Application {
     Runnable apply = () -> {
       String needle = filterField.getText() == null ? "" : filterField.getText().trim().toLowerCase(Locale.ROOT);
       for (javafx.scene.Node child : actions.getChildren()) {
-        if (!(child instanceof HBox row)) continue;
-        Object key = row.getProperties().get("chooserFilterKey");
+        Object key = child.getProperties().get("chooserFilterKey");
         String searchable = key == null ? "" : key.toString();
         boolean visible = needle.isBlank() || searchable.contains(needle);
-        row.setManaged(visible);
-        row.setVisible(visible);
+        child.setManaged(visible);
+        child.setVisible(visible);
       }
     };
     filterField.textProperty().addListener((obs, oldText, newText) -> apply.run());
     filterField.setOnAction(e -> {
       for (javafx.scene.Node child : actions.getChildren()) {
-        if (!(child instanceof HBox row) || !row.isVisible()) continue;
-        row.fireEvent(new MouseEvent(
+        if (!child.isVisible()) continue;
+        child.fireEvent(new MouseEvent(
             MouseEvent.MOUSE_CLICKED,
             0, 0, 0, 0,
             MouseButton.PRIMARY,

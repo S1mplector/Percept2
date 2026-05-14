@@ -5735,6 +5735,51 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-border-color: #3b3b3b;
 }
 
+.panel-chooser-maintenance-shell {
+  -fx-background-color: transparent;
+}
+
+.panel-chooser-row-maintenance {
+  -fx-background-color:
+      linear-gradient(to right, rgba(255, 129, 168, 0.10), rgba(34, 34, 34, 0.92)),
+      #222222;
+  -fx-border-color: rgba(255, 129, 168, 0.42);
+}
+
+.panel-chooser-row-maintenance:hover {
+  -fx-background-color:
+      linear-gradient(to right, rgba(255, 129, 168, 0.15), rgba(41, 41, 41, 0.94)),
+      #292929;
+  -fx-border-color: rgba(255, 129, 168, 0.62);
+}
+
+.panel-chooser-maintenance-veil {
+  -fx-background-color: linear-gradient(to right, rgba(0, 0, 0, 0.00), rgba(0, 0, 0, 0.22));
+  -fx-background-radius: 6;
+}
+
+.panel-chooser-maintenance-overlay {
+  -fx-alignment: center-right;
+}
+
+.panel-chooser-maintenance-badge {
+  -fx-padding: 2 7 2 7;
+  -fx-background-color: rgba(255, 129, 168, 0.22);
+  -fx-background-radius: 999;
+  -fx-border-color: rgba(255, 129, 168, 0.72);
+  -fx-border-radius: 999;
+  -fx-border-width: 1;
+  -fx-text-fill: #ffd5df;
+  -fx-font-size: 9px;
+  -fx-font-weight: 900;
+}
+
+.panel-chooser-maintenance-eta {
+  -fx-text-fill: #dca9b7;
+  -fx-font-size: 10px;
+  -fx-font-weight: 800;
+}
+
 .panel-chooser-icon-chip {
   -fx-min-width: 34px;
   -fx-pref-width: 34px;
