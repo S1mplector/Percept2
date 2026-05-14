@@ -582,9 +582,13 @@ public class VnScriptParserTest {
 
     assertNotNull(scen);
     assertEquals("runtime_showcase", scen.getId());
-    assertTrue(scen.getNodes().stream().anyMatch(n ->
-        n.getType() == VnNodeType.EXTERNAL
-            && "jes_timeline_inline".equals(n.getExternalCommand().getProvider())));
+    VnNode timeline = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.EXTERNAL
+            && "jes_timeline_inline".equals(n.getExternalCommand().getProvider()))
+        .findFirst()
+        .orElseThrow();
+    assertTrue(timeline.getExternalCommand().getPayload().startsWith("timeline {"));
+    assertTrue(timeline.getExternalCommand().getPayload().contains("move \"hero\""));
   }
 
   @Test

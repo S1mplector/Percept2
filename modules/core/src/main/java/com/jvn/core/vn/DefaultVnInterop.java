@@ -2,10 +2,12 @@ package com.jvn.core.vn;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -1221,7 +1223,7 @@ public class DefaultVnInterop implements VnInterop {
 
   private InlineTimelineInvocation parseInlineTimelineInvocation(String payload) {
     String normalized = payload == null ? "" : payload.trim();
-    boolean wait = false;
+    boolean wait = true;
     List<String> chain = new ArrayList<>();
     String block = normalized;
     String tail = "";
@@ -1232,10 +1234,31 @@ public class DefaultVnInterop implements VnInterop {
     }
     if (!tail.isBlank()) {
       TimelineInvocation tailInvocation = parseTimelineInvocation("_inline_ " + tail);
-      wait = tailInvocation.waitForCompletion();
+      if (containsAnyToken(tail, "async", "nowait", "no_wait", "fire", "fire_and_forget")) {
+        wait = false;
+      }
+      if (tailInvocation.waitForCompletion()) {
+        wait = true;
+      }
       chain.addAll(tailInvocation.chain());
     }
     return new InlineTimelineInvocation(block, wait, chain);
+  }
+
+  private boolean containsAnyToken(String raw, String... candidates) {
+    if (raw == null || raw.isBlank() || candidates == null || candidates.length == 0) return false;
+    Set<String> wanted = new HashSet<>();
+    for (String candidate : candidates) {
+      if (candidate != null && !candidate.isBlank()) {
+        wanted.add(candidate.trim().toLowerCase(Locale.ROOT));
+      }
+    }
+    if (wanted.isEmpty()) return false;
+    for (String token : split(raw)) {
+      String normalized = token == null ? "" : token.trim().toLowerCase(Locale.ROOT);
+      if (wanted.contains(normalized)) return true;
+    }
+    return false;
   }
 
   private void collectChainTargets(String raw, List<String> out) {

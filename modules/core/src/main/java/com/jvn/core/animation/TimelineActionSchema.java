@@ -50,6 +50,8 @@ public final class TimelineActionSchema {
             aliases("duration", "dur", "angle", "deg", "rotation", "deg"));
         register(actions, "scale", keys("sx", "sy", "dur", "easing", "interp"),
             aliases("duration", "dur", "x", "sx", "y", "sy", "scale_x", "sx", "scale_y", "sy"));
+        register(actions, "mirror", keys("mirrorx", "dur", "easing", "interp"),
+            aliases("duration", "dur", "mirror_x", "mirrorx", "flipx", "mirrorx", "flip_x", "mirrorx", "x", "mirrorx", "value", "mirrorx"));
         register(actions, "fade", keys("alpha", "dur", "easing", "interp"), aliases("duration", "dur"));
         register(actions, "visible", keys("value", "visible"), Map.of("visible", "value"));
         register(actions, "expression", keys("value", "path", "position", "target"), Map.of());
