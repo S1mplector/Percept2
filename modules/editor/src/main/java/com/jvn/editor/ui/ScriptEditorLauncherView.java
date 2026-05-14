@@ -238,9 +238,10 @@ Explorer for external editing or drag-and-drop asset workflows."""),
           setGraphic(null);
           return;
         }
-        Region icon = item.directory
-            ? CssIcon.folder(item.relativePath == null ? "#d0d0d0" : "#c8c8c8")
-            : CssIcon.list("#bcbcbc");
+        Region icon = ProjectFileIcons.iconFor(ProjectFileIcons.kindFor(
+            item.displayName,
+            item.directory,
+            item.directory && item.relativePath == null));
         Label name = new Label(item.displayName);
         name.getStyleClass().add(item.directory ? "script-editor-tree-dir-label" : "script-editor-tree-file-label");
         HBox row = new HBox(6, icon, name);
@@ -1409,9 +1410,8 @@ Explorer for external editing or drag-and-drop asset workflows."""),
         }
         TreeItem<String> treeItem = getTreeItem();
         boolean directory = treeItem != null && !treeItem.isLeaf();
-        Region icon = directory
-            ? CssIcon.folder(treeItem != null && treeItem.getParent() == null ? "#d0d0d0" : "#c8c8c8")
-            : CssIcon.list("#c0c0c0");
+        boolean root = treeItem != null && treeItem.getParent() == null;
+        Region icon = ProjectFileIcons.iconFor(ProjectFileIcons.kindFor(item, directory, root));
         Label label = new Label(item);
         label.getStyleClass().add(directory ? "script-editor-tree-dir-label" : "script-editor-tree-file-label");
         HBox row = new HBox(6, icon, label);
