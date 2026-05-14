@@ -1158,6 +1158,62 @@ public class AnimationProject {
         };
     }
 
+    public double[] computeGroupRotationCenter(String groupName, double timeMs) {
+        EntityGroup group = groups.get(groupName);
+        if (group == null) return null;
+        double[] center = computeGroupPivot(groupName, timeMs);
+        if (center == null || center.length < 2
+            || !Double.isFinite(center[0]) || !Double.isFinite(center[1])) {
+            return null;
+        }
+
+        EntityTrack groupTrack = group.getGroupTrack();
+        center[0] += groupTrack.hasKeyframes(PropertyType.X)
+            ? groupTrack.getValueAt(PropertyType.X, timeMs)
+            : 0.0;
+        center[1] += groupTrack.hasKeyframes(PropertyType.Y)
+            ? groupTrack.getValueAt(PropertyType.Y, timeMs)
+            : 0.0;
+
+        String cursor = group.getParentGroupName();
+        Set<String> visited = new HashSet<>();
+        while (cursor != null && visited.add(cursor)) {
+            EntityGroup parent = groups.get(cursor);
+            if (parent == null) break;
+            EntityTrack parentTrack = parent.getGroupTrack();
+            double[] pivot = computeGroupPivot(parent.getName(), timeMs);
+            double tx = parentTrack.hasKeyframes(PropertyType.X)
+                ? parentTrack.getValueAt(PropertyType.X, timeMs)
+                : 0.0;
+            double ty = parentTrack.hasKeyframes(PropertyType.Y)
+                ? parentTrack.getValueAt(PropertyType.Y, timeMs)
+                : 0.0;
+            double sx = parentTrack.hasKeyframes(PropertyType.SCALE_X)
+                ? parentTrack.getValueAt(PropertyType.SCALE_X, timeMs)
+                : 1.0;
+            if (parentTrack.hasKeyframes(PropertyType.MIRROR_X)) {
+                sx *= mirrorFactor(parentTrack.getValueAt(PropertyType.MIRROR_X, timeMs));
+            }
+            double sy = parentTrack.hasKeyframes(PropertyType.SCALE_Y)
+                ? parentTrack.getValueAt(PropertyType.SCALE_Y, timeMs)
+                : 1.0;
+            double rotation = parentTrack.hasKeyframes(PropertyType.ROTATION)
+                ? parentTrack.getValueAt(PropertyType.ROTATION, timeMs)
+                : 0.0;
+
+            double dx = (center[0] - pivot[0]) * sx;
+            double dy = (center[1] - pivot[1]) * sy;
+            double radians = Math.toRadians(rotation);
+            double cos = Math.cos(radians);
+            double sin = Math.sin(radians);
+            center[0] = pivot[0] + tx + dx * cos - dy * sin;
+            center[1] = pivot[1] + ty + dx * sin + dy * cos;
+
+            cursor = parent.getParentGroupName();
+        }
+        return center;
+    }
+
     private GroupBounds computeGroupBounds(String groupName) {
         GroupBounds bounds = GroupBounds.empty();
         for (String entityName : collectGroupEntityNames(groupName)) {

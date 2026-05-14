@@ -162,6 +162,58 @@ class AnimationProjectGroupHierarchyTest {
   }
 
   @Test
+  void groupRotationCenterUsesPivotAndGroupTranslation() {
+    AnimationProject project = new AnimationProject();
+    project.getOrCreateGroup("arm");
+    project.getOrCreateTrack("hand");
+    project.addEntityToGroup("hand", "arm");
+    project.setSceneEntitySnapshots(List.of(
+        new AnimationProject.SceneEntitySnapshot("hand", "sprite", "", 100, 40, 20, 10, 0.5, 0.5, 0, true, 1)
+    ));
+
+    EntityTrack armTrack = project.getGroup("arm").getGroupTrack();
+    armTrack.upsertKeyframe(PropertyType.PIVOT_X, new Keyframe(0, 0));
+    armTrack.upsertKeyframe(PropertyType.PIVOT_Y, new Keyframe(0, 0));
+    armTrack.upsertKeyframe(PropertyType.X, new Keyframe(0, 20));
+    armTrack.upsertKeyframe(PropertyType.Y, new Keyframe(0, 5));
+
+    double[] center = project.computeGroupRotationCenter("arm", 0);
+
+    assertEquals(110.0, center[0], 0.0001);
+    assertEquals(40.0, center[1], 0.0001);
+  }
+
+  @Test
+  void nestedGroupRotationCenterIsTransformedByParentGroup() {
+    AnimationProject project = new AnimationProject();
+    project.getOrCreateGroup("body");
+    project.getOrCreateGroup("arm");
+    project.addGroupToGroup("arm", "body");
+    project.getOrCreateTrack("anchor");
+    project.getOrCreateTrack("hand");
+    project.addEntityToGroup("anchor", "body");
+    project.addEntityToGroup("hand", "arm");
+    project.setSceneEntitySnapshots(List.of(
+        new AnimationProject.SceneEntitySnapshot("anchor", "sprite", "", 0, 0, 1, 1, 0, 0, 0, true, 1),
+        new AnimationProject.SceneEntitySnapshot("hand", "sprite", "", 100, 0, 1, 1, 0, 0, 0, true, 1)
+    ));
+
+    EntityTrack armTrack = project.getGroup("arm").getGroupTrack();
+    armTrack.upsertKeyframe(PropertyType.PIVOT_X, new Keyframe(0, 0));
+    armTrack.upsertKeyframe(PropertyType.PIVOT_Y, new Keyframe(0, 0));
+
+    EntityTrack bodyTrack = project.getGroup("body").getGroupTrack();
+    bodyTrack.upsertKeyframe(PropertyType.PIVOT_X, new Keyframe(0, 0));
+    bodyTrack.upsertKeyframe(PropertyType.PIVOT_Y, new Keyframe(0, 0));
+    bodyTrack.upsertKeyframe(PropertyType.ROTATION, new Keyframe(0, 90));
+
+    double[] center = project.computeGroupRotationCenter("arm", 0);
+
+    assertEquals(0.0, center[0], 0.0001);
+    assertEquals(100.0, center[1], 0.0001);
+  }
+
+  @Test
   void groupTransformKeepsChildLayerMotionLocalBeforeParentMotion() {
     AnimationProject project = new AnimationProject();
     project.getOrCreateGroup("hero");
