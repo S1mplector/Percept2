@@ -171,12 +171,14 @@ public class PuppeteerWindow extends Stage {
     ToggleButton cbOrbitTool;
     private ToggleButton cbOrbitAlign;
     private ToggleButton cbRuntimePreview;
+    private ToggleButton cbViewportStabilize;
 
     AnimationTimer playbackTimer;
     long lastNanos = 0;
     private double playbackSpeed = 1.0;
     private boolean autoKeyEnabled = false;
     private boolean runtimeParityPreview = false;
+    private boolean viewportStabilizationEnabled = false;
 
     public final PuppeteerCommand.Stack commandStack = new PuppeteerCommand.Stack();
     private final KeyframeSelectionModel selectionModel;
@@ -1086,6 +1088,13 @@ public class PuppeteerWindow extends Stage {
             updateStatusBar();
         });
 
+        cbViewportStabilize = makeToolbarIconToggle(
+            com.jvn.editor.ui.CssIcon.myLocation("#8bd2ff"),
+            "Stabilize preview while playing: lock the viewport framing so animated bounds cannot shake the view"
+        );
+        cbViewportStabilize.setSelected(viewportStabilizationEnabled);
+        cbViewportStabilize.setOnAction(e -> setViewportStabilizationEnabled(cbViewportStabilize.isSelected()));
+
         // --- Auto-key toggle ---
         ToggleButton cbAutoKey = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.fiberSmartRecord("#e05050"), "Auto-key: automatically insert keyframe on drag");
         cbAutoKey.setSelected(false);
@@ -1103,7 +1112,7 @@ public class PuppeteerWindow extends Stage {
 
         HBox autoKeyBox = new HBox(4, cbAutoKey, lblAutoKey);
         autoKeyBox.setAlignment(Pos.CENTER_LEFT);
-        HBox previewSnapBox = new HBox(4, cbSnapGrid, cbSnapEntity, cbRuntimePreview, cbSpeed, cbWheelMode);
+        HBox previewSnapBox = new HBox(4, cbSnapGrid, cbSnapEntity, cbRuntimePreview, cbViewportStabilize, cbSpeed, cbWheelMode);
         previewSnapBox.setAlignment(Pos.CENTER_LEFT);
 
         cbOrbitTool = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.threeSixty("#9b72d4"), "Enable orbit-anchor tool. Shift+click preview to place anchor. Alt+Shift+click another entity to link the anchor at the exact cursor point (joint/nail).");
@@ -1900,12 +1909,15 @@ public class PuppeteerWindow extends Stage {
             timelinePanel.refresh();
             refreshExportPreviewAndMarkDirty();
         });
+        CheckMenuItem miViewportStabilization = new CheckMenuItem("Stabilize Preview While Playing");
+        miViewportStabilization.setOnAction(e -> setViewportStabilizationEnabled(miViewportStabilization.isSelected()));
 
         Menu playbackMenu = new Menu("Playback");
         playbackMenu.getItems().addAll(
             miPlayPause,
             miStop,
             miRewind,
+            miViewportStabilization,
             new SeparatorMenuItem(),
             miLoopPlayback,
             miLoopIn,
@@ -1914,6 +1926,7 @@ public class PuppeteerWindow extends Stage {
         );
         playbackMenu.setOnShowing(e -> {
             miPlayPause.setText(project.isPlaying() ? "Pause" : "Play");
+            miViewportStabilization.setSelected(viewportStabilizationEnabled);
             miLoopPlayback.setSelected(project.isLooping());
             miLoopClear.setDisable(!project.hasLoopRegion());
         });
@@ -4227,15 +4240,21 @@ public class PuppeteerWindow extends Stage {
     public void play() {
         if (project.isPlaying()) return;
         project.setPlaying(true);
+        if (viewportStabilizationEnabled) {
+            animationPreview.beginViewportStabilization();
+        }
         lastNanos = System.nanoTime();
         playbackTimer.start();
         refreshTransportButtonStates();
+        updateStatusBar();
     }
 
     public void pause() {
         project.setPlaying(false);
         playbackTimer.stop();
+        animationPreview.endViewportStabilization();
         refreshTransportButtonStates();
+        updateStatusBar();
     }
 
     public void stop() {
@@ -4251,6 +4270,24 @@ public class PuppeteerWindow extends Stage {
         timelinePanel.setPlayhead(0);
         updateTimeLabel();
         updatePreview();
+    }
+
+    private void setViewportStabilizationEnabled(boolean enabled) {
+        viewportStabilizationEnabled = enabled;
+        if (cbViewportStabilize != null && cbViewportStabilize.isSelected() != enabled) {
+            cbViewportStabilize.setSelected(enabled);
+        }
+        animationPreview.setViewportStabilizationEnabled(enabled);
+        if (project.isPlaying()) {
+            if (enabled) {
+                animationPreview.beginViewportStabilization();
+            } else {
+                animationPreview.endViewportStabilization();
+            }
+        } else {
+            updatePreview();
+        }
+        updateStatusBar();
     }
 
     private void setupPlaybackTimer() {
@@ -5249,6 +5286,10 @@ public class PuppeteerWindow extends Stage {
         if (sb.length() == 0) sb.append("Ready");
         if (autoKeyEnabled) sb.append("  │  Auto-Key ON");
         if (runtimeParityPreview) sb.append("  │  Runtime Preview ON");
+        if (viewportStabilizationEnabled) {
+            sb.append("  │  Stabilization ");
+            sb.append(animationPreview.isViewportStabilizationActive() ? "ACTIVE" : "ON");
+        }
         sb.append("  │  Speed: ").append(playbackSpeed).append("x");
         statusBar.setText(sb.toString());
         refreshToolbarCommandSummary();

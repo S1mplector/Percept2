@@ -340,6 +340,9 @@ public class AnimationPreview extends VBox {
     private double viewZoomFactor = 1.0;
     private double viewPanX = 0.0;
     private double viewPanY = 0.0;
+    private boolean viewportStabilizationEnabled = false;
+    private boolean viewportStabilizationActive = false;
+    private double[] stabilizedDisplayBoundsWorld = new double[0];
     private javafx.animation.Timeline viewportFocusAnimation;
 
     public double getViewPanX() { return viewPanX; }
@@ -353,6 +356,30 @@ public class AnimationPreview extends VBox {
         if (getParent() != null) getParent().requestLayout();
         render();
     }
+
+    public boolean isViewportStabilizationEnabled() { return viewportStabilizationEnabled; }
+    public boolean isViewportStabilizationActive() { return viewportStabilizationActive; }
+
+    public void setViewportStabilizationEnabled(boolean enabled) {
+        viewportStabilizationEnabled = enabled;
+        if (!enabled) {
+            endViewportStabilization();
+        }
+    }
+
+    public void beginViewportStabilization() {
+        if (!viewportStabilizationEnabled) return;
+        stabilizedDisplayBoundsWorld = computeDisplayBoundsWorld();
+        viewportStabilizationActive = stabilizedDisplayBoundsWorld.length >= 4;
+        render();
+    }
+
+    public void endViewportStabilization() {
+        stabilizedDisplayBoundsWorld = new double[0];
+        viewportStabilizationActive = false;
+        render();
+    }
+
     private ScrollZoomMode scrollZoomMode = ScrollZoomMode.VIEW;
     private java.io.File projectRoot;
     private final Map<String, double[]> sourceImageSizeCache = new HashMap<>();
@@ -651,8 +678,13 @@ public class AnimationPreview extends VBox {
     private void drawCameraHud() {
         String modeText = scrollZoomMode == ScrollZoomMode.CAMERA ? "Camera Zoom" : "View Zoom";
         String hud = String.format(
-            "Wheel: %s  |  Cam (x=%.1f y=%.1f z=%.2f)  |  View %.2fx",
-            modeText, camera.getX(), camera.getY(), camera.getZoom(), viewZoomFactor
+            "Wheel: %s  |  Cam (x=%.1f y=%.1f z=%.2f)  |  View %.2fx%s",
+            modeText,
+            camera.getX(),
+            camera.getY(),
+            camera.getZoom(),
+            viewZoomFactor,
+            viewportStabilizationActive ? "  |  Stable" : ""
         );
         gc.save();
         gc.setFont(javafx.scene.text.Font.font("Monospaced", 10));
@@ -694,7 +726,9 @@ public class AnimationPreview extends VBox {
         viewportLogicalWidth = Math.max(1.0, viewportSpec.width());
         viewportLogicalHeight = Math.max(1.0, viewportSpec.height());
 
-        double[] bounds = computeDisplayBoundsWorld();
+        double[] bounds = viewportStabilizationActive && stabilizedDisplayBoundsWorld.length >= 4
+            ? stabilizedDisplayBoundsWorld
+            : computeDisplayBoundsWorld();
         double boundsMinX = bounds[0];
         double boundsMinY = bounds[1];
         double boundsMaxX = bounds[2];
