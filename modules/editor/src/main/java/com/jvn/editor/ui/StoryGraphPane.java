@@ -10,7 +10,10 @@ import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.Tooltip;
 import javafx.scene.effect.DropShadow;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
@@ -101,7 +104,9 @@ public class StoryGraphPane extends Pane {
     double dragDY;
     boolean movedSincePress;
     Consumer<javafx.scene.input.MouseEvent> mousePressedHook;
+    Consumer<javafx.scene.input.MouseEvent> mouseDraggedHook;
     Consumer<javafx.scene.input.MouseEvent> mouseReleasedHook;
+    Consumer<Boolean> interactionHook;
 
     NodeView(StoryTimelineView.Arc arc, Color accent, boolean denseDefault) {
       this.arc = arc;
@@ -229,6 +234,7 @@ public class StoryGraphPane extends Pane {
     private void enableDrag() {
       setOnMousePressed(e -> {
         if (e.getButton() != MouseButton.PRIMARY) return;
+        if (interactionHook != null) interactionHook.accept(true);
         Pane parent = (Pane) getParent();
         Point2D p = parent.sceneToLocal(e.getSceneX(), e.getSceneY());
         dragDX = p.getX() - getLayoutX();
@@ -237,10 +243,15 @@ public class StoryGraphPane extends Pane {
         if (e.getTarget() == outHandle && mousePressedHook != null) {
           mousePressedHook.accept(e);
         }
+        e.consume();
       });
       setOnMouseDragged(e -> {
         if (e.getButton() != MouseButton.PRIMARY) return;
-        if (e.getTarget() == outHandle) return;
+        if (e.getTarget() == outHandle) {
+          if (mouseDraggedHook != null) mouseDraggedHook.accept(e);
+          e.consume();
+          return;
+        }
         Pane parent = (Pane) getParent();
         Point2D p = parent.sceneToLocal(e.getSceneX(), e.getSceneY());
         double nx = p.getX() - dragDX;
@@ -251,12 +262,16 @@ public class StoryGraphPane extends Pane {
         arc.y = ny;
         movedSincePress = true;
         if (onMoved != null) onMoved.run();
+        e.consume();
       });
       setOnMouseReleased(e -> {
         if (mouseReleasedHook != null) mouseReleasedHook.accept(e);
+        if (interactionHook != null) interactionHook.accept(false);
+        e.consume();
       });
       inHandle.setOnMouseReleased(e -> {
         if (mouseReleasedHook != null) mouseReleasedHook.accept(e);
+        if (interactionHook != null) interactionHook.accept(false);
         e.consume();
       });
     }
@@ -290,20 +305,36 @@ public class StoryGraphPane extends Pane {
   private Runnable onGraphChanged;
   private Runnable onLayoutCommitted;
   private Consumer<StoryTimelineView.Arc> onDeleteArc;
+  private Consumer<Boolean> onInteractionActive;
+  private boolean interactionActive;
 
   public StoryGraphPane() {
     setPadding(new Insets(8));
     setPrefSize(1400, 920);
     setMinSize(800, 520);
+    setFocusTraversable(true);
     setStyle("-fx-background-color: #0d1118;");
+    addEventHandler(MouseEvent.MOUSE_PRESSED, e -> requestFocus());
     setOnMouseMoved(e -> {
       if (tempLine != null) {
-        Point2D p = sceneToLocal(e.getSceneX(), e.getSceneY());
-        tempLine.setEndX(p.getX());
-        tempLine.setEndY(p.getY());
+        updateTempLinkEndpoint(e);
       }
     });
-    setOnMouseReleased(e -> cancelLinking());
+    setOnMouseDragged(e -> {
+      if (tempLine != null) {
+        updateTempLinkEndpoint(e);
+        e.consume();
+      }
+    });
+    setOnMouseReleased(e -> {
+      if (linkingFrom != null) {
+        finishLinking(nodeAtScene(e.getSceneX(), e.getSceneY(), linkingFrom));
+        e.consume();
+      } else {
+        cancelLinking();
+      }
+    });
+    setOnKeyPressed(this::handleKeyPressed);
   }
 
   public void setOnRunArc(Consumer<StoryTimelineView.Arc> c) { this.onRunArc = c; }
@@ -313,6 +344,7 @@ public class StoryGraphPane extends Pane {
   public void setOnGraphChanged(Runnable r) { this.onGraphChanged = r; }
   public void setOnLayoutCommitted(Runnable r) { this.onLayoutCommitted = r; }
   public void setOnDeleteArc(Consumer<StoryTimelineView.Arc> c) { this.onDeleteArc = c; }
+  public void setOnInteractionActive(Consumer<Boolean> c) { this.onInteractionActive = c; }
   public void setSimpleLinkMode(boolean enabled) { this.requireShiftToLink = !enabled; }
 
   public void setModel(List<StoryTimelineView.Arc> arcs, List<StoryTimelineView.Link> links) {
@@ -515,12 +547,14 @@ public class StoryGraphPane extends Pane {
       if (Double.isNaN(arc.y)) arc.y = CONTENT_MARGIN;
       NodeView view = new NodeView(arc, parseArcColor(arc.color), denseMode);
       view.onMoved = this::updateLinks;
+      view.interactionHook = this::setInteractionActive;
       Tooltip.install(view, new Tooltip(nodeTooltip(arc)));
       view.mousePressedHook = e -> {
         if (e.getButton() == MouseButton.PRIMARY && (!requireShiftToLink || e.isShiftDown())) {
           startLinking(view, e.getSceneX(), e.getSceneY());
         }
       };
+      view.mouseDraggedHook = this::updateTempLinkEndpoint;
       view.mouseReleasedHook = e -> handleNodeRelease(view, e);
 
       ContextMenu menu = new ContextMenu();
@@ -530,6 +564,10 @@ public class StoryGraphPane extends Pane {
       miRun.setOnAction(e -> { if (onRunArc != null) onRunArc.accept(arc); });
       MenuItem miCopyGoto = new MenuItem("Copy Goto (entry)");
       miCopyGoto.setOnAction(e -> copyGotoSnippet(arc));
+      MenuItem miRename = new MenuItem("Rename...");
+      miRename.setOnAction(e -> renameArc(arc));
+      MenuItem miDuplicate = new MenuItem("Duplicate Arc");
+      miDuplicate.setOnAction(e -> duplicateArc(arc));
       MenuItem miCluster = new MenuItem("Set Cluster...");
       miCluster.setOnAction(e -> {
         var result = EditorDialogs.promptText(
@@ -548,10 +586,9 @@ public class StoryGraphPane extends Pane {
       });
       MenuItem miDelete = new MenuItem("Delete Arc");
       miDelete.setOnAction(e -> {
-        if (onDeleteArc != null) onDeleteArc.accept(arc);
-        if (onGraphChanged != null) onGraphChanged.run();
+        deleteArc(arc);
       });
-      menu.getItems().addAll(miOpen, miRun, miCopyGoto, miCluster, miDelete);
+      menu.getItems().addAll(miOpen, miRun, miCopyGoto, miRename, miDuplicate, miCluster, miDelete);
 
       view.setOnMouseClicked(e -> {
         if (e.getButton() == MouseButton.SECONDARY) {
@@ -593,13 +630,13 @@ public class StoryGraphPane extends Pane {
       ContextMenu menu = new ContextMenu();
       MenuItem miRun = new MenuItem("Run Link");
       miRun.setOnAction(e -> { if (onRunLink != null) onRunLink.accept(link); });
+      MenuItem miReverse = new MenuItem("Reverse Link");
+      miReverse.setOnAction(e -> reverseLink(link));
       MenuItem miDelete = new MenuItem("Delete Link");
       miDelete.setOnAction(e -> {
-        links.remove(link);
-        refresh();
-        if (onGraphChanged != null) onGraphChanged.run();
+        deleteLink(link);
       });
-      menu.getItems().addAll(miRun, miDelete);
+      menu.getItems().addAll(miRun, miReverse, miDelete);
       Tooltip.install(rendered, new Tooltip(fullLinkSummary(link)));
       rendered.setOnMouseClicked(e -> {
         if (e.getButton() == MouseButton.SECONDARY) {
@@ -635,7 +672,8 @@ public class StoryGraphPane extends Pane {
 
   private void handleNodeRelease(NodeView view, javafx.scene.input.MouseEvent event) {
     if (linkingFrom != null) {
-      finishLinking(view);
+      NodeView target = nodeAtScene(event.getSceneX(), event.getSceneY(), linkingFrom);
+      finishLinking(target);
     } else if (view.movedSincePress) {
       double nx = Math.round(view.getLayoutX() / DRAG_SNAP_STEP) * DRAG_SNAP_STEP;
       double ny = Math.round(view.getLayoutY() / DRAG_SNAP_STEP) * DRAG_SNAP_STEP;
@@ -648,6 +686,119 @@ public class StoryGraphPane extends Pane {
     }
     view.movedSincePress = false;
     event.consume();
+  }
+
+  private void handleKeyPressed(KeyEvent event) {
+    if (event.getCode() == KeyCode.DELETE || event.getCode() == KeyCode.BACK_SPACE) {
+      if (selectedLinkKey != null) {
+        deleteLink(selectedLink());
+      } else if (selectedArcName != null) {
+        deleteArc(selectedArc());
+      }
+      event.consume();
+      return;
+    }
+    if (event.getCode() == KeyCode.F2 && selectedArcName != null) {
+      renameArc(selectedArc());
+      event.consume();
+      return;
+    }
+    if ((event.isShortcutDown() || event.isControlDown()) && event.getCode() == KeyCode.D && selectedArcName != null) {
+      duplicateArc(selectedArc());
+      event.consume();
+      return;
+    }
+    if ((event.isShortcutDown() || event.isControlDown()) && event.getCode() == KeyCode.R && selectedLinkKey != null) {
+      reverseLink(selectedLink());
+      event.consume();
+    }
+  }
+
+  private StoryTimelineView.Arc selectedArc() {
+    if (selectedArcName == null) return null;
+    for (StoryTimelineView.Arc arc : arcs) {
+      if (arc != null && selectedArcName.equals(arc.name)) return arc;
+    }
+    return null;
+  }
+
+  private StoryTimelineView.Link selectedLink() {
+    if (selectedLinkKey == null) return null;
+    for (StoryTimelineView.Link link : links) {
+      if (link != null && selectedLinkKey.equals(linkKey(link))) return link;
+    }
+    return null;
+  }
+
+  private void deleteArc(StoryTimelineView.Arc arc) {
+    if (arc == null) return;
+    if (onDeleteArc != null) {
+      onDeleteArc.accept(arc);
+      return;
+    }
+    arcs.remove(arc);
+    links.removeIf(link -> link != null && (nn(arc.name).equals(link.fromArc) || nn(arc.name).equals(link.toArc)));
+    selectedArcName = null;
+    refresh();
+    if (onGraphChanged != null) onGraphChanged.run();
+  }
+
+  private void deleteLink(StoryTimelineView.Link link) {
+    if (link == null) return;
+    links.remove(link);
+    selectedLinkKey = null;
+    refresh();
+    if (onGraphChanged != null) onGraphChanged.run();
+  }
+
+  private void duplicateArc(StoryTimelineView.Arc source) {
+    if (source == null) return;
+    StoryTimelineView.Arc copy = new StoryTimelineView.Arc();
+    copy.name = uniqueArcName(nn(source.name).isBlank() ? "Arc" : source.name + " Copy");
+    copy.script = nn(source.script);
+    copy.entryLabel = nn(source.entryLabel);
+    copy.cluster = nn(source.cluster);
+    copy.priority = source.priority;
+    copy.color = nn(source.color);
+    copy.tags = nn(source.tags);
+    copy.x = source.x + 48.0;
+    copy.y = source.y + 48.0;
+    arcs.add(copy);
+    selectedArcName = copy.name;
+    selectedLinkKey = null;
+    refresh();
+    if (onSelectArc != null) onSelectArc.accept(copy);
+    if (onGraphChanged != null) onGraphChanged.run();
+  }
+
+  private String uniqueArcName(String baseName) {
+    String root = nn(baseName).trim();
+    if (root.isBlank()) root = "Arc";
+    Set<String> names = new LinkedHashSet<>();
+    for (StoryTimelineView.Arc arc : arcs) {
+      if (arc != null && arc.name != null) names.add(arc.name.toLowerCase(Locale.ROOT));
+    }
+    if (!names.contains(root.toLowerCase(Locale.ROOT))) return root;
+    int i = 2;
+    while (true) {
+      String candidate = root + " " + i;
+      if (!names.contains(candidate.toLowerCase(Locale.ROOT))) return candidate;
+      i++;
+    }
+  }
+
+  private void reverseLink(StoryTimelineView.Link link) {
+    if (link == null) return;
+    String fromArc = link.fromArc;
+    String fromLabel = link.fromLabel;
+    link.fromArc = link.toArc;
+    link.fromLabel = link.toLabel;
+    link.toArc = fromArc;
+    link.toLabel = fromLabel;
+    selectedLinkKey = linkKey(link);
+    refresh();
+    if (onSelectLink != null) onSelectLink.accept(link);
+    if (onGraphChanged != null) onGraphChanged.run();
   }
 
   private void drawClusters(List<StoryTimelineView.Arc> visibleArcs) {
@@ -811,8 +962,33 @@ public class StoryGraphPane extends Pane {
     setModel(arcs, links);
   }
 
+  private void updateTempLinkEndpoint(MouseEvent event) {
+    if (tempLine == null || event == null) return;
+    Point2D p = sceneToLocal(event.getSceneX(), event.getSceneY());
+    tempLine.setEndX(p.getX());
+    tempLine.setEndY(p.getY());
+  }
+
+  private NodeView nodeAtScene(double sceneX, double sceneY, NodeView exclude) {
+    List<NodeView> nodes = new ArrayList<>(nodeMap.values());
+    Collections.reverse(nodes);
+    for (NodeView node : nodes) {
+      if (node == null || node == exclude) continue;
+      Bounds bounds = node.localToScene(node.getBoundsInLocal());
+      if (bounds != null && bounds.contains(sceneX, sceneY)) return node;
+    }
+    return null;
+  }
+
+  private void setInteractionActive(boolean active) {
+    if (interactionActive == active) return;
+    interactionActive = active;
+    if (onInteractionActive != null) onInteractionActive.accept(active);
+  }
+
   private void startLinking(NodeView from, double sceneX, double sceneY) {
     linkingFrom = from;
+    setInteractionActive(true);
     tempLine = new Line();
     tempLine.setStroke(Color.web("#9fb3ff"));
     tempLine.getStrokeDashArray().setAll(8.0, 8.0);
@@ -855,6 +1031,7 @@ public class StoryGraphPane extends Pane {
     if (tempLine != null) getChildren().remove(tempLine);
     tempLine = null;
     linkingFrom = null;
+    setInteractionActive(false);
     nodeMap.values().forEach(node -> {
       node.inHandle.setFill(Color.web("#53657e"));
       node.inHandle.setScaleX(1.0);

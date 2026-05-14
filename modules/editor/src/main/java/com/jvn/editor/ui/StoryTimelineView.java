@@ -191,6 +191,9 @@ public class StoryTimelineView extends BorderPane {
   private Runnable onChanged;
   private boolean toolbarIconOnly = false;
   private double toolbarTextModeMinWidth = -1;
+  private final javafx.animation.Timeline autoRefreshTimer = new javafx.animation.Timeline(
+      new javafx.animation.KeyFrame(javafx.util.Duration.seconds(2.0), e -> autoRefreshFromDisk()));
+  private long lastTimelineModified = -1L;
 
   public StoryTimelineView() {
     getStyleClass().addAll("timeline-root", "sidebar-tool-root");
@@ -303,6 +306,7 @@ public class StoryTimelineView extends BorderPane {
     Button bOpen = iconButton("Open", CssIcon.folder(), e -> openArc());
     Button bDelete = iconButton("Delete Selected", CssIcon.delete(), e -> deleteSelected());
     Button bCopyGoto = iconButton("Copy Goto", CssIcon.copy(), e -> copyGoto());
+    Button bRefresh = iconButton("Refresh", CssIcon.redo(), e -> syncFromDisk(true));
     Button bAuto = iconButton("Auto Layout", CssIcon.auto(), e -> { graph.autoLayout(); onGraphChanged(); });
     Button bFit = iconButton("Fit", CssIcon.rectSelect(), e -> zoomToFit());
     Button bValidate = iconButton("Validate", CssIcon.check(), e -> validate());
@@ -318,6 +322,7 @@ public class StoryTimelineView extends BorderPane {
     bOpen.setTooltip(new Tooltip("Open selected arc script"));
     bDelete.setTooltip(new Tooltip("Delete selected arc or link"));
     bCopyGoto.setTooltip(new Tooltip("Copy [goto arc:label] snippet"));
+    bRefresh.setTooltip(new Tooltip("Reload the story map and remove links to deleted scripts"));
     bAuto.setTooltip(new Tooltip("Auto-arrange arc nodes"));
     bFit.setTooltip(new Tooltip("Fit graph to viewport"));
     bValidate.setTooltip(new Tooltip("Validate scripts and entry labels"));
@@ -354,7 +359,7 @@ quickly, then use Validate to catch missing scripts or labels."""));
     );
     rowPrimary.setAlignment(Pos.CENTER_LEFT);
     HBox rowSecondary = new HBox(8,
-      new Label("Cluster"), clusterFilter, sepB, bCopyGoto, bAuto, bFit, bValidate
+      new Label("Cluster"), clusterFilter, sepB, bCopyGoto, bRefresh, bAuto, bFit, bValidate
     );
     rowSecondary.setAlignment(Pos.CENTER_LEFT);
 
@@ -381,6 +386,7 @@ quickly, then use Validate to catch missing scripts or labels."""));
     graph.setOnGraphChanged(this::onGraphChanged);
     graph.setOnLayoutCommitted(this::onGraphChanged);
     graph.setOnDeleteArc(a -> { if (a != null) { removeArcAndLinks(a.name); onGraphChanged(); } });
+    graph.setOnInteractionActive(active -> graphScroll.setPannable(!active));
     graph.setSimpleLinkMode(true);
     arcs.getSelectionModel().selectedItemProperty().addListener((o, ov, nv) -> {
       graph.selectArc(nv == null ? null : nv.name);
@@ -418,6 +424,15 @@ quickly, then use Validate to catch missing scripts or labels."""));
         }
       }
       e.setDropCompleted(success); e.consume();
+    });
+    autoRefreshTimer.setCycleCount(javafx.animation.Animation.INDEFINITE);
+    sceneProperty().addListener((obs, oldScene, newScene) -> {
+      if (newScene == null) {
+        autoRefreshTimer.stop();
+      } else {
+        syncFromDisk(true);
+        autoRefreshTimer.play();
+      }
     });
     updateGraphHint();
   }
@@ -477,15 +492,13 @@ quickly, then use Validate to catch missing scripts or labels."""));
 
   public void setProjectRoot(File dir) {
     this.projectRoot = dir;
-    load();
-    refreshGraph();
-    updateGraphHint();
+    syncFromDisk(true);
   }
 
   public void setOnRunArc(Consumer<Arc> c) { this.onRunArc = c; }
   public void setOnRunLink(Consumer<Link> c) { this.onRunLink = c; }
   public void setOnChanged(Runnable r) { this.onChanged = r; }
-  public void setTimelineFile(File f) { this.timelineFile = f; load(); refreshGraph(); updateGraphHint(); }
+  public void setTimelineFile(File f) { this.timelineFile = f; syncFromDisk(true); }
   public List<Arc> getArcs() { return new ArrayList<>(arcs.getItems()); }
   public List<Link> getLinks() { return new ArrayList<>(links.getItems()); }
   public Arc findArc(String name) {
@@ -798,18 +811,94 @@ quickly, then use Validate to catch missing scripts or labels."""));
     } catch (Exception ignored) {
             // reason: non-critical operation; exception swallowed to prevent crash propagation
             }
+    lastTimelineModified = f.exists() ? f.lastModified() : -1L;
   }
 
   private void load() {
     File f = timelineFile != null ? timelineFile : defaultTimelineFile();
     if (f == null) return;
-    if (!f.exists()) return;
+    if (!f.exists()) {
+      lastTimelineModified = -1L;
+      return;
+    }
     try {
       String text = java.nio.file.Files.readString(f.toPath());
       fromText(text);
+      lastTimelineModified = f.lastModified();
     } catch (Exception ignored) {
             // reason: non-critical operation; exception swallowed to prevent crash propagation
             }
+  }
+
+  private void autoRefreshFromDisk() {
+    syncFromDisk(false);
+  }
+
+  private void syncFromDisk(boolean forceReload) {
+    File f = timelineFile != null ? timelineFile : defaultTimelineFile();
+    boolean reloaded = false;
+    if (f != null && f.exists()) {
+      long modified = f.lastModified();
+      if (forceReload || modified != lastTimelineModified) {
+        load();
+        reloaded = true;
+      }
+    } else if (forceReload) {
+      lastTimelineModified = -1L;
+    }
+
+    int removed = pruneStaleReferences();
+    if (removed > 0) {
+      refreshGraph();
+      arcs.refresh();
+      links.refresh();
+      updateGraphHint();
+      updateClusterFilter();
+      save();
+      if (onChanged != null) onChanged.run();
+      return;
+    }
+    if (reloaded || forceReload) {
+      refreshGraph();
+      arcs.refresh();
+      links.refresh();
+      updateGraphHint();
+      updateClusterFilter();
+    }
+  }
+
+  private int pruneStaleReferences() {
+    int removed = 0;
+    Set<String> validArcNames = new LinkedHashSet<>();
+    List<Arc> staleArcs = new ArrayList<>();
+    for (Arc arc : arcs.getItems()) {
+      if (arc == null) continue;
+      if (isMissingScriptArc(arc)) {
+        staleArcs.add(arc);
+      } else if (arc.name != null && !arc.name.isBlank()) {
+        validArcNames.add(arc.name);
+      }
+    }
+    if (!staleArcs.isEmpty()) {
+      arcs.getItems().removeAll(staleArcs);
+      removed += staleArcs.size();
+    }
+    int beforeLinks = links.getItems().size();
+    links.getItems().removeIf(link -> link == null
+        || !validArcNames.contains(link.fromArc)
+        || !validArcNames.contains(link.toArc));
+    removed += beforeLinks - links.getItems().size();
+    return removed;
+  }
+
+  private boolean isMissingScriptArc(Arc arc) {
+    if (arc == null) return false;
+    String script = nn(arc.script).trim();
+    if (script.isBlank()) return false;
+    File raw = new File(script);
+    if (!raw.isAbsolute() && projectRoot == null) return false;
+    File file = resolveFile(script);
+    return file == null || !file.isFile();
   }
 
   private File defaultTimelineFile() {
