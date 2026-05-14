@@ -26,6 +26,8 @@ import javafx.scene.input.Dragboard;
 import javafx.scene.input.KeyCode;
 
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -36,6 +38,10 @@ import java.util.regex.Pattern;
 import java.util.function.Consumer;
 
 import com.jvn.core.project.StoryMapPaths;
+import com.jvn.core.vn.VnScenario;
+import com.jvn.core.vn.script.MultipleParseErrorsException;
+import com.jvn.core.vn.script.VnParseException;
+import com.jvn.core.vn.script.VnScriptParser;
 
 public class StoryTimelineView extends BorderPane {
   static final Pattern ARC_DSL_LINE = Pattern.compile(
@@ -118,8 +124,11 @@ public class StoryTimelineView extends BorderPane {
         continue;
       }
       if (a.entryLabel != null && !a.entryLabel.isBlank()) {
-        boolean ok = hasLabel(f, a.entryLabel);
-        if (!ok) sb.append("Arc '").append(a.name).append("' missing entry label '").append(a.entryLabel).append("'\n");
+        sb.append(validateLabel(
+            f,
+            a.entryLabel,
+            "Arc '" + a.name + "'",
+            "missing entry label '" + a.entryLabel + "'"));
       }
       if (a.color != null && !a.color.isBlank()) {
         try {
@@ -141,8 +150,11 @@ public class StoryTimelineView extends BorderPane {
       if (f == null || !f.exists()) { sb.append("Link target arc script missing: ").append(ta.script).append("\n"); continue; }
       String lab = (l.toLabel != null && !l.toLabel.isBlank()) ? l.toLabel : ta.entryLabel;
       if (lab != null && !lab.isBlank()) {
-        boolean ok = hasLabel(f, lab);
-        if (!ok) sb.append("Link target label missing: ").append(l.toArc).append(":").append(lab).append("\n");
+        sb.append(validateLabel(
+            f,
+            lab,
+            "Link target " + l.toArc + ":" + lab,
+            "label missing"));
       }
     }
     if (sb.length() == 0) {
@@ -157,14 +169,137 @@ public class StoryTimelineView extends BorderPane {
     }
   }
 
-  private boolean hasLabel(File vnsFile, String label) {
+  private String validateLabel(File vnsFile, String label, String context, String missingDetail) {
+    if (vnsFile == null || label == null || label.isBlank()) return "";
+    String sourceName = sourceNameForValidation(vnsFile);
     try (FileInputStream in = new FileInputStream(vnsFile)) {
-      com.jvn.core.vn.script.VnScriptParser p = new com.jvn.core.vn.script.VnScriptParser();
-      com.jvn.core.vn.VnScenario sc = p.parse(in);
-      return sc.getLabelIndex(label) != null;
-    } catch (Exception e) {
-      return false;
+      VnScriptParser parser = new VnScriptParser();
+      VnScenario scenario = parser.parse(
+          in,
+          sourceName,
+          includePath -> openVnsIncludeForValidation(vnsFile, sourceName, includePath));
+      if (scenario.getLabelIndex(label) != null) return "";
+      return context + " " + missingDetail + "\n";
+    } catch (MultipleParseErrorsException ex) {
+      return context + " could not be parsed while checking label '" + label + "':\n"
+          + formatParseErrors(ex) + "\n";
+    } catch (Exception ex) {
+      String message = ex.getMessage();
+      if (message == null || message.isBlank()) message = ex.getClass().getSimpleName();
+      return context + " could not be parsed while checking label '" + label + "': "
+          + message + "\n";
     }
+  }
+
+  private String formatParseErrors(MultipleParseErrorsException ex) {
+    StringBuilder out = new StringBuilder();
+    List<VnParseException> errors = ex.getErrors();
+    if (errors == null || errors.isEmpty()) {
+      return "- " + ex.getMessage();
+    }
+    int shown = 0;
+    for (VnParseException error : errors) {
+      if (error == null) continue;
+      if (shown >= 8) {
+        out.append("- ... ").append(errors.size() - shown).append(" more parse issue(s)\n");
+        break;
+      }
+      String source = error.getSourceName();
+      String detail = error.getDetailMessage();
+      if (detail == null || detail.isBlank()) detail = error.getMessage();
+      out.append("- ");
+      if (source != null && !source.isBlank()) {
+        out.append(source);
+        if (error.getLineNumber() > 0) out.append(":").append(error.getLineNumber());
+        out.append(": ");
+      }
+      out.append(detail == null || detail.isBlank() ? "Parse error" : detail).append("\n");
+      shown++;
+    }
+    return out.toString();
+  }
+
+  private String sourceNameForValidation(File vnsFile) {
+    if (vnsFile == null) return "<script>";
+    try {
+      Path file = vnsFile.toPath().toAbsolutePath().normalize();
+      File rootFile = validationProjectRoot(vnsFile);
+      if (rootFile != null) {
+        Path root = rootFile.toPath().toAbsolutePath().normalize();
+        Path scriptsRoot = root.resolve("scripts").normalize();
+        if (file.startsWith(scriptsRoot)) {
+          return scriptsRoot.relativize(file).toString().replace('\\', '/');
+        }
+        if (file.startsWith(root)) {
+          return root.relativize(file).toString().replace('\\', '/');
+        }
+      }
+    } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+    }
+    return vnsFile.getName();
+  }
+
+  private InputStream openVnsIncludeForValidation(File sourceFile, String sourceName, String includePath) throws IOException {
+    String normalized = includePath == null ? "" : includePath.trim().replace('\\', '/');
+    if (normalized.isBlank()) {
+      throw new IOException("Include path is empty");
+    }
+
+    File rootFile = validationProjectRoot(sourceFile);
+    if (rootFile == null) {
+      throw new IOException("Project root not available for include: " + includePath);
+    }
+    Path root = rootFile.toPath().toAbsolutePath().normalize();
+    Path scriptsRoot = root.resolve("scripts").normalize();
+    if (!Files.isDirectory(scriptsRoot)) {
+      scriptsRoot = root;
+    }
+
+    List<Path> candidates = new ArrayList<>();
+    if (normalized.startsWith("/")) {
+      candidates.add(scriptsRoot.resolve(normalized.substring(1)));
+    } else {
+      if (sourceName != null && sourceName.contains("/")) {
+        Path sourceBase = scriptsRoot.resolve(sourceName).normalize().getParent();
+        if (sourceBase != null) candidates.add(sourceBase.resolve(normalized));
+      }
+      candidates.add(scriptsRoot.resolve(normalized));
+    }
+    candidates.add(root.resolve(normalized));
+
+    for (Path candidate : candidates) {
+      if (candidate == null) continue;
+      Path resolved = candidate.toAbsolutePath().normalize();
+      if (!resolved.startsWith(root)) continue;
+      if (Files.isRegularFile(resolved)) {
+        return Files.newInputStream(resolved);
+      }
+    }
+    throw new IOException("Included script not found: " + includePath);
+  }
+
+  private File validationProjectRoot(File sourceFile) {
+    if (projectRoot != null) return projectRoot;
+    if (sourceFile != null) {
+      Path current = sourceFile.toPath().toAbsolutePath().normalize().getParent();
+      while (current != null) {
+        Path name = current.getFileName();
+        if (name != null && "scripts".equalsIgnoreCase(name.toString())) {
+          Path parent = current.getParent();
+          return (parent != null ? parent : current).toFile();
+        }
+        current = current.getParent();
+      }
+    }
+    if (timelineFile != null && timelineFile.getParentFile() != null) {
+      File config = timelineFile.getParentFile().getParentFile();
+      if (config != null && "config".equalsIgnoreCase(config.getName())) {
+        File root = config.getParentFile();
+        if (root != null) return root;
+      }
+    }
+    return sourceFile == null ? null : sourceFile.getParentFile();
   }
   public static class Link {
     public String fromArc;
