@@ -484,8 +484,11 @@ public class RunConsoleView extends BorderPane {
     }
 
     private StackPane createLaunchBanner() {
-        launchProgressIndicator.setMaxSize(18, 18);
-        launchProgressIndicator.setPrefSize(18, 18);
+        launchProgressIndicator.getStyleClass().add("run-console-launch-spinner");
+        launchProgressIndicator.setMinSize(22, 22);
+        launchProgressIndicator.setMaxSize(22, 22);
+        launchProgressIndicator.setPrefSize(22, 22);
+        launchProgressIndicator.setProgress(ProgressIndicator.INDETERMINATE_PROGRESS);
         launchProgressIndicator.setMouseTransparent(true);
         launchProgressIndicator.setStyle("-fx-progress-color: #e8d8ad;");
         VBox labels = new VBox(4, launchActivityLabel, launchDetailLabel);
@@ -600,10 +603,7 @@ public class RunConsoleView extends BorderPane {
     private void updateLaunchProgress() {
         double progress = computeLaunchProgress();
         launchProgressValue.set(progress);
-        launchProgressIndicator.setProgress(
-            engineState == EngineState.BUILDING || engineState == EngineState.STARTING
-                ? progress
-                : ProgressIndicator.INDETERMINATE_PROGRESS);
+        launchProgressIndicator.setProgress(ProgressIndicator.INDETERMINATE_PROGRESS);
         String fillColor = switch (engineState) {
             case FAILED -> "rgba(255, 99, 132, 0.24)";
             case RUNNING, STOPPED -> "rgba(78, 201, 131, 0.22)";

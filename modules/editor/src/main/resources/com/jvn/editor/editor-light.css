@@ -253,6 +253,11 @@
   -fx-padding: 10 12 10 12;
 }
 
+.run-console-launch-spinner {
+  -fx-progress-color: #b6742f;
+  -fx-opacity: 1.0;
+}
+
 .run-console-launch-progress-layer,
 .run-console-launch-progress-stack {
   -fx-background-color: transparent;

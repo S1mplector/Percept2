@@ -307,6 +307,11 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-padding: 10 12 10 12;
 }
 
+.run-console-launch-spinner {
+  -fx-progress-color: #e8d8ad;
+  -fx-opacity: 1.0;
+}
+
 .run-console-launch-progress-layer,
 .run-console-launch-progress-stack {
   -fx-background-color: transparent;
