@@ -18,9 +18,15 @@ import org.fxmisc.richtext.LineNumberFactory;
 import org.fxmisc.richtext.model.StyleSpans;
 import org.fxmisc.richtext.model.StyleSpansBuilder;
 
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.control.ContextMenu;
+import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 
 public class TimelineCodeEditor extends BorderPane {
   private final CodeArea code = new CodeArea();
@@ -29,6 +35,8 @@ public class TimelineCodeEditor extends BorderPane {
   private File projectRoot;
   private List<Issue> issues = Collections.emptyList();
   private double fontSizePx = 13.0;
+  private final Label statusPrimaryLabel = new Label("No diagnostics");
+  private final Label statusSecondaryLabel = new Label("Ln 1, Col 1");
 
   private static final String[] KW = new String[] { "arc", "script", "entry", "at", "link", "cluster", "priority", "color", "tags" };
   private static final String KEYWORD_PATTERN = "\\b(" + String.join("|", KW) + ")\\b";
@@ -53,13 +61,23 @@ public class TimelineCodeEditor extends BorderPane {
   private static final Pattern LINK_LINE = Pattern.compile(StoryTimelineView.LINK_DSL_LINE.pattern(), Pattern.CASE_INSENSITIVE | Pattern.MULTILINE);
 
   public TimelineCodeEditor() {
+    getStyleClass().add("text-editor-root");
+    if (!code.getStyleClass().contains("code-area")) {
+      code.getStyleClass().add("code-area");
+    }
     code.setParagraphGraphicFactory(LineNumberFactory.get(code));
-    code.textProperty().addListener((o,ov,nv) -> { issues = computeIssues(nv == null ? "" : nv); applyHighlighting(nv); if (!suppressEvent && onTextChanged != null) onTextChanged.accept(nv); });
+    code.textProperty().addListener((o,ov,nv) -> {
+      issues = computeIssues(nv == null ? "" : nv);
+      applyHighlighting(nv);
+      updateStatusBar();
+      if (!suppressEvent && onTextChanged != null) onTextChanged.accept(nv);
+    });
     applyHighlighting("");
     var sp = new VirtualizedScrollPane<>(code);
     setCenter(sp);
     String css = EditorTheme.stylesheetUrl();
     if (!css.isEmpty()) { getStylesheets().add(css); code.getStylesheets().add(css); }
+    setupStatusBar();
     applyFontSize();
     code.setOnContextMenuRequested(e -> {
       Issue is = issueAt(code.getCaretPosition());
@@ -80,6 +98,34 @@ public class TimelineCodeEditor extends BorderPane {
         code.getCaretBounds().ifPresent(b -> cm.show(code, b.getMinX() + code.getScene().getWindow().getX(), b.getMaxY() + code.getScene().getWindow().getY()));
       }
     });
+  }
+
+  private void setupStatusBar() {
+    HBox statusBar = new HBox(10);
+    statusBar.getStyleClass().add("code-editor-status-bar");
+    statusBar.setPadding(new Insets(4, 10, 4, 10));
+    statusBar.setAlignment(Pos.CENTER_LEFT);
+    statusPrimaryLabel.getStyleClass().add("code-editor-status-primary");
+    statusSecondaryLabel.getStyleClass().add("code-editor-status-secondary");
+    Region spacer = new Region();
+    HBox.setHgrow(spacer, Priority.ALWAYS);
+    statusBar.getChildren().addAll(statusPrimaryLabel, spacer, statusSecondaryLabel);
+    setBottom(statusBar);
+
+    code.caretPositionProperty().addListener((obs, oldVal, newVal) -> updateStatusBar());
+    code.currentParagraphProperty().addListener((obs, oldVal, newVal) -> updateStatusBar());
+    updateStatusBar();
+  }
+
+  private void updateStatusBar() {
+    int line = code.getCurrentParagraph() + 1;
+    int col = code.getCaretColumn() + 1;
+    int lines = Math.max(1, code.getParagraphs().size());
+    int selected = code.getSelectedText() == null ? 0 : code.getSelectedText().length();
+    int issueCount = issues == null ? 0 : issues.size();
+    statusPrimaryLabel.setText(issueCount == 0 ? "No diagnostics" : issueCount + " unresolved references");
+    String selection = selected > 0 ? "  |  Sel " + selected : "";
+    statusSecondaryLabel.setText("Ln " + line + ", Col " + col + "  |  " + lines + " lines" + selection);
   }
 
   public void setOnTextChanged(Consumer<String> c) { this.onTextChanged = c; }

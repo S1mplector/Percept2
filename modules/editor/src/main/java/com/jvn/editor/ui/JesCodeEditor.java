@@ -15,9 +15,13 @@ import org.fxmisc.richtext.model.StyleSpans;
 import org.fxmisc.richtext.model.StyleSpansBuilder;
 
 import javafx.application.Platform;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.control.Label;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
 public class JesCodeEditor extends BorderPane {
@@ -37,6 +41,7 @@ public class JesCodeEditor extends BorderPane {
   private boolean suppressTextChanged = false;
   private double fontSizePx = 13.0;
   private LintMode lintMode = LintMode.JES_DOCUMENT;
+  private final Label statusLabel = new Label("Ln 1, Col 1");
 
   private static final String[] KEYWORDS = new String[] {
     "scene","entity","component","on","key","do","timeline",
@@ -93,6 +98,7 @@ public class JesCodeEditor extends BorderPane {
   );
 
   public JesCodeEditor() {
+    getStyleClass().add("text-editor-root");
     if (!codeArea.getStyleClass().contains("code-area")) {
       codeArea.getStyleClass().add("code-area");
     }
@@ -105,6 +111,7 @@ public class JesCodeEditor extends BorderPane {
     codeArea.textProperty().addListener((obs, oldText, newText) -> {
       applyHighlighting(newText);
       applyAnalysis(newText);
+      updateStatusBar();
       if (!suppressTextChanged && onTextChanged != null) {
         onTextChanged.accept(newText);
       }
@@ -113,12 +120,13 @@ public class JesCodeEditor extends BorderPane {
     applyAnalysis("");
 
     VirtualizedScrollPane<CodeArea> sp = new VirtualizedScrollPane<>(codeArea);
-    VBox wrapper = new VBox(sp, lintLabel);
+    VBox wrapper = new VBox(sp);
     VBox.setVgrow(sp, Priority.ALWAYS);
     sp.setMaxHeight(Double.MAX_VALUE);
     lintLabel.getStyleClass().add("lint-label");
     lintLabel.setText("Ready");
     setCenter(wrapper);
+    setupStatusBar();
 
     String css = EditorTheme.stylesheetUrl();
     if (!css.isEmpty()) {
@@ -128,6 +136,32 @@ public class JesCodeEditor extends BorderPane {
 
     completer = new CodeAutoCompleter(codeArea, ctx -> provideSuggestions(ctx));
     applyFontSize();
+  }
+
+  private void setupStatusBar() {
+    HBox statusBar = new HBox(10);
+    statusBar.getStyleClass().add("code-editor-status-bar");
+    statusBar.setPadding(new Insets(4, 10, 4, 10));
+    statusBar.setAlignment(Pos.CENTER_LEFT);
+    lintLabel.getStyleClass().add("code-editor-status-primary");
+    statusLabel.getStyleClass().add("code-editor-status-secondary");
+    Region spacer = new Region();
+    HBox.setHgrow(spacer, Priority.ALWAYS);
+    statusBar.getChildren().addAll(lintLabel, spacer, statusLabel);
+    setBottom(statusBar);
+
+    codeArea.caretPositionProperty().addListener((obs, oldVal, newVal) -> updateStatusBar());
+    codeArea.currentParagraphProperty().addListener((obs, oldVal, newVal) -> updateStatusBar());
+    updateStatusBar();
+  }
+
+  private void updateStatusBar() {
+    int line = codeArea.getCurrentParagraph() + 1;
+    int col = codeArea.getCaretColumn() + 1;
+    int lines = Math.max(1, codeArea.getParagraphs().size());
+    int selected = codeArea.getSelectedText() == null ? 0 : codeArea.getSelectedText().length();
+    String selection = selected > 0 ? "  |  Sel " + selected : "";
+    statusLabel.setText("Ln " + line + ", Col " + col + "  |  " + lines + " lines" + selection);
   }
 
   public String getText() { return codeArea.getText(); }

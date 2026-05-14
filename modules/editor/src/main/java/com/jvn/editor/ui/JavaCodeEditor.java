@@ -17,6 +17,7 @@ import org.fxmisc.richtext.LineNumberFactory;
 import org.fxmisc.richtext.model.StyleSpans;
 import org.fxmisc.richtext.model.StyleSpansBuilder;
 
+import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Label;
@@ -27,6 +28,9 @@ import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
 
 public class JavaCodeEditor extends BorderPane {
 
@@ -50,6 +54,9 @@ public class JavaCodeEditor extends BorderPane {
   private boolean diagnosticsPanelVisible = false;
   private Consumer<Diagnostic> onQuickFixRequested;
   private double fontSizePx = 13.0;
+  private final Label statusPrimaryLabel = new Label("Ready");
+  private final Label statusSecondaryLabel = new Label("Ln 1, Col 1");
+  private final VBox bottomStack = new VBox();
 
   private static final String[] KEYWORDS = new String[] {
     "abstract","assert","break","case","catch","class","const","continue",
@@ -87,10 +94,15 @@ public class JavaCodeEditor extends BorderPane {
   );
 
   public JavaCodeEditor() {
+    getStyleClass().add("text-editor-root");
+    if (!codeArea.getStyleClass().contains("code-area")) {
+      codeArea.getStyleClass().add("code-area");
+    }
     IntFunction<Node> lineNumberFactory = LineNumberFactory.get(codeArea);
     codeArea.setParagraphGraphicFactory(line -> buildGutterGraphic(line, lineNumberFactory));
     codeArea.textProperty().addListener((obs, oldText, newText) -> {
       applyHighlighting(newText);
+      updateStatusBar();
       if (!suppressEvent && onTextChanged != null) onTextChanged.accept(newText);
     });
     applyHighlighting("");
@@ -106,6 +118,7 @@ public class JavaCodeEditor extends BorderPane {
 
     setupSearchBar();
     setupDiagnosticsPanel();
+    setupStatusBar();
     applyFontSize();
   }
 
@@ -156,7 +169,7 @@ public class JavaCodeEditor extends BorderPane {
     diagnosticsPanel = new ListView<>();
     diagnosticsPanel.setMaxHeight(120);
     diagnosticsPanel.setPrefHeight(100);
-    diagnosticsPanel.setStyle("-fx-background-color: #1a1a1a; -fx-text-fill: #ccc; -fx-font-size: 11px; -fx-border-color: #343434;");
+    diagnosticsPanel.getStyleClass().add("code-editor-diagnostics-list");
     diagnosticsPanel.setVisible(false);
     diagnosticsPanel.setManaged(false);
     diagnosticsPanel.setOnMouseClicked(e -> {
@@ -166,6 +179,43 @@ public class JavaCodeEditor extends BorderPane {
         if (lineNo > 0) goToLine(lineNo);
       }
     });
+  }
+
+  private void setupStatusBar() {
+    HBox statusBar = new HBox(10);
+    statusBar.getStyleClass().add("code-editor-status-bar");
+    statusBar.setPadding(new Insets(4, 10, 4, 10));
+    statusBar.setAlignment(Pos.CENTER_LEFT);
+
+    statusPrimaryLabel.getStyleClass().add("code-editor-status-primary");
+    statusSecondaryLabel.getStyleClass().add("code-editor-status-secondary");
+
+    Region spacer = new Region();
+    HBox.setHgrow(spacer, Priority.ALWAYS);
+    statusBar.getChildren().addAll(statusPrimaryLabel, spacer, statusSecondaryLabel);
+
+    bottomStack.getChildren().setAll(diagnosticsPanel, statusBar);
+    setBottom(bottomStack);
+
+    codeArea.caretPositionProperty().addListener((obs, oldVal, newVal) -> updateStatusBar());
+    codeArea.currentParagraphProperty().addListener((obs, oldVal, newVal) -> updateStatusBar());
+    updateStatusBar();
+  }
+
+  private void updateStatusBar() {
+    int line = codeArea.getCurrentParagraph() + 1;
+    int col = codeArea.getCaretColumn() + 1;
+    int lines = Math.max(1, codeArea.getParagraphs().size());
+    int selected = codeArea.getSelectedText() == null ? 0 : codeArea.getSelectedText().length();
+    long errors = diagnosticsList.stream().filter(d -> d.severity() == Diagnostic.Severity.ERROR).count();
+    long warnings = diagnosticsList.stream().filter(d -> d.severity() == Diagnostic.Severity.WARNING).count();
+    if (errors > 0 || warnings > 0) {
+      statusPrimaryLabel.setText(errors + " errors, " + warnings + " warnings");
+    } else {
+      statusPrimaryLabel.setText("No diagnostics");
+    }
+    String selection = selected > 0 ? "  |  Sel " + selected : "";
+    statusSecondaryLabel.setText("Ln " + line + ", Col " + col + "  |  " + lines + " lines" + selection);
   }
 
   private void setupSearchBar() {
@@ -271,16 +321,15 @@ public class JavaCodeEditor extends BorderPane {
     }
     boolean hasIssues = !diagnosticsList.isEmpty();
     if (hasIssues && !diagnosticsPanelVisible) {
-      setBottom(diagnosticsPanel);
       diagnosticsPanel.setVisible(true);
       diagnosticsPanel.setManaged(true);
       diagnosticsPanelVisible = true;
     } else if (!hasIssues && diagnosticsPanelVisible) {
-      setBottom(null);
       diagnosticsPanel.setVisible(false);
       diagnosticsPanel.setManaged(false);
       diagnosticsPanelVisible = false;
     }
+    updateStatusBar();
   }
 
   /**

@@ -891,6 +891,10 @@ The editor.css file defines the visual styling for the editor module, including 
 /* Text #e6e6e6, Muted #a0a0a0, Accent #979797 */
 
  /* Code editors (RichTextFX CodeArea) */
+.text-editor-root {
+  -fx-background-color: #101010;
+}
+
  .code-area {
    -fx-background-color: #121212;
    -fx-highlight-fill: #2a2a2a;          /* selection background */
@@ -909,6 +913,10 @@ The editor.css file defines the visual styling for the editor module, including 
 
  .code-area .paragraph-box:has-caret {
    -fx-background-color: rgba(151, 151, 151, 0.10);
+ }
+
+ .code-area .paragraph-box {
+   -fx-padding: 1 0 1 0;
  }
 
  /* ── Shared token classes ── */
@@ -981,8 +989,68 @@ The editor.css file defines the visual styling for the editor module, including 
 }
 
  /* Line numbers (RichTextFX LineNumberFactory) */
- .lineno { -fx-background-color: #1a1a1a; -fx-padding: 0 8 0 8; }
+ .lineno {
+   -fx-background-color: #151515;
+   -fx-border-color: rgba(255,255,255,0.06);
+   -fx-border-width: 0 1 0 0;
+   -fx-padding: 0 10 0 8;
+   -fx-min-width: 46;
+   -fx-alignment: center-right;
+ }
  .lineno .text { -fx-fill: #a0a0a0; }
+
+.code-editor-status-bar {
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255,255,255,0.025), rgba(255,255,255,0.0)),
+      #151515;
+  -fx-border-color: #2b2b2b;
+  -fx-border-width: 1 0 0 0;
+}
+
+.code-editor-status-bar .lint-label {
+  -fx-padding: 0;
+  -fx-background-color: transparent;
+  -fx-border-width: 0;
+}
+
+.code-editor-status-primary {
+  -fx-text-fill: #d4d4d4;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+}
+
+.code-editor-status-secondary {
+  -fx-text-fill: #8f8f8f;
+  -fx-font-size: 11px;
+}
+
+.code-editor-diagnostics-list {
+  -fx-background-color: #141414;
+  -fx-control-inner-background: #141414;
+  -fx-border-color: #2d2d2d;
+  -fx-border-width: 1 0 0 0;
+  -fx-font-size: 11px;
+}
+
+.code-editor-diagnostics-list .list-cell {
+  -fx-background-color: transparent;
+  -fx-text-fill: #d0d0d0;
+  -fx-padding: 5 10 5 10;
+}
+
+.code-editor-diagnostics-list .list-cell:filled:selected,
+.code-editor-diagnostics-list .list-cell:filled:selected:hover {
+  -fx-background-color: #2a2a2a;
+  -fx-text-fill: #f0f0f0;
+}
+
+.code-editor-minimap {
+  -fx-background-color: #101010;
+}
+
+.code-editor-minimap-separator {
+  -fx-background-color: #242424;
+}
 
 /* Ensure virtualized scroll pane and content are transparent to show editor bg */
 .virtualized-scroll-pane,
