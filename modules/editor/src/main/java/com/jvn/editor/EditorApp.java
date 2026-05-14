@@ -295,6 +295,11 @@ public class EditorApp extends Application {
   private static final String EDITOR_START_PROJECT_PROPERTY = "jvn.editor.openProject";
   private static final String EDITOR_OPEN_FILE_PROPERTY = "jvn.editor.openFile";
   private static final String MAINTENANCE_LATE_MAY_2026 = "Late May 2026";
+  private static final boolean ALLOW_MAINTENANCE_TOOL_LAUNCHES =
+      Boolean.getBoolean("jvn.editor.allowMaintenanceTools");
+  private static final int MAINTENANCE_CHOOSER_STRIPE_WIDTH = 18;
+  private static final Color MAINTENANCE_CHOOSER_STRIPE_COLOR = Color.rgb(255, 130, 0, 0.28);
+  private static final Color MAINTENANCE_CHOOSER_TINT_COLOR = Color.rgb(26, 14, 0, 0.38);
   private static final boolean DEVELOPER_MODE = Boolean.getBoolean("jvn.editor.developerMode");
   private static final Pattern DSL_DIAGNOSTIC_PATTERN =
       Pattern.compile("^L(\\d+)\\s+(\\S+?):\\s+(.+?)(?:\\s+Quick fix:\\s+(.+))?$");
@@ -1474,16 +1479,20 @@ public class EditorApp extends Application {
     miShowFlowMap.setOnAction(e -> selectVnsFlowMapTab());
     MenuItem miShowMenuFlow = new MenuItem("Menu Flow Editor");
     miShowMenuFlow.setOnAction(e -> selectMenuFlowTab());
+    disableMaintenanceMenuItem(miShowMenuFlow, EditorSidebarPanel.MENU_FLOW);
     MenuItem miShowLayoutLauncher = new MenuItem("Layout Launcher");
     miShowLayoutLauncher.setOnAction(e -> selectLayoutLauncherTab());
     MenuItem miShowPhoneAssets = new MenuItem("Phone Assets");
     miShowPhoneAssets.setOnAction(e -> selectPhoneAssetsToolTab());
+    disableMaintenanceMenuItem(miShowPhoneAssets, EditorSidebarPanel.PHONE_ASSETS);
     MenuItem miShowStoryboardOverlay = new MenuItem("Storyboard Overlay");
     miShowStoryboardOverlay.setOnAction(e -> selectStoryboardOverlayTab());
+    disableMaintenanceMenuItem(miShowStoryboardOverlay, EditorSidebarPanel.STORYBOARD_OVERLAY);
     MenuItem miShowLayeredVisualizer = new MenuItem("Layered Image Visualizer");
     miShowLayeredVisualizer.setOnAction(e -> selectLayeredImageVisualizerTab());
     MenuItem miShowImageAttributes = new MenuItem("Image Attributes Tool");
     miShowImageAttributes.setOnAction(e -> selectImageAttributesToolTab());
+    disableMaintenanceMenuItem(miShowImageAttributes, EditorSidebarPanel.IMAGE_ATTRIBUTES);
     MenuItem miShowImageTint = new MenuItem("Scene Lighting Studio");
     miShowImageTint.setOnAction(e -> selectImageTintToolTab());
     MenuItem miShowPuppeteerLauncher = new MenuItem("Puppeteer Launcher");
@@ -1567,6 +1576,7 @@ public class EditorApp extends Application {
     miNavigatePuppeteer.setOnAction(e -> selectPuppeteerLauncherTab());
     MenuItem miNavigateMenuFlow = new MenuItem("Menu Flow Editor");
     miNavigateMenuFlow.setOnAction(e -> selectMenuFlowTab());
+    disableMaintenanceMenuItem(miNavigateMenuFlow, EditorSidebarPanel.MENU_FLOW);
     MenuItem miNavigateLayoutLauncher = new MenuItem("Layout Launcher");
     miNavigateLayoutLauncher.setOnAction(e -> selectLayoutLauncherTab());
     menuNavigateEditors.getItems().addAll(
@@ -1575,12 +1585,15 @@ public class EditorApp extends Application {
     Menu menuNavigateVisual = new Menu("Visual Tools");
     MenuItem miNavigatePhoneAssets = new MenuItem("Phone Assets");
     miNavigatePhoneAssets.setOnAction(e -> selectPhoneAssetsToolTab());
+    disableMaintenanceMenuItem(miNavigatePhoneAssets, EditorSidebarPanel.PHONE_ASSETS);
     MenuItem miNavigateStoryboard = new MenuItem("Storyboard Overlay");
     miNavigateStoryboard.setOnAction(e -> selectStoryboardOverlayTab());
+    disableMaintenanceMenuItem(miNavigateStoryboard, EditorSidebarPanel.STORYBOARD_OVERLAY);
     MenuItem miNavigateLayered = new MenuItem("Layered Image Visualizer");
     miNavigateLayered.setOnAction(e -> selectLayeredImageVisualizerTab());
     MenuItem miNavigateImageAttributes = new MenuItem("Image Attributes Tool");
     miNavigateImageAttributes.setOnAction(e -> selectImageAttributesToolTab());
+    disableMaintenanceMenuItem(miNavigateImageAttributes, EditorSidebarPanel.IMAGE_ATTRIBUTES);
     MenuItem miNavigateImageTint = new MenuItem("Scene Lighting Studio");
     miNavigateImageTint.setOnAction(e -> selectImageTintToolTab());
     menuNavigateVisual.getItems().addAll(
@@ -1675,16 +1688,20 @@ public class EditorApp extends Application {
 
     MenuItem miMenuFlow = new MenuItem("Menu Flow Editor");
     miMenuFlow.setOnAction(e -> selectMenuFlowTab());
+    disableMaintenanceMenuItem(miMenuFlow, EditorSidebarPanel.MENU_FLOW);
     MenuItem miLayoutLauncher = new MenuItem("Layout Launcher");
     miLayoutLauncher.setOnAction(e -> selectLayoutLauncherTab());
     MenuItem miPhoneAssets = new MenuItem("Phone Assets");
     miPhoneAssets.setOnAction(e -> selectPhoneAssetsToolTab());
+    disableMaintenanceMenuItem(miPhoneAssets, EditorSidebarPanel.PHONE_ASSETS);
     MenuItem miStoryboardOverlay = new MenuItem("Storyboard Overlay");
     miStoryboardOverlay.setOnAction(e -> selectStoryboardOverlayTab());
+    disableMaintenanceMenuItem(miStoryboardOverlay, EditorSidebarPanel.STORYBOARD_OVERLAY);
     MenuItem miLayeredVisualizer = new MenuItem("Layered Image Visualizer");
     miLayeredVisualizer.setOnAction(e -> selectLayeredImageVisualizerTab());
     MenuItem miImageAttributes = new MenuItem("Image Attributes Tool");
     miImageAttributes.setOnAction(e -> selectImageAttributesToolTab());
+    disableMaintenanceMenuItem(miImageAttributes, EditorSidebarPanel.IMAGE_ATTRIBUTES);
     MenuItem miImageTint = new MenuItem("Scene Lighting Studio");
     miImageTint.setOnAction(e -> selectImageTintToolTab());
 
@@ -1791,12 +1808,14 @@ public class EditorApp extends Application {
     MenuItem miWindowPhoneAssets = new MenuItem("Phone Assets");
     miWindowPhoneAssets.setOnAction(e ->
         launchPanelAsWindow("Phone Assets", wrapMaintenance(ensurePhoneAssetsToolView()), 920, 760, EditorSidebarPanel.PHONE_ASSETS));
+    disableMaintenanceMenuItem(miWindowPhoneAssets, EditorSidebarPanel.PHONE_ASSETS);
     MenuItem miWindowStoryboard = new MenuItem("Storyboard Overlay");
     miWindowStoryboard.setOnAction(e -> {
       StoryboardOverlayView view = ensureStoryboardOverlayView();
       refreshStoryboardOverlayContext(getActiveFileTab());
       launchPanelAsWindow("Storyboard Overlay", wrapMaintenance(view), 420, 720, EditorSidebarPanel.STORYBOARD_OVERLAY);
     });
+    disableMaintenanceMenuItem(miWindowStoryboard, EditorSidebarPanel.STORYBOARD_OVERLAY);
     MenuItem miWindowLayered = new MenuItem("Layered Image Visualizer");
     miWindowLayered.setOnAction(e -> {
       LayeredImageVisualizerView view = ensureLayeredImageVisualizerView();
@@ -1809,6 +1828,7 @@ public class EditorApp extends Application {
       if (view != null) view.refreshCatalog();
       launchPanelAsWindow("Image Attributes Tool", wrapMaintenance(view), 800, 650, EditorSidebarPanel.IMAGE_ATTRIBUTES);
     });
+    disableMaintenanceMenuItem(miWindowImageAttributes, EditorSidebarPanel.IMAGE_ATTRIBUTES);
     MenuItem miWindowImageTint = new MenuItem("Scene Lighting Studio");
     miWindowImageTint.setOnAction(e -> {
       ImageTintToolView view = ensureImageTintToolView();
@@ -1821,6 +1841,7 @@ public class EditorApp extends Application {
       if (view != null) view.refreshStatus();
       launchPanelAsWindow("Menu Flow Editor", wrapMaintenance(view), 900, 650, EditorSidebarPanel.MENU_FLOW);
     });
+    disableMaintenanceMenuItem(miWindowMenuFlow, EditorSidebarPanel.MENU_FLOW);
     MenuItem miWindowPuppeteer = new MenuItem("Puppeteer Launcher");
     miWindowPuppeteer.setOnAction(e ->
         launchPanelAsWindow("Puppeteer Launcher", ensurePuppeteerLauncherPanel(), 600, 500, EditorSidebarPanel.PUPPETEER_LAUNCHER));
@@ -2921,6 +2942,7 @@ public class EditorApp extends Application {
 
   private Tab attachSidebarPanelTab(Tab tab, EditorSidebarPanel panel, TabPane targetPane) {
     if (tab == null) return null;
+    if (blockMaintenancePanelLaunch(panel, panel != null ? panel.displayName() : null)) return null;
     applySidebarPanelGraphic(tab, panel);
     installAnimatedSidebarToolTabClose(tab);
     attachPanelTabToPane(tab, targetPane);
@@ -3562,6 +3584,7 @@ public class EditorApp extends Application {
   private Tab ensureSidebarPanel(EditorSidebarPanel panel, TabPane targetPane) {
     if (panel == null || targetPane == null) return null;
     if (!panel.supportsDocking()) return null;
+    if (blockMaintenancePanelLaunch(panel, panel.displayName())) return null;
     return switch (panel) {
       case PROJECT -> ensureProjectTab(targetPane);
       case TIMELINE -> ensureTimelineTab(targetPane);
@@ -4967,12 +4990,69 @@ public class EditorApp extends Application {
         || panel == EditorSidebarPanel.MENU_FLOW;
   }
 
+  private boolean isMaintenanceLaunchBlocked(EditorSidebarPanel panel) {
+    return isUnderMaintenancePanel(panel) && !ALLOW_MAINTENANCE_TOOL_LAUNCHES;
+  }
+
+  private boolean blockMaintenancePanelLaunch(EditorSidebarPanel panel, String panelName) {
+    if (!isMaintenanceLaunchBlocked(panel)) return false;
+    String name = panelName == null || panelName.isBlank()
+        ? panel != null ? panel.displayName() : "This tool"
+        : panelName;
+    if (status != null) {
+      status.setText(name + " is under maintenance until " + MAINTENANCE_LATE_MAY_2026 + ".");
+    }
+    return true;
+  }
+
   private String maintenanceText(EditorSidebarPanel panel, String panelName) {
     String name = panelName == null || panelName.isBlank()
         ? panel != null ? panel.displayName() : "This tool"
         : panelName;
-    return name + " is under maintenance until " + MAINTENANCE_LATE_MAY_2026
-        + ". You can still open it, but expect incomplete behavior.";
+    String action = ALLOW_MAINTENANCE_TOOL_LAUNCHES
+        ? "Launch override is enabled, but incomplete behavior is expected."
+        : "Launch is disabled by default.";
+    return name + " is under maintenance until " + MAINTENANCE_LATE_MAY_2026 + ". " + action;
+  }
+
+  private void disableMaintenanceMenuItem(MenuItem item, EditorSidebarPanel panel) {
+    if (item == null || !isMaintenanceLaunchBlocked(panel)) return;
+    item.setDisable(true);
+    if (!item.getText().contains("Maintenance")) {
+      item.setText(item.getText() + " (Maintenance)");
+    }
+  }
+
+  private Canvas maintenanceChooserStripeCanvas(StackPane shell) {
+    Canvas canvas = new Canvas();
+    canvas.setMouseTransparent(true);
+    canvas.widthProperty().bind(shell.widthProperty());
+    canvas.heightProperty().bind(shell.heightProperty());
+    canvas.widthProperty().addListener(o -> drawMaintenanceChooserStripes(canvas));
+    canvas.heightProperty().addListener(o -> drawMaintenanceChooserStripes(canvas));
+    return canvas;
+  }
+
+  private void drawMaintenanceChooserStripes(Canvas canvas) {
+    if (canvas == null) return;
+    double w = canvas.getWidth();
+    double h = canvas.getHeight();
+    if (w <= 0 || h <= 0) return;
+
+    GraphicsContext gc = canvas.getGraphicsContext2D();
+    gc.clearRect(0, 0, w, h);
+    gc.setFill(MAINTENANCE_CHOOSER_TINT_COLOR);
+    gc.fillRect(0, 0, w, h);
+
+    double period = MAINTENANCE_CHOOSER_STRIPE_WIDTH * 2.0;
+    gc.setFill(MAINTENANCE_CHOOSER_STRIPE_COLOR);
+    for (double x = -h - period; x < w + period; x += period) {
+      gc.fillPolygon(
+          new double[]{x, x + MAINTENANCE_CHOOSER_STRIPE_WIDTH,
+              x + MAINTENANCE_CHOOSER_STRIPE_WIDTH + h, x + h},
+          new double[]{0, 0, h, h},
+          4);
+    }
   }
 
   private boolean isMaintenanceWrapped(Tab tab) {
@@ -4980,6 +5060,7 @@ public class EditorApp extends Application {
   }
 
   private Tab ensurePhoneAssetsToolTab(TabPane targetPane) {
+    if (blockMaintenancePanelLaunch(EditorSidebarPanel.PHONE_ASSETS, "Phone Assets")) return null;
     closePanelWindow(EditorSidebarPanel.PHONE_ASSETS, true);
     PhoneAssetsToolView phoneAssets = ensurePhoneAssetsToolView();
     if (targetPane == null || phoneAssets == null) return null;
@@ -4997,6 +5078,7 @@ public class EditorApp extends Application {
   }
 
   private Tab ensureStoryboardOverlayTab(TabPane targetPane) {
+    if (blockMaintenancePanelLaunch(EditorSidebarPanel.STORYBOARD_OVERLAY, "Storyboard Overlay")) return null;
     closePanelWindow(EditorSidebarPanel.STORYBOARD_OVERLAY, true);
     StoryboardOverlayView storyboardOverlay = ensureStoryboardOverlayView();
     if (targetPane == null || storyboardOverlay == null) return null;
@@ -5034,6 +5116,7 @@ public class EditorApp extends Application {
   }
 
   private Tab ensureImageAttributesToolTab(TabPane targetPane) {
+    if (blockMaintenancePanelLaunch(EditorSidebarPanel.IMAGE_ATTRIBUTES, "Image Attributes Tool")) return null;
     closePanelWindow(EditorSidebarPanel.IMAGE_ATTRIBUTES, true);
     ImageAttributesToolView attributes = ensureImageAttributesToolView();
     if (targetPane == null || attributes == null) return null;
@@ -5091,6 +5174,7 @@ public class EditorApp extends Application {
   }
 
   private Tab ensureMenuFlowTab(TabPane targetPane) {
+    if (blockMaintenancePanelLaunch(EditorSidebarPanel.MENU_FLOW, "Menu Flow")) return null;
     closePanelWindow(EditorSidebarPanel.MENU_FLOW, true);
     MenuFlowEditorView menuFlow = ensureMenuFlowEditorView();
     if (targetPane == null || menuFlow == null) return null;
@@ -5150,6 +5234,9 @@ public class EditorApp extends Application {
       Runnable embedAction, Runnable windowAction, Runnable removeAction) {
     if (actions == null || panelName == null) return;
     if (panel != null && !editorPreferences.isVisibleInChooser(panel)) return;
+    boolean underMaintenance = isUnderMaintenancePanel(panel);
+    boolean launchBlocked = isMaintenanceLaunchBlocked(panel);
+    Tooltip maintenanceTooltip = new Tooltip(maintenanceText(panel, panelName));
 
     String resolvedIconClass = panel != null ? panel.iconStyleClass() : iconClass;
     Node panelIcon = panel != null
@@ -5206,11 +5293,11 @@ public class EditorApp extends Application {
     dockBtn.setMinSize(26, 26); dockBtn.setPrefSize(26, 26); dockBtn.setMaxSize(26, 26);
     dockBtn.setFocusTraversable(false);
     dockBtn.getStyleClass().add("panel-chooser-icon-btn");
-    if (embedAction != null) {
+    if (embedAction != null && !launchBlocked) {
       dockBtn.setOnAction(e -> embedAction.run());
     } else {
       dockBtn.setDisable(true);
-      dockBtn.setTooltip(new Tooltip("Pop-out only"));
+      dockBtn.setTooltip(launchBlocked ? maintenanceTooltip : new Tooltip("Pop-out only"));
     }
 
     Button popOutBtn = new Button();
@@ -5219,10 +5306,11 @@ public class EditorApp extends Application {
     popOutBtn.setMinSize(26, 26); popOutBtn.setPrefSize(26, 26); popOutBtn.setMaxSize(26, 26);
     popOutBtn.setFocusTraversable(false);
     popOutBtn.getStyleClass().add("panel-chooser-icon-btn");
-    if (windowAction != null) {
+    if (windowAction != null && !launchBlocked) {
       popOutBtn.setOnAction(e -> windowAction.run());
     } else {
       popOutBtn.setDisable(true);
+      if (launchBlocked) popOutBtn.setTooltip(maintenanceTooltip);
     }
 
     Runnable refreshState = () -> {
@@ -5242,6 +5330,14 @@ public class EditorApp extends Application {
       placementBadge.setManaged(true);
       placementBadge.setVisible(true);
       updateChooserPlacementBadge(placementBadge, placement, attached, placementTooltip);
+      if (launchBlocked) {
+        dockBtn.setGraphic(CssIcon.warning("#f5a34a"));
+        dockBtn.setTooltip(maintenanceTooltip);
+        dockBtn.setDisable(true);
+        popOutBtn.setTooltip(maintenanceTooltip);
+        popOutBtn.setDisable(true);
+        return;
+      }
       if (!panel.supportsDocking()) {
         dockBtn.setGraphic(CssIcon.popOut("#9a9a9a"));
         dockBtn.setTooltip(new Tooltip("Pop-out only"));
@@ -5263,7 +5359,7 @@ public class EditorApp extends Application {
     };
 
     final Runnable dockAction;
-    if (embedAction != null) {
+    if (embedAction != null && !launchBlocked) {
       dockAction = () -> {
         embedAction.run();
         dismissPanelChooser(chooserPane);
@@ -5273,15 +5369,13 @@ public class EditorApp extends Application {
     } else {
       dockAction = null;
     }
-    if (windowAction != null) {
+    if (windowAction != null && !launchBlocked) {
       popOutBtn.setOnAction(e -> {
         windowAction.run();
         dismissPanelChooser(chooserPane);
         refreshState.run();
       });
     }
-
-    boolean underMaintenance = isUnderMaintenancePanel(panel);
 
     HBox row = new HBox(8, iconChip, titleGroup, memoryGroup, placementBadge, dockBtn, popOutBtn);
     row.setAlignment(Pos.CENTER_LEFT);
@@ -5300,6 +5394,11 @@ public class EditorApp extends Application {
     EventHandler<MouseEvent> openOnDoubleClick = e -> {
       if (e.getButton() != MouseButton.PRIMARY || e.getClickCount() < 2) return;
       if (isInsideChooserIconButton(e.getTarget())) return;
+      if (launchBlocked) {
+        blockMaintenancePanelLaunch(panel, panelName);
+        e.consume();
+        return;
+      }
       if (dockAction != null) {
         dockAction.run();
       } else if (windowAction != null) {
@@ -5319,25 +5418,9 @@ public class EditorApp extends Application {
       shell.setMaxWidth(Double.MAX_VALUE);
       shell.getStyleClass().add("panel-chooser-maintenance-shell");
 
-      Region veil = new Region();
-      veil.getStyleClass().add("panel-chooser-maintenance-veil");
-      veil.setMouseTransparent(true);
-      veil.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
-
-      Label badge = new Label("UNDER MAINTENANCE");
-      badge.getStyleClass().add("panel-chooser-maintenance-badge");
-      Label eta = new Label(MAINTENANCE_LATE_MAY_2026);
-      eta.getStyleClass().add("panel-chooser-maintenance-eta");
-      HBox overlay = new HBox(6, badge, eta);
-      overlay.getStyleClass().add("panel-chooser-maintenance-overlay");
-      overlay.setAlignment(Pos.CENTER_RIGHT);
-      overlay.setMouseTransparent(true);
-      overlay.setPadding(new Insets(0, 78, 0, 0));
-      overlay.setMaxWidth(Double.MAX_VALUE);
-      StackPane.setAlignment(overlay, Pos.CENTER_RIGHT);
-
-      shell.getChildren().addAll(veil, overlay);
-      Tooltip.install(shell, new Tooltip(maintenanceText(panel, panelName)));
+      Canvas stripes = maintenanceChooserStripeCanvas(shell);
+      shell.getChildren().add(stripes);
+      Tooltip.install(shell, maintenanceTooltip);
       chooserNode = shell;
     }
     chooserNode.getProperties().put("chooserFilterKey", filterKey);
@@ -5533,6 +5616,7 @@ public class EditorApp extends Application {
       double height,
       EditorSidebarPanel panel) {
     if (content == null) return;
+    if (blockMaintenancePanelLaunch(panel, title)) return;
     if (panel != null) {
       Stage existing = panelWindows.get(panel);
       if (existing != null) {
