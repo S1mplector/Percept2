@@ -43,9 +43,13 @@ class AsyncAssetLoaderTest {
     Set<String> threadNames = ConcurrentHashMap.newKeySet();
     int count = 100;
     List<CompletableFuture<Void>> futures = new ArrayList<>(count);
+    // Use thenAcceptAsync with the shared executor so the callback always runs
+    // on a pool thread, not the caller thread (which happens when the future is
+    // already complete at the point thenAccept is attached).
     for (int i = 0; i < count; i++) {
-      futures.add(AsyncAssetLoader.loadBytes(resource).thenAccept(b ->
-          threadNames.add(Thread.currentThread().getName())
+      futures.add(AsyncAssetLoader.loadBytes(resource).thenAcceptAsync(b ->
+          threadNames.add(Thread.currentThread().getName()),
+          AsyncAssetLoader.getExecutor()
       ));
     }
     CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
