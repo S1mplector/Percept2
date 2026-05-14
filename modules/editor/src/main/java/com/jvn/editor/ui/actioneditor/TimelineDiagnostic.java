@@ -72,6 +72,7 @@ public class TimelineDiagnostic {
         actions.add("pivot");
         actions.add("rotate");
         actions.add("scale");
+        actions.add("mirror");
         actions.add("fade");
         actions.add("visible");
         actions.add("expression");
@@ -96,6 +97,7 @@ public class TimelineDiagnostic {
         keys.put("pivot", lowerSet(Set.of("ox", "oy", "dur", "duration", "easing", "interp")));
         keys.put("rotate", lowerSet(Set.of("angle", "rotation", "deg", "dur", "duration", "easing", "interp")));
         keys.put("scale", lowerSet(Set.of("x", "y", "sx", "sy", "scale_x", "scale_y", "dur", "duration", "easing", "interp")));
+        keys.put("mirror", lowerSet(Set.of("mirrorx", "mirror_x", "flipx", "flip_x", "x", "value", "dur", "duration", "easing", "interp")));
         keys.put("fade", lowerSet(Set.of("alpha", "dur", "duration", "easing", "interp")));
         keys.put("visible", lowerSet(Set.of("value", "visible")));
         keys.put("expression", lowerSet(Set.of("value", "path", "position")));
@@ -773,6 +775,25 @@ public class TimelineDiagnostic {
                     action,
                     "zoom must be > 0",
                     "Set to 0.01 minimum",
+                    lineNo
+                ));
+            }
+            return;
+        }
+
+        if ("mirror".equals(actionNorm)
+            && ("mirrorx".equals(keyNorm)
+                || "mirror_x".equals(keyNorm)
+                || "flipx".equals(keyNorm)
+                || "flip_x".equals(keyNorm)
+                || "x".equals(keyNorm)
+                || "value".equals(keyNorm))) {
+            if (!isBooleanLike(value) && parseNumber(value) == null) {
+                out.add(new Message(
+                    Severity.ERROR,
+                    action,
+                    key + " must be numeric or boolean",
+                    "Use 0/1 for mirror amount, or true/false for a full flip",
                     lineNo
                 ));
             }

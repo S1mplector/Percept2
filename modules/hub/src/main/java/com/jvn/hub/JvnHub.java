@@ -120,6 +120,7 @@ public final class JvnHub {
   private final JLabel activityTitle = new JLabel("Ready");
   private final JLabel activityDetail = new JLabel("Choose an action to get started.");
   private final StepListPanel activitySteps = new StepListPanel();
+  private final ActivityProgressPanel activityPanel = new ActivityProgressPanel(new BorderLayout(10, 8));
   private final javax.swing.Timer spinnerTimer = new javax.swing.Timer(70, e -> activitySpinner.tick());
   private final javax.swing.Timer autoStepTimer = new javax.swing.Timer(1800, e -> autoAdvanceDuringSilence());
   private final List<AbstractButton> actionButtons = new ArrayList<>();
@@ -639,7 +640,7 @@ public final class JvnHub {
     activityDetail.setFont(activityDetail.getFont().deriveFont(Font.PLAIN, 10f));
 
     JPanel text = new JPanel(new BorderLayout(10, 0));
-    text.setBackground(PANEL_BG);
+    text.setOpaque(false);
     text.add(activityTitle, BorderLayout.WEST);
     text.add(activityDetail, BorderLayout.CENTER);
 
@@ -652,16 +653,17 @@ public final class JvnHub {
         "Choose an action",
         "The hub will show every background stage here."));
 
-    JPanel panel = new JPanel(new BorderLayout(10, 8));
-    panel.setBackground(PANEL_BG);
-    panel.setBorder(BorderFactory.createCompoundBorder(
+    activityPanel.setProgress(0.0);
+    activityPanel.setTone(ACCENT_NEUTRAL, false);
+    activityPanel.setBackground(PANEL_BG);
+    activityPanel.setBorder(BorderFactory.createCompoundBorder(
         BorderFactory.createLineBorder(BORDER_NEUTRAL),
         new EmptyBorder(8, 10, 8, 12)));
-    panel.add(header, BorderLayout.NORTH);
-    panel.add(activitySteps, BorderLayout.CENTER);
-    panel.setPreferredSize(new Dimension(0, 118));
-    panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 118));
-    return panel;
+    activityPanel.add(header, BorderLayout.NORTH);
+    activityPanel.add(activitySteps, BorderLayout.CENTER);
+    activityPanel.setPreferredSize(new Dimension(0, 118));
+    activityPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 118));
+    return activityPanel;
   }
 
   private static void styleScrollBar(JScrollBar bar) {
@@ -1760,6 +1762,7 @@ public final class JvnHub {
       activityTitle.setForeground(tone != null ? tone : TEXT_PRIMARY);
       activityDetail.setText(compactMessage(detail));
       activitySpinner.setActive(spinning);
+      activityPanel.setTone(tone != null ? tone : ACCENT_NEUTRAL, spinning || runningProcess.get() != null);
       if (spinning && !spinnerTimer.isRunning()) {
         spinnerTimer.start();
       } else if (!spinning && spinnerTimer.isRunning()) {
@@ -1779,6 +1782,7 @@ public final class JvnHub {
       activeStepIndex = steps.isEmpty() ? -1 : 0;
       activitySteps.setSteps(steps);
       if (activeStepIndex >= 0) activitySteps.setStatus(activeStepIndex, StepStatus.RUNNING);
+      updateActivityProgressFill();
     });
   }
 
@@ -1786,6 +1790,7 @@ public final class JvnHub {
     SwingUtilities.invokeLater(() -> {
       if (activeStepIndex >= 0) activitySteps.setStatus(activeStepIndex, StepStatus.DONE);
       if (detail != null && !detail.isBlank()) activityDetail.setText(compactMessage(detail));
+      updateActivityProgressFill();
     });
   }
 
@@ -1798,6 +1803,7 @@ public final class JvnHub {
         activitySteps.setStatus(activeStepIndex, StepStatus.RUNNING);
       }
       if (detail != null && !detail.isBlank()) activityDetail.setText(compactMessage(detail));
+      updateActivityProgressFill();
     });
   }
 
@@ -1814,6 +1820,7 @@ public final class JvnHub {
         activitySteps.setStatus(activeStepIndex, StepStatus.RUNNING);
       }
       if (detail != null && !detail.isBlank()) activityDetail.setText(compactMessage(detail));
+      updateActivityProgressFill();
     });
   }
 
@@ -1833,7 +1840,13 @@ public final class JvnHub {
       activeStepIndex = -1;
       activeStepLabel = "";
       if (detail != null && !detail.isBlank()) activityDetail.setText(compactMessage(detail));
+      activityPanel.setProgress(success ? 1.0 : Math.max(activityPanel.progress(), activitySteps.progressFraction()));
+      activityPanel.setTone(success ? ACCENT_GREEN : ACCENT_ERROR, false);
     });
+  }
+
+  private void updateActivityProgressFill() {
+    activityPanel.setProgress(activitySteps.progressFraction());
   }
 
   private List<String> stepsForAction(String label) {
@@ -2095,6 +2108,7 @@ public final class JvnHub {
     activeStepIndex = next;
     activitySteps.setStatus(activeStepIndex, StepStatus.RUNNING);
     activityDetail.setText(compactMessage(activitySteps.stepAt(activeStepIndex)));
+    updateActivityProgressFill();
   }
 
   private int autoAdvanceLimit(String key) {
@@ -2710,6 +2724,83 @@ public final class JvnHub {
     FAILED
   }
 
+  /** Paints launch progress behind the activity header and auto-scrolling step list. */
+  private static final class ActivityProgressPanel extends JPanel {
+    private double progress = 0.0;
+    private Color tone = ACCENT_NEUTRAL;
+    private boolean active = false;
+
+    ActivityProgressPanel(LayoutManager layout) {
+      super(layout);
+      setOpaque(true);
+    }
+
+    void setProgress(double value) {
+      double next = Double.isFinite(value) ? Math.max(0.0, Math.min(1.0, value)) : 0.0;
+      if (Math.abs(progress - next) < 0.001) return;
+      progress = next;
+      repaint();
+    }
+
+    double progress() {
+      return progress;
+    }
+
+    void setTone(Color color, boolean active) {
+      tone = color == null ? ACCENT_NEUTRAL : color;
+      this.active = active;
+      repaint();
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+      super.paintComponent(g);
+      if (progress <= 0.001 || getWidth() <= 0 || getHeight() <= 0) return;
+
+      Graphics2D g2 = (Graphics2D) g.create();
+      g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+      Shape oldClip = g2.getClip();
+      RoundRectangle2D clip = new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), 14, 14);
+      g2.setClip(clip);
+
+      int fillWidth = Math.max(1, (int) Math.round(getWidth() * progress));
+      float alpha = active ? 0.22f : 0.16f;
+      g2.setPaint(new LinearGradientPaint(
+          0f,
+          0f,
+          Math.max(1f, fillWidth),
+          0f,
+          new float[] {0f, 1f},
+          new Color[] {withAlpha(tone, alpha), withAlpha(tone, Math.max(0.08f, alpha * 0.58f))}));
+      g2.fillRect(0, 0, fillWidth, getHeight());
+
+      g2.setPaint(new LinearGradientPaint(
+          0f,
+          0f,
+          0f,
+          Math.max(1f, getHeight()),
+          new float[] {0f, 0.55f, 1f},
+          new Color[] {
+              withAlpha(Color.WHITE, active ? 0.045f : 0.025f),
+              withAlpha(Color.WHITE, 0.0f),
+              withAlpha(Color.BLACK, 0.10f)
+          }));
+      g2.fillRect(0, 0, fillWidth, getHeight());
+
+      g2.setClip(oldClip);
+      g2.dispose();
+    }
+
+    private static Color withAlpha(Color color, float alpha) {
+      if (color == null) color = ACCENT_NEUTRAL;
+      return new Color(
+          color.getRed(),
+          color.getGreen(),
+          color.getBlue(),
+          Math.round(Math.max(0f, Math.min(1f, alpha)) * 255f));
+    }
+  }
+
   /** Checklist-style progress surface for long hub actions. */
   private static final class StepListPanel extends JComponent {
     private static final int ROW_HEIGHT = 22;
@@ -2763,6 +2854,19 @@ public final class JvnHub {
       statuses.set(index, status == null ? StepStatus.PENDING : status);
       retargetScroll();
       repaint();
+    }
+
+    double progressFraction() {
+      if (statuses.isEmpty()) return 0.0;
+      double units = 0.0;
+      for (StepStatus status : statuses) {
+        if (status == StepStatus.DONE || status == StepStatus.FAILED) {
+          units += 1.0;
+        } else if (status == StepStatus.RUNNING) {
+          units += 0.55;
+        }
+      }
+      return Math.max(0.0, Math.min(1.0, units / statuses.size()));
     }
 
     @Override

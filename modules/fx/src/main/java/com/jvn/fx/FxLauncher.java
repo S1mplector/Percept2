@@ -1291,12 +1291,18 @@ public class FxLauncher extends Application {
       }
       case "settings_menu", "open_settings_menu", "menu_settings" -> {
         String fallbackScript = resolveDefaultScriptForMenus(vnScene);
+        String targetMenu = normalizeMenuId(target, "settings");
+        com.jvn.core.input.ActionBindingProfile profile =
+            com.jvn.core.input.ActionBindingProfile.deserialize(
+                vnScene.getState().getSettings().getInputProfileSerialized());
         engine.scenes().push(new SettingsScene(
             engine,
             new com.jvn.core.vn.save.VnSaveManager(),
             fallbackScript,
             vnScene.getState().getSettings(),
-            vnScene.getAudioFacade()
+            vnScene.getAudioFacade(),
+            profile,
+            targetMenu
         ));
         return true;
       }
@@ -1437,6 +1443,22 @@ public class FxLauncher extends Application {
     com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
     if (currentScene instanceof VnScene vn) {
       String fallbackScript = resolveDefaultScriptForMenus(vn);
+      String configuredPauseMenu = resolveConfiguredPauseMenuId();
+      if (configuredPauseMenu != null) {
+        com.jvn.core.input.ActionBindingProfile profile =
+            com.jvn.core.input.ActionBindingProfile.deserialize(
+                vn.getState().getSettings().getInputProfileSerialized());
+        engine.scenes().push(new SettingsScene(
+            engine,
+            new com.jvn.core.vn.save.VnSaveManager(),
+            fallbackScript,
+            vn.getState().getSettings(),
+            vn.getAudioFacade(),
+            profile,
+            configuredPauseMenu
+        ));
+        return;
+      }
       engine.scenes().push(new PauseMenuScene(
           engine, vn,
           new com.jvn.core.vn.save.VnSaveManager(),
@@ -1498,6 +1520,46 @@ public class FxLauncher extends Application {
     String resolved = VnEntryScriptResolver.resolveEntryScript(null, null);
     if (resolved != null) return resolved;
     return DEFAULT_ENTRY_SCRIPT;
+  }
+
+  private String resolveConfiguredPauseMenuId() {
+    String fromProperty = normalizeMenuId(System.getProperty("jvn.pause.menu"), null);
+    if (fromProperty == null) fromProperty = normalizeMenuId(System.getProperty("jvn.pauseMenu"), null);
+    if (fromProperty != null) return fromProperty;
+    if (runtimeProjectRoot == null) return null;
+    File manifest = new File(runtimeProjectRoot, "jvn.project");
+    if (!manifest.isFile()) return null;
+    try (var in = Files.newInputStream(manifest.toPath())) {
+      var props = new java.util.Properties();
+      props.load(in);
+      String value = firstConfiguredProperty(
+          props,
+          "runtime.pauseMenu",
+          "runtime.pause.menu",
+          "menu.pause",
+          "pauseMenu",
+          "pause.menu"
+      );
+      return normalizeMenuId(value, null);
+    } catch (Exception ignored) {
+      return null;
+    }
+  }
+
+  private static String firstConfiguredProperty(java.util.Properties props, String... keys) {
+    if (props == null || keys == null) return null;
+    for (String key : keys) {
+      if (key == null || key.isBlank()) continue;
+      String value = props.getProperty(key);
+      if (value != null && !value.isBlank()) return value;
+    }
+    return null;
+  }
+
+  private static String normalizeMenuId(String raw, String fallback) {
+    if (raw == null) return fallback;
+    String value = raw.trim();
+    return value.isEmpty() ? fallback : value;
   }
 
   private void captureVnThumbnail(VnScene vnScene, File out) throws Exception {

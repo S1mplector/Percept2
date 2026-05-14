@@ -8,8 +8,8 @@ import com.jvn.core.scene2d.Entity2D;
 
 /**
  * Lightweight parser that converts inline JES timeline blocks into {@link TimelineData}.
- * Supports: move, pivot, wait, rotate, scale, fade, visible, cameraMove,
- * cameraZoom, playAudio.
+ * Supports: move, depth, pivot, wait, rotate, scale, mirror, fade, visible,
+ * cameraMove, cameraZoom, property, event cues, and playAudio.
  *
  * <pre>
  * timeline {
@@ -41,6 +41,8 @@ public class TimelineDataParser {
         "rotate\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
     private static final Pattern SCALE_PATTERN = Pattern.compile(
         "scale\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
+    private static final Pattern MIRROR_PATTERN = Pattern.compile(
+        "mirror\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
     private static final Pattern FADE_PATTERN = Pattern.compile(
         "fade\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
     private static final Pattern VISIBLE_PATTERN = Pattern.compile(
@@ -79,7 +81,7 @@ public class TimelineDataParser {
      */
     public static TimelineData parse(String name, String block) {
         if (block == null) block = "";
-        String[] lines = block.split("\\r?\\n");
+        String[] lines = expandInlineBlocks(block).split("\\r?\\n");
 
         double cursor = 0;
         double maxTime = 0;
@@ -97,6 +99,10 @@ public class TimelineDataParser {
 
             // timeline { ... } wrapper — skip the outer braces
             if (trimmed.startsWith("timeline")) {
+                i++;
+                continue;
+            }
+            if (trimmed.equalsIgnoreCase("parallel") || trimmed.equalsIgnoreCase("parallel {")) {
                 i++;
                 continue;
             }
@@ -324,6 +330,39 @@ public class TimelineDataParser {
                     addTweenKeyframe(
                         track,
                         TimelineData.Property.SCALE_Y,
+                        cursor,
+                        endTime,
+                        val,
+                        easingSpec,
+                        interpolation,
+                        easingSpec.getParameters()
+                    );
+                }
+                if (endTime > maxTime) maxTime = endTime;
+                continue;
+            }
+
+            // mirror "entity" { mirrorX: 1 dur: 400 }
+            Matcher mirrorM = MIRROR_PATTERN.matcher(trimmed);
+            if (mirrorM.find()) {
+                String entity = mirrorM.group(1);
+                i++;
+                ActionBlock ab = readBlock(lines, i);
+                i = ab.endIndex;
+
+                double dur = ab.getDuration();
+                EasingSpec easingSpec = parseEasingSpec(ab.getString("easing", "linear"));
+                Easing.Interpolation interpolation = parseInterpolation(ab.getString("interp", "tween"));
+                double endTime = cursor + dur;
+                TimelineData.Track track = getOrCreateTrack(data, entity);
+
+                if (ab.hasAny("mirrorx", "mirror_x", "flipx", "flip_x", "x", "value")) {
+                    double val = ab.hasAny("flipx", "flip_x", "value")
+                        ? (ab.getBooleanAny(false, "flipx", "flip_x", "value") ? 1.0 : ab.getDoubleAny(0.0, "flipx", "flip_x", "value"))
+                        : ab.getDoubleAny(0.0, "mirrorx", "mirror_x", "x");
+                    addTweenKeyframe(
+                        track,
+                        TimelineData.Property.MIRROR_X,
                         cursor,
                         endTime,
                         val,
@@ -582,6 +621,113 @@ public class TimelineDataParser {
 
     // ---- helpers ----
 
+    private static String expandInlineBlocks(String source) {
+        if (source == null || source.isBlank()) return "";
+        StringBuilder out = new StringBuilder();
+        String[] rawLines = source.split("\\r?\\n", -1);
+        for (String rawLine : rawLines) {
+            String line = rawLine == null ? "" : rawLine;
+            String trimmed = line.trim();
+            int open = trimmed.indexOf('{');
+            int close = trimmed.lastIndexOf('}');
+            if (open >= 0 && close > open && looksLikeInlineAction(trimmed.substring(0, open).trim())) {
+                String indent = line.substring(0, Math.max(0, line.indexOf(trimmed)));
+                out.append(indent).append(trimmed, 0, open + 1).append('\n');
+                for (java.util.Map.Entry<String, String> prop : parseInlineProperties(trimmed.substring(open + 1, close)).entrySet()) {
+                    out.append(indent).append("  ")
+                        .append(prop.getKey())
+                        .append(": ")
+                        .append(prop.getValue())
+                        .append('\n');
+                }
+                out.append(indent).append('}').append('\n');
+            } else {
+                out.append(line).append('\n');
+            }
+        }
+        return out.toString();
+    }
+
+    private static boolean looksLikeInlineAction(String header) {
+        if (header == null || header.isBlank()) return false;
+        String first = header.split("\\s+", 2)[0];
+        return TimelineActionSchema.isKnownAction(first) || "parallel".equalsIgnoreCase(first);
+    }
+
+    private static java.util.Map<String, String> parseInlineProperties(String body) {
+        java.util.Map<String, String> props = new java.util.LinkedHashMap<>();
+        if (body == null || body.isBlank()) return props;
+        int i = 0;
+        int len = body.length();
+        while (i < len) {
+            while (i < len && Character.isWhitespace(body.charAt(i))) i++;
+            int keyStart = i;
+            while (i < len) {
+                char c = body.charAt(i);
+                if (Character.isLetterOrDigit(c) || c == '_') {
+                    i++;
+                } else {
+                    break;
+                }
+            }
+            if (keyStart == i) break;
+            String key = body.substring(keyStart, i);
+            while (i < len && Character.isWhitespace(body.charAt(i))) i++;
+            if (i >= len || body.charAt(i) != ':') {
+                while (i < len && !Character.isWhitespace(body.charAt(i))) i++;
+                continue;
+            }
+            i++;
+            while (i < len && Character.isWhitespace(body.charAt(i))) i++;
+            int valueStart = i;
+            boolean inQuote = false;
+            boolean escaping = false;
+            while (i < len) {
+                char c = body.charAt(i);
+                if (escaping) {
+                    escaping = false;
+                    i++;
+                    continue;
+                }
+                if (c == '\\' && inQuote) {
+                    escaping = true;
+                    i++;
+                    continue;
+                }
+                if (c == '"') {
+                    inQuote = !inQuote;
+                    i++;
+                    continue;
+                }
+                if (!inQuote && Character.isWhitespace(c) && nextInlineKeyStarts(body, i + 1)) {
+                    break;
+                }
+                i++;
+            }
+            props.put(key.toLowerCase(), body.substring(valueStart, i).trim());
+        }
+        return props;
+    }
+
+    private static boolean nextInlineKeyStarts(String text, int index) {
+        if (text == null) return false;
+        int i = index;
+        int len = text.length();
+        while (i < len && Character.isWhitespace(text.charAt(i))) i++;
+        if (i >= len || !(Character.isLetter(text.charAt(i)) || text.charAt(i) == '_')) return false;
+        i++;
+        while (i < len) {
+            char c = text.charAt(i);
+            if (Character.isLetterOrDigit(c) || c == '_') {
+                i++;
+            } else {
+                break;
+            }
+        }
+        while (i < len && Character.isWhitespace(text.charAt(i))) i++;
+        return i < len && text.charAt(i) == ':';
+    }
+
     private static TimelineData.Track getOrCreateTrack(TimelineData data, String entity) {
         TimelineData.Track existing = data.getTrack(entity);
         if (existing != null) return existing;
@@ -757,6 +903,14 @@ public class TimelineDataParser {
             String t = v.trim();
             if ("true".equalsIgnoreCase(t) || "1".equals(t) || "yes".equalsIgnoreCase(t)) return true;
             if ("false".equalsIgnoreCase(t) || "0".equals(t) || "no".equalsIgnoreCase(t)) return false;
+            return def;
+        }
+
+        boolean getBooleanAny(boolean def, String... keys) {
+            if (keys == null) return def;
+            for (String key : keys) {
+                if (props.containsKey(key)) return getBoolean(key, def);
+            }
             return def;
         }
 

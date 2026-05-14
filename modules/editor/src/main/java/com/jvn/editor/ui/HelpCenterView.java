@@ -331,12 +331,15 @@ public class HelpCenterView extends BorderPane {
 
     Button openButton = new Button("Open in Editor");
     openButton.getStyleClass().add("help-toolbar-button");
+    openButton.setTooltip(new Tooltip("Open the selected documentation page in the editor"));
     openButton.setOnAction(e -> openSelectedDocInEditor());
     Button revealButton = new Button("Reveal File");
     revealButton.getStyleClass().add("help-toolbar-button");
+    revealButton.setTooltip(new Tooltip("Reveal the selected documentation file on disk"));
     revealButton.setOnAction(e -> revealSelectedDoc());
     Button copyPathButton = new Button("Copy Path");
     copyPathButton.getStyleClass().add("help-toolbar-button");
+    copyPathButton.setTooltip(new Tooltip("Copy the selected documentation path"));
     copyPathButton.setOnAction(e -> copySelectedDocPath());
     javafx.beans.binding.BooleanBinding noDocSelected = javafx.beans.binding.Bindings.createBooleanBinding(
         () -> selectedDocEntry() == null,

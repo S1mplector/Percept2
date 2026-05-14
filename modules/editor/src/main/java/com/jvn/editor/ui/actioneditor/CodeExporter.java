@@ -335,6 +335,7 @@ public class CodeExporter {
             collectPropertyEvents(events, project, entity, track, PropertyType.PIVOT_X, PropertyType.PIVOT_Y, "pivot", true);
             collectPropertyEvents(events, project, entity, track, PropertyType.ROTATION, null, "rotate", true);
             collectPropertyEvents(events, project, entity, track, PropertyType.SCALE_X, PropertyType.SCALE_Y, "scale", true);
+            collectPropertyEvents(events, project, entity, track, PropertyType.MIRROR_X, null, "mirror", true);
             collectPropertyEvents(events, project, entity, track, PropertyType.ALPHA, null, "fade", true);
             collectVisibilityEvents(events, entity, track);
             collectTimelineCustomPropertyEvents(events, entity, track, PropertyType.MATRIX_MXX);
@@ -523,6 +524,9 @@ public class CodeExporter {
                 case "scale" -> {
                     if (hasP1) ev.props.put("sx", endVal1);
                     if (hasP2) ev.props.put("sy", endVal2);
+                }
+                case "mirror" -> {
+                    if (hasP1) ev.props.put("mirrorX", endVal1);
                 }
                 case "fade" -> {
                     if (hasP1) ev.props.put("alpha", endVal1);
@@ -799,6 +803,9 @@ public class CodeExporter {
             case "deg": return PropertyType.ROTATION;
             case "sx": return PropertyType.SCALE_X;
             case "sy": return PropertyType.SCALE_Y;
+            case "mirror":
+            case "mirrorX":
+            case "flipX": return PropertyType.MIRROR_X;
             case "alpha": return PropertyType.ALPHA;
             case "visible":
             case "value": return PropertyType.VISIBILITY;

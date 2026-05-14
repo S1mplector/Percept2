@@ -77,6 +77,7 @@ public class AnimationProject {
         double rotationDeg,
         double scaleX,
         double scaleY,
+        double mirrorX,
         double alpha,
         double visibility
     ) {
@@ -91,6 +92,7 @@ public class AnimationProject {
                 case ROTATION -> rotationDeg;
                 case SCALE_X -> scaleX;
                 case SCALE_Y -> scaleY;
+                case MIRROR_X -> mirrorX;
                 case ALPHA -> alpha;
                 case VISIBILITY -> visibility;
                 default -> property.getDefaultValue();
@@ -746,6 +748,7 @@ public class AnimationProject {
             || property == PropertyType.ROTATION
             || property == PropertyType.SCALE_X
             || property == PropertyType.SCALE_Y
+            || property == PropertyType.MIRROR_X
             || property == PropertyType.ALPHA
             || property == PropertyType.VISIBILITY
             || property == PropertyType.MATRIX_MXX
@@ -948,6 +951,8 @@ public class AnimationProject {
         double rotation = localValueAt(track, PropertyType.ROTATION, timeMs, fallbackLocalValues);
         double scaleX = localValueAt(track, PropertyType.SCALE_X, timeMs, fallbackLocalValues);
         double scaleY = localValueAt(track, PropertyType.SCALE_Y, timeMs, fallbackLocalValues);
+        double mirrorX = localValueAt(track, PropertyType.MIRROR_X, timeMs, fallbackLocalValues);
+        scaleX *= mirrorFactor(mirrorX);
         double alpha = localValueAt(track, PropertyType.ALPHA, timeMs, fallbackLocalValues);
         double visibility = localValueAt(track, PropertyType.VISIBILITY, timeMs, fallbackLocalValues);
 
@@ -971,6 +976,9 @@ public class AnimationProject {
             double groupScaleX = groupTrack.hasKeyframes(PropertyType.SCALE_X)
                 ? groupTrack.getValueAt(PropertyType.SCALE_X, timeMs)
                 : 1.0;
+            if (groupTrack.hasKeyframes(PropertyType.MIRROR_X)) {
+                groupScaleX *= mirrorFactor(groupTrack.getValueAt(PropertyType.MIRROR_X, timeMs));
+            }
             double groupScaleY = groupTrack.hasKeyframes(PropertyType.SCALE_Y)
                 ? groupTrack.getValueAt(PropertyType.SCALE_Y, timeMs)
                 : 1.0;
@@ -999,7 +1007,7 @@ public class AnimationProject {
             cursor = group.getParentGroupName();
         }
 
-        return new EffectiveEntityTransform(x, y, z, pivotX, pivotY, rotation, scaleX, scaleY, alpha, visibility);
+        return new EffectiveEntityTransform(x, y, z, pivotX, pivotY, rotation, scaleX, scaleY, mirrorX, alpha, visibility);
     }
 
     public boolean hasEffectiveAnimation(String entityName, PropertyType property) {
@@ -1011,7 +1019,7 @@ public class AnimationProject {
             return hasGroupSpatialAnimation(track.getParentGroupName());
         }
         return isInheritedGroupProperty(property)
-            && hasGroupAnimation(track.getParentGroupName(), property);
+            && hasInheritedGroupAnimation(track.getParentGroupName(), property);
     }
 
     public List<Keyframe> getEffectiveKeyframes(String entityName, PropertyType property) {
@@ -1073,6 +1081,7 @@ public class AnimationProject {
             fallbackValue(fallbackLocalValues, PropertyType.ROTATION),
             fallbackValue(fallbackLocalValues, PropertyType.SCALE_X),
             fallbackValue(fallbackLocalValues, PropertyType.SCALE_Y),
+            fallbackValue(fallbackLocalValues, PropertyType.MIRROR_X),
             fallbackValue(fallbackLocalValues, PropertyType.ALPHA),
             fallbackValue(fallbackLocalValues, PropertyType.VISIBILITY)
         );
@@ -1185,7 +1194,7 @@ public class AnimationProject {
                 || isInheritedGroupProperty(property))
             && (property == PropertyType.X || property == PropertyType.Y
                 ? hasGroupSpatialAnimation(track.getParentGroupName())
-                : hasGroupAnimation(track.getParentGroupName(), property));
+                : hasInheritedGroupAnimation(track.getParentGroupName(), property));
     }
 
     private boolean hasGroupSpatialAnimation(String groupName) {
@@ -1196,7 +1205,8 @@ public class AnimationProject {
             PropertyType.PIVOT_Y,
             PropertyType.ROTATION,
             PropertyType.SCALE_X,
-            PropertyType.SCALE_Y);
+            PropertyType.SCALE_Y,
+            PropertyType.MIRROR_X);
     }
 
     private boolean hasAnyGroupAnimation(String groupName, PropertyType... properties) {
@@ -1425,6 +1435,13 @@ public class AnimationProject {
         return false;
     }
 
+    private boolean hasInheritedGroupAnimation(String groupName, PropertyType property) {
+        if (property == PropertyType.SCALE_X && hasGroupAnimation(groupName, PropertyType.MIRROR_X)) {
+            return true;
+        }
+        return hasGroupAnimation(groupName, property);
+    }
+
     private void collectEffectiveTimes(String entityName, PropertyType property, Map<Long, Double> out) {
         EntityTrack track = entityTracks.get(entityName);
         if (track == null || property == null || out == null) return;
@@ -1441,9 +1458,15 @@ public class AnimationProject {
                 PropertyType.PIVOT_Y,
                 PropertyType.ROTATION,
                 PropertyType.SCALE_X,
-                PropertyType.SCALE_Y);
+                PropertyType.SCALE_Y,
+                PropertyType.MIRROR_X);
             addGroupPositionBakeSamples(track.getParentGroupName(), out);
             return;
+        }
+
+        if (property == PropertyType.SCALE_X) {
+            collectGroupTimes(track.getParentGroupName(), out, PropertyType.MIRROR_X);
+            addGroupMirrorBakeSamples(track.getParentGroupName(), out);
         }
 
         if (isInheritedGroupProperty(property)) {
@@ -1468,9 +1491,15 @@ public class AnimationProject {
                 PropertyType.PIVOT_Y,
                 PropertyType.ROTATION,
                 PropertyType.SCALE_X,
-                PropertyType.SCALE_Y);
+                PropertyType.SCALE_Y,
+                PropertyType.MIRROR_X);
             if (source != null) return source;
             return null;
+        }
+
+        if (property == PropertyType.SCALE_X) {
+            Keyframe source = findGroupKeyframeAt(track.getParentGroupName(), timeMs, PropertyType.MIRROR_X);
+            if (source != null) return source;
         }
 
         return findGroupKeyframeAt(track.getParentGroupName(), timeMs, property);
@@ -1516,10 +1545,34 @@ public class AnimationProject {
             PropertyType.PIVOT_Y,
             PropertyType.ROTATION,
             PropertyType.SCALE_X,
-            PropertyType.SCALE_Y);
+            PropertyType.SCALE_Y,
+            PropertyType.MIRROR_X);
         if (arcTimes.size() < 2) return;
 
         List<Double> times = new ArrayList<>(arcTimes.values());
+        Collections.sort(times);
+        for (int i = 0; i < times.size() - 1; i++) {
+            double start = times.get(i);
+            double end = times.get(i + 1);
+            double span = end - start;
+            if (span <= GROUP_POSITION_BAKE_INTERVAL_MS) continue;
+            int steps = (int) Math.floor(span / GROUP_POSITION_BAKE_INTERVAL_MS);
+            for (int step = 1; step <= steps; step++) {
+                double sample = start + step * GROUP_POSITION_BAKE_INTERVAL_MS;
+                if (sample >= end - 0.001) continue;
+                long quantized = Math.round(sample * 1000.0);
+                out.putIfAbsent(quantized, sample);
+            }
+        }
+    }
+
+    private void addGroupMirrorBakeSamples(String groupName, Map<Long, Double> out) {
+        if (groupName == null || out == null) return;
+        Map<Long, Double> mirrorTimes = new TreeMap<>();
+        collectGroupTimes(groupName, mirrorTimes, PropertyType.MIRROR_X);
+        if (mirrorTimes.size() < 2) return;
+
+        List<Double> times = new ArrayList<>(mirrorTimes.values());
         Collections.sort(times);
         for (int i = 0; i < times.size() - 1; i++) {
             double start = times.get(i);
@@ -1577,6 +1630,7 @@ public class AnimationProject {
             case ROTATION -> TimelineData.Property.ROTATION;
             case SCALE_X -> TimelineData.Property.SCALE_X;
             case SCALE_Y -> TimelineData.Property.SCALE_Y;
+            case MIRROR_X -> TimelineData.Property.MIRROR_X;
             case ALPHA -> TimelineData.Property.ALPHA;
             case VISIBILITY -> TimelineData.Property.VISIBILITY;
             case CAMERA_X -> TimelineData.Property.CAMERA_X;
@@ -1625,6 +1679,11 @@ public class AnimationProject {
         if (value < 0.0) return 0.0;
         if (value > 1.0) return 1.0;
         return value;
+    }
+
+    private static double mirrorFactor(double mirrorX) {
+        if (!Double.isFinite(mirrorX)) return 1.0;
+        return Math.cos(clamp01(mirrorX) * Math.PI);
     }
 
     private static double sanitizeFinite(double value, double fallback) {

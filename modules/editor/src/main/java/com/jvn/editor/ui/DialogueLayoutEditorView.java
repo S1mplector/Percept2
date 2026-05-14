@@ -123,6 +123,7 @@ public class DialogueLayoutEditorView extends BorderPane {
       "dialogueTextXAlign",
       "choiceXCenter",
       "choiceYStart",
+      "choiceYAnchor",
       "choiceWidthFactor",
       "choiceHeight",
       "choiceGap",
@@ -231,6 +232,7 @@ public class DialogueLayoutEditorView extends BorderPane {
 
   private final Spinner<Double> spChoiceXCenter = spinner(0, 1, 0.5, 0.01);
   private final Spinner<Double> spChoiceYStart = spinner(-1, 1, -1, 0.01);
+  private final Spinner<Double> spChoiceYAnchor = spinner(0, 1, 0, 0.05);
   private final Spinner<Double> spChoiceWidthFactor = spinner(0.1, 1, 0.6, 0.01);
   private final Spinner<Double> spChoiceHeight = spinner(14, 200, 50, 1);
   private final Spinner<Double> spChoiceGap = spinner(0, 120, 10, 1);
@@ -477,6 +479,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     lvTextBoxButtons.setPrefHeight(132);
     spNameTextYAlign.setTooltip(new Tooltip("Vertical align inside the padded name box. Set to -1 to keep legacy baseline mode."));
     spChoiceTextYAlign.setTooltip(new Tooltip("Vertical align inside the padded choice button. Set to -1 to keep legacy baseline mode."));
+    spChoiceYAnchor.setTooltip(new Tooltip("Anchor for Choice Y Start. 0 pins the top; 0.5 matches Ren'Py vbox yanchor center behavior."));
 
     GridPane previewGrid = sectionGrid();
     int row = 0;
@@ -545,6 +548,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     row = 0;
     row = addRow(choiceLayoutGrid, row, "Choice X Center", spChoiceXCenter);
     row = addRow(choiceLayoutGrid, row, "Choice Y Start", spChoiceYStart);
+    row = addRow(choiceLayoutGrid, row, "Choice Y Anchor", spChoiceYAnchor);
     row = addRow(choiceLayoutGrid, row, "Choice Width Factor", spChoiceWidthFactor);
     row = addRow(choiceLayoutGrid, row, "Choice Height", spChoiceHeight);
     row = addRow(choiceLayoutGrid, row, "Choice Gap", spChoiceGap);
@@ -779,6 +783,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     controls.add(spDialogueTextXAlign);
     controls.add(spChoiceXCenter);
     controls.add(spChoiceYStart);
+    controls.add(spChoiceYAnchor);
     controls.add(spChoiceWidthFactor);
     controls.add(spChoiceHeight);
     controls.add(spChoiceGap);
@@ -1042,7 +1047,8 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.bubbleMinHeight(),
             dragStartSpec.bubbleTextPadding(),
             dragStartSpec.bubbleYOffset(),
-            dragStartSpec.bubbleTailSize()
+            dragStartSpec.bubbleTailSize(),
+            dragStartSpec.choiceYAnchor()
         );
       } else if (dragTarget == DragTarget.NAME_BOX) {
         next = new VnUiLayoutSpec(
@@ -1086,12 +1092,16 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.bubbleMinHeight(),
             dragStartSpec.bubbleTextPadding(),
             dragStartSpec.bubbleYOffset(),
-            dragStartSpec.bubbleTailSize()
+            dragStartSpec.bubbleTailSize(),
+            dragStartSpec.choiceYAnchor()
         );
       } else if (dragTarget == DragTarget.CHOICE_BLOCK) {
         double currentChoiceStart = resolveChoiceYStart(dragStartSpec, h, 3, scale);
         double nextStart = currentChoiceStart + dy;
-        double nextYStartNorm = clamp01(nextStart / h);
+        double choiceH = dragStartSpec.choiceHeight() * scale;
+        double choiceGap = dragStartSpec.choiceGap() * scale;
+        double totalChoiceHeight = 3 * choiceH + 2 * choiceGap;
+        double nextYStartNorm = clamp01((nextStart + totalChoiceHeight * dragStartSpec.choiceYAnchor()) / h);
         next = new VnUiLayoutSpec(
             dragStartSpec.textBoxX(),
             dragStartSpec.textBoxY(),
@@ -1133,7 +1143,8 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.bubbleMinHeight(),
             dragStartSpec.bubbleTextPadding(),
             dragStartSpec.bubbleYOffset(),
-            dragStartSpec.bubbleTailSize()
+            dragStartSpec.bubbleTailSize(),
+            dragStartSpec.choiceYAnchor()
         );
       } else if (dragTarget == DragTarget.TEXT_BOX_RESIZE) {
         double newWidth = Math.max(0.05, dragStartSpec.textBoxWidth() + (dx / w));
@@ -1179,7 +1190,8 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.bubbleMinHeight(),
             dragStartSpec.bubbleTextPadding(),
             dragStartSpec.bubbleYOffset(),
-            dragStartSpec.bubbleTailSize()
+            dragStartSpec.bubbleTailSize(),
+            dragStartSpec.choiceYAnchor()
         );
       } else if (dragTarget == DragTarget.CHOICE_RESIZE) {
         double newWidthFactor = Math.max(0.05, dragStartSpec.choiceWidthFactor() + (dx / w));
@@ -1225,7 +1237,8 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.bubbleMinHeight(),
             dragStartSpec.bubbleTextPadding(),
             dragStartSpec.bubbleYOffset(),
-            dragStartSpec.bubbleTailSize()
+            dragStartSpec.bubbleTailSize(),
+            dragStartSpec.choiceYAnchor()
         );
       } else if (dragTarget == DragTarget.DIALOGUE_BOUNDS || dragTarget == DragTarget.DIALOGUE_BOUNDS_RESIZE) {
         ProjectViewportSpec.Dimensions vp = ProjectViewportSpec.resolve(projectRoot);
@@ -1303,7 +1316,8 @@ public class DialogueLayoutEditorView extends BorderPane {
             dragStartSpec.bubbleMinHeight(),
             dragStartSpec.bubbleTextPadding(),
             dragStartSpec.bubbleYOffset(),
-            dragStartSpec.bubbleTailSize()
+            dragStartSpec.bubbleTailSize(),
+            dragStartSpec.choiceYAnchor()
         );
       } else if ((dragTarget == DragTarget.TEXTBOX_BUTTON || dragTarget == DragTarget.TEXTBOX_BUTTON_RESIZE)
           && dragButtonIndex >= 0 && dragButtonIndex < dragStartButtons.size()) {
@@ -2223,7 +2237,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     double choiceGap = s.choiceGap() * scale;
     double total = count * choiceH + Math.max(0, count - 1) * choiceGap;
     if (s.choiceYStart() < 0) return (h - total) / 2.0;
-    return h * s.choiceYStart();
+    return h * s.choiceYStart() - total * s.choiceYAnchor();
   }
 
   private VnUiLayoutSpec readSpecFromControls() {
@@ -2269,7 +2283,8 @@ public class DialogueLayoutEditorView extends BorderPane {
         value(spBubbleMinHeight),
         value(spBubbleTextPadding),
         value(spBubbleYOffset),
-        value(spBubbleTailSize)
+        value(spBubbleTailSize),
+        value(spChoiceYAnchor)
     );
   }
 
@@ -2294,6 +2309,7 @@ public class DialogueLayoutEditorView extends BorderPane {
     setValue(spDialoguePaddingBottom, s.dialogueTextBottomPadding());
     setValue(spChoiceXCenter, s.choiceXCenter());
     setValue(spChoiceYStart, s.choiceYStart());
+    setValue(spChoiceYAnchor, s.choiceYAnchor());
     setValue(spChoiceWidthFactor, s.choiceWidthFactor());
     setValue(spChoiceHeight, s.choiceHeight());
     setValue(spChoiceGap, s.choiceGap());

@@ -1,9 +1,14 @@
 package com.jvn.editor.ui.actioneditor;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
 
+import javafx.animation.AnimationTimer;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
@@ -53,17 +58,69 @@ public class AnchorEditor extends VBox {
                                               + "-fx-border-color: #505050; -fx-border-radius: 3;";
 
     private static final int    CANVAS_BASE_H = 190;
+    private static final int    CANVAS_EXPANDED_H = 520;
     private static final double PAD           = 10.0;
     private static final double DOT_R         = 5.0;
     private static final double HIT_R         = DOT_R * 2.5;
     private static final double ZOOM_MIN      = 0.25;
     private static final double ZOOM_MAX      = 5.0;
     private static final double ZOOM_STEP     = 1.4;
+    private static final long   ZOOM_ANIM_NS  = 160_000_000L;
+
+    private record GroupVisualRegion(
+        double sourceX,
+        double sourceY,
+        double sourceW,
+        double sourceH,
+        double minX,
+        double minY,
+        double maxX,
+        double maxY
+    ) {}
+
+    private record GroupVisualItem(
+        String entityName,
+        AnimationProject.SceneEntitySnapshot snapshot,
+        Image image,
+        List<GroupVisualRegion> regions
+    ) {}
+
+    private record GroupVisualBounds(
+        List<GroupVisualItem> items,
+        double minX,
+        double minY,
+        double maxX,
+        double maxY
+    ) {
+        boolean isEmpty() {
+            return items == null || items.isEmpty()
+                || !Double.isFinite(minX) || !Double.isFinite(minY)
+                || !Double.isFinite(maxX) || !Double.isFinite(maxY)
+                || maxX <= minX || maxY <= minY;
+        }
+
+        double width() {
+            return isEmpty() ? 0.0 : maxX - minX;
+        }
+
+        double height() {
+            return isEmpty() ? 0.0 : maxY - minY;
+        }
+    }
+
+    private record ZoomFocus(
+        double relX,
+        double relY,
+        double viewportX,
+        double viewportY
+    ) {}
 
     // ── State ────────────────────────────────────────────────────────────────
     private AnimationProject project;
     private AnimationPreview preview;
     private File             projectRoot;
+    private SpritePixelAnalyzer pixelAnalyzer;
+    private final Map<String, List<SpritePixelAnalyzer.DetectedRegion>> spriteRegionCache = new HashMap<>();
     private Runnable         onAnchorChanged;
     /** Called with (entityName, anchor) when a new anchor is confirmed. */
     private BiConsumer<String, Anchor> onAnchorPlaced;
@@ -73,11 +130,15 @@ public class AnchorEditor extends VBox {
     private String  currentEntityName;
     private boolean currentEntityIsGroup;
     private Image  spriteImage;
+    private GroupVisualBounds groupVisualBounds;
     private String selectedAnchorName;
 
     // zoom
     private double canvasZoom = 1.0;
     private Label  lblZoom;
+    private AnimationTimer zoomAnimator;
+    private boolean canvasExpanded;
+    private Button btnExpandCanvas;
 
     // pending placement (normalized coords, or -1 when inactive)
     private double pendingRelX = -1;
@@ -92,6 +153,7 @@ public class AnchorEditor extends VBox {
     private TextField  txtPendingName;
     private VBox       anchorsContainer;
     private Label      lblNoAnchors;
+    private ScrollPane anchorListScroll;
 
     // ── Constructor ──────────────────────────────────────────────────────────
     public AnchorEditor() {
@@ -130,16 +192,26 @@ public class AnchorEditor extends VBox {
             + "-fx-border-color: transparent;"
         );
         canvasScroll.setMaxHeight(CANVAS_BASE_H + 2);
-        canvasScroll.setPrefHeight(CANVAS_BASE_H + 2);
+        canvasScroll.setPrefHeight(canvasBaseHeight() + 2);
+        VBox.setVgrow(canvasScroll, Priority.NEVER);
         canvasScroll.setOnScroll(e -> {
             if (e.isControlDown() || e.isShortcutDown()) {
-                applyZoom(e.getDeltaY() > 0 ? canvasZoom * ZOOM_STEP : canvasZoom / ZOOM_STEP);
+                double[] focus = canvasFocusFromViewportEvent(e.getX(), e.getY());
+                smoothZoomTo(
+                    e.getDeltaY() > 0 ? canvasZoom * ZOOM_STEP : canvasZoom / ZOOM_STEP,
+                    focus[0],
+                    focus[1]
+                );
                 e.consume();
             }
         });
         miniCanvas.setOnScroll(e -> {
             if (e.isControlDown() || e.isShortcutDown()) {
-                applyZoom(e.getDeltaY() > 0 ? canvasZoom * ZOOM_STEP : canvasZoom / ZOOM_STEP);
+                smoothZoomTo(
+                    e.getDeltaY() > 0 ? canvasZoom * ZOOM_STEP : canvasZoom / ZOOM_STEP,
+                    e.getX(),
+                    e.getY()
+                );
                 e.consume();
             }
         });
@@ -158,15 +230,20 @@ public class AnchorEditor extends VBox {
         // Zoom bar
         Button btnZoomOut = new Button("−");
         btnZoomOut.setStyle(S_BTN_ZOOM);
-        btnZoomOut.setOnAction(e -> applyZoom(canvasZoom / ZOOM_STEP));
+        btnZoomOut.setOnAction(e -> smoothZoomTo(canvasZoom / ZOOM_STEP));
 
         Button btnZoomIn = new Button("+");
         btnZoomIn.setStyle(S_BTN_ZOOM);
-        btnZoomIn.setOnAction(e -> applyZoom(canvasZoom * ZOOM_STEP));
+        btnZoomIn.setOnAction(e -> smoothZoomTo(canvasZoom * ZOOM_STEP));
 
         Button btnZoomReset = new Button("1:1");
         btnZoomReset.setStyle(S_BTN_ZOOM + "-fx-min-width: 30; -fx-pref-width: 30;");
-        btnZoomReset.setOnAction(e -> applyZoom(1.0));
+        btnZoomReset.setOnAction(e -> smoothZoomTo(1.0));
+
+        btnExpandCanvas = new Button("Expand");
+        btnExpandCanvas.setStyle(S_BTN_ZOOM + "-fx-min-width: 74; -fx-pref-width: 74; -fx-max-width: 84;");
+        btnExpandCanvas.setOnAction(e -> setCanvasExpanded(!canvasExpanded));
+        updateCanvasExpandButton();
 
         lblZoom = new Label("100%");
         lblZoom.setStyle("-fx-text-fill: #aaa; -fx-font-size: 10px; -fx-min-width: 36; -fx-alignment: center;");
@@ -174,7 +251,7 @@ public class AnchorEditor extends VBox {
         Label zoomLabel = new Label("Zoom:");
         zoomLabel.setStyle("-fx-text-fill: #777; -fx-font-size: 10px;");
 
-        HBox zoomBar = new HBox(5, zoomLabel, btnZoomOut, lblZoom, btnZoomIn, btnZoomReset);
+        HBox zoomBar = new HBox(5, zoomLabel, btnZoomOut, lblZoom, btnZoomIn, btnZoomReset, btnExpandCanvas);
         zoomBar.setAlignment(Pos.CENTER_LEFT);
         zoomBar.setPadding(new Insets(4, 8, 4, 8));
         zoomBar.setStyle(
@@ -221,18 +298,18 @@ public class AnchorEditor extends VBox {
         anchorsContainer = new VBox(2);
         anchorsContainer.setPadding(new Insets(0, 6, 6, 6));
 
-        ScrollPane scroll = new ScrollPane(anchorsContainer);
-        scroll.setFitToWidth(true);
-        scroll.setMaxHeight(180);
-        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        anchorListScroll = new ScrollPane(anchorsContainer);
+        anchorListScroll.setFitToWidth(true);
+        anchorListScroll.setMaxHeight(180);
+        anchorListScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        anchorListScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
 
         getChildren().addAll(
             header, new Separator(),
             chipRow, new Separator(),
             canvasScroll, zoomBar, pendingRow,
             new Separator(),
-            lblHdr, lblNoAnchors, scroll
+            lblHdr, lblNoAnchors, anchorListScroll
         );
 
         redrawCanvas();
@@ -240,25 +317,161 @@ public class AnchorEditor extends VBox {
 
     // ── Zoom ─────────────────────────────────────────────────────────────────
 
-    private void applyZoom(double z) {
-        canvasZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
+    private void smoothZoomTo(double targetZoom) {
+        double[] center = viewportCenterCanvasPoint();
+        smoothZoomTo(targetZoom, center[0], center[1]);
+    }
+
+    private void smoothZoomTo(double targetZoom, double focusCanvasX, double focusCanvasY) {
+        double target = clampZoom(targetZoom);
+        if (Math.abs(target - canvasZoom) < 0.001) return;
+        if (zoomAnimator != null) zoomAnimator.stop();
+
+        ZoomFocus focus = buildZoomFocus(focusCanvasX, focusCanvasY);
+        double start = canvasZoom;
+        zoomAnimator = new AnimationTimer() {
+            private long startedAt = -1L;
+
+            @Override
+            public void handle(long now) {
+                if (startedAt < 0L) startedAt = now;
+                double t = Math.min(1.0, (now - startedAt) / (double) ZOOM_ANIM_NS);
+                double eased = 1.0 - Math.pow(1.0 - t, 3);
+                setZoomImmediate(start + (target - start) * eased, focus);
+                if (t >= 1.0) {
+                    stop();
+                    zoomAnimator = null;
+                    setZoomImmediate(target, focus);
+                }
+            }
+        };
+        zoomAnimator.start();
+    }
+
+    private void setZoomImmediate(double z, ZoomFocus focus) {
+        canvasZoom = clampZoom(z);
         int pct = (int) Math.round(canvasZoom * 100);
         lblZoom.setText(pct + "%");
         double vw = canvasScroll.getViewportBounds() != null
             ? canvasScroll.getViewportBounds().getWidth() : getWidth();
         if (vw <= 0) vw = getWidth();
-        updateCanvasSize(vw);
+        updateCanvasSize(vw, focus);
+    }
+
+    private double clampZoom(double z) {
+        return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
     }
 
     private void updateCanvasSize(double viewportWidth) {
+        updateCanvasSize(viewportWidth, null);
+    }
+
+    private void updateCanvasSize(double viewportWidth, ZoomFocus focus) {
         if (viewportWidth <= 0) return;
         double cw = Math.max(viewportWidth, viewportWidth * canvasZoom);
-        double ch = CANVAS_BASE_H * canvasZoom;
-        canvasScroll.setMaxHeight(Math.min(ch + 2, CANVAS_BASE_H * 2));
-        canvasScroll.setPrefHeight(Math.min(ch + 2, CANVAS_BASE_H * 2));
+        double ch = canvasBaseHeight() * canvasZoom;
+        if (canvasExpanded) {
+            canvasScroll.setMaxHeight(Double.MAX_VALUE);
+            canvasScroll.setPrefHeight(Math.min(ch + 2, canvasBaseHeight() + 160));
+        } else {
+            canvasScroll.setMaxHeight(Math.min(ch + 2, CANVAS_BASE_H * 2));
+            canvasScroll.setPrefHeight(Math.min(ch + 2, CANVAS_BASE_H * 2));
+        }
         miniCanvas.setWidth(cw);
         miniCanvas.setHeight(ch);
+        restoreZoomFocus(focus, cw, ch);
         redrawCanvas();
+    }
+
+    private int canvasBaseHeight() {
+        return canvasExpanded ? CANVAS_EXPANDED_H : CANVAS_BASE_H;
+    }
+
+    private void setCanvasExpanded(boolean expanded) {
+        canvasExpanded = expanded;
+        VBox.setVgrow(canvasScroll, expanded ? Priority.ALWAYS : Priority.NEVER);
+        if (anchorListScroll != null) {
+            anchorListScroll.setMaxHeight(expanded ? 140 : 180);
+        }
+        updateCanvasExpandButton();
+        double vw = canvasScroll.getViewportBounds() != null
+            ? canvasScroll.getViewportBounds().getWidth()
+            : getWidth();
+        updateCanvasSize(vw > 0 ? vw : getWidth());
+    }
+
+    private void updateCanvasExpandButton() {
+        if (btnExpandCanvas == null) return;
+        btnExpandCanvas.setText(canvasExpanded ? "Compact" : "Expand");
+        btnExpandCanvas.setTooltip(new Tooltip(canvasExpanded
+            ? "Return the anchor canvas to its compact height"
+            : "Grow the anchor canvas inside this panel for precise placement"));
+        btnExpandCanvas.setStyle(S_BTN_ZOOM
+            + "-fx-min-width: 74; -fx-pref-width: 74; -fx-max-width: 84;"
+            + (canvasExpanded ? "-fx-background-color: #4a3a16; -fx-text-fill: #f4d58a;" : ""));
+    }
+
+    private ZoomFocus buildZoomFocus(double canvasX, double canvasY) {
+        double cw = Math.max(1.0, miniCanvas.getWidth());
+        double ch = Math.max(1.0, miniCanvas.getHeight());
+        double[] scroll = currentScrollPixels();
+        double relX = Math.max(0.0, Math.min(1.0, canvasX / cw));
+        double relY = Math.max(0.0, Math.min(1.0, canvasY / ch));
+        return new ZoomFocus(relX, relY, canvasX - scroll[0], canvasY - scroll[1]);
+    }
+
+    private double[] viewportCenterCanvasPoint() {
+        double[] scroll = currentScrollPixels();
+        double vw = viewportWidth();
+        double vh = viewportHeight();
+        return new double[]{scroll[0] + vw / 2.0, scroll[1] + vh / 2.0};
+    }
+
+    private double[] canvasFocusFromViewportEvent(double viewportX, double viewportY) {
+        double[] scroll = currentScrollPixels();
+        return new double[]{scroll[0] + viewportX, scroll[1] + viewportY};
+    }
+
+    private double[] currentScrollPixels() {
+        double cw = Math.max(0.0, miniCanvas.getWidth());
+        double ch = Math.max(0.0, miniCanvas.getHeight());
+        double vw = viewportWidth();
+        double vh = viewportHeight();
+        double maxX = Math.max(0.0, cw - vw);
+        double maxY = Math.max(0.0, ch - vh);
+        return new double[]{canvasScroll.getHvalue() * maxX, canvasScroll.getVvalue() * maxY};
+    }
+
+    private void restoreZoomFocus(ZoomFocus focus, double canvasW, double canvasH) {
+        if (focus == null) return;
+        double vw = viewportWidth();
+        double vh = viewportHeight();
+        double maxX = Math.max(0.0, canvasW - vw);
+        double maxY = Math.max(0.0, canvasH - vh);
+        if (maxX > 0.0) {
+            double scrollX = focus.relX() * canvasW - focus.viewportX();
+            canvasScroll.setHvalue(Math.max(0.0, Math.min(1.0, scrollX / maxX)));
+        } else {
+            canvasScroll.setHvalue(0.0);
+        }
+        if (maxY > 0.0) {
+            double scrollY = focus.relY() * canvasH - focus.viewportY();
+            canvasScroll.setVvalue(Math.max(0.0, Math.min(1.0, scrollY / maxY)));
+        } else {
+            canvasScroll.setVvalue(0.0);
+        }
+    }
+
+    private double viewportWidth() {
+        return canvasScroll.getViewportBounds() == null || canvasScroll.getViewportBounds().getWidth() <= 0
+            ? Math.max(1.0, canvasScroll.getWidth())
+            : canvasScroll.getViewportBounds().getWidth();
+    }
+
+    private double viewportHeight() {
+        return canvasScroll.getViewportBounds() == null || canvasScroll.getViewportBounds().getHeight() <= 0
+            ? Math.max(1.0, canvasScroll.getHeight())
+            : canvasScroll.getViewportBounds().getHeight();
     }
 
     // ── Public API ───────────────────────────────────────────────────────────
@@ -271,6 +484,8 @@ public class AnchorEditor extends VBox {
 
     public void setProjectRoot(File root) {
         this.projectRoot = root;
+        this.pixelAnalyzer = new SpritePixelAnalyzer(root);
+        this.spriteRegionCache.clear();
         if (currentEntityName != null) loadEntityImage(currentEntityName);
         redrawCanvas();
     }
@@ -343,11 +558,102 @@ public class AnchorEditor extends VBox {
 
     private void loadEntityImage(String entityName) {
         spriteImage = null;
+        groupVisualBounds = null;
         if (entityName == null || entityName.isBlank() || project == null) return;
+        if (currentEntityIsGroup) {
+            groupVisualBounds = buildGroupVisualBounds(entityName);
+            return;
+        }
         AnimationProject.SceneEntitySnapshot snap = project.getSceneEntitySnapshot(entityName);
         if (snap != null && !snap.imagePath().isBlank()) {
             spriteImage = resolveImage(snap.imagePath().split("\\|")[0].trim());
         }
+    }
+
+    private GroupVisualBounds buildGroupVisualBounds(String groupName) {
+        if (project == null || groupName == null || groupName.isBlank()) return null;
+        List<GroupVisualItem> items = new ArrayList<>();
+        double minX = Double.POSITIVE_INFINITY;
+        double minY = Double.POSITIVE_INFINITY;
+        double maxX = Double.NEGATIVE_INFINITY;
+        double maxY = Double.NEGATIVE_INFINITY;
+
+        for (String entityName : project.collectGroupEntityNames(groupName)) {
+            AnimationProject.SceneEntitySnapshot snap = project.getSceneEntitySnapshot(entityName);
+            if (snap == null) continue;
+            List<GroupVisualItem> entityItems = buildGroupVisualItems(entityName, snap);
+            if (entityItems.isEmpty()) continue;
+            for (GroupVisualItem item : entityItems) {
+                items.add(item);
+                for (GroupVisualRegion region : item.regions()) {
+                    minX = Math.min(minX, region.minX());
+                    minY = Math.min(minY, region.minY());
+                    maxX = Math.max(maxX, region.maxX());
+                    maxY = Math.max(maxY, region.maxY());
+                }
+            }
+        }
+
+        items.sort(Comparator
+            .comparingDouble((GroupVisualItem item) -> item.snapshot().z())
+            .thenComparing(GroupVisualItem::entityName, String.CASE_INSENSITIVE_ORDER));
+        return new GroupVisualBounds(items, minX, minY, maxX, maxY);
+    }
+
+    private List<GroupVisualItem> buildGroupVisualItems(String entityName, AnimationProject.SceneEntitySnapshot snap) {
+        if (snap == null) return List.of();
+        String imageSpec = snap.imagePath();
+        if (imageSpec == null || imageSpec.isBlank()) {
+            double minX = snap.x() - snap.originX() * snap.width();
+            double minY = snap.y() - snap.originY() * snap.height();
+            return List.of(new GroupVisualItem(entityName, snap, null,
+                List.of(new GroupVisualRegion(0, 0, snap.width(), snap.height(), minX, minY, minX + snap.width(), minY + snap.height()))));
+        }
+
+        List<GroupVisualItem> items = new ArrayList<>();
+        for (String layerPath : imageSpec.split("\\|")) {
+            String path = layerPath == null ? "" : layerPath.trim();
+            if (path.isEmpty()) continue;
+            Image image = resolveImage(path);
+            List<GroupVisualRegion> regions = buildVisibleRegions(snap, path, image);
+            if (regions.isEmpty()) continue;
+            items.add(new GroupVisualItem(entityName, snap, image, regions));
+        }
+        return items;
+    }
+
+    private List<GroupVisualRegion> buildVisibleRegions(AnimationProject.SceneEntitySnapshot snap, String path, Image image) {
+        double imageW = image != null && !image.isError() && image.getWidth() > 1 ? image.getWidth() : snap.width();
+        double imageH = image != null && !image.isError() && image.getHeight() > 1 ? image.getHeight() : snap.height();
+        double imgToSpriteX = snap.width() / Math.max(1.0, imageW);
+        double imgToSpriteY = snap.height() / Math.max(1.0, imageH);
+        List<SpritePixelAnalyzer.DetectedRegion> detected = pixelAnalyzer != null
+            ? spriteRegionCache.computeIfAbsent(path, pixelAnalyzer::detectRegions)
+            : List.of();
+        if (detected.isEmpty()) {
+            double minX = snap.x() - snap.originX() * snap.width();
+            double minY = snap.y() - snap.originY() * snap.height();
+            return List.of(new GroupVisualRegion(0, 0, imageW, imageH, minX, minY, minX + snap.width(), minY + snap.height()));
+        }
+
+        List<GroupVisualRegion> regions = new ArrayList<>();
+        for (SpritePixelAnalyzer.DetectedRegion region : detected) {
+            double minX = snap.x() - snap.originX() * snap.width() + region.minX * imgToSpriteX;
+            double minY = snap.y() - snap.originY() * snap.height() + region.minY * imgToSpriteY;
+            double width = region.width * imgToSpriteX;
+            double height = region.height * imgToSpriteY;
+            regions.add(new GroupVisualRegion(
+                region.minX,
+                region.minY,
+                region.width,
+                region.height,
+                minX,
+                minY,
+                minX + width,
+                minY + height
+            ));
+        }
+        return regions;
     }
 
     private Image resolveImage(String path) {
@@ -401,6 +707,24 @@ public class AnchorEditor extends VBox {
         redrawCanvas();
     }
 
+    private void beginViewportPlacement() {
+        if (preview == null || currentEntityName == null || currentEntityName.isBlank()) return;
+        clearPending();
+        preview.setAnchorPlacementMode(true);
+        preview.focusAnchorPlacementOnSelection();
+        preview.render();
+    }
+
+    public void startPendingPlacement(double relX, double relY) {
+        if (currentEntityName == null) return;
+        pendingRelX = Math.max(0.0, Math.min(1.0, relX));
+        pendingRelY = Math.max(0.0, Math.min(1.0, relY));
+        setPendingRowVisible(true);
+        txtPendingName.clear();
+        txtPendingName.requestFocus();
+        redrawCanvas();
+    }
+
     private void redrawCanvas() {
         double cw = miniCanvas.getWidth();
         double ch = miniCanvas.getHeight();
@@ -422,17 +746,9 @@ public class AnchorEditor extends VBox {
         double[] b = imgBounds(cw, ch);
         double imgX = b[0], imgY = b[1], imgW = b[2], imgH = b[3];
 
-        // Sprite or placeholder
+        // Sprite, group contents, or placeholder
         if (currentEntityIsGroup) {
-            // Groups don't have sprite images - show a group placeholder
-            gc.setFill(Color.web("#2a2a2a"));
-            gc.fillRect(imgX, imgY, imgW, imgH);
-            gc.setStroke(Color.web("#f0b673"));
-            gc.setLineWidth(2);
-            gc.strokeRect(imgX + 0.5, imgY + 0.5, imgW - 1, imgH - 1);
-            gc.setFill(Color.web("#f0b673"));
-            gc.setFont(javafx.scene.text.Font.font(10));
-            gc.fillText("Group bounds", imgX + 6, imgY + imgH / 2 + 4);
+            drawGroupVisual(imgX, imgY, imgW, imgH);
         } else if (spriteImage != null && !spriteImage.isError()) {
             gc.drawImage(spriteImage, imgX, imgY, imgW, imgH);
         } else {
@@ -479,7 +795,7 @@ public class AnchorEditor extends VBox {
             gc.setFill(Color.web("#a0a0a0"));
             gc.setFont(javafx.scene.text.Font.font(9.5));
             String hint = currentEntityIsGroup
-                ? "Click on group bounds to place anchor  ·  Click dot to select"
+                ? "Click on group contents to place anchor  ·  Click dot to select"
                 : "Click on sprite to place anchor  ·  Click dot to select";
             gc.fillText(hint, PAD, ch - 5);
         }
@@ -505,6 +821,42 @@ public class AnchorEditor extends VBox {
         gc.strokeLine(cx, cy - arm, cx, cy + arm);
     }
 
+    private void drawGroupVisual(double imgX, double imgY, double imgW, double imgH) {
+        gc.setFill(Color.web("#202020"));
+        gc.fillRect(imgX, imgY, imgW, imgH);
+        gc.setStroke(Color.web("#f0b673"));
+        gc.setLineWidth(2);
+        gc.strokeRect(imgX + 0.5, imgY + 0.5, imgW - 1, imgH - 1);
+
+        if (groupVisualBounds == null || groupVisualBounds.isEmpty()) {
+            gc.setFill(Color.web("#f0b673"));
+            gc.setFont(javafx.scene.text.Font.font(10));
+            gc.fillText("Group bounds", imgX + 6, imgY + imgH / 2 + 4);
+            return;
+        }
+
+        for (GroupVisualItem item : groupVisualBounds.items()) {
+            for (GroupVisualRegion region : item.regions()) {
+                double x = imgX + ((region.minX() - groupVisualBounds.minX()) / groupVisualBounds.width()) * imgW;
+                double y = imgY + ((region.minY() - groupVisualBounds.minY()) / groupVisualBounds.height()) * imgH;
+                double w = Math.max(1.0, (region.maxX() - region.minX()) / groupVisualBounds.width() * imgW);
+                double h = Math.max(1.0, (region.maxY() - region.minY()) / groupVisualBounds.height() * imgH);
+                Image image = item.image();
+                if (image != null && !image.isError()) {
+                    gc.setGlobalAlpha(Math.max(0.15, Math.min(1.0, item.snapshot().alpha())));
+                    gc.drawImage(image, region.sourceX(), region.sourceY(), region.sourceW(), region.sourceH(), x, y, w, h);
+                    gc.setGlobalAlpha(1.0);
+                } else {
+                    gc.setFill(Color.web("#333333", 0.80));
+                    gc.fillRect(x, y, w, h);
+                    gc.setStroke(Color.web("#777777", 0.65));
+                    gc.setLineWidth(1);
+                    gc.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+                }
+            }
+        }
+    }
+
     private void drawCanvasBorder(double cw, double ch) {
         gc.setStroke(Color.web("#2a2a2a"));
         gc.setLineWidth(1);
@@ -517,7 +869,11 @@ public class AnchorEditor extends VBox {
         double availH = ch - PAD * 2 - 18; // leave room for the bottom instruction strip
         double imgW, imgH;
 
-        if (spriteImage != null && !spriteImage.isError()
+        if (currentEntityIsGroup && groupVisualBounds != null && !groupVisualBounds.isEmpty()) {
+            double scale = Math.min(availW / groupVisualBounds.width(), availH / groupVisualBounds.height());
+            imgW = groupVisualBounds.width() * scale;
+            imgH = groupVisualBounds.height() * scale;
+        } else if (spriteImage != null && !spriteImage.isError()
                 && spriteImage.getWidth() > 0 && spriteImage.getHeight() > 0) {
             double iw = spriteImage.getWidth();
             double ih = spriteImage.getHeight();
@@ -579,6 +935,10 @@ public class AnchorEditor extends VBox {
         refreshAnchorList();
         redrawCanvas();
         if (onAnchorChanged != null) onAnchorChanged.run();
+        if (preview != null) {
+            preview.setOrbitToolEnabled(true);
+            preview.useAnchorAsOrbitPivot(currentEntityName, name);
+        }
         if (onAnchorPlaced != null) onAnchorPlaced.accept(currentEntityName, placed);
         if (preview != null) preview.render();
     }

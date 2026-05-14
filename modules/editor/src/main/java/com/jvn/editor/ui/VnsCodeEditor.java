@@ -152,6 +152,10 @@ public class VnsCodeEditor extends BorderPane {
   private static final Pattern PARSE_LINE_PATTERN = Pattern.compile("\\bat line (\\d+)\\b", Pattern.CASE_INSENSITIVE);
 
   public VnsCodeEditor() {
+    getStyleClass().add("text-editor-root");
+    if (!codeArea.getStyleClass().contains("code-area")) {
+      codeArea.getStyleClass().add("code-area");
+    }
     codeArea.setParagraphGraphicFactory(this::makeLineNumberLabel);
     codeArea.textProperty().addListener((obs, oldText, newText) -> {
       String value = newText == null ? "" : newText;
@@ -164,6 +168,7 @@ public class VnsCodeEditor extends BorderPane {
 
     // Minimap canvas (right edge) — wider for better readability
     minimapCanvas = new Canvas(100, 100);
+    minimapCanvas.getStyleClass().add("code-editor-minimap");
     minimapCanvas.setStyle("-fx-cursor: hand;");
     minimapCanvas.setOnMousePressed(this::onMinimapPress);
     minimapCanvas.setOnMouseDragged(this::onMinimapDrag);
@@ -175,7 +180,7 @@ public class VnsCodeEditor extends BorderPane {
     // Separator line between editor and minimap
     javafx.scene.layout.Region minimapSep = new javafx.scene.layout.Region();
     minimapSep.setMinWidth(1); minimapSep.setMaxWidth(1);
-    minimapSep.setStyle("-fx-background-color: #1e1e1e;");
+    minimapSep.getStyleClass().add("code-editor-minimap-separator");
 
     HBox codeAndMinimap = new HBox(mainScrollPane, minimapSep, minimapCanvas);
     HBox.setHgrow(mainScrollPane, Priority.ALWAYS);
@@ -187,7 +192,7 @@ public class VnsCodeEditor extends BorderPane {
     setCenter(codeAndMinimap);
 
     // Breadcrumb bar
-    breadcrumbLabel.setStyle("-fx-text-fill: #9a9a9a; -fx-font-size: 11px; -fx-padding: 2 10 2 10;");
+    breadcrumbLabel.getStyleClass().add("code-editor-status-secondary");
     breadcrumbLabel.setMaxWidth(Double.MAX_VALUE);
 
     String css = EditorTheme.stylesheetUrl();
@@ -278,14 +283,14 @@ public class VnsCodeEditor extends BorderPane {
 
   private void setupStatusBar() {
     HBox statusBar = new HBox(12);
+    statusBar.getStyleClass().add("code-editor-status-bar");
     statusBar.setAlignment(Pos.CENTER_LEFT);
     statusBar.setPadding(new Insets(3, 10, 3, 10));
-    statusBar.setStyle("-fx-background-color: #1a1a1a; -fx-border-color: #2a2a2a; -fx-border-width: 1 0 0 0;");
-    statusBarLabel.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 11px;");
+    statusBarLabel.getStyleClass().add("code-editor-status-secondary");
     lintLabel.getStyleClass().add("lint-label");
+    lintLabel.getStyleClass().add("code-editor-status-primary");
     HBox.setHgrow(lintLabel, Priority.ALWAYS);
     lintLabel.setMaxWidth(Double.MAX_VALUE);
-    breadcrumbLabel.setStyle("-fx-text-fill: #9a9a9a; -fx-font-size: 11px;");
     statusBar.getChildren().addAll(lintLabel, breadcrumbLabel, statusBarLabel);
     setBottom(statusBar);
 

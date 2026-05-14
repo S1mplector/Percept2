@@ -105,6 +105,7 @@ public class PuppeteerWindow extends Stage {
         PropertyType.ROTATION,
         PropertyType.SCALE_X,
         PropertyType.SCALE_Y,
+        PropertyType.MIRROR_X,
         PropertyType.ALPHA,
         PropertyType.VISIBILITY,
         PropertyType.MATRIX_MXX,
@@ -170,12 +171,14 @@ public class PuppeteerWindow extends Stage {
     ToggleButton cbOrbitTool;
     private ToggleButton cbOrbitAlign;
     private ToggleButton cbRuntimePreview;
+    private ToggleButton cbViewportStabilize;
 
     AnimationTimer playbackTimer;
     long lastNanos = 0;
     private double playbackSpeed = 1.0;
     private boolean autoKeyEnabled = false;
     private boolean runtimeParityPreview = false;
+    private boolean viewportStabilizationEnabled = false;
 
     public final PuppeteerCommand.Stack commandStack = new PuppeteerCommand.Stack();
     private final KeyframeSelectionModel selectionModel;
@@ -284,7 +287,8 @@ public class PuppeteerWindow extends Stage {
         PropertyType.MATRIX_MYX,
         PropertyType.MATRIX_MYY,
         PropertyType.MATRIX_TX,
-        PropertyType.MATRIX_TY
+        PropertyType.MATRIX_TY,
+        PropertyType.MIRROR_X
     };
     private static final PropertyType[] CAMERA_INTERACTION_PROPERTIES = {
         PropertyType.CAMERA_X,
@@ -549,12 +553,20 @@ public class PuppeteerWindow extends Stage {
             entitySelector.selectGroup(groupName);
         });
 
-        entitySelector.setOnEntitySoloChanged((entityName, soloed) -> {
-            // When solo is toggled, force-select the soloed entity and update the timeline
+        entitySelector.setOnSelectionSoloChanged((name, isGroup, soloed) -> {
+            // When solo is toggled, force-select the soloed target and update the timeline.
             if (soloed) {
-                timelinePanel.setSelectedEntity(entityName);
+                timelinePanel.setSelectedTarget(name, isGroup);
+                if (isGroup) {
+                    animationPreview.selectGroup(name);
+                    anchorEditor.setSelectedEntityName(name, true);
+                } else {
+                    animationPreview.selectEntity(name);
+                    anchorEditor.setSelectedEntityName(name, false);
+                }
             }
             timelinePanel.refresh();
+            refreshPropertyPickerChoices();
         });
 
         entitySelector.setOnGroupResetRequested(groupName -> {
@@ -729,13 +741,18 @@ public class PuppeteerWindow extends Stage {
 
         animationPreview.setOnEntityRotationChanged((name, rotationDeg) -> {
             if (name == null || rotationDeg == null || !Double.isFinite(rotationDeg)) return;
-            EntityTrack track = this.project.getOrCreateTrack(name);
+            boolean groupTarget = this.project.getGroup(name) != null;
+            EntityTrack track = resolveAnimatedTrack(name, true);
+            if (track == null) return;
             double time = this.project.getPlayheadMs();
             if (activeTransformInteraction != null && name.equals(activeTransformInteraction.entityName())) {
                 time = activeTransformInteraction.timeMs();
             }
             track.upsertKeyframe(PropertyType.ROTATION, new Keyframe(time, rotationDeg));
             timelinePanel.refresh();
+            if (groupTarget) {
+                updatePreview();
+            }
             refreshExportPreviewAndMarkDirty();
         });
 
@@ -1071,6 +1088,13 @@ public class PuppeteerWindow extends Stage {
             updateStatusBar();
         });
 
+        cbViewportStabilize = makeToolbarIconToggle(
+            com.jvn.editor.ui.CssIcon.myLocation("#8bd2ff"),
+            "Stabilize preview while playing: lock the viewport framing so animated bounds cannot shake the view"
+        );
+        cbViewportStabilize.setSelected(viewportStabilizationEnabled);
+        cbViewportStabilize.setOnAction(e -> setViewportStabilizationEnabled(cbViewportStabilize.isSelected()));
+
         // --- Auto-key toggle ---
         ToggleButton cbAutoKey = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.fiberSmartRecord("#e05050"), "Auto-key: automatically insert keyframe on drag");
         cbAutoKey.setSelected(false);
@@ -1088,7 +1112,7 @@ public class PuppeteerWindow extends Stage {
 
         HBox autoKeyBox = new HBox(4, cbAutoKey, lblAutoKey);
         autoKeyBox.setAlignment(Pos.CENTER_LEFT);
-        HBox previewSnapBox = new HBox(4, cbSnapGrid, cbSnapEntity, cbRuntimePreview, cbSpeed, cbWheelMode);
+        HBox previewSnapBox = new HBox(4, cbSnapGrid, cbSnapEntity, cbRuntimePreview, cbViewportStabilize, cbSpeed, cbWheelMode);
         previewSnapBox.setAlignment(Pos.CENTER_LEFT);
 
         cbOrbitTool = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.threeSixty("#9b72d4"), "Enable orbit-anchor tool. Shift+click preview to place anchor. Alt+Shift+click another entity to link the anchor at the exact cursor point (joint/nail).");
@@ -1275,6 +1299,10 @@ public class PuppeteerWindow extends Stage {
         anchorEditor = new AnchorEditor();
         anchorEditor.setProject(this.project);
         anchorEditor.setAnimationPreview(animationPreview);
+        animationPreview.setOnAnchorPlacementAt(coords -> {
+            if (coords == null || coords.length < 2) return;
+            anchorEditor.startPendingPlacement(coords[0], coords[1]);
+        });
         anchorEditor.setOnAnchorChanged(() -> {
             animationPreview.render();
             timelinePanel.refresh();
@@ -1282,7 +1310,8 @@ public class PuppeteerWindow extends Stage {
         anchorEditor.setOnAnchorPlaced((entityName, anchor) -> {
             // Seed PIVOT_X/Y + compensated X/Y at t=0 when no pivot keyframes exist yet
             if (entityName == null || !anchor.isRelative()) return;
-            EntityTrack track = project.getOrCreateTrack(entityName);
+            EntityTrack track = resolveAnimatedTrack(entityName, true);
+            if (track == null) return;
             if (!track.getKeyframes(PropertyType.PIVOT_X).isEmpty()
                     || !track.getKeyframes(PropertyType.PIVOT_Y).isEmpty()) return;
             com.jvn.core.scene2d.Entity2D ent = scene != null ? scene.find(entityName) : null;
@@ -1303,7 +1332,8 @@ public class PuppeteerWindow extends Stage {
             // Insert PIVOT_X/Y + compensated X/Y at the current playhead time
             if (entityName == null || !anchor.isRelative()) return;
             com.jvn.core.scene2d.Entity2D ent = scene != null ? scene.find(entityName) : null;
-            EntityTrack track = project.getOrCreateTrack(entityName);
+            EntityTrack track = resolveAnimatedTrack(entityName, true);
+            if (track == null) return;
             double time = project.getPlayheadMs();
             double newPX = anchor.getX(), newPY = anchor.getY();
             double oldPX = ent != null ? ent.getOriginX() : 0.5;
@@ -1879,12 +1909,15 @@ public class PuppeteerWindow extends Stage {
             timelinePanel.refresh();
             refreshExportPreviewAndMarkDirty();
         });
+        CheckMenuItem miViewportStabilization = new CheckMenuItem("Stabilize Preview While Playing");
+        miViewportStabilization.setOnAction(e -> setViewportStabilizationEnabled(miViewportStabilization.isSelected()));
 
         Menu playbackMenu = new Menu("Playback");
         playbackMenu.getItems().addAll(
             miPlayPause,
             miStop,
             miRewind,
+            miViewportStabilization,
             new SeparatorMenuItem(),
             miLoopPlayback,
             miLoopIn,
@@ -1893,6 +1926,7 @@ public class PuppeteerWindow extends Stage {
         );
         playbackMenu.setOnShowing(e -> {
             miPlayPause.setText(project.isPlaying() ? "Pause" : "Play");
+            miViewportStabilization.setSelected(viewportStabilizationEnabled);
             miLoopPlayback.setSelected(project.isLooping());
             miLoopClear.setDisable(!project.hasLoopRegion());
         });
@@ -4206,15 +4240,21 @@ public class PuppeteerWindow extends Stage {
     public void play() {
         if (project.isPlaying()) return;
         project.setPlaying(true);
+        if (viewportStabilizationEnabled) {
+            animationPreview.beginViewportStabilization();
+        }
         lastNanos = System.nanoTime();
         playbackTimer.start();
         refreshTransportButtonStates();
+        updateStatusBar();
     }
 
     public void pause() {
         project.setPlaying(false);
         playbackTimer.stop();
+        animationPreview.endViewportStabilization();
         refreshTransportButtonStates();
+        updateStatusBar();
     }
 
     public void stop() {
@@ -4230,6 +4270,24 @@ public class PuppeteerWindow extends Stage {
         timelinePanel.setPlayhead(0);
         updateTimeLabel();
         updatePreview();
+    }
+
+    private void setViewportStabilizationEnabled(boolean enabled) {
+        viewportStabilizationEnabled = enabled;
+        if (cbViewportStabilize != null && cbViewportStabilize.isSelected() != enabled) {
+            cbViewportStabilize.setSelected(enabled);
+        }
+        animationPreview.setViewportStabilizationEnabled(enabled);
+        if (project.isPlaying()) {
+            if (enabled) {
+                animationPreview.beginViewportStabilization();
+            } else {
+                animationPreview.endViewportStabilization();
+            }
+        } else {
+            updatePreview();
+        }
+        updateStatusBar();
     }
 
     private void setupPlaybackTimer() {
@@ -5228,6 +5286,10 @@ public class PuppeteerWindow extends Stage {
         if (sb.length() == 0) sb.append("Ready");
         if (autoKeyEnabled) sb.append("  │  Auto-Key ON");
         if (runtimeParityPreview) sb.append("  │  Runtime Preview ON");
+        if (viewportStabilizationEnabled) {
+            sb.append("  │  Stabilization ");
+            sb.append(animationPreview.isViewportStabilizationActive() ? "ACTIVE" : "ON");
+        }
         sb.append("  │  Speed: ").append(playbackSpeed).append("x");
         statusBar.setText(sb.toString());
         refreshToolbarCommandSummary();
@@ -7502,6 +7564,7 @@ public class PuppeteerWindow extends Stage {
             case ROTATION -> entity.getRotationDeg();
             case SCALE_X -> entity.getScaleX();
             case SCALE_Y -> entity.getScaleY();
+            case MIRROR_X -> property.getDefaultValue();
             case ALPHA -> getEntityAlpha(entity);
             case VISIBILITY -> entity.isVisible() ? 1.0 : 0.0;
             case MATRIX_MXX -> entity.getMatrixMxx();
@@ -7706,6 +7769,7 @@ public class PuppeteerWindow extends Stage {
                 commands.add(PuppeteerCommand.upsertKeyframe(groupTrack, PropertyType.ROTATION, time, PropertyType.ROTATION.getDefaultValue()));
                 commands.add(PuppeteerCommand.upsertKeyframe(groupTrack, PropertyType.SCALE_X, time, PropertyType.SCALE_X.getDefaultValue()));
                 commands.add(PuppeteerCommand.upsertKeyframe(groupTrack, PropertyType.SCALE_Y, time, PropertyType.SCALE_Y.getDefaultValue()));
+                commands.add(PuppeteerCommand.upsertKeyframe(groupTrack, PropertyType.MIRROR_X, time, PropertyType.MIRROR_X.getDefaultValue()));
                 commands.add(PuppeteerCommand.upsertKeyframe(groupTrack, PropertyType.ALPHA, time, PropertyType.ALPHA.getDefaultValue()));
             }
         }
@@ -7718,6 +7782,7 @@ public class PuppeteerWindow extends Stage {
                 commands.add(PuppeteerCommand.upsertKeyframe(track, PropertyType.ROTATION, time, PropertyType.ROTATION.getDefaultValue()));
                 commands.add(PuppeteerCommand.upsertKeyframe(track, PropertyType.SCALE_X, time, PropertyType.SCALE_X.getDefaultValue()));
                 commands.add(PuppeteerCommand.upsertKeyframe(track, PropertyType.SCALE_Y, time, PropertyType.SCALE_Y.getDefaultValue()));
+                commands.add(PuppeteerCommand.upsertKeyframe(track, PropertyType.MIRROR_X, time, PropertyType.MIRROR_X.getDefaultValue()));
             }
         }
         for (String childGroup : group.getChildGroupNames()) {

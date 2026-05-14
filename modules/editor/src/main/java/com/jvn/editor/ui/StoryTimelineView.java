@@ -26,6 +26,8 @@ import javafx.scene.input.Dragboard;
 import javafx.scene.input.KeyCode;
 
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -36,6 +38,10 @@ import java.util.regex.Pattern;
 import java.util.function.Consumer;
 
 import com.jvn.core.project.StoryMapPaths;
+import com.jvn.core.vn.VnScenario;
+import com.jvn.core.vn.script.MultipleParseErrorsException;
+import com.jvn.core.vn.script.VnParseException;
+import com.jvn.core.vn.script.VnScriptParser;
 
 public class StoryTimelineView extends BorderPane {
   static final Pattern ARC_DSL_LINE = Pattern.compile(
@@ -118,8 +124,11 @@ public class StoryTimelineView extends BorderPane {
         continue;
       }
       if (a.entryLabel != null && !a.entryLabel.isBlank()) {
-        boolean ok = hasLabel(f, a.entryLabel);
-        if (!ok) sb.append("Arc '").append(a.name).append("' missing entry label '").append(a.entryLabel).append("'\n");
+        sb.append(validateLabel(
+            f,
+            a.entryLabel,
+            "Arc '" + a.name + "'",
+            "missing entry label '" + a.entryLabel + "'"));
       }
       if (a.color != null && !a.color.isBlank()) {
         try {
@@ -141,8 +150,11 @@ public class StoryTimelineView extends BorderPane {
       if (f == null || !f.exists()) { sb.append("Link target arc script missing: ").append(ta.script).append("\n"); continue; }
       String lab = (l.toLabel != null && !l.toLabel.isBlank()) ? l.toLabel : ta.entryLabel;
       if (lab != null && !lab.isBlank()) {
-        boolean ok = hasLabel(f, lab);
-        if (!ok) sb.append("Link target label missing: ").append(l.toArc).append(":").append(lab).append("\n");
+        sb.append(validateLabel(
+            f,
+            lab,
+            "Link target " + l.toArc + ":" + lab,
+            "label missing"));
       }
     }
     if (sb.length() == 0) {
@@ -157,14 +169,137 @@ public class StoryTimelineView extends BorderPane {
     }
   }
 
-  private boolean hasLabel(File vnsFile, String label) {
+  private String validateLabel(File vnsFile, String label, String context, String missingDetail) {
+    if (vnsFile == null || label == null || label.isBlank()) return "";
+    String sourceName = sourceNameForValidation(vnsFile);
     try (FileInputStream in = new FileInputStream(vnsFile)) {
-      com.jvn.core.vn.script.VnScriptParser p = new com.jvn.core.vn.script.VnScriptParser();
-      com.jvn.core.vn.VnScenario sc = p.parse(in);
-      return sc.getLabelIndex(label) != null;
-    } catch (Exception e) {
-      return false;
+      VnScriptParser parser = new VnScriptParser();
+      VnScenario scenario = parser.parse(
+          in,
+          sourceName,
+          includePath -> openVnsIncludeForValidation(vnsFile, sourceName, includePath));
+      if (scenario.getLabelIndex(label) != null) return "";
+      return context + " " + missingDetail + "\n";
+    } catch (MultipleParseErrorsException ex) {
+      return context + " could not be parsed while checking label '" + label + "':\n"
+          + formatParseErrors(ex) + "\n";
+    } catch (Exception ex) {
+      String message = ex.getMessage();
+      if (message == null || message.isBlank()) message = ex.getClass().getSimpleName();
+      return context + " could not be parsed while checking label '" + label + "': "
+          + message + "\n";
     }
+  }
+
+  private String formatParseErrors(MultipleParseErrorsException ex) {
+    StringBuilder out = new StringBuilder();
+    List<VnParseException> errors = ex.getErrors();
+    if (errors == null || errors.isEmpty()) {
+      return "- " + ex.getMessage();
+    }
+    int shown = 0;
+    for (VnParseException error : errors) {
+      if (error == null) continue;
+      if (shown >= 8) {
+        out.append("- ... ").append(errors.size() - shown).append(" more parse issue(s)\n");
+        break;
+      }
+      String source = error.getSourceName();
+      String detail = error.getDetailMessage();
+      if (detail == null || detail.isBlank()) detail = error.getMessage();
+      out.append("- ");
+      if (source != null && !source.isBlank()) {
+        out.append(source);
+        if (error.getLineNumber() > 0) out.append(":").append(error.getLineNumber());
+        out.append(": ");
+      }
+      out.append(detail == null || detail.isBlank() ? "Parse error" : detail).append("\n");
+      shown++;
+    }
+    return out.toString();
+  }
+
+  private String sourceNameForValidation(File vnsFile) {
+    if (vnsFile == null) return "<script>";
+    try {
+      Path file = vnsFile.toPath().toAbsolutePath().normalize();
+      File rootFile = validationProjectRoot(vnsFile);
+      if (rootFile != null) {
+        Path root = rootFile.toPath().toAbsolutePath().normalize();
+        Path scriptsRoot = root.resolve("scripts").normalize();
+        if (file.startsWith(scriptsRoot)) {
+          return scriptsRoot.relativize(file).toString().replace('\\', '/');
+        }
+        if (file.startsWith(root)) {
+          return root.relativize(file).toString().replace('\\', '/');
+        }
+      }
+    } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+    }
+    return vnsFile.getName();
+  }
+
+  private InputStream openVnsIncludeForValidation(File sourceFile, String sourceName, String includePath) throws IOException {
+    String normalized = includePath == null ? "" : includePath.trim().replace('\\', '/');
+    if (normalized.isBlank()) {
+      throw new IOException("Include path is empty");
+    }
+
+    File rootFile = validationProjectRoot(sourceFile);
+    if (rootFile == null) {
+      throw new IOException("Project root not available for include: " + includePath);
+    }
+    Path root = rootFile.toPath().toAbsolutePath().normalize();
+    Path scriptsRoot = root.resolve("scripts").normalize();
+    if (!Files.isDirectory(scriptsRoot)) {
+      scriptsRoot = root;
+    }
+
+    List<Path> candidates = new ArrayList<>();
+    if (normalized.startsWith("/")) {
+      candidates.add(scriptsRoot.resolve(normalized.substring(1)));
+    } else {
+      if (sourceName != null && sourceName.contains("/")) {
+        Path sourceBase = scriptsRoot.resolve(sourceName).normalize().getParent();
+        if (sourceBase != null) candidates.add(sourceBase.resolve(normalized));
+      }
+      candidates.add(scriptsRoot.resolve(normalized));
+    }
+    candidates.add(root.resolve(normalized));
+
+    for (Path candidate : candidates) {
+      if (candidate == null) continue;
+      Path resolved = candidate.toAbsolutePath().normalize();
+      if (!resolved.startsWith(root)) continue;
+      if (Files.isRegularFile(resolved)) {
+        return Files.newInputStream(resolved);
+      }
+    }
+    throw new IOException("Included script not found: " + includePath);
+  }
+
+  private File validationProjectRoot(File sourceFile) {
+    if (projectRoot != null) return projectRoot;
+    if (sourceFile != null) {
+      Path current = sourceFile.toPath().toAbsolutePath().normalize().getParent();
+      while (current != null) {
+        Path name = current.getFileName();
+        if (name != null && "scripts".equalsIgnoreCase(name.toString())) {
+          Path parent = current.getParent();
+          return (parent != null ? parent : current).toFile();
+        }
+        current = current.getParent();
+      }
+    }
+    if (timelineFile != null && timelineFile.getParentFile() != null) {
+      File config = timelineFile.getParentFile().getParentFile();
+      if (config != null && "config".equalsIgnoreCase(config.getName())) {
+        File root = config.getParentFile();
+        if (root != null) return root;
+      }
+    }
+    return sourceFile == null ? null : sourceFile.getParentFile();
   }
   public static class Link {
     public String fromArc;
@@ -191,6 +326,9 @@ public class StoryTimelineView extends BorderPane {
   private Runnable onChanged;
   private boolean toolbarIconOnly = false;
   private double toolbarTextModeMinWidth = -1;
+  private final javafx.animation.Timeline autoRefreshTimer = new javafx.animation.Timeline(
+      new javafx.animation.KeyFrame(javafx.util.Duration.seconds(2.0), e -> autoRefreshFromDisk()));
+  private long lastTimelineModified = -1L;
 
   public StoryTimelineView() {
     getStyleClass().addAll("timeline-root", "sidebar-tool-root");
@@ -303,11 +441,13 @@ public class StoryTimelineView extends BorderPane {
     Button bOpen = iconButton("Open", CssIcon.folder(), e -> openArc());
     Button bDelete = iconButton("Delete Selected", CssIcon.delete(), e -> deleteSelected());
     Button bCopyGoto = iconButton("Copy Goto", CssIcon.copy(), e -> copyGoto());
+    Button bRefresh = iconButton("Refresh", CssIcon.redo(), e -> syncFromDisk(true));
     Button bAuto = iconButton("Auto Layout", CssIcon.auto(), e -> { graph.autoLayout(); onGraphChanged(); });
     Button bFit = iconButton("Fit", CssIcon.rectSelect(), e -> zoomToFit());
     Button bValidate = iconButton("Validate", CssIcon.check(), e -> validate());
     TextField tfSearch = new TextField();
     tfSearch.setPromptText("Find arc...");
+    tfSearch.setTooltip(new Tooltip("Find and highlight story arcs by name"));
     tfSearch.setPrefWidth(180);
     tfSearch.textProperty().addListener((o, ov, nv) -> graph.highlight(nv));
     HBox.setHgrow(tfSearch, Priority.ALWAYS);
@@ -317,6 +457,7 @@ public class StoryTimelineView extends BorderPane {
     bOpen.setTooltip(new Tooltip("Open selected arc script"));
     bDelete.setTooltip(new Tooltip("Delete selected arc or link"));
     bCopyGoto.setTooltip(new Tooltip("Copy [goto arc:label] snippet"));
+    bRefresh.setTooltip(new Tooltip("Reload the story map and remove links to deleted scripts"));
     bAuto.setTooltip(new Tooltip("Auto-arrange arc nodes"));
     bFit.setTooltip(new Tooltip("Fit graph to viewport"));
     bValidate.setTooltip(new Tooltip("Validate scripts and entry labels"));
@@ -324,6 +465,7 @@ public class StoryTimelineView extends BorderPane {
     clusterFilter = new ComboBox<>();
     clusterFilter.setPrefWidth(170);
     clusterFilter.setPromptText("All");
+    clusterFilter.setTooltip(new Tooltip("Filter story arcs by cluster"));
     clusterFilter.valueProperty().addListener((o,ov,nv) -> {
       if (nv == null || nv.equals("All")) graph.setFilterCluster(null); else graph.setFilterCluster(nv);
     });
@@ -333,16 +475,30 @@ public class StoryTimelineView extends BorderPane {
     Region rowSpacer = new Region();
     HBox.setHgrow(rowSpacer, Priority.ALWAYS);
 
+    Label titleLabel = new Label("Story Map");
+    titleLabel.getStyleClass().add("sidebar-tool-title");
+    HBox titleRow = new HBox(6, titleLabel, SidebarToolHelp.button(this, "Story Map", """
+        The Story Map organises .vns scripts into named arcs and links so you can \
+see and edit the structure of a project at a higher level than a single script.
+
+Arcs point at script files and optional entry labels. Links represent story \
+transitions between arcs and can copy goto snippets back into script text.
+
+Use the graph to drag arcs into place, run or select nodes, and inspect the \
+flow between story sections. Drop .vns files onto the graph to create arcs \
+quickly, then use Validate to catch missing scripts or labels."""));
+    titleRow.setAlignment(Pos.CENTER_LEFT);
+
     HBox rowPrimary = new HBox(6,
       bAddArc, bAddLink, sepA, bEdit, bOpen, bDelete, rowSpacer, new Label("Find"), tfSearch
     );
     rowPrimary.setAlignment(Pos.CENTER_LEFT);
     HBox rowSecondary = new HBox(8,
-      new Label("Cluster"), clusterFilter, sepB, bCopyGoto, bAuto, bFit, bValidate
+      new Label("Cluster"), clusterFilter, sepB, bCopyGoto, bRefresh, bAuto, bFit, bValidate
     );
     rowSecondary.setAlignment(Pos.CENTER_LEFT);
 
-    VBox toolbar = new VBox(6, rowPrimary, rowSecondary);
+    VBox toolbar = new VBox(6, titleRow, rowPrimary, rowSecondary);
     toolbar.getStyleClass().add("timeline-toolbar");
     toolbar.setPadding(new Insets(8, 8, 6, 8));
     setTop(toolbar);
@@ -365,6 +521,7 @@ public class StoryTimelineView extends BorderPane {
     graph.setOnGraphChanged(this::onGraphChanged);
     graph.setOnLayoutCommitted(this::onGraphChanged);
     graph.setOnDeleteArc(a -> { if (a != null) { removeArcAndLinks(a.name); onGraphChanged(); } });
+    graph.setOnInteractionActive(active -> graphScroll.setPannable(!active));
     graph.setSimpleLinkMode(true);
     arcs.getSelectionModel().selectedItemProperty().addListener((o, ov, nv) -> {
       graph.selectArc(nv == null ? null : nv.name);
@@ -402,6 +559,15 @@ public class StoryTimelineView extends BorderPane {
         }
       }
       e.setDropCompleted(success); e.consume();
+    });
+    autoRefreshTimer.setCycleCount(javafx.animation.Animation.INDEFINITE);
+    sceneProperty().addListener((obs, oldScene, newScene) -> {
+      if (newScene == null) {
+        autoRefreshTimer.stop();
+      } else {
+        syncFromDisk(true);
+        autoRefreshTimer.play();
+      }
     });
     updateGraphHint();
   }
@@ -461,15 +627,13 @@ public class StoryTimelineView extends BorderPane {
 
   public void setProjectRoot(File dir) {
     this.projectRoot = dir;
-    load();
-    refreshGraph();
-    updateGraphHint();
+    syncFromDisk(true);
   }
 
   public void setOnRunArc(Consumer<Arc> c) { this.onRunArc = c; }
   public void setOnRunLink(Consumer<Link> c) { this.onRunLink = c; }
   public void setOnChanged(Runnable r) { this.onChanged = r; }
-  public void setTimelineFile(File f) { this.timelineFile = f; load(); refreshGraph(); updateGraphHint(); }
+  public void setTimelineFile(File f) { this.timelineFile = f; syncFromDisk(true); }
   public List<Arc> getArcs() { return new ArrayList<>(arcs.getItems()); }
   public List<Link> getLinks() { return new ArrayList<>(links.getItems()); }
   public Arc findArc(String name) {
@@ -782,18 +946,94 @@ public class StoryTimelineView extends BorderPane {
     } catch (Exception ignored) {
             // reason: non-critical operation; exception swallowed to prevent crash propagation
             }
+    lastTimelineModified = f.exists() ? f.lastModified() : -1L;
   }
 
   private void load() {
     File f = timelineFile != null ? timelineFile : defaultTimelineFile();
     if (f == null) return;
-    if (!f.exists()) return;
+    if (!f.exists()) {
+      lastTimelineModified = -1L;
+      return;
+    }
     try {
       String text = java.nio.file.Files.readString(f.toPath());
       fromText(text);
+      lastTimelineModified = f.lastModified();
     } catch (Exception ignored) {
             // reason: non-critical operation; exception swallowed to prevent crash propagation
             }
+  }
+
+  private void autoRefreshFromDisk() {
+    syncFromDisk(false);
+  }
+
+  private void syncFromDisk(boolean forceReload) {
+    File f = timelineFile != null ? timelineFile : defaultTimelineFile();
+    boolean reloaded = false;
+    if (f != null && f.exists()) {
+      long modified = f.lastModified();
+      if (forceReload || modified != lastTimelineModified) {
+        load();
+        reloaded = true;
+      }
+    } else if (forceReload) {
+      lastTimelineModified = -1L;
+    }
+
+    int removed = pruneStaleReferences();
+    if (removed > 0) {
+      refreshGraph();
+      arcs.refresh();
+      links.refresh();
+      updateGraphHint();
+      updateClusterFilter();
+      save();
+      if (onChanged != null) onChanged.run();
+      return;
+    }
+    if (reloaded || forceReload) {
+      refreshGraph();
+      arcs.refresh();
+      links.refresh();
+      updateGraphHint();
+      updateClusterFilter();
+    }
+  }
+
+  private int pruneStaleReferences() {
+    int removed = 0;
+    Set<String> validArcNames = new LinkedHashSet<>();
+    List<Arc> staleArcs = new ArrayList<>();
+    for (Arc arc : arcs.getItems()) {
+      if (arc == null) continue;
+      if (isMissingScriptArc(arc)) {
+        staleArcs.add(arc);
+      } else if (arc.name != null && !arc.name.isBlank()) {
+        validArcNames.add(arc.name);
+      }
+    }
+    if (!staleArcs.isEmpty()) {
+      arcs.getItems().removeAll(staleArcs);
+      removed += staleArcs.size();
+    }
+    int beforeLinks = links.getItems().size();
+    links.getItems().removeIf(link -> link == null
+        || !validArcNames.contains(link.fromArc)
+        || !validArcNames.contains(link.toArc));
+    removed += beforeLinks - links.getItems().size();
+    return removed;
+  }
+
+  private boolean isMissingScriptArc(Arc arc) {
+    if (arc == null) return false;
+    String script = nn(arc.script).trim();
+    if (script.isBlank()) return false;
+    File raw = new File(script);
+    if (!raw.isAbsolute() && projectRoot == null) return false;
+    File file = resolveFile(script);
+    return file == null || !file.isFile();
   }
 
   private File defaultTimelineFile() {

@@ -239,14 +239,32 @@
 }
 
 .run-console-launch-shell {
-  -fx-padding: 10 12 10 12;
-  -fx-spacing: 4;
+  -fx-padding: 0;
   -fx-background-color:
       linear-gradient(to bottom, rgba(0,0,0,0.018), rgba(0,0,0,0.0)),
       linear-gradient(to bottom, #ececec 0%, #f0f0f0 100%);
   -fx-border-color: #d5d5d5;
   -fx-border-width: 1;
   -fx-border-radius: 8;
+  -fx-background-radius: 8;
+}
+
+.run-console-launch-content {
+  -fx-padding: 10 12 10 12;
+}
+
+.run-console-launch-spinner {
+  -fx-progress-color: #b6742f;
+  -fx-opacity: 1.0;
+}
+
+.run-console-launch-progress-layer,
+.run-console-launch-progress-stack {
+  -fx-background-color: transparent;
+  -fx-background-radius: 8;
+}
+
+.run-console-launch-progress-fill {
   -fx-background-radius: 8;
 }
 
@@ -824,6 +842,10 @@
 /* Text #191919, Muted #5f5f5f, Accent #686868 */
 
  /* Code editors (RichTextFX CodeArea) */
+.text-editor-root {
+  -fx-background-color: #f1f1f1;
+}
+
  .code-area {
    -fx-background-color: #ededed;
    -fx-highlight-fill: #d5d5d5;          /* selection background */
@@ -842,6 +864,10 @@
 
  .code-area .paragraph-box:has-caret {
    -fx-background-color: rgba(104, 104, 104, 0.10);
+ }
+
+ .code-area .paragraph-box {
+   -fx-padding: 1 0 1 0;
  }
 
  /* ── Shared token classes ── */
@@ -914,8 +940,68 @@
 }
 
  /* Line numbers (RichTextFX LineNumberFactory) */
- .lineno { -fx-background-color: #e5e5e5; -fx-padding: 0 8 0 8; }
+ .lineno {
+   -fx-background-color: #e4e4e4;
+   -fx-border-color: rgba(0,0,0,0.08);
+   -fx-border-width: 0 1 0 0;
+   -fx-padding: 0 10 0 8;
+   -fx-min-width: 46;
+   -fx-alignment: center-right;
+ }
  .lineno .text { -fx-fill: #5f5f5f; }
+
+.code-editor-status-bar {
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(0,0,0,0.025), rgba(0,0,0,0.0)),
+      #e4e4e4;
+  -fx-border-color: #d0d0d0;
+  -fx-border-width: 1 0 0 0;
+}
+
+.code-editor-status-bar .lint-label {
+  -fx-padding: 0;
+  -fx-background-color: transparent;
+  -fx-border-width: 0;
+}
+
+.code-editor-status-primary {
+  -fx-text-fill: #242424;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+}
+
+.code-editor-status-secondary {
+  -fx-text-fill: #666666;
+  -fx-font-size: 11px;
+}
+
+.code-editor-diagnostics-list {
+  -fx-background-color: #e8e8e8;
+  -fx-control-inner-background: #e8e8e8;
+  -fx-border-color: #d0d0d0;
+  -fx-border-width: 1 0 0 0;
+  -fx-font-size: 11px;
+}
+
+.code-editor-diagnostics-list .list-cell {
+  -fx-background-color: transparent;
+  -fx-text-fill: #2f2f2f;
+  -fx-padding: 5 10 5 10;
+}
+
+.code-editor-diagnostics-list .list-cell:filled:selected,
+.code-editor-diagnostics-list .list-cell:filled:selected:hover {
+  -fx-background-color: #d4d4d4;
+  -fx-text-fill: #111111;
+}
+
+.code-editor-minimap {
+  -fx-background-color: #f1f1f1;
+}
+
+.code-editor-minimap-separator {
+  -fx-background-color: #d4d4d4;
+}
 
 /* Ensure virtualized scroll pane and content are transparent to show editor bg */
 .virtualized-scroll-pane,
@@ -1041,6 +1127,46 @@
   -fx-border-width: 1;
 }
 .text-input .prompt-text, .text-field .prompt-text, .text-area .prompt-text { -fx-fill: #888888; }
+
+.editor-search-bar {
+  -fx-background-color: #ededed;
+  -fx-border-color: #d0d0d0;
+  -fx-border-width: 0 0 1 0;
+}
+
+.editor-search-label {
+  -fx-text-fill: #2e2e2e;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+}
+
+.editor-search-field {
+  -fx-background-color: #f4f4f4;
+  -fx-text-fill: #111111;
+  -fx-prompt-text-fill: #858585;
+  -fx-highlight-fill: #b8b8b8;
+  -fx-highlight-text-fill: #050505;
+  -fx-border-color: #c7c7c7;
+  -fx-border-radius: 6;
+  -fx-background-radius: 6;
+  -fx-padding: 5 8 5 8;
+}
+
+.editor-search-field:focused {
+  -fx-background-color: #ffffff;
+  -fx-border-color: #7a7a7a;
+  -fx-effect: none;
+}
+
+.editor-search-status {
+  -fx-text-fill: #676767;
+  -fx-font-size: 11px;
+}
+
+.editor-search-button {
+  -fx-font-size: 11px;
+  -fx-padding: 2 8 2 8;
+}
 
 /* ListView */
 .list-view { -fx-background-color: #ededed; }
@@ -5452,6 +5578,51 @@
   -fx-border-color: #c4c4c4;
 }
 
+.panel-chooser-maintenance-shell {
+  -fx-background-color: transparent;
+}
+
+.panel-chooser-row-maintenance {
+  -fx-background-color:
+      linear-gradient(to right, rgba(214, 107, 0, 0.13), rgba(221, 221, 221, 0.92)),
+      #dddddd;
+  -fx-border-color: rgba(214, 107, 0, 0.44);
+}
+
+.panel-chooser-row-maintenance:hover {
+  -fx-background-color:
+      linear-gradient(to right, rgba(214, 107, 0, 0.18), rgba(214, 214, 214, 0.94)),
+      #d6d6d6;
+  -fx-border-color: rgba(214, 107, 0, 0.62);
+}
+
+.panel-chooser-maintenance-veil {
+  -fx-background-color: linear-gradient(to right, rgba(255, 255, 255, 0.00), rgba(255, 255, 255, 0.36));
+  -fx-background-radius: 6;
+}
+
+.panel-chooser-maintenance-overlay {
+  -fx-alignment: center-right;
+}
+
+.panel-chooser-maintenance-badge {
+  -fx-padding: 2 7 2 7;
+  -fx-background-color: rgba(214, 107, 0, 0.14);
+  -fx-background-radius: 999;
+  -fx-border-color: rgba(214, 107, 0, 0.58);
+  -fx-border-radius: 999;
+  -fx-border-width: 1;
+  -fx-text-fill: #8c4b10;
+  -fx-font-size: 9px;
+  -fx-font-weight: 900;
+}
+
+.panel-chooser-maintenance-eta {
+  -fx-text-fill: #8a5b28;
+  -fx-font-size: 10px;
+  -fx-font-weight: 800;
+}
+
 .panel-chooser-icon-chip {
   -fx-min-width: 34px;
   -fx-pref-width: 34px;
@@ -6478,6 +6649,32 @@
 .sidebar-tool-root {
   -fx-background-color: #efefef;
   -fx-control-inner-background: #f4f4f4;
+}
+
+.sidebar-tool-root .text-input,
+.sidebar-tool-root .text-field,
+.sidebar-tool-root .text-area,
+.sidebar-tool-search-field {
+  -fx-background-color: #f3f3f3;
+  -fx-text-fill: #171717;
+  -fx-prompt-text-fill: #858585;
+  -fx-highlight-fill: #c2c2c2;
+  -fx-highlight-text-fill: #050505;
+  -fx-border-color: #cfcfcf;
+  -fx-border-radius: 8;
+  -fx-background-radius: 8;
+}
+
+.sidebar-tool-root .text-input:focused,
+.sidebar-tool-root .text-field:focused,
+.sidebar-tool-root .text-area:focused,
+.sidebar-tool-search-field:focused {
+  -fx-background-color: #ffffff;
+  -fx-border-color: #8a8a8a;
+}
+
+.sidebar-tool-root .text-area .content {
+  -fx-background-color: #f3f3f3;
 }
 
 .sidebar-tool-scroll,

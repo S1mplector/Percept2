@@ -15,6 +15,8 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
@@ -106,9 +108,17 @@ public class EasingCurveDialog extends Stage {
 
     private final EasingCurveEditor curveEditor = new EasingCurveEditor();
     private final Map<Easing.Type, Pane> presetCells = new LinkedHashMap<>();
+    private final VBox presetListBox = new VBox(0);
+    private final TextField presetFilter = new TextField();
+    private final TextField specField = new TextField();
+    private final Label statusLabel = new Label();
     private Easing.Interpolation selectedInterp;
     private final List<Button> interpButtons = new ArrayList<>();
     private final BiConsumer<EasingSpec, Easing.Interpolation> onApply;
+    private EasingSpec baselineSpec = EasingSpec.of(Easing.Type.LINEAR);
+    private Easing.Type highlightedType = Easing.Type.LINEAR;
+    private boolean updatingSpecField = false;
+    private Button previewButton = new Button("▶  Preview");
 
     /**
      * @param owner          owner window (for positioning); may be null
@@ -129,8 +139,8 @@ public class EasingCurveDialog extends Stage {
         initStyle(StageStyle.DECORATED);
         setTitle("Easing Curve Editor");
         setResizable(true);
-        setMinWidth(580);
-        setMinHeight(420);
+        setMinWidth(720);
+        setMinHeight(480);
 
         VBox root = new VBox();
         root.setStyle("-fx-background-color: " + BG_DARK + ";");
@@ -142,7 +152,7 @@ public class EasingCurveDialog extends Stage {
         );
         VBox.setVgrow(root.getChildren().get(1), Priority.ALWAYS);
 
-        Scene scene = new Scene(root, 700, 520);
+        Scene scene = new Scene(root, 860, 580);
         scene.setFill(Color.web(BG_DARK));
         scene.setOnKeyPressed(e -> {
             if (e.getCode() == KeyCode.ESCAPE) close();
@@ -152,12 +162,21 @@ public class EasingCurveDialog extends Stage {
 
         // Load initial state
         EasingSpec spec = initialSpec != null ? initialSpec : EasingSpec.of(Easing.Type.LINEAR);
+        baselineSpec = spec;
         curveEditor.setInterpolation(selectedInterp);
         curveEditor.setEasingSpec(spec);
         curveEditor.setExpanded(true);
+        curveEditor.setHelperText("Drag editable points. Shift snaps. Double-click adds/removes points.");
+        curveEditor.setOnCurveSpecChanged(changed -> {
+            syncSpecField(changed);
+            highlightPreset(changed != null ? changed.getType() : Easing.Type.LINEAR);
+            setStatus("Curve updated.", false);
+        });
 
         highlightPreset(spec.getType());
         refreshInterpButtons();
+        syncSpecField(spec);
+        setOnHidden(e -> curveEditor.stopAnimation());
     }
 
     // -------------------------------------------------------------------------
@@ -203,31 +222,26 @@ public class EasingCurveDialog extends Stage {
         header.setStyle("-fx-text-fill: " + DIM + "; -fx-font-size: 9px; -fx-font-weight: bold; " +
                         "-fx-padding: 9 10 4 10;");
 
-        VBox listBox = new VBox(0);
-        listBox.setStyle("-fx-background-color: " + BG_PANEL + ";");
-        listBox.setFillWidth(true);
+        presetFilter.setPromptText("Filter presets");
+        presetFilter.setStyle(fieldStyle());
+        presetFilter.setTooltip(new Tooltip("Filter built-in easing presets by name or group"));
+        presetFilter.textProperty().addListener((obs, oldValue, newValue) -> refreshPresetList());
 
-        for (PresetGroup group : GROUPS) {
-            Label groupLabel = new Label(group.header().toUpperCase());
-            groupLabel.setStyle("-fx-text-fill: #3d3d50; -fx-font-size: 9px; -fx-font-weight: bold; " +
-                                "-fx-padding: 7 10 2 10;");
-            listBox.getChildren().add(groupLabel);
+        presetListBox.setStyle("-fx-background-color: " + BG_PANEL + ";");
+        presetListBox.setFillWidth(true);
+        refreshPresetList();
 
-            for (PresetEntry entry : group.entries()) {
-                Pane cell = buildPresetCell(entry);
-                presetCells.put(entry.type(), cell);
-                listBox.getChildren().add(cell);
-            }
-        }
-
-        ScrollPane scroll = new ScrollPane(listBox);
+        ScrollPane scroll = new ScrollPane(presetListBox);
         scroll.setFitToWidth(true);
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scroll.setStyle("-fx-background: " + BG_PANEL + "; -fx-background-color: " + BG_PANEL + "; " +
                         "-fx-border-color: transparent;");
         VBox.setVgrow(scroll, Priority.ALWAYS);
 
-        panel.getChildren().addAll(header, scroll);
+        VBox filterBox = new VBox(presetFilter);
+        filterBox.setPadding(new Insets(4, 8, 6, 8));
+
+        panel.getChildren().addAll(header, filterBox, scroll);
         return panel;
     }
 
@@ -242,11 +256,11 @@ public class EasingCurveDialog extends Stage {
         cell.setStyle("-fx-background-color: transparent; -fx-cursor: hand;");
 
         cell.setOnMouseEntered(e -> {
-            if (presetCells.get(entry.type()) != cell || !BG_SEL.equals(extractBg(cell)))
+            if (highlightedType != entry.type())
                 cell.setStyle("-fx-background-color: #1a2535; -fx-cursor: hand;");
         });
         cell.setOnMouseExited(e -> {
-            if (!BG_SEL.equals(extractBg(cell)))
+            if (highlightedType != entry.type())
                 cell.setStyle("-fx-background-color: transparent; -fx-cursor: hand;");
         });
         cell.setOnMouseClicked(e -> applyPreset(entry.type()));
@@ -260,8 +274,64 @@ public class EasingCurveDialog extends Stage {
         VBox.setVgrow(curveEditor, Priority.ALWAYS);
         HBox.setHgrow(panel, Priority.ALWAYS);
         panel.setFillWidth(true);
-        panel.getChildren().addAll(curveEditor, buildInterpRow());
+        panel.getChildren().addAll(buildSpecRow(), curveEditor, buildToolRow(), buildInterpRow());
         return panel;
+    }
+
+    private HBox buildSpecRow() {
+        Label lbl = new Label("Spec:");
+        lbl.setStyle("-fx-text-fill: " + DIM + "; -fx-font-size: 10px;");
+
+        specField.setPromptText("linear, ease_out_quart, cubic_bezier(...), curve(...)");
+        specField.setStyle(fieldStyle());
+        specField.setTooltip(new Tooltip("Paste or edit an easing token, cubic_bezier(...), curve(...), spring(...), or damped_spring(...)."));
+        specField.setOnAction(e -> applySpecField());
+
+        Button apply = new Button("Apply");
+        apply.setStyle(btnStyle("#202020", "#d8d8d8", "#303030"));
+        apply.setTooltip(new Tooltip("Apply the spec text to this editor"));
+        apply.setOnAction(e -> applySpecField());
+
+        HBox row = new HBox(8, lbl, specField, apply);
+        row.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(specField, Priority.ALWAYS);
+        return row;
+    }
+
+    private HBox buildToolRow() {
+        Button editable = toolButton("Make Editable", "Convert the visible curve to editable points", () -> {
+            applyEditorSpec(KeyframeEditor.toMultiPointCurveSpec(curveEditor.getEditedSpec()), Easing.Type.CURVE, "Converted to editable curve.");
+        });
+        Button addPoint = toolButton("Add Point", "Add a point near the current cursor or selected point", () -> {
+            ensureMultiPointCurve();
+            if (curveEditor.addCurvePointAtCurrentFocus()) {
+                syncSpecField(curveEditor.getEditedSpec());
+                highlightPreset(Easing.Type.CURVE);
+                setStatus("Point added.", false);
+            }
+        });
+        Button removePoint = toolButton("Remove Point", "Remove the selected curve point", () -> {
+            if (curveEditor.removeSelectedCurvePoint()) {
+                syncSpecField(curveEditor.getEditedSpec());
+                setStatus("Point removed.", false);
+            } else {
+                setStatus("Select a removable curve point first.", true);
+            }
+        });
+        Button reverse = toolButton("Reverse", "Reverse the curve in time", () -> {
+            EasingSpec reversed = KeyframeEditor.reverseEditableCurveSpec(curveEditor.getEditedSpec());
+            applyEditorSpec(reversed, reversed.getType(), "Curve reversed.");
+        });
+        Button clamp = toolButton("Clamp Y", "Clamp curve output into 0..1", () -> {
+            EasingSpec clamped = KeyframeEditor.clampEditableCurveSpec(curveEditor.getEditedSpec());
+            applyEditorSpec(clamped, clamped.getType(), "Curve clamped.");
+        });
+        Button reset = toolButton("Reset", "Return to the curve opened in this dialog", () ->
+            applyEditorSpec(baselineSpec, baselineSpec.getType(), "Reset to opened curve."));
+
+        HBox row = new HBox(6, editable, addPoint, removePoint, reverse, clamp, reset);
+        row.setAlignment(Pos.CENTER_LEFT);
+        return row;
     }
 
     private HBox buildInterpRow() {
@@ -296,16 +366,22 @@ public class EasingCurveDialog extends Stage {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        Button btnPreview = new Button("▶  Preview");
-        btnPreview.setStyle(btnStyle("#252525", "#909090", "#353535"));
-        btnPreview.setOnAction(e -> curveEditor.toggleAnimation());
+        previewButton.setText("▶  Preview");
+        previewButton.setStyle(btnStyle("#252525", "#c8c8c8", "#3d3d3d"));
+        previewButton.setOnAction(e -> {
+            curveEditor.toggleAnimation();
+            updatePreviewButton();
+        });
 
         Button btnApply = new Button("Apply to Selection");
         btnApply.setStyle(btnStyle(APPLY_BG, APPLY_FG, APPLY_BD) + " -fx-font-weight: bold;");
         btnApply.setDefaultButton(true);
         btnApply.setOnAction(e -> commitAndClose());
 
-        HBox row = new HBox(8, spacer, btnPreview, btnApply);
+        statusLabel.setText("");
+        statusLabel.setStyle("-fx-text-fill: " + DIM + "; -fx-font-size: 10px;");
+
+        HBox row = new HBox(8, statusLabel, spacer, previewButton, btnApply);
         row.setAlignment(Pos.CENTER_RIGHT);
         row.setPadding(new Insets(9, 14, 9, 14));
         row.setStyle("-fx-background-color: #161616; -fx-border-color: " + BORDER + "; " +
@@ -317,6 +393,48 @@ public class EasingCurveDialog extends Stage {
     // Logic
     // -------------------------------------------------------------------------
 
+    private void refreshPresetList() {
+        String query = presetFilter.getText() == null
+            ? ""
+            : presetFilter.getText().trim().toLowerCase();
+        presetCells.clear();
+        presetListBox.getChildren().clear();
+
+        for (PresetGroup group : GROUPS) {
+            List<PresetEntry> visibleEntries = new ArrayList<>();
+            for (PresetEntry entry : group.entries()) {
+                if (query.isBlank() || matchesPresetQuery(group, entry, query)) {
+                    visibleEntries.add(entry);
+                }
+            }
+            if (visibleEntries.isEmpty()) continue;
+
+            Label groupLabel = new Label(group.header().toUpperCase());
+            groupLabel.setStyle("-fx-text-fill: #565672; -fx-font-size: 9px; -fx-font-weight: bold; " +
+                                "-fx-padding: 7 10 2 10;");
+            presetListBox.getChildren().add(groupLabel);
+
+            for (PresetEntry entry : visibleEntries) {
+                Pane cell = buildPresetCell(entry);
+                presetCells.put(entry.type(), cell);
+                presetListBox.getChildren().add(cell);
+            }
+        }
+
+        if (presetListBox.getChildren().isEmpty()) {
+            Label empty = new Label("No presets match");
+            empty.setStyle("-fx-text-fill: " + DIM + "; -fx-font-size: 11px; -fx-padding: 10;");
+            presetListBox.getChildren().add(empty);
+        }
+        highlightPreset(highlightedType);
+    }
+
+    private boolean matchesPresetQuery(PresetGroup group, PresetEntry entry, String query) {
+        String haystack = (group.header() + " " + entry.label() + " "
+            + entry.type().name() + " " + Easing.displayName(entry.type())).toLowerCase();
+        return haystack.contains(query);
+    }
+
     private void applyPreset(Easing.Type type) {
         EasingSpec spec;
         if (type == Easing.Type.CUSTOM) {
@@ -325,17 +443,21 @@ public class EasingCurveDialog extends Stage {
             spec = current.getType() == Easing.Type.CUSTOM
                 ? current
                 : EasingSpec.cubicBezier(0.25, 0.10, 0.25, 1.00);
+        } else if (type == Easing.Type.CURVE) {
+            EasingSpec current = curveEditor.getEditedSpec();
+            spec = current.getType() == Easing.Type.CURVE
+                ? current
+                : KeyframeEditor.toMultiPointCurveSpec(current);
         } else {
-            spec = EasingSpec.of(type);
+            spec = Easing.namedCurveSpec(type);
         }
-        curveEditor.setEasingSpec(spec);
-        curveEditor.setInterpolation(selectedInterp);
-        highlightPreset(type);
+        applyEditorSpec(spec, type, "Preset: " + Easing.displayName(type));
     }
 
     private void highlightPreset(Easing.Type type) {
+        highlightedType = type != null ? type : Easing.Type.LINEAR;
         for (Map.Entry<Easing.Type, Pane> entry : presetCells.entrySet()) {
-            boolean selected = entry.getKey() == type;
+            boolean selected = entry.getKey() == highlightedType;
             entry.getValue().setStyle(selected
                 ? "-fx-background-color: " + BG_SEL + "; -fx-cursor: hand;"
                 : "-fx-background-color: transparent; -fx-cursor: hand;");
@@ -350,6 +472,80 @@ public class EasingCurveDialog extends Stage {
                 ? btnStyle("#1e3450", ACCENT, "#2d5070")
                 : btnStyle("#202020", "#888888", "#303030"));
         }
+    }
+
+    private Button toolButton(String text, String tooltip, Runnable action) {
+        Button button = new Button(text);
+        button.setStyle(btnStyle("#202020", "#c8c8c8", "#303030"));
+        button.setTooltip(new Tooltip(tooltip));
+        button.setOnAction(e -> {
+            if (action != null) action.run();
+            curveEditor.requestFocus();
+        });
+        return button;
+    }
+
+    private void applySpecField() {
+        if (updatingSpecField) return;
+        String raw = specField.getText();
+        if (raw == null || raw.isBlank()) {
+            syncSpecField(curveEditor.getEditedSpec());
+            setSpecFieldError(false);
+            return;
+        }
+        EasingSpec parsed = EasingSpec.tryParse(raw);
+        if (parsed == null) {
+            setSpecFieldError(true);
+            setStatus("Could not parse easing spec.", true);
+            return;
+        }
+        setSpecFieldError(false);
+        selectedInterp = Easing.Interpolation.TWEEN;
+        curveEditor.setInterpolation(selectedInterp);
+        applyEditorSpec(parsed, parsed.getType(), "Spec applied.");
+        refreshInterpButtons();
+    }
+
+    private void ensureMultiPointCurve() {
+        if (curveEditor.getEditedSpec().getType() != Easing.Type.CURVE) {
+            applyEditorSpec(KeyframeEditor.toMultiPointCurveSpec(curveEditor.getEditedSpec()), Easing.Type.CURVE, "Converted to editable curve.");
+        }
+    }
+
+    private void applyEditorSpec(EasingSpec spec, Easing.Type highlightType, String status) {
+        EasingSpec resolved = spec != null ? spec : EasingSpec.of(Easing.Type.LINEAR);
+        curveEditor.setEasingSpec(resolved);
+        curveEditor.setInterpolation(selectedInterp);
+        syncSpecField(resolved);
+        highlightPreset(highlightType != null ? highlightType : resolved.getType());
+        setStatus(status, false);
+    }
+
+    private void syncSpecField(EasingSpec spec) {
+        updatingSpecField = true;
+        specField.setText(Easing.formatSpec(spec != null ? spec : EasingSpec.of(Easing.Type.LINEAR)));
+        setSpecFieldError(false);
+        updatingSpecField = false;
+    }
+
+    private void setSpecFieldError(boolean error) {
+        specField.setStyle(error
+            ? fieldStyle() + " -fx-border-color: #d85f70; -fx-border-width: 1.5;"
+            : fieldStyle());
+    }
+
+    private void setStatus(String text, boolean error) {
+        statusLabel.setText(text == null ? "" : text);
+        statusLabel.setStyle("-fx-text-fill: " + (error ? "#e06a78" : DIM) + "; -fx-font-size: 10px;");
+    }
+
+    private void updatePreviewButton() {
+        if (previewButton == null) return;
+        boolean playing = curveEditor.isAnimating();
+        previewButton.setText(playing ? "■  Stop" : "▶  Preview");
+        previewButton.setStyle(playing
+            ? btnStyle("#2e3445", "#f1f1f1", "#56617a")
+            : btnStyle("#252525", "#c8c8c8", "#3d3d3d"));
     }
 
     private void commitAndClose() {
@@ -370,12 +566,9 @@ public class EasingCurveDialog extends Stage {
                "-fx-font-size: 11px; -fx-padding: 5 12 5 12; -fx-cursor: hand;";
     }
 
-    private static String extractBg(Pane cell) {
-        String style = cell.getStyle();
-        int idx = style.indexOf("-fx-background-color:");
-        if (idx < 0) return "";
-        String rest = style.substring(idx + "-fx-background-color:".length()).trim();
-        int end = rest.indexOf(';');
-        return end >= 0 ? rest.substring(0, end).trim() : rest.trim();
+    private static String fieldStyle() {
+        return "-fx-background-color: #101010; -fx-text-fill: " + TEXT + "; " +
+               "-fx-border-color: #343434; -fx-border-radius: 5; -fx-background-radius: 5; " +
+               "-fx-font-size: 11px; -fx-padding: 5 8;";
     }
 }

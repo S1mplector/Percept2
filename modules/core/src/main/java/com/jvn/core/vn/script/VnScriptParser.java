@@ -783,6 +783,7 @@ public class VnScriptParser {
         flushPendingVoice(state);
         ensureBuilder(state);
         StringBuilder block = new StringBuilder();
+        String timelineModifiers = timelineHeaderModifiers(trimmed);
         int braceDepth = 0;
         // Count opening braces on the first line
         for (char c : trimmed.toCharArray()) { if (c == '{') braceDepth++; }
@@ -821,7 +822,10 @@ public class VnScriptParser {
         if (braceDepth != 0) {
           throw parseError(sourceName, lineNumber, "Unterminated inline timeline block", rawLine);
         }
-        String inlineCode = block.toString();
+        String inlineCode = "timeline {\n" + block + "}";
+        if (!timelineModifiers.isBlank()) {
+          inlineCode += " " + timelineModifiers;
+        }
         state.builder.external("jes_timeline_inline", inlineCode);
         continue;
       }
@@ -2570,6 +2574,16 @@ public class VnScriptParser {
     if (arg != null && !arg.isBlank()) {
       throw parseError(sourceName, lineNumber, "[" + cmd + "] does not accept arguments", rawLine);
     }
+  }
+
+  private String timelineHeaderModifiers(String header) {
+    if (header == null) return "";
+    String trimmed = header.trim();
+    if (!trimmed.startsWith("timeline")) return "";
+    String tail = trimmed.substring("timeline".length()).trim();
+    int brace = tail.indexOf('{');
+    if (brace >= 0) tail = tail.substring(0, brace).trim();
+    return tail;
   }
 
   private void validateJavaImport(String imp, String sourceName, int lineNumber, String rawLine) throws IOException {

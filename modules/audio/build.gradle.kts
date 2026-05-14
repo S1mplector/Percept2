@@ -65,4 +65,3 @@ tasks.withType<JavaCompile>().configureEach {
       ep.option("NullAway:AnnotatedPackages", "com.jvn.audio")
     }
 }
-

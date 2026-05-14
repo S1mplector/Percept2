@@ -55,6 +55,7 @@ public final class VnUiLayoutLoader {
       "dialogueTextBottomPadding",
       "choiceXCenter",
       "choiceYStart",
+      "choiceYAnchor",
       "choiceWidthFactor",
       "choiceHeight",
       "choiceGap",
@@ -313,6 +314,7 @@ public final class VnUiLayoutLoader {
         "dialogueTextBottomPadding");
     double choiceXCenter = parseDouble(props.getProperty("choiceXCenter"), bLayout.choiceXCenter(), diagnostics, "choiceXCenter");
     double choiceYStart = parseDouble(props.getProperty("choiceYStart"), bLayout.choiceYStart(), diagnostics, "choiceYStart");
+    double choiceYAnchor = parseDouble(props.getProperty("choiceYAnchor"), bLayout.choiceYAnchor(), diagnostics, "choiceYAnchor");
     double choiceWidthFactor = parseDouble(props.getProperty("choiceWidthFactor"), bLayout.choiceWidthFactor(), diagnostics, "choiceWidthFactor");
     double choiceHeight = parseDouble(props.getProperty("choiceHeight"), bLayout.choiceHeight(), diagnostics, "choiceHeight");
     double choiceGap = parseDouble(props.getProperty("choiceGap"), bLayout.choiceGap(), diagnostics, "choiceGap");
@@ -376,7 +378,8 @@ public final class VnUiLayoutLoader {
         bubbleMinHeight,
         bubbleTextPadding,
         bubbleYOffset,
-        bubbleTailSize
+        bubbleTailSize,
+        choiceYAnchor
     );
 
     warnAdjustedDouble("textBoxX", textBoxX, layout.textBoxX(), diagnostics);
@@ -394,6 +397,7 @@ public final class VnUiLayoutLoader {
     warnAdjustedDouble("dialogueTextBottomPadding", dialogueTextBottomPadding, layout.dialogueTextBottomPadding(), diagnostics);
     warnAdjustedDouble("choiceXCenter", choiceXCenter, layout.choiceXCenter(), diagnostics);
     warnAdjustedDouble("choiceYStart", choiceYStart, layout.choiceYStart(), diagnostics);
+    warnAdjustedDouble("choiceYAnchor", choiceYAnchor, layout.choiceYAnchor(), diagnostics);
     warnAdjustedDouble("choiceWidthFactor", choiceWidthFactor, layout.choiceWidthFactor(), diagnostics);
     warnAdjustedDouble("choiceHeight", choiceHeight, layout.choiceHeight(), diagnostics);
     warnAdjustedDouble("choiceGap", choiceGap, layout.choiceGap(), diagnostics);
@@ -567,6 +571,7 @@ public final class VnUiLayoutLoader {
     p.setProperty("dialogueTextBottomPadding", format(s.dialogueTextBottomPadding()));
     p.setProperty("choiceXCenter", format(s.choiceXCenter()));
     p.setProperty("choiceYStart", format(s.choiceYStart()));
+    p.setProperty("choiceYAnchor", format(s.choiceYAnchor()));
     p.setProperty("choiceWidthFactor", format(s.choiceWidthFactor()));
     p.setProperty("choiceHeight", format(s.choiceHeight()));
     p.setProperty("choiceGap", format(s.choiceGap()));

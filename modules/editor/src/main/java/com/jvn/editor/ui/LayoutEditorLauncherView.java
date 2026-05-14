@@ -27,6 +27,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -119,11 +120,13 @@ across large projects."""));
 
     filterField.setPromptText("Filter layout files...");
     filterField.getStyleClass().add("layout-launcher-field");
+    filterField.setTooltip(new Tooltip("Filter menu, style, and layout files"));
     filterField.textProperty().addListener((o, ov, nv) -> renderItemList());
 
     Button refreshButton = new Button("Refresh");
     refreshButton.getStyleClass().add("layout-launcher-button");
     refreshButton.setGraphic(CssIcon.redo());
+    refreshButton.setTooltip(new Tooltip("Rescan project layout and menu files"));
     refreshButton.setOnAction(e -> refreshStatus());
 
     HBox topActions = new HBox(8, filterField, refreshButton);
@@ -259,11 +262,13 @@ across large projects."""));
 
     Button openButton = new Button("Open Studio");
     openButton.getStyleClass().add("layout-launcher-button");
+    openButton.setTooltip(new Tooltip("Open this item in the visual layout studio"));
     openButton.setOnAction(e -> openItem(item));
 
     Button cloneButton = new Button("Clone");
     cloneButton.getStyleClass().addAll("layout-launcher-button", "layout-launcher-button-pill");
     cloneButton.setGraphic(CssIcon.plus());
+    cloneButton.setTooltip(new Tooltip("Create a copy of this layout item"));
     cloneButton.setOnAction(e -> cloneItem(item));
 
     HBox head = new HBox(8, title, status);
@@ -844,6 +849,7 @@ across large projects."""));
     Button saveRegistry = new Button("Save Registry");
     saveRegistry.getStyleClass().add("layout-launcher-button");
     saveRegistry.setGraphic(CssIcon.save());
+    saveRegistry.setTooltip(new Tooltip("Save menu registry changes"));
     saveRegistry.setOnAction(e -> {
       if (projectRoot == null) return;
       File registryFile = new File(projectRoot, DEFAULT_MENU_REGISTRY_PATH);
@@ -871,6 +877,7 @@ across large projects."""));
     Button openRegistryFile = new Button("Open File");
     openRegistryFile.getStyleClass().add("layout-launcher-button");
     openRegistryFile.setGraphic(CssIcon.expand());
+    openRegistryFile.setTooltip(new Tooltip("Open the menu registry file"));
     openRegistryFile.setOnAction(e -> {
       if (projectRoot == null || onOpenFile == null) return;
       File registryFile = new File(projectRoot, DEFAULT_MENU_REGISTRY_PATH);
@@ -1038,18 +1045,21 @@ across large projects."""));
     newScreen.getStyleClass().add("layout-launcher-button");
     newScreen.setGraphic(CssIcon.list());
     newScreen.setMaxWidth(Double.MAX_VALUE);
+    newScreen.setTooltip(new Tooltip("Create a new menu screen file"));
     newScreen.setOnAction(e -> promptCreateFile("Menu Screen", "config/menu/menus", ".menu", ItemType.MENU_SCREEN));
 
     Button newLayout = new Button("New Menu Layout");
     newLayout.getStyleClass().add("layout-launcher-button");
     newLayout.setGraphic(CssIcon.grid());
     newLayout.setMaxWidth(Double.MAX_VALUE);
+    newLayout.setTooltip(new Tooltip("Create a new menu layout file"));
     newLayout.setOnAction(e -> promptCreateFile("Menu Layout", "config/menu/layouts", ".layout", ItemType.MENU_LAYOUT));
 
     Button newStyle = new Button("New Menu Style");
     newStyle.getStyleClass().add("layout-launcher-button");
     newStyle.setGraphic(CssIcon.palette());
     newStyle.setMaxWidth(Double.MAX_VALUE);
+    newStyle.setTooltip(new Tooltip("Create a new menu style file"));
     newStyle.setOnAction(e -> promptCreateFile("Menu Style", "config/menu/styles", ".style", ItemType.MENU_STYLE));
 
     panel.getChildren().addAll(header, newScreen, newLayout, newStyle);

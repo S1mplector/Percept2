@@ -25,7 +25,10 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ContextMenu;
+import javafx.scene.control.CheckMenuItem;
 import javafx.scene.control.Label;
+import javafx.scene.control.Menu;
+import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.Separator;
 import javafx.scene.control.SeparatorMenuItem;
@@ -41,6 +44,7 @@ import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
@@ -211,10 +215,12 @@ Explorer for external editing or drag-and-drop asset workflows."""),
 
     filterField.setPromptText("Filter files, paths, or labels...");
     filterField.getStyleClass().add("script-editor-field");
+    filterField.setTooltip(new Tooltip("Filter the workspace tree by file, path, or VNS label"));
     HBox.setHgrow(filterField, Priority.ALWAYS);
 
     searchField.setPromptText("Search in text files…");
     searchField.getStyleClass().add("script-editor-field");
+    searchField.setTooltip(new Tooltip("Search inside all project text files"));
     HBox.setHgrow(searchField, Priority.ALWAYS);
     searchResults.setPadding(new Insets(4, 0, 0, 0));
 
@@ -226,6 +232,7 @@ Explorer for external editing or drag-and-drop asset workflows."""),
 
     explorerTree.setShowRoot(true);
     explorerTree.getStyleClass().add("script-editor-tree");
+    explorerTree.setTooltip(new Tooltip("Text workspace tree. Double-click or press Enter to open a file."));
     explorerTree.setCellFactory(tree -> new TreeCell<>() {
       @Override
       protected void updateItem(ExplorerNode item, boolean empty) {
@@ -235,9 +242,10 @@ Explorer for external editing or drag-and-drop asset workflows."""),
           setGraphic(null);
           return;
         }
-        Region icon = item.directory
-            ? CssIcon.folder(item.relativePath == null ? "#d0d0d0" : "#c8c8c8")
-            : CssIcon.list("#bcbcbc");
+        Region icon = ProjectFileIcons.iconFor(ProjectFileIcons.kindFor(
+            item.displayName,
+            item.directory,
+            item.directory && item.relativePath == null));
         Label name = new Label(item.displayName);
         name.getStyleClass().add(item.directory ? "script-editor-tree-dir-label" : "script-editor-tree-file-label");
         HBox row = new HBox(6, icon, name);
@@ -958,100 +966,18 @@ Explorer for external editing or drag-and-drop asset workflows."""),
         }
       });
 
-      HBox toolbar = new HBox(6);
-      toolbar.getStyleClass().add("script-editor-toolbar");
-      toolbar.setPadding(new Insets(5, 10, 5, 10));
-      toolbar.setAlignment(Pos.CENTER_LEFT);
-      HBox titleRow = new HBox(8, CssIcon.list("#d0d0d0"), toolbarTitle("JVN Text Editor"));
-      titleRow.setAlignment(Pos.CENTER_LEFT);
-      Label workspaceChip = toolbarChip("Workspace", launchRoot.getName());
-
-      Separator toolSep1 = new Separator(Orientation.VERTICAL);
-      toolSep1.setPadding(new Insets(0, 4, 0, 4));
-
-      Button saveBtn = toolbarButton(
-          "Save",
-          "Save current file (Ctrl+S)",
-          CssIcon.save("#8bcf98"),
-          true);
-      saveBtn.setOnAction(e -> saveActiveTab(editorTabs, windowStatus));
-
-      Button saveAllBtn = toolbarButton(
-          "Save All",
-          "Save all open files (Ctrl+Shift+S)",
-          CssIcon.save("#d0d0d0"),
-          false);
-      saveAllBtn.setOnAction(e -> saveAllTabs(editorTabs, windowStatus));
-
-      Separator toolSep2 = new Separator(Orientation.VERTICAL);
-      toolSep2.setPadding(new Insets(0, 4, 0, 4));
-
-      Button undoBtn = toolbarButton(
-          "Undo",
-          "Undo (Ctrl+Z)",
-          CssIcon.undo("#d0d0d0"),
-          false);
-      undoBtn.setOnAction(e -> {
-        TextEditorSession ed = activeEditor(editorTabs);
-        if (ed != null) ed.undo();
-      });
-
-      Button redoBtn = toolbarButton(
-          "Redo",
-          "Redo (Ctrl+Shift+Z)",
-          CssIcon.redo("#d0d0d0"),
-          false);
-      redoBtn.setOnAction(e -> {
-        TextEditorSession ed = activeEditor(editorTabs);
-        if (ed != null) ed.redo();
-      });
-
-      Separator toolSep3 = new Separator(Orientation.VERTICAL);
-      toolSep3.setPadding(new Insets(0, 4, 0, 4));
-
-      Button findBtn = toolbarButton(
-          "Find",
-          "Find & Replace (Ctrl+F)",
-          CssIcon.search("#d0d0d0"),
-          false);
-      findBtn.setOnAction(e -> {
-        TextEditorSession ed = activeEditor(editorTabs);
-        if (ed != null) ed.showSearchBar();
-      });
-
-      Region spacer = new Region();
-      HBox.setHgrow(spacer, Priority.ALWAYS);
-
-      Button refreshBtn = toolbarButton(
-          "Refresh",
-          "Refresh file tree",
-          CssIcon.redo("#d0d0d0"),
-          false);
-      refreshBtn.setOnAction(e -> {
-        TreeItem<String> refreshedRoot = buildFileTree(contentRoot, contentRoot.getFileName().toString());
-        refreshedRoot.setExpanded(true);
-        fileTree.setRoot(refreshedRoot);
-        windowStatus.setText("File tree refreshed.");
-      });
-
-      toolbar.getChildren().addAll(
-          titleRow, toolSep1,
-          saveBtn, saveAllBtn, toolSep2,
-          undoBtn, redoBtn, toolSep3,
-          findBtn,
-          spacer, workspaceChip, refreshBtn
-      );
-
       BorderPane filePane = new BorderPane(fileTree);
       filePane.setTop(paneHeader("Files", "Project text workspace", CssIcon.folder("#d0d0d0")));
       filePane.getStyleClass().addAll("script-editor-window-sidebar", "script-editor-card");
+
+      HBox menuShell = buildStandaloneMenuShell(fileTree, contentRoot, launchRoot, editorTabs, windowStatus, filePane);
 
       SplitPane split = new SplitPane(filePane, editorTabs);
       split.setDividerPositions(0.22);
       split.getStyleClass().add("script-editor-window-split");
       SplitPane.setResizableWithParent(filePane, false);
 
-      root.setTop(toolbar);
+      root.setTop(menuShell);
       root.setCenter(split);
       root.setBottom(windowStatus);
 
@@ -1092,6 +1018,120 @@ Explorer for external editing or drag-and-drop asset workflows."""),
       editorWindowLaunchRoot = null;
       showLaunchError("Failed to open text editor window:\n" + ex.getMessage());
     }
+  }
+
+  private HBox buildStandaloneMenuShell(TreeView<String> fileTree,
+                                        Path contentRoot,
+                                        File launchRoot,
+                                        TabPane editorTabs,
+                                        Label windowStatus,
+                                        BorderPane filePane) {
+    Menu file = new Menu("File");
+    file.getItems().addAll(
+        menuItem("New VNS Script...", () -> createStandaloneFile(fileTree, contentRoot, launchRoot, editorTabs, windowStatus, ".vns"), "Shortcut+N"),
+        menuItem("New JES Timeline...", () -> createStandaloneFile(fileTree, contentRoot, launchRoot, editorTabs, windowStatus, ".jes"), null),
+        menuItem("New Text File...", () -> createStandaloneFile(fileTree, contentRoot, launchRoot, editorTabs, windowStatus, ".txt"), null),
+        new SeparatorMenuItem(),
+        menuItem("Open Selected", () -> openSelectedStandaloneFile(fileTree, contentRoot, launchRoot, editorTabs, windowStatus), "Shortcut+O"),
+        menuItem("Open Selected in Main Editor", () -> openSelectedStandaloneInMainEditor(fileTree, contentRoot, windowStatus), null),
+        new SeparatorMenuItem(),
+        menuItem("Save", () -> saveActiveTab(editorTabs, windowStatus), "Shortcut+S"),
+        menuItem("Save All", () -> saveAllTabs(editorTabs, windowStatus), "Shortcut+Shift+S"),
+        new SeparatorMenuItem(),
+        menuItem("Reveal Active File", () -> revealActiveStandaloneFile(editorTabs, windowStatus), null),
+        menuItem("Reveal Workspace", () -> revealFile(contentRoot.toFile()), null),
+        new SeparatorMenuItem(),
+        menuItem("Close Tab", () -> closeActiveStandaloneTab(editorTabs, windowStatus), "Shortcut+W"),
+        menuItem("Close All Tabs", () -> closeAllStandaloneTabs(editorTabs, windowStatus), "Shortcut+Shift+W"),
+        new SeparatorMenuItem(),
+        menuItem("Close Window", () -> {
+          Window window = editorWindow != null ? editorWindow : getScene() == null ? null : getScene().getWindow();
+          if (window instanceof Stage stage) stage.close();
+        }, null)
+    );
+
+    Menu edit = new Menu("Edit");
+    edit.getItems().addAll(
+        menuItem("Undo", () -> {
+          TextEditorSession ed = activeEditor(editorTabs);
+          if (ed != null) ed.undo();
+        }, "Shortcut+Z"),
+        menuItem("Redo", () -> {
+          TextEditorSession ed = activeEditor(editorTabs);
+          if (ed != null) ed.redo();
+        }, "Shortcut+Shift+Z"),
+        new SeparatorMenuItem(),
+        menuItem("Find / Replace", () -> {
+          TextEditorSession ed = activeEditor(editorTabs);
+          if (ed != null) ed.showSearchBar();
+        }, "Shortcut+F"),
+        new SeparatorMenuItem(),
+        menuItem("Copy Active Absolute Path", () -> copyActiveStandalonePath(editorTabs, false, launchRoot, windowStatus), null),
+        menuItem("Copy Active Relative Path", () -> copyActiveStandalonePath(editorTabs, true, launchRoot, windowStatus), null)
+    );
+
+    Menu navigate = new Menu("Navigate");
+    navigate.getItems().addAll(
+        menuItem("Focus Project Tree", fileTree::requestFocus, null),
+        menuItem("Focus Editor", () -> {
+          TextEditorSession ed = activeEditor(editorTabs);
+          if (ed != null) ed.node().requestFocus();
+        }, null),
+        new SeparatorMenuItem(),
+        menuItem("Next Tab", () -> selectStandaloneTab(editorTabs, 1), null),
+        menuItem("Previous Tab", () -> selectStandaloneTab(editorTabs, -1), null),
+        new SeparatorMenuItem(),
+        menuItem("Select First File", () -> selectFirstStandaloneFile(fileTree, windowStatus), null)
+    );
+
+    CheckMenuItem showProjectTree = new CheckMenuItem("Show Project Tree");
+    showProjectTree.setSelected(true);
+    showProjectTree.setOnAction(e -> {
+      boolean show = showProjectTree.isSelected();
+      filePane.setVisible(show);
+      filePane.setManaged(show);
+      windowStatus.setText(show ? "Project tree shown." : "Project tree hidden.");
+    });
+
+    Menu view = new Menu("View");
+    view.getItems().addAll(
+        showProjectTree,
+        menuItem("Refresh Project Tree", () -> refreshStandaloneFileTree(fileTree, contentRoot, windowStatus), "Shortcut+R"),
+        new SeparatorMenuItem(),
+        menuItem("Increase Editor Font", () -> adjustStandaloneFontSize(editorTabs, windowStatus, 1.0), null),
+        menuItem("Decrease Editor Font", () -> adjustStandaloneFontSize(editorTabs, windowStatus, -1.0), null),
+        menuItem("Reset Editor Font", () -> setStandaloneFontSize(editorTabs, windowStatus, 13.0), null)
+    );
+
+    Menu tools = new Menu("Tools");
+    tools.getItems().addAll(
+        menuItem("Reload Active File From Disk", () -> reloadActiveStandaloneFile(editorTabs, launchRoot, windowStatus), null),
+        menuItem("Copy Workspace Path", () -> copyText(contentRoot.toString(), "Workspace path copied.", windowStatus), null),
+        menuItem("Refresh Workspace Snapshot", () -> {
+          refreshWorkspace();
+          refreshStandaloneFileTree(fileTree, contentRoot, windowStatus);
+        }, null)
+    );
+
+    Menu help = new Menu("Help");
+    help.getItems().addAll(
+        menuItem("Keyboard Shortcuts", () -> showStandaloneShortcuts(windowStatus), null),
+        menuItem("About JVN Text Editor", () -> EditorDialogs.info(
+            editorWindow,
+            "JVN Text Editor",
+            "Project text editor for VNS, JES, Java, story map, theme, and layout files."), null)
+    );
+
+    MenuBar menuBar = new MenuBar(file, edit, navigate, view, tools, help);
+    menuBar.getStyleClass().add("script-editor-menubar");
+    HBox.setHgrow(menuBar, Priority.ALWAYS);
+
+    Label workspaceChip = toolbarChip("Workspace", launchRoot.getName());
+    HBox menuShell = new HBox(8, menuBar, workspaceChip);
+    menuShell.getStyleClass().addAll("script-editor-toolbar", "script-editor-menu-shell");
+    menuShell.setPadding(new Insets(2, 10, 2, 4));
+    menuShell.setAlignment(Pos.CENTER_LEFT);
+    return menuShell;
   }
 
   private File resolveLaunchRoot() {
@@ -1152,6 +1192,273 @@ Explorer for external editing or drag-and-drop asset workflows."""),
       cur = cur.getParent();
     }
     return String.join("/", parts);
+  }
+
+  private void refreshStandaloneFileTree(TreeView<String> fileTree, Path contentRoot, Label status) {
+    if (fileTree == null || contentRoot == null) return;
+    TreeItem<String> refreshedRoot = buildFileTree(contentRoot, contentRoot.getFileName().toString());
+    refreshedRoot.setExpanded(true);
+    fileTree.setRoot(refreshedRoot);
+    if (status != null) status.setText("Project tree refreshed.");
+  }
+
+  private void openSelectedStandaloneFile(TreeView<String> fileTree,
+                                          Path contentRoot,
+                                          File launchRoot,
+                                          TabPane tabs,
+                                          Label status) {
+    File target = selectedStandaloneFile(fileTree, contentRoot);
+    if (target == null || !target.isFile()) {
+      if (status != null) status.setText("Select a file to open.");
+      return;
+    }
+    openFileInTab(tabs, target, launchRoot, status);
+  }
+
+  private void openSelectedStandaloneInMainEditor(TreeView<String> fileTree, Path contentRoot, Label status) {
+    File target = selectedStandaloneFile(fileTree, contentRoot);
+    if (target == null || !target.isFile()) {
+      if (status != null) status.setText("Select a file to open in the main editor.");
+      return;
+    }
+    if (onOpenFile != null) {
+      onOpenFile.accept(target);
+      if (status != null) status.setText("Opened in main editor: " + target.getName());
+    } else if (status != null) {
+      status.setText("Main editor open action is unavailable.");
+    }
+  }
+
+  private File selectedStandaloneFile(TreeView<String> fileTree, Path contentRoot) {
+    if (fileTree == null || contentRoot == null) return null;
+    TreeItem<String> selected = fileTree.getSelectionModel().getSelectedItem();
+    if (selected == null || !selected.isLeaf()) return null;
+    String path = buildTreePath(selected);
+    File target = contentRoot.resolve(path).normalize().toFile();
+    return target.isFile() ? target : null;
+  }
+
+  private Path selectedStandaloneDirectory(TreeView<String> fileTree, Path contentRoot) {
+    if (contentRoot == null) return null;
+    TreeItem<String> selected = fileTree == null ? null : fileTree.getSelectionModel().getSelectedItem();
+    if (selected == null || selected.getParent() == null) return contentRoot;
+    Path resolved = contentRoot.resolve(buildTreePath(selected)).normalize();
+    if (Files.isRegularFile(resolved)) {
+      Path parent = resolved.getParent();
+      return parent == null ? contentRoot : parent;
+    }
+    return Files.isDirectory(resolved) ? resolved : contentRoot;
+  }
+
+  private void createStandaloneFile(TreeView<String> fileTree,
+                                    Path contentRoot,
+                                    File launchRoot,
+                                    TabPane tabs,
+                                    Label status,
+                                    String extension) {
+    Path directory = selectedStandaloneDirectory(fileTree, contentRoot);
+    if (directory == null) return;
+    String sample = switch (extension) {
+      case ".vns" -> "new_scene.vns";
+      case ".jes" -> "new_animation.jes";
+      default -> "notes.txt";
+    };
+    var result = EditorDialogs.promptText(
+        editorWindow,
+        "New File",
+        "Create a text file in the selected folder.",
+        "File name",
+        sample,
+        sample,
+        "Create");
+    if (result.isEmpty()) return;
+    String name = result.get().trim().replace('\\', '/');
+    if (name.isBlank()) return;
+    if (!name.contains(".") && extension != null && !extension.isBlank()) name += extension;
+    Path target = directory.resolve(name).normalize();
+    if (!target.startsWith(contentRoot)) {
+      if (status != null) status.setText("File must stay inside the text workspace.");
+      return;
+    }
+    if (Files.exists(target)) {
+      if (status != null) status.setText("File already exists: " + target.getFileName());
+      return;
+    }
+    try {
+      Path parent = target.getParent();
+      if (parent != null) Files.createDirectories(parent);
+      Files.writeString(target, defaultStandaloneContent(extension));
+      refreshStandaloneFileTree(fileTree, contentRoot, status);
+      openFileInTab(tabs, target.toFile(), launchRoot, status);
+    } catch (IOException ex) {
+      if (status != null) status.setText("Create failed: " + ex.getMessage());
+    }
+  }
+
+  private static String defaultStandaloneContent(String extension) {
+    return switch (extension) {
+      case ".vns" -> "# New scene\n@scenario new_scene\n\n@label start\n";
+      case ".jes" -> "// New timeline\n";
+      default -> "";
+    };
+  }
+
+  private void revealActiveStandaloneFile(TabPane tabs, Label status) {
+    File file = activeTabFile(tabs);
+    if (file == null) {
+      if (status != null) status.setText("No active file to reveal.");
+      return;
+    }
+    revealFile(file);
+  }
+
+  private void copyActiveStandalonePath(TabPane tabs, boolean relative, File launchRoot, Label status) {
+    File file = activeTabFile(tabs);
+    if (file == null) {
+      if (status != null) status.setText("No active file path to copy.");
+      return;
+    }
+    String text = file.getAbsolutePath();
+    if (relative && launchRoot != null) {
+      try {
+        text = launchRoot.toPath().relativize(file.toPath()).toString().replace('\\', '/');
+      } catch (Exception ignored) {
+            // reason: non-critical operation; exception swallowed to prevent crash propagation
+      }
+    }
+    copyText(text, relative ? "Relative path copied." : "Absolute path copied.", status);
+  }
+
+  private static File activeTabFile(TabPane tabs) {
+    if (tabs == null) return null;
+    Tab selected = tabs.getSelectionModel().getSelectedItem();
+    if (selected == null) return null;
+    Object file = selected.getProperties().get("file");
+    return file instanceof File value ? value : null;
+  }
+
+  private static void copyText(String text, String message, Label status) {
+    if (text == null) return;
+    ClipboardContent content = new ClipboardContent();
+    content.putString(text);
+    Clipboard.getSystemClipboard().setContent(content);
+    if (status != null && message != null) status.setText(message);
+  }
+
+  private void closeActiveStandaloneTab(TabPane tabs, Label status) {
+    if (tabs == null) return;
+    Tab selected = tabs.getSelectionModel().getSelectedItem();
+    if (selected == null) return;
+    if (isTabDirty(selected)) {
+      if (status != null) status.setText("Save unsaved changes before closing this tab.");
+      return;
+    }
+    tabs.getTabs().remove(selected);
+    if (status != null) status.setText("Closed tab.");
+  }
+
+  private void closeAllStandaloneTabs(TabPane tabs, Label status) {
+    if (tabs == null) return;
+    for (Tab tab : tabs.getTabs()) {
+      if (isTabDirty(tab)) {
+        if (status != null) status.setText("Save unsaved changes before closing all tabs.");
+        return;
+      }
+    }
+    tabs.getTabs().clear();
+    if (status != null) status.setText("Closed all tabs.");
+  }
+
+  private static void selectStandaloneTab(TabPane tabs, int direction) {
+    if (tabs == null || tabs.getTabs().isEmpty()) return;
+    int current = tabs.getSelectionModel().getSelectedIndex();
+    int next = Math.floorMod(current + direction, tabs.getTabs().size());
+    tabs.getSelectionModel().select(next);
+  }
+
+  private void selectFirstStandaloneFile(TreeView<String> fileTree, Label status) {
+    TreeItem<String> leaf = firstStandaloneLeaf(fileTree == null ? null : fileTree.getRoot());
+    if (leaf == null) {
+      if (status != null) status.setText("No file found in the project tree.");
+      return;
+    }
+    fileTree.getSelectionModel().select(leaf);
+    fileTree.scrollTo(fileTree.getRow(leaf));
+    fileTree.requestFocus();
+  }
+
+  private TreeItem<String> firstStandaloneLeaf(TreeItem<String> item) {
+    if (item == null) return null;
+    if (item.isLeaf() && item.getParent() != null) return item;
+    for (TreeItem<String> child : item.getChildren()) {
+      TreeItem<String> leaf = firstStandaloneLeaf(child);
+      if (leaf != null) return leaf;
+    }
+    return null;
+  }
+
+  private void adjustStandaloneFontSize(TabPane tabs, Label status, double delta) {
+    setStandaloneFontSize(tabs, status, codeEditorFontSize + delta);
+  }
+
+  private void setStandaloneFontSize(TabPane tabs, Label status, double fontSize) {
+    codeEditorFontSize = Math.max(8.0, Math.min(30.0, fontSize));
+    if (tabs != null) {
+      for (Tab tab : tabs.getTabs()) {
+        Object editor = tab.getProperties().get("editor");
+        if (editor instanceof TextEditorSession session) session.setFontSize(codeEditorFontSize);
+      }
+    }
+    if (status != null) status.setText("Editor font: " + (int) codeEditorFontSize + "px");
+  }
+
+  private void reloadActiveStandaloneFile(TabPane tabs, File launchRoot, Label status) {
+    if (tabs == null) return;
+    Tab selected = tabs.getSelectionModel().getSelectedItem();
+    if (selected == null) return;
+    if (isTabDirty(selected)) {
+      if (status != null) status.setText("Save unsaved changes before reloading from disk.");
+      return;
+    }
+    Object fileObj = selected.getProperties().get("file");
+    Object editorObj = selected.getProperties().get("editor");
+    if (!(fileObj instanceof File file) || !(editorObj instanceof TextEditorSession editor)) return;
+    try {
+      String text = Files.readString(file.toPath());
+      editor.setText(text);
+      selected.getProperties().put("savedContent", text);
+      markTabClean(selected);
+      if (status != null) {
+        String rel = launchRoot == null ? file.getName() : launchRoot.toPath().relativize(file.toPath()).toString().replace('\\', '/');
+        status.setText("Reloaded: " + rel);
+      }
+    } catch (IOException ex) {
+      if (status != null) status.setText("Reload failed: " + ex.getMessage());
+    }
+  }
+
+  private void showStandaloneShortcuts(Label status) {
+    EditorDialogs.showTextBlock(
+        editorWindow,
+        "Keyboard Shortcuts",
+        "JVN Text Editor",
+        """
+        File
+        Ctrl/Cmd+N        New VNS script
+        Ctrl/Cmd+O        Open selected file
+        Ctrl/Cmd+S        Save active file
+        Ctrl/Cmd+Shift+S  Save all files
+        Ctrl/Cmd+W        Close active tab
+        Ctrl/Cmd+Shift+W  Close all clean tabs
+
+        Edit
+        Ctrl/Cmd+Z        Undo
+        Ctrl/Cmd+Shift+Z  Redo
+        Ctrl/Cmd+F        Find / replace
+        Ctrl/Cmd+R        Refresh project tree
+        """,
+        "Close");
+    if (status != null) status.setText("Displayed keyboard shortcuts.");
   }
 
   private void openFileInTab(TabPane tabs, File file, File launchRoot, Label status) {
@@ -1392,6 +1699,15 @@ Explorer for external editing or drag-and-drop asset workflows."""),
     return item;
   }
 
+  private static MenuItem menuItem(String text, Runnable action, String accelerator) {
+    MenuItem item = new MenuItem(text);
+    if (action != null) item.setOnAction(e -> action.run());
+    if (accelerator != null && !accelerator.isBlank()) {
+      item.setAccelerator(KeyCombination.keyCombination(accelerator));
+    }
+    return item;
+  }
+
   private static void configureStandaloneTree(TreeView<String> tree) {
     if (tree == null) return;
     tree.getStyleClass().add("script-editor-tree");
@@ -1406,9 +1722,8 @@ Explorer for external editing or drag-and-drop asset workflows."""),
         }
         TreeItem<String> treeItem = getTreeItem();
         boolean directory = treeItem != null && !treeItem.isLeaf();
-        Region icon = directory
-            ? CssIcon.folder(treeItem != null && treeItem.getParent() == null ? "#d0d0d0" : "#c8c8c8")
-            : CssIcon.list("#c0c0c0");
+        boolean root = treeItem != null && treeItem.getParent() == null;
+        Region icon = ProjectFileIcons.iconFor(ProjectFileIcons.kindFor(item, directory, root));
         Label label = new Label(item);
         label.getStyleClass().add(directory ? "script-editor-tree-dir-label" : "script-editor-tree-file-label");
         HBox row = new HBox(6, icon, label);

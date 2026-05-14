@@ -9,6 +9,7 @@ public enum PropertyType {
     ROTATION("rotation", "Rotation"),
     SCALE_X("scaleX", "Scale X"),
     SCALE_Y("scaleY", "Scale Y"),
+    MIRROR_X("mirrorX", "Mirror X"),
     ALPHA("alpha", "Opacity"),
     VISIBILITY("visible", "Visible"),
     MATRIX_MXX("matrixMxx", "Matrix MXX", "matrix.mxx"),
@@ -46,7 +47,7 @@ public enum PropertyType {
 
     public boolean isEntityProperty() {
         return this == X || this == Y || this == Z || this == PIVOT_X || this == PIVOT_Y || this == ROTATION ||
-               this == SCALE_X || this == SCALE_Y || this == ALPHA || this == VISIBILITY ||
+               this == SCALE_X || this == SCALE_Y || this == MIRROR_X || this == ALPHA || this == VISIBILITY ||
                this == MATRIX_MXX || this == MATRIX_MXY || this == MATRIX_MYX || this == MATRIX_MYY ||
                this == MATRIX_TX || this == MATRIX_TY || this == BLUR;
     }

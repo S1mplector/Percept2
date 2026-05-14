@@ -86,6 +86,10 @@ public class AnimationPreset {
         PropertyType.ROTATION, new Keyframe[]{k(0, 0), k(600, 360, Easing.Type.EASE_IN_OUT_CUBIC)}
     ));
 
+    public static final AnimationPreset MIRROR_FLIP = new AnimationPreset("Mirror Flip", "Emphasis", kf(
+        PropertyType.MIRROR_X, new Keyframe[]{k(0, 0), k(420, 1, Easing.Type.EASE_IN_OUT_CUBIC)}
+    ));
+
     public static final AnimationPreset ZOOM_OUT = new AnimationPreset("Zoom Out", "Exit", kf(
         PropertyType.SCALE_X, new Keyframe[]{k(0, 1), k(400, 0, Easing.Type.EASE_IN_CUBIC)},
         PropertyType.SCALE_Y, new Keyframe[]{k(0, 1), k(400, 0, Easing.Type.EASE_IN_CUBIC)},
@@ -105,7 +109,7 @@ public class AnimationPreset {
         FADE_IN, FADE_OUT,
         SLIDE_FROM_LEFT, SLIDE_FROM_RIGHT, SLIDE_FROM_BOTTOM,
         BOUNCE_IN, ZOOM_OUT,
-        SHAKE, PULSE, SPIN,
+        SHAKE, PULSE, SPIN, MIRROR_FLIP,
         FLOAT, BREATHE
     };
 }

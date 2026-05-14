@@ -71,15 +71,18 @@ public class EditorSettingsView extends BorderPane {
     Button reloadButton = new Button("Reload");
     reloadButton.setOnAction(e -> reload());
     reloadButton.getStyleClass().add("editor-settings-button");
+    reloadButton.setTooltip(new Tooltip("Reload settings from disk"));
     Button saveButton = new Button("Save");
     saveButton.setOnAction(e -> save());
     saveButton.getStyleClass().add("editor-settings-button");
+    saveButton.setTooltip(new Tooltip("Save editor settings"));
     Button defaultsButton = new Button("Defaults");
     defaultsButton.setOnAction(e -> {
       loadIntoForm(EditorPreferences.defaults());
       statusLabel.setText("Defaults restored in form");
     });
     defaultsButton.getStyleClass().add("editor-settings-button");
+    defaultsButton.setTooltip(new Tooltip("Restore default editor settings in the form"));
     toolbar.getItems().addAll(reloadButton, saveButton, defaultsButton);
     setTop(toolbar);
 
@@ -100,6 +103,7 @@ public class EditorSettingsView extends BorderPane {
     editorThemeCombo.getStyleClass().add("editor-settings-combo");
     settingsFilterField.setPromptText("Filter settings...");
     settingsFilterField.getStyleClass().addAll("editor-settings-text-field", "editor-settings-search-field");
+    settingsFilterField.setTooltip(new Tooltip("Filter editor settings sections"));
     settingsFilterField.textProperty().addListener((obs, oldValue, newValue) -> applySettingsFilter());
     codeEditorFontSizeSpinner.setValueFactory(
         new SpinnerValueFactory.IntegerSpinnerValueFactory(

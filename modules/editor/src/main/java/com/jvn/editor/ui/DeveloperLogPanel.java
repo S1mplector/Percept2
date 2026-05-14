@@ -27,6 +27,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TitledPane;
+import javafx.scene.control.Tooltip;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.HBox;
@@ -65,8 +66,11 @@ public final class DeveloperLogPanel extends VBox {
     fileSelector.valueProperty().addListener((obs, oldValue, newValue) -> loadSelectedLog(newValue));
 
     refreshButton.setOnAction(e -> refresh());
+    refreshButton.setTooltip(new Tooltip("Refresh the discovered log files"));
     copyButton.setOnAction(e -> copyVisibleLog());
+    copyButton.setTooltip(new Tooltip("Copy the visible log text"));
     revealButton.setOnAction(e -> revealSelectedLog());
+    revealButton.setTooltip(new Tooltip("Reveal the selected log file on disk"));
 
     HBox controls = new HBox(8, new Label("File"), fileSelector, refreshButton, copyButton, revealButton);
     controls.setAlignment(Pos.CENTER_LEFT);

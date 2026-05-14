@@ -39,10 +39,12 @@ public class ProjectExplorerView extends VBox {
     header.getStyleClass().addAll("project-explorer-header", "sidebar-tool-title");
     filter.setPromptText("Filter files...");
     filter.getStyleClass().add("project-explorer-filter");
+    filter.setTooltip(new Tooltip("Filter project files by name"));
     filter.textProperty().addListener((o, ov, nv) -> refresh());
 
     tree.setShowRoot(true);
     tree.getStyleClass().add("project-explorer-tree");
+    tree.setTooltip(new Tooltip("Project file tree. Double-click a file to open it."));
     
     Region emptyIcon = CssIcon.prepare(new Region());
     emptyIcon.getStyleClass().addAll("icon", "project-empty-icon", "icon-panel-project");

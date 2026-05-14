@@ -1,25 +1,24 @@
 package com.jvn.fx.vn;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.ServiceLoader;
-import com.jvn.fx.RenderThreadGuard;
-import com.jvn.core.accessibility.AccessibilityThemeLoader;
-import com.jvn.core.accessibility.TextToSpeechService;
-import com.jvn.core.accessibility.NoopTextToSpeechService;
-import com.jvn.core.assets.BoundedImageCache;
-import com.jvn.core.config.VnConfig;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.ServiceLoader;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.jvn.core.accessibility.AccessibilityThemeLoader;
+import com.jvn.core.accessibility.NoopTextToSpeechService;
+import com.jvn.core.accessibility.TextToSpeechService;
 import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
+import com.jvn.core.assets.BoundedImageCache;
 import com.jvn.core.audio.AudioFacade;
+import com.jvn.core.config.VnConfig;
 import com.jvn.core.localization.Localization;
 import com.jvn.core.scene2d.ParticleEmitter2D;
 import com.jvn.core.ui.BoundsPointCodec;
@@ -49,6 +48,7 @@ import com.jvn.core.vn.ui.VnUiActionButtonSpec;
 import com.jvn.core.vn.ui.VnUiLayoutLoader;
 import com.jvn.core.vn.ui.VnUiLayoutSpec;
 import com.jvn.core.vn.ui.VnUiStyleSpec;
+import com.jvn.fx.RenderThreadGuard;
 import com.jvn.fx.scene2d.FxBlitter2D;
 import com.jvn.fx.ui.FxTextMetrics;
 import com.jvn.fx.ui.ProjectFontResolver;
@@ -137,6 +137,7 @@ public class VnRenderer {
   private Image nameBoxImage;
   private Image nvlPanelImage;
   private Image bubbleImage;
+  private Image continueIndicatorImage;
   private Color textBoxFillColor = TEXTBOX_COLOR;
   private Color nameBoxFillColor = NAME_BOX_COLOR;
   private Color nameTextFillColor = Color.web("#FFD78A");
@@ -1356,12 +1357,33 @@ public class VnRenderer {
       gc.closePath();
       gc.clip();
     }
-    drawStyledText(spans, revealedLength, textX, textBaselineY, textWidth, dialogueTextXAlign, activeDialogueFont, activeDialogueTextFillColor);
+    List<StyledLine> dialogueLines = layoutStyledLines(
+        spans,
+        revealedLength,
+        textWidth,
+        activeDialogueFont,
+        activeDialogueTextFillColor);
+    drawStyledLines(
+        dialogueLines,
+        textX,
+        textBaselineY,
+        textWidth,
+        dialogueTextXAlign,
+        activeDialogueFont,
+        activeDialogueTextFillColor);
     gc.restore();
 
     // Draw continue indicator if text is fully revealed
     if (revealedLength >= plainLength && state.isWaitingForInput()) {
-      drawContinueIndicator(textBoxX + textBoxWidth - 30, textBoxY + textBoxHeight - 20);
+      drawContinueIndicatorAfterText(
+          dialogueLines,
+          textX,
+          textBaselineY,
+          textWidth,
+          dialogueTextXAlign,
+          activeDialogueFont,
+          textBoxX + textBoxWidth - 30,
+          textBoxY + textBoxHeight - 20);
     }
 
     renderTextBoxButtons(textBox, width, height, hoveredButtonIndex, state);
@@ -1722,6 +1744,35 @@ public class VnRenderer {
     gc.setFill(defaultTextColor);
   }
 
+  private void drawContinueIndicatorAfterText(
+      List<StyledLine> lines,
+      double startX,
+      double startY,
+      double maxWidth,
+      double xAlign,
+      Font baseFont,
+      double fallbackX,
+      double fallbackY
+  ) {
+    if (continueIndicatorImage == null || lines == null || lines.isEmpty()) {
+      drawContinueIndicator(fallbackX, fallbackY);
+      return;
+    }
+
+    StyledLine lastLine = lines.get(lines.size() - 1);
+    double lineHeight = Math.max(22.0, baseFont.getSize() * 1.15);
+    double lineX = resolveAlignedTextX(startX, maxWidth, lastLine.width(), xAlign);
+    double imageWidth = continueIndicatorImage.getWidth();
+    double imageHeight = continueIndicatorImage.getHeight();
+    double x = lineX + lastLine.width() + 4.0;
+    double y = startY + (lines.size() - 1) * lineHeight - imageHeight + baseFont.getSize() * 0.42;
+    if (x + imageWidth > startX + maxWidth) {
+      x = startX + maxWidth - imageWidth;
+      y += lineHeight;
+    }
+    gc.drawImage(continueIndicatorImage, x, y, imageWidth, imageHeight);
+  }
+
   private double measureStyledTextHeight(List<TextSpan> spans, int revealedChars, double maxWidth, Font baseFont) {
     List<StyledLine> lines = layoutStyledLines(spans, revealedChars, maxWidth, baseFont, dialogueTextFillColor);
     double lineHeight = Math.max(22.0, baseFont.getSize() * 1.15);
@@ -1751,6 +1802,7 @@ public class VnRenderer {
     nameBoxImage = loadImage(resolved.nameBoxAssetPath());
     nvlPanelImage = loadImage(resolved.nvlPanelAssetPath());
     bubbleImage = loadImage(resolved.bubbleAssetPath());
+    continueIndicatorImage = loadImage("assets/ui/dialogue/ctc_marker.png");
     textBoxFillColor = parseColor(resolved.textBoxColor(), TEXTBOX_COLOR);
     nameBoxFillColor = parseColor(resolved.nameBoxColor(), NAME_BOX_COLOR);
     nameTextFillColor = parseColor(resolved.nameTextColor(), Color.web("#FFD78A"));
@@ -2687,7 +2739,7 @@ public class VnRenderer {
     double totalHeight = count * choiceHeight + Math.max(0, count - 1) * choiceGap;
     double startY = uiLayout.choiceYStart() < 0
         ? (height - totalHeight) / 2.0
-        : (height * uiLayout.choiceYStart());
+        : (height * uiLayout.choiceYStart()) - totalHeight * uiLayout.choiceYAnchor();
     startY = clamp(startY, 0, Math.max(0, height - totalHeight));
     return new ChoiceGeometry(choiceX, startY, choiceWidth, choiceHeight, choiceGap);
   }

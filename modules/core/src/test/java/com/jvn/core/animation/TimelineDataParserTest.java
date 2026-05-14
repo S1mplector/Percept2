@@ -235,4 +235,26 @@ class TimelineDataParserTest {
         assertEquals(1.5, hero.getValueAt(TimelineData.Property.SCALE_X, 100), 0.001);
         assertEquals(0.75, hero.getValueAt(TimelineData.Property.SCALE_Y, 100), 0.001);
     }
+
+    @Test
+    void parsesCompactPuppeteerExportWithMirrorAndCustomProperties() {
+        String inline = """
+            timeline {
+              parallel {
+                move "hero" { x:100 y:200 dur:300 easing:ease_in_out }
+                mirror "hero" { mirrorX:1 dur:300 }
+                property "hero" { key:"color.m04" value:0.25 dur:300 }
+              }
+            }
+            """;
+
+        TimelineData data = TimelineDataParser.parse("compact_export", inline);
+        TimelineData.Track hero = data.getTrack("hero");
+        assertNotNull(hero);
+        assertEquals(300.0, data.getDurationMs(), 0.001);
+        assertEquals(100.0, hero.getValueAt(TimelineData.Property.X, 300), 0.001);
+        assertEquals(200.0, hero.getValueAt(TimelineData.Property.Y, 300), 0.001);
+        assertEquals(1.0, hero.getValueAt(TimelineData.Property.MIRROR_X, 300), 0.001);
+        assertEquals(0.25, hero.getCustomValueAt("color.m04", 300, 0.0), 0.001);
+    }
 }

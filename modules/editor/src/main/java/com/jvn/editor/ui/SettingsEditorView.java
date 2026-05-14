@@ -64,6 +64,9 @@ public class SettingsEditorView extends BorderPane {
     Button bLoad = new Button("Load"); bLoad.setOnAction(e -> load());
     Button bSave = new Button("Save"); bSave.setOnAction(e -> save());
     Button bDefaults = new Button("Defaults"); bDefaults.setOnAction(e -> setFromModel(new SettingsModel()));
+    bLoad.setTooltip(new Tooltip("Load runtime settings from disk"));
+    bSave.setTooltip(new Tooltip("Save runtime settings"));
+    bDefaults.setTooltip(new Tooltip("Restore runtime setting defaults in the form"));
     bLoad.getStyleClass().add("editor-settings-button");
     bSave.getStyleClass().add("editor-settings-button");
     bDefaults.getStyleClass().add("editor-settings-button");

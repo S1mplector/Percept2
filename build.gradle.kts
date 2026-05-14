@@ -7,15 +7,22 @@ import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.api.tasks.testing.Test
 import org.gradle.jvm.tasks.Jar
 import org.gradle.jvm.toolchain.JavaToolchainService
+import org.gradle.process.ExecOperations
 import java.net.HttpURLConnection
-import java.net.URL
+import java.net.URI
 import java.security.MessageDigest
 import java.time.Instant
 import java.util.Properties
 import java.util.zip.ZipFile
+import javax.inject.Inject
 
 plugins {
   java
+}
+
+interface JvnInjectedExecOperations {
+  @get:Inject
+  val execOperations: ExecOperations
 }
 
 val jvnGroup = (findProperty("jvnGroup") as String?) ?: "com.jvn"
@@ -43,6 +50,7 @@ java {
 }
 
 val jvnToolchains = extensions.getByType<JavaToolchainService>()
+val jvnExecOperations = objects.newInstance<JvnInjectedExecOperations>().execOperations
 val jvnPackagingLauncher = jvnToolchains.launcherFor {
   languageVersion.set(JavaLanguageVersion.of(configuredJavaVersion))
 }
@@ -792,7 +800,7 @@ fun downloadUrlToFile(urlString: String, outputFile: File) {
   outputFile.parentFile.mkdirs()
   val tempFile = File(outputFile.absolutePath + ".part")
   tempFile.delete()
-  val connection = URL(urlString).openConnection()
+  val connection = URI(urlString).toURL().openConnection()
   connection.connectTimeout = 30_000
   connection.readTimeout = 300_000
   connection.setRequestProperty("Accept", "application/octet-stream")
@@ -816,7 +824,7 @@ fun downloadUrlToFile(urlString: String, outputFile: File) {
 }
 
 fun fetchBundledRuntimeAsset(target: JvnGameTarget, imageType: String): JvnBundledRuntimeAsset {
-  val connection = URL(bundledRuntimeAssetApiUrl(target, imageType)).openConnection()
+  val connection = URI(bundledRuntimeAssetApiUrl(target, imageType)).toURL().openConnection()
   connection.connectTimeout = 30_000
   connection.readTimeout = 120_000
   connection.setRequestProperty("Accept", "application/json")
@@ -1341,7 +1349,7 @@ fun maybeSignWindowsArtifact(artifact: File) {
   val timestamp = profile.value("win.timestampUrl") ?: "http://timestamp.digicert.com"
   args += listOf("/tr", timestamp, "/td", "SHA256", artifact.absolutePath)
 
-  exec {
+  jvnExecOperations.exec {
     commandLine(args)
   }
 }
@@ -1355,11 +1363,11 @@ fun maybeNotarizeMacArtifact(packageType: String, artifact: File) {
   }
   val notaryProfile = profile.value("mac.notarytoolProfile")
     ?: throw GradleException("mac.notarize is enabled in release profile '${profile.name}', but mac.notarytoolProfile is not configured.")
-  exec {
+  jvnExecOperations.exec {
     commandLine("xcrun", "notarytool", "submit", artifact.absolutePath, "--keychain-profile", notaryProfile, "--wait")
   }
   if (profile.flag("mac.staple", true)) {
-    exec {
+    jvnExecOperations.exec {
       commandLine("xcrun", "stapler", "staple", artifact.absolutePath)
     }
   }
@@ -1379,7 +1387,7 @@ fun runPublishCommands(mode: String, artifact: File, targetId: String = currentP
   commands.forEachIndexed { index, template ->
     val command = expandPublishCommand(template, values)
     logger.lifecycle("Running publish command ${index + 1}/${commands.size}: $command")
-    exec {
+    jvnExecOperations.exec {
       if (currentHostIsWindows()) {
         commandLine("cmd", "/c", command)
       } else {
@@ -1845,7 +1853,7 @@ tasks.register("createJvnGameRuntimeImageCurrent") {
     val modulePath = (listOf(packagingJavaHome().resolve("jmods")) + currentJavaFxRuntimeJars())
       .joinToString(File.pathSeparator) { it.absolutePath }
 
-    exec {
+    jvnExecOperations.exec {
       commandLine(
         packagingTool("jlink").absolutePath,
         "--module-path", modulePath,
@@ -2052,7 +2060,7 @@ tasks.register("packageJvnGameNativeCurrent") {
       }
     }
 
-    exec {
+    jvnExecOperations.exec {
       commandLine(args)
     }
 
