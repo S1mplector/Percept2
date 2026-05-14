@@ -17,6 +17,7 @@ rootProject.name = "JVN"
 
 include(
   ":core",
+  ":render-api",
   ":fx",
   ":runtime",
   ":scripting",
@@ -26,12 +27,16 @@ include(
   ":swing",
   ":hub",
   ":testkit",
+  ":web-runtime",
+  ":android-runtime",
+  ":ios-runtime",
   ":scala-utils",
   ":clojure-utils"
 )
 
 listOf(
   "core",
+  "render-api",
   "fx",
   "runtime",
   "scripting",
@@ -41,6 +46,9 @@ listOf(
   "swing",
   "hub",
   "testkit",
+  "web-runtime",
+  "android-runtime",
+  "ios-runtime",
   "scala-utils",
   "clojure-utils"
 ).forEach { moduleName ->

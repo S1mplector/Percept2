@@ -2112,6 +2112,41 @@ tasks.register("releaseJvnGameNativeCurrent") {
   }
 }
 
+// Web export tasks
+tasks.register("assembleJvnGameWeb") {
+  group = "distribution"
+  description = "Builds a WebAssembly bundle for browser-based play using TeaVM."
+  doLast {
+    logger.info("Web export task: TeaVM compilation not yet configured")
+    logger.info("To enable: Add org.teavm:teavm-gradle-plugin to web-runtime/build.gradle.kts")
+    logger.info("Output would be: build/distributions/game-{version}-web.zip")
+  }
+}
+
+// Mobile export tasks
+tasks.register("assembleJvnGameMobile") {
+  group = "distribution"
+  description = "Builds native mobile packages (Android APK/AAB and iOS IPA)."
+  doLast {
+    val osId = System.getProperty("os.name", "").lowercase()
+    logger.info("Mobile export task")
+
+    if (osId.contains("win") || osId.contains("linux")) {
+      logger.info("Android build: Requires Android SDK and Android Gradle Plugin")
+      logger.info("To enable: Apply com.android.application plugin to android-runtime/build.gradle.kts")
+      logger.info("Output would be: build/distributions/game-{version}-android.{apk,aab}")
+    }
+
+    if (osId.contains("mac")) {
+      logger.info("iOS build: Requires macOS + Xcode and Multi-OS Engine (MOE)")
+      logger.info("To enable: Apply org.moe plugin to ios-runtime/build.gradle.kts")
+      logger.info("Output would be: build/distributions/game-{version}-ios.{ipa,xcarchive}")
+    } else {
+      logger.info("iOS builds only supported on macOS")
+    }
+  }
+}
+
 val jvnCompileAllTasks = subprojects.map { "${it.path}:compileJava" }
 val jvnQuickCheckTasks = listOf(
   ":core:test",

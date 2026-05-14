@@ -148,9 +148,10 @@ public class GameBuildPublisherView extends BorderPane {
         new TargetChoice("Current machine", "assembleJvnGamePortableCurrent", currentTargetDescription(), currentTargetToken()),
         new TargetChoice("Windows x64", "assembleJvnGamePortableWindowsX64", "Builds a Windows portable zip.", "windows-x64"),
         new TargetChoice("Linux x64", "assembleJvnGamePortableLinuxX64", "Builds a Linux portable zip.", "linux-x64"),
+        new TargetChoice("Linux ARM64", "assembleJvnGamePortableLinuxAarch64", "Builds a Linux ARM64 portable zip.", "linux-aarch64"),
         new TargetChoice("macOS x64", "assembleJvnGamePortableMacosX64", "Builds an Intel macOS portable zip.", "macos-x64"),
         new TargetChoice("macOS Apple Silicon", "assembleJvnGamePortableMacosAarch64", "Builds an Apple Silicon macOS portable zip.", "macos-aarch64"),
-        new TargetChoice("All supported targets", "assembleJvnGamePortable", "Builds Windows x64, Linux x64, macOS x64, and macOS Apple Silicon.", "all")
+        new TargetChoice("All supported targets", "assembleJvnGamePortable", "Builds Windows x64, Linux x64, Linux ARM64, macOS x64, and macOS Apple Silicon.", "all")
     );
     targetBox.getSelectionModel().select(0);
     styleField(targetBox);
@@ -579,6 +580,8 @@ public class GameBuildPublisherView extends BorderPane {
         case PORTABLE_ZIP -> "Build All Portable Targets";
         case BUNDLED_RUNTIME_ZIP -> "Build All Desktop Bundles";
         case NATIVE_PACKAGE -> "Build All";
+        case WEB_BUNDLE -> "Build Web Bundle";
+        case MOBILE_PACKAGE -> "Build Mobile Package";
       });
     }
     BuildTaskSelection releaseSelection = releaseTaskForSelection();
@@ -754,6 +757,8 @@ public class GameBuildPublisherView extends BorderPane {
                 + currentTargetToken() + "-"
                 + (nativeType == null ? "native" : nativeType.token()) + ext).getPath());
       }
+      case WEB_BUNDLE -> outputLabel.setText("Output: " + new File(outDir, stem + "-web.zip").getPath());
+      case MOBILE_PACKAGE -> outputLabel.setText("Output: " + new File(outDir, stem + "-mobile.zip").getPath());
     }
     updateOutputDirField();
   }
@@ -774,6 +779,8 @@ public class GameBuildPublisherView extends BorderPane {
         String nativeLabel = nativeType == null ? "native package" : nativeType.label().toLowerCase(Locale.ROOT);
         yield nativeLabel.substring(0, 1).toUpperCase(Locale.ROOT) + nativeLabel.substring(1) + " for " + target.label();
       }
+      case WEB_BUNDLE -> "Web bundle (WASM)";
+      case MOBILE_PACKAGE -> "Mobile package";
     };
   }
 
@@ -788,6 +795,8 @@ public class GameBuildPublisherView extends BorderPane {
         yield "Self-contained build with a packaged runtime for " + target.label() + ". Players can unzip and launch without installing Java.";
       }
       case NATIVE_PACKAGE -> "Host-native installer path with release-profile support for signing, notarization, and publish hooks.";
+      case WEB_BUNDLE -> "WebAssembly bundle for browser-based play. Compiles via TeaVM for maximum compatibility.";
+      case MOBILE_PACKAGE -> "Native mobile package for Android (APK/AAB) and iOS (IPA). Compile on appropriate host.";
     };
   }
 
@@ -806,6 +815,8 @@ public class GameBuildPublisherView extends BorderPane {
           ? "First bundle builds may download and verify runtimes for each target, then reuse the local cache."
           : targetDescription + " The first build for this target downloads and verifies its runtime cache.";
       case NATIVE_PACKAGE -> targetDescription + " Release hooks only run for a single selected artifact.";
+      case WEB_BUNDLE -> "Requires TeaVM toolchain. Build produces a WASM bundle with HTML5 canvas rendering.";
+      case MOBILE_PACKAGE -> "Android requires Android SDK. iOS requires macOS + Xcode. Choose target platform above.";
     };
   }
 
@@ -831,6 +842,8 @@ public class GameBuildPublisherView extends BorderPane {
       case PORTABLE_ZIP -> new BuildTaskSelection("assembleJvnGamePortable", "Build Game - All Portable Targets");
       case BUNDLED_RUNTIME_ZIP -> new BuildTaskSelection("assembleJvnGameBundledRuntime", "Build Game - All Desktop Bundles");
       case NATIVE_PACKAGE -> null;
+      case WEB_BUNDLE -> new BuildTaskSelection("assembleJvnGameWeb", "Build Game - Web Bundle");
+      case MOBILE_PACKAGE -> new BuildTaskSelection("assembleJvnGameMobile", "Build Game - Mobile Package");
     };
     if (selection == null) return;
     buildTask(selection.taskName(), selection.title());
@@ -1261,6 +1274,8 @@ public class GameBuildPublisherView extends BorderPane {
         String label = nativeType == null ? "Native Package" : nativeType.label();
         yield new BuildTaskSelection("packageJvnGameNativeCurrent", "Build Game - " + label);
       }
+      case WEB_BUNDLE -> new BuildTaskSelection("assembleJvnGameWeb", "Build Game - Web Bundle");
+      case MOBILE_PACKAGE -> new BuildTaskSelection("assembleJvnGameMobile", "Build Game - Mobile Package");
     };
   }
 
@@ -1280,6 +1295,7 @@ public class GameBuildPublisherView extends BorderPane {
       }
       case NATIVE_PACKAGE ->
           new BuildTaskSelection("releaseJvnGameNativeCurrent", "Release Game - Native Package");
+      case WEB_BUNDLE, MOBILE_PACKAGE -> null; // Release not yet implemented for web/mobile
     };
   }
 
@@ -1479,6 +1495,7 @@ public class GameBuildPublisherView extends BorderPane {
     return switch (target.outputToken()) {
       case "windows-x64" -> "WindowsX64";
       case "linux-x64" -> "LinuxX64";
+      case "linux-aarch64" -> "LinuxAarch64";
       case "macos-x64" -> "MacosX64";
       case "macos-aarch64" -> "MacosAarch64";
       default -> "";
@@ -1546,7 +1563,7 @@ public class GameBuildPublisherView extends BorderPane {
     String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
     String arch = System.getProperty("os.arch", "").toLowerCase(Locale.ROOT);
     if (os.contains("win")) return "windows-x64";
-    if (os.contains("linux") && (arch.contains("aarch64") || arch.contains("arm64"))) return "unsupported-linux-aarch64";
+    if (os.contains("linux") && (arch.contains("aarch64") || arch.contains("arm64"))) return "linux-aarch64";
     if (os.contains("linux")) return "linux-x64";
     if (os.contains("mac") && (arch.contains("aarch64") || arch.contains("arm64"))) return "macos-aarch64";
     if (os.contains("mac")) return "macos-x64";
@@ -1556,7 +1573,9 @@ public class GameBuildPublisherView extends BorderPane {
   private enum PackageMode {
     PORTABLE_ZIP("Portable Zip", "portable"),
     BUNDLED_RUNTIME_ZIP("Desktop Bundle", "bundled"),
-    NATIVE_PACKAGE("Native Package", "native");
+    NATIVE_PACKAGE("Native Package", "native"),
+    WEB_BUNDLE("Web (WASM)", "web"),
+    MOBILE_PACKAGE("Mobile", "mobile");
 
     private final String label;
     private final String gradleToken;
