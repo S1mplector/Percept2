@@ -145,7 +145,7 @@ public class WebRenderer implements Blitter2D {
   @Override
   public void drawImage(String classpath, double x, double y, double w, double h) {
     if (classpath == null) return;
-    Object img = imageCache.getOrLoad(classpath, null);
+    Object img = imageCache.getOrLoad(classpath);
     if (img != null) {
       drawImageNative(ctx, img, x, y, w, h);
     }
@@ -155,7 +155,7 @@ public class WebRenderer implements Blitter2D {
   public void drawImageRegion(String classpath, double sx, double sy, double sw, double sh,
                               double dx, double dy, double dw, double dh) {
     if (classpath == null) return;
-    Object img = imageCache.getOrLoad(classpath, null);
+    Object img = imageCache.getOrLoad(classpath);
     if (img != null) {
       drawImageRegionNative(ctx, img, sx, sy, sw, sh, dx, dy, dw, dh);
     }

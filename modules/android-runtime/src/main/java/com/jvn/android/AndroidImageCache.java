@@ -6,7 +6,6 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.jvn.core.assets.AssetManager;
-import com.jvn.core.assets.AssetPaths;
 import com.jvn.core.assets.AssetType;
 
 /**
@@ -30,23 +29,20 @@ public class AndroidImageCache {
    * @param classpath the asset classpath (e.g., "game/images/hero.png")
    * @return the android.graphics.Bitmap, or null if loading failed
    */
+  @SuppressWarnings("NullAway")
   public Object getOrLoad(String classpath) {
     Object cached = cache.get(classpath);
     if (cached != null) {
       return cached;
     }
 
-    try {
-      InputStream imageStream = assetManager.open(AssetType.IMAGE, classpath);
-      if (imageStream != null) {
-        byte[] imageData = imageStream.readAllBytes();
-        imageStream.close();
-        Object bitmap = decodeBitmapNative(imageData);
-        if (bitmap != null) {
-          cache.put(classpath, bitmap);
-          log.debug("Bitmap loaded: {}", classpath);
-          return bitmap;
-        }
+    try (InputStream imageStream = assetManager.open(AssetType.IMAGE, classpath)) {
+      byte[] imageData = imageStream.readAllBytes();
+      Object bitmap = decodeBitmapNative(imageData);
+      if (bitmap != null) {
+        cache.put(classpath, bitmap);
+        log.debug("Bitmap loaded: {}", classpath);
+        return bitmap;
       }
     } catch (Exception e) {
       log.error("Failed to load bitmap: {}", classpath, e);
@@ -66,6 +62,7 @@ public class AndroidImageCache {
   }
 
   // Native Android bitmap operations (via reflection)
+  @SuppressWarnings("NullAway")
   private static native Object decodeBitmapNative(byte[] imageData) /*-{
     // Would use BitmapFactory.decodeByteArray()
     return null;

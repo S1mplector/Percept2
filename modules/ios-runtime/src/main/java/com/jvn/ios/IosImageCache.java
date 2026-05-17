@@ -29,23 +29,20 @@ public class IosImageCache {
    * @param classpath the asset classpath (e.g., "game/images/hero.png")
    * @return the UIImage, or null if loading failed
    */
+  @SuppressWarnings("NullAway")
   public Object getOrLoad(String classpath) {
     Object cached = cache.get(classpath);
     if (cached != null) {
       return cached;
     }
 
-    try {
-      InputStream imageStream = assetManager.open(AssetType.IMAGE, classpath);
-      if (imageStream != null) {
-        byte[] imageData = imageStream.readAllBytes();
-        imageStream.close();
-        Object image = decodeImageNative(imageData);
-        if (image != null) {
-          cache.put(classpath, image);
-          log.debug("UIImage loaded: {}", classpath);
-          return image;
-        }
+    try (InputStream imageStream = assetManager.open(AssetType.IMAGE, classpath)) {
+      byte[] imageData = imageStream.readAllBytes();
+      Object image = decodeImageNative(imageData);
+      if (image != null) {
+        cache.put(classpath, image);
+        log.debug("UIImage loaded: {}", classpath);
+        return image;
       }
     } catch (Exception e) {
       log.error("Failed to load image: {}", classpath, e);
@@ -62,6 +59,7 @@ public class IosImageCache {
   }
 
   // Native iOS image operations (via Multi-OS Engine)
+  @SuppressWarnings("NullAway")
   private static native Object decodeImageNative(byte[] imageData) /*-{
     // Would use UIImage.imageWithData()
     return null;

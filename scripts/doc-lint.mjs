@@ -11,6 +11,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { execSync } from 'child_process';
 
 // Configuration
 const DOCS_ROOT = './docs';
@@ -225,9 +226,8 @@ function checkSymbols() {
 
 function findFileInModules(fileName) {
   try {
-    const result = require('child_process')
-      .execSync(`find ${MODULES_ROOT} -name "${fileName}" 2>/dev/null`,
-        { encoding: 'utf-8' });
+    const result = execSync(`find ${MODULES_ROOT} -name "${fileName}" 2>/dev/null`,
+      { encoding: 'utf-8' });
     return result.trim().length > 0;
   } catch (e) {
     return false;

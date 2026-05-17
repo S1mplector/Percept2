@@ -26,11 +26,13 @@ import com.jvn.render.RenderSurface;
  * </ol>
  * </p>
  */
+@SuppressWarnings("NullAway")
 public class AndroidLauncher {
   private static final Logger log = LoggerFactory.getLogger(AndroidLauncher.class);
 
   private Engine engine;
   private AndroidGameLoop gameLoop;
+  private RenderSurface surface;
 
   /**
    * Initialize the launcher with an Android application context.
@@ -43,13 +45,14 @@ public class AndroidLauncher {
       log.info("Initializing Android launcher for game: {}", config.title());
 
       // Create render surface from Android SurfaceView
-      RenderSurface surface = new AndroidRenderSurface(appContext);
+      surface = new AndroidRenderSurface(appContext);
 
       // Set up asset loading: packed assets with classpath fallback
       AssetManager assetManager = createAssetManager();
 
       // Initialize the engine
       engine = new Engine(config);
+      engine.start();
       // TODO: attach asset manager to engine
 
       // Create Android renderer with asset manager for image loading
@@ -90,9 +93,15 @@ public class AndroidLauncher {
   public void destroy() {
     if (gameLoop != null) {
       gameLoop.stop();
+      gameLoop = null;
     }
     if (engine != null) {
-      // TODO: cleanup engine resources
+      engine.stop();
+      engine = null;
+    }
+    if (surface != null) {
+      surface.dispose();
+      surface = null;
     }
   }
 

@@ -13,6 +13,7 @@ import com.jvn.render.RenderSurface;
  * rendering thread that continuously updates and renders the game. The loop respects
  * Activity lifecycle events (pause/resume).</p>
  */
+@SuppressWarnings("NullAway")
 public class AndroidGameLoop {
   private static final Logger log = LoggerFactory.getLogger(AndroidGameLoop.class);
   private static final long TARGET_FRAME_TIME_NS = (long) (1_000_000_000.0 / 60.0); // 60 FPS target
@@ -39,7 +40,7 @@ public class AndroidGameLoop {
     running = true;
     gameThread = new Thread(this::runGameLoop);
     gameThread.setName("JVN-GameLoop");
-    gameThread.setPriority(Thread.MAX_PRIORITY);
+    gameThread.setPriority(Thread.NORM_PRIORITY);
     gameThread.start();
     log.info("Android game loop started on background thread");
   }
@@ -72,6 +73,7 @@ public class AndroidGameLoop {
         Thread.currentThread().interrupt();
       }
     }
+    gameThread = null;
     log.info("Android game loop stopped");
   }
 

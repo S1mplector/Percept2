@@ -33,6 +33,7 @@ public class WebLauncher {
 
       // Initialize the engine
       Engine engine = new Engine(config);
+      engine.start();
 
       // Start the game loop on requestAnimationFrame
       WebGameLoop gameLoop = new WebGameLoop(engine, surface);

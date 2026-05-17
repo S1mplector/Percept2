@@ -23,10 +23,27 @@ public class WebImageCache {
    * Get or load an image from classpath asset path.
    *
    * @param classpath the asset classpath (e.g., "game/images/hero.png")
+   * @return the canvas Image element, or null if not yet loaded
+   */
+  @SuppressWarnings("NullAway")
+  public Object getOrLoad(String classpath) {
+    return getOrLoadInternal(classpath, null);
+  }
+
+  /**
+   * Get or load an image from classpath asset path.
+   *
+   * @param classpath the asset classpath (e.g., "game/images/hero.png")
    * @param onLoaded callback invoked when image is loaded
    * @return the canvas Image element, or null if not yet loaded
    */
+  @SuppressWarnings("NullAway")
   public Object getOrLoad(String classpath, Runnable onLoaded) {
+    return getOrLoadInternal(classpath, onLoaded);
+  }
+
+  @SuppressWarnings("NullAway")
+  private Object getOrLoadInternal(String classpath, Runnable onLoaded) {
     Object cached = cache.get(classpath);
     if (cached != null) {
       return cached;
@@ -56,6 +73,7 @@ public class WebImageCache {
    * Called by native JS when an image finishes loading.
    */
   public void onImageLoaded(String classpath, Object imageElement) {
+    loading.remove(classpath);
     cache.put(classpath, imageElement);
     log.debug("Image loaded: {}", classpath);
 
@@ -76,6 +94,7 @@ public class WebImageCache {
    * Called by native JS if image fails to load.
    */
   public void onImageError(String classpath, String error) {
+    loading.remove(classpath);
     log.error("Failed to load image {}: {}", classpath, error);
     loadingCallbacks.remove(classpath);
   }
@@ -86,6 +105,7 @@ public class WebImageCache {
   public void clear() {
     cache.clear();
     loadingCallbacks.clear();
+    loading.clear();
   }
 
   // Native JS image loading via TeaVM JSO

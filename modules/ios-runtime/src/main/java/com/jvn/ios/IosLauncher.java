@@ -18,11 +18,13 @@ import com.jvn.render.RenderSurface;
  * <p>This launcher initializes the engine with iOS-specific rendering (CoreGraphics)
  * and asset loading via NSBundle. Requires Multi-OS Engine (MOE) for Java-to-Objective-C interop.</p>
  */
+@SuppressWarnings("NullAway")
 public class IosLauncher {
   private static final Logger log = LoggerFactory.getLogger(IosLauncher.class);
 
   private Engine engine;
   private IosGameLoop gameLoop;
+  private RenderSurface surface;
 
   /**
    * Initialize the launcher with iOS configuration.
@@ -35,13 +37,14 @@ public class IosLauncher {
       log.info("Initializing iOS launcher for game: {}", config.title());
 
       // Create render surface from iOS view controller / main view
-      RenderSurface surface = new IosRenderSurface(window);
+      surface = new IosRenderSurface(window);
 
       // Set up asset loading: packed assets with classpath fallback
       AssetManager assetManager = createAssetManager();
 
       // Initialize the engine
       engine = new Engine(config);
+      engine.start();
       // TODO: attach asset manager to engine
 
       // Create iOS renderer (CoreGraphics) with asset manager for image loading
@@ -82,9 +85,15 @@ public class IosLauncher {
   public void terminate() {
     if (gameLoop != null) {
       gameLoop.stop();
+      gameLoop = null;
     }
     if (engine != null) {
-      // TODO: cleanup engine resources
+      engine.stop();
+      engine = null;
+    }
+    if (surface != null) {
+      surface.dispose();
+      surface = null;
     }
   }
 

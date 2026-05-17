@@ -33,6 +33,7 @@ dialogueTextBottomPadding=12
 # ---- Choice list ----
 choiceXCenter=0.5
 choiceYStart=-1
+choiceYAnchor=0
 choiceWidthFactor=0.56
 choiceHeight=48
 choiceGap=10
