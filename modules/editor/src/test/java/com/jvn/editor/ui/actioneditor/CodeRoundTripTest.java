@@ -351,6 +351,34 @@ class CodeRoundTripTest {
     }
 
     @Test
+    void brightnessRoundTripUsesDedicatedAction() {
+        String original = """
+            timeline {
+              brightness "hero" {
+                value: 0.6
+                dur: 400
+              }
+            }
+            """;
+
+        AnimationProject project1 = CodeImporter.importCode("rt_brightness", original);
+        EntityTrack hero1 = project1.getTrack("hero");
+        assertNotNull(hero1);
+        assertTrue(hero1.hasKeyframes(PropertyType.BRIGHTNESS));
+        assertEquals(0.6, hero1.getValueAt(PropertyType.BRIGHTNESS, 400), 0.001);
+
+        String exported = CodeExporter.export(project1);
+        assertTrue(exported.contains("brightness \"hero\""));
+        assertTrue(exported.contains("value: 0.6"));
+        assertFalse(exported.contains("key: \"effect.brightness\""));
+
+        AnimationProject project2 = CodeImporter.importCode("rt_brightness_2", exported);
+        EntityTrack hero2 = project2.getTrack("hero");
+        assertNotNull(hero2);
+        assertEquals(0.6, hero2.getValueAt(PropertyType.BRIGHTNESS, 400), 0.001);
+    }
+
+    @Test
     void exportFormattingIsDeterministic() {
         AnimationProject project = new AnimationProject();
         project.setName("deterministic");

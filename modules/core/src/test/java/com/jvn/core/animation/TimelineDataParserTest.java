@@ -105,6 +105,26 @@ class TimelineDataParserTest {
     }
 
     @Test
+    void parsesBrightnessActionAsExposureCustomProperty() {
+        String inline = """
+            timeline {
+              brightness "hero" {
+                value: 0.6
+                dur: 400
+              }
+            }
+            """;
+
+        TimelineData data = TimelineDataParser.parse("inline_brightness", inline);
+        TimelineData.Track hero = data.getTrack("hero");
+        assertNotNull(hero);
+        assertEquals(400.0, data.getDurationMs(), 0.001);
+        assertEquals(1.0, hero.getCustomValueAt("effect.brightness", 0, 1.0), 0.001);
+        assertEquals(0.8, hero.getCustomValueAt("effect.brightness", 200, 1.0), 0.001);
+        assertEquals(0.6, hero.getCustomValueAt("effect.brightness", 400, 1.0), 0.001);
+    }
+
+    @Test
     void parsesInterpolationModeAndCubicBezierEasing() {
         String inline = """
             timeline {

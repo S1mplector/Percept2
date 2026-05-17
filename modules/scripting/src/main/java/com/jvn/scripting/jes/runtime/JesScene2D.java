@@ -501,6 +501,9 @@ public class JesScene2D extends Scene2DBase {
         setAlpha(e, aVal);
         return p >= 1.0;
       }
+      case "brightness", "exposure" -> {
+        return processBrightnessAction(a, st, deltaMs);
+      }
       case "visible" -> {
         Entity2D e = named.get(a.target);
         if (e != null) {
@@ -809,6 +812,11 @@ public class JesScene2D extends Scene2DBase {
         setAlpha(e, aVal);
         if (p >= 1.0) { tlIndex++; tlElapsedMs = 0; actionState.remove(tlIndex-1); }
       }
+      case "brightness", "exposure" -> {
+        ActionRuntime st = actionState.computeIfAbsent(tlIndex, k -> new ActionRuntime());
+        boolean done = processBrightnessAction(a, st, deltaMs);
+        if (done) { tlIndex++; tlElapsedMs = 0; actionState.remove(tlIndex-1); }
+      }
       case "visible" -> {
         Entity2D e = named.get(a.target);
         if (e != null) {
@@ -1059,6 +1067,34 @@ public class JesScene2D extends Scene2DBase {
     double ep = applyTimelineEasing(st, p);
     applyTimelineCustomProperty(target, key, st.sValue + (targetValue - st.sValue) * ep);
     return p >= 1.0;
+  }
+
+  private boolean processBrightnessAction(JesAst.TimelineAction a, ActionRuntime st, long deltaMs) {
+    if (a == null || st == null) return true;
+    Entity2D entity = named.get(a.target);
+    if (entity == null) return true;
+    double targetValue = toNum(
+        firstPresent(a.props, "value", "brightness", "exposure"),
+        entity.getBrightness());
+    double dur = toNum(a.props.get("dur"), 0);
+    if (!st.started) {
+      st.started = true;
+      st.sValue = entity.getBrightness();
+      configureTimelineEasing(st, a.props);
+    }
+    st.elapsed += deltaMs;
+    double p = (dur <= 0) ? 1.0 : Math.min(1.0, st.elapsed / dur);
+    double ep = applyTimelineEasing(st, p);
+    entity.setBrightness(st.sValue + (targetValue - st.sValue) * ep);
+    return p >= 1.0;
+  }
+
+  private static Object firstPresent(Map<String,Object> values, String... keys) {
+    if (values == null || keys == null) return null;
+    for (String key : keys) {
+      if (key != null && values.containsKey(key)) return values.get(key);
+    }
+    return null;
   }
 
   private double readTimelineCustomProperty(String target, String key) {

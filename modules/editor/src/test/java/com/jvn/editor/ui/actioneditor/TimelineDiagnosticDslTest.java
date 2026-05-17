@@ -236,4 +236,29 @@ class TimelineDiagnosticDslTest {
             m.description().contains("Unknown key")
                 && (m.description().contains("layers") || m.description().contains("path"))));
     }
+
+    @Test
+    void validatesBrightnessAction() {
+        String good = """
+            timeline {
+              brightness "hero" {
+                value: 0.6
+                dur: 400
+              }
+            }
+            """;
+        assertFalse(TimelineDiagnostic.diagnoseDsl(good).stream().anyMatch(m ->
+            m.severity() == TimelineDiagnostic.Severity.ERROR));
+
+        String bad = """
+            timeline {
+              brightness "hero" {
+                value: dark
+              }
+            }
+            """;
+        List<TimelineDiagnostic.Message> messages = TimelineDiagnostic.diagnoseDsl(bad);
+        assertTrue(messages.stream().anyMatch(m ->
+            m.description().contains("value must be numeric") && m.hasLine() && m.line() == 3));
+    }
 }

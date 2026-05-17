@@ -9,7 +9,7 @@ import com.jvn.core.scene2d.Entity2D;
 /**
  * Lightweight parser that converts inline JES timeline blocks into {@link TimelineData}.
  * Supports: move, depth, pivot, wait, rotate, scale, mirror, fade, visible,
- * cameraMove, cameraZoom, property, event cues, and playAudio.
+ * brightness/exposure, cameraMove, cameraZoom, property, event cues, and playAudio.
  *
  * <pre>
  * timeline {
@@ -45,6 +45,8 @@ public class TimelineDataParser {
         "mirror\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
     private static final Pattern FADE_PATTERN = Pattern.compile(
         "fade\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
+    private static final Pattern BRIGHTNESS_PATTERN = Pattern.compile(
+        "(?:brightness|exposure)\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
     private static final Pattern VISIBLE_PATTERN = Pattern.compile(
         "visible\\s+\"([^\"]+)\"\\s*\\{", Pattern.CASE_INSENSITIVE);
     private static final Pattern EXPRESSION_PATTERN = Pattern.compile(
@@ -401,6 +403,34 @@ public class TimelineDataParser {
                         easingSpec.getParameters()
                     );
                 }
+                if (endTime > maxTime) maxTime = endTime;
+                continue;
+            }
+
+            Matcher brightnessM = BRIGHTNESS_PATTERN.matcher(trimmed);
+            if (brightnessM.find()) {
+                String entity = brightnessM.group(1);
+                i++;
+                ActionBlock ab = readBlock(lines, i);
+                i = ab.endIndex;
+
+                double dur = ab.getDuration();
+                EasingSpec easingSpec = parseEasingSpec(ab.getString("easing", "linear"));
+                Easing.Interpolation interpolation = parseInterpolation(ab.getString("interp", "tween"));
+                double endTime = cursor + dur;
+                double value = ab.getDoubleAny(1.0, "value", "brightness", "exposure");
+                TimelineData.Track track = getOrCreateTrack(data, entity);
+
+                addCustomTweenKeyframe(
+                    track,
+                    "effect.brightness",
+                    defaultCustomPropertyValue(entity, "effect.brightness"),
+                    cursor,
+                    endTime,
+                    value,
+                    easingSpec,
+                    interpolation
+                );
                 if (endTime > maxTime) maxTime = endTime;
                 continue;
             }

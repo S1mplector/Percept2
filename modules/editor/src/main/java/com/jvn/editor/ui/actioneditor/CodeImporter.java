@@ -195,6 +195,7 @@ public class CodeImporter {
             props.put(PropertyType.MATRIX_TX, 0.0);
             props.put(PropertyType.MATRIX_TY, 0.0);
             props.put(PropertyType.BLUR, 0.0);
+            props.put(PropertyType.BRIGHTNESS, 1.0);
             baseline.put(snapshot.name(), props);
         }
         project.setInitialSnapshot(baseline);

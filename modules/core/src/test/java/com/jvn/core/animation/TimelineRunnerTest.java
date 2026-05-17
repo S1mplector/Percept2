@@ -134,4 +134,20 @@ class TimelineRunnerTest {
         assertEquals(2.5, scene.hero.getScaleX(), 0.001);
         assertEquals(1.75, scene.hero.getScaleY(), 0.001);
     }
+
+    @Test
+    void appliesBrightnessCustomPropertyToEntity() {
+        TimelineData data = new TimelineData("brightness", 100);
+        TimelineData.Track hero = new TimelineData.Track("hero");
+        hero.addCustomKeyframe("effect.brightness", new TimelineData.Keyframe(0, 1.0, Easing.Type.LINEAR));
+        hero.addCustomKeyframe("effect.brightness", new TimelineData.Keyframe(100, 0.5, Easing.Type.LINEAR));
+        data.addTrack(hero);
+
+        RecordingSceneAccessor scene = new RecordingSceneAccessor();
+        TimelineRunner runner = new TimelineRunner(data, scene);
+        runner.update(50);
+
+        assertEquals(0.75, scene.hero.getBrightness(), 0.001);
+        assertEquals(0.75, scene.hero.readCustomProperty("effect.brightness"), 0.001);
+    }
 }

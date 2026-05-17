@@ -345,6 +345,7 @@ public class CodeExporter {
             collectTimelineCustomPropertyEvents(events, entity, track, PropertyType.MATRIX_TX);
             collectTimelineCustomPropertyEvents(events, entity, track, PropertyType.MATRIX_TY);
             collectTimelineCustomPropertyEvents(events, entity, track, PropertyType.BLUR);
+            collectTimelineCustomPropertyEvents(events, entity, track, PropertyType.BRIGHTNESS);
             collectCustomPropertyEvents(events, entity, track);
 
             if (cameraTrack == null &&
@@ -583,10 +584,12 @@ public class CodeExporter {
             double current = keyframe.getValue();
             if (Math.abs(current - previous) <= 0.001 && keyframe.getTimeMs() > 0.001) continue;
             TimelineEvent ev = new TimelineEvent();
-            ev.actionType = "property";
+            ev.actionType = actionTypeForCustomProperty(property.getTimelineCustomKey());
             ev.target = target;
             ev.startTime = Math.max(0.0, keyframe.getTimeMs());
-            ev.props.put("key", property.getTimelineCustomKey());
+            if ("property".equals(ev.actionType)) {
+                ev.props.put("key", property.getTimelineCustomKey());
+            }
             ev.props.put("value", current);
             events.add(ev);
             previous = current;
@@ -618,14 +621,23 @@ public class CodeExporter {
             double current = keyframe.getValue();
             if (Math.abs(current - previous) <= 0.001 && keyframe.getTimeMs() > 0.001) continue;
             TimelineEvent ev = new TimelineEvent();
-            ev.actionType = "property";
+            ev.actionType = actionTypeForCustomProperty(propertyKey);
             ev.target = target;
             ev.startTime = Math.max(0.0, keyframe.getTimeMs());
-            ev.props.put("key", propertyKey);
+            if ("property".equals(ev.actionType)) {
+                ev.props.put("key", propertyKey);
+            }
             ev.props.put("value", current);
             events.add(ev);
             previous = current;
         }
+    }
+
+    private static String actionTypeForCustomProperty(String propertyKey) {
+        if ("effect.brightness".equals(propertyKey) || "effect.exposure".equals(propertyKey)) {
+            return "brightness";
+        }
+        return "property";
     }
 
     private static EasingSpec findEasingSpecAt(List<Keyframe> list, double time) {

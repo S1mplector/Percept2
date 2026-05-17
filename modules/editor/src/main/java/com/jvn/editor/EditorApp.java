@@ -6641,6 +6641,7 @@ public class EditorApp extends Application {
       props.put(PropertyType.MATRIX_TX, entity.getMatrixTx());
       props.put(PropertyType.MATRIX_TY, entity.getMatrixTy());
       props.put(PropertyType.BLUR, entity.getBlurRadius());
+      props.put(PropertyType.BRIGHTNESS, entity.getBrightness());
       baseline.put(entityName, props);
     }
     if (baseline.isEmpty()) return;

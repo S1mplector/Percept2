@@ -74,6 +74,8 @@ public class TimelineDiagnostic {
         actions.add("scale");
         actions.add("mirror");
         actions.add("fade");
+        actions.add("brightness");
+        actions.add("exposure");
         actions.add("visible");
         actions.add("expression");
         actions.add("show");
@@ -99,6 +101,8 @@ public class TimelineDiagnostic {
         keys.put("scale", lowerSet(Set.of("x", "y", "sx", "sy", "scale_x", "scale_y", "dur", "duration", "easing", "interp")));
         keys.put("mirror", lowerSet(Set.of("mirrorx", "mirror_x", "flipx", "flip_x", "x", "value", "dur", "duration", "easing", "interp")));
         keys.put("fade", lowerSet(Set.of("alpha", "dur", "duration", "easing", "interp")));
+        keys.put("brightness", lowerSet(Set.of("value", "brightness", "exposure", "dur", "duration", "easing", "interp")));
+        keys.put("exposure", lowerSet(Set.of("value", "brightness", "exposure", "dur", "duration", "easing", "interp")));
         keys.put("visible", lowerSet(Set.of("value", "visible")));
         keys.put("expression", lowerSet(Set.of("value", "expression", "path", "layers", "position")));
         keys.put("show", lowerSet(Set.of("target", "expression", "value", "path", "layers", "position", "layer")));
@@ -627,6 +631,29 @@ public class TimelineDiagnostic {
             }
         }
 
+        if ("brightness".equals(actionNorm) || "exposure".equals(actionNorm)) {
+            String raw = valueFor(safeProps, "value");
+            if (raw.isBlank()) raw = valueFor(safeProps, "brightness");
+            if (raw.isBlank()) raw = valueFor(safeProps, "exposure");
+            if (raw.isBlank()) {
+                out.add(new Message(
+                    Severity.ERROR,
+                    action,
+                    action + " action is missing value",
+                    "Set value to 1 for neutral, below 1 for darker, or above 1 for brighter",
+                    lineNo
+                ));
+            } else if (parseNumber(raw) == null) {
+                out.add(new Message(
+                    Severity.ERROR,
+                    action,
+                    action + " value must be numeric",
+                    "Use a number such as 0.6, 1, or 1.25",
+                    lineNo
+                ));
+            }
+        }
+
         if ("playaudio".equals(actionNorm)
             && safeTarget.isBlank()
             && stripQuotes(valueFor(safeProps, "path")).isBlank()
@@ -796,6 +823,29 @@ public class TimelineDiagnostic {
                     action,
                     key + " must be numeric or boolean",
                     "Use 0/1 for mirror amount, or true/false for a full flip",
+                    lineNo
+                ));
+            }
+            return;
+        }
+
+        if (("brightness".equals(actionNorm) || "exposure".equals(actionNorm))
+            && ("value".equals(keyNorm) || "brightness".equals(keyNorm) || "exposure".equals(keyNorm))) {
+            Double n = parseNumber(value);
+            if (n == null) {
+                out.add(new Message(
+                    Severity.ERROR,
+                    action,
+                    key + " must be numeric",
+                    "Use a number such as 0.6, 1, or 1.25",
+                    lineNo
+                ));
+            } else if (n < 0.0) {
+                out.add(new Message(
+                    Severity.ERROR,
+                    action,
+                    key + " must be >= 0",
+                    "Use 0 for black or 1 for neutral brightness",
                     lineNo
                 ));
             }
@@ -1038,7 +1088,7 @@ public class TimelineDiagnostic {
 
     private static boolean requiresQuotedTarget(String actionNorm) {
         return Set.of(
-            "move", "depth", "pivot", "rotate", "scale", "fade", "visible",
+            "move", "depth", "pivot", "rotate", "scale", "fade", "brightness", "exposure", "visible",
             "expression", "show", "hide", "replace", "playaudio"
         ).contains(actionNorm);
     }

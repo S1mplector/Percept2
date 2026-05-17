@@ -94,6 +94,7 @@ public class TimelinePanel extends VBox {
             case VISIBILITY -> Color.web("#f5e663");
             case MATRIX_MXX, MATRIX_MXY, MATRIX_MYX, MATRIX_MYY, MATRIX_TX, MATRIX_TY -> Color.web("#7ec8e3");
             case BLUR -> Color.web("#9aa7ff");
+            case BRIGHTNESS -> Color.web("#ffd166");
             case CAMERA_X, CAMERA_Y, CAMERA_ZOOM,
                 CAMERA_DOF_FOCUS, CAMERA_DOF_STRENGTH, CAMERA_DOF_MAX_BLUR -> Color.web("#ff8c42");
         };

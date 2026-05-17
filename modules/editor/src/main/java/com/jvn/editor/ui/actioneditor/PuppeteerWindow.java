@@ -145,11 +145,12 @@ public class PuppeteerWindow extends Stage {
         PropertyType.MATRIX_MYY,
         PropertyType.MATRIX_TX,
         PropertyType.MATRIX_TY,
-        PropertyType.BLUR
+        PropertyType.BLUR,
+        PropertyType.BRIGHTNESS
     );
     private static final List<String> ENTITY_DEDICATED_CUSTOM_KEYS = List.of(
         "matrix.mxx", "matrix.mxy", "matrix.myx", "matrix.myy", "matrix.tx", "matrix.ty",
-        "effect.blur",
+        "effect.blur", "effect.brightness", "effect.exposure",
         "color.m00", "color.m01", "color.m02", "color.m03", "color.m04",
         "color.m10", "color.m11", "color.m12", "color.m13", "color.m14",
         "color.m20", "color.m21", "color.m22", "color.m23", "color.m24",
@@ -232,7 +233,7 @@ public class PuppeteerWindow extends Stage {
     private Label lblSidebarAdvancedHint;
     private ComboBox<String> cbSidebarCustomPropertyKey;
     private TextField tfSidebarCustomPropertyValue;
-    private final TextField[] sidebarMatrixFields = new TextField[7];
+    private final TextField[] sidebarMatrixFields = new TextField[8];
     private final TextField[] sidebarColorMatrixFields = new TextField[20];
     private final TextField[] sidebarCameraDofFields = new TextField[3];
     private Label lblSidebarSceneTracks;
@@ -2096,15 +2097,16 @@ public class PuppeteerWindow extends Stage {
 
         sidebarAdvancedUnavailableCard = buildSidebarCard(
             "Advanced",
-            "The Matrix / Blur, Color Matrix, Camera DOF, and Custom Channels inspectors are available when an entity track or the runtime camera track is selected.\n\nSelect an entity or the camera in the timeline, then return to this tab to access the advanced controls.",
+            "The Matrix / Effects, Color Matrix, Camera DOF, and Custom Channels inspectors are available when an entity track or the runtime camera track is selected.\n\nSelect an entity or the camera in the timeline, then return to this tab to access the advanced controls.",
             createSidebarHintLabel("Advanced transform and custom-channel authoring is available for entity and runtime camera tracks."));
-        sidebarMatrixCard = buildSidebarCard("Matrix / Blur",
+        sidebarMatrixCard = buildSidebarCard("Matrix / Effects",
             "Raw 2D transform coefficients for advanced per-keyframe control.\n\n" +
             "• MXX / MXY — first column of the 2×2 linear transform (scale X and horizontal shear)\n" +
             "• MYX / MYY — second column (vertical shear and scale Y)\n" +
             "• TX / TY — translation offsets applied after the linear transform\n" +
             "• Blur — Gaussian blur radius in scene units (0 = sharp)\n\n" +
-            "Identity: MXX=1, MXY=0, MYX=0, MYY=1, TX=0, TY=0, Blur=0.\n" +
+            "• Brightness — RGB exposure multiplier (1 = neutral)\n\n" +
+            "Identity: MXX=1, MXY=0, MYX=0, MYY=1, TX=0, TY=0, Blur=0, Brightness=1.\n" +
             "\"Fill Identity\" resets all fields. \"Key At Playhead\" writes all values as a single keyframe.",
             buildSidebarMatrixInspector());
         sidebarColorMatrixCard = buildSidebarCard("Color Matrix",
@@ -2228,7 +2230,7 @@ public class PuppeteerWindow extends Stage {
     }
 
     private Node buildSidebarMatrixInspector() {
-        String[] captions = {"MXX", "MXY", "MYX", "MYY", "TX", "TY", "Blur"};
+        String[] captions = {"MXX", "MXY", "MYX", "MYY", "TX", "TY", "Blur", "Brightness"};
         GridPane grid = new GridPane();
         grid.setHgap(6);
         grid.setVgap(6);
@@ -2239,10 +2241,6 @@ public class PuppeteerWindow extends Stage {
             sidebarMatrixFields[i] = field;
             int row = i / 2;
             int col = (i % 2) * 2;
-            if (i == captions.length - 1) {
-                row = 3;
-                col = 0;
-            }
             grid.add(label, col, row);
             grid.add(field, col + 1, row);
         }
@@ -2702,7 +2700,7 @@ public class PuppeteerWindow extends Stage {
     }
 
     private void fillSidebarMatrixIdentity() {
-        double[] values = {1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0};
+        double[] values = {1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0};
         for (int i = 0; i < values.length && i < sidebarMatrixFields.length; i++) {
             forceSidebarFieldValue(sidebarMatrixFields[i], values[i]);
         }
@@ -2724,7 +2722,7 @@ public class PuppeteerWindow extends Stage {
             double value = parseSidebarFieldValue(sidebarMatrixFields[i], fallback);
             commands.add(PuppeteerCommand.upsertKeyframe(track, property, timeMs, value));
         }
-        executeSidebarCommand("Key matrix properties", commands);
+        executeSidebarCommand("Key matrix/effect properties", commands);
     }
 
     private void fillSidebarColorMatrixIdentity() {
@@ -4595,6 +4593,12 @@ public class PuppeteerWindow extends Stage {
                 }
             }
             entity.setBlurRadius(blur);
+
+            double baseBrightness = baselinePropertyValue(entityName, entity, PropertyType.BRIGHTNESS);
+            double brightness = project.hasEffectiveAnimation(entityName, PropertyType.BRIGHTNESS)
+                ? project.computeValueAt(entityName, PropertyType.BRIGHTNESS, time, baseBrightness)
+                : baseBrightness;
+            entity.setBrightness(brightness);
 
             for (String customPropertyKey : track.getAnimatedCustomProperties()) {
                 double baselineValue = baselineCustomPropertyValue(entityName, customPropertyKey, entity);
@@ -8094,6 +8098,7 @@ public class PuppeteerWindow extends Stage {
             case MATRIX_TX -> entity.getMatrixTx();
             case MATRIX_TY -> entity.getMatrixTy();
             case BLUR -> entity.getBlurRadius();
+            case BRIGHTNESS -> entity.getBrightness();
             case CAMERA_DOF_FOCUS, CAMERA_DOF_STRENGTH, CAMERA_DOF_MAX_BLUR -> property.getDefaultValue();
             default -> property.getDefaultValue();
         };
@@ -8135,6 +8140,7 @@ public class PuppeteerWindow extends Stage {
         entity.resetSupplementalTransform();
         entity.resetColorMatrix();
         entity.setBlurRadius(0.0);
+        entity.setBrightness(1.0);
         entity.clearCustomProperties();
         if (baseline == null) return;
         for (Map.Entry<String, Double> entry : baseline.entrySet()) {

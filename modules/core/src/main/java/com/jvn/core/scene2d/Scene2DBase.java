@@ -150,8 +150,13 @@ public class Scene2DBase implements Scene2D {
             e.getMatrixTx(),
             e.getMatrixTy());
       }
-      if (e.hasNonIdentityColorMatrix()) {
-        b.setColorMatrix(e.getColorMatrix());
+      double brightness = e.getBrightness();
+      if (e.hasNonIdentityColorMatrix() || Math.abs(brightness - 1.0) > 1e-9) {
+        double[] colorMatrix = e.getColorMatrix();
+        if (Math.abs(brightness - 1.0) > 1e-9) {
+          applyBrightness(colorMatrix, brightness);
+        }
+        b.setColorMatrix(colorMatrix);
       } else {
         b.clearColorMatrix();
       }
@@ -172,5 +177,16 @@ public class Scene2DBase implements Scene2D {
       b.pop();
     }
     b.pop();
+  }
+
+  private static void applyBrightness(double[] colorMatrix, double brightness) {
+    if (colorMatrix == null || colorMatrix.length < 20) return;
+    double safeBrightness = Double.isFinite(brightness) ? Math.max(0.0, brightness) : 1.0;
+    for (int row = 0; row < 3; row++) {
+      int offset = row * 5;
+      for (int col = 0; col < 5; col++) {
+        colorMatrix[offset + col] *= safeBrightness;
+      }
+    }
   }
 }

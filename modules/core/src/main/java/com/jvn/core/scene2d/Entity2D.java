@@ -54,6 +54,8 @@ public class Entity2D {
     registerAnimatableProperty("matrix.tx", 0.0, Entity2D::getMatrixTx, Entity2D::setMatrixTx);
     registerAnimatableProperty("matrix.ty", 0.0, Entity2D::getMatrixTy, Entity2D::setMatrixTy);
     registerAnimatableProperty("effect.blur", 0.0, Entity2D::getBlurRadius, Entity2D::setBlurRadius);
+    registerAnimatableProperty("effect.brightness", 1.0, Entity2D::getBrightness, Entity2D::setBrightness);
+    registerAnimatableProperty("effect.exposure", 1.0, Entity2D::getBrightness, Entity2D::setBrightness);
     for (int row = 0; row < 4; row++) {
       for (int col = 0; col < 5; col++) {
         final int index = row * 5 + col;
@@ -114,6 +116,9 @@ public class Entity2D {
   /** Base blur radius in logical pixels. */
   protected double blurRadius = 0.0;
 
+  /** RGB exposure multiplier. 1.0 is neutral, 0.0 is black. */
+  protected double brightness = 1.0;
+
   /** Arbitrary numeric custom properties that do not have registered handlers. */
   protected final Map<String, Double> customProperties = new LinkedHashMap<>();
 
@@ -161,6 +166,7 @@ public class Entity2D {
   public double getMatrixTx() { return matrixTx; }
   public double getMatrixTy() { return matrixTy; }
   public double getBlurRadius() { return blurRadius; }
+  public double getBrightness() { return brightness; }
 
   public double[] getColorMatrix() {
     return colorMatrix.clone();
@@ -278,6 +284,10 @@ public class Entity2D {
 
   public void setBlurRadius(double blurRadius) {
     this.blurRadius = Math.max(0.0, sanitizeFinite(blurRadius, 0.0));
+  }
+
+  public void setBrightness(double brightness) {
+    this.brightness = Math.max(0.0, sanitizeFinite(brightness, 1.0));
   }
 
   public void setCustomProperty(String key, double value) {

@@ -91,6 +91,7 @@ public class JesTimelineParseTest {
           depth "hero" { z: 4 duration: 1 }
           expression "hero" { value: smile layers: "body=assets/chars/hero/body.png | face=assets/chars/hero/face_smile.png" }
           property "hero" { key: "effect.blur" value: 4 duration: 80 }
+          brightness "hero" { value: 0.6 duration: 120 }
           playAudio "assets/audio/sfx/click.wav" { channel: sound fade_in: 10 }
         }
       }
@@ -112,9 +113,12 @@ public class JesTimelineParseTest {
     assertEquals("property", tl.get(4).type);
     assertEquals("effect.blur", tl.get(4).props.get("key"));
     assertEquals(80.0, tl.get(4).props.get("dur"));
-    assertEquals("playAudio", tl.get(5).type);
-    assertEquals("assets/audio/sfx/click.wav", tl.get(5).props.get("id"));
-    assertEquals(10.0, tl.get(5).props.get("fadeinms"));
+    assertEquals("brightness", tl.get(5).type);
+    assertEquals(0.6, tl.get(5).props.get("value"));
+    assertEquals(120.0, tl.get(5).props.get("dur"));
+    assertEquals("playAudio", tl.get(6).type);
+    assertEquals("assets/audio/sfx/click.wav", tl.get(6).props.get("id"));
+    assertEquals(10.0, tl.get(6).props.get("fadeinms"));
   }
 
   @Test

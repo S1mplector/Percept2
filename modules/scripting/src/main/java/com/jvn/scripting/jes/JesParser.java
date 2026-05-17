@@ -46,6 +46,8 @@ public class JesParser {
     Map.entry("rotate", Set.of("deg", "angle", "rotation", "dur", "duration", "easing", "interp")),
     Map.entry("scale", Set.of("sx", "sy", "x", "y", "scale_x", "scale_y", "dur", "duration", "easing", "interp")),
     Map.entry("fade", Set.of("alpha", "dur", "duration", "easing", "interp")),
+    Map.entry("brightness", Set.of("value", "brightness", "exposure", "dur", "duration", "easing", "interp")),
+    Map.entry("exposure", Set.of("value", "brightness", "exposure", "dur", "duration", "easing", "interp")),
     Map.entry("visible", Set.of("value", "visible")),
     Map.entry("expression", Set.of("target", "value", "expression", "path", "layers", "position")),
     Map.entry("show", Set.of("target", "expression", "value", "path", "layers", "position", "layer")),
@@ -297,7 +299,7 @@ public class JesParser {
           } else { throw error("Expected property name in property action"); }
         }
       }
-      case "move", "depth", "pivot", "rotate", "scale", "fade", "visible", "walkToTile", "damage", "heal" -> {
+      case "move", "depth", "pivot", "rotate", "scale", "fade", "brightness", "exposure", "visible", "walkToTile", "damage", "heal" -> {
         String target = expect(STRING, "entity name").lexeme;
         a.target = target;
         expect(LBRACE, "'{'" );

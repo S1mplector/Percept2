@@ -1426,6 +1426,7 @@ public class KeyframeEditor extends VBox {
             case MATRIX_MXX, MATRIX_MXY, MATRIX_MYX, MATRIX_MYY -> large ? 0.10 : 0.01;
             case MATRIX_TX, MATRIX_TY, CAMERA_DOF_FOCUS -> large ? 10.0 : 1.0;
             case BLUR, CAMERA_DOF_MAX_BLUR -> large ? 2.0 : 0.25;
+            case BRIGHTNESS -> large ? 0.10 : 0.01;
             case CAMERA_DOF_STRENGTH -> large ? 0.25 : 0.05;
         };
     }
@@ -1626,6 +1627,9 @@ public class KeyframeEditor extends VBox {
             }
             case BLUR, CAMERA_DOF_MAX_BLUR -> {
                 sliderValue.setMin(0.0); sliderValue.setMax(64.0);
+            }
+            case BRIGHTNESS -> {
+                sliderValue.setMin(0.0); sliderValue.setMax(4.0);
             }
             case CAMERA_DOF_FOCUS -> {
                 sliderValue.setMin(-500.0); sliderValue.setMax(500.0);

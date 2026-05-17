@@ -1693,7 +1693,7 @@ public class AnimationProject {
             case CAMERA_Y -> TimelineData.Property.CAMERA_Y;
             case CAMERA_ZOOM -> TimelineData.Property.CAMERA_ZOOM;
             case MATRIX_MXX, MATRIX_MXY, MATRIX_MYX, MATRIX_MYY, MATRIX_TX, MATRIX_TY,
-                BLUR, CAMERA_DOF_FOCUS, CAMERA_DOF_STRENGTH, CAMERA_DOF_MAX_BLUR -> null;
+                BLUR, BRIGHTNESS, CAMERA_DOF_FOCUS, CAMERA_DOF_STRENGTH, CAMERA_DOF_MAX_BLUR -> null;
         };
     }
 
@@ -1748,7 +1748,7 @@ public class AnimationProject {
 
     private static double parserDefaultValue(PropertyType property) {
         return switch (property) {
-            case SCALE_X, SCALE_Y, ALPHA, VISIBILITY, MATRIX_MXX, MATRIX_MYY -> 1.0;
+            case SCALE_X, SCALE_Y, ALPHA, VISIBILITY, MATRIX_MXX, MATRIX_MYY, BRIGHTNESS -> 1.0;
             default -> 0.0;
         };
     }

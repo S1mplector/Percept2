@@ -181,6 +181,7 @@ public class GraphEditorPanel extends Pane {
             case ALPHA                      ->   1.0;   // 0..1
             case VISIBILITY                 ->   1.0;
             case BLUR                       ->  20.0;
+            case BRIGHTNESS                 ->   3.0;
             case CAMERA_X, CAMERA_Y         -> 400.0;
             case CAMERA_ZOOM                ->   3.0;
             case CAMERA_DOF_FOCUS           -> 400.0;
@@ -722,6 +723,7 @@ public class GraphEditorPanel extends Pane {
                  MATRIX_MYX, MATRIX_MYY,
                  MATRIX_TX, MATRIX_TY          -> Color.web("#7ec8e3");
             case BLUR                          -> Color.web("#9aa7ff");
+            case BRIGHTNESS                    -> Color.web("#ffd166");
             case CAMERA_X, CAMERA_Y,
                  CAMERA_ZOOM, CAMERA_DOF_FOCUS,
                  CAMERA_DOF_STRENGTH,

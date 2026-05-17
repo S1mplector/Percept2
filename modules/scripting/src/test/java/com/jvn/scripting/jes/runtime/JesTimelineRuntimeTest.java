@@ -150,6 +150,7 @@ public class JesTimelineRuntimeTest {
         timeline {
           depth "a" { z: 7 duration: 50 }
           property "a" { key: "effect.blur" value: 6 duration: 50 }
+          brightness "a" { value: 0.5 duration: 50 }
         }
       }
       """;
@@ -160,5 +161,7 @@ public class JesTimelineRuntimeTest {
     assertEquals(7.0, a.getZ(), 1e-3);
     js.update(60);
     assertEquals(6.0, a.readCustomProperty("effect.blur"), 1e-3);
+    js.update(60);
+    assertEquals(0.5, a.getBrightness(), 1e-3);
   }
 }
