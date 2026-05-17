@@ -39,8 +39,8 @@ This index is the main route through the Java Vector Nexus documentation. It is 
 ### Carry Scene Lighting Into Animation
 
 1. [Scene Lighting Studio](editor/sidebars/right/sidebar-image-tint-tool.md)
-2. [VNS Directives & Declarations](scripting/vns/language/vns-directives.md#stagepreset--stage-lighting-preset)
-3. [VNS Commands Reference](scripting/vns/language/vns-commands.md#stage-lighting)
+2. [VNS Directives & Declarations — @stagepreset](scripting/vns/language/vns-directives.md)
+3. [VNS Commands Reference — Stage Lighting](scripting/vns/language/vns-commands.md)
 4. [Puppeteer Launcher](editor/sidebars/right/sidebar-puppeteer-launcher.md)
 5. [Puppeteer Editor Guide](editor/puppeteer/puppeteer-editor-guide.md)
 
@@ -218,6 +218,7 @@ This index is the main route through the Java Vector Nexus documentation. It is 
 
 - [Timeline Scripting](scripting/timeline/overview/timeline-scripting.md)
 - [Story Map - Arcs & Links DSL](scripting/timeline/story/timeline-story-arcs.md)
+- [Core Animation API](scripting/timeline/animation/core-animation-api.md) - TimelineRunner, Easing, SceneAccessor
 - [Puppeteer Animation Timelines](scripting/timeline/animation/timeline-animation.md)
 - [Hand-Coding Puppeteer Timelines](scripting/timeline/animation/timeline-hand-coding.md)
 
@@ -288,6 +289,21 @@ This index is the main route through the Java Vector Nexus documentation. It is 
 - [Architecture Overview](architecture/core/overview.md)
 - [System Architecture](architecture/core/system-architecture.md)
 - [2D Engine](architecture/core/2d-engine.md)
+- [Render-API: Graphics Abstraction](architecture/core/render-api.md)
+- [Engine Lifecycle & Main Loop](architecture/core/engine-lifecycle.md)
 - [Ren'Py UI Parity Roadmap](architecture/core/ui-parity-roadmap.md)
 - [Performance and Build Footprint](architecture/quality/performance.md)
 - [Debugging & Profiling](architecture/quality/debugging.md)
+
+### Core Internal APIs
+
+- [Core Physics API](architecture/internals/core-physics-api.md) - PhysicsWorld2D, RigidBody2D, raycasting
+
+## Platform Runtimes
+
+- [Platform Runtimes Overview](runtime/platforms/README.md)
+- [Render-API](architecture/core/render-api.md) - graphics backend abstraction
+- [Android Runtime](runtime/platforms/android-runtime.md) - APK deployment and Android integration
+- [iOS Runtime](runtime/platforms/ios-runtime.md) - Xcode build and Swift interop
+- [Web Runtime](runtime/platforms/web-runtime.md) - browser deployment with WebGL/Canvas
+- [Swing Runtime](runtime/platforms/swing-runtime.md) - Swing/AWT renderer for Java 8 compatibility

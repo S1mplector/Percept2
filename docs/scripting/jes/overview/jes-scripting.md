@@ -183,7 +183,7 @@ Each JES feature area has its own detailed documentation with examples:
 | `Label2D` | Text display |
 | `ParticleEmitter2D` | Particle effects |
 | `PhysicsBody2D` | Physics rigid body (circle/box) |
-| `Character2D` | Animated sprite-sheet character |
+| `CharacterEntity2D` | Animated sprite-sheet character |
 | `Stats` | RPG stats (HP, MP, ATK, DEF) |
 | `Inventory` | Item storage with slots |
 | `Equipment` | Equipment slot management |
@@ -229,7 +229,7 @@ scene "RPGDemo" {
   }
 
   entity "hero" {
-    component Character2D {
+    component CharacterEntity2D {
       spriteSheet: "assets/characters/knight.png"
       frameW: 16
       frameH: 16
@@ -249,7 +249,7 @@ scene "RPGDemo" {
   }
 
   entity "npc" {
-    component Character2D {
+    component CharacterEntity2D {
       spriteSheet: "assets/characters/villager.png"
       frameW: 16
       frameH: 16

@@ -1,0 +1,115 @@
+package com.jvn.web;
+
+import static org.junit.jupiter.api.Assertions.*;
+import java.lang.reflect.Field;
+import java.util.List;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
+
+/**
+ * Tests for {@link WebImageCache}.
+ *
+ * Note: WebImageCache uses native JS methods that are not available in JVM unit tests.
+ * These tests verify the cache logic without invoking native methods.
+ */
+public class WebImageCacheTest {
+
+  @Test
+  void testCacheClear() {
+    WebImageCache cache = new WebImageCache();
+    cache.clear();
+    // Verify no exception is thrown - should work fine in JVM
+    assertTrue(true, "Cache clear should not throw");
+  }
+
+  @Test
+  void testCacheInstantiation() {
+    WebImageCache cache = new WebImageCache();
+    assertNotNull(cache, "Cache should be instantiated");
+  }
+
+  @Test
+  void testCacheCanBeCreated() {
+    // Verify the class can be loaded and instantiated
+    WebImageCache cache = new WebImageCache();
+    assertNotNull(cache);
+  }
+
+  @Test
+  void testClearIsIdempotent() {
+    WebImageCache cache = new WebImageCache();
+    cache.clear();
+    cache.clear();  // Should not throw
+    assertTrue(true, "Multiple clears should be safe");
+  }
+
+  @Test
+  void testLoadedImageClearsLoadingStateAndRunsCallbacks() throws Exception {
+    WebImageCache cache = new WebImageCache();
+    String classpath = "game/images/hero.png";
+    boolean[] callbackInvoked = {false};
+    Object image = new Object();
+
+    loading(cache).put(classpath, true);
+    callbacks(cache).put(classpath, List.of(() -> callbackInvoked[0] = true));
+
+    cache.onImageLoaded(classpath, image);
+
+    assertFalse(loading(cache).containsKey(classpath), "Loaded image should no longer be marked loading");
+    assertFalse(callbacks(cache).containsKey(classpath), "Callbacks should be drained after load");
+    assertSame(image, cachedImages(cache).get(classpath), "Loaded image should be cached");
+    assertTrue(callbackInvoked[0], "Load callback should be invoked");
+  }
+
+  @Test
+  void testImageErrorClearsLoadingStateAndCallbacks() throws Exception {
+    WebImageCache cache = new WebImageCache();
+    String classpath = "game/images/missing.png";
+
+    loading(cache).put(classpath, true);
+    callbacks(cache).put(classpath, List.of(() -> fail("Error callbacks should be discarded")));
+
+    cache.onImageError(classpath, "missing");
+
+    assertFalse(loading(cache).containsKey(classpath), "Failed image should no longer be marked loading");
+    assertFalse(callbacks(cache).containsKey(classpath), "Callbacks should be discarded after error");
+    assertFalse(cachedImages(cache).containsKey(classpath), "Failed image should not be cached");
+  }
+
+  @Test
+  void testClearRemovesAllCacheState() throws Exception {
+    WebImageCache cache = new WebImageCache();
+    String classpath = "game/images/hero.png";
+
+    cachedImages(cache).put(classpath, new Object());
+    loading(cache).put(classpath, true);
+    callbacks(cache).put(classpath, List.of(() -> {}));
+
+    cache.clear();
+
+    assertTrue(cachedImages(cache).isEmpty(), "Cached images should be cleared");
+    assertTrue(loading(cache).isEmpty(), "Loading state should be cleared");
+    assertTrue(callbacks(cache).isEmpty(), "Callbacks should be cleared");
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Map<String, Object> cachedImages(WebImageCache cache) throws Exception {
+    return (Map<String, Object>) field(cache, "cache");
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Map<String, Boolean> loading(WebImageCache cache) throws Exception {
+    return (Map<String, Boolean>) field(cache, "loading");
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Map<String, List<Runnable>> callbacks(WebImageCache cache) throws Exception {
+    return (Map<String, List<Runnable>>) field(cache, "loadingCallbacks");
+  }
+
+  private static Object field(WebImageCache cache, String fieldName) throws Exception {
+    Field field = WebImageCache.class.getDeclaredField(fieldName);
+    field.setAccessible(true);
+    return field.get(cache);
+  }
+}

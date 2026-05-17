@@ -5,6 +5,7 @@ plugins {
 
 dependencies {
   api(project(":core"))
+  api(project(":render-api"))
 
   val javafxVersion = (rootProject.findProperty("jvnJavaFxVersion") as String?)?.trim()?.ifBlank { null } ?: "21.0.3"
   val osName = System.getProperty("os.name").lowercase()

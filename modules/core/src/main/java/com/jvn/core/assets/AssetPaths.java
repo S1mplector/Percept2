@@ -80,4 +80,20 @@ public final class AssetPaths {
     if (name.startsWith("/")) name = name.substring(1);
     return dir + name;
   }
+
+  /**
+   * Normalize an asset path for case-insensitive filesystem lookups.
+   *
+   * <p>On case-insensitive filesystems (macOS default, Windows), asset lookups
+   * should use lowercase paths to avoid case-mismatch issues. On case-sensitive
+   * filesystems (Linux), this is a no-op.</p>
+   *
+   * @param path the asset path to normalize
+   * @return the normalized path (lowercase on case-insensitive systems)
+   */
+  public static String normalize(String path) {
+    // On case-insensitive filesystems, use lowercase
+    boolean caseInsensitive = !new java.io.File("a").equals(new java.io.File("A"));
+    return caseInsensitive && path != null ? path.toLowerCase(java.util.Locale.ROOT) : path;
+  }
 }

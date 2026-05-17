@@ -18,6 +18,7 @@ Start with the detailed [Documentation Index](INDEX.md). It is organized by task
 | Write VN scripts | [VNS Overview](scripting/vns/overview/vns-scripting.md) |
 | Write gameplay scenes | [JES Overview](scripting/jes/overview/jes-scripting.md) |
 | Build menus and layouts | [Menu Profiles Overview](scripting/ui/menus/menu-profiles.md) |
+| Deploy to mobile/web | [Platform Runtimes](runtime/platforms/README.md) |
 | Package a game | [Build And Release Docs](project-setup/release/README.md) |
 
 ## Directory Map

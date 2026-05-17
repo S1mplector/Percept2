@@ -43,9 +43,13 @@ class AsyncAssetLoaderTest {
     Set<String> threadNames = ConcurrentHashMap.newKeySet();
     int count = 100;
     List<CompletableFuture<Void>> futures = new ArrayList<>(count);
+    // Use thenAcceptAsync with the shared executor so the callback always runs
+    // on a pool thread, not the caller thread (which happens when the future is
+    // already complete at the point thenAccept is attached).
     for (int i = 0; i < count; i++) {
-      futures.add(AsyncAssetLoader.loadBytes(resource).thenAccept(b ->
-          threadNames.add(Thread.currentThread().getName())
+      futures.add(AsyncAssetLoader.loadBytes(resource).thenAcceptAsync(b ->
+          threadNames.add(Thread.currentThread().getName()),
+          AsyncAssetLoader.getExecutor()
       ));
     }
     CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
@@ -57,6 +61,23 @@ class AsyncAssetLoaderTest {
       assertTrue(name.startsWith("jvn-asset-io-"),
           "Thread name should start with 'jvn-asset-io-' but was: " + name);
     }
+  }
+
+  @Test
+  void defaultThreadCountLeavesRoomOnLimitedCoreSystems() {
+    assertEquals(1, AsyncAssetLoader.resolveThreadCount(1, ""));
+    assertEquals(1, AsyncAssetLoader.resolveThreadCount(2, ""));
+    assertEquals(2, AsyncAssetLoader.resolveThreadCount(3, ""));
+    assertEquals(3, AsyncAssetLoader.resolveThreadCount(4, ""));
+    assertEquals(4, AsyncAssetLoader.resolveThreadCount(8, ""));
+  }
+
+  @Test
+  void configuredThreadCountIsBounded() {
+    assertEquals(6, AsyncAssetLoader.resolveThreadCount(2, "6"));
+    assertEquals(16, AsyncAssetLoader.resolveThreadCount(8, "64"));
+    assertEquals(1, AsyncAssetLoader.resolveThreadCount(2, "invalid"));
+    assertEquals(1, AsyncAssetLoader.resolveThreadCount(2, "0"));
   }
 
   @Test

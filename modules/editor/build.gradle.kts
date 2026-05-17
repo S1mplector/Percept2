@@ -1,5 +1,13 @@
 import java.io.File
+import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.model.ObjectFactory
+import org.gradle.api.tasks.Classpath
+import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.JavaExec
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
+import org.gradle.process.CommandLineArgumentProvider
+import javax.inject.Inject
 
 plugins {
   application
@@ -32,6 +40,28 @@ application {
   mainClass.set("com.jvn.editor.EditorApp")
 }
 
+abstract class JavaFxModuleArgumentProvider @Inject constructor(objects: ObjectFactory) : CommandLineArgumentProvider {
+  @get:Classpath
+  @get:PathSensitive(PathSensitivity.NONE)
+  val javafxClasspath: ConfigurableFileCollection = objects.fileCollection()
+
+  @get:Input
+  val modules = objects.listProperty(String::class.java)
+
+  override fun asArguments(): Iterable<String> {
+    val javafxFiles = javafxClasspath.files.sortedBy { it.name }
+    if (javafxFiles.isEmpty()) {
+      throw GradleException("No JavaFX runtime jars found on the editor runtime classpath.")
+    }
+    return listOf(
+      "--module-path",
+      javafxFiles.joinToString(File.pathSeparator) { it.absolutePath },
+      "--add-modules",
+      modules.get().joinToString(",")
+    )
+  }
+}
+
 fun JavaExec.configureJavaFxRuntime() {
   val fxModules = listOf(
     "javafx.controls",
@@ -41,28 +71,22 @@ fun JavaExec.configureJavaFxRuntime() {
     "javafx.swing",
     "javafx.fxml"
   )
-  doFirst {
-    val runtimeFiles = classpath.files
-    val javafxFiles = runtimeFiles.filter { file ->
-      file.name.startsWith("javafx-") && file.name.endsWith(".jar")
-    }
-    val nonJavafxFiles = runtimeFiles.filterNot { file ->
-      file.name.startsWith("javafx-") && file.name.endsWith(".jar")
-    }
-    if (javafxFiles.isEmpty()) {
-      throw GradleException("No JavaFX runtime jars found on the editor runtime classpath.")
-    }
-
-    // Keep non-JavaFX dependencies on the classpath to avoid JPMS split-package
-    // issues (e.g. vorbisspi/mp3spi both exporting javazoom.spi).
-    classpath = files(nonJavafxFiles)
-
-    val modulePath = javafxFiles.joinToString(File.pathSeparator) { it.absolutePath }
-    jvmArgs(
-      "--module-path", modulePath,
-      "--add-modules", fxModules.joinToString(",")
-    )
+  val runtimeClasspath = classpath
+  val javafxFiles = runtimeClasspath.filter { file ->
+    file.name.startsWith("javafx-") && file.name.endsWith(".jar")
   }
+  val nonJavafxFiles = runtimeClasspath.filter { file ->
+    !(file.name.startsWith("javafx-") && file.name.endsWith(".jar"))
+  }
+
+  // Keep non-JavaFX dependencies on the classpath to avoid JPMS split-package
+  // issues (e.g. vorbisspi/mp3spi both exporting javazoom.spi).
+  classpath = nonJavafxFiles
+
+  jvmArgumentProviders.add(objects.newInstance(JavaFxModuleArgumentProvider::class.java).apply {
+    javafxClasspath.from(javafxFiles)
+    modules.set(fxModules)
+  })
 }
 
 fun JavaExec.forwardHubLaunchSystemProps() {
