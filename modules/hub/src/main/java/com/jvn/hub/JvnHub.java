@@ -84,6 +84,8 @@ import javax.swing.plaf.basic.BasicScrollBarUI;
  */
 public final class JvnHub {
 
+  private static final String PACKAGED_GRADLE_CACHE_MARKER_FILE = ".jvn-packaged-gradle-cache.properties";
+
   // --- Editor dark neutral-gray palette -------------------------------------
   // Mirrors the dark editor/launcher CSS: neutral graphite surfaces, no blue
   // cast, and very subtle gradients instead of flat pure black.
@@ -1694,10 +1696,13 @@ public final class JvnHub {
         ProcessBuilder pb = new ProcessBuilder(command)
             .directory(projectRoot.toFile())
             .redirectErrorStream(true);
-        if (command.get(0).endsWith("gradlew") || command.get(0).endsWith("gradlew.bat")) {
+        if (isGradleWrapperCommand(command)) {
           Path packagedGradleHome = projectRoot.resolve(".jvn-gradle-user-home");
-          if (Files.isDirectory(packagedGradleHome)) {
+          if (isPackagedGradleHome(packagedGradleHome)) {
             pb.environment().put("GRADLE_USER_HOME", packagedGradleHome.toAbsolutePath().toString());
+            publish("[hub] using packaged Gradle user home.");
+          } else if (Files.isDirectory(packagedGradleHome)) {
+            publish("[hub] using default Gradle user home; packaged cache marker was not found.");
           }
         }
         Process process;
@@ -1756,6 +1761,19 @@ public final class JvnHub {
         }
       }
     }.execute();
+  }
+
+  private static boolean isGradleWrapperCommand(List<String> command) {
+    if (command.isEmpty()) return false;
+    Path executable = Path.of(command.get(0)).getFileName();
+    if (executable == null) return false;
+    String name = executable.toString();
+    return name.equals("gradlew") || name.equals("gradlew.bat");
+  }
+
+  private static boolean isPackagedGradleHome(Path gradleHome) {
+    return Files.isDirectory(gradleHome)
+        && Files.isRegularFile(gradleHome.resolve(PACKAGED_GRADLE_CACHE_MARKER_FILE));
   }
 
   private void cancelRunning() {
