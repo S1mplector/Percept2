@@ -65,6 +65,37 @@ class TimelineEventCueTest {
     }
 
     @Test
+    void parsesLayeredExpressionActionFromTimelineDsl() {
+        String dsl = """
+            timeline {
+              wait 100
+              expression "hero" {
+                value: "angry"
+                path: "assets/chars/hero/body.png | assets/chars/hero/face_angry.png"
+                layers: "body=assets/chars/hero/body.png | face=assets/chars/hero/face_angry.png"
+              }
+            }
+            """;
+
+        TimelineData data = TimelineDataParser.parse("layered_expression", dsl);
+
+        assertEquals(1, data.getEventCues().size());
+        TimelineData.EventCue cue = data.getEventCues().get(0);
+        assertEquals(100.0, cue.getTimeMs(), 0.001);
+        assertEquals("expression", cue.getType());
+        assertEquals("hero", cue.getPayloadValue("target"));
+        assertEquals("angry", cue.getPayloadValue("value"));
+        assertEquals(
+            "assets/chars/hero/body.png | assets/chars/hero/face_angry.png",
+            cue.getPayloadValue("path")
+        );
+        assertEquals(
+            "body=assets/chars/hero/body.png | face=assets/chars/hero/face_angry.png",
+            cue.getPayloadValue("layers")
+        );
+    }
+
+    @Test
     void runnerTriggersEventCueOncePerPass() {
         TimelineData data = new TimelineData("evt_run", 500);
         Map<String, String> payload = new LinkedHashMap<>();

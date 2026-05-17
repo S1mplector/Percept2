@@ -308,6 +308,49 @@ class CodeRoundTripTest {
     }
 
     @Test
+    void layeredExpressionCueRoundTripPreservesPayload() {
+        String original = """
+            timeline {
+              wait 100
+              expression "hero" {
+                value: "angry"
+                path: "assets/chars/hero/body.png | assets/chars/hero/face_angry.png"
+                layers: "body=assets/chars/hero/body.png | face=assets/chars/hero/face_angry.png"
+              }
+            }
+            """;
+
+        AnimationProject project1 = CodeImporter.importCode("rt_layered_expr", original);
+        assertEquals(1, project1.getEditorEventCues().size());
+
+        EditorEventCue cue1 = project1.getEditorEventCues().get(0);
+        assertEquals("expression", cue1.getType());
+        assertEquals("hero", cue1.getPayloadValue("target"));
+        assertEquals("angry", cue1.getPayloadValue("value"));
+        assertEquals(
+            "assets/chars/hero/body.png | assets/chars/hero/face_angry.png",
+            cue1.getPayloadValue("path")
+        );
+        assertEquals(
+            "body=assets/chars/hero/body.png | face=assets/chars/hero/face_angry.png",
+            cue1.getPayloadValue("layers")
+        );
+
+        String exported = CodeExporter.export(project1);
+        assertTrue(exported.contains("expression \"hero\""));
+        assertTrue(exported.contains("value: \"angry\""));
+        assertTrue(exported.contains("layers: \"body=assets/chars/hero/body.png | face=assets/chars/hero/face_angry.png\""));
+
+        AnimationProject project2 = CodeImporter.importCode("rt_layered_expr_2", exported);
+        EditorEventCue cue2 = project2.getEditorEventCues().get(0);
+        assertEquals("expression", cue2.getType());
+        assertEquals("hero", cue2.getPayloadValue("target"));
+        assertEquals("angry", cue2.getPayloadValue("value"));
+        assertEquals(cue1.getPayloadValue("path"), cue2.getPayloadValue("path"));
+        assertEquals(cue1.getPayloadValue("layers"), cue2.getPayloadValue("layers"));
+    }
+
+    @Test
     void exportFormattingIsDeterministic() {
         AnimationProject project = new AnimationProject();
         project.setName("deterministic");

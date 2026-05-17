@@ -100,10 +100,10 @@ public class TimelineDiagnostic {
         keys.put("mirror", lowerSet(Set.of("mirrorx", "mirror_x", "flipx", "flip_x", "x", "value", "dur", "duration", "easing", "interp")));
         keys.put("fade", lowerSet(Set.of("alpha", "dur", "duration", "easing", "interp")));
         keys.put("visible", lowerSet(Set.of("value", "visible")));
-        keys.put("expression", lowerSet(Set.of("value", "path", "position")));
-        keys.put("show", lowerSet(Set.of("target", "expression", "value", "path", "position", "layer")));
+        keys.put("expression", lowerSet(Set.of("value", "expression", "path", "layers", "position")));
+        keys.put("show", lowerSet(Set.of("target", "expression", "value", "path", "layers", "position", "layer")));
         keys.put("hide", lowerSet(Set.of("target")));
-        keys.put("replace", lowerSet(Set.of("target", "expression", "value", "path")));
+        keys.put("replace", lowerSet(Set.of("target", "expression", "value", "path", "layers")));
         keys.put("scene", lowerSet(Set.of("target", "id", "path", "value")));
         keys.put("cameramove", lowerSet(Set.of("x", "y", "dur", "duration", "easing", "interp")));
         keys.put("camerazoom", lowerSet(Set.of("zoom", "dur", "duration", "easing", "interp")));
@@ -495,7 +495,8 @@ public class TimelineDiagnostic {
         if ("expression".equals(type)
             && safePayload.getOrDefault("value", "").isBlank()
             && safePayload.getOrDefault("expression", "").isBlank()
-            && safePayload.getOrDefault("path", "").isBlank()) {
+            && safePayload.getOrDefault("path", "").isBlank()
+            && safePayload.getOrDefault("layers", "").isBlank()) {
             out.add(new Message(
                 Severity.WARNING,
                 target.isBlank() ? "(event)" : target,
@@ -506,7 +507,8 @@ public class TimelineDiagnostic {
         if ("show".equals(type)
             && safePayload.getOrDefault("value", "").isBlank()
             && safePayload.getOrDefault("expression", "").isBlank()
-            && safePayload.getOrDefault("path", "").isBlank()) {
+            && safePayload.getOrDefault("path", "").isBlank()
+            && safePayload.getOrDefault("layers", "").isBlank()) {
             out.add(new Message(
                 Severity.INFO,
                 target.isBlank() ? "(event)" : target,

@@ -217,4 +217,23 @@ class TimelineDiagnosticDslTest {
                 && m.hasLine()
                 && m.line() == 6));
     }
+
+    @Test
+    void acceptsLayeredExpressionKeys() {
+        String code = """
+            timeline {
+              expression "hero" {
+                value: "angry"
+                path: "assets/chars/hero/body.png | assets/chars/hero/face_angry.png"
+                layers: "body=assets/chars/hero/body.png | face=assets/chars/hero/face_angry.png"
+              }
+            }
+            """;
+
+        List<TimelineDiagnostic.Message> messages = TimelineDiagnostic.diagnoseDsl(code);
+
+        assertTrue(messages.stream().noneMatch(m ->
+            m.description().contains("Unknown key")
+                && (m.description().contains("layers") || m.description().contains("path"))));
+    }
 }

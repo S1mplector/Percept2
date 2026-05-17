@@ -89,7 +89,7 @@ public class JesTimelineParseTest {
           rotate "hero" { rotation: 15 duration: 120 interp: hold easing: spring(220, 24, 1, 0) }
           scale "hero" { x: 1.2 y: 0.8 duration: 120 }
           depth "hero" { z: 4 duration: 1 }
-          expression "hero" { value: smile }
+          expression "hero" { value: smile layers: "body=assets/chars/hero/body.png | face=assets/chars/hero/face_smile.png" }
           property "hero" { key: "effect.blur" value: 4 duration: 80 }
           playAudio "assets/audio/sfx/click.wav" { channel: sound fade_in: 10 }
         }
@@ -108,6 +108,7 @@ public class JesTimelineParseTest {
     assertEquals("event", tl.get(3).type);
     assertEquals("expression", tl.get(3).target);
     assertEquals("hero", tl.get(3).props.get("target"));
+    assertEquals("body=assets/chars/hero/body.png | face=assets/chars/hero/face_smile.png", tl.get(3).props.get("layers"));
     assertEquals("property", tl.get(4).type);
     assertEquals("effect.blur", tl.get(4).props.get("key"));
     assertEquals(80.0, tl.get(4).props.get("dur"));

@@ -81,10 +81,49 @@ public class VnSlotHelper {
      */
     public static void insertExpressionCue(AnimationProject project, String target,
                                             String expression, double timeMs) {
+        insertExpressionCue(project, target, expression, timeMs, "", Map.of());
+    }
+
+    /**
+     * Insert an expression-change cue with optional resolved sprite data.
+     *
+     * <p>{@code pathSpec} may be a single image or a pipe-separated layered
+     * sprite path. {@code layersById}, when present, is exported as lightweight
+     * layer metadata so Puppeteer can swap layered preview entities by layer id.</p>
+     */
+    public static void insertExpressionCue(AnimationProject project,
+                                            String target,
+                                            String expression,
+                                            double timeMs,
+                                            String pathSpec,
+                                            Map<String, String> layersById) {
         Map<String, String> payload = new LinkedHashMap<>();
         payload.put("target", target);
         payload.put("value", expression);
+        if (pathSpec != null && !pathSpec.isBlank()) {
+            payload.put("path", pathSpec.trim());
+        }
+        String layerPayload = encodeLayers(layersById);
+        if (!layerPayload.isBlank()) {
+            payload.put("layers", layerPayload);
+        }
         project.addEditorEventCue(new EditorEventCue(timeMs, "expression", payload));
+    }
+
+    private static String encodeLayers(Map<String, String> layersById) {
+        if (layersById == null || layersById.isEmpty()) return "";
+        StringBuilder out = new StringBuilder();
+        int index = 1;
+        for (Map.Entry<String, String> entry : layersById.entrySet()) {
+            if (entry == null || entry.getValue() == null || entry.getValue().isBlank()) continue;
+            if (!out.isEmpty()) out.append(" | ");
+            String layerId = entry.getKey() == null || entry.getKey().isBlank()
+                ? "layer" + index
+                : entry.getKey().trim();
+            out.append(layerId).append('=').append(entry.getValue().trim());
+            index++;
+        }
+        return out.toString();
     }
 
     /**

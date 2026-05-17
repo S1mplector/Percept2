@@ -270,6 +270,7 @@ public class PuppeteerWindow extends Stage {
     private CameraInteractionState activeCameraInteraction;
     public final ActionEditorDialogOverlay overlayDialog = new ActionEditorDialogOverlay();
     private final Map<String, String> launchCharacterImagePaths = new LinkedHashMap<>();
+    private final Map<String, List<PuppeteerLauncherPanel.CharacterLayerEntry>> launchCharacterPresetLayers = new LinkedHashMap<>();
     private final Map<String, String> launchBackgroundPaths = new LinkedHashMap<>();
     private final Map<String, String> launchAudioPaths = new LinkedHashMap<>();
     final List<List<com.jvn.editor.ui.actioneditor.TimelinePanel.ClipboardEntry>> clipboardHistory = new java.util.ArrayList<>();
@@ -363,6 +364,9 @@ public class PuppeteerWindow extends Stage {
         double timeMs,
         Map<PropertyType, PuppeteerCommand.PropertySnapshot> beforeStates
     ) {}
+
+    private record ExpressionLayerSpec(String layerId, String path) {}
+    private record ExpressionLayerCandidate(String name, com.jvn.core.scene2d.Sprite2D sprite) {}
 
     public PuppeteerWindow() {
         this(new AnimationProject());
@@ -1179,6 +1183,8 @@ public class PuppeteerWindow extends Stage {
                 })
             );
         });
+        Button btnAddExpressionCue = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.theater("#7bd88f"), "Add expression keyframe at playhead");
+        btnAddExpressionCue.setOnAction(e -> showExpressionKeyframeDialog());
         Button btnManageEvents = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.list(), "Manage timeline event cues");
         btnManageEvents.setOnAction(e -> showEventCueManagerDialog(null));
         Button btnClearEvents = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.clearX(), "Remove all timeline event cues");
@@ -1197,7 +1203,7 @@ public class PuppeteerWindow extends Stage {
                 })
             );
         });
-        HBox cueBox = new HBox(4, btnAddCue, btnClearCues, btnManageEvents, btnClearEvents);
+        HBox cueBox = new HBox(4, btnAddCue, btnClearCues, btnAddExpressionCue, btnManageEvents, btnClearEvents);
         cueBox.setAlignment(Pos.CENTER_LEFT);
 
         // --- Timeline name + Register ---
@@ -3318,10 +3324,14 @@ public class PuppeteerWindow extends Stage {
     public void setLaunchSceneSnapshot(PuppeteerLauncherPanel.SceneSnapshot snapshot) {
         this.launchSceneSnapshot = snapshot;
         launchCharacterImagePaths.clear();
+        launchCharacterPresetLayers.clear();
         launchBackgroundPaths.clear();
         if (snapshot != null) {
             if (snapshot.characterImagePaths != null) {
                 launchCharacterImagePaths.putAll(snapshot.characterImagePaths);
+            }
+            if (snapshot.characterPresetLayers != null) {
+                launchCharacterPresetLayers.putAll(snapshot.characterPresetLayers);
             }
             if (snapshot.backgroundPaths != null) {
                 launchBackgroundPaths.putAll(snapshot.backgroundPaths);
@@ -4716,7 +4726,12 @@ public class PuppeteerWindow extends Stage {
         switch (type) {
             case "expression" -> {
                 String expression = payloadValue(payload, "value");
-                String path = resolveCueAssetPath(target, expression, payloadValue(payload, "path"), false);
+                if (expression.isBlank()) expression = payloadValue(payload, "expression");
+                if (applyLayeredExpressionCue(target, expression, payload)) {
+                    break;
+                }
+                String directPath = firstNonBlank(payloadValue(payload, "path"), pathSpecFromLayerPayload(payload));
+                String path = resolveCueAssetPath(target, expression, directPath, false);
                 if (path != null && entity instanceof com.jvn.core.scene2d.Sprite2D sprite) {
                     sprite.setImagePath(path);
                     entity.setVisible(true);
@@ -4726,7 +4741,11 @@ public class PuppeteerWindow extends Stage {
                 if (entity != null) entity.setVisible(true);
                 String expression = payloadValue(payload, "expression");
                 if (expression.isBlank()) expression = payloadValue(payload, "value");
-                String path = resolveCueAssetPath(target, expression, payloadValue(payload, "path"), false);
+                if (applyLayeredExpressionCue(target, expression, payload)) {
+                    break;
+                }
+                String directPath = firstNonBlank(payloadValue(payload, "path"), pathSpecFromLayerPayload(payload));
+                String path = resolveCueAssetPath(target, expression, directPath, false);
                 if (path != null && entity instanceof com.jvn.core.scene2d.Sprite2D sprite) {
                     sprite.setImagePath(path);
                 }
@@ -4737,7 +4756,11 @@ public class PuppeteerWindow extends Stage {
             case "replace" -> {
                 String expression = payloadValue(payload, "expression");
                 if (expression.isBlank()) expression = payloadValue(payload, "value");
-                String path = resolveCueAssetPath(target, expression, payloadValue(payload, "path"), false);
+                if (applyLayeredExpressionCue(target, expression, payload)) {
+                    break;
+                }
+                String directPath = firstNonBlank(payloadValue(payload, "path"), pathSpecFromLayerPayload(payload));
+                String path = resolveCueAssetPath(target, expression, directPath, false);
                 if (path != null && entity instanceof com.jvn.core.scene2d.Sprite2D sprite) {
                     sprite.setImagePath(path);
                     entity.setVisible(true);
@@ -4774,6 +4797,327 @@ public class PuppeteerWindow extends Stage {
         return null;
     }
 
+    private String inferExpressionTargetFromSelection() {
+        String selected = timelinePanel != null ? timelinePanel.getSelectedEntity() : "";
+        String inferred = inferCharacterIdFromSelection(selected);
+        if (inferred != null && !inferred.isBlank()) return inferred;
+        if (launchSceneSnapshot != null && !launchSceneSnapshot.characters.isEmpty()) {
+            PuppeteerLauncherPanel.CharacterEntry first = launchSceneSnapshot.characters.get(0);
+            if (first != null && first.characterId != null && !first.characterId.isBlank()) {
+                return first.characterId;
+            }
+        }
+        return "";
+    }
+
+    private String inferCharacterIdFromSelection(String rawSelection) {
+        String selection = rawSelection == null ? "" : rawSelection.trim();
+        if (selection.isBlank()) return "";
+        if (launchSceneSnapshot != null) {
+            for (PuppeteerLauncherPanel.CharacterEntry character : launchSceneSnapshot.characters) {
+                if (character == null || character.characterId == null || character.characterId.isBlank()) continue;
+                String characterId = character.characterId.trim();
+                String safeCharacter = selectorSafeName(characterId);
+                String groupName = snapshotCharacterGroupName(character);
+                if (selection.equals(characterId)
+                    || selection.equals(groupName)
+                    || selection.startsWith(groupName + "_")
+                    || (!safeCharacter.isBlank() && selection.startsWith(safeCharacter + "_"))) {
+                    return characterId;
+                }
+            }
+        }
+        return selection;
+    }
+
+    private List<String> expressionTargetSuggestions() {
+        LinkedHashSet<String> targets = new LinkedHashSet<>();
+        String inferred = inferExpressionTargetFromSelection();
+        if (inferred != null && !inferred.isBlank()) targets.add(inferred);
+        if (launchSceneSnapshot != null) {
+            for (PuppeteerLauncherPanel.CharacterEntry character : launchSceneSnapshot.characters) {
+                if (character != null && character.characterId != null && !character.characterId.isBlank()) {
+                    targets.add(character.characterId.trim());
+                }
+            }
+        }
+        for (String key : launchCharacterImagePaths.keySet()) {
+            int slash = key == null ? -1 : key.indexOf('/');
+            if (slash > 0) targets.add(key.substring(0, slash));
+        }
+        for (String key : launchCharacterPresetLayers.keySet()) {
+            int slash = key == null ? -1 : key.indexOf('/');
+            if (slash > 0) targets.add(key.substring(0, slash));
+        }
+        for (EntityTrack track : project.getTracks()) {
+            if (track != null && track.getEntityName() != null && !track.getEntityName().isBlank()) {
+                targets.add(inferCharacterIdFromSelection(track.getEntityName()));
+            }
+        }
+        return List.copyOf(targets);
+    }
+
+    private List<String> expressionSuggestionsForTarget(String rawTarget) {
+        String target = inferCharacterIdFromSelection(rawTarget);
+        LinkedHashSet<String> expressions = new LinkedHashSet<>();
+        if (launchSceneSnapshot != null) {
+            for (PuppeteerLauncherPanel.CharacterEntry character : launchSceneSnapshot.characters) {
+                if (character == null || !Objects.equals(character.characterId, target)) continue;
+                if (character.expression != null && !character.expression.isBlank()) {
+                    expressions.add(character.expression.trim());
+                }
+            }
+        }
+        String prefix = target == null || target.isBlank() ? "" : target + "/";
+        for (String key : launchCharacterImagePaths.keySet()) {
+            if (key != null && key.startsWith(prefix) && key.length() > prefix.length()) {
+                expressions.add(key.substring(prefix.length()));
+            }
+        }
+        for (String key : launchCharacterPresetLayers.keySet()) {
+            if (key != null && key.startsWith(prefix) && key.length() > prefix.length()) {
+                expressions.add(key.substring(prefix.length()));
+            }
+        }
+        if (expressions.isEmpty()) expressions.add("neutral");
+        return List.copyOf(expressions);
+    }
+
+    private String preferredExpressionForTarget(String rawTarget) {
+        String target = inferCharacterIdFromSelection(rawTarget);
+        if (launchSceneSnapshot != null) {
+            for (PuppeteerLauncherPanel.CharacterEntry character : launchSceneSnapshot.characters) {
+                if (character == null || !Objects.equals(character.characterId, target)) continue;
+                if (character.expression != null && !character.expression.isBlank()) return character.expression.trim();
+            }
+        }
+        List<String> suggestions = expressionSuggestionsForTarget(target);
+        return suggestions.isEmpty() ? "neutral" : suggestions.get(0);
+    }
+
+    private void enrichExpressionPayload(String type,
+                                         Map<String, String> payload,
+                                         String rawTarget,
+                                         String expression,
+                                         String directPath) {
+        if (payload == null) return;
+        String normalizedType = type == null ? "" : type.trim().toLowerCase(Locale.ROOT);
+        if (!Set.of("expression", "show", "replace").contains(normalizedType)) return;
+        String target = inferCharacterIdFromSelection(rawTarget);
+        if (target.isBlank() || expression == null || expression.isBlank()) return;
+        String path = directPath == null || directPath.isBlank()
+            ? resolveRawCueAssetPath(target, expression)
+            : directPath.trim();
+        if (!path.isBlank()) {
+            payload.putIfAbsent("path", path);
+        }
+        if (!payload.containsKey("layers")) {
+            Map<String, String> pathPayload = path.isBlank() ? Map.of() : Map.of("path", path);
+            String layerPayload = encodeLayerPayload(resolveExpressionLayerSpecs(target, expression, pathPayload));
+            if (!layerPayload.isBlank()) {
+                payload.put("layers", layerPayload);
+            }
+        }
+    }
+
+    private String resolveRawCueAssetPath(String rawTarget, String expressionOrId) {
+        String target = inferCharacterIdFromSelection(rawTarget);
+        String token = expressionOrId == null ? "" : expressionOrId.trim();
+        if (target.isBlank() || token.isBlank()) return "";
+        String mapped = launchCharacterImagePaths.get(target + "/" + token);
+        return mapped == null ? "" : mapped.trim();
+    }
+
+    private boolean applyLayeredExpressionCue(String rawTarget, String expression, Map<String, String> payload) {
+        if (scene == null) return false;
+        String target = inferCharacterIdFromSelection(rawTarget);
+        if (target.isBlank()) return false;
+        List<ExpressionLayerSpec> layers = resolveExpressionLayerSpecs(target, expression, payload);
+        if (layers.isEmpty()) return false;
+
+        List<ExpressionLayerCandidate> candidates = expressionLayerCandidates(target);
+        if (candidates.isEmpty()) return false;
+
+        Set<String> used = new LinkedHashSet<>();
+        ExpressionLayerCandidate template = candidates.get(0);
+        int applied = 0;
+        for (int i = 0; i < layers.size(); i++) {
+            ExpressionLayerSpec layer = layers.get(i);
+            if (layer == null || layer.path() == null || layer.path().isBlank()) continue;
+            ExpressionLayerCandidate candidate = findExpressionLayerCandidate(candidates, layer.layerId(), used);
+            if (candidate == null) {
+                candidate = createExpressionLayerEntity(target, expression, layer, template, i);
+                if (candidate == null) continue;
+                candidates.add(candidate);
+            }
+            candidate.sprite().setImagePath(resolvePreviewAssetPath(layer.path()));
+            candidate.sprite().setVisible(true);
+            used.add(candidate.name());
+            applied++;
+        }
+        for (ExpressionLayerCandidate candidate : candidates) {
+            if (candidate != null && !used.contains(candidate.name())) {
+                candidate.sprite().setVisible(false);
+            }
+        }
+        return applied > 0;
+    }
+
+    private List<ExpressionLayerSpec> resolveExpressionLayerSpecs(String rawTarget,
+                                                                  String expression,
+                                                                  Map<String, String> payload) {
+        List<ExpressionLayerSpec> fromPayload = parseLayerPayload(payloadValue(payload, "layers"));
+        if (!fromPayload.isEmpty()) return fromPayload;
+
+        String target = inferCharacterIdFromSelection(rawTarget);
+        String token = expression == null ? "" : expression.trim();
+        if (!target.isBlank() && !token.isBlank()) {
+            List<PuppeteerLauncherPanel.CharacterLayerEntry> mapped = launchCharacterPresetLayers.get(target + "/" + token);
+            if (mapped != null && !mapped.isEmpty()) {
+                List<ExpressionLayerSpec> specs = new ArrayList<>();
+                for (PuppeteerLauncherPanel.CharacterLayerEntry layer : mapped) {
+                    if (layer == null || layer.path == null || layer.path.isBlank()) continue;
+                    specs.add(new ExpressionLayerSpec(layer.layerId, layer.path));
+                }
+                if (!specs.isEmpty()) return specs;
+            }
+        }
+
+        String path = firstNonBlank(payloadValue(payload, "path"), resolveRawCueAssetPath(target, token));
+        if (path == null || path.isBlank() || path.indexOf('|') < 0) return List.of();
+        List<ExpressionLayerSpec> specs = new ArrayList<>();
+        int index = 1;
+        for (String part : path.split("\\|")) {
+            String layerPath = part == null ? "" : part.trim();
+            if (layerPath.isBlank()) continue;
+            specs.add(new ExpressionLayerSpec("layer" + index++, layerPath));
+        }
+        return List.copyOf(specs);
+    }
+
+    private List<ExpressionLayerSpec> parseLayerPayload(String raw) {
+        if (raw == null || raw.isBlank()) return List.of();
+        List<ExpressionLayerSpec> specs = new ArrayList<>();
+        int index = 1;
+        for (String token : raw.split("\\|")) {
+            String part = token == null ? "" : token.trim();
+            if (part.isBlank()) continue;
+            int sep = part.indexOf('=');
+            String layerId = sep > 0 ? part.substring(0, sep).trim() : "layer" + index;
+            String path = sep > 0 && sep < part.length() - 1 ? part.substring(sep + 1).trim() : part;
+            if (!path.isBlank()) specs.add(new ExpressionLayerSpec(layerId, path));
+            index++;
+        }
+        return List.copyOf(specs);
+    }
+
+    private String encodeLayerPayload(List<ExpressionLayerSpec> layers) {
+        if (layers == null || layers.isEmpty()) return "";
+        StringBuilder encoded = new StringBuilder();
+        int index = 1;
+        for (ExpressionLayerSpec layer : layers) {
+            if (layer == null || layer.path() == null || layer.path().isBlank()) continue;
+            if (!encoded.isEmpty()) encoded.append(" | ");
+            String layerId = layer.layerId() == null || layer.layerId().isBlank()
+                ? "layer" + index
+                : layer.layerId().trim();
+            encoded.append(layerId).append('=').append(layer.path().trim());
+            index++;
+        }
+        return encoded.toString();
+    }
+
+    private String pathSpecFromLayerPayload(Map<String, String> payload) {
+        return pathSpecFromLayers(parseLayerPayload(payloadValue(payload, "layers")));
+    }
+
+    private String pathSpecFromLayers(List<ExpressionLayerSpec> layers) {
+        if (layers == null || layers.isEmpty()) return "";
+        StringBuilder pathSpec = new StringBuilder();
+        for (ExpressionLayerSpec layer : layers) {
+            if (layer == null || layer.path() == null || layer.path().isBlank()) continue;
+            if (!pathSpec.isEmpty()) pathSpec.append(" | ");
+            pathSpec.append(layer.path().trim());
+        }
+        return pathSpec.toString();
+    }
+
+    private List<ExpressionLayerCandidate> expressionLayerCandidates(String rawTarget) {
+        if (scene == null) return List.of();
+        String target = inferCharacterIdFromSelection(rawTarget);
+        String safeTarget = selectorSafeName(target);
+        if (safeTarget.isBlank()) return List.of();
+        List<ExpressionLayerCandidate> candidates = new ArrayList<>();
+        for (String name : scene.names()) {
+            if (name == null || name.isBlank() || name.equals(target)) continue;
+            if (!name.startsWith(safeTarget + "_")) continue;
+            com.jvn.core.scene2d.Entity2D entity = scene.find(name);
+            if (entity instanceof com.jvn.core.scene2d.Sprite2D sprite) {
+                candidates.add(new ExpressionLayerCandidate(name, sprite));
+            }
+        }
+        candidates.sort(java.util.Comparator
+            .comparingDouble((ExpressionLayerCandidate candidate) -> candidate.sprite().getZ())
+            .thenComparing(ExpressionLayerCandidate::name));
+        return candidates;
+    }
+
+    private ExpressionLayerCandidate findExpressionLayerCandidate(List<ExpressionLayerCandidate> candidates,
+                                                                  String layerId,
+                                                                  Set<String> used) {
+        if (candidates == null || candidates.isEmpty()) return null;
+        String safeLayer = selectorSafeName(layerId);
+        if (!safeLayer.isBlank()) {
+            for (ExpressionLayerCandidate candidate : candidates) {
+                if (candidate == null || used.contains(candidate.name())) continue;
+                if (candidate.name().endsWith("_" + safeLayer)) return candidate;
+            }
+            for (ExpressionLayerCandidate candidate : candidates) {
+                if (candidate == null || used.contains(candidate.name())) continue;
+                if (candidate.name().contains("_" + safeLayer + "_")) return candidate;
+            }
+        }
+        for (ExpressionLayerCandidate candidate : candidates) {
+            if (candidate != null && !used.contains(candidate.name())) return candidate;
+        }
+        return null;
+    }
+
+    private ExpressionLayerCandidate createExpressionLayerEntity(String target,
+                                                                 String expression,
+                                                                 ExpressionLayerSpec layer,
+                                                                 ExpressionLayerCandidate template,
+                                                                 int index) {
+        if (scene == null || template == null || template.sprite() == null || layer == null) return null;
+        com.jvn.core.scene2d.Sprite2D source = template.sprite();
+        String baseName = selectorSafeName(target) + "_"
+            + selectorSafeName(expression == null || expression.isBlank() ? "expression" : expression)
+            + "_" + selectorSafeName(layer.layerId() == null || layer.layerId().isBlank() ? "layer" + (index + 1) : layer.layerId());
+        if (baseName.isBlank()) baseName = "expression_layer";
+        String entityName = baseName;
+        int suffix = 2;
+        while (scene.find(entityName) != null) {
+            entityName = baseName + "_" + suffix++;
+        }
+        com.jvn.core.scene2d.Sprite2D sprite = new com.jvn.core.scene2d.Sprite2D(
+            resolvePreviewAssetPath(layer.path()),
+            source.getWidth(),
+            source.getHeight());
+        sprite.setOrigin(source.getOriginX(), source.getOriginY());
+        sprite.setPosition(source.getX(), source.getY());
+        sprite.setScale(source.getScaleX(), source.getScaleY());
+        sprite.setRotationDeg(source.getRotationDeg());
+        sprite.setZ(source.getZ() + 0.01 * (index + 1));
+        sprite.setAlpha(source.getAlpha());
+        sprite.setVisible(false);
+        scene.add(sprite);
+        scene.registerEntity(entityName, sprite);
+        sceneBaselineVisibility.put(entityName, false);
+        sceneBaselineImagePaths.put(entityName, sprite.getImagePath());
+        sceneBaselineCustomProperties.put(entityName, captureEntityCustomPropertyBaseline(sprite));
+        return new ExpressionLayerCandidate(entityName, sprite);
+    }
+
     private String resolveCueAssetPath(String target, String expressionOrId, String directPath, boolean backgroundCue) {
         if (directPath != null && !directPath.isBlank()) {
             return resolvePreviewAssetPathSpec(directPath.trim());
@@ -4784,6 +5128,7 @@ public class PuppeteerWindow extends Stage {
             String mapped = launchBackgroundPaths.get(token);
             return mapped == null || mapped.isBlank() ? null : resolvePreviewAssetPathSpec(mapped);
         }
+        target = inferCharacterIdFromSelection(target);
         if (target == null || target.isBlank()) return null;
         String mapped = launchCharacterImagePaths.get(target + "/" + token);
         if ((mapped == null || mapped.isBlank()) && !"neutral".equals(token)) {
@@ -5618,6 +5963,122 @@ public class PuppeteerWindow extends Stage {
         );
     }
 
+    private void showExpressionKeyframeDialog() {
+        String initialTarget = inferExpressionTargetFromSelection();
+        ComboBox<String> cbTarget = new ComboBox<>();
+        cbTarget.setEditable(true);
+        cbTarget.getItems().setAll(expressionTargetSuggestions());
+        cbTarget.setValue(initialTarget);
+        cbTarget.setPromptText("character / entity");
+        cbTarget.setStyle(STYLE_TEXT_FIELD);
+
+        ComboBox<String> cbExpression = new ComboBox<>();
+        cbExpression.setEditable(true);
+        cbExpression.getItems().setAll(expressionSuggestionsForTarget(initialTarget));
+        cbExpression.setValue(preferredExpressionForTarget(initialTarget));
+        cbExpression.setPromptText("expression");
+        cbExpression.setStyle(STYLE_TEXT_FIELD);
+
+        TextField tfTime = new TextField(String.format(Locale.ROOT, "%.0f", project.getPlayheadMs()));
+        tfTime.setPromptText("ms");
+        tfTime.setStyle(STYLE_TEXT_FIELD);
+
+        TextField tfPath = new TextField();
+        tfPath.setPromptText("optional path override");
+        tfPath.setStyle(STYLE_TEXT_FIELD);
+
+        CheckBox cbEmbedResolved = new CheckBox("Embed resolved sprite path / layers");
+        cbEmbedResolved.setSelected(true);
+        cbEmbedResolved.setStyle("-fx-text-fill: #d8d8d8; -fx-font-size: 11px;");
+
+        Label lblResolved = makeToolbarLabel("");
+        lblResolved.setWrapText(true);
+
+        Runnable refreshResolved = () -> {
+            String target = cbTarget.getValue() == null ? "" : cbTarget.getValue().trim();
+            String expression = cbExpression.getValue() == null ? "" : cbExpression.getValue().trim();
+            List<ExpressionLayerSpec> layers = resolveExpressionLayerSpecs(target, expression, Map.of());
+            String path = firstNonBlank(tfPath.getText(), resolveRawCueAssetPath(target, expression));
+            if (!layers.isEmpty()) {
+                lblResolved.setText(layers.size() + " layer preset resolved");
+            } else if (path != null && !path.isBlank()) {
+                lblResolved.setText("Sprite path resolved");
+            } else {
+                lblResolved.setText("No mapping found; the expression name will still export for VN runtime playback.");
+            }
+        };
+
+        cbTarget.valueProperty().addListener((obs, oldValue, newValue) -> {
+            List<String> expressions = expressionSuggestionsForTarget(newValue);
+            cbExpression.getItems().setAll(expressions);
+            if (cbExpression.getValue() == null || cbExpression.getValue().isBlank()
+                || !expressions.contains(cbExpression.getValue())) {
+                cbExpression.setValue(preferredExpressionForTarget(newValue));
+            }
+            refreshResolved.run();
+        });
+        cbExpression.valueProperty().addListener((obs, oldValue, newValue) -> refreshResolved.run());
+        tfPath.textProperty().addListener((obs, oldValue, newValue) -> refreshResolved.run());
+        refreshResolved.run();
+
+        GridPane form = new GridPane();
+        form.setHgap(8);
+        form.setVgap(8);
+        form.setPadding(new Insets(8));
+        form.add(makeToolbarLabel("Target"), 0, 0);
+        form.add(cbTarget, 1, 0);
+        form.add(makeToolbarLabel("Expression"), 0, 1);
+        form.add(cbExpression, 1, 1);
+        form.add(makeToolbarLabel("Time"), 0, 2);
+        form.add(tfTime, 1, 2);
+        form.add(makeToolbarLabel("Path"), 0, 3);
+        form.add(tfPath, 1, 3);
+        form.add(cbEmbedResolved, 1, 4);
+
+        VBox body = new VBox(8, form, lblResolved);
+        body.setPadding(new Insets(0, 8, 8, 8));
+
+        overlayDialog.showDialog(
+            "Expression Keyframe",
+            "Switch a character expression at an exact timeline frame.",
+            body,
+            ActionEditorDialogOverlay.ActionSpec.neutral("Cancel", overlayDialog::hideOverlay),
+            ActionEditorDialogOverlay.ActionSpec.accent("Add", () -> {
+                double timeMs;
+                try {
+                    timeMs = Math.max(0.0, Double.parseDouble(tfTime.getText().trim()));
+                } catch (NumberFormatException ex) {
+                    tfTime.requestFocus();
+                    return;
+                }
+                String target = cbTarget.getValue() == null ? "" : cbTarget.getValue().trim();
+                String expression = cbExpression.getValue() == null ? "" : cbExpression.getValue().trim();
+                if (target.isBlank()) {
+                    cbTarget.requestFocus();
+                    return;
+                }
+                if (expression.isBlank()) {
+                    cbExpression.requestFocus();
+                    return;
+                }
+                Map<String, String> payload = new LinkedHashMap<>();
+                payload.put("target", target);
+                payload.put("value", expression);
+                String directPath = tfPath.getText() == null ? "" : tfPath.getText().trim();
+                if (!directPath.isBlank()) {
+                    payload.put("path", directPath);
+                }
+                if (cbEmbedResolved.isSelected()) {
+                    enrichExpressionPayload("expression", payload, target, expression, directPath);
+                }
+                project.addEditorEventCue(new EditorEventCue(timeMs, "expression", payload));
+                timelinePanel.refresh();
+                updatePreview();
+                refreshExportPreviewAndMarkDirty();
+            })
+        );
+    }
+
     public void showEventCueManagerDialog(EditorEventCue initialSelection) {
         List<String> presets = List.of(
             "expression",
@@ -5922,6 +6383,7 @@ public class PuppeteerWindow extends Stage {
                         if (!position.isBlank()) payload.putIfAbsent("position", position);
                     }
                 }
+                enrichExpressionPayload(type, payload, target, value, path);
 
                 EditorEventCue selected = cueList.getSelectionModel().getSelectedItem();
                 if (selected != null) {

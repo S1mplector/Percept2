@@ -164,6 +164,20 @@ class TimelineDiagnosticTest {
     }
 
     @Test
+    void layeredExpressionCueDoesNotWarnAsNoOp() {
+        AnimationProject project = new AnimationProject();
+        project.addEditorEventCue(new EditorEventCue(100, "expression", java.util.Map.of(
+            "target", "hero",
+            "layers", "body=assets/chars/hero/body.png | face=assets/chars/hero/face_angry.png"
+        )));
+
+        List<TimelineDiagnostic.Message> msgs = TimelineDiagnostic.diagnose(project, Set.of("hero"));
+
+        assertTrue(msgs.stream().noneMatch(m ->
+            m.description().contains("has no expression or image path")));
+    }
+
+    @Test
     void detectsAudioCueConsistencyProblems() {
         AnimationProject project = new AnimationProject();
         project.setTotalDurationMs(1000);

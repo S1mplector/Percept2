@@ -2,6 +2,9 @@ package com.jvn.editor.ui.actioneditor;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 
 /**
@@ -52,6 +55,36 @@ class VnSlotHelperTest {
         assertEquals(500.0, evt.getTimeMs(), 0.01);
         assertEquals("lavender", evt.getPayloadValue("target"));
         assertEquals("smile", evt.getPayloadValue("value"));
+    }
+
+    @Test
+    void insertExpressionCueCanEmbedLayeredSpritePayload() {
+        AnimationProject project = new AnimationProject();
+        Map<String, String> layers = new LinkedHashMap<>();
+        layers.put("body", "assets/chars/lavender/body.png");
+        layers.put("face", "assets/chars/lavender/face_angry.png");
+
+        VnSlotHelper.insertExpressionCue(
+            project,
+            "lavender",
+            "angry",
+            750,
+            "assets/chars/lavender/body.png | assets/chars/lavender/face_angry.png",
+            layers
+        );
+
+        EditorEventCue evt = project.getEditorEventCues().get(0);
+        assertEquals("expression", evt.getType());
+        assertEquals("lavender", evt.getPayloadValue("target"));
+        assertEquals("angry", evt.getPayloadValue("value"));
+        assertEquals(
+            "assets/chars/lavender/body.png | assets/chars/lavender/face_angry.png",
+            evt.getPayloadValue("path")
+        );
+        assertEquals(
+            "body=assets/chars/lavender/body.png | face=assets/chars/lavender/face_angry.png",
+            evt.getPayloadValue("layers")
+        );
     }
 
     @Test
