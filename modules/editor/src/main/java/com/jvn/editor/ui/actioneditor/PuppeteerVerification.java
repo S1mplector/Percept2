@@ -244,6 +244,7 @@ final class PuppeteerVerification {
                 || track.hasKeyframes(PropertyType.ROTATION)
                 || track.hasKeyframes(PropertyType.SCALE_X)
                 || track.hasKeyframes(PropertyType.SCALE_Y)
+                || track.hasKeyframes(PropertyType.MIRROR_X)
                 || track.hasKeyframes(PropertyType.ALPHA)
                 || track.hasKeyframes(PropertyType.VISIBILITY);
             if (hasEntityKeys && mixedCameraTrack == null) {

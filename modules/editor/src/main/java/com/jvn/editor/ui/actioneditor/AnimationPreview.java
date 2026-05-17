@@ -3402,6 +3402,13 @@ public class AnimationPreview extends VBox {
     private double[] rotationCenterForTarget(String targetName, WorldBounds fallbackBounds) {
         double[] anchor = getOrbitAnchor(targetName);
         if (anchor != null) return anchor;
+        if (project != null && project.getGroup(targetName) != null) {
+            double[] center = project.computeGroupRotationCenter(targetName, project.getPlayheadMs());
+            if (center != null && center.length >= 2
+                && Double.isFinite(center[0]) && Double.isFinite(center[1])) {
+                return center;
+            }
+        }
         if (fallbackBounds != null && !fallbackBounds.isEmpty()) {
             return new double[]{fallbackBounds.centerX(), fallbackBounds.centerY()};
         }

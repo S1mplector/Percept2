@@ -147,6 +147,7 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
 import javafx.stage.DirectoryChooser;
@@ -268,8 +269,10 @@ public class EditorApp extends Application {
       ".settings", ".project", ".properties", ".md", ".json",
       ".yaml", ".yml", ".toml", ".ini", ".cfg", ".xml", ".csv", ".tsv"
   };
-  private static final long MIN_STARTUP_SPLASH_MS = 900L;
-  private static final long STARTUP_STEP_DELAY_MS = 170L;
+  private static final long MIN_STARTUP_SPLASH_MS = 0L;
+  private static final long STARTUP_STEP_DELAY_MS = 0L;
+  private static final boolean STRICT_STARTUP_GRADLE_CHECK =
+      Boolean.getBoolean("jvn.editor.strictStartupGradleCheck");
   private static final DateTimeFormatter STARTUP_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
   private static final Pattern STARTUP_PROCESS_NOISE = Pattern.compile(
       "^(> Task |> Configure |BUILD SUCCESSFUL|Deprecated Gradle|\\d+ actionable|To honour the JVM|Daemon will be stopped|\\s*$)");
@@ -298,6 +301,7 @@ public class EditorApp extends Application {
   private static final boolean ALLOW_MAINTENANCE_TOOL_LAUNCHES =
       Boolean.getBoolean("jvn.editor.allowMaintenanceTools");
   private static final int MAINTENANCE_CHOOSER_STRIPE_WIDTH = 18;
+  private static final double MAINTENANCE_CHOOSER_STRIPE_SPEED = 48.0;
   private static final Color MAINTENANCE_CHOOSER_STRIPE_COLOR = Color.rgb(255, 130, 0, 0.28);
   private static final Color MAINTENANCE_CHOOSER_TINT_COLOR = Color.rgb(26, 14, 0, 0.38);
   private static final boolean DEVELOPER_MODE = Boolean.getBoolean("jvn.editor.developerMode");
@@ -979,14 +983,20 @@ public class EditorApp extends Application {
         updateMessage("Gradle wrapper located");
         advance(++step, totalChecks);
 
-        updateMessage("Checking Gradle environment");
-        runStartupProcess(
-            workspace,
-            splash,
-            "Gradle",
-            List.of(resolveGradleCommand(workspace), "--version"),
-            "Gradle wrapper check failed",
-            "Fix the Gradle wrapper or local JDK configuration, then retry.");
+        if (STRICT_STARTUP_GRADLE_CHECK) {
+          updateMessage("Checking Gradle environment");
+          runStartupProcess(
+              workspace,
+              splash,
+              "Gradle",
+              List.of(resolveGradleCommand(workspace), "--version"),
+              "Gradle wrapper check failed",
+              "Fix the Gradle wrapper or local JDK configuration, then retry.");
+        } else {
+          logSplash(splash, "INFO", "Gradle",
+              "Wrapper process check skipped; set -Djvn.editor.strictStartupGradleCheck=true to enable it.");
+          updateMessage("Gradle wrapper process check skipped");
+        }
         advance(++step, totalChecks);
 
         showStartupLaunchProgress(splash);
@@ -5025,11 +5035,43 @@ public class EditorApp extends Application {
 
   private Canvas maintenanceChooserStripeCanvas(StackPane shell) {
     Canvas canvas = new Canvas();
+    double period = MAINTENANCE_CHOOSER_STRIPE_WIDTH * 2.0;
     canvas.setMouseTransparent(true);
-    canvas.widthProperty().bind(shell.widthProperty());
+    canvas.setManaged(false);
+    canvas.widthProperty().bind(shell.widthProperty().add(period * 2.0));
     canvas.heightProperty().bind(shell.heightProperty());
-    canvas.widthProperty().addListener(o -> drawMaintenanceChooserStripes(canvas));
-    canvas.heightProperty().addListener(o -> drawMaintenanceChooserStripes(canvas));
+    canvas.setTranslateX(-period);
+
+    Rectangle clip = new Rectangle();
+    clip.widthProperty().bind(shell.widthProperty());
+    clip.heightProperty().bind(shell.heightProperty());
+    shell.setClip(clip);
+
+    Runnable redraw = () -> drawMaintenanceChooserStripes(canvas);
+    canvas.widthProperty().addListener(o -> redraw.run());
+    canvas.heightProperty().addListener(o -> redraw.run());
+
+    Timeline stripeAnimation = new Timeline(
+        new KeyFrame(Duration.ZERO,
+            new KeyValue(canvas.translateXProperty(), -period, Interpolator.LINEAR)),
+        new KeyFrame(Duration.seconds(period / MAINTENANCE_CHOOSER_STRIPE_SPEED),
+            new KeyValue(canvas.translateXProperty(), 0.0, Interpolator.LINEAR))
+    );
+    stripeAnimation.setCycleCount(Timeline.INDEFINITE);
+    canvas.getProperties().put("maintenanceStripeAnimation", stripeAnimation);
+    canvas.sceneProperty().addListener((obs, oldScene, newScene) -> {
+      if (newScene == null) {
+        stripeAnimation.stop();
+        canvas.setTranslateX(-period);
+      } else {
+        redraw.run();
+        stripeAnimation.playFromStart();
+      }
+    });
+    if (canvas.getScene() != null) {
+      redraw.run();
+      stripeAnimation.playFromStart();
+    }
     return canvas;
   }
 

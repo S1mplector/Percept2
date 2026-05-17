@@ -129,7 +129,8 @@ public final class CssIcon {
   public static Region arrowLeft(String color){ return icon(PATH_ARROW_LEFT, color, 12); }
   public static Region arrowRight(String color){ return icon(PATH_ARROW_RIGHT, color, 12); }
   public static Region sort(String color)     { return icon(PATH_SORT, color, 14); }
-  public static Region folder(String color)   { return icon(PATH_FOLDER, color, 14); }
+  public static Region folder(String color)   { return folder(color, 14); }
+  public static Region folder(String color, double size) { return icon(PATH_FOLDER, color, size); }
   public static Region clearX(String color)   { return icon(PATH_CLEAR_X, color, 13); }
   public static Region undo(String color)     { return icon(PATH_UNDO, color, 14); }
   public static Region redo(String color)     { return icon(PATH_REDO, color, 14); }

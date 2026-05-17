@@ -51,6 +51,7 @@ import javafx.scene.control.CheckMenuItem;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
@@ -93,8 +94,29 @@ import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.util.Duration;
+import javafx.util.StringConverter;
 
 public class PuppeteerWindow extends Stage {
+    private static final StringConverter<PropertyType> PROPERTY_TYPE_LABEL_CONVERTER =
+        new StringConverter<>() {
+            @Override
+            public String toString(PropertyType property) {
+                return property == null ? "" : property.getDisplayName();
+            }
+
+            @Override
+            public PropertyType fromString(String value) {
+                if (value == null || value.isBlank()) return PropertyType.X;
+                for (PropertyType property : PropertyType.values()) {
+                    if (property.getDisplayName().equalsIgnoreCase(value.trim())
+                        || property.name().equalsIgnoreCase(value.trim())
+                        || property.getCode().equalsIgnoreCase(value.trim())) {
+                        return property;
+                    }
+                }
+                return PropertyType.X;
+            }
+        };
     private static final double LEFT_LIBRARY_WORKING_WIDTH = 360.0;
     private static final List<PropertyType> GROUP_PROPERTY_CHOICES = List.of(
         PropertyType.X,
@@ -914,9 +936,12 @@ public class PuppeteerWindow extends Stage {
         // --- Property target + snapping ---
         cbProperty = new ComboBox<>();
         cbProperty.getItems().setAll(PropertyType.values());
+        cbProperty.setConverter(PROPERTY_TYPE_LABEL_CONVERTER);
+        cbProperty.setButtonCell(propertyTypeListCell());
+        cbProperty.setCellFactory(list -> propertyTypeListCell());
         cbProperty.setValue(PropertyType.X);
         cbProperty.setStyle(STYLE_TEXT_FIELD);
-        cbProperty.setPrefWidth(130);
+        cbProperty.setPrefWidth(158);
         cbProperty.setTooltip(new Tooltip("Active property track for add-keyframe and keyboard nudging"));
         cbProperty.setOnAction(e -> {
             timelinePanel.setSelectedProperty(cbProperty.getValue());
@@ -1308,12 +1333,21 @@ public class PuppeteerWindow extends Stage {
             timelinePanel.refresh();
         });
         anchorEditor.setOnAnchorPlaced((entityName, anchor) -> {
-            // Seed PIVOT_X/Y + compensated X/Y at t=0 when no pivot keyframes exist yet
+            // Seed PIVOT_X/Y at t=0 when no pivot keyframes exist yet.
+            // Leaf entities also get X/Y compensation to preserve visual placement.
             if (entityName == null || !anchor.isRelative()) return;
             EntityTrack track = resolveAnimatedTrack(entityName, true);
             if (track == null) return;
             if (!track.getKeyframes(PropertyType.PIVOT_X).isEmpty()
                     || !track.getKeyframes(PropertyType.PIVOT_Y).isEmpty()) return;
+            if (project.getGroup(entityName) != null) {
+                track.upsertKeyframe(PropertyType.PIVOT_X, new Keyframe(0.0, anchor.getX()));
+                track.upsertKeyframe(PropertyType.PIVOT_Y, new Keyframe(0.0, anchor.getY()));
+                timelinePanel.refresh();
+                updatePreview();
+                refreshExportPreviewAndMarkDirty();
+                return;
+            }
             com.jvn.core.scene2d.Entity2D ent = scene != null ? scene.find(entityName) : null;
             double newPX = anchor.getX(), newPY = anchor.getY();
             double oldPX = ent != null ? ent.getOriginX() : 0.5;
@@ -1329,13 +1363,27 @@ public class PuppeteerWindow extends Stage {
             updatePreview();
         });
         anchorEditor.setOnAnchorUsedAsPivot((entityName, anchor) -> {
-            // Insert PIVOT_X/Y + compensated X/Y at the current playhead time
+            // Insert PIVOT_X/Y at the current playhead time.
+            // Leaf entities also get X/Y compensation to preserve visual placement.
             if (entityName == null || !anchor.isRelative()) return;
-            com.jvn.core.scene2d.Entity2D ent = scene != null ? scene.find(entityName) : null;
             EntityTrack track = resolveAnimatedTrack(entityName, true);
             if (track == null) return;
             double time = project.getPlayheadMs();
             double newPX = anchor.getX(), newPY = anchor.getY();
+            if (project.getGroup(entityName) != null) {
+                commandStack.execute(PuppeteerCommand.composite(
+                    "Set group rotation pivot to anchor",
+                    List.of(
+                        PuppeteerCommand.upsertKeyframe(track, PropertyType.PIVOT_X, time, newPX),
+                        PuppeteerCommand.upsertKeyframe(track, PropertyType.PIVOT_Y, time, newPY)
+                    )
+                ));
+                timelinePanel.refresh();
+                updatePreview();
+                refreshExportPreviewAndMarkDirty();
+                return;
+            }
+            com.jvn.core.scene2d.Entity2D ent = scene != null ? scene.find(entityName) : null;
             double oldPX = ent != null ? ent.getOriginX() : 0.5;
             double oldPY = ent != null ? ent.getOriginY() : 0.5;
             double curX  = ent != null ? ent.getX() : baselinePropertyValue(entityName, ent, PropertyType.X);
@@ -4354,6 +4402,16 @@ public class PuppeteerWindow extends Stage {
         if (selected != null && cbProperty.getValue() != selected) {
             cbProperty.setValue(selected);
         }
+    }
+
+    private static ListCell<PropertyType> propertyTypeListCell() {
+        return new ListCell<>() {
+            @Override
+            protected void updateItem(PropertyType property, boolean empty) {
+                super.updateItem(property, empty);
+                setText(empty || property == null ? null : property.getDisplayName());
+            }
+        };
     }
 
     public void updatePreview() {

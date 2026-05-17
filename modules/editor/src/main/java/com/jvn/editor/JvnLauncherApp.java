@@ -60,8 +60,8 @@ public class JvnLauncherApp extends Application {
   private static final String EDITOR_OPEN_PROJECT_PROPERTY = "jvn.editor.openProject";
   private static final String EDITOR_OPEN_FILE_PROPERTY = "jvn.editor.openFile";
   private static final String LAUNCHER_START_PROJECT_PROPERTY = "jvn.launcher.project";
-  private static final long MIN_STARTUP_SPLASH_MS = 650L;
-  private static final long STARTUP_STEP_DELAY_MS = 130L;
+  private static final long MIN_STARTUP_SPLASH_MS = 0L;
+  private static final long STARTUP_STEP_DELAY_MS = 0L;
   private static final DateTimeFormatter STARTUP_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
   private static final DateTimeFormatter PROCESS_LOG_TIME = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
   private static final boolean DEVELOPER_MODE = Boolean.getBoolean("jvn.launcher.developerMode");
