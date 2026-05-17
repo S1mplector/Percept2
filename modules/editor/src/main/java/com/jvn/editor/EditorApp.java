@@ -147,6 +147,7 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
 import javafx.stage.DirectoryChooser;
@@ -300,7 +301,7 @@ public class EditorApp extends Application {
   private static final boolean ALLOW_MAINTENANCE_TOOL_LAUNCHES =
       Boolean.getBoolean("jvn.editor.allowMaintenanceTools");
   private static final int MAINTENANCE_CHOOSER_STRIPE_WIDTH = 18;
-  private static final double MAINTENANCE_CHOOSER_STRIPE_SPEED = 22.0;
+  private static final double MAINTENANCE_CHOOSER_STRIPE_SPEED = 48.0;
   private static final Color MAINTENANCE_CHOOSER_STRIPE_COLOR = Color.rgb(255, 130, 0, 0.28);
   private static final Color MAINTENANCE_CHOOSER_TINT_COLOR = Color.rgb(26, 14, 0, 0.38);
   private static final boolean DEVELOPER_MODE = Boolean.getBoolean("jvn.editor.developerMode");
@@ -5034,51 +5035,47 @@ public class EditorApp extends Application {
 
   private Canvas maintenanceChooserStripeCanvas(StackPane shell) {
     Canvas canvas = new Canvas();
+    double period = MAINTENANCE_CHOOSER_STRIPE_WIDTH * 2.0;
     canvas.setMouseTransparent(true);
-    canvas.widthProperty().bind(shell.widthProperty());
+    canvas.setManaged(false);
+    canvas.widthProperty().bind(shell.widthProperty().add(period * 2.0));
     canvas.heightProperty().bind(shell.heightProperty());
-    double[] stripeOffset = {0.0};
-    Runnable redraw = () -> drawMaintenanceChooserStripes(canvas, stripeOffset[0]);
+    canvas.setTranslateX(-period);
+
+    Rectangle clip = new Rectangle();
+    clip.widthProperty().bind(shell.widthProperty());
+    clip.heightProperty().bind(shell.heightProperty());
+    shell.setClip(clip);
+
+    Runnable redraw = () -> drawMaintenanceChooserStripes(canvas);
     canvas.widthProperty().addListener(o -> redraw.run());
     canvas.heightProperty().addListener(o -> redraw.run());
 
-    AnimationTimer stripeAnimation = new AnimationTimer() {
-      private long lastFrameNs = 0L;
-
-      @Override
-      public void handle(long now) {
-        if (lastFrameNs == 0L) {
-          lastFrameNs = now;
-          redraw.run();
-          return;
-        }
-        double elapsedSeconds = (now - lastFrameNs) / 1_000_000_000.0;
-        lastFrameNs = now;
-        double period = MAINTENANCE_CHOOSER_STRIPE_WIDTH * 2.0;
-        stripeOffset[0] = (stripeOffset[0] + elapsedSeconds * MAINTENANCE_CHOOSER_STRIPE_SPEED) % period;
-        redraw.run();
-      }
-
-      @Override
-      public void stop() {
-        super.stop();
-        lastFrameNs = 0L;
-      }
-    };
+    Timeline stripeAnimation = new Timeline(
+        new KeyFrame(Duration.ZERO,
+            new KeyValue(canvas.translateXProperty(), -period, Interpolator.LINEAR)),
+        new KeyFrame(Duration.seconds(period / MAINTENANCE_CHOOSER_STRIPE_SPEED),
+            new KeyValue(canvas.translateXProperty(), 0.0, Interpolator.LINEAR))
+    );
+    stripeAnimation.setCycleCount(Timeline.INDEFINITE);
+    canvas.getProperties().put("maintenanceStripeAnimation", stripeAnimation);
     canvas.sceneProperty().addListener((obs, oldScene, newScene) -> {
       if (newScene == null) {
         stripeAnimation.stop();
+        canvas.setTranslateX(-period);
       } else {
-        stripeAnimation.start();
+        redraw.run();
+        stripeAnimation.playFromStart();
       }
     });
     if (canvas.getScene() != null) {
-      stripeAnimation.start();
+      redraw.run();
+      stripeAnimation.playFromStart();
     }
     return canvas;
   }
 
-  private void drawMaintenanceChooserStripes(Canvas canvas, double offset) {
+  private void drawMaintenanceChooserStripes(Canvas canvas) {
     if (canvas == null) return;
     double w = canvas.getWidth();
     double h = canvas.getHeight();
@@ -5091,8 +5088,7 @@ public class EditorApp extends Application {
 
     double period = MAINTENANCE_CHOOSER_STRIPE_WIDTH * 2.0;
     gc.setFill(MAINTENANCE_CHOOSER_STRIPE_COLOR);
-    double normalizedOffset = ((offset % period) + period) % period;
-    for (double x = -h - period + normalizedOffset; x < w + period; x += period) {
+    for (double x = -h - period; x < w + period; x += period) {
       gc.fillPolygon(
           new double[]{x, x + MAINTENANCE_CHOOSER_STRIPE_WIDTH,
               x + MAINTENANCE_CHOOSER_STRIPE_WIDTH + h, x + h},
