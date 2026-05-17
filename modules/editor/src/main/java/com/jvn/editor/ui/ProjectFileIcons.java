@@ -42,9 +42,13 @@ final class ProjectFileIcons {
   }
 
   static Region iconFor(Kind kind) {
+    return iconFor(kind, 14);
+  }
+
+  static Region iconFor(Kind kind, double size) {
     return switch (kind != null ? kind : Kind.DOCUMENT) {
-      case ROOT -> CssIcon.folder("#d5b36a");
-      case FOLDER -> CssIcon.folder("#cbb27b");
+      case ROOT -> CssIcon.folder("#d5b36a", size);
+      case FOLDER -> CssIcon.folder("#cbb27b", size);
       case SCRIPT -> CssIcon.speech("#8bcf98");
       case MENU -> CssIcon.list("#dccba2");
       case LAYOUT -> CssIcon.grid("#8ec7dd");
