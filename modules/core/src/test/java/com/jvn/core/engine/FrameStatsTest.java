@@ -54,4 +54,25 @@ public class FrameStatsTest {
     assertEquals(before + 1, stats.getTotalFrames(),
         "totalFrames must track physical invocations regardless of delta sign");
   }
+
+  @Test
+  public void rollingWindowDropsOutgoingMinAndMax() {
+    FrameStats stats = new FrameStats(3);
+
+    stats.record(5);
+    stats.record(50);
+    stats.record(20);
+    assertEquals(5.0, stats.getMinMs(), 1e-9);
+    assertEquals(50.0, stats.getMaxMs(), 1e-9);
+
+    stats.record(30); // drops 5
+    assertEquals(20.0, stats.getMinMs(), 1e-9);
+    assertEquals(50.0, stats.getMaxMs(), 1e-9);
+    assertEquals((50.0 + 20.0 + 30.0) / 3.0, stats.getAvgMs(), 1e-9);
+
+    stats.record(10); // drops 50
+    assertEquals(10.0, stats.getMinMs(), 1e-9);
+    assertEquals(30.0, stats.getMaxMs(), 1e-9);
+    assertEquals((20.0 + 30.0 + 10.0) / 3.0, stats.getAvgMs(), 1e-9);
+  }
 }

@@ -375,6 +375,7 @@ done
 
 console_specified=0
 configuration_cache_specified=0
+max_workers_specified=0
 declare -a task_args=()
 if [[ ${#forwarded_args[@]} -gt 0 ]]; then
   for arg in "${forwarded_args[@]}"; do
@@ -385,6 +386,9 @@ if [[ ${#forwarded_args[@]} -gt 0 ]]; then
       --configuration-cache|--configuration-cache=*|--no-configuration-cache|-Dorg.gradle.configuration-cache=*|-Dorg.gradle.configuration-cache)
         configuration_cache_specified=1
         ;;
+      --max-workers|--max-workers=*)
+        max_workers_specified=1
+        ;;
     esac
     if [[ "$arg" != -* ]]; then
       task_args+=("$arg")
@@ -392,12 +396,42 @@ if [[ ${#forwarded_args[@]} -gt 0 ]]; then
   done
 fi
 
+cpu_count() {
+  if command -v getconf >/dev/null 2>&1; then
+    getconf _NPROCESSORS_ONLN 2>/dev/null && return
+  fi
+  if command -v sysctl >/dev/null 2>&1; then
+    sysctl -n hw.ncpu 2>/dev/null && return
+  fi
+  printf '2\n'
+}
+
+launch_workers() {
+  local cpus
+  cpus="$(cpu_count)"
+  case "$cpus" in
+    ''|*[!0-9]*) cpus=2 ;;
+  esac
+  if (( cpus <= 2 )); then
+    printf '1\n'
+  else
+    printf '2\n'
+  fi
+}
+
 declare -a gradle_cmd=("$GRADLEW_PATH")
 if [[ "$console_specified" -eq 0 ]]; then
   gradle_cmd+=("--console=plain")
 fi
 if [[ "$prefer_configuration_cache" -eq 1 && "$configuration_cache_specified" -eq 0 ]]; then
   gradle_cmd+=("--configuration-cache")
+fi
+if [[ "$max_workers_specified" -eq 0 ]]; then
+  case "$alias_label" in
+    launcher|editor|runtime)
+      gradle_cmd+=("--max-workers=$(launch_workers)")
+      ;;
+  esac
 fi
 if [[ ${#forwarded_args[@]} -gt 0 ]]; then
   gradle_cmd+=("${forwarded_args[@]}")
@@ -565,6 +599,12 @@ is_real_error_line() {
   [[ "$line" == FAILURE:* ]] && return 0
   [[ "$line" == *" What went wrong:"* ]] && return 0
   [[ "$line" == *"* What went wrong:"* ]] && return 0
+  [[ "$line" == *"A problem was found with the configuration of task"* ]] && return 0
+  [[ "$line" == *"problems were found with the configuration of task"* ]] && return 0
+  [[ "$line" == *"Reason:"* ]] && return 0
+  [[ "$line" == *"Possible solution:"* ]] && return 0
+  [[ "$line" == *"conflicting normalization annotations"* ]] && return 0
+  [[ "$line" == *"configuration cache problems"* ]] && return 0
   [[ "$line" == *"Caused by:"* ]] && return 0
   [[ "$line" == *"Exception"* ]] && return 0
   [[ "$line" == *": error:"* ]] && return 0

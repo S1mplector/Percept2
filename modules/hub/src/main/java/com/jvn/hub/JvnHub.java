@@ -1199,6 +1199,9 @@ public final class JvnHub {
     if (shouldPreferConfigurationCache(task)) {
       cmd.add("--configuration-cache");
     }
+    if (shouldLimitLaunchWorkers(task)) {
+      cmd.add("--max-workers=" + balancedLaunchWorkerCount());
+    }
     cmd.add(task);
     completeCurrentStep("Gradle command assembled.");
     advanceStep(modeLaunchDetail());
@@ -1233,6 +1236,28 @@ public final class JvnHub {
       }
     }
     return false;
+  }
+
+  private boolean shouldLimitLaunchWorkers(String task) {
+    if (hasMaxWorkersFlag()) return false;
+    return switch (task) {
+      case ":editor:run", ":editor:runLauncher", ":editor:runHelpCenter", ":runtime:run" -> true;
+      default -> false;
+    };
+  }
+
+  private boolean hasMaxWorkersFlag() {
+    for (String arg : splitExtraGradleArgs(gradleExtraArgs)) {
+      if (arg.equals("--max-workers") || arg.startsWith("--max-workers=")) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private int balancedLaunchWorkerCount() {
+    int processors = Math.max(1, Runtime.getRuntime().availableProcessors());
+    return processors <= 2 ? 1 : 2;
   }
 
   private List<String> developerGradleOptions() {

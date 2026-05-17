@@ -14,6 +14,9 @@ public class FrameStats {
   private int head = 0;
   private int count = 0;
   private long totalFrames = 0;
+  private long sumMs = 0;
+  private long minSampleMs = 0;
+  private long maxSampleMs = 0;
 
   // Cached per-window stats
   private double fps;
@@ -39,27 +42,49 @@ public class FrameStats {
    */
   public void record(long deltaMs) {
     if (deltaMs < 0) deltaMs = 0;
+    long outgoing = samples[head];
     samples[head] = deltaMs;
     head = (head + 1) % samples.length;
-    if (count < samples.length) count++;
+    if (count < samples.length) {
+      count++;
+      sumMs += deltaMs;
+      if (count == 1) {
+        minSampleMs = deltaMs;
+        maxSampleMs = deltaMs;
+      } else {
+        if (deltaMs < minSampleMs) minSampleMs = deltaMs;
+        if (deltaMs > maxSampleMs) maxSampleMs = deltaMs;
+      }
+    } else {
+      sumMs += deltaMs - outgoing;
+      if (outgoing == minSampleMs || outgoing == maxSampleMs) {
+        recomputeMinMax();
+      } else {
+        if (deltaMs < minSampleMs) minSampleMs = deltaMs;
+        if (deltaMs > maxSampleMs) maxSampleMs = deltaMs;
+      }
+    }
     totalFrames++;
-    recompute();
+    recomputeDerived();
   }
 
-  private void recompute() {
-    if (count == 0) return;
-    long sum = 0;
+  private void recomputeMinMax() {
     long lo = Long.MAX_VALUE;
     long hi = Long.MIN_VALUE;
     for (int i = 0; i < count; i++) {
       long s = samples[i];
-      sum += s;
       if (s < lo) lo = s;
       if (s > hi) hi = s;
     }
-    avgMs = (double) sum / count;
-    minMs = lo;
-    maxMs = hi;
+    minSampleMs = lo;
+    maxSampleMs = hi;
+  }
+
+  private void recomputeDerived() {
+    if (count == 0) return;
+    avgMs = (double) sumMs / count;
+    minMs = minSampleMs;
+    maxMs = maxSampleMs;
     // avgMs is guaranteed >= 0 because every recorded sample is >= 0, but we
     // still guard against div-by-zero explicitly to avoid emitting
     // Double.POSITIVE_INFINITY on an all-zero window (e.g. headless tests).
@@ -89,6 +114,9 @@ public class FrameStats {
     head = 0;
     count = 0;
     totalFrames = 0;
+    sumMs = 0;
+    minSampleMs = 0;
+    maxSampleMs = 0;
     fps = 0;
     avgMs = 0;
     minMs = 0;

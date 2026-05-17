@@ -4,8 +4,6 @@ import org.gradle.api.model.ObjectFactory
 import org.gradle.api.tasks.Classpath
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.JavaExec
-import org.gradle.api.tasks.PathSensitive
-import org.gradle.api.tasks.PathSensitivity
 import org.gradle.process.CommandLineArgumentProvider
 import javax.inject.Inject
 
@@ -42,7 +40,6 @@ application {
 
 abstract class JavaFxModuleArgumentProvider @Inject constructor(objects: ObjectFactory) : CommandLineArgumentProvider {
   @get:Classpath
-  @get:PathSensitive(PathSensitivity.NONE)
   val javafxClasspath: ConfigurableFileCollection = objects.fileCollection()
 
   @get:Input
