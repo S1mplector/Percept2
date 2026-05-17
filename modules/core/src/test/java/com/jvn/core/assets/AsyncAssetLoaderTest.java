@@ -64,6 +64,23 @@ class AsyncAssetLoaderTest {
   }
 
   @Test
+  void defaultThreadCountLeavesRoomOnLimitedCoreSystems() {
+    assertEquals(1, AsyncAssetLoader.resolveThreadCount(1, ""));
+    assertEquals(1, AsyncAssetLoader.resolveThreadCount(2, ""));
+    assertEquals(2, AsyncAssetLoader.resolveThreadCount(3, ""));
+    assertEquals(3, AsyncAssetLoader.resolveThreadCount(4, ""));
+    assertEquals(4, AsyncAssetLoader.resolveThreadCount(8, ""));
+  }
+
+  @Test
+  void configuredThreadCountIsBounded() {
+    assertEquals(6, AsyncAssetLoader.resolveThreadCount(2, "6"));
+    assertEquals(16, AsyncAssetLoader.resolveThreadCount(8, "64"));
+    assertEquals(1, AsyncAssetLoader.resolveThreadCount(2, "invalid"));
+    assertEquals(1, AsyncAssetLoader.resolveThreadCount(2, "0"));
+  }
+
+  @Test
   void loadTextDecodesUtf8() throws Exception {
     URL resource = getClass().getResource("/com/jvn/core/assets/test-asset.txt");
     assertNotNull(resource);

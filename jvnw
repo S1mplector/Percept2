@@ -265,14 +265,17 @@ for arg in "${input_args[@]}"; do
       launcher)
         alias_label="launcher"
         forwarded_args+=(":editor:runLauncher")
+        prefer_configuration_cache=1
         ;;
       editor)
         alias_label="editor"
         forwarded_args+=(":editor:run")
+        prefer_configuration_cache=1
         ;;
       runtime|run|game)
         alias_label="runtime"
         forwarded_args+=(":runtime:run")
+        prefer_configuration_cache=1
         ;;
       compile|compile-all|compileAll)
         alias_label="compile"

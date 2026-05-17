@@ -23,15 +23,42 @@ public final class AsyncAssetLoader {
 
   private static final Logger log = LoggerFactory.getLogger(AsyncAssetLoader.class);
 
-  private static final int THREAD_COUNT = Math.min(4, Runtime.getRuntime().availableProcessors());
+  private static final String THREAD_COUNT_PROPERTY = "jvn.assetIoThreads";
+  private static final int THREAD_COUNT = resolveThreadCount(
+      Runtime.getRuntime().availableProcessors(),
+      System.getProperty(THREAD_COUNT_PROPERTY));
   private static final ExecutorService EXECUTOR =
       Executors.newFixedThreadPool(THREAD_COUNT, namedThreadFactory("jvn-asset-io"));
+
+  static int resolveThreadCount(int availableProcessors, String configuredValue) {
+    int configured = parsePositiveInt(configuredValue);
+    if (configured > 0) {
+      return Math.min(16, configured);
+    }
+    int processors = Math.max(1, availableProcessors);
+    if (processors <= 2) {
+      return 1;
+    }
+    return Math.min(4, processors - 1);
+  }
+
+  private static int parsePositiveInt(String value) {
+    if (value == null || value.isBlank()) return -1;
+    try {
+      int parsed = Integer.parseInt(value.trim());
+      return parsed > 0 ? parsed : -1;
+    } catch (NumberFormatException e) {
+      log.warn("Ignoring invalid {} value '{}'", THREAD_COUNT_PROPERTY, value);
+      return -1;
+    }
+  }
 
   private static ThreadFactory namedThreadFactory(String prefix) {
     AtomicInteger counter = new AtomicInteger(0);
     return r -> {
       Thread t = new Thread(r, prefix + "-" + counter.incrementAndGet());
       t.setDaemon(true);
+      t.setPriority(Math.max(Thread.MIN_PRIORITY, Thread.NORM_PRIORITY - 1));
       return t;
     };
   }

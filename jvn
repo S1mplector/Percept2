@@ -20,4 +20,5 @@ fi
 
 # Run the hub via Gradle so classpath + toolchain are handled for us.
 # -q / --console=plain keeps the terminal tidy since the hub is a GUI.
-exec "$GRADLEW" -q --console=plain -p "$SCRIPT_DIR" :hub:run
+# --configuration-cache keeps repeated source launches close to packaged shortcut speed.
+exec "$GRADLEW" -q --console=plain --configuration-cache -p "$SCRIPT_DIR" :hub:run

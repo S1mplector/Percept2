@@ -1183,7 +1183,6 @@ public final class JvnHub {
     List<String> cmd = new ArrayList<>();
     cmd.add(gradleCommand());
     cmd.add("--console=plain");
-    if (gradleNoDaemonEnabled) cmd.add("--no-daemon");
     if (developerModeEnabled) {
       cmd.add("-Djvn.hub.developerMode=true");
       cmd.add("-Djvn.editor.developerMode=true");
@@ -1197,6 +1196,9 @@ public final class JvnHub {
       cmd.add("-Djvn.launcher.safeMode=true");
       cmd.add("-Djvn.help.safeMode=true");
     }
+    if (shouldPreferConfigurationCache(task)) {
+      cmd.add("--configuration-cache");
+    }
     cmd.add(task);
     completeCurrentStep("Gradle command assembled.");
     advanceStep(modeLaunchDetail());
@@ -1209,6 +1211,28 @@ public final class JvnHub {
     if (developerModeEnabled) return "Starting background process in Developer Mode.";
     if (safeModeEnabled) return "Starting background process in Safe Mode.";
     return "Starting background process.";
+  }
+
+  private boolean shouldPreferConfigurationCache(String task) {
+    if (hasConfigurationCacheFlag()) return false;
+    return switch (task) {
+      case ":editor:run", ":editor:runLauncher", ":editor:runHelpCenter", ":runtime:run",
+          "build", "test", "check", "ci", "compileAll", "quickCheck" -> true;
+      default -> false;
+    };
+  }
+
+  private boolean hasConfigurationCacheFlag() {
+    for (String arg : splitExtraGradleArgs(gradleExtraArgs)) {
+      if (arg.equals("--configuration-cache")
+          || arg.startsWith("--configuration-cache=")
+          || arg.equals("--no-configuration-cache")
+          || arg.equals("-Dorg.gradle.configuration-cache")
+          || arg.startsWith("-Dorg.gradle.configuration-cache=")) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private List<String> developerGradleOptions() {
