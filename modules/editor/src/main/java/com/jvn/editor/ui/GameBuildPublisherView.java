@@ -13,11 +13,13 @@ import java.util.Properties;
 import java.util.function.Consumer;
 
 import javafx.animation.Animation;
-import javafx.animation.Interpolator;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.Timeline;
+import javafx.scene.effect.DropShadow;
+import javafx.scene.effect.GaussianBlur;
 import javafx.geometry.Pos;
+import javafx.scene.paint.Color;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
@@ -36,6 +38,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.transform.Rotate;
 import javafx.util.Duration;
 
 /**
@@ -1632,32 +1635,59 @@ public class GameBuildPublisherView extends BorderPane {
   }
 
   private static final class AnimatedPresetArrowIndicator extends StackPane {
-    private final Region arrow = CssIcon.arrowLeft("#e08a2e");
+    private final StackPane arrow = new StackPane();
     private final Timeline timeline;
     private boolean active;
 
     private AnimatedPresetArrowIndicator() {
-      getStyleClass().add("welcome-project-current-arrow");
-      setMinSize(14, 12);
-      setPrefSize(14, 12);
-      setMaxSize(14, 12);
+      getStyleClass().add("build-publisher-selected-prompt-arrow");
+      setMinSize(18, 16);
+      setPrefSize(18, 16);
+      setMaxSize(18, 16);
       setPickOnBounds(false);
 
-      arrow.setScaleX(1.1);
-      arrow.setScaleY(1.1);
+      Region shadow = CssIcon.arrowDown("#7a3600");
+      Region body = CssIcon.arrowDown("#f28a18");
+      Region highlight = CssIcon.arrowDown("#ffd07a");
+      shadow.setScaleX(1.32);
+      shadow.setScaleY(1.32);
+      shadow.setTranslateY(2.2);
+      shadow.setOpacity(0.58);
+      shadow.setEffect(new GaussianBlur(0.6));
+      body.setScaleX(1.18);
+      body.setScaleY(1.18);
+      body.setEffect(new DropShadow(7, Color.rgb(238, 126, 16, 0.46)));
+      highlight.setScaleX(0.78);
+      highlight.setScaleY(0.78);
+      highlight.setTranslateY(-1.9);
+      highlight.setOpacity(0.86);
+
+      arrow.setMinSize(18, 16);
+      arrow.setPrefSize(18, 16);
+      arrow.setMaxSize(18, 16);
+      arrow.setAlignment(Pos.CENTER);
+      arrow.setRotationAxis(Rotate.Y_AXIS);
+      arrow.setPickOnBounds(false);
+      arrow.getChildren().addAll(shadow, body, highlight);
       getChildren().add(arrow);
 
       resetAnimationState();
       timeline = new Timeline(
           new KeyFrame(Duration.ZERO,
-              new KeyValue(arrow.translateXProperty(), 1.4, Interpolator.EASE_BOTH),
-              new KeyValue(arrow.opacityProperty(), 0.74, Interpolator.EASE_BOTH)),
-          new KeyFrame(Duration.millis(320),
-              new KeyValue(arrow.translateXProperty(), -2.2, Interpolator.EASE_BOTH),
-              new KeyValue(arrow.opacityProperty(), 1.0, Interpolator.EASE_BOTH)),
-          new KeyFrame(Duration.millis(760),
-              new KeyValue(arrow.translateXProperty(), 1.4, Interpolator.EASE_BOTH),
-              new KeyValue(arrow.opacityProperty(), 0.74, Interpolator.EASE_BOTH)));
+              new KeyValue(arrow.rotateProperty(), 0),
+              new KeyValue(arrow.translateYProperty(), -1.4),
+              new KeyValue(arrow.scaleXProperty(), 1.0),
+              new KeyValue(arrow.opacityProperty(), 1.0)),
+          new KeyFrame(Duration.millis(360),
+              new KeyValue(arrow.rotateProperty(), 180),
+              new KeyValue(arrow.translateYProperty(), 2.0),
+              new KeyValue(arrow.scaleXProperty(), 0.58),
+              new KeyValue(arrow.opacityProperty(), 0.74)),
+          new KeyFrame(Duration.millis(720),
+              new KeyValue(arrow.rotateProperty(), 360),
+              new KeyValue(arrow.translateYProperty(), -1.4),
+              new KeyValue(arrow.scaleXProperty(), 1.0),
+              new KeyValue(arrow.opacityProperty(), 1.0)));
       timeline.setCycleCount(Animation.INDEFINITE);
       sceneProperty().addListener((obs, oldScene, newScene) -> {
         if (newScene == null) {
@@ -1681,8 +1711,10 @@ public class GameBuildPublisherView extends BorderPane {
     }
 
     private void resetAnimationState() {
-      arrow.setTranslateX(1.4);
-      arrow.setOpacity(0.74);
+      arrow.setRotate(0);
+      arrow.setTranslateY(-1.4);
+      arrow.setScaleX(1.0);
+      arrow.setOpacity(1.0);
     }
   }
 }
