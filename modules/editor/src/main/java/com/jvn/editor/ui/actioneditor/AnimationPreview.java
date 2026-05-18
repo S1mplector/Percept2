@@ -252,17 +252,15 @@ public class AnimationPreview extends VBox {
         final double worldY;
         final double relX;
         final double relY;
-        final String targetLabel;
 
         AnchorPlacementPreview(double screenX, double screenY, double worldX, double worldY,
-                               double relX, double relY, String targetLabel) {
+                               double relX, double relY) {
             this.screenX = screenX;
             this.screenY = screenY;
             this.worldX = worldX;
             this.worldY = worldY;
             this.relX = relX;
             this.relY = relY;
-            this.targetLabel = targetLabel;
         }
     }
 
@@ -1967,6 +1965,58 @@ public class AnimationPreview extends VBox {
         return true;
     }
 
+    private void updateAnchorPlacementCursor(double screenX, double screenY) {
+        anchorPlacementCursorScreenX = screenX;
+        anchorPlacementCursorScreenY = screenY;
+        render();
+    }
+
+    private void clearAnchorPlacementCursorState() {
+        anchorPlacementCursorScreenX = Double.NaN;
+        anchorPlacementCursorScreenY = Double.NaN;
+    }
+
+    private AnchorPlacementPreview computeAnchorPlacementPreview(double screenX, double screenY) {
+        if (!anchorPlacementMode || !isInsideViewport(screenX, screenY)) return null;
+        double[] world = screenToWorld(screenX, screenY);
+        if (!Double.isFinite(world[0]) || !Double.isFinite(world[1])) return null;
+
+        if (selectedEntity != null) {
+            double[] corners = getEntityCorners(selectedEntity);
+            if (!containsPointInQuad(corners, world[0], world[1])) return null;
+
+            EntityFrame frame = describeEntity(selectedEntity);
+            if (frame == null) return null;
+
+            double dx = world[0] - selectedEntity.getX();
+            double dy = world[1] - selectedEntity.getY();
+            double cos = Math.cos(-frame.rotationRad);
+            double sin = Math.sin(-frame.rotationRad);
+            double unrotX = dx * cos - dy * sin;
+            double unrotY = dx * sin + dy * cos;
+            double localX = unrotX / Math.max(1e-6, frame.scaleX);
+            double localY = unrotY / Math.max(1e-6, frame.scaleY);
+            double relX = clamp(frame.originX + localX / Math.max(1e-6, frame.w), 0.0, 1.0);
+            double relY = clamp(frame.originY + localY / Math.max(1e-6, frame.h), 0.0, 1.0);
+            return new AnchorPlacementPreview(screenX, screenY, world[0], world[1], relX, relY);
+        }
+
+        if (selectedGroupName != null) {
+            WorldBounds bounds = computeGroupVisualBounds(selectedGroupName);
+            if (bounds == null || bounds.isEmpty()) return null;
+            if (world[0] < bounds.minX || world[0] > bounds.maxX
+                || world[1] < bounds.minY || world[1] > bounds.maxY) {
+                return null;
+            }
+
+            double relX = clamp((world[0] - bounds.minX) / Math.max(1e-6, bounds.width()), 0.0, 1.0);
+            double relY = clamp((world[1] - bounds.minY) / Math.max(1e-6, bounds.height()), 0.0, 1.0);
+            return new AnchorPlacementPreview(screenX, screenY, world[0], world[1], relX, relY);
+        }
+
+        return null;
+    }
+
     private boolean isInsideViewport(double screenX, double screenY) {
         double right = displayOffsetX + displayWidth * displayScale;
         double bottom = displayOffsetY + displayHeight * displayScale;
@@ -2244,6 +2294,19 @@ public class AnimationPreview extends VBox {
             render();
         });
 
+        canvas.setOnMouseMoved(e -> {
+            if (anchorPlacementMode) {
+                updateAnchorPlacementCursor(e.getX(), e.getY());
+            }
+        });
+
+        canvas.setOnMouseExited(e -> {
+            if (anchorPlacementMode) {
+                clearAnchorPlacementCursorState();
+                render();
+            }
+        });
+
         final double[] panStart = new double[2];
         final boolean[] panning = {false};
 
@@ -2258,6 +2321,11 @@ public class AnimationPreview extends VBox {
 
             if (e.isPrimaryButtonDown()) {
                 if (!isInsideViewport(e.getX(), e.getY())) {
+                    if (anchorPlacementMode) {
+                        clearAnchorPlacementCursorState();
+                        render();
+                        return;
+                    }
                     clearSelection();
                     draggingEntity = false;
                     draggingGroup = false;
@@ -2275,45 +2343,21 @@ public class AnimationPreview extends VBox {
                     return;
                 }
                 // Anchor placement mode: click on the selected entity/group to set anchor position
-                if (anchorPlacementMode && selectedEntity != null) {
-                    double[] world = screenToWorld(e.getX(), e.getY());
-                    double[] corners = getEntityCorners(selectedEntity);
-                    if (containsPointInQuad(corners, world[0], world[1])) {
-                        EntityFrame frame = describeEntity(selectedEntity);
-                        if (frame != null) {
-                            double dx = world[0] - selectedEntity.getX();
-                            double dy = world[1] - selectedEntity.getY();
-                            double cos = Math.cos(-frame.rotationRad);
-                            double sin = Math.sin(-frame.rotationRad);
-                            double unrotX = dx * cos - dy * sin;
-                            double unrotY = dx * sin + dy * cos;
-                            double localX = unrotX / Math.max(1e-6, frame.scaleX);
-                            double localY = unrotY / Math.max(1e-6, frame.scaleY);
-                            double relX = Math.max(0.0, Math.min(1.0, frame.originX + localX / Math.max(1e-6, frame.w)));
-                            double relY = Math.max(0.0, Math.min(1.0, frame.originY + localY / Math.max(1e-6, frame.h)));
-                            if (onAnchorPlacementAt != null) {
-                                onAnchorPlacementAt.accept(new double[]{relX, relY});
-                            }
-                            anchorPlacementMode = false;
-                            render();
-                            return;
-                        }
-                    }
-                } else if (anchorPlacementMode && selectedGroupName != null) {
-                    double[] world = screenToWorld(e.getX(), e.getY());
-                    WorldBounds bounds = computeGroupVisualBounds(selectedGroupName);
-                    if (bounds != null && !bounds.isEmpty()
-                        && world[0] >= bounds.minX && world[0] <= bounds.maxX
-                        && world[1] >= bounds.minY && world[1] <= bounds.maxY) {
-                        double relX = Math.max(0.0, Math.min(1.0, (world[0] - bounds.minX) / Math.max(1e-6, bounds.width())));
-                        double relY = Math.max(0.0, Math.min(1.0, (world[1] - bounds.minY) / Math.max(1e-6, bounds.height())));
+                if (anchorPlacementMode) {
+                    anchorPlacementCursorScreenX = e.getX();
+                    anchorPlacementCursorScreenY = e.getY();
+                    AnchorPlacementPreview preview = computeAnchorPlacementPreview(e.getX(), e.getY());
+                    if (preview != null) {
                         if (onAnchorPlacementAt != null) {
-                            onAnchorPlacementAt.accept(new double[]{relX, relY});
+                            onAnchorPlacementAt.accept(new double[]{preview.relX, preview.relY});
                         }
                         anchorPlacementMode = false;
+                        clearAnchorPlacementCursorState();
                         render();
                         return;
                     }
+                    render();
+                    return;
                 }
 
                 if (runtimeCameraSelected && isNearRuntimeFrameHandle(e.getX(), e.getY())) {
@@ -2482,6 +2526,8 @@ public class AnimationPreview extends VBox {
                 }
                 notifyCameraStateChanged();
                 render();
+            } else if (anchorPlacementMode) {
+                updateAnchorPlacementCursor(e.getX(), e.getY());
             } else if (draggingCameraFrame) {
                 double[] prevWorld = screenToWorld(dragCameraStartX, dragCameraStartY);
                 double[] world = screenToWorld(e.getX(), e.getY());
@@ -2715,6 +2761,7 @@ public class AnimationPreview extends VBox {
             }
             if (e.getCode() == javafx.scene.input.KeyCode.ESCAPE && anchorPlacementMode) {
                 anchorPlacementMode = false;
+                clearAnchorPlacementCursorState();
                 render();
                 e.consume();
             }
