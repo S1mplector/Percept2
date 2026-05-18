@@ -162,6 +162,48 @@ class AnimationProjectGroupHierarchyTest {
   }
 
   @Test
+  void groupPivotUsesVisualSnapshotBoundsForPaddedSprites() {
+    AnimationProject project = new AnimationProject();
+    project.getOrCreateGroup("head");
+    project.getOrCreateTrack("head_layer");
+    project.addEntityToGroup("head_layer", "head");
+    project.setSceneEntitySnapshots(List.of(
+        new AnimationProject.SceneEntitySnapshot(
+            "head_layer",
+            "sprite",
+            "assets/head.png",
+            100,
+            100,
+            200,
+            200,
+            0,
+            0,
+            0,
+            true,
+            1,
+            150,
+            150,
+            170,
+            250
+        )
+    ));
+
+    EntityTrack headTrack = project.getGroup("head").getGroupTrack();
+    headTrack.upsertKeyframe(PropertyType.PIVOT_X, new Keyframe(0, 0));
+    headTrack.upsertKeyframe(PropertyType.PIVOT_Y, new Keyframe(0, 1));
+    headTrack.upsertKeyframe(PropertyType.ROTATION, new Keyframe(0, 90));
+
+    AnimationProject.EffectiveEntityTransform transform =
+        project.computeEffectiveEntityTransform("head_layer", 0);
+
+    assertEquals(300.0, transform.x(), 0.0001);
+    assertEquals(200.0, transform.y(), 0.0001);
+    double[] center = project.computeGroupRotationCenter("head", 0);
+    assertEquals(150.0, center[0], 0.0001);
+    assertEquals(250.0, center[1], 0.0001);
+  }
+
+  @Test
   void groupRotationCenterUsesPivotAndGroupTranslation() {
     AnimationProject project = new AnimationProject();
     project.getOrCreateGroup("arm");

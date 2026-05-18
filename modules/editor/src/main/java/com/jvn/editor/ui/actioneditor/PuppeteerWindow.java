@@ -7902,6 +7902,7 @@ public class PuppeteerWindow extends Stage {
     private List<AnimationProject.SceneEntitySnapshot> captureSceneEntitySnapshots() {
         if (scene == null) return List.of();
         List<AnimationProject.SceneEntitySnapshot> snapshots = new ArrayList<>();
+        SpritePixelAnalyzer pixelAnalyzer = new SpritePixelAnalyzer(projectRoot);
         for (String entityName : scene.names()) {
             if (entityName == null || entityName.isBlank()) continue;
             var entity = scene.find(entityName);
@@ -7909,12 +7910,14 @@ public class PuppeteerWindow extends Stage {
 
             String type = "entity";
             String imagePath = "";
+            String rawImagePath = "";
             double width = 1.0;
             double height = 1.0;
             double alpha = snapshotOrCurrent(entityName, PropertyType.ALPHA, fallbackPropertyValue(entity, PropertyType.ALPHA));
             if (entity instanceof com.jvn.core.scene2d.Sprite2D sprite) {
                 type = "sprite";
-                imagePath = relativizePreviewAssetPathSpec(sprite.getImagePath());
+                rawImagePath = sprite.getImagePath();
+                imagePath = relativizePreviewAssetPathSpec(rawImagePath);
                 width = sprite.getWidth();
                 height = sprite.getHeight();
                 alpha = snapshotOrCurrent(entityName, PropertyType.ALPHA, sprite.getAlpha());
@@ -7929,22 +7932,94 @@ public class PuppeteerWindow extends Stage {
                 height = character.getDrawHeight();
             }
 
+            double x = snapshotOrCurrent(entityName, PropertyType.X, entity.getX());
+            double y = snapshotOrCurrent(entityName, PropertyType.Y, entity.getY());
+            double originX = snapshotOrCurrent(entityName, PropertyType.PIVOT_X, entity.getOriginX());
+            double originY = snapshotOrCurrent(entityName, PropertyType.PIVOT_Y, entity.getOriginY());
+            double[] visualBounds = computeSnapshotVisualBounds(
+                pixelAnalyzer,
+                rawImagePath,
+                x,
+                y,
+                width,
+                height,
+                originX,
+                originY
+            );
             snapshots.add(new AnimationProject.SceneEntitySnapshot(
                 entityName,
                 type,
                 imagePath,
-                snapshotOrCurrent(entityName, PropertyType.X, entity.getX()),
-                snapshotOrCurrent(entityName, PropertyType.Y, entity.getY()),
+                x,
+                y,
                 width,
                 height,
-                snapshotOrCurrent(entityName, PropertyType.PIVOT_X, entity.getOriginX()),
-                snapshotOrCurrent(entityName, PropertyType.PIVOT_Y, entity.getOriginY()),
+                originX,
+                originY,
                 snapshotOrCurrent(entityName, PropertyType.Z, entity.getZ()),
                 snapshotOrCurrent(entityName, PropertyType.VISIBILITY, entity.isVisible() ? 1.0 : 0.0) >= 0.5,
-                alpha
+                alpha,
+                visualBounds[0],
+                visualBounds[1],
+                visualBounds[2],
+                visualBounds[3]
             ));
         }
         return snapshots;
+    }
+
+    private double[] computeSnapshotVisualBounds(
+        SpritePixelAnalyzer pixelAnalyzer,
+        String imagePathSpec,
+        double x,
+        double y,
+        double width,
+        double height,
+        double originX,
+        double originY
+    ) {
+        double fallbackMinX = x - originX * width;
+        double fallbackMinY = y - originY * height;
+        double fallbackMaxX = fallbackMinX + width;
+        double fallbackMaxY = fallbackMinY + height;
+        if (pixelAnalyzer == null || imagePathSpec == null || imagePathSpec.isBlank()) {
+            return new double[]{fallbackMinX, fallbackMinY, fallbackMaxX, fallbackMaxY};
+        }
+
+        double minX = Double.POSITIVE_INFINITY;
+        double minY = Double.POSITIVE_INFINITY;
+        double maxX = Double.NEGATIVE_INFINITY;
+        double maxY = Double.NEGATIVE_INFINITY;
+        for (String layerPath : imagePathSpec.split("\\|")) {
+            String path = layerPath == null ? "" : layerPath.trim();
+            if (path.isEmpty()) continue;
+            List<SpritePixelAnalyzer.DetectedRegion> regions = pixelAnalyzer.detectRegions(path);
+            if (regions.isEmpty()) continue;
+            javafx.scene.image.Image image = loadAssetImage(path);
+            double imageW = image != null && !image.isError() && image.getWidth() > 1.0
+                ? image.getWidth()
+                : width;
+            double imageH = image != null && !image.isError() && image.getHeight() > 1.0
+                ? image.getHeight()
+                : height;
+            double imgToSpriteX = width / Math.max(1.0, imageW);
+            double imgToSpriteY = height / Math.max(1.0, imageH);
+            for (SpritePixelAnalyzer.DetectedRegion region : regions) {
+                double regionMinX = fallbackMinX + region.minX * imgToSpriteX;
+                double regionMinY = fallbackMinY + region.minY * imgToSpriteY;
+                double regionMaxX = fallbackMinX + (region.minX + region.width) * imgToSpriteX;
+                double regionMaxY = fallbackMinY + (region.minY + region.height) * imgToSpriteY;
+                minX = Math.min(minX, regionMinX);
+                minY = Math.min(minY, regionMinY);
+                maxX = Math.max(maxX, regionMaxX);
+                maxY = Math.max(maxY, regionMaxY);
+            }
+        }
+        if (!Double.isFinite(minX) || !Double.isFinite(minY)
+            || !Double.isFinite(maxX) || !Double.isFinite(maxY)) {
+            return new double[]{fallbackMinX, fallbackMinY, fallbackMaxX, fallbackMaxY};
+        }
+        return new double[]{minX, minY, maxX, maxY};
     }
 
     private double snapshotOrCurrent(String entityName, PropertyType property, double fallback) {
