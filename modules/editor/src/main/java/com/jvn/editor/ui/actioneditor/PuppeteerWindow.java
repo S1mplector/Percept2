@@ -366,6 +366,8 @@ public class PuppeteerWindow extends Stage {
         Map<PropertyType, PuppeteerCommand.PropertySnapshot> beforeStates
     ) {}
 
+    private record GroupPivotAdjustment(double x, double y, boolean translate) {}
+
     private record ExpressionLayerSpec(String layerId, String path) {}
     private record ExpressionLayerCandidate(String name, com.jvn.core.scene2d.Sprite2D sprite) {}
 
@@ -739,13 +741,18 @@ public class PuppeteerWindow extends Stage {
 
         animationPreview.setOnEntityPivotChanged((name, pivot) -> {
             if (name == null || pivot == null || pivot.length < 2) return;
-            EntityTrack track = this.project.getOrCreateTrack(name);
+            EntityTrack track = resolveAnimatedTrack(name, true);
+            if (track == null) return;
             double time = this.project.getPlayheadMs();
             if (activeTransformInteraction != null && name.equals(activeTransformInteraction.entityName())) {
                 time = activeTransformInteraction.timeMs();
             }
-            track.upsertKeyframe(PropertyType.PIVOT_X, new Keyframe(time, pivot[0]));
-            track.upsertKeyframe(PropertyType.PIVOT_Y, new Keyframe(time, pivot[1]));
+            if (project.getGroup(name) != null) {
+                upsertGroupPivotPreservingPose(name, track, time, pivot[0], pivot[1]);
+            } else {
+                track.upsertKeyframe(PropertyType.PIVOT_X, new Keyframe(time, pivot[0]));
+                track.upsertKeyframe(PropertyType.PIVOT_Y, new Keyframe(time, pivot[1]));
+            }
             timelinePanel.refresh();
             refreshExportPreviewAndMarkDirty();
         });
@@ -1350,8 +1357,7 @@ public class PuppeteerWindow extends Stage {
             if (!track.getKeyframes(PropertyType.PIVOT_X).isEmpty()
                     || !track.getKeyframes(PropertyType.PIVOT_Y).isEmpty()) return;
             if (project.getGroup(entityName) != null) {
-                track.upsertKeyframe(PropertyType.PIVOT_X, new Keyframe(0.0, anchor.getX()));
-                track.upsertKeyframe(PropertyType.PIVOT_Y, new Keyframe(0.0, anchor.getY()));
+                upsertGroupPivotPreservingPose(entityName, track, 0.0, anchor.getX(), anchor.getY());
                 timelinePanel.refresh();
                 updatePreview();
                 refreshExportPreviewAndMarkDirty();
@@ -1382,10 +1388,7 @@ public class PuppeteerWindow extends Stage {
             if (project.getGroup(entityName) != null) {
                 commandStack.execute(PuppeteerCommand.composite(
                     "Set group rotation pivot to anchor",
-                    List.of(
-                        PuppeteerCommand.upsertKeyframe(track, PropertyType.PIVOT_X, time, newPX),
-                        PuppeteerCommand.upsertKeyframe(track, PropertyType.PIVOT_Y, time, newPY)
-                    )
+                    groupPivotPreservingCommands(entityName, track, time, newPX, newPY)
                 ));
                 timelinePanel.refresh();
                 updatePreview();
@@ -4140,7 +4143,7 @@ public class PuppeteerWindow extends Stage {
             }
         }
 
-        project.pruneOrbitAnchors(collectProjectEntityNames());
+        project.pruneOrbitAnchors(collectProjectAnchorTargetNames());
         animationPreview.setOrbitAnchors(project.getOrbitAnchorsView());
         animationPreview.setOrbitAnchorSources(project.getOrbitAnchorSourcesView());
         animationPreview.setOrbitAnchorSourceOffsets(project.getOrbitAnchorSourceOffsetsView());
@@ -5199,6 +5202,93 @@ public class PuppeteerWindow extends Stage {
 
     private static void setEntityPivot(com.jvn.core.scene2d.Entity2D entity, double pivotX, double pivotY) {
         entity.setOrigin(clampPivot(pivotX), clampPivot(pivotY));
+    }
+
+    private void upsertGroupPivotPreservingPose(
+        String groupName,
+        EntityTrack track,
+        double timeMs,
+        double pivotX,
+        double pivotY
+    ) {
+        GroupPivotAdjustment adjustment = computeGroupPivotAdjustment(groupName, track, timeMs, pivotX, pivotY);
+        track.upsertKeyframe(PropertyType.PIVOT_X, new Keyframe(timeMs, pivotX));
+        track.upsertKeyframe(PropertyType.PIVOT_Y, new Keyframe(timeMs, pivotY));
+        if (adjustment != null && adjustment.translate()) {
+            track.upsertKeyframe(PropertyType.X, new Keyframe(timeMs, adjustment.x()));
+            track.upsertKeyframe(PropertyType.Y, new Keyframe(timeMs, adjustment.y()));
+        }
+    }
+
+    private List<PuppeteerCommand> groupPivotPreservingCommands(
+        String groupName,
+        EntityTrack track,
+        double timeMs,
+        double pivotX,
+        double pivotY
+    ) {
+        List<PuppeteerCommand> commands = new ArrayList<>();
+        GroupPivotAdjustment adjustment = computeGroupPivotAdjustment(groupName, track, timeMs, pivotX, pivotY);
+        commands.add(PuppeteerCommand.upsertKeyframe(track, PropertyType.PIVOT_X, timeMs, pivotX));
+        commands.add(PuppeteerCommand.upsertKeyframe(track, PropertyType.PIVOT_Y, timeMs, pivotY));
+        if (adjustment != null && adjustment.translate()) {
+            commands.add(PuppeteerCommand.upsertKeyframe(track, PropertyType.X, timeMs, adjustment.x()));
+            commands.add(PuppeteerCommand.upsertKeyframe(track, PropertyType.Y, timeMs, adjustment.y()));
+        }
+        return commands;
+    }
+
+    private GroupPivotAdjustment computeGroupPivotAdjustment(
+        String groupName,
+        EntityTrack track,
+        double timeMs,
+        double newPivotX,
+        double newPivotY
+    ) {
+        if (groupName == null || groupName.isBlank() || track == null || project.getGroup(groupName) == null) {
+            return null;
+        }
+        double oldPivotX = trackValueAt(track, PropertyType.PIVOT_X, timeMs);
+        double oldPivotY = trackValueAt(track, PropertyType.PIVOT_Y, timeMs);
+        double[] oldPivot = project.computeGroupLocalPivot(groupName, oldPivotX, oldPivotY);
+        double[] newPivot = project.computeGroupLocalPivot(groupName, newPivotX, newPivotY);
+        if (oldPivot == null || oldPivot.length < 2 || newPivot == null || newPivot.length < 2) {
+            return null;
+        }
+        double dx = newPivot[0] - oldPivot[0];
+        double dy = newPivot[1] - oldPivot[1];
+        if (!Double.isFinite(dx) || !Double.isFinite(dy)) return null;
+
+        double scaleX = trackValueAt(track, PropertyType.SCALE_X, timeMs);
+        if (track.hasKeyframes(PropertyType.MIRROR_X)) {
+            scaleX *= mirrorFactor(track.getValueAt(PropertyType.MIRROR_X, timeMs));
+        }
+        double scaleY = trackValueAt(track, PropertyType.SCALE_Y, timeMs);
+        double radians = Math.toRadians(trackValueAt(track, PropertyType.ROTATION, timeMs));
+        double cos = Math.cos(radians);
+        double sin = Math.sin(radians);
+        double transformedDx = dx * scaleX * cos - dy * scaleY * sin;
+        double transformedDy = dx * scaleX * sin + dy * scaleY * cos;
+        double compensationX = transformedDx - dx;
+        double compensationY = transformedDy - dy;
+        if (!Double.isFinite(compensationX) || !Double.isFinite(compensationY)) return null;
+
+        boolean translate = Math.abs(compensationX) > 1e-6 || Math.abs(compensationY) > 1e-6;
+        double currentX = trackValueAt(track, PropertyType.X, timeMs);
+        double currentY = trackValueAt(track, PropertyType.Y, timeMs);
+        return new GroupPivotAdjustment(currentX + compensationX, currentY + compensationY, translate);
+    }
+
+    private static double trackValueAt(EntityTrack track, PropertyType property, double timeMs) {
+        if (track == null || property == null) return 0.0;
+        return track.hasKeyframes(property)
+            ? track.getValueAt(property, timeMs)
+            : property.getDefaultValue();
+    }
+
+    private static double mirrorFactor(double mirrorX) {
+        if (!Double.isFinite(mirrorX)) return 1.0;
+        return Math.cos(clampPivot(mirrorX) * Math.PI);
     }
 
     /**
@@ -7977,7 +8067,7 @@ public class PuppeteerWindow extends Stage {
                 }
             }
         }
-        project.pruneOrbitAnchors(collectProjectEntityNames());
+        project.pruneOrbitAnchors(collectProjectAnchorTargetNames());
         project.setPlayheadMs(playhead);
         activeTransformInteraction = null;
         commandStack.clear();
@@ -7999,6 +8089,16 @@ public class PuppeteerWindow extends Stage {
         Set<String> names = new LinkedHashSet<>();
         for (EntityTrack track : project.getTracks()) {
             String name = track.getEntityName();
+            if (name != null && !name.isBlank()) names.add(name);
+        }
+        return names;
+    }
+
+    private Set<String> collectProjectAnchorTargetNames() {
+        Set<String> names = collectProjectEntityNames();
+        for (EntityGroup group : project.getGroups()) {
+            if (group == null) continue;
+            String name = group.getName();
             if (name != null && !name.isBlank()) names.add(name);
         }
         return names;

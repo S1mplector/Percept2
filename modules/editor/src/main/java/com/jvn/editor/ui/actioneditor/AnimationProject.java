@@ -1134,21 +1134,13 @@ public class AnimationProject {
         return value != null && Double.isFinite(value) ? value : property.getDefaultValue();
     }
 
-    private double[] computeGroupPivot(String groupName, double timeMs) {
+    public double[] computeGroupLocalPivot(String groupName, double pivotX, double pivotY) {
         EntityGroup group = groups.get(groupName);
         if (group == null) return new double[]{0.0, 0.0};
         GroupBounds bounds = computeGroupBounds(groupName);
         if (bounds.isEmpty()) {
             return new double[]{0.0, 0.0};
         }
-
-        EntityTrack groupTrack = group.getGroupTrack();
-        double pivotX = groupTrack.hasKeyframes(PropertyType.PIVOT_X)
-            ? groupTrack.getValueAt(PropertyType.PIVOT_X, timeMs)
-            : PropertyType.PIVOT_X.getDefaultValue();
-        double pivotY = groupTrack.hasKeyframes(PropertyType.PIVOT_Y)
-            ? groupTrack.getValueAt(PropertyType.PIVOT_Y, timeMs)
-            : PropertyType.PIVOT_Y.getDefaultValue();
         pivotX = clamp01(pivotX);
         pivotY = clamp01(pivotY);
 
@@ -1156,6 +1148,19 @@ public class AnimationProject {
             bounds.minX() + bounds.width() * pivotX,
             bounds.minY() + bounds.height() * pivotY
         };
+    }
+
+    private double[] computeGroupPivot(String groupName, double timeMs) {
+        EntityGroup group = groups.get(groupName);
+        if (group == null) return new double[]{0.0, 0.0};
+        EntityTrack groupTrack = group.getGroupTrack();
+        double pivotX = groupTrack.hasKeyframes(PropertyType.PIVOT_X)
+            ? groupTrack.getValueAt(PropertyType.PIVOT_X, timeMs)
+            : PropertyType.PIVOT_X.getDefaultValue();
+        double pivotY = groupTrack.hasKeyframes(PropertyType.PIVOT_Y)
+            ? groupTrack.getValueAt(PropertyType.PIVOT_Y, timeMs)
+            : PropertyType.PIVOT_Y.getDefaultValue();
+        return computeGroupLocalPivot(groupName, pivotX, pivotY);
     }
 
     public double[] computeGroupRotationCenter(String groupName, double timeMs) {

@@ -176,4 +176,16 @@ class TimelineModelSanitizationTest {
         assertFalse(project.getOrbitAnchorSourcesView().containsKey("npc"));
         assertFalse(project.getOrbitAnchorSourceOffsetsView().containsKey("npc"));
     }
+
+    @Test
+    void pruneOrbitAnchorsCanRetainGroupTargets() {
+        AnimationProject project = new AnimationProject();
+        project.getOrCreateGroup("head");
+        project.setOrbitAnchor("head", 120.0, 180.0);
+
+        project.pruneOrbitAnchors(java.util.Set.of("head"));
+
+        assertTrue(project.hasOrbitAnchor("head"));
+        assertArrayEquals(new double[]{120.0, 180.0}, project.getOrbitAnchor("head"), 0.0001);
+    }
 }

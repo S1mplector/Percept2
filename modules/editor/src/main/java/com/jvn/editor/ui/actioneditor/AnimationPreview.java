@@ -1567,7 +1567,8 @@ public class AnimationPreview extends VBox {
         return new double[]{x, y};
     }
     public boolean hasSelectedOrbitAnchor() {
-        return selectedEntityName != null && orbitAnchors.containsKey(selectedEntityName);
+        String target = selectedAnchorTargetName();
+        return target != null && orbitAnchors.containsKey(target);
     }
 
     public Map<String, double[]> getOrbitAnchorsSnapshot() {
@@ -1640,15 +1641,22 @@ public class AnimationPreview extends VBox {
     }
 
     public void clearOrbitAnchorForSelectedEntity() {
-        if (selectedEntityName == null) return;
-        orbitAnchors.remove(selectedEntityName);
-        orbitAnchorSources.remove(selectedEntityName);
-        orbitAnchorSourceOffsets.remove(selectedEntityName);
-        if (onOrbitAnchorRemoved != null) onOrbitAnchorRemoved.accept(selectedEntityName);
+        String target = selectedAnchorTargetName();
+        if (target == null) return;
+        orbitAnchors.remove(target);
+        orbitAnchorSources.remove(target);
+        orbitAnchorSourceOffsets.remove(target);
+        if (onOrbitAnchorRemoved != null) onOrbitAnchorRemoved.accept(target);
         if (onOrbitAnchorSourceOffsetChanged != null) {
-            onOrbitAnchorSourceOffsetChanged.accept(selectedEntityName, null);
+            onOrbitAnchorSourceOffsetChanged.accept(target, null);
         }
         render();
+    }
+
+    private String selectedAnchorTargetName() {
+        if (selectedEntityName != null && !selectedEntityName.isBlank()) return selectedEntityName;
+        if (selectedGroupName != null && !selectedGroupName.isBlank()) return selectedGroupName;
+        return null;
     }
 
     private boolean resolveEntityLocked(String entityName) {
@@ -1658,6 +1666,23 @@ public class AnimationPreview extends VBox {
         if (track != null && track.hasParent()) {
             EntityGroup parent = project.getGroup(track.getParentGroupName());
             if (parent != null && parent.isLocked()) return true;
+        }
+        return false;
+    }
+
+    private boolean resolveAnchorTargetLocked(String targetName) {
+        if (project == null || targetName == null || targetName.isBlank()) return false;
+        EntityGroup group = project.getGroup(targetName);
+        if (group == null) {
+            return resolveEntityLocked(targetName);
+        }
+        String cursor = group.getName();
+        Set<String> visited = new HashSet<>();
+        while (cursor != null && visited.add(cursor)) {
+            EntityGroup current = project.getGroup(cursor);
+            if (current == null) break;
+            if (current.isLocked()) return true;
+            cursor = current.getParentGroupName();
         }
         return false;
     }
@@ -1894,7 +1919,7 @@ public class AnimationPreview extends VBox {
     private void setOrbitAnchor(String entityName, double worldX, double worldY) {
         if (entityName == null || entityName.isBlank()) return;
         if (!Double.isFinite(worldX) || !Double.isFinite(worldY)) return;
-        if (scene != null && scene.find(entityName) == null) return;
+        if (!isValidAnchorTarget(entityName)) return;
         orbitAnchors.put(entityName, new double[]{worldX, worldY});
         orbitAnchorSources.remove(entityName);
         orbitAnchorSourceOffsets.remove(entityName);
@@ -1921,9 +1946,9 @@ public class AnimationPreview extends VBox {
         if (sourceEntityName == null || sourceEntityName.isBlank()) return;
         if (entityName.equals(sourceEntityName)) return;
         if (scene == null) return;
-        Entity2D target = scene.find(entityName);
+        boolean targetExists = isValidAnchorTarget(entityName);
         Entity2D source = scene.find(sourceEntityName);
-        if (target == null || source == null) return;
+        if (!targetExists || source == null) return;
         double sx = source.getX();
         double sy = source.getY();
         if (!Double.isFinite(sx) || !Double.isFinite(sy)) return;
@@ -1946,7 +1971,7 @@ public class AnimationPreview extends VBox {
     }
 
     private boolean isNearOrbitAnchorHandle(double screenX, double screenY) {
-        double[] anchor = getOrbitAnchor(selectedEntityName);
+        double[] anchor = getOrbitAnchor(selectedAnchorTargetName());
         if (anchor == null) return false;
         double ax = worldToScreenX(anchor[0]);
         double ay = worldToScreenY(anchor[1]);
@@ -1955,6 +1980,12 @@ public class AnimationPreview extends VBox {
         double dx = pointerX - ax;
         double dy = pointerY - ay;
         return dx * dx + dy * dy <= 100;
+    }
+
+    private boolean isValidAnchorTarget(String entityName) {
+        if (entityName == null || entityName.isBlank()) return false;
+        if (scene != null && scene.find(entityName) != null) return true;
+        return project != null && project.getGroup(entityName) != null;
     }
 
     private boolean isNearRotateHandle(double screenX, double screenY) {
@@ -2184,13 +2215,14 @@ public class AnimationPreview extends VBox {
                 }
 
                 if (orbitToolEnabled && e.isShiftDown() && e.isAltDown()) {
-                    if (selectedEntityName != null && !selectedEntityName.isBlank()) {
+                    String target = selectedAnchorTargetName();
+                    if (target != null && !target.isBlank()) {
                         String anchorSource = findEntityNameAt(e.getX(), e.getY(), false);
-                        if (anchorSource != null && !anchorSource.equals(selectedEntityName)) {
+                        if (anchorSource != null && !anchorSource.equals(target)) {
                             Entity2D sourceEntity = scene != null ? scene.find(anchorSource) : null;
                             if (sourceEntity != null) {
                                 double[] world = screenToWorld(e.getX(), e.getY());
-                                setOrbitAnchorSource(selectedEntityName, anchorSource, world[0], world[1]);
+                                setOrbitAnchorSource(target, anchorSource, world[0], world[1]);
                                 render();
                                 return;
                             }
@@ -2199,7 +2231,7 @@ public class AnimationPreview extends VBox {
                 }
 
                 if (orbitToolEnabled && e.isShiftDown()) {
-                    String target = selectedEntityName;
+                    String target = selectedAnchorTargetName();
                     if (target == null || target.isBlank()) {
                         target = findEntityNameAt(e.getX(), e.getY(), true);
                         if (target != null && onEntitySelected != null) {
@@ -2214,8 +2246,9 @@ public class AnimationPreview extends VBox {
                     return;
                 }
 
-                if (orbitToolEnabled && selectedEntity != null && isNearOrbitAnchorHandle(e.getX(), e.getY())) {
-                    if (resolveEntityLocked(selectedEntityName)) return;
+                String selectedAnchorTarget = selectedAnchorTargetName();
+                if (orbitToolEnabled && selectedAnchorTarget != null && isNearOrbitAnchorHandle(e.getX(), e.getY())) {
+                    if (resolveAnchorTargetLocked(selectedAnchorTarget)) return;
                     draggingOrbitAnchor = true;
                     return;
                 }
@@ -2345,9 +2378,9 @@ public class AnimationPreview extends VBox {
                 }
                 notifyCameraStateChanged();
                 render();
-            } else if (draggingOrbitAnchor && selectedEntityName != null) {
+            } else if (draggingOrbitAnchor && selectedAnchorTargetName() != null) {
                 double[] world = screenToWorld(e.getX(), e.getY());
-                setOrbitAnchor(selectedEntityName, world[0], world[1]);
+                setOrbitAnchor(selectedAnchorTargetName(), world[0], world[1]);
                 render();
             } else if (draggingOrbit && selectedEntity != null && selectedEntityName != null) {
                 double[] anchor = getOrbitAnchor(selectedEntityName);
@@ -2608,15 +2641,11 @@ public class AnimationPreview extends VBox {
 
         WorldBounds bounds = computeGroupVisualBounds(selectedGroupName);
         if (bounds == null || bounds.isEmpty()) return false;
+        boolean usingOrbitAnchor = getOrbitAnchor(selectedGroupName) != null;
         double[] center = rotationCenterForTarget(selectedGroupName, bounds);
         double[] world = screenToWorld(screenX, screenY);
         if (!Double.isFinite(world[0]) || !Double.isFinite(world[1])) return false;
 
-        double angle = Math.atan2(world[1] - center[1], world[0] - center[0]);
-        double baseRotation = group.getGroupTrack().getValueAt(PropertyType.ROTATION, project.getPlayheadMs());
-        rotateDragState = new RotateDragState(center[0], center[1], angle, baseRotation);
-        rotateDragState.currentMouseWorldX = world[0];
-        rotateDragState.currentMouseWorldY = world[1];
         groupRotateMemberStartStates.clear();
         for (String memberName : selectedGroupMemberNames) {
             Entity2D member = scene.find(memberName);
@@ -2631,8 +2660,18 @@ public class AnimationPreview extends VBox {
             rotateDragState = null;
             return false;
         }
-        draggingGroupRotate = true;
+
         beginGroupMoveInteraction(selectedGroupName);
+        if (usingOrbitAnchor && syncGroupPivotToWorldCenter(selectedGroupName, center, bounds)) {
+            center = groupPivotCenterFromBounds(selectedGroupName, bounds);
+        }
+
+        double angle = Math.atan2(world[1] - center[1], world[0] - center[0]);
+        double baseRotation = group.getGroupTrack().getValueAt(PropertyType.ROTATION, project.getPlayheadMs());
+        rotateDragState = new RotateDragState(center[0], center[1], angle, baseRotation);
+        rotateDragState.currentMouseWorldX = world[0];
+        rotateDragState.currentMouseWorldY = world[1];
+        draggingGroupRotate = true;
         return true;
     }
 
@@ -3383,7 +3422,8 @@ public class AnimationPreview extends VBox {
         gc.setStroke(Color.web("#58d68d", 0.75));
         gc.setLineWidth(1.0 / z);
         gc.setLineDashes(4.0 / z, 3.0 / z);
-        if (draggingOrbitAnchor && selectedEntityName != null && selectedEntityName.equals(entityName)) {
+        String selectedAnchorTarget = selectedAnchorTargetName();
+        if (draggingOrbitAnchor && selectedAnchorTarget != null && selectedAnchorTarget.equals(entityName)) {
             double dashOffset = (System.currentTimeMillis() / 20.0) % 20.0;
             gc.setLineDashOffset(-dashOffset / z);
         }
@@ -3408,11 +3448,56 @@ public class AnimationPreview extends VBox {
                 && Double.isFinite(center[0]) && Double.isFinite(center[1])) {
                 return center;
             }
+            double[] visualCenter = groupPivotCenterFromBounds(targetName, fallbackBounds);
+            if (visualCenter != null && visualCenter.length >= 2
+                && Double.isFinite(visualCenter[0]) && Double.isFinite(visualCenter[1])) {
+                return visualCenter;
+            }
         }
         if (fallbackBounds != null && !fallbackBounds.isEmpty()) {
             return new double[]{fallbackBounds.centerX(), fallbackBounds.centerY()};
         }
         return new double[]{0.0, 0.0};
+    }
+
+    private double[] groupPivotCenterFromBounds(String groupName, WorldBounds bounds) {
+        if (project == null || groupName == null || groupName.isBlank() || bounds == null || bounds.isEmpty()) {
+            return null;
+        }
+        EntityGroup group = project.getGroup(groupName);
+        if (group == null) return null;
+        EntityTrack groupTrack = group.getGroupTrack();
+        double time = project.getPlayheadMs();
+        double pivotX = groupTrack.hasKeyframes(PropertyType.PIVOT_X)
+            ? groupTrack.getValueAt(PropertyType.PIVOT_X, time)
+            : PropertyType.PIVOT_X.getDefaultValue();
+        double pivotY = groupTrack.hasKeyframes(PropertyType.PIVOT_Y)
+            ? groupTrack.getValueAt(PropertyType.PIVOT_Y, time)
+            : PropertyType.PIVOT_Y.getDefaultValue();
+        return new double[]{
+            bounds.minX + bounds.width() * clampPivot(pivotX),
+            bounds.minY + bounds.height() * clampPivot(pivotY)
+        };
+    }
+
+    private boolean syncGroupPivotToWorldCenter(String groupName, double[] worldCenter, WorldBounds bounds) {
+        if (project == null || groupName == null || groupName.isBlank()
+            || worldCenter == null || worldCenter.length < 2 || bounds == null || bounds.isEmpty()) {
+            return false;
+        }
+        if (project.getGroup(groupName) == null) return false;
+        double pivotX = clampPivot((worldCenter[0] - bounds.minX) / Math.max(1e-6, bounds.width()));
+        double pivotY = clampPivot((worldCenter[1] - bounds.minY) / Math.max(1e-6, bounds.height()));
+        if (!Double.isFinite(pivotX) || !Double.isFinite(pivotY)) return false;
+        if (onEntityPivotChanged != null) {
+            onEntityPivotChanged.accept(groupName, new double[]{pivotX, pivotY});
+        } else {
+            EntityTrack track = project.getGroup(groupName).getGroupTrack();
+            double time = project.getPlayheadMs();
+            track.upsertKeyframe(PropertyType.PIVOT_X, new Keyframe(time, pivotX));
+            track.upsertKeyframe(PropertyType.PIVOT_Y, new Keyframe(time, pivotY));
+        }
+        return true;
     }
 
     private PivotDragState buildPivotDragState(Entity2D entity) {
