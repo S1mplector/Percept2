@@ -236,9 +236,9 @@ public class AnchorEditor extends VBox {
         btnZoomIn.setStyle(S_BTN_ZOOM);
         btnZoomIn.setOnAction(e -> smoothZoomTo(canvasZoom * ZOOM_STEP));
 
-        Button btnZoomReset = new Button("1:1");
-        btnZoomReset.setStyle(S_BTN_ZOOM + "-fx-min-width: 30; -fx-pref-width: 30;");
-        btnZoomReset.setOnAction(e -> smoothZoomTo(1.0));
+        Button btnViewport = new Button("Pick in Viewport");
+        btnViewport.setStyle(S_BTN_ZOOM + "-fx-min-width: 106; -fx-pref-width: 106; -fx-max-width: 110;");
+        btnViewport.setOnAction(e -> beginViewportPlacement());
 
         btnExpandCanvas = new Button("Expand");
         btnExpandCanvas.setStyle(S_BTN_ZOOM + "-fx-min-width: 74; -fx-pref-width: 74; -fx-max-width: 84;");
@@ -251,7 +251,7 @@ public class AnchorEditor extends VBox {
         Label zoomLabel = new Label("Zoom:");
         zoomLabel.setStyle("-fx-text-fill: #777; -fx-font-size: 10px;");
 
-        HBox zoomBar = new HBox(5, zoomLabel, btnZoomOut, lblZoom, btnZoomIn, btnZoomReset, btnExpandCanvas);
+        HBox zoomBar = new HBox(5, zoomLabel, btnZoomOut, lblZoom, btnZoomIn, btnViewport, btnExpandCanvas);
         zoomBar.setAlignment(Pos.CENTER_LEFT);
         zoomBar.setPadding(new Insets(4, 8, 4, 8));
         zoomBar.setStyle(

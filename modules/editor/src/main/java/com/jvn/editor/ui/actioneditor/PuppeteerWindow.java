@@ -1412,6 +1412,7 @@ public class PuppeteerWindow extends Stage {
         Tab anchorsTab = new Tab("Anchors", anchorEditor);
         anchorsTab.setClosable(false);
         TabPane leftTabs = new TabPane(entitiesTab, selectionTab, sceneTab, anchorsTab);
+        leftTabs.getStyleClass().add("sidebar-tab-pane");
         leftTabs.setMinWidth(0);
         leftTabs.setMaxWidth(Double.MAX_VALUE);
         leftTabs.setTabMinWidth(56);
