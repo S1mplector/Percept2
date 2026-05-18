@@ -1207,7 +1207,9 @@ public final class DocsScreenshotTool extends Application {
         view.setEditorVersion("dev");
         view.setWorkspaceRoot(repoRoot.toFile());
         view.setCurrentProject(fixtureRoot.toFile());
-        return openToolStage("Docs Screenshot Session - Welcome Center", view, 1600, 980);
+        Stage stage = openToolStage("Docs Screenshot Session - Welcome Center", view, 1600, 980);
+        stage.setOnHidden(e -> view.shutdown());
+        return stage;
     }
 
     private static Stage openRunConsoleWindow(Path repoRoot) {

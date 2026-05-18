@@ -1533,6 +1533,12 @@ public class WelcomeCenterView extends BorderPane {
       File docsDir) {
   }
 
+  public void shutdown() {
+    if (worker != null && !worker.isShutdown()) {
+      worker.shutdownNow();
+    }
+  }
+
   private final class SpotlightLinkRow extends HBox {
     private final Label titleLabel = new Label();
     private final Label detailLabel = new Label();

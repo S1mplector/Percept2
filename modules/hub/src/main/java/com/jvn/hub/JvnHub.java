@@ -1259,7 +1259,7 @@ public final class JvnHub {
 
   private int balancedLaunchWorkerCount() {
     int processors = Math.max(1, Runtime.getRuntime().availableProcessors());
-    return processors <= 2 ? 1 : 2;
+    return Math.max(2, processors <= 4 ? 2 : processors - 2);
   }
 
   private List<String> developerGradleOptions() {

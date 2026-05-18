@@ -36,10 +36,7 @@ public final class AsyncAssetLoader {
       return Math.min(16, configured);
     }
     int processors = Math.max(1, availableProcessors);
-    if (processors <= 2) {
-      return 1;
-    }
-    return Math.min(4, processors - 1);
+    return Math.max(4, Math.min(16, processors * 2));
   }
 
   private static int parsePositiveInt(String value) {
