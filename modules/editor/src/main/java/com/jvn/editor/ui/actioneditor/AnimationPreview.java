@@ -246,6 +246,7 @@ public class AnimationPreview extends VBox {
     }
 
     private static final class AnchorPlacementPreview {
+        final boolean valid;
         final double screenX;
         final double screenY;
         final double worldX;
@@ -253,14 +254,25 @@ public class AnimationPreview extends VBox {
         final double relX;
         final double relY;
 
-        AnchorPlacementPreview(double screenX, double screenY, double worldX, double worldY,
+        AnchorPlacementPreview(boolean valid, double screenX, double screenY, double worldX, double worldY,
                                double relX, double relY) {
+            this.valid = valid;
             this.screenX = screenX;
             this.screenY = screenY;
             this.worldX = worldX;
             this.worldY = worldY;
             this.relX = relX;
             this.relY = relY;
+        }
+
+        static AnchorPlacementPreview valid(double screenX, double screenY, double worldX, double worldY,
+                                            double relX, double relY) {
+            return new AnchorPlacementPreview(true, screenX, screenY, worldX, worldY, relX, relY);
+        }
+
+        static AnchorPlacementPreview unavailable(double screenX, double screenY) {
+            return new AnchorPlacementPreview(false, screenX, screenY,
+                Double.NaN, Double.NaN, Double.NaN, Double.NaN);
         }
     }
 
@@ -638,7 +650,7 @@ public class AnimationPreview extends VBox {
                 anchorPlacementCursorScreenX,
                 anchorPlacementCursorScreenY
             );
-            if (preview != null) {
+            if (preview.valid) {
                 drawAnchorPlacementMarker(preview, canvasW, canvasH);
             } else if (isInsideViewport(anchorPlacementCursorScreenX, anchorPlacementCursorScreenY)) {
                 drawAnchorPlacementUnavailableMarker(anchorPlacementCursorScreenX, anchorPlacementCursorScreenY, canvasW, canvasH);
@@ -1977,16 +1989,22 @@ public class AnimationPreview extends VBox {
     }
 
     private AnchorPlacementPreview computeAnchorPlacementPreview(double screenX, double screenY) {
-        if (!anchorPlacementMode || !isInsideViewport(screenX, screenY)) return null;
+        if (!anchorPlacementMode || !isInsideViewport(screenX, screenY)) {
+            return AnchorPlacementPreview.unavailable(screenX, screenY);
+        }
         double[] world = screenToWorld(screenX, screenY);
-        if (!Double.isFinite(world[0]) || !Double.isFinite(world[1])) return null;
+        if (!Double.isFinite(world[0]) || !Double.isFinite(world[1])) {
+            return AnchorPlacementPreview.unavailable(screenX, screenY);
+        }
 
         if (selectedEntity != null) {
             double[] corners = getEntityCorners(selectedEntity);
-            if (!containsPointInQuad(corners, world[0], world[1])) return null;
+            if (!containsPointInQuad(corners, world[0], world[1])) {
+                return AnchorPlacementPreview.unavailable(screenX, screenY);
+            }
 
             EntityFrame frame = describeEntity(selectedEntity);
-            if (frame == null) return null;
+            if (frame == null) return AnchorPlacementPreview.unavailable(screenX, screenY);
 
             double dx = world[0] - selectedEntity.getX();
             double dy = world[1] - selectedEntity.getY();
@@ -1998,23 +2016,25 @@ public class AnimationPreview extends VBox {
             double localY = unrotY / Math.max(1e-6, frame.scaleY);
             double relX = clamp(frame.originX + localX / Math.max(1e-6, frame.w), 0.0, 1.0);
             double relY = clamp(frame.originY + localY / Math.max(1e-6, frame.h), 0.0, 1.0);
-            return new AnchorPlacementPreview(screenX, screenY, world[0], world[1], relX, relY);
+            return AnchorPlacementPreview.valid(screenX, screenY, world[0], world[1], relX, relY);
         }
 
         if (selectedGroupName != null) {
             WorldBounds bounds = computeGroupVisualBounds(selectedGroupName);
-            if (bounds == null || bounds.isEmpty()) return null;
+            if (bounds == null || bounds.isEmpty()) {
+                return AnchorPlacementPreview.unavailable(screenX, screenY);
+            }
             if (world[0] < bounds.minX || world[0] > bounds.maxX
                 || world[1] < bounds.minY || world[1] > bounds.maxY) {
-                return null;
+                return AnchorPlacementPreview.unavailable(screenX, screenY);
             }
 
             double relX = clamp((world[0] - bounds.minX) / Math.max(1e-6, bounds.width()), 0.0, 1.0);
             double relY = clamp((world[1] - bounds.minY) / Math.max(1e-6, bounds.height()), 0.0, 1.0);
-            return new AnchorPlacementPreview(screenX, screenY, world[0], world[1], relX, relY);
+            return AnchorPlacementPreview.valid(screenX, screenY, world[0], world[1], relX, relY);
         }
 
-        return null;
+        return AnchorPlacementPreview.unavailable(screenX, screenY);
     }
 
     private boolean isInsideViewport(double screenX, double screenY) {
@@ -2347,7 +2367,7 @@ public class AnimationPreview extends VBox {
                     anchorPlacementCursorScreenX = e.getX();
                     anchorPlacementCursorScreenY = e.getY();
                     AnchorPlacementPreview preview = computeAnchorPlacementPreview(e.getX(), e.getY());
-                    if (preview != null) {
+                    if (preview.valid) {
                         if (onAnchorPlacementAt != null) {
                             onAnchorPlacementAt.accept(new double[]{preview.relX, preview.relY});
                         }
