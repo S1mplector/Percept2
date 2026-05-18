@@ -157,6 +157,10 @@ public class AnimationProject {
         private final double z;
         private final boolean visible;
         private final double alpha;
+        private final double visualMinX;
+        private final double visualMinY;
+        private final double visualMaxX;
+        private final double visualMaxY;
 
         public SceneEntitySnapshot(
             String name,
@@ -172,6 +176,31 @@ public class AnimationProject {
             boolean visible,
             double alpha
         ) {
+            this(name, type, imagePath, x, y, width, height, originX, originY, z, visible, alpha,
+                x - originX * width,
+                y - originY * height,
+                x - originX * width + width,
+                y - originY * height + height);
+        }
+
+        public SceneEntitySnapshot(
+            String name,
+            String type,
+            String imagePath,
+            double x,
+            double y,
+            double width,
+            double height,
+            double originX,
+            double originY,
+            double z,
+            boolean visible,
+            double alpha,
+            double visualMinX,
+            double visualMinY,
+            double visualMaxX,
+            double visualMaxY
+        ) {
             this.name = name != null ? name.trim() : "";
             this.type = type != null && !type.isBlank() ? type.trim() : "entity";
             this.imagePath = imagePath != null ? imagePath.trim() : "";
@@ -184,6 +213,14 @@ public class AnimationProject {
             this.z = sanitizeFinite(z, 0.0);
             this.visible = visible;
             this.alpha = sanitizeFinite(alpha, 1.0);
+            double fallbackMinX = this.x - this.originX * this.width;
+            double fallbackMinY = this.y - this.originY * this.height;
+            double fallbackMaxX = fallbackMinX + this.width;
+            double fallbackMaxY = fallbackMinY + this.height;
+            this.visualMinX = sanitizeFinite(visualMinX, fallbackMinX);
+            this.visualMinY = sanitizeFinite(visualMinY, fallbackMinY);
+            this.visualMaxX = sanitizeFinite(visualMaxX, fallbackMaxX);
+            this.visualMaxY = sanitizeFinite(visualMaxY, fallbackMaxY);
         }
 
         public String name() { return name; }
@@ -198,6 +235,10 @@ public class AnimationProject {
         public double z() { return z; }
         public boolean visible() { return visible; }
         public double alpha() { return alpha; }
+        public double visualMinX() { return visualMinX; }
+        public double visualMinY() { return visualMinY; }
+        public double visualMaxX() { return visualMaxX; }
+        public double visualMaxY() { return visualMaxY; }
     }
 
     public String getName() { return name; }
@@ -1230,9 +1271,7 @@ public class AnimationProject {
     private GroupBounds includeEntityRestBounds(GroupBounds bounds, String entityName) {
         SceneEntitySnapshot snapshot = sceneEntitySnapshots.get(entityName);
         if (snapshot != null) {
-            double minX = snapshot.x() - snapshot.originX() * snapshot.width();
-            double minY = snapshot.y() - snapshot.originY() * snapshot.height();
-            return bounds.include(minX, minY, minX + snapshot.width(), minY + snapshot.height());
+            return bounds.include(snapshot.visualMinX(), snapshot.visualMinY(), snapshot.visualMaxX(), snapshot.visualMaxY());
         }
 
         EntityTrack track = entityTracks.get(entityName);

@@ -516,7 +516,11 @@ public class CodeImporter {
                 parseDouble(attrs.get("oy"), 0.0),
                 parseDouble(attrs.get("z"), 0.0),
                 !"0".equals(attrs.getOrDefault("visible", "1")),
-                parseDouble(attrs.get("alpha"), 1.0)
+                parseDouble(attrs.get("alpha"), 1.0),
+                parseDouble(attrs.get("vminx"), parseDouble(attrs.get("x"), 0.0) - parseDouble(attrs.get("ox"), 0.0) * parseDouble(attrs.get("w"), 1.0)),
+                parseDouble(attrs.get("vminy"), parseDouble(attrs.get("y"), 0.0) - parseDouble(attrs.get("oy"), 0.0) * parseDouble(attrs.get("h"), 1.0)),
+                parseDouble(attrs.get("vmaxx"), parseDouble(attrs.get("x"), 0.0) - parseDouble(attrs.get("ox"), 0.0) * parseDouble(attrs.get("w"), 1.0) + parseDouble(attrs.get("w"), 1.0)),
+                parseDouble(attrs.get("vmaxy"), parseDouble(attrs.get("y"), 0.0) - parseDouble(attrs.get("oy"), 0.0) * parseDouble(attrs.get("h"), 1.0) + parseDouble(attrs.get("h"), 1.0))
             ));
         }
         return snapshots;
