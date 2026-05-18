@@ -269,7 +269,7 @@ public class EditorApp extends Application {
       ".settings", ".project", ".properties", ".md", ".json",
       ".yaml", ".yml", ".toml", ".ini", ".cfg", ".xml", ".csv", ".tsv"
   };
-  private static final long MIN_STARTUP_SPLASH_MS = 0L;
+  private static final long MIN_STARTUP_SPLASH_MS = 1500L;
   private static final long STARTUP_STEP_DELAY_MS = 0L;
   private static final boolean STRICT_STARTUP_GRADLE_CHECK =
       Boolean.getBoolean("jvn.editor.strictStartupGradleCheck");
