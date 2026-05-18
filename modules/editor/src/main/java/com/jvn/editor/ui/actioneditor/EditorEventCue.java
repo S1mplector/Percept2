@@ -93,9 +93,10 @@ public class EditorEventCue implements Comparable<EditorEventCue> {
 
     public String getDslPreview() {
         String normalizedType = normalizedType();
-        boolean directAction = isDirectDslAction(normalizedType);
-        String action = directAction ? normalizedType : "event";
         String target = firstPayload("target");
+        boolean directAction = isDirectDslAction(normalizedType)
+            && ("scene".equals(normalizedType) || !target.isBlank());
+        String action = directAction ? normalizedType : "event";
         StringBuilder sb = new StringBuilder();
         sb.append(action);
         if (directAction && !target.isBlank()) {

@@ -6001,18 +6001,37 @@ public class PuppeteerWindow extends Stage {
         Label lblResolved = makeToolbarLabel("");
         lblResolved.setWrapText(true);
 
+        TextArea taDslPreview = new TextArea();
+        taDslPreview.setEditable(false);
+        taDslPreview.setFocusTraversable(false);
+        taDslPreview.setPrefRowCount(6);
+        taDslPreview.setWrapText(false);
+        taDslPreview.setStyle("-fx-control-inner-background: #111111; -fx-text-fill: #ececec;");
+
         Runnable refreshResolved = () -> {
             String target = cbTarget.getValue() == null ? "" : cbTarget.getValue().trim();
             String expression = cbExpression.getValue() == null ? "" : cbExpression.getValue().trim();
             List<ExpressionLayerSpec> layers = resolveExpressionLayerSpecs(target, expression, Map.of());
             String path = firstNonBlank(tfPath.getText(), resolveRawCueAssetPath(target, expression));
             if (!layers.isEmpty()) {
-                lblResolved.setText(layers.size() + " layer preset resolved");
+                String layerNames = String.join(", ", layers.stream()
+                    .map(ExpressionLayerSpec::layerId)
+                    .filter(name -> name != null && !name.isBlank())
+                    .toList());
+                lblResolved.setText(layers.size() + " layered sprite entries resolved"
+                    + (layerNames.isBlank() ? "" : ": " + layerNames));
             } else if (path != null && !path.isBlank()) {
-                lblResolved.setText("Sprite path resolved");
+                lblResolved.setText("Sprite path resolved: " + path);
             } else {
                 lblResolved.setText("No mapping found; the expression name will still export for VN runtime playback.");
             }
+            double previewTime = parseNonNegativeDoubleOr(tfTime.getText(), project.getPlayheadMs());
+            Map<String, String> payload = buildExpressionCuePayload(
+                target,
+                expression,
+                tfPath.getText(),
+                cbEmbedResolved.isSelected());
+            taDslPreview.setText(new EditorEventCue(previewTime, "expression", payload).getDslPreview());
         };
 
         cbTarget.valueProperty().addListener((obs, oldValue, newValue) -> {
@@ -6026,6 +6045,8 @@ public class PuppeteerWindow extends Stage {
         });
         cbExpression.valueProperty().addListener((obs, oldValue, newValue) -> refreshResolved.run());
         tfPath.textProperty().addListener((obs, oldValue, newValue) -> refreshResolved.run());
+        tfTime.textProperty().addListener((obs, oldValue, newValue) -> refreshResolved.run());
+        cbEmbedResolved.selectedProperty().addListener((obs, oldValue, newValue) -> refreshResolved.run());
         refreshResolved.run();
 
         GridPane form = new GridPane();
@@ -6042,15 +6063,21 @@ public class PuppeteerWindow extends Stage {
         form.add(tfPath, 1, 3);
         form.add(cbEmbedResolved, 1, 4);
 
-        VBox body = new VBox(8, form, lblResolved);
+        VBox body = new VBox(
+            8,
+            form,
+            lblResolved,
+            makeToolbarLabel("DSL Preview"),
+            taDslPreview
+        );
         body.setPadding(new Insets(0, 8, 8, 8));
 
         overlayDialog.showDialog(
             "Expression Keyframe",
-            "Switch a character expression at an exact timeline frame.",
+            "Switches a character sprite/expression; the preview shows the exact timeline DSL and layered sprite payload.",
             body,
             ActionEditorDialogOverlay.ActionSpec.neutral("Cancel", overlayDialog::hideOverlay),
-            ActionEditorDialogOverlay.ActionSpec.accent("Add", () -> {
+            ActionEditorDialogOverlay.ActionSpec.stayOpen("Add", ActionEditorDialogOverlay.ButtonStyle.ACCENT, () -> {
                 double timeMs;
                 try {
                     timeMs = Math.max(0.0, Double.parseDouble(tfTime.getText().trim()));
@@ -6068,20 +6095,17 @@ public class PuppeteerWindow extends Stage {
                     cbExpression.requestFocus();
                     return;
                 }
-                Map<String, String> payload = new LinkedHashMap<>();
-                payload.put("target", target);
-                payload.put("value", expression);
                 String directPath = tfPath.getText() == null ? "" : tfPath.getText().trim();
-                if (!directPath.isBlank()) {
-                    payload.put("path", directPath);
-                }
-                if (cbEmbedResolved.isSelected()) {
-                    enrichExpressionPayload("expression", payload, target, expression, directPath);
-                }
+                Map<String, String> payload = buildExpressionCuePayload(
+                    target,
+                    expression,
+                    directPath,
+                    cbEmbedResolved.isSelected());
                 project.addEditorEventCue(new EditorEventCue(timeMs, "expression", payload));
                 timelinePanel.refresh();
                 updatePreview();
                 refreshExportPreviewAndMarkDirty();
+                overlayDialog.hideOverlay();
             })
         );
     }
@@ -6110,9 +6134,7 @@ public class PuppeteerWindow extends Stage {
                     setText(null);
                     return;
                 }
-                String target = item.getPayloadValue("target");
-                String suffix = target == null || target.isBlank() ? "" : " -> " + target;
-                setText(String.format("%.0fms  %s%s", item.getTimeMs(), item.getType(), suffix));
+                setText(item.getDisplayLabel());
             }
         });
 
@@ -6152,12 +6174,33 @@ public class PuppeteerWindow extends Stage {
         taExtra.setWrapText(false);
         taExtra.setStyle("-fx-control-inner-background: #111111; -fx-text-fill: #ececec;");
 
+        TextArea taDslPreview = new TextArea();
+        taDslPreview.setEditable(false);
+        taDslPreview.setFocusTraversable(false);
+        taDslPreview.setPrefRowCount(6);
+        taDslPreview.setWrapText(false);
+        taDslPreview.setStyle("-fx-control-inner-background: #111111; -fx-text-fill: #ececec;");
+
         Label lblTypeHint = makeToolbarLabel("");
         Label lblValue = makeToolbarLabel("Value");
         Label lblPath = makeToolbarLabel("Path");
         Label lblPosition = makeToolbarLabel("Position");
 
         Runnable refreshList = () -> cueList.getItems().setAll(project.getEditorEventCues());
+        Runnable refreshCuePreview = () -> {
+            String preset = cbTypePreset.getValue() == null ? "expression" : cbTypePreset.getValue();
+            String type = "custom".equals(preset) ? tfType.getText().trim() : preset;
+            double timeMs = parseNonNegativeDoubleOr(tfTime.getText(), project.getPlayheadMs());
+            Map<String, String> payload = buildEventCuePayload(
+                type,
+                tfTarget.getText(),
+                tfValue.getText(),
+                tfPath.getText(),
+                tfPosition.getText(),
+                parsePayloadLines(taExtra.getText()),
+                true);
+            taDslPreview.setText(new EditorEventCue(timeMs, type, payload).getDslPreview());
+        };
         Runnable clearForm = () -> {
             cueList.getSelectionModel().clearSelection();
             cbTypePreset.setValue("expression");
@@ -6168,6 +6211,7 @@ public class PuppeteerWindow extends Stage {
             tfPath.clear();
             tfPosition.clear();
             taExtra.clear();
+            refreshCuePreview.run();
         };
         Runnable refreshTypeUi = () -> {
             String preset = cbTypePreset.getValue() == null ? "expression" : cbTypePreset.getValue();
@@ -6286,10 +6330,21 @@ public class PuppeteerWindow extends Stage {
             }
             taExtra.setText(formatPayloadLines(remaining));
             refreshTypeUi.run();
+            refreshCuePreview.run();
         };
 
         cueList.getSelectionModel().selectedItemProperty().addListener((obs, oldValue, newValue) -> loadCue.accept(newValue));
-        cbTypePreset.setOnAction(e -> refreshTypeUi.run());
+        cbTypePreset.setOnAction(e -> {
+            refreshTypeUi.run();
+            refreshCuePreview.run();
+        });
+        tfType.textProperty().addListener((obs, oldValue, newValue) -> refreshCuePreview.run());
+        tfTime.textProperty().addListener((obs, oldValue, newValue) -> refreshCuePreview.run());
+        tfTarget.textProperty().addListener((obs, oldValue, newValue) -> refreshCuePreview.run());
+        tfValue.textProperty().addListener((obs, oldValue, newValue) -> refreshCuePreview.run());
+        tfPath.textProperty().addListener((obs, oldValue, newValue) -> refreshCuePreview.run());
+        tfPosition.textProperty().addListener((obs, oldValue, newValue) -> refreshCuePreview.run());
+        taExtra.textProperty().addListener((obs, oldValue, newValue) -> refreshCuePreview.run());
 
         refreshList.run();
         if (initialSelection != null) {
@@ -6321,6 +6376,8 @@ public class PuppeteerWindow extends Stage {
             8,
             form,
             lblTypeHint,
+            makeToolbarLabel("DSL Preview"),
+            taDslPreview,
             makeToolbarLabel("Timeline Event Cues"),
             cueList,
             makeToolbarLabel("Extra Payload"),
@@ -6330,7 +6387,7 @@ public class PuppeteerWindow extends Stage {
 
         overlayDialog.showDialog(
             "Timeline Event Cues",
-            "Author discrete sprite swaps, show/hide beats, and scene changes.",
+            "Author discrete sprite swaps, show/hide beats, and scene changes with a live DSL preview.",
             body,
             ActionEditorDialogOverlay.ActionSpec.neutral("Close", overlayDialog::hideOverlay).defaultFocus(true),
             ActionEditorDialogOverlay.ActionSpec.stayOpen("New Cue", ActionEditorDialogOverlay.ButtonStyle.NEUTRAL, clearForm),
@@ -6350,47 +6407,18 @@ public class PuppeteerWindow extends Stage {
                     return;
                 }
 
-                Map<String, String> payload = parsePayloadLines(taExtra.getText());
                 String target = tfTarget.getText() == null ? "" : tfTarget.getText().trim();
                 String value = tfValue.getText() == null ? "" : tfValue.getText().trim();
                 String path = tfPath.getText() == null ? "" : tfPath.getText().trim();
                 String position = tfPosition.getText() == null ? "" : tfPosition.getText().trim();
-
-                if (!target.isBlank()) payload.put("target", target);
-
-                switch (type) {
-                    case "expression" -> {
-                        if (!value.isBlank()) payload.put("value", value);
-                        if (!path.isBlank()) payload.put("path", path);
-                        if (!position.isBlank()) payload.put("position", position);
-                    }
-                    case "show" -> {
-                        if (!value.isBlank()) payload.put("expression", value);
-                        if (!path.isBlank()) payload.put("path", path);
-                        if (!position.isBlank()) payload.put("position", position);
-                    }
-                    case "replace" -> {
-                        if (!value.isBlank()) payload.put("expression", value);
-                        if (!path.isBlank()) payload.put("path", path);
-                    }
-                    case "scene" -> {
-                        if (!value.isBlank()) payload.put("id", value);
-                        if (!path.isBlank()) payload.put("path", path);
-                    }
-                    case "dialogue_marker" -> {
-                        if (!value.isBlank()) payload.put("id", value);
-                    }
-                    case "script_call" -> {
-                        if (!value.isBlank()) payload.put("name", value);
-                        if (!path.isBlank()) payload.put("arg", path);
-                    }
-                    default -> {
-                        if (!value.isBlank()) payload.putIfAbsent("value", value);
-                        if (!path.isBlank()) payload.putIfAbsent("path", path);
-                        if (!position.isBlank()) payload.putIfAbsent("position", position);
-                    }
-                }
-                enrichExpressionPayload(type, payload, target, value, path);
+                Map<String, String> payload = buildEventCuePayload(
+                    type,
+                    target,
+                    value,
+                    path,
+                    position,
+                    parsePayloadLines(taExtra.getText()),
+                    true);
 
                 EditorEventCue selected = cueList.getSelectionModel().getSelectedItem();
                 if (selected != null) {
@@ -6423,6 +6451,92 @@ public class PuppeteerWindow extends Stage {
                 refreshExportPreviewAndMarkDirty();
             })
         );
+    }
+
+    private Map<String, String> buildExpressionCuePayload(String target,
+                                                          String expression,
+                                                          String directPath,
+                                                          boolean embedResolved) {
+        Map<String, String> payload = new LinkedHashMap<>();
+        if (target != null && !target.isBlank()) {
+            payload.put("target", target.trim());
+        }
+        if (expression != null && !expression.isBlank()) {
+            payload.put("value", expression.trim());
+        }
+        if (directPath != null && !directPath.isBlank()) {
+            payload.put("path", directPath.trim());
+        }
+        if (embedResolved) {
+            enrichExpressionPayload("expression", payload, target, expression, directPath);
+        }
+        return payload;
+    }
+
+    private Map<String, String> buildEventCuePayload(String type,
+                                                     String target,
+                                                     String value,
+                                                     String path,
+                                                     String position,
+                                                     Map<String, String> extraPayload,
+                                                     boolean enrichResolvedExpression) {
+        Map<String, String> payload = extraPayload == null
+            ? new LinkedHashMap<>()
+            : new LinkedHashMap<>(extraPayload);
+        String normalizedType = type == null ? "" : type.trim();
+        String typeKey = normalizedType.toLowerCase(Locale.ROOT);
+        String cleanTarget = target == null ? "" : target.trim();
+        String cleanValue = value == null ? "" : value.trim();
+        String cleanPath = path == null ? "" : path.trim();
+        String cleanPosition = position == null ? "" : position.trim();
+
+        if (!cleanTarget.isBlank()) payload.put("target", cleanTarget);
+
+        switch (typeKey) {
+            case "expression" -> {
+                if (!cleanValue.isBlank()) payload.put("value", cleanValue);
+                if (!cleanPath.isBlank()) payload.put("path", cleanPath);
+                if (!cleanPosition.isBlank()) payload.put("position", cleanPosition);
+            }
+            case "show" -> {
+                if (!cleanValue.isBlank()) payload.put("expression", cleanValue);
+                if (!cleanPath.isBlank()) payload.put("path", cleanPath);
+                if (!cleanPosition.isBlank()) payload.put("position", cleanPosition);
+            }
+            case "replace" -> {
+                if (!cleanValue.isBlank()) payload.put("expression", cleanValue);
+                if (!cleanPath.isBlank()) payload.put("path", cleanPath);
+            }
+            case "scene" -> {
+                if (!cleanValue.isBlank()) payload.put("id", cleanValue);
+                if (!cleanPath.isBlank()) payload.put("path", cleanPath);
+            }
+            case "dialogue_marker" -> {
+                if (!cleanValue.isBlank()) payload.put("id", cleanValue);
+            }
+            case "script_call" -> {
+                if (!cleanValue.isBlank()) payload.put("name", cleanValue);
+                if (!cleanPath.isBlank()) payload.put("arg", cleanPath);
+            }
+            default -> {
+                if (!cleanValue.isBlank()) payload.putIfAbsent("value", cleanValue);
+                if (!cleanPath.isBlank()) payload.putIfAbsent("path", cleanPath);
+                if (!cleanPosition.isBlank()) payload.putIfAbsent("position", cleanPosition);
+            }
+        }
+        if (enrichResolvedExpression) {
+            enrichExpressionPayload(typeKey, payload, cleanTarget, cleanValue, cleanPath);
+        }
+        return payload;
+    }
+
+    private static double parseNonNegativeDoubleOr(String raw, double fallback) {
+        if (raw == null || raw.isBlank()) return Math.max(0.0, fallback);
+        try {
+            return Math.max(0.0, Double.parseDouble(raw.trim()));
+        } catch (NumberFormatException ex) {
+            return Math.max(0.0, fallback);
+        }
     }
 
     private static Map<String, String> parsePayloadLines(String raw) {

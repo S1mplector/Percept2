@@ -1043,18 +1043,6 @@ public class TimelinePanel extends VBox {
         };
     }
 
-    private static String eventCueLabel(String type) {
-        if (type == null || type.isBlank()) return "?";
-        return switch (type.trim().toLowerCase()) {
-            case "expression" -> "E";
-            case "show" -> "S";
-            case "hide" -> "H";
-            case "replace" -> "R";
-            case "scene" -> "B";
-            default -> type.substring(0, 1).toUpperCase();
-        };
-    }
-
     private static double eventCueLabelWidth(String label) {
         String text = label == null ? "" : label;
         return Math.max(34.0, Math.min(178.0, text.length() * 5.8 + 12.0));

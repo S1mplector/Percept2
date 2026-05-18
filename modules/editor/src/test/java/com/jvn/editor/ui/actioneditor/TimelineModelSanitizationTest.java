@@ -41,6 +41,29 @@ class TimelineModelSanitizationTest {
     }
 
     @Test
+    void expressionEventCueHasDirectorFacingLabelsAndDslPreview() {
+        EditorEventCue cue = new EditorEventCue(500.0, "expression", java.util.Map.of(
+            "target", "hero",
+            "value", "angry",
+            "layers", "base=assets/hero/base.png;eyes=assets/hero/angry_eyes.png"
+        ));
+
+        assertEquals("500ms  expression  hero -> angry [layers]", cue.getDisplayLabel());
+        assertEquals("EXP hero:angry*", cue.getTimelineLabel());
+        assertTrue(cue.getDslPreview().contains("expression \"hero\""));
+        assertTrue(cue.getDslPreview().contains("value: \"angry\""));
+        assertTrue(cue.getDslPreview().contains("layers: \"base=assets/hero/base.png;eyes=assets/hero/angry_eyes.png\""));
+    }
+
+    @Test
+    void customEventCueDslPreviewUsesEventWrapper() {
+        EditorEventCue cue = new EditorEventCue(120.0, "script_call", java.util.Map.of("name", "flash"));
+
+        assertTrue(cue.getDslPreview().startsWith("event \"script_call\""));
+        assertTrue(cue.getDslPreview().contains("name: \"flash\""));
+    }
+
+    @Test
     void animationProjectClampsPlayheadAndLoopRegionToDuration() {
         AnimationProject project = new AnimationProject();
         project.setTotalDurationMs(1000.0);
