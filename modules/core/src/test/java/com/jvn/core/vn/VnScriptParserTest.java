@@ -485,6 +485,62 @@ public class VnScriptParserTest {
   }
 
   @Test
+  public void parsesExternalTimelineDirectiveAndIncludedCharacters() throws Exception {
+    String script = """
+      @scenario timeline_link
+      @include characters.vns
+
+      @label start
+      @external jes_timeline my_animation
+      [end]
+    """;
+
+    String characters = """
+      @character hero "Hero"
+      @charimg hero angry assets/characters/hero_angry.png
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario = parser.parse(
+        new ByteArrayInputStream(script.getBytes(StandardCharsets.UTF_8)),
+        "story/prologue.vns",
+        path -> {
+          if ("characters.vns".equals(path)) {
+            return new ByteArrayInputStream(characters.getBytes(StandardCharsets.UTF_8));
+          }
+          throw new IOException("Unexpected include: " + path);
+        });
+
+    assertNotNull(scenario.getCharacter("hero"));
+    VnNode external = scenario.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.EXTERNAL)
+        .findFirst()
+        .orElseThrow();
+
+    assertEquals("jes_timeline", external.getExternalCommand().getProvider());
+    assertEquals("my_animation", external.getExternalCommand().getPayload());
+  }
+
+  @Test
+  public void jesTimelineCommandIsShortcutForExternalTimelineCall() throws Exception {
+    String script = """
+      @label start
+      [jes_timeline my_animation wait]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario = parser.parseFromString(script);
+    VnNode external = scenario.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.EXTERNAL)
+        .findFirst()
+        .orElseThrow();
+
+    assertEquals("jes_timeline", external.getExternalCommand().getProvider());
+    assertEquals("my_animation wait", external.getExternalCommand().getPayload());
+  }
+
+  @Test
   public void rejectsUnknownCommandsWithStrictDiagnostics() {
     String script = """
       @label start

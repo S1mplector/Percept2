@@ -1,7 +1,15 @@
 package com.jvn.core.vn;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import com.jvn.core.animation.TimelineRegistry;
+import com.jvn.core.assets.AssetCatalog;
+import com.jvn.core.assets.ClasspathAssetManager;
+import com.jvn.core.assets.FilesystemAssetManager;
 import com.jvn.core.audio.AudioFacade;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -10,6 +18,35 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DefaultVnInteropQuotedArgsTest {
+  @Test
+  void loadsExternalJesTimelineFromProjectScripts(@TempDir Path projectRoot) throws Exception {
+    Path timelines = Files.createDirectories(projectRoot.resolve("scripts/timelines"));
+    Files.writeString(timelines.resolve("my_animation.jes"), """
+        timeline {
+          wait 25
+        }
+        """);
+    AssetCatalog.setDefaultManager(new FilesystemAssetManager(projectRoot));
+    TimelineRegistry.clear();
+
+    try {
+      VnScenario scenario = new VnScenarioBuilder("timeline_load")
+        .label("start")
+        .end()
+        .build();
+      VnScene scene = new VnScene(scenario);
+      DefaultVnInterop interop = new DefaultVnInterop();
+
+      interop.handle(new VnExternalCommand("jes_timeline", "my_animation"), scene);
+
+      assertTrue(TimelineRegistry.has("my_animation"));
+      assertEquals("jes_timeline: no scene accessor", scene.getState().getHudMessage());
+    } finally {
+      TimelineRegistry.clear();
+      AssetCatalog.setDefaultManager(new ClasspathAssetManager());
+    }
+  }
+
   @Test
   void supportsQuotedArgsInVarCondAndJavaInterop() {
     VnScenario scenario = new VnScenarioBuilder("quoted_interop")

@@ -1,12 +1,17 @@
 package com.jvn.core.vn;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -17,6 +22,8 @@ import com.jvn.core.animation.TimelineData;
 import com.jvn.core.animation.TimelineDataParser;
 import com.jvn.core.animation.TimelineRegistry;
 import com.jvn.core.animation.TimelineRunner;
+import com.jvn.core.assets.AssetCatalog;
+import com.jvn.core.assets.AssetType;
 import com.jvn.core.audio.AudioFacade;
 import com.jvn.core.vn.stage.VnStagePreset;
 import com.jvn.core.vn.ui.VnOverlayButtonSpec;
@@ -263,11 +270,13 @@ public class DefaultVnInterop implements VnInterop {
       scene.getState().showHudMessage("jes_timeline: no name specified", 1500);
       return VnInteropResult.advance();
     }
-    TimelineData data = TimelineRegistry.get(name);
-    if (data == null) {
+    TimelineResolveResult resolved = resolveTimelineData(name, scene);
+    if (resolved.data().isEmpty()) {
+      if (resolved.parseFailed()) return VnInteropResult.advance();
       scene.getState().showHudMessage("jes_timeline: not found: " + name, 1500);
       return VnInteropResult.advance();
     }
+    TimelineData data = resolved.data().get();
     if (sceneAccessor == null) {
       scene.getState().showHudMessage("jes_timeline: no scene accessor", 1500);
       return VnInteropResult.advance();
@@ -1171,22 +1180,114 @@ public class DefaultVnInterop implements VnInterop {
   ) {
     TimelineRunner runner = new TimelineRunner(data, sceneAccessor);
     runner.setOnFinished(() -> {
-      TimelineData next = resolveChainedTimeline(chain, index);
-      if (next == null) {
+      Optional<TimelineData> next = resolveChainedTimeline(chain, index, scene);
+      if (next.isEmpty()) {
         completed[0] = true;
         return;
       }
-      TimelineRunner nextRunner = createTimelineRunnerChain(next, scene, chain, index + 1, completed);
+      TimelineRunner nextRunner = createTimelineRunnerChain(next.get(), scene, chain, index + 1, completed);
       scene.getState().addTimelineRunner(nextRunner);
     });
     return runner;
   }
 
-  private TimelineData resolveChainedTimeline(List<String> chain, int index) {
-    if (chain == null || index >= chain.size()) return null;
+  private Optional<TimelineData> resolveChainedTimeline(List<String> chain, int index, VnScene scene) {
+    if (chain == null || index >= chain.size()) return Optional.empty();
     String name = chain.get(index);
-    if (name == null || name.isBlank()) return null;
-    return TimelineRegistry.get(name.trim());
+    if (name == null || name.isBlank()) return Optional.empty();
+    return resolveTimelineData(name.trim(), scene).data();
+  }
+
+  private TimelineResolveResult resolveTimelineData(String rawName, VnScene scene) {
+    String name = rawName == null ? "" : rawName.trim();
+    TimelineData data = TimelineRegistry.get(name);
+    if (data != null) return new TimelineResolveResult(Optional.of(data), false);
+
+    String lookupName = normalizedTimelineLookupName(name);
+    if (!lookupName.equals(name)) {
+      data = TimelineRegistry.get(lookupName);
+      if (data != null) return new TimelineResolveResult(Optional.of(data), false);
+    }
+
+    return loadTimelineFromAssets(name, lookupName, scene);
+  }
+
+  private TimelineResolveResult loadTimelineFromAssets(String rawName, String lookupName, VnScene scene) {
+    if (lookupName == null || lookupName.isBlank()) {
+      return new TimelineResolveResult(Optional.empty(), false);
+    }
+    for (String candidate : timelineAssetCandidates(rawName, lookupName)) {
+      String source = "";
+      try (InputStream in = new AssetCatalog().open(AssetType.SCRIPT, candidate)) {
+        source = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        TimelineData data = TimelineDataParser.parse(lookupName, source);
+        TimelineRegistry.register(data);
+        return new TimelineResolveResult(Optional.of(data), false);
+      } catch (IOException ignored) {
+        // Try the next conventional timeline path.
+      } catch (RuntimeException ex) {
+        if (scene != null) {
+          scene.getState().showHudMessage("jes_timeline parse error: " + shortMessage(ex), 2500);
+          scene.setActiveError(VnErrorOverlay.puppeteerJesParseError(candidate, source, ex));
+        }
+        return new TimelineResolveResult(Optional.empty(), true);
+      }
+    }
+    return new TimelineResolveResult(Optional.empty(), false);
+  }
+
+  private List<String> timelineAssetCandidates(String rawName, String lookupName) {
+    String normalizedRaw = normalizeTimelineAssetPath(rawName);
+    String normalizedLookup = normalizeTimelineAssetPath(lookupName);
+    if (normalizedLookup.isBlank() || isUnsafeTimelineAssetPath(normalizedLookup)) return List.of();
+
+    LinkedHashSet<String> candidates = new LinkedHashSet<>();
+    boolean explicitPath = normalizedRaw.contains("/") || normalizedRaw.endsWith(".jes");
+    if (explicitPath && !isUnsafeTimelineAssetPath(normalizedRaw)) {
+      candidates.add(ensureJesExtension(normalizedRaw));
+    }
+    if (!normalizedLookup.startsWith("timelines/") && !normalizedLookup.startsWith("scripts/")) {
+      candidates.add("timelines/" + ensureJesExtension(normalizedLookup));
+    }
+    if (!explicitPath && !normalizedRaw.isBlank() && !isUnsafeTimelineAssetPath(normalizedRaw)) {
+      candidates.add(ensureJesExtension(normalizedRaw));
+    }
+    candidates.add(ensureJesExtension(normalizedLookup));
+    return new ArrayList<>(candidates);
+  }
+
+  private String normalizedTimelineLookupName(String rawName) {
+    String normalized = normalizeTimelineAssetPath(rawName);
+    if (normalized.endsWith(".jes")) {
+      normalized = normalized.substring(0, normalized.length() - ".jes".length());
+    }
+    if (normalized.startsWith("scripts/timelines/")) {
+      normalized = normalized.substring("scripts/timelines/".length());
+    } else if (normalized.startsWith("timelines/")) {
+      normalized = normalized.substring("timelines/".length());
+    }
+    return normalized;
+  }
+
+  private String normalizeTimelineAssetPath(String rawName) {
+    String normalized = rawName == null ? "" : rawName.trim().replace('\\', '/');
+    while (normalized.startsWith("/")) normalized = normalized.substring(1);
+    return normalized;
+  }
+
+  private boolean isUnsafeTimelineAssetPath(String normalized) {
+    return normalized.contains("..") || normalized.contains(":");
+  }
+
+  private String ensureJesExtension(String name) {
+    return name.endsWith(".jes") ? name : name + ".jes";
+  }
+
+  private String shortMessage(Throwable ex) {
+    if (ex == null) return "unknown error";
+    String message = ex.getMessage();
+    if (message == null || message.isBlank()) message = ex.getClass().getSimpleName();
+    return message.length() > 120 ? message.substring(0, 120) + "..." : message;
   }
 
   private TimelineInvocation parseTimelineInvocation(String payload) {
@@ -1401,6 +1502,7 @@ public class DefaultVnInterop implements VnInterop {
 
   private record TimelineInvocation(String name, boolean waitForCompletion, List<String> chain) {}
   private record InlineTimelineInvocation(String block, boolean waitForCompletion, List<String> chain) {}
+  private record TimelineResolveResult(Optional<TimelineData> data, boolean parseFailed) {}
 
   private void handleCharacter(String payload, VnScene scene) {
     String[] toks = split(payload);

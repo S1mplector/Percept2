@@ -49,6 +49,7 @@ public class VnScriptParser {
   private static final Pattern POSITION_PATTERN = Pattern.compile("^@position\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern DEFINE_PATTERN = Pattern.compile("^@define\\s+(\\S+)(?:\\s+(.+))?$", Pattern.CASE_INSENSITIVE);
   private static final Pattern INCLUDE_PATTERN = Pattern.compile("^@include\\s+(.+)$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern EXTERNAL_PATTERN = Pattern.compile("^@external\\s+(\\S+)(?:\\s+(.+))?$", Pattern.CASE_INSENSITIVE);
   private static final Pattern DEFINE_SUB_PATTERN = Pattern.compile("\\$\\{([^}]+)}");
   private static final Pattern CHOICE_CONDITION_SUFFIX_PATTERN = Pattern.compile("^(.*)\\[if\\s+(.+)]\\s*$", Pattern.CASE_INSENSITIVE);
   private static final Pattern IF_GOTO_PATTERN = Pattern.compile("^(.+?)\\s+goto\\s+(\\S+)\\s*$", Pattern.CASE_INSENSITIVE);
@@ -508,14 +509,29 @@ public class VnScriptParser {
         if (resolver == null) {
           throw parseError(sourceName, lineNumber, "Include resolver not configured", rawLine);
         }
-        String resolved = normalizeSourceName(resolveIncludePath(sourceName, includePath));
-        if (includeStack.contains(resolved)) {
-          throw parseError(sourceName, lineNumber, "Include cycle detected for " + resolved, rawLine);
-        }
-        try (InputStream inc = resolver.open(resolved)) {
-          includeStack.push(resolved);
+        IOException firstFailure = null;
+        InputStream includeStream = null;
+        String resolvedSource = null;
+        for (String candidate : includeCandidates(sourceName, includePath)) {
+          if (includeStack.contains(candidate)) {
+            throw parseError(sourceName, lineNumber, "Include cycle detected for " + candidate, rawLine);
+          }
           try {
-            parseInto(inc, resolved, resolver, state, includeStack);
+            includeStream = resolver.open(candidate);
+            resolvedSource = candidate;
+            break;
+          } catch (IOException ex) {
+            if (firstFailure == null) firstFailure = ex;
+          }
+        }
+        if (includeStream == null || resolvedSource == null) {
+          if (firstFailure != null) throw firstFailure;
+          throw parseError(sourceName, lineNumber, "Included script not found: " + includePath, rawLine);
+        }
+        try (InputStream inc = includeStream) {
+          includeStack.push(resolvedSource);
+          try {
+            parseInto(inc, resolvedSource, resolver, state, includeStack);
           } finally {
             includeStack.pop();
           }
@@ -619,6 +635,20 @@ public class VnScriptParser {
       }
 
       ensureBuilder(state);
+
+      Matcher externalMatcher = EXTERNAL_PATTERN.matcher(trimmed);
+      if (externalMatcher.matches()) {
+        String provider = stripQuotes(externalMatcher.group(1).trim());
+        if (provider.isBlank()) {
+          throw parseError(sourceName, lineNumber, "@external requires a provider", rawLine);
+        }
+        String payload = externalMatcher.group(2) == null ? "" : stripQuotes(externalMatcher.group(2).trim());
+        state.contentEmitted = true;
+        flushChoices(state.builder, state.pendingChoices);
+        flushPendingVoice(state);
+        state.builder.external(provider, payload);
+        continue;
+      }
 
       Matcher varMatcher = VAR_PATTERN.matcher(trimmed);
       if (varMatcher.matches()) {
@@ -1776,6 +1806,11 @@ public class VnScriptParser {
         state.builder.external(provider, providerPayload);
         return;
       }
+      case "jes_timeline": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("jes_timeline", payload);
+        return;
+      }
       case "gosub": {
         // Subroutine call - pushes return address and jumps to label
         String label = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
@@ -2629,6 +2664,17 @@ public class VnScriptParser {
     int idx = src.lastIndexOf('/');
     if (idx < 0) return includePath;
     return src.substring(0, idx + 1) + includePath;
+  }
+
+  private List<String> includeCandidates(String sourceName, String includePath) {
+    List<String> candidates = new ArrayList<>();
+    String resolved = normalizeSourceName(resolveIncludePath(sourceName, includePath));
+    candidates.add(resolved);
+    if (!includePath.startsWith("/") && !includePath.contains(":")) {
+      String rootRelative = normalizeSourceName(includePath);
+      if (!rootRelative.equals(resolved)) candidates.add(rootRelative);
+    }
+    return candidates;
   }
 
   private String normalizeSourceName(String sourceName) {
