@@ -591,6 +591,7 @@ public class AnimationPreview extends VBox {
         drawRuntimeFrame();
         drawCameraHud();
         drawAssetDropOverlay();
+        drawAnchorPlacementOverlay(w, h);
 
         if (pivotOverlayText != null) {
             gc.setFont(javafx.scene.text.Font.font("Monospaced", 11));
@@ -625,6 +626,90 @@ public class AnimationPreview extends VBox {
             gc.setFill(Color.web("#c084fc", 0.97));
             gc.fillText(hint, 18, h - 13);
         }
+    }
+
+    private void drawAnchorPlacementOverlay(double canvasW, double canvasH) {
+        if (!anchorPlacementMode) return;
+
+        gc.save();
+        gc.setFill(Color.web("#cfd4dc", 0.12));
+        gc.fillRect(0.0, 0.0, canvasW, canvasH);
+
+        if (Double.isFinite(anchorPlacementCursorScreenX) && Double.isFinite(anchorPlacementCursorScreenY)) {
+            AnchorPlacementPreview preview = computeAnchorPlacementPreview(
+                anchorPlacementCursorScreenX,
+                anchorPlacementCursorScreenY
+            );
+            if (preview != null) {
+                drawAnchorPlacementMarker(preview, canvasW, canvasH);
+            } else if (isInsideViewport(anchorPlacementCursorScreenX, anchorPlacementCursorScreenY)) {
+                drawAnchorPlacementUnavailableMarker(anchorPlacementCursorScreenX, anchorPlacementCursorScreenY, canvasW, canvasH);
+            }
+        }
+        gc.restore();
+    }
+
+    private void drawAnchorPlacementMarker(AnchorPlacementPreview preview, double canvasW, double canvasH) {
+        double x = preview.screenX;
+        double y = preview.screenY;
+        double radius = 11.0;
+
+        gc.setLineWidth(2.0);
+        gc.setFill(Color.web("#2d173f", 0.72));
+        gc.fillOval(x - radius, y - radius, radius * 2.0, radius * 2.0);
+        gc.setStroke(Color.web("#d8b4fe", 0.98));
+        gc.strokeOval(x - radius, y - radius, radius * 2.0, radius * 2.0);
+        gc.setStroke(Color.web("#f5d0fe", 0.98));
+        gc.strokeLine(x - 6.0, y, x + 6.0, y);
+        gc.strokeLine(x, y - 6.0, x, y + 6.0);
+
+        String rel = String.format(Locale.ROOT, "anchor %.3f, %.3f", preview.relX, preview.relY);
+        String world = String.format(Locale.ROOT, "world %.1f, %.1f", preview.worldX, preview.worldY);
+        drawAnchorPlacementCoordinatePanel(x + 16.0, y + 16.0, rel, world, canvasW, canvasH, true);
+    }
+
+    private void drawAnchorPlacementUnavailableMarker(double screenX, double screenY, double canvasW, double canvasH) {
+        double radius = 9.0;
+
+        gc.setLineWidth(1.5);
+        gc.setFill(Color.web("#151515", 0.52));
+        gc.fillOval(screenX - radius, screenY - radius, radius * 2.0, radius * 2.0);
+        gc.setStroke(Color.web("#9ca3af", 0.82));
+        gc.strokeOval(screenX - radius, screenY - radius, radius * 2.0, radius * 2.0);
+        gc.strokeLine(screenX - 5.0, screenY, screenX + 5.0, screenY);
+        gc.strokeLine(screenX, screenY - 5.0, screenX, screenY + 5.0);
+
+        drawAnchorPlacementCoordinatePanel(
+            screenX + 14.0,
+            screenY + 14.0,
+            "outside selected target",
+            "move over the target",
+            canvasW,
+            canvasH,
+            false
+        );
+    }
+
+    private void drawAnchorPlacementCoordinatePanel(double preferredX, double preferredY,
+                                                    String line1, String line2,
+                                                    double canvasW, double canvasH,
+                                                    boolean active) {
+        double charW = 6.7;
+        double width = Math.max(line1.length(), line2.length()) * charW + 18.0;
+        double height = 36.0;
+        double x = clamp(preferredX, 8.0, Math.max(8.0, canvasW - width - 8.0));
+        double y = clamp(preferredY, 8.0, Math.max(8.0, canvasH - height - 8.0));
+
+        gc.setFont(javafx.scene.text.Font.font("Monospaced", 11));
+        gc.setFill(Color.web(active ? "#1a0e2a" : "#16181d", 0.90));
+        gc.fillRoundRect(x, y, width, height, 7.0, 7.0);
+        gc.setStroke(Color.web(active ? "#c084fc" : "#737b86", active ? 0.82 : 0.58));
+        gc.setLineWidth(1.0);
+        gc.strokeRoundRect(x + 0.5, y + 0.5, width - 1.0, height - 1.0, 7.0, 7.0);
+        gc.setFill(Color.web(active ? "#f5d0fe" : "#d1d5db", 0.98));
+        gc.fillText(line1, x + 9.0, y + 14.0);
+        gc.setFill(Color.web(active ? "#d8b4fe" : "#9ca3af", 0.92));
+        gc.fillText(line2, x + 9.0, y + 28.0);
     }
 
     private void drawRuntimeFrame() {
@@ -1465,7 +1550,13 @@ public class AnimationPreview extends VBox {
     public int getInterpolationGhostCount() { return interpolationGhostCount; }
 
     public boolean isAnchorPlacementMode() { return anchorPlacementMode; }
-    public void setAnchorPlacementMode(boolean enabled) { anchorPlacementMode = enabled; render(); }
+    public void setAnchorPlacementMode(boolean enabled) {
+        anchorPlacementMode = enabled;
+        if (!enabled) {
+            clearAnchorPlacementCursorState();
+        }
+        render();
+    }
     public void setOnAnchorPlacementAt(Consumer<double[]> callback) { this.onAnchorPlacementAt = callback; }
 
     public void focusAnchorPlacementOnSelection() {
