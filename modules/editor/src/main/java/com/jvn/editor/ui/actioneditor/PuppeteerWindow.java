@@ -612,6 +612,8 @@ public class PuppeteerWindow extends Stage {
             }
         });
 
+        timelinePanel.setOnEventCueSelected(this::showEventCueManagerDialog);
+
         timelinePanel.setOnKeyframeSelected(kf -> {
             if (timelinePanel.getSelectionCount() > 1) {
                 keyframeEditor.setSelection(new ArrayList<>(timelinePanel.getSelectedKeyframes()), timelinePanel.getSelectedProperty());

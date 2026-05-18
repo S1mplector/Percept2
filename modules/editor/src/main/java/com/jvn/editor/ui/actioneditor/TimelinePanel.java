@@ -129,6 +129,7 @@ public class TimelinePanel extends VBox {
     private final KeyframeSelectionModel selectionModel = new KeyframeSelectionModel();
 
     private Consumer<Keyframe> onKeyframeSelected;
+    private Consumer<EditorEventCue> onEventCueSelected;
     private Consumer<Double> onPlayheadChanged;
     private BiConsumer<String, Boolean> onTargetSelectionChanged;
     private Runnable onEdited;
@@ -191,6 +192,7 @@ public class TimelinePanel extends VBox {
                             double y,
                             double height) {}
     private record KeyframeHit(TrackRow row, Keyframe keyframe) {}
+    private record EventCueHit(EditorEventCue cue) {}
 
     public TimelinePanel(AnimationProject project) {
         this(project, null);
@@ -286,6 +288,7 @@ public class TimelinePanel extends VBox {
     }
 
     public void setOnKeyframeSelected(Consumer<Keyframe> callback) { this.onKeyframeSelected = callback; }
+    public void setOnEventCueSelected(Consumer<EditorEventCue> callback) { this.onEventCueSelected = callback; }
     public void setOnPlayheadChanged(Consumer<Double> callback) { this.onPlayheadChanged = callback; }
     public void setOnTargetSelectionChanged(BiConsumer<String, Boolean> callback) { this.onTargetSelectionChanged = callback; }
     public void setOnEdited(Runnable callback) { this.onEdited = callback; }
@@ -999,7 +1002,7 @@ public class TimelinePanel extends VBox {
         if (cues.isEmpty()) return;
 
         double cueY = height - 42;
-        gc.setFont(javafx.scene.text.Font.font(9));
+        gc.setFont(javafx.scene.text.Font.font(10));
 
         for (EditorEventCue cue : cues) {
             if (cue == null || cue.getType() == null || cue.getType().isBlank()) continue;
@@ -1007,6 +1010,15 @@ public class TimelinePanel extends VBox {
             if (x < LABEL_WIDTH - 10 || x > width + 10) continue;
 
             Color markerColor = eventCueColor(cue.getType());
+            String label = cue.getTimelineLabel();
+            double labelWidth = eventCueLabelWidth(label);
+
+            gc.setFill(Color.web("#0d1117", 0.82));
+            gc.fillRoundRect(x + 7, cueY - 9, labelWidth, 18, 5, 5);
+            gc.setStroke(markerColor.deriveColor(0, 1.0, 0.9, 0.62));
+            gc.setLineWidth(1);
+            gc.strokeRoundRect(x + 7, cueY - 9, labelWidth, 18, 5, 5);
+
             gc.setFill(markerColor);
             gc.fillRect(x - 5, cueY - 5, 10, 10);
 
@@ -1015,7 +1027,7 @@ public class TimelinePanel extends VBox {
             gc.strokeLine(x, HEADER_HEIGHT, x, cueY - 6);
 
             gc.setFill(markerColor.deriveColor(0, 1.0, 1.15, 0.95));
-            gc.fillText(eventCueLabel(cue.getType()), x - 4, cueY + 13);
+            gc.fillText(label, x + 13, cueY + 4);
         }
     }
 
@@ -1041,6 +1053,11 @@ public class TimelinePanel extends VBox {
             case "scene" -> "B";
             default -> type.substring(0, 1).toUpperCase();
         };
+    }
+
+    private static double eventCueLabelWidth(String label) {
+        String text = label == null ? "" : label;
+        return Math.max(34.0, Math.min(178.0, text.length() * 5.8 + 12.0));
     }
 
     private void drawAudioWaveform(GraphicsContext gc, double startX, double baseY, AudioCue cue) {
@@ -1389,6 +1406,12 @@ public class TimelinePanel extends VBox {
         if (e.getButton() == MouseButton.PRIMARY && e.getClickCount() == 2) {
             double x = e.getX();
             double y = e.getY();
+            EventCueHit eventCueHit = findEventCueAt(x, y);
+            if (eventCueHit != null && onEventCueSelected != null) {
+                onEventCueSelected.accept(eventCueHit.cue());
+                e.consume();
+                return;
+            }
             if (y > HEADER_HEIGHT) {
                 KeyframeHit hit = findKeyframeAt(x, y);
                 if (hit != null) {
@@ -1407,6 +1430,23 @@ public class TimelinePanel extends VBox {
                 }
             }
         }
+    }
+
+    private EventCueHit findEventCueAt(double x, double y) {
+        List<EditorEventCue> cues = project.getEditorEventCues();
+        if (cues.isEmpty()) return null;
+        double cueY = canvas.getHeight() - 42;
+        if (Math.abs(y - cueY) > 14.0) return null;
+        for (int i = cues.size() - 1; i >= 0; i--) {
+            EditorEventCue cue = cues.get(i);
+            if (cue == null || cue.getType() == null || cue.getType().isBlank()) continue;
+            double cueX = LABEL_WIDTH + cue.getTimeMs() * pixelsPerMs - scrollX;
+            double labelWidth = eventCueLabelWidth(cue.getTimelineLabel());
+            if (x >= cueX - 7 && x <= cueX + 9 + labelWidth) {
+                return new EventCueHit(cue);
+            }
+        }
+        return null;
     }
 
     private void handleScroll(ScrollEvent e) {
