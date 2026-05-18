@@ -20,6 +20,27 @@ public final class EditorTheme {
   private static String cachedCssPath;
   private static String cachedCssUrl;
 
+  static {
+    javafx.stage.Window.getWindows().addListener((javafx.collections.ListChangeListener<javafx.stage.Window>) c -> {
+      while (c.next()) {
+        if (c.wasAdded()) {
+          for (javafx.stage.Window window : c.getAddedSubList()) {
+            if (window instanceof javafx.stage.PopupWindow && window.getClass().getName().contains("Tooltip")) {
+              window.setOpacity(0.0);
+              javafx.application.Platform.runLater(() -> {
+                javafx.animation.Timeline timeline = new javafx.animation.Timeline(
+                    new javafx.animation.KeyFrame(javafx.util.Duration.ZERO, new javafx.animation.KeyValue(window.opacityProperty(), 0.0)),
+                    new javafx.animation.KeyFrame(javafx.util.Duration.millis(150), new javafx.animation.KeyValue(window.opacityProperty(), 1.0))
+                );
+                timeline.play();
+              });
+            }
+          }
+        }
+      }
+    });
+  }
+
   private EditorTheme() {}
 
   private static Theme resolveInitialTheme() {
