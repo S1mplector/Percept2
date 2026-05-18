@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
@@ -244,6 +245,27 @@ public class AnimationPreview extends VBox {
         }
     }
 
+    private static final class AnchorPlacementPreview {
+        final double screenX;
+        final double screenY;
+        final double worldX;
+        final double worldY;
+        final double relX;
+        final double relY;
+        final String targetLabel;
+
+        AnchorPlacementPreview(double screenX, double screenY, double worldX, double worldY,
+                               double relX, double relY, String targetLabel) {
+            this.screenX = screenX;
+            this.screenY = screenY;
+            this.worldX = worldX;
+            this.worldY = worldY;
+            this.relX = relX;
+            this.relY = relY;
+            this.targetLabel = targetLabel;
+        }
+    }
+
     private final Canvas canvas;
     public Canvas getPreviewCanvas() { return canvas; }
     private final GraphicsContext gc;
@@ -262,6 +284,8 @@ public class AnimationPreview extends VBox {
     private int interpolationGhostCount = 5;
 
     private boolean anchorPlacementMode = false;
+    private double anchorPlacementCursorScreenX = Double.NaN;
+    private double anchorPlacementCursorScreenY = Double.NaN;
     private Consumer<double[]> onAnchorPlacementAt;
 
     private javafx.animation.AnimationTimer spriteRegionAnimTimer;
