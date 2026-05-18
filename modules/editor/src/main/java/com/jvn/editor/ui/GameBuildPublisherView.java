@@ -1646,21 +1646,9 @@ public class GameBuildPublisherView extends BorderPane {
       setMaxSize(18, 16);
       setPickOnBounds(false);
 
-      Region shadow = CssIcon.arrowDown("#7a3600");
       Region body = CssIcon.arrowDown("#f28a18");
-      Region highlight = CssIcon.arrowDown("#ffd07a");
-      shadow.setScaleX(1.32);
-      shadow.setScaleY(1.32);
-      shadow.setTranslateY(2.2);
-      shadow.setOpacity(0.58);
-      shadow.setEffect(new GaussianBlur(0.6));
       body.setScaleX(1.18);
       body.setScaleY(1.18);
-      body.setEffect(new DropShadow(7, Color.rgb(238, 126, 16, 0.46)));
-      highlight.setScaleX(0.78);
-      highlight.setScaleY(0.78);
-      highlight.setTranslateY(-1.9);
-      highlight.setOpacity(0.86);
 
       arrow.setMinSize(18, 16);
       arrow.setPrefSize(18, 16);
@@ -1668,7 +1656,7 @@ public class GameBuildPublisherView extends BorderPane {
       arrow.setAlignment(Pos.CENTER);
       arrow.setRotationAxis(Rotate.Y_AXIS);
       arrow.setPickOnBounds(false);
-      arrow.getChildren().addAll(shadow, body, highlight);
+      arrow.getChildren().add(body);
       getChildren().add(arrow);
 
       resetAnimationState();
