@@ -120,6 +120,7 @@ public class AnimationPreview extends VBox {
     private static final class RotateDragState {
         final double pivotX;
         final double pivotY;
+        final double startMouseAngleRad;
         double lastMouseAngleRad;
         double accumulatedThetaRad = 0.0;
         double currentMouseWorldX;
@@ -130,6 +131,7 @@ public class AnimationPreview extends VBox {
         RotateDragState(double px, double py, double angle, double rot) {
             this.pivotX = px;
             this.pivotY = py;
+            this.startMouseAngleRad = angle;
             this.lastMouseAngleRad = angle;
             this.baseRotationDeg = rot;
         }
@@ -2897,6 +2899,7 @@ public class AnimationPreview extends VBox {
         double[] center = rotationCenterForTarget(groupName, bounds);
         drawRotateHandleAtWorld(center[0], center[1], z);
         drawOrbitAnchorForTarget(groupName, center[0], center[1], z);
+        drawRotationDragOverlay(z, Color.web("#f0b673"), Color.web("#fff1d6"));
 
         gc.setFill(Color.web("#f0b673"));
         gc.setFont(javafx.scene.text.Font.font(javafx.scene.text.Font.getDefault().getFamily(), 10.0 / z));
@@ -2936,17 +2939,7 @@ public class AnimationPreview extends VBox {
         gc.stroke();
         gc.setLineDashes((double[]) null);
 
-        // Rotation drag line
-        if (rotateDragState != null) {
-            double dashOffset = (System.currentTimeMillis() / 20.0) % 20.0;
-            gc.setStroke(Color.web("#f0b673", 0.85));
-            gc.setLineWidth(1.5 / z);
-            gc.setLineDashes(5.0 / z, 5.0 / z);
-            gc.setLineDashOffset(-dashOffset / z);
-            gc.strokeLine(rotateDragState.pivotX, rotateDragState.pivotY, rotateDragState.currentMouseWorldX, rotateDragState.currentMouseWorldY);
-            gc.setLineDashes((double[]) null);
-            gc.setLineDashOffset(0);
-        }
+        drawRotationDragOverlay(z, Color.web("#f0b673"), Color.web("#fff1d6"));
 
         drawRotateHandleWorld(entity, z);
         drawMatrixGizmoWorld(entity, z);
@@ -2963,6 +2956,118 @@ public class AnimationPreview extends VBox {
             gc.fillText(selectedEntityName, minWx, minWy - (6.0 / z));
         }
         gc.restore();
+    }
+
+    private void drawRotationDragOverlay(double zoom, Color accent, Color labelText) {
+        if (rotateDragState == null || (!draggingRotate && !draggingGroupRotate)) return;
+        double z = Math.max(0.0001, zoom);
+        double pivotX = rotateDragState.pivotX;
+        double pivotY = rotateDragState.pivotY;
+        double mouseX = rotateDragState.currentMouseWorldX;
+        double mouseY = rotateDragState.currentMouseWorldY;
+        if (!Double.isFinite(pivotX) || !Double.isFinite(pivotY)
+            || !Double.isFinite(mouseX) || !Double.isFinite(mouseY)) {
+            return;
+        }
+
+        double deltaRad = rotateDragState.accumulatedThetaRad;
+        double deltaDeg = Math.toDegrees(deltaRad);
+        double dist = Math.hypot(mouseX - pivotX, mouseY - pivotY);
+        double radius = Math.max(28.0 / z, Math.min(Math.max(dist, 1.0 / z), 82.0 / z));
+
+        gc.save();
+        double dashOffset = (System.currentTimeMillis() / 18.0) % 24.0;
+        gc.setStroke(Color.web("#ffffff", 0.25));
+        gc.setLineWidth(3.8 / z);
+        gc.setLineDashes(6.0 / z, 5.0 / z);
+        gc.setLineDashOffset(-dashOffset / z);
+        gc.strokeLine(pivotX, pivotY, mouseX, mouseY);
+
+        gc.setStroke(accent.deriveColor(0, 1, 1, 0.92));
+        gc.setLineWidth(1.6 / z);
+        gc.setLineDashes(6.0 / z, 5.0 / z);
+        gc.setLineDashOffset(-dashOffset / z);
+        gc.strokeLine(pivotX, pivotY, mouseX, mouseY);
+        gc.setLineDashes((double[]) null);
+        gc.setLineDashOffset(0);
+
+        double pivotRadius = 4.0 / z;
+        gc.setFill(accent.deriveColor(0, 1, 1.08, 0.95));
+        gc.fillOval(pivotX - pivotRadius, pivotY - pivotRadius, pivotRadius * 2.0, pivotRadius * 2.0);
+        gc.setStroke(Color.web("#ffffff", 0.65));
+        gc.setLineWidth(0.9 / z);
+        gc.strokeOval(pivotX - pivotRadius, pivotY - pivotRadius, pivotRadius * 2.0, pivotRadius * 2.0);
+
+        if (Math.abs(deltaDeg) >= 0.1) {
+            drawRotationArcGuide(pivotX, pivotY, radius, deltaRad, z, accent);
+        }
+        drawRotationReadout(mouseX, mouseY, deltaDeg, z, accent, labelText);
+        gc.restore();
+    }
+
+    private void drawRotationArcGuide(
+        double pivotX,
+        double pivotY,
+        double radius,
+        double deltaRad,
+        double zoom,
+        Color accent
+    ) {
+        int steps = Math.max(8, Math.min(48, (int) Math.ceil(Math.abs(Math.toDegrees(deltaRad)) / 6.0)));
+        double startAngle = rotateDragState.startMouseAngleRad;
+        gc.setStroke(accent.deriveColor(0, 1, 1.05, 0.88));
+        gc.setLineWidth(2.0 / zoom);
+        gc.beginPath();
+        for (int i = 0; i <= steps; i++) {
+            double t = i / (double) steps;
+            double angle = startAngle + deltaRad * t;
+            double x = pivotX + Math.cos(angle) * radius;
+            double y = pivotY + Math.sin(angle) * radius;
+            if (i == 0) {
+                gc.moveTo(x, y);
+            } else {
+                gc.lineTo(x, y);
+            }
+        }
+        gc.stroke();
+
+        double direction = deltaRad >= 0.0 ? 1.0 : -1.0;
+        double endAngle = startAngle + deltaRad;
+        double tipX = pivotX + Math.cos(endAngle) * radius;
+        double tipY = pivotY + Math.sin(endAngle) * radius;
+        double tangent = endAngle + direction * Math.PI / 2.0;
+        double arrowLength = 7.0 / zoom;
+        double arrowHalf = 4.0 / zoom;
+        double baseX = tipX - Math.cos(tangent) * arrowLength;
+        double baseY = tipY - Math.sin(tangent) * arrowLength;
+        double perp = tangent + Math.PI / 2.0;
+        gc.setFill(accent.deriveColor(0, 1, 1.12, 0.95));
+        gc.fillPolygon(
+            new double[]{tipX, baseX + Math.cos(perp) * arrowHalf, baseX - Math.cos(perp) * arrowHalf},
+            new double[]{tipY, baseY + Math.sin(perp) * arrowHalf, baseY - Math.sin(perp) * arrowHalf},
+            3
+        );
+    }
+
+    private void drawRotationReadout(double worldX, double worldY, double deltaDeg, double zoom, Color accent, Color labelText) {
+        String direction = deltaDeg >= 0.0 ? "CW" : "CCW";
+        String label = String.format(java.util.Locale.ROOT, "%s %+.1f deg", direction, deltaDeg);
+        double fontSize = 10.5 / zoom;
+        double padX = 7.0 / zoom;
+        double padY = 4.0 / zoom;
+        double width = Math.max(58.0 / zoom, label.length() * 6.2 / zoom + padX * 2.0);
+        double height = 20.0 / zoom;
+        double x = worldX + 12.0 / zoom;
+        double y = worldY - 10.0 / zoom - height;
+
+        gc.setFill(Color.web("#15110c", 0.82));
+        gc.fillRoundRect(x, y, width, height, 7.0 / zoom, 7.0 / zoom);
+        gc.setStroke(accent.deriveColor(0, 1, 1, 0.75));
+        gc.setLineWidth(1.0 / zoom);
+        gc.strokeRoundRect(x, y, width, height, 7.0 / zoom, 7.0 / zoom);
+        gc.setFill(labelText);
+        gc.setFont(javafx.scene.text.Font.font(javafx.scene.text.Font.getDefault().getFamily(), fontSize));
+        gc.fillText(label, x + padX, y + height - padY - 2.0 / zoom);
     }
 
     private void drawMatrixGizmoWorld(Entity2D entity, double zoom) {
