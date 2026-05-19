@@ -492,6 +492,58 @@ class CodeRoundTripTest {
     }
 
     @Test
+    void exportedRuntimeCodeSeedsVisibilityTogglesWhenParsedInline() {
+        AnimationProject project = new AnimationProject();
+        EntityTrack hero = project.getOrCreateTrack("hero");
+        hero.addKeyframe(PropertyType.VISIBILITY, new Keyframe(0, 1, Easing.Type.LINEAR));
+        hero.addKeyframe(PropertyType.VISIBILITY, new Keyframe(300, 0, Easing.Type.LINEAR));
+
+        String exported = CodeExporter.export(project);
+        TimelineData parsed = TimelineDataParser.parse("inline_visibility_export", exported);
+        TimelineData registered = project.toTimelineData("registered_visibility");
+        TimelineData.Track parsedHero = parsed.getTrack("hero");
+        TimelineData.Track registeredHero = registered.getTrack("hero");
+        assertNotNull(parsedHero);
+        assertNotNull(registeredHero);
+
+        assertEquals(registeredHero.getValueAt(TimelineData.Property.VISIBILITY, 0),
+            parsedHero.getValueAt(TimelineData.Property.VISIBILITY, 0), 0.001);
+        assertEquals(registeredHero.getValueAt(TimelineData.Property.VISIBILITY, 299),
+            parsedHero.getValueAt(TimelineData.Property.VISIBILITY, 299), 0.001);
+        assertEquals(registeredHero.getValueAt(TimelineData.Property.VISIBILITY, 300),
+            parsedHero.getValueAt(TimelineData.Property.VISIBILITY, 300), 0.001);
+    }
+
+    @Test
+    void exportedRuntimeCodeFlattensInheritedGroupVisibilityWhenParsedInline() {
+        AnimationProject project = new AnimationProject();
+        EntityTrack hero = project.getOrCreateTrack("hero");
+        assertNotNull(hero);
+        EntityGroup group = project.getOrCreateGroup("rig");
+        group.getGroupTrack().addKeyframe(PropertyType.VISIBILITY, new Keyframe(0, 1, Easing.Type.LINEAR));
+        group.getGroupTrack().addKeyframe(PropertyType.VISIBILITY, new Keyframe(300, 0, Easing.Type.LINEAR));
+        project.addEntityToGroup("hero", "rig");
+
+        String exported = CodeExporter.export(project);
+        TimelineData parsed = TimelineDataParser.parse("inline_group_visibility_export", exported);
+        TimelineData registered = project.toTimelineData("registered_group_visibility");
+        TimelineData.Track parsedHero = parsed.getTrack("hero");
+        TimelineData.Track registeredHero = registered.getTrack("hero");
+        assertNotNull(parsedHero);
+        assertNotNull(registeredHero);
+
+        assertTrue(exported.contains("visible \"hero\""));
+        assertFalse(exported.contains("visible \"rig\""),
+            "Group visibility should be flattened onto runtime entity tracks:\n" + exported);
+        assertEquals(registeredHero.getValueAt(TimelineData.Property.VISIBILITY, 0),
+            parsedHero.getValueAt(TimelineData.Property.VISIBILITY, 0), 0.001);
+        assertEquals(registeredHero.getValueAt(TimelineData.Property.VISIBILITY, 299),
+            parsedHero.getValueAt(TimelineData.Property.VISIBILITY, 299), 0.001);
+        assertEquals(registeredHero.getValueAt(TimelineData.Property.VISIBILITY, 300),
+            parsedHero.getValueAt(TimelineData.Property.VISIBILITY, 300), 0.001);
+    }
+
+    @Test
     void exportedRuntimeCodeTweensCustomPropertiesWhenParsedInline() {
         AnimationProject project = new AnimationProject();
         EntityTrack hero = project.getOrCreateTrack("hero");
