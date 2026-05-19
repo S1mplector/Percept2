@@ -713,6 +713,7 @@ public class VnScriptParser {
           throw parseError(sourceName, lineNumber, "@charlayer path cannot be empty", rawLine);
         }
         state.charLayers.computeIfAbsent(id, k -> new HashMap<>()).put(layerId, path);
+        getOrCreateCharacterBuilder(state, id).addLayer(layerId, path);
         continue;
       }
 
@@ -1411,6 +1412,11 @@ public class VnScriptParser {
       case "hide": {
         String charId = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
         state.builder.hide(charId);
+        return;
+      }
+      case "lookat": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("eye_focus", payload);
         return;
       }
       case "move": {

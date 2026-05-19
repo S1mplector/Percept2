@@ -31,6 +31,7 @@ public class VnState {
   private final VnRollbackStack rollbackStack;
   private final Map<CharacterPosition, CharacterVisual> characterVisuals;
   private final Map<CharacterPosition, PendingExpressionSwitch> pendingExpressionSwitches;
+  private final Map<String, EyeFocusRequest> eyeFocusRequests;
   private final Set<String> globalPositionCharacters;
   private final Map<String, CharacterPosition> characterDefinedPositions;
   private final Map<String, Object> variables; // For future flag/variable system
@@ -81,6 +82,7 @@ public class VnState {
     this.visibleCharacters = new HashMap<>();
     this.characterVisuals = new HashMap<>();
     this.pendingExpressionSwitches = new HashMap<>();
+    this.eyeFocusRequests = new HashMap<>();
     this.globalPositionCharacters = new HashSet<>();
     this.characterDefinedPositions = new HashMap<>();
     this.variables = new HashMap<>();
@@ -148,6 +150,7 @@ public class VnState {
     visibleCharacters.clear();
     characterVisuals.clear();
     pendingExpressionSwitches.clear();
+    eyeFocusRequests.clear();
   }
 
   public void showCharacterAnimated(CharacterPosition position, String characterId, String expression) {
@@ -316,15 +319,38 @@ public class VnState {
     return slot == null ? null : slot.getExpression();
   }
 
+  public void setEyeFocusRequest(EyeFocusRequest request) {
+    if (request == null || request.characterId().isBlank()) return;
+    eyeFocusRequests.put(request.characterId(), request);
+  }
+
+  public void clearEyeFocusRequest(String characterId) {
+    if (characterId == null || characterId.isBlank()) return;
+    eyeFocusRequests.remove(characterId.trim());
+  }
+
+  public EyeFocusRequest getEyeFocusRequest(String characterId) {
+    if (characterId == null || characterId.isBlank()) return null;
+    return eyeFocusRequests.get(characterId.trim());
+  }
+
+  public Map<String, EyeFocusRequest> getEyeFocusRequestsSnapshot() {
+    return new HashMap<>(eyeFocusRequests);
+  }
+
   private CharacterVisual ensureCharacterVisual(CharacterPosition position) {
     return characterVisuals.computeIfAbsent(position, k -> new CharacterVisual());
   }
 
   private void removeSlot(CharacterPosition position) {
     if (position == null) return;
+    CharacterSlot slot = visibleCharacters.get(position);
     visibleCharacters.remove(position);
     characterVisuals.remove(position);
     pendingExpressionSwitches.remove(position);
+    if (slot != null) {
+      eyeFocusRequests.remove(slot.getCharacterId());
+    }
   }
 
   /**
@@ -381,6 +407,36 @@ public class VnState {
     if (requestedLayerOrder != null) return requestedLayerOrder;
     if (fallbackLayerOrder != null) return fallbackLayerOrder;
     return position != null ? position.getDefaultLayerOrder() : 0;
+  }
+
+  public record EyeFocusRequest(
+      String characterId,
+      String expression,
+      String targetCharacterId,
+      Double targetX,
+      Double targetY,
+      long durationMs,
+      double strength,
+      double deadZone
+  ) {
+    public EyeFocusRequest {
+      characterId = characterId == null ? "" : characterId.trim();
+      expression = expression == null || expression.isBlank() ? "neutral" : expression.trim();
+      targetCharacterId = targetCharacterId == null ? "" : targetCharacterId.trim();
+      durationMs = Math.max(0L, durationMs);
+      strength = Double.isFinite(strength) ? strength : 1.0;
+      deadZone = Double.isFinite(deadZone) ? deadZone : 0.12;
+    }
+
+    public boolean hasPointTarget() {
+      return targetX != null && targetY != null
+          && Double.isFinite(targetX)
+          && Double.isFinite(targetY);
+    }
+
+    public boolean hasCharacterTarget() {
+      return targetCharacterId != null && !targetCharacterId.isBlank();
+    }
   }
 
   public boolean isWaitingForInput() { return waitingForInput; }

@@ -2332,4 +2332,44 @@ public class VnScriptParserTest {
     scene.onEnter();
     assertTrue(scene.hasActiveError(), "Compile error with imports should produce error overlay");
   }
+
+  @Test
+  public void lookatCommandParsesAsEyeFocusExternalCommand() throws Exception {
+    String script = """
+      @label start
+      [lookat john target=lily]
+      [lookat john at=100,200 dur=220 strength=0.8]
+      [end]
+    """;
+
+    VnScenario scenario = new VnScriptParser().parseFromString(script);
+    List<VnExternalCommand> commands = scenario.getNodes().stream()
+        .filter(node -> node.getType() == VnNodeType.EXTERNAL)
+        .map(VnNode::getExternalCommand)
+        .toList();
+
+    assertEquals(2, commands.size());
+    assertEquals("eye_focus", commands.get(0).getProvider());
+    assertEquals("john target=lily", commands.get(0).getPayload());
+    assertEquals("eye_focus", commands.get(1).getProvider());
+    assertEquals("john at=100,200 dur=220 strength=0.8", commands.get(1).getPayload());
+  }
+
+  @Test
+  public void charlayerPathsArePreservedOnVnCharacter() throws Exception {
+    String script = """
+      @character john "John"
+      @charlayer john eyes_01 assets/john/eyes_01.png
+      @charlayer john eyes_02 assets/john/eyes_02.png
+      @charpreset john neutral $eyes_01 | $eyes_02
+      [end]
+    """;
+
+    VnScenario scenario = new VnScriptParser().parseFromString(script);
+    VnCharacter john = scenario.getCharacter("john");
+    assertNotNull(john);
+    assertEquals("assets/john/eyes_01.png", john.getLayerPath("eyes_01"));
+    assertEquals("assets/john/eyes_02.png", john.getLayerPath("eyes_02"));
+    assertTrue(john.getLayerIds().contains("eyes_01"));
+  }
 }

@@ -294,6 +294,37 @@ class DefaultVnInteropQuotedArgsTest {
     assertEquals(DialoguePresentationMode.STANDARD, scene.getState().getDialoguePresentationMode());
   }
 
+  @Test
+  void eyeFocusInteropStoresPointAndCharacterTargets() {
+    VnScenario scenario = new VnScenarioBuilder("eye_focus")
+        .label("start")
+        .dialogue("Narrator", "Start")
+        .end()
+        .build();
+    VnScene scene = new VnScene(scenario);
+    DefaultVnInterop interop = new DefaultVnInterop();
+
+    interop.handle(new VnExternalCommand("eye_focus", "john at=100,200 dur=220 strength=0.8 deadZone=0.2"), scene);
+    VnState.EyeFocusRequest point = scene.getState().getEyeFocusRequest("john");
+    assertNotNull(point);
+    assertTrue(point.hasPointTarget());
+    assertEquals(100.0, point.targetX(), 0.001);
+    assertEquals(200.0, point.targetY(), 0.001);
+    assertEquals(220L, point.durationMs());
+    assertEquals(0.8, point.strength(), 0.001);
+    assertEquals(0.2, point.deadZone(), 0.001);
+
+    interop.handle(new VnExternalCommand("eye_focus", "john target=lily expression=smile"), scene);
+    VnState.EyeFocusRequest character = scene.getState().getEyeFocusRequest("john");
+    assertNotNull(character);
+    assertTrue(character.hasCharacterTarget());
+    assertEquals("lily", character.targetCharacterId());
+    assertEquals("smile", character.expression());
+
+    interop.handle(new VnExternalCommand("eye_focus", "john clear"), scene);
+    assertNull(scene.getState().getEyeFocusRequest("john"));
+  }
+
   public static class Methods {
     public static String join(String a, String b) {
       return a + "|" + b;

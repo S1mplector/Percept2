@@ -23,6 +23,8 @@ import com.jvn.core.animation.SceneAccessor;
 import com.jvn.core.animation.TimelineData;
 import com.jvn.core.animation.TimelineRegistry;
 import com.jvn.core.animation.TimelineRunner;
+import com.jvn.core.vn.VnEyeFocusProfile;
+import com.jvn.core.vn.VnEyeFocusProfileStore;
 import com.jvn.core.vn.stage.VnStagePreset;
 import com.jvn.core.vn.stage.VnStagePresetLoader;
 import com.jvn.editor.ui.EditorTheme;
@@ -3498,6 +3500,7 @@ public class PuppeteerWindow extends Stage {
         workspacePrefs = PuppeteerWorkspacePrefs.load(projectRoot);
         applyWorkspacePrefs();
         PuppeteerAnchorStore.load(projectRoot, project);
+        project.setEyeFocusProfiles(VnEyeFocusProfileStore.load(projectRoot));
 
         draftStore = new PuppeteerDraftStore(projectRoot);
         draftStore.setOnSaveCallback(timelineName -> Platform.runLater(() -> showAutoSaveIndicator(timelineName)));
@@ -5740,6 +5743,188 @@ public class PuppeteerWindow extends Stage {
         );
     }
 
+    public void showEyeFocusOverlay() {
+        String selected = timelinePanel != null ? timelinePanel.getSelectedEntity() : "";
+        String[] inferred = inferEyeFocusSelection(selected);
+        TextField characterField = new TextField(inferred[0].isBlank() ? "john" : inferred[0]);
+        TextField expressionField = new TextField(inferred[1].isBlank() ? "neutral" : inferred[1]);
+        VnEyeFocusProfile existing = project.getEyeFocusProfile(characterField.getText(), expressionField.getText());
+
+        TextField sourceXField = new TextField(formatDialogNumber(existing != null ? existing.sourceX() : 0.5));
+        TextField sourceYField = new TextField(formatDialogNumber(existing != null ? existing.sourceY() : 0.26));
+        TextField targetXField = new TextField("1");
+        TextField targetYField = new TextField(formatDialogNumber(existing != null ? existing.sourceY() : 0.26));
+        TextField deadZoneField = new TextField(formatDialogNumber(existing != null ? existing.deadZone() : 0.12));
+        TextField maxNudgeField = new TextField(formatDialogNumber(existing != null ? existing.maxNudgePx() : 3.0));
+        TextField strengthField = new TextField(formatDialogNumber(existing != null ? existing.strength() : 1.0));
+
+        TextField[] layerFields = new TextField[10];
+        for (int i = 1; i <= 9; i++) {
+            String layer = existing != null ? existing.layerIdFor(i) : "";
+            if (layer == null || layer.isBlank()) {
+                layer = inferred[2].isBlank() ? String.format(Locale.ROOT, "eyes_%02d", i) : layerVariant(inferred[2], i);
+            }
+            layerFields[i] = new TextField(layer);
+        }
+
+        GridPane grid = new GridPane();
+        grid.setHgap(8);
+        grid.setVgap(8);
+        grid.add(formLabel("Character"), 0, 0);
+        grid.add(characterField, 1, 0);
+        grid.add(formLabel("Expression"), 2, 0);
+        grid.add(expressionField, 3, 0);
+        grid.add(formLabel("Source X"), 0, 1);
+        grid.add(sourceXField, 1, 1);
+        grid.add(formLabel("Source Y"), 2, 1);
+        grid.add(sourceYField, 3, 1);
+        grid.add(formLabel("Target X"), 0, 2);
+        grid.add(targetXField, 1, 2);
+        grid.add(formLabel("Target Y"), 2, 2);
+        grid.add(targetYField, 3, 2);
+        grid.add(formLabel("Dead Zone"), 0, 3);
+        grid.add(deadZoneField, 1, 3);
+        grid.add(formLabel("Max Nudge"), 2, 3);
+        grid.add(maxNudgeField, 3, 3);
+        grid.add(formLabel("Strength"), 0, 4);
+        grid.add(strengthField, 1, 4);
+
+        int row = 5;
+        int[][] keypad = {{7, 8, 9}, {4, 5, 6}, {1, 2, 3}};
+        for (int r = 0; r < keypad.length; r++) {
+            for (int c = 0; c < keypad[r].length; c++) {
+                int index = keypad[r][c];
+                VBox cell = new VBox(3, formLabel(Integer.toString(index)), layerFields[index]);
+                cell.setPrefWidth(150);
+                grid.add(cell, c, row + r);
+            }
+        }
+
+        VBox content = new VBox(10);
+        content.setFillWidth(true);
+        Label note = new Label("Applies visibility keys for the 9 mapped pupil layers and X/Y nudge keys for the selected gaze at the current playhead.");
+        note.setWrapText(true);
+        note.setStyle("-fx-text-fill: #bfc7d5; -fx-font-size: 11px;");
+        content.getChildren().addAll(note, grid);
+
+        overlayDialog.showDialog(
+            "Eye Focus / Look At",
+            "Bake a keypad pupil focus pose into the timeline.",
+            content,
+            ActionEditorDialogOverlay.ActionSpec.neutral("Cancel", overlayDialog::hideOverlay).defaultFocus(true),
+            ActionEditorDialogOverlay.ActionSpec.stayOpen("Apply at Playhead", ActionEditorDialogOverlay.ButtonStyle.ACCENT, () -> {
+                try {
+                    Map<Integer, String> layers = new LinkedHashMap<>();
+                    for (int i = 1; i <= 9; i++) {
+                        String layer = layerFields[i].getText() == null ? "" : layerFields[i].getText().trim();
+                        if (!layer.isBlank()) layers.put(i, layer);
+                    }
+                    VnEyeFocusProfile profile = new VnEyeFocusProfile(
+                        characterField.getText(),
+                        expressionField.getText(),
+                        "eyes",
+                        parseDialogDouble(sourceXField, 0.5),
+                        parseDialogDouble(sourceYField, 0.26),
+                        parseDialogDouble(deadZoneField, 0.12),
+                        parseDialogDouble(maxNudgeField, 3.0),
+                        parseDialogDouble(strengthField, 1.0),
+                        layers);
+                    if (profile.characterId().isBlank() || profile.layerIds().isEmpty()) {
+                        showOverlayError("Eye Focus Failed", "Missing eye-focus rig data.", "Provide a character id and at least one pupil layer mapping.");
+                        return;
+                    }
+                    AnimationProject before = project.copy();
+                    AnimationProject after = project.copy();
+                    PuppeteerEyeFocusBaker.applyAt(
+                        after,
+                        profile,
+                        project.getPlayheadMs(),
+                        parseDialogDouble(sourceXField, 0.5),
+                        parseDialogDouble(sourceYField, 0.26),
+                        parseDialogDouble(targetXField, 1.0),
+                        parseDialogDouble(targetYField, 0.0));
+                    commandStack.execute(new PuppeteerCommand(
+                        "Apply eye focus",
+                        () -> project.replaceFrom(after),
+                        () -> project.replaceFrom(before)
+                    ));
+                    timelinePanel.refresh();
+                    updatePreview();
+                    refreshExportPreviewAndMarkDirty();
+                    overlayDialog.hideOverlay();
+                } catch (Exception ex) {
+                    showOverlayError("Eye Focus Failed", "Could not bake the eye focus pose.", ex.getMessage());
+                }
+            })
+        );
+    }
+
+    private Label formLabel(String text) {
+        Label label = new Label(text == null ? "" : text);
+        label.setStyle("-fx-text-fill: #9fb1c9; -fx-font-size: 10px; -fx-font-weight: bold;");
+        return label;
+    }
+
+    private double parseDialogDouble(TextField field, double fallback) {
+        try {
+            double value = Double.parseDouble(field == null || field.getText() == null ? "" : field.getText().trim());
+            return Double.isFinite(value) ? value : fallback;
+        } catch (NumberFormatException ex) {
+            return fallback;
+        }
+    }
+
+    private String formatDialogNumber(double value) {
+        if (!Double.isFinite(value)) return "0";
+        if (Math.abs(value - Math.rint(value)) < 0.000001) {
+            return Long.toString(Math.round(value));
+        }
+        return String.format(Locale.ROOT, "%.4f", value)
+            .replaceAll("0+$", "")
+            .replaceAll("\\.$", "");
+    }
+
+    private String[] inferEyeFocusSelection(String selectedTarget) {
+        String value = selectedTarget == null ? "" : selectedTarget.trim();
+        if (value.isBlank()) return new String[] {"", "neutral", ""};
+        String[] parts = value.split("_");
+        for (int i = 0; i < parts.length; i++) {
+            String one = parts[i];
+            String two = i + 1 < parts.length ? one + "_" + parts[i + 1] : one;
+            int oneIndex = VnEyeFocusProfile.detectKeypadIndex(one);
+            int twoIndex = VnEyeFocusProfile.detectKeypadIndex(two);
+            if (twoIndex >= 1) {
+                String expression = i > 0 ? parts[i - 1] : "neutral";
+                String character = joinParts(parts, 0, Math.max(0, i - 1));
+                return new String[] {character, expression, two};
+            }
+            if (oneIndex >= 1) {
+                String expression = i > 0 ? parts[i - 1] : "neutral";
+                String character = joinParts(parts, 0, Math.max(0, i - 1));
+                return new String[] {character, expression, one};
+            }
+        }
+        return new String[] {"", "neutral", ""};
+    }
+
+    private String layerVariant(String selectedLayer, int keypadIndex) {
+        if (selectedLayer == null || selectedLayer.isBlank()) {
+            return String.format(Locale.ROOT, "eyes_%02d", keypadIndex);
+        }
+        return selectedLayer.replaceFirst("(?i)(0?[1-9])$", String.format(Locale.ROOT, "%02d", keypadIndex));
+    }
+
+    private String joinParts(String[] parts, int startInclusive, int endExclusive) {
+        if (parts == null || startInclusive >= endExclusive) return "";
+        StringBuilder sb = new StringBuilder();
+        for (int i = Math.max(0, startInclusive); i < Math.min(parts.length, endExclusive); i++) {
+            if (parts[i] == null || parts[i].isBlank()) continue;
+            if (sb.length() > 0) sb.append('_');
+            sb.append(parts[i]);
+        }
+        return sb.toString();
+    }
+
     private void applyPreset(AnimationPreset preset) {
         if (timelinePanel.isSelectedGroup()) return;
         EntityTrack track = selectedTrackForEditing(true);
@@ -6802,6 +6987,7 @@ public class PuppeteerWindow extends Stage {
                 try { if (prefsToSave != null) prefsToSave.save(); } catch (Throwable ignored) {}
                 try { if (draftsToFlush != null) draftsToFlush.shutdown(); } catch (Throwable ignored) {}
                 try { PuppeteerAnchorStore.save(anchorRoot, anchorProject); } catch (Throwable ignored) {}
+                try { VnEyeFocusProfileStore.save(anchorRoot, anchorProject.getEyeFocusProfilesView().values()); } catch (Throwable ignored) {}
             }, "puppeteer-close-cleanup");
             cleanup.setDaemon(true);
             cleanup.start();
@@ -7474,6 +7660,7 @@ public class PuppeteerWindow extends Stage {
                 return false;
             }
             PuppeteerAnchorStore.save(projectRoot, project);
+            VnEyeFocusProfileStore.save(projectRoot, project.getEyeFocusProfilesView().values());
             TimelineRegistry.register(data);
             if (previewStaged) {
                 previewStaged = false;

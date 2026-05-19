@@ -110,6 +110,9 @@ public class DefaultVnInterop implements VnInterop {
       case "char":
         handleCharacter(payload, scene);
         return VnInteropResult.advance();
+      case "eye_focus":
+        handleEyeFocus(payload, scene);
+        return VnInteropResult.advance();
       case "stage":
         handleStage(payload, scene);
         return VnInteropResult.advance();
@@ -1504,6 +1507,82 @@ public class DefaultVnInterop implements VnInterop {
   private record InlineTimelineInvocation(String block, boolean waitForCompletion, List<String> chain) {}
   private record TimelineResolveResult(Optional<TimelineData> data, boolean parseFailed) {}
 
+  private void handleEyeFocus(String payload, VnScene scene) {
+    String[] toks = split(payload);
+    if (toks.length == 0) return;
+    VnState state = scene.getState();
+    if (state == null) return;
+
+    String characterId = toks[0].trim();
+    if (characterId.isBlank()) return;
+
+    Map<String, String> options = new LinkedHashMap<>();
+    String targetCharacter = "";
+    Double targetX = null;
+    Double targetY = null;
+    boolean clear = false;
+
+    for (int i = 1; i < toks.length; i++) {
+      String token = toks[i] == null ? "" : toks[i].trim();
+      if (token.isEmpty()) continue;
+      if ("clear".equalsIgnoreCase(token) || "off".equalsIgnoreCase(token)) {
+        clear = true;
+        continue;
+      }
+      if ("at".equalsIgnoreCase(token) && i + 1 < toks.length) {
+        double[] point = parsePoint(toks[++i]);
+        if (point != null) {
+          targetX = point[0];
+          targetY = point[1];
+        }
+        continue;
+      }
+      int eq = token.indexOf('=');
+      if (eq > 0 && eq < token.length() - 1) {
+        String key = token.substring(0, eq).trim().toLowerCase(Locale.ROOT);
+        String value = token.substring(eq + 1).trim();
+        if ("at".equals(key) || "point".equals(key) || "xy".equals(key)) {
+          double[] point = parsePoint(value);
+          if (point != null) {
+            targetX = point[0];
+            targetY = point[1];
+          }
+        } else if ("target".equals(key) || "to".equals(key)) {
+          targetCharacter = value;
+        } else {
+          options.put(key, value);
+        }
+        continue;
+      }
+      if (targetCharacter.isBlank()) {
+        targetCharacter = token;
+      }
+    }
+
+    if (clear) {
+      state.clearEyeFocusRequest(characterId);
+      return;
+    }
+
+    if (targetX == null && targetY == null && targetCharacter.isBlank()) {
+      return;
+    }
+
+    String expression = option(options, "expression", option(options, "expr", state.getCharacterExpression(characterId)));
+    long durationMs = parseLongSafe(option(options, "dur", option(options, "duration", "180")), 180L);
+    double strength = parseDoubleSafe(option(options, "strength", "1"), 1.0);
+    double deadZone = parseDoubleSafe(option(options, "deadzone", option(options, "deadZone", "0.12")), 0.12);
+    state.setEyeFocusRequest(new VnState.EyeFocusRequest(
+        characterId,
+        expression,
+        targetCharacter,
+        targetX,
+        targetY,
+        durationMs,
+        strength,
+        deadZone));
+  }
+
   private void handleCharacter(String payload, VnScene scene) {
     String[] toks = split(payload);
     if (toks.length < 2) return;
@@ -1884,6 +1963,16 @@ public class DefaultVnInterop implements VnInterop {
       sb.append(tokens[i]);
     }
     return sb.toString();
+  }
+
+  private static double[] parsePoint(String raw) {
+    if (raw == null || raw.isBlank()) return null;
+    String[] parts = raw.trim().split(",");
+    if (parts.length < 2) return null;
+    double x = parseDoubleSafe(parts[0].trim(), Double.NaN);
+    double y = parseDoubleSafe(parts[1].trim(), Double.NaN);
+    if (!Double.isFinite(x) || !Double.isFinite(y)) return null;
+    return new double[] {x, y};
   }
 
   private static float parseFloatSafe(String s, float fallback) {

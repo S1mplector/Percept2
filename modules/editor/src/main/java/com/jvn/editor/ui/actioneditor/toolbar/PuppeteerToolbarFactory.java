@@ -120,6 +120,8 @@ public final class PuppeteerToolbarFactory {
     miApplyPreset.setOnAction(e -> w.showPresetMenuOverlay());
     MenuItem miPlaceInSlot = new MenuItem("Place Entity in VN Slot...");
     miPlaceInSlot.setOnAction(e -> w.showSlotMenuOverlay());
+    MenuItem miEyeFocus = new MenuItem("Eye Focus / Look At...");
+    miEyeFocus.setOnAction(e -> w.showEyeFocusOverlay());
 
     Menu editMenu = new Menu("Edit");
     editMenu.getItems().addAll(
@@ -131,7 +133,7 @@ public final class PuppeteerToolbarFactory {
         new SeparatorMenuItem(),
         miDistributeKeyframes, miReverseKeyframes,
         new SeparatorMenuItem(),
-        miApplyPreset, miPlaceInSlot
+        miApplyPreset, miPlaceInSlot, miEyeFocus
     );
     editMenu.setOnShowing(e -> {
       int selectionCount = w.timelinePanel != null ? w.timelinePanel.getSelectionCount() : 0;
@@ -156,6 +158,7 @@ public final class PuppeteerToolbarFactory {
       miReverseKeyframes.setDisable(selectionCount < 2);
       miApplyPreset.setDisable(!entityTarget);
       miPlaceInSlot.setDisable(!entityTarget);
+      miEyeFocus.setDisable(w.project == null);
     });
 
     // === Timeline menu ===

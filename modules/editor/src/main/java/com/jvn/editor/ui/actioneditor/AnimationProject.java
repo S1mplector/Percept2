@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.TreeMap;
 
 import com.jvn.core.animation.TimelineData;
+import com.jvn.core.vn.VnEyeFocusProfile;
 
 public class AnimationProject {
     private static final double MIN_DURATION_MS = 100.0;
@@ -35,6 +36,7 @@ public class AnimationProject {
     private final Map<String, SceneEntitySnapshot> sceneEntitySnapshots = new LinkedHashMap<>();
     private final Map<String, Constraint> constraints = new LinkedHashMap<>();
     private final Map<String, Map<String, Anchor>> entityAnchors = new LinkedHashMap<>();
+    private final Map<String, VnEyeFocusProfile> eyeFocusProfiles = new LinkedHashMap<>();
     private StageContext stageContext;
 
     private double loopStartMs = -1;
@@ -423,6 +425,32 @@ public class AnimationProject {
 
     public void clearStageContext() {
         this.stageContext = null;
+    }
+
+    public Map<String, VnEyeFocusProfile> getEyeFocusProfilesView() {
+        return Collections.unmodifiableMap(new LinkedHashMap<>(eyeFocusProfiles));
+    }
+
+    public VnEyeFocusProfile getEyeFocusProfile(String characterId, String expression) {
+        if (characterId == null || characterId.isBlank()) return null;
+        return eyeFocusProfiles.get(VnEyeFocusProfile.key(characterId, expression));
+    }
+
+    public void setEyeFocusProfile(VnEyeFocusProfile profile) {
+        if (profile == null || profile.characterId().isBlank()) return;
+        eyeFocusProfiles.put(profile.key(), profile);
+    }
+
+    public void setEyeFocusProfiles(Iterable<VnEyeFocusProfile> profiles) {
+        eyeFocusProfiles.clear();
+        if (profiles == null) return;
+        for (VnEyeFocusProfile profile : profiles) {
+            setEyeFocusProfile(profile);
+        }
+    }
+
+    public void clearEyeFocusProfiles() {
+        eyeFocusProfiles.clear();
     }
 
     // Constraint management
@@ -1376,6 +1404,7 @@ public class AnimationProject {
         copy.setInitialSnapshot(initialSnapshot);
         copy.setSceneEntitySnapshots(sceneEntitySnapshots.values());
         copy.setStageContext(stageContext);
+        copy.setEyeFocusProfiles(eyeFocusProfiles.values());
         return copy;
     }
 
@@ -1518,6 +1547,7 @@ public class AnimationProject {
         this.setInitialSnapshot(other.initialSnapshot);
         this.setSceneEntitySnapshots(other.sceneEntitySnapshots.values());
         this.setStageContext(other.stageContext);
+        this.setEyeFocusProfiles(other.eyeFocusProfiles.values());
     }
 
     private boolean hasGroupAnimation(String groupName, PropertyType property) {

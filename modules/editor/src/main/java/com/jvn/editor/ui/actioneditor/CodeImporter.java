@@ -12,6 +12,7 @@ import com.jvn.core.animation.Easing;
 import com.jvn.core.animation.EasingSpec;
 import com.jvn.core.animation.TimelineData;
 import com.jvn.core.animation.TimelineDataParser;
+import com.jvn.core.vn.VnEyeFocusProfile;
 
 /**
  * Imports a JES timeline DSL text into an editor-side {@link AnimationProject}.
@@ -31,6 +32,7 @@ public class CodeImporter {
     private static final String ORBIT_META_PREFIX = "// @jvn-puppeteer-orbit";
     private static final String CONSTRAINT_META_PREFIX = "// @jvn-puppeteer-constraint";
     private static final String ANCHOR_META_PREFIX = "// @jvn-puppeteer-anchor";
+    private static final String EYE_FOCUS_META_PREFIX = "// @jvn-puppeteer-eye-focus";
 
     /**
      * Import a JES timeline DSL block into a new {@link AnimationProject}.
@@ -60,6 +62,7 @@ public class CodeImporter {
         }
         applySceneMetadata(project, parseSceneEntitySnapshots(code), !restoredEditorModel);
         project.setStageContext(parseStageContext(code));
+        project.setEyeFocusProfiles(metadata.eyeFocusProfiles);
         return project;
     }
 
@@ -230,6 +233,10 @@ public class CodeImporter {
             } else if (line.startsWith(ANCHOR_META_PREFIX)) {
                 AnchorMeta anchor = AnchorMeta.from(parseAttributes(line.substring(ANCHOR_META_PREFIX.length()).trim()));
                 if (anchor != null) metadata.anchors.add(anchor);
+            } else if (line.startsWith(EYE_FOCUS_META_PREFIX)) {
+                VnEyeFocusProfile profile = parseEyeFocusProfile(
+                    parseAttributes(line.substring(EYE_FOCUS_META_PREFIX.length()).trim()));
+                if (profile != null) metadata.eyeFocusProfiles.add(profile);
             }
         }
         metadata.groups.removeIf(group -> group == null || group.name().isBlank());
@@ -250,6 +257,7 @@ public class CodeImporter {
         private final List<OrbitMeta> orbits = new ArrayList<>();
         private final List<ConstraintMeta> constraints = new ArrayList<>();
         private final List<AnchorMeta> anchors = new ArrayList<>();
+        private final List<VnEyeFocusProfile> eyeFocusProfiles = new ArrayList<>();
 
         void applyProjectAttributes(Map<String, String> attrs) {
             durationMs = parseOptionalDouble(attrs.get("duration"));
@@ -493,6 +501,30 @@ public class CodeImporter {
         Keyframe toKeyframe() {
             return new Keyframe(timeMs, value, easingSpec, interpolation);
         }
+    }
+
+    private static VnEyeFocusProfile parseEyeFocusProfile(Map<String, String> attrs) {
+        if (attrs == null || attrs.isEmpty()) return null;
+        String character = decode(attrs.get("character"));
+        if (character.isBlank()) return null;
+        Map<Integer, String> layers = new LinkedHashMap<>();
+        for (int keypad = 1; keypad <= 9; keypad++) {
+            String layer = decode(attrs.get("layer" + keypad));
+            if (!layer.isBlank()) {
+                layers.put(keypad, layer);
+            }
+        }
+        return new VnEyeFocusProfile(
+            character,
+            decode(attrs.get("expression")),
+            decode(attrs.get("sourceAnchor")),
+            parseDouble(attrs.get("sourceX"), 0.5),
+            parseDouble(attrs.get("sourceY"), 0.26),
+            parseDouble(attrs.get("deadZone"), 0.12),
+            parseDouble(attrs.get("maxNudge"), 3.0),
+            parseDouble(attrs.get("strength"), 1.0),
+            layers
+        );
     }
 
     private static List<AnimationProject.SceneEntitySnapshot> parseSceneEntitySnapshots(String code) {

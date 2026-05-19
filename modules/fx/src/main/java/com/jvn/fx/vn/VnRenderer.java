@@ -4,10 +4,12 @@ import java.io.File;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.ServiceLoader;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,10 +33,13 @@ import com.jvn.core.vn.CharacterPosition;
 import com.jvn.core.vn.Choice;
 import com.jvn.core.vn.DialogueLine;
 import com.jvn.core.vn.DialoguePresentationMode;
+import com.jvn.core.vn.EyeFocusResolver;
 import com.jvn.core.vn.VnAudioVisualizerConfig;
 import com.jvn.core.vn.VnBackground;
 import com.jvn.core.vn.VnCharacter;
 import com.jvn.core.vn.VnCharacterSceneAccessor;
+import com.jvn.core.vn.VnEyeFocusProfile;
+import com.jvn.core.vn.VnEyeFocusProfileStore;
 import com.jvn.core.vn.VnNode;
 import com.jvn.core.vn.VnNodeType;
 import com.jvn.core.vn.VnParticleCommand;
@@ -97,6 +102,7 @@ public class VnRenderer {
   private AccessibilityThemeLoader accessibilityTheme = AccessibilityThemeLoader.load("none");
   private List<VnUiActionButtonSpec> textBoxButtons = List.of();
   private VnCharacterSceneAccessor timelineAccessor;
+  private Map<String, VnEyeFocusProfile> eyeFocusProfiles;
   private double styleCharacterHeightFactor = DEFAULT_CHARACTER_HEIGHT_FACTOR;
   private double styleCharacterBaselineY = DEFAULT_CHARACTER_BASELINE_Y;
   private double characterHeightFactor = DEFAULT_CHARACTER_HEIGHT_FACTOR;
@@ -215,6 +221,7 @@ public class VnRenderer {
   private File projectRoot;
   public void setProjectRoot(File root) {
     this.projectRoot = root;
+    this.eyeFocusProfiles = null;
     particleBlitter.setProjectRoot(root);
     stageBackgroundCache.clear();
     stageCharacterCache.clear();
@@ -648,7 +655,26 @@ public class VnRenderer {
     }
   }
 
-  private record SpriteLayer(String path, String targetName, Image image) {
+  private record SpriteLayer(String path, String layerId, String targetName, Image image) {
+  }
+
+  private record EyeFocusDraw(
+      boolean active,
+      String selectedLayerId,
+      String selectedPath,
+      String selectedTargetName,
+      String replacementSlotLayerId,
+      double nudgeX,
+      double nudgeY,
+      Set<String> mappedLayerIds
+  ) {
+    static EyeFocusDraw inactive() {
+      return new EyeFocusDraw(false, "", "", "", "", 0.0, 0.0, Set.of());
+    }
+
+    boolean isMappedLayer(String layerId) {
+      return layerId != null && mappedLayerIds.contains(layerId);
+    }
   }
 
   private void renderCharacterEntry(
@@ -673,13 +699,13 @@ public class VnRenderer {
       if (imagePath != null) {
         gc.save();
         if (alpha < 0.999) gc.setGlobalAlpha(alpha);
-        renderCharacterSprite(imagePath, slot.getExpression(), character, position, width, height, offsetX, offsetY, slot.getCharacterId(), stage);
+        renderCharacterSprite(imagePath, slot.getExpression(), character, position, width, height, offsetX, offsetY, slot.getCharacterId(), state, scenario, stage);
         gc.restore();
       }
     }
   }
 
-  private void renderCharacterSprite(String imagePath, String expression, VnCharacter character, CharacterPosition position, double width, double height, double offsetX, double offsetY, String characterId, VnStagePreset stage) {
+  private void renderCharacterSprite(String imagePath, String expression, VnCharacter character, CharacterPosition position, double width, double height, double offsetX, double offsetY, String characterId, VnState state, VnScenario scenario, VnStagePreset stage) {
     List<String> layerPaths = parseLayerPaths(imagePath);
     Image reference = loadSpriteSourceImage(imagePath, layerPaths);
     double spriteHeight = height * characterHeightFactor;
@@ -692,6 +718,11 @@ public class VnRenderer {
       if (proxy != null && hasTimelinePosition(proxy)) {
         double px = timelineDrawX(proxy, defaultX);
         double py = timelineDrawY(proxy, defaultY);
+        boolean hasEyeFocus = state != null && state.getEyeFocusRequest(characterId) != null && layerPaths.size() > 1;
+        if (hasEyeFocus && reference != null && renderTimelineDrivenLayers(
+            character, expression, characterId, layerPaths, px, py, spriteWidth, spriteHeight, width, height, state, scenario, stage)) {
+          return;
+        }
         if (reference != null) {
           drawCharacterImage(reference, imagePath, px, py, spriteWidth, spriteHeight, width, height, stage);
         } else {
@@ -701,9 +732,12 @@ public class VnRenderer {
         return;
       }
       if (reference != null && renderTimelineDrivenLayers(
-          character, expression, characterId, layerPaths, defaultX, defaultY, spriteWidth, spriteHeight, width, height, stage)) {
+          character, expression, characterId, layerPaths, defaultX, defaultY, spriteWidth, spriteHeight, width, height, state, scenario, stage)) {
         return;
       }
+    } else if (reference != null && renderTimelineDrivenLayers(
+        character, expression, characterId, layerPaths, defaultX, defaultY, spriteWidth, spriteHeight, width, height, state, scenario, stage)) {
+      return;
     }
     if (reference == null) {
       // Draw placeholder silhouette box
@@ -729,28 +763,221 @@ public class VnRenderer {
       double spriteHeight,
       double canvasWidth,
       double canvasHeight,
+      VnState state,
+      VnScenario scenario,
       VnStagePreset stage
   ) {
-    if (timelineAccessor == null || layerPaths == null || layerPaths.size() <= 1) return false;
+    if (layerPaths == null || layerPaths.size() <= 1) return false;
     List<SpriteLayer> layers = spriteLayers(character, expression, characterId, layerPaths);
+    EyeFocusDraw eyeFocus = resolveEyeFocusDraw(
+        state, scenario, character, expression, characterId, layers,
+        defaultX, defaultY, spriteWidth, spriteHeight, canvasWidth, canvasHeight);
     boolean hasLayerProxy = false;
-    for (SpriteLayer layer : layers) {
-      if (layer != null && layer.targetName() != null && timelineAccessor.getProxy(layer.targetName()) != null) {
-        hasLayerProxy = true;
-        break;
+    if (timelineAccessor != null) {
+      for (SpriteLayer layer : layers) {
+        if (layer != null && layer.targetName() != null && timelineAccessor.getProxy(layer.targetName()) != null) {
+          hasLayerProxy = true;
+          break;
+        }
       }
     }
-    if (!hasLayerProxy) return false;
+    if (!hasLayerProxy && !eyeFocus.active()) return false;
 
     for (SpriteLayer layer : layers) {
       if (layer == null || !isLoadedImage(layer.image())) continue;
-      Entity2D proxy = layer.targetName() == null ? null : timelineAccessor.getProxy(layer.targetName());
+      SpriteLayer drawLayer = layer;
+      double nudgeX = 0.0;
+      double nudgeY = 0.0;
+      if (eyeFocus.active() && eyeFocus.isMappedLayer(layer.layerId())) {
+        boolean selectedLayerPresent = expressionContainsLayer(layers, eyeFocus.selectedLayerId());
+        boolean drawSelected = layer.layerId().equals(eyeFocus.selectedLayerId())
+            || (!selectedLayerPresent && layer.layerId().equals(eyeFocus.replacementSlotLayerId()));
+        if (!drawSelected) continue;
+        Image selectedImage = loadSpriteLayerImage(eyeFocus.selectedPath());
+        if (!isLoadedImage(selectedImage)) continue;
+        drawLayer = new SpriteLayer(
+            eyeFocus.selectedPath(),
+            eyeFocus.selectedLayerId(),
+            eyeFocus.selectedTargetName(),
+            selectedImage);
+        nudgeX = eyeFocus.nudgeX();
+        nudgeY = eyeFocus.nudgeY();
+      }
+      Entity2D proxy = drawLayer.targetName() == null || timelineAccessor == null ? null : timelineAccessor.getProxy(drawLayer.targetName());
       if (proxy != null && !proxy.isVisible()) continue;
       double x = proxy != null ? timelineDrawX(proxy, defaultX) : defaultX;
       double y = proxy != null ? timelineDrawY(proxy, defaultY) : defaultY;
-      drawTimelineLayer(layer, proxy, x, y, spriteWidth, spriteHeight, canvasWidth, canvasHeight, stage);
+      drawTimelineLayer(drawLayer, proxy, x + nudgeX, y + nudgeY, spriteWidth, spriteHeight, canvasWidth, canvasHeight, stage);
     }
     return true;
+  }
+
+  private EyeFocusDraw resolveEyeFocusDraw(
+      VnState state,
+      VnScenario scenario,
+      VnCharacter character,
+      String expression,
+      String characterId,
+      List<SpriteLayer> layers,
+      double defaultX,
+      double defaultY,
+      double spriteWidth,
+      double spriteHeight,
+      double canvasWidth,
+      double canvasHeight
+  ) {
+    if (state == null || scenario == null || character == null || characterId == null || layers == null || layers.isEmpty()) {
+      return EyeFocusDraw.inactive();
+    }
+    VnState.EyeFocusRequest request = state.getEyeFocusRequest(characterId);
+    if (request == null) return EyeFocusDraw.inactive();
+
+    VnEyeFocusProfile profile = resolveEyeFocusProfile(character, expression, request.expression());
+    if (profile == null || profile.layerIds().isEmpty()) return EyeFocusDraw.inactive();
+
+    double targetX;
+    double targetY;
+    if (request.hasPointTarget()) {
+      targetX = request.targetX();
+      targetY = request.targetY();
+    } else if (request.hasCharacterTarget()) {
+      double[] point = characterFocusPoint(state, scenario, request.targetCharacterId(), canvasWidth, canvasHeight);
+      if (point == null) return EyeFocusDraw.inactive();
+      targetX = point[0];
+      targetY = point[1];
+    } else {
+      return EyeFocusDraw.inactive();
+    }
+
+    double sourceX = defaultX + spriteWidth * profile.sourceX();
+    double sourceY = defaultY + spriteHeight * profile.sourceY();
+    double dx = (targetX - sourceX) / Math.max(1.0, spriteWidth);
+    double dy = (targetY - sourceY) / Math.max(1.0, spriteHeight);
+    EyeFocusResolver.Result resolved = EyeFocusResolver.resolve(
+        0.0,
+        0.0,
+        dx,
+        dy,
+        request.deadZone(),
+        profile.maxNudgePx(),
+        request.strength());
+
+    String selectedLayerId = profile.layerIdFor(resolved.keypadIndex());
+    if (selectedLayerId == null || selectedLayerId.isBlank()) {
+      selectedLayerId = profile.layerIdFor(5);
+    }
+    if (selectedLayerId == null || selectedLayerId.isBlank()) return EyeFocusDraw.inactive();
+
+    String selectedPath = character.getLayerPath(selectedLayerId);
+    if (selectedPath == null || selectedPath.isBlank()) {
+      for (SpriteLayer layer : layers) {
+        if (layer != null && selectedLayerId.equals(layer.layerId())) {
+          selectedPath = layer.path();
+          break;
+        }
+      }
+    }
+    if (selectedPath == null || selectedPath.isBlank()) return EyeFocusDraw.inactive();
+
+    Set<String> mapped = new LinkedHashSet<>();
+    for (String layerId : profile.layerIds().values()) {
+      if (layerId != null && !layerId.isBlank()) mapped.add(layerId);
+    }
+    String replacementSlot = replacementSlotLayerId(profile, layers, mapped, selectedLayerId);
+    if (replacementSlot.isBlank()) return EyeFocusDraw.inactive();
+    String selectedTargetName = timelineLayerTargetName(characterId, expression, selectedLayerId);
+    return new EyeFocusDraw(
+        true,
+        selectedLayerId,
+        selectedPath,
+        selectedTargetName,
+        replacementSlot,
+        resolved.nudgeX(),
+        resolved.nudgeY(),
+        Set.copyOf(mapped));
+  }
+
+  private VnEyeFocusProfile resolveEyeFocusProfile(VnCharacter character, String expression, String requestedExpression) {
+    if (character == null) return null;
+    Map<String, VnEyeFocusProfile> profiles = eyeFocusProfiles();
+    String currentExpression = expression == null || expression.isBlank() ? "neutral" : expression;
+    VnEyeFocusProfile profile = profiles.get(VnEyeFocusProfile.key(character.getId(), currentExpression));
+    if (profile != null) return profile;
+    if (requestedExpression != null && !requestedExpression.isBlank()) {
+      profile = profiles.get(VnEyeFocusProfile.key(character.getId(), requestedExpression));
+      if (profile != null) return profile;
+    }
+    profile = profiles.get(VnEyeFocusProfile.key(character.getId(), "neutral"));
+    if (profile != null) return profile;
+    return VnEyeFocusProfile.autoDetect(character, currentExpression).orElse(null);
+  }
+
+  private Map<String, VnEyeFocusProfile> eyeFocusProfiles() {
+    if (eyeFocusProfiles != null) return eyeFocusProfiles;
+    if (projectRoot != null) {
+      eyeFocusProfiles = VnEyeFocusProfileStore.byKey(VnEyeFocusProfileStore.load(projectRoot));
+    } else {
+      eyeFocusProfiles = VnEyeFocusProfileStore.loadFromAssets(new AssetCatalog());
+    }
+    return eyeFocusProfiles;
+  }
+
+  private String replacementSlotLayerId(
+      VnEyeFocusProfile profile,
+      List<SpriteLayer> layers,
+      Set<String> mapped,
+      String selectedLayerId
+  ) {
+    for (SpriteLayer layer : layers) {
+      if (layer != null && selectedLayerId.equals(layer.layerId())) {
+        return selectedLayerId;
+      }
+    }
+    String neutral = profile.layerIdFor(5);
+    if (neutral != null && !neutral.isBlank()) {
+      for (SpriteLayer layer : layers) {
+        if (layer != null && neutral.equals(layer.layerId())) {
+          return neutral;
+        }
+      }
+    }
+    for (SpriteLayer layer : layers) {
+      if (layer != null && mapped.contains(layer.layerId())) {
+        return layer.layerId();
+      }
+    }
+    return "";
+  }
+
+  private boolean expressionContainsLayer(List<SpriteLayer> layers, String layerId) {
+    if (layers == null || layerId == null || layerId.isBlank()) return false;
+    for (SpriteLayer layer : layers) {
+      if (layer != null && layerId.equals(layer.layerId())) return true;
+    }
+    return false;
+  }
+
+  private double[] characterFocusPoint(VnState state, VnScenario scenario, String characterId, double canvasWidth, double canvasHeight) {
+    if (state == null || scenario == null || characterId == null || characterId.isBlank()) return null;
+    CharacterPosition position = state.getCharacterPosition(characterId);
+    if (position == null) return null;
+    VnState.CharacterSlot slot = state.getVisibleCharacters().get(position);
+    if (slot == null) return null;
+    VnCharacter character = scenario.getCharacter(slot.getCharacterId());
+    if (character == null) return null;
+    String imagePath = character.getExpressionPath(slot.getExpression());
+    List<String> layerPaths = parseLayerPaths(imagePath);
+    Image reference = loadSpriteSourceImage(imagePath, layerPaths);
+    double spriteHeight = canvasHeight * characterHeightFactor;
+    double spriteWidth = reference != null && reference.getHeight() > 0.0
+        ? reference.getWidth() * (spriteHeight / reference.getHeight())
+        : spriteHeight * 0.5;
+    VnState.CharacterVisual visual = state.getCharacterVisual(position);
+    double offsetX = visual != null ? visual.getOffsetX() : 0.0;
+    double offsetY = visual != null ? visual.getOffsetY() : 0.0;
+    double x = position.computeScreenX(canvasWidth, spriteWidth) + offsetX;
+    double y = position.computeScreenY(canvasHeight, spriteHeight, characterBaselineY) + offsetY;
+    return new double[] {x + spriteWidth * 0.5, y + spriteHeight * 0.26};
   }
 
   private void drawTimelineLayer(
@@ -808,7 +1035,7 @@ public class VnRenderer {
       String layerId = i < layerIds.size() ? layerIds.get(i) : "";
       if (layerId == null || layerId.isBlank()) layerId = fallbackLayerId(path, i);
       String targetName = timelineLayerTargetName(characterId, expression, layerId);
-      layers.add(new SpriteLayer(path, targetName, loadSpriteLayerImage(path)));
+      layers.add(new SpriteLayer(path, layerId, targetName, loadSpriteLayerImage(path)));
     }
     return layers;
   }

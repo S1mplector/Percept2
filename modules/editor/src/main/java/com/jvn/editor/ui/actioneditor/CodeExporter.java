@@ -12,6 +12,7 @@ import java.util.TreeMap;
 
 import com.jvn.core.animation.Easing;
 import com.jvn.core.animation.EasingSpec;
+import com.jvn.core.vn.VnEyeFocusProfile;
 
 public class CodeExporter {
     private static final double TIME_QUANTIZATION_FACTOR = 1000.0; // 0.001ms
@@ -171,6 +172,26 @@ public class CodeExporter {
                     .append(" relative=").append(anchor.isRelative() ? "1" : "0")
                     .append("\n");
             }
+        }
+
+        for (VnEyeFocusProfile profile : project.getEyeFocusProfilesView().values()) {
+            if (profile == null || profile.characterId().isBlank()) continue;
+            sb.append("// @jvn-puppeteer-eye-focus")
+                .append(" character=").append(encode(profile.characterId()))
+                .append(" expression=").append(encode(profile.expression()))
+                .append(" sourceAnchor=").append(encode(profile.sourceAnchor()))
+                .append(" sourceX=").append(formatMetadataNumber(profile.sourceX()))
+                .append(" sourceY=").append(formatMetadataNumber(profile.sourceY()))
+                .append(" deadZone=").append(formatMetadataNumber(profile.deadZone()))
+                .append(" maxNudge=").append(formatMetadataNumber(profile.maxNudgePx()))
+                .append(" strength=").append(formatMetadataNumber(profile.strength()));
+            for (int keypad = 1; keypad <= 9; keypad++) {
+                String layerId = profile.layerIdFor(keypad);
+                if (layerId != null && !layerId.isBlank()) {
+                    sb.append(" layer").append(keypad).append("=").append(encode(layerId));
+                }
+            }
+            sb.append("\n");
         }
     }
 

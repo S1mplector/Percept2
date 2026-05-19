@@ -9,6 +9,8 @@ import java.nio.file.StandardCopyOption;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.jvn.core.vn.VnEyeFocusProfileStore;
+
 /**
  * Pure I/O coordinator for Puppeteer project persistence.
  *
@@ -106,6 +108,7 @@ public final class PuppeteerPersistenceCoordinator {
     public void loadAnchors(AnimationProject project) {
         if (projectRoot == null || project == null) return;
         PuppeteerAnchorStore.load(projectRoot, project);
+        project.setEyeFocusProfiles(VnEyeFocusProfileStore.load(projectRoot));
     }
 
     /** Saves orbit anchors from {@code project} to disk, swallowing I/O failures. */
@@ -113,6 +116,7 @@ public final class PuppeteerPersistenceCoordinator {
         if (projectRoot == null || project == null) return;
         try {
             PuppeteerAnchorStore.save(projectRoot, project);
+            VnEyeFocusProfileStore.save(projectRoot, project.getEyeFocusProfilesView().values());
         } catch (Exception ex) {
             log.warn("Failed to save anchor store", ex);
         }
@@ -154,6 +158,13 @@ public final class PuppeteerPersistenceCoordinator {
                 if (projectRoot != null && project != null) PuppeteerAnchorStore.save(projectRoot, project);
             } catch (Throwable ex) {
                 log.warn("anchor save failed on close", ex);
+            }
+            try {
+                if (projectRoot != null && project != null) {
+                    VnEyeFocusProfileStore.save(projectRoot, project.getEyeFocusProfilesView().values());
+                }
+            } catch (Throwable ex) {
+                log.warn("eye focus profile save failed on close", ex);
             }
         }, "puppeteer-close-cleanup");
         cleanup.setDaemon(true);

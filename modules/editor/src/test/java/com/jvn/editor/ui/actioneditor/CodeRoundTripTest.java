@@ -5,9 +5,11 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.jvn.core.animation.Easing;
 import com.jvn.core.animation.TimelineData;
 import com.jvn.core.animation.TimelineDataParser;
+import com.jvn.core.vn.VnEyeFocusProfile;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Round-trip tests: source -> model -> export -> model -> export.
@@ -205,6 +207,88 @@ class CodeRoundTripTest {
         assertArrayEquals(new double[]{10, 15}, imported.getOrbitAnchorSourceOffsetsView().get("hand"), 0.001);
         assertEquals(Constraint.parentChild("shoulder", 4, 5, false, true), imported.getConstraint("hand"));
         assertEquals(Anchor.relative("wrist", 0.6, 0.7), imported.getAnchor("hand", "wrist"));
+    }
+
+    @Test
+    void eyeFocusMetadataRoundTripPreservesRig() {
+        AnimationProject project = new AnimationProject();
+        project.setEyeFocusProfile(new VnEyeFocusProfile(
+            "john",
+            "neutral",
+            "eyes",
+            0.52,
+            0.25,
+            0.11,
+            4.0,
+            0.75,
+            Map.of(
+                1, "eyes_01",
+                2, "eyes_02",
+                3, "eyes_03",
+                4, "eyes_04",
+                5, "eyes_05",
+                6, "eyes_06",
+                7, "eyes_07",
+                8, "eyes_08",
+                9, "eyes_09"
+            )
+        ));
+
+        String exported = CodeExporter.exportNamed(project, "eye_focus");
+        assertTrue(exported.contains("@jvn-puppeteer-eye-focus"));
+
+        AnimationProject imported = CodeImporter.importCode("eye_focus", exported);
+        VnEyeFocusProfile profile = imported.getEyeFocusProfile("john", "neutral");
+        assertNotNull(profile);
+        assertEquals("eyes_06", profile.layerIdFor(6));
+        assertEquals(0.52, profile.sourceX(), 0.001);
+        assertEquals(0.25, profile.sourceY(), 0.001);
+        assertEquals(4.0, profile.maxNudgePx(), 0.001);
+    }
+
+    @Test
+    void eyeFocusBakeCreatesVisibilityKeysAndSelectedNudgeOnly() {
+        AnimationProject project = new AnimationProject();
+        VnEyeFocusProfile profile = new VnEyeFocusProfile(
+            "john",
+            "neutral",
+            "eyes",
+            0.5,
+            0.26,
+            0.01,
+            3.0,
+            1.0,
+            Map.of(
+                1, "eyes_01",
+                2, "eyes_02",
+                3, "eyes_03",
+                4, "eyes_04",
+                5, "eyes_05",
+                6, "eyes_06",
+                7, "eyes_07",
+                8, "eyes_08",
+                9, "eyes_09"
+            )
+        );
+
+        PuppeteerEyeFocusBaker.BakeResult result = PuppeteerEyeFocusBaker.applyAt(project, profile, 125, 0, 0, 1, 0);
+        assertNotNull(result);
+        assertEquals(6, result.keypadIndex());
+        assertEquals("eyes_06", result.selectedLayerId());
+
+        for (int i = 1; i <= 9; i++) {
+            String target = PuppeteerEyeFocusBaker.targetName("john", "neutral", "eyes_%02d".formatted(i));
+            EntityTrack track = project.getTrack(target);
+            assertNotNull(track, "missing track " + target);
+            assertEquals(i == 6 ? 1.0 : 0.0, track.getValueAt(PropertyType.VISIBILITY, 125), 0.001);
+            if (i == 6) {
+                assertTrue(track.hasKeyframes(PropertyType.X));
+                assertTrue(track.hasKeyframes(PropertyType.Y));
+            } else {
+                assertFalse(track.hasKeyframes(PropertyType.X), "non-selected layer should not get X nudge");
+                assertFalse(track.hasKeyframes(PropertyType.Y), "non-selected layer should not get Y nudge");
+            }
+        }
     }
 
     @Test
