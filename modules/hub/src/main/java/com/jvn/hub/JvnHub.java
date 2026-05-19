@@ -3315,7 +3315,8 @@ public final class JvnHub {
 
   /** Action button variant with an amber maintenance overlay and badge. */
   private static final class MaintenanceButton extends FlatButton {
-    private static final int STRIPE_SPACING = 28;
+    private static final int STRIPE_WIDTH = 28;
+    private static final int STRIPE_PERIOD = STRIPE_WIDTH * 2;
     private final javax.swing.Timer stripeTimer;
     private int stripeOffset = 0;
 
@@ -3323,7 +3324,7 @@ public final class JvnHub {
       super(text, icon, ACCENT_MAINTENANCE);
       setForeground(ACCENT_MAINTENANCE);
       stripeTimer = new javax.swing.Timer(70, e -> {
-        stripeOffset = (stripeOffset + 2) % STRIPE_SPACING;
+        stripeOffset = (stripeOffset + 2) % STRIPE_PERIOD;
         repaint();
       });
       stripeTimer.setCoalesce(true);
@@ -3357,10 +3358,12 @@ public final class JvnHub {
       g2.setColor(alpha(Color.decode("#120c00"), 0.34f));
       g2.fillRoundRect(0, 0, w, h, arc, arc);
 
-      g2.setStroke(new BasicStroke(5f));
       g2.setColor(alpha(ACCENT_MAINTENANCE, 0.18f));
-      for (int x = -h - STRIPE_SPACING + stripeOffset; x < w + h; x += STRIPE_SPACING) {
-        g2.drawLine(x, h, x + h, 0);
+      for (int x = -h - STRIPE_PERIOD + stripeOffset; x < w + STRIPE_PERIOD; x += STRIPE_PERIOD) {
+        g2.fillPolygon(
+            new int[] {x, x + STRIPE_WIDTH, x + STRIPE_WIDTH + h, x + h},
+            new int[] {0, 0, h, h},
+            4);
       }
       g2.setClip(oldClip);
 
