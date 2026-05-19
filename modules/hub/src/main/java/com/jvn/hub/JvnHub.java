@@ -111,7 +111,7 @@ public final class JvnHub {
   private static final Color LOG_TEXT       = Color.decode("#cfcfcf");
   private static final Color SCROLL_THUMB   = Color.decode("#2a2a2a");
   private static final Color SCROLL_THUMB_HOVER = Color.decode("#3a3a3a");
-  private static final String LAUNCHER_MAINTENANCE_MESSAGE =
+  private static final String DEFAULT_LAUNCHER_MAINTENANCE_MESSAGE =
       "JVN Launcher is temporarily under maintenance. Use Run Editor for daily work.";
 
   /** Resolved at class-init time from a Gradle-generated resource. */
@@ -137,6 +137,8 @@ public final class JvnHub {
 
   /** Currently-loaded announcements; refreshed on startup and after Update Engine. */
   private final List<Announcement> announcements = new ArrayList<>();
+  /** Launcher maintenance state; refreshed on startup and after Update Engine. */
+  private LauncherMaintenanceState launcherMaintenanceState = LauncherMaintenanceState.available();
   /** IDs (date+title) of announcements the user has already opened in the dialog. */
   private final Set<String> readIds = new HashSet<>();
   /** Developer Mode exposes engineering-focused actions and launch flags. */
@@ -177,6 +179,7 @@ public final class JvnHub {
     // on the very first paint.
     readIds.addAll(loadReadIds());
     announcements.addAll(loadAnnouncements());
+    launcherMaintenanceState = loadLauncherMaintenanceState();
     buildUi();
     checkIncomingUpdates(true);
   }
@@ -585,6 +588,61 @@ public final class JvnHub {
   /** Small immutable record describing one announcement entry. */
   private record Announcement(String date, String title, String body) {}
 
+  private LauncherMaintenanceState loadLauncherMaintenanceState() {
+    Path file = projectRoot.resolve(".jvn/maintenance.properties");
+    if (!Files.isRegularFile(file)) return LauncherMaintenanceState.available();
+    Properties props = new Properties();
+    try (InputStream in = Files.newInputStream(file)) {
+      props.load(in);
+    } catch (IOException e) {
+      appendLog("[hub] failed to read maintenance state: " + e.getMessage());
+      return LauncherMaintenanceState.available();
+    }
+    boolean launcherUnderMaintenance = parseBooleanProperty(
+        props,
+        "launcher.maintenance",
+        "launcher.underMaintenance",
+        "launcher.disabled");
+    String message = firstNonBlank(
+        props.getProperty("launcher.message"),
+        props.getProperty("launcher.maintenanceMessage"),
+        DEFAULT_LAUNCHER_MAINTENANCE_MESSAGE);
+    return new LauncherMaintenanceState(launcherUnderMaintenance, message);
+  }
+
+  private static boolean parseBooleanProperty(Properties props, String... keys) {
+    if (props == null || keys == null) return false;
+    for (String key : keys) {
+      if (key == null || key.isBlank()) continue;
+      String value = props.getProperty(key);
+      if (value == null || value.isBlank()) continue;
+      String normalized = value.trim().toLowerCase(Locale.ROOT);
+      return normalized.equals("true")
+          || normalized.equals("1")
+          || normalized.equals("yes")
+          || normalized.equals("on");
+    }
+    return false;
+  }
+
+  private static String firstNonBlank(String... values) {
+    if (values == null) return "";
+    for (String value : values) {
+      if (value != null && !value.isBlank()) return value.trim();
+    }
+    return "";
+  }
+
+  private record LauncherMaintenanceState(boolean underMaintenance, String message) {
+    static LauncherMaintenanceState available() {
+      return new LauncherMaintenanceState(false, "");
+    }
+
+    String resolvedMessage() {
+      return message == null || message.isBlank() ? DEFAULT_LAUNCHER_MAINTENANCE_MESSAGE : message;
+    }
+  }
+
   private JPanel buildCenter() {
     actionGrid = new JPanel(new GridLayout(3, 2, 10, 10));
     actionGrid.setOpaque(false);
@@ -592,8 +650,7 @@ public final class JvnHub {
     runEditorButton = makeAction("Run Editor", "Launch the full JVN editor.",
         VectorIcon.Kind.EDIT, null, () -> guardedRun("Run Editor", () -> runGradle(":editor:run", "Run Editor")));
 
-    runLauncherButton = makeMaintenanceAction("Run Launcher", LAUNCHER_MAINTENANCE_MESSAGE,
-        VectorIcon.Kind.ROCKET, this::showLauncherMaintenanceNotice);
+    runLauncherButton = makeLauncherAction();
 
     buildAllButton = makeAction("Build All", "Compile every module.",
         VectorIcon.Kind.HAMMER, null, () -> guardedRun("Build All", () -> runGradle("build", "Build All")));
@@ -1153,19 +1210,26 @@ public final class JvnHub {
     return button;
   }
 
-  private JButton makeMaintenanceAction(String label, String tooltip, VectorIcon.Kind iconKind,
-                                        Runnable action) {
-    Icon icon = VectorIcon.of(iconKind, 16, ACCENT_MAINTENANCE);
-    MaintenanceButton button = new MaintenanceButton(label, icon);
-    button.setToolTipText(tooltip);
-    button.addActionListener(e -> action.run());
+  private JButton makeLauncherAction() {
+    LauncherButton button = new LauncherButton("Run Launcher");
+    button.setMaintenanceState(launcherMaintenanceState);
+    button.addActionListener(e -> runLauncherAction());
     actionButtons.add(button);
     return button;
   }
 
+  private void runLauncherAction() {
+    if (launcherMaintenanceState.underMaintenance()) {
+      showLauncherMaintenanceNotice();
+      return;
+    }
+    guardedRun("Run Launcher", () -> runGradle(":editor:runLauncher", "Run Launcher"));
+  }
+
   private void showLauncherMaintenanceNotice() {
+    LauncherMaintenanceState state = launcherMaintenanceState;
     setStatus("Launcher under maintenance", ACCENT_MAINTENANCE);
-    setActivity("Launcher under maintenance", LAUNCHER_MAINTENANCE_MESSAGE, false, ACCENT_MAINTENANCE);
+    setActivity("Launcher under maintenance", state.resolvedMessage(), false, ACCENT_MAINTENANCE);
   }
 
   // --- Task execution --------------------------------------------------------
@@ -3095,15 +3159,25 @@ public final class JvnHub {
   private void refreshFromDisk() {
     String newVersion = readDiskVersion();
     List<Announcement> fresh = loadAnnouncements();
+    LauncherMaintenanceState freshLauncherMaintenance = loadLauncherMaintenanceState();
     SwingUtilities.invokeLater(() -> {
       versionLabel.setText(formatVersionLabel(newVersion));
       announcements.clear();
       announcements.addAll(fresh);
       int unread = unreadCount();
       if (announcementsButton != null) announcementsButton.refreshBadge(unread);
+      boolean maintenanceChanged = launcherMaintenanceState.underMaintenance()
+          != freshLauncherMaintenance.underMaintenance();
+      launcherMaintenanceState = freshLauncherMaintenance;
+      if (runLauncherButton instanceof LauncherButton launcherButton) {
+        launcherButton.setMaintenanceState(freshLauncherMaintenance);
+      }
       appendLog("[hub] refresh: " + fresh.size()
           + " announcement" + (fresh.size() == 1 ? "" : "s")
-          + " (" + unread + " unread). Version: " + newVersion + ".");
+          + " (" + unread + " unread). Version: " + newVersion
+          + ". Launcher maintenance: "
+          + (freshLauncherMaintenance.underMaintenance() ? "on" : "off")
+          + (maintenanceChanged ? " (changed)" : "") + ".");
       frame.repaint();
     });
   }
@@ -3692,16 +3766,16 @@ public final class JvnHub {
     }
   }
 
-  /** Action button variant with an amber maintenance overlay and badge. */
-  private static final class MaintenanceButton extends FlatButton {
+  /** Launcher action button that can switch its maintenance overlay on refresh. */
+  private static final class LauncherButton extends FlatButton {
     private static final int STRIPE_WIDTH = 28;
     private static final int STRIPE_PERIOD = STRIPE_WIDTH * 2;
     private final javax.swing.Timer stripeTimer;
     private int stripeOffset = 0;
+    private boolean underMaintenance = false;
 
-    MaintenanceButton(String text, Icon icon) {
-      super(text, icon, ACCENT_MAINTENANCE);
-      setForeground(ACCENT_MAINTENANCE);
+    LauncherButton(String text) {
+      super(text, VectorIcon.of(VectorIcon.Kind.ROCKET, 16, TEXT_PRIMARY), BORDER_NEUTRAL);
       stripeTimer = new javax.swing.Timer(70, e -> {
         stripeOffset = (stripeOffset + 2) % STRIPE_PERIOD;
         repaint();
@@ -3709,10 +3783,29 @@ public final class JvnHub {
       stripeTimer.setCoalesce(true);
     }
 
+    void setMaintenanceState(LauncherMaintenanceState state) {
+      LauncherMaintenanceState safeState = state == null ? LauncherMaintenanceState.available() : state;
+      underMaintenance = safeState.underMaintenance();
+      setForeground(underMaintenance ? ACCENT_MAINTENANCE : TEXT_PRIMARY);
+      setIcon(VectorIcon.of(
+          VectorIcon.Kind.ROCKET,
+          16,
+          underMaintenance ? ACCENT_MAINTENANCE : TEXT_PRIMARY));
+      setToolTipText(underMaintenance
+          ? safeState.resolvedMessage()
+          : "Launch the standalone JVN launcher.");
+      if (underMaintenance && isDisplayable()) {
+        stripeTimer.start();
+      } else {
+        stripeTimer.stop();
+      }
+      repaint();
+    }
+
     @Override
     public void addNotify() {
       super.addNotify();
-      stripeTimer.start();
+      if (underMaintenance) stripeTimer.start();
     }
 
     @Override
@@ -3724,6 +3817,7 @@ public final class JvnHub {
     @Override
     protected void paintComponent(Graphics g) {
       super.paintComponent(g);
+      if (!underMaintenance) return;
 
       Graphics2D g2 = (Graphics2D) g.create();
       g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
