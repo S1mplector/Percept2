@@ -107,9 +107,12 @@ public final class JvnHub {
   private static final Color ACCENT_DEV     = Color.decode("#8cc5ff");
   private static final Color ACCENT_SAFE    = Color.decode("#ffd166");
   private static final Color ACCENT_ERROR   = Color.decode("#f38ba8");
+  private static final Color ACCENT_MAINTENANCE = Color.decode("#ff9933");
   private static final Color LOG_TEXT       = Color.decode("#cfcfcf");
   private static final Color SCROLL_THUMB   = Color.decode("#2a2a2a");
   private static final Color SCROLL_THUMB_HOVER = Color.decode("#3a3a3a");
+  private static final String LAUNCHER_MAINTENANCE_MESSAGE =
+      "JVN Launcher is temporarily under maintenance. Use Run Editor for daily work.";
 
   /** Resolved at class-init time from a Gradle-generated resource. */
   private static final String VERSION = readVersion();
@@ -589,8 +592,8 @@ public final class JvnHub {
     runEditorButton = makeAction("Run Editor", "Launch the full JVN editor.",
         VectorIcon.Kind.EDIT, null, () -> guardedRun("Run Editor", () -> runGradle(":editor:run", "Run Editor")));
 
-    runLauncherButton = makeAction("Run Launcher", "Launch the standalone JVN launcher.",
-        VectorIcon.Kind.ROCKET, null, () -> guardedRun("Run Launcher", () -> runGradle(":editor:runLauncher", "Run Launcher")));
+    runLauncherButton = makeMaintenanceAction("Run Launcher", LAUNCHER_MAINTENANCE_MESSAGE,
+        VectorIcon.Kind.ROCKET, this::showLauncherMaintenanceNotice);
 
     buildAllButton = makeAction("Build All", "Compile every module.",
         VectorIcon.Kind.HAMMER, null, () -> guardedRun("Build All", () -> runGradle("build", "Build All")));

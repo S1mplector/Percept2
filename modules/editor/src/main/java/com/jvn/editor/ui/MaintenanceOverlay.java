@@ -29,7 +29,7 @@ public final class MaintenanceOverlay extends StackPane {
   private final Canvas stripeCanvas = new Canvas();
   private double stripeOffset = 0;
 
-  private MaintenanceOverlay(Node content, String estimatedAvailability) {
+  private MaintenanceOverlay(Node content, String estimatedAvailability, String detailMessage) {
     // Underlying tool is visible but non-interactive.
     content.setMouseTransparent(true);
     getChildren().add(content);
@@ -51,7 +51,10 @@ public final class MaintenanceOverlay extends StackPane {
     iconTitle.setAlignment(Pos.CENTER_LEFT);
 
     // ── Body ────────────────────────────────────────────────────────────
-    Label subtitle = new Label("This tool seems to be temporarily unavailable.");
+    String detail = detailMessage != null && !detailMessage.isBlank()
+        ? detailMessage.trim()
+        : "This tool seems to be temporarily unavailable.";
+    Label subtitle = new Label(detail);
     subtitle.setStyle("-fx-font-size: 12px; -fx-text-fill: #cccccc;");
     subtitle.setWrapText(true);
 
@@ -118,13 +121,21 @@ public final class MaintenanceOverlay extends StackPane {
    * availability date. To remove the overlay, stop wrapping the node.
    */
   public static MaintenanceOverlay wrap(Node content, String estimatedAvailability) {
-    return new MaintenanceOverlay(content, estimatedAvailability);
+    return new MaintenanceOverlay(content, estimatedAvailability, null);
+  }
+
+  /**
+   * Wraps {@code content} in an animated maintenance overlay with a custom
+   * explanatory message and optional estimated availability date.
+   */
+  public static MaintenanceOverlay wrap(Node content, String estimatedAvailability, String detailMessage) {
+    return new MaintenanceOverlay(content, estimatedAvailability, detailMessage);
   }
 
   /**
    * Wraps {@code content} in an animated maintenance overlay with no ETA shown.
    */
   public static MaintenanceOverlay wrap(Node content) {
-    return new MaintenanceOverlay(content, null);
+    return new MaintenanceOverlay(content, null, null);
   }
 }
