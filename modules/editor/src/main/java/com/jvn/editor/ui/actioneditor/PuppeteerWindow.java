@@ -842,7 +842,7 @@ public class PuppeteerWindow extends Stage {
                 discardStagedPreview();
                 return;
             }
-            refreshExportPreview();
+            requestRefreshGeneratedCode();
         });
 
         // --- Transport controls ---
@@ -1623,7 +1623,7 @@ public class PuppeteerWindow extends Stage {
         MenuItem miVerifyRuntime = new MenuItem("Verify Runtime Registration...");
         miVerifyRuntime.setOnAction(e -> showRuntimeVerificationReport());
         MenuItem miRefreshCode = new MenuItem("Refresh Generated Code");
-        miRefreshCode.setOnAction(e -> refreshExportPreview());
+        miRefreshCode.setOnAction(e -> requestRefreshGeneratedCode());
         MenuItem miStagePreview = new MenuItem("Stage Code Preview");
         miStagePreview.setOnAction(e -> stagePreviewFromCode());
         MenuItem miCommitPreview = new MenuItem("Commit Staged Preview");
@@ -5605,6 +5605,22 @@ public class PuppeteerWindow extends Stage {
     }
 
     public void copyExportedCodeToClipboard() {
+        showCodeGenerationActionPreview(
+            "Copy Generated Timeline Code?",
+            "Puppeteer will generate JES code from the current visual timeline and copy it to the clipboard.",
+            "Copy Code",
+            List.of(
+                "Generate a standard JES timeline block from the current visual model.",
+                "Run export/runtime diagnostics before copying.",
+                "Copy the generated text to the system clipboard.",
+                "Leave the project file, registered timeline file, and TimelineRegistry unchanged.",
+                "This action does not include named Puppeteer reopen metadata; Save & Register writes the named metadata-rich .jes file."
+            ),
+            this::performCopyExportedCodeToClipboard
+        );
+    }
+
+    private void performCopyExportedCodeToClipboard() {
         try {
             String code = CodeExporter.export(project);
             List<TimelineDiagnostic.Message> findings = new ArrayList<>(
@@ -5640,6 +5656,22 @@ public class PuppeteerWindow extends Stage {
                 ex
             );
         }
+    }
+
+    public void requestRefreshGeneratedCode() {
+        showCodeGenerationActionPreview(
+            "Regenerate Timeline Code?",
+            "Puppeteer will replace the right-side Timeline Code text with freshly generated code from the visual model.",
+            "Regenerate",
+            List.of(
+                "Discard manual edits currently present in the Timeline Code panel.",
+                "Generate " + (compactExport ? "compact" : "standard") + " JES timeline code from the current visual model.",
+                "Refresh parse and timeline diagnostics for the generated code.",
+                "Leave saved files and TimelineRegistry unchanged.",
+                "Use Preview Parse and Commit if you want hand-edited code to become the visual model instead."
+            ),
+            this::refreshExportPreview
+        );
     }
 
     public void pasteCopiedKeyframesAtPlayhead() {
@@ -7360,17 +7392,60 @@ public class PuppeteerWindow extends Stage {
             );
             return;
         }
-        if (hasWarnings) {
-            showVerificationOverlay(
-                "Register Timeline?",
-                "Puppeteer found warnings that may affect runtime playback. Continue registering anyway?",
-                findings,
-                "Continue",
-                () -> performRegisterTimeline(name, onSuccess)
-            );
-            return;
+        showRegistrationActionPreview(name, findings, onSuccess, hasWarnings);
+    }
+
+    private void showRegistrationActionPreview(
+        String name,
+        List<TimelineDiagnostic.Message> findings,
+        Runnable onSuccess,
+        boolean hasWarnings
+    ) {
+        String filePath = Optional.ofNullable(resolveRegisteredJesFile(name))
+            .map(File::getAbsolutePath)
+            .orElse("scripts/timelines/" + name + ".jes");
+        String backupPath = projectRoot != null
+            ? projectRoot.toPath()
+                .resolve("scripts")
+                .resolve("timelines")
+                .resolve(".backups")
+                .resolve(name + ".jes.bak")
+                .toString()
+            : "scripts/timelines/.backups/" + name + ".jes.bak";
+
+        List<String> details = new ArrayList<>();
+        details.add("Validate the timeline name and runtime registration diagnostics.");
+        details.add("Capture current scene entity snapshots so Puppeteer can reopen the animation with the same visible scene context.");
+        details.add("Convert the visual timeline to TimelineData named \"" + name + "\".");
+        details.add("Generate a named JES export with VNS usage comments and Puppeteer metadata comments.");
+        details.add("Write the file to: " + filePath);
+        details.add("If that file already exists, write a backup to: " + backupPath);
+        details.add("Save Puppeteer anchor/orbit metadata for this project.");
+        details.add("Register the TimelineData in TimelineRegistry for immediate runtime/VNS playback in this editor session.");
+        details.add("Mark the animation clean, remove its autosave draft, and add it to Puppeteer's recent registered timelines.");
+        if (previewStaged) {
+            details.add("Keep the currently staged code-preview model as the saved registered model.");
         }
-        performRegisterTimeline(name, onSuccess);
+        if (onSuccess != null) {
+            details.add("Run the requested follow-up action after registration succeeds, such as closing this Puppeteer window.");
+        }
+        details.add("This will not insert or edit any .vns script line; reference it manually with @external jes_timeline " + name + " when needed.");
+
+        VBox body = buildActionDetailsContent(details);
+        if (hasWarnings) {
+            Label warningHeader = new Label("Warnings that will be accepted if you continue:");
+            warningHeader.setStyle("-fx-text-fill: #ffe2a8; -fx-font-size: 11px; -fx-font-weight: bold;");
+            body.getChildren().add(warningHeader);
+            body.getChildren().add(buildVerificationContent(findings));
+        }
+
+        overlayDialog.showDialog(
+            hasWarnings ? "Register Timeline With Warnings?" : "Register Timeline?",
+            "Review exactly what Puppeteer will do before it saves and registers \"" + name + "\".",
+            body,
+            ActionEditorDialogOverlay.ActionSpec.neutral("Cancel", overlayDialog::hideOverlay).defaultFocus(true),
+            ActionEditorDialogOverlay.ActionSpec.accent("Register", () -> performRegisterTimeline(name, onSuccess))
+        );
     }
 
     private boolean performRegisterTimeline(String name, Runnable onSuccess) {
@@ -7455,6 +7530,56 @@ public class PuppeteerWindow extends Stage {
             body,
             ActionEditorDialogOverlay.ActionSpec.neutral("Close", overlayDialog::hideOverlay).defaultFocus(true)
         );
+    }
+
+    private void showCodeGenerationActionPreview(
+        String title,
+        String header,
+        String actionLabel,
+        List<String> details,
+        Runnable onContinue
+    ) {
+        overlayDialog.showDialog(
+            title,
+            header,
+            buildActionDetailsContent(details),
+            ActionEditorDialogOverlay.ActionSpec.neutral("Cancel", overlayDialog::hideOverlay).defaultFocus(true),
+            ActionEditorDialogOverlay.ActionSpec.accent(actionLabel, () -> {
+                if (onContinue != null) {
+                    onContinue.run();
+                }
+            })
+        );
+    }
+
+    private VBox buildActionDetailsContent(List<String> details) {
+        VBox content = new VBox(8);
+        content.setFillWidth(true);
+        content.setMaxWidth(520);
+        content.setStyle("-fx-padding: 0 0 2 0;");
+
+        for (String detail : details == null ? List.<String>of() : details) {
+            if (detail == null || detail.isBlank()) continue;
+            HBox row = new HBox(8);
+            row.setAlignment(Pos.TOP_LEFT);
+            Label bullet = new Label("-");
+            bullet.setStyle("-fx-text-fill: #7ab3e0; -fx-font-size: 12px; -fx-font-weight: bold;");
+            Label text = new Label(detail.trim());
+            text.setWrapText(true);
+            text.setMaxWidth(470);
+            text.setStyle("-fx-text-fill: #d7d7d7; -fx-font-size: 11px;");
+            HBox.setHgrow(text, Priority.ALWAYS);
+            row.getChildren().addAll(bullet, text);
+            content.getChildren().add(row);
+        }
+
+        if (content.getChildren().isEmpty()) {
+            Label fallback = new Label("Puppeteer will perform the selected action after you confirm.");
+            fallback.setWrapText(true);
+            fallback.setStyle("-fx-text-fill: #d7d7d7; -fx-font-size: 11px;");
+            content.getChildren().add(fallback);
+        }
+        return content;
     }
 
     private VBox buildVerificationContent(List<TimelineDiagnostic.Message> findings) {

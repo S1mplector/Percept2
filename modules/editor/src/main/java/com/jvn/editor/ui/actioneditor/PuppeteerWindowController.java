@@ -185,42 +185,7 @@ public final class PuppeteerWindowController {
     }
 
     void copyExportedCodeToClipboard() {
-        try {
-            String code = CodeExporter.export(view.project);
-            List<TimelineDiagnostic.Message> findings = new ArrayList<>(
-                PuppeteerVerification.diagnose(
-                    view.project,
-                    view.knownSceneEntities(),
-                    view.projectRoot,
-                    PuppeteerVerification.Mode.EXPORT_CODE
-                )
-            );
-            findings.addAll(TimelineDiagnostic.diagnoseDsl(code));
-            boolean hasErrors = findings.stream()
-                .anyMatch(m -> m.severity() == TimelineDiagnostic.Severity.ERROR);
-            if (hasErrors) {
-                view.showVerificationOverlay(
-                    "Export Blocked",
-                    "Puppeteer found export errors. Fix them before copying this timeline code.",
-                    findings,
-                    null,
-                    null
-                );
-                return;
-            }
-            view.copyToClipboard(code);
-            if (view.statusBar != null) view.statusBar.setText("Exported timeline code copied to clipboard");
-            if (view.onCopyCode != null) view.onCopyCode.accept(code);
-        } catch (Exception ex) {
-            log.error("copyExportedCodeToClipboard failed", ex);
-            view.showOverlayError(
-                PuppeteerWindow.PuppeteerErrorType.EXPORT,
-                "Export Failed",
-                "Could not generate timeline code.",
-                ex.getMessage(),
-                ex
-            );
-        }
+        view.copyExportedCodeToClipboard();
     }
 
     // -----------------------------------------------------------------------
@@ -379,7 +344,7 @@ public final class PuppeteerWindowController {
         MenuItem miVerifyRuntime = new MenuItem("Verify Runtime Registration...");
         miVerifyRuntime.setOnAction(e -> showRuntimeVerificationReport());
         MenuItem miRefreshCode = new MenuItem("Refresh Generated Code");
-        miRefreshCode.setOnAction(e -> view.refreshExportPreview());
+        miRefreshCode.setOnAction(e -> view.requestRefreshGeneratedCode());
         MenuItem miStagePreview = new MenuItem("Stage Code Preview");
         miStagePreview.setOnAction(e -> view.stagePreviewFromCode());
         MenuItem miCommitPreview = new MenuItem("Commit Staged Preview");

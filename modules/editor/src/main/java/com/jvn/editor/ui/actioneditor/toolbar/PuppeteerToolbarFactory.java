@@ -39,7 +39,7 @@ public final class PuppeteerToolbarFactory {
     MenuItem miVerifyRuntime = new MenuItem("Verify Runtime Registration...");
     miVerifyRuntime.setOnAction(e -> w.showRuntimeVerificationReport());
     MenuItem miRefreshCode = new MenuItem("Refresh Generated Code");
-    miRefreshCode.setOnAction(e -> w.refreshExportPreview());
+    miRefreshCode.setOnAction(e -> w.requestRefreshGeneratedCode());
     MenuItem miStagePreview = new MenuItem("Stage Code Preview");
     miStagePreview.setOnAction(e -> w.stagePreviewFromCode());
     MenuItem miCommitPreview = new MenuItem("Commit Staged Preview");
