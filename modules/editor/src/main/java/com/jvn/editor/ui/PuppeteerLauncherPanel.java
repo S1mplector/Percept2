@@ -1607,6 +1607,7 @@ button then opens it in the editor."""));
     if (source == null || source.isBlank()) return null;
     String[] lines = source.split("\n", -1);
     int limit = Math.max(0, Math.min(cursorLine, lines.length - 1));
+    InlineTimelineContext lastComplete = null;
     for (int i = 0; i <= limit; i++) {
       String trimmed = stripInlineComment(lines[i]).trim();
       if (!startsInlineTimeline(trimmed)) continue;
@@ -1644,12 +1645,18 @@ button then opens it in the editor."""));
           if (lastBrace > 0) block.append(line, 0, lastBrace).append('\n');
         }
       }
-      if (braceDepth == 0 && limit >= openingLine && limit <= endLine) {
-        return new InlineTimelineContext(openingLine, endLine, block.toString());
+      if (braceDepth == 0) {
+        InlineTimelineContext context = new InlineTimelineContext(openingLine, endLine, block.toString());
+        if (limit >= openingLine && limit <= endLine) {
+          return context;
+        }
+        if (endLine <= limit) {
+          lastComplete = context;
+        }
       }
       i = Math.max(i, endLine);
     }
-    return null;
+    return lastComplete;
   }
 
   private static boolean startsInlineTimeline(String trimmed) {

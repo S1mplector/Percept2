@@ -161,6 +161,28 @@ class PuppeteerLauncherPanelTest {
   }
 
   @Test
+  void resolveSnapshotKeepsLastInlineTimelineAfterCursorPassesBlock() {
+    String source = """
+        @label intro
+        [show lavender center neutral]
+        timeline {
+          move "lavender" {
+            x: 420
+            dur: 500
+          }
+        }
+        narrator: done
+        """;
+
+    PuppeteerLauncherPanel.SceneSnapshot snapshot = PuppeteerLauncherPanel.resolveSnapshot(source, 8);
+
+    assertTrue(snapshot.hasInlineTimeline());
+    assertEquals(2, snapshot.inlineTimelineStartLine);
+    assertEquals("intro_inline_3", snapshot.preferredTimelineName());
+    assertTrue(snapshot.inlineTimelineBody.contains("move \"lavender\""));
+  }
+
+  @Test
   void resolveSceneStartLineUsesLatestBackgroundInActiveLabel() {
     String source = """
         @label intro

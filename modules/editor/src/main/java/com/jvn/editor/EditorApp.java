@@ -6510,6 +6510,9 @@ public class EditorApp extends Application {
       preferredTimelineName = snapshot != null ? snapshot.preferredTimelineName() : null;
       imported = importTimelineFromSnapshot(snapshot);
     }
+    if (imported != null && shouldApplySnapshotTimelineAtCursor(selectedTimelineName, snapshot)) {
+      imported.setPlayheadMs(imported.getTotalDurationMs());
+    }
     PuppeteerWindow puppeteer = imported != null
         ? new PuppeteerWindow(imported)
         : new PuppeteerWindow();
@@ -6547,6 +6550,16 @@ public class EditorApp extends Application {
         }
       });
     }
+  }
+
+  private boolean shouldApplySnapshotTimelineAtCursor(
+      String selectedTimelineName,
+      PuppeteerLauncherPanel.SceneSnapshot snapshot
+  ) {
+    if (selectedTimelineName != null && !selectedTimelineName.isBlank()) return false;
+    if (snapshot == null) return false;
+    if (snapshot.hasInlineTimeline()) return true;
+    return snapshot.referencedTimelineName != null && !snapshot.referencedTimelineName.isBlank();
   }
 
   private JesScene2D resolvePuppeteerLaunchScene(
