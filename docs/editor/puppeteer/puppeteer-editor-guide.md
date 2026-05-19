@@ -48,16 +48,17 @@ This guide focuses on practical editor use:
 11. [Event Cues](#event-cues) — presets, payload, preview behavior
 12. [Animation Clips](#animation-clips) — save, load, apply modes, storage
 13. [VN Slot Positions](#vn-slot-positions) — character-aware positioning
-14. [Camera Animation](#camera-animation) — pan, zoom, DOF, runtime integration
-15. [Preview Controls](#preview-controls) — playback, viewport, onion skinning, orbit tool
-16. [Timeline Panel](#timeline-panel) — ruler, tracks, playhead, snap, loop, zoom
-17. [Undo/Redo](#undoredo)
-18. [Export & Registration](#export--registration) — register, copy, export modes
-19. [Code Round-Trip Editing](#code-round-trip-editing) — import workflow, fidelity
-20. [Timeline Diagnostics](#timeline-diagnostics) — categories, easing suggestions
-21. [Keyboard Shortcuts](#keyboard-shortcuts)
-22. [Workflow Tips](#workflow-tips)
-23. [Known Limitations](#known-limitations)
+14. [Eye Focus / Look At](#eye-focus--look-at) — keypad pupil rigs and runtime gaze
+15. [Camera Animation](#camera-animation) — pan, zoom, DOF, runtime integration
+16. [Preview Controls](#preview-controls) — playback, viewport, onion skinning, orbit tool
+17. [Timeline Panel](#timeline-panel) — ruler, tracks, playhead, snap, loop, zoom
+18. [Undo/Redo](#undoredo)
+19. [Export & Registration](#export--registration) — register, copy, export modes
+20. [Code Round-Trip Editing](#code-round-trip-editing) — import workflow, fidelity
+21. [Timeline Diagnostics](#timeline-diagnostics) — categories, easing suggestions
+22. [Keyboard Shortcuts](#keyboard-shortcuts)
+23. [Workflow Tips](#workflow-tips)
+24. [Known Limitations](#known-limitations)
 
 ---
 
@@ -523,6 +524,8 @@ Built-in timeline-backed properties such as matrix channels and DOF channels rou
 | Clear Event Cues confirmation | Clear events button | Confirm / cancel |
 | Create Group | `+ Group` button | Group name input |
 | Load Clip | Load clip button | Clip selector list |
+| Eye Focus / Look At | `Edit > Eye Focus / Look At...` | Character/expression, source point, target point, dead zone, max nudge, strength, keypad layer mapping |
+| Register Timeline confirmation | Register button or `File > Save & Register` | Exact save path, metadata/write steps, diagnostics status, optional follow-up action |
 | Unsaved close confirmation | close window with dirty or preview state | `Save & Register`, `Discard`, `Cancel` |
 | Save / register error dialogs | save failures, parse failures | Error details and dismiss |
 
@@ -928,6 +931,48 @@ This is especially useful when authoring animations that start or end at canonic
 
 ---
 
+## Eye Focus / Look At
+
+Use **Edit > Eye Focus / Look At...** to configure a layered-character pupil rig and bake a gaze pose at the playhead.
+
+The tool uses the shared runtime resolver:
+
+```text
+7 8 9
+4 5 6
+1 2 3
+```
+
+It casts a vector from the configured eye source point to the target point, chooses the nearest keypad pupil layer, then nudges the selected layer slightly toward the exact target for natural eye contact.
+
+### Rig Data
+
+| Field | Description |
+|-------|-------------|
+| Character | VNS character ID, such as `john` |
+| Expression | Expression/profile name, usually `neutral` |
+| Source X/Y | Normalized eye focus source inside the character frame; default `0.5, 0.26` |
+| Target X/Y | Normalized target used for the bake-at-playhead action |
+| Dead Zone | Center threshold before neutral layer `5` is selected |
+| Max Nudge | Maximum pixel nudge applied to the selected pupil layer |
+| Strength | Nudge multiplier |
+| Keypad layer fields | Layer IDs for positions `1` through `9` |
+
+Puppeteer can infer common layer IDs such as `eyes_01` through `eyes_09`, `eye_1` through `eye_9`, and `pupil_01` through `pupil_09`. Manual edits are stored in `config/puppeteer/eye-focus.properties`.
+
+### Baking Behavior
+
+Applying eye focus at the playhead creates an undoable edit:
+
+- the selected keypad layer gets `visible=1`
+- the other mapped pupil layers get `visible=0`
+- the selected layer receives X/Y nudge keyframes
+- the project stores the eye-focus profile for runtime and reopen fidelity
+
+Named exports include `@jvn-puppeteer-eye-focus` metadata so reopening the timeline restores the rig. Runtime VNS can use the same profile through `[lookat john target=lily]` or `[lookat john at=1180,420]`.
+
+---
+
 ## Camera Animation
 
 Puppeteer supports animating the scene camera alongside entities.
@@ -1086,7 +1131,8 @@ Undoable operations include:
 3. Puppeteer runs runtime verification (see [Timeline Diagnostics](#timeline-diagnostics) below)
 4. If blocking errors exist, registration is stopped and a report is shown
 5. If warnings exist, you can review them and continue intentionally
-6. When registration succeeds, the animation is:
+6. Puppeteer shows a confirmation popup listing the exact registration work: diagnostics validation, `.jes` output path, metadata persistence, `TimelineRegistry` registration, draft cleanup, and any follow-up action such as closing the window
+7. When registration succeeds, the animation is:
    - converted to `TimelineData` and stored in `TimelineRegistry`
    - exported as JES code to `scripts/timelines/<name>.jes`
    - marked as saved (title shows "saved & registered")
@@ -1102,7 +1148,7 @@ Click **Copy Code** (button in the right code panel) or use **Ctrl/Cmd+Shift+C**
 | **Standard** | `CodeExporter.export()` | Full timeline with all events |
 | **With Groups** | `CodeExporter.exportWithGroups()` | Includes group comment annotations |
 | **Incremental** | `CodeExporter.exportIncremental()` | Only changed properties (compared to initial snapshot) |
-| **Named** | `CodeExporter.exportNamed()` | Adds header comments with timeline name, VNS usage hint, and Puppeteer metadata such as scene snapshots, stage context, groups, locks, constraints, anchors, and orbit anchors |
+| **Named** | `CodeExporter.exportNamed()` | Adds header comments with timeline name, VNS usage hint, and Puppeteer metadata such as scene snapshots, stage context, groups, locks, constraints, anchors, orbit anchors, and eye-focus rigs |
 
 Named exports are the best format for animations you expect to reopen in
 Puppeteer later. Runtime parsers ignore the metadata comments, but

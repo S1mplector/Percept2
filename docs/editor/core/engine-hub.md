@@ -81,13 +81,39 @@ The hub exposes the main workspace actions as buttons:
 | Action | What it runs |
 |--------|--------------|
 | Run Editor | Starts the full JVN editor |
-| Run Launcher | Starts the standalone JVN launcher |
+| Run Launcher | Starts the standalone JVN launcher when it is available; shows the maintenance overlay when disabled |
 | Build All | Builds the workspace |
 | Run Tests | Runs the test suite |
 | Build Shortcuts | Installs native OS shortcuts for this checkout |
-| Update Engine | Runs `git pull --rebase` |
+| Update Engine | Runs the guarded engine update flow (`git pull --rebase` with hub preflight and recovery UI) |
 
 The hub shows a compact status strip instead of a terminal-style output panel. Long task output is reduced to simple progress and completion messages.
+
+## Maintenance And Announcements
+
+The hub reads dynamic workspace state from committed files under `.jvn/`:
+
+| File | Purpose |
+|------|---------|
+| `.jvn/maintenance.properties` | Feature-level maintenance flags, currently including `launcher.maintenance` and `launcher.message` |
+| `.jvn/announcements.md` | Hub announcement cards shown from the bell button |
+
+The running hub re-reads both files after a successful **Update Engine** action. That means a launcher maintenance badge or announcement can appear or disappear after updating the engine without closing and reopening the hub.
+
+When `launcher.maintenance=true`, the **Run Launcher** button stays visible but displays a striped maintenance state. Clicking it shows the configured message instead of launching the standalone launcher. The command wrapper mirrors this state with a warning when running `./jvnw launcher` or `jvnw launcher`.
+
+## Update Engine Recovery
+
+**Update Engine** performs a Git preflight before starting the pull/rebase. It detects unfinished Git operations, generated build output, and local changes that need user attention before the update can proceed.
+
+Safe Mode changes the update path from a plain update into a guarded recovery flow:
+
+- tracked local changes are autostashed before update work starts
+- stale rebase/merge/cherry-pick state is detected and can be aborted from the recovery dialog
+- generated build output can be cleaned before retrying
+- after a failed update, the hub shows the Git status/recovery commands instead of only reporting `exit 1`
+
+If Safe Mode recovery also fails, copy the dialog details or run `git status --short --branch` in the engine checkout. The checkout should not be manually reset unless the local changes are known to be disposable.
 
 ## Developer Mode
 

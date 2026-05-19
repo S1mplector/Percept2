@@ -159,8 +159,8 @@ timeline {
 |--------|--------|-----------|-------------|
 | `move` | `"entity"` | `x`, `y`, `dur`, `easing` | Animate position |
 | `pivot` | `"entity"` | `ox`, `oy`, `dur`, `easing` | Animate origin point (0–1) |
-| `rotate` | `"entity"` | `angle`/`rotation`, `dur`, `easing` | Animate rotation (degrees) |
-| `scale` | `"entity"` | `x`/`scale_x`, `y`/`scale_y`, `dur`, `easing` | Animate scale factor |
+| `rotate` | `"entity"` | `deg`/`angle`/`rotation`, `dur`, `easing` | Animate rotation (degrees) |
+| `scale` | `"entity"` | `sx`/`x`/`scale_x`, `sy`/`y`/`scale_y`, `dur`, `easing` | Animate scale factor |
 | `fade` | `"entity"` | `alpha`, `dur`, `easing` | Animate opacity (0–1) |
 | `cameraMove` | (none) | `x`, `y`, `dur`, `easing` | Animate camera position |
 | `cameraZoom` | (none) | `zoom`, `dur`, `easing` | Animate camera zoom |
@@ -174,9 +174,9 @@ Some actions accept alternate property names:
 
 | Action | Property | Aliases |
 |--------|----------|---------|
-| `rotate` | `angle` | `rotation` |
-| `scale` | `x` | `scale_x` |
-| `scale` | `y` | `scale_y` |
+| `rotate` | `deg` | `angle`, `rotation` |
+| `scale` | `sx` | `x`, `scale_x` |
+| `scale` | `sy` | `y`, `scale_y` |
 | `move` | `dur` | `duration` |
 | `playAudio` | `fadein` | `fadein_ms`, `fade_in`, `fadeinms` |
 
@@ -944,10 +944,10 @@ move "hero" { x: 400 dur: 500 easing: ease_out_cubic }
 // Both work — they're aliases
 rotate "item" { angle: 360 dur: 600 }   // ✅
 rotate "item" { rotation: 360 dur: 600 } // ✅
-rotate "item" { deg: 360 dur: 600 }      // ✅ (in JES runtime timeline)
+rotate "item" { deg: 360 dur: 600 }      // ✅
 ```
 
-Note: `TimelineDataParser` accepts `angle` and `rotation`. The JES runtime timeline (`JesScene2D`) accepts `deg`. Both work for hand-coded timelines.
+Note: `TimelineDataParser` and the JES runtime timeline both accept `deg`, `angle`, and `rotation`. Puppeteer exports `deg`.
 
 ### Forgetting camera has no target entity
 
@@ -1230,9 +1230,9 @@ The **parser** (`TimelineDataParser`) and the **exporter** (`CodeExporter`) use 
 | `move` | `dur` | `duration` | duration |
 | `pivot` | `ox` | — | `PIVOT_X` |
 | `pivot` | `oy` | — | `PIVOT_Y` |
-| `rotate` | `angle` | `rotation` | `ROTATION` |
-| `scale` | `x` | `scale_x` | `SCALE_X` |
-| `scale` | `y` | `scale_y` | `SCALE_Y` |
+| `rotate` | `deg` | `angle`, `rotation` | `ROTATION` |
+| `scale` | `sx` | `x`, `scale_x` | `SCALE_X` |
+| `scale` | `sy` | `y`, `scale_y` | `SCALE_Y` |
 | `fade` | `alpha` | — | `ALPHA` |
 | `cameraMove` | `x` | — | `CAMERA_X` |
 | `cameraMove` | `y` | — | `CAMERA_Y` |
@@ -1246,29 +1246,27 @@ The **parser** (`TimelineDataParser`) and the **exporter** (`CodeExporter`) use 
 |--------|----------|------|
 | `move` | `x`, `y` | Same as parser |
 | `pivot` | `ox`, `oy` | Same as parser |
-| `rotate` | `deg` | **Different** — parser uses `angle`/`rotation` |
-| `scale` | `sx`, `sy` | **Different** — parser uses `x`/`scale_x` |
+| `rotate` | `deg` | Same as parser |
+| `scale` | `sx`, `sy` | Same as parser |
 | `fade` | `alpha` | Same as parser |
 | `cameraMove` | `x`, `y` | Same as parser |
 | `cameraZoom` | `zoom` | Same as parser |
 
-### Key Difference: `rotate` and `scale`
+### Puppeteer Export Compatibility
 
-When pasting Puppeteer-exported code:
-- `rotate` with `deg:` — the parser accepts `angle` and `rotation`, but **not** `deg` directly. The JES runtime handles `deg`, but `TimelineDataParser` does not. If you paste exported code into a VNS inline `timeline {}` block, change `deg:` to `angle:`.
-- `scale` with `sx:`/`sy:` — the parser accepts `x`/`scale_x` and `y`/`scale_y`, but **not** `sx`/`sy`. Change `sx:` to `scale_x:` and `sy:` to `scale_y:` when using inline VNS timelines.
+Current Puppeteer-exported code can be pasted into a VNS inline `timeline {}` block without hand-converting rotate or scale keys. The parser accepts both the generated keys (`deg`, `sx`, `sy`) and the older hand-coding aliases (`angle`, `rotation`, `x`, `y`, `scale_x`, `scale_y`).
 
 ```jes
-// ❌ Exported by Puppeteer — NOT parsed by TimelineDataParser
+// ✅ Exported by Puppeteer and accepted by TimelineDataParser
 rotate "logo" { deg: 360 dur: 600 }
 scale "button" { sx: 1.5 sy: 1.5 dur: 300 }
 
-// ✅ Hand-coded equivalents for inline VNS / standalone file parsing
+// ✅ Older hand-coded equivalents also work
 rotate "logo" { angle: 360 dur: 600 }
 scale "button" { scale_x: 1.5 scale_y: 1.5 dur: 300 }
 ```
 
-This discrepancy exists because the JES runtime (`JesScene2D`) and the Puppeteer parser (`TimelineDataParser`) are independent systems. The exporter targets JES syntax; the parser accepts a broader set of aliases.
+The JES runtime (`JesScene2D`) and `TimelineDataParser` remain separate implementations, so when a new action or property is added, update both parser docs and JES timeline docs together.
 
 ---
 
@@ -1636,8 +1634,8 @@ hero: Now, where was that book...
 | Entity snaps instead of animating | No starting keyframe at `t=0` | Add `dur: 0` action to set initial value |
 | Actions overlap when they shouldn't | Missing `wait` between sequential actions | Add `wait <duration_of_previous_action>` |
 | Animation starts from wrong position | Implicit start keyframe uses entity's current value | Add explicit `dur: 0` initial position |
-| Scale uses `sx`/`sy` but nothing happens | Parser doesn't recognize `sx`/`sy` | Use `scale_x`/`scale_y` or just `x`/`y` inside `scale` |
-| Rotation uses `deg` but nothing happens | Parser doesn't recognize `deg` | Use `angle` or `rotation` inside `rotate` |
+| Scale uses `sx`/`sy` but nothing happens | Running an older engine build or targeting a non-timeline parser | Update the engine, or use `scale_x`/`scale_y` for older builds |
+| Rotation uses `deg` but nothing happens | Running an older engine build or targeting a non-timeline parser | Update the engine, or use `angle`/`rotation` for older builds |
 | Easing has no effect | Easing string not recognized | Check spelling; use lowercase with underscores (e.g., `ease_out_cubic`) |
 | Two timelines fight over same property | Both animate the same property on the same entity | Let one finish before starting the other |
 

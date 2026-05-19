@@ -55,6 +55,7 @@ Named export can also include Puppeteer-only metadata comments. Runtime parsers 
 ```jes
 // Puppeteer stage metadata. Runtime parsers ignore these comments.
 // @jvn-puppeteer-stage id=sunset_park source=config%2Fstage%2Fsunset_park.stagepreset bg=park_day subject=hero lights=3 occluders=1 zones=4
+// @jvn-puppeteer-eye-focus character=john expression=neutral source=eyes sourceX=0.5 sourceY=0.26 deadZone=0.12 maxNudge=3 strength=1 layer1=eyes_01 layer2=eyes_02 layer3=eyes_03 layer4=eyes_04 layer5=eyes_05 layer6=eyes_06 layer7=eyes_07 layer8=eyes_08 layer9=eyes_09
 ```
 
 ---
@@ -454,26 +455,29 @@ When `interp` is `hold` or `step`, the easing value has no visible effect since 
 
 ### Named Export
 
-`CodeExporter.exportNamed(project, name)` — same as standard but with a comment header and editor metadata when the project has reusable context such as a Scene Lighting Studio stage preset:
+`CodeExporter.exportNamed(project, name)` — same as standard but with a comment header and editor metadata when the project has reusable context such as scene snapshots, groups, rigging, eye-focus profiles, or a Scene Lighting Studio stage preset:
 
 ```jes
 // Timeline: hero_entrance
 // Usage in VNS: @external jes_timeline hero_entrance
 // Puppeteer stage metadata. Runtime parsers ignore these comments.
 // @jvn-puppeteer-stage id=sunset_park source=config%2Fstage%2Fsunset_park.stagepreset bg=park_day subject=hero lights=3 occluders=1 zones=4
+// @jvn-puppeteer-eye-focus character=john expression=neutral source=eyes sourceX=0.5 sourceY=0.26 deadZone=0.12 maxNudge=3 strength=1 layer1=eyes_01 layer2=eyes_02 layer3=eyes_03 layer4=eyes_04 layer5=eyes_05 layer6=eyes_06 layer7=eyes_07 layer8=eyes_08 layer9=eyes_09
 
 timeline {
   ...
 }
 ```
 
-The metadata is URL-encoded key/value text so paths and tags survive round-trip import safely. It is not part of the runtime timeline DSL.
+The metadata is URL-encoded key/value text so paths, tags, group state, anchors, constraints, original local keyframes, and eye-focus mappings survive round-trip import safely. It is not part of the runtime timeline DSL.
 
 ### Group-Annotated Export
 
 `CodeExporter.exportWithGroups(project)` — same as standard but includes `// Group: <name>` comments for entity group structure.
 
 Puppeteer group tracks are editor metadata, not separate JES runtime nodes. During standard export and runtime registration, group X/Y, pivot, rotation, scale, depth, and alpha are baked into the affected child entity tracks. Child-part keyframes remain local before the parent group transform is applied, so layered character presets can move as one rig while individual parts still animate independently.
+
+For VN character layers, exports also seed snapshot pivots when a layer has pivot-sensitive transforms such as mirror, scale, or rotation. This keeps pasted VNS timelines visually aligned with the Puppeteer preview. Orbit-anchored rotation exports the orbit anchor as a `pivot` command instead of exporting the preview arc as X/Y movement.
 
 ### Incremental Export
 
@@ -635,6 +639,7 @@ hero: I'm here!
 ```
 
 Inline `timeline { }` blocks are parsed and executed by the VNS interop system (`jes_timeline_inline`).
+The inline parser accepts Puppeteer-generated aliases such as `deg`, `sx`, `sy`, `duration`, `angle`, `rotation`, `scale_x`, and `scale_y`, so current exports can be pasted without hand-converting rotate or scale keys.
 
 ### In JES Scene Files
 

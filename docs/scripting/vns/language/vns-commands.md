@@ -232,6 +232,45 @@ Hides a character with an exit animation.
 [hide villain]
 ```
 
+### `[lookat <charId> ...]`
+
+Applies a runtime eye-focus override for a layered character. The resolver casts a gaze vector from the character's configured eye source point to a target character or screen point, chooses the nearest keypad pupil layer, and applies a small nudge toward the exact target direction.
+
+```vns
+[lookat john target=lily]
+[lookat john at=1180,420 dur=220 strength=0.8]
+[lookat john clear]
+```
+
+**Target options:**
+
+| Form | Description |
+|------|-------------|
+| `target=<charId>` / `to=<charId>` | Look at another visible character |
+| `<charId>` as the second token | Shorthand for `target=<charId>` |
+| `at=<x,y>` / `point=<x,y>` / `xy=<x,y>` | Look at a screen-space point |
+| `at <x,y>` | Space-separated point form |
+| `clear` / `off` | Remove the current eye-focus override |
+
+**Optional arguments:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `expression` / `expr` | current expression | Eye-focus profile expression to use |
+| `dur` / `duration` | `180` | Transition duration stored with the request |
+| `strength` | `1.0` | Nudge multiplier, clamped by the resolver |
+| `deadZone` / `deadzone` | `0.12` | Center zone before the neutral keypad layer `5` is selected |
+
+Eye-focus profiles are loaded from `config/puppeteer/eye-focus.properties`. Puppeteer can create these profiles through **Edit > Eye Focus / Look At...**; runtime can also auto-detect layer IDs such as `eyes_01` through `eyes_09`, `eye_1` through `eye_9`, or `pupil_01` through `pupil_09`.
+
+The keypad mapping is:
+
+```text
+7 8 9
+4 5 6
+1 2 3
+```
+
 ---
 
 ## Timing
