@@ -1153,6 +1153,21 @@ public final class JvnHub {
     return button;
   }
 
+  private JButton makeMaintenanceAction(String label, String tooltip, VectorIcon.Kind iconKind,
+                                        Runnable action) {
+    Icon icon = VectorIcon.of(iconKind, 16, ACCENT_MAINTENANCE);
+    MaintenanceButton button = new MaintenanceButton(label, icon);
+    button.setToolTipText(tooltip);
+    button.addActionListener(e -> action.run());
+    actionButtons.add(button);
+    return button;
+  }
+
+  private void showLauncherMaintenanceNotice() {
+    setStatus("Launcher under maintenance", ACCENT_MAINTENANCE);
+    setActivity("Launcher under maintenance", LAUNCHER_MAINTENANCE_MESSAGE, false, ACCENT_MAINTENANCE);
+  }
+
   // --- Task execution --------------------------------------------------------
 
   /**
@@ -3295,6 +3310,54 @@ public final class JvnHub {
 
       g2.dispose();
       super.paintComponent(g);
+    }
+  }
+
+  /** Action button variant with an amber maintenance overlay and badge. */
+  private static final class MaintenanceButton extends FlatButton {
+    MaintenanceButton(String text, Icon icon) {
+      super(text, icon, ACCENT_MAINTENANCE);
+      setForeground(ACCENT_MAINTENANCE);
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+      super.paintComponent(g);
+
+      Graphics2D g2 = (Graphics2D) g.create();
+      g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+      int w = getWidth();
+      int h = getHeight();
+      int arc = 8;
+      Shape oldClip = g2.getClip();
+      g2.setClip(new RoundRectangle2D.Double(0, 0, w, h, arc, arc));
+
+      g2.setColor(alpha(Color.decode("#120c00"), 0.34f));
+      g2.fillRoundRect(0, 0, w, h, arc, arc);
+
+      g2.setStroke(new BasicStroke(5f));
+      g2.setColor(alpha(ACCENT_MAINTENANCE, 0.18f));
+      for (int x = -h; x < w + h; x += 28) {
+        g2.drawLine(x, h, x + h, 0);
+      }
+      g2.setClip(oldClip);
+
+      String badge = "MAINTENANCE";
+      Font badgeFont = getFont().deriveFont(Font.BOLD, 9f);
+      g2.setFont(badgeFont);
+      FontMetrics fm = g2.getFontMetrics();
+      int badgeW = fm.stringWidth(badge) + 12;
+      int badgeH = 17;
+      int badgeX = Math.max(6, w - badgeW - 7);
+      int badgeY = 6;
+      g2.setColor(alpha(Color.decode("#1b1202"), 0.94f));
+      g2.fillRoundRect(badgeX, badgeY, badgeW, badgeH, 7, 7);
+      g2.setColor(alpha(ACCENT_MAINTENANCE, 0.72f));
+      g2.drawRoundRect(badgeX, badgeY, badgeW, badgeH, 7, 7);
+      g2.setColor(ACCENT_MAINTENANCE);
+      g2.drawString(badge, badgeX + 6, badgeY + 12);
+      g2.dispose();
     }
   }
 

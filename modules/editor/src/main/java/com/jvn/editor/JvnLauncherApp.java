@@ -304,7 +304,7 @@ public class JvnLauncherApp extends Application {
     Scene scene = new Scene(MaintenanceOverlay.wrap(root, null, LAUNCHER_MAINTENANCE_MESSAGE), 1320, 860);
     EditorTheme.apply(scene);
 
-    stage.setTitle("JVN Launcher");
+    stage.setTitle("JVN Launcher - Under Maintenance");
     stage.setScene(scene);
     stage.setMinWidth(1160);
     stage.setMinHeight(760);

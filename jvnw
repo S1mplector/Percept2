@@ -32,6 +32,7 @@ tone_success=""
 tone_warn=""
 tone_error=""
 tone_hint=""
+launcher_maintenance_message="JVN Launcher is temporarily under maintenance. Use ./jvnw editor or Engine Hub > Run Editor for daily work."
 
 if [[ "$supports_color" -eq 1 ]]; then
   style_reset=$'\033[0m'
@@ -97,7 +98,7 @@ show_help() {
   printf '%s\n' "Use ./jvnw for common tasks. Known commands map to Gradle tasks; everything else passes through."
   printf '\n'
   printf '%s\n' "$(paint "${style_bold}${tone_info}" "Common commands")"
-  print_help_row "./jvnw launcher" "Run the standalone launcher"
+  print_help_row "./jvnw launcher" "Run the standalone launcher (under maintenance)"
   print_help_row "./jvnw editor" "Run the editor"
   print_help_row "./jvnw runtime" "Run the runtime"
   print_help_row "./jvnw compile" "Compile every module without running tests"
@@ -126,7 +127,7 @@ show_help() {
   print_help_row "./gradlew <gradle-task>" "Optional low-level Gradle entrypoint"
   printf '\n'
   printf '%s\n' "$(paint "${style_bold}${tone_info}" "Examples")"
-  print_help_row "./jvnw launcher" "Run the launcher"
+  print_help_row "./jvnw launcher" "Run the launcher maintenance screen"
   print_help_row "./jvnw runtime --args='--script scripts/story/prologue.vns'" "Run a specific script"
   print_help_row "./jvnw gradle :editor:compileJava" "Target a single Gradle task manually"
 }
@@ -758,6 +759,9 @@ if [[ -n "$command_label" || -n "$resolved_target" ]]; then
     emit_detail "Target " "$resolved_target"
   fi
   emit_detail "Mode   " "$wrapper_mode"
+  if [[ "$alias_label" == "launcher" ]]; then
+    emit_warn "$launcher_maintenance_message"
+  fi
   printf '\n'
 fi
 

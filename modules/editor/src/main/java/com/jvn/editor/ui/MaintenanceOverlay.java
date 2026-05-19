@@ -121,7 +121,7 @@ public final class MaintenanceOverlay extends StackPane {
    * availability date. To remove the overlay, stop wrapping the node.
    */
   public static MaintenanceOverlay wrap(Node content, String estimatedAvailability) {
-    return new MaintenanceOverlay(content, estimatedAvailability, null);
+    return new MaintenanceOverlay(content, estimatedAvailability == null ? "" : estimatedAvailability, "");
   }
 
   /**
@@ -129,13 +129,16 @@ public final class MaintenanceOverlay extends StackPane {
    * explanatory message and optional estimated availability date.
    */
   public static MaintenanceOverlay wrap(Node content, String estimatedAvailability, String detailMessage) {
-    return new MaintenanceOverlay(content, estimatedAvailability, detailMessage);
+    return new MaintenanceOverlay(
+        content,
+        estimatedAvailability == null ? "" : estimatedAvailability,
+        detailMessage == null ? "" : detailMessage);
   }
 
   /**
    * Wraps {@code content} in an animated maintenance overlay with no ETA shown.
    */
   public static MaintenanceOverlay wrap(Node content) {
-    return new MaintenanceOverlay(content, null, null);
+    return new MaintenanceOverlay(content, "", "");
   }
 }

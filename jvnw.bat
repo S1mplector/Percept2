@@ -96,6 +96,8 @@ if /I "%command%"=="jar" set "resolved=:runtime:jar"
 set "console_arg=--console=plain"
 if "%console_specified%"=="1" set "console_arg="
 
+if /I "%command%"=="launcher" echo [WARN] JVN Launcher is temporarily under maintenance. Use jvnw editor or Engine Hub ^> Run Editor for daily work.
+
 if /I "%command%"=="gradle" goto run_gradle
 
 if defined resolved (
@@ -136,7 +138,7 @@ echo.
 echo Use jvnw for common tasks. Known commands map to Gradle tasks; everything else passes through.
 echo.
 echo Common commands:
-echo   jvnw launcher   Run the standalone launcher
+echo   jvnw launcher   Run the standalone launcher ^(under maintenance^)
 echo   jvnw editor     Run the editor
 echo   jvnw runtime    Run the runtime
 echo   jvnw compile    Compile every module without running tests
@@ -165,7 +167,7 @@ echo   jvnw --raw ^<gradle-args^>   Call gradlew directly with full Gradle outpu
 echo   gradlew ^<gradle-task^>      Optional low-level Gradle entrypoint
 echo.
 echo Examples:
-echo   jvnw launcher
+echo   jvnw launcher   Run the launcher maintenance screen
 echo   jvnw runtime --args="--script scripts/story/prologue.vns"
 echo   jvnw gradle :editor:compileJava
 exit /b 0
