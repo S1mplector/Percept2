@@ -2,7 +2,7 @@
 
 The Help Center guide tree is the in-editor documentation map used by the Help sidebar tool.
 
-Current tool version: `v1.2.1`
+Current tool version: `v1.2.2`
 
 ## Purpose
 

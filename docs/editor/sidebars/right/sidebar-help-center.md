@@ -12,7 +12,7 @@ The Help Center provides immediate access to workspace and project documentation
 
 - **Default side:** Right
 - **Tab name:** Help
-- **Tool version:** `v1.2.1`
+- **Tool version:** `v1.2.2`
 - **Shortcut:** Press **F1** from anywhere in the editor to jump to the Help tab
 
 ---
@@ -55,7 +55,7 @@ The panel uses a `SplitPane` (34% left, 66% right):
 
 ## Guide Tree
 
-A sectioned `TreeView` showing all discovered Markdown files in a progressive order. The `v1.2.1` guide tree uses four levels:
+A sectioned `TreeView` showing all discovered Markdown files in a progressive order. The `v1.2.2` guide tree uses four levels:
 
 1. **Guide section** — broad area of the engine.
 2. **Topic folder** — workflow or reference family inside that area.

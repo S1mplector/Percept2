@@ -5,7 +5,7 @@ The editor ships with an in-app Help Center so teams can browse project/workspac
 Component:
 - `modules/editor/src/main/java/com/jvn/editor/ui/HelpCenterView.java`
 
-Current sidebar tool version: `v1.2.1`
+Current sidebar tool version: `v1.2.2`
 
 ## How to Open
 
@@ -49,9 +49,9 @@ Docs are tagged by source (`Workspace` vs `Project`) in the guide tree.
 5. Open target doc into an editor tab when you need to update it.
 6. Refresh the index after adding/removing docs.
 
-## Guide Tree v1.2.1
+## Guide Tree v1.2.2
 
-The `v1.2.1` tree groups docs by domain first, then by topic folder:
+The `v1.2.2` tree groups docs by domain first, then by topic folder:
 
 - Start Here
 - Visual Novel Authoring
