@@ -379,6 +379,46 @@ class CodeRoundTripTest {
     }
 
     @Test
+    void puppeteerSnapshotOffsetSubtractedFromMoveOnExport() {
+        // Puppeteer places characters at their canvas pixel position (e.g. x=960, y=1080 for a
+        // bottom-anchored center character). The game runtime expects offsets from the natural slot
+        // position (0, 0). CodeExporter must subtract the snapshot origin so the .jes file contains
+        // game-relative coordinates, not Puppeteer-absolute pixel values.
+        AnimationProject project = new AnimationProject();
+        EntityTrack body = project.getOrCreateTrack("john_neutral_body_default");
+        // Puppeteer keyframes: entity starts at (960, 1080) and moves to (461.25, 1080)
+        body.addKeyframe(PropertyType.X, new Keyframe(0,    960,    Easing.Type.LINEAR));
+        body.addKeyframe(PropertyType.X, new Keyframe(1000, 461.25, Easing.Type.LINEAR));
+        body.addKeyframe(PropertyType.Y, new Keyframe(0,    1080,   Easing.Type.LINEAR));
+        body.addKeyframe(PropertyType.Y, new Keyframe(1000, 1080,   Easing.Type.LINEAR));
+
+        project.setSceneEntitySnapshots(List.of(new AnimationProject.SceneEntitySnapshot(
+            "john_neutral_body_default", "sprite",
+            "assets/characters/john_doe/body/John_Doe_body_-_default.png",
+            960, 1080, 734.4, 918, 0.5, 1.0, 0, true, 1.0
+        )));
+
+        String exported = CodeExporter.export(project);
+
+        // Game-relative: 461.25 - 960 = -498.75, 1080 - 1080 = 0
+        assertTrue(exported.contains("x: -498.75"),
+            "Expected game-relative x: -498.75 but got:\n" + exported);
+        // y keyframes both at 1080 → 1080 - 1080 = 0 (entity stays at natural slot y)
+        assertTrue(exported.contains("y: 0"),
+            "Expected game-relative y: 0 (no vertical offset from slot) but got:\n" + exported);
+
+        // Round-trip: import should restore Puppeteer-absolute values via @jvn-puppeteer-key metadata
+        String named = CodeExporter.exportNamed(project, "john_enter");
+        AnimationProject imported = CodeImporter.importCode("john_enter", named);
+        EntityTrack importedBody = imported.getTrack("john_neutral_body_default");
+        assertNotNull(importedBody);
+        assertEquals(461.25, importedBody.getValueAt(PropertyType.X, 1000), 0.01,
+            "Round-trip via @jvn-puppeteer-key metadata must restore Puppeteer-absolute x");
+        assertEquals(1080.0, importedBody.getValueAt(PropertyType.Y, 1000), 0.01,
+            "Round-trip via @jvn-puppeteer-key metadata must restore Puppeteer-absolute y");
+    }
+
+    @Test
     void exportFormattingIsDeterministic() {
         AnimationProject project = new AnimationProject();
         project.setName("deterministic");

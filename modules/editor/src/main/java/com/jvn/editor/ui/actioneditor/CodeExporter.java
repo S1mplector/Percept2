@@ -513,8 +513,12 @@ public class CodeExporter {
 
             switch (actionType) {
                 case "move" -> {
-                    if (hasP1) ev.props.put("x", endVal1);
-                    if (hasP2) ev.props.put("y", endVal2);
+                    AnimationProject.SceneEntitySnapshot snap = project != null
+                        ? project.getSceneEntitySnapshotsView().get(target) : null;
+                    double ox = snap != null ? snap.x() : 0.0;
+                    double oy = snap != null ? snap.y() : 0.0;
+                    if (hasP1) ev.props.put("x", endVal1 - ox);
+                    if (hasP2) ev.props.put("y", endVal2 - oy);
                 }
                 case "depth" -> {
                     if (hasP1) ev.props.put("z", endVal1);
