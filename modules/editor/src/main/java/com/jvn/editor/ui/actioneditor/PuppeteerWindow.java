@@ -1129,7 +1129,7 @@ public class PuppeteerWindow extends Stage {
 
         cbViewportStabilize = makeToolbarIconToggle(
             com.jvn.editor.ui.CssIcon.myLocation("#8bd2ff"),
-            "Stabilize preview while playing: lock the viewport framing so animated bounds cannot shake the view"
+            "Stabilize preview viewport: lock framing so animated bounds cannot shake the view"
         );
         cbViewportStabilize.setSelected(viewportStabilizationEnabled);
         cbViewportStabilize.setOnAction(e -> setViewportStabilizationEnabled(cbViewportStabilize.isSelected()));
@@ -1970,7 +1970,7 @@ public class PuppeteerWindow extends Stage {
             timelinePanel.refresh();
             refreshExportPreviewAndMarkDirty();
         });
-        CheckMenuItem miViewportStabilization = new CheckMenuItem("Stabilize Preview While Playing");
+        CheckMenuItem miViewportStabilization = new CheckMenuItem("Stabilize Preview Viewport");
         miViewportStabilization.setOnAction(e -> setViewportStabilizationEnabled(miViewportStabilization.isSelected()));
 
         Menu playbackMenu = new Menu("Playback");
@@ -4302,9 +4302,6 @@ public class PuppeteerWindow extends Stage {
     public void play() {
         if (project.isPlaying()) return;
         project.setPlaying(true);
-        if (viewportStabilizationEnabled) {
-            animationPreview.beginViewportStabilization();
-        }
         lastNanos = System.nanoTime();
         playbackTimer.start();
         refreshTransportButtonStates();
@@ -4314,7 +4311,6 @@ public class PuppeteerWindow extends Stage {
     public void pause() {
         project.setPlaying(false);
         playbackTimer.stop();
-        animationPreview.endViewportStabilization();
         refreshTransportButtonStates();
         updateStatusBar();
     }
@@ -4340,15 +4336,7 @@ public class PuppeteerWindow extends Stage {
             cbViewportStabilize.setSelected(enabled);
         }
         animationPreview.setViewportStabilizationEnabled(enabled);
-        if (project.isPlaying()) {
-            if (enabled) {
-                animationPreview.beginViewportStabilization();
-            } else {
-                animationPreview.endViewportStabilization();
-            }
-        } else {
-            updatePreview();
-        }
+        updatePreview();
         updateStatusBar();
     }
 

@@ -397,8 +397,13 @@ public class AnimationPreview extends VBox {
     public boolean isViewportStabilizationActive() { return viewportStabilizationActive; }
 
     public void setViewportStabilizationEnabled(boolean enabled) {
+        if (viewportStabilizationEnabled == enabled && viewportStabilizationActive == enabled) {
+            return;
+        }
         viewportStabilizationEnabled = enabled;
-        if (!enabled) {
+        if (enabled) {
+            beginViewportStabilization();
+        } else {
             endViewportStabilization();
         }
     }
@@ -411,9 +416,12 @@ public class AnimationPreview extends VBox {
     }
 
     public void endViewportStabilization() {
+        boolean wasActive = viewportStabilizationActive || stabilizedDisplayBoundsWorld.length > 0;
         stabilizedDisplayBoundsWorld = new double[0];
         viewportStabilizationActive = false;
-        render();
+        if (wasActive) {
+            render();
+        }
     }
 
     private ScrollZoomMode scrollZoomMode = ScrollZoomMode.VIEW;
@@ -443,7 +451,11 @@ public class AnimationPreview extends VBox {
         missingSourceImagePaths.clear();
         blitter.setProjectRoot(root);
         viewportSpec = ProjectViewportSpec.resolve(root);
-        render();
+        if (viewportStabilizationEnabled) {
+            beginViewportStabilization();
+        } else {
+            render();
+        }
     }
 
     public AnimationPreview() {
@@ -531,7 +543,11 @@ public class AnimationPreview extends VBox {
         matrixDragState = null;
         matrixOverlayText = null;
         cancelMoveInteraction();
-        render();
+        if (viewportStabilizationEnabled) {
+            beginViewportStabilization();
+        } else {
+            render();
+        }
     }
 
     public void setProject(AnimationProject project) {
