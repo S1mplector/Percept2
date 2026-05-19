@@ -292,6 +292,7 @@ public class VnScriptParser {
   }
 
   private record LayerReference(String characterId, String layerId) {}
+  private record LayerPresetSpec(String pathSpec, List<String> layerIds) {}
 
   public VnScenario parse(InputStream input) throws IOException {
     return parse(input, "<input>", null);
@@ -724,13 +725,13 @@ public class VnScriptParser {
         if (spec.isEmpty()) {
           throw parseError(sourceName, lineNumber, "@charpreset layer spec cannot be empty", rawLine);
         }
-        String resolvedSpec = resolveLayerPresetSpec(state, id, spec, sourceName, lineNumber, rawLine);
+        LayerPresetSpec resolvedSpec = resolveLayerPresetSpec(state, id, spec, sourceName, lineNumber, rawLine);
         com.jvn.core.vn.VnCharacter.Builder cb = state.charBuilders.get(id);
         if (cb == null) {
           cb = com.jvn.core.vn.VnCharacter.builder(id);
           state.charBuilders.put(id, cb);
         }
-        cb.addExpression(expr, resolvedSpec);
+        cb.addExpression(expr, resolvedSpec.pathSpec(), resolvedSpec.layerIds());
         continue;
       }
 
@@ -2200,14 +2201,15 @@ public class VnScriptParser {
     }
   }
 
-  private String resolveLayerPresetSpec(ParseState state,
-                                        String characterId,
-                                        String spec,
-                                        String sourceName,
-                                        int lineNumber,
-                                        String rawLine) throws IOException {
+  private LayerPresetSpec resolveLayerPresetSpec(ParseState state,
+                                                 String characterId,
+                                                 String spec,
+                                                 String sourceName,
+                                                 int lineNumber,
+                                                 String rawLine) throws IOException {
     String[] tokens = spec.split("\\|");
     List<String> resolved = new ArrayList<>();
+    List<String> layerIds = new ArrayList<>();
     for (String token : tokens) {
       if (token == null) continue;
       String part = token.trim();
@@ -2228,6 +2230,7 @@ public class VnScriptParser {
           );
         }
         resolved.add(path);
+        layerIds.add(layerRef.localId());
       } else if (part.startsWith("@")) {
         String rawPresetRef = part.substring(1).trim();
         if (rawPresetRef.isEmpty()) {
@@ -2244,15 +2247,21 @@ public class VnScriptParser {
               rawLine
           );
         }
-        resolved.addAll(splitResolvedLayerSpec(presetPath));
+        List<String> presetLayers = splitResolvedLayerSpec(presetPath);
+        List<String> presetLayerIds = presetCharacter.getExpressionLayerIds(presetRef.localId());
+        for (int i = 0; i < presetLayers.size(); i++) {
+          resolved.add(presetLayers.get(i));
+          layerIds.add(i < presetLayerIds.size() ? presetLayerIds.get(i) : "");
+        }
       } else {
         resolved.add(part);
+        layerIds.add("");
       }
     }
     if (resolved.isEmpty()) {
       throw parseError(sourceName, lineNumber, "@charpreset produced no layers", rawLine);
     }
-    return String.join(" | ", resolved);
+    return new LayerPresetSpec(String.join(" | ", resolved), layerIds);
   }
 
   private String normalizeCharacterInteropPayload(ParseState state,

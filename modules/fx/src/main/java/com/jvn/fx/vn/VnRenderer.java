@@ -9,7 +9,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.ServiceLoader;
 
-import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,7 +21,9 @@ import com.jvn.core.assets.BoundedImageCache;
 import com.jvn.core.audio.AudioFacade;
 import com.jvn.core.config.VnConfig;
 import com.jvn.core.localization.Localization;
+import com.jvn.core.scene2d.Entity2D;
 import com.jvn.core.scene2d.ParticleEmitter2D;
+import com.jvn.core.scene2d.Sprite2D;
 import com.jvn.core.ui.BoundsPointCodec;
 import com.jvn.core.vn.BubbleAnchor;
 import com.jvn.core.vn.CharacterPosition;
@@ -646,6 +647,9 @@ public class VnRenderer {
     }
   }
 
+  private record SpriteLayer(String path, String targetName, Image image) {
+  }
+
   private void renderCharacterEntry(
       Map.Entry<CharacterPosition, VnState.CharacterSlot> entry,
       VnState state,
@@ -668,22 +672,24 @@ public class VnRenderer {
       if (imagePath != null) {
         gc.save();
         if (alpha < 0.999) gc.setGlobalAlpha(alpha);
-        renderCharacterSprite(imagePath, position, width, height, offsetX, offsetY, slot.getCharacterId(), stage);
+        renderCharacterSprite(imagePath, slot.getExpression(), character, position, width, height, offsetX, offsetY, slot.getCharacterId(), stage);
         gc.restore();
       }
     }
   }
 
-  private void renderCharacterSprite(String imagePath, CharacterPosition position, double width, double height, double offsetX, double offsetY, String characterId, VnStagePreset stage) {
+  private void renderCharacterSprite(String imagePath, String expression, VnCharacter character, CharacterPosition position, double width, double height, double offsetX, double offsetY, String characterId, VnStagePreset stage) {
     List<String> layerPaths = parseLayerPaths(imagePath);
     Image reference = loadSpriteSourceImage(imagePath, layerPaths);
+    double spriteHeight = height * characterHeightFactor;
+    double spriteWidth = reference != null ? reference.getWidth() * (spriteHeight / reference.getHeight()) : spriteHeight * 0.5;
+    double defaultX = position.computeScreenX(width, spriteWidth) + offsetX;
+    double defaultY = position.computeScreenY(height, spriteHeight, characterBaselineY) + offsetY;
 
     // If a timeline proxy drives this character, use its absolute position
     if (timelineAccessor != null && characterId != null) {
-      com.jvn.core.scene2d.Entity2D proxy = timelineAccessor.getProxy(characterId);
+      Entity2D proxy = timelineAccessor.getProxy(characterId);
       if (proxy != null && (proxy.getX() != 0 || proxy.getY() != 0)) {
-        double spriteHeight = height * characterHeightFactor;
-        double spriteWidth = reference != null ? reference.getWidth() * (spriteHeight / reference.getHeight()) : spriteHeight * 0.5;
         double px = proxy.getX();
         double py = proxy.getY();
         if (reference != null) {
@@ -694,26 +700,136 @@ public class VnRenderer {
         }
         return;
       }
+      if (reference != null && renderTimelineDrivenLayers(
+          character, expression, characterId, layerPaths, defaultX, defaultY, spriteWidth, spriteHeight, width, height, stage)) {
+        return;
+      }
     }
     if (reference == null) {
       // Draw placeholder silhouette box
-      double spriteHeight = height * characterHeightFactor;
-      double spriteWidth = spriteHeight * 0.5;
-      double x = position.computeScreenX(width, spriteWidth);
-      double y = position.computeScreenY(height, spriteHeight, characterBaselineY);
       gc.setFill(Color.rgb(200, 200, 200, 0.4));
-      gc.fillRoundRect(x + offsetX, y + offsetY, spriteWidth, spriteHeight, 20, 20);
+      gc.fillRoundRect(defaultX, defaultY, spriteWidth, spriteHeight, 20, 20);
       gc.setStroke(Color.WHITE);
       gc.setLineWidth(2);
-      gc.strokeRoundRect(x + offsetX, y + offsetY, spriteWidth, spriteHeight, 20, 20);
+      gc.strokeRoundRect(defaultX, defaultY, spriteWidth, spriteHeight, 20, 20);
       return;
     }
 
-    double spriteHeight = height * characterHeightFactor;
-    double spriteWidth = reference.getWidth() * (spriteHeight / reference.getHeight());
-    double x = position.computeScreenX(width, spriteWidth);
-    double y = position.computeScreenY(height, spriteHeight, characterBaselineY);
-    drawCharacterImage(reference, imagePath, x + offsetX, y + offsetY, spriteWidth, spriteHeight, width, height, stage);
+    drawCharacterImage(reference, imagePath, defaultX, defaultY, spriteWidth, spriteHeight, width, height, stage);
+  }
+
+  private boolean renderTimelineDrivenLayers(
+      VnCharacter character,
+      String expression,
+      String characterId,
+      List<String> layerPaths,
+      double defaultX,
+      double defaultY,
+      double spriteWidth,
+      double spriteHeight,
+      double canvasWidth,
+      double canvasHeight,
+      VnStagePreset stage
+  ) {
+    if (timelineAccessor == null || layerPaths == null || layerPaths.size() <= 1) return false;
+    List<SpriteLayer> layers = spriteLayers(character, expression, characterId, layerPaths);
+    boolean hasLayerProxy = false;
+    for (SpriteLayer layer : layers) {
+      if (layer != null && layer.targetName() != null && timelineAccessor.getProxy(layer.targetName()) != null) {
+        hasLayerProxy = true;
+        break;
+      }
+    }
+    if (!hasLayerProxy) return false;
+
+    for (SpriteLayer layer : layers) {
+      if (layer == null || !isLoadedImage(layer.image())) continue;
+      Entity2D proxy = layer.targetName() == null ? null : timelineAccessor.getProxy(layer.targetName());
+      if (proxy != null && !proxy.isVisible()) continue;
+      double x = proxy != null && hasTimelinePosition(proxy) ? proxy.getX() : defaultX;
+      double y = proxy != null && hasTimelinePosition(proxy) ? proxy.getY() : defaultY;
+      drawTimelineLayer(layer, proxy, x, y, spriteWidth, spriteHeight, canvasWidth, canvasHeight, stage);
+    }
+    return true;
+  }
+
+  private void drawTimelineLayer(
+      SpriteLayer layer,
+      Entity2D proxy,
+      double x,
+      double y,
+      double width,
+      double height,
+      double canvasWidth,
+      double canvasHeight,
+      VnStagePreset stage
+  ) {
+    gc.save();
+    double alpha = proxy instanceof Sprite2D sprite ? sprite.getAlpha() : 1.0;
+    if (alpha < 0.999) gc.setGlobalAlpha(Math.max(0.0, Math.min(1.0, alpha)));
+    if (proxy != null) {
+      double pivotX = x + proxy.getOriginX() * width;
+      double pivotY = y + proxy.getOriginY() * height;
+      gc.translate(pivotX, pivotY);
+      if (proxy.getRotationDeg() != 0.0) gc.rotate(proxy.getRotationDeg());
+      if (proxy.getScaleX() != 1.0 || proxy.getScaleY() != 1.0) gc.scale(proxy.getScaleX(), proxy.getScaleY());
+      gc.translate(-pivotX, -pivotY);
+    }
+    drawCharacterImage(layer.image(), layer.path(), x, y, width, height, canvasWidth, canvasHeight, stage);
+    gc.restore();
+  }
+
+  private boolean hasTimelinePosition(Entity2D proxy) {
+    return proxy != null && (Math.abs(proxy.getX()) > 1e-6 || Math.abs(proxy.getY()) > 1e-6);
+  }
+
+  private List<SpriteLayer> spriteLayers(VnCharacter character, String expression, String characterId, List<String> layerPaths) {
+    List<SpriteLayer> layers = new ArrayList<>();
+    List<String> layerIds = character != null ? character.getExpressionLayerIds(expression) : List.of();
+    for (int i = 0; i < layerPaths.size(); i++) {
+      String path = layerPaths.get(i);
+      String layerId = i < layerIds.size() ? layerIds.get(i) : "";
+      if (layerId == null || layerId.isBlank()) layerId = fallbackLayerId(path, i);
+      String targetName = timelineLayerTargetName(characterId, expression, layerId);
+      layers.add(new SpriteLayer(path, targetName, loadSpriteLayerImage(path)));
+    }
+    return layers;
+  }
+
+  private String timelineLayerTargetName(String characterId, String expression, String layerId) {
+    String safeCharacter = selectorSafeName(characterId);
+    String safeExpression = selectorSafeName(expression == null || expression.isBlank() ? "neutral" : expression);
+    String safeLayer = selectorSafeName(layerId);
+    if (safeCharacter.isBlank() || safeExpression.isBlank() || safeLayer.isBlank()) return null;
+    return safeCharacter + "_" + safeExpression + "_" + safeLayer;
+  }
+
+  private String fallbackLayerId(String path, int index) {
+    if (path == null || path.isBlank()) return "layer" + (index + 1);
+    String normalized = path.replace('\\', '/');
+    int slash = normalized.lastIndexOf('/');
+    String name = slash >= 0 ? normalized.substring(slash + 1) : normalized;
+    int dot = name.lastIndexOf('.');
+    if (dot > 0) name = name.substring(0, dot);
+    String safe = selectorSafeName(name);
+    return safe.isBlank() ? "layer" + (index + 1) : safe;
+  }
+
+  private String selectorSafeName(String raw) {
+    String value = raw == null ? "" : raw.trim();
+    StringBuilder out = new StringBuilder();
+    for (int i = 0; i < value.length(); i++) {
+      char ch = value.charAt(i);
+      if (Character.isLetterOrDigit(ch) || ch == '_' || ch == '-') {
+        out.append(ch);
+      } else {
+        out.append('_');
+      }
+    }
+    String cleaned = out.toString().replaceAll("_+", "_");
+    while (cleaned.startsWith("_")) cleaned = cleaned.substring(1);
+    while (cleaned.endsWith("_")) cleaned = cleaned.substring(0, cleaned.length() - 1);
+    return cleaned;
   }
 
   private List<String> parseLayerPaths(String imagePathSpec) {
@@ -730,7 +846,7 @@ public class VnRenderer {
     return layers;
   }
 
-  private @Nullable Image firstAvailableImage(@Nullable List<String> layerPaths) {
+  private Image firstAvailableImage(List<String> layerPaths) {
     if (layerPaths == null) return null;
     for (String path : layerPaths) {
       Image img = loadSpriteLayerImage(path);
@@ -739,7 +855,7 @@ public class VnRenderer {
     return null;
   }
 
-  private @Nullable Image loadSpriteSourceImage(@Nullable String imagePathSpec, @Nullable List<String> layerPaths) {
+  private Image loadSpriteSourceImage(String imagePathSpec, List<String> layerPaths) {
     if (imagePathSpec == null || imagePathSpec.isBlank()) return firstAvailableImage(layerPaths);
     if (layerPaths == null || layerPaths.size() <= 1) return firstAvailableImage(layerPaths);
     String cacheKey = "__composite_sprite__:" + imagePathSpec;
@@ -769,7 +885,7 @@ public class VnRenderer {
     return out;
   }
 
-  private @Nullable Image loadSpriteLayerImage(@Nullable String path) {
+  private Image loadSpriteLayerImage(String path) {
     if (path == null || path.isBlank()) return null;
     Image cached = imageCache.get(path);
     if (isLoadedImage(cached)) return cached;
@@ -781,7 +897,7 @@ public class VnRenderer {
     return null;
   }
 
-  private boolean isLoadedImage(@Nullable Image image) {
+  private boolean isLoadedImage(Image image) {
     return image != null && !image.isError() && image.getWidth() > 0.0 && image.getHeight() > 0.0;
   }
 
@@ -2924,18 +3040,18 @@ public class VnRenderer {
     }
   }
 
-  private @Nullable Image loadImage(@Nullable String path) {
+  private Image loadImage(String path) {
     if (path == null) return null;
     
     return imageCache.computeIfAbsent(path, p -> loadResolvedImage(p, true));
   }
 
-  private @Nullable Image loadImageBlocking(@Nullable String path) {
+  private Image loadImageBlocking(String path) {
     if (path == null) return null;
     return loadResolvedImage(path, false);
   }
 
-  private @Nullable Image loadResolvedImage(@Nullable String path, boolean backgroundLoading) {
+  private Image loadResolvedImage(String path, boolean backgroundLoading) {
     try {
       URL url = resolveImageUrl(path);
       if (url != null) {
@@ -2947,7 +3063,7 @@ public class VnRenderer {
     return null;
   }
 
-  private @Nullable URL resolveImageUrl(@Nullable String path) throws Exception {
+  private URL resolveImageUrl(String path) throws Exception {
     if (path == null || path.isBlank()) return null;
 
     // Prefer configured asset manager (runtime/editor project overlay support).

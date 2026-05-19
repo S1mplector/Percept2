@@ -1,6 +1,7 @@
 package com.jvn.core.vn;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -10,11 +11,13 @@ public class VnCharacter {
   private final String id;
   private final String displayName;
   private final Map<String, String> expressions; // expression name -> image path
+  private final Map<String, List<String>> expressionLayerIds; // expression name -> ordered @charlayer ids
 
   private VnCharacter(Builder builder) {
     this.id = builder.id;
     this.displayName = builder.displayName;
     this.expressions = new HashMap<>(builder.expressions);
+    this.expressionLayerIds = new HashMap<>(builder.expressionLayerIds);
   }
 
   public String getId() { return id; }
@@ -25,6 +28,13 @@ public class VnCharacter {
   public boolean hasExpression(String expression) {
     return expressions.containsKey(expression);
   }
+  public List<String> getExpressionLayerIds(String expression) {
+    List<String> ids = expressionLayerIds.get(expression);
+    if ((ids == null || ids.isEmpty()) && !"neutral".equals(expression)) {
+      ids = expressionLayerIds.get("neutral");
+    }
+    return ids == null ? List.of() : ids;
+  }
 
   public static Builder builder(String id) { return new Builder(id); }
 
@@ -32,6 +42,7 @@ public class VnCharacter {
     private final String id;
     private String displayName;
     private final Map<String, String> expressions = new HashMap<>();
+    private final Map<String, List<String>> expressionLayerIds = new HashMap<>();
 
     private Builder(String id) {
       this.id = id;
@@ -42,8 +53,22 @@ public class VnCharacter {
     public String getDisplayName() { return displayName; }
     public boolean hasExpression(String name) { return expressions.containsKey(name); }
     public String getExpressionPath(String name) { return expressions.get(name); }
+    public List<String> getExpressionLayerIds(String name) {
+      List<String> ids = expressionLayerIds.get(name);
+      return ids == null ? List.of() : ids;
+    }
     public Builder addExpression(String name, String imagePath) {
       expressions.put(name, imagePath);
+      expressionLayerIds.remove(name);
+      return this;
+    }
+    public Builder addExpression(String name, String imagePath, List<String> layerIds) {
+      expressions.put(name, imagePath);
+      if (layerIds == null || layerIds.isEmpty()) {
+        expressionLayerIds.remove(name);
+      } else {
+        expressionLayerIds.put(name, List.copyOf(layerIds));
+      }
       return this;
     }
     public VnCharacter build() { return new VnCharacter(this); }

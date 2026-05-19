@@ -8,6 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import com.jvn.core.animation.SceneAccessor;
 import com.jvn.core.scene2d.Entity2D;
+import com.jvn.core.scene2d.Sprite2D;
 
 /**
  * Lightweight {@link SceneAccessor} for the VNS preview that creates virtual
@@ -27,7 +28,7 @@ public class VnCharacterSceneAccessor implements SceneAccessor {
     @Override
     public Entity2D findEntity(String name) {
         if (name == null || name.isBlank()) return null;
-        return proxies.computeIfAbsent(name, k -> new Entity2D());
+        return proxies.computeIfAbsent(name, k -> new Sprite2D("", 0, 0));
     }
 
     @Override

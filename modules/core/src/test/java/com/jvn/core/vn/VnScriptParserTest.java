@@ -72,6 +72,7 @@ public class VnScriptParserTest {
             + " | assets/demo/characters/lavender/eyes/lavender_test_sprite_eyes_neutral.png"
             + " | assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_smile.png",
         lavender.getExpressionPath("talking"));
+    assertEquals(List.of("base", "eyes_neutral", "mouth_smile"), lavender.getExpressionLayerIds("talking"));
   }
 
   @Test
@@ -102,6 +103,9 @@ public class VnScriptParserTest {
             + " | assets/demo/characters/lavender/eyes/lavender_test_sprite_eyes_half_closed.png"
             + " | assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_smile.png",
         lavender.getExpressionPath("talking"));
+    assertEquals(
+        List.of("base", "body=school", "eyes=half_closed", "mouth=smile"),
+        lavender.getExpressionLayerIds("talking"));
   }
 
   @Test
