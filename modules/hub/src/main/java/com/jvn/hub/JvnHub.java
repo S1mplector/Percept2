@@ -3315,9 +3315,30 @@ public final class JvnHub {
 
   /** Action button variant with an amber maintenance overlay and badge. */
   private static final class MaintenanceButton extends FlatButton {
+    private static final int STRIPE_SPACING = 28;
+    private final javax.swing.Timer stripeTimer;
+    private int stripeOffset = 0;
+
     MaintenanceButton(String text, Icon icon) {
       super(text, icon, ACCENT_MAINTENANCE);
       setForeground(ACCENT_MAINTENANCE);
+      stripeTimer = new javax.swing.Timer(70, e -> {
+        stripeOffset = (stripeOffset + 2) % STRIPE_SPACING;
+        repaint();
+      });
+      stripeTimer.setCoalesce(true);
+    }
+
+    @Override
+    public void addNotify() {
+      super.addNotify();
+      stripeTimer.start();
+    }
+
+    @Override
+    public void removeNotify() {
+      stripeTimer.stop();
+      super.removeNotify();
     }
 
     @Override
@@ -3338,7 +3359,7 @@ public final class JvnHub {
 
       g2.setStroke(new BasicStroke(5f));
       g2.setColor(alpha(ACCENT_MAINTENANCE, 0.18f));
-      for (int x = -h; x < w + h; x += 28) {
+      for (int x = -h - STRIPE_SPACING + stripeOffset; x < w + h; x += STRIPE_SPACING) {
         g2.drawLine(x, h, x + h, 0);
       }
       g2.setClip(oldClip);
