@@ -182,6 +182,41 @@ class RuntimeTimelineEventInteropTest {
   }
 
   @Test
+  void legacyInlineLayerMirrorDefaultsToCharacterFootPivot() {
+    Engine engine = new Engine(ApplicationConfig.builder().build());
+    RuntimeVnInterop interop = new RuntimeVnInterop(engine);
+    VnScene vn = new VnScene(new VnScenarioBuilder("owner").end().build());
+    vn.setInterop(interop);
+    engine.scenes().push(vn);
+    vn.getState().showCharacter(CharacterPosition.CENTER, "john", "neutral");
+
+    interop.getBase().handle(new VnExternalCommand("jes_timeline_inline", """
+        timeline {
+          parallel {
+            move "john_neutral_body_default" {
+              x: 13.621935
+              y: 0
+              dur: 100
+            }
+            scale "john_neutral_body_default" {
+              sx: -1
+              dur: 100
+            }
+          }
+        }
+        """), vn);
+
+    vn.getState().updateTimelineRunners(100);
+
+    var proxy = interop.getTimelineAccessor().getProxy("john_neutral_body_default");
+    assertNotNull(proxy);
+    assertEquals(13.621935, proxy.getX(), 0.000001);
+    assertEquals(-1.0, proxy.getScaleX(), 0.000001);
+    assertEquals(0.5, proxy.getOriginX(), 0.000001);
+    assertEquals(1.0, proxy.getOriginY(), 0.000001);
+  }
+
+  @Test
   void inlineTimelineCharacterTargetStillDrivesVnVisualOffset() {
     Engine engine = new Engine(ApplicationConfig.builder().build());
     RuntimeVnInterop interop = new RuntimeVnInterop(engine);

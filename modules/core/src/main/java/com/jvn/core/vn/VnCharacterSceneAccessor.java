@@ -80,6 +80,10 @@ public class VnCharacterSceneAccessor implements SceneAccessor {
 
         private TimelineProxyEntity() {
             super("", 0, 0);
+            // VN character timelines are applied as offsets from the slot top-left.
+            // Without an authored pivot, mirror/scale should still use the normal
+            // character footing rather than the sprite's top-left corner.
+            setOrigin(0.5, 1.0);
         }
 
         @Override

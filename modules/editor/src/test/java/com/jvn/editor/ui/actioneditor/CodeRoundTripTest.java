@@ -576,6 +576,63 @@ class CodeRoundTripTest {
     }
 
     @Test
+    void exportedGroupMirrorWithOffsetVisualPivotMatchesRuntimeLayerMath() {
+        double snapshotX = 960.0;
+        double snapshotY = 1080.0;
+        double width = 734.4;
+        double height = 918.0;
+        double originX = 0.5;
+        double originY = 1.0;
+        double visualPivotOffset = 6.8109675;
+        double visualMinX = snapshotX - originX * width;
+        double visualMaxX = 2.0 * (snapshotX + visualPivotOffset) - visualMinX;
+
+        AnimationProject project = new AnimationProject();
+        EntityGroup group = project.getOrCreateGroup("john_neutral");
+        group.getGroupTrack().addKeyframe(PropertyType.MIRROR_X, new Keyframe(0, 0, Easing.Type.LINEAR));
+        group.getGroupTrack().addKeyframe(PropertyType.MIRROR_X, new Keyframe(500, 1, Easing.Type.LINEAR));
+
+        project.getOrCreateTrack("john_neutral_body_default");
+        project.addEntityToGroup("john_neutral_body_default", "john_neutral");
+        project.setSceneEntitySnapshots(List.of(new AnimationProject.SceneEntitySnapshot(
+            "john_neutral_body_default", "sprite",
+            "assets/characters/john_doe/body/John_Doe_body_-_default.png",
+            snapshotX,
+            snapshotY,
+            width,
+            height,
+            originX,
+            originY,
+            0,
+            true,
+            1.0,
+            visualMinX,
+            snapshotY - height,
+            visualMaxX,
+            snapshotY
+        )));
+
+        String exported = CodeExporter.export(project);
+
+        assertTrue(exported.contains("pivot \"john_neutral_body_default\""), exported);
+        assertTrue(exported.contains("x: 13.621935"), exported);
+        assertTrue(exported.contains("sx: -1"), exported);
+
+        TimelineData parsed = TimelineDataParser.parse("john_offset_group_mirror", exported);
+        TimelineData.Track parsedBody = parsed.getTrack("john_neutral_body_default");
+        assertNotNull(parsedBody);
+        double exportedOffsetX = parsedBody.getValueAt(TimelineData.Property.X, 500);
+        double exportedScaleX = parsedBody.getValueAt(TimelineData.Property.SCALE_X, 500);
+        double exportedOriginX = parsedBody.getValueAt(TimelineData.Property.PIVOT_X, 0);
+
+        double runtimeLeftDelta = exportedOffsetX + exportedOriginX * width * (1.0 - exportedScaleX);
+        double puppeteerPivotX = snapshotX + visualPivotOffset * (1.0 - exportedScaleX);
+        double puppeteerLeftDelta = (puppeteerPivotX - originX * width * exportedScaleX)
+            - (snapshotX - originX * width);
+        assertEquals(puppeteerLeftDelta, runtimeLeftDelta, 0.000001);
+    }
+
+    @Test
     void exportedRuntimeCodePreservesInitialNonDefaultKeyframesWhenParsedInline() {
         AnimationProject project = new AnimationProject();
         project.setTotalDurationMs(750);
