@@ -723,8 +723,8 @@ public final class JvnHub {
     if (safeModeButton != null) safeModeButton.setSafeModeEnabled(enabled);
     String title = enabled ? "Safe Mode enabled" : "Safe Mode disabled";
     String detail = enabled
-        ? "Editor-side launches will use safe-mode flags without changing Gradle caches."
-        : "Editor-side launches will use the standard engine startup path.";
+        ? "Editor-side launches use safe-mode flags. Update Engine uses guarded Git recovery."
+        : "Editor-side launches use the standard engine startup path. Update Engine uses the normal Git update path.";
     setStatus(title, enabled ? ACCENT_SAFE : TEXT_SOFT);
     setActivity(title, detail, false, enabled ? ACCENT_SAFE : TEXT_MUTED);
   }
@@ -1324,7 +1324,18 @@ public final class JvnHub {
         setActivity("Update cancelled", "No engine files were changed.", false, TEXT_MUTED);
         return;
       }
-    } else if (preflight.hasChanges()) {
+    } else if (preflight.hasInterruptedGitOperation() || preflight.hasChanges()) {
+      if (safeModeEnabled && preflight.hasInterruptedGitOperation()) {
+        finishSteps(false, "Safe Mode recovery started.");
+        recoverSafeModeUpdateFailure("Interrupted Git operation found before update.\n\n" + preflight.summary());
+        return;
+      }
+      if (safeModeEnabled && preflight.hasChanges() && !preflight.onlyBuildOutput()) {
+        completeCurrentStep("Local changes detected; Safe Mode will use Git autostash.");
+        appendLog("[hub] Safe Mode: local changes detected; using git pull --rebase --autostash.");
+        startUpdateEngine();
+        return;
+      }
       UpdatePreflightAction action = chooseUpdatePreflightAction(preflight);
       if (action == UpdatePreflightAction.CANCEL) {
         finishSteps(false, "Update cancelled before pull.");
@@ -1340,9 +1351,14 @@ public final class JvnHub {
   private void startUpdateEngine() {
     if (!acquire("Update Engine")) return;
     if (updateEngineButton != null) updateEngineButton.setChecking(true);
-    List<String> cmd = List.of("git", "pull", "--rebase");
+    List<String> cmd = safeModeEnabled
+        ? List.of("git", "pull", "--rebase", "--autostash")
+        : List.of("git", "pull", "--rebase");
     completeCurrentStep("Git command assembled.");
     advanceStep("Fetching from upstream.");
+    if (safeModeEnabled) {
+      appendLog("[hub] Safe Mode: Update Engine will autostash tracked local changes and auto-recover failed rebase state.");
+    }
     appendLog("$ " + String.join(" ", cmd));
     startProcess(cmd, "Update Engine");
   }
@@ -1356,7 +1372,7 @@ public final class JvnHub {
           ? "git status failed with exit " + status.exitCode
           : status.output.strip());
     }
-    return UpdatePreflight.from(parseGitStatus(status.output));
+    return UpdatePreflight.from(parseGitStatus(status.output), inspectInterruptedGitOperations());
   }
 
   private boolean confirmUpdateWithUnknownStatus(String details) {
@@ -1371,6 +1387,19 @@ public final class JvnHub {
   }
 
   private UpdatePreflightAction chooseUpdatePreflightAction(UpdatePreflight preflight) {
+    if (preflight.hasInterruptedGitOperation()) {
+      String[] options = {"Abort Git Operation and Update", "Cancel"};
+      int choice = showUpdateDialog(
+          "Interrupted Git Update Found",
+          "Update Engine found an unfinished Git operation in the engine checkout.",
+          "This usually happens after a previous update failed during rebase or conflict resolution. "
+              + "The Hub can abort that unfinished Git operation, clean the checkout, and retry the update.\n\n"
+              + preflight.summary(),
+          options,
+          UpdateDialogTone.WARNING);
+      return choice == 0 ? UpdatePreflightAction.CLEAN_AND_UPDATE : UpdatePreflightAction.CANCEL;
+    }
+
     if (preflight.onlyBuildOutput()) {
       String[] options = {"Clear Build Output and Update", "Cancel"};
       int choice = showUpdateDialog(
@@ -1402,7 +1431,11 @@ public final class JvnHub {
       String[] options,
       UpdateDialogTone tone
   ) {
-    AtomicReference<Integer> result = new AtomicReference<>(1);
+    boolean hasSecondaryOption = options != null
+        && options.length > 1
+        && options[1] != null
+        && !options[1].isBlank();
+    AtomicReference<Integer> result = new AtomicReference<>(hasSecondaryOption ? 1 : 0);
 
     JDialog dialog = new JDialog(frame, title, true);
     dialog.setUndecorated(true);
@@ -1436,7 +1469,7 @@ public final class JvnHub {
 
     JButton close = iconOnlyButton(VectorIcon.of(VectorIcon.Kind.CLOSE, 12, TEXT_MUTED));
     close.addActionListener(e -> {
-      result.set(1);
+      result.set(hasSecondaryOption ? 1 : 0);
       dialog.dispose();
     });
     header.add(close, BorderLayout.EAST);
@@ -1458,14 +1491,17 @@ public final class JvnHub {
     JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
     actions.setOpaque(false);
 
-    String cancelLabel = options != null && options.length > 1 && options[1] != null ? options[1] : "Cancel";
+    String cancelLabel = hasSecondaryOption ? options[1] : "";
     String primaryLabel = options != null && options.length > 0 && options[0] != null ? options[0] : "Update";
 
-    FlatButton cancel = new FlatButton(cancelLabel, null, null);
-    cancel.addActionListener(e -> {
-      result.set(1);
-      dialog.dispose();
-    });
+    if (hasSecondaryOption) {
+      FlatButton cancel = new FlatButton(cancelLabel, null, null);
+      cancel.addActionListener(e -> {
+        result.set(1);
+        dialog.dispose();
+      });
+      actions.add(cancel);
+    }
 
     FlatButton primary = new FlatButton(primaryLabel, null, tone.primaryColor());
     primary.addActionListener(e -> {
@@ -1473,7 +1509,6 @@ public final class JvnHub {
       dialog.dispose();
     });
 
-    actions.add(cancel);
     actions.add(primary);
     card.add(actions, BorderLayout.SOUTH);
 
@@ -1484,7 +1519,7 @@ public final class JvnHub {
     dialog.getRootPane().setDefaultButton(primary);
     dialog.getRootPane().registerKeyboardAction(
         e -> {
-          result.set(1);
+          result.set(hasSecondaryOption ? 1 : 0);
           dialog.dispose();
         },
         javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_ESCAPE, 0),
@@ -1520,10 +1555,12 @@ public final class JvnHub {
 
   private void cleanBeforeUpdate(UpdatePreflight preflight) {
     setButtonsEnabled(false);
-    setStatus("Cleaning before update", ACCENT_NEUTRAL);
+    setStatus(preflight.hasInterruptedGitOperation() ? "Recovering Git checkout" : "Cleaning before update", ACCENT_NEUTRAL);
     startSteps("Clean Before Update");
     setActivity(
-        preflight.onlyBuildOutput() ? "Clearing build output" : "Cleaning local engine changes",
+        preflight.hasInterruptedGitOperation()
+            ? "Recovering Git checkout"
+            : preflight.onlyBuildOutput() ? "Clearing build output" : "Cleaning local engine changes",
         "Preparing the engine checkout for update.",
         true,
         ACCENT_NEUTRAL);
@@ -1533,7 +1570,7 @@ public final class JvnHub {
 
       @Override protected Boolean doInBackground() {
         publish("[hub] cleaning local files before Update Engine...");
-        CommandResult result = preflight.onlyBuildOutput()
+        CommandResult result = preflight.onlyBuildOutput() && !preflight.hasInterruptedGitOperation()
             ? cleanBuildOutputChanges(preflight)
             : cleanAllLocalChanges();
         if (result.exitCode != 0) {
@@ -1603,11 +1640,46 @@ public final class JvnHub {
   }
 
   private CommandResult cleanAllLocalChanges() {
+    CommandResult abort = abortInterruptedGitOperations();
+    if (abort.exitCode != 0) return abort;
     CommandResult reset = runGit(List.of("git", "reset", "--hard", "HEAD"), 60);
     if (reset.exitCode != 0) return reset;
     CommandResult clean = runGit(List.of("git", "clean", "-fd"), 60);
     if (clean.exitCode != 0) return clean;
-    return new CommandResult(0, reset.output + clean.output);
+    return new CommandResult(0, abort.output + reset.output + clean.output);
+  }
+
+  private CommandResult abortInterruptedGitOperations() {
+    StringBuilder output = new StringBuilder();
+    if (gitPathExists("rebase-merge") || gitPathExists("rebase-apply")) {
+      CommandResult result = runGit(List.of("git", "rebase", "--abort"), 30);
+      output.append(result.output);
+      if (result.exitCode != 0) {
+        return new CommandResult(result.exitCode, "git rebase --abort failed:\n" + result.output);
+      }
+    }
+    if (gitPathExists("MERGE_HEAD")) {
+      CommandResult result = runGit(List.of("git", "merge", "--abort"), 30);
+      output.append(result.output);
+      if (result.exitCode != 0) {
+        return new CommandResult(result.exitCode, "git merge --abort failed:\n" + result.output);
+      }
+    }
+    if (gitPathExists("CHERRY_PICK_HEAD")) {
+      CommandResult result = runGit(List.of("git", "cherry-pick", "--abort"), 30);
+      output.append(result.output);
+      if (result.exitCode != 0) {
+        return new CommandResult(result.exitCode, "git cherry-pick --abort failed:\n" + result.output);
+      }
+    }
+    if (gitPathExists("REVERT_HEAD")) {
+      CommandResult result = runGit(List.of("git", "revert", "--abort"), 30);
+      output.append(result.output);
+      if (result.exitCode != 0) {
+        return new CommandResult(result.exitCode, "git revert --abort failed:\n" + result.output);
+      }
+    }
+    return new CommandResult(0, output.toString());
   }
 
   private void installShortcuts() {
@@ -1709,6 +1781,7 @@ public final class JvnHub {
   private void startProcess(List<String> command, String label) {
     new SwingWorker<Integer, String>() {
       private String lastOutput = "";
+      private final StringBuilder fullOutput = new StringBuilder();
 
       @Override protected Integer doInBackground() throws Exception {
         ProcessBuilder pb = new ProcessBuilder(command)
@@ -1738,6 +1811,7 @@ public final class JvnHub {
           String line;
           while ((line = reader.readLine()) != null) {
             if (!line.isBlank()) {
+              if (fullOutput.length() < 8192) fullOutput.append(line).append('\n');
               lastOutput = compactMessage(line);
               publish(line);
             }
@@ -1776,9 +1850,244 @@ public final class JvnHub {
           checkIncomingUpdates(false);
         } else if ("Update Engine".equals(label) && updateEngineButton != null) {
           updateEngineButton.setChecking(false);
+          handleUpdateEngineFailure(exit, fullOutput.toString().isBlank() ? lastOutput : fullOutput.toString());
         }
       }
     }.execute();
+  }
+
+  private void handleUpdateEngineFailure(int exitCode, String output) {
+    if (safeModeEnabled) {
+      recoverSafeModeUpdateFailure(output);
+      return;
+    }
+
+    setActivity(
+        "Update Engine failed",
+        friendlyUpdateFailureSummary(output, UpdatePreflight.empty())
+            + " Enable Safe Mode to recover the checkout automatically.",
+        false,
+        ACCENT_ERROR);
+
+    new SwingWorker<UpdatePreflight, Void>() {
+      @Override protected UpdatePreflight doInBackground() {
+        return inspectUpdatePreflight();
+      }
+
+      @Override protected void done() {
+        UpdatePreflight preflight = UpdatePreflight.empty();
+        try {
+          preflight = get();
+        } catch (Exception ignored) {
+          // reason: best-effort post-failure diagnosis; the raw failure message is still shown
+        }
+        if (preflight != null && preflight.hasInterruptedGitOperation()) {
+          int choice = showUpdateDialog(
+              "Update Engine Needs Recovery",
+              "Git was left in an unfinished update state.",
+              "Safe Mode can abort the unfinished Git operation, re-check the checkout, and let the user retry without staying stuck in a failure loop.\n\n"
+                  + friendlyUpdateFailureSummary(output, preflight)
+                  + "\n\n"
+                  + preflight.summary(),
+              new String[]{"Recover in Safe Mode", "Close"},
+              UpdateDialogTone.WARNING);
+          if (choice == 0) {
+            setSafeModeEnabled(true);
+            recoverSafeModeUpdateFailure(output);
+          }
+        } else {
+          showUpdateFailureDialog("Update Engine Failed", output, preflight);
+        }
+      }
+    }.execute();
+  }
+
+  private void recoverSafeModeUpdateFailure(String output) {
+    if (runningProcess.get() != null) {
+      appendLog("[hub] Safe Mode recovery is waiting for the running process to finish.");
+      return;
+    }
+    setStatus("Safe Mode recovering update", ACCENT_SAFE);
+    startSteps("Safe Mode Update Recovery");
+    setActivity(
+        "Recovering failed update",
+        "Safe Mode is aborting unfinished Git operations and checking whether the checkout is stable.",
+        true,
+        ACCENT_SAFE);
+    advanceStep("Aborting interrupted Git operation.");
+
+    new SwingWorker<UpdateRecoveryResult, String>() {
+      @Override protected UpdateRecoveryResult doInBackground() {
+        CommandResult abort = abortInterruptedGitOperations();
+        publish(abort.exitCode == 0
+            ? "[hub] Safe Mode recovery: interrupted Git operations aborted."
+            : "[hub] Safe Mode recovery: abort failed.");
+        if (abort.exitCode != 0) {
+          return new UpdateRecoveryResult(false, abort, UpdatePreflight.empty(), output);
+        }
+        UpdatePreflight preflight = inspectUpdatePreflight();
+        return new UpdateRecoveryResult(true, abort, preflight, output);
+      }
+
+      @Override protected void process(List<String> chunks) {
+        if (!chunks.isEmpty()) {
+          appendLog(chunks.get(chunks.size() - 1));
+        }
+      }
+
+      @Override protected void done() {
+        UpdateRecoveryResult result;
+        try {
+          result = get();
+        } catch (Exception ex) {
+          result = new UpdateRecoveryResult(
+              false,
+              new CommandResult(-1, exceptionMessage(ex)),
+              UpdatePreflight.empty(),
+              output);
+        }
+
+        if (result.ok()) {
+          advanceToStep(2, "Checkout state re-checked.");
+          finishSteps(true, "Safe Mode returned Git to a stable checkout.");
+          setStatus("Safe Mode recovered update", ACCENT_SAFE);
+          setActivity(
+              "Safe Mode recovered update",
+              recoverySummary(result),
+              false,
+              ACCENT_SAFE);
+          showSafeModeRecoveryDialog(result);
+        } else {
+          finishSteps(false, "Safe Mode could not recover the checkout automatically.");
+          setStatus("Safe Mode recovery failed", ACCENT_ERROR);
+          setActivity(
+              "Safe Mode recovery failed",
+              compactMessage(result.abortResult() != null ? result.abortResult().output : ""),
+              false,
+              ACCENT_ERROR);
+          showManualRecoveryDialog(result);
+        }
+      }
+    }.execute();
+  }
+
+  private void showSafeModeRecoveryDialog(UpdateRecoveryResult result) {
+    UpdatePreflight preflight = result != null ? result.preflight() : UpdatePreflight.empty();
+    String details = recoverySummary(result);
+    if (preflight != null && preflight.statusUnavailable()) {
+      details += "\n\nGit status check:\n" + preflight.statusError();
+    } else if (preflight != null && (preflight.hasChanges() || preflight.hasInterruptedGitOperation())) {
+      details += "\n\nCurrent checkout state:\n" + preflight.summary();
+    }
+    details += "\n\nOriginal failure:\n" + compactForDialog(result != null ? result.sourceOutput() : "");
+
+    int choice = showUpdateDialog(
+        "Safe Mode Recovery Complete",
+        "The checkout is no longer stuck in an interrupted Git operation.",
+        details,
+        new String[]{"Retry Update", "Close"},
+        UpdateDialogTone.QUESTION);
+    if (choice == 0) {
+      updateEngine();
+    }
+  }
+
+  private void showUpdateFailureDialog(String title, String output, UpdatePreflight preflight) {
+    String details = friendlyUpdateFailureSummary(output, preflight)
+        + "\n\n"
+        + (preflight != null && (preflight.hasChanges() || preflight.hasInterruptedGitOperation())
+            ? "Current checkout state:\n" + preflight.summary() + "\n\n"
+            : "")
+        + "Git output:\n"
+        + compactForDialog(output);
+    showUpdateDialog(
+        title,
+        "Update Engine could not complete.",
+        details,
+        new String[]{"Close"},
+        UpdateDialogTone.WARNING);
+  }
+
+  private void showManualRecoveryDialog(UpdateRecoveryResult result) {
+    String output = result != null && result.abortResult() != null ? result.abortResult().output : "";
+    String details = "Safe Mode could not abort the interrupted Git operation automatically.\n\n"
+        + "Open a terminal in the engine folder and run:\n\n"
+        + "git status\n"
+        + "git rebase --abort\n"
+        + "git merge --abort\n"
+        + "git cherry-pick --abort\n"
+        + "git revert --abort\n\n"
+        + "Then retry Update Engine. If those abort commands report that no operation is in progress, send the git status output.\n\n"
+        + "Git output:\n"
+        + compactForDialog(output);
+    showUpdateDialog(
+        "Manual Git Recovery Needed",
+        "The Hub could not safely recover the engine checkout.",
+        details,
+        new String[]{"Close"},
+        UpdateDialogTone.DANGER);
+  }
+
+  private String recoverySummary(UpdateRecoveryResult result) {
+    UpdatePreflight preflight = result != null ? result.preflight() : UpdatePreflight.empty();
+    if (preflight.isEmpty()) {
+      return "Safe Mode aborted any unfinished Git operation. Retry Update Engine when ready.";
+    }
+    if (preflight.statusUnavailable()) {
+      return "Safe Mode aborted the unfinished Git operation, but Git status could not be checked.";
+    }
+    if (preflight.hasInterruptedGitOperation()) {
+      return "Git still reports an interrupted operation after recovery.";
+    }
+    if (preflight.hasChanges()) {
+      return "Git is no longer mid-update. Local changes are still present; Safe Mode will use autostash when retrying.";
+    }
+    return "Git is no longer mid-update and the checkout is clean. Retry Update Engine when ready.";
+  }
+
+  private String friendlyUpdateFailureSummary(String output, UpdatePreflight preflight) {
+    if (preflight != null && preflight.hasInterruptedGitOperation()) {
+      return "Git stopped during an update and left an unfinished operation in the checkout.";
+    }
+    String text = output == null ? "" : output.toLowerCase(Locale.ROOT);
+    if (text.contains("conflict") || text.contains("resolve all conflicts")) {
+      return "Git hit a content conflict while applying the engine update.";
+    }
+    if (text.contains("would be overwritten")) {
+      return "Local files would be overwritten by the engine update.";
+    }
+    if (text.contains("no tracking information") || text.contains("no upstream")) {
+      return "This checkout does not have an upstream branch configured.";
+    }
+    if (text.contains("could not resolve host") || text.contains("failed to connect")
+        || text.contains("network is unreachable") || text.contains("timed out")) {
+      return "Git could not reach the remote repository. This is likely a network problem.";
+    }
+    if (text.contains("permission denied") || text.contains("authentication failed")
+        || text.contains("could not read from remote repository")) {
+      return "Git could not authenticate with the remote repository.";
+    }
+    if (text.contains("index.lock") || text.contains("another git process")) {
+      return "Another Git process or a stale Git lock is blocking the update.";
+    }
+    if (text.contains("not a git repository")) {
+      return "The Hub is not running from a valid Git checkout.";
+    }
+    return "Git returned a failure while updating the engine checkout.";
+  }
+
+  private static String compactForDialog(String text) {
+    if (text == null || text.isBlank()) return "(no Git output captured)";
+    String trimmed = text.strip();
+    int limit = 1800;
+    if (trimmed.length() <= limit) return trimmed;
+    return trimmed.substring(0, limit) + "\n... output truncated ...";
+  }
+
+  private static String exceptionMessage(Throwable ex) {
+    if (ex == null) return "Unknown failure";
+    String message = ex.getMessage();
+    return message == null || message.isBlank() ? ex.getClass().getSimpleName() : message;
   }
 
   private static boolean isGradleWrapperCommand(List<String> command) {
@@ -2034,6 +2343,11 @@ public final class JvnHub {
           "Restore tracked build output",
           "Remove generated files",
           "Confirm clean checkout");
+      case "safe mode update recovery" -> List.of(
+          "Inspect failed update",
+          "Abort interrupted Git operation",
+          "Re-check checkout state",
+          "Present recovery options");
       default -> List.of(
           "Read action request",
           "Resolve engine workspace",
@@ -2296,6 +2610,34 @@ public final class JvnHub {
     }
   }
 
+  private List<String> inspectInterruptedGitOperations() {
+    List<String> operations = new ArrayList<>();
+    if (gitPathExists("rebase-merge") || gitPathExists("rebase-apply")) {
+      operations.add("rebase in progress");
+    }
+    if (gitPathExists("MERGE_HEAD")) {
+      operations.add("merge in progress");
+    }
+    if (gitPathExists("CHERRY_PICK_HEAD")) {
+      operations.add("cherry-pick in progress");
+    }
+    if (gitPathExists("REVERT_HEAD")) {
+      operations.add("revert in progress");
+    }
+    return List.copyOf(operations);
+  }
+
+  private boolean gitPathExists(String gitPath) {
+    if (gitPath == null || gitPath.isBlank()) return false;
+    CommandResult result = runGit(List.of("git", "rev-parse", "--git-path", gitPath), 5);
+    if (result.exitCode != 0 || result.output.isBlank()) return false;
+    String firstLine = result.output.split("\\R", 2)[0].trim();
+    if (firstLine.isBlank()) return false;
+    Path path = Paths.get(firstLine);
+    if (!path.isAbsolute()) path = projectRoot.resolve(path);
+    return Files.exists(path);
+  }
+
   private static List<GitStatusEntry> parseGitStatus(String output) {
     if (output == null || output.isBlank()) return List.of();
     List<GitStatusEntry> entries = new ArrayList<>();
@@ -2362,6 +2704,12 @@ public final class JvnHub {
 
   private record CommandResult(int exitCode, String output) {}
 
+  private record UpdateRecoveryResult(
+      boolean ok,
+      CommandResult abortResult,
+      UpdatePreflight preflight,
+      String sourceOutput) {}
+
   private enum UpdatePreflightAction {
     CLEAN_AND_UPDATE,
     CANCEL
@@ -2381,13 +2729,22 @@ public final class JvnHub {
       List<GitStatusEntry> allChanges,
       List<GitStatusEntry> buildOutputChanges,
       List<GitStatusEntry> otherChanges,
+      List<String> interruptedGitOperations,
       String statusError) {
 
     static UpdatePreflight unavailable(String error) {
-      return new UpdatePreflight(List.of(), List.of(), List.of(), error == null ? "" : error);
+      return new UpdatePreflight(List.of(), List.of(), List.of(), List.of(), error == null ? "" : error);
+    }
+
+    static UpdatePreflight empty() {
+      return new UpdatePreflight(List.of(), List.of(), List.of(), List.of(), "");
     }
 
     static UpdatePreflight from(List<GitStatusEntry> entries) {
+      return from(entries, List.of());
+    }
+
+    static UpdatePreflight from(List<GitStatusEntry> entries, List<String> interruptedGitOperations) {
       List<GitStatusEntry> build = new ArrayList<>();
       List<GitStatusEntry> other = new ArrayList<>();
       for (GitStatusEntry entry : entries) {
@@ -2397,15 +2754,28 @@ public final class JvnHub {
           other.add(entry);
         }
       }
-      return new UpdatePreflight(List.copyOf(entries), List.copyOf(build), List.copyOf(other), "");
+      return new UpdatePreflight(
+          List.copyOf(entries),
+          List.copyOf(build),
+          List.copyOf(other),
+          interruptedGitOperations == null ? List.of() : List.copyOf(interruptedGitOperations),
+          "");
     }
 
     boolean statusUnavailable() {
       return statusError != null && !statusError.isBlank();
     }
 
+    boolean isEmpty() {
+      return !statusUnavailable() && !hasChanges() && !hasInterruptedGitOperation();
+    }
+
     boolean hasChanges() {
       return !allChanges.isEmpty();
+    }
+
+    boolean hasInterruptedGitOperation() {
+      return interruptedGitOperations != null && !interruptedGitOperations.isEmpty();
     }
 
     boolean onlyBuildOutput() {
@@ -2413,18 +2783,27 @@ public final class JvnHub {
     }
 
     String summary() {
-      if (onlyBuildOutput()) {
-        return "Build output:\n" + summarizeEntries(buildOutputChanges);
-      }
       StringBuilder out = new StringBuilder();
+      if (hasInterruptedGitOperation()) {
+        out.append("Interrupted Git state:\n");
+        for (String operation : interruptedGitOperations) {
+          out.append("- ").append(operation).append('\n');
+        }
+      }
+      if (onlyBuildOutput()) {
+        if (out.length() > 0) out.append('\n');
+        out.append("Build output:\n").append(summarizeEntries(buildOutputChanges));
+        return out.toString();
+      }
       if (!otherChanges.isEmpty()) {
+        if (out.length() > 0) out.append('\n');
         out.append("Other local changes:\n").append(summarizeEntries(otherChanges));
       }
       if (!buildOutputChanges.isEmpty()) {
         if (out.length() > 0) out.append("\n\n");
         out.append("Build output:\n").append(summarizeEntries(buildOutputChanges));
       }
-      return out.toString();
+      return out.length() == 0 ? "No changed files." : out.toString();
     }
   }
 
@@ -3514,8 +3893,8 @@ public final class JvnHub {
       setSelected(enabled);
       setIcon(VectorIcon.of(VectorIcon.Kind.SHIELD, 22, enabled ? ACCENT_SAFE : TEXT_MUTED));
       setToolTipText(enabled
-          ? "Safe Mode ON — launches use safe-mode flags"
-          : "Safe Mode OFF — click to launch with safe-mode flags");
+          ? "Safe Mode ON — launches use safe-mode flags; Update Engine uses guarded Git recovery"
+          : "Safe Mode OFF — click to launch with safe-mode flags; Update Engine uses normal Git update");
       repaint();
     }
 
