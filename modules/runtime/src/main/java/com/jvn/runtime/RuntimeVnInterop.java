@@ -33,6 +33,7 @@ import com.jvn.core.scene2d.Sprite2D;
 import com.jvn.core.vn.CharacterPosition;
 import com.jvn.core.vn.DefaultVnInterop;
 import com.jvn.core.vn.VnArgTokenizer;
+import com.jvn.core.vn.VnCharacterSceneAccessor;
 import com.jvn.core.vn.VnErrorOverlay;
 import com.jvn.core.vn.VnExternalCommand;
 import com.jvn.core.vn.VnInterop;
@@ -43,15 +44,17 @@ import com.jvn.core.vn.VnScenarioLoader;
 import com.jvn.core.vn.VnScene;
 import com.jvn.core.vn.VnSettings;
 import com.jvn.core.vn.VnEntryScriptResolver;
+import com.jvn.core.vn.VnTimelineAccessorProvider;
 import com.jvn.scripting.jes.JesLoader;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 
-public class RuntimeVnInterop implements VnInterop {
+public class RuntimeVnInterop implements VnInterop, VnTimelineAccessorProvider {
   private static final Logger log = LoggerFactory.getLogger(RuntimeVnInterop.class);
   private static final String DEFAULT_ENTRY_SCRIPT = "story/prologue.vns";
   private final Engine engine;
   private final DefaultVnInterop base = new DefaultVnInterop();
   private final VnScenarioLoader scenarioLoader = new VnScenarioLoader();
+  private final VnCharacterSceneAccessor timelineAccessor = new VnCharacterSceneAccessor();
   private final java.util.Map<String, VnCharacterProxyEntity> vnCharacterProxies = new java.util.HashMap<>();
 
   public RuntimeVnInterop(Engine engine) {
@@ -69,7 +72,10 @@ public class RuntimeVnInterop implements VnInterop {
         if (jes != null) return jes.find(name);
         // Fallback: bridge VN characters as Entity2D proxies
         VnScene vn = topVnScene();
-        if (vn != null) return getOrCreateVnCharacterProxy(vn, name);
+        if (vn != null) {
+          Entity2D characterProxy = getOrCreateVnCharacterProxy(vn, name);
+          return characterProxy != null ? characterProxy : timelineAccessor.findEntity(name);
+        }
         return null;
       }
 
@@ -190,6 +196,11 @@ public class RuntimeVnInterop implements VnInterop {
     }
   }
 
+  @Override
+  public VnCharacterSceneAccessor getTimelineAccessor() {
+    return timelineAccessor;
+  }
+
   /**
    * Reload the VN script at {@code path} in-place, seeking to the node whose
    * source line is closest to the current position.  Safe to call from any thread.
@@ -197,6 +208,8 @@ public class RuntimeVnInterop implements VnInterop {
   public void reloadScenario(String path) {
     if (path == null || path.isBlank()) return;
     try {
+      timelineAccessor.clear();
+      vnCharacterProxies.clear();
       VnScenario newScenario = scenarioLoader.load(path.trim());
       VnScene vn = topVnScene();
       if (vn == null) {

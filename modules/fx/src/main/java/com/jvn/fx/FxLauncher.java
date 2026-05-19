@@ -37,10 +37,12 @@ import com.jvn.core.phone.VnPhoneStateStore;
 import com.jvn.core.project.ProjectHealthChecker;
 import com.jvn.core.scene2d.Scene2D;
 import com.jvn.core.scene2d.Scene2DBase;
+import com.jvn.core.vn.VnCharacterSceneAccessor;
 import com.jvn.core.vn.VnEntryScriptResolver;
 import com.jvn.core.vn.VnScenario;
 import com.jvn.core.vn.VnScenarioLoader;
 import com.jvn.core.vn.VnScene;
+import com.jvn.core.vn.VnTimelineAccessorProvider;
 import com.jvn.core.vn.ui.VnCursorConfigLoader;
 import com.jvn.core.vn.ui.VnUiActionButtonActions;
 import com.jvn.fx.menu.MenuRenderer;
@@ -106,6 +108,7 @@ public class FxLauncher extends Application {
   private double mouseY = 0;
   private OperatingSystemMXBean osBean;
   private final MemoryMXBean memoryBean = ManagementFactory.getMemoryMXBean();
+  private final VnCharacterSceneAccessor emptyTimelineAccessor = new VnCharacterSceneAccessor();
   private HBox perfHud;
   private Label perfCpuLabel;
   private Label perfJvmLabel;
@@ -594,6 +597,7 @@ public class FxLauncher extends Application {
     FxSceneRendererRegistry reg = new FxSceneRendererRegistry();
     reg.register(VnScene.class, (vn, ctx) -> {
       vnRenderer.setAudioFacade(vn.getAudioFacade());
+      syncTimelineAccessor(vn);
       vnRenderer.render(vn.getState(), vn.getScenario(), ctx.width(), ctx.height(), mouseX, mouseY);
       if (vn.hasActiveError()) {
         vnRenderer.renderErrorOverlay(vn.getActiveError(), ctx.width(), ctx.height(), mouseX, mouseY);
@@ -605,6 +609,7 @@ public class FxLauncher extends Application {
       VnScene vn = pause.getVnScene();
       if (vn != null) {
         vnRenderer.setAudioFacade(vn.getAudioFacade());
+        syncTimelineAccessor(vn);
         vnRenderer.render(vn.getState(), vn.getScenario(), ctx.width(), ctx.height(), mouseX, mouseY);
       }
       menuRenderer.renderPauseMenu(pause, ctx.width(), ctx.height());
@@ -613,6 +618,7 @@ public class FxLauncher extends Application {
       VnScene vn = history.getVnScene();
       if (vn != null) {
         vnRenderer.setAudioFacade(vn.getAudioFacade());
+        syncTimelineAccessor(vn);
         vnRenderer.render(vn.getState(), vn.getScenario(), ctx.width(), ctx.height(), mouseX, mouseY);
       }
       menuRenderer.renderHistoryMenu(history, ctx.width(), ctx.height());
@@ -621,6 +627,7 @@ public class FxLauncher extends Application {
       VnScene vn = phone.getVnScene();
       if (vn != null) {
         vnRenderer.setAudioFacade(vn.getAudioFacade());
+        syncTimelineAccessor(vn);
         vnRenderer.render(vn.getState(), vn.getScenario(), ctx.width(), ctx.height(), mouseX, mouseY);
       } else {
         ctx.gc().setFill(Color.BLACK);
@@ -654,6 +661,14 @@ public class FxLauncher extends Application {
       b.pop();
     });
     return reg;
+  }
+
+  private void syncTimelineAccessor(VnScene vn) {
+    if (vn != null && vn.getInterop() instanceof VnTimelineAccessorProvider provider) {
+      vnRenderer.setTimelineAccessor(provider.getTimelineAccessor());
+    } else {
+      vnRenderer.setTimelineAccessor(emptyTimelineAccessor);
+    }
   }
 
   private void applyConfiguredCursor(javafx.scene.Scene scene) {

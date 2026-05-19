@@ -1,6 +1,7 @@
 package com.jvn.runtime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -113,5 +114,60 @@ class RuntimeTimelineEventInteropTest {
     var slot = vn.getState().getVisibleCharacters().get(CharacterPosition.RIGHT);
     assertEquals("hero", slot.getCharacterId());
     assertEquals("smile", slot.getExpression());
+  }
+
+  @Test
+  void inlineTimelineLayerTargetsCreateRendererProxies() {
+    Engine engine = new Engine(ApplicationConfig.builder().build());
+    RuntimeVnInterop interop = new RuntimeVnInterop(engine);
+    VnScene vn = new VnScene(new VnScenarioBuilder("owner").end().build());
+    vn.setInterop(interop);
+    engine.scenes().push(vn);
+    vn.getState().showCharacter(CharacterPosition.CENTER, "john", "neutral");
+
+    interop.getBase().handle(new VnExternalCommand("jes_timeline_inline", """
+        timeline {
+          move "john_neutral_body_default" {
+            x: -724.8
+            y: 1080
+            dur: 1500
+            easing: ease_in_expo
+          }
+        }
+        """), vn);
+
+    vn.getState().updateTimelineRunners(1500);
+
+    var proxy = interop.getTimelineAccessor().getProxy("john_neutral_body_default");
+    assertNotNull(proxy);
+    assertEquals(-724.8, proxy.getX(), 0.001);
+    assertEquals(1080.0, proxy.getY(), 0.001);
+  }
+
+  @Test
+  void inlineTimelineCharacterTargetStillDrivesVnVisualOffset() {
+    Engine engine = new Engine(ApplicationConfig.builder().build());
+    RuntimeVnInterop interop = new RuntimeVnInterop(engine);
+    VnScene vn = new VnScene(new VnScenarioBuilder("owner").end().build());
+    vn.setInterop(interop);
+    engine.scenes().push(vn);
+    vn.getState().showCharacter(CharacterPosition.CENTER, "john", "neutral");
+
+    interop.getBase().handle(new VnExternalCommand("jes_timeline_inline", """
+        timeline {
+          move "john" {
+            x: -120
+            y: 35
+            dur: 100
+          }
+        }
+        """), vn);
+
+    vn.getState().updateTimelineRunners(100);
+
+    var visual = vn.getState().getCharacterVisual(CharacterPosition.CENTER);
+    assertNotNull(visual);
+    assertEquals(-120.0, visual.getOffsetX(), 0.001);
+    assertEquals(35.0, visual.getOffsetY(), 0.001);
   }
 }
