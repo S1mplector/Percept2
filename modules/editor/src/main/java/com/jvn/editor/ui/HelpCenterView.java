@@ -51,7 +51,7 @@ import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
 
 public class HelpCenterView extends BorderPane {
-  private static final String HELP_CENTER_VERSION = "1.2.1";
+  private static final String HELP_CENTER_VERSION = "1.2.2";
   private static final int TITLE_SCAN_LINE_LIMIT = 100;
   private static final int SUMMARY_SCAN_LINE_LIMIT = 140;
   private static final Pattern HEADING_LINE = Pattern.compile("^(#{1,6})\\s+(.*)$");

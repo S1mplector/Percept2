@@ -56,7 +56,7 @@ Restart VS Code after copying.
 ```sh
 cd tools/vscode-jvn
 npm run package
-code --install-extension jvn-language-tools-0.1.3.vsix
+code --install-extension jvn-language-tools-0.1.5.vsix
 ```
 
 VS Code also supports installing the generated `.vsix` from the Extensions view with **Install from VSIX...**.

@@ -15,8 +15,8 @@ class EditorSidebarPanelTest {
 
   @Test
   void helpPanelVersionReflectsGuideTreeUpgrade() {
-    assertEquals("1.2.1", EditorSidebarPanel.HELP.version());
-    assertEquals("v1.2.1", EditorSidebarPanel.HELP.versionBadge());
+    assertEquals("1.2.2", EditorSidebarPanel.HELP.version());
+    assertEquals("v1.2.2", EditorSidebarPanel.HELP.versionBadge());
   }
 
   @Test

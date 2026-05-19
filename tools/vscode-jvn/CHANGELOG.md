@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.5
+
+- Bump the language-tools package version for the JVN 0.1.3 maintenance release.
+
 ## 0.1.4
 
 - Rewrite the Marketplace README around practical project value and day-to-day JVN workflows.
