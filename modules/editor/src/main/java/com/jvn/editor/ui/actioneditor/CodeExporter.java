@@ -297,6 +297,7 @@ public class CodeExporter {
         for (EntityTrack track : project.getTracks()) {
             String entity = track.getEntityName();
 
+            emitSnapshotPivotSeedEvent(events, project, entity, track, orbitPivotEntities.contains(entity));
             if (orbitPivotEntities.contains(entity)) {
                 emitOrbitPivotEvent(events, project, entity);
             } else {
@@ -373,6 +374,46 @@ public class CodeExporter {
         }
 
         return events;
+    }
+
+    /**
+     * VN timeline layer proxies default to a 0,0 origin, while Puppeteer scene
+     * snapshots often represent character layers with a center/bottom origin.
+     * Seed any missing pivot axis before pivot-sensitive transforms so pasted
+     * VNS code mirrors/rotates/scales around the same point as the preview.
+     */
+    private static void emitSnapshotPivotSeedEvent(
+        List<TimelineEvent> events,
+        AnimationProject project,
+        String target,
+        EntityTrack track,
+        boolean hasOrbitPivot
+    ) {
+        if (events == null || project == null || target == null || target.isBlank() || track == null) return;
+        AnimationProject.SceneEntitySnapshot snap = project.getSceneEntitySnapshotsView().get(target);
+        if (snap == null) return;
+
+        boolean hasScaleOrMirror =
+            project.hasEffectiveAnimation(target, PropertyType.SCALE_X)
+                || project.hasEffectiveAnimation(target, PropertyType.SCALE_Y)
+                || project.hasEffectiveAnimation(target, PropertyType.MIRROR_X);
+        boolean hasRotation = project.hasEffectiveAnimation(target, PropertyType.ROTATION);
+        if (!hasScaleOrMirror && (!hasRotation || hasOrbitPivot)) return;
+
+        boolean needsX = !track.hasKeyframes(PropertyType.PIVOT_X)
+            && Math.abs(snap.originX()) > 0.001;
+        boolean needsY = !track.hasKeyframes(PropertyType.PIVOT_Y)
+            && Math.abs(snap.originY()) > 0.001;
+        if (!needsX && !needsY) return;
+
+        TimelineEvent ev = new TimelineEvent();
+        ev.actionType = "pivot";
+        ev.target = target;
+        ev.startTime = 0.0;
+        ev.duration = 0.0;
+        if (needsX) ev.props.put("ox", snap.originX());
+        if (needsY) ev.props.put("oy", snap.originY());
+        events.add(ev);
     }
 
     private static String mapActionTypeForEventCue(EditorEventCue cue) {

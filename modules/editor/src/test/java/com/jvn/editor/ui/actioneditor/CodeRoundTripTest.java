@@ -459,6 +459,39 @@ class CodeRoundTripTest {
     }
 
     @Test
+    void exportedGroupMirrorSeedsSnapshotPivotForVnLayerProxy() {
+        AnimationProject project = new AnimationProject();
+        EntityGroup group = project.getOrCreateGroup("john_neutral");
+        group.getGroupTrack().addKeyframe(PropertyType.MIRROR_X, new Keyframe(0, 0, Easing.Type.LINEAR));
+        group.getGroupTrack().addKeyframe(PropertyType.MIRROR_X, new Keyframe(500, 1, Easing.Type.LINEAR));
+
+        EntityTrack body = project.getOrCreateTrack("john_neutral_body_default");
+        project.addEntityToGroup("john_neutral_body_default", "john_neutral");
+        project.setSceneEntitySnapshots(List.of(new AnimationProject.SceneEntitySnapshot(
+            "john_neutral_body_default", "sprite",
+            "assets/characters/john_doe/body/John_Doe_body_-_default.png",
+            960, 1080, 734.4, 918, 0.5, 1.0, 0, true, 1.0
+        )));
+
+        String exported = CodeExporter.export(project);
+
+        assertTrue(exported.contains("pivot \"john_neutral_body_default\""),
+            "Group mirror export must seed the VN proxy pivot from the Puppeteer snapshot:\n" + exported);
+        assertTrue(exported.contains("ox: 0.5"), exported);
+        assertTrue(exported.contains("oy: 1"), exported);
+        assertTrue(exported.contains("scale \"john_neutral_body_default\""), exported);
+
+        TimelineData parsed = TimelineDataParser.parse("john_group_mirror", exported);
+        TimelineData.Track parsedBody = parsed.getTrack("john_neutral_body_default");
+        assertNotNull(parsedBody);
+        assertEquals(0.5, parsedBody.getValueAt(TimelineData.Property.PIVOT_X, 0), 0.001);
+        assertEquals(1.0, parsedBody.getValueAt(TimelineData.Property.PIVOT_Y, 0), 0.001);
+        assertEquals(-1.0, parsedBody.getValueAt(TimelineData.Property.SCALE_X, 500), 0.001);
+        assertFalse(body.hasKeyframes(PropertyType.PIVOT_X),
+            "The runtime pivot seed should not require authoring a local pivot keyframe");
+    }
+
+    @Test
     void exportedRuntimeCodePreservesInitialNonDefaultKeyframesWhenParsedInline() {
         AnimationProject project = new AnimationProject();
         project.setTotalDurationMs(750);
