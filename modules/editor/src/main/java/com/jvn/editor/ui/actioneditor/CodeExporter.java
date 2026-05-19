@@ -7,6 +7,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 
 import com.jvn.core.animation.Easing;
@@ -331,10 +332,31 @@ public class CodeExporter {
         List<TimelineEvent> events = new ArrayList<>();
         EntityTrack cameraTrack = null;
 
+        // First pass: find entities whose orbit anchor should be emitted as a pivot
+        // command rather than exporting the arc X/Y positions. This produces a clean
+        // pivot+rotate that VnRenderer can apply without the entity visually drifting.
+        Set<String> orbitPivotEntities = new java.util.HashSet<>();
+        if (project != null) {
+            for (EntityTrack track : project.getTracks()) {
+                String entity = track.getEntityName();
+                if (!project.hasOrbitAnchor(entity)) continue;
+                if (!project.hasEffectiveAnimation(entity, PropertyType.ROTATION)) continue;
+                double[] anchor = project.getOrbitAnchorsView().get(entity);
+                AnimationProject.SceneEntitySnapshot snap =
+                        project.getSceneEntitySnapshotsView().get(entity);
+                if (anchor == null || snap == null || snap.width() <= 0 || snap.height() <= 0) continue;
+                orbitPivotEntities.add(entity);
+            }
+        }
+
         for (EntityTrack track : project.getTracks()) {
             String entity = track.getEntityName();
 
-            collectPropertyEvents(events, project, entity, track, PropertyType.X, PropertyType.Y, "move", true);
+            if (orbitPivotEntities.contains(entity)) {
+                emitOrbitPivotEvent(events, project, entity);
+            } else {
+                collectPropertyEvents(events, project, entity, track, PropertyType.X, PropertyType.Y, "move", true);
+            }
             collectPropertyEvents(events, project, entity, track, PropertyType.Z, null, "depth", true);
             collectPropertyEvents(events, project, entity, track, PropertyType.PIVOT_X, PropertyType.PIVOT_Y, "pivot", true);
             collectPropertyEvents(events, project, entity, track, PropertyType.ROTATION, null, "rotate", true);
@@ -639,6 +661,48 @@ public class CodeExporter {
             events.add(ev);
             previous = current;
         }
+    }
+
+    /**
+     * For an entity whose rotation is orbit-anchored, emit a single instant {@code pivot}
+     * event instead of arc X/Y moves.  The pivot fractions are derived from the orbit
+     * anchor world position and the entity snapshot dimensions so that VnRenderer rotates
+     * the sprite around the intended anchor point rather than around the sprite's top-left.
+     */
+    private static void emitOrbitPivotEvent(
+            List<TimelineEvent> events,
+            AnimationProject project,
+            String entity) {
+        double[] anchor = project.getOrbitAnchorsView().get(entity);
+        AnimationProject.SceneEntitySnapshot snap = project.getSceneEntitySnapshotsView().get(entity);
+        if (anchor == null || snap == null || snap.width() <= 0 || snap.height() <= 0) return;
+
+        // Convert the Puppeteer-absolute anchor world position to a fraction of the
+        // sprite's draw dimensions, using the snapshot's own origin as the base.
+        double pivotOx = (anchor[0] - snap.x()) / snap.width() + snap.originX();
+        double pivotOy = (anchor[1] - snap.y()) / snap.height() + snap.originY();
+
+        // Place this at the start of the first rotation interval so it lands in the
+        // same parallel block as the rotate command.
+        List<Keyframe> rotKfs = project.getEffectiveKeyframes(entity, PropertyType.ROTATION);
+        double startTime = 0.0;
+        for (int i = 0; i + 1 < rotKfs.size(); i++) {
+            double sv = rotKfs.get(i).getValue();
+            double ev2 = rotKfs.get(i + 1).getValue();
+            if (Math.abs(ev2 - sv) > 0.001) {
+                startTime = rotKfs.get(i).getTimeMs();
+                break;
+            }
+        }
+
+        TimelineEvent ev = new TimelineEvent();
+        ev.actionType = "pivot";
+        ev.target = entity;
+        ev.startTime = startTime;
+        ev.duration = 0.0;
+        ev.props.put("ox", pivotOx);
+        ev.props.put("oy", pivotOy);
+        events.add(ev);
     }
 
     private static String actionTypeForCustomProperty(String propertyKey) {
