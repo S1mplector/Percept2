@@ -607,6 +607,8 @@ public class CodeExporter {
             ev.actionType = "visible";
             ev.target = target;
             ev.startTime = Math.max(0.0, keyframe.getTimeMs());
+            ev.easingSpec = keyframe.getEasingSpec();
+            ev.interpolation = keyframe.getInterpolation();
             ev.props.put("value", current >= 0.5);
             events.add(ev);
             previous = current;

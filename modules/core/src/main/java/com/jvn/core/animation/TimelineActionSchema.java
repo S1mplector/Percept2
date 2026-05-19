@@ -57,7 +57,7 @@ public final class TimelineActionSchema {
             aliases("duration", "dur"));
         register(actions, "exposure", keys("value", "brightness", "exposure", "dur", "easing", "interp"),
             aliases("duration", "dur"));
-        register(actions, "visible", keys("value", "visible"), Map.of("visible", "value"));
+        register(actions, "visible", keys("value", "visible", "easing", "interp"), Map.of("visible", "value"));
         register(actions, "expression", keys("value", "expression", "path", "layers", "position", "target"), Map.of());
         register(actions, "show", keys("target", "expression", "value", "path", "layers", "position", "layer"), Map.of());
         register(actions, "hide", keys("target"), Map.of());

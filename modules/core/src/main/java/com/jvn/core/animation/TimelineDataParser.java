@@ -448,8 +448,10 @@ public class TimelineDataParser {
                     : ab.has("visible")
                         ? ab.getBoolean("visible", true)
                         : true;
+                EasingSpec easingSpec = parseEasingSpec(ab.getString("easing", "linear"));
+                Easing.Interpolation interpolation = parseInterpolation(ab.getString("interp", "tween"));
                 track.addKeyframe(TimelineData.Property.VISIBILITY,
-                    new TimelineData.Keyframe(cursor, visible ? 1.0 : 0.0, Easing.Type.LINEAR));
+                    new TimelineData.Keyframe(cursor, visible ? 1.0 : 0.0, easingSpec, interpolation));
                 if (cursor > maxTime) maxTime = cursor;
                 continue;
             }

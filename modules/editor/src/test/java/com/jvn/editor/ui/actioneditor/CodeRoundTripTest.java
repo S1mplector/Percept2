@@ -496,7 +496,8 @@ class CodeRoundTripTest {
         AnimationProject project = new AnimationProject();
         EntityTrack hero = project.getOrCreateTrack("hero");
         hero.addKeyframe(PropertyType.VISIBILITY, new Keyframe(0, 1, Easing.Type.LINEAR));
-        hero.addKeyframe(PropertyType.VISIBILITY, new Keyframe(300, 0, Easing.Type.LINEAR));
+        hero.addKeyframe(PropertyType.VISIBILITY,
+            new Keyframe(300, 0, Easing.Type.LINEAR, Easing.Interpolation.HOLD));
 
         String exported = CodeExporter.export(project);
         TimelineData parsed = TimelineDataParser.parse("inline_visibility_export", exported);
@@ -506,6 +507,7 @@ class CodeRoundTripTest {
         assertNotNull(parsedHero);
         assertNotNull(registeredHero);
 
+        assertTrue(exported.contains("interp: hold"));
         assertEquals(registeredHero.getValueAt(TimelineData.Property.VISIBILITY, 0),
             parsedHero.getValueAt(TimelineData.Property.VISIBILITY, 0), 0.001);
         assertEquals(registeredHero.getValueAt(TimelineData.Property.VISIBILITY, 299),
@@ -521,7 +523,8 @@ class CodeRoundTripTest {
         assertNotNull(hero);
         EntityGroup group = project.getOrCreateGroup("rig");
         group.getGroupTrack().addKeyframe(PropertyType.VISIBILITY, new Keyframe(0, 1, Easing.Type.LINEAR));
-        group.getGroupTrack().addKeyframe(PropertyType.VISIBILITY, new Keyframe(300, 0, Easing.Type.LINEAR));
+        group.getGroupTrack().addKeyframe(PropertyType.VISIBILITY,
+            new Keyframe(300, 0, Easing.Type.LINEAR, Easing.Interpolation.HOLD));
         project.addEntityToGroup("hero", "rig");
 
         String exported = CodeExporter.export(project);
