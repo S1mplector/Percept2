@@ -159,9 +159,21 @@ class LayeredImageVisualizerViewTest {
         LayeredImageVisualizerView.inferGroupFromSetSubfolder(
             "assets/characters/lily_langley/head/normal/eyes/Lilily_Langley_normal_head_-_eyes_06.png"));
     assertEquals(
-        "faces_heads",
+        "face",
         LayeredImageVisualizerView.inferGroupFromSetSubfolder(
             "assets/characters/lily_langley/head/normal/faces (+heads)/Lilily_Langley_normal_faces_-_default.png"));
+    assertEquals(
+        "snoot",
+        LayeredImageVisualizerView.inferGroupFromSetSubfolder(
+            "assets/characters/lily_langley/head/tilted/snoots/Lilily_Langley_tilted_snoots_-_mouth_open.png"));
+    assertEquals(
+        "add",
+        LayeredImageVisualizerView.inferGroupFromSetSubfolder(
+            "assets/characters/lily_langley/head/normal/additions/Lilily_Langley_normal_additions_-_glasses.png"));
+    assertEquals(
+        "arm_front",
+        LayeredImageVisualizerView.inferGroupFromSetSubfolder(
+            "assets/characters/lily_langley/arm front 02/Lilily_Langley_arm_front_-_psst.png"));
   }
 
   @Test
@@ -175,6 +187,58 @@ class LayeredImageVisualizerViewTest {
     assertEquals(
         "angry",
         LayeredImageVisualizerView.inferLabelFromFilenameForGroup("lavender_test_sprite_angry", "eyes"));
+  }
+
+  @Test
+  void inferLabelsPreserveLilyPoseContext() {
+    assertEquals(
+        "normal_very_sad_eyes_closed",
+        LayeredImageVisualizerView.inferLabelFromPathAndFilename(
+            "assets/characters/lily_langley/head/normal/faces (+heads)/Lilily_Langley_normal_faces_-_very_sad_eyes_closed.png",
+            "Lilily_Langley_normal_faces_-_very_sad_eyes_closed",
+            "face"));
+    assertEquals(
+        "tilted_01",
+        LayeredImageVisualizerView.inferLabelFromPathAndFilename(
+            "assets/characters/lily_langley/head/tilted/eyes/Lilily_Langley_tilted_head_-_eyes_01.png",
+            "Lilily_Langley_tilted_head_-_eyes_01",
+            "eyes"));
+    assertEquals(
+        "02_psst",
+        LayeredImageVisualizerView.inferLabelFromPathAndFilename(
+            "assets/characters/lily_langley/arm front 02/Lilily_Langley_arm_front_-_psst.png",
+            "Lilily_Langley_arm_front_-_psst",
+            "arm_front"));
+  }
+
+  @Test
+  void scriptBackedScannedGroupsResolveToDeclaredGroupsWhenEquivalent() {
+    assertEquals(
+        "face",
+        LayeredImageVisualizerView.resolveGroupForSet(java.util.Set.of("face"), "faces_heads"));
+    assertEquals(
+        "arm_front",
+        LayeredImageVisualizerView.resolveGroupForSet(java.util.Set.of("arm_front"), "arm_front_02"));
+    assertEquals(
+        "tail",
+        LayeredImageVisualizerView.resolveGroupForSet(java.util.Set.of("tail"), "tail_front"));
+    assertEquals(
+        "eyes_06",
+        LayeredImageVisualizerView.resolveGroupForSet(java.util.Set.of("eyes_base", "eyes_06"), "eyes"));
+  }
+
+  @Test
+  void topLevelSetImageDetectionIdentifiesCompositeReferenceImages() {
+    assertEquals(
+        true,
+        LayeredImageVisualizerView.isTopLevelSetImage(
+            "assets/characters/lily_langley/Lilily_Langley.png",
+            "assets/characters/lily_langley"));
+    assertEquals(
+        false,
+        LayeredImageVisualizerView.isTopLevelSetImage(
+            "assets/characters/lily_langley/head/normal/eyes/Lilily_Langley_normal_head_-_eyes_06.png",
+            "assets/characters/lily_langley"));
   }
 
   @Test

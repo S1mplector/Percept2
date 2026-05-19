@@ -35,11 +35,17 @@ final class LayeredCharacterProjectCatalog {
       Map.entry("body", "body"),
       Map.entry("hair", "hair"),
       Map.entry("face", "face"),
+      Map.entry("faces", "face"),
+      Map.entry("snoot", "snoot"),
+      Map.entry("snoots", "snoot"),
       Map.entry("outfit", "outfit"),
       Map.entry("clothes", "outfit"),
       Map.entry("accessory", "accessory"),
       Map.entry("accessories", "accessory"),
-      Map.entry("acc", "accessory")
+      Map.entry("acc", "accessory"),
+      Map.entry("add", "add"),
+      Map.entry("addition", "add"),
+      Map.entry("additions", "add")
   );
   private static final Pattern CHARLAYER_PATTERN =
       Pattern.compile("^\\s*@charlayer\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
@@ -519,7 +525,11 @@ final class LayeredCharacterProjectCatalog {
       if (!normalizedSegment.isBlank()) segments.add(normalizedSegment);
     }
     if (segments.isEmpty()) return "";
-    if (segments.size() == 1) return segments.get(0);
+    if (segments.size() == 1) {
+      String only = segments.get(0);
+      if (only.startsWith("arm")) return only.replaceFirst("_[0-9]+$", "");
+      return only;
+    }
 
     String first = segments.get(0);
     String second = segments.get(1);

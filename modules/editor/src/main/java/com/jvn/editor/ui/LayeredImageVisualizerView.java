@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.Random;
+import java.util.Set;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.regex.Matcher;
@@ -129,11 +130,17 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       Map.entry("body", "body"),
       Map.entry("hair", "hair"),
       Map.entry("face", "face"),
+      Map.entry("faces", "face"),
+      Map.entry("snoot", "snoot"),
+      Map.entry("snoots", "snoot"),
       Map.entry("outfit", "outfit"),
       Map.entry("clothes", "outfit"),
       Map.entry("accessory", "accessory"),
       Map.entry("accessories", "accessory"),
-      Map.entry("acc", "accessory")
+      Map.entry("acc", "accessory"),
+      Map.entry("add", "add"),
+      Map.entry("addition", "add"),
+      Map.entry("additions", "add")
   );
 
   private static final String SNIPPET_COMBINED = "@charimg + [show]";
@@ -885,17 +892,18 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
           if (isCancelled()) return LayeredCatalogScanResult.cancelledResult(charactersOnlyMode);
           String relative = root.relativize(p).toString().replace('\\', '/');
           String setId = deriveSetId(relative);
-          if (declaredSets.containsKey(setId)) {
-            index++;
-            if (index == total || (index % 200) == 0) {
-              updateProgress(index, Math.max(total, 1));
-            }
-            continue;
-          }
           LayerOption option = parseOption(relative, p.toFile());
           if (option != null) {
-            scannedSets.computeIfAbsent(setId, LayeredSet::new).add(option);
-            imageCount++;
+            LayeredSet declaredSet = declaredSets.get(setId);
+            if (declaredSet == null || !isTopLevelSetImage(relative, setId)) {
+              LayeredSet target = declaredSet == null
+                  ? scannedSets.computeIfAbsent(setId, LayeredSet::new)
+                  : declaredSet;
+              if (!target.containsRelativePath(option.relativePath)) {
+                target.add(normalizeScannedOptionForSet(target, option));
+                imageCount++;
+              }
+            }
           }
           index++;
           if (index == total || (index % 200) == 0) {
@@ -3441,7 +3449,10 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
           }
           fileField.setText(opt.relativePath);
           if (opt.label.isBlank()) {
-            String inferred = inferLabelFromFilenameForGroup(chosen.getName().replaceAll("\\.[^.]+$", ""), grp);
+            String inferred = inferLabelFromPathAndFilename(
+                opt.relativePath,
+                chosen.getName().replaceAll("\\.[^.]+$", ""),
+                grp);
             opt.label = inferred.isBlank() ? chosen.getName().replaceAll("\\.[^.]+$", "") : inferred;
           }
           updateSnippet.run();
@@ -4213,7 +4224,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     String group = inferGroupFromSetSubfolder(normalizedRelative);
     String label;
     if (!group.isBlank()) {
-      label = inferLabelFromFilenameForGroup(base, group);
+      label = inferLabelFromPathAndFilename(normalizedRelative, base, group);
     } else {
       InferredGroupLabel inferred = inferGroupAndLabelFromFilename(base);
       group = inferred.group();
@@ -4354,32 +4365,36 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       if (!normalizedSegment.isBlank()) segments.add(normalizedSegment);
     }
     if (segments.isEmpty()) return "";
-    if (segments.size() == 1) return segments.get(0);
+    if (segments.size() == 1) {
+      String only = segments.get(0);
+      if (only.startsWith("arm")) return only.replaceFirst("_[0-9]+$", "");
+      return normalizeLayerGroupId(only);
+    }
 
     String first = segments.get(0);
     String second = segments.get(1);
 
     // Keep nested arm variants in one group to avoid accidental stacked overlays.
     if (first.startsWith("arm")) {
-      return first;
+      return first.replaceFirst("_[0-9]+$", "");
     }
 
     // Body folders often nest tail/body-arms under body.
     if ("body".equals(first)) {
       if (second.startsWith("tail")) return second;
       if (second.contains("arm")) return "body_arms";
-      return first;
+      return normalizeLayerGroupId(first);
     }
 
     // Head folders can include style buckets (normal/tilted) before actual groups.
     if ("head".equals(first)) {
       if (("normal".equals(second) || "tilted".equals(second)) && segments.size() >= 3) {
-        return segments.get(2);
+        return normalizeLayerGroupId(segments.get(2));
       }
-      return second;
+      return normalizeLayerGroupId(second);
     }
 
-    return first;
+    return normalizeLayerGroupId(first);
   }
 
   private Map<String, LayeredSet> buildDeclaredLayeredSets(File rootDir, LayeredCharacterProjectCatalog.Catalog catalog) {
@@ -4412,6 +4427,54 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       out.put(set.id, set);
     }
     return out;
+  }
+
+  private static LayerOption normalizeScannedOptionForSet(LayeredSet set, LayerOption option) {
+    if (set == null || option == null || !set.scriptBacked) return option;
+    String group = resolveGroupForSet(set.groups.keySet(), option.group);
+    if (group == null || group.isBlank() || group.equals(option.group)) return option;
+    return new LayerOption(option.label, group, option.relativePath, option.file, option.sortKey, option.layerId);
+  }
+
+  static String resolveGroupForSet(Set<String> existingGroups, String scannedGroup) {
+    if (existingGroups == null || existingGroups.isEmpty()) return scannedGroup;
+    String scanned = normalizeLayerGroupId(scannedGroup);
+    if (scanned.isBlank()) return scannedGroup;
+
+    for (String group : existingGroups) {
+      if (normalizeLayerGroupId(group).equals(scanned)) return group;
+    }
+
+    for (String group : existingGroups) {
+      String existing = normalizeLayerGroupId(group);
+      if (!existing.isBlank() && scanned.startsWith(existing + "_")) return group;
+    }
+
+    String withoutTrailingNumber = scanned.replaceFirst("_[0-9]+$", "");
+    if (!withoutTrailingNumber.equals(scanned)) {
+      for (String group : existingGroups) {
+        if (normalizeLayerGroupId(group).equals(withoutTrailingNumber)) return group;
+      }
+    }
+
+    String suffixCandidate = null;
+    for (String group : existingGroups) {
+      String existing = normalizeLayerGroupId(group);
+      if (existing.startsWith(scanned + "_") && !existing.endsWith("_base")) {
+        if (suffixCandidate != null) return scannedGroup;
+        suffixCandidate = group;
+      }
+    }
+    if (suffixCandidate != null) return suffixCandidate;
+
+    return scannedGroup;
+  }
+
+  static boolean isTopLevelSetImage(String relativePath, String setId) {
+    if (relativePath == null || relativePath.isBlank() || setId == null || setId.isBlank()) return false;
+    String normalized = relativePath.replace('\\', '/');
+    String normalizedSet = setId.replace('\\', '/');
+    return parentPath(normalized).equals(normalizedSet);
   }
 
   private static File resolveProjectAssetFile(File projectRoot, String relativePath) {
@@ -4449,7 +4512,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   static String inferLabelFromFilenameForGroup(String baseName, String group) {
     String[] tokens = splitTokens(baseName);
     if (tokens.length == 0) return "";
-    String normalizedGroup = sanitizeId(group);
+    String normalizedGroup = normalizeLayerGroupId(group);
     int match = -1;
     for (int i = 0; i < tokens.length; i++) {
       String tokenGroup = normalizeGroupToken(tokens[i]);
@@ -4464,6 +4527,43 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       return sanitizeLabel(tokens[match]);
     }
     return sanitizeLabel(tokens[tokens.length - 1]);
+  }
+
+  static String inferLabelFromPathAndFilename(String relativePath, String baseName, String group) {
+    String label = inferLabelFromFilenameForGroup(baseName, group);
+    String path = relativePath == null ? "" : relativePath.replace('\\', '/').toLowerCase(Locale.ROOT);
+    String normalizedGroup = normalizeLayerGroupId(group);
+
+    String prefix = "";
+    if (path.contains("/head/normal/")) {
+      prefix = "normal";
+    } else if (path.contains("/head/tilted/")) {
+      prefix = "tilted";
+    } else if (path.contains("/arm front 01/holding phone/")) {
+      prefix = "holding_phone";
+    } else if (path.contains("/arm front 01/phone on ear/")) {
+      prefix = "phone_on_ear";
+    } else if (path.contains("/arm front 01/") && "arm_front".equals(normalizedGroup)) {
+      prefix = "01";
+    } else if (path.contains("/arm front 02/") && "arm_front".equals(normalizedGroup)) {
+      prefix = "02";
+    }
+
+    if (prefix.isBlank() || label.isBlank() || sanitizeId(label).startsWith(prefix + "_")) {
+      return label;
+    }
+    return sanitizeLabel(prefix + "_" + label);
+  }
+
+  static String normalizeLayerGroupId(String group) {
+    String key = sanitizeId(group);
+    if (key.isBlank()) return "";
+    return switch (key) {
+      case "faces", "face_heads", "faces_heads", "head_faces", "heads" -> "face";
+      case "snoots" -> "snoot";
+      case "addition", "additions", "accessory", "accessories", "acc" -> "add";
+      default -> GROUP_TOKEN_ALIASES.getOrDefault(key, key);
+    };
   }
 
   private static InferredGroupLabel inferGroupAndLabelFromFilename(String baseName) {
@@ -4666,6 +4766,19 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
         }
         return new ArrayList<>();
       }).add(option);
+    }
+
+    boolean containsRelativePath(String relativePath) {
+      if (relativePath == null || relativePath.isBlank()) return false;
+      for (List<LayerOption> options : groups.values()) {
+        if (options == null) continue;
+        for (LayerOption option : options) {
+          if (option != null && Objects.equals(option.relativePath, relativePath)) {
+            return true;
+          }
+        }
+      }
+      return false;
     }
 
     String defaultProjectPresetName() {
