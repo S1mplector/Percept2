@@ -419,6 +419,44 @@ class CodeRoundTripTest {
     }
 
     @Test
+    void orbitAnchoredRotationExportsPivotInsteadOfArcMove() {
+        AnimationProject project = new AnimationProject();
+        EntityTrack head = project.getOrCreateTrack("head");
+        head.addKeyframe(PropertyType.X, new Keyframe(0, 500, Easing.Type.LINEAR));
+        head.addKeyframe(PropertyType.X, new Keyframe(1000, 540, Easing.Type.LINEAR));
+        head.addKeyframe(PropertyType.Y, new Keyframe(0, 300, Easing.Type.LINEAR));
+        head.addKeyframe(PropertyType.Y, new Keyframe(1000, 260, Easing.Type.LINEAR));
+        head.addKeyframe(PropertyType.ROTATION, new Keyframe(0, 0, Easing.Type.LINEAR));
+        head.addKeyframe(PropertyType.ROTATION, new Keyframe(1000, 25, Easing.Type.LINEAR));
+
+        project.setSceneEntitySnapshots(List.of(new AnimationProject.SceneEntitySnapshot(
+            "head", "sprite", "assets/characters/hero/head.png",
+            500, 300, 200, 100, 0.5, 0.5, 0, true, 1.0
+        )));
+        project.setOrbitAnchor("head", 520, 280);
+
+        String exported = CodeExporter.export(project);
+
+        assertFalse(exported.contains("move \"head\""),
+            "Orbit-anchored rotation should not export arc X/Y moves:\n" + exported);
+        assertTrue(exported.contains("pivot \"head\""));
+        assertTrue(exported.contains("ox: 0.6"));
+        assertTrue(exported.contains("oy: 0.3"));
+        assertTrue(exported.contains("rotate \"head\""));
+
+        String named = CodeExporter.exportNamed(project, "head_orbit");
+        assertTrue(named.contains("@jvn-puppeteer-key target=head kind=entity prop=x"));
+        assertTrue(named.contains("@jvn-puppeteer-key target=head kind=entity prop=y"));
+
+        AnimationProject imported = CodeImporter.importCode("head_orbit", named);
+        EntityTrack importedHead = imported.getTrack("head");
+        assertNotNull(importedHead);
+        assertEquals(540.0, importedHead.getValueAt(PropertyType.X, 1000), 0.001);
+        assertEquals(260.0, importedHead.getValueAt(PropertyType.Y, 1000), 0.001);
+        assertArrayEquals(new double[]{520.0, 280.0}, imported.getOrbitAnchor("head"), 0.001);
+    }
+
+    @Test
     void exportFormattingIsDeterministic() {
         AnimationProject project = new AnimationProject();
         project.setName("deterministic");
