@@ -308,7 +308,7 @@ public class CodeExporter {
             collectPropertyEvents(events, project, entity, track, PropertyType.SCALE_X, PropertyType.SCALE_Y, "scale", true);
             collectPropertyEvents(events, project, entity, track, PropertyType.MIRROR_X, null, "mirror", true);
             collectPropertyEvents(events, project, entity, track, PropertyType.ALPHA, null, "fade", true);
-            collectVisibilityEvents(events, entity, track);
+            collectVisibilityEvents(events, project, entity, track);
             collectTimelineCustomPropertyEvents(events, entity, track, PropertyType.MATRIX_MXX);
             collectTimelineCustomPropertyEvents(events, entity, track, PropertyType.MATRIX_MXY);
             collectTimelineCustomPropertyEvents(events, entity, track, PropertyType.MATRIX_MYX);
@@ -567,13 +567,29 @@ public class CodeExporter {
         return 0.0;
     }
 
-    private static void collectVisibilityEvents(List<TimelineEvent> events, String target, EntityTrack track) {
+    private static void collectVisibilityEvents(
+        List<TimelineEvent> events,
+        AnimationProject project,
+        String target,
+        EntityTrack track
+    ) {
         if (track == null) return;
-        List<Keyframe> keyframes = track.getKeyframes(PropertyType.VISIBILITY);
+        List<Keyframe> keyframes = project != null
+            ? project.getEffectiveKeyframes(target, PropertyType.VISIBILITY)
+            : track.getKeyframes(PropertyType.VISIBILITY);
         if (keyframes.isEmpty()) return;
 
         double previous = keyframes.get(0).getValue();
-        if (Math.abs(previous - PropertyType.VISIBILITY.getDefaultValue()) > 0.001) {
+        boolean hasLaterChange = false;
+        for (int i = 1; i < keyframes.size(); i++) {
+            Keyframe keyframe = keyframes.get(i);
+            if (keyframe != null && Math.abs(keyframe.getValue() - previous) > 0.001) {
+                hasLaterChange = true;
+                break;
+            }
+        }
+
+        if (hasLaterChange || Math.abs(previous - PropertyType.VISIBILITY.getDefaultValue()) > 0.001) {
             TimelineEvent initial = new TimelineEvent();
             initial.actionType = "visible";
             initial.target = target;
