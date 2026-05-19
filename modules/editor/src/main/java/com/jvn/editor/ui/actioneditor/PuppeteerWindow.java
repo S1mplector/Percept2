@@ -733,6 +733,7 @@ public class PuppeteerWindow extends Stage {
                 return;
             }
 
+            restoreTransformSnapshots(time, beforeStates);
             commandStack.execute(PuppeteerCommand.composite("Edit transform", commands));
             timelinePanel.refresh();
             updatePreview();

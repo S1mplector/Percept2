@@ -18,6 +18,7 @@ import com.jvn.core.accessibility.TextToSpeechService;
 import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
 import com.jvn.core.assets.BoundedImageCache;
+import com.jvn.core.animation.TimelineDrivenEntity;
 import com.jvn.core.audio.AudioFacade;
 import com.jvn.core.config.VnConfig;
 import com.jvn.core.localization.Localization;
@@ -686,12 +687,11 @@ public class VnRenderer {
     double defaultX = position.computeScreenX(width, spriteWidth) + offsetX;
     double defaultY = position.computeScreenY(height, spriteHeight, characterBaselineY) + offsetY;
 
-    // If a timeline proxy drives this character, use its absolute position
     if (timelineAccessor != null && characterId != null) {
       Entity2D proxy = timelineAccessor.getProxy(characterId);
-      if (proxy != null && (proxy.getX() != 0 || proxy.getY() != 0)) {
-        double px = proxy.getX();
-        double py = proxy.getY();
+      if (proxy != null && hasTimelinePosition(proxy)) {
+        double px = timelineDrawX(proxy, defaultX);
+        double py = timelineDrawY(proxy, defaultY);
         if (reference != null) {
           drawCharacterImage(reference, imagePath, px, py, spriteWidth, spriteHeight, width, height, stage);
         } else {
@@ -746,8 +746,8 @@ public class VnRenderer {
       if (layer == null || !isLoadedImage(layer.image())) continue;
       Entity2D proxy = layer.targetName() == null ? null : timelineAccessor.getProxy(layer.targetName());
       if (proxy != null && !proxy.isVisible()) continue;
-      double x = proxy != null && hasTimelinePosition(proxy) ? proxy.getX() : defaultX;
-      double y = proxy != null && hasTimelinePosition(proxy) ? proxy.getY() : defaultY;
+      double x = proxy != null ? timelineDrawX(proxy, defaultX) : defaultX;
+      double y = proxy != null ? timelineDrawY(proxy, defaultY) : defaultY;
       drawTimelineLayer(layer, proxy, x, y, spriteWidth, spriteHeight, canvasWidth, canvasHeight, stage);
     }
     return true;
@@ -780,7 +780,24 @@ public class VnRenderer {
   }
 
   private boolean hasTimelinePosition(Entity2D proxy) {
+    if (proxy instanceof TimelineDrivenEntity driven) {
+      return driven.hasTimelineX() || driven.hasTimelineY();
+    }
     return proxy != null && (Math.abs(proxy.getX()) > 1e-6 || Math.abs(proxy.getY()) > 1e-6);
+  }
+
+  private double timelineDrawX(Entity2D proxy, double defaultX) {
+    if (proxy instanceof TimelineDrivenEntity driven) {
+      return driven.hasTimelineX() ? defaultX + proxy.getX() : defaultX;
+    }
+    return hasTimelinePosition(proxy) ? proxy.getX() : defaultX;
+  }
+
+  private double timelineDrawY(Entity2D proxy, double defaultY) {
+    if (proxy instanceof TimelineDrivenEntity driven) {
+      return driven.hasTimelineY() ? defaultY + proxy.getY() : defaultY;
+    }
+    return hasTimelinePosition(proxy) ? proxy.getY() : defaultY;
   }
 
   private List<SpriteLayer> spriteLayers(VnCharacter character, String expression, String characterId, List<String> layerPaths) {

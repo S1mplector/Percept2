@@ -1,7 +1,10 @@
 package com.jvn.runtime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -9,6 +12,7 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
+import com.jvn.core.animation.TimelineDrivenEntity;
 import com.jvn.core.config.ApplicationConfig;
 import com.jvn.core.engine.Engine;
 import com.jvn.core.vn.CharacterPosition;
@@ -142,6 +146,39 @@ class RuntimeTimelineEventInteropTest {
     assertNotNull(proxy);
     assertEquals(-724.8, proxy.getX(), 0.001);
     assertEquals(1080.0, proxy.getY(), 0.001);
+    TimelineDrivenEntity driven = assertInstanceOf(TimelineDrivenEntity.class, proxy);
+    assertTrue(driven.hasTimelineX());
+    assertTrue(driven.hasTimelineY());
+  }
+
+  @Test
+  void inlineTimelineLayerTargetsPreserveUnkeyedAxes() {
+    Engine engine = new Engine(ApplicationConfig.builder().build());
+    RuntimeVnInterop interop = new RuntimeVnInterop(engine);
+    VnScene vn = new VnScene(new VnScenarioBuilder("owner").end().build());
+    vn.setInterop(interop);
+    engine.scenes().push(vn);
+    vn.getState().showCharacter(CharacterPosition.CENTER, "john", "neutral");
+
+    interop.getBase().handle(new VnExternalCommand("jes_timeline_inline", """
+        timeline {
+          move "john_neutral_body_default" {
+            x: -1684.8
+            dur: 1500
+            easing: ease_in_expo
+          }
+        }
+        """), vn);
+
+    vn.getState().updateTimelineRunners(1500);
+
+    var proxy = interop.getTimelineAccessor().getProxy("john_neutral_body_default");
+    assertNotNull(proxy);
+    assertEquals(-1684.8, proxy.getX(), 0.001);
+    assertEquals(0.0, proxy.getY(), 0.001);
+    TimelineDrivenEntity driven = assertInstanceOf(TimelineDrivenEntity.class, proxy);
+    assertTrue(driven.hasTimelineX());
+    assertFalse(driven.hasTimelineY());
   }
 
   @Test

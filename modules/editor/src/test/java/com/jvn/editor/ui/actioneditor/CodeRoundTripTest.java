@@ -394,6 +394,19 @@ class CodeRoundTripTest {
     }
 
     @Test
+    void exportXOnlyMoveDoesNotEmitY() {
+        AnimationProject project = new AnimationProject();
+        EntityTrack track = project.getOrCreateTrack("sprite");
+        track.addKeyframe(PropertyType.X, new Keyframe(0, 0, Easing.Type.LINEAR));
+        track.addKeyframe(PropertyType.X, new Keyframe(500, -1684.8, Easing.Type.EASE_OUT_QUAD));
+
+        String exported = CodeExporter.export(project);
+
+        assertTrue(exported.contains("x: -1684.8"));
+        assertFalse(exported.contains("y:"));
+    }
+
+    @Test
     void multiActionWithWaitRoundTrip() {
         String original = """
             timeline {

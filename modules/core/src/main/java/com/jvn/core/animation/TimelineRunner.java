@@ -158,14 +158,20 @@ public class TimelineRunner {
 
             if (entity == null) continue;
 
-            if (track.hasKeyframes(TimelineData.Property.X) || track.hasKeyframes(TimelineData.Property.Y)) {
-                double x = track.hasKeyframes(TimelineData.Property.X)
+            boolean hasPositionX = track.hasKeyframes(TimelineData.Property.X);
+            boolean hasPositionY = track.hasKeyframes(TimelineData.Property.Y);
+            if (hasPositionX || hasPositionY) {
+                double x = hasPositionX
                     ? track.getValueAt(TimelineData.Property.X, timeMs)
                     : entity.getX();
-                double y = track.hasKeyframes(TimelineData.Property.Y)
+                double y = hasPositionY
                     ? track.getValueAt(TimelineData.Property.Y, timeMs)
                     : entity.getY();
-                entity.setPosition(x, y);
+                if (entity instanceof TimelineDrivenEntity drivenEntity) {
+                    drivenEntity.setTimelinePosition(x, y, hasPositionX, hasPositionY);
+                } else {
+                    entity.setPosition(x, y);
+                }
             }
             if (track.hasKeyframes(TimelineData.Property.Z)) {
                 double z = track.getValueAt(TimelineData.Property.Z, timeMs);
