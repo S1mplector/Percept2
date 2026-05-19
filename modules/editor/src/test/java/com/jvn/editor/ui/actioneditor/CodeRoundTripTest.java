@@ -3,6 +3,8 @@ package com.jvn.editor.ui.actioneditor;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.jvn.core.animation.Easing;
+import com.jvn.core.animation.TimelineData;
+import com.jvn.core.animation.TimelineDataParser;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -454,6 +456,63 @@ class CodeRoundTripTest {
         assertEquals(540.0, importedHead.getValueAt(PropertyType.X, 1000), 0.001);
         assertEquals(260.0, importedHead.getValueAt(PropertyType.Y, 1000), 0.001);
         assertArrayEquals(new double[]{520.0, 280.0}, imported.getOrbitAnchor("head"), 0.001);
+    }
+
+    @Test
+    void exportedRuntimeCodePreservesInitialNonDefaultKeyframesWhenParsedInline() {
+        AnimationProject project = new AnimationProject();
+        project.setTotalDurationMs(750);
+        EntityTrack hero = project.getOrCreateTrack("hero");
+        hero.addKeyframe(PropertyType.X, new Keyframe(0, 40, Easing.Type.LINEAR));
+        hero.addKeyframe(PropertyType.X, new Keyframe(500, 140, Easing.Type.LINEAR));
+        hero.addKeyframe(PropertyType.ROTATION, new Keyframe(0, 15, Easing.Type.LINEAR));
+        hero.addKeyframe(PropertyType.ROTATION, new Keyframe(500, 45, Easing.Type.LINEAR));
+        hero.addKeyframe(PropertyType.SCALE_X, new Keyframe(0, 1.25, Easing.Type.LINEAR));
+        hero.addKeyframe(PropertyType.SCALE_X, new Keyframe(500, 1.5, Easing.Type.LINEAR));
+        hero.addKeyframe(PropertyType.VISIBILITY, new Keyframe(250, 0, Easing.Type.LINEAR));
+
+        String exported = CodeExporter.export(project);
+        TimelineData parsed = TimelineDataParser.parse("inline_export", exported);
+        TimelineData registered = project.toTimelineData("registered");
+        TimelineData.Track parsedHero = parsed.getTrack("hero");
+        TimelineData.Track registeredHero = registered.getTrack("hero");
+        assertNotNull(parsedHero);
+        assertNotNull(registeredHero);
+
+        assertEquals(40.0, parsedHero.getValueAt(TimelineData.Property.X, 0), 0.001);
+        assertEquals(90.0, parsedHero.getValueAt(TimelineData.Property.X, 250), 0.001);
+        assertEquals(140.0, parsedHero.getValueAt(TimelineData.Property.X, 500), 0.001);
+        assertEquals(15.0, parsedHero.getValueAt(TimelineData.Property.ROTATION, 0), 0.001);
+        assertEquals(30.0, parsedHero.getValueAt(TimelineData.Property.ROTATION, 250), 0.001);
+        assertEquals(1.25, parsedHero.getValueAt(TimelineData.Property.SCALE_X, 0), 0.001);
+        assertEquals(0.0, parsedHero.getValueAt(TimelineData.Property.VISIBILITY, 0), 0.001);
+        assertEquals(registeredHero.getValueAt(TimelineData.Property.X, 250),
+            parsedHero.getValueAt(TimelineData.Property.X, 250), 0.001);
+        assertEquals(750.0, parsed.getDurationMs(), 0.001);
+    }
+
+    @Test
+    void exportedRuntimeCodeTweensCustomPropertiesWhenParsedInline() {
+        AnimationProject project = new AnimationProject();
+        EntityTrack hero = project.getOrCreateTrack("hero");
+        hero.addKeyframe(PropertyType.BRIGHTNESS, new Keyframe(0, 1.4, Easing.Type.LINEAR));
+        hero.addKeyframe(PropertyType.BRIGHTNESS, new Keyframe(400, 0.6, Easing.Type.LINEAR));
+        hero.addCustomKeyframe("color.m04", new Keyframe(0, 0.1, Easing.Type.LINEAR));
+        hero.addCustomKeyframe("color.m04", new Keyframe(400, 0.5, Easing.Type.LINEAR));
+
+        String exported = CodeExporter.export(project);
+        TimelineData parsed = TimelineDataParser.parse("inline_custom_export", exported);
+        TimelineData.Track parsedHero = parsed.getTrack("hero");
+        assertNotNull(parsedHero);
+
+        assertTrue(exported.contains("brightness \"hero\""));
+        assertTrue(exported.contains("property \"hero\""));
+        assertFalse(exported.contains("property {\n"),
+            "Entity custom properties must not be duplicated onto the camera track:\n" + exported);
+        assertEquals(1.4, parsedHero.getCustomValueAt("effect.brightness", 0, 1.0), 0.001);
+        assertEquals(1.0, parsedHero.getCustomValueAt("effect.brightness", 200, 1.0), 0.001);
+        assertEquals(0.6, parsedHero.getCustomValueAt("effect.brightness", 400, 1.0), 0.001);
+        assertEquals(0.3, parsedHero.getCustomValueAt("color.m04", 200, 0.0), 0.001);
     }
 
     @Test

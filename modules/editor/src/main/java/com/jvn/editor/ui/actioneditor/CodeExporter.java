@@ -239,35 +239,7 @@ public class CodeExporter {
         StringBuilder sb = new StringBuilder();
         sb.append("timeline {\n");
 
-        List<TimelineEvent> events = collectEvents(project);
-        events.sort(Comparator.comparingDouble(e -> e.startTime));
-
-        Map<Double, List<TimelineEvent>> byTime = new TreeMap<>();
-        for (TimelineEvent e : events) {
-            double rounded = Math.round(e.startTime * 10.0) / 10.0;
-            byTime.computeIfAbsent(rounded, k -> new ArrayList<>()).add(e);
-        }
-
-        double currentTime = 0;
-        for (Map.Entry<Double, List<TimelineEvent>> entry : byTime.entrySet()) {
-            double time = entry.getKey();
-            List<TimelineEvent> group = entry.getValue();
-
-            if (time > currentTime + 0.5) {
-                sb.append("  wait ").append(formatNumber(time - currentTime)).append("\n");
-            }
-
-            if (group.size() == 1) {
-                sb.append(formatEvent(group.get(0)));
-            } else {
-                sb.append("  parallel {\n");
-                for (TimelineEvent ev : group) {
-                    sb.append("  ").append(formatEvent(ev));
-                }
-                sb.append("  }\n");
-            }
-            currentTime = time;
-        }
+        appendScheduledEvents(sb, collectEvents(project), project.getTotalDurationMs(), true);
 
         sb.append("}\n");
         return sb.toString();
@@ -283,34 +255,7 @@ public class CodeExporter {
             exportGroupRecursive(sb, project, groupName, "  ");
         }
 
-        List<TimelineEvent> events = collectEvents(project);
-        events.sort(Comparator.comparingDouble(e -> e.startTime));
-
-        Map<Double, List<TimelineEvent>> byTime = new TreeMap<>();
-        for (TimelineEvent e : events) {
-            byTime.computeIfAbsent(e.startTime, k -> new ArrayList<>()).add(e);
-        }
-
-        double currentTime = 0;
-        for (Map.Entry<Double, List<TimelineEvent>> entry : byTime.entrySet()) {
-            double time = entry.getKey();
-            List<TimelineEvent> group = entry.getValue();
-
-            if (time > currentTime + 0.5) {
-                sb.append("  wait ").append(formatNumber(time - currentTime)).append("\n");
-            }
-
-            if (group.size() == 1) {
-                sb.append(formatEvent(group.get(0)));
-            } else {
-                sb.append("  parallel {\n");
-                for (TimelineEvent ev : group) {
-                    sb.append("  ").append(formatEvent(ev));
-                }
-                sb.append("  }\n");
-            }
-            currentTime = time;
-        }
+        appendScheduledEvents(sb, collectEvents(project), project.getTotalDurationMs(), true);
 
         sb.append("}\n");
         return sb.toString();
@@ -381,7 +326,7 @@ public class CodeExporter {
                     || track.hasKeyframes(PropertyType.CAMERA_DOF_FOCUS)
                     || track.hasKeyframes(PropertyType.CAMERA_DOF_STRENGTH)
                     || track.hasKeyframes(PropertyType.CAMERA_DOF_MAX_BLUR)
-                    || hasAnyCustomKeys(track))) {
+                    || (TimelinePanel.RUNTIME_CAMERA_TARGET.equals(entity) && hasAnyCustomKeys(track)))) {
                 cameraTrack = track;
             }
         }
@@ -476,19 +421,7 @@ public class CodeExporter {
         if (!hasP1 && !hasP2) return;
 
         List<Double> times = collectUniqueTimes(list1, list2);
-        if (times.size() == 1 && "depth".equals(actionType) && hasP1) {
-            double time = times.get(0);
-            TimelineEvent ev = new TimelineEvent();
-            ev.actionType = actionType;
-            ev.target = target;
-            ev.startTime = time;
-            ev.duration = 0.0;
-            ev.props.put("z", effective && project != null
-                ? project.computeValueAt(target, p1, time, p1.getDefaultValue())
-                : track.getValueAt(p1, time));
-            events.add(ev);
-            return;
-        }
+        emitInitialPropertyEvent(events, project, target, track, p1, p2, actionType, effective, hasP1, hasP2);
 
         for (int i = 0; i < times.size() - 1; i++) {
             double startTime = times.get(i);
@@ -533,46 +466,105 @@ public class CodeExporter {
                 ? endKf.getInterpolation()
                 : Easing.Interpolation.TWEEN;
 
-            switch (actionType) {
-                case "move" -> {
-                    AnimationProject.SceneEntitySnapshot snap = project != null
-                        ? project.getSceneEntitySnapshotsView().get(target) : null;
-                    double ox = snap != null ? snap.x() : 0.0;
-                    double oy = snap != null ? snap.y() : 0.0;
-                    if (hasP1) ev.props.put("x", endVal1 - ox);
-                    if (hasP2) ev.props.put("y", endVal2 - oy);
-                }
-                case "depth" -> {
-                    if (hasP1) ev.props.put("z", endVal1);
-                }
-                case "pivot" -> {
-                    if (hasP1) ev.props.put("ox", endVal1);
-                    if (hasP2) ev.props.put("oy", endVal2);
-                }
-                case "rotate" -> {
-                    if (hasP1) ev.props.put("deg", endVal1);
-                }
-                case "scale" -> {
-                    if (hasP1) ev.props.put("sx", endVal1);
-                    if (hasP2) ev.props.put("sy", endVal2);
-                }
-                case "mirror" -> {
-                    if (hasP1) ev.props.put("mirrorX", endVal1);
-                }
-                case "fade" -> {
-                    if (hasP1) ev.props.put("alpha", endVal1);
-                }
-                case "cameraMove" -> {
-                    if (hasP1) ev.props.put("x", endVal1);
-                    if (hasP2) ev.props.put("y", endVal2);
-                }
-                case "cameraZoom" -> {
-                    if (hasP1) ev.props.put("zoom", endVal1);
-                }
-            }
+            putPropertyEventProps(ev, project, target, actionType, hasP1, hasP2, endVal1, endVal2);
 
             events.add(ev);
         }
+    }
+
+    private static void emitInitialPropertyEvent(
+        List<TimelineEvent> events,
+        AnimationProject project,
+        String target,
+        EntityTrack track,
+        PropertyType p1,
+        PropertyType p2,
+        String actionType,
+        boolean effective,
+        boolean hasP1,
+        boolean hasP2
+    ) {
+        if (events == null || track == null || actionType == null) return;
+        double value1 = hasP1
+            ? (effective && project != null
+                ? project.computeValueAt(target, p1, 0.0, p1.getDefaultValue())
+                : track.getValueAt(p1, 0.0))
+            : 0.0;
+        double value2 = hasP2 && p2 != null
+            ? (effective && project != null
+                ? project.computeValueAt(target, p2, 0.0, p2.getDefaultValue())
+                : track.getValueAt(p2, 0.0))
+            : 0.0;
+
+        TimelineEvent ev = new TimelineEvent();
+        ev.actionType = actionType;
+        ev.target = target;
+        ev.startTime = 0.0;
+        ev.duration = 0.0;
+        putPropertyEventProps(ev, project, target, actionType, hasP1, hasP2, value1, value2);
+        ev.props.entrySet().removeIf(entry ->
+            entry.getValue() instanceof Number n
+                && Math.abs(n.doubleValue() - defaultActionPropValue(actionType, entry.getKey())) <= 0.001);
+        if (!ev.props.isEmpty()) {
+            events.add(ev);
+        }
+    }
+
+    private static void putPropertyEventProps(
+        TimelineEvent ev,
+        AnimationProject project,
+        String target,
+        String actionType,
+        boolean hasP1,
+        boolean hasP2,
+        double value1,
+        double value2
+    ) {
+        if (ev == null || actionType == null) return;
+        switch (actionType) {
+            case "move" -> {
+                AnimationProject.SceneEntitySnapshot snap = project != null
+                    ? project.getSceneEntitySnapshotsView().get(target) : null;
+                double ox = snap != null ? snap.x() : 0.0;
+                double oy = snap != null ? snap.y() : 0.0;
+                if (hasP1) ev.props.put("x", value1 - ox);
+                if (hasP2) ev.props.put("y", value2 - oy);
+            }
+            case "depth" -> {
+                if (hasP1) ev.props.put("z", value1);
+            }
+            case "pivot" -> {
+                if (hasP1) ev.props.put("ox", value1);
+                if (hasP2) ev.props.put("oy", value2);
+            }
+            case "rotate" -> {
+                if (hasP1) ev.props.put("deg", value1);
+            }
+            case "scale" -> {
+                if (hasP1) ev.props.put("sx", value1);
+                if (hasP2) ev.props.put("sy", value2);
+            }
+            case "mirror" -> {
+                if (hasP1) ev.props.put("mirrorX", value1);
+            }
+            case "fade" -> {
+                if (hasP1) ev.props.put("alpha", value1);
+            }
+            case "cameraMove" -> {
+                if (hasP1) ev.props.put("x", value1);
+                if (hasP2) ev.props.put("y", value2);
+            }
+            case "cameraZoom" -> {
+                if (hasP1) ev.props.put("zoom", value1);
+            }
+        }
+    }
+
+    private static double defaultActionPropValue(String actionType, String propKey) {
+        if ("scale".equals(actionType) && ("sx".equals(propKey) || "sy".equals(propKey))) return 1.0;
+        if ("fade".equals(actionType) && "alpha".equals(propKey)) return 1.0;
+        if ("cameraZoom".equals(actionType) && "zoom".equals(propKey)) return 1.0;
+        return 0.0;
     }
 
     private static void collectVisibilityEvents(List<TimelineEvent> events, String target, EntityTrack track) {
@@ -580,8 +572,18 @@ public class CodeExporter {
         List<Keyframe> keyframes = track.getKeyframes(PropertyType.VISIBILITY);
         if (keyframes.isEmpty()) return;
 
-        double previous = PropertyType.VISIBILITY.getDefaultValue();
-        for (Keyframe keyframe : keyframes) {
+        double previous = keyframes.get(0).getValue();
+        if (Math.abs(previous - PropertyType.VISIBILITY.getDefaultValue()) > 0.001) {
+            TimelineEvent initial = new TimelineEvent();
+            initial.actionType = "visible";
+            initial.target = target;
+            initial.startTime = 0.0;
+            initial.props.put("value", previous >= 0.5);
+            events.add(initial);
+        }
+
+        for (int i = 1; i < keyframes.size(); i++) {
+            Keyframe keyframe = keyframes.get(i);
             if (keyframe == null) continue;
             double current = keyframe.getValue();
             if (Math.abs(current - previous) <= 0.001) continue;
@@ -607,23 +609,13 @@ public class CodeExporter {
             collectCustomPropertyEvents(events, target, track, property.getTimelineCustomKey(), property.getDefaultValue());
             return;
         }
-
-        double previous = property.getDefaultValue();
-        for (Keyframe keyframe : keyframes) {
-            if (keyframe == null) continue;
-            double current = keyframe.getValue();
-            if (Math.abs(current - previous) <= 0.001 && keyframe.getTimeMs() > 0.001) continue;
-            TimelineEvent ev = new TimelineEvent();
-            ev.actionType = actionTypeForCustomProperty(property.getTimelineCustomKey());
-            ev.target = target;
-            ev.startTime = Math.max(0.0, keyframe.getTimeMs());
-            if ("property".equals(ev.actionType)) {
-                ev.props.put("key", property.getTimelineCustomKey());
-            }
-            ev.props.put("value", current);
-            events.add(ev);
-            previous = current;
-        }
+        collectCustomKeyframeEvents(
+            events,
+            target,
+            property.getTimelineCustomKey(),
+            keyframes,
+            property.getDefaultValue()
+        );
     }
 
     private static void collectCustomPropertyEvents(List<TimelineEvent> events, String target, EntityTrack track) {
@@ -644,22 +636,52 @@ public class CodeExporter {
         if (track == null || propertyKey == null || propertyKey.isBlank()) return;
         List<Keyframe> keyframes = track.getCustomKeyframes(propertyKey);
         if (keyframes.isEmpty()) return;
+        collectCustomKeyframeEvents(events, target, propertyKey, keyframes, defaultValue);
+    }
 
-        double previous = defaultValue;
-        for (Keyframe keyframe : keyframes) {
-            if (keyframe == null) continue;
-            double current = keyframe.getValue();
-            if (Math.abs(current - previous) <= 0.001 && keyframe.getTimeMs() > 0.001) continue;
+    private static void collectCustomKeyframeEvents(
+        List<TimelineEvent> events,
+        String target,
+        String propertyKey,
+        List<Keyframe> keyframes,
+        double defaultValue
+    ) {
+        if (events == null || propertyKey == null || propertyKey.isBlank() || keyframes == null || keyframes.isEmpty()) return;
+        String normalizedKey = propertyKey.trim();
+        Keyframe first = keyframes.get(0);
+        if (first == null) return;
+        if (Math.abs(first.getValue() - defaultValue) > 0.001) {
             TimelineEvent ev = new TimelineEvent();
-            ev.actionType = actionTypeForCustomProperty(propertyKey);
+            ev.actionType = actionTypeForCustomProperty(normalizedKey);
             ev.target = target;
-            ev.startTime = Math.max(0.0, keyframe.getTimeMs());
+            ev.startTime = 0.0;
             if ("property".equals(ev.actionType)) {
-                ev.props.put("key", propertyKey);
+                ev.props.put("key", normalizedKey);
             }
-            ev.props.put("value", current);
+            ev.props.put("value", first.getValue());
             events.add(ev);
-            previous = current;
+        }
+
+        for (int i = 0; i + 1 < keyframes.size(); i++) {
+            Keyframe start = keyframes.get(i);
+            Keyframe end = keyframes.get(i + 1);
+            if (start == null || end == null) continue;
+            double duration = end.getTimeMs() - start.getTimeMs();
+            if (duration < 0.0) continue;
+            if (Math.abs(end.getValue() - start.getValue()) <= 0.001) continue;
+
+            TimelineEvent ev = new TimelineEvent();
+            ev.actionType = actionTypeForCustomProperty(normalizedKey);
+            ev.target = target;
+            ev.startTime = Math.max(0.0, start.getTimeMs());
+            ev.duration = Math.max(0.0, duration);
+            ev.easingSpec = end.getEasingSpec();
+            ev.interpolation = end.getInterpolation();
+            if ("property".equals(ev.actionType)) {
+                ev.props.put("key", normalizedKey);
+            }
+            ev.props.put("value", end.getValue());
+            events.add(ev);
         }
     }
 
@@ -726,6 +748,56 @@ public class CodeExporter {
         return null;
     }
 
+    private static void appendScheduledEvents(
+        StringBuilder sb,
+        List<TimelineEvent> events,
+        double totalDurationMs,
+        boolean groupByStartTime
+    ) {
+        if (sb == null) return;
+        List<TimelineEvent> safeEvents = events == null ? List.of() : new ArrayList<>(events);
+        safeEvents.sort(Comparator.comparingDouble(e -> e.startTime));
+
+        Map<Double, List<TimelineEvent>> byTime = new TreeMap<>();
+        for (TimelineEvent e : safeEvents) {
+            double rounded = quantizeTime(e.startTime);
+            byTime.computeIfAbsent(rounded, k -> new ArrayList<>()).add(e);
+        }
+
+        double currentTime = 0.0;
+        for (Map.Entry<Double, List<TimelineEvent>> entry : byTime.entrySet()) {
+            double time = entry.getKey();
+            List<TimelineEvent> group = entry.getValue();
+
+            if (time > currentTime + 0.0005) {
+                sb.append("  wait ").append(formatNumber(time - currentTime)).append("\n");
+            }
+
+            if (!groupByStartTime || group.size() == 1) {
+                for (TimelineEvent ev : group) {
+                    sb.append(formatEvent(ev));
+                }
+            } else {
+                sb.append("  parallel {\n");
+                for (TimelineEvent ev : group) {
+                    sb.append("  ").append(formatEvent(ev));
+                }
+                sb.append("  }\n");
+            }
+            currentTime = time;
+        }
+
+        double duration = Double.isFinite(totalDurationMs) ? Math.max(0.0, totalDurationMs) : 0.0;
+        if (duration > currentTime + 0.0005) {
+            sb.append("  wait ").append(formatNumber(duration - currentTime)).append("\n");
+        }
+    }
+
+    private static double quantizeTime(double timeMs) {
+        if (!Double.isFinite(timeMs)) return 0.0;
+        return Math.round(Math.max(0.0, timeMs) * TIME_QUANTIZATION_FACTOR) / TIME_QUANTIZATION_FACTOR;
+    }
+
     private static String formatEvent(TimelineEvent ev) {
         StringBuilder sb = new StringBuilder();
         if ("cameraMove".equals(ev.actionType) || "cameraZoom".equals(ev.actionType)) {
@@ -764,10 +836,13 @@ public class CodeExporter {
     }
 
     private static String formatNumber(double v) {
+        if (!Double.isFinite(v)) return "0";
         if (Math.abs(v - Math.round(v)) < 0.0001) {
             return Long.toString(Math.round(v));
         }
-        return String.format("%.2f", v).replaceAll("0+$", "").replaceAll("\\.$", "");
+        return String.format(Locale.ROOT, "%.6f", v)
+            .replaceAll("0+$", "")
+            .replaceAll("\\.$", "");
     }
 
     private static String formatMetadataNumber(double v) {
@@ -823,32 +898,7 @@ public class CodeExporter {
             if (changed) filtered.add(ev);
         }
 
-        Map<Double, List<TimelineEvent>> byTime = new TreeMap<>();
-        for (TimelineEvent e : filtered) {
-            double rounded = Math.round(e.startTime * 10.0) / 10.0;
-            byTime.computeIfAbsent(rounded, k -> new ArrayList<>()).add(e);
-        }
-
-        double currentTime = 0;
-        for (Map.Entry<Double, List<TimelineEvent>> entry : byTime.entrySet()) {
-            double time = entry.getKey();
-            List<TimelineEvent> group = entry.getValue();
-
-            if (time > currentTime + 0.5) {
-                sb.append("  wait ").append(formatNumber(time - currentTime)).append("\n");
-            }
-
-            if (group.size() == 1) {
-                sb.append(formatEvent(group.get(0)));
-            } else {
-                sb.append("  parallel {\n");
-                for (TimelineEvent ev : group) {
-                    sb.append("  ").append(formatEvent(ev));
-                }
-                sb.append("  }\n");
-            }
-            currentTime = time;
-        }
+        appendScheduledEvents(sb, filtered, project.getTotalDurationMs(), true);
 
         sb.append("}\n");
         return sb.toString();
@@ -911,12 +961,16 @@ public class CodeExporter {
 
         double currentTime = 0;
         for (TimelineEvent ev : events) {
-            double time = Math.round(ev.startTime * 10.0) / 10.0;
-            if (time > currentTime + 0.5) {
+            double time = quantizeTime(ev.startTime);
+            if (time > currentTime + 0.0005) {
                 sb.append("  wait ").append(formatNumber(time - currentTime)).append("\n");
                 currentTime = time;
             }
             sb.append("  ").append(formatCompactEvent(ev)).append("\n");
+        }
+        double duration = Double.isFinite(project.getTotalDurationMs()) ? Math.max(0.0, project.getTotalDurationMs()) : 0.0;
+        if (duration > currentTime + 0.0005) {
+            sb.append("  wait ").append(formatNumber(duration - currentTime)).append("\n");
         }
 
         sb.append("}\n");
