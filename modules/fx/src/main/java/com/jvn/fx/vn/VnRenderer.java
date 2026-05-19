@@ -1,6 +1,7 @@
 package com.jvn.fx.vn;
 
 import java.io.File;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -8,6 +9,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.ServiceLoader;
 
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -728,27 +730,27 @@ public class VnRenderer {
     return layers;
   }
 
-  private Image firstAvailableImage(List<String> layerPaths) {
+  private @Nullable Image firstAvailableImage(@Nullable List<String> layerPaths) {
     if (layerPaths == null) return null;
     for (String path : layerPaths) {
-      Image img = loadImage(path);
-      if (img != null) return img;
+      Image img = loadSpriteLayerImage(path);
+      if (isLoadedImage(img)) return img;
     }
     return null;
   }
 
-  private Image loadSpriteSourceImage(String imagePathSpec, List<String> layerPaths) {
+  private @Nullable Image loadSpriteSourceImage(@Nullable String imagePathSpec, @Nullable List<String> layerPaths) {
     if (imagePathSpec == null || imagePathSpec.isBlank()) return firstAvailableImage(layerPaths);
     if (layerPaths == null || layerPaths.size() <= 1) return firstAvailableImage(layerPaths);
     String cacheKey = "__composite_sprite__:" + imagePathSpec;
     Image cached = imageCache.get(cacheKey);
-    if (cached != null) return cached;
+    if (isLoadedImage(cached) && cached.getWidth() > 1.0 && cached.getHeight() > 1.0) return cached;
     List<Image> layers = new ArrayList<>();
     int width = 1;
     int height = 1;
     for (String path : layerPaths) {
-      Image layer = loadImage(path);
-      if (layer == null) continue;
+      Image layer = loadSpriteLayerImage(path);
+      if (!isLoadedImage(layer)) continue;
       layers.add(layer);
       width = Math.max(width, (int) Math.round(layer.getWidth()));
       height = Math.max(height, (int) Math.round(layer.getHeight()));
@@ -765,6 +767,22 @@ public class VnRenderer {
     canvas.snapshot(snapshotParameters, out);
     imageCache.put(cacheKey, out);
     return out;
+  }
+
+  private @Nullable Image loadSpriteLayerImage(@Nullable String path) {
+    if (path == null || path.isBlank()) return null;
+    Image cached = imageCache.get(path);
+    if (isLoadedImage(cached)) return cached;
+    Image loaded = loadImageBlocking(path);
+    if (isLoadedImage(loaded)) {
+      imageCache.put(path, loaded);
+      return loaded;
+    }
+    return null;
+  }
+
+  private boolean isLoadedImage(@Nullable Image image) {
+    return image != null && !image.isError() && image.getWidth() > 0.0 && image.getHeight() > 0.0;
   }
 
   private void drawCharacterImage(Image source,
@@ -2906,46 +2924,56 @@ public class VnRenderer {
     }
   }
 
-  private Image loadImage(String path) {
+  private @Nullable Image loadImage(@Nullable String path) {
     if (path == null) return null;
     
-    return imageCache.computeIfAbsent(path, p -> {
-      try {
-        // Prefer configured asset manager (runtime/editor project overlay support).
-        var assetUrl = new AssetCatalog().url(AssetType.IMAGE, p);
-        if (assetUrl != null) {
-          return new Image(assetUrl.toExternalForm(), 0, 0, false, false, true);
-        }
+    return imageCache.computeIfAbsent(path, p -> loadResolvedImage(p, true));
+  }
 
-        // Try to load from classpath
-        var url = getClass().getClassLoader().getResource(p);
-        if (url != null) {
-          return new Image(url.toExternalForm(), 0, 0, false, false, true);
-        }
-        // Fallback: filesystem (absolute or relative to project root)
-        // 1) Absolute or working-directory-relative
-        File f = new File(p);
-        if (f.exists()) {
-          return new Image(f.toURI().toString(), 0, 0, false, false, true);
-        }
-        // 2) Relative to project root (if provided)
-        if (projectRoot != null) {
-          // If path starts with the project directory name, strip it
-          String normalized = p.replace('\\', '/');
-          String rootName = projectRoot.getName();
-          if (normalized.startsWith(rootName + "/")) {
-            normalized = normalized.substring(rootName.length() + 1);
-          }
-          File pf = new File(projectRoot, normalized);
-          if (pf.exists()) {
-            return new Image(pf.toURI().toString(), 0, 0, false, false, true);
-          }
-        }
-      } catch (Exception e) {
-        log.warn("Failed to load image: {}", path);
+  private @Nullable Image loadImageBlocking(@Nullable String path) {
+    if (path == null) return null;
+    return loadResolvedImage(path, false);
+  }
+
+  private @Nullable Image loadResolvedImage(@Nullable String path, boolean backgroundLoading) {
+    try {
+      URL url = resolveImageUrl(path);
+      if (url != null) {
+        return new Image(url.toExternalForm(), 0, 0, false, false, backgroundLoading);
       }
-      return null;
-    });
+    } catch (Exception e) {
+      log.warn("Failed to load image: {}", path);
+    }
+    return null;
+  }
+
+  private @Nullable URL resolveImageUrl(@Nullable String path) throws Exception {
+    if (path == null || path.isBlank()) return null;
+
+    // Prefer configured asset manager (runtime/editor project overlay support).
+    var assetUrl = new AssetCatalog().url(AssetType.IMAGE, path);
+    if (assetUrl != null) return assetUrl;
+
+    // Try to load from classpath.
+    var url = getClass().getClassLoader().getResource(path);
+    if (url != null) return url;
+
+    // Fallback: filesystem (absolute or relative to project root).
+    File file = new File(path);
+    if (file.exists()) return file.toURI().toURL();
+
+    if (projectRoot != null) {
+      // If path starts with the project directory name, strip it.
+      String normalized = path.replace('\\', '/');
+      String rootName = projectRoot.getName();
+      if (normalized.startsWith(rootName + "/")) {
+        normalized = normalized.substring(rootName.length() + 1);
+      }
+      File projectFile = new File(projectRoot, normalized);
+      if (projectFile.exists()) return projectFile.toURI().toURL();
+    }
+
+    return null;
   }
 
   private void renderModeIndicators(VnState state, double width, double height) {
