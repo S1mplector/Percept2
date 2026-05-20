@@ -1319,11 +1319,15 @@ button then opens it in the editor."""));
       }
 
       // [hide charId]
-      String hideCharacterId = parseHideCommand(commandLine);
-      if (hideCharacterId != null) {
-        visible.remove(hideCharacterId);
-        continue;
-      }
+	      String hideCharacterId = parseHideCommand(commandLine);
+	      if (hideCharacterId != null) {
+	        visible.remove(hideCharacterId);
+	        continue;
+	      }
+
+	      if (applyCharacterCommand(commandLine, i, visible)) {
+	        continue;
+	      }
 
       String stageCommand = parseStageCommand(commandLine);
       if (stageCommand != null) {
@@ -1388,8 +1392,11 @@ button then opens it in the editor."""));
       }
     }
 
-    InlineTimelineContext inlineTimeline = resolveInlineTimelineContext(source, limit);
-    String inlineTimelineName = inlineTimeline != null ? deriveInlineTimelineName(currentLabel, inlineTimeline.startLine()) : null;
+	    List<InlineTimelineContext> inlineTimelineHistory = resolveInlineTimelineContexts(source, limit);
+	    InlineTimelineContext inlineTimeline = inlineTimelineHistory.isEmpty()
+	        ? null
+	        : inlineTimelineHistory.get(inlineTimelineHistory.size() - 1);
+	    String inlineTimelineName = inlineTimeline != null ? deriveInlineTimelineName(currentLabel, inlineTimeline.startLine()) : null;
 
     return new SceneSnapshot(
         currentLabel,
@@ -1405,10 +1412,11 @@ button then opens it in the editor."""));
         activeStageLine,
         referencedTimelineName,
         referencedTimelineLine,
-        inlineTimeline != null ? inlineTimeline.body() : null,
-        inlineTimeline != null ? inlineTimeline.startLine() : -1,
-        inlineTimelineName);
-  }
+	        inlineTimeline != null ? inlineTimeline.body() : null,
+	        inlineTimeline != null ? inlineTimeline.startLine() : -1,
+	        inlineTimelineName,
+	        inlineTimelineHistory);
+	  }
 
   private SceneSnapshot buildSnapshot(int lineIdx) {
     return resolveSnapshot(
@@ -1569,12 +1577,114 @@ button then opens it in the editor."""));
     return new CharacterEntry(charId, position, expression, atLine);
   }
 
-  private static String parseHideCommand(String line) {
-    List<String> tokens = bracketTokens(line);
-    if (tokens.size() < 2 || !"hide".equalsIgnoreCase(tokens.get(0))) return null;
-    String charId = tokens.get(1);
-    return (charId == null || charId.isBlank()) ? null : charId;
-  }
+	  private static String parseHideCommand(String line) {
+	    List<String> tokens = bracketTokens(line);
+	    if (tokens.size() < 2 || !"hide".equalsIgnoreCase(tokens.get(0))) return null;
+	    String charId = tokens.get(1);
+	    return (charId == null || charId.isBlank()) ? null : charId;
+	  }
+
+	  private static boolean applyCharacterCommand(
+	      String line,
+	      int atLine,
+	      Map<String, CharacterEntry> visible
+	  ) {
+	    List<String> tokens = bracketTokens(line);
+	    if (tokens.size() < 2) return false;
+	    String head = tokens.get(0);
+	    if (!"character".equalsIgnoreCase(head) && !"char".equalsIgnoreCase(head)) return false;
+	    String characterId = tokens.get(1);
+	    if (characterId == null || characterId.isBlank()) return true;
+	    String command = tokens.size() >= 3 ? tokens.get(2).trim().toLowerCase(Locale.ROOT) : "expression";
+	    CharacterEntry existing = visible.get(characterId);
+	    String position = existing != null ? existing.position : "center";
+	    String expression = existing != null ? existing.expression : "neutral";
+
+	    if ("hide".equals(command)) {
+	      visible.remove(characterId);
+	      return true;
+	    }
+	    if ("show".equals(command)) {
+	      CharacterEntry showEntry = parseCharacterShowCommand(characterId, tokens, 3, atLine);
+	      visible.put(characterId, showEntry);
+	      return true;
+	    }
+	    if ("move".equals(command) || "position".equals(command) || "pos".equals(command) || "at".equals(command)) {
+	      int start = "at".equals(command) ? 2 : 3;
+	      CharacterUpdate update = parseCharacterUpdate(tokens, start, position, expression);
+	      visible.put(characterId, new CharacterEntry(characterId, update.position(), update.expression(), atLine));
+	      return true;
+	    }
+	    if ("expression".equals(command) || "expr".equals(command)) {
+	      String parsed = tokens.size() >= 4 ? stripQuotes(tokens.get(3)) : null;
+	      if (parsed != null && !parsed.isBlank()) expression = parsed;
+	      visible.put(characterId, new CharacterEntry(characterId, position, expression, atLine));
+	      return true;
+	    }
+
+	    int equals = command.indexOf('=');
+	    if (equals > 0) {
+	      String key = command.substring(0, equals).trim();
+	      String value = stripQuotes(command.substring(equals + 1).trim());
+	      if ("expression".equals(key) || "expr".equals(key)) {
+	        if (!value.isBlank()) expression = value;
+	        visible.put(characterId, new CharacterEntry(characterId, position, expression, atLine));
+	        return true;
+	      }
+	    }
+
+	    CharacterUpdate update = parseCharacterUpdate(tokens, 2, position, expression);
+	    visible.put(characterId, new CharacterEntry(characterId, update.position(), update.expression(), atLine));
+	    return true;
+	  }
+
+	  private static CharacterEntry parseCharacterShowCommand(
+	      String characterId,
+	      List<String> tokens,
+	      int startIndex,
+	      int atLine
+	  ) {
+	    CharacterUpdate update = parseCharacterUpdate(tokens, startIndex, "center", "neutral");
+	    return new CharacterEntry(characterId, update.position(), update.expression(), atLine);
+	  }
+
+	  private static CharacterUpdate parseCharacterUpdate(
+	      List<String> tokens,
+	      int startIndex,
+	      String fallbackPosition,
+	      String fallbackExpression
+	  ) {
+	    String position = fallbackPosition == null || fallbackPosition.isBlank() ? "center" : fallbackPosition;
+	    String expression = fallbackExpression == null || fallbackExpression.isBlank() ? "neutral" : fallbackExpression;
+	    if (tokens == null) return new CharacterUpdate(position, expression);
+	    for (int i = Math.max(0, startIndex); i < tokens.size(); i++) {
+	      String token = tokens.get(i);
+	      if (token == null || token.isBlank()) continue;
+	      String lower = token.toLowerCase(Locale.ROOT);
+	      if ("at".equals(lower) && i + 1 < tokens.size()) {
+	        String atValue = stripQuotes(tokens.get(++i));
+	        if (isKnownPosition(atValue)) position = atValue.toLowerCase(Locale.ROOT);
+	        continue;
+	      }
+	      int equals = token.indexOf('=');
+	      if (equals > 0) {
+	        String key = token.substring(0, equals).trim().toLowerCase(Locale.ROOT);
+	        String value = stripQuotes(token.substring(equals + 1).trim());
+	        if (Set.of("expression", "expr").contains(key) && !value.isBlank()) {
+	          expression = value;
+	        } else if (Set.of("position", "pos", "at").contains(key) && isKnownPosition(value)) {
+	          position = value.toLowerCase(Locale.ROOT);
+	        }
+	        continue;
+	      }
+	      if (isKnownPosition(lower)) {
+	        position = lower;
+	      } else if (!Set.of("expression", "expr", "show", "move", "position", "pos").contains(lower)) {
+	        expression = stripQuotes(token);
+	      }
+	    }
+	    return new CharacterUpdate(position, expression);
+	  }
 
   private static String parseStageCommand(String line) {
     List<String> tokens = bracketTokens(line);
@@ -1647,14 +1757,19 @@ button then opens it in the editor."""));
     return src.substring(0, idx + 1) + path;
   }
 
-  private static InlineTimelineContext resolveInlineTimelineContext(String source, int cursorLine) {
-    if (source == null || source.isBlank()) return null;
-    String[] lines = source.split("\n", -1);
-    int limit = Math.max(0, Math.min(cursorLine, lines.length - 1));
-    InlineTimelineContext lastComplete = null;
-    for (int i = 0; i <= limit; i++) {
-      String trimmed = stripInlineComment(lines[i]).trim();
-      if (!startsInlineTimeline(trimmed)) continue;
+	  private static InlineTimelineContext resolveInlineTimelineContext(String source, int cursorLine) {
+	    List<InlineTimelineContext> contexts = resolveInlineTimelineContexts(source, cursorLine);
+	    return contexts.isEmpty() ? null : contexts.get(contexts.size() - 1);
+	  }
+
+	  private static List<InlineTimelineContext> resolveInlineTimelineContexts(String source, int cursorLine) {
+	    if (source == null || source.isBlank()) return List.of();
+	    String[] lines = source.split("\n", -1);
+	    int limit = Math.max(0, Math.min(cursorLine, lines.length - 1));
+	    List<InlineTimelineContext> contexts = new ArrayList<>();
+	    for (int i = 0; i <= limit; i++) {
+	      String trimmed = stripInlineComment(lines[i]).trim();
+	      if (!startsInlineTimeline(trimmed)) continue;
       int openingLine = i;
       int braceDepth = countChar(trimmed, '{');
       int j = i;
@@ -1688,20 +1803,17 @@ button then opens it in the editor."""));
           int lastBrace = line.lastIndexOf('}');
           if (lastBrace > 0) block.append(line, 0, lastBrace).append('\n');
         }
-      }
-      if (braceDepth == 0) {
-        InlineTimelineContext context = new InlineTimelineContext(openingLine, endLine, block.toString());
-        if (limit >= openingLine && limit <= endLine) {
-          return context;
-        }
-        if (endLine <= limit) {
-          lastComplete = context;
-        }
-      }
-      i = Math.max(i, endLine);
-    }
-    return lastComplete;
-  }
+	      }
+	      if (braceDepth == 0) {
+	        InlineTimelineContext context = new InlineTimelineContext(openingLine, endLine, block.toString());
+	        if (endLine <= limit || (limit >= openingLine && limit <= endLine)) {
+	          contexts.add(context);
+	        }
+	      }
+	      i = Math.max(i, endLine);
+	    }
+	    return contexts;
+	  }
 
   private static boolean startsInlineTimeline(String trimmed) {
     return trimmed.startsWith("timeline") && (trimmed.endsWith("{") || trimmed.equals("timeline"));
@@ -2028,10 +2140,11 @@ button then opens it in the editor."""));
     public final String activeStagePresetId;
     public final int activeStageLine;
     public final String referencedTimelineName;
-    public final int referencedTimelineLine;
-    public final String inlineTimelineBody;
-    public final int inlineTimelineStartLine;
-    public final String inlineTimelineName;
+	    public final int referencedTimelineLine;
+	    public final String inlineTimelineBody;
+	    public final int inlineTimelineStartLine;
+	    public final String inlineTimelineName;
+	    public final List<InlineTimelineContext> inlineTimelineHistory;
 
     public SceneSnapshot(String currentLabel,
 	                         String backgroundId,
@@ -2059,10 +2172,11 @@ button then opens it in the editor."""));
           -1,
           referencedTimelineName,
           referencedTimelineLine,
-          inlineTimelineBody,
-          inlineTimelineStartLine,
-          inlineTimelineName);
-    }
+	          inlineTimelineBody,
+	          inlineTimelineStartLine,
+	          inlineTimelineName,
+	          List.of());
+	    }
 
     public SceneSnapshot(String currentLabel,
 	                         String backgroundId,
@@ -2076,13 +2190,50 @@ button then opens it in the editor."""));
                          String activeStagePresetId,
                          int activeStageLine,
                          String referencedTimelineName,
-                         int referencedTimelineLine,
-                         String inlineTimelineBody,
-                         int inlineTimelineStartLine,
-                         String inlineTimelineName) {
-      this.currentLabel = currentLabel;
-      this.backgroundId = backgroundId;
-      this.backgroundLine = backgroundLine;
+	                         int referencedTimelineLine,
+	                         String inlineTimelineBody,
+	                         int inlineTimelineStartLine,
+	                         String inlineTimelineName) {
+	      this(
+	          currentLabel,
+	          backgroundId,
+	          backgroundLine,
+	          characters,
+	          atLine,
+	          backgroundPaths,
+	          stagePresetPaths,
+	          characterImagePaths,
+	          characterPresetLayers,
+	          activeStagePresetId,
+	          activeStageLine,
+	          referencedTimelineName,
+	          referencedTimelineLine,
+	          inlineTimelineBody,
+	          inlineTimelineStartLine,
+	          inlineTimelineName,
+	          List.of());
+	    }
+
+	    public SceneSnapshot(String currentLabel,
+		                         String backgroundId,
+		                         int backgroundLine,
+		                         List<CharacterEntry> characters,
+		                         int atLine,
+	                         Map<String, String> backgroundPaths,
+	                         Map<String, String> stagePresetPaths,
+	                         Map<String, String> characterImagePaths,
+	                         Map<String, List<CharacterLayerEntry>> characterPresetLayers,
+	                         String activeStagePresetId,
+	                         int activeStageLine,
+	                         String referencedTimelineName,
+	                         int referencedTimelineLine,
+	                         String inlineTimelineBody,
+	                         int inlineTimelineStartLine,
+	                         String inlineTimelineName,
+	                         List<InlineTimelineContext> inlineTimelineHistory) {
+	      this.currentLabel = currentLabel;
+	      this.backgroundId = backgroundId;
+	      this.backgroundLine = backgroundLine;
       this.characters = characters == null ? List.of() : characters;
       this.atLine = atLine;
       this.backgroundPaths = backgroundPaths == null ? Map.of() : backgroundPaths;
@@ -2093,10 +2244,11 @@ button then opens it in the editor."""));
       this.activeStageLine = activeStageLine;
       this.referencedTimelineName = referencedTimelineName;
       this.referencedTimelineLine = referencedTimelineLine;
-      this.inlineTimelineBody = inlineTimelineBody;
-      this.inlineTimelineStartLine = inlineTimelineStartLine;
-      this.inlineTimelineName = inlineTimelineName;
-    }
+	      this.inlineTimelineBody = inlineTimelineBody;
+	      this.inlineTimelineStartLine = inlineTimelineStartLine;
+	      this.inlineTimelineName = inlineTimelineName;
+	      this.inlineTimelineHistory = inlineTimelineHistory == null ? List.of() : List.copyOf(inlineTimelineHistory);
+	    }
 
     public String resolveBackgroundPath() {
       return backgroundId != null ? backgroundPaths.getOrDefault(backgroundId, backgroundId) : null;
@@ -2167,9 +2319,13 @@ button then opens it in the editor."""));
       return List.of();
     }
 
-    public boolean hasInlineTimeline() {
-      return inlineTimelineBody != null && !inlineTimelineBody.isBlank();
-    }
+	    public boolean hasInlineTimeline() {
+	      return inlineTimelineBody != null && !inlineTimelineBody.isBlank();
+	    }
+
+	    public boolean hasInlineTimelineHistory() {
+	      return inlineTimelineHistory != null && !inlineTimelineHistory.isEmpty();
+	    }
 
     public boolean hasTimelineContext() {
       return hasInlineTimeline() || (referencedTimelineName != null && !referencedTimelineName.isBlank());
@@ -2228,7 +2384,8 @@ button then opens it in the editor."""));
     ResolvedInclude resolve(String sourceName, String includePath) throws IOException;
   }
 
-  record ResolvedInclude(String sourceName, String sourceText) {}
-  record InlineTimelineContext(int startLine, int endLine, String body) {}
+	  record ResolvedInclude(String sourceName, String sourceText) {}
+	  private record CharacterUpdate(String position, String expression) {}
+	  public record InlineTimelineContext(int startLine, int endLine, String body) {}
 
 }

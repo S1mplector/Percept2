@@ -161,10 +161,10 @@ class PuppeteerLauncherPanelTest {
   }
 
   @Test
-  void resolveSnapshotKeepsLastInlineTimelineAfterCursorPassesBlock() {
-    String source = """
-        @label intro
-        [show lavender center neutral]
+	  void resolveSnapshotKeepsLastInlineTimelineAfterCursorPassesBlock() {
+	    String source = """
+	        @label intro
+	        [show lavender center neutral]
         timeline {
           move "lavender" {
             x: 420
@@ -179,11 +179,65 @@ class PuppeteerLauncherPanelTest {
     assertTrue(snapshot.hasInlineTimeline());
     assertEquals(2, snapshot.inlineTimelineStartLine);
     assertEquals("intro_inline_3", snapshot.preferredTimelineName());
-    assertTrue(snapshot.inlineTimelineBody.contains("move \"lavender\""));
-  }
+	    assertTrue(snapshot.inlineTimelineBody.contains("move \"lavender\""));
+	  }
 
-  @Test
-  void resolveSceneStartLineUsesLatestBackgroundInActiveLabel() {
+	  @Test
+	  void resolveSnapshotCapturesAllInlineTimelinesBeforeCursorForSceneReplay() {
+	    String source = """
+	        @label intro
+	        [show john center neutral]
+	        timeline {
+	          move "john_neutral_body_default" {
+	            x: 542
+	            dur: 500
+	          }
+	        }
+	        [show lily center neutral]
+	        timeline {
+	          move "lily_neutral_body_default" {
+	            x: 227
+	            dur: 500
+	          }
+	        }
+	        [character lily expression talking]
+	        """;
+
+	    PuppeteerLauncherPanel.SceneSnapshot snapshot = PuppeteerLauncherPanel.resolveSnapshot(source, 15);
+
+	    assertEquals(2, snapshot.inlineTimelineHistory.size());
+	    assertEquals(2, snapshot.inlineTimelineHistory.get(0).startLine());
+	    assertEquals(9, snapshot.inlineTimelineHistory.get(1).startLine());
+	    assertTrue(snapshot.inlineTimelineBody.contains("move \"lily_neutral_body_default\""));
+	  }
+
+	  @Test
+	  void resolveSnapshotTracksBracketCharacterExpressionChanges() {
+	    String source = """
+	        @label intro
+	        [show john center neutral]
+	        [character john expression talking]
+	        [show lily center neutral]
+	        [character lily expr happy]
+	        """;
+
+	    PuppeteerLauncherPanel.SceneSnapshot snapshot = PuppeteerLauncherPanel.resolveSnapshot(source, 4);
+
+	    assertEquals(2, snapshot.characters.size());
+	    assertEquals("talking", snapshot.characters.stream()
+	        .filter(ch -> "john".equals(ch.characterId))
+	        .findFirst()
+	        .orElseThrow()
+	        .expression);
+	    assertEquals("happy", snapshot.characters.stream()
+	        .filter(ch -> "lily".equals(ch.characterId))
+	        .findFirst()
+	        .orElseThrow()
+	        .expression);
+	  }
+
+	  @Test
+	  void resolveSceneStartLineUsesLatestBackgroundInActiveLabel() {
     String source = """
         @label intro
         [show lavender left neutral]

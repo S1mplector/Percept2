@@ -22,6 +22,7 @@ import java.util.Deque;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -6755,70 +6756,374 @@ public class EditorApp extends Application {
     }
   }
 
-  private void applySnapshotTimelineEndStateToScene(
-      JesScene2D scene,
-      PuppeteerLauncherPanel.SceneSnapshot snapshot,
-      String selectedTimelineName
-  ) {
-    if (scene == null || snapshot == null || !snapshot.hasTimelineContext()) return;
-    AnimationProject stateTimeline = importTimelineFromSnapshot(snapshot, false);
-    if (stateTimeline == null) return;
-    ensureSceneEntitiesForProject(scene, stateTimeline, snapshot);
-    boolean usesVnOffsets = selectedTimelineName == null
-        && stateTimeline.getSceneEntitySnapshotsView().isEmpty()
-        && snapshot.hasTimelineContext();
-    rebaseImportedPuppeteerProject(scene, stateTimeline, usesVnOffsets);
-    applyTimelineFrameToScene(scene, stateTimeline, stateTimeline.getTotalDurationMs());
-  }
+	  private void applySnapshotTimelineEndStateToScene(
+	      JesScene2D scene,
+	      PuppeteerLauncherPanel.SceneSnapshot snapshot,
+	      String selectedTimelineName
+	  ) {
+	    if (scene == null || snapshot == null || !snapshot.hasTimelineContext()) return;
+	    if (selectedTimelineName == null && snapshot.hasInlineTimelineHistory()) {
+	      boolean applied = false;
+	      for (PuppeteerLauncherPanel.InlineTimelineContext context : snapshot.inlineTimelineHistory) {
+	        AnimationProject stateTimeline = importInlineTimelineFromSnapshot(snapshot, context, false);
+	        if (stateTimeline == null) continue;
+	        applySnapshotStateTimelineToScene(scene, snapshot, stateTimeline, true);
+	        applied = true;
+	      }
+	      if (applied) return;
+	    }
+	    AnimationProject stateTimeline = importTimelineFromSnapshot(snapshot, false);
+	    if (stateTimeline == null) return;
+	    boolean usesVnOffsets = selectedTimelineName == null
+	        && stateTimeline.getSceneEntitySnapshotsView().isEmpty()
+	        && snapshot.hasTimelineContext();
+	    applySnapshotStateTimelineToScene(scene, snapshot, stateTimeline, usesVnOffsets);
+	  }
 
-  private void applyTimelineFrameToScene(JesScene2D scene, AnimationProject project, double timeMs) {
-    if (scene == null || project == null) return;
-    double t = Math.max(0.0, timeMs);
-    for (EntityTrack track : project.getTracks()) {
-      if (track == null || isCameraTrack(track)) continue;
-      Entity2D entity = scene.find(track.getEntityName());
-      if (entity == null) continue;
+	  private void applySnapshotStateTimelineToScene(
+	      JesScene2D scene,
+	      PuppeteerLauncherPanel.SceneSnapshot snapshot,
+	      AnimationProject stateTimeline,
+	      boolean usesVnOffsets
+	  ) {
+	    if (scene == null || snapshot == null || stateTimeline == null) return;
+	    Set<String> snapshotEntities = currentSnapshotEntityNames(snapshot);
+	    ensureSceneEntitiesForProject(scene, stateTimeline, snapshot);
+	    rebaseImportedPuppeteerProject(
+	        scene,
+	        stateTimeline,
+	        usesVnOffsets && stateTimeline.getSceneEntitySnapshotsView().isEmpty());
+	    applyTimelineFrameToScene(scene, stateTimeline, stateTimeline.getTotalDurationMs(), snapshot);
+	    hideReplayOnlyEntities(scene, stateTimeline, snapshotEntities);
+	  }
 
-      double x = track.hasKeyframes(PropertyType.X) ? track.getValueAt(PropertyType.X, t) : entity.getX();
-      double y = track.hasKeyframes(PropertyType.Y) ? track.getValueAt(PropertyType.Y, t) : entity.getY();
-      if (track.hasKeyframes(PropertyType.X) || track.hasKeyframes(PropertyType.Y)) {
-        entity.setPosition(x, y);
-      }
-      if (track.hasKeyframes(PropertyType.Z)) {
-        entity.setZ(track.getValueAt(PropertyType.Z, t));
-      }
-      double ox = track.hasKeyframes(PropertyType.PIVOT_X)
-          ? track.getValueAt(PropertyType.PIVOT_X, t)
-          : entity.getOriginX();
-      double oy = track.hasKeyframes(PropertyType.PIVOT_Y)
-          ? track.getValueAt(PropertyType.PIVOT_Y, t)
-          : entity.getOriginY();
-      if (track.hasKeyframes(PropertyType.PIVOT_X) || track.hasKeyframes(PropertyType.PIVOT_Y)) {
-        entity.setOrigin(ox, oy);
-      }
-      if (track.hasKeyframes(PropertyType.ROTATION)) {
-        entity.setRotationDeg(track.getValueAt(PropertyType.ROTATION, t));
-      }
-      double sx = track.hasKeyframes(PropertyType.SCALE_X)
-          ? track.getValueAt(PropertyType.SCALE_X, t)
-          : entity.getScaleX();
-      double sy = track.hasKeyframes(PropertyType.SCALE_Y)
-          ? track.getValueAt(PropertyType.SCALE_Y, t)
-          : entity.getScaleY();
-      if (track.hasKeyframes(PropertyType.SCALE_X) || track.hasKeyframes(PropertyType.SCALE_Y)) {
-        entity.setScale(sx, sy);
-      }
-      if (track.hasKeyframes(PropertyType.VISIBILITY)) {
-        entity.setVisible(track.getValueAt(PropertyType.VISIBILITY, t) >= 0.5);
-      }
-      if (track.hasKeyframes(PropertyType.ALPHA)) {
-        applyEntityAlpha(entity, track.getValueAt(PropertyType.ALPHA, t));
-      }
-      applyTimelineFrameEffects(entity, track, t);
-    }
-  }
+	  private void applyTimelineFrameToScene(JesScene2D scene, AnimationProject project, double timeMs) {
+	    applyTimelineFrameToScene(scene, project, timeMs, null);
+	  }
 
-  private void applyTimelineFrameEffects(Entity2D entity, EntityTrack track, double timeMs) {
+	  private void applyTimelineFrameToScene(
+	      JesScene2D scene,
+	      AnimationProject project,
+	      double timeMs,
+	      PuppeteerLauncherPanel.SceneSnapshot snapshot
+	  ) {
+	    if (scene == null || project == null) return;
+	    double t = Math.max(0.0, timeMs);
+	    Map<String, SnapshotCharacterTimelineState> characterStates = snapshot == null
+	        ? Map.of()
+	        : new LinkedHashMap<>();
+	    for (EntityTrack track : project.getTracks()) {
+	      if (track == null || isCameraTrack(track)) continue;
+	      String characterId = resolveSnapshotTrackCharacter(track.getEntityName(), snapshot);
+	      if (characterId != null && !characterId.isBlank()) {
+	        characterStates
+	            .computeIfAbsent(characterId, ignored -> new SnapshotCharacterTimelineState())
+	            .accept(track, t, track.getEntityName() != null && track.getEntityName().trim().equals(characterId));
+	      }
+	      Entity2D entity = scene.find(track.getEntityName());
+	      if (entity == null) continue;
+	
+	      applyTimelineTrackFrame(entity, track, t);
+	    }
+	    applySnapshotCharacterTimelineStates(scene, snapshot, characterStates);
+	  }
+
+	  private void applyTimelineTrackFrame(Entity2D entity, EntityTrack track, double timeMs) {
+	    if (entity == null || track == null) return;
+	    double x = track.hasKeyframes(PropertyType.X) ? track.getValueAt(PropertyType.X, timeMs) : entity.getX();
+	    double y = track.hasKeyframes(PropertyType.Y) ? track.getValueAt(PropertyType.Y, timeMs) : entity.getY();
+	    if (track.hasKeyframes(PropertyType.X) || track.hasKeyframes(PropertyType.Y)) {
+	      entity.setPosition(x, y);
+	    }
+	    if (track.hasKeyframes(PropertyType.Z)) {
+	      entity.setZ(track.getValueAt(PropertyType.Z, timeMs));
+	    }
+	    double ox = track.hasKeyframes(PropertyType.PIVOT_X)
+	        ? track.getValueAt(PropertyType.PIVOT_X, timeMs)
+	        : entity.getOriginX();
+	    double oy = track.hasKeyframes(PropertyType.PIVOT_Y)
+	        ? track.getValueAt(PropertyType.PIVOT_Y, timeMs)
+	        : entity.getOriginY();
+	    if (track.hasKeyframes(PropertyType.PIVOT_X) || track.hasKeyframes(PropertyType.PIVOT_Y)) {
+	      entity.setOrigin(ox, oy);
+	    }
+	    if (track.hasKeyframes(PropertyType.ROTATION)) {
+	      entity.setRotationDeg(track.getValueAt(PropertyType.ROTATION, timeMs));
+	    }
+	    double sx = track.hasKeyframes(PropertyType.SCALE_X)
+	        ? track.getValueAt(PropertyType.SCALE_X, timeMs)
+	        : entity.getScaleX();
+	    if (track.hasKeyframes(PropertyType.MIRROR_X)) {
+	      sx *= mirrorFactor(track.getValueAt(PropertyType.MIRROR_X, timeMs));
+	    }
+	    double sy = track.hasKeyframes(PropertyType.SCALE_Y)
+	        ? track.getValueAt(PropertyType.SCALE_Y, timeMs)
+	        : entity.getScaleY();
+	    if (track.hasKeyframes(PropertyType.SCALE_X)
+	        || track.hasKeyframes(PropertyType.SCALE_Y)
+	        || track.hasKeyframes(PropertyType.MIRROR_X)) {
+	      entity.setScale(sx, sy);
+	    }
+	    if (track.hasKeyframes(PropertyType.VISIBILITY)) {
+	      entity.setVisible(track.getValueAt(PropertyType.VISIBILITY, timeMs) >= 0.5);
+	    }
+	    if (track.hasKeyframes(PropertyType.ALPHA)) {
+	      applyEntityAlpha(entity, track.getValueAt(PropertyType.ALPHA, timeMs));
+	    }
+	    applyTimelineFrameEffects(entity, track, timeMs);
+	  }
+
+	  private void applySnapshotCharacterTimelineStates(
+	      JesScene2D scene,
+	      PuppeteerLauncherPanel.SceneSnapshot snapshot,
+	      Map<String, SnapshotCharacterTimelineState> characterStates
+	  ) {
+	    if (scene == null || snapshot == null || characterStates == null || characterStates.isEmpty()) return;
+	    for (PuppeteerLauncherPanel.CharacterEntry character : snapshot.characters) {
+	      if (character == null || character.characterId == null || character.characterId.isBlank()) continue;
+	      SnapshotCharacterTimelineState state = characterStates.get(character.characterId);
+	      if (state == null) continue;
+	      for (String entityName : currentSnapshotEntityNames(snapshot, character)) {
+	        Entity2D entity = scene.find(entityName);
+	        if (entity == null) continue;
+	        if (state.shouldApplyX() || state.shouldApplyY()) {
+	          entity.setPosition(
+	              state.shouldApplyX() ? state.x : entity.getX(),
+	              state.shouldApplyY() ? state.y : entity.getY());
+	        }
+	        if (state.shouldApplyPivotX() || state.shouldApplyPivotY()) {
+	          entity.setOrigin(
+	              state.shouldApplyPivotX() ? state.pivotX : entity.getOriginX(),
+	              state.shouldApplyPivotY() ? state.pivotY : entity.getOriginY());
+	        }
+	        if (state.shouldApplyRotation()) {
+	          entity.setRotationDeg(state.rotation);
+	        }
+	        if (state.shouldApplyScaleX() || state.shouldApplyScaleY()) {
+	          entity.setScale(
+	              state.shouldApplyScaleX() ? state.scaleX : entity.getScaleX(),
+	              state.shouldApplyScaleY() ? state.scaleY : entity.getScaleY());
+	        }
+	      }
+	    }
+	  }
+
+	  private Set<String> currentSnapshotEntityNames(PuppeteerLauncherPanel.SceneSnapshot snapshot) {
+	    Set<String> names = new LinkedHashSet<>();
+	    if (snapshot == null) return names;
+	    for (PuppeteerLauncherPanel.CharacterEntry character : snapshot.characters) {
+	      names.addAll(currentSnapshotEntityNames(snapshot, character));
+	    }
+	    return names;
+	  }
+
+	  private List<String> currentSnapshotEntityNames(
+	      PuppeteerLauncherPanel.SceneSnapshot snapshot,
+	      PuppeteerLauncherPanel.CharacterEntry character
+	  ) {
+	    if (snapshot == null || character == null) return List.of();
+	    List<PuppeteerLauncherPanel.CharacterLayerEntry> layers =
+	        snapshot.resolveCharacterLayers(character.characterId, character.expression);
+	    if (layers.isEmpty()) return List.of(character.characterId);
+	    List<String> names = new ArrayList<>();
+	    String groupBase = snapshotCharacterGroupName(character);
+	    for (PuppeteerLauncherPanel.CharacterLayerEntry layer : layers) {
+	      if (layer == null || layer.path == null || layer.path.isBlank()) continue;
+	      names.add(groupBase + "_" + selectorSafeName(layer.layerId));
+	    }
+	    return names;
+	  }
+
+	  private void hideReplayOnlyEntities(
+	      JesScene2D scene,
+	      AnimationProject stateTimeline,
+	      Set<String> snapshotEntities
+	  ) {
+	    if (scene == null || stateTimeline == null || snapshotEntities == null) return;
+	    for (EntityTrack track : stateTimeline.getTracks()) {
+	      if (track == null || isCameraTrack(track)) continue;
+	      String entityName = track.getEntityName();
+	      if (entityName == null || entityName.isBlank() || snapshotEntities.contains(entityName)) continue;
+	      Entity2D entity = scene.find(entityName);
+	      if (entity != null) entity.setVisible(false);
+	    }
+	  }
+
+	  private String resolveSnapshotTrackCharacter(
+	      String entityName,
+	      PuppeteerLauncherPanel.SceneSnapshot snapshot
+	  ) {
+	    if (entityName == null || entityName.isBlank() || snapshot == null || snapshot.characters.isEmpty()) {
+	      return null;
+	    }
+	    String target = entityName.trim();
+	    List<PuppeteerLauncherPanel.CharacterEntry> characters = new ArrayList<>(snapshot.characters);
+	    characters.sort((a, b) -> Integer.compare(
+	        selectorSafeName(b == null ? "" : b.characterId).length(),
+	        selectorSafeName(a == null ? "" : a.characterId).length()));
+	    for (PuppeteerLauncherPanel.CharacterEntry character : characters) {
+	      if (character == null || character.characterId == null || character.characterId.isBlank()) continue;
+	      String characterId = character.characterId.trim();
+	      String safeCharacter = selectorSafeName(characterId);
+	      if (target.equals(characterId) || target.equals(safeCharacter)) return characterId;
+	      if (!safeCharacter.isBlank() && target.startsWith(safeCharacter + "_")) return characterId;
+	    }
+	    return null;
+	  }
+
+	  private static double mirrorFactor(double mirrorX) {
+	    if (!Double.isFinite(mirrorX)) return 1.0;
+	    double clamped = Math.max(0.0, Math.min(1.0, mirrorX));
+	    return Math.cos(clamped * Math.PI);
+	  }
+
+	  private static final class SnapshotCharacterTimelineState {
+	    private double x;
+	    private double y;
+	    private double scaleX = 1.0;
+	    private double scaleY = 1.0;
+	    private double rotation;
+	    private double pivotX = 0.5;
+	    private double pivotY = 1.0;
+	    private int xCount;
+	    private int yCount;
+	    private int scaleXCount;
+	    private int scaleYCount;
+	    private int rotationCount;
+	    private int pivotXCount;
+	    private int pivotYCount;
+	    private boolean xConsistent = true;
+	    private boolean yConsistent = true;
+	    private boolean scaleXConsistent = true;
+	    private boolean scaleYConsistent = true;
+	    private boolean rotationConsistent = true;
+	    private boolean pivotXConsistent = true;
+	    private boolean pivotYConsistent = true;
+	    private boolean characterX;
+	    private boolean characterY;
+	    private boolean characterScaleX;
+	    private boolean characterScaleY;
+	    private boolean characterRotation;
+	    private boolean characterPivotX;
+	    private boolean characterPivotY;
+
+	    private void accept(EntityTrack track, double timeMs, boolean characterTrack) {
+	      if (track == null) return;
+	      acceptX(track.hasKeyframes(PropertyType.X), track.hasKeyframes(PropertyType.X)
+	          ? track.getValueAt(PropertyType.X, timeMs)
+	          : 0.0, characterTrack);
+	      acceptY(track.hasKeyframes(PropertyType.Y), track.hasKeyframes(PropertyType.Y)
+	          ? track.getValueAt(PropertyType.Y, timeMs)
+	          : 0.0, characterTrack);
+
+	      boolean hasScaleX = track.hasKeyframes(PropertyType.SCALE_X) || track.hasKeyframes(PropertyType.MIRROR_X);
+	      double nextScaleX = track.hasKeyframes(PropertyType.SCALE_X)
+	          ? track.getValueAt(PropertyType.SCALE_X, timeMs)
+	          : 1.0;
+	      if (track.hasKeyframes(PropertyType.MIRROR_X)) {
+	        nextScaleX *= mirrorFactor(track.getValueAt(PropertyType.MIRROR_X, timeMs));
+	      }
+	      acceptScaleX(hasScaleX, nextScaleX, characterTrack);
+	      acceptScaleY(track.hasKeyframes(PropertyType.SCALE_Y), track.hasKeyframes(PropertyType.SCALE_Y)
+	          ? track.getValueAt(PropertyType.SCALE_Y, timeMs)
+	          : 1.0, characterTrack);
+	      acceptRotation(track.hasKeyframes(PropertyType.ROTATION), track.hasKeyframes(PropertyType.ROTATION)
+	          ? track.getValueAt(PropertyType.ROTATION, timeMs)
+	          : 0.0, characterTrack);
+	      acceptPivotX(track.hasKeyframes(PropertyType.PIVOT_X), track.hasKeyframes(PropertyType.PIVOT_X)
+	          ? track.getValueAt(PropertyType.PIVOT_X, timeMs)
+	          : 0.5, characterTrack);
+	      acceptPivotY(track.hasKeyframes(PropertyType.PIVOT_Y), track.hasKeyframes(PropertyType.PIVOT_Y)
+	          ? track.getValueAt(PropertyType.PIVOT_Y, timeMs)
+	          : 1.0, characterTrack);
+	    }
+
+	    private void acceptX(boolean hasValue, double value, boolean characterTrack) {
+	      if (!hasValue || !Double.isFinite(value)) return;
+	      if (xCount > 0 && Math.abs(value - x) > 0.01) xConsistent = false;
+	      x = value;
+	      xCount++;
+	      characterX |= characterTrack;
+	    }
+
+	    private void acceptY(boolean hasValue, double value, boolean characterTrack) {
+	      if (!hasValue || !Double.isFinite(value)) return;
+	      if (yCount > 0 && Math.abs(value - y) > 0.01) yConsistent = false;
+	      y = value;
+	      yCount++;
+	      characterY |= characterTrack;
+	    }
+
+	    private void acceptScaleX(boolean hasValue, double value, boolean characterTrack) {
+	      if (!hasValue || !Double.isFinite(value)) return;
+	      if (scaleXCount > 0 && Math.abs(value - scaleX) > 0.0001) scaleXConsistent = false;
+	      scaleX = value;
+	      scaleXCount++;
+	      characterScaleX |= characterTrack;
+	    }
+
+	    private void acceptScaleY(boolean hasValue, double value, boolean characterTrack) {
+	      if (!hasValue || !Double.isFinite(value)) return;
+	      if (scaleYCount > 0 && Math.abs(value - scaleY) > 0.0001) scaleYConsistent = false;
+	      scaleY = value;
+	      scaleYCount++;
+	      characterScaleY |= characterTrack;
+	    }
+
+	    private void acceptRotation(boolean hasValue, double value, boolean characterTrack) {
+	      if (!hasValue || !Double.isFinite(value)) return;
+	      if (rotationCount > 0 && Math.abs(value - rotation) > 0.0001) rotationConsistent = false;
+	      rotation = value;
+	      rotationCount++;
+	      characterRotation |= characterTrack;
+	    }
+
+	    private void acceptPivotX(boolean hasValue, double value, boolean characterTrack) {
+	      if (!hasValue || !Double.isFinite(value)) return;
+	      if (pivotXCount > 0 && Math.abs(value - pivotX) > 0.0001) pivotXConsistent = false;
+	      pivotX = value;
+	      pivotXCount++;
+	      characterPivotX |= characterTrack;
+	    }
+
+	    private void acceptPivotY(boolean hasValue, double value, boolean characterTrack) {
+	      if (!hasValue || !Double.isFinite(value)) return;
+	      if (pivotYCount > 0 && Math.abs(value - pivotY) > 0.0001) pivotYConsistent = false;
+	      pivotY = value;
+	      pivotYCount++;
+	      characterPivotY |= characterTrack;
+	    }
+
+	    private boolean shouldApplyX() {
+	      return characterX || (xCount > 1 && xConsistent);
+	    }
+
+	    private boolean shouldApplyY() {
+	      return characterY || (yCount > 1 && yConsistent);
+	    }
+
+	    private boolean shouldApplyScaleX() {
+	      return characterScaleX || (scaleXCount > 1 && scaleXConsistent);
+	    }
+
+	    private boolean shouldApplyScaleY() {
+	      return characterScaleY || (scaleYCount > 1 && scaleYConsistent);
+	    }
+
+	    private boolean shouldApplyRotation() {
+	      return characterRotation || (rotationCount > 1 && rotationConsistent);
+	    }
+
+	    private boolean shouldApplyPivotX() {
+	      return characterPivotX || (pivotXCount > 1 && pivotXConsistent);
+	    }
+
+	    private boolean shouldApplyPivotY() {
+	      return characterPivotY || (pivotYCount > 1 && pivotYConsistent);
+	    }
+	  }
+
+	  private void applyTimelineFrameEffects(Entity2D entity, EntityTrack track, double timeMs) {
     if (entity == null || track == null) return;
     if (track.hasKeyframes(PropertyType.MATRIX_MXX)
         || track.hasKeyframes(PropertyType.MATRIX_MXY)
@@ -7166,10 +7471,10 @@ public class EditorApp extends Application {
     return importTimelineFromSnapshot(snapshot, true);
   }
 
-  private AnimationProject importTimelineFromSnapshot(
-      PuppeteerLauncherPanel.SceneSnapshot snapshot,
-      boolean showWarningOnFailure
-  ) {
+	  private AnimationProject importTimelineFromSnapshot(
+	      PuppeteerLauncherPanel.SceneSnapshot snapshot,
+	      boolean showWarningOnFailure
+	  ) {
     if (snapshot == null) return null;
     String preferredTimelineName = snapshot.preferredTimelineName();
     if (snapshot.hasInlineTimeline()) {
@@ -7187,10 +7492,42 @@ public class EditorApp extends Application {
     if (preferredTimelineName != null && !preferredTimelineName.isBlank()) {
       return importNamedTimeline(preferredTimelineName, showWarningOnFailure);
     }
-    return null;
-  }
+	    return null;
+	  }
 
-  private static String wrapInlineTimeline(String body) {
+	  private AnimationProject importInlineTimelineFromSnapshot(
+	      PuppeteerLauncherPanel.SceneSnapshot snapshot,
+	      PuppeteerLauncherPanel.InlineTimelineContext context,
+	      boolean showWarningOnFailure
+	  ) {
+	    if (context == null || context.body() == null || context.body().isBlank()) return null;
+	    String name = inlineTimelineName(snapshot, context);
+	    try {
+	      return CodeImporter.importCode(name, wrapInlineTimeline(context.body()));
+	    } catch (Exception ex) {
+	      if (showWarningOnFailure) {
+	        showTimelineImportWarning(name, ex);
+	      }
+	      return null;
+	    }
+	  }
+
+	  private static String inlineTimelineName(
+	      PuppeteerLauncherPanel.SceneSnapshot snapshot,
+	      PuppeteerLauncherPanel.InlineTimelineContext context
+	  ) {
+	    String base = snapshot != null && snapshot.currentLabel != null && !snapshot.currentLabel.isBlank()
+	        ? snapshot.currentLabel
+	        : "inline_timeline";
+	    String normalized = base.replaceAll("[^A-Za-z0-9_]+", "_")
+	        .replaceAll("_+", "_")
+	        .replaceAll("^_+|_+$", "");
+	    if (normalized.isBlank()) normalized = "inline_timeline";
+	    int line = context == null ? 1 : Math.max(1, context.startLine() + 1);
+	    return normalized + "_inline_" + line;
+	  }
+
+	  private static String wrapInlineTimeline(String body) {
     String content = body != null ? body.strip() : "";
     if (content.isEmpty()) return "timeline {\n}\n";
     return "timeline {\n" + content + "\n}\n";
