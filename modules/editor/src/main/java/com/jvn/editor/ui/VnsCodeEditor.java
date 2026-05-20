@@ -7,6 +7,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -19,6 +20,8 @@ import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.jvn.core.animation.TimelineData;
+import com.jvn.core.animation.TimelineDataParser;
 import com.jvn.core.assets.AsyncAssetLoader;
 
 import org.slf4j.Logger;
@@ -78,6 +81,8 @@ public class VnsCodeEditor extends BorderPane {
 
   // Code folding
   private final Set<Integer> foldedRegionStarts = new HashSet<>();
+  private String foldRegionCacheText = "";
+  private List<FoldRegion> foldRegionCache = List.of();
   // Bookmarks
   private final TreeSet<Integer> bookmarks = new TreeSet<>();
   // Zoom
@@ -145,6 +150,14 @@ public class VnsCodeEditor extends BorderPane {
   );
 
   private static final Pattern LABEL_PATTERN = Pattern.compile("^\\s*(?:@label|label)\\s+(\\S+)\\s*$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern TIMELINE_SCAN_PATTERN = Pattern.compile(
+      "^\\s*timeline(?:\\s*\\{|\\s*(?:#.*|//.*)?$)", Pattern.CASE_INSENSITIVE);
+  private static final Pattern TIMELINE_ACTION_SCAN_PATTERN = Pattern.compile(
+      "^\\s*(move|depth|pivot|rotate|scale|mirror|fade|visible|brightness|exposure|expression|show|hide|replace|scene|cameraMove|cameraZoom|property|event|playAudio)\\b",
+      Pattern.CASE_INSENSITIVE);
+  private static final Pattern TIMELINE_TARGET_SCAN_PATTERN = Pattern.compile(
+      "^\\s*(?:move|depth|pivot|rotate|scale|mirror|fade|visible|brightness|exposure|expression|show|hide|replace|playAudio)\\s+\"([^\"]+)\"",
+      Pattern.CASE_INSENSITIVE);
   private static final Pattern BG_DECL_PATTERN = Pattern.compile("^\\s*@background\\s+(\\S+)\\s+(.+)\\s*$", Pattern.CASE_INSENSITIVE);
   private static final Pattern COMMAND_PATTERN = Pattern.compile("^\\s*\\[(.+)]\\s*$");
   private static final Pattern CHOICE_IF_SUFFIX_PATTERN = Pattern.compile("^(.*)\\[if\\s+(.+)]\\s*$", Pattern.CASE_INSENSITIVE);
@@ -161,6 +174,7 @@ public class VnsCodeEditor extends BorderPane {
       String value = newText == null ? "" : newText;
       applyAnalysis(value);
       if (onTextChanged != null) onTextChanged.accept(value);
+      if (!foldedRegionStarts.isEmpty()) Platform.runLater(this::refreshFoldedRegionStyles);
       Platform.runLater(this::redrawMinimap);
     });
 
@@ -224,6 +238,22 @@ public class VnsCodeEditor extends BorderPane {
       MenuItem goToSymbol = new MenuItem("Go to Symbol... (Ctrl+Shift+O)");
       goToSymbol.setOnAction(a -> showGoToSymbol());
       menu.getItems().add(goToSymbol);
+      FoldRegion timelineRegion = findTimelineRegionForParagraph(codeArea.getCurrentParagraph());
+      boolean hasFoldedTimelineBlocks = hasFoldedTimelineBlocks();
+      if (timelineRegion != null || hasFoldedTimelineBlocks) {
+        if (timelineRegion != null) {
+          MenuItem foldTimeline = new MenuItem(foldedRegionStarts.contains(timelineRegion.startLine())
+              ? "Unfold Timeline Block"
+              : "Fold Timeline Block");
+          foldTimeline.setOnAction(a -> toggleFold(timelineRegion.startLine()));
+          menu.getItems().add(foldTimeline);
+        }
+        if (hasFoldedTimelineBlocks) {
+          MenuItem unfoldTimelines = new MenuItem("Unfold All Timeline Blocks");
+          unfoldTimelines.setOnAction(a -> unfoldAllTimelineBlocks());
+          menu.getItems().add(unfoldTimelines);
+        }
+      }
       MenuItem toggleComment = new MenuItem("Toggle Comment (Ctrl+/)");
       toggleComment.setOnAction(a -> toggleLineComment());
       menu.getItems().add(toggleComment);
@@ -759,11 +789,8 @@ public class VnsCodeEditor extends BorderPane {
     boolean isBookmarked = bookmarks.contains(line);
 
     // Fold indicator — check if this line starts a fold region
-    boolean isFoldable = false;
-    List<int[]> regions = computeFoldRegions();
-    for (int[] r : regions) {
-      if (r[0] == line) { isFoldable = true; break; }
-    }
+    FoldRegion foldRegion = findFoldRegionStartingAtLine(line);
+    boolean isFoldable = foldRegion != null;
 
     if (!isFoldable && !isBookmarked && !storyboardModeActive) return ln;
 
@@ -824,6 +851,11 @@ public class VnsCodeEditor extends BorderPane {
       boolean folded = foldedRegionStarts.contains(line);
       Label foldBtn = new Label(folded ? "\u25B6" : "\u25BC");
       foldBtn.setStyle("-fx-text-fill: #666; -fx-font-size: 8px; -fx-cursor: hand; -fx-padding: 0 2 0 2;");
+      if (foldRegion.kind() == FoldKind.TIMELINE) {
+        foldBtn.setTooltip(new Tooltip(buildTimelinePreview(foldRegion)));
+      } else {
+        foldBtn.setTooltip(new Tooltip(folded ? "Unfold section" : "Fold section"));
+      }
       foldBtn.setOnMouseClicked(e -> toggleFold(line));
       gutter.getChildren().add(foldBtn);
     }
@@ -903,7 +935,7 @@ public class VnsCodeEditor extends BorderPane {
     highlightedIssueWarning = false;
 
     if (prevLine >= 0 && prevLine < codeArea.getParagraphs().size()) {
-      codeArea.setParagraphStyle(prevLine, Collections.emptyList());
+      removeParagraphStyleClasses(prevLine, Set.of("warning-line", "error-line"));
     }
 
     Issue firstError = null;
@@ -942,7 +974,8 @@ public class VnsCodeEditor extends BorderPane {
       highlightedIssueLine = focusIssue.line;
       highlightedIssueWarning = focusIssue.warning;
       if (highlightedIssueLine < codeArea.getParagraphs().size()) {
-        codeArea.setParagraphStyle(highlightedIssueLine, Collections.singleton(highlightedIssueWarning ? "warning-line" : "error-line"));
+        removeParagraphStyleClasses(highlightedIssueLine, Set.of("warning-line", "error-line"));
+        addParagraphStyleClass(highlightedIssueLine, highlightedIssueWarning ? "warning-line" : "error-line");
       }
     }
 
@@ -1990,7 +2023,7 @@ public class VnsCodeEditor extends BorderPane {
     hoverTooltip.setStyle("-fx-background-color: #1e1e1e; -fx-text-fill: #e6e6e6; -fx-font-size: 12px; "
         + "-fx-border-color: #3a3a3a; -fx-border-width: 1; -fx-padding: 6 10 6 10;");
     hoverTooltip.setWrapText(true);
-    hoverTooltip.setMaxWidth(400);
+    hoverTooltip.setMaxWidth(520);
 
     codeArea.setMouseOverTextDelay(java.time.Duration.ofMillis(400));
     codeArea.addEventHandler(MouseOverTextEvent.MOUSE_OVER_TEXT_BEGIN, e -> {
@@ -2001,6 +2034,15 @@ public class VnsCodeEditor extends BorderPane {
       // Extract word under cursor
       String word = extractWordAt(text, charIdx);
       if (word.isEmpty()) return;
+
+      if ("timeline".equalsIgnoreCase(word)) {
+        FoldRegion timelineRegion = findTimelineRegionAtOffset(charIdx);
+        if (timelineRegion != null) {
+          hoverTooltip.setText(buildTimelinePreview(timelineRegion));
+          hoverTooltip.show(codeArea, e.getScreenPosition().getX() + 10, e.getScreenPosition().getY() + 20);
+          return;
+        }
+      }
 
       // Check command inside [ ]
       String lookupKey = word.toLowerCase(Locale.ROOT);
@@ -2032,64 +2074,456 @@ public class VnsCodeEditor extends BorderPane {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  //  FEATURE: Code Folding — collapse sections between @labels
+  //  FEATURE: Code Folding — collapse @label sections and inline timelines
   // ═══════════════════════════════════════════════════════════════════
+  private enum FoldKind { LABEL, TIMELINE }
+
+  private record FoldRegion(int startLine, int endLine, int startOffset, int endOffset, FoldKind kind) {
+    boolean containsLine(int line) {
+      return line >= startLine && line <= endLine;
+    }
+
+    boolean containsOffset(int offset) {
+      return offset >= startOffset && offset < endOffset;
+    }
+  }
+
   private void setupCodeFolding() {
     // Code folding is managed through the gutter (makeLineNumberLabel).
     // Folded regions use paragraph styles to visually collapse.
   }
 
-  private List<int[]> computeFoldRegions() {
+  private List<FoldRegion> computeFoldRegions() {
     String text = codeArea.getText();
     if (text == null || text.isEmpty()) return List.of();
+    if (text.equals(foldRegionCacheText)) return foldRegionCache;
+
+    int[] lineStarts = computeLineStarts(text);
     String[] lines = text.split("\\n", -1);
-    List<int[]> regions = new ArrayList<>();
+    List<FoldRegion> regions = new ArrayList<>();
+
+    addLabelFoldRegions(text, lines, lineStarts, regions);
+    addTimelineFoldRegions(text, lines, lineStarts, regions);
+    regions.sort((a, b) -> {
+      int byLine = Integer.compare(a.startLine(), b.startLine());
+      if (byLine != 0) return byLine;
+      return a.kind().compareTo(b.kind());
+    });
+    foldRegionCacheText = text;
+    foldRegionCache = Collections.unmodifiableList(regions);
+    return foldRegionCache;
+  }
+
+  private void addLabelFoldRegions(String text, String[] lines, int[] lineStarts, List<FoldRegion> regions) {
     int lastLabelLine = -1;
     for (int i = 0; i < lines.length; i++) {
       if (LABEL_SCAN_PATTERN.matcher(lines[i]).find()) {
         if (lastLabelLine >= 0 && i - lastLabelLine > 1) {
-          regions.add(new int[]{lastLabelLine, i - 1});
+          int endLine = i - 1;
+          regions.add(new FoldRegion(
+              lastLabelLine,
+              endLine,
+              lineStarts[lastLabelLine],
+              lineEndOffset(text, lineStarts, endLine),
+              FoldKind.LABEL));
         }
         lastLabelLine = i;
       }
     }
     if (lastLabelLine >= 0 && lines.length - 1 > lastLabelLine) {
-      regions.add(new int[]{lastLabelLine, lines.length - 1});
+      int endLine = lines.length - 1;
+      regions.add(new FoldRegion(
+          lastLabelLine,
+          endLine,
+          lineStarts[lastLabelLine],
+          lineEndOffset(text, lineStarts, endLine),
+          FoldKind.LABEL));
     }
-    return regions;
+  }
+
+  private void addTimelineFoldRegions(String text, String[] lines, int[] lineStarts, List<FoldRegion> regions) {
+    for (int i = 0; i < lines.length; i++) {
+      Matcher m = TIMELINE_SCAN_PATTERN.matcher(lines[i]);
+      if (!m.find()) continue;
+
+      int startOffset = lineStarts[i] + m.start();
+      int keywordEndOffset = lineStarts[i] + m.end();
+      int openBrace = findTimelineOpeningBrace(text, lineStarts, i, keywordEndOffset);
+      if (openBrace < 0) continue;
+
+      int closeBrace = findMatchingBrace(text, openBrace);
+      if (closeBrace < 0) continue;
+
+      int endLine = lineForOffset(lineStarts, closeBrace);
+      if (endLine <= i) continue;
+      regions.add(new FoldRegion(i, endLine, startOffset, Math.min(text.length(), closeBrace + 1), FoldKind.TIMELINE));
+    }
+  }
+
+  private FoldRegion findFoldRegionStartingAtLine(int line) {
+    FoldRegion fallback = null;
+    for (FoldRegion region : computeFoldRegions()) {
+      if (region.startLine() != line) continue;
+      if (region.kind() == FoldKind.TIMELINE) return region;
+      fallback = region;
+    }
+    return fallback;
+  }
+
+  private FoldRegion findTimelineRegionForParagraph(int paragraph) {
+    FoldRegion match = null;
+    for (FoldRegion region : computeFoldRegions()) {
+      if (region.kind() == FoldKind.TIMELINE && region.containsLine(paragraph)) {
+        match = region;
+      }
+    }
+    return match;
+  }
+
+  private FoldRegion findTimelineRegionAtOffset(int offset) {
+    FoldRegion match = null;
+    for (FoldRegion region : computeFoldRegions()) {
+      if (region.kind() == FoldKind.TIMELINE && region.containsOffset(offset)) {
+        match = region;
+      }
+    }
+    return match;
+  }
+
+  private boolean hasFoldedTimelineBlocks() {
+    if (foldedRegionStarts.isEmpty()) return false;
+    for (FoldRegion region : computeFoldRegions()) {
+      if (region.kind() == FoldKind.TIMELINE && foldedRegionStarts.contains(region.startLine())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private int[] computeLineStarts(String text) {
+    List<Integer> starts = new ArrayList<>();
+    starts.add(0);
+    for (int i = 0; i < text.length(); i++) {
+      if (text.charAt(i) == '\n') {
+        starts.add(i + 1);
+      }
+    }
+    int[] out = new int[starts.size()];
+    for (int i = 0; i < starts.size(); i++) out[i] = starts.get(i);
+    return out;
+  }
+
+  private int lineEndOffset(String text, int[] lineStarts, int line) {
+    if (line < 0 || line >= lineStarts.length) return text.length();
+    int nextLine = line + 1;
+    if (nextLine < lineStarts.length) {
+      return Math.max(lineStarts[line], lineStarts[nextLine] - 1);
+    }
+    return text.length();
+  }
+
+  private int lineForOffset(int[] lineStarts, int offset) {
+    if (lineStarts.length == 0) return 0;
+    int clamped = Math.max(0, offset);
+    int lo = 0;
+    int hi = lineStarts.length - 1;
+    while (lo <= hi) {
+      int mid = (lo + hi) >>> 1;
+      int start = lineStarts[mid];
+      int next = mid + 1 < lineStarts.length ? lineStarts[mid + 1] : Integer.MAX_VALUE;
+      if (clamped < start) {
+        hi = mid - 1;
+      } else if (clamped >= next) {
+        lo = mid + 1;
+      } else {
+        return mid;
+      }
+    }
+    return Math.max(0, Math.min(lineStarts.length - 1, hi));
+  }
+
+  private int findTimelineOpeningBrace(String text, int[] lineStarts, int line, int keywordEndOffset) {
+    int sameLineEnd = lineEndOffset(text, lineStarts, line);
+    for (int i = keywordEndOffset; i < sameLineEnd && i < text.length(); i++) {
+      if (text.charAt(i) == '{') return i;
+    }
+
+    int i = sameLineEnd;
+    while (i < text.length()) {
+      char c = text.charAt(i);
+      if (c == '{') return i;
+      if (c == '\n' || Character.isWhitespace(c)) {
+        i++;
+        continue;
+      }
+      if (c == '#') {
+        i = skipLine(text, i);
+        continue;
+      }
+      if (c == '/' && i + 1 < text.length() && text.charAt(i + 1) == '/') {
+        i = skipLine(text, i + 2);
+        continue;
+      }
+      return -1;
+    }
+    return -1;
+  }
+
+  private int findMatchingBrace(String text, int openBraceOffset) {
+    int depth = 0;
+    boolean inString = false;
+    boolean escaped = false;
+    boolean inLineComment = false;
+
+    for (int i = openBraceOffset; i < text.length(); i++) {
+      char c = text.charAt(i);
+
+      if (inLineComment) {
+        if (c == '\n') inLineComment = false;
+        continue;
+      }
+
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (c == '\\') {
+          escaped = true;
+        } else if (c == '"') {
+          inString = false;
+        }
+        continue;
+      }
+
+      if (c == '"') {
+        inString = true;
+        continue;
+      }
+      if (c == '#') {
+        inLineComment = true;
+        continue;
+      }
+      if (c == '/' && i + 1 < text.length() && text.charAt(i + 1) == '/') {
+        inLineComment = true;
+        i++;
+        continue;
+      }
+      if (c == '{') {
+        depth++;
+      } else if (c == '}') {
+        depth--;
+        if (depth == 0) return i;
+        if (depth < 0) return -1;
+      }
+    }
+    return -1;
+  }
+
+  private int skipLine(String text, int offset) {
+    int i = Math.max(0, offset);
+    while (i < text.length() && text.charAt(i) != '\n') i++;
+    return i;
   }
 
   private void toggleFold(int paragraph) {
+    FoldRegion region = findFoldRegionStartingAtLine(paragraph);
+    if (region == null) return;
     if (foldedRegionStarts.contains(paragraph)) {
-      // Unfold
       foldedRegionStarts.remove(paragraph);
-      List<int[]> regions = computeFoldRegions();
-      for (int[] r : regions) {
-        if (r[0] == paragraph) {
-          for (int i = r[0] + 1; i <= r[1]; i++) {
-            if (i < codeArea.getParagraphs().size()) {
-              codeArea.setParagraphStyle(i, Collections.emptyList());
-            }
-          }
-          break;
-        }
-      }
     } else {
-      // Fold
-      List<int[]> regions = computeFoldRegions();
-      for (int[] r : regions) {
-        if (r[0] == paragraph) {
-          foldedRegionStarts.add(paragraph);
-          for (int i = r[0] + 1; i <= r[1]; i++) {
-            if (i < codeArea.getParagraphs().size()) {
-              codeArea.setParagraphStyle(i, Collections.singleton("folded"));
-            }
-          }
-          break;
+      foldedRegionStarts.add(paragraph);
+    }
+    refreshFoldedRegionStyles();
+    Platform.runLater(() -> codeArea.setParagraphGraphicFactory(this::makeLineNumberLabel));
+  }
+
+  private void toggleTimelineBlockAtCaret() {
+    FoldRegion region = findTimelineRegionForParagraph(codeArea.getCurrentParagraph());
+    if (region == null) return;
+    toggleFold(region.startLine());
+  }
+
+  private void unfoldAllTimelineBlocks() {
+    boolean changed = false;
+    for (FoldRegion region : computeFoldRegions()) {
+      if (region.kind() == FoldKind.TIMELINE) {
+        changed |= foldedRegionStarts.remove(region.startLine());
+      }
+    }
+    if (changed) {
+      refreshFoldedRegionStyles();
+      Platform.runLater(() -> codeArea.setParagraphGraphicFactory(this::makeLineNumberLabel));
+    }
+  }
+
+  private void refreshFoldedRegionStyles() {
+    int paragraphCount = codeArea.getParagraphs().size();
+    for (int i = 0; i < paragraphCount; i++) {
+      removeParagraphStyleClass(i, "folded");
+    }
+
+    if (foldedRegionStarts.isEmpty()) return;
+
+    Set<Integer> validStarts = new HashSet<>();
+    for (FoldRegion region : computeFoldRegions()) {
+      if (!foldedRegionStarts.contains(region.startLine())) continue;
+      validStarts.add(region.startLine());
+      int end = Math.min(region.endLine(), paragraphCount - 1);
+      for (int i = region.startLine() + 1; i <= end; i++) {
+        addParagraphStyleClass(i, "folded");
+      }
+    }
+    foldedRegionStarts.retainAll(validStarts);
+  }
+
+  private void addParagraphStyleClass(int paragraph, String styleClass) {
+    if (paragraph < 0 || paragraph >= codeArea.getParagraphs().size() || styleClass == null || styleClass.isBlank()) {
+      return;
+    }
+    LinkedHashSet<String> styles = new LinkedHashSet<>(codeArea.getParagraph(paragraph).getParagraphStyle());
+    if (styles.add(styleClass)) {
+      codeArea.setParagraphStyle(paragraph, styles);
+    }
+  }
+
+  private void removeParagraphStyleClass(int paragraph, String styleClass) {
+    if (paragraph < 0 || paragraph >= codeArea.getParagraphs().size() || styleClass == null || styleClass.isBlank()) {
+      return;
+    }
+    LinkedHashSet<String> styles = new LinkedHashSet<>(codeArea.getParagraph(paragraph).getParagraphStyle());
+    if (styles.remove(styleClass)) {
+      codeArea.setParagraphStyle(paragraph, styles);
+    }
+  }
+
+  private void removeParagraphStyleClasses(int paragraph, Set<String> styleClasses) {
+    if (paragraph < 0 || paragraph >= codeArea.getParagraphs().size() || styleClasses == null || styleClasses.isEmpty()) {
+      return;
+    }
+    LinkedHashSet<String> styles = new LinkedHashSet<>(codeArea.getParagraph(paragraph).getParagraphStyle());
+    if (styles.removeAll(styleClasses)) {
+      codeArea.setParagraphStyle(paragraph, styles);
+    }
+  }
+
+  private String buildTimelinePreview(FoldRegion region) {
+    String text = codeArea.getText();
+    if (text == null || region == null || region.startOffset() < 0 || region.endOffset() > text.length()) {
+      return "Timeline block";
+    }
+
+    String block = text.substring(region.startOffset(), region.endOffset());
+    int lineCount = Math.max(1, region.endLine() - region.startLine() + 1);
+    int actionCount = countTimelineActions(block);
+    StringBuilder preview = new StringBuilder();
+
+    try {
+      TimelineData data = TimelineDataParser.parse("_vns_editor_preview", block);
+      preview.append("Timeline block")
+          .append("  |  ").append(formatTimelineDuration(data.getDurationMs()))
+          .append("  |  ").append(data.getTracks().size()).append(data.getTracks().size() == 1 ? " track" : " tracks");
+      if (actionCount > 0) {
+        preview.append("  |  ").append(actionCount).append(actionCount == 1 ? " action" : " actions");
+      }
+      if (!data.getAudioCues().isEmpty()) {
+        preview.append("  |  ").append(data.getAudioCues().size()).append(data.getAudioCues().size() == 1 ? " audio cue" : " audio cues");
+      }
+      if (!data.getEventCues().isEmpty()) {
+        preview.append("  |  ").append(data.getEventCues().size()).append(data.getEventCues().size() == 1 ? " event" : " events");
+      }
+
+      String targets = summarizeTimelineTargets(data, block);
+      if (!targets.isBlank()) {
+        preview.append("\nTargets: ").append(targets);
+      }
+    } catch (Exception ex) {
+      preview.append("Timeline block")
+          .append("  |  ").append(lineCount).append(lineCount == 1 ? " line" : " lines");
+      if (actionCount > 0) {
+        preview.append("  |  ").append(actionCount).append(actionCount == 1 ? " action" : " actions");
+      }
+      preview.append("\nPreview parser could not read this block yet.");
+    }
+
+    String snippet = buildTimelineSnippet(block);
+    if (!snippet.isBlank()) {
+      preview.append("\n\n").append(snippet);
+    }
+    return preview.toString();
+  }
+
+  private String summarizeTimelineTargets(TimelineData data, String block) {
+    LinkedHashSet<String> targets = new LinkedHashSet<>();
+    if (data != null) {
+      for (TimelineData.Track track : data.getTracks()) {
+        String name = track.getEntityName();
+        if (name != null && !name.isBlank()) {
+          targets.add(name);
         }
       }
     }
-    Platform.runLater(() -> codeArea.setParagraphGraphicFactory(this::makeLineNumberLabel));
+    if (targets.isEmpty()) {
+      for (String line : block.split("\\R")) {
+        Matcher m = TIMELINE_TARGET_SCAN_PATTERN.matcher(line);
+        if (m.find()) targets.add(m.group(1));
+        if (TIMELINE_ACTION_SCAN_PATTERN.matcher(line).find()
+            && (line.trim().startsWith("cameraMove") || line.trim().startsWith("cameraZoom"))) {
+          targets.add("__camera__");
+        }
+      }
+    }
+    if (targets.isEmpty()) return "";
+
+    StringBuilder out = new StringBuilder();
+    int index = 0;
+    int total = targets.size();
+    for (String target : targets) {
+      if (index >= 5) {
+        out.append(", +").append(total - index).append(" more");
+        break;
+      }
+      if (index > 0) out.append(", ");
+      out.append(target);
+      index++;
+    }
+    return out.toString();
+  }
+
+  private int countTimelineActions(String block) {
+    int count = 0;
+    for (String line : block.split("\\R")) {
+      if (TIMELINE_ACTION_SCAN_PATTERN.matcher(line).find()) count++;
+    }
+    return count;
+  }
+
+  private String buildTimelineSnippet(String block) {
+    String[] lines = block.split("\\R", -1);
+    List<String> previewLines = new ArrayList<>();
+    int nonBlank = 0;
+    for (String line : lines) {
+      String trimmed = line.strip();
+      if (trimmed.isEmpty()) continue;
+      nonBlank++;
+      if (previewLines.size() >= 8) continue;
+      previewLines.add(trimForPreview(trimmed, 86));
+    }
+    if (nonBlank > previewLines.size()) {
+      previewLines.add("...");
+    }
+    return String.join("\n", previewLines);
+  }
+
+  private String trimForPreview(String value, int maxChars) {
+    if (value == null) return "";
+    if (value.length() <= maxChars) return value;
+    return value.substring(0, Math.max(0, maxChars - 3)) + "...";
+  }
+
+  private String formatTimelineDuration(double durationMs) {
+    if (durationMs < 1000.0) {
+      return String.format(Locale.ROOT, "%.0f ms", durationMs);
+    }
+    return String.format(Locale.ROOT, "%.2f s", durationMs / 1000.0);
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -2309,6 +2743,8 @@ public class VnsCodeEditor extends BorderPane {
       {"Find and Replace", "Open find & replace (Ctrl+H)"},
       {"Go to Symbol", "Jump to @label (Ctrl+Shift+O)"},
       {"Go to Line", "Jump to line number (Ctrl+G)"},
+      {"Toggle Timeline Fold", "Collapse/expand timeline block under caret"},
+      {"Unfold All Timeline Blocks", "Expand folded timeline blocks"},
       {"Toggle Comment", "Comment/uncomment lines (Ctrl+/)"},
       {"Duplicate Line", "Duplicate current line (Ctrl+D)"},
       {"Delete Line", "Remove current line (Ctrl+Shift+K)"},
@@ -2389,6 +2825,8 @@ public class VnsCodeEditor extends BorderPane {
       case "Find and Replace" -> { showSearchBar(); searchBar.showReplace(true); }
       case "Go to Symbol" -> showGoToSymbol();
       case "Go to Line" -> showGoToLineDialog();
+      case "Toggle Timeline Fold" -> toggleTimelineBlockAtCaret();
+      case "Unfold All Timeline Blocks" -> unfoldAllTimelineBlocks();
       case "Toggle Comment" -> toggleLineComment();
       case "Duplicate Line" -> duplicateLine();
       case "Delete Line" -> deleteLine();
