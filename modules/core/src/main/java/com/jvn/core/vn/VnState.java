@@ -263,7 +263,12 @@ public class VnState {
         if (visual.isFinished() && visual.isRemoveOnComplete()) {
           CharacterSlot slot = visibleCharacters.remove(entry.getKey());
           pendingExpressionSwitches.remove(entry.getKey());
-          if (slot != null) timelineTransforms.remove(slot.getCharacterId());
+          if (slot != null) {
+            eyeFocusRequests.remove(slot.getCharacterId());
+            detachedCharacters.remove(slot.getCharacterId());
+            timelineDisplacements.remove(slot.getCharacterId());
+            timelineTransforms.remove(slot.getCharacterId());
+          }
           it.remove();
         }
       }

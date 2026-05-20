@@ -776,7 +776,49 @@ public class VnRenderer {
       return;
     }
 
-    drawCharacterImage(reference, imagePath, resolvedX, resolvedY, spriteWidth, spriteHeight, width, height, stage);
+    drawCharacterImageWithTimelineTransform(reference, imagePath, resolvedX, resolvedY, spriteWidth, spriteHeight, width, height, stage, state, characterId);
+  }
+
+  private void drawCharacterImageWithTimelineTransform(
+      Image image,
+      String imagePath,
+      double x,
+      double y,
+      double width,
+      double height,
+      double canvasWidth,
+      double canvasHeight,
+      VnStagePreset stage,
+      VnState state,
+      String characterId) {
+    VnState.TimelineTransform transform = state == null ? null : state.getTimelineTransform(characterId);
+    if (!hasRenderableTimelineTransform(transform)) {
+      drawCharacterImage(image, imagePath, x, y, width, height, canvasWidth, canvasHeight, stage);
+      return;
+    }
+
+    double originX = transform.hasPivotX() ? transform.getPivotX() : 0.5;
+    double originY = transform.hasPivotY() ? transform.getPivotY() : 1.0;
+    double scaleX = transform.hasScaleX() ? transform.getScaleX() : 1.0;
+    double scaleY = transform.hasScaleY() ? transform.getScaleY() : 1.0;
+    double rotation = transform.hasRotation() ? transform.getRotationDeg() : 0.0;
+    double pivotX = x + originX * width;
+    double pivotY = y + originY * height;
+
+    gc.save();
+    gc.translate(pivotX, pivotY);
+    if (Math.abs(rotation) > 1e-6) gc.rotate(rotation);
+    if (Math.abs(scaleX - 1.0) > 1e-6 || Math.abs(scaleY - 1.0) > 1e-6) gc.scale(scaleX, scaleY);
+    gc.translate(-pivotX, -pivotY);
+    drawCharacterImage(image, imagePath, x, y, width, height, canvasWidth, canvasHeight, stage);
+    gc.restore();
+  }
+
+  private boolean hasRenderableTimelineTransform(VnState.TimelineTransform transform) {
+    if (transform == null) return false;
+    return (transform.hasScaleX() && Math.abs(transform.getScaleX() - 1.0) > 1e-6)
+        || (transform.hasScaleY() && Math.abs(transform.getScaleY() - 1.0) > 1e-6)
+        || (transform.hasRotation() && Math.abs(transform.getRotationDeg()) > 1e-6);
   }
 
   private double timelineDisplacementFallbackX(double defaultX, VnState state, String characterId, double visualOffsetX) {

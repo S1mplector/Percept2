@@ -1200,19 +1200,56 @@ public class DefaultVnInterop implements VnInterop {
     if (data == null || scene == null || scene.getState() == null) return;
     VnState state = scene.getState();
     Map<String, TimelineDisplacementAccumulator> displacements = new LinkedHashMap<>();
+    Map<String, TimelineTransformAccumulator> transforms = new LinkedHashMap<>();
     for (TimelineData.Track track : data.getTracks()) {
-      if (track == null || (!track.hasKeyframes(TimelineData.Property.X) && !track.hasKeyframes(TimelineData.Property.Y))) {
-        continue;
-      }
+      if (track == null) continue;
       String characterId = resolveTimelineTrackCharacter(track.getEntityName(), state);
       if (characterId == null || characterId.isBlank()) continue;
+      boolean characterTrack = track.getEntityName() != null && track.getEntityName().trim().equals(characterId);
+
       boolean hasX = track.hasKeyframes(TimelineData.Property.X);
       boolean hasY = track.hasKeyframes(TimelineData.Property.Y);
-      double x = hasX ? lastKeyframeValue(track, TimelineData.Property.X) : 0.0;
-      double y = hasY ? lastKeyframeValue(track, TimelineData.Property.Y) : 0.0;
-      displacements
-          .computeIfAbsent(characterId, ignored -> new TimelineDisplacementAccumulator())
-          .accept(x, y, hasX, hasY);
+      if (hasX || hasY) {
+        double x = hasX ? lastKeyframeValue(track, TimelineData.Property.X) : 0.0;
+        double y = hasY ? lastKeyframeValue(track, TimelineData.Property.Y) : 0.0;
+        displacements
+            .computeIfAbsent(characterId, ignored -> new TimelineDisplacementAccumulator())
+            .accept(x, y, hasX, hasY);
+      }
+
+      boolean hasScaleX = track.hasKeyframes(TimelineData.Property.SCALE_X);
+      boolean hasScaleY = track.hasKeyframes(TimelineData.Property.SCALE_Y);
+      boolean hasMirrorX = track.hasKeyframes(TimelineData.Property.MIRROR_X);
+      boolean hasRotation = track.hasKeyframes(TimelineData.Property.ROTATION);
+      boolean hasPivotX = track.hasKeyframes(TimelineData.Property.PIVOT_X);
+      boolean hasPivotY = track.hasKeyframes(TimelineData.Property.PIVOT_Y);
+      if (!hasScaleX && !hasScaleY && !hasMirrorX && !hasRotation && !hasPivotX && !hasPivotY) continue;
+
+      double scaleX = 1.0;
+      if (hasScaleX || hasMirrorX) {
+        scaleX = hasScaleX ? lastKeyframeValue(track, TimelineData.Property.SCALE_X) : 1.0;
+        if (hasMirrorX) {
+          scaleX *= mirrorFactor(lastKeyframeValue(track, TimelineData.Property.MIRROR_X));
+        }
+      }
+      double scaleY = hasScaleY ? lastKeyframeValue(track, TimelineData.Property.SCALE_Y) : 1.0;
+      double rotation = hasRotation ? lastKeyframeValue(track, TimelineData.Property.ROTATION) : 0.0;
+      double pivotX = hasPivotX ? lastKeyframeValue(track, TimelineData.Property.PIVOT_X) : 0.5;
+      double pivotY = hasPivotY ? lastKeyframeValue(track, TimelineData.Property.PIVOT_Y) : 1.0;
+      transforms
+          .computeIfAbsent(characterId, ignored -> new TimelineTransformAccumulator())
+          .accept(
+              scaleX,
+              scaleY,
+              hasScaleX || hasMirrorX,
+              hasScaleY,
+              rotation,
+              hasRotation,
+              pivotX,
+              pivotY,
+              hasPivotX,
+              hasPivotY,
+              characterTrack);
     }
     for (Map.Entry<String, TimelineDisplacementAccumulator> entry : displacements.entrySet()) {
       TimelineDisplacementAccumulator displacement = entry.getValue();
@@ -1222,6 +1259,25 @@ public class DefaultVnInterop implements VnInterop {
           displacement.y,
           displacement.hasX,
           displacement.hasY);
+    }
+    for (Map.Entry<String, TimelineTransformAccumulator> entry : transforms.entrySet()) {
+      TimelineTransformAccumulator transform = entry.getValue();
+      state.recordTimelineTransform(
+          entry.getKey(),
+          0.0,
+          0.0,
+          false,
+          false,
+          transform.scaleX,
+          transform.scaleY,
+          transform.shouldRecordScaleX(),
+          transform.shouldRecordScaleY(),
+          transform.rotation,
+          transform.shouldRecordRotation(),
+          transform.pivotX,
+          transform.pivotY,
+          transform.shouldRecordPivotX(),
+          transform.shouldRecordPivotY());
     }
   }
 
@@ -1263,6 +1319,12 @@ public class DefaultVnInterop implements VnInterop {
     return keyframes.get(keyframes.size() - 1).getValue();
   }
 
+  private static double mirrorFactor(double mirrorX) {
+    if (!Double.isFinite(mirrorX)) return 1.0;
+    double clamped = Math.max(0.0, Math.min(1.0, mirrorX));
+    return Math.cos(clamped * Math.PI);
+  }
+
   private String selectorSafeName(String raw) {
     String value = raw == null ? "" : raw.trim();
     StringBuilder out = new StringBuilder();
@@ -1295,6 +1357,83 @@ public class DefaultVnInterop implements VnInterop {
         this.y = y;
         this.hasY = true;
       }
+    }
+  }
+
+  private static final class TimelineTransformAccumulator {
+    private double scaleX = 1.0;
+    private double scaleY = 1.0;
+    private double rotation = 0.0;
+    private double pivotX = 0.5;
+    private double pivotY = 1.0;
+    private int scaleXCount;
+    private int scaleYCount;
+    private int rotationCount;
+    private int pivotXCount;
+    private int pivotYCount;
+    private boolean characterScaleX;
+    private boolean characterScaleY;
+    private boolean characterRotation;
+    private boolean characterPivotX;
+    private boolean characterPivotY;
+
+    private void accept(
+        double scaleX,
+        double scaleY,
+        boolean hasScaleX,
+        boolean hasScaleY,
+        double rotation,
+        boolean hasRotation,
+        double pivotX,
+        double pivotY,
+        boolean hasPivotX,
+        boolean hasPivotY,
+        boolean characterTrack) {
+      if (hasScaleX && Double.isFinite(scaleX)) {
+        this.scaleX = scaleX;
+        scaleXCount++;
+        characterScaleX |= characterTrack;
+      }
+      if (hasScaleY && Double.isFinite(scaleY)) {
+        this.scaleY = scaleY;
+        scaleYCount++;
+        characterScaleY |= characterTrack;
+      }
+      if (hasRotation && Double.isFinite(rotation)) {
+        this.rotation = rotation;
+        rotationCount++;
+        characterRotation |= characterTrack;
+      }
+      if (hasPivotX && Double.isFinite(pivotX)) {
+        this.pivotX = pivotX;
+        pivotXCount++;
+        characterPivotX |= characterTrack;
+      }
+      if (hasPivotY && Double.isFinite(pivotY)) {
+        this.pivotY = pivotY;
+        pivotYCount++;
+        characterPivotY |= characterTrack;
+      }
+    }
+
+    private boolean shouldRecordScaleX() {
+      return characterScaleX || scaleXCount > 1;
+    }
+
+    private boolean shouldRecordScaleY() {
+      return characterScaleY || scaleYCount > 1;
+    }
+
+    private boolean shouldRecordRotation() {
+      return characterRotation || rotationCount > 1;
+    }
+
+    private boolean shouldRecordPivotX() {
+      return characterPivotX || pivotXCount > 1;
+    }
+
+    private boolean shouldRecordPivotY() {
+      return characterPivotY || pivotYCount > 1;
     }
   }
 

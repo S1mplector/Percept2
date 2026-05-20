@@ -217,6 +217,44 @@ class RuntimeTimelineEventInteropTest {
   }
 
   @Test
+  void inlineLayerMirrorRecordsCharacterTransformForExpressionFallback() {
+    Engine engine = new Engine(ApplicationConfig.builder().build());
+    RuntimeVnInterop interop = new RuntimeVnInterop(engine);
+    VnScene vn = new VnScene(new VnScenarioBuilder("owner").end().build());
+    vn.setInterop(interop);
+    engine.scenes().push(vn);
+    vn.getState().showCharacter(CharacterPosition.CENTER, "john", "neutral");
+
+    interop.getBase().handle(new VnExternalCommand("jes_timeline_inline", """
+        timeline {
+          parallel {
+            scale "john_neutral_body_default" {
+              sx: -1
+              dur: 100
+            }
+            scale "john_neutral_mouth_default" {
+              sx: -1
+              dur: 100
+            }
+          }
+        }
+        """), vn);
+
+    vn.getState().updateTimelineRunners(100);
+
+    var transform = vn.getState().getTimelineTransform("john");
+    assertNotNull(transform);
+    assertTrue(transform.hasScaleX());
+    assertEquals(-1.0, transform.getScaleX(), 0.000001);
+
+    vn.getState().showCharacterAnimated(CharacterPosition.CENTER, "john", "talking");
+
+    transform = vn.getState().getTimelineTransform("john");
+    assertNotNull(transform);
+    assertEquals(-1.0, transform.getScaleX(), 0.000001);
+  }
+
+  @Test
   void inlineTimelineCharacterTargetStillDrivesVnVisualOffset() {
     Engine engine = new Engine(ApplicationConfig.builder().build());
     RuntimeVnInterop interop = new RuntimeVnInterop(engine);
