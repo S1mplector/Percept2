@@ -6546,10 +6546,13 @@ public class EditorApp extends Application {
         imported,
         snapshot,
         treatImportedTimelineAsVnOffsets);
+    Map<String, Map<PropertyType, Double>> runtimeExportBaselines = Map.of();
     if (newFromSnapshot && launchScene != null && snapshot != null) {
+      runtimeExportBaselines = captureRuntimeExportBaselines(launchScene);
       applySnapshotTimelineEndStateToScene(launchScene, snapshot, selectedTimelineName);
     }
     if (launchScene != null) {
+      puppeteer.setRuntimeExportBaselines(runtimeExportBaselines);
       puppeteer.setScene(launchScene);
     }
 
@@ -6699,6 +6702,18 @@ public class EditorApp extends Application {
     for (EntityTrack track : imported.getTracks()) {
       if (track == null || isCameraTrack(track)) continue;
       String entityName = track.getEntityName();
+      if (entityName == null || entityName.isBlank()) continue;
+      Entity2D entity = scene.find(entityName);
+      if (entity == null) continue;
+      baseline.put(entityName, captureEntityProperties(entity));
+    }
+    return baseline;
+  }
+
+  private Map<String, Map<PropertyType, Double>> captureRuntimeExportBaselines(JesScene2D scene) {
+    Map<String, Map<PropertyType, Double>> baseline = new LinkedHashMap<>();
+    if (scene == null) return baseline;
+    for (String entityName : scene.names()) {
       if (entityName == null || entityName.isBlank()) continue;
       Entity2D entity = scene.find(entityName);
       if (entity == null) continue;

@@ -3348,6 +3348,24 @@ public class PuppeteerWindow extends Stage {
         }
     }
 
+    public void setRuntimeExportBaselines(Map<String, Map<PropertyType, Double>> baselines) {
+        runtimeExportBaselines.clear();
+        if (baselines == null || baselines.isEmpty()) return;
+        for (Map.Entry<String, Map<PropertyType, Double>> entry : baselines.entrySet()) {
+            String entityName = entry.getKey();
+            Map<PropertyType, Double> props = entry.getValue();
+            if (entityName == null || entityName.isBlank() || props == null || props.isEmpty()) continue;
+            Map<PropertyType, Double> copy = new EnumMap<>(PropertyType.class);
+            for (Map.Entry<PropertyType, Double> prop : props.entrySet()) {
+                if (prop.getKey() == null || prop.getValue() == null || !Double.isFinite(prop.getValue())) continue;
+                copy.put(prop.getKey(), prop.getValue());
+            }
+            if (!copy.isEmpty()) {
+                runtimeExportBaselines.put(entityName.trim(), copy);
+            }
+        }
+    }
+
     private void applyLaunchScenePresetGrouping() {
         if (launchSceneSnapshot == null || scene == null || project == null) return;
         boolean changed = false;
@@ -3467,6 +3485,7 @@ public class PuppeteerWindow extends Stage {
     public java.io.File projectRoot;
     private java.io.File scriptTargetFile;
     private PuppeteerLauncherPanel.SceneSnapshot launchSceneSnapshot;
+    private final Map<String, Map<PropertyType, Double>> runtimeExportBaselines = new LinkedHashMap<>();
     private PuppeteerWorkspacePrefs workspacePrefs;
     private PuppeteerDraftStore draftStore;
     private PuppeteerPreviewRecorder previewRecorder;
@@ -8237,6 +8256,8 @@ public class PuppeteerWindow extends Stage {
             double y = snapshotOrCurrent(entityName, PropertyType.Y, entity.getY());
             double originX = snapshotOrCurrent(entityName, PropertyType.PIVOT_X, entity.getOriginX());
             double originY = snapshotOrCurrent(entityName, PropertyType.PIVOT_Y, entity.getOriginY());
+            double runtimeBaseX = runtimeExportBaselineOrSnapshot(entityName, PropertyType.X, x);
+            double runtimeBaseY = runtimeExportBaselineOrSnapshot(entityName, PropertyType.Y, y);
             double[] visualBounds = computeSnapshotVisualBounds(
                 pixelAnalyzer,
                 rawImagePath,
@@ -8263,7 +8284,9 @@ public class PuppeteerWindow extends Stage {
                 visualBounds[0],
                 visualBounds[1],
                 visualBounds[2],
-                visualBounds[3]
+                visualBounds[3],
+                runtimeBaseX,
+                runtimeBaseY
             ));
         }
         return snapshots;
@@ -8326,6 +8349,17 @@ public class PuppeteerWindow extends Stage {
     private double snapshotOrCurrent(String entityName, PropertyType property, double fallback) {
         Double value = project.getInitialSnapshotValue(entityName, property);
         return value != null && Double.isFinite(value) ? value : fallback;
+    }
+
+    private double runtimeExportBaselineOrSnapshot(String entityName, PropertyType property, double fallback) {
+        if (entityName != null && property != null) {
+            Map<PropertyType, Double> props = runtimeExportBaselines.get(entityName);
+            Double value = props == null ? null : props.get(property);
+            if (value != null && Double.isFinite(value)) {
+                return value;
+            }
+        }
+        return fallback;
     }
 
     private String relativizePreviewAssetPathSpec(String pathSpec) {

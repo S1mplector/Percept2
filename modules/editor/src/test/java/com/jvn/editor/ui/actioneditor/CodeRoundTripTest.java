@@ -505,6 +505,39 @@ class CodeRoundTripTest {
     }
 
     @Test
+    void newFromSceneExportUsesRuntimeSlotBaselineInsteadOfBakedPreviewPosition() {
+        AnimationProject project = new AnimationProject();
+        EntityTrack body = project.getOrCreateTrack("john_neutral_body_default");
+        body.addKeyframe(PropertyType.X, new Keyframe(0, 1500, Easing.Type.LINEAR));
+        body.addKeyframe(PropertyType.X, new Keyframe(500, 980, Easing.Type.EASE_OUT_BACK));
+        body.addKeyframe(PropertyType.Y, new Keyframe(0, 1080, Easing.Type.LINEAR));
+        body.addKeyframe(PropertyType.Y, new Keyframe(500, 1080, Easing.Type.LINEAR));
+
+        project.setSceneEntitySnapshots(List.of(new AnimationProject.SceneEntitySnapshot(
+            "john_neutral_body_default", "sprite",
+            "assets/characters/john_doe/body/John_Doe_body_-_default.png",
+            1500, 1080, 734.4, 918, 0.5, 1.0, 0, true, 1.0,
+            1500 - 367.2, 162, 1500 + 367.2, 1080,
+            960, 1080
+        )));
+
+        String exported = CodeExporter.export(project);
+
+        assertTrue(exported.contains("x: 20"),
+            "New From Scene exports must target the VN slot baseline, not the baked preview baseline:\n" + exported);
+        assertFalse(exported.contains("x: -520"),
+            "Subtracting the baked preview x would replay too far left in runtime:\n" + exported);
+
+        String named = CodeExporter.exportNamed(project, "john_second_move");
+        assertTrue(named.contains("rbx=960"), named);
+        AnimationProject imported = CodeImporter.importCode("john_second_move", named);
+        AnimationProject.SceneEntitySnapshot snap = imported.getSceneEntitySnapshot("john_neutral_body_default");
+        assertNotNull(snap);
+        assertEquals(1500.0, snap.x(), 0.001);
+        assertEquals(960.0, snap.runtimeBaseX(), 0.001);
+    }
+
+    @Test
     void orbitAnchoredRotationExportsPivotInsteadOfArcMove() {
         AnimationProject project = new AnimationProject();
         EntityTrack head = project.getOrCreateTrack("head");
