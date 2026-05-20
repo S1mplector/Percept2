@@ -35,6 +35,7 @@ public class VnState {
   private final Map<CharacterPosition, PendingExpressionSwitch> pendingExpressionSwitches;
   private final Map<String, EyeFocusRequest> eyeFocusRequests;
   private final Map<String, TimelineDisplacement> timelineDisplacements;
+  private final Map<String, TimelineTransform> timelineTransforms;
   private final Set<String> globalPositionCharacters;
   private final Map<String, CharacterPosition> characterDefinedPositions;
   private final Map<String, Object> variables; // For future flag/variable system
@@ -89,6 +90,7 @@ public class VnState {
     this.pendingExpressionSwitches = new HashMap<>();
     this.eyeFocusRequests = new HashMap<>();
     this.timelineDisplacements = new HashMap<>();
+    this.timelineTransforms = new HashMap<>();
     this.globalPositionCharacters = new HashSet<>();
     this.characterDefinedPositions = new HashMap<>();
     this.variables = new HashMap<>();
@@ -170,6 +172,7 @@ public class VnState {
     pendingExpressionSwitches.clear();
     eyeFocusRequests.clear();
     timelineDisplacements.clear();
+    timelineTransforms.clear();
   }
 
   public void showCharacterAnimated(CharacterPosition position, String characterId, String expression) {
@@ -258,8 +261,9 @@ public class VnState {
         CharacterVisual visual = entry.getValue();
         visual.update(deltaMs);
         if (visual.isFinished() && visual.isRemoveOnComplete()) {
-          visibleCharacters.remove(entry.getKey());
+          CharacterSlot slot = visibleCharacters.remove(entry.getKey());
           pendingExpressionSwitches.remove(entry.getKey());
+          if (slot != null) timelineTransforms.remove(slot.getCharacterId());
           it.remove();
         }
       }
@@ -274,6 +278,7 @@ public class VnState {
         if (visual.isFinished() && visual.isRemoveOnComplete()) {
           eyeFocusRequests.remove(entry.getKey());
           timelineDisplacements.remove(entry.getKey());
+          timelineTransforms.remove(entry.getKey());
           it.remove();
         }
       }
@@ -386,6 +391,110 @@ public class VnState {
       resolvedHasY = true;
     }
     timelineDisplacements.put(id, new TimelineDisplacement(resolvedX, resolvedY, resolvedHasX, resolvedHasY));
+    recordTimelineTransform(
+        id,
+        resolvedX,
+        resolvedY,
+        resolvedHasX,
+        resolvedHasY,
+        1.0,
+        1.0,
+        false,
+        false,
+        0.0,
+        false,
+        0.5,
+        1.0,
+        false,
+        false);
+  }
+
+  public TimelineTransform getTimelineTransform(String characterId) {
+    if (characterId == null || characterId.isBlank()) return null;
+    return timelineTransforms.get(characterId.trim());
+  }
+
+  public void recordTimelineTransform(
+      String characterId,
+      double x,
+      double y,
+      boolean hasX,
+      boolean hasY,
+      double scaleX,
+      double scaleY,
+      boolean hasScaleX,
+      boolean hasScaleY,
+      double rotationDeg,
+      boolean hasRotation,
+      double pivotX,
+      double pivotY,
+      boolean hasPivotX,
+      boolean hasPivotY) {
+    String id = normalizeCharacterId(characterId);
+    if (id.isEmpty() || (!hasX && !hasY && !hasScaleX && !hasScaleY && !hasRotation && !hasPivotX && !hasPivotY)) {
+      return;
+    }
+
+    TimelineTransform existing = timelineTransforms.get(id);
+    double resolvedX = existing != null ? existing.getX() : 0.0;
+    double resolvedY = existing != null ? existing.getY() : 0.0;
+    double resolvedScaleX = existing != null ? existing.getScaleX() : 1.0;
+    double resolvedScaleY = existing != null ? existing.getScaleY() : 1.0;
+    double resolvedRotation = existing != null ? existing.getRotationDeg() : 0.0;
+    double resolvedPivotX = existing != null ? existing.getPivotX() : 0.5;
+    double resolvedPivotY = existing != null ? existing.getPivotY() : 1.0;
+    boolean resolvedHasX = existing != null && existing.hasX();
+    boolean resolvedHasY = existing != null && existing.hasY();
+    boolean resolvedHasScaleX = existing != null && existing.hasScaleX();
+    boolean resolvedHasScaleY = existing != null && existing.hasScaleY();
+    boolean resolvedHasRotation = existing != null && existing.hasRotation();
+    boolean resolvedHasPivotX = existing != null && existing.hasPivotX();
+    boolean resolvedHasPivotY = existing != null && existing.hasPivotY();
+
+    if (hasX && Double.isFinite(x)) {
+      resolvedX = x;
+      resolvedHasX = true;
+    }
+    if (hasY && Double.isFinite(y)) {
+      resolvedY = y;
+      resolvedHasY = true;
+    }
+    if (hasScaleX && Double.isFinite(scaleX)) {
+      resolvedScaleX = scaleX;
+      resolvedHasScaleX = true;
+    }
+    if (hasScaleY && Double.isFinite(scaleY)) {
+      resolvedScaleY = scaleY;
+      resolvedHasScaleY = true;
+    }
+    if (hasRotation && Double.isFinite(rotationDeg)) {
+      resolvedRotation = rotationDeg;
+      resolvedHasRotation = true;
+    }
+    if (hasPivotX && Double.isFinite(pivotX)) {
+      resolvedPivotX = pivotX;
+      resolvedHasPivotX = true;
+    }
+    if (hasPivotY && Double.isFinite(pivotY)) {
+      resolvedPivotY = pivotY;
+      resolvedHasPivotY = true;
+    }
+
+    timelineTransforms.put(id, new TimelineTransform(
+        resolvedX,
+        resolvedY,
+        resolvedHasX,
+        resolvedHasY,
+        resolvedScaleX,
+        resolvedScaleY,
+        resolvedHasScaleX,
+        resolvedHasScaleY,
+        resolvedRotation,
+        resolvedHasRotation,
+        resolvedPivotX,
+        resolvedPivotY,
+        resolvedHasPivotX,
+        resolvedHasPivotY));
   }
 
   public String getCharacterExpression(String characterId) {
@@ -428,6 +537,7 @@ public class VnState {
       eyeFocusRequests.remove(slot.getCharacterId());
       detachedCharacters.remove(slot.getCharacterId());
       timelineDisplacements.remove(slot.getCharacterId());
+      timelineTransforms.remove(slot.getCharacterId());
     }
   }
 
@@ -921,6 +1031,69 @@ public class VnState {
     public double getY() { return y; }
     public boolean hasX() { return hasX; }
     public boolean hasY() { return hasY; }
+  }
+
+  public static class TimelineTransform {
+    private final double x;
+    private final double y;
+    private final boolean hasX;
+    private final boolean hasY;
+    private final double scaleX;
+    private final double scaleY;
+    private final boolean hasScaleX;
+    private final boolean hasScaleY;
+    private final double rotationDeg;
+    private final boolean hasRotation;
+    private final double pivotX;
+    private final double pivotY;
+    private final boolean hasPivotX;
+    private final boolean hasPivotY;
+
+    public TimelineTransform(
+        double x,
+        double y,
+        boolean hasX,
+        boolean hasY,
+        double scaleX,
+        double scaleY,
+        boolean hasScaleX,
+        boolean hasScaleY,
+        double rotationDeg,
+        boolean hasRotation,
+        double pivotX,
+        double pivotY,
+        boolean hasPivotX,
+        boolean hasPivotY) {
+      this.x = Double.isFinite(x) ? x : 0.0;
+      this.y = Double.isFinite(y) ? y : 0.0;
+      this.hasX = hasX;
+      this.hasY = hasY;
+      this.scaleX = Double.isFinite(scaleX) ? scaleX : 1.0;
+      this.scaleY = Double.isFinite(scaleY) ? scaleY : 1.0;
+      this.hasScaleX = hasScaleX;
+      this.hasScaleY = hasScaleY;
+      this.rotationDeg = Double.isFinite(rotationDeg) ? rotationDeg : 0.0;
+      this.hasRotation = hasRotation;
+      this.pivotX = Double.isFinite(pivotX) ? pivotX : 0.5;
+      this.pivotY = Double.isFinite(pivotY) ? pivotY : 1.0;
+      this.hasPivotX = hasPivotX;
+      this.hasPivotY = hasPivotY;
+    }
+
+    public double getX() { return x; }
+    public double getY() { return y; }
+    public boolean hasX() { return hasX; }
+    public boolean hasY() { return hasY; }
+    public double getScaleX() { return scaleX; }
+    public double getScaleY() { return scaleY; }
+    public boolean hasScaleX() { return hasScaleX; }
+    public boolean hasScaleY() { return hasScaleY; }
+    public double getRotationDeg() { return rotationDeg; }
+    public boolean hasRotation() { return hasRotation; }
+    public double getPivotX() { return pivotX; }
+    public double getPivotY() { return pivotY; }
+    public boolean hasPivotX() { return hasPivotX; }
+    public boolean hasPivotY() { return hasPivotY; }
   }
 
   public static class CharacterVisual {
