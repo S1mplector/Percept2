@@ -998,11 +998,27 @@ The editor.css file defines the visual styling for the editor module, including 
    -fx-background-color: #151515;
    -fx-border-color: rgba(255,255,255,0.06);
    -fx-border-width: 0 1 0 0;
-   -fx-padding: 0 10 0 8;
-   -fx-min-width: 46;
+   -fx-padding: 0 8 0 6;
+   -fx-min-width: 64;
    -fx-alignment: center-right;
  }
  .lineno .text { -fx-fill: #a0a0a0; }
+ .lineno-text {
+   -fx-min-width: 30;
+   -fx-alignment: center-right;
+   -fx-text-fill: #a0a0a0;
+ }
+ .lineno-text .text { -fx-fill: #a0a0a0; }
+ .code-fold-toggle {
+   -fx-min-width: 12;
+   -fx-alignment: center;
+   -fx-padding: 0 1 0 0;
+   -fx-cursor: hand;
+   -fx-text-fill: #c9832b;
+ }
+ .code-fold-toggle .text { -fx-fill: #c9832b; }
+ .code-fold-toggle:hover { -fx-text-fill: #ffb45a; }
+ .code-fold-toggle:hover .text { -fx-fill: #ffb45a; }
 
 .code-editor-status-bar {
   -fx-background-color:
@@ -6120,13 +6136,10 @@ The editor.css file defines the visual styling for the editor module, including 
 
 /* ── VNS Code Editor IDE Features ── */
 
-/* Folded paragraph — visually collapse */
+/* RichTextFX folded paragraph marker. Paragraph styles are applied to TextFlow. */
+.code-area .collapse,
 .code-area .folded {
-  -fx-pref-height: 0;
-  -fx-max-height: 0;
-  -fx-padding: 0;
-  -fx-font-size: 0;
-  visibility: hidden;
+  visibility: false;
 }
 
 /* Selection occurrence highlight */

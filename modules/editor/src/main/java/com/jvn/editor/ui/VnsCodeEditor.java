@@ -163,6 +163,8 @@ public class VnsCodeEditor extends BorderPane {
   private static final Pattern CHOICE_IF_SUFFIX_PATTERN = Pattern.compile("^(.*)\\[if\\s+(.+)]\\s*$", Pattern.CASE_INSENSITIVE);
   private static final Pattern IF_GOTO_PATTERN = Pattern.compile("^(.+?)\\s+goto\\s+(\\S+)\\s*$", Pattern.CASE_INSENSITIVE);
   private static final Pattern PARSE_LINE_PATTERN = Pattern.compile("\\bat line (\\d+)\\b", Pattern.CASE_INSENSITIVE);
+  private static final String RTFX_COLLAPSE_STYLE_CLASS = "collapse";
+  private static final String LEGACY_FOLDED_STYLE_CLASS = "folded";
 
   public VnsCodeEditor() {
     getStyleClass().add("text-editor-root");
@@ -415,6 +417,14 @@ public class VnsCodeEditor extends BorderPane {
       // Ctrl+Shift+D — Show Diff View
       if (ctrl && e.isShiftDown() && e.getCode() == KeyCode.D) {
         showDiffView(); e.consume(); return;
+      }
+      // Ctrl+Shift+[ — Toggle current timeline fold
+      if (ctrl && e.isShiftDown() && e.getCode() == KeyCode.OPEN_BRACKET) {
+        toggleTimelineBlockAtCaret(); e.consume(); return;
+      }
+      // Ctrl+Shift+] — Unfold all timeline blocks
+      if (ctrl && e.isShiftDown() && e.getCode() == KeyCode.CLOSE_BRACKET) {
+        unfoldAllTimelineBlocks(); e.consume(); return;
       }
     });
   }
@@ -839,26 +849,30 @@ public class VnsCodeEditor extends BorderPane {
       gutter.getChildren().add(cursor);
     }
 
-    if (isBookmarked) {
-      Label dot = new Label("\u25CF");
-      dot.setStyle("-fx-text-fill: #b5b5b5; -fx-font-size: 9px; -fx-padding: 0 1 0 1;");
-      gutter.getChildren().add(dot);
-    }
-
-    gutter.getChildren().add(ln);
-
     if (isFoldable) {
       boolean folded = foldedRegionStarts.contains(line);
-      Label foldBtn = new Label(folded ? "\u25B6" : "\u25BC");
-      foldBtn.setStyle("-fx-text-fill: #666; -fx-font-size: 8px; -fx-cursor: hand; -fx-padding: 0 2 0 2;");
+      Label foldBtn = new Label(folded ? "\u25B6" : "\u25BE");
+      foldBtn.getStyleClass().add("code-fold-toggle");
       if (foldRegion.kind() == FoldKind.TIMELINE) {
-        foldBtn.setTooltip(new Tooltip(buildTimelinePreview(foldRegion)));
+        String preview = buildTimelinePreview(foldRegion);
+        foldBtn.setTooltip(new Tooltip(preview));
+        Tooltip.install(gutter, new Tooltip(preview));
       } else {
         foldBtn.setTooltip(new Tooltip(folded ? "Unfold section" : "Fold section"));
       }
       foldBtn.setOnMouseClicked(e -> toggleFold(line));
       gutter.getChildren().add(foldBtn);
     }
+
+    if (isBookmarked) {
+      Label dot = new Label("\u25CF");
+      dot.setStyle("-fx-text-fill: #b5b5b5; -fx-font-size: 9px; -fx-padding: 0 1 0 1;");
+      gutter.getChildren().add(dot);
+    }
+
+    Label number = new Label(String.format("%d", line + 1));
+    number.getStyleClass().add("lineno-text");
+    gutter.getChildren().add(number);
 
     return gutter;
   }
@@ -2090,7 +2104,7 @@ public class VnsCodeEditor extends BorderPane {
 
   private void setupCodeFolding() {
     // Code folding is managed through the gutter (makeLineNumberLabel).
-    // Folded regions use paragraph styles to visually collapse.
+    // RichTextFX collapses paragraphs when their paragraph style includes "collapse".
   }
 
   private List<FoldRegion> computeFoldRegions() {
@@ -2358,7 +2372,7 @@ public class VnsCodeEditor extends BorderPane {
   private void refreshFoldedRegionStyles() {
     int paragraphCount = codeArea.getParagraphs().size();
     for (int i = 0; i < paragraphCount; i++) {
-      removeParagraphStyleClass(i, "folded");
+      removeParagraphStyleClasses(i, Set.of(RTFX_COLLAPSE_STYLE_CLASS, LEGACY_FOLDED_STYLE_CLASS));
     }
 
     if (foldedRegionStarts.isEmpty()) return;
@@ -2369,7 +2383,7 @@ public class VnsCodeEditor extends BorderPane {
       validStarts.add(region.startLine());
       int end = Math.min(region.endLine(), paragraphCount - 1);
       for (int i = region.startLine() + 1; i <= end; i++) {
-        addParagraphStyleClass(i, "folded");
+        addParagraphStyleClass(i, RTFX_COLLAPSE_STYLE_CLASS);
       }
     }
     foldedRegionStarts.retainAll(validStarts);
@@ -2743,8 +2757,8 @@ public class VnsCodeEditor extends BorderPane {
       {"Find and Replace", "Open find & replace (Ctrl+H)"},
       {"Go to Symbol", "Jump to @label (Ctrl+Shift+O)"},
       {"Go to Line", "Jump to line number (Ctrl+G)"},
-      {"Toggle Timeline Fold", "Collapse/expand timeline block under caret"},
-      {"Unfold All Timeline Blocks", "Expand folded timeline blocks"},
+      {"Toggle Timeline Fold", "Collapse/expand timeline block under caret (Ctrl+Shift+[)"},
+      {"Unfold All Timeline Blocks", "Expand folded timeline blocks (Ctrl+Shift+])"},
       {"Toggle Comment", "Comment/uncomment lines (Ctrl+/)"},
       {"Duplicate Line", "Duplicate current line (Ctrl+D)"},
       {"Delete Line", "Remove current line (Ctrl+Shift+K)"},
