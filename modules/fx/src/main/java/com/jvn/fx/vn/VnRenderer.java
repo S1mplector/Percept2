@@ -359,7 +359,7 @@ public class VnRenderer {
       renderTransitionOverlay(state, width, height);
     }
 
-    List<Map.Entry<CharacterPosition, VnState.CharacterSlot>> orderedCharacters = orderedCharacterEntries(state);
+    List<CharacterRenderEntry> orderedCharacters = orderedCharacterEntries(state);
     AudioVisualizerSettings visualizerSettings = resolveAudioVisualizerSettings();
     renderLayeredScene(orderedCharacters, state, scenario, activeStage, width, height, visualizerSettings);
     renderStageLightOverlays(activeStage, width, height, VnStagePreset.LightLayer.FOREGROUND);
@@ -594,21 +594,38 @@ public class VnRenderer {
     gc.restore();
   }
 
-  private List<Map.Entry<CharacterPosition, VnState.CharacterSlot>> orderedCharacterEntries(VnState state) {
+  private List<CharacterRenderEntry> orderedCharacterEntries(VnState state) {
     Map<CharacterPosition, VnState.CharacterSlot> characters = state.getVisibleCharacters();
 
-    java.util.List<Map.Entry<CharacterPosition, VnState.CharacterSlot>> ordered = new java.util.ArrayList<>(characters.entrySet());
+    java.util.List<CharacterRenderEntry> ordered = new java.util.ArrayList<>();
+    for (Map.Entry<CharacterPosition, VnState.CharacterSlot> entry : characters.entrySet()) {
+      ordered.add(new CharacterRenderEntry(
+          entry.getKey(),
+          entry.getValue(),
+          state.getCharacterVisual(entry.getKey()),
+          positionOrdinal(entry.getKey())));
+    }
+    int detachedOrder = 1_000;
+    for (VnState.DetachedCharacterSlot detached : state.getDetachedCharacters().values()) {
+      if (detached == null || detached.getSlot() == null) continue;
+      CharacterPosition basePosition = detached.getBasePosition();
+      ordered.add(new CharacterRenderEntry(
+          basePosition,
+          detached.getSlot(),
+          detached.getVisual(),
+          positionOrdinal(basePosition) + detachedOrder++));
+    }
     ordered.sort(
         java.util.Comparator
-            .comparingInt((Map.Entry<CharacterPosition, VnState.CharacterSlot> e) ->
-                e.getValue() != null ? e.getValue().getLayerOrder() : 0)
-            .thenComparingInt(e -> positionOrdinal(e.getKey()))
+            .comparingInt((CharacterRenderEntry e) ->
+                e.slot() != null ? e.slot().getLayerOrder() : 0)
+            .thenComparingInt(CharacterRenderEntry::order)
     );
     return ordered;
   }
 
   private void renderLayeredScene(
-      List<Map.Entry<CharacterPosition, VnState.CharacterSlot>> orderedCharacters,
+      List<CharacterRenderEntry> orderedCharacters,
       VnState state,
       VnScenario scenario,
       VnStagePreset stage,
@@ -619,8 +636,8 @@ public class VnRenderer {
     List<LayeredSceneDraw> draws = new ArrayList<>();
     if (orderedCharacters != null) {
       for (int i = 0; i < orderedCharacters.size(); i++) {
-        Map.Entry<CharacterPosition, VnState.CharacterSlot> entry = orderedCharacters.get(i);
-        VnState.CharacterSlot slot = entry.getValue();
+        CharacterRenderEntry entry = orderedCharacters.get(i);
+        VnState.CharacterSlot slot = entry.slot();
         int z = slot != null ? slot.getLayerOrder() : 0;
         draws.add(new LayeredSceneDraw(z, i, () -> renderCharacterEntry(entry, state, scenario, stage, width, height)));
       }
@@ -658,6 +675,14 @@ public class VnRenderer {
   private record SpriteLayer(String path, String layerId, String targetName, Image image) {
   }
 
+  private record CharacterRenderEntry(
+      CharacterPosition position,
+      VnState.CharacterSlot slot,
+      VnState.CharacterVisual visual,
+      int order
+  ) {
+  }
+
   private record EyeFocusDraw(
       boolean active,
       String selectedLayerId,
@@ -678,17 +703,17 @@ public class VnRenderer {
   }
 
   private void renderCharacterEntry(
-      Map.Entry<CharacterPosition, VnState.CharacterSlot> entry,
+      CharacterRenderEntry entry,
       VnState state,
       VnScenario scenario,
       VnStagePreset stage,
       double width,
       double height) {
     if (entry == null) return;
-    CharacterPosition position = entry.getKey();
-    VnState.CharacterSlot slot = entry.getValue();
+    CharacterPosition position = entry.position();
+    VnState.CharacterSlot slot = entry.slot();
     if (slot == null) return;
-    VnState.CharacterVisual visual = state.getCharacterVisual(position);
+    VnState.CharacterVisual visual = entry.visual();
     double alpha = visual != null ? visual.getAlpha() : 1.0;
     double offsetX = visual != null ? visual.getOffsetX() : 0.0;
     double offsetY = visual != null ? visual.getOffsetY() : 0.0;
@@ -960,8 +985,16 @@ public class VnRenderer {
   private double[] characterFocusPoint(VnState state, VnScenario scenario, String characterId, double canvasWidth, double canvasHeight) {
     if (state == null || scenario == null || characterId == null || characterId.isBlank()) return null;
     CharacterPosition position = state.getCharacterPosition(characterId);
-    if (position == null) return null;
-    VnState.CharacterSlot slot = state.getVisibleCharacters().get(position);
+    VnState.CharacterSlot slot = position == null ? null : state.getVisibleCharacters().get(position);
+    VnState.CharacterVisual visual = position == null ? null : state.getCharacterVisual(position);
+    VnState.DetachedCharacterSlot detached = null;
+    if (slot == null) {
+      detached = state.getDetachedCharacter(characterId);
+      if (detached == null) return null;
+      position = detached.getBasePosition();
+      slot = detached.getSlot();
+      visual = detached.getVisual();
+    }
     if (slot == null) return null;
     VnCharacter character = scenario.getCharacter(slot.getCharacterId());
     if (character == null) return null;
@@ -972,9 +1005,13 @@ public class VnRenderer {
     double spriteWidth = reference != null && reference.getHeight() > 0.0
         ? reference.getWidth() * (spriteHeight / reference.getHeight())
         : spriteHeight * 0.5;
-    VnState.CharacterVisual visual = state.getCharacterVisual(position);
     double offsetX = visual != null ? visual.getOffsetX() : 0.0;
     double offsetY = visual != null ? visual.getOffsetY() : 0.0;
+    VnState.TimelineDisplacement displacement = state.getTimelineDisplacement(characterId);
+    if (displacement != null) {
+      if (displacement.hasX() && Math.abs(offsetX) < 1e-6) offsetX += displacement.getX();
+      if (displacement.hasY() && Math.abs(offsetY) < 1e-6) offsetY += displacement.getY();
+    }
     double x = position.computeScreenX(canvasWidth, spriteWidth) + offsetX;
     double y = position.computeScreenY(canvasHeight, spriteHeight, characterBaselineY) + offsetY;
     return new double[] {x + spriteWidth * 0.5, y + spriteHeight * 0.26};
@@ -1878,16 +1915,33 @@ public class VnRenderer {
         };
       } else {
         CharacterPosition position = state.getCharacterPosition(characterId);
+        VnState.CharacterVisual visual = null;
+        VnState.TimelineDisplacement displacement = state.getTimelineDisplacement(characterId);
+        if (position == null) {
+          VnState.DetachedCharacterSlot detached = state.getDetachedCharacter(characterId);
+          if (detached != null) {
+            position = detached.getBasePosition();
+            visual = detached.getVisual();
+          }
+        }
         if (position == null) position = state.getCharacterDefinedPosition(characterId);
         if (position == null) position = dialogue.getPosition();
         if (position != null) {
           anchorX = width * position.getXFraction();
           double spriteHeight = height * characterHeightFactor;
           double topY = position.computeScreenY(height, spriteHeight, characterBaselineY);
-          VnState.CharacterVisual visual = state.getCharacterVisual(position);
+          if (visual == null) visual = state.getCharacterVisual(position);
           if (visual != null) {
             anchorX += visual.getOffsetX();
             topY += visual.getOffsetY();
+          }
+          if (displacement != null) {
+            if (displacement.hasX() && (visual == null || Math.abs(visual.getOffsetX()) < 1e-6)) {
+              anchorX += displacement.getX();
+            }
+            if (displacement.hasY() && (visual == null || Math.abs(visual.getOffsetY()) < 1e-6)) {
+              topY += displacement.getY();
+            }
           }
           anchorY = topY + spriteHeight * 0.22;
         }

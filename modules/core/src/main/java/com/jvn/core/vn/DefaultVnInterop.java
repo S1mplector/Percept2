@@ -1166,6 +1166,7 @@ public class DefaultVnInterop implements VnInterop {
       List<String> chain
   ) {
     if (data == null || scene == null) return;
+    recordTimelineDisplacements(data, scene);
     final boolean[] completed = {false};
     TimelineRunner runner = createTimelineRunnerChain(data, scene, chain, 0, completed);
     scene.getState().addTimelineRunner(runner);
@@ -1188,10 +1189,113 @@ public class DefaultVnInterop implements VnInterop {
         completed[0] = true;
         return;
       }
+      recordTimelineDisplacements(next.get(), scene);
       TimelineRunner nextRunner = createTimelineRunnerChain(next.get(), scene, chain, index + 1, completed);
       scene.getState().addTimelineRunner(nextRunner);
     });
     return runner;
+  }
+
+  private void recordTimelineDisplacements(TimelineData data, VnScene scene) {
+    if (data == null || scene == null || scene.getState() == null) return;
+    VnState state = scene.getState();
+    Map<String, TimelineDisplacementAccumulator> displacements = new LinkedHashMap<>();
+    for (TimelineData.Track track : data.getTracks()) {
+      if (track == null || (!track.hasKeyframes(TimelineData.Property.X) && !track.hasKeyframes(TimelineData.Property.Y))) {
+        continue;
+      }
+      String characterId = resolveTimelineTrackCharacter(track.getEntityName(), state);
+      if (characterId == null || characterId.isBlank()) continue;
+      boolean hasX = track.hasKeyframes(TimelineData.Property.X);
+      boolean hasY = track.hasKeyframes(TimelineData.Property.Y);
+      double x = hasX ? lastKeyframeValue(track, TimelineData.Property.X) : 0.0;
+      double y = hasY ? lastKeyframeValue(track, TimelineData.Property.Y) : 0.0;
+      displacements
+          .computeIfAbsent(characterId, ignored -> new TimelineDisplacementAccumulator())
+          .accept(x, y, hasX, hasY);
+    }
+    for (Map.Entry<String, TimelineDisplacementAccumulator> entry : displacements.entrySet()) {
+      TimelineDisplacementAccumulator displacement = entry.getValue();
+      state.recordTimelineDisplacement(
+          entry.getKey(),
+          displacement.x,
+          displacement.y,
+          displacement.hasX,
+          displacement.hasY);
+    }
+  }
+
+  private String resolveTimelineTrackCharacter(String entityName, VnState state) {
+    if (entityName == null || entityName.isBlank() || state == null) return null;
+    String target = entityName.trim();
+    List<VnState.CharacterSlot> slots = new ArrayList<>();
+    slots.addAll(state.getVisibleCharacters().values());
+    for (VnState.DetachedCharacterSlot detached : state.getDetachedCharacters().values()) {
+      if (detached != null && detached.getSlot() != null) {
+        slots.add(detached.getSlot());
+      }
+    }
+    slots.sort((a, b) -> Integer.compare(
+        safe(b == null ? "" : b.getCharacterId()).length(),
+        safe(a == null ? "" : a.getCharacterId()).length()));
+    for (VnState.CharacterSlot slot : slots) {
+      if (slot == null || slot.getCharacterId() == null || slot.getCharacterId().isBlank()) continue;
+      String characterId = slot.getCharacterId().trim();
+      if (target.equals(characterId)) return characterId;
+      String safeCharacter = selectorSafeName(characterId);
+      String safeExpression = selectorSafeName(slot.getExpression() == null || slot.getExpression().isBlank()
+          ? "neutral"
+          : slot.getExpression());
+      if (!safeCharacter.isBlank() && !safeExpression.isBlank()
+          && target.startsWith(safeCharacter + "_" + safeExpression + "_")) {
+        return characterId;
+      }
+      if (!safeCharacter.isBlank() && target.startsWith(safeCharacter + "_")) {
+        return characterId;
+      }
+    }
+    return null;
+  }
+
+  private double lastKeyframeValue(TimelineData.Track track, TimelineData.Property property) {
+    List<TimelineData.Keyframe> keyframes = track.getKeyframes(property);
+    if (keyframes.isEmpty()) return 0.0;
+    return keyframes.get(keyframes.size() - 1).getValue();
+  }
+
+  private String selectorSafeName(String raw) {
+    String value = raw == null ? "" : raw.trim();
+    StringBuilder out = new StringBuilder();
+    for (int i = 0; i < value.length(); i++) {
+      char ch = value.charAt(i);
+      if (Character.isLetterOrDigit(ch) || ch == '_' || ch == '-') {
+        out.append(ch);
+      } else {
+        out.append('_');
+      }
+    }
+    String cleaned = out.toString().replaceAll("_+", "_");
+    while (cleaned.startsWith("_")) cleaned = cleaned.substring(1);
+    while (cleaned.endsWith("_")) cleaned = cleaned.substring(0, cleaned.length() - 1);
+    return cleaned;
+  }
+
+  private static final class TimelineDisplacementAccumulator {
+    private double x;
+    private double y;
+    private boolean hasX;
+    private boolean hasY;
+
+    private void accept(double x, double y, boolean hasX, boolean hasY) {
+      if (hasX && Double.isFinite(x) && (!this.hasX || Math.abs(x) >= Math.abs(this.x))) {
+        this.x = x;
+        this.hasX = true;
+      }
+      if (hasY && Double.isFinite(y) && (!this.hasY || Math.abs(y) >= Math.abs(this.y))) {
+        this.y = y;
+        this.hasY = true;
+      }
+    }
   }
 
   private Optional<TimelineData> resolveChainedTimeline(List<String> chain, int index, VnScene scene) {
@@ -1680,8 +1784,7 @@ public class DefaultVnInterop implements VnInterop {
         break;
       }
       case "hide": {
-        CharacterPosition position = state.getCharacterPosition(characterId);
-        if (position != null) state.hideCharacterAnimated(position);
+        state.hideCharacterAnimated(characterId);
         break;
       }
       case "bubble": {

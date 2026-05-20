@@ -93,4 +93,48 @@ class VnStateCharacterSlotsTest {
     assertEquals(-10, state.getVisibleCharacters().get(CharacterPosition.LEFT).getLayerOrder());
     assertEquals(10, state.getVisibleCharacters().get(CharacterPosition.RIGHT).getLayerOrder());
   }
+
+  @Test
+  void showCharacterPreservesTimelineDisplacedOccupantAsDetached() {
+    VnState state = new VnState();
+
+    state.showCharacter(CharacterPosition.CENTER, "john", "neutral");
+    state.recordTimelineDisplacement("john", 542.0, 0.0, true, false);
+    state.showCharacter(CharacterPosition.CENTER, "lily", "neutral");
+
+    assertEquals("lily", state.getVisibleCharacters().get(CharacterPosition.CENTER).getCharacterId());
+    assertEquals(1, state.getDetachedCharacters().size());
+    VnState.DetachedCharacterSlot detached = state.getDetachedCharacter("john");
+    assertNotNull(detached);
+    assertEquals(CharacterPosition.CENTER, detached.getBasePosition());
+    assertEquals("john", detached.getSlot().getCharacterId());
+    assertEquals("neutral", detached.getSlot().getExpression());
+  }
+
+  @Test
+  void showCharacterReplacesOccupantWhenTimelineDisplacementIsSmall() {
+    VnState state = new VnState();
+
+    state.showCharacter(CharacterPosition.CENTER, "john", "neutral");
+    state.recordTimelineDisplacement("john", 24.0, 0.0, true, false);
+    state.showCharacter(CharacterPosition.CENTER, "lily", "neutral");
+
+    assertEquals("lily", state.getVisibleCharacters().get(CharacterPosition.CENTER).getCharacterId());
+    assertTrue(state.getDetachedCharacters().isEmpty());
+  }
+
+  @Test
+  void hideCharacterAnimatedCanRemoveDetachedCharacter() {
+    VnState state = new VnState();
+
+    state.showCharacter(CharacterPosition.CENTER, "john", "neutral");
+    state.recordTimelineDisplacement("john", 542.0, 0.0, true, false);
+    state.showCharacter(CharacterPosition.CENTER, "lily", "neutral");
+
+    state.hideCharacterAnimated("john");
+    state.updateCharacterAnimations(300);
+
+    assertNull(state.getDetachedCharacter("john"));
+    assertEquals("lily", state.getVisibleCharacters().get(CharacterPosition.CENTER).getCharacterId());
+  }
 }

@@ -1,6 +1,7 @@
 package com.jvn.core.vn;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -27,11 +28,13 @@ public class VnState {
   private int currentNodeIndex;
   private String currentBackgroundId;
   private final Map<CharacterPosition, CharacterSlot> visibleCharacters;
+  private final Map<String, DetachedCharacterSlot> detachedCharacters;
   private final List<Integer> callStack; // For CALL/RETURN subroutine support
   private final VnRollbackStack rollbackStack;
   private final Map<CharacterPosition, CharacterVisual> characterVisuals;
   private final Map<CharacterPosition, PendingExpressionSwitch> pendingExpressionSwitches;
   private final Map<String, EyeFocusRequest> eyeFocusRequests;
+  private final Map<String, TimelineDisplacement> timelineDisplacements;
   private final Set<String> globalPositionCharacters;
   private final Map<String, CharacterPosition> characterDefinedPositions;
   private final Map<String, Object> variables; // For future flag/variable system
@@ -76,13 +79,16 @@ public class VnState {
   private static final long CHARACTER_TWEEN_MS = 220;
   private static final long CHARACTER_MOVE_MS = 320;
   private static final long CHARACTER_EXPRESSION_FADE_MS = 180;
+  private static final double TIMELINE_SLOT_DETACH_THRESHOLD_PX = 120.0;
 
   public VnState() {
     this.currentNodeIndex = 0;
     this.visibleCharacters = new HashMap<>();
+    this.detachedCharacters = new HashMap<>();
     this.characterVisuals = new HashMap<>();
     this.pendingExpressionSwitches = new HashMap<>();
     this.eyeFocusRequests = new HashMap<>();
+    this.timelineDisplacements = new HashMap<>();
     this.globalPositionCharacters = new HashSet<>();
     this.characterDefinedPositions = new HashMap<>();
     this.variables = new HashMap<>();
@@ -122,6 +128,15 @@ public class VnState {
     return visibleCharacters;
   }
 
+  public Map<String, DetachedCharacterSlot> getDetachedCharacters() {
+    return Collections.unmodifiableMap(detachedCharacters);
+  }
+
+  public DetachedCharacterSlot getDetachedCharacter(String characterId) {
+    if (characterId == null || characterId.isBlank()) return null;
+    return detachedCharacters.get(characterId.trim());
+  }
+
   public void showCharacter(CharacterPosition position, String characterId, String expression) {
     showCharacter(position, characterId, expression, null);
   }
@@ -132,6 +147,8 @@ public class VnState {
     CharacterPosition existingPos = findCharacterPosition(characterId);
     CharacterSlot existingSlot = existingPos == null ? null : visibleCharacters.get(existingPos);
     int resolvedLayerOrder = resolveLayerOrder(target, layerOrder, existingSlot != null ? existingSlot.getLayerOrder() : null);
+    detachedCharacters.remove(normalizeCharacterId(characterId));
+    detachTimelineDisplacedOccupant(target, characterId);
     removeOtherSlotsForCharacter(characterId, target);
     visibleCharacters.put(target, new CharacterSlot(characterId, resolvedExpression, resolvedLayerOrder));
     pendingExpressionSwitches.remove(target);
@@ -148,9 +165,11 @@ public class VnState {
 
   public void clearAllCharacters() {
     visibleCharacters.clear();
+    detachedCharacters.clear();
     characterVisuals.clear();
     pendingExpressionSwitches.clear();
     eyeFocusRequests.clear();
+    timelineDisplacements.clear();
   }
 
   public void showCharacterAnimated(CharacterPosition position, String characterId, String expression) {
@@ -188,6 +207,8 @@ public class VnState {
     }
 
     long tweenDur = customDurationMs > 0 ? customDurationMs : CHARACTER_TWEEN_MS;
+    detachedCharacters.remove(normalizeCharacterId(characterId));
+    detachTimelineDisplacedOccupant(target, characterId);
     removeOtherSlotsForCharacter(characterId, target);
     visibleCharacters.put(target, new CharacterSlot(characterId, resolvedExpression, resolvedLayerOrder));
     pendingExpressionSwitches.remove(target);
@@ -203,6 +224,21 @@ public class VnState {
     if (position == null || !visibleCharacters.containsKey(position)) return;
     CharacterVisual visual = ensureCharacterVisual(position);
     double endX = entranceOffsetX(position);
+    visual.startAnimation(visual.getAlpha(), 0.0, visual.getOffsetX(), endX, visual.getOffsetY(), 0.0, CHARACTER_TWEEN_MS, true);
+  }
+
+  public void hideCharacterAnimated(String characterId) {
+    String id = normalizeCharacterId(characterId);
+    if (id.isEmpty()) return;
+    CharacterPosition position = findCharacterPosition(id);
+    if (position != null) {
+      hideCharacterAnimated(position);
+      return;
+    }
+    DetachedCharacterSlot detached = detachedCharacters.get(id);
+    if (detached == null) return;
+    CharacterVisual visual = detached.getVisual();
+    double endX = entranceOffsetX(detached.getBasePosition());
     visual.startAnimation(visual.getAlpha(), 0.0, visual.getOffsetX(), endX, visual.getOffsetY(), 0.0, CHARACTER_TWEEN_MS, true);
   }
 
@@ -224,6 +260,20 @@ public class VnState {
         if (visual.isFinished() && visual.isRemoveOnComplete()) {
           visibleCharacters.remove(entry.getKey());
           pendingExpressionSwitches.remove(entry.getKey());
+          it.remove();
+        }
+      }
+    }
+
+    if (!detachedCharacters.isEmpty()) {
+      var it = detachedCharacters.entrySet().iterator();
+      while (it.hasNext()) {
+        var entry = it.next();
+        CharacterVisual visual = entry.getValue().getVisual();
+        visual.update(deltaMs);
+        if (visual.isFinished() && visual.isRemoveOnComplete()) {
+          eyeFocusRequests.remove(entry.getKey());
+          timelineDisplacements.remove(entry.getKey());
           it.remove();
         }
       }
@@ -312,6 +362,32 @@ public class VnState {
     return findCharacterPosition(characterId);
   }
 
+  public TimelineDisplacement getTimelineDisplacement(String characterId) {
+    if (characterId == null || characterId.isBlank()) return null;
+    return timelineDisplacements.get(characterId.trim());
+  }
+
+  public void recordTimelineDisplacement(String characterId, double x, double y, boolean hasX, boolean hasY) {
+    String id = normalizeCharacterId(characterId);
+    if (id.isEmpty() || (!hasX && !hasY)) return;
+
+    TimelineDisplacement existing = timelineDisplacements.get(id);
+    double resolvedX = existing != null ? existing.getX() : 0.0;
+    double resolvedY = existing != null ? existing.getY() : 0.0;
+    boolean resolvedHasX = existing != null && existing.hasX();
+    boolean resolvedHasY = existing != null && existing.hasY();
+
+    if (hasX && Double.isFinite(x) && (!resolvedHasX || Math.abs(x) >= Math.abs(resolvedX))) {
+      resolvedX = x;
+      resolvedHasX = true;
+    }
+    if (hasY && Double.isFinite(y) && (!resolvedHasY || Math.abs(y) >= Math.abs(resolvedY))) {
+      resolvedY = y;
+      resolvedHasY = true;
+    }
+    timelineDisplacements.put(id, new TimelineDisplacement(resolvedX, resolvedY, resolvedHasX, resolvedHasY));
+  }
+
   public String getCharacterExpression(String characterId) {
     CharacterPosition position = findCharacterPosition(characterId);
     if (position == null) return null;
@@ -350,6 +426,8 @@ public class VnState {
     pendingExpressionSwitches.remove(position);
     if (slot != null) {
       eyeFocusRequests.remove(slot.getCharacterId());
+      detachedCharacters.remove(slot.getCharacterId());
+      timelineDisplacements.remove(slot.getCharacterId());
     }
   }
 
@@ -370,6 +448,7 @@ public class VnState {
         it.remove();
       }
     }
+    detachedCharacters.remove(normalizeCharacterId(characterId));
   }
 
   private CharacterPosition fallbackPositionFor(String characterId, CharacterPosition requested) {
@@ -388,6 +467,41 @@ public class VnState {
       }
     }
     return null;
+  }
+
+  private void detachTimelineDisplacedOccupant(CharacterPosition target, String incomingCharacterId) {
+    if (target == null) return;
+    CharacterSlot occupant = visibleCharacters.get(target);
+    if (occupant == null) return;
+
+    String occupantId = normalizeCharacterId(occupant.getCharacterId());
+    String incomingId = normalizeCharacterId(incomingCharacterId);
+    if (occupantId.isEmpty() || occupantId.equals(incomingId)) return;
+    if (!hasTimelineDisplacementAwayFromSlot(occupantId)) return;
+
+    CharacterVisual visual = characterVisuals.get(target);
+    detachedCharacters.put(occupantId, new DetachedCharacterSlot(target, occupant, snapshotVisual(visual)));
+    visibleCharacters.remove(target);
+    characterVisuals.remove(target);
+    pendingExpressionSwitches.remove(target);
+  }
+
+  private boolean hasTimelineDisplacementAwayFromSlot(String characterId) {
+    TimelineDisplacement displacement = getTimelineDisplacement(characterId);
+    if (displacement == null) return false;
+    return (displacement.hasX() && Math.abs(displacement.getX()) >= TIMELINE_SLOT_DETACH_THRESHOLD_PX)
+        || (displacement.hasY() && Math.abs(displacement.getY()) >= TIMELINE_SLOT_DETACH_THRESHOLD_PX);
+  }
+
+  private CharacterVisual snapshotVisual(CharacterVisual visual) {
+    CharacterVisual copy = new CharacterVisual();
+    if (visual == null) return copy;
+    copy.setImmediate(visual.getAlpha(), visual.getOffsetX(), visual.getOffsetY());
+    return copy;
+  }
+
+  private String normalizeCharacterId(String characterId) {
+    return characterId == null ? "" : characterId.trim();
   }
 
   private String normalizeExpression(String expression, String fallback) {
@@ -772,6 +886,41 @@ public class VnState {
     public String getCharacterId() { return characterId; }
     public String getExpression() { return expression; }
     public int getLayerOrder() { return layerOrder; }
+  }
+
+  public static class DetachedCharacterSlot {
+    private final CharacterPosition basePosition;
+    private final CharacterSlot slot;
+    private final CharacterVisual visual;
+
+    public DetachedCharacterSlot(CharacterPosition basePosition, CharacterSlot slot, CharacterVisual visual) {
+      this.basePosition = basePosition == null ? CharacterPosition.CENTER : basePosition;
+      this.slot = slot;
+      this.visual = visual == null ? new CharacterVisual() : visual;
+    }
+
+    public CharacterPosition getBasePosition() { return basePosition; }
+    public CharacterSlot getSlot() { return slot; }
+    public CharacterVisual getVisual() { return visual; }
+  }
+
+  public static class TimelineDisplacement {
+    private final double x;
+    private final double y;
+    private final boolean hasX;
+    private final boolean hasY;
+
+    public TimelineDisplacement(double x, double y, boolean hasX, boolean hasY) {
+      this.x = Double.isFinite(x) ? x : 0.0;
+      this.y = Double.isFinite(y) ? y : 0.0;
+      this.hasX = hasX;
+      this.hasY = hasY;
+    }
+
+    public double getX() { return x; }
+    public double getY() { return y; }
+    public boolean hasX() { return hasX; }
+    public boolean hasY() { return hasY; }
   }
 
   public static class CharacterVisual {

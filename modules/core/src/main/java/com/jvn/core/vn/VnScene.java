@@ -604,17 +604,7 @@ public class VnScene implements Scene {
   private void processHideNode(VnNode node) {
     String characterIdToHide = node.getCharacterToHide();
     if (characterIdToHide == null) return;
-
-    java.util.List<CharacterPosition> positionsToRemove = new java.util.ArrayList<>();
-    for (var entry : state.getVisibleCharacters().entrySet()) {
-      VnState.CharacterSlot slot = entry.getValue();
-      if (slot != null && characterIdToHide.equals(slot.getCharacterId())) {
-        positionsToRemove.add(entry.getKey());
-      }
-    }
-    for (CharacterPosition position : positionsToRemove) {
-      state.hideCharacterAnimated(position);
-    }
+    state.hideCharacterAnimated(characterIdToHide);
   }
 
   private void processWaitNode(VnNode node) {

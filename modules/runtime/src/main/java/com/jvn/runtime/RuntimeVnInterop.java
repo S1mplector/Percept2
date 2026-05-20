@@ -346,10 +346,7 @@ public class RuntimeVnInterop implements VnInterop, VnTimelineAccessorProvider {
       }
       case "hide": {
         if (target.isBlank()) return;
-        CharacterPosition position = state.getCharacterPosition(target);
-        if (position != null) {
-          state.hideCharacterAnimated(position);
-        }
+        state.hideCharacterAnimated(target);
         break;
       }
       case "scene": {
@@ -421,8 +418,7 @@ public class RuntimeVnInterop implements VnInterop, VnTimelineAccessorProvider {
       }
       case "hide" -> {
         if (toks.length < 2) return;
-        CharacterPosition position = state.getCharacterPosition(toks[1]);
-        if (position != null) state.hideCharacterAnimated(position);
+        state.hideCharacterAnimated(toks[1]);
       }
       case "expression", "expr", "replace" -> {
         if (toks.length < 3) return;
@@ -870,10 +866,19 @@ public class RuntimeVnInterop implements VnInterop, VnTimelineAccessorProvider {
     if (vn == null || characterId == null) return null;
     com.jvn.core.vn.VnState state = vn.getState();
     CharacterPosition pos = state.getCharacterPosition(characterId);
-    if (pos == null) return null; // character not currently visible
+    com.jvn.core.vn.VnState.CharacterVisual visual = null;
+    if (pos != null) {
+      visual = state.getOrCreateCharacterVisual(pos);
+    } else {
+      com.jvn.core.vn.VnState.DetachedCharacterSlot detached = state.getDetachedCharacter(characterId);
+      if (detached != null) {
+        pos = detached.getBasePosition();
+        visual = detached.getVisual();
+      }
+    }
+    if (pos == null || visual == null) return null; // character not currently visible
     VnCharacterProxyEntity proxy = vnCharacterProxies.get(characterId);
-    if (proxy == null || proxy.position != pos) {
-      com.jvn.core.vn.VnState.CharacterVisual visual = state.getOrCreateCharacterVisual(pos);
+    if (proxy == null || proxy.position != pos || proxy.visual != visual) {
       proxy = new VnCharacterProxyEntity(characterId, pos, visual);
       vnCharacterProxies.put(characterId, proxy);
     }
