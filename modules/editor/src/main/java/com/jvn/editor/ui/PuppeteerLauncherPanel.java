@@ -12,6 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
@@ -260,7 +261,7 @@ button then opens it in the editor."""));
         "Launch Puppeteer with scene snapshot from the current cursor line");
     btnLaunch.setOnAction(e -> {
       if (onLaunch != null) {
-        onLaunch.accept(new LaunchRequest(buildSnapshot(currentLine), null));
+        launchAtCursor();
       }
     });
 
@@ -372,6 +373,49 @@ button then opens it in the editor."""));
 
   public void setOnOpenTarget(Consumer<OpenTarget> handler) {
     this.onOpenTarget = handler;
+  }
+
+  private void launchAtCursor() {
+    if (onLaunch == null) return;
+    SceneSnapshot snapshot = buildSnapshot(currentLine);
+    if (snapshot == null || !snapshot.hasTimelineContext()) {
+      onLaunch.accept(new LaunchRequest(snapshot, null, LaunchTimelineMode.NEW_FROM_SNAPSHOT));
+      return;
+    }
+
+    VBox body = new VBox(8);
+    body.getStyleClass().add("editor-dialog-form");
+
+    Label context = new Label("Timeline: " + describeTimelineContext(snapshot)
+        + "\nLine: " + Math.max(1, snapshot.atLine + 1)
+        + (snapshot.currentLabel != null && !snapshot.currentLabel.isBlank() ? "\nLabel: " + snapshot.currentLabel : ""));
+    context.setStyle("-fx-text-fill: #d8d8d8; -fx-font-size: 12px;");
+    context.setWrapText(true);
+
+    Label load = new Label("Load Timeline imports the most recent inline or registered timeline at the cursor, using the current script scene as its stage.");
+    load.setStyle("-fx-text-fill: #c9d8ff; -fx-font-size: 11px;");
+    load.setWrapText(true);
+
+    Label fresh = new Label("New From Scene opens a blank timeline from the latest reconstructed background and character positions. If a timeline already ran before this cursor, Puppeteer will apply its final transform to the scene only.");
+    fresh.setStyle("-fx-text-fill: #d5d5d5; -fx-font-size: 11px;");
+    fresh.setWrapText(true);
+
+    body.getChildren().addAll(context, load, fresh);
+
+    Optional<String> action = EditorDialogs.show(
+        getScene() == null ? null : getScene().getWindow(),
+        "Launch Puppeteer",
+        "Choose how Puppeteer should use the timeline found at this cursor.",
+        body,
+        EditorDialogs.ActionSpec.neutral("cancel", "Cancel", null).defaultFocus(false),
+        EditorDialogs.ActionSpec.neutral("new", "New From Scene", null),
+        EditorDialogs.ActionSpec.accent("load", "Load Timeline", null).defaultFocus(true));
+    if (action.isEmpty() || "cancel".equals(action.get())) return;
+
+    LaunchTimelineMode mode = "new".equals(action.get())
+        ? LaunchTimelineMode.NEW_FROM_SNAPSHOT
+        : LaunchTimelineMode.LOAD_TIMELINE;
+    onLaunch.accept(new LaunchRequest(snapshot, null, mode));
   }
 
   
@@ -2127,6 +2171,10 @@ button then opens it in the editor."""));
       return inlineTimelineBody != null && !inlineTimelineBody.isBlank();
     }
 
+    public boolean hasTimelineContext() {
+      return hasInlineTimeline() || (referencedTimelineName != null && !referencedTimelineName.isBlank());
+    }
+
     public String preferredTimelineName() {
       if (hasInlineTimeline() && inlineTimelineName != null && !inlineTimelineName.isBlank()) {
         return inlineTimelineName;
@@ -2143,7 +2191,21 @@ button then opens it in the editor."""));
     }
   }
 
-  public record LaunchRequest(SceneSnapshot snapshot, String timelineName) {}
+  public enum LaunchTimelineMode {
+    AUTO,
+    LOAD_TIMELINE,
+    NEW_FROM_SNAPSHOT
+  }
+
+  public record LaunchRequest(SceneSnapshot snapshot, String timelineName, LaunchTimelineMode mode) {
+    public LaunchRequest(SceneSnapshot snapshot, String timelineName) {
+      this(snapshot, timelineName, LaunchTimelineMode.AUTO);
+    }
+
+    public LaunchRequest {
+      if (mode == null) mode = LaunchTimelineMode.AUTO;
+    }
+  }
 
   public record RegisteredAnimation(
       String name,
