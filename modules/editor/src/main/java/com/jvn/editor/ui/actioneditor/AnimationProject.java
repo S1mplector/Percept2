@@ -163,6 +163,8 @@ public class AnimationProject {
         private final double visualMinY;
         private final double visualMaxX;
         private final double visualMaxY;
+        private final double runtimeBaseX;
+        private final double runtimeBaseY;
 
         public SceneEntitySnapshot(
             String name,
@@ -203,6 +205,30 @@ public class AnimationProject {
             double visualMaxX,
             double visualMaxY
         ) {
+            this(name, type, imagePath, x, y, width, height, originX, originY, z, visible, alpha,
+                visualMinX, visualMinY, visualMaxX, visualMaxY, x, y);
+        }
+
+        public SceneEntitySnapshot(
+            String name,
+            String type,
+            String imagePath,
+            double x,
+            double y,
+            double width,
+            double height,
+            double originX,
+            double originY,
+            double z,
+            boolean visible,
+            double alpha,
+            double visualMinX,
+            double visualMinY,
+            double visualMaxX,
+            double visualMaxY,
+            double runtimeBaseX,
+            double runtimeBaseY
+        ) {
             this.name = name != null ? name.trim() : "";
             this.type = type != null && !type.isBlank() ? type.trim() : "entity";
             this.imagePath = imagePath != null ? imagePath.trim() : "";
@@ -223,6 +249,8 @@ public class AnimationProject {
             this.visualMinY = sanitizeFinite(visualMinY, fallbackMinY);
             this.visualMaxX = sanitizeFinite(visualMaxX, fallbackMaxX);
             this.visualMaxY = sanitizeFinite(visualMaxY, fallbackMaxY);
+            this.runtimeBaseX = sanitizeFinite(runtimeBaseX, this.x);
+            this.runtimeBaseY = sanitizeFinite(runtimeBaseY, this.y);
         }
 
         public String name() { return name; }
@@ -241,6 +269,8 @@ public class AnimationProject {
         public double visualMinY() { return visualMinY; }
         public double visualMaxX() { return visualMaxX; }
         public double visualMaxY() { return visualMaxY; }
+        public double runtimeBaseX() { return runtimeBaseX; }
+        public double runtimeBaseY() { return runtimeBaseY; }
     }
 
     public String getName() { return name; }

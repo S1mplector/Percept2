@@ -76,6 +76,42 @@ class DefaultVnInteropQuotedArgsTest {
   }
 
   @Test
+  void laterInlineTimelineMoveReplacesEarlierCharacterDisplacement() {
+    VnScenario scenario = new VnScenarioBuilder("timeline_displacement_latest")
+      .addCharacterWithExpressions("john", "John", "body.png")
+      .label("start")
+      .end()
+      .build();
+    VnScene scene = new VnScene(scenario);
+    scene.getState().showCharacter(CharacterPosition.CENTER, "john", "neutral");
+    DefaultVnInterop interop = new DefaultVnInterop();
+    interop.setSceneAccessor(new VnCharacterSceneAccessor());
+
+    interop.handle(new VnExternalCommand("jes_timeline_inline", """
+        timeline {
+          move "john_neutral_body_default" {
+            x: 542
+            dur: 100
+          }
+        }
+        """), scene);
+
+    interop.handle(new VnExternalCommand("jes_timeline_inline", """
+        timeline {
+          move "john_neutral_body_default" {
+            x: -532
+            dur: 100
+          }
+        }
+        """), scene);
+
+    VnState.TimelineDisplacement displacement = scene.getState().getTimelineDisplacement("john");
+    assertNotNull(displacement);
+    assertTrue(displacement.hasX());
+    assertEquals(-532.0, displacement.getX(), 0.0001);
+  }
+
+  @Test
   void supportsQuotedArgsInVarCondAndJavaInterop() {
     VnScenario scenario = new VnScenarioBuilder("quoted_interop")
       .label("start")

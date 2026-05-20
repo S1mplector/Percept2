@@ -394,11 +394,11 @@ public class VnState {
     boolean resolvedHasX = existing != null && existing.hasX();
     boolean resolvedHasY = existing != null && existing.hasY();
 
-    if (hasX && Double.isFinite(x) && (!resolvedHasX || Math.abs(x) >= Math.abs(resolvedX))) {
+    if (hasX && Double.isFinite(x)) {
       resolvedX = x;
       resolvedHasX = true;
     }
-    if (hasY && Double.isFinite(y) && (!resolvedHasY || Math.abs(y) >= Math.abs(resolvedY))) {
+    if (hasY && Double.isFinite(y)) {
       resolvedY = y;
       resolvedHasY = true;
     }

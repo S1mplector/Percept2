@@ -40,6 +40,8 @@ public class CodeExporter {
                 .append(" image=").append(encode(entity.imagePath()))
                 .append(" x=").append(formatMetadataNumber(entity.x()))
                 .append(" y=").append(formatMetadataNumber(entity.y()))
+                .append(" rbx=").append(formatMetadataNumber(entity.runtimeBaseX()))
+                .append(" rby=").append(formatMetadataNumber(entity.runtimeBaseY()))
                 .append(" w=").append(formatMetadataNumber(entity.width()))
                 .append(" h=").append(formatMetadataNumber(entity.height()))
                 .append(" ox=").append(formatMetadataNumber(entity.originX()))
@@ -587,8 +589,8 @@ public class CodeExporter {
             case "move" -> {
                 AnimationProject.SceneEntitySnapshot snap = project != null
                     ? project.getSceneEntitySnapshotsView().get(target) : null;
-                double ox = snap != null ? snap.x() : 0.0;
-                double oy = snap != null ? snap.y() : 0.0;
+                double ox = snap != null ? snap.runtimeBaseX() : 0.0;
+                double oy = snap != null ? snap.runtimeBaseY() : 0.0;
                 if (hasP1) ev.props.put("x", value1 - ox);
                 if (hasP2) ev.props.put("y", value2 - oy);
             }

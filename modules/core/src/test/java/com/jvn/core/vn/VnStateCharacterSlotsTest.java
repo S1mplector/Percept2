@@ -144,6 +144,21 @@ class VnStateCharacterSlotsTest {
   }
 
   @Test
+  void timelineDisplacementUsesLatestAnimatedAxisInsteadOfLargestAbsoluteOffset() {
+    VnState state = new VnState();
+
+    state.recordTimelineDisplacement("john", 542.0, 6.0, true, true);
+    state.recordTimelineDisplacement("john", -532.0, 0.0, true, false);
+
+    VnState.TimelineDisplacement displacement = state.getTimelineDisplacement("john");
+    assertNotNull(displacement);
+    assertTrue(displacement.hasX());
+    assertTrue(displacement.hasY());
+    assertEquals(-532.0, displacement.getX(), 0.0001);
+    assertEquals(6.0, displacement.getY(), 0.0001);
+  }
+
+  @Test
   void hideCharacterAnimatedCanRemoveDetachedCharacter() {
     VnState state = new VnState();
 
