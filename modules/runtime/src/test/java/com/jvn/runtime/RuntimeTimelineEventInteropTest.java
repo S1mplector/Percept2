@@ -19,6 +19,7 @@ import com.jvn.core.vn.CharacterPosition;
 import com.jvn.core.vn.VnExternalCommand;
 import com.jvn.core.vn.VnScenarioBuilder;
 import com.jvn.core.vn.VnScene;
+import com.jvn.core.vn.VnState;
 import com.jvn.scripting.jes.JesLoader;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 
@@ -214,6 +215,36 @@ class RuntimeTimelineEventInteropTest {
     assertEquals(-1.0, proxy.getScaleX(), 0.000001);
     assertEquals(0.5, proxy.getOriginX(), 0.000001);
     assertEquals(1.0, proxy.getOriginY(), 0.000001);
+  }
+
+  @Test
+  void expressionEventUpdatesDetachedTimelineCharacterWithoutReplacingVisibleSlot() {
+    Engine engine = new Engine(ApplicationConfig.builder().build());
+    RuntimeVnInterop interop = new RuntimeVnInterop(engine);
+    VnScene vn = new VnScene(new VnScenarioBuilder("owner").end().build());
+    vn.setInterop(interop);
+    engine.scenes().push(vn);
+    vn.getState().showCharacter(CharacterPosition.CENTER, "john", "neutral");
+    vn.getState().recordTimelineDisplacement("john", 542.0, 0.0, true, false);
+    vn.getState().showCharacter(CharacterPosition.CENTER, "lily", "neutral");
+
+    interop.getBase().handle(new VnExternalCommand("jes_timeline_inline", """
+        timeline {
+          event "expression" {
+            target: john
+            value: talking
+          }
+        }
+        """), vn);
+
+    vn.getState().updateTimelineRunners(1);
+
+    VnState.CharacterSlot lily = vn.getState().getVisibleCharacters().get(CharacterPosition.CENTER);
+    assertNotNull(lily);
+    assertEquals("lily", lily.getCharacterId());
+    VnState.DetachedCharacterSlot john = vn.getState().getDetachedCharacter("john");
+    assertNotNull(john);
+    assertEquals("talking", john.getSlot().getExpression());
   }
 
   @Test

@@ -322,10 +322,12 @@ public class RuntimeVnInterop implements VnInterop, VnTimelineAccessorProvider {
       case "expression":
       case "replace": {
         if (target.isBlank()) return;
-        CharacterPosition position = state.getCharacterPosition(target);
         String expression = firstNonBlank(safePayload.get("expression"), safePayload.get("value"));
         if (expression == null || expression.isBlank()) return;
-        state.showCharacterAnimated(position == null ? CharacterPosition.CENTER : position, target, expression);
+        if (!state.setCharacterExpression(target, expression)) {
+          CharacterPosition position = state.getCharacterPosition(target);
+          state.showCharacterAnimated(position == null ? CharacterPosition.CENTER : position, target, expression);
+        }
         break;
       }
       case "show": {
@@ -423,9 +425,11 @@ public class RuntimeVnInterop implements VnInterop, VnTimelineAccessorProvider {
       case "expression", "expr", "replace" -> {
         if (toks.length < 3) return;
         String target = toks[1];
-        CharacterPosition position = state.getCharacterPosition(target);
-        if (position == null) position = CharacterPosition.CENTER;
-        state.showCharacterAnimated(position, target, toks[2]);
+        if (!state.setCharacterExpression(target, toks[2])) {
+          CharacterPosition position = state.getCharacterPosition(target);
+          if (position == null) position = CharacterPosition.CENTER;
+          state.showCharacterAnimated(position, target, toks[2]);
+        }
       }
       case "scene", "background", "bg" -> {
         if (toks.length >= 2) state.setCurrentBackgroundId(toks[1]);

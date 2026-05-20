@@ -1916,10 +1916,11 @@ public class DefaultVnInterop implements VnInterop {
       case "expr": {
         if (toks.length < 3) return;
         String expression = toks[2];
-        CharacterPosition position = state.getCharacterPosition(characterId);
-        if (position == null) position = state.getCharacterDefinedPosition(characterId);
-        if (position == null) position = CharacterPosition.CENTER;
-        state.showCharacterAnimated(position, characterId, expression);
+        if (!state.setCharacterExpression(characterId, expression)) {
+          CharacterPosition position = state.getCharacterDefinedPosition(characterId);
+          if (position == null) position = CharacterPosition.CENTER;
+          state.showCharacterAnimated(position, characterId, expression);
+        }
         break;
       }
       case "hide": {

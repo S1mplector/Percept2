@@ -79,7 +79,6 @@ public class VnState {
 
   private static final long CHARACTER_TWEEN_MS = 220;
   private static final long CHARACTER_MOVE_MS = 320;
-  private static final long CHARACTER_EXPRESSION_FADE_MS = 180;
   private static final double TIMELINE_SLOT_DETACH_THRESHOLD_PX = 120.0;
 
   public VnState() {
@@ -192,6 +191,16 @@ public class VnState {
     String resolvedExpression = normalizeExpression(expression, fallbackExpression);
     int resolvedLayerOrder = resolveLayerOrder(target, layerOrder, existingSlot != null ? existingSlot.getLayerOrder() : null);
 
+    if (existingPos != null && existingSlot != null && existingPos.equals(target)) {
+      visibleCharacters.put(target, new CharacterSlot(characterId, resolvedExpression, resolvedLayerOrder));
+      pendingExpressionSwitches.remove(target);
+      ensureCharacterVisual(target);
+      if (isCharacterGlobalPositionEnabled(characterId)) {
+        characterDefinedPositions.put(characterId, target);
+      }
+      return;
+    }
+
     if (isCharacterGlobalPositionEnabled(characterId) && existingPos != null && existingSlot != null && !existingPos.equals(target)) {
       // Move the same sprite between slots, then fade expression if needed.
       long moveDur = customDurationMs > 0 ? customDurationMs : CHARACTER_MOVE_MS;
@@ -303,8 +312,6 @@ public class VnState {
           continue;
         }
         visibleCharacters.put(position, new CharacterSlot(slot.getCharacterId(), pending.expression, slot.getLayerOrder()));
-        CharacterVisual visual = ensureCharacterVisual(position);
-        visual.startAnimation(0.0, 1.0, 0.0, 0.0, 0.0, 0.0, CHARACTER_EXPRESSION_FADE_MS, false);
         it.remove();
       }
     }
@@ -504,9 +511,37 @@ public class VnState {
 
   public String getCharacterExpression(String characterId) {
     CharacterPosition position = findCharacterPosition(characterId);
-    if (position == null) return null;
-    CharacterSlot slot = visibleCharacters.get(position);
+    CharacterSlot slot = position == null ? null : visibleCharacters.get(position);
+    if (slot == null) {
+      DetachedCharacterSlot detached = getDetachedCharacter(characterId);
+      slot = detached == null ? null : detached.getSlot();
+    }
     return slot == null ? null : slot.getExpression();
+  }
+
+  public boolean setCharacterExpression(String characterId, String expression) {
+    String id = normalizeCharacterId(characterId);
+    if (id.isEmpty()) return false;
+    String resolvedExpression = normalizeExpression(expression, "neutral");
+
+    CharacterPosition position = findCharacterPosition(id);
+    if (position != null) {
+      CharacterSlot slot = visibleCharacters.get(position);
+      if (slot == null) return false;
+      visibleCharacters.put(position, new CharacterSlot(slot.getCharacterId(), resolvedExpression, slot.getLayerOrder()));
+      pendingExpressionSwitches.remove(position);
+      ensureCharacterVisual(position);
+      return true;
+    }
+
+    DetachedCharacterSlot detached = detachedCharacters.get(id);
+    if (detached == null || detached.getSlot() == null) return false;
+    CharacterSlot slot = detached.getSlot();
+    detachedCharacters.put(id, new DetachedCharacterSlot(
+        detached.getBasePosition(),
+        new CharacterSlot(slot.getCharacterId(), resolvedExpression, slot.getLayerOrder()),
+        detached.getVisual()));
+    return true;
   }
 
   public void setEyeFocusRequest(EyeFocusRequest request) {

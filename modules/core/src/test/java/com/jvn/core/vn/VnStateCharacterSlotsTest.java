@@ -66,12 +66,32 @@ class VnStateCharacterSlotsTest {
     assertEquals(1, state.getVisibleCharacters().size());
     assertFalse(state.getVisibleCharacters().containsKey(CharacterPosition.CENTER));
     assertTrue(state.getVisibleCharacters().containsKey(CharacterPosition.RIGHT));
-    // During movement we keep previous expression, then switch with fade.
+    // During movement we keep previous expression, then switch in place.
     assertEquals("neutral", state.getVisibleCharacters().get(CharacterPosition.RIGHT).getExpression());
 
     state.updateCharacterAnimations(400);
     assertEquals("smile", state.getVisibleCharacters().get(CharacterPosition.RIGHT).getExpression());
     assertEquals(CharacterPosition.RIGHT, state.getCharacterDefinedPosition("codel"));
+  }
+
+  @Test
+  void showCharacterAnimatedExpressionOnlySwitchDoesNotRestartVisualAnimation() {
+    VnState state = new VnState();
+
+    state.showCharacter(CharacterPosition.CENTER, "john", "neutral");
+    VnState.CharacterVisual visual = state.getCharacterVisual(CharacterPosition.CENTER);
+    assertNotNull(visual);
+    visual.setImmediate(0.8, 42.0, -6.0);
+
+    state.showCharacterAnimated(CharacterPosition.CENTER, "john", "talking");
+
+    VnState.CharacterSlot slot = state.getVisibleCharacters().get(CharacterPosition.CENTER);
+    assertNotNull(slot);
+    assertEquals("talking", slot.getExpression());
+    assertEquals(0.8, visual.getAlpha(), 0.001);
+    assertEquals(42.0, visual.getOffsetX(), 0.001);
+    assertEquals(-6.0, visual.getOffsetY(), 0.001);
+    assertTrue(visual.isFinished());
   }
 
   @Test
@@ -136,5 +156,24 @@ class VnStateCharacterSlotsTest {
 
     assertNull(state.getDetachedCharacter("john"));
     assertEquals("lily", state.getVisibleCharacters().get(CharacterPosition.CENTER).getCharacterId());
+  }
+
+  @Test
+  void expressionOnlySwitchCanUpdateDetachedTimelineCharacter() {
+    VnState state = new VnState();
+
+    state.showCharacter(CharacterPosition.CENTER, "john", "neutral");
+    state.recordTimelineDisplacement("john", 542.0, 0.0, true, false);
+    state.showCharacter(CharacterPosition.CENTER, "lily", "neutral");
+
+    assertTrue(state.setCharacterExpression("john", "talking"));
+
+    VnState.CharacterSlot lily = state.getVisibleCharacters().get(CharacterPosition.CENTER);
+    assertNotNull(lily);
+    assertEquals("lily", lily.getCharacterId());
+    assertEquals("talking", state.getCharacterExpression("john"));
+    VnState.DetachedCharacterSlot detached = state.getDetachedCharacter("john");
+    assertNotNull(detached);
+    assertEquals("talking", detached.getSlot().getExpression());
   }
 }

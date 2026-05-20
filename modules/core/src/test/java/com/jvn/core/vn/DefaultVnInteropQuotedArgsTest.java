@@ -353,6 +353,26 @@ class DefaultVnInteropQuotedArgsTest {
     assertNull(scene.getState().getEyeFocusRequest("john"));
   }
 
+  @Test
+  void characterExpressionInteropPreservesDetachedTimelinePlacement() {
+    VnScene scene = new VnScene(new VnScenarioBuilder("char_expression").end().build());
+    DefaultVnInterop interop = new DefaultVnInterop();
+
+    scene.getState().showCharacter(CharacterPosition.CENTER, "john", "neutral");
+    scene.getState().recordTimelineDisplacement("john", 542.0, 0.0, true, false);
+    scene.getState().showCharacter(CharacterPosition.CENTER, "lily", "neutral");
+
+    interop.handle(new VnExternalCommand("char", "john expression talking"), scene);
+
+    VnState.CharacterSlot lily = scene.getState().getVisibleCharacters().get(CharacterPosition.CENTER);
+    assertNotNull(lily);
+    assertEquals("lily", lily.getCharacterId());
+    assertEquals("talking", scene.getState().getCharacterExpression("john"));
+    VnState.DetachedCharacterSlot john = scene.getState().getDetachedCharacter("john");
+    assertNotNull(john);
+    assertEquals("talking", john.getSlot().getExpression());
+  }
+
   public static class Methods {
     public static String join(String a, String b) {
       return a + "|" + b;

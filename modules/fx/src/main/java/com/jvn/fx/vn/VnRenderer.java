@@ -792,7 +792,7 @@ public class VnRenderer {
       VnState state,
       String characterId) {
     VnState.TimelineTransform transform = state == null ? null : state.getTimelineTransform(characterId);
-    if (!hasRenderableTimelineTransform(transform)) {
+    if (transform == null || !hasRenderableTimelineTransform(transform)) {
       drawCharacterImage(image, imagePath, x, y, width, height, canvasWidth, canvasHeight, stage);
       return;
     }
