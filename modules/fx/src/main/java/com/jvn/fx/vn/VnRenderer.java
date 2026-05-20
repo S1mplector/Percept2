@@ -764,17 +764,31 @@ public class VnRenderer {
         character, expression, characterId, layerPaths, defaultX, defaultY, spriteWidth, spriteHeight, width, height, state, scenario, stage)) {
       return;
     }
+    double resolvedX = timelineDisplacementFallbackX(defaultX, state, characterId, offsetX);
+    double resolvedY = timelineDisplacementFallbackY(defaultY, state, characterId, offsetY);
     if (reference == null) {
       // Draw placeholder silhouette box
       gc.setFill(Color.rgb(200, 200, 200, 0.4));
-      gc.fillRoundRect(defaultX, defaultY, spriteWidth, spriteHeight, 20, 20);
+      gc.fillRoundRect(resolvedX, resolvedY, spriteWidth, spriteHeight, 20, 20);
       gc.setStroke(Color.WHITE);
       gc.setLineWidth(2);
-      gc.strokeRoundRect(defaultX, defaultY, spriteWidth, spriteHeight, 20, 20);
+      gc.strokeRoundRect(resolvedX, resolvedY, spriteWidth, spriteHeight, 20, 20);
       return;
     }
 
-    drawCharacterImage(reference, imagePath, defaultX, defaultY, spriteWidth, spriteHeight, width, height, stage);
+    drawCharacterImage(reference, imagePath, resolvedX, resolvedY, spriteWidth, spriteHeight, width, height, stage);
+  }
+
+  private double timelineDisplacementFallbackX(double defaultX, VnState state, String characterId, double visualOffsetX) {
+    VnState.TimelineDisplacement displacement = state == null ? null : state.getTimelineDisplacement(characterId);
+    if (displacement == null || !displacement.hasX() || Math.abs(visualOffsetX) > 1e-6) return defaultX;
+    return defaultX + displacement.getX();
+  }
+
+  private double timelineDisplacementFallbackY(double defaultY, VnState state, String characterId, double visualOffsetY) {
+    VnState.TimelineDisplacement displacement = state == null ? null : state.getTimelineDisplacement(characterId);
+    if (displacement == null || !displacement.hasY() || Math.abs(visualOffsetY) > 1e-6) return defaultY;
+    return defaultY + displacement.getY();
   }
 
   private boolean renderTimelineDrivenLayers(
