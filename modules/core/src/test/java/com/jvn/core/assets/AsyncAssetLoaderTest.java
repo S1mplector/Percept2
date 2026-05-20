@@ -36,7 +36,7 @@ class AsyncAssetLoaderTest {
   }
 
   @Test
-  void executorUsesAtMostFourThreads() throws Exception {
+  void executorUsesBoundedAssetIoThreads() throws Exception {
     URL resource = getClass().getResource("/com/jvn/core/assets/test-asset.txt");
     assertNotNull(resource);
 
@@ -55,8 +55,8 @@ class AsyncAssetLoaderTest {
     CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
         .get(10, TimeUnit.SECONDS);
 
-    assertTrue(threadNames.size() <= 4,
-        "Expected ≤4 threads but got: " + threadNames);
+    assertTrue(threadNames.size() <= 16,
+        "Expected ≤16 threads but got: " + threadNames);
     for (String name : threadNames) {
       assertTrue(name.startsWith("jvn-asset-io-"),
           "Thread name should start with 'jvn-asset-io-' but was: " + name);
@@ -64,20 +64,20 @@ class AsyncAssetLoaderTest {
   }
 
   @Test
-  void defaultThreadCountLeavesRoomOnLimitedCoreSystems() {
-    assertEquals(1, AsyncAssetLoader.resolveThreadCount(1, ""));
-    assertEquals(1, AsyncAssetLoader.resolveThreadCount(2, ""));
-    assertEquals(2, AsyncAssetLoader.resolveThreadCount(3, ""));
-    assertEquals(3, AsyncAssetLoader.resolveThreadCount(4, ""));
-    assertEquals(4, AsyncAssetLoader.resolveThreadCount(8, ""));
+  void defaultThreadCountUsesFourToSixteenThreads() {
+    assertEquals(4, AsyncAssetLoader.resolveThreadCount(1, ""));
+    assertEquals(4, AsyncAssetLoader.resolveThreadCount(2, ""));
+    assertEquals(6, AsyncAssetLoader.resolveThreadCount(3, ""));
+    assertEquals(8, AsyncAssetLoader.resolveThreadCount(4, ""));
+    assertEquals(16, AsyncAssetLoader.resolveThreadCount(8, ""));
   }
 
   @Test
   void configuredThreadCountIsBounded() {
     assertEquals(6, AsyncAssetLoader.resolveThreadCount(2, "6"));
     assertEquals(16, AsyncAssetLoader.resolveThreadCount(8, "64"));
-    assertEquals(1, AsyncAssetLoader.resolveThreadCount(2, "invalid"));
-    assertEquals(1, AsyncAssetLoader.resolveThreadCount(2, "0"));
+    assertEquals(4, AsyncAssetLoader.resolveThreadCount(2, "invalid"));
+    assertEquals(4, AsyncAssetLoader.resolveThreadCount(2, "0"));
   }
 
   @Test
