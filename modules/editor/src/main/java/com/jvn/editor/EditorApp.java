@@ -7197,23 +7197,23 @@ public class EditorApp extends Application {
     double fallbackWidth = sceneW * 0.16;
     double fallbackHeight = sceneH * 0.62;
 
-	    PuppeteerLauncherPanel.CharacterEntry snapshotEntry = null;
-	    if (snapshot != null) {
-	      String snapshotCharacterId = resolveSnapshotTrackCharacter(entityName, snapshot);
-	      for (PuppeteerLauncherPanel.CharacterEntry entry : snapshot.characters) {
-	        if (entry != null
-	            && (entityName.equals(entry.characterId)
-	                || (snapshotCharacterId != null && snapshotCharacterId.equals(entry.characterId)))) {
-	          snapshotEntry = entry;
-	          break;
-	        }
+    PuppeteerLauncherPanel.CharacterEntry snapshotEntry = null;
+    if (snapshot != null) {
+      String snapshotCharacterId = resolveSnapshotTrackCharacter(entityName, snapshot);
+      for (PuppeteerLauncherPanel.CharacterEntry entry : snapshot.characters) {
+        if (entry != null
+            && (entityName.equals(entry.characterId)
+                || (snapshotCharacterId != null && snapshotCharacterId.equals(entry.characterId)))) {
+          snapshotEntry = entry;
+          break;
+        }
       }
-	    }
-	
-	    Entity2D snapshotAnchorEntity = firstSnapshotEntity(scene, snapshot, snapshotEntry);
-	    String expression = snapshotEntry != null ? snapshotEntry.expression : "neutral";
-	    String position = snapshotEntry != null ? snapshotEntry.position : fallbackTrackPosition(missingIndex, missingCount);
-	    String spritePathSpec = "";
+    }
+
+    Entity2D snapshotAnchorEntity = firstSnapshotEntity(scene, snapshot, snapshotEntry);
+    String expression = snapshotEntry != null ? snapshotEntry.expression : "neutral";
+    String position = snapshotEntry != null ? snapshotEntry.position : fallbackTrackPosition(missingIndex, missingCount);
+    String spritePathSpec = "";
     if (snapshot != null && snapshot.hasCharacterPathMapping(entityName, expression)) {
       spritePathSpec = resolveProjectPathSpec(snapshot.resolveCharacterPath(entityName, expression));
     } else if (snapshot != null && snapshot.hasCharacterPathMapping(entityName, "neutral")) {
@@ -7228,26 +7228,26 @@ public class EditorApp extends Application {
     }
 
     boolean hasTrackX = track.hasKeyframes(PropertyType.X);
-	    boolean hasTrackY = track.hasKeyframes(PropertyType.Y);
-	    double fallbackLeftX = positionToLeftX(position, sceneW, fallbackWidth);
-	    double fallbackCenterX = fallbackLeftX + (fallbackWidth * 0.5);
-	    double fallbackBottomY = sceneH;
-	    double x = metadata != null
-	        ? metadata.x()
-	        : (snapshotAnchorEntity != null
-	            ? snapshotAnchorEntity.getX()
-	            : (snapshotEntry != null ? fallbackCenterX : (hasTrackX ? track.getValueAt(PropertyType.X, 0.0) : fallbackCenterX)));
-	    double y = metadata != null
-	        ? metadata.y()
-	        : (snapshotAnchorEntity != null
-	            ? snapshotAnchorEntity.getY()
-	            : (snapshotEntry != null ? fallbackBottomY : (hasTrackY ? track.getValueAt(PropertyType.Y, 0.0) : fallbackBottomY)));
-	    double originX = metadata != null
-	        ? metadata.originX()
-	        : (snapshotAnchorEntity != null ? snapshotAnchorEntity.getOriginX() : 0.5);
-	    double originY = metadata != null
-	        ? metadata.originY()
-	        : (snapshotAnchorEntity != null ? snapshotAnchorEntity.getOriginY() : 1.0);
+    boolean hasTrackY = track.hasKeyframes(PropertyType.Y);
+    double fallbackLeftX = positionToLeftX(position, sceneW, fallbackWidth);
+    double fallbackCenterX = fallbackLeftX + (fallbackWidth * 0.5);
+    double fallbackBottomY = sceneH;
+    double x = metadata != null
+        ? metadata.x()
+        : (snapshotAnchorEntity != null
+            ? snapshotAnchorEntity.getX()
+            : (snapshotEntry != null ? fallbackCenterX : (hasTrackX ? track.getValueAt(PropertyType.X, 0.0) : fallbackCenterX)));
+    double y = metadata != null
+        ? metadata.y()
+        : (snapshotAnchorEntity != null
+            ? snapshotAnchorEntity.getY()
+            : (snapshotEntry != null ? fallbackBottomY : (hasTrackY ? track.getValueAt(PropertyType.Y, 0.0) : fallbackBottomY)));
+    double originX = metadata != null
+        ? metadata.originX()
+        : (snapshotAnchorEntity != null ? snapshotAnchorEntity.getOriginX() : 0.5);
+    double originY = metadata != null
+        ? metadata.originY()
+        : (snapshotAnchorEntity != null ? snapshotAnchorEntity.getOriginY() : 1.0);
 
     if (!spritePathSpec.isBlank()) {
       double[] spriteSize = metadata != null && metadata.width() > 1.0 && metadata.height() > 1.0
@@ -7260,22 +7260,22 @@ public class EditorApp extends Application {
       }
       if (!hasTrackY && metadata == null) {
         y = sceneH;
-	      }
-	      com.jvn.core.scene2d.Sprite2D sprite = new com.jvn.core.scene2d.Sprite2D(spritePathSpec, charW, charH);
-	      sprite.setOrigin(originX, originY);
-	      sprite.setPosition(x, y);
-	      sprite.setZ(metadata != null ? metadata.z() : track.getLayerOrder());
-	      sprite.setVisible(metadata == null || metadata.visible());
+      }
+      com.jvn.core.scene2d.Sprite2D sprite = new com.jvn.core.scene2d.Sprite2D(spritePathSpec, charW, charH);
+      sprite.setOrigin(originX, originY);
+      sprite.setPosition(x, y);
+      sprite.setZ(metadata != null ? metadata.z() : track.getLayerOrder());
+      sprite.setVisible(metadata == null || metadata.visible());
       if (metadata != null) sprite.setAlpha(metadata.alpha());
       scene.add(sprite);
       scene.registerEntity(entityName, sprite);
       return;
     }
 
-	    com.jvn.core.scene2d.Panel2D placeholder = new com.jvn.core.scene2d.Panel2D(
-	        metadata != null ? metadata.width() : fallbackWidth,
-	        metadata != null ? metadata.height() : fallbackHeight);
-	    placeholder.setOrigin(originX, originY);
+    com.jvn.core.scene2d.Panel2D placeholder = new com.jvn.core.scene2d.Panel2D(
+        metadata != null ? metadata.width() : fallbackWidth,
+        metadata != null ? metadata.height() : fallbackHeight);
+    placeholder.setOrigin(originX, originY);
     placeholder.setFill(0.23, 0.30, 0.40, 0.22);
     placeholder.setStroke(0.56, 0.76, 1.0, 0.88, 3.0);
     placeholder.setPosition(x, y);
