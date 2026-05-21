@@ -7053,13 +7053,12 @@ public class EditorApp extends Application {
 	    List<PuppeteerLauncherPanel.CharacterLayerEntry> layers =
 	        snapshot.resolveCharacterLayers(character.characterId, character.expression);
 	    if (layers.isEmpty()) return List.of(character.characterId);
-	    List<String> names = new ArrayList<>();
-	    String groupBase = snapshotCharacterGroupName(character);
+	    LinkedHashSet<String> names = new LinkedHashSet<>();
 	    for (PuppeteerLauncherPanel.CharacterLayerEntry layer : layers) {
 	      if (layer == null || layer.path == null || layer.path.isBlank()) continue;
-	      names.add(groupBase + "_" + selectorSafeName(layer.layerId));
+	      names.addAll(PuppeteerLauncherPanel.equivalentSnapshotLayerEntityNames(snapshot, character, layer.layerId));
 	    }
-	    return names;
+	    return new ArrayList<>(names);
 	  }
 
 	  private void hideReplayOnlyEntities(
@@ -7339,6 +7338,8 @@ public class EditorApp extends Application {
     }
 
     Entity2D snapshotAnchorEntity = firstSnapshotEntity(scene, snapshot, snapshotEntry);
+    boolean expressionLayerOutsideSnapshot = snapshotEntry != null
+        && !isVisibleSnapshotTarget(snapshot, snapshotEntry, entityName);
     String expression = snapshotEntry != null ? snapshotEntry.expression : "neutral";
     String position = snapshotEntry != null ? snapshotEntry.position : fallbackTrackPosition(missingIndex, missingCount);
     String spritePathSpec = "";
@@ -7393,7 +7394,7 @@ public class EditorApp extends Application {
       sprite.setOrigin(originX, originY);
       sprite.setPosition(x, y);
       sprite.setZ(metadata != null ? metadata.z() : track.getLayerOrder());
-      sprite.setVisible(metadata == null || metadata.visible());
+      sprite.setVisible(!expressionLayerOutsideSnapshot && (metadata == null || metadata.visible()));
       if (metadata != null) sprite.setAlpha(metadata.alpha());
       scene.add(sprite);
       scene.registerEntity(entityName, sprite);
@@ -7408,9 +7409,19 @@ public class EditorApp extends Application {
     placeholder.setStroke(0.56, 0.76, 1.0, 0.88, 3.0);
     placeholder.setPosition(x, y);
     placeholder.setZ(metadata != null ? metadata.z() : track.getLayerOrder());
-    placeholder.setVisible(metadata == null || metadata.visible());
+    placeholder.setVisible(!expressionLayerOutsideSnapshot && (metadata == null || metadata.visible()));
     scene.add(placeholder);
     scene.registerEntity(entityName, placeholder);
+  }
+
+  private boolean isVisibleSnapshotTarget(
+      PuppeteerLauncherPanel.SceneSnapshot snapshot,
+      PuppeteerLauncherPanel.CharacterEntry snapshotEntry,
+      String entityName
+  ) {
+    if (snapshot == null || snapshotEntry == null || entityName == null || entityName.isBlank()) return true;
+    if (entityName.equals(snapshotEntry.characterId)) return true;
+    return currentSnapshotEntityNames(snapshot, snapshotEntry).contains(entityName);
   }
 
   private JesScene2D buildSceneFromSnapshot(PuppeteerLauncherPanel.SceneSnapshot snapshot) {
@@ -7463,7 +7474,6 @@ public class EditorApp extends Application {
       double characterHeight
   ) {
     if (scene == null || ch == null || layers == null || layers.isEmpty()) return;
-    String groupBase = snapshotCharacterGroupName(ch);
     double charW = 1.0;
     double charH = 1.0;
     List<String> resolvedPaths = new ArrayList<>();
@@ -7482,7 +7492,7 @@ public class EditorApp extends Application {
     for (PuppeteerLauncherPanel.CharacterLayerEntry layer : layers) {
       if (layer == null || layer.path == null || layer.path.isBlank()) continue;
       String resolvedPath = resolveProjectPath(layer.path);
-      String entityName = groupBase + "_" + selectorSafeName(layer.layerId);
+      String entityName = PuppeteerLauncherPanel.snapshotLayerEntityName(ch.characterId, ch.expression, layer.layerId);
       while (scene.find(entityName) != null) {
         entityName = entityName + "_" + (layerIndex + 2);
       }
@@ -7492,6 +7502,10 @@ public class EditorApp extends Application {
       sprite.setZ(layerIndex);
       scene.add(sprite);
       scene.registerEntity(entityName, sprite);
+      for (String alias : PuppeteerLauncherPanel.equivalentSnapshotLayerEntityNames(snapshot, ch, layer.layerId)) {
+        if (alias == null || alias.isBlank() || alias.equals(entityName)) continue;
+        scene.registerEntity(alias, sprite);
+      }
       layerIndex++;
     }
   }
@@ -7559,27 +7573,11 @@ public class EditorApp extends Application {
   }
 
   private static String snapshotCharacterGroupName(PuppeteerLauncherPanel.CharacterEntry ch) {
-    if (ch == null) return "character_preset";
-    String character = selectorSafeName(ch.characterId);
-    String expression = selectorSafeName(ch.expression == null || ch.expression.isBlank() ? "neutral" : ch.expression);
-    return (character.isBlank() ? "character" : character) + "_" + (expression.isBlank() ? "neutral" : expression);
+    return PuppeteerLauncherPanel.snapshotCharacterGroupName(ch);
   }
 
   private static String selectorSafeName(String raw) {
-    String value = raw == null ? "" : raw.trim();
-    StringBuilder out = new StringBuilder();
-    for (int i = 0; i < value.length(); i++) {
-      char ch = value.charAt(i);
-      if (Character.isLetterOrDigit(ch) || ch == '_' || ch == '-') {
-        out.append(ch);
-      } else {
-        out.append('_');
-      }
-    }
-    String cleaned = out.toString().replaceAll("_+", "_");
-    while (cleaned.startsWith("_")) cleaned = cleaned.substring(1);
-    while (cleaned.endsWith("_")) cleaned = cleaned.substring(0, cleaned.length() - 1);
-    return cleaned;
+    return PuppeteerLauncherPanel.selectorSafeName(raw);
   }
 
   private String resolveProjectPath(String relativePath) {
