@@ -3385,25 +3385,32 @@ public class PuppeteerWindow extends Stage {
             String baseEntityName = null;
             for (PuppeteerLauncherPanel.CharacterLayerEntry layer : layers) {
                 if (layer == null) continue;
-                String entityName = findSnapshotLayerEntityName(groupName, layer.layerId);
-                if (entityName == null || entityName.isBlank()) continue;
-                
+                List<String> entityNames = findSnapshotLayerEntityNames(character, layer.layerId);
+                if (entityNames.isEmpty()) continue;
+                String primaryEntityName = entityNames.get(0);
+
+                boolean baseLayer = baseEntityName == null;
                 if (baseEntityName == null) {
-                    baseEntityName = entityName;
-                } else {
-                    orbitSources.put(entityName, baseEntityName);
-                    com.jvn.core.scene2d.Entity2D baseEntity = scene.find(baseEntityName);
-                    com.jvn.core.scene2d.Entity2D childEntity = scene.find(entityName);
-                    if (baseEntity != null && childEntity != null) {
-                        orbitOffsets.put(entityName, new double[]{childEntity.getX() - baseEntity.getX(), childEntity.getY() - baseEntity.getY()});
-                    }
+                    baseEntityName = primaryEntityName;
                 }
-                
-                EntityTrack track = project.getTrack(entityName);
-                if (track == null) continue;
-                track.setLayerOrder(layerIndex);
-                project.addEntityToGroup(entityName, groupName);
-                groupLayer = Math.min(groupLayer, layerIndex);
+
+                for (String entityName : entityNames) {
+                    if (entityName == null || entityName.isBlank()) continue;
+                    if (!baseLayer && !entityName.equals(baseEntityName)) {
+                        orbitSources.put(entityName, baseEntityName);
+                        com.jvn.core.scene2d.Entity2D baseEntity = scene.find(baseEntityName);
+                        com.jvn.core.scene2d.Entity2D childEntity = scene.find(entityName);
+                        if (baseEntity != null && childEntity != null) {
+                            orbitOffsets.put(entityName, new double[]{childEntity.getX() - baseEntity.getX(), childEntity.getY() - baseEntity.getY()});
+                        }
+                    }
+
+                    EntityTrack track = project.getTrack(entityName);
+                    if (track == null) continue;
+                    track.setLayerOrder(layerIndex);
+                    project.addEntityToGroup(entityName, groupName);
+                    groupLayer = Math.min(groupLayer, layerIndex);
+                }
                 layerIndex++;
                 changed = true;
             }
@@ -3421,8 +3428,25 @@ public class PuppeteerWindow extends Stage {
         }
     }
 
+    private List<String> findSnapshotLayerEntityNames(PuppeteerLauncherPanel.CharacterEntry character, String layerId) {
+        if (character == null || layerId == null || layerId.isBlank()) return List.of();
+        List<String> names = new java.util.ArrayList<>();
+        for (String candidate : PuppeteerLauncherPanel.equivalentSnapshotLayerEntityNames(launchSceneSnapshot, character, layerId)) {
+            String entityName = findSnapshotLayerEntityName(candidate);
+            if (entityName != null && !entityName.isBlank() && !names.contains(entityName)) {
+                names.add(entityName);
+            }
+        }
+        return names;
+    }
+
     private String findSnapshotLayerEntityName(String groupName, String layerId) {
         String expected = groupName + "_" + selectorSafeName(layerId);
+        return findSnapshotLayerEntityName(expected);
+    }
+
+    private String findSnapshotLayerEntityName(String expected) {
+        if (expected == null || expected.isBlank()) return null;
         if (scene.find(expected) != null) return expected;
         for (String name : scene.names()) {
             if (name != null && name.startsWith(expected + "_")) return name;
@@ -4506,11 +4530,18 @@ public class PuppeteerWindow extends Stage {
         if (hasDofMaxBlur) previewCamera.setDepthOfFieldMaxBlur(dofMaxBlur);
         keyframeEditor.setCameraState(previewCamera.getX(), previewCamera.getY(), previewCamera.getZoom());
 
+        Set<com.jvn.core.scene2d.Entity2D> previewAppliedEntities =
+            java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
         for (EntityTrack track : project.getTracks()) {
             var entity = scene.find(track.getEntityName());
             if (entity == null) continue;
+            boolean authoredTrack = trackHasAuthoredValues(track);
+            if (!authoredTrack && previewAppliedEntities.contains(entity)) {
+                continue;
+            }
             if (!track.isVisible()) {
                 entity.setVisible(false);
+                previewAppliedEntities.add(entity);
                 continue;
             }
             String entityName = track.getEntityName();
@@ -4622,12 +4653,21 @@ public class PuppeteerWindow extends Stage {
                 double customValue = track.getCustomValueAt(customPropertyKey, time, baselineValue);
                 entity.applyCustomProperty(customPropertyKey, customValue);
             }
+            previewAppliedEntities.add(entity);
         }
 
         applyPreviewEventCuesUpTo(time);
 
         animationPreview.render();
         refreshSidebarTabs();
+    }
+
+    private boolean trackHasAuthoredValues(EntityTrack track) {
+        if (track == null) return false;
+        for (PropertyType property : PropertyType.values()) {
+            if (track.hasKeyframes(property)) return true;
+        }
+        return track.getAnimatedCustomProperties().iterator().hasNext();
     }
 
     private void applyRuntimeParityPreview(double timeMs) {
@@ -8826,31 +8866,11 @@ public class PuppeteerWindow extends Stage {
     }
 
     private static String snapshotCharacterGroupName(PuppeteerLauncherPanel.CharacterEntry character) {
-        if (character == null) return "character_preset";
-        String characterId = selectorSafeName(character.characterId);
-        String expression = selectorSafeName(character.expression == null || character.expression.isBlank()
-            ? "neutral"
-            : character.expression);
-        if (characterId.isBlank()) characterId = "character";
-        if (expression.isBlank()) expression = "neutral";
-        return characterId + "_" + expression;
+        return PuppeteerLauncherPanel.snapshotCharacterGroupName(character);
     }
 
     private static String selectorSafeName(String raw) {
-        String value = raw == null ? "" : raw.trim();
-        StringBuilder out = new StringBuilder();
-        for (int i = 0; i < value.length(); i++) {
-            char ch = value.charAt(i);
-            if (Character.isLetterOrDigit(ch) || ch == '_' || ch == '-') {
-                out.append(ch);
-            } else {
-                out.append('_');
-            }
-        }
-        String cleaned = out.toString().replaceAll("_+", "_");
-        while (cleaned.startsWith("_")) cleaned = cleaned.substring(1);
-        while (cleaned.endsWith("_")) cleaned = cleaned.substring(0, cleaned.length() - 1);
-        return cleaned;
+        return PuppeteerLauncherPanel.selectorSafeName(raw);
     }
 
     private java.util.List<Keyframe> findAdjacentKeyframes(Keyframe kf, PropertyType property) {

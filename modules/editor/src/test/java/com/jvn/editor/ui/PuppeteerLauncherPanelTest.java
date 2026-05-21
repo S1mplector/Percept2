@@ -237,6 +237,45 @@ class PuppeteerLauncherPanelTest {
 	  }
 
 	  @Test
+	  void equivalentSnapshotLayerNamesBridgeSharedLayersAcrossExpressions() {
+	    String source = """
+	        @label intro
+	        @include /definitions/characters.vns
+	        [show john center talking]
+	        """;
+	    String definitions = """
+	        @charlayer john body_default assets/john/body.png
+	        @charlayer john arm_front_default assets/john/arm.png
+	        @charlayer john mouth_default assets/john/mouth_default.png
+	        @charlayer john mouth_murmuring assets/john/mouth_murmuring.png
+	        @charpreset john neutral $body_default | $arm_front_default | $mouth_default
+	        @charpreset john talking $body_default | $arm_front_default | $mouth_murmuring
+	        """;
+
+	    PuppeteerLauncherPanel.SceneSnapshot snapshot = PuppeteerLauncherPanel.resolveSnapshot(
+	        source,
+	        2,
+	        "/tmp/project/scripts/story/prologue.vns",
+	        (sourceName, includePath) -> new PuppeteerLauncherPanel.ResolvedInclude(
+	            "/tmp/project/scripts/definitions/characters.vns",
+	            definitions));
+	    PuppeteerLauncherPanel.CharacterEntry john = snapshot.characters.get(0);
+
+	    List<String> armNames = PuppeteerLauncherPanel.equivalentSnapshotLayerEntityNames(
+	        snapshot,
+	        john,
+	        "arm_front_default");
+	    List<String> mouthNames = PuppeteerLauncherPanel.equivalentSnapshotLayerEntityNames(
+	        snapshot,
+	        john,
+	        "mouth_murmuring");
+
+	    assertTrue(armNames.contains("john_talking_arm_front_default"));
+	    assertTrue(armNames.contains("john_neutral_arm_front_default"));
+	    assertEquals(List.of("john_talking_mouth_murmuring"), mouthNames);
+	  }
+
+	  @Test
 	  void resolveSceneStartLineUsesLatestBackgroundInActiveLabel() {
     String source = """
         @label intro
