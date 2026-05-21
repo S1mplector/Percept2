@@ -60,6 +60,9 @@ public final class VnsCodeMinimap extends StackPane {
   private Set<Integer> bookmarks = Set.of();
   private List<TimelineBlock> timelines = List.of();
   private double lineHeight = 2.0;
+  private double mapOffsetY = 0.0;
+
+  private record VisibleRange(int startLine, int endLine) {}
 
   public VnsCodeMinimap(CodeArea codeArea) {
     this.codeArea = codeArea;
@@ -108,12 +111,14 @@ public final class VnsCodeMinimap extends StackPane {
     }
 
     lineHeight = Math.max(0.65, height / Math.max(1, totalLines));
+    VisibleRange visibleRange = visibleRange(totalLines);
+    mapOffsetY = computeMapOffset(height, totalLines, visibleRange);
     drawTimelineBands(gc, width, height, totalLines);
     drawScriptTexture(gc, width, height, totalLines);
     drawLabels(gc, width, totalLines);
     drawBookmarks(gc, width, totalLines);
     drawDiagnostics(gc, width, totalLines);
-    drawViewport(gc, width, totalLines);
+    drawViewport(gc, width, totalLines, visibleRange);
   }
 
   public int totalLines() {
@@ -137,7 +142,7 @@ public final class VnsCodeMinimap extends StackPane {
       int start = clampLine(block.startLine(), totalLines);
       int end = clampLine(block.endLine(), totalLines);
       if (end < start) continue;
-      double y = start * lineHeight;
+      double y = yForLine(start);
       double h = Math.max(2.5, (end - start + 1) * lineHeight);
       if (y > height || y + h < 0) continue;
 
@@ -153,8 +158,12 @@ public final class VnsCodeMinimap extends StackPane {
   private void drawScriptTexture(GraphicsContext gc, double width, double height, int totalLines) {
     double contentX = 16;
     double contentW = Math.max(20, width - 34);
-    for (int i = 0; i < totalLines; i++) {
-      double y = i * lineHeight;
+    int firstLine = Math.max(0, (int) Math.floor(mapOffsetY / Math.max(0.1, lineHeight)) - 2);
+    int lastLine = Math.min(totalLines - 1,
+        (int) Math.ceil((mapOffsetY + height) / Math.max(0.1, lineHeight)) + 2);
+    for (int i = firstLine; i <= lastLine; i++) {
+      double y = yForLine(i);
+      if (y + lineHeight < 0) continue;
       if (y > height) break;
       LineSummary line = cachedLines[i];
       if (line.kind() == LineKind.EMPTY) continue;
@@ -183,7 +192,8 @@ public final class VnsCodeMinimap extends StackPane {
     for (int i = 0; i < totalLines; i++) {
       LineSummary line = cachedLines[i];
       if (line.kind() != LineKind.LABEL) continue;
-      double y = i * lineHeight;
+      double y = yForLine(i);
+      if (y + lineHeight < 0 || y > canvas.getHeight()) continue;
       gc.setFill(Color.web("#f5c46b", 0.92));
       gc.fillRoundRect(3, y, width - 18, Math.max(2.2, lineHeight * 1.6), 4, 4);
       gc.setFill(Color.web("#0b0d10", 0.85));
@@ -196,7 +206,8 @@ public final class VnsCodeMinimap extends StackPane {
     gc.setFill(Color.web("#f8f8f2", 0.92));
     for (int line : bookmarks) {
       int clamped = clampLine(line, totalLines);
-      double y = clamped * lineHeight;
+      double y = yForLine(clamped);
+      if (y + lineHeight < 0 || y > canvas.getHeight()) continue;
       gc.fillRoundRect(width - 8, y, 5, Math.max(2.0, lineHeight * 1.2), 2, 2);
     }
   }
@@ -204,27 +215,17 @@ public final class VnsCodeMinimap extends StackPane {
   private void drawDiagnostics(GraphicsContext gc, double width, int totalLines) {
     for (DiagnosticMarker marker : diagnostics) {
       int line = clampLine(marker.line(), totalLines);
-      double y = line * lineHeight;
+      double y = yForLine(line);
+      if (y + lineHeight < 0 || y > canvas.getHeight()) continue;
       gc.setFill(Color.web(marker.warning() ? "#ffcf66" : "#ff5f7e", 0.96));
       gc.fillOval(width - 17, y - 1, 6, 6);
     }
   }
 
-  private void drawViewport(GraphicsContext gc, double width, int totalLines) {
-    int start;
-    int end;
-    try {
-      start = codeArea.firstVisibleParToAllParIndex();
-      end = codeArea.lastVisibleParToAllParIndex();
-    } catch (Exception ex) {
-      start = Math.max(0, codeArea.getCurrentParagraph() - 10);
-      end = Math.min(totalLines - 1, codeArea.getCurrentParagraph() + 30);
-    }
-    start = clampLine(start, totalLines);
-    end = clampLine(end, totalLines);
-    if (end < start) end = start;
-
-    double y = start * lineHeight;
+  private void drawViewport(GraphicsContext gc, double width, int totalLines, VisibleRange visibleRange) {
+    int start = visibleRange.startLine();
+    int end = visibleRange.endLine();
+    double y = yForLine(start);
     double h = Math.max(8, (end - start + 1) * lineHeight);
     boolean light = lightTheme();
     gc.setFill(Color.web(light ? "#111827" : "#e7edf6", light ? 0.07 : 0.10));
@@ -274,7 +275,7 @@ public final class VnsCodeMinimap extends StackPane {
   private void navigate(MouseEvent event) {
     int totalLines = cachedLines.length;
     if (totalLines == 0 || lineHeight <= 0) return;
-    int targetLine = clampLine((int) (event.getY() / lineHeight), totalLines);
+    int targetLine = lineAtY(event.getY(), totalLines);
     codeArea.showParagraphAtTop(targetLine);
     codeArea.moveTo(targetLine, 0);
     codeArea.requestFocus();
@@ -287,7 +288,7 @@ public final class VnsCodeMinimap extends StackPane {
       tooltip.setText("JVN script map");
       return;
     }
-    int line = clampLine((int) (event.getY() / lineHeight), totalLines);
+    int line = lineAtY(event.getY(), totalLines);
     LineSummary summary = cachedLines[line];
     String timelineSummary = timelineSummaryAt(line);
     StringBuilder text = new StringBuilder("Line ").append(line + 1);
@@ -316,6 +317,38 @@ public final class VnsCodeMinimap extends StackPane {
   private int clampLine(int line, int totalLines) {
     if (totalLines <= 0) return 0;
     return Math.max(0, Math.min(line, totalLines - 1));
+  }
+
+  private VisibleRange visibleRange(int totalLines) {
+    int start;
+    int end;
+    try {
+      start = codeArea.firstVisibleParToAllParIndex();
+      end = codeArea.lastVisibleParToAllParIndex();
+    } catch (Exception ex) {
+      start = Math.max(0, codeArea.getCurrentParagraph() - 10);
+      end = Math.min(totalLines - 1, codeArea.getCurrentParagraph() + 30);
+    }
+    start = clampLine(start, totalLines);
+    end = clampLine(end, totalLines);
+    if (end < start) end = start;
+    return new VisibleRange(start, end);
+  }
+
+  private double computeMapOffset(double height, int totalLines, VisibleRange visibleRange) {
+    double fullHeight = totalLines * lineHeight;
+    if (fullHeight <= height) return 0.0;
+    double viewportCenter = ((visibleRange.startLine() + visibleRange.endLine() + 1) * 0.5) * lineHeight;
+    double desired = viewportCenter - height * 0.5;
+    return Math.max(0.0, Math.min(desired, fullHeight - height));
+  }
+
+  private double yForLine(int line) {
+    return line * lineHeight - mapOffsetY;
+  }
+
+  private int lineAtY(double y, int totalLines) {
+    return clampLine((int) ((y + mapOffsetY) / lineHeight), totalLines);
   }
 
   private static LineSummary[] analyzeLines(String text) {

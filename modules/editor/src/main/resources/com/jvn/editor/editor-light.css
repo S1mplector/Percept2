@@ -5993,6 +5993,14 @@
 
 .timeline-nav-title .text { -fx-fill: #985f19; }
 
+.timeline-nav-progress {
+  -fx-text-fill: #b76b18;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+}
+
+.timeline-nav-progress .text { -fx-fill: #b76b18; }
+
 .timeline-nav-meta {
   -fx-text-fill: #30343b;
   -fx-font-size: 11px;

@@ -8,6 +8,11 @@ Format:
 
 ----
 
+## 2026-05-21 — VNS editor navigation polish
+Large pasted `timeline { ... }` blocks are easier to work with in the VNS editor. Timeline folding now has a compact in-editor navigator while scrolling long blocks, showing the current timeline number, line range, progress, and target summary with quick Top/Bottom jumps.
+
+The VNS minimap is now JVN-specific instead of a tiny text clone: it highlights labels, timeline blocks, dialogue beats, choices, commands, diagnostics, bookmarks, and the current viewport as a script map.
+
 ## 2026-05-13 — Puppeteer persistence and charpreset exports
 Puppeteer now preserves more editor-side animation state when saving and reopening timelines, including group locks, constraints, named anchors, and orbit-anchor tooling data. Parent-child constraints also respect grouped parent transforms more reliably.
 

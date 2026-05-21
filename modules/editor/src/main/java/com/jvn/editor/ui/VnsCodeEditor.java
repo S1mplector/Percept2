@@ -123,11 +123,11 @@ public class VnsCodeEditor extends BorderPane {
   // Timeline navigation overlay (skip to top / bottom of block while scrolling)
   private VBox timelineNavOverlay;
   private Label timelineNavTitle;
+  private Label timelineNavProgress;
   private Label timelineNavMeta;
   private Label timelineNavSummary;
   private Button timelineNavTopButton;
   private Button timelineNavBottomButton;
-  private Tooltip timelineNavTooltip;
   private FoldRegion activeScrollTimeline;
   private String activeScrollTimelineKey = "";
   private final Map<String, TimelineNavSummary> timelineNavSummaryCache = new HashMap<>();
@@ -2555,6 +2555,12 @@ public class VnsCodeEditor extends BorderPane {
   private VBox buildTimelineNavOverlay() {
     timelineNavTitle = new Label("Timeline");
     timelineNavTitle.getStyleClass().add("timeline-nav-title");
+    timelineNavTitle.setMaxWidth(Double.MAX_VALUE);
+    timelineNavProgress = new Label("");
+    timelineNavProgress.getStyleClass().add("timeline-nav-progress");
+    HBox.setHgrow(timelineNavTitle, Priority.ALWAYS);
+    HBox titleRow = new HBox(12, timelineNavTitle, timelineNavProgress);
+    titleRow.setAlignment(Pos.CENTER_LEFT);
     timelineNavMeta = new Label("");
     timelineNavMeta.getStyleClass().add("timeline-nav-meta");
     timelineNavSummary = new Label("");
@@ -2570,7 +2576,7 @@ public class VnsCodeEditor extends BorderPane {
 
     HBox buttons = new HBox(5, timelineNavTopButton, timelineNavBottomButton);
     buttons.setAlignment(Pos.CENTER_RIGHT);
-    VBox box = new VBox(2, timelineNavTitle, timelineNavMeta, timelineNavSummary, buttons);
+    VBox box = new VBox(2, titleRow, timelineNavMeta, timelineNavSummary, buttons);
     box.getStyleClass().add("timeline-nav-overlay");
     box.setMaxWidth(360);
     box.setMaxHeight(javafx.scene.layout.Region.USE_PREF_SIZE);
@@ -2583,8 +2589,6 @@ public class VnsCodeEditor extends BorderPane {
     box.setOnMouseExited(e -> {
       if (activeScrollTimeline != null) timelineNavHideDelay.playFromStart();
     });
-    timelineNavTooltip = new Tooltip("Timeline block");
-    Tooltip.install(box, timelineNavTooltip);
     timelineNavHideDelay.setOnFinished(e -> hideTimelineNavOverlay());
     return box;
   }
@@ -2680,14 +2684,10 @@ public class VnsCodeEditor extends BorderPane {
       timelineNavMeta.setText("Lines " + (region.startLine() + 1) + "-" + (region.endLine() + 1)
           + "  |  " + lineCount + " lines  |  " + summary.detail());
       timelineNavSummary.setText(summary.targets());
-      if (timelineNavTooltip != null) {
-        timelineNavTooltip.setText("Timeline block at lines "
-            + (region.startLine() + 1) + "-" + (region.endLine() + 1));
-      }
     }
 
-    timelineNavTitle.setText("Timeline " + target.ordinal() + " of " + target.total()
-        + "  |  " + percent + "% through");
+    timelineNavTitle.setText("Timeline " + target.ordinal() + " of " + target.total());
+    timelineNavProgress.setText(percent + "%  through");
     timelineNavTopButton.setDisable(region.startLine() >= target.visibleStart()
         && region.startLine() <= target.visibleEnd());
     timelineNavBottomButton.setDisable(region.endLine() >= target.visibleStart()

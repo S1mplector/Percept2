@@ -1038,6 +1038,14 @@ The editor.css file defines the visual styling for the editor module, including 
 
 .timeline-nav-title .text { -fx-fill: #ffb45a; }
 
+.timeline-nav-progress {
+  -fx-text-fill: #ffcf8a;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+}
+
+.timeline-nav-progress .text { -fx-fill: #ffcf8a; }
+
 .timeline-nav-meta {
   -fx-text-fill: #c8c8cc;
   -fx-font-size: 11px;
