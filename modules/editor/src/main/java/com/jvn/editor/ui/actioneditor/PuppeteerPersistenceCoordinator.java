@@ -22,6 +22,7 @@ import com.jvn.core.vn.VnEyeFocusProfileStore;
  *   <li>Timeline {@code .jes} file save with automatic {@code .bak} backup</li>
  *   <li>Workspace prefs load/save</li>
  *   <li>Anchor store load/save</li>
+ *   <li>Reusable rig/link store load/save</li>
  *   <li>Draft store lifecycle (create, flush)</li>
  *   <li>On-close background persistence</li>
  * </ul>
@@ -109,6 +110,7 @@ public final class PuppeteerPersistenceCoordinator {
         if (projectRoot == null || project == null) return;
         PuppeteerAnchorStore.load(projectRoot, project);
         project.setEyeFocusProfiles(VnEyeFocusProfileStore.load(projectRoot));
+        PuppeteerRigStore.load(projectRoot, project);
     }
 
     /** Saves orbit anchors from {@code project} to disk, swallowing I/O failures. */
@@ -117,6 +119,7 @@ public final class PuppeteerPersistenceCoordinator {
         try {
             PuppeteerAnchorStore.save(projectRoot, project);
             VnEyeFocusProfileStore.save(projectRoot, project.getEyeFocusProfilesView().values());
+            PuppeteerRigStore.save(projectRoot, project);
         } catch (Exception ex) {
             log.warn("Failed to save anchor store", ex);
         }
@@ -165,6 +168,11 @@ public final class PuppeteerPersistenceCoordinator {
                 }
             } catch (Throwable ex) {
                 log.warn("eye focus profile save failed on close", ex);
+            }
+            try {
+                if (projectRoot != null && project != null) PuppeteerRigStore.save(projectRoot, project);
+            } catch (Throwable ex) {
+                log.warn("rig save failed on close", ex);
             }
         }, "puppeteer-close-cleanup");
         cleanup.setDaemon(true);

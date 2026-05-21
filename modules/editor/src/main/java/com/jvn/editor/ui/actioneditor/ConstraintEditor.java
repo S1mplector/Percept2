@@ -13,6 +13,7 @@ import javafx.scene.control.Tab;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import java.util.function.DoubleSupplier;
 
 /**
  * UI panel for managing entity constraints (parent-child, look-at).
@@ -21,6 +22,7 @@ public class ConstraintEditor extends VBox {
     
     private AnimationProject project;
     private Runnable onConstraintChanged;
+    private DoubleSupplier currentTimeSupplier;
     
     private ComboBox<String> cmbEntity;
     private ComboBox<Constraint.Type> cmbConstraintType;
@@ -29,8 +31,10 @@ public class ConstraintEditor extends VBox {
     private Spinner<Double> spOffsetY;
     private CheckBox cbInheritRotation;
     private CheckBox cbInheritScale;
+    private CheckBox cbPreserveCurrentOffset;
     private Button btnApply;
     private Button btnRemove;
+    private Button btnCaptureOffset;
     
     private static final String ACCENT_BUTTON_STYLE = "-fx-background-color: #007acc; -fx-text-fill: white; -fx-border-color: #005a9e; -fx-border-radius: 4; -fx-background-radius: 4;";
     private static final String DANGER_BUTTON_STYLE = "-fx-background-color: #c42b1c; -fx-text-fill: white; -fx-border-color: #a02015; -fx-border-radius: 4; -fx-background-radius: 4;";
@@ -45,11 +49,11 @@ public class ConstraintEditor extends VBox {
     
     private void buildUI() {
         // Header
-        Label header = new Label("Constraints");
+        Label header = new Label("Layer Links");
         header.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #e0e0e0;");
         
         // Entity selector
-        Label lblEntity = new Label("Entity:");
+        Label lblEntity = new Label("Linked Layer:");
         lblEntity.setStyle("-fx-text-fill: #a0a0a0;");
         cmbEntity = new ComboBox<>();
         cmbEntity.setPromptText("Select entity...");
@@ -59,7 +63,7 @@ public class ConstraintEditor extends VBox {
         cmbEntity.setOnAction(e -> onEntitySelected());
         
         // Constraint type
-        Label lblType = new Label("Constraint Type:");
+        Label lblType = new Label("Link Type:");
         lblType.setStyle("-fx-text-fill: #a0a0a0;");
         cmbConstraintType = new ComboBox<>();
         cmbConstraintType.getItems().addAll(Constraint.Type.PARENT_CHILD, Constraint.Type.LOOK_AT);
@@ -68,7 +72,7 @@ public class ConstraintEditor extends VBox {
         cmbConstraintType.setOnAction(e -> onConstraintTypeChanged());
         
         // Target entity
-        Label lblTarget = new Label("Target Entity:");
+        Label lblTarget = new Label("Follow Target:");
         lblTarget.setStyle("-fx-text-fill: #a0a0a0;");
         cmbTargetEntity = new ComboBox<>();
         cmbTargetEntity.setPromptText("Select target...");
@@ -106,17 +110,25 @@ public class ConstraintEditor extends VBox {
         cbInheritScale = new CheckBox("Inherit Scale");
         cbInheritScale.setSelected(true);
         cbInheritScale.setStyle("-fx-text-fill: #e0e0e0;");
+
+        cbPreserveCurrentOffset = new CheckBox("Keep Current Offset");
+        cbPreserveCurrentOffset.setSelected(true);
+        cbPreserveCurrentOffset.setStyle("-fx-text-fill: #e0e0e0;");
         
         HBox inheritBox = new HBox(15, cbInheritRotation, cbInheritScale);
         inheritBox.setAlignment(Pos.CENTER_LEFT);
+
+        btnCaptureOffset = new Button("Capture Offset");
+        btnCaptureOffset.setStyle(ACCENT_BUTTON_STYLE);
+        btnCaptureOffset.setOnAction(e -> captureCurrentOffset(true));
         
         // Buttons
-        btnApply = new Button("Apply Constraint");
+        btnApply = new Button("Apply Link");
         btnApply.setStyle(ACCENT_BUTTON_STYLE);
         btnApply.setPrefWidth(Double.MAX_VALUE);
         btnApply.setOnAction(e -> applyConstraint());
         
-        btnRemove = new Button("Remove Constraint");
+        btnRemove = new Button("Remove Link");
         btnRemove.setStyle(DANGER_BUTTON_STYLE);
         btnRemove.setPrefWidth(Double.MAX_VALUE);
         btnRemove.setOnAction(e -> removeConstraint());
@@ -135,7 +147,7 @@ public class ConstraintEditor extends VBox {
         form.add(cmbTargetEntity, 1, 2);
         
         // Parent-child specific controls
-        VBox parentChildControls = new VBox(10, offsetGrid, inheritBox);
+        VBox parentChildControls = new VBox(10, offsetGrid, inheritBox, cbPreserveCurrentOffset, btnCaptureOffset);
         parentChildControls.setPadding(new Insets(10));
         parentChildControls.setStyle("-fx-background-color: #252525; -fx-background-radius: 4;");
         parentChildControls.setVisible(false);
@@ -162,8 +174,26 @@ public class ConstraintEditor extends VBox {
     public void setOnConstraintChanged(Runnable onConstraintChanged) {
         this.onConstraintChanged = onConstraintChanged;
     }
+
+    public void setCurrentTimeSupplier(DoubleSupplier currentTimeSupplier) {
+        this.currentTimeSupplier = currentTimeSupplier;
+    }
+
+    public void selectEntity(String entityName) {
+        refreshEntityList();
+        if (entityName == null || entityName.isBlank()) {
+            cmbEntity.setValue(null);
+            clearForm();
+            return;
+        }
+        if (!cmbEntity.getItems().contains(entityName)) {
+            cmbEntity.getItems().add(entityName);
+        }
+        cmbEntity.setValue(entityName);
+        onEntitySelected();
+    }
     
-    private void refreshEntityList() {
+    public void refreshEntityList() {
         if (project == null) return;
         
         String selectedEntity = cmbEntity.getValue();
@@ -247,6 +277,9 @@ public class ConstraintEditor extends VBox {
         
         Constraint constraint;
         if (type == Constraint.Type.PARENT_CHILD) {
+            if (cbPreserveCurrentOffset != null && cbPreserveCurrentOffset.isSelected()) {
+                captureCurrentOffset(false);
+            }
             double offsetX = spOffsetX.getValue();
             double offsetY = spOffsetY.getValue();
             boolean inheritRot = cbInheritRotation.isSelected();
@@ -261,6 +294,43 @@ public class ConstraintEditor extends VBox {
             if (onConstraintChanged != null) {
                 onConstraintChanged.run();
             }
+        }
+    }
+
+    private void captureCurrentOffset(boolean notify) {
+        if (project == null || spOffsetX == null || spOffsetY == null) return;
+        String entityName = cmbEntity.getValue();
+        String targetName = cmbTargetEntity.getValue();
+        if (entityName == null || entityName.isBlank() || targetName == null || targetName.isBlank()) return;
+        if (entityName.equals(targetName)) return;
+
+        double timeMs = project.getPlayheadMs();
+        if (currentTimeSupplier != null) {
+            try {
+                double supplied = currentTimeSupplier.getAsDouble();
+                if (Double.isFinite(supplied)) timeMs = supplied;
+            } catch (RuntimeException ignored) {
+                // keep project playhead
+            }
+        }
+
+        AnimationProject.EffectiveEntityTransform child =
+            project.computeEffectiveEntityTransform(entityName, timeMs);
+        AnimationProject.EffectiveEntityTransform target =
+            project.computeEffectiveEntityTransform(targetName, timeMs);
+        if (child == null || target == null) return;
+
+        double dx = child.x() - target.x();
+        double dy = child.y() - target.y();
+        double radians = Math.toRadians(target.rotationDeg());
+        double cos = Math.cos(radians);
+        double sin = Math.sin(radians);
+        double localOffsetX = dx * cos + dy * sin;
+        double localOffsetY = -dx * sin + dy * cos;
+        spOffsetX.getValueFactory().setValue(localOffsetX);
+        spOffsetY.getValueFactory().setValue(localOffsetY);
+        if (notify && onConstraintChanged != null) {
+            onConstraintChanged.run();
         }
     }
     

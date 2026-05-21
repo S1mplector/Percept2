@@ -767,6 +767,18 @@ public class AnimationProject {
         }
     }
 
+    public void clearGroups() {
+        groups.clear();
+        rootGroupNames.clear();
+        rootEntityNames.clear();
+        for (EntityTrack track : entityTracks.values()) {
+            track.setParentGroupName(null);
+            if (!rootEntityNames.contains(track.getEntityName())) {
+                rootEntityNames.add(track.getEntityName());
+            }
+        }
+    }
+
     public void removeGroup(String name) {
         EntityGroup g = groups.remove(name);
         rootGroupNames.remove(name);

@@ -178,6 +178,7 @@ public class PuppeteerWindow extends Stage {
     public final TimelinePanel timelinePanel;
     public final KeyframeEditor keyframeEditor;
     private AnchorEditor anchorEditor;
+    private ConstraintEditor constraintEditor;
     public final AnimationPreview animationPreview;
     public final CodePreviewPane codePreview;
 
@@ -486,14 +487,17 @@ public class PuppeteerWindow extends Stage {
                 entitySelector.selectEntity(null);
                 animationPreview.clearSelection();
                 anchorEditor.setSelectedEntityName(null, false);
+                if (constraintEditor != null) constraintEditor.selectEntity(null);
             } else if (isGroup) {
                 entitySelector.selectGroup(name);
                 animationPreview.selectGroup(name);
                 anchorEditor.setSelectedEntityName(name, true);
+                if (constraintEditor != null) constraintEditor.selectEntity(null);
             } else {
                 entitySelector.selectEntity(name);
                 animationPreview.selectEntity(name);
                 anchorEditor.setSelectedEntityName(name, false);
+                if (constraintEditor != null) constraintEditor.selectEntity(name);
             }
             PropertyType selectedProp = timelinePanel.getSelectedProperty();
             if (selectedProp != null && cbProperty != null && cbProperty.getValue() != selectedProp) {
@@ -506,6 +510,7 @@ public class PuppeteerWindow extends Stage {
         entitySelector.setOnSelectionChanged((name, isGroup) -> {
             timelinePanel.setSelectedTarget(name, isGroup);
             anchorEditor.setSelectedEntityName(name, isGroup);
+            if (constraintEditor != null) constraintEditor.selectEntity(isGroup ? null : name);
             refreshPropertyPickerChoices();
         });
 
@@ -1419,7 +1424,17 @@ public class PuppeteerWindow extends Stage {
         });
         Tab anchorsTab = new Tab("Anchors", anchorEditor);
         anchorsTab.setClosable(false);
-        TabPane leftTabs = new TabPane(entitiesTab, selectionTab, sceneTab, anchorsTab);
+        constraintEditor = new ConstraintEditor();
+        constraintEditor.setProject(this.project);
+        constraintEditor.setCurrentTimeSupplier(this.project::getPlayheadMs);
+        constraintEditor.setOnConstraintChanged(() -> {
+            timelinePanel.refresh();
+            updatePreview();
+            refreshExportPreviewAndMarkDirty();
+        });
+        Tab rigTab = new Tab("Rig", constraintEditor);
+        rigTab.setClosable(false);
+        TabPane leftTabs = new TabPane(entitiesTab, selectionTab, sceneTab, anchorsTab, rigTab);
         leftTabs.getStyleClass().add("sidebar-tab-pane");
         leftTabs.setMinWidth(0);
         leftTabs.setMaxWidth(Double.MAX_VALUE);
@@ -2526,6 +2541,9 @@ public class PuppeteerWindow extends Stage {
         if (btnSidebarCodePane != null) {
             btnSidebarCodePane.setText(codePaneVisible ? "Hide Code Pane" : "Show Code Pane");
         }
+        if (constraintEditor != null) {
+            constraintEditor.selectEntity(hasTarget && !selectedGroup && !runtimeCamera ? selectedName : null);
+        }
         refreshSidebarAdvancedPanels(selectedName, selectedGroup, runtimeCamera, hasTarget);
         refreshToolbarCommandSummary();
     }
@@ -3544,6 +3562,7 @@ public class PuppeteerWindow extends Stage {
         applyWorkspacePrefs();
         PuppeteerAnchorStore.load(projectRoot, project);
         project.setEyeFocusProfiles(VnEyeFocusProfileStore.load(projectRoot));
+        PuppeteerRigStore.load(projectRoot, project);
 
         draftStore = new PuppeteerDraftStore(projectRoot);
         draftStore.setOnSaveCallback(timelineName -> Platform.runLater(() -> showAutoSaveIndicator(timelineName)));
@@ -7047,6 +7066,7 @@ public class PuppeteerWindow extends Stage {
                 try { if (draftsToFlush != null) draftsToFlush.shutdown(); } catch (Throwable ignored) {}
                 try { PuppeteerAnchorStore.save(anchorRoot, anchorProject); } catch (Throwable ignored) {}
                 try { VnEyeFocusProfileStore.save(anchorRoot, anchorProject.getEyeFocusProfilesView().values()); } catch (Throwable ignored) {}
+                try { PuppeteerRigStore.save(anchorRoot, anchorProject); } catch (Throwable ignored) {}
             }, "puppeteer-close-cleanup");
             cleanup.setDaemon(true);
             cleanup.start();
@@ -7720,6 +7740,7 @@ public class PuppeteerWindow extends Stage {
             }
             PuppeteerAnchorStore.save(projectRoot, project);
             VnEyeFocusProfileStore.save(projectRoot, project.getEyeFocusProfilesView().values());
+            PuppeteerRigStore.save(projectRoot, project);
             TimelineRegistry.register(data);
             if (previewStaged) {
                 previewStaged = false;
