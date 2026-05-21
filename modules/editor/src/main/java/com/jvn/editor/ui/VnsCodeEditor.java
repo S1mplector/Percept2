@@ -110,6 +110,12 @@ public class VnsCodeEditor extends BorderPane {
   private final PauseTransition analysisDebounce = new PauseTransition(Duration.millis(300));
   private String pendingAnalysisText = "";
   private final AtomicLong parseGeneration = new AtomicLong(0);
+  // Debounce for syntax highlighting — runs the full regex off the FX thread
+  private final PauseTransition highlightDebounce = new PauseTransition(Duration.millis(30));
+  private final AtomicLong highlightGeneration = new AtomicLong(0);
+  // Pending flags — prevent duplicate Platform.runLater calls from stacking up
+  private boolean foldRefreshPending = false;
+  private boolean minimapRedrawPending = false;
 
   private static final String COMMENT_PATTERN = "(?m)#.*$";
   private static final String STRING_PATTERN = "\"([^\\\\\"]|\\\\.)*\"";
@@ -181,8 +187,14 @@ public class VnsCodeEditor extends BorderPane {
       String value = newText == null ? "" : newText;
       applyAnalysis(value);
       if (onTextChanged != null) onTextChanged.accept(value);
-      if (!foldedRegionStarts.isEmpty()) Platform.runLater(this::refreshFoldedRegionStyles);
-      Platform.runLater(this::redrawMinimap);
+      if (!foldedRegionStarts.isEmpty() && !foldRefreshPending) {
+        foldRefreshPending = true;
+        Platform.runLater(() -> { foldRefreshPending = false; refreshFoldedRegionStyles(); });
+      }
+      if (!minimapRedrawPending) {
+        minimapRedrawPending = true;
+        Platform.runLater(() -> { minimapRedrawPending = false; redrawMinimap(); });
+      }
     });
 
     mainScrollPane = new VirtualizedScrollPane<>(codeArea);
@@ -195,8 +207,12 @@ public class VnsCodeEditor extends BorderPane {
     minimapCanvas.setOnMouseDragged(this::onMinimapDrag);
 
     // Redraw minimap when the user scrolls (not just on text change)
-    codeArea.estimatedScrollYProperty().addListener((obs, o, n) ->
-        Platform.runLater(this::redrawMinimap));
+    codeArea.estimatedScrollYProperty().addListener((obs, o, n) -> {
+      if (!minimapRedrawPending) {
+        minimapRedrawPending = true;
+        Platform.runLater(() -> { minimapRedrawPending = false; redrawMinimap(); });
+      }
+    });
 
     // Separator line between editor and minimap
     javafx.scene.layout.Region minimapSep = new javafx.scene.layout.Region();
@@ -889,10 +905,26 @@ public class VnsCodeEditor extends BorderPane {
 
   private void applyAnalysis(String text) {
     String safe = text == null ? "" : text;
-    // Syntax highlighting is cheap — apply immediately
-    codeArea.setStyleSpans(0, computeHighlightingWithIssues(safe, issues));
-    // Debounce the expensive parse so rapid keystrokes don't pile up
     pendingAnalysisText = safe;
+
+    // Highlight debounce — fires after 30 ms of idle, runs the full regex off the FX thread
+    // so rapid typing never blocks the event loop.
+    highlightDebounce.setOnFinished(he -> {
+      String snapshot = pendingAnalysisText;
+      List<Issue> issueSnapshot = issues;
+      long gen = highlightGeneration.incrementAndGet();
+      AsyncAssetLoader.getExecutor().execute(() -> {
+        StyleSpans<Collection<String>> spans = computeHighlightingWithIssues(snapshot, issueSnapshot);
+        if (highlightGeneration.get() == gen) {
+          Platform.runLater(() -> {
+            try { codeArea.setStyleSpans(0, spans); } catch (Exception ignored) {}
+          });
+        }
+      });
+    });
+    highlightDebounce.playFromStart();
+
+    // Issue parse debounce — 300 ms, recomputes issues then re-applies highlighting with them
     analysisDebounce.setOnFinished(e -> {
       String snapshot = pendingAnalysisText;
       long generation = parseGeneration.incrementAndGet();
@@ -901,7 +933,7 @@ public class VnsCodeEditor extends BorderPane {
         if (parseGeneration.get() == generation) {
           Platform.runLater(() -> {
             issues = computed;
-            codeArea.setStyleSpans(0, computeHighlightingWithIssues(snapshot, issues));
+            try { codeArea.setStyleSpans(0, computeHighlightingWithIssues(snapshot, issues)); } catch (Exception ignored) {}
             refreshIssuePresentation();
           });
         }
