@@ -116,6 +116,9 @@ public class VnsCodeEditor extends BorderPane {
   // Pending flags — prevent duplicate Platform.runLater calls from stacking up
   private boolean foldRefreshPending = false;
   private boolean minimapRedrawPending = false;
+  // Shared popup for timeline hover preview (lazy init, single instance)
+  private Popup timelinePreviewPopup;
+  private Label timelinePreviewContent;
 
   private static final String COMMENT_PATTERN = "(?m)#.*$";
   private static final String STRING_PATTERN = "\"([^\\\\\"]|\\\\.)*\"";
@@ -446,6 +449,12 @@ public class VnsCodeEditor extends BorderPane {
       // Ctrl+Shift+] — Unfold all timeline blocks
       if (ctrl && e.isShiftDown() && e.getCode() == KeyCode.CLOSE_BRACKET) {
         unfoldAllTimelineBlocks(); e.consume(); return;
+      }
+      // Ctrl+V / Cmd+V — auto-fold any timeline blocks introduced by the paste
+      if (ctrl && e.getCode() == KeyCode.V) {
+        int preOffset = codeArea.getCaretPosition();
+        Platform.runLater(() -> autoFoldPastedTimelines(preOffset));
+        // Don't consume — let normal paste proceed
       }
     });
   }
@@ -874,10 +883,11 @@ public class VnsCodeEditor extends BorderPane {
       boolean folded = foldedRegionStarts.contains(line);
       Label foldBtn = new Label(folded ? "\u25B6" : "\u25BE");
       foldBtn.getStyleClass().add("code-fold-toggle");
-      if (foldRegion.kind() == FoldKind.TIMELINE) {
-        String preview = buildTimelinePreview(foldRegion);
-        foldBtn.setTooltip(new Tooltip(preview));
-        Tooltip.install(gutter, new Tooltip(preview));
+      if (foldRegion.kind() == FoldKind.TIMELINE && folded) {
+        foldBtn.setOnMouseEntered(e -> showTimelinePreviewPopup(foldRegion, foldBtn));
+        foldBtn.setOnMouseExited(e -> hideTimelinePreviewPopup());
+        gutter.setOnMouseEntered(e -> showTimelinePreviewPopup(foldRegion, foldBtn));
+        gutter.setOnMouseExited(e -> hideTimelinePreviewPopup());
       } else {
         foldBtn.setTooltip(new Tooltip(folded ? "Unfold section" : "Fold section"));
       }
@@ -2423,6 +2433,25 @@ public class VnsCodeEditor extends BorderPane {
     for (FoldRegion region : computeFoldRegions()) {
       if (region.kind() == FoldKind.TIMELINE) {
         changed |= foldedRegionStarts.remove(region.startLine());
+      }
+    }
+    if (changed) {
+      refreshFoldedRegionStyles();
+      Platform.runLater(() -> codeArea.setParagraphGraphicFactory(this::makeLineNumberLabel));
+    }
+  }
+
+  private void autoFoldPastedTimelines(int preInsertOffset) {
+    int postOffset = codeArea.getCaretPosition();
+    if (postOffset <= preInsertOffset) return;
+    boolean changed = false;
+    for (FoldRegion region : computeFoldRegions()) {
+      if (region.kind() != FoldKind.TIMELINE) continue;
+      if (foldedRegionStarts.contains(region.startLine())) continue;
+      // Fold regions whose start falls within the pasted range
+      if (region.startOffset() >= preInsertOffset && region.startOffset() < postOffset) {
+        foldedRegionStarts.add(region.startLine());
+        changed = true;
       }
     }
     if (changed) {
