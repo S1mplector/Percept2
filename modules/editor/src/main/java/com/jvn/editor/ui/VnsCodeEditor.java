@@ -2155,13 +2155,27 @@ public class VnsCodeEditor extends BorderPane {
     }
   }
 
-  private void addTimelineFoldRegions(String text, String[] lines, int[] lineStarts, List<FoldRegion> regions) {
+  static boolean hasTimelineFoldRegionStartingAt(String text, int line) {
+    if (text == null || text.isBlank() || line < 0) return false;
+    int[] lineStarts = computeLineStarts(text);
+    String[] lines = text.split("\\n", -1);
+    List<FoldRegion> regions = new ArrayList<>();
+    addTimelineFoldRegions(text, lines, lineStarts, regions);
+    for (FoldRegion region : regions) {
+      if (region.kind() == FoldKind.TIMELINE && region.startLine() == line && region.endLine() > line) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static void addTimelineFoldRegions(String text, String[] lines, int[] lineStarts, List<FoldRegion> regions) {
     for (int i = 0; i < lines.length; i++) {
       Matcher m = TIMELINE_SCAN_PATTERN.matcher(lines[i]);
       if (!m.find()) continue;
 
       int startOffset = lineStarts[i] + m.start();
-      int keywordEndOffset = lineStarts[i] + m.end();
+      int keywordEndOffset = lineStarts[i] + timelineKeywordEnd(lines[i], m.start(), m.end());
       int openBrace = findTimelineOpeningBrace(text, lineStarts, i, keywordEndOffset);
       if (openBrace < 0) continue;
 
@@ -2172,6 +2186,17 @@ public class VnsCodeEditor extends BorderPane {
       if (endLine <= i) continue;
       regions.add(new FoldRegion(i, endLine, startOffset, Math.min(text.length(), closeBrace + 1), FoldKind.TIMELINE));
     }
+  }
+
+  private static int timelineKeywordEnd(String line, int matchStart, int fallbackEnd) {
+    if (line == null) return fallbackEnd;
+    int i = Math.max(0, Math.min(matchStart, line.length()));
+    while (i < line.length() && Character.isWhitespace(line.charAt(i))) i++;
+    int end = i + "timeline".length();
+    if (end <= line.length() && line.regionMatches(true, i, "timeline", 0, "timeline".length())) {
+      return end;
+    }
+    return fallbackEnd;
   }
 
   private FoldRegion findFoldRegionStartingAtLine(int line) {
@@ -2214,7 +2239,7 @@ public class VnsCodeEditor extends BorderPane {
     return false;
   }
 
-  private int[] computeLineStarts(String text) {
+  private static int[] computeLineStarts(String text) {
     List<Integer> starts = new ArrayList<>();
     starts.add(0);
     for (int i = 0; i < text.length(); i++) {
@@ -2227,7 +2252,7 @@ public class VnsCodeEditor extends BorderPane {
     return out;
   }
 
-  private int lineEndOffset(String text, int[] lineStarts, int line) {
+  private static int lineEndOffset(String text, int[] lineStarts, int line) {
     if (line < 0 || line >= lineStarts.length) return text.length();
     int nextLine = line + 1;
     if (nextLine < lineStarts.length) {
@@ -2236,7 +2261,7 @@ public class VnsCodeEditor extends BorderPane {
     return text.length();
   }
 
-  private int lineForOffset(int[] lineStarts, int offset) {
+  private static int lineForOffset(int[] lineStarts, int offset) {
     if (lineStarts.length == 0) return 0;
     int clamped = Math.max(0, offset);
     int lo = 0;
@@ -2256,7 +2281,7 @@ public class VnsCodeEditor extends BorderPane {
     return Math.max(0, Math.min(lineStarts.length - 1, hi));
   }
 
-  private int findTimelineOpeningBrace(String text, int[] lineStarts, int line, int keywordEndOffset) {
+  private static int findTimelineOpeningBrace(String text, int[] lineStarts, int line, int keywordEndOffset) {
     int sameLineEnd = lineEndOffset(text, lineStarts, line);
     for (int i = keywordEndOffset; i < sameLineEnd && i < text.length(); i++) {
       if (text.charAt(i) == '{') return i;
@@ -2283,7 +2308,7 @@ public class VnsCodeEditor extends BorderPane {
     return -1;
   }
 
-  private int findMatchingBrace(String text, int openBraceOffset) {
+  private static int findMatchingBrace(String text, int openBraceOffset) {
     int depth = 0;
     boolean inString = false;
     boolean escaped = false;
@@ -2332,7 +2357,7 @@ public class VnsCodeEditor extends BorderPane {
     return -1;
   }
 
-  private int skipLine(String text, int offset) {
+  private static int skipLine(String text, int offset) {
     int i = Math.max(0, offset);
     while (i < text.length() && text.charAt(i) != '\n') i++;
     return i;

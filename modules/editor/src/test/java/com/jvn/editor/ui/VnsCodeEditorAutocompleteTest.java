@@ -49,4 +49,34 @@ class VnsCodeEditorAutocompleteTest {
 
     assertTrue(suggestions.stream().anyMatch(s -> "preset=rain".equals(s.insert)));
   }
+
+  @Test
+  void timelineFoldScannerAcceptsInlineOpeningBrace() {
+    String source = """
+        [character john expression neutral]
+        timeline {
+          parallel {
+            move "john_neutral_body_default" {
+              x: 1.300779
+              dur: 100
+            }
+          }
+        }
+        """;
+
+    assertTrue(VnsCodeEditor.hasTimelineFoldRegionStartingAt(source, 1));
+  }
+
+  @Test
+  void timelineFoldScannerAcceptsNextLineOpeningBrace() {
+    String source = """
+        [character john expression neutral]
+        timeline
+        {
+          wait 100
+        }
+        """;
+
+    assertTrue(VnsCodeEditor.hasTimelineFoldRegionStartingAt(source, 1));
+  }
 }
