@@ -6541,12 +6541,37 @@ public class EditorApp extends Application {
         snapshot,
         imported,
         launchMode);
-    JesScene2D launchScene = resolvePuppeteerLaunchScene(
-        ft,
-        imported,
-        snapshot,
-        treatImportedTimelineAsVnOffsets);
     Map<String, Map<PropertyType, Double>> runtimeExportBaselines = Map.of();
+    Map<String, Map<PropertyType, Double>> importVnOffsetBaselines = Map.of();
+    boolean loadTimelineFromSnapshot = shouldPrimeLoadedTimelineScene(
+        selectedTimelineName,
+        snapshot,
+        imported,
+        launchMode);
+    JesScene2D launchScene;
+    if (loadTimelineFromSnapshot) {
+      launchScene = resolvePuppeteerBaseLaunchScene(ft, imported, snapshot);
+      if (launchScene != null) {
+        importVnOffsetBaselines = captureRuntimeExportBaselines(launchScene);
+        applySnapshotTimelineHistoryBeforeLoadedTimeline(
+            launchScene,
+            snapshot,
+            importVnOffsetBaselines);
+        runtimeExportBaselines = importVnOffsetBaselines;
+        attachImportedTimelineToLaunchScene(
+            launchScene,
+            imported,
+            snapshot,
+            treatImportedTimelineAsVnOffsets,
+            importVnOffsetBaselines);
+      }
+    } else {
+      launchScene = resolvePuppeteerLaunchScene(
+          ft,
+          imported,
+          snapshot,
+          treatImportedTimelineAsVnOffsets);
+    }
     if (newFromSnapshot && launchScene != null && snapshot != null) {
       runtimeExportBaselines = captureRuntimeExportBaselines(launchScene);
       applySnapshotTimelineEndStateToScene(
@@ -6590,6 +6615,17 @@ public class EditorApp extends Application {
     return snapshot.referencedTimelineName != null && !snapshot.referencedTimelineName.isBlank();
   }
 
+  private boolean shouldPrimeLoadedTimelineScene(
+      String selectedTimelineName,
+      PuppeteerLauncherPanel.SceneSnapshot snapshot,
+      AnimationProject imported,
+      PuppeteerLauncherPanel.LaunchTimelineMode launchMode
+  ) {
+    if (imported == null || snapshot == null || !snapshot.hasTimelineContext()) return false;
+    if (selectedTimelineName != null && !selectedTimelineName.isBlank()) return false;
+    return launchMode == PuppeteerLauncherPanel.LaunchTimelineMode.LOAD_TIMELINE;
+  }
+
   private JesScene2D resolvePuppeteerLaunchScene(
       FileEditorTab fileTab,
       AnimationProject imported,
@@ -6604,24 +6640,40 @@ public class EditorApp extends Application {
       PuppeteerLauncherPanel.SceneSnapshot snapshot,
       boolean importedTimelineUsesVnOffsets
   ) {
-    JesScene2D scene = null;
+    JesScene2D scene = resolvePuppeteerBaseLaunchScene(fileTab, imported, snapshot);
+    attachImportedTimelineToLaunchScene(scene, imported, snapshot, importedTimelineUsesVnOffsets, null);
+    return scene;
+  }
+
+  private JesScene2D resolvePuppeteerBaseLaunchScene(
+      FileEditorTab fileTab,
+      AnimationProject imported,
+      PuppeteerLauncherPanel.SceneSnapshot snapshot
+  ) {
     boolean snapshotHasScene = snapshot != null && (snapshot.backgroundId != null || !snapshot.characters.isEmpty());
     boolean activeFileIsTimeline = fileTab != null && isPuppeteerTimelineFile(fileTab.getFile());
-    if (snapshotHasScene && activeFileIsTimeline) {
+    JesScene2D scene = null;
+    if (snapshotHasScene) {
       scene = buildSceneFromSnapshot(snapshot);
     } else if (fileTab != null && fileTab.getJesScene() != null && !activeFileIsTimeline) {
       scene = fileTab.getJesScene();
-    } else if (snapshotHasScene) {
-      scene = buildSceneFromSnapshot(snapshot);
     } else if (imported != null) {
       scene = new JesScene2D();
     }
+    return scene;
+  }
 
+  private void attachImportedTimelineToLaunchScene(
+      JesScene2D scene,
+      AnimationProject imported,
+      PuppeteerLauncherPanel.SceneSnapshot snapshot,
+      boolean importedTimelineUsesVnOffsets,
+      Map<String, Map<PropertyType, Double>> vnOffsetBaselines
+  ) {
     if (scene != null && imported != null) {
       ensureSceneEntitiesForProject(scene, imported, snapshot);
-      rebaseImportedPuppeteerProject(scene, imported, importedTimelineUsesVnOffsets);
+      rebaseImportedPuppeteerProject(scene, imported, importedTimelineUsesVnOffsets, vnOffsetBaselines);
     }
-    return scene;
   }
 
   private boolean shouldTreatImportedTimelineAsVnOffsets(
@@ -6830,6 +6882,28 @@ public class EditorApp extends Application {
 	        && stateTimeline.getSceneEntitySnapshotsView().isEmpty()
 	        && snapshot.hasTimelineContext();
 	    applySnapshotStateTimelineToScene(scene, snapshot, stateTimeline, usesVnOffsets, vnOffsetBaselines);
+	  }
+
+	  private void applySnapshotTimelineHistoryBeforeLoadedTimeline(
+	      JesScene2D scene,
+	      PuppeteerLauncherPanel.SceneSnapshot snapshot,
+	      Map<String, Map<PropertyType, Double>> vnOffsetBaselines
+	  ) {
+	    if (scene == null || snapshot == null || !snapshot.hasInlineTimelineHistory()) return;
+	    PuppeteerLauncherPanel.InlineTimelineContext loadedTimeline = snapshot.hasInlineTimeline()
+	        ? snapshot.inlineTimelineHistory.get(snapshot.inlineTimelineHistory.size() - 1)
+	        : null;
+	    for (PuppeteerLauncherPanel.InlineTimelineContext context : snapshot.inlineTimelineHistory) {
+	      if (context == null) continue;
+	      if (loadedTimeline != null
+	          && context.startLine() == loadedTimeline.startLine()
+	          && context.endLine() == loadedTimeline.endLine()) {
+	        break;
+	      }
+	      AnimationProject stateTimeline = importInlineTimelineFromSnapshot(snapshot, context, false);
+	      if (stateTimeline == null) continue;
+	      applySnapshotStateTimelineToScene(scene, snapshot, stateTimeline, true, vnOffsetBaselines);
+	    }
 	  }
 
 	  private void applySnapshotStateTimelineToScene(
