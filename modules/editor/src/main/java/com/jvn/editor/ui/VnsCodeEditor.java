@@ -2523,6 +2523,31 @@ public class VnsCodeEditor extends BorderPane {
     }
   }
 
+  private void showTimelinePreviewPopup(FoldRegion region, javafx.scene.Node anchor) {
+    if (timelinePreviewPopup == null) {
+      timelinePreviewContent = new Label();
+      timelinePreviewContent.setWrapText(true);
+      timelinePreviewContent.setMaxWidth(400);
+      timelinePreviewContent.setStyle(
+          "-fx-background-color: #1e2030; -fx-text-fill: #cdd6f4; -fx-font-size: 11px;" +
+          "-fx-padding: 8 10 8 10; -fx-font-family: monospace;");
+      timelinePreviewPopup = new Popup();
+      timelinePreviewPopup.setAutoHide(true);
+      timelinePreviewPopup.getContent().add(timelinePreviewContent);
+    }
+    timelinePreviewContent.setText(buildTimelinePreview(region));
+    javafx.geometry.Bounds bounds = anchor.localToScreen(anchor.getBoundsInLocal());
+    if (bounds != null) {
+      timelinePreviewPopup.show(anchor, bounds.getMaxX() + 6, bounds.getMinY());
+    }
+  }
+
+  private void hideTimelinePreviewPopup() {
+    if (timelinePreviewPopup != null) {
+      timelinePreviewPopup.hide();
+    }
+  }
+
   private String buildTimelinePreview(FoldRegion region) {
     String text = codeArea.getText();
     if (text == null || region == null || region.startOffset() < 0 || region.endOffset() > text.length()) {
