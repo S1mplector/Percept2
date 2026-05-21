@@ -1049,6 +1049,28 @@ public class AnimationProject {
         double timeMs,
         Map<PropertyType, Double> fallbackLocalValues
     ) {
+        return computeEffectiveEntityTransform(entityName, timeMs, fallbackLocalValues, true, new HashSet<>());
+    }
+
+    EffectiveEntityTransform computeUnconstrainedEntityTransform(String entityName, double timeMs) {
+        return computeEffectiveEntityTransform(entityName, timeMs, Collections.emptyMap(), false, new HashSet<>());
+    }
+
+    EffectiveEntityTransform computeUnconstrainedEntityTransform(
+        String entityName,
+        double timeMs,
+        Map<PropertyType, Double> fallbackLocalValues
+    ) {
+        return computeEffectiveEntityTransform(entityName, timeMs, fallbackLocalValues, false, new HashSet<>());
+    }
+
+    private EffectiveEntityTransform computeEffectiveEntityTransform(
+        String entityName,
+        double timeMs,
+        Map<PropertyType, Double> fallbackLocalValues,
+        boolean applyConstraints,
+        Set<String> constraintStack
+    ) {
         EntityTrack track = entityTracks.get(entityName);
         if (track == null) {
             return defaultEffectiveEntityTransform(fallbackLocalValues);
@@ -1118,7 +1140,69 @@ public class AnimationProject {
             cursor = group.getParentGroupName();
         }
 
-        return new EffectiveEntityTransform(x, y, z, pivotX, pivotY, rotation, scaleX, scaleY, mirrorX, alpha, visibility);
+        EffectiveEntityTransform transform =
+            new EffectiveEntityTransform(x, y, z, pivotX, pivotY, rotation, scaleX, scaleY, mirrorX, alpha, visibility);
+        if (!applyConstraints || entityName == null || constraintStack == null || constraintStack.contains(entityName)) {
+            return transform;
+        }
+        Constraint constraint = constraints.get(entityName);
+        if (constraint == null || constraint.getTargetEntityName() == null || constraint.getTargetEntityName().isBlank()) {
+            return transform;
+        }
+        if (!constraintStack.add(entityName)) {
+            return transform;
+        }
+        try {
+            EffectiveEntityTransform target = computeEffectiveEntityTransform(
+                constraint.getTargetEntityName(),
+                timeMs,
+                Collections.emptyMap(),
+                true,
+                constraintStack
+            );
+            return applyConstraint(transform, target, constraint);
+        } finally {
+            constraintStack.remove(entityName);
+        }
+    }
+
+    private EffectiveEntityTransform applyConstraint(
+        EffectiveEntityTransform base,
+        EffectiveEntityTransform target,
+        Constraint constraint
+    ) {
+        if (base == null || target == null || constraint == null || constraint.getType() == null) return base;
+        if (constraint.getType() == Constraint.Type.LOOK_AT) {
+            double dx = target.x() - base.x();
+            double dy = target.y() - base.y();
+            if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) return base;
+            return new EffectiveEntityTransform(
+                base.x(), base.y(), base.z(), base.pivotX(), base.pivotY(),
+                Math.toDegrees(Math.atan2(dy, dx)),
+                base.scaleX(), base.scaleY(), base.mirrorX(), base.alpha(), base.visibility()
+            );
+        }
+
+        double offsetX = constraint.getOffsetX();
+        double offsetY = constraint.getOffsetY();
+        double radians = Math.toRadians(target.rotationDeg());
+        double cos = Math.cos(radians);
+        double sin = Math.sin(radians);
+        double x = target.x() + offsetX * cos - offsetY * sin;
+        double y = target.y() + offsetX * sin + offsetY * cos;
+        double rotation = constraint.isInheritRotation()
+            ? target.rotationDeg() + base.rotationDeg()
+            : base.rotationDeg();
+        double scaleX = constraint.isInheritScale()
+            ? target.scaleX() * base.scaleX()
+            : base.scaleX();
+        double scaleY = constraint.isInheritScale()
+            ? target.scaleY() * base.scaleY()
+            : base.scaleY();
+        return new EffectiveEntityTransform(
+            x, y, base.z(), base.pivotX(), base.pivotY(), rotation,
+            scaleX, scaleY, base.mirrorX(), base.alpha(), base.visibility()
+        );
     }
 
     public boolean hasEffectiveAnimation(String entityName, PropertyType property) {
