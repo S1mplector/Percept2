@@ -7,6 +7,7 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
+import javafx.scene.control.ToggleButton;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -20,7 +21,9 @@ public class CodePreviewPane extends VBox {
     private final Button btnPreviewApply;
     private final Button btnCommitPreview;
     private final Button btnDiscardPreview;
+    private final ToggleButton btnToggleWarnings;
     private final Label lblDiagnostics;
+    private boolean hasMessages = false;
     private Runnable onCopy;
     private Runnable onRegenerate;
     private Runnable onPreviewToModel;
@@ -92,7 +95,13 @@ public class CodePreviewPane extends VBox {
             if (onDiscardPreview != null) onDiscardPreview.run();
         });
 
-        HBox buttonRow = new HBox(10, btnCopy, btnRegenerate, btnPreviewApply, btnCommitPreview, btnDiscardPreview);
+        btnToggleWarnings = makeIconToggleButton(com.jvn.editor.ui.CssIcon.warning("#f0b673"), "Toggle warnings/diagnostics visibility");
+        btnToggleWarnings.setSelected(true);
+        btnToggleWarnings.setVisible(false);
+        btnToggleWarnings.setManaged(false);
+        btnToggleWarnings.setOnAction(e -> syncDiagnosticsVisibility());
+
+        HBox buttonRow = new HBox(10, btnCopy, btnRegenerate, btnToggleWarnings, btnPreviewApply, btnCommitPreview, btnDiscardPreview);
         buttonRow.setAlignment(Pos.CENTER_RIGHT);
         buttonRow.setMinWidth(0);
 
@@ -120,6 +129,27 @@ public class CodePreviewPane extends VBox {
         button.setMaxSize(34, 30);
         button.setFocusTraversable(false);
         return button;
+    }
+
+    private static ToggleButton makeIconToggleButton(javafx.scene.layout.Region icon, String tooltip) {
+        ToggleButton button = new ToggleButton();
+        button.getStyleClass().add("puppeteer-toolbar-icon-button");
+        button.setText("");
+        button.setGraphic(icon);
+        button.setTooltip(new Tooltip(tooltip));
+        button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        button.setGraphicTextGap(0);
+        button.setMinSize(34, 30);
+        button.setPrefSize(34, 30);
+        button.setMaxSize(34, 30);
+        button.setFocusTraversable(false);
+        return button;
+    }
+
+    private void syncDiagnosticsVisibility() {
+        boolean show = hasMessages && btnToggleWarnings.isSelected();
+        lblDiagnostics.setVisible(show);
+        lblDiagnostics.setManaged(show);
     }
 
     public void setCode(String code) {
@@ -211,6 +241,9 @@ public class CodePreviewPane extends VBox {
 
     public void setDiagnostics(java.util.List<TimelineDiagnostic.Message> messages) {
         if (messages == null || messages.isEmpty()) {
+            hasMessages = false;
+            btnToggleWarnings.setVisible(false);
+            btnToggleWarnings.setManaged(false);
             lblDiagnostics.setText("");
             lblDiagnostics.setVisible(false);
             lblDiagnostics.setManaged(false);
@@ -234,7 +267,9 @@ public class CodePreviewPane extends VBox {
             ? "-fx-text-fill: #e74c3c; -fx-font-size: 10px; -fx-padding: 4 0 0 0;"
             : "-fx-text-fill: #f0b673; -fx-font-size: 10px; -fx-padding: 4 0 0 0;");
         lblDiagnostics.setText(sb.toString().strip());
-        lblDiagnostics.setVisible(true);
-        lblDiagnostics.setManaged(true);
+        hasMessages = true;
+        btnToggleWarnings.setVisible(true);
+        btnToggleWarnings.setManaged(true);
+        syncDiagnosticsVisibility();
     }
 }
