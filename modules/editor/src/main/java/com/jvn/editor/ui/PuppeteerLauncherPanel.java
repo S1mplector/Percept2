@@ -1500,6 +1500,86 @@ button then opens it in the editor."""));
     return "—";
   }
 
+  public static String snapshotCharacterGroupName(CharacterEntry character) {
+    if (character == null) return "character_preset";
+    String characterId = selectorSafeName(character.characterId);
+    String expression = selectorSafeName(character.expression == null || character.expression.isBlank()
+        ? "neutral"
+        : character.expression);
+    if (characterId.isBlank()) characterId = "character";
+    if (expression.isBlank()) expression = "neutral";
+    return characterId + "_" + expression;
+  }
+
+  public static String snapshotLayerEntityName(String characterId, String expression, String layerId) {
+    String safeCharacter = selectorSafeName(characterId);
+    String safeExpression = selectorSafeName(expression == null || expression.isBlank() ? "neutral" : expression);
+    String safeLayer = selectorSafeName(layerId);
+    if (safeCharacter.isBlank() || safeExpression.isBlank() || safeLayer.isBlank()) return "";
+    return safeCharacter + "_" + safeExpression + "_" + safeLayer;
+  }
+
+  public static List<String> equivalentSnapshotLayerEntityNames(
+      SceneSnapshot snapshot,
+      CharacterEntry character,
+      String layerId
+  ) {
+    if (character == null || character.characterId == null || character.characterId.isBlank()
+        || layerId == null || layerId.isBlank()) {
+      return List.of();
+    }
+    Set<String> names = new java.util.LinkedHashSet<>();
+    String safeLayer = selectorSafeName(layerId);
+    String currentName = snapshotLayerEntityName(character.characterId, character.expression, layerId);
+    if (!currentName.isBlank()) names.add(currentName);
+    if (snapshot != null && snapshot.characterPresetLayers != null && !snapshot.characterPresetLayers.isEmpty()) {
+      String prefix = character.characterId + "/";
+      for (Map.Entry<String, List<CharacterLayerEntry>> entry : snapshot.characterPresetLayers.entrySet()) {
+        String key = entry.getKey();
+        if (key == null || !key.startsWith(prefix) || key.length() <= prefix.length()) continue;
+        String expression = key.substring(prefix.length());
+        List<CharacterLayerEntry> layers = entry.getValue();
+        if (!presetContainsLayer(layers, layerId, safeLayer)) continue;
+        String alias = snapshotLayerEntityName(character.characterId, expression, layerId);
+        if (!alias.isBlank()) names.add(alias);
+      }
+    }
+    return List.copyOf(names);
+  }
+
+  public static boolean snapshotCharacterHasLayer(SceneSnapshot snapshot, CharacterEntry character, String layerId) {
+    if (snapshot == null || character == null || layerId == null || layerId.isBlank()) return false;
+    List<CharacterLayerEntry> layers = snapshot.resolveCharacterLayers(character.characterId, character.expression);
+    return presetContainsLayer(layers, layerId, selectorSafeName(layerId));
+  }
+
+  public static String selectorSafeName(String raw) {
+    String value = raw == null ? "" : raw.trim();
+    StringBuilder out = new StringBuilder();
+    for (int i = 0; i < value.length(); i++) {
+      char ch = value.charAt(i);
+      if (Character.isLetterOrDigit(ch) || ch == '_' || ch == '-') {
+        out.append(ch);
+      } else {
+        out.append('_');
+      }
+    }
+    String cleaned = out.toString().replaceAll("_+", "_");
+    while (cleaned.startsWith("_")) cleaned = cleaned.substring(1);
+    while (cleaned.endsWith("_")) cleaned = cleaned.substring(0, cleaned.length() - 1);
+    return cleaned;
+  }
+
+  private static boolean presetContainsLayer(List<CharacterLayerEntry> layers, String layerId, String safeLayerId) {
+    if (layers == null || layers.isEmpty()) return false;
+    for (CharacterLayerEntry layer : layers) {
+      if (layer == null || layer.layerId == null || layer.layerId.isBlank()) continue;
+      if (layer.layerId.equals(layerId)) return true;
+      if (!safeLayerId.isBlank() && selectorSafeName(layer.layerId).equals(safeLayerId)) return true;
+    }
+    return false;
+  }
+
   private static List<String> buildDiagnostics(SceneSnapshot snapshot, File projectRoot) {
     List<String> out = new ArrayList<>();
     if (snapshot == null) return out;
