@@ -119,6 +119,7 @@ public class VnsCodeEditor extends BorderPane {
   // Shared popup for timeline hover preview (lazy init, single instance)
   private Popup timelinePreviewPopup;
   private Label timelinePreviewContent;
+  private final PauseTransition previewHideDelay = new PauseTransition(Duration.millis(150));
 
   private static final String COMMENT_PATTERN = "(?m)#.*$";
   private static final String STRING_PATTERN = "\"([^\\\\\"]|\\\\.)*\"";
@@ -885,9 +886,7 @@ public class VnsCodeEditor extends BorderPane {
       foldBtn.getStyleClass().add("code-fold-toggle");
       if (foldRegion.kind() == FoldKind.TIMELINE && folded) {
         foldBtn.setOnMouseEntered(e -> showTimelinePreviewPopup(foldRegion, foldBtn));
-        foldBtn.setOnMouseExited(e -> hideTimelinePreviewPopup());
-        gutter.setOnMouseEntered(e -> showTimelinePreviewPopup(foldRegion, foldBtn));
-        gutter.setOnMouseExited(e -> hideTimelinePreviewPopup());
+        foldBtn.setOnMouseExited(e -> scheduleHideTimelinePreviewPopup());
       } else {
         foldBtn.setTooltip(new Tooltip(folded ? "Unfold section" : "Fold section"));
       }
@@ -2524,6 +2523,7 @@ public class VnsCodeEditor extends BorderPane {
   }
 
   private void showTimelinePreviewPopup(FoldRegion region, javafx.scene.Node anchor) {
+    previewHideDelay.stop();
     if (timelinePreviewPopup == null) {
       timelinePreviewContent = new Label();
       timelinePreviewContent.setWrapText(true);
@@ -2542,10 +2542,11 @@ public class VnsCodeEditor extends BorderPane {
     }
   }
 
-  private void hideTimelinePreviewPopup() {
-    if (timelinePreviewPopup != null) {
-      timelinePreviewPopup.hide();
-    }
+  private void scheduleHideTimelinePreviewPopup() {
+    previewHideDelay.setOnFinished(e -> {
+      if (timelinePreviewPopup != null) timelinePreviewPopup.hide();
+    });
+    previewHideDelay.playFromStart();
   }
 
   private String buildTimelinePreview(FoldRegion region) {
