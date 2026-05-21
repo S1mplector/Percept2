@@ -1024,10 +1024,10 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-background-color: rgba(18,18,22,0.91);
   -fx-border-color: rgba(255,180,90,0.35);
   -fx-border-width: 1;
-  -fx-background-radius: 7;
-  -fx-border-radius: 7;
-  -fx-padding: 8 9 8 9;
-  -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.35), 14, 0.25, 0, 3);
+  -fx-background-radius: 6;
+  -fx-border-radius: 6;
+  -fx-padding: 6 7 6 7;
+  -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.32), 10, 0.22, 0, 2);
 }
 
 .timeline-nav-title {
@@ -1056,7 +1056,7 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-background-color: #2a2a2e;
   -fx-text-fill: #d6d6da;
   -fx-font-size: 11px;
-  -fx-padding: 5 10 5 10;
+  -fx-padding: 3 9 3 9;
   -fx-background-radius: 4;
   -fx-border-color: #4a4a52;
   -fx-border-radius: 4;

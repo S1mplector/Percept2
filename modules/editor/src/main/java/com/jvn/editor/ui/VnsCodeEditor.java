@@ -2559,25 +2559,22 @@ public class VnsCodeEditor extends BorderPane {
     timelineNavMeta.getStyleClass().add("timeline-nav-meta");
     timelineNavSummary = new Label("");
     timelineNavSummary.getStyleClass().add("timeline-nav-summary");
-    timelineNavSummary.setWrapText(true);
+    timelineNavMeta.setTextOverrun(javafx.scene.control.OverrunStyle.ELLIPSIS);
+    timelineNavSummary.setWrapText(false);
+    timelineNavSummary.setTextOverrun(javafx.scene.control.OverrunStyle.ELLIPSIS);
 
     timelineNavTopButton = timelineNavButton("Top");
     timelineNavBottomButton = timelineNavButton("Bottom");
-    Button previewButton = timelineNavButton("Preview");
     timelineNavTopButton.setOnAction(e -> navigateToTimelineEdge(true));
     timelineNavBottomButton.setOnAction(e -> navigateToTimelineEdge(false));
-    previewButton.setOnAction(e -> {
-      if (activeScrollTimeline != null) {
-        showTimelinePreviewPopup(activeScrollTimeline, timelineNavOverlay);
-        timelineNavHideDelay.stop();
-      }
-    });
 
-    HBox buttons = new HBox(6, timelineNavTopButton, timelineNavBottomButton, previewButton);
+    HBox buttons = new HBox(5, timelineNavTopButton, timelineNavBottomButton);
     buttons.setAlignment(Pos.CENTER_RIGHT);
-    VBox box = new VBox(4, timelineNavTitle, timelineNavMeta, timelineNavSummary, buttons);
+    VBox box = new VBox(2, timelineNavTitle, timelineNavMeta, timelineNavSummary, buttons);
     box.getStyleClass().add("timeline-nav-overlay");
     box.setMaxWidth(360);
+    box.setMaxHeight(javafx.scene.layout.Region.USE_PREF_SIZE);
+    box.setFillWidth(true);
     box.setVisible(false);
     box.setManaged(false);
     box.setOpacity(0.0);

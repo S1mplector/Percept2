@@ -996,11 +996,14 @@
 }
 
 .code-editor-minimap {
-  -fx-background-color: #f1f1f1;
+  -fx-background-color: #f7f7f8;
+  -fx-border-color: rgba(185,112,27,0.14);
+  -fx-border-width: 0 0 0 1;
+  -fx-cursor: hand;
 }
 
 .code-editor-minimap-separator {
-  -fx-background-color: #d4d4d4;
+  -fx-background-color: #d8d8dc;
 }
 
 /* Ensure virtualized scroll pane and content are transparent to show editor bg */
@@ -5976,10 +5979,10 @@
   -fx-background-color: rgba(250,250,252,0.94);
   -fx-border-color: rgba(185,112,27,0.36);
   -fx-border-width: 1;
-  -fx-background-radius: 7;
-  -fx-border-radius: 7;
-  -fx-padding: 8 9 8 9;
-  -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.18), 14, 0.25, 0, 3);
+  -fx-background-radius: 6;
+  -fx-border-radius: 6;
+  -fx-padding: 6 7 6 7;
+  -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.16), 10, 0.22, 0, 2);
 }
 
 .timeline-nav-title {
@@ -6008,7 +6011,7 @@
   -fx-background-color: #f1f1f4;
   -fx-text-fill: #20242a;
   -fx-font-size: 11px;
-  -fx-padding: 5 10 5 10;
+  -fx-padding: 3 9 3 9;
   -fx-background-radius: 4;
   -fx-border-color: #c9c9d0;
   -fx-border-radius: 4;
