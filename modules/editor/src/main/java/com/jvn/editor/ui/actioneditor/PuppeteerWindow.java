@@ -4578,7 +4578,20 @@ public class PuppeteerWindow extends Stage {
                 : project.computeEffectiveLayerOrder(entityName);
             entity.setZ(z);
 
-            entity.setPosition(effectiveTransform.x(), effectiveTransform.y());
+            double visualX = effectiveTransform.x();
+            double visualY = effectiveTransform.y();
+            if (track.hasKeyframes(PropertyType.PIVOT_X) || track.hasKeyframes(PropertyType.PIVOT_Y)) {
+                double[] size = entityVisualSize(entity);
+                if (!track.hasKeyframes(PropertyType.X)) {
+                    double basePivotX = baselineValues.getOrDefault(PropertyType.PIVOT_X, entity.getOriginX());
+                    visualX += (effectiveTransform.pivotX() - basePivotX) * size[0];
+                }
+                if (!track.hasKeyframes(PropertyType.Y)) {
+                    double basePivotY = baselineValues.getOrDefault(PropertyType.PIVOT_Y, entity.getOriginY());
+                    visualY += (effectiveTransform.pivotY() - basePivotY) * size[1];
+                }
+            }
+            entity.setPosition(visualX, visualY);
 
             setEntityPivot(entity, effectiveTransform.pivotX(), effectiveTransform.pivotY());
             entity.setRotationDeg(effectiveTransform.rotationDeg());
@@ -5260,6 +5273,16 @@ public class PuppeteerWindow extends Stage {
             return initialValue;
         }
         return fallbackPropertyValue(entity, property);
+    }
+
+    private static double[] entityVisualSize(com.jvn.core.scene2d.Entity2D entity) {
+        if (entity instanceof com.jvn.core.scene2d.Sprite2D sprite) {
+            return new double[] { Math.max(1.0, sprite.getWidth()), Math.max(1.0, sprite.getHeight()) };
+        }
+        if (entity instanceof com.jvn.core.scene2d.Panel2D panel) {
+            return new double[] { Math.max(1.0, panel.getWidth()), Math.max(1.0, panel.getHeight()) };
+        }
+        return new double[] { 1.0, 1.0 };
     }
 
     private static double getEntityPivotX(com.jvn.core.scene2d.Entity2D entity) {

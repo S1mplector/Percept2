@@ -6958,21 +6958,30 @@ public class EditorApp extends Application {
 
 	  private void applyTimelineTrackFrame(Entity2D entity, EntityTrack track, double timeMs) {
 	    if (entity == null || track == null) return;
-	    double x = track.hasKeyframes(PropertyType.X) ? track.getValueAt(PropertyType.X, timeMs) : entity.getX();
-	    double y = track.hasKeyframes(PropertyType.Y) ? track.getValueAt(PropertyType.Y, timeMs) : entity.getY();
-	    if (track.hasKeyframes(PropertyType.X) || track.hasKeyframes(PropertyType.Y)) {
-	      entity.setPosition(x, y);
-	    }
+	    boolean hasX = track.hasKeyframes(PropertyType.X);
+	    boolean hasY = track.hasKeyframes(PropertyType.Y);
+	    boolean hasPivotX = track.hasKeyframes(PropertyType.PIVOT_X);
+	    boolean hasPivotY = track.hasKeyframes(PropertyType.PIVOT_Y);
+	    double x = hasX ? track.getValueAt(PropertyType.X, timeMs) : entity.getX();
+	    double y = hasY ? track.getValueAt(PropertyType.Y, timeMs) : entity.getY();
 	    if (track.hasKeyframes(PropertyType.Z)) {
 	      entity.setZ(track.getValueAt(PropertyType.Z, timeMs));
 	    }
-	    double ox = track.hasKeyframes(PropertyType.PIVOT_X)
+	    double ox = hasPivotX
 	        ? track.getValueAt(PropertyType.PIVOT_X, timeMs)
 	        : entity.getOriginX();
-	    double oy = track.hasKeyframes(PropertyType.PIVOT_Y)
+	    double oy = hasPivotY
 	        ? track.getValueAt(PropertyType.PIVOT_Y, timeMs)
 	        : entity.getOriginY();
-	    if (track.hasKeyframes(PropertyType.PIVOT_X) || track.hasKeyframes(PropertyType.PIVOT_Y)) {
+	    if (hasPivotX || hasPivotY) {
+	      double[] size = entityVisualSize(entity);
+	      if (!hasX) x += (ox - entity.getOriginX()) * size[0];
+	      if (!hasY) y += (oy - entity.getOriginY()) * size[1];
+	    }
+	    if (hasX || hasY || hasPivotX || hasPivotY) {
+	      entity.setPosition(x, y);
+	    }
+	    if (hasPivotX || hasPivotY) {
 	      entity.setOrigin(ox, oy);
 	    }
 	    if (track.hasKeyframes(PropertyType.ROTATION)) {
@@ -7303,6 +7312,16 @@ public class EditorApp extends Application {
     if (entity instanceof com.jvn.core.scene2d.Label2D label) return label.getAlpha();
     if (entity instanceof com.jvn.core.scene2d.Panel2D panel) return panel.getFillA();
     return 1.0;
+  }
+
+  private static double[] entityVisualSize(Entity2D entity) {
+    if (entity instanceof com.jvn.core.scene2d.Sprite2D sprite) {
+      return new double[] { Math.max(1.0, sprite.getWidth()), Math.max(1.0, sprite.getHeight()) };
+    }
+    if (entity instanceof com.jvn.core.scene2d.Panel2D panel) {
+      return new double[] { Math.max(1.0, panel.getWidth()), Math.max(1.0, panel.getHeight()) };
+    }
+    return new double[] { 1.0, 1.0 };
   }
 
   private void addMissingSceneEntity(
