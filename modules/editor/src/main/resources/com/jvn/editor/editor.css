@@ -1020,6 +1020,58 @@ The editor.css file defines the visual styling for the editor module, including 
  .code-fold-toggle:hover { -fx-text-fill: #ffb45a; }
  .code-fold-toggle:hover .text { -fx-fill: #ffb45a; }
 
+.timeline-nav-overlay {
+  -fx-background-color: rgba(18,18,22,0.91);
+  -fx-border-color: rgba(255,180,90,0.35);
+  -fx-border-width: 1;
+  -fx-background-radius: 7;
+  -fx-border-radius: 7;
+  -fx-padding: 8 9 8 9;
+  -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.35), 14, 0.25, 0, 3);
+}
+
+.timeline-nav-title {
+  -fx-text-fill: #ffb45a;
+  -fx-font-size: 12px;
+  -fx-font-weight: 700;
+}
+
+.timeline-nav-title .text { -fx-fill: #ffb45a; }
+
+.timeline-nav-meta {
+  -fx-text-fill: #c8c8cc;
+  -fx-font-size: 11px;
+}
+
+.timeline-nav-meta .text { -fx-fill: #c8c8cc; }
+
+.timeline-nav-summary {
+  -fx-text-fill: #9ba3af;
+  -fx-font-size: 11px;
+}
+
+.timeline-nav-summary .text { -fx-fill: #9ba3af; }
+
+.timeline-nav-button {
+  -fx-background-color: #2a2a2e;
+  -fx-text-fill: #d6d6da;
+  -fx-font-size: 11px;
+  -fx-padding: 5 10 5 10;
+  -fx-background-radius: 4;
+  -fx-border-color: #4a4a52;
+  -fx-border-radius: 4;
+  -fx-cursor: hand;
+}
+
+.timeline-nav-button:hover {
+  -fx-background-color: #34343a;
+  -fx-text-fill: #ffffff;
+}
+
+.timeline-nav-button:disabled {
+  -fx-opacity: 0.42;
+}
+
 .code-editor-status-bar {
   -fx-background-color:
       linear-gradient(to bottom, rgba(255,255,255,0.025), rgba(255,255,255,0.0)),

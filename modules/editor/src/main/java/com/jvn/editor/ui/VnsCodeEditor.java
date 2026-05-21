@@ -33,13 +33,17 @@ import org.fxmisc.richtext.event.MouseOverTextEvent;
 import org.fxmisc.richtext.model.StyleSpans;
 import org.fxmisc.richtext.model.StyleSpansBuilder;
 
+import javafx.animation.FadeTransition;
+import javafx.animation.Interpolator;
 import javafx.animation.PauseTransition;
+import javafx.animation.TranslateTransition;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.Button;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
@@ -53,6 +57,7 @@ import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.stage.Popup;
@@ -120,6 +125,21 @@ public class VnsCodeEditor extends BorderPane {
   private Popup timelinePreviewPopup;
   private Label timelinePreviewContent;
   private final PauseTransition previewHideDelay = new PauseTransition(Duration.millis(150));
+  // Timeline navigation overlay (skip to top / bottom of block while scrolling)
+  private VBox timelineNavOverlay;
+  private Label timelineNavTitle;
+  private Label timelineNavMeta;
+  private Label timelineNavSummary;
+  private Button timelineNavTopButton;
+  private Button timelineNavBottomButton;
+  private Tooltip timelineNavTooltip;
+  private FoldRegion activeScrollTimeline;
+  private String activeScrollTimelineKey = "";
+  private final Map<String, TimelineNavSummary> timelineNavSummaryCache = new HashMap<>();
+  private final PauseTransition timelineNavHideDelay = new PauseTransition(Duration.millis(2500));
+  private FadeTransition timelineNavFade;
+  private TranslateTransition timelineNavSlide;
+  private boolean timelineNavShowing = false;
 
   private static final String COMMENT_PATTERN = "(?m)#.*$";
   private static final String STRING_PATTERN = "\"([^\\\\\"]|\\\\.)*\"";
@@ -190,6 +210,8 @@ public class VnsCodeEditor extends BorderPane {
     codeArea.textProperty().addListener((obs, oldText, newText) -> {
       String value = newText == null ? "" : newText;
       foldRegionCacheDirty = true;
+      timelineNavSummaryCache.clear();
+      activeScrollTimelineKey = "";
       applyAnalysis(value);
       if (onTextChanged != null) onTextChanged.accept(value);
       if (!foldedRegionStarts.isEmpty() && !foldRefreshPending) {
@@ -211,21 +233,28 @@ public class VnsCodeEditor extends BorderPane {
     minimapCanvas.setOnMousePressed(this::onMinimapPress);
     minimapCanvas.setOnMouseDragged(this::onMinimapDrag);
 
-    // Redraw minimap when the user scrolls (not just on text change)
+    // Redraw minimap and update nav overlay when the user scrolls
     codeArea.estimatedScrollYProperty().addListener((obs, o, n) -> {
       if (!minimapRedrawPending) {
         minimapRedrawPending = true;
         Platform.runLater(() -> { minimapRedrawPending = false; redrawMinimap(); });
       }
+      updateTimelineNavOverlay();
     });
+
+    // Timeline nav overlay (skip to top/bottom of block while scrolling)
+    timelineNavOverlay = buildTimelineNavOverlay();
+    StackPane codeWithOverlay = new StackPane(mainScrollPane, timelineNavOverlay);
+    StackPane.setAlignment(timelineNavOverlay, Pos.BOTTOM_RIGHT);
+    StackPane.setMargin(timelineNavOverlay, new Insets(0, 10, 14, 0));
 
     // Separator line between editor and minimap
     javafx.scene.layout.Region minimapSep = new javafx.scene.layout.Region();
     minimapSep.setMinWidth(1); minimapSep.setMaxWidth(1);
     minimapSep.getStyleClass().add("code-editor-minimap-separator");
 
-    HBox codeAndMinimap = new HBox(mainScrollPane, minimapSep, minimapCanvas);
-    HBox.setHgrow(mainScrollPane, Priority.ALWAYS);
+    HBox codeAndMinimap = new HBox(codeWithOverlay, minimapSep, minimapCanvas);
+    HBox.setHgrow(codeWithOverlay, Priority.ALWAYS);
     codeAndMinimap.heightProperty().addListener((obs, o, n) -> {
       minimapCanvas.setHeight(n.doubleValue());
       Platform.runLater(this::redrawMinimap);
@@ -2151,6 +2180,10 @@ public class VnsCodeEditor extends BorderPane {
     }
   }
 
+  private record TimelineNavTarget(FoldRegion region, int ordinal, int total, int visibleStart, int visibleEnd) {}
+
+  private record TimelineNavSummary(String detail, String targets) {}
+
   private void setupCodeFolding() {
     // Code folding is managed through the gutter (makeLineNumberLabel).
     // RichTextFX collapses paragraphs when their paragraph style includes "collapse".
@@ -2160,7 +2193,10 @@ public class VnsCodeEditor extends BorderPane {
     if (!foldRegionCacheDirty) return foldRegionCache;
     foldRegionCacheDirty = false;
     String text = pendingAnalysisText.isEmpty() ? codeArea.getText() : pendingAnalysisText;
-    if (text.isEmpty()) return List.of();
+    if (text.isEmpty()) {
+      foldRegionCache = List.of();
+      return foldRegionCache;
+    }
 
     int[] lineStarts = computeLineStarts(text);
     String[] lines = text.split("\\n", -1);
@@ -2523,6 +2559,249 @@ public class VnsCodeEditor extends BorderPane {
     if (styles.removeAll(styleClasses)) {
       codeArea.setParagraphStyle(paragraph, styles);
     }
+  }
+
+  // ─── Timeline nav overlay ─────────────────────────────────────────
+
+  private VBox buildTimelineNavOverlay() {
+    timelineNavTitle = new Label("Timeline");
+    timelineNavTitle.getStyleClass().add("timeline-nav-title");
+    timelineNavMeta = new Label("");
+    timelineNavMeta.getStyleClass().add("timeline-nav-meta");
+    timelineNavSummary = new Label("");
+    timelineNavSummary.getStyleClass().add("timeline-nav-summary");
+    timelineNavSummary.setWrapText(true);
+
+    timelineNavTopButton = timelineNavButton("Top");
+    timelineNavBottomButton = timelineNavButton("Bottom");
+    Button previewButton = timelineNavButton("Preview");
+    timelineNavTopButton.setOnAction(e -> navigateToTimelineEdge(true));
+    timelineNavBottomButton.setOnAction(e -> navigateToTimelineEdge(false));
+    previewButton.setOnAction(e -> {
+      if (activeScrollTimeline != null) {
+        showTimelinePreviewPopup(activeScrollTimeline, timelineNavOverlay);
+        timelineNavHideDelay.stop();
+      }
+    });
+
+    HBox buttons = new HBox(6, timelineNavTopButton, timelineNavBottomButton, previewButton);
+    buttons.setAlignment(Pos.CENTER_RIGHT);
+    VBox box = new VBox(4, timelineNavTitle, timelineNavMeta, timelineNavSummary, buttons);
+    box.getStyleClass().add("timeline-nav-overlay");
+    box.setMaxWidth(360);
+    box.setVisible(false);
+    box.setManaged(false);
+    box.setOpacity(0.0);
+    box.setTranslateY(8.0);
+    box.setOnMouseEntered(e -> timelineNavHideDelay.stop());
+    box.setOnMouseExited(e -> {
+      if (activeScrollTimeline != null) timelineNavHideDelay.playFromStart();
+    });
+    timelineNavTooltip = new Tooltip("Timeline block");
+    Tooltip.install(box, timelineNavTooltip);
+    timelineNavHideDelay.setOnFinished(e -> hideTimelineNavOverlay());
+    return box;
+  }
+
+  private Button timelineNavButton(String text) {
+    Button button = new Button(text);
+    button.getStyleClass().add("timeline-nav-button");
+    button.setFocusTraversable(false);
+    return button;
+  }
+
+  private void updateTimelineNavOverlay() {
+    if (timelineNavOverlay == null) return;
+
+    int visibleStart, visibleEnd;
+    try {
+      visibleStart = codeArea.firstVisibleParToAllParIndex();
+      visibleEnd = codeArea.lastVisibleParToAllParIndex();
+    } catch (Exception ignored) {
+      return;
+    }
+    if (visibleStart < 0 || visibleEnd < 0 || visibleEnd < visibleStart) return;
+
+    TimelineNavTarget target = findTimelineNavTarget(visibleStart, visibleEnd);
+    if (target == null) {
+      activeScrollTimeline = null;
+      activeScrollTimelineKey = "";
+      timelineNavHideDelay.stop();
+      hideTimelineNavOverlay();
+      return;
+    }
+
+    activeScrollTimeline = target.region();
+    updateTimelineNavContent(target);
+    showTimelineNavOverlay();
+    timelineNavHideDelay.playFromStart();
+  }
+
+  private TimelineNavTarget findTimelineNavTarget(int visibleStart, int visibleEnd) {
+    List<FoldRegion> regions = computeFoldRegions();
+    int visibleLines = Math.max(1, visibleEnd - visibleStart + 1);
+    int visibleCenter = visibleStart + visibleLines / 2;
+    FoldRegion best = null;
+    int bestScore = Integer.MIN_VALUE;
+    int bestOrdinal = -1;
+    int total = 0;
+
+    for (FoldRegion region : regions) {
+      if (region.kind() != FoldKind.TIMELINE) continue;
+      total++;
+      if (foldedRegionStarts.contains(region.startLine())) continue;
+
+      int timelineLines = Math.max(1, region.endLine() - region.startLine() + 1);
+      if (timelineLines <= Math.max(18, visibleLines + 2)) continue;
+
+      int overlapStart = Math.max(region.startLine(), visibleStart);
+      int overlapEnd = Math.min(region.endLine(), visibleEnd);
+      int overlap = overlapEnd - overlapStart + 1;
+      if (overlap <= 0) continue;
+
+      boolean centerInside = region.containsLine(visibleCenter);
+      boolean viewportMostlyInside = overlap >= Math.max(3, (int) Math.ceil(visibleLines * 0.45));
+      if (!centerInside && !viewportMostlyInside) continue;
+
+      int score = overlap;
+      if (centerInside) score += 10_000;
+      if (region.startLine() < visibleStart && region.endLine() > visibleEnd) score += 2_000;
+      if (score > bestScore) {
+        best = region;
+        bestScore = score;
+        bestOrdinal = total;
+      }
+    }
+
+    if (best == null) return null;
+    return new TimelineNavTarget(best, bestOrdinal, total, visibleStart, visibleEnd);
+  }
+
+  private void updateTimelineNavContent(TimelineNavTarget target) {
+    FoldRegion region = target.region();
+    String key = timelineNavKey(region);
+    int visibleCenter = target.visibleStart() + Math.max(1, target.visibleEnd() - target.visibleStart() + 1) / 2;
+    int currentLine = Math.max(region.startLine(), Math.min(region.endLine(), visibleCenter));
+    int lineCount = Math.max(1, region.endLine() - region.startLine() + 1);
+    int percent = lineCount <= 1
+        ? 100
+        : (int) Math.round(((currentLine - region.startLine()) * 100.0) / (lineCount - 1));
+
+    if (!key.equals(activeScrollTimelineKey)) {
+      activeScrollTimelineKey = key;
+      TimelineNavSummary summary = timelineNavSummary(region);
+      timelineNavTitle.setText("Timeline " + target.ordinal() + " of " + target.total());
+      timelineNavMeta.setText("Lines " + (region.startLine() + 1) + "-" + (region.endLine() + 1)
+          + "  |  " + lineCount + " lines  |  " + summary.detail());
+      timelineNavSummary.setText(summary.targets());
+      if (timelineNavTooltip != null) {
+        timelineNavTooltip.setText("Timeline block at lines "
+            + (region.startLine() + 1) + "-" + (region.endLine() + 1));
+      }
+    }
+
+    timelineNavTitle.setText("Timeline " + target.ordinal() + " of " + target.total()
+        + "  |  " + percent + "% through");
+    timelineNavTopButton.setDisable(region.startLine() >= target.visibleStart()
+        && region.startLine() <= target.visibleEnd());
+    timelineNavBottomButton.setDisable(region.endLine() >= target.visibleStart()
+        && region.endLine() <= target.visibleEnd());
+  }
+
+  private TimelineNavSummary timelineNavSummary(FoldRegion region) {
+    String key = timelineNavKey(region);
+    TimelineNavSummary cached = timelineNavSummaryCache.get(key);
+    if (cached != null) return cached;
+
+    String text = codeArea.getText();
+    if (text == null || region.startOffset() < 0 || region.endOffset() > text.length()) {
+      TimelineNavSummary fallback = new TimelineNavSummary("unparsed", "No timeline details available.");
+      timelineNavSummaryCache.put(key, fallback);
+      return fallback;
+    }
+
+    String block = text.substring(region.startOffset(), region.endOffset());
+    int actionCount = countTimelineActions(block);
+    TimelineNavSummary summary;
+    try {
+      TimelineData data = TimelineDataParser.parse("_vns_editor_nav", block);
+      StringBuilder detail = new StringBuilder(formatTimelineDuration(data.getDurationMs()))
+          .append("  |  ")
+          .append(data.getTracks().size()).append(data.getTracks().size() == 1 ? " track" : " tracks");
+      if (actionCount > 0) {
+        detail.append("  |  ").append(actionCount).append(actionCount == 1 ? " action" : " actions");
+      }
+      String targets = summarizeTimelineTargets(data, block);
+      summary = new TimelineNavSummary(detail.toString(),
+          targets.isBlank() ? "No named layer targets detected." : "Targets: " + targets);
+    } catch (Exception ex) {
+      String detail = actionCount > 0
+          ? actionCount + (actionCount == 1 ? " action" : " actions")
+          : "parser preview unavailable";
+      summary = new TimelineNavSummary(detail, "Preview parser could not read this block yet.");
+    }
+    timelineNavSummaryCache.put(key, summary);
+    return summary;
+  }
+
+  private String timelineNavKey(FoldRegion region) {
+    return region == null
+        ? ""
+        : region.startLine() + ":" + region.endLine() + ":" + region.startOffset() + ":" + region.endOffset();
+  }
+
+  private void navigateToTimelineEdge(boolean top) {
+    FoldRegion region = activeScrollTimeline;
+    if (region == null) return;
+    int line = top ? region.startLine() : region.endLine();
+    if (top) {
+      codeArea.showParagraphAtTop(line);
+    } else {
+      codeArea.showParagraphAtBottom(line);
+    }
+    codeArea.moveTo(line, 0);
+    codeArea.requestFocus();
+    Platform.runLater(this::updateTimelineNavOverlay);
+  }
+
+  private void showTimelineNavOverlay() {
+    if (timelineNavShowing && timelineNavOverlay.isVisible()) return;
+    playTimelineNavAnimation(true);
+  }
+
+  private void hideTimelineNavOverlay() {
+    if (!timelineNavShowing && !timelineNavOverlay.isVisible()) return;
+    playTimelineNavAnimation(false);
+  }
+
+  private void playTimelineNavAnimation(boolean showing) {
+    timelineNavShowing = showing;
+    if (timelineNavFade != null) timelineNavFade.stop();
+    if (timelineNavSlide != null) timelineNavSlide.stop();
+
+    if (showing) {
+      timelineNavOverlay.setManaged(true);
+      timelineNavOverlay.setVisible(true);
+    }
+
+    timelineNavFade = new FadeTransition(Duration.millis(showing ? 140 : 120), timelineNavOverlay);
+    timelineNavFade.setFromValue(timelineNavOverlay.getOpacity());
+    timelineNavFade.setToValue(showing ? 1.0 : 0.0);
+    timelineNavFade.setInterpolator(Interpolator.EASE_OUT);
+    timelineNavFade.setOnFinished(e -> {
+      if (!showing) {
+        timelineNavOverlay.setVisible(false);
+        timelineNavOverlay.setManaged(false);
+      }
+    });
+
+    timelineNavSlide = new TranslateTransition(Duration.millis(showing ? 160 : 120), timelineNavOverlay);
+    timelineNavSlide.setFromY(timelineNavOverlay.getTranslateY());
+    timelineNavSlide.setToY(showing ? 0.0 : 8.0);
+    timelineNavSlide.setInterpolator(Interpolator.EASE_OUT);
+
+    timelineNavFade.play();
+    timelineNavSlide.play();
   }
 
   private void showTimelinePreviewPopup(FoldRegion region, javafx.scene.Node anchor) {
