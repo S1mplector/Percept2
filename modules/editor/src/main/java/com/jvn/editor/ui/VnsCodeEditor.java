@@ -83,6 +83,9 @@ public class VnsCodeEditor extends BorderPane {
   private final Set<Integer> foldedRegionStarts = new HashSet<>();
   private String foldRegionCacheText = "";
   private List<FoldRegion> foldRegionCache = List.of();
+  // Tracks which paragraph indices currently have the collapse style applied.
+  // Used to avoid iterating all paragraphs on every text change.
+  private final Set<Integer> appliedCollapseParagraphs = new HashSet<>();
   // Bookmarks
   private final TreeSet<Integer> bookmarks = new TreeSet<>();
   // Zoom
@@ -92,6 +95,8 @@ public class VnsCodeEditor extends BorderPane {
   // Minimap
   private Canvas minimapCanvas;
   private VirtualizedScrollPane<CodeArea> mainScrollPane;
+  private String minimapCachedText = null;
+  private String[] minimapCachedLines = new String[0];
   // Breadcrumb
   private final Label breadcrumbLabel = new Label("");
   // Diff snapshot
@@ -2396,22 +2401,35 @@ public class VnsCodeEditor extends BorderPane {
 
   private void refreshFoldedRegionStyles() {
     int paragraphCount = codeArea.getParagraphs().size();
-    for (int i = 0; i < paragraphCount; i++) {
-      removeParagraphStyleClasses(i, Set.of(RTFX_COLLAPSE_STYLE_CLASS, LEGACY_FOLDED_STYLE_CLASS));
-    }
 
-    if (foldedRegionStarts.isEmpty()) return;
-
+    // Build the desired set of collapsed paragraphs from the current fold state.
+    Set<Integer> desired = new HashSet<>();
     Set<Integer> validStarts = new HashSet<>();
     for (FoldRegion region : computeFoldRegions()) {
       if (!foldedRegionStarts.contains(region.startLine())) continue;
       validStarts.add(region.startLine());
       int end = Math.min(region.endLine(), paragraphCount - 1);
       for (int i = region.startLine() + 1; i <= end; i++) {
-        addParagraphStyleClass(i, RTFX_COLLAPSE_STYLE_CLASS);
+        desired.add(i);
       }
     }
     foldedRegionStarts.retainAll(validStarts);
+
+    // Remove collapse style only from paragraphs that no longer need it.
+    // This avoids iterating all paragraphs (previously O(total)) — now O(currently-collapsed).
+    for (int p : appliedCollapseParagraphs) {
+      if (!desired.contains(p)) {
+        removeParagraphStyleClasses(p, Set.of(RTFX_COLLAPSE_STYLE_CLASS, LEGACY_FOLDED_STYLE_CLASS));
+      }
+    }
+    // Add collapse style only to paragraphs that newly need it.
+    for (int p : desired) {
+      if (!appliedCollapseParagraphs.contains(p)) {
+        addParagraphStyleClass(p, RTFX_COLLAPSE_STYLE_CLASS);
+      }
+    }
+    appliedCollapseParagraphs.clear();
+    appliedCollapseParagraphs.addAll(desired);
   }
 
   private void addParagraphStyleClass(int paragraph, String styleClass) {
@@ -3022,7 +3040,12 @@ public class VnsCodeEditor extends BorderPane {
     String text = codeArea.getText();
     if (text == null || text.isEmpty() || h <= 0) return;
 
-    String[] lines = text.split("\\n", -1);
+    // Only re-split when the text actually changed; scroll events reuse the cache.
+    if (!text.equals(minimapCachedText)) {
+      minimapCachedText = text;
+      minimapCachedLines = text.split("\\n", -1);
+    }
+    String[] lines = minimapCachedLines;
     minimapTotalLines_ = lines.length;
     if (minimapTotalLines_ == 0) return;
 
