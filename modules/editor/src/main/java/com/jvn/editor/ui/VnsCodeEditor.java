@@ -81,8 +81,8 @@ public class VnsCodeEditor extends BorderPane {
 
   // Code folding
   private final Set<Integer> foldedRegionStarts = new HashSet<>();
-  private String foldRegionCacheText = "";
   private List<FoldRegion> foldRegionCache = List.of();
+  private boolean foldRegionCacheDirty = true;
   // Tracks which paragraph indices currently have the collapse style applied.
   // Used to avoid iterating all paragraphs on every text change.
   private final Set<Integer> appliedCollapseParagraphs = new HashSet<>();
@@ -189,6 +189,7 @@ public class VnsCodeEditor extends BorderPane {
     codeArea.setParagraphGraphicFactory(this::makeLineNumberLabel);
     codeArea.textProperty().addListener((obs, oldText, newText) -> {
       String value = newText == null ? "" : newText;
+      foldRegionCacheDirty = true;
       applyAnalysis(value);
       if (onTextChanged != null) onTextChanged.accept(value);
       if (!foldedRegionStarts.isEmpty() && !foldRefreshPending) {
@@ -933,16 +934,18 @@ public class VnsCodeEditor extends BorderPane {
     });
     highlightDebounce.playFromStart();
 
-    // Issue parse debounce — 300 ms, recomputes issues then re-applies highlighting with them
+    // Issue parse debounce — 300 ms, recomputes issues and highlighting fully off the FX thread
     analysisDebounce.setOnFinished(e -> {
       String snapshot = pendingAnalysisText;
       long generation = parseGeneration.incrementAndGet();
       AsyncAssetLoader.getExecutor().execute(() -> {
         List<Issue> computed = computeIssues(snapshot);
+        if (parseGeneration.get() != generation) return;
+        StyleSpans<Collection<String>> spans = computeHighlightingWithIssues(snapshot, computed);
         if (parseGeneration.get() == generation) {
           Platform.runLater(() -> {
             issues = computed;
-            try { codeArea.setStyleSpans(0, computeHighlightingWithIssues(snapshot, issues)); } catch (Exception ignored) {}
+            try { codeArea.setStyleSpans(0, spans); } catch (Exception ignored) {}
             refreshIssuePresentation();
           });
         }
@@ -2154,9 +2157,10 @@ public class VnsCodeEditor extends BorderPane {
   }
 
   private List<FoldRegion> computeFoldRegions() {
-    String text = codeArea.getText();
-    if (text == null || text.isEmpty()) return List.of();
-    if (text.equals(foldRegionCacheText)) return foldRegionCache;
+    if (!foldRegionCacheDirty) return foldRegionCache;
+    foldRegionCacheDirty = false;
+    String text = pendingAnalysisText.isEmpty() ? codeArea.getText() : pendingAnalysisText;
+    if (text.isEmpty()) return List.of();
 
     int[] lineStarts = computeLineStarts(text);
     String[] lines = text.split("\\n", -1);
@@ -2169,7 +2173,6 @@ public class VnsCodeEditor extends BorderPane {
       if (byLine != 0) return byLine;
       return a.kind().compareTo(b.kind());
     });
-    foldRegionCacheText = text;
     foldRegionCache = Collections.unmodifiableList(regions);
     return foldRegionCache;
   }
