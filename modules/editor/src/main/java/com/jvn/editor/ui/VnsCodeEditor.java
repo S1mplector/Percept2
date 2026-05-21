@@ -41,8 +41,6 @@ import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.canvas.Canvas;
-import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
@@ -59,7 +57,6 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
-import javafx.scene.paint.Color;
 import javafx.stage.Popup;
 import javafx.stage.Stage;
 import javafx.util.Duration;
@@ -98,10 +95,8 @@ public class VnsCodeEditor extends BorderPane {
   // Word wrap
   private boolean wordWrapEnabled = false;
   // Minimap
-  private Canvas minimapCanvas;
+  private VnsCodeMinimap minimap;
   private VirtualizedScrollPane<CodeArea> mainScrollPane;
-  private String minimapCachedText = null;
-  private String[] minimapCachedLines = new String[0];
   // Breadcrumb
   private final Label breadcrumbLabel = new Label("");
   // Diff snapshot
@@ -218,27 +213,16 @@ public class VnsCodeEditor extends BorderPane {
         foldRefreshPending = true;
         Platform.runLater(() -> { foldRefreshPending = false; refreshFoldedRegionStyles(); });
       }
-      if (!minimapRedrawPending) {
-        minimapRedrawPending = true;
-        Platform.runLater(() -> { minimapRedrawPending = false; redrawMinimap(); });
-      }
+      scheduleMinimapRedraw();
     });
 
     mainScrollPane = new VirtualizedScrollPane<>(codeArea);
 
-    // Minimap canvas (right edge) — wider for better readability
-    minimapCanvas = new Canvas(100, 100);
-    minimapCanvas.getStyleClass().add("code-editor-minimap");
-    minimapCanvas.setStyle("-fx-cursor: hand;");
-    minimapCanvas.setOnMousePressed(this::onMinimapPress);
-    minimapCanvas.setOnMouseDragged(this::onMinimapDrag);
+    minimap = new VnsCodeMinimap(codeArea);
 
     // Redraw minimap and update nav overlay when the user scrolls
     codeArea.estimatedScrollYProperty().addListener((obs, o, n) -> {
-      if (!minimapRedrawPending) {
-        minimapRedrawPending = true;
-        Platform.runLater(() -> { minimapRedrawPending = false; redrawMinimap(); });
-      }
+      scheduleMinimapRedraw();
       updateTimelineNavOverlay();
     });
 
@@ -253,14 +237,15 @@ public class VnsCodeEditor extends BorderPane {
     minimapSep.setMinWidth(1); minimapSep.setMaxWidth(1);
     minimapSep.getStyleClass().add("code-editor-minimap-separator");
 
-    HBox codeAndMinimap = new HBox(codeWithOverlay, minimapSep, minimapCanvas);
+    HBox codeAndMinimap = new HBox(codeWithOverlay, minimapSep, minimap);
     HBox.setHgrow(codeWithOverlay, Priority.ALWAYS);
     codeAndMinimap.heightProperty().addListener((obs, o, n) -> {
-      minimapCanvas.setHeight(n.doubleValue());
-      Platform.runLater(this::redrawMinimap);
+      minimap.setPrefHeight(n.doubleValue());
+      scheduleMinimapRedraw();
     });
 
     setCenter(codeAndMinimap);
+    scheduleMinimapRedraw();
 
     // Breadcrumb bar
     breadcrumbLabel.getStyleClass().add("code-editor-status-secondary");
@@ -1072,6 +1057,7 @@ public class VnsCodeEditor extends BorderPane {
     }
 
     Platform.runLater(() -> codeArea.setParagraphGraphicFactory(this::makeLineNumberLabel));
+    scheduleMinimapRedraw();
   }
 
   /**
@@ -2458,6 +2444,7 @@ public class VnsCodeEditor extends BorderPane {
     }
     refreshFoldedRegionStyles();
     Platform.runLater(() -> codeArea.setParagraphGraphicFactory(this::makeLineNumberLabel));
+    scheduleMinimapRedraw();
   }
 
   private void toggleTimelineBlockAtCaret() {
@@ -2476,6 +2463,7 @@ public class VnsCodeEditor extends BorderPane {
     if (changed) {
       refreshFoldedRegionStyles();
       Platform.runLater(() -> codeArea.setParagraphGraphicFactory(this::makeLineNumberLabel));
+      scheduleMinimapRedraw();
     }
   }
 
@@ -2495,6 +2483,7 @@ public class VnsCodeEditor extends BorderPane {
     if (changed) {
       refreshFoldedRegionStyles();
       Platform.runLater(() -> codeArea.setParagraphGraphicFactory(this::makeLineNumberLabel));
+      scheduleMinimapRedraw();
     }
   }
 
@@ -3281,6 +3270,7 @@ public class VnsCodeEditor extends BorderPane {
       bookmarks.add(para);
     }
     Platform.runLater(() -> codeArea.setParagraphGraphicFactory(this::makeLineNumberLabel));
+    scheduleMinimapRedraw();
   }
 
   private void jumpToNextBookmark() {
@@ -3390,112 +3380,46 @@ public class VnsCodeEditor extends BorderPane {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  //  FEATURE: Minimap — condensed code overview with viewport overlay
+  //  FEATURE: Minimap — JVN script overview with semantic markers
   // ═══════════════════════════════════════════════════════════════════
 
-  private double minimapLineH_ = 2.0;
-  private int minimapTotalLines_ = 0;
-
-  private void redrawMinimap() {
-    if (minimapCanvas == null) return;
-    double w = minimapCanvas.getWidth();
-    double h = minimapCanvas.getHeight();
-    GraphicsContext gc = minimapCanvas.getGraphicsContext2D();
-
-    // Background — slightly darker than editor to set it apart
-    gc.setFill(Color.web("#090909"));
-    gc.fillRect(0, 0, w, h);
-
-    String text = codeArea.getText();
-    if (text == null || text.isEmpty() || h <= 0) return;
-
-    // Only re-split when the text actually changed; scroll events reuse the cache.
-    if (!text.equals(minimapCachedText)) {
-      minimapCachedText = text;
-      minimapCachedLines = text.split("\\n", -1);
-    }
-    String[] lines = minimapCachedLines;
-    minimapTotalLines_ = lines.length;
-    if (minimapTotalLines_ == 0) return;
-
-    double lineH = Math.max(1, h / minimapTotalLines_);
-    if (lineH > 3) lineH = 3;
-    minimapLineH_ = lineH;
-
-    // Draw code lines — color-coded by syntax type
-    for (int i = 0; i < minimapTotalLines_; i++) {
-      String line = lines[i].trim();
-      double y = i * lineH;
-      if (y > h) break;
-
-      Color color;
-      if (line.startsWith("#"))        color = Color.web("#676e95", 0.5);
-      else if (line.startsWith("@"))   color = Color.web("#c792ea", 0.65);
-      else if (line.startsWith("["))   color = Color.web("#82aaff", 0.55);
-      else if (line.startsWith(">"))   color = Color.web("#c3e88d", 0.55);
-      else if (line.contains(":") && !line.startsWith(" ") && line.indexOf(':') < 30)
-                                       color = Color.web("#ffcb6b", 0.45);
-      else if (line.isEmpty())         color = Color.TRANSPARENT;
-      else                             color = Color.web("#555555", 0.35);
-
-      if (color != Color.TRANSPARENT) {
-        double lineW = Math.min(w - 6, line.length() * 0.7 + 4);
-        gc.setFill(color);
-        gc.fillRect(3, y, lineW, Math.max(1, lineH - 0.5));
-      }
-
-      // Bookmark markers — right edge
-      if (bookmarks.contains(i)) {
-        gc.setFill(Color.web("#b5b5b5", 0.85));
-        gc.fillRect(w - 4, y, 3, Math.max(1, lineH));
-      }
-    }
-
-    // ── Viewport overlay — uses actual visible paragraph range ──────
-    int visibleStart, visibleEnd;
-    try {
-      visibleStart = codeArea.firstVisibleParToAllParIndex();
-      visibleEnd = codeArea.lastVisibleParToAllParIndex();
-    } catch (Exception ex) {
-      // Fallback if not laid out yet
-      visibleStart = Math.max(0, codeArea.getCurrentParagraph() - 10);
-      visibleEnd = Math.min(minimapTotalLines_, codeArea.getCurrentParagraph() + 30);
-    }
-    if (visibleStart < 0) visibleStart = 0;
-    if (visibleEnd >= minimapTotalLines_) visibleEnd = minimapTotalLines_ - 1;
-
-    double vpY = visibleStart * lineH;
-    double vpH = Math.max(6, (visibleEnd - visibleStart + 1) * lineH);
-
-    // Filled viewport band
-    gc.setFill(Color.web("#d0d0d0", 0.08));
-    gc.fillRect(0, vpY, w, vpH);
-
-    // Top and bottom accent lines
-    gc.setStroke(Color.web("#a6a6a6", 0.45));
-    gc.setLineWidth(1.5);
-    gc.strokeLine(0, vpY, w, vpY);
-    gc.strokeLine(0, vpY + vpH, w, vpY + vpH);
-
-    // Left accent bar
-    gc.setFill(Color.web("#8f8f8f", 0.35));
-    gc.fillRect(0, vpY, 2, vpH);
+  private void scheduleMinimapRedraw() {
+    if (minimapRedrawPending) return;
+    minimapRedrawPending = true;
+    Platform.runLater(() -> {
+      minimapRedrawPending = false;
+      refreshMinimap();
+    });
   }
 
-  private void navigateMinimapToY(double mouseY) {
-    if (minimapTotalLines_ == 0 || minimapLineH_ <= 0) return;
-    int targetLine = (int)(mouseY / minimapLineH_);
-    targetLine = Math.max(0, Math.min(targetLine, minimapTotalLines_ - 1));
-    codeArea.showParagraphAtTop(targetLine);
-    codeArea.moveTo(targetLine, 0);
-    codeArea.requestFocus();
+  private void refreshMinimap() {
+    if (minimap == null) return;
+    minimap.setSnapshot(
+        codeArea.getText(),
+        minimapDiagnostics(),
+        bookmarks,
+        minimapTimelineBlocks());
+    minimap.redraw();
   }
 
-  private void onMinimapPress(javafx.scene.input.MouseEvent e) {
-    navigateMinimapToY(e.getY());
+  private List<VnsCodeMinimap.DiagnosticMarker> minimapDiagnostics() {
+    if (issues == null || issues.isEmpty()) return List.of();
+    List<VnsCodeMinimap.DiagnosticMarker> out = new ArrayList<>();
+    for (Issue issue : issues) {
+      out.add(new VnsCodeMinimap.DiagnosticMarker(issue.line, issue.warning, issue.message));
+    }
+    return out;
   }
 
-  private void onMinimapDrag(javafx.scene.input.MouseEvent e) {
-    navigateMinimapToY(e.getY());
+  private List<VnsCodeMinimap.TimelineBlock> minimapTimelineBlocks() {
+    List<VnsCodeMinimap.TimelineBlock> out = new ArrayList<>();
+    for (FoldRegion region : computeFoldRegions()) {
+      if (region.kind() != FoldKind.TIMELINE) continue;
+      out.add(new VnsCodeMinimap.TimelineBlock(
+          region.startLine(),
+          region.endLine(),
+          foldedRegionStarts.contains(region.startLine())));
+    }
+    return out;
   }
 }
