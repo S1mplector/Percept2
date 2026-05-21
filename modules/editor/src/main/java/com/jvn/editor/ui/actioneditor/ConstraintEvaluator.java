@@ -67,7 +67,7 @@ public class ConstraintEvaluator {
         }
 
         AnimationProject.EffectiveEntityTransform targetTransform =
-            project.computeEffectiveEntityTransform(targetName, timeMs);
+            project.computeUnconstrainedEntityTransform(targetName, timeMs);
         if (targetTransform == null) {
             return new ConstrainedTransform(baseX, baseY, baseRotationDeg, baseScaleX, baseScaleY);
         }

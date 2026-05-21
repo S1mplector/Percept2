@@ -1030,7 +1030,7 @@ public class AnimationProject {
     public double computeValueAt(String entityName, PropertyType property, double timeMs, double fallbackLocalValue) {
         EntityTrack track = entityTracks.get(entityName);
         if (track == null || property == null) return fallbackLocalValue;
-        if (usesEffectiveGroupTransform(track, property)) {
+        if (usesEffectiveGroupTransform(track, property) || usesConstraintTransform(track, property)) {
             Map<PropertyType, Double> fallback = new EnumMap<>(PropertyType.class);
             fallback.put(property, fallbackLocalValue);
             return computeEffectiveEntityTransform(entityName, timeMs, fallback).value(property);
@@ -1209,6 +1209,7 @@ public class AnimationProject {
         EntityTrack track = entityTracks.get(entityName);
         if (track == null || property == null) return false;
         if (track.hasKeyframes(property)) return true;
+        if (usesConstraintTransform(track, property)) return true;
         if (!track.hasParent() || !property.isEntityProperty()) return false;
         if (property == PropertyType.X || property == PropertyType.Y) {
             return hasGroupSpatialAnimation(track.getParentGroupName());
@@ -1228,6 +1229,7 @@ public class AnimationProject {
 
         Map<Long, Double> times = new TreeMap<>();
         collectEffectiveTimes(entityName, property, times);
+        collectConstraintTimes(entityName, property, times);
         if (times.isEmpty()) return Collections.emptyList();
 
         List<Keyframe> out = new ArrayList<>();
@@ -1449,6 +1451,23 @@ public class AnimationProject {
             && (property == PropertyType.X || property == PropertyType.Y
                 ? hasGroupSpatialAnimation(track.getParentGroupName())
                 : hasInheritedGroupAnimation(track.getParentGroupName(), property));
+    }
+
+    private boolean usesConstraintTransform(EntityTrack track, PropertyType property) {
+        if (track == null || property == null || !property.isEntityProperty()) return false;
+        Constraint constraint = constraints.get(track.getEntityName());
+        if (constraint == null || constraint.getType() == null
+                || constraint.getTargetEntityName() == null
+                || !entityTracks.containsKey(constraint.getTargetEntityName())) {
+            return false;
+        }
+        if (constraint.getType() == Constraint.Type.LOOK_AT) {
+            return property == PropertyType.ROTATION;
+        }
+        if (property == PropertyType.X || property == PropertyType.Y) return true;
+        if (property == PropertyType.ROTATION) return constraint.isInheritRotation();
+        return (property == PropertyType.SCALE_X || property == PropertyType.SCALE_Y)
+            && constraint.isInheritScale();
     }
 
     private boolean hasGroupSpatialAnimation(String groupName) {
@@ -1730,6 +1749,84 @@ public class AnimationProject {
         }
     }
 
+    private void collectConstraintTimes(String entityName, PropertyType property, Map<Long, Double> out) {
+        EntityTrack track = entityTracks.get(entityName);
+        if (track == null || property == null || out == null || !usesConstraintTransform(track, property)) return;
+        Constraint constraint = constraints.get(entityName);
+        if (constraint == null) return;
+
+        putTime(out, 0.0);
+        if (constraint.getType() == Constraint.Type.PARENT_CHILD) {
+            collectParentChildConstraintTimes(track, constraint, property, out);
+        } else if (property == PropertyType.ROTATION) {
+            collectUnconstrainedTimes(entityName, PropertyType.X, out);
+            collectUnconstrainedTimes(entityName, PropertyType.Y, out);
+            collectUnconstrainedTimes(constraint.getTargetEntityName(), PropertyType.X, out);
+            collectUnconstrainedTimes(constraint.getTargetEntityName(), PropertyType.Y, out);
+            addBakeSamplesBetweenCollectedTimes(out);
+        }
+    }
+
+    private void collectParentChildConstraintTimes(
+        EntityTrack childTrack,
+        Constraint constraint,
+        PropertyType property,
+        Map<Long, Double> out
+    ) {
+        String target = constraint.getTargetEntityName();
+        if (property == PropertyType.X || property == PropertyType.Y) {
+            collectUnconstrainedTimes(target, PropertyType.X, out);
+            collectUnconstrainedTimes(target, PropertyType.Y, out);
+            if (Math.abs(constraint.getOffsetX()) > 0.0001 || Math.abs(constraint.getOffsetY()) > 0.0001) {
+                collectUnconstrainedTimes(target, PropertyType.ROTATION, out);
+                addBakeSamplesBetweenCollectedTimes(out);
+            }
+            return;
+        }
+        if (property == PropertyType.ROTATION && constraint.isInheritRotation()) {
+            collectTimes(childTrack.getKeyframes(PropertyType.ROTATION), out);
+            collectUnconstrainedTimes(target, PropertyType.ROTATION, out);
+            return;
+        }
+        if ((property == PropertyType.SCALE_X || property == PropertyType.SCALE_Y) && constraint.isInheritScale()) {
+            collectTimes(childTrack.getKeyframes(property), out);
+            if (property == PropertyType.SCALE_X) collectTimes(childTrack.getKeyframes(PropertyType.MIRROR_X), out);
+            collectUnconstrainedTimes(target, property, out);
+        }
+    }
+
+    private void collectUnconstrainedTimes(String entityName, PropertyType property, Map<Long, Double> out) {
+        EntityTrack track = entityTracks.get(entityName);
+        if (track == null || property == null || out == null) return;
+        collectTimes(track.getKeyframes(property), out);
+        if (!track.hasParent()) return;
+
+        if (property == PropertyType.X || property == PropertyType.Y) {
+            PropertyType paired = property == PropertyType.X ? PropertyType.Y : PropertyType.X;
+            collectTimes(track.getKeyframes(paired), out);
+            collectGroupTimes(track.getParentGroupName(), out,
+                PropertyType.X,
+                PropertyType.Y,
+                PropertyType.PIVOT_X,
+                PropertyType.PIVOT_Y,
+                PropertyType.ROTATION,
+                PropertyType.SCALE_X,
+                PropertyType.SCALE_Y,
+                PropertyType.MIRROR_X);
+            addGroupPositionBakeSamples(track.getParentGroupName(), out);
+            return;
+        }
+
+        if (property == PropertyType.SCALE_X) {
+            collectTimes(track.getKeyframes(PropertyType.MIRROR_X), out);
+            collectGroupTimes(track.getParentGroupName(), out, PropertyType.MIRROR_X);
+            addGroupMirrorBakeSamples(track.getParentGroupName(), out);
+        }
+        if (isInheritedGroupProperty(property)) {
+            collectGroupTimes(track.getParentGroupName(), out, property);
+        }
+    }
+
     private Keyframe resolveEffectiveStyleSource(String entityName, PropertyType property, double timeMs) {
         EntityTrack track = entityTracks.get(entityName);
         if (track == null) return null;
@@ -1845,13 +1942,36 @@ public class AnimationProject {
         }
     }
 
+    private void addBakeSamplesBetweenCollectedTimes(Map<Long, Double> out) {
+        if (out == null || out.size() < 2) return;
+        List<Double> times = new ArrayList<>(out.values());
+        Collections.sort(times);
+        for (int i = 0; i < times.size() - 1; i++) {
+            double start = times.get(i);
+            double end = times.get(i + 1);
+            double span = end - start;
+            if (span <= GROUP_POSITION_BAKE_INTERVAL_MS) continue;
+            int steps = (int) Math.floor(span / GROUP_POSITION_BAKE_INTERVAL_MS);
+            for (int step = 1; step <= steps; step++) {
+                double sample = start + step * GROUP_POSITION_BAKE_INTERVAL_MS;
+                if (sample >= end - 0.001) continue;
+                putTime(out, sample);
+            }
+        }
+    }
+
     private void collectTimes(List<Keyframe> keyframes, Map<Long, Double> out) {
         if (keyframes == null || out == null) return;
         for (Keyframe keyframe : keyframes) {
             if (keyframe == null) continue;
-            long quantized = Math.round(keyframe.getTimeMs() * 1000.0);
-            out.putIfAbsent(quantized, keyframe.getTimeMs());
+            putTime(out, keyframe.getTimeMs());
         }
+    }
+
+    private void putTime(Map<Long, Double> out, double timeMs) {
+        if (out == null || !Double.isFinite(timeMs)) return;
+        long quantized = Math.round(timeMs * 1000.0);
+        out.putIfAbsent(quantized, Math.max(0.0, timeMs));
     }
 
     private static boolean isInheritedGroupProperty(PropertyType property) {

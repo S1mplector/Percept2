@@ -2,6 +2,7 @@ package com.jvn.editor.ui.actioneditor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -375,5 +376,28 @@ class AnimationProjectGroupHierarchyTest {
 
     assertEquals(130.0, transform.x, 0.0001);
     assertEquals(48.0, transform.y, 0.0001);
+  }
+
+  @Test
+  void parentChildConstraintParticipatesInEffectiveTransformAndRuntimeBake() {
+    AnimationProject project = new AnimationProject();
+    EntityTrack shoulder = project.getOrCreateTrack("shoulder");
+    shoulder.upsertKeyframe(PropertyType.X, new Keyframe(0, 100));
+    shoulder.upsertKeyframe(PropertyType.Y, new Keyframe(0, 40));
+    shoulder.upsertKeyframe(PropertyType.X, new Keyframe(300, 140));
+    shoulder.upsertKeyframe(PropertyType.Y, new Keyframe(300, 50));
+    project.getOrCreateTrack("hair_back");
+    project.setConstraint("hair_back", Constraint.parentChild("shoulder", -8, 3, true, true));
+
+    AnimationProject.EffectiveEntityTransform transform =
+        project.computeEffectiveEntityTransform("hair_back", 300);
+
+    assertEquals(132.0, transform.x(), 0.0001);
+    assertEquals(53.0, transform.y(), 0.0001);
+
+    TimelineData.Track baked = project.toTimelineData("linked_layers").getTrack("hair_back");
+    assertNotNull(baked);
+    assertEquals(132.0, baked.getValueAt(TimelineData.Property.X, 300), 0.0001);
+    assertEquals(53.0, baked.getValueAt(TimelineData.Property.Y, 300), 0.0001);
   }
 }
