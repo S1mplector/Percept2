@@ -25,11 +25,14 @@ public final class PuppeteerWorkspacePrefs {
     public static final String DIVIDER_BOTTOM = "divider.bottom";    // keyframe editor vs timeline
     public static final String DIVIDER_CONTENT = "divider.content";  // top half vs bottom half
     public static final String DIVIDER_CODE_PANE = "divider.codePane"; // workspace vs code pane
+    public static final String DIVIDER_TOOLBAR = "divider.toolbar";  // toolbar vs workspace
+    public static final String DIVIDER_PREVIEW_FOCUS = "divider.previewFocus"; // preview vs timeline in focused mode
 
     public static final String KEY_VIEWPORT_PAN_X = "viewport.panX";
     public static final String KEY_VIEWPORT_PAN_Y = "viewport.panY";
     public static final String KEY_VIEWPORT_ZOOM = "viewport.zoom";
     public static final String KEY_TIMELINE_PLAYHEAD = "timeline.playhead";
+    public static final String KEY_TOP_TOOLBAR_VISIBLE = "toolbar.visible";
 
     private static final String RECENT_KEY = "recent.timelines";
     private static final String RECENT_RECORD_DELIM = ";;";
@@ -111,6 +114,20 @@ public final class PuppeteerWorkspacePrefs {
     public void setLong(String key, long value) {
         if (key == null || key.isBlank()) return;
         entries.put(key, Long.toString(value));
+    }
+
+    public Optional<Boolean> getBoolean(String key) {
+        String raw = entries.get(key);
+        if (raw == null) return Optional.empty();
+        String normalized = raw.trim().toLowerCase(java.util.Locale.ROOT);
+        if ("true".equals(normalized)) return Optional.of(true);
+        if ("false".equals(normalized)) return Optional.of(false);
+        return Optional.empty();
+    }
+
+    public void setBoolean(String key, boolean value) {
+        if (key == null || key.isBlank()) return;
+        entries.put(key, Boolean.toString(value));
     }
 
     public List<RecentTimeline> getRecent() {

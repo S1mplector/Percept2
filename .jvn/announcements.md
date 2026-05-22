@@ -8,6 +8,9 @@ Format:
 
 ----
 
+## 2026-05-22 — Puppeteer layout controls
+Puppeteer's top toolbar can now be resized, collapsed, and restored from the workspace or View menu, and the focused preview/keyframe split remembers its vertical layout between sessions.
+
 ## 2026-05-21 — VNS editor navigation polish
 Large pasted `timeline { ... }` blocks are easier to work with in the VNS editor. Timeline folding now has a compact in-editor navigator while scrolling long blocks, showing the current timeline number, line range, progress, and target summary with quick Top/Bottom jumps.
 

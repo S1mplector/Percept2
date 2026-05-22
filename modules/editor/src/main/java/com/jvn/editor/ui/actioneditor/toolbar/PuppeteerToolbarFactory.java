@@ -272,6 +272,8 @@ public final class PuppeteerToolbarFactory {
     });
 
     // === View menu ===
+    CheckMenuItem miShowToolbar = new CheckMenuItem("Show Top Toolbar");
+    miShowToolbar.setOnAction(e -> w.setTopToolbarVisible(miShowToolbar.isSelected()));
     CheckMenuItem miShowCodePane = new CheckMenuItem("Show Code Pane");
     miShowCodePane.setOnAction(e -> w.setCodePaneVisible(miShowCodePane.isSelected()));
     CheckMenuItem miOnionSkin = new CheckMenuItem("Onion Skin Preview");
@@ -314,6 +316,7 @@ public final class PuppeteerToolbarFactory {
 
     Menu viewMenu = new Menu("View");
     viewMenu.getItems().addAll(
+        miShowToolbar,
         miShowCodePane,
         miOnionSkin,
         miInterpolationGhosts,
@@ -332,6 +335,7 @@ public final class PuppeteerToolbarFactory {
         miFullscreenPreview
     );
     viewMenu.setOnShowing(e -> {
+      miShowToolbar.setSelected(w.isTopToolbarVisible());
       miShowCodePane.setSelected(w.codePaneVisible);
       miOnionSkin.setSelected(w.animationPreview.isOnionSkinning());
       miInterpolationGhosts.setSelected(w.animationPreview.isShowInterpolationGhosts());

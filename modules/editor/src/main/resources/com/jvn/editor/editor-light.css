@@ -3201,6 +3201,48 @@
   -fx-border-width: 0 0 1 0;
 }
 
+.puppeteer-toolbar-dock {
+  -fx-background-color: #f5f5f5;
+  -fx-border-color: #d2d6dc;
+  -fx-border-width: 0 0 1 0;
+}
+
+.puppeteer-toolbar-grip-bar {
+  -fx-padding: 2 10 2 10;
+  -fx-spacing: 8;
+  -fx-alignment: center-left;
+  -fx-background-color:
+      linear-gradient(to right, rgba(195,126,41,0.20), rgba(255,255,255,0.0)),
+      #f7f8fa;
+  -fx-border-color: #e0d4c2;
+  -fx-border-width: 0 0 1 0;
+  -fx-cursor: v-resize;
+}
+
+.puppeteer-toolbar-dock.collapsed .puppeteer-toolbar-grip-bar {
+  -fx-background-color:
+      linear-gradient(to right, rgba(195,126,41,0.28), rgba(255,255,255,0.0)),
+      #f1f3f6;
+}
+
+.puppeteer-toolbar-grip-label {
+  -fx-text-fill: #94652a;
+  -fx-font-size: 10px;
+  -fx-font-weight: 800;
+}
+
+.puppeteer-toolbar-grip-line {
+  -fx-background-color: #c37e29;
+  -fx-opacity: 0.5;
+  -fx-min-height: 2;
+  -fx-pref-height: 2;
+  -fx-max-height: 2;
+}
+
+.puppeteer-toolbar-dock-toggle {
+  -fx-padding: 0;
+}
+
 .puppeteer-toolbar-command-bar {
   -fx-padding: 6 10 0 10;
   -fx-spacing: 10;

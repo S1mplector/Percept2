@@ -92,6 +92,7 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
+import javafx.scene.shape.Rectangle;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
@@ -214,6 +215,8 @@ public class PuppeteerWindow extends Stage {
     private AnimatedToolbarPane toolbarPane;
     private HBox toolbarCommandBar;
     private VBox toolbarShell;
+    private BorderPane toolbarDock;
+    private Button btnTopToolbarVisibility;
     private Label lblToolbarCommandSummary;
     Label statusBar;
     private Label viewportInfoLabel;
@@ -257,6 +260,7 @@ public class PuppeteerWindow extends Stage {
     private SplitPane bottomWorkspaceSplit;
     private SplitPane workspaceContentSplit;
     private SplitPane mainWorkspaceSplit;
+    private SplitPane rootWorkspaceSplit;
     private SplitPane previewFocusSplit;
     private StackPane workspaceModeHost;
     private Node puppeteerLeftFrostTarget;
@@ -290,8 +294,15 @@ public class PuppeteerWindow extends Stage {
     private double previewFocusDividerPosition = 0.72;
     private double topWorkspaceDividerPosition = 0.2;
     private double bottomWorkspaceDividerPosition = 0.28;
+    private double toolbarDividerPosition = 0.16;
+    private boolean topToolbarVisible = true;
+    private double toolbarDragStartSceneY = 0.0;
+    private double toolbarDragStartDivider = 0.16;
 
     private static final double MOVE_INTERACTION_EPSILON = 0.01;
+    private static final double TOOLBAR_COLLAPSED_DIVIDER_POSITION = 0.035;
+    private static final double TOOLBAR_MIN_VISIBLE_DIVIDER_POSITION = 0.075;
+    private static final double TOOLBAR_MAX_DIVIDER_POSITION = 0.36;
     private static final Insets TOOLBAR_PADDING_DYNAMIC = new Insets(8, 10, 8, 10);
     private static final Insets TOOLBAR_PADDING_COMPACT = new Insets(1, 4, 1, 4);
     private static final Insets TOOLBAR_COMMAND_BAR_PADDING_DYNAMIC = new Insets(6, 10, 0, 10);
@@ -1312,7 +1323,7 @@ public class PuppeteerWindow extends Stage {
         toolbarShell = new VBox(6, toolbarCommandBar, toolbarPane) {
             @Override
             protected double computeMinHeight(double width) {
-                return computePrefHeight(width);
+                return 0.0;
             }
 
             @Override
@@ -1332,8 +1343,9 @@ public class PuppeteerWindow extends Stage {
         };
         toolbarShell.getStyleClass().add("puppeteer-toolbar-shell");
         toolbarShell.setFillWidth(true);
-        toolbarShell.setMinHeight(Region.USE_PREF_SIZE);
+        toolbarShell.setMinHeight(0);
         toolbarShell.setMaxWidth(Double.MAX_VALUE);
+        toolbarDock = buildToolbarDock(toolbarShell);
         setToolbarClustersExpanded(true);
         setToolbarLayoutMode(AnimatedToolbarPane.LayoutMode.COMPACT);
 
@@ -1596,6 +1608,17 @@ public class PuppeteerWindow extends Stage {
         workspaceModeHost.setMinWidth(0);
         workspaceModeHost.setMinHeight(0);
 
+        rootWorkspaceSplit = new SplitPane();
+        rootWorkspaceSplit.getStyleClass().add("puppeteer-split-pane");
+        rootWorkspaceSplit.getStyleClass().add("puppeteer-root-layout-split");
+        rootWorkspaceSplit.setOrientation(Orientation.VERTICAL);
+        rootWorkspaceSplit.setMinWidth(0);
+        rootWorkspaceSplit.setMinHeight(0);
+        rootWorkspaceSplit.getItems().addAll(toolbarDock, workspaceModeHost);
+        SplitPane.setResizableWithParent(toolbarDock, Boolean.FALSE);
+        SplitPane.setResizableWithParent(workspaceModeHost, Boolean.TRUE);
+        rootWorkspaceSplit.setDividerPositions(toolbarDividerPosition);
+
         // --- Status bar with undo/redo labels ---
         statusBar = new Label("Ready");
         statusBar.setMaxWidth(Double.MAX_VALUE);
@@ -1604,8 +1627,7 @@ public class PuppeteerWindow extends Stage {
         updateStatusBar();
 
         BorderPane root = new BorderPane();
-        root.setTop(toolbarShell);
-        root.setCenter(workspaceModeHost);
+        root.setCenter(rootWorkspaceSplit);
         root.setBottom(statusBar);
         root.setStyle("-fx-background-color: #121212;");
 
@@ -1618,6 +1640,7 @@ public class PuppeteerWindow extends Stage {
         installPuppeteerFrostHandlers();
         setupKeyboardShortcuts(fxScene);
         setupPlaybackTimer();
+        Platform.runLater(this::applyToolbarDivider);
         setCodePaneVisible(true);
         applyToolbarChromeDensity(getToolbarLayoutMode());
         tfTimelineName.textProperty().addListener((obs, ov, nv) -> setDirty(dirty));
@@ -1632,6 +1655,45 @@ public class PuppeteerWindow extends Stage {
         });
 
         refreshExportPreview();
+    }
+
+    private BorderPane buildToolbarDock(VBox content) {
+        Region gripLine = new Region();
+        gripLine.getStyleClass().add("puppeteer-toolbar-grip-line");
+        HBox.setHgrow(gripLine, Priority.ALWAYS);
+
+        Label title = new Label("Puppeteer Toolbar");
+        title.getStyleClass().add("puppeteer-toolbar-grip-label");
+
+        btnTopToolbarVisibility = makeToolbarIconButton(
+            com.jvn.editor.ui.CssIcon.arrowUp("#b0b8c8"), "Hide top toolbar");
+        btnTopToolbarVisibility.getStyleClass().add("puppeteer-toolbar-dock-toggle");
+        btnTopToolbarVisibility.setMinSize(30, 24);
+        btnTopToolbarVisibility.setPrefSize(30, 24);
+        btnTopToolbarVisibility.setMaxSize(30, 24);
+        btnTopToolbarVisibility.setOnAction(e -> setTopToolbarVisible(!topToolbarVisible));
+
+        HBox gripBar = new HBox(8, title, gripLine, btnTopToolbarVisibility);
+        gripBar.getStyleClass().add("puppeteer-toolbar-grip-bar");
+        gripBar.setAlignment(Pos.CENTER_LEFT);
+        gripBar.setMinHeight(28);
+        gripBar.setPrefHeight(28);
+        gripBar.addEventFilter(MouseEvent.MOUSE_PRESSED, this::beginToolbarDrag);
+        gripBar.addEventFilter(MouseEvent.MOUSE_DRAGGED, this::dragToolbar);
+
+        BorderPane dock = new BorderPane(content) {
+            @Override
+            protected double computeMinHeight(double width) {
+                return gripBar.prefHeight(width);
+            }
+        };
+        dock.getStyleClass().add("puppeteer-toolbar-dock");
+        dock.setTop(gripBar);
+        dock.setMinHeight(0);
+        dock.setMaxWidth(Double.MAX_VALUE);
+        installLayoutClip(dock);
+        updateTopToolbarChrome();
+        return dock;
     }
 
     private HBox buildToolbarCommandBar() {
@@ -1877,6 +1939,8 @@ public class PuppeteerWindow extends Stage {
             miSceneClearEvents.setDisable(project == null || project.getEditorEventCues().isEmpty());
         });
 
+        CheckMenuItem miShowToolbar = new CheckMenuItem("Show Top Toolbar");
+        miShowToolbar.setOnAction(e -> setTopToolbarVisible(miShowToolbar.isSelected()));
         CheckMenuItem miShowCodePane = new CheckMenuItem("Show Code Pane");
         miShowCodePane.setOnAction(e -> setCodePaneVisible(miShowCodePane.isSelected()));
         CheckMenuItem miOnionSkin = new CheckMenuItem("Onion Skin Preview");
@@ -1919,6 +1983,7 @@ public class PuppeteerWindow extends Stage {
 
         Menu viewMenu = new Menu("View");
         viewMenu.getItems().addAll(
+            miShowToolbar,
             miShowCodePane,
             miOnionSkin,
             miInterpolationGhosts,
@@ -1937,6 +2002,7 @@ public class PuppeteerWindow extends Stage {
             miFullscreenPreview
         );
         viewMenu.setOnShowing(e -> {
+            miShowToolbar.setSelected(isTopToolbarVisible());
             miShowCodePane.setSelected(codePaneVisible);
             miOnionSkin.setSelected(animationPreview.isOnionSkinning());
             miInterpolationGhosts.setSelected(animationPreview.isShowInterpolationGhosts());
@@ -3303,6 +3369,95 @@ public class PuppeteerWindow extends Stage {
         return codePaneVisible;
     }
 
+    public void setTopToolbarVisible(boolean visible) {
+        if (!visible) {
+            double current = readDividerPosition(rootWorkspaceSplit, toolbarDividerPosition);
+            if (current > TOOLBAR_MIN_VISIBLE_DIVIDER_POSITION) {
+                toolbarDividerPosition = clampToolbarDivider(current, true);
+            }
+        }
+        topToolbarVisible = visible;
+        if (toolbarShell != null) {
+            toolbarShell.setManaged(visible);
+            toolbarShell.setVisible(visible);
+        }
+        updateTopToolbarChrome();
+        applyToolbarDivider();
+    }
+
+    public boolean isTopToolbarVisible() {
+        return topToolbarVisible;
+    }
+
+    private void beginToolbarDrag(MouseEvent event) {
+        if (event == null || event.getButton() != MouseButton.PRIMARY) return;
+        toolbarDragStartSceneY = event.getSceneY();
+        toolbarDragStartDivider = readDividerPosition(rootWorkspaceSplit,
+            topToolbarVisible ? toolbarDividerPosition : TOOLBAR_COLLAPSED_DIVIDER_POSITION);
+    }
+
+    private void dragToolbar(MouseEvent event) {
+        if (event == null || !event.isPrimaryButtonDown()) return;
+        if (rootWorkspaceSplit == null || rootWorkspaceSplit.getDividers().isEmpty()) return;
+        double height = rootWorkspaceSplit.getHeight();
+        if (!Double.isFinite(height) || height <= 1.0) return;
+        double next = toolbarDragStartDivider + ((event.getSceneY() - toolbarDragStartSceneY) / height);
+        if (!topToolbarVisible && next > TOOLBAR_MIN_VISIBLE_DIVIDER_POSITION) {
+            setTopToolbarVisible(true);
+        }
+        setToolbarDividerPosition(next, true);
+        event.consume();
+    }
+
+    private void applyToolbarDivider() {
+        if (rootWorkspaceSplit == null || rootWorkspaceSplit.getDividers().isEmpty()) return;
+        double target = topToolbarVisible
+            ? clampToolbarDivider(toolbarDividerPosition, true)
+            : TOOLBAR_COLLAPSED_DIVIDER_POSITION;
+        rootWorkspaceSplit.setDividerPositions(target);
+    }
+
+    private void setToolbarDividerPosition(double dividerPosition, boolean remember) {
+        if (rootWorkspaceSplit == null || rootWorkspaceSplit.getDividers().isEmpty()) return;
+        double target = clampToolbarDivider(dividerPosition, topToolbarVisible);
+        rootWorkspaceSplit.setDividerPositions(target);
+        if (topToolbarVisible && remember) {
+            toolbarDividerPosition = target;
+        }
+    }
+
+    private void updateTopToolbarChrome() {
+        if (toolbarDock != null) {
+            toolbarDock.getStyleClass().remove("collapsed");
+            if (!topToolbarVisible) {
+                toolbarDock.getStyleClass().add("collapsed");
+            }
+        }
+        if (btnTopToolbarVisibility != null) {
+            btnTopToolbarVisibility.setGraphic(topToolbarVisible
+                ? com.jvn.editor.ui.CssIcon.arrowUp("#b0b8c8")
+                : com.jvn.editor.ui.CssIcon.arrowDown("#b0b8c8"));
+            Tooltip tooltip = btnTopToolbarVisibility.getTooltip();
+            if (tooltip != null) {
+                tooltip.setText(topToolbarVisible ? "Hide top toolbar" : "Show top toolbar");
+            }
+        }
+    }
+
+    private static double clampToolbarDivider(double value, boolean visible) {
+        double min = visible ? TOOLBAR_MIN_VISIBLE_DIVIDER_POSITION : TOOLBAR_COLLAPSED_DIVIDER_POSITION;
+        if (!Double.isFinite(value)) return visible ? 0.16 : TOOLBAR_COLLAPSED_DIVIDER_POSITION;
+        return Math.max(min, Math.min(TOOLBAR_MAX_DIVIDER_POSITION, value));
+    }
+
+    private static void installLayoutClip(Region region) {
+        if (region == null) return;
+        Rectangle clip = new Rectangle();
+        clip.widthProperty().bind(region.widthProperty());
+        clip.heightProperty().bind(region.heightProperty());
+        region.setClip(clip);
+    }
+
     public void setToolbarClusterExpanded(String key, boolean expanded) {
         if (key == null || key.isBlank()) return;
         CollapsibleToolbarCluster cluster = toolbarClusters.get(key.trim().toLowerCase(Locale.ROOT));
@@ -3574,6 +3729,14 @@ public class PuppeteerWindow extends Stage {
 
     private void applyWorkspacePrefs() {
         if (workspacePrefs == null) return;
+        workspacePrefs.getDivider(PuppeteerWorkspacePrefs.DIVIDER_TOOLBAR).ifPresent(v -> {
+            toolbarDividerPosition = clampToolbarDivider(v, true);
+            if (topToolbarVisible) {
+                applyToolbarDivider();
+            }
+        });
+        workspacePrefs.getBoolean(PuppeteerWorkspacePrefs.KEY_TOP_TOOLBAR_VISIBLE)
+            .ifPresent(this::setTopToolbarVisible);
         workspacePrefs.getDivider(PuppeteerWorkspacePrefs.DIVIDER_TOP).ifPresent(v -> {
             if (topWorkspaceSplit != null && !topWorkspaceSplit.getDividers().isEmpty()) {
                 topWorkspaceSplit.setDividerPositions(v);
@@ -3595,6 +3758,12 @@ public class PuppeteerWindow extends Stage {
             codePaneDividerPosition = v;
             if (mainWorkspaceSplit != null && !mainWorkspaceSplit.getDividers().isEmpty()) {
                 mainWorkspaceSplit.setDividerPositions(v);
+            }
+        });
+        workspacePrefs.getDivider(PuppeteerWorkspacePrefs.DIVIDER_PREVIEW_FOCUS).ifPresent(v -> {
+            previewFocusDividerPosition = v;
+            if (previewFocusMode && previewFocusSplit != null && !previewFocusSplit.getDividers().isEmpty()) {
+                previewFocusSplit.setDividerPositions(v);
             }
         });
 
@@ -7099,6 +7268,14 @@ public class PuppeteerWindow extends Stage {
     /** Copy the current SplitPane divider positions and camera state into the prefs object (no IO). */
     private void captureWorkspacePrefsInto(PuppeteerWorkspacePrefs prefs) {
         if (prefs == null) return;
+        if (rootWorkspaceSplit != null && !rootWorkspaceSplit.getDividers().isEmpty() && topToolbarVisible) {
+            toolbarDividerPosition = clampToolbarDivider(
+                rootWorkspaceSplit.getDividerPositions()[0],
+                true
+            );
+        }
+        prefs.setDivider(PuppeteerWorkspacePrefs.DIVIDER_TOOLBAR, toolbarDividerPosition);
+        prefs.setBoolean(PuppeteerWorkspacePrefs.KEY_TOP_TOOLBAR_VISIBLE, topToolbarVisible);
         if (topWorkspaceSplit != null && !topWorkspaceSplit.getDividers().isEmpty()) {
             prefs.setDivider(PuppeteerWorkspacePrefs.DIVIDER_TOP,
                 topWorkspaceSplit.getDividerPositions()[0]);
@@ -7115,6 +7292,10 @@ public class PuppeteerWindow extends Stage {
             prefs.setDivider(PuppeteerWorkspacePrefs.DIVIDER_CODE_PANE,
                 mainWorkspaceSplit.getDividerPositions()[0]);
         }
+        if (previewFocusSplit != null && !previewFocusSplit.getDividers().isEmpty()) {
+            previewFocusDividerPosition = readDividerPosition(previewFocusSplit, previewFocusDividerPosition);
+        }
+        prefs.setDivider(PuppeteerWorkspacePrefs.DIVIDER_PREVIEW_FOCUS, previewFocusDividerPosition);
         if (animationPreview != null) {
             prefs.setDouble(PuppeteerWorkspacePrefs.KEY_VIEWPORT_PAN_X, animationPreview.getViewPanX());
             prefs.setDouble(PuppeteerWorkspacePrefs.KEY_VIEWPORT_PAN_Y, animationPreview.getViewPanY());

@@ -34,8 +34,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.CodeSource;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -398,7 +401,17 @@ public final class JvnHub {
     if (date != null) {
       out.add(new Announcement(date, title, body.toString().strip()));
     }
+    out.sort(Comparator.comparing(JvnHub::announcementDate).reversed());
     return out;
+  }
+
+  private static LocalDate announcementDate(Announcement announcement) {
+    if (announcement == null || announcement.date() == null) return LocalDate.MIN;
+    try {
+      return LocalDate.parse(announcement.date().strip());
+    } catch (DateTimeParseException ignored) {
+      return LocalDate.MIN;
+    }
   }
 
   private static int indexOfFirst(String s, String... needles) {

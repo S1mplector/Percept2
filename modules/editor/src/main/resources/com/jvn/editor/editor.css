@@ -3348,6 +3348,48 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-border-width: 0 0 1 0;
 }
 
+.puppeteer-toolbar-dock {
+  -fx-background-color: #0a0a0a;
+  -fx-border-color: #242424;
+  -fx-border-width: 0 0 1 0;
+}
+
+.puppeteer-toolbar-grip-bar {
+  -fx-padding: 2 10 2 10;
+  -fx-spacing: 8;
+  -fx-alignment: center-left;
+  -fx-background-color:
+      linear-gradient(to right, rgba(168,106,40,0.20), rgba(10,10,10,0.0)),
+      #0d0d0d;
+  -fx-border-color: #24201a;
+  -fx-border-width: 0 0 1 0;
+  -fx-cursor: v-resize;
+}
+
+.puppeteer-toolbar-dock.collapsed .puppeteer-toolbar-grip-bar {
+  -fx-background-color:
+      linear-gradient(to right, rgba(168,106,40,0.30), rgba(10,10,10,0.0)),
+      #080808;
+}
+
+.puppeteer-toolbar-grip-label {
+  -fx-text-fill: #a78b68;
+  -fx-font-size: 10px;
+  -fx-font-weight: 800;
+}
+
+.puppeteer-toolbar-grip-line {
+  -fx-background-color: #a86a28;
+  -fx-opacity: 0.42;
+  -fx-min-height: 2;
+  -fx-pref-height: 2;
+  -fx-max-height: 2;
+}
+
+.puppeteer-toolbar-dock-toggle {
+  -fx-padding: 0;
+}
+
 .puppeteer-toolbar-command-bar {
   -fx-padding: 6 10 0 10;
   -fx-spacing: 10;
