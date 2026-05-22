@@ -675,6 +675,9 @@ public class VnRenderer {
   private record SpriteLayer(String path, String layerId, String targetName, Image image) {
   }
 
+  private record LayerProxyMatch(Entity2D proxy, boolean exact) {
+  }
+
   private record CharacterRenderEntry(
       CharacterPosition position,
       VnState.CharacterSlot slot,
@@ -884,8 +887,9 @@ public class VnRenderer {
         nudgeX = eyeFocus.nudgeX();
         nudgeY = eyeFocus.nudgeY();
       }
-      Entity2D proxy = drawLayer.targetName() == null || timelineAccessor == null ? null : timelineAccessor.getProxy(drawLayer.targetName());
-      if (proxy != null && !proxy.isVisible()) continue;
+      LayerProxyMatch proxyMatch = resolveLayerProxy(drawLayer, layers);
+      Entity2D proxy = proxyMatch == null ? null : proxyMatch.proxy();
+      if (proxyMatch != null && proxyMatch.exact() && proxy != null && !proxy.isVisible()) continue;
       double x = proxy != null ? timelineDrawX(proxy, defaultX) : defaultX;
       double y = proxy != null ? timelineDrawY(proxy, defaultY) : defaultY;
       drawTimelineLayer(drawLayer, proxy, x + nudgeX, y + nudgeY, spriteWidth, spriteHeight, canvasWidth, canvasHeight, stage);
@@ -1097,6 +1101,39 @@ public class VnRenderer {
     }
     drawCharacterImage(layer.image(), layer.path(), x, y, width, height, canvasWidth, canvasHeight, stage);
     gc.restore();
+  }
+
+  private LayerProxyMatch resolveLayerProxy(SpriteLayer layer, List<SpriteLayer> expressionLayers) {
+    if (timelineAccessor == null || layer == null || layer.targetName() == null) return null;
+    Entity2D exact = timelineAccessor.getProxy(layer.targetName());
+    if (exact != null) return new LayerProxyMatch(exact, true);
+
+    if (!hasBroadLayerProxyCoverage(expressionLayers)) return null;
+    for (SpriteLayer sibling : expressionLayers) {
+      if (sibling == null || sibling == layer || sibling.targetName() == null) continue;
+      Entity2D siblingProxy = timelineAccessor.getProxy(sibling.targetName());
+      if (siblingProxy != null) return new LayerProxyMatch(siblingProxy, false);
+    }
+    return null;
+  }
+
+  private boolean hasBroadLayerProxyCoverage(List<SpriteLayer> expressionLayers) {
+    if (timelineAccessor == null || expressionLayers == null || expressionLayers.isEmpty()) return false;
+    int layerCount = 0;
+    int proxyCount = 0;
+    for (SpriteLayer layer : expressionLayers) {
+      if (layer == null || layer.targetName() == null) continue;
+      layerCount++;
+      if (timelineAccessor.getProxy(layer.targetName()) != null) {
+        proxyCount++;
+      }
+    }
+    return shouldFallbackMissingLayerProxy(layerCount, proxyCount);
+  }
+
+  static boolean shouldFallbackMissingLayerProxy(int layerCount, int proxyCount) {
+    if (layerCount <= 2 || proxyCount <= 0) return false;
+    return proxyCount >= Math.max(2, layerCount - 1);
   }
 
   private boolean hasTimelinePosition(Entity2D proxy) {
