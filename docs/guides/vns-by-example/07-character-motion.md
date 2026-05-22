@@ -286,7 +286,13 @@ Change expression without moving:
 ```vns
 [char hero expression angry]
 [char hero expr surprised]       # shorthand
+[char hero expression worried dur=180]
+[char hero expression neutral 0] # instant switch, no crossfade
 ```
+
+Expression changes preserve the character's current slot, layer order, timeline
+offset, mirror state, and detached position. By default the renderer crossfades
+the old and new expression over `120ms`; use `dur=0` for an instant sprite swap.
 
 ### `[char charId hide]`
 

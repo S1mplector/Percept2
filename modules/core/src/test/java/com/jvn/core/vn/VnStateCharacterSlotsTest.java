@@ -92,6 +92,41 @@ class VnStateCharacterSlotsTest {
     assertEquals(42.0, visual.getOffsetX(), 0.001);
     assertEquals(-6.0, visual.getOffsetY(), 0.001);
     assertTrue(visual.isFinished());
+    VnState.ExpressionTransition transition = state.getExpressionTransition("john");
+    assertNotNull(transition);
+    assertEquals("neutral", transition.getFromExpression());
+    assertEquals("talking", transition.getToExpression());
+  }
+
+  @Test
+  void expressionOnlySwitchCanDisableTransition() {
+    VnState state = new VnState();
+
+    state.showCharacter(CharacterPosition.CENTER, "john", "neutral");
+    assertTrue(state.setCharacterExpression("john", "talking", 0));
+
+    assertEquals("talking", state.getCharacterExpression("john"));
+    assertNull(state.getExpressionTransition("john"));
+  }
+
+  @Test
+  void expressionTransitionCompletesAfterDuration() {
+    VnState state = new VnState();
+
+    state.showCharacter(CharacterPosition.CENTER, "john", "neutral");
+    assertTrue(state.setCharacterExpression("john", "talking", 100));
+
+    VnState.ExpressionTransition transition = state.getExpressionTransition("john");
+    assertNotNull(transition);
+    assertEquals(0.0, transition.getProgress(), 0.0001);
+
+    state.updateCharacterAnimations(50);
+    transition = state.getExpressionTransition("john");
+    assertNotNull(transition);
+    assertTrue(transition.getProgress() > 0.0 && transition.getProgress() < 1.0);
+
+    state.updateCharacterAnimations(50);
+    assertNull(state.getExpressionTransition("john"));
   }
 
   @Test
@@ -190,5 +225,6 @@ class VnStateCharacterSlotsTest {
     VnState.DetachedCharacterSlot detached = state.getDetachedCharacter("john");
     assertNotNull(detached);
     assertEquals("talking", detached.getSlot().getExpression());
+    assertNotNull(state.getExpressionTransition("john"));
   }
 }

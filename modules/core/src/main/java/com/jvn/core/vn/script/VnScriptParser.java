@@ -2292,6 +2292,10 @@ public class VnScriptParser {
           String tok = toks[ti].trim();
           if (tok.isEmpty()) continue;
           if (isIntegerToken(tok)) continue;
+          if (isNamedOptionToken(tok, "move")) {
+            toks[ti] = resolveNamedExpressionOptionToken(state, characterId, tok, sourceName, lineNumber, rawLine);
+            continue;
+          }
           Easing.Type easing = parseEasingToken(tok);
           if (easing != null) continue;
           toks[ti] = resolveInlineExpressionToken(state, characterId, tok, sourceName, lineNumber, rawLine);
@@ -2304,8 +2308,18 @@ public class VnScriptParser {
         if (toks.length >= 4 && "at".equalsIgnoreCase(toks[2])) {
           exprIdx = 4;
         }
-        if (exprIdx < toks.length) {
-          toks[exprIdx] = resolveInlineExpressionToken(state, characterId, toks[exprIdx], sourceName, lineNumber, rawLine);
+        for (int ti = exprIdx; ti < toks.length; ti++) {
+          String tok = toks[ti].trim();
+          if (tok.isEmpty()) continue;
+          if (isIntegerToken(tok)) continue;
+          if (isNamedOptionToken(tok, "show")) {
+            toks[ti] = resolveNamedExpressionOptionToken(state, characterId, tok, sourceName, lineNumber, rawLine);
+            continue;
+          }
+          Easing.Type easing = parseEasingToken(tok);
+          if (easing != null) continue;
+          toks[ti] = resolveInlineExpressionToken(state, characterId, tok, sourceName, lineNumber, rawLine);
+          break;
         }
         return joinNormalizedTokens(toks);
       }
@@ -2329,6 +2343,29 @@ public class VnScriptParser {
       sb.append(quoteTokenIfNeeded(token));
     }
     return sb.toString();
+  }
+
+  private String resolveNamedExpressionOptionToken(ParseState state,
+                                                   String characterId,
+                                                   String token,
+                                                   String sourceName,
+                                                   int lineNumber,
+                                                   String rawLine) throws IOException {
+    int sep = optionSeparator(token);
+    if (sep <= 0 || sep >= token.length() - 1) return token;
+    String key = token.substring(0, sep).trim().toLowerCase();
+    if (!("expr".equals(key) || "expression".equals(key) || "preset".equals(key))) return token;
+    String value = token.substring(sep + 1).trim();
+    String resolved = resolveInlineExpressionToken(state, characterId, value, sourceName, lineNumber, rawLine);
+    return token.substring(0, sep + 1) + resolved;
+  }
+
+  private int optionSeparator(String token) {
+    if (token == null) return -1;
+    int eq = token.indexOf('=');
+    int colon = token.indexOf(':');
+    if (eq > 0 && colon > 0) return Math.min(eq, colon);
+    return Math.max(eq, colon);
   }
 
   private String resolveInlineExpressionToken(ParseState state,

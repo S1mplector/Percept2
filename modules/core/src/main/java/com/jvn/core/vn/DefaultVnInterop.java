@@ -1878,6 +1878,31 @@ public class DefaultVnInterop implements VnInterop {
         for (int ti = startIdx; ti < toks.length; ti++) {
           String tok = toks[ti].trim();
           if (tok.isEmpty()) continue;
+          int sep = optionSeparator(tok);
+          if (sep > 0) {
+            String key = tok.substring(0, sep).trim().toLowerCase(Locale.ROOT);
+            String value = tok.substring(sep + 1).trim();
+            switch (key) {
+              case "expr":
+              case "expression":
+              case "preset":
+                expression = value;
+                break;
+              case "dur":
+              case "duration":
+              case "ms":
+                durationMs = Math.max(0L, parseLongSafe(value, durationMs));
+                break;
+              case "ease":
+              case "easing":
+                Easing.Type namedEasing = parseEasingType(value);
+                if (namedEasing != null) easingType = namedEasing;
+                break;
+              default:
+                break;
+            }
+            continue;
+          }
           if (tok.matches("\\d+")) {
             durationMs = Long.parseLong(tok);
           } else {
@@ -1907,16 +1932,92 @@ public class DefaultVnInterop implements VnInterop {
           showNextIdx = 3;
         }
         if (position == null) return;
-        String expression = showNextIdx < toks.length ? toks[showNextIdx] : "neutral";
+        String expression = null;
+        Easing.Type easingType = null;
+        long durationMs = 0L;
+        for (int ti = showNextIdx; ti < toks.length; ti++) {
+          String tok = toks[ti].trim();
+          if (tok.isEmpty()) continue;
+          int sep = optionSeparator(tok);
+          if (sep > 0) {
+            String key = tok.substring(0, sep).trim().toLowerCase(Locale.ROOT);
+            String value = tok.substring(sep + 1).trim();
+            switch (key) {
+              case "expr":
+              case "expression":
+              case "preset":
+                expression = value;
+                break;
+              case "dur":
+              case "duration":
+              case "ms":
+                durationMs = Math.max(0L, parseLongSafe(value, durationMs));
+                break;
+              case "ease":
+              case "easing":
+                Easing.Type namedEasing = parseEasingType(value);
+                if (namedEasing != null) easingType = namedEasing;
+                break;
+              default:
+                break;
+            }
+            continue;
+          }
+          if (tok.matches("\\d+")) {
+            durationMs = Long.parseLong(tok);
+          } else {
+            Easing.Type parsed = parseEasingType(tok);
+            if (parsed != null) {
+              easingType = parsed;
+            } else if (expression == null) {
+              expression = tok;
+            }
+          }
+        }
+        if (expression == null) expression = "neutral";
         state.setCharacterDefinedPosition(characterId, position);
-        state.showCharacterAnimated(position, characterId, expression);
+        state.showCharacterAnimated(position, characterId, expression, null, easingType, durationMs);
         break;
       }
       case "expression":
       case "expr": {
         if (toks.length < 3) return;
         String expression = toks[2];
-        if (!state.setCharacterExpression(characterId, expression)) {
+        long durationMs = VnState.DEFAULT_EXPRESSION_TRANSITION_MS;
+        Easing.Type easingType = null;
+        for (int ti = 3; ti < toks.length; ti++) {
+          String tok = toks[ti].trim();
+          if (tok.isEmpty()) continue;
+          int sep = optionSeparator(tok);
+          if (sep > 0) {
+            String key = tok.substring(0, sep).trim().toLowerCase(Locale.ROOT);
+            String value = tok.substring(sep + 1).trim();
+            switch (key) {
+              case "dur":
+              case "duration":
+              case "ms":
+              case "transition":
+              case "transitionms":
+                durationMs = Math.max(0L, parseLongSafe(value, durationMs));
+                break;
+              case "ease":
+              case "easing":
+                Easing.Type namedEasing = parseEasingType(value);
+                if (namedEasing != null) easingType = namedEasing;
+                break;
+              default:
+                break;
+            }
+            continue;
+          }
+          if (tok.matches("\\d+")) {
+            durationMs = Long.parseLong(tok);
+          } else {
+            Easing.Type parsed = parseEasingType(tok);
+            if (parsed != null) easingType = parsed;
+          }
+        }
+        if (!state.setCharacterExpression(characterId, expression, durationMs, easingType)) {
           CharacterPosition position = state.getCharacterDefinedPosition(characterId);
           if (position == null) position = CharacterPosition.CENTER;
           state.showCharacterAnimated(position, characterId, expression);
@@ -1997,6 +2098,14 @@ public class DefaultVnInterop implements VnInterop {
             // reason: invalid argument from untrusted input; caller handles absent result
       return null;
     }
+  }
+
+  private int optionSeparator(String token) {
+    if (token == null) return -1;
+    int eq = token.indexOf('=');
+    int colon = token.indexOf(':');
+    if (eq > 0 && colon > 0) return Math.min(eq, colon);
+    return Math.max(eq, colon);
   }
 
   private record MethodSelection(Method method, String errorMessage) {}

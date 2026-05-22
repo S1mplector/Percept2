@@ -250,7 +250,7 @@ While VNS scripts appear to be standalone visual novel files, **JES infrastructu
 
 VNS doesn't have its own animation engine. Every animated effect in a VN scene is powered by JES infrastructure:
 
-**Character animation** — `VnState.showCharacterAnimated()` uses `Easing.Type` from `com.jvn.core.animation` (the same easing library JES timelines use) to drive slide-in, slide-out, position-move, and expression-fade animations on `CharacterVisual` objects. The animation math is identical to what JES timeline keyframes use.
+**Character animation** — `VnState.showCharacterAnimated()` uses `Easing.Type` from `com.jvn.core.animation` (the same easing library JES timelines use) to drive slide-in, slide-out, and position-move animations on `CharacterVisual` objects. Expression changes are tracked separately as `VnState.ExpressionTransition` entries keyed by character id, so changing an expression does not reset the character's slot, timeline offset, mirror state, or detached placement. `VnRenderer` draws the previous and current expression over each other during the transition window.
 
 **Timeline execution** — VNS scripts can embed JES timelines directly via `[jes_timeline name]` or inline timeline blocks. These create `TimelineRunner` instances that are stored in `VnState.activeTimelines` and ticked every frame by `VnState.updateTimelineRunners(deltaMs)`. The timeline runner uses a `SceneAccessor` to resolve entity names to `Entity2D` instances.
 

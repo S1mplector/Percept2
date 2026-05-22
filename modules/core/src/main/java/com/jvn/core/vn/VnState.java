@@ -22,6 +22,7 @@ public class VnState {
   private static final String VAR_BUBBLE_OFFSET_X_PREFIX = "ui.bubble.offsetX.";
   private static final String VAR_BUBBLE_OFFSET_Y_PREFIX = "ui.bubble.offsetY.";
   private static final String VAR_ACTIVE_STAGE_PRESET_ID = "stage.activePreset";
+  public static final long DEFAULT_EXPRESSION_TRANSITION_MS = 120L;
 
   private VnScenario scenario;
   private String sourceScriptName;
@@ -33,6 +34,7 @@ public class VnState {
   private final VnRollbackStack rollbackStack;
   private final Map<CharacterPosition, CharacterVisual> characterVisuals;
   private final Map<CharacterPosition, PendingExpressionSwitch> pendingExpressionSwitches;
+  private final Map<String, ExpressionTransition> expressionTransitions;
   private final Map<String, EyeFocusRequest> eyeFocusRequests;
   private final Map<String, TimelineDisplacement> timelineDisplacements;
   private final Map<String, TimelineTransform> timelineTransforms;
@@ -87,6 +89,7 @@ public class VnState {
     this.detachedCharacters = new HashMap<>();
     this.characterVisuals = new HashMap<>();
     this.pendingExpressionSwitches = new HashMap<>();
+    this.expressionTransitions = new HashMap<>();
     this.eyeFocusRequests = new HashMap<>();
     this.timelineDisplacements = new HashMap<>();
     this.timelineTransforms = new HashMap<>();
@@ -153,6 +156,7 @@ public class VnState {
     removeOtherSlotsForCharacter(characterId, target);
     visibleCharacters.put(target, new CharacterSlot(characterId, resolvedExpression, resolvedLayerOrder));
     pendingExpressionSwitches.remove(target);
+    expressionTransitions.remove(normalizeCharacterId(characterId));
     CharacterVisual visual = ensureCharacterVisual(target);
     visual.setImmediate(1.0, 0.0, 0.0);
     if (isCharacterGlobalPositionEnabled(characterId)) {
@@ -169,6 +173,7 @@ public class VnState {
     detachedCharacters.clear();
     characterVisuals.clear();
     pendingExpressionSwitches.clear();
+    expressionTransitions.clear();
     eyeFocusRequests.clear();
     timelineDisplacements.clear();
     timelineTransforms.clear();
@@ -192,7 +197,8 @@ public class VnState {
     int resolvedLayerOrder = resolveLayerOrder(target, layerOrder, existingSlot != null ? existingSlot.getLayerOrder() : null);
 
     if (existingPos != null && existingSlot != null && existingPos.equals(target)) {
-      visibleCharacters.put(target, new CharacterSlot(characterId, resolvedExpression, resolvedLayerOrder));
+      updateVisibleSlotExpression(target, existingSlot, resolvedExpression, resolvedLayerOrder,
+          DEFAULT_EXPRESSION_TRANSITION_MS, null);
       pendingExpressionSwitches.remove(target);
       ensureCharacterVisual(target);
       if (isCharacterGlobalPositionEnabled(characterId)) {
@@ -212,7 +218,8 @@ public class VnState {
       visual.startAnimation(1.0, 1.0, startOffset, 0.0, 0.0, 0.0, moveDur, false, easingType);
       pendingExpressionSwitches.remove(target);
       if (!resolvedExpression.equals(movingExpression)) {
-        pendingExpressionSwitches.put(target, new PendingExpressionSwitch(characterId, resolvedExpression, moveDur));
+        pendingExpressionSwitches.put(target, new PendingExpressionSwitch(
+            characterId, resolvedExpression, moveDur, DEFAULT_EXPRESSION_TRANSITION_MS, null));
       }
       characterDefinedPositions.put(characterId, target);
       return;
@@ -224,6 +231,7 @@ public class VnState {
     removeOtherSlotsForCharacter(characterId, target);
     visibleCharacters.put(target, new CharacterSlot(characterId, resolvedExpression, resolvedLayerOrder));
     pendingExpressionSwitches.remove(target);
+    expressionTransitions.remove(normalizeCharacterId(characterId));
     CharacterVisual visual = ensureCharacterVisual(target);
     double startX = entranceOffsetX(target);
     visual.startAnimation(0.0, 1.0, startX, 0.0, 0.0, 0.0, tweenDur, false, easingType);
@@ -273,6 +281,7 @@ public class VnState {
           CharacterSlot slot = visibleCharacters.remove(entry.getKey());
           pendingExpressionSwitches.remove(entry.getKey());
           if (slot != null) {
+            expressionTransitions.remove(normalizeCharacterId(slot.getCharacterId()));
             eyeFocusRequests.remove(slot.getCharacterId());
             detachedCharacters.remove(slot.getCharacterId());
             timelineDisplacements.remove(slot.getCharacterId());
@@ -291,6 +300,7 @@ public class VnState {
         visual.update(deltaMs);
         if (visual.isFinished() && visual.isRemoveOnComplete()) {
           eyeFocusRequests.remove(entry.getKey());
+          expressionTransitions.remove(normalizeCharacterId(entry.getKey()));
           timelineDisplacements.remove(entry.getKey());
           timelineTransforms.remove(entry.getKey());
           it.remove();
@@ -311,8 +321,26 @@ public class VnState {
           it.remove();
           continue;
         }
-        visibleCharacters.put(position, new CharacterSlot(slot.getCharacterId(), pending.expression, slot.getLayerOrder()));
+        updateVisibleSlotExpression(position, slot, pending.expression, slot.getLayerOrder(),
+            pending.transitionDurationMs, pending.easingType);
         it.remove();
+      }
+    }
+
+    if (!expressionTransitions.isEmpty()) {
+      var it = expressionTransitions.entrySet().iterator();
+      while (it.hasNext()) {
+        var entry = it.next();
+        String characterId = entry.getKey();
+        ExpressionTransition transition = entry.getValue();
+        if (findCharacterPosition(characterId) == null && !detachedCharacters.containsKey(characterId)) {
+          it.remove();
+          continue;
+        }
+        transition.update(deltaMs);
+        if (transition.isFinished()) {
+          it.remove();
+        }
       }
     }
   }
@@ -520,6 +548,14 @@ public class VnState {
   }
 
   public boolean setCharacterExpression(String characterId, String expression) {
+    return setCharacterExpression(characterId, expression, DEFAULT_EXPRESSION_TRANSITION_MS);
+  }
+
+  public boolean setCharacterExpression(String characterId, String expression, long transitionDurationMs) {
+    return setCharacterExpression(characterId, expression, transitionDurationMs, null);
+  }
+
+  public boolean setCharacterExpression(String characterId, String expression, long transitionDurationMs, Easing.Type easingType) {
     String id = normalizeCharacterId(characterId);
     if (id.isEmpty()) return false;
     String resolvedExpression = normalizeExpression(expression, "neutral");
@@ -528,7 +564,7 @@ public class VnState {
     if (position != null) {
       CharacterSlot slot = visibleCharacters.get(position);
       if (slot == null) return false;
-      visibleCharacters.put(position, new CharacterSlot(slot.getCharacterId(), resolvedExpression, slot.getLayerOrder()));
+      updateVisibleSlotExpression(position, slot, resolvedExpression, slot.getLayerOrder(), transitionDurationMs, easingType);
       pendingExpressionSwitches.remove(position);
       ensureCharacterVisual(position);
       return true;
@@ -537,11 +573,19 @@ public class VnState {
     DetachedCharacterSlot detached = detachedCharacters.get(id);
     if (detached == null || detached.getSlot() == null) return false;
     CharacterSlot slot = detached.getSlot();
+    beginExpressionTransition(slot.getCharacterId(), slot.getExpression(), resolvedExpression, transitionDurationMs, easingType);
     detachedCharacters.put(id, new DetachedCharacterSlot(
         detached.getBasePosition(),
         new CharacterSlot(slot.getCharacterId(), resolvedExpression, slot.getLayerOrder()),
         detached.getVisual()));
     return true;
+  }
+
+  public ExpressionTransition getExpressionTransition(String characterId) {
+    String id = normalizeCharacterId(characterId);
+    if (id.isEmpty()) return null;
+    ExpressionTransition transition = expressionTransitions.get(id);
+    return transition != null && !transition.isFinished() ? transition : null;
   }
 
   public void setEyeFocusRequest(EyeFocusRequest request) {
@@ -574,6 +618,7 @@ public class VnState {
     characterVisuals.remove(position);
     pendingExpressionSwitches.remove(position);
     if (slot != null) {
+      expressionTransitions.remove(normalizeCharacterId(slot.getCharacterId()));
       eyeFocusRequests.remove(slot.getCharacterId());
       detachedCharacters.remove(slot.getCharacterId());
       timelineDisplacements.remove(slot.getCharacterId());
@@ -634,6 +679,37 @@ public class VnState {
     visibleCharacters.remove(target);
     characterVisuals.remove(target);
     pendingExpressionSwitches.remove(target);
+  }
+
+  private void updateVisibleSlotExpression(
+      CharacterPosition position,
+      CharacterSlot slot,
+      String resolvedExpression,
+      int layerOrder,
+      long transitionDurationMs,
+      Easing.Type easingType) {
+    if (slot == null || position == null) return;
+    String previousExpression = normalizeExpression(slot.getExpression(), "neutral");
+    String nextExpression = normalizeExpression(resolvedExpression, previousExpression);
+    visibleCharacters.put(position, new CharacterSlot(slot.getCharacterId(), nextExpression, layerOrder));
+    beginExpressionTransition(slot.getCharacterId(), previousExpression, nextExpression, transitionDurationMs, easingType);
+  }
+
+  private void beginExpressionTransition(
+      String characterId,
+      String previousExpression,
+      String nextExpression,
+      long transitionDurationMs,
+      Easing.Type easingType) {
+    String id = normalizeCharacterId(characterId);
+    if (id.isEmpty()) return;
+    String from = normalizeExpression(previousExpression, "neutral");
+    String to = normalizeExpression(nextExpression, from);
+    if (transitionDurationMs <= 0L || from.equals(to)) {
+      expressionTransitions.remove(id);
+      return;
+    }
+    expressionTransitions.put(id, new ExpressionTransition(from, to, transitionDurationMs, easingType));
   }
 
   private boolean hasTimelineDisplacementAwayFromSlot(String characterId) {
@@ -1222,14 +1298,51 @@ public class VnState {
     }
   }
 
+  public static class ExpressionTransition {
+    private final String fromExpression;
+    private final String toExpression;
+    private final long durationMs;
+    private final Easing.Type easingType;
+    private long elapsedMs = 0L;
+
+    private ExpressionTransition(String fromExpression, String toExpression, long durationMs, Easing.Type easingType) {
+      this.fromExpression = fromExpression == null || fromExpression.isBlank() ? "neutral" : fromExpression.trim();
+      this.toExpression = toExpression == null || toExpression.isBlank() ? "neutral" : toExpression.trim();
+      this.durationMs = Math.max(1L, durationMs);
+      this.easingType = easingType;
+    }
+
+    public String getFromExpression() { return fromExpression; }
+    public String getToExpression() { return toExpression; }
+    public boolean isFinished() { return elapsedMs >= durationMs; }
+
+    public double getProgress() {
+      double raw = elapsedMs / (double) durationMs;
+      double clamped = Math.max(0.0, Math.min(1.0, raw));
+      return Easing.apply(easingType != null ? easingType : Easing.Type.EASE_OUT_QUAD, clamped);
+    }
+
+    private void update(long deltaMs) {
+      elapsedMs = Math.min(durationMs, elapsedMs + Math.max(0L, deltaMs));
+    }
+
+    public boolean appliesTo(String expression) {
+      return toExpression.equals(expression);
+    }
+  }
+
   private static class PendingExpressionSwitch {
     private final String characterId;
     private final String expression;
+    private final long transitionDurationMs;
+    private final Easing.Type easingType;
     private long remainingMs;
 
-    private PendingExpressionSwitch(String characterId, String expression, long delayMs) {
+    private PendingExpressionSwitch(String characterId, String expression, long delayMs, long transitionDurationMs, Easing.Type easingType) {
       this.characterId = characterId;
       this.expression = expression == null || expression.isBlank() ? "neutral" : expression.trim();
+      this.transitionDurationMs = Math.max(0L, transitionDurationMs);
+      this.easingType = easingType;
       this.remainingMs = Math.max(1L, delayMs);
     }
 

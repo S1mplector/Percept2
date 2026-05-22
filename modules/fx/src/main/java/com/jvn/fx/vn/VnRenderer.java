@@ -723,14 +723,60 @@ public class VnRenderer {
 
     VnCharacter character = scenario.getCharacter(slot.getCharacterId());
     if (character != null) {
-      String imagePath = character.getExpressionPath(slot.getExpression());
+      String expression = slot.getExpression();
+      String imagePath = character.getExpressionPath(expression);
+      VnState.ExpressionTransition transition = state != null ? state.getExpressionTransition(slot.getCharacterId()) : null;
+      if (transition != null && transition.appliesTo(expression)) {
+        String fromPath = character.getExpressionPath(transition.getFromExpression());
+        String toPath = character.getExpressionPath(transition.getToExpression());
+        if (fromPath != null && toPath != null) {
+          preloadSpriteSource(fromPath);
+          preloadSpriteSource(toPath);
+          double progress = transition.getProgress();
+          renderCharacterSpriteWithAlpha(
+              fromPath, transition.getFromExpression(), character, position,
+              width, height, offsetX, offsetY, slot.getCharacterId(), state, scenario, stage,
+              alpha * (1.0 - progress));
+          renderCharacterSpriteWithAlpha(
+              toPath, transition.getToExpression(), character, position,
+              width, height, offsetX, offsetY, slot.getCharacterId(), state, scenario, stage,
+              alpha * progress);
+          return;
+        }
+      }
       if (imagePath != null) {
-        gc.save();
-        if (alpha < 0.999) gc.setGlobalAlpha(alpha);
-        renderCharacterSprite(imagePath, slot.getExpression(), character, position, width, height, offsetX, offsetY, slot.getCharacterId(), state, scenario, stage);
-        gc.restore();
+        renderCharacterSpriteWithAlpha(imagePath, expression, character, position,
+            width, height, offsetX, offsetY, slot.getCharacterId(), state, scenario, stage, alpha);
       }
     }
+  }
+
+  private void preloadSpriteSource(String imagePath) {
+    if (imagePath == null || imagePath.isBlank()) return;
+    List<String> layerPaths = parseLayerPaths(imagePath);
+    loadSpriteSourceImage(imagePath, layerPaths);
+  }
+
+  private void renderCharacterSpriteWithAlpha(
+      String imagePath,
+      String expression,
+      VnCharacter character,
+      CharacterPosition position,
+      double width,
+      double height,
+      double offsetX,
+      double offsetY,
+      String characterId,
+      VnState state,
+      VnScenario scenario,
+      VnStagePreset stage,
+      double alpha) {
+    if (imagePath == null || alpha <= 0.001) return;
+    gc.save();
+    if (alpha < 0.999) gc.setGlobalAlpha(alpha);
+    renderCharacterSprite(imagePath, expression, character, position, width, height, offsetX, offsetY,
+        characterId, state, scenario, stage);
+    gc.restore();
   }
 
   private void renderCharacterSprite(String imagePath, String expression, VnCharacter character, CharacterPosition position, double width, double height, double offsetX, double offsetY, String characterId, VnState state, VnScenario scenario, VnStagePreset stage) {

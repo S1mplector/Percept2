@@ -261,7 +261,7 @@ Character choreography helper provider. `[character]` is accepted as an alias fo
 | `at` | `position`, `pos` | Set the character's anchor position |
 | `move` | — | Animated slide to a new position (with optional expression, easing, duration) |
 | `show` | — | Show character at a position with an expression |
-| `expression` | `expr` | Change expression without moving |
+| `expression` | `expr` | Change expression without moving; crossfades by default |
 | `hide` | — | Animated exit |
 
 **Move with easing and duration:**
@@ -269,6 +269,18 @@ Character choreography helper provider. `[character]` is accepted as an alias fo
 ```vns
 [char hero move right smile ease_out_quad 500]
 ```
+
+**Expression transition:**
+
+```vns
+[char hero expression angry]          # 120ms default crossfade
+[char hero expression neutral dur=0]  # instant swap
+[char hero expr surprised dur=180 easing=ease_out_quad]
+```
+
+Expression transitions only affect the rendered sprite blend. The character
+keeps its current slot, layer order, global/detached position, and timeline
+offsets while the old expression fades into the new one.
 
 **Show subcommand:**
 

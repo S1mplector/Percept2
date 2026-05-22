@@ -7,6 +7,10 @@ Format:
     lines separate them. The block ends at the next "## " header or end of file.
 
 ----
+## 2026-05-22 — Changes to expression transition
+
+Expression swaps in VNS now use a short renderer-side crossfade by default, preserving timeline offsets, mirrored poses, detached character placement, and layer order while the new expression appears. Use `[char hero expression neutral dur=0]` when an instant swap is preferred.
+
 
 ## 2026-05-22 — Puppeteer layout controls
 Puppeteer's top toolbar can now be resized, collapsed, and restored from the workspace or View menu, and the focused preview/keyframe split remembers its vertical layout between sessions.

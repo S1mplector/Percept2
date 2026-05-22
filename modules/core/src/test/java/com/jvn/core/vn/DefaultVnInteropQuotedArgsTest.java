@@ -76,6 +76,26 @@ class DefaultVnInteropQuotedArgsTest {
   }
 
   @Test
+  void characterExpressionCommandAcceptsTransitionDuration() {
+    VnScenario scenario = new VnScenarioBuilder("expression_transition")
+      .addCharacterWithExpressions("lily", "Lily", "neutral.png", "talking.png")
+      .label("start")
+      .end()
+      .build();
+    VnScene scene = new VnScene(scenario);
+    scene.getState().showCharacter(CharacterPosition.CENTER, "lily", "neutral");
+    DefaultVnInterop interop = new DefaultVnInterop();
+
+    interop.handle(new VnExternalCommand("char", "lily expression talking dur=240"), scene);
+
+    assertEquals("talking", scene.getState().getCharacterExpression("lily"));
+    VnState.ExpressionTransition transition = scene.getState().getExpressionTransition("lily");
+    assertNotNull(transition);
+    assertEquals("neutral", transition.getFromExpression());
+    assertEquals("talking", transition.getToExpression());
+  }
+
+  @Test
   void laterInlineTimelineMoveReplacesEarlierCharacterDisplacement() {
     VnScenario scenario = new VnScenarioBuilder("timeline_displacement_latest")
       .addCharacterWithExpressions("john", "John", "body.png")
