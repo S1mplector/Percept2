@@ -1,4 +1,6 @@
 package com.jvn.core.diagnostics.runtime_logs.warnings;
 
-public interface Warning {
+public interface WarningCommand {
+
+
 }
