@@ -700,14 +700,18 @@
 }
 
 .vcs-initializing-overlay {
+  -fx-padding: 18;
+  -fx-background-color: rgba(0, 0, 0, 0.16);
+}
+
+.vcs-initializing-card {
   -fx-padding: 22;
-  -fx-background-color: rgba(248, 245, 238, 0.88);
+  -fx-background-color: rgba(248, 245, 238, 0.94);
   -fx-background-radius: 10;
   -fx-border-color: rgba(181, 111, 33, 0.32);
   -fx-border-radius: 10;
   -fx-border-width: 1;
   -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.24), 26, 0.18, 0, 8);
-  -fx-max-width: 430px;
 }
 
 .vcs-initializing-spinner {

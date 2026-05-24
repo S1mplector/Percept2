@@ -754,14 +754,18 @@ The editor.css file defines the visual styling for the editor module, including 
 }
 
 .vcs-initializing-overlay {
+  -fx-padding: 18;
+  -fx-background-color: rgba(0, 0, 0, 0.34);
+}
+
+.vcs-initializing-card {
   -fx-padding: 22;
-  -fx-background-color: rgba(8, 8, 8, 0.72);
+  -fx-background-color: rgba(8, 8, 8, 0.88);
   -fx-background-radius: 10;
   -fx-border-color: rgba(240, 161, 59, 0.36);
   -fx-border-radius: 10;
   -fx-border-width: 1;
   -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.50), 28, 0.22, 0, 8);
-  -fx-max-width: 430px;
 }
 
 .vcs-initializing-spinner {

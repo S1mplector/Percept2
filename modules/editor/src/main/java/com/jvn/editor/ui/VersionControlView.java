@@ -472,19 +472,26 @@ The Log shows recent commits on the current branch."""));
     initializingOverlay.setPickOnBounds(true);
     initializingCard.getStyleClass().add("vcs-initializing-card");
     initializingCard.setAlignment(Pos.CENTER);
-    initializingCard.maxWidthProperty().bind(javafx.beans.binding.Bindings.createDoubleBinding(
-        () -> Math.max(220.0, Math.min(430.0, initializingOverlay.getWidth() - 36.0)),
-        initializingOverlay.widthProperty()));
+    javafx.beans.binding.DoubleBinding cardWidth = javafx.beans.binding.Bindings.createDoubleBinding(
+        () -> {
+          double available = initializingOverlay.getWidth() - 36.0;
+          if (available <= 0.0) return 220.0;
+          return Math.max(160.0, Math.min(430.0, available));
+        },
+        initializingOverlay.widthProperty());
+    initializingCard.prefWidthProperty().bind(cardWidth);
+    initializingCard.maxWidthProperty().bind(cardWidth);
     initializingSpinner.getStyleClass().add("vcs-initializing-spinner");
     initializingSpinner.setMaxSize(36, 36);
     initializingTitleLabel.getStyleClass().add("vcs-initializing-title");
     initializingBodyLabel.getStyleClass().add("vcs-initializing-body");
     initializingBodyLabel.setWrapText(true);
     initializingBodyLabel.maxWidthProperty().bind(javafx.beans.binding.Bindings.createDoubleBinding(
-        () -> Math.max(180.0, initializingCard.getMaxWidth() - 44.0),
+        () -> Math.max(120.0, initializingCard.getMaxWidth() - 44.0),
         initializingCard.maxWidthProperty()));
     initializingCard.getChildren().addAll(initializingSpinner, initializingTitleLabel, initializingBodyLabel);
     initializingOverlay.getChildren().add(initializingCard);
+    StackPane.setAlignment(initializingCard, Pos.CENTER);
   }
 
   public void setOnOpenRelativePath(Consumer<String> onOpenRelativePath) {
