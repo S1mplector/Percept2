@@ -1,5 +1,6 @@
 package com.jvn.core.diagnostics.runtime_logs.warnings.warning_strategies;
 
+import com.jvn.core.diagnostics.runtime_logs.logging_strategies.LoggingStrategy;
 import com.jvn.core.diagnostics.runtime_logs.warnings.Warning;
 
 /**
@@ -9,4 +10,5 @@ import com.jvn.core.diagnostics.runtime_logs.warnings.Warning;
  */
 public interface WarningStrategy {
     void execute(Warning warning);
+    void addLoggingStrategy(LoggingStrategy loggingStrategy);
 }

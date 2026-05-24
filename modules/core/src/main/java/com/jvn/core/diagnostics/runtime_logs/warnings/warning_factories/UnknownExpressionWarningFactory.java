@@ -14,7 +14,7 @@ public class UnknownExpressionWarningFactory implements WarningFactory {
 
     @Override
     public Warning createWarning() {
-        String message = "Unknown expression encountered in: \"" + expression + "\"";
+        String message = "Unknown expression encountered: \"" + expression + "\"";
         return new Warning(message, source);
     }
 }
