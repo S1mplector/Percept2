@@ -701,6 +701,26 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.45), 18, 0.18, 0, 6);
 }
 
+.vcs-guide-close {
+  -fx-min-width: 22px;
+  -fx-min-height: 22px;
+  -fx-pref-width: 22px;
+  -fx-pref-height: 22px;
+  -fx-padding: 0;
+  -fx-background-color: rgba(255, 255, 255, 0.08);
+  -fx-background-radius: 999;
+  -fx-border-color: rgba(255, 255, 255, 0.16);
+  -fx-border-radius: 999;
+  -fx-text-fill: #f2c1a0;
+  -fx-font-size: 14px;
+  -fx-font-weight: 900;
+}
+
+.vcs-guide-close:hover {
+  -fx-background-color: rgba(240, 161, 59, 0.22);
+  -fx-border-color: #f0a13b;
+}
+
 .vcs-guide-card-info {
   -fx-background-color: #101a24;
   -fx-border-color: #3d77a5;
@@ -731,6 +751,33 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-text-fill: #d7cab8;
   -fx-font-size: 11px;
   -fx-line-spacing: 2px;
+}
+
+.vcs-initializing-overlay {
+  -fx-padding: 22;
+  -fx-background-color: rgba(8, 8, 8, 0.72);
+  -fx-background-radius: 10;
+  -fx-border-color: rgba(240, 161, 59, 0.36);
+  -fx-border-radius: 10;
+  -fx-border-width: 1;
+  -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.50), 28, 0.22, 0, 8);
+  -fx-max-width: 430px;
+}
+
+.vcs-initializing-spinner {
+  -fx-progress-color: #f0a13b;
+}
+
+.vcs-initializing-title {
+  -fx-text-fill: #ffffff;
+  -fx-font-size: 15px;
+  -fx-font-weight: 900;
+}
+
+.vcs-initializing-body {
+  -fx-text-fill: #d7cab8;
+  -fx-font-size: 12px;
+  -fx-text-alignment: center;
 }
 
 .vcs-next-step {

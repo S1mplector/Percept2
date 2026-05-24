@@ -1497,7 +1497,6 @@ The Log shows recent commits on the current branch."""));
   public void dispose() {
     if (disposed) return;
     disposed = true;
-    guideHideTimer.stop();
     guidePopup.hide();
     clearGuideTargets();
     if (autoRefreshTimer != null) {
