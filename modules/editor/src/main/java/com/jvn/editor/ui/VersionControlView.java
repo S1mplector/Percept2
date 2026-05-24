@@ -1386,7 +1386,7 @@ The Log shows recent commits on the current branch."""));
 
   private void runAsync(String actionName, Runnable action) {
     if (busy || disposed) return;
-    setBusy(true);
+    setBusy(true, actionName);
     try {
       worker.submit(() -> {
         try {
@@ -1394,17 +1394,44 @@ The Log shows recent commits on the current branch."""));
         } catch (Exception ex) {
           appendLog(actionName + " failed: " + ex.getMessage());
         } finally {
-          Platform.runLater(() -> setBusy(false));
+          Platform.runLater(() -> setBusy(false, null));
         }
       });
     } catch (RejectedExecutionException ex) {
-      setBusy(false);
+      setBusy(false, null);
     }
   }
 
   private void setBusy(boolean busy) {
+    setBusy(busy, null);
+  }
+
+  private void setBusy(boolean busy, String actionName) {
     this.busy = busy;
+    this.busyActionName = busy && actionName != null ? actionName : "";
+    updateInitializingOverlay();
     updateControlsForState();
+  }
+
+  private void markStatusLoaded() {
+    statusLoaded = true;
+    updateInitializingOverlay();
+  }
+
+  private void updateInitializingOverlay() {
+    boolean initializingRepository = busyActionName.toLowerCase(Locale.ROOT).contains("initialize");
+    boolean show = busy && (!statusLoaded || initializingRepository);
+    if (show) {
+      if (initializingRepository) {
+        initializingTitleLabel.setText("Initializing repository");
+        initializingBodyLabel.setText("Creating Git tracking and preparing the first project snapshot.");
+      } else {
+        initializingTitleLabel.setText("Initializing version control");
+        initializingBodyLabel.setText("Reading repository status, branches, changed files, and online state.");
+      }
+    }
+    initializingOverlay.setVisible(show);
+    initializingOverlay.setManaged(show);
   }
 
   private void updateControlsForState() {
