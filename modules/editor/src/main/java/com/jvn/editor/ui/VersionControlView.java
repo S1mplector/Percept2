@@ -436,7 +436,7 @@ The Log shows recent commits on the current branch."""));
   }
 
   private void configureGuidePopup() {
-    guidePopup.setAutoHide(true);
+    guidePopup.setAutoHide(false);
     guidePopup.setHideOnEscape(true);
     guideArrowLabel.getStyleClass().add("vcs-guide-arrow");
     guideCard.getStyleClass().add("vcs-guide-card");
@@ -444,12 +444,36 @@ The Log shows recent commits on the current branch."""));
     guideBodyLabel.getStyleClass().add("vcs-guide-body");
     guideBodyLabel.setWrapText(true);
     guideBodyLabel.setMaxWidth(GUIDE_POPUP_WIDTH - 30.0);
-    guideCard.getChildren().addAll(guideTitleLabel, guideBodyLabel);
+    guideCloseButton.getStyleClass().add("vcs-guide-close");
+    guideCloseButton.setTooltip(new Tooltip("Dismiss this guidance."));
+    guideCloseButton.setOnAction(e -> {
+      dismissedGuideKey = lastGuideKey;
+      guidePopup.hide();
+    });
+    Region spacer = new Region();
+    HBox.setHgrow(spacer, Priority.ALWAYS);
+    HBox guideHeader = new HBox(8, guideTitleLabel, spacer, guideCloseButton);
+    guideHeader.setAlignment(Pos.CENTER_LEFT);
+    guideCard.getChildren().addAll(guideHeader, guideBodyLabel);
     guidePopupRoot.getStyleClass().add("vcs-guide-popup");
     guidePopupRoot.setAlignment(Pos.CENTER);
     guidePopupRoot.getChildren().addAll(guideArrowLabel, guideCard);
     guidePopup.getContent().setAll(guidePopupRoot);
-    guideHideTimer.setOnFinished(e -> guidePopup.hide());
+  }
+
+  private void configureInitializingOverlay() {
+    initializingOverlay.getStyleClass().add("vcs-initializing-overlay");
+    initializingOverlay.setAlignment(Pos.CENTER);
+    initializingOverlay.setVisible(false);
+    initializingOverlay.setManaged(false);
+    initializingOverlay.setPickOnBounds(true);
+    initializingSpinner.getStyleClass().add("vcs-initializing-spinner");
+    initializingSpinner.setMaxSize(36, 36);
+    initializingTitleLabel.getStyleClass().add("vcs-initializing-title");
+    initializingBodyLabel.getStyleClass().add("vcs-initializing-body");
+    initializingBodyLabel.setWrapText(true);
+    initializingBodyLabel.setMaxWidth(360);
+    initializingOverlay.getChildren().addAll(initializingSpinner, initializingTitleLabel, initializingBodyLabel);
   }
 
   public void setOnOpenRelativePath(Consumer<String> onOpenRelativePath) {
@@ -459,6 +483,8 @@ The Log shows recent commits on the current branch."""));
   public void setProjectRoot(File projectRoot) {
     if (disposed) return;
     this.projectRoot = projectRoot;
+    statusLoaded = false;
+    dismissedGuideKey = "";
     repoLabel.setText(projectRoot == null ? "No project loaded" : "Project: " + projectRoot.getAbsolutePath());
     refreshStatus(true);
   }
@@ -529,6 +555,7 @@ The Log shows recent commits on the current branch."""));
     } catch (Exception ex) {
       appendLog(safeMessage(ex));
       Platform.runLater(() -> {
+        markStatusLoaded();
         setNextStep("Could not read version-control status. See Activity for details.", "vcs-next-step-danger");
         updateControlsForState();
       });
@@ -536,6 +563,7 @@ The Log shows recent commits on the current branch."""));
   }
 
   private void applyNoProjectState() {
+    markStatusLoaded();
     repositoryInitialized = false;
     currentHasRemote = false;
     currentHasUpstream = false;
@@ -560,6 +588,7 @@ The Log shows recent commits on the current branch."""));
   }
 
   private void applyGitMissingState() {
+    markStatusLoaded();
     repositoryInitialized = false;
     currentHasRemote = false;
     currentHasUpstream = false;
@@ -581,6 +610,7 @@ The Log shows recent commits on the current branch."""));
   }
 
   private void applyNotInitializedState() {
+    markStatusLoaded();
     repositoryInitialized = false;
     currentHasRemote = false;
     currentHasUpstream = false;
@@ -608,6 +638,7 @@ The Log shows recent commits on the current branch."""));
                                      List<String> branches,
                                      boolean hasConflicts,
                                      String remoteCheckText) {
+    markStatusLoaded();
     repositoryInitialized = true;
     currentHasRemote = hasRemote;
     currentHasUpstream = status.upstream() != null && !status.upstream().isBlank();
