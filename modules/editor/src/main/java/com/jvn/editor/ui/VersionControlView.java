@@ -27,6 +27,7 @@ import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
+import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.SelectionMode;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
@@ -37,6 +38,7 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Popup;
 import javafx.stage.Window;
@@ -87,8 +89,13 @@ public class VersionControlView extends BorderPane {
   private final VBox guideCard = new VBox(4);
   private final Label guideTitleLabel = new Label();
   private final Label guideBodyLabel = new Label();
-  private final javafx.animation.PauseTransition guideHideTimer =
-      new javafx.animation.PauseTransition(Duration.seconds(8));
+  private final Button guideCloseButton = new Button("\u00d7");
+  private final BorderPane contentPane = new BorderPane();
+  private final StackPane contentStack = new StackPane();
+  private final VBox initializingOverlay = new VBox(8);
+  private final ProgressIndicator initializingSpinner = new ProgressIndicator();
+  private final Label initializingTitleLabel = new Label("Initializing version control");
+  private final Label initializingBodyLabel = new Label("Reading project status and preparing Git controls.");
   private final Label initTitleLabel = new Label("\u26a0 Repository Not Initialized");
   private final Label initHintLabel = new Label("Repository is not initialized for this project.");
   private final VBox initBox = new VBox(6);
@@ -178,6 +185,7 @@ public class VersionControlView extends BorderPane {
   private boolean currentHasUpstream;
   private boolean currentHasConflicts;
   private boolean updatingBranchSelection;
+  private boolean statusLoaded;
   private int currentAhead;
   private int currentBehind;
   private int currentChangeCount;
@@ -189,6 +197,8 @@ public class VersionControlView extends BorderPane {
   private boolean disposed;
   private String lastRemoteFailure = "";
   private String lastGuideKey = "";
+  private String dismissedGuideKey = "";
+  private String busyActionName = "";
   private final List<Node> currentGuideTargets = new ArrayList<>();
 
   public VersionControlView() {
@@ -201,6 +211,7 @@ public class VersionControlView extends BorderPane {
     nextStepLabel.getStyleClass().addAll("vcs-next-step", "vcs-next-step-info");
     nextStepLabel.setWrapText(true);
     configureGuidePopup();
+    configureInitializingOverlay();
     conflictLabel.getStyleClass().add("vcs-conflict");
     conflictLabel.setVisible(false);
     conflictLabel.setManaged(false);
@@ -406,8 +417,11 @@ The Log shows recent commits on the current branch."""));
     center.setPadding(new Insets(0, 10, 10, 10));
     VBox.setVgrow(listChanges, Priority.ALWAYS);
 
-    setTop(top);
-    setCenter(center);
+    contentPane.setTop(top);
+    contentPane.setCenter(center);
+    contentStack.getChildren().addAll(contentPane, initializingOverlay);
+    StackPane.setAlignment(initializingOverlay, Pos.CENTER);
+    setCenter(contentStack);
 
     setInitControlsVisible(false, null);
     updateToolAvailabilityLabel(false);
