@@ -810,13 +810,18 @@ The Log shows recent commits on the current branch."""));
       }
     }
 
-    if (busy || getScene() == null || getScene().getWindow() == null) {
+    if (getScene() == null || getScene().getWindow() == null || busy) {
+      return;
+    }
+
+    String previousGuideKey = lastGuideKey;
+    lastGuideKey = step.key();
+    if (step.key().equals(dismissedGuideKey)) {
       guidePopup.hide();
       return;
     }
 
-    if (!step.key().equals(lastGuideKey)) {
-      lastGuideKey = step.key();
+    if (!guidePopup.isShowing() || !step.key().equals(previousGuideKey)) {
       Platform.runLater(() -> showGuidePopup(step));
     }
   }
@@ -948,8 +953,6 @@ The Log shows recent commits on the current branch."""));
     if (guidePopupRoot.getScene() != null && getScene() != null) {
       guidePopupRoot.getScene().getStylesheets().setAll(getScene().getStylesheets());
     }
-    guideHideTimer.stop();
-    guideHideTimer.playFromStart();
   }
 
   private Node firstVisibleTarget(List<Node> targets) {
