@@ -7,6 +7,9 @@ Format:
     lines separate them. The block ends at the next "## " header or end of file.
 
 ----
+## 2026-05-24 — Guided version control
+The Version Control panel now highlights the next useful action and shows small arrow callouts based on the project’s Git state. It guides users through setup, missing Git, repository initialization, remote setup, authentication/network failures, conflicts, incoming changes, local edits, unpushed commits, and clean up-to-date states.
+
 ## 2026-05-22 — Changes to expression transition
 
 Expression swaps in VNS now use a short renderer-side crossfade by default, preserving timeline offsets, mirrored poses, detached character placement, and layer order while the new expression appears. Use `[char hero expression neutral dur=0]` when an instant swap is preferred.
