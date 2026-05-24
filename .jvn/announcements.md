@@ -8,7 +8,7 @@ Format:
 
 ----
 ## 2026-05-24 — Guided version control
-The Version Control panel now highlights the next useful action and shows small arrow callouts based on the project’s Git state. It guides users through setup, missing Git, repository initialization, remote setup, authentication/network failures, conflicts, incoming changes, local edits, unpushed commits, and clean up-to-date states.
+The Version Control panel now highlights the next useful action and shows persistent arrow callouts based on the project’s Git state. It guides users through setup, missing Git, repository initialization, remote setup, authentication/network failures, conflicts, incoming changes, local edits, unpushed commits, and clean up-to-date states. Callouts stay visible until dismissed, and first-time repository checks now show an initializing overlay while Git status is loading.
 
 ## 2026-05-22 — Changes to expression transition
 

@@ -92,7 +92,8 @@ public class VersionControlView extends BorderPane {
   private final Button guideCloseButton = new Button("\u00d7");
   private final BorderPane contentPane = new BorderPane();
   private final StackPane contentStack = new StackPane();
-  private final VBox initializingOverlay = new VBox(8);
+  private final StackPane initializingOverlay = new StackPane();
+  private final VBox initializingCard = new VBox(8);
   private final ProgressIndicator initializingSpinner = new ProgressIndicator();
   private final Label initializingTitleLabel = new Label("Initializing version control");
   private final Label initializingBodyLabel = new Label("Reading project status and preparing Git controls.");
@@ -256,7 +257,10 @@ public class VersionControlView extends BorderPane {
     listChanges.getSelectionModel().getSelectedItems().addListener(
         (javafx.collections.ListChangeListener<GitVcsService.StatusEntry>) change -> updateControlsForState());
 
-    btnRefresh.setOnAction(e -> refreshStatus(true));
+    btnRefresh.setOnAction(e -> {
+      dismissedGuideKey = "";
+      refreshStatus(true);
+    });
     btnInitialize.setOnAction(e -> initializeRepository());
     btnInitialize.getStyleClass().addAll("vcs-action-button", "vcs-action-button-success");
     btnInitialize.setGraphic(CssIcon.plusBold(ICON_STAGE));
@@ -463,17 +467,24 @@ The Log shows recent commits on the current branch."""));
 
   private void configureInitializingOverlay() {
     initializingOverlay.getStyleClass().add("vcs-initializing-overlay");
-    initializingOverlay.setAlignment(Pos.CENTER);
     initializingOverlay.setVisible(false);
     initializingOverlay.setManaged(false);
     initializingOverlay.setPickOnBounds(true);
+    initializingCard.getStyleClass().add("vcs-initializing-card");
+    initializingCard.setAlignment(Pos.CENTER);
+    initializingCard.maxWidthProperty().bind(javafx.beans.binding.Bindings.createDoubleBinding(
+        () -> Math.max(220.0, Math.min(430.0, initializingOverlay.getWidth() - 36.0)),
+        initializingOverlay.widthProperty()));
     initializingSpinner.getStyleClass().add("vcs-initializing-spinner");
     initializingSpinner.setMaxSize(36, 36);
     initializingTitleLabel.getStyleClass().add("vcs-initializing-title");
     initializingBodyLabel.getStyleClass().add("vcs-initializing-body");
     initializingBodyLabel.setWrapText(true);
-    initializingBodyLabel.setMaxWidth(360);
-    initializingOverlay.getChildren().addAll(initializingSpinner, initializingTitleLabel, initializingBodyLabel);
+    initializingBodyLabel.maxWidthProperty().bind(javafx.beans.binding.Bindings.createDoubleBinding(
+        () -> Math.max(180.0, initializingCard.getMaxWidth() - 44.0),
+        initializingCard.maxWidthProperty()));
+    initializingCard.getChildren().addAll(initializingSpinner, initializingTitleLabel, initializingBodyLabel);
+    initializingOverlay.getChildren().add(initializingCard);
   }
 
   public void setOnOpenRelativePath(Consumer<String> onOpenRelativePath) {
