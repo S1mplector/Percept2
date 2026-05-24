@@ -1,9 +1,18 @@
 package com.jvn.core.diagnostics.runtime_logs.warnings;
 
-/**
- * Follows the subscriber design pattern
- * Is a subscriber to anything that can cause a warning
- * When its notify method is called, it begins the warning creation and logging process
- */
+import com.jvn.core.diagnostics.runtime_logs.warnings.warning_facades.WarningFacade;
+import com.jvn.core.diagnostics.runtime_logs.warnings.warning_factories.WarningFactory;
+
 public class WarningSubscriber {
+
+    private final WarningFacade warningFacade;
+
+    public WarningSubscriber(WarningFacade warningFacade) {
+        this.warningFacade = warningFacade;
+    }
+
+    public void onWarningEvent(WarningFactory factory) {
+        warningFacade.setFactory(factory);
+        warningFacade.triggerWarning();
+    }
 }

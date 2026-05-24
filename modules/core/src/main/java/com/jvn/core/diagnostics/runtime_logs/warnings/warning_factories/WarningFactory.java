@@ -1,7 +1,7 @@
 package com.jvn.core.diagnostics.runtime_logs.warnings.warning_factories;
 
-/**
- * Generates warnings according to the contents of the context string passed in
- */
+import com.jvn.core.diagnostics.runtime_logs.warnings.Warning;
+
 public interface WarningFactory {
+    Warning createWarning();
 }
