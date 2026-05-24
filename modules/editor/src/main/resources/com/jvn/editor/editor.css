@@ -677,6 +677,62 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-effect: dropshadow(gaussian, rgba(243, 139, 168, 0.46), 12, 0.24, 0, 0);
 }
 
+.vcs-guide-target {
+  -fx-effect: dropshadow(gaussian, rgba(255, 181, 76, 0.72), 16, 0.34, 0, 0);
+}
+
+.vcs-guide-popup {
+  -fx-pref-width: 320px;
+}
+
+.vcs-guide-arrow {
+  -fx-text-fill: #f0a13b;
+  -fx-font-size: 15px;
+  -fx-font-weight: 900;
+  -fx-padding: 0 0 -3 0;
+}
+
+.vcs-guide-card {
+  -fx-pref-width: 320px;
+  -fx-padding: 10 12 10 12;
+  -fx-background-radius: 8;
+  -fx-border-radius: 8;
+  -fx-border-width: 1;
+  -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.45), 18, 0.18, 0, 6);
+}
+
+.vcs-guide-card-info {
+  -fx-background-color: #101a24;
+  -fx-border-color: #3d77a5;
+}
+
+.vcs-guide-card-success {
+  -fx-background-color: #101f14;
+  -fx-border-color: #4d9b57;
+}
+
+.vcs-guide-card-warning {
+  -fx-background-color: #241b11;
+  -fx-border-color: #d18a35;
+}
+
+.vcs-guide-card-danger {
+  -fx-background-color: #29141c;
+  -fx-border-color: #d86180;
+}
+
+.vcs-guide-title {
+  -fx-text-fill: #ffffff;
+  -fx-font-size: 12px;
+  -fx-font-weight: 900;
+}
+
+.vcs-guide-body {
+  -fx-text-fill: #d7cab8;
+  -fx-font-size: 11px;
+  -fx-line-spacing: 2px;
+}
+
 .vcs-next-step {
   -fx-padding: 7 9 7 9;
   -fx-background-radius: 7;

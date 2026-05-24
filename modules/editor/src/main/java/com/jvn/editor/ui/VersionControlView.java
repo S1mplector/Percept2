@@ -3,6 +3,7 @@ package com.jvn.editor.ui;
 import java.io.File;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -31,11 +32,14 @@ import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyCode;
+import javafx.scene.Node;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.stage.Popup;
+import javafx.stage.Window;
 import javafx.util.Duration;
 
 /**
@@ -56,6 +60,7 @@ public class VersionControlView extends BorderPane {
   private static final String ICON_DISCARD = "#ff7f9f";
   private static final String ICON_DIFF = "#8ecaff";
   private static final String ICON_BRANCH = "#b7a7ff";
+  private static final double GUIDE_POPUP_WIDTH = 320.0;
 
   private final GitVcsService vcs = new GitVcsService();
   private final ExecutorService worker = Executors.newSingleThreadExecutor(r -> {
@@ -76,6 +81,14 @@ public class VersionControlView extends BorderPane {
   private final Label conflictLabel = new Label();
   private final Label remoteLabel = new Label("Remote: not configured");
   private final Button btnConfigureRemote = new Button("Add Remote");
+  private final Popup guidePopup = new Popup();
+  private final VBox guidePopupRoot = new VBox(0);
+  private final Label guideArrowLabel = new Label("\u25b2");
+  private final VBox guideCard = new VBox(4);
+  private final Label guideTitleLabel = new Label();
+  private final Label guideBodyLabel = new Label();
+  private final javafx.animation.PauseTransition guideHideTimer =
+      new javafx.animation.PauseTransition(Duration.seconds(8));
   private final Label initTitleLabel = new Label("\u26a0 Repository Not Initialized");
   private final Label initHintLabel = new Label("Repository is not initialized for this project.");
   private final VBox initBox = new VBox(6);
@@ -174,6 +187,9 @@ public class VersionControlView extends BorderPane {
   private Consumer<String> onOpenRelativePath;
   private Timeline autoRefreshTimer;
   private boolean disposed;
+  private String lastRemoteFailure = "";
+  private String lastGuideKey = "";
+  private final List<Node> currentGuideTargets = new ArrayList<>();
 
   public VersionControlView() {
     getStyleClass().addAll("version-control-root", "sidebar-tool-root");
@@ -184,6 +200,7 @@ public class VersionControlView extends BorderPane {
     lastRemoteCheckLabel.getStyleClass().add("vcs-muted");
     nextStepLabel.getStyleClass().addAll("vcs-next-step", "vcs-next-step-info");
     nextStepLabel.setWrapText(true);
+    configureGuidePopup();
     conflictLabel.getStyleClass().add("vcs-conflict");
     conflictLabel.setVisible(false);
     conflictLabel.setManaged(false);
@@ -200,6 +217,7 @@ public class VersionControlView extends BorderPane {
     chkInitCommit.setSelected(true);
 
     txtCommitMessage.setPromptText("Describe what changed...");
+    txtCommitMessage.textProperty().addListener((obs, oldValue, newValue) -> updateControlsForState());
     txtCommitMessage.setOnKeyPressed(e -> {
       if (e.getCode() == KeyCode.ENTER && !txtCommitMessage.getText().isBlank()) runCommit();
     });
@@ -403,6 +421,23 @@ The Log shows recent commits on the current branch."""));
     autoRefreshTimer.play();
   }
 
+  private void configureGuidePopup() {
+    guidePopup.setAutoHide(true);
+    guidePopup.setHideOnEscape(true);
+    guideArrowLabel.getStyleClass().add("vcs-guide-arrow");
+    guideCard.getStyleClass().add("vcs-guide-card");
+    guideTitleLabel.getStyleClass().add("vcs-guide-title");
+    guideBodyLabel.getStyleClass().add("vcs-guide-body");
+    guideBodyLabel.setWrapText(true);
+    guideBodyLabel.setMaxWidth(GUIDE_POPUP_WIDTH - 30.0);
+    guideCard.getChildren().addAll(guideTitleLabel, guideBodyLabel);
+    guidePopupRoot.getStyleClass().add("vcs-guide-popup");
+    guidePopupRoot.setAlignment(Pos.CENTER);
+    guidePopupRoot.getChildren().addAll(guideArrowLabel, guideCard);
+    guidePopup.getContent().setAll(guidePopupRoot);
+    guideHideTimer.setOnFinished(e -> guidePopup.hide());
+  }
+
   public void setOnOpenRelativePath(Consumer<String> onOpenRelativePath) {
     this.onOpenRelativePath = onOpenRelativePath;
   }
@@ -450,6 +485,7 @@ The Log shows recent commits on the current branch."""));
       String remoteCheckText = lastRemoteCheckText();
       if (!hasRemote) {
         remoteCheckText = "Online check: remote not connected";
+        lastRemoteFailure = "";
       }
       if (hasRemote && shouldCheckRemote(forceRemoteCheck)) {
         try {
@@ -459,12 +495,14 @@ The Log shows recent commits on the current branch."""));
           if (!fetch.success()) {
             remoteCheckText += " (failed)";
           }
+          lastRemoteFailure = fetch.success() ? "" : safe(fetch.output());
           lastRemoteCheckDisplay = remoteCheckText;
         } catch (Exception ex) {
           lastRemoteCheckMs = System.currentTimeMillis();
-          remoteCheckText = "Online check failed: " + safeMessage(ex);
+          lastRemoteFailure = safeMessage(ex);
+          remoteCheckText = "Online check failed: " + lastRemoteFailure;
           lastRemoteCheckDisplay = remoteCheckText;
-          appendLog("Online check failed: " + safeMessage(ex));
+          appendLog("Online check failed: " + lastRemoteFailure);
         }
       }
 
@@ -492,6 +530,7 @@ The Log shows recent commits on the current branch."""));
     currentBehind = 0;
     currentChangeCount = 0;
     currentBranch = "";
+    lastRemoteFailure = "";
     branchLabel.setText("Branch: --");
     incomingLabel.setText("Incoming: --");
     syncLabel.setText("Sync: --");
@@ -514,6 +553,7 @@ The Log shows recent commits on the current branch."""));
     currentAhead = 0;
     currentBehind = 0;
     currentChangeCount = 0;
+    lastRemoteFailure = "";
     branchLabel.setText("Branch: --");
     incomingLabel.setText("Incoming: --");
     syncLabel.setText("Sync: --");
@@ -535,6 +575,7 @@ The Log shows recent commits on the current branch."""));
     currentBehind = 0;
     currentChangeCount = 0;
     currentBranch = "";
+    lastRemoteFailure = "";
     branchLabel.setText("Branch: not initialized");
     incomingLabel.setText("Incoming: unavailable until initialized");
     syncLabel.setText("Sync: not connected");
@@ -613,12 +654,16 @@ The Log shows recent commits on the current branch."""));
   private void updateNextStep(GitVcsService.RepositoryStatus status, boolean hasRemote, boolean hasConflicts) {
     if (hasConflicts) {
       setNextStep("Resolve the listed conflicts before saving or syncing.", "vcs-next-step-danger");
-    } else if (!hasRemote) {
-      setNextStep("Recommended: connect a remote repository so the project can be backed up online.", "vcs-next-step-warning");
+    } else if (hasRemote && !lastRemoteFailure.isBlank()) {
+      setNextStep("Online check failed. Fix authentication or network access, then Check Online again.", "vcs-next-step-danger");
+    } else if (currentBehind > 0 && currentChangeCount > 0) {
+      setNextStep("Save Snapshot or Shelve your local edits, then Get Updates.", "vcs-next-step-warning");
     } else if (currentBehind > 0) {
       setNextStep("Get Updates first. The online repository has work this copy does not have yet.", "vcs-next-step-warning");
     } else if (currentChangeCount > 0) {
       setNextStep("Describe the change and click Save Snapshot.", "vcs-next-step-info");
+    } else if (!hasRemote) {
+      setNextStep("Recommended: connect a remote repository so the project can be backed up online.", "vcs-next-step-warning");
     } else if (currentAhead > 0 || !currentHasUpstream) {
       setNextStep("Send Online to upload your saved snapshot" + plural(Math.max(1, currentAhead)) + ".", "vcs-next-step-success");
     } else {
@@ -702,6 +747,191 @@ The Log shows recent commits on the current branch."""));
         "vcs-action-state-attention",
         "vcs-action-state-ready",
         "vcs-action-state-danger");
+  }
+
+  private void updateGuidance() {
+    clearGuideTargets();
+    GuidanceStep step = computeGuidanceStep();
+    if (step == null || step.targets().isEmpty()) {
+      lastGuideKey = "";
+      guidePopup.hide();
+      return;
+    }
+
+    for (Node target : step.targets()) {
+      if (target != null && !target.getStyleClass().contains("vcs-guide-target")) {
+        target.getStyleClass().add("vcs-guide-target");
+        currentGuideTargets.add(target);
+      }
+    }
+
+    if (busy || getScene() == null || getScene().getWindow() == null) {
+      guidePopup.hide();
+      return;
+    }
+
+    if (!step.key().equals(lastGuideKey)) {
+      lastGuideKey = step.key();
+      Platform.runLater(() -> showGuidePopup(step));
+    }
+  }
+
+  private void clearGuideTargets() {
+    for (Node target : currentGuideTargets) {
+      if (target != null) target.getStyleClass().remove("vcs-guide-target");
+    }
+    currentGuideTargets.clear();
+  }
+
+  private GuidanceStep computeGuidanceStep() {
+    if (projectRoot == null) {
+      return new GuidanceStep(
+          "no-project",
+          List.of(titleLabel),
+          "Open a project",
+          "Select a JVN project first. Version control guidance starts once a project is loaded.",
+          "info");
+    }
+    if (!gitAvailable) {
+      return new GuidanceStep(
+          "git-missing",
+          List.of(toolLabel),
+          "Git is missing",
+          "Install Git and restart the editor so snapshots, pull, and push can run.",
+          "danger");
+    }
+    if (!repositoryInitialized) {
+      return new GuidanceStep(
+          "init-repository",
+          List.of(btnInitialize, initBox),
+          "Start here",
+          "Initialize version control. This creates the local repository used for snapshots and sync.",
+          "warning");
+    }
+    if (currentHasConflicts) {
+      return new GuidanceStep(
+          "conflicts",
+          List.of(listChanges),
+          "Resolve conflicts first",
+          "Files marked Conflict must be fixed manually before Save Snapshot, Get Updates, or Send Online can continue.",
+          "danger");
+    }
+    if (currentHasRemote && !lastRemoteFailure.isBlank()) {
+      return new GuidanceStep(
+          "remote-failed:" + failureBucket(lastRemoteFailure),
+          List.of(btnFetch, remoteLabel),
+          "Online check failed",
+          remoteFailureGuidance(lastRemoteFailure),
+          "danger");
+    }
+    if (currentBehind > 0 && currentChangeCount > 0) {
+      return new GuidanceStep(
+          "behind-with-edits",
+          List.of(txtCommitMessage, btnCommit, btnStash),
+          "Protect local edits",
+          "Save Snapshot or Shelve your local changes before getting the online updates.",
+          "warning");
+    }
+    if (currentBehind > 0) {
+      return new GuidanceStep(
+          "behind",
+          List.of(btnPull),
+          "Get updates",
+          "The online repository has newer work. Pull it before pushing your own snapshots.",
+          "warning");
+    }
+    if (currentChangeCount > 0) {
+      boolean messageReady = txtCommitMessage.getText() != null && !txtCommitMessage.getText().isBlank();
+      return new GuidanceStep(
+          messageReady ? "commit-ready" : "commit-message",
+          messageReady ? List.of(btnCommit, txtCommitMessage) : List.of(txtCommitMessage, btnCommit),
+          messageReady ? "Save snapshot" : "Describe the change",
+          messageReady
+              ? "Click Save Snapshot to record these file changes locally."
+              : "Write a short title for what changed, then click Save Snapshot.",
+          "info");
+    }
+    if (!currentHasRemote) {
+      return new GuidanceStep(
+          "add-remote",
+          List.of(btnConfigureRemote, setupBox),
+          "Connect online backup",
+          "Add or create a remote repository so this project can be shared and restored.",
+          "warning");
+    }
+    if (currentAhead > 0 || !currentHasUpstream) {
+      return new GuidanceStep(
+          "push",
+          List.of(btnPush),
+          "Send online",
+          "Upload your saved snapshot to the remote repository.",
+          "success");
+    }
+    return new GuidanceStep(
+        "clean",
+        List.of(btnFetch),
+        "All clear",
+        "No local edits or waiting uploads. Check Online whenever you want to verify remote changes.",
+        "success");
+  }
+
+  private void showGuidePopup(GuidanceStep step) {
+    if (step == null || step.targets().isEmpty() || getScene() == null) return;
+    Node anchor = firstVisibleTarget(step.targets());
+    if (anchor == null) return;
+    var bounds = anchor.localToScreen(anchor.getBoundsInLocal());
+    Window window = getScene().getWindow();
+    if (bounds == null || window == null || !window.isShowing()) return;
+
+    guideCard.getStyleClass().removeAll(
+        "vcs-guide-card-info",
+        "vcs-guide-card-success",
+        "vcs-guide-card-warning",
+        "vcs-guide-card-danger");
+    guideCard.getStyleClass().add("vcs-guide-card-" + step.tone());
+    guideTitleLabel.setText(step.title());
+    guideBodyLabel.setText(step.body());
+
+    double x = bounds.getMinX() + (bounds.getWidth() / 2.0) - (GUIDE_POPUP_WIDTH / 2.0);
+    double y = bounds.getMaxY() + 8.0;
+    double minX = window.getX() + 10.0;
+    double maxX = window.getX() + Math.max(10.0, window.getWidth() - GUIDE_POPUP_WIDTH - 10.0);
+    x = Math.max(minX, Math.min(x, maxX));
+
+    guidePopup.hide();
+    guidePopup.show(window, x, y);
+    if (guidePopupRoot.getScene() != null && getScene() != null) {
+      guidePopupRoot.getScene().getStylesheets().setAll(getScene().getStylesheets());
+    }
+    guideHideTimer.stop();
+    guideHideTimer.playFromStart();
+  }
+
+  private Node firstVisibleTarget(List<Node> targets) {
+    if (targets == null) return null;
+    for (Node target : targets) {
+      if (target != null && target.isVisible() && target.getScene() != null) return target;
+    }
+    return null;
+  }
+
+  private String failureBucket(String failure) {
+    String lower = failure == null ? "" : failure.toLowerCase(Locale.ROOT);
+    if (lower.contains("username") || lower.contains("authentication") || lower.contains("auth")) return "auth";
+    if (lower.contains("certificate") || lower.contains("ssl") || lower.contains("tls")) return "certificate";
+    if (lower.contains("could not resolve") || lower.contains("timed out") || lower.contains("network")) return "network";
+    if (lower.contains("remote origin already exists")) return "remote-exists";
+    return "general";
+  }
+
+  private String remoteFailureGuidance(String failure) {
+    String bucket = failureBucket(failure);
+    return switch (bucket) {
+      case "auth" -> "Git could not authenticate. Run `git fetch origin` in a terminal, sign in if prompted, then return and Check Online.";
+      case "certificate" -> "The remote certificate was rejected. Check VPN/proxy/certificate settings, then run Check Online again.";
+      case "network" -> "The remote could not be reached. Check VPN/network access and the remote URL, then retry.";
+      default -> "Open the Activity log for details, fix the remote problem, then use Check Online again.";
+    };
   }
 
   private String plural(int count) {
@@ -1158,6 +1388,7 @@ The Log shows recent commits on the current branch."""));
     chkInitCommit.setDisable(busy || !hasProject || repositoryInitialized);
     btnConfigureRemote.setDisable(busy || !repoReady);
     updateActionEmphasis();
+    updateGuidance();
   }
 
   private void setInitControlsVisible(boolean visible, String hintText) {
@@ -1191,12 +1422,17 @@ The Log shows recent commits on the current branch."""));
   public void dispose() {
     if (disposed) return;
     disposed = true;
+    guideHideTimer.stop();
+    guidePopup.hide();
+    clearGuideTargets();
     if (autoRefreshTimer != null) {
       autoRefreshTimer.stop();
       autoRefreshTimer = null;
     }
     worker.shutdownNow();
   }
+
+  private record GuidanceStep(String key, List<Node> targets, String title, String body, String tone) {}
 
   private static final class StatusCell extends ListCell<GitVcsService.StatusEntry> {
     @Override
