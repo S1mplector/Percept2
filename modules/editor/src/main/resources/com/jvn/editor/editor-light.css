@@ -700,18 +700,18 @@
 }
 
 .vcs-initializing-overlay {
-  -fx-padding: 18;
-  -fx-background-color: rgba(0, 0, 0, 0.16);
+  -fx-padding: 0;
+  -fx-background-color: rgba(250, 248, 244, 0.82);
 }
 
 .vcs-initializing-card {
-  -fx-padding: 22;
-  -fx-background-color: rgba(248, 245, 238, 0.94);
-  -fx-background-radius: 10;
-  -fx-border-color: rgba(181, 111, 33, 0.32);
-  -fx-border-radius: 10;
-  -fx-border-width: 1;
-  -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.24), 26, 0.18, 0, 8);
+  -fx-padding: 32;
+  -fx-background-color: transparent;
+  -fx-background-radius: 0;
+  -fx-border-color: transparent;
+  -fx-border-radius: 0;
+  -fx-border-width: 0;
+  -fx-effect: null;
 }
 
 .vcs-initializing-spinner {
@@ -728,6 +728,46 @@
   -fx-text-fill: #3a342d;
   -fx-font-size: 12px;
   -fx-text-alignment: center;
+}
+
+.vcs-view-mode {
+  -fx-padding: 0 0 4 0;
+}
+
+.vcs-view-toggle {
+  -fx-min-height: 28px;
+  -fx-padding: 5 12 5 12;
+  -fx-background-color: #f5efe5;
+  -fx-text-fill: #6a5c4a;
+  -fx-border-color: #d2c1aa;
+  -fx-border-width: 1;
+  -fx-font-size: 11px;
+  -fx-font-weight: 800;
+}
+
+.vcs-view-toggle-left {
+  -fx-background-radius: 7 0 0 7;
+  -fx-border-radius: 7 0 0 7;
+}
+
+.vcs-view-toggle-right {
+  -fx-background-radius: 0 7 7 0;
+  -fx-border-radius: 0 7 7 0;
+}
+
+.vcs-view-toggle:selected {
+  -fx-background-color: #dcecf9;
+  -fx-text-fill: #1d4f79;
+  -fx-border-color: #78a8ce;
+}
+
+.vcs-center-view {
+  -fx-fill-width: true;
+}
+
+.vcs-graph {
+  -fx-font-family: "SFMono-Regular", "Consolas", "Monospaced";
+  -fx-font-size: 11px;
 }
 
 .vcs-next-step {

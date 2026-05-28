@@ -754,18 +754,18 @@ The editor.css file defines the visual styling for the editor module, including 
 }
 
 .vcs-initializing-overlay {
-  -fx-padding: 18;
-  -fx-background-color: rgba(0, 0, 0, 0.34);
+  -fx-padding: 0;
+  -fx-background-color: rgba(0, 0, 0, 0.72);
 }
 
 .vcs-initializing-card {
-  -fx-padding: 22;
-  -fx-background-color: rgba(8, 8, 8, 0.88);
-  -fx-background-radius: 10;
-  -fx-border-color: rgba(240, 161, 59, 0.36);
-  -fx-border-radius: 10;
-  -fx-border-width: 1;
-  -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.50), 28, 0.22, 0, 8);
+  -fx-padding: 32;
+  -fx-background-color: transparent;
+  -fx-background-radius: 0;
+  -fx-border-color: transparent;
+  -fx-border-radius: 0;
+  -fx-border-width: 0;
+  -fx-effect: null;
 }
 
 .vcs-initializing-spinner {
@@ -782,6 +782,46 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-text-fill: #d7cab8;
   -fx-font-size: 12px;
   -fx-text-alignment: center;
+}
+
+.vcs-view-mode {
+  -fx-padding: 0 0 4 0;
+}
+
+.vcs-view-toggle {
+  -fx-min-height: 28px;
+  -fx-padding: 5 12 5 12;
+  -fx-background-color: #171717;
+  -fx-text-fill: #b8b8b8;
+  -fx-border-color: #343434;
+  -fx-border-width: 1;
+  -fx-font-size: 11px;
+  -fx-font-weight: 800;
+}
+
+.vcs-view-toggle-left {
+  -fx-background-radius: 7 0 0 7;
+  -fx-border-radius: 7 0 0 7;
+}
+
+.vcs-view-toggle-right {
+  -fx-background-radius: 0 7 7 0;
+  -fx-border-radius: 0 7 7 0;
+}
+
+.vcs-view-toggle:selected {
+  -fx-background-color: #243244;
+  -fx-text-fill: #d8ebff;
+  -fx-border-color: #5c82ad;
+}
+
+.vcs-center-view {
+  -fx-fill-width: true;
+}
+
+.vcs-graph {
+  -fx-font-family: "SFMono-Regular", "Consolas", "Monospaced";
+  -fx-font-size: 11px;
 }
 
 .vcs-next-step {

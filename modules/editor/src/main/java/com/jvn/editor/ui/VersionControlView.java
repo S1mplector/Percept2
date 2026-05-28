@@ -32,6 +32,8 @@ import javafx.scene.control.SelectionMode;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.input.KeyCode;
 import javafx.scene.Node;
 import javafx.scene.layout.BorderPane;
@@ -92,6 +94,7 @@ public class VersionControlView extends BorderPane {
   private final Button guideCloseButton = new Button("\u00d7");
   private final BorderPane contentPane = new BorderPane();
   private final StackPane contentStack = new StackPane();
+  private final StackPane centerViewStack = new StackPane();
   private final StackPane initializingOverlay = new StackPane();
   private final VBox initializingCard = new VBox(8);
   private final ProgressIndicator initializingSpinner = new ProgressIndicator();
@@ -145,6 +148,9 @@ public class VersionControlView extends BorderPane {
   private final Button btnUnstageSelected = iconButton(CssIcon.minus(ICON_UNSTAGE), "Remove the selected file(s) from the staged Git area.");
   private final Button btnDiscardSelected = iconButton(CssIcon.delete(ICON_DISCARD), "Permanently discard the selected file change(s).");
   private final Button btnDiffSelected = iconButton(CssIcon.search(ICON_DIFF), "Show selected file diff(s) in the activity log.");
+  private final ToggleButton btnChangesView = new ToggleButton("Changes");
+  private final ToggleButton btnGraphView = new ToggleButton("Graph");
+  private final ToggleGroup viewModeGroup = new ToggleGroup();
   private final ComboBox<String> cbBranch = new ComboBox<>();
   private final Button btnNewBranch = actionButton(
       "New Branch",
@@ -176,6 +182,7 @@ public class VersionControlView extends BorderPane {
 
   private final TextField txtCommitMessage = new TextField();
   private final ListView<GitVcsService.StatusEntry> listChanges = new ListView<>();
+  private final TextArea txtGraph = new TextArea();
   private final TextArea txtLog = new TextArea();
 
   private File projectRoot;
@@ -200,6 +207,7 @@ public class VersionControlView extends BorderPane {
   private String lastGuideKey = "";
   private String dismissedGuideKey = "";
   private String busyActionName = "";
+  private String currentGraphText = "";
   private final List<Node> currentGuideTargets = new ArrayList<>();
 
   public VersionControlView() {
@@ -224,6 +232,7 @@ public class VersionControlView extends BorderPane {
     txtCommitMessage.getStyleClass().add("vcs-text-field");
     cbBranch.getStyleClass().add("vcs-combo");
     listChanges.getStyleClass().add("vcs-list");
+    txtGraph.getStyleClass().addAll("vcs-log", "vcs-graph");
     txtLog.getStyleClass().add("vcs-log");
 
     chkInitCommit.setSelected(true);
@@ -237,6 +246,9 @@ public class VersionControlView extends BorderPane {
     txtLog.setEditable(false);
     txtLog.setWrapText(true);
     txtLog.setPrefRowCount(6);
+    txtGraph.setEditable(false);
+    txtGraph.setWrapText(false);
+    txtGraph.setPromptText("No graph available yet.");
 
     listChanges.setPlaceholder(new Label("No changed files"));
     listChanges.setCellFactory(lv -> new StatusCell());
@@ -256,6 +268,25 @@ public class VersionControlView extends BorderPane {
     listChanges.getSelectionModel().selectedItemProperty().addListener((obs, oldEntry, newEntry) -> updateControlsForState());
     listChanges.getSelectionModel().getSelectedItems().addListener(
         (javafx.collections.ListChangeListener<GitVcsService.StatusEntry>) change -> updateControlsForState());
+
+    btnChangesView.getStyleClass().addAll("vcs-view-toggle", "vcs-view-toggle-left");
+    btnGraphView.getStyleClass().addAll("vcs-view-toggle", "vcs-view-toggle-right");
+    btnChangesView.setToggleGroup(viewModeGroup);
+    btnGraphView.setToggleGroup(viewModeGroup);
+    btnChangesView.setSelected(true);
+    btnChangesView.setTooltip(new Tooltip("Show changed files and per-file actions."));
+    btnGraphView.setTooltip(new Tooltip("Show the branch and commit graph for project history."));
+    viewModeGroup.selectedToggleProperty().addListener((obs, oldToggle, newToggle) -> {
+      if (newToggle == null) {
+        if (oldToggle != null) {
+          oldToggle.setSelected(true);
+        } else {
+          btnChangesView.setSelected(true);
+        }
+        return;
+      }
+      updateCenterViewMode();
+    });
 
     btnRefresh.setOnAction(e -> {
       dismissedGuideKey = "";
@@ -416,10 +447,23 @@ The Log shows recent commits on the current branch."""));
     changesLabel.getStyleClass().add("vcs-section-label");
     Label logLabel = new Label("Log");
     logLabel.getStyleClass().add("vcs-section-label");
-    VBox center = new VBox(4, changesLabel, fileActionRow, listChanges, logLabel, txtLog);
+    HBox viewModeRow = new HBox(0, btnChangesView, btnGraphView);
+    viewModeRow.getStyleClass().add("vcs-view-mode");
+    viewModeRow.setAlignment(Pos.CENTER_LEFT);
+    VBox changesView = new VBox(4, changesLabel, fileActionRow, listChanges);
+    VBox graphView = new VBox(4, sectionLabel("Changes Graph"), txtGraph);
+    changesView.getStyleClass().add("vcs-center-view");
+    graphView.getStyleClass().add("vcs-center-view");
+    centerViewStack.getChildren().setAll(changesView, graphView);
+    VBox center = new VBox(6, viewModeRow, centerViewStack, logLabel, txtLog);
     center.getStyleClass().add("vcs-center");
     center.setPadding(new Insets(0, 10, 10, 10));
     VBox.setVgrow(listChanges, Priority.ALWAYS);
+    VBox.setVgrow(txtGraph, Priority.ALWAYS);
+    VBox.setVgrow(changesView, Priority.ALWAYS);
+    VBox.setVgrow(graphView, Priority.ALWAYS);
+    VBox.setVgrow(centerViewStack, Priority.ALWAYS);
+    updateCenterViewMode();
 
     contentPane.setTop(top);
     contentPane.setCenter(center);
@@ -472,26 +516,39 @@ The Log shows recent commits on the current branch."""));
     initializingOverlay.setPickOnBounds(true);
     initializingCard.getStyleClass().add("vcs-initializing-card");
     initializingCard.setAlignment(Pos.CENTER);
-    javafx.beans.binding.DoubleBinding cardWidth = javafx.beans.binding.Bindings.createDoubleBinding(
-        () -> {
-          double available = initializingOverlay.getWidth() - 36.0;
-          if (available <= 0.0) return 220.0;
-          return Math.max(160.0, Math.min(430.0, available));
-        },
-        initializingOverlay.widthProperty());
-    initializingCard.prefWidthProperty().bind(cardWidth);
-    initializingCard.maxWidthProperty().bind(cardWidth);
+    initializingCard.prefWidthProperty().bind(initializingOverlay.widthProperty());
+    initializingCard.maxWidthProperty().bind(initializingOverlay.widthProperty());
+    initializingCard.prefHeightProperty().bind(initializingOverlay.heightProperty());
+    initializingCard.maxHeightProperty().bind(initializingOverlay.heightProperty());
     initializingSpinner.getStyleClass().add("vcs-initializing-spinner");
     initializingSpinner.setMaxSize(36, 36);
     initializingTitleLabel.getStyleClass().add("vcs-initializing-title");
     initializingBodyLabel.getStyleClass().add("vcs-initializing-body");
     initializingBodyLabel.setWrapText(true);
     initializingBodyLabel.maxWidthProperty().bind(javafx.beans.binding.Bindings.createDoubleBinding(
-        () -> Math.max(120.0, initializingCard.getMaxWidth() - 44.0),
-        initializingCard.maxWidthProperty()));
+        () -> Math.max(180.0, Math.min(640.0, initializingOverlay.getWidth() - 48.0)),
+        initializingOverlay.widthProperty()));
     initializingCard.getChildren().addAll(initializingSpinner, initializingTitleLabel, initializingBodyLabel);
     initializingOverlay.getChildren().add(initializingCard);
     StackPane.setAlignment(initializingCard, Pos.CENTER);
+  }
+
+  private Label sectionLabel(String text) {
+    Label label = new Label(text);
+    label.getStyleClass().add("vcs-section-label");
+    return label;
+  }
+
+  private void updateCenterViewMode() {
+    boolean graphMode = btnGraphView.isSelected();
+    if (centerViewStack.getChildren().size() >= 2) {
+      Node changesView = centerViewStack.getChildren().get(0);
+      Node graphView = centerViewStack.getChildren().get(1);
+      changesView.setVisible(!graphMode);
+      changesView.setManaged(!graphMode);
+      graphView.setVisible(graphMode);
+      graphView.setManaged(graphMode);
+    }
   }
 
   public void setOnOpenRelativePath(Consumer<String> onOpenRelativePath) {
@@ -567,9 +624,10 @@ The Log shows recent commits on the current branch."""));
       GitVcsService.RepositoryStatus status = vcs.getRepositoryStatus(projectRoot);
       String remoteUrl = hasRemote ? vcs.getRemoteUrl(projectRoot) : null;
       List<String> branches = vcs.listBranches(projectRoot);
+      String graphText = vcs.changeGraph(projectRoot, 80);
       boolean hasConflicts = hasConflicts(status);
       String finalRemoteCheckText = remoteCheckText;
-      Platform.runLater(() -> applyRepositoryStatus(status, hasRemote, remoteUrl, branches, hasConflicts, finalRemoteCheckText));
+      Platform.runLater(() -> applyRepositoryStatus(status, hasRemote, remoteUrl, branches, graphText, hasConflicts, finalRemoteCheckText));
     } catch (Exception ex) {
       appendLog(safeMessage(ex));
       Platform.runLater(() -> {
@@ -598,6 +656,7 @@ The Log shows recent commits on the current branch."""));
     lastRemoteCheckLabel.setText("Online check: --");
     remoteLabel.setText("Remote: not configured");
     listChanges.getItems().clear();
+    updateGraphText(null);
     cbBranch.getItems().clear();
     setSetupVisible(false);
     setInitControlsVisible(false, null);
@@ -620,6 +679,7 @@ The Log shows recent commits on the current branch."""));
     syncLabel.setText("Sync: --");
     summaryLabel.setText("Status: Git unavailable");
     listChanges.getItems().clear();
+    updateGraphText(null);
     cbBranch.getItems().clear();
     setSetupVisible(false);
     setInitControlsVisible(false, null);
@@ -643,6 +703,7 @@ The Log shows recent commits on the current branch."""));
     syncLabel.setText("Sync: not connected");
     summaryLabel.setText("Status: repository not initialized");
     listChanges.getItems().clear();
+    updateGraphText(null);
     cbBranch.getItems().clear();
     setSetupVisible(false);
     setInitControlsVisible(true, "This project is not a repository yet. Initialize it to enable snapshots, backup, and sync.");
@@ -654,6 +715,7 @@ The Log shows recent commits on the current branch."""));
                                      boolean hasRemote,
                                      String remoteUrl,
                                      List<String> branches,
+                                     String graphText,
                                      boolean hasConflicts,
                                      String remoteCheckText) {
     markStatusLoaded();
@@ -692,6 +754,7 @@ The Log shows recent commits on the current branch."""));
     }
 
     listChanges.setItems(FXCollections.observableArrayList(status.entries()));
+    updateGraphText(graphText);
     updateBranchChoices(branches, currentBranch);
     setInitControlsVisible(false, null);
     updateNextStep(status, hasRemote, hasConflicts);
@@ -712,6 +775,17 @@ The Log shows recent commits on the current branch."""));
     if (!hasRemote) return "Incoming: remote not connected";
     if (behind > 0) return "Incoming: " + behind + " online snapshot" + plural(behind) + " waiting";
     return "Incoming: none found";
+  }
+
+  private void updateGraphText(String graphText) {
+    currentGraphText = graphText == null ? "" : graphText.strip();
+    if (currentGraphText.isBlank()) {
+      txtGraph.setText("No commits are available for the changes graph yet.");
+      return;
+    }
+    txtGraph.setText(currentGraphText);
+    txtGraph.setScrollTop(0);
+    txtGraph.setScrollLeft(0);
   }
 
   private void updateNextStep(GitVcsService.RepositoryStatus status, boolean hasRemote, boolean hasConflicts) {
