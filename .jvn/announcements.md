@@ -8,7 +8,7 @@ Format:
 
 ----
 ## 2026-05-28 — Version control graph view
-The Version Control utility now has a Changes/Graph view switch. Changes keeps the existing changed-file workflow, while Graph shows the Git branch and commit graph inside the panel using the project history.
+The Version Control utility now has a Changes/Graph view switch. Changes keeps the existing changed-file workflow, while Graph shows a VS Code-style visual history with commit dots, branch lanes, commit messages, authors, and branch chips.
 
 The version-control loading state now consumes the full utility area instead of appearing as a separate rounded window, making repository initialization and first status reads feel like one blocking editor workflow.
 

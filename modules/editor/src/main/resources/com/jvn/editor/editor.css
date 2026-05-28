@@ -819,9 +819,98 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-fill-width: true;
 }
 
-.vcs-graph {
-  -fx-font-family: "SFMono-Regular", "Consolas", "Monospaced";
+.vcs-graph-list {
+  -fx-background-color: #101317;
+  -fx-border-color: #2b3440;
+}
+
+.vcs-graph-list .list-cell {
+  -fx-padding: 0 8 0 0;
+  -fx-background-color: #101317;
+  -fx-text-fill: #d5d9df;
+}
+
+.vcs-graph-list .list-cell:filled:hover {
+  -fx-background-color: #18212b;
+}
+
+.vcs-graph-list .list-cell:filled:selected,
+.vcs-graph-list .list-cell:filled:selected:hover {
+  -fx-background-color: #1d3045;
+}
+
+.vcs-graph-row {
+  -fx-padding: 0;
+}
+
+.vcs-graph-lane {
+  -fx-background-color: transparent;
+}
+
+.vcs-graph-line {
+  -fx-stroke: #4f9bff;
+  -fx-stroke-width: 2;
+}
+
+.vcs-graph-line-active {
+  -fx-stroke: #4f9bff;
+  -fx-stroke-width: 2.2;
+}
+
+.vcs-graph-line-branch {
+  -fx-stroke: #ffb51f;
+  -fx-stroke-width: 2;
+}
+
+.vcs-graph-dot {
+  -fx-fill: #4f9bff;
+  -fx-stroke: #101317;
+  -fx-stroke-width: 2;
+}
+
+.vcs-graph-dot-head {
+  -fx-fill: #101317;
+  -fx-stroke: #4f9bff;
+  -fx-stroke-width: 3;
+}
+
+.vcs-graph-subject {
+  -fx-text-fill: #d9dde3;
+  -fx-font-size: 12px;
+  -fx-font-weight: 800;
+}
+
+.vcs-graph-meta {
+  -fx-text-fill: #9aa3ad;
+  -fx-font-size: 10px;
+  -fx-font-weight: 700;
+}
+
+.vcs-graph-ref {
+  -fx-padding: 2 7 2 7;
+  -fx-background-radius: 999;
+  -fx-border-radius: 999;
+  -fx-border-width: 1;
   -fx-font-size: 11px;
+  -fx-font-weight: 800;
+}
+
+.vcs-graph-ref-local {
+  -fx-text-fill: #cfe9ff;
+  -fx-background-color: rgba(79, 155, 255, 0.22);
+  -fx-border-color: #4f9bff;
+}
+
+.vcs-graph-ref-remote {
+  -fx-text-fill: #ead1ff;
+  -fx-background-color: rgba(181, 118, 235, 0.22);
+  -fx-border-color: #b576eb;
+}
+
+.vcs-graph-ref-tag {
+  -fx-text-fill: #ffe5a8;
+  -fx-background-color: rgba(255, 181, 31, 0.20);
+  -fx-border-color: #ffb51f;
 }
 
 .vcs-next-step {

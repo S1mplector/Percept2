@@ -765,9 +765,98 @@
   -fx-fill-width: true;
 }
 
-.vcs-graph {
-  -fx-font-family: "SFMono-Regular", "Consolas", "Monospaced";
+.vcs-graph-list {
+  -fx-background-color: #ffffff;
+  -fx-border-color: #d5dce5;
+}
+
+.vcs-graph-list .list-cell {
+  -fx-padding: 0 8 0 0;
+  -fx-background-color: #ffffff;
+  -fx-text-fill: #20242a;
+}
+
+.vcs-graph-list .list-cell:filled:hover {
+  -fx-background-color: #eef5fb;
+}
+
+.vcs-graph-list .list-cell:filled:selected,
+.vcs-graph-list .list-cell:filled:selected:hover {
+  -fx-background-color: #dcecf9;
+}
+
+.vcs-graph-row {
+  -fx-padding: 0;
+}
+
+.vcs-graph-lane {
+  -fx-background-color: transparent;
+}
+
+.vcs-graph-line {
+  -fx-stroke: #3d8de0;
+  -fx-stroke-width: 2;
+}
+
+.vcs-graph-line-active {
+  -fx-stroke: #3d8de0;
+  -fx-stroke-width: 2.2;
+}
+
+.vcs-graph-line-branch {
+  -fx-stroke: #d49300;
+  -fx-stroke-width: 2;
+}
+
+.vcs-graph-dot {
+  -fx-fill: #3d8de0;
+  -fx-stroke: #ffffff;
+  -fx-stroke-width: 2;
+}
+
+.vcs-graph-dot-head {
+  -fx-fill: #ffffff;
+  -fx-stroke: #3d8de0;
+  -fx-stroke-width: 3;
+}
+
+.vcs-graph-subject {
+  -fx-text-fill: #20242a;
+  -fx-font-size: 12px;
+  -fx-font-weight: 800;
+}
+
+.vcs-graph-meta {
+  -fx-text-fill: #68717d;
+  -fx-font-size: 10px;
+  -fx-font-weight: 700;
+}
+
+.vcs-graph-ref {
+  -fx-padding: 2 7 2 7;
+  -fx-background-radius: 999;
+  -fx-border-radius: 999;
+  -fx-border-width: 1;
   -fx-font-size: 11px;
+  -fx-font-weight: 800;
+}
+
+.vcs-graph-ref-local {
+  -fx-text-fill: #165b99;
+  -fx-background-color: #dcecf9;
+  -fx-border-color: #3d8de0;
+}
+
+.vcs-graph-ref-remote {
+  -fx-text-fill: #6f3ca1;
+  -fx-background-color: #efdefd;
+  -fx-border-color: #9d68cf;
+}
+
+.vcs-graph-ref-tag {
+  -fx-text-fill: #8b5d00;
+  -fx-background-color: #fff1c8;
+  -fx-border-color: #d49300;
 }
 
 .vcs-next-step {

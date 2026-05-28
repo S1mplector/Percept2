@@ -38,10 +38,13 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.Node;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.shape.Circle;
+import javafx.scene.shape.Line;
 import javafx.stage.Popup;
 import javafx.stage.Window;
 import javafx.util.Duration;
@@ -182,7 +185,7 @@ public class VersionControlView extends BorderPane {
 
   private final TextField txtCommitMessage = new TextField();
   private final ListView<GitVcsService.StatusEntry> listChanges = new ListView<>();
-  private final TextArea txtGraph = new TextArea();
+  private final ListView<GitVcsService.ChangeGraphEntry> listGraph = new ListView<>();
   private final TextArea txtLog = new TextArea();
 
   private File projectRoot;
@@ -207,7 +210,6 @@ public class VersionControlView extends BorderPane {
   private String lastGuideKey = "";
   private String dismissedGuideKey = "";
   private String busyActionName = "";
-  private String currentGraphText = "";
   private final List<Node> currentGuideTargets = new ArrayList<>();
 
   public VersionControlView() {
@@ -232,7 +234,7 @@ public class VersionControlView extends BorderPane {
     txtCommitMessage.getStyleClass().add("vcs-text-field");
     cbBranch.getStyleClass().add("vcs-combo");
     listChanges.getStyleClass().add("vcs-list");
-    txtGraph.getStyleClass().addAll("vcs-log", "vcs-graph");
+    listGraph.getStyleClass().addAll("vcs-list", "vcs-graph-list");
     txtLog.getStyleClass().add("vcs-log");
 
     chkInitCommit.setSelected(true);
@@ -246,12 +248,11 @@ public class VersionControlView extends BorderPane {
     txtLog.setEditable(false);
     txtLog.setWrapText(true);
     txtLog.setPrefRowCount(6);
-    txtGraph.setEditable(false);
-    txtGraph.setWrapText(false);
-    txtGraph.setPromptText("No graph available yet.");
 
     listChanges.setPlaceholder(new Label("No changed files"));
     listChanges.setCellFactory(lv -> new StatusCell());
+    listGraph.setPlaceholder(new Label("No commits are available for the changes graph yet."));
+    listGraph.setCellFactory(lv -> new GraphCell());
     listChanges.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
     listChanges.setOnMouseClicked(e -> {
       if (e.getClickCount() < 2) return;
@@ -451,7 +452,7 @@ The Log shows recent commits on the current branch."""));
     viewModeRow.getStyleClass().add("vcs-view-mode");
     viewModeRow.setAlignment(Pos.CENTER_LEFT);
     VBox changesView = new VBox(4, changesLabel, fileActionRow, listChanges);
-    VBox graphView = new VBox(4, sectionLabel("Changes Graph"), txtGraph);
+    VBox graphView = new VBox(4, sectionLabel("Changes Graph"), listGraph);
     changesView.getStyleClass().add("vcs-center-view");
     graphView.getStyleClass().add("vcs-center-view");
     centerViewStack.getChildren().setAll(changesView, graphView);
@@ -459,7 +460,7 @@ The Log shows recent commits on the current branch."""));
     center.getStyleClass().add("vcs-center");
     center.setPadding(new Insets(0, 10, 10, 10));
     VBox.setVgrow(listChanges, Priority.ALWAYS);
-    VBox.setVgrow(txtGraph, Priority.ALWAYS);
+    VBox.setVgrow(listGraph, Priority.ALWAYS);
     VBox.setVgrow(changesView, Priority.ALWAYS);
     VBox.setVgrow(graphView, Priority.ALWAYS);
     VBox.setVgrow(centerViewStack, Priority.ALWAYS);
@@ -624,10 +625,10 @@ The Log shows recent commits on the current branch."""));
       GitVcsService.RepositoryStatus status = vcs.getRepositoryStatus(projectRoot);
       String remoteUrl = hasRemote ? vcs.getRemoteUrl(projectRoot) : null;
       List<String> branches = vcs.listBranches(projectRoot);
-      String graphText = vcs.changeGraph(projectRoot, 80);
+      List<GitVcsService.ChangeGraphEntry> graphEntries = vcs.changeGraphEntries(projectRoot, 80);
       boolean hasConflicts = hasConflicts(status);
       String finalRemoteCheckText = remoteCheckText;
-      Platform.runLater(() -> applyRepositoryStatus(status, hasRemote, remoteUrl, branches, graphText, hasConflicts, finalRemoteCheckText));
+      Platform.runLater(() -> applyRepositoryStatus(status, hasRemote, remoteUrl, branches, graphEntries, hasConflicts, finalRemoteCheckText));
     } catch (Exception ex) {
       appendLog(safeMessage(ex));
       Platform.runLater(() -> {
@@ -656,7 +657,7 @@ The Log shows recent commits on the current branch."""));
     lastRemoteCheckLabel.setText("Online check: --");
     remoteLabel.setText("Remote: not configured");
     listChanges.getItems().clear();
-    updateGraphText(null);
+    listGraph.getItems().clear();
     cbBranch.getItems().clear();
     setSetupVisible(false);
     setInitControlsVisible(false, null);
@@ -679,7 +680,7 @@ The Log shows recent commits on the current branch."""));
     syncLabel.setText("Sync: --");
     summaryLabel.setText("Status: Git unavailable");
     listChanges.getItems().clear();
-    updateGraphText(null);
+    listGraph.getItems().clear();
     cbBranch.getItems().clear();
     setSetupVisible(false);
     setInitControlsVisible(false, null);
@@ -703,7 +704,7 @@ The Log shows recent commits on the current branch."""));
     syncLabel.setText("Sync: not connected");
     summaryLabel.setText("Status: repository not initialized");
     listChanges.getItems().clear();
-    updateGraphText(null);
+    listGraph.getItems().clear();
     cbBranch.getItems().clear();
     setSetupVisible(false);
     setInitControlsVisible(true, "This project is not a repository yet. Initialize it to enable snapshots, backup, and sync.");
@@ -715,7 +716,7 @@ The Log shows recent commits on the current branch."""));
                                      boolean hasRemote,
                                      String remoteUrl,
                                      List<String> branches,
-                                     String graphText,
+                                     List<GitVcsService.ChangeGraphEntry> graphEntries,
                                      boolean hasConflicts,
                                      String remoteCheckText) {
     markStatusLoaded();
@@ -754,7 +755,7 @@ The Log shows recent commits on the current branch."""));
     }
 
     listChanges.setItems(FXCollections.observableArrayList(status.entries()));
-    updateGraphText(graphText);
+    listGraph.setItems(FXCollections.observableArrayList(graphEntries == null ? List.of() : graphEntries));
     updateBranchChoices(branches, currentBranch);
     setInitControlsVisible(false, null);
     updateNextStep(status, hasRemote, hasConflicts);
@@ -775,17 +776,6 @@ The Log shows recent commits on the current branch."""));
     if (!hasRemote) return "Incoming: remote not connected";
     if (behind > 0) return "Incoming: " + behind + " online snapshot" + plural(behind) + " waiting";
     return "Incoming: none found";
-  }
-
-  private void updateGraphText(String graphText) {
-    currentGraphText = graphText == null ? "" : graphText.strip();
-    if (currentGraphText.isBlank()) {
-      txtGraph.setText("No commits are available for the changes graph yet.");
-      return;
-    }
-    txtGraph.setText(currentGraphText);
-    txtGraph.setScrollTop(0);
-    txtGraph.setScrollLeft(0);
   }
 
   private void updateNextStep(GitVcsService.RepositoryStatus status, boolean hasRemote, boolean hasConflicts) {
@@ -1640,26 +1630,152 @@ The Log shows recent commits on the current branch."""));
         getStyleClass().add("vcs-status-renamed");
       }
     }
+  }
 
-    private static String friendlyStatus(GitVcsService.StatusEntry item) {
-      if (isConflict(item)) return "Conflict";
-      if (item.isUntracked()) return "New";
-      String code = item.code().toUpperCase(Locale.ROOT);
-      if (code.contains("A")) return "Added";
-      if (code.contains("D")) return "Deleted";
-      if (code.contains("R")) return "Renamed";
-      if (code.contains("C")) return "Copied";
-      if (code.contains("M")) return "Changed";
-      return "Updated";
+  private static final class GraphCell extends ListCell<GitVcsService.ChangeGraphEntry> {
+    private static final double ROW_HEIGHT = 36.0;
+    private static final double GRAPH_STEP = 8.0;
+    private static final double GRAPH_LEFT = 12.0;
+
+    @Override
+    protected void updateItem(GitVcsService.ChangeGraphEntry item, boolean empty) {
+      super.updateItem(item, empty);
+      if (empty || item == null) {
+        setText(null);
+        setGraphic(null);
+        return;
+      }
+
+      Pane graphPane = new Pane();
+      graphPane.getStyleClass().add("vcs-graph-lane");
+      graphPane.setMinHeight(ROW_HEIGHT);
+      graphPane.setPrefHeight(ROW_HEIGHT);
+      graphPane.setMinWidth(graphWidth(item.graphPrefix()));
+      graphPane.setPrefWidth(graphWidth(item.graphPrefix()));
+      drawGraphPrefix(graphPane, item.graphPrefix(), hasHeadRef(item.refs()));
+
+      Label subjectLabel = new Label(item.subject() == null || item.subject().isBlank() ? "(no message)" : item.subject());
+      subjectLabel.getStyleClass().add("vcs-graph-subject");
+      subjectLabel.setMaxWidth(Double.MAX_VALUE);
+
+      String author = item.author() == null || item.author().isBlank() ? "unknown" : item.author();
+      Label metaLabel = new Label(item.hash() + "  " + author);
+      metaLabel.getStyleClass().add("vcs-graph-meta");
+
+      VBox textColumn = new VBox(2, subjectLabel, metaLabel);
+      textColumn.setAlignment(Pos.CENTER_LEFT);
+      HBox.setHgrow(textColumn, Priority.ALWAYS);
+
+      HBox refsBox = buildRefs(item.refs());
+      Region spacer = new Region();
+      HBox.setHgrow(spacer, Priority.ALWAYS);
+
+      HBox row = new HBox(8, graphPane, textColumn, spacer, refsBox);
+      row.getStyleClass().add("vcs-graph-row");
+      row.setAlignment(Pos.CENTER_LEFT);
+      row.setMinHeight(ROW_HEIGHT);
+
+      setText(null);
+      setGraphic(row);
     }
 
-    private static boolean isConflict(GitVcsService.StatusEntry item) {
-      String index = item.indexStatus();
-      String workTree = item.workTreeStatus();
-      return "U".equals(index)
-          || "U".equals(workTree)
-          || ("D".equals(index) && "D".equals(workTree))
-          || ("A".equals(index) && "A".equals(workTree));
+    private static double graphWidth(String graphPrefix) {
+      int length = graphPrefix == null || graphPrefix.isBlank() ? 2 : graphPrefix.length();
+      return Math.max(42.0, GRAPH_LEFT + (length * GRAPH_STEP) + 12.0);
     }
+
+    private static void drawGraphPrefix(Pane graphPane, String graphPrefix, boolean head) {
+      String prefix = graphPrefix == null || graphPrefix.isBlank() ? "* " : graphPrefix;
+      boolean drewCommit = false;
+      for (int i = 0; i < prefix.length(); i++) {
+        char c = prefix.charAt(i);
+        double x = GRAPH_LEFT + (i * GRAPH_STEP);
+        if (c == '|') {
+          addLine(graphPane, x, 0.0, x, ROW_HEIGHT, "vcs-graph-line");
+        } else if (c == '*') {
+          addLine(graphPane, x, 0.0, x, ROW_HEIGHT, "vcs-graph-line-active");
+          Circle dot = new Circle(x, ROW_HEIGHT / 2.0, head ? 6.0 : 5.0);
+          dot.getStyleClass().add(head ? "vcs-graph-dot-head" : "vcs-graph-dot");
+          graphPane.getChildren().add(dot);
+          drewCommit = true;
+        } else if (c == '/') {
+          addLine(graphPane, x + GRAPH_STEP, 0.0, x, ROW_HEIGHT, "vcs-graph-line-branch");
+        } else if (c == '\\') {
+          addLine(graphPane, x, 0.0, x + GRAPH_STEP, ROW_HEIGHT, "vcs-graph-line-branch");
+        }
+      }
+      if (!drewCommit) {
+        double x = GRAPH_LEFT;
+        addLine(graphPane, x, 0.0, x, ROW_HEIGHT, "vcs-graph-line");
+      }
+    }
+
+    private static void addLine(Pane graphPane,
+                                double startX,
+                                double startY,
+                                double endX,
+                                double endY,
+                                String styleClass) {
+      Line line = new Line(startX, startY, endX, endY);
+      line.getStyleClass().add(styleClass);
+      graphPane.getChildren().add(line);
+    }
+
+    private static HBox buildRefs(String refs) {
+      HBox box = new HBox(4);
+      box.setAlignment(Pos.CENTER_RIGHT);
+      if (refs == null || refs.isBlank()) return box;
+      int added = 0;
+      for (String raw : refs.split(",")) {
+        String ref = cleanRef(raw);
+        if (ref.isBlank()) continue;
+        Label chip = new Label(ref);
+        chip.getStyleClass().addAll("vcs-graph-ref", refStyle(ref));
+        box.getChildren().add(chip);
+        added++;
+        if (added >= 3) break;
+      }
+      return box;
+    }
+
+    private static String cleanRef(String raw) {
+      String ref = raw == null ? "" : raw.trim();
+      if (ref.startsWith("HEAD -> ")) return ref.substring("HEAD -> ".length()).trim();
+      if (ref.startsWith("tag: ")) return ref.substring("tag: ".length()).trim();
+      return ref;
+    }
+
+    private static String refStyle(String ref) {
+      if (ref == null) return "vcs-graph-ref-local";
+      String lower = ref.toLowerCase(Locale.ROOT);
+      if (lower.startsWith("origin/") || lower.startsWith("upstream/")) return "vcs-graph-ref-remote";
+      if (lower.startsWith("refs/tags/")) return "vcs-graph-ref-tag";
+      return "vcs-graph-ref-local";
+    }
+
+    private static boolean hasHeadRef(String refs) {
+      return refs != null && refs.contains("HEAD");
+    }
+  }
+
+  private static String friendlyStatus(GitVcsService.StatusEntry item) {
+    if (isConflict(item)) return "Conflict";
+    if (item.isUntracked()) return "New";
+    String code = item.code().toUpperCase(Locale.ROOT);
+    if (code.contains("A")) return "Added";
+    if (code.contains("D")) return "Deleted";
+    if (code.contains("R")) return "Renamed";
+    if (code.contains("C")) return "Copied";
+    if (code.contains("M")) return "Changed";
+    return "Updated";
+  }
+
+  private static boolean isConflict(GitVcsService.StatusEntry item) {
+    String index = item.indexStatus();
+    String workTree = item.workTreeStatus();
+    return "U".equals(index)
+        || "U".equals(workTree)
+        || ("D".equals(index) && "D".equals(workTree))
+        || ("A".equals(index) && "A".equals(workTree));
   }
 }

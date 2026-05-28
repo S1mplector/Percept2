@@ -284,6 +284,27 @@ public class GitVcsService {
     return result.success() ? result.output() : "";
   }
 
+  public List<ChangeGraphEntry> changeGraphEntries(File root, int count) throws GitVcsException {
+    requireRepository(root);
+    int safeCount = Math.max(1, Math.min(250, count));
+    CommandResult result = execute(root, List.of(
+        "git",
+        "log",
+        "--graph",
+        "--decorate=short",
+        "--pretty=format:%h%x1f%D%x1f%s%x1f%an",
+        "--all",
+        "--max-count=" + safeCount), true);
+    if (!result.success() || result.output().isBlank()) return List.of();
+
+    List<ChangeGraphEntry> entries = new ArrayList<>();
+    for (String rawLine : result.output().split("\\r?\\n")) {
+      ChangeGraphEntry entry = parseChangeGraphEntry(rawLine);
+      if (entry != null) entries.add(entry);
+    }
+    return entries;
+  }
+
   // --- Branch operations ---
 
   public String getCurrentBranch(File root) throws GitVcsException {
@@ -521,6 +542,28 @@ public class GitVcsService {
     return value.replace("\r\n", "\n").replace('\r', '\n');
   }
 
+  private ChangeGraphEntry parseChangeGraphEntry(String rawLine) {
+    if (rawLine == null || rawLine.isBlank()) return null;
+    String[] parts = rawLine.split("\u001f", -1);
+    if (parts.length < 4) return null;
+
+    String graphAndHash = parts[0];
+    int hashStart = graphAndHash.length();
+    while (hashStart > 0 && isHex(graphAndHash.charAt(hashStart - 1))) hashStart--;
+    if (hashStart >= graphAndHash.length()) return null;
+
+    String hash = graphAndHash.substring(hashStart).trim();
+    String graphPrefix = graphAndHash.substring(0, hashStart);
+    if (hash.isBlank()) return null;
+    return new ChangeGraphEntry(graphPrefix, hash, parts[1].trim(), parts[2].trim(), parts[3].trim());
+  }
+
+  private boolean isHex(char c) {
+    return (c >= '0' && c <= '9')
+        || (c >= 'a' && c <= 'f')
+        || (c >= 'A' && c <= 'F');
+  }
+
   private void ensureSuccess(CommandResult result, String message) throws GitVcsException {
     if (result != null && result.success()) return;
     throw new GitVcsException(message, result);
@@ -573,6 +616,12 @@ public class GitVcsService {
       return "?".equals(indexStatus) && "?".equals(workTreeStatus);
     }
   }
+
+  public record ChangeGraphEntry(String graphPrefix,
+                                 String hash,
+                                 String refs,
+                                 String subject,
+                                 String author) {}
 
   public record RepositoryStatus(String branch,
                                  String upstream,
