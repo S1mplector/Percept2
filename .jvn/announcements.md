@@ -7,6 +7,11 @@ Format:
     lines separate them. The block ends at the next "## " header or end of file.
 
 ----
+## 2026-05-28 — Version control graph view
+The Version Control utility now has a Changes/Graph view switch. Changes keeps the existing changed-file workflow, while Graph shows the Git branch and commit graph inside the panel using the project history.
+
+The version-control loading state now consumes the full utility area instead of appearing as a separate rounded window, making repository initialization and first status reads feel like one blocking editor workflow.
+
 ## 2026-05-24 — Guided version control
 The Version Control panel now highlights the next useful action and shows persistent arrow callouts based on the project’s Git state. It guides users through setup, missing Git, repository initialization, remote setup, authentication/network failures, conflicts, incoming changes, local edits, unpushed commits, and clean up-to-date states. Callouts stay visible until dismissed, and first-time repository checks now show an initializing overlay while Git status is loading.
 
