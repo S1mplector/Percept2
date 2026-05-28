@@ -270,6 +270,20 @@ public class GitVcsService {
     return Arrays.asList(result.output().split("\\r?\\n"));
   }
 
+  public String changeGraph(File root, int count) throws GitVcsException {
+    requireRepository(root);
+    int safeCount = Math.max(1, Math.min(250, count));
+    CommandResult result = execute(root, List.of(
+        "git",
+        "log",
+        "--graph",
+        "--decorate",
+        "--oneline",
+        "--all",
+        "--max-count=" + safeCount), true);
+    return result.success() ? result.output() : "";
+  }
+
   // --- Branch operations ---
 
   public String getCurrentBranch(File root) throws GitVcsException {
