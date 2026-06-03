@@ -70,6 +70,7 @@ import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
@@ -121,6 +122,13 @@ public class VnPreviewView extends StackPane {
   private Boolean storyboardUiHiddenRestore;
   private VnErrorOverlay activeError;
   private int errorOverlayHoveredButton = -1;
+  private boolean storyboardOffsetDragging;
+  private boolean storyboardOffsetDragMoved;
+  private boolean suppressNextStoryboardClick;
+  private double storyboardDragStartX;
+  private double storyboardDragStartY;
+  private double storyboardDragStartOffsetX;
+  private double storyboardDragStartOffsetY;
 
   // Virtual viewport: render at the game's target resolution, scale to fit canvas
   private int virtualWidth = 0;
@@ -141,6 +149,9 @@ public class VnPreviewView extends StackPane {
       updateOverlayHover(mouseX, mouseY);
     });
     canvas.setOnMouseClicked(e -> handleMouseClick(e.getButton(), e.getClickCount(), e.getX(), e.getY()));
+    canvas.addEventHandler(MouseEvent.MOUSE_PRESSED, this::handleStoryboardOffsetPress);
+    canvas.addEventHandler(MouseEvent.MOUSE_DRAGGED, this::handleStoryboardOffsetDrag);
+    canvas.addEventHandler(MouseEvent.MOUSE_RELEASED, this::handleStoryboardOffsetRelease);
     canvas.setOnScroll(this::handleScroll);
 
     setOnKeyPressed(this::handleKeyPressed);
@@ -1037,6 +1048,10 @@ public class VnPreviewView extends StackPane {
     mouseY = y;
     requestFocus();
     if (button != MouseButton.PRIMARY) return;
+    if (suppressNextStoryboardClick) {
+      suppressNextStoryboardClick = false;
+      return;
+    }
 
     // Handle error overlay button clicks
     if (resolveVisibleError() != null) {
@@ -1075,6 +1090,83 @@ public class VnPreviewView extends StackPane {
 
     scene.advanceFromClick();
     syncStoryboardLineFromScene();
+  }
+
+  private void handleStoryboardOffsetPress(MouseEvent event) {
+    if (!isStoryboardModeActive() || event.getButton() != MouseButton.PRIMARY) return;
+    if (!isInsideStoryboardImage(event.getX(), event.getY())) return;
+    storyboardOffsetDragging = true;
+    storyboardOffsetDragMoved = false;
+    storyboardDragStartX = event.getX();
+    storyboardDragStartY = event.getY();
+    storyboardDragStartOffsetX = storyboardOverlay.offsetX();
+    storyboardDragStartOffsetY = storyboardOverlay.offsetY();
+    requestFocus();
+  }
+
+  private void handleStoryboardOffsetDrag(MouseEvent event) {
+    if (!storyboardOffsetDragging || !isStoryboardModeActive()) return;
+    StoryboardCanvasLayout layout = storyboardCanvasLayout(canvas.getWidth(), canvas.getHeight());
+    double runtimeWidth = storyboardOverlay.runtimeWidth() > 0.0 ? storyboardOverlay.runtimeWidth() : layout.logicalWidth;
+    double runtimeHeight = storyboardOverlay.runtimeHeight() > 0.0 ? storyboardOverlay.runtimeHeight() : layout.logicalHeight;
+    double scaleX = layout.viewportWidth / Math.max(1.0, runtimeWidth);
+    double scaleY = layout.viewportHeight / Math.max(1.0, runtimeHeight);
+    double nextOffsetX = storyboardDragStartOffsetX + (event.getX() - storyboardDragStartX) / Math.max(1e-9, scaleX);
+    double nextOffsetY = storyboardDragStartOffsetY + (event.getY() - storyboardDragStartY) / Math.max(1e-9, scaleY);
+    if (Math.abs(nextOffsetX - storyboardOverlay.offsetX()) < 0.01
+        && Math.abs(nextOffsetY - storyboardOverlay.offsetY()) < 0.01) {
+      return;
+    }
+    storyboardOffsetDragMoved = true;
+    storyboardOverlay = storyboardWithOffset(nextOffsetX, nextOffsetY);
+    emitStoryboardStateAdjusted();
+    event.consume();
+  }
+
+  private void handleStoryboardOffsetRelease(MouseEvent event) {
+    if (!storyboardOffsetDragging || event.getButton() != MouseButton.PRIMARY) return;
+    storyboardOffsetDragging = false;
+    suppressNextStoryboardClick = storyboardOffsetDragMoved;
+    storyboardOffsetDragMoved = false;
+    event.consume();
+  }
+
+  private boolean isInsideStoryboardImage(double canvasX, double canvasY) {
+    if (!isStoryboardModeActive()) return false;
+    StoryboardCanvasLayout layout = storyboardCanvasLayout(canvas.getWidth(), canvas.getHeight());
+    StoryboardOverlayPlacement.Rect placement = StoryboardOverlayPlacement.compute(
+        storyboardOverlay,
+        layout.viewportX,
+        layout.viewportY,
+        layout.viewportWidth,
+        layout.viewportHeight);
+    return placement != null
+        && canvasX >= placement.x()
+        && canvasX <= placement.x() + placement.width()
+        && canvasY >= placement.y()
+        && canvasY <= placement.y() + placement.height();
+  }
+
+  private StoryboardOverlayState storyboardWithOffset(double offsetX, double offsetY) {
+    return new StoryboardOverlayState(
+        true,
+        storyboardOverlay.image(),
+        storyboardOverlay.opacity(),
+        storyboardOverlay.sourcePath(),
+        storyboardOverlay.hideUi(),
+        storyboardOverlay.fitMode(),
+        storyboardOverlay.runtimeWidth(),
+        storyboardOverlay.runtimeHeight(),
+        storyboardOverlay.storyboardWidth(),
+        storyboardOverlay.storyboardHeight(),
+        storyboardOverlay.scale(),
+        offsetX,
+        offsetY,
+        storyboardOverlay.cropEnabled(),
+        storyboardOverlay.cropX(),
+        storyboardOverlay.cropY(),
+        storyboardOverlay.cropWidth(),
+        storyboardOverlay.cropHeight());
   }
 
   private void syncStoryboardLineFromScene() {

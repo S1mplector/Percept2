@@ -19,16 +19,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import javafx.animation.AnimationTimer;
 import javafx.collections.FXCollections;
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
-import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.Scene;
-import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
@@ -69,8 +66,10 @@ public class StoryboardOverlayView extends BorderPane {
   private static final String KEY_FIT_MODE = "fitMode";
   private static final String KEY_RUNTIME_WIDTH = "runtimeWidth";
   private static final String KEY_RUNTIME_HEIGHT = "runtimeHeight";
+  private static final String KEY_RUNTIME_SIZE_EXPLICIT = "runtimeSizeExplicit";
   private static final String KEY_STORYBOARD_WIDTH = "storyboardWidth";
   private static final String KEY_STORYBOARD_HEIGHT = "storyboardHeight";
+  private static final String KEY_STORYBOARD_SIZE_EXPLICIT = "storyboardSizeExplicit";
   private static final String KEY_SCALE = "scale";
   private static final String KEY_OFFSET_X = "offsetX";
   private static final String KEY_OFFSET_Y = "offsetY";
@@ -80,11 +79,6 @@ public class StoryboardOverlayView extends BorderPane {
   private static final String CROP_Y = ".y";
   private static final String CROP_W = ".w";
   private static final String CROP_H = ".h";
-  private static final boolean CROP_CONTROLS_UNDER_MAINTENANCE = true;
-  private static final int MAINTENANCE_STRIPE_WIDTH = 28;
-  private static final Color MAINTENANCE_STRIPE_COLOR = Color.rgb(255, 130, 0, 0.20);
-  private static final Color MAINTENANCE_BG_TINT = Color.rgb(20, 15, 0, 0.60);
-
   private final Label titleLabel = new Label("Storyboard Overlay");
   private final Label summaryLabel =
       new Label("Pin a storyboard frame flush to the active preview for staging and shot matching.");
@@ -139,6 +133,8 @@ public class StoryboardOverlayView extends BorderPane {
   private File activeScriptFile;
   private StoryboardFrame activeMatchFrame;
   private boolean applyingState;
+  private boolean runtimeSizeExplicit;
+  private boolean storyboardSizeExplicit;
   private Consumer<StoryboardOverlayState> onOverlayChanged;
   private Task<StoryboardOverlayCatalog.ScanResult> scanTask;
   private double cropX;
@@ -315,6 +311,7 @@ public class StoryboardOverlayView extends BorderPane {
     fitModeCombo.valueProperty().addListener((obs, oldValue, newValue) -> {
       if (applyingState) return;
       emitOverlayChanged();
+      updatePreview(framesList.getSelectionModel().getSelectedItem());
       saveState();
     });
     cropEnabledCheck.selectedProperty().addListener((obs, oldValue, newValue) -> {
@@ -340,13 +337,16 @@ public class StoryboardOverlayView extends BorderPane {
     previewImage.setPreserveRatio(true);
     previewImage.setSmooth(true);
     previewImage.imageProperty().addListener((obs, oldImage, newImage) -> drawCropOverlay());
-    cropCanvas.setMouseTransparent(true);
+    cropCanvas.setFocusTraversable(true);
+    cropCanvas.setPickOnBounds(true);
+    cropCanvas.setCursor(Cursor.CROSSHAIR);
 
     previewPathLabel.setWrapText(true);
     previewMetaLabel.setWrapText(true);
     previewMetaLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #99aabb;");
     cropMetaLabel.setWrapText(true);
     cropMetaLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #d4b07c;");
+    cropMetaLabel.setTooltip(new Tooltip("Drag on the preview image to save a crop for this storyboard frame"));
 
     Label filterHintLabel = new Label("↓ list  •  Enter: pick single  •  ⌘/Ctrl+F: focus");
     filterHintLabel.getStyleClass().add("sidebar-tool-subtitle");
@@ -402,9 +402,8 @@ public class StoryboardOverlayView extends BorderPane {
 
     FlowPane cropControls = new FlowPane(8, 6, cropEnabledCheck, expandCropButton, clearCropButton);
     cropControls.setAlignment(Pos.CENTER_LEFT);
-    Node cropControlsRow = CROP_CONTROLS_UNDER_MAINTENANCE ? maintenanceCropControls(cropControls) : cropControls;
 
-    VBox overlayControls = new VBox(6, checksRow, opacityRow, setupActions, advancedLabel, fitRow, resolutionRow, transformRow, placementButtons, cropControlsRow);
+    VBox overlayControls = new VBox(6, checksRow, opacityRow, setupActions, advancedLabel, fitRow, resolutionRow, transformRow, placementButtons, cropControls);
 
     HBox navigationRow = new HBox(8, previousButton, nextButton, matchButton, revealButton);
     navigationRow.setAlignment(Pos.CENTER_LEFT);
@@ -435,9 +434,7 @@ with or contains the label name — useful for structured storyboard exports.
     previewStack.setMinSize(420, 260);
     previewStack.setPrefSize(720, 420);
     previewStack.setMaxSize(Double.MAX_VALUE, 520);
-    if (!CROP_CONTROLS_UNDER_MAINTENANCE) {
-      installCropDragHandlers(previewStack, cropCanvas, previewImage);
-    }
+    installCropDragHandlers(previewStack, cropCanvas, previewImage);
     cropCanvas.widthProperty().bind(previewStack.widthProperty());
     cropCanvas.heightProperty().bind(previewStack.heightProperty());
     previewImage.fitWidthProperty().bind(previewStack.widthProperty());
@@ -472,85 +469,6 @@ with or contains the label name — useful for structured storyboard exports.
     button.setGraphicTextGap(6);
   }
 
-  private Node maintenanceCropControls(Node controls) {
-    if (controls == null) return new StackPane();
-    controls.setDisable(true);
-    controls.setMouseTransparent(true);
-    controls.setOpacity(0.48);
-    Canvas stripeCanvas = new Canvas();
-    stripeCanvas.setManaged(false);
-    stripeCanvas.setMouseTransparent(true);
-    Label badge = new Label("Crop controls under maintenance");
-    badge.setMouseTransparent(true);
-    badge.setStyle(
-        "-fx-padding: 5 10 5 10;"
-            + "-fx-background-color: rgba(18,12,0,0.82);"
-            + "-fx-background-radius: 999;"
-            + "-fx-border-color: rgba(255,130,0,0.70);"
-            + "-fx-border-radius: 999;"
-            + "-fx-border-width: 1;"
-            + "-fx-text-fill: #ffd8ad;"
-            + "-fx-font-size: 10px;"
-            + "-fx-font-weight: 900;");
-    StackPane shell = new StackPane(controls, stripeCanvas, badge);
-    shell.setAlignment(Pos.CENTER_LEFT);
-    shell.setMinHeight(54);
-    shell.setPrefHeight(54);
-    shell.setMaxHeight(54);
-    shell.setMaxWidth(Double.MAX_VALUE);
-    shell.setStyle(
-        "-fx-background-color: rgba(20,15,0,0.60);"
-            + "-fx-background-radius: 8;"
-            + "-fx-border-color: rgba(255,130,0,0.36);"
-            + "-fx-border-radius: 8;"
-            + "-fx-border-width: 1;"
-            + "-fx-padding: 4 6 4 6;");
-    stripeCanvas.widthProperty().bind(shell.widthProperty());
-    stripeCanvas.heightProperty().bind(shell.heightProperty());
-    double[] stripeOffset = {0.0};
-    Runnable redraw = () -> drawMaintenanceStripes(stripeCanvas, stripeOffset[0]);
-    stripeCanvas.widthProperty().addListener(o -> redraw.run());
-    stripeCanvas.heightProperty().addListener(o -> redraw.run());
-    AnimationTimer timer = new AnimationTimer() {
-      @Override
-      public void handle(long now) {
-        if (!shell.isVisible() || shell.getScene() == null || shell.getWidth() <= 0.0 || shell.getHeight() <= 0.0) {
-          return;
-        }
-        stripeOffset[0] = (stripeOffset[0] + 0.35) % (MAINTENANCE_STRIPE_WIDTH * 2.0);
-        redraw.run();
-      }
-    };
-    shell.sceneProperty().addListener((obs, oldScene, newScene) -> {
-      if (newScene != null) {
-        timer.start();
-      } else {
-        timer.stop();
-      }
-    });
-    StackPane.setAlignment(badge, Pos.CENTER_RIGHT);
-    return shell;
-  }
-
-  private void drawMaintenanceStripes(Canvas canvas, double stripeOffset) {
-    if (canvas == null) return;
-    double width = canvas.getWidth();
-    double height = canvas.getHeight();
-    if (width <= 0.0 || height <= 0.0) return;
-    GraphicsContext gc = canvas.getGraphicsContext2D();
-    gc.clearRect(0, 0, width, height);
-    gc.setFill(MAINTENANCE_BG_TINT);
-    gc.fillRect(0, 0, width, height);
-    double period = MAINTENANCE_STRIPE_WIDTH * 2.0;
-    gc.setFill(MAINTENANCE_STRIPE_COLOR);
-    for (double x = -height - period + stripeOffset; x < width + period; x += period) {
-      gc.fillPolygon(
-          new double[] {x, x + MAINTENANCE_STRIPE_WIDTH, x + MAINTENANCE_STRIPE_WIDTH + height, x + height},
-          new double[] {0, 0, height, height},
-          4);
-    }
-  }
-
   private void configureDimensionField(TextField field, String prompt) {
     field.setPromptText(prompt);
     field.getStyleClass().add("layout-launcher-field");
@@ -577,6 +495,11 @@ with or contains the label name — useful for structured storyboard exports.
     double value = parseNumber(field.getText(), fallback);
     if (!allowNegative && value <= 0.0) value = fallback;
     field.setText(formatNumber(value));
+    if (field == runtimeWidthField || field == runtimeHeightField) {
+      runtimeSizeExplicit = true;
+    } else if (field == storyboardWidthField || field == storyboardHeightField) {
+      storyboardSizeExplicit = true;
+    }
     if (applyingState) return;
     emitOverlayChanged();
     saveState();
@@ -638,6 +561,7 @@ with or contains the label name — useful for structured storyboard exports.
     } finally {
       applyingState = false;
     }
+    saveState();
   }
 
   public void refreshCatalog() {
@@ -802,7 +726,7 @@ with or contains the label name — useful for structured storyboard exports.
     } else {
       int imageWidth = (int) Math.round(image.getWidth());
       int imageHeight = (int) Math.round(image.getHeight());
-      if (!persisted.containsKey(KEY_STORYBOARD_WIDTH) && !persisted.containsKey(KEY_STORYBOARD_HEIGHT)) {
+      if (!storyboardSizeExplicit) {
         storyboardWidthField.setText(formatNumber(imageWidth));
         storyboardHeightField.setText(formatNumber(imageHeight));
       }
@@ -845,29 +769,31 @@ with or contains the label name — useful for structured storyboard exports.
     if (onOverlayChanged == null) return;
     StoryboardFrame selected = framesList.getSelectionModel().getSelectedItem();
     Image image = selected == null ? null : loadImage(selected.path());
-    boolean enabled = enabledCheck.isSelected() && image != null && !image.isError();
-    onOverlayChanged.accept(
-        enabled
-            ? new StoryboardOverlayState(
-                true,
-                image,
-                opacitySlider.getValue() / 100.0,
-                selected.displayPath(),
-                hideUiCheck.isSelected(),
-                fitModeCombo.getValue(),
-                parseNumber(runtimeWidthField.getText(), ProjectViewportSpec.resolve(projectRoot).width()),
-                parseNumber(runtimeHeightField.getText(), ProjectViewportSpec.resolve(projectRoot).height()),
-                parseNumber(storyboardWidthField.getText(), image.getWidth()),
-                parseNumber(storyboardHeightField.getText(), image.getHeight()),
-                scaleSlider.getValue() / 100.0,
-                parseNumber(offsetXField.getText(), 0.0),
-                parseNumber(offsetYField.getText(), 0.0),
-                cropEnabledCheck.isSelected(),
-                cropX,
-                cropY,
-                cropWidth,
-                cropHeight)
-            : StoryboardOverlayState.none());
+    if (!enabledCheck.isSelected() || selected == null || image == null || image.isError()) {
+      onOverlayChanged.accept(StoryboardOverlayState.none());
+      return;
+    }
+    double effectiveCropWidth = effectiveCropWidth(image);
+    double effectiveCropHeight = effectiveCropHeight(image);
+    onOverlayChanged.accept(new StoryboardOverlayState(
+        true,
+        image,
+        opacitySlider.getValue() / 100.0,
+        selected.displayPath(),
+        hideUiCheck.isSelected(),
+        fitModeCombo.getValue(),
+        parseNumber(runtimeWidthField.getText(), ProjectViewportSpec.resolve(projectRoot).width()),
+        parseNumber(runtimeHeightField.getText(), ProjectViewportSpec.resolve(projectRoot).height()),
+        parseNumber(storyboardWidthField.getText(), image.getWidth()),
+        parseNumber(storyboardHeightField.getText(), image.getHeight()),
+        scaleSlider.getValue() / 100.0,
+        parseNumber(offsetXField.getText(), 0.0),
+        parseNumber(offsetYField.getText(), 0.0),
+        cropEnabledCheck.isSelected() && effectiveCropWidth > 0.0 && effectiveCropHeight > 0.0,
+        cropX,
+        cropY,
+        effectiveCropWidth,
+        effectiveCropHeight));
   }
 
   private void selectRelativeFrame(int direction) {
@@ -916,6 +842,7 @@ with or contains the label name — useful for structured storyboard exports.
 
   private void useProjectRuntimeSize() {
     ProjectViewportSpec.Dimensions dims = ProjectViewportSpec.resolve(projectRoot);
+    runtimeSizeExplicit = true;
     runtimeWidthField.setText(Integer.toString(dims.width()));
     runtimeHeightField.setText(Integer.toString(dims.height()));
     emitOverlayChanged();
@@ -927,6 +854,7 @@ with or contains the label name — useful for structured storyboard exports.
     StoryboardFrame selected = framesList.getSelectionModel().getSelectedItem();
     Image image = selected == null ? null : loadImage(selected.path());
     if (image == null || image.isError()) return;
+    storyboardSizeExplicit = true;
     storyboardWidthField.setText(formatNumber(image.getWidth()));
     storyboardHeightField.setText(formatNumber(image.getHeight()));
     emitOverlayChanged();
@@ -938,9 +866,11 @@ with or contains the label name — useful for structured storyboard exports.
     StoryboardFrame selected = framesList.getSelectionModel().getSelectedItem();
     Image image = selected == null ? null : loadImage(selected.path());
     ProjectViewportSpec.Dimensions dims = ProjectViewportSpec.resolve(projectRoot);
+    runtimeSizeExplicit = true;
     runtimeWidthField.setText(Integer.toString(dims.width()));
     runtimeHeightField.setText(Integer.toString(dims.height()));
     if (image != null && !image.isError()) {
+      storyboardSizeExplicit = true;
       storyboardWidthField.setText(formatNumber(image.getWidth()));
       storyboardHeightField.setText(formatNumber(image.getHeight()));
     }
@@ -960,6 +890,8 @@ with or contains the label name — useful for structured storyboard exports.
     if (image == null || image.isError()) return;
     String width = formatNumber(image.getWidth());
     String height = formatNumber(image.getHeight());
+    runtimeSizeExplicit = true;
+    storyboardSizeExplicit = true;
     runtimeWidthField.setText(width);
     runtimeHeightField.setText(height);
     storyboardWidthField.setText(width);
@@ -987,7 +919,6 @@ with or contains the label name — useful for structured storyboard exports.
     StoryboardFrame selected = framesList.getSelectionModel().getSelectedItem();
     Image image = selected == null ? null : loadImage(selected.path());
     if (image == null || image.isError()) return;
-    if (CROP_CONTROLS_UNDER_MAINTENANCE) return;
     if (cropStage != null && cropStage.isShowing()) {
       cropStage.toFront();
       cropStage.requestFocus();
@@ -998,7 +929,9 @@ with or contains the label name — useful for structured storyboard exports.
     cropStageImage.setPreserveRatio(true);
     cropStageImage.setSmooth(true);
     cropStageCanvas = new Canvas(1280, 720);
-    cropStageCanvas.setMouseTransparent(true);
+    cropStageCanvas.setFocusTraversable(true);
+    cropStageCanvas.setPickOnBounds(true);
+    cropStageCanvas.setCursor(Cursor.CROSSHAIR);
 
     StackPane cropHost = new StackPane(cropStageImage, cropStageCanvas);
     cropHost.setAlignment(Pos.CENTER);
@@ -1065,28 +998,25 @@ with or contains the label name — useful for structured storyboard exports.
     host.setPickOnBounds(true);
     host.setCursor(Cursor.CROSSHAIR);
     imageView.setMouseTransparent(true);
-    host.addEventFilter(MouseEvent.MOUSE_PRESSED, e -> {
+    canvas.addEventHandler(MouseEvent.MOUSE_PRESSED, e -> {
       if (e.getButton() != MouseButton.PRIMARY) return;
-      Point2D local = host.sceneToLocal(e.getSceneX(), e.getSceneY());
-      beginCropDrag(canvas, imageView, local.getX(), local.getY());
+      canvas.requestFocus();
+      beginCropDrag(canvas, imageView, e.getX(), e.getY());
       e.consume();
     });
-    host.addEventFilter(MouseEvent.MOUSE_DRAGGED, e -> {
-      if (!e.isPrimaryButtonDown()) return;
-      Point2D local = host.sceneToLocal(e.getSceneX(), e.getSceneY());
-      updateCropDrag(canvas, imageView, local.getX(), local.getY());
+    canvas.addEventHandler(MouseEvent.MOUSE_DRAGGED, e -> {
+      if (!draggingCrop) return;
+      updateCropDrag(canvas, imageView, e.getX(), e.getY());
       e.consume();
     });
-    host.addEventFilter(MouseEvent.MOUSE_RELEASED, e -> {
+    canvas.addEventHandler(MouseEvent.MOUSE_RELEASED, e -> {
       if (e.getButton() != MouseButton.PRIMARY) return;
-      Point2D local = host.sceneToLocal(e.getSceneX(), e.getSceneY());
-      finishCropDrag(canvas, imageView, local.getX(), local.getY());
+      finishCropDrag(canvas, imageView, e.getX(), e.getY());
       e.consume();
     });
   }
 
   private void beginCropDrag(Canvas canvas, ImageView imageView, double canvasX, double canvasY) {
-    if (CROP_CONTROLS_UNDER_MAINTENANCE) return;
     StoryboardFrame selected = framesList.getSelectionModel().getSelectedItem();
     Image image = selected == null ? null : loadImage(selected.path());
     if (image == null || image.isError()) return;
@@ -1103,7 +1033,6 @@ with or contains the label name — useful for structured storyboard exports.
   }
 
   private void updateCropDrag(Canvas canvas, ImageView imageView, double canvasX, double canvasY) {
-    if (CROP_CONTROLS_UNDER_MAINTENANCE) return;
     if (!draggingCrop) return;
     Image image = imageView == null ? null : imageView.getImage();
     ImagePoint point = canvasToImagePoint(canvas, imageView, canvasX, canvasY, image);
@@ -1117,7 +1046,6 @@ with or contains the label name — useful for structured storyboard exports.
   }
 
   private void finishCropDrag(Canvas canvas, ImageView imageView, double canvasX, double canvasY) {
-    if (CROP_CONTROLS_UNDER_MAINTENANCE) return;
     if (!draggingCrop) return;
     updateCropDrag(canvas, imageView, canvasX, canvasY);
     draggingCrop = false;
@@ -1176,10 +1104,6 @@ with or contains the label name — useful for structured storyboard exports.
       if (metaLabel != null) metaLabel.setText("Crop: select a storyboard frame.");
       return;
     }
-    if (CROP_CONTROLS_UNDER_MAINTENANCE) {
-      if (metaLabel != null) metaLabel.setText("Crop controls are under maintenance.");
-      return;
-    }
     PreviewImageBounds imageBounds = previewImageBounds(canvas, imageView, image);
     gc.setStroke(Color.rgb(154, 170, 187, 0.55));
     gc.setLineDashes(5, 4);
@@ -1215,9 +1139,9 @@ with or contains the label name — useful for structured storyboard exports.
               + ", "
               + formatNumber(cropY)
               + "  "
-              + formatNumber(cropWidth)
+              + formatNumber(effectiveCropWidth(image))
               + "x"
-              + formatNumber(cropHeight)
+              + formatNumber(effectiveCropHeight(image))
               + (cropEnabledCheck.isSelected() ? " shown" : " saved, full frame shown"));
     }
   }
@@ -1306,11 +1230,24 @@ with or contains the label name — useful for structured storyboard exports.
       return;
     }
     String prefix = cropPropertyPrefix(frame);
+    Image image = loadImage(frame.path());
     props.setProperty(prefix + CROP_ENABLED, Boolean.toString(cropEnabledCheck.isSelected()));
     props.setProperty(prefix + CROP_X, formatNumber(cropX));
     props.setProperty(prefix + CROP_Y, formatNumber(cropY));
-    props.setProperty(prefix + CROP_W, formatNumber(cropWidth));
-    props.setProperty(prefix + CROP_H, formatNumber(cropHeight));
+    props.setProperty(prefix + CROP_W, formatNumber(effectiveCropWidth(image)));
+    props.setProperty(prefix + CROP_H, formatNumber(effectiveCropHeight(image)));
+  }
+
+  private double effectiveCropWidth(Image image) {
+    if (image == null || image.isError() || image.getWidth() <= 0.0) return 0.0;
+    double sourceX = Math.max(0.0, Math.min(image.getWidth(), cropX));
+    return Math.max(0.0, Math.min(image.getWidth() - sourceX, cropWidth));
+  }
+
+  private double effectiveCropHeight(Image image) {
+    if (image == null || image.isError() || image.getHeight() <= 0.0) return 0.0;
+    double sourceY = Math.max(0.0, Math.min(image.getHeight(), cropY));
+    return Math.max(0.0, Math.min(image.getHeight() - sourceY, cropHeight));
   }
 
   private void removeCropProperties(Properties props, StoryboardFrame frame) {
@@ -1381,7 +1318,8 @@ with or contains the label name — useful for structured storyboard exports.
     cropEnabledCheck.setDisable(!hasSelection || !hasValidCrop());
     expandCropButton.setDisable(!hasSelection);
     clearCropButton.setDisable(!hasSelection || !hasValidCrop());
-    if (cropPreviewStack != null) cropPreviewStack.setDisable(!hasSelection);
+    if (cropPreviewStack != null) cropPreviewStack.setCursor(hasSelection ? Cursor.CROSSHAIR : Cursor.DEFAULT);
+    cropCanvas.setMouseTransparent(!hasSelection);
   }
 
   private void loadState() {
@@ -1393,6 +1331,8 @@ with or contains the label name — useful for structured storyboard exports.
       enabledCheck.setSelected(false);
       followActiveCheck.setSelected(true);
       hideUiCheck.setSelected(false);
+      runtimeSizeExplicit = false;
+      storyboardSizeExplicit = false;
       opacitySlider.setValue(35.0);
       ProjectViewportSpec.Dimensions dims = ProjectViewportSpec.resolve(projectRoot);
       fitModeCombo.getSelectionModel().select(StoryboardOverlayState.FitMode.FIT);
@@ -1420,10 +1360,20 @@ with or contains the label name — useful for structured storyboard exports.
       opacitySlider.setValue(parseOpacity(persisted.getProperty(KEY_OPACITY), 35.0));
       opacityValueLabel.setText(Integer.toString((int) Math.round(opacitySlider.getValue())) + "%");
       fitModeCombo.getSelectionModel().select(StoryboardOverlayState.FitMode.parse(persisted.getProperty(KEY_FIT_MODE)));
-      runtimeWidthField.setText(formatNumber(parseNumber(persisted.getProperty(KEY_RUNTIME_WIDTH), dims.width())));
-      runtimeHeightField.setText(formatNumber(parseNumber(persisted.getProperty(KEY_RUNTIME_HEIGHT), dims.height())));
-      storyboardWidthField.setText(formatNumber(parseNumber(persisted.getProperty(KEY_STORYBOARD_WIDTH), dims.width())));
-      storyboardHeightField.setText(formatNumber(parseNumber(persisted.getProperty(KEY_STORYBOARD_HEIGHT), dims.height())));
+      runtimeSizeExplicit = Boolean.parseBoolean(persisted.getProperty(KEY_RUNTIME_SIZE_EXPLICIT, "false"));
+      storyboardSizeExplicit = Boolean.parseBoolean(persisted.getProperty(KEY_STORYBOARD_SIZE_EXPLICIT, "false"));
+      runtimeWidthField.setText(formatNumber(runtimeSizeExplicit
+          ? parseNumber(persisted.getProperty(KEY_RUNTIME_WIDTH), dims.width())
+          : dims.width()));
+      runtimeHeightField.setText(formatNumber(runtimeSizeExplicit
+          ? parseNumber(persisted.getProperty(KEY_RUNTIME_HEIGHT), dims.height())
+          : dims.height()));
+      storyboardWidthField.setText(formatNumber(storyboardSizeExplicit
+          ? parseNumber(persisted.getProperty(KEY_STORYBOARD_WIDTH), dims.width())
+          : dims.width()));
+      storyboardHeightField.setText(formatNumber(storyboardSizeExplicit
+          ? parseNumber(persisted.getProperty(KEY_STORYBOARD_HEIGHT), dims.height())
+          : dims.height()));
       scaleSlider.setValue(parseScalePercent(persisted.getProperty(KEY_SCALE), 100.0));
       scaleValueLabel.setText(Integer.toString((int) Math.round(scaleSlider.getValue())) + "%");
       offsetXField.setText(formatNumber(parseNumber(persisted.getProperty(KEY_OFFSET_X), 0.0)));
@@ -1450,10 +1400,16 @@ with or contains the label name — useful for structured storyboard exports.
       props.setProperty(KEY_HIDE_UI, Boolean.toString(hideUiCheck.isSelected()));
       props.setProperty(KEY_OPACITY, Double.toString(opacitySlider.getValue()));
       props.setProperty(KEY_FIT_MODE, fitModeCombo.getValue() == null ? StoryboardOverlayState.FitMode.FIT.name() : fitModeCombo.getValue().name());
-      props.setProperty(KEY_RUNTIME_WIDTH, formatNumber(parseNumber(runtimeWidthField.getText(), ProjectViewportSpec.resolve(projectRoot).width())));
-      props.setProperty(KEY_RUNTIME_HEIGHT, formatNumber(parseNumber(runtimeHeightField.getText(), ProjectViewportSpec.resolve(projectRoot).height())));
-      props.setProperty(KEY_STORYBOARD_WIDTH, formatNumber(parseNumber(storyboardWidthField.getText(), ProjectViewportSpec.resolve(projectRoot).width())));
-      props.setProperty(KEY_STORYBOARD_HEIGHT, formatNumber(parseNumber(storyboardHeightField.getText(), ProjectViewportSpec.resolve(projectRoot).height())));
+      props.setProperty(KEY_RUNTIME_SIZE_EXPLICIT, Boolean.toString(runtimeSizeExplicit));
+      props.setProperty(KEY_STORYBOARD_SIZE_EXPLICIT, Boolean.toString(storyboardSizeExplicit));
+      if (runtimeSizeExplicit) {
+        props.setProperty(KEY_RUNTIME_WIDTH, formatNumber(parseNumber(runtimeWidthField.getText(), ProjectViewportSpec.resolve(projectRoot).width())));
+        props.setProperty(KEY_RUNTIME_HEIGHT, formatNumber(parseNumber(runtimeHeightField.getText(), ProjectViewportSpec.resolve(projectRoot).height())));
+      }
+      if (storyboardSizeExplicit) {
+        props.setProperty(KEY_STORYBOARD_WIDTH, formatNumber(parseNumber(storyboardWidthField.getText(), ProjectViewportSpec.resolve(projectRoot).width())));
+        props.setProperty(KEY_STORYBOARD_HEIGHT, formatNumber(parseNumber(storyboardHeightField.getText(), ProjectViewportSpec.resolve(projectRoot).height())));
+      }
       props.setProperty(KEY_SCALE, Double.toString(scaleSlider.getValue()));
       props.setProperty(KEY_OFFSET_X, formatNumber(parseNumber(offsetXField.getText(), 0.0)));
       props.setProperty(KEY_OFFSET_Y, formatNumber(parseNumber(offsetYField.getText(), 0.0)));

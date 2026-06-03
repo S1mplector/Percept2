@@ -177,7 +177,9 @@ final class StoryboardOverlayCatalog {
     return name.endsWith(".png")
         || name.endsWith(".jpg")
         || name.endsWith(".jpeg")
-        || name.endsWith(".webp");
+        || name.endsWith(".webp")
+        || name.endsWith(".bmp")
+        || name.endsWith(".gif");
   }
 
   private static int rankPath(Path path) {

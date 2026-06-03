@@ -12,10 +12,10 @@ final class StoryboardOverlayPlacement {
     double runtimeWidth = state.runtimeWidth() > 0.0 ? state.runtimeWidth() : viewportWidth;
     double runtimeHeight = state.runtimeHeight() > 0.0 ? state.runtimeHeight() : viewportHeight;
     double boardWidth = state.cropEnabled() && state.cropWidth() > 0.0
-        ? state.cropWidth()
+        ? effectiveCropWidth(state)
         : state.storyboardWidth() > 0.0 ? state.storyboardWidth() : state.image().getWidth();
     double boardHeight = state.cropEnabled() && state.cropHeight() > 0.0
-        ? state.cropHeight()
+        ? effectiveCropHeight(state)
         : state.storyboardHeight() > 0.0 ? state.storyboardHeight() : state.image().getHeight();
     runtimeWidth = runtimeWidth > 0.0 ? runtimeWidth : viewportWidth;
     runtimeHeight = runtimeHeight > 0.0 ? runtimeHeight : viewportHeight;
@@ -62,6 +62,18 @@ final class StoryboardOverlayPlacement {
         viewportY + y * viewportScaleY,
         width * viewportScaleX,
         height * viewportScaleY);
+  }
+
+  private static double effectiveCropWidth(StoryboardOverlayState state) {
+    double imageWidth = state.image().getWidth();
+    double sourceX = Math.max(0.0, Math.min(imageWidth, state.cropX()));
+    return Math.max(0.0, Math.min(imageWidth - sourceX, state.cropWidth()));
+  }
+
+  private static double effectiveCropHeight(StoryboardOverlayState state) {
+    double imageHeight = state.image().getHeight();
+    double sourceY = Math.max(0.0, Math.min(imageHeight, state.cropY()));
+    return Math.max(0.0, Math.min(imageHeight - sourceY, state.cropHeight()));
   }
 
   record Rect(double x, double y, double width, double height) {

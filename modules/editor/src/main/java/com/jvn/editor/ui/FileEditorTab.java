@@ -152,6 +152,11 @@ public class FileEditorTab extends BorderPane {
       viewport.setOnSelected(e -> { if (onSelected != null) onSelected.accept(e); });
       viewport.setOnStatus(s -> { if (onStatus != null) onStatus.accept(s); });
       viewport.setOnHotReloadRequested(this::hotReloadFromPreview);
+      viewport.setOnStoryboardStateAdjusted(state -> {
+        if (onStoryboardOverlayAdjusted != null) {
+          onStoryboardOverlayAdjusted.accept(state);
+        }
+      });
     }
     
     if (vnsEditor != null) {

@@ -37,6 +37,8 @@ The Storyboard Overlay is a sidebar panel that scans a storyboard folder, lists 
 | **Reveal frame** | Opens the selected frame in the OS so artists can jump straight to the source file |
 | **Preview thumbnail** | Shows the selected frame with path, dimensions, and list position below the list |
 | **Flush preview compositing** | Overlay maps directly onto the active JES/VNS preview rectangle from `jvn.project`, so matching-size boards sit edge-to-edge with the engine preview |
+| **Crop selection** | Drag directly on the frame preview, or open the large crop selector, to use part of a storyboard page as the overlay source |
+| **Direct offset drag** | Drag the rendered storyboard image in the active preview to adjust X/Y mapping offsets visually |
 
 ---
 
@@ -72,12 +74,19 @@ Keyboard support:
 - **Previous / Next** buttons — navigate frames sequentially
 - **Jump To Match** — snap to the strongest scene-aware storyboard candidate
 - **Reveal Frame** — open the selected image file outside the editor
+- **Crop preview** — drag over the preview image to save a crop rectangle for the selected frame
+- **Show selected crop only** — composites only the saved crop while preserving full-frame preview context when off
+- **Full Screen Crop** — opens a large crop selector for more precise source rectangles
+- **Clear Crop** — removes the saved crop for the selected frame
+- **Preview drag** — drag the storyboard image in the live JES/VNS preview to adjust X and Y offsets
 
 ### 4. Overlay Settings
 
 - **Show overlay in preview** — checkbox to enable/disable compositing
 - **Follow active scene** — automatically reselects the best frame match when the active JES/VNS tab changes
 - **Opacity slider** — 5% to 100% with live numeric readout
+- **Mode / Game / Board / Scale / Offset** — advanced mapping controls for fitting storyboard frames whose canvas differs from the project viewport
+- **Board dimensions** default to the selected image dimensions until explicitly changed with the fields or setup buttons
 
 ---
 
@@ -108,6 +117,14 @@ All settings are saved to `.jvn/storyboard-overlay.properties`:
 | `followActive` | Whether the panel should auto-follow the active JES/VNS scene |
 | `opacity` | Opacity percentage (5–100) |
 | `selected` | Last selected frame filename |
+| `hideUi` | Whether storyboard mode hides VN UI chrome in preview |
+| `fitMode` | Overlay placement mode (`FIT`, `FILL`, `STRETCH`, `ORIGINAL`) |
+| `runtimeWidth`, `runtimeHeight` | Runtime viewport dimensions used for overlay placement |
+| `runtimeSizeExplicit` | Whether runtime dimensions were manually overridden |
+| `storyboardWidth`, `storyboardHeight` | Storyboard canvas dimensions used for mapping |
+| `storyboardSizeExplicit` | Whether storyboard dimensions were manually overridden |
+| `scale`, `offsetX`, `offsetY` | Manual placement transform |
+| `crop.*` | Per-frame crop rectangles and crop enabled state |
 
 State is restored automatically when the panel reopens.
 

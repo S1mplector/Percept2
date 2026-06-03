@@ -46,9 +46,15 @@ public class ViewportView extends StackPane {
   private boolean dragging = false;
   private double dragOffsetX, dragOffsetY;
   private double dragStartX, dragStartY;
+  private boolean storyboardOffsetDragging = false;
+  private boolean storyboardOffsetDragMoved = false;
+  private boolean suppressNextStoryboardClick = false;
+  private double storyboardDragStartX, storyboardDragStartY;
+  private double storyboardDragStartOffsetX, storyboardDragStartOffsetY;
 
   private Consumer<Entity2D> onSelected;
   private Consumer<String> onStatus;
+  private Consumer<StoryboardOverlayState> onStoryboardStateAdjusted;
   private Runnable onHotReloadRequested;
   private CommandStack commands;
 
@@ -57,6 +63,10 @@ public class ViewportView extends StackPane {
 
     // Mouse handlers
     canvas.setOnMouseClicked(e -> {
+      if (suppressNextStoryboardClick) {
+        suppressNextStoryboardClick = false;
+        return;
+      }
       if (!isInsidePreviewSurface(e.getX(), e.getY())) return;
       pick(screenToPreviewX(e.getX()), screenToPreviewY(e.getY()));
       if (onSelected != null) onSelected.accept(selected);
@@ -64,7 +74,9 @@ public class ViewportView extends StackPane {
     canvas.setOnMouseMoved(e -> input.setMousePosition(screenToPreviewX(e.getX()), screenToPreviewY(e.getY())));
     canvas.setOnMouseDragged(e -> {
       input.setMousePosition(screenToPreviewX(e.getX()), screenToPreviewY(e.getY()));
-      if (dragging && selected != null && e.isPrimaryButtonDown()) {
+      if (storyboardOffsetDragging && e.isPrimaryButtonDown()) {
+        dragStoryboardOverlayTo(e.getX(), e.getY());
+      } else if (dragging && selected != null && e.isPrimaryButtonDown()) {
         double z = camera.getZoom();
         double wx = camera.getX() + screenToPreviewX(e.getX()) / z;
         double wy = camera.getY() + screenToPreviewY(e.getY()) / z;
@@ -98,6 +110,17 @@ public class ViewportView extends StackPane {
           selected = null;
           return;
         }
+        if (storyboardModeActive() && isInsideStoryboardImage(e.getX(), e.getY())) {
+          storyboardOffsetDragging = true;
+          storyboardOffsetDragMoved = false;
+          storyboardDragStartX = e.getX();
+          storyboardDragStartY = e.getY();
+          storyboardDragStartOffsetX = storyboardOverlay.offsetX();
+          storyboardDragStartOffsetY = storyboardOverlay.offsetY();
+          dragging = false;
+          selected = null;
+          return;
+        }
         double z = camera.getZoom();
         double previewX = screenToPreviewX(e.getX());
         double previewY = screenToPreviewY(e.getY());
@@ -117,6 +140,12 @@ public class ViewportView extends StackPane {
       input.mouseUp(mapButton(e.getButton()));
       if (e.getButton() == MouseButton.MIDDLE || e.getButton() == MouseButton.SECONDARY) panning = false;
       if (e.getButton() == MouseButton.PRIMARY) {
+        if (storyboardOffsetDragging) {
+          storyboardOffsetDragging = false;
+          suppressNextStoryboardClick = storyboardOffsetDragMoved;
+          storyboardOffsetDragMoved = false;
+          return;
+        }
         if (dragging && selected != null && commands != null) {
           double tx = selected.getX(), ty = selected.getY();
           if (Math.abs(tx - dragStartX) > 0.0001 || Math.abs(ty - dragStartY) > 0.0001) {
@@ -147,6 +176,7 @@ public class ViewportView extends StackPane {
 
   public void setOnSelected(Consumer<Entity2D> c) { this.onSelected = c; }
   public void setOnStatus(Consumer<String> c) { this.onStatus = c; }
+  public void setOnStoryboardStateAdjusted(Consumer<StoryboardOverlayState> c) { this.onStoryboardStateAdjusted = c; }
   public void setOnHotReloadRequested(Runnable c) { this.onHotReloadRequested = c; }
   public void setCommandStack(CommandStack cs) { this.commands = cs; }
 
@@ -480,6 +510,62 @@ public class ViewportView extends StackPane {
         && canvasX <= surface.x + surface.width
         && canvasY >= surface.y
         && canvasY <= surface.y + surface.height;
+  }
+
+  private boolean isInsideStoryboardImage(double canvasX, double canvasY) {
+    if (!storyboardModeActive()) return false;
+    PreviewSurface surface = previewSurface(canvas.getWidth(), canvas.getHeight());
+    StoryboardOverlayPlacement.Rect placement = StoryboardOverlayPlacement.compute(
+        storyboardOverlay,
+        surface.x,
+        surface.y,
+        surface.width,
+        surface.height);
+    return placement != null
+        && canvasX >= placement.x()
+        && canvasX <= placement.x() + placement.width()
+        && canvasY >= placement.y()
+        && canvasY <= placement.y() + placement.height();
+  }
+
+  private void dragStoryboardOverlayTo(double canvasX, double canvasY) {
+    if (!storyboardModeActive()) return;
+    PreviewSurface surface = previewSurface(canvas.getWidth(), canvas.getHeight());
+    double runtimeWidth = storyboardOverlay.runtimeWidth() > 0.0 ? storyboardOverlay.runtimeWidth() : overlayViewportWidth;
+    double runtimeHeight = storyboardOverlay.runtimeHeight() > 0.0 ? storyboardOverlay.runtimeHeight() : overlayViewportHeight;
+    double scaleX = surface.width / Math.max(1.0, runtimeWidth);
+    double scaleY = surface.height / Math.max(1.0, runtimeHeight);
+    double nextOffsetX = storyboardDragStartOffsetX + (canvasX - storyboardDragStartX) / Math.max(1e-9, scaleX);
+    double nextOffsetY = storyboardDragStartOffsetY + (canvasY - storyboardDragStartY) / Math.max(1e-9, scaleY);
+    if (Math.abs(nextOffsetX - storyboardOverlay.offsetX()) < 0.01
+        && Math.abs(nextOffsetY - storyboardOverlay.offsetY()) < 0.01) {
+      return;
+    }
+    storyboardOffsetDragMoved = true;
+    storyboardOverlay = storyboardWithOffset(nextOffsetX, nextOffsetY);
+    if (onStoryboardStateAdjusted != null) onStoryboardStateAdjusted.accept(storyboardOverlay);
+  }
+
+  private StoryboardOverlayState storyboardWithOffset(double offsetX, double offsetY) {
+    return new StoryboardOverlayState(
+        true,
+        storyboardOverlay.image(),
+        storyboardOverlay.opacity(),
+        storyboardOverlay.sourcePath(),
+        storyboardOverlay.hideUi(),
+        storyboardOverlay.fitMode(),
+        storyboardOverlay.runtimeWidth(),
+        storyboardOverlay.runtimeHeight(),
+        storyboardOverlay.storyboardWidth(),
+        storyboardOverlay.storyboardHeight(),
+        storyboardOverlay.scale(),
+        offsetX,
+        offsetY,
+        storyboardOverlay.cropEnabled(),
+        storyboardOverlay.cropX(),
+        storyboardOverlay.cropY(),
+        storyboardOverlay.cropWidth(),
+        storyboardOverlay.cropHeight());
   }
 
   private double screenToPreviewX(double canvasX) {
