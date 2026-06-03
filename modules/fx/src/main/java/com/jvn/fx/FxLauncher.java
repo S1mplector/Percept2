@@ -226,6 +226,12 @@ public class FxLauncher extends Application {
         return;
       }
 
+      if (e.isShiftDown() && e.getCode() == KeyCode.R) {
+        handleManualHotReload();
+        e.consume();
+        return;
+      }
+
       if (e.getCode() == KeyCode.SPACE || e.getCode() == KeyCode.ENTER) {
         if (!handleMenuEnter()) handleAdvance();
       } else if (e.getCode() == KeyCode.CONTROL || e.getCode() == KeyCode.COMMAND) {
@@ -1686,6 +1692,15 @@ public class FxLauncher extends Application {
       reloadTopVnScene();
     }
     logProjectHealth("hot-reload");
+  }
+
+  private void handleManualHotReload() {
+    if (engine == null) return;
+    handleProjectHotReload(new ProjectHotReloadTracker.ChangeSet(true, true, true, true, true, true));
+    com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
+    if (currentScene instanceof VnScene vn && vn.getState() != null) {
+      vn.getState().showHudMessage("Hot reload requested", 1000);
+    }
   }
 
   private void reloadLocalizationFromProject() {

@@ -7,6 +7,10 @@ Format:
     lines separate them. The block ends at the next "## " header or end of file.
 
 ----
+
+## 2026-06-03
+The storyboard overlay is now out of maintenance. Over the span of the next few days, there will be more updates on it. 
+
 ## 2026-05-28 — Version control graph view
 The Version Control utility now has a Changes/Graph view switch. Changes keeps the existing changed-file workflow, while Graph shows a VS Code-style visual history with commit dots, branch lanes, commit messages, authors, and branch chips.
 

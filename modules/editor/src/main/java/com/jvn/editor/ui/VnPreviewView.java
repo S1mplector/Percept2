@@ -109,6 +109,7 @@ public class VnPreviewView extends StackPane {
   private StoryboardOverlayState storyboardOverlay = StoryboardOverlayState.none();
   private Consumer<StoryboardOverlayState> onStoryboardStateAdjusted;
   private Consumer<Integer> onStoryboardPreviewLineChanged;
+  private Runnable onHotReloadRequested;
   private final VBox storyboardHud = new VBox(6);
   private final Label storyboardHudTitle = new Label("Storyboard");
   private final Label storyboardHudFrameLabel = new Label("");
@@ -127,7 +128,7 @@ public class VnPreviewView extends StackPane {
 
   public VnPreviewView() {
     configureStoryboardHud();
-    getChildren().addAll(canvas, phoneRenderer, storyboardHud);
+    getChildren().addAll(canvas, phoneRenderer);
     StackPane.setAlignment(storyboardHud, Pos.TOP_RIGHT);
     StackPane.setMargin(storyboardHud, new Insets(12));
     setFocusTraversable(true);
@@ -178,7 +179,20 @@ public class VnPreviewView extends StackPane {
           storyboardOverlay.image(),
           newValue.doubleValue() / 100.0,
           storyboardOverlay.sourcePath(),
-          storyboardHideUiCheck.isSelected());
+          storyboardHideUiCheck.isSelected(),
+          storyboardOverlay.fitMode(),
+          storyboardOverlay.runtimeWidth(),
+          storyboardOverlay.runtimeHeight(),
+          storyboardOverlay.storyboardWidth(),
+          storyboardOverlay.storyboardHeight(),
+          storyboardOverlay.scale(),
+          storyboardOverlay.offsetX(),
+          storyboardOverlay.offsetY(),
+          storyboardOverlay.cropEnabled(),
+          storyboardOverlay.cropX(),
+          storyboardOverlay.cropY(),
+          storyboardOverlay.cropWidth(),
+          storyboardOverlay.cropHeight());
       emitStoryboardStateAdjusted();
     });
     storyboardHideUiCheck.selectedProperty().addListener((obs, oldValue, newValue) -> {
@@ -189,7 +203,20 @@ public class VnPreviewView extends StackPane {
           storyboardOverlay.image(),
           storyboardOverlay.opacity(),
           storyboardOverlay.sourcePath(),
-          newValue);
+          newValue,
+          storyboardOverlay.fitMode(),
+          storyboardOverlay.runtimeWidth(),
+          storyboardOverlay.runtimeHeight(),
+          storyboardOverlay.storyboardWidth(),
+          storyboardOverlay.storyboardHeight(),
+          storyboardOverlay.scale(),
+          storyboardOverlay.offsetX(),
+          storyboardOverlay.offsetY(),
+          storyboardOverlay.cropEnabled(),
+          storyboardOverlay.cropX(),
+          storyboardOverlay.cropY(),
+          storyboardOverlay.cropWidth(),
+          storyboardOverlay.cropHeight());
       applyStoryboardUiState();
       emitStoryboardStateAdjusted();
     });
@@ -208,6 +235,60 @@ public class VnPreviewView extends StackPane {
 
   public void runScenario(VnScenario scenario, String label) {
     initializeScenario(scenario, label);
+  }
+
+  public void reloadScenarioPreservingPosition(VnScenario scenario) {
+    if (scenario == null) {
+      initializeScenario(null, null);
+      return;
+    }
+    String anchorLabel = null;
+    int currentLine = -1;
+    java.util.Map<String, Object> variables = java.util.Map.of();
+    boolean uiHidden = false;
+    boolean skipMode = false;
+    boolean autoPlayMode = false;
+    VnSettings existingSettings = scene == null ? null : scene.getState().getSettings();
+    if (scene != null && scene.getState() != null) {
+      currentLine = resolveCurrentStoryboardLine();
+      if (scene.getScenario() != null) {
+        anchorLabel = scene.getScenario().findLabelAtOrBefore(scene.getState().getCurrentNodeIndex());
+      }
+      variables = new java.util.HashMap<>(scene.getState().getVariables());
+      uiHidden = scene.getState().isUiHidden();
+      skipMode = scene.getState().isSkipMode();
+      autoPlayMode = scene.getState().isAutoPlayMode();
+    }
+
+    renderer.resetParticleState();
+    activeError = null;
+    stopAudio();
+    VnScene nextScene = buildScene(scenario, null, sourceScriptName, existingSettings, false);
+    nextScene.getState().getVariables().putAll(variables);
+    nextScene.getState().setUiHidden(uiHidden);
+    nextScene.getState().setSkipMode(skipMode);
+    nextScene.getState().setAutoPlayMode(autoPlayMode);
+
+    if (anchorLabel != null && scenario.getLabelIndex(anchorLabel) != null) {
+      nextScene.getState().jumpToLabel(anchorLabel);
+      nextScene.preflightState(nextScene.getState().getCurrentNodeIndex());
+    } else if (currentLine > 0) {
+      int targetIndex = findNodeIndexForSourceLine(scenario, currentLine);
+      if (targetIndex > 0) {
+        nextScene.preflightState(targetIndex);
+        nextScene.getState().setCurrentNodeIndex(targetIndex);
+      }
+    }
+
+    this.scene = nextScene;
+    this.overlayScene = null;
+    phoneRenderer.setSceneModel(null);
+    renderer.setAudioFacade(audio);
+    this.scene.onEnter();
+    storyboardPreviewLine = resolveCurrentStoryboardLine();
+    emitStoryboardPreviewLineChanged();
+    applyStoryboardUiState();
+    requestFocus();
   }
 
   public void setSourceScriptName(String sourceScriptName) {
@@ -261,6 +342,10 @@ public class VnPreviewView extends StackPane {
 
   public void setOnStoryboardPreviewLineChanged(Consumer<Integer> listener) {
     this.onStoryboardPreviewLineChanged = listener;
+  }
+
+  public void setOnHotReloadRequested(Runnable listener) {
+    this.onHotReloadRequested = listener;
   }
 
   public int getStoryboardPreviewLine() {
@@ -412,9 +497,8 @@ public class VnPreviewView extends StackPane {
           storyboardOverlay.sourcePath() == null || storyboardOverlay.sourcePath().isBlank()
               ? "No storyboard frame selected"
               : storyboardOverlay.sourcePath());
-      boolean visible = isStoryboardModeActive();
-      storyboardHud.setVisible(visible);
-      storyboardHud.setManaged(visible);
+      storyboardHud.setVisible(false);
+      storyboardHud.setManaged(false);
     } finally {
       applyingStoryboardHud = false;
     }
@@ -632,13 +716,28 @@ public class VnPreviewView extends StackPane {
     gc.closePath();
     gc.clip();
     gc.setGlobalAlpha(storyboardOverlay.opacity());
-    gc.drawImage(
-        storyboardOverlay.image(),
+    StoryboardOverlayPlacement.Rect placement = StoryboardOverlayPlacement.compute(
+        storyboardOverlay,
         layout.viewportX,
         layout.viewportY,
         layout.viewportWidth,
         layout.viewportHeight);
+    drawStoryboardImage(placement);
     gc.restore();
+  }
+
+  private void drawStoryboardImage(StoryboardOverlayPlacement.Rect placement) {
+    if (placement == null || placement.width() <= 0.0 || placement.height() <= 0.0) return;
+    Image image = storyboardOverlay.image();
+    if (storyboardOverlay.cropEnabled()) {
+      double sx = Math.max(0.0, Math.min(image.getWidth(), storyboardOverlay.cropX()));
+      double sy = Math.max(0.0, Math.min(image.getHeight(), storyboardOverlay.cropY()));
+      double sw = Math.max(1.0, Math.min(image.getWidth() - sx, storyboardOverlay.cropWidth()));
+      double sh = Math.max(1.0, Math.min(image.getHeight() - sy, storyboardOverlay.cropHeight()));
+      gc.drawImage(image, sx, sy, sw, sh, placement.x(), placement.y(), placement.width(), placement.height());
+      return;
+    }
+    gc.drawImage(image, placement.x(), placement.y(), placement.width(), placement.height());
   }
 
   private void syncPhoneOverlay() {
@@ -990,7 +1089,20 @@ public class VnPreviewView extends StackPane {
         storyboardOverlay.image(),
         storyboardOverlay.opacity(),
         storyboardOverlay.sourcePath(),
-        scene.getState().isUiHidden());
+        scene.getState().isUiHidden(),
+        storyboardOverlay.fitMode(),
+        storyboardOverlay.runtimeWidth(),
+        storyboardOverlay.runtimeHeight(),
+        storyboardOverlay.storyboardWidth(),
+        storyboardOverlay.storyboardHeight(),
+        storyboardOverlay.scale(),
+        storyboardOverlay.offsetX(),
+        storyboardOverlay.offsetY(),
+        storyboardOverlay.cropEnabled(),
+        storyboardOverlay.cropX(),
+        storyboardOverlay.cropY(),
+        storyboardOverlay.cropWidth(),
+        storyboardOverlay.cropHeight());
     syncStoryboardHud();
     emitStoryboardStateAdjusted();
   }
@@ -1138,8 +1250,15 @@ public class VnPreviewView extends StackPane {
   }
 
   private void handleKeyPressed(KeyEvent e) {
-    if (scene == null) return;
     KeyCode code = e.getCode();
+    if (e.isShiftDown() && code == KeyCode.R) {
+      if (onHotReloadRequested != null) {
+        onHotReloadRequested.run();
+        e.consume();
+      }
+      return;
+    }
+    if (scene == null) return;
     var state = scene.getState();
 
     if (overlayScene != null) {

@@ -49,6 +49,7 @@ public class ViewportView extends StackPane {
 
   private Consumer<Entity2D> onSelected;
   private Consumer<String> onStatus;
+  private Runnable onHotReloadRequested;
   private CommandStack commands;
 
   public ViewportView() {
@@ -135,12 +136,18 @@ public class ViewportView extends StackPane {
 
     // Key handler to prevent text inputs eating keys when focused on viewport
     addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+      if (e.isShiftDown() && e.getCode() == javafx.scene.input.KeyCode.R) {
+        if (onHotReloadRequested != null) onHotReloadRequested.run();
+        e.consume();
+        return;
+      }
       if (e.getTarget() == canvas) e.consume();
     });
   }
 
   public void setOnSelected(Consumer<Entity2D> c) { this.onSelected = c; }
   public void setOnStatus(Consumer<String> c) { this.onStatus = c; }
+  public void setOnHotReloadRequested(Runnable c) { this.onHotReloadRequested = c; }
   public void setCommandStack(CommandStack cs) { this.commands = cs; }
 
   public void setScene(JesScene2D s) {
@@ -319,8 +326,28 @@ public class ViewportView extends StackPane {
     if (!storyboardModeActive() || surface == null) return;
     gc.save();
     gc.setGlobalAlpha(storyboardOverlay.opacity());
-    gc.drawImage(storyboardOverlay.image(), 0, 0, surface.width, surface.height);
+    StoryboardOverlayPlacement.Rect placement = StoryboardOverlayPlacement.compute(
+        storyboardOverlay,
+        0.0,
+        0.0,
+        surface.width,
+        surface.height);
+    drawStoryboardImage(placement);
     gc.restore();
+  }
+
+  private void drawStoryboardImage(StoryboardOverlayPlacement.Rect placement) {
+    if (placement == null || placement.width() <= 0.0 || placement.height() <= 0.0) return;
+    javafx.scene.image.Image image = storyboardOverlay.image();
+    if (storyboardOverlay.cropEnabled()) {
+      double sx = Math.max(0.0, Math.min(image.getWidth(), storyboardOverlay.cropX()));
+      double sy = Math.max(0.0, Math.min(image.getHeight(), storyboardOverlay.cropY()));
+      double sw = Math.max(1.0, Math.min(image.getWidth() - sx, storyboardOverlay.cropWidth()));
+      double sh = Math.max(1.0, Math.min(image.getHeight() - sy, storyboardOverlay.cropHeight()));
+      gc.drawImage(image, sx, sy, sw, sh, placement.x(), placement.y(), placement.width(), placement.height());
+      return;
+    }
+    gc.drawImage(image, placement.x(), placement.y(), placement.width(), placement.height());
   }
 
   private void drawGrid(double w, double h) {

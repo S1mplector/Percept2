@@ -151,6 +151,7 @@ public class FileEditorTab extends BorderPane {
     if (viewport != null) {
       viewport.setOnSelected(e -> { if (onSelected != null) onSelected.accept(e); });
       viewport.setOnStatus(s -> { if (onStatus != null) onStatus.accept(s); });
+      viewport.setOnHotReloadRequested(this::hotReloadFromPreview);
     }
     
     if (vnsEditor != null) {
@@ -158,6 +159,7 @@ public class FileEditorTab extends BorderPane {
       vnsEditor.setOnStoryboardLineRequested(this::syncStoryboardPreviewToLine);
     }
     if (vnPreview != null) {
+      vnPreview.setOnHotReloadRequested(this::hotReloadFromPreview);
       vnPreview.setOnStoryboardPreviewLineChanged(this::syncStoryboardEditorCursor);
       vnPreview.setOnStoryboardStateAdjusted(state -> {
         if (onStoryboardOverlayAdjusted != null) {
@@ -287,6 +289,39 @@ public class FileEditorTab extends BorderPane {
     } catch (Exception ex) {
       showVnsParseOverlay(ex);
     }
+  }
+
+  public void hotReloadFromPreview() {
+    try {
+      if (kind == Kind.JES && jesEditor != null) {
+        saveCurrentFileIfPossible();
+        applyJesPreviewFromCode(jesEditor.getText());
+        if (onStatus != null) onStatus.accept("Hot reloaded JES preview");
+        return;
+      }
+      if (kind == Kind.VNS && vnsEditor != null && vnPreview != null) {
+        saveCurrentFileIfPossible();
+        String code = vnsEditor.getText();
+        if (code == null || code.isBlank()) return;
+        VnScenario scenario = parseVnsScenarioFromText(code);
+        vnPreview.setSourceScriptName(resolveVnsScriptKey());
+        vnPreview.reloadScenarioPreservingPosition(scenario);
+        HotReloadClient.sendReload(resolveVnsScriptKey());
+        if (onStatus != null) onStatus.accept("Hot reloaded VNS preview");
+      }
+    } catch (Exception ex) {
+      if (kind == Kind.VNS) {
+        showVnsParseOverlay(ex);
+      } else if (viewport != null) {
+        viewport.setActiveError(VnErrorOverlay.dslRuntimeError("JES", sourceNameForOverlay(), -1, ex.getMessage(), ex));
+      }
+      if (onStatus != null) onStatus.accept("Hot reload failed: " + ex.getMessage());
+    }
+  }
+
+  private void saveCurrentFileIfPossible() {
+    if (file == null) return;
+    saveTo(file);
   }
 
   private VnScenario parseVnsScenarioFromText(String code) throws IOException {

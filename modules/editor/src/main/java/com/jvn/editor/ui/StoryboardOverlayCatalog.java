@@ -21,6 +21,8 @@ final class StoryboardOverlayCatalog {
       List.of(
           "storyboard",
           "storyboards",
+          "game/storyboard",
+          "game/storyboards",
           "boards",
           "board",
           "animatic",

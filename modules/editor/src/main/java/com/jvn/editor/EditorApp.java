@@ -1825,7 +1825,7 @@ public class EditorApp extends Application {
     miWindowStoryboard.setOnAction(e -> {
       StoryboardOverlayView view = ensureStoryboardOverlayView();
       refreshStoryboardOverlayContext(getActiveFileTab());
-      launchPanelAsWindow("Storyboard Overlay", wrapMaintenance(view), 420, 720, EditorSidebarPanel.STORYBOARD_OVERLAY);
+      launchPanelAsWindow("Storyboard Overlay", view, 520, 780, EditorSidebarPanel.STORYBOARD_OVERLAY);
     });
     disableMaintenanceMenuItem(miWindowStoryboard, EditorSidebarPanel.STORYBOARD_OVERLAY);
     MenuItem miWindowLayered = new MenuItem("Layered Image Visualizer");
@@ -4997,7 +4997,6 @@ public class EditorApp extends Application {
 
   private boolean isUnderMaintenancePanel(EditorSidebarPanel panel) {
     return panel == EditorSidebarPanel.PHONE_ASSETS
-        || panel == EditorSidebarPanel.STORYBOARD_OVERLAY
         || panel == EditorSidebarPanel.IMAGE_ATTRIBUTES
         || panel == EditorSidebarPanel.MENU_FLOW;
   }
@@ -5122,19 +5121,18 @@ public class EditorApp extends Application {
   }
 
   private Tab ensureStoryboardOverlayTab(TabPane targetPane) {
-    if (blockMaintenancePanelLaunch(EditorSidebarPanel.STORYBOARD_OVERLAY, "Storyboard Overlay")) return null;
     closePanelWindow(EditorSidebarPanel.STORYBOARD_OVERLAY, true);
     StoryboardOverlayView storyboardOverlay = ensureStoryboardOverlayView();
     if (targetPane == null || storyboardOverlay == null) return null;
     if (tabStoryboardOverlay == null) {
-      tabStoryboardOverlay = new Tab("Storyboard Overlay", wrapMaintenance(storyboardOverlay));
+      tabStoryboardOverlay = new Tab("Storyboard Overlay", storyboardOverlay);
       tabStoryboardOverlay.setClosable(true);
       tabStoryboardOverlay.setOnClosed(e -> {
         tabStoryboardOverlay = null;
         releaseSidebarPanelIfUnused(EditorSidebarPanel.STORYBOARD_OVERLAY);
       });
-    } else if (!isMaintenanceWrapped(tabStoryboardOverlay)) {
-      tabStoryboardOverlay.setContent(wrapMaintenance(storyboardOverlay));
+    } else if (tabStoryboardOverlay.getContent() != storyboardOverlay) {
+      tabStoryboardOverlay.setContent(storyboardOverlay);
     }
     return attachSidebarPanelTab(tabStoryboardOverlay, EditorSidebarPanel.STORYBOARD_OVERLAY, targetPane);
   }
@@ -6095,7 +6093,7 @@ public class EditorApp extends Application {
     }, () -> {
       StoryboardOverlayView view = ensureStoryboardOverlayView();
       refreshStoryboardOverlayContext(getActiveFileTab());
-      launchPanelAsWindow("Storyboard Overlay", wrapMaintenance(view), 420, 720, EditorSidebarPanel.STORYBOARD_OVERLAY);
+      launchPanelAsWindow("Storyboard Overlay", view, 520, 780, EditorSidebarPanel.STORYBOARD_OVERLAY);
     }, () -> {
       rememberPanelPlacement(EditorSidebarPanel.STORYBOARD_OVERLAY, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
