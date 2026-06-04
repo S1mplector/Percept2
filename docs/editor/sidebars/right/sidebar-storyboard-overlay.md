@@ -74,7 +74,10 @@ Keyboard support:
 - **Previous / Next** buttons — navigate frames sequentially
 - **Jump To Match** — snap to the strongest scene-aware storyboard candidate
 - **Reveal Frame** — open the selected image file outside the editor
-- **Crop preview** — drag over the preview image to save a crop rectangle for the selected frame
+- **Crop Mode** — enters explicit crop drawing mode for the selected frame
+- **Crop preview** — while crop mode is active, drag over the preview image to draw a dashed crop rectangle
+- **Apply Crop** — saves the current crop rectangle and exits crop mode
+- **Exit Crop** — leaves crop mode without applying the current draft
 - **Show selected crop only** — composites only the saved crop while preserving full-frame preview context when off
 - **Full Screen Crop** — opens a large crop selector for more precise source rectangles
 - **Clear Crop** — removes the saved crop for the selected frame

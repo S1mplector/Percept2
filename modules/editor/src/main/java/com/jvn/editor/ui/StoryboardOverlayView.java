@@ -19,9 +19,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import javafx.event.EventHandler;
 import javafx.collections.FXCollections;
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
+import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -122,6 +124,9 @@ public class StoryboardOverlayView extends BorderPane {
   private final Button projectSizeButton = new Button("Project Size");
   private final Button imageSizeButton = new Button("Image Size");
   private final Button resetPlacementButton = new Button("Reset Align");
+  private final Button enterCropModeButton = new Button("Crop Mode");
+  private final Button applyCropButton = new Button("Apply Crop");
+  private final Button exitCropModeButton = new Button("Exit Crop");
   private final Button expandCropButton = new Button("Full Screen Crop");
   private final Button clearCropButton = new Button("Clear Crop");
 
@@ -143,7 +148,13 @@ public class StoryboardOverlayView extends BorderPane {
   private double cropHeight;
   private double cropDragStartX;
   private double cropDragStartY;
+  private boolean cropModeActive;
   private boolean draggingCrop;
+  private Canvas activeCropCanvas;
+  private ImageView activeCropImageView;
+  private Scene activeCropScene;
+  private EventHandler<MouseEvent> activeCropSceneDragHandler;
+  private EventHandler<MouseEvent> activeCropSceneReleaseHandler;
   private Stage cropStage;
   private ImageView cropStageImage;
   private Canvas cropStageCanvas;
@@ -182,6 +193,9 @@ public class StoryboardOverlayView extends BorderPane {
     styleActionButton(projectSizeButton, CssIcon.grid("#d6dbe5"));
     styleActionButton(imageSizeButton, CssIcon.expand("#d6dbe5"));
     styleActionButton(resetPlacementButton, CssIcon.redo("#d6dbe5"));
+    styleActionButton(enterCropModeButton, CssIcon.rectSelect("#f0c27a"));
+    styleActionButton(applyCropButton, CssIcon.check("#8bd38b"));
+    styleActionButton(exitCropModeButton, CssIcon.clearX("#d6dbe5"));
     styleActionButton(expandCropButton, CssIcon.popOut("#f0c27a"));
     styleActionButton(clearCropButton, CssIcon.clearX("#d6dbe5"));
     enabledCheck.setGraphic(CssIcon.visibility("#d6dbe5"));
@@ -205,6 +219,9 @@ public class StoryboardOverlayView extends BorderPane {
     projectSizeButton.setTooltip(new Tooltip("Reset runtime size from the current project viewport"));
     imageSizeButton.setTooltip(new Tooltip("Reset storyboard size from the selected image dimensions"));
     resetPlacementButton.setTooltip(new Tooltip("Reset fit, scale, and offsets"));
+    enterCropModeButton.setTooltip(new Tooltip("Enter crop mode for the selected storyboard frame"));
+    applyCropButton.setTooltip(new Tooltip("Save the current crop rectangle and exit crop mode"));
+    exitCropModeButton.setTooltip(new Tooltip("Exit crop mode without saving the current draft"));
     expandCropButton.setTooltip(new Tooltip("Open a large crop selector for the selected storyboard frame"));
     clearCropButton.setTooltip(new Tooltip("Clear the crop saved for this storyboard frame"));
     cropEnabledCheck.setTooltip(new Tooltip("Draw a rectangle on the preview to show only that part of this frame"));
@@ -331,6 +348,9 @@ public class StoryboardOverlayView extends BorderPane {
     projectSizeButton.setOnAction(e -> useProjectRuntimeSize());
     imageSizeButton.setOnAction(e -> useSelectedImageSize());
     resetPlacementButton.setOnAction(e -> resetPlacement());
+    enterCropModeButton.setOnAction(e -> enterCropMode());
+    applyCropButton.setOnAction(e -> applyCropAndExit());
+    exitCropModeButton.setOnAction(e -> exitCropMode(false));
     expandCropButton.setOnAction(e -> openCropStage());
     clearCropButton.setOnAction(e -> clearSelectedCrop());
 
@@ -400,7 +420,7 @@ public class StoryboardOverlayView extends BorderPane {
     FlowPane placementButtons = new FlowPane(8, 6, projectSizeButton, imageSizeButton, resetPlacementButton);
     placementButtons.setAlignment(Pos.CENTER_LEFT);
 
-    FlowPane cropControls = new FlowPane(8, 6, cropEnabledCheck, expandCropButton, clearCropButton);
+    FlowPane cropControls = new FlowPane(8, 6, cropEnabledCheck, enterCropModeButton, applyCropButton, exitCropModeButton, expandCropButton, clearCropButton);
     cropControls.setAlignment(Pos.CENTER_LEFT);
 
     VBox overlayControls = new VBox(6, checksRow, opacityRow, setupActions, advancedLabel, fitRow, resolutionRow, transformRow, placementButtons, cropControls);
@@ -616,6 +636,7 @@ with or contains the label name — useful for structured storyboard exports.
 
   public void dispose() {
     if (scanTask != null) scanTask.cancel();
+    uninstallSceneCropDragHandlers();
     saveState();
     imageCache.clear();
   }
@@ -919,6 +940,7 @@ with or contains the label name — useful for structured storyboard exports.
     StoryboardFrame selected = framesList.getSelectionModel().getSelectedItem();
     Image image = selected == null ? null : loadImage(selected.path());
     if (image == null || image.isError()) return;
+    enterCropMode();
     if (cropStage != null && cropStage.isShowing()) {
       cropStage.toFront();
       cropStage.requestFocus();
@@ -982,6 +1004,9 @@ with or contains the label name — useful for structured storyboard exports.
     cropStage.setMinWidth(720);
     cropStage.setMinHeight(480);
     cropStage.setOnHidden(e -> {
+      if (activeCropScene == cropStage.getScene()) {
+        cancelActiveCropDrag();
+      }
       cropStage = null;
       cropStageImage = null;
       cropStageCanvas = null;
@@ -998,11 +1023,31 @@ with or contains the label name — useful for structured storyboard exports.
     host.setPickOnBounds(true);
     host.setCursor(Cursor.CROSSHAIR);
     imageView.setMouseTransparent(true);
+    host.addEventFilter(MouseEvent.MOUSE_PRESSED, e -> {
+      if (e.getButton() != MouseButton.PRIMARY) return;
+      Point2D point = canvas.sceneToLocal(e.getSceneX(), e.getSceneY());
+      if (beginCropDrag(canvas, imageView, point.getX(), point.getY())) {
+        e.consume();
+      }
+    });
+    host.addEventFilter(MouseEvent.MOUSE_DRAGGED, e -> {
+      if (!draggingCrop) return;
+      Point2D point = canvas.sceneToLocal(e.getSceneX(), e.getSceneY());
+      updateCropDrag(canvas, imageView, point.getX(), point.getY());
+      e.consume();
+    });
+    host.addEventFilter(MouseEvent.MOUSE_RELEASED, e -> {
+      if (!draggingCrop || e.getButton() != MouseButton.PRIMARY) return;
+      Point2D point = canvas.sceneToLocal(e.getSceneX(), e.getSceneY());
+      finishCropDrag(canvas, imageView, point.getX(), point.getY());
+      e.consume();
+    });
     canvas.addEventHandler(MouseEvent.MOUSE_PRESSED, e -> {
       if (e.getButton() != MouseButton.PRIMARY) return;
       canvas.requestFocus();
-      beginCropDrag(canvas, imageView, e.getX(), e.getY());
-      e.consume();
+      if (beginCropDrag(canvas, imageView, e.getX(), e.getY())) {
+        e.consume();
+      }
     });
     canvas.addEventHandler(MouseEvent.MOUSE_DRAGGED, e -> {
       if (!draggingCrop) return;
@@ -1016,20 +1061,31 @@ with or contains the label name — useful for structured storyboard exports.
     });
   }
 
-  private void beginCropDrag(Canvas canvas, ImageView imageView, double canvasX, double canvasY) {
+  private boolean beginCropDrag(Canvas canvas, ImageView imageView, double canvasX, double canvasY) {
+    if (!cropModeActive) return false;
+    if (draggingCrop) return true;
     StoryboardFrame selected = framesList.getSelectionModel().getSelectedItem();
-    Image image = selected == null ? null : loadImage(selected.path());
-    if (image == null || image.isError()) return;
+    if (selected == null) return false;
+    Image image = imageView == null ? null : imageView.getImage();
+    if (!isUsableImage(image)) {
+      image = loadImage(selected.path());
+    }
+    if (image == null || image.isError()) return false;
     ImagePoint point = canvasToImagePoint(canvas, imageView, canvasX, canvasY, image);
-    if (point == null) return;
+    if (point == null) return false;
     draggingCrop = true;
     cropDragStartX = point.x();
     cropDragStartY = point.y();
+    activeCropCanvas = canvas;
+    activeCropImageView = imageView;
+    installSceneCropDragHandlers(canvas, imageView);
     cropX = point.x();
     cropY = point.y();
     cropWidth = 0.0;
     cropHeight = 0.0;
+    statusLabel.setText("Crop mode: dragging rectangle on " + selected.fileName() + "...");
     drawCropOverlay();
+    return true;
   }
 
   private void updateCropDrag(Canvas canvas, ImageView imageView, double canvasX, double canvasY) {
@@ -1049,15 +1105,61 @@ with or contains the label name — useful for structured storyboard exports.
     if (!draggingCrop) return;
     updateCropDrag(canvas, imageView, canvasX, canvasY);
     draggingCrop = false;
-    if (!hasValidCrop()) {
-      clearSelectedCrop();
+    uninstallSceneCropDragHandlers();
+    Image image = imageView == null ? null : imageView.getImage();
+    if (!hasValidCrop(image)) {
+      statusLabel.setText(invalidCropStatus("Crop mode"));
+      drawCropOverlay();
+      updateControlAvailability();
+      return;
+    }
+    statusLabel.setText("Crop draft ready. Click Apply Crop to save it.");
+    drawCropOverlay();
+    updateControlAvailability();
+  }
+
+  private void enterCropMode() {
+    StoryboardFrame selected = framesList.getSelectionModel().getSelectedItem();
+    if (selected == null) return;
+    cropModeActive = true;
+    draggingCrop = false;
+    uninstallSceneCropDragHandlers();
+    statusLabel.setText("Crop mode: drag a rectangle over the storyboard preview.");
+    drawCropOverlay();
+    updateControlAvailability();
+  }
+
+  private void applyCropAndExit() {
+    if (!cropModeActive && !hasValidCrop(activeCropImage())) return;
+    draggingCrop = false;
+    uninstallSceneCropDragHandlers();
+    if (!hasValidCrop(activeCropImage())) {
+      statusLabel.setText(invalidCropStatus("No crop to apply"));
+      drawCropOverlay();
+      updateControlAvailability();
       return;
     }
     setCropEnabledSilently(true);
     persistSelectedCrop();
+    cropModeActive = false;
     drawCropOverlay();
     emitOverlayChanged();
     saveState();
+    statusLabel.setText("Saved crop " + formatNumber(cropWidth) + "x" + formatNumber(cropHeight) + ".");
+    updateControlAvailability();
+  }
+
+  private void exitCropMode(boolean keepDraft) {
+    if (!cropModeActive && !draggingCrop) return;
+    draggingCrop = false;
+    uninstallSceneCropDragHandlers();
+    cropModeActive = false;
+    if (!keepDraft) {
+      applyPersistedCrop(framesList.getSelectionModel().getSelectedItem());
+    }
+    statusLabel.setText(keepDraft ? "Exited crop mode." : "Exited crop mode without applying draft.");
+    drawCropOverlay();
+    emitOverlayChanged();
     updateControlAvailability();
   }
 
@@ -1111,13 +1213,17 @@ with or contains the label name — useful for structured storyboard exports.
     gc.setLineDashes(null);
 
     boolean drawingInProgress = draggingCrop && cropWidth > 0.0 && cropHeight > 0.0;
-    if (!hasValidCrop() && !drawingInProgress) {
-      if (metaLabel != null) metaLabel.setText("Crop: drag on the preview to select a source rectangle.");
+    if (!hasValidCrop(image) && !drawingInProgress) {
+      if (metaLabel != null) {
+        metaLabel.setText(cropModeActive
+            ? "Crop mode: drag on the preview, then Apply Crop."
+            : "Crop: enter crop mode to draw a source rectangle.");
+      }
       return;
     }
 
     PreviewImageBounds cropBounds = imageCropBounds(imageBounds, image);
-    if (cropEnabledCheck.isSelected() && !drawingInProgress) {
+    if (cropEnabledCheck.isSelected() && !cropModeActive && !drawingInProgress) {
       gc.setFill(Color.rgb(8, 11, 18, 0.48));
       gc.fillRect(imageBounds.x(), imageBounds.y(), imageBounds.width(), cropBounds.y() - imageBounds.y());
       gc.fillRect(imageBounds.x(), cropBounds.y() + cropBounds.height(), imageBounds.width(), imageBounds.y() + imageBounds.height() - cropBounds.y() - cropBounds.height());
@@ -1126,7 +1232,7 @@ with or contains the label name — useful for structured storyboard exports.
     }
     gc.setStroke(Color.rgb(240, 194, 122, 0.98));
     gc.setLineWidth(2.0);
-    if (drawingInProgress) {
+    if (drawingInProgress || cropModeActive) {
       gc.setLineDashes(7, 5);
     }
     gc.strokeRect(cropBounds.x(), cropBounds.y(), cropBounds.width(), cropBounds.height());
@@ -1142,7 +1248,9 @@ with or contains the label name — useful for structured storyboard exports.
               + formatNumber(effectiveCropWidth(image))
               + "x"
               + formatNumber(effectiveCropHeight(image))
-              + (cropEnabledCheck.isSelected() ? " shown" : " saved, full frame shown"));
+              + (cropModeActive
+                  ? " draft"
+                  : cropEnabledCheck.isSelected() ? " shown" : " saved, full frame shown"));
     }
   }
 
@@ -1169,13 +1277,14 @@ with or contains the label name — useful for structured storyboard exports.
     cropY = parseNumber(persisted.getProperty(prefix + CROP_Y), 0.0);
     cropWidth = parseNumber(persisted.getProperty(prefix + CROP_W), 0.0);
     cropHeight = parseNumber(persisted.getProperty(prefix + CROP_H), 0.0);
-    setCropEnabledSilently(Boolean.parseBoolean(persisted.getProperty(prefix + CROP_ENABLED, "false")) && hasValidCrop());
+    Image image = loadImage(frame.path());
+    setCropEnabledSilently(Boolean.parseBoolean(persisted.getProperty(prefix + CROP_ENABLED, "false")) && hasValidCrop(image));
   }
 
   private void persistSelectedCrop() {
     StoryboardFrame selected = framesList.getSelectionModel().getSelectedItem();
     if (selected == null) return;
-    if (hasValidCrop()) {
+    if (hasValidCrop(loadImage(selected.path()))) {
       writeCropProperties(persisted, selected);
     } else {
       removeCropProperties(persisted, selected);
@@ -1186,6 +1295,7 @@ with or contains the label name — useful for structured storyboard exports.
     StoryboardFrame selected = framesList.getSelectionModel().getSelectedItem();
     if (selected != null) removeCropProperties(persisted, selected);
     clearCropFields();
+    cropModeActive = false;
     setCropEnabledSilently(false);
     drawCropOverlay();
     emitOverlayChanged();
@@ -1198,11 +1308,59 @@ with or contains the label name — useful for structured storyboard exports.
     cropY = 0.0;
     cropWidth = 0.0;
     cropHeight = 0.0;
+    cropModeActive = false;
     draggingCrop = false;
+    activeCropCanvas = null;
+    activeCropImageView = null;
+    uninstallSceneCropDragHandlers();
   }
 
-  private boolean hasValidCrop() {
-    Image image = previewImage.getImage();
+  private void cancelActiveCropDrag() {
+    draggingCrop = false;
+    cropModeActive = false;
+    activeCropCanvas = null;
+    activeCropImageView = null;
+    uninstallSceneCropDragHandlers();
+    drawCropOverlay();
+    updateControlAvailability();
+  }
+
+  private void installSceneCropDragHandlers(Canvas canvas, ImageView imageView) {
+    uninstallSceneCropDragHandlers();
+    Scene scene = canvas == null ? null : canvas.getScene();
+    if (scene == null) return;
+    activeCropScene = scene;
+    activeCropSceneDragHandler = event -> {
+      if (!draggingCrop || activeCropCanvas == null || activeCropImageView == null) return;
+      Point2D point = activeCropCanvas.sceneToLocal(event.getSceneX(), event.getSceneY());
+      updateCropDrag(activeCropCanvas, activeCropImageView, point.getX(), point.getY());
+      event.consume();
+    };
+    activeCropSceneReleaseHandler = event -> {
+      if (!draggingCrop || activeCropCanvas == null || activeCropImageView == null) return;
+      Point2D point = activeCropCanvas.sceneToLocal(event.getSceneX(), event.getSceneY());
+      finishCropDrag(activeCropCanvas, activeCropImageView, point.getX(), point.getY());
+      event.consume();
+    };
+    scene.addEventFilter(MouseEvent.MOUSE_DRAGGED, activeCropSceneDragHandler);
+    scene.addEventFilter(MouseEvent.MOUSE_RELEASED, activeCropSceneReleaseHandler);
+  }
+
+  private void uninstallSceneCropDragHandlers() {
+    if (activeCropScene != null) {
+      if (activeCropSceneDragHandler != null) {
+        activeCropScene.removeEventFilter(MouseEvent.MOUSE_DRAGGED, activeCropSceneDragHandler);
+      }
+      if (activeCropSceneReleaseHandler != null) {
+        activeCropScene.removeEventFilter(MouseEvent.MOUSE_RELEASED, activeCropSceneReleaseHandler);
+      }
+    }
+    activeCropScene = null;
+    activeCropSceneDragHandler = null;
+    activeCropSceneReleaseHandler = null;
+  }
+
+  private boolean hasValidCrop(Image image) {
     return image != null
         && !image.isError()
         && cropWidth >= 1.0
@@ -1211,6 +1369,30 @@ with or contains the label name — useful for structured storyboard exports.
         && cropY >= 0.0
         && cropX < image.getWidth()
         && cropY < image.getHeight();
+  }
+
+  private Image activeCropImage() {
+    Image image = activeCropImageView == null ? null : activeCropImageView.getImage();
+    if (isUsableImage(image)) return image;
+    image = cropStageImage == null ? null : cropStageImage.getImage();
+    if (isUsableImage(image)) return image;
+    image = previewImage.getImage();
+    if (isUsableImage(image)) return image;
+    StoryboardFrame selected = framesList.getSelectionModel().getSelectedItem();
+    return selected == null ? null : loadImage(selected.path());
+  }
+
+  private boolean isUsableImage(Image image) {
+    return image != null && !image.isError() && image.getWidth() > 0.0 && image.getHeight() > 0.0;
+  }
+
+  private String invalidCropStatus(String prefix) {
+    return prefix
+        + ": drag a larger rectangle, then Apply Crop. Current draft is "
+        + formatNumber(cropWidth)
+        + "x"
+        + formatNumber(cropHeight)
+        + ".";
   }
 
   private void setCropEnabledSilently(boolean enabled) {
@@ -1225,12 +1407,12 @@ with or contains the label name — useful for structured storyboard exports.
 
   private void writeCropProperties(Properties props, StoryboardFrame frame) {
     if (props == null || frame == null) return;
-    if (!hasValidCrop()) {
+    Image image = loadImage(frame.path());
+    if (!hasValidCrop(image)) {
       removeCropProperties(props, frame);
       return;
     }
     String prefix = cropPropertyPrefix(frame);
-    Image image = loadImage(frame.path());
     props.setProperty(prefix + CROP_ENABLED, Boolean.toString(cropEnabledCheck.isSelected()));
     props.setProperty(prefix + CROP_X, formatNumber(cropX));
     props.setProperty(prefix + CROP_Y, formatNumber(cropY));
@@ -1301,7 +1483,9 @@ with or contains the label name — useful for structured storyboard exports.
 
   private void updateControlAvailability() {
     boolean hasFrames = !framesList.getItems().isEmpty();
-    boolean hasSelection = framesList.getSelectionModel().getSelectedItem() != null;
+    StoryboardFrame selected = framesList.getSelectionModel().getSelectedItem();
+    boolean hasSelection = selected != null;
+    boolean hasCrop = hasSelection && hasValidCrop(loadImage(selected.path()));
     enabledCheck.setDisable(!hasSelection);
     hideUiCheck.setDisable(!hasSelection);
     opacitySlider.setDisable(!hasSelection);
@@ -1315,11 +1499,14 @@ with or contains the label name — useful for structured storyboard exports.
     resetPlacementButton.setDisable(!hasSelection);
     scaleBoardToRuntimeButton.setDisable(!hasSelection || projectRoot == null || !projectRoot.isDirectory());
     matchRuntimeToBoardButton.setDisable(!hasSelection);
-    cropEnabledCheck.setDisable(!hasSelection || !hasValidCrop());
-    expandCropButton.setDisable(!hasSelection);
-    clearCropButton.setDisable(!hasSelection || !hasValidCrop());
+    cropEnabledCheck.setDisable(!hasSelection || cropModeActive || !hasCrop);
+    enterCropModeButton.setDisable(!hasSelection || cropModeActive);
+    applyCropButton.setDisable(!hasSelection || !cropModeActive || !hasValidCrop(activeCropImage()));
+    exitCropModeButton.setDisable(!cropModeActive);
+    expandCropButton.setDisable(!hasSelection || cropModeActive);
+    clearCropButton.setDisable(!hasSelection || !hasCrop);
     if (cropPreviewStack != null) cropPreviewStack.setCursor(hasSelection ? Cursor.CROSSHAIR : Cursor.DEFAULT);
-    cropCanvas.setMouseTransparent(!hasSelection);
+    cropCanvas.setMouseTransparent(!hasSelection || !cropModeActive);
   }
 
   private void loadState() {
@@ -1415,7 +1602,7 @@ with or contains the label name — useful for structured storyboard exports.
       props.setProperty(KEY_OFFSET_Y, formatNumber(parseNumber(offsetYField.getText(), 0.0)));
       StoryboardFrame selected = framesList.getSelectionModel().getSelectedItem();
       if (selected != null) {
-        if (hasValidCrop()) {
+        if (hasValidCrop(loadImage(selected.path()))) {
           writeCropProperties(props, selected);
         } else {
           removeCropProperties(props, selected);
