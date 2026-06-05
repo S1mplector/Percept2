@@ -30,6 +30,7 @@ import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -48,6 +49,8 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.text.Text;
+import javafx.scene.text.TextFlow;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.Window;
@@ -56,6 +59,9 @@ import javafx.util.Duration;
 /** Sidebar chatbot for Jane, JVN's local assistant. */
 public class JaneAssistantView extends BorderPane {
   private static final Pattern HEADING_LINE = Pattern.compile("^#\\s+(.+)$");
+  private static final Pattern RICH_HEADING_LINE = Pattern.compile("^(#{1,4})\\s+(.+)$");
+  private static final Pattern RICH_UNORDERED_LIST_LINE = Pattern.compile("^\\s*[-*]\\s+(.+)$");
+  private static final Pattern RICH_ORDERED_LIST_LINE = Pattern.compile("^\\s*(\\d+)\\.\\s+(.+)$");
   private static final int SUMMARY_LIMIT = 220;
   private static final int ANSWER_COLLAPSE_LIMIT = 900;
   private static final int MIN_COLLAPSE_REMAINDER = 180;
@@ -802,10 +808,9 @@ public class JaneAssistantView extends BorderPane {
     String fullText = text == null ? "" : text;
     boolean collapsible = assistant && shouldCollapseAnswer(fullText);
     String collapsedText = collapsible ? collapsedAnswer(fullText) : fullText;
-    Label body = new Label(animated ? "" : collapsedText);
-    body.setWrapText(true);
-    body.setMaxWidth(Double.MAX_VALUE);
-    body.getStyleClass().add("jane-chat-body");
+    Node body = assistant
+        ? assistantAnswerBody(animated ? "" : collapsedText)
+        : plainAnswerBody(animated ? "" : collapsedText);
     VBox bubble = new VBox(3, speakerLabel, body);
     bubble.getStyleClass().addAll("jane-chat-bubble", styleClass);
     bubble.setMaxWidth(Double.MAX_VALUE);
@@ -815,19 +820,36 @@ public class JaneAssistantView extends BorderPane {
       moreButton.setManaged(!animated);
       bubble.getChildren().add(moreButton);
       if (animated) {
-        animateText(body, collapsedText, () -> {
+        animateAnswerBody(body, collapsedText, assistant, () -> {
           moreButton.setVisible(true);
           moreButton.setManaged(true);
         });
       }
     } else if (animated) {
-      animateText(body, collapsedText);
+      animateAnswerBody(body, collapsedText, assistant);
     }
     transcriptBox.getChildren().add(bubble);
     Platform.runLater(() -> transcriptScroll.setVvalue(1.0));
   }
 
-  private Button seeMoreButton(Label body, String fullText, String collapsedText) {
+  private Node plainAnswerBody(String text) {
+    Label body = new Label(text == null ? "" : text);
+    body.setWrapText(true);
+    body.setMaxWidth(Double.MAX_VALUE);
+    body.getStyleClass().add("jane-chat-body");
+    return body;
+  }
+
+  private VBox assistantAnswerBody(String text) {
+    VBox body = new VBox(7);
+    body.setFillWidth(true);
+    body.setMaxWidth(Double.MAX_VALUE);
+    body.getStyleClass().addAll("jane-chat-body", "jane-rich-answer");
+    renderRichAnswer(body, text);
+    return body;
+  }
+
+  private Button seeMoreButton(Node body, String fullText, String collapsedText) {
     Button button = new Button("See more...");
     button.getStyleClass().add("jane-see-more-button");
     button.setMaxWidth(Double.MAX_VALUE);
@@ -835,11 +857,19 @@ public class JaneAssistantView extends BorderPane {
     final boolean[] expanded = {false};
     button.setOnAction(e -> {
       expanded[0] = !expanded[0];
-      body.setText(expanded[0] ? fullText : collapsedText);
+      setAnswerBodyText(body, expanded[0] ? fullText : collapsedText);
       button.setText(expanded[0] ? "See less" : "See more...");
       Platform.runLater(() -> transcriptScroll.setVvalue(1.0));
     });
     return button;
+  }
+
+  private void setAnswerBodyText(Node body, String text) {
+    if (body instanceof VBox richBody) {
+      renderRichAnswer(richBody, text);
+    } else if (body instanceof Label label) {
+      label.setText(text == null ? "" : text);
+    }
   }
 
   private void showThinkingBubble() {
@@ -877,10 +907,10 @@ public class JaneAssistantView extends BorderPane {
     }
   }
 
-  private void animateText(Label label, String text, Runnable onFinished) {
+  private void animateAnswerBody(Node body, String text, boolean rich, Runnable onFinished) {
     String target = text == null ? "" : text;
     if (target.isEmpty()) {
-      label.setText("");
+      setAnswerBodyText(body, "");
       if (onFinished != null) onFinished.run();
       return;
     }
@@ -889,7 +919,12 @@ public class JaneAssistantView extends BorderPane {
     final Timeline[] animationRef = {animation};
     animation.getKeyFrames().add(new KeyFrame(Duration.millis(18), e -> {
       index[0] = Math.min(target.length(), index[0] + TYPEWRITER_CHARS_PER_TICK);
-      label.setText(target.substring(0, index[0]));
+      String current = target.substring(0, index[0]);
+      if (rich) {
+        setAnswerBodyText(body, current);
+      } else if (body instanceof Label label) {
+        label.setText(current);
+      }
       if (index[0] >= target.length()) {
         Timeline source = animationRef[0];
         source.stop();
@@ -903,8 +938,251 @@ public class JaneAssistantView extends BorderPane {
     animation.playFromStart();
   }
 
-  private void animateText(Label label, String text) {
-    animateText(label, text, () -> {});
+  private void animateAnswerBody(Node body, String text, boolean rich) {
+    animateAnswerBody(body, text, rich, () -> {});
+  }
+
+  private void renderRichAnswer(VBox body, String markdown) {
+    body.getChildren().clear();
+    String normalized = normalizeRichMarkdown(markdown);
+    if (normalized.isBlank()) {
+      TextFlow empty = richInlineFlow("");
+      body.getChildren().add(empty);
+      return;
+    }
+    String[] lines = normalized.split("\n", -1);
+    int i = 0;
+    while (i < lines.length) {
+      String line = lines[i];
+      String trimmed = line.trim();
+      if (trimmed.isBlank()) {
+        i++;
+        continue;
+      }
+      if (trimmed.startsWith("```")) {
+        i = renderRichCodeBlock(body, lines, i);
+        continue;
+      }
+      Matcher heading = RICH_HEADING_LINE.matcher(line);
+      if (heading.matches()) {
+        TextFlow flow = richInlineFlow(heading.group(2).trim());
+        flow.getStyleClass().add("jane-rich-heading-" + Math.min(4, heading.group(1).length()));
+        body.getChildren().add(flow);
+        i++;
+        continue;
+      }
+      if (trimmed.startsWith(">")) {
+        i = renderRichQuoteBlock(body, lines, i);
+        continue;
+      }
+      Matcher unordered = RICH_UNORDERED_LIST_LINE.matcher(line);
+      if (unordered.matches()) {
+        i = renderRichListBlock(body, lines, i, false, 1);
+        continue;
+      }
+      Matcher ordered = RICH_ORDERED_LIST_LINE.matcher(line);
+      if (ordered.matches()) {
+        i = renderRichListBlock(body, lines, i, true, safeParseInt(ordered.group(1), 1));
+        continue;
+      }
+      i = renderRichParagraphBlock(body, lines, i);
+    }
+  }
+
+  private int renderRichParagraphBlock(VBox body, String[] lines, int start) {
+    StringBuilder paragraph = new StringBuilder();
+    int i = start;
+    while (i < lines.length) {
+      String line = lines[i];
+      String trimmed = line.trim();
+      if (trimmed.isBlank()
+          || trimmed.startsWith("```")
+          || trimmed.startsWith(">")
+          || RICH_HEADING_LINE.matcher(line).matches()
+          || RICH_UNORDERED_LIST_LINE.matcher(line).matches()
+          || RICH_ORDERED_LIST_LINE.matcher(line).matches()) {
+        break;
+      }
+      if (paragraph.length() > 0) paragraph.append(' ');
+      paragraph.append(trimmed);
+      i++;
+    }
+    if (paragraph.length() > 0) {
+      body.getChildren().add(richInlineFlow(paragraph.toString()));
+    }
+    return i;
+  }
+
+  private int renderRichCodeBlock(VBox body, String[] lines, int start) {
+    String fence = lines[start].trim();
+    String language = fence.length() > 3 ? fence.substring(3).trim() : "";
+    StringBuilder code = new StringBuilder();
+    int i = start + 1;
+    while (i < lines.length) {
+      String line = lines[i];
+      if (line.trim().startsWith("```")) {
+        i++;
+        break;
+      }
+      if (code.length() > 0) code.append('\n');
+      code.append(line);
+      i++;
+    }
+    addRichCodeBlock(body, language, code.toString());
+    return i;
+  }
+
+  private int renderRichQuoteBlock(VBox body, String[] lines, int start) {
+    StringBuilder quote = new StringBuilder();
+    int i = start;
+    while (i < lines.length) {
+      String trimmed = lines[i].trim();
+      if (!trimmed.startsWith(">")) break;
+      if (quote.length() > 0) quote.append('\n');
+      quote.append(trimmed.length() > 1 ? trimmed.substring(1).trim() : "");
+      i++;
+    }
+    TextFlow flow = richInlineFlow(quote.toString());
+    flow.getStyleClass().add("jane-rich-quote");
+    body.getChildren().add(flow);
+    return i;
+  }
+
+  private int renderRichListBlock(VBox body, String[] lines, int start, boolean ordered, int orderedStart) {
+    VBox list = new VBox(4);
+    list.getStyleClass().add("jane-rich-list");
+    int number = orderedStart;
+    int i = start;
+    while (i < lines.length) {
+      String line = lines[i];
+      Matcher matcher = ordered ? RICH_ORDERED_LIST_LINE.matcher(line) : RICH_UNORDERED_LIST_LINE.matcher(line);
+      if (!matcher.matches()) break;
+      String content = ordered ? matcher.group(2).trim() : matcher.group(1).trim();
+      list.getChildren().add(richListItem(content, ordered ? number + "." : "-"));
+      if (ordered) number++;
+      i++;
+    }
+    body.getChildren().add(list);
+    return i;
+  }
+
+  private HBox richListItem(String content, String markerText) {
+    Label marker = new Label(markerText);
+    marker.getStyleClass().add("jane-rich-list-marker");
+    TextFlow flow = richInlineFlow(content);
+    flow.getStyleClass().add("jane-rich-list-item");
+    HBox row = new HBox(6, marker, flow);
+    row.setAlignment(Pos.TOP_LEFT);
+    HBox.setHgrow(flow, Priority.ALWAYS);
+    return row;
+  }
+
+  private void addRichCodeBlock(VBox body, String language, String code) {
+    VBox box = new VBox(4);
+    box.getStyleClass().add("jane-rich-code-wrapper");
+    box.setMaxWidth(Double.MAX_VALUE);
+    if (language != null && !language.isBlank()) {
+      Label lang = new Label(language);
+      lang.getStyleClass().add("jane-rich-code-lang");
+      box.getChildren().add(lang);
+    }
+    Label codeLabel = new Label(code == null ? "" : code);
+    codeLabel.setWrapText(true);
+    codeLabel.setMaxWidth(Double.MAX_VALUE);
+    codeLabel.getStyleClass().add("jane-rich-code-block");
+    box.getChildren().add(codeLabel);
+    body.getChildren().add(box);
+  }
+
+  private TextFlow richInlineFlow(String source) {
+    TextFlow flow = new TextFlow();
+    flow.setLineSpacing(2);
+    flow.setMaxWidth(Double.MAX_VALUE);
+    flow.getStyleClass().add("jane-rich-flow");
+    flow.maxWidthProperty().bind(transcriptScroll.viewportBoundsProperty()
+        .map(bounds -> Math.max(120.0, bounds.getWidth() - 58.0)));
+    appendRichInlineMarkdown(flow, source == null ? "" : source);
+    return flow;
+  }
+
+  private void appendRichInlineMarkdown(TextFlow flow, String source) {
+    int i = 0;
+    while (i < source.length()) {
+      if (source.startsWith("`", i)) {
+        int end = source.indexOf('`', i + 1);
+        if (end > i + 1) {
+          appendRichText(flow, source.substring(i + 1, end), "jane-rich-inline-code");
+          i = end + 1;
+          continue;
+        }
+      }
+      if (source.startsWith("**", i) || source.startsWith("__", i)) {
+        String marker = source.substring(i, i + 2);
+        int end = source.indexOf(marker, i + 2);
+        if (end > i + 2) {
+          appendRichText(flow, source.substring(i + 2, end), "jane-rich-bold");
+          i = end + 2;
+          continue;
+        }
+      }
+      if (isSimpleItalicMarker(source, i)) {
+        String marker = source.substring(i, i + 1);
+        int end = source.indexOf(marker, i + 1);
+        if (end > i + 1) {
+          appendRichText(flow, source.substring(i + 1, end), "jane-rich-italic");
+          i = end + 1;
+          continue;
+        }
+      }
+      int next = nextRichInlineToken(source, i + 1);
+      int end = next < 0 ? source.length() : next;
+      appendRichText(flow, source.substring(i, end));
+      i = end;
+    }
+  }
+
+  private void appendRichText(TextFlow flow, String content, String... styleClasses) {
+    if (content == null || content.isEmpty()) return;
+    Text text = new Text(content);
+    text.getStyleClass().add("jane-rich-text");
+    if (styleClasses != null) {
+      for (String styleClass : styleClasses) {
+        if (styleClass != null && !styleClass.isBlank()) text.getStyleClass().add(styleClass);
+      }
+    }
+    flow.getChildren().add(text);
+  }
+
+  private int nextRichInlineToken(String source, int fromIndex) {
+    int best = -1;
+    for (char ch : new char[] {'`', '*', '_'}) {
+      int idx = source.indexOf(ch, fromIndex);
+      if (idx >= 0 && (best < 0 || idx < best)) best = idx;
+    }
+    return best;
+  }
+
+  private static boolean isSimpleItalicMarker(String source, int index) {
+    if (source == null || index < 0 || index >= source.length()) return false;
+    char marker = source.charAt(index);
+    if (marker != '*' && marker != '_') return false;
+    if (index + 1 < source.length() && source.charAt(index + 1) == marker) return false;
+    if (index > 0 && Character.isLetterOrDigit(source.charAt(index - 1))) return false;
+    return index + 1 < source.length() && !Character.isWhitespace(source.charAt(index + 1));
+  }
+
+  private static String normalizeRichMarkdown(String text) {
+    if (text == null) return "";
+    return text.replace("\r\n", "\n").replace('\r', '\n').trim();
+  }
+
+  private static int safeParseInt(String value, int fallback) {
+    if (value == null || value.isBlank()) return fallback;
+    try {
+      return Integer.parseInt(value.trim());
+    } catch (NumberFormatException ex) {
+      return fallback;
+    }
   }
 
   private void stopTextAnimations() {

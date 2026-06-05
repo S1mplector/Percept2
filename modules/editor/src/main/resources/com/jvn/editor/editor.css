@@ -4226,6 +4226,102 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-line-spacing: 2;
 }
 
+.jane-rich-answer {
+  -fx-spacing: 7;
+}
+
+.jane-rich-flow {
+  -fx-line-spacing: 2;
+}
+
+.jane-rich-text {
+  -fx-fill: #e8e8e8;
+  -fx-font-size: 12px;
+}
+
+.jane-rich-bold {
+  -fx-font-weight: 800;
+  -fx-fill: #f2f2f2;
+}
+
+.jane-rich-italic {
+  -fx-font-style: italic;
+  -fx-fill: #dedede;
+}
+
+.jane-rich-inline-code {
+  -fx-fill: #f1d28a;
+  -fx-font-family: "JetBrains Mono", "SF Mono", "Consolas", "Menlo", monospace;
+  -fx-font-size: 11px;
+}
+
+.jane-rich-heading-1 .jane-rich-text,
+.jane-rich-heading-2 .jane-rich-text,
+.jane-rich-heading-3 .jane-rich-text,
+.jane-rich-heading-4 .jane-rich-text {
+  -fx-fill: #f2f2f2;
+  -fx-font-weight: 800;
+}
+
+.jane-rich-heading-1 .jane-rich-text {
+  -fx-font-size: 14px;
+}
+
+.jane-rich-heading-2 .jane-rich-text,
+.jane-rich-heading-3 .jane-rich-text,
+.jane-rich-heading-4 .jane-rich-text {
+  -fx-font-size: 13px;
+}
+
+.jane-rich-list {
+  -fx-padding: 1 0 1 0;
+}
+
+.jane-rich-list-marker {
+  -fx-text-fill: #d8b568;
+  -fx-font-size: 12px;
+  -fx-font-weight: 800;
+  -fx-min-width: 14;
+}
+
+.jane-rich-list-item .jane-rich-text {
+  -fx-fill: #e3e3e3;
+}
+
+.jane-rich-quote {
+  -fx-padding: 4 0 4 9;
+  -fx-border-color: #4f452e;
+  -fx-border-width: 0 0 0 3;
+}
+
+.jane-rich-quote .jane-rich-text {
+  -fx-fill: #d8d0c0;
+}
+
+.jane-rich-code-wrapper {
+  -fx-spacing: 4;
+  -fx-padding: 2 0 2 0;
+}
+
+.jane-rich-code-lang {
+  -fx-text-fill: #d8b568;
+  -fx-font-size: 10px;
+  -fx-font-weight: 800;
+  -fx-font-family: "JetBrains Mono", "SF Mono", "Consolas", "Menlo", monospace;
+}
+
+.jane-rich-code-block {
+  -fx-background-color: #111111;
+  -fx-border-color: #393939;
+  -fx-border-width: 1;
+  -fx-background-radius: 6;
+  -fx-border-radius: 6;
+  -fx-padding: 8;
+  -fx-text-fill: #ececec;
+  -fx-font-family: "JetBrains Mono", "SF Mono", "Consolas", "Menlo", monospace;
+  -fx-font-size: 11px;
+}
+
 .jane-thinking-body {
   -fx-text-fill: #d8b568;
 }
