@@ -291,7 +291,7 @@ public class VnScriptParser {
     }
   }
 
-  private record LayerReference(String characterId, String layerId) {}
+  private record LayerReference(String path, String layerId) {}
   private record LayerPresetSpec(String pathSpec, List<String> layerIds) {}
 
   public VnScenario parse(InputStream input) throws IOException {
@@ -2389,6 +2389,7 @@ public class VnScriptParser {
     }
 
     List<String> resolvedParts = new ArrayList<>();
+    List<String> resolvedLayerIds = new ArrayList<>();
     for (String rawPart : token.split("\\+")) {
       String part = rawPart == null ? "" : rawPart.trim();
       if (part.isEmpty()) {
@@ -2407,11 +2408,18 @@ public class VnScriptParser {
               "Unknown character preset '@" + presetName + "' for character '" + characterId + "'",
               rawLine);
         }
-        resolvedParts.addAll(splitResolvedLayerSpec(presetPath));
+        List<String> presetLayers = splitResolvedLayerSpec(presetPath);
+        List<String> presetLayerIds = getOrCreateCharacterBuilder(state, characterId).getExpressionLayerIds(presetName);
+        for (int i = 0; i < presetLayers.size(); i++) {
+          resolvedParts.add(presetLayers.get(i));
+          resolvedLayerIds.add(i < presetLayerIds.size() ? presetLayerIds.get(i) : "");
+        }
         continue;
       }
       if (part.startsWith("$")) {
-        resolvedParts.add(resolveLayerReferencePath(state, characterId, part.substring(1), sourceName, lineNumber, rawLine));
+        LayerReference layer = resolveLayerReference(state, characterId, part.substring(1), sourceName, lineNumber, rawLine);
+        resolvedParts.add(layer.path());
+        resolvedLayerIds.add(layer.layerId());
         continue;
       }
       throw parseError(
@@ -2426,7 +2434,7 @@ public class VnScriptParser {
     }
 
     String resolvedSpec = String.join(" | ", resolvedParts);
-    String cacheKey = characterId + "|" + resolvedSpec;
+    String cacheKey = characterId + "|" + resolvedSpec + "|" + String.join("|", resolvedLayerIds);
     String existing = state.inlineCompositeExpressions.get(cacheKey);
     if (existing != null) {
       return existing;
@@ -2435,7 +2443,7 @@ public class VnScriptParser {
     String exprName = buildInlineExpressionName(token, resolvedSpec);
     com.jvn.core.vn.VnCharacter.Builder builder = getOrCreateCharacterBuilder(state, characterId);
     if (!builder.hasExpression(exprName)) {
-      builder.addExpression(exprName, resolvedSpec);
+      builder.addExpression(exprName, resolvedSpec, resolvedLayerIds);
     }
     state.inlineCompositeExpressions.put(cacheKey, exprName);
     return exprName;
@@ -2454,12 +2462,12 @@ public class VnScriptParser {
     return resolved;
   }
 
-  private String resolveLayerReferencePath(ParseState state,
-                                           String defaultCharacterId,
-                                           String rawRef,
-                                           String sourceName,
-                                           int lineNumber,
-                                           String rawLine) throws IOException {
+  private LayerReference resolveLayerReference(ParseState state,
+                                               String defaultCharacterId,
+                                               String rawRef,
+                                               String sourceName,
+                                               int lineNumber,
+                                               String rawLine) throws IOException {
     String path = LayeredCharacterResolver.resolveLayerPath(state.charLayers, defaultCharacterId, rawRef);
     LayeredCharacterResolver.CharacterRef layerRef = LayeredCharacterResolver.parseReference(rawRef, defaultCharacterId);
     if (path == null || path.isBlank()) {
@@ -2469,7 +2477,7 @@ public class VnScriptParser {
           "Unknown @charlayer reference '$" + rawRef + "' for character '" + layerRef.characterId() + "'",
           rawLine);
     }
-    return path;
+    return new LayerReference(path, layerRef.localId());
   }
 
   private com.jvn.core.vn.VnCharacter.Builder getOrCreateCharacterBuilder(ParseState state, String characterId) {

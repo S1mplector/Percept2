@@ -1,6 +1,5 @@
 package com.jvn.editor.ui;
 
-import java.awt.Desktop;
 import java.io.File;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -213,7 +212,7 @@ public class StoryboardOverlayView extends BorderPane {
     previousButton.setTooltip(new Tooltip("Select previous frame"));
     nextButton.setTooltip(new Tooltip("Select next frame"));
     matchButton.setTooltip(new Tooltip("Jump to the strongest match for the active JES/VNS file"));
-    revealButton.setTooltip(new Tooltip("Open the selected frame file"));
+    revealButton.setTooltip(new Tooltip("Open the selected frame in the editor image viewer"));
     scaleBoardToRuntimeButton.setTooltip(new Tooltip("Keep the game runtime size and scale the storyboard into it"));
     matchRuntimeToBoardButton.setTooltip(new Tooltip("Use the selected storyboard image size as the runtime viewport"));
     projectSizeButton.setTooltip(new Tooltip("Reset runtime size from the current project viewport"));
@@ -852,13 +851,40 @@ with or contains the label name — useful for structured storyboard exports.
   private void revealSelectedFrame() {
     StoryboardFrame selected = framesList.getSelectionModel().getSelectedItem();
     if (selected == null) return;
-    try {
-      if (Desktop.isDesktopSupported()) {
-        Desktop.getDesktop().open(selected.path().toFile());
-      }
-    } catch (Exception ex) {
-      statusLabel.setText("Could not open frame: " + ex.getMessage());
+    Image image = loadImage(selected.path());
+    if (!isUsableImage(image)) {
+      statusLabel.setText("Could not open frame image.");
+      return;
     }
+    openFrameViewer(selected, image);
+  }
+
+  private void openFrameViewer(StoryboardFrame frame, Image image) {
+    ImageView imageView = new ImageView(image);
+    imageView.setPreserveRatio(true);
+    imageView.setSmooth(true);
+
+    StackPane imageHost = new StackPane(imageView);
+    imageHost.setStyle("-fx-background-color: #151922;");
+    imageHost.setMinSize(320, 220);
+    imageView.fitWidthProperty().bind(imageHost.widthProperty());
+    imageView.fitHeightProperty().bind(imageHost.heightProperty());
+
+    Label pathLabel = new Label(frame.displayPath());
+    pathLabel.setWrapText(true);
+    pathLabel.setPadding(new Insets(8, 10, 8, 10));
+    pathLabel.setStyle("-fx-background-color: #202633; -fx-text-fill: #d8dee9; -fx-font-size: 11px;");
+
+    BorderPane root = new BorderPane(imageHost);
+    root.setBottom(pathLabel);
+
+    Stage stage = new Stage();
+    stage.setTitle("Storyboard Frame - " + frame.fileName());
+    if (getScene() != null && getScene().getWindow() != null) {
+      stage.initOwner(getScene().getWindow());
+    }
+    stage.setScene(new Scene(root, 960, 640));
+    stage.show();
   }
 
   private void useProjectRuntimeSize() {

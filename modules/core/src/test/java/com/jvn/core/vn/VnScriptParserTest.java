@@ -161,6 +161,52 @@ public class VnScriptParserTest {
             + " | assets/demo/characters/lavender/mouth/lavender_test_sprite_mouth_smile.png"
             + " | assets/demo/characters/lavender/props/lavender_glasses.png",
         lavender.getExpressionPath(show.getShowExpression()));
+    assertEquals(
+        List.of("base", "eyes_neutral", "mouth_smile", "glasses"),
+        lavender.getExpressionLayerIds(show.getShowExpression()));
+  }
+
+  @Test
+  public void showCommandPreservesLayerIdsForInlineCompositeLayerSpec() throws Exception {
+    String script = """
+      @scenario layered_demo
+      @character john "John"
+      @charlayer john body_default assets/john/body_default.png
+      @charlayer john normal_face_common_01 assets/john/normal_face_common_01.png
+      @charlayer john normal_mouth_common_01 assets/john/normal_mouth_common_01.png
+      @charlayer john eyes_n_09 assets/john/eyes_n_09.png
+      @charlayer john bp_strap assets/john/bp_strap.png
+      @charlayer john dog_tag assets/john/dog_tag.png
+
+      @label start
+      [show john center $body_default+$normal_face_common_01+$normal_mouth_common_01+$eyes_n_09+$bp_strap+$dog_tag]
+      [end]
+    """;
+
+    VnScenario scen = new VnScriptParser().parseFromString(script);
+    VnNode show = scen.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.SHOW)
+        .findFirst().orElseThrow();
+    VnCharacter john = scen.getCharacter("john");
+    assertNotNull(john);
+    assertTrue(show.getShowExpression().startsWith("__inline_"));
+    assertEquals(
+        "assets/john/body_default.png"
+            + " | assets/john/normal_face_common_01.png"
+            + " | assets/john/normal_mouth_common_01.png"
+            + " | assets/john/eyes_n_09.png"
+            + " | assets/john/bp_strap.png"
+            + " | assets/john/dog_tag.png",
+        john.getExpressionPath(show.getShowExpression()));
+    assertEquals(
+        List.of(
+            "body_default",
+            "normal_face_common_01",
+            "normal_mouth_common_01",
+            "eyes_n_09",
+            "bp_strap",
+            "dog_tag"),
+        john.getExpressionLayerIds(show.getShowExpression()));
   }
 
   @Test
