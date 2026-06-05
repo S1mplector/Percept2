@@ -38,6 +38,7 @@ libs/*.jar
 
 # Local Jane model and secrets
 .jvn/jane-model/
+.jvn/jane-settings.properties
 .jvn/jane-gemini.properties
 
 # Local Ren'Py compatibility audit artifacts

@@ -4244,6 +4244,16 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-text-fill: #ffd166;
 }
 
+.jane-icon-button {
+  -fx-min-width: 32;
+  -fx-pref-width: 32;
+  -fx-padding: 6;
+}
+
+.jane-settings-root {
+  -fx-background-color: #0f0f0f;
+}
+
 .jane-evidence {
   -fx-background-color: #131313;
   -fx-border-color: #292929;

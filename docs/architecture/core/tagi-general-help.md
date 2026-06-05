@@ -98,7 +98,11 @@ before the built-in expert model. The default model is:
 gemini-3.1-flash-lite
 ```
 
-Configure it through an environment variable:
+The editor's Jane panel includes a **Settings** button that stores the user's
+Gemini key and model locally under `.jvn/jane-settings.properties`. This file is
+ignored by Git and should not be shared or committed.
+
+You can also configure it through environment variables:
 
 ```bash
 export GEMINI_API_KEY=...
@@ -106,15 +110,16 @@ export JVN_JANE_GEMINI_MODEL=gemini-3.1-flash-lite
 ./gradlew :editor:runJane --console=plain
 ```
 
-Or use a local ignored file at `.jvn/jane-gemini.properties`:
+Or use the same local ignored settings file directly:
 
 ```properties
-apiKey=...
-model=gemini-3.1-flash-lite
+gemini.apiKey=...
+gemini.model=gemini-3.1-flash-lite
 ```
 
-Do not commit the local properties file. Jane also accepts these JVM properties
-for launch wrappers and local experiments:
+For compatibility, Jane still reads the older `.jvn/jane-gemini.properties`
+format. Jane also accepts these JVM properties for launch wrappers and local
+experiments:
 
 ```bash
 -Djvn.jane.gemini.apiKey=...

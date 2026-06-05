@@ -28,7 +28,8 @@ public final class GeminiChatModel implements LocalChatModel {
   private static final String WORKSPACE_ROOT_PROPERTY = "jvn.jane.workspaceRoot";
   private static final String DEFAULT_MODEL = "gemini-3.1-flash-lite";
   private static final String DEFAULT_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta";
-  private static final String LOCAL_CONFIG = ".jvn/jane-gemini.properties";
+  private static final String LOCAL_CONFIG = ".jvn/jane-settings.properties";
+  private static final String LEGACY_LOCAL_CONFIG = ".jvn/jane-gemini.properties";
 
   private final String apiKey;
   private final String model;
@@ -46,6 +47,8 @@ public final class GeminiChatModel implements LocalChatModel {
         env("GEMINI_API_KEY"),
         env("GOOGLE_AI_API_KEY"),
         env("GOOGLE_API_KEY"),
+        local.getProperty("gemini.apiKey"),
+        local.getProperty("gemini.api_key"),
         local.getProperty("apiKey"),
         local.getProperty("api_key"));
     if (apiKey == null || apiKey.isBlank()) {
@@ -54,24 +57,29 @@ public final class GeminiChatModel implements LocalChatModel {
     String model = firstNonBlank(
         System.getProperty(MODEL_PROPERTY),
         env("JVN_JANE_GEMINI_MODEL"),
+        local.getProperty("gemini.model"),
         local.getProperty("model"),
         DEFAULT_MODEL);
     String endpoint = firstNonBlank(
         System.getProperty(ENDPOINT_PROPERTY),
         env("JVN_JANE_GEMINI_ENDPOINT"),
+        local.getProperty("gemini.endpoint"),
         local.getProperty("endpoint"),
         DEFAULT_ENDPOINT);
     int maxOutputTokens = intValue(firstNonBlank(
         System.getProperty(MAX_OUTPUT_TOKENS_PROPERTY),
         env("JVN_JANE_GEMINI_MAX_OUTPUT_TOKENS"),
+        local.getProperty("gemini.maxOutputTokens"),
         local.getProperty("maxOutputTokens")), 768);
     double temperature = doubleValue(firstNonBlank(
         System.getProperty(TEMPERATURE_PROPERTY),
         env("JVN_JANE_GEMINI_TEMPERATURE"),
+        local.getProperty("gemini.temperature"),
         local.getProperty("temperature")), 0.2);
     int timeoutSeconds = intValue(firstNonBlank(
         System.getProperty(TIMEOUT_SECONDS_PROPERTY),
         env("JVN_JANE_GEMINI_TIMEOUT_SECONDS"),
+        local.getProperty("gemini.timeoutSeconds"),
         local.getProperty("timeoutSeconds")), 45);
     return Optional.of(new GeminiChatModel(
         apiKey,
@@ -80,6 +88,14 @@ public final class GeminiChatModel implements LocalChatModel {
         maxOutputTokens,
         temperature,
         timeoutSeconds));
+  }
+
+  public static String defaultModel() {
+    return DEFAULT_MODEL;
+  }
+
+  public static String localSettingsRelativePath() {
+    return LOCAL_CONFIG;
   }
 
   public GeminiChatModel(
@@ -209,10 +225,19 @@ public final class GeminiChatModel implements LocalChatModel {
       if (!props.isEmpty()) return props;
     }
     for (Path root : roots) {
-      Properties props = readProperties(root.resolve(LOCAL_CONFIG));
+      Properties props = new Properties();
+      mergeProperties(props, readProperties(root.resolve(LEGACY_LOCAL_CONFIG)));
+      mergeProperties(props, readProperties(root.resolve(LOCAL_CONFIG)));
       if (!props.isEmpty()) return props;
     }
     return new Properties();
+  }
+
+  private static void mergeProperties(Properties target, Properties source) {
+    if (target == null || source == null || source.isEmpty()) return;
+    for (String name : source.stringPropertyNames()) {
+      target.setProperty(name, source.getProperty(name));
+    }
   }
 
   private static Properties readProperties(Path path) {

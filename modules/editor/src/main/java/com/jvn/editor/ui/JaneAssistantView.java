@@ -2,11 +2,13 @@ package com.jvn.editor.ui;
 
 import com.jvn.core.generalhelp.HelpAgentVote;
 import com.jvn.core.generalhelp.HelpArticle;
+import com.jvn.core.generalhelp.GeminiChatModel;
 import com.jvn.core.generalhelp.JaneAssistant;
 import com.jvn.core.generalhelp.JaneChatResponse;
 import com.jvn.core.generalhelp.JaneTrainingCorpus;
 import com.jvn.core.generalhelp.TagiGeneralHelpSystem;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -15,6 +17,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
@@ -27,8 +30,10 @@ import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.PasswordField;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
@@ -36,11 +41,16 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.ColumnConstraints;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
+import javafx.stage.Window;
 import javafx.util.Duration;
 
 /** Sidebar chatbot for Jane, JVN's local assistant. */
@@ -50,6 +60,21 @@ public class JaneAssistantView extends BorderPane {
   private static final int ANSWER_COLLAPSE_LIMIT = 900;
   private static final int MIN_COLLAPSE_REMAINDER = 180;
   private static final int TYPEWRITER_CHARS_PER_TICK = 14;
+  private static final String GEMINI_API_KEY_SETTING = "gemini.apiKey";
+  private static final String GEMINI_API_KEY_SNAKE_SETTING = "gemini.api_key";
+  private static final String GEMINI_API_KEY_LEGACY_SETTING = "apiKey";
+  private static final String GEMINI_API_KEY_LEGACY_SNAKE_SETTING = "api_key";
+  private static final String GEMINI_MODEL_SETTING = "gemini.model";
+  private static final String GEMINI_MODEL_LEGACY_SETTING = "model";
+  private static final String GEMINI_ENDPOINT_SETTING = "gemini.endpoint";
+  private static final String GEMINI_ENDPOINT_LEGACY_SETTING = "endpoint";
+  private static final String GEMINI_MAX_OUTPUT_TOKENS_SETTING = "gemini.maxOutputTokens";
+  private static final String GEMINI_MAX_OUTPUT_TOKENS_LEGACY_SETTING = "maxOutputTokens";
+  private static final String GEMINI_TEMPERATURE_SETTING = "gemini.temperature";
+  private static final String GEMINI_TEMPERATURE_LEGACY_SETTING = "temperature";
+  private static final String GEMINI_TIMEOUT_SECONDS_SETTING = "gemini.timeoutSeconds";
+  private static final String GEMINI_TIMEOUT_SECONDS_LEGACY_SETTING = "timeoutSeconds";
+  private static final String LEGACY_GEMINI_SETTINGS_RELATIVE_PATH = ".jvn/jane-gemini.properties";
 
   private final TagiGeneralHelpSystem generalHelp = new TagiGeneralHelpSystem();
   private final BorderPane contentPane = new BorderPane();
@@ -68,6 +93,7 @@ public class JaneAssistantView extends BorderPane {
   private final Button refreshButton = new Button("Refresh");
   private final Button clearButton = new Button("Clear");
   private final Button sourcesButton = new Button("Sources");
+  private final Button settingsButton = new Button();
   private final List<Timeline> textAnimations = new ArrayList<>();
 
   private File workspaceRoot;
@@ -82,6 +108,7 @@ public class JaneAssistantView extends BorderPane {
   private boolean firstCorpusLoad = true;
   private boolean indexing;
   private boolean pendingRefresh;
+  private Stage settingsStage;
 
   public JaneAssistantView() {
     getStyleClass().addAll("jane-assistant-root", "sidebar-tool-root");
@@ -254,11 +281,15 @@ public class JaneAssistantView extends BorderPane {
     sourcesButton.setTooltip(new Tooltip("Show or hide Jane's TAGI sources for the latest answer"));
     sourcesButton.setDisable(true);
     sourcesButton.setOnAction(e -> toggleSources());
+    settingsButton.getStyleClass().addAll("sidebar-tool-btn", "jane-icon-button");
+    settingsButton.setGraphic(CssIcon.settings("#d8b568"));
+    settingsButton.setTooltip(new Tooltip("Configure Jane settings"));
+    settingsButton.setOnAction(e -> openSettingsWindow());
 
     HBox inputRow = new HBox(6, askField, askButton);
     inputRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(askField, Priority.ALWAYS);
-    HBox actions = new HBox(6, sourcesButton, refreshButton, clearButton);
+    HBox actions = new HBox(6, sourcesButton, refreshButton, clearButton, settingsButton);
     actions.setAlignment(Pos.CENTER_LEFT);
     VBox footer = new VBox(8, new Separator(), inputRow, actions);
     footer.getStyleClass().add("sidebar-tool-footer");
@@ -352,7 +383,7 @@ public class JaneAssistantView extends BorderPane {
       hideThinkingBubble();
       setInputDisabled(false);
       statusLabel.setText("Jane response failed: " + safeMessage(task.getException()));
-      addAssistantBubble("I hit a configured model error. Re-index docs or check Jane's Gemini or ONNX settings.");
+      addAssistantBubble("I hit a configured model error. Re-index docs or check Jane's Gemini settings.");
     });
     Thread thread = new Thread(task, "jane-chat");
     thread.setDaemon(true);
@@ -380,6 +411,289 @@ public class JaneAssistantView extends BorderPane {
       refreshModel();
       refreshCorpus();
     }
+  }
+
+  private void openSettingsWindow() {
+    if (settingsStage != null && settingsStage.isShowing()) {
+      settingsStage.toFront();
+      settingsStage.requestFocus();
+      return;
+    }
+
+    GeminiSettings settings = readGeminiSettings();
+    PasswordField keyField = new PasswordField();
+    keyField.setPromptText(settings.hasApiKey() ? "Saved key present" : "Google AI Studio API key");
+    keyField.getStyleClass().add("editor-settings-text-field");
+    keyField.setMaxWidth(Double.MAX_VALUE);
+
+    TextField modelField = new TextField(settings.model());
+    modelField.setPromptText(GeminiChatModel.defaultModel());
+    modelField.getStyleClass().add("editor-settings-text-field");
+    modelField.setMaxWidth(Double.MAX_VALUE);
+
+    Label header = new Label("Jane Settings");
+    header.getStyleClass().add("editor-settings-header");
+    Label intro = new Label("Stored locally under " + GeminiChatModel.localSettingsRelativePath() + " for this workspace.");
+    intro.setWrapText(true);
+    intro.getStyleClass().add("editor-settings-copy");
+
+    Label keyStateLabel = new Label(keyStorageText(settings));
+    keyStateLabel.setWrapText(true);
+    keyStateLabel.getStyleClass().add("editor-settings-copy");
+
+    GridPane grid = settingsGrid(90);
+    grid.addRow(0, settingsFieldLabel("API Key"), keyField);
+    grid.addRow(1, settingsFieldLabel("Model"), modelField);
+
+    VBox section = new VBox(10, keyStateLabel, grid);
+    section.getStyleClass().add("editor-settings-section");
+
+    Label dialogStatusLabel = new Label("Jane settings loaded.");
+    dialogStatusLabel.getStyleClass().add("editor-settings-status");
+    dialogStatusLabel.setMaxWidth(Double.MAX_VALUE);
+
+    Button saveButton = settingsActionButton("Save");
+    Button clearKeyButton = settingsActionButton("Clear Key");
+    Button closeButton = settingsActionButton("Close");
+    final boolean[] hasSavedKey = {settings.hasApiKey()};
+
+    saveButton.setOnAction(e -> {
+      String apiKey = trimmed(keyField.getText());
+      String model = normalizedModelSetting(modelField.getText());
+      if (!hasSavedKey[0] && apiKey.isBlank()) {
+        dialogStatusLabel.setText("Enter a Gemini key before saving.");
+        keyField.requestFocus();
+        return;
+      }
+      try {
+        saveGeminiSettings(apiKey, model, hasSavedKey[0]);
+        keyField.clear();
+        GeminiSettings updated = readGeminiSettings();
+        hasSavedKey[0] = updated.hasApiKey();
+        keyStateLabel.setText(keyStorageText(updated));
+        modelField.setText(updated.model());
+        dialogStatusLabel.setText("Jane settings saved.");
+        reloadJaneAfterSettingsChange("Gemini settings saved. Jane will use them for new answers.");
+      } catch (IOException ex) {
+        dialogStatusLabel.setText("Failed to save Jane settings: " + safeMessage(ex));
+      }
+    });
+    clearKeyButton.setOnAction(e -> {
+      try {
+        clearGeminiKey();
+        keyField.clear();
+        GeminiSettings updated = readGeminiSettings();
+        hasSavedKey[0] = updated.hasApiKey();
+        keyStateLabel.setText(keyStorageText(updated));
+        dialogStatusLabel.setText("Local Gemini key cleared.");
+        reloadJaneAfterSettingsChange("Local Gemini key cleared.");
+      } catch (IOException ex) {
+        dialogStatusLabel.setText("Failed to clear Gemini key: " + safeMessage(ex));
+      }
+    });
+    closeButton.setOnAction(e -> settingsStage.close());
+
+    HBox buttons = new HBox(8, saveButton, clearKeyButton, closeButton);
+    buttons.getStyleClass().add("editor-settings-inline-row");
+
+    VBox root = new VBox(12, header, intro, section, buttons, dialogStatusLabel);
+    root.getStyleClass().addAll("editor-settings-view", "jane-settings-root");
+    root.setPadding(new Insets(12));
+
+    settingsStage = new Stage();
+    Window owner = getScene() == null ? null : getScene().getWindow();
+    if (owner != null) {
+      settingsStage.initOwner(owner);
+      settingsStage.initModality(Modality.WINDOW_MODAL);
+    }
+    settingsStage.setTitle("Jane Settings");
+    Scene scene = new Scene(root, 460, 300);
+    EditorTheme.apply(scene);
+    settingsStage.setScene(scene);
+    settingsStage.setMinWidth(420);
+    settingsStage.setMinHeight(280);
+    settingsStage.setOnCloseRequest(e -> settingsStage = null);
+    settingsStage.show();
+  }
+
+  private Button settingsActionButton(String label) {
+    Button button = new Button(label);
+    button.getStyleClass().add("editor-settings-button");
+    return button;
+  }
+
+  private void reloadJaneAfterSettingsChange(String status) {
+    if (jane == null) {
+      scheduleInitialization();
+    } else {
+      refreshModel();
+    }
+    statusLabel.setText(status);
+  }
+
+  private GeminiSettings readGeminiSettings() {
+    Path path = janeSettingsPath();
+    Properties props = new Properties();
+    mergeProperties(props, readSettingsProperties(legacyGeminiSettingsPath()));
+    mergeProperties(props, readSettingsProperties(path));
+    String model = firstNonBlank(
+        props.getProperty(GEMINI_MODEL_SETTING),
+        props.getProperty(GEMINI_MODEL_LEGACY_SETTING),
+        GeminiChatModel.defaultModel());
+    return new GeminiSettings(path, !localApiKey(props).isBlank(), model);
+  }
+
+  private void saveGeminiSettings(String apiKey, String model, boolean keepExistingKeyWhenBlank) throws IOException {
+    Path path = janeSettingsPath();
+    Properties props = readSettingsProperties(path);
+    Properties legacyProps = readSettingsProperties(legacyGeminiSettingsPath());
+    String existingKey = firstNonBlank(localApiKey(props), localApiKey(legacyProps));
+
+    copySettingIfMissing(props, legacyProps, GEMINI_ENDPOINT_SETTING, GEMINI_ENDPOINT_LEGACY_SETTING);
+    copySettingIfMissing(props, legacyProps, GEMINI_MAX_OUTPUT_TOKENS_SETTING, GEMINI_MAX_OUTPUT_TOKENS_LEGACY_SETTING);
+    copySettingIfMissing(props, legacyProps, GEMINI_TEMPERATURE_SETTING, GEMINI_TEMPERATURE_LEGACY_SETTING);
+    copySettingIfMissing(props, legacyProps, GEMINI_TIMEOUT_SECONDS_SETTING, GEMINI_TIMEOUT_SECONDS_LEGACY_SETTING);
+
+    String trimmedKey = trimmed(apiKey);
+    if (!trimmedKey.isBlank()) {
+      props.setProperty(GEMINI_API_KEY_SETTING, trimmedKey);
+    } else if (keepExistingKeyWhenBlank && !existingKey.isBlank()) {
+      props.setProperty(GEMINI_API_KEY_SETTING, existingKey);
+    }
+    props.setProperty(GEMINI_MODEL_SETTING, normalizedModelSetting(model));
+    removeLegacyGeminiProperties(props);
+    writeSettingsProperties(path, props);
+    clearApiKeyInFile(legacyGeminiSettingsPath());
+  }
+
+  private void clearGeminiKey() throws IOException {
+    clearApiKeyInFile(janeSettingsPath());
+    clearApiKeyInFile(legacyGeminiSettingsPath());
+  }
+
+  private void clearApiKeyInFile(Path path) throws IOException {
+    Properties props = readSettingsProperties(path);
+    if (props.isEmpty()) return;
+    props.remove(GEMINI_API_KEY_SETTING);
+    props.remove(GEMINI_API_KEY_SNAKE_SETTING);
+    props.remove(GEMINI_API_KEY_LEGACY_SETTING);
+    props.remove(GEMINI_API_KEY_LEGACY_SNAKE_SETTING);
+    if (props.isEmpty()) {
+      Files.deleteIfExists(path);
+    } else {
+      writeSettingsProperties(path, props);
+    }
+  }
+
+  private Path janeSettingsPath() {
+    return settingsRootPath()
+        .resolve(GeminiChatModel.localSettingsRelativePath())
+        .toAbsolutePath()
+        .normalize();
+  }
+
+  private Path legacyGeminiSettingsPath() {
+    return settingsRootPath()
+        .resolve(LEGACY_GEMINI_SETTINGS_RELATIVE_PATH)
+        .toAbsolutePath()
+        .normalize();
+  }
+
+  private Path settingsRootPath() {
+    File root = workspaceRoot != null ? workspaceRoot : detectWorkspaceRoot();
+    if (root != null) return root.toPath().toAbsolutePath().normalize();
+    return Path.of(".").toAbsolutePath().normalize();
+  }
+
+  private Properties readSettingsProperties(Path path) {
+    Properties props = new Properties();
+    if (path == null || !Files.isRegularFile(path)) return props;
+    try (var input = Files.newInputStream(path)) {
+      props.load(input);
+    } catch (IOException ignored) {
+      // Saving the dialog will recreate the local Jane settings file if possible.
+    }
+    return props;
+  }
+
+  private void writeSettingsProperties(Path path, Properties props) throws IOException {
+    if (path.getParent() != null) Files.createDirectories(path.getParent());
+    try (var output = Files.newOutputStream(path)) {
+      props.store(output, "Jane local settings");
+    }
+  }
+
+  private static void mergeProperties(Properties target, Properties source) {
+    if (target == null || source == null || source.isEmpty()) return;
+    for (String name : source.stringPropertyNames()) {
+      target.setProperty(name, source.getProperty(name));
+    }
+  }
+
+  private static void copySettingIfMissing(Properties target, Properties source, String canonicalKey, String legacyKey) {
+    if (!firstNonBlank(target.getProperty(canonicalKey), target.getProperty(legacyKey)).isBlank()) return;
+    String value = firstNonBlank(source.getProperty(canonicalKey), source.getProperty(legacyKey));
+    if (!value.isBlank()) target.setProperty(canonicalKey, value);
+  }
+
+  private static void removeLegacyGeminiProperties(Properties props) {
+    props.remove(GEMINI_API_KEY_LEGACY_SETTING);
+    props.remove(GEMINI_API_KEY_SNAKE_SETTING);
+    props.remove(GEMINI_API_KEY_LEGACY_SNAKE_SETTING);
+    props.remove(GEMINI_MODEL_LEGACY_SETTING);
+    props.remove(GEMINI_ENDPOINT_LEGACY_SETTING);
+    props.remove(GEMINI_MAX_OUTPUT_TOKENS_LEGACY_SETTING);
+    props.remove(GEMINI_TEMPERATURE_LEGACY_SETTING);
+    props.remove(GEMINI_TIMEOUT_SECONDS_LEGACY_SETTING);
+  }
+
+  private static String localApiKey(Properties props) {
+    return firstNonBlank(
+        props.getProperty(GEMINI_API_KEY_SETTING),
+        props.getProperty(GEMINI_API_KEY_SNAKE_SETTING),
+        props.getProperty(GEMINI_API_KEY_LEGACY_SETTING),
+        props.getProperty(GEMINI_API_KEY_LEGACY_SNAKE_SETTING));
+  }
+
+  private static String keyStorageText(GeminiSettings settings) {
+    return settings.hasApiKey()
+        ? "Local Gemini key saved in " + GeminiChatModel.localSettingsRelativePath() + "."
+        : "No local Gemini key saved yet.";
+  }
+
+  private static String normalizedModelSetting(String value) {
+    String trimmed = trimmed(value);
+    return trimmed.isBlank() ? GeminiChatModel.defaultModel() : trimmed;
+  }
+
+  private static GridPane settingsGrid(double labelWidth) {
+    GridPane grid = new GridPane();
+    grid.setHgap(10);
+    grid.setVgap(10);
+    ColumnConstraints labelColumn = new ColumnConstraints();
+    labelColumn.setMinWidth(labelWidth);
+    ColumnConstraints fieldColumn = new ColumnConstraints();
+    fieldColumn.setHgrow(Priority.ALWAYS);
+    grid.getColumnConstraints().addAll(labelColumn, fieldColumn);
+    return grid;
+  }
+
+  private static Label settingsFieldLabel(String text) {
+    Label label = new Label(text);
+    label.getStyleClass().add("editor-settings-label");
+    return label;
+  }
+
+  private static String trimmed(String value) {
+    return value == null ? "" : value.trim();
+  }
+
+  private static String firstNonBlank(String... values) {
+    if (values == null) return "";
+    for (String value : values) {
+      if (value != null && !value.isBlank()) return value.trim();
+    }
+    return "";
   }
 
   private void toggleSources() {
@@ -760,4 +1074,6 @@ public class JaneAssistantView extends BorderPane {
     }
     return throwable.getMessage();
   }
+
+  private record GeminiSettings(Path path, boolean hasApiKey, String model) {}
 }
