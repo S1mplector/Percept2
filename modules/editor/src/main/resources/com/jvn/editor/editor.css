@@ -4211,6 +4211,10 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-border-color: #303030;
 }
 
+.jane-chat-bubble-thinking {
+  -fx-border-color: #5a4a22;
+}
+
 .jane-chat-speaker {
   -fx-text-fill: #d8b568;
   -fx-font-size: 10px;
@@ -4221,6 +4225,24 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-text-fill: #e8e8e8;
   -fx-font-size: 12px;
   -fx-line-spacing: 2;
+}
+
+.jane-thinking-body {
+  -fx-text-fill: #d8b568;
+}
+
+.jane-see-more-button {
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
+  -fx-padding: 3 0 0 0;
+  -fx-text-fill: #d8b568;
+  -fx-font-size: 11px;
+  -fx-font-weight: 800;
+  -fx-cursor: hand;
+}
+
+.jane-see-more-button:hover {
+  -fx-text-fill: #ffd166;
 }
 
 .jane-evidence {

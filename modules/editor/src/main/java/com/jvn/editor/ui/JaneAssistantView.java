@@ -20,6 +20,9 @@ import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import javafx.animation.Animation;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
@@ -36,11 +39,15 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.util.Duration;
 
 /** Sidebar chatbot for Jane, JVN's local assistant. */
 public class JaneAssistantView extends BorderPane {
   private static final Pattern HEADING_LINE = Pattern.compile("^#\\s+(.+)$");
   private static final int SUMMARY_LIMIT = 220;
+  private static final int ANSWER_COLLAPSE_LIMIT = 900;
+  private static final int MIN_COLLAPSE_REMAINDER = 180;
+  private static final int TYPEWRITER_CHARS_PER_TICK = 14;
 
   private final TagiGeneralHelpSystem generalHelp = new TagiGeneralHelpSystem();
   private final JaneAssistant jane = new JaneAssistant(generalHelp);
@@ -54,11 +61,14 @@ public class JaneAssistantView extends BorderPane {
   private final Button refreshButton = new Button("Refresh");
   private final Button clearButton = new Button("Clear");
   private final Button sourcesButton = new Button("Sources");
+  private final List<Timeline> textAnimations = new ArrayList<>();
 
   private File workspaceRoot;
   private File projectRoot;
   private Consumer<File> onOpenDoc;
   private JaneChatResponse lastResponse;
+  private VBox thinkingBubble;
+  private Timeline thinkingAnimation;
   private boolean indexing;
   private boolean pendingRefresh;
 
@@ -214,6 +224,7 @@ public class JaneAssistantView extends BorderPane {
     addUserBubble(query.trim());
     setInputDisabled(true);
     statusLabel.setText("Jane is thinking...");
+    showThinkingBubble();
 
     Task<JaneChatResponse> task = new Task<>() {
       @Override
@@ -223,15 +234,17 @@ public class JaneAssistantView extends BorderPane {
     };
     task.setOnSucceeded(e -> {
       JaneChatResponse response = task.getValue();
+      hideThinkingBubble();
       setInputDisabled(false);
       statusLabel.setText("Ready. Indexed " + generalHelp.articles().size() + " training articles.");
       modelLabel.setText("Model: " + (response == null ? jane.model().name() : response.modelName()));
-      addAssistantBubble(response == null ? "I could not produce a response." : response.answer());
+      addAssistantBubbleAnimated(response == null ? "I could not produce a response." : response.answer());
       lastResponse = response;
       hideEvidence();
       sourcesButton.setDisable(!hasEvidence(response));
     });
     task.setOnFailed(e -> {
+      hideThinkingBubble();
       setInputDisabled(false);
       statusLabel.setText("Jane response failed: " + safeMessage(task.getException()));
       addAssistantBubble("I hit a configured model error. Re-index docs or check Jane's Gemini or ONNX settings.");
@@ -244,6 +257,8 @@ public class JaneAssistantView extends BorderPane {
   private void clearChat() {
     jane.clearHistory();
     lastResponse = null;
+    hideThinkingBubble();
+    stopTextAnimations();
     transcriptBox.getChildren().clear();
     hideEvidence();
     sourcesButton.setDisable(true);
@@ -341,21 +356,158 @@ public class JaneAssistantView extends BorderPane {
   }
 
   private void addAssistantBubble(String text) {
-    addBubble("Jane", text, "jane-chat-bubble-assistant");
+    addAssistantBubble(text, false);
+  }
+
+  private void addAssistantBubbleAnimated(String text) {
+    addAssistantBubble(text, true);
+  }
+
+  private void addAssistantBubble(String text, boolean animated) {
+    addBubble("Jane", text, "jane-chat-bubble-assistant", true, animated);
   }
 
   private void addBubble(String speaker, String text, String styleClass) {
+    addBubble(speaker, text, styleClass, false, false);
+  }
+
+  private void addBubble(String speaker, String text, String styleClass, boolean assistant, boolean animated) {
     Label speakerLabel = new Label(speaker);
     speakerLabel.getStyleClass().add("jane-chat-speaker");
-    Label body = new Label(text == null ? "" : text);
+    String fullText = text == null ? "" : text;
+    boolean collapsible = assistant && shouldCollapseAnswer(fullText);
+    String collapsedText = collapsible ? collapsedAnswer(fullText) : fullText;
+    Label body = new Label(animated ? "" : collapsedText);
     body.setWrapText(true);
     body.setMaxWidth(Double.MAX_VALUE);
     body.getStyleClass().add("jane-chat-body");
     VBox bubble = new VBox(3, speakerLabel, body);
     bubble.getStyleClass().addAll("jane-chat-bubble", styleClass);
     bubble.setMaxWidth(Double.MAX_VALUE);
+    if (collapsible) {
+      Button moreButton = seeMoreButton(body, fullText, collapsedText);
+      moreButton.setVisible(!animated);
+      moreButton.setManaged(!animated);
+      bubble.getChildren().add(moreButton);
+      if (animated) {
+        animateText(body, collapsedText, () -> {
+          moreButton.setVisible(true);
+          moreButton.setManaged(true);
+        });
+      }
+    } else if (animated) {
+      animateText(body, collapsedText);
+    }
     transcriptBox.getChildren().add(bubble);
     Platform.runLater(() -> transcriptScroll.setVvalue(1.0));
+  }
+
+  private Button seeMoreButton(Label body, String fullText, String collapsedText) {
+    Button button = new Button("See more...");
+    button.getStyleClass().add("jane-see-more-button");
+    button.setMaxWidth(Double.MAX_VALUE);
+    button.setAlignment(Pos.CENTER_LEFT);
+    final boolean[] expanded = {false};
+    button.setOnAction(e -> {
+      expanded[0] = !expanded[0];
+      body.setText(expanded[0] ? fullText : collapsedText);
+      button.setText(expanded[0] ? "See less" : "See more...");
+      Platform.runLater(() -> transcriptScroll.setVvalue(1.0));
+    });
+    return button;
+  }
+
+  private void showThinkingBubble() {
+    hideThinkingBubble();
+    Label speakerLabel = new Label("Jane");
+    speakerLabel.getStyleClass().add("jane-chat-speaker");
+    Label body = new Label("Thinking");
+    body.setWrapText(true);
+    body.setMaxWidth(Double.MAX_VALUE);
+    body.getStyleClass().addAll("jane-chat-body", "jane-thinking-body");
+    VBox bubble = new VBox(3, speakerLabel, body);
+    bubble.getStyleClass().addAll("jane-chat-bubble", "jane-chat-bubble-assistant", "jane-chat-bubble-thinking");
+    bubble.setMaxWidth(Double.MAX_VALUE);
+    transcriptBox.getChildren().add(bubble);
+    thinkingBubble = bubble;
+    final int[] frame = {0};
+    thinkingAnimation = new Timeline(new KeyFrame(Duration.millis(360), e -> {
+      frame[0] = (frame[0] + 1) % 4;
+      body.setText("Thinking" + ".".repeat(frame[0]));
+      transcriptScroll.setVvalue(1.0);
+    }));
+    thinkingAnimation.setCycleCount(Animation.INDEFINITE);
+    thinkingAnimation.playFromStart();
+    Platform.runLater(() -> transcriptScroll.setVvalue(1.0));
+  }
+
+  private void hideThinkingBubble() {
+    if (thinkingAnimation != null) {
+      thinkingAnimation.stop();
+      thinkingAnimation = null;
+    }
+    if (thinkingBubble != null) {
+      transcriptBox.getChildren().remove(thinkingBubble);
+      thinkingBubble = null;
+    }
+  }
+
+  private void animateText(Label label, String text, Runnable onFinished) {
+    String target = text == null ? "" : text;
+    if (target.isEmpty()) {
+      label.setText("");
+      if (onFinished != null) onFinished.run();
+      return;
+    }
+    final int[] index = {0};
+    Timeline animation = new Timeline();
+    final Timeline[] animationRef = {animation};
+    animation.getKeyFrames().add(new KeyFrame(Duration.millis(18), e -> {
+      index[0] = Math.min(target.length(), index[0] + TYPEWRITER_CHARS_PER_TICK);
+      label.setText(target.substring(0, index[0]));
+      if (index[0] >= target.length()) {
+        Timeline source = animationRef[0];
+        source.stop();
+        textAnimations.remove(source);
+        if (onFinished != null) onFinished.run();
+      }
+      transcriptScroll.setVvalue(1.0);
+    }));
+    animation.setCycleCount(Animation.INDEFINITE);
+    textAnimations.add(animation);
+    animation.playFromStart();
+  }
+
+  private void animateText(Label label, String text) {
+    animateText(label, text, () -> {});
+  }
+
+  private void stopTextAnimations() {
+    for (Timeline animation : List.copyOf(textAnimations)) {
+      animation.stop();
+    }
+    textAnimations.clear();
+  }
+
+  private static boolean shouldCollapseAnswer(String text) {
+    return text != null && text.length() > ANSWER_COLLAPSE_LIMIT + MIN_COLLAPSE_REMAINDER;
+  }
+
+  private static String collapsedAnswer(String text) {
+    if (!shouldCollapseAnswer(text)) return text == null ? "" : text;
+    int cut = bestCollapseIndex(text);
+    return text.substring(0, cut).trim() + "...";
+  }
+
+  private static int bestCollapseIndex(String text) {
+    int limit = Math.min(text.length(), ANSWER_COLLAPSE_LIMIT);
+    int paragraph = text.lastIndexOf("\n\n", limit);
+    if (paragraph >= ANSWER_COLLAPSE_LIMIT / 2) return paragraph;
+    int sentence = Math.max(text.lastIndexOf(". ", limit), Math.max(text.lastIndexOf("? ", limit), text.lastIndexOf("! ", limit)));
+    if (sentence >= ANSWER_COLLAPSE_LIMIT / 2) return sentence + 1;
+    int whitespace = text.lastIndexOf(' ', limit);
+    if (whitespace >= ANSWER_COLLAPSE_LIMIT / 2) return whitespace;
+    return limit;
   }
 
   private void setInputDisabled(boolean disabled) {
