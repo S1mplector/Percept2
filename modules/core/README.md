@@ -11,7 +11,7 @@ Foundation module for the JVN engine. Every other module depends on `:core`.
 | `audio` | Audio channel abstractions (BGM, SFX, Voice) |
 | `config` | Project configuration loading (`jvn.project`) |
 | `engine` | Engine update loop, delta smoothing, SceneManager |
-| `generalhelp` | Jane assistant, TAGI consensus grounding, and optional Gemini or ONNX chat backends |
+| `generalhelp` | Jane assistant, TAGI consensus grounding, Gemini chat backend, and opt-in ONNX adapter |
 | `graphics` | Camera2D, ViewportScaler2D |
 | `input` | Input polling, key/mouse bindings |
 | `localization` | Locale-aware resource resolution |

@@ -32,7 +32,6 @@ public final class JaneConsoleApp {
     JaneAssistant jane = new JaneAssistant(tagi);
 
     System.out.println("Jane is ready. Indexed " + tagi.articles().size() + " training articles from " + root);
-    System.out.println("Model: " + jane.model().name());
     System.out.println("Ask a question, or type /exit.");
 
     try (BufferedReader reader = new BufferedReader(new InputStreamReader(System.in))) {

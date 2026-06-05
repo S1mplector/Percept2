@@ -3,8 +3,7 @@
 TAGI general help is the engine's local grounding layer for Jane, JVN's assistant.
 It ranks indexed JVN documentation with three deterministic agents and merges their
 votes into one consensus answer. Jane wraps that grounded answer in a chatbot
-session and can optionally use Gemini or a lightweight ONNX model for answer
-synthesis.
+session and uses Gemini for answer synthesis when a Gemini API key is configured.
 
 TAGI stands for three-agent general intelligence in this feature:
 
@@ -15,8 +14,9 @@ TAGI stands for three-agent general intelligence in this feature:
 TAGI itself does not call an LLM, remote API, embedding service, or network
 endpoint. It uses lexical scoring, domain rules, and weighted consensus over a
 loaded help corpus. Jane can add synthesis on top with `GeminiChatModel` when a
-Gemini API key is configured, or `OnnxChatModel` when a local model is configured
-and Gemini is not. Otherwise it falls back to TAGI-grounded formatting.
+Gemini API key is configured. Otherwise it falls back to the built-in local expert
+model and TAGI-grounded formatting. `OnnxChatModel` is still available for
+explicit local experiments, but it is not selected automatically.
 
 ## Engine API
 
@@ -75,7 +75,7 @@ Jane always has a local model available:
 - default: `JaneExpertLocalModel`, a built-in local expert model grounded by TAGI
 - fallback: `TagiGroundedChatModel`, a deterministic formatter if another model fails
 - optional: `GeminiChatModel`, loaded first when a Gemini API key is configured
-- optional: `OnnxChatModel`, loaded when ONNX model and tokenizer paths are configured and Gemini is not
+- opt-in: `OnnxChatModel`, loaded only when `jvn.jane.onnx.enabled=true` is set
 
 ## Console Chat
 
@@ -92,7 +92,7 @@ history and `/exit` to quit.
 ## Gemini Chat Model
 
 `GeminiChatModel` is Jane's Google AI Studio backend. When configured, it is used
-before ONNX and the built-in expert model. The default model is:
+before the built-in expert model. The default model is:
 
 ```text
 gemini-3.1-flash-lite
@@ -125,7 +125,8 @@ for launch wrappers and local experiments:
 ## ONNX Chat Model
 
 `OnnxChatModel` is a direct Java ONNX Runtime integration for compact local
-decoder-style models. It is used only when Gemini is not configured. It expects:
+decoder-style models. It is opt-in and disabled by default so Jane does not
+silently use a local Qwen model when Gemini is not configured. It expects:
 
 - an ONNX model file
 - a Hugging Face tokenizer JSON file
@@ -136,6 +137,7 @@ decoder-style models. It is used only when Gemini is not configured. It expects:
 Configure it with JVM system properties:
 
 ```bash
+-Djvn.jane.onnx.enabled=true
 -Djvn.jane.onnx.model=/absolute/path/to/model.onnx
 -Djvn.jane.onnx.tokenizer=/absolute/path/to/tokenizer.json
 -Djvn.jane.onnx.name=Jane Tiny ONNX
@@ -159,7 +161,7 @@ This makes TAGI best suited for:
 - explaining which doc to open first
 - routing users through VNS, JES, timeline, menu, packaging, and diagnostic material
 - offline help inside the editor
-- optional Gemini or ONNX synthesis when a compatible backend is configured
+- optional Gemini synthesis when a Gemini key is configured
 
 Jane is grounded by documentation. It is not intended to replace human-authored
 docs or silently reason beyond the indexed corpus.

@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.jvn.core.config.ApplicationConfig;
 import com.jvn.core.engine.Engine;
 import java.util.List;
+import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
 class TagiGeneralHelpSystemTest {
@@ -111,6 +112,23 @@ class TagiGeneralHelpSystemTest {
 
     assertFalse(jane.model().name().isBlank());
     assertTrue(jane.model().isAvailable());
+  }
+
+  @Test
+  void janeDoesNotAutoSelectQwenOnnxModel() {
+    String previous = System.getProperty("jvn.jane.onnx.enabled");
+    System.clearProperty("jvn.jane.onnx.enabled");
+    try {
+      JaneAssistant jane = new JaneAssistant(new TagiGeneralHelpSystem());
+
+      assertFalse(jane.model().name().toLowerCase(Locale.ROOT).contains("qwen"));
+    } finally {
+      if (previous == null) {
+        System.clearProperty("jvn.jane.onnx.enabled");
+      } else {
+        System.setProperty("jvn.jane.onnx.enabled", previous);
+      }
+    }
   }
 
   @Test

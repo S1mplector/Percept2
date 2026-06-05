@@ -1,6 +1,5 @@
 import java.io.File
 import java.net.URI
-import java.util.Properties
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.tasks.Classpath
@@ -106,30 +105,6 @@ fun JavaExec.forwardHubLaunchSystemProps() {
   }
 }
 
-fun janeGeminiConfigured(): Boolean {
-  val propertyApiKey = System.getProperty("jvn.jane.gemini.apiKey")
-  val envApiKey = listOf(
-    "JVN_JANE_GEMINI_API_KEY",
-    "GEMINI_API_KEY",
-    "GOOGLE_AI_API_KEY",
-    "GOOGLE_API_KEY"
-  ).any { key -> !System.getenv(key).isNullOrBlank() }
-  val explicitConfig = System.getProperty("jvn.jane.gemini.config")
-  return !propertyApiKey.isNullOrBlank() ||
-      envApiKey ||
-      janeGeminiConfigHasApiKey(rootProject.layout.projectDirectory.file(".jvn/jane-gemini.properties").asFile) ||
-      (!explicitConfig.isNullOrBlank() && janeGeminiConfigHasApiKey(File(explicitConfig)))
-}
-
-fun janeGeminiConfigHasApiKey(file: File): Boolean {
-  if (!file.isFile) return false
-  return runCatching {
-    val props = Properties()
-    file.inputStream().use { input -> props.load(input) }
-    !props.getProperty("apiKey").isNullOrBlank() || !props.getProperty("api_key").isNullOrBlank()
-  }.getOrDefault(false)
-}
-
 fun JavaExec.forwardJaneGeminiProperties() {
   listOf(
     "jvn.jane.gemini.apiKey",
@@ -147,28 +122,35 @@ fun JavaExec.forwardJaneGeminiProperties() {
   }
 }
 
+fun JavaExec.forwardJaneOnnxProperties() {
+  listOf(
+    "jvn.jane.onnx.enabled",
+    "jvn.jane.onnx.model",
+    "jvn.jane.onnx.tokenizer",
+    "jvn.jane.onnx.vocab",
+    "jvn.jane.onnx.name",
+    "jvn.jane.onnx.maxPromptTokens",
+    "jvn.jane.onnx.maxNewTokens",
+    "jvn.jane.onnx.topK",
+    "jvn.jane.onnx.temperature"
+  ).forEach { key ->
+    val value = System.getProperty(key)
+    if (!value.isNullOrBlank()) {
+      systemProperty(key, value)
+    }
+  }
+}
+
 fun JavaExec.configureJaneModelProperties() {
   systemProperty("jvn.jane.workspaceRoot", rootProject.projectDir.absolutePath)
   systemProperty("jvn.repoRoot", rootProject.projectDir.absolutePath)
   forwardJaneGeminiProperties()
-  if (janeGeminiConfigured()) {
-    return
-  }
-  systemProperty("jvn.jane.onnx.model", rootProject.layout.projectDirectory.file(".jvn/jane-model/qwen2.5-1.5b-instruct/model_quantized.onnx").asFile.absolutePath)
-  systemProperty("jvn.jane.onnx.tokenizer", rootProject.layout.projectDirectory.file(".jvn/jane-model/qwen2.5-1.5b-instruct/tokenizer.json").asFile.absolutePath)
-  systemProperty("jvn.jane.onnx.name", "Jane Qwen2.5 1.5B Instruct ONNX")
-  systemProperty("jvn.jane.onnx.maxPromptTokens", "768")
-  systemProperty("jvn.jane.onnx.maxNewTokens", "128")
-  systemProperty("jvn.jane.onnx.topK", "1")
-  systemProperty("jvn.jane.onnx.temperature", "0.0")
+  forwardJaneOnnxProperties()
 }
 
 // Ensure JavaFX modules are available at runtime when launching via :editor:run
 // This avoids the "JavaFX runtime components are missing" error.
 tasks.named<JavaExec>("run") {
-  if (!janeGeminiConfigured()) {
-    dependsOn("provisionJaneModel")
-  }
   configureJavaFxRuntime()
   systemProperty("jvn.version", rootProject.version.toString())
   configureJaneModelProperties()
@@ -189,9 +171,6 @@ tasks.register<JavaExec>("runLauncher") {
 tasks.register<JavaExec>("runJane") {
   group = "application"
   description = "Runs Jane, JVN's local assistant, in the terminal."
-  if (!janeGeminiConfigured()) {
-    dependsOn("provisionJaneModel")
-  }
   classpath = sourceSets["main"].runtimeClasspath
   mainClass.set("com.jvn.editor.JaneConsoleApp")
   workingDir = rootProject.projectDir
@@ -201,7 +180,7 @@ tasks.register<JavaExec>("runJane") {
 
 tasks.register("provisionJaneModel") {
   group = "application"
-  description = "Downloads Jane's bundled local Qwen2.5 1.5B Instruct ONNX model if it is missing."
+  description = "Downloads Jane's opt-in local Qwen2.5 1.5B Instruct ONNX model if it is missing."
   val modelDir = rootProject.layout.projectDirectory.dir(".jvn/jane-model/qwen2.5-1.5b-instruct")
   outputs.dir(modelDir)
   doLast {

@@ -4184,8 +4184,7 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-font-size: 16px;
 }
 
-.jane-subtitle,
-.jane-model-label {
+.jane-subtitle {
   -fx-text-fill: #aaa;
   -fx-font-size: 11px;
 }

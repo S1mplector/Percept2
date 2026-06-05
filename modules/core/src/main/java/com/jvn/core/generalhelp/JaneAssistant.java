@@ -7,6 +7,7 @@ import java.util.Optional;
 /** Jane, JVN's assistant: a TAGI-grounded chatbot with an optional local model. */
 public final class JaneAssistant {
   private static final int MAX_HISTORY_MESSAGES = 12;
+  private static final String ONNX_ENABLED_PROPERTY = "jvn.jane.onnx.enabled";
 
   private final TagiGeneralHelpSystem tagi;
   private final LocalChatModel fallbackModel = new TagiGroundedChatModel();
@@ -90,6 +91,7 @@ public final class JaneAssistant {
     Optional<LocalChatModel> gemini = GeminiChatModel.fromSystemProperties()
         .<LocalChatModel>map(model -> model);
     if (gemini.isPresent()) return gemini;
+    if (!Boolean.getBoolean(ONNX_ENABLED_PROPERTY)) return Optional.empty();
     return OnnxChatModel.fromSystemProperties().map(model -> model);
   }
 

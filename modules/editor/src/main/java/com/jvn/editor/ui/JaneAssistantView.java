@@ -56,7 +56,6 @@ public class JaneAssistantView extends BorderPane {
   private final VBox evidenceBox = new VBox(8);
   private final ScrollPane transcriptScroll = new ScrollPane(transcriptBox);
   private final Label statusLabel = new Label("Indexing JVN docs...");
-  private final Label modelLabel = new Label("Model: " + jane.model().name());
   private final Button askButton = new Button("Ask");
   private final Button refreshButton = new Button("Refresh");
   private final Button clearButton = new Button("Clear");
@@ -120,7 +119,6 @@ public class JaneAssistantView extends BorderPane {
       }
       setInputDisabled(false);
       statusLabel.setText("Ready. Indexed " + articles.size() + " training articles.");
-      modelLabel.setText("Model: " + jane.model().name());
       if (transcriptBox.getChildren().isEmpty()) {
         addAssistantBubble("I'm Jane. Ask me about JVN languages, workflows, assets, editor tools, packaging, diagnostics, or engine internals.");
       }
@@ -133,7 +131,6 @@ public class JaneAssistantView extends BorderPane {
       }
       setInputDisabled(false);
       statusLabel.setText("Index failed. Jane will use the built-in corpus.");
-      modelLabel.setText("Model: " + jane.model().name());
     });
     Thread thread = new Thread(task, "jane-corpus-index");
     thread.setDaemon(true);
@@ -142,7 +139,6 @@ public class JaneAssistantView extends BorderPane {
 
   private void refreshModel() {
     jane.reloadConfiguredModel();
-    modelLabel.setText("Model: " + jane.model().name());
   }
 
   private void buildUi() {
@@ -157,9 +153,8 @@ public class JaneAssistantView extends BorderPane {
     HBox headerRow = new HBox(10, icon, titleBox);
     headerRow.setAlignment(Pos.CENTER_LEFT);
 
-    modelLabel.getStyleClass().add("jane-model-label");
     statusLabel.getStyleClass().add("sidebar-tool-status");
-    VBox header = new VBox(6, headerRow, modelLabel, statusLabel);
+    VBox header = new VBox(6, headerRow, statusLabel);
     header.getStyleClass().addAll("sidebar-tool-header", "jane-header");
     header.setPadding(new Insets(10));
 
@@ -237,7 +232,6 @@ public class JaneAssistantView extends BorderPane {
       hideThinkingBubble();
       setInputDisabled(false);
       statusLabel.setText("Ready. Indexed " + generalHelp.articles().size() + " training articles.");
-      modelLabel.setText("Model: " + (response == null ? jane.model().name() : response.modelName()));
       addAssistantBubbleAnimated(response == null ? "I could not produce a response." : response.answer());
       lastResponse = response;
       hideEvidence();
