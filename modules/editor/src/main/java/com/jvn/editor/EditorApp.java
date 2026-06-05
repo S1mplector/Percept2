@@ -56,6 +56,7 @@ import com.jvn.editor.ui.ImageAttributesToolView;
 import com.jvn.editor.ui.ImageTintToolView;
 import com.jvn.editor.ui.ImageToolPanel;
 import com.jvn.editor.ui.InspectorView;
+import com.jvn.editor.ui.JaneAssistantView;
 import com.jvn.editor.ui.JesScriptAnalyzer;
 import com.jvn.editor.ui.LanguageDiagnostic;
 import com.jvn.editor.ui.LayeredImageVisualizerView;
@@ -178,6 +179,7 @@ public class EditorApp extends Application {
   
   private ProjectExplorerView projView;
   private HelpCenterView helpCenterView;
+  private JaneAssistantView janeAssistantView;
   private StoryTimelineView timelineView;
   private VnsDiagnosticsView vnsDiagnosticsView;
   private VnsFlowMapView vnsFlowMapView;
@@ -225,6 +227,7 @@ public class EditorApp extends Application {
   private Tab tabTimeline;
   private Tab tabInspector;
   private Tab tabHelp;
+  private Tab tabJane;
   private Tab tabVnsDiagnostics;
   private Tab tabVnsFlowMap;
   private Tab tabAssetBrowser;
@@ -1479,6 +1482,8 @@ public class EditorApp extends Application {
     miShowInspector.setOnAction(e -> selectInspectorTab());
     MenuItem miShowHelpPanel = new MenuItem("Help Center");
     miShowHelpPanel.setOnAction(e -> selectHelpTab());
+    MenuItem miShowJane = new MenuItem("Jane");
+    miShowJane.setOnAction(e -> selectJaneTab());
     MenuItem miShowVersionControlPanel = new MenuItem("Version Control");
     miShowVersionControlPanel.setOnAction(e -> selectVersionControlTab());
     MenuItem miShowAssets = new MenuItem("Asset Browser");
@@ -1517,7 +1522,7 @@ public class EditorApp extends Application {
     miAddRightPanel.setOnAction(e -> showRightAddMenu());
     Menu menuPanelsWorkspace = new Menu("Workspace");
     menuPanelsWorkspace.getItems().addAll(
-        miShowWelcomePanel, miShowProject, miShowTimeline, miShowInspector, miShowVersionControlPanel, miShowHelpPanel);
+        miShowWelcomePanel, miShowProject, miShowTimeline, miShowInspector, miShowVersionControlPanel, miShowHelpPanel, miShowJane);
     Menu menuPanelsAuthoring = new Menu("Authoring");
     menuPanelsAuthoring.getItems().addAll(
         miShowAssets, miShowScriptEditorWorkspace, miShowPuppeteerLauncher);
@@ -1574,10 +1579,12 @@ public class EditorApp extends Application {
     miNavigateInspector.setOnAction(e -> selectInspectorTab());
     MenuItem miNavigateHelp = new MenuItem("Help Center");
     miNavigateHelp.setOnAction(e -> selectHelpTab());
+    MenuItem miNavigateJane = new MenuItem("Jane");
+    miNavigateJane.setOnAction(e -> selectJaneTab());
     MenuItem miNavigateVersionControl = new MenuItem("Version Control");
     miNavigateVersionControl.setOnAction(e -> selectVersionControlTab());
     menuNavigateCore.getItems().addAll(
-        miNavigateWelcome, miNavigateProject, miNavigateTimeline, miNavigateInspector, miNavigateHelp, miNavigateVersionControl);
+        miNavigateWelcome, miNavigateProject, miNavigateTimeline, miNavigateInspector, miNavigateHelp, miNavigateJane, miNavigateVersionControl);
 
     Menu menuNavigateEditors = new Menu("Editors & Tools");
     MenuItem miNavigateAssetBrowser = new MenuItem("Asset Browser");
@@ -1732,6 +1739,8 @@ public class EditorApp extends Application {
     miToolEditorSettings.setOnAction(e -> selectEditorSettingsTab());
     MenuItem miToolVersionControl = new MenuItem("Version Control");
     miToolVersionControl.setOnAction(e -> selectVersionControlTab());
+    MenuItem miToolJane = new MenuItem("Jane");
+    miToolJane.setOnAction(e -> selectJaneTab());
 
     Menu menuAnimationTools = new Menu("Animation");
     menuAnimationTools.getItems().addAll(miActionEditor, miPuppeteerPanel);
@@ -1742,7 +1751,7 @@ public class EditorApp extends Application {
     Menu menuImageTools = new Menu("Image & Assets");
     menuImageTools.getItems().addAll(miToolAssets, miLayeredVisualizer, miImageAttributes, miImageTint);
     Menu menuWorkspaceTools = new Menu("Workspace");
-    menuWorkspaceTools.getItems().addAll(miToolInspector, miToolVersionControl, miToolEditorSettings);
+    menuWorkspaceTools.getItems().addAll(miToolInspector, miToolVersionControl, miToolJane, miToolEditorSettings);
     menuTools.getItems().addAll(menuAnimationTools, menuScriptTools, menuLayoutTools, menuImageTools, menuWorkspaceTools);
 
     // ── Version Control ──
@@ -1784,6 +1793,8 @@ public class EditorApp extends Application {
     miWindowVersionControl.setOnAction(e -> selectVersionControlTab());
     MenuItem miWindowHelp = new MenuItem("Help Center");
     miWindowHelp.setOnAction(e -> selectHelpTab());
+    MenuItem miWindowJane = new MenuItem("Jane");
+    miWindowJane.setOnAction(e -> selectJaneTab());
     MenuItem miWindowSettings = new MenuItem("Editor Settings");
     miWindowSettings.setOnAction(e -> selectEditorSettingsTab());
     menuWindowWorkspace.getItems().addAll(
@@ -1793,6 +1804,7 @@ public class EditorApp extends Application {
         miWindowInspector,
         miWindowVersionControl,
         miWindowHelp,
+        miWindowJane,
         miWindowSettings);
 
     Menu menuWindowTools = new Menu("Open Tool Window");
@@ -1811,6 +1823,9 @@ public class EditorApp extends Application {
     MenuItem miWindowVersionControlTool = new MenuItem("Version Control");
     miWindowVersionControlTool.setOnAction(e ->
         launchPanelAsWindow("Version Control", ensureVersionControlView(), 700, 600, EditorSidebarPanel.VERSION_CONTROL));
+    MenuItem miWindowJaneTool = new MenuItem("Jane");
+    miWindowJaneTool.setOnAction(e ->
+        launchPanelAsWindow("Jane", ensureJaneAssistantView(), 620, 760, EditorSidebarPanel.JANE));
     MenuItem miWindowLayoutLauncher = new MenuItem("Layout Launcher");
     miWindowLayoutLauncher.setOnAction(e -> {
       LayoutEditorLauncherView view = ensureLayoutEditorLauncherView();
@@ -1873,6 +1888,7 @@ public class EditorApp extends Application {
         miWindowFlowMap,
         miWindowAssets,
         miWindowVersionControlTool,
+        miWindowJaneTool,
         new SeparatorMenuItem(),
         miWindowLayoutLauncher,
         miWindowPhoneAssets,
@@ -1900,6 +1916,8 @@ public class EditorApp extends Application {
     MenuItem miHelpCenter = new MenuItem("Help Center");
     miHelpCenter.setOnAction(e -> selectHelpTab());
     miHelpCenter.setAccelerator(new KeyCodeCombination(KeyCode.F1));
+    MenuItem miAskJane = new MenuItem("Ask Jane");
+    miAskJane.setOnAction(e -> selectJaneTab());
     MenuItem miRefreshHelp = new MenuItem("Refresh Docs Index");
     miRefreshHelp.setOnAction(e -> {
       if (helpCenterView != null) helpCenterView.refresh();
@@ -1917,7 +1935,7 @@ public class EditorApp extends Application {
           EditorDialogs.ActionSpec.accent("close", "Close", null));
     });
     menuHelp.getItems().addAll(
-        miWelcome, miHelpCenter, miRefreshHelp,
+        miWelcome, miHelpCenter, miAskJane, miRefreshHelp,
         new SeparatorMenuItem(),
         miOpenProjectDocs, miOpenWorkspaceDocs,
         new SeparatorMenuItem(),
@@ -2885,6 +2903,7 @@ public class EditorApp extends Application {
       case PARTICLE_FX: return com.jvn.editor.ui.CssIcon.sparkles("#ff9f3d");
       case MENU_FLOW: return com.jvn.editor.ui.CssIcon.list("#7dd6b7");
       case VERSION_CONTROL: return com.jvn.editor.ui.CssIcon.timeline("#86e4be");
+      case JANE: return com.jvn.editor.ui.CssIcon.speech("#ffd166");
       case HELP: return com.jvn.editor.ui.CssIcon.speech("#ffd166");
       case PUPPETEER_LAUNCHER: return com.jvn.editor.ui.CssIcon.theater("#f0a0d0");
       case SCRIPT_EDITOR: return com.jvn.editor.ui.CssIcon.edit("#9cc7ff");
@@ -3587,6 +3606,7 @@ public class EditorApp extends Application {
       case PARTICLE_FX -> tabParticleFxTool;
       case MENU_FLOW -> tabMenuFlow;
       case VERSION_CONTROL -> tabVersionControl;
+      case JANE -> tabJane;
       case HELP -> tabHelp;
       case PUPPETEER_LAUNCHER -> tabPuppeteerLauncher;
       case SCRIPT_EDITOR -> tabScriptEditorLauncher;
@@ -3613,6 +3633,7 @@ public class EditorApp extends Application {
       case PARTICLE_FX -> ensureParticleFxToolTab(targetPane);
       case MENU_FLOW -> ensureMenuFlowTab(targetPane);
       case VERSION_CONTROL -> ensureVersionControlTab(targetPane);
+      case JANE -> ensureJaneTab(targetPane);
       case HELP -> ensureHelpTab(targetPane);
       case PUPPETEER_LAUNCHER -> ensurePuppeteerLauncherTab(targetPane);
       case SCRIPT_EDITOR -> ensureScriptEditorLauncherTab(targetPane);
@@ -3798,6 +3819,15 @@ public class EditorApp extends Application {
     helpCenterView.setProjectRoot(projectRoot);
     helpCenterView.setOnOpenDoc(this::openFile);
     return helpCenterView;
+  }
+
+  private JaneAssistantView ensureJaneAssistantView() {
+    if (janeAssistantView != null) return janeAssistantView;
+    janeAssistantView = new JaneAssistantView();
+    janeAssistantView.setWorkspaceRoot(resolveWorkspaceRoot());
+    janeAssistantView.setProjectRoot(projectRoot);
+    janeAssistantView.setOnOpenDoc(this::openFile);
+    return janeAssistantView;
   }
 
   private StoryTimelineView ensureTimelineView() {
@@ -4896,6 +4926,23 @@ public class EditorApp extends Application {
     return attachSidebarPanelTab(tabHelp, EditorSidebarPanel.HELP, targetPane);
   }
 
+  private Tab ensureJaneTab(TabPane targetPane) {
+    closePanelWindow(EditorSidebarPanel.JANE, true);
+    JaneAssistantView janeView = ensureJaneAssistantView();
+    if (targetPane == null || janeView == null) return null;
+    if (tabJane == null) {
+      tabJane = new Tab("Jane", janeView);
+      tabJane.setClosable(true);
+      tabJane.setOnClosed(e -> {
+        tabJane = null;
+        releaseSidebarPanelIfUnused(EditorSidebarPanel.JANE);
+      });
+    } else if (tabJane.getContent() != janeView) {
+      tabJane.setContent(janeView);
+    }
+    return attachSidebarPanelTab(tabJane, EditorSidebarPanel.JANE, targetPane);
+  }
+
   private Tab ensureInspectorTab(TabPane targetPane) {
     if (targetPane == null || inspectorScroll == null) return null;
     if (tabInspector == null) {
@@ -5846,6 +5893,7 @@ public class EditorApp extends Application {
       case PARTICLE_FX -> particleFxToolView != null;
       case MENU_FLOW -> menuFlowEditorView != null;
       case VERSION_CONTROL -> versionControlView != null;
+      case JANE -> janeAssistantView != null;
       case HELP -> helpCenterView != null;
       case PUPPETEER_LAUNCHER -> puppeteerLauncherPanel != null;
       case SCRIPT_EDITOR -> scriptEditorLauncherView != null;
@@ -5945,6 +5993,12 @@ public class EditorApp extends Application {
           versionControlView.dispose();
         }
         versionControlView = null;
+      }
+      case JANE -> {
+        if (janeAssistantView != null) {
+          janeAssistantView.setProjectRoot(null);
+        }
+        janeAssistantView = null;
       }
       case HELP -> {
         if (helpCenterView != null) {
@@ -6178,6 +6232,15 @@ public class EditorApp extends Application {
       applyDefaultSidebarPreferences();
     });
 
+    addChooserActionRow(pane, actions, EditorSidebarPanel.JANE, targetPlacement, "Jane", null, () -> {
+      rememberPanelPlacement(EditorSidebarPanel.JANE, targetPlacement);
+      Tab t = ensureJaneTab(pane);
+      if (t != null) pane.getSelectionModel().select(t);
+    }, () -> launchPanelAsWindow("Jane", ensureJaneAssistantView(), 620, 760, EditorSidebarPanel.JANE), () -> {
+      rememberPanelPlacement(EditorSidebarPanel.JANE, EditorPanelPlacement.HIDDEN);
+      applyDefaultSidebarPreferences();
+    });
+
     addChooserActionRow(pane, actions, EditorSidebarPanel.HELP, targetPlacement, "Help", null, () -> {
       rememberPanelPlacement(EditorSidebarPanel.HELP, targetPlacement);
       Tab t = ensureHelpTab(pane);
@@ -6274,6 +6337,13 @@ public class EditorApp extends Application {
 
   private void selectHelpTab() {
     Tab t = (tabHelp != null && tabHelp.getTabPane() != null) ? tabHelp : ensureHelpTab(rightTabs);
+    if (t != null && t.getTabPane() != null) {
+      t.getTabPane().getSelectionModel().select(t);
+    }
+  }
+
+  private void selectJaneTab() {
+    Tab t = (tabJane != null && tabJane.getTabPane() != null) ? tabJane : ensureJaneTab(rightTabs);
     if (t != null && t.getTabPane() != null) {
       t.getTabPane().getSelectionModel().select(t);
     }

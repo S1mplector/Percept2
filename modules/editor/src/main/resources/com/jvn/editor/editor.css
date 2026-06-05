@@ -4164,6 +4164,100 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-padding: 0;
 }
 
+/* Jane assistant */
+.jane-assistant-root {
+  -fx-background-color: #101010;
+}
+
+.jane-header {
+  -fx-spacing: 6;
+}
+
+.jane-header-icon {
+  -fx-min-width: 22;
+  -fx-min-height: 22;
+  -fx-pref-width: 22;
+  -fx-pref-height: 22;
+}
+
+.jane-title {
+  -fx-font-size: 16px;
+}
+
+.jane-subtitle,
+.jane-model-label {
+  -fx-text-fill: #aaa;
+  -fx-font-size: 11px;
+}
+
+.jane-transcript {
+  -fx-padding: 2;
+}
+
+.jane-chat-bubble {
+  -fx-padding: 8 10 8 10;
+  -fx-background-radius: 8;
+  -fx-border-radius: 8;
+  -fx-border-width: 1;
+}
+
+.jane-chat-bubble-user {
+  -fx-background-color: #1e262b;
+  -fx-border-color: #354a56;
+}
+
+.jane-chat-bubble-assistant {
+  -fx-background-color: #191919;
+  -fx-border-color: #303030;
+}
+
+.jane-chat-speaker {
+  -fx-text-fill: #d8b568;
+  -fx-font-size: 10px;
+  -fx-font-weight: 800;
+}
+
+.jane-chat-body {
+  -fx-text-fill: #e8e8e8;
+  -fx-font-size: 12px;
+  -fx-line-spacing: 2;
+}
+
+.jane-evidence {
+  -fx-background-color: #131313;
+  -fx-border-color: #292929;
+  -fx-border-width: 1;
+  -fx-background-radius: 8;
+  -fx-border-radius: 8;
+}
+
+.jane-evidence-title {
+  -fx-text-fill: #d6d6d6;
+  -fx-font-size: 11px;
+  -fx-font-weight: 800;
+}
+
+.jane-recommendation {
+  -fx-alignment: center-left;
+  -fx-text-alignment: left;
+}
+
+.jane-vote-row {
+  -fx-padding: 4 0 4 0;
+}
+
+.jane-vote-agent,
+.jane-vote-score {
+  -fx-text-fill: #d8b568;
+  -fx-font-size: 10px;
+  -fx-font-weight: 800;
+}
+
+.jane-vote-title {
+  -fx-text-fill: #cfcfcf;
+  -fx-font-size: 11px;
+}
+
 .help-doc-tree {
   -fx-background-color: #171717;
   -fx-border-color: #2b2b2b;

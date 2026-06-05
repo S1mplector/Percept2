@@ -7,6 +7,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.jvn.core.config.ApplicationConfig;
+import com.jvn.core.generalhelp.JaneAssistant;
+import com.jvn.core.generalhelp.TagiGeneralHelpSystem;
 import com.jvn.core.input.Input;
 import com.jvn.core.menu.MenuActionHandler;
 import com.jvn.core.scene.Scene;
@@ -84,6 +86,12 @@ public class Engine {
 
   /** Rolling-window frame timing statistics for diagnostics and profiling. */
   private final FrameStats frameStats = new FrameStats();
+
+  /** Offline three-agent consensus assistant for engine/editor help. */
+  private final TagiGeneralHelpSystem generalHelp = new TagiGeneralHelpSystem();
+
+  /** Jane, JVN's TAGI-grounded local chatbot assistant. */
+  private final JaneAssistant jane = new JaneAssistant(generalHelp);
 
   /**
    * Registered observers notified at the start and end of each frame.
@@ -371,6 +379,16 @@ public class Engine {
   /** @return the rolling-window {@link FrameStats} for FPS / frame-time diagnostics */
   public FrameStats frameStats() {
     return frameStats;
+  }
+
+  /** @return the offline three-agent consensus help subsystem */
+  public TagiGeneralHelpSystem generalHelp() {
+    return generalHelp;
+  }
+
+  /** @return Jane, JVN's TAGI-grounded local chatbot assistant */
+  public JaneAssistant jane() {
+    return jane;
   }
 
   /**

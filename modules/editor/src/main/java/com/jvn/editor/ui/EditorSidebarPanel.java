@@ -19,6 +19,7 @@ public enum EditorSidebarPanel {
   PARTICLE_FX("particle_fx", "Particle FX", EditorPanelPlacement.HIDDEN, true, "icon-panel-particle-fx", "particle_effects_orange_transparent.png", "0.3", Maturity.ALPHA),
   MENU_FLOW("menu_flow", "Menu Flow", EditorPanelPlacement.HIDDEN, true, "icon-panel-menuflow", "menu_flow_editor_orange_transparent.png", "0.9", Maturity.BETA),
   VERSION_CONTROL("version_control", "Version Control", EditorPanelPlacement.HIDDEN, true, "icon-panel-vcs", "version_control_orange_transparent_v2.png", "1.0", Maturity.STABLE),
+  JANE("jane", "Jane", EditorPanelPlacement.HIDDEN, true, "icon-panel-jane", null, "0.1", Maturity.BETA),
   HELP("help", "Help", EditorPanelPlacement.HIDDEN, true, "icon-panel-help", "help.png", "1.2.2", Maturity.STABLE),
   PUPPETEER_LAUNCHER("puppeteer_launcher", "Puppeteer Launcher", EditorPanelPlacement.HIDDEN, true, "icon-panel-puppeteer", "puppetteer_orange_transparent.png", "1.0", Maturity.STABLE),
   SCRIPT_EDITOR("script_editor", "Script Editor", EditorPanelPlacement.HIDDEN, true, "icon-panel-text", "code_editor_orange_transparent.png", "1.0", Maturity.STABLE);

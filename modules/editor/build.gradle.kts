@@ -1,4 +1,5 @@
 import java.io.File
+import java.net.URI
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.tasks.Classpath
@@ -104,11 +105,24 @@ fun JavaExec.forwardHubLaunchSystemProps() {
   }
 }
 
+fun JavaExec.configureJaneModelProperties() {
+  systemProperty("jvn.jane.workspaceRoot", rootProject.projectDir.absolutePath)
+  systemProperty("jvn.jane.onnx.model", rootProject.layout.projectDirectory.file(".jvn/jane-model/qwen2.5-1.5b-instruct/model_quantized.onnx").asFile.absolutePath)
+  systemProperty("jvn.jane.onnx.tokenizer", rootProject.layout.projectDirectory.file(".jvn/jane-model/qwen2.5-1.5b-instruct/tokenizer.json").asFile.absolutePath)
+  systemProperty("jvn.jane.onnx.name", "Jane Qwen2.5 1.5B Instruct ONNX")
+  systemProperty("jvn.jane.onnx.maxPromptTokens", "768")
+  systemProperty("jvn.jane.onnx.maxNewTokens", "128")
+  systemProperty("jvn.jane.onnx.topK", "1")
+  systemProperty("jvn.jane.onnx.temperature", "0.0")
+}
+
 // Ensure JavaFX modules are available at runtime when launching via :editor:run
 // This avoids the "JavaFX runtime components are missing" error.
 tasks.named<JavaExec>("run") {
+  dependsOn("provisionJaneModel")
   configureJavaFxRuntime()
   systemProperty("jvn.version", rootProject.version.toString())
+  configureJaneModelProperties()
   forwardHubLaunchSystemProps()
 }
 
@@ -121,6 +135,50 @@ tasks.register<JavaExec>("runLauncher") {
   systemProperty("jvn.version", rootProject.version.toString())
   forwardHubLaunchSystemProps()
   configureJavaFxRuntime()
+}
+
+tasks.register<JavaExec>("runJane") {
+  group = "application"
+  description = "Runs Jane, JVN's local assistant, in the terminal."
+  dependsOn("provisionJaneModel")
+  classpath = sourceSets["main"].runtimeClasspath
+  mainClass.set("com.jvn.editor.JaneConsoleApp")
+  workingDir = rootProject.projectDir
+  standardInput = System.`in`
+  configureJaneModelProperties()
+}
+
+tasks.register("provisionJaneModel") {
+  group = "application"
+  description = "Downloads Jane's bundled local Qwen2.5 1.5B Instruct ONNX model if it is missing."
+  val modelDir = rootProject.layout.projectDirectory.dir(".jvn/jane-model/qwen2.5-1.5b-instruct")
+  outputs.dir(modelDir)
+  doLast {
+    val base = "https://huggingface.co/onnx-community/Qwen2.5-1.5B-Instruct/resolve/6287331f475a3e20e8c879be8fd4bf3551ad9d34"
+    val files = listOf(
+      "model_quantized.onnx" to "$base/onnx/model_quantized.onnx",
+      "tokenizer.json" to "$base/tokenizer.json",
+      "tokenizer_config.json" to "$base/tokenizer_config.json",
+      "special_tokens_map.json" to "$base/special_tokens_map.json",
+      "generation_config.json" to "$base/generation_config.json",
+      "config.json" to "$base/config.json"
+    )
+    val dir = modelDir.asFile
+    dir.mkdirs()
+    files.forEach { (name, url) ->
+      val target = File(dir, name)
+      if (target.isFile && target.length() > 0L) return@forEach
+      val tmp = File(dir, "$name.part")
+      logger.lifecycle("Downloading Jane model asset: $name")
+      URI(url).toURL().openStream().use { input ->
+        tmp.outputStream().use { output -> input.copyTo(output) }
+      }
+      if (!tmp.renameTo(target)) {
+        tmp.copyTo(target, overwrite = true)
+        tmp.delete()
+      }
+    }
+  }
 }
 
 tasks.register<JavaExec>("runHelpCenter") {

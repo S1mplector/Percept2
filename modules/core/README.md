@@ -1,6 +1,6 @@
 # core
 
-Zero-dependency foundation module for the JVN engine. Every other module depends on `:core`.
+Foundation module for the JVN engine. Every other module depends on `:core`.
 
 ## Packages
 
@@ -11,6 +11,7 @@ Zero-dependency foundation module for the JVN engine. Every other module depends
 | `audio` | Audio channel abstractions (BGM, SFX, Voice) |
 | `config` | Project configuration loading (`jvn.project`) |
 | `engine` | Engine update loop, delta smoothing, SceneManager |
+| `generalhelp` | Jane assistant, TAGI consensus grounding, and optional ONNX local chat backend |
 | `graphics` | Camera2D, ViewportScaler2D |
 | `input` | Input polling, key/mouse bindings |
 | `localization` | Locale-aware resource resolution |
@@ -30,10 +31,11 @@ Zero-dependency foundation module for the JVN engine. Every other module depends
 ./gradlew :core:build
 ```
 
-No external dependencies.
+Core keeps dependencies small, but includes ONNX Runtime for Jane's optional local chat backend.
 
 ## Documentation
 
 - [System Architecture](../../docs/architecture/core/system-architecture.md)
 - [2D Engine](../../docs/architecture/core/2d-engine.md)
+- [TAGI General Help](../../docs/architecture/core/tagi-general-help.md)
 - [Overview](../../docs/architecture/core/overview.md)

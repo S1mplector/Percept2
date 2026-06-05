@@ -350,15 +350,10 @@ public class HelpCenterView extends BorderPane {
     HBox contentActions = new HBox(8, openButton, revealButton, copyPathButton);
     contentActions.setAlignment(Pos.CENTER_LEFT);
 
-    Text quickHint = new Text("Tip: press F1 from anywhere in the editor to jump back here.");
-    quickHint.getStyleClass().add("help-tip-text");
-    TextFlow hintFlow = new TextFlow(quickHint);
-    hintFlow.getStyleClass().add("help-tip-flow");
-
     VBox previewHeader = new VBox(6, titleLabel, sourceRow, summaryLabel);
     previewHeader.getStyleClass().add("help-preview-header");
 
-    VBox right = new VBox(10, previewHeader, contentActions, hintFlow, contentScroll);
+    VBox right = new VBox(10, previewHeader, contentActions, contentScroll);
     right.getStyleClass().add("help-preview-pane");
     right.setPadding(new Insets(12));
     VBox.setVgrow(contentScroll, Priority.ALWAYS);
@@ -696,6 +691,7 @@ public class HelpCenterView extends BorderPane {
       if (name.equals(".git")
           || name.equals(".gradle")
           || name.equals(".idea")
+          || name.equals(".jvn")
           || name.equals(".jvn-gradle-user-home")
           || name.equals("build")
           || name.equals("out")
