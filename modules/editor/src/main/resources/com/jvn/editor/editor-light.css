@@ -15,6 +15,31 @@
   -fx-effect: dropshadow(gaussian, rgba(4, 4, 6, 0.42), 3, 0.18, 0, 1);
 }
 
+.button .jvn-fx-icon,
+.toggle-button .jvn-fx-icon,
+.menu-button .jvn-fx-icon,
+.split-menu-button .jvn-fx-icon,
+.menu-item .jvn-fx-icon {
+  -fx-opacity: 1;
+  -fx-effect: dropshadow(gaussian, rgba(255, 255, 255, 0.66), 3, 0.20, 0, 1);
+}
+
+.button:hover .jvn-fx-icon,
+.toggle-button:hover .jvn-fx-icon,
+.menu-button:hover .jvn-fx-icon,
+.split-menu-button:hover .jvn-fx-icon,
+.menu-item:focused .jvn-fx-icon {
+  -fx-effect: dropshadow(gaussian, rgba(42, 57, 78, 0.22), 5, 0.24, 0, 0);
+}
+
+.button:disabled .jvn-fx-icon,
+.toggle-button:disabled .jvn-fx-icon,
+.menu-button:disabled .jvn-fx-icon,
+.split-menu-button:disabled .jvn-fx-icon {
+  -fx-opacity: 0.48;
+  -fx-effect: none;
+}
+
 /* Folder (Open) */
 .icon-open { -fx-shape: "M1,5 L1,13 L15,13 L15,6 L9,6 L7,4 L1,4 Z"; -fx-background-color: #f1c57b; }
 
