@@ -36,6 +36,10 @@ libs/*.jar
 # Local editor Gradle home
 .jvn-gradle-user-home/
 
+# Local Jane model and secrets
+.jvn/jane-model/
+.jvn/jane-gemini.properties
+
 # Local Ren'Py compatibility audit artifacts
 /Was I Write/
 /Was I Write.zip

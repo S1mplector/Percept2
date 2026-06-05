@@ -5,7 +5,6 @@ import com.jvn.core.generalhelp.HelpArticle;
 import com.jvn.core.generalhelp.JaneAssistant;
 import com.jvn.core.generalhelp.JaneChatResponse;
 import com.jvn.core.generalhelp.JaneTrainingCorpus;
-import com.jvn.core.generalhelp.OnnxChatModel;
 import com.jvn.core.generalhelp.TagiGeneralHelpSystem;
 import java.io.File;
 import java.nio.file.Files;
@@ -132,7 +131,7 @@ public class JaneAssistantView extends BorderPane {
   }
 
   private void refreshModel() {
-    OnnxChatModel.fromSystemProperties().ifPresent(jane::setModel);
+    jane.reloadConfiguredModel();
     modelLabel.setText("Model: " + jane.model().name());
   }
 
@@ -179,7 +178,7 @@ public class JaneAssistantView extends BorderPane {
     askButton.setOnAction(e -> askJane());
     refreshButton.getStyleClass().add("sidebar-tool-btn");
     refreshButton.setTooltip(new Tooltip("Re-index JVN docs for Jane"));
-    refreshButton.setOnAction(e -> refreshCorpus());
+    refreshButton.setOnAction(e -> refreshJane());
     clearButton.getStyleClass().add("sidebar-tool-btn");
     clearButton.setTooltip(new Tooltip("Clear Jane chat history"));
     clearButton.setOnAction(e -> clearChat());
@@ -235,7 +234,7 @@ public class JaneAssistantView extends BorderPane {
     task.setOnFailed(e -> {
       setInputDisabled(false);
       statusLabel.setText("Jane response failed: " + safeMessage(task.getException()));
-      addAssistantBubble("I hit a local model error. Re-index docs or check the configured Jane ONNX model.");
+      addAssistantBubble("I hit a configured model error. Re-index docs or check Jane's Gemini or ONNX settings.");
     });
     Thread thread = new Thread(task, "jane-chat");
     thread.setDaemon(true);
@@ -250,6 +249,11 @@ public class JaneAssistantView extends BorderPane {
     sourcesButton.setDisable(true);
     addAssistantBubble("Chat cleared. Ask me about JVN.");
     Platform.runLater(() -> askField.requestFocus());
+  }
+
+  private void refreshJane() {
+    refreshModel();
+    refreshCorpus();
   }
 
   private void toggleSources() {

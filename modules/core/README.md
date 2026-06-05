@@ -11,7 +11,7 @@ Foundation module for the JVN engine. Every other module depends on `:core`.
 | `audio` | Audio channel abstractions (BGM, SFX, Voice) |
 | `config` | Project configuration loading (`jvn.project`) |
 | `engine` | Engine update loop, delta smoothing, SceneManager |
-| `generalhelp` | Jane assistant, TAGI consensus grounding, and optional ONNX local chat backend |
+| `generalhelp` | Jane assistant, TAGI consensus grounding, and optional Gemini or ONNX chat backends |
 | `graphics` | Camera2D, ViewportScaler2D |
 | `input` | Input polling, key/mouse bindings |
 | `localization` | Locale-aware resource resolution |
@@ -31,7 +31,7 @@ Foundation module for the JVN engine. Every other module depends on `:core`.
 ./gradlew :core:build
 ```
 
-Core keeps dependencies small, but includes ONNX Runtime for Jane's optional local chat backend.
+Core keeps dependencies small, but includes ONNX Runtime for Jane's optional ONNX chat backend.
 
 ## Documentation
 

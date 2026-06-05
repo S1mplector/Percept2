@@ -3,7 +3,8 @@
 TAGI general help is the engine's local grounding layer for Jane, JVN's assistant.
 It ranks indexed JVN documentation with three deterministic agents and merges their
 votes into one consensus answer. Jane wraps that grounded answer in a chatbot
-session and can optionally use a lightweight ONNX model for local synthesis.
+session and can optionally use Gemini or a lightweight ONNX model for answer
+synthesis.
 
 TAGI stands for three-agent general intelligence in this feature:
 
@@ -13,8 +14,9 @@ TAGI stands for three-agent general intelligence in this feature:
 
 TAGI itself does not call an LLM, remote API, embedding service, or network
 endpoint. It uses lexical scoring, domain rules, and weighted consensus over a
-loaded help corpus. Jane can use `OnnxChatModel` when a local model is configured;
-otherwise it falls back to TAGI-grounded formatting.
+loaded help corpus. Jane can add synthesis on top with `GeminiChatModel` when a
+Gemini API key is configured, or `OnnxChatModel` when a local model is configured
+and Gemini is not. Otherwise it falls back to TAGI-grounded formatting.
 
 ## Engine API
 
@@ -45,7 +47,7 @@ JaneChatResponse chat = engine.jane().ask("How do I add VNS choices?");
 
 - Jane's chat answer
 - the model/backend name
-- whether the ONNX model was used
+- whether a configured generative model was used
 - the TAGI grounding response
 - the short chat transcript
 
@@ -72,7 +74,8 @@ Jane always has a local model available:
 
 - default: `JaneExpertLocalModel`, a built-in local expert model grounded by TAGI
 - fallback: `TagiGroundedChatModel`, a deterministic formatter if another model fails
-- optional: `OnnxChatModel`, loaded only when ONNX model and vocabulary paths are configured
+- optional: `GeminiChatModel`, loaded first when a Gemini API key is configured
+- optional: `OnnxChatModel`, loaded when ONNX model and tokenizer paths are configured and Gemini is not
 
 ## Console Chat
 
@@ -86,13 +89,46 @@ The console launcher indexes workspace Markdown, trains Jane with whole docs and
 heading chunks, then starts an interactive prompt. Use `/clear` to clear chat
 history and `/exit` to quit.
 
+## Gemini Chat Model
+
+`GeminiChatModel` is Jane's Google AI Studio backend. When configured, it is used
+before ONNX and the built-in expert model. The default model is:
+
+```text
+gemini-3.1-flash-lite
+```
+
+Configure it through an environment variable:
+
+```bash
+export GEMINI_API_KEY=...
+export JVN_JANE_GEMINI_MODEL=gemini-3.1-flash-lite
+./gradlew :editor:runJane --console=plain
+```
+
+Or use a local ignored file at `.jvn/jane-gemini.properties`:
+
+```properties
+apiKey=...
+model=gemini-3.1-flash-lite
+```
+
+Do not commit the local properties file. Jane also accepts these JVM properties
+for launch wrappers and local experiments:
+
+```bash
+-Djvn.jane.gemini.apiKey=...
+-Djvn.jane.gemini.model=gemini-3.1-flash-lite
+-Djvn.jane.gemini.endpoint=https://generativelanguage.googleapis.com/v1beta
+```
+
 ## ONNX Chat Model
 
 `OnnxChatModel` is a direct Java ONNX Runtime integration for compact local
-decoder-style models. It expects:
+decoder-style models. It is used only when Gemini is not configured. It expects:
 
 - an ONNX model file
-- a flat JSON or text vocabulary file
+- a Hugging Face tokenizer JSON file
 - an `input_ids` input
 - an optional `attention_mask` input
 - logits output shaped like `[batch, sequence, vocab]` or `[batch, vocab]`
@@ -101,13 +137,13 @@ Configure it with JVM system properties:
 
 ```bash
 -Djvn.jane.onnx.model=/absolute/path/to/model.onnx
--Djvn.jane.onnx.vocab=/absolute/path/to/vocab.json
+-Djvn.jane.onnx.tokenizer=/absolute/path/to/tokenizer.json
 -Djvn.jane.onnx.name=Jane Tiny ONNX
 -Djvn.jane.onnx.maxPromptTokens=256
 -Djvn.jane.onnx.maxNewTokens=48
 ```
 
-If the model or vocabulary is missing, Jane still works through the built-in
+If the model or tokenizer is missing, Jane still works through the built-in
 TAGI-grounded backend.
 
 ## Editor Integration
@@ -123,7 +159,7 @@ This makes TAGI best suited for:
 - explaining which doc to open first
 - routing users through VNS, JES, timeline, menu, packaging, and diagnostic material
 - offline help inside the editor
-- optional local ONNX synthesis when a compatible tiny model is configured
+- optional Gemini or ONNX synthesis when a compatible backend is configured
 
 Jane is grounded by documentation. It is not intended to replace human-authored
 docs or silently reason beyond the indexed corpus.

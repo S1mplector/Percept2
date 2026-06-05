@@ -2,6 +2,7 @@ package com.jvn.core.generalhelp;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /** Jane, JVN's assistant: a TAGI-grounded chatbot with an optional local model. */
 public final class JaneAssistant {
@@ -18,9 +19,7 @@ public final class JaneAssistant {
     if (this.tagi.articles().isEmpty()) {
       this.tagi.setArticles(JaneTrainingCorpus.expertArticles());
     }
-    this.model = OnnxChatModel.fromSystemProperties()
-        .<LocalChatModel>map(model -> model)
-        .orElse(builtInModel);
+    reloadConfiguredModel();
   }
 
   public void setModel(LocalChatModel model) {
@@ -29,6 +28,10 @@ public final class JaneAssistant {
 
   public LocalChatModel model() {
     return model;
+  }
+
+  public void reloadConfiguredModel() {
+    this.model = configuredModel().orElse(builtInModel);
   }
 
   public List<ChatMessage> history() {
@@ -81,6 +84,13 @@ public final class JaneAssistant {
 
   private LocalChatModel activeModel() {
     return model == null ? fallbackModel : model;
+  }
+
+  private Optional<LocalChatModel> configuredModel() {
+    Optional<LocalChatModel> gemini = GeminiChatModel.fromSystemProperties()
+        .<LocalChatModel>map(model -> model);
+    if (gemini.isPresent()) return gemini;
+    return OnnxChatModel.fromSystemProperties().map(model -> model);
   }
 
   private String directAnswer(String query) {

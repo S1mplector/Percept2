@@ -26,6 +26,7 @@ public final class JaneConsoleApp {
 
   public static void main(String[] args) throws Exception {
     Path root = resolveWorkspaceRoot(args);
+    System.setProperty("jvn.jane.workspaceRoot", root.toString());
     TagiGeneralHelpSystem tagi = new TagiGeneralHelpSystem();
     tagi.setArticles(JaneTrainingCorpus.train(indexDocs(root)));
     JaneAssistant jane = new JaneAssistant(tagi);
