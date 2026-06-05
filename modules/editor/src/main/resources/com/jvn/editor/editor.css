@@ -43,6 +43,20 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-effect: none;
 }
 
+.sidebar-tool-root .button .jvn-fx-icon,
+.sidebar-tool-root .toggle-button .jvn-fx-icon,
+.sidebar-tool-root .menu-button .jvn-fx-icon,
+.sidebar-tool-root .split-menu-button .jvn-fx-icon,
+.sidebar-tool-root .button:hover .jvn-fx-icon,
+.sidebar-tool-root .toggle-button:hover .jvn-fx-icon,
+.sidebar-tool-root .menu-button:hover .jvn-fx-icon,
+.sidebar-tool-root .split-menu-button:hover .jvn-fx-icon,
+.image-tool-sidebar-toggle .jvn-fx-icon,
+.image-tool-sidebar-toggle:hover .jvn-fx-icon {
+  -fx-opacity: 0.98;
+  -fx-effect: dropshadow(gaussian, rgba(4, 4, 6, 0.42), 3, 0.18, 0, 1);
+}
+
 /* Folder (Open) */
 .icon-open { -fx-shape: "M1,5 L1,13 L15,13 L15,6 L9,6 L7,4 L1,4 Z"; -fx-background-color: #f1c57b; }
 
