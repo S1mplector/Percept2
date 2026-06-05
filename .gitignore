@@ -40,6 +40,7 @@ libs/*.jar
 .jvn/jane-model/
 .jvn/jane-settings.properties
 .jvn/jane-gemini.properties
+.jvn/jane-tool-audit.log
 
 # Local Ren'Py compatibility audit artifacts
 /Was I Write/

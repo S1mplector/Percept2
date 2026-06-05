@@ -9,11 +9,14 @@ import com.jvn.core.generalhelp.JaneTrainingCorpus;
 import com.jvn.core.generalhelp.TagiGeneralHelpSystem;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -38,6 +41,7 @@ import javafx.scene.control.PasswordField;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyCode;
@@ -62,10 +66,21 @@ public class JaneAssistantView extends BorderPane {
   private static final Pattern RICH_HEADING_LINE = Pattern.compile("^(#{1,4})\\s+(.+)$");
   private static final Pattern RICH_UNORDERED_LIST_LINE = Pattern.compile("^\\s*[-*]\\s+(.+)$");
   private static final Pattern RICH_ORDERED_LIST_LINE = Pattern.compile("^\\s*(\\d+)\\.\\s+(.+)$");
+  private static final Pattern JANE_PATCH_BLOCK = Pattern.compile("(?s)```\\s*jane_patch\\s*\\R(.*?)(?:\\R)?```");
+  private static final Pattern QUERY_PATH_TOKEN = Pattern.compile("[A-Za-z0-9_./\\\\-]+\\.[A-Za-z0-9_]+");
+  private static final Pattern SENSITIVE_LINE = Pattern.compile(
+      "(?i).*(api[_-]?key|token|secret|password|passwd|credential|private[_-]?key|client[_-]?secret)\\s*[:=].*");
   private static final int SUMMARY_LIMIT = 220;
   private static final int ANSWER_COLLAPSE_LIMIT = 900;
   private static final int MIN_COLLAPSE_REMAINDER = 180;
   private static final int TYPEWRITER_CHARS_PER_TICK = 14;
+  private static final int MAX_TOOL_FILES = 5;
+  private static final int MAX_TOOL_CONTEXT_CHARS = 9000;
+  private static final int MAX_TOOL_SNIPPET_CHARS = 1800;
+  private static final long MAX_TOOL_FILE_BYTES = 128L * 1024L;
+  private static final long MAX_TOOL_CREATE_BYTES = 96L * 1024L;
+  private static final int MAX_TOOL_WALK_FILES = 2400;
+  private static final String JANE_TOOL_AUDIT_RELATIVE_PATH = ".jvn/jane-tool-audit.log";
   private static final String GEMINI_API_KEY_SETTING = "gemini.apiKey";
   private static final String GEMINI_API_KEY_SNAKE_SETTING = "gemini.api_key";
   private static final String GEMINI_API_KEY_LEGACY_SETTING = "apiKey";
@@ -81,6 +96,21 @@ public class JaneAssistantView extends BorderPane {
   private static final String GEMINI_TIMEOUT_SECONDS_SETTING = "gemini.timeoutSeconds";
   private static final String GEMINI_TIMEOUT_SECONDS_LEGACY_SETTING = "timeoutSeconds";
   private static final String LEGACY_GEMINI_SETTINGS_RELATIVE_PATH = ".jvn/jane-gemini.properties";
+  private static final Set<String> TOOL_TEXT_EXTENSIONS = Set.of(
+      "java", "kt", "kts", "gradle", "md", "txt", "vns", "jes", "json", "json5",
+      "properties", "xml", "css", "scss", "html", "js", "ts", "tsx", "jsx",
+      "yaml", "yml", "toml", "ini", "cfg", "conf", "menu", "layout", "style",
+      "registry", "scene", "timeline", "atlas", "glsl", "frag", "vert", "sh", "ps1");
+  private static final Set<String> TOOL_BLOCKED_PATH_PARTS = Set.of(
+      ".git", ".gradle", ".idea", ".jvn", ".jvn-gradle-user-home", "build", "out", "target", "node_modules");
+  private static final Set<String> TOOL_SENSITIVE_NAME_TOKENS = Set.of(
+      ".env", "secret", "secrets", "token", "tokens", "credential", "credentials", "password", "passwd",
+      "privatekey", "private-key", "apikey", "api-key", "keystore", "id_rsa", "id_dsa");
+  private static final Set<String> TOOL_STOP_WORDS = Set.of(
+      "about", "after", "again", "also", "and", "are", "can", "could", "create", "edit",
+      "file", "files", "fix", "for", "from", "have", "how", "into", "jane", "make",
+      "need", "please", "project", "read", "search", "should", "that", "the", "this",
+      "tool", "what", "when", "where", "with", "would", "write");
 
   private final TagiGeneralHelpSystem generalHelp = new TagiGeneralHelpSystem();
   private final BorderPane contentPane = new BorderPane();
@@ -100,6 +130,7 @@ public class JaneAssistantView extends BorderPane {
   private final Button clearButton = new Button("Clear");
   private final Button sourcesButton = new Button("Sources");
   private final Button settingsButton = new Button();
+  private final Button undoToolButton = new Button("Undo Edit");
   private final List<Timeline> textAnimations = new ArrayList<>();
 
   private File workspaceRoot;
@@ -115,6 +146,7 @@ public class JaneAssistantView extends BorderPane {
   private boolean indexing;
   private boolean pendingRefresh;
   private Stage settingsStage;
+  private JaneAppliedPatch lastAppliedPatch;
 
   public JaneAssistantView() {
     getStyleClass().addAll("jane-assistant-root", "sidebar-tool-root");
@@ -291,11 +323,15 @@ public class JaneAssistantView extends BorderPane {
     settingsButton.setGraphic(CssIcon.settings("#d8b568"));
     settingsButton.setTooltip(new Tooltip("Configure Jane settings"));
     settingsButton.setOnAction(e -> openSettingsWindow());
+    undoToolButton.getStyleClass().add("sidebar-tool-btn");
+    undoToolButton.setTooltip(new Tooltip("Undo the last Jane-approved file edit"));
+    undoToolButton.setDisable(true);
+    undoToolButton.setOnAction(e -> undoLastJanePatch());
 
     HBox inputRow = new HBox(6, askField, askButton);
     inputRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(askField, Priority.ALWAYS);
-    HBox actions = new HBox(6, sourcesButton, refreshButton, clearButton, settingsButton);
+    HBox actions = new HBox(6, sourcesButton, refreshButton, clearButton, undoToolButton, settingsButton);
     actions.setAlignment(Pos.CENTER_LEFT);
     VBox footer = new VBox(8, new Separator(), inputRow, actions);
     footer.getStyleClass().add("sidebar-tool-footer");
@@ -363,24 +399,41 @@ public class JaneAssistantView extends BorderPane {
       askField.requestFocus();
       return;
     }
+    String visibleQuery = query.trim();
     askField.clear();
-    addUserBubble(query.trim());
+    addUserBubble(visibleQuery);
     setInputDisabled(true);
     statusLabel.setText("Jane is thinking...");
     showThinkingBubble();
 
-    Task<JaneChatResponse> task = new Task<>() {
+    Task<JaneInteractionResult> task = new Task<>() {
       @Override
-      protected JaneChatResponse call() {
-        return activeJane.ask(query);
+      protected JaneInteractionResult call() {
+        JaneToolContext toolContext = buildJaneToolContext(visibleQuery);
+        JaneChatResponse response = activeJane.ask(visibleQuery, toolContext.prompt());
+        JanePatchProposal proposal = parsePatchProposal(response == null ? "" : response.answer());
+        JanePatchProposal validated = proposal == null ? null : validatePatchProposal(proposal);
+        String displayAnswer = stripPatchBlocks(response == null ? "" : response.answer()).trim();
+        if (displayAnswer.isBlank() && validated != null) {
+          displayAnswer = validated.hasErrors()
+              ? "I drafted a file change, but the editor blocked it during validation."
+              : "I drafted a file change. Review the diff below before applying it.";
+        }
+        return new JaneInteractionResult(response, displayAnswer, validated, toolContext.summary());
       }
     };
     task.setOnSucceeded(e -> {
-      JaneChatResponse response = task.getValue();
+      JaneInteractionResult result = task.getValue();
+      JaneChatResponse response = result == null ? null : result.response();
       hideThinkingBubble();
       setInputDisabled(false);
       statusLabel.setText("Ready. Indexed " + generalHelp.articles().size() + " training articles.");
-      addAssistantBubbleAnimated(response == null ? "I could not produce a response." : response.answer());
+      addAssistantBubbleAnimated(result == null || result.displayAnswer().isBlank()
+          ? "I could not produce a response."
+          : result.displayAnswer());
+      if (result != null && result.patchProposal() != null) {
+        addPatchProposalCard(result.patchProposal());
+      }
       lastResponse = response;
       hideEvidence();
       sourcesButton.setDisable(!hasEvidence(response));
@@ -417,6 +470,696 @@ public class JaneAssistantView extends BorderPane {
       refreshModel();
       refreshCorpus();
     }
+  }
+
+  private JaneToolContext buildJaneToolContext(String query) {
+    Path root = janeToolRoot();
+    if (root == null) {
+      return new JaneToolContext("", "No project root available for Jane file tools.");
+    }
+    List<JaneFileSnippet> snippets = collectJaneFileSnippets(root, query);
+    StringBuilder prompt = new StringBuilder(2048);
+    prompt.append("""
+        Editor-provided workspace context and tool protocol:
+        - You may use the read-only snippets below as project context.
+        - You cannot directly read more files, write files, or run commands.
+        - Do not say you applied a change. The editor requires user approval before writing.
+        - If a file edit is useful, propose it with exactly one fenced jane_patch block.
+        - Use only relative paths from the workspace root. Never use absolute paths.
+        - Use action: replace for exact text replacements or action: create for new files.
+        - For replace, the find block must exactly match text that is likely present in the current file.
+        - Do not propose edits under .git, .jvn, build outputs, dependency folders, or binary files.
+
+        jane_patch format:
+        ```jane_patch
+        summary: Short reason for the change
+        file: relative/path.ext
+        action: replace
+        find:
+        <<<
+        exact old text
+        >>>
+        replace:
+        <<<
+        exact new text
+        >>>
+        file: relative/new-file.ext
+        action: create
+        content:
+        <<<
+        new file content
+        >>>
+        ```
+
+        """);
+    prompt.append("Workspace root: ").append(root).append('\n');
+    if (snippets.isEmpty()) {
+      prompt.append("No matching readable project snippets were found for this request.\n");
+    } else {
+      prompt.append("Readable project snippets selected by the editor:\n");
+      int remaining = MAX_TOOL_CONTEXT_CHARS;
+      for (JaneFileSnippet snippet : snippets) {
+        String block = "\n### " + snippet.relativePath() + " (" + snippet.byteSize() + " bytes)\n"
+            + "```text\n" + snippet.snippet() + "\n```\n";
+        if (block.length() > remaining) break;
+        prompt.append(block);
+        remaining -= block.length();
+      }
+    }
+    String summary = snippets.isEmpty()
+        ? "Jane searched project files but found no safe matching snippets."
+        : "Jane read " + snippets.size() + " safe project snippet" + (snippets.size() == 1 ? "" : "s") + ".";
+    return new JaneToolContext(prompt.toString(), summary);
+  }
+
+  private List<JaneFileSnippet> collectJaneFileSnippets(Path root, String query) {
+    if (root == null || !Files.isDirectory(root)) return List.of();
+    Set<String> tokens = queryTokens(query);
+    Set<String> explicitPaths = explicitQueryPaths(query);
+    List<JaneScoredFile> scored = new ArrayList<>();
+    Set<Path> seen = new HashSet<>();
+
+    for (String explicit : explicitPaths) {
+      Path path = root.resolve(explicit).normalize();
+      JaneScoredFile candidate = scoreReadableFile(root, path, tokens, explicitPaths, 100);
+      if (candidate != null && seen.add(candidate.path())) scored.add(candidate);
+    }
+
+    int[] visited = {0};
+    try (Stream<Path> stream = Files.walk(root, 8)) {
+      stream
+          .filter(path -> visited[0]++ < MAX_TOOL_WALK_FILES)
+          .filter(Files::isRegularFile)
+          .filter(path -> seen.add(path.toAbsolutePath().normalize()))
+          .map(path -> scoreReadableFile(root, path, tokens, explicitPaths, 0))
+          .filter(file -> file != null && file.score() > 0)
+          .forEach(scored::add);
+    } catch (Exception ignored) {
+      // Jane file context is best-effort. The answer can still use TAGI docs.
+    }
+
+    scored.sort(Comparator
+        .comparingInt(JaneScoredFile::score).reversed()
+        .thenComparing(JaneScoredFile::relativePath, String.CASE_INSENSITIVE_ORDER));
+    List<JaneFileSnippet> snippets = new ArrayList<>();
+    for (JaneScoredFile file : scored) {
+      if (snippets.size() >= MAX_TOOL_FILES) break;
+      snippets.add(new JaneFileSnippet(
+          file.relativePath(),
+          file.byteSize(),
+          snippetFor(file.text(), tokens)));
+    }
+    return snippets;
+  }
+
+  private JaneScoredFile scoreReadableFile(
+      Path root,
+      Path path,
+      Set<String> tokens,
+      Set<String> explicitPaths,
+      int baseScore
+  ) {
+    try {
+      Path normalized = path.toAbsolutePath().normalize();
+      if (!isSafeToolPath(root, normalized, false)) return null;
+      long size = Files.size(normalized);
+      if (size > MAX_TOOL_FILE_BYTES || size < 0L) return null;
+      if (!isTextExtension(normalized)) return null;
+      String text = Files.readString(normalized, StandardCharsets.UTF_8);
+      if (looksBinary(text)) return null;
+      text = redactSensitiveLines(text);
+      String relative = relativePath(root, normalized);
+      String haystack = (relative + "\n" + text).toLowerCase(Locale.ROOT);
+      int score = baseScore;
+      String lowerRelative = relative.toLowerCase(Locale.ROOT);
+      for (String explicit : explicitPaths) {
+        if (lowerRelative.equals(explicit.toLowerCase(Locale.ROOT))) score += 180;
+      }
+      for (String token : tokens) {
+        if (lowerRelative.contains(token)) score += 18;
+        score += Math.min(18, countOccurrences(haystack, token) * 3);
+      }
+      return new JaneScoredFile(normalized, relative, text, size, score);
+    } catch (Exception ignored) {
+      return null;
+    }
+  }
+
+  private JanePatchProposal parsePatchProposal(String answer) {
+    if (answer == null || answer.isBlank()) return null;
+    Matcher matcher = JANE_PATCH_BLOCK.matcher(answer);
+    if (!matcher.find()) return null;
+    String block = matcher.group(1);
+    String[] lines = block.split("\\R", -1);
+    String summary = "";
+    List<JanePatchChange> changes = new ArrayList<>();
+    List<String> errors = new ArrayList<>();
+    PatchChangeBuilder current = null;
+    int i = 0;
+    while (i < lines.length) {
+      String line = lines[i];
+      String trimmed = line.trim();
+      if (trimmed.isBlank()) {
+        i++;
+        continue;
+      }
+      if (trimmed.startsWith("summary:")) {
+        summary = trimmed.substring("summary:".length()).trim();
+        i++;
+        continue;
+      }
+      if (trimmed.startsWith("file:")) {
+        if (current != null) addParsedPatchChange(changes, errors, current);
+        current = new PatchChangeBuilder(trimmed.substring("file:".length()).trim());
+        i++;
+        continue;
+      }
+      if (current == null) {
+        errors.add("Patch content before file: " + trimmed);
+        i++;
+        continue;
+      }
+      if (trimmed.startsWith("action:")) {
+        current.action = trimmed.substring("action:".length()).trim().toLowerCase(Locale.ROOT);
+        i++;
+        continue;
+      }
+      if (trimmed.equals("find:")) {
+        BlockRead read = readPatchDelimitedBlock(lines, i + 1, "find");
+        current.findText = read.text();
+        errors.addAll(read.errors());
+        i = read.nextIndex();
+        continue;
+      }
+      if (trimmed.equals("replace:")) {
+        BlockRead read = readPatchDelimitedBlock(lines, i + 1, "replace");
+        current.replaceText = read.text();
+        errors.addAll(read.errors());
+        i = read.nextIndex();
+        continue;
+      }
+      if (trimmed.equals("content:")) {
+        BlockRead read = readPatchDelimitedBlock(lines, i + 1, "content");
+        current.content = read.text();
+        errors.addAll(read.errors());
+        i = read.nextIndex();
+        continue;
+      }
+      errors.add("Unrecognized patch line: " + trimmed);
+      i++;
+    }
+    if (current != null) addParsedPatchChange(changes, errors, current);
+    if (changes.isEmpty()) errors.add("Patch proposal did not contain any file changes.");
+    return new JanePatchProposal(summary.isBlank() ? "Jane proposed file changes" : summary, changes, errors);
+  }
+
+  private void addParsedPatchChange(List<JanePatchChange> changes, List<String> errors, PatchChangeBuilder builder) {
+    if (builder.path == null || builder.path.isBlank()) {
+      errors.add("A patch change is missing file path.");
+      return;
+    }
+    changes.add(new JanePatchChange(
+        builder.path,
+        builder.action == null || builder.action.isBlank() ? "" : builder.action,
+        builder.findText == null ? "" : builder.findText,
+        builder.replaceText == null ? "" : builder.replaceText,
+        builder.content == null ? "" : builder.content,
+        null));
+  }
+
+  private BlockRead readPatchDelimitedBlock(String[] lines, int start, String label) {
+    List<String> errors = new ArrayList<>();
+    int i = start;
+    if (i >= lines.length || !lines[i].trim().equals("<<<")) {
+      errors.add(label + " block must start with <<<.");
+      return new BlockRead("", Math.min(lines.length, i + 1), errors);
+    }
+    i++;
+    StringBuilder out = new StringBuilder();
+    while (i < lines.length) {
+      if (lines[i].trim().equals(">>>")) {
+        return new BlockRead(out.toString(), i + 1, errors);
+      }
+      if (out.length() > 0) out.append('\n');
+      out.append(lines[i]);
+      i++;
+    }
+    errors.add(label + " block is missing >>>.");
+    return new BlockRead(out.toString(), i, errors);
+  }
+
+  private JanePatchProposal validatePatchProposal(JanePatchProposal proposal) {
+    if (proposal == null) return null;
+    List<String> errors = new ArrayList<>(proposal.errors());
+    List<JanePatchChange> changes = new ArrayList<>();
+    Path root = janeToolRoot();
+    if (root == null) {
+      errors.add("No writable project root is available.");
+      return new JanePatchProposal(proposal.summary(), proposal.changes(), errors);
+    }
+    if (proposal.changes().size() > 8) {
+      errors.add("Patch proposals are limited to 8 files.");
+    }
+    for (JanePatchChange change : proposal.changes()) {
+      JanePatchChange validated = validatePatchChange(root, change, errors);
+      changes.add(validated);
+    }
+    return new JanePatchProposal(proposal.summary(), changes, errors);
+  }
+
+  private JanePatchChange validatePatchChange(Path root, JanePatchChange change, List<String> errors) {
+    Path path = resolveToolRelativePath(root, change.path());
+    if (path == null || !isSafeToolPath(root, path, true)) {
+      errors.add("Blocked unsafe patch path: " + change.path());
+      return change;
+    }
+    String action = change.action().toLowerCase(Locale.ROOT);
+    if (!action.equals("replace") && !action.equals("create")) {
+      errors.add("Unsupported action for " + change.path() + ": " + change.action());
+      return change.withAbsolutePath(path);
+    }
+    if (!isTextExtension(path)) {
+      errors.add("Blocked non-text file path: " + change.path());
+    }
+    try {
+      if (action.equals("create")) {
+        if (Files.exists(path)) errors.add("Create target already exists: " + change.path());
+        if (change.content().getBytes(StandardCharsets.UTF_8).length > MAX_TOOL_CREATE_BYTES) {
+          errors.add("Create content is too large: " + change.path());
+        }
+      } else {
+        if (!Files.isRegularFile(path)) {
+          errors.add("Replace target does not exist: " + change.path());
+        } else if (Files.size(path) > MAX_TOOL_FILE_BYTES) {
+          errors.add("Replace target is too large: " + change.path());
+        } else {
+          String existing = Files.readString(path, StandardCharsets.UTF_8);
+          if (looksBinary(existing)) errors.add("Replace target appears binary: " + change.path());
+          if (change.findText().isBlank()) {
+            errors.add("Replace action has an empty find block: " + change.path());
+          } else {
+            int matches = countOccurrences(existing, change.findText());
+            if (matches != 1) {
+              errors.add("Find block must match exactly once in " + change.path() + " but matched " + matches + " time(s).");
+            }
+          }
+        }
+      }
+    } catch (Exception ex) {
+      errors.add("Could not validate " + change.path() + ": " + safeMessage(ex));
+    }
+    return change.withAbsolutePath(path);
+  }
+
+  private String stripPatchBlocks(String answer) {
+    if (answer == null || answer.isBlank()) return "";
+    return JANE_PATCH_BLOCK.matcher(answer).replaceAll("").trim();
+  }
+
+  private void addPatchProposalCard(JanePatchProposal proposal) {
+    VBox card = new VBox(7);
+    card.getStyleClass().add("jane-tool-card");
+    Label title = new Label(proposal.hasErrors() ? "Blocked File Proposal" : "File Proposal");
+    title.getStyleClass().add("jane-tool-title");
+    Label summary = new Label(proposal.summary());
+    summary.setWrapText(true);
+    summary.getStyleClass().add("jane-tool-summary");
+    Label files = new Label("Files: " + proposal.fileList());
+    files.setWrapText(true);
+    files.getStyleClass().add("jane-tool-files");
+    TextArea diff = new TextArea(buildProposalDiff(proposal));
+    diff.setEditable(false);
+    diff.setWrapText(false);
+    diff.setPrefRowCount(Math.min(12, Math.max(5, diff.getText().split("\\R", -1).length)));
+    diff.getStyleClass().add("jane-tool-diff");
+
+    Button reviewButton = new Button(proposal.hasErrors() ? "Review Errors" : "Review & Apply");
+    reviewButton.getStyleClass().add("sidebar-tool-btn");
+    reviewButton.setOnAction(e -> showPatchReviewDialog(proposal));
+    Button auditButton = new Button("Audit Log");
+    auditButton.getStyleClass().add("sidebar-tool-btn");
+    auditButton.setOnAction(e -> showJaneAuditLog());
+    HBox buttons = new HBox(6, reviewButton, auditButton);
+    buttons.setAlignment(Pos.CENTER_LEFT);
+    card.getChildren().addAll(title, summary, files, diff, buttons);
+    transcriptBox.getChildren().add(card);
+    Platform.runLater(() -> transcriptScroll.setVvalue(1.0));
+  }
+
+  private void showPatchReviewDialog(JanePatchProposal proposal) {
+    TextArea area = new TextArea(buildProposalDiff(proposal));
+    area.setEditable(false);
+    area.setWrapText(false);
+    area.getStyleClass().add("editor-dialog-text-area");
+    area.setPrefRowCount(22);
+    if (proposal.hasErrors()) {
+      EditorDialogs.show(
+          ownerWindow(),
+          "Jane File Proposal Blocked",
+          "The editor refused this patch. Jane cannot write anything until every validation error is fixed.",
+          area,
+          EditorDialogs.ActionSpec.accent("close", "Close", null));
+      return;
+    }
+    EditorDialogs.show(
+        ownerWindow(),
+        "Apply Jane File Edit?",
+        "Review the exact file changes below. No shell commands will run. The write is limited to the current workspace.",
+        area,
+        area,
+        EditorDialogs.ActionSpec.neutral("cancel", "Cancel", null),
+        EditorDialogs.ActionSpec.accent("apply", "Apply", () -> applyPatchProposal(proposal)));
+  }
+
+  private void applyPatchProposal(JanePatchProposal proposal) {
+    JanePatchProposal validated = validatePatchProposal(proposal);
+    if (validated.hasErrors()) {
+      appendJaneAudit("APPLY_BLOCKED", validated, validated.errorText());
+      EditorDialogs.showTextBlock(
+          ownerWindow(),
+          "Jane Edit Blocked",
+          "The project changed or the patch failed validation.",
+          validated.errorText(),
+          "Close");
+      return;
+    }
+    List<JaneWritePlan> plans;
+    try {
+      plans = prepareWritePlans(validated);
+    } catch (IOException ex) {
+      appendJaneAudit("APPLY_FAILED", validated, safeMessage(ex));
+      EditorDialogs.error(ownerWindow(), "Jane Edit Failed", "Could not prepare Jane's edit.", ex);
+      return;
+    }
+
+    List<JaneFileBackup> backups = new ArrayList<>();
+    try {
+      for (JaneWritePlan plan : plans) {
+        Path path = plan.change().absolutePath();
+        backups.add(new JaneFileBackup(plan.change().path(), path, plan.existed(), plan.beforeText()));
+        if (path.getParent() != null) Files.createDirectories(path.getParent());
+        Files.writeString(path, plan.afterText(), StandardCharsets.UTF_8);
+      }
+      lastAppliedPatch = new JaneAppliedPatch(validated.summary(), backups, Instant.now());
+      undoToolButton.setDisable(false);
+      appendJaneAudit("APPLY", validated, "Applied " + plans.size() + " file change(s).");
+      addAssistantBubble("Applied Jane's approved edit to " + validated.fileList() + ". Use Undo Edit if you want to revert it.");
+      if (onOpenDoc != null && !backups.isEmpty()) {
+        File first = backups.get(0).path().toFile();
+        if (first.isFile()) onOpenDoc.accept(first);
+      }
+    } catch (IOException ex) {
+      restoreBackups(backups);
+      appendJaneAudit("APPLY_FAILED_ROLLED_BACK", validated, safeMessage(ex));
+      EditorDialogs.error(ownerWindow(), "Jane Edit Failed", "The edit failed and Jane attempted to restore previous file contents.", ex);
+    }
+  }
+
+  private List<JaneWritePlan> prepareWritePlans(JanePatchProposal proposal) throws IOException {
+    List<JaneWritePlan> plans = new ArrayList<>();
+    for (JanePatchChange change : proposal.changes()) {
+      Path path = change.absolutePath();
+      boolean existed = Files.exists(path);
+      String before = existed ? Files.readString(path, StandardCharsets.UTF_8) : "";
+      String after;
+      if ("create".equals(change.action())) {
+        after = normalizeWrittenText(change.content());
+      } else {
+        int matches = countOccurrences(before, change.findText());
+        if (matches != 1) throw new IOException("Find block no longer matches exactly once in " + change.path());
+        after = before.replace(change.findText(), change.replaceText());
+      }
+      plans.add(new JaneWritePlan(change, existed, before, after));
+    }
+    return plans;
+  }
+
+  private void undoLastJanePatch() {
+    JaneAppliedPatch applied = lastAppliedPatch;
+    if (applied == null || applied.backups().isEmpty()) {
+      undoToolButton.setDisable(true);
+      return;
+    }
+    StringBuilder body = new StringBuilder();
+    body.append("Undo Jane edit: ").append(applied.summary()).append("\n\n");
+    for (JaneFileBackup backup : applied.backups()) {
+      body.append("- ").append(backup.relativePath()).append('\n');
+    }
+    TextArea area = new TextArea(body.toString());
+    area.setEditable(false);
+    area.setWrapText(true);
+    area.getStyleClass().add("editor-dialog-text-area");
+    area.setPrefRowCount(9);
+    EditorDialogs.show(
+        ownerWindow(),
+        "Undo Jane Edit?",
+        "This restores the file contents captured before Jane's last approved edit.",
+        area,
+        EditorDialogs.ActionSpec.neutral("cancel", "Cancel", null),
+        EditorDialogs.ActionSpec.danger("undo", "Undo Edit", () -> {
+          restoreBackups(applied.backups());
+          appendJaneAudit("UNDO", applied.toProposal(), "Restored " + applied.backups().size() + " file(s).");
+          lastAppliedPatch = null;
+          undoToolButton.setDisable(true);
+          addAssistantBubble("Undid Jane's last approved file edit.");
+        }));
+  }
+
+  private void restoreBackups(List<JaneFileBackup> backups) {
+    if (backups == null) return;
+    for (int i = backups.size() - 1; i >= 0; i--) {
+      JaneFileBackup backup = backups.get(i);
+      try {
+        if (backup.existed()) {
+          if (backup.path().getParent() != null) Files.createDirectories(backup.path().getParent());
+          Files.writeString(backup.path(), backup.beforeText(), StandardCharsets.UTF_8);
+        } else {
+          Files.deleteIfExists(backup.path());
+        }
+      } catch (IOException ignored) {
+        // The audit log records the failed operation; restore is best-effort.
+      }
+    }
+  }
+
+  private String buildProposalDiff(JanePatchProposal proposal) {
+    StringBuilder diff = new StringBuilder();
+    diff.append("Summary: ").append(proposal.summary()).append('\n');
+    if (proposal.hasErrors()) {
+      diff.append('\n').append("Validation errors:").append('\n');
+      for (String error : proposal.errors()) {
+        diff.append("- ").append(error).append('\n');
+      }
+    }
+    for (JanePatchChange change : proposal.changes()) {
+      diff.append('\n');
+      if ("create".equals(change.action())) {
+        diff.append("--- /dev/null\n");
+        diff.append("+++ ").append(change.path()).append('\n');
+        diff.append("@@\n");
+        appendDiffLines(diff, "+", change.content());
+      } else {
+        diff.append("--- ").append(change.path()).append('\n');
+        diff.append("+++ ").append(change.path()).append('\n');
+        diff.append("@@\n");
+        appendDiffLines(diff, "-", change.findText());
+        appendDiffLines(diff, "+", change.replaceText());
+      }
+    }
+    return diff.toString().trim();
+  }
+
+  private void appendDiffLines(StringBuilder diff, String prefix, String text) {
+    String value = text == null ? "" : text;
+    String[] lines = value.split("\\R", -1);
+    for (String line : lines) {
+      diff.append(prefix).append(line).append('\n');
+    }
+  }
+
+  private void showJaneAuditLog() {
+    Path audit = janeAuditPath();
+    String body;
+    try {
+      body = Files.isRegularFile(audit) ? Files.readString(audit, StandardCharsets.UTF_8) : "No Jane file-tool audit entries yet.";
+    } catch (IOException ex) {
+      body = "Failed to read audit log: " + safeMessage(ex);
+    }
+    EditorDialogs.showTextBlock(ownerWindow(), "Jane File Tool Audit", "Approved writes and undo operations are recorded here.", body, "Close");
+  }
+
+  private void appendJaneAudit(String event, JanePatchProposal proposal, String detail) {
+    Path audit = janeAuditPath();
+    try {
+      if (audit.getParent() != null) Files.createDirectories(audit.getParent());
+      StringBuilder entry = new StringBuilder();
+      entry.append(Instant.now()).append(" ").append(event == null ? "EVENT" : event).append('\n');
+      entry.append("summary: ").append(proposal == null ? "" : proposal.summary()).append('\n');
+      entry.append("files: ").append(proposal == null ? "" : proposal.fileList()).append('\n');
+      if (detail != null && !detail.isBlank()) entry.append("detail: ").append(detail.replace('\n', ' ')).append('\n');
+      entry.append('\n');
+      Files.writeString(audit, entry.toString(), StandardCharsets.UTF_8,
+          java.nio.file.StandardOpenOption.CREATE,
+          java.nio.file.StandardOpenOption.APPEND);
+    } catch (IOException ignored) {
+      // Audit logging must not make an already-approved edit fail.
+    }
+  }
+
+  private Path janeAuditPath() {
+    Path root = settingsRootPath();
+    return root.resolve(JANE_TOOL_AUDIT_RELATIVE_PATH).toAbsolutePath().normalize();
+  }
+
+  private Window ownerWindow() {
+    return getScene() == null ? null : getScene().getWindow();
+  }
+
+  private Path janeToolRoot() {
+    File root = normalizeDir(projectRoot);
+    if (root == null) root = normalizeDir(workspaceRoot);
+    if (root == null) root = detectWorkspaceRoot();
+    return root == null ? null : root.toPath().toAbsolutePath().normalize();
+  }
+
+  private Set<String> queryTokens(String query) {
+    LinkedHashSet<String> tokens = new LinkedHashSet<>();
+    if (query == null || query.isBlank()) return tokens;
+    for (String raw : query.toLowerCase(Locale.ROOT).split("[^\\p{Alnum}_]+")) {
+      String token = raw.trim();
+      if (token.length() < 3 || TOOL_STOP_WORDS.contains(token)) continue;
+      tokens.add(token);
+      if (tokens.size() >= 24) break;
+    }
+    return tokens;
+  }
+
+  private Set<String> explicitQueryPaths(String query) {
+    LinkedHashSet<String> paths = new LinkedHashSet<>();
+    if (query == null || query.isBlank()) return paths;
+    Matcher matcher = QUERY_PATH_TOKEN.matcher(query);
+    while (matcher.find()) {
+      String raw = matcher.group().replace('\\', '/');
+      while (raw.startsWith("./")) raw = raw.substring(2);
+      raw = raw.replaceAll("^['\"`]+|['\"`,;:]+$", "");
+      if (!raw.isBlank() && !raw.startsWith("/") && !raw.contains("..")) {
+        paths.add(raw);
+      }
+      if (paths.size() >= 12) break;
+    }
+    return paths;
+  }
+
+  private Path resolveToolRelativePath(Path root, String rawPath) {
+    if (root == null || rawPath == null || rawPath.isBlank()) return null;
+    String clean = rawPath.trim().replace('\\', '/');
+    clean = clean.replaceAll("^['\"`]+|['\"`]+$", "");
+    if (clean.startsWith("/") || clean.matches("^[A-Za-z]:/.*") || clean.contains("\u0000")) return null;
+    Path relative = Path.of(clean).normalize();
+    if (relative.isAbsolute() || relative.startsWith("..")) return null;
+    return root.resolve(relative).toAbsolutePath().normalize();
+  }
+
+  private boolean isSafeToolPath(Path root, Path path, boolean forWrite) {
+    if (root == null || path == null) return false;
+    Path normalizedRoot = root.toAbsolutePath().normalize();
+    Path normalizedPath = path.toAbsolutePath().normalize();
+    if (!normalizedPath.startsWith(normalizedRoot)) return false;
+    Path relative;
+    try {
+      relative = normalizedRoot.relativize(normalizedPath);
+    } catch (IllegalArgumentException ex) {
+      return false;
+    }
+    if (relative.toString().isBlank()) return false;
+    for (Path part : relative) {
+      String name = part.toString();
+      String lowerName = name.toLowerCase(Locale.ROOT);
+      if (name.equals("..") || name.indexOf('\0') >= 0) return false;
+      if (TOOL_BLOCKED_PATH_PARTS.contains(name)) return false;
+      if (TOOL_SENSITIVE_NAME_TOKENS.contains(lowerName)) return false;
+      for (String token : TOOL_SENSITIVE_NAME_TOKENS) {
+        if (!token.startsWith(".") && lowerName.contains(token)) return false;
+      }
+      if (forWrite && (name.endsWith(".class") || name.endsWith(".jar") || name.endsWith(".zip"))) return false;
+    }
+    return true;
+  }
+
+  private boolean isTextExtension(Path path) {
+    if (path == null || path.getFileName() == null) return false;
+    String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
+    int dot = name.lastIndexOf('.');
+    if (dot < 0 || dot == name.length() - 1) return false;
+    return TOOL_TEXT_EXTENSIONS.contains(name.substring(dot + 1));
+  }
+
+  private String relativePath(Path root, Path path) {
+    try {
+      return root.toAbsolutePath().normalize()
+          .relativize(path.toAbsolutePath().normalize())
+          .toString()
+          .replace('\\', '/');
+    } catch (Exception ex) {
+      return path == null ? "" : path.getFileName().toString();
+    }
+  }
+
+  private String snippetFor(String text, Set<String> tokens) {
+    if (text == null || text.length() <= MAX_TOOL_SNIPPET_CHARS) return text == null ? "" : text;
+    String lower = text.toLowerCase(Locale.ROOT);
+    int hit = -1;
+    if (tokens != null) {
+      for (String token : tokens) {
+        hit = lower.indexOf(token);
+        if (hit >= 0) break;
+      }
+    }
+    int start = hit < 0 ? 0 : Math.max(0, hit - MAX_TOOL_SNIPPET_CHARS / 3);
+    int end = Math.min(text.length(), start + MAX_TOOL_SNIPPET_CHARS);
+    start = Math.max(0, Math.min(start, Math.max(0, text.length() - MAX_TOOL_SNIPPET_CHARS)));
+    String snippet = text.substring(start, end);
+    if (start > 0) snippet = "...\n" + snippet;
+    if (end < text.length()) snippet = snippet + "\n...";
+    return snippet;
+  }
+
+  private String redactSensitiveLines(String text) {
+    if (text == null || text.isBlank()) return text == null ? "" : text;
+    StringBuilder out = new StringBuilder(text.length());
+    String[] lines = text.split("\\R", -1);
+    for (int i = 0; i < lines.length; i++) {
+      String line = lines[i];
+      out.append(SENSITIVE_LINE.matcher(line).matches() ? "[redacted sensitive line]" : line);
+      if (i + 1 < lines.length) out.append('\n');
+    }
+    return out.toString();
+  }
+
+  private boolean looksBinary(String text) {
+    if (text == null) return false;
+    int limit = Math.min(text.length(), 4096);
+    for (int i = 0; i < limit; i++) {
+      if (text.charAt(i) == '\0') return true;
+    }
+    return false;
+  }
+
+  private int countOccurrences(String haystack, String needle) {
+    if (haystack == null || needle == null || needle.isEmpty()) return 0;
+    int count = 0;
+    int index = 0;
+    while (index <= haystack.length()) {
+      index = haystack.indexOf(needle, index);
+      if (index < 0) break;
+      count++;
+      index += needle.length();
+    }
+    return count;
+  }
+
+  private String normalizeWrittenText(String text) {
+    return text == null ? "" : text.replace("\r\n", "\n").replace('\r', '\n');
   }
 
   private void openSettingsWindow() {
@@ -1351,6 +2094,134 @@ public class JaneAssistantView extends BorderPane {
       return "Unknown error";
     }
     return throwable.getMessage();
+  }
+
+  private record JaneToolContext(String prompt, String summary) {
+    private JaneToolContext {
+      prompt = prompt == null ? "" : prompt;
+      summary = summary == null ? "" : summary;
+    }
+  }
+
+  private record JaneInteractionResult(
+      JaneChatResponse response,
+      String displayAnswer,
+      JanePatchProposal patchProposal,
+      String toolContextSummary
+  ) {
+    private JaneInteractionResult {
+      displayAnswer = displayAnswer == null ? "" : displayAnswer;
+      toolContextSummary = toolContextSummary == null ? "" : toolContextSummary;
+    }
+  }
+
+  private record JaneFileSnippet(String relativePath, long byteSize, String snippet) {
+    private JaneFileSnippet {
+      relativePath = relativePath == null ? "" : relativePath;
+      snippet = snippet == null ? "" : snippet;
+    }
+  }
+
+  private record JaneScoredFile(Path path, String relativePath, String text, long byteSize, int score) {
+    private JaneScoredFile {
+      relativePath = relativePath == null ? "" : relativePath;
+      text = text == null ? "" : text;
+    }
+  }
+
+  private record JanePatchProposal(String summary, List<JanePatchChange> changes, List<String> errors) {
+    private JanePatchProposal {
+      summary = summary == null || summary.isBlank() ? "Jane proposed file changes" : summary.trim();
+      changes = changes == null ? List.of() : List.copyOf(changes);
+      errors = errors == null ? List.of() : List.copyOf(errors);
+    }
+
+    boolean hasErrors() {
+      return !errors.isEmpty();
+    }
+
+    String errorText() {
+      return String.join("\n", errors);
+    }
+
+    String fileList() {
+      if (changes.isEmpty()) return "(none)";
+      List<String> files = new ArrayList<>();
+      for (JanePatchChange change : changes) {
+        if (change != null && !change.path().isBlank()) files.add(change.path());
+      }
+      return files.isEmpty() ? "(none)" : String.join(", ", files);
+    }
+  }
+
+  private record JanePatchChange(
+      String path,
+      String action,
+      String findText,
+      String replaceText,
+      String content,
+      Path absolutePath
+  ) {
+    private JanePatchChange {
+      path = path == null ? "" : path.trim().replace('\\', '/');
+      action = action == null ? "" : action.trim().toLowerCase(Locale.ROOT);
+      findText = findText == null ? "" : findText;
+      replaceText = replaceText == null ? "" : replaceText;
+      content = content == null ? "" : content;
+    }
+
+    JanePatchChange withAbsolutePath(Path path) {
+      return new JanePatchChange(this.path, action, findText, replaceText, content, path);
+    }
+  }
+
+  private record BlockRead(String text, int nextIndex, List<String> errors) {
+    private BlockRead {
+      text = text == null ? "" : text;
+      errors = errors == null ? List.of() : List.copyOf(errors);
+    }
+  }
+
+  private static final class PatchChangeBuilder {
+    private final String path;
+    private String action;
+    private String findText;
+    private String replaceText;
+    private String content;
+
+    private PatchChangeBuilder(String path) {
+      this.path = path == null ? "" : path.trim();
+    }
+  }
+
+  private record JaneWritePlan(JanePatchChange change, boolean existed, String beforeText, String afterText) {
+    private JaneWritePlan {
+      beforeText = beforeText == null ? "" : beforeText;
+      afterText = afterText == null ? "" : afterText;
+    }
+  }
+
+  private record JaneFileBackup(String relativePath, Path path, boolean existed, String beforeText) {
+    private JaneFileBackup {
+      relativePath = relativePath == null ? "" : relativePath;
+      beforeText = beforeText == null ? "" : beforeText;
+    }
+  }
+
+  private record JaneAppliedPatch(String summary, List<JaneFileBackup> backups, Instant appliedAt) {
+    private JaneAppliedPatch {
+      summary = summary == null || summary.isBlank() ? "Jane approved edit" : summary.trim();
+      backups = backups == null ? List.of() : List.copyOf(backups);
+      appliedAt = appliedAt == null ? Instant.now() : appliedAt;
+    }
+
+    JanePatchProposal toProposal() {
+      List<JanePatchChange> changes = new ArrayList<>();
+      for (JaneFileBackup backup : backups) {
+        changes.add(new JanePatchChange(backup.relativePath(), "undo", "", "", "", backup.path()));
+      }
+      return new JanePatchProposal(summary, changes, List.of());
+    }
   }
 
   private record GeminiSettings(Path path, boolean hasApiKey, String model) {}

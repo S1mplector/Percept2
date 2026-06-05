@@ -44,6 +44,10 @@ public final class JaneAssistant {
   }
 
   public JaneChatResponse ask(String query) {
+    return ask(query, "");
+  }
+
+  public JaneChatResponse ask(String query, String toolContext) {
     String directAnswer = directAnswer(query);
     if (!directAnswer.isBlank()) {
       append(ChatMessage.user(query));
@@ -59,12 +63,13 @@ public final class JaneAssistant {
 
     HelpResponse grounding = tagi.ask(query);
     List<ChatMessage> promptHistory = List.copyOf(history);
+    String modelQuery = contextualQuery(query, toolContext);
     String answer = "";
     boolean modelUsed = false;
     LocalChatModel active = activeModel();
     if (active.isAvailable()) {
       try {
-        answer = active.generate(query, grounding, promptHistory);
+        answer = active.generate(modelQuery, grounding, promptHistory);
         if (isLowQualityGeneratedText(answer)) {
           answer = "";
         }
@@ -74,7 +79,7 @@ public final class JaneAssistant {
       }
     }
     if (answer.isBlank()) {
-      answer = fallbackModel.generate(query, grounding, promptHistory);
+      answer = fallbackModel.generate(modelQuery, grounding, promptHistory);
       active = fallbackModel;
       modelUsed = false;
     }
@@ -85,6 +90,13 @@ public final class JaneAssistant {
 
   private LocalChatModel activeModel() {
     return model == null ? fallbackModel : model;
+  }
+
+  private static String contextualQuery(String query, String toolContext) {
+    String visibleQuery = query == null ? "" : query.trim();
+    String context = toolContext == null ? "" : toolContext.trim();
+    if (context.isBlank()) return visibleQuery;
+    return visibleQuery + "\n\n" + context;
   }
 
   private Optional<LocalChatModel> configuredModel() {

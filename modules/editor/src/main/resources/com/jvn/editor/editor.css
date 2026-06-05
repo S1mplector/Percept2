@@ -4350,6 +4350,41 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-background-color: #0f0f0f;
 }
 
+.jane-tool-card {
+  -fx-padding: 8 10 8 10;
+  -fx-background-color: #171717;
+  -fx-border-color: #3d3422;
+  -fx-border-width: 1;
+  -fx-background-radius: 8;
+  -fx-border-radius: 8;
+}
+
+.jane-tool-title {
+  -fx-text-fill: #d8b568;
+  -fx-font-size: 11px;
+  -fx-font-weight: 800;
+}
+
+.jane-tool-summary,
+.jane-tool-files {
+  -fx-text-fill: #d6d6d6;
+  -fx-font-size: 11px;
+}
+
+.jane-tool-diff {
+  -fx-background-color: #101010;
+  -fx-text-fill: #e8e8e8;
+  -fx-font-family: "JetBrains Mono", "SF Mono", "Consolas", "Menlo", monospace;
+  -fx-font-size: 11px;
+  -fx-border-color: #303030;
+  -fx-border-radius: 6;
+  -fx-background-radius: 6;
+}
+
+.jane-tool-diff .content {
+  -fx-background-color: #101010;
+}
+
 .jane-evidence {
   -fx-background-color: #131313;
   -fx-border-color: #292929;
