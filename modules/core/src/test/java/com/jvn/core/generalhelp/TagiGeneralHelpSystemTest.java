@@ -154,6 +154,17 @@ class TagiGeneralHelpSystemTest {
   }
 
   @Test
+  void janeAsksForDetailOnAmbiguousShortPrompt() {
+    JaneAssistant jane = new JaneAssistant(new TagiGeneralHelpSystem());
+
+    JaneChatResponse response = jane.ask("What?");
+
+    assertTrue(response.answer().contains("more detail"));
+    assertFalse(response.modelUsed());
+    assertTrue(response.grounding().recommendedArticles().isEmpty());
+  }
+
+  @Test
   void janeExplainsCapabilitiesWithoutNeedingConcreteContext() {
     JaneAssistant jane = new JaneAssistant(new TagiGeneralHelpSystem());
 

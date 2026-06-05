@@ -103,6 +103,11 @@ public final class JaneAssistant {
           Hi, I'm Jane. I can help with JVN authoring and engine work. Ask me about VNS, JES, Puppeteer timelines, menus and layouts, assets, packaging, diagnostics, or editor workflows.
           """.trim();
     }
+    if (isAmbiguousFollowUp(normalized)) {
+      return """
+          I need a little more detail to answer usefully. Ask me about a specific JVN area, for example VNS dialogue, JES scenes, Puppeteer timelines, menus, assets, packaging, diagnostics, or editor workflow.
+          """.trim();
+    }
     if (asksIdentity(normalized)) {
       return """
           I'm Jane, JVN's local assistant. I use TAGI to ground answers in the indexed JVN docs, then explain the practical workflow and point you to the right files or tools.
@@ -178,6 +183,19 @@ public final class JaneAssistant {
         || normalized.equals("what do you do")
         || normalized.equals("how can you help")
         || normalized.equals("how can you help");
+  }
+
+  private static boolean isAmbiguousFollowUp(String normalized) {
+    return normalized.equals("huh")
+        || normalized.equals("hm")
+        || normalized.equals("hmm")
+        || normalized.equals("what")
+        || normalized.equals("what?")
+        || normalized.equals("wait what")
+        || normalized.equals("confused")
+        || normalized.equals("i am confused")
+        || normalized.equals("im confused")
+        || normalized.equals("what do you mean");
   }
 
   private static boolean asksWhatIsVns(String normalized) {

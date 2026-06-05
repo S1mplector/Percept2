@@ -29,6 +29,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.control.TextField;
@@ -38,6 +39,7 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
 
@@ -50,7 +52,13 @@ public class JaneAssistantView extends BorderPane {
   private static final int TYPEWRITER_CHARS_PER_TICK = 14;
 
   private final TagiGeneralHelpSystem generalHelp = new TagiGeneralHelpSystem();
-  private final JaneAssistant jane = new JaneAssistant(generalHelp);
+  private final BorderPane contentPane = new BorderPane();
+  private final StackPane contentStack = new StackPane();
+  private final StackPane initializingOverlay = new StackPane();
+  private final VBox initializingCard = new VBox(8);
+  private final ProgressIndicator initializingSpinner = new ProgressIndicator();
+  private final Label initializingTitleLabel = new Label("Initializing Jane");
+  private final Label initializingBodyLabel = new Label("Preparing Jane and indexing workspace docs.");
   private final TextField askField = new TextField();
   private final VBox transcriptBox = new VBox(8);
   private final VBox evidenceBox = new VBox(8);
@@ -65,15 +73,20 @@ public class JaneAssistantView extends BorderPane {
   private File workspaceRoot;
   private File projectRoot;
   private Consumer<File> onOpenDoc;
+  private JaneAssistant jane;
   private JaneChatResponse lastResponse;
   private VBox thinkingBubble;
   private Timeline thinkingAnimation;
+  private boolean initializationScheduled;
+  private boolean initialized;
+  private boolean firstCorpusLoad = true;
   private boolean indexing;
   private boolean pendingRefresh;
 
   public JaneAssistantView() {
     getStyleClass().addAll("jane-assistant-root", "sidebar-tool-root");
     buildUi();
+    scheduleInitialization();
   }
 
   public void setWorkspaceRoot(File root) {
@@ -81,13 +94,21 @@ public class JaneAssistantView extends BorderPane {
     if (this.workspaceRoot != null) {
       System.setProperty("jvn.jane.workspaceRoot", this.workspaceRoot.getAbsolutePath());
     }
-    refreshModel();
-    refreshCorpus();
+    if (initialized) {
+      refreshModel();
+      refreshCorpus();
+    } else {
+      scheduleInitialization();
+    }
   }
 
   public void setProjectRoot(File root) {
     this.projectRoot = normalizeDir(root);
-    refreshCorpus();
+    if (initialized) {
+      refreshCorpus();
+    } else {
+      scheduleInitialization();
+    }
   }
 
   public void setOnOpenDoc(Consumer<File> onOpenDoc) {
@@ -95,6 +116,10 @@ public class JaneAssistantView extends BorderPane {
   }
 
   public void refreshCorpus() {
+    if (jane == null) {
+      scheduleInitialization();
+      return;
+    }
     if (indexing) {
       pendingRefresh = true;
       return;
@@ -103,6 +128,11 @@ public class JaneAssistantView extends BorderPane {
     pendingRefresh = false;
     setInputDisabled(true);
     statusLabel.setText("Indexing JVN docs...");
+    if (firstCorpusLoad) {
+      showInitializingOverlay(
+          "Initializing Jane",
+          "Preparing Jane's grounded help corpus. The panel will be ready in a moment.");
+    }
     Task<List<HelpArticle>> task = new Task<>() {
       @Override
       protected List<HelpArticle> call() {
@@ -117,6 +147,8 @@ public class JaneAssistantView extends BorderPane {
         refreshCorpus();
         return;
       }
+      firstCorpusLoad = false;
+      hideInitializingOverlay();
       setInputDisabled(false);
       statusLabel.setText("Ready. Indexed " + articles.size() + " training articles.");
       if (transcriptBox.getChildren().isEmpty()) {
@@ -129,6 +161,8 @@ public class JaneAssistantView extends BorderPane {
         refreshCorpus();
         return;
       }
+      firstCorpusLoad = false;
+      hideInitializingOverlay();
       setInputDisabled(false);
       statusLabel.setText("Index failed. Jane will use the built-in corpus.");
     });
@@ -138,7 +172,36 @@ public class JaneAssistantView extends BorderPane {
   }
 
   private void refreshModel() {
+    if (jane == null) return;
     jane.reloadConfiguredModel();
+  }
+
+  private void scheduleInitialization() {
+    if (initialized || initializationScheduled) return;
+    initializationScheduled = true;
+    setInputDisabled(true);
+    showInitializingOverlay(
+        "Initializing Jane",
+        "Loading Jane's assistant shell and preparing indexed context.");
+    Platform.runLater(this::initializeJane);
+  }
+
+  private void initializeJane() {
+    initializationScheduled = false;
+    if (initialized) return;
+    try {
+      jane = new JaneAssistant(generalHelp);
+      initialized = true;
+      refreshModel();
+      refreshCorpus();
+    } catch (RuntimeException ex) {
+      initialized = true;
+      firstCorpusLoad = false;
+      hideInitializingOverlay();
+      setInputDisabled(false);
+      statusLabel.setText("Jane initialization failed: " + safeMessage(ex));
+      addAssistantBubble("Jane could not initialize. Check Jane's Gemini settings and refresh the panel.");
+    }
   }
 
   private void buildUi() {
@@ -201,15 +264,63 @@ public class JaneAssistantView extends BorderPane {
     footer.getStyleClass().add("sidebar-tool-footer");
     footer.setPadding(new Insets(10));
 
+    configureInitializingOverlay();
+
     VBox center = new VBox(8, transcriptScroll, evidenceBox);
     center.setPadding(new Insets(10));
     VBox.setVgrow(transcriptScroll, Priority.ALWAYS);
-    setTop(header);
-    setCenter(center);
-    setBottom(footer);
+    contentPane.setTop(header);
+    contentPane.setCenter(center);
+    contentPane.setBottom(footer);
+    contentStack.getChildren().addAll(contentPane, initializingOverlay);
+    StackPane.setAlignment(initializingOverlay, Pos.CENTER);
+    setCenter(contentStack);
+  }
+
+  private void configureInitializingOverlay() {
+    initializingOverlay.getStyleClass().add("vcs-initializing-overlay");
+    initializingOverlay.setVisible(false);
+    initializingOverlay.setManaged(false);
+    initializingOverlay.setPickOnBounds(true);
+    initializingCard.getStyleClass().add("vcs-initializing-card");
+    initializingCard.setAlignment(Pos.CENTER);
+    initializingCard.prefWidthProperty().bind(initializingOverlay.widthProperty());
+    initializingCard.maxWidthProperty().bind(initializingOverlay.widthProperty());
+    initializingCard.prefHeightProperty().bind(initializingOverlay.heightProperty());
+    initializingCard.maxHeightProperty().bind(initializingOverlay.heightProperty());
+    initializingSpinner.getStyleClass().add("vcs-initializing-spinner");
+    initializingSpinner.setMaxSize(36, 36);
+    initializingTitleLabel.getStyleClass().add("vcs-initializing-title");
+    initializingBodyLabel.getStyleClass().add("vcs-initializing-body");
+    initializingBodyLabel.setWrapText(true);
+    initializingBodyLabel.maxWidthProperty().bind(javafx.beans.binding.Bindings.createDoubleBinding(
+        () -> Math.max(180.0, Math.min(640.0, initializingOverlay.getWidth() - 48.0)),
+        initializingOverlay.widthProperty()));
+    initializingCard.getChildren().addAll(initializingSpinner, initializingTitleLabel, initializingBodyLabel);
+    initializingOverlay.getChildren().add(initializingCard);
+    StackPane.setAlignment(initializingCard, Pos.CENTER);
+  }
+
+  private void showInitializingOverlay(String title, String body) {
+    initializingTitleLabel.setText(title == null || title.isBlank() ? "Initializing Jane" : title);
+    initializingBodyLabel.setText(body == null || body.isBlank()
+        ? "Preparing Jane and indexing workspace docs."
+        : body);
+    initializingOverlay.setVisible(true);
+    initializingOverlay.setManaged(true);
+  }
+
+  private void hideInitializingOverlay() {
+    initializingOverlay.setVisible(false);
+    initializingOverlay.setManaged(false);
   }
 
   private void askJane() {
+    JaneAssistant activeJane = jane;
+    if (activeJane == null) {
+      scheduleInitialization();
+      return;
+    }
     String query = askField.getText();
     if (query == null || query.isBlank()) {
       askField.requestFocus();
@@ -224,7 +335,7 @@ public class JaneAssistantView extends BorderPane {
     Task<JaneChatResponse> task = new Task<>() {
       @Override
       protected JaneChatResponse call() {
-        return jane.ask(query);
+        return activeJane.ask(query);
       }
     };
     task.setOnSucceeded(e -> {
@@ -249,7 +360,9 @@ public class JaneAssistantView extends BorderPane {
   }
 
   private void clearChat() {
-    jane.clearHistory();
+    if (jane != null) {
+      jane.clearHistory();
+    }
     lastResponse = null;
     hideThinkingBubble();
     stopTextAnimations();
@@ -261,8 +374,12 @@ public class JaneAssistantView extends BorderPane {
   }
 
   private void refreshJane() {
-    refreshModel();
-    refreshCorpus();
+    if (jane == null) {
+      scheduleInitialization();
+    } else {
+      refreshModel();
+      refreshCorpus();
+    }
   }
 
   private void toggleSources() {
