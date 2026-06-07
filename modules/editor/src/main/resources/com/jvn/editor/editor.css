@@ -6982,6 +6982,54 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-font-weight: 600;
 }
 
+/* Application status bar */
+.jvn-status-bar {
+  -fx-background-color: #191919;
+  -fx-border-color: #303030 transparent transparent transparent;
+  -fx-border-width: 1 0 0 0;
+}
+
+.jvn-status-segment {
+  -fx-padding: 0 7 0 7;
+  -fx-min-height: 24px;
+  -fx-alignment: center-left;
+}
+
+.jvn-status-segment:hover {
+  -fx-background-color: #252525;
+}
+
+.jvn-status-segment .jvn-fx-icon {
+  -fx-effect: none;
+  -fx-opacity: 0.9;
+}
+
+.jvn-status-label {
+  -fx-text-fill: #d6d6d6;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+}
+
+.jvn-status-message .jvn-status-label {
+  -fx-text-fill: #f0f0f0;
+}
+
+.jvn-status-segment-strong {
+  -fx-background-color: #2a2a2a;
+}
+
+.jvn-status-segment-strong .jvn-status-label,
+.jvn-status-version .jvn-status-label {
+  -fx-text-fill: #f4f4f4;
+}
+
+.jvn-status-separator {
+  -fx-background-color: #353535;
+  -fx-min-height: 14px;
+  -fx-pref-height: 14px;
+  -fx-max-height: 14px;
+}
+
 /* Build & publish */
 .build-publisher-root {
   -fx-background-color: linear-gradient(to bottom, #141414 0%, #0f0f0f 100%);
