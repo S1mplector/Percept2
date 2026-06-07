@@ -21,7 +21,6 @@ import com.jvn.editor.ui.EditorPreferences;
 import com.jvn.editor.ui.EditorPreferencesStore;
 import com.jvn.editor.ui.EditorTheme;
 import com.jvn.editor.ui.GameBuildPublisherView;
-import com.jvn.editor.ui.JvnStatusBar;
 import com.jvn.editor.ui.LauncherSettingsView;
 import com.jvn.editor.ui.MaintenanceOverlay;
 import com.jvn.editor.ui.NewProjectWizard;
@@ -48,6 +47,7 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
@@ -81,7 +81,6 @@ public class JvnLauncherApp extends Application {
   private EditorPreferences editorPreferences = EditorPreferences.defaults();
 
   private final Label statusLabel = new Label("Ready");
-  private JvnStatusBar statusBar;
   private MenuItem runProjectMenuItem;
   private MenuItem copyProjectPathMenuItem;
   private DeveloperLogPanel developerLogPanel;
@@ -285,10 +284,10 @@ public class JvnLauncherApp extends Application {
     welcomeView.setOnOpenProjectFile(this::openProjectFileFromLauncher);
     welcomeView.setOnShowSettings(this::showLauncherSettings);
 
-    statusBar = new JvnStatusBar("JVN Launcher", buildInfo);
-    statusBar.setProjectRoot(workspaceRoot);
-    statusBar.setTheme(EditorTheme.theme());
-    statusLabel.textProperty().bindBidirectional(statusBar.messageLabel().textProperty());
+    statusLabel.getStyleClass().add("jvn-launcher-status");
+    HBox statusBar = new HBox(statusLabel);
+    statusBar.getStyleClass().add("jvn-launcher-status-bar");
+    statusBar.setPadding(new Insets(8, 4, 2, 4));
 
     MenuBar menuBar = buildMenuBar();
     if (DEVELOPER_MODE) {
@@ -300,6 +299,7 @@ public class JvnLauncherApp extends Application {
     root.setCenter(welcomeView);
     root.setBottom(statusBar);
     BorderPane.setMargin(welcomeView, new Insets(12, 12, 0, 12));
+    BorderPane.setMargin(statusBar, new Insets(0, 12, 8, 12));
 
     Scene scene = new Scene(MaintenanceOverlay.wrap(root, null, LAUNCHER_MAINTENANCE_MESSAGE), 1320, 860);
     EditorTheme.apply(scene);
@@ -485,7 +485,6 @@ public class JvnLauncherApp extends Application {
       }
     }
     rememberLauncherProjectSelection(resolved);
-    if (statusBar != null) statusBar.setProjectRoot(resolved != null ? resolved : workspaceRoot);
     refreshDeveloperLogs();
     refreshButtonState();
   }
@@ -709,7 +708,6 @@ public class JvnLauncherApp extends Application {
       }
     }
     statusLabel.setText("Theme: " + (theme == EditorTheme.Theme.LIGHT ? "Light" : "Dark"));
-    if (statusBar != null) statusBar.setTheme(theme);
   }
 
   private void showGameBuildPublisher(File projectDir) {

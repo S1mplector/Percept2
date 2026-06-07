@@ -42,7 +42,6 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -124,9 +123,6 @@ public final class JvnHub {
   private final Path projectRoot;
   private final JFrame frame = new JFrame("JVN Engine Hub");
   private final JLabel statusLabel = new JLabel("Idle");
-  private final JLabel footerBranchLabel = new JLabel("No branch");
-  private final JLabel footerRootLabel = new JLabel();
-  private final JLabel footerModeLabel = new JLabel("Standard");
   private final JLabel versionLabel = new JLabel();
   private final ActivitySpinner activitySpinner = new ActivitySpinner();
   private final JLabel activityTitle = new JLabel("Ready");
@@ -756,29 +752,15 @@ public final class JvnHub {
   }
 
   private JPanel buildFooter() {
-    JPanel footer = new JPanel(new BorderLayout(8, 0));
-    footer.setBackground(Color.decode("#191919"));
-    footer.setBorder(BorderFactory.createCompoundBorder(
-        BorderFactory.createMatteBorder(1, 0, 0, 0, Color.decode("#303030")),
-        new EmptyBorder(3, 8, 3, 8)));
+    JPanel footer = new JPanel(new BorderLayout());
+    footer.setOpaque(false);
 
     statusLabel.setForeground(TEXT_SOFT);
-    statusLabel.setFont(statusLabel.getFont().deriveFont(Font.BOLD, 11f));
+    statusLabel.setFont(statusLabel.getFont().deriveFont(Font.PLAIN, 11f));
 
-    footerBranchLabel.setText(resolveBranch(projectRoot));
-    footerBranchLabel.setForeground(TEXT_SOFT);
-    footerBranchLabel.setFont(footerBranchLabel.getFont().deriveFont(Font.BOLD, 11f));
-
-    footerRootLabel.setText(projectRoot.getFileName() == null ? projectRoot.toString() : projectRoot.getFileName().toString());
-    footerRootLabel.setToolTipText(projectRoot.toString());
-    footerRootLabel.setForeground(TEXT_SOFT);
-    footerRootLabel.setFont(footerRootLabel.getFont().deriveFont(Font.BOLD, 11f));
-
-    footerModeLabel.setForeground(TEXT_SOFT);
-    footerModeLabel.setFont(footerModeLabel.getFont().deriveFont(Font.BOLD, 11f));
-
-    JLabel javaLabel = footerLabel("Java " + javaFeatureVersion(), TEXT_SOFT);
-    JLabel version = footerLabel(VERSION, TEXT_SOFT);
+    JLabel rootLabel = new JLabel("Project: " + projectRoot.toString());
+    rootLabel.setForeground(TEXT_MUTED);
+    rootLabel.setFont(rootLabel.getFont().deriveFont(Font.PLAIN, 10f));
 
     FlatButton cancel = new FlatButton("Cancel",
         VectorIcon.of(VectorIcon.Kind.STOP, 14, ACCENT_ERROR), ACCENT_ERROR);
@@ -790,133 +772,25 @@ public final class JvnHub {
 
     JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
     right.setOpaque(false);
-    right.add(footerItem("Mode", footerModeLabel));
-    right.add(footerDivider());
-    right.add(footerItem("Java", javaLabel));
-    right.add(footerDivider());
-    right.add(footerItem("Version", version));
-    right.add(footerDivider());
     right.add(cancel);
     right.add(quit);
 
-    JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+    JPanel left = new JPanel();
     left.setOpaque(false);
-    left.add(footerItem("Hub", statusLabel));
-    left.add(footerDivider());
-    left.add(footerItem("Branch", footerBranchLabel));
-    left.add(footerDivider());
-    left.add(footerItem("Root", footerRootLabel));
+    left.setLayout(new BoxLayout(left, BoxLayout.Y_AXIS));
+    statusLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+    rootLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+    left.add(statusLabel);
+    left.add(rootLabel);
 
     footer.add(left, BorderLayout.WEST);
     footer.add(right, BorderLayout.EAST);
     return footer;
   }
 
-  private static JPanel footerItem(String caption, JLabel value) {
-    JPanel item = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
-    item.setOpaque(false);
-    JLabel cap = footerLabel(caption + ":", TEXT_MUTED);
-    item.add(cap);
-    item.add(value);
-    return item;
-  }
-
-  private static JLabel footerLabel(String text, Color color) {
-    JLabel label = new JLabel(text == null || text.isBlank() ? "--" : text);
-    label.setForeground(color != null ? color : TEXT_SOFT);
-    label.setFont(label.getFont().deriveFont(Font.BOLD, 11f));
-    return label;
-  }
-
-  private static JComponent footerDivider() {
-    JPanel divider = new JPanel();
-    divider.setBackground(Color.decode("#353535"));
-    divider.setPreferredSize(new Dimension(1, 14));
-    divider.setMaximumSize(new Dimension(1, 14));
-    return divider;
-  }
-
-  private void refreshFooterMode() {
-    String mode;
-    Color color;
-    if (developerModeEnabled && safeModeEnabled) {
-      mode = "Dev + Safe";
-      color = ACCENT_SAFE;
-    } else if (developerModeEnabled) {
-      mode = "Developer";
-      color = ACCENT_DEV;
-    } else if (safeModeEnabled) {
-      mode = "Safe";
-      color = ACCENT_SAFE;
-    } else {
-      mode = "Standard";
-      color = TEXT_SOFT;
-    }
-    footerModeLabel.setText(mode);
-    footerModeLabel.setForeground(color);
-  }
-
-  private static String javaFeatureVersion() {
-    String version = System.getProperty("java.version", "");
-    if (version.isBlank()) return "--";
-    if (version.startsWith("1.")) {
-      int next = version.indexOf('.', 2);
-      return next > 0 ? version.substring(2, next) : version.substring(2);
-    }
-    int dot = version.indexOf('.');
-    int dash = version.indexOf('-');
-    int end = dot > 0 ? dot : (dash > 0 ? dash : version.length());
-    return version.substring(0, end);
-  }
-
-  private static String resolveBranch(Path projectRoot) {
-    Path dir = projectRoot == null ? null : projectRoot.toAbsolutePath().normalize();
-    for (int i = 0; i < 8 && dir != null; i++, dir = dir.getParent()) {
-      Optional<Path> gitDirOpt = resolveGitDir(dir.resolve(".git"));
-      if (gitDirOpt.isEmpty()) continue;
-      Path gitDir = gitDirOpt.get();
-      Path head = gitDir.resolve("HEAD");
-      if (!Files.isRegularFile(head)) continue;
-      try {
-        String value = Files.readString(head).trim();
-        if (value.startsWith("ref:")) {
-          String ref = value.substring(4).trim();
-          int slash = ref.lastIndexOf('/');
-          return slash >= 0 ? ref.substring(slash + 1) : ref;
-        }
-        return value.length() > 7 ? value.substring(0, 7).toLowerCase(Locale.ROOT) : value;
-      } catch (IOException ignored) {
-        return "No branch";
-      }
-    }
-    return "No branch";
-  }
-
-  private static Optional<Path> resolveGitDir(Path gitPath) {
-    try {
-      if (gitPath == null) return Optional.empty();
-      if (Files.isDirectory(gitPath)) return Optional.of(gitPath);
-      if (Files.isRegularFile(gitPath)) {
-        String text = Files.readString(gitPath).trim();
-        if (text.startsWith("gitdir:")) {
-          Path target = Paths.get(text.substring("gitdir:".length()).trim());
-          Path parent = gitPath.getParent();
-          if (parent == null) return Optional.empty();
-          return Optional.of(target.isAbsolute()
-              ? target.normalize()
-              : parent.resolve(target).normalize());
-        }
-      }
-    } catch (IOException ignored) {
-      return Optional.empty();
-    }
-    return Optional.empty();
-  }
-
   private void setSafeModeEnabled(boolean enabled) {
     safeModeEnabled = enabled;
     if (safeModeButton != null) safeModeButton.setSafeModeEnabled(enabled);
-    refreshFooterMode();
     String title = enabled ? "Safe Mode enabled" : "Safe Mode disabled";
     String detail = enabled
         ? "Editor-side launches use safe-mode flags. Update Engine uses guarded Git recovery."
@@ -929,7 +803,6 @@ public final class JvnHub {
     developerModeEnabled = enabled;
     if (developerModeButton != null) developerModeButton.setDeveloperModeEnabled(enabled);
     rebuildActionGrid();
-    refreshFooterMode();
     String title = enabled ? "Developer Mode enabled" : "Developer Mode disabled";
     String detail = enabled
         ? "Run Tests is visible and editor-side launches receive developer-mode flags."
