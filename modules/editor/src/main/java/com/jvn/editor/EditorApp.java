@@ -58,6 +58,7 @@ import com.jvn.editor.ui.ImageToolPanel;
 import com.jvn.editor.ui.InspectorView;
 import com.jvn.editor.ui.JaneAssistantView;
 import com.jvn.editor.ui.JesScriptAnalyzer;
+import com.jvn.editor.ui.JvnStatusBar;
 import com.jvn.editor.ui.LanguageDiagnostic;
 import com.jvn.editor.ui.LayeredImageVisualizerView;
 import com.jvn.editor.ui.LayoutEditorLauncherView;
@@ -164,6 +165,7 @@ public class EditorApp extends Application {
   private AnimationTimer timer;
   private Label status;
   private Label fps;
+  private JvnStatusBar statusBar;
   private TextFlow perf;
   private Text cpuText;
   private Text gpuText;
@@ -365,6 +367,7 @@ public class EditorApp extends Application {
     if (status != null) {
       status.setText("Theme: " + (target == EditorTheme.Theme.LIGHT ? "Light" : "Dark"));
     }
+    if (statusBar != null) statusBar.setTheme(target);
   }
 
   private void applyThemeToOpenWindows() {
@@ -1963,7 +1966,10 @@ public class EditorApp extends Application {
     osBean = ManagementFactory.getPlatformMXBean(OperatingSystemMXBean.class);
     BorderPane toolbar = new BorderPane();
     toolbar.getStyleClass().add("master-toolbar");
-    status = new Label("Ready");
+    statusBar = new JvnStatusBar("JVN Editor", buildInfo);
+    statusBar.setProjectRoot(projectRoot);
+    statusBar.setTheme(EditorTheme.theme());
+    status = statusBar.messageLabel();
     fps = new Label("");
     cpuText = new Text("CPU --");
     cpuText.setFill(CPU_COLOR);
@@ -2178,7 +2184,9 @@ public class EditorApp extends Application {
     root.setLeft(null);
    root.setRight(null);
     root.setCenter(centerSplit);
+    root.setBottom(statusBar);
     applyStartupProjectOverride();
+    refreshStatusBarContext();
     refreshMainCommandUi.run();
 
     Scene scene = new Scene(root, 1200, 800);
@@ -3317,6 +3325,7 @@ public class EditorApp extends Application {
       });
       editor.setOnVnsCaretLineChanged(line -> {
         if (editor != getActiveFileTab()) return;
+        refreshStatusBarContext(editor);
         if (puppeteerLauncherPanel != null) puppeteerLauncherPanel.setCaretLine(line);
       });
     }
@@ -3377,6 +3386,7 @@ public class EditorApp extends Application {
     if (puppeteerLauncherPanel != null) puppeteerLauncherPanel.setProjectRoot(projectRoot);
     if (workspaceHubView != null) workspaceHubView.setCurrentProject(projectRoot);
     syncStoryboardOverlayProjectState();
+    refreshStatusBarContext();
     refreshMainCommandUi.run();
   }
 
@@ -4274,6 +4284,7 @@ public class EditorApp extends Application {
 
   private void updateContextForActiveTab() {
     FileEditorTab ft = getActiveFileTab();
+    refreshStatusBarContext(ft);
     stopPreviewAudioInInactiveTabs(ft);
     JesScene2D scene = (ft != null) ? ft.getJesScene() : null;
     if (inspectorView != null) inspectorView.setScene(scene);
@@ -4298,6 +4309,23 @@ public class EditorApp extends Application {
       }
     }
     refreshMainCommandUi.run();
+  }
+
+  private void refreshStatusBarContext() {
+    refreshStatusBarContext(getActiveFileTab());
+  }
+
+  private void refreshStatusBarContext(FileEditorTab ft) {
+    if (statusBar == null) return;
+    statusBar.setProjectRoot(projectRoot);
+    statusBar.setTheme(EditorTheme.theme());
+    if (ft == null) {
+      statusBar.setActiveFile(null, null, -1);
+      return;
+    }
+    String kind = ft.getKind() == null ? "" : ft.getKind().name();
+    int line = ft.getKind() == FileEditorTab.Kind.VNS ? ft.getVnsCaretLine() + 1 : -1;
+    statusBar.setActiveFile(ft.getDisplayName(), kind, line);
   }
 
   private void closeAndDisposeTab(Tab tab) {
