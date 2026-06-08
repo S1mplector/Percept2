@@ -27,6 +27,7 @@ import com.jvn.core.vn.VnEyeFocusProfile;
 import com.jvn.core.vn.VnEyeFocusProfileStore;
 import com.jvn.core.vn.stage.VnStagePreset;
 import com.jvn.core.vn.stage.VnStagePresetLoader;
+import com.jvn.editor.ui.CssIcon;
 import com.jvn.editor.ui.EditorTheme;
 import com.jvn.editor.ui.ProjectViewportSpec;
 import com.jvn.editor.ui.PuppeteerLauncherPanel;
@@ -43,6 +44,7 @@ import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
+import javafx.geometry.Side;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
@@ -51,6 +53,7 @@ import javafx.scene.control.ButtonBase;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.CheckMenuItem;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
@@ -58,6 +61,7 @@ import javafx.scene.control.ListView;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.OverrunStyle;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.RadioButton;
 import javafx.scene.control.RadioMenuItem;
@@ -219,6 +223,18 @@ public class PuppeteerWindow extends Stage {
     private Button btnTopToolbarVisibility;
     private Label lblToolbarCommandSummary;
     Label statusBar;
+    private Label statusPlaybackLabel;
+    private Label statusTimelineLabel;
+    private Label statusSelectionLabel;
+    private Label statusSceneLabel;
+    private Label statusModeLabel;
+    private Label statusSaveLabel;
+    private Label statusProjectLabel;
+    private Label statusExportLabel;
+    private HBox statusPlaybackSegment;
+    private HBox statusSaveSegment;
+    private HBox statusModeSegment;
+    private HBox statusExportSegment;
     private Label viewportInfoLabel;
     private Button btnSidebarPreviewLayout;
     private BorderPane previewPane;
@@ -516,6 +532,7 @@ public class PuppeteerWindow extends Stage {
             }
             refreshPropertyPickerChoices();
             refreshSidebarTabs();
+            updateStatusBar();
         });
 
         entitySelector.setOnSelectionChanged((name, isGroup) -> {
@@ -523,6 +540,7 @@ public class PuppeteerWindow extends Stage {
             anchorEditor.setSelectedEntityName(name, isGroup);
             if (constraintEditor != null) constraintEditor.selectEntity(isGroup ? null : name);
             refreshPropertyPickerChoices();
+            updateStatusBar();
         });
 
         entitySelector.setOnCreateGroup(groupName -> {
@@ -648,6 +666,7 @@ public class PuppeteerWindow extends Stage {
                 cbProperty.setValue(selectedProp);
             }
             refreshSidebarTabs();
+            updateStatusBar();
         });
 
         timelinePanel.setOnPlayheadChanged(time -> {
@@ -655,6 +674,7 @@ public class PuppeteerWindow extends Stage {
             updateTimeLabel();
             updatePreview();
             refreshSidebarTabs();
+            updateStatusBar();
         });
         timelinePanel.setOnEdited(() -> {
             syncDurationUi();
@@ -927,6 +947,7 @@ public class PuppeteerWindow extends Stage {
         cbLoop.setOnAction(e -> {
             this.project.setLooping(cbLoop.isSelected());
             refreshExportPreviewAndMarkDirty();
+            updateStatusBar();
         });
 
         Button btnLoopIn = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.verticalAlignBottom("#3cbcaa"), "Set loop IN at playhead");
@@ -1059,6 +1080,7 @@ public class PuppeteerWindow extends Stage {
         cbCompactExport.setOnAction(e -> {
             compactExport = cbCompactExport.isSelected();
             refreshExportPreview();
+            updateStatusBar();
         });
 
         HBox keyframeOpsPrimaryRow = new HBox(4,
@@ -1089,7 +1111,10 @@ public class PuppeteerWindow extends Stage {
 
         cbSnap = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.grid4x4(), "Enable snapping");
         cbSnap.setSelected(timelinePanel.isSnapEnabled());
-        cbSnap.setOnAction(e -> timelinePanel.setSnapEnabled(cbSnap.isSelected()));
+        cbSnap.setOnAction(e -> {
+            timelinePanel.setSnapEnabled(cbSnap.isSelected());
+            updateStatusBar();
+        });
 
         tfSnapMs = new TextField("50");
         tfSnapMs.setPrefWidth(56);
@@ -1117,6 +1142,7 @@ public class PuppeteerWindow extends Stage {
                 try { playbackSpeed = Double.parseDouble(val.replace("x", "")); }
                 catch (NumberFormatException ignored) { playbackSpeed = 1.0; }
             }
+            updateStatusBar();
         });
 
         ComboBox<String> cbWheelMode = new ComboBox<>();
@@ -1156,7 +1182,10 @@ public class PuppeteerWindow extends Stage {
         // --- Auto-key toggle ---
         ToggleButton cbAutoKey = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.fiberSmartRecord("#e05050"), "Auto-key: automatically insert keyframe on drag");
         cbAutoKey.setSelected(false);
-        cbAutoKey.setOnAction(e -> autoKeyEnabled = cbAutoKey.isSelected());
+        cbAutoKey.setOnAction(e -> {
+            autoKeyEnabled = cbAutoKey.isSelected();
+            updateStatusBar();
+        });
         Label lblAutoKey = new Label("Auto");
         lblAutoKey.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 10px;");
 
@@ -1619,16 +1648,12 @@ public class PuppeteerWindow extends Stage {
         SplitPane.setResizableWithParent(workspaceModeHost, Boolean.TRUE);
         rootWorkspaceSplit.setDividerPositions(toolbarDividerPosition);
 
-        // --- Status bar with undo/redo labels ---
-        statusBar = new Label("Ready");
-        statusBar.setMaxWidth(Double.MAX_VALUE);
-        statusBar.setStyle("-fx-background-color: #0a0a0a; -fx-text-fill: #555; -fx-font-size: 10px; " +
-            "-fx-padding: 4 10; -fx-border-color: #2a2a2a; -fx-border-width: 1 0 0 0;");
+        HBox puppeteerStatusBar = buildPuppeteerStatusBar();
         updateStatusBar();
 
         BorderPane root = new BorderPane();
         root.setCenter(rootWorkspaceSplit);
-        root.setBottom(statusBar);
+        root.setBottom(puppeteerStatusBar);
         root.setStyle("-fx-background-color: #121212;");
 
         StackPane rootStack = new StackPane(root, overlayDialog);
@@ -1655,6 +1680,200 @@ public class PuppeteerWindow extends Stage {
         });
 
         refreshExportPreview();
+    }
+
+    private HBox buildPuppeteerStatusBar() {
+        statusBar = puppeteerStatusLabel("Ready", 300);
+        statusPlaybackLabel = puppeteerStatusLabel("Stopped", 120);
+        statusTimelineLabel = puppeteerStatusLabel("00:00.000 / 00:00.000", 160);
+        statusSelectionLabel = puppeteerStatusLabel("No selection", 260);
+        statusSceneLabel = puppeteerStatusLabel("0 tracks", 170);
+        statusModeLabel = puppeteerStatusLabel("Snap 50ms", 220);
+        statusSaveLabel = puppeteerStatusLabel("Saved", 120);
+        statusProjectLabel = puppeteerStatusLabel("No project", 180);
+        statusExportLabel = puppeteerStatusLabel("Code Pane", 180);
+
+        HBox productSegment = puppeteerStatusSegment(CssIcon.movie("#d6d6d6"), statusBar, "jvn-status-segment-strong");
+        statusPlaybackSegment = puppeteerStatusSegment(CssIcon.play("#d6d6d6"), statusPlaybackLabel);
+        HBox timelineSegment = puppeteerStatusSegment(CssIcon.timeline("#d6d6d6"), statusTimelineLabel);
+        HBox selectionSegment = puppeteerStatusSegment(CssIcon.rectSelect("#d6d6d6"), statusSelectionLabel);
+        HBox sceneSegment = puppeteerStatusSegment(CssIcon.landscape("#d6d6d6"), statusSceneLabel);
+        statusModeSegment = puppeteerStatusSegment(CssIcon.grid4x4("#d6d6d6"), statusModeLabel);
+        statusSaveSegment = puppeteerStatusSegment(CssIcon.save("#d6d6d6"), statusSaveLabel);
+        HBox projectSegment = puppeteerStatusSegment(CssIcon.folder("#d6d6d6"), statusProjectLabel);
+        statusExportSegment = puppeteerStatusSegment(CssIcon.document("#d6d6d6"), statusExportLabel);
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        HBox bar = new HBox();
+        bar.getStyleClass().addAll("jvn-status-bar", "puppeteer-status-bar");
+        bar.setAlignment(Pos.CENTER_LEFT);
+        bar.setMinHeight(25);
+        bar.setPrefHeight(25);
+        bar.setPadding(new Insets(0, 8, 0, 8));
+        bar.getChildren().addAll(
+            productSegment,
+            puppeteerStatusSeparator(),
+            statusPlaybackSegment,
+            puppeteerStatusSeparator(),
+            timelineSegment,
+            puppeteerStatusSeparator(),
+            selectionSegment,
+            puppeteerStatusSeparator(),
+            sceneSegment,
+            spacer,
+            statusModeSegment,
+            puppeteerStatusSeparator(),
+            statusSaveSegment,
+            puppeteerStatusSeparator(),
+            projectSegment,
+            puppeteerStatusSeparator(),
+            statusExportSegment
+        );
+
+        installPuppeteerStatusMenu(productSegment, () -> puppeteerStatusMenu(
+            puppeteerStatusItem("Keyboard Shortcuts", this::showShortcutsOverlay),
+            puppeteerStatusItem("Copy Exported Code", this::copyExportedCodeToClipboard),
+            puppeteerStatusSeparatorItem(),
+            puppeteerStatusItem(codePaneVisible ? "Hide Code Pane" : "Show Code Pane", () -> setCodePaneVisible(!isCodePaneVisible()))
+        ));
+        installPuppeteerStatusMenu(statusPlaybackSegment, () -> puppeteerStatusMenu(
+            puppeteerStatusItem(project.isPlaying() ? "Pause" : "Play", () -> { if (project.isPlaying()) pause(); else play(); }),
+            puppeteerStatusItem("Stop", this::stop),
+            puppeteerStatusItem("Rewind", this::rewind),
+            puppeteerStatusSeparatorItem(),
+            puppeteerStatusItem(project.isLooping() ? "Disable Loop" : "Enable Loop", () -> {
+                project.setLooping(!project.isLooping());
+                if (cbLoop != null) cbLoop.setSelected(project.isLooping());
+                refreshExportPreviewAndMarkDirty();
+            })
+        ));
+        installPuppeteerStatusMenu(timelineSegment, () -> puppeteerStatusMenu(
+            puppeteerStatusItem("Add Keyframe at Playhead", () -> {
+                timelinePanel.addKeyframeAtPlayhead();
+                refreshExportPreviewAndMarkDirty();
+            }),
+            puppeteerStatusItem("Previous Keyframe", () -> {
+                if (timelinePanel.jumpPlayheadToPreviousKeyframe()) updateStatusBar();
+            }),
+            puppeteerStatusItem("Next Keyframe", () -> {
+                if (timelinePanel.jumpPlayheadToNextKeyframe()) updateStatusBar();
+            }),
+            puppeteerStatusItem("Zoom to Selection", () -> timelinePanel.zoomToSelection())
+        ));
+        installPuppeteerStatusMenu(selectionSegment, () -> puppeteerStatusMenu(
+            puppeteerStatusItem("Focus Preview Selection", () -> animationPreview.fitToContent()),
+            puppeteerStatusItem("Clear Keyframe Selection", () -> {
+                timelinePanel.clearKeyframeSelection();
+                updateStatusBar();
+                refreshSidebarTabs();
+            }),
+            puppeteerStatusItem("Copy Selected Keyframes", () -> {
+                timelinePanel.copySelectedKeyframes();
+                updateStatusBar();
+            })
+        ));
+        installPuppeteerStatusMenu(sceneSegment, () -> puppeteerStatusMenu(
+            puppeteerStatusItem("Import Assets", this::showAssetImporterWindow),
+            puppeteerStatusItem("Fit Preview Viewport", () -> animationPreview.fitToContent()),
+            puppeteerStatusItem("Manage Event Cues", () -> showEventCueManagerDialog(null)),
+            puppeteerStatusItem("Add Audio Cue at Playhead", this::showAddAudioCueDialog)
+        ));
+        installPuppeteerStatusMenu(statusModeSegment, () -> puppeteerStatusMenu(
+            puppeteerStatusItem(timelinePanel.isSnapEnabled() ? "Disable Timeline Snap" : "Enable Timeline Snap", () -> {
+                timelinePanel.setSnapEnabled(!timelinePanel.isSnapEnabled());
+                if (cbSnap != null) cbSnap.setSelected(timelinePanel.isSnapEnabled());
+                updateStatusBar();
+            }),
+            puppeteerStatusItem(runtimeParityPreview ? "Disable Runtime Preview" : "Enable Runtime Preview", () -> {
+                runtimeParityPreview = !runtimeParityPreview;
+                if (cbRuntimePreview != null) cbRuntimePreview.setSelected(runtimeParityPreview);
+                updatePreview();
+                updateStatusBar();
+            }),
+            puppeteerStatusItem(viewportStabilizationEnabled ? "Disable Viewport Stabilization" : "Enable Viewport Stabilization",
+                () -> setViewportStabilizationEnabled(!viewportStabilizationEnabled))
+        ));
+        installPuppeteerStatusMenu(statusSaveSegment, () -> puppeteerStatusMenu(
+            puppeteerStatusItem("Save & Register", this::requestRegisterTimeline),
+            puppeteerStatusItem("Stage Code Preview", this::stagePreviewFromCode),
+            puppeteerStatusItem("Commit Staged Preview", this::commitStagedPreview),
+            puppeteerStatusItem("Discard Staged Preview", this::discardStagedPreview)
+        ));
+        installPuppeteerStatusMenu(projectSegment, () -> puppeteerStatusMenu(
+            puppeteerStatusItem("Import Assets", this::showAssetImporterWindow),
+            puppeteerStatusItem("Record GIF / Frames", this::showRecordGifDialog),
+            puppeteerStatusItem("Fit Preview Viewport", () -> animationPreview.fitToContent())
+        ));
+        installPuppeteerStatusMenu(statusExportSegment, () -> puppeteerStatusMenu(
+            puppeteerStatusItem("Copy Exported Code", this::copyExportedCodeToClipboard),
+            puppeteerStatusItem("Refresh Code Preview", this::refreshExportPreview),
+            puppeteerStatusItem(codePaneVisible ? "Hide Code Pane" : "Show Code Pane", () -> setCodePaneVisible(!isCodePaneVisible()))
+        ));
+        return bar;
+    }
+
+    private static Label puppeteerStatusLabel(String text, double maxWidth) {
+        Label label = new Label(text);
+        label.getStyleClass().add("jvn-status-label");
+        label.setTextOverrun(OverrunStyle.ELLIPSIS);
+        label.setMinWidth(0);
+        label.setMaxWidth(maxWidth);
+        return label;
+    }
+
+    private static HBox puppeteerStatusSegment(Node icon, Label label, String... extraStyleClasses) {
+        HBox segment = new HBox(5);
+        segment.getStyleClass().add("jvn-status-segment");
+        if (extraStyleClasses != null) {
+            segment.getStyleClass().addAll(extraStyleClasses);
+        }
+        segment.setAlignment(Pos.CENTER_LEFT);
+        segment.setMinWidth(0);
+        if (icon != null) segment.getChildren().add(icon);
+        segment.getChildren().add(label);
+        return segment;
+    }
+
+    private static Region puppeteerStatusSeparator() {
+        Region separator = new Region();
+        separator.getStyleClass().add("jvn-status-separator");
+        separator.setMinWidth(1);
+        separator.setPrefWidth(1);
+        separator.setMaxWidth(1);
+        return separator;
+    }
+
+    private static void installPuppeteerStatusMenu(Node node, java.util.function.Supplier<ContextMenu> menuSupplier) {
+        node.setOnMouseClicked(event -> {
+            if (event.getButton() != MouseButton.PRIMARY && event.getButton() != MouseButton.SECONDARY) return;
+            ContextMenu menu = menuSupplier.get();
+            if (menu == null || menu.getItems().isEmpty()) return;
+            menu.show(node, Side.TOP, 0, 0);
+            event.consume();
+        });
+    }
+
+    private static ContextMenu puppeteerStatusMenu(MenuItem... items) {
+        ContextMenu menu = new ContextMenu();
+        if (items != null) {
+            for (MenuItem item : items) {
+                if (item != null) menu.getItems().add(item);
+            }
+        }
+        return menu;
+    }
+
+    private static MenuItem puppeteerStatusItem(String label, Runnable action) {
+        MenuItem item = new MenuItem(label);
+        item.setDisable(action == null);
+        if (action != null) item.setOnAction(e -> action.run());
+        return item;
+    }
+
+    private static MenuItem puppeteerStatusSeparatorItem() {
+        return new SeparatorMenuItem();
     }
 
     private BorderPane buildToolbarDock(VBox content) {
@@ -3348,6 +3567,8 @@ public class PuppeteerWindow extends Stage {
             }
             mainWorkspaceSplit.setDividerPositions(codePaneDividerPosition);
             refreshSidebarTabs();
+            refreshToolbarCommandSummary();
+            updateStatusBar();
             return;
         }
         if (mainWorkspaceSplit.getItems().contains(codePaneNode)) {
@@ -3359,6 +3580,7 @@ public class PuppeteerWindow extends Stage {
         }
         refreshSidebarTabs();
         refreshToolbarCommandSummary();
+        updateStatusBar();
     }
 
     private Node codePreviewSplitNode() {
@@ -3499,6 +3721,7 @@ public class PuppeteerWindow extends Stage {
         }
         updatePreviewOverlayVisibility();
         refreshSidebarTabs();
+        updateStatusBar();
     }
 
     public void setLaunchSceneSnapshot(PuppeteerLauncherPanel.SceneSnapshot snapshot) {
@@ -3700,6 +3923,7 @@ public class PuppeteerWindow extends Stage {
         updateViewportInfoLabel();
         refreshSidebarTabs();
         installWorkspaceServicesForProjectRoot();
+        updateStatusBar();
     }
 
     private void installWorkspaceServicesForProjectRoot() {
@@ -4611,6 +4835,7 @@ public class PuppeteerWindow extends Stage {
     public void updateTimeLabel() {
         lblTime.setText(String.format("%.0f ms", project.getPlayheadMs()));
         refreshSidebarTabs();
+        updateStatusBar();
     }
 
     private void refreshPropertyPickerChoices() {
@@ -6268,7 +6493,123 @@ public class PuppeteerWindow extends Stage {
         }
         sb.append("  │  Speed: ").append(playbackSpeed).append("x");
         statusBar.setText(sb.toString());
+        statusBar.setTooltip(new Tooltip(sb.toString()));
+
+        if (statusPlaybackLabel != null) {
+            String playback = project.isPlaying() ? "Playing" : "Stopped";
+            if (project.isLooping()) playback += " / Loop";
+            playback += " / " + trimPlaybackSpeed(playbackSpeed) + "x";
+            statusPlaybackLabel.setText(playback);
+            statusPlaybackLabel.setTooltip(new Tooltip("Playback state. Click for play, stop, rewind, and loop controls."));
+            setSegmentState(statusPlaybackSegment, project.isPlaying() ? "jvn-status-diagnostics-ok" : "",
+                "jvn-status-diagnostics-ok");
+        }
+        if (statusTimelineLabel != null) {
+            String timeline = formatStatusTime(project.getPlayheadMs()) + " / " + formatStatusTime(project.getTotalDurationMs());
+            statusTimelineLabel.setText(timeline);
+            statusTimelineLabel.setTooltip(new Tooltip("Playhead and duration. Click for keyframe navigation."));
+        }
+        if (statusSelectionLabel != null) {
+            String selection = "No selection";
+            if (timelinePanel != null) {
+                int selectedKeys = timelinePanel.getSelectionCount();
+                if (selectedKeys > 0) {
+                    selection = selectedKeys + " keyframe" + (selectedKeys == 1 ? "" : "s");
+                } else if (timelinePanel.getSelectedEntity() != null && !timelinePanel.getSelectedEntity().isBlank()) {
+                    selection = selectionLabel(timelinePanel.getSelectedEntity(), timelinePanel.isSelectedGroup());
+                }
+                PropertyType selectedProperty = timelinePanel.getSelectedProperty();
+                if (selectedProperty != null && !selection.equals("No selection")) {
+                    selection += " / " + selectedProperty.getDisplayName();
+                }
+            }
+            statusSelectionLabel.setText(selection);
+            statusSelectionLabel.setTooltip(new Tooltip("Current target, property, and keyframe selection."));
+        }
+        if (statusSceneLabel != null) {
+            int tracks = project.getTrackCount();
+            int groups = 0;
+            for (EntityGroup ignored : project.getGroups()) groups++;
+            int audio = project.getAudioCues().size();
+            int events = project.getEditorEventCues().size();
+            String sceneStats = tracks + " track" + (tracks == 1 ? "" : "s")
+                + " / " + groups + " group" + (groups == 1 ? "" : "s");
+            if (audio > 0 || events > 0) {
+                sceneStats += " / " + audio + " audio / " + events + " events";
+            }
+            statusSceneLabel.setText(sceneStats);
+            statusSceneLabel.setTooltip(new Tooltip("Scene contents, groups, audio cues, and event cues."));
+        }
+        if (statusModeLabel != null) {
+            List<String> modes = new ArrayList<>();
+            modes.add(timelinePanel != null && timelinePanel.isSnapEnabled()
+                ? "Snap " + String.format(Locale.ROOT, "%.0fms", timelinePanel.getSnapStepMs())
+                : "Snap Off");
+            if (autoKeyEnabled) modes.add("Auto-Key");
+            if (runtimeParityPreview) modes.add("Runtime");
+            if (viewportStabilizationEnabled) {
+                modes.add(animationPreview.isViewportStabilizationActive() ? "Stable Active" : "Stable");
+            }
+            statusModeLabel.setText(String.join(" / ", modes));
+            statusModeLabel.setTooltip(new Tooltip("Timeline snapping, auto-key, runtime preview, and viewport stabilization."));
+            setSegmentState(statusModeSegment,
+                autoKeyEnabled || runtimeParityPreview || viewportStabilizationEnabled ? "jvn-status-diagnostics-warn" : "",
+                "jvn-status-diagnostics-warn");
+        }
+        if (statusSaveLabel != null) {
+            String saveState = previewStaged ? "Preview Staged" : dirty ? "Unsaved" : "Saved";
+            statusSaveLabel.setText(saveState);
+            statusSaveLabel.setTooltip(new Tooltip("Timeline save and staged code-preview state."));
+            setSegmentState(statusSaveSegment,
+                previewStaged || dirty ? "jvn-status-dirty" : "jvn-status-clean",
+                "jvn-status-clean", "jvn-status-dirty");
+        }
+        if (statusProjectLabel != null) {
+            String projectName = projectRoot == null
+                ? "No project"
+                : firstNonBlank(projectRoot.getName(), projectRoot.getAbsolutePath());
+            statusProjectLabel.setText(projectName);
+            statusProjectLabel.setTooltip(new Tooltip(projectRoot == null
+                ? "No project root is bound."
+                : projectRoot.getAbsolutePath()));
+        }
+        if (statusExportLabel != null) {
+            List<String> export = new ArrayList<>();
+            export.add(codePaneVisible ? "Code Pane" : "Code Hidden");
+            if (compactExport) export.add("Compact");
+            int copied = timelinePanel == null ? 0 : timelinePanel.getCopiedKeyframeCount();
+            if (copied > 0) export.add("Clipboard " + copied);
+            statusExportLabel.setText(String.join(" / ", export));
+            statusExportLabel.setTooltip(new Tooltip("Code pane, export format, and keyframe clipboard state."));
+            setSegmentState(statusExportSegment, codePaneVisible ? "" : "jvn-status-diagnostics-warn",
+                "jvn-status-diagnostics-warn");
+        }
         refreshToolbarCommandSummary();
+    }
+
+    private static void setSegmentState(HBox segment, String active, String... states) {
+        if (segment == null || states == null) return;
+        segment.getStyleClass().removeAll(states);
+        if (active != null && !active.isBlank() && !segment.getStyleClass().contains(active)) {
+            segment.getStyleClass().add(active);
+        }
+    }
+
+    private static String formatStatusTime(double millis) {
+        if (!Double.isFinite(millis)) millis = 0.0;
+        long totalMillis = Math.max(0L, Math.round(millis));
+        long minutes = totalMillis / 60_000L;
+        long seconds = (totalMillis / 1_000L) % 60L;
+        long ms = totalMillis % 1_000L;
+        return String.format(Locale.ROOT, "%02d:%02d.%03d", minutes, seconds, ms);
+    }
+
+    private static String trimPlaybackSpeed(double speed) {
+        if (!Double.isFinite(speed)) return "1";
+        if (Math.abs(speed - Math.rint(speed)) < 0.0001) {
+            return String.format(Locale.ROOT, "%.0f", speed);
+        }
+        return String.format(Locale.ROOT, "%.2f", speed).replaceAll("0+$", "").replaceAll("\\.$", "");
     }
 
     private void updateViewportInfoLabel() {
@@ -6342,6 +6683,7 @@ public class PuppeteerWindow extends Stage {
         String previewSuffix = previewStaged ? " [preview]" : "";
         setTitle("Puppeteer - " + timelineName + dirtySuffix + previewSuffix);
         refreshToolbarCommandSummary();
+        updateStatusBar();
     }
 
     private void applySnapStepFromField() {
@@ -6352,6 +6694,7 @@ public class PuppeteerWindow extends Stage {
         } catch (Exception ex) {
             tfSnapMs.setText(String.format("%.0f", timelinePanel.getSnapStepMs()));
         }
+        updateStatusBar();
     }
 
     public void showAddAudioCueDialog() {

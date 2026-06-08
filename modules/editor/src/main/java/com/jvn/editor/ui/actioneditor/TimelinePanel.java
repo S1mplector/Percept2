@@ -1730,7 +1730,7 @@ public class TimelinePanel extends VBox {
         return selectedGroup && Objects.equals(selectedEntity, sourceName);
     }
 
-    private void clearKeyframeSelection() {
+    public void clearKeyframeSelection() {
         selectionModel.clearSelection();
         selectedKeyframe = null;
         dragStartTimes.clear();
