@@ -10,6 +10,8 @@ import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.awt.LayoutManager;
 import java.awt.LinearGradientPaint;
@@ -760,7 +762,7 @@ public final class JvnHub {
   }
 
   private JPanel buildFooter() {
-    JPanel footer = new JPanel(new BorderLayout(8, 0));
+    JPanel footer = new JPanel(new GridBagLayout());
     footer.setBackground(Color.decode("#191919"));
     footer.setBorder(BorderFactory.createCompoundBorder(
         BorderFactory.createMatteBorder(1, 0, 0, 0, Color.decode("#303030")),
@@ -798,15 +800,10 @@ public final class JvnHub {
 
     JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
     right.setOpaque(false);
-    right.add(footerItem("Mode", footerModeLabel));
-    right.add(footerDivider());
-    right.add(footerItem("Java", javaLabel));
-    right.add(footerDivider());
-    right.add(footerItem("Version", version));
-    right.add(footerDivider());
     right.add(more);
     right.add(cancel);
     right.add(quit);
+    right.setMinimumSize(right.getPreferredSize());
 
     JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
     left.setOpaque(false);
@@ -815,9 +812,29 @@ public final class JvnHub {
     left.add(footerItem("Branch", footerBranchLabel));
     left.add(footerDivider());
     left.add(footerItem("Root", footerRootLabel));
+    left.add(footerDivider());
+    left.add(footerItem("Mode", footerModeLabel));
+    left.add(footerDivider());
+    left.add(footerItem("Java", javaLabel));
+    left.add(footerDivider());
+    left.add(footerItem("Version", version));
+    left.setMinimumSize(new Dimension(0, left.getPreferredSize().height));
 
-    footer.add(left, BorderLayout.WEST);
-    footer.add(right, BorderLayout.EAST);
+    GridBagConstraints leftConstraints = new GridBagConstraints();
+    leftConstraints.gridx = 0;
+    leftConstraints.gridy = 0;
+    leftConstraints.weightx = 1.0;
+    leftConstraints.fill = GridBagConstraints.HORIZONTAL;
+    leftConstraints.anchor = GridBagConstraints.WEST;
+    footer.add(left, leftConstraints);
+
+    GridBagConstraints rightConstraints = new GridBagConstraints();
+    rightConstraints.gridx = 1;
+    rightConstraints.gridy = 0;
+    rightConstraints.weightx = 0.0;
+    rightConstraints.fill = GridBagConstraints.NONE;
+    rightConstraints.anchor = GridBagConstraints.EAST;
+    footer.add(right, rightConstraints);
     installFooterPopup(footer);
     installFooterPopup(left);
     installFooterPopup(right);
@@ -2416,6 +2433,7 @@ public final class JvnHub {
   private void setStatus(String text, Color color) {
     SwingUtilities.invokeLater(() -> {
       statusLabel.setText(text);
+      statusLabel.setToolTipText(text);
       statusLabel.setForeground(color != null ? color : TEXT_SOFT);
     });
   }
