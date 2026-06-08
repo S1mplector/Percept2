@@ -11,12 +11,17 @@ import java.util.Optional;
 
 import com.jvn.editor.AppBuildInfo;
 
+import javafx.geometry.Side;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.OverrunStyle;
+import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.Tooltip;
+import javafx.scene.input.MouseButton;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -27,6 +32,7 @@ import javafx.scene.layout.Region;
 public final class JvnStatusBar extends HBox {
   private static final String DARK_ICON_COLOR = "#d6d6d6";
   private static final String LIGHT_ICON_COLOR = "#3f3f3f";
+  private static final Runnable NO_OP = () -> {};
 
   private final List<Region> icons = new ArrayList<>();
   private final Label productLabel = segmentLabel("");
@@ -35,11 +41,31 @@ public final class JvnStatusBar extends HBox {
   private final Label projectLabel = segmentLabel("No project");
   private final Label activeFileLabel = segmentLabel("No file");
   private final Label positionLabel = segmentLabel("Ln --");
+  private final Label dirtyLabel = segmentLabel("Saved");
+  private final Label diagnosticsLabel = segmentLabel("0 Problems");
   private final Label encodingLabel = segmentLabel("UTF-8");
   private final Label lineEndingLabel = segmentLabel("LF");
   private final Label javaLabel = segmentLabel("Java " + javaFeatureVersion());
   private final Label themeLabel = segmentLabel("Dark");
   private final Label versionLabel = segmentLabel("");
+  private final HBox productSegment;
+  private final HBox branchSegment;
+  private final HBox messageSegment;
+  private final HBox projectSegment;
+  private final HBox activeFileSegment;
+  private final HBox positionSegment;
+  private final HBox dirtySegment;
+  private final HBox diagnosticsSegment;
+  private final HBox themeSegment;
+  private Runnable onRevealProjectRoot = NO_OP;
+  private Runnable onCopyProjectRootPath = NO_OP;
+  private Runnable onRunProject = NO_OP;
+  private Runnable onOpenVersionControl = NO_OP;
+  private Runnable onOpenSettings = NO_OP;
+  private Runnable onRevealActiveFile = NO_OP;
+  private Runnable onCopyActiveFilePath = NO_OP;
+  private Runnable onSaveAll = NO_OP;
+  private Runnable onOpenDiagnostics = NO_OP;
 
   public JvnStatusBar(String productName, AppBuildInfo.BuildInfo buildInfo) {
     getStyleClass().add("jvn-status-bar");
@@ -56,18 +82,34 @@ public final class JvnStatusBar extends HBox {
     Region spacer = new Region();
     HBox.setHgrow(spacer, Priority.ALWAYS);
 
+    productSegment = segment(icon(CssIcon.home(DARK_ICON_COLOR)), productLabel, "jvn-status-segment-strong");
+    branchSegment = segment(icon(CssIcon.branchPlus(DARK_ICON_COLOR)), branchLabel);
+    messageSegment = segment(icon(CssIcon.speech(DARK_ICON_COLOR)), messageLabel, "jvn-status-message");
+    projectSegment = segment(icon(CssIcon.folder(DARK_ICON_COLOR)), projectLabel);
+    activeFileSegment = segment(icon(CssIcon.document(DARK_ICON_COLOR)), activeFileLabel);
+    positionSegment = segment(icon(CssIcon.edit(DARK_ICON_COLOR)), positionLabel);
+    dirtySegment = segment(icon(CssIcon.save(DARK_ICON_COLOR)), dirtyLabel);
+    diagnosticsSegment = segment(icon(CssIcon.warning(DARK_ICON_COLOR)), diagnosticsLabel, "jvn-status-diagnostics-ok");
+    themeSegment = segment(icon(CssIcon.palette(DARK_ICON_COLOR)), themeLabel);
+
+    installMenus();
+
     getChildren().addAll(
-        segment(icon(CssIcon.home(DARK_ICON_COLOR)), productLabel, "jvn-status-segment-strong"),
+        productSegment,
         separator(),
-        segment(icon(CssIcon.branchPlus(DARK_ICON_COLOR)), branchLabel),
+        branchSegment,
         separator(),
-        segment(icon(CssIcon.speech(DARK_ICON_COLOR)), messageLabel, "jvn-status-message"),
+        messageSegment,
         spacer,
-        segment(icon(CssIcon.folder(DARK_ICON_COLOR)), projectLabel),
+        projectSegment,
         separator(),
-        segment(icon(CssIcon.document(DARK_ICON_COLOR)), activeFileLabel),
+        activeFileSegment,
         separator(),
-        segment(icon(CssIcon.edit(DARK_ICON_COLOR)), positionLabel),
+        positionSegment,
+        separator(),
+        dirtySegment,
+        separator(),
+        diagnosticsSegment,
         separator(),
         segment(encodingLabel),
         separator(),
@@ -75,7 +117,7 @@ public final class JvnStatusBar extends HBox {
         separator(),
         segment(icon(CssIcon.memory(DARK_ICON_COLOR)), javaLabel),
         separator(),
-        segment(icon(CssIcon.palette(DARK_ICON_COLOR)), themeLabel),
+        themeSegment,
         separator(),
         segment(versionLabel, "jvn-status-version"));
   }
@@ -109,6 +151,44 @@ public final class JvnStatusBar extends HBox {
     positionLabel.setText(oneBasedLine > 0 ? "Ln " + oneBasedLine : "Ln --");
   }
 
+  public void setWorkspaceState(int dirtyTabs, int closableTabs, boolean canUndo, boolean canRedo) {
+    dirtyTabs = Math.max(0, dirtyTabs);
+    closableTabs = Math.max(0, closableTabs);
+    dirtyLabel.setText(dirtyTabs == 0 ? "Saved" : dirtyTabs + " Unsaved");
+    setTooltip(dirtyLabel, dirtyTabs == 0
+        ? "No unsaved editor tabs."
+        : dirtyTabs + " unsaved tab" + (dirtyTabs == 1 ? "" : "s") + ". Click for save options.");
+    setSegmentState(dirtySegment, dirtyTabs > 0 ? "jvn-status-dirty" : "jvn-status-clean",
+        "jvn-status-clean", "jvn-status-dirty");
+    StringBuilder tip = new StringBuilder();
+    tip.append(closableTabs).append(" closable tab").append(closableTabs == 1 ? "" : "s");
+    if (canUndo) tip.append(" • undo available");
+    if (canRedo) tip.append(" • redo available");
+    setTooltip(dirtySegment, tip.toString());
+  }
+
+  public void setDiagnostics(int errors, int warnings) {
+    errors = Math.max(0, errors);
+    warnings = Math.max(0, warnings);
+    if (errors > 0) {
+      diagnosticsLabel.setText(errors + " Error" + (errors == 1 ? "" : "s"));
+    } else if (warnings > 0) {
+      diagnosticsLabel.setText(warnings + " Warning" + (warnings == 1 ? "" : "s"));
+    } else {
+      diagnosticsLabel.setText("0 Problems");
+    }
+    setTooltip(diagnosticsLabel, errors == 0 && warnings == 0
+        ? "No active-file diagnostics."
+        : errors + " error" + (errors == 1 ? "" : "s") + ", "
+            + warnings + " warning" + (warnings == 1 ? "" : "s") + ". Click to open Diagnostics.");
+    setSegmentState(
+        diagnosticsSegment,
+        errors > 0 ? "jvn-status-diagnostics-error" : warnings > 0 ? "jvn-status-diagnostics-warn" : "jvn-status-diagnostics-ok",
+        "jvn-status-diagnostics-ok",
+        "jvn-status-diagnostics-warn",
+        "jvn-status-diagnostics-error");
+  }
+
   public void setTheme(EditorTheme.Theme theme) {
     boolean light = theme == EditorTheme.Theme.LIGHT;
     themeLabel.setText(light ? "Light" : "Dark");
@@ -123,6 +203,42 @@ public final class JvnStatusBar extends HBox {
     encodingLabel.setText(clean(encoding, StandardCharsets.UTF_8.name()));
   }
 
+  public void setOnRevealProjectRoot(Runnable action) {
+    onRevealProjectRoot = action == null ? NO_OP : action;
+  }
+
+  public void setOnCopyProjectRootPath(Runnable action) {
+    onCopyProjectRootPath = action == null ? NO_OP : action;
+  }
+
+  public void setOnRunProject(Runnable action) {
+    onRunProject = action == null ? NO_OP : action;
+  }
+
+  public void setOnOpenVersionControl(Runnable action) {
+    onOpenVersionControl = action == null ? NO_OP : action;
+  }
+
+  public void setOnOpenSettings(Runnable action) {
+    onOpenSettings = action == null ? NO_OP : action;
+  }
+
+  public void setOnRevealActiveFile(Runnable action) {
+    onRevealActiveFile = action == null ? NO_OP : action;
+  }
+
+  public void setOnCopyActiveFilePath(Runnable action) {
+    onCopyActiveFilePath = action == null ? NO_OP : action;
+  }
+
+  public void setOnSaveAll(Runnable action) {
+    onSaveAll = action == null ? NO_OP : action;
+  }
+
+  public void setOnOpenDiagnostics(Runnable action) {
+    onOpenDiagnostics = action == null ? NO_OP : action;
+  }
+
   private static HBox segment(Label label) {
     return segment(label, "");
   }
@@ -130,6 +246,76 @@ public final class JvnStatusBar extends HBox {
   private Region icon(Region region) {
     icons.add(region);
     return region;
+  }
+
+  private void installMenus() {
+    installMenu(productSegment, () -> menu(
+        item("Editor Settings", onOpenSettings),
+        item("Version Control", onOpenVersionControl)));
+    installMenu(branchSegment, () -> menu(
+        item("Open Version Control", onOpenVersionControl),
+        item("Copy Project Path", onCopyProjectRootPath)));
+    installMenu(messageSegment, () -> menu(
+        item("Open Settings", onOpenSettings),
+        item("Open Diagnostics", onOpenDiagnostics)));
+    installMenu(projectSegment, () -> menu(
+        item("Reveal Project Root", onRevealProjectRoot),
+        item("Copy Project Path", onCopyProjectRootPath),
+        separatorItem(),
+        item("Run Project", onRunProject),
+        item("Version Control", onOpenVersionControl)));
+    installMenu(activeFileSegment, () -> menu(
+        item("Reveal Active File", onRevealActiveFile),
+        item("Copy Active File Path", onCopyActiveFilePath),
+        separatorItem(),
+        item("Save All", onSaveAll)));
+    installMenu(positionSegment, () -> menu(
+        item("Reveal Active File", onRevealActiveFile),
+        item("Copy Active File Path", onCopyActiveFilePath)));
+    installMenu(dirtySegment, () -> menu(
+        item("Save All", onSaveAll),
+        item("Copy Active File Path", onCopyActiveFilePath)));
+    installMenu(diagnosticsSegment, () -> menu(
+        item("Open Diagnostics", onOpenDiagnostics),
+        item("Open Settings", onOpenSettings)));
+    installMenu(themeSegment, () -> menu(
+        item("Editor Settings", onOpenSettings)));
+  }
+
+  private static void installMenu(Node node, java.util.function.Supplier<ContextMenu> menuSupplier) {
+    node.setOnMouseClicked(event -> {
+      if (event.getButton() != MouseButton.PRIMARY && event.getButton() != MouseButton.SECONDARY) return;
+      ContextMenu menu = menuSupplier.get();
+      if (menu == null || menu.getItems().isEmpty()) return;
+      menu.show(node, Side.TOP, 0, 0);
+      event.consume();
+    });
+  }
+
+  private static ContextMenu menu(MenuItem... items) {
+    ContextMenu menu = new ContextMenu();
+    for (MenuItem item : items) {
+      if (item != null) menu.getItems().add(item);
+    }
+    return menu;
+  }
+
+  private static MenuItem item(String label, Runnable action) {
+    MenuItem item = new MenuItem(label);
+    item.setDisable(action == NO_OP);
+    if (action != NO_OP) item.setOnAction(e -> action.run());
+    return item;
+  }
+
+  private static MenuItem separatorItem() {
+    return new SeparatorMenuItem();
+  }
+
+  private static void setSegmentState(HBox segment, String active, String... states) {
+    segment.getStyleClass().removeAll(states);
+    if (active != null && !active.isBlank() && !segment.getStyleClass().contains(active)) {
+      segment.getStyleClass().add(active);
+    }
   }
 
   private void recolorIcons(String color) {
@@ -191,6 +377,15 @@ public final class JvnStatusBar extends HBox {
       label.setTooltip(null);
     } else {
       label.setTooltip(new Tooltip(text));
+    }
+  }
+
+  private static void setTooltip(Node node, String text) {
+    if (node == null) return;
+    if (text == null || text.isBlank()) {
+      Tooltip.uninstall(node, null);
+    } else {
+      Tooltip.install(node, new Tooltip(text));
     }
   }
 

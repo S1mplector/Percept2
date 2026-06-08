@@ -288,6 +288,10 @@ public class JvnLauncherApp extends Application {
     statusBar = new JvnStatusBar("JVN Launcher", buildInfo);
     statusBar.setProjectRoot(workspaceRoot);
     statusBar.setTheme(EditorTheme.theme());
+    statusBar.setOnRevealProjectRoot(this::revealLauncherStatusRoot);
+    statusBar.setOnCopyProjectRootPath(this::copySelectedProjectPath);
+    statusBar.setOnRunProject(this::runSelectedProject);
+    statusBar.setOnOpenSettings(this::showLauncherSettings);
     statusLabel.textProperty().bindBidirectional(statusBar.messageLabel().textProperty());
 
     MenuBar menuBar = buildMenuBar();
@@ -488,6 +492,20 @@ public class JvnLauncherApp extends Application {
     if (statusBar != null) statusBar.setProjectRoot(resolved != null ? resolved : workspaceRoot);
     refreshDeveloperLogs();
     refreshButtonState();
+  }
+
+  private void revealLauncherStatusRoot() {
+    File target = currentProject != null && currentProject.isDirectory() ? currentProject : workspaceRoot;
+    if (target == null || !target.isDirectory()) {
+      statusLabel.setText("No project or workspace folder to reveal");
+      return;
+    }
+    try {
+      java.awt.Desktop.getDesktop().open(target);
+      statusLabel.setText("Opened folder: " + displayProjectName(target));
+    } catch (Exception ex) {
+      statusLabel.setText("Could not open folder: " + displayProjectName(target));
+    }
   }
 
   private List<Path> developerLogRoots() {

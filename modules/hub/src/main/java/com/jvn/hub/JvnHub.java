@@ -16,6 +16,8 @@ import java.awt.LinearGradientPaint;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Shape;
+import java.awt.Toolkit;
+import java.awt.datatransfer.StringSelection;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.font.GlyphVector;
@@ -59,8 +61,10 @@ import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
+import javax.swing.JMenuItem;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
@@ -788,6 +792,10 @@ public final class JvnHub {
         VectorIcon.of(VectorIcon.Kind.CLOSE, 14, TEXT_PRIMARY), null);
     quit.addActionListener(e -> confirmAndExit());
 
+    FlatButton more = new FlatButton("More",
+        VectorIcon.of(VectorIcon.Kind.SLIDERS, 14, TEXT_PRIMARY), null);
+    more.addActionListener(e -> showFooterMenu(more));
+
     JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
     right.setOpaque(false);
     right.add(footerItem("Mode", footerModeLabel));
@@ -796,6 +804,7 @@ public final class JvnHub {
     right.add(footerDivider());
     right.add(footerItem("Version", version));
     right.add(footerDivider());
+    right.add(more);
     right.add(cancel);
     right.add(quit);
 
@@ -809,7 +818,69 @@ public final class JvnHub {
 
     footer.add(left, BorderLayout.WEST);
     footer.add(right, BorderLayout.EAST);
+    installFooterPopup(footer);
+    installFooterPopup(left);
+    installFooterPopup(right);
     return footer;
+  }
+
+  private void showFooterMenu(Component invoker) {
+    JPopupMenu menu = buildFooterMenu();
+    menu.show(invoker, 0, -menu.getPreferredSize().height);
+  }
+
+  private void installFooterPopup(JComponent component) {
+    component.setComponentPopupMenu(buildFooterMenu());
+  }
+
+  private JPopupMenu buildFooterMenu() {
+    JPopupMenu menu = new JPopupMenu();
+    menu.setBackground(PANEL_BG);
+    menu.setBorder(BorderFactory.createLineBorder(BORDER_NEUTRAL));
+    menu.add(popupItem("Run Editor", () -> clickIfAvailable(runEditorButton)));
+    menu.add(popupItem("Run Launcher", () -> clickIfAvailable(runLauncherButton)));
+    menu.add(popupItem("Build All", () -> clickIfAvailable(buildAllButton)));
+    menu.addSeparator();
+    menu.add(popupItem("Update Engine", this::updateEngine));
+    menu.add(popupItem("Diagnostics", this::showDiagnosticsReport));
+    menu.add(popupItem("Documentation", this::openDocumentation));
+    menu.addSeparator();
+    menu.add(popupItem("Reveal Engine Root", this::revealEngineRoot));
+    menu.add(popupItem("Copy Engine Root Path", this::copyEngineRootPath));
+    menu.addSeparator();
+    menu.add(popupItem("Cancel Running Task", this::cancelRunning));
+    menu.add(popupItem("Quit Hub", this::confirmAndExit));
+    return menu;
+  }
+
+  private JMenuItem popupItem(String label, Runnable action) {
+    JMenuItem item = new JMenuItem(label);
+    item.setBackground(PANEL_BG);
+    item.setForeground(TEXT_SOFT);
+    item.setFont(item.getFont().deriveFont(Font.BOLD, 12f));
+    item.setEnabled(action != null);
+    if (action != null) item.addActionListener(e -> action.run());
+    return item;
+  }
+
+  private void clickIfAvailable(AbstractButton button) {
+    if (button == null || !button.isEnabled()) return;
+    button.doClick();
+  }
+
+  private void revealEngineRoot() {
+    try {
+      java.awt.Desktop.getDesktop().open(projectRoot.toFile());
+      setStatus("Opened engine root", ACCENT_NEUTRAL);
+    } catch (Exception e) {
+      setStatus("Could not open engine root", ACCENT_ERROR);
+      setActivity("Reveal failed", e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage(), false, ACCENT_ERROR);
+    }
+  }
+
+  private void copyEngineRootPath() {
+    Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(projectRoot.toString()), null);
+    setStatus("Copied engine root path", ACCENT_NEUTRAL);
   }
 
   private static JPanel footerItem(String caption, JLabel value) {

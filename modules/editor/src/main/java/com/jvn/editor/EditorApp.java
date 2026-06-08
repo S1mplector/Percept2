@@ -1951,6 +1951,15 @@ public class EditorApp extends Application {
     statusBar = new JvnStatusBar("JVN Editor", buildInfo);
     statusBar.setProjectRoot(projectRoot);
     statusBar.setTheme(EditorTheme.theme());
+    statusBar.setOnRevealProjectRoot(this::revealProjectRootInFileManager);
+    statusBar.setOnCopyProjectRootPath(this::copyProjectRootPathToClipboard);
+    statusBar.setOnRunProject(() -> doRunProject(primaryStage));
+    statusBar.setOnOpenVersionControl(this::selectVersionControlTab);
+    statusBar.setOnOpenSettings(this::selectEditorSettingsTab);
+    statusBar.setOnRevealActiveFile(this::revealActiveFileInFileManager);
+    statusBar.setOnCopyActiveFilePath(this::copyActiveFilePathToClipboard);
+    statusBar.setOnSaveAll(this::saveAllOpenTabs);
+    statusBar.setOnOpenDiagnostics(this::selectVnsDiagnosticsTab);
     status = statusBar.messageLabel();
     fps = new Label("");
     cpuText = new Text("CPU --");
@@ -2026,6 +2035,7 @@ public class EditorApp extends Application {
       miOpenWorkspaceDocs.setDisable(resolveDocsDirectory(resolveWorkspaceRoot()) == null);
 
       toolbarCommandSummary.setText(buildMainCommandSummary());
+      refreshStatusBarContext(ft);
     };
     refreshMainCommandUi = refreshChrome;
     commands.setOnChange(refreshChrome);
@@ -4289,13 +4299,22 @@ public class EditorApp extends Application {
     if (statusBar == null) return;
     statusBar.setProjectRoot(projectRoot);
     statusBar.setTheme(EditorTheme.theme());
+    statusBar.setWorkspaceState(countDirtyFileTabs(), countClosableTabs(), commands.canUndo(), commands.canRedo());
     if (ft == null) {
       statusBar.setActiveFile(null, null, -1);
+      statusBar.setDiagnostics(0, 0);
       return;
     }
     String kind = ft.getKind() == null ? "" : ft.getKind().name();
     int line = ft.getKind() == FileEditorTab.Kind.VNS ? ft.getVnsCaretLine() + 1 : -1;
     statusBar.setActiveFile(ft.getDisplayName(), kind, line);
+    int errors = 0;
+    int warnings = 0;
+    for (VnsDiagnosticsView.Diagnostic issue : diagnosticsFor(ft, ft.getCurrentTextSnapshot())) {
+      if (issue.warning()) warnings++;
+      else errors++;
+    }
+    statusBar.setDiagnostics(errors, warnings);
   }
 
   private void closeAndDisposeTab(Tab tab) {

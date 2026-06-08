@@ -7014,6 +7014,20 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-text-fill: #f0f0f0;
 }
 
+.jvn-status-clean .jvn-status-label,
+.jvn-status-diagnostics-ok .jvn-status-label {
+  -fx-text-fill: #9fe0b1;
+}
+
+.jvn-status-dirty .jvn-status-label,
+.jvn-status-diagnostics-warn .jvn-status-label {
+  -fx-text-fill: #f3c483;
+}
+
+.jvn-status-diagnostics-error .jvn-status-label {
+  -fx-text-fill: #f39aaa;
+}
+
 .jvn-status-segment-strong {
   -fx-background-color: #2a2a2a;
 }
