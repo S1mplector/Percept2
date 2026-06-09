@@ -6696,13 +6696,10 @@ public class EditorApp extends Application {
       PuppeteerLauncherPanel.SceneSnapshot snapshot
   ) {
     boolean snapshotHasScene = snapshot != null && (snapshot.backgroundId != null || !snapshot.characters.isEmpty());
-    boolean activeFileIsTimeline = fileTab != null && isPuppeteerTimelineFile(fileTab.getFile());
-    JesScene2D scene = null;
+    JesScene2D scene;
     if (snapshotHasScene) {
       scene = buildSceneFromSnapshot(snapshot);
-    } else if (fileTab != null && fileTab.getJesScene() != null && !activeFileIsTimeline) {
-      scene = fileTab.getJesScene();
-    } else if (imported != null) {
+    } else {
       scene = new JesScene2D();
     }
     return scene;

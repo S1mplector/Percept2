@@ -48,6 +48,10 @@ public class GraphEditorPanel extends Pane {
     private PropertyType selectedProperty;
     private Keyframe selectedKeyframe;
 
+    // === Track cache ===
+    private EntityTrack cachedTrack;
+    private boolean cacheDirty = true;
+
     // === Y-axis viewport ===
     private double valueViewMin = -1;
     private double valueViewMax =  1;
@@ -126,6 +130,7 @@ public class GraphEditorPanel extends Pane {
         this.selectedGroup   = selectedGroup;
         this.selectedProperty = selectedProperty;
         this.selectedKeyframe = selectedKeyframe;
+        this.cacheDirty      = true;
         if (entityChanged) autoFitY();
         render();
     }
@@ -211,6 +216,13 @@ public class GraphEditorPanel extends Pane {
     // -------------------------------------------------------------------------
 
     private EntityTrack resolveTrack() {
+        if (!cacheDirty) return cachedTrack;
+        cachedTrack = resolveTrackImpl();
+        cacheDirty = false;
+        return cachedTrack;
+    }
+
+    private EntityTrack resolveTrackImpl() {
         if (selectedEntity == null || selectedEntity.isBlank()) return null;
         if (TimelinePanel.RUNTIME_CAMERA_TARGET.equals(selectedEntity)) {
             EntityTrack t = project.getTrack(TimelinePanel.RUNTIME_CAMERA_TARGET);

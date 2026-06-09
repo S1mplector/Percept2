@@ -63,10 +63,18 @@ public class Easing {
       case EASE_IN_OUT_QUART -> t < 0.5 ? 8 * t * t * t * t : 1 - 8 * (--t) * t * t * t;
 
       case EASE_IN_QUINT -> t * t * t * t * t;
-      case EASE_OUT_QUINT -> 1 - Math.pow(1 - t, 5);
-      case EASE_IN_OUT_QUINT -> t < 0.5
-          ? 16 * t * t * t * t * t
-          : 1 - Math.pow(-2 * t + 2, 5) / 2;
+      case EASE_OUT_QUINT -> {
+        double f = t - 1;
+        yield 1 + f * f * f * f * f;
+      }
+      case EASE_IN_OUT_QUINT -> {
+        if (t < 0.5) {
+          yield 16 * t * t * t * t * t;
+        } else {
+          double f = 2 * t - 2;
+          yield 1 + 0.5 * f * f * f * f * f;
+        }
+      }
 
       case EASE_IN_CIRC -> 1 - Math.sqrt(1 - t * t);
       case EASE_OUT_CIRC -> Math.sqrt(1 - (t - 1) * (t - 1));
@@ -138,14 +146,23 @@ public class Easing {
       case EASE_IN_OUT_BOUNCE -> t < 0.5
           ? (1 - apply(Type.EASE_OUT_BOUNCE, 1 - 2 * t)) / 2
           : (1 + apply(Type.EASE_OUT_BOUNCE, 2 * t - 1)) / 2;
-      case SPRING -> spring(coerceParameters(Type.SPRING, params), t);
-      case DAMPED_SPRING -> dampedSpring(coerceParameters(Type.DAMPED_SPRING, params), t);
+      case SPRING -> {
+        double[] p = (params != null && params.length >= 4) ? params : defaultParameters(Type.SPRING);
+        yield spring(Math.max(0.01, p[0]), Math.max(0.0, p[1]), Math.max(0.01, p[2]), p[3], t);
+      }
+      case DAMPED_SPRING -> {
+        double[] p = (params != null && params.length >= 4) ? params : defaultParameters(Type.DAMPED_SPRING);
+        yield dampedSpring(Math.max(0.01, p[0]), Math.max(0.0, p[1]), Math.max(0.01, p[2]), p[3], t);
+      }
       case HERO_POP, UI_SOFT_IN, CAMERA_GLIDE -> apply(namedCurveSpec(resolved), t);
       case CUSTOM -> {
-        double[] bezier = coerceParameters(Type.CUSTOM, params);
-        yield cubicBezier(bezier[0], bezier[1], bezier[2], bezier[3], t);
+        double[] p = (params != null && params.length >= 4) ? params : defaultParameters(Type.CUSTOM);
+        yield cubicBezier(p[0], p[1], p[2], p[3], t);
       }
-      case CURVE -> curve(coerceParameters(Type.CURVE, params), t);
+      case CURVE -> {
+        double[] p = (params != null && params.length >= 2) ? params : defaultParameters(Type.CURVE);
+        yield curve(p, t);
+      }
     };
   }
 
@@ -464,14 +481,11 @@ public class Easing {
   }
 
   private static double spring(double[] params, double t) {
-    return spring(params[0], params[1], params[2], params[3], t);
+    if (params == null || params.length < 4) return 0.0;
+    return spring(Math.max(0.01, params[0]), Math.max(0.0, params[1]), Math.max(0.01, params[2]), params[3], t);
   }
 
-  private static double dampedSpring(double[] params, double t) {
-    double frequency = Math.max(0.01, params[0]);
-    double dampingRatio = Math.max(0.0, params[1]);
-    double response = Math.max(0.01, params[2]);
-    double velocity = params[3];
+  private static double dampedSpring(double frequency, double dampingRatio, double response, double velocity, double t) {
     double omega0 = frequency * response * Math.PI * 2.0;
     double stiffness = omega0 * omega0;
     double damping = 2.0 * dampingRatio * omega0;
