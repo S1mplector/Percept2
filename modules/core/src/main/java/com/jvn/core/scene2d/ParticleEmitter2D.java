@@ -60,7 +60,10 @@ public class ParticleEmitter2D extends Entity2D {
 
   /** Pool of currently alive particles. */
   private final List<Particle> particles = new ArrayList<>();
-
+  
+  /** Pool of dead particles available for reuse to avoid allocations*/
+  private final List<Particle> pool = new ArrayList<>();
+  
   /** Random number generator for particle initialisation. */
   private final Random rnd = new Random();
 
@@ -345,7 +348,16 @@ public class ParticleEmitter2D extends Entity2D {
 
   /** Spawn a single particle with randomised properties from the configured ranges. */
   private void emit() {
-    Particle p = new Particle();
+    // Particle p = new Particle();
+    
+    // Initializing the particle
+    Particle p; 
+    if (pool.isEmpty()) {
+		p = new Particle();
+	} else {
+		p = pool.remove(pool.size() - 1);
+	}
+    
     p.x = randomRange(minSpawnX, maxSpawnX);
     p.y = randomRange(minSpawnY, maxSpawnY);
     
@@ -395,15 +407,19 @@ public class ParticleEmitter2D extends Entity2D {
       }
     }
     
-    // Update particles
-    Iterator<Particle> it = particles.iterator();
-    while (it.hasNext()) {
-      Particle p = it.next();
+    // Update particles (using swap-and-pop to avoid O(N) array shifts)
+    for (int i = 0; i < particles.size(); ) {
+      Particle p = particles.get(i);
       
       p.life += dt;
       if (p.life >= p.maxLife) {
-        it.remove();
-        continue;
+        // Recycle to pool
+        pool.add(p);
+        // Swap with last element and remove last
+        int lastIdx = particles.size() - 1;
+        particles.set(i, particles.get(lastIdx));
+        particles.remove(lastIdx);
+        continue; // Don't increment i, as we need to process the swapped particle
       }
       
       // Physics
@@ -420,6 +436,8 @@ public class ParticleEmitter2D extends Entity2D {
       p.g = startG + (endG - startG) * t;
       p.b = startB + (endB - startB) * t;
       p.a = startA + (endA - startA) * t;
+      
+      i++;
     }
   }
   
