@@ -11,6 +11,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
 import java.util.function.Consumer;
+import com.jvn.editor.ui.build.ProjectManifestService;
+import com.jvn.editor.ui.build.BuildArtifactService;
+import com.jvn.editor.ui.build.BuildCliFormatter;
 
 import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
@@ -390,7 +393,7 @@ public class GameBuildPublisherView extends BorderPane {
 
   private void loadProject(File root) {
     projectField.setText(root == null ? "" : root.getAbsolutePath());
-    Properties manifest = loadManifest(root);
+    Properties manifest = ProjectManifestService.loadManifest(root);
     releaseProfileBox.getItems().setAll(availableReleaseProfiles(root));
     if (manifest == null) {
       nameField.setText(root == null ? "" : root.getName());
@@ -405,7 +408,7 @@ public class GameBuildPublisherView extends BorderPane {
     }
 
     String name = manifest.getProperty("name", root == null ? "JVN Game" : root.getName()).trim();
-    String version = firstNonBlank(
+    String version = ProjectManifestService.firstNonBlank(
         manifest.getProperty("version"),
         manifest.getProperty("releaseVersion"),
         manifest.getProperty("build.version"),
@@ -415,7 +418,7 @@ public class GameBuildPublisherView extends BorderPane {
     setReleaseProfileSelection(defaultReleaseProfile(root));
     releaseConfigLabel.setText(releaseConfigText(root));
     manifestLabel.setText("Manifest: type=" + manifest.getProperty("type", "vn")
-        + "  " + manifestEntryText(manifest)
+        + "  " + ProjectManifestService.manifestEntryText(manifest)
         + "  runtime.ui=" + manifest.getProperty("runtime.ui", "fx")
         + "  runtime.audio=" + manifest.getProperty("runtime.audio", "auto"));
     statusLabel.setText("Ready to build " + nameField.getText() + ".");
@@ -432,27 +435,7 @@ public class GameBuildPublisherView extends BorderPane {
     releaseProfileBox.getEditor().setText(value);
   }
 
-  private Properties loadManifest(File root) {
-    if (root == null) return null;
-    File manifest = new File(root, "jvn.project");
-    if (!manifest.isFile()) return null;
-    try (FileInputStream in = new FileInputStream(manifest)) {
-      Properties props = new Properties();
-      props.load(in);
-      return props;
-    } catch (Exception ignored) {
-            // reason: non-critical operation; exception swallowed to prevent crash propagation
-      return null;
-    }
-  }
 
-  private String manifestEntryText(Properties manifest) {
-    String type = manifest.getProperty("type", "vn").trim().toLowerCase(Locale.ROOT);
-    if ("jes".equals(type)) {
-      return "entry=" + manifest.getProperty("entry", "scripts/main.jes");
-    }
-    return "entryVns=" + manifest.getProperty("entryVns", "(auto)");
-  }
 
   private ValidationResult refreshFormState() {
     refreshOutputPreview();
@@ -622,7 +605,7 @@ public class GameBuildPublisherView extends BorderPane {
       commandPreviewLabel.setText("Command: choose a build target and format.");
       return;
     }
-    commandPreviewLabel.setText("Command: " + buildCliCommand(selection.taskName(), buildGradleArgs()));
+    commandPreviewLabel.setText("Command: " + BuildCliFormatter.buildCliCommand(selection.taskName(), buildGradleArgs()));
   }
 
   private ValidationResult validateForm() {
@@ -636,17 +619,17 @@ public class GameBuildPublisherView extends BorderPane {
     if (projectRoot == null || !projectRoot.isDirectory()) {
       errors.add("Open a JVN game project first.");
     } else {
-      if (sameCanonical(projectRoot, workspaceRoot)) {
+      if (ProjectManifestService.sameCanonical(projectRoot, workspaceRoot)) {
         errors.add("Selected project is the JVN engine workspace, not a game project.");
       }
       if (!projectRoot.getName().equals(projectRoot.getName().trim())) {
         warnings.add("Project folder name has leading or trailing spaces; the build preserves it, but CLI paths are easy to mistype.");
       }
-      Properties manifest = loadManifest(projectRoot);
+      Properties manifest = ProjectManifestService.loadManifest(projectRoot);
       if (manifest == null) {
         errors.add("Selected project has no readable jvn.project.");
       } else {
-        validateManifest(projectRoot, manifest, errors, warnings);
+        ProjectManifestService.validateManifest(projectRoot, manifest, errors, warnings);
       }
     }
 
@@ -693,48 +676,12 @@ public class GameBuildPublisherView extends BorderPane {
     return new ValidationResult(errors, warnings);
   }
 
-  private void validateManifest(File root, Properties manifest, List<String> errors, List<String> warnings) {
-    String type = manifest.getProperty("type", "vn").trim().toLowerCase(Locale.ROOT);
-    if (type.isBlank()) type = "vn";
-    switch (type) {
-      case "vn" -> {
-        String entry = normalizeScriptKey(manifest.getProperty("entryVns"));
-        if (entry == null) {
-          File discovered = discoverScript(root, "vns");
-          if (discovered == null) {
-            errors.add("No VN entry script could be resolved. Set entryVns or add a .vns file under scripts/.");
-          } else {
-            warnings.add("entryVns is not set; runtime will use discovered script " + relativeTo(root, discovered) + ".");
-          }
-        } else if (resolveScriptFile(root, entry) == null) {
-          errors.add("Configured entryVns is missing: " + manifest.getProperty("entryVns"));
-        }
-      }
-      case "jes" -> {
-        String entry = normalizeProjectPath(manifest.getProperty("entry", "scripts/main.jes"));
-        if (entry == null) {
-          errors.add("JES projects must define entry=<path-to-jes> in jvn.project.");
-        } else if (resolveScriptFile(root, entry) == null) {
-          errors.add("Configured JES entry is missing: " + entry);
-        }
-      }
-      case "gradle" -> errors.add("type=gradle describes a workspace run command, not a distributable game package.");
-      default -> errors.add("Unsupported jvn.project type for packaging: " + type + ". Supported types: vn, jes.");
-    }
-
-    if (!new File(root, "scripts").isDirectory() && !new File(root, "game/scripts").isDirectory()) {
-      warnings.add("No scripts/ or game/scripts/ directory was found.");
-    }
-    if (!new File(root, "assets").isDirectory() && !new File(root, "game").isDirectory()) {
-      warnings.add("No assets/ or game/ directory was found; package may be script-only.");
-    }
-  }
 
   private void refreshOutputPreview() {
     TargetChoice target = targetBox.getValue();
     PackageMode mode = selectedPackageMode();
     String targetId = target == null ? "current-target" : target.outputToken();
-    String stem = safeToken(nameField.getText()) + "-" + safeToken(versionField.getText());
+    String stem = BuildCliFormatter.safeToken(nameField.getText()) + "-" + BuildCliFormatter.safeToken(versionField.getText());
     File outDir = buildDistributionsDir();
     switch (mode) {
       case PORTABLE_ZIP -> {
@@ -755,8 +702,8 @@ public class GameBuildPublisherView extends BorderPane {
         NativeTypeChoice nativeType = nativeTypeBox.getValue();
         String ext = nativeType == null ? ".pkg" : nativeType.artifactSuffix();
         outputLabel.setText("Output: " + new File(outDir,
-            safeToken(nameField.getText()) + "-"
-                + safeNativeVersionToken(versionField.getText()) + "-"
+            BuildCliFormatter.safeToken(nameField.getText()) + "-"
+                + BuildCliFormatter.safeNativeVersionToken(versionField.getText()) + "-"
                 + currentTargetToken() + "-"
                 + (nativeType == null ? "native" : nativeType.token()) + ext).getPath());
       }
@@ -937,7 +884,7 @@ public class GameBuildPublisherView extends BorderPane {
     BuildTaskSelection selection = buildTaskForSelection();
     if (selection == null) return;
     ClipboardContent content = new ClipboardContent();
-    content.putString(buildCliCommand(selection.taskName(), buildGradleArgs()));
+    content.putString(BuildCliFormatter.buildCliCommand(selection.taskName(), buildGradleArgs()));
     Clipboard.getSystemClipboard().setContent(content);
     statusLabel.setText("Copied build command.");
     setNoteTone(statusLabel, "status");
@@ -988,71 +935,12 @@ public class GameBuildPublisherView extends BorderPane {
 
   private void refreshArtifactInventory() {
     if (artifactInventoryLabel == null) return;
-    artifactInventoryLabel.setText("Artifacts: " + formatArtifactInventory(summarizeArtifacts(buildDistributionsDir())));
+    artifactInventoryLabel.setText("Artifacts: " + BuildArtifactService.formatArtifactInventory(BuildArtifactService.summarizeArtifacts(buildDistributionsDir())));
   }
 
-  static List<ArtifactSummary> summarizeArtifacts(File outDir) {
-    if (outDir == null || !outDir.isDirectory()) return List.of();
-    File[] files = outDir.listFiles(file -> file.isFile()
-        && !file.isHidden()
-        && !file.getName().endsWith(".sha256"));
-    if (files == null || files.length == 0) return List.of();
-    List<ArtifactSummary> summaries = new ArrayList<>();
-    for (File file : files) {
-      summaries.add(new ArtifactSummary(
-          file.getName(),
-          file.length(),
-          file.lastModified(),
-          new File(file.getParentFile(), file.getName() + ".sha256").isFile()));
-    }
-    summaries.sort((a, b) -> Long.compare(b.lastModifiedMillis(), a.lastModifiedMillis()));
-    return List.copyOf(summaries);
-  }
 
-  static String formatArtifactInventory(List<ArtifactSummary> artifacts) {
-    if (artifacts == null || artifacts.isEmpty()) return "none yet";
-    long totalBytes = 0;
-    for (ArtifactSummary a : artifacts) totalBytes += a.bytes();
-    StringBuilder out = new StringBuilder();
-    out.append(artifacts.size()).append(artifacts.size() == 1 ? " artifact" : " artifacts")
-        .append("  ").append(formatBytes(totalBytes)).append(" total\n");
-    int shown = Math.min(artifacts.size(), 6);
-    for (int i = 0; i < shown; i++) {
-      ArtifactSummary artifact = artifacts.get(i);
-      out.append(artifact.name())
-          .append("  ")
-          .append(formatBytes(artifact.bytes()))
-          .append("  ")
-          .append(formatTimestamp(artifact.lastModifiedMillis()));
-      if (artifact.checksumAvailable()) {
-        out.append("  sha256");
-      }
-      if (i < shown - 1 || artifacts.size() > shown) out.append('\n');
-    }
-    if (artifacts.size() > shown) {
-      out.append("+").append(artifacts.size() - shown).append(" more");
-    }
-    return out.toString();
-  }
 
-  static String formatBytes(long bytes) {
-    if (bytes < 1024L) return bytes + " B";
-    double value = bytes;
-    String[] units = {"KB", "MB", "GB"};
-    int unitIndex = -1;
-    do {
-      value /= 1024.0;
-      unitIndex++;
-    } while (value >= 1024.0 && unitIndex < units.length - 1);
-    return String.format(Locale.ROOT, value >= 10.0 ? "%.0f %s" : "%.1f %s", value, units[unitIndex]);
-  }
 
-  private static String formatTimestamp(long millis) {
-    if (millis <= 0L) return "unknown time";
-    return DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-        .withZone(ZoneId.systemDefault())
-        .format(Instant.ofEpochMilli(millis));
-  }
 
   private void openProjectFolder() {
     if (projectRoot == null || !projectRoot.isDirectory()) return;
@@ -1156,14 +1044,14 @@ public class GameBuildPublisherView extends BorderPane {
       setNoteTone(statusLabel, "warn");
       return;
     }
-    String stem = safeToken(nameField.getText()) + "-" + safeToken(versionField.getText());
+    String stem = BuildCliFormatter.safeToken(nameField.getText()) + "-" + BuildCliFormatter.safeToken(versionField.getText());
     String timestamp = DateTimeFormatter.ofPattern("yyyyMMdd-HHmm")
         .withZone(ZoneId.systemDefault())
         .format(Instant.now());
     File parent = outDir.getParentFile() != null ? outDir.getParentFile() : outDir;
     File zipFile = new File(parent, stem + "-builds-" + timestamp + ".zip");
     try {
-      zipDirectory(outDir, zipFile);
+      BuildArtifactService.zipDirectory(outDir, zipFile);
       statusLabel.setText("Zipped to: " + zipFile.getAbsolutePath());
       setNoteTone(statusLabel, "ok");
     } catch (Exception ex) {
@@ -1172,24 +1060,6 @@ public class GameBuildPublisherView extends BorderPane {
     }
   }
 
-  private static void zipDirectory(File sourceDir, File zipFile) throws java.io.IOException {
-    java.nio.file.Path sourcePath = sourceDir.toPath();
-    try (java.util.zip.ZipOutputStream zos = new java.util.zip.ZipOutputStream(
-        new java.io.BufferedOutputStream(new java.io.FileOutputStream(zipFile)))) {
-      java.nio.file.Files.walk(sourcePath)
-          .filter(p -> !java.nio.file.Files.isDirectory(p))
-          .forEach(path -> {
-            String entry = sourcePath.relativize(path).toString().replace('\\', '/');
-            try {
-              zos.putNextEntry(new java.util.zip.ZipEntry(entry));
-              java.nio.file.Files.copy(path, zos);
-              zos.closeEntry();
-            } catch (java.io.IOException ex) {
-              throw new java.io.UncheckedIOException(ex);
-            }
-          });
-    }
-  }
 
   private File buildDistributionsDir() {
     if (customOutputDir != null) return customOutputDir;
@@ -1356,142 +1226,17 @@ public class GameBuildPublisherView extends BorderPane {
     return "Release profile config: " + config.getPath() + "  profiles=" + String.join(", ", profiles);
   }
 
-  private static boolean sameCanonical(File a, File b) {
-    if (a == null || b == null) return false;
-    try {
-      return a.getCanonicalFile().equals(b.getCanonicalFile());
-    } catch (Exception ignored) {
-            // reason: non-critical operation; exception swallowed to prevent crash propagation
-      return a.getAbsoluteFile().equals(b.getAbsoluteFile());
-    }
-  }
 
-  private static File resolveScriptFile(File root, String raw) {
-    if (root == null) return null;
-    String normalized = normalizeProjectPath(raw);
-    if (normalized == null) return null;
-    String scriptKey = normalizeScriptKey(normalized);
-    if (scriptKey == null) scriptKey = normalized;
 
-    List<File> candidates = new ArrayList<>();
-    addCandidate(candidates, new File(root, normalized));
-    addCandidate(candidates, new File(root, scriptKey));
-    addCandidate(candidates, new File(root, "scripts/" + scriptKey));
-    addCandidate(candidates, new File(root, "game/scripts/" + scriptKey));
-    if (normalized.startsWith("game/") && !normalized.startsWith("game/scripts/")) {
-      addCandidate(candidates, new File(root, "scripts/" + normalized.substring("game/".length())));
-    }
 
-    for (File candidate : candidates) {
-      if (candidate.isFile()) return candidate;
-    }
-    return null;
-  }
 
-  private static void addCandidate(List<File> candidates, File candidate) {
-    if (candidate != null && !candidates.contains(candidate)) {
-      candidates.add(candidate);
-    }
-  }
 
-  private static File discoverScript(File root, String extension) {
-    if (root == null) return null;
-    File scripts = new File(root, "scripts");
-    if (!scripts.isDirectory()) scripts = new File(root, "game/scripts");
-    if (!scripts.isDirectory()) return null;
-    File[] files = scripts.listFiles();
-    if (files == null) return null;
-    List<File> matches = new ArrayList<>();
-    collectScripts(scripts, extension.startsWith(".") ? extension : "." + extension, matches);
-    matches.sort((a, b) -> scoreScript(a.getName()) == scoreScript(b.getName())
-        ? a.getPath().compareToIgnoreCase(b.getPath())
-        : Integer.compare(scoreScript(a.getName()), scoreScript(b.getName())));
-    return matches.isEmpty() ? null : matches.get(0);
-  }
 
-  private static void collectScripts(File dir, String extension, List<File> out) {
-    File[] files = dir.listFiles();
-    if (files == null) return;
-    for (File file : files) {
-      if (file.isDirectory()) {
-        collectScripts(file, extension, out);
-      } else if (file.getName().toLowerCase(Locale.ROOT).endsWith(extension.toLowerCase(Locale.ROOT))) {
-        out.add(file);
-      }
-    }
-  }
 
-  private static int scoreScript(String name) {
-    String lower = name == null ? "" : name.toLowerCase(Locale.ROOT);
-    if (lower.equals("prologue.vns") || lower.equals("prologue.jes")) return 0;
-    if (lower.equals("main.vns") || lower.equals("main.jes")) return 1;
-    if (lower.equals("start.vns") || lower.equals("start.jes")) return 2;
-    if (lower.contains("prologue")) return 10;
-    if (lower.contains("start")) return 11;
-    if (lower.contains("main")) return 12;
-    return 100;
-  }
 
-  private static String relativeTo(File root, File file) {
-    if (root == null || file == null) return "";
-    try {
-      return root.toPath().toAbsolutePath().normalize()
-          .relativize(file.toPath().toAbsolutePath().normalize())
-          .toString()
-          .replace('\\', '/');
-    } catch (Exception ignored) {
-            // reason: non-critical operation; exception swallowed to prevent crash propagation
-      return file.getPath();
-    }
-  }
 
-  private static String normalizeProjectPath(String raw) {
-    if (raw == null) return null;
-    String value = raw.trim().replace('\\', '/');
-    if (value.isBlank()) return null;
-    while (value.startsWith("./")) value = value.substring(2);
-    while (value.startsWith("/")) value = value.substring(1);
-    return value.isBlank() ? null : value;
-  }
 
-  private static String normalizeScriptKey(String raw) {
-    String value = normalizeProjectPath(raw);
-    if (value == null) return null;
-    if (value.startsWith("game/scripts/")) value = value.substring("game/scripts/".length());
-    if (value.startsWith("scripts/")) value = value.substring("scripts/".length());
-    return value.isBlank() ? null : value;
-  }
 
-  private static String firstNonBlank(String... values) {
-    if (values != null) {
-      for (String value : values) {
-        if (value != null && !value.trim().isBlank()) return value.trim();
-      }
-    }
-    return "";
-  }
-
-  private static String safeToken(String value) {
-    String sanitized = (value == null ? "" : value.trim())
-        .replaceAll("[^A-Za-z0-9._-]+", "-")
-        .replaceAll("^[._-]+|[._-]+$", "");
-    return sanitized.isBlank() ? "jvn-game" : sanitized;
-  }
-
-  private static String safeNativeVersionToken(String value) {
-    java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("\\d+").matcher(value == null ? "" : value);
-    List<String> parts = new ArrayList<>();
-    while (matcher.find() && parts.size() < 3) {
-      parts.add(matcher.group());
-    }
-    while (parts.size() < 3) {
-      parts.add("0");
-    }
-    if (parts.isEmpty() || "0".equals(parts.get(0))) {
-      parts.set(0, "1");
-    }
-    return String.join(".", parts);
-  }
 
   private static String targetTaskSuffix(TargetChoice target) {
     if (target == null) return "";
@@ -1505,26 +1250,7 @@ public class GameBuildPublisherView extends BorderPane {
     };
   }
 
-  private static String shellQuote(String value) {
-    if (value == null || value.isBlank()) return "''";
-    if (value.matches("[A-Za-z0-9_./:=@-]+")) return value;
-    return "'" + value.replace("'", "'\"'\"'") + "'";
-  }
 
-  static String buildCliCommand(String taskName, List<String> args) {
-    StringBuilder cmd = new StringBuilder("./jvnw gradle");
-    if (taskName != null && !taskName.isBlank()) {
-      cmd.append(' ').append(shellQuote(taskName));
-    }
-    if (args != null) {
-      for (String arg : args) {
-        if (arg != null && !arg.isBlank()) {
-          cmd.append(' ').append(shellQuote(arg));
-        }
-      }
-    }
-    return cmd.toString();
-  }
 
   private static List<NativeTypeChoice> currentNativeTypeChoices() {
     String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);

@@ -114,6 +114,15 @@ public class VnScenarioBuilder {
     return this;
   }
 
+  public VnScenarioBuilder dialogue(DialogueLine line) {
+    scenarioBuilder.addNode(
+      VnNode.builder(VnNodeType.DIALOGUE)
+        .dialogue(line)
+        .build()
+    );
+    return this;
+  }
+
   public VnScenarioBuilder choice(String... choices) {
     List<Choice> choiceList = new ArrayList<>();
     for (String choiceText : choices) {
@@ -151,6 +160,10 @@ public class VnScenarioBuilder {
         .build()
     );
     return this;
+  }
+
+  public VnScenarioBuilder choice(Choice... choices) {
+    return choiceNodes(choices == null ? new ArrayList<>() : java.util.Arrays.asList(choices));
   }
 
   public VnScenarioBuilder jump(String labelName) {
