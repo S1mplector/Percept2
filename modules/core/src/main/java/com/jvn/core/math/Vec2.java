@@ -89,7 +89,7 @@ public class Vec2 {
    *
    * @return √(x² + y²)
    */
-  public double length() { return Math.sqrt(x * x + y * y); }
+  public double length() { return Math.hypot(x, y); }
 
   /**
    * Normalize this vector to unit length in place.
@@ -154,7 +154,7 @@ public class Vec2 {
   }
 
   /** Euclidean distance between two vectors. */
-  public static double distance(Vec2 a, Vec2 b) { return Math.sqrt(distanceSq(a, b)); }
+  public static double distance(Vec2 a, Vec2 b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 
   /**
    * Linear interpolation between {@code a} and {@code b}: returns a new vector

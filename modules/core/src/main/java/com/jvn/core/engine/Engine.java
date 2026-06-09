@@ -135,7 +135,7 @@ public class Engine {
   private int maxFixedSteps = 5;
 
   /** Time (ms) accumulated toward the next fixed-update tick. */
-  private double accumulatorMs = 0.0;
+  private long accumulatorMs = 0;
 
   /** Global time multiplier applied after clamping and smoothing. Clamped to [0, 10]. */
   private double timeScale = 1.0;
@@ -267,7 +267,7 @@ public class Engine {
           // spiral on the next frame, but keep interpolationAlpha bounded.
           accumulatorMs = fixedUpdateMs;
         }
-        interpolationAlpha = accumulatorMs / fixedUpdateMs;
+        interpolationAlpha = (double) accumulatorMs / fixedUpdateMs;
         if (interpolationAlpha < 0.0) interpolationAlpha = 0.0;
         else if (interpolationAlpha > 1.0) interpolationAlpha = 1.0;
       } else {

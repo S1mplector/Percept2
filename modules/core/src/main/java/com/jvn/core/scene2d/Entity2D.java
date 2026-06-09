@@ -120,7 +120,9 @@ public class Entity2D {
   protected double brightness = 1.0;
 
   /** Arbitrary numeric custom properties that do not have registered handlers. */
-  protected final Map<String, Double> customProperties = new LinkedHashMap<>();
+  protected String[] customPropertyKeys = null;
+  protected double[] customPropertyValues = null;
+  protected int customPropertyCount = 0;
 
   // ──────────────────────────────────────────────────────────────────────────
   //  Getters
@@ -194,7 +196,11 @@ public class Entity2D {
   }
 
   public Map<String, Double> getCustomPropertiesView() {
-    return Collections.unmodifiableMap(new LinkedHashMap<>(customProperties));
+    Map<String, Double> map = new java.util.LinkedHashMap<>();
+    for (int i = 0; i < customPropertyCount; i++) {
+      map.put(customPropertyKeys[i], customPropertyValues[i]);
+    }
+    return Collections.unmodifiableMap(map);
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -292,16 +298,44 @@ public class Entity2D {
 
   public void setCustomProperty(String key, double value) {
     if (key == null || key.isBlank()) return;
-    customProperties.put(key.trim(), sanitizeFinite(value, 0.0));
+    String tKey = key.trim();
+    double tValue = sanitizeFinite(value, 0.0);
+    if (customPropertyKeys == null) {
+      customPropertyKeys = new String[4];
+      customPropertyValues = new double[4];
+    }
+    for (int i = 0; i < customPropertyCount; i++) {
+      if (tKey.equals(customPropertyKeys[i])) {
+        customPropertyValues[i] = tValue;
+        return;
+      }
+    }
+    if (customPropertyCount == customPropertyKeys.length) {
+      String[] newKeys = new String[customPropertyCount * 2];
+      double[] newValues = new double[customPropertyCount * 2];
+      System.arraycopy(customPropertyKeys, 0, newKeys, 0, customPropertyCount);
+      System.arraycopy(customPropertyValues, 0, newValues, 0, customPropertyCount);
+      customPropertyKeys = newKeys;
+      customPropertyValues = newValues;
+    }
+    customPropertyKeys[customPropertyCount] = tKey;
+    customPropertyValues[customPropertyCount] = tValue;
+    customPropertyCount++;
   }
 
   public double getCustomProperty(String key) {
-    if (key == null || key.isBlank()) return 0.0;
-    return customProperties.getOrDefault(key.trim(), 0.0);
+    if (key == null || key.isBlank() || customPropertyCount == 0) return 0.0;
+    String tKey = key.trim();
+    for (int i = 0; i < customPropertyCount; i++) {
+      if (tKey.equals(customPropertyKeys[i])) {
+        return customPropertyValues[i];
+      }
+    }
+    return 0.0;
   }
 
   public void clearCustomProperties() {
-    customProperties.clear();
+    customPropertyCount = 0;
   }
 
   public void applyCustomProperty(String key, double value) {

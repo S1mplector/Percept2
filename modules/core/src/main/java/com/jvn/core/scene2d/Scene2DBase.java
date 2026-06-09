@@ -120,7 +120,16 @@ public class Scene2DBase implements Scene2D {
   @Override
   public void render(Blitter2D b, double width, double height) {
     // Sort by depth so entities with lower Z are drawn first (background → foreground)
-    children.sort(Comparator.comparingDouble(Entity2D::getZ));
+    boolean zDirty = false;
+    for (int i = 1; i < children.size(); i++) {
+      if (children.get(i - 1).getZ() > children.get(i).getZ()) {
+        zDirty = true;
+        break;
+      }
+    }
+    if (zDirty) {
+      children.sort(Comparator.comparingDouble(Entity2D::getZ));
+    }
     b.push();
     if (camera != null) {
       camera.setViewportSize(width, height);
