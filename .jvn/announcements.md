@@ -8,6 +8,9 @@ Format:
 
 ----
 
+## 2026-06-09 — Fix about layered image parsing
+The Layered Image Visualizer now infers group and variant labels regardless of token order in the filename. Files named like `normal_mouth.png` and `mouth_normal.png` should now both correctly map to the `mouth` group with the `normal` variant, preventing issues where groups are mistakenly parsed as variants when file naming conventions are flipped.
+
 ## 2026-06-03
 The storyboard overlay is now out of maintenance. Over the span of the next few days, there will be more updates on it. 
 

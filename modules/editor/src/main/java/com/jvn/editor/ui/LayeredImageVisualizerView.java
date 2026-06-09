@@ -4520,10 +4520,16 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
         match = i;
       }
     }
-    if (match >= 0 && match + 1 < tokens.length) {
-      return sanitizeLabel(String.join("_", java.util.Arrays.copyOfRange(tokens, match + 1, tokens.length)));
-    }
     if (match >= 0) {
+      java.util.List<String> labelTokens = new java.util.ArrayList<>();
+      for (int i = 0; i < tokens.length; i++) {
+        if (i != match) {
+          labelTokens.add(tokens[i]);
+        }
+      }
+      if (!labelTokens.isEmpty()) {
+        return sanitizeLabel(String.join("_", labelTokens));
+      }
       return sanitizeLabel(tokens[match]);
     }
     return sanitizeLabel(tokens[tokens.length - 1]);
