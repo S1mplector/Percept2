@@ -173,6 +173,21 @@ public class Entity2D {
   public double[] getColorMatrix() {
     return colorMatrix.clone();
   }
+  
+  // New method 
+  
+  /**
+   * New method to copy the color matrix into the provided array to avoid allocations
+   * 
+   * @param out the array to write into 
+   * */
+   
+   public void getColorMatrix(double[] out) {
+     if (out != null && out.length >= colorMatrix.length) {
+       System.arraycopy(colorMatrix, 0, out, 0, colorMatrix.length);
+     }
+   }
+	   
 
   public double getColorMatrixValue(int index) {
     if (index < 0 || index >= colorMatrix.length) return 0.0;

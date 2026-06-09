@@ -43,6 +43,14 @@ public class Scene2DBase implements Scene2D {
 
   /** Optional shared input reference; may be {@code null}. */
   protected Input input;
+  
+  /**
+   * New variables from the new method defined in Entity2D.java
+   * */
+   
+   private static final Comparator<Entity2D> Z_COMPARATOR = (a,b) ->
+   Double.compare(a.getZ(), b.getZ());
+	private final double[] scratchColorMatrix = new double[20];
 
   // ──────────────────────────────────────────────────────────────────────────
   //  Camera & input wiring
@@ -128,7 +136,8 @@ public class Scene2DBase implements Scene2D {
       }
     }
     if (zDirty) {
-      children.sort(Comparator.comparingDouble(Entity2D::getZ));
+       // children.sort(Comparator.comparingDouble(Entity2D::getZ));
+       children.sort(Z_COMPARATOR);
     }
     b.push();
     if (camera != null) {
@@ -161,11 +170,26 @@ public class Scene2DBase implements Scene2D {
       }
       double brightness = e.getBrightness();
       if (e.hasNonIdentityColorMatrix() || Math.abs(brightness - 1.0) > 1e-9) {
+		/**
+		 * TODO: REMOVE THE COMMENTED OUT BLOCK LATER
+		 * AFTER ENSURING THE ENGINE CORE COMPILATION
+		 * 09.06.2026
+		 * -S1mplector
+		 * */
+		  /* 
         double[] colorMatrix = e.getColorMatrix();
         if (Math.abs(brightness - 1.0) > 1e-9) {
           applyBrightness(colorMatrix, brightness);
         }
         b.setColorMatrix(colorMatrix);
+        */
+        
+        e.getColorMatrix(scratchColorMatrix);
+        if (Math.abs(brightness - 1.0) > 1e-9) {
+          applyBrightness(scratchColorMatrix, brightness);
+        }
+        b.setColorMatrix(scratchColorMatrix);
+        
       } else {
         b.clearColorMatrix();
       }
