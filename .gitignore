@@ -2,6 +2,8 @@
 .gradle/
 build/
 **/build/
+!modules/editor/src/main/java/com/jvn/editor/ui/build/
+!modules/editor/src/main/java/com/jvn/editor/ui/build/**
 !gradle/wrapper/gradle-wrapper.jar
 
 # IntelliJ / IDEA

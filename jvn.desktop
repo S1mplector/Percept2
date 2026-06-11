@@ -5,7 +5,8 @@
 #  First-time setup (one-off):
 #    chmod +x jvn jvn.desktop
 #  Then double-click this file in your file manager. Most distros will prompt
-#  once to mark it trusted; accept the prompt. If your file manager refuses to
+#  once to mark it trusted; accept the prompt. Output is written to
+#  ~/.local/state/jvn-engine-hub/launcher.log. If your file manager refuses to
 #  run a .desktop file from outside ~/.local/share/applications, see the
 #  companion script `install-linux-launcher.sh` which installs a system
 #  launcher entry with absolute paths.
@@ -17,8 +18,8 @@ GenericName=Game Engine Launcher
 Comment=Launch the Java Vector Nexus editor, runtime, build tasks, and updates
 # %k expands to the absolute path of this .desktop file; dirname gives the
 # project root, which is where ./jvn lives.
-Exec=bash -c "cd \"$(dirname %k)\" && exec ./jvn"
-Terminal=true
+Exec=bash -c "project_dir=\"$(dirname \"$1\")\"; log_dir=\"${XDG_STATE_HOME:-$HOME/.local/state}/jvn-engine-hub\"; mkdir -p \"$log_dir\"; cd \"$project_dir\" && exec ./jvn >> \"$log_dir/launcher.log\" 2>&1" jvn-desktop %k
+Terminal=false
 Categories=Development;IDE;
 Keywords=JVN;Editor;Engine;Gradle;
-StartupNotify=false
+StartupNotify=true

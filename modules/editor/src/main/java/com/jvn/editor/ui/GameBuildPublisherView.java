@@ -50,6 +50,33 @@ import javafx.util.Duration;
 public class GameBuildPublisherView extends BorderPane {
   public record BuildRequest(String taskName, String[] args, String title) {}
 
+  static String buildCliCommand(String taskName, List<String> args) {
+    return BuildCliFormatter.buildCliCommand(taskName, args);
+  }
+
+  static List<ArtifactSummary> summarizeArtifacts(File outDir) {
+    return BuildArtifactService.summarizeArtifacts(outDir).stream()
+        .map(artifact -> new ArtifactSummary(
+            artifact.name(),
+            artifact.bytes(),
+            artifact.lastModifiedMillis(),
+            artifact.checksumAvailable()))
+        .toList();
+  }
+
+  static String formatArtifactInventory(List<ArtifactSummary> artifacts) {
+    List<BuildArtifactService.ArtifactSummary> serviceArtifacts = artifacts == null
+        ? List.of()
+        : artifacts.stream()
+            .map(artifact -> new BuildArtifactService.ArtifactSummary(
+                artifact.name(),
+                artifact.bytes(),
+                artifact.lastModifiedMillis(),
+                artifact.checksumAvailable()))
+            .toList();
+    return BuildArtifactService.formatArtifactInventory(serviceArtifacts);
+  }
+
   private final File workspaceRoot;
   private File projectRoot;
   private final Consumer<BuildRequest> onBuildRequested;
