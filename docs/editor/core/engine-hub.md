@@ -169,6 +169,8 @@ Installed shortcuts launch without opening a terminal. If startup fails, check t
 
 Failure dialogs point at these logs. On Linux, the wrapper uses `notify-send`, `zenity`, `kdialog`, or `xmessage` when available.
 
+If **Run Editor** or **Documentation** fails on Linux while starting the JavaFX toolkit, check that the desktop session exposes a display and that the GTK/X11 native libraries JavaFX loads are installed. On Linux Mint/Ubuntu this usually means installing `libgtk-3-0`, `libxtst6`, `libxxf86vm1`, and the system OpenGL/Mesa packages for the machine's GPU.
+
 ## macOS Privacy Notes
 
 If the repository is stored under protected folders such as Desktop, Documents, or Downloads, macOS may ask for folder access when the shortcut first launches. Allow access for **JVN Engine Hub** so the app can run `gradlew` from the checkout.

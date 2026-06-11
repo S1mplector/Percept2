@@ -123,6 +123,8 @@ public final class JvnHub {
   private static final Color SCROLL_THUMB_HOVER = Color.decode("#3a3a3a");
   private static final String DEFAULT_LAUNCHER_MAINTENANCE_MESSAGE =
       "JVN Launcher is temporarily under maintenance. Use Run Editor for daily work.";
+  private static final int PROCESS_OUTPUT_PREFIX_LIMIT = 8192;
+  private static final int PROCESS_OUTPUT_TAIL_LINES = 40;
 
   /** Resolved at class-init time from a Gradle-generated resource. */
   private static final String VERSION = readVersion();
@@ -1529,6 +1531,7 @@ public final class JvnHub {
   }
 
   private boolean shouldPreferConfigurationCache(String task) {
+    if (safeModeEnabled) return false;
     if (hasConfigurationCacheFlag()) return false;
     return switch (task) {
       case ":editor:run", ":editor:runLauncher", ":editor:runHelpCenter", ":runtime:run",
@@ -2074,6 +2077,7 @@ public final class JvnHub {
     new SwingWorker<Integer, String>() {
       private String lastOutput = "";
       private final StringBuilder fullOutput = new StringBuilder();
+      private final List<String> recentOutput = new ArrayList<>();
 
       @Override protected Integer doInBackground() throws Exception {
         ProcessBuilder pb = new ProcessBuilder(command)
@@ -2103,7 +2107,8 @@ public final class JvnHub {
           String line;
           while ((line = reader.readLine()) != null) {
             if (!line.isBlank()) {
-              if (fullOutput.length() < 8192) fullOutput.append(line).append('\n');
+              if (fullOutput.length() < PROCESS_OUTPUT_PREFIX_LIMIT) fullOutput.append(line).append('\n');
+              rememberProcessOutput(recentOutput, line);
               lastOutput = compactMessage(line);
               publish(line);
             }
@@ -2132,8 +2137,18 @@ public final class JvnHub {
           lastOutput = "Task raised: " + e.getMessage();
         }
         release(label, exit);
-        if (!lastOutput.isBlank()) {
-          setActivityDetail(lastOutput);
+        if (exit == 0) {
+          if (!lastOutput.isBlank()) {
+            setActivityDetail(lastOutput);
+          }
+        } else {
+          String failureSummary = summarizeProcessFailure(fullOutput.toString(), recentOutput, lastOutput);
+          if (!failureSummary.isBlank()) {
+            appendLog("[hub] failure summary: " + failureSummary);
+            setActivityDetail(failureSummary);
+          } else if (!lastOutput.isBlank()) {
+            setActivityDetail(lastOutput);
+          }
         }
         // Update Engine touched the working tree — re-read on-disk state so
         // the version label and announcements list reflect the new HEAD.
@@ -3108,6 +3123,92 @@ public final class JvnHub {
       compact = compact.substring(0, 93) + "...";
     }
     return compact;
+  }
+
+  private static void rememberProcessOutput(List<String> recentOutput, String line) {
+    if (recentOutput == null || line == null || line.isBlank()) return;
+    while (recentOutput.size() >= PROCESS_OUTPUT_TAIL_LINES) {
+      recentOutput.remove(0);
+    }
+    recentOutput.add(line.trim());
+  }
+
+  private static String summarizeProcessFailure(String outputPrefix, List<String> recentOutput, String fallback) {
+    String combined = ((outputPrefix == null ? "" : outputPrefix) + "\n"
+        + (recentOutput == null ? "" : String.join("\n", recentOutput))).strip();
+    String friendly = friendlyProcessFailure(combined);
+    if (!friendly.isBlank()) return friendly;
+
+    List<String> candidates = new ArrayList<>();
+    if (outputPrefix != null && !outputPrefix.isBlank()) {
+      candidates.addAll(List.of(outputPrefix.split("\\R")));
+    }
+    if (recentOutput != null) candidates.addAll(recentOutput);
+
+    for (int i = candidates.size() - 1; i >= 0; i--) {
+      String line = candidates.get(i);
+      if (isActionableFailureLine(line)) return compactMessage(line);
+    }
+    if (fallback != null && !fallback.isBlank() && !isProcessNoiseLine(fallback)) {
+      return compactMessage(fallback);
+    }
+    return "";
+  }
+
+  private static String friendlyProcessFailure(String output) {
+    if (output == null || output.isBlank()) return "";
+    String lower = output.toLowerCase(Locale.ROOT);
+    if (lower.contains("javafx runtime components are missing")) {
+      return "JavaFX runtime components are missing from the launch classpath.";
+    }
+    if (lower.contains("unable to open display")) {
+      return "JavaFX could not open a desktop display for this session.";
+    }
+    if (lower.contains("incompatible architecture") && lower.contains("javafx")) {
+      return "JavaFX native libraries do not match this CPU architecture.";
+    }
+    if (lower.contains("glass gtk") || lower.contains("glassgtk") || lower.contains("libgtk")
+        || (lower.contains("gtk") && lower.contains("javafx"))) {
+      return "JavaFX GTK native support is missing or cannot load on this Linux desktop.";
+    }
+    if (lower.contains("x11") && (lower.contains("javafx") || lower.contains("glass"))) {
+      return "JavaFX could not connect to the Linux X11 desktop session.";
+    }
+    if (lower.contains("graphics device initialization failed") || lower.contains("quantumrenderer")) {
+      return "JavaFX graphics pipeline failed to initialize.";
+    }
+    if (lower.contains("no toolkit found")) {
+      return "JavaFX toolkit native runtime was not available.";
+    }
+    return "";
+  }
+
+  private static boolean isActionableFailureLine(String line) {
+    if (line == null || line.isBlank() || isProcessNoiseLine(line)) return false;
+    String lower = line.toLowerCase(Locale.ROOT);
+    return lower.contains("exception")
+        || lower.contains("caused by:")
+        || lower.contains("error")
+        || lower.contains("failed")
+        || lower.contains("could not")
+        || lower.contains("unable to")
+        || lower.contains("unsupportedclassversion")
+        || lower.contains("java.lang.")
+        || lower.contains("com.sun.glass")
+        || lower.contains("graphics device initialization");
+  }
+
+  private static boolean isProcessNoiseLine(String line) {
+    if (line == null) return true;
+    String lower = line.trim().toLowerCase(Locale.ROOT);
+    return lower.isBlank()
+        || lower.startsWith("> task ")
+        || lower.startsWith("reusing configuration cache")
+        || lower.startsWith("configuration cache entry")
+        || lower.startsWith("calculating task graph")
+        || lower.startsWith("build failed")
+        || lower.startsWith("build successful")
+        || lower.startsWith("deprecated gradle features were used");
   }
 
   private String gradleCommand() {

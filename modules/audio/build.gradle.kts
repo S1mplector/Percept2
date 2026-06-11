@@ -33,9 +33,9 @@ val osName = System.getProperty("os.name").lowercase()
 val arch = System.getProperty("os.arch").lowercase()
 val platform = when {
   osName.contains("win") && arch.contains("64") -> "win"
-  osName.contains("linux") && arch.contains("aarch64") -> "linux-aarch64"
+  osName.contains("linux") && (arch.contains("aarch64") || arch.contains("arm64")) -> "linux-aarch64"
   osName.contains("linux") -> "linux"
-  osName.contains("mac") && arch.contains("aarch64") -> "mac-aarch64"
+  osName.contains("mac") && (arch.contains("aarch64") || arch.contains("arm64")) -> "mac-aarch64"
   osName.contains("mac") -> "mac"
   else -> "win"
 }
