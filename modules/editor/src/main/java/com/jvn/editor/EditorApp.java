@@ -309,6 +309,7 @@ public class EditorApp extends Application {
   private static final Color MAINTENANCE_CHOOSER_STRIPE_COLOR = Color.rgb(255, 130, 0, 0.28);
   private static final Color MAINTENANCE_CHOOSER_TINT_COLOR = Color.rgb(26, 14, 0, 0.38);
   private static final boolean DEVELOPER_MODE = Boolean.getBoolean("jvn.editor.developerMode");
+  private static final boolean SAFE_MODE = Boolean.getBoolean("jvn.editor.safeMode");
   private static final Pattern DSL_DIAGNOSTIC_PATTERN =
       Pattern.compile("^L(\\d+)\\s+(\\S+?):\\s+(.+?)(?:\\s+Quick fix:\\s+(.+))?$");
   private final EnumMap<EditorSidebarPanel, Stage> panelWindows =
@@ -1290,7 +1291,7 @@ public class EditorApp extends Application {
   private void initializeEditorStage(Stage primaryStage) {
     primaryStage.setTitle("JVN Editor");
     editorPreferencesStore = new EditorPreferencesStore();
-    editorPreferences = editorPreferencesStore.load();
+    editorPreferences = SAFE_MODE ? EditorPreferences.defaults() : editorPreferencesStore.load();
     layoutStudioWindowManager = new LayoutStudioWindowManager(primaryStage, this::doRunProject);
     BorderPane root = new BorderPane();
     AppBuildInfo.BuildInfo buildInfo = AppBuildInfo.resolve(EditorApp.class);

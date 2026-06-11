@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Properties;
@@ -152,6 +153,24 @@ class EditorPreferencesStoreTest {
     assertTrue(loaded.isGradleSkipTestsOnRun());
     assertEquals(EditorPanelPlacement.LEFT, loaded.getPlacement(EditorSidebarPanel.PROJECT));
     assertTrue(loaded.isVisibleInChooser(EditorSidebarPanel.PROJECT));
+  }
+
+  @Test
+  void malformedPropertiesFileFallsBackToDefaults() throws Exception {
+    Path prefsFile = tempDir.resolve("editor-preferences.properties");
+    Files.writeString(
+        prefsFile,
+        EditorPreferencesStore.KEY_CUSTOM_TEXT_EDITOR_COMMAND + "=bad"
+            + "\\"
+            + "u12\n",
+        StandardCharsets.ISO_8859_1);
+
+    EditorPreferencesStore store = new EditorPreferencesStore(prefsFile);
+    EditorPreferences loaded = store.load();
+
+    assertEquals(EditorPreferences.DEFAULT_CODE_EDITOR_FONT_SIZE, loaded.getCodeEditorFontSize());
+    assertEquals(EditorPreferences.TEXT_EDITOR_JVN, loaded.getDefaultTextEditor());
+    assertEquals("", loaded.getCustomTextEditorCommand());
   }
 
   @Test

@@ -54,8 +54,8 @@ public final class EditorPreferencesStore {
     if (preferencesFile != null && Files.isRegularFile(preferencesFile)) {
       try (InputStream in = Files.newInputStream(preferencesFile)) {
         props.load(in);
-      } catch (IOException ignored) {
-            // reason: I/O failure on best-effort save/load; in-memory state remains valid
+      } catch (IOException | IllegalArgumentException ignored) {
+        // reason: preferences are user-local state; malformed files must not block editor startup
       }
     }
     return fromProperties(props);
