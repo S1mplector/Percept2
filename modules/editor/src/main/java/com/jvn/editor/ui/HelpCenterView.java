@@ -98,11 +98,17 @@ public class HelpCenterView extends BorderPane {
   private final ObservableList<DocEntry> allDocs = FXCollections.observableArrayList();
   private final Map<String, DocEntry> workspaceDocIndex = new HashMap<>();
   private final Map<String, TreeItem<HelpNode>> visibleDocNodes = new HashMap<>();
+  private final SplitPane contentSplit = new SplitPane();
 
   private File workspaceRoot;
   private File projectRoot;
   private Consumer<File> onOpenDoc;
   private DocEntry activeDocEntry;
+  private VBox guideTreePane;
+  private VBox previewPane;
+  private VBox guideTreeRestoreRail;
+  private double guideTreeDividerPosition = 0.34;
+  private boolean guideTreeCollapsed;
 
   public HelpCenterView() {
     getStyleClass().addAll("help-center-root", "sidebar-tool-root");
@@ -184,7 +190,12 @@ public class HelpCenterView extends BorderPane {
     browserTitle.getStyleClass().add("help-pane-title");
     Label versionChip = new Label("v" + HELP_CENTER_VERSION);
     versionChip.getStyleClass().add("help-version-chip");
-    HBox browserTitleRow = new HBox(10, browserTitle, versionChip);
+    Button collapseGuideButton = new Button("<");
+    collapseGuideButton.getStyleClass().addAll("help-toolbar-button", "help-toolbar-button-icon", "help-guide-collapse-button");
+    collapseGuideButton.setTooltip(new Tooltip("Collapse guide tree"));
+    collapseGuideButton.setOnAction(e -> setGuideTreeCollapsed(true));
+    HBox browserTitleRow = new HBox(10, browserTitle, versionChip, spacer(), collapseGuideButton);
+    browserTitleRow.getStyleClass().add("help-guide-title-row");
     browserTitleRow.setAlignment(Pos.CENTER_LEFT);
     Label browserSubtitle = new Label(
         "Topic folders keep docs in an onboarding-first order across scripting, animation, UI, runtime, tools, and internals.");
@@ -310,6 +321,8 @@ public class HelpCenterView extends BorderPane {
     left.setPadding(new Insets(10));
     left.setPrefWidth(340);
     VBox.setVgrow(docsTree, Priority.ALWAYS);
+    guideTreePane = left;
+    guideTreeRestoreRail = createGuideTreeRestoreRail();
 
     markdownContent.getStyleClass().add("help-doc-content");
     markdownContent.setFillWidth(true);
@@ -362,15 +375,60 @@ public class HelpCenterView extends BorderPane {
     right.getStyleClass().add("help-preview-pane");
     right.setPadding(new Insets(12));
     VBox.setVgrow(contentScroll, Priority.ALWAYS);
+    previewPane = right;
 
-    SplitPane split = new SplitPane(left, right);
-    split.setDividerPositions(0.34);
-    setCenter(split);
+    contentSplit.getItems().setAll(left, right);
+    contentSplit.setDividerPositions(guideTreeDividerPosition);
+    setCenter(contentSplit);
     showGuidePlaceholder(
         "Help Center",
         "Select a document to preview.",
         "Follow the guide tree on the left to move from onboarding into deeper authoring and engine reference.",
         "Pick a document from the guide tree to preview it here.");
+  }
+
+  private VBox createGuideTreeRestoreRail() {
+    Button restoreButton = new Button(">");
+    restoreButton.getStyleClass().addAll("help-toolbar-button", "help-toolbar-button-icon", "help-guide-restore-button");
+    restoreButton.setTooltip(new Tooltip("Show guide tree"));
+    restoreButton.setOnAction(e -> setGuideTreeCollapsed(false));
+
+    Label label = new Label("Guide\nTree");
+    label.getStyleClass().add("help-guide-restore-label");
+    label.setAlignment(Pos.CENTER);
+    label.setWrapText(true);
+    label.setMaxWidth(34);
+
+    VBox rail = new VBox(8, restoreButton, label);
+    rail.getStyleClass().add("help-guide-restore-rail");
+    rail.setAlignment(Pos.TOP_CENTER);
+    rail.setPadding(new Insets(10, 4, 10, 4));
+    rail.setMinWidth(42);
+    rail.setPrefWidth(42);
+    rail.setMaxWidth(42);
+    return rail;
+  }
+
+  private void setGuideTreeCollapsed(boolean collapsed) {
+    if (guideTreeCollapsed == collapsed || guideTreePane == null || previewPane == null) return;
+    guideTreeCollapsed = collapsed;
+    if (collapsed) {
+      double[] positions = contentSplit.getDividerPositions();
+      if (positions.length > 0) {
+        guideTreeDividerPosition = Math.max(0.18, Math.min(0.60, positions[0]));
+      }
+      contentSplit.getItems().clear();
+      setLeft(guideTreeRestoreRail);
+      setCenter(previewPane);
+      contentScroll.requestFocus();
+      return;
+    }
+
+    setLeft(null);
+    contentSplit.getItems().setAll(guideTreePane, previewPane);
+    setCenter(contentSplit);
+    javafx.application.Platform.runLater(() -> contentSplit.setDividerPositions(guideTreeDividerPosition));
+    filterField.requestFocus();
   }
 
 

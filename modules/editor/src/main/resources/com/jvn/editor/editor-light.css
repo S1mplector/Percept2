@@ -3983,6 +3983,10 @@
   -fx-background-color: #ebebeb;
 }
 
+.help-guide-title-row {
+  -fx-alignment: center-left;
+}
+
 .help-pane-title {
   -fx-font-size: 18px;
   -fx-font-weight: 800;
@@ -4233,6 +4237,26 @@
 .help-toolbar-button:hover {
   -fx-background-color: linear-gradient(to bottom, #cfcfcf, #dddddd);
   -fx-border-color: #a8a8a8;
+}
+
+.help-guide-collapse-button,
+.help-guide-restore-button {
+  -fx-min-width: 28;
+  -fx-pref-width: 28;
+  -fx-max-width: 28;
+  -fx-padding: 5 0 5 0;
+}
+
+.help-guide-restore-rail {
+  -fx-background-color: #ebebeb;
+  -fx-border-color: #d0d0d0;
+  -fx-border-width: 0 1 0 0;
+}
+
+.help-guide-restore-label {
+  -fx-font-size: 11px;
+  -fx-font-weight: 800;
+  -fx-text-fill: #686868;
 }
 
 .help-button {
