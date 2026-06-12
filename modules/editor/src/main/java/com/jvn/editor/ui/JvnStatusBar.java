@@ -7,10 +7,13 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import com.jvn.editor.AppBuildInfo;
 
+import javafx.application.Platform;
 import javafx.geometry.Side;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -33,30 +36,50 @@ public final class JvnStatusBar extends HBox {
   private static final String DARK_ICON_COLOR = "#d6d6d6";
   private static final String LIGHT_ICON_COLOR = "#3f3f3f";
   private static final Runnable NO_OP = () -> {};
+  private static final long GIT_REFRESH_INTERVAL_MS = 5_000L;
+  private static final long GIT_STATUS_TIMEOUT_MS = 650L;
+  private static final String SEGMENT_TOOLTIP_KEY = "jvn.status.tooltip";
 
   private final List<Region> icons = new ArrayList<>();
   private final Label productLabel = segmentLabel("");
   private final Label branchLabel = segmentLabel("No branch");
+  private final Label gitStateLabel = segmentLabel("Git --");
   private final Label messageLabel = segmentLabel("Ready");
   private final Label projectLabel = segmentLabel("No project");
   private final Label activeFileLabel = segmentLabel("No file");
   private final Label positionLabel = segmentLabel("Ln --");
+  private final Label fileMetaLabel = segmentLabel("");
+  private final Label workspaceLabel = segmentLabel("No tabs");
   private final Label dirtyLabel = segmentLabel("Saved");
   private final Label diagnosticsLabel = segmentLabel("0 Problems");
   private final Label encodingLabel = segmentLabel("UTF-8");
   private final Label lineEndingLabel = segmentLabel("LF");
+  private final Label memoryLabel = segmentLabel("Heap --");
   private final Label javaLabel = segmentLabel("Java " + javaFeatureVersion());
   private final Label themeLabel = segmentLabel("Dark");
   private final Label versionLabel = segmentLabel("");
   private final HBox productSegment;
   private final HBox branchSegment;
+  private final HBox gitStateSegment;
   private final HBox messageSegment;
   private final HBox projectSegment;
   private final HBox activeFileSegment;
   private final HBox positionSegment;
+  private final HBox fileMetaSegment;
+  private final HBox workspaceSegment;
   private final HBox dirtySegment;
   private final HBox diagnosticsSegment;
+  private final HBox memorySegment;
   private final HBox themeSegment;
+  private final Region gitStateSeparator;
+  private final Region fileMetaSeparator;
+  private final Region workspaceSeparator;
+  private final Region memorySeparator;
+  private Path activeProjectPath;
+  private Path activeGitRoot;
+  private GitState cachedGitState = GitState.noRepo();
+  private long lastGitProbeMillis = -1L;
+  private boolean gitProbeInFlight;
   private Runnable onRevealProjectRoot = NO_OP;
   private Runnable onCopyProjectRootPath = NO_OP;
   private Runnable onRunProject = NO_OP;
@@ -84,13 +107,25 @@ public final class JvnStatusBar extends HBox {
 
     productSegment = segment(icon(CssIcon.home(DARK_ICON_COLOR)), productLabel, "jvn-status-segment-strong");
     branchSegment = segment(icon(CssIcon.branchPlus(DARK_ICON_COLOR)), branchLabel);
+    gitStateSegment = segment(icon(CssIcon.check(DARK_ICON_COLOR)), gitStateLabel);
     messageSegment = segment(icon(CssIcon.speech(DARK_ICON_COLOR)), messageLabel, "jvn-status-message");
     projectSegment = segment(icon(CssIcon.folder(DARK_ICON_COLOR)), projectLabel);
     activeFileSegment = segment(icon(CssIcon.document(DARK_ICON_COLOR)), activeFileLabel);
     positionSegment = segment(icon(CssIcon.edit(DARK_ICON_COLOR)), positionLabel);
+    fileMetaSegment = segment(icon(CssIcon.label(DARK_ICON_COLOR)), fileMetaLabel);
+    workspaceSegment = segment(icon(CssIcon.dock(DARK_ICON_COLOR)), workspaceLabel);
     dirtySegment = segment(icon(CssIcon.save(DARK_ICON_COLOR)), dirtyLabel);
     diagnosticsSegment = segment(icon(CssIcon.warning(DARK_ICON_COLOR)), diagnosticsLabel, "jvn-status-diagnostics-ok");
+    memorySegment = segment(icon(CssIcon.memory(DARK_ICON_COLOR)), memoryLabel);
     themeSegment = segment(icon(CssIcon.palette(DARK_ICON_COLOR)), themeLabel);
+    gitStateSeparator = separator();
+    fileMetaSeparator = separator();
+    workspaceSeparator = separator();
+    memorySeparator = separator();
+    setOptionalSegmentVisible(gitStateSeparator, gitStateSegment, false);
+    setOptionalSegmentVisible(fileMetaSeparator, fileMetaSegment, false);
+    setOptionalSegmentVisible(workspaceSeparator, workspaceSegment, false);
+    setOptionalSegmentVisible(memorySeparator, memorySegment, false);
 
     installMenus();
 
@@ -98,6 +133,8 @@ public final class JvnStatusBar extends HBox {
         productSegment,
         separator(),
         branchSegment,
+        gitStateSeparator,
+        gitStateSegment,
         separator(),
         messageSegment,
         spacer,
@@ -106,6 +143,10 @@ public final class JvnStatusBar extends HBox {
         activeFileSegment,
         separator(),
         positionSegment,
+        fileMetaSeparator,
+        fileMetaSegment,
+        workspaceSeparator,
+        workspaceSegment,
         separator(),
         dirtySegment,
         separator(),
@@ -114,6 +155,8 @@ public final class JvnStatusBar extends HBox {
         segment(encodingLabel),
         separator(),
         segment(lineEndingLabel),
+        memorySeparator,
+        memorySegment,
         separator(),
         segment(icon(CssIcon.memory(DARK_ICON_COLOR)), javaLabel),
         separator(),
@@ -130,18 +173,44 @@ public final class JvnStatusBar extends HBox {
     if (projectRoot == null) {
       projectLabel.setText("No project");
       branchLabel.setText("No branch");
+      activeProjectPath = null;
+      activeGitRoot = null;
+      cachedGitState = GitState.noRepo();
+      applyGitState(cachedGitState);
       setTooltip(projectLabel, "No project is open.");
       setTooltip(branchLabel, "No Git repository detected.");
       return;
     }
+    activeProjectPath = projectRoot.toPath().toAbsolutePath().normalize();
     projectLabel.setText(projectRoot.getName().isBlank() ? projectRoot.getAbsolutePath() : projectRoot.getName());
     setTooltip(projectLabel, projectRoot.getAbsolutePath());
-    String branch = resolveBranch(projectRoot.toPath());
+    Optional<GitRepository> repoOpt = resolveGitRepository(activeProjectPath);
+    if (repoOpt.isEmpty()) {
+      activeGitRoot = null;
+      cachedGitState = GitState.noRepo();
+      branchLabel.setText("No branch");
+      setTooltip(branchLabel, "No Git repository detected.");
+      applyGitState(cachedGitState);
+      return;
+    }
+    GitRepository repo = repoOpt.get();
+    if (!Objects.equals(activeGitRoot, repo.workTreeRoot())) {
+      activeGitRoot = repo.workTreeRoot();
+      cachedGitState = GitState.probing();
+      lastGitProbeMillis = -1L;
+    }
+    String branch = resolveBranch(repo.gitDir());
     branchLabel.setText(branch);
     setTooltip(branchLabel, branch.equals("No branch") ? "No Git repository detected." : "Git branch: " + branch);
+    applyGitState(cachedGitState);
+    refreshGitStateAsync(repo.workTreeRoot());
   }
 
   public void setActiveFile(String fileName, String kind, int oneBasedLine) {
+    setActiveFile(fileName, kind, oneBasedLine, null);
+  }
+
+  public void setActiveFile(String fileName, String kind, int oneBasedLine, File file) {
     String cleanName = clean(fileName, "No file");
     String cleanKind = clean(kind, "");
     activeFileLabel.setText(cleanKind.isBlank() || cleanName.equals("No file")
@@ -149,11 +218,16 @@ public final class JvnStatusBar extends HBox {
         : cleanName + " (" + cleanKind + ")");
     setTooltip(activeFileLabel, activeFileLabel.getText());
     positionLabel.setText(oneBasedLine > 0 ? "Ln " + oneBasedLine : "Ln --");
+    updateFileMetadata(file);
   }
 
   public void setWorkspaceState(int dirtyTabs, int closableTabs, boolean canUndo, boolean canRedo) {
     dirtyTabs = Math.max(0, dirtyTabs);
     closableTabs = Math.max(0, closableTabs);
+    workspaceLabel.setText(closableTabs == 0
+        ? "No tabs"
+        : closableTabs + " tab" + (closableTabs == 1 ? "" : "s"));
+    setOptionalSegmentVisible(workspaceSeparator, workspaceSegment, true);
     dirtyLabel.setText(dirtyTabs == 0 ? "Saved" : dirtyTabs + " Unsaved");
     setTooltip(dirtyLabel, dirtyTabs == 0
         ? "No unsaved editor tabs."
@@ -165,6 +239,7 @@ public final class JvnStatusBar extends HBox {
     if (canUndo) tip.append(" • undo available");
     if (canRedo) tip.append(" • redo available");
     setTooltip(dirtySegment, tip.toString());
+    setTooltip(workspaceSegment, tip.toString());
   }
 
   public void setDiagnostics(int errors, int warnings) {
@@ -201,6 +276,25 @@ public final class JvnStatusBar extends HBox {
 
   public void setEncoding(String encoding) {
     encodingLabel.setText(clean(encoding, StandardCharsets.UTF_8.name()));
+  }
+
+  public void setMemoryUsage(long usedBytes, long committedBytes, long maxBytes) {
+    if (usedBytes < 0) {
+      setOptionalSegmentVisible(memorySeparator, memorySegment, false);
+      return;
+    }
+    setOptionalSegmentVisible(memorySeparator, memorySegment, true);
+    String used = formatBytes(usedBytes);
+    String max = maxBytes > 0 ? formatBytes(maxBytes) : formatBytes(committedBytes);
+    memoryLabel.setText(maxBytes > 0 || committedBytes > 0 ? "Heap " + used + "/" + max : "Heap " + used);
+    double ratio = maxBytes > 0 ? (double) usedBytes / Math.max(1L, maxBytes) : 0.0;
+    setTooltip(memorySegment, maxBytes > 0
+        ? "Heap memory: " + used + " used of " + max + " max."
+        : "Heap memory: " + used + " used, " + max + " committed.");
+    setSegmentState(memorySegment,
+        ratio >= 0.90 ? "jvn-status-diagnostics-error" : ratio >= 0.75 ? "jvn-status-diagnostics-warn" : "",
+        "jvn-status-diagnostics-warn",
+        "jvn-status-diagnostics-error");
   }
 
   public void setOnRevealProjectRoot(Runnable action) {
@@ -255,6 +349,9 @@ public final class JvnStatusBar extends HBox {
     installMenu(branchSegment, () -> menu(
         item("Open Version Control", onOpenVersionControl),
         item("Copy Project Path", onCopyProjectRootPath)));
+    installMenu(gitStateSegment, () -> menu(
+        item("Open Version Control", onOpenVersionControl),
+        item("Copy Project Path", onCopyProjectRootPath)));
     installMenu(messageSegment, () -> menu(
         item("Open Settings", onOpenSettings),
         item("Open Diagnostics", onOpenDiagnostics)));
@@ -272,6 +369,12 @@ public final class JvnStatusBar extends HBox {
     installMenu(positionSegment, () -> menu(
         item("Reveal Active File", onRevealActiveFile),
         item("Copy Active File Path", onCopyActiveFilePath)));
+    installMenu(fileMetaSegment, () -> menu(
+        item("Reveal Active File", onRevealActiveFile),
+        item("Copy Active File Path", onCopyActiveFilePath)));
+    installMenu(workspaceSegment, () -> menu(
+        item("Save All", onSaveAll),
+        item("Editor Settings", onOpenSettings)));
     installMenu(dirtySegment, () -> menu(
         item("Save All", onSaveAll),
         item("Copy Active File Path", onCopyActiveFilePath)));
@@ -316,6 +419,17 @@ public final class JvnStatusBar extends HBox {
     if (active != null && !active.isBlank() && !segment.getStyleClass().contains(active)) {
       segment.getStyleClass().add(active);
     }
+  }
+
+  private static void setSegmentVisible(Node segment, boolean visible) {
+    if (segment == null) return;
+    segment.setVisible(visible);
+    segment.setManaged(visible);
+  }
+
+  private static void setOptionalSegmentVisible(Node separator, Node segment, boolean visible) {
+    setSegmentVisible(separator, visible);
+    setSegmentVisible(segment, visible);
   }
 
   private void recolorIcons(String color) {
@@ -382,10 +496,40 @@ public final class JvnStatusBar extends HBox {
 
   private static void setTooltip(Node node, String text) {
     if (node == null) return;
+    Object existing = node.getProperties().remove(SEGMENT_TOOLTIP_KEY);
+    if (existing instanceof Tooltip tooltip) {
+      Tooltip.uninstall(node, tooltip);
+    }
     if (text == null || text.isBlank()) {
-      Tooltip.uninstall(node, null);
+      return;
     } else {
-      Tooltip.install(node, new Tooltip(text));
+      Tooltip tooltip = new Tooltip(text);
+      node.getProperties().put(SEGMENT_TOOLTIP_KEY, tooltip);
+      Tooltip.install(node, tooltip);
+    }
+  }
+
+  private void updateFileMetadata(File file) {
+    if (file == null) {
+      setOptionalSegmentVisible(fileMetaSeparator, fileMetaSegment, false);
+      return;
+    }
+    try {
+      Path path = file.toPath();
+      if (!Files.isRegularFile(path)) {
+        setOptionalSegmentVisible(fileMetaSeparator, fileMetaSegment, false);
+        return;
+      }
+      long size = Files.size(path);
+      boolean writable = Files.isWritable(path);
+      String modified = Files.getLastModifiedTime(path).toString();
+      fileMetaLabel.setText(formatBytes(size) + (writable ? "" : " RO"));
+      setTooltip(fileMetaSegment, "Size: " + formatBytes(size)
+          + "\nModified: " + modified
+          + "\nWritable: " + (writable ? "yes" : "no"));
+      setOptionalSegmentVisible(fileMetaSeparator, fileMetaSegment, true);
+    } catch (Exception ignored) {
+      setOptionalSegmentVisible(fileMetaSeparator, fileMetaSegment, false);
     }
   }
 
@@ -406,28 +550,135 @@ public final class JvnStatusBar extends HBox {
     return version.substring(0, end);
   }
 
-  private static String resolveBranch(Path start) {
+  private void applyGitState(GitState state) {
+    if (state == null || !state.available()) {
+      gitStateLabel.setText("Git --");
+      setTooltip(gitStateSegment, state == null ? "No Git repository detected." : state.tooltip());
+      setOptionalSegmentVisible(gitStateSeparator, gitStateSegment, false);
+      setSegmentState(gitStateSegment, "", "jvn-status-clean", "jvn-status-dirty", "jvn-status-diagnostics-warn");
+      return;
+    }
+    gitStateLabel.setText(state.text());
+    setTooltip(gitStateSegment, state.tooltip());
+    setOptionalSegmentVisible(gitStateSeparator, gitStateSegment, true);
+    setSegmentState(gitStateSegment,
+        state.clean() ? "jvn-status-clean" : "jvn-status-dirty",
+        "jvn-status-clean",
+        "jvn-status-dirty",
+        "jvn-status-diagnostics-warn");
+  }
+
+  private void refreshGitStateAsync(Path root) {
+    if (root == null) return;
+    long now = System.currentTimeMillis();
+    if (gitProbeInFlight || (lastGitProbeMillis >= 0 && now - lastGitProbeMillis < GIT_REFRESH_INTERVAL_MS)) {
+      return;
+    }
+    gitProbeInFlight = true;
+    lastGitProbeMillis = now;
+    Thread worker = new Thread(() -> {
+      GitState state = probeGitState(root);
+      Platform.runLater(() -> {
+        try {
+          if (Objects.equals(activeGitRoot, root)) {
+            cachedGitState = state;
+            applyGitState(state);
+          }
+        } finally {
+          gitProbeInFlight = false;
+        }
+      });
+    }, "jvn-status-git");
+    worker.setDaemon(true);
+    worker.start();
+  }
+
+  private static GitState probeGitState(Path root) {
+    try {
+      Process process = new ProcessBuilder(
+          "git", "-C", root.toString(), "status", "--porcelain=v1", "--branch", "--untracked-files=no")
+          .redirectErrorStream(true)
+          .start();
+      if (!process.waitFor(GIT_STATUS_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+        process.destroyForcibly();
+        return GitState.unavailable("Git status check timed out.");
+      }
+      String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+      if (process.exitValue() != 0) {
+        return GitState.unavailable("Git status unavailable.");
+      }
+      int changes = 0;
+      String branchLine = "";
+      for (String line : output.split("\\R")) {
+        if (line.isBlank()) continue;
+        if (line.startsWith("##")) {
+          branchLine = line;
+          continue;
+        }
+        changes++;
+      }
+      int ahead = parseMarker(branchLine, "ahead ");
+      int behind = parseMarker(branchLine, "behind ");
+      String sync = "";
+      if (ahead > 0) sync += " ↑" + ahead;
+      if (behind > 0) sync += " ↓" + behind;
+      String text = changes == 0
+          ? "Clean" + sync
+          : changes + " change" + (changes == 1 ? "" : "s") + sync;
+      String tip = changes == 0
+          ? "Tracked working tree is clean."
+          : changes + " tracked file change" + (changes == 1 ? "" : "s") + ".";
+      if (ahead > 0 || behind > 0) {
+        tip += " Branch sync:" + (ahead > 0 ? " ahead " + ahead : "") + (behind > 0 ? " behind " + behind : "") + ".";
+      }
+      tip += " Untracked files are not counted in this lightweight footer check.";
+      return new GitState(text, tip, changes, changes == 0, true);
+    } catch (Exception ex) {
+      return GitState.unavailable("Git status unavailable: " + ex.getClass().getSimpleName());
+    }
+  }
+
+  private static int parseMarker(String text, String marker) {
+    if (text == null || marker == null) return 0;
+    int idx = text.indexOf(marker);
+    if (idx < 0) return 0;
+    idx += marker.length();
+    int end = idx;
+    while (end < text.length() && Character.isDigit(text.charAt(end))) end++;
+    if (end == idx) return 0;
+    try {
+      return Integer.parseInt(text.substring(idx, end));
+    } catch (NumberFormatException ignored) {
+      return 0;
+    }
+  }
+
+  private static String resolveBranch(Path gitDir) {
+    if (gitDir == null) return "No branch";
+    Path head = gitDir.resolve("HEAD");
+    if (!Files.isRegularFile(head)) return "No branch";
+    try {
+      String value = Files.readString(head).trim();
+      if (value.startsWith("ref:")) {
+        String ref = value.substring(4).trim();
+        int slash = ref.lastIndexOf('/');
+        return slash >= 0 ? ref.substring(slash + 1) : ref;
+      }
+      return value.length() > 7 ? value.substring(0, 7).toLowerCase(Locale.ROOT) : value;
+    } catch (Exception ignored) {
+      return "No branch";
+    }
+  }
+
+  private static Optional<GitRepository> resolveGitRepository(Path start) {
     Path dir = start == null ? null : start.toAbsolutePath().normalize();
     for (int i = 0; i < 8 && dir != null; i++, dir = dir.getParent()) {
       Path gitPath = dir.resolve(".git");
       Optional<Path> gitDirOpt = resolveGitDir(gitPath);
       if (gitDirOpt.isEmpty()) continue;
-      Path gitDir = gitDirOpt.get();
-      Path head = gitDir.resolve("HEAD");
-      if (!Files.isRegularFile(head)) continue;
-      try {
-        String value = Files.readString(head).trim();
-        if (value.startsWith("ref:")) {
-          String ref = value.substring(4).trim();
-          int slash = ref.lastIndexOf('/');
-          return slash >= 0 ? ref.substring(slash + 1) : ref;
-        }
-        return value.length() > 7 ? value.substring(0, 7).toLowerCase(Locale.ROOT) : value;
-      } catch (Exception ignored) {
-        return "No branch";
-      }
+      return Optional.of(new GitRepository(dir, gitDirOpt.get()));
     }
-    return "No branch";
+    return Optional.empty();
   }
 
   private static Optional<Path> resolveGitDir(Path gitPath) {
@@ -449,5 +700,34 @@ public final class JvnStatusBar extends HBox {
       return Optional.empty();
     }
     return Optional.empty();
+  }
+
+  private static String formatBytes(long bytes) {
+    if (bytes < 0) return "--";
+    double value = bytes;
+    String[] units = {"B", "KB", "MB", "GB", "TB"};
+    int unit = 0;
+    while (value >= 1024.0 && unit < units.length - 1) {
+      value /= 1024.0;
+      unit++;
+    }
+    if (unit == 0) return bytes + " B";
+    return String.format(Locale.ROOT, value >= 10.0 ? "%.0f %s" : "%.1f %s", value, units[unit]);
+  }
+
+  private record GitRepository(Path workTreeRoot, Path gitDir) {}
+
+  private record GitState(String text, String tooltip, int changes, boolean clean, boolean available) {
+    static GitState noRepo() {
+      return new GitState("Git --", "No Git repository detected.", 0, true, false);
+    }
+
+    static GitState probing() {
+      return new GitState("Checking", "Checking Git working tree state.", 0, true, true);
+    }
+
+    static GitState unavailable(String tooltip) {
+      return new GitState("Git ?", tooltip, 0, true, false);
+    }
   }
 }

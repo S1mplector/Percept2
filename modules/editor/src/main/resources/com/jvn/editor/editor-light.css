@@ -6780,6 +6780,10 @@
   -fx-background-color: #d1d1d1;
 }
 
+.puppeteer-status-bar .jvn-status-segment {
+  -fx-padding: 0 6 0 6;
+}
+
 .jvn-status-segment .jvn-fx-icon {
   -fx-background-color: #3f3f3f;
   -fx-effect: none;
@@ -6801,13 +6805,26 @@
   -fx-text-fill: #2f7a49;
 }
 
+.jvn-status-diagnostics-ok {
+  -fx-background-color: rgba(47, 122, 73, 0.08);
+}
+
 .jvn-status-dirty .jvn-status-label,
 .jvn-status-diagnostics-warn .jvn-status-label {
   -fx-text-fill: #8a5a1f;
 }
 
+.jvn-status-dirty,
+.jvn-status-diagnostics-warn {
+  -fx-background-color: rgba(138, 90, 31, 0.12);
+}
+
 .jvn-status-diagnostics-error .jvn-status-label {
   -fx-text-fill: #9c344a;
+}
+
+.jvn-status-diagnostics-error {
+  -fx-background-color: rgba(156, 52, 74, 0.14);
 }
 
 .jvn-status-segment-strong {

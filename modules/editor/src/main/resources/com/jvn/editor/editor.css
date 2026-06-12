@@ -6951,6 +6951,10 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-background-color: #252525;
 }
 
+.puppeteer-status-bar .jvn-status-segment {
+  -fx-padding: 0 6 0 6;
+}
+
 .jvn-status-segment .jvn-fx-icon {
   -fx-effect: none;
   -fx-opacity: 0.9;
@@ -6971,13 +6975,26 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-text-fill: #9fe0b1;
 }
 
+.jvn-status-diagnostics-ok {
+  -fx-background-color: rgba(73, 160, 103, 0.08);
+}
+
 .jvn-status-dirty .jvn-status-label,
 .jvn-status-diagnostics-warn .jvn-status-label {
   -fx-text-fill: #f3c483;
 }
 
+.jvn-status-dirty,
+.jvn-status-diagnostics-warn {
+  -fx-background-color: rgba(160, 104, 38, 0.14);
+}
+
 .jvn-status-diagnostics-error .jvn-status-label {
   -fx-text-fill: #f39aaa;
+}
+
+.jvn-status-diagnostics-error {
+  -fx-background-color: rgba(158, 54, 75, 0.18);
 }
 
 .jvn-status-segment-strong {

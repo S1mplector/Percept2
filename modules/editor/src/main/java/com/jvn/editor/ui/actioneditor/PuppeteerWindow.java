@@ -210,13 +210,17 @@ public class PuppeteerWindow extends Stage {
     private Label statusTimelineLabel;
     private Label statusSelectionLabel;
     private Label statusSceneLabel;
+    private Label statusComplexityLabel;
     private Label statusModeLabel;
     private Label statusSaveLabel;
+    private Label statusViewportLabel;
     private Label statusProjectLabel;
     private Label statusExportLabel;
     private HBox statusPlaybackSegment;
+    private HBox statusComplexitySegment;
     private HBox statusSaveSegment;
     private HBox statusModeSegment;
+    private HBox statusViewportSegment;
     private HBox statusExportSegment;
     private Label viewportInfoLabel;
     private Button btnSidebarPreviewLayout;
@@ -1660,8 +1664,10 @@ public class PuppeteerWindow extends Stage {
         statusTimelineLabel = puppeteerStatusLabel("00:00.000 / 00:00.000", 160);
         statusSelectionLabel = puppeteerStatusLabel("No selection", 260);
         statusSceneLabel = puppeteerStatusLabel("0 tracks", 170);
+        statusComplexityLabel = puppeteerStatusLabel("0 keys", 150);
         statusModeLabel = puppeteerStatusLabel("Snap 50ms", 220);
         statusSaveLabel = puppeteerStatusLabel("Saved", 120);
+        statusViewportLabel = puppeteerStatusLabel("Viewport --", 130);
         statusProjectLabel = puppeteerStatusLabel("No project", 180);
         statusExportLabel = puppeteerStatusLabel("Code Pane", 180);
 
@@ -1670,8 +1676,10 @@ public class PuppeteerWindow extends Stage {
         HBox timelineSegment = puppeteerStatusSegment(CssIcon.timeline("#d6d6d6"), statusTimelineLabel);
         HBox selectionSegment = puppeteerStatusSegment(CssIcon.rectSelect("#d6d6d6"), statusSelectionLabel);
         HBox sceneSegment = puppeteerStatusSegment(CssIcon.landscape("#d6d6d6"), statusSceneLabel);
+        statusComplexitySegment = puppeteerStatusSegment(CssIcon.memory("#d6d6d6"), statusComplexityLabel);
         statusModeSegment = puppeteerStatusSegment(CssIcon.grid4x4("#d6d6d6"), statusModeLabel);
         statusSaveSegment = puppeteerStatusSegment(CssIcon.save("#d6d6d6"), statusSaveLabel);
+        statusViewportSegment = puppeteerStatusSegment(CssIcon.openInFull("#d6d6d6"), statusViewportLabel);
         HBox projectSegment = puppeteerStatusSegment(CssIcon.folder("#d6d6d6"), statusProjectLabel);
         statusExportSegment = puppeteerStatusSegment(CssIcon.document("#d6d6d6"), statusExportLabel);
 
@@ -1694,10 +1702,14 @@ public class PuppeteerWindow extends Stage {
             selectionSegment,
             puppeteerStatusSeparator(),
             sceneSegment,
+            puppeteerStatusSeparator(),
+            statusComplexitySegment,
             spacer,
             statusModeSegment,
             puppeteerStatusSeparator(),
             statusSaveSegment,
+            puppeteerStatusSeparator(),
+            statusViewportSegment,
             puppeteerStatusSeparator(),
             projectSegment,
             puppeteerStatusSeparator(),
@@ -1752,6 +1764,11 @@ public class PuppeteerWindow extends Stage {
             puppeteerStatusItem("Manage Event Cues", () -> showEventCueManagerDialog(null)),
             puppeteerStatusItem("Add Audio Cue at Playhead", this::showAddAudioCueDialog)
         ));
+        installPuppeteerStatusMenu(statusComplexitySegment, () -> puppeteerStatusMenu(
+            puppeteerStatusItem("Runtime Verification", this::showRuntimeVerificationReport),
+            puppeteerStatusItem("Zoom Timeline to Fit", () -> timelinePanel.zoomToFit()),
+            puppeteerStatusItem("Manage Event Cues", () -> showEventCueManagerDialog(null))
+        ));
         installPuppeteerStatusMenu(statusModeSegment, () -> puppeteerStatusMenu(
             puppeteerStatusItem(timelinePanel.isSnapEnabled() ? "Disable Timeline Snap" : "Enable Timeline Snap", () -> {
                 timelinePanel.setSnapEnabled(!timelinePanel.isSnapEnabled());
@@ -1772,6 +1789,14 @@ public class PuppeteerWindow extends Stage {
             puppeteerStatusItem("Stage Code Preview", this::stagePreviewFromCode),
             puppeteerStatusItem("Commit Staged Preview", this::commitStagedPreview),
             puppeteerStatusItem("Discard Staged Preview", this::discardStagedPreview)
+        ));
+        installPuppeteerStatusMenu(statusViewportSegment, () -> puppeteerStatusMenu(
+            puppeteerStatusItem("Fit Preview Viewport", () -> animationPreview.fitToContent()),
+            puppeteerStatusItem(previewFocusMode ? "Exit Preview Focus" : "Focus Preview", () -> {
+                if (previewFocusMode) exitFullscreenPreview();
+                else enterFullscreenPreview();
+            }),
+            puppeteerStatusItem("Record GIF / Frames", this::showRecordGifDialog)
         ));
         installPuppeteerStatusMenu(projectSegment, () -> puppeteerStatusMenu(
             puppeteerStatusItem("Import Assets", this::showAssetImporterWindow),
@@ -6339,6 +6364,20 @@ public class PuppeteerWindow extends Stage {
             statusSceneLabel.setText(sceneStats);
             statusSceneLabel.setTooltip(new Tooltip("Scene contents, groups, audio cues, and event cues."));
         }
+        if (statusComplexityLabel != null) {
+            StatusComplexity complexity = computeStatusComplexity();
+            String text = complexity.keyframes() + " key" + (complexity.keyframes() == 1 ? "" : "s")
+                + " / " + complexity.channels() + " chan" + (complexity.channels() == 1 ? "" : "s");
+            statusComplexityLabel.setText(text);
+            statusComplexityLabel.setTooltip(new Tooltip(
+                "Animated keyframes/channels: " + complexity.keyframes() + " / " + complexity.channels()
+                    + "\nConstraints: " + complexity.constraints()
+                    + "\nAnchors: " + complexity.anchors()
+                    + "\nEye focus profiles: " + complexity.eyeProfiles()));
+            setSegmentState(statusComplexitySegment,
+                complexity.keyframes() > 240 || complexity.channels() > 32 ? "jvn-status-diagnostics-warn" : "",
+                "jvn-status-diagnostics-warn");
+        }
         if (statusModeLabel != null) {
             List<String> modes = new ArrayList<>();
             modes.add(timelinePanel != null && timelinePanel.isSnapEnabled()
@@ -6363,6 +6402,28 @@ public class PuppeteerWindow extends Stage {
                 previewStaged || dirty ? "jvn-status-dirty" : "jvn-status-clean",
                 "jvn-status-clean", "jvn-status-dirty");
         }
+        if (statusViewportLabel != null) {
+            ProjectViewportSpec.Dimensions viewport = animationPreview != null
+                ? animationPreview.getViewportDimensions()
+                : ProjectViewportSpec.resolve(projectRoot);
+            String viewportText = viewport.width() + "x" + viewport.height();
+            if (previewFocusMode) viewportText += " Focus";
+            statusViewportLabel.setText(viewportText);
+            String cameraText = animationPreview == null
+                ? ""
+                : String.format(Locale.ROOT,
+                    "\nCamera: X %.1f  Y %.1f  Z %.2f",
+                    animationPreview.getCamera().getX(),
+                    animationPreview.getCamera().getY(),
+                    animationPreview.getCamera().getZoom());
+            statusViewportLabel.setTooltip(new Tooltip(
+                "Runtime viewport: " + viewport.width() + " x " + viewport.height()
+                    + cameraText
+                    + "\nClick for fit, focus, and recording actions."));
+            setSegmentState(statusViewportSegment,
+                previewFocusMode ? "jvn-status-diagnostics-ok" : "",
+                "jvn-status-diagnostics-ok");
+        }
         if (statusProjectLabel != null) {
             String projectName = projectRoot == null
                 ? "No project"
@@ -6374,16 +6435,58 @@ public class PuppeteerWindow extends Stage {
         }
         if (statusExportLabel != null) {
             List<String> export = new ArrayList<>();
-            export.add(codePaneVisible ? "Code Pane" : "Code Hidden");
-            if (compactExport) export.add("Compact");
+            export.add(compactExport ? "Compact JES" : "Standard JES");
+            export.add(codePaneVisible ? "Code visible" : "Code hidden");
+            int codeLines = countCodeLines(codePreview == null ? null : codePreview.getCode());
+            if (codeLines > 0) export.add(codeLines + " lines");
             int copied = timelinePanel == null ? 0 : timelinePanel.getCopiedKeyframeCount();
             if (copied > 0) export.add("Clipboard " + copied);
             statusExportLabel.setText(String.join(" / ", export));
-            statusExportLabel.setTooltip(new Tooltip("Code pane, export format, and keyframe clipboard state."));
+            statusExportLabel.setTooltip(new Tooltip(
+                "Export format, generated code size, code pane visibility, and keyframe clipboard state."));
             setSegmentState(statusExportSegment, codePaneVisible ? "" : "jvn-status-diagnostics-warn",
                 "jvn-status-diagnostics-warn");
         }
         refreshToolbarCommandSummary();
+    }
+
+    private StatusComplexity computeStatusComplexity() {
+        int keyframes = 0;
+        int channels = 0;
+        int anchors = 0;
+        for (EntityTrack track : project.getTracks()) {
+            if (track == null) continue;
+            for (PropertyType property : track.getAnimatedProperties()) {
+                int count = track.getKeyframes(property).size();
+                if (count > 0) {
+                    keyframes += count;
+                    channels++;
+                }
+            }
+            for (String propertyKey : track.getAnimatedCustomProperties()) {
+                int count = track.getCustomKeyframes(propertyKey).size();
+                if (count > 0) {
+                    keyframes += count;
+                    channels++;
+                }
+            }
+            anchors += project.getAnchorsForEntity(track.getEntityName()).size();
+        }
+        return new StatusComplexity(
+            keyframes,
+            channels,
+            project.getConstraintsView().size(),
+            anchors,
+            project.getEyeFocusProfilesView().size());
+    }
+
+    private static int countCodeLines(String code) {
+        if (code == null || code.isBlank()) return 0;
+        int lines = 1;
+        for (int i = 0; i < code.length(); i++) {
+            if (code.charAt(i) == '\n') lines++;
+        }
+        return lines;
     }
 
     private static void setSegmentState(HBox segment, String active, String... states) {
@@ -6410,6 +6513,14 @@ public class PuppeteerWindow extends Stage {
         }
         return String.format(Locale.ROOT, "%.2f", speed).replaceAll("0+$", "").replaceAll("\\.$", "");
     }
+
+    private record StatusComplexity(
+        int keyframes,
+        int channels,
+        int constraints,
+        int anchors,
+        int eyeProfiles
+    ) {}
 
     private void updateViewportInfoLabel() {
         if (viewportInfoLabel == null) return;

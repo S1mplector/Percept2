@@ -4179,6 +4179,8 @@ public class EditorApp extends Application {
     statusBar.setProjectRoot(projectRoot);
     statusBar.setTheme(EditorTheme.theme());
     statusBar.setWorkspaceState(countDirtyFileTabs(), countClosableTabs(), commands.canUndo(), commands.canRedo());
+    MemoryUsage heap = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
+    statusBar.setMemoryUsage(heap.getUsed(), heap.getCommitted(), heap.getMax());
     if (ft == null) {
       statusBar.setActiveFile(null, null, -1);
       statusBar.setDiagnostics(0, 0);
@@ -4186,7 +4188,7 @@ public class EditorApp extends Application {
     }
     String kind = ft.getKind() == null ? "" : ft.getKind().name();
     int line = ft.getKind() == FileEditorTab.Kind.VNS ? ft.getVnsCaretLine() + 1 : -1;
-    statusBar.setActiveFile(ft.getDisplayName(), kind, line);
+    statusBar.setActiveFile(ft.getDisplayName(), kind, line, ft.getFile());
     int errors = 0;
     int warnings = 0;
     for (VnsDiagnosticsView.Diagnostic issue : diagnosticsFor(ft, ft.getCurrentTextSnapshot())) {
