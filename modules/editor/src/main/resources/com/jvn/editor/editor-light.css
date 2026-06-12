@@ -4565,30 +4565,6 @@
   -fx-effect: dropshadow(gaussian, rgba(232, 146, 42, 0.24), 12, 0.28, 0, 0);
 }
 
-.sidebar-drag-frost-shell {
-  -fx-background-color: transparent;
-}
-
-.sidebar-drag-frost {
-  -fx-background-color:
-      linear-gradient(to bottom, rgba(255,255,255,0.82), rgba(255,255,255,0.42)),
-      rgba(232,232,232,0.44);
-  -fx-border-color: rgba(255,255,255,0.74);
-  -fx-border-width: 0 1 0 1;
-}
-
-.sidebar-drag-frost.left {
-  -fx-background-color:
-      linear-gradient(to right, rgba(255,255,255,0.76), rgba(255,255,255,0.36)),
-      rgba(232,232,232,0.44);
-}
-
-.sidebar-drag-frost.right {
-  -fx-background-color:
-      linear-gradient(to left, rgba(255,255,255,0.76), rgba(255,255,255,0.36)),
-      rgba(232,232,232,0.44);
-}
-
 .editor-main-split-pane:horizontal > .split-pane-divider .sidebar-hidden-drag-arrow {
   -fx-min-width: 10px;
   -fx-min-height: 16px;
@@ -4637,30 +4613,6 @@
 .puppeteer-split-pane > .split-pane-divider:hover {
   -fx-background-color: #3a3024;
   -fx-effect: dropshadow(gaussian, rgba(232, 146, 42, 0.24), 12, 0.28, 0, 0);
-}
-
-.puppeteer-frost-shell {
-  -fx-background-color: transparent;
-}
-
-.puppeteer-sidebar-frost {
-  -fx-background-color:
-      linear-gradient(to bottom, rgba(255,255,255,0.82), rgba(255,255,255,0.42)),
-      rgba(232,232,232,0.44);
-  -fx-border-color: rgba(255,255,255,0.74);
-  -fx-border-width: 0 1 0 1;
-}
-
-.puppeteer-sidebar-frost.left {
-  -fx-background-color:
-      linear-gradient(to right, rgba(255,255,255,0.76), rgba(255,255,255,0.36)),
-      rgba(232,232,232,0.44);
-}
-
-.puppeteer-sidebar-frost.right {
-  -fx-background-color:
-      linear-gradient(to left, rgba(255,255,255,0.76), rgba(255,255,255,0.36)),
-      rgba(232,232,232,0.44);
 }
 
 /* Slider */

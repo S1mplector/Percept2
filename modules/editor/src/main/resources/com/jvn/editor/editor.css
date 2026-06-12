@@ -4798,30 +4798,6 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-effect: dropshadow(gaussian, rgba(232, 146, 42, 0.24), 12, 0.28, 0, 0);
 }
 
-.sidebar-drag-frost-shell {
-  -fx-background-color: transparent;
-}
-
-.sidebar-drag-frost {
-  -fx-background-color:
-      linear-gradient(to bottom, rgba(255,255,255,0.075), rgba(255,255,255,0.018)),
-      rgba(14,14,14,0.42);
-  -fx-border-color: rgba(255,255,255,0.075);
-  -fx-border-width: 0 1 0 1;
-}
-
-.sidebar-drag-frost.left {
-  -fx-background-color:
-      linear-gradient(to right, rgba(255,255,255,0.065), rgba(255,255,255,0.018)),
-      rgba(14,14,14,0.42);
-}
-
-.sidebar-drag-frost.right {
-  -fx-background-color:
-      linear-gradient(to left, rgba(255,255,255,0.065), rgba(255,255,255,0.018)),
-      rgba(14,14,14,0.42);
-}
-
 .editor-main-split-pane:horizontal > .split-pane-divider .sidebar-hidden-drag-arrow {
   -fx-min-width: 10px;
   -fx-min-height: 16px;
@@ -4870,30 +4846,6 @@ The editor.css file defines the visual styling for the editor module, including 
 .puppeteer-split-pane > .split-pane-divider:hover {
   -fx-background-color: #3a3024;
   -fx-effect: dropshadow(gaussian, rgba(232, 146, 42, 0.24), 12, 0.28, 0, 0);
-}
-
-.puppeteer-frost-shell {
-  -fx-background-color: transparent;
-}
-
-.puppeteer-sidebar-frost {
-  -fx-background-color:
-      linear-gradient(to bottom, rgba(255,255,255,0.075), rgba(255,255,255,0.018)),
-      rgba(14,14,14,0.42);
-  -fx-border-color: rgba(255,255,255,0.075);
-  -fx-border-width: 0 1 0 1;
-}
-
-.puppeteer-sidebar-frost.left {
-  -fx-background-color:
-      linear-gradient(to right, rgba(255,255,255,0.065), rgba(255,255,255,0.018)),
-      rgba(14,14,14,0.42);
-}
-
-.puppeteer-sidebar-frost.right {
-  -fx-background-color:
-      linear-gradient(to left, rgba(255,255,255,0.065), rgba(255,255,255,0.018)),
-      rgba(14,14,14,0.42);
 }
 
 /* Slider */
