@@ -1188,6 +1188,49 @@ fun jvnGameBuildPlanMap(): Map<String, Any?> {
   )
 }
 
+fun jvnGameReleaseManifestMap(): Map<String, Any?> {
+  val validation = validateGameProject()
+  validateSelectedReleaseProfile()
+  val profile = selectedReleaseProfile()
+  val artifacts = selectedJvnGamePlannedArtifacts()
+  return mapOf(
+    "schema" to 1,
+    "generatedAt" to Instant.now().toString(),
+    "engineVersion" to project.version.toString(),
+    "workspaceRoot" to rootDir.absolutePath,
+    "buildDir" to layout.buildDirectory.get().asFile.absolutePath,
+    "projectRoot" to validation.dir.absolutePath,
+    "gameName" to gameDisplayName(),
+    "gameVersion" to gameVersion(),
+    "nativeVersion" to nativeGameVersion(),
+    "projectType" to validation.type,
+    "entry" to (validation.entryKey ?: "runtime discovery"),
+    "packageMode" to selectedJvnGamePackageMode(),
+    "requestedTarget" to selectedJvnGameTargetToken(),
+    "releaseProfile" to profile.name,
+    "releaseConfig" to (profile.file?.absolutePath ?: ""),
+    "warnings" to validation.warnings,
+    "artifacts" to artifacts.map { artifact ->
+      val checksumFile = artifactChecksumFile(artifact.artifact)
+      mapOf(
+        "mode" to artifact.mode,
+        "target" to artifact.targetId,
+        "packageType" to (artifact.packageType ?: artifact.mode),
+        "runtimeRequirement" to artifact.runtimeRequirement,
+        "buildTask" to artifact.buildTask,
+        "releaseTask" to (artifact.releaseTask ?: ""),
+        "path" to artifact.artifact.absolutePath,
+        "name" to artifact.artifact.name,
+        "exists" to artifact.artifact.isFile,
+        "bytes" to if (artifact.artifact.isFile) artifact.artifact.length() else 0L,
+        "sha256" to if (artifact.artifact.isFile) sha256Hex(artifact.artifact) else "",
+        "checksumPath" to checksumFile.absolutePath,
+        "checksumExists" to checksumFile.isFile
+      )
+    }
+  )
+}
+
 fun writeJvnGameBuildReport(): File {
   val reportFile = layout.buildDirectory.file("reports/jvn-game-build/build-plan.json").get().asFile
   reportFile.parentFile.mkdirs()
@@ -1237,6 +1280,51 @@ fun writeJvnGameBuildMarkdownReport(): File {
     }
   })
   return reportFile
+}
+
+fun writeJvnGameReleaseManifest(): Pair<File, File> {
+  val reportDir = layout.buildDirectory.dir("reports/jvn-game-release").get().asFile
+  val jsonFile = reportDir.resolve("release-manifest.json")
+  val markdownFile = reportDir.resolve("release-manifest.md")
+  val manifest = jvnGameReleaseManifestMap()
+  val artifacts = selectedJvnGamePlannedArtifacts()
+  reportDir.mkdirs()
+  jsonFile.writeText(JsonOutput.prettyPrint(JsonOutput.toJson(manifest)))
+  markdownFile.writeText(buildString {
+    appendLine("# JVN Game Release Manifest")
+    appendLine()
+    appendLine("- Generated: ${manifest["generatedAt"]}")
+    appendLine("- Game: ${manifest["gameName"]} ${manifest["gameVersion"]}")
+    appendLine("- Engine: ${manifest["engineVersion"]}")
+    appendLine("- Mode: ${manifest["packageMode"]}")
+    appendLine("- Requested Target: ${manifest["requestedTarget"]}")
+    appendLine("- Release Profile: ${manifest["releaseProfile"]}")
+    appendLine("- Project: ${manifest["projectRoot"]}")
+    appendLine()
+    appendLine("## Artifacts")
+    appendLine()
+    artifacts.forEach { artifact ->
+      val checksumFile = artifactChecksumFile(artifact.artifact)
+      appendLine("- `${artifact.artifact.name}`")
+      appendLine("  - Target: `${artifact.targetId}`")
+      appendLine("  - Package: `${artifact.packageType ?: artifact.mode}`")
+      appendLine("  - Runtime: ${artifact.runtimeRequirement}")
+      appendLine("  - Path: `${artifact.artifact.absolutePath}`")
+      appendLine("  - Bytes: ${if (artifact.artifact.isFile) artifact.artifact.length() else 0L}")
+      appendLine("  - SHA-256: `${if (artifact.artifact.isFile) sha256Hex(artifact.artifact) else ""}`")
+      appendLine("  - Checksum file: `${checksumFile.absolutePath}`")
+    }
+    appendLine()
+    appendLine("## Warnings")
+    appendLine()
+    val warnings = validateGameProject().warnings
+    if (warnings.isEmpty()) {
+      appendLine("- None")
+    } else {
+      warnings.forEach { warning -> appendLine("- $warning") }
+    }
+  })
+  return jsonFile to markdownFile
 }
 
 fun publishCommandVariables(mode: String, artifact: File, targetId: String = currentPackageHost().target.id): Map<String, String> {
@@ -1734,6 +1822,39 @@ tasks.register("preflightJvnGameBuild") {
     }
     println("  json report: ${jsonReportFile.absolutePath}")
     println("  markdown report: ${markdownReportFile.absolutePath}")
+  }
+}
+
+tasks.register("writeJvnGameReleaseManifest") {
+  group = "distribution"
+  description = "Writes JSON/Markdown release manifests for the selected JVN game artifacts."
+  doLast {
+    val missing = selectedJvnGamePlannedArtifacts().filterNot { it.artifact.isFile }
+    if (missing.isNotEmpty()) {
+      throw GradleException(
+        "Cannot write release manifest because packaged artifacts are missing:\n - " +
+          missing.joinToString("\n - ") { "${it.targetId}: ${it.artifact.absolutePath} (build task: ${it.buildTask})" } +
+          "\nRun assembleJvnGameRelease first, or build the listed tasks."
+      )
+    }
+    val (jsonFile, markdownFile) = writeJvnGameReleaseManifest()
+    println("JVN game release manifest written")
+    println("  json: ${jsonFile.absolutePath}")
+    println("  markdown: ${markdownFile.absolutePath}")
+  }
+}
+
+tasks.register("assembleJvnGameRelease") {
+  group = "distribution"
+  description = "Builds the selected JVN game package mode/target and writes release manifests."
+  dependsOn(providers.provider { selectedJvnGamePlannedArtifacts().map { it.buildTask } })
+  finalizedBy("writeJvnGameReleaseManifest")
+  doLast {
+    val artifacts = selectedJvnGamePlannedArtifacts()
+    println("JVN game release artifacts ready:")
+    artifacts.forEach { artifact ->
+      println("  - ${artifact.targetId}: ${artifact.artifact.absolutePath}")
+    }
   }
 }
 

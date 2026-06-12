@@ -277,6 +277,8 @@ public class EditorApp extends Application {
   private static final long STARTUP_STEP_DELAY_MS = 0L;
   private static final boolean STRICT_STARTUP_GRADLE_CHECK =
       Boolean.getBoolean("jvn.editor.strictStartupGradleCheck");
+  private static final boolean SIDEBAR_DRAG_FROST_ENABLED =
+      Boolean.getBoolean("jvn.editor.sidebarDragFrost");
   private static final DateTimeFormatter STARTUP_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
   private static final Pattern STARTUP_PROCESS_NOISE = Pattern.compile(
       "^(> Task |> Configure |BUILD SUCCESSFUL|Deprecated Gradle|\\d+ actionable|To honour the JVM|Daemon will be stopped|\\s*$)");
@@ -4027,6 +4029,12 @@ public class EditorApp extends Application {
   private StackPane createSidebarDragFrostShell(TabPane pane, boolean leftSide) {
     if (pane == null) return new StackPane();
     pane.setMinWidth(0);
+    if (!SIDEBAR_DRAG_FROST_ENABLED) {
+      StackPane shell = new StackPane(pane);
+      shell.getStyleClass().add("sidebar-drag-frost-shell");
+      shell.setMinWidth(0);
+      return shell;
+    }
 
     Region frost = new Region();
     frost.getStyleClass().add("sidebar-drag-frost");
@@ -4096,19 +4104,26 @@ public class EditorApp extends Application {
     divider.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
       if (event.getButton() == MouseButton.PRIMARY) {
         setEmptySidebarWidthCap(targetPane, false);
-        beginSidebarDragFrost(targetPane);
+        if (SIDEBAR_DRAG_FROST_ENABLED) {
+          beginSidebarDragFrost(targetPane);
+        }
       }
     });
     divider.addEventFilter(MouseEvent.MOUSE_DRAGGED, event -> {
       if (event.isPrimaryButtonDown()) {
         setEmptySidebarWidthCap(targetPane, false);
-        beginSidebarDragFrost(targetPane);
+        if (SIDEBAR_DRAG_FROST_ENABLED) {
+          beginSidebarDragFrost(targetPane);
+        }
       }
     });
-    divider.addEventFilter(MouseEvent.MOUSE_RELEASED, event -> endSidebarDragFrost());
+    if (SIDEBAR_DRAG_FROST_ENABLED) {
+      divider.addEventFilter(MouseEvent.MOUSE_RELEASED, event -> endSidebarDragFrost());
+    }
   }
 
   private void installSidebarDragFrostSceneReleaseHandler() {
+    if (!SIDEBAR_DRAG_FROST_ENABLED) return;
     if (sidebarDragFrostSceneReleaseInstalled || centerSplit == null || centerSplit.getScene() == null) return;
     sidebarDragFrostSceneReleaseInstalled = true;
     Scene scene = centerSplit.getScene();
