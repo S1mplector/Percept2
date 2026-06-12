@@ -2260,6 +2260,9 @@ val jvnBuildEnvironmentGroup = group.toString()
 val jvnBuildEnvironmentGradleVersion = gradle.gradleVersion
 val jvnBuildEnvironmentBuildDir = layout.buildDirectory.get().asFile.absolutePath
 val jvnBuildEnvironmentModules = subprojects.joinToString(", ") { it.path }
+val jvnBuildEnvironmentBuildCache = providers.gradleProperty("org.gradle.caching").orNull ?: "default"
+val jvnBuildEnvironmentParallel = providers.gradleProperty("org.gradle.parallel").orNull ?: "default"
+val jvnBuildEnvironmentVfsWatch = providers.gradleProperty("org.gradle.vfs.watch").orNull ?: "default"
 
 tasks.register("compileAll") {
   group = "build"
@@ -2311,8 +2314,17 @@ tasks.register("printJvnBuildEnvironment") {
     println("  Java home: ${System.getProperty("java.home")}")
     println("  JavaFX: $jvnJavaFxVersion")
     println("  build dir: $jvnBuildEnvironmentBuildDir")
+    println("  build cache: $jvnBuildEnvironmentBuildCache")
+    println("  parallel execution: $jvnBuildEnvironmentParallel")
+    println("  VFS watch: $jvnBuildEnvironmentVfsWatch")
     println("  modules: $jvnBuildEnvironmentModules")
   }
+}
+
+tasks.register("doctor") {
+  group = "help"
+  description = "Prints the active JVN build environment and Gradle performance settings."
+  dependsOn("printJvnBuildEnvironment")
 }
 
 tasks.register("buildSystemHelp") {
@@ -2325,6 +2337,7 @@ tasks.register("buildSystemHelp") {
     println("  ./jvnw build         Full Gradle build")
     println("  ./jvnw ci            Full project verification")
     println("  ./jvnw build-info    Print Java, Gradle, JavaFX, and module configuration")
+    println("  ./jvnw doctor        Alias for build-info; useful when debugging local setup")
     println("  ./jvnw dist-preflight -PjvnGameProject=<dir>  Validate a game release plan")
   }
 }

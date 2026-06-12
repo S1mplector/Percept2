@@ -157,6 +157,7 @@ echo   jvnw runtime-cache-clear                       Clear cached prebuilt desk
 echo   jvnw native -PjvnGameProject=^<dir^>            Create a native package for this host
 echo   jvnw release-native -PjvnGameProject=^<dir^>    Build native package and run release hooks
 echo   jvnw build-info Print Java, Gradle, JavaFX, and module configuration
+echo   jvnw doctor     Print local Java, Gradle, cache, and module diagnostics
 echo   jvnw jar        Build the runtime jar
 echo.
 echo Advanced usage:

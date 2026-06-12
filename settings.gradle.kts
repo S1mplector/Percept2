@@ -15,26 +15,7 @@ plugins {
 
 rootProject.name = "JVN"
 
-include(
-  ":core",
-  ":render-api",
-  ":fx",
-  ":runtime",
-  ":scripting",
-  ":audio",
-  ":editor",
-  ":demo-game",
-  ":swing",
-  ":hub",
-  ":testkit",
-  ":web-runtime",
-  ":android-runtime",
-  ":ios-runtime",
-  ":scala-utils",
-  ":clojure-utils"
-)
-
-listOf(
+val jvnModules = listOf(
   "core",
   "render-api",
   "fx",
@@ -51,6 +32,10 @@ listOf(
   "ios-runtime",
   "scala-utils",
   "clojure-utils"
-).forEach { moduleName ->
+)
+
+include(*jvnModules.map { ":$it" }.toTypedArray())
+
+jvnModules.forEach { moduleName ->
   project(":$moduleName").projectDir = file("modules/$moduleName")
 }
