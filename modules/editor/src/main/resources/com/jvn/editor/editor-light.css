@@ -5622,6 +5622,51 @@
   -fx-padding: 0 2 0 0;
 }
 
+.sidebar-tab-pane > .tab-header-area > .control-buttons-tab {
+  -fx-background-color: transparent;
+  -fx-background-insets: 0;
+  -fx-padding: 0 0 0 4;
+}
+
+.sidebar-tab-pane > .tab-header-area > .control-buttons-tab > .container {
+  -fx-background-color: transparent;
+  -fx-padding: 0;
+}
+
+.sidebar-tab-pane > .tab-header-area > .control-buttons-tab > .container > .tab-down-button {
+  -fx-background-color: #dcdcdc;
+  -fx-background-insets: 0;
+  -fx-background-radius: 8 8 0 0;
+  -fx-border-color: #c7c7c7;
+  -fx-border-width: 1 1 0 1;
+  -fx-border-radius: 8 8 0 0;
+  -fx-padding: 0 8 0 8;
+  -fx-min-width: 34px;
+  -fx-pref-width: 34px;
+  -fx-min-height: 27px;
+  -fx-pref-height: 27px;
+  -fx-cursor: hand;
+}
+
+.sidebar-tab-pane > .tab-header-area > .control-buttons-tab > .container > .tab-down-button:hover {
+  -fx-background-color: #d4d4d4;
+  -fx-border-color: #b5b5b5;
+}
+
+.sidebar-tab-pane > .tab-header-area > .control-buttons-tab > .container > .tab-down-button:pressed,
+.sidebar-tab-pane > .tab-header-area > .control-buttons-tab > .container > .tab-down-button:showing {
+  -fx-background-color: linear-gradient(to bottom, #e7e0d7 0%, #e1d8ce 55%, #ddd2c7 100%);
+  -fx-border-color: #c5a684 #b09171 transparent #b09171;
+}
+
+.sidebar-tab-pane > .tab-header-area > .control-buttons-tab > .container > .tab-down-button > .arrow {
+  -fx-background-color: #4f4133;
+  -fx-background-insets: 0;
+  -fx-padding: 4 5 4 5;
+  -fx-shape: "M0 0 L8 0 L4 5 Z";
+  -fx-effect: none;
+}
+
 .sidebar-tab-pane .tab {
   -fx-background-color: #dcdcdc;
   -fx-background-insets: 0;
