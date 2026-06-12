@@ -16,6 +16,38 @@ jvn.bat
 
 The hub runs through the Gradle wrapper so the classpath and Java toolchain stay consistent with the rest of the workspace.
 
+## Distrobox JDK Detection
+
+On Bazzite, the Linux launchers can use a JDK installed in Distrobox. `./jvn` and `./jvnw` inspect available Distrobox containers, prefer common development names such as `jvn`, `java`, `jdk`, and `devbox`, and choose the first container that provides both Java 21+ and `javac`. The selected container is entered before Gradle starts, which lets the Engine Hub and its **Run Editor** button use that container's Java toolchain.
+
+Use an exact container name with:
+
+```bash
+JVN_DISTROBOX_CONTAINER=my-devbox ./jvn
+```
+
+Force the same detection on a non-Bazzite host with:
+
+```bash
+JVN_DISTROBOX=1 ./jvn
+```
+
+Disable the automatic handoff with:
+
+```bash
+JVN_DISTROBOX=0 ./jvn
+```
+
+If `./jvnw editor` fails with `Unable to load glass GTK library`, JavaFX started but the container is missing desktop native libraries. Install the GTK/X11 runtime libraries inside the selected Distrobox container, then retry:
+
+```bash
+# Fedora / Bazzite-style container
+sudo dnf install gtk3 libXtst libXxf86vm alsa-lib libXrender libXrandr libXinerama libXi
+
+# Debian / Ubuntu-style container
+sudo apt install libgtk-3-0 libxtst6 libxxf86vm1 libasound2 libxrender1 libxrandr2 libxinerama1 libxi6
+```
+
 ## Package A Self-Contained Hub Jar
 
 For distribution, build the packaged Engine Hub jar:

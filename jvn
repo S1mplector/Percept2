@@ -13,6 +13,136 @@ set -eu
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 GRADLEW="$SCRIPT_DIR/gradlew"
 
+is_bazzite_host() {
+  if [[ ! -r /etc/os-release ]]; then
+    return 1
+  fi
+  (
+    . /etc/os-release
+    [[ "${ID:-}" == "bazzite" || "${ID_LIKE:-}" == *"bazzite"* || "${VARIANT_ID:-}" == *"bazzite"* ]]
+  )
+}
+
+distrobox_container_exists() {
+  local container="$1"
+  if ! command -v distrobox-list >/dev/null 2>&1; then
+    return 0
+  fi
+  distrobox-list --no-color 2>/dev/null | awk -v needle="$container" '
+    {
+      for (i = 1; i <= NF; i++) {
+        field = $i
+        gsub(/^[[:space:]|]+|[[:space:]|]+$/, "", field)
+        if (field == needle) found = 1
+      }
+    }
+    END { exit(found ? 0 : 1) }
+  '
+}
+
+distrobox_container_names() {
+  if ! command -v distrobox-list >/dev/null 2>&1; then
+    return 1
+  fi
+  distrobox-list --no-color 2>/dev/null | awk -F'|' '
+    NR == 1 { next }
+    NF >= 3 {
+      name = $2
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", name)
+      if (name != "" && name != "NAME") print name
+    }
+  '
+}
+
+distrobox_container_has_jdk() {
+  local container="$1"
+  distrobox enter "$container" -- bash -lc '
+    command -v java >/dev/null 2>&1 || exit 1
+    command -v javac >/dev/null 2>&1 || exit 1
+    version_line="$(java -version 2>&1 | sed -n "1p")" || exit 1
+    if [[ "$version_line" =~ \"([^\"]+)\" ]]; then
+      version="${BASH_REMATCH[1]}"
+    elif [[ "$version_line" =~ ([0-9]+)(\.[0-9]+)* ]]; then
+      version="${BASH_REMATCH[1]}"
+    else
+      exit 1
+    fi
+    if [[ "$version" == 1.* ]]; then
+      version="${version#1.}"
+    fi
+    major="${version%%.*}"
+    [[ "$major" =~ ^[0-9]+$ ]] && (( major >= 21 ))
+  ' >/dev/null 2>&1
+}
+
+detect_distrobox_container() {
+  local preferred container
+  local -a containers=()
+
+  while IFS= read -r container; do
+    [[ -n "$container" ]] && containers+=("$container")
+  done < <(distrobox_container_names || true)
+
+  [[ ${#containers[@]} -gt 0 ]] || return 1
+
+  for preferred in jvn java jdk devbox main fedora ubuntu arch; do
+    for container in "${containers[@]}"; do
+      if [[ "$container" == "$preferred" ]] && distrobox_container_has_jdk "$container"; then
+        printf '%s\n' "$container"
+        return 0
+      fi
+    done
+  done
+
+  for container in "${containers[@]}"; do
+    if distrobox_container_has_jdk "$container"; then
+      printf '%s\n' "$container"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+is_containerized_shell() {
+  [[ -f /run/.containerenv || -f /.dockerenv || -n "${container:-}" ]]
+}
+
+maybe_reenter_distrobox() {
+  if [[ "${JVN_DISTROBOX:-auto}" == "0" || "${JVN_DISTROBOX:-auto}" == "false" ]]; then
+    return
+  fi
+  if [[ "${JVN_DISTROBOX_REENTERED:-0}" == "1" ]]; then
+    return
+  fi
+  if ! command -v distrobox >/dev/null 2>&1; then
+    return
+  fi
+  if is_containerized_shell; then
+    return
+  fi
+
+  local container="${JVN_DISTROBOX_CONTAINER:-}"
+  local explicit_container=1
+  if [[ -z "$container" ]]; then
+    explicit_container=0
+    if [[ "${JVN_DISTROBOX:-auto}" != "1" && "${JVN_DISTROBOX:-auto}" != "true" ]]; then
+      is_bazzite_host || return
+    fi
+    container="$(detect_distrobox_container || true)"
+    [[ -n "$container" ]] || return
+  fi
+  if [[ "$explicit_container" -eq 0 ]] && ! distrobox_container_exists "$container"; then
+    return
+  fi
+
+  echo "[jvn] entering distrobox container '$container' for the JDK/runtime environment..." >&2
+  export JVN_DISTROBOX_REENTERED=1
+  exec distrobox enter "$container" -- bash -lc 'cd "$1" && shift && exec "$@"' jvn-distrobox "$SCRIPT_DIR" "$SCRIPT_DIR/jvn" "$@"
+}
+
+maybe_reenter_distrobox "$@"
+
 if [[ ! -x "$GRADLEW" ]]; then
   echo "[jvn] error: gradlew not found or not executable at $GRADLEW" 1>&2
   exit 1

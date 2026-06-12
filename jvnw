@@ -5,6 +5,146 @@ set -u
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 GRADLEW_PATH="$SCRIPT_DIR/gradlew"
 
+is_bazzite_host() {
+  if [[ ! -r /etc/os-release ]]; then
+    return 1
+  fi
+  (
+    . /etc/os-release
+    [[ "${ID:-}" == "bazzite" || "${ID_LIKE:-}" == *"bazzite"* || "${VARIANT_ID:-}" == *"bazzite"* ]]
+  )
+}
+
+distrobox_container_exists() {
+  local container="$1"
+  if ! command -v distrobox-list >/dev/null 2>&1; then
+    return 0
+  fi
+  distrobox-list --no-color 2>/dev/null | awk -v needle="$container" '
+    {
+      for (i = 1; i <= NF; i++) {
+        field = $i
+        gsub(/^[[:space:]|]+|[[:space:]|]+$/, "", field)
+        if (field == needle) found = 1
+      }
+    }
+    END { exit(found ? 0 : 1) }
+  '
+}
+
+distrobox_container_names() {
+  if ! command -v distrobox-list >/dev/null 2>&1; then
+    return 1
+  fi
+  distrobox-list --no-color 2>/dev/null | awk -F'|' '
+    NR == 1 { next }
+    NF >= 3 {
+      name = $2
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", name)
+      if (name != "" && name != "NAME") print name
+    }
+  '
+}
+
+distrobox_container_has_jdk() {
+  local container="$1"
+  distrobox enter "$container" -- bash -lc '
+    command -v java >/dev/null 2>&1 || exit 1
+    command -v javac >/dev/null 2>&1 || exit 1
+    version_line="$(java -version 2>&1 | sed -n "1p")" || exit 1
+    if [[ "$version_line" =~ \"([^\"]+)\" ]]; then
+      version="${BASH_REMATCH[1]}"
+    elif [[ "$version_line" =~ ([0-9]+)(\.[0-9]+)* ]]; then
+      version="${BASH_REMATCH[1]}"
+    else
+      exit 1
+    fi
+    if [[ "$version" == 1.* ]]; then
+      version="${version#1.}"
+    fi
+    major="${version%%.*}"
+    [[ "$major" =~ ^[0-9]+$ ]] && (( major >= 21 ))
+  ' >/dev/null 2>&1
+}
+
+detect_distrobox_container() {
+  local preferred container
+  local -a containers=()
+
+  while IFS= read -r container; do
+    [[ -n "$container" ]] && containers+=("$container")
+  done < <(distrobox_container_names || true)
+
+  [[ ${#containers[@]} -gt 0 ]] || return 1
+
+  for preferred in jvn java jdk devbox main fedora ubuntu arch; do
+    for container in "${containers[@]}"; do
+      if [[ "$container" == "$preferred" ]] && distrobox_container_has_jdk "$container"; then
+        printf '%s\n' "$container"
+        return 0
+      fi
+    done
+  done
+
+  for container in "${containers[@]}"; do
+    if distrobox_container_has_jdk "$container"; then
+      printf '%s\n' "$container"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+is_containerized_shell() {
+  [[ -f /run/.containerenv || -f /.dockerenv || -n "${container:-}" ]]
+}
+
+container_name_label() {
+  if [[ -n "${DISTROBOX_ENTER_PATH:-}" && -n "${HOSTNAME:-}" ]]; then
+    printf '%s' "$HOSTNAME"
+  elif [[ -n "${container:-}" ]]; then
+    printf '%s' "$container"
+  else
+    printf 'this container'
+  fi
+}
+
+maybe_reenter_distrobox() {
+  if [[ "${JVN_DISTROBOX:-auto}" == "0" || "${JVN_DISTROBOX:-auto}" == "false" ]]; then
+    return
+  fi
+  if [[ "${JVN_DISTROBOX_REENTERED:-0}" == "1" ]]; then
+    return
+  fi
+  if ! command -v distrobox >/dev/null 2>&1; then
+    return
+  fi
+  if is_containerized_shell; then
+    return
+  fi
+
+  local container="${JVN_DISTROBOX_CONTAINER:-}"
+  local explicit_container=1
+  if [[ -z "$container" ]]; then
+    explicit_container=0
+    if [[ "${JVN_DISTROBOX:-auto}" != "1" && "${JVN_DISTROBOX:-auto}" != "true" ]]; then
+      is_bazzite_host || return
+    fi
+    container="$(detect_distrobox_container || true)"
+    [[ -n "$container" ]] || return
+  fi
+  if [[ "$explicit_container" -eq 0 ]] && ! distrobox_container_exists "$container"; then
+    return
+  fi
+
+  echo "[jvnw] entering distrobox container '$container' for the JDK/runtime environment..." >&2
+  export JVN_DISTROBOX_REENTERED=1
+  exec distrobox enter "$container" -- bash -lc 'cd "$1" && shift && exec "$@"' jvnw-distrobox "$SCRIPT_DIR" "$SCRIPT_DIR/jvnw" "$@"
+}
+
+maybe_reenter_distrobox "$@"
+
 if [[ ! -f "$GRADLEW_PATH" ]]; then
   printf 'JVN wrapper error: missing %s\n' "$GRADLEW_PATH" >&2
   exit 1
@@ -614,6 +754,45 @@ is_real_error_line() {
   return 1
 }
 
+output_log_contains() {
+  local pattern="$1"
+  [[ -f "$output_log" ]] || return 1
+  grep -qiE "$pattern" "$output_log"
+}
+
+javafx_gtk_failure_seen() {
+  output_log_contains 'unable to load glass gtk library|glass gtk|glassgtk|libgtk|gtk.*javafx|javafx.*gtk'
+}
+
+linux_package_manager_hint() {
+  if command -v dnf >/dev/null 2>&1; then
+    printf 'sudo dnf install gtk3 libXtst libXxf86vm alsa-lib libXrender libXrandr libXinerama libXi'
+  elif command -v apt >/dev/null 2>&1; then
+    printf 'sudo apt install libgtk-3-0 libxtst6 libxxf86vm1 libasound2 libxrender1 libxrandr2 libxinerama1 libxi6'
+  elif command -v pacman >/dev/null 2>&1; then
+    printf 'sudo pacman -S gtk3 libxtst libxxf86vm alsa-lib libxrender libxrandr libxinerama libxi'
+  elif command -v zypper >/dev/null 2>&1; then
+    printf 'sudo zypper install gtk3 libXtst6 libXxf86vm1 libasound2 libXrender1 libXrandr2 libXinerama1 libXi6'
+  elif command -v apk >/dev/null 2>&1; then
+    printf 'sudo apk add gtk+3.0 libxtst libxxf86vm alsa-lib libxrender libxrandr libxinerama libxi'
+  else
+    printf 'Install GTK 3 plus X11/ALSA runtime libraries in the container: gtk3, libXtst, libXxf86vm, alsa-lib, libXrender, libXrandr, libXinerama, libXi.'
+  fi
+}
+
+show_environment_failure_hints() {
+  if javafx_gtk_failure_seen; then
+    emit_section "JavaFX GTK dependency hint"
+    if is_containerized_shell; then
+      emit_hint "The editor is running inside $(container_name_label); install the JavaFX GTK/X11 native runtime libraries inside that container."
+    else
+      emit_hint "Install the JavaFX GTK/X11 native runtime libraries in the environment that runs the editor."
+    fi
+    emit_hint "$(linux_package_manager_hint)"
+    emit_hint "Then retry: ./jvnw editor"
+  fi
+}
+
 should_surface_line() {
   local line="$1"
   if [[ "$debug_mode" == "1" || "$alias_label" == "gradle" ]]; then
@@ -769,33 +948,13 @@ fi
 "${gradle_cmd[@]}" >"$fifo_path" 2>&1 &
 gradle_pid=$!
 
-exec 3< <(
-  perl -e '
-    use strict;
-    use warnings;
-    use IO::Select;
-    $| = 1;
+exec 3<"$fifo_path"
 
-    my ($interval, $tick_marker, $fifo_path) = @ARGV;
-    open my $fh, "<", $fifo_path or die "Unable to open $fifo_path: $!";
-
-    my $selector = IO::Select->new($fh);
-    while (1) {
-      my @ready = $selector->can_read($interval);
-      if (@ready) {
-        my $line = <$fh>;
-        last unless defined $line;
-        $line =~ s/\r?\n\z//;
-        print "$line\n";
-      } else {
-        print "$tick_marker\n";
-      }
-    }
-  ' "$spinner_tick_seconds" "$spinner_tick_marker" "$fifo_path"
-)
-
-while IFS= read -r line <&3; do
-  if [[ "$line" == "$spinner_tick_marker" ]]; then
+while true; do
+  if IFS= read -r -t "$spinner_tick_seconds" line <&3; then
+    printf '%s\n' "$line" >>"$output_log"
+    handle_line "$line"
+  else
     if kill -0 "$gradle_pid" 2>/dev/null; then
       if [[ "$launch_announced" -eq 1 && "$launch_live_announced" -eq 0 ]]; then
         clear_status
@@ -819,12 +978,17 @@ while IFS= read -r line <&3; do
       if [[ "$suppress_status_render" -eq 0 ]]; then
         render_status
       fi
+    else
+      break
     fi
-  else
-    printf '%s\n' "$line" >>"$output_log"
-    handle_line "$line"
   fi
 done
+
+while IFS= read -r -t 0.01 line <&3; do
+  printf '%s\n' "$line" >>"$output_log"
+  handle_line "$line"
+done
+exec 3<&-
 
 wait "$gradle_pid"
 exit_code=$?
@@ -835,8 +999,9 @@ clear_status
 
 if [[ "$exit_code" -eq 0 ]]; then
   emit_ok "${done_message} ${elapsed_label}"
-else
-  show_failure_summary "$elapsed_label"
+  else
+    show_failure_summary "$elapsed_label"
+  show_environment_failure_hints
 fi
 
 exit "$exit_code"
