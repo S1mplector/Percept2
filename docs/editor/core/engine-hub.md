@@ -81,7 +81,7 @@ The hub exposes the main workspace actions as buttons:
 | Action | What it runs |
 |--------|--------------|
 | Run Editor | Starts the full JVN editor |
-| Run Launcher | Starts the standalone JVN launcher when it is available; shows the maintenance overlay when disabled |
+| Run Launcher | Starts the standalone JVN launcher |
 | Build All | Builds the workspace |
 | Run Tests | Runs the test suite |
 | Build Shortcuts | Installs native OS shortcuts for this checkout |
@@ -100,7 +100,7 @@ The hub reads dynamic workspace state from committed files under `.jvn/`:
 
 The running hub re-reads both files after a successful **Update Engine** action. That means a launcher maintenance badge or announcement can appear or disappear after updating the engine without closing and reopening the hub.
 
-When `launcher.maintenance=true`, the **Run Launcher** button stays visible but displays a striped maintenance state. Clicking it shows the configured message instead of launching the standalone launcher. The command wrapper mirrors this state with a warning when running `./jvnw launcher` or `jvnw launcher`.
+When `launcher.maintenance=true`, the **Run Launcher** button stays visible but displays a striped maintenance state. Clicking it shows the configured message instead of launching the standalone launcher. The default committed state is `launcher.maintenance=false`, so the launcher opens normally.
 
 ## Update Engine Recovery
 

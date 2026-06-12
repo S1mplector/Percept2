@@ -23,7 +23,6 @@ import com.jvn.editor.ui.EditorTheme;
 import com.jvn.editor.ui.GameBuildPublisherView;
 import com.jvn.editor.ui.JvnStatusBar;
 import com.jvn.editor.ui.LauncherSettingsView;
-import com.jvn.editor.ui.MaintenanceOverlay;
 import com.jvn.editor.ui.NewProjectWizard;
 import com.jvn.editor.ui.RunConsoleView;
 import com.jvn.editor.ui.StartupSplashOverlay;
@@ -61,14 +60,11 @@ public class JvnLauncherApp extends Application {
   private static final String EDITOR_OPEN_PROJECT_PROPERTY = "jvn.editor.openProject";
   private static final String EDITOR_OPEN_FILE_PROPERTY = "jvn.editor.openFile";
   private static final String LAUNCHER_START_PROJECT_PROPERTY = "jvn.launcher.project";
-  private static final long MIN_STARTUP_SPLASH_MS = 1500L;
+  private static final long MIN_STARTUP_SPLASH_MS = 350L;
   private static final long STARTUP_STEP_DELAY_MS = 0L;
   private static final DateTimeFormatter STARTUP_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
   private static final DateTimeFormatter PROCESS_LOG_TIME = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
   private static final boolean DEVELOPER_MODE = Boolean.getBoolean("jvn.launcher.developerMode");
-  private static final String LAUNCHER_MAINTENANCE_MESSAGE =
-      "JVN Launcher is temporarily under maintenance while the standalone startup flow is being rebuilt. "
-          + "Use Engine Hub > Run Editor or ./jvnw editor for daily work.";
 
   private Stage primaryStage;
   private Stage settingsStage;
@@ -305,10 +301,10 @@ public class JvnLauncherApp extends Application {
     root.setBottom(statusBar);
     BorderPane.setMargin(welcomeView, new Insets(12, 12, 0, 12));
 
-    Scene scene = new Scene(MaintenanceOverlay.wrap(root, null, LAUNCHER_MAINTENANCE_MESSAGE), 1320, 860);
+    Scene scene = new Scene(root, 1320, 860);
     EditorTheme.apply(scene);
 
-    stage.setTitle("JVN Launcher - Under Maintenance");
+    stage.setTitle("JVN Launcher");
     stage.setScene(scene);
     stage.setMinWidth(1160);
     stage.setMinHeight(760);
