@@ -2073,6 +2073,7 @@ public class EditorApp extends Application {
     root.setTop(top);
     // Center: per-file tabs with embedded preview
     filesTabs = new TabPane();
+    filesTabs.getStyleClass().add("sidebar-tab-pane");
     filesTabs.getSelectionModel().selectedItemProperty().addListener((o, ov, nv) -> {
       updateContextForActiveTab();
     });
