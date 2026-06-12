@@ -10,10 +10,11 @@ UI strings: `modules/core/src/main/java/com/jvn/core/localization/Localization.j
 
 ## Overview
 
-JVN supports two complementary localization systems:
+JVN supports three complementary localization systems:
 
 1. **Script localization** — locale-aware loading of `.vns` files, allowing entire scripts to be translated
 2. **UI string localization** — key-based string lookup for engine UI elements (HUD, menus, mode indicators)
+3. **Source-text catalogs** — extracted dialogue, choices, menu labels, and overlay text resolved through generated `source.<hash>` keys
 
 ---
 
@@ -96,10 +97,10 @@ List<String> locales = loader.getAvailableLocales("chapter1.vns");
 
 ### String Files
 
-UI strings are loaded from `.properties` files:
+UI strings are loaded from UTF-8 `.properties` files. New projects use `config/locales`, while `game/strings` and `strings` remain supported for older layouts:
 
 ```text
-game/strings/
+config/locales/
 ├── en.properties    # English (default)
 ├── ja.properties    # Japanese
 ├── de.properties    # German
@@ -109,7 +110,7 @@ game/strings/
 ### Properties Format
 
 ```properties
-# game/strings/en.properties
+# config/locales/en.properties
 hud.skip=SKIP
 hud.auto=AUTO
 hud.ui_off=UI OFF
@@ -120,7 +121,7 @@ menu.quit=Quit
 ```
 
 ```properties
-# game/strings/ja.properties
+# config/locales/ja.properties
 hud.skip=スキップ
 hud.auto=オート
 hud.ui_off=UI非表示
@@ -138,14 +139,17 @@ Localization.init("ja", Thread.currentThread().getContextClassLoader());
 ```
 
 Resolution order:
-1. `game/strings/ja.properties`
-2. `game/strings/en.properties` (fallback)
+1. `config/locales/ja.properties`
+2. `game/strings/ja.properties`
+3. `strings/ja.properties`
+4. The same directories for `en.properties` fallback
 
 ### String Lookup
 
 ```java
 String text = Localization.t("hud.skip");  // Returns "スキップ" if ja is active
 String missing = Localization.t("unknown.key"); // Returns "unknown.key" (key itself)
+String source = Localization.tSource("Start Game"); // Source-text catalog lookup
 ```
 
 The `t()` method returns the key string itself if no translation is found, making missing translations visible in the UI.
@@ -170,7 +174,49 @@ game/scripts/chapter1.vns
 game/scripts/chapter2.vns
 ```
 
-### 2. Create Localized Copies
+### 2. Extract a Translation Catalog
+
+Run the extractor from the engine workspace:
+
+```bash
+./gradlew extractJvnTranslations -PjvnGameProject=/path/to/game -PjvnLocale=ja -PjvnEmptyMissing=true
+```
+
+The task scans `.vns`, `.menu`, `.layout`, `.style`, `.screen`, and related properties files, then writes:
+
+```text
+config/locales/ja.properties
+```
+
+Existing translated values are preserved when you run the command again. Use `updateJvnTranslations` as a clearer alias when refreshing an existing catalog:
+
+```bash
+./gradlew updateJvnTranslations -PjvnGameProject=/path/to/game -PjvnLocale=ja -PjvnEmptyMissing=true
+```
+
+Useful options:
+
+| Property | Description |
+|----------|-------------|
+| `-PjvnGameProject=<dir>` | Project to scan. Alias: `-PjvnTranslationProject=<dir>` |
+| `-PjvnLocale=<code>` | Target locale. Defaults to `runtime.locale` / `locale` in `jvn.project`, then `en` |
+| `-PjvnSourceLocale=<code>` | Source locale, default `en` |
+| `-PjvnTranslationOutput=<file>` | Custom output file |
+| `-PjvnEmptyMissing=true` | Leave new non-source-locale entries blank for translators |
+| `-PjvnDryRun=true` | Print scan summary without writing |
+
+Generated entries look like:
+
+```properties
+# kind: dialogue
+# source: scripts/story/prologue.vns:12 dialogue speaker=alice
+# original: Welcome to JVN.
+source.d76c7b3c02a1=JVNへようこそ。
+```
+
+At runtime, literal dialogue, choices, menu labels, and reactive screen text use these `source.<hash>` entries automatically. You can still use explicit `i18n:key` values for strings you want to name by hand.
+
+### 3. Create Localized Script Copies When Needed
 
 For each target language, create translated versions:
 
@@ -180,21 +226,23 @@ game/scripts/ja/chapter1.vns
 game/scripts/ja/chapter2.vns
 ```
 
-### 3. Create String Files
+Use full script copies when sentence order, branch structure, or language-specific staging needs to diverge from the source. Use source-text catalogs when the script flow stays the same.
+
+### 4. Create or Edit String Files
 
 ```text
-game/strings/en.properties
-game/strings/ja.properties
+config/locales/en.properties
+config/locales/ja.properties
 ```
 
-### 4. Initialize at Startup
+### 5. Initialize at Startup
 
 ```java
 String userLocale = System.getProperty("user.language", "en");
 Localization.init(userLocale, classLoader);
 ```
 
-### 5. Load Scripts Normally
+### 6. Load Scripts Normally
 
 ```java
 VnScenarioLoader loader = new VnScenarioLoader();

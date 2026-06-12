@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.jvn.core.audio.AudioFacade;
+import com.jvn.core.localization.Localization;
 import com.jvn.core.scene.Scene;
 import com.jvn.core.vn.rollback.VnRollbackEntry;
 
@@ -519,7 +520,7 @@ public class VnScene implements Scene {
   }
 
   private String resolveInterpolatedText(String text) {
-    return VnTextFormatter.format(text, state.getVariables());
+    return VnTextFormatter.format(Localization.translateText(text), state.getVariables());
   }
 
   /**

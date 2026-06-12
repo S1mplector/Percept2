@@ -28,6 +28,9 @@ import com.jvn.core.audio.AudioFacade;
 import com.jvn.core.vn.stage.VnStagePreset;
 import com.jvn.core.vn.ui.VnOverlayButtonSpec;
 import com.jvn.core.vn.ui.VnOverlayScreenSpec;
+import com.jvn.core.vn.ui.VnReactiveOverlayScreenSpec;
+import com.jvn.core.vn.ui.VnReactiveScreenLoader;
+import com.jvn.core.vn.ui.VnReactiveScreenSpec;
 
 /**
  * Interoperability implementation.
@@ -1137,7 +1140,7 @@ public class DefaultVnInterop implements VnInterop {
         String id = toks[1];
         Map<String, String> options = parseKeyValueTokens(toks, 2);
         boolean callScreen = "call".equals(cmd) || parseBooleanOption(options, "call", false);
-        VnOverlayScreenSpec spec = buildOverlayScreen(id, options, callScreen);
+        VnOverlayScreenSpec spec = buildOverlayScreen(id, options, callScreen, scene);
         scene.getState().showOverlayScreen(spec);
         if (callScreen) {
           scene.beginInteropBlock(() -> !scene.getState().hasOverlayScreen(spec.getId()));
@@ -1632,7 +1635,11 @@ public class DefaultVnInterop implements VnInterop {
     return options;
   }
 
-  private VnOverlayScreenSpec buildOverlayScreen(String id, Map<String, String> options, boolean callScreen) {
+  private VnOverlayScreenSpec buildOverlayScreen(String id, Map<String, String> options, boolean callScreen, VnScene scene) {
+    VnOverlayScreenSpec reactive = loadReactiveOverlayScreen(id, callScreen, scene);
+    if (reactive != null && shouldUseReactiveScreenDefinition(options)) {
+      return reactive;
+    }
     double x = parseDoubleSafe(option(options, "x", "0.18"), 0.18);
     double y = parseDoubleSafe(option(options, "y", "0.18"), 0.18);
     double width = parseDoubleSafe(option(options, "w", option(options, "width", "0.64")), 0.64);
@@ -1667,6 +1674,28 @@ public class DefaultVnInterop implements VnInterop {
         returnKey,
         buttons
     );
+  }
+
+  private VnOverlayScreenSpec loadReactiveOverlayScreen(String id, boolean callScreen, VnScene scene) {
+    VnReactiveScreenLoader.LoadResult result = VnReactiveScreenLoader.loadFromAssets(id);
+    VnReactiveScreenSpec definition = result.screen();
+    if (definition == null) return null;
+    return new VnReactiveOverlayScreenSpec(definition, scene == null ? null : scene.getState(), callScreen);
+  }
+
+  private boolean shouldUseReactiveScreenDefinition(Map<String, String> options) {
+    if (options == null || options.isEmpty()) return true;
+    if (parseBooleanOption(options, "file", false) || parseBooleanOption(options, "definition", false)) return true;
+    for (String key : options.keySet()) {
+      if (key == null) continue;
+      String normalized = key.trim().toLowerCase(Locale.ROOT);
+      if (normalized.equals("call") || normalized.equals("modal") || normalized.equals("dim")) continue;
+      if (normalized.equals("dismiss") || normalized.equals("timer") || normalized.equals("timeraction")) continue;
+      if (normalized.equals("timer_action") || normalized.equals("timertarget") || normalized.equals("timer_target")) continue;
+      if (normalized.equals("returnkey") || normalized.equals("return_key")) continue;
+      return false;
+    }
+    return true;
   }
 
   private List<VnOverlayButtonSpec> parseAutoButtons(String screenId, String spec, double screenWidth, double screenHeight) {

@@ -438,6 +438,43 @@ Force-clears any active shake or flash effects immediately.
 [screen clear]
 ```
 
+### `[screen show <id>]` / `[screen call <id>]`
+
+Shows an overlay screen. If `config/screens/<id>.screen` exists, JVN loads it as a reactive screen whose text and buttons update from `VnState` variables. If no file exists, JVN falls back to the inline overlay syntax.
+
+```vns
+[screen show shop]
+[screen call shop]
+[if screen.return.shop == "buy" goto bought_potion]
+```
+
+Reactive screen file:
+
+```properties
+# config/screens/shop.screen
+title=Shop
+text=Coins: ${coins}
+modal=true
+buttons=buy,leave
+
+button.buy.label=Buy potion
+button.buy.action=return
+button.buy.target=buy
+button.buy.enabledIf=coins >= 10
+
+button.leave.label=Leave
+button.leave.action=return
+button.leave.target=leave
+```
+
+Inline screen syntax still works:
+
+```vns
+[screen show confirm title="Confirm" text="Continue?" buttons="Yes|return|yes;No|return|no"]
+```
+
+See [Reactive Overlay Screens](../../ui/menus/reactive-screens.md).
+
 ---
 
 ## Settings & Player Modes

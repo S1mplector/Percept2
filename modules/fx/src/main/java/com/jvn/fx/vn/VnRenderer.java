@@ -57,6 +57,7 @@ import com.jvn.core.vn.text.TextParser;
 import com.jvn.core.vn.text.TextSpan;
 import com.jvn.core.vn.ui.VnOverlayButtonSpec;
 import com.jvn.core.vn.ui.VnOverlayScreenSpec;
+import com.jvn.core.vn.ui.VnReactiveOverlayScreenSpec;
 import com.jvn.core.vn.ui.VnUiActionButtonSpec;
 import com.jvn.core.vn.ui.VnUiLayoutLoader;
 import com.jvn.core.vn.ui.VnUiLayoutSpec;
@@ -377,7 +378,7 @@ public class VnRenderer {
         String nodeKey = String.valueOf(currentNode.getSourceLine());
         if (!nodeKey.equals(lastTtsNodeId) && VnConfig.defaults().isTtsEnabled()) {
           lastTtsNodeId = nodeKey;
-          tts.speak(currentNode.getDialogue().getText(), java.util.Locale.getDefault());
+          tts.speak(resolveRuntimeText(currentNode.getDialogue().getText()), java.util.Locale.getDefault());
         }
       }
       switch (currentNode.getType()) {
@@ -3206,8 +3207,9 @@ public class VnRenderer {
 
   private String resolveRuntimeText(String text) {
     if (text == null) return "";
-    if (currentState == null) return text;
-    return VnVariableInterpolator.interpolate(text, currentState.getVariables());
+    String translated = Localization.translateText(text);
+    if (currentState == null) return translated;
+    return VnVariableInterpolator.interpolate(translated, currentState.getVariables());
   }
 
   private void drawContinueIndicator(double x, double y) {
@@ -3263,6 +3265,7 @@ public class VnRenderer {
     for (int screenIndex = screens.size() - 1; screenIndex >= 0; screenIndex--) {
       VnOverlayScreenSpec screen = screens.get(screenIndex);
       if (screen == null) continue;
+      if (screen instanceof VnReactiveOverlayScreenSpec reactive && !reactive.isVisibleNow()) continue;
       ScreenGeometry screenGeometry = computeOverlayScreenGeometry(screen, width, height);
       List<VnOverlayButtonSpec> buttons = screen.getButtons();
       for (int i = buttons.size() - 1; i >= 0; i--) {
@@ -3359,6 +3362,7 @@ public class VnRenderer {
     boolean dimDrawn = false;
     for (VnOverlayScreenSpec screen : state.getOverlayScreens()) {
       if (screen == null) continue;
+      if (screen instanceof VnReactiveOverlayScreenSpec reactive && !reactive.isVisibleNow()) continue;
       if (screen.isDimBackground() && !dimDrawn) {
         gc.setFill(Color.rgb(0, 0, 0, 0.42));
         gc.fillRect(0, 0, width, height);
@@ -3369,7 +3373,7 @@ public class VnRenderer {
       for (VnOverlayButtonSpec button : screen.getButtons()) {
         if (button == null || !button.enabled()) continue;
         ButtonGeometry geometry = computeOverlayButtonGeometry(button, screenGeometry, width, height);
-        renderOverlayButton(button, geometry, hoveredButton == button);
+        renderOverlayButton(button, geometry, sameOverlayButton(hoveredButton, button));
       }
     }
   }
@@ -3387,13 +3391,14 @@ public class VnRenderer {
     double innerWidth = Math.max(40, geometry.width() - 44);
     gc.setFill(Color.WHITE);
     gc.setFont(Font.font(nameFont.getFamily(), FontWeight.BOLD, 22));
-    gc.fillText(screen.getTitle(), innerX, innerY + 4);
+    gc.fillText(resolveRuntimeText(screen.getTitle()), innerX, innerY + 4);
 
-    if (screen.getText() != null && !screen.getText().isBlank()) {
+    String screenText = resolveRuntimeText(screen.getText());
+    if (screenText != null && !screenText.isBlank()) {
       gc.setFill(Color.rgb(228, 232, 240, 0.95));
       gc.setFont(Font.font(dialogueFont.getFamily(), FontWeight.NORMAL, 17));
       double textY = innerY + 34;
-      for (String line : wrapText(screen.getText(), innerWidth, gc.getFont())) {
+      for (String line : wrapText(screenText, innerWidth, gc.getFont())) {
         gc.fillText(line, innerX, textY);
         textY += 22;
         if (textY > geometry.y() + geometry.height() - 44) break;
@@ -3423,11 +3428,18 @@ public class VnRenderer {
     gc.setStroke(stroke);
     gc.setLineWidth(1.2);
     gc.strokeRoundRect(geometry.x(), geometry.y(), geometry.width(), geometry.height(), 16, 16);
-    if (button.label() != null && !button.label().isBlank()) {
+    String label = resolveRuntimeText(button.label());
+    if (label != null && !label.isBlank()) {
       gc.setFill(Color.WHITE);
       gc.setFont(Font.font(choiceFont.getFamily(), FontWeight.NORMAL, 16));
-      gc.fillText(button.label(), geometry.x() + 12, geometry.y() + geometry.height() * 0.62);
+      gc.fillText(label, geometry.x() + 12, geometry.y() + geometry.height() * 0.62);
     }
+  }
+
+  private boolean sameOverlayButton(VnOverlayButtonSpec a, VnOverlayButtonSpec b) {
+    if (a == null || b == null) return false;
+    return java.util.Objects.equals(a.screenId(), b.screenId())
+        && java.util.Objects.equals(a.id(), b.id());
   }
 
   private List<String> wrapText(String text, double maxWidth, Font font) {

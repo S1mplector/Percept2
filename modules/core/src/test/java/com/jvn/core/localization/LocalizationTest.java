@@ -28,4 +28,23 @@ class LocalizationTest {
       Localization.init("en", Thread.currentThread().getContextClassLoader());
     }
   }
+
+  @Test
+  void loadsUtf8ConfigLocalesAndTranslatesSourceText() throws Exception {
+    Path root = Files.createTempDirectory("jvn-localization-config-");
+    Files.createDirectories(root.resolve("config/locales"));
+    String key = Localization.sourceKey("Start Game");
+    Files.writeString(root.resolve("config/locales/ja.properties"), key + "=ゲーム開始\nmenu.start=始める\n");
+
+    AssetCatalog.setDefaultManager(new FilesystemAssetManager(root));
+    try {
+      Localization.init("ja", Thread.currentThread().getContextClassLoader());
+      assertEquals("始める", Localization.t("menu.start"));
+      assertEquals("ゲーム開始", Localization.tSource("Start Game"));
+      assertEquals("ゲーム開始", Localization.translateText("Start Game"));
+    } finally {
+      AssetCatalog.setDefaultManager(new ClasspathAssetManager());
+      Localization.init("en", Thread.currentThread().getContextClassLoader());
+    }
+  }
 }

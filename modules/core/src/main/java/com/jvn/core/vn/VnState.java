@@ -12,6 +12,7 @@ import com.jvn.core.animation.Easing;
 import com.jvn.core.animation.TimelineRunner;
 import com.jvn.core.vn.rollback.VnRollbackStack;
 import com.jvn.core.vn.ui.VnOverlayScreenSpec;
+import com.jvn.core.vn.ui.VnReactiveOverlayScreenSpec;
 
 /**
  * Manages the current state of a visual novel playthrough
@@ -1457,6 +1458,10 @@ public class VnState {
     if (overlayScreens.isEmpty()) return;
     List<VnOverlayScreenSpec> expired = new ArrayList<>();
     for (VnOverlayScreenSpec screen : overlayScreens) {
+      if (screen instanceof VnReactiveOverlayScreenSpec reactive && !reactive.isVisibleNow()) {
+        expired.add(screen);
+        continue;
+      }
       if (screen != null && screen.tick(deltaMs)) expired.add(screen);
     }
     for (VnOverlayScreenSpec screen : expired) {

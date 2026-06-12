@@ -4,6 +4,8 @@ import org.gradle.api.file.DuplicatesStrategy
 import org.gradle.api.tasks.bundling.AbstractArchiveTask
 import org.gradle.api.tasks.bundling.Zip
 import org.gradle.api.tasks.compile.JavaCompile
+import org.gradle.api.tasks.JavaExec
+import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.testing.Test
 import org.gradle.jvm.tasks.Jar
 import org.gradle.jvm.toolchain.JavaToolchainService
@@ -2476,6 +2478,7 @@ tasks.register("buildSystemHelp") {
     println("  ./jvnw build-info    Print Java, Gradle, JavaFX, and module configuration")
     println("  ./jvnw doctor        Alias for build-info; useful when debugging local setup")
     println("  ./jvnw dist-preflight -PjvnGameProject=<dir>  Validate a game release plan")
+    println("  ./gradlew extractJvnTranslations -PjvnGameProject=<dir> -PjvnLocale=ja  Update translation catalog")
   }
 }
 
@@ -2558,4 +2561,49 @@ subprojects {
       }
     }
   }
+}
+
+fun jvnTranslationProjectDir(): File {
+  val raw = listOf(
+    findProperty("jvnTranslationProject") as String?,
+    findProperty("jvnGameProject") as String?,
+    findProperty("jvnProject") as String?
+  ).firstOrNull { !it.isNullOrBlank() } ?: rootDir.absolutePath
+  val file = File(raw)
+  return if (file.isAbsolute) file else File(rootDir, raw)
+}
+
+fun jvnTranslationCliArgs(command: String): List<String> {
+  val args = mutableListOf(command, "--project", jvnTranslationProjectDir().absolutePath)
+  val locale = (findProperty("jvnLocale") as String?)?.trim()?.takeIf { it.isNotBlank() }
+  val sourceLocale = (findProperty("jvnSourceLocale") as String?)?.trim()?.takeIf { it.isNotBlank() }
+  val output = (findProperty("jvnTranslationOutput") as String?)?.trim()?.takeIf { it.isNotBlank() }
+  val emptyMissing = (findProperty("jvnEmptyMissing") as String?)?.trim()?.takeIf { it.isNotBlank() }
+  val dryRun = (findProperty("jvnDryRun") as String?)?.trim()?.takeIf { it.isNotBlank() }
+  if (locale != null) args += listOf("--locale", locale)
+  if (sourceLocale != null) args += listOf("--source-locale", sourceLocale)
+  if (output != null) args += listOf("--output", output)
+  if (emptyMissing != null) args += listOf("--empty-missing", emptyMissing)
+  if (dryRun != null) args += listOf("--dry-run", dryRun)
+  return args
+}
+
+fun jvnConfigureTranslationTask(task: JavaExec, command: String) {
+  val coreProject = project(":core")
+  val sourceSets = coreProject.extensions.getByType<SourceSetContainer>()
+  task.group = "jvn authoring"
+  task.dependsOn(":core:classes")
+  task.mainClass.set("com.jvn.core.localization.TranslationCli")
+  task.classpath = sourceSets.named("main").get().runtimeClasspath
+  task.args(jvnTranslationCliArgs(command))
+}
+
+tasks.register<JavaExec>("extractJvnTranslations") {
+  description = "Extracts VNS and UI source text into config/locales/<locale>.properties."
+  jvnConfigureTranslationTask(this, "extract")
+}
+
+tasks.register<JavaExec>("updateJvnTranslations") {
+  description = "Updates a JVN translation catalog while preserving existing translated values."
+  jvnConfigureTranslationTask(this, "update")
 }

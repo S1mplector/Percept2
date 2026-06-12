@@ -48,9 +48,10 @@ This index is the main route through the Java Vector Nexus documentation. It is 
 
 1. [Menu Profiles](scripting/ui/menus/menu-profiles.md)
 2. [Menu Screens](scripting/ui/menus/menu-screens.md)
-3. [Menu Styles](scripting/ui/menus/menu-styles.md)
-4. [Text-First Layout Workflow](scripting/ui/layout/workflow/text-first-layout-workflow.md)
-5. [Layout DSL Cookbook](scripting/ui/layout/reference/layout-dsl-cookbook.md)
+3. [Reactive Overlay Screens](scripting/ui/menus/reactive-screens.md)
+4. [Menu Styles](scripting/ui/menus/menu-styles.md)
+5. [Text-First Layout Workflow](scripting/ui/layout/workflow/text-first-layout-workflow.md)
+6. [Layout DSL Cookbook](scripting/ui/layout/reference/layout-dsl-cookbook.md)
 
 ### Create Gameplay Or Interactive Scenes
 
@@ -228,6 +229,7 @@ This index is the main route through the Java Vector Nexus documentation. It is 
 
 - [Menu Profiles](scripting/ui/menus/menu-profiles.md)
 - [Menu Screens](scripting/ui/menus/menu-screens.md)
+- [Reactive Overlay Screens](scripting/ui/menus/reactive-screens.md)
 - [Menu Styles](scripting/ui/menus/menu-styles.md)
 
 ### Layout Components

@@ -235,8 +235,8 @@ public final class ProjectHealthChecker {
   private static void inspectLocalization(AssetCatalog assets, Properties manifest, List<Diagnostic> diagnostics) {
     String locale = manifest == null ? null : normalize(manifest.getProperty("runtime.locale"), null);
     if (locale == null) locale = "en";
-    String english = "game/strings/en.properties";
-    if (!assetExistsAny(assets, english, "strings/en.properties")) {
+    String english = "config/locales/en.properties";
+    if (!assetExistsAny(assets, english, "game/strings/en.properties", "strings/en.properties")) {
       diagnostics.add(new Diagnostic(
           Severity.WARNING,
           "localization",
@@ -246,8 +246,8 @@ public final class ProjectHealthChecker {
     }
 
     if (!"en".equalsIgnoreCase(locale)) {
-      String requested = "game/strings/" + locale + ".properties";
-      if (!assetExistsAny(assets, requested, "strings/" + locale + ".properties")) {
+      String requested = "config/locales/" + locale + ".properties";
+      if (!assetExistsAny(assets, requested, "game/strings/" + locale + ".properties", "strings/" + locale + ".properties")) {
         diagnostics.add(new Diagnostic(
             Severity.WARNING,
             "localization",

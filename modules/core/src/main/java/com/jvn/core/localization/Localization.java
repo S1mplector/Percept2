@@ -3,19 +3,21 @@ package com.jvn.core.localization;
 import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Properties;
 
 /**
  * Global string-table localization backed by {@code .properties} files.
  *
  * <p>Strings are loaded from the classpath under
- * {@code game/strings/<locale>.properties}. If the requested locale file
- * is missing, the loader falls back to {@code en.properties}.</p>
+ * {@code config/locales/<locale>.properties} or
+ * {@code game/strings/<locale>.properties}. If the requested locale file is
+ * missing, the loader falls back to {@code en.properties}.</p>
  *
  * <h2>Usage</h2>
  * <pre>{@code
@@ -27,10 +29,12 @@ import java.util.Properties;
  */
 public final class Localization {
 
-  private static final Logger log = LoggerFactory.getLogger(Localization.class);
-
-  /** Classpath base directory for string tables. */
-  private static final String BASE = "game/strings/";
+  /** Preferred classpath/project directories for string tables. */
+  private static final String[] BASES = new String[] {
+      "config/locales/",
+      "game/strings/",
+      "strings/"
+  };
 
   /** Currently loaded string properties. */
   private static Properties props = new Properties();
@@ -46,8 +50,10 @@ public final class Localization {
    *
    * <p>Resolution order:</p>
    * <ol>
+   *   <li>{@code config/locales/<locale>.properties}</li>
    *   <li>{@code game/strings/<locale>.properties}</li>
-   *   <li>{@code game/strings/en.properties}</li>
+   *   <li>{@code strings/<locale>.properties}</li>
+   *   <li>the same directories for {@code en.properties}</li>
    * </ol>
    *
    * @param locale the target locale code (defaults to "en" if blank)
@@ -58,19 +64,14 @@ public final class Localization {
     currentLocale = locale;
     props = new Properties();
     AssetCatalog assets = new AssetCatalog();
-    String[] candidates = new String[] {
-      BASE + locale + ".properties",
-      BASE + "en.properties"
-    };
-    for (String path : candidates) {
+    for (String path : candidateLocalePaths(locale)) {
       try (InputStream in = open(loader, assets, path)) {
         if (in != null) {
-          props.load(in);
+          props.load(new InputStreamReader(in, StandardCharsets.UTF_8));
           return;
         }
       } catch (IOException ignored) {
         // reason: trying next candidate (locale fallback); caller handles missing table gracefully
-        log.trace("Could not load locale file '{}': {}", path, ignored.toString());
       }
     }
   }
@@ -89,6 +90,47 @@ public final class Localization {
     return props.getProperty(key, key);
   }
 
+  /**
+   * Translate literal source text by its generated source-text key.
+   *
+   * <p>This supports Ren'Py-style catalog updates for existing VNS dialogue,
+   * choices, and literal menu labels without requiring authors to rewrite every
+   * line as an explicit {@code i18n:...} lookup.</p>
+   *
+   * @param sourceText literal source text from a script or UI file
+   * @return translated text, or {@code sourceText} when the catalog has no entry
+   */
+  public static String tSource(String sourceText) {
+    if (sourceText == null) return "";
+    String key = sourceKey(sourceText);
+    return props.getProperty(key, sourceText);
+  }
+
+  /**
+   * Resolve either an explicit {@code i18n:key} reference or a literal string.
+   *
+   * @param raw configured text value
+   * @return translated text, or the original literal when no source catalog
+   *         entry exists
+   */
+  public static String translateText(String raw) {
+    if (raw == null) return "";
+    String value = raw.trim();
+    if (value.startsWith("i18n:")) {
+      String key = value.substring("i18n:".length()).trim();
+      if (!key.isEmpty()) return t(key);
+    }
+    return tSource(raw);
+  }
+
+  /**
+   * Stable generated key for literal source text.
+   */
+  public static String sourceKey(String sourceText) {
+    String normalized = normalizeSourceText(sourceText);
+    return "source." + shortSha1(normalized);
+  }
+
   private static InputStream open(ClassLoader loader, AssetCatalog assets, String path) throws IOException {
     if (path == null || path.isBlank()) return null;
     if (assets != null) {
@@ -99,10 +141,42 @@ public final class Localization {
           }
         } catch (Exception ignored) {
           // reason: AssetCatalog.exists/open may throw on unknown asset types; classpath fallback follows
-          log.trace("AssetCatalog probe failed for '{}' type {}: {}", path, type, ignored.toString());
         }
       }
     }
     return loader == null ? null : loader.getResourceAsStream(path);
+  }
+
+  private static String[] candidateLocalePaths(String locale) {
+    String resolved = (locale == null || locale.isBlank()) ? "en" : locale.trim();
+    java.util.LinkedHashSet<String> paths = new java.util.LinkedHashSet<>();
+    for (String base : BASES) {
+      paths.add(base + resolved + ".properties");
+    }
+    if (!"en".equalsIgnoreCase(resolved)) {
+      for (String base : BASES) {
+        paths.add(base + "en.properties");
+      }
+    }
+    return paths.toArray(String[]::new);
+  }
+
+  private static String normalizeSourceText(String sourceText) {
+    if (sourceText == null) return "";
+    return sourceText.replace("\r\n", "\n").replace('\r', '\n').trim();
+  }
+
+  private static String shortSha1(String value) {
+    try {
+      MessageDigest digest = MessageDigest.getInstance("SHA-1");
+      byte[] hash = digest.digest(value.getBytes(StandardCharsets.UTF_8));
+      StringBuilder sb = new StringBuilder();
+      for (int i = 0; i < hash.length && sb.length() < 12; i++) {
+        sb.append(String.format("%02x", hash[i]));
+      }
+      return sb.toString();
+    } catch (NoSuchAlgorithmException ex) {
+      return Integer.toHexString(value.hashCode());
+    }
   }
 }

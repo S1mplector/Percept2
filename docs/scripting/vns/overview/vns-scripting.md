@@ -120,7 +120,7 @@ Each VNS feature area has its own detailed documentation with extensive examples
 - **[Save System](../runtime/vns-save-system.md)** — named slots, autosave, quick save/load, schema migration, JSON format, atomic writes, sidecar thumbnails, RPG passthrough
 - **[Rollback & History](../runtime/vns-rollback-history.md)** — rollback stack, forward/backward, dialogue history backlog, capture/restore
 - **[Settings & Playback Modes](../runtime/vns-settings-modes.md)** — text speed, volumes, skip mode, auto-play, UI hidden, click-reveal, key bindings
-- **[Localization](../runtime/vns-localization.md)** — locale-aware script loading, UI string localization, multi-language project structure
+- **[Localization](../runtime/vns-localization.md)** — locale-aware script loading, extracted source-text catalogs, UI string localization, multi-language project structure
 
 ### Internals
 

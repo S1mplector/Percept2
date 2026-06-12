@@ -43,6 +43,7 @@ This page gives you the beginner map for:
 ### Menu System
 
 - **[Menu Screens](menu-screens.md)** — `.menu` files, item declarations, actions, navigation, bounds, slot previews, inheritance, custom actions
+- **[Reactive Overlay Screens](reactive-screens.md)** — `.screen` overlays driven by `VnState` variables and VNS `[screen show/call]`
 - **[Menu Layouts](../layout/structure/menu-layouts.md)** — `.layout` files, list positioning, line height, text alignment, title placement, built-in layouts
 - **[Menu Styles](menu-styles.md)** — `.style` files, item colors/fonts/shadows, button skins, title/hints styling, backgrounds
 - **[Button Layouts](../layout/structure/menu-button-layouts.md)** — per-button positional layouts, explicit bounds, resolution hints, Bounds Studio editor
