@@ -1,5 +1,13 @@
 package com.jvn.core.scene2d;
 
+import com.jvn.core.math.Aabb2;
+import com.jvn.core.math.Capsule2;
+import com.jvn.core.math.Circle;
+import com.jvn.core.math.Polygon2;
+import com.jvn.core.math.Rect;
+import com.jvn.core.math.Segment2;
+import com.jvn.core.math.Shape2D;
+
 /**
  * Platform-agnostic 2D rendering abstraction for the engine's scene graph.
  *
@@ -120,6 +128,72 @@ public interface Blitter2D {
 
   /** Draw a line from {@code (x1, y1)} to {@code (x2, y2)} using the current stroke. */
   void drawLine(double x1, double y1, double x2, double y2);
+
+  /** Draw a typed segment using the current stroke. */
+  default void drawSegment(Segment2 segment) {
+    if (segment == null) return;
+    drawLine(segment.x1, segment.y1, segment.x2, segment.y2);
+  }
+
+  /** Fill a known core primitive with the current fill colour where supported. */
+  default void fillShape(Shape2D shape) {
+    if (shape == null) return;
+    if (shape instanceof Rect r) {
+      fillRect(r.x, r.y, r.w, r.h);
+    } else if (shape instanceof Aabb2 aabb) {
+      fillRect(aabb.minX, aabb.minY, aabb.width(), aabb.height());
+    } else if (shape instanceof Circle c) {
+      fillCircle(c.x, c.y, c.r);
+    } else if (shape instanceof Polygon2 p) {
+      fillPolygon(p.toArray());
+    } else if (shape instanceof Capsule2 capsule) {
+      fillCapsule(capsule);
+    }
+  }
+
+  /** Stroke a known core primitive with the current stroke colour. */
+  default void strokeShape(Shape2D shape) {
+    if (shape == null) return;
+    if (shape instanceof Rect r) {
+      strokeRect(r.x, r.y, r.w, r.h);
+    } else if (shape instanceof Aabb2 aabb) {
+      strokeRect(aabb.minX, aabb.minY, aabb.width(), aabb.height());
+    } else if (shape instanceof Circle c) {
+      strokeCircle(c.x, c.y, c.r);
+    } else if (shape instanceof Polygon2 p) {
+      strokePolygon(p.toArray());
+    } else if (shape instanceof Capsule2 capsule) {
+      strokeCapsule(capsule);
+    }
+  }
+
+  /** Best-effort filled capsule. Backends with round stroke caps render this exactly. */
+  default void fillCapsule(Capsule2 capsule) {
+    if (capsule == null) return;
+    push();
+    setStrokeWidth(capsule.r * 2.0);
+    setStrokeCap("round");
+    drawLine(capsule.x1, capsule.y1, capsule.x2, capsule.y2);
+    pop();
+  }
+
+  /** Stroke a capsule outline with endpoint circles and side rails. */
+  default void strokeCapsule(Capsule2 capsule) {
+    if (capsule == null) return;
+    double dx = capsule.x2 - capsule.x1;
+    double dy = capsule.y2 - capsule.y1;
+    double len = Math.hypot(dx, dy);
+    if (len == 0.0) {
+      strokeCircle(capsule.x1, capsule.y1, capsule.r);
+      return;
+    }
+    double nx = -dy / len * capsule.r;
+    double ny = dx / len * capsule.r;
+    drawLine(capsule.x1 + nx, capsule.y1 + ny, capsule.x2 + nx, capsule.y2 + ny);
+    drawLine(capsule.x1 - nx, capsule.y1 - ny, capsule.x2 - nx, capsule.y2 - ny);
+    strokeCircle(capsule.x1, capsule.y1, capsule.r);
+    strokeCircle(capsule.x2, capsule.y2, capsule.r);
+  }
 
   // ──────────────────────────────────────────────────────────────────────────
   //  Image drawing

@@ -10,7 +10,7 @@ package com.jvn.core.math;
  * @see Vec2
  * @see Rect
  */
-public class Circle {
+public class Circle implements Shape2D {
 
   /** X coordinate of the circle's centre. */
   public double x;
@@ -42,9 +42,20 @@ public class Circle {
    * @param py Y coordinate of the point
    * @return {@code true} if the distance from the centre to the point is ≤ radius
    */
+  @Override
   public boolean contains(double px, double py) {
     double dx = px - x;
     double dy = py - y;
     return dx * dx + dy * dy <= r * r;
+  }
+
+  @Override
+  public Rect bounds(Rect out) {
+    Rect target = out == null ? new Rect() : out;
+    target.x = x - r;
+    target.y = y - r;
+    target.w = r * 2.0;
+    target.h = r * 2.0;
+    return target;
   }
 }

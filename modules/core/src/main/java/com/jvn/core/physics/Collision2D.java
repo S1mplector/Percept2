@@ -1,9 +1,9 @@
 package com.jvn.core.physics;
 
 import com.jvn.core.math.Circle;
+import com.jvn.core.math.Geometry2D;
 import com.jvn.core.math.Ray2;
 import com.jvn.core.math.Rect;
-import com.jvn.core.math.Scalars;
 import com.jvn.core.math.Segment2;
 
 /**
@@ -49,10 +49,7 @@ public final class Collision2D {
    * @return {@code true} if the circles intersect
    */
   public static boolean intersects(Circle a, Circle b) {
-    double dx = a.x - b.x;
-    double dy = a.y - b.y;
-    double rr = a.r + b.r;
-    return dx * dx + dy * dy <= rr * rr;
+    return Geometry2D.intersects(a, b);
   }
 
   /**
@@ -63,11 +60,7 @@ public final class Collision2D {
    * @return {@code true} if the shapes intersect
    */
   public static boolean intersects(Circle circle, Rect rect) {
-    double closestX = Scalars.clamp(circle.x, rect.left(), rect.right());
-    double closestY = Scalars.clamp(circle.y, rect.top(), rect.bottom());
-    double dx = closestX - circle.x;
-    double dy = closestY - circle.y;
-    return dx * dx + dy * dy <= circle.r * circle.r;
+    return Geometry2D.intersects(circle, rect);
   }
 
   /**
@@ -95,39 +88,7 @@ public final class Collision2D {
    *         {@code null} if no intersection
    */
   public static double[] raycastSegmentAABB(double sx, double sy, double ex, double ey, Rect r) {
-    double dx = ex - sx;
-    double dy = ey - sy;
-    double tmin = 0.0;
-    double tmax = 1.0;
-
-    if (dx != 0.0) {
-      double tx1 = (r.left() - sx) / dx;
-      double tx2 = (r.right() - sx) / dx;
-      double tminx = Math.min(tx1, tx2);
-      double tmaxx = Math.max(tx1, tx2);
-      tmin = Math.max(tmin, tminx);
-      tmax = Math.min(tmax, tmaxx);
-    } else if (sx < r.left() || sx > r.right()) {
-      return null;
-    }
-
-    if (dy != 0.0) {
-      double ty1 = (r.top() - sy) / dy;
-      double ty2 = (r.bottom() - sy) / dy;
-      double tminy = Math.min(ty1, ty2);
-      double tmaxy = Math.max(ty1, ty2);
-      tmin = Math.max(tmin, tminy);
-      tmax = Math.min(tmax, tmaxy);
-    } else if (sy < r.top() || sy > r.bottom()) {
-      return null;
-    }
-
-    if (tmax >= tmin && tmin >= 0.0 && tmin <= 1.0) {
-      double ix = sx + tmin * dx;
-      double iy = sy + tmin * dy;
-      return new double[] { ix, iy, tmin };
-    }
-    return null;
+    return Geometry2D.raycastSegmentAABB(sx, sy, ex, ey, r);
   }
 
   /**
@@ -155,38 +116,7 @@ public final class Collision2D {
    *         {@code t >= 0} scales the direction vector, or {@code null}
    */
   public static double[] raycastRayAABB(double ox, double oy, double dx, double dy, Rect r) {
-    double tmin = 0.0;
-    double tmax = Double.POSITIVE_INFINITY;
-
-    if (dx != 0.0) {
-      double tx1 = (r.left() - ox) / dx;
-      double tx2 = (r.right() - ox) / dx;
-      double tminx = Math.min(tx1, tx2);
-      double tmaxx = Math.max(tx1, tx2);
-      tmin = Math.max(tmin, tminx);
-      tmax = Math.min(tmax, tmaxx);
-    } else if (ox < r.left() || ox > r.right()) {
-      return null;
-    }
-
-    if (dy != 0.0) {
-      double ty1 = (r.top() - oy) / dy;
-      double ty2 = (r.bottom() - oy) / dy;
-      double tminy = Math.min(ty1, ty2);
-      double tmaxy = Math.max(ty1, ty2);
-      tmin = Math.max(tmin, tminy);
-      tmax = Math.min(tmax, tmaxy);
-    } else if (oy < r.top() || oy > r.bottom()) {
-      return null;
-    }
-
-    if (tmax >= tmin && tmax >= 0.0) {
-      double t = tmin < 0.0 ? 0.0 : tmin;
-      double ix = ox + t * dx;
-      double iy = oy + t * dy;
-      return new double[] { ix, iy, t };
-    }
-    return null;
+    return Geometry2D.raycastRayAABB(ox, oy, dx, dy, r);
   }
 
   /**

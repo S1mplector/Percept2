@@ -11,6 +11,7 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.jvn.core.math.Capsule2;
 import com.jvn.core.scene2d.Blitter2D;
 
 import javafx.geometry.VPos;
@@ -263,6 +264,104 @@ public class FxBlitter2D implements Blitter2D {
       default:
         gc.setGlobalBlendMode(BlendMode.SRC_OVER);
     }
+  }
+
+  @Override
+  public void beginPath() {
+    gc.beginPath();
+  }
+
+  @Override
+  public void moveTo(double x, double y) {
+    gc.moveTo(x, y);
+  }
+
+  @Override
+  public void lineTo(double x, double y) {
+    gc.lineTo(x, y);
+  }
+
+  @Override
+  public void closePath() {
+    gc.closePath();
+  }
+
+  @Override
+  public void fillPath() {
+    gc.fill();
+  }
+
+  @Override
+  public void strokePath() {
+    gc.stroke();
+  }
+
+  @Override
+  public void setStrokeCap(String cap) {
+    String normalized = cap == null ? "square" : cap.toLowerCase();
+    gc.setLineCap(switch (normalized) {
+      case "butt" -> javafx.scene.shape.StrokeLineCap.BUTT;
+      case "round" -> javafx.scene.shape.StrokeLineCap.ROUND;
+      default -> javafx.scene.shape.StrokeLineCap.SQUARE;
+    });
+  }
+
+  @Override
+  public void setStrokeJoin(String join) {
+    String normalized = join == null ? "miter" : join.toLowerCase();
+    gc.setLineJoin(switch (normalized) {
+      case "round" -> javafx.scene.shape.StrokeLineJoin.ROUND;
+      case "bevel" -> javafx.scene.shape.StrokeLineJoin.BEVEL;
+      default -> javafx.scene.shape.StrokeLineJoin.MITER;
+    });
+  }
+
+  @Override
+  public void setMiterLimit(double limit) {
+    gc.setMiterLimit(limit);
+  }
+
+  @Override
+  public void setDash(double[] dashes, double phase) {
+    gc.setLineDashes(dashes == null ? new double[0] : dashes);
+    gc.setLineDashOffset(phase);
+  }
+
+  @Override
+  public void fillPolygon(double[] xy) {
+    if (xy == null || xy.length < 6 || xy.length % 2 != 0) return;
+    int count = xy.length / 2;
+    double[] xs = new double[count];
+    double[] ys = new double[count];
+    for (int i = 0; i < count; i++) {
+      xs[i] = xy[i * 2];
+      ys[i] = xy[i * 2 + 1];
+    }
+    gc.fillPolygon(xs, ys, count);
+  }
+
+  @Override
+  public void strokePolygon(double[] xy) {
+    if (xy == null || xy.length < 6 || xy.length % 2 != 0) return;
+    int count = xy.length / 2;
+    double[] xs = new double[count];
+    double[] ys = new double[count];
+    for (int i = 0; i < count; i++) {
+      xs[i] = xy[i * 2];
+      ys[i] = xy[i * 2 + 1];
+    }
+    gc.strokePolygon(xs, ys, count);
+  }
+
+  @Override
+  public void fillCapsule(Capsule2 capsule) {
+    if (capsule == null) return;
+    gc.save();
+    gc.setStroke(gc.getFill());
+    gc.setLineWidth(capsule.r * 2.0);
+    gc.setLineCap(javafx.scene.shape.StrokeLineCap.ROUND);
+    gc.strokeLine(capsule.x1, capsule.y1, capsule.x2, capsule.y2);
+    gc.restore();
   }
 
   @Override

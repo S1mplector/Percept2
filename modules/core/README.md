@@ -14,7 +14,7 @@ Zero-dependency foundation module for the JVN engine. Every other module depends
 | `graphics` | Camera2D, ViewportScaler2D |
 | `input` | Input polling, key/mouse bindings |
 | `localization` | Locale-aware resource resolution |
-| `math` | Scalar helpers plus 2D vector, geometry, ray, segment, and transform utilities |
+| `math` | Scalar helpers plus 2D vector, shape primitives, hit tests, raycasts, and transform utilities |
 | `menu` | Menu profile system — screens, layouts, styles, actions, registry, inheritance |
 | `phone` | In-game phone UI model, config codec, and command/runtime support for chats, apps, calls, and typed messages |
 | `physics` | PhysicsWorld2D, broadphase, raycasts, rigid bodies |

@@ -3,6 +3,7 @@ package com.jvn.swing;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.jvn.core.math.Capsule2;
 import com.jvn.core.scene2d.Blitter2D;
 
 import java.awt.*;
@@ -325,6 +326,18 @@ public class SwingBlitter2D implements Blitter2D {
     g2.setColor(stroke);
     g2.setStroke(basicStroke);
     g2.draw(p);
+  }
+
+  @Override
+  public void fillCapsule(Capsule2 capsule) {
+    if (capsule == null) return;
+    Stroke oldStroke = g2.getStroke();
+    Paint oldPaint = g2.getPaint();
+    g2.setPaint(fillPaint);
+    g2.setStroke(new BasicStroke((float) (capsule.r * 2.0), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+    g2.draw(new java.awt.geom.Line2D.Double(capsule.x1, capsule.y1, capsule.x2, capsule.y2));
+    g2.setStroke(oldStroke);
+    g2.setPaint(oldPaint);
   }
 
   @Override

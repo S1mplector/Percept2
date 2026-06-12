@@ -2,6 +2,7 @@ package com.jvn.web;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import com.jvn.core.math.Capsule2;
 import com.jvn.core.scene2d.Blitter2D;
 import com.jvn.render.RenderSurface;
 
@@ -199,6 +200,83 @@ public class WebRenderer implements Blitter2D {
     }
   }
 
+  @Override
+  public void beginPath() {
+    beginPathNative(ctx);
+  }
+
+  @Override
+  public void moveTo(double x, double y) {
+    moveToNative(ctx, x, y);
+  }
+
+  @Override
+  public void lineTo(double x, double y) {
+    lineToNative(ctx, x, y);
+  }
+
+  @Override
+  public void closePath() {
+    closePathNative(ctx);
+  }
+
+  @Override
+  public void fillPath() {
+    fillNative(ctx);
+  }
+
+  @Override
+  public void strokePath() {
+    strokeNative(ctx);
+  }
+
+  @Override
+  public void setStrokeCap(String cap) {
+    setLineCapNative(ctx, cap == null ? "square" : cap.toLowerCase());
+  }
+
+  @Override
+  public void setStrokeJoin(String join) {
+    setLineJoinNative(ctx, join == null ? "miter" : join.toLowerCase());
+  }
+
+  @Override
+  public void setDash(double[] dashes, double phase) {
+    setLineDashNative(ctx, dashes == null ? new double[0] : dashes, phase);
+  }
+
+  @Override
+  public void fillPolygon(double[] xy) {
+    if (drawPolygonPath(xy)) fillNative(ctx);
+  }
+
+  @Override
+  public void strokePolygon(double[] xy) {
+    if (drawPolygonPath(xy)) strokeNative(ctx);
+  }
+
+  @Override
+  public void fillCapsule(Capsule2 capsule) {
+    if (capsule == null) return;
+    saveNative(ctx);
+    setStrokeStyleNative(ctx, state.fillStyle);
+    setLineWidthNative(ctx, capsule.r * 2.0);
+    setLineCapNative(ctx, "round");
+    drawLine(capsule.x1, capsule.y1, capsule.x2, capsule.y2);
+    restoreNative(ctx);
+  }
+
+  private boolean drawPolygonPath(double[] xy) {
+    if (xy == null || xy.length < 6 || xy.length % 2 != 0) return false;
+    beginPathNative(ctx);
+    moveToNative(ctx, xy[0], xy[1]);
+    for (int i = 2; i < xy.length; i += 2) {
+      lineToNative(ctx, xy[i], xy[i + 1]);
+    }
+    closePathNative(ctx);
+    return true;
+  }
+
   private String rgbToHex(double r, double g, double b, double a) {
     int ir = Math.round((float) (r * 255));
     int ig = Math.round((float) (g * 255));
@@ -256,6 +334,7 @@ public class WebRenderer implements Blitter2D {
   }-*/;
 
   private static native void beginPathNative(Object ctx) /*-{ ctx.beginPath(); }-*/;
+  private static native void closePathNative(Object ctx) /*-{ ctx.closePath(); }-*/;
   private static native void arcNative(Object ctx, double cx, double cy, double r, double start, double end) /*-{
     ctx.arc(cx, cy, r, start, end);
   }-*/;
@@ -286,6 +365,19 @@ public class WebRenderer implements Blitter2D {
 
   private static native void setGlobalCompositeOperationNative(Object ctx, String op) /*-{
     ctx.globalCompositeOperation = op;
+  }-*/;
+
+  private static native void setLineCapNative(Object ctx, String cap) /*-{
+    ctx.lineCap = cap;
+  }-*/;
+
+  private static native void setLineJoinNative(Object ctx, String join) /*-{
+    ctx.lineJoin = join;
+  }-*/;
+
+  private static native void setLineDashNative(Object ctx, double[] dashes, double phase) /*-{
+    ctx.setLineDash(dashes || []);
+    ctx.lineDashOffset = phase;
   }-*/;
 
   private static native void drawImageNative(Object ctx, Object img, double x, double y, double w, double h) /*-{

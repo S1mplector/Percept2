@@ -22,7 +22,7 @@ package com.jvn.core.math;
  * @see Vec2
  * @see Circle
  */
-public class Rect {
+public class Rect implements Shape2D {
 
   /** X coordinate of the left edge. */
   public double x;
@@ -68,6 +68,7 @@ public class Rect {
    * @param py Y coordinate of the point
    * @return {@code true} if the point is within or on the edges of this rect
    */
+  @Override
   public boolean contains(double px, double py) {
     return px >= left() && px <= right() && py >= top() && py <= bottom();
   }
@@ -81,5 +82,15 @@ public class Rect {
    */
   public boolean intersects(Rect o) {
     return right() >= o.left() && left() <= o.right() && bottom() >= o.top() && top() <= o.bottom();
+  }
+
+  @Override
+  public Rect bounds(Rect out) {
+    Rect target = out == null ? new Rect() : out;
+    target.x = x;
+    target.y = y;
+    target.w = w;
+    target.h = h;
+    return target;
   }
 }
