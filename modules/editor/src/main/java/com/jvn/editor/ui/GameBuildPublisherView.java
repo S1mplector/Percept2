@@ -105,13 +105,17 @@ public class GameBuildPublisherView extends BorderPane {
   private final Label artifactInventoryLabel = new Label();
   private final CheckBox offlineModeCheck = new CheckBox("Offline");
   private final CheckBox refreshRuntimeCheck = new CheckBox("Refresh runtime");
+  private Button shipBuildButton;
   private Button buildSelectedButton;
   private Button buildAllButton;
   private Button preflightButton;
   private Button releaseButton;
+  private Button copyShipCliButton;
   private Button copyCliButton;
   private Button openProjectButton;
   private Button openReleaseConfigButton;
+  private Button revealManifestButton;
+  private Button copyManifestPathButton;
   private Button revealRuntimeCacheButton;
   private Button clearRuntimeCacheButton;
   private Button cleanOutputButton;
@@ -294,6 +298,8 @@ public class GameBuildPublisherView extends BorderPane {
     buildHelp.setWrapText(true);
     buildHelp.getStyleClass().add("build-publisher-copy");
 
+    shipBuildButton = button("Ship Build", ButtonTone.PRIMARY, false);
+    shipBuildButton.setOnAction(e -> shipSelectedBuild());
     buildSelectedButton = button("Build Selected", ButtonTone.PRIMARY, false);
     buildSelectedButton.setOnAction(e -> buildSelectedTarget());
     buildAllButton = button("Build All Targets", ButtonTone.PRIMARY, false);
@@ -302,10 +308,16 @@ public class GameBuildPublisherView extends BorderPane {
     preflightButton.setOnAction(e -> runPreflight());
     releaseButton = button("Run Release Hooks", ButtonTone.SECONDARY, false);
     releaseButton.setOnAction(e -> runReleaseProfile());
+    copyShipCliButton = button("Copy Ship Command", ButtonTone.SECONDARY, false);
+    copyShipCliButton.setOnAction(e -> copyShipCommand());
     copyCliButton = button("Copy Build Command", ButtonTone.SECONDARY, false);
     copyCliButton.setOnAction(e -> copyCommand());
     Button reveal = button("Reveal Builds", ButtonTone.SECONDARY, false);
     reveal.setOnAction(e -> revealBuilds());
+    revealManifestButton = button("Reveal Manifest", ButtonTone.SECONDARY, false);
+    revealManifestButton.setOnAction(e -> revealReleaseManifest());
+    copyManifestPathButton = button("Copy Manifest Path", ButtonTone.SECONDARY, false);
+    copyManifestPathButton.setOnAction(e -> copyReleaseManifestPath());
     Button notes = button("Copy Publish Notes", ButtonTone.SECONDARY, false);
     notes.setOnAction(e -> copyPublishNotes());
     cleanOutputButton = button("Clean Artifacts", ButtonTone.DANGER, false);
@@ -321,14 +333,14 @@ public class GameBuildPublisherView extends BorderPane {
     zipOutputButton.setOnAction(e -> zipOutputFolder());
     zipOutputButton.setDisable(true);
 
-    Label buildActionsLabel = new Label("Build");
+    Label buildActionsLabel = new Label("Ship & Build");
     buildActionsLabel.getStyleClass().add("build-publisher-section-label");
     Label toolsLabel = new Label("Tools & Artifacts");
     toolsLabel.getStyleClass().add("build-publisher-section-label");
 
-    FlowPane buildPrimaryRow = new FlowPane(8, 8, buildSelectedButton, buildAllButton, preflightButton, releaseButton);
+    FlowPane buildPrimaryRow = new FlowPane(8, 8, shipBuildButton, buildSelectedButton, buildAllButton, preflightButton, releaseButton);
     buildPrimaryRow.setAlignment(Pos.CENTER_LEFT);
-    FlowPane buildUtilityRow = new FlowPane(8, 8, copyCliButton, reveal, refreshArtifactsButton, zipOutputButton, notes);
+    FlowPane buildUtilityRow = new FlowPane(8, 8, copyShipCliButton, copyCliButton, reveal, revealManifestButton, copyManifestPathButton, refreshArtifactsButton, zipOutputButton, notes);
     buildUtilityRow.setAlignment(Pos.CENTER_LEFT);
     FlowPane buildDangerRow = new FlowPane(8, 8, cleanOutputButton);
     buildDangerRow.setAlignment(Pos.CENTER_LEFT);
@@ -489,6 +501,7 @@ public class GameBuildPublisherView extends BorderPane {
     refreshRuntimeCheck.setDisable(mode != PackageMode.BUNDLED_RUNTIME_ZIP);
 
     boolean canBuild = result != null && result.errors().isEmpty();
+    if (shipBuildButton != null) shipBuildButton.setDisable(!canBuild);
     if (buildSelectedButton != null) buildSelectedButton.setDisable(!canBuild);
     if (buildAllButton != null) buildAllButton.setDisable(!canBuild || !supportsBuildAll);
     if (buildAllButton != null) {
@@ -498,6 +511,7 @@ public class GameBuildPublisherView extends BorderPane {
     if (preflightButton != null) preflightButton.setDisable(!canBuild);
     boolean canRelease = canBuild && releaseTaskForSelection() != null;
     if (releaseButton != null) releaseButton.setDisable(!canRelease);
+    if (copyShipCliButton != null) copyShipCliButton.setDisable(!canBuild);
     if (copyCliButton != null) copyCliButton.setDisable(!canBuild);
 
     if (result == null) {
@@ -585,6 +599,15 @@ public class GameBuildPublisherView extends BorderPane {
 
   private void refreshActionButtons(ValidationResult result) {
     BuildTaskSelection buildSelection = buildTaskForSelection();
+    if (shipBuildButton != null) {
+      shipBuildButton.setText(switch (selectedPackageMode()) {
+        case PORTABLE_ZIP -> "Ship Portable";
+        case BUNDLED_RUNTIME_ZIP -> "Ship Desktop";
+        case NATIVE_PACKAGE -> "Ship Native";
+        case WEB_BUNDLE -> "Ship Web";
+        case MOBILE_PACKAGE -> "Ship Mobile";
+      });
+    }
     if (buildSelectedButton != null) {
       buildSelectedButton.setText(buildSelection == null ? "Build Selected" : buildActionLabel(buildSelection));
     }
@@ -604,6 +627,9 @@ public class GameBuildPublisherView extends BorderPane {
     if (copyCliButton != null) {
       copyCliButton.setText(result != null && result.errors().isEmpty() ? "Copy Build Command" : "Copy CLI Command");
     }
+    if (copyShipCliButton != null) {
+      copyShipCliButton.setText(result != null && result.errors().isEmpty() ? "Copy Ship Command" : "Copy Ship CLI");
+    }
   }
 
   private void refreshUtilityButtons(ValidationResult result) {
@@ -614,6 +640,10 @@ public class GameBuildPublisherView extends BorderPane {
     if (clearRuntimeCacheButton != null) clearRuntimeCacheButton.setDisable(!allowCache || (result != null && !result.errors().isEmpty() && selectedPackageMode() == PackageMode.NATIVE_PACKAGE));
     if (cleanOutputButton != null) cleanOutputButton.setDisable(!allowCache);
     if (refreshArtifactsButton != null) refreshArtifactsButton.setDisable(!allowCache);
+    File manifest = releaseManifestJsonFile();
+    boolean manifestAvailable = manifest.isFile();
+    if (revealManifestButton != null) revealManifestButton.setDisable(!manifestAvailable);
+    if (copyManifestPathButton != null) copyManifestPathButton.setDisable(!manifestAvailable);
     if (zipOutputButton != null) {
       File outDir = buildDistributionsDir();
       File[] outFiles = outDir.isDirectory() ? outDir.listFiles(f -> f.isFile() && !f.isHidden()) : null;
@@ -632,7 +662,9 @@ public class GameBuildPublisherView extends BorderPane {
       commandPreviewLabel.setText("Command: choose a build target and format.");
       return;
     }
-    commandPreviewLabel.setText("Command: " + BuildCliFormatter.buildCliCommand(selection.taskName(), buildGradleArgs()));
+    commandPreviewLabel.setText(
+        "Ship: " + BuildCliFormatter.buildCliCommand("assembleJvnGameRelease", buildGradleArgs())
+            + "\nBuild only: " + BuildCliFormatter.buildCliCommand(selection.taskName(), buildGradleArgs()));
   }
 
   private ValidationResult validateForm() {
@@ -744,6 +776,16 @@ public class GameBuildPublisherView extends BorderPane {
     BuildTaskSelection selection = buildTaskForSelection();
     if (selection == null) return;
     buildTask(selection.taskName(), selection.title());
+  }
+
+  private void shipSelectedBuild() {
+    if (!canBuild()) return;
+    List<String> args = buildGradleArgs();
+    if (onBuildRequested != null) {
+      onBuildRequested.accept(new BuildRequest("assembleJvnGameRelease", args.toArray(String[]::new), "Ship Game Build"));
+    }
+    statusLabel.setText("Started ship build. This builds the selected package plan and writes release-manifest.json/Markdown.");
+    setNoteTone(statusLabel, "status");
   }
 
   private String selectionTitle(PackageMode mode, TargetChoice target) {
@@ -917,6 +959,15 @@ public class GameBuildPublisherView extends BorderPane {
     setNoteTone(statusLabel, "status");
   }
 
+  private void copyShipCommand() {
+    if (!canBuild()) return;
+    ClipboardContent content = new ClipboardContent();
+    content.putString(BuildCliFormatter.buildCliCommand("assembleJvnGameRelease", buildGradleArgs()));
+    Clipboard.getSystemClipboard().setContent(content);
+    statusLabel.setText("Copied ship command.");
+    setNoteTone(statusLabel, "status");
+  }
+
   private void copyPublishNotes() {
     StringBuilder notes = new StringBuilder();
     notes.append("Game: ").append(nameField.getText()).append('\n');
@@ -960,9 +1011,46 @@ public class GameBuildPublisherView extends BorderPane {
     }
   }
 
+  private void revealReleaseManifest() {
+    File manifest = releaseManifestJsonFile();
+    File folder = manifest.getParentFile();
+    if (folder == null || !folder.isDirectory()) {
+      statusLabel.setText("No release manifest folder yet. Run Ship Build first.");
+      setNoteTone(statusLabel, "warn");
+      return;
+    }
+    try {
+      Desktop.getDesktop().open(folder);
+      statusLabel.setText("Opened release manifest folder.");
+      setNoteTone(statusLabel, "status");
+    } catch (Exception ex) {
+      statusLabel.setText("Could not open release manifest folder: " + ex.getMessage());
+      setNoteTone(statusLabel, "error");
+    }
+  }
+
+  private void copyReleaseManifestPath() {
+    File manifest = releaseManifestJsonFile();
+    if (!manifest.isFile()) {
+      statusLabel.setText("No release manifest yet. Run Ship Build first.");
+      setNoteTone(statusLabel, "warn");
+      return;
+    }
+    ClipboardContent content = new ClipboardContent();
+    content.putString(manifest.getAbsolutePath());
+    Clipboard.getSystemClipboard().setContent(content);
+    statusLabel.setText("Copied release manifest path.");
+    setNoteTone(statusLabel, "status");
+  }
+
   private void refreshArtifactInventory() {
     if (artifactInventoryLabel == null) return;
-    artifactInventoryLabel.setText("Artifacts: " + BuildArtifactService.formatArtifactInventory(BuildArtifactService.summarizeArtifacts(buildDistributionsDir())));
+    String manifestNote = releaseManifestJsonFile().isFile()
+        ? "\nRelease manifest: " + releaseManifestJsonFile().getAbsolutePath()
+        : "\nRelease manifest: not written yet";
+    artifactInventoryLabel.setText("Artifacts: "
+        + BuildArtifactService.formatArtifactInventory(BuildArtifactService.summarizeArtifacts(buildDistributionsDir()))
+        + manifestNote);
   }
 
 
@@ -1091,6 +1179,10 @@ public class GameBuildPublisherView extends BorderPane {
   private File buildDistributionsDir() {
     if (customOutputDir != null) return customOutputDir;
     return new File(workspaceBuildDir(), "distributions/games");
+  }
+
+  private File releaseManifestJsonFile() {
+    return new File(workspaceBuildDir(), "reports/jvn-game-release/release-manifest.json");
   }
 
   private File bundledRuntimeDownloadDir() {

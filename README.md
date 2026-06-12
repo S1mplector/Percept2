@@ -170,7 +170,7 @@ Optional direct Gradle tasks for focused work:
 
 Gradle build cache is enabled by default. `./jvnw compile`, `./jvnw quick`, `./jvnw build`, `./jvnw ci`, `./jvnw test`, `./jvnw check`, `./jvnw clean`, and `./jvnw jar` also opt into configuration cache automatically on macOS/Linux.
 
-Game archives are written to `build/distributions/games/` by default. Set `jvnBuildDir=<dir>` in `gradle.properties` or pass `-PjvnBuildDir=<dir>` to relocate workspace build outputs; relative paths resolve from the workspace root.
+Game archives are written to `build/distributions/games/` by default. Set `jvnBuildDir=<dir>` in `gradle.properties` or pass `-PjvnBuildDir=<dir>` to relocate workspace build outputs; relative paths resolve from the workspace root. Use `-PjvnBuildOutputDir=<dir>` when you only want to redirect packaged game artifacts.
 
 Use:
 
@@ -183,7 +183,7 @@ Use:
 - `./jvnw native -PjvnGameProject=/path/to/game` for a current-host native package
 - `.github/workflows/native-builds.yml` for cross-host native installers and app bundles on matching GitHub runners
 
-The editor also exposes this through **Build & Publish...** for the currently open game project. Packaging validates `type=vn` and `type=jes` game manifests, rejects the engine workspace, writes `BUILD-METADATA.txt` sidecars/contents, and supports release profiles for signing, notarization, and publish commands.
+The editor also exposes this through **Build & Publish...** for the currently open game project. The **Ship Build** action builds the selected package plan and writes `release-manifest.json`/Markdown under `build/reports/jvn-game-release/`. Packaging validates `type=vn` and `type=jes` game manifests, rejects the engine workspace, writes `BUILD-METADATA.txt` sidecars/contents, and supports release profiles for signing, notarization, and publish commands.
 
 ## Runtime Usage
 

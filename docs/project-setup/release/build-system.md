@@ -29,7 +29,7 @@ Run -> Build & Publish...
 Project Explorer -> Build
 ```
 
-The popup reads the current project's `jvn.project`, lets you set the release name/version, target, format, native package type, and release profile, then launches the matching Gradle task in the run console. It also reveals the output folder, copies CLI/publish notes, shows checksum availability for completed artifacts, and can run the selected release profile.
+The popup reads the current project's `jvn.project`, lets you set the release name/version, target, format, native package type, and release profile, then launches the matching Gradle task in the run console. Use **Ship Build** when you want the editor to build the selected package plan and write release manifests in one step. The view also reveals output folders, copies CLI/publish notes, shows checksum availability for completed artifacts, and can run the selected release profile.
 
 Before enabling build actions, the popup validates:
 
@@ -69,6 +69,8 @@ Use `./jvnw quick` while iterating and `./jvnw ci` before sharing a larger chang
 | `./jvnw runtime-cache-clear` | Clear cached prebuilt desktop runtimes |
 | `./jvnw native -PjvnGameProject=<dir>` | Current-host native package using the host default type |
 | `./jvnw release-native -PjvnGameProject=<dir>` | Current-host native package plus release-profile hooks |
+| `./gradlew assembleJvnGameRelease -PjvnGameProject=<dir>` | Build the selected package plan and write release manifests |
+| `./gradlew writeJvnGameReleaseManifest -PjvnGameProject=<dir>` | Write release manifests for already-built selected artifacts |
 | `./gradlew assembleJvnGamePortableCurrent -PjvnGameProject=<dir>` | Same as `./jvnw dist` |
 | `./gradlew assembleJvnGamePortable -PjvnGameProject=<dir>` | Same as `./jvnw dist-all` |
 | `./gradlew assembleJvnGameBundledRuntimeCurrent -PjvnGameProject=<dir>` | Self-contained desktop bundle for the current target |
@@ -95,6 +97,7 @@ Optional properties:
 | `-PjvnRefreshBundledRuntime=true` | Force a fresh download of the prebuilt runtime archive instead of reusing the local cache |
 | `-PjvnReleaseProfile=<name>` | Select release profile from `jvn-release.properties` |
 | `-PjvnBuildDir=<dir>` | Override the workspace build root; relative paths resolve from the JVN workspace root |
+| `-PjvnBuildOutputDir=<dir>` | Override only the packaged game artifact output folder; reports and generated intermediates stay under `jvnBuildDir` |
 | `-PjvnAllowEngineWorkspacePackage=true` | Advanced escape hatch for intentionally packaging the engine workspace |
 
 Archives are written to:
@@ -103,6 +106,8 @@ Archives are written to:
 <jvnBuildDir>/distributions/games/   (default: build/distributions/games/)
 ```
 
+If `-PjvnBuildOutputDir=<dir>` is set, packaged game artifacts and their `.sha256` sidecars are written there instead.
+
 Each completed game artifact also receives a sibling `.sha256` file. The checksum sidecar is written after the package has been opened and checked for required launch content, so a missing checksum is a useful sign that the build did not finish its packaging verification step.
 
 `dist-preflight` writes both machine-readable and human-readable reports:
@@ -110,6 +115,13 @@ Each completed game artifact also receives a sibling `.sha256` file. The checksu
 ```text
 <jvnBuildDir>/reports/jvn-game-build/build-plan.json
 <jvnBuildDir>/reports/jvn-game-build/build-plan.md
+```
+
+`assembleJvnGameRelease` writes the final shipping manifest pair:
+
+```text
+<jvnBuildDir>/reports/jvn-game-release/release-manifest.json
+<jvnBuildDir>/reports/jvn-game-release/release-manifest.md
 ```
 
 ## Portable Targets

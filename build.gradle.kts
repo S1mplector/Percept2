@@ -34,6 +34,13 @@ val jvnBuildDirOverride = (findProperty("jvnBuildDir") as String?)
     val candidate = File(raw)
     if (candidate.isAbsolute) candidate else File(rootDir, raw)
   }
+val jvnBuildOutputDirOverride = (findProperty("jvnBuildOutputDir") as String?)
+  ?.trim()
+  ?.takeIf { it.isNotBlank() }
+  ?.let { raw ->
+    val candidate = File(raw)
+    if (candidate.isAbsolute) candidate else File(rootDir, raw)
+  }
 
 group = jvnGroup
 version = jvnVersion
@@ -773,7 +780,7 @@ fun bundledRuntimeRootDir(target: JvnGameTarget): File {
 }
 
 fun bundledRuntimeZipDir(): File {
-  return layout.buildDirectory.dir("distributions/games").get().asFile
+  return jvnBuildOutputDirOverride ?: layout.buildDirectory.dir("distributions/games").get().asFile
 }
 
 fun bundledRuntimeDistributionFile(target: JvnGameTarget): File {
@@ -1848,13 +1855,22 @@ tasks.register("assembleJvnGameRelease") {
   group = "distribution"
   description = "Builds the selected JVN game package mode/target and writes release manifests."
   dependsOn(providers.provider { selectedJvnGamePlannedArtifacts().map { it.buildTask } })
-  finalizedBy("writeJvnGameReleaseManifest")
   doLast {
     val artifacts = selectedJvnGamePlannedArtifacts()
+    val missing = artifacts.filterNot { it.artifact.isFile }
+    if (missing.isNotEmpty()) {
+      throw GradleException(
+        "JVN game release build completed, but expected artifacts are missing:\n - " +
+          missing.joinToString("\n - ") { "${it.targetId}: ${it.artifact.absolutePath} (build task: ${it.buildTask})" }
+      )
+    }
+    val (jsonFile, markdownFile) = writeJvnGameReleaseManifest()
     println("JVN game release artifacts ready:")
     artifacts.forEach { artifact ->
       println("  - ${artifact.targetId}: ${artifact.artifact.absolutePath}")
     }
+    println("  release manifest: ${jsonFile.absolutePath}")
+    println("  release notes: ${markdownFile.absolutePath}")
   }
 }
 
