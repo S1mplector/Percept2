@@ -51,6 +51,8 @@ The panel uses a `SplitPane` (34% left, 66% right):
 - **Left:** Guide tree, topic folders, filter, expand/collapse controls, refresh, version chip, and index stats
 - **Right:** Source/path header, action buttons, and rendered Markdown preview
 
+The guide tree header also includes a collapse control. When collapsed, the preview fills the Help Center and a narrow left rail remains available to restore the guide tree.
+
 ---
 
 ## Guide Tree
@@ -88,6 +90,8 @@ Topic folders show the number of documents they contain. Guide sections show the
 | **Enter** | Same as double-click |
 | **Expand** | Opens all guide sections, topic folders, documents, and heading anchors |
 | **Collapse** | Collapses guide sections, topic folders, documents, and heading anchors |
+| **Header `<`** | Hides the guide tree completely so the preview can use the full width |
+| **Restore rail `>`** | Shows the guide tree again |
 | **Refresh** | Re-indexes workspace and project Markdown |
 
 ---
