@@ -6,7 +6,7 @@ Step-by-step walkthrough that builds a fully-featured mini visual novel from scr
 
 ## What We're Building
 
-A short adventure called **"The Forgotten Key"** — a mystery story where the player explores a town, meets characters, solves a puzzle, and reaches one of three endings based on their choices.
+A short adventure called **"The Forgotten Key"**, meant to be a mystery story where the player explores a town, meets characters, solves a puzzle, and reaches one of three endings based on their choices.
 
 Features covered:
 - Script structure and directives
