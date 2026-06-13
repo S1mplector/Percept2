@@ -109,6 +109,7 @@ public class GameBuildPublisherView extends BorderPane {
   private Button buildSelectedButton;
   private Button buildAllButton;
   private Button preflightButton;
+  private Button dependencyScanButton;
   private Button releaseButton;
   private Button copyShipCliButton;
   private Button copyCliButton;
@@ -306,6 +307,8 @@ public class GameBuildPublisherView extends BorderPane {
     buildAllButton.setOnAction(e -> buildAllTargets());
     preflightButton = button("Run Preflight", ButtonTone.SECONDARY, false);
     preflightButton.setOnAction(e -> runPreflight());
+    dependencyScanButton = button("Scan Dependencies", ButtonTone.SECONDARY, false);
+    dependencyScanButton.setOnAction(e -> runDependencyScan());
     releaseButton = button("Run Release Hooks", ButtonTone.SECONDARY, false);
     releaseButton.setOnAction(e -> runReleaseProfile());
     copyShipCliButton = button("Copy Ship Command", ButtonTone.SECONDARY, false);
@@ -338,7 +341,7 @@ public class GameBuildPublisherView extends BorderPane {
     Label toolsLabel = new Label("Tools & Artifacts");
     toolsLabel.getStyleClass().add("build-publisher-section-label");
 
-    FlowPane buildPrimaryRow = new FlowPane(8, 8, shipBuildButton, buildSelectedButton, buildAllButton, preflightButton, releaseButton);
+    FlowPane buildPrimaryRow = new FlowPane(8, 8, shipBuildButton, buildSelectedButton, buildAllButton, preflightButton, dependencyScanButton, releaseButton);
     buildPrimaryRow.setAlignment(Pos.CENTER_LEFT);
     FlowPane buildUtilityRow = new FlowPane(8, 8, copyShipCliButton, copyCliButton, reveal, revealManifestButton, copyManifestPathButton, refreshArtifactsButton, zipOutputButton, notes);
     buildUtilityRow.setAlignment(Pos.CENTER_LEFT);
@@ -634,6 +637,10 @@ public class GameBuildPublisherView extends BorderPane {
 
   private void refreshUtilityButtons(ValidationResult result) {
     if (openProjectButton != null) openProjectButton.setDisable(projectRoot == null || !projectRoot.isDirectory());
+    if (dependencyScanButton != null) {
+      dependencyScanButton.setDisable(workspaceRoot == null || !workspaceRoot.isDirectory()
+          || projectRoot == null || !projectRoot.isDirectory());
+    }
     if (openReleaseConfigButton != null) openReleaseConfigButton.setDisable(findReleaseConfig(projectRoot) == null);
     boolean allowCache = workspaceRoot != null && workspaceRoot.isDirectory();
     if (revealRuntimeCacheButton != null) revealRuntimeCacheButton.setDisable(!allowCache);
@@ -878,6 +885,20 @@ public class GameBuildPublisherView extends BorderPane {
     setNoteTone(statusLabel, "status");
   }
 
+  private void runDependencyScan() {
+    if (projectRoot == null || !projectRoot.isDirectory()) {
+      statusLabel.setText("Dependency scan unavailable: open a JVN game project first.");
+      setNoteTone(statusLabel, "error");
+      return;
+    }
+    List<String> args = dependencyScanArgs();
+    if (onBuildRequested != null) {
+      onBuildRequested.accept(new BuildRequest("validateJvnGameDependencies", args.toArray(String[]::new), "Validate Game Dependencies"));
+    }
+    statusLabel.setText("Started dependency scan. Missing assets, bad links, timeline issues, packaging blockers, and unused media will appear in the run console.");
+    setNoteTone(statusLabel, "status");
+  }
+
   private void runReleaseProfile() {
     if (!canBuild()) return;
     BuildTaskSelection selection = releaseTaskForSelection();
@@ -945,6 +966,14 @@ public class GameBuildPublisherView extends BorderPane {
     if (customOutputDir != null) {
       args.add("-PjvnBuildOutputDir=" + customOutputDir.getAbsolutePath());
     }
+    return args;
+  }
+
+  private List<String> dependencyScanArgs() {
+    List<String> args = new ArrayList<>();
+    if (offlineModeCheck.isSelected()) args.add("--offline");
+    args.add("-PjvnGameProject=" + projectRoot.getAbsolutePath());
+    args.add("-PjvnShowInfo=true");
     return args;
   }
 

@@ -29,7 +29,7 @@ Run -> Build & Publish...
 Project Explorer -> Build
 ```
 
-The popup reads the current project's `jvn.project`, lets you set the release name/version, target, format, native package type, and release profile, then launches the matching Gradle task in the run console. Use **Ship Build** when you want the editor to build the selected package plan and write release manifests in one step. The view also reveals output folders, copies CLI/publish notes, shows checksum availability for completed artifacts, and can run the selected release profile.
+The popup reads the current project's `jvn.project`, lets you set the release name/version, target, format, native package type, and release profile, then launches the matching Gradle task in the run console. Use **Ship Build** when you want the editor to build the selected package plan and write release manifests in one step. Use **Scan Dependencies** when you want a project-wide shipping scan for missing media, bad script/config links, broken menu targets, bad stage/timeline references, unused media, and packaging blockers. The view also reveals output folders, copies CLI/publish notes, shows checksum availability for completed artifacts, and can run the selected release profile.
 
 Before enabling build actions, the popup validates:
 
@@ -78,6 +78,7 @@ Use `./jvnw quick` while iterating and `./jvnw ci` before sharing a larger chang
 | `./gradlew packageJvnGameNativeCurrent -PjvnGameProject=<dir>` | Current-host native package |
 | `./gradlew releaseJvnGameNativeCurrent -PjvnGameProject=<dir>` | Native package + signing/notarization/publish hooks |
 | `./gradlew validateJvnGameProject -PjvnGameProject=<dir>` | Validate and print selected game metadata |
+| `./gradlew validateJvnGameDependencies -PjvnGameProject=<dir>` | Scan missing assets/audio/fonts/scripts, unused media, bad stage presets, menu links, timeline references, and packaging blockers |
 | `./gradlew printJvnGamePortableTargets` | List supported platform targets |
 | `./gradlew printJvnBundledRuntimeCache` | Print cached prebuilt desktop runtimes |
 | `./gradlew clearJvnBundledRuntimeCache` | Clear cached prebuilt desktop runtimes |
@@ -96,6 +97,9 @@ Optional properties:
 | `-PjvnBundledRuntimeVendor=<vendor>` | Override the Adoptium vendor segment used for desktop-bundle runtime downloads (default: `eclipse`) |
 | `-PjvnRefreshBundledRuntime=true` | Force a fresh download of the prebuilt runtime archive instead of reusing the local cache |
 | `-PjvnReleaseProfile=<name>` | Select release profile from `jvn-release.properties` |
+| `-PjvnDependencyProject=<dir>` | Override the project scanned by `validateJvnGameDependencies`; defaults to `jvnGameProject`, `jvnProject`, then the workspace root |
+| `-PjvnShowInfo=true` | Include informational dependency-scan findings such as unused media assets |
+| `-PjvnFailOnWarning=true` | Make `validateJvnGameDependencies` fail when warnings are present |
 | `-PjvnBuildDir=<dir>` | Override the workspace build root; relative paths resolve from the JVN workspace root |
 | `-PjvnBuildOutputDir=<dir>` | Override only the packaged game artifact output folder; reports and generated intermediates stay under `jvnBuildDir` |
 | `-PjvnAllowEngineWorkspacePackage=true` | Advanced escape hatch for intentionally packaging the engine workspace |
@@ -123,6 +127,26 @@ Each completed game artifact also receives a sibling `.sha256` file. The checksu
 <jvnBuildDir>/reports/jvn-game-release/release-manifest.json
 <jvnBuildDir>/reports/jvn-game-release/release-manifest.md
 ```
+
+## Asset And Dependency Validation
+
+Run the deep project scan before packaging a release candidate:
+
+```bash
+./gradlew validateJvnGameDependencies -PjvnGameProject=/path/to/game -PjvnShowInfo=true
+```
+
+The scan reports:
+
+- missing images, audio, fonts, scripts, stage presets, and config references
+- broken menu links and `RUN_SCRIPT` targets
+- bad VNS stage preset usage such as `[stage id]` without a matching declaration/export
+- bad Puppeteer/JES timeline calls such as `[call jes_timeline name]` without `scripts/timelines/name.jes`
+- parse errors in VNS scripts and JES timeline files
+- packaging blockers such as missing `jvn.project`, unsupported game type, or missing entry script
+- unused conventional media under `assets/`, `images/`, `audio/`, `fonts/`, `ui/`, `video/`, and `game/`
+
+Errors fail the task. Warnings are printed but do not fail unless `-PjvnFailOnWarning=true` is set. Informational cleanup findings, including unused media, are printed when `-PjvnShowInfo=true` is set.
 
 ## Portable Targets
 

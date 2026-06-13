@@ -2607,3 +2607,45 @@ tasks.register<JavaExec>("updateJvnTranslations") {
   description = "Updates a JVN translation catalog while preserving existing translated values."
   jvnConfigureTranslationTask(this, "update")
 }
+
+fun jvnDependencyProjectDir(): File {
+  val raw = listOf(
+    findProperty("jvnDependencyProject") as String?,
+    findProperty("jvnGameProject") as String?,
+    findProperty("jvnProject") as String?
+  ).firstOrNull { !it.isNullOrBlank() } ?: rootDir.absolutePath
+  val file = File(raw)
+  return if (file.isAbsolute) file else File(rootDir, raw)
+}
+
+fun jvnPropertyEnabled(name: String): Boolean {
+  val raw = (findProperty(name) as String?)?.trim()?.lowercase() ?: return false
+  return raw == "true" || raw == "1" || raw == "yes" || raw == "on"
+}
+
+fun jvnDependencyCliArgs(): List<String> {
+  val args = mutableListOf("--project", jvnDependencyProjectDir().absolutePath)
+  if (jvnPropertyEnabled("jvnFailOnWarning")) args += "--fail-on-warning"
+  if (jvnPropertyEnabled("jvnShowInfo")) args += "--show-info"
+  return args
+}
+
+fun jvnConfigureDependencyValidationTask(task: JavaExec) {
+  val coreProject = project(":core")
+  val sourceSets = coreProject.extensions.getByType<SourceSetContainer>()
+  task.group = "verification"
+  task.dependsOn(":core:classes")
+  task.mainClass.set("com.jvn.core.project.ProjectDependencyCli")
+  task.classpath = sourceSets.named("main").get().runtimeClasspath
+  task.args(jvnDependencyCliArgs())
+}
+
+tasks.register<JavaExec>("validateJvnGameDependencies") {
+  description = "Scans the selected JVN game project for missing assets, broken references, unused media, and packaging blockers."
+  jvnConfigureDependencyValidationTask(this)
+}
+
+tasks.register<JavaExec>("validateJvnDependencies") {
+  description = "Alias for validateJvnGameDependencies."
+  jvnConfigureDependencyValidationTask(this)
+}

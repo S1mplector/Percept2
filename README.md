@@ -116,6 +116,7 @@ Useful JVN commands:
 ./jvnw runtime-cache-clear
 ./jvnw native -PjvnGameProject=/path/to/game
 ./jvnw release-native -PjvnGameProject=/path/to/game
+./gradlew validateJvnGameDependencies -PjvnGameProject=/path/to/game -PjvnShowInfo=true
 ```
 
 Use `./jvnw` for normal development. It prints concise wrapper status by default. Drop to `./gradlew` or `./jvnw --raw ...` only when you need direct Gradle task control or full Gradle logs.
@@ -155,6 +156,7 @@ Default wrapper commands:
 ./jvnw runtime-cache-clear
 ./jvnw native -PjvnGameProject=/path/to/game
 ./jvnw release-native -PjvnGameProject=/path/to/game
+./gradlew validateJvnGameDependencies -PjvnGameProject=/path/to/game -PjvnShowInfo=true
 ```
 
 Optional direct Gradle tasks for focused work:
@@ -181,9 +183,10 @@ Use:
 - `./jvnw runtime-cache` to inspect cached prebuilt desktop runtimes
 - `./jvnw runtime-cache-clear` to clear cached prebuilt desktop runtimes
 - `./jvnw native -PjvnGameProject=/path/to/game` for a current-host native package
+- `./gradlew validateJvnGameDependencies -PjvnGameProject=/path/to/game -PjvnShowInfo=true` for a release-oriented scan of missing assets, broken references, unused media, and packaging blockers
 - `.github/workflows/native-builds.yml` for cross-host native installers and app bundles on matching GitHub runners
 
-The editor also exposes this through **Build & Publish...** for the currently open game project. The **Ship Build** action builds the selected package plan and writes `release-manifest.json`/Markdown under `build/reports/jvn-game-release/`. Packaging validates `type=vn` and `type=jes` game manifests, rejects the engine workspace, writes `BUILD-METADATA.txt` sidecars/contents, and supports release profiles for signing, notarization, and publish commands.
+The editor also exposes this through **Build & Publish...** for the currently open game project. The **Ship Build** action builds the selected package plan and writes `release-manifest.json`/Markdown under `build/reports/jvn-game-release/`. **Scan Dependencies** reports missing media/scripts/config, bad menu/stage/timeline references, unused media, and packaging blockers. Packaging validates `type=vn` and `type=jes` game manifests, rejects the engine workspace, writes `BUILD-METADATA.txt` sidecars/contents, and supports release profiles for signing, notarization, and publish commands.
 
 ## Runtime Usage
 

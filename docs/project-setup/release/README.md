@@ -29,6 +29,12 @@ Use this hub when the question is "how do we ship this game?"
 2. Prefer `./jvnw dist-runtime-all -PjvnGameProject=<dir>`
 3. Use `./jvnw runtime-cache` and `./jvnw runtime-cache-clear` to manage cached runtimes
 
+### I want to catch broken assets before shipping
+
+1. Use **Scan Dependencies** in **Build & Publish...** or run `./gradlew validateJvnGameDependencies -PjvnGameProject=<dir> -PjvnShowInfo=true`
+2. Fix errors first; they are packaging blockers
+3. Review warnings for missing media, broken menu/script/stage/timeline references, and info findings for unused media cleanup
+
 ### I want native installers or app bundles
 
 1. Read [Build System](build-system.md#local-native-packaging)

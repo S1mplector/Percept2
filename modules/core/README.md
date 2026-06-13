@@ -18,6 +18,7 @@ Zero-dependency foundation module for the JVN engine. Every other module depends
 | `menu` | Menu profile system — screens, layouts, styles, actions, registry, inheritance |
 | `phone` | In-game phone UI model, config codec, and command/runtime support for chats, apps, calls, and typed messages |
 | `physics` | PhysicsWorld2D, broadphase, raycasts, rigid bodies |
+| `project` | Project health and dependency validation for editor/build tooling |
 | `rpg` | Stats, inventory, equipment, items, damage/heal |
 | `scene` / `scene2d` | Scene graph, Entity2D, Sprite2D, Label2D, Panel2D, SpriteAnimation2D, parallax |
 | `tween` | Tweening and easing functions |
