@@ -16,6 +16,24 @@ jvn.bat
 
 The hub runs through the Gradle wrapper so the classpath and Java toolchain stay consistent with the rest of the workspace.
 
+## High-Resolution Display Scaling
+
+The hub automatically enlarges its window, fonts, icon buttons, and status surfaces on high-DPI or very high-resolution displays. This is meant to keep the compact Swing control panel readable on 2K/3K/4K OLED panels and Linux desktops that report a large physical framebuffer without applying Swing UI scaling.
+
+If your desktop reports unusual DPI data, override the hub scale manually:
+
+```bash
+java -Djvn.hub.uiScale=1.35 -jar build/distributions/jvn-engine-hub-<version>.jar
+```
+
+For wrapper-driven launches, use the environment variable form:
+
+```bash
+JVN_HUB_UI_SCALE=1.35 ./jvn
+```
+
+Open **About** from the hub header to see the scale value and detected screen details.
+
 ## Distrobox JDK Detection
 
 On Bazzite, the Linux launchers can use a JDK installed in Distrobox. `./jvn` and `./jvnw` inspect available Distrobox containers, prefer common development names such as `jvn`, `java`, `jdk`, and `devbox`, and choose the first container that provides both Java 21+ and `javac`. The selected container is entered before Gradle starts, which lets the Engine Hub and its **Run Editor** button use that container's Java toolchain.

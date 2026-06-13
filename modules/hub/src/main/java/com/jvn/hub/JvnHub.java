@@ -9,6 +9,9 @@ import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
+import java.awt.GraphicsConfiguration;
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
 import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -128,6 +131,36 @@ public final class JvnHub {
 
   /** Resolved at class-init time from a Gradle-generated resource. */
   private static final String VERSION = readVersion();
+  private static final int BASE_HUB_WIDTH = 640;
+  private static final int BASE_HUB_HEIGHT = 540;
+  private static final double MIN_UI_SCALE = 0.85;
+  private static final double MAX_UI_SCALE = 1.85;
+  private static final HubDisplayProfile DISPLAY_PROFILE = HubDisplayProfile.detect();
+
+  private static int ui(int value) {
+    if (value == 0) return 0;
+    return Math.max(1, (int) Math.round(value * DISPLAY_PROFILE.uiScale()));
+  }
+
+  private static float uiFont(float value) {
+    return (float) (value * DISPLAY_PROFILE.uiScale());
+  }
+
+  private static float uiStroke(float value) {
+    return (float) Math.max(1.0, value * DISPLAY_PROFILE.uiScale());
+  }
+
+  private static Dimension uiDimension(int width, int height) {
+    return new Dimension(ui(width), ui(height));
+  }
+
+  private static EmptyBorder uiPadding(int top, int left, int bottom, int right) {
+    return new EmptyBorder(ui(top), ui(left), ui(bottom), ui(right));
+  }
+
+  private static VectorIcon uiIcon(VectorIcon.Kind kind, int size, Color color) {
+    return VectorIcon.of(kind, ui(size), color);
+  }
 
   private final Path projectRoot;
   private final JFrame frame = new JFrame("JVN Engine Hub");
@@ -140,7 +173,7 @@ public final class JvnHub {
   private final JLabel activityTitle = new JLabel("Ready");
   private final JLabel activityDetail = new JLabel("Choose an action to get started.");
   private final StepListPanel activitySteps = new StepListPanel();
-  private final ActivityProgressPanel activityPanel = new ActivityProgressPanel(new BorderLayout(10, 8));
+  private final ActivityProgressPanel activityPanel = new ActivityProgressPanel(new BorderLayout(ui(10), ui(8)));
   private final javax.swing.Timer spinnerTimer = new javax.swing.Timer(70, e -> activitySpinner.tick());
   private final javax.swing.Timer autoStepTimer = new javax.swing.Timer(1800, e -> autoAdvanceDuringSilence());
   private final List<AbstractButton> actionButtons = new ArrayList<>();
@@ -236,6 +269,131 @@ public final class JvnHub {
     UIManager.put("ScrollBar.background", BG);
     UIManager.put("ScrollBar.track", BG);
     UIManager.put("ScrollBar.thumb", SCROLL_THUMB);
+    scaleDefaultUiFonts();
+  }
+
+  private static void scaleDefaultUiFonts() {
+    if (Math.abs(DISPLAY_PROFILE.uiScale() - 1.0) < 0.01) return;
+    for (String key : List.of(
+        "Button.font",
+        "CheckBox.font",
+        "Label.font",
+        "Menu.font",
+        "MenuItem.font",
+        "OptionPane.buttonFont",
+        "OptionPane.messageFont",
+        "PopupMenu.font",
+        "TextArea.font",
+        "TextField.font",
+        "ToggleButton.font",
+        "ToolTip.font")) {
+      Object value = UIManager.get(key);
+      if (value instanceof Font font) {
+        UIManager.put(key, font.deriveFont(uiFont(font.getSize2D())));
+      }
+    }
+  }
+
+  private record HubDisplayProfile(
+      double uiScale,
+      int screenWidth,
+      int screenHeight,
+      int dpi,
+      double deviceScale,
+      boolean override) {
+
+    static HubDisplayProfile detect() {
+      double overrideScale = parseScaleOverride(System.getProperty("jvn.hub.uiScale"));
+      if (!Double.isFinite(overrideScale)) overrideScale = parseScaleOverride(System.getenv("JVN_HUB_UI_SCALE"));
+      if (Double.isFinite(overrideScale)) {
+        return new HubDisplayProfile(clampScale(overrideScale), 0, 0, 0, 1.0, true);
+      }
+
+      int screenWidth = 0;
+      int screenHeight = 0;
+      int dpi = 96;
+      double deviceScale = 1.0;
+      try {
+        GraphicsEnvironment environment = GraphicsEnvironment.getLocalGraphicsEnvironment();
+        GraphicsDevice device = environment.getDefaultScreenDevice();
+        GraphicsConfiguration configuration = device.getDefaultConfiguration();
+        Rectangle bounds = configuration.getBounds();
+        screenWidth = Math.max(0, bounds.width);
+        screenHeight = Math.max(0, bounds.height);
+        AffineTransform transform = configuration.getDefaultTransform();
+        deviceScale = Math.max(Math.abs(transform.getScaleX()), Math.abs(transform.getScaleY()));
+      } catch (Exception ignored) {
+        // Headless or unusual desktop environments fall back to a normal 1x hub.
+      }
+      try {
+        dpi = Toolkit.getDefaultToolkit().getScreenResolution();
+      } catch (Exception ignored) {
+        // Some containerized desktops do not expose DPI to AWT.
+      }
+
+      int longSide = Math.max(screenWidth, screenHeight);
+      int shortSide = screenWidth > 0 && screenHeight > 0 ? Math.min(screenWidth, screenHeight) : 0;
+      double resolutionScale = 1.0;
+      if (longSide >= 3800 || shortSide >= 2100) {
+        resolutionScale = 1.45;
+      } else if (longSide >= 3200 || shortSide >= 1800) {
+        resolutionScale = 1.32;
+      } else if (longSide >= 2800 || shortSide >= 1600) {
+        resolutionScale = 1.20;
+      }
+
+      double dpiScale = 1.0;
+      if (dpi >= 216) {
+        dpiScale = 1.50;
+      } else if (dpi >= 168) {
+        dpiScale = 1.35;
+      } else if (dpi >= 132) {
+        dpiScale = 1.20;
+      }
+
+      double transformScale = deviceScale > 1.05
+          ? Math.min(1.60, 1.0 + (deviceScale - 1.0) * 0.55)
+          : 1.0;
+      double scale = Math.max(resolutionScale, Math.max(dpiScale, transformScale));
+      if (screenWidth > 0 && screenHeight > 0) {
+        double widthCap = (screenWidth * 0.82) / BASE_HUB_WIDTH;
+        double heightCap = (screenHeight * 0.82) / BASE_HUB_HEIGHT;
+        double screenCap = Math.max(1.0, Math.min(widthCap, heightCap));
+        scale = Math.min(scale, screenCap);
+      }
+      return new HubDisplayProfile(clampScale(scale), screenWidth, screenHeight, dpi, deviceScale, false);
+    }
+
+    private static double parseScaleOverride(String raw) {
+      if (raw == null || raw.isBlank()) return Double.NaN;
+      try {
+        double parsed = Double.parseDouble(raw.trim());
+        return Double.isFinite(parsed) && parsed > 0.0 ? parsed : Double.NaN;
+      } catch (NumberFormatException ignored) {
+        return Double.NaN;
+      }
+    }
+
+    private static double clampScale(double value) {
+      return Math.max(MIN_UI_SCALE, Math.min(MAX_UI_SCALE, value));
+    }
+  }
+
+  private static String displayScaleSummary() {
+    return String.format(Locale.ROOT, "Hub UI scale %.2fx", DISPLAY_PROFILE.uiScale());
+  }
+
+  private static String displayScaleDetails() {
+    if (DISPLAY_PROFILE.override()) {
+      return "Manual override from jvn.hub.uiScale or JVN_HUB_UI_SCALE.";
+    }
+    String screen = DISPLAY_PROFILE.screenWidth() > 0 && DISPLAY_PROFILE.screenHeight() > 0
+        ? DISPLAY_PROFILE.screenWidth() + "x" + DISPLAY_PROFILE.screenHeight()
+        : "unknown";
+    String dpi = DISPLAY_PROFILE.dpi() > 0 ? Integer.toString(DISPLAY_PROFILE.dpi()) : "unknown";
+    return "screen=" + screen
+        + "; dpi=" + dpi
+        + "; deviceScale=" + String.format(Locale.ROOT, "%.2f", DISPLAY_PROFILE.deviceScale());
   }
 
   // --- UI assembly -----------------------------------------------------------
@@ -246,9 +404,9 @@ public final class JvnHub {
       @Override public void windowClosing(WindowEvent e) { confirmAndExit(); }
     });
 
-    JPanel root = new GradientPanel(new BorderLayout(0, 12), BG_TOP, BG_BOTTOM);
+    JPanel root = new GradientPanel(new BorderLayout(0, ui(12)), BG_TOP, BG_BOTTOM);
     root.setBackground(BG);
-    root.setBorder(new EmptyBorder(16, 16, 16, 16));
+    root.setBorder(uiPadding(16, 16, 16, 16));
 
     root.add(buildHeader(), BorderLayout.NORTH);
     root.add(buildCenter(), BorderLayout.CENTER);
@@ -261,11 +419,12 @@ public final class JvnHub {
     frame.getRootPane().setOpaque(true);
     frame.getContentPane().setBackground(BG);
 
-    frame.setResizable(false);
+    Dimension hubSize = uiDimension(BASE_HUB_WIDTH, BASE_HUB_HEIGHT);
+    frame.setResizable(true);
+    frame.setMinimumSize(hubSize);
+    frame.setPreferredSize(hubSize);
     frame.pack();
-    frame.setMinimumSize(new Dimension(640, 540));
-    frame.setPreferredSize(new Dimension(640, 540));
-    frame.setSize(640, 540);
+    frame.setSize(hubSize);
     frame.setLocationRelativeTo(null);
 
     installApplicationIcon(frame);
@@ -297,19 +456,19 @@ public final class JvnHub {
     header.setOpaque(false);
 
     // --- Left: vector logo + text stack -------------------------------------
-    JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
+    JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, ui(12), 0));
     left.setOpaque(false);
 
-    JLabel logoLabel = new JLabel(new JvnLogoIcon(124, 66));
+    JLabel logoLabel = new JLabel(new JvnLogoIcon(ui(124), ui(66)));
     left.add(logoLabel);
 
     JLabel title = new JLabel("Engine Hub");
     title.setForeground(TEXT_PRIMARY);
-    title.setFont(title.getFont().deriveFont(Font.BOLD, 16f));
+    title.setFont(title.getFont().deriveFont(Font.BOLD, uiFont(16f)));
 
     versionLabel.setText(formatVersionLabel(readDiskVersion()));
     versionLabel.setForeground(ACCENT_NEUTRAL);
-    versionLabel.setFont(versionLabel.getFont().deriveFont(Font.BOLD, 10f));
+    versionLabel.setFont(versionLabel.getFont().deriveFont(Font.BOLD, uiFont(10f)));
 
     JPanel titleBox = new JPanel();
     titleBox.setOpaque(false);
@@ -317,7 +476,7 @@ public final class JvnHub {
     title.setAlignmentX(Component.LEFT_ALIGNMENT);
     versionLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
     titleBox.add(title);
-    titleBox.add(Box.createVerticalStrut(2));
+    titleBox.add(Box.createVerticalStrut(ui(2)));
     titleBox.add(versionLabel);
 
     left.add(titleBox);
@@ -333,19 +492,19 @@ public final class JvnHub {
     actionButtons.add(safeModeButton);
 
     diagnosticsButton = new HeaderIconButton(
-        VectorIcon.of(VectorIcon.Kind.HEALTH, 22, TEXT_PRIMARY),
+        uiIcon(VectorIcon.Kind.HEALTH, 22, TEXT_PRIMARY),
         "Diagnostics — run a lightweight health check");
     diagnosticsButton.addActionListener(e -> showDiagnosticsReport());
     actionButtons.add(diagnosticsButton);
 
     aboutButton = new HeaderIconButton(
-        VectorIcon.of(VectorIcon.Kind.INFO, 22, TEXT_PRIMARY),
+        uiIcon(VectorIcon.Kind.INFO, 22, TEXT_PRIMARY),
         "About — version and install details");
     aboutButton.addActionListener(e -> showAboutReport());
     actionButtons.add(aboutButton);
 
     documentationButton = new HeaderIconButton(
-        VectorIcon.of(VectorIcon.Kind.DOCUMENTATION, 22, TEXT_PRIMARY),
+        uiIcon(VectorIcon.Kind.DOCUMENTATION, 22, TEXT_PRIMARY),
         "Documentation — open the Help Center");
     documentationButton.addActionListener(e -> openDocumentation());
     actionButtons.add(documentationButton);
@@ -354,7 +513,7 @@ public final class JvnHub {
     announcementsButton.refreshBadge(unreadCount());
     announcementsButton.addActionListener(e -> showAnnouncementsDialog());
 
-    JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+    JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, ui(6), 0));
     right.setOpaque(false);
     right.add(developerModeButton);
     right.add(safeModeButton);
@@ -439,19 +598,19 @@ public final class JvnHub {
     JDialog dialog = new JDialog(frame, "Announcements", true);
     dialog.setUndecorated(false);
 
-    JPanel root = new JPanel(new BorderLayout(0, 12));
+    JPanel root = new JPanel(new BorderLayout(0, ui(12)));
     root.setBackground(BG);
-    root.setBorder(new EmptyBorder(16, 16, 16, 16));
+    root.setBorder(uiPadding(16, 16, 16, 16));
 
     JLabel header = new JLabel("Engine Announcements");
     header.setForeground(TEXT_PRIMARY);
-    header.setFont(header.getFont().deriveFont(Font.BOLD, 16f));
+    header.setFont(header.getFont().deriveFont(Font.BOLD, uiFont(16f)));
 
     JLabel sub = new JLabel(announcements.isEmpty()
         ? "No announcements yet. Click \"Update Engine\" to fetch the latest."
         : announcements.size() + " total \u00B7");
     sub.setForeground(TEXT_MUTED);
-    sub.setFont(sub.getFont().deriveFont(Font.PLAIN, 11f));
+    sub.setFont(sub.getFont().deriveFont(Font.PLAIN, uiFont(11f)));
 
     JPanel headerBox = new JPanel();
     headerBox.setBackground(BG);
@@ -459,7 +618,7 @@ public final class JvnHub {
     header.setAlignmentX(Component.LEFT_ALIGNMENT);
     sub.setAlignmentX(Component.LEFT_ALIGNMENT);
     headerBox.add(header);
-    headerBox.add(Box.createVerticalStrut(2));
+    headerBox.add(Box.createVerticalStrut(ui(2)));
     headerBox.add(sub);
     root.add(headerBox, BorderLayout.NORTH);
 
@@ -476,7 +635,7 @@ public final class JvnHub {
     } else {
       for (int i = 0; i < announcements.size(); i++) {
         list.add(buildAnnouncementCard(announcements.get(i)));
-        if (i < announcements.size() - 1) list.add(Box.createVerticalStrut(10));
+        if (i < announcements.size() - 1) list.add(Box.createVerticalStrut(ui(10)));
       }
     }
 
@@ -485,13 +644,13 @@ public final class JvnHub {
     scroll.setBackground(BG);
     scroll.getViewport().setOpaque(true);
     scroll.getViewport().setBackground(BG);
-    scroll.setPreferredSize(new Dimension(540, 320));
+    scroll.setPreferredSize(uiDimension(540, 320));
     styleScrollBar(scroll.getVerticalScrollBar());
     styleScrollBar(scroll.getHorizontalScrollBar());
     root.add(scroll, BorderLayout.CENTER);
 
     FlatButton close = new FlatButton("Close",
-        VectorIcon.of(VectorIcon.Kind.CLOSE, 14, TEXT_PRIMARY), null);
+        uiIcon(VectorIcon.Kind.CLOSE, 14, TEXT_PRIMARY), null);
     close.addActionListener(e -> dialog.dispose());
     JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
     footer.setBackground(BG);
@@ -571,19 +730,19 @@ public final class JvnHub {
   }
 
   private JPanel buildAnnouncementCard(Announcement a) {
-    JPanel card = new JPanel(new BorderLayout(0, 4));
+    JPanel card = new JPanel(new BorderLayout(0, ui(4)));
     card.setBackground(BG);
     card.setBorder(BorderFactory.createCompoundBorder(
         BorderFactory.createLineBorder(BORDER_NEUTRAL),
-        new EmptyBorder(10, 12, 10, 12)));
+        uiPadding(10, 12, 10, 12)));
 
     JLabel dateLbl = new JLabel(a.date);
     dateLbl.setForeground(ACCENT_NEUTRAL);
-    dateLbl.setFont(dateLbl.getFont().deriveFont(Font.BOLD, 10f));
+    dateLbl.setFont(dateLbl.getFont().deriveFont(Font.BOLD, uiFont(10f)));
 
     JLabel titleLbl = new JLabel(a.title.isEmpty() ? "Update" : a.title);
     titleLbl.setForeground(TEXT_PRIMARY);
-    titleLbl.setFont(titleLbl.getFont().deriveFont(Font.BOLD, 13f));
+    titleLbl.setFont(titleLbl.getFont().deriveFont(Font.BOLD, uiFont(13f)));
 
     JPanel head = new JPanel();
     head.setBackground(BG);
@@ -591,7 +750,7 @@ public final class JvnHub {
     dateLbl.setAlignmentX(Component.LEFT_ALIGNMENT);
     titleLbl.setAlignmentX(Component.LEFT_ALIGNMENT);
     head.add(dateLbl);
-    head.add(Box.createVerticalStrut(1));
+    head.add(Box.createVerticalStrut(ui(1)));
     head.add(titleLbl);
     card.add(head, BorderLayout.NORTH);
 
@@ -603,8 +762,8 @@ public final class JvnHub {
     bodyArea.setOpaque(true);
     bodyArea.setBackground(BG);
     bodyArea.setForeground(TEXT_SOFT);
-    bodyArea.setFont(bodyArea.getFont().deriveFont(Font.PLAIN, 12f));
-    bodyArea.setBorder(new EmptyBorder(4, 0, 0, 0));
+    bodyArea.setFont(bodyArea.getFont().deriveFont(Font.PLAIN, uiFont(12f)));
+    bodyArea.setBorder(uiPadding(4, 0, 0, 0));
     card.add(bodyArea, BorderLayout.CENTER);
 
     return card;
@@ -669,7 +828,7 @@ public final class JvnHub {
   }
 
   private JPanel buildCenter() {
-    actionGrid = new JPanel(new GridLayout(3, 2, 10, 10));
+    actionGrid = new JPanel(new GridLayout(3, 2, ui(10), ui(10)));
     actionGrid.setOpaque(false);
 
     runEditorButton = makeAction("Run Editor", "Launch the full JVN editor.",
@@ -690,13 +849,13 @@ public final class JvnHub {
         VectorIcon.Kind.SHORTCUT, null, () -> guardedRun("Build Shortcuts", this::installShortcuts));
 
     updateEngineButton = new UpdateEngineButton("Update Engine",
-        VectorIcon.of(VectorIcon.Kind.REFRESH, 16, ACCENT_NEUTRAL));
+        uiIcon(VectorIcon.Kind.REFRESH, 16, ACCENT_NEUTRAL));
     updateEngineButton.setToolTipText("git pull --rebase");
     updateEngineButton.addActionListener(e -> updateEngine());
     actionButtons.add(updateEngineButton);
     rebuildActionGrid();
 
-    JPanel center = new JPanel(new BorderLayout(0, 8));
+    JPanel center = new JPanel(new BorderLayout(0, ui(8)));
     center.setOpaque(false);
     center.add(actionGrid, BorderLayout.NORTH);
     center.add(buildActivityPanel(), BorderLayout.SOUTH);
@@ -706,7 +865,7 @@ public final class JvnHub {
   private void rebuildActionGrid() {
     if (actionGrid == null) return;
     actionGrid.removeAll();
-    actionGrid.setLayout(new GridLayout(developerModeEnabled ? 4 : 3, 2, 10, 10));
+    actionGrid.setLayout(new GridLayout(developerModeEnabled ? 4 : 3, 2, ui(10), ui(10)));
     actionGrid.add(runEditorButton);
     actionGrid.add(runLauncherButton);
     actionGrid.add(buildAllButton);
@@ -722,16 +881,16 @@ public final class JvnHub {
 
   private JPanel buildActivityPanel() {
     activityTitle.setForeground(TEXT_PRIMARY);
-    activityTitle.setFont(activityTitle.getFont().deriveFont(Font.BOLD, 12f));
+    activityTitle.setFont(activityTitle.getFont().deriveFont(Font.BOLD, uiFont(12f)));
     activityDetail.setForeground(TEXT_MUTED);
-    activityDetail.setFont(activityDetail.getFont().deriveFont(Font.PLAIN, 10f));
+    activityDetail.setFont(activityDetail.getFont().deriveFont(Font.PLAIN, uiFont(10f)));
 
-    JPanel text = new JPanel(new BorderLayout(10, 0));
+    JPanel text = new JPanel(new BorderLayout(ui(10), 0));
     text.setOpaque(false);
     text.add(activityTitle, BorderLayout.WEST);
     text.add(activityDetail, BorderLayout.CENTER);
 
-    JPanel header = new JPanel(new BorderLayout(10, 0));
+    JPanel header = new JPanel(new BorderLayout(ui(10), 0));
     header.setOpaque(false);
     header.add(activitySpinner, BorderLayout.WEST);
     header.add(text, BorderLayout.CENTER);
@@ -745,11 +904,11 @@ public final class JvnHub {
     activityPanel.setBackground(PANEL_BG);
     activityPanel.setBorder(BorderFactory.createCompoundBorder(
         BorderFactory.createLineBorder(BORDER_NEUTRAL),
-        new EmptyBorder(8, 10, 8, 12)));
+        uiPadding(8, 10, 8, 12)));
     activityPanel.add(header, BorderLayout.NORTH);
     activityPanel.add(activitySteps, BorderLayout.CENTER);
-    activityPanel.setPreferredSize(new Dimension(0, 118));
-    activityPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 118));
+    activityPanel.setPreferredSize(new Dimension(0, ui(118)));
+    activityPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, ui(118)));
     return activityPanel;
   }
 
@@ -759,8 +918,8 @@ public final class JvnHub {
     bar.setOpaque(true);
     bar.setBackground(BG);
     bar.setBorder(BorderFactory.createEmptyBorder());
-    bar.setPreferredSize(new Dimension(10, 10));
-    bar.setUnitIncrement(16);
+    bar.setPreferredSize(uiDimension(10, 10));
+    bar.setUnitIncrement(ui(16));
   }
 
   private JPanel buildFooter() {
@@ -768,46 +927,46 @@ public final class JvnHub {
     footer.setBackground(Color.decode("#191919"));
     footer.setBorder(BorderFactory.createCompoundBorder(
         BorderFactory.createMatteBorder(1, 0, 0, 0, Color.decode("#303030")),
-        new EmptyBorder(3, 8, 3, 8)));
+        uiPadding(3, 8, 3, 8)));
 
     statusLabel.setForeground(TEXT_SOFT);
-    statusLabel.setFont(statusLabel.getFont().deriveFont(Font.BOLD, 11f));
+    statusLabel.setFont(statusLabel.getFont().deriveFont(Font.BOLD, uiFont(11f)));
 
     footerBranchLabel.setText(resolveBranch(projectRoot));
     footerBranchLabel.setForeground(TEXT_SOFT);
-    footerBranchLabel.setFont(footerBranchLabel.getFont().deriveFont(Font.BOLD, 11f));
+    footerBranchLabel.setFont(footerBranchLabel.getFont().deriveFont(Font.BOLD, uiFont(11f)));
 
     footerRootLabel.setText(projectRoot.getFileName() == null ? projectRoot.toString() : projectRoot.getFileName().toString());
     footerRootLabel.setToolTipText(projectRoot.toString());
     footerRootLabel.setForeground(TEXT_SOFT);
-    footerRootLabel.setFont(footerRootLabel.getFont().deriveFont(Font.BOLD, 11f));
+    footerRootLabel.setFont(footerRootLabel.getFont().deriveFont(Font.BOLD, uiFont(11f)));
 
     footerModeLabel.setForeground(TEXT_SOFT);
-    footerModeLabel.setFont(footerModeLabel.getFont().deriveFont(Font.BOLD, 11f));
+    footerModeLabel.setFont(footerModeLabel.getFont().deriveFont(Font.BOLD, uiFont(11f)));
 
     JLabel javaLabel = footerLabel("Java " + javaFeatureVersion(), TEXT_SOFT);
     JLabel version = footerLabel(VERSION, TEXT_SOFT);
 
     FlatButton cancel = new FlatButton("Cancel",
-        VectorIcon.of(VectorIcon.Kind.STOP, 14, ACCENT_ERROR), ACCENT_ERROR);
+        uiIcon(VectorIcon.Kind.STOP, 14, ACCENT_ERROR), ACCENT_ERROR);
     cancel.addActionListener(e -> cancelRunning());
 
     FlatButton quit = new FlatButton("Quit",
-        VectorIcon.of(VectorIcon.Kind.CLOSE, 14, TEXT_PRIMARY), null);
+        uiIcon(VectorIcon.Kind.CLOSE, 14, TEXT_PRIMARY), null);
     quit.addActionListener(e -> confirmAndExit());
 
     FlatButton more = new FlatButton("More",
-        VectorIcon.of(VectorIcon.Kind.SLIDERS, 14, TEXT_PRIMARY), null);
+        uiIcon(VectorIcon.Kind.SLIDERS, 14, TEXT_PRIMARY), null);
     more.addActionListener(e -> showFooterMenu(more));
 
-    JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+    JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, ui(6), 0));
     right.setOpaque(false);
     right.add(more);
     right.add(cancel);
     right.add(quit);
     right.setMinimumSize(right.getPreferredSize());
 
-    JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+    JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, ui(8), 0));
     left.setOpaque(false);
     left.add(footerItem("Hub", statusLabel));
     left.add(footerDivider());
@@ -876,7 +1035,7 @@ public final class JvnHub {
     JMenuItem item = new JMenuItem(label);
     item.setBackground(PANEL_BG);
     item.setForeground(TEXT_SOFT);
-    item.setFont(item.getFont().deriveFont(Font.BOLD, 12f));
+    item.setFont(item.getFont().deriveFont(Font.BOLD, uiFont(12f)));
     item.setEnabled(action != null);
     if (action != null) item.addActionListener(e -> action.run());
     return item;
@@ -903,7 +1062,7 @@ public final class JvnHub {
   }
 
   private static JPanel footerItem(String caption, JLabel value) {
-    JPanel item = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+    JPanel item = new JPanel(new FlowLayout(FlowLayout.LEFT, ui(4), 0));
     item.setOpaque(false);
     JLabel cap = footerLabel(caption + ":", TEXT_MUTED);
     item.add(cap);
@@ -914,15 +1073,15 @@ public final class JvnHub {
   private static JLabel footerLabel(String text, Color color) {
     JLabel label = new JLabel(text == null || text.isBlank() ? "--" : text);
     label.setForeground(color != null ? color : TEXT_SOFT);
-    label.setFont(label.getFont().deriveFont(Font.BOLD, 11f));
+    label.setFont(label.getFont().deriveFont(Font.BOLD, uiFont(11f)));
     return label;
   }
 
   private static JComponent footerDivider() {
     JPanel divider = new JPanel();
     divider.setBackground(Color.decode("#353535"));
-    divider.setPreferredSize(new Dimension(1, 14));
-    divider.setMaximumSize(new Dimension(1, 14));
+    divider.setPreferredSize(uiDimension(1, 14));
+    divider.setMaximumSize(uiDimension(1, 14));
     return divider;
   }
 
@@ -1032,9 +1191,9 @@ public final class JvnHub {
     JDialog dialog = new JDialog(frame, "Developer Gradle Options", true);
     dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
 
-    JPanel root = new JPanel(new BorderLayout(0, 14));
+    JPanel root = new JPanel(new BorderLayout(0, ui(14)));
     root.setBackground(BG);
-    root.setBorder(new EmptyBorder(16, 16, 16, 16));
+    root.setBorder(uiPadding(16, 16, 16, 16));
     root.add(dialogHeader("Developer Gradle Options", "Applied to hub Gradle actions while Developer Mode is enabled."), BorderLayout.NORTH);
 
     JCheckBox stacktrace = optionCheckBox("Stacktrace", "Add --stacktrace to failures.", gradleStacktraceEnabled);
@@ -1051,28 +1210,28 @@ public final class JvnHub {
     extraArgs.setCaretColor(TEXT_PRIMARY);
     extraArgs.setBorder(BorderFactory.createCompoundBorder(
         BorderFactory.createLineBorder(BORDER_NEUTRAL),
-        new EmptyBorder(6, 8, 6, 8)));
+        uiPadding(6, 8, 6, 8)));
     extraArgs.setToolTipText("Extra Gradle arguments, for example: --scan -PmyFlag=true");
 
     JPanel options = new JPanel();
     options.setBackground(PANEL_BG);
     options.setBorder(BorderFactory.createCompoundBorder(
         BorderFactory.createLineBorder(BORDER_NEUTRAL),
-        new EmptyBorder(12, 12, 12, 12)));
+        uiPadding(12, 12, 12, 12)));
     options.setLayout(new BoxLayout(options, BoxLayout.Y_AXIS));
     for (JCheckBox box : List.of(stacktrace, info, debug, offline, refresh, noBuildCache, noDaemon)) {
       box.setAlignmentX(Component.LEFT_ALIGNMENT);
       options.add(box);
-      options.add(Box.createVerticalStrut(6));
+      options.add(Box.createVerticalStrut(ui(6)));
     }
     JLabel extraLabel = new JLabel("Extra arguments");
     extraLabel.setForeground(TEXT_MUTED);
-    extraLabel.setFont(extraLabel.getFont().deriveFont(Font.BOLD, 10f));
+    extraLabel.setFont(extraLabel.getFont().deriveFont(Font.BOLD, uiFont(10f)));
     extraLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
     extraArgs.setAlignmentX(Component.LEFT_ALIGNMENT);
-    options.add(Box.createVerticalStrut(4));
+    options.add(Box.createVerticalStrut(ui(4)));
     options.add(extraLabel);
-    options.add(Box.createVerticalStrut(4));
+    options.add(Box.createVerticalStrut(ui(4)));
     options.add(extraArgs);
     root.add(options, BorderLayout.CENTER);
 
@@ -1094,7 +1253,7 @@ public final class JvnHub {
     FlatButton cancel = new FlatButton("Cancel", null, null);
     cancel.addActionListener(e -> dialog.dispose());
 
-    FlatButton apply = new FlatButton("Apply", VectorIcon.of(VectorIcon.Kind.CHECK, 14, ACCENT_DEV), ACCENT_DEV);
+    FlatButton apply = new FlatButton("Apply", uiIcon(VectorIcon.Kind.CHECK, 14, ACCENT_DEV), ACCENT_DEV);
     apply.addActionListener(e -> {
       gradleStacktraceEnabled = stacktrace.isSelected();
       gradleInfoLoggingEnabled = info.isSelected();
@@ -1109,7 +1268,7 @@ public final class JvnHub {
       setActivity("Gradle options updated", describeGradleOptions(), false, ACCENT_DEV);
     });
 
-    JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+    JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, ui(8), 0));
     footer.setOpaque(false);
     footer.add(reset);
     footer.add(cancel);
@@ -1118,7 +1277,7 @@ public final class JvnHub {
 
     dialog.setContentPane(root);
     dialog.pack();
-    dialog.setMinimumSize(new Dimension(520, 360));
+    dialog.setMinimumSize(uiDimension(520, 360));
     dialog.setLocationRelativeTo(frame);
     dialog.getRootPane().setDefaultButton(apply);
     dialog.setVisible(true);
@@ -1130,7 +1289,7 @@ public final class JvnHub {
     box.setOpaque(false);
     box.setForeground(TEXT_SOFT);
     box.setFocusPainted(false);
-    box.setFont(box.getFont().deriveFont(Font.PLAIN, 12f));
+    box.setFont(box.getFont().deriveFont(Font.PLAIN, uiFont(12f)));
     return box;
   }
 
@@ -1277,9 +1436,9 @@ public final class JvnHub {
     JDialog dialog = new JDialog(frame, title, true);
     dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
 
-    JPanel root = new JPanel(new BorderLayout(0, 12));
+    JPanel root = new JPanel(new BorderLayout(0, ui(12)));
     root.setBackground(BG);
-    root.setBorder(new EmptyBorder(16, 16, 16, 16));
+    root.setBorder(uiPadding(16, 16, 16, 16));
 
     root.add(dialogHeader(title, summary), BorderLayout.NORTH);
 
@@ -1288,14 +1447,14 @@ public final class JvnHub {
     rows.setLayout(new BoxLayout(rows, BoxLayout.Y_AXIS));
     for (int i = 0; i < checks.size(); i++) {
       rows.add(healthCheckCard(checks.get(i)));
-      if (i < checks.size() - 1) rows.add(Box.createVerticalStrut(8));
+      if (i < checks.size() - 1) rows.add(Box.createVerticalStrut(ui(8)));
     }
 
     JScrollPane scroll = new JScrollPane(rows);
     scroll.setBorder(BorderFactory.createLineBorder(BORDER_NEUTRAL));
     scroll.setBackground(BG);
     scroll.getViewport().setBackground(BG);
-    scroll.setPreferredSize(new Dimension(620, 390));
+    scroll.setPreferredSize(uiDimension(620, 390));
     styleScrollBar(scroll.getVerticalScrollBar());
     styleScrollBar(scroll.getHorizontalScrollBar());
     root.add(scroll, BorderLayout.CENTER);
@@ -1308,13 +1467,13 @@ public final class JvnHub {
   }
 
   private JPanel healthCheckCard(HealthCheck check) {
-    JPanel card = new JPanel(new BorderLayout(10, 0));
+    JPanel card = new JPanel(new BorderLayout(ui(10), 0));
     card.setBackground(PANEL_BG);
     card.setBorder(BorderFactory.createCompoundBorder(
         BorderFactory.createLineBorder(check.status().color()),
-        new EmptyBorder(10, 12, 10, 12)));
+        uiPadding(10, 12, 10, 12)));
 
-    JLabel icon = new JLabel(VectorIcon.of(check.status().icon(), 18, check.status().color()));
+    JLabel icon = new JLabel(uiIcon(check.status().icon(), 18, check.status().color()));
     card.add(icon, BorderLayout.WEST);
 
     JPanel text = new JPanel();
@@ -1322,15 +1481,15 @@ public final class JvnHub {
     text.setLayout(new BoxLayout(text, BoxLayout.Y_AXIS));
     JLabel title = new JLabel(check.title());
     title.setForeground(TEXT_PRIMARY);
-    title.setFont(title.getFont().deriveFont(Font.BOLD, 13f));
+    title.setFont(title.getFont().deriveFont(Font.BOLD, uiFont(13f)));
     JTextArea summary = dialogText(check.summary(), TEXT_SOFT, 11f, Font.PLAIN);
     JTextArea details = dialogText(check.details(), TEXT_MUTED, 10f, Font.PLAIN);
-    details.setBorder(new EmptyBorder(4, 0, 0, 0));
+    details.setBorder(uiPadding(4, 0, 0, 0));
     title.setAlignmentX(Component.LEFT_ALIGNMENT);
     summary.setAlignmentX(Component.LEFT_ALIGNMENT);
     details.setAlignmentX(Component.LEFT_ALIGNMENT);
     text.add(title);
-    text.add(Box.createVerticalStrut(2));
+    text.add(Box.createVerticalStrut(ui(2)));
     text.add(summary);
     if (check.details() != null && !check.details().isBlank()) {
       text.add(details);
@@ -1388,7 +1547,10 @@ public final class JvnHub {
             "java.home=" + firstNonBlank(System.getProperty("java.home"), "unknown")),
         new HealthCheck(CheckStatus.INFO, "Operating system",
             firstNonBlank(System.getProperty("os.name"), "unknown"),
-            firstNonBlank(System.getProperty("os.arch"), "unknown"))
+            firstNonBlank(System.getProperty("os.arch"), "unknown")),
+        new HealthCheck(CheckStatus.INFO, "Display scale",
+            displayScaleSummary(),
+            displayScaleDetails())
     );
     setStatus("Engine info ready", ACCENT_NEUTRAL);
     setActivity("Engine info", version + " · " + sourceMode, false, ACCENT_NEUTRAL);
@@ -1398,10 +1560,10 @@ public final class JvnHub {
   private JPanel dialogHeader(String titleText, String subtitleText) {
     JLabel title = new JLabel(titleText);
     title.setForeground(TEXT_PRIMARY);
-    title.setFont(title.getFont().deriveFont(Font.BOLD, 16f));
+    title.setFont(title.getFont().deriveFont(Font.BOLD, uiFont(16f)));
     JLabel subtitle = new JLabel(subtitleText == null ? "" : subtitleText);
     subtitle.setForeground(TEXT_MUTED);
-    subtitle.setFont(subtitle.getFont().deriveFont(Font.PLAIN, 11f));
+    subtitle.setFont(subtitle.getFont().deriveFont(Font.PLAIN, uiFont(11f)));
 
     JPanel box = new JPanel();
     box.setOpaque(false);
@@ -1409,14 +1571,14 @@ public final class JvnHub {
     title.setAlignmentX(Component.LEFT_ALIGNMENT);
     subtitle.setAlignmentX(Component.LEFT_ALIGNMENT);
     box.add(title);
-    box.add(Box.createVerticalStrut(2));
+    box.add(Box.createVerticalStrut(ui(2)));
     box.add(subtitle);
     return box;
   }
 
   private JPanel dialogFooter(JDialog dialog) {
     FlatButton close = new FlatButton("Close",
-        VectorIcon.of(VectorIcon.Kind.CLOSE, 14, TEXT_PRIMARY), null);
+        uiIcon(VectorIcon.Kind.CLOSE, 14, TEXT_PRIMARY), null);
     close.addActionListener(e -> dialog.dispose());
     JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
     footer.setOpaque(false);
@@ -1432,7 +1594,7 @@ public final class JvnHub {
   private JButton makeAction(String label, String tooltip, VectorIcon.Kind iconKind,
                              Color accentOrNull, Runnable action) {
     Color foreground = accentOrNull != null ? accentOrNull : TEXT_PRIMARY;
-    Icon icon = iconKind != null ? VectorIcon.of(iconKind, 16, foreground) : null;
+    Icon icon = iconKind != null ? uiIcon(iconKind, 16, foreground) : null;
     FlatButton button = new FlatButton(label, icon, accentOrNull);
     button.setToolTipText(tooltip);
     button.addActionListener(e -> action.run());
@@ -1737,13 +1899,13 @@ public final class JvnHub {
     dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
     dialog.getRootPane().setBorder(BorderFactory.createLineBorder(tone.borderColor(), 1));
 
-    JPanel card = new JPanel(new BorderLayout(0, 16));
+    JPanel card = new JPanel(new BorderLayout(0, ui(16)));
     card.setBackground(PANEL_BG);
-    card.setBorder(new EmptyBorder(18, 20, 18, 20));
+    card.setBorder(uiPadding(18, 20, 18, 20));
 
-    JPanel header = new JPanel(new BorderLayout(14, 0));
+    JPanel header = new JPanel(new BorderLayout(ui(14), 0));
     header.setOpaque(false);
-    header.add(new JLabel(new UpdateDialogIcon(tone, 34)), BorderLayout.WEST);
+    header.add(new JLabel(new UpdateDialogIcon(tone, ui(34))), BorderLayout.WEST);
 
     JPanel titleStack = new JPanel();
     titleStack.setOpaque(false);
@@ -1751,18 +1913,18 @@ public final class JvnHub {
 
     JLabel titleLabel = new JLabel(title == null || title.isBlank() ? "Update Engine" : title.trim());
     titleLabel.setForeground(TEXT_PRIMARY);
-    titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD, 17f));
+    titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD, uiFont(17f)));
     titleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
     JTextArea messageArea = dialogText(message, TEXT_SOFT, 12f, Font.BOLD);
     messageArea.setAlignmentX(Component.LEFT_ALIGNMENT);
-    messageArea.setBorder(new EmptyBorder(4, 0, 0, 0));
+    messageArea.setBorder(uiPadding(4, 0, 0, 0));
 
     titleStack.add(titleLabel);
     titleStack.add(messageArea);
     header.add(titleStack, BorderLayout.CENTER);
 
-    JButton close = iconOnlyButton(VectorIcon.of(VectorIcon.Kind.CLOSE, 12, TEXT_MUTED));
+    JButton close = iconOnlyButton(uiIcon(VectorIcon.Kind.CLOSE, 12, TEXT_MUTED));
     close.addActionListener(e -> {
       result.set(hasSecondaryOption ? 1 : 0);
       dialog.dispose();
@@ -1771,19 +1933,19 @@ public final class JvnHub {
     card.add(header, BorderLayout.NORTH);
 
     JTextArea detailArea = dialogText(details, LOG_TEXT, 11f, Font.PLAIN);
-    detailArea.setBorder(new EmptyBorder(10, 12, 10, 12));
+    detailArea.setBorder(uiPadding(10, 12, 10, 12));
     detailArea.setCaretPosition(0);
 
     JScrollPane scroll = new JScrollPane(detailArea);
     scroll.setBorder(BorderFactory.createLineBorder(BORDER_NEUTRAL));
     scroll.setBackground(BG);
     scroll.getViewport().setBackground(BG);
-    scroll.setPreferredSize(new Dimension(540, 190));
+    scroll.setPreferredSize(uiDimension(540, 190));
     styleScrollBar(scroll.getVerticalScrollBar());
     styleScrollBar(scroll.getHorizontalScrollBar());
     card.add(scroll, BorderLayout.CENTER);
 
-    JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+    JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, ui(10), 0));
     actions.setOpaque(false);
 
     String cancelLabel = hasSecondaryOption ? options[1] : "";
@@ -1809,7 +1971,7 @@ public final class JvnHub {
 
     dialog.setContentPane(card);
     dialog.pack();
-    dialog.setMinimumSize(new Dimension(620, 330));
+    dialog.setMinimumSize(uiDimension(620, 330));
     dialog.setLocationRelativeTo(frame);
     dialog.getRootPane().setDefaultButton(primary);
     dialog.getRootPane().registerKeyboardAction(
@@ -1832,13 +1994,13 @@ public final class JvnHub {
     area.setWrapStyleWord(true);
     area.setOpaque(false);
     area.setForeground(color);
-    area.setFont(area.getFont().deriveFont(style, size));
+    area.setFont(area.getFont().deriveFont(style, uiFont(size)));
     return area;
   }
 
   private static JButton iconOnlyButton(Icon icon) {
     JButton button = new JButton(icon);
-    button.setBorder(new EmptyBorder(6, 6, 6, 6));
+    button.setBorder(uiPadding(6, 6, 6, 6));
     button.setContentAreaFilled(false);
     button.setBorderPainted(false);
     button.setFocusPainted(false);
@@ -3628,7 +3790,7 @@ public final class JvnHub {
       Graphics2D g2 = (Graphics2D) g.create();
       g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
       Shape oldClip = g2.getClip();
-      RoundRectangle2D clip = new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), 14, 14);
+      RoundRectangle2D clip = new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), ui(14), ui(14));
       g2.setClip(clip);
 
       int fillWidth = Math.max(1, (int) Math.round(getWidth() * progress));
@@ -3671,8 +3833,8 @@ public final class JvnHub {
 
   /** Checklist-style progress surface for long hub actions. */
   private static final class StepListPanel extends JComponent {
-    private static final int ROW_HEIGHT = 22;
-    private static final int TOP_BLUR_BAND = 46;
+    private static final int ROW_HEIGHT = ui(22);
+    private static final int TOP_BLUR_BAND = ui(46);
 
     private final List<String> steps = new ArrayList<>();
     private final List<StepStatus> statuses = new ArrayList<>();
@@ -3682,8 +3844,8 @@ public final class JvnHub {
 
     StepListPanel() {
       setOpaque(false);
-      setPreferredSize(new Dimension(0, 62));
-      setMinimumSize(new Dimension(0, 62));
+      setPreferredSize(uiDimension(0, 62));
+      setMinimumSize(uiDimension(0, 62));
       scrollTimer = new javax.swing.Timer(16, e -> animateScroll());
     }
 
@@ -3745,7 +3907,7 @@ public final class JvnHub {
       Shape oldClip = g2.getClip();
       g2.clipRect(0, 0, getWidth(), getHeight());
 
-      Font stepFont = getFont().deriveFont(Font.PLAIN, 10f);
+      Font stepFont = getFont().deriveFont(Font.PLAIN, uiFont(10f));
       g2.setFont(stepFont);
       FontMetrics fm = g2.getFontMetrics();
 
@@ -3793,42 +3955,42 @@ public final class JvnHub {
         case PENDING -> TEXT_MUTED;
       };
 
-      int cx = 8;
-      int r = 4;
+      int cx = ui(8);
+      int r = ui(4);
       g2.setColor(withAlpha(status == StepStatus.PENDING ? BORDER_NEUTRAL : color, alpha));
-      g2.setStroke(new BasicStroke(1.2f));
+      g2.setStroke(new BasicStroke(uiStroke(1.2f)));
       g2.drawOval(cx - r, y - r, r * 2, r * 2);
       if (index < steps.size() - 1) {
         g2.setColor(withAlpha(BORDER_NEUTRAL, softened ? 0.24f : 0.75f));
-        g2.drawLine(cx, y + r + 2, cx, y + ROW_HEIGHT - r - 2);
+        g2.drawLine(cx, y + r + ui(2), cx, y + ROW_HEIGHT - r - ui(2));
       }
 
       if (status == StepStatus.DONE) {
         g2.setColor(withAlpha(ACCENT_GREEN, alpha));
-        g2.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g2.setStroke(new BasicStroke(uiStroke(1.4f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         Path2D check = new Path2D.Float();
-        check.moveTo(cx - 5, y);
-        check.lineTo(cx - 1, y + 4);
-        check.lineTo(cx + 6, y - 5);
+        check.moveTo(cx - ui(5), y);
+        check.lineTo(cx - ui(1), y + ui(4));
+        check.lineTo(cx + ui(6), y - ui(5));
         g2.draw(check);
       } else if (status == StepStatus.RUNNING) {
         g2.setColor(withAlpha(ACCENT_NEUTRAL, alpha));
-        g2.fillOval(cx - 2, y - 2, 4, 4);
+        g2.fillOval(cx - ui(2), y - ui(2), ui(4), ui(4));
       } else if (status == StepStatus.FAILED) {
         g2.setColor(withAlpha(ACCENT_ERROR, alpha));
-        g2.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g2.drawLine(cx - 4, y - 4, cx + 4, y + 4);
-        g2.drawLine(cx + 4, y - 4, cx - 4, y + 4);
+        g2.setStroke(new BasicStroke(uiStroke(1.4f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g2.drawLine(cx - ui(4), y - ui(4), cx + ui(4), y + ui(4));
+        g2.drawLine(cx + ui(4), y - ui(4), cx - ui(4), y + ui(4));
       }
 
       g2.setColor(withAlpha(status == StepStatus.PENDING ? TEXT_MUTED : TEXT_SOFT, softened ? 0.54f : alpha));
       String text = steps.get(index);
-      int textX = 22;
-      int maxW = Math.max(20, getWidth() - textX - 4);
+      int textX = ui(22);
+      int maxW = Math.max(ui(20), getWidth() - textX - ui(4));
       while (fm.stringWidth(text) > maxW && text.length() > 4) {
         text = text.substring(0, text.length() - 4) + "...";
       }
-      g2.drawString(text, textX, y + (fm.getAscent() - fm.getDescent()) / 2 - 1);
+      g2.drawString(text, textX, y + (fm.getAscent() - fm.getDescent()) / 2 - ui(1));
     }
 
     private void paintTopVeil(Graphics2D g2) {
@@ -3900,9 +4062,10 @@ public final class JvnHub {
 
     ActivitySpinner() {
       setOpaque(false);
-      setPreferredSize(new Dimension(24, 24));
-      setMinimumSize(new Dimension(24, 24));
-      setMaximumSize(new Dimension(24, 24));
+      Dimension size = uiDimension(24, 24);
+      setPreferredSize(size);
+      setMinimumSize(size);
+      setMaximumSize(size);
     }
 
     void setActive(boolean active) {
@@ -3926,10 +4089,11 @@ public final class JvnHub {
       float cx = w / 2f;
       float cy = h / 2f;
       float radius = Math.min(w, h) * 0.34f;
+      float shellPad = Math.max(3f, Math.min(w, h) * 0.16f);
 
       g2.setColor(active ? Color.decode("#1f1f1f") : PANEL_BG);
-      g2.fillOval(Math.round(cx - radius - 4), Math.round(cy - radius - 4),
-          Math.round((radius + 4) * 2), Math.round((radius + 4) * 2));
+      g2.fillOval(Math.round(cx - radius - shellPad), Math.round(cy - radius - shellPad),
+          Math.round((radius + shellPad) * 2), Math.round((radius + shellPad) * 2));
 
       for (int i = 0; i < 12; i++) {
         int age = active ? Math.floorMod(i - frame, 12) : i;
@@ -3937,18 +4101,18 @@ public final class JvnHub {
         double angle = (Math.PI * 2.0 * i / 12.0) - Math.PI / 2.0;
         float x = cx + (float) Math.cos(angle) * radius;
         float y = cy + (float) Math.sin(angle) * radius;
-        int dot = active && age == 0 ? 4 : 3;
+        int dot = Math.max(active && age == 0 ? ui(4) : ui(3), Math.round(Math.min(w, h) * (active && age == 0 ? 0.16f : 0.12f)));
         g2.setColor(withAlpha(active ? ACCENT_NEUTRAL : TEXT_MUTED, Math.min(1.0f, alpha)));
         g2.fillOval(Math.round(x - dot / 2f), Math.round(y - dot / 2f), dot, dot);
       }
 
       if (!active) {
         g2.setColor(ACCENT_GREEN);
-        g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g2.setStroke(new BasicStroke(uiStroke(1.8f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         Path2D check = new Path2D.Float();
-        check.moveTo(cx - 6, cy);
-        check.lineTo(cx - 1, cy + 5);
-        check.lineTo(cx + 7, cy - 6);
+        check.moveTo(cx - Math.min(w, h) * 0.25f, cy);
+        check.lineTo(cx - Math.min(w, h) * 0.04f, cy + Math.min(w, h) * 0.21f);
+        check.lineTo(cx + Math.min(w, h) * 0.29f, cy - Math.min(w, h) * 0.25f);
         g2.draw(check);
       }
       g2.dispose();
@@ -4008,7 +4172,7 @@ public final class JvnHub {
       g2.fillOval(1, 1, size - 2, size - 2);
 
       g2.setColor(accent);
-      g2.setStroke(new BasicStroke(1.3f));
+      g2.setStroke(new BasicStroke(uiStroke(1.3f)));
       g2.drawOval(1, 1, size - 2, size - 2);
 
       g2.setStroke(new BasicStroke(Math.max(2f, s * 0.09f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
@@ -4043,13 +4207,13 @@ public final class JvnHub {
       this.accent = accentOrNull;
       if (icon != null) {
         setIcon(icon);
-        setIconTextGap(10);
+        setIconTextGap(ui(10));
       }
       setHorizontalAlignment(SwingConstants.CENTER);
       setHorizontalTextPosition(SwingConstants.RIGHT);
       setForeground(accentOrNull != null ? accentOrNull : TEXT_PRIMARY);
-      setFont(getFont().deriveFont(Font.PLAIN, 12f));
-      setBorder(new EmptyBorder(10, 18, 10, 18));
+      setFont(getFont().deriveFont(Font.PLAIN, uiFont(12f)));
+      setBorder(uiPadding(10, 18, 10, 18));
       setContentAreaFilled(false);
       setBorderPainted(false);
       setFocusPainted(false);
@@ -4061,7 +4225,7 @@ public final class JvnHub {
     protected void paintComponent(Graphics g) {
       Graphics2D g2 = (Graphics2D) g.create();
       g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-      int arc = 8;
+      int arc = ui(8);
       int w = getWidth();
       int h = getHeight();
 
@@ -4088,7 +4252,7 @@ public final class JvnHub {
       Color borderColor = accent != null ? accent : BORDER_NEUTRAL;
       if (!isEnabled()) borderColor = BORDER_NEUTRAL;
       g2.setColor(borderColor);
-      g2.setStroke(new BasicStroke(1f));
+      g2.setStroke(new BasicStroke(uiStroke(1f)));
       g2.drawRoundRect(0, 0, w - 1, h - 1, arc, arc);
 
       g2.dispose();
@@ -4098,14 +4262,14 @@ public final class JvnHub {
 
   /** Launcher action button that can switch its maintenance overlay on refresh. */
   private static final class LauncherButton extends FlatButton {
-    private static final int STRIPE_WIDTH = 28;
+    private static final int STRIPE_WIDTH = ui(28);
     private static final int STRIPE_PERIOD = STRIPE_WIDTH * 2;
     private final javax.swing.Timer stripeTimer;
     private int stripeOffset = 0;
     private boolean underMaintenance = false;
 
     LauncherButton(String text) {
-      super(text, VectorIcon.of(VectorIcon.Kind.ROCKET, 16, TEXT_PRIMARY), BORDER_NEUTRAL);
+      super(text, uiIcon(VectorIcon.Kind.ROCKET, 16, TEXT_PRIMARY), BORDER_NEUTRAL);
       stripeTimer = new javax.swing.Timer(70, e -> {
         stripeOffset = (stripeOffset + 2) % STRIPE_PERIOD;
         repaint();
@@ -4117,10 +4281,7 @@ public final class JvnHub {
       LauncherMaintenanceState safeState = state == null ? LauncherMaintenanceState.available() : state;
       underMaintenance = safeState.underMaintenance();
       setForeground(underMaintenance ? ACCENT_MAINTENANCE : TEXT_PRIMARY);
-      setIcon(VectorIcon.of(
-          VectorIcon.Kind.ROCKET,
-          16,
-          underMaintenance ? ACCENT_MAINTENANCE : TEXT_PRIMARY));
+      setIcon(uiIcon(VectorIcon.Kind.ROCKET, 16, underMaintenance ? ACCENT_MAINTENANCE : TEXT_PRIMARY));
       setToolTipText(underMaintenance
           ? safeState.resolvedMessage()
           : "Launch the standalone JVN launcher.");
@@ -4154,7 +4315,7 @@ public final class JvnHub {
 
       int w = getWidth();
       int h = getHeight();
-      int arc = 8;
+      int arc = ui(8);
       Shape oldClip = g2.getClip();
       g2.setClip(new RoundRectangle2D.Double(0, 0, w, h, arc, arc));
 
@@ -4171,19 +4332,19 @@ public final class JvnHub {
       g2.setClip(oldClip);
 
       String badge = "MAINTENANCE";
-      Font badgeFont = getFont().deriveFont(Font.BOLD, 9f);
+      Font badgeFont = getFont().deriveFont(Font.BOLD, uiFont(9f));
       g2.setFont(badgeFont);
       FontMetrics fm = g2.getFontMetrics();
-      int badgeW = fm.stringWidth(badge) + 12;
-      int badgeH = 17;
-      int badgeX = Math.max(6, w - badgeW - 7);
-      int badgeY = 6;
+      int badgeW = fm.stringWidth(badge) + ui(12);
+      int badgeH = ui(17);
+      int badgeX = Math.max(ui(6), w - badgeW - ui(7));
+      int badgeY = ui(6);
       g2.setColor(alpha(Color.decode("#1b1202"), 0.94f));
-      g2.fillRoundRect(badgeX, badgeY, badgeW, badgeH, 7, 7);
+      g2.fillRoundRect(badgeX, badgeY, badgeW, badgeH, ui(7), ui(7));
       g2.setColor(alpha(ACCENT_MAINTENANCE, 0.72f));
-      g2.drawRoundRect(badgeX, badgeY, badgeW, badgeH, 7, 7);
+      g2.drawRoundRect(badgeX, badgeY, badgeW, badgeH, ui(7), ui(7));
       g2.setColor(ACCENT_MAINTENANCE);
-      g2.drawString(badge, badgeX + 6, badgeY + 12);
+      g2.drawString(badge, badgeX + ui(6), badgeY + ui(12));
       g2.dispose();
     }
   }
@@ -4195,7 +4356,7 @@ public final class JvnHub {
 
     UpdateEngineButton(String text, Icon icon) {
       super(text, icon, ACCENT_NEUTRAL);
-      setBorder(new EmptyBorder(10, 18, 10, 52));
+      setBorder(uiPadding(10, 18, 10, 52));
     }
 
     void setChecking(boolean checking) {
@@ -4240,13 +4401,13 @@ public final class JvnHub {
       g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
       String text = incomingCount > 99 ? "99+" : Integer.toString(incomingCount);
-      Font badgeFont = getFont().deriveFont(Font.BOLD, 11f);
+      Font badgeFont = getFont().deriveFont(Font.BOLD, uiFont(11f));
       g2.setFont(badgeFont);
       FontMetrics fm = g2.getFontMetrics();
       int textW = fm.stringWidth(text);
-      int badgeH = 22;
-      int badgeW = Math.max(26, textW + 14);
-      int badgeX = getWidth() - badgeW - 14;
+      int badgeH = ui(22);
+      int badgeW = Math.max(ui(26), textW + ui(14));
+      int badgeX = getWidth() - badgeW - ui(14);
       int badgeY = (getHeight() - badgeH) / 2;
 
       Color fill = isEnabled() ? ACCENT_GREEN : BORDER_NEUTRAL;
@@ -4254,7 +4415,7 @@ public final class JvnHub {
       g2.fillRoundRect(badgeX, badgeY, badgeW, badgeH, badgeH, badgeH);
       g2.setColor(BG);
       int textX = badgeX + (badgeW - textW) / 2;
-      int textY = badgeY + badgeH - (badgeH - fm.getAscent() + fm.getDescent()) / 2 - 1;
+      int textY = badgeY + badgeH - (badgeH - fm.getAscent() + fm.getDescent()) / 2 - ui(1);
       g2.drawString(text, textX, textY);
       g2.dispose();
     }
@@ -4269,13 +4430,13 @@ public final class JvnHub {
       setFocusPainted(false);
       setOpaque(false);
       setRolloverEnabled(true);
-      setBorder(new EmptyBorder(8, 8, 8, 8));
-      setPreferredSize(new Dimension(40, 40));
+      setBorder(uiPadding(8, 8, 8, 8));
+      setPreferredSize(uiDimension(40, 40));
     }
 
     void setDeveloperModeEnabled(boolean enabled) {
       setSelected(enabled);
-      setIcon(VectorIcon.of(VectorIcon.Kind.DEVELOPER, 22, enabled ? ACCENT_DEV : TEXT_MUTED));
+      setIcon(uiIcon(VectorIcon.Kind.DEVELOPER, 22, enabled ? ACCENT_DEV : TEXT_MUTED));
       setToolTipText(enabled
           ? "Developer Mode ON — tests and engineering launch flags are enabled"
           : "Developer Mode OFF — click to show developer actions");
@@ -4288,12 +4449,12 @@ public final class JvnHub {
       h.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
       if (isSelected()) {
         h.setColor(alpha(ACCENT_DEV, getModel().isPressed() ? 0.26f : getModel().isRollover() ? 0.20f : 0.14f));
-        h.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+        h.fillRoundRect(0, 0, getWidth(), getHeight(), ui(10), ui(10));
         h.setColor(alpha(ACCENT_DEV, 0.70f));
-        h.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 10, 10);
+        h.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, ui(10), ui(10));
       } else if (getModel().isRollover() || getModel().isPressed()) {
         h.setColor(getModel().isPressed() ? PRESSED_BG : HOVER_BG);
-        h.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+        h.fillRoundRect(0, 0, getWidth(), getHeight(), ui(10), ui(10));
       }
       h.dispose();
       super.paintComponent(g);
@@ -4309,13 +4470,13 @@ public final class JvnHub {
       setFocusPainted(false);
       setOpaque(false);
       setRolloverEnabled(true);
-      setBorder(new EmptyBorder(8, 8, 8, 8));
-      setPreferredSize(new Dimension(40, 40));
+      setBorder(uiPadding(8, 8, 8, 8));
+      setPreferredSize(uiDimension(40, 40));
     }
 
     void setSafeModeEnabled(boolean enabled) {
       setSelected(enabled);
-      setIcon(VectorIcon.of(VectorIcon.Kind.SHIELD, 22, enabled ? ACCENT_SAFE : TEXT_MUTED));
+      setIcon(uiIcon(VectorIcon.Kind.SHIELD, 22, enabled ? ACCENT_SAFE : TEXT_MUTED));
       setToolTipText(enabled
           ? "Safe Mode ON — launches use safe-mode flags; Update Engine uses guarded Git recovery"
           : "Safe Mode OFF — click to launch with safe-mode flags; Update Engine uses normal Git update");
@@ -4328,12 +4489,12 @@ public final class JvnHub {
       h.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
       if (isSelected()) {
         h.setColor(alpha(ACCENT_SAFE, getModel().isPressed() ? 0.26f : getModel().isRollover() ? 0.20f : 0.14f));
-        h.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+        h.fillRoundRect(0, 0, getWidth(), getHeight(), ui(10), ui(10));
         h.setColor(alpha(ACCENT_SAFE, 0.70f));
-        h.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 10, 10);
+        h.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, ui(10), ui(10));
       } else if (getModel().isRollover() || getModel().isPressed()) {
         h.setColor(getModel().isPressed() ? PRESSED_BG : HOVER_BG);
-        h.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+        h.fillRoundRect(0, 0, getWidth(), getHeight(), ui(10), ui(10));
       }
       h.dispose();
       super.paintComponent(g);
@@ -4350,8 +4511,8 @@ public final class JvnHub {
       setFocusPainted(false);
       setOpaque(false);
       setRolloverEnabled(true);
-      setBorder(new EmptyBorder(8, 8, 8, 8));
-      setPreferredSize(new Dimension(40, 40));
+      setBorder(uiPadding(8, 8, 8, 8));
+      setPreferredSize(uiDimension(40, 40));
     }
 
     @Override
@@ -4360,7 +4521,7 @@ public final class JvnHub {
         Graphics2D h = (Graphics2D) g.create();
         h.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         h.setColor(getModel().isPressed() ? PRESSED_BG : HOVER_BG);
-        h.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+        h.fillRoundRect(0, 0, getWidth(), getHeight(), ui(10), ui(10));
         h.dispose();
       }
       super.paintComponent(g);
@@ -4376,15 +4537,15 @@ public final class JvnHub {
     private int count = 0;
 
     AnnouncementsButton() {
-      setIcon(VectorIcon.of(VectorIcon.Kind.BELL, 22, TEXT_PRIMARY));
+      setIcon(uiIcon(VectorIcon.Kind.BELL, 22, TEXT_PRIMARY));
       setToolTipText("Announcements — small updates pulled from the engine");
       setContentAreaFilled(false);
       setBorderPainted(false);
       setFocusPainted(false);
       setOpaque(false);
       setRolloverEnabled(true);
-      setBorder(new EmptyBorder(8, 8, 8, 8));
-      setPreferredSize(new Dimension(40, 40));
+      setBorder(uiPadding(8, 8, 8, 8));
+      setPreferredSize(uiDimension(40, 40));
     }
 
     void refreshBadge(int newCount) {
@@ -4401,7 +4562,7 @@ public final class JvnHub {
         Graphics2D h = (Graphics2D) g.create();
         h.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         h.setColor(getModel().isPressed() ? PRESSED_BG : HOVER_BG);
-        h.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+        h.fillRoundRect(0, 0, getWidth(), getHeight(), ui(10), ui(10));
         h.dispose();
       }
       super.paintComponent(g);
@@ -4414,19 +4575,19 @@ public final class JvnHub {
       g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
       String text = count > 9 ? "9+" : Integer.toString(count);
-      Font badgeFont = getFont().deriveFont(Font.BOLD, 9f);
+      Font badgeFont = getFont().deriveFont(Font.BOLD, uiFont(9f));
       g2.setFont(badgeFont);
       FontMetrics fm = g2.getFontMetrics();
       int textW = fm.stringWidth(text);
-      int diameter = Math.max(14, textW + 8);
-      int badgeX = getWidth() - diameter - 4;
-      int badgeY = 4;
+      int diameter = Math.max(ui(14), textW + ui(8));
+      int badgeX = getWidth() - diameter - ui(4);
+      int badgeY = ui(4);
 
       g2.setColor(ACCENT_ERROR);
-      g2.fillRoundRect(badgeX, badgeY, diameter, 14, 14, 14);
+      g2.fillRoundRect(badgeX, badgeY, diameter, ui(14), ui(14), ui(14));
       g2.setColor(Color.WHITE);
       int textX = badgeX + (diameter - textW) / 2;
-      int textY = badgeY + 14 - (14 - fm.getAscent() + fm.getDescent()) / 2 - 1;
+      int textY = badgeY + ui(14) - (ui(14) - fm.getAscent() + fm.getDescent()) / 2 - ui(1);
       g2.drawString(text, textX, textY);
       g2.dispose();
     }
