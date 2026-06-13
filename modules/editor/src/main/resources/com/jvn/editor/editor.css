@@ -7173,6 +7173,103 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-font-weight: 600;
 }
 
+.build-publisher-dependency-summary {
+  -fx-padding: 8 10 8 10;
+  -fx-background-color: rgba(255,255,255,0.032);
+  -fx-background-radius: 8;
+  -fx-border-radius: 8;
+  -fx-border-color: rgba(220,220,220,0.09);
+  -fx-border-width: 1;
+}
+
+.build-publisher-dependency-report {
+  -fx-spacing: 8;
+}
+
+.build-publisher-dependency-placeholder {
+  -fx-padding: 10;
+  -fx-background-color: rgba(255,255,255,0.026);
+  -fx-background-radius: 8;
+  -fx-border-radius: 8;
+  -fx-border-color: rgba(220,220,220,0.08);
+  -fx-border-width: 1;
+}
+
+.build-publisher-dependency-group {
+  -fx-padding: 10;
+  -fx-background-radius: 8;
+  -fx-border-radius: 8;
+  -fx-border-width: 1;
+}
+
+.build-publisher-dependency-group-error {
+  -fx-background-color: rgba(108, 46, 59, 0.13);
+  -fx-border-color: rgba(176, 92, 114, 0.34);
+}
+
+.build-publisher-dependency-group-warning {
+  -fx-background-color: rgba(118, 82, 39, 0.13);
+  -fx-border-color: rgba(180, 129, 67, 0.32);
+}
+
+.build-publisher-dependency-group-info {
+  -fx-background-color: rgba(255,255,255,0.028);
+  -fx-border-color: rgba(220,220,220,0.09);
+}
+
+.build-publisher-dependency-group-title {
+  -fx-text-fill: #eeeeee;
+  -fx-font-size: 12px;
+  -fx-font-weight: 900;
+}
+
+.build-publisher-finding-row {
+  -fx-padding: 9;
+  -fx-spacing: 10;
+  -fx-background-radius: 7;
+  -fx-border-radius: 7;
+  -fx-border-width: 1;
+}
+
+.build-publisher-finding-row-error {
+  -fx-background-color: rgba(108, 46, 59, 0.16);
+  -fx-border-color: rgba(176, 92, 114, 0.30);
+}
+
+.build-publisher-finding-row-warning {
+  -fx-background-color: rgba(118, 82, 39, 0.14);
+  -fx-border-color: rgba(180, 129, 67, 0.28);
+}
+
+.build-publisher-finding-row-info {
+  -fx-background-color: rgba(255,255,255,0.032);
+  -fx-border-color: rgba(220,220,220,0.08);
+}
+
+.build-publisher-finding-category {
+  -fx-text-fill: #f0d2a8;
+  -fx-font-size: 10px;
+  -fx-font-weight: 900;
+}
+
+.build-publisher-finding-location,
+.build-publisher-finding-target {
+  -fx-text-fill: #9fa8b4;
+  -fx-font-size: 10px;
+  -fx-font-weight: 700;
+}
+
+.build-publisher-finding-message {
+  -fx-text-fill: #eeeeee;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+}
+
+.build-publisher-mini-button {
+  -fx-font-size: 10px;
+  -fx-padding: 4 9 4 9;
+}
+
 .build-publisher-options {
   -fx-padding: 2 0 2 0;
 }

@@ -7003,6 +7003,103 @@
   -fx-font-weight: 600;
 }
 
+.build-publisher-dependency-summary {
+  -fx-padding: 8 10 8 10;
+  -fx-background-color: rgba(255,255,255,0.50);
+  -fx-background-radius: 8;
+  -fx-border-radius: 8;
+  -fx-border-color: rgba(105, 89, 72, 0.12);
+  -fx-border-width: 1;
+}
+
+.build-publisher-dependency-report {
+  -fx-spacing: 8;
+}
+
+.build-publisher-dependency-placeholder {
+  -fx-padding: 10;
+  -fx-background-color: rgba(255,255,255,0.44);
+  -fx-background-radius: 8;
+  -fx-border-radius: 8;
+  -fx-border-color: rgba(105, 89, 72, 0.10);
+  -fx-border-width: 1;
+}
+
+.build-publisher-dependency-group {
+  -fx-padding: 10;
+  -fx-background-radius: 8;
+  -fx-border-radius: 8;
+  -fx-border-width: 1;
+}
+
+.build-publisher-dependency-group-error {
+  -fx-background-color: rgba(188, 89, 115, 0.10);
+  -fx-border-color: rgba(156, 65, 89, 0.28);
+}
+
+.build-publisher-dependency-group-warning {
+  -fx-background-color: rgba(196, 141, 61, 0.12);
+  -fx-border-color: rgba(174, 122, 43, 0.28);
+}
+
+.build-publisher-dependency-group-info {
+  -fx-background-color: rgba(255,255,255,0.42);
+  -fx-border-color: rgba(105, 89, 72, 0.10);
+}
+
+.build-publisher-dependency-group-title {
+  -fx-text-fill: #302a25;
+  -fx-font-size: 12px;
+  -fx-font-weight: 900;
+}
+
+.build-publisher-finding-row {
+  -fx-padding: 9;
+  -fx-spacing: 10;
+  -fx-background-radius: 7;
+  -fx-border-radius: 7;
+  -fx-border-width: 1;
+}
+
+.build-publisher-finding-row-error {
+  -fx-background-color: rgba(188, 89, 115, 0.12);
+  -fx-border-color: rgba(156, 65, 89, 0.26);
+}
+
+.build-publisher-finding-row-warning {
+  -fx-background-color: rgba(196, 141, 61, 0.12);
+  -fx-border-color: rgba(174, 122, 43, 0.24);
+}
+
+.build-publisher-finding-row-info {
+  -fx-background-color: rgba(255,255,255,0.48);
+  -fx-border-color: rgba(105, 89, 72, 0.10);
+}
+
+.build-publisher-finding-category {
+  -fx-text-fill: #7b5124;
+  -fx-font-size: 10px;
+  -fx-font-weight: 900;
+}
+
+.build-publisher-finding-location,
+.build-publisher-finding-target {
+  -fx-text-fill: #6e6258;
+  -fx-font-size: 10px;
+  -fx-font-weight: 700;
+}
+
+.build-publisher-finding-message {
+  -fx-text-fill: #302a25;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+}
+
+.build-publisher-mini-button {
+  -fx-font-size: 10px;
+  -fx-padding: 4 9 4 9;
+}
+
 .build-publisher-options {
   -fx-padding: 2 0 2 0;
 }

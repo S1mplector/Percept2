@@ -6,9 +6,9 @@
   <strong>Current version:</strong> v0.1.3 <em></em>
 </div>
 
-JVN is a modular cross-platform Visual Novel engine and 2D animation toolkit written in Java, Clojure and Scala. 
+JVN is a young, modular cross-platform Visual Novel engine and 2D animation toolkit written in Java.
 
-Docs entrypoints:
+Documentation entrypoints:
 
 - [Documentation Index](docs/INDEX.md)
 - [JVN Engine Hub](docs/editor/core/engine-hub.md)
@@ -186,7 +186,7 @@ Use:
 - `./gradlew validateJvnGameDependencies -PjvnGameProject=/path/to/game -PjvnShowInfo=true` for a release-oriented scan of missing assets, broken references, unused media, and packaging blockers
 - `.github/workflows/native-builds.yml` for cross-host native installers and app bundles on matching GitHub runners
 
-The editor also exposes this through **Build & Publish...** for the currently open game project. The **Ship Build** action builds the selected package plan and writes `release-manifest.json`/Markdown under `build/reports/jvn-game-release/`. **Scan Dependencies** reports missing media/scripts/config, bad menu/stage/timeline references, unused media, and packaging blockers. Packaging validates `type=vn` and `type=jes` game manifests, rejects the engine workspace, writes `BUILD-METADATA.txt` sidecars/contents, and supports release profiles for signing, notarization, and publish commands.
+The editor also exposes this through **Build & Publish...** for the currently open game project. The **Ship Build** action builds the selected package plan and writes `release-manifest.json`/Markdown under `build/reports/jvn-game-release/`. **Scan Dependencies** renders an in-view report for missing media/scripts/config, bad menu/stage/timeline references, unused media, and packaging blockers, with copy/open actions per finding. Packaging validates `type=vn` and `type=jes` game manifests, rejects the engine workspace, writes `BUILD-METADATA.txt` sidecars/contents, and supports release profiles for signing, notarization, and publish commands.
 
 ## Runtime Usage
 

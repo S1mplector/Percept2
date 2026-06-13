@@ -31,7 +31,7 @@ Use this hub when the question is "how do we ship this game?"
 
 ### I want to catch broken assets before shipping
 
-1. Use **Scan Dependencies** in **Build & Publish...** or run `./gradlew validateJvnGameDependencies -PjvnGameProject=<dir> -PjvnShowInfo=true`
+1. Use **Scan Dependencies** in **Build & Publish...** for the grouped editor report, or run `./gradlew validateJvnGameDependencies -PjvnGameProject=<dir> -PjvnShowInfo=true`
 2. Fix errors first; they are packaging blockers
 3. Review warnings for missing media, broken menu/script/stage/timeline references, and info findings for unused media cleanup
 

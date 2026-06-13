@@ -3,14 +3,18 @@ package com.jvn.editor.ui;
 import java.awt.Desktop;
 import java.io.File;
 import java.io.FileInputStream;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Properties;
 import java.util.function.Consumer;
+import com.jvn.core.project.ProjectDependencyValidator;
 import com.jvn.editor.ui.build.ProjectManifestService;
 import com.jvn.editor.ui.build.BuildArtifactService;
 import com.jvn.editor.ui.build.BuildCliFormatter;
@@ -19,6 +23,7 @@ import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.Timeline;
+import javafx.concurrent.Task;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.effect.GaussianBlur;
 import javafx.geometry.Pos;
@@ -29,6 +34,7 @@ import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
+import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
 import javafx.scene.input.Clipboard;
@@ -103,6 +109,11 @@ public class GameBuildPublisherView extends BorderPane {
   private final Label statusLabel = new Label();
   private final Label commandPreviewLabel = new Label();
   private final Label artifactInventoryLabel = new Label();
+  private final Label dependencySummaryLabel = new Label("Dependency report: not scanned yet.");
+  private final Label dependencyErrorsBadgeLabel = new Label("Errors 0");
+  private final Label dependencyWarningsBadgeLabel = new Label("Warnings 0");
+  private final Label dependencyInfoBadgeLabel = new Label("Info 0");
+  private final VBox dependencyReportBox = new VBox(8);
   private final CheckBox offlineModeCheck = new CheckBox("Offline");
   private final CheckBox refreshRuntimeCheck = new CheckBox("Refresh runtime");
   private Button shipBuildButton;
@@ -110,6 +121,9 @@ public class GameBuildPublisherView extends BorderPane {
   private Button buildAllButton;
   private Button preflightButton;
   private Button dependencyScanButton;
+  private Button dependencyConsoleButton;
+  private Button copyDependencyReportButton;
+  private Button clearDependencyReportButton;
   private Button releaseButton;
   private Button copyShipCliButton;
   private Button copyCliButton;
@@ -132,6 +146,8 @@ public class GameBuildPublisherView extends BorderPane {
   private Button zipOutputButton;
   private final TextField outputDirField = new TextField();
   private File customOutputDir = null;
+  private ProjectDependencyValidator.Report dependencyReport = null;
+  private Task<ProjectDependencyValidator.Report> dependencyScanTask = null;
 
   public GameBuildPublisherView(File workspaceRoot, File projectRoot, Consumer<BuildRequest> onBuildRequested) {
     this.workspaceRoot = workspaceRoot;
@@ -258,6 +274,15 @@ public class GameBuildPublisherView extends BorderPane {
     commandPreviewLabel.getStyleClass().addAll("build-publisher-command-preview", "build-publisher-path");
     artifactInventoryLabel.setWrapText(true);
     artifactInventoryLabel.getStyleClass().addAll("build-publisher-artifact-inventory", "build-publisher-path");
+    dependencySummaryLabel.setWrapText(true);
+    dependencySummaryLabel.getStyleClass().addAll("build-publisher-dependency-summary", "build-publisher-copy");
+    styleBadge(dependencyErrorsBadgeLabel);
+    styleBadge(dependencyWarningsBadgeLabel);
+    styleBadge(dependencyInfoBadgeLabel);
+    setBadgeTone(dependencyErrorsBadgeLabel, "error");
+    setBadgeTone(dependencyWarningsBadgeLabel, "warn");
+    setBadgeTone(dependencyInfoBadgeLabel, "default");
+    dependencyReportBox.getStyleClass().add("build-publisher-dependency-report");
     styleOption(offlineModeCheck);
     styleOption(refreshRuntimeCheck);
 
@@ -309,6 +334,12 @@ public class GameBuildPublisherView extends BorderPane {
     preflightButton.setOnAction(e -> runPreflight());
     dependencyScanButton = button("Scan Dependencies", ButtonTone.SECONDARY, false);
     dependencyScanButton.setOnAction(e -> runDependencyScan());
+    dependencyConsoleButton = button("Run Console Scan", ButtonTone.SECONDARY, false);
+    dependencyConsoleButton.setOnAction(e -> runDependencyScanInConsole());
+    copyDependencyReportButton = button("Copy Report", ButtonTone.SECONDARY, false);
+    copyDependencyReportButton.setOnAction(e -> copyDependencyReport());
+    clearDependencyReportButton = button("Clear Report", ButtonTone.SECONDARY, false);
+    clearDependencyReportButton.setOnAction(e -> clearDependencyReport());
     releaseButton = button("Run Release Hooks", ButtonTone.SECONDARY, false);
     releaseButton.setOnAction(e -> runReleaseProfile());
     copyShipCliButton = button("Copy Ship Command", ButtonTone.SECONDARY, false);
@@ -355,6 +386,13 @@ public class GameBuildPublisherView extends BorderPane {
         actionSep, buildDangerRow,
         artifactInventoryLabel, statusLabel);
 
+    FlowPane dependencyBadgeRow = new FlowPane(6, 6, dependencyErrorsBadgeLabel, dependencyWarningsBadgeLabel, dependencyInfoBadgeLabel);
+    dependencyBadgeRow.setAlignment(Pos.CENTER_LEFT);
+    FlowPane dependencyActionsRow = new FlowPane(8, 8, dependencyConsoleButton, copyDependencyReportButton, clearDependencyReportButton);
+    dependencyActionsRow.setAlignment(Pos.CENTER_LEFT);
+    VBox dependencyCard = card("Dependency Report", dependencySummaryLabel, dependencyBadgeRow, dependencyActionsRow, dependencyReportBox);
+    renderDependencyPlaceholder("Run Scan Dependencies to inspect missing media, scripts, menus, stage presets, timelines, packaging blockers, and unused media.");
+
     Label nativeNote = new Label("Desktop bundles build locally for Windows, Linux, macOS Intel, and macOS Apple Silicon. Native installers still build on the matching host OS only.");
     nativeNote.setWrapText(true);
     nativeNote.getStyleClass().add("build-publisher-copy");
@@ -366,7 +404,7 @@ public class GameBuildPublisherView extends BorderPane {
     projectCard.setMaxWidth(Double.MAX_VALUE);
     planCard.setMaxWidth(Double.MAX_VALUE);
 
-    VBox content = new VBox(14, header, topRow, actionCard, nativeNote);
+    VBox content = new VBox(14, header, topRow, actionCard, dependencyCard, nativeNote);
     content.getStyleClass().add("build-publisher-content");
     content.setFillWidth(true);
 
@@ -435,6 +473,7 @@ public class GameBuildPublisherView extends BorderPane {
 
   private void loadProject(File root) {
     projectField.setText(root == null ? "" : root.getAbsolutePath());
+    clearDependencyReport();
     Properties manifest = ProjectManifestService.loadManifest(root);
     releaseProfileBox.getItems().setAll(availableReleaseProfiles(root));
     if (manifest == null) {
@@ -637,10 +676,19 @@ public class GameBuildPublisherView extends BorderPane {
 
   private void refreshUtilityButtons(ValidationResult result) {
     if (openProjectButton != null) openProjectButton.setDisable(projectRoot == null || !projectRoot.isDirectory());
+    boolean dependencyScanRunning = dependencyScanTask != null && dependencyScanTask.isRunning();
     if (dependencyScanButton != null) {
       dependencyScanButton.setDisable(workspaceRoot == null || !workspaceRoot.isDirectory()
-          || projectRoot == null || !projectRoot.isDirectory());
+          || projectRoot == null || !projectRoot.isDirectory()
+          || dependencyScanRunning);
     }
+    if (dependencyConsoleButton != null) {
+      dependencyConsoleButton.setDisable(workspaceRoot == null || !workspaceRoot.isDirectory()
+          || projectRoot == null || !projectRoot.isDirectory()
+          || dependencyScanRunning);
+    }
+    if (copyDependencyReportButton != null) copyDependencyReportButton.setDisable(dependencyReport == null);
+    if (clearDependencyReportButton != null) clearDependencyReportButton.setDisable(dependencyReport == null && !dependencyScanRunning);
     if (openReleaseConfigButton != null) openReleaseConfigButton.setDisable(findReleaseConfig(projectRoot) == null);
     boolean allowCache = workspaceRoot != null && workspaceRoot.isDirectory();
     if (revealRuntimeCacheButton != null) revealRuntimeCacheButton.setDisable(!allowCache);
@@ -891,6 +939,58 @@ public class GameBuildPublisherView extends BorderPane {
       setNoteTone(statusLabel, "error");
       return;
     }
+    if (dependencyScanTask != null && dependencyScanTask.isRunning()) {
+      statusLabel.setText("Dependency scan is already running.");
+      setNoteTone(statusLabel, "status");
+      return;
+    }
+
+    File scanRoot = projectRoot;
+    dependencyReport = null;
+    setDependencyBadges(0, 0, 0);
+    dependencySummaryLabel.setText("Scanning " + scanRoot.getAbsolutePath() + "...");
+    renderDependencyBusy();
+    refreshUtilityButtons(validateForm());
+
+    Task<ProjectDependencyValidator.Report> task = new Task<>() {
+      @Override
+      protected ProjectDependencyValidator.Report call() {
+        return ProjectDependencyValidator.inspect(scanRoot.toPath());
+      }
+    };
+    dependencyScanTask = task;
+    task.setOnSucceeded(e -> {
+      if (dependencyScanTask != task) return;
+      dependencyScanTask = null;
+      dependencyReport = task.getValue();
+      renderDependencyReport(dependencyReport);
+      statusLabel.setText(dependencyStatusText(dependencyReport));
+      setNoteTone(statusLabel, dependencyReport.errorCount() > 0 ? "error"
+          : dependencyReport.warningCount() > 0 ? "warn" : "ok");
+      refreshUtilityButtons(validateForm());
+    });
+    task.setOnFailed(e -> {
+      if (dependencyScanTask != task) return;
+      dependencyScanTask = null;
+      Throwable ex = task.getException();
+      dependencyReport = null;
+      dependencySummaryLabel.setText("Dependency scan failed.");
+      renderDependencyPlaceholder("Could not scan dependencies: " + (ex == null ? "unknown failure" : ex.getMessage()));
+      statusLabel.setText("Dependency scan failed: " + (ex == null ? "unknown failure" : ex.getMessage()));
+      setNoteTone(statusLabel, "error");
+      refreshUtilityButtons(validateForm());
+    });
+    Thread thread = new Thread(task, "jvn-build-dependency-scan");
+    thread.setDaemon(true);
+    thread.start();
+  }
+
+  private void runDependencyScanInConsole() {
+    if (projectRoot == null || !projectRoot.isDirectory()) {
+      statusLabel.setText("Dependency scan unavailable: open a JVN game project first.");
+      setNoteTone(statusLabel, "error");
+      return;
+    }
     List<String> args = dependencyScanArgs();
     if (onBuildRequested != null) {
       onBuildRequested.accept(new BuildRequest("validateJvnGameDependencies", args.toArray(String[]::new), "Validate Game Dependencies"));
@@ -975,6 +1075,335 @@ public class GameBuildPublisherView extends BorderPane {
     args.add("-PjvnGameProject=" + projectRoot.getAbsolutePath());
     args.add("-PjvnShowInfo=true");
     return args;
+  }
+
+  private void renderDependencyBusy() {
+    ProgressIndicator spinner = new ProgressIndicator();
+    spinner.setMaxSize(24, 24);
+    Label busy = new Label("Scanning project dependency graph...");
+    busy.getStyleClass().add("build-publisher-copy");
+    HBox row = new HBox(10, spinner, busy);
+    row.setAlignment(Pos.CENTER_LEFT);
+    row.getStyleClass().add("build-publisher-dependency-placeholder");
+    dependencyReportBox.getChildren().setAll(row);
+  }
+
+  private void renderDependencyPlaceholder(String message) {
+    Label placeholder = new Label(message == null || message.isBlank() ? "No dependency report yet." : message);
+    placeholder.setWrapText(true);
+    placeholder.getStyleClass().addAll("build-publisher-dependency-placeholder", "build-publisher-copy");
+    dependencyReportBox.getChildren().setAll(placeholder);
+  }
+
+  private void renderDependencyReport(ProjectDependencyValidator.Report report) {
+    if (report == null) {
+      setDependencyBadges(0, 0, 0);
+      dependencySummaryLabel.setText("Dependency report: not scanned yet.");
+      renderDependencyPlaceholder("Run Scan Dependencies to inspect the current game project.");
+      return;
+    }
+
+    setDependencyBadges(report.errorCount(), report.warningCount(), report.infoCount());
+    dependencySummaryLabel.setText("Dependency scan complete for " + report.projectRoot()
+        + " — " + report.errorCount() + " error(s), "
+        + report.warningCount() + " warning(s), " + report.infoCount() + " info.");
+
+    dependencyReportBox.getChildren().clear();
+    if (report.findings().isEmpty()) {
+      Label ok = new Label("No dependency issues found. Project assets and shipping references look clean.");
+      ok.setWrapText(true);
+      ok.getStyleClass().addAll("build-publisher-dependency-placeholder", "build-publisher-note", "build-publisher-note-ok");
+      dependencyReportBox.getChildren().add(ok);
+      return;
+    }
+
+    Map<ProjectDependencyValidator.Severity, List<ProjectDependencyValidator.Finding>> grouped =
+        new EnumMap<>(ProjectDependencyValidator.Severity.class);
+    for (ProjectDependencyValidator.Severity severity : ProjectDependencyValidator.Severity.values()) {
+      grouped.put(severity, new ArrayList<>());
+    }
+    for (ProjectDependencyValidator.Finding finding : report.findings()) {
+      grouped.get(finding.severity()).add(finding);
+    }
+
+    addDependencyGroup(ProjectDependencyValidator.Severity.ERROR, grouped.get(ProjectDependencyValidator.Severity.ERROR));
+    addDependencyGroup(ProjectDependencyValidator.Severity.WARNING, grouped.get(ProjectDependencyValidator.Severity.WARNING));
+    addDependencyGroup(ProjectDependencyValidator.Severity.INFO, grouped.get(ProjectDependencyValidator.Severity.INFO));
+  }
+
+  private void addDependencyGroup(
+      ProjectDependencyValidator.Severity severity,
+      List<ProjectDependencyValidator.Finding> findings
+  ) {
+    if (findings == null || findings.isEmpty()) return;
+    VBox group = new VBox(7);
+    group.getStyleClass().addAll("build-publisher-dependency-group", dependencyGroupStyle(severity));
+    Label title = new Label(dependencyGroupTitle(severity) + " (" + findings.size() + ")");
+    title.getStyleClass().add("build-publisher-dependency-group-title");
+    group.getChildren().add(title);
+    for (ProjectDependencyValidator.Finding finding : findings) {
+      group.getChildren().add(buildDependencyFindingRow(finding));
+    }
+    dependencyReportBox.getChildren().add(group);
+  }
+
+  private Node buildDependencyFindingRow(ProjectDependencyValidator.Finding finding) {
+    Label severityBadge = new Label(finding.severity().name());
+    styleBadge(severityBadge);
+    switch (finding.severity()) {
+      case ERROR -> setBadgeTone(severityBadge, "error");
+      case WARNING -> setBadgeTone(severityBadge, "warn");
+      case INFO -> setBadgeTone(severityBadge, "default");
+    }
+
+    Label category = new Label(finding.category());
+    category.getStyleClass().addAll("build-publisher-finding-category", "build-publisher-path");
+    Label location = new Label(finding.location());
+    location.getStyleClass().addAll("build-publisher-finding-location", "build-publisher-path");
+    location.setWrapText(true);
+    HBox meta = new HBox(6, severityBadge, category, location);
+    meta.setAlignment(Pos.CENTER_LEFT);
+
+    Label message = new Label(finding.message());
+    message.setWrapText(true);
+    message.getStyleClass().add("build-publisher-finding-message");
+    VBox text = new VBox(4, meta, message);
+    if (finding.target() != null && !finding.target().isBlank()) {
+      Label target = new Label("Target: " + finding.target());
+      target.setWrapText(true);
+      target.getStyleClass().addAll("build-publisher-finding-target", "build-publisher-path");
+      text.getChildren().add(target);
+    }
+
+    Button open = miniButton("Open");
+    File openTarget = dependencyOpenTarget(finding);
+    open.setDisable(openTarget == null);
+    open.setOnAction(e -> openDependencyFinding(finding));
+    Button copy = miniButton("Copy");
+    copy.setOnAction(e -> copyDependencyFinding(finding));
+    HBox actions = new HBox(6, open, copy);
+    actions.setAlignment(Pos.TOP_RIGHT);
+
+    HBox row = new HBox(10, text, actions);
+    HBox.setHgrow(text, Priority.ALWAYS);
+    row.getStyleClass().addAll("build-publisher-finding-row", dependencyRowStyle(finding.severity()));
+    return row;
+  }
+
+  private Button miniButton(String text) {
+    Button button = button(text, ButtonTone.SECONDARY, false);
+    button.getStyleClass().add("build-publisher-mini-button");
+    button.setMinHeight(26);
+    return button;
+  }
+
+  private void setDependencyBadges(int errors, int warnings, int info) {
+    dependencyErrorsBadgeLabel.setText("Errors " + errors);
+    dependencyWarningsBadgeLabel.setText("Warnings " + warnings);
+    dependencyInfoBadgeLabel.setText("Info " + info);
+  }
+
+  private String dependencyStatusText(ProjectDependencyValidator.Report report) {
+    if (report == null) return "Dependency scan did not return a report.";
+    if (report.errorCount() > 0) {
+      return "Dependency scan found " + report.errorCount() + " packaging blocker(s).";
+    }
+    if (report.warningCount() > 0) {
+      return "Dependency scan found " + report.warningCount() + " warning(s).";
+    }
+    if (report.infoCount() > 0) {
+      return "Dependency scan found " + report.infoCount() + " cleanup note(s), with no blockers.";
+    }
+    return "Dependency scan passed with no findings.";
+  }
+
+  private String dependencyGroupTitle(ProjectDependencyValidator.Severity severity) {
+    return switch (severity) {
+      case ERROR -> "Packaging Blockers";
+      case WARNING -> "Warnings";
+      case INFO -> "Cleanup Notes";
+    };
+  }
+
+  private String dependencyGroupStyle(ProjectDependencyValidator.Severity severity) {
+    return switch (severity) {
+      case ERROR -> "build-publisher-dependency-group-error";
+      case WARNING -> "build-publisher-dependency-group-warning";
+      case INFO -> "build-publisher-dependency-group-info";
+    };
+  }
+
+  private String dependencyRowStyle(ProjectDependencyValidator.Severity severity) {
+    return switch (severity) {
+      case ERROR -> "build-publisher-finding-row-error";
+      case WARNING -> "build-publisher-finding-row-warning";
+      case INFO -> "build-publisher-finding-row-info";
+    };
+  }
+
+  private void clearDependencyReport() {
+    if (dependencyScanTask != null && dependencyScanTask.isRunning()) {
+      dependencyScanTask.cancel();
+    }
+    dependencyScanTask = null;
+    dependencyReport = null;
+    setDependencyBadges(0, 0, 0);
+    dependencySummaryLabel.setText("Dependency report: not scanned yet.");
+    renderDependencyPlaceholder("Run Scan Dependencies to inspect missing media, scripts, menus, stage presets, timelines, packaging blockers, and unused media.");
+    refreshUtilityButtons(validateForm());
+  }
+
+  private void copyDependencyReport() {
+    if (dependencyReport == null) {
+      statusLabel.setText("No dependency report to copy yet.");
+      setNoteTone(statusLabel, "warn");
+      return;
+    }
+    ClipboardContent content = new ClipboardContent();
+    content.putString(formatDependencyReport(dependencyReport));
+    Clipboard.getSystemClipboard().setContent(content);
+    statusLabel.setText("Copied dependency report.");
+    setNoteTone(statusLabel, "status");
+  }
+
+  private void copyDependencyFinding(ProjectDependencyValidator.Finding finding) {
+    ClipboardContent content = new ClipboardContent();
+    content.putString(formatDependencyFinding(finding));
+    Clipboard.getSystemClipboard().setContent(content);
+    statusLabel.setText("Copied dependency finding.");
+    setNoteTone(statusLabel, "status");
+  }
+
+  private String formatDependencyReport(ProjectDependencyValidator.Report report) {
+    StringBuilder out = new StringBuilder();
+    out.append("JVN dependency validation\n");
+    out.append("Project: ").append(report.projectRoot()).append('\n');
+    out.append("Findings: ").append(report.errorCount()).append(" error(s), ")
+        .append(report.warningCount()).append(" warning(s), ")
+        .append(report.infoCount()).append(" info\n");
+    for (ProjectDependencyValidator.Finding finding : report.findings()) {
+      out.append(formatDependencyFinding(finding)).append('\n');
+    }
+    return out.toString();
+  }
+
+  private String formatDependencyFinding(ProjectDependencyValidator.Finding finding) {
+    StringBuilder out = new StringBuilder();
+    out.append('[').append(finding.severity()).append("] ")
+        .append(finding.category()).append(' ')
+        .append(finding.location()).append(" - ")
+        .append(finding.message());
+    if (finding.target() != null && !finding.target().isBlank()) {
+      out.append(" -> ").append(finding.target());
+    }
+    return out.toString();
+  }
+
+  private void openDependencyFinding(ProjectDependencyValidator.Finding finding) {
+    File target = dependencyOpenTarget(finding);
+    if (target == null) {
+      statusLabel.setText("No local file or folder could be resolved for this finding.");
+      setNoteTone(statusLabel, "warn");
+      return;
+    }
+    try {
+      Desktop.getDesktop().open(target);
+      statusLabel.setText("Opened: " + target.getAbsolutePath());
+      setNoteTone(statusLabel, "status");
+    } catch (Exception ex) {
+      statusLabel.setText("Could not open dependency target: " + ex.getMessage());
+      setNoteTone(statusLabel, "error");
+    }
+  }
+
+  private File dependencyOpenTarget(ProjectDependencyValidator.Finding finding) {
+    if (projectRoot == null || !projectRoot.isDirectory() || finding == null) return null;
+    File location = dependencyLocationFile(finding.location());
+    if (location != null) return location;
+    File target = dependencyProjectPath(finding.target(), true);
+    if (target != null) return target;
+    if ("menu".equals(finding.category())) {
+      File menuDir = new File(projectRoot, "config/menu");
+      return menuDir.exists() ? menuDir : projectRoot;
+    }
+    return null;
+  }
+
+  private File dependencyLocationFile(String location) {
+    if (location == null || location.isBlank()) return null;
+    String raw = location.trim();
+    if (raw.startsWith("menu:")) {
+      File menuDir = new File(projectRoot, "config/menu");
+      return menuDir.exists() ? menuDir : null;
+    }
+    if (raw.startsWith("dialogue")) {
+      File dialogue = new File(projectRoot, "config/ui/dialogue.layout");
+      if (dialogue.isFile()) return dialogue;
+    }
+    int colon = raw.indexOf(':');
+    if (colon > 0) raw = raw.substring(0, colon);
+    int hash = raw.indexOf('#');
+    if (hash > 0) raw = raw.substring(0, hash);
+    return dependencyProjectPath(raw, false);
+  }
+
+  private File dependencyProjectPath(String raw, boolean allowNearestParent) {
+    if (raw == null || raw.isBlank() || projectRoot == null) return null;
+    String cleaned = raw.trim().replace('\\', '/');
+    int arrow = cleaned.indexOf(" -> ");
+    if (arrow >= 0) cleaned = cleaned.substring(0, arrow).trim();
+    while (cleaned.startsWith("./")) cleaned = cleaned.substring(2);
+    while (cleaned.startsWith("/")) cleaned = cleaned.substring(1);
+    if (!looksLikeProjectPath(cleaned)) return null;
+    File root = projectRoot.getAbsoluteFile();
+    File candidate = new File(root, cleaned).getAbsoluteFile();
+    if (!isWithin(root, candidate)) return null;
+    if (candidate.exists()) return candidate;
+    if (!allowNearestParent) return null;
+    File cursor = candidate.getParentFile();
+    while (cursor != null && isWithin(root, cursor)) {
+      if (cursor.exists()) return cursor;
+      cursor = cursor.getParentFile();
+    }
+    return null;
+  }
+
+  private boolean looksLikeProjectPath(String raw) {
+    if (raw == null || raw.isBlank()) return false;
+    String value = raw.toLowerCase(Locale.ROOT);
+    return value.contains("/")
+        || value.equals("jvn.project")
+        || value.endsWith(".vns")
+        || value.endsWith(".jes")
+        || value.endsWith(".png")
+        || value.endsWith(".jpg")
+        || value.endsWith(".jpeg")
+        || value.endsWith(".webp")
+        || value.endsWith(".gif")
+        || value.endsWith(".svg")
+        || value.endsWith(".ogg")
+        || value.endsWith(".wav")
+        || value.endsWith(".mp3")
+        || value.endsWith(".flac")
+        || value.endsWith(".ttf")
+        || value.endsWith(".otf")
+        || value.endsWith(".stagepreset")
+        || value.endsWith(".properties")
+        || value.endsWith(".menu")
+        || value.endsWith(".layout")
+        || value.endsWith(".style");
+  }
+
+  private boolean isWithin(File root, File candidate) {
+    try {
+      Path rootPath = root.toPath().toRealPath();
+      Path candidatePath = candidate.exists()
+          ? candidate.toPath().toRealPath()
+          : candidate.toPath().toAbsolutePath().normalize();
+      return candidatePath.startsWith(rootPath);
+    } catch (Exception ex) {
+      return false;
+    }
   }
 
   private void copyCommand() {

@@ -29,7 +29,7 @@ Run -> Build & Publish...
 Project Explorer -> Build
 ```
 
-The popup reads the current project's `jvn.project`, lets you set the release name/version, target, format, native package type, and release profile, then launches the matching Gradle task in the run console. Use **Ship Build** when you want the editor to build the selected package plan and write release manifests in one step. Use **Scan Dependencies** when you want a project-wide shipping scan for missing media, bad script/config links, broken menu targets, bad stage/timeline references, unused media, and packaging blockers. The view also reveals output folders, copies CLI/publish notes, shows checksum availability for completed artifacts, and can run the selected release profile.
+The popup reads the current project's `jvn.project`, lets you set the release name/version, target, format, native package type, and release profile, then launches the matching Gradle task in the run console. Use **Ship Build** when you want the editor to build the selected package plan and write release manifests in one step. Use **Scan Dependencies** when you want an in-view shipping report for missing media, bad script/config links, broken menu targets, bad stage/timeline references, unused media, and packaging blockers. The report groups errors, warnings, and cleanup notes, supports per-finding copy/open actions, and still provides a console scan button for CI-style output. The view also reveals output folders, copies CLI/publish notes, shows checksum availability for completed artifacts, and can run the selected release profile.
 
 Before enabling build actions, the popup validates:
 
