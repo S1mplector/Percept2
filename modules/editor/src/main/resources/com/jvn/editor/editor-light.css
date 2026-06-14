@@ -3837,6 +3837,57 @@
   -fx-border-width: 0 0 1 0;
 }
 
+.editor-perf-chip-row {
+  -fx-alignment: center-left;
+  -fx-padding: 0 4 0 4;
+}
+
+.editor-perf-chip {
+  -fx-padding: 3 8 3 8;
+  -fx-background-color: #f5f5f5;
+  -fx-background-radius: 999;
+  -fx-border-color: #d8d8d8;
+  -fx-border-radius: 999;
+  -fx-border-width: 1;
+  -fx-font-size: 11px;
+  -fx-font-weight: 800;
+  -fx-text-fill: #3a3a3a;
+}
+
+.editor-perf-chip.perf-chip-cpu {
+  -fx-text-fill: #a54816;
+  -fx-border-color: rgba(242, 115, 51, 0.42);
+  -fx-background-color: rgba(242, 115, 51, 0.10);
+}
+
+.editor-perf-chip.perf-chip-heap {
+  -fx-text-fill: #7443b6;
+  -fx-border-color: rgba(168, 85, 247, 0.38);
+  -fx-background-color: rgba(168, 85, 247, 0.09);
+}
+
+.editor-perf-chip.perf-chip-jvm {
+  -fx-text-fill: #1f6ea8;
+  -fx-border-color: rgba(73, 165, 255, 0.38);
+  -fx-background-color: rgba(73, 165, 255, 0.10);
+}
+
+.editor-perf-chip.perf-chip-fps {
+  -fx-text-fill: #333333;
+}
+
+.editor-perf-chip.perf-chip-java {
+  -fx-text-fill: #27753d;
+  -fx-border-color: rgba(69, 151, 92, 0.38);
+  -fx-background-color: rgba(69, 151, 92, 0.09);
+}
+
+.editor-perf-chip.perf-chip-build {
+  -fx-text-fill: #806021;
+  -fx-border-color: rgba(180, 134, 45, 0.38);
+  -fx-background-color: rgba(180, 134, 45, 0.10);
+}
+
 .main-editor-command-bar {
   -fx-background-color: #fafafa;
   -fx-padding: 6 10 0 10;

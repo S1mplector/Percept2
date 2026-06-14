@@ -142,6 +142,7 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.TransferMode;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -149,8 +150,6 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
-import javafx.scene.text.Text;
-import javafx.scene.text.TextFlow;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
@@ -163,11 +162,17 @@ public class EditorApp extends Application {
   private Label status;
   private Label fps;
   private JvnStatusBar statusBar;
-  private TextFlow perf;
-  private Text cpuText;
-  private Text gpuText;
-  private Text ramText;
-  private Text fpsText;
+  private FlowPane perfChips;
+  private Label cpuChip;
+  private Label heapChip;
+  private Label jvmChip;
+  private Label fpsChip;
+  private Label threadsChip;
+  private Label gcChip;
+  private Label javaChip;
+  private Label jdkChip;
+  private Label gradleChip;
+  private Label projectShapeChip;
   private PerfGraph perfGraph;
   private File lastOpened;
   private Entity2D selected;
@@ -253,14 +258,15 @@ public class EditorApp extends Application {
   private double smoothedFps = Double.NaN;
   private long lastGcCollectionCount = -1L;
   private long lastGcCollectionTimeMs = -1L;
+  private File perfEnvironmentProjectRoot;
+  private PerfEnvironment perfEnvironment;
   private static final long PERF_UPDATE_INTERVAL_NS = 300_000_000L;
   private static final double PERF_CPU_SMOOTH_ALPHA = 0.28;
   private static final double PERF_FPS_SMOOTH_ALPHA = 0.20;
   private double targetFps = EditorPreferences.DEFAULT_EDITOR_MAX_FPS;
   private long minFrameIntervalNs = 0L; // 0 = uncapped
   private static final Color CPU_COLOR = Color.web("#f27333");
-  private static final Color GPU_COLOR = Color.web("#a855f7");
-  private static final Color RAM_COLOR = Color.web("#49a5ff");
+  private static final Color HEAP_COLOR = Color.web("#a855f7");
   private static final Color FPS_COLOR = Color.web("#f4f4f4");
   private static final Color GRID_BG = Color.color(0.08, 0.08, 0.08, 0.8);
   private static final Color GRID_LINE = Color.color(1, 1, 1, 0.08);
@@ -1951,16 +1957,29 @@ public class EditorApp extends Application {
     statusBar.setOnOpenDiagnostics(this::selectVnsDiagnosticsTab);
     status = statusBar.messageLabel();
     fps = new Label("");
-    cpuText = new Text("CPU --");
-    cpuText.setFill(CPU_COLOR);
-    gpuText = new Text(" | HEAP --");
-    gpuText.setFill(GPU_COLOR);
-    ramText = new Text(" | RAM --");
-    ramText.setFill(RAM_COLOR);
-    fpsText = new Text(" | FPS --");
-    fpsText.setFill(Color.WHITE);
-    perf = new TextFlow(cpuText, gpuText, ramText, fpsText);
-    perf.setLineSpacing(2);
+    cpuChip = perfChip("CPU --", "perf-chip-cpu");
+    heapChip = perfChip("Heap --", "perf-chip-heap");
+    jvmChip = perfChip("JVM --", "perf-chip-jvm");
+    fpsChip = perfChip("FPS --", "perf-chip-fps");
+    threadsChip = perfChip("Threads --", "perf-chip-neutral");
+    gcChip = perfChip("GC --", "perf-chip-neutral");
+    javaChip = perfChip("Java --", "perf-chip-java");
+    jdkChip = perfChip("JDK --", "perf-chip-java");
+    gradleChip = perfChip("Gradle --", "perf-chip-build");
+    projectShapeChip = perfChip("Project --", "perf-chip-build");
+    perfChips = new FlowPane(6, 4,
+        cpuChip,
+        heapChip,
+        jvmChip,
+        fpsChip,
+        threadsChip,
+        gcChip,
+        javaChip,
+        jdkChip,
+        gradleChip,
+        projectShapeChip);
+    perfChips.getStyleClass().add("editor-perf-chip-row");
+    perfChips.setMaxHeight(48);
     perfGraph = new PerfGraph();
     Runnable refreshChrome = () -> {
       FileEditorTab ft = getActiveFileTab();
@@ -2052,7 +2071,7 @@ public class EditorApp extends Application {
     logoBox.setAlignment(Pos.CENTER_RIGHT);
     logoBox.getStyleClass().add("jvn-wordmark-box");
     logoBox.getChildren().addAll(wordmark, verLabel, sourceLabel);
-    VBox perfBox = new VBox(4, perf, perfGraph.getCanvas());
+    VBox perfBox = new VBox(4, perfChips, perfGraph.getCanvas());
     perfBox.setAlignment(Pos.CENTER);
     perfBox.setFillWidth(true);
     HBox.setHgrow(perfBox, Priority.ALWAYS);
@@ -2625,7 +2644,7 @@ public class EditorApp extends Application {
   private int mapButton(MouseButton b) { if (b == MouseButton.PRIMARY) return 1; if (b == MouseButton.MIDDLE) return 2; if (b == MouseButton.SECONDARY) return 3; return 0; }
 
   private void updatePerf(long nowNs) {
-    if (perf == null) return;
+    if (perfChips == null) return;
     if (lastPerfUpdateNs > 0 && (nowNs - lastPerfUpdateNs) < PERF_UPDATE_INTERVAL_NS) return;
     lastPerfUpdateNs = nowNs;
 
@@ -2671,41 +2690,91 @@ public class EditorApp extends Application {
         ? String.format(Locale.ROOT, "GC +%d/%dms", gcCountDelta, gcTimeDelta)
         : "GC idle";
 
-    int threadCount = ManagementFactory.getThreadMXBean().getThreadCount();
+    var threadBean = ManagementFactory.getThreadMXBean();
+    int threadCount = threadBean.getThreadCount();
+    int daemonThreadCount = threadBean.getDaemonThreadCount();
+    PerfEnvironment environment = perfEnvironment();
 
     String cpuTextValue = isRatioValid(smoothedProcessCpu)
-        ? String.format(
-            Locale.ROOT,
-            "CPU app %.0f%%",
-            safePercent(smoothedProcessCpu))
+        ? String.format(Locale.ROOT, "CPU %.0f%%", safePercent(smoothedProcessCpu))
         : "CPU --";
-    String heapText = String.format(
+    String heapChipText = String.format(
         Locale.ROOT,
-        " | HEAP %.0f/%.0f MB (%.0f%%)",
+        "Heap %.0f%%",
+        heapRatio * 100.0);
+    String heapTooltip = String.format(
+        Locale.ROOT,
+        "Heap memory: %.0f MB used of %.0f MB max (%.0f%%)",
         heapUsedClampedMb,
         heapMaxMb,
         heapRatio * 100.0);
     String ramTextValue = String.format(
         Locale.ROOT,
-        " | JVN %.0f MB • non-heap %.0f MB",
+        "JVM %.0f MB",
+        jvnUsedMb);
+    String jvmTooltip = String.format(
+        Locale.ROOT,
+        "JVM memory: %.0f MB total tracked, %.0f MB heap, %.0f MB non-heap",
         jvnUsedMb,
+        heapUsedMb,
         nonHeapMb);
     String fpsTextValue = String.format(
         Locale.ROOT,
-        " | FPS %.0f | THR %d | %s",
-        Math.max(0.0, smoothedFps * targetFps),
-        threadCount,
-        gcText);
+        "FPS %.0f",
+        Math.max(0.0, smoothedFps * targetFps));
 
-    cpuText.setText(cpuTextValue);
-    gpuText.setText(heapText);
-    ramText.setText(ramTextValue);
-    fpsText.setText(fpsTextValue);
+    updatePerfChip(cpuChip, cpuTextValue, isRatioValid(smoothedProcessCpu)
+        ? "Editor process CPU load: " + String.format(Locale.ROOT, "%.0f%%", safePercent(smoothedProcessCpu))
+        : "Editor process CPU load unavailable.");
+    updatePerfChip(heapChip, heapChipText, heapTooltip);
+    updatePerfChip(jvmChip, ramTextValue, jvmTooltip);
+    updatePerfChip(fpsChip, fpsTextValue, "Smoothed editor UI frame rate.");
+    updatePerfChip(threadsChip, "Threads " + threadCount, threadCount + " live threads, " + daemonThreadCount + " daemon threads.");
+    updatePerfChip(gcChip, gcText, "Garbage collection delta since the previous sample.");
+    updatePerfChip(javaChip, environment.javaChip(), environment.javaText());
+    updatePerfChip(jdkChip, environment.jdkChip(), environment.javaText());
+    updatePerfChip(gradleChip, environment.gradleChip(), environment.gradleText());
+    updatePerfChip(projectShapeChip, environment.projectShapeChip(), environment.gradleText());
 
     perfGraph.pushSample(
         isRatioValid(smoothedProcessCpu) ? smoothedProcessCpu : 0,
         heapRatio,
         clamp01(smoothedFps));
+  }
+
+  private static Label perfChip(String text, String toneClass) {
+    Label label = new Label(text);
+    label.getStyleClass().add("editor-perf-chip");
+    if (toneClass != null && !toneClass.isBlank()) label.getStyleClass().add(toneClass);
+    label.setTextOverrun(OverrunStyle.ELLIPSIS);
+    label.setMaxWidth(150);
+    label.setMinHeight(22);
+    return label;
+  }
+
+  private static void updatePerfChip(Label label, String text, String tooltip) {
+    if (label == null) return;
+    label.setText(text == null || text.isBlank() ? "--" : text);
+    if (tooltip == null || tooltip.isBlank()) {
+      label.setTooltip(null);
+    } else {
+      label.setTooltip(new Tooltip(tooltip));
+    }
+  }
+
+  private PerfEnvironment perfEnvironment() {
+    File root = projectRoot == null ? null : projectRoot.getAbsoluteFile();
+    if (perfEnvironment == null || !sameFile(perfEnvironmentProjectRoot, root)) {
+      perfEnvironmentProjectRoot = root;
+      perfEnvironment = PerfEnvironment.capture(root, resolveWorkspaceRoot());
+    }
+    return perfEnvironment;
+  }
+
+  private static boolean sameFile(File a, File b) {
+    if (a == b) return true;
+    if (a == null || b == null) return false;
+    return a.toPath().toAbsolutePath().normalize().equals(b.toPath().toAbsolutePath().normalize());
   }
 
   private static double smoothRatio(double previous, double sample, double alpha) {
@@ -2742,6 +2811,179 @@ public class EditorApp extends Application {
     if (value < 0) return 0;
     if (value > 1) return 1;
     return value;
+  }
+
+  private record PerfEnvironment(
+      String javaText,
+      String gradleText,
+      String javaChip,
+      String jdkChip,
+      String gradleChip,
+      String projectShapeChip) {
+    private static final int COUNT_LIMIT = 999;
+
+    static PerfEnvironment capture(File projectRoot, File workspaceRoot) {
+      File buildRoot = firstExistingDirectory(projectRoot, workspaceRoot);
+      String toolchain = gradleProperty(buildRoot, "javaVersion");
+      String runtime = cleanProperty("java.runtime.version", cleanProperty("java.version", "?"));
+      String compiler = ToolProvider.getSystemJavaCompiler() == null ? "JRE" : "JDK";
+      String java = javaRuntimeSummary(buildRoot, runtime, toolchain, compiler);
+      GradleSummary gradleSummary = gradleSummary(buildRoot, projectRoot);
+      String javaMajor = javaFeatureVersion(runtime);
+      String target = toolchain == null || toolchain.isBlank() ? "" : " -> " + toolchain;
+      return new PerfEnvironment(
+          java,
+          gradleSummary.text(),
+          "Java " + javaMajor + target,
+          compiler,
+          "Gradle " + gradleSummary.wrapper(),
+          gradleSummary.shape().chipText());
+    }
+
+    private static String javaRuntimeSummary(File root, String runtime, String toolchain, String compiler) {
+      String vendor = cleanProperty("java.vendor", "unknown vendor");
+      String vm = cleanProperty("java.vm.name", "VM");
+      String home = cleanProperty("java.home", "");
+      String target = toolchain == null || toolchain.isBlank() ? "" : " target " + toolchain;
+      return "Java " + runtime + target + " | " + compiler + " | " + vendor + " " + vm
+          + (home.isBlank() ? "" : " | " + compactHome(home));
+    }
+
+    private static GradleSummary gradleSummary(File root, File projectRoot) {
+      String wrapper = gradleWrapperVersion(root);
+      String jvmArgs = gradleProperty(root, "org.gradle.jvmargs");
+      String cache = booleanGradleProperty(root, "org.gradle.caching") ? "cache on" : "cache off";
+      String parallel = booleanGradleProperty(root, "org.gradle.parallel") ? "parallel on" : "parallel off";
+      String autoJdk = booleanGradleProperty(root, "org.gradle.java.installations.auto-download")
+          ? "JDK auto-download on"
+          : "JDK auto-download off";
+      ProjectShape shape = ProjectShape.capture(projectRoot == null ? root : projectRoot);
+      String wrapperText = wrapper == null ? "?" : wrapper;
+      String text = "Gradle " + wrapperText
+          + " | " + cache
+          + " | " + parallel
+          + " | " + autoJdk
+          + " | " + shape.text()
+          + (jvmArgs == null || jvmArgs.isBlank() ? "" : " | JVM args " + summarizeJvmArgs(jvmArgs));
+      return new GradleSummary(wrapperText, shape, text);
+    }
+
+    private static String javaFeatureVersion(String version) {
+      if (version == null || version.isBlank()) return "?";
+      String clean = version.trim();
+      if (clean.startsWith("1.")) {
+        int next = clean.indexOf('.', 2);
+        return next > 0 ? clean.substring(2, next) : clean.substring(2);
+      }
+      int dot = clean.indexOf('.');
+      int dash = clean.indexOf('-');
+      int plus = clean.indexOf('+');
+      int end = clean.length();
+      if (dot > 0) end = Math.min(end, dot);
+      if (dash > 0) end = Math.min(end, dash);
+      if (plus > 0) end = Math.min(end, plus);
+      return clean.substring(0, end);
+    }
+
+    private static File firstExistingDirectory(File first, File second) {
+      if (first != null && first.isDirectory()) return first.getAbsoluteFile();
+      if (second != null && second.isDirectory()) return second.getAbsoluteFile();
+      return null;
+    }
+
+    private static String cleanProperty(String key, String fallback) {
+      String value = System.getProperty(key, "").trim();
+      return value.isBlank() ? fallback : value;
+    }
+
+    private static String compactHome(String path) {
+      String home = System.getProperty("user.home", "").trim();
+      if (!home.isBlank() && path.startsWith(home)) return "~" + path.substring(home.length());
+      return path;
+    }
+
+    private static String gradleProperty(File root, String key) {
+      if (root == null || key == null || key.isBlank()) return null;
+      Path path = root.toPath().resolve("gradle.properties");
+      if (!Files.isRegularFile(path)) return null;
+      try (InputStream in = Files.newInputStream(path)) {
+        Properties props = new Properties();
+        props.load(in);
+        String value = props.getProperty(key);
+        return value == null ? null : value.trim();
+      } catch (Exception ignored) {
+        return null;
+      }
+    }
+
+    private static boolean booleanGradleProperty(File root, String key) {
+      return Boolean.parseBoolean(String.valueOf(gradleProperty(root, key)));
+    }
+
+    private static String gradleWrapperVersion(File root) {
+      if (root == null) return null;
+      Path path = root.toPath().resolve("gradle").resolve("wrapper").resolve("gradle-wrapper.properties");
+      if (!Files.isRegularFile(path)) return null;
+      try {
+        for (String line : Files.readAllLines(path, StandardCharsets.UTF_8)) {
+          int marker = line.indexOf("gradle-");
+          if (marker < 0) continue;
+          int start = marker + "gradle-".length();
+          int end = line.indexOf('-', start);
+          if (end > start) return line.substring(start, end);
+        }
+      } catch (Exception ignored) {
+        return null;
+      }
+      return null;
+    }
+
+    private static String summarizeJvmArgs(String value) {
+      String normalized = value.replaceAll("\\s+", " ").trim();
+      if (normalized.length() <= 42) return normalized;
+      return normalized.substring(0, 39) + "...";
+    }
+
+    private record GradleSummary(String wrapper, ProjectShape shape, String text) {
+    }
+
+    private record ProjectShape(int modules, int javaFiles, int gradleFiles) {
+      static ProjectShape capture(File root) {
+        if (root == null || !root.isDirectory()) return new ProjectShape(0, 0, 0);
+        int modules = 0;
+        int javaFiles = 0;
+        int gradleFiles = 0;
+        try (var stream = Files.walk(root.toPath(), 5)) {
+          var iterator = stream.iterator();
+          while (iterator.hasNext()) {
+            Path path = iterator.next();
+            Path fileName = path.getFileName();
+            if (fileName == null) continue;
+            String name = fileName.toString();
+            if ("build.gradle.kts".equals(name) || "build.gradle".equals(name)) {
+              gradleFiles = Math.min(COUNT_LIMIT, gradleFiles + 1);
+              modules = Math.min(COUNT_LIMIT, modules + 1);
+            } else if (name.endsWith(".java")) {
+              javaFiles = Math.min(COUNT_LIMIT, javaFiles + 1);
+            }
+            if (modules >= COUNT_LIMIT && javaFiles >= COUNT_LIMIT && gradleFiles >= COUNT_LIMIT) break;
+          }
+        } catch (Exception ignored) {
+          return new ProjectShape(modules, javaFiles, gradleFiles);
+        }
+        return new ProjectShape(modules, javaFiles, gradleFiles);
+      }
+
+      String text() {
+        if (modules == 0 && javaFiles == 0 && gradleFiles == 0) return "project shape ?";
+        return modules + " modules, " + javaFiles + " Java files, " + gradleFiles + " Gradle files";
+      }
+
+      String chipText() {
+        if (modules == 0 && javaFiles == 0 && gradleFiles == 0) return "Project ?";
+        return modules + " modules";
+      }
+    }
   }
 
   /** Tiny inline graph renderer for CPU/heap/FPS trends. */
@@ -2795,7 +3037,7 @@ public class EditorApp extends Application {
       double scaleX = w / (cpu.length - 1);
 
       // HEAP area
-      g.setFill(GPU_COLOR.deriveColor(0, 1, 1, 0.26));
+      g.setFill(HEAP_COLOR.deriveColor(0, 1, 1, 0.26));
       g.beginPath();
       for (int i = 0; i < samples; i++) {
         int si = (idx - samples + i + cpu.length) % cpu.length;
@@ -2809,7 +3051,7 @@ public class EditorApp extends Application {
       g.fill();
 
       // HEAP outline
-      g.setStroke(GPU_COLOR.deriveColor(0, 1, 1, 0.95));
+      g.setStroke(HEAP_COLOR.deriveColor(0, 1, 1, 0.95));
       g.setLineWidth(1.6);
       g.beginPath();
       for (int i = 0; i < samples; i++) {
