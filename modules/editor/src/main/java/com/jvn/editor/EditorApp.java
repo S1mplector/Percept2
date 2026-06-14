@@ -50,6 +50,7 @@ import com.jvn.editor.ui.EditorSettingsView;
 import com.jvn.editor.ui.EditorSidebarPanel;
 import com.jvn.editor.ui.EditorTheme;
 import com.jvn.editor.ui.EditorWorkspaceHubView;
+import com.jvn.editor.ui.EngineHealthCenterView;
 import com.jvn.editor.ui.FileEditorTab;
 import com.jvn.editor.ui.GameBuildPublisherView;
 import com.jvn.editor.ui.HelpCenterView;
@@ -183,6 +184,7 @@ public class EditorApp extends Application {
   private boolean showGrid = true;
   
   private ProjectExplorerView projView;
+  private EngineHealthCenterView engineHealthCenterView;
   private HelpCenterView helpCenterView;
   private StoryTimelineView timelineView;
   private VnsDiagnosticsView vnsDiagnosticsView;
@@ -226,6 +228,7 @@ public class EditorApp extends Application {
   private EditorWorkspaceHubView workspaceHubView;
   private Tab tabWorkspaceHub;
   private Tab tabProject;
+  private Tab tabEngineHealth;
   private Tab tabTimeline;
   private Tab tabInspector;
   private Tab tabHelp;
@@ -501,6 +504,7 @@ public class EditorApp extends Application {
     if (settingsEditor != null) settingsEditor.setProjectRoot(root);
     if (menuThemeEditor != null) menuThemeEditor.setProjectRoot(root);
     if (mapEditorView != null) mapEditorView.setProjectRoot(root);
+    if (engineHealthCenterView != null) engineHealthCenterView.setProjectRoot(root);
     if (helpCenterView != null) helpCenterView.setProjectRoot(root);
     if (assetBrowserView != null) assetBrowserView.setProjectRoot(root);
     if (versionControlView != null) versionControlView.setProjectRoot(root);
@@ -1592,6 +1596,8 @@ public class EditorApp extends Application {
     Menu menuPanels = new Menu("Panels");
     MenuItem miShowProject = new MenuItem("Project Explorer");
     miShowProject.setOnAction(e -> selectProjectTab());
+    MenuItem miShowEngineHealth = new MenuItem("Engine Health");
+    miShowEngineHealth.setOnAction(e -> selectEngineHealthTab());
     MenuItem miShowWelcomePanel = new MenuItem("Workspace Hub");
     miShowWelcomePanel.setOnAction(e -> selectWorkspaceHubTab());
     MenuItem miShowTimeline = new MenuItem("Story Map");
@@ -1638,7 +1644,7 @@ public class EditorApp extends Application {
     miAddRightPanel.setOnAction(e -> showRightAddMenu());
     Menu menuPanelsWorkspace = new Menu("Workspace");
     menuPanelsWorkspace.getItems().addAll(
-        miShowWelcomePanel, miShowProject, miShowTimeline, miShowInspector, miShowVersionControlPanel, miShowHelpPanel);
+        miShowWelcomePanel, miShowProject, miShowEngineHealth, miShowTimeline, miShowInspector, miShowVersionControlPanel, miShowHelpPanel);
     Menu menuPanelsAuthoring = new Menu("Authoring");
     menuPanelsAuthoring.getItems().addAll(
         miShowAssets, miShowScriptEditorWorkspace, miShowPuppeteerLauncher);
@@ -1689,6 +1695,8 @@ public class EditorApp extends Application {
     miNavigateWelcome.setOnAction(e -> selectWorkspaceHubTab());
     MenuItem miNavigateProject = new MenuItem("Project Explorer");
     miNavigateProject.setOnAction(e -> selectProjectTab());
+    MenuItem miNavigateEngineHealth = new MenuItem("Engine Health");
+    miNavigateEngineHealth.setOnAction(e -> selectEngineHealthTab());
     MenuItem miNavigateTimeline = new MenuItem("Story Map");
     miNavigateTimeline.setOnAction(e -> selectTimelineTab());
     MenuItem miNavigateInspector = new MenuItem("Inspector");
@@ -1698,7 +1706,7 @@ public class EditorApp extends Application {
     MenuItem miNavigateVersionControl = new MenuItem("Version Control");
     miNavigateVersionControl.setOnAction(e -> selectVersionControlTab());
     menuNavigateCore.getItems().addAll(
-        miNavigateWelcome, miNavigateProject, miNavigateTimeline, miNavigateInspector, miNavigateHelp, miNavigateVersionControl);
+        miNavigateWelcome, miNavigateProject, miNavigateEngineHealth, miNavigateTimeline, miNavigateInspector, miNavigateHelp, miNavigateVersionControl);
 
     Menu menuNavigateEditors = new Menu("Editors & Tools");
     MenuItem miNavigateAssetBrowser = new MenuItem("Asset Browser");
@@ -1897,6 +1905,8 @@ public class EditorApp extends Application {
     miWindowWelcome.setOnAction(e -> selectWorkspaceHubTab());
     MenuItem miWindowProject = new MenuItem("Project Explorer");
     miWindowProject.setOnAction(e -> selectProjectTab());
+    MenuItem miWindowEngineHealth = new MenuItem("Engine Health");
+    miWindowEngineHealth.setOnAction(e -> selectEngineHealthTab());
     MenuItem miWindowTimeline = new MenuItem("Story Map");
     miWindowTimeline.setOnAction(e -> selectTimelineTab());
     MenuItem miWindowInspector = new MenuItem("Inspector");
@@ -1910,6 +1920,7 @@ public class EditorApp extends Application {
     menuWindowWorkspace.getItems().addAll(
         miWindowWelcome,
         miWindowProject,
+        miWindowEngineHealth,
         miWindowTimeline,
         miWindowInspector,
         miWindowVersionControl,
@@ -3245,6 +3256,7 @@ public class EditorApp extends Application {
   private Region getSidebarCssIcon(EditorSidebarPanel panel) {
     switch (panel) {
       case PROJECT: return com.jvn.editor.ui.CssIcon.folder("#f5c56f");
+      case ENGINE_HEALTH: return com.jvn.editor.ui.CssIcon.memory("#8ecaff");
       case TIMELINE: return com.jvn.editor.ui.CssIcon.timeline("#cfd7e6");
       case INSPECTOR: return com.jvn.editor.ui.CssIcon.search("#e2d3c3");
       case VNS_DIAGNOSTICS: return com.jvn.editor.ui.CssIcon.warning("#f0b673");
@@ -3720,6 +3732,7 @@ public class EditorApp extends Application {
       }
     }
     if (mapEditorView != null) mapEditorView.setProjectRoot(projectRoot);
+    if (engineHealthCenterView != null) engineHealthCenterView.setProjectRoot(projectRoot);
     if (helpCenterView != null) helpCenterView.setProjectRoot(projectRoot);
     if (assetBrowserView != null) assetBrowserView.setProjectRoot(projectRoot);
     if (versionControlView != null) versionControlView.setProjectRoot(projectRoot);
@@ -3872,6 +3885,7 @@ public class EditorApp extends Application {
       }
       if (loadOnDemand
           && panel != EditorSidebarPanel.PROJECT
+          && panel != EditorSidebarPanel.ENGINE_HEALTH
           && !attachedBeforeRefresh.contains(panel)) {
         continue;
       }
@@ -3949,6 +3963,7 @@ public class EditorApp extends Application {
     if (panel == null) return null;
     return switch (panel) {
       case PROJECT -> tabProject;
+      case ENGINE_HEALTH -> tabEngineHealth;
       case TIMELINE -> tabTimeline;
       case INSPECTOR -> tabInspector;
       case VNS_DIAGNOSTICS -> tabVnsDiagnostics;
@@ -3975,6 +3990,7 @@ public class EditorApp extends Application {
     if (blockMaintenancePanelLaunch(panel, panel.displayName())) return null;
     return switch (panel) {
       case PROJECT -> ensureProjectTab(targetPane);
+      case ENGINE_HEALTH -> ensureEngineHealthTab(targetPane);
       case TIMELINE -> ensureTimelineTab(targetPane);
       case INSPECTOR -> ensureInspectorTab(targetPane);
       case VNS_DIAGNOSTICS -> ensureVnsDiagnosticsTab(targetPane);
@@ -4014,6 +4030,17 @@ public class EditorApp extends Application {
     editorSettingsView.setOnPreferencesApplied(this::applyEditorPreferences);
     editorSettingsView.loadIntoForm(editorPreferences);
     return editorSettingsView;
+  }
+
+  private EngineHealthCenterView ensureEngineHealthCenterView() {
+    if (engineHealthCenterView != null) return engineHealthCenterView;
+    engineHealthCenterView = new EngineHealthCenterView();
+    engineHealthCenterView.setWorkspaceRoot(resolveWorkspaceRoot());
+    engineHealthCenterView.setProjectRoot(projectRoot);
+    engineHealthCenterView.setStartupIssues(startupSetupIssues);
+    engineHealthCenterView.setOnOpenPath(this::openEditableOrExternal);
+    engineHealthCenterView.refreshStatus();
+    return engineHealthCenterView;
   }
 
   private VnsDiagnosticsView ensureVnsDiagnosticsView() {
@@ -5157,6 +5184,26 @@ public class EditorApp extends Application {
     return attachSidebarPanelTab(tabProject, EditorSidebarPanel.PROJECT, targetPane);
   }
 
+  private Tab ensureEngineHealthTab(TabPane targetPane) {
+    closePanelWindow(EditorSidebarPanel.ENGINE_HEALTH, true);
+    EngineHealthCenterView health = ensureEngineHealthCenterView();
+    if (targetPane == null || health == null) return null;
+    health.setWorkspaceRoot(resolveWorkspaceRoot());
+    health.setProjectRoot(projectRoot);
+    health.setStartupIssues(startupSetupIssues);
+    if (tabEngineHealth == null) {
+      tabEngineHealth = new Tab("Health", health);
+      tabEngineHealth.setClosable(true);
+      tabEngineHealth.setOnClosed(e -> {
+        tabEngineHealth = null;
+        releaseSidebarPanelIfUnused(EditorSidebarPanel.ENGINE_HEALTH);
+      });
+    } else if (tabEngineHealth.getContent() != health) {
+      tabEngineHealth.setContent(health);
+    }
+    return attachSidebarPanelTab(tabEngineHealth, EditorSidebarPanel.ENGINE_HEALTH, targetPane);
+  }
+
   private Tab ensureTimelineTab(TabPane targetPane) {
     closePanelWindow(EditorSidebarPanel.TIMELINE, true);
     StoryTimelineView timeline = ensureTimelineView();
@@ -6049,6 +6096,7 @@ public class EditorApp extends Application {
 
   private void nullifyTab(Tab tab) {
     if (tab == tabProject) tabProject = null;
+    else if (tab == tabEngineHealth) tabEngineHealth = null;
     else if (tab == tabTimeline) tabTimeline = null;
     else if (tab == tabHelp) tabHelp = null;
     else if (tab == tabInspector) tabInspector = null;
@@ -6127,6 +6175,7 @@ public class EditorApp extends Application {
     if (panel == null) return editorSettingsView != null;
     return switch (panel) {
       case PROJECT -> projView != null;
+      case ENGINE_HEALTH -> engineHealthCenterView != null;
       case TIMELINE -> timelineView != null;
       case INSPECTOR -> inspectorView != null;
       case VNS_DIAGNOSTICS -> vnsDiagnosticsView != null;
@@ -6161,6 +6210,12 @@ public class EditorApp extends Application {
     panelWindows.remove(panel);
     switch (panel) {
       case PROJECT -> {
+      }
+      case ENGINE_HEALTH -> {
+        if (engineHealthCenterView != null) {
+          engineHealthCenterView.dispose();
+        }
+        engineHealthCenterView = null;
       }
       case TIMELINE -> {
         if (timelineView != null) {
@@ -6307,6 +6362,20 @@ public class EditorApp extends Application {
       if (t != null) pane.getSelectionModel().select(t);
     }, () -> launchPanelAsWindow("Project", projView, 600, 700, EditorSidebarPanel.PROJECT), () -> {
       rememberPanelPlacement(EditorSidebarPanel.PROJECT, EditorPanelPlacement.HIDDEN);
+      applyDefaultSidebarPreferences();
+    });
+
+    addChooserActionRow(pane, actions, EditorSidebarPanel.ENGINE_HEALTH, targetPlacement, "Health Center", null, () -> {
+      rememberPanelPlacement(EditorSidebarPanel.ENGINE_HEALTH, targetPlacement);
+      Tab t = ensureEngineHealthTab(pane);
+      if (t != null) pane.getSelectionModel().select(t);
+      if (engineHealthCenterView != null) engineHealthCenterView.refreshStatus();
+    }, () -> {
+      EngineHealthCenterView view = ensureEngineHealthCenterView();
+      if (view != null) view.refreshStatus();
+      launchPanelAsWindow("Engine Health Center", view, 820, 760, EditorSidebarPanel.ENGINE_HEALTH);
+    }, () -> {
+      rememberPanelPlacement(EditorSidebarPanel.ENGINE_HEALTH, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
     });
 
@@ -6550,6 +6619,16 @@ public class EditorApp extends Application {
     if (t != null && t.getTabPane() != null) {
       t.getTabPane().getSelectionModel().select(t);
     }
+  }
+
+  private void selectEngineHealthTab() {
+    Tab t = (tabEngineHealth != null && tabEngineHealth.getTabPane() != null)
+        ? tabEngineHealth
+        : ensureEngineHealthTab(leftTabs);
+    if (t != null && t.getTabPane() != null) {
+      t.getTabPane().getSelectionModel().select(t);
+    }
+    if (engineHealthCenterView != null) engineHealthCenterView.refreshStatus();
   }
 
   private void selectWorkspaceHubTab() {
