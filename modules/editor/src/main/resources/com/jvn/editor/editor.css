@@ -7856,6 +7856,11 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-border-radius: 8;
 }
 
+.engine-health-section-divider .line {
+  -fx-border-color: rgba(142, 202, 255, 0.20);
+  -fx-border-width: 1 0 0 0;
+}
+
 .engine-health-section-title {
   -fx-font-size: 13px;
   -fx-font-weight: 800;
@@ -7870,15 +7875,64 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-border-radius: 7;
 }
 
+.engine-health-check-ok {
+  -fx-border-color: rgba(87, 190, 112, 0.16);
+}
+
+.engine-health-check-warn {
+  -fx-border-color: rgba(242, 200, 107, 0.36);
+}
+
+.engine-health-check-error {
+  -fx-border-color: rgba(255, 127, 159, 0.42);
+}
+
+.engine-health-check-info {
+  -fx-border-color: rgba(89, 173, 255, 0.22);
+}
+
+.engine-health-check-divider .line {
+  -fx-border-color: rgba(255,255,255,0.075);
+  -fx-border-width: 1 0 0 0;
+}
+
 .engine-health-check-title {
   -fx-font-size: 12px;
   -fx-font-weight: 800;
   -fx-text-fill: #f4f4f4;
 }
 
+.engine-health-check-title-ok {
+  -fx-text-fill: #a8efb5;
+}
+
+.engine-health-check-title-warn {
+  -fx-text-fill: #f6d681;
+}
+
+.engine-health-check-title-error {
+  -fx-text-fill: #ff9caf;
+}
+
+.engine-health-check-title-info {
+  -fx-text-fill: #a8d8ff;
+}
+
 .engine-health-check-detail {
   -fx-text-fill: #c8ced5;
   -fx-font-size: 12px;
+}
+
+.engine-health-check-detail-warn {
+  -fx-text-fill: #e4c985;
+}
+
+.engine-health-check-detail-error {
+  -fx-text-fill: #e9a7b4;
+}
+
+.engine-health-check-detail-info {
+  -fx-text-fill: #b9d8ef;
 }
 
 .engine-health-evidence {
@@ -7899,6 +7953,22 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-text-fill: #aab3bd;
   -fx-background-color: rgba(255,255,255,0.055);
   -fx-border-color: rgba(255,255,255,0.10);
+}
+
+.engine-health-tag-ok {
+  -fx-text-fill: #9fe9ae;
+}
+
+.engine-health-tag-warn {
+  -fx-text-fill: #f0ca70;
+}
+
+.engine-health-tag-error {
+  -fx-text-fill: #ff91a8;
+}
+
+.engine-health-tag-info {
+  -fx-text-fill: #94ccff;
 }
 
 .engine-health-mini-button {

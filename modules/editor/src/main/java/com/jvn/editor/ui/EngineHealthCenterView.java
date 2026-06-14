@@ -641,7 +641,16 @@ public class EngineHealthCenterView extends BorderPane {
       for (HealthCheck check : checks) {
         byCategory.computeIfAbsent(check.category(), k -> new ArrayList<>()).add(check);
       }
-      byCategory.forEach((category, items) -> resultsBox.getChildren().add(section(category, items)));
+      boolean first = true;
+      for (Map.Entry<String, List<HealthCheck>> entry : byCategory.entrySet()) {
+        if (!first) {
+          Separator divider = new Separator();
+          divider.getStyleClass().add("engine-health-section-divider");
+          resultsBox.getChildren().add(divider);
+        }
+        resultsBox.getChildren().add(section(entry.getKey(), entry.getValue()));
+        first = false;
+      }
     }
     reportArea.setText(reportText(checks));
   }
@@ -650,14 +659,19 @@ public class EngineHealthCenterView extends BorderPane {
     Label title = new Label(category);
     title.getStyleClass().add("engine-health-section-title");
     Label count = new Label(checks.size() + " checks");
-    count.getStyleClass().add("engine-health-muted");
+    count.getStyleClass().addAll("engine-health-count-chip", "engine-health-info");
     Region spacer = new Region();
     HBox.setHgrow(spacer, Priority.ALWAYS);
     HBox header = new HBox(8, title, spacer, count);
     header.setAlignment(Pos.CENTER_LEFT);
     VBox rows = new VBox(6);
-    for (HealthCheck check : checks) {
-      rows.getChildren().add(checkRow(check));
+    for (int i = 0; i < checks.size(); i++) {
+      rows.getChildren().add(checkRow(checks.get(i)));
+      if (i < checks.size() - 1) {
+        Separator divider = new Separator();
+        divider.getStyleClass().add("engine-health-check-divider");
+        rows.getChildren().add(divider);
+      }
     }
     VBox section = new VBox(8, header, rows);
     section.getStyleClass().add("engine-health-section");
@@ -668,7 +682,7 @@ public class EngineHealthCenterView extends BorderPane {
     Label chip = new Label(check.severity().label());
     chip.getStyleClass().addAll("engine-health-severity", "engine-health-" + check.severity().css());
     Label title = new Label(check.title());
-    title.getStyleClass().add("engine-health-check-title");
+    title.getStyleClass().addAll("engine-health-check-title", "engine-health-check-title-" + check.severity().css());
     title.setWrapText(true);
     Region spacer = new Region();
     HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -680,7 +694,7 @@ public class EngineHealthCenterView extends BorderPane {
     top.setAlignment(Pos.CENTER_LEFT);
 
     Label detail = new Label(check.detail());
-    detail.getStyleClass().add("engine-health-check-detail");
+    detail.getStyleClass().addAll("engine-health-check-detail", "engine-health-check-detail-" + check.severity().css());
     detail.setWrapText(true);
     Label evidence = new Label(check.evidence().isBlank() ? "Evidence: none" : "Evidence: " + trimMiddle(check.evidence(), 520));
     evidence.getStyleClass().add("engine-health-evidence");
@@ -688,7 +702,7 @@ public class EngineHealthCenterView extends BorderPane {
     FlowPane tags = new FlowPane(5, 5);
     for (String tag : check.tags()) {
       Label tagLabel = new Label(tag);
-      tagLabel.getStyleClass().add("engine-health-tag");
+      tagLabel.getStyleClass().addAll("engine-health-tag", "engine-health-tag-" + check.severity().css());
       tags.getChildren().add(tagLabel);
     }
     Label fixText = new Label("Fix: " + valueOrMissing(check.fix()));
@@ -696,7 +710,7 @@ public class EngineHealthCenterView extends BorderPane {
     fixText.setWrapText(true);
 
     VBox row = new VBox(5, top, detail, evidence, tags, fixText);
-    row.getStyleClass().add("engine-health-check");
+    row.getStyleClass().addAll("engine-health-check", "engine-health-check-" + check.severity().css());
     return row;
   }
 
