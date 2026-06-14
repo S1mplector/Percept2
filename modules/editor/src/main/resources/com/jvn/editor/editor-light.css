@@ -4317,16 +4317,33 @@
   -fx-font-weight: bold;
   -fx-min-width: 18;
   -fx-min-height: 18;
+  -fx-pref-width: 18;
+  -fx-pref-height: 18;
   -fx-max-width: 18;
   -fx-max-height: 18;
-  -fx-padding: 0 5;
+  -fx-padding: 0;
   -fx-background-radius: 9;
+  -fx-alignment: center;
+  -fx-content-display: graphic-only;
   -fx-cursor: hand;
 }
 
 .help-button:hover {
   -fx-background-color: #aeaeae;
   -fx-text-fill: #1a1a1a;
+}
+
+.help-button-glyph {
+  -fx-text-fill: #1f1f1f;
+  -fx-font-size: 11px;
+  -fx-font-weight: 900;
+  -fx-alignment: center;
+  -fx-min-width: 18;
+  -fx-min-height: 18;
+}
+
+.help-button:hover .help-button-glyph {
+  -fx-text-fill: #000000;
 }
 
 .help-stats-label {

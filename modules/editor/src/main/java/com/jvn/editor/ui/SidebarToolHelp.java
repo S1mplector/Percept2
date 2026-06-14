@@ -5,6 +5,8 @@ import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.ContentDisplay;
+import javafx.scene.control.Label;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.Priority;
@@ -26,9 +28,7 @@ public final class SidebarToolHelp {
    * @param body  multi-line help text displayed in the window
    */
   public static Button button(Node owner, String title, String body) {
-    Button btn = new Button("?");
-    btn.getStyleClass().add("help-button");
-    btn.setFocusTraversable(false);
+    Button btn = createHelpButton(title);
     btn.setTooltip(new Tooltip("Click for help: " + title));
     btn.setOnAction(e -> {
       Scene ownerScene = owner.getScene();
@@ -44,9 +44,7 @@ public final class SidebarToolHelp {
    * Use this when the button lives inside a non-Node host such as {@code PuppeteerWindow}.
    */
   public static Button button(Window ownerWindow, String title, String body) {
-    Button btn = new Button("?");
-    btn.getStyleClass().add("help-button");
-    btn.setFocusTraversable(false);
+    Button btn = createHelpButton(title);
     btn.setTooltip(new Tooltip("Click for help: " + title));
     btn.setOnAction(e -> {
       Scene ownerScene = ownerWindow != null ? ownerWindow.getScene() : null;
@@ -54,6 +52,21 @@ public final class SidebarToolHelp {
                ownerScene != null ? ownerScene.getStylesheets() : null,
                title, body);
     });
+    return btn;
+  }
+
+  private static Button createHelpButton(String title) {
+    Label glyph = new Label("?");
+    glyph.getStyleClass().add("help-button-glyph");
+    glyph.setMouseTransparent(true);
+
+    Button btn = new Button();
+    btn.getStyleClass().add("help-button");
+    btn.setGraphic(glyph);
+    btn.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+    btn.setFocusTraversable(false);
+    btn.setAccessibleText("Help: " + title);
+    btn.setAccessibleHelp("Open help for " + title);
     return btn;
   }
 
