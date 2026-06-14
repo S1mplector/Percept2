@@ -5,6 +5,9 @@ import java.io.FileInputStream;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
 
@@ -44,6 +47,8 @@ public class EditorWorkspaceHubView extends BorderPane {
   private final Label contentValueLabel = new Label("--");
   private final Label contentDetailLabel = new Label("Scripts and assets unavailable");
   private final Label statusLabel = new Label("Choose an action to continue.");
+  private final VBox firstRunPanel = new VBox(8);
+  private final VBox firstRunItems = new VBox(6);
 
   private final Button btnNewProject = new Button();
   private final Button btnOpenProject = new Button();
@@ -100,6 +105,21 @@ public class EditorWorkspaceHubView extends BorderPane {
   public void setOnShowSettings(Runnable onShowSettings) {
     this.onShowSettings = onShowSettings;
     btnSettings.setDisable(onShowSettings == null);
+  }
+
+  public void setFirstRunIssues(Collection<SetupIssue> issues) {
+    List<SetupIssue> visibleIssues = issues == null
+        ? List.of()
+        : issues.stream()
+            .filter(issue -> issue != null && issue.isVisible())
+            .toList();
+    firstRunItems.getChildren().clear();
+    for (SetupIssue issue : visibleIssues) {
+      firstRunItems.getChildren().add(setupIssueRow(issue));
+    }
+    boolean visible = !visibleIssues.isEmpty();
+    firstRunPanel.setVisible(visible);
+    firstRunPanel.setManaged(visible);
   }
 
   private void buildUi() {
@@ -185,16 +205,50 @@ public class EditorWorkspaceHubView extends BorderPane {
     VBox actionPanel = new VBox(8, rowPrimary, rowSecondary);
     actionPanel.getStyleClass().add("editor-workspace-action-panel");
 
+    Label setupTitle = new Label("First-run setup");
+    setupTitle.getStyleClass().add("editor-workspace-setup-title");
+    Label setupSummary = new Label("A few environment checks need attention before builds, publishing, or GitHub workflows feel smooth.");
+    setupSummary.getStyleClass().add("editor-workspace-setup-summary");
+    setupSummary.setWrapText(true);
+    firstRunPanel.getStyleClass().add("editor-workspace-setup-panel");
+    firstRunPanel.getChildren().addAll(setupTitle, setupSummary, firstRunItems);
+    firstRunPanel.setVisible(false);
+    firstRunPanel.setManaged(false);
+
     VBox hero = new VBox(14, headingRow, summaryGrid, actionPanel, statusLabel);
     hero.setPadding(new Insets(18));
     hero.getStyleClass().addAll("welcome-hero-card", "editor-workspace-panel");
 
     Region fill = new Region();
     VBox.setVgrow(fill, Priority.ALWAYS);
-    VBox content = new VBox(10, hero, fill);
+    VBox content = new VBox(10, hero, firstRunPanel, fill);
     content.getStyleClass().add("welcome-center-body");
     setCenter(content);
     refreshSummary();
+  }
+
+  private VBox setupIssueRow(SetupIssue issue) {
+    Label severity = new Label(issue.severityLabel());
+    severity.getStyleClass().addAll("editor-workspace-setup-chip", "editor-workspace-setup-" + issue.severityClass());
+
+    Label title = new Label(issue.title());
+    title.getStyleClass().add("editor-workspace-setup-item-title");
+    title.setWrapText(true);
+
+    Label detail = new Label(issue.detail());
+    detail.getStyleClass().add("editor-workspace-setup-item-detail");
+    detail.setWrapText(true);
+
+    Label fix = new Label(issue.fix());
+    fix.getStyleClass().add("editor-workspace-setup-item-fix");
+    fix.setWrapText(true);
+
+    HBox heading = new HBox(8, severity, title);
+    heading.setAlignment(Pos.CENTER_LEFT);
+    VBox row = new VBox(4, heading, detail, fix);
+    row.getStyleClass().add("editor-workspace-setup-item");
+    row.setMaxWidth(Double.MAX_VALUE);
+    return row;
   }
 
   private VBox summaryCard(String title, Label value, Label detail) {
@@ -450,5 +504,33 @@ public class EditorWorkspaceHubView extends BorderPane {
   }
 
   private record ManifestSummary(String title, String detail, String healthText, String healthTone) {
+  }
+
+  public record SetupIssue(String severity, String title, String detail, String fix) {
+    private boolean isVisible() {
+      return title != null && !title.isBlank();
+    }
+
+    private String severityLabel() {
+      return switch (severityClass()) {
+        case "error" -> "FIX";
+        case "warn" -> "CHECK";
+        default -> "INFO";
+      };
+    }
+
+    private String severityClass() {
+      String normalized = severity == null ? "" : severity.trim().toLowerCase(Locale.ROOT);
+      return switch (normalized) {
+        case "error", "fix" -> "error";
+        case "warn", "warning", "check" -> "warn";
+        default -> "info";
+      };
+    }
+
+    public static List<SetupIssue> copyOf(Collection<SetupIssue> issues) {
+      if (issues == null || issues.isEmpty()) return List.of();
+      return new ArrayList<>(issues);
+    }
   }
 }

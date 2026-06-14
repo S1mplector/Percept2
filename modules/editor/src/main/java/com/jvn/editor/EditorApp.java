@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 import javax.tools.ToolProvider;
@@ -312,6 +313,7 @@ public class EditorApp extends Application {
   private Stage gameBuildPublisherWindow;
   private GameBuildPublisherView gameBuildPublisherView;
   private DeveloperLogPanel developerLogPanel;
+  private List<EditorWorkspaceHubView.SetupIssue> startupSetupIssues = List.of();
 
   public static void main(String[] args) {
     launch(args);
@@ -924,8 +926,9 @@ public class EditorApp extends Application {
     return new Task<>() {
       @Override
       protected Void call() {
-        final int totalChecks = 10;
+        final int totalChecks = 12;
         int step = 0;
+        List<EditorWorkspaceHubView.SetupIssue> setupIssues = new ArrayList<>();
         updateProgress(0, totalChecks);
 
         File workspace = resolveWorkspaceRoot();
@@ -947,14 +950,21 @@ public class EditorApp extends Application {
         int requiredJava = readRequiredJavaVersion(workspace.toPath());
         int runtimeJava = parseJavaMajor(System.getProperty("java.version", "unknown"));
         if (requiredJava > 0 && runtimeJava > 0 && runtimeJava < requiredJava) {
-          throw new StartupFailure(
+          setupIssues.add(new EditorWorkspaceHubView.SetupIssue(
+              "error",
               "JDK version mismatch",
+              "Running Java " + runtimeJava + " but Gradle toolchain requires Java " + requiredJava + ".",
+              "Launch JVN with JDK " + requiredJava + "+ or set JAVA_HOME to a compatible JDK before opening the editor."));
+          logSplash(splash, "WARN", "Runtime",
               "Running Java " + runtimeJava + " but Gradle toolchain requires Java " + requiredJava + ".");
         }
         if (ToolProvider.getSystemJavaCompiler() == null) {
-          throw new StartupFailure(
+          setupIssues.add(new EditorWorkspaceHubView.SetupIssue(
+              "error",
               "Full JDK not detected",
-              "Launch the editor with a JDK installation. `javac` is required for editor tooling and Gradle-based startup checks.");
+              "The editor is running without javac. Java source tools and Gradle checks may fail.",
+              "Install JDK 21 and launch JVN with JAVA_HOME pointing at that JDK."));
+          logSplash(splash, "WARN", "Runtime", "javac is not available in this Java runtime.");
         }
         logSplash(splash, "OK", "Runtime",
             "Java " + System.getProperty("java.version", "unknown")
@@ -970,16 +980,22 @@ public class EditorApp extends Application {
         Path gradlew = workspace.toPath().resolve(isWindowsOs() ? "gradlew.bat" : "gradlew");
         Path wrapperProps = workspace.toPath().resolve("gradle/wrapper/gradle-wrapper.properties");
         if (!Files.isRegularFile(gradlew) || !Files.isRegularFile(wrapperProps)) {
-          throw new StartupFailure(
+          setupIssues.add(new EditorWorkspaceHubView.SetupIssue(
+              "error",
               "Gradle wrapper is missing",
-              "Ensure `gradlew` and `gradle/wrapper/gradle-wrapper.properties` exist in the workspace root.");
-        }
-        if (!isWindowsOs() && !Files.isExecutable(gradlew)) {
-          throw new StartupFailure(
+              "The workspace is missing gradlew or gradle/wrapper/gradle-wrapper.properties.",
+              "Restore the Gradle wrapper files before running builds from the editor."));
+          logSplash(splash, "WARN", "Gradle", "Gradle wrapper files are missing.");
+        } else if (!isWindowsOs() && !Files.isExecutable(gradlew)) {
+          setupIssues.add(new EditorWorkspaceHubView.SetupIssue(
+              "warn",
               "Gradle wrapper is not executable",
-              "Run `chmod +x gradlew` and retry startup.");
+              gradlew.toAbsolutePath() + " exists but is not executable.",
+              "Run: chmod +x gradlew"));
+          logSplash(splash, "WARN", "Gradle", "Wrapper is not executable: " + gradlew.toAbsolutePath());
+        } else {
+          logSplash(splash, "OK", "Gradle", "Wrapper ready (Gradle " + readGradleWrapperVersion(wrapperProps) + ")");
         }
-        logSplash(splash, "OK", "Gradle", "Wrapper ready (Gradle " + readGradleWrapperVersion(wrapperProps) + ")");
         updateMessage("Gradle wrapper located");
         advance(++step, totalChecks);
 
@@ -997,6 +1013,14 @@ public class EditorApp extends Application {
               "Wrapper process check skipped; set -Djvn.editor.strictStartupGradleCheck=true to enable it.");
           updateMessage("Gradle wrapper process check skipped");
         }
+        advance(++step, totalChecks);
+
+        collectGitSetupIssues(workspace, splash, setupIssues);
+        updateMessage("Git setup checked");
+        advance(++step, totalChecks);
+
+        collectGitHubSetupIssues(workspace, splash, setupIssues);
+        updateMessage("GitHub setup checked");
         advance(++step, totalChecks);
 
         showStartupLaunchProgress(splash);
@@ -1028,6 +1052,7 @@ public class EditorApp extends Application {
         advance(++step, totalChecks);
 
         logSplash(splash, "INFO", "Bootstrap", "Health checks complete");
+        startupSetupIssues = EditorWorkspaceHubView.SetupIssue.copyOf(setupIssues);
         return null;
       }
 
@@ -1064,6 +1089,87 @@ public class EditorApp extends Application {
   private void showStartupLaunchProgress(StartupSplashOverlay splash) {
     logSplash(splash, "INFO", "Launch", "Startup checks passed; launching editor immediately.");
     splash.showLaunchingEditor();
+  }
+
+  private void collectGitSetupIssues(File workspace,
+                                     StartupSplashOverlay splash,
+                                     List<EditorWorkspaceHubView.SetupIssue> issues) {
+    QuickCommandResult gitVersion = runQuickCommand(workspace, List.of("git", "--version"), 1_000L);
+    if (!gitVersion.success()) {
+      issues.add(new EditorWorkspaceHubView.SetupIssue(
+          "warn",
+          "Git command not available",
+          "Git was not found from the editor process. Version Control and update workflows may fail.",
+          "Install Git or launch the editor from an environment where git is on PATH."));
+      logSplash(splash, "WARN", "Git", "git --version failed: " + gitVersion.summary());
+      return;
+    }
+    logSplash(splash, "OK", "Git", gitVersion.summary());
+
+    QuickCommandResult name = runQuickCommand(workspace, List.of("git", "config", "--global", "--get", "user.name"), 800L);
+    QuickCommandResult email = runQuickCommand(workspace, List.of("git", "config", "--global", "--get", "user.email"), 800L);
+    boolean missingName = !name.success() || name.output().isBlank();
+    boolean missingEmail = !email.success() || email.output().isBlank();
+    if (missingName || missingEmail) {
+      issues.add(new EditorWorkspaceHubView.SetupIssue(
+          "warn",
+          "Git identity is incomplete",
+          "Commits need a global user.name and user.email. Current name: "
+              + (missingName ? "(missing)" : name.output())
+              + ", email: " + (missingEmail ? "(missing)" : email.output()) + ".",
+          "Run: git config --global user.name \"Your Name\" && git config --global user.email \"you@example.com\""));
+      logSplash(splash, "WARN", "Git", "Global Git identity incomplete.");
+    } else {
+      logSplash(splash, "OK", "Git", "Global identity: " + name.output() + " <" + email.output() + ">");
+    }
+  }
+
+  private void collectGitHubSetupIssues(File workspace,
+                                        StartupSplashOverlay splash,
+                                        List<EditorWorkspaceHubView.SetupIssue> issues) {
+    QuickCommandResult ghVersion = runQuickCommand(workspace, List.of("gh", "--version"), 1_000L);
+    if (!ghVersion.success()) {
+      issues.add(new EditorWorkspaceHubView.SetupIssue(
+          "info",
+          "GitHub CLI is not available",
+          "GitHub auth, PR helpers, and repository publishing need the gh command.",
+          "Install GitHub CLI, then run: gh auth login"));
+      logSplash(splash, "INFO", "GitHub", "gh command not found or not runnable.");
+      return;
+    }
+
+    QuickCommandResult auth = runQuickCommand(workspace, List.of("gh", "auth", "status"), 1_500L);
+    if (!auth.success()) {
+      issues.add(new EditorWorkspaceHubView.SetupIssue(
+          "warn",
+          "GitHub CLI is not authenticated",
+          "gh is installed but no authenticated GitHub session was detected.",
+          "Run: gh auth login"));
+      logSplash(splash, "WARN", "GitHub", "gh auth status failed: " + auth.summary());
+    } else {
+      logSplash(splash, "OK", "GitHub", "gh auth status is ready.");
+    }
+  }
+
+  private QuickCommandResult runQuickCommand(File workspace, List<String> command, long timeoutMs) {
+    if (command == null || command.isEmpty()) {
+      return new QuickCommandResult(-1, "No command");
+    }
+    try {
+      ProcessBuilder pb = new ProcessBuilder(command);
+      if (workspace != null && workspace.isDirectory()) pb.directory(workspace);
+      pb.redirectErrorStream(true);
+      Process process = pb.start();
+      boolean finished = process.waitFor(Math.max(250L, timeoutMs), TimeUnit.MILLISECONDS);
+      if (!finished) {
+        process.destroyForcibly();
+        return new QuickCommandResult(-1, "Timed out");
+      }
+      String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
+      return new QuickCommandResult(process.exitValue(), output);
+    } catch (Exception ex) {
+      return new QuickCommandResult(-1, safeMessage(ex));
+    }
   }
 
   private static String safeMessage(Throwable throwable) {
@@ -1147,6 +1253,23 @@ public class EditorApp extends Application {
 
   private static boolean isWindowsOs() {
     return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
+  }
+
+  private record QuickCommandResult(int exitCode, String output) {
+    boolean success() {
+      return exitCode == 0;
+    }
+
+    public String output() {
+      return output == null ? "" : output.strip();
+    }
+
+    String summary() {
+      String text = output();
+      if (text.isBlank()) return "exit " + exitCode;
+      String firstLine = text.split("\\R", 2)[0].trim();
+      return firstLine.isBlank() ? "exit " + exitCode : firstLine;
+    }
   }
 
   private static String resolveGradleCommand(File workspace) {
@@ -2099,6 +2222,7 @@ public class EditorApp extends Application {
     workspaceHubView = new EditorWorkspaceHubView();
     workspaceHubView.setWorkspaceRoot(resolveWorkspaceRoot());
     workspaceHubView.setCurrentProject(projectRoot);
+    workspaceHubView.setFirstRunIssues(startupSetupIssues);
     workspaceHubView.setOnCreateProject(() -> doNewProject(primaryStage));
     workspaceHubView.setOnOpenProjectDialog(() -> doOpenProject(primaryStage));
     workspaceHubView.setOnRunProject(() -> {
