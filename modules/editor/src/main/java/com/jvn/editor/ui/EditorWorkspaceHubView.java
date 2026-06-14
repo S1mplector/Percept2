@@ -54,6 +54,7 @@ public class EditorWorkspaceHubView extends BorderPane {
   private final Button btnOpenProject = new Button();
   private final Button btnRunProject = new Button();
   private final Button btnOpenProjectExplorer = new Button();
+  private final Button btnOpenHealthCenter = new Button();
   private final Button btnOpenHelpCenter = new Button();
   private final Button btnSettings = new Button();
 
@@ -64,6 +65,7 @@ public class EditorWorkspaceHubView extends BorderPane {
   private Runnable onOpenProjectDialog;
   private Runnable onRunProject;
   private Runnable onShowProjectExplorer;
+  private Runnable onShowEngineHealth;
   private Runnable onShowHelpCenter;
   private Runnable onShowSettings;
 
@@ -96,6 +98,10 @@ public class EditorWorkspaceHubView extends BorderPane {
 
   public void setOnShowProjectExplorer(Runnable onShowProjectExplorer) {
     this.onShowProjectExplorer = onShowProjectExplorer;
+  }
+
+  public void setOnShowEngineHealth(Runnable onShowEngineHealth) {
+    this.onShowEngineHealth = onShowEngineHealth;
   }
 
   public void setOnShowHelpCenter(Runnable onShowHelpCenter) {
@@ -164,6 +170,13 @@ public class EditorWorkspaceHubView extends BorderPane {
         "welcome-action-button-secondary",
         () -> runAction(onShowProjectExplorer, "Project Explorer"));
     configureActionButton(
+        btnOpenHealthCenter,
+        CssIcon.memory("#8ecaff"),
+        "Health Center",
+        "Open Engine Health Center",
+        "welcome-action-button-secondary",
+        () -> runAction(onShowEngineHealth, "Health Center"));
+    configureActionButton(
         btnOpenHelpCenter,
         CssIcon.search("#d6cab8"),
         "Help Center",
@@ -183,7 +196,7 @@ public class EditorWorkspaceHubView extends BorderPane {
     rowPrimary.getStyleClass().add("welcome-action-row");
     rowPrimary.setAlignment(Pos.CENTER_LEFT);
 
-    HBox rowSecondary = new HBox(8, btnOpenProjectExplorer, btnOpenHelpCenter);
+    HBox rowSecondary = new HBox(8, btnOpenProjectExplorer, btnOpenHealthCenter, btnOpenHelpCenter);
     rowSecondary.getStyleClass().add("welcome-action-row");
     rowSecondary.setAlignment(Pos.CENTER_LEFT);
 
@@ -219,12 +232,37 @@ public class EditorWorkspaceHubView extends BorderPane {
     hero.setPadding(new Insets(18));
     hero.getStyleClass().addAll("welcome-hero-card", "editor-workspace-panel");
 
+    VBox announcements = announcementsPanel();
+
     Region fill = new Region();
     VBox.setVgrow(fill, Priority.ALWAYS);
-    VBox content = new VBox(10, hero, firstRunPanel, fill);
+    VBox content = new VBox(10, hero, announcements, firstRunPanel, fill);
     content.getStyleClass().add("welcome-center-body");
     setCenter(content);
     refreshSummary();
+  }
+
+  private VBox announcementsPanel() {
+    Label title = new Label("Announcements");
+    title.getStyleClass().add("editor-workspace-announcements-title");
+    Label badge = new Label("v0.2.0");
+    badge.getStyleClass().add("editor-workspace-announcements-badge");
+    Region spacer = new Region();
+    HBox.setHgrow(spacer, Priority.ALWAYS);
+    HBox heading = new HBox(8, title, spacer, badge);
+    heading.setAlignment(Pos.CENTER_LEFT);
+
+    Label itemTitle = new Label("Engine Health Center is now available");
+    itemTitle.getStyleClass().add("editor-workspace-announcement-title");
+    Label itemBody = new Label("Run detailed Java, JDK, Gradle, Git, GitHub auth, storage, memory, and project inventory checks directly from the sidebar.");
+    itemBody.getStyleClass().add("editor-workspace-announcement-body");
+    itemBody.setWrapText(true);
+    VBox item = new VBox(4, itemTitle, itemBody);
+    item.getStyleClass().add("editor-workspace-announcement-item");
+
+    VBox panel = new VBox(8, heading, item);
+    panel.getStyleClass().add("editor-workspace-announcements-panel");
+    return panel;
   }
 
   private VBox setupIssueRow(SetupIssue issue) {

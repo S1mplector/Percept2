@@ -5251,6 +5251,50 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-font-weight: 700;
 }
 
+.editor-workspace-announcements-panel {
+  -fx-padding: 12 14 12 14;
+  -fx-background-color: linear-gradient(to bottom, rgba(35, 42, 47, 0.92), rgba(20, 23, 26, 0.96));
+  -fx-background-radius: 8;
+  -fx-border-color: rgba(142, 202, 255, 0.18);
+  -fx-border-radius: 8;
+}
+
+.editor-workspace-announcements-title {
+  -fx-text-fill: #f3f5f7;
+  -fx-font-size: 13px;
+  -fx-font-weight: 800;
+}
+
+.editor-workspace-announcements-badge {
+  -fx-text-fill: #9fd4ff;
+  -fx-font-size: 10px;
+  -fx-font-weight: 900;
+  -fx-padding: 2 8 2 8;
+  -fx-background-color: rgba(89, 173, 255, 0.13);
+  -fx-background-radius: 999;
+  -fx-border-color: rgba(89, 173, 255, 0.30);
+  -fx-border-radius: 999;
+}
+
+.editor-workspace-announcement-item {
+  -fx-padding: 9;
+  -fx-background-color: rgba(0,0,0,0.18);
+  -fx-background-radius: 7;
+  -fx-border-color: rgba(255,255,255,0.08);
+  -fx-border-radius: 7;
+}
+
+.editor-workspace-announcement-title {
+  -fx-text-fill: #a8d8ff;
+  -fx-font-size: 12px;
+  -fx-font-weight: 800;
+}
+
+.editor-workspace-announcement-body {
+  -fx-text-fill: #c7ced5;
+  -fx-font-size: 12px;
+}
+
 .welcome-overview-row,
 .welcome-action-row {
   -fx-alignment: center-left;
@@ -7758,13 +7802,13 @@ The editor.css file defines the visual styling for the editor module, including 
 }
 
 .engine-health-root {
-  -fx-background-color: #101214;
+  -fx-background-color: #0f0f0f;
 }
 
 .engine-health-header {
   -fx-padding: 12 12 10 12;
-  -fx-background-color: linear-gradient(to bottom, rgba(32, 36, 40, 0.96), rgba(18, 20, 22, 0.96));
-  -fx-border-color: rgba(255,255,255,0.08);
+  -fx-background-color: #121212;
+  -fx-border-color: #2a2a2a;
   -fx-border-width: 0 0 1 0;
 }
 
@@ -7857,7 +7901,7 @@ The editor.css file defines the visual styling for the editor module, including 
 }
 
 .engine-health-section-divider .line {
-  -fx-border-color: rgba(142, 202, 255, 0.20);
+  -fx-border-color: rgba(255,255,255,0.10);
   -fx-border-width: 1 0 0 0;
 }
 

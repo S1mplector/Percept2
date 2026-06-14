@@ -2241,6 +2241,7 @@ public class EditorApp extends Application {
       if (rootDir != null) doRunProject(rootDir);
     });
     workspaceHubView.setOnShowProjectExplorer(this::selectProjectTab);
+    workspaceHubView.setOnShowEngineHealth(this::selectEngineHealthTab);
     workspaceHubView.setOnShowHelpCenter(this::selectHelpTab);
     workspaceHubView.setOnShowSettings(this::selectEditorSettingsTab);
     tabWorkspaceHub = new Tab("Workspace", workspaceHubView);

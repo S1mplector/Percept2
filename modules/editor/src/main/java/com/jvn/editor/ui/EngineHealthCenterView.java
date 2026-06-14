@@ -26,9 +26,7 @@ import java.util.stream.Stream;
 
 import javax.tools.ToolProvider;
 
-import javafx.application.Platform;
 import javafx.concurrent.Task;
-import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
