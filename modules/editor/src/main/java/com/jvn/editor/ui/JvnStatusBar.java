@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -69,12 +70,35 @@ public final class JvnStatusBar extends HBox {
   private final HBox workspaceSegment;
   private final HBox dirtySegment;
   private final HBox diagnosticsSegment;
+  private final HBox encodingSegment;
+  private final HBox lineEndingSegment;
   private final HBox memorySegment;
+  private final HBox javaSegment;
   private final HBox themeSegment;
+  private final HBox versionSegment;
+  private final Region productSeparator;
+  private final Region branchSeparator;
   private final Region gitStateSeparator;
+  private final Region messageSeparator;
+  private final Region projectSeparator;
+  private final Region activeFileSeparator;
+  private final Region positionSeparator;
   private final Region fileMetaSeparator;
   private final Region workspaceSeparator;
+  private final Region dirtySeparator;
+  private final Region diagnosticsSeparator;
+  private final Region encodingSeparator;
+  private final Region lineEndingSeparator;
   private final Region memorySeparator;
+  private final Region javaSeparator;
+  private final Region themeSeparator;
+  private final Region versionSeparator;
+  private final EnumMap<EditorStatusBarSegment, StatusSlot> statusSlots =
+      new EnumMap<>(EditorStatusBarSegment.class);
+  private final EnumMap<EditorStatusBarSegment, Boolean> configuredStatusVisibility =
+      new EnumMap<>(EditorStatusBarSegment.class);
+  private final EnumMap<EditorStatusBarSegment, Boolean> segmentDataVisibility =
+      new EnumMap<>(EditorStatusBarSegment.class);
   private Path activeProjectPath;
   private Path activeGitRoot;
   private GitState cachedGitState = GitState.noRepo();
@@ -99,8 +123,10 @@ public final class JvnStatusBar extends HBox {
 
     productLabel.setText(clean(productName, "JVN"));
     versionLabel.setText(buildInfo == null ? "" : buildInfo.versionLabel());
-    versionLabel.setVisible(!versionLabel.getText().isBlank());
-    versionLabel.setManaged(!versionLabel.getText().isBlank());
+    for (EditorStatusBarSegment segment : EditorStatusBarSegment.values()) {
+      configuredStatusVisibility.put(segment, segment.defaultVisible());
+      segmentDataVisibility.put(segment, true);
+    }
 
     Region spacer = new Region();
     HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -116,57 +142,103 @@ public final class JvnStatusBar extends HBox {
     workspaceSegment = segment(icon(CssIcon.dock(DARK_ICON_COLOR)), workspaceLabel);
     dirtySegment = segment(icon(CssIcon.save(DARK_ICON_COLOR)), dirtyLabel);
     diagnosticsSegment = segment(icon(CssIcon.warning(DARK_ICON_COLOR)), diagnosticsLabel, "jvn-status-diagnostics-ok");
+    encodingSegment = segment(encodingLabel);
+    lineEndingSegment = segment(lineEndingLabel);
     memorySegment = segment(icon(CssIcon.memory(DARK_ICON_COLOR)), memoryLabel);
+    javaSegment = segment(icon(CssIcon.memory(DARK_ICON_COLOR)), javaLabel);
     themeSegment = segment(icon(CssIcon.palette(DARK_ICON_COLOR)), themeLabel);
+    versionSegment = segment(versionLabel, "jvn-status-version");
+    productSeparator = separator();
+    branchSeparator = separator();
     gitStateSeparator = separator();
+    messageSeparator = separator();
+    projectSeparator = separator();
+    activeFileSeparator = separator();
+    positionSeparator = separator();
     fileMetaSeparator = separator();
     workspaceSeparator = separator();
+    dirtySeparator = separator();
+    diagnosticsSeparator = separator();
+    encodingSeparator = separator();
+    lineEndingSeparator = separator();
     memorySeparator = separator();
-    setOptionalSegmentVisible(gitStateSeparator, gitStateSegment, false);
-    setOptionalSegmentVisible(fileMetaSeparator, fileMetaSegment, false);
-    setOptionalSegmentVisible(workspaceSeparator, workspaceSegment, false);
-    setOptionalSegmentVisible(memorySeparator, memorySegment, false);
+    javaSeparator = separator();
+    themeSeparator = separator();
+    versionSeparator = separator();
+
+    registerStatusSlot(EditorStatusBarSegment.PRODUCT, productSeparator, productSegment, StatusGroup.LEFT);
+    registerStatusSlot(EditorStatusBarSegment.BRANCH, branchSeparator, branchSegment, StatusGroup.LEFT);
+    registerStatusSlot(EditorStatusBarSegment.GIT_STATE, gitStateSeparator, gitStateSegment, StatusGroup.LEFT);
+    registerStatusSlot(EditorStatusBarSegment.MESSAGE, messageSeparator, messageSegment, StatusGroup.LEFT);
+    registerStatusSlot(EditorStatusBarSegment.PROJECT, projectSeparator, projectSegment, StatusGroup.RIGHT);
+    registerStatusSlot(EditorStatusBarSegment.ACTIVE_FILE, activeFileSeparator, activeFileSegment, StatusGroup.RIGHT);
+    registerStatusSlot(EditorStatusBarSegment.POSITION, positionSeparator, positionSegment, StatusGroup.RIGHT);
+    registerStatusSlot(EditorStatusBarSegment.FILE_META, fileMetaSeparator, fileMetaSegment, StatusGroup.RIGHT);
+    registerStatusSlot(EditorStatusBarSegment.WORKSPACE, workspaceSeparator, workspaceSegment, StatusGroup.RIGHT);
+    registerStatusSlot(EditorStatusBarSegment.DIRTY, dirtySeparator, dirtySegment, StatusGroup.RIGHT);
+    registerStatusSlot(EditorStatusBarSegment.DIAGNOSTICS, diagnosticsSeparator, diagnosticsSegment, StatusGroup.RIGHT);
+    registerStatusSlot(EditorStatusBarSegment.ENCODING, encodingSeparator, encodingSegment, StatusGroup.RIGHT);
+    registerStatusSlot(EditorStatusBarSegment.LINE_ENDING, lineEndingSeparator, lineEndingSegment, StatusGroup.RIGHT);
+    registerStatusSlot(EditorStatusBarSegment.MEMORY, memorySeparator, memorySegment, StatusGroup.RIGHT);
+    registerStatusSlot(EditorStatusBarSegment.JAVA, javaSeparator, javaSegment, StatusGroup.RIGHT);
+    registerStatusSlot(EditorStatusBarSegment.THEME, themeSeparator, themeSegment, StatusGroup.RIGHT);
+    registerStatusSlot(EditorStatusBarSegment.VERSION, versionSeparator, versionSegment, StatusGroup.RIGHT);
+    setSegmentDataVisible(EditorStatusBarSegment.GIT_STATE, false);
+    setSegmentDataVisible(EditorStatusBarSegment.FILE_META, false);
+    setSegmentDataVisible(EditorStatusBarSegment.WORKSPACE, false);
+    setSegmentDataVisible(EditorStatusBarSegment.MEMORY, false);
+    setSegmentDataVisible(EditorStatusBarSegment.VERSION, !versionLabel.getText().isBlank());
 
     installMenus();
 
     getChildren().addAll(
         productSegment,
-        separator(),
+        branchSeparator,
         branchSegment,
         gitStateSeparator,
         gitStateSegment,
-        separator(),
+        messageSeparator,
         messageSegment,
         spacer,
         projectSegment,
-        separator(),
+        activeFileSeparator,
         activeFileSegment,
-        separator(),
+        positionSeparator,
         positionSegment,
         fileMetaSeparator,
         fileMetaSegment,
         workspaceSeparator,
         workspaceSegment,
-        separator(),
+        dirtySeparator,
         dirtySegment,
-        separator(),
+        diagnosticsSeparator,
         diagnosticsSegment,
-        separator(),
-        segment(encodingLabel),
-        separator(),
-        segment(lineEndingLabel),
+        encodingSeparator,
+        encodingSegment,
+        lineEndingSeparator,
+        lineEndingSegment,
         memorySeparator,
         memorySegment,
-        separator(),
-        segment(icon(CssIcon.memory(DARK_ICON_COLOR)), javaLabel),
-        separator(),
+        javaSeparator,
+        javaSegment,
+        themeSeparator,
         themeSegment,
-        separator(),
-        segment(versionLabel, "jvn-status-version"));
+        versionSeparator,
+        versionSegment);
+    refreshStatusBarVisibility();
   }
 
   public Label messageLabel() {
     return messageLabel;
+  }
+
+  public void applyStatusBarPreferences(EditorPreferences preferences) {
+    for (EditorStatusBarSegment segment : EditorStatusBarSegment.values()) {
+      configuredStatusVisibility.put(
+          segment,
+          preferences == null ? segment.defaultVisible() : preferences.isStatusBarSegmentVisible(segment));
+    }
+    refreshStatusBarVisibility();
   }
 
   public void setProjectRoot(File projectRoot) {
@@ -227,7 +299,7 @@ public final class JvnStatusBar extends HBox {
     workspaceLabel.setText(closableTabs == 0
         ? "No tabs"
         : closableTabs + " tab" + (closableTabs == 1 ? "" : "s"));
-    setOptionalSegmentVisible(workspaceSeparator, workspaceSegment, true);
+    setSegmentDataVisible(EditorStatusBarSegment.WORKSPACE, true);
     dirtyLabel.setText(dirtyTabs == 0 ? "Saved" : dirtyTabs + " Unsaved");
     setTooltip(dirtyLabel, dirtyTabs == 0
         ? "No unsaved editor tabs."
@@ -280,10 +352,10 @@ public final class JvnStatusBar extends HBox {
 
   public void setMemoryUsage(long usedBytes, long committedBytes, long maxBytes) {
     if (usedBytes < 0) {
-      setOptionalSegmentVisible(memorySeparator, memorySegment, false);
+      setSegmentDataVisible(EditorStatusBarSegment.MEMORY, false);
       return;
     }
-    setOptionalSegmentVisible(memorySeparator, memorySegment, true);
+    setSegmentDataVisible(EditorStatusBarSegment.MEMORY, true);
     String used = formatBytes(usedBytes);
     String max = maxBytes > 0 ? formatBytes(maxBytes) : formatBytes(committedBytes);
     memoryLabel.setText(maxBytes > 0 || committedBytes > 0 ? "Heap " + used + "/" + max : "Heap " + used);
@@ -427,9 +499,42 @@ public final class JvnStatusBar extends HBox {
     segment.setManaged(visible);
   }
 
-  private static void setOptionalSegmentVisible(Node separator, Node segment, boolean visible) {
-    setSegmentVisible(separator, visible);
-    setSegmentVisible(segment, visible);
+  private void registerStatusSlot(
+      EditorStatusBarSegment segment,
+      Region separator,
+      Node node,
+      StatusGroup group) {
+    if (segment == null || node == null || group == null) return;
+    statusSlots.put(segment, new StatusSlot(separator, node, group));
+  }
+
+  private void setSegmentDataVisible(EditorStatusBarSegment segment, boolean visible) {
+    if (segment == null) return;
+    segmentDataVisibility.put(segment, visible);
+    refreshStatusBarVisibility();
+  }
+
+  private void refreshStatusBarVisibility() {
+    boolean leftHasVisibleSegment = false;
+    boolean rightHasVisibleSegment = false;
+    for (EditorStatusBarSegment segment : EditorStatusBarSegment.values()) {
+      StatusSlot slot = statusSlots.get(segment);
+      if (slot == null) continue;
+      boolean visible = configuredStatusVisibility.getOrDefault(segment, true)
+          && segmentDataVisibility.getOrDefault(segment, true);
+      boolean hasEarlierVisibleSegment = slot.group() == StatusGroup.LEFT
+          ? leftHasVisibleSegment
+          : rightHasVisibleSegment;
+      setSegmentVisible(slot.node(), visible);
+      setSegmentVisible(slot.separator(), visible && hasEarlierVisibleSegment);
+      if (visible) {
+        if (slot.group() == StatusGroup.LEFT) {
+          leftHasVisibleSegment = true;
+        } else {
+          rightHasVisibleSegment = true;
+        }
+      }
+    }
   }
 
   private void recolorIcons(String color) {
@@ -511,13 +616,13 @@ public final class JvnStatusBar extends HBox {
 
   private void updateFileMetadata(File file) {
     if (file == null) {
-      setOptionalSegmentVisible(fileMetaSeparator, fileMetaSegment, false);
+      setSegmentDataVisible(EditorStatusBarSegment.FILE_META, false);
       return;
     }
     try {
       Path path = file.toPath();
       if (!Files.isRegularFile(path)) {
-        setOptionalSegmentVisible(fileMetaSeparator, fileMetaSegment, false);
+        setSegmentDataVisible(EditorStatusBarSegment.FILE_META, false);
         return;
       }
       long size = Files.size(path);
@@ -527,9 +632,9 @@ public final class JvnStatusBar extends HBox {
       setTooltip(fileMetaSegment, "Size: " + formatBytes(size)
           + "\nModified: " + modified
           + "\nWritable: " + (writable ? "yes" : "no"));
-      setOptionalSegmentVisible(fileMetaSeparator, fileMetaSegment, true);
+      setSegmentDataVisible(EditorStatusBarSegment.FILE_META, true);
     } catch (Exception ignored) {
-      setOptionalSegmentVisible(fileMetaSeparator, fileMetaSegment, false);
+      setSegmentDataVisible(EditorStatusBarSegment.FILE_META, false);
     }
   }
 
@@ -554,13 +659,13 @@ public final class JvnStatusBar extends HBox {
     if (state == null || !state.available()) {
       gitStateLabel.setText("Git --");
       setTooltip(gitStateSegment, state == null ? "No Git repository detected." : state.tooltip());
-      setOptionalSegmentVisible(gitStateSeparator, gitStateSegment, false);
+      setSegmentDataVisible(EditorStatusBarSegment.GIT_STATE, false);
       setSegmentState(gitStateSegment, "", "jvn-status-clean", "jvn-status-dirty", "jvn-status-diagnostics-warn");
       return;
     }
     gitStateLabel.setText(state.text());
     setTooltip(gitStateSegment, state.tooltip());
-    setOptionalSegmentVisible(gitStateSeparator, gitStateSegment, true);
+    setSegmentDataVisible(EditorStatusBarSegment.GIT_STATE, true);
     setSegmentState(gitStateSegment,
         state.clean() ? "jvn-status-clean" : "jvn-status-dirty",
         "jvn-status-clean",
@@ -716,6 +821,13 @@ public final class JvnStatusBar extends HBox {
   }
 
   private record GitRepository(Path workTreeRoot, Path gitDir) {}
+
+  private enum StatusGroup {
+    LEFT,
+    RIGHT
+  }
+
+  private record StatusSlot(Region separator, Node node, StatusGroup group) {}
 
   private record GitState(String text, String tooltip, int changes, boolean clean, boolean available) {
     static GitState noRepo() {

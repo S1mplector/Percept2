@@ -3,9 +3,11 @@ package com.jvn.editor.ui;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import javafx.geometry.Insets;
@@ -23,6 +25,7 @@ import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
@@ -33,6 +36,13 @@ public class EditorSettingsView extends BorderPane {
   private static final String THEME_LABEL_DARK = "Dark";
   private static final String THEME_LABEL_LIGHT = "Light";
   private static final String SETTINGS_SEARCH_TEXT_KEY = "settingsSearchText";
+  private static final Set<EditorStatusBarSegment> COMPACT_STATUS_BAR_SEGMENTS =
+      EnumSet.of(
+          EditorStatusBarSegment.PRODUCT,
+          EditorStatusBarSegment.MESSAGE,
+          EditorStatusBarSegment.ACTIVE_FILE,
+          EditorStatusBarSegment.DIRTY,
+          EditorStatusBarSegment.DIAGNOSTICS);
 
   private final EditorPreferencesStore store;
   private final ComboBox<String> editorThemeCombo = new ComboBox<>();
@@ -57,6 +67,8 @@ public class EditorSettingsView extends BorderPane {
       new EnumMap<>(EditorSidebarPanel.class);
   private final Map<EditorSidebarPanel, CheckBox> chooserVisibilityChecks =
       new EnumMap<>(EditorSidebarPanel.class);
+  private final Map<EditorStatusBarSegment, CheckBox> statusBarSegmentChecks =
+      new EnumMap<>(EditorStatusBarSegment.class);
   private final Label statusLabel = new Label("Editor settings loaded");
   private final List<VBox> filterableSections = new ArrayList<>();
   private Consumer<EditorPreferences> onPreferencesApplied;
@@ -164,6 +176,47 @@ public class EditorSettingsView extends BorderPane {
             settingsSection("Startup", "Tabs and side tools loaded when the editor opens.", startupGrid),
             "startup workspace hub tab sidebar extensions on demand memory tools");
 
+    VBox statusBarSection = new VBox(10);
+    statusBarSection.getStyleClass().add("editor-settings-section");
+    statusBarSection.getChildren().add(sectionHeader("Status Bar"));
+    Label statusBarDesc = new Label(
+        "Choose which bottom-bar segments are shown. Segments that depend on runtime data still stay hidden "
+            + "until they have something useful to report.");
+    statusBarDesc.setWrapText(true);
+    statusBarDesc.getStyleClass().add("editor-settings-copy");
+    HBox statusBarActions = new HBox(8);
+    Button showAllStatusButton = new Button("Show all");
+    showAllStatusButton.getStyleClass().add("editor-settings-button");
+    showAllStatusButton.setOnAction(e -> setAllStatusBarSegments(true));
+    Button compactStatusButton = new Button("Compact");
+    compactStatusButton.getStyleClass().add("editor-settings-button");
+    compactStatusButton.setTooltip(new Tooltip("Keep only the highest-signal bottom-bar segments enabled."));
+    compactStatusButton.setOnAction(e -> applyCompactStatusBarPreset());
+    statusBarActions.getChildren().addAll(showAllStatusButton, compactStatusButton);
+    GridPane statusBarGrid = new GridPane();
+    statusBarGrid.setHgap(16);
+    statusBarGrid.setVgap(8);
+    ColumnConstraints statusLeftColumn = new ColumnConstraints();
+    statusLeftColumn.setPercentWidth(50);
+    statusLeftColumn.setHgrow(Priority.ALWAYS);
+    ColumnConstraints statusRightColumn = new ColumnConstraints();
+    statusRightColumn.setPercentWidth(50);
+    statusRightColumn.setHgrow(Priority.ALWAYS);
+    statusBarGrid.getColumnConstraints().addAll(statusLeftColumn, statusRightColumn);
+    int statusIndex = 0;
+    for (EditorStatusBarSegment segment : EditorStatusBarSegment.values()) {
+      CheckBox check = new CheckBox(segment.displayName());
+      check.getStyleClass().add("editor-settings-check");
+      check.setTooltip(new Tooltip(segment.description()));
+      statusBarSegmentChecks.put(segment, check);
+      statusBarGrid.add(check, statusIndex % 2, statusIndex / 2);
+      statusIndex++;
+    }
+    statusBarSection.getChildren().addAll(statusBarDesc, statusBarActions, statusBarGrid);
+    registerSection(
+        statusBarSection,
+        "status bar bottom footer segments chips product branch git state message project active file cursor line metadata tabs saved diagnostics encoding line ending heap memory java runtime theme version compact");
+
     GridPane fileOpeningGrid = settingsGrid(180);
     fileOpeningGrid.addRow(0, fieldLabel("Default Text Editor"), defaultTextEditorCombo);
     fileOpeningGrid.addRow(1, fieldLabel("Custom Command"), customTextEditorCommandField);
@@ -231,6 +284,7 @@ public class EditorSettingsView extends BorderPane {
         appearanceSection,
         runtimeSection,
         startupSection,
+        statusBarSection,
         fileOpeningSection,
         new Separator(),
         sidebarSection);
@@ -274,6 +328,10 @@ public class EditorSettingsView extends BorderPane {
     editorRuntimePerfHudCheck.setSelected(model.isEditorRuntimePerfHud());
     editorConfirmRunProjectCheck.setSelected(model.isEditorConfirmRunProject());
     gradleSkipTestsOnRunCheck.setSelected(model.isGradleSkipTestsOnRun());
+    for (EditorStatusBarSegment segment : EditorStatusBarSegment.values()) {
+      CheckBox check = statusBarSegmentChecks.get(segment);
+      if (check != null) check.setSelected(model.isStatusBarSegmentVisible(segment));
+    }
     for (EditorSidebarPanel panel : EditorSidebarPanel.values()) {
       if (!panel.editableInSettings()) continue;
       ComboBox<EditorPanelPlacement> combo = panelPlacements.get(panel);
@@ -317,6 +375,12 @@ public class EditorSettingsView extends BorderPane {
     preferences.setEditorRuntimePerfHud(editorRuntimePerfHudCheck.isSelected());
     preferences.setEditorConfirmRunProject(editorConfirmRunProjectCheck.isSelected());
     preferences.setGradleSkipTestsOnRun(gradleSkipTestsOnRunCheck.isSelected());
+    for (EditorStatusBarSegment segment : EditorStatusBarSegment.values()) {
+      CheckBox check = statusBarSegmentChecks.get(segment);
+      preferences.setStatusBarSegmentVisible(
+          segment,
+          check == null ? segment.defaultVisible() : check.isSelected());
+    }
     for (EditorSidebarPanel panel : EditorSidebarPanel.values()) {
       if (!panel.editableInSettings()) continue;
       ComboBox<EditorPanelPlacement> combo = panelPlacements.get(panel);
@@ -329,6 +393,19 @@ public class EditorSettingsView extends BorderPane {
           chooserVisible == null ? panel.defaultVisibleInChooser() : chooserVisible.isSelected());
     }
     return preferences;
+  }
+
+  private void setAllStatusBarSegments(boolean visible) {
+    for (CheckBox check : statusBarSegmentChecks.values()) {
+      if (check != null) check.setSelected(visible);
+    }
+  }
+
+  private void applyCompactStatusBarPreset() {
+    for (EditorStatusBarSegment segment : EditorStatusBarSegment.values()) {
+      CheckBox check = statusBarSegmentChecks.get(segment);
+      if (check != null) check.setSelected(COMPACT_STATUS_BAR_SEGMENTS.contains(segment));
+    }
   }
 
   private VBox registerSection(VBox section, String searchText) {

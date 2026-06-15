@@ -38,6 +38,8 @@ public final class EditorPreferences {
       new EnumMap<>(EditorSidebarPanel.class);
   private final EnumMap<EditorSidebarPanel, Boolean> chooserVisibility =
       new EnumMap<>(EditorSidebarPanel.class);
+  private final EnumMap<EditorStatusBarSegment, Boolean> statusBarVisibility =
+      new EnumMap<>(EditorStatusBarSegment.class);
 
   private double centerDividerLeft = 0.22;
   private double centerDividerRight = 0.78;
@@ -107,6 +109,9 @@ public final class EditorPreferences {
     this.gradleSkipTestsOnRun = gradleSkipTestsOnRun;
     panelPlacements.putAll(EditorSidebarPanel.defaultPlacements());
     this.chooserVisibility.putAll(EditorSidebarPanel.defaultChooserVisibility());
+    for (EditorStatusBarSegment segment : EditorStatusBarSegment.values()) {
+      statusBarVisibility.put(segment, segment.defaultVisible());
+    }
     if (placements != null) {
       for (Map.Entry<EditorSidebarPanel, EditorPanelPlacement> entry : placements.entrySet()) {
         if (entry.getKey() == null || entry.getValue() == null) continue;
@@ -309,6 +314,20 @@ public final class EditorPreferences {
     return new EnumMap<>(chooserVisibility);
   }
 
+  public boolean isStatusBarSegmentVisible(EditorStatusBarSegment segment) {
+    if (segment == null) return false;
+    return statusBarVisibility.getOrDefault(segment, segment.defaultVisible());
+  }
+
+  public void setStatusBarSegmentVisible(EditorStatusBarSegment segment, boolean visible) {
+    if (segment == null) return;
+    statusBarVisibility.put(segment, visible);
+  }
+
+  public EnumMap<EditorStatusBarSegment, Boolean> copyStatusBarVisibility() {
+    return new EnumMap<>(statusBarVisibility);
+  }
+
   public double getCenterDividerLeft() {
     return centerDividerLeft;
   }
@@ -367,6 +386,8 @@ public final class EditorPreferences {
     c.centerDividerRight = this.centerDividerRight;
     c.activeLeftTab = this.activeLeftTab;
     c.activeRightTab = this.activeRightTab;
+    c.statusBarVisibility.clear();
+    c.statusBarVisibility.putAll(this.statusBarVisibility);
     return c;
   }
 
