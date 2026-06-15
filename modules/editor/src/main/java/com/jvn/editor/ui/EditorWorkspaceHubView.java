@@ -232,35 +232,12 @@ public class EditorWorkspaceHubView extends BorderPane {
     hero.setPadding(new Insets(18));
     hero.getStyleClass().addAll("welcome-hero-card", "editor-workspace-panel");
 
-    VBox announcements = announcementsPanel();
-
     Region fill = new Region();
     VBox.setVgrow(fill, Priority.ALWAYS);
-    VBox content = new VBox(10, hero, announcements, firstRunPanel, fill);
+    VBox content = new VBox(10, hero, firstRunPanel, fill);
     content.getStyleClass().add("welcome-center-body");
     setCenter(content);
     refreshSummary();
-  }
-
-  private VBox announcementsPanel() {
-    Label title = new Label("Announcements");
-    title.getStyleClass().add("editor-workspace-announcements-title");
-    Region spacer = new Region();
-    HBox.setHgrow(spacer, Priority.ALWAYS);
-    HBox heading = new HBox(8, title, spacer);
-    heading.setAlignment(Pos.CENTER_LEFT);
-
-    Label itemTitle = new Label("Engine Health Center and Trashman are now available");
-    itemTitle.getStyleClass().add("editor-workspace-announcement-title");
-    Label itemBody = new Label("Run detailed environment checks, inspect JVM memory pressure, and execute GC diagnostics directly from the sidebar.");
-    itemBody.getStyleClass().add("editor-workspace-announcement-body");
-    itemBody.setWrapText(true);
-    VBox item = new VBox(4, itemTitle, itemBody);
-    item.getStyleClass().add("editor-workspace-announcement-item");
-
-    VBox panel = new VBox(8, heading, item);
-    panel.getStyleClass().add("editor-workspace-announcements-panel");
-    return panel;
   }
 
   private VBox setupIssueRow(SetupIssue issue) {
