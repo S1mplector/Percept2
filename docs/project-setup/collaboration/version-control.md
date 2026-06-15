@@ -39,11 +39,34 @@ Managed block includes rules for:
 
 ## Collaboration Recommendations
 
-1. Use feature branches for each narrative or UI task.
-2. Pull before starting work and before pushing.
-3. Keep commits scoped (script changes separate from layout/menu changes when possible).
-4. Keep binary assets (images, audio, video) reasonably sized; consider compressing large files before committing.
-5. Resolve merge conflicts in `.vns`, `.menu`, `.layout`, and `.timeline` promptly.
+JVN uses `stable` as the integration branch. Treat it as the branch that should always be buildable and suitable for normal editor/runtime use.
+
+Use short-lived topic branches for work in progress:
+
+- `feature/<short-name>` for new editor/runtime/scripting features
+- `fix/<short-name>` for bug fixes and regressions
+- `perf/<short-name>` for performance, memory, startup, or build-speed work
+
+Merge topic branches back to `stable` only after the change has been reviewed or manually checked and the relevant build/test command has passed. Prefer small, focused branches over long-running mixed branches.
+
+Recommended flow:
+
+```bash
+git switch stable
+git pull --rebase
+git switch -c feature/my-change
+# edit, build, test, commit
+git push -u origin feature/my-change
+```
+
+Then merge into `stable` when the branch is ready.
+
+Additional recommendations:
+
+1. Pull before starting work and before pushing.
+2. Keep commits scoped (script changes separate from layout/menu changes when possible).
+3. Keep binary assets (images, audio, video) reasonably sized; consider compressing large files before committing.
+4. Resolve merge conflicts in `.vns`, `.menu`, `.layout`, and `.timeline` promptly.
 
 ## Troubleshooting
 

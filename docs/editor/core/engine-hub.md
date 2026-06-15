@@ -16,6 +16,14 @@ jvn.bat
 
 The hub runs through the Gradle wrapper so the classpath and Java toolchain stay consistent with the rest of the workspace.
 
+## Source-First Preview Builds
+
+JVN does not publish official prebuilt Engine Hub, editor, or runtime binaries yet. During the current preview phase, run the hub from a source checkout with `./jvn` on macOS/Linux or `jvn.bat` on Windows. The hub then uses the same checkout for editor launches, builds, tests, update operations, shortcut installation, and project packaging.
+
+This source-first workflow is deliberate. The engine and editor are still changing quickly, and the wrapper-driven hub keeps the Gradle wrapper, module classpath, generated resources, Java toolchain, and repository update state aligned. It also avoids shipping stale platform launchers while packaging, signing/notarization, update channels, and cross-platform QA are still being finalized.
+
+Official prebuilt binaries are planned from the first major JVN release onward, currently expected by the end of 2026. Until then, the supported desktop path is to clone the repository, run `./jvnw` for commands, and use the Engine Hub for the no-terminal desktop workflow.
+
 ## High-Resolution Display Scaling
 
 The hub automatically enlarges its window, fonts, icon buttons, and status surfaces on high-DPI or very high-resolution displays. This is meant to keep the compact Swing control panel readable on 2K/3K/4K OLED panels and Linux desktops that report a large physical framebuffer without applying Swing UI scaling.
@@ -68,7 +76,7 @@ sudo apt install libgtk-3-0 libxtst6 libxxf86vm1 libasound2 libxrender1 libxrand
 
 ## Package A Self-Contained Hub Jar
 
-For distribution, build the packaged Engine Hub jar:
+For local testing or internal distribution, build the packaged Engine Hub jar:
 
 ```bash
 ./scripts/package-engine-hub.sh
@@ -85,6 +93,8 @@ Or run the Gradle task directly:
 ```
 
 The artifact is written to `build/distributions/jvn-engine-hub-<version>.jar`.
+
+This task does not mean JVN currently ships official prebuilt binaries. It is a developer packaging path for people building from a source checkout. Official, signed prebuilt downloads are planned for the first major release line.
 
 Run it with:
 

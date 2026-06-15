@@ -245,16 +245,14 @@ public class EditorWorkspaceHubView extends BorderPane {
   private VBox announcementsPanel() {
     Label title = new Label("Announcements");
     title.getStyleClass().add("editor-workspace-announcements-title");
-    Label badge = new Label("v0.2.0");
-    badge.getStyleClass().add("editor-workspace-announcements-badge");
     Region spacer = new Region();
     HBox.setHgrow(spacer, Priority.ALWAYS);
-    HBox heading = new HBox(8, title, spacer, badge);
+    HBox heading = new HBox(8, title, spacer);
     heading.setAlignment(Pos.CENTER_LEFT);
 
-    Label itemTitle = new Label("Engine Health Center is now available");
+    Label itemTitle = new Label("Engine Health Center and Trashman are now available");
     itemTitle.getStyleClass().add("editor-workspace-announcement-title");
-    Label itemBody = new Label("Run detailed Java, JDK, Gradle, Git, GitHub auth, storage, memory, and project inventory checks directly from the sidebar.");
+    Label itemBody = new Label("Run detailed environment checks, inspect JVM memory pressure, and execute GC diagnostics directly from the sidebar.");
     itemBody.getStyleClass().add("editor-workspace-announcement-body");
     itemBody.setWrapText(true);
     VBox item = new VBox(4, itemTitle, itemBody);

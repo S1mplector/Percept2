@@ -7,6 +7,7 @@ This index is the main route through the Java Vector Nexus documentation. It is 
 | Need | Best Entry |
 |------|------------|
 | First build and editor launch | [Getting Started Guide](guides/getting-started.md) |
+| Why there are no prebuilt downloads yet | [Getting Started Guide - Why There Is No Prebuilt Download Yet](guides/getting-started.md#why-there-is-no-prebuilt-download-yet) |
 | I want the desktop hub or OS shortcuts | [JVN Engine Hub](editor/core/engine-hub.md) |
 | Which system should I learn first? | [Choose Your Path in JVN](guides/choose-your-path.md) |
 | What does each file do? | [Common JVN File Types](guides/common-file-types.md) |

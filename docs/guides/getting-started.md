@@ -15,6 +15,17 @@ Before you go deep:
 - **No global Gradle install required** — `./jvnw` is the default command wrapper, with `./gradlew` available for advanced tasks
 - **Git** (optional) — for version control integration in the editor
 
+### Why There Is No Prebuilt Download Yet
+
+JVN is currently a source-first project. There are no official prebuilt editor or engine binaries for the preview line, so the supported way to run it is from a cloned repository:
+
+- use `./jvnw <command>` for builds, tests, editor/runtime launches, and packaging tasks
+- use the Engine Hub (`./jvn` on macOS/Linux, `jvn.bat` on Windows) for the desktop workflow, shortcut installation, updates, and common build actions
+
+This avoids stale binaries during a period where the engine, editor, templates, and file formats are still changing. The wrapper and hub always operate on the checkout in front of you, using the matching Gradle wrapper, classpath, generated resources, and Java toolchain.
+
+Official prebuilt binaries are planned for the first major JVN release, currently expected by the end of 2026. From that release onward, users should be able to install or download JVN without cloning and building the engine first.
+
 ---
 
 ## Step 1: Build the Engine

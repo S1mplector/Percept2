@@ -81,6 +81,7 @@ import com.jvn.editor.ui.StoryTimelineView;
 import com.jvn.editor.ui.StoryboardOverlayState;
 import com.jvn.editor.ui.StoryboardOverlayView;
 import com.jvn.editor.ui.TilemapEditorView;
+import com.jvn.editor.ui.TrashmanView;
 import com.jvn.editor.ui.VersionControlView;
 import com.jvn.editor.ui.VnsDiagnosticsView;
 import com.jvn.editor.ui.VnsFlowMapView;
@@ -185,6 +186,7 @@ public class EditorApp extends Application {
   
   private ProjectExplorerView projView;
   private EngineHealthCenterView engineHealthCenterView;
+  private TrashmanView trashmanView;
   private HelpCenterView helpCenterView;
   private StoryTimelineView timelineView;
   private VnsDiagnosticsView vnsDiagnosticsView;
@@ -229,6 +231,7 @@ public class EditorApp extends Application {
   private Tab tabWorkspaceHub;
   private Tab tabProject;
   private Tab tabEngineHealth;
+  private Tab tabTrashman;
   private Tab tabTimeline;
   private Tab tabInspector;
   private Tab tabHelp;
@@ -1598,6 +1601,8 @@ public class EditorApp extends Application {
     miShowProject.setOnAction(e -> selectProjectTab());
     MenuItem miShowEngineHealth = new MenuItem("Engine Health");
     miShowEngineHealth.setOnAction(e -> selectEngineHealthTab());
+    MenuItem miShowTrashman = new MenuItem("Trashman");
+    miShowTrashman.setOnAction(e -> selectTrashmanTab());
     MenuItem miShowWelcomePanel = new MenuItem("Workspace Hub");
     miShowWelcomePanel.setOnAction(e -> selectWorkspaceHubTab());
     MenuItem miShowTimeline = new MenuItem("Story Map");
@@ -1644,7 +1649,7 @@ public class EditorApp extends Application {
     miAddRightPanel.setOnAction(e -> showRightAddMenu());
     Menu menuPanelsWorkspace = new Menu("Workspace");
     menuPanelsWorkspace.getItems().addAll(
-        miShowWelcomePanel, miShowProject, miShowEngineHealth, miShowTimeline, miShowInspector, miShowVersionControlPanel, miShowHelpPanel);
+        miShowWelcomePanel, miShowProject, miShowEngineHealth, miShowTrashman, miShowTimeline, miShowInspector, miShowVersionControlPanel, miShowHelpPanel);
     Menu menuPanelsAuthoring = new Menu("Authoring");
     menuPanelsAuthoring.getItems().addAll(
         miShowAssets, miShowScriptEditorWorkspace, miShowPuppeteerLauncher);
@@ -1697,6 +1702,8 @@ public class EditorApp extends Application {
     miNavigateProject.setOnAction(e -> selectProjectTab());
     MenuItem miNavigateEngineHealth = new MenuItem("Engine Health");
     miNavigateEngineHealth.setOnAction(e -> selectEngineHealthTab());
+    MenuItem miNavigateTrashman = new MenuItem("Trashman");
+    miNavigateTrashman.setOnAction(e -> selectTrashmanTab());
     MenuItem miNavigateTimeline = new MenuItem("Story Map");
     miNavigateTimeline.setOnAction(e -> selectTimelineTab());
     MenuItem miNavigateInspector = new MenuItem("Inspector");
@@ -1706,7 +1713,7 @@ public class EditorApp extends Application {
     MenuItem miNavigateVersionControl = new MenuItem("Version Control");
     miNavigateVersionControl.setOnAction(e -> selectVersionControlTab());
     menuNavigateCore.getItems().addAll(
-        miNavigateWelcome, miNavigateProject, miNavigateEngineHealth, miNavigateTimeline, miNavigateInspector, miNavigateHelp, miNavigateVersionControl);
+        miNavigateWelcome, miNavigateProject, miNavigateEngineHealth, miNavigateTrashman, miNavigateTimeline, miNavigateInspector, miNavigateHelp, miNavigateVersionControl);
 
     Menu menuNavigateEditors = new Menu("Editors & Tools");
     MenuItem miNavigateAssetBrowser = new MenuItem("Asset Browser");
@@ -1907,6 +1914,8 @@ public class EditorApp extends Application {
     miWindowProject.setOnAction(e -> selectProjectTab());
     MenuItem miWindowEngineHealth = new MenuItem("Engine Health");
     miWindowEngineHealth.setOnAction(e -> selectEngineHealthTab());
+    MenuItem miWindowTrashman = new MenuItem("Trashman");
+    miWindowTrashman.setOnAction(e -> selectTrashmanTab());
     MenuItem miWindowTimeline = new MenuItem("Story Map");
     miWindowTimeline.setOnAction(e -> selectTimelineTab());
     MenuItem miWindowInspector = new MenuItem("Inspector");
@@ -1921,6 +1930,7 @@ public class EditorApp extends Application {
         miWindowWelcome,
         miWindowProject,
         miWindowEngineHealth,
+        miWindowTrashman,
         miWindowTimeline,
         miWindowInspector,
         miWindowVersionControl,
@@ -3258,6 +3268,7 @@ public class EditorApp extends Application {
     switch (panel) {
       case PROJECT: return com.jvn.editor.ui.CssIcon.folder("#f5c56f");
       case ENGINE_HEALTH: return com.jvn.editor.ui.CssIcon.memory("#8ecaff");
+      case TRASHMAN: return com.jvn.editor.ui.CssIcon.delete("#d6cab8");
       case TIMELINE: return com.jvn.editor.ui.CssIcon.timeline("#cfd7e6");
       case INSPECTOR: return com.jvn.editor.ui.CssIcon.search("#e2d3c3");
       case VNS_DIAGNOSTICS: return com.jvn.editor.ui.CssIcon.warning("#f0b673");
@@ -3965,6 +3976,7 @@ public class EditorApp extends Application {
     return switch (panel) {
       case PROJECT -> tabProject;
       case ENGINE_HEALTH -> tabEngineHealth;
+      case TRASHMAN -> tabTrashman;
       case TIMELINE -> tabTimeline;
       case INSPECTOR -> tabInspector;
       case VNS_DIAGNOSTICS -> tabVnsDiagnostics;
@@ -3992,6 +4004,7 @@ public class EditorApp extends Application {
     return switch (panel) {
       case PROJECT -> ensureProjectTab(targetPane);
       case ENGINE_HEALTH -> ensureEngineHealthTab(targetPane);
+      case TRASHMAN -> ensureTrashmanTab(targetPane);
       case TIMELINE -> ensureTimelineTab(targetPane);
       case INSPECTOR -> ensureInspectorTab(targetPane);
       case VNS_DIAGNOSTICS -> ensureVnsDiagnosticsTab(targetPane);
@@ -4042,6 +4055,13 @@ public class EditorApp extends Application {
     engineHealthCenterView.setOnOpenPath(this::openEditableOrExternal);
     engineHealthCenterView.refreshStatus();
     return engineHealthCenterView;
+  }
+
+  private TrashmanView ensureTrashmanView() {
+    if (trashmanView != null) return trashmanView;
+    trashmanView = new TrashmanView();
+    trashmanView.refreshStatus();
+    return trashmanView;
   }
 
   private VnsDiagnosticsView ensureVnsDiagnosticsView() {
@@ -5205,6 +5225,24 @@ public class EditorApp extends Application {
     return attachSidebarPanelTab(tabEngineHealth, EditorSidebarPanel.ENGINE_HEALTH, targetPane);
   }
 
+  private Tab ensureTrashmanTab(TabPane targetPane) {
+    closePanelWindow(EditorSidebarPanel.TRASHMAN, true);
+    TrashmanView trashman = ensureTrashmanView();
+    if (targetPane == null || trashman == null) return null;
+    trashman.refreshStatus();
+    if (tabTrashman == null) {
+      tabTrashman = new Tab("Trashman", trashman);
+      tabTrashman.setClosable(true);
+      tabTrashman.setOnClosed(e -> {
+        tabTrashman = null;
+        releaseSidebarPanelIfUnused(EditorSidebarPanel.TRASHMAN);
+      });
+    } else if (tabTrashman.getContent() != trashman) {
+      tabTrashman.setContent(trashman);
+    }
+    return attachSidebarPanelTab(tabTrashman, EditorSidebarPanel.TRASHMAN, targetPane);
+  }
+
   private Tab ensureTimelineTab(TabPane targetPane) {
     closePanelWindow(EditorSidebarPanel.TIMELINE, true);
     StoryTimelineView timeline = ensureTimelineView();
@@ -6098,6 +6136,7 @@ public class EditorApp extends Application {
   private void nullifyTab(Tab tab) {
     if (tab == tabProject) tabProject = null;
     else if (tab == tabEngineHealth) tabEngineHealth = null;
+    else if (tab == tabTrashman) tabTrashman = null;
     else if (tab == tabTimeline) tabTimeline = null;
     else if (tab == tabHelp) tabHelp = null;
     else if (tab == tabInspector) tabInspector = null;
@@ -6177,6 +6216,7 @@ public class EditorApp extends Application {
     return switch (panel) {
       case PROJECT -> projView != null;
       case ENGINE_HEALTH -> engineHealthCenterView != null;
+      case TRASHMAN -> trashmanView != null;
       case TIMELINE -> timelineView != null;
       case INSPECTOR -> inspectorView != null;
       case VNS_DIAGNOSTICS -> vnsDiagnosticsView != null;
@@ -6217,6 +6257,12 @@ public class EditorApp extends Application {
           engineHealthCenterView.dispose();
         }
         engineHealthCenterView = null;
+      }
+      case TRASHMAN -> {
+        if (trashmanView != null) {
+          trashmanView.dispose();
+        }
+        trashmanView = null;
       }
       case TIMELINE -> {
         if (timelineView != null) {
@@ -6377,6 +6423,20 @@ public class EditorApp extends Application {
       launchPanelAsWindow("Engine Health Center", view, 820, 760, EditorSidebarPanel.ENGINE_HEALTH);
     }, () -> {
       rememberPanelPlacement(EditorSidebarPanel.ENGINE_HEALTH, EditorPanelPlacement.HIDDEN);
+      applyDefaultSidebarPreferences();
+    });
+
+    addChooserActionRow(pane, actions, EditorSidebarPanel.TRASHMAN, targetPlacement, "Trashman", null, () -> {
+      rememberPanelPlacement(EditorSidebarPanel.TRASHMAN, targetPlacement);
+      Tab t = ensureTrashmanTab(pane);
+      if (t != null) pane.getSelectionModel().select(t);
+      if (trashmanView != null) trashmanView.refreshStatus();
+    }, () -> {
+      TrashmanView view = ensureTrashmanView();
+      if (view != null) view.refreshStatus();
+      launchPanelAsWindow("Trashman", view, 760, 760, EditorSidebarPanel.TRASHMAN);
+    }, () -> {
+      rememberPanelPlacement(EditorSidebarPanel.TRASHMAN, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
     });
 
@@ -6630,6 +6690,16 @@ public class EditorApp extends Application {
       t.getTabPane().getSelectionModel().select(t);
     }
     if (engineHealthCenterView != null) engineHealthCenterView.refreshStatus();
+  }
+
+  private void selectTrashmanTab() {
+    Tab t = (tabTrashman != null && tabTrashman.getTabPane() != null)
+        ? tabTrashman
+        : ensureTrashmanTab(leftTabs);
+    if (t != null && t.getTabPane() != null) {
+      t.getTabPane().getSelectionModel().select(t);
+    }
+    if (trashmanView != null) trashmanView.refreshStatus();
   }
 
   private void selectWorkspaceHubTab() {
