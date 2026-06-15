@@ -30,6 +30,8 @@ public final class EditorPreferencesStore {
   static final String KEY_PANEL_PREFIX = "panel.";
   static final String KEY_PANEL_SUFFIX = ".placement";
   static final String KEY_CHOOSER_SUFFIX = ".chooserVisible";
+  static final String KEY_STATUS_BAR_PREFIX = "statusBar.";
+  static final String KEY_STATUS_BAR_SUFFIX = ".visible";
   static final String KEY_CENTER_DIVIDER_LEFT = "centerDividerLeft";
   static final String KEY_CENTER_DIVIDER_RIGHT = "centerDividerRight";
   static final String KEY_ACTIVE_LEFT_TAB = "activeLeftTab";
@@ -143,6 +145,11 @@ public final class EditorPreferencesStore {
           KEY_PANEL_PREFIX + panel.key() + KEY_CHOOSER_SUFFIX,
           Boolean.toString(preferences.isVisibleInChooser(panel)));
     }
+    for (EditorStatusBarSegment segment : EditorStatusBarSegment.values()) {
+      props.setProperty(
+          KEY_STATUS_BAR_PREFIX + segment.key() + KEY_STATUS_BAR_SUFFIX,
+          Boolean.toString(preferences.isStatusBarSegmentVisible(segment)));
+    }
     props.setProperty(KEY_CENTER_DIVIDER_LEFT, Double.toString(preferences.getCenterDividerLeft()));
     props.setProperty(KEY_CENTER_DIVIDER_RIGHT, Double.toString(preferences.getCenterDividerRight()));
     props.setProperty(KEY_ACTIVE_LEFT_TAB, preferences.getActiveLeftTab());
@@ -204,6 +211,12 @@ public final class EditorPreferencesStore {
       preferences.setVisibleInChooser(
           panel,
           parseBoolean(props.getProperty(chooserKey), panel.defaultVisibleInChooser()));
+    }
+    for (EditorStatusBarSegment segment : EditorStatusBarSegment.values()) {
+      String key = KEY_STATUS_BAR_PREFIX + segment.key() + KEY_STATUS_BAR_SUFFIX;
+      preferences.setStatusBarSegmentVisible(
+          segment,
+          parseBoolean(props.getProperty(key), segment.defaultVisible()));
     }
     preferences.setCenterDividerLeft(parseDouble(props.getProperty(KEY_CENTER_DIVIDER_LEFT), 0.22));
     preferences.setCenterDividerRight(parseDouble(props.getProperty(KEY_CENTER_DIVIDER_RIGHT), 0.78));

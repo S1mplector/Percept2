@@ -2088,6 +2088,7 @@ public class EditorApp extends Application {
     BorderPane toolbar = new BorderPane();
     toolbar.getStyleClass().add("master-toolbar");
     statusBar = new JvnStatusBar("JVN Editor", buildInfo);
+    statusBar.applyStatusBarPreferences(editorPreferences);
     statusBar.setProjectRoot(projectRoot);
     statusBar.setTheme(EditorTheme.theme());
     statusBar.setOnRevealProjectRoot(this::revealProjectRootInFileManager);
@@ -3779,6 +3780,9 @@ public class EditorApp extends Application {
         ? EditorTheme.Theme.LIGHT
         : EditorTheme.Theme.DARK,
         false);
+    if (statusBar != null) {
+      statusBar.applyStatusBarPreferences(editorPreferences);
+    }
     applyCodeEditorFontSizePreference();
     applyWelcomeTabPreference();
     applyDefaultSidebarPreferences();
