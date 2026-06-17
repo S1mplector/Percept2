@@ -25,6 +25,8 @@ import javax.imageio.ImageIO;
 
 public class SwingBlitter2D implements Blitter2D {
   private static final Logger log = LoggerFactory.getLogger(SwingBlitter2D.class);
+  private static final Shape NO_CLIP = new java.awt.geom.Rectangle2D.Double(
+      Double.NaN, Double.NaN, Double.NaN, Double.NaN);
 
   private Graphics2D g2;
   private Paint fillPaint = new Color(255,255,255,255);
@@ -73,12 +75,12 @@ public class SwingBlitter2D implements Blitter2D {
 
   @Override
   public void setFill(double r, double g, double b, double a) {
-    fillPaint = new Color((float) r, (float) g, (float) b, (float) (a * alpha));
+    fillPaint = new Color((float) r, (float) g, (float) b, (float) a);
   }
 
   @Override
   public void setStroke(double r, double g, double b, double a) {
-    stroke = new Color((float) r, (float) g, (float) b, (float) (a * alpha));
+    stroke = new Color((float) r, (float) g, (float) b, (float) a);
   }
 
   @Override
@@ -103,14 +105,18 @@ public class SwingBlitter2D implements Blitter2D {
   public void push() {
     transforms.push(g2.getTransform());
     composites.push(g2.getComposite());
-    clips.push(g2.getClip());
+    Shape clip = g2.getClip();
+    clips.push(clip == null ? NO_CLIP : clip);
   }
 
   @Override
   public void pop() {
     if (!transforms.isEmpty()) g2.setTransform(transforms.pop());
     if (!composites.isEmpty()) g2.setComposite(composites.pop());
-    if (!clips.isEmpty()) g2.setClip(clips.pop());
+    if (!clips.isEmpty()) {
+      Shape clip = clips.pop();
+      g2.setClip(clip == NO_CLIP ? null : clip);
+    }
   }
 
   @Override
