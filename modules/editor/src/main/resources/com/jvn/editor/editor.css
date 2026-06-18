@@ -8043,6 +8043,22 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-font-size: 10px;
 }
 
+.trashman-graph-grid {
+  -fx-alignment: center-left;
+}
+
+.trashman-graph-card {
+  -fx-padding: 10;
+  -fx-background-color: rgba(255,255,255,0.035);
+  -fx-background-radius: 8;
+  -fx-border-color: rgba(255,255,255,0.09);
+  -fx-border-radius: 8;
+}
+
+.trashman-live-graph {
+  -fx-effect: innershadow(gaussian, rgba(0,0,0,0.20), 4, 0.4, 0, 1);
+}
+
 .trashman-section-title {
   -fx-text-fill: #f0efed;
   -fx-font-size: 13px;
@@ -8091,6 +8107,34 @@ The editor.css file defines the visual styling for the editor module, including 
 
 .trashman-spinner {
   -fx-pref-width: 84px;
+  -fx-background-color: #1c1c1c;
+  -fx-border-color: #373737;
+  -fx-border-radius: 6;
+  -fx-background-radius: 6;
+}
+
+.trashman-spinner .text-field {
+  -fx-background-color: #1c1c1c;
+  -fx-text-fill: #f2f2f2;
+  -fx-prompt-text-fill: #7c7c7c;
+  -fx-background-radius: 6 0 0 6;
+}
+
+.trashman-spinner .increment-arrow-button,
+.trashman-spinner .decrement-arrow-button {
+  -fx-background-color: #282828;
+  -fx-background-radius: 0;
+  -fx-border-color: transparent;
+}
+
+.trashman-spinner .increment-arrow-button:hover,
+.trashman-spinner .decrement-arrow-button:hover {
+  -fx-background-color: #343434;
+}
+
+.trashman-spinner .increment-arrow,
+.trashman-spinner .decrement-arrow {
+  -fx-background-color: #e2e2e2;
 }
 
 .trashman-action-button {

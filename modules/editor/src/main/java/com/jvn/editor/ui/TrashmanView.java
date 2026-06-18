@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import com.sun.management.HotSpotDiagnosticMXBean;
@@ -29,6 +30,8 @@ import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.geometry.Pos;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ContentDisplay;
@@ -41,6 +44,7 @@ import javafx.scene.control.TextArea;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
+import javafx.scene.paint.Color;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
@@ -52,6 +56,8 @@ import javafx.util.Duration;
 public class TrashmanView extends BorderPane {
   private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
   private static final long JCMD_TIMEOUT_MS = 6_000L;
+  private static final String NO_JCMD = "";
+  private static volatile String cachedJcmdCommand;
 
   private final ExecutorService worker = Executors.newSingleThreadExecutor(r -> {
     Thread t = new Thread(r, "jvn-trashman");
@@ -81,6 +87,8 @@ public class TrashmanView extends BorderPane {
   private final Label threadsDetail = new Label("--");
   private final Label buffersValue = new Label("--");
   private final Label buffersDetail = new Label("--");
+  private final Label telemetryValue = new Label("--");
+  private final Label telemetryDetail = new Label("--");
   private final Label finalizerValue = new Label("--");
   private final Label finalizerDetail = new Label("--");
   private final Label statusLabel = new Label("Ready.");
@@ -89,6 +97,10 @@ public class TrashmanView extends BorderPane {
   private final VBox poolRows = new VBox(6);
   private final VBox bufferRows = new VBox(6);
   private final TextArea reportArea = new TextArea();
+  private final MiniGraph heapGraph = new MiniGraph("Heap", "#d6b16e", 96);
+  private final MiniGraph nonHeapGraph = new MiniGraph("Non-heap", "#8fc7ff", 96);
+  private final MiniGraph gcLoadGraph = new MiniGraph("GC load", "#8be28b", 96);
+  private final MiniGraph telemetryGraph = new MiniGraph("Telemetry", "#d0a7ff", 96);
 
   private final Spinner<Integer> passSpinner = new Spinner<>(1, 8, 2);
   private final Spinner<Integer> pauseSpinner = new Spinner<>(0, 1_000, 120, 20);
@@ -96,11 +108,13 @@ public class TrashmanView extends BorderPane {
   private final CheckBox finalizationCheck = option("Run finalization", true, "Attempt legacy finalization before each GC pass.");
   private final CheckBox jcmdCheck = option("Prefer jcmd", false, "Use jcmd <pid> GC.run when available, then fall back to JVM GC.");
   private final CheckBox beforeAfterCheck = option("Before/after report", true, "Capture memory snapshots around GC runs.");
-  private final CheckBox autoRefreshCheck = option("Auto refresh", false, "Refresh memory telemetry every two seconds.");
+  private final CheckBox autoRefreshCheck = option("Auto refresh", true, "Refresh memory telemetry every two seconds.");
+  private final CheckBox liveReportCheck = option("Live report", false, "Rewrite the detailed report on each telemetry refresh.");
   private final CheckBox liveHeapDumpCheck = option("Live heap dump", true, "When dumping the heap, include only live objects after a full GC.");
   private final CheckBox histogramAllCheck = option("Histogram -all", false, "Ask jcmd to include all objects in the class histogram.");
 
   private volatile boolean busy;
+  private volatile boolean telemetryBusy;
   private Snapshot latestSnapshot;
   private String lastActionReport = "No GC action has run yet.";
 
@@ -109,12 +123,35 @@ public class TrashmanView extends BorderPane {
     autoRefreshTimer.setCycleCount(Timeline.INDEFINITE);
     buildUi();
     refreshStatus();
+    autoRefreshTimer.playFromStart();
   }
 
   public void refreshStatus() {
-    Snapshot snapshot = Snapshot.capture();
-    latestSnapshot = snapshot;
-    renderSnapshot(snapshot);
+    refreshStatus(false);
+  }
+
+  private void refreshStatus(boolean forceReportUpdate) {
+    if (busy || telemetryBusy) return;
+    telemetryBusy = true;
+    try {
+      worker.submit(() -> {
+        try {
+          Snapshot snapshot = Snapshot.capture();
+          Platform.runLater(() -> {
+            telemetryBusy = false;
+            latestSnapshot = snapshot;
+            renderSnapshot(snapshot, forceReportUpdate);
+          });
+        } catch (Exception ex) {
+          Platform.runLater(() -> {
+            telemetryBusy = false;
+            statusLabel.setText("Telemetry refresh failed: " + ex.getClass().getSimpleName());
+          });
+        }
+      });
+    } catch (RejectedExecutionException ex) {
+      telemetryBusy = false;
+    }
   }
 
   public void dispose() {
@@ -136,7 +173,7 @@ public class TrashmanView extends BorderPane {
     titleRow.setAlignment(Pos.CENTER_LEFT);
 
     Button refreshButton = actionButton("Refresh", CssIcon.redo("#d0d0d0"), "Refresh all GC and memory telemetry.");
-    refreshButton.setOnAction(e -> refreshStatus());
+    refreshButton.setOnAction(e -> refreshStatus(true));
     Button gcButton = actionButton("Run GC", CssIcon.delete("#d0d0d0"), "Request one JVM garbage collection pass.");
     gcButton.setOnAction(e -> runGc(false, false));
     Button sweepButton = actionButton("Sweep", CssIcon.sparkles("#f0b673"), "Run the configured multi-pass sweep.");
@@ -200,7 +237,7 @@ public class TrashmanView extends BorderPane {
       }
     });
 
-    FlowPane toggles = new FlowPane(8, 7, finalizationCheck, jcmdCheck, beforeAfterCheck, autoRefreshCheck, liveHeapDumpCheck, histogramAllCheck);
+    FlowPane toggles = new FlowPane(8, 7, finalizationCheck, jcmdCheck, beforeAfterCheck, autoRefreshCheck, liveReportCheck, liveHeapDumpCheck, histogramAllCheck);
     toggles.getStyleClass().add("trashman-options");
 
     VBox header = new VBox(9, titleRow, subtitle, actions, diagnostics, sweepOptions, thresholdOptions, toggles, statusLabel, lastRunLabel);
@@ -216,9 +253,17 @@ public class TrashmanView extends BorderPane {
         metricCard("Classes", classesValue, classesDetail, null),
         metricCard("Threads", threadsValue, threadsDetail, null),
         metricCard("Buffers", buffersValue, buffersDetail, null),
+        metricCard("Telemetry", telemetryValue, telemetryDetail, null),
         metricCard("Finalizers", finalizerValue, finalizerDetail, null),
         metricCard("jcmd", jcmdValue, jcmdDetail, null));
     cards.getStyleClass().add("trashman-card-grid");
+
+    FlowPane graphs = new FlowPane(8, 8,
+        graphCard(heapGraph),
+        graphCard(nonHeapGraph),
+        graphCard(gcLoadGraph),
+        graphCard(telemetryGraph));
+    graphs.getStyleClass().add("trashman-graph-grid");
 
     Label collectorsTitle = sectionTitle("Collectors");
     Label poolsTitle = sectionTitle("Memory Pools");
@@ -230,6 +275,7 @@ public class TrashmanView extends BorderPane {
 
     VBox body = new VBox(10,
         cards,
+        graphs,
         new Separator(),
         collectorsTitle,
         collectorRows,
@@ -267,7 +313,17 @@ public class TrashmanView extends BorderPane {
     return card;
   }
 
-  private void renderSnapshot(Snapshot snapshot) {
+  private VBox graphCard(MiniGraph graph) {
+    Label titleLabel = new Label(graph.title());
+    titleLabel.getStyleClass().add("trashman-card-title");
+    graph.getStyleClass().add("trashman-live-graph");
+    VBox card = new VBox(6, titleLabel, graph);
+    card.getStyleClass().add("trashman-graph-card");
+    card.setPrefWidth(260);
+    return card;
+  }
+
+  private void renderSnapshot(Snapshot snapshot, boolean forceReportUpdate) {
     if (snapshot == null) return;
     heapValue.setText(formatBytes(snapshot.heapUsed()) + " used");
     heapDetail.setText(formatBytes(snapshot.heapCommitted()) + " committed / " + maxText(snapshot.heapMax()) + " max");
@@ -289,11 +345,14 @@ public class TrashmanView extends BorderPane {
     threadsDetail.setText(snapshot.daemonThreadCount() + " daemon / " + snapshot.peakThreadCount() + " peak");
     buffersValue.setText(formatBytes(snapshot.bufferUsed()));
     buffersDetail.setText(snapshot.bufferCount() + " buffers / " + formatBytes(snapshot.bufferCapacity()) + " capacity");
+    telemetryValue.setText(snapshot.captureDurationMs() + " ms");
+    telemetryDetail.setText("last snapshot capture");
     finalizerValue.setText(Integer.toString(snapshot.pendingFinalization()));
     finalizerDetail.setText("objects pending finalization");
     jcmdValue.setText(snapshot.jcmdAvailable() ? "Available" : "Unavailable");
     jcmdDetail.setText(snapshot.jcmdDetail());
     lastRunLabel.setText("Last telemetry refresh: " + LocalTime.now().format(TIME_FORMAT));
+    renderLiveGraphs(snapshot);
 
     collectorRows.getChildren().clear();
     for (CollectorInfo collector : snapshot.collectors()) {
@@ -307,7 +366,18 @@ public class TrashmanView extends BorderPane {
     for (BufferInfo buffer : snapshot.buffers()) {
       bufferRows.getChildren().add(bufferRow(buffer));
     }
-    reportArea.setText(reportText(snapshot));
+    if (forceReportUpdate || liveReportCheck.isSelected() || reportArea.getText().isBlank()) {
+      reportArea.setText(reportText(snapshot));
+    }
+  }
+
+  private void renderLiveGraphs(Snapshot snapshot) {
+    long heapDenominator = positiveOr(snapshot.heapMax(), snapshot.heapCommitted());
+    long nonHeapDenominator = positiveOr(snapshot.nonHeapMax(), snapshot.nonHeapCommitted());
+    heapGraph.addSample(ratio(snapshot.heapUsed(), heapDenominator), percentText(snapshot.heapPressure()));
+    nonHeapGraph.addSample(ratio(snapshot.nonHeapUsed(), nonHeapDenominator), percentText(ratio(snapshot.nonHeapUsed(), nonHeapDenominator)));
+    gcLoadGraph.addSample(snapshot.gcOverhead(), percentText(snapshot.gcOverhead()));
+    telemetryGraph.addSample(ratio(snapshot.captureDurationMs(), 50L), snapshot.captureDurationMs() + " ms");
   }
 
   private HBox collectorRow(CollectorInfo collector) {
@@ -397,7 +467,7 @@ public class TrashmanView extends BorderPane {
         latestSnapshot = after;
         lastActionReport = report;
         statusLabel.setText((sweep ? "Sweep" : "GC") + " complete. Reclaimed " + reclaimedText(before, after) + ".");
-        renderSnapshot(after);
+        renderSnapshot(after, true);
       });
     });
   }
@@ -419,7 +489,7 @@ public class TrashmanView extends BorderPane {
         statusLabel.setText(result.success()
             ? "jcmd GC.run complete. Reclaimed " + reclaimedText(before, after) + "."
             : "jcmd GC.run failed. See report.");
-        renderSnapshot(after);
+        renderSnapshot(after, true);
       });
     });
   }
@@ -439,7 +509,7 @@ public class TrashmanView extends BorderPane {
         latestSnapshot = after;
         lastActionReport = report;
         statusLabel.setText("Finalization request complete.");
-        renderSnapshot(after);
+        renderSnapshot(after, true);
       });
     });
   }
@@ -461,7 +531,7 @@ public class TrashmanView extends BorderPane {
         latestSnapshot = after;
         lastActionReport = report;
         statusLabel.setText(result.success() ? action + " complete." : action + " failed. See report.");
-        renderSnapshot(after);
+        renderSnapshot(after, true);
       });
     });
   }
@@ -493,7 +563,7 @@ public class TrashmanView extends BorderPane {
         latestSnapshot = after;
         lastActionReport = report;
         statusLabel.setText(dumpResult.success() ? "Heap dump written." : "Heap dump failed. See report.");
-        renderSnapshot(after);
+        renderSnapshot(after, true);
       });
     });
   }
@@ -508,7 +578,7 @@ public class TrashmanView extends BorderPane {
       }
     }
     statusLabel.setText("Reset peak usage counters for " + reset + " memory pools.");
-    refreshStatus();
+    refreshStatus(true);
   }
 
   private void armThresholds(boolean collectionUsage) {
@@ -556,7 +626,7 @@ public class TrashmanView extends BorderPane {
     lastActionReport = report.toString();
     statusLabel.setText("Armed " + armed + " threshold" + (armed == 1 ? "" : "s")
         + " (" + unsupported + " unsupported, " + failed + " failed).");
-    refreshStatus();
+    refreshStatus(true);
   }
 
   private void clearThresholds() {
@@ -579,7 +649,7 @@ public class TrashmanView extends BorderPane {
     lastActionReport = "Cleared " + cleared + " memory pool thresholds"
         + (failed > 0 ? " (" + failed + " failed)." : ".");
     statusLabel.setText(lastActionReport);
-    refreshStatus();
+    refreshStatus(true);
   }
 
   private void requestJvmGc(boolean runFinalization) {
@@ -675,6 +745,7 @@ public class TrashmanView extends BorderPane {
     out.append("Buffers: ").append(snapshot.bufferCount()).append(" buffers / ")
         .append(formatBytes(snapshot.bufferUsed())).append(" used / ")
         .append(formatBytes(snapshot.bufferCapacity())).append(" capacity\n");
+    out.append("Telemetry capture: ").append(snapshot.captureDurationMs()).append(" ms\n");
     out.append("Finalizers: ").append(snapshot.pendingFinalization()).append(" pending\n");
     out.append("jcmd: ").append(snapshot.jcmdDetail()).append("\n\n");
     out.append("Last action:\n").append(lastActionReport).append("\n\n");
@@ -870,6 +941,90 @@ public class TrashmanView extends BorderPane {
   private record BufferInfo(String name, long count, long used, long capacity) {
   }
 
+  private static final class MiniGraph extends Canvas {
+    private static final double WIDTH = 242.0;
+    private static final double HEIGHT = 74.0;
+    private final String title;
+    private final Color lineColor;
+    private final double[] samples;
+    private int size;
+    private int cursor;
+    private String latestLabel = "--";
+
+    MiniGraph(String title, String lineColor, int capacity) {
+      super(WIDTH, HEIGHT);
+      this.title = title;
+      this.lineColor = Color.web(lineColor);
+      this.samples = new double[Math.max(8, capacity)];
+      setMouseTransparent(true);
+      draw();
+    }
+
+    String title() {
+      return title;
+    }
+
+    void addSample(double value, String label) {
+      samples[cursor] = clamp01(value);
+      cursor = (cursor + 1) % samples.length;
+      if (size < samples.length) size++;
+      latestLabel = label == null || label.isBlank() ? "--" : label;
+      draw();
+    }
+
+    private void draw() {
+      GraphicsContext gc = getGraphicsContext2D();
+      double w = getWidth();
+      double h = getHeight();
+      gc.clearRect(0, 0, w, h);
+      gc.setFill(Color.web("#151515"));
+      gc.fillRoundRect(0, 0, w, h, 8, 8);
+      gc.setStroke(Color.web("#2c2c2c"));
+      gc.setLineWidth(1.0);
+      gc.strokeRoundRect(0.5, 0.5, w - 1.0, h - 1.0, 8, 8);
+      gc.setStroke(Color.web("#262626"));
+      gc.setLineWidth(1.0);
+      for (int i = 1; i <= 3; i++) {
+        double y = Math.round((h - 18.0) * i / 4.0) + 0.5;
+        gc.strokeLine(8.0, y, w - 8.0, y);
+      }
+      if (size > 1) {
+        double graphTop = 8.0;
+        double graphBottom = h - 21.0;
+        double graphHeight = graphBottom - graphTop;
+        double xStep = (w - 18.0) / Math.max(1, samples.length - 1);
+        gc.setStroke(lineColor.deriveColor(0, 1, 1, 0.35));
+        gc.setLineWidth(5.0);
+        drawLine(gc, graphTop, graphBottom, graphHeight, xStep);
+        gc.setStroke(lineColor);
+        gc.setLineWidth(2.0);
+        drawLine(gc, graphTop, graphBottom, graphHeight, xStep);
+      }
+      gc.setFill(Color.web("#d9d6d2"));
+      gc.fillText(latestLabel, 8.0, h - 7.0);
+    }
+
+    private void drawLine(GraphicsContext gc, double graphTop, double graphBottom, double graphHeight, double xStep) {
+      gc.beginPath();
+      for (int i = 0; i < size; i++) {
+        int sampleIndex = (cursor - size + i + samples.length) % samples.length;
+        double x = 9.0 + (samples.length - size + i) * xStep;
+        double y = graphBottom - samples[sampleIndex] * graphHeight;
+        if (i == 0) {
+          gc.moveTo(x, y);
+        } else {
+          gc.lineTo(x, y);
+        }
+      }
+      gc.stroke();
+    }
+
+    private static double clamp01(double value) {
+      if (Double.isNaN(value) || Double.isInfinite(value)) return 0.0;
+      return Math.max(0.0, Math.min(1.0, value));
+    }
+  }
+
   private record Snapshot(
       String pid,
       String jvm,
@@ -893,6 +1048,7 @@ public class TrashmanView extends BorderPane {
       long bufferCount,
       long bufferUsed,
       long bufferCapacity,
+      long captureDurationMs,
       List<CollectorInfo> collectors,
       List<PoolInfo> pools,
       List<BufferInfo> buffers,
@@ -913,6 +1069,7 @@ public class TrashmanView extends BorderPane {
     }
 
     static Snapshot capture() {
+      long captureStartNs = System.nanoTime();
       RuntimeMXBean runtime = ManagementFactory.getRuntimeMXBean();
       MemoryMXBean memory = ManagementFactory.getMemoryMXBean();
       ClassLoadingMXBean classes = ManagementFactory.getClassLoadingMXBean();
@@ -971,9 +1128,10 @@ public class TrashmanView extends BorderPane {
       String pid = runtime.getName();
       int at = pid.indexOf('@');
       if (at > 0) pid = pid.substring(0, at);
-      String jcmd = resolveJcmd();
+      String jcmd = resolveJcmdCached();
       boolean jcmdAvailable = jcmd != null && !jcmd.isBlank();
       String jcmdDetail = jcmdAvailable ? jcmd : "jcmd not found in current JDK.";
+      long captureDurationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - captureStartNs);
       return new Snapshot(
           pid,
           System.getProperty("java.vm.name", "unknown") + " " + System.getProperty("java.version", "unknown"),
@@ -997,6 +1155,7 @@ public class TrashmanView extends BorderPane {
           bufferCount,
           bufferUsed,
           bufferCapacity,
+          captureDurationMs,
           List.copyOf(collectors),
           List.copyOf(pools),
           List.copyOf(buffers),
@@ -1029,6 +1188,18 @@ public class TrashmanView extends BorderPane {
         return collectionUsage ? pool.isCollectionUsageThresholdExceeded() : pool.isUsageThresholdExceeded();
       } catch (Exception ignored) {
         return false;
+      }
+    }
+
+    private static String resolveJcmdCached() {
+      String cached = cachedJcmdCommand;
+      if (cached != null) return cached;
+      synchronized (Snapshot.class) {
+        cached = cachedJcmdCommand;
+        if (cached != null) return cached;
+        String resolved = resolveJcmd();
+        cachedJcmdCommand = resolved == null ? NO_JCMD : resolved;
+        return cachedJcmdCommand;
       }
     }
 

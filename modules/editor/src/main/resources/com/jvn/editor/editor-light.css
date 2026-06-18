@@ -7873,6 +7873,22 @@
   -fx-font-size: 10px;
 }
 
+.trashman-graph-grid {
+  -fx-alignment: center-left;
+}
+
+.trashman-graph-card {
+  -fx-padding: 10;
+  -fx-background-color: #ffffff;
+  -fx-background-radius: 8;
+  -fx-border-color: #d8dde3;
+  -fx-border-radius: 8;
+}
+
+.trashman-live-graph {
+  -fx-effect: innershadow(gaussian, rgba(0,0,0,0.10), 4, 0.4, 0, 1);
+}
+
 .trashman-section-title {
   -fx-text-fill: #24282c;
   -fx-font-size: 13px;
@@ -7921,6 +7937,34 @@
 
 .trashman-spinner {
   -fx-pref-width: 84px;
+  -fx-background-color: #e3e3e3;
+  -fx-border-color: #c8c8c8;
+  -fx-border-radius: 6;
+  -fx-background-radius: 6;
+}
+
+.trashman-spinner .text-field {
+  -fx-background-color: #e3e3e3;
+  -fx-text-fill: #0d0d0d;
+  -fx-prompt-text-fill: #838383;
+  -fx-background-radius: 6 0 0 6;
+}
+
+.trashman-spinner .increment-arrow-button,
+.trashman-spinner .decrement-arrow-button {
+  -fx-background-color: #d7d7d7;
+  -fx-background-radius: 0;
+  -fx-border-color: transparent;
+}
+
+.trashman-spinner .increment-arrow-button:hover,
+.trashman-spinner .decrement-arrow-button:hover {
+  -fx-background-color: #cccccc;
+}
+
+.trashman-spinner .increment-arrow,
+.trashman-spinner .decrement-arrow {
+  -fx-background-color: #1d1d1d;
 }
 
 .trashman-action-button {
