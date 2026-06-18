@@ -11,7 +11,6 @@ import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.Set;
 
-import com.jvn.core.diagnostics.runtime_logs.logging_strategies.LogCLI;
 import com.jvn.core.diagnostics.runtime_logs.warnings.WarningSubscriber;
 import com.jvn.core.diagnostics.runtime_logs.warnings.warning_facades.WarningManager;
 import com.jvn.core.diagnostics.runtime_logs.warnings.warning_factories.UnknownExpressionWarningFactory;
@@ -732,7 +731,7 @@ public class VnRenderer {
     if (character != null) {
       if (!character.hasExpression(slot.getExpression())) {
         warningSubscriber.onWarningEvent(
-                new UnknownExpressionWarningFactory(
+                UnknownExpressionWarningFactory.getInstance(
                         slot.getExpression(),
                 "Character Rendering: VnRenderer.renderCharacterEntry"));
       }

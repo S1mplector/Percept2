@@ -40,8 +40,11 @@ public class WarningManager implements WarningFacade {
         }
 
         Warning warning = factory.createWarning();
-        warnings.add(warning);
+        if (warning == null) {
+            return;
+        }
 
+        warnings.add(warning);
         strategy.execute(warning);
     }
 

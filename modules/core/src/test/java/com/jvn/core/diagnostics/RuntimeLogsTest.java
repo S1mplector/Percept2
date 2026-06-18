@@ -25,6 +25,6 @@ public class RuntimeLogsTest {
 
         WarningSubscriber subscriber = new WarningSubscriber(warningManager);
 
-        subscriber.onWarningEvent(new UnknownExpressionWarningFactory("INVALID", "Unit Test"));
+        subscriber.onWarningEvent(UnknownExpressionWarningFactory.getInstance("INVALID", "Unit Test"));
     }
 }
