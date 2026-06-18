@@ -98,6 +98,11 @@ import javax.swing.plaf.basic.BasicScrollBarUI;
 public final class JvnHub {
 
   private static final String PACKAGED_GRADLE_CACHE_MARKER_FILE = ".jvn-packaged-gradle-cache.properties";
+  private static final String ENGINE_UPDATE_REMOTE = "origin";
+  private static final String ENGINE_UPDATE_BRANCH = "stable";
+  private static final String ENGINE_UPDATE_REMOTE_REF = ENGINE_UPDATE_REMOTE + "/" + ENGINE_UPDATE_BRANCH;
+  private static final String ENGINE_UPDATE_FETCH_REFSPEC =
+      "refs/heads/" + ENGINE_UPDATE_BRANCH + ":refs/remotes/" + ENGINE_UPDATE_REMOTE_REF;
 
   // --- Editor dark neutral-gray palette -------------------------------------
   // Mirrors the dark editor/launcher CSS: neutral graphite surfaces, no blue
@@ -850,7 +855,7 @@ public final class JvnHub {
 
     updateEngineButton = new UpdateEngineButton("Update Engine",
         uiIcon(VectorIcon.Kind.REFRESH, 16, ACCENT_NEUTRAL));
-    updateEngineButton.setToolTipText("git pull --rebase");
+    updateEngineButton.setToolTipText("git pull --rebase " + ENGINE_UPDATE_REMOTE + " " + ENGINE_UPDATE_BRANCH);
     updateEngineButton.addActionListener(e -> updateEngine());
     actionButtons.add(updateEngineButton);
     rebuildActionGrid();
@@ -1395,9 +1400,11 @@ public final class JvnHub {
         incoming > 0
             ? incoming + " incoming commit" + (incoming == 1 ? "" : "s") + " available."
             : incoming == 0
-                ? "Engine appears up to date with upstream."
+                ? "Engine appears up to date with " + ENGINE_UPDATE_REMOTE_REF + "."
                 : "Incoming update count is unavailable.",
-        incoming < 0 ? "No upstream configured, Git unavailable, or rev-list failed." : "Compared HEAD..@{upstream}."));
+        incoming < 0
+            ? "Git unavailable, " + ENGINE_UPDATE_REMOTE_REF + " unavailable, or rev-list failed."
+            : "Compared HEAD.." + ENGINE_UPDATE_REMOTE_REF + "."));
 
     return checks;
   }
@@ -1541,7 +1548,7 @@ public final class JvnHub {
                 ? "Editor-side launches receive safe-mode flags while preserving the normal Gradle cache."
                 : "Editor-side launches use the standard startup path."),
         new HealthCheck(incoming > 0 ? CheckStatus.WARN : incoming == 0 ? CheckStatus.PASS : CheckStatus.INFO,
-            "Update status", updateStatus, "Compared HEAD..@{upstream}."),
+            "Update status", updateStatus, "Compared HEAD.." + ENGINE_UPDATE_REMOTE_REF + "."),
         new HealthCheck(CheckStatus.INFO, "Java runtime",
             firstNonBlank(System.getProperty("java.version"), "unknown"),
             "java.home=" + firstNonBlank(System.getProperty("java.home"), "unknown")),
@@ -1628,7 +1635,7 @@ public final class JvnHub {
 
   /**
    * Runs {@code action} immediately, or first warns the user that the engine is behind
-   * origin when the last update check reported one or more incoming commits.
+   * origin/stable when the last update check reported one or more incoming commits.
    * Choosing "Update Now" triggers {@link #updateEngine()}; "Run Anyway" proceeds with
    * the original action; closing the dialog cancels entirely.
    */
@@ -1640,7 +1647,7 @@ public final class JvnHub {
     String commitWord = lastKnownIncoming == 1 ? "commit" : "commits";
     int choice = showUpdateDialog(
         "Engine Update Available",
-        "Your engine is " + lastKnownIncoming + " " + commitWord + " behind origin.",
+        "Your engine is " + lastKnownIncoming + " " + commitWord + " behind " + ENGINE_UPDATE_REMOTE_REF + ".",
         "Running '" + label + "' without updating may cause unexpected behaviour "
             + "or use outdated project files.\n\n"
             + "Click 'Update Now' to pull the latest changes first, "
@@ -1789,7 +1796,8 @@ public final class JvnHub {
       }
       if (safeModeEnabled && preflight.hasChanges() && !preflight.onlyBuildOutput()) {
         completeCurrentStep("Local changes detected; Safe Mode will use Git autostash.");
-        appendLog("[hub] Safe Mode: local changes detected; using git pull --rebase --autostash.");
+        appendLog("[hub] Safe Mode: local changes detected; using git pull --rebase --autostash "
+            + ENGINE_UPDATE_REMOTE + " " + ENGINE_UPDATE_BRANCH + ".");
         startUpdateEngine();
         return;
       }
@@ -1809,10 +1817,10 @@ public final class JvnHub {
     if (!acquire("Update Engine")) return;
     if (updateEngineButton != null) updateEngineButton.setChecking(true);
     List<String> cmd = safeModeEnabled
-        ? List.of("git", "pull", "--rebase", "--autostash")
-        : List.of("git", "pull", "--rebase");
+        ? List.of("git", "pull", "--rebase", "--autostash", ENGINE_UPDATE_REMOTE, ENGINE_UPDATE_BRANCH)
+        : List.of("git", "pull", "--rebase", ENGINE_UPDATE_REMOTE, ENGINE_UPDATE_BRANCH);
     completeCurrentStep("Git command assembled.");
-    advanceStep("Fetching from upstream.");
+    advanceStep("Fetching from " + ENGINE_UPDATE_REMOTE_REF + ".");
     if (safeModeEnabled) {
       appendLog("[hub] Safe Mode: Update Engine will autostash tracked local changes and auto-recover failed rebase state.");
     }
@@ -3012,9 +3020,9 @@ public final class JvnHub {
     new SwingWorker<Integer, Void>() {
       @Override protected Integer doInBackground() {
         if (fetchFirst) {
-          runGit(List.of("git", "fetch", "--quiet", "--prune", "--no-tags"), 45);
+          runGit(List.of("git", "fetch", "--quiet", "--prune", "--no-tags", ENGINE_UPDATE_REMOTE, ENGINE_UPDATE_FETCH_REFSPEC), 45);
         }
-        CommandResult result = runGit(List.of("git", "rev-list", "--count", "HEAD..@{upstream}"), 10);
+        CommandResult result = runGit(List.of("git", "rev-list", "--count", "HEAD.." + ENGINE_UPDATE_REMOTE_REF), 10);
         if (result.exitCode != 0) return -1;
         try {
           return Math.max(0, Integer.parseInt(result.output.strip()));
@@ -3497,7 +3505,7 @@ public final class JvnHub {
 
   private int readIncomingCommitCount() {
     if (!commandExists("git") || !Files.isDirectory(projectRoot.resolve(".git"))) return -1;
-    CommandResult result = runGit(List.of("git", "rev-list", "--count", "HEAD..@{upstream}"), 8);
+    CommandResult result = runGit(List.of("git", "rev-list", "--count", "HEAD.." + ENGINE_UPDATE_REMOTE_REF), 8);
     if (result.exitCode != 0) return -1;
     try {
       return Math.max(0, Integer.parseInt(result.output.strip()));
@@ -4383,9 +4391,9 @@ public final class JvnHub {
     private void refreshTooltip() {
       if (incomingCount > 0) {
         setToolTipText(incomingCount + " incoming commit" + (incomingCount == 1 ? "" : "s")
-            + " available. Click to pull --rebase.");
+            + " available from " + ENGINE_UPDATE_REMOTE_REF + ". Click to pull --rebase.");
       } else if (incomingCount == 0) {
-        setToolTipText("Engine is up to date.");
+        setToolTipText("Engine is up to date with " + ENGINE_UPDATE_REMOTE_REF + ".");
       } else {
         setToolTipText("Update Engine — incoming commit count unavailable.");
       }

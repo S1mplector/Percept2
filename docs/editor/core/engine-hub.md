@@ -145,7 +145,7 @@ The hub exposes the main workspace actions as buttons:
 | Build All | Builds the workspace |
 | Run Tests | Runs the test suite |
 | Build Shortcuts | Installs native OS shortcuts for this checkout |
-| Update Engine | Runs the guarded engine update flow (`git pull --rebase` with hub preflight and recovery UI) |
+| Update Engine | Runs the guarded engine update flow from `origin/stable` (`git pull --rebase origin stable` with hub preflight and recovery UI) |
 
 The hub shows a compact status strip instead of a terminal-style output panel. Long task output is reduced to simple progress and completion messages.
 
@@ -164,7 +164,7 @@ When `launcher.maintenance=true`, the **Run Launcher** button stays visible but 
 
 ## Update Engine Recovery
 
-**Update Engine** performs a Git preflight before starting the pull/rebase. It detects unfinished Git operations, generated build output, and local changes that need user attention before the update can proceed.
+**Update Engine** performs a Git preflight before starting the pull/rebase from `origin/stable`. It detects unfinished Git operations, generated build output, and local changes that need user attention before the update can proceed.
 
 Safe Mode changes the update path from a plain update into a guarded recovery flow:
 
