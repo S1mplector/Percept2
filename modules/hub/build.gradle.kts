@@ -5,6 +5,22 @@ plugins {
 }
 
 dependencies {
+  val javafxVersion = (rootProject.findProperty("jvnJavaFxVersion") as String?)?.trim()?.ifBlank { null } ?: "21.0.3"
+  val osName = System.getProperty("os.name").lowercase()
+  val arch = System.getProperty("os.arch").lowercase()
+  val platform = when {
+    osName.contains("win") && arch.contains("64") -> "win"
+    osName.contains("linux") && (arch.contains("aarch64") || arch.contains("arm64")) -> "linux-aarch64"
+    osName.contains("linux") -> "linux"
+    osName.contains("mac") && (arch.contains("aarch64") || arch.contains("arm64")) -> "mac-aarch64"
+    osName.contains("mac") -> "mac"
+    else -> throw GradleException("Unsupported OS/Arch for JavaFX Hub: $osName/$arch")
+  }
+
+  implementation("org.openjfx:javafx-base:$javafxVersion:$platform")
+  implementation("org.openjfx:javafx-graphics:$javafxVersion:$platform")
+  implementation("org.openjfx:javafx-controls:$javafxVersion:$platform")
+
   runtimeOnly("ch.qos.logback:logback-classic:1.5.6")
 
   errorprone("com.google.errorprone:error_prone_core:2.28.0")
@@ -25,8 +41,8 @@ application {
   mainClass.set("com.jvn.hub.JvnHub")
 }
 
-// The hub is intentionally dependency-free: JDK Swing only.
-// It shells out to ./gradlew and git as child processes.
+// Classic Hub remains Swing-based; the optional new Hub view uses JavaFX.
+// Both shell out to ./gradlew and git as child processes.
 
 // --- Generated version resource ---------------------------------------------
 // Writes the project version into a properties file that the hub reads at

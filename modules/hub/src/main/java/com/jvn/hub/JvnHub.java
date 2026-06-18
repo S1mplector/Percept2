@@ -68,6 +68,7 @@ import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JMenuItem;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollBar;
@@ -98,11 +99,6 @@ import javax.swing.plaf.basic.BasicScrollBarUI;
 public final class JvnHub {
 
   private static final String PACKAGED_GRADLE_CACHE_MARKER_FILE = ".jvn-packaged-gradle-cache.properties";
-  private static final String ENGINE_UPDATE_REMOTE = "origin";
-  private static final String ENGINE_UPDATE_BRANCH = "stable";
-  private static final String ENGINE_UPDATE_REMOTE_REF = ENGINE_UPDATE_REMOTE + "/" + ENGINE_UPDATE_BRANCH;
-  private static final String ENGINE_UPDATE_FETCH_REFSPEC =
-      "refs/heads/" + ENGINE_UPDATE_BRANCH + ":refs/remotes/" + ENGINE_UPDATE_REMOTE_REF;
 
   // --- Editor dark neutral-gray palette -------------------------------------
   // Mirrors the dark editor/launcher CSS: neutral graphite surfaces, no blue
@@ -240,6 +236,23 @@ public final class JvnHub {
   /** Entry point. Can be invoked directly or via the {@code :hub:run} Gradle task. */
   public static void main(String[] args) {
     Path root = resolveProjectRoot(args);
+    Optional<HubUiMode> explicitMode = HubUiPreferences.explicitMode(args);
+    HubUiMode mode = explicitMode
+        .or(() -> HubUiPreferences.savedMode())
+        .orElseGet(JvnHub::promptForHubMode);
+    if (mode == HubUiMode.FX) {
+      try {
+        JvnFxHubLauncher.launch(args, root);
+        return;
+      } catch (Throwable ex) {
+        System.err.println("JVN JavaFX Hub failed to start; falling back to Classic Hub: " + exceptionMessage(ex));
+        if (explicitMode.isEmpty()) HubUiPreferences.saveMode(HubUiMode.CLASSIC);
+      }
+    }
+    runClassic(root);
+  }
+
+  static void runClassic(Path root) {
     // Keep the cross-platform (Metal) L&F — Aqua on macOS tints custom backgrounds
     // with system chrome we cannot override per-component. Cross-platform L&F honors
     // setBackground/setForeground verbatim, which is what the custom theme needs.
@@ -248,6 +261,25 @@ public final class JvnHub {
       JvnHub hub = new JvnHub(root);
       hub.frame.setVisible(true);
     });
+  }
+
+  private static HubUiMode promptForHubMode() {
+    applyHubDefaults();
+    String[] options = {"Try New Hub", "Classic Hub"};
+    int choice = JOptionPane.showOptionDialog(
+        null,
+        "JVN has a new JavaFX Engine Hub preview.\n\n"
+            + "It mirrors the Classic Hub action set with a more modern interface.\n"
+            + "Classic Hub remains available as the recovery-safe view.",
+        "Choose Engine Hub View",
+        JOptionPane.DEFAULT_OPTION,
+        JOptionPane.QUESTION_MESSAGE,
+        null,
+        options,
+        options[0]);
+    HubUiMode mode = choice == 0 ? HubUiMode.FX : HubUiMode.CLASSIC;
+    HubUiPreferences.saveMode(mode);
+    return mode;
   }
 
   /** Seed UIManager so ancillary components (tooltips, split panes, dialogs) match. */
@@ -264,6 +296,18 @@ public final class JvnHub {
     UIManager.put("Dialog.background", BG);
     UIManager.put("Panel.background", BG);
     UIManager.put("OptionPane.background", BG);
+    UIManager.put("OptionPane.messageForeground", TEXT_SOFT);
+    UIManager.put("OptionPane.foreground", TEXT_SOFT);
+    UIManager.put("Button.background", PANEL_BG);
+    UIManager.put("Button.foreground", TEXT_PRIMARY);
+    UIManager.put("Button.select", PRESSED_BG);
+    UIManager.put("Button.focus", BORDER_NEUTRAL);
+    UIManager.put("Label.foreground", TEXT_SOFT);
+    UIManager.put("CheckBox.background", BG);
+    UIManager.put("CheckBox.foreground", TEXT_SOFT);
+    UIManager.put("TextField.background", PANEL_BG);
+    UIManager.put("TextField.foreground", TEXT_PRIMARY);
+    UIManager.put("TextField.caretForeground", TEXT_PRIMARY);
     UIManager.put("ToolTip.background", BG);
     UIManager.put("ToolTip.foreground", TEXT_SOFT);
     UIManager.put("ToolTip.border", BorderFactory.createLineBorder(BORDER_NEUTRAL));
@@ -855,7 +899,7 @@ public final class JvnHub {
 
     updateEngineButton = new UpdateEngineButton("Update Engine",
         uiIcon(VectorIcon.Kind.REFRESH, 16, ACCENT_NEUTRAL));
-    updateEngineButton.setToolTipText("git pull --rebase " + ENGINE_UPDATE_REMOTE + " " + ENGINE_UPDATE_BRANCH);
+    updateEngineButton.setToolTipText("git pull --rebase " + HubUpdateTarget.REMOTE + " " + HubUpdateTarget.BRANCH);
     updateEngineButton.addActionListener(e -> updateEngine());
     actionButtons.add(updateEngineButton);
     rebuildActionGrid();
@@ -1400,11 +1444,11 @@ public final class JvnHub {
         incoming > 0
             ? incoming + " incoming commit" + (incoming == 1 ? "" : "s") + " available."
             : incoming == 0
-                ? "Engine appears up to date with " + ENGINE_UPDATE_REMOTE_REF + "."
+                ? "Engine appears up to date with " + HubUpdateTarget.REMOTE_REF + "."
                 : "Incoming update count is unavailable.",
         incoming < 0
-            ? "Git unavailable, " + ENGINE_UPDATE_REMOTE_REF + " unavailable, or rev-list failed."
-            : "Compared HEAD.." + ENGINE_UPDATE_REMOTE_REF + "."));
+            ? "Git unavailable, " + HubUpdateTarget.REMOTE_REF + " unavailable, or rev-list failed."
+            : "Compared HEAD.." + HubUpdateTarget.REMOTE_REF + "."));
 
     return checks;
   }
@@ -1548,7 +1592,7 @@ public final class JvnHub {
                 ? "Editor-side launches receive safe-mode flags while preserving the normal Gradle cache."
                 : "Editor-side launches use the standard startup path."),
         new HealthCheck(incoming > 0 ? CheckStatus.WARN : incoming == 0 ? CheckStatus.PASS : CheckStatus.INFO,
-            "Update status", updateStatus, "Compared HEAD.." + ENGINE_UPDATE_REMOTE_REF + "."),
+            "Update status", updateStatus, "Compared HEAD.." + HubUpdateTarget.REMOTE_REF + "."),
         new HealthCheck(CheckStatus.INFO, "Java runtime",
             firstNonBlank(System.getProperty("java.version"), "unknown"),
             "java.home=" + firstNonBlank(System.getProperty("java.home"), "unknown")),
@@ -1647,7 +1691,7 @@ public final class JvnHub {
     String commitWord = lastKnownIncoming == 1 ? "commit" : "commits";
     int choice = showUpdateDialog(
         "Engine Update Available",
-        "Your engine is " + lastKnownIncoming + " " + commitWord + " behind " + ENGINE_UPDATE_REMOTE_REF + ".",
+        "Your engine is " + lastKnownIncoming + " " + commitWord + " behind " + HubUpdateTarget.REMOTE_REF + ".",
         "Running '" + label + "' without updating may cause unexpected behaviour "
             + "or use outdated project files.\n\n"
             + "Click 'Update Now' to pull the latest changes first, "
@@ -1663,33 +1707,25 @@ public final class JvnHub {
 
   private void runGradle(String task, String label) {
     if (!acquire(label)) return;
-    List<String> cmd = new ArrayList<>();
-    cmd.add(gradleCommand());
-    cmd.add("--console=plain");
-    if (developerModeEnabled) {
-      cmd.add("-Djvn.hub.developerMode=true");
-      cmd.add("-Djvn.editor.developerMode=true");
-      cmd.add("-Djvn.launcher.developerMode=true");
-      cmd.add("-Djvn.help.developerMode=true");
-      cmd.addAll(developerGradleOptions());
-    }
-    if (safeModeEnabled) {
-      cmd.add("-Djvn.hub.safeMode=true");
-      cmd.add("-Djvn.editor.safeMode=true");
-      cmd.add("-Djvn.launcher.safeMode=true");
-      cmd.add("-Djvn.help.safeMode=true");
-    }
-    if (shouldPreferConfigurationCache(task)) {
-      cmd.add("--configuration-cache");
-    }
-    if (shouldLimitLaunchWorkers(task)) {
-      cmd.add("--max-workers=" + balancedLaunchWorkerCount());
-    }
-    cmd.add(task);
+    List<String> cmd = HubCommandFactory.gradleTask(projectRoot, task, currentGradleOptions());
     completeCurrentStep("Gradle command assembled.");
     advanceStep(modeLaunchDetail());
     appendLog("$ " + String.join(" ", cmd));
     startProcess(cmd, label);
+  }
+
+  private HubGradleOptions currentGradleOptions() {
+    return new HubGradleOptions(
+        developerModeEnabled,
+        safeModeEnabled,
+        gradleStacktraceEnabled,
+        gradleInfoLoggingEnabled,
+        gradleDebugLoggingEnabled,
+        gradleOfflineEnabled,
+        gradleRefreshDependenciesEnabled,
+        gradleNoBuildCacheEnabled,
+        gradleNoDaemonEnabled,
+        gradleExtraArgs);
   }
 
   private String modeLaunchDetail() {
@@ -1699,68 +1735,8 @@ public final class JvnHub {
     return "Starting background process.";
   }
 
-  private boolean shouldPreferConfigurationCache(String task) {
-    if (safeModeEnabled) return false;
-    if (hasConfigurationCacheFlag()) return false;
-    return switch (task) {
-      case ":editor:run", ":editor:runLauncher", ":editor:runHelpCenter", ":runtime:run",
-          "build", "test", "check", "ci", "compileAll", "quickCheck" -> true;
-      default -> false;
-    };
-  }
-
-  private boolean hasConfigurationCacheFlag() {
-    for (String arg : splitExtraGradleArgs(gradleExtraArgs)) {
-      if (arg.equals("--configuration-cache")
-          || arg.startsWith("--configuration-cache=")
-          || arg.equals("--no-configuration-cache")
-          || arg.equals("-Dorg.gradle.configuration-cache")
-          || arg.startsWith("-Dorg.gradle.configuration-cache=")) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  private boolean shouldLimitLaunchWorkers(String task) {
-    if (hasMaxWorkersFlag()) return false;
-    return switch (task) {
-      case ":editor:run", ":editor:runLauncher", ":editor:runHelpCenter", ":runtime:run" -> true;
-      default -> false;
-    };
-  }
-
-  private boolean hasMaxWorkersFlag() {
-    for (String arg : splitExtraGradleArgs(gradleExtraArgs)) {
-      if (arg.equals("--max-workers") || arg.startsWith("--max-workers=")) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  private int balancedLaunchWorkerCount() {
-    int processors = Math.max(1, Runtime.getRuntime().availableProcessors());
-    return Math.max(2, processors <= 4 ? 2 : processors - 2);
-  }
-
   private List<String> developerGradleOptions() {
-    List<String> options = new ArrayList<>();
-    if (gradleStacktraceEnabled) options.add("--stacktrace");
-    if (gradleDebugLoggingEnabled) {
-      options.add("--debug");
-    } else if (gradleInfoLoggingEnabled) {
-      options.add("--info");
-    }
-    if (gradleOfflineEnabled) {
-      options.add("--offline");
-    } else if (gradleRefreshDependenciesEnabled) {
-      options.add("--refresh-dependencies");
-    }
-    if (gradleNoBuildCacheEnabled) options.add("--no-build-cache");
-    if (gradleNoDaemonEnabled) options.add("--no-daemon");
-    options.addAll(splitExtraGradleArgs(gradleExtraArgs));
-    return options;
+    return HubCommandFactory.developerGradleOptions(currentGradleOptions());
   }
 
   private String describeGradleOptions() {
@@ -1797,7 +1773,7 @@ public final class JvnHub {
       if (safeModeEnabled && preflight.hasChanges() && !preflight.onlyBuildOutput()) {
         completeCurrentStep("Local changes detected; Safe Mode will use Git autostash.");
         appendLog("[hub] Safe Mode: local changes detected; using git pull --rebase --autostash "
-            + ENGINE_UPDATE_REMOTE + " " + ENGINE_UPDATE_BRANCH + ".");
+            + HubUpdateTarget.REMOTE + " " + HubUpdateTarget.BRANCH + ".");
         startUpdateEngine();
         return;
       }
@@ -1816,11 +1792,9 @@ public final class JvnHub {
   private void startUpdateEngine() {
     if (!acquire("Update Engine")) return;
     if (updateEngineButton != null) updateEngineButton.setChecking(true);
-    List<String> cmd = safeModeEnabled
-        ? List.of("git", "pull", "--rebase", "--autostash", ENGINE_UPDATE_REMOTE, ENGINE_UPDATE_BRANCH)
-        : List.of("git", "pull", "--rebase", ENGINE_UPDATE_REMOTE, ENGINE_UPDATE_BRANCH);
+    List<String> cmd = HubCommandFactory.updateEngine(safeModeEnabled);
     completeCurrentStep("Git command assembled.");
-    advanceStep("Fetching from " + ENGINE_UPDATE_REMOTE_REF + ".");
+    advanceStep("Fetching from " + HubUpdateTarget.REMOTE_REF + ".");
     if (safeModeEnabled) {
       appendLog("[hub] Safe Mode: Update Engine will autostash tracked local changes and auto-recover failed rebase state.");
     }
@@ -2154,28 +2128,10 @@ public final class JvnHub {
     }
     startSteps("Build Shortcuts");
     setActivity("Preparing shortcuts", "Detecting operating system.", true, ACCENT_NEUTRAL);
-    String os = System.getProperty("os.name", "").toLowerCase();
-    List<String> cmd = new ArrayList<>();
-    Path script;
     String label = "Build Shortcuts";
-
-    if (os.contains("win")) {
-      script = projectRoot.resolve("install-windows-launcher.ps1");
-      cmd.add(windowsPowerShellCommand());
-      cmd.add("-NoProfile");
-      cmd.add("-ExecutionPolicy");
-      cmd.add("Bypass");
-      cmd.add("-File");
-      cmd.add(script.toAbsolutePath().toString());
-    } else if (os.contains("mac") || os.contains("darwin")) {
-      script = projectRoot.resolve("install-macos-launcher.sh");
-      cmd.add("bash");
-      cmd.add(script.toAbsolutePath().toString());
-    } else {
-      script = projectRoot.resolve("install-linux-launcher.sh");
-      cmd.add("bash");
-      cmd.add(script.toAbsolutePath().toString());
-    }
+    HubShortcutCommand shortcut = HubCommandFactory.shortcutInstaller(projectRoot);
+    Path script = shortcut.script();
+    List<String> cmd = shortcut.command();
     completeCurrentStep("Operating system detected.");
     advanceStep("Looking for shortcut installer.");
 
@@ -3020,9 +2976,9 @@ public final class JvnHub {
     new SwingWorker<Integer, Void>() {
       @Override protected Integer doInBackground() {
         if (fetchFirst) {
-          runGit(List.of("git", "fetch", "--quiet", "--prune", "--no-tags", ENGINE_UPDATE_REMOTE, ENGINE_UPDATE_FETCH_REFSPEC), 45);
+          runGit(HubCommandFactory.fetchStable(), 45);
         }
-        CommandResult result = runGit(List.of("git", "rev-list", "--count", "HEAD.." + ENGINE_UPDATE_REMOTE_REF), 10);
+        CommandResult result = runGit(HubCommandFactory.incomingCount(), 10);
         if (result.exitCode != 0) return -1;
         try {
           return Math.max(0, Integer.parseInt(result.output.strip()));
@@ -3388,17 +3344,6 @@ public final class JvnHub {
     return wrapper.toAbsolutePath().toString();
   }
 
-  private String windowsPowerShellCommand() {
-    if (commandExists("pwsh")) return "pwsh";
-    for (String envName : List.of("SystemRoot", "WINDIR")) {
-      String root = System.getenv(envName);
-      if (root == null || root.isBlank()) continue;
-      Path candidate = Paths.get(root, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
-      if (Files.isRegularFile(candidate)) return candidate.toAbsolutePath().toString();
-    }
-    return "powershell.exe";
-  }
-
   private boolean commandExists(String command) {
     if (command == null || command.isBlank()) return false;
     String path = System.getenv("PATH");
@@ -3438,46 +3383,6 @@ public final class JvnHub {
     return String.join(" ", quoted);
   }
 
-  private static List<String> splitExtraGradleArgs(String raw) {
-    if (raw == null || raw.isBlank()) return List.of();
-    List<String> out = new ArrayList<>();
-    StringBuilder current = new StringBuilder();
-    boolean inSingle = false;
-    boolean inDouble = false;
-    boolean escaping = false;
-    for (int i = 0; i < raw.length(); i++) {
-      char ch = raw.charAt(i);
-      if (escaping) {
-        current.append(ch);
-        escaping = false;
-        continue;
-      }
-      if (ch == '\\' && !inSingle) {
-        escaping = true;
-        continue;
-      }
-      if (ch == '\'' && !inDouble) {
-        inSingle = !inSingle;
-        continue;
-      }
-      if (ch == '"' && !inSingle) {
-        inDouble = !inDouble;
-        continue;
-      }
-      if (Character.isWhitespace(ch) && !inSingle && !inDouble) {
-        if (current.length() > 0) {
-          out.add(current.toString());
-          current.setLength(0);
-        }
-        continue;
-      }
-      current.append(ch);
-    }
-    if (escaping) current.append('\\');
-    if (current.length() > 0) out.add(current.toString());
-    return out;
-  }
-
   private int readRequiredJavaVersion() {
     String raw = readGradleProperty("javaVersion");
     if (raw == null || raw.isBlank()) return -1;
@@ -3505,7 +3410,7 @@ public final class JvnHub {
 
   private int readIncomingCommitCount() {
     if (!commandExists("git") || !Files.isDirectory(projectRoot.resolve(".git"))) return -1;
-    CommandResult result = runGit(List.of("git", "rev-list", "--count", "HEAD.." + ENGINE_UPDATE_REMOTE_REF), 8);
+    CommandResult result = runGit(HubCommandFactory.incomingCount(), 8);
     if (result.exitCode != 0) return -1;
     try {
       return Math.max(0, Integer.parseInt(result.output.strip()));
@@ -4391,9 +4296,9 @@ public final class JvnHub {
     private void refreshTooltip() {
       if (incomingCount > 0) {
         setToolTipText(incomingCount + " incoming commit" + (incomingCount == 1 ? "" : "s")
-            + " available from " + ENGINE_UPDATE_REMOTE_REF + ". Click to pull --rebase.");
+            + " available from " + HubUpdateTarget.REMOTE_REF + ". Click to pull --rebase.");
       } else if (incomingCount == 0) {
-        setToolTipText("Engine is up to date with " + ENGINE_UPDATE_REMOTE_REF + ".");
+        setToolTipText("Engine is up to date with " + HubUpdateTarget.REMOTE_REF + ".");
       } else {
         setToolTipText("Update Engine — incoming commit count unavailable.");
       }

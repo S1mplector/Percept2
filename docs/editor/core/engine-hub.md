@@ -24,6 +24,19 @@ This source-first workflow is deliberate. The engine and editor are still changi
 
 Official prebuilt binaries are planned from the first major JVN release onward, currently expected by the end of 2026. Until then, the supported desktop path is to clone the repository, run `./jvnw` for commands, and use the Engine Hub for the no-terminal desktop workflow.
 
+## Hub Views
+
+The Engine Hub has two views:
+
+| View | Purpose |
+|------|---------|
+| New JavaFX Hub | Modern command-center interface for normal launches, builds, updates, shortcuts, Help Center access, Safe Mode, Developer Mode, and Gradle options |
+| Classic Hub | Swing-based fallback view kept for recovery-safe workflows and environments where JavaFX desktop support is unavailable |
+
+On first launch, the hub asks whether to try the new JavaFX view or keep Classic Hub. The choice is stored in `~/.jvn/hub.properties`. Use `./jvn --new` or `JVN_HUB_UI=fx` to force the JavaFX view, and `./jvn --classic` or `JVN_HUB_UI=classic` to force Classic Hub.
+
+The JavaFX view and Classic Hub share command construction for Gradle tasks, shortcut installation, and the `origin/stable` update path so the two interfaces stay behaviorally aligned. Classic Hub still carries the deepest recovery UI while the JavaFX preview is being brought to full parity.
+
 ## High-Resolution Display Scaling
 
 The hub automatically enlarges its window, fonts, icon buttons, and status surfaces on high-DPI or very high-resolution displays. This is meant to keep the compact Swing control panel readable on 2K/3K/4K OLED panels and Linux desktops that report a large physical framebuffer without applying Swing UI scaling.
