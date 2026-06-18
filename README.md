@@ -44,6 +44,10 @@ JVN is in heavy continuous development. Engine APIs, editor tooling, generated p
 - `git` is required when cloning from source and optional afterward for pulling updates from the repository or using hub/editor update workflows.
 - For team version-control and large-asset workflows in editor: `git lfs` installed/configured.
 
+### Recommended JDK
+
+For local source builds, use [Eclipse Temurin 21 LTS](https://adoptium.net/temurin/releases/?version=21&package=jdk). It is the recommended JDK for JVN because it is a free, cross-platform OpenJDK distribution with long-term Java 21 support. Install the JDK package, then make sure `JAVA_HOME` points at that JDK before running `./jvnw`, `./jvn`, or `gradlew`.
+
 On Bazzite, `./jvn` and `./jvnw` can automatically enter a Distrobox container with Java 21+ and `javac`, so the hub/editor can use the JDK installed there. Override the container with `JVN_DISTROBOX_CONTAINER=<name>`, force detection on another distro with `JVN_DISTROBOX=1`, or disable this handoff with `JVN_DISTROBOX=0`.
 
 ## JVN's Current Distribution Status
