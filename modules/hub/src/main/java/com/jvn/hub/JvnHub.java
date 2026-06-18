@@ -217,6 +217,8 @@ public final class JvnHub {
   private HeaderIconButton aboutButton;
   /** Header shortcut that opens the editor Help Center as a standalone window. */
   private HeaderIconButton documentationButton;
+  /** Header shortcut that switches from Classic Hub to the JavaFX preview. */
+  private HeaderIconButton newHubButton;
   /** Bell button in the header; redrawn so the small badge reflects announcement count. */
   private AnnouncementsButton announcementsButton;
   /** Update button with a right-aligned incoming-commit badge. */
@@ -558,6 +560,12 @@ public final class JvnHub {
     documentationButton.addActionListener(e -> openDocumentation());
     actionButtons.add(documentationButton);
 
+    newHubButton = new HeaderIconButton(
+        uiIcon(VectorIcon.Kind.ROCKET, 22, ACCENT_DEV),
+        "Try New Hub — switch to the JavaFX preview");
+    newHubButton.addActionListener(e -> switchToFxHub());
+    actionButtons.add(newHubButton);
+
     announcementsButton = new AnnouncementsButton();
     announcementsButton.refreshBadge(unreadCount());
     announcementsButton.addActionListener(e -> showAnnouncementsDialog());
@@ -569,6 +577,7 @@ public final class JvnHub {
     right.add(diagnosticsButton);
     right.add(aboutButton);
     right.add(documentationButton);
+    right.add(newHubButton);
     right.add(announcementsButton);
     header.add(right, BorderLayout.EAST);
 
@@ -1743,6 +1752,22 @@ public final class JvnHub {
     if (!developerModeEnabled) return "Developer Mode is off.";
     List<String> options = developerGradleOptions();
     return options.isEmpty() ? "No additional Gradle flags." : String.join(" ", options);
+  }
+
+  private void switchToFxHub() {
+    if (runningProcess.get() != null) {
+      appendLog("[hub] finish or cancel the running task before switching hub views.");
+      setActivity("Task still running", "Cancel or wait for the current task before opening the new Hub.", false, ACCENT_ERROR);
+      return;
+    }
+    HubUiPreferences.saveMode(HubUiMode.FX);
+    if (spinnerTimer.isRunning()) spinnerTimer.stop();
+    if (autoStepTimer.isRunning()) autoStepTimer.stop();
+    frame.dispose();
+    JvnFxHubLauncher.openOrLaunch(projectRoot, () -> SwingUtilities.invokeLater(() -> {
+      HubUiPreferences.saveMode(HubUiMode.CLASSIC);
+      runClassic(projectRoot);
+    }));
   }
 
   private void openDocumentation() {

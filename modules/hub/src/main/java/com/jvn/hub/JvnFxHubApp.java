@@ -79,8 +79,13 @@ public final class JvnFxHubApp extends Application {
     Button classic = smallButton("Classic Hub");
     classic.setTooltip(new Tooltip("Switch future launches back to Classic Hub and open it now."));
     classic.setOnAction(e -> {
+      if (runningProcess.get() != null) {
+        appendLog("[hub] finish or cancel the running task before switching hub views.");
+        return;
+      }
       HubUiPreferences.saveMode(HubUiMode.CLASSIC);
-      stage.close();
+      Platform.setImplicitExit(false);
+      stage.hide();
       JvnHub.runClassic(projectRoot);
     });
     Button about = smallButton("About");

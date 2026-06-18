@@ -35,6 +35,8 @@ The Engine Hub has two views:
 
 On first launch, the hub asks whether to try the new JavaFX view or keep Classic Hub. The choice is stored in `~/.jvn/hub.properties`. Use `./jvn --new` or `JVN_HUB_UI=fx` to force the JavaFX view, and `./jvn --classic` or `JVN_HUB_UI=classic` to force Classic Hub.
 
+Use **Try New Hub** in the Classic Hub header to switch to the JavaFX preview. Use **Classic Hub** in the JavaFX header to switch back. Switching updates the saved preference for future launches.
+
 The JavaFX view and Classic Hub share command construction for Gradle tasks, shortcut installation, and the `origin/stable` update path so the two interfaces stay behaviorally aligned. Classic Hub still carries the deepest recovery UI while the JavaFX preview is being brought to full parity.
 
 ## High-Resolution Display Scaling
