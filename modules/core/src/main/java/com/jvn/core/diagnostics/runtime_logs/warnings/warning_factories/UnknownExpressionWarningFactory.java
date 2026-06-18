@@ -2,25 +2,24 @@ package com.jvn.core.diagnostics.runtime_logs.warnings.warning_factories;
 
 import com.jvn.core.diagnostics.runtime_logs.warnings.Warning;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
 public class UnknownExpressionWarningFactory implements WarningFactory {
 
-    private static final Map<String, UnknownExpressionWarningFactory> instances = new ConcurrentHashMap<>();
+    private static final WarningInstanceCache<UnknownExpressionWarningFactory> instances = new WarningInstanceCache<>();
 
+    private final String characterId;
     private final String expression;
     private final String source;
     private boolean alreadyWarned = false;
 
-    private UnknownExpressionWarningFactory(String expression, String source) {
+    private UnknownExpressionWarningFactory(String characterId, String expression, String source) {
+        this.characterId = characterId;
         this.expression = expression;
         this.source = source;
     }
 
-    public static UnknownExpressionWarningFactory getInstance(String expression, String source) {
-        String key = expression + "::" + source;
-        return instances.computeIfAbsent(key, k -> new UnknownExpressionWarningFactory(expression, source));
+    public static UnknownExpressionWarningFactory getInstance(String characterId, String expression, String source) {
+        String key = characterId + "::" + expression + "::" + source;
+        return instances.getOrCreate(key, () -> new UnknownExpressionWarningFactory(characterId, expression, source));
     }
 
     @Override
@@ -29,7 +28,7 @@ public class UnknownExpressionWarningFactory implements WarningFactory {
             return null;
         }
         alreadyWarned = true;
-        String message = "Unknown expression encountered: \"" + expression + "\"";
+        String message = "Unknown expression \"" + expression + "\" for character \"" + characterId + "\"";
         return new Warning(message, source);
     }
 }

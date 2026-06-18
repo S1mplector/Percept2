@@ -115,7 +115,7 @@ public class VnRenderer {
   private double characterBaselineY = DEFAULT_CHARACTER_BASELINE_Y;
 
   private final TextToSpeechService tts = ServiceLoader.load(TextToSpeechService.class)
-      .findFirst().orElseGet(NoopTextToSpeechService::new);
+          .findFirst().orElseGet(NoopTextToSpeechService::new);
   private String lastTtsNodeId = null;
 
   public void setTimelineAccessor(VnCharacterSceneAccessor accessor) { this.timelineAccessor = accessor; }
@@ -278,8 +278,8 @@ public class VnRenderer {
 
   public void reloadUiLayout() {
     VnUiLayoutLoader.LoadResult result = projectRoot != null
-        ? VnUiLayoutLoader.loadFromProjectRootWithDiagnostics(projectRoot)
-        : VnUiLayoutLoader.loadFromAssetsWithDiagnostics();
+            ? VnUiLayoutLoader.loadFromProjectRootWithDiagnostics(projectRoot)
+            : VnUiLayoutLoader.loadFromAssetsWithDiagnostics();
     this.uiLayout = result.layout();
     this.uiStyle = result.style();
     this.textBoxButtons = result.textBoxButtons();
@@ -322,28 +322,28 @@ public class VnRenderer {
         }
         case SLIDE_LEFT -> {
           renderSlideBackground(
-            scenario.getBackground(state.getPreviousBackgroundIdDuringTransition()),
-            scenario.getBackground(state.getCurrentBackgroundId()),
-            state.getTransitionProgress(),
-            width, height, true
+                  scenario.getBackground(state.getPreviousBackgroundIdDuringTransition()),
+                  scenario.getBackground(state.getCurrentBackgroundId()),
+                  state.getTransitionProgress(),
+                  width, height, true
           );
           handledTransitionBackground = true;
         }
         case SLIDE_RIGHT -> {
           renderSlideBackground(
-            scenario.getBackground(state.getPreviousBackgroundIdDuringTransition()),
-            scenario.getBackground(state.getCurrentBackgroundId()),
-            state.getTransitionProgress(),
-            width, height, false
+                  scenario.getBackground(state.getPreviousBackgroundIdDuringTransition()),
+                  scenario.getBackground(state.getCurrentBackgroundId()),
+                  state.getTransitionProgress(),
+                  width, height, false
           );
           handledTransitionBackground = true;
         }
         case WIPE -> {
           renderWipeBackground(
-            scenario.getBackground(state.getPreviousBackgroundIdDuringTransition()),
-            scenario.getBackground(state.getCurrentBackgroundId()),
-            state.getTransitionProgress(),
-            width, height
+                  scenario.getBackground(state.getPreviousBackgroundIdDuringTransition()),
+                  scenario.getBackground(state.getCurrentBackgroundId()),
+                  state.getTransitionProgress(),
+                  width, height
           );
           handledTransitionBackground = true;
         }
@@ -442,7 +442,7 @@ public class VnRenderer {
   public void render(VnState state, VnScenario scenario, double width, double height, double mouseX, double mouseY) {
     this.currentState = state;
     render(state, scenario, width, height);
-    
+
     // Re-render choices/buttons with hover effect (if UI not hidden)
     VnNode currentNode = state.getCurrentNode();
     if (currentNode != null && !state.isUiHidden()) {
@@ -463,7 +463,7 @@ public class VnRenderer {
   private boolean prepareParticles(VnState state, double width, double height) {
     VnParticleCommand cmd = state == null ? null : state.getActiveParticleCommand();
     boolean sizeChanged = Math.abs(width - particleConfigWidth) > 0.5
-        || Math.abs(height - particleConfigHeight) > 0.5;
+            || Math.abs(height - particleConfigHeight) > 0.5;
 
     if (cmd == null && renderedParticleCommand == null && particleEmitter.getParticleCount() <= 0) {
       return false;
@@ -516,10 +516,10 @@ public class VnRenderer {
     if (backgroundPath == null || backgroundPath.isBlank()) return;
     Image img = loadImage(backgroundPath);
     com.jvn.core.scene2d.Entity2D proxy = timelineAccessor != null
-        && background != null
-        && (stage == null || stage.getBackgroundTag() == null || stage.getBackgroundTag().isBlank())
-        ? timelineAccessor.getProxy(background.getId())
-        : null;
+            && background != null
+            && (stage == null || stage.getBackgroundTag() == null || stage.getBackgroundTag().isBlank())
+            ? timelineAccessor.getProxy(background.getId())
+            : null;
     if (img != null) {
       if (stage != null && proxy == null) {
         drawStageBackgroundImage(backgroundPath, img, stage, width, height);
@@ -549,10 +549,10 @@ public class VnRenderer {
 
   private void drawStageBackgroundImage(String backgroundPath, Image img, VnStagePreset stage, double width, double height) {
     String key = backgroundPath
-        + "|stage:" + (stage == null ? "none" : stage.getCacheToken())
-        + "|size:" + Math.round(width) + "x" + Math.round(height);
+            + "|stage:" + (stage == null ? "none" : stage.getCacheToken())
+            + "|size:" + Math.round(width) + "x" + Math.round(height);
     Image lit = stageBackgroundCache.computeIfAbsent(key, unused ->
-        VnStageLightingSupport.buildLitBackground(img, stage, width, height));
+            VnStageLightingSupport.buildLitBackground(img, stage, width, height));
     gc.drawImage(lit, 0, 0, width, height);
   }
 
@@ -582,10 +582,10 @@ public class VnRenderer {
     double scaleX = proxy != null ? proxy.getScaleX() : 1.0;
     double scaleY = proxy != null ? proxy.getScaleY() : 1.0;
     boolean transformed = Math.abs(x) > 1e-6
-        || Math.abs(y) > 1e-6
-        || Math.abs(rotation) > 1e-6
-        || Math.abs(scaleX - 1.0) > 1e-6
-        || Math.abs(scaleY - 1.0) > 1e-6;
+            || Math.abs(y) > 1e-6
+            || Math.abs(rotation) > 1e-6
+            || Math.abs(scaleX - 1.0) > 1e-6
+            || Math.abs(scaleY - 1.0) > 1e-6;
 
     if (!transformed) {
       gc.drawImage(img, 0, 0, width, height);
@@ -606,38 +606,38 @@ public class VnRenderer {
     java.util.List<CharacterRenderEntry> ordered = new java.util.ArrayList<>();
     for (Map.Entry<CharacterPosition, VnState.CharacterSlot> entry : characters.entrySet()) {
       ordered.add(new CharacterRenderEntry(
-          entry.getKey(),
-          entry.getValue(),
-          state.getCharacterVisual(entry.getKey()),
-          positionOrdinal(entry.getKey())));
+              entry.getKey(),
+              entry.getValue(),
+              state.getCharacterVisual(entry.getKey()),
+              positionOrdinal(entry.getKey())));
     }
     int detachedOrder = 1_000;
     for (VnState.DetachedCharacterSlot detached : state.getDetachedCharacters().values()) {
       if (detached == null || detached.getSlot() == null) continue;
       CharacterPosition basePosition = detached.getBasePosition();
       ordered.add(new CharacterRenderEntry(
-          basePosition,
-          detached.getSlot(),
-          detached.getVisual(),
-          positionOrdinal(basePosition) + detachedOrder++));
+              basePosition,
+              detached.getSlot(),
+              detached.getVisual(),
+              positionOrdinal(basePosition) + detachedOrder++));
     }
     ordered.sort(
-        java.util.Comparator
-            .comparingInt((CharacterRenderEntry e) ->
-                e.slot() != null ? e.slot().getLayerOrder() : 0)
-            .thenComparingInt(CharacterRenderEntry::order)
+            java.util.Comparator
+                    .comparingInt((CharacterRenderEntry e) ->
+                            e.slot() != null ? e.slot().getLayerOrder() : 0)
+                    .thenComparingInt(CharacterRenderEntry::order)
     );
     return ordered;
   }
 
   private void renderLayeredScene(
-      List<CharacterRenderEntry> orderedCharacters,
-      VnState state,
-      VnScenario scenario,
-      VnStagePreset stage,
-      double width,
-      double height,
-      AudioVisualizerSettings visualizerSettings) {
+          List<CharacterRenderEntry> orderedCharacters,
+          VnState state,
+          VnScenario scenario,
+          VnStagePreset stage,
+          double width,
+          double height,
+          AudioVisualizerSettings visualizerSettings) {
 
     List<LayeredSceneDraw> draws = new ArrayList<>();
     if (orderedCharacters != null) {
@@ -650,16 +650,16 @@ public class VnRenderer {
     }
 
     draws.add(new LayeredSceneDraw(visualizerSettings.zIndex(), 10_000, () ->
-        renderAudioVisualizer(width, height, visualizerSettings)));
+            renderAudioVisualizer(width, height, visualizerSettings)));
 
     if (prepareParticles(state, width, height)) {
       draws.add(new LayeredSceneDraw(lastParticleLayer, 20_000, () ->
-          renderParticles(width, height)));
+              renderParticles(width, height)));
     }
 
     draws.sort(java.util.Comparator
-        .comparingInt((LayeredSceneDraw item) -> item.z)
-        .thenComparingInt(item -> item.order));
+            .comparingInt((LayeredSceneDraw item) -> item.z)
+            .thenComparingInt(item -> item.order));
 
     for (LayeredSceneDraw draw : draws) {
       draw.action.run();
@@ -685,22 +685,22 @@ public class VnRenderer {
   }
 
   private record CharacterRenderEntry(
-      CharacterPosition position,
-      VnState.CharacterSlot slot,
-      VnState.CharacterVisual visual,
-      int order
+          CharacterPosition position,
+          VnState.CharacterSlot slot,
+          VnState.CharacterVisual visual,
+          int order
   ) {
   }
 
   private record EyeFocusDraw(
-      boolean active,
-      String selectedLayerId,
-      String selectedPath,
-      String selectedTargetName,
-      String replacementSlotLayerId,
-      double nudgeX,
-      double nudgeY,
-      Set<String> mappedLayerIds
+          boolean active,
+          String selectedLayerId,
+          String selectedPath,
+          String selectedTargetName,
+          String replacementSlotLayerId,
+          double nudgeX,
+          double nudgeY,
+          Set<String> mappedLayerIds
   ) {
     static EyeFocusDraw inactive() {
       return new EyeFocusDraw(false, "", "", "", "", 0.0, 0.0, Set.of());
@@ -712,12 +712,12 @@ public class VnRenderer {
   }
 
   private void renderCharacterEntry(
-      CharacterRenderEntry entry,
-      VnState state,
-      VnScenario scenario,
-      VnStagePreset stage,
-      double width,
-      double height) {
+          CharacterRenderEntry entry,
+          VnState state,
+          VnScenario scenario,
+          VnStagePreset stage,
+          double width,
+          double height) {
     if (entry == null) return;
     CharacterPosition position = entry.position();
     VnState.CharacterSlot slot = entry.slot();
@@ -732,8 +732,9 @@ public class VnRenderer {
       if (!character.hasExpression(slot.getExpression())) {
         warningSubscriber.onWarningEvent(
                 UnknownExpressionWarningFactory.getInstance(
+                        slot.getCharacterId(),
                         slot.getExpression(),
-                "Character Rendering: VnRenderer.renderCharacterEntry"));
+                        "Character Rendering: VnRenderer.renderCharacterEntry"));
       }
       String expression = slot.getExpression();
       String imagePath = character.getExpressionPath(expression);
@@ -746,19 +747,19 @@ public class VnRenderer {
           preloadSpriteSource(toPath);
           double progress = transition.getProgress();
           renderCharacterSpriteWithAlpha(
-              fromPath, transition.getFromExpression(), character, position,
-              width, height, offsetX, offsetY, slot.getCharacterId(), state, scenario, stage,
-              alpha * (1.0 - progress));
+                  fromPath, transition.getFromExpression(), character, position,
+                  width, height, offsetX, offsetY, slot.getCharacterId(), state, scenario, stage,
+                  alpha * (1.0 - progress));
           renderCharacterSpriteWithAlpha(
-              toPath, transition.getToExpression(), character, position,
-              width, height, offsetX, offsetY, slot.getCharacterId(), state, scenario, stage,
-              alpha * progress);
+                  toPath, transition.getToExpression(), character, position,
+                  width, height, offsetX, offsetY, slot.getCharacterId(), state, scenario, stage,
+                  alpha * progress);
           return;
         }
       }
       if (imagePath != null) {
         renderCharacterSpriteWithAlpha(imagePath, expression, character, position,
-            width, height, offsetX, offsetY, slot.getCharacterId(), state, scenario, stage, alpha);
+                width, height, offsetX, offsetY, slot.getCharacterId(), state, scenario, stage, alpha);
       }
     }
   }
@@ -770,24 +771,24 @@ public class VnRenderer {
   }
 
   private void renderCharacterSpriteWithAlpha(
-      String imagePath,
-      String expression,
-      VnCharacter character,
-      CharacterPosition position,
-      double width,
-      double height,
-      double offsetX,
-      double offsetY,
-      String characterId,
-      VnState state,
-      VnScenario scenario,
-      VnStagePreset stage,
-      double alpha) {
+          String imagePath,
+          String expression,
+          VnCharacter character,
+          CharacterPosition position,
+          double width,
+          double height,
+          double offsetX,
+          double offsetY,
+          String characterId,
+          VnState state,
+          VnScenario scenario,
+          VnStagePreset stage,
+          double alpha) {
     if (imagePath == null || alpha <= 0.001) return;
     gc.save();
     if (alpha < 0.999) gc.setGlobalAlpha(alpha);
     renderCharacterSprite(imagePath, expression, character, position, width, height, offsetX, offsetY,
-        characterId, state, scenario, stage);
+            characterId, state, scenario, stage);
     gc.restore();
   }
 
@@ -806,7 +807,7 @@ public class VnRenderer {
         double py = timelineDrawY(proxy, defaultY);
         boolean hasEyeFocus = state != null && state.getEyeFocusRequest(characterId) != null && layerPaths.size() > 1;
         if (hasEyeFocus && reference != null && renderTimelineDrivenLayers(
-            character, expression, characterId, layerPaths, px, py, spriteWidth, spriteHeight, width, height, state, scenario, stage)) {
+                character, expression, characterId, layerPaths, px, py, spriteWidth, spriteHeight, width, height, state, scenario, stage)) {
           return;
         }
         if (reference != null) {
@@ -818,11 +819,11 @@ public class VnRenderer {
         return;
       }
       if (reference != null && renderTimelineDrivenLayers(
-          character, expression, characterId, layerPaths, defaultX, defaultY, spriteWidth, spriteHeight, width, height, state, scenario, stage)) {
+              character, expression, characterId, layerPaths, defaultX, defaultY, spriteWidth, spriteHeight, width, height, state, scenario, stage)) {
         return;
       }
     } else if (reference != null && renderTimelineDrivenLayers(
-        character, expression, characterId, layerPaths, defaultX, defaultY, spriteWidth, spriteHeight, width, height, state, scenario, stage)) {
+            character, expression, characterId, layerPaths, defaultX, defaultY, spriteWidth, spriteHeight, width, height, state, scenario, stage)) {
       return;
     }
     double resolvedX = timelineDisplacementFallbackX(defaultX, state, characterId, offsetX);
@@ -841,17 +842,17 @@ public class VnRenderer {
   }
 
   private void drawCharacterImageWithTimelineTransform(
-      Image image,
-      String imagePath,
-      double x,
-      double y,
-      double width,
-      double height,
-      double canvasWidth,
-      double canvasHeight,
-      VnStagePreset stage,
-      VnState state,
-      String characterId) {
+          Image image,
+          String imagePath,
+          double x,
+          double y,
+          double width,
+          double height,
+          double canvasWidth,
+          double canvasHeight,
+          VnStagePreset stage,
+          VnState state,
+          String characterId) {
     VnState.TimelineTransform transform = state == null ? null : state.getTimelineTransform(characterId);
     if (transform == null || !hasRenderableTimelineTransform(transform)) {
       drawCharacterImage(image, imagePath, x, y, width, height, canvasWidth, canvasHeight, stage);
@@ -878,8 +879,8 @@ public class VnRenderer {
   private boolean hasRenderableTimelineTransform(VnState.TimelineTransform transform) {
     if (transform == null) return false;
     return (transform.hasScaleX() && Math.abs(transform.getScaleX() - 1.0) > 1e-6)
-        || (transform.hasScaleY() && Math.abs(transform.getScaleY() - 1.0) > 1e-6)
-        || (transform.hasRotation() && Math.abs(transform.getRotationDeg()) > 1e-6);
+            || (transform.hasScaleY() && Math.abs(transform.getScaleY() - 1.0) > 1e-6)
+            || (transform.hasRotation() && Math.abs(transform.getRotationDeg()) > 1e-6);
   }
 
   private double timelineDisplacementFallbackX(double defaultX, VnState state, String characterId, double visualOffsetX) {
@@ -895,25 +896,25 @@ public class VnRenderer {
   }
 
   private boolean renderTimelineDrivenLayers(
-      VnCharacter character,
-      String expression,
-      String characterId,
-      List<String> layerPaths,
-      double defaultX,
-      double defaultY,
-      double spriteWidth,
-      double spriteHeight,
-      double canvasWidth,
-      double canvasHeight,
-      VnState state,
-      VnScenario scenario,
-      VnStagePreset stage
+          VnCharacter character,
+          String expression,
+          String characterId,
+          List<String> layerPaths,
+          double defaultX,
+          double defaultY,
+          double spriteWidth,
+          double spriteHeight,
+          double canvasWidth,
+          double canvasHeight,
+          VnState state,
+          VnScenario scenario,
+          VnStagePreset stage
   ) {
     if (layerPaths == null || layerPaths.size() <= 1) return false;
     List<SpriteLayer> layers = spriteLayers(character, expression, characterId, layerPaths);
     EyeFocusDraw eyeFocus = resolveEyeFocusDraw(
-        state, scenario, character, expression, characterId, layers,
-        defaultX, defaultY, spriteWidth, spriteHeight, canvasWidth, canvasHeight);
+            state, scenario, character, expression, characterId, layers,
+            defaultX, defaultY, spriteWidth, spriteHeight, canvasWidth, canvasHeight);
     boolean hasLayerProxy = false;
     if (timelineAccessor != null) {
       for (SpriteLayer layer : layers) {
@@ -933,15 +934,15 @@ public class VnRenderer {
       if (eyeFocus.active() && eyeFocus.isMappedLayer(layer.layerId())) {
         boolean selectedLayerPresent = expressionContainsLayer(layers, eyeFocus.selectedLayerId());
         boolean drawSelected = layer.layerId().equals(eyeFocus.selectedLayerId())
-            || (!selectedLayerPresent && layer.layerId().equals(eyeFocus.replacementSlotLayerId()));
+                || (!selectedLayerPresent && layer.layerId().equals(eyeFocus.replacementSlotLayerId()));
         if (!drawSelected) continue;
         Image selectedImage = loadSpriteLayerImage(eyeFocus.selectedPath());
         if (!isLoadedImage(selectedImage)) continue;
         drawLayer = new SpriteLayer(
-            eyeFocus.selectedPath(),
-            eyeFocus.selectedLayerId(),
-            eyeFocus.selectedTargetName(),
-            selectedImage);
+                eyeFocus.selectedPath(),
+                eyeFocus.selectedLayerId(),
+                eyeFocus.selectedTargetName(),
+                selectedImage);
         nudgeX = eyeFocus.nudgeX();
         nudgeY = eyeFocus.nudgeY();
       }
@@ -956,18 +957,18 @@ public class VnRenderer {
   }
 
   private EyeFocusDraw resolveEyeFocusDraw(
-      VnState state,
-      VnScenario scenario,
-      VnCharacter character,
-      String expression,
-      String characterId,
-      List<SpriteLayer> layers,
-      double defaultX,
-      double defaultY,
-      double spriteWidth,
-      double spriteHeight,
-      double canvasWidth,
-      double canvasHeight
+          VnState state,
+          VnScenario scenario,
+          VnCharacter character,
+          String expression,
+          String characterId,
+          List<SpriteLayer> layers,
+          double defaultX,
+          double defaultY,
+          double spriteWidth,
+          double spriteHeight,
+          double canvasWidth,
+          double canvasHeight
   ) {
     if (state == null || scenario == null || character == null || characterId == null || layers == null || layers.isEmpty()) {
       return EyeFocusDraw.inactive();
@@ -997,13 +998,13 @@ public class VnRenderer {
     double dx = (targetX - sourceX) / Math.max(1.0, spriteWidth);
     double dy = (targetY - sourceY) / Math.max(1.0, spriteHeight);
     EyeFocusResolver.Result resolved = EyeFocusResolver.resolve(
-        0.0,
-        0.0,
-        dx,
-        dy,
-        request.deadZone(),
-        profile.maxNudgePx(),
-        request.strength());
+            0.0,
+            0.0,
+            dx,
+            dy,
+            request.deadZone(),
+            profile.maxNudgePx(),
+            request.strength());
 
     String selectedLayerId = profile.layerIdFor(resolved.keypadIndex());
     if (selectedLayerId == null || selectedLayerId.isBlank()) {
@@ -1030,14 +1031,14 @@ public class VnRenderer {
     if (replacementSlot.isBlank()) return EyeFocusDraw.inactive();
     String selectedTargetName = timelineLayerTargetName(characterId, expression, selectedLayerId);
     return new EyeFocusDraw(
-        true,
-        selectedLayerId,
-        selectedPath,
-        selectedTargetName,
-        replacementSlot,
-        resolved.nudgeX(),
-        resolved.nudgeY(),
-        Set.copyOf(mapped));
+            true,
+            selectedLayerId,
+            selectedPath,
+            selectedTargetName,
+            replacementSlot,
+            resolved.nudgeX(),
+            resolved.nudgeY(),
+            Set.copyOf(mapped));
   }
 
   private VnEyeFocusProfile resolveEyeFocusProfile(VnCharacter character, String expression, String requestedExpression) {
@@ -1066,10 +1067,10 @@ public class VnRenderer {
   }
 
   private String replacementSlotLayerId(
-      VnEyeFocusProfile profile,
-      List<SpriteLayer> layers,
-      Set<String> mapped,
-      String selectedLayerId
+          VnEyeFocusProfile profile,
+          List<SpriteLayer> layers,
+          Set<String> mapped,
+          String selectedLayerId
   ) {
     for (SpriteLayer layer : layers) {
       if (layer != null && selectedLayerId.equals(layer.layerId())) {
@@ -1121,8 +1122,8 @@ public class VnRenderer {
     Image reference = loadSpriteSourceImage(imagePath, layerPaths);
     double spriteHeight = canvasHeight * characterHeightFactor;
     double spriteWidth = reference != null && reference.getHeight() > 0.0
-        ? reference.getWidth() * (spriteHeight / reference.getHeight())
-        : spriteHeight * 0.5;
+            ? reference.getWidth() * (spriteHeight / reference.getHeight())
+            : spriteHeight * 0.5;
     double offsetX = visual != null ? visual.getOffsetX() : 0.0;
     double offsetY = visual != null ? visual.getOffsetY() : 0.0;
     VnState.TimelineDisplacement displacement = state.getTimelineDisplacement(characterId);
@@ -1136,15 +1137,15 @@ public class VnRenderer {
   }
 
   private void drawTimelineLayer(
-      SpriteLayer layer,
-      Entity2D proxy,
-      double x,
-      double y,
-      double width,
-      double height,
-      double canvasWidth,
-      double canvasHeight,
-      VnStagePreset stage
+          SpriteLayer layer,
+          Entity2D proxy,
+          double x,
+          double y,
+          double width,
+          double height,
+          double canvasWidth,
+          double canvasHeight,
+          VnStagePreset stage
   ) {
     gc.save();
     double alpha = proxy instanceof Sprite2D sprite ? sprite.getAlpha() : 1.0;
@@ -1348,12 +1349,12 @@ public class VnRenderer {
       return;
     }
     String key = spriteTag
-        + "|stage:" + stage.getCacheToken()
-        + "|pos:" + Math.round(x) + "," + Math.round(y)
-        + "|size:" + Math.round(drawWidth) + "x" + Math.round(drawHeight)
-        + "|canvas:" + Math.round(canvasWidth) + "x" + Math.round(canvasHeight);
+            + "|stage:" + stage.getCacheToken()
+            + "|pos:" + Math.round(x) + "," + Math.round(y)
+            + "|size:" + Math.round(drawWidth) + "x" + Math.round(drawHeight)
+            + "|canvas:" + Math.round(canvasWidth) + "x" + Math.round(canvasHeight);
     Image lit = stageCharacterCache.computeIfAbsent(key, unused ->
-        VnStageLightingSupport.buildLitCharacter(source, spriteTag, x, y, drawWidth, drawHeight, canvasWidth, canvasHeight, stage));
+            VnStageLightingSupport.buildLitCharacter(source, spriteTag, x, y, drawWidth, drawHeight, canvasWidth, canvasHeight, stage));
     gc.drawImage(lit, x, y, drawWidth, drawHeight);
   }
 
@@ -1382,8 +1383,8 @@ public class VnRenderer {
       if (light == null || light.layer() != layer || light.muted() || (hasSolo && !light.solo())) continue;
       Color color = VnStageLightingSupport.parseColor(light.color(), Color.web("#ffd7a8"));
       double alpha = layer == VnStagePreset.LightLayer.FOREGROUND
-          ? VnStageLightingSupport.foregroundLightAlpha(light)
-          : VnStageLightingSupport.backgroundLightAlpha(light);
+              ? VnStageLightingSupport.foregroundLightAlpha(light)
+              : VnStageLightingSupport.backgroundLightAlpha(light);
       if (alpha <= 1e-6) continue;
       double targetX = light.sceneX() * canvasWidth;
       double targetY = light.sceneY() * canvasHeight;
@@ -1397,10 +1398,10 @@ public class VnRenderer {
         case STRIP, WINDOW -> drawStripLightOverlay(sourceX, sourceY, targetX, targetY, radius * 0.42, color, alpha);
         default -> {
           gc.setFill(new javafx.scene.paint.RadialGradient(
-              0, 0, targetX, targetY, radius, false, CycleMethod.NO_CYCLE,
-              new Stop(0.0, Color.color(color.getRed(), color.getGreen(), color.getBlue(), alpha)),
-              new Stop(0.42, Color.color(color.getRed(), color.getGreen(), color.getBlue(), alpha * 0.55)),
-              new Stop(1.0, Color.color(color.getRed(), color.getGreen(), color.getBlue(), 0.0))
+                  0, 0, targetX, targetY, radius, false, CycleMethod.NO_CYCLE,
+                  new Stop(0.0, Color.color(color.getRed(), color.getGreen(), color.getBlue(), alpha)),
+                  new Stop(0.42, Color.color(color.getRed(), color.getGreen(), color.getBlue(), alpha * 0.55)),
+                  new Stop(1.0, Color.color(color.getRed(), color.getGreen(), color.getBlue(), 0.0))
           ));
           gc.fillOval(targetX - radius, targetY - radius, radius * 2.0, radius * 2.0);
         }
@@ -1432,16 +1433,16 @@ public class VnRenderer {
     double endWidth = Math.max(18.0, radius * 0.48);
     double sourceWidth = Math.max(6.0, endWidth * 0.18);
     double[] xs = {
-        sourceX + px * sourceWidth,
-        sourceX - px * sourceWidth,
-        targetX - px * endWidth,
-        targetX + px * endWidth
+            sourceX + px * sourceWidth,
+            sourceX - px * sourceWidth,
+            targetX - px * endWidth,
+            targetX + px * endWidth
     };
     double[] ys = {
-        sourceY + py * sourceWidth,
-        sourceY - py * sourceWidth,
-        targetY - py * endWidth,
-        targetY + py * endWidth
+            sourceY + py * sourceWidth,
+            sourceY - py * sourceWidth,
+            targetY - py * endWidth,
+            targetY + py * endWidth
     };
     gc.setFill(Color.color(color.getRed(), color.getGreen(), color.getBlue(), alpha));
     gc.fillPolygon(xs, ys, 4);
@@ -1454,16 +1455,16 @@ public class VnRenderer {
     double px = -dy / length;
     double py = dx / length;
     double[] xs = {
-        sourceX + px * halfWidth,
-        sourceX - px * halfWidth,
-        targetX - px * halfWidth,
-        targetX + px * halfWidth
+            sourceX + px * halfWidth,
+            sourceX - px * halfWidth,
+            targetX - px * halfWidth,
+            targetX + px * halfWidth
     };
     double[] ys = {
-        sourceY + py * halfWidth,
-        sourceY - py * halfWidth,
-        targetY - py * halfWidth,
-        targetY + py * halfWidth
+            sourceY + py * halfWidth,
+            sourceY - py * halfWidth,
+            targetY - py * halfWidth,
+            targetY + py * halfWidth
     };
     gc.setFill(Color.color(color.getRed(), color.getGreen(), color.getBlue(), alpha));
     gc.fillPolygon(xs, ys, 4);
@@ -1488,8 +1489,8 @@ public class VnRenderer {
     long updatedAt = audioFacade.getBgmSpectrumUpdatedAtNanos();
     long nowNs = System.nanoTime();
     boolean hasFreshData = magnitudes != null
-        && magnitudes.length > 0
-        && (updatedAt <= 0L || (nowNs - updatedAt) <= VnAudioVisualizerConfig.STALE_NS);
+            && magnitudes.length > 0
+            && (updatedAt <= 0L || (nowNs - updatedAt) <= VnAudioVisualizerConfig.STALE_NS);
 
     if (hasFreshData) {
       mapSpectrumToTargets(magnitudes, visualizerTargets, activeBars);
@@ -1549,7 +1550,7 @@ public class VnRenderer {
 
       double targetWidth = 0.70 + Math.pow(visualizerLevels[i], 0.72) * 0.62;
       visualizerWidthVelocities[i] = (visualizerWidthVelocities[i]
-          + (targetWidth - visualizerWidthMultipliers[i]) * 0.22) * 0.86;
+              + (targetWidth - visualizerWidthMultipliers[i]) * 0.22) * 0.86;
       visualizerWidthMultipliers[i] = clamp(visualizerWidthMultipliers[i] + visualizerWidthVelocities[i], 0.62, 1.42);
       visualizerGlowLevels[i] *= 0.91;
 
@@ -1598,28 +1599,28 @@ public class VnRenderer {
     }
 
     Color base = cycleColors
-        ? Color.hsb(visualizerHue, 0.76, 1.0)
-        : parseColor(settings.colorToken(), Color.web("#7DE2FF"));
+            ? Color.hsb(visualizerHue, 0.76, 1.0)
+            : parseColor(settings.colorToken(), Color.web("#7DE2FF"));
     Color accent = VnAudioVisualizerConfig.isAutoToken(settings.accentToken())
-        ? base.interpolate(Color.WHITE, 0.36)
-        : parseColor(settings.accentToken(), base.interpolate(Color.WHITE, 0.36));
+            ? base.interpolate(Color.WHITE, 0.36)
+            : parseColor(settings.accentToken(), base.interpolate(Color.WHITE, 0.36));
     return new AudioVisualizerPalette(base, accent, base.darker().darker());
   }
 
   private void drawAudioVisualizerBackdrop(
-      AudioVisualizerSettings settings,
-      AudioVisualizerPalette palette,
-      double x,
-      double regionTop,
-      double regionWidth,
-      double regionHeight,
-      double regionBottom) {
+          AudioVisualizerSettings settings,
+          AudioVisualizerPalette palette,
+          double x,
+          double regionTop,
+          double regionWidth,
+          double regionHeight,
+          double regionBottom) {
     gc.setFill(new LinearGradient(
-        0, regionTop, 0, regionBottom,
-        false, CycleMethod.NO_CYCLE,
-        new Stop(0.0, palette.base().deriveColor(0, 1.0, 1.12, settings.alpha() * 0.12)),
-        new Stop(0.42, palette.base().deriveColor(0, 1.0, 1.0, settings.alpha() * 0.03)),
-        new Stop(1.0, Color.TRANSPARENT)));
+            0, regionTop, 0, regionBottom,
+            false, CycleMethod.NO_CYCLE,
+            new Stop(0.0, palette.base().deriveColor(0, 1.0, 1.12, settings.alpha() * 0.12)),
+            new Stop(0.42, palette.base().deriveColor(0, 1.0, 1.0, settings.alpha() * 0.03)),
+            new Stop(1.0, Color.TRANSPARENT)));
     gc.fillRect(x, regionTop, regionWidth, regionHeight);
 
     if (visualizerBeatFlashIntensity > 0.02 && VnAudioVisualizerConfig.STYLE_DYNAMIC.equals(settings.style())) {
@@ -1633,14 +1634,14 @@ public class VnRenderer {
   }
 
   private void drawAudioVisualizerBars(
-      AudioVisualizerSettings settings,
-      AudioVisualizerPalette palette,
-      int activeBars,
-      double sidePadding,
-      double regionWidth,
-      double regionTop,
-      double regionBottom,
-      double regionHeight) {
+          AudioVisualizerSettings settings,
+          AudioVisualizerPalette palette,
+          int activeBars,
+          double sidePadding,
+          double regionWidth,
+          double regionTop,
+          double regionBottom,
+          double regionHeight) {
     double bandWidth = regionWidth / activeBars;
     double baseBarWidth = bandWidth * (VnAudioVisualizerConfig.STYLE_DYNAMIC.equals(settings.style()) ? 0.76 : 0.68);
     boolean traceStarted = false;
@@ -1670,20 +1671,20 @@ public class VnRenderer {
         double glowPad = 2.0 + visualizerGlowLevels[i] * 5.0;
         gc.setFill(barBase.deriveColor(0, 1.0, 1.0, settings.alpha() * (0.08 + visualizerGlowLevels[i] * 0.12)));
         gc.fillRoundRect(
-            barX - glowPad * 0.5,
-            Math.max(regionTop, barY - glowPad),
-            actualWidth + glowPad,
-            Math.min(regionHeight, barHeight + glowPad * 1.5),
-            actualWidth + glowPad,
-            actualWidth + glowPad);
+                barX - glowPad * 0.5,
+                Math.max(regionTop, barY - glowPad),
+                actualWidth + glowPad,
+                Math.min(regionHeight, barHeight + glowPad * 1.5),
+                actualWidth + glowPad,
+                actualWidth + glowPad);
       }
 
       gc.setFill(new LinearGradient(
-          0, barY, 0, regionBottom,
-          false, CycleMethod.NO_CYCLE,
-          new Stop(0.0, barTop.deriveColor(0, 1.0, 1.0, settings.alpha())),
-          new Stop(0.55, barBase.deriveColor(0, 1.0, 1.0, settings.alpha() * 0.96)),
-          new Stop(1.0, barBottom.deriveColor(0, 1.0, 1.0, settings.alpha() * 0.92))));
+              0, barY, 0, regionBottom,
+              false, CycleMethod.NO_CYCLE,
+              new Stop(0.0, barTop.deriveColor(0, 1.0, 1.0, settings.alpha())),
+              new Stop(0.55, barBase.deriveColor(0, 1.0, 1.0, settings.alpha() * 0.96)),
+              new Stop(1.0, barBottom.deriveColor(0, 1.0, 1.0, settings.alpha() * 0.92))));
       gc.fillRoundRect(barX, barY, actualWidth, barHeight, 5.0, 5.0);
 
       if (VnAudioVisualizerConfig.STYLE_DYNAMIC.equals(settings.style())) {
@@ -1768,29 +1769,29 @@ public class VnRenderer {
   }
 
   private record AudioVisualizerSettings(
-      boolean enabled,
-      int bars,
-      String style,
-      String colorToken,
-      String accentToken,
-      double alpha,
-      boolean glow,
-      double heightFactor,
-      int zIndex) {}
+          boolean enabled,
+          int bars,
+          String style,
+          String colorToken,
+          String accentToken,
+          double alpha,
+          boolean glow,
+          double heightFactor,
+          int zIndex) {}
 
   private record AudioVisualizerPalette(Color base, Color accent, Color shadow) {}
 
   private record DialogueRenderEntry(String speaker, String text, int revealedChars) {}
 
   private record BubbleGeometry(
-      double x,
-      double y,
-      double width,
-      double height,
-      double anchorX,
-      double anchorY,
-      double tailSize,
-      boolean tailOnTop
+          double x,
+          double y,
+          double width,
+          double height,
+          double anchorX,
+          double anchorY,
+          double tailSize,
+          boolean tailOnTop
   ) {}
 
   private void renderDialogue(DialogueLine dialogue, VnState state, double width, double height, int hoveredButtonIndex) {
@@ -1812,11 +1813,11 @@ public class VnRenderer {
     Color activeDialogueTextFillColor = defaultDialogueStyle ? TEXT_COLOR : dialogueTextFillColor;
     double fscale = VnConfig.defaults().getUiFontScale();
     Font activeNameFont = defaultDialogueStyle
-        ? Font.font(DEFAULT_FONT_FAMILY, FontWeight.BOLD, DEFAULT_NAME_FONT_SIZE * fscale)
-        : nameFont;
+            ? Font.font(DEFAULT_FONT_FAMILY, FontWeight.BOLD, DEFAULT_NAME_FONT_SIZE * fscale)
+            : nameFont;
     Font activeDialogueFont = defaultDialogueStyle
-        ? Font.font(DEFAULT_FONT_FAMILY, FontWeight.NORMAL, DEFAULT_DIALOGUE_FONT_SIZE * fscale)
-        : dialogueFont;
+            ? Font.font(DEFAULT_FONT_FAMILY, FontWeight.NORMAL, DEFAULT_DIALOGUE_FONT_SIZE * fscale)
+            : dialogueFont;
     double activeNameBoxOpacity = defaultDialogueStyle ? 1.0 : nameBoxRenderOpacity;
 
     TextBoxGeometry textBox = computeTextBoxGeometry(width, height);
@@ -1830,8 +1831,8 @@ public class VnRenderer {
     boolean hasSpeaker = speakerName != null && !speakerName.isEmpty();
     boolean useTextBoxAsset = shouldUseTextBoxAsset(state);
     Image activeTextBoxImage = useTextBoxAsset
-        ? (hasSpeaker || narrationTextBoxImage == null ? textBoxImage : narrationTextBoxImage)
-        : null;
+            ? (hasSpeaker || narrationTextBoxImage == null ? textBoxImage : narrationTextBoxImage)
+            : null;
     boolean clipTextBox = useTextBoxAsset && hasPolygon(textBoxBoundsPolygon);
     if (clipTextBox) {
       gc.save();
@@ -1884,18 +1885,18 @@ public class VnRenderer {
       double nameContentW = Math.max(0, nameBoxW - uiLayout.nameTextXOffset() * 2);
       double nameTextW = computeTextWidth(speakerName, activeNameFont);
       double nameTextBaselineY = uiLayout.nameTextYAlign() >= 0.0
-          ? resolvePaddedTextBaselineY(
+              ? resolvePaddedTextBaselineY(
               nameBoxY,
               nameBoxH,
               uiLayout.nameTextTopPadding(),
               uiLayout.nameTextBottomPadding(),
               activeNameFont,
               uiLayout.nameTextYAlign())
-          : nameBoxY + uiLayout.nameTextBaselineOffset();
+              : nameBoxY + uiLayout.nameTextBaselineOffset();
       gc.fillText(
-          speakerName,
-          resolveAlignedTextX(nameContentX, nameContentW, nameTextW, nameTextXAlign),
-          nameTextBaselineY
+              speakerName,
+              resolveAlignedTextX(nameContentX, nameContentW, nameTextW, nameTextXAlign),
+              nameTextBaselineY
       );
     }
 
@@ -1908,11 +1909,11 @@ public class VnRenderer {
     double textX = textBoxX + uiLayout.dialogueTextHorizontalPadding();
     double textTop = textBoxY + uiLayout.dialogueTextTopPadding();
     double textWidth = Math.max(
-        60,
-        textBoxWidth - uiLayout.dialogueTextHorizontalPadding() - uiLayout.dialogueTextRightPadding());
+            60,
+            textBoxWidth - uiLayout.dialogueTextHorizontalPadding() - uiLayout.dialogueTextRightPadding());
     double textHeight = Math.max(
-        20,
-        textBoxHeight - uiLayout.dialogueTextTopPadding() - uiLayout.dialogueTextBottomPadding());
+            20,
+            textBoxHeight - uiLayout.dialogueTextTopPadding() - uiLayout.dialogueTextBottomPadding());
     double textBaselineY = textTop + computeTextAscent(activeDialogueFont);
     gc.save();
     if (!defaultDialogueStyle && hasPolygon(dialogueTextBoundsPolygon)) {
@@ -1924,32 +1925,32 @@ public class VnRenderer {
       gc.clip();
     }
     List<StyledLine> dialogueLines = layoutStyledLines(
-        spans,
-        revealedLength,
-        textWidth,
-        activeDialogueFont,
-        activeDialogueTextFillColor);
+            spans,
+            revealedLength,
+            textWidth,
+            activeDialogueFont,
+            activeDialogueTextFillColor);
     drawStyledLines(
-        dialogueLines,
-        textX,
-        textBaselineY,
-        textWidth,
-        dialogueTextXAlign,
-        activeDialogueFont,
-        activeDialogueTextFillColor);
+            dialogueLines,
+            textX,
+            textBaselineY,
+            textWidth,
+            dialogueTextXAlign,
+            activeDialogueFont,
+            activeDialogueTextFillColor);
     gc.restore();
 
     // Draw continue indicator if text is fully revealed
     if (revealedLength >= plainLength && state.isWaitingForInput()) {
       drawContinueIndicatorAfterText(
-          dialogueLines,
-          textX,
-          textBaselineY,
-          textWidth,
-          dialogueTextXAlign,
-          activeDialogueFont,
-          textBoxX + textBoxWidth - 30,
-          textBoxY + textBoxHeight - 20);
+              dialogueLines,
+              textX,
+              textBaselineY,
+              textWidth,
+              dialogueTextXAlign,
+              activeDialogueFont,
+              textBoxX + textBoxWidth - 30,
+              textBoxY + textBoxHeight - 20);
     }
 
     renderTextBoxButtons(textBox, width, height, hoveredButtonIndex, state);
@@ -2036,13 +2037,13 @@ public class VnRenderer {
   }
 
   private BubbleGeometry resolveBubbleGeometry(
-      DialogueLine dialogue,
-      VnState state,
-      double width,
-      double height,
-      String speaker,
-      List<TextSpan> spans,
-      int revealedChars
+          DialogueLine dialogue,
+          VnState state,
+          double width,
+          double height,
+          String speaker,
+          List<TextSpan> spans,
+          int revealedChars
   ) {
     double maxWidth = clamp(width * uiLayout.bubbleWidthFactor(), 180.0, Math.min(width - 32.0, 620.0));
     double pad = uiLayout.bubbleTextPadding();
@@ -2131,9 +2132,9 @@ public class VnRenderer {
       String text = resolveRuntimeText(currentDialogue.getText());
       DialogueRenderEntry last = entries.get(entries.size() - 1);
       entries.set(entries.size() - 1, new DialogueRenderEntry(
-          resolveRuntimeText(currentDialogue.getSpeakerName()),
-          text,
-          Math.min(state.getTextRevealProgress(), TextParser.plainLength(text))));
+              resolveRuntimeText(currentDialogue.getSpeakerName()),
+              text,
+              Math.min(state.getTextRevealProgress(), TextParser.plainLength(text))));
     }
     return entries;
   }
@@ -2152,8 +2153,8 @@ public class VnRenderer {
       Image hoverAsset = firstNonBlank(button.hoverAssetPath(), null) != null ? loadImage(button.hoverAssetPath()) : asset;
       Image disabledAsset = firstNonBlank(button.disabledAssetPath(), null) != null ? loadImage(button.disabledAssetPath()) : asset;
       Image drawAsset = !enabled
-          ? firstNonNull(disabledAsset, asset)
-          : (hovered ? firstNonNull(hoverAsset, asset) : asset);
+              ? firstNonNull(disabledAsset, asset)
+              : (hovered ? firstNonNull(hoverAsset, asset) : asset);
       boolean imageBacked = drawAsset != null;
       List<BoundsPointCodec.Point> buttonPolygon = parseBoundsPoints(button.boundsPoints());
       boolean clipButton = hasPolygon(buttonPolygon);
@@ -2168,8 +2169,8 @@ public class VnRenderer {
         if (clipButton) gc.restore();
       } else {
         Color fill = !enabled
-            ? Color.rgb(38, 40, 48, 0.7)
-            : (hovered ? Color.rgb(90, 120, 180, 0.8) : Color.rgb(32, 36, 46, 0.78));
+                ? Color.rgb(38, 40, 48, 0.7)
+                : (hovered ? Color.rgb(90, 120, 180, 0.8) : Color.rgb(32, 36, 46, 0.78));
         if (clipButton) {
           gc.save();
           clipToLocalPolygon(buttonPolygon, geometry.x(), geometry.y(), geometry.width(), geometry.height());
@@ -2181,8 +2182,8 @@ public class VnRenderer {
           gc.fillRoundRect(geometry.x(), geometry.y(), geometry.width(), geometry.height(), 8, 8);
         }
         gc.setStroke(!enabled
-            ? Color.rgb(120, 125, 136, 0.75)
-            : (hovered ? Color.rgb(170, 210, 255, 0.95) : Color.rgb(120, 135, 170, 0.82)));
+                ? Color.rgb(120, 125, 136, 0.75)
+                : (hovered ? Color.rgb(170, 210, 255, 0.95) : Color.rgb(120, 135, 170, 0.82)));
         gc.setLineWidth(hovered ? 2.0 : 1.2);
         if (clipButton) {
           strokeLocalPolygon(buttonPolygon, geometry.x(), geometry.y(), geometry.width(), geometry.height());
@@ -2210,25 +2211,25 @@ public class VnRenderer {
   }
 
   private void drawStyledText(
-      List<TextSpan> spans,
-      int revealedChars,
-      double startX,
-      double startY,
-      double maxWidth,
-      double xAlign,
-      Font baseFont,
-      Color defaultTextColor
+          List<TextSpan> spans,
+          int revealedChars,
+          double startX,
+          double startY,
+          double maxWidth,
+          double xAlign,
+          Font baseFont,
+          Color defaultTextColor
   ) {
     List<StyledLine> lines = layoutStyledLines(spans, revealedChars, maxWidth, baseFont, defaultTextColor);
     drawStyledLines(lines, startX, startY, maxWidth, xAlign, baseFont, defaultTextColor);
   }
 
   private List<StyledLine> layoutStyledLines(
-      List<TextSpan> spans,
-      int revealedChars,
-      double maxWidth,
-      Font baseFont,
-      Color defaultTextColor
+          List<TextSpan> spans,
+          int revealedChars,
+          double maxWidth,
+          Font baseFont,
+          Color defaultTextColor
   ) {
     gc.setFont(baseFont);
     List<StyledLine> lines = new ArrayList<>();
@@ -2286,13 +2287,13 @@ public class VnRenderer {
   }
 
   private void drawStyledLines(
-      List<StyledLine> lines,
-      double startX,
-      double startY,
-      double maxWidth,
-      double xAlign,
-      Font baseFont,
-      Color defaultTextColor
+          List<StyledLine> lines,
+          double startX,
+          double startY,
+          double maxWidth,
+          double xAlign,
+          Font baseFont,
+          Color defaultTextColor
   ) {
     double lineHeight = Math.max(22.0, baseFont.getSize() * 1.15);
     for (int lineIndex = 0; lineIndex < lines.size(); lineIndex++) {
@@ -2328,14 +2329,14 @@ public class VnRenderer {
   }
 
   private void drawContinueIndicatorAfterText(
-      List<StyledLine> lines,
-      double startX,
-      double startY,
-      double maxWidth,
-      double xAlign,
-      Font baseFont,
-      double fallbackX,
-      double fallbackY
+          List<StyledLine> lines,
+          double startX,
+          double startY,
+          double maxWidth,
+          double xAlign,
+          Font baseFont,
+          double fallbackX,
+          double fallbackY
   ) {
     if (continueIndicatorImage == null || lines == null || lines.isEmpty()) {
       drawContinueIndicator(fallbackX, fallbackY);
@@ -2373,8 +2374,8 @@ public class VnRenderer {
         return Color.rgb(r, g, b);
       }
     } catch (Exception ignored) {
-            // reason: non-critical operation; exception swallowed to prevent crash propagation
-            }
+      // reason: non-critical operation; exception swallowed to prevent crash propagation
+    }
     return TEXT_COLOR;
   }
 
@@ -2398,48 +2399,48 @@ public class VnRenderer {
     bubbleSpeakerTextFillColor = parseColor(resolved.bubbleSpeakerTextColor(), Color.web("#FFD78A"));
     bubbleTextFillColor = parseColor(resolved.bubbleTextColor(), dialogueTextFillColor);
     textBoxAssetOverlayOpacity = clamp(
-        resolved.textBoxOpacity() == null ? 0.88 : resolved.textBoxOpacity(),
-        0.0,
-        1.0
+            resolved.textBoxOpacity() == null ? 0.88 : resolved.textBoxOpacity(),
+            0.0,
+            1.0
     );
     nvlPanelOpacity = clamp(
-        resolved.nvlPanelOpacity() == null ? 0.84 : resolved.nvlPanelOpacity(),
-        0.0,
-        1.0
+            resolved.nvlPanelOpacity() == null ? 0.84 : resolved.nvlPanelOpacity(),
+            0.0,
+            1.0
     );
     bubbleOpacity = clamp(
-        resolved.bubbleOpacity() == null ? 0.96 : resolved.bubbleOpacity(),
-        0.0,
-        1.0
+            resolved.bubbleOpacity() == null ? 0.96 : resolved.bubbleOpacity(),
+            0.0,
+            1.0
     );
     textBoxBoundsPolygon = parseBoundsPoints(resolved.textBoxBoundsPoints());
     nameBoxBoundsPolygon = parseBoundsPoints(resolved.nameBoxBoundsPoints());
     dialogueTextBoundsPolygon = parseBoundsPoints(resolved.dialogueTextBoundsPoints());
     choiceButtonImage = loadImage(resolved.choiceButtonAssetPath());
     choiceButtonHoverImage = loadImage(firstNonBlank(
-        resolved.choiceButtonHoverAssetPath(),
-        resolved.choiceButtonSelectedAssetPath()));
+            resolved.choiceButtonHoverAssetPath(),
+            resolved.choiceButtonSelectedAssetPath()));
     choiceButtonDisabledImage = loadImage(resolved.choiceButtonDisabledAssetPath());
     choiceButtonBoundsPolygon = parseBoundsPoints(resolved.choiceButtonBoundsPoints());
 
     choiceBgColor = parseColor(resolved.choiceBackgroundColor(), CHOICE_BG_COLOR);
     choiceHoverColor = parseColor(
-        firstNonBlank(resolved.choiceHoverColor(), resolved.choiceSelectedColor()),
-        CHOICE_HOVER_COLOR
+            firstNonBlank(resolved.choiceHoverColor(), resolved.choiceSelectedColor()),
+            CHOICE_HOVER_COLOR
     );
     choiceDisabledColor = parseColor(resolved.choiceDisabledColor(), CHOICE_DISABLED_COLOR);
 
     choiceTextColor = parseColor(resolved.choiceTextColor(), TEXT_COLOR);
     choiceHoverTextColor = parseColor(
-        firstNonBlank(resolved.choiceHoverTextColor(), resolved.choiceSelectedTextColor()),
-        choiceTextColor
+            firstNonBlank(resolved.choiceHoverTextColor(), resolved.choiceSelectedTextColor()),
+            choiceTextColor
     );
     choiceDisabledTextColor = parseColor(resolved.choiceDisabledTextColor(), TEXT_COLOR_DISABLED);
 
     choiceBorderColor = parseColor(resolved.choiceBorderColor(), TEXT_COLOR);
     choiceHoverBorderColor = parseColor(
-        firstNonBlank(resolved.choiceHoverBorderColor(), resolved.choiceSelectedBorderColor()),
-        choiceBorderColor
+            firstNonBlank(resolved.choiceHoverBorderColor(), resolved.choiceSelectedBorderColor()),
+            choiceBorderColor
     );
     choiceDisabledBorderColor = parseColor(resolved.choiceDisabledBorderColor(), CHOICE_DISABLED_BORDER_COLOR);
 
@@ -2470,18 +2471,18 @@ public class VnRenderer {
 
     // Name box opacity
     this.nameBoxRenderOpacity = clamp(
-        resolved.nameBoxOpacity() == null ? 1.0 : resolved.nameBoxOpacity(),
-        0.0, 1.0
+            resolved.nameBoxOpacity() == null ? 1.0 : resolved.nameBoxOpacity(),
+            0.0, 1.0
     );
 
     // Character framing: lets projects opt into waist-up portraits.
     this.styleCharacterHeightFactor = clamp(
-        resolved.characterHeightFactor() == null ? DEFAULT_CHARACTER_HEIGHT_FACTOR : resolved.characterHeightFactor(),
-        0.1, 3.0
+            resolved.characterHeightFactor() == null ? DEFAULT_CHARACTER_HEIGHT_FACTOR : resolved.characterHeightFactor(),
+            0.1, 3.0
     );
     this.styleCharacterBaselineY = clamp(
-        resolved.characterBaselineY() == null ? DEFAULT_CHARACTER_BASELINE_Y : resolved.characterBaselineY(),
-        -0.5, 2.0
+            resolved.characterBaselineY() == null ? DEFAULT_CHARACTER_BASELINE_Y : resolved.characterBaselineY(),
+            -0.5, 2.0
     );
     this.characterHeightFactor = styleCharacterHeightFactor;
     this.characterBaselineY = styleCharacterBaselineY;
@@ -2549,14 +2550,14 @@ public class VnRenderer {
     Double heightOverride = readDoubleVariable(state, VAR_CHARACTER_HEIGHT_FACTOR);
     Double baselineOverride = readDoubleVariable(state, VAR_CHARACTER_BASELINE_Y);
     characterHeightFactor = clamp(
-        heightOverride == null ? styleCharacterHeightFactor : heightOverride,
-        0.1,
-        3.0
+            heightOverride == null ? styleCharacterHeightFactor : heightOverride,
+            0.1,
+            3.0
     );
     characterBaselineY = clamp(
-        baselineOverride == null ? styleCharacterBaselineY : baselineOverride,
-        -0.5,
-        2.0
+            baselineOverride == null ? styleCharacterBaselineY : baselineOverride,
+            -0.5,
+            2.0
     );
   }
 
@@ -2569,7 +2570,7 @@ public class VnRenderer {
       try {
         return Double.parseDouble(s.trim());
       } catch (Exception ignored) {
-            // reason: non-critical operation; exception swallowed to prevent crash propagation
+        // reason: non-critical operation; exception swallowed to prevent crash propagation
         return null;
       }
     }
@@ -2604,7 +2605,7 @@ public class VnRenderer {
 
   private boolean shouldUseDefaultDialogueStyle(VnState state) {
     return shouldUseDefaultDialogueUi(state)
-        || disablesCustomDialogueUi(readStringVariable(state, VAR_DIALOGUE_STYLE));
+            || disablesCustomDialogueUi(readStringVariable(state, VAR_DIALOGUE_STYLE));
   }
 
   private boolean shouldUseTextBoxAsset(VnState state) {
@@ -2658,15 +2659,15 @@ public class VnRenderer {
     Double zValue = readDoubleVariable(currentState, VnAudioVisualizerConfig.VAR_Z);
     Boolean glowValue = readBooleanVariable(currentState, VnAudioVisualizerConfig.VAR_GLOW);
     return new AudioVisualizerSettings(
-        isAudioVisualizerEnabled(),
-        resolveAudioVisualizerBarCount(),
-        style,
-        colorToken,
-        accentToken,
-        alphaValue == null ? VnAudioVisualizerConfig.DEFAULT_ALPHA : VnAudioVisualizerConfig.clampAlpha(alphaValue),
-        glowValue == null || glowValue,
-        heightValue == null ? VnAudioVisualizerConfig.DEFAULT_HEIGHT : VnAudioVisualizerConfig.clampHeight(heightValue),
-        zValue == null ? VnAudioVisualizerConfig.DEFAULT_Z : (int) Math.round(zValue));
+            isAudioVisualizerEnabled(),
+            resolveAudioVisualizerBarCount(),
+            style,
+            colorToken,
+            accentToken,
+            alphaValue == null ? VnAudioVisualizerConfig.DEFAULT_ALPHA : VnAudioVisualizerConfig.clampAlpha(alphaValue),
+            glowValue == null || glowValue,
+            heightValue == null ? VnAudioVisualizerConfig.DEFAULT_HEIGHT : VnAudioVisualizerConfig.clampHeight(heightValue),
+            zValue == null ? VnAudioVisualizerConfig.DEFAULT_Z : (int) Math.round(zValue));
   }
 
   private Color parseColor(String raw, Color fallback) {
@@ -2674,7 +2675,7 @@ public class VnRenderer {
     try {
       return Color.web(raw.trim());
     } catch (Exception ignored) {
-            // reason: non-critical operation; exception swallowed to prevent crash propagation
+      // reason: non-critical operation; exception swallowed to prevent crash propagation
       return fallback;
     }
   }
@@ -2684,7 +2685,7 @@ public class VnRenderer {
     try {
       return FontWeight.valueOf(raw.trim().toUpperCase());
     } catch (Exception ignored) {
-            // reason: non-critical operation; exception swallowed to prevent crash propagation
+      // reason: non-critical operation; exception swallowed to prevent crash propagation
       return def;
     }
   }
@@ -2756,8 +2757,8 @@ public class VnRenderer {
       boolean hovered = i == hoverIndex;
 
       Image buttonImage = !enabled
-          ? firstNonNull(choiceButtonDisabledImage, choiceButtonImage)
-          : (hovered ? firstNonNull(choiceButtonHoverImage, choiceButtonImage) : choiceButtonImage);
+              ? firstNonNull(choiceButtonDisabledImage, choiceButtonImage)
+              : (hovered ? firstNonNull(choiceButtonHoverImage, choiceButtonImage) : choiceButtonImage);
       double radius = choiceCornerRadius;
       boolean clipChoiceButton = hasPolygon(choiceButtonBoundsPolygon);
       if (buttonImage != null) {
@@ -2802,18 +2803,18 @@ public class VnRenderer {
       double contentWidth = Math.max(0, geo.choiceWidth() - uiLayout.choiceTextXPadding() * 2);
       double textWidth = computeTextWidth(choiceText, choiceFont);
       double textBaselineY = uiLayout.choiceTextYAlign() >= 0.0
-          ? resolvePaddedTextBaselineY(
+              ? resolvePaddedTextBaselineY(
               y,
               geo.choiceHeight(),
               uiLayout.choiceTextTopPadding(),
               uiLayout.choiceTextBottomPadding(),
               choiceFont,
               uiLayout.choiceTextYAlign())
-          : y + geo.choiceHeight() / 2 + choiceTextBaselineOffset;
+              : y + geo.choiceHeight() / 2 + choiceTextBaselineOffset;
       gc.fillText(
-          choiceText,
-          resolveAlignedTextX(contentX, contentWidth, textWidth, choiceTextXAlign),
-          textBaselineY
+              choiceText,
+              resolveAlignedTextX(contentX, contentWidth, textWidth, choiceTextXAlign),
+              textBaselineY
       );
     }
   }
@@ -2872,7 +2873,7 @@ public class VnRenderer {
     if (state.getActiveTransition() == null) return;
     float progress = state.getTransitionProgress();
     var transitionType = state.getActiveTransition().getType();
-    
+
     switch (transitionType) {
       case FADE -> {
         // Fade effect: black overlay with opacity based on progress
@@ -3057,16 +3058,16 @@ public class VnRenderer {
   }
 
   private void drawPanel(
-      Image asset,
-      Color fillColor,
-      double opacity,
-      double x,
-      double y,
-      double width,
-      double height,
-      double radius,
-      Color borderColor,
-      double borderWidth
+          Image asset,
+          Color fillColor,
+          double opacity,
+          double x,
+          double y,
+          double width,
+          double height,
+          double radius,
+          Color borderColor,
+          double borderWidth
   ) {
     double prevAlpha = gc.getGlobalAlpha();
     gc.setGlobalAlpha(prevAlpha * clamp(opacity, 0.0, 1.0));
@@ -3087,29 +3088,29 @@ public class VnRenderer {
   private void drawBubblePanel(BubbleGeometry bubble) {
     if (bubble == null) return;
     drawPanel(
-        bubbleImage,
-        bubbleFillColor,
-        bubbleOpacity,
-        bubble.x(),
-        bubble.y(),
-        bubble.width(),
-        bubble.height(),
-        bubbleCornerRadius,
-        bubbleBorderFillColor,
-        bubbleBorderWidth
+            bubbleImage,
+            bubbleFillColor,
+            bubbleOpacity,
+            bubble.x(),
+            bubble.y(),
+            bubble.width(),
+            bubble.height(),
+            bubbleCornerRadius,
+            bubbleBorderFillColor,
+            bubbleBorderWidth
     );
 
     double tailHalf = bubble.tailSize() * 0.58;
     double tailCenter = clamp(
-        bubble.anchorX(),
-        bubble.x() + bubble.tailSize(),
-        bubble.x() + bubble.width() - bubble.tailSize());
+            bubble.anchorX(),
+            bubble.x() + bubble.tailSize(),
+            bubble.x() + bubble.width() - bubble.tailSize());
     double baseY = bubble.tailOnTop() ? bubble.y() : bubble.y() + bubble.height();
     double tipY = bubble.anchorY();
     double[] xs = new double[] {tailCenter - tailHalf, tailCenter + tailHalf, bubble.anchorX()};
     double[] ys = bubble.tailOnTop()
-        ? new double[] {baseY, baseY, tipY}
-        : new double[] {baseY, baseY, tipY};
+            ? new double[] {baseY, baseY, tipY}
+            : new double[] {baseY, baseY, tipY};
     gc.setFill(withOpacity(bubbleFillColor, bubbleOpacity));
     gc.fillPolygon(xs, ys, 3);
     gc.setStroke(bubbleBorderFillColor);
@@ -3140,7 +3141,7 @@ public class VnRenderer {
         currentY += lineHeight;
       }
     }
-    
+
     if (line.length() > 0) {
       gc.fillText(line.toString(), x, currentY);
     }
@@ -3159,12 +3160,12 @@ public class VnRenderer {
   }
 
   private double resolvePaddedTextBaselineY(
-      double boxY,
-      double boxHeight,
-      double topPadding,
-      double bottomPadding,
-      Font font,
-      double yAlign
+          double boxY,
+          double boxHeight,
+          double topPadding,
+          double bottomPadding,
+          Font font,
+          double yAlign
   ) {
     double contentTop = boxY + Math.max(0.0, topPadding);
     double contentHeight = Math.max(1.0, boxHeight - Math.max(0.0, topPadding) - Math.max(0.0, bottomPadding));
@@ -3215,12 +3216,12 @@ public class VnRenderer {
     // Bounce animation: offset Y by sine wave
     double bounce = Math.sin(animationTime * 0.005) * 4;
     double animY = y + bounce;
-    
+
     gc.setFill(TEXT_COLOR);
     gc.fillPolygon(
-      new double[]{x, x + 10, x + 5},
-      new double[]{animY, animY, animY + 10},
-      3
+            new double[]{x, x + 10, x + 5},
+            new double[]{animY, animY, animY + 10},
+            3
     );
   }
 
@@ -3236,16 +3237,16 @@ public class VnRenderer {
       double y = geo.startY() + i * (geo.choiceHeight() + geo.choiceGap());
       if (hasPolygon(choiceButtonBoundsPolygon)) {
         if (BoundsPointCodec.containsInRect(
-            choiceButtonBoundsPolygon,
-            geo.choiceX(),
-            y,
-            geo.choiceWidth(),
-            geo.choiceHeight(),
-            mouseX,
-            mouseY
+                choiceButtonBoundsPolygon,
+                geo.choiceX(),
+                y,
+                geo.choiceWidth(),
+                geo.choiceHeight(),
+                mouseX,
+                mouseY
         )) return i;
       } else if (mouseX >= geo.choiceX() && mouseX <= geo.choiceX() + geo.choiceWidth()
-          && mouseY >= y && mouseY <= y + geo.choiceHeight()) {
+              && mouseY >= y && mouseY <= y + geo.choiceHeight()) {
         return i;
       }
     }
@@ -3302,13 +3303,13 @@ public class VnRenderer {
       List<BoundsPointCodec.Point> points = BoundsPointCodec.parse(raw);
       if (points.size() >= 3) {
         return BoundsPointCodec.containsInRect(
-            points,
-            geometry.x(),
-            geometry.y(),
-            geometry.width(),
-            geometry.height(),
-            mouseX,
-            mouseY
+                points,
+                geometry.x(),
+                geometry.y(),
+                geometry.width(),
+                geometry.height(),
+                mouseX,
+                mouseY
         );
       }
     }
@@ -3323,8 +3324,8 @@ public class VnRenderer {
     choiceX = clamp(choiceX, 0, Math.max(0, width - choiceWidth));
     double totalHeight = count * choiceHeight + Math.max(0, count - 1) * choiceGap;
     double startY = uiLayout.choiceYStart() < 0
-        ? (height - totalHeight) / 2.0
-        : (height * uiLayout.choiceYStart()) - totalHeight * uiLayout.choiceYAnchor();
+            ? (height - totalHeight) / 2.0
+            : (height * uiLayout.choiceYStart()) - totalHeight * uiLayout.choiceYAnchor();
     startY = clamp(startY, 0, Math.max(0, height - totalHeight));
     return new ChoiceGeometry(choiceX, startY, choiceWidth, choiceHeight, choiceGap);
   }
@@ -3340,10 +3341,10 @@ public class VnRenderer {
   }
 
   private ButtonGeometry computeButtonGeometry(
-      VnUiActionButtonSpec button,
-      TextBoxGeometry textBox,
-      double viewportWidth,
-      double viewportHeight
+          VnUiActionButtonSpec button,
+          TextBoxGeometry textBox,
+          double viewportWidth,
+          double viewportHeight
   ) {
     double baseX = button.viewportSpace() ? 0.0 : textBox.x();
     double baseY = button.viewportSpace() ? 0.0 : textBox.y();
@@ -3408,12 +3409,12 @@ public class VnRenderer {
       double ratio = Math.max(0.0, Math.min(1.0, screen.getTimerRemainingMs() / 5000.0));
       gc.setFill(Color.rgb(82, 210, 255, 0.65));
       gc.fillRoundRect(
-          geometry.x() + 18,
-          geometry.y() + geometry.height() - 12,
-          Math.max(18, (geometry.width() - 36) * ratio),
-          4,
-          4,
-          4
+              geometry.x() + 18,
+              geometry.y() + geometry.height() - 12,
+              Math.max(18, (geometry.width() - 36) * ratio),
+              4,
+              4,
+              4
       );
     }
   }
@@ -3438,7 +3439,7 @@ public class VnRenderer {
   private boolean sameOverlayButton(VnOverlayButtonSpec a, VnOverlayButtonSpec b) {
     if (a == null || b == null) return false;
     return java.util.Objects.equals(a.screenId(), b.screenId())
-        && java.util.Objects.equals(a.id(), b.id());
+            && java.util.Objects.equals(a.id(), b.id());
   }
 
   private List<String> wrapText(String text, double maxWidth, Font font) {
@@ -3475,10 +3476,10 @@ public class VnRenderer {
   }
 
   private ButtonGeometry computeOverlayButtonGeometry(
-      VnOverlayButtonSpec button,
-      ScreenGeometry screen,
-      double viewportWidth,
-      double viewportHeight
+          VnOverlayButtonSpec button,
+          ScreenGeometry screen,
+          double viewportWidth,
+          double viewportHeight
   ) {
     double baseX = button.viewportSpace() ? 0.0 : screen.x();
     double baseY = button.viewportSpace() ? 0.0 : screen.y();
@@ -3502,7 +3503,7 @@ public class VnRenderer {
 
   private Image loadImage(String path) {
     if (path == null) return null;
-    
+
     return imageCache.computeIfAbsent(path, p -> loadResolvedImage(p, true));
   }
 
@@ -3555,21 +3556,21 @@ public class VnRenderer {
   private void renderModeIndicators(VnState state, double width, double height) {
     gc.setFont(Font.font(nameFont.getFamily(), FontWeight.BOLD, 14));
     gc.setFill(Color.rgb(255, 255, 255, 0.9));
-    
+
     double y = 25;
-    
+
     // Skip mode indicator
     if (state.isSkipMode()) {
       gc.fillText(Localization.t("hud.skip"), width - 100, y);
       y += 20;
     }
-    
+
     // Auto-play mode indicator
     if (state.isAutoPlayMode()) {
       gc.fillText(Localization.t("hud.auto"), width - 100, y);
       y += 20;
     }
-    
+
     // UI hidden indicator
     if (state.isUiHidden()) {
       gc.fillText(Localization.t("hud.ui_off"), width - 110, y);
@@ -3618,8 +3619,8 @@ public class VnRenderer {
    * @return index of hovered button (0=Ignore, 1=Reload, 2=Copy) or -1
    */
   public int renderErrorOverlay(com.jvn.core.vn.VnErrorOverlay error,
-                                 double width, double height,
-                                 double mouseX, double mouseY) {
+                                double width, double height,
+                                double mouseX, double mouseY) {
     if (error == null) return -1;
 
     // Full-screen neutral traceback background.
@@ -3628,7 +3629,7 @@ public class VnRenderer {
 
     // Subtle gradient stripe at top
     gc.setFill(new LinearGradient(0, 0, 0, 6, false, CycleMethod.NO_CYCLE,
-        new Stop(0, ERROR_ACCENT_COLOR), new Stop(1, Color.TRANSPARENT)));
+            new Stop(0, ERROR_ACCENT_COLOR), new Stop(1, Color.TRANSPARENT)));
     gc.fillRect(0, 0, width, 6);
 
     double padding = Math.max(28, width * 0.04);
@@ -3760,7 +3761,7 @@ public class VnRenderer {
     for (int i = 0; i < labels.length; i++) {
       double bx = buttonsStartX + i * (buttonW + buttonGap);
       boolean hovered = mouseX >= bx && mouseX <= bx + buttonW
-          && mouseY >= buttonY && mouseY <= buttonY + buttonH;
+              && mouseY >= buttonY && mouseY <= buttonY + buttonH;
       if (hovered) hoveredButton = i;
 
       gc.setFill(hovered ? ERROR_BUTTON_HOVER_COLOR : ERROR_BUTTON_COLOR);
