@@ -10,10 +10,14 @@ JVN is a young, modular cross-platform Visual Novel engine and 2D animation tool
 
 Documentation entrypoints:
 
+- [Public Documentation Website](https://javavectornexus.com)
 - [Documentation Index](docs/INDEX.md)
 - [JVN Engine Hub](docs/editor/core/engine-hub.md)
 - [JVN Editor Docs](docs/editor/README.md)
 - [JVN Build And Release Docs](docs/project-setup/release/README.md)
+
+The public website is the recommended reading surface for the latest organized docs. The Markdown
+files in `docs/` remain the source of truth in this repository and are mirrored into the website.
 
 ## JVN Language Tools For VS Code
 
@@ -373,7 +377,12 @@ Engine modules live under `modules/`, while Gradle project names stay stable (`:
 
 ## Documentation Map
 
-Full documentation index: **`docs/INDEX.md`**
+Public documentation website: **https://javavectornexus.com**
+
+Repository documentation index: **`docs/INDEX.md`**
+
+Use the website for browsing and search. Use the repository Markdown when editing docs alongside
+engine changes.
 
 ### Start Here
 - `docs/guides/getting-started.md` — first-time setup, build, and run
