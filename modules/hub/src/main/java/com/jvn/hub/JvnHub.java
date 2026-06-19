@@ -36,6 +36,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -98,6 +99,7 @@ import javax.swing.plaf.basic.BasicScrollBarUI;
 public final class JvnHub {
 
   private static final String PACKAGED_GRADLE_CACHE_MARKER_FILE = ".jvn-packaged-gradle-cache.properties";
+  private static final String PUBLIC_DOCUMENTATION_URL = "https://javavectornexus.com";
   private static final String ENGINE_UPDATE_REMOTE = "origin";
   private static final String ENGINE_UPDATE_BRANCH = "stable";
   private static final String ENGINE_UPDATE_REMOTE_REF = ENGINE_UPDATE_REMOTE + "/" + ENGINE_UPDATE_BRANCH;
@@ -1027,6 +1029,7 @@ public final class JvnHub {
     menu.add(popupItem("Update Engine", this::updateEngine));
     menu.add(popupItem("Diagnostics", this::showDiagnosticsReport));
     menu.add(popupItem("Documentation", this::openDocumentation));
+    menu.add(popupItem("Documentation Website", this::openDocumentationWebsite));
     menu.addSeparator();
     menu.add(popupItem("Reveal Engine Root", this::revealEngineRoot));
     menu.add(popupItem("Copy Engine Root Path", this::copyEngineRootPath));
@@ -1771,6 +1774,21 @@ public final class JvnHub {
 
   private void openDocumentation() {
     runGradle(":editor:runHelpCenter", "Help Center");
+  }
+
+  private void openDocumentationWebsite() {
+    try {
+      if (!java.awt.Desktop.isDesktopSupported()
+          || !java.awt.Desktop.getDesktop().isSupported(java.awt.Desktop.Action.BROWSE)) {
+        throw new IOException("Desktop browser integration is not available.");
+      }
+      java.awt.Desktop.getDesktop().browse(URI.create(PUBLIC_DOCUMENTATION_URL));
+      setActivity("Documentation website", PUBLIC_DOCUMENTATION_URL, false, ACCENT_NEUTRAL);
+    } catch (Exception ex) {
+      String detail = ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage();
+      appendLog("[hub] could not open documentation website: " + detail);
+      setActivity("Open website failed", detail, false, ACCENT_ERROR);
+    }
   }
 
   private void updateEngine() {

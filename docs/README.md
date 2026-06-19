@@ -2,7 +2,9 @@
 
 This directory is the source of truth for Java Vector Nexus editor, runtime, scripting, packaging, and workflow docs.
 
-Start with the detailed [Documentation Index](INDEX.md). It is organized by task first, then by subsystem.
+Start with the public documentation website at [javavectornexus.com](https://javavectornexus.com)
+when you want the searchable, hosted guide tree. Start with the detailed [Documentation Index](INDEX.md)
+when editing docs in this repository. It is organized by task first, then by subsystem.
 
 ## Fast Routes
 

@@ -2,6 +2,10 @@
 
 This index is the main route through the Java Vector Nexus documentation. It is organized for task-based reading first, then as a detailed map of the docs tree.
 
+Hosted documentation is available at [javavectornexus.com](https://javavectornexus.com). The hosted
+site mirrors these Markdown files into a searchable guide tree while this directory remains the
+source of truth for docs changes.
+
 ## Start Here
 
 | Need | Best Entry |
