@@ -28,6 +28,9 @@ import com.jvn.core.vn.VnScenarioBuilder;
 import com.jvn.core.vn.VnTransition;
 import com.jvn.core.vn.stage.VnStagePreset;
 import com.jvn.core.vn.stage.VnStagePresetLoader;
+import com.jvn.core.diagnostics.runtime_logs.warnings.WarningSubscriber;
+import com.jvn.core.diagnostics.runtime_logs.warnings.warning_facades.WarningManager;
+import com.jvn.core.diagnostics.runtime_logs.warnings.warning_factories.UnknownExpressionWarningFactory;
 
 /**
  * Parses text-based VN scripts into {@link VnScenario} objects.
@@ -57,6 +60,9 @@ public class VnScriptParser {
   private static final Pattern JAVA_IDENTIFIER_PATTERN = Pattern.compile("[A-Za-z_$][A-Za-z0-9_$]*");
   private static final Pattern JAVA_IMPORT_PATTERN = Pattern.compile("(?:static\\s+)?[A-Za-z_$][A-Za-z0-9_$]*(?:\\.[A-Za-z_$][A-Za-z0-9_$]*)*(?:\\.\\*)?");
   private static final Pattern JAVA_TYPE_PATTERN = Pattern.compile("[A-Za-z_$][A-Za-z0-9_$.]*(?:\\s*<[^;{}()]+>)?(?:\\s*\\[\\s*])*");
+
+  private final WarningManager warningManager = new WarningManager();
+  private final WarningSubscriber warningSubscriber = new WarningSubscriber(warningManager);
 
   public interface IncludeResolver {
     InputStream open(String path) throws IOException;
@@ -2377,6 +2383,11 @@ public class VnScriptParser {
     String token = rawToken == null ? "" : rawToken.trim();
     if (token.isEmpty()) return token;
     if (!token.startsWith("@") && token.indexOf('$') < 0 && token.indexOf('+') < 0) {
+      if (!getOrCreateCharacterBuilder(state, characterId).hasExpression(token)) {
+        warningSubscriber.onWarningEvent(
+                UnknownExpressionWarningFactory.getInstance(
+                        characterId, token, sourceName, lineNumber, rawLine));
+      }
       return token;
     }
 
