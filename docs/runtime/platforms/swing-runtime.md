@@ -460,8 +460,8 @@ Swing renders on CPU. For better performance:
 
 ## Related Documentation
 
-- **Render-API:** [docs/architecture/core/render-api.md](../architecture/core/render-api.md) — backend abstraction
-- **Platform Runtimes:** [docs/runtime/platforms/README.md](../runtime/platforms/README.md) — all platforms
+- **Render-API:** [docs/architecture/core/render-api.md](../../architecture/core/render-api.md) — backend abstraction
+- **Platform Runtimes:** [docs/runtime/platforms/README.md](README.md) — all platforms
 - **Desktop (JavaFX):** Not separately documented; see Architecture Overview
 - **Runtime Core:** [docs/runtime/core/runtime.md](../core/runtime.md) — JvnApp wrapper
 

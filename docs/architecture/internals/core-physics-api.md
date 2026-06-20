@@ -451,9 +451,9 @@ void testCollisionDetection() {
 
 ## Related Documentation
 
-- **2D Engine:** [docs/architecture/core/2d-engine.md](2d-engine.md) — entities and rendering
+- **2D Engine:** [docs/architecture/core/2d-engine.md](../core/2d-engine.md) — entities and rendering
 - **JES Physics:** [docs/scripting/jes/systems/jes-physics.md](../../scripting/jes/systems/jes-physics.md) — high-level component wrapper
-- **System Architecture:** [docs/architecture/core/system-architecture.md](system-architecture.md) — how physics fits
+- **System Architecture:** [docs/architecture/core/system-architecture.md](../core/system-architecture.md) — how physics fits
 - **Performance Tips:** [docs/architecture/quality/performance.md](../quality/performance.md)
 
 ---

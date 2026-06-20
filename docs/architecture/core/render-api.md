@@ -325,9 +325,9 @@ void testRegistryFindsAllBackends() {
 
 - **2D Engine:** [docs/architecture/core/2d-engine.md](2d-engine.md) — scene graph, entities, rendering pipeline
 - **Platform Runtimes:**
-  - [Android Runtime](../platforms/android-runtime.md)
-  - [iOS Runtime](../platforms/ios-runtime.md)
-  - [Web Runtime](../platforms/web-runtime.md)
+  - [Android Runtime](../../runtime/platforms/android-runtime.md)
+  - [iOS Runtime](../../runtime/platforms/ios-runtime.md)
+  - [Web Runtime](../../runtime/platforms/web-runtime.md)
 - **System Architecture:** [docs/architecture/core/system-architecture.md](system-architecture.md) — how renderer fits into Engine
 - **Interop:** [docs/runtime/core/interop.md](../../runtime/core/interop.md) — Java↔native integration
 
