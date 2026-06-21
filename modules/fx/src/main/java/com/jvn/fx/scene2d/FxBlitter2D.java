@@ -18,6 +18,7 @@ import com.jvn.core.scene2d.RenderBlendMode;
 import com.jvn.core.scene2d.RenderDiagnostics;
 import com.jvn.core.scene2d.RenderTarget2D;
 import com.jvn.core.scene2d.RendererCapabilities;
+import com.jvn.core.scene2d.TextFontMetrics2D;
 
 import javafx.geometry.VPos;
 import javafx.scene.SnapshotParameters;
@@ -49,7 +50,8 @@ public class FxBlitter2D implements Blitter2D {
       RenderFeature.COLOR_MATRIX,
       RenderFeature.BLUR,
       RenderFeature.OFFSCREEN_RENDER_TARGETS,
-      RenderFeature.ALPHA_MASKS)
+      RenderFeature.ALPHA_MASKS,
+      RenderFeature.TEXT_LAYOUT)
       .withBlendModes(
           RenderBlendMode.NORMAL,
           RenderBlendMode.ADDITIVE,
@@ -251,6 +253,24 @@ public class FxBlitter2D implements Blitter2D {
     javafx.scene.text.Text t = new javafx.scene.text.Text(text);
     t.setFont(Font.font(fam, bold ? FontWeight.BOLD : FontWeight.NORMAL, size));
     return t.getLayoutBounds().getWidth();
+  }
+
+  @Override
+  public TextFontMetrics2D measureTextMetrics(String text, String family, double size, boolean bold) {
+    javafx.scene.text.Text measured = new javafx.scene.text.Text(text == null ? "" : text);
+    measured.setFont(Font.font(
+        family == null || family.isBlank() ? "Arial" : family,
+        bold ? FontWeight.BOLD : FontWeight.NORMAL,
+        size));
+    javafx.geometry.Bounds bounds = measured.getLayoutBounds();
+    double ascent = Math.max(0.0, measured.getBaselineOffset());
+    double descent = Math.max(0.0, bounds.getHeight() - ascent);
+    return new TextFontMetrics2D(bounds.getWidth(), ascent, descent, 0.0);
+  }
+
+  @Override
+  public boolean isFontAvailable(String family) {
+    return family != null && Font.getFamilies().stream().anyMatch(name -> name.equalsIgnoreCase(family));
   }
 
   @Override

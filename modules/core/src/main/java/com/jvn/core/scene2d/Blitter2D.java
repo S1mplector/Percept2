@@ -7,6 +7,7 @@ import com.jvn.core.math.Polygon2;
 import com.jvn.core.math.Rect;
 import com.jvn.core.math.Segment2;
 import com.jvn.core.math.Shape2D;
+import java.util.List;
 
 /**
  * Platform-agnostic 2D rendering abstraction for the engine's scene graph.
@@ -265,6 +266,61 @@ public interface Blitter2D {
    * @return width in logical pixels
    */
   double measureTextWidth(String text, double size, boolean bold);
+
+  /** Measure a string without changing the caller's persistent font state. */
+  default TextFontMetrics2D measureTextMetrics(
+      String text,
+      String family,
+      double size,
+      boolean bold
+  ) {
+    push();
+    try {
+      setFont(family, size, bold);
+      double width = measureTextWidth(text, size, bold);
+      return new TextFontMetrics2D(width, size * 0.8, size * 0.2, 0.0);
+    } finally {
+      pop();
+    }
+  }
+
+  /** Select the first available font in a fallback chain. */
+  default String resolveFontFamily(List<String> candidates) {
+    if (candidates != null) {
+      for (String candidate : candidates) {
+        if (candidate != null && !candidate.isBlank() && isFontAvailable(candidate)) return candidate;
+      }
+    }
+    return "SansSerif";
+  }
+
+  /** Backends with an installed-font catalog should override this check. */
+  default boolean isFontAvailable(String family) {
+    return family != null && !family.isBlank();
+  }
+
+  default TextLayout2D layoutText(TextLayoutRequest request) {
+    return TextLayoutEngine.layout(this, request);
+  }
+
+  /** Draw a precomputed layout with {@code (x,y)} as its top-left origin. */
+  default void drawTextLayout(TextLayout2D layout, double x, double y) {
+    if (layout == null) return;
+    push();
+    try {
+      for (TextLayoutLine line : layout.lines()) {
+        for (TextLayoutRun run : line.runs()) {
+          TextStyle2D style = run.style();
+          setFont(style.fontFamilies().get(0), style.size(), style.bold());
+          TextColor2D color = style.color();
+          if (!color.inherited()) setFill(color.red(), color.green(), color.blue(), color.alpha());
+          drawText(run.text(), x + run.x(), y + line.baseline(), style.size(), style.bold());
+        }
+      }
+    } finally {
+      pop();
+    }
+  }
 
   // ──────────────────────────────────────────────────────────────────────────
   //  Optional: vector path API (default no-op for basic backends)

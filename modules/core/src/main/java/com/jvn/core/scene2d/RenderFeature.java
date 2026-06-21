@@ -15,5 +15,6 @@ public enum RenderFeature {
   COLOR_MATRIX,
   BLUR,
   OFFSCREEN_RENDER_TARGETS,
-  ALPHA_MASKS
+  ALPHA_MASKS,
+  TEXT_LAYOUT
 }

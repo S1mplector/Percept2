@@ -10,6 +10,7 @@ import com.jvn.core.scene2d.RenderBlendMode;
 import com.jvn.core.scene2d.RenderDiagnostics;
 import com.jvn.core.scene2d.RenderTarget2D;
 import com.jvn.core.scene2d.RendererCapabilities;
+import com.jvn.core.scene2d.TextFontMetrics2D;
 
 import java.awt.*;
 import java.awt.geom.AffineTransform;
@@ -41,7 +42,8 @@ public class SwingBlitter2D implements Blitter2D {
       RenderFeature.RADIAL_GRADIENT,
       RenderFeature.TEXT_ALIGNMENT,
       RenderFeature.OFFSCREEN_RENDER_TARGETS,
-      RenderFeature.ALPHA_MASKS)
+      RenderFeature.ALPHA_MASKS,
+      RenderFeature.TEXT_LAYOUT)
       .withBlendModes(RenderBlendMode.NORMAL, RenderBlendMode.DESTINATION_IN);
   private static final Logger log = LoggerFactory.getLogger(SwingBlitter2D.class);
   private static final Shape NO_CLIP = new java.awt.geom.Rectangle2D.Double(
@@ -57,6 +59,12 @@ public class SwingBlitter2D implements Blitter2D {
   private final Deque<Composite> composites = new ArrayDeque<>();
   private final Deque<Float> alphas = new ArrayDeque<>();
   private final Deque<Shape> clips = new ArrayDeque<>();
+  private final Deque<Paint> fillPaints = new ArrayDeque<>();
+  private final Deque<Color> strokes = new ArrayDeque<>();
+  private final Deque<BasicStroke> basicStrokes = new ArrayDeque<>();
+  private final Deque<Font> fonts = new ArrayDeque<>();
+  private final Deque<String> horizontalAlignments = new ArrayDeque<>();
+  private final Deque<String> verticalAlignments = new ArrayDeque<>();
   private Path2D currentPath = null;
   private String hAlign = "left";
   private String vAlign = "baseline";
@@ -132,6 +140,12 @@ public class SwingBlitter2D implements Blitter2D {
     transforms.push(g2.getTransform());
     composites.push(g2.getComposite());
     alphas.push(alpha);
+    fillPaints.push(fillPaint);
+    strokes.push(stroke);
+    basicStrokes.push(basicStroke);
+    fonts.push(g2.getFont());
+    horizontalAlignments.push(hAlign);
+    verticalAlignments.push(vAlign);
     Shape clip = g2.getClip();
     clips.push(clip == null ? NO_CLIP : clip);
   }
@@ -141,6 +155,12 @@ public class SwingBlitter2D implements Blitter2D {
     if (!transforms.isEmpty()) g2.setTransform(transforms.pop());
     if (!composites.isEmpty()) g2.setComposite(composites.pop());
     if (!alphas.isEmpty()) alpha = alphas.pop();
+    if (!fillPaints.isEmpty()) fillPaint = fillPaints.pop();
+    if (!strokes.isEmpty()) stroke = strokes.pop();
+    if (!basicStrokes.isEmpty()) basicStroke = basicStrokes.pop();
+    if (!fonts.isEmpty()) g2.setFont(fonts.pop());
+    if (!horizontalAlignments.isEmpty()) hAlign = horizontalAlignments.pop();
+    if (!verticalAlignments.isEmpty()) vAlign = verticalAlignments.pop();
     if (!clips.isEmpty()) {
       Shape clip = clips.pop();
       g2.setClip(clip == NO_CLIP ? null : clip);
@@ -267,6 +287,26 @@ public class SwingBlitter2D implements Blitter2D {
     if (text == null) return 0;
     FontMetrics fm = g2.getFontMetrics(new Font(g2.getFont().getFamily(), bold ? Font.BOLD : Font.PLAIN, (int) Math.round(size)));
     return fm.stringWidth(text);
+  }
+
+  @Override
+  public TextFontMetrics2D measureTextMetrics(String text, String family, double size, boolean bold) {
+    Font font = new Font(
+        family == null || family.isBlank() ? "SansSerif" : family,
+        bold ? Font.BOLD : Font.PLAIN,
+        (int) Math.round(size));
+    FontMetrics metrics = g2.getFontMetrics(font);
+    return new TextFontMetrics2D(
+        metrics.stringWidth(text == null ? "" : text),
+        metrics.getAscent(), metrics.getDescent(), metrics.getLeading());
+  }
+
+  @Override
+  public boolean isFontAvailable(String family) {
+    if (family == null || family.isBlank()) return false;
+    return java.util.Arrays.stream(
+        GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames())
+        .anyMatch(name -> name.equalsIgnoreCase(family));
   }
 
   @Override
