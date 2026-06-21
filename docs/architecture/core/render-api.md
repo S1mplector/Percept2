@@ -80,6 +80,23 @@ if (factory != null) {
 
 Abstract factory for creating platform-specific Renderer instances.
 
+Factories also expose `getCapabilities()` so launchers and project validators can
+negotiate optional features before a renderer is created. The same immutable
+`RendererCapabilities` value is available from `Blitter2D#getCapabilities()`.
+
+```java
+RendererCapabilities capabilities = factory.getCapabilities();
+if (capabilities.supports(RenderFeature.BLUR)) {
+  // Enable the portable blur effect path.
+}
+capabilities.require(RenderFeature.OFFSCREEN_RENDER_TARGETS);
+```
+
+Advanced operations also have typed overloads, including `RenderBlendMode`,
+`StrokeCap`, `StrokeJoin`, `TextHorizontalAlign`, and `TextVerticalAlign`.
+Unsupported legacy calls emit a warn-once diagnostic instead of disappearing
+silently; typed calls fail immediately unless the capability was advertised.
+
 ```java
 public interface RendererFactory {
   String getRendererName();  // e.g. "JavaFX", "WebGL", "Android"

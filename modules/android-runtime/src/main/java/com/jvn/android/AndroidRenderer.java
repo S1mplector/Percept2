@@ -5,6 +5,9 @@ import java.util.Deque;
 
 import com.jvn.core.assets.AssetManager;
 import com.jvn.core.scene2d.Blitter2D;
+import com.jvn.core.scene2d.RenderDiagnostics;
+import com.jvn.core.scene2d.RenderFeature;
+import com.jvn.core.scene2d.RendererCapabilities;
 import com.jvn.render.RenderSurface;
 
 /**
@@ -13,6 +16,7 @@ import com.jvn.render.RenderSurface;
  * <p>This renderer draws to an Android Canvas via reflection-based interop.</p>
  */
 public class AndroidRenderer implements Blitter2D {
+  public static final RendererCapabilities CAPABILITIES = RendererCapabilities.baseline("Android Canvas");
 
   private final RenderSurface surface;
   private final Object canvas; // android.graphics.Canvas
@@ -51,6 +55,9 @@ public class AndroidRenderer implements Blitter2D {
       throw new IllegalArgumentException("AndroidRenderer requires AndroidRenderSurface");
     }
   }
+
+  @Override
+  public RendererCapabilities getCapabilities() { return CAPABILITIES; }
 
   @Override
   public void clear(double r, double g, double b, double a) {
@@ -113,8 +120,7 @@ public class AndroidRenderer implements Blitter2D {
 
   @Override
   public void transform(double mxx, double myx, double mxy, double myy, double tx, double ty) {
-    // Android Canvas doesn't have direct matrix transform; use save/restore with multiple operations
-    // This is a limitation; full affine transforms may need custom matrix handling
+    RenderDiagnostics.unsupported(this, RenderFeature.AFFINE_TRANSFORM, "transform");
   }
 
   @Override
@@ -176,18 +182,17 @@ public class AndroidRenderer implements Blitter2D {
 
   @Override
   public void setClipRect(double x, double y, double w, double h) {
-    clipRectNative(canvas, (int) x, (int) y, (int) (x + w), (int) (y + h));
+    RenderDiagnostics.unsupported(this, RenderFeature.RECTANGULAR_CLIP, "setClipRect");
   }
 
   @Override
   public void setTextAlign(String hAlign, String vAlign) {
-    // Android text alignment is handled differently; store for later use
-    // This would be applied when drawing text
+    RenderDiagnostics.unsupported(this, RenderFeature.TEXT_ALIGNMENT, "setTextAlign");
   }
 
   @Override
   public void setBlendMode(String mode) {
-    // Android blend modes via PorterDuff; placeholder for now
+    RenderDiagnostics.unsupported(this, RenderFeature.BLEND_MODES, "setBlendMode");
   }
 
   private int rgbaToArgb(double r, double g, double b, double a) {

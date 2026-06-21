@@ -1,6 +1,7 @@
 package com.jvn.web;
 
 import com.jvn.core.scene2d.Blitter2D;
+import com.jvn.core.scene2d.RendererCapabilities;
 import com.jvn.render.RendererFactory;
 import com.jvn.render.RenderSurface;
 
@@ -8,6 +9,9 @@ import com.jvn.render.RenderSurface;
  * Factory for creating web-based renderer instances (TeaVM/Canvas 2D).
  */
 public class WebRendererFactory implements RendererFactory {
+
+  @Override
+  public RendererCapabilities getCapabilities() { return WebRenderer.CAPABILITIES; }
 
   @Override
   public Blitter2D createBlitter2D(RenderSurface surface) {

@@ -73,8 +73,13 @@ Service provider interface for platform-specific renderer creation.
 public interface RendererFactory {
   Blitter2D createBlitter2D(RenderSurface surface);
   String getRendererName();
+  RendererCapabilities getCapabilities();
 }
 ```
+
+Use the capability object to choose a fallback or reject a project requirement
+before rendering. Optional operations no longer silently disappear: legacy calls
+produce warn-once diagnostics, while typed overloads validate support eagerly.
 
 ## Service Discovery
 

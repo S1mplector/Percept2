@@ -1,6 +1,7 @@
 package com.jvn.render;
 
 import com.jvn.core.scene2d.Blitter2D;
+import com.jvn.core.scene2d.RendererCapabilities;
 
 /**
  * Service provider interface for creating platform-specific renderer implementations.
@@ -15,6 +16,11 @@ import com.jvn.core.scene2d.Blitter2D;
  * or automatically via {@code ServiceLoader}.</p>
  */
 public interface RendererFactory {
+
+  /** Capabilities available from renderers created by this factory. */
+  default RendererCapabilities getCapabilities() {
+    return RendererCapabilities.baseline(getRendererName());
+  }
 
   /**
    * Create a {@code Blitter2D} for the given render surface.

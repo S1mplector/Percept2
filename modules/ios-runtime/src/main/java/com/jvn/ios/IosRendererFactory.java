@@ -3,6 +3,7 @@ package com.jvn.ios;
 import com.jvn.core.assets.AssetManager;
 import com.jvn.core.assets.ClasspathAssetManager;
 import com.jvn.core.scene2d.Blitter2D;
+import com.jvn.core.scene2d.RendererCapabilities;
 import com.jvn.render.RendererFactory;
 import com.jvn.render.RenderSurface;
 
@@ -10,6 +11,9 @@ import com.jvn.render.RenderSurface;
  * Factory for creating iOS-based renderer instances (CoreGraphics).
  */
 public class IosRendererFactory implements RendererFactory {
+
+  @Override
+  public RendererCapabilities getCapabilities() { return IosRenderer.CAPABILITIES; }
 
   private final AssetManager assetManager;
 

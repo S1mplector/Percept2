@@ -5,6 +5,8 @@ import org.slf4j.LoggerFactory;
 
 import com.jvn.core.math.Capsule2;
 import com.jvn.core.scene2d.Blitter2D;
+import com.jvn.core.scene2d.RenderFeature;
+import com.jvn.core.scene2d.RendererCapabilities;
 
 import java.awt.*;
 import java.awt.geom.AffineTransform;
@@ -24,6 +26,17 @@ import java.net.URL;
 import javax.imageio.ImageIO;
 
 public class SwingBlitter2D implements Blitter2D {
+  public static final RendererCapabilities CAPABILITIES = RendererCapabilities.of(
+      "Swing",
+      RenderFeature.AFFINE_TRANSFORM,
+      RenderFeature.VECTOR_PATHS,
+      RenderFeature.ADVANCED_STROKE,
+      RenderFeature.RECTANGULAR_CLIP,
+      RenderFeature.POLYGONS,
+      RenderFeature.ARCS,
+      RenderFeature.LINEAR_GRADIENT,
+      RenderFeature.RADIAL_GRADIENT,
+      RenderFeature.TEXT_ALIGNMENT);
   private static final Logger log = LoggerFactory.getLogger(SwingBlitter2D.class);
   private static final Shape NO_CLIP = new java.awt.geom.Rectangle2D.Double(
       Double.NaN, Double.NaN, Double.NaN, Double.NaN);
@@ -51,6 +64,9 @@ public class SwingBlitter2D implements Blitter2D {
     this.g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
     this.g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
   }
+
+  @Override
+  public RendererCapabilities getCapabilities() { return CAPABILITIES; }
 
   public void dispose() {
     if (g2 != null) g2.dispose();
@@ -127,6 +143,11 @@ public class SwingBlitter2D implements Blitter2D {
 
   @Override
   public void scale(double sx, double sy) { g2.scale(sx, sy); }
+
+  @Override
+  public void transform(double mxx, double myx, double mxy, double myy, double tx, double ty) {
+    g2.transform(new AffineTransform(mxx, myx, mxy, myy, tx, ty));
+  }
 
   @Override
   public void fillRect(double x, double y, double w, double h) {

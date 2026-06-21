@@ -4,6 +4,8 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import com.jvn.core.math.Capsule2;
 import com.jvn.core.scene2d.Blitter2D;
+import com.jvn.core.scene2d.RenderFeature;
+import com.jvn.core.scene2d.RendererCapabilities;
 import com.jvn.render.RenderSurface;
 
 /**
@@ -12,6 +14,15 @@ import com.jvn.render.RenderSurface;
  * <p>This renderer draws to an HTML5 canvas element via TeaVM's JavaScript Object (JSO) bindings.</p>
  */
 public class WebRenderer implements Blitter2D {
+  public static final RendererCapabilities CAPABILITIES = RendererCapabilities.of(
+      "WebGL/Canvas2D",
+      RenderFeature.AFFINE_TRANSFORM,
+      RenderFeature.VECTOR_PATHS,
+      RenderFeature.ADVANCED_STROKE,
+      RenderFeature.RECTANGULAR_CLIP,
+      RenderFeature.POLYGONS,
+      RenderFeature.TEXT_ALIGNMENT,
+      RenderFeature.BLEND_MODES);
 
   private final RenderSurface surface;
   private final Object ctx; // CanvasRenderingContext2D
@@ -41,6 +52,9 @@ public class WebRenderer implements Blitter2D {
     this.ctx = getCanvasContext2D((WebCanvasRenderSurface) surface);
     this.imageCache = new WebImageCache();
   }
+
+  @Override
+  public RendererCapabilities getCapabilities() { return CAPABILITIES; }
 
   @Override
   public void clear(double r, double g, double b, double a) {
