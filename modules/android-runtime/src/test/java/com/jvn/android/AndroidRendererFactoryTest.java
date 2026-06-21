@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
 import com.jvn.render.RendererFactory;
 import com.jvn.core.assets.ClasspathAssetManager;
+import com.jvn.core.scene2d.RenderFeature;
 
 /**
  * Tests for {@link AndroidRendererFactory}.
@@ -15,6 +16,7 @@ public class AndroidRendererFactoryTest {
     RendererFactory factory = new AndroidRendererFactory();
     assertNotNull(factory);
     assertEquals("Android Canvas", factory.getRendererName());
+    assertFalse(factory.getCapabilities().supports(RenderFeature.AFFINE_TRANSFORM));
   }
 
   @Test

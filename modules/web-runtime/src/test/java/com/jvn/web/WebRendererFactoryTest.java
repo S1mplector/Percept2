@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
 import com.jvn.render.RendererFactory;
 import com.jvn.core.scene2d.Blitter2D;
+import com.jvn.core.scene2d.RenderFeature;
 
 /**
  * Tests for {@link WebRendererFactory}.
@@ -15,6 +16,7 @@ public class WebRendererFactoryTest {
     RendererFactory factory = new WebRendererFactory();
     assertNotNull(factory);
     assertEquals("WebGL/Canvas2D", factory.getRendererName());
+    assertTrue(factory.getCapabilities().supports(RenderFeature.BLEND_MODES));
   }
 
   @Test

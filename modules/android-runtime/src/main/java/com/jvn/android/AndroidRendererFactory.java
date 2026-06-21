@@ -3,6 +3,7 @@ package com.jvn.android;
 import com.jvn.core.assets.AssetManager;
 import com.jvn.core.assets.ClasspathAssetManager;
 import com.jvn.core.scene2d.Blitter2D;
+import com.jvn.core.scene2d.RendererCapabilities;
 import com.jvn.render.RendererFactory;
 import com.jvn.render.RenderSurface;
 
@@ -10,6 +11,9 @@ import com.jvn.render.RenderSurface;
  * Factory for creating Android-based renderer instances (Canvas).
  */
 public class AndroidRendererFactory implements RendererFactory {
+
+  @Override
+  public RendererCapabilities getCapabilities() { return AndroidRenderer.CAPABILITIES; }
 
   private final AssetManager assetManager;
 

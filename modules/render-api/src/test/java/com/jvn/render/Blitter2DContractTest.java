@@ -1,6 +1,9 @@
 package com.jvn.render;
 
 import com.jvn.core.scene2d.Blitter2D;
+import com.jvn.core.scene2d.RenderBlendMode;
+import com.jvn.core.scene2d.RenderFeature;
+import com.jvn.core.scene2d.RendererCapabilities;
 import com.jvn.testkit.render.Blitter2DContract;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,9 +29,28 @@ class Blitter2DContractTest {
         "drawImageRegion should preserve source and destination rectangles");
   }
 
+  @Test
+  void typedOperationsAreCheckedAndDispatched() {
+    RecordingBlitter b = new RecordingBlitter();
+
+    b.setBlendMode(RenderBlendMode.MULTIPLY);
+
+    assertTrue(b.calls.contains("blend:multiply"));
+    assertTrue(b.supports(RenderFeature.BLEND_MODES));
+  }
+
   private static final class RecordingBlitter implements Blitter2D {
     private final List<String> calls = new ArrayList<>();
     private int depth;
+
+    @Override public RendererCapabilities getCapabilities() {
+      return RendererCapabilities.of(
+          "Recording",
+          RenderFeature.AFFINE_TRANSFORM,
+          RenderFeature.RECTANGULAR_CLIP,
+          RenderFeature.TEXT_ALIGNMENT,
+          RenderFeature.BLEND_MODES);
+    }
 
     @Override public void clear(double r, double g, double b, double a) {
       calls.add("clear");
@@ -128,7 +150,7 @@ class Blitter2DContractTest {
     }
 
     @Override public void setBlendMode(String mode) {
-      calls.add("blend");
+      calls.add("blend:" + mode);
     }
   }
 }
