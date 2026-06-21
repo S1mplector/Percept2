@@ -5,6 +5,9 @@ import java.util.Deque;
 
 import com.jvn.core.assets.AssetManager;
 import com.jvn.core.scene2d.Blitter2D;
+import com.jvn.core.scene2d.RenderDiagnostics;
+import com.jvn.core.scene2d.RenderFeature;
+import com.jvn.core.scene2d.RendererCapabilities;
 import com.jvn.render.RenderSurface;
 
 /**
@@ -13,6 +16,7 @@ import com.jvn.render.RenderSurface;
  * <p>This renderer draws to an iOS graphics context via Multi-OS Engine reflection bindings.</p>
  */
 public class IosRenderer implements Blitter2D {
+  public static final RendererCapabilities CAPABILITIES = RendererCapabilities.baseline("iOS CoreGraphics");
 
   private final RenderSurface surface;
   private final Object context; // CGContext
@@ -63,6 +67,9 @@ public class IosRenderer implements Blitter2D {
       throw new IllegalArgumentException("IosRenderer requires IosRenderSurface");
     }
   }
+
+  @Override
+  public RendererCapabilities getCapabilities() { return CAPABILITIES; }
 
   @Override
   public void clear(double r, double g, double b, double a) {
@@ -141,10 +148,7 @@ public class IosRenderer implements Blitter2D {
 
   @Override
   public void transform(double mxx, double myx, double mxy, double myy, double tx, double ty) {
-    // CGContext uses CGAffineTransform: struct with a, b, c, d, tx, ty
-    // Layout: [a  c  tx]
-    //         [b  d  ty]
-    transformNative(context, mxx, myx, mxy, myy, tx, ty);
+    RenderDiagnostics.unsupported(this, RenderFeature.AFFINE_TRANSFORM, "transform");
   }
 
   @Override
@@ -206,19 +210,17 @@ public class IosRenderer implements Blitter2D {
 
   @Override
   public void setClipRect(double x, double y, double w, double h) {
-    clipRectNative(context, x, y, x + w, y + h);
+    RenderDiagnostics.unsupported(this, RenderFeature.RECTANGULAR_CLIP, "setClipRect");
   }
 
   @Override
   public void setTextAlign(String hAlign, String vAlign) {
-    // iOS text alignment handled at draw time or via NSParagraphStyle
+    RenderDiagnostics.unsupported(this, RenderFeature.TEXT_ALIGNMENT, "setTextAlign");
   }
 
   @Override
   public void setBlendMode(String mode) {
-    if (mode != null) {
-      setBlendModeNative(context, mode);
-    }
+    RenderDiagnostics.unsupported(this, RenderFeature.BLEND_MODES, "setBlendMode");
   }
 
   private void setFillColor(double r, double g, double b, double a) {

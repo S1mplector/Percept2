@@ -13,6 +13,8 @@ import org.slf4j.LoggerFactory;
 
 import com.jvn.core.math.Capsule2;
 import com.jvn.core.scene2d.Blitter2D;
+import com.jvn.core.scene2d.RenderFeature;
+import com.jvn.core.scene2d.RendererCapabilities;
 
 import javafx.geometry.VPos;
 import javafx.scene.SnapshotParameters;
@@ -33,6 +35,17 @@ import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
 
 public class FxBlitter2D implements Blitter2D {
+  public static final RendererCapabilities CAPABILITIES = RendererCapabilities.of(
+      "JavaFX",
+      RenderFeature.AFFINE_TRANSFORM,
+      RenderFeature.VECTOR_PATHS,
+      RenderFeature.ADVANCED_STROKE,
+      RenderFeature.RECTANGULAR_CLIP,
+      RenderFeature.POLYGONS,
+      RenderFeature.TEXT_ALIGNMENT,
+      RenderFeature.BLEND_MODES,
+      RenderFeature.COLOR_MATRIX,
+      RenderFeature.BLUR);
   private static final Logger log = LoggerFactory.getLogger(FxBlitter2D.class);
 
   private static final double[] IDENTITY_COLOR_MATRIX = new double[] {
@@ -82,6 +95,11 @@ public class FxBlitter2D implements Blitter2D {
 
   public FxBlitter2D(GraphicsContext gc) {
     this.gc = gc;
+  }
+
+  @Override
+  public RendererCapabilities getCapabilities() {
+    return CAPABILITIES;
   }
 
   public void setViewport(double w, double h) {

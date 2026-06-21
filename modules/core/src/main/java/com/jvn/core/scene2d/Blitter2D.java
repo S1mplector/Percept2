@@ -36,6 +36,19 @@ import com.jvn.core.math.Shape2D;
  */
 public interface Blitter2D {
 
+  /** Describe optional operations implemented by this backend. */
+  default RendererCapabilities getCapabilities() {
+    return RendererCapabilities.baseline(getClass().getSimpleName());
+  }
+
+  default boolean supports(RenderFeature feature) {
+    return getCapabilities().supports(feature);
+  }
+
+  default void require(RenderFeature feature) {
+    getCapabilities().require(feature);
+  }
+
   // ──────────────────────────────────────────────────────────────────────────
   //  Canvas clearing
   // ──────────────────────────────────────────────────────────────────────────
@@ -108,7 +121,9 @@ public interface Blitter2D {
    * [ myx myy ty ]
    * </pre>
    */
-  default void transform(double mxx, double myx, double mxy, double myy, double tx, double ty) {}
+  default void transform(double mxx, double myx, double mxy, double myy, double tx, double ty) {
+    RenderDiagnostics.unsupported(this, RenderFeature.AFFINE_TRANSFORM, "transform");
+  }
 
   // ──────────────────────────────────────────────────────────────────────────
   //  Shape primitives
@@ -256,35 +271,45 @@ public interface Blitter2D {
   // ──────────────────────────────────────────────────────────────────────────
 
   /** Begin a new vector path. */
-  default void beginPath() {}
+  default void beginPath() { RenderDiagnostics.unsupported(this, RenderFeature.VECTOR_PATHS, "beginPath"); }
 
   /** Move the pen to {@code (x, y)} without drawing. */
-  default void moveTo(double x, double y) {}
+  default void moveTo(double x, double y) { RenderDiagnostics.unsupported(this, RenderFeature.VECTOR_PATHS, "moveTo"); }
 
   /** Add a line segment from the current pen position to {@code (x, y)}. */
-  default void lineTo(double x, double y) {}
+  default void lineTo(double x, double y) { RenderDiagnostics.unsupported(this, RenderFeature.VECTOR_PATHS, "lineTo"); }
 
   /** Close the current sub-path by connecting back to the first point. */
-  default void closePath() {}
+  default void closePath() { RenderDiagnostics.unsupported(this, RenderFeature.VECTOR_PATHS, "closePath"); }
 
   /** Fill the current path with the current fill colour. */
-  default void fillPath() {}
+  default void fillPath() { RenderDiagnostics.unsupported(this, RenderFeature.VECTOR_PATHS, "fillPath"); }
 
   /** Stroke the current path outline. */
-  default void strokePath() {}
+  default void strokePath() { RenderDiagnostics.unsupported(this, RenderFeature.VECTOR_PATHS, "strokePath"); }
 
   // ──────────────────────────────────────────────────────────────────────────
   //  Optional: advanced stroke settings
   // ──────────────────────────────────────────────────────────────────────────
 
   /** Set the line cap style (e.g. "butt", "round", "square"). */
-  default void setStrokeCap(String cap) {}
+  default void setStrokeCap(String cap) { RenderDiagnostics.unsupported(this, RenderFeature.ADVANCED_STROKE, "setStrokeCap"); }
+
+  default void setStrokeCap(StrokeCap cap) {
+    require(RenderFeature.ADVANCED_STROKE);
+    setStrokeCap(cap.apiName());
+  }
 
   /** Set the line join style (e.g. "miter", "round", "bevel"). */
-  default void setStrokeJoin(String join) {}
+  default void setStrokeJoin(String join) { RenderDiagnostics.unsupported(this, RenderFeature.ADVANCED_STROKE, "setStrokeJoin"); }
+
+  default void setStrokeJoin(StrokeJoin join) {
+    require(RenderFeature.ADVANCED_STROKE);
+    setStrokeJoin(join.apiName());
+  }
 
   /** Set the miter limit for miter joins. */
-  default void setMiterLimit(double limit) {}
+  default void setMiterLimit(double limit) { RenderDiagnostics.unsupported(this, RenderFeature.ADVANCED_STROKE, "setMiterLimit"); }
 
   /**
    * Set a dash pattern for stroked lines.
@@ -292,14 +317,14 @@ public interface Blitter2D {
    * @param dashes array of on/off lengths
    * @param phase  initial offset into the dash pattern
    */
-  default void setDash(double[] dashes, double phase) {}
+  default void setDash(double[] dashes, double phase) { RenderDiagnostics.unsupported(this, RenderFeature.ADVANCED_STROKE, "setDash"); }
 
   // ──────────────────────────────────────────────────────────────────────────
   //  Optional: clipping
   // ──────────────────────────────────────────────────────────────────────────
 
   /** Set an axis-aligned rectangular clip region. Drawing outside is suppressed. */
-  default void setClipRect(double x, double y, double w, double h) {}
+  default void setClipRect(double x, double y, double w, double h) { RenderDiagnostics.unsupported(this, RenderFeature.RECTANGULAR_CLIP, "setClipRect"); }
 
   // ──────────────────────────────────────────────────────────────────────────
   //  Optional: polygon helpers
@@ -310,24 +335,24 @@ public interface Blitter2D {
    *
    * @param xy flattened array {@code [x0, y0, x1, y1, ...]}
    */
-  default void fillPolygon(double[] xy) {}
+  default void fillPolygon(double[] xy) { RenderDiagnostics.unsupported(this, RenderFeature.POLYGONS, "fillPolygon"); }
 
   /**
    * Stroke a polygon outline defined by alternating x/y coordinates.
    *
    * @param xy flattened array {@code [x0, y0, x1, y1, ...]}
    */
-  default void strokePolygon(double[] xy) {}
+  default void strokePolygon(double[] xy) { RenderDiagnostics.unsupported(this, RenderFeature.POLYGONS, "strokePolygon"); }
 
   // ──────────────────────────────────────────────────────────────────────────
   //  Optional: arc helpers (degrees)
   // ──────────────────────────────────────────────────────────────────────────
 
   /** Fill an arc (pie-slice) centred at {@code (cx, cy)}. Angles in degrees. */
-  default void fillArc(double cx, double cy, double r, double startDeg, double sweepDeg) {}
+  default void fillArc(double cx, double cy, double r, double startDeg, double sweepDeg) { RenderDiagnostics.unsupported(this, RenderFeature.ARCS, "fillArc"); }
 
   /** Stroke an arc outline. Angles in degrees. */
-  default void strokeArc(double cx, double cy, double r, double startDeg, double sweepDeg) {}
+  default void strokeArc(double cx, double cy, double r, double startDeg, double sweepDeg) { RenderDiagnostics.unsupported(this, RenderFeature.ARCS, "strokeArc"); }
 
   // ──────────────────────────────────────────────────────────────────────────
   //  Optional: gradient fills
@@ -343,7 +368,7 @@ public interface Blitter2D {
    * @param positions  array of stop positions in [0.0, 1.0]
    * @param colorsRgba flattened [r,g,b,a] per stop (length = positions.length × 4)
    */
-  default void setFillLinearGradient(double x1, double y1, double x2, double y2, double[] positions, double[] colorsRgba) {}
+  default void setFillLinearGradient(double x1, double y1, double x2, double y2, double[] positions, double[] colorsRgba) { RenderDiagnostics.unsupported(this, RenderFeature.LINEAR_GRADIENT, "setFillLinearGradient"); }
 
   /**
    * Set a radial gradient as the current fill.
@@ -354,7 +379,7 @@ public interface Blitter2D {
    * @param positions  array of stop positions in [0.0, 1.0]
    * @param colorsRgba flattened [r,g,b,a] per stop
    */
-  default void setFillRadialGradient(double cx, double cy, double r, double[] positions, double[] colorsRgba) {}
+  default void setFillRadialGradient(double cx, double cy, double r, double[] positions, double[] colorsRgba) { RenderDiagnostics.unsupported(this, RenderFeature.RADIAL_GRADIENT, "setFillRadialGradient"); }
 
   // ──────────────────────────────────────────────────────────────────────────
   //  Optional: text alignment & blend mode
@@ -366,14 +391,24 @@ public interface Blitter2D {
    * @param hAlign horizontal: "left", "center", or "right"
    * @param vAlign vertical: "baseline", "top", "middle", or "bottom"
    */
-  default void setTextAlign(String hAlign, String vAlign) {}
+  default void setTextAlign(String hAlign, String vAlign) { RenderDiagnostics.unsupported(this, RenderFeature.TEXT_ALIGNMENT, "setTextAlign"); }
+
+  default void setTextAlign(TextHorizontalAlign horizontal, TextVerticalAlign vertical) {
+    require(RenderFeature.TEXT_ALIGNMENT);
+    setTextAlign(horizontal.apiName(), vertical.apiName());
+  }
 
   /**
    * Set the compositing blend mode for subsequent draw calls.
    *
    * @param mode blend mode name, e.g. "normal", "additive", "multiply"
    */
-  default void setBlendMode(String mode) {}
+  default void setBlendMode(String mode) { RenderDiagnostics.unsupported(this, RenderFeature.BLEND_MODES, "setBlendMode"); }
+
+  default void setBlendMode(RenderBlendMode mode) {
+    require(RenderFeature.BLEND_MODES);
+    setBlendMode(mode.apiName());
+  }
 
   /**
    * Set a full 4x5 colour matrix for subsequent image draws.
@@ -381,15 +416,15 @@ public interface Blitter2D {
    * <p>The matrix is laid out row-major as 20 doubles. Backends that do not
    * support image colour transforms may ignore this request.</p>
    */
-  default void setColorMatrix(double[] matrix) {}
+  default void setColorMatrix(double[] matrix) { RenderDiagnostics.unsupported(this, RenderFeature.COLOR_MATRIX, "setColorMatrix"); }
 
   /** Clear any previously configured colour matrix. */
-  default void clearColorMatrix() {}
+  default void clearColorMatrix() { RenderDiagnostics.unsupported(this, RenderFeature.COLOR_MATRIX, "clearColorMatrix"); }
 
   /**
    * Set a blur radius for subsequent draw calls.
    *
    * <p>Backends may apply this as a post-effect during image and text draws.</p>
    */
-  default void setBlurRadius(double radius) {}
+  default void setBlurRadius(double radius) { RenderDiagnostics.unsupported(this, RenderFeature.BLUR, "setBlurRadius"); }
 }
