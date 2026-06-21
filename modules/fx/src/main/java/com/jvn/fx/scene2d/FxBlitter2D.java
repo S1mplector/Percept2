@@ -14,6 +14,9 @@ import org.slf4j.LoggerFactory;
 import com.jvn.core.math.Capsule2;
 import com.jvn.core.scene2d.Blitter2D;
 import com.jvn.core.scene2d.RenderFeature;
+import com.jvn.core.scene2d.RenderBlendMode;
+import com.jvn.core.scene2d.RenderDiagnostics;
+import com.jvn.core.scene2d.RenderTarget2D;
 import com.jvn.core.scene2d.RendererCapabilities;
 
 import javafx.geometry.VPos;
@@ -43,9 +46,15 @@ public class FxBlitter2D implements Blitter2D {
       RenderFeature.RECTANGULAR_CLIP,
       RenderFeature.POLYGONS,
       RenderFeature.TEXT_ALIGNMENT,
-      RenderFeature.BLEND_MODES,
       RenderFeature.COLOR_MATRIX,
-      RenderFeature.BLUR);
+      RenderFeature.BLUR,
+      RenderFeature.OFFSCREEN_RENDER_TARGETS,
+      RenderFeature.ALPHA_MASKS)
+      .withBlendModes(
+          RenderBlendMode.NORMAL,
+          RenderBlendMode.ADDITIVE,
+          RenderBlendMode.MULTIPLY,
+          RenderBlendMode.SCREEN);
   private static final Logger log = LoggerFactory.getLogger(FxBlitter2D.class);
 
   private static final double[] IDENTITY_COLOR_MATRIX = new double[] {
@@ -88,6 +97,7 @@ public class FxBlitter2D implements Blitter2D {
   private final Set<String> missing = new HashSet<>();
   private final Deque<RenderState> stateStack = new ArrayDeque<>();
   private RenderState state = new RenderState();
+  private FxRenderTarget2D ownerTarget;
   
   private final Map<String, MediaPlayer> videoPlayers = new LinkedHashMap<>();
   private final Map<String, MediaView> videoViews = new LinkedHashMap<>();
@@ -105,6 +115,10 @@ public class FxBlitter2D implements Blitter2D {
   public void setViewport(double w, double h) {
     this.viewportW = w;
     this.viewportH = h;
+  }
+
+  void attachRenderTarget(FxRenderTarget2D target) {
+    this.ownerTarget = target;
   }
 
   @Override
@@ -273,14 +287,18 @@ public class FxBlitter2D implements Blitter2D {
       return;
     }
     switch (mode.toLowerCase()) {
+      case "normal", "source-over":
+        gc.setGlobalBlendMode(BlendMode.SRC_OVER); break;
       case "add": case "additive":
         gc.setGlobalBlendMode(BlendMode.ADD); break;
       case "multiply":
         gc.setGlobalBlendMode(BlendMode.MULTIPLY); break;
       case "screen":
         gc.setGlobalBlendMode(BlendMode.SCREEN); break;
-      default:
+      default: {
+        RenderDiagnostics.unsupported(this, RenderFeature.BLEND_MODES, "setBlendMode(" + mode + ")");
         gc.setGlobalBlendMode(BlendMode.SRC_OVER);
+      }
     }
   }
 
@@ -400,6 +418,60 @@ public class FxBlitter2D implements Blitter2D {
   public void setBlurRadius(double radius) {
     state.blurRadius = Math.max(0.0, radius);
     applyEffectState();
+  }
+
+  @Override
+  public RenderTarget2D createRenderTarget(double width, double height, double pixelScale) {
+    return new FxRenderTarget2D(width, height, pixelScale);
+  }
+
+  @Override
+  public void drawRenderTarget(RenderTarget2D target, double x, double y, double width, double height) {
+    if (!(target instanceof FxRenderTarget2D fxTarget)) {
+      throw new IllegalArgumentException("FxBlitter2D requires a JavaFX render target");
+    }
+    Image image = fxTarget.snapshot();
+    if (state.hasColorMatrix()) image = applyColorMatrix(image, state.colorMatrix);
+    gc.drawImage(image, x, y, width, height);
+  }
+
+  @Override
+  public void applyAlphaMask(RenderTarget2D mask) {
+    if (ownerTarget == null) {
+      throw new IllegalStateException("Alpha masks can only be applied while drawing an offscreen target");
+    }
+    if (!(mask instanceof FxRenderTarget2D fxMask)) {
+      throw new IllegalArgumentException("FxBlitter2D requires a JavaFX mask target");
+    }
+    WritableImage contentImage = ownerTarget.snapshot();
+    WritableImage maskImage = fxMask.snapshot();
+    int width = (int) contentImage.getWidth();
+    int height = (int) contentImage.getHeight();
+    int maskWidth = (int) maskImage.getWidth();
+    int maskHeight = (int) maskImage.getHeight();
+    WritableImage result = new WritableImage(width, height);
+    PixelReader contentReader = contentImage.getPixelReader();
+    PixelReader maskReader = maskImage.getPixelReader();
+    PixelWriter writer = result.getPixelWriter();
+    for (int y = 0; y < height; y++) {
+      int maskY = Math.min(maskHeight - 1, (int) ((long) y * maskHeight / height));
+      for (int x = 0; x < width; x++) {
+        int maskX = Math.min(maskWidth - 1, (int) ((long) x * maskWidth / width));
+        int contentArgb = contentReader.getArgb(x, y);
+        int maskAlpha = (maskReader.getArgb(maskX, maskY) >>> 24) & 0xff;
+        int contentAlpha = (contentArgb >>> 24) & 0xff;
+        int resultAlpha = contentAlpha * maskAlpha / 255;
+        writer.setArgb(x, y, (contentArgb & 0x00ffffff) | (resultAlpha << 24));
+      }
+    }
+    gc.save();
+    gc.setTransform(1, 0, 0, 1, 0, 0);
+    gc.setGlobalAlpha(1.0);
+    gc.setGlobalBlendMode(BlendMode.SRC_OVER);
+    gc.setEffect(null);
+    gc.clearRect(0, 0, width, height);
+    gc.drawImage(result, 0, 0);
+    gc.restore();
   }
 
   public void setCacheCapacity(int capacity) { this.cacheCapacity = Math.max(16, capacity); }

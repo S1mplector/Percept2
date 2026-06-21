@@ -6,6 +6,9 @@ import org.slf4j.LoggerFactory;
 import com.jvn.core.math.Capsule2;
 import com.jvn.core.scene2d.Blitter2D;
 import com.jvn.core.scene2d.RenderFeature;
+import com.jvn.core.scene2d.RenderBlendMode;
+import com.jvn.core.scene2d.RenderDiagnostics;
+import com.jvn.core.scene2d.RenderTarget2D;
 import com.jvn.core.scene2d.RendererCapabilities;
 
 import java.awt.*;
@@ -36,7 +39,10 @@ public class SwingBlitter2D implements Blitter2D {
       RenderFeature.ARCS,
       RenderFeature.LINEAR_GRADIENT,
       RenderFeature.RADIAL_GRADIENT,
-      RenderFeature.TEXT_ALIGNMENT);
+      RenderFeature.TEXT_ALIGNMENT,
+      RenderFeature.OFFSCREEN_RENDER_TARGETS,
+      RenderFeature.ALPHA_MASKS)
+      .withBlendModes(RenderBlendMode.NORMAL, RenderBlendMode.DESTINATION_IN);
   private static final Logger log = LoggerFactory.getLogger(SwingBlitter2D.class);
   private static final Shape NO_CLIP = new java.awt.geom.Rectangle2D.Double(
       Double.NaN, Double.NaN, Double.NaN, Double.NaN);
@@ -49,6 +55,7 @@ public class SwingBlitter2D implements Blitter2D {
   private BasicStroke basicStroke = new BasicStroke(strokeWidth, BasicStroke.CAP_SQUARE, BasicStroke.JOIN_MITER);
   private final Deque<AffineTransform> transforms = new ArrayDeque<>();
   private final Deque<Composite> composites = new ArrayDeque<>();
+  private final Deque<Float> alphas = new ArrayDeque<>();
   private final Deque<Shape> clips = new ArrayDeque<>();
   private Path2D currentPath = null;
   private String hAlign = "left";
@@ -58,6 +65,7 @@ public class SwingBlitter2D implements Blitter2D {
     @Override protected boolean removeEldestEntry(Map.Entry<String, BufferedImage> eldest) { return size() > cacheCapacity; }
   };
   private final Set<String> missing = new HashSet<>();
+  private SwingRenderTarget2D ownerTarget;
 
   public SwingBlitter2D(Graphics2D g2) {
     this.g2 = (Graphics2D) g2.create();
@@ -67,6 +75,8 @@ public class SwingBlitter2D implements Blitter2D {
 
   @Override
   public RendererCapabilities getCapabilities() { return CAPABILITIES; }
+
+  void attachRenderTarget(SwingRenderTarget2D target) { this.ownerTarget = target; }
 
   public void dispose() {
     if (g2 != null) g2.dispose();
@@ -121,6 +131,7 @@ public class SwingBlitter2D implements Blitter2D {
   public void push() {
     transforms.push(g2.getTransform());
     composites.push(g2.getComposite());
+    alphas.push(alpha);
     Shape clip = g2.getClip();
     clips.push(clip == null ? NO_CLIP : clip);
   }
@@ -129,6 +140,7 @@ public class SwingBlitter2D implements Blitter2D {
   public void pop() {
     if (!transforms.isEmpty()) g2.setTransform(transforms.pop());
     if (!composites.isEmpty()) g2.setComposite(composites.pop());
+    if (!alphas.isEmpty()) alpha = alphas.pop();
     if (!clips.isEmpty()) {
       Shape clip = clips.pop();
       g2.setClip(clip == NO_CLIP ? null : clip);
@@ -274,8 +286,55 @@ public class SwingBlitter2D implements Blitter2D {
       g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
       return;
     }
-    // AWT lacks true additive without custom composite; approximate with SrcOver.
+    if ("destination-in".equalsIgnoreCase(mode)) {
+      g2.setComposite(AlphaComposite.getInstance(AlphaComposite.DST_IN, alpha));
+      return;
+    }
+    RenderDiagnostics.unsupported(this, RenderFeature.BLEND_MODES, "setBlendMode(" + mode + ")");
     g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+  }
+
+  @Override
+  public RenderTarget2D createRenderTarget(double width, double height, double pixelScale) {
+    return new SwingRenderTarget2D(width, height, pixelScale);
+  }
+
+  @Override
+  public void drawRenderTarget(RenderTarget2D target, double x, double y, double width, double height) {
+    if (!(target instanceof SwingRenderTarget2D swingTarget)) {
+      throw new IllegalArgumentException("SwingBlitter2D requires a Swing render target");
+    }
+    BufferedImage image = swingTarget.image();
+    g2.drawImage(
+        image,
+        (int) Math.round(x),
+        (int) Math.round(y),
+        (int) Math.round(x + width),
+        (int) Math.round(y + height),
+        0,
+        0,
+        image.getWidth(),
+        image.getHeight(),
+        null);
+  }
+
+  @Override
+  public void applyAlphaMask(RenderTarget2D mask) {
+    if (ownerTarget == null) {
+      throw new IllegalStateException("Alpha masks can only be applied while drawing an offscreen target");
+    }
+    if (!(mask instanceof SwingRenderTarget2D swingMask)) {
+      throw new IllegalArgumentException("SwingBlitter2D requires a Swing mask target");
+    }
+    BufferedImage contentImage = ownerTarget.image();
+    BufferedImage maskImage = swingMask.image();
+    Graphics2D maskGraphics = contentImage.createGraphics();
+    try {
+      maskGraphics.setComposite(AlphaComposite.DstIn);
+      maskGraphics.drawImage(maskImage, 0, 0, contentImage.getWidth(), contentImage.getHeight(), null);
+    } finally {
+      maskGraphics.dispose();
+    }
   }
 
   // Vector path extensions
