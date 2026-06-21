@@ -5,6 +5,7 @@ import java.util.Deque;
 import com.jvn.core.math.Capsule2;
 import com.jvn.core.scene2d.Blitter2D;
 import com.jvn.core.scene2d.RenderFeature;
+import com.jvn.core.scene2d.RenderBlendMode;
 import com.jvn.core.scene2d.RendererCapabilities;
 import com.jvn.render.RenderSurface;
 
@@ -21,8 +22,13 @@ public class WebRenderer implements Blitter2D {
       RenderFeature.ADVANCED_STROKE,
       RenderFeature.RECTANGULAR_CLIP,
       RenderFeature.POLYGONS,
-      RenderFeature.TEXT_ALIGNMENT,
-      RenderFeature.BLEND_MODES);
+      RenderFeature.TEXT_ALIGNMENT)
+      .withBlendModes(
+          RenderBlendMode.NORMAL,
+          RenderBlendMode.ADDITIVE,
+          RenderBlendMode.MULTIPLY,
+          RenderBlendMode.SCREEN,
+          RenderBlendMode.DESTINATION_IN);
 
   private final RenderSurface surface;
   private final Object ctx; // CanvasRenderingContext2D
@@ -210,7 +216,12 @@ public class WebRenderer implements Blitter2D {
   @Override
   public void setBlendMode(String mode) {
     if (mode != null) {
-      setGlobalCompositeOperationNative(ctx, mode.toLowerCase());
+      String normalized = switch (mode.toLowerCase()) {
+        case "normal" -> "source-over";
+        case "add", "additive" -> "lighter";
+        default -> mode.toLowerCase();
+      };
+      setGlobalCompositeOperationNative(ctx, normalized);
     }
   }
 

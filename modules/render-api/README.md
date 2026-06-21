@@ -81,6 +81,13 @@ Use the capability object to choose a fallback or reject a project requirement
 before rendering. Optional operations no longer silently disappear: legacy calls
 produce warn-once diagnostics, while typed overloads validate support eagerly.
 
+### Portable composition
+
+`RenderTarget2D` and `Compositor2D` provide backend-owned offscreen layers.
+JavaFX and Swing currently support target creation, compositing, crossfades, and
+destination-alpha masks. Composite options can request opacity, typed blend modes,
+blur, and a 4x5 colour matrix; unsupported effects fail capability validation.
+
 ## Service Discovery
 
 ### RendererRegistry
@@ -185,7 +192,7 @@ com.example.VulkanRendererFactory
 
 ## Future Enhancements
 
-- **Rendering Pipeline:** Offscreen rendering, frame buffers
+- **Rendering Pipeline:** Extend offscreen targets from JavaFX/Swing to web and mobile backends
 - **Shaders:** Custom shader support for advanced effects
 - **GPU Acceleration:** Direct GPU memory management
 - **Multi-threading:** Thread-safe rendering queues

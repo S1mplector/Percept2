@@ -406,8 +406,34 @@ public interface Blitter2D {
   default void setBlendMode(String mode) { RenderDiagnostics.unsupported(this, RenderFeature.BLEND_MODES, "setBlendMode"); }
 
   default void setBlendMode(RenderBlendMode mode) {
-    require(RenderFeature.BLEND_MODES);
+    getCapabilities().requireBlendMode(mode);
     setBlendMode(mode.apiName());
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  //  Optional: offscreen rendering and composition
+  // ──────────────────────────────────────────────────────────────────────────
+
+  default RenderTarget2D createRenderTarget(double width, double height, double pixelScale) {
+    require(RenderFeature.OFFSCREEN_RENDER_TARGETS);
+    throw new IllegalStateException("Renderer advertised offscreen targets without implementing creation");
+  }
+
+  default void drawRenderTarget(
+      RenderTarget2D target,
+      double x,
+      double y,
+      double width,
+      double height
+  ) {
+    require(RenderFeature.OFFSCREEN_RENDER_TARGETS);
+    throw new IllegalStateException("Renderer advertised offscreen targets without implementing drawing");
+  }
+
+  /** Multiply the current offscreen target's alpha by another target's alpha. */
+  default void applyAlphaMask(RenderTarget2D mask) {
+    require(RenderFeature.ALPHA_MASKS);
+    throw new IllegalStateException("Renderer advertised alpha masks without implementing them");
   }
 
   /**

@@ -97,6 +97,25 @@ Advanced operations also have typed overloads, including `RenderBlendMode`,
 Unsupported legacy calls emit a warn-once diagnostic instead of disappearing
 silently; typed calls fail immediately unless the capability was advertised.
 
+### Offscreen Targets and Composition
+
+JavaFX and Swing advertise `OFFSCREEN_RENDER_TARGETS`. Their blitters can create
+backend-owned `RenderTarget2D` surfaces, render into them with the same API, and
+composite them back into the current destination. `Compositor2D` owns target
+lifetimes and provides crossfades, alpha masking, blend selection, opacity, blur,
+and colour-matrix options with capability validation.
+
+```java
+try (Compositor2D compositor = new Compositor2D(blitter)) {
+  RenderTarget2D from = compositor.renderToTarget(w, h, scale, b -> renderOldScene(b));
+  RenderTarget2D to = compositor.renderToTarget(w, h, scale, b -> renderNewScene(b));
+  compositor.crossFade(from, to, progress, 0, 0, w, h);
+}
+```
+
+Render targets are backend-local: attempting to draw a Swing target through a
+JavaFX blitter (or vice versa) is rejected explicitly.
+
 ```java
 public interface RendererFactory {
   String getRendererName();  // e.g. "JavaFX", "WebGL", "Android"
