@@ -3,7 +3,7 @@
 <div align="left">
   <img src="docs/assets/images/jvn_logo.svg" width="460" alt="Java Vector Nexus logo">
   <br>
-  <strong>Current version:</strong> v0.1.3 <em></em>
+  <strong>Current version:</strong> v0.2.0 <em></em>
 </div>
 
 JVN is a young, modular cross-platform Visual Novel engine and 2D animation toolkit written in Java.
@@ -50,7 +50,7 @@ JVN is in heavy continuous development. Engine APIs, editor tooling, generated p
 
 ### Recommended JDK
 
-For local source builds, use [Eclipse Temurin 21 LTS](https://adoptium.net/temurin/releases/?version=21&package=jdk). It is the recommended JDK for JVN because it is a free, cross-platform OpenJDK distribution with long-term Java 21 support. Install the JDK package, then make sure `JAVA_HOME` points at that JDK before running `./jvnw`, `./jvn`, or `gradlew`.
+For local source builds, use [Eclipse Temurin 21 LTS](https://adoptium.net/temurin/releases/?version=21&package=jdk). It is the recommended JDK for JVN because it is a free, cross-platform OpenJDK distribution with long-term Java 21 support. Install the JDK package, then make sure `JAVA_HOME` points at that JDK before running `./jvnw`, `./jvn`, or `./gradlew`.
 
 On Bazzite, `./jvn` and `./jvnw` can automatically enter a Distrobox container with Java 21+ and `javac`, so the hub/editor can use the JDK installed there. Override the container with `JVN_DISTROBOX_CONTAINER=<name>`, force detection on another distro with `JVN_DISTROBOX=1`, or disable this handoff with `JVN_DISTROBOX=0`.
 
@@ -129,10 +129,14 @@ Useful JVN commands:
 ./jvnw check
 ./jvnw clean
 ./jvnw build-info
+./jvnw doctor
+./jvnw jar
 ./jvnw dist -PjvnGameProject=/path/to/game
 ./jvnw dist-all -PjvnGameProject=/path/to/game
 ./jvnw dist-runtime -PjvnGameProject=/path/to/game
 ./jvnw dist-runtime-all -PjvnGameProject=/path/to/game
+./jvnw dist-preflight -PjvnGameProject=/path/to/game
+./jvnw dist-clean
 ./jvnw runtime-cache
 ./jvnw runtime-cache-clear
 ./jvnw native -PjvnGameProject=/path/to/game
@@ -169,10 +173,14 @@ Default wrapper commands:
 ./jvnw compile
 ./jvnw quick
 ./jvnw build-info
+./jvnw doctor
+./jvnw jar
 ./jvnw dist -PjvnGameProject=/path/to/game
 ./jvnw dist-all -PjvnGameProject=/path/to/game
 ./jvnw dist-runtime -PjvnGameProject=/path/to/game
 ./jvnw dist-runtime-all -PjvnGameProject=/path/to/game
+./jvnw dist-preflight -PjvnGameProject=/path/to/game
+./jvnw dist-clean
 ./jvnw runtime-cache
 ./jvnw runtime-cache-clear
 ./jvnw native -PjvnGameProject=/path/to/game
@@ -201,6 +209,8 @@ Use:
 - `./jvnw dist-all -PjvnGameProject=/path/to/game` for cross-target portable zips
 - `./jvnw dist-runtime -PjvnGameProject=/path/to/game` for a self-contained desktop bundle for the current target
 - `./jvnw dist-runtime-all -PjvnGameProject=/path/to/game` for self-contained desktop bundles across all supported desktop targets
+- `./jvnw dist-preflight -PjvnGameProject=/path/to/game` to validate a package plan and write JSON/Markdown reports without packaging
+- `./jvnw dist-clean` to delete packaged game artifacts
 - `./jvnw runtime-cache` to inspect cached prebuilt desktop runtimes
 - `./jvnw runtime-cache-clear` to clear cached prebuilt desktop runtimes
 - `./jvnw native -PjvnGameProject=/path/to/game` for a current-host native package

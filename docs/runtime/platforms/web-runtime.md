@@ -532,7 +532,7 @@ For development iteration:
 
 ## Related Documentation
 
-- **Render-API:** [docs/architecture/core/render-api.md](../architecture/core/render-api.md) — backend abstraction
+- **Render-API:** [docs/architecture/core/render-api.md](../../architecture/core/render-api.md) — backend abstraction
 - **Runtime Core:** [docs/runtime/core/runtime.md](../core/runtime.md) — JvnApp integration
 - **Asset Management:** [docs/runtime/systems/asset-management.md](../systems/asset-management.md) — asset resolution
 - **Save System:** [docs/runtime/systems/save-system.md](../systems/save-system.md) — save/load persistence

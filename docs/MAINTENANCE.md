@@ -210,7 +210,7 @@ git commit -m "docs: refresh editor screenshots (May 2026)"
 
 3. **Add to INDEX.md:**
    - Find the relevant section
-   - Add link: `- [Page Title](path/to/page.md)`
+   - Add a Markdown link with the page title and its repository-relative path
 
 4. **Test links:**
    ```bash
@@ -305,8 +305,6 @@ If you reword but keep the link target the same:
 ## Resources
 
 - **Audit Report:** [Phase 0 Audit (May 2026)](plans/docs-audit-2026-05.md)
-- **Work Plans:** [Phase 1 Plans](plans/README.md)
-- **Progress:** [Session Progress Log](plans/PROGRESS.md)
 - **Index:** [Complete Documentation Index](INDEX.md)
 
 ---

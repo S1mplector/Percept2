@@ -416,7 +416,7 @@ public void testEasingCurves() {
 - **Puppeteer JES DSL:** [docs/editor/puppeteer/puppeteer-jes-dsl.md](../../../editor/puppeteer/puppeteer-jes-dsl.md) — exported timeline syntax
 - **JES Actions:** [docs/scripting/jes/timeline/jes-timeline.md](../../jes/timeline/jes-timeline.md) — `move`, `rotate`, `fade` etc.
 - **VNS Transitions:** [docs/scripting/vns/presentation/vns-transitions.md](../../vns/presentation/vns-transitions.md) — screen effects
-- **2D Engine:** [docs/architecture/core/2d-engine.md](../../architecture/core/2d-engine.md) — Scene2DBase render pipeline
+- **2D Engine:** [docs/architecture/core/2d-engine.md](../../../architecture/core/2d-engine.md) — Scene2DBase render pipeline
 
 ---
 
