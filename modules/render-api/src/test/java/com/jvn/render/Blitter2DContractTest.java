@@ -48,8 +48,8 @@ class Blitter2DContractTest {
           "Recording",
           RenderFeature.AFFINE_TRANSFORM,
           RenderFeature.RECTANGULAR_CLIP,
-          RenderFeature.TEXT_ALIGNMENT,
-          RenderFeature.BLEND_MODES);
+          RenderFeature.TEXT_ALIGNMENT)
+          .withBlendModes(RenderBlendMode.NORMAL, RenderBlendMode.MULTIPLY);
     }
 
     @Override public void clear(double r, double g, double b, double a) {
