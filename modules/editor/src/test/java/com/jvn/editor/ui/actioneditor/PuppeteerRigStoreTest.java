@@ -2,6 +2,7 @@ package com.jvn.editor.ui.actioneditor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -84,5 +85,65 @@ class PuppeteerRigStoreTest {
         assertEquals(0, emptyScene.getTrackCount());
         assertNull(emptyScene.getGroup("john_neutral"));
         assertNull(emptyScene.getGroup("lily_neutral"));
+    }
+
+    @Test
+    void loadRestoresOnlyTheRigSubsetPresentInTheCurrentScene(@TempDir Path tempDir) {
+        AnimationProject previousScene = new AnimationProject();
+        previousScene.getOrCreateTrack("john_neutral_body_default");
+        EntityTrack lily = previousScene.getOrCreateTrack("lily_neutral_body_default");
+        lily.setLayerOrder(7);
+        previousScene.getOrCreateGroup("john_neutral");
+        previousScene.getOrCreateGroup("lily_neutral");
+        previousScene.addEntityToGroup("john_neutral_body_default", "john_neutral");
+        previousScene.addEntityToGroup("lily_neutral_body_default", "lily_neutral");
+        PuppeteerRigStore.save(tempDir.toFile(), previousScene);
+
+        AnimationProject currentScene = new AnimationProject();
+        currentScene.getOrCreateTrack("lily_neutral_body_default");
+
+        PuppeteerRigStore.load(tempDir.toFile(), currentScene);
+
+        assertNull(currentScene.getTrack("john_neutral_body_default"));
+        assertNull(currentScene.getGroup("john_neutral"));
+        assertNotNull(currentScene.getGroup("lily_neutral"));
+        assertEquals("lily_neutral",
+            currentScene.getTrack("lily_neutral_body_default").getParentGroupName());
+        assertEquals(7, currentScene.getTrack("lily_neutral_body_default").getLayerOrder());
+    }
+
+    @Test
+    void loadRejectsUndeclaredParentsAndUnsupportedVersions(@TempDir Path tempDir) throws Exception {
+        Path rigDir = Files.createDirectories(tempDir.resolve("config").resolve("puppeteer"));
+        Path rigFile = rigDir.resolve("rig.properties");
+        Files.writeString(rigFile, """
+            rig.version=1
+            group.count=0
+            track.count=1
+            track.0.name=hero
+            track.0.parent=ghost_group
+            constraint.count=0
+            """);
+        AnimationProject currentScene = new AnimationProject();
+        currentScene.getOrCreateTrack("hero");
+
+        PuppeteerRigStore.load(tempDir.toFile(), currentScene);
+
+        assertNull(currentScene.getGroup("ghost_group"));
+        assertNull(currentScene.getTrack("hero").getParentGroupName());
+
+        currentScene.getOrCreateGroup("current_group");
+        currentScene.addEntityToGroup("hero", "current_group");
+        Files.writeString(rigFile, """
+            rig.version=999
+            group.count=0
+            track.count=0
+            constraint.count=0
+            """);
+
+        PuppeteerRigStore.load(tempDir.toFile(), currentScene);
+
+        assertNotNull(currentScene.getGroup("current_group"));
+        assertEquals("current_group", currentScene.getTrack("hero").getParentGroupName());
     }
 }

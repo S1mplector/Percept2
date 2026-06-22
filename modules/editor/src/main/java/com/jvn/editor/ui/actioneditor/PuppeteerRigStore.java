@@ -27,6 +27,9 @@ import java.util.Set;
 public final class PuppeteerRigStore {
 
     private static final String FILENAME = "rig.properties";
+    private static final int SUPPORTED_VERSION = 1;
+    private static final int MAX_STORED_ENTRY_COUNT = 10_000;
+    private static final long MAX_RIG_FILE_BYTES = 4L * 1024L * 1024L;
 
     private PuppeteerRigStore() {}
 
@@ -110,13 +113,18 @@ public final class PuppeteerRigStore {
         if (file == null || !file.isFile()) return;
 
         Properties props = new Properties();
-        try (InputStream in = Files.newInputStream(file.toPath())) {
-            props.load(in);
+        try {
+            Path filePath = file.toPath();
+            if (Files.size(filePath) > MAX_RIG_FILE_BYTES) return;
+            try (InputStream in = Files.newInputStream(filePath)) {
+                props.load(in);
+            }
         } catch (IOException ignored) {
             return;
         }
+        if (parseInt(props.getProperty("rig.version"), -1) != SUPPORTED_VERSION) return;
 
-        int groupCount = parseInt(props.getProperty("group.count"), 0);
+        int groupCount = parseEntryCount(props, "group.count");
         Map<String, String> groupParents = new LinkedHashMap<>();
         for (int i = 0; i < groupCount; i++) {
             String pfx = "group." + i;
@@ -125,7 +133,7 @@ public final class PuppeteerRigStore {
             groupParents.put(name, props.getProperty(pfx + ".parent", "").trim());
         }
 
-        int trackCount = parseInt(props.getProperty("track.count"), 0);
+        int trackCount = parseEntryCount(props, "track.count");
         Set<String> groupsToRestore = new LinkedHashSet<>();
         for (int i = 0; i < trackCount; i++) {
             String pfx = "track." + i;
@@ -176,7 +184,7 @@ public final class PuppeteerRigStore {
             }
         }
 
-        int constraintCount = parseInt(props.getProperty("constraint.count"), 0);
+        int constraintCount = parseEntryCount(props, "constraint.count");
         for (int i = 0; i < constraintCount; i++) {
             String pfx = "constraint." + i;
             String target = props.getProperty(pfx + ".target", "").trim();
@@ -202,9 +210,16 @@ public final class PuppeteerRigStore {
             Map<String, String> groupParents,
             Set<String> groupsToRestore) {
         String current = groupName;
-        while (!isBlank(current) && groupsToRestore.add(current)) {
+        while (!isBlank(current)
+                && groupParents.containsKey(current)
+                && groupsToRestore.add(current)) {
             current = groupParents.get(current);
         }
+    }
+
+    private static int parseEntryCount(Properties props, String key) {
+        int count = parseInt(props == null ? null : props.getProperty(key), 0);
+        return Math.max(0, Math.min(MAX_STORED_ENTRY_COUNT, count));
     }
 
     private static List<EntityGroup> sortedGroups(AnimationProject project) {
