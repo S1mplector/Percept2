@@ -8,9 +8,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 /**
  * Persists reusable Puppeteer rig structure to
@@ -113,14 +116,34 @@ public final class PuppeteerRigStore {
             return;
         }
 
-        project.clearGroups();
-        project.clearConstraints();
-
         int groupCount = parseInt(props.getProperty("group.count"), 0);
+        Map<String, String> groupParents = new LinkedHashMap<>();
         for (int i = 0; i < groupCount; i++) {
             String pfx = "group." + i;
             String name = props.getProperty(pfx + ".name", "").trim();
             if (name.isEmpty()) continue;
+            groupParents.put(name, props.getProperty(pfx + ".parent", "").trim());
+        }
+
+        int trackCount = parseInt(props.getProperty("track.count"), 0);
+        Set<String> groupsToRestore = new LinkedHashSet<>();
+        for (int i = 0; i < trackCount; i++) {
+            String pfx = "track." + i;
+            String name = props.getProperty(pfx + ".name", "").trim();
+            if (name.isEmpty() || project.getTrack(name) == null) continue;
+            includeGroupAncestors(
+                props.getProperty(pfx + ".parent", "").trim(),
+                groupParents,
+                groupsToRestore);
+        }
+
+        project.clearGroups();
+        project.clearConstraints();
+
+        for (int i = 0; i < groupCount; i++) {
+            String pfx = "group." + i;
+            String name = props.getProperty(pfx + ".name", "").trim();
+            if (name.isEmpty() || !groupsToRestore.contains(name)) continue;
             EntityGroup group = project.getOrCreateGroup(name);
             group.setLayerOrder(parseInt(props.getProperty(pfx + ".layer"), 0));
             group.setExpanded(parseBoolean(props.getProperty(pfx + ".expanded"), true));
@@ -130,23 +153,24 @@ public final class PuppeteerRigStore {
             String pfx = "group." + i;
             String name = props.getProperty(pfx + ".name", "").trim();
             String parent = props.getProperty(pfx + ".parent", "").trim();
-            if (name.isEmpty() || parent.isEmpty()) continue;
+            if (name.isEmpty() || parent.isEmpty()
+                    || !groupsToRestore.contains(name)
+                    || !groupsToRestore.contains(parent)) continue;
             project.getOrCreateGroup(parent);
             project.addGroupToGroup(name, parent);
         }
 
-        int trackCount = parseInt(props.getProperty("track.count"), 0);
         for (int i = 0; i < trackCount; i++) {
             String pfx = "track." + i;
             String name = props.getProperty(pfx + ".name", "").trim();
-            if (name.isEmpty()) continue;
-            EntityTrack track = project.getOrCreateTrack(name);
+            EntityTrack track = name.isEmpty() ? null : project.getTrack(name);
+            if (track == null) continue;
             track.setVisible(parseBoolean(props.getProperty(pfx + ".visible"), true));
             track.setExpanded(parseBoolean(props.getProperty(pfx + ".expanded"), true));
             track.setLocked(parseBoolean(props.getProperty(pfx + ".locked"), false));
             track.setLayerOrder(parseInt(props.getProperty(pfx + ".layer"), 0));
             String parent = props.getProperty(pfx + ".parent", "").trim();
-            if (!parent.isEmpty()) {
+            if (!parent.isEmpty() && groupsToRestore.contains(parent)) {
                 project.getOrCreateGroup(parent);
                 project.addEntityToGroup(name, parent);
             }
@@ -158,7 +182,9 @@ public final class PuppeteerRigStore {
             String target = props.getProperty(pfx + ".target", "").trim();
             String source = props.getProperty(pfx + ".source", "").trim();
             Constraint.Type type = parseConstraintType(props.getProperty(pfx + ".type"));
-            if (target.isEmpty() || source.isEmpty() || type == null) continue;
+            if (target.isEmpty() || source.isEmpty() || type == null
+                    || project.getTrack(target) == null
+                    || project.getTrack(source) == null) continue;
             Constraint constraint = new Constraint(
                 type,
                 source,
@@ -168,6 +194,16 @@ public final class PuppeteerRigStore {
                 parseBoolean(props.getProperty(pfx + ".inheritScale"), true)
             );
             project.setConstraint(target, constraint);
+        }
+    }
+
+    private static void includeGroupAncestors(
+            String groupName,
+            Map<String, String> groupParents,
+            Set<String> groupsToRestore) {
+        String current = groupName;
+        while (!isBlank(current) && groupsToRestore.add(current)) {
+            current = groupParents.get(current);
         }
     }
 

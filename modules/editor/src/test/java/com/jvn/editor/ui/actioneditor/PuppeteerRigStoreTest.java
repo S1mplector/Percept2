@@ -65,4 +65,24 @@ class PuppeteerRigStoreTest {
 
         assertFalse(Files.exists(file));
     }
+
+    @Test
+    void loadDoesNotCreateGroupsOrTracksAbsentFromCurrentScene(@TempDir Path tempDir) {
+        AnimationProject previousScene = new AnimationProject();
+        previousScene.getOrCreateTrack("john_neutral_body_default");
+        previousScene.getOrCreateGroup("john_neutral");
+        previousScene.addEntityToGroup("john_neutral_body_default", "john_neutral");
+        previousScene.getOrCreateTrack("lily_neutral_body_default");
+        previousScene.getOrCreateGroup("lily_neutral");
+        previousScene.addEntityToGroup("lily_neutral_body_default", "lily_neutral");
+        PuppeteerRigStore.save(tempDir.toFile(), previousScene);
+
+        AnimationProject emptyScene = new AnimationProject();
+
+        PuppeteerRigStore.load(tempDir.toFile(), emptyScene);
+
+        assertEquals(0, emptyScene.getTrackCount());
+        assertNull(emptyScene.getGroup("john_neutral"));
+        assertNull(emptyScene.getGroup("lily_neutral"));
+    }
 }

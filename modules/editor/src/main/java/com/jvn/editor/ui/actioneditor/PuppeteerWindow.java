@@ -3532,6 +3532,7 @@ public class PuppeteerWindow extends Stage {
                     track.setLayerOrder((int) Math.round(entity.getZ()));
                 }
             }
+            PuppeteerRigStore.load(projectRoot, project);
             applyLaunchScenePresetGrouping();
             captureSceneStateBaseline();
             captureProjectSnapshotBaseline();
@@ -3765,7 +3766,10 @@ public class PuppeteerWindow extends Stage {
         applyWorkspacePrefs();
         PuppeteerAnchorStore.load(projectRoot, project);
         project.setEyeFocusProfiles(VnEyeFocusProfileStore.load(projectRoot));
-        PuppeteerRigStore.load(projectRoot, project);
+        if (scene != null) {
+            PuppeteerRigStore.load(projectRoot, project);
+            applyLaunchScenePresetGrouping();
+        }
 
         draftStore = new PuppeteerDraftStore(projectRoot);
         draftStore.setOnSaveCallback(timelineName -> Platform.runLater(() -> showAutoSaveIndicator(timelineName)));
