@@ -11,10 +11,6 @@ import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.Set;
 
-import com.jvn.core.diagnostics.runtime_logs.logging_strategies.LogCLI;
-import com.jvn.core.diagnostics.runtime_logs.warnings.WarningSubscriber;
-import com.jvn.core.diagnostics.runtime_logs.warnings.warning_facades.WarningManager;
-import com.jvn.core.diagnostics.runtime_logs.warnings.warning_factories.UnknownExpressionWarningFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -84,8 +80,6 @@ import javafx.scene.text.FontWeight;
  */
 public class VnRenderer {
   private static final Logger log = LoggerFactory.getLogger(VnRenderer.class);
-  private final WarningManager warningManager =  new WarningManager();
-  private final WarningSubscriber warningSubscriber = new WarningSubscriber(warningManager);
 
   private final GraphicsContext gc;
   private BoundedImageCache<Image> imageCache = new BoundedImageCache<>(VnConfig.defaults().getImageCacheMaxEntries());
@@ -730,12 +724,6 @@ public class VnRenderer {
 
     VnCharacter character = scenario.getCharacter(slot.getCharacterId());
     if (character != null) {
-      if (!character.hasExpression(slot.getExpression())) {
-        warningSubscriber.onWarningEvent(
-                new UnknownExpressionWarningFactory(
-                        slot.getExpression(),
-                "Character Rendering: VnRenderer.renderCharacterEntry"));
-      }
       String expression = slot.getExpression();
       String imagePath = character.getExpressionPath(expression);
       VnState.ExpressionTransition transition = state != null ? state.getExpressionTransition(slot.getCharacterId()) : null;
