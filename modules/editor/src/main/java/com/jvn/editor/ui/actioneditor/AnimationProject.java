@@ -521,9 +521,9 @@ public class AnimationProject {
     }
 
     public Map<String, Anchor> getAnchorsForEntity(String entityName) {
-        if (entityName == null || entityName.isBlank()) return null;
+        if (entityName == null || entityName.isBlank()) return Collections.emptyMap();
         Map<String, Anchor> anchors = entityAnchors.get(entityName);
-        if (anchors == null) return null;
+        if (anchors == null) return Collections.emptyMap();
         return Collections.unmodifiableMap(new LinkedHashMap<>(anchors));
     }
 
