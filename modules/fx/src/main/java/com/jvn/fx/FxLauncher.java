@@ -1844,16 +1844,16 @@ public class FxLauncher extends Application {
     engine.scenes().replace(replacement);
   }
 
-  private void reloadTopVnScene() {
-    if (engine == null) return;
+  private boolean reloadTopVnScene() {
+    if (engine == null) return false;
     com.jvn.core.scene.Scene currentScene = engine.scenes().peek();
-    if (!(currentScene instanceof VnScene vnScene)) return;
+    if (!(currentScene instanceof VnScene vnScene)) return false;
 
     String sourceScript = VnEntryScriptResolver.normalizeScriptKey(vnScene.getState().getSourceScriptName());
     if (sourceScript == null) {
       sourceScript = VnEntryScriptResolver.resolveEntryScript(null, runtimeProjectRoot);
     }
-    if (sourceScript == null) return;
+    if (sourceScript == null) return false;
 
     try {
       VnScenario reloadedScenario = new VnScenarioLoader().load(sourceScript);
@@ -1881,9 +1881,12 @@ public class FxLauncher extends Application {
         replacement.getState().showHudMessage("Script reloaded", 1200);
       }
       engine.scenes().replace(replacement);
+      return true;
     } catch (Exception ex) {
       vnScene.getState().showHudMessage("Script reload failed", 1400);
+      vnScene.setActiveError(com.jvn.core.vn.VnErrorOverlay.fromScriptLoadFailure(sourceScript, ex));
       log.warn("Hot reload failed for script '{}': {}", sourceScript, ex.toString());
+      return false;
     }
   }
 
@@ -1968,12 +1971,7 @@ public class FxLauncher extends Application {
   private void handleRuntimeErrorButton(VnScene vnScene, int buttonIndex) {
     switch (buttonIndex) {
       case 0 -> vnScene.clearActiveError(); // Ignore
-      case 1 -> { // Reload — attempt to reload the current scenario
-        vnScene.clearActiveError();
-        // Re-initialize from the start of the current scenario
-        vnScene.getState().setCurrentNodeIndex(0);
-        vnScene.onEnter();
-      }
+      case 1 -> reloadTopVnScene(); // Reload the latest script content from disk.
       case 2 -> { // Copy — copy error text to clipboard
         com.jvn.core.vn.VnErrorOverlay error = vnScene.getActiveError();
         if (error != null) {
