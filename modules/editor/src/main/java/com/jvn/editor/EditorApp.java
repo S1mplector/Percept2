@@ -6975,6 +6975,14 @@ public class EditorApp extends Application {
         ? new PuppeteerWindow(imported)
         : new PuppeteerWindow();
     puppeteer.setOnCopyCode(code -> status.setText("Copied timeline code to clipboard"));
+    puppeteer.setOnSyncSnapshotRequested(() -> {
+      FileEditorTab currentFt = getActiveFileTab();
+      if (currentFt == null) return;
+      int caretLine = currentFt.getCaretLine();
+      PuppeteerLauncherPanel.SceneSnapshot newSnapshot = PuppeteerLauncherPanel.resolveSnapshot(currentFt.getText(), caretLine);
+      JesScene2D newScene = buildSceneFromSnapshot(newSnapshot);
+      puppeteer.syncWithSnapshot(newSnapshot, newScene);
+    });
     if (projectRoot != null) puppeteer.setProjectRoot(projectRoot);
     puppeteer.setLaunchSceneSnapshot(snapshot);
     if (preferredTimelineName != null && !preferredTimelineName.isBlank()) {
@@ -8073,6 +8081,14 @@ public class EditorApp extends Application {
         ? new PuppeteerWindow(imported)
         : new PuppeteerWindow();
     puppeteer.setOnCopyCode(code -> status.setText("Copied timeline code to clipboard"));
+    puppeteer.setOnSyncSnapshotRequested(() -> {
+      FileEditorTab currentFt = getActiveFileTab();
+      if (currentFt == null) return;
+      int caretLine = currentFt.getCaretLine();
+      PuppeteerLauncherPanel.SceneSnapshot newSnapshot = PuppeteerLauncherPanel.resolveSnapshot(currentFt.getText(), caretLine);
+      JesScene2D newScene = buildSceneFromSnapshot(newSnapshot);
+      puppeteer.syncWithSnapshot(newSnapshot, newScene);
+    });
     if (projectRoot != null) puppeteer.setProjectRoot(projectRoot);
     FileEditorTab ft = getActiveFileTab();
     if (ft != null) {

@@ -198,6 +198,7 @@ public class PuppeteerWindow extends Stage {
     private final KeyframeSelectionModel selectionModel;
     Consumer<String> onCopyCode;
     public final TextField tfTimelineName;
+    private Runnable onSyncSnapshotRequested;
     public final Map<String, CollapsibleToolbarCluster> toolbarClusters = new LinkedHashMap<>();
     private AnimatedToolbarPane toolbarPane;
     private HBox toolbarCommandBar;
@@ -1257,10 +1258,13 @@ public class PuppeteerWindow extends Stage {
         tfTimelineName.setStyle(STYLE_TEXT_FIELD);
         tfTimelineName.setTooltip(new Tooltip("Name for @external jes_timeline"));
 
+        Button btnSync = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.refresh("#a8d0f0"), "Sync snapshot from VNS script");
+        btnSync.setOnAction(e -> requestSyncSnapshot());
+
         Button btnRegister = makeToolbarSuccessIconButton(com.jvn.editor.ui.CssIcon.save(), "Register timeline for VNS interop");
         btnRegister.setOnAction(e -> requestRegisterTimeline());
 
-        HBox nameBox = new HBox(4, tfTimelineName, btnRegister);
+        HBox nameBox = new HBox(4, btnSync, tfTimelineName, btnRegister);
         nameBox.setAlignment(Pos.CENTER_LEFT);
 
         // --- Apply Code to Model (text-first round-trip) ---
@@ -3585,6 +3589,22 @@ public class PuppeteerWindow extends Stage {
                 runtimeExportBaselines.put(entityName.trim(), copy);
             }
         }
+    }
+
+    public void setOnSyncSnapshotRequested(Runnable r) {
+        this.onSyncSnapshotRequested = r;
+    }
+
+    private void requestSyncSnapshot() {
+        if (onSyncSnapshotRequested != null) {
+            onSyncSnapshotRequested.run();
+        }
+    }
+
+    public void syncWithSnapshot(PuppeteerLauncherPanel.SceneSnapshot snapshot, JesScene2D newScene) {
+        if (snapshot == null || newScene == null) return;
+        setLaunchSceneSnapshot(snapshot);
+        setScene(newScene);
     }
 
     private void applyLaunchScenePresetGrouping() {

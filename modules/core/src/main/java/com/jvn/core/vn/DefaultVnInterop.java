@@ -75,9 +75,13 @@ public class DefaultVnInterop implements VnInterop {
         scene.getState().showHudMessage("[jes] " + payload, 1500);
         return VnInteropResult.advance();
       case "jes_timeline":
-        return handleJesTimeline(payload, scene);
+        return handleJesTimeline(payload, scene, false);
+      case "jes_timeline_blocking":
+        return handleJesTimeline(payload, scene, true);
       case "jes_timeline_inline":
-        return handleJesTimelineInline(payload, scene);
+        return handleJesTimelineInline(payload, scene, false);
+      case "jes_timeline_blocking_inline":
+        return handleJesTimelineInline(payload, scene, true);
       case "var":
         handleVar(payload, scene);
         return VnInteropResult.advance();
@@ -243,7 +247,7 @@ public class DefaultVnInterop implements VnInterop {
 
   private static int inlineTimelineCounter = 0;
 
-  private VnInteropResult handleJesTimelineInline(String payload, VnScene scene) {
+  private VnInteropResult handleJesTimelineInline(String payload, VnScene scene, boolean forceBlocking) {
     if (payload == null || payload.isBlank()) {
       scene.getState().showHudMessage("inline timeline: empty block", 1500);
       return VnInteropResult.advance();
@@ -253,11 +257,12 @@ public class DefaultVnInterop implements VnInterop {
       return VnInteropResult.advance();
     }
     InlineTimelineInvocation invocation = parseInlineTimelineInvocation(payload);
+    boolean blocking = forceBlocking || invocation.waitForCompletion();
     boolean started = false;
     try {
       String name = "_inline_timeline_" + (++inlineTimelineCounter);
       TimelineData data = TimelineDataParser.parse(name, invocation.block());
-      startTimelinePlayback(data, scene, invocation.waitForCompletion(), invocation.chain());
+      startTimelinePlayback(data, scene, blocking, invocation.chain());
       started = true;
     } catch (Exception ex) {
       scene.getState().showHudMessage("inline timeline error: " + ex.getMessage(), 2000);
@@ -266,10 +271,10 @@ public class DefaultVnInterop implements VnInterop {
           invocation.block(),
           ex));
     }
-    return started && invocation.waitForCompletion() ? VnInteropResult.block() : VnInteropResult.advance();
+    return started && blocking ? VnInteropResult.block() : VnInteropResult.advance();
   }
 
-  private VnInteropResult handleJesTimeline(String payload, VnScene scene) {
+  private VnInteropResult handleJesTimeline(String payload, VnScene scene, boolean forceBlocking) {
     TimelineInvocation invocation = parseTimelineInvocation(payload);
     String name = invocation.name();
     if (name.isEmpty()) {
@@ -287,8 +292,9 @@ public class DefaultVnInterop implements VnInterop {
       scene.getState().showHudMessage("jes_timeline: no scene accessor", 1500);
       return VnInteropResult.advance();
     }
-    startTimelinePlayback(data, scene, invocation.waitForCompletion(), invocation.chain());
-    return invocation.waitForCompletion() ? VnInteropResult.block() : VnInteropResult.advance();
+    boolean blocking = forceBlocking || invocation.waitForCompletion();
+    startTimelinePlayback(data, scene, blocking, invocation.chain());
+    return blocking ? VnInteropResult.block() : VnInteropResult.advance();
   }
 
   private void handleVar(String payload, VnScene scene) {
