@@ -580,7 +580,13 @@ fi
 
 spinner_frames=('|' '/' '-' '\')
 spinner_index=0
-spinner_tick_seconds="0.10"
+supports_fractional_timeout=1
+if ! IFS= read -r -t 0.1 < /dev/null 2>/dev/null; then
+  supports_fractional_timeout=0
+  spinner_tick_seconds="1"
+else
+  spinner_tick_seconds="0.10"
+fi
 spinner_tick_marker="__JVNW_SPINNER_TICK__"
 status_text="Preparing..."
 done_message="Command completed."
@@ -984,10 +990,17 @@ while true; do
   fi
 done
 
-while IFS= read -r -t 0.01 line <&3; do
-  printf '%s\n' "$line" >>"$output_log"
-  handle_line "$line"
-done
+if [[ "$supports_fractional_timeout" -eq 1 ]]; then
+  while IFS= read -r -t 0.01 line <&3; do
+    printf '%s\n' "$line" >>"$output_log"
+    handle_line "$line"
+  done
+else
+  while IFS= read -r -t 0 line <&3 2>/dev/null && IFS= read -r line <&3; do
+    printf '%s\n' "$line" >>"$output_log"
+    handle_line "$line"
+  done
+fi
 exec 3<&-
 
 wait "$gradle_pid"

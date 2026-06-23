@@ -3,6 +3,7 @@ package com.jvn.ios;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetManager;
 import com.jvn.core.assets.AssetPaths;
 import com.jvn.core.assets.ClasspathAssetManager;
@@ -45,7 +46,7 @@ public class IosLauncher {
       // Initialize the engine
       engine = new Engine(config);
       engine.start();
-      // TODO: attach asset manager to engine
+      AssetCatalog.setDefaultManager(assetManager);
 
       // Create iOS renderer (CoreGraphics) with asset manager for image loading
       IosRenderer renderer = new IosRenderer(surface, assetManager);

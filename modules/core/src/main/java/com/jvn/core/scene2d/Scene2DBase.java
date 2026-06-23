@@ -170,26 +170,11 @@ public class Scene2DBase implements Scene2D {
       }
       double brightness = e.getBrightness();
       if (e.hasNonIdentityColorMatrix() || Math.abs(brightness - 1.0) > 1e-9) {
-		/**
-		 * TODO: REMOVE THE COMMENTED OUT BLOCK LATER
-		 * AFTER ENSURING THE ENGINE CORE COMPILATION
-		 * 09.06.2026
-		 * -S1mplector
-		 * */
-		  /* 
-        double[] colorMatrix = e.getColorMatrix();
-        if (Math.abs(brightness - 1.0) > 1e-9) {
-          applyBrightness(colorMatrix, brightness);
-        }
-        b.setColorMatrix(colorMatrix);
-        */
-        
         e.getColorMatrix(scratchColorMatrix);
         if (Math.abs(brightness - 1.0) > 1e-9) {
           applyBrightness(scratchColorMatrix, brightness);
         }
         b.setColorMatrix(scratchColorMatrix);
-        
       } else {
         b.clearColorMatrix();
       }

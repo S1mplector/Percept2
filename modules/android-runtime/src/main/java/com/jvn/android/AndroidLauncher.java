@@ -3,6 +3,7 @@ package com.jvn.android;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetManager;
 import com.jvn.core.assets.AssetPaths;
 import com.jvn.core.assets.ClasspathAssetManager;
@@ -53,7 +54,7 @@ public class AndroidLauncher {
       // Initialize the engine
       engine = new Engine(config);
       engine.start();
-      // TODO: attach asset manager to engine
+      AssetCatalog.setDefaultManager(assetManager);
 
       // Create Android renderer with asset manager for image loading
       AndroidRenderer renderer = new AndroidRenderer(surface, assetManager);
