@@ -9,7 +9,6 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
-import java.awt.Desktop;
 import java.io.File;
 import java.io.FileWriter;
 import java.nio.file.Files;
@@ -63,7 +62,7 @@ public class ProjectExplorerView extends VBox {
 
     ContextMenu ctx = new ContextMenu();
     MenuItem miOpen = new MenuItem("Open");
-    MenuItem miReveal = new MenuItem("Reveal in Finder");
+    MenuItem miReveal = new MenuItem("Reveal in JVN Path Explorer");
     MenuItem miNewJes = new MenuItem("New JES Script...");
     MenuItem miNewVns = new MenuItem("New VNS Script...");
     MenuItem miNewJava = new MenuItem("New Java Class...");
@@ -226,9 +225,7 @@ public class ProjectExplorerView extends VBox {
 
   private void openFile(File f) {
     if (onOpenFile != null) { onOpenFile.accept(f); return; }
-    try { Desktop.getDesktop().open(f); } catch (Exception ignored) {
-            // reason: non-critical operation; exception swallowed to prevent crash propagation
-            }
+    EditorPathExplorer.show(getScene() == null ? null : getScene().getWindow(), f);
   }
 
   private boolean sameFile(File a, File b) {
@@ -238,9 +235,7 @@ public class ProjectExplorerView extends VBox {
 
   private void revealSelected() {
     File f = getSelectedFile(); if (f == null) return;
-    try { Desktop.getDesktop().open(f.isDirectory() ? f : f.getParentFile()); } catch (Exception ignored) {
-            // reason: non-critical operation; exception swallowed to prevent crash propagation
-            }
+    EditorPathExplorer.show(getScene() == null ? null : getScene().getWindow(), f);
   }
 
   private File currentTargetDirectory() {

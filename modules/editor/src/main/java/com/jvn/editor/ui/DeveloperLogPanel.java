@@ -1,6 +1,5 @@
 package com.jvn.editor.ui;
 
-import java.awt.Desktop;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -261,11 +260,10 @@ public final class DeveloperLogPanel extends VBox {
   private void revealSelectedLog() {
     LogFile file = fileSelector.getValue();
     if (file == null || file.path().getParent() == null) return;
-    try {
-      Desktop.getDesktop().open(file.path().getParent().toFile());
-      statusLabel.setText("Opened log folder");
-    } catch (Exception ex) {
-      statusLabel.setText("Could not open log folder: " + safeMessage(ex));
+    if (EditorPathExplorer.show(getScene() == null ? null : getScene().getWindow(), file.path().toFile())) {
+      statusLabel.setText("Revealed log file");
+    } else {
+      statusLabel.setText("Could not reveal log file");
     }
   }
 

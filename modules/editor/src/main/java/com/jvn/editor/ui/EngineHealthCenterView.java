@@ -1,6 +1,5 @@
 package com.jvn.editor.ui;
 
-import java.awt.Desktop;
 import java.io.File;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
@@ -806,10 +805,8 @@ public class EngineHealthCenterView extends BorderPane {
       onOpenPath.accept(path);
       return;
     }
-    try {
-      Desktop.getDesktop().open(path);
-    } catch (Exception ex) {
-      summaryLabel.setText("Could not open path: " + ex.getMessage());
+    if (!EditorPathExplorer.show(getScene() == null ? null : getScene().getWindow(), path)) {
+      summaryLabel.setText("Could not reveal path: " + path.getAbsolutePath());
     }
   }
 

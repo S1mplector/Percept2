@@ -363,7 +363,7 @@ public class WelcomeCenterView extends BorderPane {
       ProjectEntry selected = recentList.getSelectionModel().getSelectedItem();
       if (selected != null) openRecentProject(selected);
     });
-    MenuItem miReveal = new MenuItem("Reveal in Explorer");
+    MenuItem miReveal = new MenuItem("Reveal in JVN Path Explorer");
     MenuItem miOpenFile = new MenuItem("Open Project File...");
     MenuItem miSettings = new MenuItem("Settings...");
     miReveal.setOnAction(e -> {
@@ -785,7 +785,7 @@ public class WelcomeCenterView extends BorderPane {
         btnSpotlightRevealProject,
         CssIcon.folder("#d5b36a"),
         "Reveal Folder",
-        "Reveal this project in the file manager");
+        "Reveal this project in JVN Path Explorer");
     btnSpotlightRevealProject.setOnAction(e -> revealLauncherProject(resolveLauncherProjectDir()));
 
     Region headerSpacer = new Region();

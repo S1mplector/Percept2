@@ -478,7 +478,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     fullscreenButton = iconButton(CssIcon.expand("#f5c46b"), "Fullscreen", this::requestFullscreenToggle);
     updateFullscreenButtonUi();
     Button chooseExportFolderButton = iconButton(CssIcon.folder("#f5c46b"), "Choose export folder", this::chooseExportDirectory);
-    Button revealExportFolderButton = iconButton(CssIcon.link("#9cc7ff"), "Reveal export folder in file manager", this::revealExportDirectory);
+    Button revealExportFolderButton = iconButton(CssIcon.link("#9cc7ff"), "Reveal export folder in JVN Path Explorer", this::revealExportDirectory);
     exportPrimaryButton = actionButton("Export Profile", CssIcon.download("#8ab4f8"), "Quick export the selected format to the configured folder", this::quickExportSelectedFormat);
     exportPrimaryAsButton = actionButton("Export Profile As", CssIcon.save("#8ab4f8"), "Choose a destination for the selected format", this::exportSelectedFormatAs);
     Button exportPngButton = actionButton("PNG", CssIcon.download("#8ab4f8"), "Quick export the graded PNG to the configured folder", this::quickExportTintedPng);
@@ -3625,7 +3625,7 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
       return;
     }
     if (AssetPickerSupport.revealFile(directory)) {
-      status("Opened export folder: " + describePathRelativeToProject(directory));
+      status("Revealed export folder: " + describePathRelativeToProject(directory));
     } else {
       status("Could not reveal export folder.");
     }

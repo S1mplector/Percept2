@@ -4148,14 +4148,8 @@ public class PuppeteerWindow extends Stage {
                     lblStatus.setText("Output folder is no longer available.");
                     return;
                 }
-                try {
-                    if (java.awt.Desktop.isDesktopSupported()) {
-                        java.awt.Desktop.getDesktop().open(dir);
-                    } else {
-                        lblStatus.setText("Desktop integration is unavailable in this environment.");
-                    }
-                } catch (Exception ex) {
-                    lblStatus.setText("Could not open folder: " + ex.getMessage());
+                if (!com.jvn.editor.ui.EditorPathExplorer.show(this, dir)) {
+                    lblStatus.setText("Could not reveal folder: " + dir.getAbsolutePath());
                 }
             }),
             ActionEditorDialogOverlay.ActionSpec.neutral("Close", overlayDialog::hideOverlay));

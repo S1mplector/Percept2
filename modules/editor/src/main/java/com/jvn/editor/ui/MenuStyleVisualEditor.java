@@ -476,7 +476,7 @@ public class MenuStyleVisualEditor extends BorderPane {
         field.setText(imported);
       }
     });
-    Button reveal = iconButton(CssIcon.link("#9cc7ff"), "Reveal in file manager");
+    Button reveal = iconButton(CssIcon.link("#9cc7ff"), "Reveal in JVN Path Explorer");
     reveal.setOnAction(e -> revealAsset(field.getText()));
     Button clear = iconButton(CssIcon.clearX("#e07070"), "Clear asset path");
     clear.setOnAction(e -> field.setText(""));

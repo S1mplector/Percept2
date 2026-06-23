@@ -1,6 +1,5 @@
 package com.jvn.editor.ui;
 
-import java.awt.Desktop;
 import java.io.File;
 import java.io.FileInputStream;
 import java.nio.file.Path;
@@ -1306,12 +1305,11 @@ public class GameBuildPublisherView extends BorderPane {
       setNoteTone(statusLabel, "warn");
       return;
     }
-    try {
-      Desktop.getDesktop().open(target);
-      statusLabel.setText("Opened: " + target.getAbsolutePath());
+    if (EditorPathExplorer.show(getScene() == null ? null : getScene().getWindow(), target)) {
+      statusLabel.setText("Revealed: " + target.getAbsolutePath());
       setNoteTone(statusLabel, "status");
-    } catch (Exception ex) {
-      statusLabel.setText("Could not open dependency target: " + ex.getMessage());
+    } else {
+      statusLabel.setText("Could not reveal dependency target.");
       setNoteTone(statusLabel, "error");
     }
   }
@@ -1458,13 +1456,12 @@ public class GameBuildPublisherView extends BorderPane {
 
   private void revealBuilds() {
     File outDir = buildDistributionsDir();
-    try {
-      if (!outDir.exists()) outDir.mkdirs();
-      Desktop.getDesktop().open(outDir);
-      statusLabel.setText("Opened build output folder.");
+    if (!outDir.exists()) outDir.mkdirs();
+    if (EditorPathExplorer.show(getScene() == null ? null : getScene().getWindow(), outDir)) {
+      statusLabel.setText("Revealed build output folder.");
       setNoteTone(statusLabel, "status");
-    } catch (Exception ex) {
-      statusLabel.setText("Could not open build folder: " + ex.getMessage());
+    } else {
+      statusLabel.setText("Could not reveal build folder.");
       setNoteTone(statusLabel, "error");
     }
   }
@@ -1477,12 +1474,11 @@ public class GameBuildPublisherView extends BorderPane {
       setNoteTone(statusLabel, "warn");
       return;
     }
-    try {
-      Desktop.getDesktop().open(folder);
-      statusLabel.setText("Opened release manifest folder.");
+    if (EditorPathExplorer.show(getScene() == null ? null : getScene().getWindow(), manifest)) {
+      statusLabel.setText("Revealed release manifest.");
       setNoteTone(statusLabel, "status");
-    } catch (Exception ex) {
-      statusLabel.setText("Could not open release manifest folder: " + ex.getMessage());
+    } else {
+      statusLabel.setText("Could not reveal release manifest.");
       setNoteTone(statusLabel, "error");
     }
   }
@@ -1517,12 +1513,11 @@ public class GameBuildPublisherView extends BorderPane {
 
   private void openProjectFolder() {
     if (projectRoot == null || !projectRoot.isDirectory()) return;
-    try {
-      Desktop.getDesktop().open(projectRoot);
-      statusLabel.setText("Opened project folder.");
+    if (EditorPathExplorer.show(getScene() == null ? null : getScene().getWindow(), projectRoot)) {
+      statusLabel.setText("Revealed project folder.");
       setNoteTone(statusLabel, "status");
-    } catch (Exception ex) {
-      statusLabel.setText("Could not open project folder: " + ex.getMessage());
+    } else {
+      statusLabel.setText("Could not reveal project folder.");
       setNoteTone(statusLabel, "error");
     }
   }
@@ -1534,12 +1529,11 @@ public class GameBuildPublisherView extends BorderPane {
       setNoteTone(statusLabel, "warn");
       return;
     }
-    try {
-      Desktop.getDesktop().open(config);
-      statusLabel.setText("Opened release config.");
+    if (EditorPathExplorer.show(getScene() == null ? null : getScene().getWindow(), config)) {
+      statusLabel.setText("Revealed release config.");
       setNoteTone(statusLabel, "status");
-    } catch (Exception ex) {
-      statusLabel.setText("Could not open release config: " + ex.getMessage());
+    } else {
+      statusLabel.setText("Could not reveal release config.");
       setNoteTone(statusLabel, "error");
     }
   }
@@ -1547,14 +1541,13 @@ public class GameBuildPublisherView extends BorderPane {
   private void revealRuntimeCache() {
     File cacheDir = bundledRuntimeDownloadDir();
     File extractDir = bundledRuntimeExtractDir();
-    try {
-      if (!cacheDir.exists()) cacheDir.mkdirs();
-      if (!extractDir.exists()) extractDir.mkdirs();
-      Desktop.getDesktop().open(cacheDir);
-      statusLabel.setText("Opened runtime cache folder.");
+    if (!cacheDir.exists()) cacheDir.mkdirs();
+    if (!extractDir.exists()) extractDir.mkdirs();
+    if (EditorPathExplorer.show(getScene() == null ? null : getScene().getWindow(), cacheDir)) {
+      statusLabel.setText("Revealed runtime cache folder.");
       setNoteTone(statusLabel, "status");
-    } catch (Exception ex) {
-      statusLabel.setText("Could not open runtime cache: " + ex.getMessage());
+    } else {
+      statusLabel.setText("Could not reveal runtime cache.");
       setNoteTone(statusLabel, "error");
     }
   }

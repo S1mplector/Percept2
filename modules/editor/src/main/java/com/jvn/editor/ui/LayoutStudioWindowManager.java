@@ -1,6 +1,5 @@
 package com.jvn.editor.ui;
 
-import java.awt.Desktop;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -669,7 +668,7 @@ public class LayoutStudioWindowManager {
       saveButton.setOnAction(e -> save());
       runButton.setOnAction(e -> saveAndRunProject());
       reloadButton.setOnAction(e -> reload());
-      revealButton.setOnAction(e -> revealInFinder());
+      revealButton.setOnAction(e -> revealInPathExplorer());
 
       browseAssetButton.setOnAction(e -> browseExistingAsset());
       importAssetButton.setOnAction(e -> importExternalAsset());
@@ -754,15 +753,11 @@ public class LayoutStudioWindowManager {
       loadFromDisk();
     }
 
-    private void revealInFinder() {
-      try {
-        File parent = file.getParentFile();
-        if (parent == null || !parent.exists()) return;
-        if (Desktop.isDesktopSupported()) Desktop.getDesktop().open(parent);
-        setStatus("Opened: " + toRelativePath(parent));
-      } catch (Exception ex) {
-        setStatus("Reveal failed: " + ex.getMessage());
-      }
+    private void revealInPathExplorer() {
+      File parent = file.getParentFile();
+      if (parent == null || !parent.exists()) return;
+      if (EditorPathExplorer.show(stage, file)) setStatus("Revealed: " + toRelativePath(file));
+      else setStatus("Reveal failed: " + toRelativePath(file));
     }
 
     private File resolveProjectRootForRun() {

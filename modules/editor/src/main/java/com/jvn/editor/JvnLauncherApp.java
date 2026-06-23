@@ -19,6 +19,7 @@ import com.jvn.editor.ui.DeveloperLogPanel;
 import com.jvn.editor.ui.DeveloperToolsMenu;
 import com.jvn.editor.ui.EditorPreferences;
 import com.jvn.editor.ui.EditorPreferencesStore;
+import com.jvn.editor.ui.EditorPathExplorer;
 import com.jvn.editor.ui.EditorTheme;
 import com.jvn.editor.ui.GameBuildPublisherView;
 import com.jvn.editor.ui.JvnStatusBar;
@@ -265,17 +266,13 @@ public class JvnLauncherApp extends Application {
     welcomeView.setOnBuildProject(this::showGameBuildPublisher);
     welcomeView.setOnRevealProject(projectDir -> {
       if (projectDir == null || !projectDir.isDirectory()) return;
-      try {
-        java.awt.Desktop.getDesktop().open(projectDir);
-        statusLabel.setText("Opened folder: " + displayProjectName(projectDir));
-      } catch (Exception ex) {
+      if (EditorPathExplorer.show(primaryStage, projectDir)) {
+        statusLabel.setText("Revealed folder: " + displayProjectName(projectDir));
+      } else {
         EditorDialogs.error(
             primaryStage,
             "Reveal Project",
-            "Could not reveal project folder:\n" + projectDir.getAbsolutePath(),
-            ex,
-            "Confirm the project folder still exists.",
-            "Check that the operating system allows folder reveal/open actions.");
+            "Could not reveal project folder:\n" + projectDir.getAbsolutePath());
       }
     });
     welcomeView.setOnOpenProjectFile(this::openProjectFileFromLauncher);
@@ -496,11 +493,10 @@ public class JvnLauncherApp extends Application {
       statusLabel.setText("No project or workspace folder to reveal");
       return;
     }
-    try {
-      java.awt.Desktop.getDesktop().open(target);
-      statusLabel.setText("Opened folder: " + displayProjectName(target));
-    } catch (Exception ex) {
-      statusLabel.setText("Could not open folder: " + displayProjectName(target));
+    if (EditorPathExplorer.show(primaryStage, target)) {
+      statusLabel.setText("Revealed folder: " + displayProjectName(target));
+    } else {
+      statusLabel.setText("Could not reveal folder: " + displayProjectName(target));
     }
   }
 

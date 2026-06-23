@@ -1,6 +1,5 @@
 package com.jvn.editor.ui;
 
-import java.awt.Desktop;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -179,8 +178,8 @@ From here you can:
 The stat chips at the top show a live count of discovered scripts, folders, \
 and VNS label blocks across the project, giving you a quick sense of scope.
 
-The Reveal button opens the selected file's parent folder in Finder / \
-Explorer for external editing or drag-and-drop asset workflows."""),
+The Reveal button opens the selected path in JVN's cross-platform Path \
+Explorer without relying on operating-system desktop integration."""),
         titleSpacer,
         compactStatChip("Files", scriptsStat),
         compactStatChip("Folders", foldersStat),
@@ -203,7 +202,7 @@ Explorer for external editing or drag-and-drop asset workflows."""),
         .getStyleClass().add("script-editor-action-button-compact");
     styleActionButton(refreshButton, CssIcon.redo("#d0d0d0"), "Refresh the text workspace", false)
         .getStyleClass().add("script-editor-action-button-compact");
-    styleActionButton(revealButton, CssIcon.folder("#d0d0d0"), "Reveal the current workspace folder in Finder", false)
+    styleActionButton(revealButton, CssIcon.folder("#d0d0d0"), "Reveal the current workspace in JVN Path Explorer", false)
         .getStyleClass().add("script-editor-action-button-compact");
 
     FlowPane actionsBar = new FlowPane();
@@ -384,11 +383,11 @@ Explorer for external editing or drag-and-drop asset workflows."""),
         MenuItem copyRelPath = menuItem("Copy Relative Path", CssIcon.link("#c8c8c8"), () -> {
           if (node.entry != null) copyToClipboard(node.entry.projectRelativePath());
         });
-        MenuItem reveal = menuItem("Reveal in File Manager", CssIcon.folder("#d0d0d0"), () -> revealFile(node.file()));
+        MenuItem reveal = menuItem("Reveal in JVN Path Explorer", CssIcon.folder("#d0d0d0"), () -> revealFile(node.file()));
         ctx.getItems().addAll(copyPath, copyRelPath, reveal);
       } else if (node.directory) {
         MenuItem newScript = menuItem("New File Here…", CssIcon.plus("#8bcf98"), () -> createNewScriptInFolder(node));
-        MenuItem reveal = menuItem("Reveal in File Manager", CssIcon.folder("#d0d0d0"), () -> {
+        MenuItem reveal = menuItem("Reveal in JVN Path Explorer", CssIcon.folder("#d0d0d0"), () -> {
           File dir = resolveNodeDirectory(node);
           if (dir != null && dir.exists()) revealFile(dir);
         });
@@ -493,14 +492,9 @@ Explorer for external editing or drag-and-drop asset workflows."""),
 
   private void revealFile(File target) {
     if (target == null) return;
-    File dir = target.isDirectory() ? target : target.getParentFile();
-    if (dir == null || !dir.exists()) return;
-    try {
-      Desktop.getDesktop().open(dir);
-      setStatus("Revealed " + dir.getAbsolutePath());
-    } catch (Exception ex) {
-      showLaunchError("Failed to reveal:\n" + ex.getMessage());
-    }
+    if (EditorPathExplorer.show(getScene() == null ? null : getScene().getWindow(), target)) {
+      setStatus("Revealed " + target.getAbsolutePath());
+    } else showLaunchError("Failed to reveal:\n" + target.getAbsolutePath());
   }
 
   private void refreshWorkspace() {
@@ -869,12 +863,9 @@ Explorer for external editing or drag-and-drop asset workflows."""),
       setStatus("Nothing to reveal.");
       return;
     }
-    try {
-      Desktop.getDesktop().open(target);
+    if (EditorPathExplorer.show(getScene() == null ? null : getScene().getWindow(), target)) {
       setStatus("Revealed " + target.getAbsolutePath());
-    } catch (Exception ex) {
-      showLaunchError("Failed to reveal path:\n" + ex.getMessage());
-    }
+    } else showLaunchError("Failed to reveal path:\n" + target.getAbsolutePath());
   }
 
   private void createNewScript() {

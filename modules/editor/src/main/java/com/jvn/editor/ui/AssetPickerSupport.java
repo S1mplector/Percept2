@@ -1,6 +1,5 @@
 package com.jvn.editor.ui;
 
-import java.awt.Desktop;
 import java.io.File;
 import java.util.List;
 import java.util.function.Function;
@@ -72,23 +71,6 @@ final class AssetPickerSupport {
   }
 
   static boolean revealFile(File file) {
-    try {
-      if (file == null) return false;
-      File target = file;
-      if (!target.exists()) {
-        File parent = target.getParentFile();
-        if (parent == null || !parent.exists()) return false;
-        target = parent;
-      }
-      if (!Desktop.isDesktopSupported()) return false;
-      File openTarget = target.isDirectory() ? target : target.getParentFile();
-      if (openTarget == null || !openTarget.exists()) return false;
-      Desktop.getDesktop().open(openTarget);
-      return true;
-    } catch (Exception ignored) {
-            // reason: non-critical operation; exception swallowed to prevent crash propagation
-      return false;
-    }
+    return EditorPathExplorer.show(file);
   }
 }
-

@@ -44,6 +44,7 @@ import com.jvn.editor.ui.DeveloperToolsMenu;
 import com.jvn.editor.ui.DslPropertyDiagnostics;
 import com.jvn.editor.ui.EditorDialogs;
 import com.jvn.editor.ui.EditorPanelPlacement;
+import com.jvn.editor.ui.EditorPathExplorer;
 import com.jvn.editor.ui.EditorPreferences;
 import com.jvn.editor.ui.EditorPreferencesStore;
 import com.jvn.editor.ui.EditorSettingsView;
@@ -1458,8 +1459,8 @@ public class EditorApp extends Application {
     MenuItem miCloseAllTabs = new MenuItem("Close All Tabs");
     miCloseAllTabs.setOnAction(e -> closeAllClosableTabs());
     miCloseAllTabs.setAccelerator(new KeyCodeCombination(KeyCode.W, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
-    MenuItem miRevealActiveFile = new MenuItem("Reveal Active File in File Manager");
-    miRevealActiveFile.setOnAction(e -> revealActiveFileInFileManager());
+    MenuItem miRevealActiveFile = new MenuItem("Reveal Active File in JVN Path Explorer");
+    miRevealActiveFile.setOnAction(e -> revealActiveFileInPathExplorer());
     MenuItem miCopyActiveFilePath = new MenuItem("Copy Active File Path");
     miCopyActiveFilePath.setOnAction(e -> copyActiveFilePathToClipboard());
     MenuItem miFileWelcome = new MenuItem("Workspace Hub");
@@ -1470,8 +1471,8 @@ public class EditorApp extends Application {
     miFileRunProject.setOnAction(e -> doRunProject(primaryStage));
     MenuItem miFileBuildPublish = new MenuItem("Build & Publish...");
     miFileBuildPublish.setOnAction(e -> showGameBuildPublisherWindow(primaryStage));
-    MenuItem miFileRevealProjectRoot = new MenuItem("Reveal Project Root in File Manager");
-    miFileRevealProjectRoot.setOnAction(e -> revealProjectRootInFileManager());
+    MenuItem miFileRevealProjectRoot = new MenuItem("Reveal Project Root in JVN Path Explorer");
+    miFileRevealProjectRoot.setOnAction(e -> revealProjectRootInPathExplorer());
     MenuItem miFileCopyProjectRoot = new MenuItem("Copy Project Root Path");
     miFileCopyProjectRoot.setOnAction(e -> copyProjectRootPathToClipboard());
     MenuItem miFileProjectDocs = new MenuItem("Open Project Docs Folder");
@@ -1559,8 +1560,8 @@ public class EditorApp extends Application {
     miEditResetCamera.setOnAction(e -> resetCamera());
     MenuItem miEditFitContent = new MenuItem("Fit Content / Open Fullscreen Preview");
     miEditFitContent.setOnAction(e -> fitCameraToContent());
-    MenuItem miEditRevealProjectRoot = new MenuItem("Reveal Project Root in File Manager");
-    miEditRevealProjectRoot.setOnAction(e -> revealProjectRootInFileManager());
+    MenuItem miEditRevealProjectRoot = new MenuItem("Reveal Project Root in JVN Path Explorer");
+    miEditRevealProjectRoot.setOnAction(e -> revealProjectRootInPathExplorer());
     MenuItem miEditCopyProjectRootPath = new MenuItem("Copy Project Root Path");
     miEditCopyProjectRootPath.setOnAction(e -> copyProjectRootPathToClipboard());
     Menu menuEditSearch = new Menu("Search");
@@ -1891,8 +1892,8 @@ public class EditorApp extends Application {
       if (versionControlView != null) versionControlView.refreshStatus();
       selectVersionControlTab();
     });
-    MenuItem miRevealProjectRoot = new MenuItem("Reveal Project Root in File Manager");
-    miRevealProjectRoot.setOnAction(e -> revealProjectRootInFileManager());
+    MenuItem miRevealProjectRoot = new MenuItem("Reveal Project Root in JVN Path Explorer");
+    miRevealProjectRoot.setOnAction(e -> revealProjectRootInPathExplorer());
     MenuItem miCopyProjectRootPath = new MenuItem("Copy Project Root Path");
     miCopyProjectRootPath.setOnAction(e -> copyProjectRootPathToClipboard());
     menuVcs.getItems().addAll(miOpenVcs, miRefreshVcs, new SeparatorMenuItem(), miRevealProjectRoot, miCopyProjectRootPath);
@@ -2091,12 +2092,12 @@ public class EditorApp extends Application {
     statusBar.applyStatusBarPreferences(editorPreferences);
     statusBar.setProjectRoot(projectRoot);
     statusBar.setTheme(EditorTheme.theme());
-    statusBar.setOnRevealProjectRoot(this::revealProjectRootInFileManager);
+    statusBar.setOnRevealProjectRoot(this::revealProjectRootInPathExplorer);
     statusBar.setOnCopyProjectRootPath(this::copyProjectRootPathToClipboard);
     statusBar.setOnRunProject(() -> doRunProject(primaryStage));
     statusBar.setOnOpenVersionControl(this::selectVersionControlTab);
     statusBar.setOnOpenSettings(this::selectEditorSettingsTab);
-    statusBar.setOnRevealActiveFile(this::revealActiveFileInFileManager);
+    statusBar.setOnRevealActiveFile(this::revealActiveFileInPathExplorer);
     statusBar.setOnCopyActiveFilePath(this::copyActiveFilePathToClipboard);
     statusBar.setOnSaveAll(this::saveAllOpenTabs);
     statusBar.setOnOpenDiagnostics(this::selectVnsDiagnosticsTab);
@@ -2150,7 +2151,9 @@ public class EditorApp extends Application {
       miCloseTab.setDisable(activeTab == null || !activeTab.isClosable());
       miCloseAllTabs.setText(closableTabs > 0 ? "Close All Tabs (" + closableTabs + ")" : "Close All Tabs");
       miCloseAllTabs.setDisable(closableTabs == 0);
-      miRevealActiveFile.setText(hasFile ? "Reveal " + ft.getDisplayName() + " in File Manager" : "Reveal Active File in File Manager");
+      miRevealActiveFile.setText(hasFile
+          ? "Reveal " + ft.getDisplayName() + " in JVN Path Explorer"
+          : "Reveal Active File in JVN Path Explorer");
       miRevealActiveFile.setDisable(!hasFile);
       miCopyActiveFilePath.setText(hasFile ? "Copy " + ft.getDisplayName() + " Path" : "Copy Active File Path");
       miCopyActiveFilePath.setDisable(!hasFile);
@@ -3548,19 +3551,19 @@ public class EditorApp extends Application {
     return !ft.isDirty();
   }
 
-  private void revealActiveFileInFileManager() {
+  private void revealActiveFileInPathExplorer() {
     FileEditorTab ft = getActiveFileTab();
     File target = ft != null ? ft.getFile() : null;
     if (target == null) {
       if (status != null) status.setText("No active file to reveal.");
       return;
     }
-    openDirectoryInFileManager(target.isDirectory() ? target : target.getParentFile(),
+    revealPathInExplorer(target,
         "Could not reveal " + ft.getDisplayName() + ".");
   }
 
-  private void revealProjectRootInFileManager() {
-    openDirectoryInFileManager(projectRoot, "Project root is not available.");
+  private void revealProjectRootInPathExplorer() {
+    revealPathInExplorer(projectRoot, "Project root is not available.");
   }
 
   private void copyActiveFilePathToClipboard() {
@@ -3584,23 +3587,22 @@ public class EditorApp extends Application {
   }
 
   private void openProjectDocsFolder() {
-    openDirectoryInFileManager(resolveDocsDirectory(projectRoot), "Project docs folder not found.");
+    revealPathInExplorer(resolveDocsDirectory(projectRoot), "Project docs folder not found.");
   }
 
   private void openWorkspaceDocsFolder() {
-    openDirectoryInFileManager(resolveDocsDirectory(resolveWorkspaceRoot()), "Workspace docs folder not found.");
+    revealPathInExplorer(resolveDocsDirectory(resolveWorkspaceRoot()), "Workspace docs folder not found.");
   }
 
-  private void openDirectoryInFileManager(File dir, String missingMessage) {
-    if (dir == null || !dir.isDirectory()) {
+  private void revealPathInExplorer(File target, String missingMessage) {
+    if (target == null || !target.exists()) {
       if (status != null && missingMessage != null && !missingMessage.isBlank()) status.setText(missingMessage);
       return;
     }
-    try {
-      java.awt.Desktop.getDesktop().open(dir);
-      if (status != null) status.setText("Opened " + dir.getName() + ".");
-    } catch (Exception ex) {
-      if (status != null) status.setText("Failed to open " + dir.getAbsolutePath() + ".");
+    if (EditorPathExplorer.show(target)) {
+      if (status != null) status.setText("Revealed " + target.getName() + ".");
+    } else if (status != null) {
+      status.setText("Failed to reveal " + target.getAbsolutePath() + ".");
     }
   }
 

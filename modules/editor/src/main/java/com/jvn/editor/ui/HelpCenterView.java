@@ -650,12 +650,8 @@ public class HelpCenterView extends BorderPane {
   private void revealSelectedDoc() {
     DocEntry entry = selectedDocEntry();
     if (entry == null) return;
-    try {
-      if (Desktop.isDesktopSupported()) {
-        Desktop.getDesktop().open(entry.file().getParentFile());
-      }
-    } catch (Exception ex) {
-      statsLabel.setText("Cannot reveal file: " + ex.getMessage());
+    if (!EditorPathExplorer.show(getScene() == null ? null : getScene().getWindow(), entry.file())) {
+      statsLabel.setText("Cannot reveal file: " + entry.file().getAbsolutePath());
     }
   }
 

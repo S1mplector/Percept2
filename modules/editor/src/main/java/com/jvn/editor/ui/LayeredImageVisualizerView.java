@@ -491,7 +491,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     toolRow.setAlignment(Pos.CENTER_LEFT);
 
     Button chooseExportFolderButton = iconButton(CssIcon.folder("#f5c46b"), "Choose export folder", this::chooseExportDirectory);
-    Button revealExportFolderButton = iconButton(CssIcon.link("#9cc7ff"), "Reveal export folder in file manager", this::revealExportDirectory);
+    Button revealExportFolderButton = iconButton(CssIcon.link("#9cc7ff"), "Reveal export folder in JVN Path Explorer", this::revealExportDirectory);
     Button copyCharpresetExportButton = actionButton("Copy Charpreset", CssIcon.copy("#c6a0f6"), "Copy runtime-ready @charlayer + @charpreset declarations", this::copyCharpresetSnippet);
     Button exportCharpresetButton = actionButton("Save Charpreset", CssIcon.save("#c6a0f6"), "Quick export @charlayer + @charpreset declarations as a .vns snippet", this::quickExportCharpresetToFile);
     Button exportCharpresetAsButton = actionButton("Charpreset As", CssIcon.download("#c6a0f6"), "Choose a .vns snippet destination", this::exportCharpresetToFileAs);
@@ -2997,7 +2997,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       return;
     }
     if (AssetPickerSupport.revealFile(directory)) {
-      status("Opened export folder: " + describePathRelativeToProject(directory));
+      status("Revealed export folder: " + describePathRelativeToProject(directory));
     } else {
       status("Could not reveal export folder.");
     }
