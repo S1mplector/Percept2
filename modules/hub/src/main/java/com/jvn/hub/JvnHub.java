@@ -33,6 +33,7 @@ import java.awt.geom.Path2D;
 import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -227,6 +228,7 @@ public final class JvnHub {
   private AnnouncementsButton announcementsButton;
   /** Update button with a right-aligned incoming-commit badge. */
   private UpdateEngineButton updateEngineButton;
+  private HubShellPanel shellPanel;
 
   private JvnHub(Path projectRoot) {
     this.projectRoot = projectRoot;
@@ -862,10 +864,13 @@ public final class JvnHub {
     actionButtons.add(updateEngineButton);
     rebuildActionGrid();
 
+    shellPanel = new HubShellPanel();
+
     JPanel center = new JPanel(new BorderLayout(0, ui(8)));
     center.setOpaque(false);
     center.add(actionGrid, BorderLayout.NORTH);
     center.add(buildActivityPanel(), BorderLayout.SOUTH);
+    center.add(shellPanel, BorderLayout.CENTER);
     return center;
   }
 
@@ -1193,6 +1198,11 @@ public final class JvnHub {
         : "Developer-only actions are hidden from the main hub controls.";
     setStatus(title, enabled ? ACCENT_DEV : TEXT_SOFT);
     setActivity(title, detail, false, enabled ? ACCENT_DEV : TEXT_MUTED);
+    if (shellPanel != null) {
+      shellPanel.setVisible(enabled);
+      frame.setPreferredSize(null);
+      frame.pack();
+    }
   }
 
   private void showGradleOptionsDialog() {
@@ -5140,6 +5150,164 @@ public final class JvnHub {
       g2.fillRoundRect(bounds.x + inset, bounds.y + inset,
           bounds.width - inset * 2, bounds.height - inset * 2, arc, arc);
       g2.dispose();
+    }
+  }
+
+  private class HubShellPanel extends JPanel {
+    private final javax.swing.JTextPane textPane = new javax.swing.JTextPane();
+    private final JTextField inputField = new JTextField();
+    private final StringBuilder sessionText = new StringBuilder();
+    private File currentWorkingDir;
+
+    HubShellPanel() {
+      super(new BorderLayout(0, ui(8)));
+      setOpaque(false);
+      setVisible(false);
+
+      currentWorkingDir = projectRoot != null ? projectRoot.toFile() : new File(System.getProperty("user.dir"));
+
+      textPane.setEditable(false);
+      textPane.setBackground(PANEL_BG);
+      textPane.setForeground(LOG_TEXT);
+      textPane.setFont(new Font(Font.MONOSPACED, Font.PLAIN, (int) uiFont(12f)));
+      textPane.setBorder(uiPadding(4, 4, 4, 4));
+
+      JScrollPane scroll = new JScrollPane(textPane);
+      scroll.setBorder(BorderFactory.createLineBorder(BORDER_NEUTRAL));
+      scroll.setBackground(BG);
+      scroll.getViewport().setBackground(PANEL_BG);
+      styleScrollBar(scroll.getVerticalScrollBar());
+      styleScrollBar(scroll.getHorizontalScrollBar());
+      scroll.setPreferredSize(uiDimension(0, 160));
+
+      inputField.setBackground(PANEL_BG);
+      inputField.setForeground(TEXT_PRIMARY);
+      inputField.setCaretColor(TEXT_PRIMARY);
+      inputField.setBorder(BorderFactory.createCompoundBorder(
+          BorderFactory.createLineBorder(BORDER_NEUTRAL),
+          uiPadding(4, 6, 4, 6)));
+      inputField.setFont(new Font(Font.MONOSPACED, Font.PLAIN, (int) uiFont(12f)));
+
+      inputField.addActionListener(e -> {
+        String cmd = inputField.getText();
+        if (cmd != null && !cmd.isBlank()) {
+          inputField.setText("");
+          executeCommand(cmd.trim());
+        }
+      });
+
+      FlatButton btnNew = new FlatButton("New Session", null, null);
+      btnNew.addActionListener(e -> {
+        textPane.setText("");
+        sessionText.setLength(0);
+        appendOutput("Session reset.\n", LOG_TEXT);
+      });
+
+      FlatButton btnCopy = new FlatButton("Copy Session", null, null);
+      btnCopy.addActionListener(e -> {
+        StringSelection selection = new StringSelection(sessionText.toString());
+        Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, selection);
+        appendOutput("Session text copied to clipboard.\n", LOG_TEXT);
+      });
+
+      JPanel header = new JPanel(new BorderLayout());
+      header.setOpaque(false);
+      JLabel lbl = new JLabel("Developer Shell");
+      lbl.setForeground(TEXT_PRIMARY);
+      lbl.setFont(lbl.getFont().deriveFont(Font.BOLD, uiFont(11f)));
+      header.add(lbl, BorderLayout.WEST);
+
+      JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, ui(4), 0));
+      buttons.setOpaque(false);
+      buttons.add(btnNew);
+      buttons.add(btnCopy);
+      header.add(buttons, BorderLayout.EAST);
+
+      add(header, BorderLayout.NORTH);
+      add(scroll, BorderLayout.CENTER);
+      add(inputField, BorderLayout.SOUTH);
+
+      appendOutput("Working directory initialized to: " + currentWorkingDir.getAbsolutePath() + "\n", ACCENT_NEUTRAL);
+    }
+
+    private void appendOutput(String text, Color color) {
+      SwingUtilities.invokeLater(() -> {
+        javax.swing.text.StyledDocument doc = textPane.getStyledDocument();
+        javax.swing.text.Style style = textPane.addStyle("ColorStyle", null);
+        javax.swing.text.StyleConstants.setForeground(style, color);
+        try {
+          doc.insertString(doc.getLength(), text, style);
+          sessionText.append(text);
+          textPane.setCaretPosition(doc.getLength());
+        } catch (Exception ignored) {}
+      });
+    }
+
+    private void executeCommand(String commandLine) {
+      String dirPrefix = currentWorkingDir != null ? currentWorkingDir.getAbsolutePath() + "> " : "> ";
+      appendOutput(dirPrefix + commandLine + "\n", ACCENT_GREEN);
+
+      if (commandLine.startsWith("cd ")) {
+        handleCdCommand(commandLine);
+        return;
+      }
+
+      boolean isWin = System.getProperty("os.name").toLowerCase().contains("win");
+      List<String> command = new ArrayList<>();
+      if (isWin) {
+        command.add("cmd.exe");
+        command.add("/c");
+        command.add(commandLine);
+      } else {
+        command.add("bash");
+        command.add("-c");
+        command.add(commandLine);
+      }
+
+      ProcessBuilder pb = new ProcessBuilder(command);
+      if (currentWorkingDir != null && currentWorkingDir.isDirectory()) {
+        pb.directory(currentWorkingDir);
+      }
+      pb.redirectErrorStream(true);
+
+      Thread execThread = new Thread(() -> {
+        try {
+          Process process = pb.start();
+          try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+              appendOutput(line + "\n", LOG_TEXT);
+            }
+          }
+          process.waitFor();
+        } catch (Exception e) {
+          appendOutput("Execution error: " + e.getMessage() + "\n", ACCENT_ERROR);
+        }
+      });
+      execThread.setDaemon(true);
+      execThread.start();
+    }
+
+    private void handleCdCommand(String commandLine) {
+      String target = commandLine.substring(3).trim();
+      if (target.isBlank()) return;
+
+      File newDir = new File(target);
+      if (!newDir.isAbsolute() && currentWorkingDir != null) {
+        newDir = new File(currentWorkingDir, target);
+      }
+
+      try {
+        newDir = newDir.getCanonicalFile();
+        if (newDir.exists() && newDir.isDirectory()) {
+          currentWorkingDir = newDir;
+          appendOutput("Changed directory to " + currentWorkingDir.getAbsolutePath() + "\n", ACCENT_NEUTRAL);
+        } else {
+          appendOutput("cd: no such file or directory: " + target + "\n", ACCENT_ERROR);
+        }
+      } catch (Exception e) {
+        appendOutput("cd error: " + e.getMessage() + "\n", ACCENT_ERROR);
+      }
     }
   }
 }
