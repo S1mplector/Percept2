@@ -4,6 +4,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -18,7 +19,11 @@ public class CodeExporter {
     private static final double TIME_QUANTIZATION_FACTOR = 1000.0; // 0.001ms
 
     public static String exportNamed(AnimationProject project, String name) {
-        String body = export(project);
+        return exportNamed(project, name, false);
+    }
+
+    public static String exportNamed(AnimationProject project, String name, boolean exportNestedBlocks) {
+        String body = export(project, exportNestedBlocks);
         StringBuilder sb = new StringBuilder();
         sb.append("// Timeline: ").append(name).append("\n");
         sb.append("// Usage in VNS: @external jes_timeline ").append(name).append("\n\n");
@@ -257,43 +262,85 @@ public class CodeExporter {
     }
 
     public static String export(AnimationProject project) {
-        if (project == null) return "timeline {\n}\n";
-
-        StringBuilder sb = new StringBuilder();
-        sb.append("timeline {\n");
-
-        appendScheduledEvents(sb, collectEvents(project), project.getTotalDurationMs(), true);
-
-        sb.append("}\n");
-        return sb.toString();
+        return export(project, false);
     }
 
-    public static String exportWithGroups(AnimationProject project) {
+    public static String export(AnimationProject project, boolean exportNestedBlocks) {
         if (project == null) return "timeline {\n}\n";
 
         StringBuilder sb = new StringBuilder();
         sb.append("timeline {\n");
 
-        for (String groupName : project.getRootGroupNames()) {
-            exportGroupRecursive(sb, project, groupName, "  ");
+        List<TimelineEvent> allEvents = collectEvents(project);
+        
+        if (exportNestedBlocks) {
+            // Group events by target
+            Map<String, List<TimelineEvent>> eventsByTarget = new LinkedHashMap<>();
+            for (TimelineEvent ev : allEvents) {
+                eventsByTarget.computeIfAbsent(ev.target, k -> new ArrayList<>()).add(ev);
+            }
+            
+            // Build root elements
+            Set<String> processedTargets = new java.util.HashSet<>();
+            for (String groupName : project.getRootGroupNames()) {
+                exportGroupRecursive(sb, project, groupName, "  ", eventsByTarget, processedTargets);
+            }
+            
+            // Export any unparented targets
+            List<TimelineEvent> unparentedEvents = new ArrayList<>();
+            for (Map.Entry<String, List<TimelineEvent>> entry : eventsByTarget.entrySet()) {
+                if (!processedTargets.contains(entry.getKey())) {
+                    unparentedEvents.addAll(entry.getValue());
+                }
+            }
+            if (!unparentedEvents.isEmpty()) {
+                appendScheduledEvents(sb, unparentedEvents, project.getTotalDurationMs(), true);
+            }
+        } else {
+            appendScheduledEvents(sb, allEvents, project.getTotalDurationMs(), true);
         }
-
-        appendScheduledEvents(sb, collectEvents(project), project.getTotalDurationMs(), true);
 
         sb.append("}\n");
         return sb.toString();
     }
 
     private static void exportGroupRecursive(StringBuilder sb, AnimationProject project, 
-                                              String groupName, String indent) {
+                                              String groupName, String indent,
+                                              Map<String, List<TimelineEvent>> eventsByTarget,
+                                              Set<String> processedTargets) {
         EntityGroup group = project.getGroup(groupName);
         if (group == null) return;
-
-        sb.append(indent).append("// Group: ").append(groupName).append("\n");
+        
+        processedTargets.add(groupName);
+        
+        sb.append(indent).append("[group ").append(groupName).append("]\n");
+        
+        List<TimelineEvent> localEvents = eventsByTarget.getOrDefault(groupName, List.of());
+        if (!localEvents.isEmpty()) {
+            appendScheduledEventsWithIndent(sb, localEvents, project.getTotalDurationMs(), true, indent + "  ");
+        }
 
         for (String childGroup : group.getChildGroupNames()) {
-            exportGroupRecursive(sb, project, childGroup, indent);
+            exportGroupRecursive(sb, project, childGroup, indent + "  ", eventsByTarget, processedTargets);
         }
+        
+        // Export character entities that belong to this group
+        for (EntityTrack track : project.getTracks()) {
+            if (groupName.equals(track.getParentGroupName())) {
+                String targetId = track.getEntityName();
+                if (!processedTargets.contains(targetId)) {
+                    processedTargets.add(targetId);
+                    List<TimelineEvent> charEvents = eventsByTarget.getOrDefault(targetId, List.of());
+                    if (!charEvents.isEmpty()) {
+                        sb.append(indent).append("  [character ").append(targetId).append("]\n");
+                        appendScheduledEventsWithIndent(sb, charEvents, project.getTotalDurationMs(), true, indent + "    ");
+                        sb.append(indent).append("  [/character]\n");
+                    }
+                }
+            }
+        }
+        
+        sb.append(indent).append("[/group]\n");
     }
 
     private static List<TimelineEvent> collectEvents(AnimationProject project) {
@@ -836,6 +883,16 @@ public class CodeExporter {
         double totalDurationMs,
         boolean groupByStartTime
     ) {
+        appendScheduledEventsWithIndent(sb, events, totalDurationMs, groupByStartTime, "  ");
+    }
+
+    private static void appendScheduledEventsWithIndent(
+        StringBuilder sb,
+        List<TimelineEvent> events,
+        double totalDurationMs,
+        boolean groupByStartTime,
+        String indent
+    ) {
         if (sb == null) return;
         List<TimelineEvent> safeEvents = events == null ? List.of() : new ArrayList<>(events);
         safeEvents.sort(Comparator.comparingDouble(e -> e.startTime));
@@ -852,26 +909,26 @@ public class CodeExporter {
             List<TimelineEvent> group = entry.getValue();
 
             if (time > currentTime + 0.0005) {
-                sb.append("  wait ").append(formatNumber(time - currentTime)).append("\n");
+                sb.append(indent).append("wait ").append(formatNumber(time - currentTime)).append("\n");
             }
 
             if (!groupByStartTime || group.size() == 1) {
                 for (TimelineEvent ev : group) {
-                    sb.append(formatEvent(ev));
+                    sb.append(formatEvent(ev, indent));
                 }
             } else {
-                sb.append("  parallel {\n");
+                sb.append(indent).append("parallel {\n");
                 for (TimelineEvent ev : group) {
-                    sb.append("  ").append(formatEvent(ev));
+                    sb.append(formatEvent(ev, indent + "  "));
                 }
-                sb.append("  }\n");
+                sb.append(indent).append("}\n");
             }
             currentTime = time;
         }
 
         double duration = Double.isFinite(totalDurationMs) ? Math.max(0.0, totalDurationMs) : 0.0;
         if (duration > currentTime + 0.0005) {
-            sb.append("  wait ").append(formatNumber(duration - currentTime)).append("\n");
+            sb.append(indent).append("wait ").append(formatNumber(duration - currentTime)).append("\n");
         }
     }
 
@@ -880,40 +937,40 @@ public class CodeExporter {
         return Math.round(Math.max(0.0, timeMs) * TIME_QUANTIZATION_FACTOR) / TIME_QUANTIZATION_FACTOR;
     }
 
-    private static String formatEvent(TimelineEvent ev) {
+    private static String formatEvent(TimelineEvent ev, String indent) {
         StringBuilder sb = new StringBuilder();
         if ("cameraMove".equals(ev.actionType) || "cameraZoom".equals(ev.actionType)) {
-            sb.append("  ").append(ev.actionType).append(" {\n");
+            sb.append(indent).append(ev.actionType).append(" {\n");
         } else if ("scene".equals(ev.actionType) && (ev.target == null || ev.target.isBlank())) {
-            sb.append("  scene {\n");
+            sb.append(indent).append("scene {\n");
         } else if ("event".equals(ev.actionType)) {
-            sb.append("  event \"").append(ev.target).append("\" {\n");
+            sb.append(indent).append("event \"").append(ev.target).append("\" {\n");
         } else if ("property".equals(ev.actionType) && "__camera__".equals(ev.target)) {
-            sb.append("  property {\n");
+            sb.append(indent).append("property {\n");
         } else {
-            sb.append("  ").append(ev.actionType).append(" \"").append(ev.target).append("\" {\n");
+            sb.append(indent).append(ev.actionType).append(" \"").append(ev.target).append("\" {\n");
         }
 
         for (Map.Entry<String, Object> entry : ev.props.entrySet()) {
-            sb.append("    ").append(entry.getKey()).append(": ")
+            sb.append(indent).append("  ").append(entry.getKey()).append(": ")
               .append(formatPropValue(entry.getValue())).append("\n");
         }
 
         if (ev.duration > 0.0 && !"playAudio".equals(ev.actionType)) {
-            sb.append("    dur: ").append(formatNumber(ev.duration)).append("\n");
+            sb.append(indent).append("  dur: ").append(formatNumber(ev.duration)).append("\n");
         }
 
         if (ev.interpolation != Easing.Interpolation.TWEEN) {
-            sb.append("    interp: ").append(ev.interpolation.name().toLowerCase()).append("\n");
+            sb.append(indent).append("  interp: ").append(ev.interpolation.name().toLowerCase()).append("\n");
         }
 
         if (ev.interpolation == Easing.Interpolation.TWEEN
             && ev.easingSpec != null
             && ev.easingSpec.getType() != Easing.Type.LINEAR) {
-            sb.append("    easing: ").append(ev.easingSpec.toDslString()).append("\n");
+            sb.append(indent).append("  easing: ").append(ev.easingSpec.toDslString()).append("\n");
         }
 
-        sb.append("  }\n");
+        sb.append(indent).append("}\n");
         return sb.toString();
     }
 

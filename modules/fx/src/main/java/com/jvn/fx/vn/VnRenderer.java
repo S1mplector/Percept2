@@ -347,12 +347,16 @@ public class VnRenderer {
       }
     }
     if (!handledTransitionBackground) {
+      VnBackground prevBg = state.getPreviousBackgroundId() != null ? scenario.getBackground(state.getPreviousBackgroundId()) : null;
+      if (prevBg != null) {
+        renderBackground(prevBg, null, width, height, "bg_prev");
+      }
       VnBackground bg = state.getCurrentBackgroundId() != null ? scenario.getBackground(state.getCurrentBackgroundId()) : null;
       if (bg != null || activeStage != null) {
-        renderBackground(bg, activeStage, width, height);
+        renderBackground(bg, activeStage, width, height, "bg_current");
       }
     } else if (activeStage != null) {
-      renderBackground(null, activeStage, width, height);
+      renderBackground(null, activeStage, width, height, "bg_current");
     }
 
     // Apply transition effect if active
@@ -506,14 +510,14 @@ public class VnRenderer {
     return position.getOrdinal();
   }
 
-  private void renderBackground(VnBackground background, VnStagePreset stage, double width, double height) {
+  private void renderBackground(VnBackground background, VnStagePreset stage, double width, double height, String timelineEntityId) {
     String backgroundPath = resolveBackgroundPath(background, stage);
     if (backgroundPath == null || backgroundPath.isBlank()) return;
     Image img = loadImage(backgroundPath);
     com.jvn.core.scene2d.Entity2D proxy = timelineAccessor != null
         && background != null
         && (stage == null || stage.getBackgroundTag() == null || stage.getBackgroundTag().isBlank())
-        ? timelineAccessor.getProxy(background.getId())
+        ? timelineAccessor.getProxy(timelineEntityId != null ? timelineEntityId : background.getId())
         : null;
     if (img != null) {
       if (stage != null && proxy == null) {
@@ -775,9 +779,27 @@ public class VnRenderer {
     if (imagePath == null || alpha <= 0.001) return;
     gc.save();
     if (alpha < 0.999) gc.setGlobalAlpha(alpha);
+    applyGroupTransforms(characterId, state);
     renderCharacterSprite(imagePath, expression, character, position, width, height, offsetX, offsetY,
         characterId, state, scenario, stage);
     gc.restore();
+  }
+
+  private void applyGroupTransforms(String targetId, VnState state) {
+    if (state == null || timelineAccessor == null) return;
+    String parentId = state.getDynamicGroups().get(targetId);
+    if (parentId == null) return;
+    
+    applyGroupTransforms(parentId, state);
+    
+    Entity2D proxy = timelineAccessor.getProxy(parentId);
+    if (proxy != null) {
+      double px = proxy.getX();
+      double py = proxy.getY();
+      gc.translate(px, py);
+      if (proxy.getRotationDeg() != 0.0) gc.rotate(proxy.getRotationDeg());
+      if (proxy.getScaleX() != 1.0 || proxy.getScaleY() != 1.0) gc.scale(proxy.getScaleX(), proxy.getScaleY());
+    }
   }
 
   private void renderCharacterSprite(String imagePath, String expression, VnCharacter character, CharacterPosition position, double width, double height, double offsetX, double offsetY, String characterId, VnState state, VnScenario scenario, VnStagePreset stage) {

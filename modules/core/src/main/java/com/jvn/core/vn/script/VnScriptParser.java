@@ -43,6 +43,7 @@ public class VnScriptParser {
   private static final Pattern CHARLAYER_PATTERN = Pattern.compile("^@charlayer\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARPRESET_PATTERN = Pattern.compile("^@charpreset\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern STAGE_PRESET_PATTERN = Pattern.compile("^@stagepreset\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern GROUP_PATTERN = Pattern.compile("^@group\\s+(\\S+)(?:\\s+(\\S+))?$", Pattern.CASE_INSENSITIVE);
   private static final Pattern VAR_PATTERN = Pattern.compile("^@var\\s+(\\S+)(?:\\s*=\\s*(.+)|\\s+(.+))?$", Pattern.CASE_INSENSITIVE);
   private static final Pattern LABEL_PATTERN = Pattern.compile("^@label\\s+(\\S+)\\s*$", Pattern.CASE_INSENSITIVE);
   private static final Pattern LABEL_LEGACY_PATTERN = Pattern.compile("^label\\s+(\\S+)\\s*$", Pattern.CASE_INSENSITIVE);
@@ -761,6 +762,15 @@ public class VnScriptParser {
         continue;
       }
 
+      Matcher groupMatcher = GROUP_PATTERN.matcher(trimmed);
+      if (groupMatcher.matches()) {
+        state.contentEmitted = true;
+        String id = groupMatcher.group(1).trim();
+        String parentId = groupMatcher.group(2) != null ? groupMatcher.group(2).trim() : null;
+        state.builder.addGroup(id, parentId);
+        continue;
+      }
+
       Matcher positionMatcher = POSITION_PATTERN.matcher(trimmed);
       if (positionMatcher.matches()) {
         String posName = positionMatcher.group(1).trim().toLowerCase();
@@ -1156,6 +1166,17 @@ public class VnScriptParser {
           throw parseError(sourceName, lineNumber, "[voice] requires a track id", rawLine);
         }
         state.pendingVoiceTrackId = track;
+        return;
+      }
+      case "group": {
+        String payload = arg == null ? "" : arg.trim();
+        String[] toks = VnArgTokenizer.tokenizeToArray(payload);
+        if (toks.length == 0 || toks[0].isBlank()) {
+          throw parseError(sourceName, lineNumber, "[group] requires a target id", rawLine);
+        }
+        String targetId = toks[0];
+        String parentId = toks.length > 1 ? toks[1] : null;
+        state.builder.group(targetId, parentId);
         return;
       }
       case "voice_stop":

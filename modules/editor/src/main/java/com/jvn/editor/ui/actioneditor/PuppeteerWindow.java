@@ -269,6 +269,7 @@ public class PuppeteerWindow extends Stage {
     private StackPane workspaceModeHost;
     public boolean dirty = false;
     private boolean compactExport = false;
+    private boolean exportNestedBlocks = true;
     public boolean previewStaged = false;
     private boolean dirtyBeforePreviewStage = false;
     private AnimationProject previewBaselineProject;
@@ -1258,7 +1259,7 @@ public class PuppeteerWindow extends Stage {
         tfTimelineName.setStyle(STYLE_TEXT_FIELD);
         tfTimelineName.setTooltip(new Tooltip("Name for @external jes_timeline"));
 
-        Button btnSync = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.refresh("#a8d0f0"), "Sync snapshot from VNS script");
+        Button btnSync = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.loop("#a8d0f0"), "Sync snapshot from VNS script");
         btnSync.setOnAction(e -> requestSyncSnapshot());
 
         Button btnRegister = makeToolbarSuccessIconButton(com.jvn.editor.ui.CssIcon.save(), "Register timeline for VNS interop");
@@ -2499,8 +2500,17 @@ public class PuppeteerWindow extends Stage {
         }, "Toggle visibility of the VNS code preview pane");
         Button btnRefreshCode = buildSidebarActionButton("Refresh Code", this::refreshExportPreview, "Regenerate the VNS code from the current timeline");
 
+        javafx.scene.control.CheckBox cbExportNested = new javafx.scene.control.CheckBox("Export Nested Groups");
+        cbExportNested.setStyle("-fx-text-fill: #a0aabf; -fx-font-family: \"Inter\", sans-serif; -fx-font-size: 11px;");
+        cbExportNested.setSelected(exportNestedBlocks);
+        cbExportNested.setOnAction(e -> {
+            exportNestedBlocks = cbExportNested.isSelected();
+            refreshExportPreview();
+        });
+
         HBox previewActions = buildSidebarButtonRow(btnFitPreview, btnSidebarPreviewLayout);
-        HBox workspaceActions = buildSidebarButtonRow(btnSidebarCodePane, btnRefreshCode);
+        HBox workspaceActions = new HBox(4, btnSidebarCodePane, btnRefreshCode, cbExportNested);
+        workspaceActions.setAlignment(Pos.CENTER_LEFT);
 
         ScrollPane content = buildSidebarTabContent(
             buildSidebarCard(
@@ -3658,6 +3668,10 @@ public class PuppeteerWindow extends Stage {
             if (groupLayer != Integer.MAX_VALUE) {
                 group.setLayerOrder(groupLayer);
             }
+        }
+        for (Map.Entry<String, String> entry : launchSceneSnapshot.dynamicGroups.entrySet()) {
+            project.getOrCreateGroup(entry.getKey()).setParentGroupName(entry.getValue());
+            changed = true;
         }
         if (changed) {
             project.setOrbitAnchorSources(orbitSources);
@@ -8206,7 +8220,7 @@ public class PuppeteerWindow extends Stage {
             project.setName(name);
             project.setSceneEntitySnapshots(captureSceneEntitySnapshots());
             TimelineData data = project.toTimelineData(name);
-            String code = CodeExporter.exportNamed(project, name);
+            String code = CodeExporter.exportNamed(project, name, exportNestedBlocks);
             codePreview.setCode(code);
             boolean saved = saveTimelineFile(name, code);
             if (!saved) {

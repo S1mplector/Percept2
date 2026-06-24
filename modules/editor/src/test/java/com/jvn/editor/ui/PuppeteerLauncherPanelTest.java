@@ -368,6 +368,7 @@ class PuppeteerLauncherPanelTest {
     PuppeteerLauncherPanel.SceneSnapshot snapshot = new PuppeteerLauncherPanel.SceneSnapshot(
         "intro",
         "field_day",
+        null,
         3,
         List.of(new PuppeteerLauncherPanel.CharacterEntry("lavender", "center", "talking", 4)),
         4,
@@ -392,6 +393,7 @@ class PuppeteerLauncherPanelTest {
     PuppeteerLauncherPanel.SceneSnapshot snapshot = new PuppeteerLauncherPanel.SceneSnapshot(
         "intro",
         "field_day",
+        null,
         3,
         List.of(new PuppeteerLauncherPanel.CharacterEntry("lavender", "center", "neutral", 4)),
         4,

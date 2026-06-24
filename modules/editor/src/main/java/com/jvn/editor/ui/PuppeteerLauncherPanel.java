@@ -57,6 +57,7 @@ public class PuppeteerLauncherPanel extends VBox {
   private static final Pattern EXT_CHAR_HIDE = Pattern.compile("^\\s*@external\\s+char(?:acter)?\\s+(\\S+)\\s+hide", Pattern.CASE_INSENSITIVE);
   private static final Pattern EXT_CHAR_MOVE = Pattern.compile("^\\s*@external\\s+char(?:acter)?\\s+(\\S+)\\s+move\\s+(\\S+)", Pattern.CASE_INSENSITIVE);
   private static final Pattern EXT_CHAR_EXPR = Pattern.compile("^\\s*@external\\s+char(?:acter)?\\s+(\\S+)\\s+(?:expression|expr)\\s+(\\S+)", Pattern.CASE_INSENSITIVE);
+  private static final Pattern GROUP_DECL_PATTERN = Pattern.compile("^\\s*@group\\s+(\\S+)(?:\\s+(\\S+))?$", Pattern.CASE_INSENSITIVE);
   private static final Set<String> KNOWN_POSITIONS = Set.of("far_left", "left", "center", "right", "far_right");
 
   private final Label lblHeader;
@@ -1202,11 +1203,11 @@ button then opens it in the editor."""));
 
   // --- VNS Scene State Resolver ---
 
-  static SceneSnapshot resolveSnapshot(String source, int upToLine) {
+  public static SceneSnapshot resolveSnapshot(String source, int upToLine) {
     return resolveSnapshot(source, upToLine, null, null);
   }
 
-  static SceneSnapshot resolveSnapshot(
+  public static SceneSnapshot resolveSnapshot(
       String source,
       int upToLine,
       String sourceName,
@@ -1217,6 +1218,7 @@ button then opens it in the editor."""));
 
     String currentLabel = null;
     String backgroundId = null;
+    String previousBackgroundId = null;
     int backgroundLine = -1;
     Map<String, CharacterEntry> visible = new LinkedHashMap<>();
     Map<String, String> bgPaths = new LinkedHashMap<>();
@@ -1224,7 +1226,10 @@ button then opens it in the editor."""));
     Map<String, String> charImgPaths = new LinkedHashMap<>();
     Map<String, Map<String, String>> charLayerPaths = new LinkedHashMap<>();
     Map<String, List<CharacterLayerEntry>> charPresetLayers = new LinkedHashMap<>();
+    Map<String, String> dynamicGroups = new LinkedHashMap<>();
     String activeStagePresetId = null;
+
+    boolean firstBackgroundFound = false;
     int activeStageLine = -1;
     String referencedTimelineName = null;
     int referencedTimelineLine = -1;
@@ -1259,6 +1264,7 @@ button then opens it in the editor."""));
       // Background command [bg id] or [background id]
       m = BG_CMD_PATTERN.matcher(line);
       if (m.find()) {
+        previousBackgroundId = backgroundId;
         backgroundId = m.group(1);
         backgroundLine = i;
         continue;
@@ -1281,6 +1287,19 @@ button then opens it in the editor."""));
       m = CHARIMG_PATTERN.matcher(line);
       if (m.find()) {
         charImgPaths.put(m.group(1) + "/" + m.group(2), m.group(3).trim());
+        continue;
+      }
+
+      // @group declaration
+      m = GROUP_DECL_PATTERN.matcher(trimmed);
+      if (m.find()) {
+        String targetId = m.group(1).trim();
+        String parentId = m.group(2) != null ? m.group(2).trim() : null;
+        if (parentId == null || "none".equalsIgnoreCase(parentId) || "root".equalsIgnoreCase(parentId)) {
+          dynamicGroups.remove(targetId);
+        } else {
+          dynamicGroups.put(targetId, parentId);
+        }
         continue;
       }
 
@@ -1328,6 +1347,18 @@ button then opens it in the editor."""));
 	      if (applyCharacterCommand(commandLine, i, visible)) {
 	        continue;
 	      }
+
+      List<String> groupTokens = parseGroupCommand(commandLine);
+      if (groupTokens != null) {
+        String targetId = groupTokens.get(0);
+        String parentId = groupTokens.get(1);
+        if (parentId == null || "none".equalsIgnoreCase(parentId) || "root".equalsIgnoreCase(parentId)) {
+          dynamicGroups.remove(targetId);
+        } else {
+          dynamicGroups.put(targetId, parentId);
+        }
+        continue;
+      }
 
       String stageCommand = parseStageCommand(commandLine);
       if (stageCommand != null) {
@@ -1401,6 +1432,7 @@ button then opens it in the editor."""));
     return new SceneSnapshot(
         currentLabel,
         backgroundId,
+        previousBackgroundId,
         backgroundLine,
         new ArrayList<>(visible.values()),
         limit,
@@ -1412,11 +1444,12 @@ button then opens it in the editor."""));
         activeStageLine,
         referencedTimelineName,
         referencedTimelineLine,
-	        inlineTimeline != null ? inlineTimeline.body() : null,
-	        inlineTimeline != null ? inlineTimeline.startLine() : -1,
-	        inlineTimelineName,
-	        inlineTimelineHistory);
-	  }
+        inlineTimeline != null ? inlineTimeline.body() : null,
+        inlineTimeline != null ? inlineTimeline.startLine() : -1,
+        inlineTimelineName,
+        inlineTimelineHistory,
+        dynamicGroups);
+  }
 
   private SceneSnapshot buildSnapshot(int lineIdx) {
     return resolveSnapshot(
@@ -1726,6 +1759,15 @@ button then opens it in the editor."""));
 	  ) {
 	    CharacterUpdate update = parseCharacterUpdate(tokens, startIndex, "center", "neutral");
 	    return new CharacterEntry(characterId, update.position(), update.expression(), atLine);
+	  }
+
+	  private static List<String> parseGroupCommand(String line) {
+	    List<String> tokens = bracketTokens(line);
+	    if (tokens.size() < 2 || !"group".equalsIgnoreCase(tokens.get(0))) return null;
+	    String targetId = tokens.get(1);
+	    if (targetId == null || targetId.isBlank()) return null;
+	    String parentId = tokens.size() >= 3 ? tokens.get(2) : null;
+	    return Arrays.asList(targetId, parentId);
 	  }
 
 	  private static CharacterUpdate parseCharacterUpdate(
@@ -2210,6 +2252,7 @@ button then opens it in the editor."""));
   public static class SceneSnapshot {
     public final String currentLabel;
     public final String backgroundId;
+    public final String previousBackgroundId;
     public final int backgroundLine;
     public final List<CharacterEntry> characters;
     public final int atLine;
@@ -2225,9 +2268,11 @@ button then opens it in the editor."""));
 	    public final int inlineTimelineStartLine;
 	    public final String inlineTimelineName;
 	    public final List<InlineTimelineContext> inlineTimelineHistory;
+      public final Map<String, String> dynamicGroups;
 
     public SceneSnapshot(String currentLabel,
 	                         String backgroundId,
+                             String previousBackgroundId,
 	                         int backgroundLine,
 	                         List<CharacterEntry> characters,
                          int atLine,
@@ -2241,6 +2286,7 @@ button then opens it in the editor."""));
       this(
           currentLabel,
           backgroundId,
+          previousBackgroundId,
 	          backgroundLine,
 	          characters,
 	          atLine,
@@ -2255,11 +2301,13 @@ button then opens it in the editor."""));
 	          inlineTimelineBody,
 	          inlineTimelineStartLine,
 	          inlineTimelineName,
-	          List.of());
+	          List.of(),
+            Map.of());
 	    }
 
     public SceneSnapshot(String currentLabel,
 	                         String backgroundId,
+                             String previousBackgroundId,
 	                         int backgroundLine,
 	                         List<CharacterEntry> characters,
 	                         int atLine,
@@ -2277,6 +2325,7 @@ button then opens it in the editor."""));
 	      this(
 	          currentLabel,
 	          backgroundId,
+              previousBackgroundId,
 	          backgroundLine,
 	          characters,
 	          atLine,
@@ -2291,11 +2340,13 @@ button then opens it in the editor."""));
 	          inlineTimelineBody,
 	          inlineTimelineStartLine,
 	          inlineTimelineName,
-	          List.of());
+	          List.of(),
+	          Map.of());
 	    }
 
 	    public SceneSnapshot(String currentLabel,
 		                         String backgroundId,
+                                 String previousBackgroundId,
 		                         int backgroundLine,
 		                         List<CharacterEntry> characters,
 		                         int atLine,
@@ -2310,9 +2361,11 @@ button then opens it in the editor."""));
 	                         String inlineTimelineBody,
 	                         int inlineTimelineStartLine,
 	                         String inlineTimelineName,
-	                         List<InlineTimelineContext> inlineTimelineHistory) {
+	                         List<InlineTimelineContext> inlineTimelineHistory,
+                           Map<String, String> dynamicGroups) {
 	      this.currentLabel = currentLabel;
 	      this.backgroundId = backgroundId;
+          this.previousBackgroundId = previousBackgroundId;
 	      this.backgroundLine = backgroundLine;
       this.characters = characters == null ? List.of() : characters;
       this.atLine = atLine;
@@ -2328,10 +2381,15 @@ button then opens it in the editor."""));
 	      this.inlineTimelineStartLine = inlineTimelineStartLine;
 	      this.inlineTimelineName = inlineTimelineName;
 	      this.inlineTimelineHistory = inlineTimelineHistory == null ? List.of() : List.copyOf(inlineTimelineHistory);
+        this.dynamicGroups = dynamicGroups == null ? Map.of() : Map.copyOf(dynamicGroups);
 	    }
 
     public String resolveBackgroundPath() {
       return backgroundId != null ? backgroundPaths.getOrDefault(backgroundId, backgroundId) : null;
+    }
+
+    public String resolvePreviousBackgroundPath() {
+      return previousBackgroundId != null ? backgroundPaths.getOrDefault(previousBackgroundId, previousBackgroundId) : null;
     }
 
     public boolean hasBackgroundPathMapping() {

@@ -435,6 +435,12 @@ public class VnScene implements Scene {
           instantCount++;
           break;
 
+        case GROUP:
+          processGroupNode(node);
+          state.advance();
+          instantCount++;
+          break;
+
         case AUDIO:
           processAudioNode(node);
           state.advance();
@@ -613,6 +619,16 @@ public class VnScene implements Scene {
     if (waitMs > 0) {
       waitingNode = true;
       waitRemainingMs = waitMs;
+    }
+  }
+
+  private void processGroupNode(VnNode node) {
+    if (node.getGroupTargetId() != null) {
+      if (node.getGroupParentId() == null || node.getGroupParentId().isBlank() || "none".equalsIgnoreCase(node.getGroupParentId()) || "root".equalsIgnoreCase(node.getGroupParentId())) {
+        state.getDynamicGroups().remove(node.getGroupTargetId());
+      } else {
+        state.getDynamicGroups().put(node.getGroupTargetId(), node.getGroupParentId());
+      }
     }
   }
 

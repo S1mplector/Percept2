@@ -17,6 +17,7 @@ public class VnScenario {
   private final Map<String, VnCharacter> characters;
   private final Map<String, VnBackground> backgrounds;
   private final Map<String, VnStagePreset> stagePresets;
+  private final Map<String, VnGroup> groups;
 
   private VnScenario(Builder builder) {
     this.id = builder.id;
@@ -25,6 +26,7 @@ public class VnScenario {
     this.characters = new HashMap<>(builder.characters);
     this.backgrounds = new HashMap<>(builder.backgrounds);
     this.stagePresets = new HashMap<>(builder.stagePresets);
+    this.groups = new HashMap<>(builder.groups);
   }
 
   public String getId() { return id; }
@@ -48,6 +50,8 @@ public class VnScenario {
   public VnBackground getBackground(String id) { return backgrounds.get(id); }
   public VnStagePreset getStagePreset(String id) { return stagePresets.get(id); }
   public Map<String, VnStagePreset> getStagePresets() { return stagePresets; }
+  public VnGroup getGroup(String id) { return groups.get(id); }
+  public Map<String, VnGroup> getGroups() { return groups; }
 
   public static Builder builder(String id) { return new Builder(id); }
 
@@ -58,6 +62,7 @@ public class VnScenario {
     private final Map<String, VnCharacter> characters = new HashMap<>();
     private final Map<String, VnBackground> backgrounds = new HashMap<>();
     private final Map<String, VnStagePreset> stagePresets = new HashMap<>();
+    private final Map<String, VnGroup> groups = new HashMap<>();
 
     private Builder(String id) { this.id = id; }
 
@@ -84,6 +89,13 @@ public class VnScenario {
     public Builder addStagePreset(VnStagePreset stagePreset) {
       if (stagePreset != null && !stagePreset.getId().isBlank()) {
         stagePresets.put(stagePreset.getId(), stagePreset);
+      }
+      return this;
+    }
+
+    public Builder addGroup(VnGroup group) {
+      if (group != null && !group.id().isBlank()) {
+        groups.put(group.id(), group);
       }
       return this;
     }

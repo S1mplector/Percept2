@@ -26,6 +26,8 @@ public class VnNode {
   private final long moveDurationMs;
   private final VnExternalCommand externalCommand;
   private final VnParticleCommand particleCommand;
+  private final String groupTargetId;
+  private final String groupParentId;
   private final int sourceLine;
 
   private VnNode(Builder builder) {
@@ -46,6 +48,8 @@ public class VnNode {
     this.moveDurationMs = builder.moveDurationMs;
     this.externalCommand = builder.externalCommand;
     this.particleCommand = builder.particleCommand;
+    this.groupTargetId = builder.groupTargetId;
+    this.groupParentId = builder.groupParentId;
     this.sourceLine = builder.sourceLine;
   }
 
@@ -66,6 +70,8 @@ public class VnNode {
   public long getMoveDurationMs() { return moveDurationMs; }
   public VnExternalCommand getExternalCommand() { return externalCommand; }
   public VnParticleCommand getParticleCommand() { return particleCommand; }
+  public String getGroupTargetId() { return groupTargetId; }
+  public String getGroupParentId() { return groupParentId; }
   public int getSourceLine() { return sourceLine; }
 
   public static Builder builder(VnNodeType type) { return new Builder(type); }
@@ -88,6 +94,8 @@ public class VnNode {
     private long moveDurationMs;
     private VnExternalCommand externalCommand;
     private VnParticleCommand particleCommand;
+    private String groupTargetId;
+    private String groupParentId;
     private int sourceLine;
 
     private Builder(VnNodeType type) { this.type = type; }
@@ -108,6 +116,8 @@ public class VnNode {
     public Builder moveDurationMs(long ms) { this.moveDurationMs = ms; return this; }
     public Builder external(VnExternalCommand cmd) { this.externalCommand = cmd; return this; }
     public Builder particleCommand(VnParticleCommand cmd) { this.particleCommand = cmd; return this; }
+    public Builder groupTargetId(String targetId) { this.groupTargetId = targetId; return this; }
+    public Builder groupParentId(String parentId) { this.groupParentId = parentId; return this; }
     public Builder sourceLine(int line) { this.sourceLine = line; return this; }
     public VnNode build() { return new VnNode(this); }
   }

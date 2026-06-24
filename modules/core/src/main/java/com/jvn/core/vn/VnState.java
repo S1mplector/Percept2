@@ -29,6 +29,7 @@ public class VnState {
   private String sourceScriptName;
   private int currentNodeIndex;
   private String currentBackgroundId;
+  private String previousBackgroundId;
   private final Map<CharacterPosition, CharacterSlot> visibleCharacters;
   private final Map<String, DetachedCharacterSlot> detachedCharacters;
   private final List<Integer> callStack; // For CALL/RETURN subroutine support
@@ -42,6 +43,7 @@ public class VnState {
   private final Set<String> globalPositionCharacters;
   private final Map<String, CharacterPosition> characterDefinedPositions;
   private final Map<String, Object> variables; // For future flag/variable system
+  private final Map<String, String> dynamicGroups; // targetId -> parentId
   private final VnPersistentStore persistentStore;
   private final Set<String> mirroredPersistentVariables;
   private final List<VnOverlayScreenSpec> overlayScreens = new ArrayList<>();
@@ -97,6 +99,7 @@ public class VnState {
     this.globalPositionCharacters = new HashSet<>();
     this.characterDefinedPositions = new HashMap<>();
     this.variables = new HashMap<>();
+    this.dynamicGroups = new HashMap<>();
     this.persistentStore = new VnPersistentStore();
     this.mirroredPersistentVariables = new HashSet<>();
     this.waitingForInput = false;
@@ -127,10 +130,18 @@ public class VnState {
   }
 
   public String getCurrentBackgroundId() { return currentBackgroundId; }
-  public void setCurrentBackgroundId(String id) { this.currentBackgroundId = id; }
+  public void setCurrentBackgroundId(String id) {
+    this.previousBackgroundId = this.currentBackgroundId;
+    this.currentBackgroundId = id;
+  }
+  public String getPreviousBackgroundId() { return previousBackgroundId; }
 
   public Map<CharacterPosition, CharacterSlot> getVisibleCharacters() {
     return visibleCharacters;
+  }
+
+  public Map<String, String> getDynamicGroups() {
+    return dynamicGroups;
   }
 
   public Map<String, DetachedCharacterSlot> getDetachedCharacters() {

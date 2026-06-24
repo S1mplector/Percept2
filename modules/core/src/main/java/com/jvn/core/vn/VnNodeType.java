@@ -17,6 +17,7 @@ public enum VnNodeType {
   SHOW,          // Show a character at a position
   HIDE,          // Hide a character
   MOVE,          // Move a character to a position with optional easing
+  GROUP,         // Group/parenting a character dynamically
 
   // Flow control
   JUMP,          // Jump to a label

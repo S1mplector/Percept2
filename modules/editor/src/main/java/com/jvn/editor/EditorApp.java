@@ -6978,8 +6978,8 @@ public class EditorApp extends Application {
     puppeteer.setOnSyncSnapshotRequested(() -> {
       FileEditorTab currentFt = getActiveFileTab();
       if (currentFt == null) return;
-      int caretLine = currentFt.getCaretLine();
-      PuppeteerLauncherPanel.SceneSnapshot newSnapshot = PuppeteerLauncherPanel.resolveSnapshot(currentFt.getText(), caretLine);
+      int caretLine = currentFt.getVnsCaretLine();
+      PuppeteerLauncherPanel.SceneSnapshot newSnapshot = PuppeteerLauncherPanel.resolveSnapshot(currentFt.getCurrentTextSnapshot(), caretLine);
       JesScene2D newScene = buildSceneFromSnapshot(newSnapshot);
       puppeteer.syncWithSnapshot(newSnapshot, newScene);
     });
@@ -7904,6 +7904,15 @@ public class EditorApp extends Application {
     double sceneH = Math.max(1.0, viewport.height());
     double characterHeight = sceneH * 0.85;
 
+    if (snapshot.previousBackgroundId != null) {
+      String prevBgPath = resolveProjectPathSpec(snapshot.resolvePreviousBackgroundPath());
+      com.jvn.core.scene2d.Sprite2D prevBg = new com.jvn.core.scene2d.Sprite2D(prevBgPath, sceneW, sceneH);
+      prevBg.setOrigin(0.0, 0.0);
+      prevBg.setPosition(0.0, 0.0);
+      scene.add(prevBg);
+      scene.registerEntity("bg_prev", prevBg);
+    }
+
     if (snapshot.backgroundId != null) {
       String bgPath = resolveProjectPathSpec(snapshot.resolveBackgroundPath());
       com.jvn.core.scene2d.Sprite2D bg = new com.jvn.core.scene2d.Sprite2D(bgPath, sceneW, sceneH);
@@ -7911,6 +7920,7 @@ public class EditorApp extends Application {
       bg.setPosition(0.0, 0.0);
       scene.add(bg);
       scene.registerEntity("bg_" + snapshot.backgroundId, bg);
+      scene.registerEntity("bg_current", bg);
     }
 
     for (PuppeteerLauncherPanel.CharacterEntry ch : snapshot.characters) {
@@ -8084,8 +8094,8 @@ public class EditorApp extends Application {
     puppeteer.setOnSyncSnapshotRequested(() -> {
       FileEditorTab currentFt = getActiveFileTab();
       if (currentFt == null) return;
-      int caretLine = currentFt.getCaretLine();
-      PuppeteerLauncherPanel.SceneSnapshot newSnapshot = PuppeteerLauncherPanel.resolveSnapshot(currentFt.getText(), caretLine);
+      int caretLine = currentFt.getVnsCaretLine();
+      PuppeteerLauncherPanel.SceneSnapshot newSnapshot = PuppeteerLauncherPanel.resolveSnapshot(currentFt.getCurrentTextSnapshot(), caretLine);
       JesScene2D newScene = buildSceneFromSnapshot(newSnapshot);
       puppeteer.syncWithSnapshot(newSnapshot, newScene);
     });

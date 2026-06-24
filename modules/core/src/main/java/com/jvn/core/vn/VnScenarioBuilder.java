@@ -59,6 +59,11 @@ public class VnScenarioBuilder {
     return this;
   }
 
+  public VnScenarioBuilder addGroup(String id, String parentId) {
+    scenarioBuilder.addGroup(new VnGroup(id, parentId));
+    return this;
+  }
+
   public VnScenarioBuilder label(String labelName) {
     this.lastLabel = labelName;
     scenarioBuilder.addLabel(labelName);
@@ -222,6 +227,16 @@ public class VnScenarioBuilder {
     if (easingType != null) b.moveEasingType(easingType);
     if (durationMs > 0) b.moveDurationMs(durationMs);
     scenarioBuilder.addNode(b.build());
+    return this;
+  }
+
+  public VnScenarioBuilder group(String targetId, String parentId) {
+    scenarioBuilder.addNode(
+      VnNode.builder(VnNodeType.GROUP)
+        .groupTargetId(targetId)
+        .groupParentId(parentId)
+        .build()
+    );
     return this;
   }
 
