@@ -37,6 +37,8 @@ Narrator: {color=#4a9eff}{wave}Welcome{/wave}{/color}
 | `{color=V}` | `{/color}` | `#RRGGBB` | Colored text |
 | `{speed=V}` | `{/speed}` | float | Speed multiplier (0.5 = half speed, 2.0 = double) |
 | `{delay=V}` | none | int (ms) | Pause before the next text span |
+| `{w}` / `{wait}` | none | optional seconds | Pause reveal until input, or for the given duration |
+| `{nw}` / `{nowait}` | none | optional seconds | Advance automatically without final input, optionally after the given duration |
 
 ### Reserved Effects (Enum Only)
 
@@ -70,6 +72,7 @@ TextParser is lightweight and **state-based** (not stack-based):
 - **Color is tracked separately** from effects — `{color}` + `{shake}` works correctly (color and animation are independent channels).
 - **Speed is tracked separately** — `{speed}` doesn't interact with effect state.
 - **Delay is consumed once** — `{delay=500}` attaches to the next text span, then resets to 0.
+- **Wait/nowait positions are measured in visible characters** — markup does not count toward reveal progress.
 - Tags are **case-insensitive** (`{Shake}` works the same as `{shake}`).
 
 ### Nesting Rules
@@ -94,6 +97,8 @@ Narrator: {delay=250}The room went silent.
 Hero: {shake}Did you hear that?{/shake}
 Guide: {color=#4a9eff}Stay calm.{/color}
 Narrator: {wave}A strange wind passed by.{/wave}
+Narrator: Wait here.{w} Now go.
+Narrator: This line advances by itself.{nw=1.0}
 [end]
 ```
 

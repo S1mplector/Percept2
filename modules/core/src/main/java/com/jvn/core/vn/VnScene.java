@@ -1,5 +1,6 @@
 package com.jvn.core.vn;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.function.BooleanSupplier;
 import org.slf4j.Logger;
@@ -9,6 +10,7 @@ import com.jvn.core.audio.AudioFacade;
 import com.jvn.core.localization.Localization;
 import com.jvn.core.scene.Scene;
 import com.jvn.core.vn.rollback.VnRollbackEntry;
+import com.jvn.core.vn.text.TextParser;
 
 /**
  * Scene implementation for visual novel gameplay.
@@ -38,6 +40,13 @@ public class VnScene implements Scene {
   private boolean transitionBlocking = false;
   private long transitionRemainingMs = 0;
   private BooleanSupplier interopBlockCondition;
+  private List<TextParser.ControlTag> dialogueControlTags = List.of();
+  private int dialogueControlNodeIndex = -1;
+  private int nextDialogueControlIndex = 0;
+  private boolean waitingAtTextTag = false;
+  private long textTagWaitRemainingMs = 0;
+  private boolean nowaitPending = false;
+  private long nowaitRemainingMs = 0;
 
   public VnScene(VnScenario scenario) {
     this.scenario = scenario;
@@ -234,7 +243,9 @@ public class VnScene implements Scene {
     if (currentNode.getType() == VnNodeType.DIALOGUE) {
       DialogueLine dialogue = currentNode.getDialogue();
       if (dialogue != null) {
-        int textLength = resolveInterpolatedText(dialogue.getText()).length();
+        String resolvedText = resolveInterpolatedText(dialogue.getText());
+        ensureDialogueControlState(resolvedText);
+        int textLength = TextParser.plainLength(resolvedText);
         
         // Skip mode: instant text
         if (state.isSkipMode() && (state.getSettings().isSkipUnreadText() || state.isNodeRead(state.getCurrentNodeIndex()))) {
@@ -245,18 +256,20 @@ public class VnScene implements Scene {
           processCurrentNode();
           return;
         }
+
+        if (handleDialogueControlTags(deltaMs)) {
+          return;
+        }
         
         if (state.getTextRevealProgress() < textLength) {
-          textRevealTimer += deltaMs;
-          long textSpeed = state.getSettings().getTextSpeed();
-          if (textSpeed <= 0) {
-            state.setTextRevealProgress(textLength);
-            textRevealTimer = 0;
-          } else if (textRevealTimer >= textSpeed) {
-            state.incrementTextReveal(1);
-            textRevealTimer = 0;
+          revealDialogueText(deltaMs, textLength);
+          if (handleDialogueControlTags(0)) {
+            return;
           }
         } else {
+          if (handleDialogueControlTags(deltaMs)) {
+            return;
+          }
           state.setWaitingForInput(true);
           
           // Auto-play mode
@@ -288,12 +301,19 @@ public class VnScene implements Scene {
     VnNode current = state.getCurrentNode();
     if (current == null) return;
 
+    if (releaseTextTagWait()) return;
+    if (nowaitPending) {
+      advanceAfterDialogueControl();
+      return;
+    }
+
     // If text is still revealing, complete it instantly, then advance
     if (current.getType() == VnNodeType.DIALOGUE) {
       DialogueLine dialogue = current.getDialogue();
-      int textLength = dialogue == null ? 0 : resolveInterpolatedText(dialogue.getText()).length();
+      int textLength = dialogue == null ? 0 : TextParser.plainLength(resolveInterpolatedText(dialogue.getText()));
       if (state.getTextRevealProgress() < textLength) {
         state.setTextRevealProgress(textLength);
+        skipDialogueControlTagsThrough(textLength);
       }
       stopDialogueVoiceIfPresent(current);
     }
@@ -310,14 +330,23 @@ public class VnScene implements Scene {
   public void advanceFromClick() {
     VnNode current = state.getCurrentNode();
     if (current == null) return;
+    if (releaseTextTagWait()) return;
+    if (nowaitPending) {
+      advanceAfterDialogueControl();
+      return;
+    }
     if (current.getType() == VnNodeType.DIALOGUE
         && state.getSettings().isClickRevealBeforeAdvance()) {
       DialogueLine dialogue = current.getDialogue();
-      int textLength = dialogue == null ? 0 : resolveInterpolatedText(dialogue.getText()).length();
+      String resolvedText = dialogue == null ? "" : resolveInterpolatedText(dialogue.getText());
+      ensureDialogueControlState(resolvedText);
+      int textLength = TextParser.plainLength(resolvedText);
       if (state.getTextRevealProgress() < textLength) {
-        state.setTextRevealProgress(textLength);
+        state.setTextRevealProgress(nextDialogueControlPositionOrEnd(textLength));
+        handleDialogueControlTags(0);
         return;
       }
+      if (handleDialogueControlTags(0)) return;
     }
     advance();
   }
@@ -370,6 +399,7 @@ public class VnScene implements Scene {
       state.setTextRevealProgress(0);
       textRevealTimer = 0;
       state.resetAutoPlayTimer();
+      resetDialogueControlState();
 
       // Mark node as read
       state.markNodeAsRead(state.getCurrentNodeIndex());
@@ -492,6 +522,8 @@ public class VnScene implements Scene {
     // Add to history
     String speaker = resolveInterpolatedText(dialogue.getSpeakerName());
     String text = resolveInterpolatedText(dialogue.getText());
+    dialogueControlTags = TextParser.controlTags(text);
+    dialogueControlNodeIndex = state.getCurrentNodeIndex();
     state.getHistory().addEntry(speaker, text);
 
     // Update character display
@@ -527,6 +559,135 @@ public class VnScene implements Scene {
 
   private String resolveInterpolatedText(String text) {
     return VnTextFormatter.format(Localization.translateText(text), state.getVariables());
+  }
+
+  private void ensureDialogueControlState(String resolvedText) {
+    if (dialogueControlNodeIndex == state.getCurrentNodeIndex()) return;
+    resetDialogueControlState();
+    dialogueControlTags = TextParser.controlTags(resolvedText);
+    dialogueControlNodeIndex = state.getCurrentNodeIndex();
+  }
+
+  private void resetDialogueControlState() {
+    dialogueControlTags = List.of();
+    dialogueControlNodeIndex = -1;
+    nextDialogueControlIndex = 0;
+    waitingAtTextTag = false;
+    textTagWaitRemainingMs = 0;
+    nowaitPending = false;
+    nowaitRemainingMs = 0;
+  }
+
+  private void revealDialogueText(long deltaMs, int textLength) {
+    long textSpeed = state.getSettings().getTextSpeed();
+    if (textSpeed <= 0) {
+      state.setTextRevealProgress(nextDialogueControlPositionOrEnd(textLength));
+      textRevealTimer = 0;
+      return;
+    }
+
+    textRevealTimer += deltaMs;
+    if (textRevealTimer >= textSpeed) {
+      state.incrementTextReveal(1);
+      if (state.getTextRevealProgress() > textLength) {
+        state.setTextRevealProgress(textLength);
+      }
+      textRevealTimer = 0;
+    }
+  }
+
+  private boolean handleDialogueControlTags(long deltaMs) {
+    if (waitingAtTextTag) {
+      if (textTagWaitRemainingMs < 0) {
+        state.setWaitingForInput(true);
+        return true;
+      }
+      textTagWaitRemainingMs = Math.max(0, textTagWaitRemainingMs - Math.max(0, deltaMs));
+      if (textTagWaitRemainingMs > 0) {
+        state.setWaitingForInput(true);
+        return true;
+      }
+      waitingAtTextTag = false;
+      state.setWaitingForInput(false);
+    }
+
+    if (nowaitPending) {
+      nowaitRemainingMs = Math.max(0, nowaitRemainingMs - Math.max(0, deltaMs));
+      state.setWaitingForInput(false);
+      if (nowaitRemainingMs <= 0) {
+        advanceAfterDialogueControl();
+      }
+      return true;
+    }
+
+    int revealProgress = state.getTextRevealProgress();
+    while (nextDialogueControlIndex < dialogueControlTags.size()) {
+      TextParser.ControlTag tag = dialogueControlTags.get(nextDialogueControlIndex);
+      if (tag.position() < revealProgress) {
+        nextDialogueControlIndex++;
+        continue;
+      }
+      if (tag.position() > revealProgress) {
+        return false;
+      }
+
+      nextDialogueControlIndex++;
+      if (tag.type() == TextParser.ControlTagType.WAIT) {
+        Long durationMs = tag.durationMs();
+        if (durationMs != null && durationMs <= 0) {
+          continue;
+        }
+        waitingAtTextTag = true;
+        textTagWaitRemainingMs = durationMs == null ? -1L : durationMs;
+        state.setWaitingForInput(true);
+        return true;
+      }
+
+      nowaitPending = true;
+      nowaitRemainingMs = tag.durationMs() == null ? 0L : tag.durationMs();
+      state.setWaitingForInput(false);
+      if (nowaitRemainingMs <= 0) {
+        advanceAfterDialogueControl();
+      }
+      return true;
+    }
+
+    return false;
+  }
+
+  private boolean releaseTextTagWait() {
+    if (!waitingAtTextTag) return false;
+    waitingAtTextTag = false;
+    textTagWaitRemainingMs = 0;
+    textRevealTimer = 0;
+    state.setWaitingForInput(false);
+    return true;
+  }
+
+  private int nextDialogueControlPositionOrEnd(int textLength) {
+    int revealProgress = state.getTextRevealProgress();
+    for (int i = nextDialogueControlIndex; i < dialogueControlTags.size(); i++) {
+      int position = dialogueControlTags.get(i).position();
+      if (position >= revealProgress) {
+        return Math.min(position, textLength);
+      }
+    }
+    return textLength;
+  }
+
+  private void skipDialogueControlTagsThrough(int textLength) {
+    while (nextDialogueControlIndex < dialogueControlTags.size()
+        && dialogueControlTags.get(nextDialogueControlIndex).position() <= textLength) {
+      nextDialogueControlIndex++;
+    }
+  }
+
+  private void advanceAfterDialogueControl() {
+    VnNode current = state.getCurrentNode();
+    stopDialogueVoiceIfPresent(current);
+    resetDialogueControlState();
+    state.advance();
+    processCurrentNode();
   }
 
   /**
@@ -803,6 +964,7 @@ public class VnScene implements Scene {
       waitRemainingMs = 0;
       transitionBlocking = false;
       transitionRemainingMs = 0;
+      resetDialogueControlState();
       // Cancel any audio fades
       if (bgmFadeActive && audioFacade != null) {
         bgmFadeActive = false;
@@ -842,6 +1004,7 @@ public class VnScene implements Scene {
       waitRemainingMs = 0;
       transitionBlocking = false;
       transitionRemainingMs = 0;
+      resetDialogueControlState();
       if (bgmFadeActive && audioFacade != null) {
         bgmFadeActive = false;
         audioFacade.setBgmVolume(state.getSettings().getBgmVolume());

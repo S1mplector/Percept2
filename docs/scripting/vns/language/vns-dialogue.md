@@ -144,6 +144,30 @@ narrator: {delay=500}The door opened.
 narrator: Three... {delay=300}two... {delay=300}one...
 ```
 
+**`{w}` / `{wait}`** — pauses reveal at that point until the player advances.
+
+```vns
+narrator: The lock clicked.{w} The door opened.
+```
+
+**`{w=<seconds>}` / `{wait=<seconds>}`** — pauses reveal for a timed duration, using Ren'Py-style seconds. `ms` and `s` suffixes are also accepted.
+
+```vns
+narrator: Three...{w=0.5} two...{w=500ms} one.
+```
+
+**`{nw}` / `{nowait}`** — advances automatically when the tag is reached, without waiting for final input.
+
+```vns
+narrator: This message closes as soon as it finishes.{nw}
+```
+
+**`{nw=<seconds>}` / `{nowait=<seconds>}`** — advances automatically after the timed duration.
+
+```vns
+narrator: This message remains briefly, then continues.{nw=1.0}
+```
+
 ### Combining Tags
 
 Tags can be nested for compound effects:
