@@ -264,6 +264,7 @@ show_help() {
   printf '%s\n' "$(paint "${style_bold}${tone_info}" "Advanced usage")"
   print_help_row "./jvnw gradle <gradle-args>" "Pass through to Gradle with wrapper status output"
   print_help_row "./jvnw --raw <gradle-args>" "Call ./gradlew directly with full Gradle output"
+  print_help_row "JVN_DEV_LAUNCH=0 ./jvnw editor" "Force the old Gradle launch path"
   print_help_row "./gradlew <gradle-task>" "Optional low-level Gradle entrypoint"
   printf '\n'
   printf '%s\n' "$(paint "${style_bold}${tone_info}" "Examples")"
@@ -558,6 +559,106 @@ launch_workers() {
   else
     printf '2\n'
   fi
+}
+
+metadata_value() {
+  local file="$1"
+  local key="$2"
+  sed -n "s#^${key}=##p" "$file" | head -n 1
+}
+
+dev_launch_metadata_path() {
+  case "$1" in
+    editor)
+      printf '%s/modules/editor/build/jvn-dev-launch/editor.properties\n' "$SCRIPT_DIR"
+      ;;
+    launcher)
+      printf '%s/modules/editor/build/jvn-dev-launch/launcher.properties\n' "$SCRIPT_DIR"
+      ;;
+    runtime)
+      printf '%s/modules/runtime/build/jvn-dev-launch/runtime.properties\n' "$SCRIPT_DIR"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+dev_launch_metadata_task() {
+  case "$1" in
+    editor)
+      printf ':editor:writeEditorDevLaunchMetadata\n'
+      ;;
+    launcher)
+      printf ':editor:writeLauncherDevLaunchMetadata\n'
+      ;;
+    runtime)
+      printf ':runtime:writeRuntimeDevLaunchMetadata\n'
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+dev_launch_metadata_stale() {
+  local metadata="$1"
+  [[ -f "$metadata" ]] || return 0
+
+  find "$SCRIPT_DIR" \
+    \( -path "$SCRIPT_DIR/.git" -o -path "$SCRIPT_DIR/.gradle" -o -path "$SCRIPT_DIR/build" -o -path "$SCRIPT_DIR/*/build" -o -path "$SCRIPT_DIR/modules/*/build" \) -prune \
+    -o \( \
+      -name '*.java' \
+      -o -name 'build.gradle.kts' \
+      -o -name 'settings.gradle.kts' \
+      -o -name 'gradle.properties' \
+    \) -newer "$metadata" -print -quit 2>/dev/null | grep -q .
+}
+
+dev_launch_supported_args() {
+  local arg
+  for arg in "${forwarded_args[@]}"; do
+    case "$arg" in
+      :editor:run|:editor:runLauncher|:runtime:run)
+        ;;
+      --args|--args=*)
+        ;;
+      -Djvn.*)
+        ;;
+      *)
+        return 1
+        ;;
+    esac
+  done
+  return 0
+}
+
+collect_dev_launch_args() {
+  dev_launch_app_args=()
+  dev_launch_jvm_args=()
+  local arg next_is_app_args=0 raw
+  for arg in "${forwarded_args[@]}"; do
+    if [[ "$next_is_app_args" -eq 1 ]]; then
+      # Match Gradle's common --args="..." launcher ergonomics for simple dev runs.
+      read -r -a dev_launch_app_args <<<"$arg"
+      next_is_app_args=0
+      continue
+    fi
+    case "$arg" in
+      :editor:run|:editor:runLauncher|:runtime:run)
+        ;;
+      --args)
+        next_is_app_args=1
+        ;;
+      --args=*)
+        raw="${arg#--args=}"
+        read -r -a dev_launch_app_args <<<"$raw"
+        ;;
+      -Djvn.*)
+        dev_launch_jvm_args+=("$arg")
+        ;;
+    esac
+  done
 }
 
 declare -a gradle_cmd=("$GRADLEW_PATH")
@@ -945,6 +1046,66 @@ if [[ -n "$command_label" || -n "$resolved_target" ]]; then
   fi
   emit_detail "Mode   " "$wrapper_mode"
   printf '\n'
+fi
+
+if [[ "${JVN_DEV_LAUNCH:-auto}" != "0" && "${JVN_DEV_LAUNCH:-auto}" != "false" ]]; then
+  case "$alias_label" in
+    launcher|editor|runtime)
+      if dev_launch_supported_args; then
+        metadata_path="$(dev_launch_metadata_path "$alias_label")"
+        metadata_task="$(dev_launch_metadata_task "$alias_label")"
+        if dev_launch_metadata_stale "$metadata_path"; then
+          emit_info "Refreshing direct launch cache..."
+          if ! "$GRADLEW_PATH" --console=plain --configuration-cache "--max-workers=$(launch_workers)" "$metadata_task"; then
+            if [[ "${JVN_DEV_LAUNCH:-auto}" == "strict" || "${JVN_DEV_LAUNCH:-auto}" == "direct" ]]; then
+              emit_error "Direct launch cache refresh failed."
+              emit_hint "Set JVN_DEV_LAUNCH=0 to use the Gradle launch path."
+              exit 1
+            fi
+            emit_warn "Direct launch cache refresh failed; falling back to Gradle launch."
+          fi
+        fi
+
+        if [[ -f "$metadata_path" ]]; then
+          collect_dev_launch_args
+          main_class="$(metadata_value "$metadata_path" "mainClass")"
+          working_dir="$(metadata_value "$metadata_path" "workingDir")"
+          logback_config="$(metadata_value "$metadata_path" "logbackConfig")"
+          javafx_modules="$(metadata_value "$metadata_path" "javafxModules")"
+          javafx_module_path="$(metadata_value "$metadata_path" "javafxModulePath")"
+          launch_classpath="$(metadata_value "$metadata_path" "classpath")"
+
+          if [[ -n "$main_class" && -n "$launch_classpath" ]]; then
+            java_cmd=(java)
+            if [[ -n "$logback_config" && -f "$logback_config" ]]; then
+              java_cmd+=("-Dlogback.configurationFile=$logback_config")
+              java_cmd+=("-Dlogback.statusListenerClass=ch.qos.logback.core.status.NopStatusListener")
+            fi
+            if [[ -n "${dev_launch_jvm_args[*]:-}" ]]; then
+              java_cmd+=("${dev_launch_jvm_args[@]}")
+            fi
+            if [[ -n "$javafx_module_path" && -n "$javafx_modules" ]]; then
+              java_cmd+=("--module-path" "$javafx_module_path" "--add-modules" "$javafx_modules")
+            fi
+            java_cmd+=("-cp" "$launch_classpath" "$main_class")
+            if [[ ${#dev_launch_app_args[@]} -gt 0 ]]; then
+              java_cmd+=("${dev_launch_app_args[@]}")
+            fi
+
+            emit_info "Launching directly with java. Set JVN_DEV_LAUNCH=0 to force Gradle."
+            cd "${working_dir:-$SCRIPT_DIR}" || exit 1
+            exec "${java_cmd[@]}"
+          fi
+        elif [[ "${JVN_DEV_LAUNCH:-auto}" == "strict" || "${JVN_DEV_LAUNCH:-auto}" == "direct" ]]; then
+          emit_error "Direct launch metadata is missing: $metadata_path"
+          emit_hint "Run $GRADLEW_PATH $metadata_task or set JVN_DEV_LAUNCH=0 to use Gradle."
+          exit 1
+        fi
+      else
+        emit_info "Gradle-specific options detected; using Gradle launch."
+      fi
+      ;;
+  esac
 fi
 
 start_time_epoch="$(date +%s)"

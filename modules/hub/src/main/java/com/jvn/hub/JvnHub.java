@@ -63,6 +63,7 @@ import javax.swing.AbstractButton;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
 import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JComponent;
@@ -218,6 +219,7 @@ public final class JvnHub {
   private boolean gradleNoBuildCacheEnabled = false;
   private boolean gradleNoDaemonEnabled = false;
   private String gradleExtraArgs = "";
+  private HubLaunchMode launchMode = HubLaunchMode.FAST_DIRECT;
   /** Header shortcut for a lightweight local environment report. */
   private HeaderIconButton diagnosticsButton;
   /** Header shortcut for version, source, install, and update details. */
@@ -235,6 +237,7 @@ public final class JvnHub {
     // Load persisted read-state first so the badge counts only unread entries
     // on the very first paint.
     readIds.addAll(loadReadIds());
+    loadHubOptions();
     announcements.addAll(loadAnnouncements());
     launcherMaintenanceState = loadLauncherMaintenanceState();
     buildUi();
@@ -738,6 +741,36 @@ public final class JvnHub {
     }
   }
 
+  private static Path hubOptionsFile() {
+    return Paths.get(System.getProperty("user.home", "."), ".jvn", "hub-options.properties");
+  }
+
+  private void loadHubOptions() {
+    Path file = hubOptionsFile();
+    if (!Files.isRegularFile(file)) return;
+    Properties props = new Properties();
+    try (InputStream in = Files.newInputStream(file)) {
+      props.load(in);
+      launchMode = HubLaunchMode.parse(props.getProperty("launch.mode"));
+    } catch (IOException ignored) {
+      // Best-effort local preference load; the default fast path is safe.
+    }
+  }
+
+  private void saveHubOptions() {
+    Path file = hubOptionsFile();
+    try {
+      Files.createDirectories(file.getParent());
+      Properties props = new Properties();
+      props.setProperty("launch.mode", launchMode.name());
+      try (var out = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
+        props.store(out, "JVN Engine Hub options. Auto-generated.");
+      }
+    } catch (IOException e) {
+      appendLog("[hub] could not save hub options: " + e.getMessage());
+    }
+  }
+
   private JPanel buildAnnouncementCard(Announcement a) {
     JPanel card = new JPanel(new BorderLayout(0, ui(4)));
     card.setBackground(BG);
@@ -836,12 +869,59 @@ public final class JvnHub {
     }
   }
 
+  private enum HubLaunchMode {
+    FAST_DIRECT("Fast direct", "direct",
+        "Refreshes the launch cache when needed, then starts Java directly."),
+    AUTO_FALLBACK("Auto fallback", "auto",
+        "Tries the direct path first and falls back to Gradle if cache refresh fails."),
+    GRADLE("Gradle compatibility", "0",
+        "Uses the classic Gradle JavaExec launch path.");
+
+    private final String label;
+    private final String wrapperValue;
+    private final String description;
+
+    HubLaunchMode(String label, String wrapperValue, String description) {
+      this.label = label;
+      this.wrapperValue = wrapperValue;
+      this.description = description;
+    }
+
+    String wrapperValue() {
+      return wrapperValue;
+    }
+
+    String description() {
+      return description;
+    }
+
+    static HubLaunchMode parse(String raw) {
+      if (raw == null || raw.isBlank()) return FAST_DIRECT;
+      String normalized = raw.trim().replace('-', '_').replace(' ', '_').toUpperCase(Locale.ROOT);
+      for (HubLaunchMode mode : values()) {
+        if (mode.name().equals(normalized) || mode.label.toUpperCase(Locale.ROOT).replace(' ', '_').equals(normalized)) {
+          return mode;
+        }
+      }
+      if ("DIRECT".equals(normalized) || "STRICT".equals(normalized) || "FAST".equals(normalized)) return FAST_DIRECT;
+      if ("AUTO".equals(normalized)) return AUTO_FALLBACK;
+      if ("0".equals(normalized) || "FALSE".equals(normalized)) return GRADLE;
+      return FAST_DIRECT;
+    }
+
+    @Override public String toString() {
+      return label;
+    }
+  }
+
+  private record ProcessEnv(String key, String value) {}
+
   private JPanel buildCenter() {
     actionGrid = new JPanel(new GridLayout(3, 2, ui(10), ui(10)));
     actionGrid.setOpaque(false);
 
     runEditorButton = makeAction("Run Editor", "Launch the full JVN editor.",
-        VectorIcon.Kind.EDIT, null, () -> guardedRun("Run Editor", () -> runGradle(":editor:run", "Run Editor")));
+        VectorIcon.Kind.EDIT, null, () -> guardedRun("Run Editor", () -> runJvnwLaunch("editor", ":editor:run", "Run Editor")));
 
     runLauncherButton = makeLauncherAction();
 
@@ -851,7 +931,7 @@ public final class JvnHub {
     runTestsButton = makeAction("Run Tests", "Developer Mode: execute the full test suite.",
         VectorIcon.Kind.CHECK, ACCENT_DEV, () -> runGradle("test", "Run Tests"));
 
-    gradleOptionsButton = makeAction("Gradle Options", "Developer Mode: configure Gradle flags for hub actions.",
+    gradleOptionsButton = makeAction("Launch Options", "Developer Mode: configure launch mode and Gradle flags for hub actions.",
         VectorIcon.Kind.SLIDERS, ACCENT_DEV, this::showGradleOptionsDialog);
 
     buildShortcutsButton = makeAction("Build Shortcuts", "Install Start Menu / Applications shortcuts for this OS.",
@@ -1030,6 +1110,7 @@ public final class JvnHub {
     menu.add(popupItem("Run Editor", () -> clickIfAvailable(runEditorButton)));
     menu.add(popupItem("Run Launcher", () -> clickIfAvailable(runLauncherButton)));
     menu.add(popupItem("Build All", () -> clickIfAvailable(buildAllButton)));
+    menu.add(popupItem("Launch Options", this::showGradleOptionsDialog));
     menu.addSeparator();
     menu.add(popupItem("Update Engine", this::updateEngine));
     menu.add(popupItem("Diagnostics", this::showDiagnosticsReport));
@@ -1212,7 +1293,13 @@ public final class JvnHub {
     JPanel root = new JPanel(new BorderLayout(0, ui(14)));
     root.setBackground(BG);
     root.setBorder(uiPadding(16, 16, 16, 16));
-    root.add(dialogHeader("Developer Gradle Options", "Applied to hub Gradle actions while Developer Mode is enabled."), BorderLayout.NORTH);
+    root.add(dialogHeader("Launch Options", "Fast local launches are default; Gradle compatibility remains available."), BorderLayout.NORTH);
+
+    JComboBox<HubLaunchMode> launchModeBox = new JComboBox<>(HubLaunchMode.values());
+    launchModeBox.setSelectedItem(launchMode);
+    launchModeBox.setBackground(BG);
+    launchModeBox.setForeground(TEXT_PRIMARY);
+    launchModeBox.setToolTipText("Controls Run Editor and Run Launcher.");
 
     JCheckBox stacktrace = optionCheckBox("Stacktrace", "Add --stacktrace to failures.", gradleStacktraceEnabled);
     JCheckBox info = optionCheckBox("Info logging", "Add --info for more Gradle output.", gradleInfoLoggingEnabled);
@@ -1237,6 +1324,25 @@ public final class JvnHub {
         BorderFactory.createLineBorder(BORDER_NEUTRAL),
         uiPadding(12, 12, 12, 12)));
     options.setLayout(new BoxLayout(options, BoxLayout.Y_AXIS));
+    JLabel launchModeLabel = new JLabel("Launch mode");
+    launchModeLabel.setForeground(TEXT_MUTED);
+    launchModeLabel.setFont(launchModeLabel.getFont().deriveFont(Font.BOLD, uiFont(10f)));
+    launchModeLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+    launchModeBox.setAlignmentX(Component.LEFT_ALIGNMENT);
+    options.add(launchModeLabel);
+    options.add(Box.createVerticalStrut(ui(4)));
+    options.add(launchModeBox);
+    options.add(Box.createVerticalStrut(ui(4)));
+    JLabel launchModeHint = new JLabel(launchMode.description());
+    launchModeHint.setForeground(TEXT_MUTED);
+    launchModeHint.setFont(launchModeHint.getFont().deriveFont(Font.PLAIN, uiFont(10f)));
+    launchModeHint.setAlignmentX(Component.LEFT_ALIGNMENT);
+    options.add(launchModeHint);
+    options.add(Box.createVerticalStrut(ui(12)));
+    launchModeBox.addActionListener(e -> {
+      Object selected = launchModeBox.getSelectedItem();
+      if (selected instanceof HubLaunchMode mode) launchModeHint.setText(mode.description());
+    });
     for (JCheckBox box : List.of(stacktrace, info, debug, offline, refresh, noBuildCache, noDaemon)) {
       box.setAlignmentX(Component.LEFT_ALIGNMENT);
       options.add(box);
@@ -1263,9 +1369,11 @@ public final class JvnHub {
       gradleNoBuildCacheEnabled = false;
       gradleNoDaemonEnabled = false;
       gradleExtraArgs = "";
+      launchMode = HubLaunchMode.FAST_DIRECT;
+      saveHubOptions();
       dialog.dispose();
-      setStatus("Gradle options reset", ACCENT_DEV);
-      setActivity("Gradle options reset", describeGradleOptions(), false, ACCENT_DEV);
+      setStatus("Launch options reset", ACCENT_DEV);
+      setActivity("Launch options reset", describeLaunchOptions(), false, ACCENT_DEV);
     });
 
     FlatButton cancel = new FlatButton("Cancel", null, null);
@@ -1281,9 +1389,12 @@ public final class JvnHub {
       gradleNoBuildCacheEnabled = noBuildCache.isSelected();
       gradleNoDaemonEnabled = noDaemon.isSelected();
       gradleExtraArgs = extraArgs.getText() == null ? "" : extraArgs.getText().trim();
+      Object selectedLaunchMode = launchModeBox.getSelectedItem();
+      if (selectedLaunchMode instanceof HubLaunchMode mode) launchMode = mode;
+      saveHubOptions();
       dialog.dispose();
-      setStatus("Gradle options updated", ACCENT_DEV);
-      setActivity("Gradle options updated", describeGradleOptions(), false, ACCENT_DEV);
+      setStatus("Launch options updated", ACCENT_DEV);
+      setActivity("Launch options updated", describeLaunchOptions(), false, ACCENT_DEV);
     });
 
     JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, ui(8), 0));
@@ -1635,7 +1746,7 @@ public final class JvnHub {
       showLauncherMaintenanceNotice();
       return;
     }
-    guardedRun("Run Launcher", () -> runGradle(":editor:runLauncher", "Run Launcher"));
+    guardedRun("Run Launcher", () -> runJvnwLaunch("launcher", ":editor:runLauncher", "Run Launcher"));
   }
 
   private void showLauncherMaintenanceNotice() {
@@ -1676,6 +1787,8 @@ public final class JvnHub {
 
   private void runGradle(String task, String label) {
     if (!acquire(label)) return;
+    setStatus("Running: " + label + " (" + launchMode + activeModeSuffix() + ")", activeModeColor());
+    setActivity("Working on " + label, launchMode.description(), true, activeModeColor());
     List<String> cmd = new ArrayList<>();
     cmd.add(gradleCommand());
     cmd.add("--console=plain");
@@ -1703,6 +1816,45 @@ public final class JvnHub {
     advanceStep(modeLaunchDetail());
     appendLog("$ " + String.join(" ", cmd));
     startProcess(cmd, label);
+  }
+
+  private void runJvnwLaunch(String shortcut, String gradleTask, String label) {
+    if (launchMode == HubLaunchMode.GRADLE) {
+      runGradle(gradleTask, label);
+      return;
+    }
+    if (isWindowsOs()) {
+      appendLog("[hub] direct dev launch is implemented in the Unix jvnw wrapper; using Gradle on Windows.");
+      runGradle(gradleTask, label);
+      return;
+    }
+    Path wrapper = jvnwPath();
+    if (!Files.isRegularFile(wrapper)) {
+      appendLog("[hub] jvnw was not found; using Gradle launch path.");
+      runGradle(gradleTask, label);
+      return;
+    }
+    if (!acquire(label)) return;
+    List<String> cmd = new ArrayList<>();
+    cmd.add(wrapper.toAbsolutePath().toString());
+    cmd.add(shortcut);
+    if (developerModeEnabled) {
+      cmd.add("-Djvn.hub.developerMode=true");
+      cmd.add("-Djvn.editor.developerMode=true");
+      cmd.add("-Djvn.launcher.developerMode=true");
+      cmd.add("-Djvn.help.developerMode=true");
+    }
+    if (safeModeEnabled) {
+      cmd.add("-Djvn.hub.safeMode=true");
+      cmd.add("-Djvn.editor.safeMode=true");
+      cmd.add("-Djvn.launcher.safeMode=true");
+      cmd.add("-Djvn.help.safeMode=true");
+    }
+    completeCurrentStep("JVN wrapper command assembled.");
+    advanceStep("Starting " + launchMode + " launch.");
+    appendLog("$ " + quoteCommandForLog(cmd));
+    appendLog("[hub] launch mode: " + launchMode + " - " + launchMode.description());
+    startProcess(cmd, label, List.of(new ProcessEnv("JVN_DEV_LAUNCH", launchMode.wrapperValue())));
   }
 
   private String modeLaunchDetail() {
@@ -1780,6 +1932,11 @@ public final class JvnHub {
     if (!developerModeEnabled) return "Developer Mode is off.";
     List<String> options = developerGradleOptions();
     return options.isEmpty() ? "No additional Gradle flags." : String.join(" ", options);
+  }
+
+  private String describeLaunchOptions() {
+    String gradle = developerModeEnabled ? describeGradleOptions() : "Developer Gradle flags are off.";
+    return launchMode + ": " + launchMode.description() + " " + gradle;
   }
 
   private void openDocumentation() {
@@ -2272,6 +2429,10 @@ public final class JvnHub {
   }
 
   private void startProcess(List<String> command, String label) {
+    startProcess(command, label, List.of());
+  }
+
+  private void startProcess(List<String> command, String label, List<ProcessEnv> environmentOverrides) {
     new SwingWorker<Integer, String>() {
       private String lastOutput = "";
       private final StringBuilder fullOutput = new StringBuilder();
@@ -2281,6 +2442,11 @@ public final class JvnHub {
         ProcessBuilder pb = new ProcessBuilder(command)
             .directory(projectRoot.toFile())
             .redirectErrorStream(true);
+        for (ProcessEnv env : environmentOverrides) {
+          if (env != null && env.key() != null && env.value() != null) {
+            pb.environment().put(env.key(), env.value());
+          }
+        }
         if (isGradleWrapperCommand(command)) {
           Path packagedGradleHome = projectRoot.resolve(".jvn-gradle-user-home");
           if (isPackagedGradleHome(packagedGradleHome)) {
@@ -3414,6 +3580,15 @@ public final class JvnHub {
     String name = os.contains("win") ? "gradlew.bat" : "gradlew";
     Path wrapper = projectRoot.resolve(name);
     return wrapper.toAbsolutePath().toString();
+  }
+
+  private Path jvnwPath() {
+    String name = isWindowsOs() ? "jvnw.bat" : "jvnw";
+    return projectRoot.resolve(name);
+  }
+
+  private static boolean isWindowsOs() {
+    return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
   }
 
   private String windowsPowerShellCommand() {

@@ -1,9 +1,12 @@
 import java.io.File
+import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.tasks.Classpath
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.JavaExec
+import org.gradle.api.tasks.OutputFile
+import org.gradle.api.tasks.TaskAction
 import org.gradle.process.CommandLineArgumentProvider
 import javax.inject.Inject
 
@@ -37,6 +40,76 @@ tasks.withType<JavaCompile>().configureEach {
 application {
   mainClass.set("com.jvn.editor.EditorApp")
 }
+
+abstract class DevLaunchMetadataTask : DefaultTask() {
+  @get:Input
+  abstract val launchMainClass: org.gradle.api.provider.Property<String>
+
+  @get:Input
+  abstract val launchJavaFxModules: org.gradle.api.provider.ListProperty<String>
+
+  @get:Classpath
+  abstract val launchRuntimeClasspath: ConfigurableFileCollection
+
+  @get:OutputFile
+  abstract val outputFile: org.gradle.api.file.RegularFileProperty
+
+  @TaskAction
+  fun writeMetadata() {
+    val runtimeFiles = launchRuntimeClasspath.files.toList()
+    val javafxFiles = runtimeFiles.filter { it.name.startsWith("javafx-") && it.name.endsWith(".jar") }
+    val classpathFiles = runtimeFiles.filterNot { it.name.startsWith("javafx-") && it.name.endsWith(".jar") }
+    val target = outputFile.get().asFile
+    target.parentFile.mkdirs()
+    target.writeText(
+      buildString {
+        appendLine("mainClass=${launchMainClass.get()}")
+        appendLine("workingDir=${project.rootProject.projectDir.absolutePath}")
+        appendLine("logbackConfig=${project.layout.buildDirectory.file("resources/main/logback.xml").get().asFile.absolutePath}")
+        appendLine("javafxModules=${launchJavaFxModules.get().joinToString(",")}")
+        appendLine("javafxModulePath=${javafxFiles.joinToString(File.pathSeparator) { it.absolutePath }}")
+        appendLine("classpath=${classpathFiles.joinToString(File.pathSeparator) { it.absolutePath }}")
+      }
+    )
+  }
+}
+
+fun registerDevLaunchMetadataTask(
+  taskName: String,
+  outputName: String,
+  mainClassName: String
+) {
+  tasks.register<DevLaunchMetadataTask>(taskName) {
+    group = "application"
+    description = "Writes direct-launch metadata for $mainClassName."
+    dependsOn(tasks.named("classes"))
+    launchMainClass.set(mainClassName)
+    launchJavaFxModules.set(
+      listOf(
+        "javafx.controls",
+        "javafx.graphics",
+        "javafx.base",
+        "javafx.media",
+        "javafx.swing",
+        "javafx.fxml"
+      )
+    )
+    launchRuntimeClasspath.from(sourceSets["main"].runtimeClasspath)
+    outputFile.set(layout.buildDirectory.file("jvn-dev-launch/$outputName.properties"))
+  }
+}
+
+registerDevLaunchMetadataTask(
+  "writeEditorDevLaunchMetadata",
+  "editor",
+  "com.jvn.editor.EditorBootstrap"
+)
+
+registerDevLaunchMetadataTask(
+  "writeLauncherDevLaunchMetadata",
+  "launcher",
+  "com.jvn.editor.JvnLauncherBootstrap"
+)
 
 abstract class JavaFxModuleArgumentProvider @Inject constructor(objects: ObjectFactory) : CommandLineArgumentProvider {
   @get:Classpath
