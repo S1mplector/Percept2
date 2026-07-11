@@ -4313,9 +4313,9 @@ public class PuppeteerWindow extends Stage {
             header.setMinHeight(26);
             header.setPrefHeight(26);
             Tooltip.install(header, new Tooltip("Drag freely. Drag off screen to hide."));
-            header.addEventFilter(MouseEvent.MOUSE_PRESSED, this::beginDrag);
-            header.addEventFilter(MouseEvent.MOUSE_DRAGGED, this::drag);
-            header.addEventFilter(MouseEvent.MOUSE_RELEASED, this::finishDrag);
+            header.setOnMousePressed(this::beginDrag);
+            header.setOnMouseDragged(this::drag);
+            header.setOnMouseReleased(this::finishDrag);
             setTop(header);
 
             detachNode(item.contentNode());
@@ -4342,13 +4342,40 @@ public class PuppeteerWindow extends Stage {
 
         void drag(MouseEvent event) {
             if (event == null || !event.isPrimaryButtonDown()) return;
-            setLayoutX(dragLayoutX + event.getSceneX() - dragSceneX);
-            setLayoutY(dragLayoutY + event.getSceneY() - dragSceneY);
+            double newX = dragLayoutX + event.getSceneX() - dragSceneX;
+            double newY = dragLayoutY + event.getSceneY() - dragSceneY;
+
+            double snapDist = 16.0;
+            double finalX = newX;
+            double finalY = newY;
+            double width = getBoundsInParent().getWidth();
+            double height = getBoundsInParent().getHeight();
+
+            for (FloatingDocker other : floatingToolbarDockers.values()) {
+                if (other == this || !other.isVisible() || other.getOpacity() < 0.5) continue;
+                double oX = other.getLayoutX();
+                double oY = other.getLayoutY();
+                double oW = other.getBoundsInParent().getWidth();
+                double oH = other.getBoundsInParent().getHeight();
+
+                if (Math.abs(newY - oY) < snapDist) finalY = oY;
+                else if (Math.abs((newY + height) - (oY + oH)) < snapDist) finalY = oY + oH - height;
+                else if (Math.abs(newY - (oY + oH)) < snapDist) finalY = oY + oH;
+                else if (Math.abs((newY + height) - oY) < snapDist) finalY = oY - height;
+
+                if (Math.abs(newX - oX) < snapDist) finalX = oX;
+                else if (Math.abs((newX + width) - (oX + oW)) < snapDist) finalX = oX + oW - width;
+                else if (Math.abs(newX - (oX + oW)) < snapDist) finalX = oX + oW;
+                else if (Math.abs((newX + width) - oX) < snapDist) finalX = oX - width;
+            }
+
+            setLayoutX(finalX);
+            setLayoutY(finalY);
             event.consume();
         }
 
         void finishDrag(MouseEvent event) {
-            if (isMostlyOffScreen()) {
+            if (isMostlyOffScreen(event)) {
                 hideDockItem(item);
             } else {
                 persistWorkspacePrefsNow();
@@ -4356,15 +4383,22 @@ public class PuppeteerWindow extends Stage {
             if (event != null) event.consume();
         }
 
-        boolean isMostlyOffScreen() {
+        boolean isMostlyOffScreen(MouseEvent event) {
             Scene scene = getScene();
             if (scene == null) return false;
+            if (event != null) {
+                double mx = event.getSceneX();
+                double my = event.getSceneY();
+                if (mx < 16.0 || my < 16.0 || mx > scene.getWidth() - 16.0 || my > scene.getHeight() - 16.0) {
+                    return true;
+                }
+            }
             double width = getBoundsInParent().getWidth();
             double height = getBoundsInParent().getHeight();
             double x = getLayoutX();
             double y = getLayoutY();
-            return x + width < 32.0
-                || y + height < 32.0
+            return x < -width + 32.0
+                || y < -height + 32.0
                 || x > scene.getWidth() - 32.0
                 || y > scene.getHeight() - 32.0;
         }
