@@ -1563,20 +1563,43 @@ public class PuppeteerWindow extends Stage {
         floatingToolbarLayer.setPickOnBounds(false);
         floatingToolbarLayer.setMinSize(0, 0);
         floatingToolbarLayer.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
-        createFloatingToolbarDocker(transportCluster, 14, 14);
-        createFloatingToolbarDocker(historyCluster, 260, 14);
-        createFloatingToolbarDocker(durationCluster, 410, 14);
-        createFloatingToolbarDocker(registerCluster, 620, 14);
-        createFloatingToolbarDocker(exportCluster, 880, 14);
-        createFloatingToolbarDocker(presetsCluster, 14, 92);
-        createFloatingToolbarDocker(propertyCluster, 180, 92);
-        createFloatingToolbarDocker(keyframesCluster, 360, 92);
-        createFloatingToolbarDocker(snapCluster, 660, 92);
-        createFloatingToolbarDocker(previewCluster, 800, 92);
-        createFloatingToolbarDocker(orbitCluster, 14, 170);
-        createFloatingToolbarDocker(audioCluster, 170, 170);
-        createFloatingToolbarDocker(diagnosticsCluster, 430, 170);
-        createFloatingToolbarDocker(helpCluster, 560, 170);
+        floatingToolbarLayer.setOnDragOver(event -> {
+            String payload = dockPayload(event.getDragboard());
+            if (payload != null) {
+                event.acceptTransferModes(TransferMode.MOVE);
+                event.consume();
+            }
+        });
+        floatingToolbarLayer.setOnDragDropped(event -> {
+            String payload = dockPayload(event.getDragboard());
+            boolean success = false;
+            if (payload != null) {
+                DockItem item = dockItemFromPayload(payload);
+                if (item != null) {
+                    DockSlot sourceSlot = findDockSlotContaining(item.contentNode());
+                    if (sourceSlot != null) {
+                        sourceSlot.removeItem(item);
+                    } else {
+                        CollapsibleToolbarCluster sourceCluster = item.toolbarCluster();
+                        if (sourceCluster != null && toolbarDockItems.get(sourceCluster.getClusterKey()) == item) {
+                            toolbarPane.removeCluster(sourceCluster);
+                            toolbarDockItems.remove(sourceCluster.getClusterKey());
+                            item.clearToolbarCluster();
+                        } else {
+                            FloatingDocker oldFloating = floatingToolbarDockers.remove(item.id());
+                            if (oldFloating != null) {
+                                floatingToolbarLayer.getChildren().removeAll(oldFloating, oldFloating.restoreTab());
+                            }
+                        }
+                    }
+                    createFloatingToolbarDocker(item, event.getSceneX() - 40, event.getSceneY() - 15);
+                    refreshAfterDockSwap();
+                    success = true;
+                }
+            }
+            event.setDropCompleted(success);
+            event.consume();
+        });
 
         topWorkspaceSplit = new SplitPane();
         topWorkspaceSplit.getStyleClass().add("puppeteer-split-pane");
@@ -3327,11 +3350,12 @@ public class PuppeteerWindow extends Stage {
         return slot;
     }
 
-    private void createFloatingToolbarDocker(CollapsibleToolbarCluster cluster, double x, double y) {
-        if (cluster == null || floatingToolbarLayer == null) return;
-        DockItem item = dockItems.get(cluster.getClusterKey());
-        if (item == null) return;
-        cluster.setDockedChromeVisible(false);
+    private void createFloatingToolbarDocker(DockItem item, double x, double y) {
+        if (item == null || floatingToolbarLayer == null) return;
+        if (floatingToolbarDockers.containsKey(item.id())) return;
+        if (item.contentNode() instanceof CollapsibleToolbarCluster cluster) {
+            cluster.setDockedChromeVisible(false);
+        }
         FloatingDocker docker = new FloatingDocker(item, x, y);
         floatingToolbarDockers.put(item.id(), docker);
         floatingToolbarLayer.getChildren().addAll(docker, docker.restoreTab());
@@ -3487,7 +3511,6 @@ public class PuppeteerWindow extends Stage {
         if (toolbarKey == null || targetSlotId == null) return false;
         if (!toolbarDockItems.containsKey(toolbarKey)) {
             DockItem dockItem = dockItems.get(toolbarKey);
-            if (dockItem != null && dockItem.homeToolbar()) return false;
             return dockItem != null && moveDockItemToSlot(dockItem, targetSlotId);
         }
         DockSlot target = dockSlots.get(targetSlotId);
@@ -4206,15 +4229,19 @@ public class PuppeteerWindow extends Stage {
         item.contentNode().setManaged(true);
         item.contentNode().setVisible(true);
         DockSlot targetSlot = dockSlots.get(item.defaultSlotId());
-        if (targetSlot == null) {
-            targetSlot = findFirstEmptyDockSlot();
-        }
         if (targetSlot != null) {
             targetSlot.addItem(item);
         } else if (item.homeToolbar()) {
-            moveDockItemToNewSlot(item, firstAvailableDockGroup("controls-primary", "workspace-top"));
+            CollapsibleToolbarCluster cluster = item.asToolbarCluster();
+            toolbarPane.addCluster(cluster);
+            toolbarDockItems.put(cluster.getClusterKey(), item);
         } else {
-            moveDockItemToNewSlot(item, firstAvailableDockGroup("workspace-top", "workspace-main"));
+            targetSlot = findFirstEmptyDockSlot();
+            if (targetSlot != null) {
+                targetSlot.addItem(item);
+            } else {
+                moveDockItemToNewSlot(item, firstAvailableDockGroup("workspace-top", "workspace-main"));
+            }
         }
         refreshAfterDockSwap();
     }
