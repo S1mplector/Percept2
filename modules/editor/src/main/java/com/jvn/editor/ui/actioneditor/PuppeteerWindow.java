@@ -280,6 +280,7 @@ public class PuppeteerWindow extends Stage {
     private final Map<String, FloatingDocker> floatingToolbarDockers = new LinkedHashMap<>();
     private final Set<String> hiddenDockItemIds = new LinkedHashSet<>();
     private Pane floatingToolbarLayer;
+    private boolean floatingLayerDropCaptureEnabled;
     private int dynamicDockSlotCounter = 1;
     private DockSlot previewFocusPreviewReturnSlot;
     private DockSlot previewFocusTimelineReturnSlot;
@@ -1558,14 +1559,13 @@ public class PuppeteerWindow extends Stage {
         DockSlot timelineSlot = createDockSlot(createDockItem("timeline-panel", "Timeline", timelinePanel, false));
         DockSlot codeSlot = createDockSlot(createDockItem("code", "Code", codePreview, false));
 
-        floatingToolbarLayer = new Pane();
+        floatingToolbarLayer = new FloatingDockerLayer();
         floatingToolbarLayer.getStyleClass().add("puppeteer-floating-docker-layer");
-        floatingToolbarLayer.setPickOnBounds(false);
         floatingToolbarLayer.setMinSize(0, 0);
         floatingToolbarLayer.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
         floatingToolbarLayer.setOnDragOver(event -> {
             String payload = dockPayload(event.getDragboard());
-            if (payload != null) {
+            if (payload != null && isFloatingToolbarPayload(payload)) {
                 event.acceptTransferModes(TransferMode.MOVE);
                 event.consume();
             }
@@ -1573,7 +1573,7 @@ public class PuppeteerWindow extends Stage {
         floatingToolbarLayer.setOnDragDropped(event -> {
             String payload = dockPayload(event.getDragboard());
             boolean success = false;
-            if (payload != null) {
+            if (payload != null && isFloatingToolbarPayload(payload)) {
                 DockItem item = dockItemFromPayload(payload);
                 if (item != null) {
                     DockSlot sourceSlot = findDockSlotContaining(item.contentNode());
@@ -1598,6 +1598,7 @@ public class PuppeteerWindow extends Stage {
                 }
             }
             event.setDropCompleted(success);
+            setFloatingLayerDropCaptureEnabled(false);
             event.consume();
         });
 
@@ -3367,6 +3368,10 @@ public class PuppeteerWindow extends Stage {
         }
     }
 
+    private void setFloatingLayerDropCaptureEnabled(boolean enabled) {
+        floatingLayerDropCaptureEnabled = enabled;
+    }
+
     private DockSlot createDynamicDockSlot(String slotId, DockItem item, SplitPane group, int index) {
         String resolvedId = slotId == null || slotId.isBlank()
             ? "custom-dock-" + dynamicDockSlotCounter++
@@ -3456,6 +3461,7 @@ public class PuppeteerWindow extends Stage {
             DockItem item = dockItemFromPayload(payload);
             boolean success = item != null && moveDockItemToNewSlot(item, group);
             event.setDropCompleted(success);
+            setFloatingLayerDropCaptureEnabled(false);
             event.consume();
         });
     }
@@ -3473,8 +3479,10 @@ public class PuppeteerWindow extends Stage {
             ClipboardContent content = new ClipboardContent();
             content.putString(DOCK_DRAG_TOOLBAR_PREFIX + cluster.getClusterKey());
             dragboard.setContent(content);
+            setFloatingLayerDropCaptureEnabled(true);
             event.consume();
         });
+        cluster.setOnDragDone(event -> setFloatingLayerDropCaptureEnabled(false));
         cluster.setOnDragOver(event -> {
             String payload = dockPayload(event.getDragboard());
             if (payload != null && isDockDragPayload(payload, cluster.getClusterKey())) {
@@ -3493,6 +3501,7 @@ public class PuppeteerWindow extends Stage {
                 }
             }
             event.setDropCompleted(success);
+            setFloatingLayerDropCaptureEnabled(false);
             event.consume();
         });
     }
@@ -4289,6 +4298,29 @@ public class PuppeteerWindow extends Stage {
         BOTTOM
     }
 
+    private final class FloatingDockerLayer extends Pane {
+        FloatingDockerLayer() {
+            setPickOnBounds(false);
+        }
+
+        @Override
+        public boolean contains(double localX, double localY) {
+            if (floatingLayerDropCaptureEnabled) {
+                return localX >= 0.0 && localY >= 0.0 && localX <= getWidth() && localY <= getHeight();
+            }
+            for (int i = getChildren().size() - 1; i >= 0; i--) {
+                Node child = getChildren().get(i);
+                if (!child.isVisible() || child.isMouseTransparent()) continue;
+                if (!child.getBoundsInParent().contains(localX, localY)) continue;
+                var childPoint = child.parentToLocal(localX, localY);
+                if (child.contains(childPoint.getX(), childPoint.getY())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
     private final class FloatingDocker extends BorderPane {
         private final DockItem item;
         private final Label titleLabel = new Label();
@@ -4919,7 +4951,12 @@ public class PuppeteerWindow extends Stage {
                 ClipboardContent content = new ClipboardContent();
                 content.putString(DOCK_DRAG_SLOT_PREFIX + slotId);
                 dragboard.setContent(content);
+                setFloatingLayerDropCaptureEnabled(item.homeToolbar());
                 event.consume();
+            });
+            node.setOnDragDone(event -> {
+                getStyleClass().remove("drop-target");
+                setFloatingLayerDropCaptureEnabled(false);
             });
             node.setOnDragOver(event -> {
                 String payload = dockPayload(event.getDragboard());
@@ -4951,6 +4988,7 @@ public class PuppeteerWindow extends Stage {
                     }
                 }
                 event.setDropCompleted(success);
+                setFloatingLayerDropCaptureEnabled(false);
                 event.consume();
             });
         }
