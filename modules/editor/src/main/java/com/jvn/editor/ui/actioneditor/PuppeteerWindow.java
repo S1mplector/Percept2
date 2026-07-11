@@ -306,6 +306,7 @@ public class PuppeteerWindow extends Stage {
     private DockSlot previewFocusTimelineReturnSlot;
     private DockItem previewFocusPreviewItem;
     private DockItem previewFocusTimelineItem;
+    private final Map<DockSlot, DockItem> previewFocusReturnActiveItems = new LinkedHashMap<>();
     private boolean applyingDockLayoutPrefs;
     public boolean dirty = false;
     private boolean compactExport = false;
@@ -333,6 +334,7 @@ public class PuppeteerWindow extends Stage {
     private double previewFocusDividerPosition = DEFAULT_PREVIEW_FOCUS_DIVIDER_POSITION;
     private double topWorkspaceDividerPosition = DEFAULT_TOP_WORKSPACE_DIVIDER_POSITION;
     private double bottomWorkspaceDividerPosition = DEFAULT_BOTTOM_WORKSPACE_DIVIDER_POSITION;
+    private double workspaceContentDividerPosition = DEFAULT_CONTENT_DIVIDER_POSITION;
     private double toolbarDividerPosition = DEFAULT_TOOLBAR_DIVIDER_POSITION;
     private boolean topToolbarVisible = true;
     private double toolbarDragStartSceneY = 0.0;
@@ -3717,6 +3719,9 @@ public class PuppeteerWindow extends Stage {
             if (bottomWorkspaceSplit != null && !bottomWorkspaceSplit.getDividers().isEmpty()) {
                 bottomWorkspaceSplit.setDividerPositions(readDividerPosition(bottomWorkspaceSplit, bottomWorkspaceDividerPosition));
             }
+            if (workspaceContentSplit != null && !workspaceContentSplit.getDividers().isEmpty()) {
+                workspaceContentSplit.setDividerPositions(readDividerPosition(workspaceContentSplit, workspaceContentDividerPosition));
+            }
             if (mainWorkspaceSplit != null && !mainWorkspaceSplit.getDividers().isEmpty()) {
                 mainWorkspaceSplit.setDividerPositions(readDividerPosition(mainWorkspaceSplit, codePaneDividerPosition));
             }
@@ -6205,6 +6210,17 @@ public class PuppeteerWindow extends Stage {
             activateItem(items.get(Math.max(0, Math.min(index, items.size() - 1))));
         }
 
+        void releaseItemForPreviewFocus(DockItem releasedItem) {
+            if (releasedItem == null || !items.contains(releasedItem)) return;
+            Node node = releasedItem.contentNode();
+            detachNode(node);
+            node.setManaged(false);
+            node.setVisible(false);
+            if (node instanceof CollapsibleToolbarCluster cluster) {
+                cluster.setDockedChromeVisible(true);
+            }
+        }
+
         void activateItem(DockItem nextItem) {
             if (nextItem == null || !items.contains(nextItem)) return;
             item = nextItem;
@@ -6388,6 +6404,7 @@ public class PuppeteerWindow extends Stage {
         toolbarDividerPosition = DEFAULT_TOOLBAR_DIVIDER_POSITION;
         topWorkspaceDividerPosition = DEFAULT_TOP_WORKSPACE_DIVIDER_POSITION;
         bottomWorkspaceDividerPosition = DEFAULT_BOTTOM_WORKSPACE_DIVIDER_POSITION;
+        workspaceContentDividerPosition = DEFAULT_CONTENT_DIVIDER_POSITION;
         codePaneDividerPosition = DEFAULT_CODE_PANE_DIVIDER_POSITION;
         previewFocusDividerPosition = DEFAULT_PREVIEW_FOCUS_DIVIDER_POSITION;
 
@@ -6927,6 +6944,7 @@ public class PuppeteerWindow extends Stage {
             }
         });
         workspacePrefs.getDivider(PuppeteerWorkspacePrefs.DIVIDER_CONTENT).ifPresent(v -> {
+            workspaceContentDividerPosition = v;
             if (workspaceContentSplit != null && !workspaceContentSplit.getDividers().isEmpty()) {
                 workspaceContentSplit.setDividerPositions(v);
             }
@@ -8994,8 +9012,8 @@ public class PuppeteerWindow extends Stage {
 
     private void enterFullscreenPreview() {
         if (scene == null || isPreviewFullscreenActive()) return;
-        topWorkspaceDividerPosition = readDividerPosition(topWorkspaceSplit, topWorkspaceDividerPosition);
-        bottomWorkspaceDividerPosition = readDividerPosition(bottomWorkspaceSplit, bottomWorkspaceDividerPosition);
+        rememberWorkspaceDividerPositions();
+        previewFocusReturnActiveItems.clear();
 
         previewFocusPreviewReturnSlot = findDockSlotContaining(previewPane);
         previewFocusTimelineReturnSlot = findDockSlotContaining(timelinePanel);
@@ -9005,14 +9023,10 @@ public class PuppeteerWindow extends Stage {
         previewFocusTimelineItem = previewFocusTimelineReturnSlot == null
             ? dockItems.get("timeline-panel")
             : previewFocusTimelineReturnSlot.itemForNode(timelinePanel);
-        if (previewFocusPreviewReturnSlot != null && previewFocusPreviewItem != null) {
-            previewFocusPreviewReturnSlot.removeItem(previewFocusPreviewItem);
-        }
-        else detachNode(previewPane);
-        if (previewFocusTimelineReturnSlot != null && previewFocusTimelineItem != null) {
-            previewFocusTimelineReturnSlot.removeItem(previewFocusTimelineItem);
-        }
-        else detachNode(timelinePanel);
+        rememberPreviewFocusActiveItem(previewFocusPreviewReturnSlot);
+        rememberPreviewFocusActiveItem(previewFocusTimelineReturnSlot);
+        releasePreviewFocusNode(previewFocusPreviewReturnSlot, previewFocusPreviewItem, previewPane);
+        releasePreviewFocusNode(previewFocusTimelineReturnSlot, previewFocusTimelineItem, timelinePanel);
         previewPane.setManaged(true);
         previewPane.setVisible(true);
         timelinePanel.setManaged(true);
@@ -9039,28 +9053,93 @@ public class PuppeteerWindow extends Stage {
         previewFocusSplit.getItems().remove(previewPane);
         previewFocusSplit.getItems().remove(timelinePanel);
 
+        restorePreviewFocusDockItem(previewFocusPreviewReturnSlot, previewFocusPreviewItem);
+        restorePreviewFocusDockItem(previewFocusTimelineReturnSlot, previewFocusTimelineItem);
+        restorePreviewFocusActiveItems();
+
         previewFocusMode = false;
         updatePreviewWorkspaceModeVisibility();
-
-        if (previewFocusPreviewReturnSlot != null && previewFocusPreviewItem != null) {
-            previewFocusPreviewReturnSlot.addItem(previewFocusPreviewItem);
-        }
-        if (previewFocusTimelineReturnSlot != null && previewFocusTimelineItem != null) {
-            previewFocusTimelineReturnSlot.addItem(previewFocusTimelineItem);
-        }
         previewFocusPreviewReturnSlot = null;
         previewFocusTimelineReturnSlot = null;
         previewFocusPreviewItem = null;
         previewFocusTimelineItem = null;
+        previewFocusReturnActiveItems.clear();
 
         updatePreviewOverlayVisibility();
         refreshSidebarTabs();
 
         Platform.runLater(() -> {
-            topWorkspaceSplit.setDividerPositions(topWorkspaceDividerPosition);
-            bottomWorkspaceSplit.setDividerPositions(bottomWorkspaceDividerPosition);
+            restoreWorkspaceDividerPositions();
             updatePreview();
+            Platform.runLater(this::restoreWorkspaceDividerPositions);
         });
+    }
+
+    private void rememberWorkspaceDividerPositions() {
+        topWorkspaceDividerPosition = readDividerPosition(topWorkspaceSplit, topWorkspaceDividerPosition);
+        bottomWorkspaceDividerPosition = readDividerPosition(bottomWorkspaceSplit, bottomWorkspaceDividerPosition);
+        workspaceContentDividerPosition = readDividerPosition(workspaceContentSplit, workspaceContentDividerPosition);
+        codePaneDividerPosition = readDividerPosition(mainWorkspaceSplit, codePaneDividerPosition);
+    }
+
+    private void restoreWorkspaceDividerPositions() {
+        if (topWorkspaceSplit != null && !topWorkspaceSplit.getDividers().isEmpty()) {
+            topWorkspaceSplit.setDividerPositions(topWorkspaceDividerPosition);
+        }
+        if (bottomWorkspaceSplit != null && !bottomWorkspaceSplit.getDividers().isEmpty()) {
+            bottomWorkspaceSplit.setDividerPositions(bottomWorkspaceDividerPosition);
+        }
+        if (workspaceContentSplit != null && !workspaceContentSplit.getDividers().isEmpty()) {
+            workspaceContentSplit.setDividerPositions(workspaceContentDividerPosition);
+        }
+        if (mainWorkspaceSplit != null && !mainWorkspaceSplit.getDividers().isEmpty()) {
+            mainWorkspaceSplit.setDividerPositions(codePaneDividerPosition);
+        }
+    }
+
+    private void rememberPreviewFocusActiveItem(DockSlot slot) {
+        if (slot == null || slot.item() == null) return;
+        previewFocusReturnActiveItems.putIfAbsent(slot, slot.item());
+    }
+
+    private void releasePreviewFocusNode(DockSlot returnSlot, DockItem returnItem, Node fallbackNode) {
+        if (returnSlot != null && returnItem != null && returnSlot.containsItem(returnItem)) {
+            returnSlot.releaseItemForPreviewFocus(returnItem);
+        } else {
+            detachNode(fallbackNode);
+        }
+    }
+
+    private void restorePreviewFocusDockItem(DockSlot returnSlot, DockItem returnItem) {
+        if (returnItem == null || returnItem.contentNode() == null) return;
+        DockSlot targetSlot = returnSlot;
+        if (targetSlot == null || !dockSlots.containsValue(targetSlot)) {
+            targetSlot = dockSlots.get(returnItem.defaultSlotId());
+        }
+        returnItem.contentNode().setManaged(true);
+        returnItem.contentNode().setVisible(true);
+        if (targetSlot != null) {
+            if (targetSlot.containsItem(returnItem)) {
+                targetSlot.activateItem(returnItem);
+            } else {
+                targetSlot.addItem(returnItem);
+            }
+            return;
+        }
+        SplitPane group = firstAvailableDockGroup("workspace-top", "workspace-main");
+        if (group != null) {
+            createDynamicDockSlot(null, returnItem, group, group.getItems().size());
+        }
+    }
+
+    private void restorePreviewFocusActiveItems() {
+        for (Map.Entry<DockSlot, DockItem> entry : previewFocusReturnActiveItems.entrySet()) {
+            DockSlot slot = entry.getKey();
+            DockItem activeItem = entry.getValue();
+            if (slot != null && activeItem != null && slot.containsItem(activeItem)) {
+                slot.activateItem(activeItem);
+            }
+        }
     }
 
     private void updatePreviewOverlayVisibility() {
@@ -10884,22 +10963,13 @@ public class PuppeteerWindow extends Stage {
         prefs.setString(PuppeteerWorkspacePrefs.KEY_TOOLBAR_LAYOUT_MODE, getToolbarLayoutMode().name());
         prefs.setDouble(PuppeteerWorkspacePrefs.KEY_UI_SCALE, uiScale);
         captureDockLayoutPrefsInto(prefs);
-        if (topWorkspaceSplit != null && !topWorkspaceSplit.getDividers().isEmpty()) {
-            prefs.setDivider(PuppeteerWorkspacePrefs.DIVIDER_TOP,
-                topWorkspaceSplit.getDividerPositions()[0]);
+        if (!previewFocusMode) {
+            rememberWorkspaceDividerPositions();
         }
-        if (bottomWorkspaceSplit != null && !bottomWorkspaceSplit.getDividers().isEmpty()) {
-            prefs.setDivider(PuppeteerWorkspacePrefs.DIVIDER_BOTTOM,
-                bottomWorkspaceSplit.getDividerPositions()[0]);
-        }
-        if (workspaceContentSplit != null && !workspaceContentSplit.getDividers().isEmpty()) {
-            prefs.setDivider(PuppeteerWorkspacePrefs.DIVIDER_CONTENT,
-                workspaceContentSplit.getDividerPositions()[0]);
-        }
-        if (mainWorkspaceSplit != null && !mainWorkspaceSplit.getDividers().isEmpty()) {
-            prefs.setDivider(PuppeteerWorkspacePrefs.DIVIDER_CODE_PANE,
-                mainWorkspaceSplit.getDividerPositions()[0]);
-        }
+        prefs.setDivider(PuppeteerWorkspacePrefs.DIVIDER_TOP, topWorkspaceDividerPosition);
+        prefs.setDivider(PuppeteerWorkspacePrefs.DIVIDER_BOTTOM, bottomWorkspaceDividerPosition);
+        prefs.setDivider(PuppeteerWorkspacePrefs.DIVIDER_CONTENT, workspaceContentDividerPosition);
+        prefs.setDivider(PuppeteerWorkspacePrefs.DIVIDER_CODE_PANE, codePaneDividerPosition);
         if (previewFocusSplit != null && !previewFocusSplit.getDividers().isEmpty()) {
             previewFocusDividerPosition = readDividerPosition(previewFocusSplit, previewFocusDividerPosition);
         }
