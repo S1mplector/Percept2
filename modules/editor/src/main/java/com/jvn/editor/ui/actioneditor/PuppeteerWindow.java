@@ -3740,50 +3740,77 @@ public class PuppeteerWindow extends Stage {
         });
         MenuItem miResetDockArrangement = new MenuItem("Reset Dock Arrangement");
         miResetDockArrangement.setOnAction(ev -> resetDockArrangement());
-        dockersMenu.getItems().addAll(miRestoreAllDockers, miResetDockArrangement, createEdgeBarMenu(), new SeparatorMenuItem());
+        dockersMenu.getItems().addAll(miRestoreAllDockers, miResetDockArrangement, new SeparatorMenuItem());
 
+        Menu mainDockersMenu = new Menu("Main Dockers");
+        Menu floatingDockersMenu = new Menu("Floating Dockers");
+        floatingDockersMenu.getItems().add(createEdgeBarMenu());
+        floatingDockersMenu.getItems().add(new SeparatorMenuItem());
+        boolean hasMainDockers = false;
+        boolean hasFloatingDockers = false;
         for (DockItem item : dockItems.values()) {
-            Menu itemMenu = new Menu(item.title());
-            CheckMenuItem miVisible = new CheckMenuItem("Visible");
-            miVisible.setSelected(isDockItemVisible(item));
-            miVisible.setOnAction(ev -> {
-                if (miVisible.isSelected()) {
-                    showDockItem(item);
+            if (item.homeToolbar()) {
+                hasFloatingDockers = true;
+                floatingDockersMenu.getItems().add(createDockerMenuItem(item));
+            } else {
+                hasMainDockers = true;
+                mainDockersMenu.getItems().add(createDockerMenuItem(item));
+            }
+        }
+        if (!hasMainDockers) {
+            MenuItem empty = new MenuItem("No Main Dockers");
+            empty.setDisable(true);
+            mainDockersMenu.getItems().add(empty);
+        }
+        if (!hasFloatingDockers) {
+            MenuItem empty = new MenuItem("No Floating Dockers");
+            empty.setDisable(true);
+            floatingDockersMenu.getItems().add(empty);
+        }
+        dockersMenu.getItems().addAll(mainDockersMenu, floatingDockersMenu);
+    }
+
+    private Menu createDockerMenuItem(DockItem item) {
+        Menu itemMenu = new Menu(item.title());
+        CheckMenuItem miVisible = new CheckMenuItem("Visible");
+        miVisible.setSelected(isDockItemVisible(item));
+        miVisible.setOnAction(ev -> {
+            if (miVisible.isSelected()) {
+                showDockItem(item);
+            } else {
+                hideDockItem(item);
+            }
+        });
+        itemMenu.getItems().add(miVisible);
+
+        MenuItem miRestore = new MenuItem(isDockItemVisible(item) ? "Bring Forward" : "Restore");
+        miRestore.setOnAction(ev -> showDockItem(item));
+        itemMenu.getItems().add(miRestore);
+
+        MenuItem miHide = new MenuItem("Kill / Hide");
+        miHide.setDisable(!isDockItemVisible(item));
+        miHide.setOnAction(ev -> hideDockItem(item));
+        itemMenu.getItems().add(miHide);
+
+        itemMenu.getItems().add(new SeparatorMenuItem());
+        if (item.homeToolbar()) {
+            MenuItem miFloat = new MenuItem(floatingToolbarDockers.containsKey(item.id()) ? "Show Floating" : "Float");
+            miFloat.setOnAction(ev -> floatToolbarDockItem(item));
+            MenuItem miEdgeBar = new MenuItem(edgeBarDockItemIds.contains(item.id()) ? "Show From Edge Bar" : "Send to Edge Bar");
+            miEdgeBar.setOnAction(ev -> {
+                if (edgeBarDockItemIds.contains(item.id())) {
+                    restoreEdgeBarDockItem(item);
                 } else {
-                    hideDockItem(item);
+                    sendDockItemToEdgeBar(item);
                 }
             });
-            itemMenu.getItems().add(miVisible);
-
-            MenuItem miRestore = new MenuItem(isDockItemVisible(item) ? "Bring Forward" : "Restore");
-            miRestore.setOnAction(ev -> showDockItem(item));
-            itemMenu.getItems().add(miRestore);
-
-            MenuItem miHide = new MenuItem("Kill / Hide");
-            miHide.setDisable(!isDockItemVisible(item));
-            miHide.setOnAction(ev -> hideDockItem(item));
-            itemMenu.getItems().add(miHide);
-
-            itemMenu.getItems().add(new SeparatorMenuItem());
-            if (item.homeToolbar()) {
-                MenuItem miFloat = new MenuItem(floatingToolbarDockers.containsKey(item.id()) ? "Show Floating" : "Float");
-                miFloat.setOnAction(ev -> floatToolbarDockItem(item));
-                MenuItem miEdgeBar = new MenuItem(edgeBarDockItemIds.contains(item.id()) ? "Show From Edge Bar" : "Send to Edge Bar");
-                miEdgeBar.setOnAction(ev -> {
-                    if (edgeBarDockItemIds.contains(item.id())) {
-                        restoreEdgeBarDockItem(item);
-                    } else {
-                        sendDockItemToEdgeBar(item);
-                    }
-                });
-                MenuItem miReturnToToolbar = new MenuItem("Return to Toolbar Row");
-                miReturnToToolbar.setDisable(!floatingToolbarDockers.containsKey(item.id()));
-                miReturnToToolbar.setOnAction(ev -> dockFloatingToolbarItem(item));
-                itemMenu.getItems().addAll(miFloat, miEdgeBar, miReturnToToolbar, new SeparatorMenuItem());
-            }
-            itemMenu.getItems().add(createMoveDockItemMenu(item));
-            dockersMenu.getItems().add(itemMenu);
+            MenuItem miReturnToToolbar = new MenuItem("Return to Toolbar Row");
+            miReturnToToolbar.setDisable(!floatingToolbarDockers.containsKey(item.id()));
+            miReturnToToolbar.setOnAction(ev -> dockFloatingToolbarItem(item));
+            itemMenu.getItems().addAll(miFloat, miEdgeBar, miReturnToToolbar, new SeparatorMenuItem());
         }
+        itemMenu.getItems().add(createMoveDockItemMenu(item));
+        return itemMenu;
     }
 
     private Menu createEdgeBarMenu() {
