@@ -4942,6 +4942,151 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-effect: dropshadow(gaussian, rgba(232, 146, 42, 0.24), 12, 0.28, 0, 0);
 }
 
+.puppeteer-dock-slot {
+  -fx-background-color: #121212;
+}
+
+.puppeteer-dock-slot.drop-target {
+  -fx-background-color: #18110a;
+  -fx-border-color: #d08a34;
+  -fx-border-width: 1;
+  -fx-effect: dropshadow(gaussian, rgba(232, 146, 42, 0.25), 14, 0.28, 0, 0);
+}
+
+.puppeteer-dock-slot-header {
+  -fx-background-color: linear-gradient(to bottom, #24201b, #171717);
+  -fx-border-color: #3b3329;
+  -fx-border-width: 0 0 1 0;
+  -fx-padding: 0 8 0 8;
+  -fx-cursor: move;
+}
+
+.puppeteer-dock-slot-header:hover {
+  -fx-background-color: linear-gradient(to bottom, #33291d, #1d1a17);
+  -fx-border-color: #715632;
+}
+
+.puppeteer-dock-slot-grip {
+  -fx-text-fill: #9f8767;
+  -fx-font-family: "Consolas", "Menlo", monospace;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+}
+
+.puppeteer-dock-slot-title {
+  -fx-text-fill: #d9d2c7;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+}
+
+.puppeteer-dock-slot-close {
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
+  -fx-padding: 0;
+  -fx-cursor: hand;
+}
+
+.puppeteer-dock-slot-close:hover {
+  -fx-background-color: rgba(190, 130, 70, 0.18);
+  -fx-background-radius: 5;
+}
+
+.puppeteer-dock-slot-body {
+  -fx-background-color: #121212;
+}
+
+.puppeteer-dock-slot-tab-bar {
+  -fx-background-color: #151515;
+  -fx-border-color: #2b241d;
+  -fx-border-width: 0 0 1 0;
+  -fx-padding: 3 5 3 5;
+}
+
+.puppeteer-dock-slot-tab {
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
+  -fx-text-fill: #a99d8f;
+  -fx-font-size: 10px;
+  -fx-font-weight: 700;
+  -fx-padding: 3 8 3 8;
+  -fx-background-radius: 4;
+  -fx-border-radius: 4;
+  -fx-cursor: hand;
+}
+
+.puppeteer-dock-slot-tab:hover {
+  -fx-background-color: rgba(208, 138, 52, 0.12);
+  -fx-text-fill: #e0d5c6;
+}
+
+.puppeteer-dock-slot-tab:selected {
+  -fx-background-color: #2a2118;
+  -fx-border-color: #704f2d;
+  -fx-text-fill: #f0dfc8;
+}
+
+.puppeteer-floating-docker-layer {
+  -fx-background-color: transparent;
+}
+
+.puppeteer-floating-docker {
+  -fx-background-color: #121212;
+  -fx-border-color: #4a3726;
+  -fx-border-width: 1;
+  -fx-background-radius: 7;
+  -fx-border-radius: 7;
+  -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.45), 18, 0.28, 0, 4);
+}
+
+.puppeteer-floating-docker-header {
+  -fx-background-color: linear-gradient(to bottom, #2a2118, #171717);
+  -fx-border-color: #4d3a27;
+  -fx-border-width: 0 0 1 0;
+  -fx-background-radius: 7 7 0 0;
+  -fx-padding: 0 7 0 7;
+  -fx-cursor: move;
+}
+
+.puppeteer-floating-docker-header:hover {
+  -fx-background-color: linear-gradient(to bottom, #3a2a1b, #201a14);
+  -fx-border-color: #8b6334;
+}
+
+.puppeteer-floating-docker-title {
+  -fx-text-fill: #e0d5c6;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+}
+
+.puppeteer-floating-docker-restore-tab {
+  -fx-background-color: linear-gradient(to bottom, #342517, #1c1712);
+  -fx-border-color: #8b6334;
+  -fx-border-width: 1;
+  -fx-background-radius: 5;
+  -fx-border-radius: 5;
+  -fx-text-fill: #f0dfc8;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+  -fx-padding: 3 9 3 9;
+  -fx-cursor: hand;
+  -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.45), 12, 0.25, 0, 2);
+}
+
+.puppeteer-floating-docker-restore-tab:hover {
+  -fx-background-color: linear-gradient(to bottom, #4a321d, #251b13);
+  -fx-border-color: #d08a34;
+  -fx-text-fill: #fff0d8;
+}
+
+.puppeteer-control-dock-rows {
+  -fx-background-color: #101010;
+  -fx-padding: 3 3 2 3;
+}
+
+.puppeteer-control-dock-row {
+  -fx-background-color: #101010;
+}
+
 /* Slider */
 .slider .track {
   -fx-background-color: #2a2a2a;

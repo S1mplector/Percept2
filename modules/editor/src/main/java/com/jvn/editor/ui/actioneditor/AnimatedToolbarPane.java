@@ -61,6 +61,71 @@ public class AnimatedToolbarPane extends Region {
         cluster.pinnedProperty().addListener((obs, oldValue, newValue) -> triggerAnimatedLayout());
     }
 
+    public void replaceCluster(CollapsibleToolbarCluster oldCluster, CollapsibleToolbarCluster newCluster) {
+        if (oldCluster == null || newCluster == null || oldCluster == newCluster) {
+            return;
+        }
+        int index = clusters.indexOf(oldCluster);
+        if (index < 0) {
+            addCluster(newCluster);
+            return;
+        }
+        int order = baseOrder.getOrDefault(oldCluster, index);
+        clusters.set(index, newCluster);
+        baseOrder.remove(oldCluster);
+        baseOrder.put(newCluster, order);
+        getChildren().remove(oldCluster);
+        if (!getChildren().contains(newCluster)) {
+            getChildren().add(newCluster);
+        }
+        newCluster.setLayoutMode(layoutMode);
+        newCluster.expandedProperty().addListener((obs, oldValue, newValue) -> triggerAnimatedLayout());
+        newCluster.pinnedProperty().addListener((obs, oldValue, newValue) -> triggerAnimatedLayout());
+        lastTargets.remove(oldCluster);
+        Timeline animation = activeAnimations.remove(oldCluster);
+        if (animation != null) {
+            animation.stop();
+        }
+        triggerAnimatedLayout();
+    }
+
+    public void removeCluster(CollapsibleToolbarCluster cluster) {
+        if (cluster == null) {
+            return;
+        }
+        clusters.remove(cluster);
+        baseOrder.remove(cluster);
+        getChildren().remove(cluster);
+        lastTargets.remove(cluster);
+        Timeline animation = activeAnimations.remove(cluster);
+        if (animation != null) {
+            animation.stop();
+        }
+        triggerAnimatedLayout();
+    }
+
+    public List<CollapsibleToolbarCluster> getClustersSnapshot() {
+        return List.copyOf(clusters);
+    }
+
+    public void swapClusters(CollapsibleToolbarCluster first, CollapsibleToolbarCluster second) {
+        if (first == null || second == null || first == second) {
+            return;
+        }
+        int firstIndex = clusters.indexOf(first);
+        int secondIndex = clusters.indexOf(second);
+        if (firstIndex < 0 || secondIndex < 0) {
+            return;
+        }
+        clusters.set(firstIndex, second);
+        clusters.set(secondIndex, first);
+        int firstOrder = baseOrder.getOrDefault(first, firstIndex);
+        int secondOrder = baseOrder.getOrDefault(second, secondIndex);
+        baseOrder.put(first, secondOrder);
+        baseOrder.put(second, firstOrder);
+        triggerAnimatedLayout();
+    }
+
     public LayoutMode getLayoutMode() {
         return layoutMode;
     }

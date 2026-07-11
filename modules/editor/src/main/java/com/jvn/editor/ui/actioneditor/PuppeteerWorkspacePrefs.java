@@ -33,6 +33,15 @@ public final class PuppeteerWorkspacePrefs {
     public static final String KEY_VIEWPORT_ZOOM = "viewport.zoom";
     public static final String KEY_TIMELINE_PLAYHEAD = "timeline.playhead";
     public static final String KEY_TOP_TOOLBAR_VISIBLE = "toolbar.visible";
+    public static final String KEY_TOOLBAR_LAYOUT_MODE = "toolbar.layoutMode";
+    public static final String KEY_UI_SCALE = "ui.scale";
+    public static final String KEY_DOCK_SLOT_PREFIX = "dock.slot.";
+    public static final String KEY_DOCK_TOOLBAR_ORDER = "dock.toolbarOrder";
+    public static final String KEY_DOCK_HIDDEN_ITEMS = "dock.hiddenItems";
+    public static final String KEY_DOCK_DYNAMIC_SLOTS = "dock.dynamicSlots";
+    public static final String KEY_FLOATING_DOCKER_PREFIX = "floatingDocker.";
+    public static final String KEY_WORKSPACE_PRESET_ORDER = "workspacePreset.order";
+    public static final String KEY_WORKSPACE_PRESET_PREFIX = "workspacePreset.";
 
     private static final String RECENT_KEY = "recent.timelines";
     private static final String RECENT_RECORD_DELIM = ";;";
@@ -45,6 +54,10 @@ public final class PuppeteerWorkspacePrefs {
 
     private PuppeteerWorkspacePrefs(File projectRoot) {
         this.projectRoot = projectRoot;
+    }
+
+    public static PuppeteerWorkspacePrefs transientPrefs() {
+        return new PuppeteerWorkspacePrefs(null);
     }
 
     public static PuppeteerWorkspacePrefs load(File projectRoot) {
@@ -128,6 +141,31 @@ public final class PuppeteerWorkspacePrefs {
     public void setBoolean(String key, boolean value) {
         if (key == null || key.isBlank()) return;
         entries.put(key, Boolean.toString(value));
+    }
+
+    public Optional<String> getString(String key) {
+        if (key == null || key.isBlank()) return Optional.empty();
+        String value = entries.get(key);
+        return value == null ? Optional.empty() : Optional.of(value);
+    }
+
+    public void setString(String key, String value) {
+        if (key == null || key.isBlank()) return;
+        entries.put(key, value == null ? "" : value);
+    }
+
+    public void remove(String key) {
+        if (key == null || key.isBlank()) return;
+        entries.remove(key);
+    }
+
+    public void removeKeysStartingWith(String prefix) {
+        if (prefix == null || prefix.isBlank()) return;
+        entries.keySet().removeIf(key -> key.startsWith(prefix));
+    }
+
+    public Map<String, String> snapshotEntries() {
+        return new LinkedHashMap<>(entries);
     }
 
     public List<RecentTimeline> getRecent() {

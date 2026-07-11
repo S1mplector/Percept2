@@ -4709,6 +4709,151 @@
   -fx-effect: dropshadow(gaussian, rgba(232, 146, 42, 0.24), 12, 0.28, 0, 0);
 }
 
+.puppeteer-dock-slot {
+  -fx-background-color: #f3f3f3;
+}
+
+.puppeteer-dock-slot.drop-target {
+  -fx-background-color: #fff7ea;
+  -fx-border-color: #c7832e;
+  -fx-border-width: 1;
+  -fx-effect: dropshadow(gaussian, rgba(180, 112, 35, 0.23), 12, 0.25, 0, 0);
+}
+
+.puppeteer-dock-slot-header {
+  -fx-background-color: linear-gradient(to bottom, #ece7df, #ded8cf);
+  -fx-border-color: #c9bda9;
+  -fx-border-width: 0 0 1 0;
+  -fx-padding: 0 8 0 8;
+  -fx-cursor: move;
+}
+
+.puppeteer-dock-slot-header:hover {
+  -fx-background-color: linear-gradient(to bottom, #f3eadc, #e4d7c6);
+  -fx-border-color: #a8824b;
+}
+
+.puppeteer-dock-slot-grip {
+  -fx-text-fill: #8a6a3e;
+  -fx-font-family: "Consolas", "Menlo", monospace;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+}
+
+.puppeteer-dock-slot-title {
+  -fx-text-fill: #463a2c;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+}
+
+.puppeteer-dock-slot-close {
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
+  -fx-padding: 0;
+  -fx-cursor: hand;
+}
+
+.puppeteer-dock-slot-close:hover {
+  -fx-background-color: rgba(145, 98, 42, 0.18);
+  -fx-background-radius: 5;
+}
+
+.puppeteer-dock-slot-body {
+  -fx-background-color: #f3f3f3;
+}
+
+.puppeteer-dock-slot-tab-bar {
+  -fx-background-color: #eee9e1;
+  -fx-border-color: #d1c3ae;
+  -fx-border-width: 0 0 1 0;
+  -fx-padding: 3 5 3 5;
+}
+
+.puppeteer-dock-slot-tab {
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
+  -fx-text-fill: #74634f;
+  -fx-font-size: 10px;
+  -fx-font-weight: 700;
+  -fx-padding: 3 8 3 8;
+  -fx-background-radius: 4;
+  -fx-border-radius: 4;
+  -fx-cursor: hand;
+}
+
+.puppeteer-dock-slot-tab:hover {
+  -fx-background-color: rgba(178, 122, 55, 0.13);
+  -fx-text-fill: #443625;
+}
+
+.puppeteer-dock-slot-tab:selected {
+  -fx-background-color: #f8ead6;
+  -fx-border-color: #b68040;
+  -fx-text-fill: #3a2a1a;
+}
+
+.puppeteer-floating-docker-layer {
+  -fx-background-color: transparent;
+}
+
+.puppeteer-floating-docker {
+  -fx-background-color: #f8f6f2;
+  -fx-border-color: #c4ad8c;
+  -fx-border-width: 1;
+  -fx-background-radius: 7;
+  -fx-border-radius: 7;
+  -fx-effect: dropshadow(gaussian, rgba(55, 42, 27, 0.22), 16, 0.25, 0, 4);
+}
+
+.puppeteer-floating-docker-header {
+  -fx-background-color: linear-gradient(to bottom, #efe5d6, #ded3c3);
+  -fx-border-color: #c6b397;
+  -fx-border-width: 0 0 1 0;
+  -fx-background-radius: 7 7 0 0;
+  -fx-padding: 0 7 0 7;
+  -fx-cursor: move;
+}
+
+.puppeteer-floating-docker-header:hover {
+  -fx-background-color: linear-gradient(to bottom, #f7ead8, #e5d5c0);
+  -fx-border-color: #a9824a;
+}
+
+.puppeteer-floating-docker-title {
+  -fx-text-fill: #443625;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+}
+
+.puppeteer-floating-docker-restore-tab {
+  -fx-background-color: linear-gradient(to bottom, #f8ead6, #e4d4be);
+  -fx-border-color: #a9824a;
+  -fx-border-width: 1;
+  -fx-background-radius: 5;
+  -fx-border-radius: 5;
+  -fx-text-fill: #4a321d;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+  -fx-padding: 3 9 3 9;
+  -fx-cursor: hand;
+  -fx-effect: dropshadow(gaussian, rgba(72, 52, 28, 0.22), 10, 0.25, 0, 2);
+}
+
+.puppeteer-floating-docker-restore-tab:hover {
+  -fx-background-color: linear-gradient(to bottom, #fff2dd, #ecd8bd);
+  -fx-border-color: #c7832e;
+  -fx-text-fill: #2d2117;
+}
+
+.puppeteer-control-dock-rows {
+  -fx-background-color: #eeeeee;
+  -fx-padding: 3 3 2 3;
+}
+
+.puppeteer-control-dock-row {
+  -fx-background-color: #eeeeee;
+}
+
 /* Slider */
 .slider .track {
   -fx-background-color: #d5d5d5;

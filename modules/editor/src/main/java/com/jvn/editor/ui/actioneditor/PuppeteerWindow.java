@@ -1,6 +1,8 @@
 package com.jvn.editor.ui.actioneditor;
 
 import java.io.File;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -8,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -16,6 +19,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -35,6 +39,7 @@ import com.jvn.editor.ui.SidebarToolHelp;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 
 import javafx.animation.AnimationTimer;
+import javafx.animation.FadeTransition;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
@@ -69,16 +74,19 @@ import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
+import javafx.scene.input.Dragboard;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.input.TransferMode;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
@@ -202,9 +210,6 @@ public class PuppeteerWindow extends Stage {
     public final Map<String, CollapsibleToolbarCluster> toolbarClusters = new LinkedHashMap<>();
     private AnimatedToolbarPane toolbarPane;
     private HBox toolbarCommandBar;
-    private VBox toolbarShell;
-    private BorderPane toolbarDock;
-    private Button btnTopToolbarVisibility;
     private Label lblToolbarCommandSummary;
     Label statusBar;
     private Label statusPlaybackLabel;
@@ -267,6 +272,20 @@ public class PuppeteerWindow extends Stage {
     private SplitPane rootWorkspaceSplit;
     private SplitPane previewFocusSplit;
     private StackPane workspaceModeHost;
+    private final Map<String, DockSlot> dockSlots = new LinkedHashMap<>();
+    private final Map<String, DockItem> dockItems = new LinkedHashMap<>();
+    private final Map<String, DockItem> toolbarDockItems = new LinkedHashMap<>();
+    private final Map<SplitPane, String> dockGroupIds = new LinkedHashMap<>();
+    private final Map<String, SplitPane> dockGroupsById = new LinkedHashMap<>();
+    private final Map<String, FloatingDocker> floatingToolbarDockers = new LinkedHashMap<>();
+    private final Set<String> hiddenDockItemIds = new LinkedHashSet<>();
+    private Pane floatingToolbarLayer;
+    private int dynamicDockSlotCounter = 1;
+    private DockSlot previewFocusPreviewReturnSlot;
+    private DockSlot previewFocusTimelineReturnSlot;
+    private DockItem previewFocusPreviewItem;
+    private DockItem previewFocusTimelineItem;
+    private boolean applyingDockLayoutPrefs;
     public boolean dirty = false;
     private boolean compactExport = false;
     private boolean exportNestedBlocks = true;
@@ -288,20 +307,30 @@ public class PuppeteerWindow extends Stage {
     private final Map<String, String> sceneBaselineImagePaths = new LinkedHashMap<>();
     private boolean bypassCloseConfirmation = false;
     public boolean codePaneVisible = true;
-    private double codePaneDividerPosition = 0.78;
+    private double codePaneDividerPosition = DEFAULT_CODE_PANE_DIVIDER_POSITION;
     private boolean previewFocusMode = false;
-    private double previewFocusDividerPosition = 0.72;
-    private double topWorkspaceDividerPosition = 0.2;
-    private double bottomWorkspaceDividerPosition = 0.28;
-    private double toolbarDividerPosition = 0.16;
+    private double previewFocusDividerPosition = DEFAULT_PREVIEW_FOCUS_DIVIDER_POSITION;
+    private double topWorkspaceDividerPosition = DEFAULT_TOP_WORKSPACE_DIVIDER_POSITION;
+    private double bottomWorkspaceDividerPosition = DEFAULT_BOTTOM_WORKSPACE_DIVIDER_POSITION;
+    private double toolbarDividerPosition = DEFAULT_TOOLBAR_DIVIDER_POSITION;
     private boolean topToolbarVisible = true;
     private double toolbarDragStartSceneY = 0.0;
-    private double toolbarDragStartDivider = 0.16;
+    private double toolbarDragStartDivider = DEFAULT_TOOLBAR_DIVIDER_POSITION;
+    private double uiScale = 1.0;
 
     private static final double MOVE_INTERACTION_EPSILON = 0.01;
     private static final double TOOLBAR_COLLAPSED_DIVIDER_POSITION = 0.035;
     private static final double TOOLBAR_MIN_VISIBLE_DIVIDER_POSITION = 0.075;
-    private static final double TOOLBAR_MAX_DIVIDER_POSITION = 0.36;
+    private static final double TOOLBAR_MAX_DIVIDER_POSITION = 0.55;
+    private static final double DEFAULT_TOOLBAR_DIVIDER_POSITION = 0.16;
+    private static final double DEFAULT_TOP_WORKSPACE_DIVIDER_POSITION = 0.2;
+    private static final double DEFAULT_BOTTOM_WORKSPACE_DIVIDER_POSITION = 0.28;
+    private static final double DEFAULT_CONTENT_DIVIDER_POSITION = 0.4;
+    private static final double DEFAULT_CODE_PANE_DIVIDER_POSITION = 0.78;
+    private static final double DEFAULT_PREVIEW_FOCUS_DIVIDER_POSITION = 0.72;
+    private static final double MIN_UI_SCALE = 0.80;
+    private static final double MAX_UI_SCALE = 1.60;
+    private static final double BASE_UI_FONT_SIZE = 12.0;
     private static final Insets TOOLBAR_PADDING_DYNAMIC = new Insets(8, 10, 8, 10);
     private static final Insets TOOLBAR_PADDING_COMPACT = new Insets(1, 4, 1, 4);
     private static final Insets TOOLBAR_COMMAND_BAR_PADDING_DYNAMIC = new Insets(6, 10, 0, 10);
@@ -313,6 +342,12 @@ public class PuppeteerWindow extends Stage {
     private static final String PROP_TOOLBAR_BASE_PREF_HEIGHT = "puppeteerToolbarBasePrefHeight";
     private static final String PROP_TOOLBAR_BASE_ICON_WIDTH = "puppeteerToolbarBaseIconWidth";
     private static final String PROP_TOOLBAR_BASE_ICON_HEIGHT = "puppeteerToolbarBaseIconHeight";
+    private static final String DOCK_DRAG_SLOT_PREFIX = "jvn-puppeteer-dock-slot:";
+    private static final String DOCK_DRAG_TOOLBAR_PREFIX = "jvn-puppeteer-toolbar:";
+    private static final String EMPTY_DOCK_VALUE = "-";
+    private static final String DOCK_SLOT_ITEM_DELIMITER = "|";
+    private static final String WORKSPACE_PRESET_NAME_SUFFIX = ".name";
+    private static final String WORKSPACE_PRESET_PAYLOAD_SUFFIX = ".payload";
     private static final PropertyType[] TRANSFORM_INTERACTION_PROPERTIES = {
         PropertyType.X,
         PropertyType.Y,
@@ -1309,58 +1344,12 @@ public class PuppeteerWindow extends Stage {
         CollapsibleToolbarCluster helpCluster = registerToolbarCluster("help", "Help", btnHelp);
 
         toolbarPane = new AnimatedToolbarPane(8, 5);
-        toolbarPane.addCluster(transportCluster);
-        toolbarPane.addCluster(historyCluster);
-        toolbarPane.addCluster(durationCluster);
-        toolbarPane.addCluster(presetsCluster);
-        toolbarPane.addCluster(propertyCluster);
-        toolbarPane.addCluster(keyframesCluster);
-        toolbarPane.addCluster(snapCluster);
-        toolbarPane.addCluster(previewCluster);
-        toolbarPane.addCluster(orbitCluster);
-        toolbarPane.addCluster(audioCluster);
-        toolbarPane.addCluster(registerCluster);
-        toolbarPane.addCluster(exportCluster);
-        toolbarPane.addCluster(diagnosticsCluster);
-        toolbarPane.addCluster(helpCluster);
-        toolbarPane.registerMarker("toolbar-group-transport-duration", transportCluster, historyCluster, durationCluster);
-        toolbarPane.registerMarker("toolbar-group-keyframe-ops", propertyCluster, keyframesCluster);
-        toolbarPane.registerMarker("toolbar-group-preview-modes", snapCluster, previewCluster);
-        toolbarPane.registerMarker("toolbar-group-orbit-audio-register", orbitCluster, audioCluster, registerCluster);
-        toolbarPane.registerMarker("toolbar-group-export-help", exportCluster, diagnosticsCluster, helpCluster);
         toolbarPane.setId("puppeteer-toolbar");
         toolbarPane.setPadding(TOOLBAR_PADDING_DYNAMIC);
         toolbarPane.setMinHeight(Region.USE_PREF_SIZE);
         toolbarPane.setMaxWidth(Double.MAX_VALUE);
 
         toolbarCommandBar = buildToolbarCommandBar();
-
-        toolbarShell = new VBox(6, toolbarCommandBar, toolbarPane) {
-            @Override
-            protected double computeMinHeight(double width) {
-                return 0.0;
-            }
-
-            @Override
-            protected double computePrefHeight(double width) {
-                Insets insets = getInsets();
-                double contentWidth = width <= 0.0
-                    ? -1.0
-                    : Math.max(1.0, width - insets.getLeft() - insets.getRight());
-                double commandBarHeight = toolbarCommandBar.prefHeight(contentWidth);
-                double clustersHeight = toolbarPane.prefHeight(contentWidth);
-                return insets.getTop()
-                    + commandBarHeight
-                    + getSpacing()
-                    + clustersHeight
-                    + insets.getBottom();
-            }
-        };
-        toolbarShell.getStyleClass().add("puppeteer-toolbar-shell");
-        toolbarShell.setFillWidth(true);
-        toolbarShell.setMinHeight(0);
-        toolbarShell.setMaxWidth(Double.MAX_VALUE);
-        toolbarDock = buildToolbarDock(toolbarShell);
         setToolbarClustersExpanded(true);
         setToolbarLayoutMode(AnimatedToolbarPane.LayoutMode.COMPACT);
 
@@ -1487,6 +1476,7 @@ public class PuppeteerWindow extends Stage {
         leftTabsScrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         leftTabsScrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         leftTabsScrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        DockSlot entitiesSlot = createDockSlot(createDockItem("entities", "Entities", leftTabsScrollPane, false));
         keyframeEditor.setMinWidth(0);
         keyframeEditor.setMinHeight(0);
         keyframeEditor.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
@@ -1563,26 +1553,56 @@ public class PuppeteerWindow extends Stage {
         timelinePanel.setMinHeight(0);
         previewPane.setTop(viewportInfoLabel);
         previewPane.setStyle("-fx-background-color: #121212;");
+        DockSlot previewSlot = createDockSlot(createDockItem("preview", "Preview", previewPane, false));
+        DockSlot keyframeSlot = createDockSlot(createDockItem("keyframes-panel", "Keyframes", keyframeEditor, false));
+        DockSlot timelineSlot = createDockSlot(createDockItem("timeline-panel", "Timeline", timelinePanel, false));
+        DockSlot codeSlot = createDockSlot(createDockItem("code", "Code", codePreview, false));
+
+        floatingToolbarLayer = new Pane();
+        floatingToolbarLayer.getStyleClass().add("puppeteer-floating-docker-layer");
+        floatingToolbarLayer.setPickOnBounds(false);
+        floatingToolbarLayer.setMinSize(0, 0);
+        floatingToolbarLayer.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        createFloatingToolbarDocker(transportCluster, 14, 14);
+        createFloatingToolbarDocker(historyCluster, 260, 14);
+        createFloatingToolbarDocker(durationCluster, 410, 14);
+        createFloatingToolbarDocker(registerCluster, 620, 14);
+        createFloatingToolbarDocker(exportCluster, 880, 14);
+        createFloatingToolbarDocker(presetsCluster, 14, 92);
+        createFloatingToolbarDocker(propertyCluster, 180, 92);
+        createFloatingToolbarDocker(keyframesCluster, 360, 92);
+        createFloatingToolbarDocker(snapCluster, 660, 92);
+        createFloatingToolbarDocker(previewCluster, 800, 92);
+        createFloatingToolbarDocker(orbitCluster, 14, 170);
+        createFloatingToolbarDocker(audioCluster, 170, 170);
+        createFloatingToolbarDocker(diagnosticsCluster, 430, 170);
+        createFloatingToolbarDocker(helpCluster, 560, 170);
 
         topWorkspaceSplit = new SplitPane();
         topWorkspaceSplit.getStyleClass().add("puppeteer-split-pane");
         topWorkspaceSplit.setOrientation(Orientation.HORIZONTAL);
         topWorkspaceSplit.setMinWidth(0);
         topWorkspaceSplit.setMinHeight(0);
-        topWorkspaceSplit.getItems().addAll(leftTabsScrollPane, previewPane);
-        SplitPane.setResizableWithParent(leftTabsScrollPane, Boolean.TRUE);
-        SplitPane.setResizableWithParent(previewPane, Boolean.TRUE);
-        topWorkspaceSplit.setDividerPositions(0.2);
+        topWorkspaceSplit.getItems().addAll(entitiesSlot, previewSlot);
+        SplitPane.setResizableWithParent(entitiesSlot, Boolean.TRUE);
+        SplitPane.setResizableWithParent(previewSlot, Boolean.TRUE);
+        registerDockSlotHome(entitiesSlot, topWorkspaceSplit, 0, false);
+        registerDockSlotHome(previewSlot, topWorkspaceSplit, 1, false);
+        registerDockGroup("workspace-top", topWorkspaceSplit);
+        topWorkspaceSplit.setDividerPositions(DEFAULT_TOP_WORKSPACE_DIVIDER_POSITION);
 
         bottomWorkspaceSplit = new SplitPane();
         bottomWorkspaceSplit.getStyleClass().add("puppeteer-split-pane");
         bottomWorkspaceSplit.setOrientation(Orientation.HORIZONTAL);
         bottomWorkspaceSplit.setMinWidth(0);
         bottomWorkspaceSplit.setMinHeight(0);
-        bottomWorkspaceSplit.getItems().addAll(keyframeEditor, timelinePanel);
-        SplitPane.setResizableWithParent(keyframeEditor, Boolean.TRUE);
-        SplitPane.setResizableWithParent(timelinePanel, Boolean.TRUE);
-        bottomWorkspaceSplit.setDividerPositions(0.28);
+        bottomWorkspaceSplit.getItems().addAll(keyframeSlot, timelineSlot);
+        SplitPane.setResizableWithParent(keyframeSlot, Boolean.TRUE);
+        SplitPane.setResizableWithParent(timelineSlot, Boolean.TRUE);
+        registerDockSlotHome(keyframeSlot, bottomWorkspaceSplit, 0, false);
+        registerDockSlotHome(timelineSlot, bottomWorkspaceSplit, 1, false);
+        registerDockGroup("workspace-bottom", bottomWorkspaceSplit);
+        bottomWorkspaceSplit.setDividerPositions(DEFAULT_BOTTOM_WORKSPACE_DIVIDER_POSITION);
 
         workspaceContentSplit = new SplitPane();
         workspaceContentSplit.getStyleClass().add("puppeteer-split-pane");
@@ -1592,7 +1612,7 @@ public class PuppeteerWindow extends Stage {
         workspaceContentSplit.getItems().addAll(topWorkspaceSplit, bottomWorkspaceSplit);
         SplitPane.setResizableWithParent(topWorkspaceSplit, Boolean.TRUE);
         SplitPane.setResizableWithParent(bottomWorkspaceSplit, Boolean.TRUE);
-        workspaceContentSplit.setDividerPositions(0.4);
+        workspaceContentSplit.setDividerPositions(DEFAULT_CONTENT_DIVIDER_POSITION);
         collapsedWorkspaceDivider[0] = workspaceContentSplit.getDividerPositions()[0];
 
         mainWorkspaceSplit = new SplitPane();
@@ -1602,9 +1622,11 @@ public class PuppeteerWindow extends Stage {
         mainWorkspaceSplit.setMinHeight(0);
         codePreview.setMinWidth(0);
         codePreview.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
-        mainWorkspaceSplit.getItems().addAll(workspaceContentSplit, codePreview);
+        mainWorkspaceSplit.getItems().addAll(workspaceContentSplit, codeSlot);
         SplitPane.setResizableWithParent(workspaceContentSplit, Boolean.TRUE);
-        SplitPane.setResizableWithParent(codePreview, Boolean.TRUE);
+        SplitPane.setResizableWithParent(codeSlot, Boolean.TRUE);
+        registerDockSlotHome(codeSlot, mainWorkspaceSplit, 1, false);
+        registerDockGroup("workspace-main", mainWorkspaceSplit);
         mainWorkspaceSplit.setDividerPositions(codePaneDividerPosition);
 
         previewFocusSplit = new SplitPane();
@@ -1625,8 +1647,7 @@ public class PuppeteerWindow extends Stage {
         rootWorkspaceSplit.setOrientation(Orientation.VERTICAL);
         rootWorkspaceSplit.setMinWidth(0);
         rootWorkspaceSplit.setMinHeight(0);
-        rootWorkspaceSplit.getItems().addAll(toolbarDock, workspaceModeHost);
-        SplitPane.setResizableWithParent(toolbarDock, Boolean.FALSE);
+        rootWorkspaceSplit.getItems().addAll(workspaceModeHost);
         SplitPane.setResizableWithParent(workspaceModeHost, Boolean.TRUE);
         rootWorkspaceSplit.setDividerPositions(toolbarDividerPosition);
 
@@ -1634,14 +1655,18 @@ public class PuppeteerWindow extends Stage {
         updateStatusBar();
 
         BorderPane root = new BorderPane();
+        root.setTop(toolbarCommandBar);
         root.setCenter(rootWorkspaceSplit);
         root.setBottom(puppeteerStatusBar);
         root.setStyle("-fx-background-color: #121212;");
 
-        StackPane rootStack = new StackPane(root, overlayDialog);
+        StackPane rootStack = new StackPane(root, floatingToolbarLayer, overlayDialog);
         Scene fxScene = new Scene(rootStack);
         EditorTheme.apply(fxScene);
         setScene(fxScene);
+        fxScene.widthProperty().addListener((obs, oldValue, newValue) -> relayoutFloatingRestoreTabs());
+        fxScene.heightProperty().addListener((obs, oldValue, newValue) -> relayoutFloatingRestoreTabs());
+        applyUiScale();
         applyLinuxDefaultWindowState();
 
         setupKeyboardShortcuts(fxScene);
@@ -1725,7 +1750,7 @@ public class PuppeteerWindow extends Stage {
             puppeteerStatusItem("Keyboard Shortcuts", this::showShortcutsOverlay),
             puppeteerStatusItem("Copy Exported Code", this::copyExportedCodeToClipboard),
             puppeteerStatusSeparatorItem(),
-            puppeteerStatusItem(codePaneVisible ? "Hide Code Pane" : "Show Code Pane", () -> setCodePaneVisible(!isCodePaneVisible()))
+            puppeteerStatusItem(isCodePaneVisible() ? "Hide Code Pane" : "Show Code Pane", () -> setCodePaneVisible(!isCodePaneVisible()))
         ));
         installPuppeteerStatusMenu(statusPlaybackSegment, () -> puppeteerStatusMenu(
             puppeteerStatusItem(project.isPlaying() ? "Pause" : "Play", () -> { if (project.isPlaying()) pause(); else play(); }),
@@ -1811,7 +1836,7 @@ public class PuppeteerWindow extends Stage {
         installPuppeteerStatusMenu(statusExportSegment, () -> puppeteerStatusMenu(
             puppeteerStatusItem("Copy Exported Code", this::copyExportedCodeToClipboard),
             puppeteerStatusItem("Refresh Code Preview", this::refreshExportPreview),
-            puppeteerStatusItem(codePaneVisible ? "Hide Code Pane" : "Show Code Pane", () -> setCodePaneVisible(!isCodePaneVisible()))
+            puppeteerStatusItem(isCodePaneVisible() ? "Hide Code Pane" : "Show Code Pane", () -> setCodePaneVisible(!isCodePaneVisible()))
         ));
         return bar;
     }
@@ -1876,45 +1901,6 @@ public class PuppeteerWindow extends Stage {
 
     private static MenuItem puppeteerStatusSeparatorItem() {
         return new SeparatorMenuItem();
-    }
-
-    private BorderPane buildToolbarDock(VBox content) {
-        Region gripLine = new Region();
-        gripLine.getStyleClass().add("puppeteer-toolbar-grip-line");
-        HBox.setHgrow(gripLine, Priority.ALWAYS);
-
-        Label title = new Label("Puppeteer Toolbar");
-        title.getStyleClass().add("puppeteer-toolbar-grip-label");
-
-        btnTopToolbarVisibility = makeToolbarIconButton(
-            com.jvn.editor.ui.CssIcon.arrowUp("#b0b8c8"), "Hide top toolbar");
-        btnTopToolbarVisibility.getStyleClass().add("puppeteer-toolbar-dock-toggle");
-        btnTopToolbarVisibility.setMinSize(30, 24);
-        btnTopToolbarVisibility.setPrefSize(30, 24);
-        btnTopToolbarVisibility.setMaxSize(30, 24);
-        btnTopToolbarVisibility.setOnAction(e -> setTopToolbarVisible(!topToolbarVisible));
-
-        HBox gripBar = new HBox(8, title, gripLine, btnTopToolbarVisibility);
-        gripBar.getStyleClass().add("puppeteer-toolbar-grip-bar");
-        gripBar.setAlignment(Pos.CENTER_LEFT);
-        gripBar.setMinHeight(28);
-        gripBar.setPrefHeight(28);
-        gripBar.addEventFilter(MouseEvent.MOUSE_PRESSED, this::beginToolbarDrag);
-        gripBar.addEventFilter(MouseEvent.MOUSE_DRAGGED, this::dragToolbar);
-
-        BorderPane dock = new BorderPane(content) {
-            @Override
-            protected double computeMinHeight(double width) {
-                return gripBar.prefHeight(width);
-            }
-        };
-        dock.getStyleClass().add("puppeteer-toolbar-dock");
-        dock.setTop(gripBar);
-        dock.setMinHeight(0);
-        dock.setMaxWidth(Double.MAX_VALUE);
-        installLayoutClip(dock);
-        updateTopToolbarChrome();
-        return dock;
     }
 
     private HBox buildToolbarCommandBar() {
@@ -2160,7 +2146,7 @@ public class PuppeteerWindow extends Stage {
             miSceneClearEvents.setDisable(project == null || project.getEditorEventCues().isEmpty());
         });
 
-        CheckMenuItem miShowToolbar = new CheckMenuItem("Show Top Toolbar");
+        CheckMenuItem miShowToolbar = new CheckMenuItem("Show Menu Bar");
         miShowToolbar.setOnAction(e -> setTopToolbarVisible(miShowToolbar.isSelected()));
         CheckMenuItem miShowCodePane = new CheckMenuItem("Show Code Pane");
         miShowCodePane.setOnAction(e -> setCodePaneVisible(miShowCodePane.isSelected()));
@@ -2179,6 +2165,20 @@ public class PuppeteerWindow extends Stage {
         miLayoutCompact.setToggleGroup(layoutMenuGroup);
         miLayoutDynamic.setOnAction(e -> setToolbarLayoutMode(AnimatedToolbarPane.LayoutMode.DYNAMIC));
         miLayoutCompact.setOnAction(e -> setToolbarLayoutMode(AnimatedToolbarPane.LayoutMode.COMPACT));
+        Menu uiScaleMenu = new Menu("UI Scale");
+        ToggleGroup uiScaleGroup = new ToggleGroup();
+        double[] scalePresets = {0.80, 0.90, 1.00, 1.10, 1.25, 1.50};
+        for (double preset : scalePresets) {
+            RadioMenuItem miScale = new RadioMenuItem(formatUiScaleLabel(preset));
+            miScale.setUserData(preset);
+            miScale.setToggleGroup(uiScaleGroup);
+            miScale.setOnAction(e -> setUiScale(preset));
+            uiScaleMenu.getItems().add(miScale);
+        }
+        MenuItem miResetUiScale = new MenuItem("Reset UI Scale");
+        miResetUiScale.setOnAction(e -> setUiScale(1.0));
+        MenuItem miResetLayout = new MenuItem("Reset Resizable Bars");
+        miResetLayout.setOnAction(e -> resetWorkspaceLayout());
         MenuItem miFocusTimeline = new MenuItem("Focus Timeline on Selection");
         miFocusTimeline.setOnAction(e -> timelinePanel.zoomToSelection());
         MenuItem miZoomFit = new MenuItem("Zoom Timeline to Fit");
@@ -2194,13 +2194,17 @@ public class PuppeteerWindow extends Stage {
         Menu toolbarClustersMenu = new Menu("Toolbar Clusters");
         toolbarClustersMenu.setOnShowing(e -> {
             toolbarClustersMenu.getItems().clear();
-            for (CollapsibleToolbarCluster cluster : toolbarClusters.values()) {
+            for (CollapsibleToolbarCluster cluster : new LinkedHashSet<>(toolbarClusters.values())) {
                 CheckMenuItem mi = new CheckMenuItem(cluster.getTitle());
                 mi.setSelected(cluster.isExpanded());
                 mi.setOnAction(ev -> cluster.setExpanded(mi.isSelected()));
                 toolbarClustersMenu.getItems().add(mi);
             }
         });
+        Menu dockersMenu = new Menu("Dockers");
+        dockersMenu.setOnShowing(e -> populateDockersMenu(dockersMenu));
+        populateDockersMenu(dockersMenu);
+        Menu workspacePresetsMenu = buildWorkspacePresetsMenu();
 
         Menu viewMenu = new Menu("View");
         viewMenu.getItems().addAll(
@@ -2213,24 +2217,33 @@ public class PuppeteerWindow extends Stage {
             new SeparatorMenuItem(),
             miLayoutDynamic,
             miLayoutCompact,
+            uiScaleMenu,
+            miResetUiScale,
             new SeparatorMenuItem(),
-            toolbarClustersMenu,
-            miExpandAll,
-            miCollapseAll,
+            workspacePresetsMenu,
+            dockersMenu,
+            new SeparatorMenuItem(),
+            miResetLayout,
             new SeparatorMenuItem(),
             miFocusTimeline,
             miZoomFit,
             miFullscreenPreview
         );
         viewMenu.setOnShowing(e -> {
+            populateDockersMenu(dockersMenu);
             miShowToolbar.setSelected(isTopToolbarVisible());
-            miShowCodePane.setSelected(codePaneVisible);
+            miShowCodePane.setSelected(isCodePaneVisible());
             miOnionSkin.setSelected(animationPreview.isOnionSkinning());
             miInterpolationGhosts.setSelected(animationPreview.isShowInterpolationGhosts());
             miShowSafeGuides.setSelected(animationPreview.isShowSafeGuides());
             miShowTitleGuides.setSelected(animationPreview.isShowTitleGuides());
             miLayoutDynamic.setSelected(getToolbarLayoutMode() == AnimatedToolbarPane.LayoutMode.DYNAMIC);
             miLayoutCompact.setSelected(getToolbarLayoutMode() == AnimatedToolbarPane.LayoutMode.COMPACT);
+            for (MenuItem item : uiScaleMenu.getItems()) {
+                if (item instanceof RadioMenuItem radio && item.getUserData() instanceof Double preset) {
+                    radio.setSelected(Math.abs(preset - uiScale) < 0.001);
+                }
+            }
             miFullscreenPreview.setDisable(scene == null && !isPreviewFullscreenActive());
         });
 
@@ -2326,10 +2339,11 @@ public class PuppeteerWindow extends Stage {
         List<String> parts = new ArrayList<>();
         parts.add(dirty ? "Unsaved" : "Saved");
         if (previewStaged) parts.add("Preview Staged");
-        parts.add(codePaneVisible ? "Code Pane On" : "Code Pane Off");
+        parts.add(isCodePaneVisible() ? "Code Pane On" : "Code Pane Off");
         parts.add(getToolbarLayoutMode() == AnimatedToolbarPane.LayoutMode.COMPACT
             ? "Compact Toolbar"
             : "Dynamic Toolbar");
+        parts.add("UI " + formatUiScaleLabel(uiScale));
 
         if (timelinePanel != null) {
             int selectionCount = timelinePanel.getSelectionCount();
@@ -2828,14 +2842,14 @@ public class PuppeteerWindow extends Stage {
             lblSidebarSceneCamera.setText(String.format("X %.1f  Y %.1f  Z %.2f", camera.getX(), camera.getY(), camera.getZoom()));
         }
         if (lblSidebarSceneCodePane != null) {
-            lblSidebarSceneCodePane.setText(codePaneVisible ? "Visible" : "Hidden");
+            lblSidebarSceneCodePane.setText(isCodePaneVisible() ? "Visible" : "Hidden");
         }
         if (btnSidebarPreviewLayout != null) {
             btnSidebarPreviewLayout.setText(previewFocusMode ? "Back to Workspace" : "Focus Preview");
             btnSidebarPreviewLayout.setDisable(scene == null && !previewFocusMode);
         }
         if (btnSidebarCodePane != null) {
-            btnSidebarCodePane.setText(codePaneVisible ? "Hide Code Pane" : "Show Code Pane");
+            btnSidebarCodePane.setText(isCodePaneVisible() ? "Hide Code Pane" : "Show Code Pane");
         }
         if (constraintEditor != null) {
             constraintEditor.selectEntity(hasTarget && !selectedGroup && !runtimeCamera ? selectedName : null);
@@ -3291,24 +3305,1672 @@ public class PuppeteerWindow extends Stage {
         applyToolbarChromeDensity(resolved);
         applyToolbarDensity(resolved);
         refreshToolbarCommandSummary();
+        if (workspacePrefs != null) {
+            workspacePrefs.setString(PuppeteerWorkspacePrefs.KEY_TOOLBAR_LAYOUT_MODE, resolved.name());
+            workspacePrefs.save();
+        }
     }
 
     public AnimatedToolbarPane.LayoutMode getToolbarLayoutMode() {
         return toolbarPane != null ? toolbarPane.getLayoutMode() : AnimatedToolbarPane.LayoutMode.DYNAMIC;
     }
 
+    private DockItem createDockItem(String id, String title, Node node, boolean homeToolbar) {
+        DockItem item = new DockItem(id, title, node, homeToolbar);
+        dockItems.put(item.id(), item);
+        return item;
+    }
+
+    private DockSlot createDockSlot(DockItem item) {
+        DockSlot slot = new DockSlot(item.id(), item);
+        dockSlots.put(slot.slotId(), slot);
+        return slot;
+    }
+
+    private void createFloatingToolbarDocker(CollapsibleToolbarCluster cluster, double x, double y) {
+        if (cluster == null || floatingToolbarLayer == null) return;
+        DockItem item = dockItems.get(cluster.getClusterKey());
+        if (item == null) return;
+        cluster.setDockedChromeVisible(false);
+        FloatingDocker docker = new FloatingDocker(item, x, y);
+        floatingToolbarDockers.put(item.id(), docker);
+        floatingToolbarLayer.getChildren().addAll(docker, docker.restoreTab());
+    }
+
+    private void relayoutFloatingRestoreTabs() {
+        for (FloatingDocker docker : floatingToolbarDockers.values()) {
+            docker.refreshRestoreTabPosition();
+        }
+    }
+
+    private DockSlot createDynamicDockSlot(String slotId, DockItem item, SplitPane group, int index) {
+        String resolvedId = slotId == null || slotId.isBlank()
+            ? "custom-dock-" + dynamicDockSlotCounter++
+            : slotId.trim();
+        DockSlot slot = new DockSlot(resolvedId, item);
+        dockSlots.put(slot.slotId(), slot);
+        registerDockSlotHome(slot, group, index, true);
+        if (item != null) {
+            attachDockSlot(slot);
+        }
+        return slot;
+    }
+
+    private SplitPane createDockRow(String groupId, CollapsibleToolbarCluster... clusters) {
+        SplitPane row = new SplitPane();
+        row.getStyleClass().add("puppeteer-split-pane");
+        row.getStyleClass().add("puppeteer-control-dock-row");
+        row.setOrientation(Orientation.HORIZONTAL);
+        row.setMinWidth(0);
+        row.setMinHeight(0);
+        registerDockGroup(groupId, row);
+        if (clusters != null) {
+            for (CollapsibleToolbarCluster cluster : clusters) {
+                DockItem item = cluster == null ? null : dockItems.get(cluster.getClusterKey());
+                if (item == null) continue;
+                DockSlot slot = createDockSlot(item);
+                row.getItems().add(slot);
+                SplitPane.setResizableWithParent(slot, Boolean.TRUE);
+                registerDockSlotHome(slot, row, row.getItems().size() - 1, false);
+            }
+        }
+        installNewDockDropTarget(row);
+        refreshDockGroupVisibility(row);
+        return row;
+    }
+
+    private void registerDockGroup(String groupId, SplitPane group) {
+        if (group == null || groupId == null || groupId.isBlank()) return;
+        dockGroupIds.put(group, groupId);
+        dockGroupsById.put(groupId, group);
+        installNewDockDropTarget(group);
+    }
+
+    private void registerDockSlotHome(DockSlot slot, SplitPane group, int index, boolean dynamic) {
+        if (slot == null) return;
+        slot.homeGroup = group;
+        slot.homeIndex = Math.max(0, index);
+        slot.dynamic = dynamic;
+    }
+
+    private void attachDockSlot(DockSlot slot) {
+        if (slot == null || slot.homeGroup == null || slot.homeGroup.getItems().contains(slot)) return;
+        int index = Math.max(0, Math.min(slot.homeIndex, slot.homeGroup.getItems().size()));
+        slot.homeGroup.getItems().add(index, slot);
+        SplitPane.setResizableWithParent(slot, Boolean.TRUE);
+        refreshDockGroupVisibility(slot.homeGroup);
+    }
+
+    private void detachDockSlot(DockSlot slot) {
+        if (slot == null || slot.homeGroup == null) return;
+        slot.homeGroup.getItems().remove(slot);
+        refreshDockGroupVisibility(slot.homeGroup);
+        if (slot.dynamic && !slot.hasItems()) {
+            dockSlots.remove(slot.slotId());
+        }
+    }
+
+    private void refreshDockGroupVisibility(SplitPane group) {
+        if (group == null) return;
+        boolean visible = !group.getItems().isEmpty();
+        group.setManaged(visible);
+        group.setVisible(visible);
+    }
+
+    private void installNewDockDropTarget(SplitPane group) {
+        if (group == null) return;
+        group.setOnDragOver(event -> {
+            String payload = dockPayload(event.getDragboard());
+            if (payload == null) return;
+            DockItem item = dockItemFromPayload(payload);
+            if (item != null && item.homeToolbar()) return;
+            event.acceptTransferModes(TransferMode.MOVE);
+            event.consume();
+        });
+        group.setOnDragDropped(event -> {
+            String payload = dockPayload(event.getDragboard());
+            DockItem item = dockItemFromPayload(payload);
+            boolean success = item != null && moveDockItemToNewSlot(item, group);
+            event.setDropCompleted(success);
+            event.consume();
+        });
+    }
+
+    private void installToolbarDockHandlers(CollapsibleToolbarCluster cluster) {
+        if (cluster == null) return;
+        DockItem item = dockItems.get(cluster.getClusterKey());
+        if (item == null) {
+            item = createDockItem(cluster.getClusterKey(), cluster.getTitle(), cluster, true);
+        }
+        item.setToolbarCluster(cluster);
+        cluster.setOnDragDetected(event -> {
+            if (event.getButton() != MouseButton.PRIMARY) return;
+            Dragboard dragboard = cluster.startDragAndDrop(TransferMode.MOVE);
+            ClipboardContent content = new ClipboardContent();
+            content.putString(DOCK_DRAG_TOOLBAR_PREFIX + cluster.getClusterKey());
+            dragboard.setContent(content);
+            event.consume();
+        });
+        cluster.setOnDragOver(event -> {
+            String payload = dockPayload(event.getDragboard());
+            if (payload != null && isDockDragPayload(payload, cluster.getClusterKey())) {
+                event.acceptTransferModes(TransferMode.MOVE);
+                event.consume();
+            }
+        });
+        cluster.setOnDragDropped(event -> {
+            String payload = dockPayload(event.getDragboard());
+            boolean success = false;
+            if (payload != null) {
+                if (payload.startsWith(DOCK_DRAG_SLOT_PREFIX)) {
+                    success = swapDockSlotIntoToolbar(payload.substring(DOCK_DRAG_SLOT_PREFIX.length()), cluster.getClusterKey());
+                } else if (payload.startsWith(DOCK_DRAG_TOOLBAR_PREFIX)) {
+                    success = swapToolbarClusters(payload.substring(DOCK_DRAG_TOOLBAR_PREFIX.length()), cluster.getClusterKey());
+                }
+            }
+            event.setDropCompleted(success);
+            event.consume();
+        });
+    }
+
+    private boolean swapDockSlots(String sourceSlotId, String targetSlotId) {
+        if (sourceSlotId == null || targetSlotId == null || sourceSlotId.equals(targetSlotId)) return false;
+        DockSlot source = dockSlots.get(sourceSlotId);
+        DockSlot target = dockSlots.get(targetSlotId);
+        if (source == null || target == null) return false;
+        DockItem sourceItem = source.item();
+        if (sourceItem == null) return false;
+        return moveDockItemToSlot(sourceItem, target.slotId());
+    }
+
+    private boolean swapToolbarIntoDockSlot(String toolbarKey, String targetSlotId) {
+        if (toolbarKey == null || targetSlotId == null) return false;
+        if (!toolbarDockItems.containsKey(toolbarKey)) {
+            DockItem dockItem = dockItems.get(toolbarKey);
+            if (dockItem != null && dockItem.homeToolbar()) return false;
+            return dockItem != null && moveDockItemToSlot(dockItem, targetSlotId);
+        }
+        DockSlot target = dockSlots.get(targetSlotId);
+        DockItem toolbarItem = toolbarDockItems.get(toolbarKey);
+        CollapsibleToolbarCluster toolbarCluster = toolbarItem == null ? null : toolbarItem.toolbarCluster();
+        if (target == null || toolbarItem == null || toolbarCluster == null) {
+            return false;
+        }
+        toolbarPane.removeCluster(toolbarCluster);
+        toolbarDockItems.remove(toolbarKey);
+        toolbarItem.clearToolbarCluster();
+        target.addItem(toolbarItem);
+        refreshAfterDockSwap();
+        return true;
+    }
+
+    private boolean swapDockSlotIntoToolbar(String sourceSlotId, String targetToolbarKey) {
+        if (sourceSlotId == null || targetToolbarKey == null) return false;
+        DockSlot source = dockSlots.get(sourceSlotId);
+        DockItem toolbarItem = toolbarDockItems.get(targetToolbarKey);
+        CollapsibleToolbarCluster toolbarCluster = toolbarItem == null ? null : toolbarItem.toolbarCluster();
+        if (source == null || toolbarItem == null || toolbarCluster == null) {
+            return false;
+        }
+        DockItem sourceItem = source.item();
+        if (sourceItem == null) return false;
+        CollapsibleToolbarCluster replacement = sourceItem.asToolbarCluster();
+        toolbarPane.replaceCluster(toolbarCluster, replacement);
+        toolbarDockItems.remove(targetToolbarKey);
+        toolbarDockItems.put(replacement.getClusterKey(), sourceItem);
+        toolbarItem.clearToolbarCluster();
+        source.removeItem(sourceItem);
+        source.addItem(toolbarItem);
+        refreshAfterDockSwap();
+        return true;
+    }
+
+    private boolean swapToolbarClusters(String sourceToolbarKey, String targetToolbarKey) {
+        if (sourceToolbarKey == null || targetToolbarKey == null || sourceToolbarKey.equals(targetToolbarKey)) return false;
+        DockItem source = toolbarDockItems.get(sourceToolbarKey);
+        DockItem target = toolbarDockItems.get(targetToolbarKey);
+        CollapsibleToolbarCluster sourceCluster = source == null ? null : source.toolbarCluster();
+        CollapsibleToolbarCluster targetCluster = target == null ? null : target.toolbarCluster();
+        if (source == null || target == null || sourceCluster == null || targetCluster == null) {
+            return false;
+        }
+        toolbarPane.swapClusters(sourceCluster, targetCluster);
+        refreshAfterDockSwap();
+        return true;
+    }
+
+    private void refreshAfterDockSwap() {
+        hiddenDockItemIds.removeIf(id -> {
+            DockItem item = dockItems.get(id);
+            return item != null && !item.homeToolbar() && isDockItemVisible(item);
+        });
+        syncCodePaneVisibilityState();
+        if (!applyingDockLayoutPrefs) {
+            persistWorkspacePrefsNow();
+        }
+        refreshSidebarTabs();
+        refreshToolbarCommandSummary();
+        updateStatusBar();
+        Platform.runLater(() -> {
+            if (topWorkspaceSplit != null && !topWorkspaceSplit.getDividers().isEmpty()) {
+                topWorkspaceSplit.setDividerPositions(readDividerPosition(topWorkspaceSplit, topWorkspaceDividerPosition));
+            }
+            if (bottomWorkspaceSplit != null && !bottomWorkspaceSplit.getDividers().isEmpty()) {
+                bottomWorkspaceSplit.setDividerPositions(readDividerPosition(bottomWorkspaceSplit, bottomWorkspaceDividerPosition));
+            }
+            if (mainWorkspaceSplit != null && !mainWorkspaceSplit.getDividers().isEmpty()) {
+                mainWorkspaceSplit.setDividerPositions(readDividerPosition(mainWorkspaceSplit, codePaneDividerPosition));
+            }
+        });
+    }
+
+    private void populateDockersMenu(Menu dockersMenu) {
+        if (dockersMenu == null) return;
+        dockersMenu.getItems().clear();
+
+        MenuItem miRestoreAllDockers = new MenuItem("Restore All Dockers");
+        miRestoreAllDockers.setOnAction(ev -> {
+            for (DockItem item : dockItems.values()) {
+                showDockItem(item);
+            }
+        });
+        MenuItem miResetDockArrangement = new MenuItem("Reset Dock Arrangement");
+        miResetDockArrangement.setOnAction(ev -> resetDockArrangement());
+        dockersMenu.getItems().addAll(miRestoreAllDockers, miResetDockArrangement, new SeparatorMenuItem());
+
+        for (DockItem item : dockItems.values()) {
+            Menu itemMenu = new Menu(item.title());
+            CheckMenuItem miVisible = new CheckMenuItem("Visible");
+            miVisible.setSelected(isDockItemVisible(item));
+            miVisible.setOnAction(ev -> {
+                if (miVisible.isSelected()) {
+                    showDockItem(item);
+                } else {
+                    hideDockItem(item);
+                }
+            });
+            itemMenu.getItems().add(miVisible);
+
+            MenuItem miRestore = new MenuItem(isDockItemVisible(item) ? "Bring Forward" : "Restore");
+            miRestore.setOnAction(ev -> showDockItem(item));
+            itemMenu.getItems().add(miRestore);
+
+            MenuItem miHide = new MenuItem("Kill / Hide");
+            miHide.setDisable(!isDockItemVisible(item));
+            miHide.setOnAction(ev -> hideDockItem(item));
+            itemMenu.getItems().add(miHide);
+
+            itemMenu.getItems().add(new SeparatorMenuItem());
+            itemMenu.getItems().add(createMoveDockItemMenu(item));
+            dockersMenu.getItems().add(itemMenu);
+        }
+    }
+
+    private Menu buildWorkspacePresetsMenu() {
+        Menu menu = new Menu("Workspace Presets");
+        menu.setOnShowing(event -> populateWorkspacePresetsMenu(menu));
+        populateWorkspacePresetsMenu(menu);
+        return menu;
+    }
+
+    private void populateWorkspacePresetsMenu(Menu menu) {
+        if (menu == null) return;
+        menu.getItems().clear();
+        MenuItem balanced = new MenuItem("Balanced Floating Tools");
+        balanced.setOnAction(event -> applyWorkspacePreset("balanced"));
+        MenuItem animation = new MenuItem("Animation Controls");
+        animation.setOnAction(event -> applyWorkspacePreset("animation"));
+        MenuItem preview = new MenuItem("Clean Preview");
+        preview.setOnAction(event -> applyWorkspacePreset("preview"));
+        MenuItem export = new MenuItem("Register & Export");
+        export.setOnAction(event -> applyWorkspacePreset("export"));
+        MenuItem saveCurrent = new MenuItem("Save Current Workspace...");
+        saveCurrent.setDisable(workspacePrefs == null);
+        saveCurrent.setOnAction(event -> saveCurrentWorkspacePresetDialog());
+        Menu saved = new Menu("Saved Workspaces");
+        populateSavedWorkspaceMenu(saved, false);
+        Menu delete = new Menu("Delete Saved Workspace");
+        populateSavedWorkspaceMenu(delete, true);
+        menu.getItems().addAll(
+            balanced,
+            animation,
+            preview,
+            export,
+            new SeparatorMenuItem(),
+            saveCurrent,
+            saved,
+            delete
+        );
+    }
+
+    private void populateSavedWorkspaceMenu(Menu menu, boolean deleteMode) {
+        if (menu == null) return;
+        menu.getItems().clear();
+        List<String> presetIds = savedWorkspacePresetIds();
+        if (presetIds.isEmpty()) {
+            MenuItem empty = new MenuItem("No Saved Workspaces");
+            empty.setDisable(true);
+            menu.getItems().add(empty);
+            return;
+        }
+        for (String presetId : presetIds) {
+            String name = workspacePrefs.getString(workspacePresetKey(presetId, WORKSPACE_PRESET_NAME_SUFFIX))
+                .orElse(presetId);
+            MenuItem item = new MenuItem(deleteMode ? "Delete " + name : name);
+            if (deleteMode) {
+                item.setOnAction(event -> deleteWorkspacePreset(presetId));
+            } else {
+                item.setOnAction(event -> applySavedWorkspacePreset(presetId));
+            }
+            menu.getItems().add(item);
+        }
+    }
+
+    private List<String> savedWorkspacePresetIds() {
+        if (workspacePrefs == null) return List.of();
+        List<String> ids = new ArrayList<>();
+        for (String id : parseDockIdList(workspacePrefs.getString(PuppeteerWorkspacePrefs.KEY_WORKSPACE_PRESET_ORDER).orElse(""))) {
+            if (workspacePrefs.getString(workspacePresetKey(id, WORKSPACE_PRESET_PAYLOAD_SUFFIX)).isPresent()
+                && !ids.contains(id)) {
+                ids.add(id);
+            }
+        }
+        return ids;
+    }
+
+    private void saveCurrentWorkspacePresetDialog() {
+        if (workspacePrefs == null) return;
+        TextInputDialog dialog = new TextInputDialog("My Workspace");
+        dialog.initOwner(this);
+        dialog.setTitle("Save Workspace Preset");
+        dialog.setHeaderText("Save Current Workspace");
+        dialog.setContentText("Name:");
+        dialog.showAndWait()
+            .map(String::trim)
+            .filter(name -> !name.isBlank())
+            .ifPresent(this::saveCurrentWorkspacePreset);
+    }
+
+    private void saveCurrentWorkspacePreset(String name) {
+        if (workspacePrefs == null || name == null || name.isBlank()) return;
+        String payload = captureWorkspacePresetPayload();
+        if (payload.isBlank()) return;
+        String presetId = workspacePresetId(name);
+        workspacePrefs.setString(workspacePresetKey(presetId, WORKSPACE_PRESET_NAME_SUFFIX), name.trim());
+        workspacePrefs.setString(workspacePresetKey(presetId, WORKSPACE_PRESET_PAYLOAD_SUFFIX), payload);
+        List<String> order = new ArrayList<>(savedWorkspacePresetIds());
+        if (!order.contains(presetId)) {
+            order.add(presetId);
+        }
+        workspacePrefs.setString(PuppeteerWorkspacePrefs.KEY_WORKSPACE_PRESET_ORDER, formatDockIdList(order));
+        workspacePrefs.save();
+    }
+
+    private void applySavedWorkspacePreset(String presetId) {
+        if (workspacePrefs == null || presetId == null || presetId.isBlank()) return;
+        workspacePrefs.getString(workspacePresetKey(presetId, WORKSPACE_PRESET_PAYLOAD_SUFFIX))
+            .ifPresent(this::applyWorkspacePresetPayload);
+    }
+
+    private void deleteWorkspacePreset(String presetId) {
+        if (workspacePrefs == null || presetId == null || presetId.isBlank()) return;
+        workspacePrefs.remove(workspacePresetKey(presetId, WORKSPACE_PRESET_NAME_SUFFIX));
+        workspacePrefs.remove(workspacePresetKey(presetId, WORKSPACE_PRESET_PAYLOAD_SUFFIX));
+        List<String> order = new ArrayList<>(savedWorkspacePresetIds());
+        order.remove(presetId);
+        workspacePrefs.setString(PuppeteerWorkspacePrefs.KEY_WORKSPACE_PRESET_ORDER, formatDockIdList(order));
+        workspacePrefs.save();
+    }
+
+    private String captureWorkspacePresetPayload() {
+        PuppeteerWorkspacePrefs snapshot = PuppeteerWorkspacePrefs.transientPrefs();
+        captureWorkspacePrefsInto(snapshot);
+        snapshot.remove(PuppeteerWorkspacePrefs.KEY_VIEWPORT_PAN_X);
+        snapshot.remove(PuppeteerWorkspacePrefs.KEY_VIEWPORT_PAN_Y);
+        snapshot.remove(PuppeteerWorkspacePrefs.KEY_VIEWPORT_ZOOM);
+        snapshot.remove(PuppeteerWorkspacePrefs.KEY_TIMELINE_PLAYHEAD);
+        Properties props = new Properties();
+        props.putAll(snapshot.snapshotEntries());
+        try {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            props.store(out, "Puppeteer workspace preset");
+            return Base64.getEncoder().encodeToString(out.toByteArray());
+        } catch (IOException ex) {
+            return "";
+        }
+    }
+
+    private void applyWorkspacePresetPayload(String payload) {
+        if (workspacePrefs == null || payload == null || payload.isBlank()) return;
+        Properties props = new Properties();
+        try {
+            byte[] bytes = Base64.getDecoder().decode(payload.trim());
+            props.load(new ByteArrayInputStream(bytes));
+        } catch (IOException | IllegalArgumentException ex) {
+            return;
+        }
+        clearWorkspaceLayoutPrefs(workspacePrefs);
+        for (String key : props.stringPropertyNames()) {
+            workspacePrefs.setString(key, props.getProperty(key, ""));
+        }
+        workspacePrefs.save();
+        applyWorkspacePrefs();
+        refreshSidebarTabs();
+        refreshToolbarCommandSummary();
+        updateStatusBar();
+    }
+
+    private void clearWorkspaceLayoutPrefs(PuppeteerWorkspacePrefs prefs) {
+        if (prefs == null) return;
+        prefs.remove(PuppeteerWorkspacePrefs.DIVIDER_TOP);
+        prefs.remove(PuppeteerWorkspacePrefs.DIVIDER_BOTTOM);
+        prefs.remove(PuppeteerWorkspacePrefs.DIVIDER_CONTENT);
+        prefs.remove(PuppeteerWorkspacePrefs.DIVIDER_CODE_PANE);
+        prefs.remove(PuppeteerWorkspacePrefs.DIVIDER_TOOLBAR);
+        prefs.remove(PuppeteerWorkspacePrefs.DIVIDER_PREVIEW_FOCUS);
+        prefs.remove(PuppeteerWorkspacePrefs.KEY_TOP_TOOLBAR_VISIBLE);
+        prefs.remove(PuppeteerWorkspacePrefs.KEY_TOOLBAR_LAYOUT_MODE);
+        prefs.remove(PuppeteerWorkspacePrefs.KEY_UI_SCALE);
+        prefs.remove(PuppeteerWorkspacePrefs.KEY_DOCK_TOOLBAR_ORDER);
+        prefs.remove(PuppeteerWorkspacePrefs.KEY_DOCK_HIDDEN_ITEMS);
+        prefs.remove(PuppeteerWorkspacePrefs.KEY_DOCK_DYNAMIC_SLOTS);
+        prefs.removeKeysStartingWith(PuppeteerWorkspacePrefs.KEY_DOCK_SLOT_PREFIX);
+        prefs.removeKeysStartingWith(PuppeteerWorkspacePrefs.KEY_FLOATING_DOCKER_PREFIX);
+    }
+
+    private String workspacePresetKey(String presetId, String suffix) {
+        return PuppeteerWorkspacePrefs.KEY_WORKSPACE_PRESET_PREFIX + presetId + suffix;
+    }
+
+    private static String workspacePresetId(String name) {
+        String source = name == null ? "" : name.trim().toLowerCase(Locale.ROOT);
+        StringBuilder out = new StringBuilder();
+        boolean dash = false;
+        for (int i = 0; i < source.length(); i++) {
+            char c = source.charAt(i);
+            if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
+                out.append(c);
+                dash = false;
+            } else if (!dash && out.length() > 0) {
+                out.append('-');
+                dash = true;
+            }
+        }
+        while (out.length() > 0 && out.charAt(out.length() - 1) == '-') {
+            out.deleteCharAt(out.length() - 1);
+        }
+        return out.length() == 0 ? "workspace" : out.toString();
+    }
+
+    private void applyWorkspacePreset(String preset) {
+        if (preset == null || preset.isBlank()) return;
+        switch (preset.trim().toLowerCase(Locale.ROOT)) {
+            case "animation" -> {
+                placeFloatingDocker("toolbar-transport", 14, 14, true);
+                placeFloatingDocker("toolbar-duration", 260, 14, true);
+                placeFloatingDocker("toolbar-property", 14, 92, true);
+                placeFloatingDocker("toolbar-keyframes", 220, 92, true);
+                placeFloatingDocker("toolbar-snap", 560, 92, true);
+                placeFloatingDocker("toolbar-preview", 700, 92, true);
+                placeFloatingDocker("toolbar-orbit", 14, 170, true);
+                setFloatingDockerVisibility("toolbar-history", false);
+                setFloatingDockerVisibility("toolbar-presets", false);
+                setFloatingDockerVisibility("toolbar-audio", false);
+                setFloatingDockerVisibility("toolbar-register", false);
+                setFloatingDockerVisibility("toolbar-export", false);
+                setFloatingDockerVisibility("toolbar-diagnostics", false);
+                setFloatingDockerVisibility("toolbar-help", false);
+            }
+            case "preview" -> {
+                placeFloatingDocker("toolbar-transport", 14, 14, true);
+                placeFloatingDocker("toolbar-preview", 260, 14, true);
+                placeFloatingDocker("toolbar-snap", 620, 14, true);
+                placeFloatingDocker("toolbar-orbit", 14, 92, true);
+                for (DockItem item : dockItems.values()) {
+                    if (item.homeToolbar()
+                        && !Set.of("toolbar-transport", "toolbar-preview", "toolbar-snap", "toolbar-orbit").contains(item.id())) {
+                        setFloatingDockerVisibility(item.id(), false);
+                    }
+                }
+            }
+            case "export" -> {
+                hideFloatingToolbarsExcept("toolbar-register", "toolbar-export", "toolbar-diagnostics", "toolbar-help", "toolbar-transport");
+                placeFloatingDocker("toolbar-register", 14, 14, true);
+                placeFloatingDocker("toolbar-export", 310, 14, true);
+                placeFloatingDocker("toolbar-diagnostics", 470, 14, true);
+                placeFloatingDocker("toolbar-help", 610, 14, true);
+                placeFloatingDocker("toolbar-transport", 14, 92, true);
+            }
+            default -> {
+                placeFloatingDocker("toolbar-transport", 14, 14, true);
+                placeFloatingDocker("toolbar-history", 260, 14, true);
+                placeFloatingDocker("toolbar-duration", 410, 14, true);
+                placeFloatingDocker("toolbar-register", 620, 14, true);
+                placeFloatingDocker("toolbar-export", 880, 14, true);
+                placeFloatingDocker("toolbar-presets", 14, 92, true);
+                placeFloatingDocker("toolbar-property", 180, 92, true);
+                placeFloatingDocker("toolbar-keyframes", 360, 92, true);
+                placeFloatingDocker("toolbar-snap", 660, 92, true);
+                placeFloatingDocker("toolbar-preview", 800, 92, true);
+                placeFloatingDocker("toolbar-orbit", 14, 170, true);
+                placeFloatingDocker("toolbar-audio", 170, 170, true);
+                placeFloatingDocker("toolbar-diagnostics", 430, 170, true);
+                placeFloatingDocker("toolbar-help", 560, 170, true);
+            }
+        }
+        persistWorkspacePrefsNow();
+        refreshToolbarCommandSummary();
+        updateStatusBar();
+    }
+
+    private void placeFloatingDocker(String itemId, double x, double y, boolean visible) {
+        FloatingDocker floating = floatingToolbarDockers.get(itemId);
+        if (floating == null) return;
+        floating.setLayoutX(x);
+        floating.setLayoutY(y);
+        setFloatingDockerVisibility(itemId, visible);
+    }
+
+    private void setFloatingDockerVisibility(String itemId, boolean visible) {
+        DockItem item = dockItems.get(itemId);
+        FloatingDocker floating = floatingToolbarDockers.get(itemId);
+        if (item == null || floating == null) return;
+        if (visible) {
+            hiddenDockItemIds.remove(itemId);
+            floating.showSmoothly();
+        } else {
+            hiddenDockItemIds.add(itemId);
+            floating.hideSmoothly();
+        }
+    }
+
+    private void hideFloatingToolbarsExcept(String... visibleIds) {
+        Set<String> visible = visibleIds == null
+            ? Set.of()
+            : new LinkedHashSet<>(List.of(visibleIds));
+        for (DockItem item : dockItems.values()) {
+            if (item.homeToolbar() && !visible.contains(item.id())) {
+                setFloatingDockerVisibility(item.id(), false);
+            }
+        }
+    }
+
+    private Menu createMoveDockItemMenu(DockItem item) {
+        Menu moveMenu = new Menu("Move To");
+        if (item != null && item.homeToolbar()) {
+            MenuItem miShow = new MenuItem("Show Floating");
+            miShow.setOnAction(ev -> showDockItem(item));
+            MenuItem miHide = new MenuItem("Hide Floating");
+            miHide.setOnAction(ev -> hideDockItem(item));
+            moveMenu.getItems().addAll(miShow, miHide);
+            return moveMenu;
+        }
+        MenuItem miNewTop = new MenuItem("New Top Container");
+        miNewTop.setOnAction(ev -> moveDockItemToNewSlot(item, firstAvailableDockGroup("controls-primary", "workspace-top")));
+        MenuItem miNewSide = new MenuItem("New Side Container");
+        miNewSide.setOnAction(ev -> moveDockItemToNewSlot(item, firstAvailableDockGroup("workspace-main", "workspace-top")));
+        MenuItem miNewBottom = new MenuItem("New Bottom Container");
+        miNewBottom.setOnAction(ev -> moveDockItemToNewSlot(item, firstAvailableDockGroup("workspace-bottom", "workspace-top")));
+        moveMenu.getItems().addAll(miNewTop, miNewSide, miNewBottom);
+        if (!dockSlots.isEmpty()) {
+            moveMenu.getItems().add(new SeparatorMenuItem());
+        }
+        for (DockSlot slot : dockSlots.values()) {
+            MenuItem miSlot = new MenuItem(dockSlotMenuLabel(slot));
+            miSlot.setOnAction(ev -> moveDockItemToSlot(item, slot.slotId()));
+            moveMenu.getItems().add(miSlot);
+        }
+        return moveMenu;
+    }
+
+    private SplitPane firstAvailableDockGroup(String... groupIds) {
+        if (groupIds != null) {
+            for (String groupId : groupIds) {
+                SplitPane group = dockGroupsById.get(groupId);
+                if (group != null) return group;
+            }
+        }
+        return dockGroupsById.values().stream().findFirst().orElse(null);
+    }
+
+    private String dockSlotMenuLabel(DockSlot slot) {
+        if (slot == null) return "Dock Slot";
+        DockItem defaultItem = dockItems.get(slot.slotId());
+        String base = defaultItem == null ? slot.slotId() : defaultItem.title();
+        DockItem current = slot.item();
+        if (current == null) return base + " Area (Empty)";
+        int count = slot.items().size();
+        return count <= 1
+            ? base + " Area (" + current.title() + ")"
+            : base + " Area (" + current.title() + " +" + (count - 1) + ")";
+    }
+
+    private boolean moveDockItemToNewSlot(DockItem item, SplitPane group) {
+        if (item == null || group == null) return false;
+        if (previewFocusMode && (item.contentNode() == previewPane || item.contentNode() == timelinePanel)) {
+            exitFullscreenPreview();
+        }
+        hiddenDockItemIds.remove(item.id());
+        item.contentNode().setManaged(true);
+        item.contentNode().setVisible(true);
+
+        DockSlot sourceSlot = findDockSlotContaining(item.contentNode());
+        if (sourceSlot != null) {
+            sourceSlot.removeItem(item);
+        } else {
+            CollapsibleToolbarCluster sourceCluster = item.toolbarCluster();
+            if (sourceCluster != null && toolbarDockItems.get(sourceCluster.getClusterKey()) == item) {
+                toolbarPane.removeCluster(sourceCluster);
+                toolbarDockItems.remove(sourceCluster.getClusterKey());
+                item.clearToolbarCluster();
+            }
+        }
+        String slotId = "custom-dock-" + dynamicDockSlotCounter++;
+        createDynamicDockSlot(slotId, item, group, group.getItems().size());
+        refreshAfterDockSwap();
+        return true;
+    }
+
+    private boolean moveDockItemToSlot(DockItem item, String targetSlotId) {
+        if (item == null || targetSlotId == null) return false;
+        DockSlot targetSlot = dockSlots.get(targetSlotId);
+        if (targetSlot == null) return false;
+        if (previewFocusMode && (item.contentNode() == previewPane || item.contentNode() == timelinePanel)) {
+            exitFullscreenPreview();
+        }
+        if (targetSlot.containsItem(item)) {
+            hiddenDockItemIds.remove(item.id());
+            item.contentNode().setManaged(true);
+            item.contentNode().setVisible(true);
+            targetSlot.activateItem(item);
+            refreshAfterDockSwap();
+            return true;
+        }
+
+        hiddenDockItemIds.remove(item.id());
+        item.contentNode().setManaged(true);
+        item.contentNode().setVisible(true);
+
+        DockSlot sourceSlot = findDockSlotContaining(item.contentNode());
+        if (sourceSlot != null) {
+            sourceSlot.removeItem(item);
+        } else {
+            CollapsibleToolbarCluster sourceCluster = item.toolbarCluster();
+            if (sourceCluster != null && toolbarDockItems.get(sourceCluster.getClusterKey()) == item) {
+                toolbarPane.removeCluster(sourceCluster);
+                toolbarDockItems.remove(sourceCluster.getClusterKey());
+                item.clearToolbarCluster();
+            }
+        }
+        targetSlot.addItem(item);
+        refreshAfterDockSwap();
+        return true;
+    }
+
+    private DockSlot findDockSlotContaining(Node node) {
+        if (node == null) return null;
+        for (DockSlot slot : dockSlots.values()) {
+            if (slot.containsNode(node)) {
+                return slot;
+            }
+        }
+        return null;
+    }
+
+    private DockItem findDockItemContaining(Node node) {
+        DockSlot slot = findDockSlotContaining(node);
+        return slot == null ? null : slot.itemForNode(node);
+    }
+
+    private DockItem dockItemFromPayload(String payload) {
+        if (payload == null) return null;
+        if (payload.startsWith(DOCK_DRAG_SLOT_PREFIX)) {
+            DockSlot slot = dockSlots.get(payload.substring(DOCK_DRAG_SLOT_PREFIX.length()));
+            return slot == null ? null : slot.item();
+        }
+        if (payload.startsWith(DOCK_DRAG_TOOLBAR_PREFIX)) {
+            String key = payload.substring(DOCK_DRAG_TOOLBAR_PREFIX.length());
+            DockItem item = toolbarDockItems.get(key);
+            return item != null ? item : dockItems.get(key);
+        }
+        return null;
+    }
+
+    private static String dockPayload(Dragboard dragboard) {
+        if (dragboard == null || !dragboard.hasString()) return null;
+        String value = dragboard.getString();
+        if (value == null) return null;
+        return value.startsWith(DOCK_DRAG_SLOT_PREFIX) || value.startsWith(DOCK_DRAG_TOOLBAR_PREFIX)
+            ? value
+            : null;
+    }
+
+    private static boolean isDockDragPayload(String payload, String currentToolbarKey) {
+        if (payload == null) return false;
+        if (payload.startsWith(DOCK_DRAG_SLOT_PREFIX)) return true;
+        if (!payload.startsWith(DOCK_DRAG_TOOLBAR_PREFIX)) return false;
+        String source = payload.substring(DOCK_DRAG_TOOLBAR_PREFIX.length());
+        return currentToolbarKey == null || !currentToolbarKey.equals(source);
+    }
+
+    private boolean isFloatingToolbarPayload(String payload) {
+        DockItem item = dockItemFromPayload(payload);
+        return item != null && item.homeToolbar();
+    }
+
+    private static List<String> parseDockIdList(String raw) {
+        if (raw == null || raw.isBlank()) return List.of();
+        List<String> ids = new ArrayList<>();
+        for (String part : raw.split(",")) {
+            String id = part.trim();
+            if (!id.isEmpty() && !ids.contains(id)) {
+                ids.add(id);
+            }
+        }
+        return ids;
+    }
+
+    private static String formatDockIdList(Iterable<String> ids) {
+        if (ids == null) return "";
+        List<String> cleaned = new ArrayList<>();
+        for (String id : ids) {
+            if (id != null && !id.isBlank() && !cleaned.contains(id.trim())) {
+                cleaned.add(id.trim());
+            }
+        }
+        return String.join(",", cleaned);
+    }
+
+    private static List<String> parseDockSlotItemList(String raw) {
+        if (raw == null || raw.isBlank() || EMPTY_DOCK_VALUE.equals(raw.trim())) return List.of();
+        List<String> ids = new ArrayList<>();
+        for (String part : raw.split("\\|")) {
+            String id = part.trim();
+            if (!id.isEmpty() && !EMPTY_DOCK_VALUE.equals(id) && !ids.contains(id)) {
+                ids.add(id);
+            }
+        }
+        return ids;
+    }
+
+    private static String formatDockSlotItemList(List<DockItem> items) {
+        if (items == null || items.isEmpty()) return EMPTY_DOCK_VALUE;
+        List<String> ids = new ArrayList<>();
+        for (DockItem item : items) {
+            if (item != null && !ids.contains(item.id())) {
+                ids.add(item.id());
+            }
+        }
+        return ids.isEmpty() ? EMPTY_DOCK_VALUE : String.join(DOCK_SLOT_ITEM_DELIMITER, ids);
+    }
+
+    private void restoreDynamicDockSlots(String raw) {
+        if (raw == null || raw.isBlank()) return;
+        for (String record : raw.split(",")) {
+            String[] parts = record.trim().split("@", 2);
+            if (parts.length != 2) continue;
+            String slotId = parts[0].trim();
+            String groupId = parts[1].trim();
+            if (slotId.isEmpty() || groupId.isEmpty() || dockSlots.containsKey(slotId)) continue;
+            SplitPane group = dockGroupsById.get(groupId);
+            if (group == null) continue;
+            createDynamicDockSlot(slotId, null, group, group.getItems().size());
+            updateDynamicDockSlotCounter(slotId);
+        }
+    }
+
+    private void updateDynamicDockSlotCounter(String slotId) {
+        if (slotId == null) return;
+        int dash = slotId.lastIndexOf('-');
+        if (dash < 0 || dash >= slotId.length() - 1) return;
+        try {
+            dynamicDockSlotCounter = Math.max(dynamicDockSlotCounter, Integer.parseInt(slotId.substring(dash + 1)) + 1);
+        } catch (NumberFormatException ignored) {
+            // reason: dynamic slot identifiers can be hand-edited; the next generated id remains valid
+        }
+    }
+
+    private String formatDynamicDockSlots() {
+        List<String> records = new ArrayList<>();
+        for (DockSlot slot : dockSlots.values()) {
+            if (!slot.dynamic || !slot.hasItems() || slot.homeGroup == null) continue;
+            String groupId = dockGroupIds.get(slot.homeGroup);
+            if (groupId == null || groupId.isBlank()) continue;
+            records.add(slot.slotId() + "@" + groupId);
+        }
+        return String.join(",", records);
+    }
+
+    private DockSlot findFirstEmptyDockSlot() {
+        for (DockSlot slot : dockSlots.values()) {
+            if (!slot.hasItems()) return slot;
+        }
+        return null;
+    }
+
+    private boolean isDockItemVisible(String itemId) {
+        DockItem item = dockItems.get(itemId);
+        return item != null && isDockItemVisible(item);
+    }
+
+    private boolean isDockItemVisible(DockItem item) {
+        if (item == null) return false;
+        FloatingDocker floating = floatingToolbarDockers.get(item.id());
+        if (floating != null) {
+            return floating.isVisible() && floating.isManaged() && !hiddenDockItemIds.contains(item.id());
+        }
+        for (DockSlot slot : dockSlots.values()) {
+            if (slot.containsItem(item)) return true;
+        }
+        CollapsibleToolbarCluster cluster = item.toolbarCluster();
+        return cluster != null && toolbarPane != null && toolbarPane.getClustersSnapshot().contains(cluster);
+    }
+
+    private void hideDockItem(DockItem item) {
+        if (item == null || hiddenDockItemIds.contains(item.id())) return;
+        FloatingDocker floating = floatingToolbarDockers.get(item.id());
+        if (floating != null) {
+            hiddenDockItemIds.add(item.id());
+            floating.hideSmoothly();
+            refreshAfterDockSwap();
+            return;
+        }
+        if (previewFocusMode && (item.contentNode() == previewPane || item.contentNode() == timelinePanel)) {
+            exitFullscreenPreview();
+        }
+        DockSlot slot = findDockSlotContaining(item.contentNode());
+        if (slot != null) {
+            slot.removeItem(item);
+        }
+        CollapsibleToolbarCluster cluster = item.toolbarCluster();
+        if (cluster != null) {
+            toolbarPane.removeCluster(cluster);
+            toolbarDockItems.remove(cluster.getClusterKey());
+            item.clearToolbarCluster();
+        }
+        item.contentNode().setManaged(false);
+        item.contentNode().setVisible(false);
+        hiddenDockItemIds.add(item.id());
+        refreshAfterDockSwap();
+    }
+
+    private void showDockItem(DockItem item) {
+        if (item == null || isDockItemVisible(item)) return;
+        hiddenDockItemIds.remove(item.id());
+        FloatingDocker floating = floatingToolbarDockers.get(item.id());
+        if (floating != null) {
+            floating.showSmoothly();
+            refreshAfterDockSwap();
+            return;
+        }
+        item.contentNode().setManaged(true);
+        item.contentNode().setVisible(true);
+        DockSlot targetSlot = dockSlots.get(item.defaultSlotId());
+        if (targetSlot == null) {
+            targetSlot = findFirstEmptyDockSlot();
+        }
+        if (targetSlot != null) {
+            targetSlot.addItem(item);
+        } else if (item.homeToolbar()) {
+            moveDockItemToNewSlot(item, firstAvailableDockGroup("controls-primary", "workspace-top"));
+        } else {
+            moveDockItemToNewSlot(item, firstAvailableDockGroup("workspace-top", "workspace-main"));
+        }
+        refreshAfterDockSwap();
+    }
+
+    private void syncCodePaneVisibilityState() {
+        DockItem codeItem = dockItems.get("code");
+        if (codeItem != null) {
+            codePaneVisible = isDockItemVisible(codeItem);
+        }
+    }
+
+    private void resetDockArrangement() {
+        if (previewFocusMode) {
+            exitFullscreenPreview();
+        }
+        applyingDockLayoutPrefs = true;
+        try {
+            hiddenDockItemIds.clear();
+            for (CollapsibleToolbarCluster cluster : toolbarPane.getClustersSnapshot()) {
+                toolbarPane.removeCluster(cluster);
+            }
+            toolbarDockItems.clear();
+            for (DockSlot slot : new ArrayList<>(dockSlots.values())) {
+                DockItem item = dockItems.get(slot.slotId());
+                if (item != null && !slot.dynamic) {
+                    slot.setItem(item);
+                } else {
+                    slot.clearItem();
+                }
+            }
+            for (DockItem item : dockItems.values()) {
+                if (isDockItemVisible(item)) continue;
+                showDockItem(item);
+            }
+        } finally {
+            applyingDockLayoutPrefs = false;
+        }
+        refreshAfterDockSwap();
+    }
+
+    private enum FloatingEdge {
+        LEFT,
+        RIGHT,
+        TOP,
+        BOTTOM
+    }
+
+    private final class FloatingDocker extends BorderPane {
+        private final DockItem item;
+        private final Label titleLabel = new Label();
+        private final Button restoreTab;
+        private FloatingEdge stashEdge = FloatingEdge.RIGHT;
+        private double dragSceneX;
+        private double dragSceneY;
+        private double dragLayoutX;
+        private double dragLayoutY;
+
+        FloatingDocker(DockItem item, double x, double y) {
+            this.item = item;
+            getStyleClass().add("puppeteer-floating-docker");
+            setMinSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
+            setMaxSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
+            setLayoutX(x);
+            setLayoutY(y);
+            titleLabel.setText(item.title());
+            titleLabel.getStyleClass().add("puppeteer-floating-docker-title");
+
+            restoreTab = new Button(item.title());
+            restoreTab.getStyleClass().add("puppeteer-floating-docker-restore-tab");
+            restoreTab.setFocusTraversable(false);
+            restoreTab.setMinHeight(24);
+            restoreTab.setPrefHeight(24);
+            restoreTab.setMaxHeight(24);
+            restoreTab.setOnAction(event -> {
+                showDockItem(item);
+                event.consume();
+            });
+            Tooltip.install(restoreTab, new Tooltip("Restore " + item.title()));
+
+            Label grip = new Label("::");
+            grip.getStyleClass().add("puppeteer-dock-slot-grip");
+            Region spacer = new Region();
+            HBox.setHgrow(spacer, Priority.ALWAYS);
+            Button close = makeToolbarIconButton(CssIcon.clearX("#b9a489"), "Hide this floating docker");
+            close.getStyleClass().add("puppeteer-dock-slot-close");
+            close.setMinSize(22, 22);
+            close.setPrefSize(22, 22);
+            close.setMaxSize(22, 22);
+            close.setOnAction(event -> {
+                hideDockItem(item);
+                event.consume();
+            });
+            HBox header = new HBox(7, grip, titleLabel, spacer, close);
+            header.getStyleClass().add("puppeteer-floating-docker-header");
+            header.setAlignment(Pos.CENTER_LEFT);
+            header.setMinHeight(26);
+            header.setPrefHeight(26);
+            Tooltip.install(header, new Tooltip("Drag freely. Drag off screen to hide."));
+            header.addEventFilter(MouseEvent.MOUSE_PRESSED, this::beginDrag);
+            header.addEventFilter(MouseEvent.MOUSE_DRAGGED, this::drag);
+            header.addEventFilter(MouseEvent.MOUSE_RELEASED, this::finishDrag);
+            setTop(header);
+
+            detachNode(item.contentNode());
+            if (item.contentNode() instanceof CollapsibleToolbarCluster cluster) {
+                cluster.setDockedChromeVisible(false);
+            }
+            setCenter(item.contentNode());
+            showImmediately();
+        }
+
+        Button restoreTab() {
+            return restoreTab;
+        }
+
+        void beginDrag(MouseEvent event) {
+            if (event == null || event.getButton() != MouseButton.PRIMARY) return;
+            dragSceneX = event.getSceneX();
+            dragSceneY = event.getSceneY();
+            dragLayoutX = getLayoutX();
+            dragLayoutY = getLayoutY();
+            toFront();
+            event.consume();
+        }
+
+        void drag(MouseEvent event) {
+            if (event == null || !event.isPrimaryButtonDown()) return;
+            setLayoutX(dragLayoutX + event.getSceneX() - dragSceneX);
+            setLayoutY(dragLayoutY + event.getSceneY() - dragSceneY);
+            event.consume();
+        }
+
+        void finishDrag(MouseEvent event) {
+            if (isMostlyOffScreen()) {
+                hideDockItem(item);
+            } else {
+                persistWorkspacePrefsNow();
+            }
+            if (event != null) event.consume();
+        }
+
+        boolean isMostlyOffScreen() {
+            Scene scene = getScene();
+            if (scene == null) return false;
+            double width = getBoundsInParent().getWidth();
+            double height = getBoundsInParent().getHeight();
+            double x = getLayoutX();
+            double y = getLayoutY();
+            return x + width < 32.0
+                || y + height < 32.0
+                || x > scene.getWidth() - 32.0
+                || y > scene.getHeight() - 32.0;
+        }
+
+        void hideSmoothly() {
+            setMouseTransparent(true);
+            showRestoreTabSmoothly();
+            FadeTransition fade = new FadeTransition(Duration.millis(150), this);
+            fade.setFromValue(getOpacity());
+            fade.setToValue(0.0);
+            fade.setOnFinished(event -> hideDockerOnly());
+            fade.play();
+        }
+
+        void showSmoothly() {
+            hideRestoreTabSmoothly();
+            clampIntoView();
+            setManaged(true);
+            setVisible(true);
+            setMouseTransparent(false);
+            toFront();
+            FadeTransition fade = new FadeTransition(Duration.millis(160), this);
+            fade.setFromValue(0.0);
+            fade.setToValue(1.0);
+            fade.play();
+        }
+
+        void hideImmediately() {
+            showRestoreTabImmediately();
+            hideDockerOnly();
+        }
+
+        private void hideDockerOnly() {
+            setOpacity(0.0);
+            setManaged(false);
+            setVisible(false);
+            setMouseTransparent(true);
+        }
+
+        void showImmediately() {
+            hideRestoreTabImmediately();
+            clampIntoView();
+            setOpacity(1.0);
+            setManaged(true);
+            setVisible(true);
+            setMouseTransparent(false);
+        }
+
+        void clampIntoView() {
+            Scene scene = getScene();
+            if (scene == null) {
+                if (getLayoutX() < 0.0) setLayoutX(14.0);
+                if (getLayoutY() < 0.0) setLayoutY(14.0);
+                return;
+            }
+            double maxX = Math.max(14.0, scene.getWidth() - Math.max(120.0, getBoundsInParent().getWidth()) - 18.0);
+            double maxY = Math.max(14.0, scene.getHeight() - Math.max(60.0, getBoundsInParent().getHeight()) - 34.0);
+            setLayoutX(Math.max(14.0, Math.min(maxX, getLayoutX())));
+            setLayoutY(Math.max(14.0, Math.min(maxY, getLayoutY())));
+        }
+
+        String formatPositionPref() {
+            return String.format(Locale.ROOT, "%.1f,%.1f", getLayoutX(), getLayoutY());
+        }
+
+        void applyPositionPref(String raw) {
+            if (raw == null || raw.isBlank()) return;
+            String[] parts = raw.split(",", 2);
+            if (parts.length != 2) return;
+            try {
+                double x = Double.parseDouble(parts[0].trim());
+                double y = Double.parseDouble(parts[1].trim());
+                if (Double.isFinite(x) && Double.isFinite(y)) {
+                    setLayoutX(x);
+                    setLayoutY(y);
+                }
+            } catch (NumberFormatException ignored) {
+                // reason: hand-edited position preference; keep current placement
+            }
+        }
+
+        private void showRestoreTabSmoothly() {
+            positionRestoreTab();
+            restoreTab.setManaged(true);
+            restoreTab.setVisible(true);
+            restoreTab.setMouseTransparent(false);
+            restoreTab.toFront();
+            FadeTransition fade = new FadeTransition(Duration.millis(150), restoreTab);
+            fade.setFromValue(0.0);
+            fade.setToValue(1.0);
+            fade.play();
+        }
+
+        private void showRestoreTabImmediately() {
+            positionRestoreTab();
+            restoreTab.setOpacity(1.0);
+            restoreTab.setManaged(true);
+            restoreTab.setVisible(true);
+            restoreTab.setMouseTransparent(false);
+            restoreTab.toFront();
+        }
+
+        private void hideRestoreTabSmoothly() {
+            restoreTab.setMouseTransparent(true);
+            FadeTransition fade = new FadeTransition(Duration.millis(120), restoreTab);
+            fade.setFromValue(restoreTab.getOpacity());
+            fade.setToValue(0.0);
+            fade.setOnFinished(event -> hideRestoreTabImmediately());
+            fade.play();
+        }
+
+        private void hideRestoreTabImmediately() {
+            restoreTab.setOpacity(0.0);
+            restoreTab.setManaged(false);
+            restoreTab.setVisible(false);
+            restoreTab.setMouseTransparent(true);
+        }
+
+        private void refreshRestoreTabPosition() {
+            if (restoreTab.isVisible()) {
+                positionRestoreTab();
+            }
+        }
+
+        private void positionRestoreTab() {
+            stashEdge = determineStashEdge();
+            updateRestoreTabText();
+            Scene scene = getScene();
+            double sceneWidth = scene == null ? 960.0 : Math.max(120.0, scene.getWidth());
+            double sceneHeight = scene == null ? 640.0 : Math.max(120.0, scene.getHeight());
+            double tabWidth = Math.max(96.0, Math.min(156.0, restoreTab.prefWidth(-1) + 10.0));
+            double tabHeight = 24.0;
+            restoreTab.setPrefSize(tabWidth, tabHeight);
+            restoreTab.setMinSize(Math.min(86.0, tabWidth), tabHeight);
+            restoreTab.setMaxSize(tabWidth, tabHeight);
+
+            double x = clampDouble(getLayoutX(), 6.0, sceneWidth - tabWidth - 6.0);
+            double y = clampDouble(getLayoutY(), 36.0, sceneHeight - tabHeight - 12.0);
+            if (stashEdge == FloatingEdge.LEFT) {
+                x = 3.0;
+            } else if (stashEdge == FloatingEdge.RIGHT) {
+                x = sceneWidth - tabWidth - 3.0;
+            } else if (stashEdge == FloatingEdge.TOP) {
+                y = 3.0;
+            } else {
+                y = sceneHeight - tabHeight - 3.0;
+            }
+            restoreTab.setLayoutX(x);
+            restoreTab.setLayoutY(y);
+        }
+
+        private FloatingEdge determineStashEdge() {
+            Scene scene = getScene();
+            if (scene == null) return stashEdge;
+            double width = Math.max(1.0, getBoundsInParent().getWidth());
+            double height = Math.max(1.0, getBoundsInParent().getHeight());
+            double x = getLayoutX();
+            double y = getLayoutY();
+            double sceneWidth = Math.max(1.0, scene.getWidth());
+            double sceneHeight = Math.max(1.0, scene.getHeight());
+            if (x + width < 32.0) return FloatingEdge.LEFT;
+            if (x > sceneWidth - 32.0) return FloatingEdge.RIGHT;
+            if (y + height < 32.0) return FloatingEdge.TOP;
+            if (y > sceneHeight - 32.0) return FloatingEdge.BOTTOM;
+            double left = Math.max(0.0, x);
+            double right = Math.max(0.0, sceneWidth - (x + width));
+            double top = Math.max(0.0, y);
+            double bottom = Math.max(0.0, sceneHeight - (y + height));
+            double nearest = Math.min(Math.min(left, right), Math.min(top, bottom));
+            if (nearest == left) return FloatingEdge.LEFT;
+            if (nearest == right) return FloatingEdge.RIGHT;
+            if (nearest == top) return FloatingEdge.TOP;
+            return FloatingEdge.BOTTOM;
+        }
+
+        private void updateRestoreTabText() {
+            String title = item.title();
+            if (stashEdge == FloatingEdge.LEFT) {
+                restoreTab.setText(title + " >");
+            } else if (stashEdge == FloatingEdge.RIGHT) {
+                restoreTab.setText("< " + title);
+            } else if (stashEdge == FloatingEdge.TOP) {
+                restoreTab.setText("v " + title);
+            } else {
+                restoreTab.setText("^ " + title);
+            }
+        }
+    }
+
+    private final class DockItem {
+        private final String id;
+        private final String title;
+        private final Node contentNode;
+        private final boolean homeToolbar;
+        private final String defaultSlotId;
+        private CollapsibleToolbarCluster toolbarCluster;
+
+        DockItem(String id, String title, Node contentNode, boolean homeToolbar) {
+            this.id = id == null || id.isBlank() ? "dock-item" : id.trim();
+            this.title = title == null || title.isBlank() ? this.id : title.trim();
+            this.contentNode = contentNode;
+            this.homeToolbar = homeToolbar;
+            this.defaultSlotId = this.id;
+            if (contentNode instanceof CollapsibleToolbarCluster cluster) {
+                this.toolbarCluster = cluster;
+            }
+        }
+
+        String id() { return id; }
+        String title() { return title; }
+        Node contentNode() { return contentNode; }
+        boolean homeToolbar() { return homeToolbar; }
+        String defaultSlotId() { return defaultSlotId; }
+        CollapsibleToolbarCluster toolbarCluster() { return toolbarCluster; }
+        void setToolbarCluster(CollapsibleToolbarCluster cluster) { toolbarCluster = cluster; }
+        void clearToolbarCluster() {
+            if (!(contentNode instanceof CollapsibleToolbarCluster)) {
+                toolbarCluster = null;
+            }
+        }
+
+        CollapsibleToolbarCluster asToolbarCluster() {
+            if (toolbarCluster != null) {
+                detachNode(toolbarCluster);
+                installToolbarDockHandlers(toolbarCluster);
+                return toolbarCluster;
+            }
+            detachNode(contentNode);
+            CollapsibleToolbarCluster cluster = new CollapsibleToolbarCluster("dockitem-" + id, title, contentNode);
+            cluster.setExpanded(false);
+            toolbarCluster = cluster;
+            installToolbarDockHandlers(cluster);
+            return cluster;
+        }
+    }
+
+    private final class DockSlot extends BorderPane {
+        private final String slotId;
+        private final Label titleLabel = new Label();
+        private final StackPane body = new StackPane();
+        private final HBox tabBar = new HBox(3);
+        private final Button closeButton;
+        private final List<DockItem> items = new ArrayList<>();
+        private DockItem item;
+        private SplitPane homeGroup;
+        private int homeIndex;
+        private boolean dynamic;
+
+        DockSlot(String slotId, DockItem item) {
+            this.slotId = slotId;
+            getStyleClass().add("puppeteer-dock-slot");
+            setMinSize(0, 0);
+            setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+            body.getStyleClass().add("puppeteer-dock-slot-body");
+            body.setMinSize(0, 0);
+            tabBar.getStyleClass().add("puppeteer-dock-slot-tab-bar");
+            tabBar.setAlignment(Pos.CENTER_LEFT);
+            tabBar.setManaged(false);
+            tabBar.setVisible(false);
+
+            Label grip = new Label("::");
+            grip.getStyleClass().add("puppeteer-dock-slot-grip");
+            titleLabel.getStyleClass().add("puppeteer-dock-slot-title");
+            Region spacer = new Region();
+            HBox.setHgrow(spacer, Priority.ALWAYS);
+            closeButton = makeToolbarIconButton(CssIcon.clearX("#b9a489"), "Hide this dock");
+            closeButton.getStyleClass().add("puppeteer-dock-slot-close");
+            closeButton.setMinSize(22, 22);
+            closeButton.setPrefSize(22, 22);
+            closeButton.setMaxSize(22, 22);
+            closeButton.setOnAction(event -> {
+                if (item != null) hideDockItem(item);
+                event.consume();
+            });
+            HBox header = new HBox(7, grip, titleLabel, spacer, closeButton);
+            header.getStyleClass().add("puppeteer-dock-slot-header");
+            header.setAlignment(Pos.CENTER_LEFT);
+            header.setMinHeight(26);
+            header.setPrefHeight(26);
+            Tooltip.install(header, new Tooltip("Drag the active docker. Drop onto another container to group."));
+            installDockSlotDragHandlers(header);
+            header.setOnContextMenuRequested(event -> {
+                ContextMenu menu = createDockSlotContextMenu();
+                menu.show(header, event.getScreenX(), event.getScreenY());
+                event.consume();
+            });
+
+            setTop(new VBox(header, tabBar));
+            setCenter(body);
+            installDockSlotDragHandlers(this);
+            setItem(item);
+        }
+
+        String slotId() {
+            return slotId;
+        }
+
+        DockItem item() {
+            return item;
+        }
+
+        List<DockItem> items() {
+            return List.copyOf(items);
+        }
+
+        boolean hasItems() {
+            return !items.isEmpty();
+        }
+
+        boolean containsItem(DockItem candidate) {
+            return candidate != null && items.contains(candidate);
+        }
+
+        boolean containsNode(Node node) {
+            return itemForNode(node) != null;
+        }
+
+        DockItem itemForNode(Node node) {
+            if (node == null) return null;
+            for (DockItem candidate : items) {
+                if (candidate.contentNode() == node) return candidate;
+            }
+            return null;
+        }
+
+        void setItem(DockItem nextItem) {
+            setItems(nextItem == null ? List.of() : List.of(nextItem));
+        }
+
+        void setItems(List<DockItem> nextItems) {
+            body.getChildren().clear();
+            for (DockItem previous : items) {
+                Node previousNode = previous.contentNode();
+                detachNode(previousNode);
+                previousNode.setManaged(false);
+                previousNode.setVisible(false);
+            }
+            items.clear();
+            item = null;
+            if (nextItems != null) {
+                for (DockItem nextItem : nextItems) {
+                    if (nextItem != null && nextItem.contentNode() != null && !items.contains(nextItem)) {
+                        items.add(nextItem);
+                    }
+                }
+            }
+            if (items.isEmpty()) {
+                updateEmptyChrome();
+                detachDockSlot(this);
+                return;
+            }
+            attachDockSlot(this);
+            activateItem(items.get(0));
+        }
+
+        void addItem(DockItem nextItem) {
+            if (nextItem == null || nextItem.contentNode() == null) return;
+            DockSlot existingSlot = findDockSlotContaining(nextItem.contentNode());
+            if (existingSlot != null && existingSlot != this) {
+                existingSlot.removeItem(nextItem);
+            }
+            if (!items.contains(nextItem)) {
+                items.add(nextItem);
+            }
+            attachDockSlot(this);
+            activateItem(nextItem);
+        }
+
+        void removeItem(DockItem removedItem) {
+            if (removedItem == null || !items.contains(removedItem)) return;
+            int index = items.indexOf(removedItem);
+            items.remove(removedItem);
+            detachNode(removedItem.contentNode());
+            removedItem.contentNode().setManaged(false);
+            removedItem.contentNode().setVisible(false);
+            if (removedItem.contentNode() instanceof CollapsibleToolbarCluster cluster) {
+                cluster.setDockedChromeVisible(true);
+            }
+            if (items.isEmpty()) {
+                item = null;
+                body.getChildren().clear();
+                updateEmptyChrome();
+                detachDockSlot(this);
+                return;
+            }
+            activateItem(items.get(Math.max(0, Math.min(index, items.size() - 1))));
+        }
+
+        void activateItem(DockItem nextItem) {
+            if (nextItem == null || !items.contains(nextItem)) return;
+            item = nextItem;
+            attachDockSlot(this);
+            titleLabel.setText(nextItem.title());
+            closeButton.setVisible(true);
+            closeButton.setManaged(true);
+            body.getChildren().clear();
+            for (DockItem dockItem : items) {
+                Node node = dockItem.contentNode();
+                detachNode(node);
+                node.setManaged(dockItem == nextItem);
+                node.setVisible(dockItem == nextItem);
+                if (node instanceof CollapsibleToolbarCluster cluster) {
+                    cluster.setDockedChromeVisible(false);
+                }
+            }
+            body.getChildren().setAll(nextItem.contentNode());
+            refreshTabBar();
+        }
+
+        void clearItem() {
+            List<DockItem> previousItems = new ArrayList<>(items);
+            item = null;
+            items.clear();
+            body.getChildren().clear();
+            for (DockItem previous : previousItems) {
+                detachNode(previous.contentNode());
+                previous.contentNode().setManaged(false);
+                previous.contentNode().setVisible(false);
+                if (previous.contentNode() instanceof CollapsibleToolbarCluster cluster) {
+                    cluster.setDockedChromeVisible(true);
+                }
+            }
+            updateEmptyChrome();
+            detachDockSlot(this);
+        }
+
+        private void updateEmptyChrome() {
+            titleLabel.setText("Empty");
+            closeButton.setVisible(false);
+            closeButton.setManaged(false);
+            tabBar.getChildren().clear();
+            tabBar.setManaged(false);
+            tabBar.setVisible(false);
+        }
+
+        private void refreshTabBar() {
+            tabBar.getChildren().clear();
+            boolean showTabs = items.size() > 1;
+            tabBar.setManaged(showTabs);
+            tabBar.setVisible(showTabs);
+            if (!showTabs) return;
+            for (DockItem dockItem : items) {
+                ToggleButton tab = new ToggleButton(dockItem.title());
+                tab.getStyleClass().add("puppeteer-dock-slot-tab");
+                tab.setSelected(dockItem == item);
+                tab.setFocusTraversable(false);
+                tab.setMinHeight(22);
+                tab.setPrefHeight(22);
+                tab.setMaxHeight(22);
+                tab.setOnAction(event -> {
+                    activateItem(dockItem);
+                    refreshAfterDockSwap();
+                    event.consume();
+                });
+                tab.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
+                    if (event.getButton() == MouseButton.PRIMARY) {
+                        activateItem(dockItem);
+                    }
+                });
+                installDockSlotDragHandlers(tab);
+                tabBar.getChildren().add(tab);
+            }
+        }
+
+        private ContextMenu createDockSlotContextMenu() {
+            ContextMenu menu = new ContextMenu();
+            DockItem current = item;
+            if (current != null) {
+                MenuItem miHide = new MenuItem("Kill / Hide " + current.title());
+                miHide.setOnAction(ev -> hideDockItem(current));
+                MenuItem miNew = new MenuItem((items.size() > 1 ? "Split " : "Move ") + current.title() + " to New Container");
+                miNew.setOnAction(ev -> moveDockItemToNewSlot(current, firstAvailableDockGroup("controls-primary", "workspace-top")));
+                menu.getItems().addAll(miHide, miNew, createMoveDockItemMenu(current), new SeparatorMenuItem());
+            }
+            MenuItem miRestoreAll = new MenuItem("Restore All Dockers");
+            miRestoreAll.setOnAction(ev -> {
+                for (DockItem dockItem : dockItems.values()) {
+                    showDockItem(dockItem);
+                }
+            });
+            MenuItem miReset = new MenuItem("Reset Dock Arrangement");
+            miReset.setOnAction(ev -> resetDockArrangement());
+            menu.getItems().addAll(miRestoreAll, miReset);
+            return menu;
+        }
+
+        private void installDockSlotDragHandlers(Node node) {
+            node.setOnDragDetected(event -> {
+                if (event.getButton() != MouseButton.PRIMARY || item == null) return;
+                Dragboard dragboard = startDragAndDrop(TransferMode.MOVE);
+                ClipboardContent content = new ClipboardContent();
+                content.putString(DOCK_DRAG_SLOT_PREFIX + slotId);
+                dragboard.setContent(content);
+                event.consume();
+            });
+            node.setOnDragOver(event -> {
+                String payload = dockPayload(event.getDragboard());
+                if (payload == null) return;
+                if (payload.equals(DOCK_DRAG_SLOT_PREFIX + slotId)) return;
+                if (isFloatingToolbarPayload(payload)) return;
+                event.acceptTransferModes(TransferMode.MOVE);
+                event.consume();
+            });
+            node.setOnDragEntered(event -> {
+                String payload = dockPayload(event.getDragboard());
+                if (payload != null && !payload.equals(DOCK_DRAG_SLOT_PREFIX + slotId)
+                    && !isFloatingToolbarPayload(payload)
+                    && !getStyleClass().contains("drop-target")) {
+                    getStyleClass().add("drop-target");
+                }
+            });
+            node.setOnDragExited(event -> getStyleClass().remove("drop-target"));
+            node.setOnDragDropped(event -> {
+                getStyleClass().remove("drop-target");
+                String payload = dockPayload(event.getDragboard());
+                boolean success = false;
+                if (payload != null) {
+                    if (payload.startsWith(DOCK_DRAG_SLOT_PREFIX)) {
+                        success = swapDockSlots(payload.substring(DOCK_DRAG_SLOT_PREFIX.length()), slotId);
+                    } else if (payload.startsWith(DOCK_DRAG_TOOLBAR_PREFIX)) {
+                        success = !isFloatingToolbarPayload(payload)
+                            && swapToolbarIntoDockSlot(payload.substring(DOCK_DRAG_TOOLBAR_PREFIX.length()), slotId);
+                    }
+                }
+                event.setDropCompleted(success);
+                event.consume();
+            });
+        }
+    }
+
+    public void setUiScale(double scale) {
+        uiScale = clampUiScale(scale);
+        applyUiScale();
+        if (workspacePrefs != null) {
+            workspacePrefs.setDouble(PuppeteerWorkspacePrefs.KEY_UI_SCALE, uiScale);
+            workspacePrefs.save();
+        }
+        refreshToolbarCommandSummary();
+    }
+
+    public double getUiScale() {
+        return uiScale;
+    }
+
+    private void applyUiScale() {
+        Scene currentScene = getScene();
+        if (currentScene == null || currentScene.getRoot() == null) return;
+        double fontSize = BASE_UI_FONT_SIZE * uiScale;
+        currentScene.getRoot().setStyle(String.format(Locale.ROOT, "-fx-font-size: %.2fpx;", fontSize));
+    }
+
+    static double clampUiScale(double scale) {
+        if (!Double.isFinite(scale)) return 1.0;
+        return Math.max(MIN_UI_SCALE, Math.min(MAX_UI_SCALE, scale));
+    }
+
+    static String formatUiScaleLabel(double scale) {
+        return String.format(Locale.ROOT, "%.0f%%", clampUiScale(scale) * 100.0);
+    }
+
+    public void resetWorkspaceLayout() {
+        topToolbarVisible = true;
+        toolbarDividerPosition = DEFAULT_TOOLBAR_DIVIDER_POSITION;
+        topWorkspaceDividerPosition = DEFAULT_TOP_WORKSPACE_DIVIDER_POSITION;
+        bottomWorkspaceDividerPosition = DEFAULT_BOTTOM_WORKSPACE_DIVIDER_POSITION;
+        codePaneDividerPosition = DEFAULT_CODE_PANE_DIVIDER_POSITION;
+        previewFocusDividerPosition = DEFAULT_PREVIEW_FOCUS_DIVIDER_POSITION;
+
+        setTopToolbarVisible(true);
+        setCodePaneVisible(true);
+        if (topWorkspaceSplit != null && !topWorkspaceSplit.getDividers().isEmpty()) {
+            topWorkspaceSplit.setDividerPositions(DEFAULT_TOP_WORKSPACE_DIVIDER_POSITION);
+        }
+        if (bottomWorkspaceSplit != null && !bottomWorkspaceSplit.getDividers().isEmpty()) {
+            bottomWorkspaceSplit.setDividerPositions(DEFAULT_BOTTOM_WORKSPACE_DIVIDER_POSITION);
+        }
+        if (workspaceContentSplit != null && !workspaceContentSplit.getDividers().isEmpty()) {
+            workspaceContentSplit.setDividerPositions(DEFAULT_CONTENT_DIVIDER_POSITION);
+        }
+        if (mainWorkspaceSplit != null && !mainWorkspaceSplit.getDividers().isEmpty()) {
+            mainWorkspaceSplit.setDividerPositions(DEFAULT_CODE_PANE_DIVIDER_POSITION);
+        }
+        if (previewFocusSplit != null && !previewFocusSplit.getDividers().isEmpty()) {
+            previewFocusSplit.setDividerPositions(DEFAULT_PREVIEW_FOCUS_DIVIDER_POSITION);
+        }
+        applyToolbarDivider();
+        persistWorkspacePrefsNow();
+        refreshSidebarTabs();
+        refreshToolbarCommandSummary();
+        updateStatusBar();
+    }
+
     private void applyToolbarDensity(AnimatedToolbarPane.LayoutMode mode) {
-        if (toolbarPane == null) return;
         boolean compact = mode == AnimatedToolbarPane.LayoutMode.COMPACT;
-        applyToolbarDensity(toolbarPane, compact);
-        toolbarPane.requestLayout();
+        if (toolbarPane != null) {
+            applyToolbarDensity(toolbarPane, compact);
+            toolbarPane.requestLayout();
+        }
+        for (FloatingDocker docker : floatingToolbarDockers.values()) {
+            applyToolbarDensity(docker, compact);
+            docker.requestLayout();
+        }
     }
 
     private void applyToolbarChromeDensity(AnimatedToolbarPane.LayoutMode mode) {
         boolean compact = mode == AnimatedToolbarPane.LayoutMode.COMPACT;
-        if (toolbarShell != null) {
-            toolbarShell.setSpacing(compact ? TOOLBAR_SHELL_SPACING_COMPACT : TOOLBAR_SHELL_SPACING_DYNAMIC);
-        }
         if (toolbarCommandBar != null) {
             toolbarCommandBar.setPadding(compact ? TOOLBAR_COMMAND_BAR_PADDING_COMPACT : TOOLBAR_COMMAND_BAR_PADDING_DYNAMIC);
             toolbarCommandBar.setSpacing(compact ? 4.0 : 10.0);
@@ -3390,43 +5052,28 @@ public class PuppeteerWindow extends Stage {
 
     public void setCodePaneVisible(boolean visible) {
         codePaneVisible = visible;
+        DockItem codeItem = dockItems.get("code");
+        if (codeItem != null) {
+            if (visible) {
+                showDockItem(codeItem);
+            } else {
+                hideDockItem(codeItem);
+            }
+            syncCodePaneVisibilityState();
+            return;
+        }
         if (codePreview != null) {
             codePreview.setManaged(visible);
             codePreview.setVisible(visible);
-        }
-        Node codePaneNode = codePreviewSplitNode();
-        if (mainWorkspaceSplit == null) {
-            return;
-        }
-        if (visible) {
-            if (!mainWorkspaceSplit.getItems().contains(codePaneNode)) {
-                mainWorkspaceSplit.getItems().add(codePaneNode);
-                SplitPane.setResizableWithParent(codePaneNode, Boolean.TRUE);
-            }
-            mainWorkspaceSplit.setDividerPositions(codePaneDividerPosition);
-            refreshSidebarTabs();
-            refreshToolbarCommandSummary();
-            updateStatusBar();
-            return;
-        }
-        if (mainWorkspaceSplit.getItems().contains(codePaneNode)) {
-            double[] positions = mainWorkspaceSplit.getDividerPositions();
-            if (positions.length >= 1) {
-                codePaneDividerPosition = positions[0];
-            }
-            mainWorkspaceSplit.getItems().remove(codePaneNode);
         }
         refreshSidebarTabs();
         refreshToolbarCommandSummary();
         updateStatusBar();
     }
 
-    private Node codePreviewSplitNode() {
-        return codePreview;
-    }
-
     public boolean isCodePaneVisible() {
-        return codePaneVisible;
+        DockItem codeItem = dockItems.get("code");
+        return codeItem == null ? codePaneVisible : isDockItemVisible(codeItem);
     }
 
     public void setTopToolbarVisible(boolean visible) {
@@ -3437,9 +5084,9 @@ public class PuppeteerWindow extends Stage {
             }
         }
         topToolbarVisible = visible;
-        if (toolbarShell != null) {
-            toolbarShell.setManaged(visible);
-            toolbarShell.setVisible(visible);
+        if (toolbarCommandBar != null) {
+            toolbarCommandBar.setManaged(visible);
+            toolbarCommandBar.setVisible(visible);
         }
         updateTopToolbarChrome();
         applyToolbarDivider();
@@ -3487,21 +5134,7 @@ public class PuppeteerWindow extends Stage {
     }
 
     private void updateTopToolbarChrome() {
-        if (toolbarDock != null) {
-            toolbarDock.getStyleClass().remove("collapsed");
-            if (!topToolbarVisible) {
-                toolbarDock.getStyleClass().add("collapsed");
-            }
-        }
-        if (btnTopToolbarVisibility != null) {
-            btnTopToolbarVisibility.setGraphic(topToolbarVisible
-                ? com.jvn.editor.ui.CssIcon.arrowUp("#b0b8c8")
-                : com.jvn.editor.ui.CssIcon.arrowDown("#b0b8c8"));
-            Tooltip tooltip = btnTopToolbarVisibility.getTooltip();
-            if (tooltip != null) {
-                tooltip.setText(topToolbarVisible ? "Hide top toolbar" : "Show top toolbar");
-            }
-        }
+        // The old resizable Puppeteer toolbar shell has been replaced by dockers.
     }
 
     private static double clampToolbarDivider(double value, boolean visible) {
@@ -3852,6 +5485,19 @@ public class PuppeteerWindow extends Stage {
                 previewFocusSplit.setDividerPositions(v);
             }
         });
+        workspacePrefs.getDouble(PuppeteerWorkspacePrefs.KEY_UI_SCALE).ifPresent(v -> {
+            uiScale = clampUiScale(v);
+            applyUiScale();
+        });
+        workspacePrefs.getString(PuppeteerWorkspacePrefs.KEY_TOOLBAR_LAYOUT_MODE).ifPresent(raw -> {
+            try {
+                setToolbarLayoutMode(AnimatedToolbarPane.LayoutMode.valueOf(raw.trim().toUpperCase(Locale.ROOT)));
+            } catch (IllegalArgumentException ignored) {
+                // reason: stale or hand-edited workspace preference; keep the current toolbar mode
+            }
+        });
+        applyDockLayoutPrefs();
+        applyFloatingDockerPrefs();
 
         if (animationPreview != null) {
             double panX = workspacePrefs.getDouble(PuppeteerWorkspacePrefs.KEY_VIEWPORT_PAN_X).orElse(0.0);
@@ -3866,12 +5512,150 @@ public class PuppeteerWindow extends Stage {
         }
     }
 
+    private void applyDockLayoutPrefs() {
+        if (workspacePrefs == null || dockSlots.isEmpty() || dockItems.isEmpty()) return;
+        boolean hasDockPrefs = workspacePrefs.getString(PuppeteerWorkspacePrefs.KEY_DOCK_TOOLBAR_ORDER).isPresent()
+            || workspacePrefs.getString(PuppeteerWorkspacePrefs.KEY_DOCK_HIDDEN_ITEMS).isPresent()
+            || workspacePrefs.getString(PuppeteerWorkspacePrefs.KEY_DOCK_DYNAMIC_SLOTS).isPresent();
+        if (!hasDockPrefs) {
+            for (String slotId : dockSlots.keySet()) {
+                if (workspacePrefs.getString(PuppeteerWorkspacePrefs.KEY_DOCK_SLOT_PREFIX + slotId).isPresent()) {
+                    hasDockPrefs = true;
+                    break;
+                }
+            }
+        }
+        if (!hasDockPrefs) return;
+
+        applyingDockLayoutPrefs = true;
+        try {
+            restoreDynamicDockSlots(workspacePrefs.getString(PuppeteerWorkspacePrefs.KEY_DOCK_DYNAMIC_SLOTS).orElse(""));
+            hiddenDockItemIds.clear();
+            hiddenDockItemIds.addAll(parseDockIdList(
+                workspacePrefs.getString(PuppeteerWorkspacePrefs.KEY_DOCK_HIDDEN_ITEMS).orElse("")));
+
+            Set<String> placed = new LinkedHashSet<>();
+            for (CollapsibleToolbarCluster cluster : toolbarPane.getClustersSnapshot()) {
+                toolbarPane.removeCluster(cluster);
+            }
+            toolbarDockItems.clear();
+            for (DockSlot slot : new ArrayList<>(dockSlots.values())) {
+                String itemRecord = workspacePrefs
+                    .getString(PuppeteerWorkspacePrefs.KEY_DOCK_SLOT_PREFIX + slot.slotId())
+                    .orElse(EMPTY_DOCK_VALUE);
+                List<DockItem> slotItems = new ArrayList<>();
+                for (String itemId : parseDockSlotItemList(itemRecord)) {
+                    if (hiddenDockItemIds.contains(itemId) || placed.contains(itemId)) continue;
+                    DockItem item = dockItems.get(itemId);
+                    if (item != null) {
+                        slotItems.add(item);
+                        placed.add(item.id());
+                    }
+                }
+                if (slotItems.isEmpty()) {
+                    slot.clearItem();
+                    continue;
+                }
+                slot.setItems(slotItems);
+            }
+
+            List<String> toolbarOrder = parseDockIdList(
+                workspacePrefs.getString(PuppeteerWorkspacePrefs.KEY_DOCK_TOOLBAR_ORDER).orElse(""));
+            for (String itemId : toolbarOrder) {
+                if (placed.contains(itemId) || hiddenDockItemIds.contains(itemId)) continue;
+                DockItem item = dockItems.get(itemId);
+                if (item == null) continue;
+                showDockItem(item);
+                placed.add(item.id());
+            }
+
+            for (DockItem item : dockItems.values()) {
+                if (placed.contains(item.id()) || hiddenDockItemIds.contains(item.id())) continue;
+                if (item.homeToolbar()) {
+                    showDockItem(item);
+                    placed.add(item.id());
+                    continue;
+                }
+                DockSlot defaultSlot = dockSlots.get(item.defaultSlotId());
+                if (defaultSlot != null) {
+                    defaultSlot.addItem(item);
+                    placed.add(item.id());
+                } else {
+                    DockSlot emptySlot = findFirstEmptyDockSlot();
+                    if (emptySlot != null) {
+                        emptySlot.setItem(item);
+                        placed.add(item.id());
+                    } else {
+                        SplitPane group = item.homeToolbar()
+                            ? firstAvailableDockGroup("controls-primary", "workspace-top")
+                            : firstAvailableDockGroup("workspace-top", "workspace-main");
+                        if (moveDockItemToNewSlot(item, group)) {
+                            placed.add(item.id());
+                        } else {
+                            hiddenDockItemIds.add(item.id());
+                        }
+                    }
+                }
+            }
+            applyFloatingDockerPrefs();
+            refreshAfterDockSwap();
+        } finally {
+            applyingDockLayoutPrefs = false;
+        }
+    }
+
+    private void captureDockLayoutPrefsInto(PuppeteerWorkspacePrefs prefs) {
+        captureFloatingDockerPrefsInto(prefs);
+        prefs.setString(PuppeteerWorkspacePrefs.KEY_DOCK_DYNAMIC_SLOTS, formatDynamicDockSlots());
+        for (DockSlot slot : dockSlots.values()) {
+            prefs.setString(PuppeteerWorkspacePrefs.KEY_DOCK_SLOT_PREFIX + slot.slotId(),
+                formatDockSlotItemList(slot.items()));
+        }
+        List<String> toolbarIds = new ArrayList<>();
+        for (CollapsibleToolbarCluster cluster : toolbarPane.getClustersSnapshot()) {
+            DockItem item = toolbarDockItems.get(cluster.getClusterKey());
+            if (item != null && !toolbarIds.contains(item.id())) {
+                toolbarIds.add(item.id());
+            }
+        }
+        prefs.setString(PuppeteerWorkspacePrefs.KEY_DOCK_TOOLBAR_ORDER, formatDockIdList(toolbarIds));
+        prefs.setString(PuppeteerWorkspacePrefs.KEY_DOCK_HIDDEN_ITEMS, formatDockIdList(hiddenDockItemIds));
+    }
+
+    private void applyFloatingDockerPrefs() {
+        if (workspacePrefs == null) return;
+        for (Map.Entry<String, FloatingDocker> entry : floatingToolbarDockers.entrySet()) {
+            FloatingDocker floating = entry.getValue();
+            workspacePrefs.getString(PuppeteerWorkspacePrefs.KEY_FLOATING_DOCKER_PREFIX + entry.getKey())
+                .ifPresent(raw -> floating.applyPositionPref(raw));
+            if (hiddenDockItemIds.contains(entry.getKey())) {
+                floating.hideImmediately();
+            } else {
+                floating.showImmediately();
+            }
+        }
+    }
+
+    private void captureFloatingDockerPrefsInto(PuppeteerWorkspacePrefs prefs) {
+        if (prefs == null) return;
+        for (Map.Entry<String, FloatingDocker> entry : floatingToolbarDockers.entrySet()) {
+            prefs.setString(PuppeteerWorkspacePrefs.KEY_FLOATING_DOCKER_PREFIX + entry.getKey(),
+                entry.getValue().formatPositionPref());
+        }
+    }
+
     private File resolveRegisteredJesFile(String timelineName) {
         if (projectRoot == null || timelineName == null || timelineName.isBlank()) return null;
         if (!PuppeteerVerification.isValidTimelineName(timelineName)) return null;
         return projectRoot.toPath()
             .resolve("scripts").resolve("timelines").resolve(timelineName + ".jes")
             .toFile();
+    }
+
+    private void persistWorkspacePrefsNow() {
+        if (workspacePrefs == null) return;
+        captureWorkspacePrefsInto(workspacePrefs);
+        workspacePrefs.save();
     }
 
     private void scheduleDraftSave() {
@@ -5698,10 +7482,26 @@ public class PuppeteerWindow extends Stage {
         topWorkspaceDividerPosition = readDividerPosition(topWorkspaceSplit, topWorkspaceDividerPosition);
         bottomWorkspaceDividerPosition = readDividerPosition(bottomWorkspaceSplit, bottomWorkspaceDividerPosition);
 
-        // Remove via SplitPane items API (not detachNode — node.getParent()
-        // returns the internal Content wrapper, not the SplitPane itself)
-        topWorkspaceSplit.getItems().remove(previewPane);
-        bottomWorkspaceSplit.getItems().remove(timelinePanel);
+        previewFocusPreviewReturnSlot = findDockSlotContaining(previewPane);
+        previewFocusTimelineReturnSlot = findDockSlotContaining(timelinePanel);
+        previewFocusPreviewItem = previewFocusPreviewReturnSlot == null
+            ? dockItems.get("preview")
+            : previewFocusPreviewReturnSlot.itemForNode(previewPane);
+        previewFocusTimelineItem = previewFocusTimelineReturnSlot == null
+            ? dockItems.get("timeline-panel")
+            : previewFocusTimelineReturnSlot.itemForNode(timelinePanel);
+        if (previewFocusPreviewReturnSlot != null && previewFocusPreviewItem != null) {
+            previewFocusPreviewReturnSlot.removeItem(previewFocusPreviewItem);
+        }
+        else detachNode(previewPane);
+        if (previewFocusTimelineReturnSlot != null && previewFocusTimelineItem != null) {
+            previewFocusTimelineReturnSlot.removeItem(previewFocusTimelineItem);
+        }
+        else detachNode(timelinePanel);
+        previewPane.setManaged(true);
+        previewPane.setVisible(true);
+        timelinePanel.setManaged(true);
+        timelinePanel.setVisible(true);
         previewFocusSplit.getItems().setAll(previewPane, timelinePanel);
         SplitPane.setResizableWithParent(previewPane, Boolean.TRUE);
         SplitPane.setResizableWithParent(timelinePanel, Boolean.TRUE);
@@ -5721,23 +7521,22 @@ public class PuppeteerWindow extends Stage {
         if (!previewFocusMode) return;
         previewFocusDividerPosition = readDividerPosition(previewFocusSplit, previewFocusDividerPosition);
 
-        // Remove via SplitPane items API (not detachNode — node.getParent()
-        // returns the internal Content wrapper, not the SplitPane itself,
-        // so detachNode leaves stale refs in the items list that block re-addition)
         previewFocusSplit.getItems().remove(previewPane);
         previewFocusSplit.getItems().remove(timelinePanel);
 
         previewFocusMode = false;
         updatePreviewWorkspaceModeVisibility();
 
-        // Re-attach to original split panes (force-remove stale refs first)
-        topWorkspaceSplit.getItems().remove(previewPane);
-        topWorkspaceSplit.getItems().add(previewPane);
-        SplitPane.setResizableWithParent(previewPane, Boolean.TRUE);
-
-        bottomWorkspaceSplit.getItems().remove(timelinePanel);
-        bottomWorkspaceSplit.getItems().add(timelinePanel);
-        SplitPane.setResizableWithParent(timelinePanel, Boolean.TRUE);
+        if (previewFocusPreviewReturnSlot != null && previewFocusPreviewItem != null) {
+            previewFocusPreviewReturnSlot.addItem(previewFocusPreviewItem);
+        }
+        if (previewFocusTimelineReturnSlot != null && previewFocusTimelineItem != null) {
+            previewFocusTimelineReturnSlot.addItem(previewFocusTimelineItem);
+        }
+        previewFocusPreviewReturnSlot = null;
+        previewFocusTimelineReturnSlot = null;
+        previewFocusPreviewItem = null;
+        previewFocusTimelineItem = null;
 
         updatePreviewOverlayVisibility();
         refreshSidebarTabs();
@@ -5780,6 +7579,12 @@ public class PuppeteerWindow extends Stage {
     private static double readDividerPosition(SplitPane splitPane, double fallback) {
         if (splitPane == null || splitPane.getDividers().isEmpty()) return fallback;
         return splitPane.getDividerPositions()[0];
+    }
+
+    private static double clampDouble(double value, double min, double max) {
+        if (!Double.isFinite(value)) return min;
+        double safeMax = Math.max(min, max);
+        return Math.max(min, Math.min(safeMax, value));
     }
 
     private static void attachToSplitPane(SplitPane splitPane, Node node, int index) {
@@ -6468,7 +8273,7 @@ public class PuppeteerWindow extends Stage {
         if (statusExportLabel != null) {
             List<String> export = new ArrayList<>();
             export.add(compactExport ? "Compact JES" : "Standard JES");
-            export.add(codePaneVisible ? "Code visible" : "Code hidden");
+            export.add(isCodePaneVisible() ? "Code visible" : "Code hidden");
             int codeLines = countCodeLines(codePreview == null ? null : codePreview.getCode());
             if (codeLines > 0) export.add(codeLines + " lines");
             int copied = timelinePanel == null ? 0 : timelinePanel.getCopiedKeyframeCount();
@@ -6476,7 +8281,7 @@ public class PuppeteerWindow extends Stage {
             statusExportLabel.setText(String.join(" / ", export));
             statusExportLabel.setTooltip(new Tooltip(
                 "Export format, generated code size, code pane visibility, and keyframe clipboard state."));
-            setSegmentState(statusExportSegment, codePaneVisible ? "" : "jvn-status-diagnostics-warn",
+            setSegmentState(statusExportSegment, isCodePaneVisible() ? "" : "jvn-status-diagnostics-warn",
                 "jvn-status-diagnostics-warn");
         }
         refreshToolbarCommandSummary();
@@ -7561,6 +9366,9 @@ public class PuppeteerWindow extends Stage {
         }
         prefs.setDivider(PuppeteerWorkspacePrefs.DIVIDER_TOOLBAR, toolbarDividerPosition);
         prefs.setBoolean(PuppeteerWorkspacePrefs.KEY_TOP_TOOLBAR_VISIBLE, topToolbarVisible);
+        prefs.setString(PuppeteerWorkspacePrefs.KEY_TOOLBAR_LAYOUT_MODE, getToolbarLayoutMode().name());
+        prefs.setDouble(PuppeteerWorkspacePrefs.KEY_UI_SCALE, uiScale);
+        captureDockLayoutPrefsInto(prefs);
         if (topWorkspaceSplit != null && !topWorkspaceSplit.getDividers().isEmpty()) {
             prefs.setDivider(PuppeteerWorkspacePrefs.DIVIDER_TOP,
                 topWorkspaceSplit.getDividerPositions()[0]);
@@ -7711,8 +9519,13 @@ public class PuppeteerWindow extends Stage {
                 content.getChildren().add(row);
             }
         }
-        CollapsibleToolbarCluster cluster = new CollapsibleToolbarCluster(key, title, content);
+        String stableKey = "toolbar-" + (key == null || key.isBlank() ? title : key).trim().toLowerCase(Locale.ROOT);
+        CollapsibleToolbarCluster cluster = new CollapsibleToolbarCluster(stableKey, title, content);
+        if (key != null && !key.isBlank()) {
+            toolbarClusters.put(key.trim().toLowerCase(Locale.ROOT), cluster);
+        }
         toolbarClusters.put(cluster.getClusterKey(), cluster);
+        installToolbarDockHandlers(cluster);
         return cluster;
     }
 
@@ -9256,29 +11069,25 @@ public class PuppeteerWindow extends Stage {
     private static double fallbackPropertyValue(com.jvn.core.scene2d.Entity2D entity, PropertyType property) {
         if (property == null) return 0.0;
         if (entity == null) return property.getDefaultValue();
-        return switch (property) {
-            case X -> entity.getX();
-            case Y -> entity.getY();
-            case Z -> entity.getZ();
-            case PIVOT_X -> getEntityPivotX(entity);
-            case PIVOT_Y -> getEntityPivotY(entity);
-            case ROTATION -> entity.getRotationDeg();
-            case SCALE_X -> entity.getScaleX();
-            case SCALE_Y -> entity.getScaleY();
-            case MIRROR_X -> property.getDefaultValue();
-            case ALPHA -> getEntityAlpha(entity);
-            case VISIBILITY -> entity.isVisible() ? 1.0 : 0.0;
-            case MATRIX_MXX -> entity.getMatrixMxx();
-            case MATRIX_MXY -> entity.getMatrixMxy();
-            case MATRIX_MYX -> entity.getMatrixMyx();
-            case MATRIX_MYY -> entity.getMatrixMyy();
-            case MATRIX_TX -> entity.getMatrixTx();
-            case MATRIX_TY -> entity.getMatrixTy();
-            case BLUR -> entity.getBlurRadius();
-            case BRIGHTNESS -> entity.getBrightness();
-            case CAMERA_DOF_FOCUS, CAMERA_DOF_STRENGTH, CAMERA_DOF_MAX_BLUR -> property.getDefaultValue();
-            default -> property.getDefaultValue();
-        };
+        if (property == PropertyType.X) return entity.getX();
+        if (property == PropertyType.Y) return entity.getY();
+        if (property == PropertyType.Z) return entity.getZ();
+        if (property == PropertyType.PIVOT_X) return getEntityPivotX(entity);
+        if (property == PropertyType.PIVOT_Y) return getEntityPivotY(entity);
+        if (property == PropertyType.ROTATION) return entity.getRotationDeg();
+        if (property == PropertyType.SCALE_X) return entity.getScaleX();
+        if (property == PropertyType.SCALE_Y) return entity.getScaleY();
+        if (property == PropertyType.ALPHA) return getEntityAlpha(entity);
+        if (property == PropertyType.VISIBILITY) return entity.isVisible() ? 1.0 : 0.0;
+        if (property == PropertyType.MATRIX_MXX) return entity.getMatrixMxx();
+        if (property == PropertyType.MATRIX_MXY) return entity.getMatrixMxy();
+        if (property == PropertyType.MATRIX_MYX) return entity.getMatrixMyx();
+        if (property == PropertyType.MATRIX_MYY) return entity.getMatrixMyy();
+        if (property == PropertyType.MATRIX_TX) return entity.getMatrixTx();
+        if (property == PropertyType.MATRIX_TY) return entity.getMatrixTy();
+        if (property == PropertyType.BLUR) return entity.getBlurRadius();
+        if (property == PropertyType.BRIGHTNESS) return entity.getBrightness();
+        return property.getDefaultValue();
     }
 
     private static double getEntityAlpha(com.jvn.core.scene2d.Entity2D entity) {

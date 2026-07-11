@@ -219,6 +219,25 @@ public class CollapsibleToolbarCluster extends VBox {
         applyExpandedState(expanded, true);
     }
 
+    public void setDockedChromeVisible(boolean visible) {
+        headerRow.setManaged(visible);
+        headerRow.setVisible(visible);
+        setSpacing(visible ? 4 : 0);
+        if (!visible) {
+            if (activeAnimation != null) {
+                activeAnimation.stop();
+                activeAnimation = null;
+            }
+            applyExpandedState(true, false);
+            contentWrapper.setPadding(new Insets(6, 8, 6, 8));
+            contentWrapper.setStyle(STYLE_CONTENT_COMPACT);
+            return;
+        }
+        contentWrapper.setPadding(new Insets(8, 10, 8, 10));
+        refreshHeaderState();
+        finishExpandedState(expanded.get());
+    }
+
     private void applyExpandedState(boolean expanded, boolean animate) {
         this.expanded.set(expanded);
         refreshHeaderState();
