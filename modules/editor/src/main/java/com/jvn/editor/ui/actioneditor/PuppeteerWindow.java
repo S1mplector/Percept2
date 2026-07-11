@@ -6129,7 +6129,7 @@ public class PuppeteerWindow extends Stage {
             header.setMinHeight(26);
             header.setPrefHeight(26);
             Tooltip.install(header, new Tooltip("Drag the active docker. Drop onto another container to group."));
-            installDockSlotDragHandlers(header);
+            installDockSlotDragHandlers(header, true);
             header.setOnContextMenuRequested(event -> {
                 ContextMenu menu = createDockSlotContextMenu();
                 menu.show(header, event.getScreenX(), event.getScreenY());
@@ -6138,7 +6138,7 @@ public class PuppeteerWindow extends Stage {
 
             setTop(new VBox(header, tabBar));
             setCenter(body);
-            installDockSlotDragHandlers(this);
+            installDockSlotDragHandlers(this, false);
             setItem(item);
         }
 
@@ -6319,7 +6319,7 @@ public class PuppeteerWindow extends Stage {
                         activateItem(dockItem);
                     }
                 });
-                installDockSlotDragHandlers(tab);
+                installDockSlotDragHandlers(tab, true);
                 tabBar.getChildren().add(tab);
             }
         }
@@ -6346,16 +6346,20 @@ public class PuppeteerWindow extends Stage {
             return menu;
         }
 
-        private void installDockSlotDragHandlers(Node node) {
-            node.setOnDragDetected(event -> {
-                if (event.getButton() != MouseButton.PRIMARY || item == null) return;
-                Dragboard dragboard = startDragAndDrop(TransferMode.MOVE);
-                ClipboardContent content = new ClipboardContent();
-                content.putString(DOCK_DRAG_SLOT_PREFIX + slotId);
-                dragboard.setContent(content);
-                setFloatingLayerDropCaptureEnabled(item.homeToolbar());
-                event.consume();
-            });
+        private void installDockSlotDragHandlers(Node node, boolean canStartDockerDrag) {
+            if (canStartDockerDrag) {
+                node.setOnDragDetected(event -> {
+                    if (event.getButton() != MouseButton.PRIMARY || item == null) return;
+                    Dragboard dragboard = startDragAndDrop(TransferMode.MOVE);
+                    ClipboardContent content = new ClipboardContent();
+                    content.putString(DOCK_DRAG_SLOT_PREFIX + slotId);
+                    dragboard.setContent(content);
+                    setFloatingLayerDropCaptureEnabled(item.homeToolbar());
+                    event.consume();
+                });
+            } else {
+                node.setOnDragDetected(null);
+            }
             node.setOnDragDone(event -> {
                 getStyleClass().remove("drop-target");
                 setFloatingLayerDropCaptureEnabled(false);
