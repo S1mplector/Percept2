@@ -30,6 +30,13 @@ class PuppeteerWorkspacePrefsTest {
         prefs.setString(PuppeteerWorkspacePrefs.KEY_DOCK_HIDDEN_ITEMS, "timeline-panel");
         prefs.setString(PuppeteerWorkspacePrefs.KEY_DOCK_DYNAMIC_SLOTS, "custom-dock-1@workspace-top");
         prefs.setString(PuppeteerWorkspacePrefs.KEY_FLOATING_DOCKER_PREFIX + "toolbar-transport", "14.0,18.0");
+        prefs.setString(PuppeteerWorkspacePrefs.KEY_FLOATING_DOCKER_SNAP_LINKS, "toolbar-transport~toolbar-history");
+        prefs.setBoolean(PuppeteerWorkspacePrefs.KEY_EDGE_BAR_ENABLED, true);
+        prefs.setString(PuppeteerWorkspacePrefs.KEY_EDGE_BAR_EDGE, "RIGHT");
+        prefs.setDouble(PuppeteerWorkspacePrefs.KEY_EDGE_BAR_OFFSET, 0.35);
+        prefs.setDouble(PuppeteerWorkspacePrefs.KEY_EDGE_BAR_WIDTH, 460.0);
+        prefs.setDouble(PuppeteerWorkspacePrefs.KEY_EDGE_BAR_HEIGHT, 520.0);
+        prefs.setString(PuppeteerWorkspacePrefs.KEY_EDGE_BAR_ITEMS, "toolbar-transport,toolbar-preview");
         prefs.setString(PuppeteerWorkspacePrefs.KEY_WORKSPACE_PRESET_ORDER, "compact");
         prefs.setString(PuppeteerWorkspacePrefs.KEY_WORKSPACE_PRESET_PREFIX + "compact.name", "Compact");
         prefs.setString(PuppeteerWorkspacePrefs.KEY_WORKSPACE_PRESET_PREFIX + "compact.payload", "encoded");
@@ -43,6 +50,13 @@ class PuppeteerWorkspacePrefsTest {
         assertEquals("timeline-panel", loaded.getString(PuppeteerWorkspacePrefs.KEY_DOCK_HIDDEN_ITEMS).orElseThrow());
         assertEquals("custom-dock-1@workspace-top", loaded.getString(PuppeteerWorkspacePrefs.KEY_DOCK_DYNAMIC_SLOTS).orElseThrow());
         assertEquals("14.0,18.0", loaded.getString(PuppeteerWorkspacePrefs.KEY_FLOATING_DOCKER_PREFIX + "toolbar-transport").orElseThrow());
+        assertEquals("toolbar-transport~toolbar-history", loaded.getString(PuppeteerWorkspacePrefs.KEY_FLOATING_DOCKER_SNAP_LINKS).orElseThrow());
+        assertEquals(true, loaded.getBoolean(PuppeteerWorkspacePrefs.KEY_EDGE_BAR_ENABLED).orElseThrow());
+        assertEquals("RIGHT", loaded.getString(PuppeteerWorkspacePrefs.KEY_EDGE_BAR_EDGE).orElseThrow());
+        assertEquals(0.35, loaded.getDouble(PuppeteerWorkspacePrefs.KEY_EDGE_BAR_OFFSET).orElseThrow(), 0.0001);
+        assertEquals(460.0, loaded.getDouble(PuppeteerWorkspacePrefs.KEY_EDGE_BAR_WIDTH).orElseThrow(), 0.0001);
+        assertEquals(520.0, loaded.getDouble(PuppeteerWorkspacePrefs.KEY_EDGE_BAR_HEIGHT).orElseThrow(), 0.0001);
+        assertEquals("toolbar-transport,toolbar-preview", loaded.getString(PuppeteerWorkspacePrefs.KEY_EDGE_BAR_ITEMS).orElseThrow());
         assertEquals("compact", loaded.getString(PuppeteerWorkspacePrefs.KEY_WORKSPACE_PRESET_ORDER).orElseThrow());
         assertEquals("encoded", loaded.getString(PuppeteerWorkspacePrefs.KEY_WORKSPACE_PRESET_PREFIX + "compact.payload").orElseThrow());
 

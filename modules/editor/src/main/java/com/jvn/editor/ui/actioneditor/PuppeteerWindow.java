@@ -40,6 +40,7 @@ import com.jvn.scripting.jes.runtime.JesScene2D;
 
 import javafx.animation.AnimationTimer;
 import javafx.animation.FadeTransition;
+import javafx.animation.TranslateTransition;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
@@ -126,6 +127,17 @@ public class PuppeteerWindow extends Stage {
             }
         };
     private static final double LEFT_LIBRARY_WORKING_WIDTH = 360.0;
+    private static final double FLOATING_DOCKER_SNAP_DISTANCE = 24.0;
+    private static final double FLOATING_DOCKER_SNAP_ALIGNMENT_DISTANCE = 28.0;
+    private static final double FLOATING_DOCKER_SNAP_RANGE_PADDING = 32.0;
+    private static final double FLOATING_DOCKER_SNAP_LINK_TOLERANCE = 6.0;
+    private static final double FLOATING_DOCKER_SNAP_OVERLAP_RATIO = 0.22;
+    private static final double EDGE_BAR_HANDLE_THICKNESS = 8.0;
+    private static final double EDGE_BAR_HANDLE_LENGTH = 78.0;
+    private static final double EDGE_BAR_PANEL_MIN_WIDTH = 220.0;
+    private static final double EDGE_BAR_PANEL_MIN_HEIGHT = 180.0;
+    private static final double EDGE_BAR_PANEL_WIDTH = 286.0;
+    private static final double EDGE_BAR_PANEL_HEIGHT = 420.0;
     private static final List<PropertyType> GROUP_PROPERTY_CHOICES = List.of(
         PropertyType.X,
         PropertyType.Y,
@@ -278,8 +290,16 @@ public class PuppeteerWindow extends Stage {
     private final Map<SplitPane, String> dockGroupIds = new LinkedHashMap<>();
     private final Map<String, SplitPane> dockGroupsById = new LinkedHashMap<>();
     private final Map<String, FloatingDocker> floatingToolbarDockers = new LinkedHashMap<>();
+    private final Map<String, Set<String>> floatingDockerSnapLinks = new LinkedHashMap<>();
+    private final Set<String> edgeBarDockItemIds = new LinkedHashSet<>();
     private final Set<String> hiddenDockItemIds = new LinkedHashSet<>();
     private Pane floatingToolbarLayer;
+    private EdgeBar edgeBar;
+    private boolean edgeBarEnabled;
+    private FloatingEdge edgeBarEdge = FloatingEdge.RIGHT;
+    private double edgeBarOffsetRatio = 0.5;
+    private double edgeBarPreferredWidth = EDGE_BAR_PANEL_WIDTH;
+    private double edgeBarPreferredHeight = EDGE_BAR_PANEL_HEIGHT;
     private boolean floatingLayerDropCaptureEnabled;
     private int dynamicDockSlotCounter = 1;
     private DockSlot previewFocusPreviewReturnSlot;
@@ -1601,6 +1621,9 @@ public class PuppeteerWindow extends Stage {
             setFloatingLayerDropCaptureEnabled(false);
             event.consume();
         });
+        edgeBar = new EdgeBar();
+        floatingToolbarLayer.getChildren().add(edgeBar);
+        refreshEdgeBar();
 
         topWorkspaceSplit = new SplitPane();
         topWorkspaceSplit.getStyleClass().add("puppeteer-split-pane");
@@ -1688,8 +1711,14 @@ public class PuppeteerWindow extends Stage {
         Scene fxScene = new Scene(rootStack);
         EditorTheme.apply(fxScene);
         setScene(fxScene);
-        fxScene.widthProperty().addListener((obs, oldValue, newValue) -> relayoutFloatingRestoreTabs());
-        fxScene.heightProperty().addListener((obs, oldValue, newValue) -> relayoutFloatingRestoreTabs());
+        fxScene.widthProperty().addListener((obs, oldValue, newValue) -> {
+            relayoutFloatingRestoreTabs();
+            relayoutEdgeBar();
+        });
+        fxScene.heightProperty().addListener((obs, oldValue, newValue) -> {
+            relayoutFloatingRestoreTabs();
+            relayoutEdgeBar();
+        });
         applyUiScale();
         applyLinuxDefaultWindowState();
 
@@ -3360,6 +3389,10 @@ public class PuppeteerWindow extends Stage {
         FloatingDocker docker = new FloatingDocker(item, x, y);
         floatingToolbarDockers.put(item.id(), docker);
         floatingToolbarLayer.getChildren().addAll(docker, docker.restoreTab());
+        applyToolbarDensity(docker, getToolbarLayoutMode() == AnimatedToolbarPane.LayoutMode.COMPACT);
+        if (edgeBar != null) {
+            edgeBar.toFront();
+        }
     }
 
     private void relayoutFloatingRestoreTabs() {
@@ -3370,6 +3403,100 @@ public class PuppeteerWindow extends Stage {
 
     private void setFloatingLayerDropCaptureEnabled(boolean enabled) {
         floatingLayerDropCaptureEnabled = enabled;
+    }
+
+    private void attachFloatingDockerToLayer(FloatingDocker floating) {
+        if (floating == null || floatingToolbarLayer == null) return;
+        detachNode(floating);
+        detachNode(floating.restoreTab());
+        floating.setEdgeBarMounted(false);
+        if (!floatingToolbarLayer.getChildren().contains(floating)) {
+            floatingToolbarLayer.getChildren().add(floating);
+        }
+        if (!floatingToolbarLayer.getChildren().contains(floating.restoreTab())) {
+            floatingToolbarLayer.getChildren().add(floating.restoreTab());
+        }
+        if (edgeBar != null) {
+            edgeBar.toFront();
+        }
+    }
+
+    private FloatingDocker ensureFloatingToolbarDocker(DockItem item, double x, double y) {
+        if (item == null || !item.homeToolbar()) return null;
+        FloatingDocker existing = floatingToolbarDockers.get(item.id());
+        if (existing != null) return existing;
+
+        CollapsibleToolbarCluster cluster = item.toolbarCluster();
+        if (cluster == null && item.contentNode() instanceof CollapsibleToolbarCluster contentCluster) {
+            cluster = contentCluster;
+            item.setToolbarCluster(contentCluster);
+        }
+        if (cluster != null) {
+            if (toolbarPane != null && toolbarPane.getClustersSnapshot().contains(cluster)) {
+                toolbarPane.removeCluster(cluster);
+            }
+            toolbarDockItems.remove(cluster.getClusterKey(), item);
+            cluster.setDockedChromeVisible(false);
+            cluster.setManaged(true);
+            cluster.setVisible(true);
+            installToolbarDockHandlers(cluster);
+        }
+        item.contentNode().setManaged(true);
+        item.contentNode().setVisible(true);
+        createFloatingToolbarDocker(item, x, y);
+        return floatingToolbarDockers.get(item.id());
+    }
+
+    private boolean floatToolbarDockItem(DockItem item) {
+        if (item == null || !item.homeToolbar()) return false;
+        FloatingDocker existing = floatingToolbarDockers.get(item.id());
+        if (existing != null) {
+            edgeBarDockItemIds.remove(item.id());
+            hiddenDockItemIds.remove(item.id());
+            attachFloatingDockerToLayer(existing);
+            setFloatingDockerVisibility(item.id(), true);
+            existing.toFront();
+            refreshAfterDockSwap();
+            return true;
+        }
+        int index = floatingToolbarDockers.size();
+        double x = 18.0 + (index % 4) * 220.0;
+        double y = 18.0 + (index / 4) * 76.0;
+        return floatToolbarDockItem(item, x, y, true);
+    }
+
+    private boolean floatToolbarDockItem(DockItem item, double x, double y, boolean visible) {
+        FloatingDocker floating = ensureFloatingToolbarDocker(item, x, y);
+        if (floating == null) return false;
+        attachFloatingDockerToLayer(floating);
+        floating.setLayoutX(x);
+        floating.setLayoutY(y);
+        edgeBarDockItemIds.remove(item.id());
+        setFloatingDockerVisibility(item.id(), visible);
+        refreshAfterDockSwap();
+        return true;
+    }
+
+    private boolean dockFloatingToolbarItem(DockItem item) {
+        if (item == null || !item.homeToolbar()) return false;
+        FloatingDocker floating = floatingToolbarDockers.remove(item.id());
+        if (floating != null) {
+            detachNode(floating);
+            detachNode(floating.restoreTab());
+        }
+        removeFloatingSnapLinks(item.id());
+        edgeBarDockItemIds.remove(item.id());
+        hiddenDockItemIds.remove(item.id());
+        CollapsibleToolbarCluster cluster = item.asToolbarCluster();
+        cluster.setDockedChromeVisible(true);
+        cluster.setManaged(true);
+        cluster.setVisible(true);
+        if (toolbarPane != null && !toolbarPane.getClustersSnapshot().contains(cluster)) {
+            toolbarPane.addCluster(cluster);
+        }
+        toolbarDockItems.put(cluster.getClusterKey(), item);
+        refreshAfterDockSwap();
+        return true;
     }
 
     private DockSlot createDynamicDockSlot(String slotId, DockItem item, SplitPane group, int index) {
@@ -3608,7 +3735,7 @@ public class PuppeteerWindow extends Stage {
         });
         MenuItem miResetDockArrangement = new MenuItem("Reset Dock Arrangement");
         miResetDockArrangement.setOnAction(ev -> resetDockArrangement());
-        dockersMenu.getItems().addAll(miRestoreAllDockers, miResetDockArrangement, new SeparatorMenuItem());
+        dockersMenu.getItems().addAll(miRestoreAllDockers, miResetDockArrangement, createEdgeBarMenu(), new SeparatorMenuItem());
 
         for (DockItem item : dockItems.values()) {
             Menu itemMenu = new Menu(item.title());
@@ -3633,9 +3760,74 @@ public class PuppeteerWindow extends Stage {
             itemMenu.getItems().add(miHide);
 
             itemMenu.getItems().add(new SeparatorMenuItem());
+            if (item.homeToolbar()) {
+                MenuItem miFloat = new MenuItem(floatingToolbarDockers.containsKey(item.id()) ? "Show Floating" : "Float");
+                miFloat.setOnAction(ev -> floatToolbarDockItem(item));
+                MenuItem miEdgeBar = new MenuItem(edgeBarDockItemIds.contains(item.id()) ? "Show From Edge Bar" : "Send to Edge Bar");
+                miEdgeBar.setOnAction(ev -> {
+                    if (edgeBarDockItemIds.contains(item.id())) {
+                        restoreEdgeBarDockItem(item);
+                    } else {
+                        sendDockItemToEdgeBar(item);
+                    }
+                });
+                MenuItem miReturnToToolbar = new MenuItem("Return to Toolbar Row");
+                miReturnToToolbar.setDisable(!floatingToolbarDockers.containsKey(item.id()));
+                miReturnToToolbar.setOnAction(ev -> dockFloatingToolbarItem(item));
+                itemMenu.getItems().addAll(miFloat, miEdgeBar, miReturnToToolbar, new SeparatorMenuItem());
+            }
             itemMenu.getItems().add(createMoveDockItemMenu(item));
             dockersMenu.getItems().add(itemMenu);
         }
+    }
+
+    private Menu createEdgeBarMenu() {
+        Menu menu = new Menu("Edge Bar");
+        CheckMenuItem miEnabled = new CheckMenuItem("Enabled");
+        miEnabled.setSelected(edgeBarEnabled);
+        miEnabled.setOnAction(event -> setEdgeBarEnabled(miEnabled.isSelected()));
+
+        Menu sideMenu = new Menu("Side");
+        ToggleGroup sideGroup = new ToggleGroup();
+        for (FloatingEdge edge : FloatingEdge.values()) {
+            RadioMenuItem sideItem = new RadioMenuItem(edgeBarSideLabel(edge));
+            sideItem.setToggleGroup(sideGroup);
+            sideItem.setSelected(edge == edgeBarEdge);
+            sideItem.setOnAction(event -> setEdgeBarEdge(edge));
+            sideMenu.getItems().add(sideItem);
+        }
+
+        Menu addMenu = new Menu("Add Docker");
+        boolean hasEligible = false;
+        for (DockItem item : dockItems.values()) {
+            if (item == null || !item.homeToolbar() || edgeBarDockItemIds.contains(item.id())) continue;
+            hasEligible = true;
+            MenuItem addItem = new MenuItem(item.title());
+            addItem.setOnAction(event -> sendDockItemToEdgeBar(item));
+            addMenu.getItems().add(addItem);
+        }
+        if (!hasEligible) {
+            MenuItem empty = new MenuItem("No Available Floating Dockers");
+            empty.setDisable(true);
+            addMenu.getItems().add(empty);
+        }
+
+        MenuItem miShowPanel = new MenuItem("Show Panel");
+        miShowPanel.setDisable(!edgeBarEnabled);
+        miShowPanel.setOnAction(event -> {
+            if (edgeBar != null) {
+                edgeBar.setExpanded(true, true);
+            }
+        });
+        MenuItem miPopAll = new MenuItem("Pop Out All");
+        miPopAll.setDisable(edgeBarDockItemIds.isEmpty());
+        miPopAll.setOnAction(event -> restoreAllEdgeBarDockItems());
+        MenuItem miClear = new MenuItem("Kill / Hide All");
+        miClear.setDisable(edgeBarDockItemIds.isEmpty());
+        miClear.setOnAction(event -> clearEdgeBarDockItems());
+
+        menu.getItems().addAll(miEnabled, sideMenu, addMenu, new SeparatorMenuItem(), miShowPanel, miPopAll, miClear);
+        return menu;
     }
 
     private Menu buildWorkspacePresetsMenu() {
@@ -3806,6 +3998,12 @@ public class PuppeteerWindow extends Stage {
         prefs.remove(PuppeteerWorkspacePrefs.KEY_DOCK_TOOLBAR_ORDER);
         prefs.remove(PuppeteerWorkspacePrefs.KEY_DOCK_HIDDEN_ITEMS);
         prefs.remove(PuppeteerWorkspacePrefs.KEY_DOCK_DYNAMIC_SLOTS);
+        prefs.remove(PuppeteerWorkspacePrefs.KEY_EDGE_BAR_ENABLED);
+        prefs.remove(PuppeteerWorkspacePrefs.KEY_EDGE_BAR_EDGE);
+        prefs.remove(PuppeteerWorkspacePrefs.KEY_EDGE_BAR_OFFSET);
+        prefs.remove(PuppeteerWorkspacePrefs.KEY_EDGE_BAR_WIDTH);
+        prefs.remove(PuppeteerWorkspacePrefs.KEY_EDGE_BAR_HEIGHT);
+        prefs.remove(PuppeteerWorkspacePrefs.KEY_EDGE_BAR_ITEMS);
         prefs.removeKeysStartingWith(PuppeteerWorkspacePrefs.KEY_DOCK_SLOT_PREFIX);
         prefs.removeKeysStartingWith(PuppeteerWorkspacePrefs.KEY_FLOATING_DOCKER_PREFIX);
     }
@@ -3896,6 +4094,11 @@ public class PuppeteerWindow extends Stage {
     }
 
     private void placeFloatingDocker(String itemId, double x, double y, boolean visible) {
+        DockItem item = dockItems.get(itemId);
+        if (item != null && item.homeToolbar()) {
+            floatToolbarDockItem(item, x, y, visible);
+            return;
+        }
         FloatingDocker floating = floatingToolbarDockers.get(itemId);
         if (floating == null) return;
         floating.setLayoutX(x);
@@ -3909,11 +4112,543 @@ public class PuppeteerWindow extends Stage {
         if (item == null || floating == null) return;
         if (visible) {
             hiddenDockItemIds.remove(itemId);
+            edgeBarDockItemIds.remove(itemId);
+            attachFloatingDockerToLayer(floating);
             floating.showSmoothly();
         } else {
+            edgeBarDockItemIds.remove(itemId);
             hiddenDockItemIds.add(itemId);
+            removeFloatingSnapLinks(itemId);
             floating.hideSmoothly();
         }
+        refreshEdgeBar();
+    }
+
+    private void stashFloatingDocker(DockItem item) {
+        if (item == null) return;
+        FloatingDocker floating = floatingToolbarDockers.get(item.id());
+        if (floating == null) return;
+        edgeBarDockItemIds.remove(item.id());
+        hiddenDockItemIds.add(item.id());
+        floating.stashSmoothly();
+        refreshEdgeBar();
+        refreshAfterDockSwap();
+    }
+
+    private boolean sendDockItemToEdgeBar(DockItem item) {
+        if (item == null || !item.homeToolbar()) return false;
+        FloatingDocker floating = ensureFloatingToolbarDocker(item, 18.0, 18.0);
+        if (floating == null) return false;
+        if (!edgeBarEnabled) {
+            edgeBarEnabled = true;
+        }
+        hiddenDockItemIds.remove(item.id());
+        removeFloatingSnapLinks(item.id());
+        edgeBarDockItemIds.add(item.id());
+        floating.hideImmediately();
+        refreshEdgeBar();
+        if (edgeBar != null) {
+            edgeBar.setExpanded(true, true);
+        }
+        refreshAfterDockSwap();
+        return true;
+    }
+
+    private void restoreEdgeBarDockItem(DockItem item) {
+        if (item == null) return;
+        edgeBarDockItemIds.remove(item.id());
+        hiddenDockItemIds.remove(item.id());
+        FloatingDocker floating = ensureFloatingToolbarDocker(item, 18.0, 18.0);
+        if (floating != null) {
+            attachFloatingDockerToLayer(floating);
+            placeFloatingDockerNearEdgeBar(floating);
+            floating.showSmoothly();
+        } else {
+            showDockItem(item);
+        }
+        refreshEdgeBar();
+        refreshAfterDockSwap();
+    }
+
+    private void restoreAllEdgeBarDockItems() {
+        for (String itemId : new ArrayList<>(edgeBarDockItemIds)) {
+            DockItem item = dockItems.get(itemId);
+            if (item != null) {
+                restoreEdgeBarDockItem(item);
+            } else {
+                edgeBarDockItemIds.remove(itemId);
+            }
+        }
+        refreshEdgeBar();
+    }
+
+    private void clearEdgeBarDockItems() {
+        for (String itemId : new ArrayList<>(edgeBarDockItemIds)) {
+            DockItem item = dockItems.get(itemId);
+            if (item != null) {
+                hideEdgeBarDockItem(item);
+            } else {
+                edgeBarDockItemIds.remove(itemId);
+            }
+        }
+        refreshEdgeBar();
+        refreshAfterDockSwap();
+    }
+
+    private void hideEdgeBarDockItem(DockItem item) {
+        if (item == null) return;
+        edgeBarDockItemIds.remove(item.id());
+        hideDockItem(item);
+        refreshEdgeBar();
+    }
+
+    private void placeFloatingDockerNearEdgeBar(FloatingDocker floating) {
+        if (floating == null) return;
+        Scene scene = getScene();
+        double sceneWidth = scene == null ? 1280.0 : Math.max(320.0, scene.getWidth());
+        double sceneHeight = scene == null ? 720.0 : Math.max(240.0, scene.getHeight());
+        double width = Math.max(180.0, floating.getBoundsInParent().getWidth());
+        double height = Math.max(64.0, floating.getBoundsInParent().getHeight());
+        double x;
+        double y;
+        if (edgeBarEdge == FloatingEdge.LEFT) {
+            x = EDGE_BAR_HANDLE_THICKNESS + 16.0;
+            y = Math.max(54.0, sceneHeight * 0.5 - height * 0.5);
+        } else if (edgeBarEdge == FloatingEdge.TOP) {
+            x = Math.max(18.0, sceneWidth * 0.5 - width * 0.5);
+            y = EDGE_BAR_HANDLE_THICKNESS + 16.0;
+        } else if (edgeBarEdge == FloatingEdge.BOTTOM) {
+            x = Math.max(18.0, sceneWidth * 0.5 - width * 0.5);
+            y = sceneHeight - height - EDGE_BAR_HANDLE_THICKNESS - 22.0;
+        } else {
+            x = sceneWidth - width - EDGE_BAR_HANDLE_THICKNESS - 22.0;
+            y = Math.max(54.0, sceneHeight * 0.5 - height * 0.5);
+        }
+        floating.setLayoutX(clampDouble(x, 14.0, Math.max(14.0, sceneWidth - width - 18.0)));
+        floating.setLayoutY(clampDouble(y, 36.0, Math.max(36.0, sceneHeight - height - 34.0)));
+    }
+
+    private void setEdgeBarEnabled(boolean enabled) {
+        edgeBarEnabled = enabled;
+        refreshEdgeBar();
+        persistWorkspacePrefsNow();
+    }
+
+    private void setEdgeBarEdge(FloatingEdge edge) {
+        if (edge == null) return;
+        edgeBarEdge = edge;
+        refreshEdgeBar();
+        persistWorkspacePrefsNow();
+    }
+
+    private void refreshEdgeBar() {
+        edgeBarDockItemIds.removeIf(id -> {
+            DockItem item = dockItems.get(id);
+            return item == null || !item.homeToolbar();
+        });
+        if (edgeBar != null) {
+            edgeBar.refresh();
+            edgeBar.relayout();
+        }
+    }
+
+    private void relayoutEdgeBar() {
+        if (edgeBar != null) {
+            edgeBar.relayout();
+        }
+    }
+
+    private boolean isEdgeBarDrop(MouseEvent event) {
+        if (event == null || !edgeBarEnabled || edgeBar == null) return false;
+        Scene scene = getScene();
+        if (scene == null) return false;
+        double x = event.getSceneX();
+        double y = event.getSceneY();
+        if (edgeBar.containsScenePoint(x, y)) return true;
+        return switch (edgeBarEdge) {
+            case LEFT -> x <= 28.0;
+            case RIGHT -> x >= scene.getWidth() - 28.0;
+            case TOP -> y <= 28.0;
+            case BOTTOM -> y >= scene.getHeight() - 28.0;
+        };
+    }
+
+    private static String edgeBarSideLabel(FloatingEdge edge) {
+        if (edge == null) return "Right";
+        return switch (edge) {
+            case LEFT -> "Left";
+            case RIGHT -> "Right";
+            case TOP -> "Top";
+            case BOTTOM -> "Bottom";
+        };
+    }
+
+    private static FloatingEdge parseFloatingEdge(String raw, FloatingEdge fallback) {
+        if (raw == null || raw.isBlank()) return fallback;
+        try {
+            return FloatingEdge.valueOf(raw.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ignored) {
+            return fallback;
+        }
+    }
+
+    private void addFloatingSnapLink(String firstId, String secondId) {
+        if (firstId == null || secondId == null || firstId.equals(secondId)) return;
+        if (!floatingToolbarDockers.containsKey(firstId) || !floatingToolbarDockers.containsKey(secondId)) return;
+        floatingDockerSnapLinks.computeIfAbsent(firstId, key -> new LinkedHashSet<>()).add(secondId);
+        floatingDockerSnapLinks.computeIfAbsent(secondId, key -> new LinkedHashSet<>()).add(firstId);
+    }
+
+    private void removeFloatingSnapLinks(String itemId) {
+        if (itemId == null) return;
+        Set<String> linked = floatingDockerSnapLinks.remove(itemId);
+        if (linked != null) {
+            for (String linkedId : linked) {
+                Set<String> peers = floatingDockerSnapLinks.get(linkedId);
+                if (peers != null) {
+                    peers.remove(itemId);
+                    if (peers.isEmpty()) {
+                        floatingDockerSnapLinks.remove(linkedId);
+                    }
+                }
+            }
+        }
+        floatingDockerSnapLinks.values().forEach(peers -> peers.remove(itemId));
+        floatingDockerSnapLinks.entrySet().removeIf(entry -> entry.getValue().isEmpty());
+    }
+
+    private void unsnapFloatingDocker(String itemId) {
+        removeFloatingSnapLinks(itemId);
+        persistWorkspacePrefsNow();
+    }
+
+    private void unsnapFloatingDockerCluster(String itemId) {
+        Set<String> group = floatingSnapGroupIds(itemId);
+        for (String id : new ArrayList<>(group)) {
+            removeFloatingSnapLinks(id);
+        }
+        persistWorkspacePrefsNow();
+    }
+
+    private boolean hasFloatingSnapLinks(String itemId) {
+        Set<String> peers = floatingDockerSnapLinks.get(itemId);
+        return peers != null && !peers.isEmpty();
+    }
+
+    private Set<String> floatingSnapGroupIds(String itemId) {
+        LinkedHashSet<String> group = new LinkedHashSet<>();
+        if (itemId == null || !floatingToolbarDockers.containsKey(itemId)) return group;
+        List<String> stack = new ArrayList<>();
+        group.add(itemId);
+        stack.add(itemId);
+        while (!stack.isEmpty()) {
+            String current = stack.remove(stack.size() - 1);
+            Set<String> peers = floatingDockerSnapLinks.get(current);
+            if (peers == null) continue;
+            for (String peer : peers) {
+                if (!floatingToolbarDockers.containsKey(peer) || group.contains(peer)) continue;
+                group.add(peer);
+                stack.add(peer);
+            }
+        }
+        return group;
+    }
+
+    private List<FloatingDocker> visibleFloatingSnapGroup(FloatingDocker docker) {
+        if (docker == null) return List.of();
+        List<FloatingDocker> group = new ArrayList<>();
+        for (String id : floatingSnapGroupIds(docker.item.id())) {
+            FloatingDocker member = floatingToolbarDockers.get(id);
+            if (isActiveFloatingDocker(member)) {
+                group.add(member);
+            }
+        }
+        if (group.isEmpty() && isActiveFloatingDocker(docker)) {
+            group.add(docker);
+        }
+        return group;
+    }
+
+    private boolean isActiveFloatingDocker(FloatingDocker docker) {
+        return docker != null
+            && docker.isVisible()
+            && docker.isManaged()
+            && !docker.isMouseTransparent()
+            && !edgeBarDockItemIds.contains(docker.item.id())
+            && !hiddenDockItemIds.contains(docker.item.id());
+    }
+
+    private FloatingSnapAdjustment calculateFloatingSnapAdjustment(List<FloatingDocker> group) {
+        if (group == null || group.isEmpty()) return new FloatingSnapAdjustment(0.0, 0.0);
+        Set<String> groupIds = new LinkedHashSet<>();
+        for (FloatingDocker docker : group) {
+            groupIds.add(docker.item.id());
+        }
+        FloatingBounds groupBounds = floatingBounds(group);
+        if (groupBounds == null) return new FloatingSnapAdjustment(0.0, 0.0);
+
+        FloatingSnapCandidate best = null;
+        for (FloatingDocker other : floatingToolbarDockers.values()) {
+            if (!isActiveFloatingDocker(other) || groupIds.contains(other.item.id())) continue;
+            FloatingBounds otherBounds = floatingBounds(other);
+            if (otherBounds == null) continue;
+
+            FloatingAlignment verticalAlignment = bestFloatingVerticalAlignment(groupBounds, otherBounds);
+            if (floatingRangesCanSnap(
+                groupBounds.minY(), groupBounds.maxY(), otherBounds.minY(), otherBounds.maxY(), verticalAlignment
+            )) {
+                best = betterFloatingSnapCandidate(
+                    best,
+                    horizontalFloatingSnapCandidate(otherBounds.minX() - groupBounds.maxX(), verticalAlignment, 0.0)
+                );
+                best = betterFloatingSnapCandidate(
+                    best,
+                    horizontalFloatingSnapCandidate(otherBounds.maxX() - groupBounds.minX(), verticalAlignment, 0.0)
+                );
+                best = betterFloatingSnapCandidate(
+                    best,
+                    horizontalFloatingSnapCandidate(otherBounds.minX() - groupBounds.minX(), verticalAlignment, 10.0)
+                );
+                best = betterFloatingSnapCandidate(
+                    best,
+                    horizontalFloatingSnapCandidate(otherBounds.maxX() - groupBounds.maxX(), verticalAlignment, 10.0)
+                );
+            }
+
+            FloatingAlignment horizontalAlignment = bestFloatingHorizontalAlignment(groupBounds, otherBounds);
+            if (floatingRangesCanSnap(
+                groupBounds.minX(), groupBounds.maxX(), otherBounds.minX(), otherBounds.maxX(), horizontalAlignment
+            )) {
+                best = betterFloatingSnapCandidate(
+                    best,
+                    verticalFloatingSnapCandidate(otherBounds.minY() - groupBounds.maxY(), horizontalAlignment, 0.0)
+                );
+                best = betterFloatingSnapCandidate(
+                    best,
+                    verticalFloatingSnapCandidate(otherBounds.maxY() - groupBounds.minY(), horizontalAlignment, 0.0)
+                );
+                best = betterFloatingSnapCandidate(
+                    best,
+                    verticalFloatingSnapCandidate(otherBounds.minY() - groupBounds.minY(), horizontalAlignment, 10.0)
+                );
+                best = betterFloatingSnapCandidate(
+                    best,
+                    verticalFloatingSnapCandidate(otherBounds.maxY() - groupBounds.maxY(), horizontalAlignment, 10.0)
+                );
+            }
+        }
+        return best == null ? new FloatingSnapAdjustment(0.0, 0.0) : new FloatingSnapAdjustment(best.dx(), best.dy());
+    }
+
+    private FloatingSnapCandidate horizontalFloatingSnapCandidate(double dx, FloatingAlignment verticalAlignment, double bias) {
+        return floatingSnapCandidate(dx, verticalAlignment.delta(), dx, verticalAlignment, bias);
+    }
+
+    private FloatingSnapCandidate verticalFloatingSnapCandidate(double dy, FloatingAlignment horizontalAlignment, double bias) {
+        return floatingSnapCandidate(horizontalAlignment.delta(), dy, dy, horizontalAlignment, bias);
+    }
+
+    private FloatingSnapCandidate floatingSnapCandidate(
+        double dx,
+        double dy,
+        double contactDelta,
+        FloatingAlignment alignment,
+        double bias
+    ) {
+        double contactDistance = Math.abs(contactDelta);
+        if (contactDistance > FLOATING_DOCKER_SNAP_DISTANCE) return null;
+        double score = contactDistance + alignment.score() * 0.45 + bias;
+        return new FloatingSnapCandidate(dx, dy, score);
+    }
+
+    private FloatingSnapCandidate betterFloatingSnapCandidate(FloatingSnapCandidate best, FloatingSnapCandidate candidate) {
+        if (candidate == null) return best;
+        if (best == null || candidate.score() < best.score()) return candidate;
+        return best;
+    }
+
+    private boolean floatingRangesCanSnap(double aMin, double aMax, double bMin, double bMax, FloatingAlignment alignment) {
+        if (rangesOverlapEnough(aMin, aMax, bMin, bMax)) return true;
+        if (alignment.active()) return true;
+        return rangeGap(aMin, aMax, bMin, bMax) <= FLOATING_DOCKER_SNAP_RANGE_PADDING;
+    }
+
+    private FloatingAlignment bestFloatingVerticalAlignment(FloatingBounds groupBounds, FloatingBounds otherBounds) {
+        FloatingAlignment best = defaultFloatingAlignment(
+            groupBounds.minY(), groupBounds.maxY(), otherBounds.minY(), otherBounds.maxY()
+        );
+        best = betterFloatingAlignment(best, otherBounds.minY() - groupBounds.minY(), 0.0);
+        best = betterFloatingAlignment(best, otherBounds.maxY() - groupBounds.maxY(), 0.0);
+        best = betterFloatingAlignment(best, otherBounds.centerY() - groupBounds.centerY(), 3.0);
+        best = betterFloatingAlignment(best, otherBounds.minY() - groupBounds.maxY(), 8.0);
+        best = betterFloatingAlignment(best, otherBounds.maxY() - groupBounds.minY(), 8.0);
+        return best;
+    }
+
+    private FloatingAlignment bestFloatingHorizontalAlignment(FloatingBounds groupBounds, FloatingBounds otherBounds) {
+        FloatingAlignment best = defaultFloatingAlignment(
+            groupBounds.minX(), groupBounds.maxX(), otherBounds.minX(), otherBounds.maxX()
+        );
+        best = betterFloatingAlignment(best, otherBounds.minX() - groupBounds.minX(), 0.0);
+        best = betterFloatingAlignment(best, otherBounds.maxX() - groupBounds.maxX(), 0.0);
+        best = betterFloatingAlignment(best, otherBounds.centerX() - groupBounds.centerX(), 3.0);
+        best = betterFloatingAlignment(best, otherBounds.minX() - groupBounds.maxX(), 8.0);
+        best = betterFloatingAlignment(best, otherBounds.maxX() - groupBounds.minX(), 8.0);
+        return best;
+    }
+
+    private FloatingAlignment defaultFloatingAlignment(double aMin, double aMax, double bMin, double bMax) {
+        if (rangesOverlapEnough(aMin, aMax, bMin, bMax)) return new FloatingAlignment(0.0, 0.0);
+        double gap = rangeGap(aMin, aMax, bMin, bMax);
+        if (gap <= FLOATING_DOCKER_SNAP_RANGE_PADDING) {
+            return new FloatingAlignment(0.0, FLOATING_DOCKER_SNAP_ALIGNMENT_DISTANCE + gap * 0.5);
+        }
+        return new FloatingAlignment(0.0, FLOATING_DOCKER_SNAP_ALIGNMENT_DISTANCE * 2.0 + gap);
+    }
+
+    private FloatingAlignment betterFloatingAlignment(FloatingAlignment best, double delta, double penalty) {
+        double distance = Math.abs(delta);
+        if (distance > FLOATING_DOCKER_SNAP_ALIGNMENT_DISTANCE) return best;
+        double score = distance + penalty;
+        if (score < best.score()) {
+            return new FloatingAlignment(delta, score);
+        }
+        return best;
+    }
+
+    private double rangeGap(double aMin, double aMax, double bMin, double bMax) {
+        if (aMax < bMin) return bMin - aMax;
+        if (bMax < aMin) return aMin - bMax;
+        return 0.0;
+    }
+
+    private void updateFloatingSnapLinksAfterDrag(List<FloatingDocker> group) {
+        if (group == null || group.isEmpty()) return;
+        Set<String> groupIds = new LinkedHashSet<>();
+        for (FloatingDocker docker : group) {
+            groupIds.add(docker.item.id());
+        }
+        for (FloatingDocker docker : group) {
+            if (!isActiveFloatingDocker(docker)) continue;
+            for (FloatingDocker other : floatingToolbarDockers.values()) {
+                if (!isActiveFloatingDocker(other) || groupIds.contains(other.item.id())) continue;
+                if (areFloatingDockersSnapped(docker, other)) {
+                    addFloatingSnapLink(docker.item.id(), other.item.id());
+                }
+            }
+        }
+        persistWorkspacePrefsNow();
+    }
+
+    private boolean areFloatingDockersSnapped(FloatingDocker first, FloatingDocker second) {
+        FloatingBounds a = floatingBounds(first);
+        FloatingBounds b = floatingBounds(second);
+        if (a == null || b == null) return false;
+        boolean verticalOverlap = rangesTouchForSnapLink(a.minY(), a.maxY(), b.minY(), b.maxY());
+        boolean horizontalOverlap = rangesTouchForSnapLink(a.minX(), a.maxX(), b.minX(), b.maxX());
+        return (verticalOverlap
+            && (Math.abs(a.maxX() - b.minX()) <= FLOATING_DOCKER_SNAP_LINK_TOLERANCE
+                || Math.abs(a.minX() - b.maxX()) <= FLOATING_DOCKER_SNAP_LINK_TOLERANCE))
+            || (horizontalOverlap
+                && (Math.abs(a.maxY() - b.minY()) <= FLOATING_DOCKER_SNAP_LINK_TOLERANCE
+                    || Math.abs(a.minY() - b.maxY()) <= FLOATING_DOCKER_SNAP_LINK_TOLERANCE));
+    }
+
+    private FloatingBounds floatingBounds(FloatingDocker docker) {
+        if (docker == null) return null;
+        double width = docker.getBoundsInParent().getWidth();
+        double height = docker.getBoundsInParent().getHeight();
+        if (width <= 0.0) width = Math.max(1.0, docker.prefWidth(-1));
+        if (height <= 0.0) height = Math.max(1.0, docker.prefHeight(-1));
+        double x = docker.getLayoutX();
+        double y = docker.getLayoutY();
+        return new FloatingBounds(x, y, x + width, y + height);
+    }
+
+    private FloatingBounds floatingBounds(List<FloatingDocker> dockers) {
+        if (dockers == null || dockers.isEmpty()) return null;
+        double minX = Double.MAX_VALUE;
+        double minY = Double.MAX_VALUE;
+        double maxX = -Double.MAX_VALUE;
+        double maxY = -Double.MAX_VALUE;
+        boolean found = false;
+        for (FloatingDocker docker : dockers) {
+            FloatingBounds bounds = floatingBounds(docker);
+            if (bounds == null) continue;
+            minX = Math.min(minX, bounds.minX());
+            minY = Math.min(minY, bounds.minY());
+            maxX = Math.max(maxX, bounds.maxX());
+            maxY = Math.max(maxY, bounds.maxY());
+            found = true;
+        }
+        return found ? new FloatingBounds(minX, minY, maxX, maxY) : null;
+    }
+
+    private boolean rangesOverlapEnough(double aMin, double aMax, double bMin, double bMax) {
+        double overlap = Math.min(aMax, bMax) - Math.max(aMin, bMin);
+        if (overlap <= 0.0) return false;
+        double minSpan = Math.min(Math.max(1.0, aMax - aMin), Math.max(1.0, bMax - bMin));
+        double required = Math.min(32.0, Math.max(6.0, minSpan * FLOATING_DOCKER_SNAP_OVERLAP_RATIO));
+        return overlap >= required;
+    }
+
+    private boolean rangesTouchForSnapLink(double aMin, double aMax, double bMin, double bMax) {
+        if (rangesOverlapEnough(aMin, aMax, bMin, bMax)) return true;
+        return rangeGap(aMin, aMax, bMin, bMax) <= FLOATING_DOCKER_SNAP_LINK_TOLERANCE;
+    }
+
+    private String formatFloatingSnapLinks() {
+        List<String> records = new ArrayList<>();
+        Set<String> emitted = new LinkedHashSet<>();
+        for (Map.Entry<String, Set<String>> entry : floatingDockerSnapLinks.entrySet()) {
+            String first = entry.getKey();
+            for (String second : entry.getValue()) {
+                if (!floatingToolbarDockers.containsKey(first) || !floatingToolbarDockers.containsKey(second)) continue;
+                String key = first.compareTo(second) <= 0 ? first + "~" + second : second + "~" + first;
+                if (emitted.add(key)) {
+                    records.add(key);
+                }
+            }
+        }
+        return String.join(",", records);
+    }
+
+    private void applyFloatingSnapLinks(String raw) {
+        floatingDockerSnapLinks.clear();
+        if (raw == null || raw.isBlank()) return;
+        for (String record : raw.split(",")) {
+            String[] ids = record.trim().split("~", 2);
+            if (ids.length != 2) continue;
+            addFloatingSnapLink(ids[0].trim(), ids[1].trim());
+        }
+    }
+
+    private ContextMenu createFloatingDockerContextMenu(FloatingDocker docker) {
+        ContextMenu menu = new ContextMenu();
+        if (docker == null) return menu;
+        String itemId = docker.item.id();
+        boolean inEdgeBar = edgeBarDockItemIds.contains(itemId);
+        boolean snapped = hasFloatingSnapLinks(itemId);
+        MenuItem miUnsnapThis = new MenuItem("Unsnap This Docker");
+        miUnsnapThis.setDisable(inEdgeBar || !snapped);
+        miUnsnapThis.setOnAction(event -> unsnapFloatingDocker(itemId));
+        MenuItem miUnsnapCluster = new MenuItem("Unsnap Cluster");
+        miUnsnapCluster.setDisable(inEdgeBar || floatingSnapGroupIds(itemId).size() <= 1);
+        miUnsnapCluster.setOnAction(event -> unsnapFloatingDockerCluster(itemId));
+        MenuItem miHide = new MenuItem("Kill / Hide " + docker.item.title());
+        miHide.setOnAction(event -> hideDockItem(docker.item));
+        MenuItem miEdgeBar = new MenuItem(inEdgeBar ? "Pop Out From Edge Bar" : "Send to Edge Bar");
+        miEdgeBar.setOnAction(event -> {
+            if (inEdgeBar) {
+                restoreEdgeBarDockItem(docker.item);
+            } else {
+                sendDockItemToEdgeBar(docker.item);
+            }
+        });
+        MenuItem miToolbar = new MenuItem("Return to Toolbar Row");
+        miToolbar.setOnAction(event -> dockFloatingToolbarItem(docker.item));
+        menu.getItems().addAll(miUnsnapThis, miUnsnapCluster, new SeparatorMenuItem(), miEdgeBar, miHide, miToolbar);
+        return menu;
     }
 
     private void hideFloatingToolbarsExcept(String... visibleIds) {
@@ -3930,11 +4665,23 @@ public class PuppeteerWindow extends Stage {
     private Menu createMoveDockItemMenu(DockItem item) {
         Menu moveMenu = new Menu("Move To");
         if (item != null && item.homeToolbar()) {
-            MenuItem miShow = new MenuItem("Show Floating");
-            miShow.setOnAction(ev -> showDockItem(item));
+            MenuItem miShow = new MenuItem(floatingToolbarDockers.containsKey(item.id()) ? "Show Floating" : "Float");
+            miShow.setOnAction(ev -> floatToolbarDockItem(item));
             MenuItem miHide = new MenuItem("Hide Floating");
+            miHide.setDisable(!floatingToolbarDockers.containsKey(item.id()));
             miHide.setOnAction(ev -> hideDockItem(item));
-            moveMenu.getItems().addAll(miShow, miHide);
+            MenuItem miEdgeBar = new MenuItem(edgeBarDockItemIds.contains(item.id()) ? "Show From Edge Bar" : "Send to Edge Bar");
+            miEdgeBar.setOnAction(ev -> {
+                if (edgeBarDockItemIds.contains(item.id())) {
+                    restoreEdgeBarDockItem(item);
+                } else {
+                    sendDockItemToEdgeBar(item);
+                }
+            });
+            MenuItem miDockToolbar = new MenuItem("Return to Toolbar Row");
+            miDockToolbar.setDisable(!floatingToolbarDockers.containsKey(item.id()));
+            miDockToolbar.setOnAction(ev -> dockFloatingToolbarItem(item));
+            moveMenu.getItems().addAll(miShow, miEdgeBar, miHide, miDockToolbar);
             return moveMenu;
         }
         MenuItem miNewTop = new MenuItem("New Top Container");
@@ -4187,6 +4934,7 @@ public class PuppeteerWindow extends Stage {
 
     private boolean isDockItemVisible(DockItem item) {
         if (item == null) return false;
+        if (edgeBarDockItemIds.contains(item.id())) return false;
         FloatingDocker floating = floatingToolbarDockers.get(item.id());
         if (floating != null) {
             return floating.isVisible() && floating.isManaged() && !hiddenDockItemIds.contains(item.id());
@@ -4199,11 +4947,18 @@ public class PuppeteerWindow extends Stage {
     }
 
     private void hideDockItem(DockItem item) {
-        if (item == null || hiddenDockItemIds.contains(item.id())) return;
+        if (item == null) return;
+        edgeBarDockItemIds.remove(item.id());
+        if (hiddenDockItemIds.contains(item.id())) {
+            refreshEdgeBar();
+            return;
+        }
         FloatingDocker floating = floatingToolbarDockers.get(item.id());
         if (floating != null) {
             hiddenDockItemIds.add(item.id());
+            removeFloatingSnapLinks(item.id());
             floating.hideSmoothly();
+            refreshEdgeBar();
             refreshAfterDockSwap();
             return;
         }
@@ -4223,14 +4978,18 @@ public class PuppeteerWindow extends Stage {
         item.contentNode().setManaged(false);
         item.contentNode().setVisible(false);
         hiddenDockItemIds.add(item.id());
+        refreshEdgeBar();
         refreshAfterDockSwap();
     }
 
     private void showDockItem(DockItem item) {
-        if (item == null || isDockItemVisible(item)) return;
+        if (item == null) return;
+        edgeBarDockItemIds.remove(item.id());
+        if (isDockItemVisible(item)) return;
         hiddenDockItemIds.remove(item.id());
         FloatingDocker floating = floatingToolbarDockers.get(item.id());
         if (floating != null) {
+            attachFloatingDockerToLayer(floating);
             floating.showSmoothly();
             refreshAfterDockSwap();
             return;
@@ -4269,6 +5028,7 @@ public class PuppeteerWindow extends Stage {
         applyingDockLayoutPrefs = true;
         try {
             hiddenDockItemIds.clear();
+            edgeBarDockItemIds.clear();
             for (CollapsibleToolbarCluster cluster : toolbarPane.getClustersSnapshot()) {
                 toolbarPane.removeCluster(cluster);
             }
@@ -4321,15 +5081,546 @@ public class PuppeteerWindow extends Stage {
         }
     }
 
+    private final class EdgeBar extends Pane {
+        private final VBox panel = new VBox(8);
+        private final VBox itemList = new VBox(8);
+        private final Button addButton = makeEdgeBarIconButton(CssIcon.plus("#ffffff"), "Add docker to edge bar");
+        private final ToggleButton resizeButton = makeEdgeBarToggleButton(CssIcon.openInFull("#f0c36a"), "Resize edge bar");
+        private final Button handle = new Button();
+        private final Rectangle panelClip = new Rectangle();
+        private final Region resizeGrip = new Region();
+        private double panelWidth = EDGE_BAR_PANEL_WIDTH;
+        private double panelHeight = EDGE_BAR_PANEL_HEIGHT;
+        private boolean expanded;
+        private boolean resizeMode;
+        private boolean handleHover;
+        private double handlePressSceneX;
+        private double handlePressSceneY;
+        private double resizePressSceneX;
+        private double resizePressSceneY;
+        private double resizeStartWidth;
+        private double resizeStartHeight;
+        private boolean handleDragMoved;
+        private boolean suppressNextHandleAction;
+
+        EdgeBar() {
+            setPickOnBounds(false);
+            setManaged(false);
+            setVisible(false);
+            setMouseTransparent(true);
+
+            addButton.setOnAction(event -> {
+                ContextMenu menu = createEdgeBarAddMenu();
+                menu.show(addButton, Side.BOTTOM, 0, 4);
+                event.consume();
+            });
+            resizeButton.setOnAction(event -> {
+                setResizeMode(resizeButton.isSelected());
+                if (resizeMode) {
+                    setExpanded(true, true);
+                }
+                event.consume();
+            });
+
+            HBox controls = new HBox(6, resizeButton, addButton);
+            controls.setAlignment(Pos.CENTER_RIGHT);
+            controls.setPadding(new Insets(0, 0, 2, 0));
+
+            ScrollPane scroll = new ScrollPane(itemList);
+            scroll.setFitToWidth(true);
+            scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+            scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+            scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+            VBox.setVgrow(scroll, Priority.ALWAYS);
+
+            panel.getChildren().addAll(controls, scroll);
+            panel.setPadding(new Insets(10));
+            panel.setStyle(
+                "-fx-background-color: rgba(54,54,52,0.98);"
+                    + "-fx-background-radius: 14;"
+                    + "-fx-border-color: rgba(255,255,255,0.12);"
+                    + "-fx-border-radius: 14;"
+                    + "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.30), 18, 0.22, 0, 5);"
+            );
+            panelClip.setArcWidth(26);
+            panelClip.setArcHeight(26);
+            panel.setClip(panelClip);
+            updatePanelStyle();
+
+            resizeGrip.setManaged(false);
+            resizeGrip.setVisible(false);
+            resizeGrip.setMouseTransparent(true);
+            Tooltip.install(resizeGrip, new Tooltip("Drag to resize edge bar"));
+            resizeGrip.setOnMousePressed(event -> {
+                resizePressSceneX = event.getSceneX();
+                resizePressSceneY = event.getSceneY();
+                resizeStartWidth = panelWidth;
+                resizeStartHeight = panelHeight;
+                event.consume();
+            });
+            resizeGrip.setOnMouseDragged(event -> {
+                resizeFromScene(event.getSceneX(), event.getSceneY());
+                event.consume();
+            });
+            resizeGrip.setOnMouseReleased(event -> {
+                persistWorkspacePrefsNow();
+                event.consume();
+            });
+
+            handle.setText("");
+            handle.setMnemonicParsing(false);
+            handle.setFocusTraversable(false);
+            handle.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+            installToolbarTooltip(handle, "Edge Bar");
+            handle.setOnAction(event -> {
+                if (suppressNextHandleAction) {
+                    suppressNextHandleAction = false;
+                    event.consume();
+                    return;
+                }
+                setExpanded(!expanded, true);
+                event.consume();
+            });
+            handle.setOnMousePressed(event -> {
+                handlePressSceneX = event.getSceneX();
+                handlePressSceneY = event.getSceneY();
+                handleDragMoved = false;
+                suppressNextHandleAction = false;
+                event.consume();
+            });
+            handle.setOnMouseDragged(event -> {
+                double dx = event.getSceneX() - handlePressSceneX;
+                double dy = event.getSceneY() - handlePressSceneY;
+                if (!handleDragMoved && Math.hypot(dx, dy) < 4.0) {
+                    return;
+                }
+                handleDragMoved = true;
+                suppressNextHandleAction = true;
+                setExpanded(false, false);
+                updateEdgeBarPlacementFromScene(event.getSceneX(), event.getSceneY());
+                event.consume();
+            });
+            handle.setOnMouseReleased(event -> {
+                if (handleDragMoved) {
+                    updateEdgeBarPlacementFromScene(event.getSceneX(), event.getSceneY());
+                    persistWorkspacePrefsNow();
+                    handleDragMoved = false;
+                    updateHandleStyle();
+                    event.consume();
+                }
+            });
+            handle.setOnMouseEntered(event -> {
+                handleHover = true;
+                updateHandleStyle();
+            });
+            handle.setOnMouseExited(event -> {
+                handleHover = false;
+                updateHandleStyle();
+            });
+
+            getChildren().addAll(panel, resizeGrip, handle);
+            setOnMouseEntered(event -> setExpanded(true, true));
+            setOnMouseExited(event -> {
+                if (!resizeMode && !containsScenePoint(event.getSceneX(), event.getSceneY())) {
+                    setExpanded(false, true);
+                }
+            });
+        }
+
+        void refresh() {
+            setManaged(edgeBarEnabled);
+            setVisible(edgeBarEnabled);
+            setMouseTransparent(!edgeBarEnabled);
+            itemList.getChildren().clear();
+            for (String itemId : edgeBarDockItemIds) {
+                DockItem item = dockItems.get(itemId);
+                if (item == null || !item.homeToolbar()) continue;
+                FloatingDocker floating = ensureFloatingToolbarDocker(item, 18.0, 18.0);
+                if (floating == null) continue;
+                detachNode(floating);
+                detachNode(floating.restoreTab());
+                floating.setEdgeBarMounted(true);
+                itemList.getChildren().add(floating);
+                VBox.setVgrow(floating, Priority.NEVER);
+            }
+            updateHandleStyle();
+            if (edgeBarEnabled) {
+                toFront();
+            } else {
+                expanded = false;
+            }
+        }
+
+        void relayout() {
+            if (!edgeBarEnabled) {
+                setManaged(false);
+                setVisible(false);
+                setMouseTransparent(true);
+                return;
+            }
+            Scene scene = getScene();
+            double sceneWidth = scene == null ? 1280.0 : Math.max(320.0, scene.getWidth());
+            double sceneHeight = scene == null ? 720.0 : Math.max(240.0, scene.getHeight());
+            boolean vertical = edgeBarEdge == FloatingEdge.LEFT || edgeBarEdge == FloatingEdge.RIGHT;
+            panelWidth = vertical
+                ? clampDouble(edgeBarPreferredWidth, EDGE_BAR_PANEL_MIN_WIDTH, Math.max(EDGE_BAR_PANEL_MIN_WIDTH, sceneWidth - EDGE_BAR_HANDLE_THICKNESS - 32.0))
+                : clampDouble(edgeBarPreferredWidth, 260.0, Math.max(260.0, sceneWidth - 48.0));
+            panelHeight = vertical
+                ? clampDouble(edgeBarPreferredHeight, 220.0, Math.max(220.0, sceneHeight - 84.0))
+                : clampDouble(edgeBarPreferredHeight, EDGE_BAR_PANEL_MIN_HEIGHT, Math.max(EDGE_BAR_PANEL_MIN_HEIGHT, sceneHeight - EDGE_BAR_HANDLE_THICKNESS - 64.0));
+
+            double maxPanelX = Math.max(0.0, sceneWidth - panelWidth);
+            double maxPanelY = Math.max(0.0, sceneHeight - panelHeight);
+            double panelX = maxPanelX * edgeBarOffsetRatio;
+            double panelY = maxPanelY * edgeBarOffsetRatio;
+            if (edgeBarEdge == FloatingEdge.LEFT) {
+                resizeRelocate(0.0, panelY, panelWidth + EDGE_BAR_HANDLE_THICKNESS, panelHeight);
+                panel.resizeRelocate(-panelWidth, 0.0, panelWidth, panelHeight);
+                handle.resizeRelocate(0.0, handleOffsetY(), EDGE_BAR_HANDLE_THICKNESS, EDGE_BAR_HANDLE_LENGTH);
+            } else if (edgeBarEdge == FloatingEdge.RIGHT) {
+                resizeRelocate(sceneWidth - EDGE_BAR_HANDLE_THICKNESS, panelY, panelWidth + EDGE_BAR_HANDLE_THICKNESS, panelHeight);
+                panel.resizeRelocate(EDGE_BAR_HANDLE_THICKNESS, 0.0, panelWidth, panelHeight);
+                handle.resizeRelocate(0.0, handleOffsetY(), EDGE_BAR_HANDLE_THICKNESS, EDGE_BAR_HANDLE_LENGTH);
+            } else if (edgeBarEdge == FloatingEdge.TOP) {
+                resizeRelocate(panelX, 0.0, panelWidth, panelHeight + EDGE_BAR_HANDLE_THICKNESS);
+                panel.resizeRelocate(0.0, -panelHeight, panelWidth, panelHeight);
+                handle.resizeRelocate(handleOffsetX(), 0.0, EDGE_BAR_HANDLE_LENGTH, EDGE_BAR_HANDLE_THICKNESS);
+            } else {
+                resizeRelocate(panelX, sceneHeight - EDGE_BAR_HANDLE_THICKNESS, panelWidth, panelHeight + EDGE_BAR_HANDLE_THICKNESS);
+                panel.resizeRelocate(0.0, EDGE_BAR_HANDLE_THICKNESS, panelWidth, panelHeight);
+                handle.resizeRelocate(handleOffsetX(), 0.0, EDGE_BAR_HANDLE_LENGTH, EDGE_BAR_HANDLE_THICKNESS);
+            }
+            panel.setPrefSize(panelWidth, panelHeight);
+            panelClip.setWidth(panelWidth);
+            panelClip.setHeight(panelHeight);
+            updateHandleStyle();
+            updateResizeGrip();
+            updateResizeButtonStyle();
+            applyPanelOffset(false);
+            toFront();
+        }
+
+        void setExpanded(boolean expanded, boolean animate) {
+            if (!edgeBarEnabled) return;
+            this.expanded = expanded;
+            panel.setMouseTransparent(!expanded);
+            toFront();
+            updateHandleStyle();
+            updateResizeGrip();
+            applyPanelOffset(animate);
+        }
+
+        boolean containsScenePoint(double sceneX, double sceneY) {
+            var local = sceneToLocal(sceneX, sceneY);
+            return contains(local.getX(), local.getY());
+        }
+
+        @Override
+        public boolean contains(double localX, double localY) {
+            if (!edgeBarEnabled || !isVisible() || isMouseTransparent()) return false;
+            if (containsChild(handle, localX, localY)) return true;
+            if (containsChild(resizeGrip, localX, localY)) return true;
+            return expanded && containsChild(panel, localX, localY);
+        }
+
+        private ContextMenu createEdgeBarAddMenu() {
+            ContextMenu menu = new ContextMenu();
+            boolean added = false;
+            for (DockItem item : dockItems.values()) {
+                if (item == null || !item.homeToolbar() || edgeBarDockItemIds.contains(item.id())) continue;
+                MenuItem addItem = new MenuItem(item.title());
+                addItem.setOnAction(event -> sendDockItemToEdgeBar(item));
+                menu.getItems().add(addItem);
+                added = true;
+            }
+            if (!added) {
+                MenuItem empty = new MenuItem("No Available Floating Dockers");
+                empty.setDisable(true);
+                menu.getItems().add(empty);
+            }
+            return menu;
+        }
+
+        private void updateEdgeBarPlacementFromScene(double sceneX, double sceneY) {
+            Scene scene = getScene();
+            if (scene == null) return;
+            edgeBarEdge = nearestEdge(sceneX, sceneY, scene);
+            edgeBarOffsetRatio = edgeOffsetRatio(edgeBarEdge, sceneX, sceneY, scene);
+            relayout();
+        }
+
+        private FloatingEdge nearestEdge(double sceneX, double sceneY, Scene scene) {
+            double left = sceneX;
+            double right = scene.getWidth() - sceneX;
+            double top = sceneY;
+            double bottom = scene.getHeight() - sceneY;
+            double nearest = Math.min(Math.min(left, right), Math.min(top, bottom));
+            if (nearest == left) return FloatingEdge.LEFT;
+            if (nearest == right) return FloatingEdge.RIGHT;
+            if (nearest == top) return FloatingEdge.TOP;
+            return FloatingEdge.BOTTOM;
+        }
+
+        private double edgeOffsetRatio(FloatingEdge edge, double sceneX, double sceneY, Scene scene) {
+            if (edge == FloatingEdge.LEFT || edge == FloatingEdge.RIGHT) {
+                double maxPanelY = Math.max(1.0, scene.getHeight() - panelHeight);
+                return clampDouble((sceneY - panelHeight * 0.5) / maxPanelY, 0.0, 1.0);
+            }
+            double maxPanelX = Math.max(1.0, scene.getWidth() - panelWidth);
+            return clampDouble((sceneX - panelWidth * 0.5) / maxPanelX, 0.0, 1.0);
+        }
+
+        private void setResizeMode(boolean enabled) {
+            resizeMode = enabled;
+            resizeButton.setSelected(enabled);
+            updatePanelStyle();
+            updateResizeButtonStyle();
+            updateResizeGrip();
+        }
+
+        private void resizeFromScene(double sceneX, double sceneY) {
+            Scene scene = getScene();
+            if (scene == null) return;
+            boolean vertical = edgeBarEdge == FloatingEdge.LEFT || edgeBarEdge == FloatingEdge.RIGHT;
+            double dx = sceneX - resizePressSceneX;
+            double dy = sceneY - resizePressSceneY;
+            double nextWidth = edgeBarEdge == FloatingEdge.RIGHT ? resizeStartWidth - dx : resizeStartWidth + dx;
+            double nextHeight = edgeBarEdge == FloatingEdge.BOTTOM ? resizeStartHeight - dy : resizeStartHeight + dy;
+            edgeBarPreferredWidth = clampDouble(nextWidth, vertical ? EDGE_BAR_PANEL_MIN_WIDTH : 260.0, maxEdgeBarWidth(scene, vertical));
+            edgeBarPreferredHeight = clampDouble(nextHeight, vertical ? 220.0 : EDGE_BAR_PANEL_MIN_HEIGHT, maxEdgeBarHeight(scene, vertical));
+            expanded = true;
+            panel.setMouseTransparent(false);
+            relayout();
+        }
+
+        private double maxEdgeBarWidth(Scene scene, boolean vertical) {
+            double sceneWidth = scene == null ? 1280.0 : Math.max(320.0, scene.getWidth());
+            return vertical
+                ? Math.max(EDGE_BAR_PANEL_MIN_WIDTH, sceneWidth - EDGE_BAR_HANDLE_THICKNESS - 32.0)
+                : Math.max(260.0, sceneWidth - 48.0);
+        }
+
+        private double maxEdgeBarHeight(Scene scene, boolean vertical) {
+            double sceneHeight = scene == null ? 720.0 : Math.max(240.0, scene.getHeight());
+            return vertical
+                ? Math.max(220.0, sceneHeight - 84.0)
+                : Math.max(EDGE_BAR_PANEL_MIN_HEIGHT, sceneHeight - EDGE_BAR_HANDLE_THICKNESS - 64.0);
+        }
+
+        private void updatePanelStyle() {
+            panel.setStyle(
+                "-fx-background-color: rgba(54,54,52,0.98);"
+                    + "-fx-background-radius: 14;"
+                    + "-fx-border-color: " + (resizeMode ? "rgba(240,157,61,0.72)" : "rgba(255,255,255,0.12)") + ";"
+                    + "-fx-border-radius: 14;"
+                    + "-fx-effect: " + (resizeMode
+                        ? "dropshadow(gaussian, rgba(240,157,61,0.24), 20, 0.22, 0, 4)"
+                        : "dropshadow(gaussian, rgba(0,0,0,0.30), 18, 0.22, 0, 5)") + ";"
+            );
+        }
+
+        private void updateResizeGrip() {
+            boolean visible = edgeBarEnabled && expanded && resizeMode;
+            resizeGrip.setVisible(visible);
+            resizeGrip.setMouseTransparent(!visible);
+            resizeGrip.setManaged(false);
+            if (!visible) return;
+            double size = 20.0;
+            resizeGrip.resize(size, size);
+            resizeGrip.setStyle(
+                "-fx-background-color: rgba(240,157,61,0.38);"
+                    + "-fx-background-radius: 7;"
+                    + "-fx-border-color: rgba(240,157,61,0.9);"
+                    + "-fx-border-radius: 7;"
+                    + "-fx-effect: dropshadow(gaussian, rgba(240,157,61,0.55), 12, 0.42, 0, 0);"
+            );
+            double panelX = panel.getLayoutX() + panelTranslateXForState(true);
+            double panelY = panel.getLayoutY() + panelTranslateYForState(true);
+            double x;
+            double y;
+            if (edgeBarEdge == FloatingEdge.RIGHT) {
+                x = panelX + 8.0;
+                y = panelY + panelHeight - size - 8.0;
+            } else if (edgeBarEdge == FloatingEdge.BOTTOM) {
+                x = panelX + panelWidth - size - 8.0;
+                y = panelY + 8.0;
+            } else {
+                x = panelX + panelWidth - size - 8.0;
+                y = panelY + panelHeight - size - 8.0;
+            }
+            resizeGrip.relocate(x, y);
+            resizeGrip.toFront();
+            handle.toFront();
+        }
+
+        private void updateResizeButtonStyle() {
+            resizeButton.setStyle(edgeBarButtonStyle(resizeMode));
+        }
+
+        private double handleOffsetX() {
+            return clampDouble(panelWidth * 0.5 - EDGE_BAR_HANDLE_LENGTH * 0.5, 10.0, Math.max(10.0, panelWidth - EDGE_BAR_HANDLE_LENGTH - 10.0));
+        }
+
+        private double handleOffsetY() {
+            return clampDouble(panelHeight * 0.5 - EDGE_BAR_HANDLE_LENGTH * 0.5, 10.0, Math.max(10.0, panelHeight - EDGE_BAR_HANDLE_LENGTH - 10.0));
+        }
+
+        private void applyPanelOffset(boolean animate) {
+            double targetX = panelTranslateXForState(expanded);
+            double targetY = panelTranslateYForState(expanded);
+            if (animate) {
+                TranslateTransition slide = new TranslateTransition(Duration.millis(expanded ? 170 : 135), panel);
+                slide.setToX(targetX);
+                slide.setToY(targetY);
+                slide.setOnFinished(event -> updateResizeGrip());
+                slide.play();
+            } else {
+                panel.setTranslateX(targetX);
+                panel.setTranslateY(targetY);
+                updateResizeGrip();
+            }
+        }
+
+        private double panelTranslateXForState(boolean open) {
+            if (!open) return 0.0;
+            if (edgeBarEdge == FloatingEdge.LEFT) return panelWidth;
+            if (edgeBarEdge == FloatingEdge.RIGHT) return -panelWidth;
+            return 0.0;
+        }
+
+        private double panelTranslateYForState(boolean open) {
+            if (!open) return 0.0;
+            if (edgeBarEdge == FloatingEdge.TOP) return panelHeight;
+            if (edgeBarEdge == FloatingEdge.BOTTOM) return -panelHeight;
+            return 0.0;
+        }
+
+        private void updateHandleStyle() {
+            boolean vertical = edgeBarEdge == FloatingEdge.LEFT || edgeBarEdge == FloatingEdge.RIGHT;
+            String radius = vertical ? "7" : "7";
+            handle.setMinSize(
+                vertical ? EDGE_BAR_HANDLE_THICKNESS : EDGE_BAR_HANDLE_LENGTH,
+                vertical ? EDGE_BAR_HANDLE_LENGTH : EDGE_BAR_HANDLE_THICKNESS
+            );
+            handle.setPrefSize(
+                vertical ? EDGE_BAR_HANDLE_THICKNESS : EDGE_BAR_HANDLE_LENGTH,
+                vertical ? EDGE_BAR_HANDLE_LENGTH : EDGE_BAR_HANDLE_THICKNESS
+            );
+            handle.setMaxSize(
+                vertical ? EDGE_BAR_HANDLE_THICKNESS : EDGE_BAR_HANDLE_LENGTH,
+                vertical ? EDGE_BAR_HANDLE_LENGTH : EDGE_BAR_HANDLE_THICKNESS
+            );
+            boolean active = expanded || handleHover || handleDragMoved;
+            handle.setStyle(
+                "-fx-background-color: " + (active ? "rgba(190,190,184,0.52)" : "rgba(168,168,162,0.34)") + ";"
+                    + "-fx-background-radius: " + radius + ";"
+                    + "-fx-border-color: " + (active ? "rgba(240,157,61,0.86)" : "rgba(255,255,255,0.28)") + ";"
+                    + "-fx-border-radius: " + radius + ";"
+                    + "-fx-padding: 0;"
+                    + "-fx-effect: " + (active
+                        ? "dropshadow(gaussian, rgba(240,157,61,0.72), 14, 0.48, 0, 0)"
+                        : "dropshadow(gaussian, rgba(0,0,0,0.24), 5, 0.20, 0, 1)") + ";"
+            );
+            Tooltip tooltip = handle.getTooltip();
+            if (tooltip != null) {
+                tooltip.setText("Edge Bar - drag to reposition");
+            }
+        }
+
+        private boolean containsChild(Node child, double localX, double localY) {
+            if (child == null || !child.isVisible() || child.isMouseTransparent()) return false;
+            if (!child.getBoundsInParent().contains(localX, localY)) return false;
+            var childPoint = child.parentToLocal(localX, localY);
+            return child.contains(childPoint.getX(), childPoint.getY());
+        }
+
+        private Button makeEdgeBarIconButton(Region icon, String tooltip) {
+            Button button = new Button();
+            button.setGraphic(icon);
+            button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+            button.setGraphicTextGap(0);
+            button.setMnemonicParsing(false);
+            button.setFocusTraversable(false);
+            button.setMinSize(28, 26);
+            button.setPrefSize(28, 26);
+            button.setMaxSize(28, 26);
+            button.setStyle(edgeBarButtonStyle(false));
+            installToolbarTooltip(button, tooltip);
+            return button;
+        }
+
+        private ToggleButton makeEdgeBarToggleButton(Region icon, String tooltip) {
+            ToggleButton button = new ToggleButton();
+            button.setGraphic(icon);
+            button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+            button.setGraphicTextGap(0);
+            button.setMnemonicParsing(false);
+            button.setFocusTraversable(false);
+            button.setMinSize(28, 26);
+            button.setPrefSize(28, 26);
+            button.setMaxSize(28, 26);
+            button.setStyle(edgeBarButtonStyle(false));
+            installToolbarTooltip(button, tooltip);
+            return button;
+        }
+
+        private String edgeBarButtonStyle(boolean active) {
+            return "-fx-background-color: " + (active ? "rgba(83,67,43,0.96)" : "rgba(45,45,45,0.92)") + ";"
+                + "-fx-background-radius: 7;"
+                + "-fx-border-color: " + (active ? "rgba(240,157,61,0.82)" : "rgba(255,255,255,0.18)") + ";"
+                + "-fx-border-radius: 7;"
+                + "-fx-padding: 0;"
+                + "-fx-effect: " + (active
+                    ? "dropshadow(gaussian, rgba(240,157,61,0.42), 10, 0.36, 0, 0)"
+                    : "none") + ";";
+        }
+    }
+
+    private record FloatingBounds(double minX, double minY, double maxX, double maxY) {
+        double width() {
+            return Math.max(1.0, maxX - minX);
+        }
+
+        double height() {
+            return Math.max(1.0, maxY - minY);
+        }
+
+        double centerX() {
+            return minX + width() * 0.5;
+        }
+
+        double centerY() {
+            return minY + height() * 0.5;
+        }
+    }
+
+    private record FloatingAlignment(double delta, double score) {
+        boolean active() {
+            return Math.abs(delta) > 0.01 && Math.abs(delta) <= FLOATING_DOCKER_SNAP_ALIGNMENT_DISTANCE;
+        }
+    }
+
+    private record FloatingSnapCandidate(double dx, double dy, double score) {
+    }
+
+    private record FloatingSnapAdjustment(double dx, double dy) {
+        boolean active() {
+            return Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01;
+        }
+    }
+
     private final class FloatingDocker extends BorderPane {
         private final DockItem item;
         private final Label titleLabel = new Label();
         private final Button restoreTab;
+        private boolean edgeBarMounted;
         private FloatingEdge stashEdge = FloatingEdge.RIGHT;
         private double dragSceneX;
         private double dragSceneY;
         private double dragLayoutX;
         private double dragLayoutY;
+        private List<FloatingDocker> dragGroup = List.of();
+        private final Map<FloatingDocker, double[]> dragGroupOrigins = new LinkedHashMap<>();
 
         FloatingDocker(DockItem item, double x, double y) {
             this.item = item;
@@ -4375,6 +5666,16 @@ public class PuppeteerWindow extends Stage {
             header.setOnMousePressed(this::beginDrag);
             header.setOnMouseDragged(this::drag);
             header.setOnMouseReleased(this::finishDrag);
+            header.setOnContextMenuRequested(event -> {
+                ContextMenu menu = createFloatingDockerContextMenu(this);
+                menu.show(header, event.getScreenX(), event.getScreenY());
+                event.consume();
+            });
+            setOnContextMenuRequested(event -> {
+                ContextMenu menu = createFloatingDockerContextMenu(this);
+                menu.show(this, event.getScreenX(), event.getScreenY());
+                event.consume();
+            });
             setTop(header);
 
             detachNode(item.contentNode());
@@ -4389,56 +5690,99 @@ public class PuppeteerWindow extends Stage {
             return restoreTab;
         }
 
+        void setEdgeBarMounted(boolean mounted) {
+            edgeBarMounted = mounted;
+            getStyleClass().remove("puppeteer-edge-bar-mounted-docker");
+            if (mounted) {
+                getStyleClass().add("puppeteer-edge-bar-mounted-docker");
+                hideRestoreTabImmediately();
+                setOpacity(1.0);
+                setManaged(true);
+                setVisible(true);
+                setMouseTransparent(false);
+                setLayoutX(0.0);
+                setLayoutY(0.0);
+                setTranslateX(0.0);
+                setTranslateY(0.0);
+                setMinWidth(0.0);
+                setMaxWidth(Double.MAX_VALUE);
+                setPrefWidth(Region.USE_COMPUTED_SIZE);
+                return;
+            }
+            setMinSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
+            setMaxSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
+            setTranslateX(0.0);
+            setTranslateY(0.0);
+        }
+
         void beginDrag(MouseEvent event) {
             if (event == null || event.getButton() != MouseButton.PRIMARY) return;
+            if (edgeBarMounted) {
+                event.consume();
+                return;
+            }
             dragSceneX = event.getSceneX();
             dragSceneY = event.getSceneY();
             dragLayoutX = getLayoutX();
             dragLayoutY = getLayoutY();
+            dragGroup = visibleFloatingSnapGroup(this);
+            dragGroupOrigins.clear();
+            for (FloatingDocker docker : dragGroup) {
+                dragGroupOrigins.put(docker, new double[] { docker.getLayoutX(), docker.getLayoutY() });
+                docker.toFront();
+            }
             toFront();
             event.consume();
         }
 
         void drag(MouseEvent event) {
             if (event == null || !event.isPrimaryButtonDown()) return;
-            double newX = dragLayoutX + event.getSceneX() - dragSceneX;
-            double newY = dragLayoutY + event.getSceneY() - dragSceneY;
-
-            double snapDist = 16.0;
-            double finalX = newX;
-            double finalY = newY;
-            double width = getBoundsInParent().getWidth();
-            double height = getBoundsInParent().getHeight();
-
-            for (FloatingDocker other : floatingToolbarDockers.values()) {
-                if (other == this || !other.isVisible() || other.getOpacity() < 0.5) continue;
-                double oX = other.getLayoutX();
-                double oY = other.getLayoutY();
-                double oW = other.getBoundsInParent().getWidth();
-                double oH = other.getBoundsInParent().getHeight();
-
-                if (Math.abs(newY - oY) < snapDist) finalY = oY;
-                else if (Math.abs((newY + height) - (oY + oH)) < snapDist) finalY = oY + oH - height;
-                else if (Math.abs(newY - (oY + oH)) < snapDist) finalY = oY + oH;
-                else if (Math.abs((newY + height) - oY) < snapDist) finalY = oY - height;
-
-                if (Math.abs(newX - oX) < snapDist) finalX = oX;
-                else if (Math.abs((newX + width) - (oX + oW)) < snapDist) finalX = oX + oW - width;
-                else if (Math.abs(newX - (oX + oW)) < snapDist) finalX = oX + oW;
-                else if (Math.abs((newX + width) - oX) < snapDist) finalX = oX - width;
+            if (edgeBarMounted) {
+                event.consume();
+                return;
             }
-
-            setLayoutX(finalX);
-            setLayoutY(finalY);
+            if (dragGroupOrigins.isEmpty()) {
+                dragGroup = List.of(this);
+                dragGroupOrigins.put(this, new double[] { dragLayoutX, dragLayoutY });
+            }
+            double dx = event.getSceneX() - dragSceneX;
+            double dy = event.getSceneY() - dragSceneY;
+            for (Map.Entry<FloatingDocker, double[]> entry : dragGroupOrigins.entrySet()) {
+                FloatingDocker docker = entry.getKey();
+                double[] origin = entry.getValue();
+                docker.setLayoutX(origin[0] + dx);
+                docker.setLayoutY(origin[1] + dy);
+            }
+            FloatingSnapAdjustment snap = calculateFloatingSnapAdjustment(dragGroup);
+            if (snap.active()) {
+                for (FloatingDocker docker : dragGroupOrigins.keySet()) {
+                    docker.setLayoutX(docker.getLayoutX() + snap.dx());
+                    docker.setLayoutY(docker.getLayoutY() + snap.dy());
+                }
+            }
             event.consume();
         }
 
         void finishDrag(MouseEvent event) {
-            if (isMostlyOffScreen(event)) {
-                hideDockItem(item);
-            } else {
-                persistWorkspacePrefsNow();
+            if (edgeBarMounted) {
+                if (event != null) event.consume();
+                return;
             }
+            if (isEdgeBarDrop(event)) {
+                List<FloatingDocker> group = dragGroup == null || dragGroup.isEmpty() ? List.of(this) : List.copyOf(dragGroup);
+                for (FloatingDocker docker : group) {
+                    sendDockItemToEdgeBar(docker.item);
+                }
+            } else if (isMostlyOffScreen(event)) {
+                List<FloatingDocker> group = dragGroup == null || dragGroup.isEmpty() ? List.of(this) : List.copyOf(dragGroup);
+                for (FloatingDocker docker : group) {
+                    stashFloatingDocker(docker.item);
+                }
+            } else {
+                updateFloatingSnapLinksAfterDrag(dragGroup == null || dragGroup.isEmpty() ? List.of(this) : dragGroup);
+            }
+            dragGroup = List.of();
+            dragGroupOrigins.clear();
             if (event != null) event.consume();
         }
 
@@ -4464,6 +5808,16 @@ public class PuppeteerWindow extends Stage {
 
         void hideSmoothly() {
             setMouseTransparent(true);
+            hideRestoreTabSmoothly();
+            FadeTransition fade = new FadeTransition(Duration.millis(150), this);
+            fade.setFromValue(getOpacity());
+            fade.setToValue(0.0);
+            fade.setOnFinished(event -> hideDockerOnly());
+            fade.play();
+        }
+
+        void stashSmoothly() {
+            setMouseTransparent(true);
             showRestoreTabSmoothly();
             FadeTransition fade = new FadeTransition(Duration.millis(150), this);
             fade.setFromValue(getOpacity());
@@ -4486,6 +5840,11 @@ public class PuppeteerWindow extends Stage {
         }
 
         void hideImmediately() {
+            hideRestoreTabImmediately();
+            hideDockerOnly();
+        }
+
+        void stashImmediately() {
             showRestoreTabImmediately();
             hideDockerOnly();
         }
@@ -5717,30 +7076,87 @@ public class PuppeteerWindow extends Stage {
                 toolbarIds.add(item.id());
             }
         }
+        List<String> hiddenIds = new ArrayList<>();
+        for (String itemId : hiddenDockItemIds) {
+            if (!edgeBarDockItemIds.contains(itemId)) {
+                hiddenIds.add(itemId);
+            }
+        }
         prefs.setString(PuppeteerWorkspacePrefs.KEY_DOCK_TOOLBAR_ORDER, formatDockIdList(toolbarIds));
-        prefs.setString(PuppeteerWorkspacePrefs.KEY_DOCK_HIDDEN_ITEMS, formatDockIdList(hiddenDockItemIds));
+        prefs.setString(PuppeteerWorkspacePrefs.KEY_DOCK_HIDDEN_ITEMS, formatDockIdList(hiddenIds));
     }
 
     private void applyFloatingDockerPrefs() {
         if (workspacePrefs == null) return;
+        edgeBarDockItemIds.clear();
+        edgeBarDockItemIds.addAll(parseDockIdList(
+            workspacePrefs.getString(PuppeteerWorkspacePrefs.KEY_EDGE_BAR_ITEMS).orElse("")));
+        edgeBarEnabled = workspacePrefs.getBoolean(PuppeteerWorkspacePrefs.KEY_EDGE_BAR_ENABLED)
+            .orElse(!edgeBarDockItemIds.isEmpty()
+                && workspacePrefs.getString(PuppeteerWorkspacePrefs.KEY_EDGE_BAR_ITEMS).isPresent());
+        edgeBarEdge = parseFloatingEdge(
+            workspacePrefs.getString(PuppeteerWorkspacePrefs.KEY_EDGE_BAR_EDGE).orElse(""),
+            FloatingEdge.RIGHT
+        );
+        edgeBarOffsetRatio = clampDouble(
+            workspacePrefs.getDouble(PuppeteerWorkspacePrefs.KEY_EDGE_BAR_OFFSET).orElse(0.5),
+            0.0,
+            1.0
+        );
+        edgeBarPreferredWidth = Math.max(
+            EDGE_BAR_PANEL_MIN_WIDTH,
+            workspacePrefs.getDouble(PuppeteerWorkspacePrefs.KEY_EDGE_BAR_WIDTH).orElse(EDGE_BAR_PANEL_WIDTH)
+        );
+        edgeBarPreferredHeight = Math.max(
+            EDGE_BAR_PANEL_MIN_HEIGHT,
+            workspacePrefs.getDouble(PuppeteerWorkspacePrefs.KEY_EDGE_BAR_HEIGHT).orElse(EDGE_BAR_PANEL_HEIGHT)
+        );
+        hiddenDockItemIds.removeAll(edgeBarDockItemIds);
+        for (String itemId : new ArrayList<>(edgeBarDockItemIds)) {
+            DockItem item = dockItems.get(itemId);
+            if (item != null && item.homeToolbar()) {
+                ensureFloatingToolbarDocker(item, 18.0, 18.0);
+            }
+        }
+        for (String key : workspacePrefs.snapshotEntries().keySet()) {
+            if (!key.startsWith(PuppeteerWorkspacePrefs.KEY_FLOATING_DOCKER_PREFIX)) continue;
+            String itemId = key.substring(PuppeteerWorkspacePrefs.KEY_FLOATING_DOCKER_PREFIX.length());
+            DockItem item = dockItems.get(itemId);
+            if (item != null && item.homeToolbar()) {
+                ensureFloatingToolbarDocker(item, 18.0, 18.0);
+            }
+        }
+        workspacePrefs.getString(PuppeteerWorkspacePrefs.KEY_FLOATING_DOCKER_SNAP_LINKS)
+            .ifPresentOrElse(this::applyFloatingSnapLinks, floatingDockerSnapLinks::clear);
         for (Map.Entry<String, FloatingDocker> entry : floatingToolbarDockers.entrySet()) {
             FloatingDocker floating = entry.getValue();
             workspacePrefs.getString(PuppeteerWorkspacePrefs.KEY_FLOATING_DOCKER_PREFIX + entry.getKey())
                 .ifPresent(raw -> floating.applyPositionPref(raw));
             if (hiddenDockItemIds.contains(entry.getKey())) {
                 floating.hideImmediately();
+            } else if (edgeBarDockItemIds.contains(entry.getKey())) {
+                floating.hideImmediately();
             } else {
                 floating.showImmediately();
             }
         }
+        refreshEdgeBar();
     }
 
     private void captureFloatingDockerPrefsInto(PuppeteerWorkspacePrefs prefs) {
         if (prefs == null) return;
+        prefs.removeKeysStartingWith(PuppeteerWorkspacePrefs.KEY_FLOATING_DOCKER_PREFIX);
         for (Map.Entry<String, FloatingDocker> entry : floatingToolbarDockers.entrySet()) {
             prefs.setString(PuppeteerWorkspacePrefs.KEY_FLOATING_DOCKER_PREFIX + entry.getKey(),
                 entry.getValue().formatPositionPref());
         }
+        prefs.setString(PuppeteerWorkspacePrefs.KEY_FLOATING_DOCKER_SNAP_LINKS, formatFloatingSnapLinks());
+        prefs.setBoolean(PuppeteerWorkspacePrefs.KEY_EDGE_BAR_ENABLED, edgeBarEnabled);
+        prefs.setString(PuppeteerWorkspacePrefs.KEY_EDGE_BAR_EDGE, edgeBarEdge.name());
+        prefs.setDouble(PuppeteerWorkspacePrefs.KEY_EDGE_BAR_OFFSET, edgeBarOffsetRatio);
+        prefs.setDouble(PuppeteerWorkspacePrefs.KEY_EDGE_BAR_WIDTH, edgeBarPreferredWidth);
+        prefs.setDouble(PuppeteerWorkspacePrefs.KEY_EDGE_BAR_HEIGHT, edgeBarPreferredHeight);
+        prefs.setString(PuppeteerWorkspacePrefs.KEY_EDGE_BAR_ITEMS, formatDockIdList(edgeBarDockItemIds));
     }
 
     private File resolveRegisteredJesFile(String timelineName) {

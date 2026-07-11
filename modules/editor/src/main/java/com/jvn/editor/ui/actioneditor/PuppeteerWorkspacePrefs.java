@@ -40,6 +40,13 @@ public final class PuppeteerWorkspacePrefs {
     public static final String KEY_DOCK_HIDDEN_ITEMS = "dock.hiddenItems";
     public static final String KEY_DOCK_DYNAMIC_SLOTS = "dock.dynamicSlots";
     public static final String KEY_FLOATING_DOCKER_PREFIX = "floatingDocker.";
+    public static final String KEY_FLOATING_DOCKER_SNAP_LINKS = "floatingDocker.snapLinks";
+    public static final String KEY_EDGE_BAR_ENABLED = "edgeBar.enabled";
+    public static final String KEY_EDGE_BAR_EDGE = "edgeBar.edge";
+    public static final String KEY_EDGE_BAR_OFFSET = "edgeBar.offset";
+    public static final String KEY_EDGE_BAR_WIDTH = "edgeBar.width";
+    public static final String KEY_EDGE_BAR_HEIGHT = "edgeBar.height";
+    public static final String KEY_EDGE_BAR_ITEMS = "edgeBar.items";
     public static final String KEY_WORKSPACE_PRESET_ORDER = "workspacePreset.order";
     public static final String KEY_WORKSPACE_PRESET_PREFIX = "workspacePreset.";
 

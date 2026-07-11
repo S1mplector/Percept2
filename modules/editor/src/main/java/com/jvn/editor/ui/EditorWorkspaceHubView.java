@@ -11,6 +11,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
 
+import javafx.animation.Interpolator;
+import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
+import javafx.animation.Timeline;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -24,12 +29,16 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.util.Duration;
 
 /**
  * Lightweight in-editor hub tab that replaces the full launcher-style welcome view.
  */
 public class EditorWorkspaceHubView extends BorderPane {
   private static final int COUNT_LIMIT = 999;
+  private static final double HEADER_META_MIN_TITLE_WIDTH = 300.0;
+  private static final double HEADER_META_EXTRA_SPACE = 28.0;
+  private static final Duration HEADER_META_ANIMATION_DURATION = Duration.millis(145);
   private static final DateTimeFormatter MODIFIED_FORMAT =
       DateTimeFormatter.ofPattern("MMM d, HH:mm").withZone(ZoneId.systemDefault());
 
@@ -49,6 +58,9 @@ public class EditorWorkspaceHubView extends BorderPane {
   private final Label statusLabel = new Label("Choose an action to continue.");
   private final VBox firstRunPanel = new VBox(8);
   private final VBox firstRunItems = new VBox(6);
+  private HBox headerMetaChips;
+  private Timeline headerMetaAnimation;
+  private boolean headerMetaVisible = true;
 
   private final Button btnNewProject = new Button();
   private final Button btnOpenProject = new Button();
@@ -128,6 +140,63 @@ public class EditorWorkspaceHubView extends BorderPane {
     firstRunPanel.setManaged(visible);
   }
 
+  private static void configureHeaderChip(Label label) {
+    if (label == null) return;
+    label.setTextOverrun(OverrunStyle.CLIP);
+    label.setMinWidth(Region.USE_PREF_SIZE);
+    label.setMaxWidth(Region.USE_PREF_SIZE);
+  }
+
+  private void installHeaderMetaAutoHide(HBox headingRow, Region titleBlock) {
+    Runnable update = () -> updateHeaderMetaVisibility(headingRow, titleBlock);
+    headingRow.widthProperty().addListener((obs, oldValue, newValue) -> update.run());
+    titleBlock.widthProperty().addListener((obs, oldValue, newValue) -> update.run());
+    widthProperty().addListener((obs, oldValue, newValue) -> update.run());
+    Platform.runLater(update);
+  }
+
+  private void updateHeaderMetaVisibility(HBox headingRow, Region titleBlock) {
+    if (headingRow == null || titleBlock == null || headerMetaChips == null) return;
+    double rowWidth = headingRow.getWidth();
+    double chipsWidth = headerMetaChips.prefWidth(-1);
+    if (rowWidth <= 0.0 || chipsWidth <= 0.0) return;
+
+    double settingsWidth = btnSettings.isManaged() ? btnSettings.prefWidth(-1) : 0.0;
+    double titleWidth = Math.max(HEADER_META_MIN_TITLE_WIDTH, Math.min(titleBlock.prefWidth(-1), 390.0));
+    double requiredWidth = titleWidth + chipsWidth + settingsWidth + headingRow.getSpacing() * 3.0 + HEADER_META_EXTRA_SPACE;
+    setHeaderMetaVisible(rowWidth >= requiredWidth);
+  }
+
+  private void setHeaderMetaVisible(boolean visible) {
+    if (headerMetaChips == null || headerMetaVisible == visible) return;
+    headerMetaVisible = visible;
+    if (headerMetaAnimation != null) {
+      headerMetaAnimation.stop();
+    }
+
+    if (visible) {
+      headerMetaChips.setManaged(true);
+      headerMetaChips.setVisible(true);
+    }
+    headerMetaChips.setMouseTransparent(!visible);
+
+    double targetOpacity = visible ? 1.0 : 0.0;
+    double targetScale = visible ? 1.0 : 0.9;
+    headerMetaAnimation = new Timeline(
+        new KeyFrame(
+            HEADER_META_ANIMATION_DURATION,
+            new KeyValue(headerMetaChips.opacityProperty(), targetOpacity, Interpolator.EASE_BOTH),
+            new KeyValue(headerMetaChips.scaleXProperty(), targetScale, Interpolator.EASE_BOTH),
+            new KeyValue(headerMetaChips.scaleYProperty(), targetScale, Interpolator.EASE_BOTH)));
+    headerMetaAnimation.setOnFinished(event -> {
+      if (!headerMetaVisible) {
+        headerMetaChips.setVisible(false);
+        headerMetaChips.setManaged(false);
+      }
+    });
+    headerMetaAnimation.play();
+  }
+
   private void buildUi() {
     getStyleClass().add("editor-workspace-hub-root");
     setPadding(new Insets(14));
@@ -138,6 +207,8 @@ public class EditorWorkspaceHubView extends BorderPane {
     healthChipLabel.getStyleClass().addAll("editor-workspace-health-chip", "editor-workspace-health-info");
     runtimeChipLabel.getStyleClass().add("welcome-version-chip");
     statusLabel.getStyleClass().add("welcome-status-text");
+    configureHeaderChip(healthChipLabel);
+    configureHeaderChip(runtimeChipLabel);
 
     configureActionButton(
         btnNewProject,
@@ -203,9 +274,15 @@ public class EditorWorkspaceHubView extends BorderPane {
     Region headingSpacer = new Region();
     HBox.setHgrow(headingSpacer, Priority.ALWAYS);
     VBox titleBlock = new VBox(3, kickerLabel, headingLabel, introLabel);
+    titleBlock.setMinWidth(0);
     titleBlock.getStyleClass().add("editor-workspace-title-block");
-    HBox headingRow = new HBox(10, titleBlock, headingSpacer, healthChipLabel, runtimeChipLabel, btnSettings);
+    headerMetaChips = new HBox(10, healthChipLabel, runtimeChipLabel);
+    headerMetaChips.getStyleClass().add("editor-workspace-header-meta");
+    headerMetaChips.setAlignment(Pos.CENTER_LEFT);
+    headerMetaChips.setMinWidth(Region.USE_PREF_SIZE);
+    HBox headingRow = new HBox(10, titleBlock, headingSpacer, headerMetaChips, btnSettings);
     headingRow.setAlignment(Pos.CENTER_LEFT);
+    installHeaderMetaAutoHide(headingRow, titleBlock);
 
     FlowPane summaryGrid = new FlowPane(10, 10,
         summaryCard("Workspace", workspaceValueLabel, workspaceDetailLabel),
