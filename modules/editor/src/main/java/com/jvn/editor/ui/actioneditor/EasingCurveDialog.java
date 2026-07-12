@@ -3,11 +3,13 @@ package com.jvn.editor.ui.actioneditor;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.BiConsumer;
 
 import com.jvn.core.animation.Easing;
 import com.jvn.core.animation.EasingSpec;
+import com.jvn.editor.ui.EditorTheme;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -17,7 +19,10 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
@@ -105,6 +110,7 @@ public class EasingCurveDialog extends Stage {
     private static final String APPLY_BG  = "#1d3a25";
     private static final String APPLY_FG  = "#58d68d";
     private static final String APPLY_BD  = "#2e5a38";
+    private static final String DIALOG_CSS = "/com/jvn/editor/ui/actioneditor/easing-curve-dialog.css";
 
     private final EasingCurveEditor curveEditor = new EasingCurveEditor();
     private final Map<Easing.Type, Pane> presetCells = new LinkedHashMap<>();
@@ -112,12 +118,18 @@ public class EasingCurveDialog extends Stage {
     private final TextField presetFilter = new TextField();
     private final TextField specField = new TextField();
     private final Label statusLabel = new Label();
+    private final Label typeSummaryLabel = new Label();
+    private final Label pointsSummaryLabel = new Label();
+    private final Label rangeSummaryLabel = new Label();
+    private final Label durationSummaryLabel = new Label();
     private Easing.Interpolation selectedInterp;
     private final List<Button> interpButtons = new ArrayList<>();
+    private final List<Button> durationButtons = new ArrayList<>();
     private final BiConsumer<EasingSpec, Easing.Interpolation> onApply;
     private EasingSpec baselineSpec = EasingSpec.of(Easing.Type.LINEAR);
     private Easing.Type highlightedType = Easing.Type.LINEAR;
     private boolean updatingSpecField = false;
+    private double previewDurationMs = 1000.0;
     private Button previewButton = new Button("▶  Preview");
 
     /**
@@ -139,10 +151,11 @@ public class EasingCurveDialog extends Stage {
         initStyle(StageStyle.DECORATED);
         setTitle("Easing Curve Editor");
         setResizable(true);
-        setMinWidth(720);
-        setMinHeight(480);
+        setMinWidth(900);
+        setMinHeight(600);
 
         VBox root = new VBox();
+        root.getStyleClass().add("easing-curve-dialog-root");
         root.setStyle("-fx-background-color: " + BG_DARK + ";");
 
         root.getChildren().addAll(
@@ -152,8 +165,11 @@ public class EasingCurveDialog extends Stage {
         );
         VBox.setVgrow(root.getChildren().get(1), Priority.ALWAYS);
 
-        Scene scene = new Scene(root, 860, 580);
+        Scene scene = new Scene(root, 980, 640);
         scene.setFill(Color.web(BG_DARK));
+        EditorTheme.apply(scene);
+        var dialogCss = EasingCurveDialog.class.getResource(DIALOG_CSS);
+        if (dialogCss != null) scene.getStylesheets().add(dialogCss.toExternalForm());
         scene.setOnKeyPressed(e -> {
             if (e.getCode() == KeyCode.ESCAPE) close();
             if (e.getCode() == KeyCode.ENTER && (e.isControlDown() || e.isShortcutDown())) commitAndClose();
@@ -165,17 +181,21 @@ public class EasingCurveDialog extends Stage {
         baselineSpec = spec;
         curveEditor.setInterpolation(selectedInterp);
         curveEditor.setEasingSpec(spec);
+        curveEditor.setAnimDurationMs(previewDurationMs);
         curveEditor.setExpanded(true);
         curveEditor.setHelperText("Drag editable points. Shift snaps. Double-click adds/removes points.");
         curveEditor.setOnCurveSpecChanged(changed -> {
             syncSpecField(changed);
             highlightPreset(changed != null ? changed.getType() : Easing.Type.LINEAR);
+            refreshSummary();
             setStatus("Curve updated.", false);
         });
 
         highlightPreset(spec.getType());
         refreshInterpButtons();
+        refreshDurationButtons();
         syncSpecField(spec);
+        refreshSummary();
         setOnHidden(e -> curveEditor.stopAnimation());
     }
 
@@ -212,9 +232,9 @@ public class EasingCurveDialog extends Stage {
 
     private VBox buildPresetPanel() {
         VBox panel = new VBox();
-        panel.setPrefWidth(168);
-        panel.setMinWidth(168);
-        panel.setMaxWidth(168);
+        panel.setPrefWidth(210);
+        panel.setMinWidth(190);
+        panel.setMaxWidth(240);
         panel.setStyle("-fx-background-color: " + BG_PANEL + "; -fx-border-color: " + BORDER + "; " +
                        "-fx-border-width: 0 1 0 0;");
 
@@ -232,6 +252,7 @@ public class EasingCurveDialog extends Stage {
         refreshPresetList();
 
         ScrollPane scroll = new ScrollPane(presetListBox);
+        scroll.getStyleClass().add("easing-preset-scroll");
         scroll.setFitToWidth(true);
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scroll.setStyle("-fx-background: " + BG_PANEL + "; -fx-background-color: " + BG_PANEL + "; " +
@@ -274,7 +295,14 @@ public class EasingCurveDialog extends Stage {
         VBox.setVgrow(curveEditor, Priority.ALWAYS);
         HBox.setHgrow(panel, Priority.ALWAYS);
         panel.setFillWidth(true);
-        panel.getChildren().addAll(buildSpecRow(), curveEditor, buildToolRow(), buildInterpRow());
+        panel.getChildren().addAll(
+            buildSpecRow(),
+            buildSummaryRow(),
+            curveEditor,
+            buildQuickShapeRow(),
+            buildToolRow(),
+            buildInterpRow()
+        );
         return panel;
     }
 
@@ -292,13 +320,73 @@ public class EasingCurveDialog extends Stage {
         apply.setTooltip(new Tooltip("Apply the spec text to this editor"));
         apply.setOnAction(e -> applySpecField());
 
-        HBox row = new HBox(8, lbl, specField, apply);
+        Button copy = new Button("Copy");
+        copy.setStyle(btnStyle("#202020", "#c8c8c8", "#303030"));
+        copy.setTooltip(new Tooltip("Copy the current easing spec"));
+        copy.setOnAction(e -> copySpecToClipboard());
+
+        Button paste = new Button("Paste");
+        paste.setStyle(btnStyle("#202020", "#c8c8c8", "#303030"));
+        paste.setTooltip(new Tooltip("Paste an easing spec from the clipboard"));
+        paste.setOnAction(e -> pasteSpecFromClipboard());
+
+        HBox row = new HBox(8, lbl, specField, apply, copy, paste);
         row.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(specField, Priority.ALWAYS);
         return row;
     }
 
-    private HBox buildToolRow() {
+    private HBox buildSummaryRow() {
+        HBox row = new HBox(8,
+            summaryChip("Type", typeSummaryLabel),
+            summaryChip("Points", pointsSummaryLabel),
+            summaryChip("Range", rangeSummaryLabel),
+            summaryChip("Preview", durationSummaryLabel)
+        );
+        row.setAlignment(Pos.CENTER_LEFT);
+        return row;
+    }
+
+    private VBox summaryChip(String title, Label value) {
+        Label label = new Label(title.toUpperCase(Locale.ROOT));
+        label.setStyle("-fx-text-fill: #707070; -fx-font-size: 9px; -fx-font-weight: bold;");
+        value.setStyle("-fx-text-fill: " + TEXT + "; -fx-font-size: 11px;");
+
+        VBox chip = new VBox(2, label, value);
+        chip.setMinWidth(96);
+        chip.setPadding(new Insets(6, 9, 6, 9));
+        chip.setStyle("-fx-background-color: #151515; -fx-border-color: #272727; " +
+                      "-fx-background-radius: 6; -fx-border-radius: 6;");
+        return chip;
+    }
+
+    private FlowPane buildQuickShapeRow() {
+        Label lbl = new Label("Shape:");
+        lbl.setStyle("-fx-text-fill: " + DIM + "; -fx-font-size: 10px;");
+
+        Button bezier = toolButton("Bezier", "Convert the visible curve to editable cubic Bezier handles", () -> {
+            EasingSpec editable = KeyframeEditor.toEditableCurveSpec(curveEditor.getEditedSpec());
+            applyEditorSpec(editable, editable.getType(), "Converted to editable Bezier.");
+        });
+        Button multi = toolButton("Multi-Point", "Convert the visible curve to editable sampled points", () -> {
+            EasingSpec editable = KeyframeEditor.toMultiPointCurveSpec(curveEditor.getEditedSpec());
+            applyEditorSpec(editable, editable.getType(), "Converted to multi-point curve.");
+        });
+        Button smooth = toolButton("Smooth S", "Use a balanced ease-in-out cubic curve", () ->
+            applyEditorSpec(Easing.namedCurveSpec(Easing.Type.EASE_IN_OUT_CUBIC), Easing.Type.EASE_IN_OUT_CUBIC, "Shape: Smooth S."));
+        Button overshoot = toolButton("Overshoot", "Use an ease-out back curve with a small overshoot", () ->
+            applyEditorSpec(Easing.namedCurveSpec(Easing.Type.EASE_OUT_BACK), Easing.Type.EASE_OUT_BACK, "Shape: Overshoot."));
+        Button spring = toolButton("Spring", "Use a spring curve", () ->
+            applyEditorSpec(Easing.namedCurveSpec(Easing.Type.SPRING), Easing.Type.SPRING, "Shape: Spring."));
+        Button pop = toolButton("Hero Pop", "Use the named hero pop curve", () ->
+            applyEditorSpec(Easing.namedCurveSpec(Easing.Type.HERO_POP), Easing.Type.HERO_POP, "Shape: Hero Pop."));
+
+        FlowPane row = new FlowPane(6, 6, lbl, bezier, multi, smooth, overshoot, spring, pop);
+        row.setAlignment(Pos.CENTER_LEFT);
+        return row;
+    }
+
+    private FlowPane buildToolRow() {
         Button editable = toolButton("Make Editable", "Convert the visible curve to editable points", () -> {
             applyEditorSpec(KeyframeEditor.toMultiPointCurveSpec(curveEditor.getEditedSpec()), Easing.Type.CURVE, "Converted to editable curve.");
         });
@@ -326,10 +414,12 @@ public class EasingCurveDialog extends Stage {
             EasingSpec clamped = KeyframeEditor.clampEditableCurveSpec(curveEditor.getEditedSpec());
             applyEditorSpec(clamped, clamped.getType(), "Curve clamped.");
         });
+        Button flatten = toolButton("Flatten", "Return the editor to a linear curve", () ->
+            applyEditorSpec(EasingSpec.of(Easing.Type.LINEAR), Easing.Type.LINEAR, "Flattened to linear."));
         Button reset = toolButton("Reset", "Return to the curve opened in this dialog", () ->
             applyEditorSpec(baselineSpec, baselineSpec.getType(), "Reset to opened curve."));
 
-        HBox row = new HBox(6, editable, addPoint, removePoint, reverse, clamp, reset);
+        FlowPane row = new FlowPane(6, 6, editable, addPoint, removePoint, reverse, clamp, flatten, reset);
         row.setAlignment(Pos.CENTER_LEFT);
         return row;
     }
@@ -353,10 +443,22 @@ public class EasingCurveDialog extends Stage {
                 selectedInterp = interp;
                 curveEditor.setInterpolation(interp);
                 refreshInterpButtons();
+                refreshSummary();
             });
             interpButtons.add(btn);
             row.getChildren().add(btn);
         }
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        Label durationLabel = new Label("Preview:");
+        durationLabel.setStyle("-fx-text-fill: " + DIM + "; -fx-font-size: 10px;");
+        row.getChildren().add(spacer);
+        row.getChildren().add(durationLabel);
+        durationButtons.clear();
+        addDurationButton(row, "0.5s", 500.0);
+        addDurationButton(row, "1s", 1000.0);
+        addDurationButton(row, "2s", 2000.0);
 
         row.getChildren().add(0, lbl);
         return row;
@@ -474,6 +576,36 @@ public class EasingCurveDialog extends Stage {
         }
     }
 
+    private void addDurationButton(HBox row, String label, double durationMs) {
+        Button button = new Button(label);
+        button.setTooltip(new Tooltip("Set preview playback duration"));
+        button.setOnAction(e -> setPreviewDuration(durationMs));
+        durationButtons.add(button);
+        row.getChildren().add(button);
+    }
+
+    private void refreshDurationButtons() {
+        for (Button button : durationButtons) {
+            double duration = switch (button.getText()) {
+                case "0.5s" -> 500.0;
+                case "2s" -> 2000.0;
+                default -> 1000.0;
+            };
+            boolean active = Math.abs(duration - previewDurationMs) < 0.5;
+            button.setStyle(active
+                ? btnStyle("#1e3450", ACCENT, "#2d5070")
+                : btnStyle("#202020", "#888888", "#303030"));
+        }
+    }
+
+    private void setPreviewDuration(double durationMs) {
+        previewDurationMs = Math.max(250.0, durationMs);
+        curveEditor.setAnimDurationMs(previewDurationMs);
+        refreshDurationButtons();
+        refreshSummary();
+        setStatus("Preview duration: " + formatDuration(previewDurationMs) + ".", false);
+    }
+
     private Button toolButton(String text, String tooltip, Runnable action) {
         Button button = new Button(text);
         button.setStyle(btnStyle("#202020", "#c8c8c8", "#303030"));
@@ -518,7 +650,76 @@ public class EasingCurveDialog extends Stage {
         curveEditor.setInterpolation(selectedInterp);
         syncSpecField(resolved);
         highlightPreset(highlightType != null ? highlightType : resolved.getType());
+        refreshSummary();
         setStatus(status, false);
+    }
+
+    private void copySpecToClipboard() {
+        ClipboardContent content = new ClipboardContent();
+        content.putString(Easing.formatSpec(curveEditor.getEditedSpec()));
+        Clipboard.getSystemClipboard().setContent(content);
+        setStatus("Spec copied.", false);
+    }
+
+    private void pasteSpecFromClipboard() {
+        Clipboard clipboard = Clipboard.getSystemClipboard();
+        if (!clipboard.hasString()) {
+            setStatus("Clipboard does not contain text.", true);
+            return;
+        }
+        specField.setText(clipboard.getString());
+        applySpecField();
+    }
+
+    private void refreshSummary() {
+        EasingSpec spec = curveEditor.getEditedSpec();
+        EasingSpec resolved = spec != null ? spec : EasingSpec.of(Easing.Type.LINEAR);
+        Easing.Type type = resolved.getType();
+        typeSummaryLabel.setText(Easing.displayName(type));
+        pointsSummaryLabel.setText(pointSummaryText(resolved));
+        rangeSummaryLabel.setText(rangeSummaryText(resolved));
+        durationSummaryLabel.setText(formatDuration(previewDurationMs) + " / " + interpolationLabel(selectedInterp));
+    }
+
+    private String pointSummaryText(EasingSpec spec) {
+        Easing.Type type = spec.getType();
+        if (type == Easing.Type.CURVE) {
+            return Easing.curvePointCount(spec.getParameters()) + " points";
+        }
+        if (type == Easing.Type.CUSTOM) {
+            return "2 handles";
+        }
+        if (Easing.usesParameters(type)) {
+            double[] params = Easing.coerceParameters(type, spec.getParameters());
+            return params.length + " params";
+        }
+        return "preset";
+    }
+
+    private String rangeSummaryText(EasingSpec spec) {
+        if (selectedInterp == Easing.Interpolation.HOLD) {
+            return "0.00..0.00";
+        }
+        double min = Double.POSITIVE_INFINITY;
+        double max = Double.NEGATIVE_INFINITY;
+        for (int i = 0; i <= 48; i++) {
+            double t = i / 48.0;
+            double y = Easing.applyInterpolation(spec, selectedInterp, t);
+            if (Double.isFinite(y)) {
+                min = Math.min(min, y);
+                max = Math.max(max, y);
+            }
+        }
+        if (!Double.isFinite(min) || !Double.isFinite(max)) return "n/a";
+        return String.format(Locale.ROOT, "%.2f..%.2f", min, max);
+    }
+
+    private String interpolationLabel(Easing.Interpolation interp) {
+        return switch (interp != null ? interp : Easing.Interpolation.TWEEN) {
+            case TWEEN -> "Tween";
+            case HOLD -> "Hold";
+            case STEP -> "Step";
+        };
     }
 
     private void syncSpecField(EasingSpec spec) {
@@ -570,5 +771,12 @@ public class EasingCurveDialog extends Stage {
         return "-fx-background-color: #101010; -fx-text-fill: " + TEXT + "; " +
                "-fx-border-color: #343434; -fx-border-radius: 5; -fx-background-radius: 5; " +
                "-fx-font-size: 11px; -fx-padding: 5 8;";
+    }
+
+    private static String formatDuration(double durationMs) {
+        if (durationMs >= 1000.0) {
+            return String.format(Locale.ROOT, "%.1fs", durationMs / 1000.0).replace(".0s", "s");
+        }
+        return String.format(Locale.ROOT, "%.0fms", durationMs);
     }
 }
