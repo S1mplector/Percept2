@@ -43,6 +43,8 @@ public class VnScriptParser {
   private static final Pattern CHARLAYER_PATTERN = Pattern.compile("^@charlayer\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARGROUP_PATTERN = Pattern.compile("^@chargroup\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARPRESET_PATTERN = Pattern.compile("^@charpreset\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern DISPLAY_PRESET_PATTERN = Pattern.compile("^@displaypreset\\s+(\\S+)(?:\\s+(.+))?$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern DISPLAY_PRESET_ENTRY_PATTERN = Pattern.compile("^([A-Za-z_][A-Za-z0-9_.:-]*)\\s*(?:=|:)\\s*(.+)$");
   private static final Pattern STAGE_PRESET_PATTERN = Pattern.compile("^@stagepreset\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern GROUP_PATTERN = Pattern.compile("^@group\\s+(\\S+)(?:\\s+(\\S+))?$", Pattern.CASE_INSENSITIVE);
   private static final Pattern VAR_PATTERN = Pattern.compile("^@var\\s+(\\S+)(?:\\s*=\\s*(.+)|\\s+(.+))?$", Pattern.CASE_INSENSITIVE);
@@ -186,6 +188,8 @@ public class VnScriptParser {
     int syntheticLabelCounter = 0;
     Map<String, CharacterPosition> customPositions = new HashMap<>();
     Map<String, String> inlineCompositeExpressions = new HashMap<>();
+    Map<String, DisplayPresetDef> displayPresets = new HashMap<>();
+    String activeDisplayPresetId;
     String pendingVoiceTrackId;
     List<VnParseException> errors = new ArrayList<>();
 
@@ -302,6 +306,26 @@ public class VnScriptParser {
 
   private record LayerReference(String path, String layerId) {}
   private record LayerPresetSpec(String pathSpec, List<String> layerIds) {}
+  private record DisplayPresetEntry(String slotId,
+                                    String characterId,
+                                    CharacterPosition position,
+                                    String expression,
+                                    Integer layerOrder) {}
+
+  private static final class DisplayPresetDef {
+    final String id;
+    final String source;
+    final int line;
+    final String rawLine;
+    final List<DisplayPresetEntry> entries = new ArrayList<>();
+
+    DisplayPresetDef(String id, String source, int line, String rawLine) {
+      this.id = id;
+      this.source = source;
+      this.line = line;
+      this.rawLine = rawLine;
+    }
+  }
 
   public VnScenario parse(InputStream input) throws IOException {
     return parse(input, "<input>", null);
@@ -331,6 +355,13 @@ public class VnScriptParser {
     if (state.insideInitJava) {
       state.errors.add(parseError(state.initJavaBlockStartSource, state.initJavaBlockStartLine,
           "Unclosed [init java] block (missing [/init])", "[init java]"));
+    }
+
+    for (DisplayPresetDef preset : state.displayPresets.values()) {
+      if (preset.entries.isEmpty()) {
+        state.errors.add(parseError(preset.source, preset.line,
+            "@displaypreset '" + preset.id + "' must contain at least one slot entry", preset.rawLine));
+      }
     }
 
     ensureBuilder(state);
@@ -510,6 +541,13 @@ public class VnScriptParser {
         String value = defineMatcher.group(2) != null ? defineMatcher.group(2).trim() : "";
         state.defines.put(key, stripQuotes(value));
         continue;
+      }
+
+      if (state.activeDisplayPresetId != null) {
+        if (parseDisplayPresetEntryLine(state, trimmed, sourceName, lineNumber, rawLine)) {
+          continue;
+        }
+        state.activeDisplayPresetId = null;
       }
 
       Matcher includeMatcher = INCLUDE_PATTERN.matcher(trimmed);
@@ -763,6 +801,25 @@ public class VnScriptParser {
           state.charBuilders.put(id, cb);
         }
         cb.addExpression(expr, resolvedSpec.pathSpec(), resolvedSpec.layerIds());
+        continue;
+      }
+
+      Matcher displayPresetMatcher = DISPLAY_PRESET_PATTERN.matcher(trimmed);
+      if (displayPresetMatcher.matches()) {
+        state.contentEmitted = true;
+        String id = displayPresetMatcher.group(1).trim();
+        if (state.displayPresets.containsKey(id)) {
+          throw parseError(sourceName, lineNumber, "Duplicate @displaypreset id: " + id, rawLine);
+        }
+        DisplayPresetDef preset = new DisplayPresetDef(id, sourceName, lineNumber, rawLine);
+        state.displayPresets.put(id, preset);
+        state.activeDisplayPresetId = id;
+
+        String inlineEntries = displayPresetMatcher.group(2);
+        if (inlineEntries != null && !inlineEntries.isBlank()) {
+          parseInlineDisplayPresetEntries(state, preset, inlineEntries, sourceName, lineNumber, rawLine);
+          state.activeDisplayPresetId = null;
+        }
         continue;
       }
 
@@ -1400,6 +1457,18 @@ public class VnScriptParser {
         state.builder.waitMs(waitMs);
         return;
       }
+      case "showpreset": {
+        parseShowDisplayPresetCommand(arg, sourceName, lineNumber, rawLine, state);
+        return;
+      }
+      case "movepreset": {
+        parseMoveDisplayPresetCommand(arg, sourceName, lineNumber, rawLine, state);
+        return;
+      }
+      case "hidepreset": {
+        parseHideDisplayPresetCommand(arg, sourceName, lineNumber, rawLine, state);
+        return;
+      }
       case "show": {
         String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
         String[] toks = VnArgTokenizer.tokenizeToArray(payload);
@@ -1469,6 +1538,10 @@ public class VnScriptParser {
         for (String rawToken : toks) {
           String token = rawToken == null ? "" : rawToken.trim();
           if (token.isEmpty()) continue;
+          if (isDisplaySlotShorthand(token)) {
+            displaySlot = token.substring(1).trim();
+            continue;
+          }
           if (isNamedOptionToken(token, "hide")) {
             KeyValueOption option = parseKeyValueOption(token, sourceName, lineNumber, rawLine, "[hide]");
             switch (option.key()) {
@@ -1510,7 +1583,10 @@ public class VnScriptParser {
 
         // Parse all tokens
         int i = 0;
-        if (isNamedOptionToken(toks[0], "move")) {
+        if (isDisplaySlotShorthand(toks[0])) {
+          moveDisplaySlot = toks[0].substring(1).trim();
+          i = 1;
+        } else if (isNamedOptionToken(toks[0], "move")) {
           KeyValueOption option = parseKeyValueOption(toks[0], sourceName, lineNumber, rawLine, "[move]");
           switch (option.key()) {
             case "slot", "as", "instance", "display", "display_slot", "display-slot" -> moveDisplaySlot = option.value();
@@ -1955,6 +2031,312 @@ public class VnScriptParser {
       default:
         throw parseError(sourceName, lineNumber, "Unknown command [" + cmd + "]", rawLine);
     }
+  }
+
+  private boolean parseDisplayPresetEntryLine(ParseState state,
+                                              String trimmed,
+                                              String sourceName,
+                                              int lineNumber,
+                                              String rawLine) throws IOException {
+    Matcher matcher = DISPLAY_PRESET_ENTRY_PATTERN.matcher(trimmed);
+    if (!matcher.matches()) return false;
+    DisplayPresetDef preset = state.displayPresets.get(state.activeDisplayPresetId);
+    if (preset == null) return false;
+    String slotId = matcher.group(1).trim();
+    String body = matcher.group(2).trim();
+    preset.entries.add(parseDisplayPresetEntry(state, preset.id, slotId, body, sourceName, lineNumber, rawLine));
+    return true;
+  }
+
+  private void parseInlineDisplayPresetEntries(ParseState state,
+                                               DisplayPresetDef preset,
+                                               String inlineEntries,
+                                               String sourceName,
+                                               int lineNumber,
+                                               String rawLine) throws IOException {
+    for (String rawEntry : inlineEntries.split("\\|")) {
+      String entry = rawEntry == null ? "" : rawEntry.trim();
+      if (entry.isEmpty()) continue;
+      Matcher matcher = DISPLAY_PRESET_ENTRY_PATTERN.matcher(entry);
+      if (!matcher.matches()) {
+        throw parseError(sourceName, lineNumber,
+            "@displaypreset inline entries must use slot = <charId> <position> [expression] [z=...]", rawLine);
+      }
+      preset.entries.add(parseDisplayPresetEntry(
+          state,
+          preset.id,
+          matcher.group(1).trim(),
+          matcher.group(2).trim(),
+          sourceName,
+          lineNumber,
+          rawLine));
+    }
+  }
+
+  private DisplayPresetEntry parseDisplayPresetEntry(ParseState state,
+                                                     String presetId,
+                                                     String slotId,
+                                                     String body,
+                                                     String sourceName,
+                                                     int lineNumber,
+                                                     String rawLine) throws IOException {
+    if (slotId == null || slotId.isBlank()) {
+      throw parseError(sourceName, lineNumber, "@displaypreset slot id cannot be empty", rawLine);
+    }
+    String[] toks = VnArgTokenizer.tokenizeToArray(body);
+    if (toks.length == 0) {
+      throw parseError(sourceName, lineNumber, "@displaypreset entry '" + slotId + "' cannot be empty", rawLine);
+    }
+
+    String charId = null;
+    CharacterPosition position = null;
+    Integer layerOrder = null;
+    String expressionToken = null;
+    boolean expressionSet = false;
+
+    for (int i = 0; i < toks.length; i++) {
+      String token = toks[i] == null ? "" : toks[i].trim();
+      if (token.isEmpty()) continue;
+
+      if ("at".equalsIgnoreCase(token) && i + 1 < toks.length && !isDisplayPresetEntryOption(toks[i + 1])) {
+        InlinePosition inline = parseAtPosition(toks[++i], sourceName, lineNumber, rawLine);
+        position = inline.position();
+        if (layerOrder == null) layerOrder = inline.layerOrder();
+        continue;
+      }
+
+      if (isDisplayPresetEntryOption(token)) {
+        KeyValueOption option = parseKeyValueOption(token, sourceName, lineNumber, rawLine, "@displaypreset");
+        switch (option.key()) {
+          case "char", "character", "id", "sprite" -> charId = option.value();
+          case "pos", "position" -> position = parsePosition(option.value(), sourceName, lineNumber, rawLine, state);
+          case "at", "coord", "coords", "xy" -> {
+            InlinePosition inline = parseAtPosition(option.value(), sourceName, lineNumber, rawLine);
+            position = inline.position();
+            if (layerOrder == null) layerOrder = inline.layerOrder();
+          }
+          case "expr", "expression", "preset" -> {
+            expressionToken = option.value();
+            expressionSet = true;
+          }
+          case "layer", "z", "zorder" -> layerOrder = parseIntegerValue(option.value(), "@displaypreset", "layer", sourceName, lineNumber, rawLine);
+          default -> throw parseError(sourceName, lineNumber, "@displaypreset unknown option: " + option.key(), rawLine);
+        }
+        continue;
+      }
+
+      if (charId == null) {
+        charId = token;
+        continue;
+      }
+      if (position == null) {
+        position = parsePosition(token, sourceName, lineNumber, rawLine, state);
+        continue;
+      }
+      if (isIntegerToken(token)) {
+        layerOrder = Integer.parseInt(token);
+        continue;
+      }
+      if (!expressionSet) {
+        expressionToken = token;
+        expressionSet = true;
+        continue;
+      }
+      throw parseError(sourceName, lineNumber, "@displaypreset '" + presetId + "' entry has unexpected token: " + token, rawLine);
+    }
+
+    if (charId == null || charId.isBlank()) {
+      throw parseError(sourceName, lineNumber, "@displaypreset entry '" + slotId + "' requires a character id", rawLine);
+    }
+    if (position == null) {
+      throw parseError(sourceName, lineNumber, "@displaypreset entry '" + slotId + "' requires a position", rawLine);
+    }
+
+    String expression = expressionSet
+        ? resolveInlineExpressionToken(state, charId, expressionToken, sourceName, lineNumber, rawLine)
+        : "neutral";
+    return new DisplayPresetEntry(slotId, charId, position, expression, layerOrder);
+  }
+
+  private void parseShowDisplayPresetCommand(String arg,
+                                             String sourceName,
+                                             int lineNumber,
+                                             String rawLine,
+                                             ParseState state) throws IOException {
+    String payload = requireArg(arg, "showpreset", sourceName, lineNumber, rawLine);
+    String[] toks = VnArgTokenizer.tokenizeToArray(payload);
+    if (toks.length == 0 || toks[0].isBlank()) {
+      throw parseError(sourceName, lineNumber, "[showpreset] requires a preset id", rawLine);
+    }
+
+    DisplayPresetDef preset = requireDisplayPreset(state, toks[0], sourceName, lineNumber, rawLine, "[showpreset]");
+    CharacterPosition overridePosition = null;
+    for (int i = 1; i < toks.length; i++) {
+      String token = toks[i] == null ? "" : toks[i].trim();
+      if (token.isEmpty()) continue;
+      if ("at".equalsIgnoreCase(token) && i + 1 < toks.length && !isDisplayPresetCommandOption(toks[i + 1])) {
+        overridePosition = parseAtPosition(toks[++i], sourceName, lineNumber, rawLine).position();
+        continue;
+      }
+      if (isDisplayPresetCommandOption(token)) {
+        KeyValueOption option = parseKeyValueOption(token, sourceName, lineNumber, rawLine, "[showpreset]");
+        switch (option.key()) {
+          case "pos", "position" -> overridePosition = parsePosition(option.value(), sourceName, lineNumber, rawLine, state);
+          case "at", "coord", "coords", "xy" -> overridePosition = parseAtPosition(option.value(), sourceName, lineNumber, rawLine).position();
+          default -> throw parseError(sourceName, lineNumber, "[showpreset] unknown option: " + option.key(), rawLine);
+        }
+        continue;
+      }
+      if (overridePosition == null) {
+        overridePosition = parsePosition(token, sourceName, lineNumber, rawLine, state);
+        continue;
+      }
+      throw parseError(sourceName, lineNumber, "[showpreset] unexpected token: " + token, rawLine);
+    }
+
+    for (DisplayPresetEntry entry : preset.entries) {
+      state.builder.show(
+          entry.characterId(),
+          entry.expression(),
+          overridePosition == null ? entry.position() : overridePosition,
+          entry.layerOrder(),
+          entry.slotId());
+    }
+  }
+
+  private void parseMoveDisplayPresetCommand(String arg,
+                                             String sourceName,
+                                             int lineNumber,
+                                             String rawLine,
+                                             ParseState state) throws IOException {
+    String payload = requireArg(arg, "movepreset", sourceName, lineNumber, rawLine);
+    String[] toks = VnArgTokenizer.tokenizeToArray(payload);
+    if (toks.length == 0 || toks[0].isBlank()) {
+      throw parseError(sourceName, lineNumber, "[movepreset] requires a preset id", rawLine);
+    }
+
+    DisplayPresetDef preset = requireDisplayPreset(state, toks[0], sourceName, lineNumber, rawLine, "[movepreset]");
+    CharacterPosition targetPosition = null;
+    Easing.Type easing = null;
+    long durationMs = 0L;
+
+    for (int i = 1; i < toks.length; i++) {
+      String token = toks[i] == null ? "" : toks[i].trim();
+      if (token.isEmpty()) continue;
+      if ("at".equalsIgnoreCase(token) && i + 1 < toks.length && !isDisplayPresetCommandOption(toks[i + 1])) {
+        targetPosition = parseAtPosition(toks[++i], sourceName, lineNumber, rawLine).position();
+        continue;
+      }
+      if (isDisplayPresetCommandOption(token)) {
+        KeyValueOption option = parseKeyValueOption(token, sourceName, lineNumber, rawLine, "[movepreset]");
+        switch (option.key()) {
+          case "pos", "position" -> targetPosition = parsePosition(option.value(), sourceName, lineNumber, rawLine, state);
+          case "at", "coord", "coords", "xy" -> targetPosition = parseAtPosition(option.value(), sourceName, lineNumber, rawLine).position();
+          case "ease", "easing" -> {
+            easing = parseEasingToken(option.value());
+            if (easing == null) {
+              throw parseError(sourceName, lineNumber, "[movepreset] unknown easing: " + option.value(), rawLine);
+            }
+          }
+          case "dur", "duration", "ms" -> {
+            durationMs = parseLongValue(option.value(), "[movepreset]", "duration", sourceName, lineNumber, rawLine);
+            if (durationMs < 0) throw parseError(sourceName, lineNumber, "[movepreset] duration must be >= 0", rawLine);
+          }
+          default -> throw parseError(sourceName, lineNumber, "[movepreset] unknown option: " + option.key(), rawLine);
+        }
+        continue;
+      }
+      if (isIntegerToken(token)) {
+        durationMs = Long.parseLong(token);
+        if (durationMs < 0) throw parseError(sourceName, lineNumber, "[movepreset] duration must be >= 0", rawLine);
+        continue;
+      }
+      Easing.Type parsedEasing = parseEasingToken(token);
+      if (parsedEasing != null) {
+        easing = parsedEasing;
+        continue;
+      }
+      if (targetPosition == null) {
+        targetPosition = parsePosition(token, sourceName, lineNumber, rawLine, state);
+        continue;
+      }
+      throw parseError(sourceName, lineNumber, "[movepreset] unexpected token: " + token, rawLine);
+    }
+
+    for (DisplayPresetEntry entry : preset.entries) {
+      state.builder.move(
+          entry.characterId(),
+          targetPosition == null ? entry.position() : targetPosition,
+          null,
+          easing,
+          durationMs,
+          entry.slotId());
+    }
+  }
+
+  private void parseHideDisplayPresetCommand(String arg,
+                                             String sourceName,
+                                             int lineNumber,
+                                             String rawLine,
+                                             ParseState state) throws IOException {
+    String payload = requireArg(arg, "hidepreset", sourceName, lineNumber, rawLine);
+    String[] toks = VnArgTokenizer.tokenizeToArray(payload);
+    if (toks.length != 1 || toks[0].isBlank()) {
+      throw parseError(sourceName, lineNumber, "[hidepreset] expects exactly one preset id", rawLine);
+    }
+    DisplayPresetDef preset = requireDisplayPreset(state, toks[0], sourceName, lineNumber, rawLine, "[hidepreset]");
+    for (DisplayPresetEntry entry : preset.entries) {
+      state.builder.hide(null, entry.slotId());
+    }
+  }
+
+  private DisplayPresetDef requireDisplayPreset(ParseState state,
+                                                String presetId,
+                                                String sourceName,
+                                                int lineNumber,
+                                                String rawLine,
+                                                String commandName) throws IOException {
+    String id = presetId == null ? "" : presetId.trim();
+    DisplayPresetDef preset = state.displayPresets.get(id);
+    if (preset == null) {
+      throw parseError(sourceName, lineNumber, commandName + " unknown display preset: " + id, rawLine);
+    }
+    if (preset.entries.isEmpty()) {
+      throw parseError(sourceName, lineNumber, commandName + " display preset has no entries: " + id, rawLine);
+    }
+    return preset;
+  }
+
+  private boolean isDisplayPresetEntryOption(String token) {
+    if (token == null || token.isBlank()) return false;
+    int sep = optionSeparator(token);
+    if (sep <= 0) return false;
+    String key = token.substring(0, sep).trim().toLowerCase();
+    return switch (key) {
+      case "char", "character", "id", "sprite",
+           "pos", "position", "at", "coord", "coords", "xy",
+           "expr", "expression", "preset",
+           "layer", "z", "zorder" -> true;
+      default -> false;
+    };
+  }
+
+  private boolean isDisplayPresetCommandOption(String token) {
+    if (token == null || token.isBlank()) return false;
+    int sep = optionSeparator(token);
+    if (sep <= 0) return false;
+    String key = token.substring(0, sep).trim().toLowerCase();
+    return switch (key) {
+      case "pos", "position", "at", "coord", "coords", "xy",
+           "ease", "easing", "dur", "duration", "ms" -> true;
+      default -> false;
+    };
+  }
+
+  private boolean isDisplaySlotShorthand(String token) {
+    if (token == null || token.length() < 2 || token.charAt(0) != '@') return false;
+    String slot = token.substring(1).trim();
+    return !slot.isEmpty() && LABEL_NAME_PATTERN.matcher(slot).matches();
   }
 
   private void startConditionalBlock(ParseState state,

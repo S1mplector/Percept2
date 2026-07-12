@@ -288,6 +288,52 @@ lavender: Nice to meet you!
 
 ---
 
+## `@displaypreset`
+
+Defines a reusable group of display-slot sprite instances. Use this when a body, head, table overlay, or other scene-positioned sprite set should be authored once and shown together later.
+
+```text
+@displaypreset <presetId>
+<slotId> = <characterId> <position|at x,y[,z]> [expression] [z=<layerOrder>]
+```
+
+Example:
+
+```vns
+@displaypreset x_bust
+body = x_body center neutral z=0
+head = x_head center neutral z=10
+
+[showpreset x_bust]
+[move @head at 0.5,0.72 ease_out_quad 240]
+[hidepreset x_bust]
+```
+
+For full-scene transparent PNGs that are already positioned in the art canvas:
+
+```vns
+@displaypreset lunch_table
+body = lunch_body at 0.5,1.0 neutral z=0
+head = lunch_head at 0.5,1.0 neutral z=10
+
+[showpreset lunch_table]
+```
+
+Short presets can be written inline:
+
+```vns
+@displaypreset x_bust body = x_body center z=0 | head = x_head center z=10
+```
+
+- The left side (`body`, `head`) becomes the display slot id.
+- The right side uses the same position, inline `at x,y[,z]`, expression, and `z=` conventions as `[show]`.
+- Define the preset before `[showpreset]`, `[movepreset]`, or `[hidepreset]` uses it.
+- For reusable character rigs, place the preset in the character setup/include script. For scene-only sprite sets, place it near that scene.
+
+See [Character Display Slots](../presentation/vns-display-slots.md) for movement and migration examples.
+
+---
+
 ## `@position`
 
 Defines a named custom position for character placement. Custom positions let you place characters at arbitrary screen coordinates instead of the five predefined slots.
@@ -588,7 +634,7 @@ Stage preset files are typically created using the **Scene Lighting Studio** edi
 
 1. `@scenario` must come before any content (if used).
 2. `@define` and `@include` are processed before other directives on each line.
-3. `@character`, `@background`, `@charimg`, `@charlayer`, `@chargroup`, `@charpreset`, `@position`, `@stagepreset` can appear in any order relative to content, but layered references are resolved when read: declare `@charlayer` before `@chargroup`/`@charpreset`, and declare a group before another group or preset uses `$groupId`.
+3. `@character`, `@background`, `@charimg`, `@charlayer`, `@chargroup`, `@charpreset`, `@displaypreset`, `@position`, `@stagepreset` can appear in any order relative to content, but references are resolved when read: declare `@charlayer` before `@chargroup`/`@charpreset`, declare a group before another group or preset uses `$groupId`, and declare `@displaypreset` before `[showpreset]`, `[movepreset]`, or `[hidepreset]` uses it.
 4. `@var` can appear anywhere — it emits a set command at that position.
 5. `@label` must be unique within the script (including included files).
 
@@ -606,6 +652,9 @@ Stage preset files are typically created using the **Scene Lighting Studio** edi
 @charlayer hero head assets/characters/hero/head.png
 @chargroup hero head_group pivot=0.5,0.28 $head
 @charpreset hero layered_neutral $body | $head_group
+@displaypreset hero_bust
+body = hero_body center z=0
+head = hero_head center z=10
 @stagepreset sunset_park config/stage/sunset_park.stagepreset
 
 @var score = 0

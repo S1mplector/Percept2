@@ -139,9 +139,9 @@ public class VnsCodeEditor extends BorderPane {
   private static final String COMMENT_PATTERN = "(?m)#.*$";
   private static final String STRING_PATTERN = "\"([^\\\\\"]|\\\\.)*\"";
   private static final String FORMAT_PATTERN = "\\{/?[bius]\\}|\\{color=[^}]*\\}|\\{/color\\}";
-  private static final String DIRECTIVE_PATTERN = "@(?:scenario|character|background|charimg|charlayer|chargroup|charpreset|stagepreset|position|label|define|include|var|bind|jimport|external)\\b";
+  private static final String DIRECTIVE_PATTERN = "@(?:scenario|character|background|charimg|charlayer|chargroup|charpreset|displaypreset|stagepreset|position|label|define|include|var|bind|jimport|external)\\b";
   private static final String CMD_OPEN_PATTERN =
-      "\\[(?:show|move|hide|jump|end|wait|bg|background"
+      "\\[(?:showpreset|movepreset|hidepreset|show|move|hide|jump|end|wait|bg|background"
     + "|bgm_crossfade|bgm_fadeout|bgm_resume|bgm_pause|bgm_seek|bgm_stop|bgm"
     + "|particles|particle|weather|pfx|fx"
     + "|audio_resume_all|audio_pause_all|audio_stop_all|audio|sfx_stop|sfx|voice_stop|voice|volume|textspeed|autodelay"
@@ -1396,6 +1396,7 @@ public class VnsCodeEditor extends BorderPane {
       out.add(new CodeAutoCompleter.Suggestion("@charimg "));
       out.add(new CodeAutoCompleter.Suggestion("@charlayer "));
       out.add(new CodeAutoCompleter.Suggestion("@charpreset "));
+      out.add(new CodeAutoCompleter.Suggestion("@displaypreset "));
       out.add(new CodeAutoCompleter.Suggestion("@label "));
       out.add(new CodeAutoCompleter.Suggestion("@var "));
       out.add(new CodeAutoCompleter.Suggestion("@define "));
@@ -1407,6 +1408,9 @@ public class VnsCodeEditor extends BorderPane {
       out.add(new CodeAutoCompleter.Suggestion("[show "));
       out.add(new CodeAutoCompleter.Suggestion("[move "));
       out.add(new CodeAutoCompleter.Suggestion("[hide "));
+      out.add(new CodeAutoCompleter.Suggestion("[showpreset "));
+      out.add(new CodeAutoCompleter.Suggestion("[movepreset "));
+      out.add(new CodeAutoCompleter.Suggestion("[hidepreset "));
       out.add(new CodeAutoCompleter.Suggestion("[transition "));
       out.add(new CodeAutoCompleter.Suggestion("[particles "));
       out.add(new CodeAutoCompleter.Suggestion("[weather "));
@@ -1485,6 +1489,7 @@ public class VnsCodeEditor extends BorderPane {
         addMatchingSuggestion(out, normalizedPrefix, "expr=");
         addMatchingSuggestion(out, normalizedPrefix, "layer=");
         addMatchingSuggestion(out, normalizedPrefix, "at=");
+        addMatchingSuggestion(out, normalizedPrefix, "slot=");
         addMatchingSuggestion(out, normalizedPrefix, "pos=center");
         addMatchingSuggestion(out, normalizedPrefix, "pos=left");
         addMatchingSuggestion(out, normalizedPrefix, "pos=right");
@@ -1500,6 +1505,7 @@ public class VnsCodeEditor extends BorderPane {
         addMatchingSuggestion(out, normalizedPrefix, "ease=");
         addMatchingSuggestion(out, normalizedPrefix, "dur=");
         addMatchingSuggestion(out, normalizedPrefix, "at=");
+        addMatchingSuggestion(out, normalizedPrefix, "slot=");
         addMatchingSuggestion(out, normalizedPrefix, "pos=center");
         addMatchingSuggestion(out, normalizedPrefix, "pos=left");
         addMatchingSuggestion(out, normalizedPrefix, "pos=right");
@@ -1512,6 +1518,19 @@ public class VnsCodeEditor extends BorderPane {
         addMatchingSuggestion(out, normalizedPrefix, "ease=easeIn");
         addMatchingSuggestion(out, normalizedPrefix, "ease=easeOut");
         addMatchingSuggestion(out, normalizedPrefix, "ease=easeInOut");
+        addMatchingSuggestion(out, normalizedPrefix, "dur=500");
+      }
+      case "showpreset" -> {
+        addMatchingSuggestion(out, normalizedPrefix, "pos=");
+        addMatchingSuggestion(out, normalizedPrefix, "at=");
+        addMatchingSuggestion(out, normalizedPrefix, "pos=center");
+      }
+      case "movepreset" -> {
+        addMatchingSuggestion(out, normalizedPrefix, "pos=");
+        addMatchingSuggestion(out, normalizedPrefix, "at=");
+        addMatchingSuggestion(out, normalizedPrefix, "ease=");
+        addMatchingSuggestion(out, normalizedPrefix, "dur=");
+        addMatchingSuggestion(out, normalizedPrefix, "ease=easeOut");
         addMatchingSuggestion(out, normalizedPrefix, "dur=500");
       }
       case "transition" -> {
@@ -1556,9 +1575,11 @@ public class VnsCodeEditor extends BorderPane {
 
     if (out.isEmpty() && !prefixLower.contains("=")) {
       switch (command) {
-        case "show", "move" -> {
+        case "show", "move", "showpreset", "movepreset" -> {
           addMatchingSuggestion(out, normalizedPrefix, "pos=center");
-          addMatchingSuggestion(out, normalizedPrefix, "expr=neutral");
+          if ("show".equals(command) || "move".equals(command)) {
+            addMatchingSuggestion(out, normalizedPrefix, "expr=neutral");
+          }
         }
         case "transition" -> addMatchingSuggestion(out, normalizedPrefix, "type=fade");
         case "particles", "weather", "pfx", "fx" -> addMatchingSuggestion(out, normalizedPrefix, "preset=rain");
@@ -1593,7 +1614,7 @@ public class VnsCodeEditor extends BorderPane {
     while (split < segment.length() && !Character.isWhitespace(segment.charAt(split))) split++;
     String command = segment.substring(0, split).trim().toLowerCase(Locale.ROOT);
     return switch (command) {
-      case "show", "move", "transition", "particles", "weather", "pfx", "fx" -> command;
+      case "show", "move", "showpreset", "movepreset", "transition", "particles", "weather", "pfx", "fx" -> command;
       case "particle" -> "particles";
       default -> null;
     };
@@ -2032,8 +2053,11 @@ public class VnsCodeEditor extends BorderPane {
     VNS_COMMAND_DOCS.put("bg", "Set background image. Usage: [bg image_name]");
     VNS_COMMAND_DOCS.put("background", "Set background image. Usage: [background image_name]");
     VNS_COMMAND_DOCS.put("show", "Show a character sprite. Usage: [show character_id pos=center expr=neutral layer=10] or [show character_id center]");
-    VNS_COMMAND_DOCS.put("move", "Move an existing character sprite. Usage: [move character_id pos=right expr=smile ease=easeInOut dur=500] or [move character_id right]");
-    VNS_COMMAND_DOCS.put("hide", "Hide a character sprite. Usage: [hide character]");
+    VNS_COMMAND_DOCS.put("move", "Move an existing character sprite or display slot. Usage: [move character_id pos=right expr=smile ease=easeInOut dur=500], [move slot=head at=0.5,0.7], or [move @head at 0.5,0.7]");
+    VNS_COMMAND_DOCS.put("hide", "Hide a character sprite or display slot. Usage: [hide character], [hide slot=head], or [hide @head]");
+    VNS_COMMAND_DOCS.put("showpreset", "Show every slot in a display preset. Usage: [showpreset preset_id] or [showpreset preset_id at 0.5,1.0]");
+    VNS_COMMAND_DOCS.put("movepreset", "Move every slot in a display preset. Usage: [movepreset preset_id at 0.5,0.72 ease_out_quad 240]");
+    VNS_COMMAND_DOCS.put("hidepreset", "Hide every slot in a display preset. Usage: [hidepreset preset_id]");
     VNS_COMMAND_DOCS.put("jump", "Jump to a label. Usage: [jump label_name]");
     VNS_COMMAND_DOCS.put("end", "End the current scenario. Usage: [end]");
     VNS_COMMAND_DOCS.put("wait", "Pause execution. Usage: [wait seconds]");
@@ -2089,6 +2113,7 @@ public class VnsCodeEditor extends BorderPane {
     VNS_COMMAND_DOCS.put("@charlayer", "Declare character layer. Usage: @charlayer char_id layer path");
     VNS_COMMAND_DOCS.put("@chargroup", "Declare movable character layer group. Usage: @chargroup char_id group_id [parent=id] [pivot=x,y] $layer | $other_layer");
     VNS_COMMAND_DOCS.put("@charpreset", "Declare character preset. Usage: @charpreset char_id preset layers");
+    VNS_COMMAND_DOCS.put("@displaypreset", "Declare a reusable set of display-slot sprites. Usage: @displaypreset bust, then body = body_sprite center z=0");
     VNS_COMMAND_DOCS.put("@stagepreset", "Declare a stage lighting preset file. Usage: @stagepreset id path/to/preset.stagepreset");
     VNS_COMMAND_DOCS.put("@position", "Declare a custom character position. Usage: @position id x [y]");
     VNS_COMMAND_DOCS.put("@bind", "Bind a Java interop variable. Usage: @bind Type:variableName");

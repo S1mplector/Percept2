@@ -675,8 +675,8 @@ These durations are engine defaults and provide a polished feel without explicit
 
 - [VNS Overview](../overview/vns-scripting.md)
 - [Layered Character Presets Guide](vns-layered-charpresets.md) — practical guide to `@charlayer` + `@chargroup` + `@charpreset` with asset organization, cross-character refs, editor tooling
-- [Character Display Slots](vns-display-slots.md) — same-position sprite instances with `slot=`, slot-only move/hide, and save/rollback behavior
+- [Character Display Slots](vns-display-slots.md) — same-position sprite instances with `slot=`, `@displaypreset`, slot-only move/hide, and save/rollback behavior
 - [Movable Character Layer Groups](vns-movable-layer-groups.md) — focused guide for nested movable groups, target names, pivots, and migration patterns
-- [Directives & Declarations](../language/vns-directives.md) — `@character`, `@charimg`, `@charlayer`, `@chargroup`, `@charpreset`
-- [Commands Reference](../language/vns-commands.md) — `[show]`, `[hide]`, `[char]`
+- [Directives & Declarations](../language/vns-directives.md) — `@character`, `@charimg`, `@charlayer`, `@chargroup`, `@charpreset`, `@displaypreset`
+- [Commands Reference](../language/vns-commands.md) — `[show]`, `[showpreset]`, `[hide]`, `[hidepreset]`, `[char]`
 - [Transitions & Screen Effects](vns-transitions.md) — visual effects that pair with character scenes

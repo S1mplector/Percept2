@@ -105,6 +105,21 @@ Shows a character at a named position with an optional expression and layer orde
 
 `slot=` aliases: `as=`, `instance=`, `display=`, `display_slot=`, `display-slot=`.
 
+### `[showpreset <presetId> [position|at x,y]]`
+
+Shows every slot declared by an earlier `@displaypreset`.
+
+```vns
+@displaypreset x_bust
+body = x_body center neutral z=0
+head = x_head center neutral z=10
+
+[showpreset x_bust]
+[showpreset x_bust at 0.5,1.0]
+```
+
+If a position is supplied to `[showpreset]`, every preset entry uses that position for this show. If no position is supplied, each entry uses the position stored in the preset.
+
 **Predefined positions:**
 
 | Full Name | Shortcut | Typical Screen X (center) |
@@ -205,9 +220,22 @@ To get a smooth slide, enable global mode first with `[char <charId> global on]`
 ```vns
 [move head center neutral slot=head]
 [move slot=head at 0.5,0.72 ease_out_quad 240]
+[move @head at 0.5,0.72 ease_out_quad 240]
 ```
 
-The slot-only form moves whichever character currently occupies that display slot.
+The slot-only form moves whichever character currently occupies that display slot. `@head` is shorthand for `slot=head`.
+
+### `[movepreset <presetId> [position|at x,y] [easing] [durationMs]]`
+
+Moves every slot declared by an earlier `@displaypreset`.
+
+```vns
+[movepreset x_bust at 0.5,0.72 ease_out_quad 240]
+[movepreset x_bust center]
+[movepreset x_bust]
+```
+
+If no position is supplied, each slot moves back to its stored preset position.
 
 **Easing types** (case-insensitive):
 
@@ -249,9 +277,18 @@ Hides a character with an exit animation.
 [hide hero]
 [hide villain]
 [hide slot=head]
+[hide @head]
 ```
 
-Use `slot=<id>` to hide a specific display slot without needing to know which character currently occupies it.
+Use `slot=<id>` or `@slotId` to hide a specific display slot without needing to know which character currently occupies it.
+
+### `[hidepreset <presetId>]`
+
+Hides every slot declared by an earlier `@displaypreset`.
+
+```vns
+[hidepreset x_bust]
+```
 
 ### `[lookat <charId> ...]`
 

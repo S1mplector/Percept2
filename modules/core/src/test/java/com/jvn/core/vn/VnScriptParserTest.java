@@ -1926,6 +1926,89 @@ public class VnScriptParserTest {
   }
 
   @Test
+  public void displayPresetExpandsToSlotAwareShowMoveAndHideNodes() throws Exception {
+    String script = """
+      @scenario test_display_preset
+      @character body "Body"
+      @character head "Head"
+      @charimg body neutral game/images/body.png
+      @charimg head neutral game/images/head.png
+
+      @displaypreset x_bust
+      body = body center neutral z=0
+      head = head center neutral z=10
+
+      [showpreset x_bust]
+      [movepreset x_bust at 0.5,0.72 ease_out_quad 240]
+      [move @head at 0.5,0.68 ease_out_quad 120]
+      [hide @head]
+      [hidepreset x_bust]
+      [end]
+    """;
+
+    VnScenario scenario = new VnScriptParser().parseFromString(script);
+    List<VnNode> shows = scenario.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.SHOW)
+        .toList();
+    assertEquals(2, shows.size());
+    assertEquals("body", shows.get(0).getCharacterToShow());
+    assertEquals("body", shows.get(0).getDisplaySlot());
+    assertEquals(Integer.valueOf(0), shows.get(0).getShowLayerOrder());
+    assertEquals("head", shows.get(1).getCharacterToShow());
+    assertEquals("head", shows.get(1).getDisplaySlot());
+    assertEquals(Integer.valueOf(10), shows.get(1).getShowLayerOrder());
+
+    List<VnNode> moves = scenario.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.MOVE)
+        .toList();
+    assertEquals(3, moves.size());
+    assertEquals("body", moves.get(0).getDisplaySlot());
+    assertEquals("head", moves.get(1).getDisplaySlot());
+    assertEquals("head", moves.get(2).getDisplaySlot());
+    assertNull(moves.get(2).getCharacterToShow());
+    assertEquals(0.68, moves.get(2).getShowPosition().getYFraction(), 0.0001);
+    assertEquals(com.jvn.core.animation.Easing.Type.EASE_OUT_QUAD, moves.get(2).getMoveEasingType());
+    assertEquals(120, moves.get(2).getMoveDurationMs());
+
+    List<VnNode> hides = scenario.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.HIDE)
+        .toList();
+    assertEquals(3, hides.size());
+    assertEquals("head", hides.get(0).getDisplaySlot());
+    assertNull(hides.get(0).getCharacterToHide());
+    assertEquals("body", hides.get(1).getDisplaySlot());
+    assertEquals("head", hides.get(2).getDisplaySlot());
+  }
+
+  @Test
+  public void inlineDisplayPresetSupportsSceneAnchoredSprites() throws Exception {
+    String script = """
+      @scenario test_inline_display_preset
+      @character lunch_body "Lunch Body"
+      @character lunch_head "Lunch Head"
+      @charimg lunch_body neutral game/images/lunch_body.png
+      @charimg lunch_head neutral game/images/lunch_head.png
+      @displaypreset lunch body = lunch_body at 0.5,1.0 z=0 | head = lunch_head at 0.5,1.0 z=10
+
+      [showpreset lunch]
+      [showpreset lunch at 0.45,0.95]
+      [end]
+    """;
+
+    VnScenario scenario = new VnScriptParser().parseFromString(script);
+    List<VnNode> shows = scenario.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.SHOW)
+        .toList();
+    assertEquals(4, shows.size());
+    assertEquals(0.5, shows.get(0).getShowPosition().getXFraction(), 0.0001);
+    assertEquals(1.0, shows.get(0).getShowPosition().getYFraction(), 0.0001);
+    assertEquals(0.45, shows.get(2).getShowPosition().getXFraction(), 0.0001);
+    assertEquals(0.95, shows.get(2).getShowPosition().getYFraction(), 0.0001);
+    assertEquals("body", shows.get(2).getDisplaySlot());
+    assertEquals("head", shows.get(3).getDisplaySlot());
+  }
+
+  @Test
   public void customPositionMoveDeltaCalculation() {
     CharacterPosition from = CharacterPosition.at(0.2, 0.5);
     CharacterPosition to = CharacterPosition.at(0.8, 0.5);

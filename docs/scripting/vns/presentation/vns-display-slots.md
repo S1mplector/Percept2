@@ -65,6 +65,47 @@ Examples:
 [show eyes at 0.5,0.42 neutral slot=eyes z=20]
 ```
 
+### Define A Display Preset
+
+Use `@displaypreset` when the same collection of slotted sprites appears more than once. Each entry is `slotId = characterId position [expression] [z=layerOrder]`.
+
+```vns
+@displaypreset x_bust
+body = x_body center neutral z=0
+head = x_head center neutral z=10
+```
+
+Then show the whole set:
+
+```vns
+[showpreset x_bust]
+```
+
+This expands to the same slot-aware shows as:
+
+```vns
+[show x_body center neutral slot=body z=0]
+[show x_head center neutral slot=head z=10]
+```
+
+For scene-aligned transparent PNGs, define the full-canvas anchor once:
+
+```vns
+@displaypreset lunch_table
+body = lunch_body at 0.5,1.0 neutral z=0
+head = lunch_head at 0.5,1.0 neutral z=10
+
+[showpreset lunch_table]
+```
+
+`@displaypreset` may also be written inline for short presets:
+
+```vns
+@displaypreset x_bust body = x_body center z=0 | head = x_head center z=10
+```
+
+If a preset is reusable for one character, put it in that character's setup/include script. If it is only for one scene, put it near that scene. The only hard rule is that the preset must be defined before `[showpreset]`, `[movepreset]`, or `[hidepreset]` uses it.
+
 ### Move A Slot
 
 Move the character that currently occupies a slot:
@@ -72,6 +113,7 @@ Move the character that currently occupies a slot:
 ```vns
 [move slot=head at 0.5,0.72]
 [move slot=head at 0.5,0.68 ease_out_quad 240]
+[move @head at 0.5,0.68 ease_out_quad 240]
 ```
 
 Or move a named character instance:
@@ -83,14 +125,29 @@ Or move a named character instance:
 
 Movement follows the same rules as normal `[move]`: if global position mode is off, the instance enters at the new position; if global mode is on for the character, it slides from the old position.
 
+Move every slot in a preset:
+
+```vns
+[movepreset x_bust at 0.5,0.72 ease_out_quad 240]
+```
+
+If no position is provided, `[movepreset x_bust]` moves each slot back to the position stored in the preset.
+
 ### Hide A Slot
 
 ```vns
 [hide slot=head]
 [hide head slot=head]
+[hide @head]
 ```
 
 The first form hides whichever character currently occupies `head`. The second form is useful when you want the script to say both the character and the slot.
+
+Hide every slot in a preset:
+
+```vns
+[hidepreset x_bust]
+```
 
 ### Change A Slot Expression With `[char]`
 
@@ -199,6 +256,17 @@ Or, if both are expressions on the same character id:
 
 Now `body` and `head` can be moved, hidden, and expression-swapped independently.
 
+With a preset:
+
+```vns
+@displaypreset x_bust
+body = x_body center neutral z=0
+head = x_head center neutral z=10
+
+[showpreset x_bust]
+[move @head at 0.5,0.72 ease_out_quad 240]
+```
+
 ---
 
 ## Quick Reference
@@ -208,8 +276,18 @@ Now `body` and `head` can be moved, hidden, and expression-swapped independently
 [show head center neutral slot=head z=10]
 
 [move slot=head at 0.5,0.72 ease_out_quad 240]
+[move @head at 0.5,0.72 ease_out_quad 240]
 [char head expression blink slot=head]
 [hide slot=head]
+[hide @head]
+
+@displaypreset bust
+body = body_sprite center z=0
+head = head_sprite center z=10
+
+[showpreset bust]
+[movepreset bust at 0.5,0.72 ease_out_quad 240]
+[hidepreset bust]
 ```
 
 Related docs:

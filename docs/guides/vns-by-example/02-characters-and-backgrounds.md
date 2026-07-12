@@ -195,11 +195,21 @@ If two sprites target the exact same position, the later `[show]` normally repla
 [show body center neutral slot=body z=0]
 [show head center neutral slot=head z=10]
 
-[move slot=head at 0.5,0.72]
-[hide slot=head]
+[move @head at 0.5,0.72]
+[hide @head]
 ```
 
 `slot=` gives the visible instance its own identity, while `z` controls which sprite draws in front.
+
+If the same set appears often, define it once:
+
+```vns
+@displaypreset lunch_table
+body = lunch_body at 0.5,1.0 neutral z=0
+head = lunch_head at 0.5,1.0 neutral z=10
+
+[showpreset lunch_table]
+```
 
 ---
 
