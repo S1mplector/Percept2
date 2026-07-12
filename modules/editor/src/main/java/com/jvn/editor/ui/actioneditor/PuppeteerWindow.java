@@ -206,6 +206,12 @@ public class PuppeteerWindow extends Stage {
     private ToggleButton cbOrbitAlign;
     private ToggleButton cbRuntimePreview;
     private ToggleButton cbViewportStabilize;
+    private ToggleButton cbAutoKey;
+    private ToggleButton cbSnapGrid;
+    private ToggleButton cbSnapEntity;
+    private ToggleButton cbCompactExport;
+    private ComboBox<String> cbSpeed;
+    private ComboBox<String> cbWheelMode;
 
     AnimationTimer playbackTimer;
     long lastNanos = 0;
@@ -1056,7 +1062,7 @@ public class PuppeteerWindow extends Stage {
         Button btnPasteKeyframes = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.contentPaste(), "Paste keyframes at playhead (Ctrl/Cmd+Alt+V)");
         btnPasteKeyframes.setOnAction(e -> pasteCopiedKeyframesAtPlayhead());
         Button btnClipboardHistory = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.timeline(), "Clipboard history");
-        btnClipboardHistory.setOnAction(e -> showClipboardHistoryPopup(btnClipboardHistory));
+        btnClipboardHistory.setOnAction(e -> showClipboardHistoryPopup());
         Button btnDuplicateKeyframes = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.controlPointDuplicate(), "Duplicate selected keyframes by snap step (Ctrl/Cmd+Alt+D)");
         btnDuplicateKeyframes.setOnAction(e -> duplicateSelectedKeyframesBySnapStep());
         Button btnSaveClip = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.libraryAdd(), "Save selection as reusable clip");
@@ -1116,13 +1122,9 @@ public class PuppeteerWindow extends Stage {
             }
         });
 
-        ToggleButton cbCompactExport = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.folderZip(), "Use compact export format");
+        cbCompactExport = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.folderZip(), "Use compact export format");
         cbCompactExport.setSelected(false);
-        cbCompactExport.setOnAction(e -> {
-            compactExport = cbCompactExport.isSelected();
-            refreshExportPreview();
-            updateStatusBar();
-        });
+        cbCompactExport.setOnAction(e -> setCompactExportEnabled(cbCompactExport.isSelected()));
 
         HBox keyframeOpsPrimaryRow = new HBox(4,
             btnCopyKeyframes,
@@ -1152,10 +1154,7 @@ public class PuppeteerWindow extends Stage {
 
         cbSnap = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.grid4x4(), "Enable snapping");
         cbSnap.setSelected(timelinePanel.isSnapEnabled());
-        cbSnap.setOnAction(e -> {
-            timelinePanel.setSnapEnabled(cbSnap.isSelected());
-            updateStatusBar();
-        });
+        cbSnap.setOnAction(e -> setTimelineSnapEnabled(cbSnap.isSelected()));
 
         tfSnapMs = new TextField("50");
         tfSnapMs.setPrefWidth(56);
@@ -1171,7 +1170,7 @@ public class PuppeteerWindow extends Stage {
         snapBox.setAlignment(Pos.CENTER_LEFT);
 
         // --- Playback speed ---
-        ComboBox<String> cbSpeed = new ComboBox<>();
+        cbSpeed = new ComboBox<>();
         cbSpeed.getItems().addAll("0.25x", "0.5x", "1x", "2x", "4x");
         cbSpeed.setValue("1x");
         cbSpeed.setStyle(STYLE_TEXT_FIELD);
@@ -1180,13 +1179,12 @@ public class PuppeteerWindow extends Stage {
         cbSpeed.setOnAction(e -> {
             String val = cbSpeed.getValue();
             if (val != null) {
-                try { playbackSpeed = Double.parseDouble(val.replace("x", "")); }
-                catch (NumberFormatException ignored) { playbackSpeed = 1.0; }
+                try { setPlaybackSpeed(Double.parseDouble(val.replace("x", ""))); }
+                catch (NumberFormatException ignored) { setPlaybackSpeed(1.0); }
             }
-            updateStatusBar();
         });
 
-        ComboBox<String> cbWheelMode = new ComboBox<>();
+        cbWheelMode = new ComboBox<>();
         cbWheelMode.getItems().addAll("Wheel: View", "Wheel: Camera");
         cbWheelMode.setValue("Wheel: View");
         cbWheelMode.setStyle(STYLE_TEXT_FIELD);
@@ -1195,11 +1193,9 @@ public class PuppeteerWindow extends Stage {
         animationPreview.setScrollZoomMode(AnimationPreview.ScrollZoomMode.VIEW);
         cbWheelMode.setOnAction(e -> {
             String mode = cbWheelMode.getValue();
-            if ("Wheel: Camera".equals(mode)) {
-                animationPreview.setScrollZoomMode(AnimationPreview.ScrollZoomMode.CAMERA);
-            } else {
-                animationPreview.setScrollZoomMode(AnimationPreview.ScrollZoomMode.VIEW);
-            }
+            setScrollZoomMode("Wheel: Camera".equals(mode)
+                ? AnimationPreview.ScrollZoomMode.CAMERA
+                : AnimationPreview.ScrollZoomMode.VIEW);
         });
 
         cbRuntimePreview = makeToolbarIconToggle(
@@ -1207,11 +1203,7 @@ public class PuppeteerWindow extends Stage {
             "Runtime data preview: render through TimelineData/TimelineRunner"
         );
         cbRuntimePreview.setSelected(runtimeParityPreview);
-        cbRuntimePreview.setOnAction(e -> {
-            runtimeParityPreview = cbRuntimePreview.isSelected();
-            updatePreview();
-            updateStatusBar();
-        });
+        cbRuntimePreview.setOnAction(e -> setRuntimeParityPreviewEnabled(cbRuntimePreview.isSelected()));
 
         cbViewportStabilize = makeToolbarIconToggle(
             com.jvn.editor.ui.CssIcon.myLocation("#8bd2ff"),
@@ -1221,22 +1213,19 @@ public class PuppeteerWindow extends Stage {
         cbViewportStabilize.setOnAction(e -> setViewportStabilizationEnabled(cbViewportStabilize.isSelected()));
 
         // --- Auto-key toggle ---
-        ToggleButton cbAutoKey = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.fiberSmartRecord("#e05050"), "Auto-key: automatically insert keyframe on drag");
+        cbAutoKey = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.fiberSmartRecord("#e05050"), "Auto-key: automatically insert keyframe on drag");
         cbAutoKey.setSelected(false);
-        cbAutoKey.setOnAction(e -> {
-            autoKeyEnabled = cbAutoKey.isSelected();
-            updateStatusBar();
-        });
+        cbAutoKey.setOnAction(e -> setAutoKeyEnabled(cbAutoKey.isSelected()));
         Label lblAutoKey = new Label("Auto");
         lblAutoKey.setStyle("-fx-text-fill: #a0a0a0; -fx-font-size: 10px;");
 
         // --- Snap-to-grid / snap-to-entity toggles ---
-        ToggleButton cbSnapGrid = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.borderAll(), "Snap entities to grid when dragging");
+        cbSnapGrid = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.borderAll(), "Snap entities to grid when dragging");
         cbSnapGrid.setSelected(false);
-        cbSnapGrid.setOnAction(e -> animationPreview.setSnapToGridEnabled(cbSnapGrid.isSelected()));
-        ToggleButton cbSnapEntity = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.joinInner(), "Snap to nearby entity positions");
+        cbSnapGrid.setOnAction(e -> setPreviewSnapToGridEnabled(cbSnapGrid.isSelected()));
+        cbSnapEntity = makeToolbarIconToggle(com.jvn.editor.ui.CssIcon.joinInner(), "Snap to nearby entity positions");
         cbSnapEntity.setSelected(false);
-        cbSnapEntity.setOnAction(e -> animationPreview.setSnapToEntityEnabled(cbSnapEntity.isSelected()));
+        cbSnapEntity.setOnAction(e -> setPreviewSnapToEntityEnabled(cbSnapEntity.isSelected()));
 
         HBox autoKeyBox = new HBox(4, cbAutoKey, lblAutoKey);
         autoKeyBox.setAlignment(Pos.CENTER_LEFT);
@@ -1855,17 +1844,10 @@ public class PuppeteerWindow extends Stage {
             puppeteerStatusItem("Manage Event Cues", () -> showEventCueManagerDialog(null))
         ));
         installPuppeteerStatusMenu(statusModeSegment, () -> puppeteerStatusMenu(
-            puppeteerStatusItem(timelinePanel.isSnapEnabled() ? "Disable Timeline Snap" : "Enable Timeline Snap", () -> {
-                timelinePanel.setSnapEnabled(!timelinePanel.isSnapEnabled());
-                if (cbSnap != null) cbSnap.setSelected(timelinePanel.isSnapEnabled());
-                updateStatusBar();
-            }),
-            puppeteerStatusItem(runtimeParityPreview ? "Disable Runtime Preview" : "Enable Runtime Preview", () -> {
-                runtimeParityPreview = !runtimeParityPreview;
-                if (cbRuntimePreview != null) cbRuntimePreview.setSelected(runtimeParityPreview);
-                updatePreview();
-                updateStatusBar();
-            }),
+            puppeteerStatusItem(timelinePanel.isSnapEnabled() ? "Disable Timeline Snap" : "Enable Timeline Snap",
+                () -> setTimelineSnapEnabled(!timelinePanel.isSnapEnabled())),
+            puppeteerStatusItem(runtimeParityPreview ? "Disable Runtime Preview" : "Enable Runtime Preview",
+                () -> setRuntimeParityPreviewEnabled(!runtimeParityPreview)),
             puppeteerStatusItem(viewportStabilizationEnabled ? "Disable Viewport Stabilization" : "Enable Viewport Stabilization",
                 () -> setViewportStabilizationEnabled(!viewportStabilizationEnabled))
         ));
@@ -1987,36 +1969,13 @@ public class PuppeteerWindow extends Stage {
         Menu fileMenu = new Menu("File");
         fileMenu.getItems().addAll(
             miSaveRegister,
-            miVerifyRuntime,
-            new SeparatorMenuItem(),
-            miRefreshCode,
-            miStagePreview,
-            miCommitPreview,
-            miDiscardPreview,
-            new SeparatorMenuItem(),
-            miCopyExportCode,
-            miSaveClip,
-            miLoadClip,
-            miImportAssets,
-            miRecordGif,
-            new SeparatorMenuItem(),
             miClose
         );
         fileMenu.setOnShowing(e -> {
             String timelineName = tfTimelineName != null ? tfTimelineName.getText().trim() : "";
             boolean hasTimelineName = timelineName != null && !timelineName.isBlank();
-            boolean hasTrack = selectedTrackForEditing(false) != null;
             miSaveRegister.setText(dirty || previewStaged ? "Save & Register" : "Save & Register Again");
             miSaveRegister.setDisable(!hasTimelineName);
-            miVerifyRuntime.setDisable(project == null);
-            miStagePreview.setText(previewStaged ? "Restage Code Preview" : "Stage Code Preview");
-            miStagePreview.setDisable(codePreview == null || codePreview.getCode() == null || codePreview.getCode().isBlank());
-            miCommitPreview.setDisable(!previewStaged);
-            miDiscardPreview.setDisable(!previewStaged);
-            miCopyExportCode.setDisable(codePreview == null || codePreview.getCode() == null || codePreview.getCode().isBlank());
-            miSaveClip.setDisable(!hasTrack || projectRoot == null);
-            miLoadClip.setDisable(!hasTrack || !hasSavedClips());
-            miImportAssets.setDisable(projectRoot == null || !projectRoot.isDirectory());
             miClose.setText(dirty || previewStaged ? "Close..." : "Close");
         });
 
@@ -2027,51 +1986,87 @@ public class PuppeteerWindow extends Stage {
         miRedo.setAccelerator(new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
         miRedo.setOnAction(e -> executeRedo());
         MenuItem miAddKeyframe = new MenuItem("Add Keyframe at Playhead");
-        miAddKeyframe.setOnAction(e -> timelinePanel.addKeyframeAtPlayhead());
+        miAddKeyframe.setAccelerator(new KeyCodeCombination(KeyCode.K));
+        miAddKeyframe.setOnAction(e -> {
+            timelinePanel.addKeyframeAtPlayhead();
+            refreshExportPreviewAndMarkDirty();
+        });
         MenuItem miDeleteKeyframes = new MenuItem("Delete Selected Keyframes");
-        miDeleteKeyframes.setOnAction(e -> timelinePanel.deleteSelectedKeyframe());
+        miDeleteKeyframes.setAccelerator(new KeyCodeCombination(KeyCode.DELETE));
+        miDeleteKeyframes.setOnAction(e -> {
+            timelinePanel.deleteSelectedKeyframe();
+            refreshExportPreviewAndMarkDirty();
+        });
         MenuItem miCopyKeyframes = new MenuItem("Copy Keyframes");
+        miCopyKeyframes.setAccelerator(new KeyCodeCombination(KeyCode.C, KeyCombination.SHORTCUT_DOWN, KeyCombination.ALT_DOWN));
         miCopyKeyframes.setOnAction(e -> copySelectedKeyframesToClipboard());
         MenuItem miPasteKeyframes = new MenuItem("Paste Keyframes at Playhead");
+        miPasteKeyframes.setAccelerator(new KeyCodeCombination(KeyCode.V, KeyCombination.SHORTCUT_DOWN, KeyCombination.ALT_DOWN));
         miPasteKeyframes.setOnAction(e -> pasteCopiedKeyframesAtPlayhead());
         MenuItem miDuplicateKeyframes = new MenuItem("Duplicate Keyframes");
+        miDuplicateKeyframes.setAccelerator(new KeyCodeCombination(KeyCode.D, KeyCombination.SHORTCUT_DOWN, KeyCombination.ALT_DOWN));
         miDuplicateKeyframes.setOnAction(e -> duplicateSelectedKeyframesBySnapStep());
+        MenuItem miClipboardHistory = new MenuItem("Clipboard History...");
+        miClipboardHistory.setOnAction(e -> showClipboardHistoryPopup());
+        MenuItem miBatchKeyframe = new MenuItem("Add Keyframe for All Entities");
+        miBatchKeyframe.setOnAction(e -> {
+            PropertyType prop = cbProperty != null && cbProperty.getValue() != null
+                ? cbProperty.getValue()
+                : PropertyType.X;
+            timelinePanel.addKeyframeForAllEntities(project.getPlayheadMs(), prop);
+            refreshExportPreviewAndMarkDirty();
+        });
         MenuItem miDistributeKeyframes = new MenuItem("Distribute Selected Keyframes");
-        miDistributeKeyframes.setOnAction(e -> timelinePanel.distributeSelectedKeyframes());
+        miDistributeKeyframes.setAccelerator(new KeyCodeCombination(KeyCode.E, KeyCombination.ALT_DOWN, KeyCombination.SHIFT_DOWN));
+        miDistributeKeyframes.setOnAction(e -> {
+            if (timelinePanel.distributeSelectedKeyframes()) {
+                refreshExportPreviewAndMarkDirty();
+            }
+        });
         MenuItem miReverseKeyframes = new MenuItem("Reverse Selected Keyframes");
-        miReverseKeyframes.setOnAction(e -> timelinePanel.reverseSelectedKeyframes());
+        miReverseKeyframes.setAccelerator(new KeyCodeCombination(KeyCode.R, KeyCombination.ALT_DOWN, KeyCombination.SHIFT_DOWN));
+        miReverseKeyframes.setOnAction(e -> {
+            if (timelinePanel.reverseSelectedKeyframes()) {
+                refreshExportPreviewAndMarkDirty();
+            }
+        });
+        MenuItem miStretchKeyframes = new MenuItem("Stretch Selected Keyframes 25%");
+        miStretchKeyframes.setOnAction(e -> {
+            if (timelinePanel.stretchSelectedKeyframes(1.25)) {
+                refreshExportPreviewAndMarkDirty();
+            }
+        });
+        MenuItem miCompressKeyframes = new MenuItem("Compress Selected Keyframes 20%");
+        miCompressKeyframes.setOnAction(e -> {
+            if (timelinePanel.stretchSelectedKeyframes(0.8)) {
+                refreshExportPreviewAndMarkDirty();
+            }
+        });
+        MenuItem miEasingCurve = new MenuItem("Edit Easing Curve...");
+        miEasingCurve.setOnAction(e -> timelinePanel.openEasingCurveEditor());
+        CheckMenuItem miRippleRetime = new CheckMenuItem("Ripple Retime");
+        miRippleRetime.setOnAction(e -> timelinePanel.setRippleRetimeEnabled(miRippleRetime.isSelected()));
+        MenuItem miClearKeyframeSelection = new MenuItem("Clear Keyframe Selection");
+        miClearKeyframeSelection.setOnAction(e -> {
+            timelinePanel.clearKeyframeSelection();
+            updateStatusBar();
+            refreshSidebarTabs();
+        });
         MenuItem miApplyPreset = new MenuItem("Apply Animation Preset...");
         miApplyPreset.setOnAction(e -> showPresetMenuOverlay());
         MenuItem miPlaceInSlot = new MenuItem("Place Entity in VN Slot...");
         miPlaceInSlot.setOnAction(e -> showSlotMenuOverlay());
+        MenuItem miEyeFocus = new MenuItem("Eye Focus / Look At...");
+        miEyeFocus.setOnAction(e -> showEyeFocusOverlay());
+        MenuItem miSyncSnapshot = new MenuItem("Sync Snapshot from VNS Script");
+        miSyncSnapshot.setOnAction(e -> requestSyncSnapshot());
 
         Menu editMenu = new Menu("Edit");
         editMenu.getItems().addAll(
             miUndo,
-            miRedo,
-            new SeparatorMenuItem(),
-            miAddKeyframe,
-            miDeleteKeyframes,
-            new SeparatorMenuItem(),
-            miCopyKeyframes,
-            miPasteKeyframes,
-            miDuplicateKeyframes,
-            new SeparatorMenuItem(),
-            miDistributeKeyframes,
-            miReverseKeyframes,
-            new SeparatorMenuItem(),
-            miApplyPreset,
-            miPlaceInSlot
+            miRedo
         );
         editMenu.setOnShowing(e -> {
-            int selectionCount = timelinePanel != null ? timelinePanel.getSelectionCount() : 0;
-            boolean hasSelection = selectionCount > 0;
-            boolean hasTarget = timelinePanel != null
-                && timelinePanel.getSelectedEntity() != null
-                && !timelinePanel.getSelectedEntity().isBlank();
-            boolean entityTarget = hasTarget && !timelinePanel.isSelectedGroup();
-            boolean hasEditableKeyframe = hasSelection || (keyframeEditor != null && keyframeEditor.getCurrentKeyframe() != null);
-
             miUndo.setText(commandStack.canUndo()
                 ? "Undo " + commandStack.undoDescription()
                 : "Undo");
@@ -2080,15 +2075,77 @@ public class PuppeteerWindow extends Stage {
                 : "Redo");
             miUndo.setDisable(!commandStack.canUndo());
             miRedo.setDisable(!commandStack.canRedo());
+        });
+
+        Menu keyframesMenu = new Menu("Keyframes");
+        keyframesMenu.getItems().addAll(
+            miAddKeyframe,
+            miBatchKeyframe,
+            miDeleteKeyframes,
+            miClearKeyframeSelection,
+            new SeparatorMenuItem(),
+            miCopyKeyframes,
+            miPasteKeyframes,
+            miDuplicateKeyframes,
+            miClipboardHistory,
+            new SeparatorMenuItem(),
+            miDistributeKeyframes,
+            miReverseKeyframes,
+            miStretchKeyframes,
+            miCompressKeyframes,
+            new SeparatorMenuItem(),
+            miEasingCurve,
+            miRippleRetime,
+            new SeparatorMenuItem(),
+            miSaveClip,
+            miLoadClip
+        );
+        keyframesMenu.setOnShowing(e -> {
+            int selectionCount = timelinePanel != null ? timelinePanel.getSelectionCount() : 0;
+            boolean hasSelection = selectionCount > 0;
+            boolean hasTarget = timelinePanel != null
+                && timelinePanel.getSelectedEntity() != null
+                && !timelinePanel.getSelectedEntity().isBlank();
+            boolean hasEditableKeyframe = hasSelection || (keyframeEditor != null && keyframeEditor.getCurrentKeyframe() != null);
+            boolean hasTrack = selectedTrackForEditing(false) != null;
+
             miAddKeyframe.setDisable(!hasTarget);
+            miBatchKeyframe.setDisable(project == null || !project.getTracks().iterator().hasNext());
             miDeleteKeyframes.setDisable(!hasEditableKeyframe);
+            miClearKeyframeSelection.setDisable(!hasSelection);
             miCopyKeyframes.setDisable(!hasSelection);
             miPasteKeyframes.setDisable(!hasTarget || timelinePanel.getCopiedKeyframeCount() == 0);
             miDuplicateKeyframes.setDisable(!hasSelection);
+            miClipboardHistory.setDisable(clipboardHistory.isEmpty());
             miDistributeKeyframes.setDisable(selectionCount < 3);
             miReverseKeyframes.setDisable(selectionCount < 2);
+            miStretchKeyframes.setDisable(selectionCount < 2);
+            miCompressKeyframes.setDisable(selectionCount < 2);
+            miEasingCurve.setDisable(!hasEditableKeyframe);
+            miRippleRetime.setSelected(timelinePanel != null && timelinePanel.isRippleRetimeEnabled());
+            miSaveClip.setDisable(!hasTrack || projectRoot == null);
+            miLoadClip.setDisable(!hasTrack || !hasSavedClips());
+        });
+
+        Menu characterMenu = new Menu("Character");
+        characterMenu.getItems().addAll(
+            miApplyPreset,
+            miPlaceInSlot,
+            miEyeFocus,
+            new SeparatorMenuItem(),
+            miSyncSnapshot,
+            miImportAssets
+        );
+        characterMenu.setOnShowing(e -> {
+            boolean hasTarget = timelinePanel != null
+                && timelinePanel.getSelectedEntity() != null
+                && !timelinePanel.getSelectedEntity().isBlank();
+            boolean entityTarget = hasTarget && !timelinePanel.isSelectedGroup();
             miApplyPreset.setDisable(!entityTarget);
             miPlaceInSlot.setDisable(!entityTarget);
+            miEyeFocus.setDisable(project == null || timelinePanel == null);
+            miSyncSnapshot.setDisable(onSyncSnapshotRequested == null);
+            miImportAssets.setDisable(projectRoot == null || !projectRoot.isDirectory());
         });
 
         // === Timeline menu ===
@@ -2124,6 +2181,24 @@ public class PuppeteerWindow extends Stage {
         miTimelineFocusSel.setOnAction(e -> timelinePanel.zoomToSelection());
         MenuItem miTimelineZoomFit = new MenuItem("Zoom Timeline to Fit");
         miTimelineZoomFit.setOnAction(e -> timelinePanel.zoomToFit());
+        MenuItem miTimelineFitDuration = new MenuItem("Fit Duration to Content");
+        miTimelineFitDuration.setOnAction(e -> {
+            project.fitDurationToContent();
+            syncDurationUi();
+            timelinePanel.refresh();
+            refreshExportPreviewAndMarkDirty();
+        });
+        CheckMenuItem miTimelineSnap = new CheckMenuItem("Timeline Snap");
+        miTimelineSnap.setOnAction(e -> setTimelineSnapEnabled(miTimelineSnap.isSelected()));
+        Menu snapStepMenu = new Menu("Snap Step");
+        ToggleGroup snapStepGroup = new ToggleGroup();
+        for (double step : new double[] {1.0, 10.0, 33.0, 50.0, 100.0, 250.0, 500.0}) {
+            RadioMenuItem item = new RadioMenuItem(String.format(Locale.ROOT, "%.0f ms", step));
+            item.setUserData(step);
+            item.setToggleGroup(snapStepGroup);
+            item.setOnAction(e -> setTimelineSnapStep(step));
+            snapStepMenu.getItems().add(item);
+        }
 
         Menu timelineMenu = new Menu("Timeline");
         timelineMenu.getItems().addAll(
@@ -2131,7 +2206,11 @@ public class PuppeteerWindow extends Stage {
             new SeparatorMenuItem(),
             miTimelinePrevKey, miTimelineNextKey,
             new SeparatorMenuItem(),
-            miTimelineFocusSel, miTimelineZoomFit
+            miTimelineFocusSel, miTimelineZoomFit,
+            miTimelineFitDuration,
+            new SeparatorMenuItem(),
+            miTimelineSnap,
+            snapStepMenu
         );
         timelineMenu.setOnShowing(e -> {
             boolean hasTarget = timelinePanel != null && timelinePanel.getSelectedEntity() != null
@@ -2140,12 +2219,16 @@ public class PuppeteerWindow extends Stage {
             miTimelinePrevKey.setDisable(!hasTarget);
             miTimelineNextKey.setDisable(!hasTarget);
             miTimelineFocusSel.setDisable(!hasSelection);
+            miTimelineFitDuration.setDisable(project == null);
+            miTimelineSnap.setSelected(timelinePanel != null && timelinePanel.isSnapEnabled());
+            for (MenuItem item : snapStepMenu.getItems()) {
+                if (item instanceof RadioMenuItem radio && item.getUserData() instanceof Double preset) {
+                    radio.setSelected(timelinePanel != null && Math.abs(preset - timelinePanel.getSnapStepMs()) < 0.001);
+                }
+            }
         });
 
-        // === Scene menu ===
-        MenuItem miSceneImport = new MenuItem("Import Assets...");
-        miSceneImport.setOnAction(e -> showAssetImporterWindow());
-
+        // === Cues menu ===
         MenuItem miSceneAddCue = new MenuItem("Add Audio Cue at Playhead");
         miSceneAddCue.setOnAction(e -> showAddAudioCueDialog());
 
@@ -2165,6 +2248,8 @@ public class PuppeteerWindow extends Stage {
 
         MenuItem miSceneManageEvents = new MenuItem("Manage Event Cues...");
         miSceneManageEvents.setOnAction(e -> showEventCueManagerDialog(null));
+        MenuItem miSceneAddExpressionCue = new MenuItem("Add Expression Cue at Playhead...");
+        miSceneAddExpressionCue.setOnAction(e -> showExpressionKeyframeDialog());
 
         MenuItem miSceneClearEvents = new MenuItem("Clear All Event Cues");
         miSceneClearEvents.setOnAction(e -> {
@@ -2181,22 +2266,17 @@ public class PuppeteerWindow extends Stage {
                 }));
         });
 
-        MenuItem miSceneFitPreview = new MenuItem("Fit Preview Viewport");
-        miSceneFitPreview.setOnAction(e -> animationPreview.fitToContent());
-
-        Menu sceneMenu = new Menu("Scene");
-        sceneMenu.getItems().addAll(
-            miSceneImport,
-            new SeparatorMenuItem(),
+        Menu cuesMenu = new Menu("Cues");
+        cuesMenu.getItems().addAll(
             miSceneAddCue, miSceneClearCues,
             new SeparatorMenuItem(),
-            miSceneManageEvents, miSceneClearEvents,
-            new SeparatorMenuItem(),
-            miSceneFitPreview
+            miSceneAddExpressionCue,
+            miSceneManageEvents, miSceneClearEvents
         );
-        sceneMenu.setOnShowing(e -> {
-            boolean hasRoot = projectRoot != null && projectRoot.isDirectory();
-            miSceneImport.setDisable(!hasRoot);
+        cuesMenu.setOnShowing(e -> {
+            miSceneAddCue.setDisable(project == null);
+            miSceneAddExpressionCue.setDisable(project == null);
+            miSceneManageEvents.setDisable(project == null);
             miSceneClearCues.setDisable(project == null || project.getAudioCues().isEmpty());
             miSceneClearEvents.setDisable(project == null || project.getEditorEventCues().isEmpty());
         });
@@ -2234,12 +2314,64 @@ public class PuppeteerWindow extends Stage {
         miResetUiScale.setOnAction(e -> setUiScale(1.0));
         MenuItem miResetLayout = new MenuItem("Reset Resizable Bars");
         miResetLayout.setOnAction(e -> resetWorkspaceLayout());
-        MenuItem miFocusTimeline = new MenuItem("Focus Timeline on Selection");
-        miFocusTimeline.setOnAction(e -> timelinePanel.zoomToSelection());
-        MenuItem miZoomFit = new MenuItem("Zoom Timeline to Fit");
-        miZoomFit.setOnAction(e -> timelinePanel.zoomToFit());
         MenuItem miFullscreenPreview = new MenuItem("Toggle Focused Preview Layout");
         miFullscreenPreview.setOnAction(e -> togglePreviewFocusMode());
+        MenuItem miFitPreview = new MenuItem("Fit Preview Viewport");
+        miFitPreview.setOnAction(e -> animationPreview.fitToContent());
+        CheckMenuItem miAutoKeyMenu = new CheckMenuItem("Auto-Key on Drag");
+        miAutoKeyMenu.setOnAction(e -> setAutoKeyEnabled(miAutoKeyMenu.isSelected()));
+        CheckMenuItem miRuntimePreviewMenu = new CheckMenuItem("Runtime Data Preview");
+        miRuntimePreviewMenu.setOnAction(e -> setRuntimeParityPreviewEnabled(miRuntimePreviewMenu.isSelected()));
+        CheckMenuItem miPreviewStabilization = new CheckMenuItem("Stabilize Preview Viewport");
+        miPreviewStabilization.setOnAction(e -> setViewportStabilizationEnabled(miPreviewStabilization.isSelected()));
+        CheckMenuItem miPreviewSnapGrid = new CheckMenuItem("Snap Dragging to Grid");
+        miPreviewSnapGrid.setOnAction(e -> setPreviewSnapToGridEnabled(miPreviewSnapGrid.isSelected()));
+        CheckMenuItem miPreviewSnapEntity = new CheckMenuItem("Snap Dragging to Entities");
+        miPreviewSnapEntity.setOnAction(e -> setPreviewSnapToEntityEnabled(miPreviewSnapEntity.isSelected()));
+        RadioMenuItem miWheelView = new RadioMenuItem("Wheel Controls View");
+        RadioMenuItem miWheelCamera = new RadioMenuItem("Wheel Controls Runtime Camera");
+        ToggleGroup wheelModeGroup = new ToggleGroup();
+        miWheelView.setToggleGroup(wheelModeGroup);
+        miWheelCamera.setToggleGroup(wheelModeGroup);
+        miWheelView.setOnAction(e -> setScrollZoomMode(AnimationPreview.ScrollZoomMode.VIEW));
+        miWheelCamera.setOnAction(e -> setScrollZoomMode(AnimationPreview.ScrollZoomMode.CAMERA));
+        Menu wheelModeMenu = new Menu("Mouse Wheel Mode");
+        wheelModeMenu.getItems().addAll(miWheelView, miWheelCamera);
+
+        Menu previewMenu = new Menu("Preview");
+        previewMenu.getItems().addAll(
+            miFitPreview,
+            miFullscreenPreview,
+            miRecordGif,
+            new SeparatorMenuItem(),
+            miOnionSkin,
+            miInterpolationGhosts,
+            miShowSafeGuides,
+            miShowTitleGuides,
+            new SeparatorMenuItem(),
+            miAutoKeyMenu,
+            miRuntimePreviewMenu,
+            miPreviewStabilization,
+            new SeparatorMenuItem(),
+            miPreviewSnapGrid,
+            miPreviewSnapEntity,
+            wheelModeMenu
+        );
+        previewMenu.setOnShowing(e -> {
+            miFullscreenPreview.setDisable(scene == null && !isPreviewFullscreenActive());
+            miOnionSkin.setSelected(animationPreview.isOnionSkinning());
+            miInterpolationGhosts.setSelected(animationPreview.isShowInterpolationGhosts());
+            miShowSafeGuides.setSelected(animationPreview.isShowSafeGuides());
+            miShowTitleGuides.setSelected(animationPreview.isShowTitleGuides());
+            miAutoKeyMenu.setSelected(autoKeyEnabled);
+            miRuntimePreviewMenu.setSelected(runtimeParityPreview);
+            miPreviewStabilization.setSelected(viewportStabilizationEnabled);
+            miPreviewSnapGrid.setSelected(animationPreview.isSnapToGridEnabled());
+            miPreviewSnapEntity.setSelected(animationPreview.isSnapToEntityEnabled());
+            AnimationPreview.ScrollZoomMode wheelMode = animationPreview.getScrollZoomMode();
+            miWheelView.setSelected(wheelMode == AnimationPreview.ScrollZoomMode.VIEW);
+            miWheelCamera.setSelected(wheelMode == AnimationPreview.ScrollZoomMode.CAMERA);
+        });
 
         MenuItem miExpandAll = new MenuItem("Expand All Clusters");
         miExpandAll.setOnAction(e -> toolbarClusters.values().forEach(c -> c.setExpanded(true)));
@@ -2261,37 +2393,29 @@ public class PuppeteerWindow extends Stage {
         populateDockersMenu(dockersMenu);
         Menu workspacePresetsMenu = buildWorkspacePresetsMenu();
 
-        Menu viewMenu = new Menu("View");
-        viewMenu.getItems().addAll(
+        Menu layoutMenu = new Menu("Layout");
+        layoutMenu.getItems().addAll(
             miShowToolbar,
             miShowCodePane,
-            miOnionSkin,
-            miInterpolationGhosts,
-            miShowSafeGuides,
-            miShowTitleGuides,
             new SeparatorMenuItem(),
             miLayoutDynamic,
             miLayoutCompact,
+            toolbarClustersMenu,
+            miExpandAll,
+            miCollapseAll,
+            new SeparatorMenuItem(),
             uiScaleMenu,
             miResetUiScale,
             new SeparatorMenuItem(),
             workspacePresetsMenu,
             dockersMenu,
             new SeparatorMenuItem(),
-            miResetLayout,
-            new SeparatorMenuItem(),
-            miFocusTimeline,
-            miZoomFit,
-            miFullscreenPreview
+            miResetLayout
         );
-        viewMenu.setOnShowing(e -> {
+        layoutMenu.setOnShowing(e -> {
             populateDockersMenu(dockersMenu);
             miShowToolbar.setSelected(isTopToolbarVisible());
             miShowCodePane.setSelected(isCodePaneVisible());
-            miOnionSkin.setSelected(animationPreview.isOnionSkinning());
-            miInterpolationGhosts.setSelected(animationPreview.isShowInterpolationGhosts());
-            miShowSafeGuides.setSelected(animationPreview.isShowSafeGuides());
-            miShowTitleGuides.setSelected(animationPreview.isShowTitleGuides());
             miLayoutDynamic.setSelected(getToolbarLayoutMode() == AnimatedToolbarPane.LayoutMode.DYNAMIC);
             miLayoutCompact.setSelected(getToolbarLayoutMode() == AnimatedToolbarPane.LayoutMode.COMPACT);
             for (MenuItem item : uiScaleMenu.getItems()) {
@@ -2299,7 +2423,6 @@ public class PuppeteerWindow extends Stage {
                     radio.setSelected(Math.abs(preset - uiScale) < 0.001);
                 }
             }
-            miFullscreenPreview.setDisable(scene == null && !isPreviewFullscreenActive());
         });
 
         MenuItem miPlayPause = new MenuItem("Play");
@@ -2345,12 +2468,22 @@ public class PuppeteerWindow extends Stage {
         });
         CheckMenuItem miViewportStabilization = new CheckMenuItem("Stabilize Preview Viewport");
         miViewportStabilization.setOnAction(e -> setViewportStabilizationEnabled(miViewportStabilization.isSelected()));
+        Menu playbackSpeedMenu = new Menu("Playback Speed");
+        ToggleGroup playbackSpeedGroup = new ToggleGroup();
+        for (double speed : new double[] {0.25, 0.5, 1.0, 2.0, 4.0}) {
+            RadioMenuItem item = new RadioMenuItem(formatPlaybackSpeedLabel(speed));
+            item.setUserData(speed);
+            item.setToggleGroup(playbackSpeedGroup);
+            item.setOnAction(e -> setPlaybackSpeed(speed));
+            playbackSpeedMenu.getItems().add(item);
+        }
 
         Menu playbackMenu = new Menu("Playback");
         playbackMenu.getItems().addAll(
             miPlayPause,
             miStop,
             miRewind,
+            playbackSpeedMenu,
             miViewportStabilization,
             new SeparatorMenuItem(),
             miLoopPlayback,
@@ -2363,14 +2496,72 @@ public class PuppeteerWindow extends Stage {
             miViewportStabilization.setSelected(viewportStabilizationEnabled);
             miLoopPlayback.setSelected(project.isLooping());
             miLoopClear.setDisable(!project.hasLoopRegion());
+            for (MenuItem item : playbackSpeedMenu.getItems()) {
+                if (item instanceof RadioMenuItem radio && item.getUserData() instanceof Double speed) {
+                    radio.setSelected(Math.abs(playbackSpeed - speed) < 0.001);
+                }
+            }
         });
+
+        MenuItem miExportSaveRegister = new MenuItem("Save & Register Timeline");
+        miExportSaveRegister.setOnAction(e -> requestRegisterTimeline());
+        MenuItem miExportRecordGif = new MenuItem("Record Preview as GIF...");
+        miExportRecordGif.setOnAction(e -> showRecordGifDialog());
+        CheckMenuItem miCompactExportMenu = new CheckMenuItem("Compact Code Preview");
+        miCompactExportMenu.setOnAction(e -> setCompactExportEnabled(miCompactExportMenu.isSelected()));
+
+        Menu exportMenu = new Menu("Export");
+        exportMenu.getItems().addAll(
+            miExportSaveRegister,
+            new SeparatorMenuItem(),
+            miRefreshCode,
+            miStagePreview,
+            miCommitPreview,
+            miDiscardPreview,
+            new SeparatorMenuItem(),
+            miCompactExportMenu,
+            miCopyExportCode,
+            miExportRecordGif
+        );
+        exportMenu.setOnShowing(e -> {
+            String timelineName = tfTimelineName != null ? tfTimelineName.getText().trim() : "";
+            boolean hasTimelineName = timelineName != null && !timelineName.isBlank();
+            boolean hasCode = codePreview != null && codePreview.getCode() != null && !codePreview.getCode().isBlank();
+            miExportSaveRegister.setText(dirty || previewStaged ? "Save & Register Timeline" : "Save & Register Timeline Again");
+            miExportSaveRegister.setDisable(!hasTimelineName);
+            miRefreshCode.setDisable(project == null);
+            miStagePreview.setText(previewStaged ? "Restage Code Preview" : "Stage Code Preview");
+            miStagePreview.setDisable(!hasCode);
+            miCommitPreview.setDisable(!previewStaged);
+            miDiscardPreview.setDisable(!previewStaged);
+            miCompactExportMenu.setSelected(compactExport);
+            miCopyExportCode.setDisable(!hasCode);
+            miExportRecordGif.setDisable(scene == null);
+        });
+
+        Menu diagnosticsMenu = new Menu("Diagnostics");
+        diagnosticsMenu.getItems().add(miVerifyRuntime);
+        diagnosticsMenu.setOnShowing(e -> miVerifyRuntime.setDisable(project == null));
 
         MenuItem miShowShortcuts = new MenuItem("Keyboard Shortcuts");
         miShowShortcuts.setOnAction(e -> showShortcutsOverlay());
         Menu helpMenu = new Menu("Help");
         helpMenu.getItems().add(miShowShortcuts);
 
-        MenuBar menuBar = new MenuBar(fileMenu, editMenu, timelineMenu, viewMenu, playbackMenu, sceneMenu, helpMenu);
+        MenuBar menuBar = new MenuBar(
+            fileMenu,
+            editMenu,
+            keyframesMenu,
+            timelineMenu,
+            characterMenu,
+            previewMenu,
+            playbackMenu,
+            cuesMenu,
+            exportMenu,
+            layoutMenu,
+            diagnosticsMenu,
+            helpMenu
+        );
         menuBar.setUseSystemMenuBar(false);
         menuBar.setFocusTraversable(false);
         menuBar.setMinHeight(Region.USE_PREF_SIZE);
@@ -8037,6 +8228,45 @@ public class PuppeteerWindow extends Stage {
         updatePreview();
     }
 
+    private void setTimelineSnapEnabled(boolean enabled) {
+        if (timelinePanel == null) return;
+        timelinePanel.setSnapEnabled(enabled);
+        if (cbSnap != null && cbSnap.isSelected() != enabled) {
+            cbSnap.setSelected(enabled);
+        }
+        updateStatusBar();
+        refreshToolbarCommandSummary();
+    }
+
+    private void setTimelineSnapStep(double stepMs) {
+        if (timelinePanel == null) return;
+        timelinePanel.setSnapStepMs(stepMs);
+        if (tfSnapMs != null) {
+            tfSnapMs.setText(String.format(Locale.ROOT, "%.0f", timelinePanel.getSnapStepMs()));
+        }
+        updateStatusBar();
+        refreshToolbarCommandSummary();
+    }
+
+    private void setAutoKeyEnabled(boolean enabled) {
+        autoKeyEnabled = enabled;
+        if (cbAutoKey != null && cbAutoKey.isSelected() != enabled) {
+            cbAutoKey.setSelected(enabled);
+        }
+        updateStatusBar();
+        refreshToolbarCommandSummary();
+    }
+
+    private void setRuntimeParityPreviewEnabled(boolean enabled) {
+        runtimeParityPreview = enabled;
+        if (cbRuntimePreview != null && cbRuntimePreview.isSelected() != enabled) {
+            cbRuntimePreview.setSelected(enabled);
+        }
+        updatePreview();
+        updateStatusBar();
+        refreshToolbarCommandSummary();
+    }
+
     private void setViewportStabilizationEnabled(boolean enabled) {
         viewportStabilizationEnabled = enabled;
         if (cbViewportStabilize != null && cbViewportStabilize.isSelected() != enabled) {
@@ -8045,6 +8275,70 @@ public class PuppeteerWindow extends Stage {
         animationPreview.setViewportStabilizationEnabled(enabled);
         updatePreview();
         updateStatusBar();
+        refreshToolbarCommandSummary();
+    }
+
+    private void setPreviewSnapToGridEnabled(boolean enabled) {
+        if (animationPreview == null) return;
+        animationPreview.setSnapToGridEnabled(enabled);
+        if (cbSnapGrid != null && cbSnapGrid.isSelected() != enabled) {
+            cbSnapGrid.setSelected(enabled);
+        }
+        updateStatusBar();
+        refreshToolbarCommandSummary();
+    }
+
+    private void setPreviewSnapToEntityEnabled(boolean enabled) {
+        if (animationPreview == null) return;
+        animationPreview.setSnapToEntityEnabled(enabled);
+        if (cbSnapEntity != null && cbSnapEntity.isSelected() != enabled) {
+            cbSnapEntity.setSelected(enabled);
+        }
+        updateStatusBar();
+        refreshToolbarCommandSummary();
+    }
+
+    private void setScrollZoomMode(AnimationPreview.ScrollZoomMode mode) {
+        AnimationPreview.ScrollZoomMode resolved = mode == null
+            ? AnimationPreview.ScrollZoomMode.VIEW
+            : mode;
+        if (animationPreview != null) {
+            animationPreview.setScrollZoomMode(resolved);
+        }
+        String label = resolved == AnimationPreview.ScrollZoomMode.CAMERA ? "Wheel: Camera" : "Wheel: View";
+        if (cbWheelMode != null && !Objects.equals(cbWheelMode.getValue(), label)) {
+            cbWheelMode.setValue(label);
+        }
+        updateStatusBar();
+        refreshToolbarCommandSummary();
+    }
+
+    private void setPlaybackSpeed(double speed) {
+        double resolved = Double.isFinite(speed) && speed > 0.0 ? speed : 1.0;
+        playbackSpeed = resolved;
+        String label = formatPlaybackSpeedLabel(resolved);
+        if (cbSpeed != null && !Objects.equals(cbSpeed.getValue(), label)) {
+            cbSpeed.setValue(label);
+        }
+        updateStatusBar();
+    }
+
+    private static String formatPlaybackSpeedLabel(double speed) {
+        double resolved = Double.isFinite(speed) && speed > 0.0 ? speed : 1.0;
+        if (Math.abs(resolved - Math.rint(resolved)) < 0.0001) {
+            return String.format(Locale.ROOT, "%.0fx", resolved);
+        }
+        return String.format(Locale.ROOT, "%.2fx", resolved).replaceAll("0+x$", "x");
+    }
+
+    private void setCompactExportEnabled(boolean enabled) {
+        compactExport = enabled;
+        if (cbCompactExport != null && cbCompactExport.isSelected() != enabled) {
+            cbCompactExport.setSelected(enabled);
+        }
+        refreshExportPreview();
+        updateStatusBar();
+        refreshToolbarCommandSummary();
     }
 
     private void setupPlaybackTimer() {
@@ -12167,7 +12461,7 @@ public class PuppeteerWindow extends Stage {
         Clipboard.getSystemClipboard().setContent(content);
     }
 
-    void showClipboardHistoryPopup(Button sourceButton) {
+    void showClipboardHistoryPopup() {
         if (clipboardHistory.isEmpty()) {
             if (statusBar != null) statusBar.setText("Clipboard history is empty");
             return;

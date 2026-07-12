@@ -21,7 +21,6 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.CheckMenuItem;
 import javafx.scene.control.ComboBox;
@@ -779,7 +778,7 @@ public final class PuppeteerWindowController {
         view.loadAndApplyClip();
     }
 
-    void showClipboardHistoryPopup(Button sourceButton) {
-        view.showClipboardHistoryPopup(sourceButton);
+    void showClipboardHistoryPopup() {
+        view.showClipboardHistoryPopup();
     }
 }
