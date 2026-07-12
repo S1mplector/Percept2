@@ -93,11 +93,17 @@ public class VnSaveManager {
     java.util.Map<String, String[]> vis = new java.util.HashMap<>();
     for (var entry : state.getVisibleCharacters().entrySet()) {
       String pos = entry.getKey().getName();
+      CharacterPosition basePosition = entry.getKey().getBasePosition();
       VnState.CharacterSlot slot = entry.getValue();
       vis.put(pos, new String[] {
           slot.getCharacterId(),
           slot.getExpression(),
-          Integer.toString(slot.getLayerOrder())
+          Integer.toString(slot.getLayerOrder()),
+          slot.getDisplaySlot(),
+          basePosition.getName(),
+          Double.toString(basePosition.getXFraction()),
+          Double.toString(basePosition.getYFraction()),
+          Boolean.toString(basePosition.isCustom())
       });
     }
     saveData.setVisibleCharacters(vis);
@@ -362,7 +368,7 @@ public class VnSaveManager {
       String pos = entry.getKey();
       String[] data = entry.getValue();
       try {
-        CharacterPosition position = CharacterPosition.predefined(pos);
+        CharacterPosition position = restoreCharacterPosition(pos, data);
         if (position == null) continue;
         String charId = data.length > 0 ? data[0] : null;
         String expr = data.length > 1 ? data[1] : "neutral";
@@ -374,7 +380,8 @@ public class VnSaveManager {
 // reason: malformed numeric text input; caller uses fallback value
           }
         }
-        if (charId != null) state.showCharacter(position, charId, expr, layer);
+        String displaySlot = data.length > 3 ? data[3] : null;
+        if (charId != null) state.showCharacter(position, charId, expr, layer, displaySlot);
       } catch (IllegalArgumentException ignored) {
         // reason: invalid argument from untrusted input; caller handles absent result
       }
@@ -461,8 +468,51 @@ public class VnSaveManager {
     }
   }
 
+  private CharacterPosition restoreCharacterPosition(String savedKey, String[] data) {
+    String baseName = data != null && data.length > 4 && data[4] != null && !data[4].isBlank()
+        ? data[4]
+        : savedKey;
+    CharacterPosition predefined = CharacterPosition.predefined(baseName);
+    if (predefined != null) return predefined;
+
+    Double x = data != null && data.length > 5 ? parseDoubleOrNull(data[5]) : null;
+    Double y = data != null && data.length > 6 ? parseDoubleOrNull(data[6]) : null;
+    if (x != null) {
+      return CharacterPosition.named(baseName == null || baseName.isBlank() ? "custom" : baseName, x, y == null ? -1.0 : y);
+    }
+
+    ParsedInlinePosition inline = parseInlinePositionName(baseName);
+    if (inline != null) return CharacterPosition.at(inline.x(), inline.y());
+    inline = parseInlinePositionName(savedKey);
+    if (inline != null) return CharacterPosition.at(inline.x(), inline.y());
+    return null;
+  }
+
+  private Double parseDoubleOrNull(String raw) {
+    if (raw == null || raw.isBlank()) return null;
+    try {
+      return Double.parseDouble(raw.trim());
+    } catch (NumberFormatException ignored) {
+      // reason: malformed save data should skip this optional coordinate
+      return null;
+    }
+  }
+
+  private ParsedInlinePosition parseInlinePositionName(String name) {
+    if (name == null || !name.startsWith("_at_")) return null;
+    String body = name.substring("_at_".length());
+    int sep = body.lastIndexOf('_');
+    if (sep <= 0 || sep >= body.length() - 1) return null;
+    Double x = parseDoubleOrNull(body.substring(0, sep));
+    Double y = parseDoubleOrNull(body.substring(sep + 1));
+    if (x == null || y == null) return null;
+    return new ParsedInlinePosition(x, y);
+  }
+
   private String sanitizeFileName(String name) {
     if (name == null || name.isBlank()) return "unnamed";
     return name.replaceAll("[^a-zA-Z0-9._-]", "_");
   }
+
+  private record ParsedInlinePosition(double x, double y) {}
 }

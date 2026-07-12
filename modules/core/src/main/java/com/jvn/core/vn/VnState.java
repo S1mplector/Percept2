@@ -149,8 +149,18 @@ public class VnState {
   }
 
   public DetachedCharacterSlot getDetachedCharacter(String characterId) {
-    if (characterId == null || characterId.isBlank()) return null;
-    return detachedCharacters.get(characterId.trim());
+    String key = stateKey(characterId, null);
+    return key.isEmpty() ? null : detachedCharacters.get(key);
+  }
+
+  public DetachedCharacterSlot getDetachedCharacter(String characterId, String displaySlot) {
+    String key = stateKey(characterId, displaySlot);
+    return key.isEmpty() ? null : detachedCharacters.get(key);
+  }
+
+  public DetachedCharacterSlot getDetachedDisplaySlot(String displaySlot) {
+    String key = stateKey(null, displaySlot);
+    return key.isEmpty() ? null : detachedCharacters.get(key);
   }
 
   public void showCharacter(CharacterPosition position, String characterId, String expression) {
@@ -158,26 +168,53 @@ public class VnState {
   }
 
   public void showCharacter(CharacterPosition position, String characterId, String expression, Integer layerOrder) {
-    CharacterPosition target = fallbackPositionFor(characterId, position);
+    showCharacter(position, characterId, expression, layerOrder, null);
+  }
+
+  public void showCharacter(CharacterPosition position,
+                            String characterId,
+                            String expression,
+                            Integer layerOrder,
+                            String displaySlot) {
+    String normalizedSlot = normalizeDisplaySlotId(displaySlot);
+    CharacterPosition baseTarget = fallbackPositionFor(characterId, position);
+    CharacterPosition target = displayPositionFor(baseTarget, normalizedSlot);
     String resolvedExpression = normalizeExpression(expression, "neutral");
-    CharacterPosition existingPos = findCharacterPosition(characterId);
+    CharacterPosition existingPos = findTargetPosition(characterId, normalizedSlot);
     CharacterSlot existingSlot = existingPos == null ? null : visibleCharacters.get(existingPos);
-    int resolvedLayerOrder = resolveLayerOrder(target, layerOrder, existingSlot != null ? existingSlot.getLayerOrder() : null);
-    detachedCharacters.remove(normalizeCharacterId(characterId));
-    detachTimelineDisplacedOccupant(target, characterId);
-    removeOtherSlotsForCharacter(characterId, target);
-    visibleCharacters.put(target, new CharacterSlot(characterId, resolvedExpression, resolvedLayerOrder));
+    int resolvedLayerOrder = resolveLayerOrder(baseTarget, layerOrder, existingSlot != null ? existingSlot.getLayerOrder() : null);
+    removeConflictingSlots(characterId, normalizedSlot, target);
+    detachedCharacters.remove(stateKey(characterId, normalizedSlot));
+    if (normalizedSlot.isEmpty()) {
+      detachTimelineDisplacedOccupant(target, characterId, normalizedSlot);
+    }
+    clearVisibleSlotState(target);
+    visibleCharacters.put(target, new CharacterSlot(characterId, resolvedExpression, resolvedLayerOrder, normalizedSlot));
     pendingExpressionSwitches.remove(target);
-    expressionTransitions.remove(normalizeCharacterId(characterId));
+    expressionTransitions.remove(stateKey(characterId, normalizedSlot));
     CharacterVisual visual = ensureCharacterVisual(target);
     visual.setImmediate(1.0, 0.0, 0.0);
-    if (isCharacterGlobalPositionEnabled(characterId)) {
-      characterDefinedPositions.put(characterId, target);
+    if (normalizedSlot.isEmpty() && isCharacterGlobalPositionEnabled(characterId)) {
+      characterDefinedPositions.put(characterId, baseTarget);
     }
   }
 
   public void hideCharacter(CharacterPosition position) {
     removeSlot(position);
+  }
+
+  public void hideCharacter(String characterId, String displaySlot) {
+    String key = stateKey(characterId, displaySlot);
+    if (key.isEmpty()) return;
+    CharacterPosition position = findTargetPosition(characterId, displaySlot);
+    if (position != null) {
+      removeSlot(position);
+      return;
+    }
+    detachedCharacters.remove(key);
+    expressionTransitions.remove(key);
+    timelineDisplacements.remove(key);
+    timelineTransforms.remove(key);
   }
 
   public void clearAllCharacters() {
@@ -201,20 +238,32 @@ public class VnState {
 
   public void showCharacterAnimated(CharacterPosition position, String characterId, String expression,
                                      Integer layerOrder, Easing.Type easingType, long customDurationMs) {
-    CharacterPosition target = fallbackPositionFor(characterId, position);
-    CharacterPosition existingPos = findCharacterPosition(characterId);
+    showCharacterAnimated(position, characterId, expression, layerOrder, easingType, customDurationMs, null);
+  }
+
+  public void showCharacterAnimated(CharacterPosition position,
+                                    String characterId,
+                                    String expression,
+                                    Integer layerOrder,
+                                    Easing.Type easingType,
+                                    long customDurationMs,
+                                    String displaySlot) {
+    String normalizedSlot = normalizeDisplaySlotId(displaySlot);
+    CharacterPosition baseTarget = fallbackPositionFor(characterId, position);
+    CharacterPosition target = displayPositionFor(baseTarget, normalizedSlot);
+    CharacterPosition existingPos = findTargetPosition(characterId, normalizedSlot);
     CharacterSlot existingSlot = existingPos == null ? null : visibleCharacters.get(existingPos);
     String fallbackExpression = existingSlot != null ? existingSlot.getExpression() : "neutral";
     String resolvedExpression = normalizeExpression(expression, fallbackExpression);
-    int resolvedLayerOrder = resolveLayerOrder(target, layerOrder, existingSlot != null ? existingSlot.getLayerOrder() : null);
+    int resolvedLayerOrder = resolveLayerOrder(baseTarget, layerOrder, existingSlot != null ? existingSlot.getLayerOrder() : null);
 
     if (existingPos != null && existingSlot != null && existingPos.equals(target)) {
       updateVisibleSlotExpression(target, existingSlot, resolvedExpression, resolvedLayerOrder,
           DEFAULT_EXPRESSION_TRANSITION_MS, null);
       pendingExpressionSwitches.remove(target);
       ensureCharacterVisual(target);
-      if (isCharacterGlobalPositionEnabled(characterId)) {
-        characterDefinedPositions.put(characterId, target);
+      if (normalizedSlot.isEmpty() && isCharacterGlobalPositionEnabled(characterId)) {
+        characterDefinedPositions.put(characterId, baseTarget);
       }
       return;
     }
@@ -224,32 +273,55 @@ public class VnState {
       long moveDur = customDurationMs > 0 ? customDurationMs : CHARACTER_MOVE_MS;
       String movingExpression = normalizeExpression(existingSlot.getExpression(), resolvedExpression);
       removeSlot(existingPos);
-      visibleCharacters.put(target, new CharacterSlot(characterId, movingExpression, resolvedLayerOrder));
+      visibleCharacters.put(target, new CharacterSlot(characterId, movingExpression, resolvedLayerOrder, normalizedSlot));
       CharacterVisual visual = ensureCharacterVisual(target);
       double startOffset = positionDeltaOffset(existingPos, target);
       visual.startAnimation(1.0, 1.0, startOffset, 0.0, 0.0, 0.0, moveDur, false, easingType);
       pendingExpressionSwitches.remove(target);
       if (!resolvedExpression.equals(movingExpression)) {
         pendingExpressionSwitches.put(target, new PendingExpressionSwitch(
-            characterId, resolvedExpression, moveDur, DEFAULT_EXPRESSION_TRANSITION_MS, null));
+            characterId, normalizedSlot, resolvedExpression, moveDur, DEFAULT_EXPRESSION_TRANSITION_MS, null));
       }
-      characterDefinedPositions.put(characterId, target);
+      if (normalizedSlot.isEmpty()) {
+        characterDefinedPositions.put(characterId, baseTarget);
+      }
       return;
     }
 
     long tweenDur = customDurationMs > 0 ? customDurationMs : CHARACTER_TWEEN_MS;
-    detachedCharacters.remove(normalizeCharacterId(characterId));
-    detachTimelineDisplacedOccupant(target, characterId);
-    removeOtherSlotsForCharacter(characterId, target);
-    visibleCharacters.put(target, new CharacterSlot(characterId, resolvedExpression, resolvedLayerOrder));
+    removeConflictingSlots(characterId, normalizedSlot, target);
+    detachedCharacters.remove(stateKey(characterId, normalizedSlot));
+    if (normalizedSlot.isEmpty()) {
+      detachTimelineDisplacedOccupant(target, characterId, normalizedSlot);
+    }
+    clearVisibleSlotState(target);
+    visibleCharacters.put(target, new CharacterSlot(characterId, resolvedExpression, resolvedLayerOrder, normalizedSlot));
     pendingExpressionSwitches.remove(target);
-    expressionTransitions.remove(normalizeCharacterId(characterId));
+    expressionTransitions.remove(stateKey(characterId, normalizedSlot));
     CharacterVisual visual = ensureCharacterVisual(target);
     double startX = entranceOffsetX(target);
     visual.startAnimation(0.0, 1.0, startX, 0.0, 0.0, 0.0, tweenDur, false, easingType);
-    if (isCharacterGlobalPositionEnabled(characterId)) {
-      characterDefinedPositions.put(characterId, target);
+    if (normalizedSlot.isEmpty() && isCharacterGlobalPositionEnabled(characterId)) {
+      characterDefinedPositions.put(characterId, baseTarget);
     }
+  }
+
+  public boolean moveDisplaySlotAnimated(String displaySlot,
+                                         CharacterPosition position,
+                                         String expression,
+                                         Easing.Type easingType,
+                                         long customDurationMs) {
+    CharacterPosition existingPos = findDisplaySlotPosition(displaySlot);
+    CharacterSlot existingSlot = existingPos == null ? null : visibleCharacters.get(existingPos);
+    if (existingSlot == null) return false;
+    showCharacterAnimated(position,
+        existingSlot.getCharacterId(),
+        expression == null ? existingSlot.getExpression() : expression,
+        null,
+        easingType,
+        customDurationMs,
+        existingSlot.getDisplaySlot());
+    return true;
   }
 
   public void hideCharacterAnimated(CharacterPosition position) {
@@ -260,18 +332,27 @@ public class VnState {
   }
 
   public void hideCharacterAnimated(String characterId) {
+    hideCharacterAnimated(characterId, null);
+  }
+
+  public void hideCharacterAnimated(String characterId, String displaySlot) {
     String id = normalizeCharacterId(characterId);
-    if (id.isEmpty()) return;
-    CharacterPosition position = findCharacterPosition(id);
+    String slot = normalizeDisplaySlotId(displaySlot);
+    if (id.isEmpty() && slot.isEmpty()) return;
+    CharacterPosition position = findTargetPosition(id, slot);
     if (position != null) {
       hideCharacterAnimated(position);
       return;
     }
-    DetachedCharacterSlot detached = detachedCharacters.get(id);
+    DetachedCharacterSlot detached = detachedCharacters.get(stateKey(id, slot));
     if (detached == null) return;
     CharacterVisual visual = detached.getVisual();
     double endX = entranceOffsetX(detached.getBasePosition());
     visual.startAnimation(visual.getAlpha(), 0.0, visual.getOffsetX(), endX, visual.getOffsetY(), 0.0, CHARACTER_TWEEN_MS, true);
+  }
+
+  public void hideDisplaySlotAnimated(String displaySlot) {
+    hideCharacterAnimated(null, displaySlot);
   }
 
   public CharacterVisual getCharacterVisual(CharacterPosition position) {
@@ -293,11 +374,12 @@ public class VnState {
           CharacterSlot slot = visibleCharacters.remove(entry.getKey());
           pendingExpressionSwitches.remove(entry.getKey());
           if (slot != null) {
-            expressionTransitions.remove(normalizeCharacterId(slot.getCharacterId()));
+            String key = stateKey(slot);
+            expressionTransitions.remove(key);
             eyeFocusRequests.remove(slot.getCharacterId());
-            detachedCharacters.remove(slot.getCharacterId());
-            timelineDisplacements.remove(slot.getCharacterId());
-            timelineTransforms.remove(slot.getCharacterId());
+            detachedCharacters.remove(key);
+            timelineDisplacements.remove(key);
+            timelineTransforms.remove(key);
           }
           it.remove();
         }
@@ -311,8 +393,9 @@ public class VnState {
         CharacterVisual visual = entry.getValue().getVisual();
         visual.update(deltaMs);
         if (visual.isFinished() && visual.isRemoveOnComplete()) {
-          eyeFocusRequests.remove(entry.getKey());
-          expressionTransitions.remove(normalizeCharacterId(entry.getKey()));
+          CharacterSlot slot = entry.getValue().getSlot();
+          if (slot != null) eyeFocusRequests.remove(slot.getCharacterId());
+          expressionTransitions.remove(entry.getKey());
           timelineDisplacements.remove(entry.getKey());
           timelineTransforms.remove(entry.getKey());
           it.remove();
@@ -329,7 +412,7 @@ public class VnState {
         if (!pending.tick(deltaMs)) continue;
 
         CharacterSlot slot = visibleCharacters.get(position);
-        if (slot == null || !pending.characterId.equals(slot.getCharacterId())) {
+        if (slot == null || !pending.matches(slot)) {
           it.remove();
           continue;
         }
@@ -343,9 +426,9 @@ public class VnState {
       var it = expressionTransitions.entrySet().iterator();
       while (it.hasNext()) {
         var entry = it.next();
-        String characterId = entry.getKey();
+        String stateKey = entry.getKey();
         ExpressionTransition transition = entry.getValue();
-        if (findCharacterPosition(characterId) == null && !detachedCharacters.containsKey(characterId)) {
+        if (findStateKeyPosition(stateKey) == null && !detachedCharacters.containsKey(stateKey)) {
           it.remove();
           continue;
         }
@@ -417,6 +500,14 @@ public class VnState {
 
   public CharacterPosition getCharacterPosition(String characterId) {
     return findCharacterPosition(characterId);
+  }
+
+  public CharacterPosition getCharacterPosition(String characterId, String displaySlot) {
+    return findTargetPosition(characterId, displaySlot);
+  }
+
+  public CharacterPosition getDisplaySlotPosition(String displaySlot) {
+    return findDisplaySlotPosition(displaySlot);
   }
 
   public TimelineDisplacement getTimelineDisplacement(String characterId) {
@@ -550,10 +641,14 @@ public class VnState {
   }
 
   public String getCharacterExpression(String characterId) {
-    CharacterPosition position = findCharacterPosition(characterId);
+    return getCharacterExpression(characterId, null);
+  }
+
+  public String getCharacterExpression(String characterId, String displaySlot) {
+    CharacterPosition position = findTargetPosition(characterId, displaySlot);
     CharacterSlot slot = position == null ? null : visibleCharacters.get(position);
     if (slot == null) {
-      DetachedCharacterSlot detached = getDetachedCharacter(characterId);
+      DetachedCharacterSlot detached = getDetachedCharacter(characterId, displaySlot);
       slot = detached == null ? null : detached.getSlot();
     }
     return slot == null ? null : slot.getExpression();
@@ -568,11 +663,20 @@ public class VnState {
   }
 
   public boolean setCharacterExpression(String characterId, String expression, long transitionDurationMs, Easing.Type easingType) {
+    return setCharacterExpression(characterId, null, expression, transitionDurationMs, easingType);
+  }
+
+  public boolean setCharacterExpression(String characterId,
+                                        String displaySlot,
+                                        String expression,
+                                        long transitionDurationMs,
+                                        Easing.Type easingType) {
     String id = normalizeCharacterId(characterId);
-    if (id.isEmpty()) return false;
+    String slotId = normalizeDisplaySlotId(displaySlot);
+    if (id.isEmpty() && slotId.isEmpty()) return false;
     String resolvedExpression = normalizeExpression(expression, "neutral");
 
-    CharacterPosition position = findCharacterPosition(id);
+    CharacterPosition position = findTargetPosition(id, slotId);
     if (position != null) {
       CharacterSlot slot = visibleCharacters.get(position);
       if (slot == null) return false;
@@ -582,21 +686,29 @@ public class VnState {
       return true;
     }
 
-    DetachedCharacterSlot detached = detachedCharacters.get(id);
+    String key = stateKey(id, slotId);
+    DetachedCharacterSlot detached = detachedCharacters.get(key);
     if (detached == null || detached.getSlot() == null) return false;
     CharacterSlot slot = detached.getSlot();
-    beginExpressionTransition(slot.getCharacterId(), slot.getExpression(), resolvedExpression, transitionDurationMs, easingType);
-    detachedCharacters.put(id, new DetachedCharacterSlot(
+    beginExpressionTransition(stateKey(slot), slot.getExpression(), resolvedExpression, transitionDurationMs, easingType);
+    detachedCharacters.put(key, new DetachedCharacterSlot(
         detached.getBasePosition(),
-        new CharacterSlot(slot.getCharacterId(), resolvedExpression, slot.getLayerOrder()),
+        new CharacterSlot(slot.getCharacterId(), resolvedExpression, slot.getLayerOrder(), slot.getDisplaySlot()),
         detached.getVisual()));
     return true;
   }
 
   public ExpressionTransition getExpressionTransition(String characterId) {
-    String id = normalizeCharacterId(characterId);
-    if (id.isEmpty()) return null;
-    ExpressionTransition transition = expressionTransitions.get(id);
+    String key = stateKey(characterId, null);
+    if (key.isEmpty()) return null;
+    ExpressionTransition transition = expressionTransitions.get(key);
+    return transition != null && !transition.isFinished() ? transition : null;
+  }
+
+  public ExpressionTransition getExpressionTransition(CharacterSlot slot) {
+    String key = stateKey(slot);
+    if (key.isEmpty()) return null;
+    ExpressionTransition transition = expressionTransitions.get(key);
     return transition != null && !transition.isFinished() ? transition : null;
   }
 
@@ -630,36 +742,43 @@ public class VnState {
     characterVisuals.remove(position);
     pendingExpressionSwitches.remove(position);
     if (slot != null) {
-      expressionTransitions.remove(normalizeCharacterId(slot.getCharacterId()));
+      String key = stateKey(slot);
+      expressionTransitions.remove(key);
       eyeFocusRequests.remove(slot.getCharacterId());
-      detachedCharacters.remove(slot.getCharacterId());
-      timelineDisplacements.remove(slot.getCharacterId());
-      timelineTransforms.remove(slot.getCharacterId());
+      detachedCharacters.remove(key);
+      timelineDisplacements.remove(key);
+      timelineTransforms.remove(key);
     }
   }
 
   /**
-   * A character should only occupy one slot at a time. If a character is re-shown at a new
-   * position, clear any older slot to avoid duplicate rendering.
+   * Unslotted characters keep legacy one-slot-per-character behavior. Named display slots are
+   * independent instances and only replace an older occupant of the same display slot.
    */
-  private void removeOtherSlotsForCharacter(String characterId, CharacterPosition keepPosition) {
-    if (characterId == null || characterId.isBlank() || visibleCharacters.isEmpty()) return;
+  private void removeConflictingSlots(String characterId, String displaySlot, CharacterPosition keepPosition) {
+    if (visibleCharacters.isEmpty()) return;
+    String normalizedSlot = normalizeDisplaySlotId(displaySlot);
+    String normalizedCharacter = normalizeCharacterId(characterId);
     var it = visibleCharacters.entrySet().iterator();
     while (it.hasNext()) {
       var entry = it.next();
-      if (entry.getKey() == keepPosition) continue;
+      if (entry.getKey().equals(keepPosition)) continue;
       CharacterSlot slot = entry.getValue();
-      if (slot != null && characterId.equals(slot.getCharacterId())) {
-        characterVisuals.remove(entry.getKey());
-        pendingExpressionSwitches.remove(entry.getKey());
-        it.remove();
-      }
+      if (slot == null) continue;
+      boolean remove = normalizedSlot.isEmpty()
+          ? slot.getDisplaySlot().isEmpty() && !normalizedCharacter.isEmpty() && normalizedCharacter.equals(slot.getCharacterId())
+          : normalizedSlot.equals(slot.getDisplaySlot());
+      if (!remove) continue;
+      clearSlotState(slot);
+      characterVisuals.remove(entry.getKey());
+      pendingExpressionSwitches.remove(entry.getKey());
+      it.remove();
     }
-    detachedCharacters.remove(normalizeCharacterId(characterId));
+    detachedCharacters.remove(stateKey(characterId, normalizedSlot));
   }
 
   private CharacterPosition fallbackPositionFor(String characterId, CharacterPosition requested) {
-    if (requested != null) return requested;
+    if (requested != null) return requested.getBasePosition();
     CharacterPosition defined = getCharacterDefinedPosition(characterId);
     return defined != null ? defined : CharacterPosition.CENTER;
   }
@@ -669,20 +788,54 @@ public class VnState {
     String id = characterId.trim();
     for (var entry : visibleCharacters.entrySet()) {
       CharacterSlot slot = entry.getValue();
-      if (slot != null && id.equals(slot.getCharacterId())) {
+      if (slot != null && slot.getDisplaySlot().isEmpty() && id.equals(slot.getCharacterId())) {
         return entry.getKey();
       }
     }
     return null;
   }
 
-  private void detachTimelineDisplacedOccupant(CharacterPosition target, String incomingCharacterId) {
+  private CharacterPosition findTargetPosition(String characterId, String displaySlot) {
+    String slot = normalizeDisplaySlotId(displaySlot);
+    return slot.isEmpty() ? findCharacterPosition(characterId) : findDisplaySlotPosition(slot);
+  }
+
+  private CharacterPosition findDisplaySlotPosition(String displaySlot) {
+    String slotId = normalizeDisplaySlotId(displaySlot);
+    if (slotId.isEmpty()) return null;
+    for (var entry : visibleCharacters.entrySet()) {
+      CharacterSlot slot = entry.getValue();
+      if (slot != null && slotId.equals(slot.getDisplaySlot())) {
+        return entry.getKey();
+      }
+    }
+    return null;
+  }
+
+  private CharacterPosition findStateKeyPosition(String stateKey) {
+    if (stateKey == null || stateKey.isBlank()) return null;
+    for (var entry : visibleCharacters.entrySet()) {
+      CharacterSlot slot = entry.getValue();
+      if (slot != null && stateKey.equals(stateKey(slot))) {
+        return entry.getKey();
+      }
+    }
+    return null;
+  }
+
+  private CharacterPosition displayPositionFor(CharacterPosition basePosition, String displaySlot) {
+    String slot = normalizeDisplaySlotId(displaySlot);
+    CharacterPosition base = basePosition == null ? CharacterPosition.CENTER : basePosition.getBasePosition();
+    return slot.isEmpty() ? base : CharacterPosition.slotted(base, slot);
+  }
+
+  private void detachTimelineDisplacedOccupant(CharacterPosition target, String incomingCharacterId, String incomingDisplaySlot) {
     if (target == null) return;
     CharacterSlot occupant = visibleCharacters.get(target);
     if (occupant == null) return;
 
-    String occupantId = normalizeCharacterId(occupant.getCharacterId());
-    String incomingId = normalizeCharacterId(incomingCharacterId);
+    String occupantId = stateKey(occupant);
+    String incomingId = stateKey(incomingCharacterId, incomingDisplaySlot);
     if (occupantId.isEmpty() || occupantId.equals(incomingId)) return;
     if (!hasTimelineDisplacementAwayFromSlot(occupantId)) return;
 
@@ -703,17 +856,17 @@ public class VnState {
     if (slot == null || position == null) return;
     String previousExpression = normalizeExpression(slot.getExpression(), "neutral");
     String nextExpression = normalizeExpression(resolvedExpression, previousExpression);
-    visibleCharacters.put(position, new CharacterSlot(slot.getCharacterId(), nextExpression, layerOrder));
-    beginExpressionTransition(slot.getCharacterId(), previousExpression, nextExpression, transitionDurationMs, easingType);
+    visibleCharacters.put(position, new CharacterSlot(slot.getCharacterId(), nextExpression, layerOrder, slot.getDisplaySlot()));
+    beginExpressionTransition(stateKey(slot), previousExpression, nextExpression, transitionDurationMs, easingType);
   }
 
   private void beginExpressionTransition(
-      String characterId,
+      String stateKey,
       String previousExpression,
       String nextExpression,
       long transitionDurationMs,
       Easing.Type easingType) {
-    String id = normalizeCharacterId(characterId);
+    String id = stateKey == null ? "" : stateKey.trim();
     if (id.isEmpty()) return;
     String from = normalizeExpression(previousExpression, "neutral");
     String to = normalizeExpression(nextExpression, from);
@@ -740,6 +893,35 @@ public class VnState {
 
   private String normalizeCharacterId(String characterId) {
     return characterId == null ? "" : characterId.trim();
+  }
+
+  public String normalizeDisplaySlotId(String displaySlot) {
+    return displaySlot == null ? "" : displaySlot.trim();
+  }
+
+  private String stateKey(CharacterSlot slot) {
+    return slot == null ? "" : stateKey(slot.getCharacterId(), slot.getDisplaySlot());
+  }
+
+  private String stateKey(String characterId, String displaySlot) {
+    String slot = normalizeDisplaySlotId(displaySlot);
+    if (!slot.isEmpty()) return "slot:" + slot;
+    return normalizeCharacterId(characterId);
+  }
+
+  private void clearVisibleSlotState(CharacterPosition position) {
+    CharacterSlot existing = position == null ? null : visibleCharacters.get(position);
+    if (existing != null) clearSlotState(existing);
+  }
+
+  private void clearSlotState(CharacterSlot slot) {
+    if (slot == null) return;
+    String key = stateKey(slot);
+    expressionTransitions.remove(key);
+    detachedCharacters.remove(key);
+    timelineDisplacements.remove(key);
+    timelineTransforms.remove(key);
+    eyeFocusRequests.remove(slot.getCharacterId());
   }
 
   private String normalizeExpression(String expression, String fallback) {
@@ -1110,20 +1292,27 @@ public class VnState {
     private final String characterId;
     private final String expression;
     private final int layerOrder;
+    private final String displaySlot;
 
     public CharacterSlot(String characterId, String expression) {
       this(characterId, expression, 0);
     }
 
     public CharacterSlot(String characterId, String expression, int layerOrder) {
+      this(characterId, expression, layerOrder, null);
+    }
+
+    public CharacterSlot(String characterId, String expression, int layerOrder, String displaySlot) {
       this.characterId = characterId;
       this.expression = expression;
       this.layerOrder = layerOrder;
+      this.displaySlot = displaySlot == null ? "" : displaySlot.trim();
     }
 
     public String getCharacterId() { return characterId; }
     public String getExpression() { return expression; }
     public int getLayerOrder() { return layerOrder; }
+    public String getDisplaySlot() { return displaySlot; }
   }
 
   public static class DetachedCharacterSlot {
@@ -1345,13 +1534,20 @@ public class VnState {
 
   private static class PendingExpressionSwitch {
     private final String characterId;
+    private final String displaySlot;
     private final String expression;
     private final long transitionDurationMs;
     private final Easing.Type easingType;
     private long remainingMs;
 
-    private PendingExpressionSwitch(String characterId, String expression, long delayMs, long transitionDurationMs, Easing.Type easingType) {
+    private PendingExpressionSwitch(String characterId,
+                                    String displaySlot,
+                                    String expression,
+                                    long delayMs,
+                                    long transitionDurationMs,
+                                    Easing.Type easingType) {
       this.characterId = characterId;
+      this.displaySlot = displaySlot == null ? "" : displaySlot.trim();
       this.expression = expression == null || expression.isBlank() ? "neutral" : expression.trim();
       this.transitionDurationMs = Math.max(0L, transitionDurationMs);
       this.easingType = easingType;
@@ -1361,6 +1557,12 @@ public class VnState {
     private boolean tick(long deltaMs) {
       remainingMs = Math.max(0L, remainingMs - Math.max(0L, deltaMs));
       return remainingMs <= 0L;
+    }
+
+    private boolean matches(CharacterSlot slot) {
+      if (slot == null) return false;
+      String slotId = slot.getDisplaySlot() == null ? "" : slot.getDisplaySlot().trim();
+      return characterId.equals(slot.getCharacterId()) && displaySlot.equals(slotId);
     }
   }
 

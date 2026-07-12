@@ -1410,6 +1410,7 @@ public class VnScriptParser {
         CharacterPosition pos = null;
         Integer layerOrder = null;
         String expr = "neutral";
+        String displaySlot = null;
         boolean exprSet = false;
         for (int i = 1; i < toks.length; i++) {
           String token = toks[i].trim();
@@ -1434,6 +1435,7 @@ public class VnScriptParser {
                 exprSet = true;
               }
               case "layer", "z", "zorder" -> layerOrder = parseIntegerValue(option.value(), "[show]", "layer", sourceName, lineNumber, rawLine);
+              case "slot", "as", "instance", "display", "display_slot", "display-slot" -> displaySlot = option.value();
               default -> throw parseError(sourceName, lineNumber, "[show] unknown option: " + option.key(), rawLine);
             }
             continue;
@@ -1456,12 +1458,35 @@ public class VnScriptParser {
         if (pos == null) {
           throw parseError(sourceName, lineNumber, "[show] requires a position via positional arg, pos=..., or at=...", rawLine);
         }
-        state.builder.show(charId, expr, pos, layerOrder);
+        state.builder.show(charId, expr, pos, layerOrder, displaySlot);
         return;
       }
       case "hide": {
-        String charId = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
-        state.builder.hide(charId);
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        String[] toks = VnArgTokenizer.tokenizeToArray(payload);
+        String charId = null;
+        String displaySlot = null;
+        for (String rawToken : toks) {
+          String token = rawToken == null ? "" : rawToken.trim();
+          if (token.isEmpty()) continue;
+          if (isNamedOptionToken(token, "hide")) {
+            KeyValueOption option = parseKeyValueOption(token, sourceName, lineNumber, rawLine, "[hide]");
+            switch (option.key()) {
+              case "slot", "as", "instance", "display", "display_slot", "display-slot" -> displaySlot = option.value();
+              default -> throw parseError(sourceName, lineNumber, "[hide] unknown option: " + option.key(), rawLine);
+            }
+            continue;
+          }
+          if (charId == null) {
+            charId = token;
+            continue;
+          }
+          throw parseError(sourceName, lineNumber, "[hide] unexpected token: " + token, rawLine);
+        }
+        if ((charId == null || charId.isBlank()) && (displaySlot == null || displaySlot.isBlank())) {
+          throw parseError(sourceName, lineNumber, "[hide] expects a character id or slot=...", rawLine);
+        }
+        state.builder.hide(charId, displaySlot);
         return;
       }
       case "lookat": {
@@ -1476,14 +1501,26 @@ public class VnScriptParser {
           throw parseError(sourceName, lineNumber, "[move] expects: [move <charId> <pos|at x,y> [expression] [easing] [durationMs]]", rawLine);
         }
 
-        String moveCharId = toks[0];
+        String moveCharId = null;
+        String moveDisplaySlot = null;
         CharacterPosition movePos = null;
         String moveExpr = null;
         Easing.Type moveEasing = null;
         long moveDur = 0;
 
         // Parse all tokens
-        int i = 1;
+        int i = 0;
+        if (isNamedOptionToken(toks[0], "move")) {
+          KeyValueOption option = parseKeyValueOption(toks[0], sourceName, lineNumber, rawLine, "[move]");
+          switch (option.key()) {
+            case "slot", "as", "instance", "display", "display_slot", "display-slot" -> moveDisplaySlot = option.value();
+            default -> throw parseError(sourceName, lineNumber, "[move] requires a character id before option: " + option.key(), rawLine);
+          }
+          i = 1;
+        } else {
+          moveCharId = toks[0];
+          i = 1;
+        }
 
         // First, handle positional position (second token)
         if (i < toks.length && !isNamedOptionToken(toks[i], "move")) {
@@ -1538,7 +1575,10 @@ public class VnScriptParser {
               case "pos", "position" -> movePos = parsePosition(option.value(), sourceName, lineNumber, rawLine, state);
               case "at", "coord", "coords", "xy" -> movePos = parseAtPosition(option.value(), sourceName, lineNumber, rawLine).position();
               case "expr", "expression", "preset" ->
-                  moveExpr = resolveInlineExpressionToken(state, moveCharId, option.value(), sourceName, lineNumber, rawLine);
+                  moveExpr = moveCharId == null || moveCharId.isBlank()
+                      ? option.value()
+                      : resolveInlineExpressionToken(state, moveCharId, option.value(), sourceName, lineNumber, rawLine);
+              case "slot", "as", "instance", "display", "display_slot", "display-slot" -> moveDisplaySlot = option.value();
               case "ease", "easing" -> {
                 moveEasing = parseEasingToken(option.value());
                 if (moveEasing == null) {
@@ -1573,7 +1613,9 @@ public class VnScriptParser {
 
           // Otherwise treat as expression
           if (moveExpr == null) {
-            moveExpr = resolveInlineExpressionToken(state, moveCharId, tok, sourceName, lineNumber, rawLine);
+            moveExpr = moveCharId == null || moveCharId.isBlank()
+                ? tok
+                : resolveInlineExpressionToken(state, moveCharId, tok, sourceName, lineNumber, rawLine);
             i++;
             continue;
           }
@@ -1584,8 +1626,11 @@ public class VnScriptParser {
         if (movePos == null) {
           throw parseError(sourceName, lineNumber, "[move] requires a position via positional arg, pos=..., or at=...", rawLine);
         }
+        if ((moveCharId == null || moveCharId.isBlank()) && (moveDisplaySlot == null || moveDisplaySlot.isBlank())) {
+          throw parseError(sourceName, lineNumber, "[move] expects a character id or slot=...", rawLine);
+        }
 
-        state.builder.move(moveCharId, movePos, moveExpr, moveEasing, moveDur);
+        state.builder.move(moveCharId, movePos, moveExpr, moveEasing, moveDur, moveDisplaySlot);
         return;
       }
       case "stage": {
@@ -2099,12 +2144,18 @@ public class VnScriptParser {
     return switch (commandName) {
       case "show" -> switch (key) {
         case "pos", "position", "at", "coord", "coords", "xy",
-             "expr", "expression", "preset", "layer", "z", "zorder" -> true;
+             "expr", "expression", "preset", "layer", "z", "zorder",
+             "slot", "as", "instance", "display", "display_slot", "display-slot" -> true;
         default -> false;
       };
       case "move" -> switch (key) {
         case "pos", "position", "at", "coord", "coords", "xy",
-             "expr", "expression", "preset", "ease", "easing", "dur", "duration", "ms" -> true;
+             "expr", "expression", "preset", "ease", "easing", "dur", "duration", "ms",
+             "slot", "as", "instance", "display", "display_slot", "display-slot" -> true;
+        default -> false;
+      };
+      case "hide" -> switch (key) {
+        case "slot", "as", "instance", "display", "display_slot", "display-slot" -> true;
         default -> false;
       };
       case "transition" -> switch (key) {

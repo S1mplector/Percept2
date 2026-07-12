@@ -158,14 +158,11 @@ public final class VnSaveSerializer {
                     @SuppressWarnings("unchecked")
                     List<Object> arr = (List<Object>) entry.getValue();
                     if (arr != null && arr.size() >= 2) {
-                        String charId = toNullableString(arr.get(0));
-                        String expression = toNullableString(arr.get(1));
-                        String layer = arr.size() >= 3 ? toNullableString(arr.get(2)) : null;
-                        if (layer != null && !layer.isBlank()) {
-                            visibleCharacters.put(entry.getKey(), new String[]{charId, expression, layer});
-                        } else {
-                            visibleCharacters.put(entry.getKey(), new String[]{charId, expression});
+                        String[] values = new String[arr.size()];
+                        for (int i = 0; i < arr.size(); i++) {
+                            values[i] = toNullableString(arr.get(i));
                         }
+                        visibleCharacters.put(entry.getKey(), values);
                     }
                 }
             }
@@ -387,11 +384,13 @@ public final class VnSaveSerializer {
                 String[] arr = entry.getValue();
                 sb.append("    \"").append(escapeJson(entry.getKey())).append("\": [");
                 if (arr != null && arr.length >= 2) {
-                    sb.append("\"").append(escapeJson(arr[0])).append("\", ");
-                    sb.append("\"").append(escapeJson(arr[1])).append("\"");
-                    if (arr.length >= 3 && arr[2] != null) {
-                        sb.append(", ");
-                        sb.append("\"").append(escapeJson(arr[2])).append("\"");
+                    for (int ai = 0; ai < arr.length; ai++) {
+                        if (ai > 0) sb.append(", ");
+                        if (arr[ai] == null) {
+                            sb.append("null");
+                        } else {
+                            sb.append("\"").append(escapeJson(arr[ai])).append("\"");
+                        }
                     }
                 }
                 sb.append("]");

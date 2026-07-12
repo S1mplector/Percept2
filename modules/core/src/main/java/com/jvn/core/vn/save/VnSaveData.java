@@ -11,7 +11,7 @@ import java.util.Set;
  */
 public class VnSaveData implements Serializable {
   private static final long serialVersionUID = 1L;
-  public static final int CURRENT_SCHEMA_VERSION = 4;
+  public static final int CURRENT_SCHEMA_VERSION = 5;
   
   private int schemaVersion = CURRENT_SCHEMA_VERSION;
   private String scenarioId;
@@ -19,7 +19,7 @@ public class VnSaveData implements Serializable {
   private String currentBackgroundId;
   private Map<String, Object> variables;
   private Set<Integer> readNodes;
-  private Map<String, String[]> visibleCharacters; // position -> [characterId, expression]
+  private Map<String, String[]> visibleCharacters; // render position -> [characterId, expression, layer, slot, basePosition, x, y, custom]
   private java.util.List<Integer> callStack;
   private Set<String> globalPositionCharacters;
   private Map<String, String> characterDefinedPositions; // characterId -> CharacterPosition enum name

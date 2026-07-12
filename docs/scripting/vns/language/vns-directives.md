@@ -330,7 +330,9 @@ hero: I should head inside.
 
 Named custom positions work everywhere predefined positions (`center`, `left`, etc.) are accepted — in `[show]`, `[move]`, and `[char ... move/at]` commands.
 
-**See also:** [Characters & Sprites — Custom Positions](../presentation/vns-characters.md#custom-positions) for inline `at x,y[,z]` syntax and full examples.
+If you need multiple sprites at the same visual position, prefer display slots (`slot=<id>`) over duplicate `@position` declarations with identical coordinates.
+
+**See also:** [Characters & Sprites — Custom Positions](../presentation/vns-characters.md#custom-positions) for inline `at x,y[,z]` syntax and full examples, and [Character Display Slots](../presentation/vns-display-slots.md) for same-position sprite instances.
 
 ---
 

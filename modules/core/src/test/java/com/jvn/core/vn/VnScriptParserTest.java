@@ -1873,6 +1873,59 @@ public class VnScriptParserTest {
   }
 
   @Test
+  public void displaySlotCommandsParseForShowMoveAndHide() throws Exception {
+    String script = """
+      @scenario test_display_slots
+      @character body "Body"
+      @character head "Head"
+      @charimg body neutral game/images/body.png
+      @charimg head neutral game/images/head.png
+      @charimg head blink game/images/head_blink.png
+
+      [show body center neutral slot=body z=0]
+      [show head center blink as=head z=10]
+      [move slot=head at 0.5,0.7 ease_out_quad 240]
+      [hide slot=head]
+      [end]
+    """;
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scenario = parser.parseFromString(script);
+
+    VnNode bodyShow = scenario.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.SHOW && "body".equals(n.getCharacterToShow()))
+        .findFirst()
+        .orElseThrow();
+    assertEquals("body", bodyShow.getDisplaySlot());
+    assertEquals(Integer.valueOf(0), bodyShow.getShowLayerOrder());
+
+    VnNode headShow = scenario.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.SHOW && "head".equals(n.getCharacterToShow()))
+        .findFirst()
+        .orElseThrow();
+    assertEquals("head", headShow.getDisplaySlot());
+    assertEquals("blink", headShow.getShowExpression());
+    assertEquals(Integer.valueOf(10), headShow.getShowLayerOrder());
+
+    VnNode move = scenario.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.MOVE)
+        .findFirst()
+        .orElseThrow();
+    assertNull(move.getCharacterToShow());
+    assertEquals("head", move.getDisplaySlot());
+    assertEquals(0.5, move.getShowPosition().getXFraction(), 0.0001);
+    assertEquals(0.7, move.getShowPosition().getYFraction(), 0.0001);
+    assertEquals(com.jvn.core.animation.Easing.Type.EASE_OUT_QUAD, move.getMoveEasingType());
+    assertEquals(240, move.getMoveDurationMs());
+
+    VnNode hide = scenario.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.HIDE)
+        .findFirst()
+        .orElseThrow();
+    assertNull(hide.getCharacterToHide());
+    assertEquals("head", hide.getDisplaySlot());
+  }
+
+  @Test
   public void customPositionMoveDeltaCalculation() {
     CharacterPosition from = CharacterPosition.at(0.2, 0.5);
     CharacterPosition to = CharacterPosition.at(0.8, 0.5);

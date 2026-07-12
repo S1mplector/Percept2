@@ -191,6 +191,34 @@ Default layer orders by position:
 
 If a character already has a layer order and you show them again without specifying one, the existing layer order is preserved.
 
+### Display slots for same-position sprites
+
+By default, a visible character is keyed by its position. Showing another character into the same position replaces the previous occupant:
+
+```vns
+[show body center neutral]
+[show head center neutral]     # replaces body
+```
+
+Use `slot=` when multiple sprites should share the same visual position:
+
+```vns
+[show body center neutral slot=body z=0]
+[show head center neutral slot=head z=10]
+```
+
+`position` controls where the sprite appears, `slot` controls which visible instance is being addressed, and `z` controls draw order. Slot aliases include `as=`, `instance=`, `display=`, `display_slot=`, and `display-slot=`.
+
+Slots can be moved, hidden, and expression-swapped independently:
+
+```vns
+[move slot=head at 0.5,0.72 ease_out_quad 240]
+[char head expression blink slot=head]
+[hide slot=head]
+```
+
+See [Character Display Slots](vns-display-slots.md) for the focused guide.
+
 ### Hiding characters
 
 ```vns
@@ -647,6 +675,7 @@ These durations are engine defaults and provide a polished feel without explicit
 
 - [VNS Overview](../overview/vns-scripting.md)
 - [Layered Character Presets Guide](vns-layered-charpresets.md) — practical guide to `@charlayer` + `@chargroup` + `@charpreset` with asset organization, cross-character refs, editor tooling
+- [Character Display Slots](vns-display-slots.md) — same-position sprite instances with `slot=`, slot-only move/hide, and save/rollback behavior
 - [Movable Character Layer Groups](vns-movable-layer-groups.md) — focused guide for nested movable groups, target names, pivots, and migration patterns
 - [Directives & Declarations](../language/vns-directives.md) — `@character`, `@charimg`, `@charlayer`, `@chargroup`, `@charpreset`
 - [Commands Reference](../language/vns-commands.md) — `[show]`, `[hide]`, `[char]`

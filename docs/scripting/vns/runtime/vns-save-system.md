@@ -42,13 +42,13 @@ The directory is created automatically if it does not exist.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `schemaVersion` | int | Schema version (current: 4) |
+| `schemaVersion` | int | Schema version (current: 5) |
 | `scenarioId` | String | Script identifier (`@scenario` ID) |
 | `currentNodeIndex` | int | Position in the node list |
 | `currentBackgroundId` | String | Active background |
 | `variables` | Map<String, Object> | Script variables |
 | `readNodes` | Set<Integer> | Which nodes have been visited |
-| `visibleCharacters` | Map<String, String[]> | Position → [charId, expression, layerOrder] |
+| `visibleCharacters` | Map<String, String[]> | Render position → [charId, expression, layerOrder, displaySlot, basePosition, x, y, custom] |
 | `callStack` | List<Integer> | Subroutine return addresses |
 | `globalPositionCharacters` | Set<String> | Characters with global positioning enabled |
 | `characterDefinedPositions` | Map<String, String> | Character → last assigned position |

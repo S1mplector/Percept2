@@ -100,4 +100,37 @@ public class VnSavePersistenceTest {
     assertEquals("alice", loaded.getVisibleCharacters().get(CharacterPosition.LEFT).getCharacterId());
     assertEquals(15, loaded.getVisibleCharacters().get(CharacterPosition.LEFT).getLayerOrder());
   }
+
+  @Test
+  public void savesAndLoadsDisplaySlotsAtSamePosition() throws Exception {
+    VnScenario scenario = new VnScenarioBuilder("slot_persist_story")
+        .addCharacter("body", "Body")
+        .addCharacter("head", "Head")
+        .end()
+        .build();
+
+    VnState state = new VnState();
+    state.setScenario(scenario);
+    state.showCharacter(CharacterPosition.CENTER, "body", "neutral", 0, "body");
+    state.showCharacter(CharacterPosition.CENTER, "head", "neutral", 10, "head");
+
+    Path tmp = Files.createTempDirectory("vn_slot_saves_test");
+    VnSaveManager mgr = new VnSaveManager(tmp.toString());
+    mgr.save(state, "slot_display");
+    VnSaveData data = mgr.load("slot_display");
+
+    VnState loaded = new VnState();
+    loaded.setScenario(scenario);
+    mgr.applyToState(data, loaded);
+
+    assertEquals(2, loaded.getVisibleCharacters().size());
+    CharacterPosition bodySlot = loaded.getDisplaySlotPosition("body");
+    CharacterPosition headSlot = loaded.getDisplaySlotPosition("head");
+    assertTrue(bodySlot != null && headSlot != null);
+    assertEquals(CharacterPosition.CENTER, bodySlot.getBasePosition());
+    assertEquals(CharacterPosition.CENTER, headSlot.getBasePosition());
+    assertEquals("body", loaded.getVisibleCharacters().get(bodySlot).getCharacterId());
+    assertEquals("head", loaded.getVisibleCharacters().get(headSlot).getCharacterId());
+    assertEquals(10, loaded.getVisibleCharacters().get(headSlot).getLayerOrder());
+  }
 }

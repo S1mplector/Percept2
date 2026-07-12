@@ -28,7 +28,7 @@ Every time a **dialogue node** is processed, the engine captures a snapshot of t
 | `nodeIndex` | Position in the node list |
 | `backgroundId` | Current background |
 | `variables` | Full variable map (deep copy) |
-| `visibleCharacters` | Character positions, expressions, and layer orders |
+| `visibleCharacters` | Character positions, expressions, layer orders, and display slot ids |
 | `readNodes` | Which nodes have been visited |
 | `callStack` | Subroutine return addresses |
 | `globalPositionCharacters` | Characters with global positioning |
@@ -100,7 +100,7 @@ When `applyTo(state)` is called, it restores:
 2. Variables (full map replacement)
 3. Read nodes set
 4. Call stack
-5. All visible characters (cleared first, then re-shown with correct layer order)
+5. All visible characters (cleared first, then re-shown with correct layer order and display slot identity)
 6. Global position state
 7. Skip mode, auto-play mode, and timers
 8. UI hidden state

@@ -63,4 +63,26 @@ class VnRollbackEntryTest {
     assertEquals(777L, state.getAutoPlayTimer());
     assertTrue(state.isUiHidden());
   }
+
+  @Test
+  void applyToRestoresDisplaySlots() {
+    VnState state = new VnState();
+    state.showCharacter(CharacterPosition.CENTER, "body", "neutral", 0, "body");
+    state.showCharacter(CharacterPosition.CENTER, "head", "neutral", 10, "head");
+
+    VnRollbackEntry entry = VnRollbackEntry.capture(state, "narrator", "snapshot");
+    state.clearAllCharacters();
+
+    entry.applyTo(state);
+
+    assertEquals(2, state.getVisibleCharacters().size());
+    CharacterPosition bodySlot = state.getDisplaySlotPosition("body");
+    CharacterPosition headSlot = state.getDisplaySlotPosition("head");
+    assertTrue(bodySlot != null && headSlot != null);
+    assertEquals(CharacterPosition.CENTER, bodySlot.getBasePosition());
+    assertEquals(CharacterPosition.CENTER, headSlot.getBasePosition());
+    assertEquals("body", state.getVisibleCharacters().get(bodySlot).getCharacterId());
+    assertEquals("head", state.getVisibleCharacters().get(headSlot).getCharacterId());
+    assertEquals(10, state.getVisibleCharacters().get(headSlot).getLayerOrder());
+  }
 }

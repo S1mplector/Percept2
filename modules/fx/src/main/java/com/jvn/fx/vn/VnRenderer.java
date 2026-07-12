@@ -749,7 +749,7 @@ public class VnRenderer {
     if (character != null) {
       String expression = slot.getExpression();
       String imagePath = character.getExpressionPath(expression);
-      VnState.ExpressionTransition transition = state != null ? state.getExpressionTransition(slot.getCharacterId()) : null;
+      VnState.ExpressionTransition transition = state != null ? state.getExpressionTransition(slot) : null;
       if (transition != null && transition.appliesTo(expression)) {
         String fromPath = character.getExpressionPath(transition.getFromExpression());
         String toPath = character.getExpressionPath(transition.getToExpression());

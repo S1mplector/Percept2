@@ -96,6 +96,15 @@ Shows a character at a named position with an optional expression and layer orde
 [show hero center $base+$eyes_happy+$mouth_smile]
 ```
 
+**Display slots:** add `slot=<id>` when multiple sprites need to share the same visual position without replacing each other.
+
+```vns
+[show body center neutral slot=body z=0]
+[show head center neutral slot=head z=10]
+```
+
+`slot=` aliases: `as=`, `instance=`, `display=`, `display_slot=`, `display-slot=`.
+
 **Predefined positions:**
 
 | Full Name | Shortcut | Typical Screen X (center) |
@@ -191,6 +200,15 @@ To get a smooth slide, enable global mode first with `[char <charId> global on]`
 [move hero at 0.15,0.85 neutral ease_out_back 600]
 ```
 
+**Display slots:**
+
+```vns
+[move head center neutral slot=head]
+[move slot=head at 0.5,0.72 ease_out_quad 240]
+```
+
+The slot-only form moves whichever character currently occupies that display slot.
+
 **Easing types** (case-insensitive):
 
 | Easing | Description |
@@ -230,7 +248,10 @@ Hides a character with an exit animation.
 ```vns
 [hide hero]
 [hide villain]
+[hide slot=head]
 ```
+
+Use `slot=<id>` to hide a specific display slot without needing to know which character currently occupies it.
 
 ### `[lookat <charId> ...]`
 

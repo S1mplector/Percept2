@@ -66,6 +66,13 @@ public final class VnSaveMigration {
       changed = true;
     }
 
+    // v4 -> v5: visible character arrays may include display slot and custom position metadata.
+    if (version < 5) {
+      data.setSchemaVersion(5);
+      version = 5;
+      changed = true;
+    }
+
     // Normalize common nullable fields across all schema versions.
     if (data.getVariables() == null) {
       data.setVariables(new HashMap<>());

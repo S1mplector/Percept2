@@ -146,7 +146,7 @@ Preflight skips: `DIALOGUE`, `CHOICE`, `WAIT`, `JUMP`, `CALL`, `RETURN`, `END`
 
 | Field | Description |
 |-------|-------------|
-| `visibleCharacters` | Position → `CharacterSlot` (charId, expression, layerOrder) |
+| `visibleCharacters` | Render position → `CharacterSlot` (charId, expression, layerOrder, displaySlot) |
 | `characterVisuals` | Position → `CharacterVisual` (tweening state) |
 | `pendingExpressionSwitches` | Delayed expression changes (after move completes) |
 | `globalPositionCharacters` | Characters with persistent position memory |
@@ -167,7 +167,7 @@ CharacterPosition.named("balcony", 0.3, 0.6)  // custom named position
 CharacterPosition.at(0.8, 0.4)                 // inline anonymous position
 ```
 
-Custom positions are declared via `@position` directives or inline `at x,y` syntax in commands.
+Custom positions are declared via `@position` directives or inline `at x,y` syntax in commands. Display slots use a synthetic render position that delegates drawing math to its base position while keeping a separate slot identity.
 
 ### Character Tweening
 

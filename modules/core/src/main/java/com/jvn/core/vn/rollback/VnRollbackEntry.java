@@ -90,7 +90,11 @@ public final class VnRollbackEntry {
         for (var entry : state.getVisibleCharacters().entrySet()) {
             VnState.CharacterSlot slot = entry.getValue();
             if (slot != null) {
-                chars.put(entry.getKey(), new CharacterSnapshot(slot.getCharacterId(), slot.getExpression(), slot.getLayerOrder()));
+                chars.put(entry.getKey(), new CharacterSnapshot(
+                    slot.getCharacterId(),
+                    slot.getExpression(),
+                    slot.getLayerOrder(),
+                    slot.getDisplaySlot()));
             }
         }
         builder.visibleCharacters(chars);
@@ -112,7 +116,11 @@ public final class VnRollbackEntry {
         state.clearAllCharacters();
         for (var entry : visibleCharacters.entrySet()) {
             CharacterSnapshot snap = entry.getValue();
-            state.showCharacter(entry.getKey(), snap.characterId(), snap.expression(), snap.layerOrder());
+            state.showCharacter(entry.getKey().getBasePosition(),
+                snap.characterId(),
+                snap.expression(),
+                snap.layerOrder(),
+                snap.displaySlot());
         }
         state.setGlobalPositionState(globalPositionCharacters, characterDefinedPositions);
 
@@ -174,5 +182,5 @@ public final class VnRollbackEntry {
     /**
      * Snapshot of a character's state at a position.
      */
-    public record CharacterSnapshot(String characterId, String expression, int layerOrder) {}
+    public record CharacterSnapshot(String characterId, String expression, int layerOrder, String displaySlot) {}
 }

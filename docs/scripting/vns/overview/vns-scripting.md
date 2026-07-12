@@ -108,7 +108,8 @@ Each VNS feature area has its own detailed documentation with extensive examples
 
 ### Systems
 
-- **[Characters & Sprites](../presentation/vns-characters.md)** — character declarations, layered sprites, movable layer groups, expression presets, positioning, animation, global position mode, layer ordering
+- **[Characters & Sprites](../presentation/vns-characters.md)** — character declarations, layered sprites, display slots, movable layer groups, expression presets, positioning, animation, global position mode, layer ordering
+- **[Character Display Slots](../presentation/vns-display-slots.md)** — `slot=`, same-position sprite instances, slot-only move/hide, and save/rollback behavior
 - **[Movable Character Layer Groups](../presentation/vns-movable-layer-groups.md)** — `@chargroup`, nested movable rigs, Puppeteer target names, pivots, and migration from repeated layer lists
 - **[Audio Commands](../presentation/vns-audio.md)** — BGM, SFX, voice, crossfade, seek, pause/resume, visualizer
 - **[Transitions & Screen Effects](../presentation/vns-transitions.md)** — fade/dissolve/crossfade/slide/wipe, screen shake, screen flash, UI visibility

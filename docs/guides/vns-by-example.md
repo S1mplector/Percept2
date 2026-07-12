@@ -26,7 +26,7 @@ Source reference:
 | # | Chapter | What You Learn |
 |---|---------|---------------|
 | 1 | [Hello World](vns-by-example/01-hello-world.md) | `@scenario`, `@character`, dialogue lines, `@label`, `[end]` |
-| 2 | [Characters and Backgrounds](vns-by-example/02-characters-and-backgrounds.md) | `@charimg`, `@background`, `[show]`/`[hide]`, `[bg]`, positions, expressions |
+| 2 | [Characters and Backgrounds](vns-by-example/02-characters-and-backgrounds.md) | `@charimg`, `@background`, `[show]`/`[hide]`, `[bg]`, positions, expressions, display slots |
 | 3 | [Choices and Branching](vns-by-example/03-choices-and-branching.md) | Choice blocks, `[jump]`, `[goto]`, `[if ... goto]`, story routing |
 
 ### Intermediate

@@ -24,12 +24,25 @@ public final class CharacterPosition {
   private final double xFraction;  // 0-1 centre of character on screen
   private final double yFraction;  // <0 means "use default baseline"
   private final boolean custom;
+  private final CharacterPosition basePosition;
+  private final String displaySlot;
 
   private CharacterPosition(String name, double xFraction, double yFraction, boolean custom) {
+    this(name, xFraction, yFraction, custom, null, null);
+  }
+
+  private CharacterPosition(String name,
+                            double xFraction,
+                            double yFraction,
+                            boolean custom,
+                            CharacterPosition basePosition,
+                            String displaySlot) {
     this.name = name;
     this.xFraction = xFraction;
     this.yFraction = yFraction;
     this.custom = custom;
+    this.basePosition = basePosition;
+    this.displaySlot = displaySlot;
   }
 
   /** Create a named custom position (from {@code @position} directive). */
@@ -53,6 +66,25 @@ public final class CharacterPosition {
     return at(x, -1.0);
   }
 
+  /**
+   * Create a distinct display slot at the same visual coordinates as {@code base}.
+   * The returned position compares by its synthetic slot name, but all rendering
+   * helpers delegate to the base position so predefined slots keep their classic
+   * layout math.
+   */
+  public static CharacterPosition slotted(CharacterPosition base, String displaySlot) {
+    String slot = displaySlot == null ? "" : displaySlot.trim();
+    if (slot.isEmpty()) return base == null ? CENTER : base;
+    CharacterPosition resolvedBase = base == null ? CENTER : base.getBasePosition();
+    return new CharacterPosition(
+        resolvedBase.getName() + "#slot:" + slot,
+        resolvedBase.getXFraction(),
+        resolvedBase.getYFraction(),
+        resolvedBase.isCustom(),
+        resolvedBase,
+        slot);
+  }
+
   /** Try to resolve a predefined constant by name (case-insensitive). Returns null if not found. */
   public static CharacterPosition predefined(String token) {
     if (token == null || token.isBlank()) return null;
@@ -72,6 +104,9 @@ public final class CharacterPosition {
   public double  getYFraction() { return yFraction; }
   public boolean isCustom()     { return custom; }
   public boolean hasCustomY()   { return yFraction >= 0.0; }
+  public boolean isDisplaySlot() { return displaySlot != null && !displaySlot.isBlank(); }
+  public String  getDisplaySlot() { return displaySlot; }
+  public CharacterPosition getBasePosition() { return basePosition == null ? this : basePosition; }
 
   // ── Rendering helpers ────────────────────────────────────────────
 
@@ -81,6 +116,7 @@ public final class CharacterPosition {
    * for custom positions the sprite is centred on {@code xFraction}.
    */
   public double computeScreenX(double width, double spriteWidth) {
+    if (basePosition != null) return basePosition.computeScreenX(width, spriteWidth);
     if (custom) return width * xFraction - spriteWidth / 2.0;
     return switch (name) {
       case "FAR_LEFT"  -> width * 0.05;
@@ -97,12 +133,14 @@ public final class CharacterPosition {
    * otherwise the global baseline is used.
    */
   public double computeScreenY(double height, double spriteHeight, double baselineY) {
+    if (basePosition != null) return basePosition.computeScreenY(height, spriteHeight, baselineY);
     double baseline = hasCustomY() ? yFraction : baselineY;
     return height * baseline - spriteHeight;
   }
 
   /** Sort ordinal for layer tie-breaking. */
   public int getOrdinal() {
+    if (basePosition != null) return basePosition.getOrdinal();
     if (custom) return (int) (xFraction * 100);
     return switch (name) {
       case "FAR_LEFT"  -> -2;
@@ -115,6 +153,7 @@ public final class CharacterPosition {
 
   /** Entrance animation x offset (pixels). */
   public double getEntranceOffsetX() {
+    if (basePosition != null) return basePosition.getEntranceOffsetX();
     if (custom) return xFraction < 0.5 ? -TWEEN_OFFSET : (xFraction > 0.5 ? TWEEN_OFFSET : 0.0);
     return switch (name) {
       case "FAR_LEFT", "LEFT"   -> -TWEEN_OFFSET;
@@ -125,6 +164,7 @@ public final class CharacterPosition {
 
   /** Default layer order when none is specified. */
   public int getDefaultLayerOrder() {
+    if (basePosition != null) return basePosition.getDefaultLayerOrder();
     if (custom) return (int) ((xFraction - 0.5) * 40);
     return switch (name) {
       case "FAR_LEFT"  -> -20;
@@ -141,7 +181,9 @@ public final class CharacterPosition {
    */
   public double moveDeltaFrom(CharacterPosition from) {
     if (from == null) return 0.0;
-    return (from.xFraction - this.xFraction) * MOVE_REFERENCE_WIDTH;
+    CharacterPosition source = from.getBasePosition();
+    CharacterPosition target = getBasePosition();
+    return (source.xFraction - target.xFraction) * MOVE_REFERENCE_WIDTH;
   }
 
   // ── Object identity ──────────────────────────────────────────────

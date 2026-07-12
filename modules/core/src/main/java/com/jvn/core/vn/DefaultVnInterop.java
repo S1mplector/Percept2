@@ -1881,6 +1881,7 @@ public class DefaultVnInterop implements VnInterop {
       case "pos":
       case "at": {
         if (toks.length < 3) return;
+        String displaySlot = null;
         CharacterPosition position;
         if ("at".equalsIgnoreCase(toks[2]) && toks.length >= 4) {
           position = parseInlinePosition(toks[3]);
@@ -1888,10 +1889,21 @@ public class DefaultVnInterop implements VnInterop {
           position = parsePositionToken(toks[2]);
         }
         if (position == null) return;
-        state.setCharacterDefinedPosition(characterId, position);
+        for (int ti = 3; ti < toks.length; ti++) {
+          String tok = toks[ti].trim();
+          int sep = optionSeparator(tok);
+          if (sep <= 0) continue;
+          String key = tok.substring(0, sep).trim().toLowerCase(Locale.ROOT);
+          String value = tok.substring(sep + 1).trim();
+          if (isDisplaySlotOption(key)) displaySlot = value;
+        }
+        if (displaySlot == null || displaySlot.isBlank()) {
+          state.setCharacterDefinedPosition(characterId, position);
+        }
         if (state.isCharacterGlobalPositionEnabled(characterId)) {
-          String expression = state.getCharacterExpression(characterId);
-          state.showCharacterAnimated(position, characterId, expression == null ? "neutral" : expression);
+          String expression = state.getCharacterExpression(characterId, displaySlot);
+          state.showCharacterAnimated(position, characterId, expression == null ? "neutral" : expression,
+              null, null, 0, displaySlot);
         }
         break;
       }
@@ -1908,6 +1920,7 @@ public class DefaultVnInterop implements VnInterop {
         }
         if (position == null) return;
         String expression = null;
+        String displaySlot = null;
         Easing.Type easingType = null;
         long durationMs = 0;
         for (int ti = startIdx; ti < toks.length; ti++) {
@@ -1922,6 +1935,14 @@ public class DefaultVnInterop implements VnInterop {
               case "expression":
               case "preset":
                 expression = value;
+                break;
+              case "slot":
+              case "as":
+              case "instance":
+              case "display":
+              case "display_slot":
+              case "display-slot":
+                displaySlot = value;
                 break;
               case "dur":
               case "duration":
@@ -1949,10 +1970,12 @@ public class DefaultVnInterop implements VnInterop {
             }
           }
         }
-        if (expression == null) expression = state.getCharacterExpression(characterId);
-        state.setCharacterDefinedPosition(characterId, position);
+        if (expression == null) expression = state.getCharacterExpression(characterId, displaySlot);
+        if (displaySlot == null || displaySlot.isBlank()) {
+          state.setCharacterDefinedPosition(characterId, position);
+        }
         state.showCharacterAnimated(position, characterId,
-            expression == null ? "neutral" : expression, null, easingType, durationMs);
+            expression == null ? "neutral" : expression, null, easingType, durationMs, displaySlot);
         break;
       }
       case "show": {
@@ -1968,6 +1991,7 @@ public class DefaultVnInterop implements VnInterop {
         }
         if (position == null) return;
         String expression = null;
+        String displaySlot = null;
         Easing.Type easingType = null;
         long durationMs = 0L;
         for (int ti = showNextIdx; ti < toks.length; ti++) {
@@ -1982,6 +2006,14 @@ public class DefaultVnInterop implements VnInterop {
               case "expression":
               case "preset":
                 expression = value;
+                break;
+              case "slot":
+              case "as":
+              case "instance":
+              case "display":
+              case "display_slot":
+              case "display-slot":
+                displaySlot = value;
                 break;
               case "dur":
               case "duration":
@@ -2010,14 +2042,17 @@ public class DefaultVnInterop implements VnInterop {
           }
         }
         if (expression == null) expression = "neutral";
-        state.setCharacterDefinedPosition(characterId, position);
-        state.showCharacterAnimated(position, characterId, expression, null, easingType, durationMs);
+        if (displaySlot == null || displaySlot.isBlank()) {
+          state.setCharacterDefinedPosition(characterId, position);
+        }
+        state.showCharacterAnimated(position, characterId, expression, null, easingType, durationMs, displaySlot);
         break;
       }
       case "expression":
       case "expr": {
         if (toks.length < 3) return;
         String expression = toks[2];
+        String displaySlot = null;
         long durationMs = VnState.DEFAULT_EXPRESSION_TRANSITION_MS;
         Easing.Type easingType = null;
         for (int ti = 3; ti < toks.length; ti++) {
@@ -2034,6 +2069,14 @@ public class DefaultVnInterop implements VnInterop {
               case "transition":
               case "transitionms":
                 durationMs = Math.max(0L, parseLongSafe(value, durationMs));
+                break;
+              case "slot":
+              case "as":
+              case "instance":
+              case "display":
+              case "display_slot":
+              case "display-slot":
+                displaySlot = value;
                 break;
               case "ease":
               case "easing":
@@ -2052,15 +2095,23 @@ public class DefaultVnInterop implements VnInterop {
             if (parsed != null) easingType = parsed;
           }
         }
-        if (!state.setCharacterExpression(characterId, expression, durationMs, easingType)) {
+        if (!state.setCharacterExpression(characterId, displaySlot, expression, durationMs, easingType)) {
           CharacterPosition position = state.getCharacterDefinedPosition(characterId);
           if (position == null) position = CharacterPosition.CENTER;
-          state.showCharacterAnimated(position, characterId, expression);
+          state.showCharacterAnimated(position, characterId, expression, null, null, 0, displaySlot);
         }
         break;
       }
       case "hide": {
-        state.hideCharacterAnimated(characterId);
+        String displaySlot = null;
+        for (int ti = 2; ti < toks.length; ti++) {
+          String tok = toks[ti].trim();
+          int sep = optionSeparator(tok);
+          if (sep <= 0) continue;
+          String key = tok.substring(0, sep).trim().toLowerCase(Locale.ROOT);
+          if (isDisplaySlotOption(key)) displaySlot = tok.substring(sep + 1).trim();
+        }
+        state.hideCharacterAnimated(characterId, displaySlot);
         break;
       }
       case "bubble": {
@@ -2133,6 +2184,15 @@ public class DefaultVnInterop implements VnInterop {
             // reason: invalid argument from untrusted input; caller handles absent result
       return null;
     }
+  }
+
+  private boolean isDisplaySlotOption(String key) {
+    return "slot".equals(key)
+        || "as".equals(key)
+        || "instance".equals(key)
+        || "display".equals(key)
+        || "display_slot".equals(key)
+        || "display-slot".equals(key);
   }
 
   private int optionSeparator(String token) {

@@ -227,4 +227,58 @@ class VnStateCharacterSlotsTest {
     assertEquals("talking", detached.getSlot().getExpression());
     assertNotNull(state.getExpressionTransition("john"));
   }
+
+  @Test
+  void displaySlotsAllowMultipleCharactersAtSameVisualPosition() {
+    VnState state = new VnState();
+
+    state.showCharacter(CharacterPosition.CENTER, "body", "neutral", 0, "body");
+    state.showCharacter(CharacterPosition.CENTER, "head", "neutral", 10, "head");
+
+    assertEquals(2, state.getVisibleCharacters().size());
+    CharacterPosition bodySlot = state.getDisplaySlotPosition("body");
+    CharacterPosition headSlot = state.getDisplaySlotPosition("head");
+    assertNotNull(bodySlot);
+    assertNotNull(headSlot);
+    assertEquals(CharacterPosition.CENTER, bodySlot.getBasePosition());
+    assertEquals(CharacterPosition.CENTER, headSlot.getBasePosition());
+    assertEquals("body", state.getVisibleCharacters().get(bodySlot).getCharacterId());
+    assertEquals("head", state.getVisibleCharacters().get(headSlot).getCharacterId());
+    assertEquals(10, state.getVisibleCharacters().get(headSlot).getLayerOrder());
+  }
+
+  @Test
+  void displaySlotReplacementOnlyReplacesSameSlot() {
+    VnState state = new VnState();
+
+    state.showCharacter(CharacterPosition.CENTER, "body", "neutral", 0, "body");
+    state.showCharacter(CharacterPosition.CENTER, "head_a", "neutral", 10, "head");
+    state.showCharacter(CharacterPosition.RIGHT, "head_b", "smile", 12, "head");
+
+    assertEquals(2, state.getVisibleCharacters().size());
+    assertNotNull(state.getDisplaySlotPosition("body"));
+    CharacterPosition headSlot = state.getDisplaySlotPosition("head");
+    assertNotNull(headSlot);
+    assertEquals(CharacterPosition.RIGHT, headSlot.getBasePosition());
+    assertEquals("head_b", state.getVisibleCharacters().get(headSlot).getCharacterId());
+    assertEquals("smile", state.getVisibleCharacters().get(headSlot).getExpression());
+  }
+
+  @Test
+  void displaySlotExpressionAndHideTargetOnlyThatInstance() {
+    VnState state = new VnState();
+
+    state.showCharacter(CharacterPosition.CENTER, "hero", "body", 0, "body");
+    state.showCharacter(CharacterPosition.CENTER, "hero", "head", 10, "head");
+
+    assertTrue(state.setCharacterExpression("hero", "head", "blink", 0, null));
+    assertEquals("body", state.getCharacterExpression("hero", "body"));
+    assertEquals("blink", state.getCharacterExpression("hero", "head"));
+
+    state.hideDisplaySlotAnimated("head");
+    state.updateCharacterAnimations(300);
+
+    assertNotNull(state.getDisplaySlotPosition("body"));
+    assertNull(state.getDisplaySlotPosition("head"));
+  }
 }

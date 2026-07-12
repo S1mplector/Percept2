@@ -187,6 +187,20 @@ Place characters at arbitrary coordinates:
 [show hero at 0.3,0.5,10 happy]     # with layer order
 ```
 
+### Multiple Sprites At The Same Position
+
+If two sprites target the exact same position, the later `[show]` normally replaces the earlier one. Use display slots when both should remain visible:
+
+```vns
+[show body center neutral slot=body z=0]
+[show head center neutral slot=head z=10]
+
+[move slot=head at 0.5,0.72]
+[hide slot=head]
+```
+
+`slot=` gives the visible instance its own identity, while `z` controls which sprite draws in front.
+
 ---
 
 ## Hiding Characters (`[hide]`)
@@ -350,7 +364,8 @@ narrator: And so began Yuki's new chapter.
 5. `[bg bgId]` switches the background
 6. Five predefined positions: `far_left`, `left`, `center`, `right`, `far_right`
 7. `[show]` again at the same position changes the expression
-8. Layer composites use `@charlayer`, `@chargroup`, `@charpreset`, `$layer`, and `$group` syntax
+8. `slot=` lets multiple sprites share the same visual position without replacing each other
+9. Layer composites use `@charlayer`, `@chargroup`, `@charpreset`, `$layer`, and `$group` syntax
 
 ---
 

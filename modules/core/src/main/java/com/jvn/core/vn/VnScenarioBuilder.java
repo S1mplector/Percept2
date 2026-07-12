@@ -198,21 +198,35 @@ public class VnScenarioBuilder {
   }
 
   public VnScenarioBuilder show(String characterId, String expression, CharacterPosition position, Integer layerOrder) {
+    return show(characterId, expression, position, layerOrder, null);
+  }
+
+  public VnScenarioBuilder show(String characterId,
+                                 String expression,
+                                 CharacterPosition position,
+                                 Integer layerOrder,
+                                 String displaySlot) {
     scenarioBuilder.addNode(
       VnNode.builder(VnNodeType.SHOW)
         .characterToShow(characterId)
         .showExpression(expression)
         .showPosition(position)
         .showLayerOrder(layerOrder)
+        .displaySlot(displaySlot)
         .build()
     );
     return this;
   }
 
   public VnScenarioBuilder hide(String characterId) {
+    return hide(characterId, null);
+  }
+
+  public VnScenarioBuilder hide(String characterId, String displaySlot) {
     scenarioBuilder.addNode(
       VnNode.builder(VnNodeType.HIDE)
         .characterToHide(characterId)
+        .displaySlot(displaySlot)
         .build()
     );
     return this;
@@ -220,9 +234,19 @@ public class VnScenarioBuilder {
 
   public VnScenarioBuilder move(String characterId, CharacterPosition position, String expression,
                                  Easing.Type easingType, long durationMs) {
+    return move(characterId, position, expression, easingType, durationMs, null);
+  }
+
+  public VnScenarioBuilder move(String characterId,
+                                 CharacterPosition position,
+                                 String expression,
+                                 Easing.Type easingType,
+                                 long durationMs,
+                                 String displaySlot) {
     VnNode.Builder b = VnNode.builder(VnNodeType.MOVE)
         .characterToShow(characterId)
-        .showPosition(position);
+        .showPosition(position)
+        .displaySlot(displaySlot);
     if (expression != null) b.showExpression(expression);
     if (easingType != null) b.moveEasingType(easingType);
     if (durationMs > 0) b.moveDurationMs(durationMs);
