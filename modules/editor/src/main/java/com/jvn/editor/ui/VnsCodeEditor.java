@@ -139,7 +139,7 @@ public class VnsCodeEditor extends BorderPane {
   private static final String COMMENT_PATTERN = "(?m)#.*$";
   private static final String STRING_PATTERN = "\"([^\\\\\"]|\\\\.)*\"";
   private static final String FORMAT_PATTERN = "\\{/?[bius]\\}|\\{color=[^}]*\\}|\\{/color\\}";
-  private static final String DIRECTIVE_PATTERN = "@(?:scenario|character|background|charimg|charlayer|charpreset|stagepreset|position|label|define|include|var|bind|jimport|external)\\b";
+  private static final String DIRECTIVE_PATTERN = "@(?:scenario|character|background|charimg|charlayer|chargroup|charpreset|stagepreset|position|label|define|include|var|bind|jimport|external)\\b";
   private static final String CMD_OPEN_PATTERN =
       "\\[(?:show|move|hide|jump|end|wait|bg|background"
     + "|bgm_crossfade|bgm_fadeout|bgm_resume|bgm_pause|bgm_seek|bgm_stop|bgm"
@@ -2087,6 +2087,7 @@ public class VnsCodeEditor extends BorderPane {
     VNS_COMMAND_DOCS.put("@include", "Include another script. Usage: @include path");
     VNS_COMMAND_DOCS.put("@charimg", "Declare character image. Usage: @charimg char_id path");
     VNS_COMMAND_DOCS.put("@charlayer", "Declare character layer. Usage: @charlayer char_id layer path");
+    VNS_COMMAND_DOCS.put("@chargroup", "Declare movable character layer group. Usage: @chargroup char_id group_id [parent=id] [pivot=x,y] $layer | $other_layer");
     VNS_COMMAND_DOCS.put("@charpreset", "Declare character preset. Usage: @charpreset char_id preset layers");
     VNS_COMMAND_DOCS.put("@stagepreset", "Declare a stage lighting preset file. Usage: @stagepreset id path/to/preset.stagepreset");
     VNS_COMMAND_DOCS.put("@position", "Declare a custom character position. Usage: @position id x [y]");

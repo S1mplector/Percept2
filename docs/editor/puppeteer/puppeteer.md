@@ -268,6 +268,7 @@ Sprite2D.render(blitter)
 | `@background <id> <path>` | Background ID → file path mapping |
 | `@charimg <charId> <expr> <path>` | Character expression → file path mapping |
 | `@charlayer <charId> <layerId> <path>` | Layered character asset mapping |
+| `@chargroup <charId> <groupId> <spec>` | Movable layer group mapping for nested character rigs |
 | `@charpreset <charId> <expr> <spec>` | Composite preset resolution against declared layers |
 | `@stagepreset <id> <path>` | Stage preset ID -> file path mapping |
 | `[bg <id>]` / `[background <id>]` | Active background ID |
@@ -284,6 +285,7 @@ The result is a `SceneSnapshot` containing:
 - `backgroundPaths` — map of background IDs to their declared file paths
 - `characterImagePaths` — map of `"charId/expression"` keys to file paths
 - `characterLayerPaths` — layered rig mappings used to resolve preset-backed expressions
+- `characterLayerGroups` — `@chargroup` metadata used to create nested Puppeteer rig groups and runtime aliases
 - `stagePresetPaths` — map of stage preset IDs to exported `.stagepreset` paths
 - `activeStagePresetId` — active stage preset at the caret
 - `referencedTimelineName` / inline timeline data — launch context for reopening vs creating new work
@@ -303,7 +305,8 @@ The result is a `SceneSnapshot` containing:
    - `far_right` → 90%
    - Y position: 55% of scene height, origin at bottom-center (0.5, 1.0)
 3. Registers each entity by name in the `JesScene2D` (e.g. `"codel"`, `"bg_field_day"`)
-4. If a stage is active, builds `AnimationProject.StageContext` from the stage preset so Puppeteer can display and export the lighting handoff.
+4. For layered characters, creates individual layer entities and `@chargroup` rig groups such as `"aria_head"` or `"aria_face"`.
+5. If a stage is active, builds `AnimationProject.StageContext` from the stage preset so Puppeteer can display and export the lighting handoff.
 
 ### Stage Context Preservation
 
@@ -705,8 +708,21 @@ When Puppeteer is launched from a VNS file, entity names come from the VNS chara
 |-----------------|----------------------|
 | `@character hero "Hero"` + `[show hero center]` | `"hero"` |
 | `@background park assets/bg/park.png` + `[bg park]` | `"bg_park"` |
+| `@chargroup hero head ...` + `[show hero center neutral]` | `"hero_head"` group target |
+| `@charlayer hero eyes_neutral ...` + `[show hero center neutral]` | `"hero_eyes_neutral"` layer target |
 
 These names must match exactly in VNS `[call jes_timeline ...]` playback. The `SceneAccessor` provided by `DefaultVnInterop` looks up entities by character ID.
+
+Layered character launches also create expression-specific aliases:
+
+| Alias | Meaning |
+|-------|---------|
+| `hero_head` | Stable group alias, good for animation that should survive expression swaps. |
+| `hero_neutral_head` | Expression-specific group alias. |
+| `hero_eyes_neutral` | Stable layer alias. |
+| `hero_neutral_eyes_neutral` | Expression-specific layer alias. |
+
+Group transforms are applied before individual layer transforms. This lets authors animate broad motion on `hero_head` while keeping small corrections on `hero_eyes_neutral` or `hero_mouth_smile`.
 
 ### JES Launch
 

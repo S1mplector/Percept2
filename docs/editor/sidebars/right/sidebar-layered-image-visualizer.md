@@ -12,7 +12,7 @@ The Layered Image Visualizer is the editor tool for projects that assemble chara
 
 It now supports two discovery paths:
 
-- **project-declared rigs** from `@charlayer` and `@charpreset`
+- **project-declared rigs** from `@charlayer`, `@chargroup`, and `@charpreset`
 - **directory/file-name discovery** for more generic layered sets
 
 That means projects with declared layered rigs can load the actual layer order and default preset behavior instead of relying on loose filename guesses.

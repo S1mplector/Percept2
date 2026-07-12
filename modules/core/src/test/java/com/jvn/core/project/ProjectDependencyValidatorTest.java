@@ -34,6 +34,7 @@ class ProjectDependencyValidatorTest {
         @background missing assets/backgrounds/missing.png
         @charimg hero neutral assets/characters/hero.png
         @charlayer hero base assets/characters/hero_base.png
+        @chargroup hero head pivot=0.5,0.28 $base | assets/characters/hero_head.png
         @charpreset hero special $base | assets/characters/hero_smile.png
         @stagepreset sunset config/stage/sunset.stagepreset
 
@@ -59,6 +60,7 @@ class ProjectDependencyValidatorTest {
     write(root.resolve("assets/backgrounds/unused.png"), "");
     write(root.resolve("assets/characters/hero.png"), "");
     write(root.resolve("assets/characters/hero_base.png"), "");
+    write(root.resolve("assets/characters/hero_head.png"), "");
     write(root.resolve("assets/characters/hero_smile.png"), "");
     write(root.resolve("assets/audio/bgm/theme.ogg"), "");
     write(root.resolve("assets/audio/sfx/click.ogg"), "");
@@ -77,6 +79,10 @@ class ProjectDependencyValidatorTest {
         "missing_timeline"));
     assertTrue(hasFinding(report, ProjectDependencyValidator.Severity.WARNING, "menu",
         "missing_gallery"));
+    assertFalse(hasFinding(report, ProjectDependencyValidator.Severity.INFO, "asset",
+        "assets/characters/hero_head.png"));
+    assertFalse(report.findings().stream().anyMatch(f ->
+        f.target() != null && f.target().contains("pivot=0.5")));
   }
 
   @Test

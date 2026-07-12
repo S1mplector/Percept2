@@ -41,6 +41,7 @@ public class VnScriptParser {
   private static final Pattern BACKGROUND_PATTERN = Pattern.compile("^@background\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARIMG_PATTERN = Pattern.compile("^@charimg\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARLAYER_PATTERN = Pattern.compile("^@charlayer\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern CHARGROUP_PATTERN = Pattern.compile("^@chargroup\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARPRESET_PATTERN = Pattern.compile("^@charpreset\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern STAGE_PRESET_PATTERN = Pattern.compile("^@stagepreset\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern GROUP_PATTERN = Pattern.compile("^@group\\s+(\\S+)(?:\\s+(\\S+))?$", Pattern.CASE_INSENSITIVE);
@@ -236,6 +237,7 @@ public class VnScriptParser {
   }
 
   private record KeyValueOption(String key, String value) {}
+  private record LayerGroupOptions(String parentId, double pivotX, double pivotY, boolean hasPivot, String spec) {}
 
   private static final class LabelReference {
     final String label;
@@ -721,6 +723,27 @@ public class VnScriptParser {
         }
         state.charLayers.computeIfAbsent(id, k -> new HashMap<>()).put(layerId, path);
         getOrCreateCharacterBuilder(state, id).addLayer(layerId, path);
+        continue;
+      }
+
+      Matcher charGroupMatcher = CHARGROUP_PATTERN.matcher(trimmed);
+      if (charGroupMatcher.matches()) {
+        state.contentEmitted = true;
+        String id = charGroupMatcher.group(1);
+        String groupId = charGroupMatcher.group(2);
+        String body = charGroupMatcher.group(3).trim();
+        LayerGroupOptions options = parseLayerGroupOptions(body, sourceName, lineNumber, rawLine);
+        if (options.spec().isBlank()) {
+          throw parseError(sourceName, lineNumber, "@chargroup layer spec cannot be empty", rawLine);
+        }
+        LayerPresetSpec resolvedSpec = resolveLayerPresetSpec(state, id, options.spec(), sourceName, lineNumber, rawLine);
+        getOrCreateCharacterBuilder(state, id).addLayerGroup(
+            groupId,
+            options.parentId(),
+            resolvedSpec.layerIds(),
+            options.pivotX(),
+            options.pivotY(),
+            options.hasPivot());
         continue;
       }
 
@@ -2252,18 +2275,18 @@ public class VnScriptParser {
         if (rawRef.isEmpty()) {
           throw parseError(sourceName, lineNumber, "@charpreset contains empty $layer reference", rawLine);
         }
-        String path = LayeredCharacterResolver.resolveLayerPath(state.charLayers, characterId, rawRef);
-        LayeredCharacterResolver.CharacterRef layerRef = LayeredCharacterResolver.parseReference(rawRef, characterId);
-        if (path == null || path.isBlank()) {
-          throw parseError(
-              sourceName,
-              lineNumber,
-              "Unknown @charlayer reference '$" + rawRef + "' for character '" + layerRef.characterId() + "'",
-              rawLine
-          );
+        List<LayerReference> refs = resolveLayerOrGroupReference(
+            state,
+            characterId,
+            rawRef,
+            sourceName,
+            lineNumber,
+            rawLine,
+            "@charpreset");
+        for (LayerReference ref : refs) {
+          resolved.add(ref.path());
+          layerIds.add(ref.layerId());
         }
-        resolved.add(path);
-        layerIds.add(layerRef.localId());
       } else if (part.startsWith("@")) {
         String rawPresetRef = part.substring(1).trim();
         if (rawPresetRef.isEmpty()) {
@@ -2295,6 +2318,93 @@ public class VnScriptParser {
       throw parseError(sourceName, lineNumber, "@charpreset produced no layers", rawLine);
     }
     return new LayerPresetSpec(String.join(" | ", resolved), layerIds);
+  }
+
+  private LayerGroupOptions parseLayerGroupOptions(String body,
+                                                   String sourceName,
+                                                   int lineNumber,
+                                                   String rawLine) throws IOException {
+    String remaining = body == null ? "" : body.trim();
+    String parentId = "";
+    double pivotX = 0.5;
+    double pivotY = 1.0;
+    boolean hasPivot = false;
+
+    while (!remaining.isBlank()) {
+      int split = firstWhitespaceIndex(remaining);
+      String token = split < 0 ? remaining : remaining.substring(0, split);
+      String lower = token.toLowerCase(java.util.Locale.ROOT);
+      String value = optionValue(token);
+      boolean consumed = false;
+      if ((lower.startsWith("parent=") || lower.startsWith("parent:")) && value != null) {
+        parentId = normalizeLayerGroupParent(value);
+        consumed = true;
+      } else if ((lower.startsWith("in=") || lower.startsWith("in:")) && value != null) {
+        parentId = normalizeLayerGroupParent(value);
+        consumed = true;
+      } else if ((lower.startsWith("pivot=") || lower.startsWith("pivot:")
+          || lower.startsWith("origin=") || lower.startsWith("origin:")) && value != null) {
+        double[] pivot = parsePivotPair(value, "@chargroup", sourceName, lineNumber, rawLine);
+        pivotX = pivot[0];
+        pivotY = pivot[1];
+        hasPivot = true;
+        consumed = true;
+      }
+
+      if (!consumed) break;
+      remaining = split < 0 ? "" : remaining.substring(split + 1).trim();
+    }
+
+    return new LayerGroupOptions(parentId, pivotX, pivotY, hasPivot, remaining);
+  }
+
+  private int firstWhitespaceIndex(String value) {
+    if (value == null) return -1;
+    for (int i = 0; i < value.length(); i++) {
+      if (Character.isWhitespace(value.charAt(i))) return i;
+    }
+    return -1;
+  }
+
+  private String optionValue(String token) {
+    if (token == null) return null;
+    int eq = token.indexOf('=');
+    int colon = token.indexOf(':');
+    int idx;
+    if (eq > 0 && colon > 0) idx = Math.min(eq, colon);
+    else idx = Math.max(eq, colon);
+    if (idx <= 0 || idx >= token.length() - 1) return null;
+    return token.substring(idx + 1).trim();
+  }
+
+  private String normalizeLayerGroupParent(String value) {
+    String parent = value == null ? "" : stripQuotes(value).trim();
+    if (parent.isBlank() || "none".equalsIgnoreCase(parent) || "root".equalsIgnoreCase(parent)) {
+      return "";
+    }
+    return parent;
+  }
+
+  private double[] parsePivotPair(String value,
+                                  String commandName,
+                                  String sourceName,
+                                  int lineNumber,
+                                  String rawLine) throws IOException {
+    String raw = stripQuotes(value == null ? "" : value.trim());
+    String[] parts = raw.split(",", -1);
+    if (parts.length != 2) {
+      throw parseError(sourceName, lineNumber, commandName + " pivot expects x,y", rawLine);
+    }
+    try {
+      double x = Double.parseDouble(parts[0].trim());
+      double y = Double.parseDouble(parts[1].trim());
+      if (!Double.isFinite(x) || !Double.isFinite(y)) {
+        throw new NumberFormatException(raw);
+      }
+      return new double[] {x, y};
+    } catch (NumberFormatException ex) {
+      throw parseError(sourceName, lineNumber, commandName + " pivot values must be numeric", rawLine);
+    }
   }
 
   private String normalizeCharacterInteropPayload(ParseState state,
@@ -2449,9 +2559,18 @@ public class VnScriptParser {
         continue;
       }
       if (part.startsWith("$")) {
-        LayerReference layer = resolveLayerReference(state, characterId, part.substring(1), sourceName, lineNumber, rawLine);
-        resolvedParts.add(layer.path());
-        resolvedLayerIds.add(layer.layerId());
+        List<LayerReference> layers = resolveLayerOrGroupReference(
+            state,
+            characterId,
+            part.substring(1),
+            sourceName,
+            lineNumber,
+            rawLine,
+            "Inline composite expression");
+        for (LayerReference layer : layers) {
+          resolvedParts.add(layer.path());
+          resolvedLayerIds.add(layer.layerId());
+        }
         continue;
       }
       throw parseError(
@@ -2500,14 +2619,63 @@ public class VnScriptParser {
                                                String sourceName,
                                                int lineNumber,
                                                String rawLine) throws IOException {
-    String path = LayeredCharacterResolver.resolveLayerPath(state.charLayers, defaultCharacterId, rawRef);
+    LayerReference resolved = tryResolveLayerReference(state, defaultCharacterId, rawRef);
     LayeredCharacterResolver.CharacterRef layerRef = LayeredCharacterResolver.parseReference(rawRef, defaultCharacterId);
-    if (path == null || path.isBlank()) {
+    if (resolved == null) {
       throw parseError(
           sourceName,
           lineNumber,
           "Unknown @charlayer reference '$" + rawRef + "' for character '" + layerRef.characterId() + "'",
           rawLine);
+    }
+    return resolved;
+  }
+
+  private List<LayerReference> resolveLayerOrGroupReference(ParseState state,
+                                                            String defaultCharacterId,
+                                                            String rawRef,
+                                                            String sourceName,
+                                                            int lineNumber,
+                                                            String rawLine,
+                                                            String context) throws IOException {
+    LayerReference layer = tryResolveLayerReference(state, defaultCharacterId, rawRef);
+    if (layer != null) return List.of(layer);
+
+    LayeredCharacterResolver.CharacterRef groupRef = LayeredCharacterResolver.parseReference(rawRef, defaultCharacterId);
+    com.jvn.core.vn.VnCharacter.Builder groupCharacter = state.charBuilders.get(groupRef.characterId());
+    com.jvn.core.vn.VnCharacter.LayerGroup group =
+        groupCharacter == null ? null : groupCharacter.getLayerGroup(groupRef.localId());
+    if (group != null && !group.layerIds().isEmpty()) {
+      List<LayerReference> out = new ArrayList<>();
+      for (String layerId : group.layerIds()) {
+        LayerReference groupLayer = tryResolveLayerReference(state, groupRef.characterId(), layerId);
+        if (groupLayer != null) out.add(groupLayer);
+      }
+      if (!out.isEmpty()) return out;
+    }
+
+    if (groupCharacter == null || groupCharacter.getLayerGroups().isEmpty()) {
+      throw parseError(
+          sourceName,
+          lineNumber,
+          "Unknown @charlayer reference '$" + rawRef + "' for character '" + groupRef.characterId() + "'",
+          rawLine);
+    }
+    throw parseError(
+        sourceName,
+        lineNumber,
+        context + " references unknown @charlayer/@chargroup '$" + rawRef
+            + "' for character '" + groupRef.characterId() + "'",
+        rawLine);
+  }
+
+  private LayerReference tryResolveLayerReference(ParseState state,
+                                                  String defaultCharacterId,
+                                                  String rawRef) {
+    String path = LayeredCharacterResolver.resolveLayerPath(state.charLayers, defaultCharacterId, rawRef);
+    LayeredCharacterResolver.CharacterRef layerRef = LayeredCharacterResolver.parseReference(rawRef, defaultCharacterId);
+    if (path == null || path.isBlank()) {
+      return null;
     }
     return new LayerReference(path, layerRef.localId());
   }

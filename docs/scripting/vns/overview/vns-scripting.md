@@ -89,7 +89,7 @@ What happened in that example:
 VNS is read top-to-bottom. Blank lines and lines starting with `#` are ignored.
 
 Typical order:
-1. Declarations (`@scenario`, `@character`, `@background`, `@charimg`, `@position`, etc.)
+1. Declarations (`@scenario`, `@character`, `@background`, `@charimg`, `@charlayer`, `@chargroup`, `@charpreset`, `@position`, etc.)
 2. Labels and story content (dialogue, choices, commands)
 
 ---
@@ -100,7 +100,7 @@ Each VNS feature area has its own detailed documentation with extensive examples
 
 ### Language Features
 
-- **[Directives & Declarations](../language/vns-directives.md)** — `@scenario`, `@character`, `@background`, `@charimg`, `@charlayer`, `@charpreset`, `@position`, `@label`, `@var`, `@define`, `@include`
+- **[Directives & Declarations](../language/vns-directives.md)** — `@scenario`, `@character`, `@background`, `@charimg`, `@charlayer`, `@chargroup`, `@charpreset`, `@position`, `@label`, `@var`, `@define`, `@include`
 - **[Dialogue & Text](../language/vns-dialogue.md)** — colon form, quoted form, inline text effects (`{shake}`, `{wave}`, `{color}`, `{speed}`, `{delay}`), typewriter reveal, skip/auto modes
 - **[Choices & Branching](../language/vns-choices.md)** — multi-line choices, inline choices, conditional visibility, branching patterns (hub, merge, score-gated, nested)
 - **[Variables & Conditions](../language/vns-variables.md)** — set/inc/dec/flag/unflag/clear, condition expressions, if/elif/else/endif blocks, conditional jumps, interpolation
@@ -108,7 +108,8 @@ Each VNS feature area has its own detailed documentation with extensive examples
 
 ### Systems
 
-- **[Characters & Sprites](../presentation/vns-characters.md)** — character declarations, layered sprites, expression presets, positioning, animation, global position mode, layer ordering
+- **[Characters & Sprites](../presentation/vns-characters.md)** — character declarations, layered sprites, movable layer groups, expression presets, positioning, animation, global position mode, layer ordering
+- **[Movable Character Layer Groups](../presentation/vns-movable-layer-groups.md)** — `@chargroup`, nested movable rigs, Puppeteer target names, pivots, and migration from repeated layer lists
 - **[Audio Commands](../presentation/vns-audio.md)** — BGM, SFX, voice, crossfade, seek, pause/resume, visualizer
 - **[Transitions & Screen Effects](../presentation/vns-transitions.md)** — fade/dissolve/crossfade/slide/wipe, screen shake, screen flash, UI visibility
 - **[Subroutines & Flow Control](../flow/vns-flow-control.md)** — labels, jumps, call/return, conditionals, script switching, menu navigation

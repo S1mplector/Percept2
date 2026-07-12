@@ -100,6 +100,41 @@ class PuppeteerLauncherPanelTest {
   }
 
   @Test
+  void resolveSnapshotSupportsCharacterLayerGroups() {
+    String source = """
+        @label start
+        @include /definitions/characters.vns
+        [show john center neutral]
+        """;
+    String definitions = """
+        @charlayer john body_default assets/john/body.png
+        @charlayer john head_base assets/john/head.png
+        @charlayer john eyes_neutral assets/john/eyes.png
+        @charlayer john mouth_smile assets/john/mouth.png
+        @chargroup john head pivot=0.5,0.28 $head_base | $eyes_neutral | $mouth_smile
+        @charpreset john neutral $body_default | $head
+        """;
+
+    PuppeteerLauncherPanel.SceneSnapshot snapshot = PuppeteerLauncherPanel.resolveSnapshot(
+        source,
+        99,
+        "/tmp/project/scripts/story/prologue.vns",
+        (sourceName, includePath) -> new PuppeteerLauncherPanel.ResolvedInclude(
+            "/tmp/project/scripts/definitions/characters.vns",
+            definitions));
+
+    assertEquals(
+        "assets/john/body.png | assets/john/head.png | assets/john/eyes.png | assets/john/mouth.png",
+        snapshot.resolveCharacterPath("john", "neutral"));
+    PuppeteerLauncherPanel.CharacterLayerGroupEntry head = snapshot.resolveCharacterLayerGroup("john", "head");
+    assertEquals(List.of("head_base", "eyes_neutral", "mouth_smile"), head.layerIds);
+    assertTrue(head.hasPivot);
+    assertEquals(
+        List.of("john_neutral_head", "john_head"),
+        PuppeteerLauncherPanel.equivalentSnapshotLayerGroupEntityNames("john", "neutral", "head"));
+  }
+
+  @Test
   void resolveSnapshotCapturesReferencedTimelineName() {
     String source = """
         @label intro

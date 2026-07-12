@@ -231,7 +231,7 @@ Usage:
 
 ## Layered Character Organization
 
-For projects using `@charlayer` and `@charpreset`, keep a dedicated header per character:
+For projects using `@charlayer`, `@chargroup`, and `@charpreset`, keep a dedicated header per character:
 
 ```vns
 # characters/hero_layers.vns
@@ -244,10 +244,14 @@ For projects using `@charlayer` and `@charpreset`, keep a dedicated header per c
 @charlayer hero mouth_neutral assets/characters/hero/layers/mouth_neutral.png
 @charlayer hero accessory_glasses assets/characters/hero/layers/glasses.png
 
-@charpreset hero neutral $base | $eyes_neutral | $mouth_neutral
-@charpreset hero happy $base | $eyes_happy | $mouth_smile
-@charpreset hero sad $base | $eyes_sad | $mouth_frown
-@charpreset hero happy_glasses $base | $eyes_happy | $mouth_smile | $accessory_glasses
+@chargroup hero face_neutral $eyes_neutral | $mouth_neutral
+@chargroup hero face_happy $eyes_happy | $mouth_smile
+@chargroup hero face_sad $eyes_sad | $mouth_frown
+
+@charpreset hero neutral $base | $face_neutral
+@charpreset hero happy $base | $face_happy
+@charpreset hero sad $base | $face_sad
+@charpreset hero happy_glasses $base | $face_happy | $accessory_glasses
 ```
 
 Then include it from the main character header:
@@ -505,5 +509,6 @@ Each script is self-contained with its includes, so it can be parsed and validat
 - [Directives & Declarations](../language/vns-directives.md) — `@include`, `@define`, `@character`, etc.
 - [Flow Control](../flow/vns-flow-control.md) — jumps, cross-script navigation
 - [Best Practices](vns-best-practices.md) — naming conventions, code review checklist
-- [Layered Character Presets](../presentation/vns-layered-charpresets.md) — `@charlayer` + `@charpreset`
+- [Layered Character Presets](../presentation/vns-layered-charpresets.md) — `@charlayer` + `@chargroup` + `@charpreset`
+- [Movable Character Layer Groups](../presentation/vns-movable-layer-groups.md) — nested groups, pivots, Puppeteer target names
 - [Localization](../runtime/vns-localization.md) — multi-language project structure

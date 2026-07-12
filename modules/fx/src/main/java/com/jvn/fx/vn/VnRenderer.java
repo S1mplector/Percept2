@@ -677,10 +677,29 @@ public class VnRenderer {
     }
   }
 
-  private record SpriteLayer(String path, String layerId, String targetName, Image image) {
+  private record SpriteLayer(
+      String path,
+      String layerId,
+      List<String> targetNames,
+      List<GroupLayerTarget> groupTargets,
+      Image image
+  ) {
+    String targetName() {
+      return targetNames == null || targetNames.isEmpty() ? null : targetNames.get(0);
+    }
   }
 
-  private record LayerProxyMatch(Entity2D proxy, boolean exact) {
+  private record GroupLayerTarget(
+      VnCharacter.LayerGroup group,
+      List<String> targetNames
+  ) {
+  }
+
+  private record LayerTransformTarget(
+      Entity2D proxy,
+      VnCharacter.LayerGroup group,
+      boolean exact
+  ) {
   }
 
   private record CharacterRenderEntry(
@@ -928,7 +947,7 @@ public class VnRenderer {
     boolean hasLayerProxy = false;
     if (timelineAccessor != null) {
       for (SpriteLayer layer : layers) {
-        if (layer != null && layer.targetName() != null && timelineAccessor.getProxy(layer.targetName()) != null) {
+        if (layer != null && hasAnyLayerTransformProxy(layer)) {
           hasLayerProxy = true;
           break;
         }
@@ -951,17 +970,18 @@ public class VnRenderer {
         drawLayer = new SpriteLayer(
             eyeFocus.selectedPath(),
             eyeFocus.selectedLayerId(),
-            eyeFocus.selectedTargetName(),
+            timelineLayerTargetNames(characterId, expression, eyeFocus.selectedLayerId()),
+            layer.groupTargets(),
             selectedImage);
         nudgeX = eyeFocus.nudgeX();
         nudgeY = eyeFocus.nudgeY();
       }
-      LayerProxyMatch proxyMatch = resolveLayerProxy(drawLayer, layers);
-      Entity2D proxy = proxyMatch == null ? null : proxyMatch.proxy();
-      if (proxyMatch != null && proxyMatch.exact() && proxy != null && !proxy.isVisible()) continue;
-      double x = proxy != null ? timelineDrawX(proxy, defaultX) : defaultX;
-      double y = proxy != null ? timelineDrawY(proxy, defaultY) : defaultY;
-      drawTimelineLayer(drawLayer, proxy, x + nudgeX, y + nudgeY, spriteWidth, spriteHeight, canvasWidth, canvasHeight, stage);
+      List<LayerTransformTarget> transforms = resolveLayerTransforms(drawLayer, layers);
+      if (transforms.stream().anyMatch(target -> target.exact() && target.proxy() != null && !target.proxy().isVisible())) {
+        continue;
+      }
+      drawTimelineLayer(drawLayer, transforms, defaultX + nudgeX, defaultY + nudgeY,
+          spriteWidth, spriteHeight, canvasWidth, canvasHeight, stage);
     }
     return true;
   }
@@ -1148,7 +1168,7 @@ public class VnRenderer {
 
   private void drawTimelineLayer(
       SpriteLayer layer,
-      Entity2D proxy,
+      List<LayerTransformTarget> transforms,
       double x,
       double y,
       double width,
@@ -1158,32 +1178,131 @@ public class VnRenderer {
       VnStagePreset stage
   ) {
     gc.save();
-    double alpha = proxy instanceof Sprite2D sprite ? sprite.getAlpha() : 1.0;
+    double alpha = 1.0;
+    if (transforms != null) {
+      for (LayerTransformTarget target : transforms) {
+        if (target != null && target.proxy() instanceof Sprite2D sprite) {
+          alpha *= sprite.getAlpha();
+        }
+      }
+    }
     if (alpha < 0.999) gc.setGlobalAlpha(Math.max(0.0, Math.min(1.0, alpha)));
-    if (proxy != null) {
-      double pivotX = x + proxy.getOriginX() * width;
-      double pivotY = y + proxy.getOriginY() * height;
-      gc.translate(pivotX, pivotY);
-      if (proxy.getRotationDeg() != 0.0) gc.rotate(proxy.getRotationDeg());
-      if (proxy.getScaleX() != 1.0 || proxy.getScaleY() != 1.0) gc.scale(proxy.getScaleX(), proxy.getScaleY());
-      gc.translate(-pivotX, -pivotY);
+    if (transforms != null) {
+      for (LayerTransformTarget target : transforms) {
+        applyLayerTransformTarget(target, x, y, width, height);
+      }
     }
     drawCharacterImage(layer.image(), layer.path(), x, y, width, height, canvasWidth, canvasHeight, stage);
     gc.restore();
   }
 
-  private LayerProxyMatch resolveLayerProxy(SpriteLayer layer, List<SpriteLayer> expressionLayers) {
-    if (timelineAccessor == null || layer == null || layer.targetName() == null) return null;
-    Entity2D exact = timelineAccessor.getProxy(layer.targetName());
-    if (exact != null) return new LayerProxyMatch(exact, true);
-
-    if (!hasBroadLayerProxyCoverage(expressionLayers)) return null;
-    for (SpriteLayer sibling : expressionLayers) {
-      if (sibling == null || sibling == layer || sibling.targetName() == null) continue;
-      Entity2D siblingProxy = timelineAccessor.getProxy(sibling.targetName());
-      if (siblingProxy != null) return new LayerProxyMatch(siblingProxy, false);
+  private void applyLayerTransformTarget(LayerTransformTarget target,
+                                         double baseX,
+                                         double baseY,
+                                         double width,
+                                         double height) {
+    if (target == null || target.proxy() == null) return;
+    Entity2D proxy = target.proxy();
+    double dx = timelineTransformOffsetX(proxy, baseX);
+    double dy = timelineTransformOffsetY(proxy, baseY);
+    if (Math.abs(dx) > 1e-6 || Math.abs(dy) > 1e-6) {
+      gc.translate(dx, dy);
     }
-    return null;
+
+    double originX = transformOriginX(target);
+    double originY = transformOriginY(target);
+    double pivotX = baseX + originX * width;
+    double pivotY = baseY + originY * height;
+    gc.translate(pivotX, pivotY);
+    if (proxy.getRotationDeg() != 0.0) gc.rotate(proxy.getRotationDeg());
+    if (proxy.getScaleX() != 1.0 || proxy.getScaleY() != 1.0) gc.scale(proxy.getScaleX(), proxy.getScaleY());
+    gc.translate(-pivotX, -pivotY);
+  }
+
+  private double transformOriginX(LayerTransformTarget target) {
+    Entity2D proxy = target == null ? null : target.proxy();
+    if (proxy == null) return 0.5;
+    VnCharacter.LayerGroup group = target.group();
+    if (group != null && group.hasPivot() && !hasAuthoredProxyOriginX(proxy)) {
+      return group.pivotX();
+    }
+    return proxy.getOriginX();
+  }
+
+  private double transformOriginY(LayerTransformTarget target) {
+    Entity2D proxy = target == null ? null : target.proxy();
+    if (proxy == null) return 1.0;
+    VnCharacter.LayerGroup group = target.group();
+    if (group != null && group.hasPivot() && !hasAuthoredProxyOriginY(proxy)) {
+      return group.pivotY();
+    }
+    return proxy.getOriginY();
+  }
+
+  private boolean hasAuthoredProxyOriginX(Entity2D proxy) {
+    return proxy instanceof VnCharacterSceneAccessor.TimelineProxyEntity timelineProxy
+        && timelineProxy.hasTimelineOriginX();
+  }
+
+  private boolean hasAuthoredProxyOriginY(Entity2D proxy) {
+    return proxy instanceof VnCharacterSceneAccessor.TimelineProxyEntity timelineProxy
+        && timelineProxy.hasTimelineOriginY();
+  }
+
+  private double timelineTransformOffsetX(Entity2D proxy, double defaultX) {
+    if (proxy == null) return 0.0;
+    if (proxy instanceof TimelineDrivenEntity driven) {
+      return driven.hasTimelineX() ? proxy.getX() : 0.0;
+    }
+    return hasTimelinePosition(proxy) ? proxy.getX() - defaultX : 0.0;
+  }
+
+  private double timelineTransformOffsetY(Entity2D proxy, double defaultY) {
+    if (proxy == null) return 0.0;
+    if (proxy instanceof TimelineDrivenEntity driven) {
+      return driven.hasTimelineY() ? proxy.getY() : 0.0;
+    }
+    return hasTimelinePosition(proxy) ? proxy.getY() - defaultY : 0.0;
+  }
+
+  private boolean hasAnyLayerTransformProxy(SpriteLayer layer) {
+    if (timelineAccessor == null || layer == null) return false;
+    if (firstProxy(layer.targetNames()) != null) return true;
+    if (layer.groupTargets() != null) {
+      for (GroupLayerTarget groupTarget : layer.groupTargets()) {
+        if (groupTarget != null && firstProxy(groupTarget.targetNames()) != null) return true;
+      }
+    }
+    return false;
+  }
+
+  private List<LayerTransformTarget> resolveLayerTransforms(SpriteLayer layer, List<SpriteLayer> expressionLayers) {
+    if (timelineAccessor == null || layer == null) return List.of();
+    List<LayerTransformTarget> transforms = new ArrayList<>();
+    if (layer.groupTargets() != null) {
+      for (GroupLayerTarget groupTarget : layer.groupTargets()) {
+        if (groupTarget == null) continue;
+        Entity2D proxy = firstProxy(groupTarget.targetNames());
+        if (proxy != null) transforms.add(new LayerTransformTarget(proxy, groupTarget.group(), true));
+      }
+    }
+
+    Entity2D exact = firstProxy(layer.targetNames());
+    if (exact != null) {
+      transforms.add(new LayerTransformTarget(exact, null, true));
+      return List.copyOf(transforms);
+    }
+
+    if (!hasBroadLayerProxyCoverage(expressionLayers)) return List.copyOf(transforms);
+    for (SpriteLayer sibling : expressionLayers) {
+      if (sibling == null || sibling == layer) continue;
+      Entity2D siblingProxy = firstProxy(sibling.targetNames());
+      if (siblingProxy != null) {
+        transforms.add(new LayerTransformTarget(siblingProxy, null, false));
+        return List.copyOf(transforms);
+      }
+    }
+    return List.copyOf(transforms);
   }
 
   private boolean hasBroadLayerProxyCoverage(List<SpriteLayer> expressionLayers) {
@@ -1191,13 +1310,23 @@ public class VnRenderer {
     int layerCount = 0;
     int proxyCount = 0;
     for (SpriteLayer layer : expressionLayers) {
-      if (layer == null || layer.targetName() == null) continue;
+      if (layer == null || layer.targetNames() == null || layer.targetNames().isEmpty()) continue;
       layerCount++;
-      if (timelineAccessor.getProxy(layer.targetName()) != null) {
+      if (firstProxy(layer.targetNames()) != null) {
         proxyCount++;
       }
     }
     return shouldFallbackMissingLayerProxy(layerCount, proxyCount);
+  }
+
+  private Entity2D firstProxy(List<String> targetNames) {
+    if (timelineAccessor == null || targetNames == null || targetNames.isEmpty()) return null;
+    for (String targetName : targetNames) {
+      if (targetName == null || targetName.isBlank()) continue;
+      Entity2D proxy = timelineAccessor.getProxy(targetName);
+      if (proxy != null) return proxy;
+    }
+    return null;
   }
 
   static boolean shouldFallbackMissingLayerProxy(int layerCount, int proxyCount) {
@@ -1233,18 +1362,56 @@ public class VnRenderer {
       String path = layerPaths.get(i);
       String layerId = i < layerIds.size() ? layerIds.get(i) : "";
       if (layerId == null || layerId.isBlank()) layerId = fallbackLayerId(path, i);
-      String targetName = timelineLayerTargetName(characterId, expression, layerId);
-      layers.add(new SpriteLayer(path, layerId, targetName, loadSpriteLayerImage(path)));
+      List<String> targetNames = timelineLayerTargetNames(characterId, expression, layerId);
+      List<GroupLayerTarget> groupTargets = timelineGroupTargets(character, characterId, expression, layerId);
+      layers.add(new SpriteLayer(path, layerId, targetNames, groupTargets, loadSpriteLayerImage(path)));
     }
     return layers;
   }
 
   private String timelineLayerTargetName(String characterId, String expression, String layerId) {
+    List<String> names = timelineLayerTargetNames(characterId, expression, layerId);
+    return names.isEmpty() ? null : names.get(0);
+  }
+
+  private List<String> timelineLayerTargetNames(String characterId, String expression, String layerId) {
     String safeCharacter = selectorSafeName(characterId);
     String safeExpression = selectorSafeName(expression == null || expression.isBlank() ? "neutral" : expression);
     String safeLayer = selectorSafeName(layerId);
-    if (safeCharacter.isBlank() || safeExpression.isBlank() || safeLayer.isBlank()) return null;
-    return safeCharacter + "_" + safeExpression + "_" + safeLayer;
+    if (safeCharacter.isBlank() || safeExpression.isBlank() || safeLayer.isBlank()) return List.of();
+    LinkedHashSet<String> names = new LinkedHashSet<>();
+    names.add(safeCharacter + "_" + safeExpression + "_" + safeLayer);
+    names.add(safeCharacter + "_" + safeLayer);
+    return List.copyOf(names);
+  }
+
+  private List<GroupLayerTarget> timelineGroupTargets(
+      VnCharacter character,
+      String characterId,
+      String expression,
+      String layerId
+  ) {
+    if (character == null || layerId == null || layerId.isBlank()) return List.of();
+    List<VnCharacter.LayerGroup> chain = character.getLayerGroupChainForLayer(layerId);
+    if (chain.isEmpty()) return List.of();
+    List<GroupLayerTarget> targets = new ArrayList<>();
+    for (VnCharacter.LayerGroup group : chain) {
+      if (group == null || group.id().isBlank()) continue;
+      List<String> names = timelineGroupTargetNames(characterId, expression, group.id());
+      if (!names.isEmpty()) targets.add(new GroupLayerTarget(group, names));
+    }
+    return List.copyOf(targets);
+  }
+
+  static List<String> timelineGroupTargetNames(String characterId, String expression, String groupId) {
+    String safeCharacter = selectorSafeNameStatic(characterId);
+    String safeExpression = selectorSafeNameStatic(expression == null || expression.isBlank() ? "neutral" : expression);
+    String safeGroup = selectorSafeNameStatic(groupId);
+    if (safeCharacter.isBlank() || safeExpression.isBlank() || safeGroup.isBlank()) return List.of();
+    LinkedHashSet<String> names = new LinkedHashSet<>();
+    names.add(safeCharacter + "_" + safeExpression + "_" + safeGroup);
+    names.add(safeCharacter + "_" + safeGroup);
+    return List.copyOf(names);
   }
 
   private String fallbackLayerId(String path, int index) {
@@ -1259,6 +1426,10 @@ public class VnRenderer {
   }
 
   private String selectorSafeName(String raw) {
+    return selectorSafeNameStatic(raw);
+  }
+
+  private static String selectorSafeNameStatic(String raw) {
     String value = raw == null ? "" : raw.trim();
     StringBuilder out = new StringBuilder();
     for (int i = 0; i < value.length(); i++) {

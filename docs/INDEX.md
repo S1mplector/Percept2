@@ -187,6 +187,7 @@ source of truth for docs changes.
 - [VNS Text Formatting & ICU](scripting/vns/language/vns-text-formatting.md)
 - [VNS Characters & Sprites](scripting/vns/presentation/vns-characters.md)
 - [Layered Character Presets Guide](scripting/vns/presentation/vns-layered-charpresets.md)
+- [Movable Character Layer Groups](scripting/vns/presentation/vns-movable-layer-groups.md)
 - [VNS Audio Commands](scripting/vns/presentation/vns-audio.md)
 - [VNS Transitions & Screen Effects](scripting/vns/presentation/vns-transitions.md)
 - [VNS Subroutines & Flow Control](scripting/vns/flow/vns-flow-control.md)

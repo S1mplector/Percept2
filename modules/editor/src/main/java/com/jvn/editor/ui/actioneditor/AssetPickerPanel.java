@@ -59,6 +59,7 @@ public class AssetPickerPanel extends VBox {
     private static final Pattern BG_DECL_PATTERN = Pattern.compile("^\\s*@background\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
     private static final Pattern CHARIMG_PATTERN = Pattern.compile("^\\s*@charimg\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
     private static final Pattern CHARLAYER_PATTERN = Pattern.compile("^\\s*@charlayer\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
+    private static final Pattern CHARGROUP_PATTERN = Pattern.compile("^\\s*@chargroup\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
     private static final Pattern CHARPRESET_PATTERN = Pattern.compile("^\\s*@charpreset\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
 
     private static final Set<String> IMAGE_EXTENSIONS = Set.of(
@@ -1122,6 +1123,7 @@ public class AssetPickerPanel extends VBox {
             Path scriptPath = script.toPath().toAbsolutePath().normalize();
             String scriptRelativePath = projectRootPath.relativize(scriptPath).toString().replace('\\', '/');
             Map<String, Map<String, String>> charLayerPaths = new LinkedHashMap<>();
+            Map<String, Map<String, List<String>>> charGroupLayerIds = new LinkedHashMap<>();
             Map<String, Map<String, List<String>>> presetPaths = new LinkedHashMap<>();
             List<String> lines;
             try {
@@ -1163,11 +1165,22 @@ public class AssetPickerPanel extends VBox {
                     continue;
                 }
 
+                Matcher charGroup = CHARGROUP_PATTERN.matcher(line);
+                if (charGroup.matches()) {
+                    String characterId = charGroup.group(1);
+                    String groupId = charGroup.group(2);
+                    List<String> layerIds = resolveGroupLayerIds(charLayerPaths, charGroupLayerIds, characterId, charGroup.group(3));
+                    if (!layerIds.isEmpty()) {
+                        charGroupLayerIds.computeIfAbsent(characterId, ignored -> new LinkedHashMap<>()).put(groupId, layerIds);
+                    }
+                    continue;
+                }
+
                 Matcher charPreset = CHARPRESET_PATTERN.matcher(line);
                 if (charPreset.matches()) {
                     String characterId = charPreset.group(1);
                     String presetId = charPreset.group(2);
-                    List<String> resolvedPaths = resolvePresetPaths(charLayerPaths, presetPaths, characterId, charPreset.group(3));
+                    List<String> resolvedPaths = resolvePresetPaths(charLayerPaths, charGroupLayerIds, presetPaths, characterId, charPreset.group(3));
                     if (!resolvedPaths.isEmpty()) {
                         presetPaths.computeIfAbsent(characterId, ignored -> new LinkedHashMap<>()).put(presetId, resolvedPaths);
                         annotateCharPreset(entriesByRelativePath, resolvedPaths, characterId, presetId, scriptRelativePath);
@@ -1281,8 +1294,9 @@ public class AssetPickerPanel extends VBox {
         }
     }
 
-    private static List<String> resolvePresetPaths(
+    static List<String> resolvePresetPaths(
         Map<String, Map<String, String>> charLayerPaths,
+        Map<String, Map<String, List<String>>> charGroupLayerIds,
         Map<String, Map<String, List<String>>> presetPaths,
         String defaultCharacterId,
         String spec
@@ -1298,6 +1312,8 @@ public class AssetPickerPanel extends VBox {
                 String path = LayeredCharacterResolver.resolveLayerPath(charLayerPaths, defaultCharacterId, rawRef);
                 if (path != null && !path.isBlank()) {
                     resolved.add(normalizeDeclaredAssetPath(path));
+                } else {
+                    resolved.addAll(resolveGroupPaths(charLayerPaths, charGroupLayerIds, defaultCharacterId, rawRef));
                 }
                 continue;
             }
@@ -1313,6 +1329,91 @@ public class AssetPickerPanel extends VBox {
             resolved.add(normalizeDeclaredAssetPath(part));
         }
         return resolved;
+    }
+
+    private static List<String> resolveGroupPaths(
+        Map<String, Map<String, String>> charLayerPaths,
+        Map<String, Map<String, List<String>>> charGroupLayerIds,
+        String defaultCharacterId,
+        String rawRef
+    ) {
+        LayeredCharacterResolver.CharacterRef ref = LayeredCharacterResolver.parseReference(rawRef, defaultCharacterId);
+        List<String> layerIds = charGroupLayerIds.getOrDefault(ref.characterId(), Map.of()).get(ref.localId());
+        if (layerIds == null || layerIds.isEmpty()) return List.of();
+        List<String> out = new ArrayList<>();
+        for (String layerId : layerIds) {
+            String path = LayeredCharacterResolver.resolveLayerPath(charLayerPaths, ref.characterId(), layerId);
+            if (path != null && !path.isBlank()) out.add(normalizeDeclaredAssetPath(path));
+        }
+        return List.copyOf(out);
+    }
+
+    static List<String> resolveGroupLayerIds(
+        Map<String, Map<String, String>> charLayerPaths,
+        Map<String, Map<String, List<String>>> charGroupLayerIds,
+        String defaultCharacterId,
+        String rawSpec
+    ) {
+        String spec = stripLeadingGroupOptions(rawSpec);
+        if (spec.isBlank()) return List.of();
+        List<String> out = new ArrayList<>();
+        for (String token : spec.split("\\|")) {
+            String part = token == null ? "" : token.trim();
+            if (part.isEmpty() || !part.startsWith("$")) continue;
+            String rawRef = part.substring(1).trim();
+            LayeredCharacterResolver.CharacterRef ref = LayeredCharacterResolver.parseReference(rawRef, defaultCharacterId);
+            String path = LayeredCharacterResolver.resolveLayerPath(charLayerPaths, defaultCharacterId, rawRef);
+            if (path != null && !path.isBlank()) {
+                String resolvedLayerId = ref.localId();
+                Map<String, String> layerMap = charLayerPaths.get(ref.characterId());
+                if (layerMap != null) {
+                    for (String candidate : LayeredCharacterResolver.candidateLayerIds(ref.localId())) {
+                        String candidatePath = layerMap.get(candidate);
+                        if (candidatePath != null && candidatePath.trim().equals(path.trim())) {
+                            resolvedLayerId = candidate;
+                            break;
+                        }
+                    }
+                }
+                if (!out.contains(resolvedLayerId)) out.add(resolvedLayerId);
+                continue;
+            }
+            List<String> nested = charGroupLayerIds.getOrDefault(ref.characterId(), Map.of()).get(ref.localId());
+            if (nested != null) {
+                for (String layerId : nested) {
+                    if (layerId != null && !layerId.isBlank() && !out.contains(layerId)) out.add(layerId);
+                }
+            }
+        }
+        return List.copyOf(out);
+    }
+
+    private static String stripLeadingGroupOptions(String rawSpec) {
+        String spec = rawSpec == null ? "" : rawSpec.trim();
+        while (!spec.isBlank()) {
+            int split = firstWhitespaceIndex(spec);
+            String token = split < 0 ? spec : spec.substring(0, split);
+            String lower = token.toLowerCase(Locale.ROOT);
+            boolean option = lower.startsWith("parent=")
+                || lower.startsWith("parent:")
+                || lower.startsWith("in=")
+                || lower.startsWith("in:")
+                || lower.startsWith("pivot=")
+                || lower.startsWith("pivot:")
+                || lower.startsWith("origin=")
+                || lower.startsWith("origin:");
+            if (!option) return spec;
+            spec = split < 0 ? "" : spec.substring(split + 1).trim();
+        }
+        return spec;
+    }
+
+    private static int firstWhitespaceIndex(String value) {
+        if (value == null) return -1;
+        for (int i = 0; i < value.length(); i++) {
+            if (Character.isWhitespace(value.charAt(i))) return i;
+        }
+        return -1;
     }
 
     private static String normalizeDeclaredAssetPath(String rawPath) {

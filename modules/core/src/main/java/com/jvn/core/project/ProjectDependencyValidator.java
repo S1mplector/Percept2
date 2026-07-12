@@ -159,6 +159,8 @@ public final class ProjectDependencyValidator {
       Pattern.compile("^@charimg\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARLAYER_PATTERN =
       Pattern.compile("^@charlayer\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern CHARGROUP_PATTERN =
+      Pattern.compile("^@chargroup\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARPRESET_PATTERN =
       Pattern.compile("^@charpreset\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern STAGE_PRESET_PATTERN =
@@ -479,6 +481,12 @@ public final class ProjectDependencyValidator {
       return;
     }
 
+    Matcher charGroup = CHARGROUP_PATTERN.matcher(line);
+    if (charGroup.matches()) {
+      inspectCharPresetSpec(ctx, sourceFile, location, stripLeadingCharGroupOptions(charGroup.group(3)));
+      return;
+    }
+
     Matcher charPreset = CHARPRESET_PATTERN.matcher(line);
     if (charPreset.matches()) {
       inspectCharPresetSpec(ctx, sourceFile, location, charPreset.group(3));
@@ -522,6 +530,34 @@ public final class ProjectDependencyValidator {
             false, Severity.WARNING, "asset");
       }
     }
+  }
+
+  private static String stripLeadingCharGroupOptions(String rawSpec) {
+    String spec = rawSpec == null ? "" : rawSpec.trim();
+    while (!spec.isBlank()) {
+      int split = firstWhitespaceIndex(spec);
+      String token = split < 0 ? spec : spec.substring(0, split);
+      String lower = token.toLowerCase(Locale.ROOT);
+      boolean option = lower.startsWith("parent=")
+          || lower.startsWith("parent:")
+          || lower.startsWith("in=")
+          || lower.startsWith("in:")
+          || lower.startsWith("pivot=")
+          || lower.startsWith("pivot:")
+          || lower.startsWith("origin=")
+          || lower.startsWith("origin:");
+      if (!option) return spec;
+      spec = split < 0 ? "" : spec.substring(split + 1).trim();
+    }
+    return spec;
+  }
+
+  private static int firstWhitespaceIndex(String value) {
+    if (value == null) return -1;
+    for (int i = 0; i < value.length(); i++) {
+      if (Character.isWhitespace(value.charAt(i))) return i;
+    }
+    return -1;
   }
 
   private static void inspectExternal(

@@ -49,6 +49,8 @@ final class LayeredCharacterProjectCatalog {
   );
   private static final Pattern CHARLAYER_PATTERN =
       Pattern.compile("^\\s*@charlayer\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern CHARGROUP_PATTERN =
+      Pattern.compile("^\\s*@chargroup\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARPRESET_PATTERN =
       Pattern.compile("^\\s*@charpreset\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
 
@@ -80,12 +82,13 @@ final class LayeredCharacterProjectCatalog {
     if (sources == null || sources.isEmpty()) return Catalog.empty();
 
     Map<String, LinkedHashMap<String, String>> layersByCharacter = new LinkedHashMap<>();
+    Map<String, LinkedHashMap<String, String>> rawGroupsByCharacter = new LinkedHashMap<>();
     Map<String, LinkedHashMap<String, String>> rawPresetsByCharacter = new LinkedHashMap<>();
 
     List<Map.Entry<String, String>> orderedSources = new ArrayList<>(sources.entrySet());
     orderedSources.sort(Map.Entry.comparingByKey(String.CASE_INSENSITIVE_ORDER));
     for (Map.Entry<String, String> entry : orderedSources) {
-      parseSource(entry.getValue(), layersByCharacter, rawPresetsByCharacter);
+      parseSource(entry.getValue(), layersByCharacter, rawGroupsByCharacter, rawPresetsByCharacter);
     }
 
     if (layersByCharacter.isEmpty()) return Catalog.empty();
@@ -99,6 +102,7 @@ final class LayeredCharacterProjectCatalog {
       for (String presetId : entry.getValue().keySet()) {
         List<ResolvedLayer> resolved = resolvePreset(
             layersByCharacter,
+            rawGroupsByCharacter,
             rawPresetsByCharacter,
             characterId,
             presetId,
@@ -222,6 +226,7 @@ final class LayeredCharacterProjectCatalog {
 
   private static void parseSource(String source,
                                   Map<String, LinkedHashMap<String, String>> layersByCharacter,
+                                  Map<String, LinkedHashMap<String, String>> rawGroupsByCharacter,
                                   Map<String, LinkedHashMap<String, String>> rawPresetsByCharacter) {
     if (source == null || source.isBlank()) return;
     String[] lines = source.split("\\R");
@@ -238,6 +243,16 @@ final class LayeredCharacterProjectCatalog {
         continue;
       }
 
+      Matcher groupMatcher = CHARGROUP_PATTERN.matcher(line);
+      if (groupMatcher.matches()) {
+        String characterId = groupMatcher.group(1).trim();
+        String groupId = groupMatcher.group(2).trim();
+        String spec = groupMatcher.group(3).trim();
+        if (characterId.isBlank() || groupId.isBlank() || spec.isBlank()) continue;
+        rawGroupsByCharacter.computeIfAbsent(characterId, key -> new LinkedHashMap<>()).put(groupId, spec);
+        continue;
+      }
+
       Matcher presetMatcher = CHARPRESET_PATTERN.matcher(line);
       if (presetMatcher.matches()) {
         String characterId = presetMatcher.group(1).trim();
@@ -250,6 +265,7 @@ final class LayeredCharacterProjectCatalog {
   }
 
   private static List<ResolvedLayer> resolvePreset(Map<String, LinkedHashMap<String, String>> layersByCharacter,
+                                                   Map<String, LinkedHashMap<String, String>> rawGroupsByCharacter,
                                                    Map<String, LinkedHashMap<String, String>> rawPresetsByCharacter,
                                                    String characterId,
                                                    String presetId,
@@ -273,8 +289,12 @@ final class LayeredCharacterProjectCatalog {
         String part = token.trim();
         if (part.isEmpty()) continue;
         if (part.startsWith("$")) {
-          ResolvedLayer layer = resolveLayerReference(layersByCharacter, characterId, part.substring(1).trim());
-          if (layer != null) resolved.add(layer);
+          resolved.addAll(resolveLayerOrGroupReference(
+              layersByCharacter,
+              rawGroupsByCharacter,
+              characterId,
+              part.substring(1).trim(),
+              new ArrayDeque<>()));
         } else if (part.startsWith("@")) {
           LayeredCharacterResolver.CharacterRef ref =
               LayeredCharacterResolver.parseReference(part.substring(1).trim(), characterId);
@@ -284,6 +304,7 @@ final class LayeredCharacterProjectCatalog {
           }
           resolved.addAll(resolvePreset(
               layersByCharacter,
+              rawGroupsByCharacter,
               rawPresetsByCharacter,
               ref.characterId(),
               ref.localId(),
@@ -323,6 +344,77 @@ final class LayeredCharacterProjectCatalog {
       }
     }
     return null;
+  }
+
+  private static List<ResolvedLayer> resolveLayerOrGroupReference(
+      Map<String, LinkedHashMap<String, String>> layersByCharacter,
+      Map<String, LinkedHashMap<String, String>> rawGroupsByCharacter,
+      String defaultCharacterId,
+      String rawRef,
+      Deque<String> groupStack
+  ) {
+    ResolvedLayer layer = resolveLayerReference(layersByCharacter, defaultCharacterId, rawRef);
+    if (layer != null) return List.of(layer);
+
+    LayeredCharacterResolver.CharacterRef ref = LayeredCharacterResolver.parseReference(rawRef, defaultCharacterId);
+    if (ref.characterId() == null || ref.characterId().isBlank()
+        || ref.localId() == null || ref.localId().isBlank()) {
+      return List.of();
+    }
+    String key = ref.characterId() + "/" + ref.localId();
+    if (groupStack.contains(key)) return List.of();
+    Map<String, String> groups = rawGroupsByCharacter.get(ref.characterId());
+    if (groups == null || groups.isEmpty()) return List.of();
+    String spec = groups.get(ref.localId());
+    if (spec == null || spec.isBlank()) return List.of();
+
+    groupStack.push(key);
+    List<ResolvedLayer> out = new ArrayList<>();
+    try {
+      String layerSpec = stripLeadingGroupOptions(spec);
+      for (String token : layerSpec.split("\\|")) {
+        if (token == null) continue;
+        String part = token.trim();
+        if (part.isEmpty() || !part.startsWith("$")) continue;
+        out.addAll(resolveLayerOrGroupReference(
+            layersByCharacter,
+            rawGroupsByCharacter,
+            ref.characterId(),
+            part.substring(1).trim(),
+            groupStack));
+      }
+    } finally {
+      groupStack.pop();
+    }
+    return List.copyOf(out);
+  }
+
+  private static String stripLeadingGroupOptions(String rawSpec) {
+    String spec = rawSpec == null ? "" : rawSpec.trim();
+    while (!spec.isBlank()) {
+      int split = firstWhitespaceIndex(spec);
+      String token = split < 0 ? spec : spec.substring(0, split);
+      String lower = token.toLowerCase(Locale.ROOT);
+      boolean option = lower.startsWith("parent=")
+          || lower.startsWith("parent:")
+          || lower.startsWith("in=")
+          || lower.startsWith("in:")
+          || lower.startsWith("pivot=")
+          || lower.startsWith("pivot:")
+          || lower.startsWith("origin=")
+          || lower.startsWith("origin:");
+      if (!option) return spec;
+      spec = split < 0 ? "" : spec.substring(split + 1).trim();
+    }
+    return spec;
+  }
+
+  private static int firstWhitespaceIndex(String value) {
+    if (value == null) return -1;
+    for (int i = 0; i < value.length(); i++) {
+      if (Character.isWhitespace(value.charAt(i))) return i;
+    }
+    return -1;
   }
 
   private static Set<String> findSplitLayerIds(String characterId,

@@ -79,7 +79,7 @@ You can use any names, but these are conventional:
 @charimg hero thinking assets/characters/hero/thinking.png
 ```
 
-### Layer Composites (`@charlayer` and `@charpreset`)
+### Layer Composites and Groups (`@charlayer`, `@chargroup`, and `@charpreset`)
 
 For characters with layered sprites (e.g., separate eyes, mouth, accessories):
 
@@ -91,8 +91,11 @@ For characters with layered sprites (e.g., separate eyes, mouth, accessories):
 @charlayer hero mouth_frown assets/characters/hero/mouth_frown.png
 @charlayer hero glasses assets/characters/hero/glasses.png
 
-@charpreset hero happy $eyes_happy $mouth_smile
-@charpreset hero sad $eyes_neutral $mouth_frown
+@chargroup hero face_neutral $eyes_neutral | $mouth_smile
+@chargroup hero face_sad $eyes_neutral | $mouth_frown
+
+@charpreset hero happy $base | $eyes_happy | $mouth_smile
+@charpreset hero sad $base | $face_sad
 ```
 
 Use composites in `[show]`:
@@ -101,6 +104,7 @@ Use composites in `[show]`:
 [show hero center @happy]                    # use preset
 [show hero center @happy+$glasses]           # preset + extra layer
 [show hero center $base+$eyes_happy+$mouth_smile]  # explicit layers
+[show hero center $base+$face_neutral+$glasses]    # explicit group + layer
 ```
 
 ---
@@ -346,7 +350,7 @@ narrator: And so began Yuki's new chapter.
 5. `[bg bgId]` switches the background
 6. Five predefined positions: `far_left`, `left`, `center`, `right`, `far_right`
 7. `[show]` again at the same position changes the expression
-8. Layer composites use `@charlayer`, `@charpreset`, and `$layer` syntax
+8. Layer composites use `@charlayer`, `@chargroup`, `@charpreset`, `$layer`, and `$group` syntax
 
 ---
 

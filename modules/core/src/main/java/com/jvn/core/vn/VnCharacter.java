@@ -1,6 +1,7 @@
 package com.jvn.core.vn;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +16,7 @@ public class VnCharacter {
   private final Map<String, String> expressions; // expression name -> image path
   private final Map<String, String> layerPaths; // @charlayer id -> image path
   private final Map<String, List<String>> expressionLayerIds; // expression name -> ordered @charlayer ids
+  private final Map<String, LayerGroup> layerGroups; // @chargroup id -> layer group metadata
 
   private VnCharacter(Builder builder) {
     this.id = builder.id;
@@ -22,6 +24,7 @@ public class VnCharacter {
     this.expressions = new HashMap<>(builder.expressions);
     this.layerPaths = new HashMap<>(builder.layerPaths);
     this.expressionLayerIds = new HashMap<>(builder.expressionLayerIds);
+    this.layerGroups = new LinkedHashMap<>(builder.layerGroups);
   }
 
   public String getId() { return id; }
@@ -53,6 +56,78 @@ public class VnCharacter {
     }
     return ids == null ? List.of() : ids;
   }
+  public LayerGroup getLayerGroup(String groupId) {
+    if (groupId == null || groupId.isBlank()) return null;
+    return layerGroups.get(groupId.trim());
+  }
+  public Map<String, LayerGroup> getLayerGroups() {
+    return Map.copyOf(layerGroups);
+  }
+  public List<LayerGroup> getLayerGroupChainForLayer(String layerId) {
+    if (layerGroups.isEmpty() || layerId == null || layerId.isBlank()) return List.of();
+    LayerGroup deepest = null;
+    int deepestDepth = -1;
+    for (LayerGroup group : layerGroups.values()) {
+      if (group == null || !group.containsLayerId(layerId)) continue;
+      int depth = layerGroupDepth(group.id(), new LinkedHashSet<>());
+      if (depth > deepestDepth) {
+        deepest = group;
+        deepestDepth = depth;
+      }
+    }
+    if (deepest == null) return List.of();
+
+    LinkedHashSet<String> seen = new LinkedHashSet<>();
+    List<LayerGroup> chain = new java.util.ArrayList<>();
+    LayerGroup current = deepest;
+    while (current != null && seen.add(current.id())) {
+      chain.add(0, current);
+      String parent = current.parentId();
+      current = parent == null || parent.isBlank() ? null : layerGroups.get(parent);
+    }
+    return List.copyOf(chain);
+  }
+
+  private int layerGroupDepth(String groupId, Set<String> seen) {
+    if (groupId == null || groupId.isBlank() || !seen.add(groupId)) return 0;
+    LayerGroup group = layerGroups.get(groupId);
+    if (group == null || group.parentId().isBlank()) return 0;
+    return 1 + layerGroupDepth(group.parentId(), seen);
+  }
+
+  private static boolean equivalentLayerId(String left, String right) {
+    if (left == null || right == null) return false;
+    String a = left.trim();
+    String b = right.trim();
+    if (a.equals(b)) return true;
+    return LayeredCharacterResolver.candidateLayerIds(a).contains(b)
+        || LayeredCharacterResolver.candidateLayerIds(b).contains(a);
+  }
+
+  public record LayerGroup(
+      String id,
+      String parentId,
+      List<String> layerIds,
+      double pivotX,
+      double pivotY,
+      boolean hasPivot
+  ) {
+    public LayerGroup {
+      id = id == null ? "" : id.trim();
+      parentId = parentId == null ? "" : parentId.trim();
+      layerIds = layerIds == null ? List.of() : List.copyOf(layerIds);
+      if (!Double.isFinite(pivotX)) pivotX = 0.5;
+      if (!Double.isFinite(pivotY)) pivotY = 1.0;
+    }
+
+    public boolean containsLayerId(String layerId) {
+      if (layerId == null || layerId.isBlank() || layerIds.isEmpty()) return false;
+      for (String member : layerIds) {
+        if (equivalentLayerId(layerId, member)) return true;
+      }
+      return false;
+    }
+  }
 
   public static Builder builder(String id) { return new Builder(id); }
 
@@ -62,6 +137,7 @@ public class VnCharacter {
     private final Map<String, String> expressions = new HashMap<>();
     private final Map<String, String> layerPaths = new HashMap<>();
     private final Map<String, List<String>> expressionLayerIds = new HashMap<>();
+    private final Map<String, LayerGroup> layerGroups = new LinkedHashMap<>();
 
     private Builder(String id) {
       this.id = id;
@@ -78,6 +154,13 @@ public class VnCharacter {
       List<String> ids = expressionLayerIds.get(name);
       return ids == null ? List.of() : ids;
     }
+    public LayerGroup getLayerGroup(String groupId) {
+      if (groupId == null || groupId.isBlank()) return null;
+      return layerGroups.get(groupId.trim());
+    }
+    public Map<String, LayerGroup> getLayerGroups() {
+      return Map.copyOf(layerGroups);
+    }
     public Builder addExpression(String name, String imagePath) {
       expressions.put(name, imagePath);
       expressionLayerIds.remove(name);
@@ -89,6 +172,20 @@ public class VnCharacter {
         expressionLayerIds.remove(name);
       } else {
         expressionLayerIds.put(name, List.copyOf(layerIds));
+      }
+      return this;
+    }
+    public Builder addLayerGroup(String groupId, String parentId, List<String> layerIds) {
+      return addLayerGroup(groupId, parentId, layerIds, 0.5, 1.0, false);
+    }
+    public Builder addLayerGroup(String groupId,
+                                 String parentId,
+                                 List<String> layerIds,
+                                 double pivotX,
+                                 double pivotY,
+                                 boolean hasPivot) {
+      if (groupId != null && !groupId.isBlank() && layerIds != null && !layerIds.isEmpty()) {
+        layerGroups.put(groupId.trim(), new LayerGroup(groupId, parentId, layerIds, pivotX, pivotY, hasPivot));
       }
       return this;
     }

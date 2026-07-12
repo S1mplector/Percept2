@@ -77,4 +77,30 @@ class LayeredCharacterProjectCatalogTest {
             "mouth", "assets/demo/characters/lavender/mouth_smile.png"),
         lavender.presets().get("talking").selectionsByGroup());
   }
+
+  @Test
+  void parseSourcesResolvesCharacterLayerGroupsInPresets() {
+    Map<String, String> sources = new LinkedHashMap<>();
+    sources.put("definitions/characters.vns", """
+        @charlayer john body_default assets/john/body.png
+        @charlayer john head_base assets/john/head.png
+        @charlayer john eyes_neutral assets/john/eyes.png
+        @charlayer john mouth_smile assets/john/mouth.png
+        @chargroup john head $head_base | $eyes_neutral | $mouth_smile
+        @charpreset john neutral $body_default | $head
+        """);
+
+    LayeredCharacterProjectCatalog.Catalog catalog = LayeredCharacterProjectCatalog.parseSources(sources);
+    LayeredCharacterProjectCatalog.DeclaredSet john = catalog.setsById().get("assets/john");
+
+    assertNotNull(john);
+    assertTrue(john.presets().containsKey("neutral"));
+    assertEquals(
+        Map.of(
+            "body", "assets/john/body.png",
+            "head", "assets/john/head.png",
+            "eyes", "assets/john/eyes.png",
+            "mouth", "assets/john/mouth.png"),
+        john.presets().get("neutral").selectionsByGroup());
+  }
 }

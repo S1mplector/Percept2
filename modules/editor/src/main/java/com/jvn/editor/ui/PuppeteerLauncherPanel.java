@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -50,6 +51,7 @@ public class PuppeteerLauncherPanel extends VBox {
   private static final Pattern STAGE_PRESET_PATTERN = Pattern.compile("^\\s*@stagepreset\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARIMG_PATTERN = Pattern.compile("^\\s*@charimg\\s+(\\S+)\\s+(\\S+)\\s+(.+)", Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARLAYER_PATTERN = Pattern.compile("^\\s*@charlayer\\s+(\\S+)\\s+(\\S+)\\s+(.+)", Pattern.CASE_INSENSITIVE);
+  private static final Pattern CHARGROUP_PATTERN = Pattern.compile("^\\s*@chargroup\\s+(\\S+)\\s+(\\S+)\\s+(.+)", Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARPRESET_PATTERN = Pattern.compile("^\\s*@charpreset\\s+(\\S+)\\s+(\\S+)\\s+(.+)", Pattern.CASE_INSENSITIVE);
   private static final Pattern JES_TIMELINE_PATTERN = Pattern.compile("^\\s*@external\\s+jes_timeline\\s+(\\S+)", Pattern.CASE_INSENSITIVE);
   private static final Pattern EXT_STAGE_PATTERN = Pattern.compile("^\\s*@external\\s+stage\\s+(.+)$", Pattern.CASE_INSENSITIVE);
@@ -1226,6 +1228,7 @@ button then opens it in the editor."""));
     Map<String, String> charImgPaths = new LinkedHashMap<>();
     Map<String, Map<String, String>> charLayerPaths = new LinkedHashMap<>();
     Map<String, List<CharacterLayerEntry>> charPresetLayers = new LinkedHashMap<>();
+    Map<String, CharacterLayerGroupEntry> charLayerGroups = new LinkedHashMap<>();
     Map<String, String> dynamicGroups = new LinkedHashMap<>();
     String activeStagePresetId = null;
 
@@ -1244,6 +1247,7 @@ button then opens it in the editor."""));
         charImgPaths,
         charLayerPaths,
         charPresetLayers,
+        charLayerGroups,
         new HashSet<>());
 
     for (int i = 0; i <= limit; i++) {
@@ -1313,14 +1317,31 @@ button then opens it in the editor."""));
         continue;
       }
 
+      m = CHARGROUP_PATTERN.matcher(line);
+      if (m.find()) {
+        String charId = m.group(1);
+        String groupId = m.group(2);
+        String spec = m.group(3).trim();
+        CharacterLayerGroupEntry group = resolveLayerGroupEntry(
+            charLayerPaths,
+            charLayerGroups,
+            charId,
+            groupId,
+            spec);
+        if (group != null && !group.layerIds.isEmpty()) {
+          charLayerGroups.put(charId + "/" + groupId, group);
+        }
+        continue;
+      }
+
       // @charpreset declaration — resolve $layer references into an @charimg-style mapping
       m = CHARPRESET_PATTERN.matcher(line);
       if (m.find()) {
         String charId = m.group(1);
         String expr = m.group(2);
         String spec = m.group(3).trim();
-        String resolved = resolvePresetSpec(charLayerPaths, charImgPaths, charId, spec);
-        List<CharacterLayerEntry> layers = resolvePresetLayerEntries(charLayerPaths, charImgPaths, charId, spec);
+        String resolved = resolvePresetSpec(charLayerPaths, charImgPaths, charLayerGroups, charId, spec);
+        List<CharacterLayerEntry> layers = resolvePresetLayerEntries(charLayerPaths, charImgPaths, charLayerGroups, charId, spec);
         if (!resolved.isBlank()) {
           charImgPaths.put(charId + "/" + expr, resolved);
         }
@@ -1440,6 +1461,7 @@ button then opens it in the editor."""));
         stagePresetPaths,
         charImgPaths,
         charPresetLayers,
+        charLayerGroups,
         activeStagePresetId,
         activeStageLine,
         referencedTimelineName,
@@ -1552,6 +1574,22 @@ button then opens it in the editor."""));
     return safeCharacter + "_" + safeExpression + "_" + safeLayer;
   }
 
+  public static String snapshotLayerGroupEntityName(String characterId, String expression, String groupId) {
+    List<String> names = equivalentSnapshotLayerGroupEntityNames(characterId, expression, groupId);
+    return names.isEmpty() ? "" : names.get(0);
+  }
+
+  public static List<String> equivalentSnapshotLayerGroupEntityNames(String characterId, String expression, String groupId) {
+    String safeCharacter = selectorSafeName(characterId);
+    String safeExpression = selectorSafeName(expression == null || expression.isBlank() ? "neutral" : expression);
+    String safeGroup = selectorSafeName(groupId);
+    if (safeCharacter.isBlank() || safeExpression.isBlank() || safeGroup.isBlank()) return List.of();
+    LinkedHashSet<String> names = new LinkedHashSet<>();
+    names.add(safeCharacter + "_" + safeExpression + "_" + safeGroup);
+    names.add(safeCharacter + "_" + safeGroup);
+    return List.copyOf(names);
+  }
+
   public static List<String> equivalentSnapshotLayerEntityNames(
       SceneSnapshot snapshot,
       CharacterEntry character,
@@ -1578,6 +1616,20 @@ button then opens it in the editor."""));
       }
     }
     return List.copyOf(names);
+  }
+
+  public static List<String> equivalentSnapshotLayerGroupEntityNames(
+      SceneSnapshot snapshot,
+      CharacterEntry character,
+      String groupId
+  ) {
+    if (character == null || groupId == null || groupId.isBlank()) return List.of();
+    return equivalentSnapshotLayerGroupEntityNames(character.characterId, character.expression, groupId);
+  }
+
+  public static boolean snapshotCharacterHasLayerGroup(SceneSnapshot snapshot, CharacterEntry character, String groupId) {
+    if (snapshot == null || character == null || groupId == null || groupId.isBlank()) return false;
+    return snapshot.resolveCharacterLayerGroup(character.characterId, groupId) != null;
   }
 
   public static boolean snapshotCharacterHasLayer(SceneSnapshot snapshot, CharacterEntry character, String layerId) {
@@ -1968,6 +2020,7 @@ button then opens it in the editor."""));
       Map<String, String> charImgPaths,
       Map<String, Map<String, String>> charLayerPaths,
       Map<String, List<CharacterLayerEntry>> charPresetLayers,
+      Map<String, CharacterLayerGroupEntry> charLayerGroups,
       Set<String> includeStack
   ) {
     if (source == null || source.isBlank()) return;
@@ -1998,6 +2051,7 @@ button then opens it in the editor."""));
                     charImgPaths,
                     charLayerPaths,
                     charPresetLayers,
+                    charLayerGroups,
                     includeStack);
               }
             } catch (IOException ignored) {
@@ -2038,13 +2092,30 @@ button then opens it in the editor."""));
           continue;
         }
 
+        Matcher charGroupMatcher = CHARGROUP_PATTERN.matcher(trimmed);
+        if (charGroupMatcher.matches()) {
+          String charId = charGroupMatcher.group(1);
+          String groupId = charGroupMatcher.group(2);
+          String spec = charGroupMatcher.group(3).trim();
+          CharacterLayerGroupEntry group = resolveLayerGroupEntry(
+              charLayerPaths,
+              charLayerGroups,
+              charId,
+              groupId,
+              spec);
+          if (group != null && !group.layerIds.isEmpty()) {
+            charLayerGroups.put(charId + "/" + groupId, group);
+          }
+          continue;
+        }
+
         Matcher charPresetMatcher = CHARPRESET_PATTERN.matcher(trimmed);
         if (charPresetMatcher.matches()) {
           String charId = charPresetMatcher.group(1);
           String expr = charPresetMatcher.group(2);
           String spec = charPresetMatcher.group(3).trim();
-          String resolved = resolvePresetSpec(charLayerPaths, charImgPaths, charId, spec);
-          List<CharacterLayerEntry> layers = resolvePresetLayerEntries(charLayerPaths, charImgPaths, charId, spec);
+          String resolved = resolvePresetSpec(charLayerPaths, charImgPaths, charLayerGroups, charId, spec);
+          List<CharacterLayerEntry> layers = resolvePresetLayerEntries(charLayerPaths, charImgPaths, charLayerGroups, charId, spec);
           if (!resolved.isBlank()) {
             charImgPaths.put(charId + "/" + expr, resolved);
           }
@@ -2060,6 +2131,7 @@ button then opens it in the editor."""));
 
   private static String resolvePresetSpec(Map<String, Map<String, String>> layersByCharacter,
                                           Map<String, String> expressionsByCharacter,
+                                          Map<String, CharacterLayerGroupEntry> groupsByCharacter,
                                           String characterId,
                                           String spec) {
     if (spec == null || spec.isBlank()) return "";
@@ -2070,9 +2142,16 @@ button then opens it in the editor."""));
       String part = token.trim();
       if (part.isEmpty()) continue;
       if (part.startsWith("$")) {
-        String path = LayeredCharacterResolver.resolveLayerPath(layersByCharacter, characterId, part.substring(1).trim());
-        if (path == null || path.isBlank()) continue;
-        resolved.add(path.trim());
+        List<CharacterLayerEntry> refs = resolveLayerOrGroupEntries(
+            layersByCharacter,
+            groupsByCharacter,
+            characterId,
+            part.substring(1).trim());
+        for (CharacterLayerEntry ref : refs) {
+          if (ref != null && ref.path != null && !ref.path.isBlank()) {
+            resolved.add(ref.path.trim());
+          }
+        }
       } else if (part.startsWith("@")) {
         LayeredCharacterResolver.CharacterRef ref =
             LayeredCharacterResolver.parseReference(part.substring(1).trim(), characterId);
@@ -2089,6 +2168,7 @@ button then opens it in the editor."""));
   private static List<CharacterLayerEntry> resolvePresetLayerEntries(
       Map<String, Map<String, String>> layersByCharacter,
       Map<String, String> expressionsByCharacter,
+      Map<String, CharacterLayerGroupEntry> groupsByCharacter,
       String characterId,
       String spec
   ) {
@@ -2101,15 +2181,11 @@ button then opens it in the editor."""));
       String part = token.trim();
       if (part.isEmpty()) continue;
       if (part.startsWith("$")) {
-        String layerRef = part.substring(1).trim();
-        String path = LayeredCharacterResolver.resolveLayerPath(layersByCharacter, characterId, layerRef);
-        if (path == null || path.isBlank()) continue;
-        String layerId = layerRef;
-        int sep = Math.max(layerId.lastIndexOf(':'), layerId.lastIndexOf('.'));
-        if (sep >= 0 && sep < layerId.length() - 1) {
-          layerId = layerId.substring(sep + 1);
-        }
-        resolved.add(new CharacterLayerEntry(layerId, path.trim()));
+        resolved.addAll(resolveLayerOrGroupEntries(
+            layersByCharacter,
+            groupsByCharacter,
+            characterId,
+            part.substring(1).trim()));
       } else if (part.startsWith("@")) {
         LayeredCharacterResolver.CharacterRef ref =
             LayeredCharacterResolver.parseReference(part.substring(1).trim(), characterId);
@@ -2124,6 +2200,149 @@ button then opens it in the editor."""));
       }
     }
     return List.copyOf(resolved);
+  }
+
+  private static CharacterLayerGroupEntry resolveLayerGroupEntry(
+      Map<String, Map<String, String>> layersByCharacter,
+      Map<String, CharacterLayerGroupEntry> groupsByCharacter,
+      String characterId,
+      String groupId,
+      String rawSpec
+  ) {
+    if (characterId == null || characterId.isBlank()
+        || groupId == null || groupId.isBlank()
+        || rawSpec == null || rawSpec.isBlank()) {
+      return null;
+    }
+
+    String spec = rawSpec.trim();
+    String parentId = "";
+    double pivotX = 0.5;
+    double pivotY = 1.0;
+    boolean hasPivot = false;
+    while (!spec.isBlank()) {
+      int split = firstWhitespaceIndex(spec);
+      String token = split < 0 ? spec : spec.substring(0, split);
+      String lower = token.toLowerCase(Locale.ROOT);
+      String value = optionValue(token);
+      boolean consumed = false;
+      if ((lower.startsWith("parent=") || lower.startsWith("parent:")
+          || lower.startsWith("in=") || lower.startsWith("in:")) && value != null) {
+        parentId = normalizeGroupParent(value);
+        consumed = true;
+      } else if ((lower.startsWith("pivot=") || lower.startsWith("pivot:")
+          || lower.startsWith("origin=") || lower.startsWith("origin:")) && value != null) {
+        double[] pivot = parsePivotPair(value);
+        if (pivot != null) {
+          pivotX = pivot[0];
+          pivotY = pivot[1];
+          hasPivot = true;
+        }
+        consumed = true;
+      }
+      if (!consumed) break;
+      spec = split < 0 ? "" : spec.substring(split + 1).trim();
+    }
+
+    List<String> layerIds = new ArrayList<>();
+    for (String token : spec.split("\\|")) {
+      if (token == null) continue;
+      String part = token.trim();
+      if (part.isEmpty() || !part.startsWith("$")) continue;
+      List<CharacterLayerEntry> entries = resolveLayerOrGroupEntries(
+          layersByCharacter,
+          groupsByCharacter,
+          characterId,
+          part.substring(1).trim());
+      for (CharacterLayerEntry entry : entries) {
+        if (entry != null && entry.layerId != null && !entry.layerId.isBlank() && !layerIds.contains(entry.layerId)) {
+          layerIds.add(entry.layerId);
+        }
+      }
+    }
+    return new CharacterLayerGroupEntry(groupId, parentId, layerIds, pivotX, pivotY, hasPivot);
+  }
+
+  private static List<CharacterLayerEntry> resolveLayerOrGroupEntries(
+      Map<String, Map<String, String>> layersByCharacter,
+      Map<String, CharacterLayerGroupEntry> groupsByCharacter,
+      String defaultCharacterId,
+      String rawRef
+  ) {
+    CharacterLayerEntry layer = resolveLayerEntry(layersByCharacter, defaultCharacterId, rawRef);
+    if (layer != null) return List.of(layer);
+
+    LayeredCharacterResolver.CharacterRef ref = LayeredCharacterResolver.parseReference(rawRef, defaultCharacterId);
+    CharacterLayerGroupEntry group = groupsByCharacter == null ? null : groupsByCharacter.get(ref.characterId() + "/" + ref.localId());
+    if (group == null || group.layerIds.isEmpty()) return List.of();
+
+    List<CharacterLayerEntry> out = new ArrayList<>();
+    for (String layerId : group.layerIds) {
+      CharacterLayerEntry entry = resolveLayerEntry(layersByCharacter, ref.characterId(), layerId);
+      if (entry != null) out.add(entry);
+    }
+    return List.copyOf(out);
+  }
+
+  private static CharacterLayerEntry resolveLayerEntry(
+      Map<String, Map<String, String>> layersByCharacter,
+      String defaultCharacterId,
+      String rawRef
+  ) {
+    if (layersByCharacter == null || rawRef == null || rawRef.isBlank()) return null;
+    LayeredCharacterResolver.CharacterRef ref = LayeredCharacterResolver.parseReference(rawRef, defaultCharacterId);
+    if (ref.characterId() == null || ref.characterId().isBlank()
+        || ref.localId() == null || ref.localId().isBlank()) {
+      return null;
+    }
+    Map<String, String> layerMap = layersByCharacter.get(ref.characterId());
+    if (layerMap == null || layerMap.isEmpty()) return null;
+    for (String candidate : LayeredCharacterResolver.candidateLayerIds(ref.localId())) {
+      String path = layerMap.get(candidate);
+      if (path != null && !path.isBlank()) {
+        return new CharacterLayerEntry(candidate, path.trim());
+      }
+    }
+    return null;
+  }
+
+  private static int firstWhitespaceIndex(String value) {
+    if (value == null) return -1;
+    for (int i = 0; i < value.length(); i++) {
+      if (Character.isWhitespace(value.charAt(i))) return i;
+    }
+    return -1;
+  }
+
+  private static String optionValue(String token) {
+    if (token == null) return null;
+    int eq = token.indexOf('=');
+    int colon = token.indexOf(':');
+    int sep;
+    if (eq > 0 && colon > 0) sep = Math.min(eq, colon);
+    else sep = Math.max(eq, colon);
+    if (sep <= 0 || sep >= token.length() - 1) return null;
+    return stripQuotes(token.substring(sep + 1).trim());
+  }
+
+  private static String normalizeGroupParent(String value) {
+    String parent = value == null ? "" : stripQuotes(value).trim();
+    if (parent.isBlank() || "none".equalsIgnoreCase(parent) || "root".equalsIgnoreCase(parent)) return "";
+    return parent;
+  }
+
+  private static double[] parsePivotPair(String value) {
+    String raw = stripQuotes(value == null ? "" : value.trim());
+    String[] parts = raw.split(",", -1);
+    if (parts.length != 2) return null;
+    try {
+      double x = Double.parseDouble(parts[0].trim());
+      double y = Double.parseDouble(parts[1].trim());
+      if (!Double.isFinite(x) || !Double.isFinite(y)) return null;
+      return new double[] {x, y};
+    } catch (NumberFormatException ex) {
+      return null;
+    }
   }
 
   private static List<String> splitResolvedLayerSpec(String spec) {
@@ -2249,6 +2468,29 @@ button then opens it in the editor."""));
     }
   }
 
+  public static class CharacterLayerGroupEntry {
+    public final String groupId;
+    public final String parentGroupId;
+    public final List<String> layerIds;
+    public final double pivotX;
+    public final double pivotY;
+    public final boolean hasPivot;
+
+    public CharacterLayerGroupEntry(String groupId,
+                                    String parentGroupId,
+                                    List<String> layerIds,
+                                    double pivotX,
+                                    double pivotY,
+                                    boolean hasPivot) {
+      this.groupId = groupId == null || groupId.isBlank() ? "group" : groupId.trim();
+      this.parentGroupId = parentGroupId == null ? "" : parentGroupId.trim();
+      this.layerIds = layerIds == null ? List.of() : List.copyOf(layerIds);
+      this.pivotX = Double.isFinite(pivotX) ? pivotX : 0.5;
+      this.pivotY = Double.isFinite(pivotY) ? pivotY : 1.0;
+      this.hasPivot = hasPivot;
+    }
+  }
+
   public static class SceneSnapshot {
     public final String currentLabel;
     public final String backgroundId;
@@ -2260,6 +2502,7 @@ button then opens it in the editor."""));
     public final Map<String, String> stagePresetPaths;
     public final Map<String, String> characterImagePaths;
     public final Map<String, List<CharacterLayerEntry>> characterPresetLayers;
+    public final Map<String, CharacterLayerGroupEntry> characterLayerGroups;
     public final String activeStagePresetId;
     public final int activeStageLine;
     public final String referencedTimelineName;
@@ -2293,6 +2536,7 @@ button then opens it in the editor."""));
           backgroundPaths,
           Map.of(),
           characterImagePaths,
+          Map.of(),
           Map.of(),
           null,
           -1,
@@ -2333,6 +2577,7 @@ button then opens it in the editor."""));
 	          stagePresetPaths,
 	          characterImagePaths,
 	          characterPresetLayers,
+	          Map.of(),
 	          activeStagePresetId,
 	          activeStageLine,
 	          referencedTimelineName,
@@ -2354,6 +2599,7 @@ button then opens it in the editor."""));
 	                         Map<String, String> stagePresetPaths,
 	                         Map<String, String> characterImagePaths,
 	                         Map<String, List<CharacterLayerEntry>> characterPresetLayers,
+	                         Map<String, CharacterLayerGroupEntry> characterLayerGroups,
 	                         String activeStagePresetId,
 	                         int activeStageLine,
 	                         String referencedTimelineName,
@@ -2373,6 +2619,7 @@ button then opens it in the editor."""));
       this.stagePresetPaths = stagePresetPaths == null ? Map.of() : stagePresetPaths;
       this.characterImagePaths = characterImagePaths == null ? Map.of() : characterImagePaths;
       this.characterPresetLayers = characterPresetLayers == null ? Map.of() : characterPresetLayers;
+      this.characterLayerGroups = characterLayerGroups == null ? Map.of() : characterLayerGroups;
       this.activeStagePresetId = activeStagePresetId;
       this.activeStageLine = activeStageLine;
       this.referencedTimelineName = referencedTimelineName;
@@ -2455,6 +2702,33 @@ button then opens it in the editor."""));
         }
       }
       return List.of();
+    }
+
+    public CharacterLayerGroupEntry resolveCharacterLayerGroup(String characterId, String groupId) {
+      if (characterId == null || characterId.isBlank() || groupId == null || groupId.isBlank()) return null;
+      return characterLayerGroups.get(characterId + "/" + groupId);
+    }
+
+    public List<CharacterLayerGroupEntry> resolveCharacterLayerGroups(String characterId, String expression) {
+      if (characterId == null || characterId.isBlank() || characterLayerGroups.isEmpty()) return List.of();
+      List<CharacterLayerEntry> visibleLayers = resolveCharacterLayers(characterId, expression);
+      Set<String> visibleLayerIds = new LinkedHashSet<>();
+      for (CharacterLayerEntry layer : visibleLayers) {
+        if (layer != null && layer.layerId != null && !layer.layerId.isBlank()) {
+          visibleLayerIds.add(layer.layerId);
+        }
+      }
+      List<CharacterLayerGroupEntry> groups = new ArrayList<>();
+      String prefix = characterId + "/";
+      for (Map.Entry<String, CharacterLayerGroupEntry> entry : characterLayerGroups.entrySet()) {
+        if (entry.getKey() == null || !entry.getKey().startsWith(prefix)) continue;
+        CharacterLayerGroupEntry group = entry.getValue();
+        if (group == null || group.layerIds.isEmpty()) continue;
+        if (visibleLayerIds.isEmpty() || group.layerIds.stream().anyMatch(visibleLayerIds::contains)) {
+          groups.add(group);
+        }
+      }
+      return List.copyOf(groups);
     }
 
 	    public boolean hasInlineTimeline() {

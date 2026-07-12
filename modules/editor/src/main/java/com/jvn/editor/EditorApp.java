@@ -7521,6 +7521,11 @@ public class EditorApp extends Application {
 	      if (layer == null || layer.path == null || layer.path.isBlank()) continue;
 	      names.addAll(PuppeteerLauncherPanel.equivalentSnapshotLayerEntityNames(snapshot, character, layer.layerId));
 	    }
+	    for (PuppeteerLauncherPanel.CharacterLayerGroupEntry group :
+	        snapshot.resolveCharacterLayerGroups(character.characterId, character.expression)) {
+	      if (group == null || group.groupId == null || group.groupId.isBlank()) continue;
+	      names.addAll(PuppeteerLauncherPanel.equivalentSnapshotLayerGroupEntityNames(snapshot, character, group.groupId));
+	    }
 	    return new ArrayList<>(names);
 	  }
 

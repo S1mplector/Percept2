@@ -163,6 +163,74 @@ Registers a named layer path for reuse in expression presets.
 
 ---
 
+## `@chargroup`
+
+Registers a named movable group of character layers. Groups make large rigs easier to author: define a `head` group once, use `$head` in presets, then animate one timeline target such as `john_head` instead of keying every head layer separately.
+
+```text
+@chargroup <characterId> <groupId> [parent=<parentGroupId>] [pivot=<x>,<y>] <layerSpec>
+```
+
+- `layerSpec` uses the same pipe-separated `$layerId` references as `@charpreset`.
+- `$groupId` can reference an earlier `@chargroup`, allowing nested groups.
+- `parent=<parentGroupId>` makes this group inherit the parent group's timeline transform.
+- `pivot=<x>,<y>` sets the default group pivot for rotation/scale until a timeline pivot overrides it.
+- In timelines, target either `<character>_<expression>_<group>` or the stable alias `<character>_<group>`.
+- Declare layers before groups that use them, and declare parent/nested groups before groups or presets that reference them.
+- If a layer and group share the same name, `$name` resolves to the layer first.
+
+**Examples:**
+
+```vns
+@charlayer john body_default assets/characters/john/body.png
+@charlayer john head_base assets/characters/john/head.png
+@charlayer john eyes_neutral assets/characters/john/eyes_neutral.png
+@charlayer john mouth_smile assets/characters/john/mouth_smile.png
+
+@chargroup john head pivot=0.5,0.28 $head_base | $eyes_neutral | $mouth_smile
+@charpreset john neutral $body_default | $head
+```
+
+This is equivalent to writing:
+
+```vns
+@charpreset john neutral $body_default | $head_base | $eyes_neutral | $mouth_smile
+```
+
+The grouped version keeps the preset shorter and also creates the `john_head` timeline target for moving the head layers together.
+
+Nested groups:
+
+```vns
+@chargroup john face parent=head $eyes_neutral | $mouth_smile
+@chargroup john head pivot=0.5,0.28 $head_base | $face
+```
+
+Runtime targets:
+
+```jes
+timeline {
+  move "john_head" {
+    x: 8
+    y: -4
+    dur: 180
+  }
+}
+```
+
+When a scene is launched into Puppeteer, group targets are created alongside the individual layer targets:
+
+| Target | Meaning |
+|--------|---------|
+| `john_head` | Stable group alias; works across expression swaps when the group is visible. |
+| `john_neutral_head` | Expression-specific group alias. |
+| `john_head_base` | Stable individual layer alias. |
+| `john_neutral_head_base` | Expression-specific individual layer alias. |
+
+Use group targets for broad posing and individual layer targets for fine adjustments. If both are animated, the group transform is applied first, then the individual layer transform.
+
+---
+
 ## `@charpreset`
 
 Builds an expression from layer references and/or literal paths.
@@ -174,9 +242,11 @@ Builds an expression from layer references and/or literal paths.
 ### Layer reference rules
 
 - `$layerId` — resolves from the **same** character's `@charlayer` declarations.
+- `$groupId` — expands an earlier `@chargroup` when no layer with that name exists.
 - `$otherChar.layerId` or `$otherChar:layerId` — resolves from **another** character's layers.
 - Direct paths can be mixed with references, separated by `|`.
 - Layer spec cannot be empty (parse error).
+- Group expansion preserves the group's layer order exactly where `$groupId` appears in the preset.
 
 **Examples:**
 
@@ -516,7 +586,7 @@ Stage preset files are typically created using the **Scene Lighting Studio** edi
 
 1. `@scenario` must come before any content (if used).
 2. `@define` and `@include` are processed before other directives on each line.
-3. `@character`, `@background`, `@charimg`, `@charlayer`, `@charpreset`, `@position`, `@stagepreset` can appear in any order relative to each other.
+3. `@character`, `@background`, `@charimg`, `@charlayer`, `@chargroup`, `@charpreset`, `@position`, `@stagepreset` can appear in any order relative to content, but layered references are resolved when read: declare `@charlayer` before `@chargroup`/`@charpreset`, and declare a group before another group or preset uses `$groupId`.
 4. `@var` can appear anywhere — it emits a set command at that position.
 5. `@label` must be unique within the script (including included files).
 
@@ -530,6 +600,10 @@ Stage preset files are typically created using the **Scene Lighting Studio** edi
 @character narrator "Narrator"
 @background park assets/backgrounds/park.png
 @charimg hero neutral assets/characters/hero/neutral.png
+@charlayer hero body assets/characters/hero/body.png
+@charlayer hero head assets/characters/hero/head.png
+@chargroup hero head_group pivot=0.5,0.28 $head
+@charpreset hero layered_neutral $body | $head_group
 @stagepreset sunset_park config/stage/sunset_park.stagepreset
 
 @var score = 0

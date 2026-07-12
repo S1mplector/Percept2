@@ -6,7 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -77,5 +79,40 @@ class AssetPickerPanelTest {
 
         String content = Files.readString(scriptFile, StandardCharsets.UTF_8);
         assertTrue(content.contains("@show hero @neutral\n\n@charpreset hero neutral $base\n"));
+    }
+
+    @Test
+    void resolveCharpresetPathsExpandsNestedCharacterGroups() {
+        Map<String, Map<String, String>> layers = Map.of(
+            "john",
+            Map.of(
+                "body", "assets/characters/john/body.png",
+                "head_base", "assets/characters/john/head.png",
+                "eyes_neutral", "assets/characters/john/eyes.png",
+                "mouth_smile", "assets/characters/john/mouth.png"
+            )
+        );
+        Map<String, Map<String, List<String>>> groups = new LinkedHashMap<>();
+        Map<String, List<String>> johnGroups = new LinkedHashMap<>();
+        groups.put("john", johnGroups);
+
+        johnGroups.put(
+            "face",
+            AssetPickerPanel.resolveGroupLayerIds(layers, groups, "john", "$eyes_neutral | $mouth_smile")
+        );
+        johnGroups.put(
+            "head",
+            AssetPickerPanel.resolveGroupLayerIds(layers, groups, "john", "pivot=0.5,0.28 $head_base | $face")
+        );
+
+        assertEquals(
+            List.of(
+                "assets/characters/john/body.png",
+                "assets/characters/john/head.png",
+                "assets/characters/john/eyes.png",
+                "assets/characters/john/mouth.png"
+            ),
+            AssetPickerPanel.resolvePresetPaths(layers, groups, Map.of(), "john", "$body | $head")
+        );
     }
 }

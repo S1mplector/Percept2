@@ -109,6 +109,72 @@ public class VnScriptParserTest {
   }
 
   @Test
+  public void parsesCharacterLayerGroupsAndExpandsThemInPresets() throws Exception {
+    String script = """
+      @scenario layered_demo
+      @character john "John"
+      @charlayer john body_default assets/john/body.png
+      @charlayer john head_base assets/john/head.png
+      @charlayer john eyes_neutral assets/john/eyes.png
+      @charlayer john mouth_smile assets/john/mouth.png
+      @chargroup john head pivot=0.5,0.28 $head_base | $eyes_neutral | $mouth_smile
+      @charpreset john neutral $body_default | $head
+
+      @label start
+      [show john center neutral]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+
+    VnCharacter john = scen.getCharacter("john");
+    assertNotNull(john);
+    assertEquals(
+        "assets/john/body.png | assets/john/head.png | assets/john/eyes.png | assets/john/mouth.png",
+        john.getExpressionPath("neutral"));
+    assertEquals(List.of("body_default", "head_base", "eyes_neutral", "mouth_smile"),
+        john.getExpressionLayerIds("neutral"));
+
+    VnCharacter.LayerGroup head = john.getLayerGroup("head");
+    assertNotNull(head);
+    assertEquals(List.of("head_base", "eyes_neutral", "mouth_smile"), head.layerIds());
+    assertTrue(head.hasPivot());
+    assertEquals(0.5, head.pivotX(), 0.0001);
+    assertEquals(0.28, head.pivotY(), 0.0001);
+    assertEquals(List.of(head), john.getLayerGroupChainForLayer("eyes_neutral"));
+  }
+
+  @Test
+  public void parsesNestedCharacterLayerGroups() throws Exception {
+    String script = """
+      @scenario layered_demo
+      @character john "John"
+      @charlayer john head_base assets/john/head.png
+      @charlayer john eyes_neutral assets/john/eyes.png
+      @charlayer john mouth_smile assets/john/mouth.png
+      @chargroup john face parent=head $eyes_neutral | $mouth_smile
+      @chargroup john head $head_base | $face
+      @charpreset john neutral $head
+
+      @label start
+      [show john center neutral]
+      [end]
+    """;
+
+    VnScriptParser parser = new VnScriptParser();
+    VnScenario scen = parser.parseFromString(script);
+
+    VnCharacter john = scen.getCharacter("john");
+    assertNotNull(john);
+    assertEquals(List.of("head_base", "eyes_neutral", "mouth_smile"),
+        john.getExpressionLayerIds("neutral"));
+    assertEquals(
+        List.of(john.getLayerGroup("head"), john.getLayerGroup("face")),
+        john.getLayerGroupChainForLayer("mouth_smile"));
+  }
+
+  @Test
   public void showCommandAcceptsExplicitPresetReference() throws Exception {
     String script = """
       @scenario layered_demo

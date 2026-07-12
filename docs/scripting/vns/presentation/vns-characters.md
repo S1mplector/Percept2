@@ -64,16 +64,39 @@ For characters composed of separate body parts (body, eyes, mouth, accessories),
 @charlayer aria accessory_hat assets/characters/aria/layers/hat.png
 ```
 
-### Step 2: Build expression presets
+### Step 2: Define movable groups
+
+```vns
+@chargroup <characterId> <groupId> [parent=<parentGroupId>] [pivot=<x>,<y>] <layerSpec>
+```
+
+Groups collect layers that should be authored or animated together. Use `$groupId` inside presets just like a layer reference, then move the generated group target in Puppeteer.
+
+```vns
+@chargroup aria face $eyes_neutral | $mouth_neutral
+@chargroup aria head pivot=0.5,0.28 $face | $accessory_glasses
+```
+
+Puppeteer exposes targets such as `aria_head` and `aria_face`; nested groups inherit parent movement. Expression-specific aliases such as `aria_neutral_head` are also available. If you animate both a group and an individual layer, the group transform is applied first, then the individual layer transform.
+
+Declare groups after the layers they use, and declare nested groups before presets that use them:
+
+```vns
+@chargroup aria face parent=head $eyes_neutral | $mouth_neutral
+@chargroup aria head pivot=0.5,0.28 $face | $accessory_glasses
+@charpreset aria neutral $base | $head
+```
+
+### Step 3: Build expression presets
 
 ```vns
 @charpreset <characterId> <expressionId> <layerSpec>
 ```
 
-Layer references use `$layerId` syntax. Separate layers with `|`.
+Layer and group references use `$layerId` or `$groupId` syntax. Separate entries with `|`.
 
 ```vns
-@charpreset aria neutral $base | $eyes_neutral | $mouth_neutral
+@charpreset aria neutral $base | $head
 @charpreset aria happy $base | $eyes_happy | $mouth_smile
 @charpreset aria angry $base | $eyes_angry | $mouth_frown
 @charpreset aria surprised $base | $eyes_surprised | $mouth_open
@@ -130,6 +153,7 @@ For layered characters, `show`, `move`, and `char ... expression/show/move` acce
 
 - `@presetName` explicitly selects an existing preset/expression.
 - `$layerId` pulls in a declared `@charlayer`.
+- `$groupId` expands a declared `@chargroup`.
 - `+` combines presets and layers into an inline composite.
 - Cross-character refs still work inside composites: `$shared.bow` and `$shared:bow`.
 
@@ -622,7 +646,8 @@ These durations are engine defaults and provide a polished feel without explicit
 ## Related Docs
 
 - [VNS Overview](../overview/vns-scripting.md)
-- [Layered Character Presets Guide](vns-layered-charpresets.md) — practical guide to `@charlayer` + `@charpreset` with asset organization, cross-character refs, editor tooling
-- [Directives & Declarations](../language/vns-directives.md) — `@character`, `@charimg`, `@charlayer`, `@charpreset`
+- [Layered Character Presets Guide](vns-layered-charpresets.md) — practical guide to `@charlayer` + `@chargroup` + `@charpreset` with asset organization, cross-character refs, editor tooling
+- [Movable Character Layer Groups](vns-movable-layer-groups.md) — focused guide for nested movable groups, target names, pivots, and migration patterns
+- [Directives & Declarations](../language/vns-directives.md) — `@character`, `@charimg`, `@charlayer`, `@chargroup`, `@charpreset`
 - [Commands Reference](../language/vns-commands.md) — `[show]`, `[hide]`, `[char]`
 - [Transitions & Screen Effects](vns-transitions.md) — visual effects that pair with character scenes

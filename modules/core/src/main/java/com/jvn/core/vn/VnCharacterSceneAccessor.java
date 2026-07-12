@@ -77,13 +77,16 @@ public class VnCharacterSceneAccessor implements SceneAccessor {
     public static final class TimelineProxyEntity extends Sprite2D implements TimelineDrivenEntity {
         private boolean timelineX;
         private boolean timelineY;
+        private boolean timelineOriginX;
+        private boolean timelineOriginY;
 
         private TimelineProxyEntity() {
             super("", 0, 0);
             // VN character timelines are applied as offsets from the slot top-left.
             // Without an authored pivot, mirror/scale should still use the normal
             // character footing rather than the sprite's top-left corner.
-            setOrigin(0.5, 1.0);
+            this.originX = 0.5;
+            this.originY = 1.0;
         }
 
         @Override
@@ -106,6 +109,13 @@ public class VnCharacterSceneAccessor implements SceneAccessor {
         }
 
         @Override
+        public void setOrigin(double ox, double oy) {
+            super.setOrigin(ox, oy);
+            timelineOriginX = true;
+            timelineOriginY = true;
+        }
+
+        @Override
         public boolean hasTimelineX() {
             return timelineX;
         }
@@ -113,6 +123,14 @@ public class VnCharacterSceneAccessor implements SceneAccessor {
         @Override
         public boolean hasTimelineY() {
             return timelineY;
+        }
+
+        public boolean hasTimelineOriginX() {
+            return timelineOriginX;
+        }
+
+        public boolean hasTimelineOriginY() {
+            return timelineOriginY;
         }
     }
 }

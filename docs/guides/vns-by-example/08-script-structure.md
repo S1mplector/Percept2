@@ -121,7 +121,7 @@ Pull shared declarations from other files:
 Includes process **directives** from the target file:
 
 - `@character` declarations
-- `@charimg` / `@charlayer` / `@charpreset` declarations
+- `@charimg` / `@charlayer` / `@chargroup` / `@charpreset` declarations
 - `@background` declarations
 - `@position` declarations
 - `@var` directives

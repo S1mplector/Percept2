@@ -1,6 +1,6 @@
 # Layered Character Presets Guide
 
-Practical guide to creating character expression presets from layered sprite assets. Covers the full pipeline from organizing art files through `@charlayer` and `@charpreset` declarations to runtime compositing and editor tooling.
+Practical guide to creating character expression presets from layered sprite assets. Covers the full pipeline from organizing art files through `@charlayer`, `@chargroup`, and `@charpreset` declarations to runtime compositing, movable rigs, and editor tooling.
 
 Source: `modules/core/src/main/java/com/jvn/core/vn/script/VnScriptParser.java` (parsing), `modules/fx/src/main/java/com/jvn/fx/vn/VnRenderer.java` (rendering)
 
@@ -14,6 +14,7 @@ JVN supports two approaches for character sprites:
 |----------|-----------|----------|
 | **Single-image** | `@charimg` with one path | Simple characters with pre-rendered expressions |
 | **Layered compositing** | `@charlayer` + `@charpreset` | Characters built from interchangeable parts (eyes, mouth, brows, accessories) |
+| **Movable layer groups** | `@chargroup` | Reused body parts that should move together in Puppeteer, such as heads, faces, arms, or hair chunks |
 
 The layered approach lets artists create a small number of individual layer images that combine into a large number of distinct expressions, dramatically reducing art production time.
 
@@ -111,17 +112,49 @@ Each `@charlayer` gives a **name** (the `layerId`) to a single image file so it 
 @charlayer aria hat assets/characters/aria/accessories/hat.png
 ```
 
-### Step 3: Compose presets with `@charpreset`
+### Step 3: Define movable groups with `@chargroup`
+
+```vns
+@chargroup <characterId> <groupId> [parent=<parentGroupId>] [pivot=<x>,<y>] <layerSpec>
+```
+
+Groups let you name a set of layers once, reuse that set in presets, and move it as one rig target in the puppeteer timeline. The `layerSpec` uses the same `$layerId` references as `@charpreset`.
+
+```vns
+@chargroup aria face $eyes_neutral | $mouth_neutral | $brow_neutral
+@chargroup aria head pivot=0.5,0.28 $face | $glasses
+```
+
+After launching a scene, Puppeteer exposes stable group targets such as `aria_head` and `aria_face`, plus expression-specific aliases such as `aria_neutral_head`. Moving `aria_head` moves every layer in the group, and nested groups inherit parent movement.
+
+Use groups when the same collection of layers is repeated across many expressions or when a body part needs to be animated separately from the body. Common examples:
+
+| Group | Typical Layers | Puppeteer Target |
+|-------|----------------|------------------|
+| `head` | head base, eyes, mouth, brows, face shadows | `aria_head` |
+| `face` | eyes, mouth, brows, blush | `aria_face` |
+| `left_arm` | sleeve, hand, prop held in hand | `aria_left_arm` |
+| `hair_front` | bangs, front hair highlights, hair clips | `aria_hair_front` |
+
+The group is expanded where it appears in a preset. This means draw order is still explicit:
+
+```vns
+@charpreset aria neutral $base | $head | $hat
+```
+
+Here `base` draws first, every layer in `head` draws next, and `hat` draws last.
+
+### Step 4: Compose presets with `@charpreset`
 
 ```vns
 @charpreset <characterId> <expressionId> <layerSpec>
 ```
 
-The `layerSpec` is a pipe-separated (`|`) list of **layer references** (`$layerId`) and/or **literal paths**. References resolve against the same character's `@charlayer` declarations.
+The `layerSpec` is a pipe-separated (`|`) list of **layer references** (`$layerId`), **group references** (`$groupId`), and/or **literal paths**. References resolve against the same character's `@charlayer` and `@chargroup` declarations.
 
 ```vns
 # Core expressions
-@charpreset aria neutral    $base | $eyes_neutral   | $mouth_neutral | $brow_neutral
+@charpreset aria neutral    $base | $head
 @charpreset aria happy      $base | $eyes_happy     | $mouth_smile   | $brow_neutral
 @charpreset aria angry      $base | $eyes_angry     | $mouth_frown   | $brow_furrowed
 @charpreset aria surprised  $base | $eyes_surprised | $mouth_open    | $brow_raised
@@ -137,7 +170,7 @@ The `layerSpec` is a pipe-separated (`|`) list of **layer references** (`$layerI
 @charpreset aria formal     $base | $eyes_neutral   | $mouth_smile   | $brow_neutral  | $glasses | $hat
 ```
 
-### Step 4: Use in script
+### Step 5: Use in script
 
 ```vns
 @label start
@@ -158,6 +191,75 @@ aria: Wait — the test is TODAY?!
 [show aria center worried]
 aria: I really should have studied more...
 ```
+
+## Migrating Repeated Head Layers to a Group
+
+Before `@chargroup`, authors often had to split one character into multiple show targets just to move the head:
+
+```vns
+[show aria center $base+$body_shadow+$arm_left+$arm_right]
+[show aria center $head_base+$eyes_neutral+$mouth_smile+$brow_neutral]
+```
+
+That works, but it repeats the character and every head layer each time the head needs separate motion.
+
+With `@chargroup`, keep one character expression and make the head movable:
+
+```vns
+@charlayer aria base assets/characters/aria/base/body.png
+@charlayer aria arm_left assets/characters/aria/body/arm_left.png
+@charlayer aria arm_right assets/characters/aria/body/arm_right.png
+@charlayer aria head_base assets/characters/aria/head/head_base.png
+@charlayer aria eyes_neutral assets/characters/aria/eyes/neutral.png
+@charlayer aria mouth_smile assets/characters/aria/mouth/smile.png
+@charlayer aria brow_neutral assets/characters/aria/brow/neutral.png
+
+@chargroup aria body $base | $arm_left | $arm_right
+@chargroup aria head pivot=0.5,0.28 $head_base | $eyes_neutral | $mouth_smile | $brow_neutral
+
+@charpreset aria neutral $body | $head
+```
+
+Then in Puppeteer, animate `aria_head` instead of every head layer. The individual layer targets still exist, so you can move `aria_eyes_neutral` or `aria_mouth_smile` for fine expression work without losing the broader head motion.
+
+## Nested Movable Groups
+
+Nested groups are useful when one rig part should move with a parent but also have its own local motion.
+
+```vns
+@chargroup aria face parent=head $eyes_neutral | $mouth_smile | $brow_neutral
+@chargroup aria head pivot=0.5,0.28 $head_base | $face
+```
+
+In Puppeteer:
+
+- Move `aria_head` to bob, tilt, or scale the whole head.
+- Move `aria_face` for a local facial slide or expression squash.
+- Move `aria_eyes_neutral` for a tiny eye nudge.
+
+Transforms stack from parent group to child group to individual layer. If `aria_head` moves right by 8px and `aria_face` moves left by 2px, face layers render with both transforms applied.
+
+## Pivot and Rotation
+
+`pivot=<x>,<y>` is normalized against the sprite bounds:
+
+| Pivot | Meaning |
+|-------|---------|
+| `0.5,0.5` | Center of the sprite. |
+| `0.5,0.28` | Centered horizontally, upper part of the sprite; useful for head rotation. |
+| `0.5,1.0` | Bottom center; useful for full-body scale or sway. |
+
+The pivot from `@chargroup` is only the default. If a Puppeteer timeline target explicitly authors a pivot/origin on `aria_head`, the authored timeline pivot wins.
+
+## Troubleshooting Groups
+
+| Symptom | Check |
+|---------|-------|
+| `$head` says unknown layer/group | Declare `@chargroup aria head ...` before the preset or inline expression that uses `$head`. |
+| A group renders in the wrong order | Move `$groupId` earlier or later in the `@charpreset` layer list. |
+| `aria_head` does not appear in Puppeteer | Make sure the active expression includes `$head` or every layer contained by that group. |
+| Group motion affects the wrong layers | Check the layer list in `@chargroup`; nested groups expand into their declared layers. |
+| Rotation pivots around the feet | Add `pivot=0.5,0.28` or author a pivot directly on the Puppeteer group target. |
 
 Each `[show]` command swaps the expression instantly by switching which layers are composited. The transition uses a 180ms crossfade by default.
 
@@ -256,7 +358,7 @@ If you don't need reusable layer references, you can specify layered paths direc
 @charimg aria battle assets/characters/aria/base/body.png | assets/characters/aria/eyes/eyes_angry.png | assets/characters/aria/mouth/mouth_frown.png
 ```
 
-This is equivalent to declaring three `@charlayer` entries and one `@charpreset`, but the layers can't be reused in other presets. **Use `@charimg` for one-off expressions and `@charlayer` + `@charpreset` for reusable layer sets.**
+This is equivalent to declaring three `@charlayer` entries and one `@charpreset`, but the layers can't be reused in other presets. **Use `@charimg` for one-off expressions and `@charlayer` + `@chargroup` + `@charpreset` for reusable, movable layer sets.**
 
 ### Header file pattern
 
@@ -510,6 +612,7 @@ aria: Now where did I put that notebook...
 |----------|---------------------|
 | Character has < 5 expressions | `@charimg` with single images — simpler, less overhead |
 | Character has 5+ expressions with shared body | `@charlayer` + `@charpreset` — saves art time |
+| Facial parts need to move together in Puppeteer | `@chargroup` — author once, animate the group target |
 | One-off layered expression | `@charimg` with pipe-separated paths |
 | Shared accessories across characters | Cross-character `$charId.layerId` references |
 | Large team / many characters | Header file pattern with `@include` |
@@ -520,7 +623,8 @@ aria: Now where did I put that notebook...
 ## Related Docs
 
 - [Characters & Sprites](vns-characters.md) — full character system: positions, motion, framing, save/load
-- [Directives & Declarations](../language/vns-directives.md) — `@charimg`, `@charlayer`, `@charpreset` syntax reference
+- [Movable Character Layer Groups](vns-movable-layer-groups.md) — focused guide for `@chargroup`, nested groups, Puppeteer targets, and migration from repeated layer lists
+- [Directives & Declarations](../language/vns-directives.md) — `@charimg`, `@charlayer`, `@chargroup`, `@charpreset` syntax reference
 - [Commands Reference](../language/vns-commands.md) — `[show]`, `[hide]`, `[char]` commands
 - [Layered Image Visualizer](../../../editor/sidebars/right/sidebar-layered-image-visualizer.md) — editor tool for exploring layered sprites
 - [Image Attributes Tool](../../../editor/sidebars/right/sidebar-image-attributes-tool.md) — editor tool for attribute-based image assembly

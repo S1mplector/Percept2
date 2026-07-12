@@ -6807,6 +6807,41 @@ public class PuppeteerWindow extends Stage {
             if (groupLayer != Integer.MAX_VALUE) {
                 group.setLayerOrder(groupLayer);
             }
+
+            for (PuppeteerLauncherPanel.CharacterLayerGroupEntry rigGroup :
+                    launchSceneSnapshot.resolveCharacterLayerGroups(character.characterId, character.expression)) {
+                if (rigGroup == null || rigGroup.groupId == null || rigGroup.groupId.isBlank()) continue;
+                String rigGroupName = snapshotRuntimeLayerGroupName(character, rigGroup.groupId);
+                if (rigGroupName.isBlank()) continue;
+                EntityGroup rigEntityGroup = project.getOrCreateGroup(rigGroupName);
+                int rigGroupLayer = Integer.MAX_VALUE;
+                for (String layerId : rigGroup.layerIds) {
+                    if (layerId == null || layerId.isBlank()) continue;
+                    for (String entityName : findSnapshotLayerEntityNames(character, layerId)) {
+                        EntityTrack track = project.getTrack(entityName);
+                        if (track == null) continue;
+                        project.addEntityToGroup(entityName, rigGroupName);
+                        rigGroupLayer = Math.min(rigGroupLayer, track.getLayerOrder());
+                    }
+                }
+                if (rigGroupLayer != Integer.MAX_VALUE) {
+                    rigEntityGroup.setLayerOrder(rigGroupLayer);
+                }
+                if (rigGroup.hasPivot) {
+                    EntityTrack groupTrack = rigEntityGroup.getGroupTrack();
+                    groupTrack.upsertKeyframe(PropertyType.PIVOT_X, new Keyframe(0.0, rigGroup.pivotX));
+                    groupTrack.upsertKeyframe(PropertyType.PIVOT_Y, new Keyframe(0.0, rigGroup.pivotY));
+                }
+
+                String parentGroupName = groupName;
+                if (rigGroup.parentGroupId != null && !rigGroup.parentGroupId.isBlank()) {
+                    String declaredParentName = snapshotRuntimeLayerGroupName(character, rigGroup.parentGroupId);
+                    if (!declaredParentName.isBlank()) parentGroupName = declaredParentName;
+                }
+                project.getOrCreateGroup(parentGroupName);
+                project.addGroupToGroup(rigGroupName, parentGroupName);
+                changed = true;
+            }
         }
         for (Map.Entry<String, String> entry : launchSceneSnapshot.dynamicGroups.entrySet()) {
             project.getOrCreateGroup(entry.getKey()).setParentGroupName(entry.getValue());
@@ -6832,6 +6867,15 @@ public class PuppeteerWindow extends Stage {
             }
         }
         return names;
+    }
+
+    private String snapshotRuntimeLayerGroupName(PuppeteerLauncherPanel.CharacterEntry character, String groupId) {
+        List<String> names = PuppeteerLauncherPanel.equivalentSnapshotLayerGroupEntityNames(
+            launchSceneSnapshot,
+            character,
+            groupId);
+        if (names.size() > 1) return names.get(1);
+        return names.isEmpty() ? "" : names.get(0);
     }
 
     private String findSnapshotLayerEntityName(String groupName, String layerId) {
