@@ -62,6 +62,7 @@ import javax.swing.BorderFactory;
 import javax.swing.AbstractButton;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.ButtonModel;
 import javax.swing.JCheckBox;
 import javax.swing.Icon;
 import javax.swing.JButton;
@@ -1222,35 +1223,34 @@ public final class JvnHub {
     JCheckBox noBuildCache = optionCheckBox("No build cache", "Add --no-build-cache.", gradleNoBuildCacheEnabled);
     JCheckBox noDaemon = optionCheckBox("No daemon", "Add --no-daemon. Enable only when invoking via ./gradlew :hub:run to avoid nested-daemon conflicts. Leave off for normal hub launches to allow daemon reuse.", gradleNoDaemonEnabled);
 
-    JTextField extraArgs = new JTextField(gradleExtraArgs);
-    extraArgs.setForeground(TEXT_PRIMARY);
-    extraArgs.setBackground(BG);
-    extraArgs.setCaretColor(TEXT_PRIMARY);
-    extraArgs.setBorder(BorderFactory.createCompoundBorder(
-        BorderFactory.createLineBorder(BORDER_NEUTRAL),
-        uiPadding(6, 8, 6, 8)));
+    JTextField extraArgs = gradleTextField(gradleExtraArgs);
     extraArgs.setToolTipText("Extra Gradle arguments, for example: --scan -PmyFlag=true");
 
-    JPanel options = new JPanel();
+    JPanel options = new JPanel(new GridBagLayout());
     options.setBackground(PANEL_BG);
     options.setBorder(BorderFactory.createCompoundBorder(
         BorderFactory.createLineBorder(BORDER_NEUTRAL),
-        uiPadding(12, 12, 12, 12)));
-    options.setLayout(new BoxLayout(options, BoxLayout.Y_AXIS));
+        uiPadding(12, 14, 12, 14)));
+    GridBagConstraints gbc = new GridBagConstraints();
+    gbc.gridx = 0;
+    gbc.weightx = 1.0;
+    gbc.fill = GridBagConstraints.HORIZONTAL;
+    gbc.anchor = GridBagConstraints.WEST;
+    gbc.insets = new java.awt.Insets(0, 0, ui(6), 0);
+    int row = 0;
     for (JCheckBox box : List.of(stacktrace, info, debug, offline, refresh, noBuildCache, noDaemon)) {
-      box.setAlignmentX(Component.LEFT_ALIGNMENT);
-      options.add(box);
-      options.add(Box.createVerticalStrut(ui(6)));
+      gbc.gridy = row++;
+      options.add(box, gbc);
     }
     JLabel extraLabel = new JLabel("Extra arguments");
     extraLabel.setForeground(TEXT_MUTED);
     extraLabel.setFont(extraLabel.getFont().deriveFont(Font.BOLD, uiFont(10f)));
-    extraLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-    extraArgs.setAlignmentX(Component.LEFT_ALIGNMENT);
-    options.add(Box.createVerticalStrut(ui(4)));
-    options.add(extraLabel);
-    options.add(Box.createVerticalStrut(ui(4)));
-    options.add(extraArgs);
+    gbc.gridy = row++;
+    gbc.insets = new java.awt.Insets(ui(6), 0, ui(5), 0);
+    options.add(extraLabel, gbc);
+    gbc.gridy = row;
+    gbc.insets = new java.awt.Insets(0, 0, 0, 0);
+    options.add(extraArgs, gbc);
     root.add(options, BorderLayout.CENTER);
 
     FlatButton reset = new FlatButton("Reset", null, null);
@@ -1294,8 +1294,14 @@ public final class JvnHub {
     root.add(footer, BorderLayout.SOUTH);
 
     dialog.setContentPane(root);
+    Dimension minimum = uiDimension(620, 430);
+    dialog.setMinimumSize(minimum);
     dialog.pack();
-    dialog.setMinimumSize(uiDimension(520, 360));
+    if (dialog.getWidth() < minimum.width || dialog.getHeight() < minimum.height) {
+      dialog.setSize(new Dimension(
+          Math.max(dialog.getWidth(), minimum.width),
+          Math.max(dialog.getHeight(), minimum.height)));
+    }
     dialog.setLocationRelativeTo(frame);
     dialog.getRootPane().setDefaultButton(apply);
     dialog.setVisible(true);
@@ -1307,8 +1313,30 @@ public final class JvnHub {
     box.setOpaque(false);
     box.setForeground(TEXT_SOFT);
     box.setFocusPainted(false);
-    box.setFont(box.getFont().deriveFont(Font.PLAIN, uiFont(12f)));
+    box.setIcon(new HubCheckIcon(false));
+    box.setSelectedIcon(new HubCheckIcon(true));
+    box.setDisabledIcon(new HubCheckIcon(false));
+    box.setDisabledSelectedIcon(new HubCheckIcon(true));
+    box.setFont(box.getFont().deriveFont(Font.PLAIN, uiFont(12.5f)));
+    box.setBorder(uiPadding(4, 2, 4, 2));
+    box.setAlignmentX(Component.LEFT_ALIGNMENT);
     return box;
+  }
+
+  private JTextField gradleTextField(String value) {
+    JTextField field = new JTextField(value == null ? "" : value);
+    field.setForeground(TEXT_PRIMARY);
+    field.setBackground(BG);
+    field.setCaretColor(TEXT_PRIMARY);
+    field.setSelectionColor(new Color(60, 110, 160));
+    field.setSelectedTextColor(TEXT_PRIMARY);
+    field.setBorder(BorderFactory.createCompoundBorder(
+        BorderFactory.createLineBorder(BORDER_NEUTRAL),
+        uiPadding(8, 10, 8, 10)));
+    Dimension size = uiDimension(560, 38);
+    field.setPreferredSize(size);
+    field.setMaximumSize(new Dimension(Integer.MAX_VALUE, size.height));
+    return field;
   }
 
   private void showDiagnosticsReport() {
@@ -5149,6 +5177,56 @@ public final class JvnHub {
       g2.setColor(fill);
       g2.fillRoundRect(bounds.x + inset, bounds.y + inset,
           bounds.width - inset * 2, bounds.height - inset * 2, arc, arc);
+      g2.dispose();
+    }
+  }
+
+  private static final class HubCheckIcon implements Icon {
+    private final boolean selected;
+
+    HubCheckIcon(boolean selected) {
+      this.selected = selected;
+    }
+
+    @Override
+    public int getIconWidth() {
+      return ui(15);
+    }
+
+    @Override
+    public int getIconHeight() {
+      return ui(15);
+    }
+
+    @Override
+    public void paintIcon(Component c, Graphics g, int x, int y) {
+      Graphics2D g2 = (Graphics2D) g.create();
+      g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+      ButtonModel model = c instanceof AbstractButton button ? button.getModel() : null;
+      boolean enabled = c == null || c.isEnabled();
+      boolean rollover = model != null && model.isRollover();
+      boolean pressed = model != null && model.isPressed();
+      int size = Math.min(getIconWidth(), getIconHeight());
+      Color border = enabled ? (rollover ? ACCENT_DEV : BORDER_NEUTRAL) : Color.decode("#2b2b2b");
+      Color fill = selected
+          ? (enabled ? Color.decode("#1e3450") : Color.decode("#242424"))
+          : (enabled ? BG : Color.decode("#181818"));
+      if (pressed && enabled) fill = Color.decode("#16283d");
+
+      g2.setColor(fill);
+      g2.fillRoundRect(x, y, size, size, ui(4), ui(4));
+      g2.setColor(border);
+      g2.drawRoundRect(x, y, size - 1, size - 1, ui(4), ui(4));
+
+      if (selected) {
+        g2.setStroke(new BasicStroke(Math.max(1.6f, ui(2)), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g2.setColor(enabled ? ACCENT_DEV : TEXT_MUTED);
+        Path2D mark = new Path2D.Double();
+        mark.moveTo(x + size * 0.26, y + size * 0.54);
+        mark.lineTo(x + size * 0.44, y + size * 0.72);
+        mark.lineTo(x + size * 0.76, y + size * 0.30);
+        g2.draw(mark);
+      }
       g2.dispose();
     }
   }
