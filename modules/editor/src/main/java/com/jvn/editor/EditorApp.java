@@ -2068,7 +2068,11 @@ public class EditorApp extends Application {
 
     mb.getMenus().addAll(menuFile, menuEdit, menuView, menuNavigate, menuRun, menuBuild, menuTools, menuVcs, menuWindow);
     if (DEVELOPER_MODE) {
-      mb.getMenus().add(DeveloperToolsMenu.create("JVN Editor", this::dialogOwner, this::refreshDeveloperLogs));
+      mb.getMenus().add(DeveloperToolsMenu.create(
+          "JVN Editor",
+          this::dialogOwner,
+          this::refreshDeveloperLogs,
+          this::developerLogRoots));
     }
     mb.getMenus().add(menuHelp);
 

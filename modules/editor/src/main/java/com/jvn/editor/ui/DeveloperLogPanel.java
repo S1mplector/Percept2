@@ -50,6 +50,7 @@ public final class DeveloperLogPanel extends VBox {
   private final Button refreshButton = new Button("Refresh");
   private final Button copyButton = new Button("Copy");
   private final Button revealButton = new Button("Reveal");
+  private final Button saveButton = new Button("Save Logs...");
 
   private Task<LogSnapshot> refreshTask;
 
@@ -70,8 +71,10 @@ public final class DeveloperLogPanel extends VBox {
     copyButton.setTooltip(new Tooltip("Copy the visible log text"));
     revealButton.setOnAction(e -> revealSelectedLog());
     revealButton.setTooltip(new Tooltip("Reveal the selected log file on disk"));
+    saveButton.setOnAction(e -> saveDiagnosticsBundle());
+    saveButton.setTooltip(new Tooltip("Save all discovered logs and diagnostics to a folder you choose"));
 
-    HBox controls = new HBox(8, new Label("File"), fileSelector, refreshButton, copyButton, revealButton);
+    HBox controls = new HBox(8, new Label("File"), fileSelector, refreshButton, copyButton, revealButton, saveButton);
     controls.setAlignment(Pos.CENTER_LEFT);
     controls.setPadding(new Insets(8, 10, 4, 10));
     HBox.setHgrow(fileSelector, Priority.ALWAYS);
@@ -265,6 +268,13 @@ public final class DeveloperLogPanel extends VBox {
     } else {
       statusLabel.setText("Could not reveal log file");
     }
+  }
+
+  private void saveDiagnosticsBundle() {
+    DeveloperDiagnosticsExporter.chooseAndExport(
+        getScene() == null ? null : getScene().getWindow(),
+        "JVN Developer Logs",
+        contextRootsSupplier);
   }
 
   private static ListCell<LogFile> createLogFileCell() {

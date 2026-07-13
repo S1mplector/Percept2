@@ -179,11 +179,11 @@ If Safe Mode recovery also fails, copy the dialog details or run `git status --s
 
 Developer Mode is toggled from the Engine Hub. When enabled, hub-launched editor and launcher windows receive `jvn.editor.developerMode=true` and `jvn.launcher.developerMode=true`.
 
-In Developer Mode, both the editor and launcher add a collapsed **Logs** panel at the top of the window. Expand it to scan recent log-like files from the selected project, workspace `.jvn/logs`, workspace `logs`, Gradle daemon logs, build temp logs, and the user log directory. The panel is intentionally simple: choose a file, refresh, copy the visible tail, or reveal the log folder.
+In Developer Mode, both the editor and launcher add a collapsed **Logs** panel at the top of the window. Expand it to scan recent log-like files from the selected project, workspace `.jvn/logs`, workspace `logs`, Gradle daemon logs, build temp logs, and the user log directory. The panel can refresh, copy the visible tail, reveal the selected log, or **Save Logs...** into a folder you choose, such as the Desktop.
 
 When the launcher opens the editor in Developer Mode, it also forwards Developer Mode to the editor and captures that child process output under the workspace `.jvn/logs` folder.
 
-Developer Mode also adds a **DevTools** menu to the editor and launcher menu bars. It includes runtime/JVM diagnostics, manual GC, log-panel refresh, a developer settings file shortcut, a launcher output-capture toggle, and an editor JVM heap setting. The heap setting is stored in `~/.jvn-editor/devtools.properties` and applies to the next editor launch started from the launcher.
+Developer Mode also adds a **DevTools** menu to the editor and launcher menu bars. It includes runtime/JVM diagnostics, manual GC, log-panel refresh, a developer settings file shortcut, a launcher output-capture toggle, an editor JVM heap setting, and **Save Diagnostics Bundle...**. The diagnostics bundle writes a timestamped folder and `.zip` containing discovered logs, crash/audit/diagnostic files, Gradle daemon output, launcher logs, a manifest of copied/skipped files, and JVM/runtime memory details. The heap setting is stored in `~/.jvn-editor/devtools.properties` and applies to the next editor launch started from the launcher.
 
 ## Install Desktop Shortcuts
 

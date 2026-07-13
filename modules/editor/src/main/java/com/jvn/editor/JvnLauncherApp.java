@@ -440,7 +440,11 @@ public class JvnLauncherApp extends Application {
 
     menuBar.getMenus().addAll(menuFile, menuEdit, menuProject, menuView);
     if (DEVELOPER_MODE) {
-      menuBar.getMenus().add(DeveloperToolsMenu.create("JVN Launcher", () -> primaryStage, this::refreshDeveloperLogs));
+      menuBar.getMenus().add(DeveloperToolsMenu.create(
+          "JVN Launcher",
+          () -> primaryStage,
+          this::refreshDeveloperLogs,
+          this::developerLogRoots));
     }
     menuBar.getMenus().add(menuHelp);
     return menuBar;

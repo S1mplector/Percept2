@@ -32,6 +32,13 @@ public final class DeveloperToolsMenu {
   public static Menu create(String appName,
                             Supplier<Window> ownerSupplier,
                             Runnable refreshLogs) {
+    return create(appName, ownerSupplier, refreshLogs, List::of);
+  }
+
+  public static Menu create(String appName,
+                            Supplier<Window> ownerSupplier,
+                            Runnable refreshLogs,
+                            Supplier<List<Path>> contextRootsSupplier) {
     Menu menu = new Menu("DevTools");
 
     MenuItem miRuntimeInfo = new MenuItem("Show Runtime Info");
@@ -51,6 +58,12 @@ public final class DeveloperToolsMenu {
       if (refreshLogs != null) refreshLogs.run();
     });
     miRefreshLogs.setDisable(refreshLogs == null);
+
+    MenuItem miSaveLogs = new MenuItem("Save Diagnostics Bundle...");
+    miSaveLogs.setOnAction(e -> DeveloperDiagnosticsExporter.chooseAndExport(
+        owner(ownerSupplier),
+        appName,
+        contextRootsSupplier));
 
     MenuItem miHeap = new MenuItem("Editor JVM Memory...");
     miHeap.setOnAction(e -> configureEditorHeap(owner(ownerSupplier)));
@@ -75,6 +88,7 @@ public final class DeveloperToolsMenu {
         miGc,
         new SeparatorMenuItem(),
         miRefreshLogs,
+        miSaveLogs,
         new SeparatorMenuItem(),
         miHeap,
         miCaptureEditorOutput,
