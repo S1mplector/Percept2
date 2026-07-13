@@ -24,6 +24,7 @@ import javafx.stage.Window;
 public final class DeveloperToolsMenu {
   private static final String KEY_EDITOR_MAX_HEAP_MB = "editor.jvm.maxHeapMb";
   private static final String KEY_CAPTURE_EDITOR_OUTPUT = "launcher.captureEditorOutput";
+  private static final String KEY_AUTO_WRITE_EDITOR_DIAGNOSTICS = "editor.autoWriteDiagnostics";
   private static final int MIN_HEAP_MB = 256;
   private static final int MAX_HEAP_MB = 65536;
 
@@ -39,6 +40,14 @@ public final class DeveloperToolsMenu {
                             Supplier<Window> ownerSupplier,
                             Runnable refreshLogs,
                             Supplier<List<Path>> contextRootsSupplier) {
+    return create(appName, ownerSupplier, refreshLogs, contextRootsSupplier, false);
+  }
+
+  public static Menu create(String appName,
+                            Supplier<Window> ownerSupplier,
+                            Runnable refreshLogs,
+                            Supplier<List<Path>> contextRootsSupplier,
+                            boolean includeEditorDiagnosticHeartbeat) {
     Menu menu = new Menu("DevTools");
 
     MenuItem miRuntimeInfo = new MenuItem("Show Runtime Info");
@@ -79,10 +88,21 @@ public final class DeveloperToolsMenu {
               + (miCaptureEditorOutput.isSelected() ? "enabled." : "disabled."));
     });
 
+    CheckMenuItem miAutoWriteDiagnostics = new CheckMenuItem("Auto-write Editor Diagnostics");
+    miAutoWriteDiagnostics.setSelected(isAutoWriteEditorDiagnosticsEnabled());
+    miAutoWriteDiagnostics.setOnAction(e -> {
+      setAutoWriteEditorDiagnosticsEnabled(miAutoWriteDiagnostics.isSelected());
+      EditorDialogs.info(
+          owner(ownerSupplier),
+          "DevTools",
+          "Editor diagnostics heartbeat auto-write is "
+              + (miAutoWriteDiagnostics.isSelected() ? "enabled." : "disabled."));
+    });
+
     MenuItem miOpenSettings = new MenuItem("Open DevTools Settings File");
     miOpenSettings.setOnAction(e -> openSettingsFile(owner(ownerSupplier)));
 
-    menu.getItems().addAll(
+    List<MenuItem> items = new ArrayList<>(List.of(
         miRuntimeInfo,
         miCopyRuntimeInfo,
         miGc,
@@ -91,9 +111,18 @@ public final class DeveloperToolsMenu {
         miSaveLogs,
         new SeparatorMenuItem(),
         miHeap,
-        miCaptureEditorOutput,
-        miOpenSettings);
-    menu.setOnShowing(e -> miCaptureEditorOutput.setSelected(isCaptureEditorProcessOutputEnabled()));
+        miCaptureEditorOutput));
+    if (includeEditorDiagnosticHeartbeat) {
+      items.add(miAutoWriteDiagnostics);
+    }
+    items.add(miOpenSettings);
+    menu.getItems().addAll(items);
+    menu.setOnShowing(e -> {
+      miCaptureEditorOutput.setSelected(isCaptureEditorProcessOutputEnabled());
+      if (includeEditorDiagnosticHeartbeat) {
+        miAutoWriteDiagnostics.setSelected(isAutoWriteEditorDiagnosticsEnabled());
+      }
+    });
     return menu;
   }
 
@@ -105,6 +134,10 @@ public final class DeveloperToolsMenu {
 
   public static boolean isCaptureEditorProcessOutputEnabled() {
     return Boolean.parseBoolean(settings().getProperty(KEY_CAPTURE_EDITOR_OUTPUT, "true"));
+  }
+
+  public static boolean isAutoWriteEditorDiagnosticsEnabled() {
+    return Boolean.parseBoolean(settings().getProperty(KEY_AUTO_WRITE_EDITOR_DIAGNOSTICS, "false"));
   }
 
   private static Optional<Integer> configuredEditorHeapMb() {
@@ -159,6 +192,12 @@ public final class DeveloperToolsMenu {
     saveSettings(props);
   }
 
+  private static void setAutoWriteEditorDiagnosticsEnabled(boolean enabled) {
+    Properties props = settings();
+    props.setProperty(KEY_AUTO_WRITE_EDITOR_DIAGNOSTICS, Boolean.toString(enabled));
+    saveSettings(props);
+  }
+
   private static void showRuntimeInfo(Window owner, String appName) {
     EditorDialogs.showTextBlock(owner, "DevTools Runtime Info", appName + " JVM/runtime details.", runtimeInfo(appName), "Close");
   }
@@ -187,6 +226,7 @@ public final class DeveloperToolsMenu {
     lines.add("Runtime max/free: " + mb(runtime.maxMemory()) + " / " + mb(runtime.freeMemory()));
     lines.add("Configured editor heap: " + configuredEditorHeapMb().map(v -> v + " MB").orElse("JVM default"));
     lines.add("Capture editor output: " + isCaptureEditorProcessOutputEnabled());
+    lines.add("Auto-write editor diagnostics: " + isAutoWriteEditorDiagnosticsEnabled());
     lines.add("Input args: " + ManagementFactory.getRuntimeMXBean().getInputArguments());
     lines.add("DevTools settings: " + settingsFile().toAbsolutePath());
     return String.join("\n", lines);

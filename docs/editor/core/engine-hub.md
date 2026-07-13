@@ -183,7 +183,9 @@ In Developer Mode, both the editor and launcher add a collapsed **Logs** panel a
 
 When the launcher opens the editor in Developer Mode, it also forwards Developer Mode to the editor and captures that child process output under the workspace `.jvn/logs` folder.
 
-Developer Mode also adds a **DevTools** menu to the editor and launcher menu bars. It includes runtime/JVM diagnostics, manual GC, log-panel refresh, a developer settings file shortcut, a launcher output-capture toggle, an editor JVM heap setting, and **Save Diagnostics Bundle...**. The diagnostics bundle writes a timestamped folder and `.zip` containing discovered logs, crash/audit/diagnostic files, Gradle daemon output, launcher logs, a manifest of copied/skipped files, and JVM/runtime memory details. The heap setting is stored in `~/.jvn-editor/devtools.properties` and applies to the next editor launch started from the launcher.
+Developer Mode also adds a **DevTools** menu to the editor and launcher menu bars. It includes runtime/JVM diagnostics, manual GC, log-panel refresh, a developer settings file shortcut, a launcher output-capture toggle, an editor JVM heap setting, and **Save Diagnostics Bundle...**. The editor DevTools menu also includes **Auto-write Editor Diagnostics**. The diagnostics bundle writes a timestamped folder and `.zip` containing discovered logs, crash/audit/diagnostic files, Gradle daemon output, launcher logs, a manifest of copied/skipped files, and JVM/runtime memory details. The heap setting is stored in `~/.jvn-editor/devtools.properties` and applies to the next editor launch started from the launcher.
+
+Use **DevTools > Auto-write Editor Diagnostics** when diagnosing freezes or machine slowdowns. While enabled, the editor appends a heartbeat line every few seconds under the current project or workspace `.jvn/logs` folder, in a file named like `editor-heartbeat-20260713-184500.log`. Each line records uptime, active file, dirty-tab count, CPU text, heap/non-heap/JVM memory, FPS, thread counts, and GC deltas. Because the file is appended continuously, it can still contain useful evidence after a forced restart.
 
 ## Install Desktop Shortcuts
 

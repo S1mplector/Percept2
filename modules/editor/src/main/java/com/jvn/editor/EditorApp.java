@@ -14,6 +14,8 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayDeque;
@@ -33,6 +35,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 import javax.tools.ToolProvider;
+
+import org.jspecify.annotations.Nullable;
 
 import com.jvn.core.project.StoryMapPaths;
 import com.jvn.core.scene2d.Entity2D;
@@ -269,10 +273,15 @@ public class EditorApp extends Application {
   private File perfEnvironmentProjectRoot;
   private PerfEnvironment perfEnvironment;
   private static final long PERF_UPDATE_INTERVAL_NS = 300_000_000L;
+  private static final long DEV_DIAGNOSTIC_WRITE_INTERVAL_NS = 5_000_000_000L;
+  private static final DateTimeFormatter DEV_DIAGNOSTIC_LOG_TIME =
+      DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
   private static final double PERF_CPU_SMOOTH_ALPHA = 0.28;
   private static final double PERF_FPS_SMOOTH_ALPHA = 0.20;
   private double targetFps = EditorPreferences.DEFAULT_EDITOR_MAX_FPS;
   private long minFrameIntervalNs = 0L; // 0 = uncapped
+  private @Nullable Path developerDiagnosticsLogFile;
+  private long lastDeveloperDiagnosticWriteNs = -1L;
   private static final Color CPU_COLOR = Color.web("#f27333");
   private static final Color HEAP_COLOR = Color.web("#a855f7");
   private static final Color FPS_COLOR = Color.web("#f4f4f4");
@@ -471,6 +480,8 @@ public class EditorApp extends Application {
     if (dir == null || !dir.exists() || !dir.isDirectory()) return;
     stopAllPreviewAudio();
     this.projectRoot = dir;
+    this.developerDiagnosticsLogFile = null;
+    this.lastDeveloperDiagnosticWriteNs = -1L;
     Properties mf = loadManifest(dir);
     configureProjectContext(dir, mf);
     applyProjectRootToTabs();
@@ -2072,7 +2083,8 @@ public class EditorApp extends Application {
           "JVN Editor",
           this::dialogOwner,
           this::refreshDeveloperLogs,
-          this::developerLogRoots));
+          this::developerLogRoots,
+          true));
     }
     mb.getMenus().add(menuHelp);
 
@@ -2894,6 +2906,121 @@ public class EditorApp extends Application {
         isRatioValid(smoothedProcessCpu) ? smoothedProcessCpu : 0,
         heapRatio,
         clamp01(smoothedFps));
+    autoWriteDeveloperDiagnostics(
+        heapUsedMb,
+        heapMaxMb,
+        nonHeapMb,
+        jvnUsedMb,
+        heapRatio,
+        threadCount,
+        daemonThreadCount,
+        gcCountDelta,
+        gcTimeDelta,
+        cpuTextValue,
+        fpsTextValue);
+  }
+
+  private void autoWriteDeveloperDiagnostics(
+      double heapUsedMb,
+      double heapMaxMb,
+      double nonHeapMb,
+      double jvnUsedMb,
+      double heapRatio,
+      int threadCount,
+      int daemonThreadCount,
+      long gcCountDelta,
+      long gcTimeDelta,
+      String cpuText,
+      String fpsText) {
+    if (!DEVELOPER_MODE || !DeveloperToolsMenu.isAutoWriteEditorDiagnosticsEnabled()) return;
+    long now = System.nanoTime();
+    if (lastDeveloperDiagnosticWriteNs > 0
+        && now - lastDeveloperDiagnosticWriteNs < DEV_DIAGNOSTIC_WRITE_INTERVAL_NS) {
+      return;
+    }
+    lastDeveloperDiagnosticWriteNs = now;
+
+    try {
+      Path logFile = developerDiagnosticsLogFile();
+      Files.writeString(
+          logFile,
+          developerDiagnosticLine(
+              heapUsedMb,
+              heapMaxMb,
+              nonHeapMb,
+              jvnUsedMb,
+              heapRatio,
+              threadCount,
+              daemonThreadCount,
+              gcCountDelta,
+              gcTimeDelta,
+              cpuText,
+              fpsText),
+          StandardOpenOption.CREATE,
+          StandardOpenOption.WRITE,
+          StandardOpenOption.APPEND);
+    } catch (Exception ignored) {
+      // Best-effort heartbeat for freeze diagnostics; editor UI must keep running if logging fails.
+    }
+  }
+
+  private Path developerDiagnosticsLogFile() throws IOException {
+    if (developerDiagnosticsLogFile != null) return developerDiagnosticsLogFile;
+    Path base;
+    if (projectRoot != null && projectRoot.isDirectory()) {
+      base = projectRoot.toPath();
+    } else {
+      File workspace = resolveWorkspaceRoot();
+      base = workspace != null ? workspace.toPath() : Path.of(System.getProperty("user.home", "."));
+    }
+    Path dir = base.toAbsolutePath().normalize().resolve(".jvn").resolve("logs");
+    Files.createDirectories(dir);
+    developerDiagnosticsLogFile = dir.resolve(
+        "editor-heartbeat-" + DEV_DIAGNOSTIC_LOG_TIME.format(LocalDateTime.now()) + ".log");
+    Files.writeString(
+        developerDiagnosticsLogFile,
+        "# JVN editor developer heartbeat\n"
+            + "# Created " + LocalDateTime.now() + "\n"
+            + "# Toggle: DevTools > Auto-write Editor Diagnostics\n",
+        StandardOpenOption.CREATE,
+        StandardOpenOption.WRITE,
+        StandardOpenOption.APPEND);
+    return developerDiagnosticsLogFile;
+  }
+
+  private String developerDiagnosticLine(
+      double heapUsedMb,
+      double heapMaxMb,
+      double nonHeapMb,
+      double jvnUsedMb,
+      double heapRatio,
+      int threadCount,
+      int daemonThreadCount,
+      long gcCountDelta,
+      long gcTimeDelta,
+      String cpuText,
+      String fpsText) {
+    FileEditorTab active = getActiveFileTab();
+    File activeFile = active == null ? null : active.getFile();
+    return String.format(
+        Locale.ROOT,
+        "%s | uptimeMs=%d | project=%s | active=%s | dirtyTabs=%d | %s | heap=%.1f/%.1fMB %.1f%% | nonHeap=%.1fMB | jvm=%.1fMB | %s | threads=%d daemon=%d | gcDelta=%d/%dms%n",
+        LocalDateTime.now(),
+        ManagementFactory.getRuntimeMXBean().getUptime(),
+        projectRoot == null ? "(none)" : projectRoot.getAbsolutePath(),
+        activeFile == null ? "(none)" : activeFile.getAbsolutePath(),
+        countDirtyFileTabs(),
+        cpuText == null || cpuText.isBlank() ? "CPU --" : cpuText,
+        heapUsedMb,
+        heapMaxMb,
+        heapRatio * 100.0,
+        nonHeapMb,
+        jvnUsedMb,
+        fpsText == null || fpsText.isBlank() ? "FPS --" : fpsText,
+        threadCount,
+        daemonThreadCount,
+        gcCountDelta,
+        gcTimeDelta);
   }
 
   private static Label perfChip(String text, String toneClass) {
