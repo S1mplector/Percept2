@@ -939,8 +939,9 @@ Explorer without relying on operating-system desktop integration."""),
       fileTree.getStyleClass().add("script-editor-window-tree");
 
       TabPane editorTabs = new TabPane();
-      editorTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.ALL_TABS);
-      editorTabs.getStyleClass().add("script-editor-tabs");
+      editorTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.SELECTED_TAB);
+      editorTabs.setTabDragPolicy(TabPane.TabDragPolicy.REORDER);
+      editorTabs.getStyleClass().addAll("script-editor-tabs", "sidebar-tab-pane");
 
       Label windowStatus = new Label("Select a text file to begin editing.");
       windowStatus.getStyleClass().add("script-editor-window-status");

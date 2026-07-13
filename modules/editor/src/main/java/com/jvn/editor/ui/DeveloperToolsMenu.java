@@ -1,6 +1,5 @@
 package com.jvn.editor.ui;
 
-import java.awt.Desktop;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
@@ -241,7 +240,11 @@ public final class DeveloperToolsMenu {
     try {
       Path file = settingsFile();
       ensureSettingsFile(file);
-      Desktop.getDesktop().open(file.toFile());
+      if (EditorPathExplorer.show(owner, file.toFile())) return;
+      EditorDialogs.warning(
+          owner,
+          "DevTools Settings",
+          "Could not reveal the DevTools settings file. Open it manually at: " + file.toAbsolutePath());
     } catch (Exception ex) {
       EditorDialogs.error(
           owner,

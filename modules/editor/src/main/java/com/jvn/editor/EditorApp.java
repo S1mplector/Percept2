@@ -1766,11 +1766,213 @@ public class EditorApp extends Application {
     miNavigateFlowMap.setOnAction(e -> selectVnsFlowMapTab());
     MenuItem miNavigateSettings = new MenuItem("Editor Settings");
     miNavigateSettings.setOnAction(e -> selectEditorSettingsTab());
-    menuNavigateAnalysis.getItems().addAll(miNavigateDiagnostics, miNavigateFlowMap, miNavigateSettings);
-    menuNavigate.getItems().addAll(menuNavigateCore, menuNavigateEditors, menuNavigateVisual, menuNavigateAnalysis);
+	    menuNavigateAnalysis.getItems().addAll(miNavigateDiagnostics, miNavigateFlowMap, miNavigateSettings);
+	    menuNavigate.getItems().addAll(menuNavigateCore, menuNavigateEditors, menuNavigateVisual, menuNavigateAnalysis);
 
-    // ── Run ──
-    Menu menuRun = new Menu("Run");
+	    // ── Project ──
+	    Menu menuProjectTop = new Menu("Project");
+	    MenuItem miProjectWorkspaceHub = new MenuItem("Workspace Hub");
+	    miProjectWorkspaceHub.setOnAction(e -> selectWorkspaceHubTab());
+	    MenuItem miProjectNew = new MenuItem("New Project...");
+	    miProjectNew.setOnAction(e -> doNewProject(primaryStage));
+	    MenuItem miProjectOpen = new MenuItem("Open Project...");
+	    miProjectOpen.setOnAction(e -> doOpenProject(primaryStage));
+	    MenuItem miProjectExplorer = new MenuItem("Project Explorer");
+	    miProjectExplorer.setOnAction(e -> selectProjectTab());
+	    MenuItem miProjectEngineHealth = new MenuItem("Engine Health");
+	    miProjectEngineHealth.setOnAction(e -> selectEngineHealthTab());
+	    MenuItem miProjectRun = new MenuItem("Run Project");
+	    miProjectRun.setOnAction(e -> doRunProject(primaryStage));
+	    MenuItem miProjectBuildPublish = new MenuItem("Build & Publish...");
+	    miProjectBuildPublish.setOnAction(e -> showGameBuildPublisherWindow(primaryStage));
+	    MenuItem miProjectRevealRoot = new MenuItem("Reveal Project Root in JVN Path Explorer");
+	    miProjectRevealRoot.setOnAction(e -> revealProjectRootInPathExplorer());
+	    MenuItem miProjectCopyRoot = new MenuItem("Copy Project Root Path");
+	    miProjectCopyRoot.setOnAction(e -> copyProjectRootPathToClipboard());
+	    MenuItem miProjectDocs = new MenuItem("Open Project Docs Folder");
+	    miProjectDocs.setOnAction(e -> openProjectDocsFolder());
+	    MenuItem miProjectWorkspaceDocs = new MenuItem("Open Workspace Docs Folder");
+	    miProjectWorkspaceDocs.setOnAction(e -> openWorkspaceDocsFolder());
+	    Menu menuProjectOpenTop = new Menu("Open");
+	    menuProjectOpenTop.getItems().addAll(miProjectWorkspaceHub, miProjectNew, miProjectOpen, miProjectExplorer);
+	    Menu menuProjectActions = new Menu("Actions");
+	    menuProjectActions.getItems().addAll(miProjectRun, miProjectBuildPublish, miProjectEngineHealth);
+	    Menu menuProjectLocations = new Menu("Locations");
+	    menuProjectLocations.getItems().addAll(miProjectRevealRoot, miProjectCopyRoot, miProjectDocs, miProjectWorkspaceDocs);
+	    menuProjectTop.getItems().addAll(menuProjectOpenTop, menuProjectActions, menuProjectLocations);
+
+	    // ── Text ──
+	    Menu menuText = new Menu("Text");
+	    MenuItem miTextWorkspace = new MenuItem("Text Editor Workspace");
+	    miTextWorkspace.setOnAction(e -> selectScriptEditorLauncherTab());
+	    MenuItem miTextOpen = new MenuItem("Open Text File...");
+	    miTextOpen.setOnAction(e -> doOpenTextFile(primaryStage));
+	    MenuItem miTextSave = new MenuItem("Save Active File");
+	    miTextSave.setOnAction(e -> doSave(primaryStage));
+	    MenuItem miTextSaveAs = new MenuItem("Save Active File As...");
+	    miTextSaveAs.setOnAction(e -> doSaveAs(primaryStage));
+	    MenuItem miTextSaveAll = new MenuItem("Save All Open Tabs");
+	    miTextSaveAll.setOnAction(e -> saveAllOpenTabs());
+	    MenuItem miTextReload = new MenuItem("Reload Active File from Disk");
+	    miTextReload.setOnAction(e -> doReload());
+	    MenuItem miTextClose = new MenuItem("Close Active Tab");
+	    miTextClose.setOnAction(e -> closeActiveTab());
+	    MenuItem miTextCloseAll = new MenuItem("Close All Tabs");
+	    miTextCloseAll.setOnAction(e -> closeAllClosableTabs());
+	    MenuItem miTextUndo = new MenuItem("Undo");
+	    miTextUndo.setOnAction(e -> executeUndo());
+	    MenuItem miTextRedo = new MenuItem("Redo");
+	    miTextRedo.setOnAction(e -> executeRedo());
+	    MenuItem miTextFind = new MenuItem("Find / Replace");
+	    miTextFind.setOnAction(e -> {
+	      FileEditorTab ft = getActiveFileTab();
+	      if (ft != null) ft.showSearchBar();
+	    });
+	    MenuItem miTextGoToLine = new MenuItem("Go to VNS Line...");
+	    miTextGoToLine.setOnAction(e -> {
+	      EditorDialogs.promptText(primaryStage, "Go to Line", "Jump to a specific line in the active VNS editor.",
+	          "Line number", "", "42", "Go").ifPresent(text -> {
+	        try {
+	          int line = Integer.parseInt(text.trim());
+	          FileEditorTab ft = getActiveFileTab();
+	          if (ft != null) ft.navigateToLine(line);
+	        } catch (NumberFormatException ignored) {
+	        }
+	      });
+	    });
+	    MenuItem miTextRevealActive = new MenuItem("Reveal Active File in JVN Path Explorer");
+	    miTextRevealActive.setOnAction(e -> revealActiveFileInPathExplorer());
+	    MenuItem miTextCopyActive = new MenuItem("Copy Active File Path");
+	    miTextCopyActive.setOnAction(e -> copyActiveFilePathToClipboard());
+	    Menu menuTextFile = new Menu("File");
+	    menuTextFile.getItems().addAll(miTextOpen, miTextSave, miTextSaveAs, miTextSaveAll, new SeparatorMenuItem(), miTextReload, miTextClose, miTextCloseAll);
+	    Menu menuTextEdit = new Menu("Editing");
+	    menuTextEdit.getItems().addAll(miTextUndo, miTextRedo, new SeparatorMenuItem(), miTextFind, miTextGoToLine);
+	    Menu menuTextPaths = new Menu("Paths");
+	    menuTextPaths.getItems().addAll(miTextRevealActive, miTextCopyActive);
+	    menuText.getItems().addAll(miTextWorkspace, new SeparatorMenuItem(), menuTextFile, menuTextEdit, menuTextPaths);
+
+	    // ── VNS ──
+	    Menu menuVns = new Menu("VNS");
+	    MenuItem miVnsOpen = new MenuItem("Open VNS...");
+	    miVnsOpen.setOnAction(e -> doOpenVns(primaryStage));
+	    MenuItem miVnsApplyPreview = new MenuItem("Apply to Preview");
+	    miVnsApplyPreview.setOnAction(e -> applyCodeFromEditor());
+	    MenuItem miVnsLaunchHere = new MenuItem("Launch from Here");
+	    miVnsLaunchHere.setOnAction(e -> {
+	      FileEditorTab ft = getActiveFileTab();
+	      if (ft != null && ft.getKind() == FileEditorTab.Kind.VNS) {
+	        ft.launchFromHere();
+	      } else {
+	        status.setText("Launch from Here is only available for VNS files");
+	      }
+	    });
+	    MenuItem miVnsLaunchStart = new MenuItem("Launch from Start");
+	    miVnsLaunchStart.setOnAction(e -> {
+	      FileEditorTab ft = getActiveFileTab();
+	      if (ft != null && ft.getKind() == FileEditorTab.Kind.VNS) {
+	        ft.runFromLabel(null);
+	      } else {
+	        status.setText("Launch from Start is only available for VNS files");
+	      }
+	    });
+	    MenuItem miVnsApplyAndLaunchHere = new MenuItem("Apply Preview and Launch Here");
+	    miVnsApplyAndLaunchHere.setOnAction(e -> {
+	      applyCodeFromEditor();
+	      FileEditorTab ft = getActiveFileTab();
+	      if (ft != null && ft.getKind() == FileEditorTab.Kind.VNS) {
+	        ft.launchFromHere();
+	      } else {
+	        status.setText("Apply + Launch Here is only available for VNS files");
+	      }
+	    });
+	    MenuItem miVnsApplyAndLaunchStart = new MenuItem("Apply Preview and Launch From Start");
+	    miVnsApplyAndLaunchStart.setOnAction(e -> {
+	      applyCodeFromEditor();
+	      FileEditorTab ft = getActiveFileTab();
+	      if (ft != null && ft.getKind() == FileEditorTab.Kind.VNS) {
+	        ft.runFromLabel(null);
+	      } else {
+	        status.setText("Apply + Launch Start is only available for VNS files");
+	      }
+	    });
+	    MenuItem miVnsDiagnostics = new MenuItem("Diagnostics");
+	    miVnsDiagnostics.setOnAction(e -> selectVnsDiagnosticsTab());
+	    MenuItem miVnsFlowMap = new MenuItem("Label Flow Map");
+	    miVnsFlowMap.setOnAction(e -> selectVnsFlowMapTab());
+	    MenuItem miVnsPuppeteerLauncher = new MenuItem("Puppeteer Launcher");
+	    miVnsPuppeteerLauncher.setOnAction(e -> selectPuppeteerLauncherTab());
+	    MenuItem miVnsPuppeteerWindow = new MenuItem("Puppeteer Window");
+	    miVnsPuppeteerWindow.setOnAction(e -> openActionEditor());
+	    MenuItem miVnsStoryboard = new MenuItem("Storyboard Overlay");
+	    miVnsStoryboard.setOnAction(e -> selectStoryboardOverlayTab());
+	    disableMaintenanceMenuItem(miVnsStoryboard, EditorSidebarPanel.STORYBOARD_OVERLAY);
+	    Menu menuVnsPreview = new Menu("Preview & Launch");
+	    menuVnsPreview.getItems().addAll(miVnsApplyPreview, miVnsLaunchHere, miVnsLaunchStart, new SeparatorMenuItem(), miVnsApplyAndLaunchHere, miVnsApplyAndLaunchStart);
+	    Menu menuVnsAnalysis = new Menu("Analysis");
+	    menuVnsAnalysis.getItems().addAll(miVnsDiagnostics, miVnsFlowMap);
+	    Menu menuVnsAnimation = new Menu("Animation");
+	    menuVnsAnimation.getItems().addAll(miVnsPuppeteerLauncher, miVnsPuppeteerWindow, miVnsStoryboard);
+	    menuVns.getItems().addAll(miVnsOpen, new SeparatorMenuItem(), menuVnsPreview, menuVnsAnalysis, menuVnsAnimation);
+
+	    // ── Assets ──
+	    Menu menuAssetsTop = new Menu("Assets");
+	    MenuItem miAssetsBrowser = new MenuItem("Asset Browser");
+	    miAssetsBrowser.setOnAction(e -> selectAssetBrowserTab());
+	    MenuItem miAssetsLayered = new MenuItem("Layered Image Visualizer");
+	    miAssetsLayered.setOnAction(e -> selectLayeredImageVisualizerTab());
+	    MenuItem miAssetsAttributes = new MenuItem("Image Attributes Tool");
+	    miAssetsAttributes.setOnAction(e -> selectImageAttributesToolTab());
+	    disableMaintenanceMenuItem(miAssetsAttributes, EditorSidebarPanel.IMAGE_ATTRIBUTES);
+	    MenuItem miAssetsTint = new MenuItem("Scene Lighting Studio");
+	    miAssetsTint.setOnAction(e -> selectImageTintToolTab());
+	    MenuItem miAssetsPhone = new MenuItem("Phone Assets");
+	    miAssetsPhone.setOnAction(e -> selectPhoneAssetsToolTab());
+	    disableMaintenanceMenuItem(miAssetsPhone, EditorSidebarPanel.PHONE_ASSETS);
+	    MenuItem miAssetsRevealRoot = new MenuItem("Reveal Project Root in JVN Path Explorer");
+	    miAssetsRevealRoot.setOnAction(e -> revealProjectRootInPathExplorer());
+	    MenuItem miAssetsProjectDocs = new MenuItem("Open Project Docs Folder");
+	    miAssetsProjectDocs.setOnAction(e -> openProjectDocsFolder());
+	    Menu menuAssetTools = new Menu("Tools");
+	    menuAssetTools.getItems().addAll(miAssetsBrowser, miAssetsLayered, miAssetsAttributes, miAssetsTint, miAssetsPhone);
+	    Menu menuAssetLocations = new Menu("Locations");
+	    menuAssetLocations.getItems().addAll(miAssetsRevealRoot, miAssetsProjectDocs);
+	    menuAssetsTop.getItems().addAll(menuAssetTools, menuAssetLocations);
+
+	    // ── Diagnostics ──
+	    Menu menuDiagnosticsTop = new Menu("Diagnostics");
+	    MenuItem miDiagnosticsEngineHealth = new MenuItem("Engine Health");
+	    miDiagnosticsEngineHealth.setOnAction(e -> selectEngineHealthTab());
+	    MenuItem miDiagnosticsVns = new MenuItem("VNS Diagnostics");
+	    miDiagnosticsVns.setOnAction(e -> selectVnsDiagnosticsTab());
+	    MenuItem miDiagnosticsFlow = new MenuItem("Label Flow Map");
+	    miDiagnosticsFlow.setOnAction(e -> selectVnsFlowMapTab());
+	    MenuItem miDiagnosticsVersionControl = new MenuItem("Version Control Status");
+	    miDiagnosticsVersionControl.setOnAction(e -> selectVersionControlTab());
+	    MenuItem miDiagnosticsRefreshVcs = new MenuItem("Refresh Version Control Status");
+	    miDiagnosticsRefreshVcs.setOnAction(e -> {
+	      if (versionControlView != null) versionControlView.refreshStatus();
+	      selectVersionControlTab();
+	    });
+	    MenuItem miDiagnosticsRefreshDocs = new MenuItem("Refresh Docs Index");
+	    miDiagnosticsRefreshDocs.setOnAction(e -> {
+	      if (helpCenterView != null) helpCenterView.refresh();
+	    });
+	    MenuItem miDiagnosticsSettings = new MenuItem("Editor Settings");
+	    miDiagnosticsSettings.setOnAction(e -> selectEditorSettingsTab());
+	    menuDiagnosticsTop.getItems().addAll(
+	        miDiagnosticsEngineHealth,
+	        miDiagnosticsVns,
+	        miDiagnosticsFlow,
+	        new SeparatorMenuItem(),
+	        miDiagnosticsVersionControl,
+	        miDiagnosticsRefreshVcs,
+	        new SeparatorMenuItem(),
+	        miDiagnosticsRefreshDocs,
+	        miDiagnosticsSettings);
+
+	    // ── Run ──
+	    Menu menuRun = new Menu("Run");
     MenuItem miApplyCode = new MenuItem("Apply to Preview");
     miApplyCode.setOnAction(e -> applyCodeFromEditor());
     miApplyCode.setAccelerator(new KeyCodeCombination(KeyCode.ENTER, KeyCombination.SHORTCUT_DOWN));
@@ -2077,7 +2279,21 @@ public class EditorApp extends Application {
         new SeparatorMenuItem(),
         miAbout);
 
-    mb.getMenus().addAll(menuFile, menuEdit, menuView, menuNavigate, menuRun, menuBuild, menuTools, menuVcs, menuWindow);
+	    mb.getMenus().addAll(
+	        menuFile,
+	        menuEdit,
+	        menuView,
+	        menuNavigate,
+	        menuProjectTop,
+	        menuText,
+	        menuVns,
+	        menuAssetsTop,
+	        menuDiagnosticsTop,
+	        menuRun,
+	        menuBuild,
+	        menuTools,
+	        menuVcs,
+	        menuWindow);
     if (DEVELOPER_MODE) {
       mb.getMenus().add(DeveloperToolsMenu.create(
           "JVN Editor",
@@ -2256,7 +2472,9 @@ public class EditorApp extends Application {
     root.setTop(top);
     // Center: per-file tabs with embedded preview
     filesTabs = new TabPane();
-    filesTabs.getStyleClass().add("sidebar-tab-pane");
+    filesTabs.getStyleClass().addAll("sidebar-tab-pane", "main-editor-tab-pane");
+    filesTabs.setTabDragPolicy(TabPane.TabDragPolicy.REORDER);
+    filesTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.SELECTED_TAB);
     filesTabs.getSelectionModel().selectedItemProperty().addListener((o, ov, nv) -> {
       updateContextForActiveTab();
     });
