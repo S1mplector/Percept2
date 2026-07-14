@@ -146,6 +146,8 @@ Useful JVN commands:
 
 Use `./jvnw` for normal development. It prints concise wrapper status by default. Drop to `./gradlew` or `./jvnw --raw ...` only when you need direct Gradle task control or full Gradle logs.
 
+Run `./jvnw doctor` (recommended) for a shell-only preflight check before starting Gradle. It validates the Java 21 runtime and compiler, `JAVA_HOME`, Gradle wrapper, module checkout, Gradle cache permissions, macOS Java registration, and wrapper compatibility with the host Bash. On macOS, `jvnw` also discovers Homebrew's `openjdk@21` automatically when Apple's `/usr/bin/java` placeholder is present. If editor startup fails, the same diagnostics are printed automatically with corrective guidance.
+
 The default Java build no longer requires any native toolchain.
 
 Run editor:

@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+printf 'Simulated Gradle startup failure\n' >&2
+exit 1
