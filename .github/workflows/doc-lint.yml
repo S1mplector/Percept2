@@ -1,6 +1,7 @@
 name: Documentation Lint
 
 on:
+  workflow_dispatch:
   pull_request:
     paths:
       - 'docs/**'
@@ -10,6 +11,7 @@ on:
   push:
     branches:
       - main
+      - stable
     paths:
       - 'docs/**'
 
@@ -28,15 +30,6 @@ jobs:
 
       - name: Run Documentation Lint
         run: node scripts/doc-lint.mjs
-        continue-on-error: true
-
-      - name: Check for critical errors
-        run: |
-          if [ $? -eq 1 ]; then
-            echo "❌ Documentation lint found errors"
-            exit 1
-          fi
-          echo "✅ Documentation lint passed"
 
       - name: Comment on PR (if errors)
         if: failure() && github.event_name == 'pull_request'

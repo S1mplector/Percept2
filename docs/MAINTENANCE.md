@@ -1,313 +1,159 @@
 # Documentation Maintenance Guide
 
-This document explains how to keep JVN documentation accurate and up-to-date as the codebase evolves.
+The Markdown files under `docs/` are JVN's documentation source of truth. The public website and the
+editor Help Center are reading surfaces built from this material; changes should begin here.
 
----
+## Documentation Model
 
-## Overview
+JVN documentation has four distinct roles:
 
-Documentation is a living artifact. As the code changes, docs must change with it to stay useful and prevent user confusion.
+| Role | Purpose | Typical location |
+|---|---|---|
+| Specification | Defines portable, versioned behavior | `scripting/spec/` |
+| Reference | Describes commands, APIs, systems, and file formats | `architecture/`, `runtime/`, `scripting/` |
+| Guide | Teaches a task or workflow | `guides/`, selected subsystem guides |
+| Implementation notes | Explain internals, audits, or future work | `internals/`, `plans/`, roadmap files |
 
-**Responsibilities:**
-- **Developers:** Update docs when you modify code (same PR)
-- **Docs team:** Audit and refresh docs quarterly
-- **CI/CD:** Automatically catch broken links and stale symbols
+A guide or implementation page MUST NOT silently redefine a normative specification. When a page
+serves more than one role, state which sections are normative and which are explanatory.
 
----
+## Navigation Architecture
 
-## When to Update Docs
+Readers should be able to enter at three levels:
 
-### Update Immediately (Same PR as Code Change)
+1. [Documentation Home](README.md) — short task routes and section map
+2. Section landing pages — local orientation and recommended reading order
+3. [Complete Index](INDEX.md) — exhaustive catalog and cross-subsystem workflows
 
-1. **Renamed a public class, method, or interface?**
-   - Find docs mentioning the old name
-   - Update all references
-   - Example: `Character2D` → `CharacterEntity2D`
+Major section landing pages:
 
-2. **Changed API signature or behavior?**
-   - Update code examples in related docs
-   - Update parameter descriptions
-   - Example: Changed function signature, update "Usage Example" section
+- [Guides](guides/README.md)
+- [Editor](editor/README.md)
+- [Scripting](scripting/README.md)
+- [Runtime](runtime/README.md)
+- [Project Setup And Delivery](project-setup/README.md)
+- [Architecture](architecture/README.md)
 
-3. **Added a new public class or system?**
-   - Create a new documentation page (or extend existing guide)
-   - Link it from docs/INDEX.md
-   - Example: New rendering backend → new "Platform Runtimes" section
+Add a new page to its section landing page when it is a primary route. Add every user-facing page to
+`INDEX.md`. Avoid adding every deep reference to `docs/README.md`; that page should remain concise.
 
-4. **Modified or removed a configuration option?**
-   - Update configuration examples and docs
-   - Example: Gradle property renamed, update build guide
+## Where New Pages Belong
 
-### Schedule for Later (Document in Task)
+| Content | Location |
+|---|---|
+| First-run and task tutorials | `guides/` |
+| Editor windows and tools | `editor/` |
+| Engine design and public architecture | `architecture/` |
+| Runtime behavior and platform backends | `runtime/` |
+| Project creation, collaboration, and release | `project-setup/` |
+| VNS, JES, timelines, menus, and layout DSLs | `scripting/` |
+| Versioned VNS/JES guarantees | `scripting/spec/` |
+| Time-bound audits and proposals | `plans/` or an explicitly named roadmap |
 
-1. **Internal refactoring that doesn't change APIs**
-   - File a doc task: "Update internals documentation after refactoring X"
-   - Update implementation details, keep user-facing guide same
+Prefer extending an existing page when the new material answers the same reader question. Create a
+new page when it has a distinct audience, lifecycle, or navigation destination.
 
-2. **Performance or design improvements**
-   - File task: "Update performance tips based on optimization Y"
+## Change Rules
 
----
+Update documentation in the same change when you:
 
-## Audit Cycle
+- rename or remove a public class, command, property, task, or file format;
+- change runtime behavior, defaults, requirements, or supported platforms;
+- add an editor tool or a public scripting feature;
+- change project generation, packaging, installation, or release behavior;
+- change a screenshot-visible editor workflow.
 
-### Quarterly (Every 3 months)
+For VNS or JES syntax changes, follow the
+[Scripting Compatibility And Deprecation Policy](scripting/spec/compatibility-policy.md). A syntax
+change is incomplete until its specification, changelog, fixtures, parser/runtime behavior, editor
+diagnostics, and external language tooling agree.
 
-1. **Run doc-lint:**
-   ```bash
-   node scripts/doc-lint.mjs
-   ```
-   Fixes errors (broken links, missing symbols).
+## Writing Conventions
 
-2. **Refresh screenshots:**
-   ```bash
-   ./gradlew :editor:generateDocsScreenshots
-   ```
-   Regenerate UI screenshots from current editor state.
+- Start with one `#` heading that names the reader-facing subject.
+- State the audience or purpose near the beginning when it is not obvious.
+- Prefer task-oriented headings such as “Package A Game” over vague headings such as “More.”
+- Use repository-relative links and descriptive link text.
+- Name commands, file paths, properties, and code symbols exactly as implemented.
+- Mark experimental behavior, platform limitations, and future work explicitly.
+- Do not use calendar dates as proof that content is current. Verify behavior against code or tests.
+- Keep generated pages clearly named `generated-*.md`; do not hand-edit generated output.
 
-3. **Review stale sections:**
-   - Anything >6 months old → verify still accurate
-   - Update "Last Updated" date if verified
+## Safe Refactoring
 
-### Yearly (Every 12 months)
+Existing paths may be bookmarked by users, the hosted site, and the editor Help Center. Prefer
+improving pages in place. Before moving or deleting a page:
 
-Full documentation audit (similar to [Phase 0 Audit](plans/docs-audit-2026-05.md)):
+1. search for inbound references with `rg`;
+2. check Help Center routing and generated guide trees;
+3. update every repository-relative link;
+4. provide a redirect or compatibility stub when the publishing surface supports it;
+5. run the complete validation checklist.
 
-1. Cross-check all modules against docs
-2. Symbol verification across all pages
-3. Coverage analysis (what's missing?)
-4. Create new tasks for gaps found
+Do not perform blind repository-wide replacements. Inspect matches and keep unrelated terminology,
+examples, generated files, and historical audit evidence intact.
 
----
+## Local Validation
 
-## Making Code Changes
-
-### Checklist for Developers
-
-When modifying code:
-
-- [ ] **Will this break any docs?**
-  - Renamed class → docs reference it?
-  - Changed signature → docs show old example?
-  - Removed feature → docs mention it?
-
-- [ ] **If breaking docs: Update in this PR**
-  - Search docs for old name/feature
-  - Update all occurrences
-  - Test links still work
-
-- [ ] **If adding new feature: Add to docs**
-  - Create page or expand existing guide
-  - Link from docs/INDEX.md
-  - Include code example from tests
-
-- [ ] **Run doc-lint before pushing:**
-  ```bash
-  node scripts/doc-lint.mjs
-  ```
-  Fix any errors it reports.
-
-### PR Template Reminder
-
-The GitHub PR template includes:
-
-```
-- [ ] Docs updated (or N/A)
-- [ ] No broken links introduced
-- [ ] Symbols mentioned in docs still exist
-```
-
----
-
-## Documentation Governance
-
-### Structure
-
-```
-docs/
-├── README.md                    # Entry point, Fast Routes
-├── INDEX.md                     # Complete navigation index
-├── MAINTENANCE.md               # This file
-├── architecture/                # Design, internals, performance
-├── editor/                      # Editor UI, tools, panels
-├── guides/                      # Tutorials, onboarding, cookbooks
-├── project-setup/               # Build, release, deployment
-├── runtime/                     # Runtime behavior, systems
-├── scripting/                   # VNS, JES, menus, UI
-└── plans/                       # Improvement plans and audits
-```
-
-### Update Patterns
-
-When updating an existing guide:
-
-1. **Preserve section structure** — don't reorganize; readers have bookmarks
-2. **Add dates** — "Updated: May 2026" at bottom
-3. **Link related docs** — add cross-references if you reference other pages
-4. **Keep examples current** — test code snippets before committing
-
----
-
-## Tools & Automation
-
-### Local Validation
-
-Before pushing, run locally:
+Run the full documentation lint when Node.js is available:
 
 ```bash
-# Full validation
 node scripts/doc-lint.mjs
+```
 
-# Links only (faster)
+Useful focused modes:
+
+```bash
 node scripts/doc-lint.mjs --links-only
-
-# Strict mode (fail on warnings)
 node scripts/doc-lint.mjs --strict
 ```
 
-### CI/CD Integration
+Also run:
 
-GitHub Actions runs doc-lint on every PR:
+```bash
+git diff --check
+rg -n 'old-or-renamed-symbol' docs
+```
 
-- `.github/workflows/docs-lint.yml` — automated checks
-- Fails PR if links broken or symbols stale
-- Comment on PR with fix suggestions
+The documentation workflow runs `scripts/doc-lint.mjs` for documentation-related pull requests.
+Local validation remains important because CI configuration can change and some checks are heuristic.
 
-### Manual Screenshot Refresh
+## Screenshots
 
-Puppeteer screenshot tools may get out of sync. Refresh manually:
+Generate all configured editor documentation screenshots with:
 
 ```bash
 ./gradlew :editor:generateDocsScreenshots
-git add docs/
-git commit -m "docs: refresh editor screenshots (May 2026)"
 ```
 
----
-
-## Creating New Documentation
-
-### When You Need a New Page
-
-1. **Decide location** — where does it fit?
-   - Core API → `docs/architecture/internals/`
-   - Editor UI → `docs/editor/sidebars/right/`
-   - Tutorial → `docs/guides/`
-   - Runtime feature → `docs/runtime/systems/`
-
-2. **Create the file** with markdown:
-   ```
-   # Clear Title
-   
-   **Module:** `package.name`
-   **Purpose:** One-line summary
-   
-   ## Overview
-   ## Usage Example
-   ## API Reference
-   ## Related Documentation
-   ```
-
-3. **Add to INDEX.md:**
-   - Find the relevant section
-   - Add a Markdown link with the page title and its repository-relative path
-
-4. **Test links:**
-   ```bash
-   node scripts/doc-lint.mjs
-   ```
-
-5. **Commit with context:**
-   ```
-   docs: add X documentation
-   
-   Covers [module/feature] with usage examples and API reference.
-   Related to [related pages].
-   ```
-
----
-
-## Common Updates
-
-### Class Renamed
+Focused tasks are also available:
 
 ```bash
-# Search docs for old name
-grep -r "OldClassName" docs/
-
-# Update all occurrences
-sed -i 's/OldClassName/NewClassName/g' docs/**/*.md
-
-# Verify
-grep -r "OldClassName" docs/
-# (should return 0 results)
+./gradlew :editor:generateSidebarDocsScreenshots
+./gradlew :editor:generateCoreDocsScreenshots
 ```
 
-### Example Code Changes
+Review generated images and Markdown before committing them. Screenshot generation verifies capture,
+not whether the depicted workflow is still the best explanation.
 
-In a docs file with code examples:
+## Review Checklist
 
-```markdown
-**Before:**
-\`\`\`java
-Engine engine = new Engine(config, oldRenderer);
-\`\`\`
+- [ ] The page has one clear purpose and audience.
+- [ ] Current behavior was checked against code, tests, or a working build.
+- [ ] Commands and examples are runnable from the stated working directory.
+- [ ] New or renamed pages are linked from their section landing page and `INDEX.md`.
+- [ ] Normative, explanatory, implementation, and roadmap material are not conflated.
+- [ ] Platform support and experimental status are stated accurately.
+- [ ] Relative links, anchors, and image references resolve.
+- [ ] `node scripts/doc-lint.mjs` passes when Node.js is available.
+- [ ] `git diff --check` passes.
 
-**After:**
-\`\`\`java
-Engine engine = new Engine(config, newRenderer);
-\`\`\`
-```
+## Audits And Plans
 
-### Link Rewording (keeping URL)
+Audit reports are historical snapshots. Keep their original findings intact and add a status banner
+when later work supersedes them. Do not use an old audit's counts as current repository facts.
 
-If you reword but keep the link target the same:
+- [May 2026 Documentation Audit](plans/docs-audit-2026-05.md)
 
-```markdown
-**Before:** [API Reference](runtime/systems/audio-system.md)
-**After:** [Audio System Guide](runtime/systems/audio-system.md)
-```
-
----
-
-## Troubleshooting
-
-### "Doc-lint reports broken link"
-
-1. Check if file exists: `ls docs/path/to/file.md`
-2. Verify relative path: Is it from the right directory?
-3. Fix the link in the source file
-4. Re-run: `node scripts/doc-lint.mjs`
-
-### "Editor screenshots are out of date"
-
-1. Check screenshot age: `ls -l docs/editor/core/generated-*.md`
-2. Run generator: `./gradlew :editor:generateDocsScreenshots`
-3. Commit: `git add docs/ && git commit -m "docs: refresh screenshots"`
-
-### "Can't find how to do X"
-
-1. Search docs: `grep -r "keyword" docs/`
-2. Check docs/README.md "Fast Routes"
-3. Check docs/INDEX.md sections
-4. If still missing, file a task to add it
-
----
-
-## Contact & Escalation
-
-**For doc questions:** Ask in #documentation Slack channel  
-**For code-specific guidance:** Check related architecture doc  
-**For missing docs:** Create a GitHub issue with "docs" label
-
----
-
-## Resources
-
-- **Audit Report:** [Phase 0 Audit (May 2026)](plans/docs-audit-2026-05.md)
-- **Index:** [Complete Documentation Index](INDEX.md)
-
----
-
-**Last Updated:** May 2026  
-**Maintenance Cadence:** Quarterly audits, immediate updates on code changes
+When an audit finding is resolved, update the current documentation and optionally annotate the audit
+with a link to the resolution. Avoid rewriting historical measurements to match the present tree.

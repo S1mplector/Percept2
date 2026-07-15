@@ -391,112 +391,20 @@ Engine modules live under `modules/`, while Gradle project names stay stable (`:
 
 Public documentation website: **https://javavectornexus.com**
 
-Repository documentation index: **`docs/INDEX.md`**
-
-Use the website for browsing and search. Use the repository Markdown when editing docs alongside
+Use the website for browsing and search. Use the repository Markdown when editing documentation with
 engine changes.
 
-### Start Here
-- `docs/guides/getting-started.md` — first-time setup, build, and run
-- `docs/guides/cookbook.md` — practical recipes and end-to-end examples
-
-### Architecture
-- `docs/architecture/core/overview.md`
-- `docs/architecture/core/system-architecture.md`
-- `docs/architecture/core/2d-engine.md`
-- `docs/architecture/quality/performance.md`
-
-### VNS Scripting (25 sub-documents)
-- `docs/scripting/vns/overview/vns-scripting.md` — overview and quick reference
-- `docs/scripting/vns/language/vns-directives.md` — @scenario, @character, @background, @charimg, @charlayer, @charpreset, @label, @var, @define, @include
-- `docs/scripting/vns/language/vns-dialogue.md` — dialogue forms, text effects, typewriter
-- `docs/scripting/vns/language/vns-choices.md` — choices, branching patterns
-- `docs/scripting/vns/language/vns-commands.md` — complete command catalog
-- `docs/scripting/vns/presentation/vns-audio.md` — BGM, SFX, voice, crossfade
-- `docs/scripting/vns/presentation/vns-characters.md` — character system, layered sprites, motion
-- `docs/scripting/vns/presentation/vns-layered-charpresets.md` — practical guide: @charlayer + @charpreset pipeline, asset organization, cross-character refs, editor tooling
-- `docs/scripting/vns/language/vns-variables.md` — variables, conditions, if/elif/else
-- `docs/scripting/vns/presentation/vns-transitions.md` — transitions, shake, flash, UI control
-- `docs/scripting/vns/flow/vns-flow-control.md` — labels, jumps, call/return, script switching
-- `docs/scripting/vns/integration/vns-interop.md` — JES/Java integration, inline timelines
-- `docs/scripting/vns/language/vns-text-formatting.md` — ICU plurals, select, number formatting
-- `docs/scripting/vns/runtime/vns-scene-lifecycle.md` — VnScene node loop, VnState, node types, preflight, character visuals
-- `docs/scripting/vns/runtime/vns-save-system.md` — named slots, autosave, quick save/load, schema migration, thumbnails
-- `docs/scripting/vns/runtime/vns-rollback-history.md` — rollback stack, forward/backward, dialogue backlog
-- `docs/scripting/vns/runtime/vns-settings-modes.md` — text speed, volumes, skip, auto-play, UI hidden, key bindings
-- `docs/scripting/vns/runtime/vns-localization.md` — locale-aware script loading, UI strings, multi-language structure
-- `docs/scripting/vns/internals/vns-parsing.md` — parser internals
-- `docs/scripting/vns/integration/java-jes-cross-development.md` — hybrid architecture
-- `docs/scripting/vns/integration/vns-jes-architecture.md` — scene stack coordination, interop routing, timeline runners, bridge lifecycle
-- `docs/scripting/vns/guides/vns-tutorial.md` — step-by-step full VN tutorial with choices, variables, audio, and JES integration
-- `docs/scripting/vns/guides/vns-best-practices.md` — naming conventions, structure patterns, pitfalls, and performance tips
-- `docs/scripting/vns/guides/vns-debugging.md` — parse/runtime diagnostics and troubleshooting workflows
-- `docs/scripting/vns/guides/vns-project-organization.md` — directory conventions, include strategy, and scaling patterns
-
-### JES Scripting (12 sub-documents)
-- `docs/scripting/jes/overview/jes-scripting.md` — overview, quick start, quick reference
-- `docs/scripting/jes/scene/jes-scenes-entities.md` — scene structure, entity declarations, lifecycle, merging
-- `docs/scripting/jes/scene/components.md` — all 12 component types with properties
-- `docs/scripting/jes/timeline/jes-timeline.md` — JES timeline actions, Puppeteer aliases, event cues, custom properties, easing/interp
-- `docs/scripting/jes/systems/jes-input.md` — keyboard mappings, continuous movement, custom handlers
-- `docs/scripting/jes/systems/jes-camera.md` — position, zoom, shake, follow, dead zones, parallax
-- `docs/scripting/jes/systems/jes-physics.md` — rigid bodies, sensors, triggers, restitution, raycasting
-- `docs/scripting/jes/systems/jes-tilemaps.md` — tilesets, collision/trigger layers, pathfinding
-- `docs/scripting/jes/gameplay/jes-ai.md` — chase, patrol, guard, flee, line-of-sight, A* pathfinding
-- `docs/scripting/jes/gameplay/jes-rpg.md` — Stats, Inventory, Equipment, Items, damage/heal
-- `docs/scripting/jes/gameplay/jes-ui-widgets.md` — Button2D, Slider2D, HUD patterns
-- `docs/scripting/jes/integration/jes-bridge.md` — VNS↔JES bridge, call handlers, Java hooks
-- `docs/scripting/jes/internals/jes-parsing.md` — tokenizer, parser, AST, validation
-
-### Timeline (3 sub-documents)
-- `docs/scripting/timeline/overview/timeline-scripting.md` — overview, quick start, key concepts
-- `docs/scripting/timeline/story/timeline-story-arcs.md` — arc/link DSL, clusters, validation, story patterns
-- `docs/scripting/timeline/animation/timeline-animation.md` — TimelineData, keyframes, audio cues, TimelineRunner, registry
-
-### Runtime
-- `docs/runtime/core/runtime.md`
-- `docs/runtime/core/interop.md`
-- `docs/runtime/systems/save-system.md`
-
-### Menu & Layout System (6 sub-documents)
-- `docs/scripting/ui/menus/menu-profiles.md` — overview, registry, loader discovery, action types
-- `docs/scripting/ui/menus/menu-screens.md` — .menu files, items, actions, bounds, slot previews
-- `docs/scripting/ui/layout/structure/menu-layouts.md` — .layout files, list positioning, built-in layouts
-- `docs/scripting/ui/menus/menu-styles.md` — .style files, colors, fonts, button skins, backgrounds
-- `docs/scripting/ui/layout/structure/menu-button-layouts.md` — per-button positional layouts, Bounds Studio
-- `docs/scripting/ui/layout/components/dialogue-layout.md` — textbox geometry, name box, choices, action buttons
-
-### Editor (24 sub-documents)
-- `docs/editor/core/editor.md` — layout, editing modes, keyboard shortcuts
-- `docs/editor/core/settings.md` — editor and launcher preferences, run defaults, handoff, sidebar defaults
-- `docs/editor/puppeteer/puppeteer.md` — Puppeteer overview, architecture, data pipeline, JES/VNS relationship
-- `docs/editor/puppeteer/puppeteer-editor-guide.md` — complete usage guide: UI panels, keyframes, 12 presets, 26 easing types, audio cues, camera, groups, layers
-- `docs/editor/puppeteer/puppeteer-jes-dsl.md` — exported JES DSL, parser compatibility, event cues, properties, easing/interp
-- `docs/editor/sidebars/overview/sidebar-utilities.md` — landing page for the editor sidebar panels
-- `docs/editor/sidebars/left/sidebar-project-explorer.md` — file tree, create/rename/delete, run project
-- `docs/editor/sidebars/left/sidebar-story-timeline.md` — multi-arc story graph, arcs, links, clusters, validation
-- `docs/editor/sidebars/right/sidebar-inspector.md` — entity property editing for Sprite2D, Label2D, Panel2D, physics, particles
-- `docs/editor/sidebars/right/sidebar-puppeteer-launcher.md` — live VNS scene snapshot, 12 command patterns, one-click launch
-- `docs/editor/sidebars/right/sidebar-vns-diagnostics.md` — live error/warning list, click-to-jump
-- `docs/editor/sidebars/right/sidebar-label-flow-map.md` — visual label-to-label directed graph
-- `docs/editor/sidebars/right/sidebar-asset-browser.md` — asset discovery, preview, drag-and-drop, type filter
-- `docs/editor/sidebars/right/sidebar-layout-launcher.md` — status dashboard and launch for layout/style/screen editors
-- `docs/editor/sidebars/right/sidebar-menu-flow-editor.md` — visual menu-to-menu navigation wiring, wire mode
-- `docs/editor/sidebars/right/sidebar-layered-image-visualizer.md` — layered sprite exploration, 6 export formats, presets
-- `docs/editor/sidebars/right/sidebar-image-attributes-tool.md` — attribute-based character image assembly, profiles
-- `docs/editor/sidebars/right/sidebar-image-tint-tool.md` — scene lighting, grading, tint, and reactive character lights
-- `docs/editor/sidebars/right/sidebar-version-control.md` — Git panel: init, commit, push, pull, branch, stash, remote setup
-- `docs/editor/sidebars/right/sidebar-help-center.md` — in-app Markdown documentation browser, guide tree, F1 shortcut
-- `docs/editor/core/action-editor-design.md` — architecture and component breakdown
-- `docs/editor/puppeteer/puppeteer-audit.md` — hardening audit and expansion roadmap
-- `docs/editor/core/help-center.md` — in-app documentation browser
-- `docs/editor/core/help-center-guide-tree.md` — Help sidebar guide tree taxonomy, topic folders, and heading-aware search
-
-### Project Setup
-- `docs/project-setup/onboarding/new-project-wizard.md`
-- `docs/project-setup/content/title-screen.md`
-- `docs/project-setup/content/text-effects.md`
-- `docs/project-setup/collaboration/version-control.md`
+- [Documentation Home](docs/README.md) — short task routes and subsystem entrypoints
+- [Complete Documentation Index](docs/INDEX.md) — exhaustive catalog and cross-system workflows
+- [Getting Started](docs/guides/getting-started.md) — first build and editor launch
+- [Guides](docs/guides/README.md) — tutorials, examples, and recipes
+- [Editor](docs/editor/README.md) — editor and Engine Hub workflows
+- [Scripting](docs/scripting/README.md) — VNS, JES, timelines, menus, and layout DSLs
+- [Scripting Language Contract](docs/scripting/spec/README.md) — normative VNS/JES behavior
+- [Runtime](docs/runtime/README.md) — runtime systems and platform backends
+- [Project Setup And Delivery](docs/project-setup/README.md) — project creation through release
+- [Architecture](docs/architecture/README.md) — engine design and engineering references
+- [Documentation Maintenance](docs/MAINTENANCE.md) — structure, authority, and validation rules
 
 ## License
 
