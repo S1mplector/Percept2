@@ -286,7 +286,7 @@ Editor currently features:
   - `config/menu/menus/*.menu`
   - `config/menu/layouts/*.layout`
 - Story Map graph + DSL editor (`config/story/story.storymap`).
-- In-editor Help Center (`F1`).
+- Documentation links from the Engine Hub open the public documentation website.
 
 ## Simp3 Backend (Default)
 
@@ -466,7 +466,7 @@ engine changes.
 - `docs/scripting/ui/layout/structure/menu-button-layouts.md` — per-button positional layouts, Bounds Studio
 - `docs/scripting/ui/layout/components/dialogue-layout.md` — textbox geometry, name box, choices, action buttons
 
-### Editor (24 sub-documents)
+### Editor (21 sub-documents)
 - `docs/editor/core/editor.md` — layout, editing modes, keyboard shortcuts
 - `docs/editor/core/settings.md` — editor and launcher preferences, run defaults, handoff, sidebar defaults
 - `docs/editor/puppeteer/puppeteer.md` — Puppeteer overview, architecture, data pipeline, JES/VNS relationship
@@ -481,16 +481,13 @@ engine changes.
 - `docs/editor/sidebars/right/sidebar-label-flow-map.md` — visual label-to-label directed graph
 - `docs/editor/sidebars/right/sidebar-asset-browser.md` — asset discovery, preview, drag-and-drop, type filter
 - `docs/editor/sidebars/right/sidebar-layout-launcher.md` — status dashboard and launch for layout/style/screen editors
-- `docs/editor/sidebars/right/sidebar-menu-flow-editor.md` — visual menu-to-menu navigation wiring, wire mode
+- `docs/scripting/ui/layout/structure/menu-actions.md` — text-first menu navigation wiring and flow auditing
 - `docs/editor/sidebars/right/sidebar-layered-image-visualizer.md` — layered sprite exploration, 6 export formats, presets
 - `docs/editor/sidebars/right/sidebar-image-attributes-tool.md` — attribute-based character image assembly, profiles
 - `docs/editor/sidebars/right/sidebar-image-tint-tool.md` — scene lighting, grading, tint, and reactive character lights
 - `docs/editor/sidebars/right/sidebar-version-control.md` — Git panel: init, commit, push, pull, branch, stash, remote setup
-- `docs/editor/sidebars/right/sidebar-help-center.md` — in-app Markdown documentation browser, guide tree, F1 shortcut
 - `docs/editor/core/action-editor-design.md` — architecture and component breakdown
 - `docs/editor/puppeteer/puppeteer-audit.md` — hardening audit and expansion roadmap
-- `docs/editor/core/help-center.md` — in-app documentation browser
-- `docs/editor/core/help-center-guide-tree.md` — Help sidebar guide tree taxonomy, topic folders, and heading-aware search
 
 ### Project Setup
 - `docs/project-setup/onboarding/new-project-wizard.md`

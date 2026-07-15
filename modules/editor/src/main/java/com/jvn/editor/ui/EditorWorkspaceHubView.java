@@ -66,8 +66,6 @@ public class EditorWorkspaceHubView extends BorderPane {
   private final Button btnOpenProject = new Button();
   private final Button btnRunProject = new Button();
   private final Button btnOpenProjectExplorer = new Button();
-  private final Button btnOpenHealthCenter = new Button();
-  private final Button btnOpenHelpCenter = new Button();
   private final Button btnSettings = new Button();
 
   private File workspaceRoot;
@@ -77,8 +75,6 @@ public class EditorWorkspaceHubView extends BorderPane {
   private Runnable onOpenProjectDialog;
   private Runnable onRunProject;
   private Runnable onShowProjectExplorer;
-  private Runnable onShowEngineHealth;
-  private Runnable onShowHelpCenter;
   private Runnable onShowSettings;
 
   public EditorWorkspaceHubView() {
@@ -110,14 +106,6 @@ public class EditorWorkspaceHubView extends BorderPane {
 
   public void setOnShowProjectExplorer(Runnable onShowProjectExplorer) {
     this.onShowProjectExplorer = onShowProjectExplorer;
-  }
-
-  public void setOnShowEngineHealth(Runnable onShowEngineHealth) {
-    this.onShowEngineHealth = onShowEngineHealth;
-  }
-
-  public void setOnShowHelpCenter(Runnable onShowHelpCenter) {
-    this.onShowHelpCenter = onShowHelpCenter;
   }
 
   public void setOnShowSettings(Runnable onShowSettings) {
@@ -240,21 +228,6 @@ public class EditorWorkspaceHubView extends BorderPane {
         "Open Project Explorer tab",
         "welcome-action-button-secondary",
         () -> runAction(onShowProjectExplorer, "Project Explorer"));
-    configureActionButton(
-        btnOpenHealthCenter,
-        CssIcon.memory("#8ecaff"),
-        "Health Center",
-        "Open Engine Health Center",
-        "welcome-action-button-secondary",
-        () -> runAction(onShowEngineHealth, "Health Center"));
-    configureActionButton(
-        btnOpenHelpCenter,
-        CssIcon.search("#d6cab8"),
-        "Help Center",
-        "Open Help Center tab",
-        "welcome-action-button-secondary",
-        () -> runAction(onShowHelpCenter, "Help Center"));
-
     configureIconButton(
         btnSettings,
         CssIcon.settings("#d6cab8"),
@@ -267,7 +240,7 @@ public class EditorWorkspaceHubView extends BorderPane {
     rowPrimary.getStyleClass().add("welcome-action-row");
     rowPrimary.setAlignment(Pos.CENTER_LEFT);
 
-    HBox rowSecondary = new HBox(8, btnOpenProjectExplorer, btnOpenHealthCenter, btnOpenHelpCenter);
+    HBox rowSecondary = new HBox(8, btnOpenProjectExplorer);
     rowSecondary.getStyleClass().add("welcome-action-row");
     rowSecondary.setAlignment(Pos.CENTER_LEFT);
 

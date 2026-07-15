@@ -42,9 +42,7 @@ class EditorPreferencesStoreTest {
     assertTrue(preferences.isLauncherRuntimePerfHud());
     assertTrue(preferences.isGradleSkipTestsOnRun());
     assertEquals(EditorPanelPlacement.LEFT, preferences.getPlacement(EditorSidebarPanel.PROJECT));
-    assertEquals(EditorPanelPlacement.HIDDEN, preferences.getPlacement(EditorSidebarPanel.HELP));
     assertTrue(preferences.isVisibleInChooser(EditorSidebarPanel.PROJECT));
-    assertTrue(preferences.isVisibleInChooser(EditorSidebarPanel.HELP));
     assertFalse(preferences.isVisibleInChooser(EditorSidebarPanel.INSPECTOR));
     assertFalse(preferences.isVisibleInChooser(EditorSidebarPanel.LABEL_FLOW));
     assertFalse(preferences.isVisibleInChooser(EditorSidebarPanel.ASSETS));
@@ -73,9 +71,7 @@ class EditorPreferencesStoreTest {
     preferences.setLauncherConfirmRunProject(true);
     preferences.setLauncherRuntimePerfHud(false);
     preferences.setGradleSkipTestsOnRun(false);
-    preferences.setPlacement(EditorSidebarPanel.HELP, EditorPanelPlacement.RIGHT);
     preferences.setPlacement(EditorSidebarPanel.TIMELINE, EditorPanelPlacement.LEFT);
-    preferences.setVisibleInChooser(EditorSidebarPanel.HELP, false);
 
     store.save(preferences);
     EditorPreferences loaded = store.load();
@@ -97,9 +93,7 @@ class EditorPreferencesStoreTest {
     assertTrue(loaded.isLauncherConfirmRunProject());
     assertFalse(loaded.isLauncherRuntimePerfHud());
     assertFalse(loaded.isGradleSkipTestsOnRun());
-    assertEquals(EditorPanelPlacement.RIGHT, loaded.getPlacement(EditorSidebarPanel.HELP));
     assertEquals(EditorPanelPlacement.LEFT, loaded.getPlacement(EditorSidebarPanel.TIMELINE));
-    assertFalse(loaded.isVisibleInChooser(EditorSidebarPanel.HELP));
   }
 
   @Test

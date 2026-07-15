@@ -2428,12 +2428,6 @@ tasks.register("runLauncher") {
   dependsOn(":editor:runLauncher")
 }
 
-tasks.register("runHelpCenter") {
-  group = "application"
-  description = "Runs the standalone JVN Help Center from the root project."
-  dependsOn(":editor:runHelpCenter")
-}
-
 tasks.register("runHub") {
   group = "application"
   description = "Runs the Engine Hub from the root project."

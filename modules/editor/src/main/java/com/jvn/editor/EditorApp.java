@@ -55,10 +55,8 @@ import com.jvn.editor.ui.EditorSettingsView;
 import com.jvn.editor.ui.EditorSidebarPanel;
 import com.jvn.editor.ui.EditorTheme;
 import com.jvn.editor.ui.EditorWorkspaceHubView;
-import com.jvn.editor.ui.EngineHealthCenterView;
 import com.jvn.editor.ui.FileEditorTab;
 import com.jvn.editor.ui.GameBuildPublisherView;
-import com.jvn.editor.ui.HelpCenterView;
 import com.jvn.editor.ui.ImageAttributesToolView;
 import com.jvn.editor.ui.ImageTintToolView;
 import com.jvn.editor.ui.ImageToolPanel;
@@ -70,11 +68,8 @@ import com.jvn.editor.ui.LayeredImageVisualizerView;
 import com.jvn.editor.ui.LayoutEditorLauncherView;
 import com.jvn.editor.ui.LayoutStudioWindowManager;
 import com.jvn.editor.ui.MaintenanceOverlay;
-import com.jvn.editor.ui.MenuFlowEditorView;
 import com.jvn.editor.ui.MetallicJvnLogo;
 import com.jvn.editor.ui.NewProjectWizard;
-import com.jvn.editor.ui.ParticleFxToolView;
-import com.jvn.editor.ui.PhoneAssetsToolView;
 import com.jvn.editor.ui.ProjectExplorerView;
 import com.jvn.editor.ui.ProjectViewportSpec;
 import com.jvn.editor.ui.PuppeteerLauncherPanel;
@@ -190,23 +185,18 @@ public class EditorApp extends Application {
   private boolean showGrid = true;
   
   private ProjectExplorerView projView;
-  private EngineHealthCenterView engineHealthCenterView;
   private TrashmanView trashmanView;
-  private HelpCenterView helpCenterView;
   private StoryTimelineView timelineView;
   private VnsDiagnosticsView vnsDiagnosticsView;
   private VnsFlowMapView vnsFlowMapView;
   private AssetBrowserView assetBrowserView;
   private VersionControlView versionControlView;
   private LayoutEditorLauncherView layoutEditorLauncherView;
-  private PhoneAssetsToolView phoneAssetsToolView;
   private StoryboardOverlayView storyboardOverlayView;
   private LayeredImageVisualizerView layeredImageVisualizerView;
   private ImageAttributesToolView imageAttributesToolView;
   private ImageTintToolView imageTintToolView;
-  private ParticleFxToolView particleFxToolView;
   private LayoutStudioWindowManager layoutStudioWindowManager;
-  private MenuFlowEditorView menuFlowEditorView;
   private EditorSettingsView editorSettingsView;
   private SettingsEditorView settingsEditor;
   private com.jvn.editor.ui.MenuThemeEditorView menuThemeEditor;
@@ -235,23 +225,18 @@ public class EditorApp extends Application {
   private EditorWorkspaceHubView workspaceHubView;
   private Tab tabWorkspaceHub;
   private Tab tabProject;
-  private Tab tabEngineHealth;
   private Tab tabTrashman;
   private Tab tabTimeline;
   private Tab tabInspector;
-  private Tab tabHelp;
   private Tab tabVnsDiagnostics;
   private Tab tabVnsFlowMap;
   private Tab tabAssetBrowser;
   private Tab tabVersionControl;
   private Tab tabLayoutLauncher;
-  private Tab tabPhoneAssetsTool;
   private Tab tabStoryboardOverlay;
   private Tab tabLayeredImageVisualizer;
   private Tab tabImageAttributesTool;
   private Tab tabImageTintTool;
-  private Tab tabParticleFxTool;
-  private Tab tabMenuFlow;
   private Tab tabLeftAdd;
   private Tab tabRightAdd;
   private StackPane leftSidebarDividerNode;
@@ -519,17 +504,13 @@ public class EditorApp extends Application {
     if (settingsEditor != null) settingsEditor.setProjectRoot(root);
     if (menuThemeEditor != null) menuThemeEditor.setProjectRoot(root);
     if (mapEditorView != null) mapEditorView.setProjectRoot(root);
-    if (engineHealthCenterView != null) engineHealthCenterView.setProjectRoot(root);
-    if (helpCenterView != null) helpCenterView.setProjectRoot(root);
     if (assetBrowserView != null) assetBrowserView.setProjectRoot(root);
     if (versionControlView != null) versionControlView.setProjectRoot(root);
     if (layoutEditorLauncherView != null) layoutEditorLauncherView.setProjectRoot(root);
-    if (phoneAssetsToolView != null) phoneAssetsToolView.setProjectRoot(root);
     if (storyboardOverlayView != null) storyboardOverlayView.setProjectRoot(root);
     if (layeredImageVisualizerView != null) layeredImageVisualizerView.setProjectRoot(root);
     if (imageAttributesToolView != null) imageAttributesToolView.setProjectRoot(root);
     if (imageTintToolView != null) imageTintToolView.setProjectRoot(root);
-    if (menuFlowEditorView != null) menuFlowEditorView.setProjectRoot(root);
     if (scriptEditorLauncherView != null) {
       scriptEditorLauncherView.setProjectRoot(root);
       scriptEditorLauncherView.setWorkspaceRoot(resolveWorkspaceRoot());
@@ -1611,8 +1592,6 @@ public class EditorApp extends Application {
     Menu menuPanels = new Menu("Panels");
     MenuItem miShowProject = new MenuItem("Project Explorer");
     miShowProject.setOnAction(e -> selectProjectTab());
-    MenuItem miShowEngineHealth = new MenuItem("Engine Health");
-    miShowEngineHealth.setOnAction(e -> selectEngineHealthTab());
     MenuItem miShowTrashman = new MenuItem("Trashman");
     miShowTrashman.setOnAction(e -> selectTrashmanTab());
     MenuItem miShowWelcomePanel = new MenuItem("Workspace Hub");
@@ -1621,8 +1600,6 @@ public class EditorApp extends Application {
     miShowTimeline.setOnAction(e -> selectTimelineTab());
     MenuItem miShowInspector = new MenuItem("Inspector");
     miShowInspector.setOnAction(e -> selectInspectorTab());
-    MenuItem miShowHelpPanel = new MenuItem("Help Center");
-    miShowHelpPanel.setOnAction(e -> selectHelpTab());
     MenuItem miShowVersionControlPanel = new MenuItem("Version Control");
     miShowVersionControlPanel.setOnAction(e -> selectVersionControlTab());
     MenuItem miShowAssets = new MenuItem("Asset Browser");
@@ -1633,14 +1610,8 @@ public class EditorApp extends Application {
     miShowDiagnostics.setOnAction(e -> selectVnsDiagnosticsTab());
     MenuItem miShowFlowMap = new MenuItem("Label Flow Map");
     miShowFlowMap.setOnAction(e -> selectVnsFlowMapTab());
-    MenuItem miShowMenuFlow = new MenuItem("Menu Flow Editor");
-    miShowMenuFlow.setOnAction(e -> selectMenuFlowTab());
-    disableMaintenanceMenuItem(miShowMenuFlow, EditorSidebarPanel.MENU_FLOW);
     MenuItem miShowLayoutLauncher = new MenuItem("Layout Launcher");
     miShowLayoutLauncher.setOnAction(e -> selectLayoutLauncherTab());
-    MenuItem miShowPhoneAssets = new MenuItem("Phone Assets");
-    miShowPhoneAssets.setOnAction(e -> selectPhoneAssetsToolTab());
-    disableMaintenanceMenuItem(miShowPhoneAssets, EditorSidebarPanel.PHONE_ASSETS);
     MenuItem miShowStoryboardOverlay = new MenuItem("Storyboard Overlay");
     miShowStoryboardOverlay.setOnAction(e -> selectStoryboardOverlayTab());
     disableMaintenanceMenuItem(miShowStoryboardOverlay, EditorSidebarPanel.STORYBOARD_OVERLAY);
@@ -1661,15 +1632,15 @@ public class EditorApp extends Application {
     miAddRightPanel.setOnAction(e -> showRightAddMenu());
     Menu menuPanelsWorkspace = new Menu("Workspace");
     menuPanelsWorkspace.getItems().addAll(
-        miShowWelcomePanel, miShowProject, miShowEngineHealth, miShowTrashman, miShowTimeline, miShowInspector, miShowVersionControlPanel, miShowHelpPanel);
+        miShowWelcomePanel, miShowProject, miShowTrashman, miShowTimeline, miShowInspector, miShowVersionControlPanel);
     Menu menuPanelsAuthoring = new Menu("Authoring");
     menuPanelsAuthoring.getItems().addAll(
         miShowAssets, miShowScriptEditorWorkspace, miShowPuppeteerLauncher);
     Menu menuPanelsAnalysis = new Menu("Analysis & Flow");
-    menuPanelsAnalysis.getItems().addAll(miShowDiagnostics, miShowFlowMap, miShowMenuFlow, miShowLayoutLauncher);
+    menuPanelsAnalysis.getItems().addAll(miShowDiagnostics, miShowFlowMap, miShowLayoutLauncher);
     Menu menuPanelsVisual = new Menu("Visual Tools");
     menuPanelsVisual.getItems().addAll(
-        miShowPhoneAssets, miShowStoryboardOverlay, miShowLayeredVisualizer, miShowImageAttributes, miShowImageTint);
+        miShowStoryboardOverlay, miShowLayeredVisualizer, miShowImageAttributes, miShowImageTint);
     Menu menuPanelsSettings = new Menu("Settings");
     menuPanelsSettings.getItems().addAll(miShowEditorSettings);
     menuPanels.getItems().addAll(
@@ -1712,20 +1683,16 @@ public class EditorApp extends Application {
     miNavigateWelcome.setOnAction(e -> selectWorkspaceHubTab());
     MenuItem miNavigateProject = new MenuItem("Project Explorer");
     miNavigateProject.setOnAction(e -> selectProjectTab());
-    MenuItem miNavigateEngineHealth = new MenuItem("Engine Health");
-    miNavigateEngineHealth.setOnAction(e -> selectEngineHealthTab());
     MenuItem miNavigateTrashman = new MenuItem("Trashman");
     miNavigateTrashman.setOnAction(e -> selectTrashmanTab());
     MenuItem miNavigateTimeline = new MenuItem("Story Map");
     miNavigateTimeline.setOnAction(e -> selectTimelineTab());
     MenuItem miNavigateInspector = new MenuItem("Inspector");
     miNavigateInspector.setOnAction(e -> selectInspectorTab());
-    MenuItem miNavigateHelp = new MenuItem("Help Center");
-    miNavigateHelp.setOnAction(e -> selectHelpTab());
     MenuItem miNavigateVersionControl = new MenuItem("Version Control");
     miNavigateVersionControl.setOnAction(e -> selectVersionControlTab());
     menuNavigateCore.getItems().addAll(
-        miNavigateWelcome, miNavigateProject, miNavigateEngineHealth, miNavigateTrashman, miNavigateTimeline, miNavigateInspector, miNavigateHelp, miNavigateVersionControl);
+        miNavigateWelcome, miNavigateProject, miNavigateTrashman, miNavigateTimeline, miNavigateInspector, miNavigateVersionControl);
 
     Menu menuNavigateEditors = new Menu("Editors & Tools");
     MenuItem miNavigateAssetBrowser = new MenuItem("Asset Browser");
@@ -1734,18 +1701,12 @@ public class EditorApp extends Application {
     miNavigateScriptWorkspace.setOnAction(e -> selectScriptEditorLauncherTab());
     MenuItem miNavigatePuppeteer = new MenuItem("Puppeteer Launcher");
     miNavigatePuppeteer.setOnAction(e -> selectPuppeteerLauncherTab());
-    MenuItem miNavigateMenuFlow = new MenuItem("Menu Flow Editor");
-    miNavigateMenuFlow.setOnAction(e -> selectMenuFlowTab());
-    disableMaintenanceMenuItem(miNavigateMenuFlow, EditorSidebarPanel.MENU_FLOW);
     MenuItem miNavigateLayoutLauncher = new MenuItem("Layout Launcher");
     miNavigateLayoutLauncher.setOnAction(e -> selectLayoutLauncherTab());
     menuNavigateEditors.getItems().addAll(
-        miNavigateAssetBrowser, miNavigateScriptWorkspace, miNavigatePuppeteer, miNavigateMenuFlow, miNavigateLayoutLauncher);
+        miNavigateAssetBrowser, miNavigateScriptWorkspace, miNavigatePuppeteer, miNavigateLayoutLauncher);
 
     Menu menuNavigateVisual = new Menu("Visual Tools");
-    MenuItem miNavigatePhoneAssets = new MenuItem("Phone Assets");
-    miNavigatePhoneAssets.setOnAction(e -> selectPhoneAssetsToolTab());
-    disableMaintenanceMenuItem(miNavigatePhoneAssets, EditorSidebarPanel.PHONE_ASSETS);
     MenuItem miNavigateStoryboard = new MenuItem("Storyboard Overlay");
     miNavigateStoryboard.setOnAction(e -> selectStoryboardOverlayTab());
     disableMaintenanceMenuItem(miNavigateStoryboard, EditorSidebarPanel.STORYBOARD_OVERLAY);
@@ -1757,7 +1718,7 @@ public class EditorApp extends Application {
     MenuItem miNavigateImageTint = new MenuItem("Scene Lighting Studio");
     miNavigateImageTint.setOnAction(e -> selectImageTintToolTab());
     menuNavigateVisual.getItems().addAll(
-        miNavigatePhoneAssets, miNavigateStoryboard, miNavigateLayered, miNavigateImageAttributes, miNavigateImageTint);
+        miNavigateStoryboard, miNavigateLayered, miNavigateImageAttributes, miNavigateImageTint);
 
     Menu menuNavigateAnalysis = new Menu("Analysis");
     MenuItem miNavigateDiagnostics = new MenuItem("Diagnostics");
@@ -1779,8 +1740,6 @@ public class EditorApp extends Application {
 	    miProjectOpen.setOnAction(e -> doOpenProject(primaryStage));
 	    MenuItem miProjectExplorer = new MenuItem("Project Explorer");
 	    miProjectExplorer.setOnAction(e -> selectProjectTab());
-	    MenuItem miProjectEngineHealth = new MenuItem("Engine Health");
-	    miProjectEngineHealth.setOnAction(e -> selectEngineHealthTab());
 	    MenuItem miProjectRun = new MenuItem("Run Project");
 	    miProjectRun.setOnAction(e -> doRunProject(primaryStage));
 	    MenuItem miProjectBuildPublish = new MenuItem("Build & Publish...");
@@ -1796,7 +1755,7 @@ public class EditorApp extends Application {
 	    Menu menuProjectOpenTop = new Menu("Open");
 	    menuProjectOpenTop.getItems().addAll(miProjectWorkspaceHub, miProjectNew, miProjectOpen, miProjectExplorer);
 	    Menu menuProjectActions = new Menu("Actions");
-	    menuProjectActions.getItems().addAll(miProjectRun, miProjectBuildPublish, miProjectEngineHealth);
+	    menuProjectActions.getItems().addAll(miProjectRun, miProjectBuildPublish);
 	    Menu menuProjectLocations = new Menu("Locations");
 	    menuProjectLocations.getItems().addAll(miProjectRevealRoot, miProjectCopyRoot, miProjectDocs, miProjectWorkspaceDocs);
 	    menuProjectTop.getItems().addAll(menuProjectOpenTop, menuProjectActions, menuProjectLocations);
@@ -1926,23 +1885,18 @@ public class EditorApp extends Application {
 	    disableMaintenanceMenuItem(miAssetsAttributes, EditorSidebarPanel.IMAGE_ATTRIBUTES);
 	    MenuItem miAssetsTint = new MenuItem("Scene Lighting Studio");
 	    miAssetsTint.setOnAction(e -> selectImageTintToolTab());
-	    MenuItem miAssetsPhone = new MenuItem("Phone Assets");
-	    miAssetsPhone.setOnAction(e -> selectPhoneAssetsToolTab());
-	    disableMaintenanceMenuItem(miAssetsPhone, EditorSidebarPanel.PHONE_ASSETS);
 	    MenuItem miAssetsRevealRoot = new MenuItem("Reveal Project Root in JVN Path Explorer");
 	    miAssetsRevealRoot.setOnAction(e -> revealProjectRootInPathExplorer());
 	    MenuItem miAssetsProjectDocs = new MenuItem("Open Project Docs Folder");
 	    miAssetsProjectDocs.setOnAction(e -> openProjectDocsFolder());
 	    Menu menuAssetTools = new Menu("Tools");
-	    menuAssetTools.getItems().addAll(miAssetsBrowser, miAssetsLayered, miAssetsAttributes, miAssetsTint, miAssetsPhone);
+	    menuAssetTools.getItems().addAll(miAssetsBrowser, miAssetsLayered, miAssetsAttributes, miAssetsTint);
 	    Menu menuAssetLocations = new Menu("Locations");
 	    menuAssetLocations.getItems().addAll(miAssetsRevealRoot, miAssetsProjectDocs);
 	    menuAssetsTop.getItems().addAll(menuAssetTools, menuAssetLocations);
 
 	    // ── Diagnostics ──
 	    Menu menuDiagnosticsTop = new Menu("Diagnostics");
-	    MenuItem miDiagnosticsEngineHealth = new MenuItem("Engine Health");
-	    miDiagnosticsEngineHealth.setOnAction(e -> selectEngineHealthTab());
 	    MenuItem miDiagnosticsVns = new MenuItem("VNS Diagnostics");
 	    miDiagnosticsVns.setOnAction(e -> selectVnsDiagnosticsTab());
 	    MenuItem miDiagnosticsFlow = new MenuItem("Label Flow Map");
@@ -1954,21 +1908,15 @@ public class EditorApp extends Application {
 	      if (versionControlView != null) versionControlView.refreshStatus();
 	      selectVersionControlTab();
 	    });
-	    MenuItem miDiagnosticsRefreshDocs = new MenuItem("Refresh Docs Index");
-	    miDiagnosticsRefreshDocs.setOnAction(e -> {
-	      if (helpCenterView != null) helpCenterView.refresh();
-	    });
 	    MenuItem miDiagnosticsSettings = new MenuItem("Editor Settings");
 	    miDiagnosticsSettings.setOnAction(e -> selectEditorSettingsTab());
 	    menuDiagnosticsTop.getItems().addAll(
-	        miDiagnosticsEngineHealth,
 	        miDiagnosticsVns,
 	        miDiagnosticsFlow,
 	        new SeparatorMenuItem(),
 	        miDiagnosticsVersionControl,
 	        miDiagnosticsRefreshVcs,
 	        new SeparatorMenuItem(),
-	        miDiagnosticsRefreshDocs,
 	        miDiagnosticsSettings);
 
 	    // ── Run ──
@@ -2048,14 +1996,8 @@ public class EditorApp extends Application {
     MenuItem miScriptEditorWorkspace = new MenuItem("Text Editor Workspace");
     miScriptEditorWorkspace.setOnAction(e -> selectScriptEditorLauncherTab());
 
-    MenuItem miMenuFlow = new MenuItem("Menu Flow Editor");
-    miMenuFlow.setOnAction(e -> selectMenuFlowTab());
-    disableMaintenanceMenuItem(miMenuFlow, EditorSidebarPanel.MENU_FLOW);
     MenuItem miLayoutLauncher = new MenuItem("Layout Launcher");
     miLayoutLauncher.setOnAction(e -> selectLayoutLauncherTab());
-    MenuItem miPhoneAssets = new MenuItem("Phone Assets");
-    miPhoneAssets.setOnAction(e -> selectPhoneAssetsToolTab());
-    disableMaintenanceMenuItem(miPhoneAssets, EditorSidebarPanel.PHONE_ASSETS);
     MenuItem miStoryboardOverlay = new MenuItem("Storyboard Overlay");
     miStoryboardOverlay.setOnAction(e -> selectStoryboardOverlayTab());
     disableMaintenanceMenuItem(miStoryboardOverlay, EditorSidebarPanel.STORYBOARD_OVERLAY);
@@ -2086,9 +2028,9 @@ public class EditorApp extends Application {
     Menu menuAnimationTools = new Menu("Animation");
     menuAnimationTools.getItems().addAll(miActionEditor, miPuppeteerPanel);
     Menu menuScriptTools = new Menu("Scripts & Analysis");
-    menuScriptTools.getItems().addAll(miScriptEditorWorkspace, menuVnsTools, miMenuFlow);
+    menuScriptTools.getItems().addAll(miScriptEditorWorkspace, menuVnsTools);
     Menu menuLayoutTools = new Menu("Layout & UI");
-    menuLayoutTools.getItems().addAll(miLayoutLauncher, miPhoneAssets, miStoryboardOverlay);
+    menuLayoutTools.getItems().addAll(miLayoutLauncher, miStoryboardOverlay);
     Menu menuImageTools = new Menu("Image & Assets");
     menuImageTools.getItems().addAll(miToolAssets, miLayeredVisualizer, miImageAttributes, miImageTint);
     Menu menuWorkspaceTools = new Menu("Workspace");
@@ -2126,8 +2068,6 @@ public class EditorApp extends Application {
     miWindowWelcome.setOnAction(e -> selectWorkspaceHubTab());
     MenuItem miWindowProject = new MenuItem("Project Explorer");
     miWindowProject.setOnAction(e -> selectProjectTab());
-    MenuItem miWindowEngineHealth = new MenuItem("Engine Health");
-    miWindowEngineHealth.setOnAction(e -> selectEngineHealthTab());
     MenuItem miWindowTrashman = new MenuItem("Trashman");
     miWindowTrashman.setOnAction(e -> selectTrashmanTab());
     MenuItem miWindowTimeline = new MenuItem("Story Map");
@@ -2136,19 +2076,15 @@ public class EditorApp extends Application {
     miWindowInspector.setOnAction(e -> selectInspectorTab());
     MenuItem miWindowVersionControl = new MenuItem("Version Control");
     miWindowVersionControl.setOnAction(e -> selectVersionControlTab());
-    MenuItem miWindowHelp = new MenuItem("Help Center");
-    miWindowHelp.setOnAction(e -> selectHelpTab());
     MenuItem miWindowSettings = new MenuItem("Editor Settings");
     miWindowSettings.setOnAction(e -> selectEditorSettingsTab());
     menuWindowWorkspace.getItems().addAll(
         miWindowWelcome,
         miWindowProject,
-        miWindowEngineHealth,
         miWindowTrashman,
         miWindowTimeline,
         miWindowInspector,
         miWindowVersionControl,
-        miWindowHelp,
         miWindowSettings);
 
     Menu menuWindowTools = new Menu("Open Tool Window");
@@ -2173,10 +2109,6 @@ public class EditorApp extends Application {
       if (view != null) view.refreshStatus();
       launchPanelAsWindow("Layout Launcher", view, 700, 700, EditorSidebarPanel.LAYOUT_LAUNCHER);
     });
-    MenuItem miWindowPhoneAssets = new MenuItem("Phone Assets");
-    miWindowPhoneAssets.setOnAction(e ->
-        launchPanelAsWindow("Phone Assets", wrapMaintenance(ensurePhoneAssetsToolView()), 920, 760, EditorSidebarPanel.PHONE_ASSETS));
-    disableMaintenanceMenuItem(miWindowPhoneAssets, EditorSidebarPanel.PHONE_ASSETS);
     MenuItem miWindowStoryboard = new MenuItem("Storyboard Overlay");
     miWindowStoryboard.setOnAction(e -> {
       StoryboardOverlayView view = ensureStoryboardOverlayView();
@@ -2203,13 +2135,6 @@ public class EditorApp extends Application {
       if (view != null) view.refreshCatalog();
       launchPanelAsWindow("Scene Lighting Studio", view, 800, 650, EditorSidebarPanel.IMAGE_TINT);
     });
-    MenuItem miWindowMenuFlow = new MenuItem("Menu Flow Editor");
-    miWindowMenuFlow.setOnAction(e -> {
-      MenuFlowEditorView view = ensureMenuFlowEditorView();
-      if (view != null) view.refreshStatus();
-      launchPanelAsWindow("Menu Flow Editor", wrapMaintenance(view), 900, 650, EditorSidebarPanel.MENU_FLOW);
-    });
-    disableMaintenanceMenuItem(miWindowMenuFlow, EditorSidebarPanel.MENU_FLOW);
     MenuItem miWindowPuppeteer = new MenuItem("Puppeteer Launcher");
     miWindowPuppeteer.setOnAction(e ->
         launchPanelAsWindow("Puppeteer Launcher", ensurePuppeteerLauncherPanel(), 600, 500, EditorSidebarPanel.PUPPETEER_LAUNCHER));
@@ -2231,12 +2156,10 @@ public class EditorApp extends Application {
         miWindowVersionControlTool,
         new SeparatorMenuItem(),
         miWindowLayoutLauncher,
-        miWindowPhoneAssets,
         miWindowStoryboard,
         miWindowLayered,
         miWindowImageAttributes,
         miWindowImageTint,
-        miWindowMenuFlow,
         miWindowPuppeteer,
         miWindowTextEditor,
         miWindowEditorSettings);
@@ -2253,13 +2176,6 @@ public class EditorApp extends Application {
     MenuItem miWelcome = new MenuItem("Workspace Hub");
     miWelcome.setOnAction(e -> selectWorkspaceHubTab());
     miWelcome.setAccelerator(new KeyCodeCombination(KeyCode.H, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
-    MenuItem miHelpCenter = new MenuItem("Help Center");
-    miHelpCenter.setOnAction(e -> selectHelpTab());
-    miHelpCenter.setAccelerator(new KeyCodeCombination(KeyCode.F1));
-    MenuItem miRefreshHelp = new MenuItem("Refresh Docs Index");
-    miRefreshHelp.setOnAction(e -> {
-      if (helpCenterView != null) helpCenterView.refresh();
-    });
     MenuItem miOpenProjectDocs = new MenuItem("Open Project Docs Folder");
     miOpenProjectDocs.setOnAction(e -> openProjectDocsFolder());
     MenuItem miOpenWorkspaceDocs = new MenuItem("Open Workspace Docs Folder");
@@ -2273,7 +2189,7 @@ public class EditorApp extends Application {
           EditorDialogs.ActionSpec.accent("close", "Close", null));
     });
     menuHelp.getItems().addAll(
-        miWelcome, miHelpCenter, miRefreshHelp,
+        miWelcome,
         new SeparatorMenuItem(),
         miOpenProjectDocs, miOpenWorkspaceDocs,
         new SeparatorMenuItem(),
@@ -2489,8 +2405,6 @@ public class EditorApp extends Application {
       if (rootDir != null) doRunProject(rootDir);
     });
     workspaceHubView.setOnShowProjectExplorer(this::selectProjectTab);
-    workspaceHubView.setOnShowEngineHealth(this::selectEngineHealthTab);
-    workspaceHubView.setOnShowHelpCenter(this::selectHelpTab);
     workspaceHubView.setOnShowSettings(this::selectEditorSettingsTab);
     tabWorkspaceHub = new Tab("Workspace", workspaceHubView);
     tabWorkspaceHub.setClosable(false);
@@ -3620,7 +3534,6 @@ public class EditorApp extends Application {
   private Region getSidebarCssIcon(EditorSidebarPanel panel) {
     switch (panel) {
       case PROJECT: return com.jvn.editor.ui.CssIcon.folder("#f5c56f");
-      case ENGINE_HEALTH: return com.jvn.editor.ui.CssIcon.memory("#8ecaff");
       case TRASHMAN: return com.jvn.editor.ui.CssIcon.delete("#d6cab8");
       case TIMELINE: return com.jvn.editor.ui.CssIcon.timeline("#cfd7e6");
       case INSPECTOR: return com.jvn.editor.ui.CssIcon.search("#e2d3c3");
@@ -3628,15 +3541,11 @@ public class EditorApp extends Application {
       case LABEL_FLOW: return com.jvn.editor.ui.CssIcon.link("#91d7a5");
       case ASSETS: return com.jvn.editor.ui.CssIcon.folder("#d8cbb3");
       case LAYOUT_LAUNCHER: return com.jvn.editor.ui.CssIcon.rectSelect("#dbcab8");
-      case PHONE_ASSETS: return com.jvn.editor.ui.CssIcon.dock("#80d4ff");
       case STORYBOARD_OVERLAY: return com.jvn.editor.ui.CssIcon.movie("#e7bc72");
       case LAYERED_IMAGES: return com.jvn.editor.ui.CssIcon.copy("#f5b971");
       case IMAGE_ATTRIBUTES: return com.jvn.editor.ui.CssIcon.edit("#c0d7ef");
       case IMAGE_TINT: return com.jvn.editor.ui.CssIcon.lightbulb("#f6a2c8");
-      case PARTICLE_FX: return com.jvn.editor.ui.CssIcon.sparkles("#ff9f3d");
-      case MENU_FLOW: return com.jvn.editor.ui.CssIcon.list("#7dd6b7");
       case VERSION_CONTROL: return com.jvn.editor.ui.CssIcon.timeline("#86e4be");
-      case HELP: return com.jvn.editor.ui.CssIcon.speech("#ffd166");
       case PUPPETEER_LAUNCHER: return com.jvn.editor.ui.CssIcon.theater("#f0a0d0");
       case SCRIPT_EDITOR: return com.jvn.editor.ui.CssIcon.edit("#9cc7ff");
       default: return com.jvn.editor.ui.CssIcon.folder("#ffffff");
@@ -3967,18 +3876,6 @@ public class EditorApp extends Application {
     Clipboard.getSystemClipboard().setContent(content);
   }
 
-  private void insertParticleFxCommand(String command) {
-    if (command == null || command.isBlank()) return;
-    FileEditorTab ft = getActiveFileTab();
-    if (ft != null && ft.getKind() == FileEditorTab.Kind.VNS) {
-      ft.insertVnsSnippet(command + System.lineSeparator());
-      if (status != null) status.setText("Inserted particle FX command.");
-      return;
-    }
-    copyToClipboard(command);
-    if (status != null) status.setText("Open a VNS script to insert. Copied particle FX command instead.");
-  }
-
   private void refreshTabDirtyIndicators() {
     if (filesTabs == null) return;
     for (Tab t : filesTabs.getTabs()) {
@@ -4096,17 +3993,13 @@ public class EditorApp extends Application {
       }
     }
     if (mapEditorView != null) mapEditorView.setProjectRoot(projectRoot);
-    if (engineHealthCenterView != null) engineHealthCenterView.setProjectRoot(projectRoot);
-    if (helpCenterView != null) helpCenterView.setProjectRoot(projectRoot);
     if (assetBrowserView != null) assetBrowserView.setProjectRoot(projectRoot);
     if (versionControlView != null) versionControlView.setProjectRoot(projectRoot);
     if (layoutEditorLauncherView != null) layoutEditorLauncherView.setProjectRoot(projectRoot);
-    if (phoneAssetsToolView != null) phoneAssetsToolView.setProjectRoot(projectRoot);
     if (storyboardOverlayView != null) storyboardOverlayView.setProjectRoot(projectRoot);
     if (layeredImageVisualizerView != null) layeredImageVisualizerView.setProjectRoot(projectRoot);
     if (imageAttributesToolView != null) imageAttributesToolView.setProjectRoot(projectRoot);
     if (imageTintToolView != null) imageTintToolView.setProjectRoot(projectRoot);
-    if (menuFlowEditorView != null) menuFlowEditorView.setProjectRoot(projectRoot);
     if (puppeteerLauncherPanel != null) puppeteerLauncherPanel.setProjectRoot(projectRoot);
     if (workspaceHubView != null) workspaceHubView.setCurrentProject(projectRoot);
     syncStoryboardOverlayProjectState();
@@ -4252,7 +4145,6 @@ public class EditorApp extends Application {
       }
       if (loadOnDemand
           && panel != EditorSidebarPanel.PROJECT
-          && panel != EditorSidebarPanel.ENGINE_HEALTH
           && !attachedBeforeRefresh.contains(panel)) {
         continue;
       }
@@ -4330,7 +4222,6 @@ public class EditorApp extends Application {
     if (panel == null) return null;
     return switch (panel) {
       case PROJECT -> tabProject;
-      case ENGINE_HEALTH -> tabEngineHealth;
       case TRASHMAN -> tabTrashman;
       case TIMELINE -> tabTimeline;
       case INSPECTOR -> tabInspector;
@@ -4338,15 +4229,11 @@ public class EditorApp extends Application {
       case LABEL_FLOW -> tabVnsFlowMap;
       case ASSETS -> tabAssetBrowser;
       case LAYOUT_LAUNCHER -> tabLayoutLauncher;
-      case PHONE_ASSETS -> tabPhoneAssetsTool;
       case STORYBOARD_OVERLAY -> tabStoryboardOverlay;
       case LAYERED_IMAGES -> tabLayeredImageVisualizer;
       case IMAGE_ATTRIBUTES -> tabImageAttributesTool;
       case IMAGE_TINT -> tabImageTintTool;
-      case PARTICLE_FX -> tabParticleFxTool;
-      case MENU_FLOW -> tabMenuFlow;
       case VERSION_CONTROL -> tabVersionControl;
-      case HELP -> tabHelp;
       case PUPPETEER_LAUNCHER -> tabPuppeteerLauncher;
       case SCRIPT_EDITOR -> tabScriptEditorLauncher;
     };
@@ -4358,7 +4245,6 @@ public class EditorApp extends Application {
     if (blockMaintenancePanelLaunch(panel, panel.displayName())) return null;
     return switch (panel) {
       case PROJECT -> ensureProjectTab(targetPane);
-      case ENGINE_HEALTH -> ensureEngineHealthTab(targetPane);
       case TRASHMAN -> ensureTrashmanTab(targetPane);
       case TIMELINE -> ensureTimelineTab(targetPane);
       case INSPECTOR -> ensureInspectorTab(targetPane);
@@ -4366,15 +4252,11 @@ public class EditorApp extends Application {
       case LABEL_FLOW -> ensureVnsFlowMapTab(targetPane);
       case ASSETS -> ensureAssetBrowserTab(targetPane);
       case LAYOUT_LAUNCHER -> ensureLayoutLauncherTab(targetPane);
-      case PHONE_ASSETS -> ensurePhoneAssetsToolTab(targetPane);
       case STORYBOARD_OVERLAY -> ensureStoryboardOverlayTab(targetPane);
       case LAYERED_IMAGES -> ensureLayeredImageVisualizerTab(targetPane);
       case IMAGE_ATTRIBUTES -> ensureImageAttributesToolTab(targetPane);
       case IMAGE_TINT -> ensureImageTintToolTab(targetPane);
-      case PARTICLE_FX -> ensureParticleFxToolTab(targetPane);
-      case MENU_FLOW -> ensureMenuFlowTab(targetPane);
       case VERSION_CONTROL -> ensureVersionControlTab(targetPane);
-      case HELP -> ensureHelpTab(targetPane);
       case PUPPETEER_LAUNCHER -> ensurePuppeteerLauncherTab(targetPane);
       case SCRIPT_EDITOR -> ensureScriptEditorLauncherTab(targetPane);
     };
@@ -4399,17 +4281,6 @@ public class EditorApp extends Application {
     editorSettingsView.setOnPreferencesApplied(this::applyEditorPreferences);
     editorSettingsView.loadIntoForm(editorPreferences);
     return editorSettingsView;
-  }
-
-  private EngineHealthCenterView ensureEngineHealthCenterView() {
-    if (engineHealthCenterView != null) return engineHealthCenterView;
-    engineHealthCenterView = new EngineHealthCenterView();
-    engineHealthCenterView.setWorkspaceRoot(resolveWorkspaceRoot());
-    engineHealthCenterView.setProjectRoot(projectRoot);
-    engineHealthCenterView.setStartupIssues(startupSetupIssues);
-    engineHealthCenterView.setOnOpenPath(this::openEditableOrExternal);
-    engineHealthCenterView.refreshStatus();
-    return engineHealthCenterView;
   }
 
   private TrashmanView ensureTrashmanView() {
@@ -4481,14 +4352,6 @@ public class EditorApp extends Application {
     return layoutEditorLauncherView;
   }
 
-  private PhoneAssetsToolView ensurePhoneAssetsToolView() {
-    if (phoneAssetsToolView != null) return phoneAssetsToolView;
-    phoneAssetsToolView = new PhoneAssetsToolView();
-    phoneAssetsToolView.setProjectRoot(projectRoot);
-    phoneAssetsToolView.setOnOpenFile(this::openEditableOrExternal);
-    return phoneAssetsToolView;
-  }
-
   private StoryboardOverlayView ensureStoryboardOverlayView() {
     if (storyboardOverlayView != null) return storyboardOverlayView;
     storyboardOverlayView = new StoryboardOverlayView();
@@ -4526,25 +4389,6 @@ public class EditorApp extends Application {
     return imageTintToolView;
   }
 
-  private ParticleFxToolView ensureParticleFxToolView() {
-    if (particleFxToolView != null) return particleFxToolView;
-    particleFxToolView = new ParticleFxToolView();
-    particleFxToolView.setOnInsertCommand(this::insertParticleFxCommand);
-    particleFxToolView.setOnCopyCommand(command -> {
-      copyToClipboard(command);
-      if (status != null) status.setText("Copied particle FX command.");
-    });
-    return particleFxToolView;
-  }
-
-  private MenuFlowEditorView ensureMenuFlowEditorView() {
-    if (menuFlowEditorView != null) return menuFlowEditorView;
-    menuFlowEditorView = new MenuFlowEditorView();
-    menuFlowEditorView.setProjectRoot(projectRoot);
-    menuFlowEditorView.setOnOpenFile(this::openEditableOrExternal);
-    return menuFlowEditorView;
-  }
-
   private ScriptEditorLauncherView ensureScriptEditorLauncherView() {
     if (scriptEditorLauncherView != null) return scriptEditorLauncherView;
     scriptEditorLauncherView = new ScriptEditorLauncherView();
@@ -4568,15 +4412,6 @@ public class EditorApp extends Application {
       });
     });
     return scriptEditorLauncherView;
-  }
-
-  private HelpCenterView ensureHelpCenterView() {
-    if (helpCenterView != null) return helpCenterView;
-    helpCenterView = new HelpCenterView();
-    helpCenterView.setWorkspaceRoot(resolveWorkspaceRoot());
-    helpCenterView.setProjectRoot(projectRoot);
-    helpCenterView.setOnOpenDoc(this::openFile);
-    return helpCenterView;
   }
 
   private StoryTimelineView ensureTimelineView() {
@@ -5560,26 +5395,6 @@ public class EditorApp extends Application {
     return attachSidebarPanelTab(tabProject, EditorSidebarPanel.PROJECT, targetPane);
   }
 
-  private Tab ensureEngineHealthTab(TabPane targetPane) {
-    closePanelWindow(EditorSidebarPanel.ENGINE_HEALTH, true);
-    EngineHealthCenterView health = ensureEngineHealthCenterView();
-    if (targetPane == null || health == null) return null;
-    health.setWorkspaceRoot(resolveWorkspaceRoot());
-    health.setProjectRoot(projectRoot);
-    health.setStartupIssues(startupSetupIssues);
-    if (tabEngineHealth == null) {
-      tabEngineHealth = new Tab("Health", health);
-      tabEngineHealth.setClosable(true);
-      tabEngineHealth.setOnClosed(e -> {
-        tabEngineHealth = null;
-        releaseSidebarPanelIfUnused(EditorSidebarPanel.ENGINE_HEALTH);
-      });
-    } else if (tabEngineHealth.getContent() != health) {
-      tabEngineHealth.setContent(health);
-    }
-    return attachSidebarPanelTab(tabEngineHealth, EditorSidebarPanel.ENGINE_HEALTH, targetPane);
-  }
-
   private Tab ensureTrashmanTab(TabPane targetPane) {
     closePanelWindow(EditorSidebarPanel.TRASHMAN, true);
     TrashmanView trashman = ensureTrashmanView();
@@ -5613,23 +5428,6 @@ public class EditorApp extends Application {
       tabTimeline.setContent(timeline);
     }
     return attachSidebarPanelTab(tabTimeline, EditorSidebarPanel.TIMELINE, targetPane);
-  }
-
-  private Tab ensureHelpTab(TabPane targetPane) {
-    closePanelWindow(EditorSidebarPanel.HELP, true);
-    HelpCenterView help = ensureHelpCenterView();
-    if (targetPane == null || help == null) return null;
-    if (tabHelp == null) {
-      tabHelp = new Tab("Help", help);
-      tabHelp.setClosable(true);
-      tabHelp.setOnClosed(e -> {
-        tabHelp = null;
-        releaseSidebarPanelIfUnused(EditorSidebarPanel.HELP);
-      });
-    } else if (tabHelp.getContent() != help) {
-      tabHelp.setContent(help);
-    }
-    return attachSidebarPanelTab(tabHelp, EditorSidebarPanel.HELP, targetPane);
   }
 
   private Tab ensureInspectorTab(TabPane targetPane) {
@@ -5732,9 +5530,7 @@ public class EditorApp extends Application {
   }
 
   private boolean isUnderMaintenancePanel(EditorSidebarPanel panel) {
-    return panel == EditorSidebarPanel.PHONE_ASSETS
-        || panel == EditorSidebarPanel.IMAGE_ATTRIBUTES
-        || panel == EditorSidebarPanel.MENU_FLOW;
+    return panel == EditorSidebarPanel.IMAGE_ATTRIBUTES;
   }
 
   private boolean isMaintenanceLaunchBlocked(EditorSidebarPanel panel) {
@@ -5838,24 +5634,6 @@ public class EditorApp extends Application {
     return tab != null && tab.getContent() instanceof MaintenanceOverlay;
   }
 
-  private Tab ensurePhoneAssetsToolTab(TabPane targetPane) {
-    if (blockMaintenancePanelLaunch(EditorSidebarPanel.PHONE_ASSETS, "Phone Assets")) return null;
-    closePanelWindow(EditorSidebarPanel.PHONE_ASSETS, true);
-    PhoneAssetsToolView phoneAssets = ensurePhoneAssetsToolView();
-    if (targetPane == null || phoneAssets == null) return null;
-    if (tabPhoneAssetsTool == null) {
-      tabPhoneAssetsTool = new Tab("Phone Assets", wrapMaintenance(phoneAssets));
-      tabPhoneAssetsTool.setClosable(true);
-      tabPhoneAssetsTool.setOnClosed(e -> {
-        tabPhoneAssetsTool = null;
-        releaseSidebarPanelIfUnused(EditorSidebarPanel.PHONE_ASSETS);
-      });
-    } else if (!isMaintenanceWrapped(tabPhoneAssetsTool)) {
-      tabPhoneAssetsTool.setContent(wrapMaintenance(phoneAssets));
-    }
-    return attachSidebarPanelTab(tabPhoneAssetsTool, EditorSidebarPanel.PHONE_ASSETS, targetPane);
-  }
-
   private Tab ensureStoryboardOverlayTab(TabPane targetPane) {
     closePanelWindow(EditorSidebarPanel.STORYBOARD_OVERLAY, true);
     StoryboardOverlayView storyboardOverlay = ensureStoryboardOverlayView();
@@ -5932,41 +5710,6 @@ public class EditorApp extends Application {
       tabImageTintTool.setContent(tint);
     }
     return attachSidebarPanelTab(tabImageTintTool, EditorSidebarPanel.IMAGE_TINT, targetPane);
-  }
-
-  private Tab ensureParticleFxToolTab(TabPane targetPane) {
-    closePanelWindow(EditorSidebarPanel.PARTICLE_FX, true);
-    ParticleFxToolView particleFx = ensureParticleFxToolView();
-    if (targetPane == null || particleFx == null) return null;
-    if (tabParticleFxTool == null) {
-      tabParticleFxTool = new Tab("Particle FX", particleFx);
-      tabParticleFxTool.setClosable(true);
-      tabParticleFxTool.setOnClosed(e -> {
-        tabParticleFxTool = null;
-        releaseSidebarPanelIfUnused(EditorSidebarPanel.PARTICLE_FX);
-      });
-    } else if (tabParticleFxTool.getContent() != particleFx) {
-      tabParticleFxTool.setContent(particleFx);
-    }
-    return attachSidebarPanelTab(tabParticleFxTool, EditorSidebarPanel.PARTICLE_FX, targetPane);
-  }
-
-  private Tab ensureMenuFlowTab(TabPane targetPane) {
-    if (blockMaintenancePanelLaunch(EditorSidebarPanel.MENU_FLOW, "Menu Flow")) return null;
-    closePanelWindow(EditorSidebarPanel.MENU_FLOW, true);
-    MenuFlowEditorView menuFlow = ensureMenuFlowEditorView();
-    if (targetPane == null || menuFlow == null) return null;
-    if (tabMenuFlow == null) {
-      tabMenuFlow = new Tab("Menu Flow", wrapMaintenance(menuFlow));
-      tabMenuFlow.setClosable(true);
-      tabMenuFlow.setOnClosed(e -> {
-        tabMenuFlow = null;
-        releaseSidebarPanelIfUnused(EditorSidebarPanel.MENU_FLOW);
-      });
-    } else if (!isMaintenanceWrapped(tabMenuFlow)) {
-      tabMenuFlow.setContent(wrapMaintenance(menuFlow));
-    }
-    return attachSidebarPanelTab(tabMenuFlow, EditorSidebarPanel.MENU_FLOW, targetPane);
   }
 
   private Tab ensureScriptEditorLauncherTab(TabPane targetPane) {
@@ -6460,10 +6203,10 @@ public class EditorApp extends Application {
 
   private void detachFromSidebarTab(javafx.scene.Parent content) {
     Tab[] allTabs = {
-        tabProject, tabTimeline, tabHelp, tabInspector, tabVnsDiagnostics,
-        tabVnsFlowMap, tabAssetBrowser, tabVersionControl, tabLayoutLauncher, tabPhoneAssetsTool,
+        tabProject, tabTimeline, tabInspector, tabVnsDiagnostics,
+        tabVnsFlowMap, tabAssetBrowser, tabVersionControl, tabLayoutLauncher,
         tabLayeredImageVisualizer, tabImageAttributesTool, tabImageTintTool,
-        tabMenuFlow, tabPuppeteerLauncher, tabScriptEditorLauncher,
+        tabPuppeteerLauncher, tabScriptEditorLauncher,
         tabEditorSettings
     };
     for (Tab t : allTabs) {
@@ -6490,22 +6233,17 @@ public class EditorApp extends Application {
 
   private void nullifyTab(Tab tab) {
     if (tab == tabProject) tabProject = null;
-    else if (tab == tabEngineHealth) tabEngineHealth = null;
     else if (tab == tabTrashman) tabTrashman = null;
     else if (tab == tabTimeline) tabTimeline = null;
-    else if (tab == tabHelp) tabHelp = null;
     else if (tab == tabInspector) tabInspector = null;
     else if (tab == tabVnsDiagnostics) tabVnsDiagnostics = null;
     else if (tab == tabVnsFlowMap) tabVnsFlowMap = null;
     else if (tab == tabAssetBrowser) tabAssetBrowser = null;
     else if (tab == tabVersionControl) tabVersionControl = null;
     else if (tab == tabLayoutLauncher) tabLayoutLauncher = null;
-    else if (tab == tabPhoneAssetsTool) tabPhoneAssetsTool = null;
     else if (tab == tabLayeredImageVisualizer) tabLayeredImageVisualizer = null;
     else if (tab == tabImageAttributesTool) tabImageAttributesTool = null;
     else if (tab == tabImageTintTool) tabImageTintTool = null;
-    else if (tab == tabParticleFxTool) tabParticleFxTool = null;
-    else if (tab == tabMenuFlow) tabMenuFlow = null;
     else if (tab == tabPuppeteerLauncher) tabPuppeteerLauncher = null;
     else if (tab == tabScriptEditorLauncher) tabScriptEditorLauncher = null;
     else if (tab == tabEditorSettings) tabEditorSettings = null;
@@ -6570,7 +6308,6 @@ public class EditorApp extends Application {
     if (panel == null) return editorSettingsView != null;
     return switch (panel) {
       case PROJECT -> projView != null;
-      case ENGINE_HEALTH -> engineHealthCenterView != null;
       case TRASHMAN -> trashmanView != null;
       case TIMELINE -> timelineView != null;
       case INSPECTOR -> inspectorView != null;
@@ -6578,15 +6315,11 @@ public class EditorApp extends Application {
       case LABEL_FLOW -> vnsFlowMapView != null;
       case ASSETS -> assetBrowserView != null;
       case LAYOUT_LAUNCHER -> layoutEditorLauncherView != null;
-      case PHONE_ASSETS -> phoneAssetsToolView != null;
       case STORYBOARD_OVERLAY -> storyboardOverlayView != null;
       case LAYERED_IMAGES -> layeredImageVisualizerView != null;
       case IMAGE_ATTRIBUTES -> imageAttributesToolView != null;
       case IMAGE_TINT -> imageTintToolView != null;
-      case PARTICLE_FX -> particleFxToolView != null;
-      case MENU_FLOW -> menuFlowEditorView != null;
       case VERSION_CONTROL -> versionControlView != null;
-      case HELP -> helpCenterView != null;
       case PUPPETEER_LAUNCHER -> puppeteerLauncherPanel != null;
       case SCRIPT_EDITOR -> scriptEditorLauncherView != null;
     };
@@ -6606,12 +6339,6 @@ public class EditorApp extends Application {
     panelWindows.remove(panel);
     switch (panel) {
       case PROJECT -> {
-      }
-      case ENGINE_HEALTH -> {
-        if (engineHealthCenterView != null) {
-          engineHealthCenterView.dispose();
-        }
-        engineHealthCenterView = null;
       }
       case TRASHMAN -> {
         if (trashmanView != null) {
@@ -6640,12 +6367,6 @@ public class EditorApp extends Application {
           layoutEditorLauncherView.setProjectRoot(null);
         }
         layoutEditorLauncherView = null;
-      }
-      case PHONE_ASSETS -> {
-        if (phoneAssetsToolView != null) {
-          phoneAssetsToolView.dispose();
-        }
-        phoneAssetsToolView = null;
       }
       case STORYBOARD_OVERLAY -> {
         if (storyboardOverlayView != null) {
@@ -6680,29 +6401,11 @@ public class EditorApp extends Application {
         }
         imageTintToolView = null;
       }
-      case PARTICLE_FX -> {
-        if (particleFxToolView != null) {
-          particleFxToolView.dispose();
-        }
-        particleFxToolView = null;
-      }
-      case MENU_FLOW -> {
-        if (menuFlowEditorView != null) {
-          menuFlowEditorView.setProjectRoot(null);
-        }
-        menuFlowEditorView = null;
-      }
       case VERSION_CONTROL -> {
         if (versionControlView != null) {
           versionControlView.dispose();
         }
         versionControlView = null;
-      }
-      case HELP -> {
-        if (helpCenterView != null) {
-          helpCenterView.setProjectRoot(null);
-        }
-        helpCenterView = null;
       }
       case PUPPETEER_LAUNCHER -> {
         if (puppeteerLauncherPanel != null) {
@@ -6764,20 +6467,6 @@ public class EditorApp extends Application {
       if (t != null) pane.getSelectionModel().select(t);
     }, () -> launchPanelAsWindow("Project", projView, 600, 700, EditorSidebarPanel.PROJECT), () -> {
       rememberPanelPlacement(EditorSidebarPanel.PROJECT, EditorPanelPlacement.HIDDEN);
-      applyDefaultSidebarPreferences();
-    });
-
-    addChooserActionRow(pane, actions, EditorSidebarPanel.ENGINE_HEALTH, targetPlacement, "Health Center", null, () -> {
-      rememberPanelPlacement(EditorSidebarPanel.ENGINE_HEALTH, targetPlacement);
-      Tab t = ensureEngineHealthTab(pane);
-      if (t != null) pane.getSelectionModel().select(t);
-      if (engineHealthCenterView != null) engineHealthCenterView.refreshStatus();
-    }, () -> {
-      EngineHealthCenterView view = ensureEngineHealthCenterView();
-      if (view != null) view.refreshStatus();
-      launchPanelAsWindow("Engine Health Center", view, 820, 760, EditorSidebarPanel.ENGINE_HEALTH);
-    }, () -> {
-      rememberPanelPlacement(EditorSidebarPanel.ENGINE_HEALTH, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
     });
 
@@ -6854,17 +6543,6 @@ public class EditorApp extends Application {
       applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(pane, actions, EditorSidebarPanel.PHONE_ASSETS, targetPlacement, "Phone Assets", null, () -> {
-      rememberPanelPlacement(EditorSidebarPanel.PHONE_ASSETS, targetPlacement);
-      Tab t = ensurePhoneAssetsToolTab(pane);
-      if (t != null) pane.getSelectionModel().select(t);
-    }, () -> {
-      launchPanelAsWindow("Phone Assets", wrapMaintenance(ensurePhoneAssetsToolView()), 920, 760, EditorSidebarPanel.PHONE_ASSETS);
-    }, () -> {
-      rememberPanelPlacement(EditorSidebarPanel.PHONE_ASSETS, EditorPanelPlacement.HIDDEN);
-      applyDefaultSidebarPreferences();
-    });
-
     addChooserActionRow(pane, actions, EditorSidebarPanel.STORYBOARD_OVERLAY, targetPlacement, "Storyboard Overlay", null, () -> {
       rememberPanelPlacement(EditorSidebarPanel.STORYBOARD_OVERLAY, targetPlacement);
       Tab t = ensureStoryboardOverlayTab(pane);
@@ -6921,29 +6599,6 @@ public class EditorApp extends Application {
       applyDefaultSidebarPreferences();
     });
 
-    addChooserActionRow(pane, actions, EditorSidebarPanel.PARTICLE_FX, targetPlacement, "Particle FX", null, () -> {
-      rememberPanelPlacement(EditorSidebarPanel.PARTICLE_FX, targetPlacement);
-      Tab t = ensureParticleFxToolTab(pane);
-      if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("Particle FX", ensureParticleFxToolView(), 520, 520, EditorSidebarPanel.PARTICLE_FX), () -> {
-      rememberPanelPlacement(EditorSidebarPanel.PARTICLE_FX, EditorPanelPlacement.HIDDEN);
-      applyDefaultSidebarPreferences();
-    });
-
-    addChooserActionRow(pane, actions, EditorSidebarPanel.MENU_FLOW, targetPlacement, "Menu Flow", null, () -> {
-      rememberPanelPlacement(EditorSidebarPanel.MENU_FLOW, targetPlacement);
-      Tab t = ensureMenuFlowTab(pane);
-      if (t != null) pane.getSelectionModel().select(t);
-      if (menuFlowEditorView != null) menuFlowEditorView.refreshStatus();
-    }, () -> {
-      MenuFlowEditorView view = ensureMenuFlowEditorView();
-      if (view != null) view.refreshStatus();
-      launchPanelAsWindow("Menu Flow Editor", wrapMaintenance(view), 900, 650, EditorSidebarPanel.MENU_FLOW);
-    }, () -> {
-      rememberPanelPlacement(EditorSidebarPanel.MENU_FLOW, EditorPanelPlacement.HIDDEN);
-      applyDefaultSidebarPreferences();
-    });
-
     addChooserActionRow(pane, actions, EditorSidebarPanel.VERSION_CONTROL, targetPlacement, "Version Control", null, () -> {
       rememberPanelPlacement(EditorSidebarPanel.VERSION_CONTROL, targetPlacement);
       Tab t = ensureVersionControlTab(pane);
@@ -6955,15 +6610,6 @@ public class EditorApp extends Application {
       launchPanelAsWindow("Version Control", view, 700, 600, EditorSidebarPanel.VERSION_CONTROL);
     }, () -> {
       rememberPanelPlacement(EditorSidebarPanel.VERSION_CONTROL, EditorPanelPlacement.HIDDEN);
-      applyDefaultSidebarPreferences();
-    });
-
-    addChooserActionRow(pane, actions, EditorSidebarPanel.HELP, targetPlacement, "Help", null, () -> {
-      rememberPanelPlacement(EditorSidebarPanel.HELP, targetPlacement);
-      Tab t = ensureHelpTab(pane);
-      if (t != null) pane.getSelectionModel().select(t);
-    }, () -> launchPanelAsWindow("Help Center", ensureHelpCenterView(), 700, 650, EditorSidebarPanel.HELP), () -> {
-      rememberPanelPlacement(EditorSidebarPanel.HELP, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
     });
 
@@ -7037,16 +6683,6 @@ public class EditorApp extends Application {
     }
   }
 
-  private void selectEngineHealthTab() {
-    Tab t = (tabEngineHealth != null && tabEngineHealth.getTabPane() != null)
-        ? tabEngineHealth
-        : ensureEngineHealthTab(leftTabs);
-    if (t != null && t.getTabPane() != null) {
-      t.getTabPane().getSelectionModel().select(t);
-    }
-    if (engineHealthCenterView != null) engineHealthCenterView.refreshStatus();
-  }
-
   private void selectTrashmanTab() {
     Tab t = (tabTrashman != null && tabTrashman.getTabPane() != null)
         ? tabTrashman
@@ -7072,13 +6708,6 @@ public class EditorApp extends Application {
     }
   }
 
-  private void selectHelpTab() {
-    Tab t = (tabHelp != null && tabHelp.getTabPane() != null) ? tabHelp : ensureHelpTab(rightTabs);
-    if (t != null && t.getTabPane() != null) {
-      t.getTabPane().getSelectionModel().select(t);
-    }
-  }
-
   private void selectVersionControlTab() {
     Tab t = (tabVersionControl != null && tabVersionControl.getTabPane() != null)
         ? tabVersionControl
@@ -7095,16 +6724,6 @@ public class EditorApp extends Application {
     launcher.setWorkspaceRoot(resolveWorkspaceRoot());
     launcher.launchEditorWindow();
     rememberPanelPlacement(EditorSidebarPanel.SCRIPT_EDITOR, EditorPanelPlacement.HIDDEN);
-  }
-
-  private void selectMenuFlowTab() {
-    Tab t = (tabMenuFlow != null && tabMenuFlow.getTabPane() != null)
-        ? tabMenuFlow
-        : ensureMenuFlowTab(rightTabs);
-    if (t != null && t.getTabPane() != null) {
-      t.getTabPane().getSelectionModel().select(t);
-    }
-    if (menuFlowEditorView != null) menuFlowEditorView.refreshStatus();
   }
 
   private void selectVnsDiagnosticsTab() {
@@ -7142,15 +6761,6 @@ public class EditorApp extends Application {
       t.getTabPane().getSelectionModel().select(t);
     }
     if (layoutEditorLauncherView != null) layoutEditorLauncherView.refreshStatus();
-  }
-
-  private void selectPhoneAssetsToolTab() {
-    Tab t = (tabPhoneAssetsTool != null && tabPhoneAssetsTool.getTabPane() != null)
-        ? tabPhoneAssetsTool
-        : ensurePhoneAssetsToolTab(rightTabs);
-    if (t != null && t.getTabPane() != null) {
-      t.getTabPane().getSelectionModel().select(t);
-    }
   }
 
   private void selectStoryboardOverlayTab() {

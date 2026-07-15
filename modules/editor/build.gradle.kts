@@ -123,19 +123,6 @@ tasks.register<JavaExec>("runLauncher") {
   configureJavaFxRuntime()
 }
 
-tasks.register<JavaExec>("runHelpCenter") {
-  group = "application"
-  description = "Runs the standalone JVN Help Center pop-out window."
-  classpath = sourceSets["main"].runtimeClasspath
-  mainClass.set("com.jvn.editor.HelpCenterApp")
-  workingDir = rootProject.projectDir
-  systemProperty("jvn.version", rootProject.version.toString())
-  systemProperty("jvn.repoRoot", rootProject.projectDir.absolutePath)
-  systemProperty("jvn.help.workspaceRoot", rootProject.projectDir.absolutePath)
-  forwardHubLaunchSystemProps()
-  configureJavaFxRuntime()
-}
-
 fun JavaExec.forwardDocsScreenshotSystemProps() {
   listOf(
     "jvn.docs.profile",
@@ -181,7 +168,7 @@ tasks.register<JavaExec>("generateSidebarDocsScreenshots") {
   classpath = sourceSets["main"].runtimeClasspath
   mainClass.set("com.jvn.editor.ui.actioneditor.docs.DocsScreenshotTool")
   workingDir = rootProject.projectDir
-  jvmArgs("-Djvn.docs.profile=asset-browser,help-center,project-explorer,image-attributes,image-tint,inspector,label-flow-map,layered-image-visualizer,layout-launcher,menu-flow-editor,puppeteer-launcher,text-editor,version-control,vns-diagnostics,story-timeline")
+  jvmArgs("-Djvn.docs.profile=asset-browser,project-explorer,image-attributes,image-tint,inspector,label-flow-map,layered-image-visualizer,layout-launcher,puppeteer-launcher,text-editor,version-control,vns-diagnostics,story-timeline")
   forwardDocsScreenshotSystemProps()
   configureJavaFxRuntime()
 }

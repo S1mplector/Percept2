@@ -223,7 +223,7 @@ public final class JvnHub {
   private HeaderIconButton diagnosticsButton;
   /** Header shortcut for version, source, install, and update details. */
   private HeaderIconButton aboutButton;
-  /** Header shortcut that opens the editor Help Center as a standalone window. */
+  /** Header shortcut that opens the public documentation website. */
   private HeaderIconButton documentationButton;
   /** Bell button in the header; redrawn so the small badge reflects announcement count. */
   private AnnouncementsButton announcementsButton;
@@ -515,8 +515,8 @@ public final class JvnHub {
 
     documentationButton = new HeaderIconButton(
         uiIcon(VectorIcon.Kind.DOCUMENTATION, 22, TEXT_PRIMARY),
-        "Documentation — open the Help Center");
-    documentationButton.addActionListener(e -> openDocumentation());
+        "Documentation — open the documentation website");
+    documentationButton.addActionListener(e -> openDocumentationWebsite());
     actionButtons.add(documentationButton);
 
     announcementsButton = new AnnouncementsButton();
@@ -1034,7 +1034,6 @@ public final class JvnHub {
     menu.addSeparator();
     menu.add(popupItem("Update Engine", this::updateEngine));
     menu.add(popupItem("Diagnostics", this::showDiagnosticsReport));
-    menu.add(popupItem("Documentation", this::openDocumentation));
     menu.add(popupItem("Documentation Website", this::openDocumentationWebsite));
     menu.addSeparator();
     menu.add(popupItem("Reveal Engine Root", this::revealEngineRoot));
@@ -1744,7 +1743,7 @@ public final class JvnHub {
     if (safeModeEnabled) return false;
     if (hasConfigurationCacheFlag()) return false;
     return switch (task) {
-      case ":editor:run", ":editor:runLauncher", ":editor:runHelpCenter", ":runtime:run",
+      case ":editor:run", ":editor:runLauncher", ":runtime:run",
           "build", "test", "check", "ci", "compileAll", "quickCheck" -> true;
       default -> false;
     };
@@ -1766,7 +1765,7 @@ public final class JvnHub {
   private boolean shouldLimitLaunchWorkers(String task) {
     if (hasMaxWorkersFlag()) return false;
     return switch (task) {
-      case ":editor:run", ":editor:runLauncher", ":editor:runHelpCenter", ":runtime:run" -> true;
+      case ":editor:run", ":editor:runLauncher", ":runtime:run" -> true;
       default -> false;
     };
   }
@@ -1808,10 +1807,6 @@ public final class JvnHub {
     if (!developerModeEnabled) return "Developer Mode is off.";
     List<String> options = developerGradleOptions();
     return options.isEmpty() ? "No additional Gradle flags." : String.join(" ", options);
-  }
-
-  private void openDocumentation() {
-    runGradle(":editor:runHelpCenter", "Help Center");
   }
 
   private void openDocumentationWebsite() {
@@ -2820,25 +2815,6 @@ public final class JvnHub {
           "Create launcher window",
           "Wait for launcher handoff",
           "Monitor launcher process");
-      case "help center" -> List.of(
-          "Read documentation request",
-          "Resolve engine workspace",
-          "Locate Gradle wrapper",
-          "Apply safe-mode launch flags",
-          "Start Gradle process",
-          "Attach live output stream",
-          "Configure project modules",
-          "Check Java toolchain",
-          "Resolve documentation index",
-          "Compile shared editor classes",
-          "Build help center classpath",
-          "Process help resources",
-          "Assemble JavaFX runtime",
-          "Start JavaFX toolkit",
-          "Load workspace docs",
-          "Create Help Center window",
-          "Wait for Help Center handoff",
-          "Monitor Help Center process");
       case "build all" -> List.of(
           "Read build request",
           "Resolve engine workspace",
@@ -2968,10 +2944,6 @@ public final class JvnHub {
     }
     if (lowerTaskLine.contains(":editor:runlauncher")) {
       advanceToStep(stepIndexFor(key, "app_start"), "Starting standalone launcher.");
-      return;
-    }
-    if (lowerTaskLine.contains(":editor:runhelpcenter")) {
-      advanceToStep(stepIndexFor(key, "app_start"), "Starting Help Center.");
       return;
     }
     if (lowerTaskLine.contains(":editor:run")) {

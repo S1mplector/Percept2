@@ -16,7 +16,7 @@ import javafx.scene.paint.Color;
  *
  * <p>Usage — wrap the view node before placing it in its tab or window:
  * <pre>
- *   tabPhoneAssets = new Tab("Phone Assets", MaintenanceOverlay.wrap(phoneAssetsView, "Late May 2026"));
+ *   tabImageAttributes = new Tab("Image Attributes", MaintenanceOverlay.wrap(attributesView, "Late May 2026"));
  * </pre>
  * To remove the overlay, simply stop wrapping the node.
  */

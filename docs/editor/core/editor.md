@@ -86,9 +86,7 @@ For VNS tabs, diagnostics are routed to the side diagnostics panel to preserve v
   - `VNS Diagnostics`
   - `Label Flow`
   - `Assets`
-  - `Menu Flow`
   - `Version Control`
-  - `Help`
   - `Inspector`
   - `Puppeteer Launcher`
   - `Storyboard Overlay`
@@ -256,7 +254,6 @@ See full wizard documentation:
 - `F11` -> Toggle editor fullscreen (for split preview+editor tabs)
 - `Cmd/Ctrl+Z` -> Undo
 - `Cmd/Ctrl+Shift+Z` -> Redo
-- `F1` -> Open/select Help Center
 - `Cmd/Ctrl+Shift+G` -> Open/select Version Control
 - `Cmd/Ctrl+Shift+H` -> Open/select Welcome tab
 
@@ -300,4 +297,4 @@ Source: `modules/editor/src/main/java/com/jvn/editor/ui/VnPreviewView.java`, `mo
 3. Use timeline graph for arc-level narrative structure.
 4. Run from project tree root button frequently for full end-to-end checks.
 5. Keep source control clean with the Version Control panel (`Cmd/Ctrl+Shift+G`).
-6. Use Help Center (`F1`) for quick docs lookup without leaving editor.
+6. Use the public documentation website or repository [Documentation Index](../../INDEX.md) for reference.
