@@ -1,5 +1,9 @@
 # JES Parsing Internals
 
+> **Documentation role:** This page describes the current implementation. It does not override the
+> normative [JES 1 specification](../../spec/v1/jes.md) or the
+> [diagnostic contract](../../spec/diagnostics.md).
+
 Complete reference for the JES parsing pipeline — tokenizer rules, grammar, AST structure, strict property validation, error reporting, and the loader stage.
 
 Source files:

@@ -1,5 +1,9 @@
 # JVN Documentation Audit Report — May 2026
 
+> **Historical snapshot:** This report records the repository state on 2026-05-14. Several gaps it
+> identifies were resolved later. Use the current [Documentation Home](../README.md),
+> [Complete Index](../INDEX.md), and [Maintenance Guide](../MAINTENANCE.md) for present-day structure.
+
 **Date:** 2026-05-14  
 **Scope:** Full audit of docs/, modules/, generated screenshots, links, and symbol drift  
 **Goal:** Ground a comprehensive docs improvement plan with objective findings

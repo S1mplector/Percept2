@@ -22,6 +22,16 @@ source of truth for docs changes.
 | I am lighting/staging a scene | [Scene Lighting Studio](editor/sidebars/right/sidebar-image-tint-tool.md) |
 | I am building menus/UI | [Menu Profiles](scripting/ui/menus/menu-profiles.md) |
 | I am packaging a game | [Build And Release Docs](project-setup/release/README.md) |
+| I need the normative VNS/JES rules | [Scripting Language Contract](scripting/spec/README.md) |
+
+## Browse By Section
+
+- [Guides](guides/README.md)
+- [Editor](editor/README.md)
+- [Scripting](scripting/README.md)
+- [Runtime](runtime/README.md)
+- [Project Setup And Delivery](project-setup/README.md)
+- [Architecture](architecture/README.md)
 
 ## Common Workflows
 
@@ -176,6 +186,16 @@ source of truth for docs changes.
 - [09 - Physics Bodies](guides/jes-by-example/09-physics-bodies.md)
 - [10 - VNS Bridge Integration](guides/jes-by-example/10-vns-bridge.md)
 
+## Scripting Language Contract
+
+- [JVN Scripting Language Contract](scripting/spec/README.md) - normative VNS/JES entrypoint
+- [Language Contract 1](scripting/spec/v1/README.md) - current contract and conformance status
+- [Scripting Compatibility And Deprecation Policy](scripting/spec/compatibility-policy.md)
+- [Scripting Diagnostic Contract](scripting/spec/diagnostics.md)
+- [VNS 1 Specification](scripting/spec/v1/vns.md)
+- [JES 1 Specification](scripting/spec/v1/jes.md)
+- [Language Contract 1 Changelog](scripting/spec/v1/changelog.md)
+
 ## VNS
 
 - [VNS Scripting](scripting/vns/overview/vns-scripting.md)
@@ -273,6 +293,7 @@ source of truth for docs changes.
 
 ### Runtime
 
+- [Runtime Documentation](runtime/README.md)
 - [Runtime](runtime/core/runtime.md)
 - [Interop Guide](runtime/core/interop.md)
 - [Asset Management & Path Resolution](runtime/systems/asset-management.md)
@@ -283,6 +304,7 @@ source of truth for docs changes.
 
 ### Project Setup
 
+- [Project Setup And Delivery](project-setup/README.md)
 - [New Project Wizard](project-setup/onboarding/new-project-wizard.md)
 - [Project Structure Conventions](project-setup/onboarding/project-structure.md)
 - [Title Screen and Menu Presentation](project-setup/content/title-screen.md)
@@ -295,6 +317,7 @@ source of truth for docs changes.
 
 ## Architecture And Quality
 
+- [Architecture Documentation](architecture/README.md)
 - [Architecture Overview](architecture/core/overview.md)
 - [System Architecture](architecture/core/system-architecture.md)
 - [2D Engine](architecture/core/2d-engine.md)
@@ -316,3 +339,8 @@ source of truth for docs changes.
 - [iOS Runtime](runtime/platforms/ios-runtime.md) - Xcode build and Swift interop
 - [Web Runtime](runtime/platforms/web-runtime.md) - browser deployment with WebGL/Canvas
 - [Swing Runtime](runtime/platforms/swing-runtime.md) - Swing/AWT renderer for Java 8 compatibility
+
+## Documentation Governance
+
+- [Documentation Maintenance Guide](MAINTENANCE.md)
+- [May 2026 Documentation Audit](plans/docs-audit-2026-05.md) - historical snapshot

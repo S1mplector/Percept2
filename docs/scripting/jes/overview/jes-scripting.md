@@ -1,5 +1,9 @@
 # JES Scripting
 
+> **Documentation role:** This page is an explanatory guide. The normative syntax and compatibility
+> contract is [JES 1](../../spec/v1/jes.md), reached through the
+> [JVN Scripting Language Contract](../../spec/README.md).
+
 JES (JVN Engine Script) is a DSL for authoring 2D scenes with entities, components, tile maps, physics, AI, input bindings, timelines, RPG systems, and UI widgets. It integrates with VNS for hybrid visual-novel + gameplay projects.
 
 Core files:

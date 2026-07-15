@@ -1,5 +1,9 @@
 # VNS Parsing Internals
 
+> **Documentation role:** This page describes the current implementation. It does not override the
+> normative [VNS 1 specification](../../spec/v1/vns.md) or the
+> [diagnostic contract](../../spec/diagnostics.md).
+
 Complete reference for the VNS parsing pipeline — how `VnScriptParser` transforms `.vns` source text into executable `VnScenario` data, including directives, commands, conditional lowering, include/macro handling, label validation, and error reporting.
 
 Parser source: `modules/core/src/main/java/com/jvn/core/vn/script/VnScriptParser.java`
