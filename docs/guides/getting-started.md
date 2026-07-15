@@ -15,6 +15,16 @@ Before you go deep:
 - **No global Gradle install required** — `./jvnw` is the default command wrapper, with `./gradlew` available for advanced tasks
 - **Git** (optional) — for version control integration in the editor
 
+Before launching the editor, run the shell-only health check:
+
+```bash
+./jvnw doctor
+```
+
+It checks Java/JDK availability, `JAVA_HOME`, the Gradle wrapper, module checkout, cache permissions,
+and host-shell compatibility without starting the editor. Use its corrective guidance as the primary
+replacement for GUI environment-health tooling.
+
 ### Why There Is No Prebuilt Download Yet
 
 JVN is currently a source-first project. There are no official prebuilt editor or engine binaries for the preview line, so the supported way to run it is from a cloned repository:

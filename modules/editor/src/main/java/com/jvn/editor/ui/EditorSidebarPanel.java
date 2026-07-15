@@ -5,7 +5,6 @@ import java.util.Map;
 
 public enum EditorSidebarPanel {
   PROJECT("project", "Project", EditorPanelPlacement.LEFT, true, "icon-panel-project", "project_inspector_orange_transparent.png", "1.8", Maturity.STABLE),
-  ENGINE_HEALTH("engine_health", "Health Center", EditorPanelPlacement.LEFT, true, "icon-panel-health", null, "1.0", Maturity.STABLE),
   TRASHMAN("trashman", "Trashman", EditorPanelPlacement.HIDDEN, true, "icon-panel-trashman", null, "0.1", Maturity.BETA),
   TIMELINE("timeline", "Story Map", EditorPanelPlacement.HIDDEN, true, "icon-panel-timeline", "timeline_editor_orange_transparent.png", "1.2", Maturity.STABLE),
   INSPECTOR("inspector", "Inspector", EditorPanelPlacement.HIDDEN, false, "icon-panel-inspector", "project_inspector_orange_transparent.png", "1.0", Maturity.STABLE),
@@ -13,15 +12,11 @@ public enum EditorSidebarPanel {
   LABEL_FLOW("label_flow", "Label Flow", EditorPanelPlacement.HIDDEN, false, "icon-panel-flow", "label_flow_inspector_orange_transparent.png", "0.9", Maturity.BETA),
   ASSETS("assets", "Assets", EditorPanelPlacement.HIDDEN, false, "icon-panel-assets", null, "1.0", Maturity.STABLE),
   LAYOUT_LAUNCHER("layout_launcher", "Layout Launcher", EditorPanelPlacement.HIDDEN, true, "icon-panel-layouts", "layout_editor_manager_orange_transparent.png", "0.8", Maturity.BETA),
-  PHONE_ASSETS("phone_assets", "Phone Assets", EditorPanelPlacement.HIDDEN, true, "icon-panel-phone", null, "0.7", Maturity.BETA),
   STORYBOARD_OVERLAY("storyboard_overlay", "Storyboard Overlay", EditorPanelPlacement.HIDDEN, true, "icon-panel-storyboard", "storyboard_overlay_tool_orange_transparent.png", "0.6", Maturity.BETA),
   LAYERED_IMAGES("layered_images", "Layered Image Visualizer", EditorPanelPlacement.HIDDEN, true, "icon-panel-layered", "layered_image_visualizer_orange_transparent.png", "1.0", Maturity.STABLE),
   IMAGE_ATTRIBUTES("image_attributes", "Image Attributes Tool", EditorPanelPlacement.HIDDEN, false, "icon-panel-image-attributes", null, "0.8", Maturity.BETA),
   IMAGE_TINT("image_tint", "Scene Lighting Studio", EditorPanelPlacement.HIDDEN, true, "icon-panel-image-tint", "scene_lighting_studio_tool_orange_transparent.png", "0.7", Maturity.BETA),
-  PARTICLE_FX("particle_fx", "Particle FX", EditorPanelPlacement.HIDDEN, true, "icon-panel-particle-fx", "particle_effects_orange_transparent.png", "0.3", Maturity.ALPHA),
-  MENU_FLOW("menu_flow", "Menu Flow", EditorPanelPlacement.HIDDEN, true, "icon-panel-menuflow", "menu_flow_editor_orange_transparent.png", "0.9", Maturity.BETA),
   VERSION_CONTROL("version_control", "Version Control", EditorPanelPlacement.HIDDEN, true, "icon-panel-vcs", "version_control_orange_transparent_v2.png", "1.0", Maturity.STABLE),
-  HELP("help", "Help", EditorPanelPlacement.HIDDEN, true, "icon-panel-help", "help.png", "1.2.2", Maturity.STABLE),
   PUPPETEER_LAUNCHER("puppeteer_launcher", "Puppeteer Launcher", EditorPanelPlacement.HIDDEN, true, "icon-panel-puppeteer", "puppetteer_orange_transparent.png", "1.0", Maturity.STABLE),
   SCRIPT_EDITOR("script_editor", "Script Editor", EditorPanelPlacement.HIDDEN, true, "icon-panel-text", "code_editor_orange_transparent.png", "1.0", Maturity.STABLE);
 

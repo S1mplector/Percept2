@@ -176,6 +176,10 @@ entity "score" {
 
 A particle effect system. Use for fire, smoke, sparks, rain, magic effects, explosions, and ambient atmosphere.
 
+Particle effects are authored directly in JES so their full configuration remains reviewable,
+portable, and testable. Start with a copied preset below, change one property group at a time, and
+preview the scene in the runtime.
+
 ### Properties
 
 | Property | Type | Default | Description |
@@ -249,6 +253,35 @@ entity "snow" {
   }
 }
 ```
+
+### Text-First Particle Workflow
+
+1. Create a named entity containing `ParticleEmitter2D`.
+2. Tune lifetime and emission rate before changing movement or color.
+3. Tune speed, angle, and gravity as one motion group.
+4. Add texture and additive blending only after the untextured motion is correct.
+5. Use a JES timeline `emitParticles` action for deliberate bursts; use `emissionRate` for continuous
+   ambient effects.
+
+For a burst emitted by the `sparks` entity:
+
+```jes
+timeline {
+  emitParticles "sparks" { count: 20 }
+}
+```
+
+Common tuning patterns:
+
+| Effect | Direction | Gravity | Blend | Lifetime |
+|---|---|---|---|---|
+| Fire | Upward | Negative | Additive | Short |
+| Smoke | Upward/drifting | Slightly negative | Normal | Long |
+| Sparks | Wide burst | Positive | Additive | Short |
+| Snow | Downward/narrow | Positive | Normal | Long |
+
+See [JES Timeline Actions](../timeline/jes-timeline.md#emitparticles) for burst syntax. Keep emitter
+IDs stable because timelines address them by name.
 
 ---
 

@@ -338,7 +338,7 @@ engine.setMenuActionHandler((actionKey, target) -> {
 Custom action keys and their targets are preserved exactly as written across all editing workflows:
 
 - **Loader round-trip** — `MenuProfileLoader` reads and writes custom action strings without normalizing or discarding them
-- **Editor round-trip** — the Menu Screen Visual Editor, Menu Flow Editor, and Layout Launcher all preserve unknown action keys when saving `.menu` files
+- **Editor round-trip** — the Menu Screen Visual Editor and Layout Launcher preserve unknown action keys when saving `.menu` files
 - **Runtime delegation** — the engine delegates unrecognized actions to the registered `MenuActionHandler` before falling back to noop
 
 This means you can safely add game-specific actions like `show_credits` or `play_video` and they will never be silently removed by the tools.
@@ -532,6 +532,41 @@ item.back.action=back
 ---
 
 ## Runtime Validation Checklist
+
+### Audit Menu Flow Without A Graph Editor
+
+Menu navigation is intentionally text-first. Treat each `.menu` file as a node and each
+`open_menu:<target>` action as a directed edge:
+
+1. Start from the profile's default screen.
+2. List every `open_menu` target reachable from that screen.
+3. Repeat for each newly reached screen until no new targets appear.
+4. Compare the reached set with the screens registered by the profile.
+5. Give every non-terminal screen a `back`, `main_menu`, or other deliberate exit.
+6. Run the project and inspect console diagnostics for missing targets and unknown actions.
+
+Example navigation inventory:
+
+```text
+main -> extras, load, settings
+extras -> gallery, credits
+gallery -> back
+credits -> back
+load -> back
+settings -> back
+```
+
+This small adjacency list is easier to review in version control than generated graph state. Keep it
+beside complex menu profiles as a comment or design note, then verify the `.menu` actions remain the
+source of truth.
+
+### Validation Sources
+
+- `MenuProfileValidator` reports undefined `OPEN_MENU` targets and missing required targets.
+- Layout Launcher screen cards report missing layout, style, and screen references.
+- Runtime navigation verifies stack behavior that static validation cannot prove, especially `back`.
+- Repository search such as `rg -n 'open_menu|target=' config/menu` provides a quick project-wide
+  edge inventory.
 
 - [ ] Every menu item triggers the correct action when activated
 - [ ] `open_menu` items navigate to the correct target screen

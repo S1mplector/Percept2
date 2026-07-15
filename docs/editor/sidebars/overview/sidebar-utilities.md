@@ -1,6 +1,6 @@
 # Editor — Sidebar Utilities
 
-Complete reference for all 17 documented sidebar panels available in the JVN editor. Each panel has its own dedicated sub-document with full details, examples, and usage guides.
+Reference for the maintained sidebar panels available in the JVN editor. Each listed panel has a dedicated sub-document with details, examples, and usage guidance.
 
 Panels can be added to either the left or right sidebar via the **+** tab. Each panel is independently closable and repositionable.
 
@@ -24,9 +24,9 @@ If you only need a quick answer:
 - Need layered character inspection: **Layered Image Visualizer**
 - Need attribute-based character assembly: **Image Attributes Tool**
 - Need lighting, grading, and stage presets: **Scene Lighting Studio**
-- Need menu navigation wiring: **Menu Flow Editor**
 - Need menu/layout editing entrypoints: **Layout Launcher**
-- Need in-editor docs lookup: **Help Center**
+- Need menu navigation guidance: [Menu Actions And Navigation](../../../scripting/ui/layout/structure/menu-actions.md)
+- Need documentation lookup: [Documentation Index](../../../INDEX.md)
 
 ## Read This Next
 
@@ -48,15 +48,12 @@ If you only need a quick answer:
 | 6 | Label Flow Map | **[sidebar-label-flow-map.md](../right/sidebar-label-flow-map.md)** | Right | Visual label-to-label flow graph for VNS |
 | 7 | Asset Browser | **[sidebar-asset-browser.md](../right/sidebar-asset-browser.md)** | Right | Project asset discovery, preview, copy path |
 | 8 | Layout Launcher | **[sidebar-layout-launcher.md](../right/sidebar-layout-launcher.md)** | Right | Quick-launch layout/style/screen editors |
-| 9 | Phone Assets | **[sidebar-phone-assets-tool.md](../right/sidebar-phone-assets-tool.md)** | Right | Structured editor for phone config, status/chrome, contacts, threads, apps, calls, typed messages, and asset import |
-| 10 | Storyboard Overlay | **[sidebar-storyboard-overlay.md](../right/sidebar-storyboard-overlay.md)** | Right | Transparent board-frame overlays for JES and VNS staging previews |
-| 11 | Menu Flow Editor | **[sidebar-menu-flow-editor.md](../right/sidebar-menu-flow-editor.md)** | Right | Visual menu-to-menu navigation wiring |
-| 12 | Layered Image Visualizer | **[sidebar-layered-image-visualizer.md](../right/sidebar-layered-image-visualizer.md)** | Right | Layered sprite exploration and snippet export |
-| 13 | Image Attributes Tool | **[sidebar-image-attributes-tool.md](../right/sidebar-image-attributes-tool.md)** | Right | Attribute-based character image assembly |
-| 14 | Scene Lighting Studio | **[sidebar-image-tint-tool.md](../right/sidebar-image-tint-tool.md)** | Right | Scene lighting, grading, occlusion, and `.stagepreset` export for VNS/Puppeteer |
-| 15 | Version Control | **[sidebar-version-control.md](../right/sidebar-version-control.md)** | Right | Git operations: commit, push, pull, branch, stash |
-| 16 | Help Center | **[sidebar-help-center.md](../right/sidebar-help-center.md)** | Right | In-app documentation browser with topic folders and heading-aware search |
-| 17 | Text Editor | **[sidebar-script-editor.md](../right/sidebar-script-editor.md)** | Right | JVN text file explorer, VNS label outline, include graph, pop-out editor window |
+| 9 | Storyboard Overlay | **[sidebar-storyboard-overlay.md](../right/sidebar-storyboard-overlay.md)** | Right | Transparent board-frame overlays for JES and VNS staging previews |
+| 10 | Layered Image Visualizer | **[sidebar-layered-image-visualizer.md](../right/sidebar-layered-image-visualizer.md)** | Right | Layered sprite exploration and snippet export |
+| 11 | Image Attributes Tool | **[sidebar-image-attributes-tool.md](../right/sidebar-image-attributes-tool.md)** | Right | Attribute-based character image assembly |
+| 12 | Scene Lighting Studio | **[sidebar-image-tint-tool.md](../right/sidebar-image-tint-tool.md)** | Right | Scene lighting, grading, occlusion, and `.stagepreset` export for VNS/Puppeteer |
+| 13 | Version Control | **[sidebar-version-control.md](../right/sidebar-version-control.md)** | Right | Git operations: commit, push, pull, branch, stash |
+| 14 | Text Editor | **[sidebar-script-editor.md](../right/sidebar-script-editor.md)** | Right | JVN text file explorer, VNS label outline, include graph, pop-out editor window |
 
 ### Adding Panels
 
@@ -99,7 +96,6 @@ Several sidebar utilities persist their state in the project's `.jvn/` directory
 | Utility | State File |
 |---------|-----------|
 | Layered Image Visualizer | `.jvn/layered-image-visualizer.properties` |
-| Phone Assets | `.jvn/phone-assets-tool.properties` |
 | Image Attributes Tool | `.jvn/image-attributes-tool.properties` |
 | Scene Lighting Studio | `.jvn/image-tint-tool.properties` |
 | Storyboard Overlay | `.jvn/storyboard-overlay.properties` |
@@ -111,6 +107,6 @@ Several sidebar utilities persist their state in the project's `.jvn/` directory
 ## Related Docs
 
 - [Editor Guide](../../core/editor.md) — main editor layout, editing modes, keyboard shortcuts
-- [Help Center Guide Tree](../../core/help-center-guide-tree.md) — Help sidebar documentation taxonomy
+- [Documentation Index](../../../INDEX.md) — complete documentation map
 - [Puppeteer Editor Guide](../../puppeteer/puppeteer-editor-guide.md) — comprehensive Puppeteer usage
 - [Puppeteer JES DSL Reference](../../puppeteer/puppeteer-jes-dsl.md) — exported timeline code syntax

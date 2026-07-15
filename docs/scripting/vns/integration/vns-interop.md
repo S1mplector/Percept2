@@ -386,13 +386,57 @@ At runtime, phone mutations are persisted through the VN variable layer, so save
 
 ### Phone Seed Config
 
-`phone.properties` can seed more than a simple thread list. The runtime and editor also read:
+`phone.properties` can seed more than a simple thread list. The runtime reads:
 
 - `home.mode` (`threads` or `apps`)
 - `status.time`, `status.mode`, `status.signal`, `status.battery`
 - `chat.<id>.composerText`, `chat.<id>.composerHint`
 - `home.apps` plus `phoneapp.<id>.title`, `icon`, `badge`, `accent`, `page`, `target`, `targetValue`
 - `calls` plus `call.<id>.title`, `subtitle`, `avatar`, `status`, `participant`, `video`
+
+### Author Phone Assets And Data
+
+Phone content is maintained directly in `phone.properties` and the project's asset folders. A
+practical workflow is:
+
+1. Put shared phone images under `assets/phone/` or `assets/ui/phone/`.
+2. Use project-relative forward-slash paths in `phone.properties`.
+3. Define contacts before threads, and threads before initial messages.
+4. Keep identifiers lowercase and stable; saved games refer to these IDs.
+5. Launch the scene that opens the phone and verify every avatar, icon, call, and message asset.
+
+Minimal seed file:
+
+```properties
+home.mode=apps
+status.time=08:14
+status.signal=5G
+status.battery=82
+
+contacts=mc,ll
+contact.mc.name=John
+contact.mc.self=true
+contact.ll.name=Lily
+contact.ll.avatar=assets/phone/contacts/lily.png
+
+chats=mc_lily
+chat.mc_lily.title=LostVarnacola
+chat.mc_lily.participants=mc,ll
+chat.mc_lily.icon=assets/phone/contacts/lily.png
+
+home.apps=messages
+phoneapp.messages.title=Messages
+phoneapp.messages.icon=assets/ui/phone/apps/messages.png
+phoneapp.messages.target=chat
+phoneapp.messages.targetValue=mc_lily
+```
+
+Use VNS `[phone ...]` commands for story-time mutations. Keep reusable contacts, skins, and initial
+navigation in the properties file so scripts only describe events that happen during the story.
+
+When an asset does not appear, check filename case, the project-relative path, and whether the file is
+included in packaging. The [Asset Management guide](../../../runtime/systems/asset-management.md)
+documents path resolution and release checks.
 
 ### Phone `app.*` Skin Keys
 

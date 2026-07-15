@@ -77,7 +77,7 @@ Using `--assets` is good for iteration, but production packaging should keep req
 ## Editor Responsiveness Tips
 
 - Keep huge generated files outside regular script/config editing tabs when possible.
-- For massive markdown docs, use Help Center preview for read-only lookup and open only what you edit.
+- For large Markdown documentation sets, use the public documentation website for read-only lookup and open only what you edit.
 - Use project filters in tree and timeline views to reduce noise.
 
 ## Quick Diagnostic Checklist

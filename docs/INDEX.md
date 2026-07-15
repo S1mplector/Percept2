@@ -97,8 +97,6 @@ source of truth for docs changes.
 - [Scene Graph View](editor/core/scene-graph.md) - entity tree, selection, rename/delete, fit-to-selection
 - [Tilemap Editor](editor/core/tilemap-editor.md) - tile painting, layers, and tileset preview
 - [Puppeteer Design Notes](editor/core/action-editor-design.md) - current animation editor architecture and data flow
-- [Help Center](editor/core/help-center.md) - in-editor documentation browser
-- [Help Center Guide Tree](editor/core/help-center-guide-tree.md) - guide tree taxonomy, topic folders, and heading-aware search
 - [VS Code Extension](editor/core/vscode-extension.md) - external-editor syntax highlighting and snippets for VNS, JES, Story Map, and config files
 
 ### Puppeteer
@@ -119,14 +117,11 @@ source of truth for docs changes.
 - [Label Flow Map](editor/sidebars/right/sidebar-label-flow-map.md) - visual VNS label graph
 - [Asset Browser](editor/sidebars/right/sidebar-asset-browser.md) - asset discovery, preview, and path copying
 - [Layout Launcher](editor/sidebars/right/sidebar-layout-launcher.md) - entrypoint for menu/layout/style editors
-- [Phone Assets](editor/sidebars/right/sidebar-phone-assets-tool.md) - phone UI/content asset editing
 - [Storyboard Overlay](editor/sidebars/right/sidebar-storyboard-overlay.md) - reference overlays for staging previews
-- [Menu Flow Editor](editor/sidebars/right/sidebar-menu-flow-editor.md) - menu-to-menu navigation graph
 - [Layered Image Visualizer](editor/sidebars/right/sidebar-layered-image-visualizer.md) - layered sprite inspection and export
 - [Image Attributes Tool](editor/sidebars/right/sidebar-image-attributes-tool.md) - attribute-driven image assembly
 - [Scene Lighting Studio](editor/sidebars/right/sidebar-image-tint-tool.md) - lighting, grading, occlusion, setup, and stage-preset export
 - [Version Control](editor/sidebars/right/sidebar-version-control.md) - Git status, commit, push, pull, branch, stash
-- [Help Center Sidebar](editor/sidebars/right/sidebar-help-center.md) - sidebar docs browser with topic folders
 - [Text Editor](editor/sidebars/right/sidebar-script-editor.md) - text-file explorer, VNS outline, include graph
 
 ### Editor File Formats And Generated References
@@ -137,14 +132,12 @@ source of truth for docs changes.
 - [Generated Project Explorer Screenshots](editor/sidebars/left/generated-project-explorer-screenshots.md)
 - [Generated Story Map Screenshots](editor/sidebars/left/generated-story-timeline-screenshots.md)
 - [Generated Asset Browser Screenshots](editor/sidebars/right/generated-asset-browser-screenshots.md)
-- [Generated Help Center Screenshots](editor/sidebars/right/generated-help-center-screenshots.md)
 - [Generated Image Attributes Screenshots](editor/sidebars/right/generated-image-attributes-screenshots.md)
 - [Generated Scene Lighting Studio Screenshots](editor/sidebars/right/generated-image-tint-screenshots.md)
 - [Generated Inspector Screenshots](editor/sidebars/right/generated-inspector-screenshots.md)
 - [Generated Label Flow Map Screenshots](editor/sidebars/right/generated-label-flow-map-screenshots.md)
 - [Generated Layered Image Visualizer Screenshots](editor/sidebars/right/generated-layered-image-visualizer-screenshots.md)
 - [Generated Layout Launcher Screenshots](editor/sidebars/right/generated-layout-launcher-screenshots.md)
-- [Generated Menu Flow Editor Screenshots](editor/sidebars/right/generated-menu-flow-editor-screenshots.md)
 - [Generated Puppeteer Launcher Screenshots](editor/sidebars/right/generated-puppeteer-launcher-screenshots.md)
 - [Generated Text Editor Screenshots](editor/sidebars/right/generated-script-editor-screenshots.md)
 - [Generated Version Control Screenshots](editor/sidebars/right/generated-version-control-screenshots.md)

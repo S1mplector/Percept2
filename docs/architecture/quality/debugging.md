@@ -243,12 +243,11 @@ Visualizes label-to-label flow as a directed graph. Helps find:
 - Missing jump targets
 - Unexpected flow paths
 
-### Menu Flow Editor
+### Menu Navigation Validation
 
-Visualizes menu-to-menu navigation. Highlights:
-- Missing `OPEN_MENU` targets
-- Unreachable menus
-- Wiring errors
+Use the text-first [Menu Actions And Navigation](../../scripting/ui/layout/structure/menu-actions.md)
+workflow and runtime validation to find missing `OPEN_MENU` targets, unreachable menus, and wiring
+errors.
 
 ### Layout Launcher Screen Cards
 

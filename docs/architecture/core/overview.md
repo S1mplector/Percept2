@@ -57,7 +57,7 @@ This page is the high-level map. Use the linked docs for deeper implementation d
 - Timeline graph with validation and drag/drop script arc creation
 - Puppeteer animation tool with keyframes, easing, audio cues
 - Git version-control panel for team workflows
-- In-editor Help Center (`F1`) for docs search and preview
+- Public documentation website and repository documentation index
 
 ## Project Requirements
 

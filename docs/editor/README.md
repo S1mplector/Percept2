@@ -11,7 +11,7 @@ Use this hub when your work is primarily inside the editor: opening projects, au
 - [Sidebar Utilities Overview](sidebars/overview/sidebar-utilities.md) — map of the editor's auxiliary tools
 - [Puppeteer Editor Guide](puppeteer/puppeteer-editor-guide.md) — visual animation authoring and timeline registration
 - [Scene Lighting Studio](sidebars/right/sidebar-image-tint-tool.md) — lighting, grading, setup export, and stage-preset handoff
-- [Help Center](core/help-center.md) — in-app docs browser and guide tree routes
+- [Documentation Index](../INDEX.md) — complete repository documentation map
 
 ## Common Routes
 
@@ -40,7 +40,7 @@ Use this hub when your work is primarily inside the editor: opening projects, au
 ### I need layout, menu, or image tools
 
 1. [Layout Launcher](sidebars/right/sidebar-layout-launcher.md)
-2. [Menu Flow Editor](sidebars/right/sidebar-menu-flow-editor.md)
+2. [Menu Actions And Navigation](../scripting/ui/layout/structure/menu-actions.md)
 3. [Layered Image Visualizer](sidebars/right/sidebar-layered-image-visualizer.md)
 4. [Image Attributes Tool](sidebars/right/sidebar-image-attributes-tool.md)
 5. [Scene Lighting Studio](sidebars/right/sidebar-image-tint-tool.md)
@@ -56,7 +56,7 @@ Use this hub when your work is primarily inside the editor: opening projects, au
 - [Scene Graph View](core/scene-graph.md)
 - [Tilemap Editor](core/tilemap-editor.md)
 - [Puppeteer Design Notes](core/action-editor-design.md)
-- [Help Center Guide Tree](core/help-center-guide-tree.md)
+- [Documentation Index](../INDEX.md)
 - [VS Code Extension](core/vscode-extension.md)
 
 ### Sidebars

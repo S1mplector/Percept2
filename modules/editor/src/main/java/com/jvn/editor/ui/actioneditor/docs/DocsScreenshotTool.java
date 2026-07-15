@@ -2,13 +2,11 @@ package com.jvn.editor.ui.actioneditor.docs;
 
 import com.jvn.core.scene2d.Sprite2D;
 import com.jvn.editor.ui.AssetBrowserView;
-import com.jvn.editor.ui.HelpCenterView;
 import com.jvn.editor.ui.ImageAttributesToolView;
 import com.jvn.editor.ui.ImageTintToolView;
 import com.jvn.editor.ui.InspectorView;
 import com.jvn.editor.ui.LayeredImageVisualizerView;
 import com.jvn.editor.ui.LayoutEditorLauncherView;
-import com.jvn.editor.ui.MenuFlowEditorView;
 import com.jvn.editor.ui.ProjectExplorerView;
 import com.jvn.editor.ui.PuppeteerLauncherPanel;
 import com.jvn.editor.ui.RunConsoleView;
@@ -423,64 +421,6 @@ public final class DocsScreenshotTool extends Application {
         DocsScreenshotTool::openAssetBrowserWindow
     );
 
-    private static final ProfileSpec HELP_CENTER_PROFILE = new ProfileSpec(
-        "help-center",
-        "Help Center",
-        "docs/editor/sidebars/right/sidebar-help-center.md",
-        "docs/editor/sidebars/right/generated-help-center-screenshots.md",
-        "docs/assets/images/sidebars/help-center",
-        "docs/assets/images/sidebars/help-center/raw",
-        "<!-- AUTO-HELP_CENTER-SCREENSHOTS:START -->",
-        "<!-- AUTO-HELP_CENTER-SCREENSHOTS:END -->",
-        1200,
-        List.of(
-            new ShotSpec(
-                "full",
-                "full",
-                "help_center_ui_full.png",
-                "Help Center Overview",
-                "Guide tree and markdown preview in one workspace.",
-                0,
-                1200,
-                0,
-                List.of(
-                    new Callout("Guide Tree", 0.01, 0.02, 0.31, 0.96),
-                    new Callout("Preview Pane", 0.35, 0.02, 0.64, 0.96)
-                )
-            ),
-            new ShotSpec(
-                "guide-tree",
-                "guide_tree",
-                "help_center_guide_tree.png",
-                "Guide Tree",
-                "Progressive documentation tree with onboarding-first sections, topic folders, and heading anchors.",
-                8,
-                560,
-                0,
-                List.of(
-                    new Callout("Version + Filter", 0.03, 0.02, 0.94, 0.22),
-                    new Callout("Topic Guide Tree", 0.03, 0.27, 0.94, 0.68)
-                )
-            ),
-            new ShotSpec(
-                "preview",
-                "preview",
-                "help_center_preview.png",
-                "Preview Pane",
-                "Document metadata header and rendered Markdown preview for the selected page.",
-                8,
-                760,
-                0,
-                List.of(
-                    new Callout("Preview Header", 0.02, 0.02, 0.96, 0.12),
-                    new Callout("Rendered Markdown", 0.02, 0.18, 0.96, 0.78)
-                )
-            )
-        ),
-        DocsScreenshotTool::openHelpCenterWindow,
-        DocsScreenshotTool::resolveHelpCenterRegions
-    );
-
     private static final ProfileSpec PROJECT_EXPLORER_PROFILE = new ProfileSpec(
         "project-explorer",
         "Project Explorer",
@@ -573,16 +513,6 @@ public final class DocsScreenshotTool extends Application {
         "docs/assets/images/sidebars/layout-launcher",
         800,
         DocsScreenshotTool::openLayoutLauncherWindow
-    );
-
-    private static final ProfileSpec MENU_FLOW_EDITOR_PROFILE = basicSidebarProfile(
-        "menu-flow-editor",
-        "Menu Flow Editor",
-        "docs/editor/sidebars/right/sidebar-menu-flow-editor.md",
-        "docs/editor/sidebars/right/generated-menu-flow-editor-screenshots.md",
-        "docs/assets/images/sidebars/menu-flow-editor",
-        1000,
-        DocsScreenshotTool::openMenuFlowEditorWindow
     );
 
     private static final ProfileSpec PUPPETEER_LAUNCHER_PROFILE = basicSidebarProfile(
@@ -880,14 +810,12 @@ public final class DocsScreenshotTool extends Application {
         PUPPETEER_PROFILE.key(),
         IMAGE_TINT_PROFILE.key(),
         ASSET_BROWSER_PROFILE.key(),
-        HELP_CENTER_PROFILE.key(),
         PROJECT_EXPLORER_PROFILE.key(),
         IMAGE_ATTRIBUTES_PROFILE.key(),
         INSPECTOR_PROFILE.key(),
         LABEL_FLOW_MAP_PROFILE.key(),
         LAYERED_IMAGE_VISUALIZER_PROFILE.key(),
         LAYOUT_LAUNCHER_PROFILE.key(),
-        MENU_FLOW_EDITOR_PROFILE.key(),
         PUPPETEER_LAUNCHER_PROFILE.key(),
         TEXT_EDITOR_PROFILE.key(),
         VERSION_CONTROL_PROFILE.key(),
@@ -901,14 +829,12 @@ public final class DocsScreenshotTool extends Application {
         Map.entry(PUPPETEER_PROFILE.key(), PUPPETEER_PROFILE),
         Map.entry(IMAGE_TINT_PROFILE.key(), IMAGE_TINT_PROFILE),
         Map.entry(ASSET_BROWSER_PROFILE.key(), ASSET_BROWSER_PROFILE),
-        Map.entry(HELP_CENTER_PROFILE.key(), HELP_CENTER_PROFILE),
         Map.entry(PROJECT_EXPLORER_PROFILE.key(), PROJECT_EXPLORER_PROFILE),
         Map.entry(IMAGE_ATTRIBUTES_PROFILE.key(), IMAGE_ATTRIBUTES_PROFILE),
         Map.entry(INSPECTOR_PROFILE.key(), INSPECTOR_PROFILE),
         Map.entry(LABEL_FLOW_MAP_PROFILE.key(), LABEL_FLOW_MAP_PROFILE),
         Map.entry(LAYERED_IMAGE_VISUALIZER_PROFILE.key(), LAYERED_IMAGE_VISUALIZER_PROFILE),
         Map.entry(LAYOUT_LAUNCHER_PROFILE.key(), LAYOUT_LAUNCHER_PROFILE),
-        Map.entry(MENU_FLOW_EDITOR_PROFILE.key(), MENU_FLOW_EDITOR_PROFILE),
         Map.entry(PUPPETEER_LAUNCHER_PROFILE.key(), PUPPETEER_LAUNCHER_PROFILE),
         Map.entry(TEXT_EDITOR_PROFILE.key(), TEXT_EDITOR_PROFILE),
         Map.entry(VERSION_CONTROL_PROFILE.key(), VERSION_CONTROL_PROFILE),
@@ -1076,13 +1002,6 @@ public final class DocsScreenshotTool extends Application {
         return openToolStage("Docs Screenshot Session - Asset Browser", view, 1120, 900);
     }
 
-    private static Stage openHelpCenterWindow(Path repoRoot) throws Exception {
-        HelpCenterView view = new HelpCenterView();
-        view.setWorkspaceRoot(repoRoot.toFile());
-        view.setProjectRoot(ensureDocsFixtureProject(repoRoot).toFile());
-        return openToolStage("Docs Screenshot Session - Help Center", view, 1400, 900);
-    }
-
     private static Stage openProjectExplorerWindow(Path repoRoot) throws Exception {
         ProjectExplorerView view = new ProjectExplorerView();
         view.setRootDirectory(ensureDocsFixtureProject(repoRoot).toFile());
@@ -1131,12 +1050,6 @@ public final class DocsScreenshotTool extends Application {
         LayoutEditorLauncherView view = new LayoutEditorLauncherView();
         view.setProjectRoot(ensureDocsFixtureProject(repoRoot).toFile());
         return openToolStage("Docs Screenshot Session - Layout Launcher", view, 1220, 900);
-    }
-
-    private static Stage openMenuFlowEditorWindow(Path repoRoot) throws Exception {
-        MenuFlowEditorView view = new MenuFlowEditorView();
-        view.setProjectRoot(ensureDocsFixtureProject(repoRoot).toFile());
-        return openToolStage("Docs Screenshot Session - Menu Flow Editor", view, 1520, 980);
     }
 
     private static Stage openPuppeteerLauncherWindow(Path repoRoot) throws Exception {
@@ -1608,19 +1521,6 @@ public final class DocsScreenshotTool extends Application {
         regions.put("full", root);
         regions.put("preview", root.getCenter());
         regions.put("sidebar", root.getRight());
-        return regions;
-    }
-
-    private static Map<String, Node> resolveHelpCenterRegions(Stage stage) {
-        Map<String, Node> regions = resolveFullRegions(stage);
-        if (stage == null || stage.getScene() == null || !(stage.getScene().getRoot() instanceof BorderPane root)) {
-            return regions;
-        }
-        Node center = root.getCenter();
-        if (center instanceof SplitPane split && split.getItems().size() >= 2) {
-            regions.put("guide_tree", split.getItems().get(0));
-            regions.put("preview", split.getItems().get(1));
-        }
         return regions;
     }
 

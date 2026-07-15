@@ -286,7 +286,7 @@ Editor currently features:
   - `config/menu/menus/*.menu`
   - `config/menu/layouts/*.layout`
 - Story Map graph + DSL editor (`config/story/story.storymap`).
-- In-editor Help Center (`F1`).
+- Documentation website access from the editor and Engine Hub.
 
 ## Simp3 Backend (Default)
 
