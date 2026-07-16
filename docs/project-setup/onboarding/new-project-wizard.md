@@ -28,7 +28,9 @@ Wizard class:
    - entry script/story map/dialogue layout preview
 
 3. **Feature Modules**
-   - sample prologue script
+   - playable Lavender starter story
+   - optional 17-lesson tutorial workspace
+   - VNS/JES integration scene
    - main menu profile pack
    - save/load profile files
    - settings profile
@@ -204,16 +206,17 @@ Entries are uncommented only for the features you enable, keeping the locale fil
 |       `-- assets/{buttons,icons}
 |-- scripts/
 |   |-- story/prologue.vns
+|   |-- story/{tutorial_hub,branch_demo,epilogue}.vns
+|   |-- scenes/studio_tour.jes
+|   |-- tutorial/*.vns       (tutorial workspace)
+|   |-- definitions/characters.vns
 |   |-- common/
 |   `-- system/
 |-- assets/
-|   |-- backgrounds/
-|   |-- characters/
-|   |-- portraits/
-|   |-- cg/
-|   |-- ui/
-|   |-- fonts/
-|   `-- audio/{bgm,sfx,voices}
+|   `-- demo/
+|       |-- backgrounds/{game,menu}.png
+|       |-- characters/lavender/*
+|       `-- audio/*
 |-- save/
 |-- .gitignore      (if Git init is enabled)
 |-- .gitattributes  (if Git is enabled)
@@ -237,24 +240,39 @@ This manifest is used by editor project-run workflow.
 
 ### Prologue script
 
-By default, wizard creates a richer sample prologue demonstrating:
-- labels and branching
-- variable set/inc
-- condition-gated choices
-- transitions and screen effects
-- text effects and interpolation
+The Starter Story opens with **The First Page**, a short scene with Lavender in a sketchbook studio.
+It is designed to be played once and then edited immediately. It demonstrates:
+
+- a shared character definition file with layered `@charpreset` expressions;
+- named `@position` staging, dialogue modes, pacing, and transitions;
+- choices, labels, variables, and local jumps;
+- cross-file `[goto Scenario:label]` routing;
+- a real `[jes push ... label ... with ...]` round trip.
 
 Path:
 - `scripts/story/prologue.vns`
 
 ### Bundled demo assets
 
-Wizard also copies demo-ready starter assets so first run is visually complete:
+Wizard packages and copies demo-ready starter assets so installed-editor builds and source checkouts
+produce the same playable result:
+
 - layered character sprites: `assets/demo/characters/lavender/*`
-- background images: `assets/demo/backgrounds/field/*`
-- sample BGM/SFX used by starter script and menu defaults
+- monochrome sketch backgrounds: `assets/demo/backgrounds/game.png` and `menu.png`
+- sample BGM plus its license document under `assets/demo/audio/`
 
 Default main-menu style points to the bundled background asset so new projects do not boot into an empty-color title screen.
+
+### Tutorial workspace
+
+The Tutorial Workspace adds 17 runnable VNS lessons under `scripts/tutorial/`. Each generated lesson
+is rendered from the same templates tested in the editor build, then parsed by the runtime VNS parser.
+The final lesson uses the current VNS/JES bridge rather than treating inline Java as the primary
+extension path. The bundled `studio_tour.jes` fixture is also loaded through `JesLoader` in tests.
+
+Tutorials are working scripts, but they are also source examples: keep the editor and running game
+side by side, change one command, and rerun. Start at `scripts/story/tutorial_hub.vns`, or run an
+individual lesson directly while focusing on one subsystem.
 
 ### Timeline starter
 
@@ -282,8 +300,9 @@ When enabled, creates:
 2. Edit `scripts/story/prologue.vns`.
 3. Tune `config/ui/dialogue.layout` in visual dialogue editor.
 4. Customize `config/menu/menus/*.menu` and `config/menu/layouts/*.layout`.
-5. Add/replace assets under `assets/` (you can keep or remove `assets/demo`).
-6. Run from project explorer root `Run` button.
+5. Open `scripts/scenes/studio_tour.jes`, change its label or timeline duration, and launch it from the prologue.
+6. Add or replace assets under `assets/` (you can keep or remove `assets/demo`).
+7. Run from the project explorer root **Run** button.
 
 ## Team Usage Notes
 

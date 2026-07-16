@@ -60,12 +60,12 @@ Lavender: Engine systems — transitions, audio, state, movement, branching, and
 @label topics_page_3
 [show lavender far_left talking]
 [wait 120]
-Lavender: Production — camera work, localization, UI customization, embedded Java, and shipping.
+Lavender: Production — camera work, localization, UI customization, hybrid scenes, and shipping.
 > 13. Camera and Staging — [camera pan], [camera zoom], blocking -> open_camera
 > 14. Localization — text keys, locale files, translation workflow -> open_localization
 > 15. UI Layout and Theme — dialogue box, menu files, style properties -> open_ui_layout
 > 16. Testing and Release — validation, playtesting, release checklist -> open_testing_release
-> 17. Inline Java in VNS — $ shorthand, [java], @bind, helper classes -> open_inline_java
+> 17. VNS and JES Together — scene push, parameters, and return flow -> open_vns_jes
 > ← Back -> topics_page_1
 > ← Systems -> topics_page_2
 > I'm done for now -> end_early
@@ -118,8 +118,8 @@ Lavender: Production — camera work, localization, UI customization, embedded J
 @label open_testing_release
 [goto {{TESTING_RELEASE_TARGET}}:start]
 
-@label open_inline_java
-[goto {{INLINE_JAVA_TARGET}}:start]
+@label open_vns_jes
+[goto {{VNS_JES_TARGET}}:start]
 
 @label end_early
 [show lavender center talking]
