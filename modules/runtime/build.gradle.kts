@@ -5,6 +5,7 @@ plugins {
 
 dependencies {
   implementation(project(":core"))
+  implementation(project(":plugin-runtime"))
   implementation(project(":fx"))
   implementation(project(":scripting"))
   implementation(project(":audio"))

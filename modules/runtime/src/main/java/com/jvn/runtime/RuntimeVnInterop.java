@@ -47,18 +47,26 @@ import com.jvn.core.vn.VnEntryScriptResolver;
 import com.jvn.core.vn.VnTimelineAccessorProvider;
 import com.jvn.scripting.jes.JesLoader;
 import com.jvn.scripting.jes.runtime.JesScene2D;
+import com.jvn.plugin.api.PluginRegistries;
+import com.jvn.plugin.api.script.ScriptCommandInvocation;
 
 public class RuntimeVnInterop implements VnInterop, VnTimelineAccessorProvider {
   private static final Logger log = LoggerFactory.getLogger(RuntimeVnInterop.class);
   private static final String DEFAULT_ENTRY_SCRIPT = "story/prologue.vns";
   private final Engine engine;
+  private final PluginRegistries pluginRegistries;
   private final DefaultVnInterop base = new DefaultVnInterop();
   private final VnScenarioLoader scenarioLoader = new VnScenarioLoader();
   private final VnCharacterSceneAccessor timelineAccessor = new VnCharacterSceneAccessor();
   private final java.util.Map<String, VnCharacterProxyEntity> vnCharacterProxies = new java.util.HashMap<>();
 
   public RuntimeVnInterop(Engine engine) {
+    this(engine, null);
+  }
+
+  public RuntimeVnInterop(Engine engine, PluginRegistries pluginRegistries) {
     this.engine = engine;
+    this.pluginRegistries = pluginRegistries;
     configureDefaultSceneAccessor();
   }
 
@@ -528,8 +536,36 @@ public class RuntimeVnInterop implements VnInterop, VnTimelineAccessorProvider {
         return handlePhone(payload, scene);
       case "vns":
         return handleVns(payload, scene);
+      case "plugin":
+        return handlePlugin(payload, scene);
       default:
         return base.handle(command, scene);
+    }
+  }
+
+  private VnInteropResult handlePlugin(String payload, VnScene scene) {
+    if (pluginRegistries == null) return VnInteropResult.advance();
+    String[] tokens = split(payload);
+    if (tokens.length == 0) return VnInteropResult.advance();
+    var command = pluginRegistries.scriptCommands().find(tokens[0]);
+    if (command.isEmpty()) {
+      log.warn("Unknown plugin script command: {}", tokens[0]);
+      return VnInteropResult.advance();
+    }
+    try {
+      List<String> arguments = tokens.length <= 1 ? List.of() : List.of(tokens).subList(1, tokens.length);
+      Map<String, Object> variables = scene == null || scene.getState() == null
+          ? Map.of() : scene.getState().getVariables();
+      var result = command.get().execute(new ScriptCommandInvocation(
+          "vns", tokens[0], arguments, variables,
+          System.getProperty("jvn.assets.root") == null ? null : java.nio.file.Path.of(System.getProperty("jvn.assets.root"))));
+      if (scene != null && scene.getState() != null) {
+        result.variables().forEach((key, value) -> scene.getState().setVariable(key, value));
+      }
+      return VnInteropResult.advance();
+    } catch (Exception error) {
+      reportInteropFailure(scene, "plugin", payload, error);
+      return VnInteropResult.advance();
     }
   }
 

@@ -176,6 +176,8 @@ val jvnGameTargets = listOf(
 )
 val jvnGameRuntimeProjectPaths = listOf(
   ":core",
+  ":plugin-api",
+  ":plugin-runtime",
   ":fx",
   ":audio",
   ":scripting",

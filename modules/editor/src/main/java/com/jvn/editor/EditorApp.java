@@ -315,6 +315,8 @@ public class EditorApp extends Application {
   private GameBuildPublisherView gameBuildPublisherView;
   private DeveloperLogPanel developerLogPanel;
   private List<EditorWorkspaceHubView.SetupIssue> startupSetupIssues = List.of();
+  private com.jvn.plugin.runtime.PluginHost pluginHost;
+  private Menu pluginToolsMenu;
 
   public static void main(String[] args) {
     launch(args);
@@ -465,6 +467,7 @@ public class EditorApp extends Application {
     if (dir == null || !dir.exists() || !dir.isDirectory()) return;
     stopAllPreviewAudio();
     this.projectRoot = dir;
+    reloadPlugins(dir);
     this.developerDiagnosticsLogFile = null;
     this.lastDeveloperDiagnosticWriteNs = -1L;
     Properties mf = loadManifest(dir);
@@ -475,6 +478,49 @@ public class EditorApp extends Application {
     }
     refreshDeveloperLogs();
     refreshMainCommandUi.run();
+  }
+
+  private void reloadPlugins(File project) {
+    if (pluginHost != null) pluginHost.close();
+    pluginHost = com.jvn.plugin.runtime.PluginHost.builder(com.jvn.plugin.api.PluginEnvironment.EDITOR)
+        .jvnVersion(System.getProperty("jvn.version", "dev"))
+        .projectDirectory(project == null ? null : project.toPath())
+        .build();
+    pluginHost.discoverAndStart();
+    refreshPluginToolsMenu();
+  }
+
+  private void refreshPluginToolsMenu() {
+    if (pluginToolsMenu == null) return;
+    pluginToolsMenu.getItems().clear();
+    if (pluginHost == null || pluginHost.registries().editorTools().entries().isEmpty()) {
+      MenuItem empty = new MenuItem("No plugin tools installed");
+      empty.setDisable(true);
+      pluginToolsMenu.getItems().add(empty);
+      return;
+    }
+    for (var entry : pluginHost.registries().editorTools().entries()) {
+      var tool = entry.extension();
+      MenuItem item = new MenuItem(tool.label());
+      item.setOnAction(event -> {
+        try {
+          Map<String, Object> services = new LinkedHashMap<>();
+          Window owner = dialogOwner();
+          if (owner != null) services.put("window", owner);
+          tool.open(new com.jvn.plugin.api.editor.EditorToolContext(
+              projectRoot == null ? null : projectRoot.toPath(), services));
+        } catch (Exception error) {
+          EditorDialogs.error(dialogOwner(), "Plugin tool", "Could not open " + tool.label(), error,
+              "Review the plugin log and API compatibility information.");
+        }
+      });
+      pluginToolsMenu.getItems().add(item);
+    }
+  }
+
+  @Override
+  public void stop() {
+    if (pluginHost != null) pluginHost.close();
   }
 
   private Properties loadManifest(File dir) {
@@ -1412,6 +1458,7 @@ public class EditorApp extends Application {
     layoutStudioWindowManager = new LayoutStudioWindowManager(primaryStage, this::doRunProject);
     BorderPane root = new BorderPane();
     AppBuildInfo.BuildInfo buildInfo = AppBuildInfo.resolve(EditorApp.class);
+    reloadPlugins(projectRoot);
 
     // Menu
     MenuBar mb = new MenuBar();
@@ -1988,6 +2035,8 @@ public class EditorApp extends Application {
 
     // ── Tools ──
     Menu menuTools = new Menu("Tools");
+    pluginToolsMenu = new Menu("Plugins");
+    refreshPluginToolsMenu();
     MenuItem miActionEditor = new MenuItem("Puppeteer (Window)");
     miActionEditor.setOnAction(e -> openActionEditor());
     miActionEditor.setAccelerator(new KeyCodeCombination(KeyCode.A, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
@@ -2035,7 +2084,8 @@ public class EditorApp extends Application {
     menuImageTools.getItems().addAll(miToolAssets, miLayeredVisualizer, miImageAttributes, miImageTint);
     Menu menuWorkspaceTools = new Menu("Workspace");
     menuWorkspaceTools.getItems().addAll(miToolInspector, miToolVersionControl, miToolEditorSettings);
-    menuTools.getItems().addAll(menuAnimationTools, menuScriptTools, menuLayoutTools, menuImageTools, menuWorkspaceTools);
+    menuTools.getItems().addAll(menuAnimationTools, menuScriptTools, menuLayoutTools, menuImageTools,
+        menuWorkspaceTools, new SeparatorMenuItem(), pluginToolsMenu);
 
     // ── Version Control ──
     Menu menuVcs = new Menu("Version Control");

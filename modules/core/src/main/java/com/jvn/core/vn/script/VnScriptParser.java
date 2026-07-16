@@ -1038,6 +1038,11 @@ public class VnScriptParser {
         state.builder.external("eval", payload);
         return;
       }
+      case "plugin": {
+        String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
+        state.builder.external("plugin", payload);
+        return;
+      }
       case "bgm": {
         String payload = requireArg(arg, cmd, sourceName, lineNumber, rawLine);
         String[] toks = VnArgTokenizer.tokenizeToArray(payload);

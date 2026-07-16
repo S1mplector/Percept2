@@ -24,6 +24,7 @@ when editing docs in this repository. It is organized by task first, then by sub
 | Build menus and layouts | [Menu Profiles Overview](scripting/ui/menus/menu-profiles.md) |
 | Deploy to mobile/web | [Platform Runtimes](runtime/platforms/README.md) |
 | Package a game | [Build And Release Docs](project-setup/release/README.md) |
+| Build a JVN plugin | [Plugin Authoring](plugins/authoring.md) |
 
 ## Directory Map
 
@@ -33,6 +34,7 @@ when editing docs in this repository. It is organized by task first, then by sub
 | [`editor/`](editor/README.md) | Engine Hub, editor windows, settings, Puppeteer, sidebars, and editor-owned file formats |
 | [`guides/`](guides/README.md) | Onboarding, by-example tutorials, cookbooks, integration recipes, and file-type orientation |
 | [`project-setup/`](project-setup/README.md) | Project creation, content setup, collaboration, build, release, and deployment |
+| [`plugins/`](plugins/README.md) | Plugin authoring, manifests, extension points, lifecycle, packaging, and compatibility |
 | [`runtime/`](runtime/README.md) | Runtime behavior, interop, save/load, audio, asset resolution, and platform backends |
 | [`scripting/`](scripting/README.md) | VNS, JES, contracts, timelines, menu profiles, layout DSL, and scripting internals |
 

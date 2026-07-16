@@ -2620,4 +2620,19 @@ public class VnScriptParserTest {
     assertEquals("assets/john/eyes_02.png", john.getLayerPath("eyes_02"));
     assertTrue(john.getLayerIds().contains("eyes_01"));
   }
+
+  @Test
+  public void pluginCommandParsesAsPluginInterop() throws Exception {
+    VnScenario scenario = new VnScriptParser().parseFromString("""
+      @label start
+      [plugin studio.inventory.grant key 1]
+      [end]
+    """);
+    VnExternalCommand command = scenario.getNodes().stream()
+        .filter(node -> node.getType() == VnNodeType.EXTERNAL)
+        .map(VnNode::getExternalCommand)
+        .findFirst().orElseThrow();
+    assertEquals("plugin", command.getProvider());
+    assertEquals("studio.inventory.grant key 1", command.getPayload());
+  }
 }
