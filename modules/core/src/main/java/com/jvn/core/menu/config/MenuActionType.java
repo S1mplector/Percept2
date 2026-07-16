@@ -1,5 +1,7 @@
 package com.jvn.core.menu.config;
 
+import java.util.Set;
+
 public enum MenuActionType {
   NEW_GAME,
   LOAD_MENU,
@@ -13,6 +15,24 @@ public enum MenuActionType {
   GALLERY,
   MUSIC_ROOM,
   NOOP;
+
+  private static final Set<String> ACCEPTED_TOKENS = Set.of(
+      "new", "new_game", "start", "start_game",
+      "load", "load_menu", "continue",
+      "save", "save_menu",
+      "settings", "settings_menu", "options",
+      "main", "main_menu", "title", "title_menu",
+      "open_menu", "submenu", "menu",
+      "run_script", "script", "start_script", "play_script",
+      "back", "return", "quit", "exit",
+      "gallery", "cg", "cg_gallery",
+      "music", "music_room", "sound_room", "jukebox",
+      "noop", "no_op", "none");
+
+  /** Every canonical token and alias accepted by {@link #parse(String)}. */
+  public static Set<String> acceptedTokens() {
+    return ACCEPTED_TOKENS;
+  }
 
   public static MenuActionType parse(String raw) {
     if (raw == null || raw.isBlank()) return NOOP;

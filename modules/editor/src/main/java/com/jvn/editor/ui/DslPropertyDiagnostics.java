@@ -1,7 +1,6 @@
 package com.jvn.editor.ui;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -411,8 +410,7 @@ public final class DslPropertyDiagnostics {
       if (type == null) continue;
       out.add(type.name().toLowerCase(Locale.ROOT));
     }
-    // Common aliases used by authored menu files.
-    out.addAll(Arrays.asList("noop", "no_op", "none"));
+    out.addAll(MenuActionType.acceptedTokens());
     return out;
   }
 

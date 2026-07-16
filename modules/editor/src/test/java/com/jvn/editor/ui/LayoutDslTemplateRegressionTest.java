@@ -121,6 +121,20 @@ class LayoutDslTemplateRegressionTest {
     assertEquals("1", source.getProperty("choiceBorderWidth"));
   }
 
+  @Test
+  void minimalMonochromeMenuTemplatesFormACoherentPreset() throws Exception {
+    Properties layout = parseProperties(LayoutDslTemplates.minimalMonochromeMenuLayoutTemplate());
+    Properties style = parseProperties(
+        LayoutDslTemplates.minimalMonochromeMenuStyleTemplate("assets/demo/backgrounds/menu.png"));
+
+    assertEquals("0.78", layout.getProperty("listXCenter"));
+    assertEquals("0.32", layout.getProperty("listWidthFactor"));
+    assertEquals("left", layout.getProperty("textAlign"));
+    assertEquals("#000000", style.getProperty("itemSelectedColor"));
+    assertEquals("NORMAL", style.getProperty("itemFontWeight"));
+    assertEquals("assets/demo/backgrounds/menu.png", style.getProperty("backgroundAsset"));
+  }
+
   private static void assertSnapshot(String actual, String snapshotPath) throws Exception {
     String expected = readResource(snapshotPath);
     assertEquals(normalizeNewlines(expected), normalizeNewlines(actual), "Template snapshot drifted: " + snapshotPath);

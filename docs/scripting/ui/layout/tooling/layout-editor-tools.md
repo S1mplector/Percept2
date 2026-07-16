@@ -6,7 +6,10 @@ Complete guide to the JVN editor's layout-related visual tools — Layout Studio
 
 ## Overview
 
-The JVN editor provides several visual tools that complement the text-first layout workflow. These tools are **secondary** to direct text editing — they exist for quick orientation, visual verification, and specialized tasks like button placement. Layout Studio opens in code mode by default; the visual preview is an optional toggle.
+The JVN editor provides code and visual surfaces over the same runtime DSL files. Direct text editing
+is efficient for exact values and reviewable diffs; visual editing is the primary surface for bounds,
+dragging, colors, assets, and combined previews. Layout Studio opens in code mode and can switch to
+visual or split mode without introducing an editor-only format.
 
 ---
 
@@ -36,11 +39,11 @@ The visual preview is an **optional toggle**, not the primary editing surface. I
 - Color fills and font rendering
 - Dynamic item count preview
 
-**What the preview does NOT show:**
-- Actual runtime behavior (actions, navigation)
-- Real font rendering (may differ from runtime)
-- Asset image loading (uses placeholder rendering)
-- Input handling or animation
+**What still requires runtime validation:**
+- Actions, navigation, and input behavior
+- Platform font availability and final rasterization
+- Animation and transition timing
+- Responsive behavior at every supported resolution
 
 **When to use the preview:**
 - Quick sanity check of position/size changes
@@ -74,13 +77,14 @@ Visual editor for `config/ui/dialogue.layout`. Provides collapsible sections for
 - **Ctrl+Z / Ctrl+Y** undo/redo across all fields
 - **Dynamic choice count** preview (adjust how many sample choices are shown)
 - **Bounds Studio** button for textbox action button placement
+- **Undoable presets** for Standard VN and Minimal Monochrome layouts
+- **Runtime VN preview** using the current unsaved editor state
 
-### Text-First Usage
+### Authoring Usage
 
-Edit the properties file directly and use this editor only to:
-1. Verify your changes visually before running
-2. Use the ColorPicker to find hex values for colors
-3. Use Bounds Studio for textbox button placement (hard to do by hand)
+Use code mode for exact values and visual mode for composition. Presets are complete starting points
+and replace the current layout, but the operation is undoable. Runtime preview is the final check for
+text flow and presentation behavior.
 
 ---
 
@@ -119,12 +123,13 @@ Visual editor for `.layout` files.
 - **Fixed title width** display
 - **Live preview** canvas showing approximate layout at current values
 - **Ctrl+Z / Ctrl+Y** undo/redo
+- **Standard and Minimal Right-Side presets** for a fast, undoable starting point
 
-### Text-First Usage
+### Authoring Usage
 
-The `.layout` file has only 6 keys. It's faster to type them directly. Use this editor to:
-1. Visualize the effect of `listYStart` and `lineHeight` combinations
-2. Compare different `listWidthFactor` values at a glance
+Use the layout editor when the relationship between title, list, hints, width, alignment, and
+scrolling matters more than any single value. Dragging the title or list updates the same properties
+that code mode exposes, and custom properties remain available for compatible extensions.
 
 ---
 
@@ -141,12 +146,12 @@ Visual editor for `.style` files.
 - **Shadow offset** fields
 - **Opacity slider**
 - **Ctrl+Z / Ctrl+Y** undo/redo
+- **Standard and Minimal Monochrome presets** that retain the current background asset
 
-### Text-First Usage
+### Authoring Usage
 
-Use this editor to:
-1. Pick colors with the visual ColorPicker (copy the hex value to your text file)
-2. Preview font/color combinations before running
+Use this editor to compare state colors, typography, shadows, opacity, and button textures together.
+Asset paths support project browsing and the preview loads supported images from the project.
 
 ---
 
@@ -203,11 +208,10 @@ A panel in the Layout Launcher sidebar for editing `menu.registry` directly.
 - **Open File** button — opens the registry file in the code editor
 - **Validation** — highlights issues (missing files, unregistered screens)
 
-### Text-First Usage
+### Authoring Usage
 
-The registry file has only 4 keys. Editing it directly in a text editor is usually faster. Use this panel to:
-1. See the current registry state at a glance
-2. Quickly add an ID without switching files
+Use this panel to see discovery and wiring as a system rather than four isolated lists. The source
+file remains directly editable through **Open File**.
 
 ---
 
@@ -230,9 +234,9 @@ The Layout Launcher sidebar shows cards for each menu screen, layout, and style 
 - Screen not registered in menu.registry
 - Screen registered but file doesn't exist
 
-### Text-First Usage
+### Authoring Usage
 
-Screen cards are a read-only dashboard. Use them to:
+Screen cards are an authoring dashboard. Use them to:
 1. See the overall menu structure at a glance
 2. Spot wiring issues (orange warnings)
 3. Use Quick-assign to change layout/style references without switching files
@@ -250,9 +254,10 @@ A combined editor view that shows the menu screen, its layout, and its style tog
 - **Tab navigation** between Screen, Layout, and Style sub-editors
 - **Project root propagation** — all sub-editors share the same project context
 
-### Text-First Usage
+### Authoring Usage
 
-Mostly useful for orientation — seeing how screen, layout, and style combine. The individual text files remain the editing surface.
+Use this workspace when a change spans content, geometry, and presentation. Each tab writes its
+corresponding source file; the combined preview shows their interaction before runtime validation.
 
 ---
 
@@ -266,7 +271,7 @@ Mostly useful for orientation — seeing how screen, layout, and style combine. 
 | "Are bounds positioned right?" | Bounds Studio (approximate), then runtime (authoritative) |
 | "Does navigation work?" | The runtime only |
 | "Is the font correct?" | The runtime only |
-| "Are assets loading?" | The runtime only |
+| "Are asset paths and images loading?" | Visual preview, then runtime for final verification |
 
 ---
 

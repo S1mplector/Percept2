@@ -100,22 +100,22 @@ public class LayoutEditorLauncherView extends BorderPane {
     Label title = new Label("Layout Editors");
     title.getStyleClass().addAll("layout-launcher-title", "sidebar-tool-title");
     HBox titleRow = new HBox(6, title, SidebarToolHelp.button(this, "Layout Editors", """
-        The Layout Editors panel manages dialogue box and UI layout files for \
-your project.
+        Layout Editors is the authoring hub for JVN's in-game interface DSLs.
 
-Layout files (*.jvl) define the visual style and positioning of text \
-containers, speaker name boxes, and other on-screen UI elements shown during \
-gameplay.
+The project uses five source-controlled property formats:
+  • config/ui/dialogue.layout for dialogue, choices, NVL, and bubbles
+  • config/menu/menus/*.menu for screens, items, and actions
+  • config/menu/layouts/*.layout for menu geometry
+  • config/menu/styles/*.style for typography, colors, and assets
+  • config/menu/registry/menu.registry for discovery and wiring
 
-From this panel you can:
-  • Browse all layout files discovered in the project
-  • Open a layout in the WYSIWYG Layout Editor for visual editing
-  • Create a new blank layout from the template
-  • Wire a layout to a script channel so it applies during dialogue
+From this panel you can browse and create files, open Layout Studio, clone
+menu components, edit registry membership, assign layouts and styles to
+screens, and see cross-file warnings for missing references or targets.
 
-Each layout card shows the file name, the channel it's assigned to, and \
-quick action buttons to open or rewire it. Use the filter bar to search \
-across large projects."""));
+Visual editors write the same text DSL consumed by the runtime. Use their
+preview and diagnostics while authoring, then use Save + Run Runtime for the
+final behavior and navigation check."""));
     titleRow.setAlignment(Pos.CENTER_LEFT);
 
     filterField.setPromptText("Filter layout files...");

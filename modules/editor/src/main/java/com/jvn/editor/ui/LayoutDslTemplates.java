@@ -265,6 +265,25 @@ titleY=0.16
     );
   }
 
+  /** Restrained right-side menu composition for sketch and editorial themes. */
+  public static String minimalMonochromeMenuLayoutTemplate() {
+    return """
+# Minimal monochrome menu layout
+listYStart=0.40
+lineHeight=52
+listWidthFactor=0.32
+listXCenter=0.78
+textAlign=left
+titleAlign=left
+titleY=0.18
+titleX=0.62
+subtitleGap=12
+hintsBottomMargin=28
+hintsAlign=right
+hintsX=0.94
+""";
+  }
+
   public static String defaultMenuStyleTemplate(MenuStyleSpec style) {
     MenuStyleSpec s = style == null ? MenuProfile.defaultStyle() : style;
     return """
@@ -473,6 +492,42 @@ buttonTextPaddingY=2
 # buttonSelectedAsset=assets/ui/menu/button_selected.png
 # buttonHoverAsset=assets/ui/menu/button_hover.png
 # buttonDisabledAsset=assets/ui/menu/button_disabled.png
+""".formatted(bg);
+  }
+
+  /** Minimal black-and-white menu style with no ornamental button chrome. */
+  public static String minimalMonochromeMenuStyleTemplate(String backgroundAsset) {
+    String bg = backgroundAsset == null ? "" : backgroundAsset;
+    return """
+# Minimal monochrome menu style
+itemColor=#333333
+itemSelectedColor=#000000
+itemHoverColor=#111111
+itemDisabledColor=#999999
+itemPrefix=
+itemSelectedPrefix=—\s
+itemDisabledPrefix=
+itemFontFamily=SansSerif
+itemFontWeight=NORMAL
+itemFontSize=24
+itemShadowColor=#FFFFFFB8
+itemShadowOffsetX=1
+itemShadowOffsetY=1
+itemOpacity=1.0
+buttonTextPaddingX=12
+buttonTextPaddingY=1
+titleColor=#111111
+titleFontFamily=SansSerif
+titleFontWeight=BOLD
+titleFontSize=44
+titleShadowColor=#FFFFFFB8
+hintsColor=#555555
+hintsFontFamily=SansSerif
+hintsFontWeight=NORMAL
+hintsFontSize=14
+backgroundAsset=%s
+backgroundColor=#FAFAFA
+backgroundOpacity=1.0
 """.formatted(bg);
   }
 

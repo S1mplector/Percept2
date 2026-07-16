@@ -291,6 +291,11 @@ choice rows are aligned to the right of the viewport, leaving the left staging a
 Lavender. Thin black borders and restrained hover and selection colors replace the generic blue
 full-width presentation. Selecting another theme retains the general-purpose dialogue preset.
 
+The same theme also writes a coordinated minimal menu layout and style: the menu list occupies a
+compact right-side column, typography uses neutral black and gray states, and button chrome is
+removed. These presets remain available from the dialogue, menu-layout, and menu-style visual
+editors and can be applied or undone while authoring.
+
 ### Menu profile starter
 
 When enabled, creates:

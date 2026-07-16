@@ -210,6 +210,16 @@ public class MenuLayoutVisualEditor extends BorderPane {
     spTitleY.setDisable(true);
 
     int row = 0;
+    ChoiceBox<String> preset = new ChoiceBox<>();
+    preset.getItems().setAll("Standard", "Minimal Right-Side");
+    preset.setValue("Standard");
+    Button applyPreset = new Button("Apply");
+    applyPreset.setTooltip(new Tooltip("Replace the current menu geometry with this preset. This action can be undone."));
+    applyPreset.setOnAction(e -> applyLayoutPreset(preset.getValue()));
+    HBox presetRow = new HBox(6, preset, applyPreset);
+    presetRow.setAlignment(Pos.CENTER_LEFT);
+    HBox.setHgrow(preset, Priority.ALWAYS);
+    row = addRow(grid, row, "Layout Preset", presetRow);
     row = addRow(grid, row, "List Y Start", spListYStart);
     row = addRow(grid, row, "Line Height", spLineHeight);
     row = addRow(grid, row, "List Width Factor", spListWidthFactor);
@@ -290,6 +300,22 @@ public class MenuLayoutVisualEditor extends BorderPane {
     VBox wrapper = new VBox(8, grid, customSection);
     wrapper.setPadding(new Insets(0));
     return wrapper;
+  }
+
+  private void applyLayoutPreset(String presetName) {
+    String preset = "Minimal Right-Side".equals(presetName)
+        ? LayoutDslTemplates.minimalMonochromeMenuLayoutTemplate()
+        : LayoutDslTemplates.defaultMenuLayoutTemplate(MenuLayoutSpecDefaults.DEFAULT);
+    applyingHistory = true;
+    try {
+      setLayoutText(preset);
+    } finally {
+      applyingHistory = false;
+    }
+    String serialized = getLayoutText();
+    undoManager.captureState(serialized);
+    lastEmittedText = normalizeText(serialized);
+    if (onLayoutTextChanged != null) onLayoutTextChanged.accept(serialized);
   }
 
   @SuppressWarnings("unchecked")

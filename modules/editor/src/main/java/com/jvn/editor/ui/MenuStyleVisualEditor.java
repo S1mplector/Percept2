@@ -326,6 +326,17 @@ public class MenuStyleVisualEditor extends BorderPane {
     grid.setPadding(new Insets(8));
 
     int row = 0;
+    ComboBox<String> preset = new ComboBox<>();
+    preset.getItems().setAll("Standard", "Minimal Monochrome");
+    preset.setValue("Standard");
+    preset.setMaxWidth(Double.MAX_VALUE);
+    Button applyPreset = new Button("Apply");
+    applyPreset.setTooltip(new Tooltip("Replace the current menu style with this preset while retaining its background asset. This action can be undone."));
+    applyPreset.setOnAction(e -> applyStylePreset(preset.getValue()));
+    HBox presetRow = new HBox(6, preset, applyPreset);
+    presetRow.setAlignment(Pos.CENTER_LEFT);
+    HBox.setHgrow(preset, Priority.ALWAYS);
+    row = addRow(grid, row, "Style Preset", presetRow);
     row = addHeader(grid, row, "Text Style");
     row = addRow(grid, row, "Item Color", ColorFieldHelper.create(tfItemColor));
     row = addRow(grid, row, "Selected Color", ColorFieldHelper.create(tfItemSelectedColor));
@@ -393,6 +404,23 @@ public class MenuStyleVisualEditor extends BorderPane {
     UndoManager.installKeyboardShortcuts(this, this::performUndo, this::performRedo);
 
     return grid;
+  }
+
+  private void applyStylePreset(String presetName) {
+    String background = normalize(tfBackgroundAsset.getText(), "");
+    String preset = "Minimal Monochrome".equals(presetName)
+        ? LayoutDslTemplates.minimalMonochromeMenuStyleTemplate(background)
+        : LayoutDslTemplates.defaultMenuStyleFullTemplate(background);
+    applyingHistory = true;
+    try {
+      setStyleText(preset);
+    } finally {
+      applyingHistory = false;
+    }
+    String serialized = getStyleText();
+    undoManager.captureState(serialized);
+    lastEmittedText = normalizeText(serialized);
+    if (onStyleTextChanged != null) onStyleTextChanged.accept(serialized);
   }
 
   @SuppressWarnings("unchecked")

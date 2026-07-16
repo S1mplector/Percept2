@@ -115,6 +115,20 @@ class DslPropertyDiagnosticsTest {
   }
 
   @Test
+  void menuScreenRuntimeActionAliasesProduceNoDiagnostics() {
+    String text = """
+        titleText=Test
+        items=start,continue,options,exit
+        item.start.action=start
+        item.continue.action=continue
+        item.options.action=options
+        item.exit.action=exit
+        """;
+    List<String> issues = DslPropertyDiagnostics.menuScreenIssues(text, SCREEN_TOP, SCREEN_ITEM);
+    assertTrue(issues.isEmpty(), () -> "Runtime action aliases should be editor-valid but got: " + issues);
+  }
+
+  @Test
   void settingsMenuTemplateProducesNoDiagnostics() {
     String template = LayoutDslTemplates.defaultSettingsMenuTemplate();
     List<String> issues = DslPropertyDiagnostics.menuScreenIssues(template, SCREEN_TOP, SCREEN_ITEM);

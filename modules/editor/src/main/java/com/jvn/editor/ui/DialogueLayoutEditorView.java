@@ -481,8 +481,20 @@ public class DialogueLayoutEditorView extends BorderPane {
     spChoiceTextYAlign.setTooltip(new Tooltip("Vertical align inside the padded choice button. Set to -1 to keep legacy baseline mode."));
     spChoiceYAnchor.setTooltip(new Tooltip("Anchor for Choice Y Start. 0 pins the top; 0.5 matches Ren'Py vbox yanchor center behavior."));
 
+    ComboBox<String> cbPreset = new ComboBox<>();
+    cbPreset.getItems().setAll("Standard VN", "Minimal Monochrome");
+    cbPreset.setValue("Standard VN");
+    cbPreset.setMaxWidth(Double.MAX_VALUE);
+    Button applyPreset = new Button("Apply");
+    applyPreset.setTooltip(new Tooltip("Replace the current dialogue layout with this preset. This action can be undone."));
+    applyPreset.setOnAction(e -> applyDialoguePreset(cbPreset.getValue()));
+    HBox presetRow = new HBox(6, cbPreset, applyPreset);
+    presetRow.setAlignment(Pos.CENTER_LEFT);
+    HBox.setHgrow(cbPreset, Priority.ALWAYS);
+
     GridPane previewGrid = sectionGrid();
     int row = 0;
+    row = addRow(previewGrid, row, "Layout Preset", presetRow);
     row = addRow(previewGrid, row, "Preview Mode", cbPreviewMode);
     row = addRow(previewGrid, row, "Bubble Anchor", cbBubblePreviewAnchor);
     TitledPane tpPreview = collapsibleSection("Presentation Preview", previewGrid, true);
@@ -690,6 +702,22 @@ public class DialogueLayoutEditorView extends BorderPane {
     updatePreviewModeControls();
 
     return sections;
+  }
+
+  private void applyDialoguePreset(String presetName) {
+    String preset = "Minimal Monochrome".equals(presetName)
+        ? LayoutDslTemplates.minimalMonochromeDialogueLayoutTemplate()
+        : LayoutDslTemplates.defaultDialogueLayoutTemplate();
+    applyingHistory = true;
+    try {
+      setLayoutText(preset);
+    } finally {
+      applyingHistory = false;
+    }
+    String serialized = getLayoutText();
+    undoManager.captureState(serialized);
+    lastEmittedText = normalizeText(serialized);
+    if (onLayoutTextChanged != null) onLayoutTextChanged.accept(serialized);
   }
 
   private static GridPane sectionGrid() {

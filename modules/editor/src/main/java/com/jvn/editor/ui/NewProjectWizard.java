@@ -2466,7 +2466,9 @@ public class NewProjectWizard extends Stage {
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_LAYOUT_DEFAULT_PATH))) {
-      fw.write(LayoutDslTemplates.defaultMenuLayoutTemplate(null));
+      fw.write("Monochrome Sketch".equals(cmbTheme.getValue())
+          ? LayoutDslTemplates.minimalMonochromeMenuLayoutTemplate()
+          : LayoutDslTemplates.defaultMenuLayoutTemplate(null));
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_LAYOUT_SUBMENU_PATH))) {
@@ -2482,18 +2484,9 @@ public class NewProjectWizard extends Stage {
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_STYLE_DEFAULT_PATH))) {
-      String style = LayoutDslTemplates.defaultMenuStyleFullTemplate(DEFAULT_MENU_BG_ASSET_PATH);
-      if ("Monochrome Sketch".equals(cmbTheme.getValue())) {
-        style = style
-            .replace("itemColor=#C8D6EC", "itemColor=#333333")
-            .replace("itemSelectedColor=#FFDFA0", "itemSelectedColor=#000000")
-            .replace("itemHoverColor=#E4EEFF", "itemHoverColor=#555555")
-            .replace("itemDisabledColor=#5C6B84", "itemDisabledColor=#999999")
-            .replace("titleColor=#EEF4FF", "titleColor=#111111")
-            .replace("hintsColor=#8898B8", "hintsColor=#666666")
-            .replace("backgroundColor=#060D1A", "backgroundColor=#FAFAFA");
-      }
-      fw.write(style);
+      fw.write("Monochrome Sketch".equals(cmbTheme.getValue())
+          ? LayoutDslTemplates.minimalMonochromeMenuStyleTemplate(DEFAULT_MENU_BG_ASSET_PATH)
+          : LayoutDslTemplates.defaultMenuStyleFullTemplate(DEFAULT_MENU_BG_ASSET_PATH));
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_STYLE_SUBMENU_PATH))) {
