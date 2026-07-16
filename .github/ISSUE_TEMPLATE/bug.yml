@@ -1,0 +1,56 @@
+name: Bug report
+description: Report reproducible incorrect behavior in JVN.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not report security vulnerabilities here. Follow SECURITY.md instead.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal reproduction
+      description: Include the smallest project, script, or sequence that reproduces the problem.
+      placeholder: |
+        1. Check out commit ...
+        2. Run ...
+        3. Open ...
+    validations:
+      required: true
+  - type: input
+    id: commit
+    attributes:
+      label: JVN commit
+      placeholder: git rev-parse --short HEAD
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS/architecture, Java version, launch command, UI/audio backend, and relevant settings.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Logs and evidence
+      description: Paste concise logs or attach screenshots. Remove secrets and private project content.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I reproduced this on the current stable branch.
+          required: true
+        - label: I searched existing issues and pull requests.
+          required: true
+        - label: This is not a security vulnerability.
+          required: true

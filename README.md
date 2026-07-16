@@ -385,7 +385,24 @@ Engine modules live under `modules/`, while Gradle project names stay stable (`:
 - `modules/runtime`: CLI app (`JvnApp`), runtime interop bridge, scene wiring.
 - `modules/editor`: JavaFX authoring environment.
 - `modules/audio`: bundled Simp3-compatible audio integration layer.
+- `modules/plugin-api`: versioned public extension contracts.
+- `modules/plugin-runtime`: plugin discovery, lifecycle, registries, and diagnostics.
 - `modules/testkit`: shared testing dependencies/helpers.
+
+## Contributing
+
+Start with [CONTRIBUTING.md](CONTRIBUTING.md). It explains the `stable` branch model, module ownership,
+focused test commands, language-contract requirements, documentation workflow, and pull-request
+expectations.
+
+Run the same contributor verification used by the primary CI job before requesting review:
+
+```bash
+./scripts/verify-contribution.sh
+```
+
+Community expectations and private vulnerability reporting are documented in
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) and [SECURITY.md](SECURITY.md).
 
 ## Documentation Map
 
