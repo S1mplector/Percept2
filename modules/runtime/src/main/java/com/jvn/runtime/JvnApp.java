@@ -329,9 +329,7 @@ public class JvnApp {
     if (audio == null || assetRoot == null || assetRoot.isBlank()) return;
     try {
       File root = new File(assetRoot).getCanonicalFile();
-      audio.getClass().getMethod("setProjectRoot", File.class).invoke(audio, root);
-    } catch (NoSuchMethodException ignored) {
-      // Audio backend does not expose project root configuration.
+      audio.setProjectRoot(root);
     } catch (Exception ex) {
       log.debug("Could not set audio project root to {}", assetRoot, ex);
     }

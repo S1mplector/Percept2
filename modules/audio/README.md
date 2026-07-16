@@ -1,6 +1,6 @@
-# audio
+# Audio
 
-High-level audio playback module providing BGM, SFX, and voice channel management. Wraps third-party Java audio libraries behind the core audio abstractions.
+Production audio backend for JVN. It implements the core `AudioFacade` contract with hybrid codec selection, independent BGM/SFX/voice channels, bounded overlapping playback, crossfade and fade-out, spectrum data, observable state, and deterministic cleanup.
 
 ## Dependencies
 
@@ -11,14 +11,22 @@ High-level audio playback module providing BGM, SFX, and voice channel managemen
 - `mp3spi` — MP3 decoding
 - `jflac-codec` — FLAC decoding
 
-## Source Layout
+## Runtime behavior
 
-Audio playback is built on top of the `simp3` embedded player library (vendored under `simp3/`), providing format-agnostic streaming with crossfade, looping, and volume control.
+Audio playback is built on the embedded Simp3 library under `simp3/`. `Simp3AudioService` is the supported adapter; consumers should use `AudioFacade` instead of the embedded player API.
+
+- BGM: one track, looping, pause/resume, seek, fade-out, and crossfade
+- SFX: overlapping playback, limited to 32 live engines
+- Voice: dedicated gain and playback pool, limited to 8 live engines
+- Mixer: master gain, channel gains, and non-destructive mute
+- Operations: capability discovery, snapshots, lifecycle/error listeners, idempotent close
+
+Project-relative paths are configured through `AudioFacade.setProjectRoot(File)`. Packaged resources extracted for playback are deleted by `close()`.
 
 ## Build
 
 ```bash
-./gradlew :audio:build
+./gradlew :core:test :audio:test
 ```
 
 ## Documentation
