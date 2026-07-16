@@ -3,7 +3,7 @@ name: Documentation contract
 on:
   workflow_dispatch:
   pull_request:
-    branches: [stable, main]
+    branches: [stable]
     paths:
       - 'docs/**'
       - 'modules/**'
@@ -12,7 +12,7 @@ on:
       - 'scripts/doc-lint.mjs'
       - '.github/workflows/doc-lint.yml'
   push:
-    branches: [stable, main]
+    branches: [stable]
     paths:
       - 'docs/**'
       - 'modules/**'

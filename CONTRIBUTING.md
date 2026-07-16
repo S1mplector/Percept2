@@ -12,12 +12,11 @@ Thank you for improving JVN. Contributions are welcome across the engine, editor
 
 ## Repository model
 
-`stable` is the integration branch and the normal pull-request target. `main` may exist for compatibility or release administration, but contributor work should branch from the latest `stable` unless a maintainer says otherwise.
+`stable` is the default, integration, and release branch. New clones check it out automatically, and contributor pull requests should target it unless a maintainer says otherwise.
 
 ```bash
 git clone https://github.com/S1mplector/Java-Vector-Nexus.git
 cd Java-Vector-Nexus
-git switch stable
 git pull --ff-only
 git switch -c feat/short-description
 ./jvnw doctor

@@ -3,9 +3,9 @@ name: Contributor CI
 on:
   workflow_dispatch:
   pull_request:
-    branches: [stable, main]
+    branches: [stable]
   push:
-    branches: [stable, main]
+    branches: [stable]
 
 concurrency:
   group: contributor-ci-${{ github.workflow }}-${{ github.ref }}
