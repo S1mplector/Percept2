@@ -4,6 +4,7 @@ This changelog records changes to the VNS/JES scripting contract rather than gen
 
 ## Unreleased
 
+- **VNS, additive:** Added `[plugin <command-id> [arguments...]]` as the stable shorthand for commands registered through the JVN Plugin API. Parser, runtime interop, editor highlighting/help, parser tests, and authoring documentation define the same form.
 - Established Language Contract 1 as a version independent from the JVN engine version.
 - Defined the authority of normative specifications, guides, and implementation documentation.
 - Added compatibility, deprecation, diagnostic, and tooling-agreement policies.

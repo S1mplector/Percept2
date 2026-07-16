@@ -21,6 +21,8 @@ import com.jvn.runtime.hotreload.HotReloadServer;
 import com.jvn.core.audio.AudioFacade;
 import com.jvn.scripting.jes.JesLoader;
 import com.jvn.scripting.jes.runtime.JesScene2D;
+import com.jvn.plugin.api.PluginEnvironment;
+import com.jvn.plugin.runtime.PluginHost;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.io.ByteArrayInputStream;
@@ -229,6 +231,16 @@ public class JvnApp {
     }
     AssetCatalog.setDefaultManager(manager);
 
+    PluginHost pluginHost = PluginHost.builder(PluginEnvironment.RUNTIME)
+        .jvnVersion(System.getProperty("jvn.version", "dev"))
+        .projectDirectory(assetRootDir == null ? null : assetRootDir.toPath())
+        .build();
+    pluginHost.discoverAndStart();
+    Runtime.getRuntime().addShutdownHook(new Thread(pluginHost::close, "jvn-plugin-shutdown"));
+    if (!pluginHost.plugins().isEmpty()) {
+      log.info("Plugins -> discovered={}, diagnostics={}", pluginHost.plugins().size(), pluginHost.diagnostics().size());
+    }
+
     // Init localization after the asset manager is configured so project string
     // tables resolve through the same overlay as other runtime assets.
     Localization.init(locale, Thread.currentThread().getContextClassLoader());
@@ -272,7 +284,7 @@ public class JvnApp {
     Engine engine = new Engine(cfg);
     RuntimeVnInterop[] interopRef = new RuntimeVnInterop[1];
     engine.setVnInteropFactory(e -> {
-      interopRef[0] = new RuntimeVnInterop(e);
+      interopRef[0] = new RuntimeVnInterop(e, pluginHost.registries());
       return interopRef[0];
     });
     HotReloadServer.startIfEnabled(path -> {

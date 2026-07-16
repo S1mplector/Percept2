@@ -908,6 +908,16 @@ Calls an interop provider with a payload.
 [call hud Achievement unlocked!]
 ```
 
+### `[plugin <command-id> [arguments...]]`
+
+Invokes a command registered through the versioned JVN Plugin API. Command IDs are supplied by the plugin and should be namespaced.
+
+```vns
+[plugin studio.inventory.grant key 1]
+```
+
+The runtime reports unknown commands without terminating the scene. See [Plugin authoring](../../../plugins/authoring.md) for registration, packaging, and compatibility rules.
+
 ### `[jes <payload>]`
 
 JES scene interop (push/replace/pop/call).

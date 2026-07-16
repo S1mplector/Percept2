@@ -1,0 +1,14 @@
+{
+  "id": "com.jvn.example.hello",
+  "name": "JVN Hello Plugin",
+  "version": "1.0.0",
+  "jvnApi": "1.x",
+  "entrypoint": "com.jvn.example.plugin.HelloPlugin",
+  "description": "Reference implementation for the supported JVN plugin extension points.",
+  "vendor": "Java Vector Nexus",
+  "capabilities": [
+    "script.command",
+    "editor.tool",
+    "runtime.listener"
+  ]
+}

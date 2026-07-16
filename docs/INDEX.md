@@ -23,6 +23,7 @@ source of truth for docs changes.
 | I am building menus/UI | [Menu Profiles](scripting/ui/menus/menu-profiles.md) |
 | I am packaging a game | [Build And Release Docs](project-setup/release/README.md) |
 | I need the normative VNS/JES rules | [Scripting Language Contract](scripting/spec/README.md) |
+| I want to extend JVN | [Plugin authoring and reference](plugins/README.md) |
 
 ## Browse By Section
 
@@ -32,6 +33,7 @@ source of truth for docs changes.
 - [Runtime](runtime/README.md)
 - [Project Setup And Delivery](project-setup/README.md)
 - [Architecture](architecture/README.md)
+- [Plugins](plugins/README.md)
 
 ## Common Workflows
 
