@@ -96,6 +96,21 @@ class NewProjectScaffoldTemplateWiringTest {
   }
 
   @Test
+  void lavenderUsesViewportSafeFramingInStarterScenes() throws Exception {
+    String prologue = render("scripts/story/prologue_sample.vns");
+    String tutorialHub = render("scripts/story/tutorial_hub.vns");
+
+    assertTrue(prologue.contains("@position desk_left 0.28 0.96"));
+    assertTrue(prologue.contains("@position window_right 0.72 0.96"));
+    for (String scene : List.of(prologue, tutorialHub)) {
+      assertTrue(scene.contains("[set ui.characterHeightFactor 0.82]"));
+      assertTrue(scene.contains("[set ui.characterBaselineY 0.96]"));
+      assertFalse(scene.contains("[set ui.characterHeightFactor 1.28]"));
+      assertFalse(scene.contains("[set ui.characterBaselineY 1.42]"));
+    }
+  }
+
+  @Test
   void bundledJesTutorialSceneLoadsThroughTheRuntimeLoader() throws Exception {
     String rendered = render("scripts/scenes/studio_tour.jes");
     assertFalse(UNRESOLVED_TOKEN.matcher(rendered).find(), "JES template contains unresolved tokens");

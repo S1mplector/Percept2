@@ -3,13 +3,15 @@
 
 @scenario {{SCENARIO_PREFIX}}_prologue
 @include {{CHARACTERS_INCLUDE}}
-@position desk_left 0.28 0.82
-@position window_right 0.72 0.82
+@position desk_left 0.28 0.96
+@position window_right 0.72 0.96
 
 {{BG_DECL}}@label start
 {{BG_START}}{{BG_TRANSITION}}[mode dialogue standard]
 [set ui.dialogueUi default]
 [set ui.textBoxAsset default]
+[set ui.characterHeightFactor 0.82]
+[set ui.characterBaselineY 0.96]
 [textspeed 26]
 [autodelay 1500]
 [set visit_count 0]

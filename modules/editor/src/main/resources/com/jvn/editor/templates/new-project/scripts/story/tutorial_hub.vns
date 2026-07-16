@@ -14,8 +14,8 @@
 [set ui.textBoxAsset default]
 [textspeed 28]
 [autodelay 1700]
-[set ui.characterHeightFactor 1.28]
-[set ui.characterBaselineY 1.42]
+[set ui.characterHeightFactor 0.82]
+[set ui.characterBaselineY 0.96]
 [show lavender center happy]
 [wait 200]
 
