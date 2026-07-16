@@ -1,26 +1,60 @@
-name: CI
+name: Contributor CI
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
   pull_request:
+    branches: [stable, main]
+  push:
+    branches: [stable, main]
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}-${{ github.job }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  group: contributor-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
 
 jobs:
-  test:
-    name: test (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+  verify:
+    name: Full verification (Linux)
+    runs-on: ubuntu-latest
     timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Prepare repository scripts
+        run: chmod +x gradlew jvnw scripts/*.sh
+      - name: Run contributor verification
+        run: ./scripts/verify-contribution.sh
+      - name: Upload test and problem reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-reports-linux
+          path: |
+            **/build/reports/tests/
+            **/build/test-results/
+            build/reports/problems/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  platform-smoke:
+    name: Compile smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -28,20 +62,21 @@ jobs:
           distribution: temurin
           java-version: 21
       - uses: gradle/actions/setup-gradle@v4
-      - name: Verify developer bootstrap wrapper
+      - name: Verify wrapper bootstrap
         shell: bash
         run: ./scripts/test-jvnw-bootstrap.sh
-      - name: Verify Apple Bash compatibility
+      - name: Verify Apple system Bash compatibility
         if: runner.os == 'macOS'
         run: /bin/bash ./scripts/test-jvnw-bootstrap.sh
-      - name: Run CI verification
-        run: ./gradlew ci --configuration-cache
-      - name: Upload test reports
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-reports-${{ matrix.os }}
-          path: |
-            **/build/reports/tests/
-            **/build/test-results/
-          retention-days: 14
+      - name: Compile every module
+        run: ./gradlew compileAll
+
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4

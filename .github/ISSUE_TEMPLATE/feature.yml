@@ -1,0 +1,38 @@
+name: Feature proposal
+description: Propose a focused improvement to JVN.
+title: "[Proposal]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe the workflow or user need, independently of a preferred implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed direction
+      description: Explain behavior, scope, and why this belongs in JVN rather than a plugin or project.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Existing workflows, plugin implementation, or smaller changes that could solve the problem.
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Compatibility impact
+      description: VNS/JES, APIs, project/save formats, editor behavior, platforms, and migration needs.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues, pull requests, and documentation.
+          required: true
+        - label: I understand that major contract changes need design discussion before implementation.
+          required: true

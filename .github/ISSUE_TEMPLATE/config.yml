@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security report
+    url: https://github.com/S1mplector/Java-Vector-Nexus/security/advisories/new
+    about: Privately report a suspected vulnerability.
+  - name: Documentation
+    url: https://javavectornexus.com
+    about: Review current setup, scripting, plugin, and troubleshooting documentation.
