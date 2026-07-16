@@ -1,5 +1,7 @@
 package com.jvn.core.audio;
 
+import java.io.File;
+
 /**
  * Platform-agnostic audio API used by the engine and VN runtime.
  *
@@ -18,7 +20,10 @@ package com.jvn.core.audio;
  * Voice — treated as SFX by default; override for dedicated voice channel
  * </pre>
  */
-public interface AudioFacade {
+public interface AudioFacade extends AutoCloseable {
+
+  /** Configure the project root used to resolve relative audio asset identifiers. */
+  default void setProjectRoot(File root) {}
 
   // ──────────────────────────────────────────────────────────────────────────
   //  Core playback (abstract)
@@ -75,6 +80,18 @@ public interface AudioFacade {
   /** Set the voice volume [0, 1]. */
   default void setVoiceVolume(float volume) {}
 
+  /** Set a master gain applied after all channel gains. */
+  default void setMasterVolume(float volume) {}
+
+  /** Mute or restore output without discarding configured volume levels. */
+  default void setMuted(boolean muted) {}
+
+  default float getMasterVolume() { return 1f; }
+  default float getBgmVolume() { return 1f; }
+  default float getSfxVolume() { return 1f; }
+  default float getVoiceVolume() { return 1f; }
+  default boolean isMuted() { return false; }
+
   // ──────────────────────────────────────────────────────────────────────────
   //  Advanced BGM controls (optional)
   // ──────────────────────────────────────────────────────────────────────────
@@ -102,6 +119,29 @@ public interface AudioFacade {
    * @param loop    whether the new track should loop
    */
   default void crossfadeBgm(String trackId, long ms, boolean loop) {}
+
+  /** Fade the current BGM to silence and stop it. */
+  default void fadeOutBgm(long ms) { stopBgm(); }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  //  Capabilities, state, and lifecycle
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /** Stable backend identifier suitable for logs and diagnostics. */
+  default String backendId() { return getClass().getName(); }
+
+  /** Explicit feature declaration; callers should consult this before optional operations. */
+  default AudioCapabilities capabilities() { return AudioCapabilities.basic(); }
+
+  /** Point-in-time transport and mixer state. */
+  default AudioSnapshot snapshot() { return AudioSnapshot.unavailable(); }
+
+  default void addListener(AudioListener listener) {}
+  default void removeListener(AudioListener listener) {}
+
+  /** Release players, workers, listeners, and temporary resources. */
+  @Override
+  default void close() { stopAllAudio(); }
 
   // ──────────────────────────────────────────────────────────────────────────
   //  Spectrum analysis (optional)

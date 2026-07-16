@@ -1,351 +1,181 @@
-# Audio System
+# Audio system
 
-Complete guide to JVN's audio architecture — BGM, SFX, and Voice channels, dual-backend engine, crossfade, spectrum analysis, format support, and volume management.
+JVN provides one audio contract for runtime code, scripting, previews, and platform backends. It separates background music, sound effects, and voice playback while keeping mixing and lifecycle behavior consistent.
 
-Core interface: `modules/core/src/main/java/com/jvn/core/audio/AudioFacade.java`
-Simp3 backend: `modules/audio/src/main/java/com/jvn/audio/simp3/Simp3AudioService.java`
-Hybrid engine: `audio/simp3/src/main/java/com/musicplayer/core/audio/HybridAudioEngine.java`
+## Architecture
 
----
+`AudioFacade` is the public boundary in `modules/core`. Platform modules implement it; runtime and scripting code do not depend on a media library directly.
 
-## Overview
+| Component | Responsibility |
+| --- | --- |
+| `AudioFacade` | Playback, transport, mixing, capabilities, diagnostics, and cleanup |
+| `AudioMix` | Thread-safe master and per-channel gains, including non-destructive mute |
+| `AudioStateTracker` | Playback state, snapshots, and lifecycle events |
+| `FxAudioService` | JavaFX Media implementation |
+| `Simp3AudioService` | Hybrid implementation with additional codecs |
+| `AudioAssetResolver` | Project-relative and classpath asset lookup |
 
-JVN audio is a three-channel system — **BGM** (background music), **SFX** (sound effects), and **Voice** — with independent volume controls and two backend engines. The `AudioFacade` interface abstracts all audio operations; the runtime selects a backend at startup based on CLI flags.
+The runtime configures the project root through the facade before playback. Backends must release players, worker threads, listeners, extracted classpath resources, and media handles from `close()`.
 
----
+## Channels and mixing
 
-## Audio Channels
+| Channel | Model | Default gain | Concurrency |
+| --- | --- | ---: | --- |
+| BGM | One loopable track | `0.7` | One active track; two during crossfade |
+| SFX | Short one-shot clips | `0.8` | Up to 32 active clips |
+| Voice | Spoken one-shot clips | `1.0` | Up to 8 active clips |
 
-| Channel | Purpose | Behavior |
-|---------|---------|----------|
-| **BGM** | Background music | Single track, supports looping and crossfade |
-| **SFX** | Sound effects | Multiple simultaneous, fire-and-forget |
-| **Voice** | Character voice lines | Multiple simultaneous, independent volume |
-
-Each channel has its own volume control (0.0–1.0).
-
----
-
-## Audio Backends
-
-### Simp3 Backend (Default)
-
-The Simp3 backend uses a `HybridAudioEngine` that intelligently delegates between two underlying engines based on file format:
-
-| Format | Engine Used | Notes |
-|--------|------------|-------|
-| MP3, M4A, WAV, AIFF | JavaFX Audio | Native JVM support |
-| FLAC, OGG, Opus, WMA | JavaZoom Audio | Extended codec support |
-| MP3 on Linux | JavaZoom Audio | Workaround for JavaFX codec issues on Linux |
-
-The hybrid engine switches transparently — it stops the current engine, transfers volume/callbacks, and loads the new track on the appropriate engine.
-
-### FX Backend (Fallback)
-
-A simpler JavaFX-only backend. Used when Simp3 isn't available on the classpath.
-
-### Backend Selection at Runtime
-
-```bash
-# Auto mode (default): tries Simp3, falls back to FX
-./gradlew :runtime:run --args='--audio auto'
-
-# Force Simp3
-./gradlew :runtime:run --args='--audio simp3'
-
-# Force JavaFX only
-./gradlew :runtime:run --args='--audio fx'
-```
-
-Backend selection happens at startup in `JvnApp`:
-1. If `--audio simp3` or `--audio auto`: attempt to load `Simp3AudioService` via reflection
-2. If unavailable or `--audio fx`: fall back to `FxAudioService`
-
----
-
-## AudioFacade API
-
-The `AudioFacade` interface defines all audio operations:
-
-### Core Playback
+The effective gain is `master × channel`. All gains are clamped to `0.0–1.0`. Muting changes the effective gain to zero without overwriting saved gain values. Limits on one-shot clips prevent runaway scripts from retaining unbounded media players; the oldest clip is stopped when a limit is reached.
 
 ```java
-void playBgm(String trackId, boolean loop);
-void stopBgm();
-void playSfx(String sfxId);
-void playVoice(String voiceId);
-void stopSfx();
-void stopVoice();
-void stopAllAudio();
+audio.setMasterVolume(0.8f);
+audio.setBgmVolume(0.6f);
+audio.setMuted(true);
+audio.setMuted(false); // restores the configured gains
 ```
 
-### Volume Control
+## Playback and transport
 
 ```java
-void setBgmVolume(float volume);   // 0.0–1.0
-void setSfxVolume(float volume);   // 0.0–1.0
-void setVoiceVolume(float volume); // 0.0–1.0
+audio.playBgm("assets/audio/bgm/theme.ogg", true);
+audio.playSfx("assets/audio/sfx/confirm.wav");
+audio.playVoice("assets/audio/voice/intro.ogg");
+
+audio.pauseBgm();
+audio.seekBgmSeconds(12.5);
+audio.resumeBgm();
+audio.crossfadeBgm("assets/audio/bgm/night.ogg", 1500, true);
+audio.fadeOutBgm(800);
 ```
 
-### Advanced Controls
+Backends clamp negative seek positions and treat zero-duration fades as immediate changes. Changing master or BGM gain during a crossfade preserves the current fade ratio.
+
+## Capabilities
+
+Optional behavior is declared explicitly. Callers that can work with partial backends should check `capabilities()` before invoking advanced controls.
 
 ```java
-void pauseBgm();
-void resumeBgm();
-void pauseAllAudio();
-void resumeAllAudio();
-void seekBgmSeconds(double seconds);
-void crossfadeBgm(String trackId, long ms, boolean loop);
-```
-
-### Spectrum Analysis
-
-```java
-float[] getBgmSpectrumMagnitudes();     // dB values (~-60..0), null if unsupported
-long getBgmSpectrumUpdatedAtNanos();    // System.nanoTime() of latest sample
-```
-
----
-
-## Using Audio from VNS Scripts
-
-### BGM (Background Music)
-
-```vns
-[bgm assets/audio/bgm/title_theme.ogg]
-[bgm assets/audio/bgm/battle.mp3 loop]
-[bgm stop]
-```
-
-### SFX (Sound Effects)
-
-```vns
-[sfx assets/audio/sfx/door_open.ogg]
-[sfx assets/audio/sfx/explosion.wav]
-```
-
-### Voice
-
-```vns
-[voice assets/audio/voices/hero/line_001.ogg]
-```
-
-### Advanced Audio Commands via Interop
-
-```vns
-# Pause/resume
-[audio pause]
-[audio resume]
-
-# Seek to position
-[audio seek 30.5]
-
-# Crossfade to new BGM over 2 seconds
-[audio crossfade assets/audio/bgm/calm.ogg 2000]
-
-# Stop specific channels
-[audio sfx_stop]
-[audio voice_stop]
-[audio stop_all]
-
-# Pause/resume everything
-[audio pause_all]
-[audio resume_all]
-```
-
----
-
-## Crossfade
-
-Crossfade smoothly transitions between two BGM tracks over a specified duration:
-
-```vns
-[audio crossfade assets/audio/bgm/night_theme.ogg 3000]
-```
-
-**How it works:**
-1. A new engine instance loads the target track
-2. The new track starts playing at volume 0
-3. A scheduler ticks every ~33ms, linearly interpolating:
-   - Old track: volume fades from current → 0
-   - New track: volume fades from 0 → target
-4. When complete, the old engine is stopped and disposed
-5. The new engine takes over as the active BGM engine
-
-**Crossfade with duration 0** is an instant switch — the old track stops, the new one starts at full volume immediately.
-
----
-
-## Audio File Resolution
-
-The Simp3 backend resolves audio file paths through a multi-step search:
-
-1. **Direct file path** — if the path is an absolute or existing relative file
-2. **Project root relative** — `<projectRoot>/<normalized_path>`
-3. **Strip project name prefix** — handles paths like `MyProject/assets/audio/bgm.ogg`
-4. **Asset type prefixes** — tries `assets/demo/audio/`, `assets/audio/`, `game/audio/`
-5. **AssetPaths.build()** — standard asset path construction
-6. **Classpath extraction** — extracts from JAR to temp file for playback
-
-### Recommended Audio File Organization
-
-```text
-assets/
-├── audio/
-│   ├── bgm/
-│   │   ├── title_theme.ogg
-│   │   ├── calm.ogg
-│   │   └── battle.mp3
-│   ├── sfx/
-│   │   ├── click.ogg
-│   │   ├── door_open.wav
-│   │   └── explosion.ogg
-│   └── voices/
-│       ├── hero/
-│       │   ├── line_001.ogg
-│       │   └── line_002.ogg
-│       └── narrator/
-│           └── intro.ogg
-```
-
----
-
-## Supported Formats
-
-| Format | Extension | Backend | Transparency | Best For |
-|--------|-----------|---------|-------------|----------|
-| OGG Vorbis | `.ogg` | JavaZoom | Lossy | BGM, SFX, voice (recommended) |
-| MP3 | `.mp3` | JavaFX (JavaZoom on Linux) | Lossy | BGM |
-| WAV | `.wav` | JavaFX | Lossless | Short SFX |
-| FLAC | `.flac` | JavaZoom | Lossless | High-quality BGM |
-| M4A/AAC | `.m4a` | JavaFX | Lossy | BGM |
-| AIFF | `.aiff` | JavaFX | Lossless | Short SFX |
-| Opus | `.opus` | JavaZoom | Lossy | Voice, BGM |
-| WMA | `.wma` | JavaZoom | Lossy | Legacy support |
-
-### Format Recommendations
-
-- **BGM:** OGG Vorbis or MP3 — good compression, wide compatibility
-- **SFX:** OGG Vorbis or WAV — WAV for very short effects, OGG for everything else
-- **Voice:** OGG Vorbis or Opus — good quality at low bitrates
-
----
-
-## Volume Management
-
-### Default Volumes
-
-| Channel | Default | Range |
-|---------|---------|-------|
-| BGM | 0.7 | 0.0–1.0 |
-| SFX | 0.8 | 0.0–1.0 |
-| Voice | 1.0 | 0.0–1.0 |
-
-### Volume Persistence
-
-Volumes are stored in `VnSettings` and persisted by `VnSettingsStore` to `~/.jvn/settings.properties`:
-
-```properties
-bgm_volume=0.7
-sfx_volume=0.8
-voice_volume=1.0
-```
-
-### Volume in Save Data
-
-The current volume settings are included in save data (`VnSaveData`). When a save is loaded, volumes are restored to the state at save time.
-
-### Runtime Volume Changes
-
-Volumes can be adjusted from:
-1. **Settings menu** — Left/Right keys on volume items
-2. **VNS interop** — `[settings bgm_volume 0.5]`
-3. **Java code** — `audio.setBgmVolume(0.5f)`
-
-Volume changes are applied immediately to all currently playing tracks on that channel.
-
----
-
-## Spectrum Analysis
-
-The Simp3 backend provides real-time BGM spectrum data for visualizers:
-
-```java
-AudioFacade audio = ...; // Simp3AudioService
-float[] magnitudes = audio.getBgmSpectrumMagnitudes();
-if (magnitudes != null) {
-    // magnitudes are in dB, typically -60..0
-    // Array length depends on FFT size
-    for (float db : magnitudes) {
-        double normalized = (db + 60.0) / 60.0; // 0..1
-        // Use for visualization
-    }
+AudioCapabilities features = audio.capabilities();
+if (features.crossfade()) {
+  audio.crossfadeBgm(nextTrack, 1200, true);
+} else {
+  audio.playBgm(nextTrack, true);
 }
 ```
 
-The spectrum listener updates on the JavaFX audio thread. The `getBgmSpectrumUpdatedAtNanos()` method returns the timestamp for staleness detection.
+The production JavaFX and Simp3 adapters declare dedicated voice, overlapping SFX, pause/resume, seek, crossfade, fade-out, spectrum data, and lifecycle events. A minimal third-party facade can retain the source-compatible defaults and report `AudioCapabilities.basic()`.
 
----
+## Diagnostics and events
 
-## Engine Lifecycle
+`snapshot()` returns a stable, point-in-time view suitable for logs, developer tools, and health reporting. It includes:
 
-### SFX/Voice Engine Cleanup
+- backend identifier and BGM transport state;
+- current track, loop flag, position, and duration;
+- configured master/channel gains and mute state;
+- active SFX and voice counts;
+- the latest backend or asset error.
 
-Each SFX or voice play creates a new engine instance. When the track ends:
-1. The engine is stopped and disposed
-2. It's removed from the active engines list
-3. `cleanupEngines()` also removes dead engines periodically
+Lifecycle listeners receive loading, start, pause, resume, stop, completion, error, mix-change, and close events. A failing listener is isolated and cannot interrupt playback.
 
-### BGM Looping
+```java
+audio.addListener(event -> {
+  if (event.type() == AudioEvent.Type.ERROR) {
+    log.warn("Audio failure on {}: {}", event.channel(), event.message());
+  }
+});
 
-When `loop=true` and the BGM track ends:
-1. The `onSongEnded` callback fires
-2. The callback reloads and replays the same track
-3. Volume is maintained across the loop boundary
+AudioSnapshot state = audio.snapshot();
+log.debug("Audio backend={}, bgm={}, sfx={}",
+    state.backendId(), state.bgmStatus(), state.activeSfxCount());
+```
 
----
+Backend failures remain non-fatal to the scene runtime. Missing and undecodable assets move BGM to `ERROR`, populate `lastError`, and emit an error event.
 
-## Runtime Validation Checklist
+## Backend selection
 
-- [ ] BGM plays on startup (title screen music)
-- [ ] BGM loops correctly (no gap or pop at loop point)
-- [ ] BGM stops when navigating away from a scene with music
-- [ ] SFX plays on trigger (menu selection, in-game events)
-- [ ] Multiple SFX can play simultaneously
-- [ ] Voice plays during dialogue (if voice files exist)
-- [ ] Volume sliders in settings affect playback immediately
-- [ ] Crossfade transitions smoothly between tracks
-- [ ] OGG files play correctly
-- [ ] MP3 files play correctly
-- [ ] Audio continues after save/load
-- [ ] No audio errors in console on missing files (graceful fallback)
-- [ ] Audio stops completely when `stopAllAudio` is called
+```bash
+# Prefer Simp3 and fall back to JavaFX
+./gradlew :runtime:run --args='--audio auto'
 
----
+# Select a backend explicitly
+./gradlew :runtime:run --args='--audio simp3'
+./gradlew :runtime:run --args='--audio fx'
+```
 
-## Common Mistakes
+Simp3 uses a hybrid engine: JavaFX Media handles common native formats and JavaZoom-based providers handle extended codecs. JavaFX is also the dependable fallback when the optional audio module is absent.
 
-**File not found — no audio plays:**
-Check the asset path. Paths are relative to the project root. `assets/audio/bgm/theme.ogg`, not `/assets/audio/bgm/theme.ogg`.
+| Format | Typical provider | Recommended use |
+| --- | --- | --- |
+| Ogg Vorbis | JavaZoom | General BGM, SFX, and voice |
+| MP3 | JavaFX; JavaZoom on Linux | BGM and distribution compatibility |
+| WAV / AIFF | JavaFX | Short, lossless effects |
+| FLAC | JavaZoom | Lossless music |
+| Opus | JavaZoom | Efficient voice assets |
+| M4A / AAC | JavaFX | Platform-compatible music |
 
-**Audio plays but at wrong volume:**
-Settings may have been loaded from a previous save. Check `VnSettings` values and `settings.properties`.
+Codec availability can still vary by operating system and media stack. Ogg Vorbis is the preferred portable project format; test every shipping format on each target platform.
 
-**Crossfade sounds wrong:**
-Very short crossfade durations (< 500ms) can sound abrupt. Use 1000–3000ms for smooth transitions.
+## Asset resolution
 
-**MP3 doesn't play on Linux:**
-The engine should auto-switch to JavaZoom for MP3 on Linux. If it fails, convert to OGG.
+Use project-relative identifiers and keep audio under `assets/audio`:
 
-**SFX keeps playing after scene change:**
-Call `audio.stopSfx()` in scene teardown. The engine doesn't auto-stop SFX on scene transitions.
+```text
+assets/audio/
+├── bgm/
+├── sfx/
+└── voice/
+```
 
----
+Resolution checks the configured project, conventional asset locations, and classpath resources. Packaged classpath audio is extracted to temporary files when a backend requires a filesystem path; the Simp3 adapter deletes those files when closed.
 
-## Related Docs
+## VNS usage
 
-- [VNS Audio Commands](../../scripting/vns/presentation/vns-audio.md)
-- [VNS Settings & Modes](../../scripting/vns/runtime/vns-settings-modes.md)
-- [Interop Guide](../core/interop.md)
-- [Runtime Guide](../core/runtime.md)
-- [Settings Screen](../../scripting/ui/layout/screens/settings-screen.md)
+```vns
+[bgm assets/audio/bgm/theme.ogg loop=true vol=0.7]
+[sfx assets/audio/sfx/confirm.wav]
+[voice assets/audio/voice/intro.ogg]
+[bgm_crossfade assets/audio/bgm/night.ogg 1500 true]
+[bgm_fadeout 800]
+[volume bgm 0.5]
+[audio_pause_all]
+[audio_resume_all]
+[audio_stop_all]
+```
+
+See [VNS audio commands](../../scripting/vns/presentation/vns-audio.md) for the language reference.
+
+## Backend implementation contract
+
+A new backend should:
+
+1. resolve asset identifiers from the configured project root;
+2. clamp mixer inputs and apply master gain and mute immediately;
+3. accurately declare optional capabilities;
+4. update transport state and emit errors for rejected assets;
+5. bound overlapping player resources;
+6. return safe snapshots while asynchronous disposal is in progress;
+7. make `close()` idempotent and release every owned resource.
+
+Run the core contract tests and the backend module build after modifying audio behavior:
+
+```bash
+./gradlew :core:test :fx:test :audio:test
+```
+
+## Troubleshooting
+
+| Symptom | Check |
+| --- | --- |
+| Asset not found | Confirm the project root and use a relative path such as `assets/audio/bgm/theme.ogg` |
+| No audible output | Inspect `snapshot().muted()`, master gain, and the channel gain |
+| Decode failure | Check `snapshot().lastError()` and try Ogg Vorbis or WAV |
+| Abrupt crossfade | Use roughly 1000–3000 ms and verify both tracks decode before the transition |
+| Linux MP3 failure | Select Simp3 or ship Ogg Vorbis assets |
+| Playback survives shutdown | Ensure the application owner calls `audio.close()` exactly once during teardown |
+
+## Related documentation
+
+- [VNS audio commands](../../scripting/vns/presentation/vns-audio.md)
+- [Asset management](asset-management.md)
+- [VN settings](vn-settings.md)
+- [Runtime guide](../core/runtime.md)

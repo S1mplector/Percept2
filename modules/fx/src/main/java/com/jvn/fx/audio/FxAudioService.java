@@ -1,7 +1,12 @@
 package com.jvn.fx.audio;
 
 import com.jvn.core.assets.AudioAssetResolver;
+import com.jvn.core.audio.AudioCapabilities;
+import com.jvn.core.audio.AudioChannel;
 import com.jvn.core.audio.AudioFacade;
+import com.jvn.core.audio.AudioListener;
+import com.jvn.core.audio.AudioSnapshot;
+import com.jvn.core.audio.AudioStateTracker;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
@@ -19,17 +24,19 @@ import java.util.Iterator;
 import java.util.List;
 
 public class FxAudioService implements AudioFacade {
+  private static final int MAX_SFX_PLAYERS = 32;
+  private static final int MAX_VOICE_PLAYERS = 8;
   private static final Logger log = LoggerFactory.getLogger(FxAudioService.class);
 
   private MediaPlayer bgmPlayer;
   private MediaPlayer crossfadePlayer;
   private Timeline bgmCrossfadeTimeline;
+  private Timeline bgmFadeTimeline;
   private double bgmCrossfadeProgress;
   private final List<MediaPlayer> sfxPlayers = new ArrayList<>();
   private final List<MediaPlayer> voicePlayers = new ArrayList<>();
-  private float bgmVolume = 0.7f;
-  private float sfxVolume = 0.8f;
-  private float voiceVolume = 1.0f;
+  private final AudioStateTracker state = new AudioStateTracker("javafx", AudioCapabilities.full(true));
+  private volatile boolean closed;
   private File projectRoot;
   private volatile float[] latestBgmSpectrum;
   private volatile long latestBgmSpectrumUpdatedAtNanos;
@@ -41,6 +48,7 @@ public class FxAudioService implements AudioFacade {
     latestBgmSpectrumUpdatedAtNanos = System.nanoTime();
   };
 
+  @Override
   public void setProjectRoot(File root) {
     this.projectRoot = root;
   }
@@ -69,12 +77,12 @@ public class FxAudioService implements AudioFacade {
 
   @Override
   public void playSfx(String sfxId) {
-    runOnFxThread(() -> playClipFx(sfxId, sfxVolume, sfxPlayers, "sfx"));
+    runOnFxThread(() -> playClipFx(sfxId, state.mix().effective(AudioChannel.SFX), sfxPlayers, AudioChannel.SFX));
   }
 
   @Override
   public void playVoice(String voiceId) {
-    runOnFxThread(() -> playClipFx(voiceId, voiceVolume, voicePlayers, "voice"));
+    runOnFxThread(() -> playClipFx(voiceId, state.mix().effective(AudioChannel.VOICE), voicePlayers, AudioChannel.VOICE));
   }
 
   @Override
@@ -89,27 +97,51 @@ public class FxAudioService implements AudioFacade {
 
   @Override
   public void setBgmVolume(float volume) {
-    this.bgmVolume = clamp01(volume);
+    state.mix().setBgmVolume(volume);
+    state.mixChanged(AudioChannel.BGM);
     runOnFxThread(this::applyBgmVolumesFx);
   }
 
   @Override
   public void setSfxVolume(float volume) {
-    this.sfxVolume = clamp01(volume);
-    runOnFxThread(() -> applyVolumeFx(sfxPlayers, clamp(sfxVolume)));
+    state.mix().setSfxVolume(volume);
+    state.mixChanged(AudioChannel.SFX);
+    runOnFxThread(() -> applyVolumeFx(sfxPlayers, state.mix().effective(AudioChannel.SFX)));
   }
 
   @Override
   public void setVoiceVolume(float volume) {
-    this.voiceVolume = clamp01(volume);
-    runOnFxThread(() -> applyVolumeFx(voicePlayers, clamp(voiceVolume)));
+    state.mix().setVoiceVolume(volume);
+    state.mixChanged(AudioChannel.VOICE);
+    runOnFxThread(() -> applyVolumeFx(voicePlayers, state.mix().effective(AudioChannel.VOICE)));
   }
+
+  @Override
+  public void setMasterVolume(float volume) {
+    state.mix().setMasterVolume(volume);
+    state.mixChanged(AudioChannel.MASTER);
+    runOnFxThread(this::applyAllVolumesFx);
+  }
+
+  @Override
+  public void setMuted(boolean muted) {
+    state.mix().setMuted(muted);
+    state.mixChanged(AudioChannel.MASTER);
+    runOnFxThread(this::applyAllVolumesFx);
+  }
+
+  @Override public float getMasterVolume() { return state.mix().masterVolume(); }
+  @Override public float getBgmVolume() { return state.mix().bgmVolume(); }
+  @Override public float getSfxVolume() { return state.mix().sfxVolume(); }
+  @Override public float getVoiceVolume() { return state.mix().voiceVolume(); }
+  @Override public boolean isMuted() { return state.mix().muted(); }
 
   @Override
   public void pauseBgm() {
     runOnFxThread(() -> {
       try {
         if (bgmPlayer != null) bgmPlayer.pause();
+        state.paused();
       } catch (Exception e) {
         log.debug("pauseBgm error", e);
       }
@@ -123,6 +155,7 @@ public class FxAudioService implements AudioFacade {
         if (bgmPlayer != null) {
           applyBgmVolumesFx();
           bgmPlayer.play();
+          state.resumed();
         }
       } catch (Exception e) {
         log.debug("resumeBgm error", e);
@@ -176,41 +209,59 @@ public class FxAudioService implements AudioFacade {
     runOnFxThread(() -> crossfadeBgmFx(trackId, ms, loop));
   }
 
+  @Override
+  public void fadeOutBgm(long ms) {
+    runOnFxThread(() -> fadeOutBgmFx(ms));
+  }
+
   private void playBgmFx(String trackId, boolean loop) {
     cancelCrossfadeFx();
-    MediaPlayer next = createPlayer(trackId, loop, clamp(bgmVolume), true, "bgm");
+    cancelFadeOutFx();
+    state.loading(trackId, loop);
+    MediaPlayer next = createPlayer(trackId, loop, state.mix().effective(AudioChannel.BGM), true, AudioChannel.BGM);
     if (next == null) return;
 
     stopPlayer(bgmPlayer);
     bgmPlayer = next;
     resetSpectrumData();
     next.play();
+    state.started(AudioChannel.BGM, trackId);
   }
 
   private void stopBgmFx() {
     cancelCrossfadeFx();
+    cancelFadeOutFx();
     stopPlayer(bgmPlayer);
     bgmPlayer = null;
     resetSpectrumData();
+    state.stopped(AudioChannel.BGM, "");
   }
 
-  private void playClipFx(String trackId, float volume, List<MediaPlayer> players, String channelName) {
+  private void playClipFx(String trackId, double volume, List<MediaPlayer> players, AudioChannel channel) {
     cleanupStoppedPlayers(players);
-    MediaPlayer player = createPlayer(trackId, false, clamp(volume), false, channelName);
+    int limit = channel == AudioChannel.VOICE ? MAX_VOICE_PLAYERS : MAX_SFX_PLAYERS;
+    while (players.size() >= limit) {
+      stopPlayer(players.remove(0));
+    }
+    MediaPlayer player = createPlayer(trackId, false, volume, false, channel);
     if (player == null) return;
 
     player.setOnEndOfMedia(() -> {
       stopPlayer(player);
       players.remove(player);
+      state.completed(channel, trackId);
     });
     players.add(player);
     player.play();
+    state.started(channel, trackId);
   }
 
   private void crossfadeBgmFx(String trackId, long ms, boolean loop) {
     cancelCrossfadeFx();
 
-    MediaPlayer next = createPlayer(trackId, loop, 0.0, true, "bgm");
+    cancelFadeOutFx();
+    state.loading(trackId, loop);
+    MediaPlayer next = createPlayer(trackId, loop, 0.0, true, AudioChannel.BGM);
     if (next == null) {
       playBgmFx(trackId, loop);
       return;
@@ -221,8 +272,9 @@ public class FxAudioService implements AudioFacade {
       stopPlayer(previous);
       bgmPlayer = next;
       bgmCrossfadeProgress = 1.0;
-      next.setVolume(clamp(bgmVolume));
+      next.setVolume(state.mix().effective(AudioChannel.BGM));
       next.play();
+      state.started(AudioChannel.BGM, trackId);
       return;
     }
 
@@ -257,7 +309,7 @@ public class FxAudioService implements AudioFacade {
     double progress = Math.min(1.0, Math.max(0.0, (System.nanoTime() - startedAtNanos) / 1_000_000.0 / durationMs));
     bgmCrossfadeProgress = progress;
 
-    double targetVolume = clamp(bgmVolume);
+    double targetVolume = state.mix().effective(AudioChannel.BGM);
     safeSetVolume(previous, targetVolume * (1.0 - progress));
     safeSetVolume(next, targetVolume * progress);
 
@@ -269,13 +321,16 @@ public class FxAudioService implements AudioFacade {
       bgmCrossfadeTimeline = null;
       bgmCrossfadeProgress = 1.0;
       safeSetVolume(next, targetVolume);
+      state.started(AudioChannel.BGM, "");
     }
   }
 
-  private MediaPlayer createPlayer(String trackId, boolean loop, double volume, boolean spectrum, String channelName) {
+  private MediaPlayer createPlayer(String trackId, boolean loop, double volume, boolean spectrum, AudioChannel channel) {
+    String channelName = channel.name().toLowerCase();
     String urlStr = resolveMediaUrl(trackId);
     if (urlStr == null) {
       log.warn("{} media not found for trackId={}", channelName, trackId);
+      state.error(channel, trackId, "Audio asset not found");
       return null;
     }
 
@@ -283,12 +338,43 @@ public class FxAudioService implements AudioFacade {
       MediaPlayer player = new MediaPlayer(new Media(urlStr));
       if (loop) player.setCycleCount(MediaPlayer.INDEFINITE);
       player.setVolume(volume);
-      player.setOnError(() -> log.warn("{} playback error for trackId={}: {}", channelName, trackId, player.getError()));
+      player.setOnError(() -> {
+        log.warn("{} playback error for trackId={}: {}", channelName, trackId, player.getError());
+        state.error(channel, trackId, String.valueOf(player.getError()));
+      });
       if (spectrum) configureSpectrumListener(player);
       return player;
     } catch (Exception e) {
       log.warn("Failed to create {} player for trackId={}", channelName, trackId, e);
+      state.error(channel, trackId, e.getMessage());
       return null;
+    }
+  }
+
+  private void fadeOutBgmFx(long ms) {
+    cancelFadeOutFx();
+    if (bgmPlayer == null || ms <= 0L) {
+      stopBgmFx();
+      return;
+    }
+    final MediaPlayer player = bgmPlayer;
+    final long start = System.nanoTime();
+    final long duration = Math.max(1L, ms);
+    final double initial = player.getVolume();
+    Timeline timeline = new Timeline(new KeyFrame(Duration.millis(33), event -> {
+      double progress = Math.min(1.0, (System.nanoTime() - start) / 1_000_000.0 / duration);
+      safeSetVolume(player, initial * (1.0 - progress));
+      if (progress >= 1.0 && bgmFadeTimeline != null) stopBgmFx();
+    }));
+    timeline.setCycleCount(Timeline.INDEFINITE);
+    bgmFadeTimeline = timeline;
+    timeline.play();
+  }
+
+  private void cancelFadeOutFx() {
+    if (bgmFadeTimeline != null) {
+      bgmFadeTimeline.stop();
+      bgmFadeTimeline = null;
     }
   }
 
@@ -353,13 +439,19 @@ public class FxAudioService implements AudioFacade {
   }
 
   private void applyBgmVolumesFx() {
-    double target = clamp(bgmVolume);
+    double target = state.mix().effective(AudioChannel.BGM);
     if (crossfadePlayer != null && bgmCrossfadeTimeline != null) {
       safeSetVolume(bgmPlayer, target * (1.0 - bgmCrossfadeProgress));
       safeSetVolume(crossfadePlayer, target * bgmCrossfadeProgress);
       return;
     }
     safeSetVolume(bgmPlayer, target);
+  }
+
+  private void applyAllVolumesFx() {
+    applyBgmVolumesFx();
+    applyVolumeFx(sfxPlayers, state.mix().effective(AudioChannel.SFX));
+    applyVolumeFx(voicePlayers, state.mix().effective(AudioChannel.VOICE));
   }
 
   private void applyVolumeFx(List<MediaPlayer> players, double volume) {
@@ -425,16 +517,37 @@ public class FxAudioService implements AudioFacade {
     }
   }
 
-  private float clamp01(float v) {
-    if (v < 0f) return 0f;
-    if (v > 1f) return 1f;
-    return v;
+  @Override public String backendId() { return state.backendId(); }
+  @Override public AudioCapabilities capabilities() { return state.capabilities(); }
+
+  @Override
+  public AudioSnapshot snapshot() {
+    double position = 0.0;
+    double duration = 0.0;
+    try {
+      if (bgmPlayer != null) {
+        position = bgmPlayer.getCurrentTime().toSeconds();
+        duration = bgmPlayer.getTotalDuration().toSeconds();
+      }
+    } catch (Exception ignored) {
+      // Snapshot collection is best-effort during asynchronous disposal.
+    }
+    return state.snapshot(position, duration, sfxPlayers.size(), voicePlayers.size());
   }
 
-  private double clamp(float v) {
-    if (v < 0f) return 0.0;
-    if (v > 1f) return 1.0;
-    return v;
+  @Override public void addListener(AudioListener listener) { state.addListener(listener); }
+  @Override public void removeListener(AudioListener listener) { state.removeListener(listener); }
+
+  @Override
+  public void close() {
+    if (closed) return;
+    closed = true;
+    runOnFxThread(() -> {
+      stopBgmFx();
+      stopPlayersFx(sfxPlayers);
+      stopPlayersFx(voicePlayers);
+      state.closed();
+    });
   }
 
   @Override

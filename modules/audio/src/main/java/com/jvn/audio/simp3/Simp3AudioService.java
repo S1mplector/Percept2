@@ -1,7 +1,12 @@
 package com.jvn.audio.simp3;
 
 import com.jvn.core.assets.AudioAssetResolver;
+import com.jvn.core.audio.AudioCapabilities;
+import com.jvn.core.audio.AudioChannel;
 import com.jvn.core.audio.AudioFacade;
+import com.jvn.core.audio.AudioListener;
+import com.jvn.core.audio.AudioSnapshot;
+import com.jvn.core.audio.AudioStateTracker;
 import com.musicplayer.core.audio.AudioEngine;
 import com.musicplayer.core.audio.HybridAudioEngine;
 import com.musicplayer.data.models.Song;
@@ -31,13 +36,13 @@ import java.util.concurrent.TimeUnit;
  */
 public class Simp3AudioService implements AudioFacade {
   private static final Logger log = LoggerFactory.getLogger(Simp3AudioService.class);
+  private static final int MAX_SFX_ENGINES = 32;
+  private static final int MAX_VOICE_ENGINES = 8;
 
   private AudioEngine bgmEngine;
   private AudioEngine crossEngine;
   private volatile boolean loopBgm = false;
-  private volatile double bgmVolume = 0.7;
-  private volatile double voiceVolume = 1.0;
-  private volatile double sfxVolume = 0.8;
+  private final AudioStateTracker state = new AudioStateTracker("simp3-hybrid", AudioCapabilities.full(true));
   private volatile ScheduledFuture<?> crossfadeTask = null;
   private BgmTrack bgmTrack = null;
   private final Map<String, File> extractedAudioCache = new HashMap<>();
@@ -51,6 +56,8 @@ public class Simp3AudioService implements AudioFacade {
     latestBgmSpectrumUpdatedAtNanos = System.nanoTime();
   };
   private File projectRoot;
+  private volatile boolean closed;
+  private volatile double crossfadeProgress;
 
   private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
     Thread t = new Thread(r, "simp3-audio-fader");
@@ -64,9 +71,10 @@ public class Simp3AudioService implements AudioFacade {
   public Simp3AudioService() {
     this.bgmEngine = newEngine();
     attachBgmSpectrumListener(this.bgmEngine);
-    this.bgmEngine.setVolume(bgmVolume);
+    this.bgmEngine.setVolume(state.mix().effective(AudioChannel.BGM));
   }
 
+  @Override
   public synchronized void setProjectRoot(File root) {
     this.projectRoot = root;
   }
@@ -74,10 +82,13 @@ public class Simp3AudioService implements AudioFacade {
   @Override
   public synchronized void playBgm(String trackId, boolean loop) {
     try {
+      ensureOpen();
       cancelCrossfadeTaskLocked();
+      state.loading(trackId, loop);
       File audioFile = resolveToFile(trackId);
       if (audioFile == null || !audioFile.exists()) {
         log.warn("BGM file not found for trackId={}", trackId);
+        state.error(AudioChannel.BGM, trackId, "Audio asset not found");
         return;
       }
       AudioEngine engine = ensureBgmEngine();
@@ -85,16 +96,19 @@ public class Simp3AudioService implements AudioFacade {
       Song song = toSong(track);
       if (!engine.loadSong(song)) {
         log.warn("Failed to load BGM trackId={} file={}", trackId, audioFile.getAbsolutePath());
+        state.error(AudioChannel.BGM, trackId, "Backend could not load audio asset");
         return;
       }
 
       this.loopBgm = loop;
       this.bgmTrack = track;
       engine.setOnSongEnded(createLoopCallback(engine));
-      engine.setVolume(bgmVolume);
+      engine.setVolume(state.mix().effective(AudioChannel.BGM));
       engine.play();
+      state.started(AudioChannel.BGM, trackId);
     } catch (Exception e) {
       log.error("Error playing BGM {}", trackId, e);
+      state.error(AudioChannel.BGM, trackId, e.getMessage());
     }
   }
 
@@ -107,9 +121,12 @@ public class Simp3AudioService implements AudioFacade {
       safeStop(bgmEngine);
       bgmEngine = newEngine();
       attachBgmSpectrumListener(bgmEngine);
-      bgmEngine.setVolume(bgmVolume);
+      bgmEngine.setVolume(state.mix().effective(AudioChannel.BGM));
+      bgmTrack = null;
+      loopBgm = false;
       latestBgmSpectrum = null;
       latestBgmSpectrumUpdatedAtNanos = 0L;
+      state.stopped(AudioChannel.BGM, "");
     } catch (Exception e) {
       log.debug("stopBgm error", e);
     }
@@ -117,12 +134,12 @@ public class Simp3AudioService implements AudioFacade {
 
   @Override
   public synchronized void playSfx(String sfxId) {
-    playClip(sfxId, sfxVolume, sfxEngines, "sfx");
+    playClip(sfxId, state.mix().effective(AudioChannel.SFX), sfxEngines, AudioChannel.SFX, MAX_SFX_ENGINES);
   }
 
   @Override
   public synchronized void playVoice(String voiceId) {
-    playClip(voiceId, voiceVolume, voiceEngines, "voice");
+    playClip(voiceId, state.mix().effective(AudioChannel.VOICE), voiceEngines, AudioChannel.VOICE, MAX_VOICE_ENGINES);
   }
 
   @Override
@@ -144,32 +161,57 @@ public class Simp3AudioService implements AudioFacade {
 
   @Override
   public synchronized void setBgmVolume(float volume) {
-    this.bgmVolume = clamp(volume);
-    if (bgmEngine != null) bgmEngine.setVolume(bgmVolume);
+    state.mix().setBgmVolume(volume);
+    state.mixChanged(AudioChannel.BGM);
+    applyBgmVolumes();
   }
 
   @Override
   public synchronized void setSfxVolume(float volume) {
-    this.sfxVolume = clamp(volume);
-    applyVolume(sfxEngines, sfxVolume);
+    state.mix().setSfxVolume(volume);
+    state.mixChanged(AudioChannel.SFX);
+    applyVolume(sfxEngines, state.mix().effective(AudioChannel.SFX));
   }
 
   @Override
   public synchronized void setVoiceVolume(float volume) {
-    this.voiceVolume = clamp(volume);
-    applyVolume(voiceEngines, voiceVolume);
+    state.mix().setVoiceVolume(volume);
+    state.mixChanged(AudioChannel.VOICE);
+    applyVolume(voiceEngines, state.mix().effective(AudioChannel.VOICE));
   }
+
+  @Override
+  public synchronized void setMasterVolume(float volume) {
+    state.mix().setMasterVolume(volume);
+    state.mixChanged(AudioChannel.MASTER);
+    applyAllVolumes();
+  }
+
+  @Override
+  public synchronized void setMuted(boolean muted) {
+    state.mix().setMuted(muted);
+    state.mixChanged(AudioChannel.MASTER);
+    applyAllVolumes();
+  }
+
+  @Override public float getMasterVolume() { return state.mix().masterVolume(); }
+  @Override public float getBgmVolume() { return state.mix().bgmVolume(); }
+  @Override public float getSfxVolume() { return state.mix().sfxVolume(); }
+  @Override public float getVoiceVolume() { return state.mix().voiceVolume(); }
+  @Override public boolean isMuted() { return state.mix().muted(); }
 
   @Override
   public synchronized void pauseBgm() {
     if (bgmEngine != null) bgmEngine.pause();
+    state.paused();
   }
 
   @Override
   public synchronized void resumeBgm() {
     if (bgmEngine != null) {
-      bgmEngine.setVolume(bgmVolume);
+      bgmEngine.setVolume(state.mix().effective(AudioChannel.BGM));
       bgmEngine.play();
+      state.resumed();
     }
   }
 
@@ -223,10 +265,13 @@ public class Simp3AudioService implements AudioFacade {
   @Override
   public synchronized void crossfadeBgm(String trackId, long ms, boolean loop) {
     try {
+      ensureOpen();
       cancelCrossfadeTaskLocked();
+      state.loading(trackId, loop);
       File audioFile = resolveToFile(trackId);
       if (audioFile == null || !audioFile.exists()) {
         log.warn("Crossfade target BGM file not found for trackId={}", trackId);
+        state.error(AudioChannel.BGM, trackId, "Audio asset not found");
         return;
       }
 
@@ -235,6 +280,7 @@ public class Simp3AudioService implements AudioFacade {
       BgmTrack nextTrack = new BgmTrack(trackId, audioFile.getAbsolutePath());
       if (!next.loadSong(toSong(nextTrack))) {
         log.warn("Crossfade failed to load target trackId={} file={}", trackId, audioFile.getAbsolutePath());
+        state.error(AudioChannel.BGM, trackId, "Backend could not load audio asset");
         return;
       }
 
@@ -242,7 +288,7 @@ public class Simp3AudioService implements AudioFacade {
       next.play();
 
       final AudioEngine prev = this.bgmEngine;
-      final double startVol = this.bgmVolume;
+      final double startVol = state.mix().effective(AudioChannel.BGM);
       final long duration = Math.max(0, ms);
       final long start = System.nanoTime();
 
@@ -255,17 +301,21 @@ public class Simp3AudioService implements AudioFacade {
         this.crossEngine = null;
         next.setOnSongEnded(createLoopCallback(next));
         next.setVolume(startVol);
+        state.started(AudioChannel.BGM, trackId);
         return;
       }
 
       this.crossEngine = next;
+      this.crossfadeProgress = 0.0;
       final ScheduledFuture<?>[] taskRef = new ScheduledFuture<?>[1];
       Runnable tick = () -> {
         try {
           long elapsedMs = (System.nanoTime() - start) / 1_000_000L;
           double p = Math.min(1.0, Math.max(0.0, elapsedMs / (double) duration));
-          double outVol = startVol * (1.0 - p);
-          double inVol = startVol * p;
+          crossfadeProgress = p;
+          double effective = state.mix().effective(AudioChannel.BGM);
+          double outVol = effective * (1.0 - p);
+          double inVol = effective * p;
           if (prev != null) prev.setVolume(outVol);
           next.setVolume(inVol);
           if (p >= 1.0) {
@@ -273,15 +323,18 @@ public class Simp3AudioService implements AudioFacade {
             synchronized (Simp3AudioService.this) {
               bgmEngine = next;
               crossEngine = null;
+              crossfadeProgress = 0.0;
               if (crossfadeTask == taskRef[0]) {
                 crossfadeTask = null;
               }
             }
             next.setOnSongEnded(createLoopCallback(next));
+            state.started(AudioChannel.BGM, trackId);
             if (taskRef[0] != null) taskRef[0].cancel(false);
           }
         } catch (Throwable t) {
           log.warn("crossfade tick error for trackId={}", trackId, t);
+          state.error(AudioChannel.BGM, trackId, t.getMessage());
           safeStop(next);
           synchronized (Simp3AudioService.this) {
             if (crossEngine == next) {
@@ -298,14 +351,46 @@ public class Simp3AudioService implements AudioFacade {
       this.crossfadeTask = taskRef[0];
     } catch (Exception e) {
       log.warn("crossfadeBgm error for trackId={}", trackId, e);
+      state.error(AudioChannel.BGM, trackId, e.getMessage());
     }
+  }
+
+  @Override
+  public synchronized void fadeOutBgm(long ms) {
+    if (bgmEngine == null || ms <= 0L) {
+      stopBgm();
+      return;
+    }
+    cancelCrossfadeTaskLocked();
+    final AudioEngine engine = bgmEngine;
+    final long duration = Math.max(1L, ms);
+    final long start = System.nanoTime();
+    final double initial = engine.getVolume();
+    final ScheduledFuture<?>[] taskRef = new ScheduledFuture<?>[1];
+    Runnable tick = () -> {
+      double progress = Math.min(1.0, (System.nanoTime() - start) / 1_000_000.0 / duration);
+      try {
+        engine.setVolume(initial * (1.0 - progress));
+        if (progress >= 1.0) {
+          synchronized (Simp3AudioService.this) {
+            if (bgmEngine == engine) stopBgm();
+          }
+          taskRef[0].cancel(false);
+        }
+      } catch (RuntimeException error) {
+        state.error(AudioChannel.BGM, bgmTrack == null ? "" : bgmTrack.id, error.getMessage());
+        taskRef[0].cancel(false);
+      }
+    };
+    taskRef[0] = scheduler.scheduleAtFixedRate(tick, 0, 33, TimeUnit.MILLISECONDS);
+    crossfadeTask = taskRef[0];
   }
 
   private AudioEngine ensureBgmEngine() {
     if (bgmEngine == null) {
       bgmEngine = newEngine();
       attachBgmSpectrumListener(bgmEngine);
-      bgmEngine.setVolume(bgmVolume);
+      bgmEngine.setVolume(state.mix().effective(AudioChannel.BGM));
     }
     return bgmEngine;
   }
@@ -314,11 +399,14 @@ public class Simp3AudioService implements AudioFacade {
     return new HybridAudioEngine();
   }
 
-  private void playClip(String trackId, double volume, List<AudioEngine> engines, String channelName) {
+  private void playClip(String trackId, double volume, List<AudioEngine> engines, AudioChannel channel, int limit) {
+    String channelName = channel.name().toLowerCase();
     try {
+      ensureOpen();
       File audioFile = resolveToFile(trackId);
       if (audioFile == null || !audioFile.exists()) {
         log.warn("{} file not found for trackId={}", channelName, trackId);
+        state.error(channel, trackId, "Audio asset not found");
         return;
       }
 
@@ -326,22 +414,29 @@ public class Simp3AudioService implements AudioFacade {
       Song song = toSong(new BgmTrack(trackId, audioFile.getAbsolutePath()));
       if (!engine.loadSong(song)) {
         log.warn("Failed to load {} trackId={} file={}", channelName, trackId, audioFile.getAbsolutePath());
+        state.error(channel, trackId, "Backend could not load audio asset");
         safeStop(engine);
         return;
       }
 
       cleanupEngines(engines);
+      while (engines.size() >= limit) {
+        safeStop(engines.remove(0));
+      }
       engine.setVolume(volume);
       engine.setOnSongEnded(() -> {
         safeStop(engine);
         synchronized (Simp3AudioService.this) {
           engines.remove(engine);
         }
+        state.completed(channel, trackId);
       });
       engines.add(engine);
       engine.play();
+      state.started(channel, trackId);
     } catch (Exception e) {
       log.debug("play{} error for trackId={}", channelName, trackId, e);
+      state.error(channel, trackId, e.getMessage());
     }
   }
 
@@ -375,7 +470,7 @@ public class Simp3AudioService implements AudioFacade {
       try {
         Song song = toSong(bgmTrack);
         if (engine.loadSong(song)) {
-          engine.setVolume(bgmVolume);
+          engine.setVolume(state.mix().effective(AudioChannel.BGM));
           engine.play();
         } else {
           log.warn("Loop reload failed for trackId={} file={}", bgmTrack.id, bgmTrack.absolutePath);
@@ -391,6 +486,7 @@ public class Simp3AudioService implements AudioFacade {
       crossfadeTask.cancel(false);
       crossfadeTask = null;
     }
+    crossfadeProgress = 0.0;
   }
 
   private void stopEngines(List<AudioEngine> engines) {
@@ -488,16 +584,24 @@ public class Simp3AudioService implements AudioFacade {
     }
   }
 
-  private double clamp(double v) {
-    if (v < 0) return 0;
-    if (v > 1) return 1;
-    return v;
+  private void applyBgmVolumes() {
+    double volume = state.mix().effective(AudioChannel.BGM);
+    if (crossEngine != null && crossfadeTask != null) {
+      if (bgmEngine != null) bgmEngine.setVolume(volume * (1.0 - crossfadeProgress));
+      crossEngine.setVolume(volume * crossfadeProgress);
+      return;
+    }
+    if (bgmEngine != null) bgmEngine.setVolume(volume);
   }
 
-  private float clamp01(float v) {
-    if (v < 0f) return 0f;
-    if (v > 1f) return 1f;
-    return v;
+  private void applyAllVolumes() {
+    applyBgmVolumes();
+    applyVolume(sfxEngines, state.mix().effective(AudioChannel.SFX));
+    applyVolume(voiceEngines, state.mix().effective(AudioChannel.VOICE));
+  }
+
+  private void ensureOpen() {
+    if (closed) throw new IllegalStateException("Audio backend is closed");
   }
 
   private static final class BgmTrack {
@@ -525,5 +629,52 @@ public class Simp3AudioService implements AudioFacade {
   @Override
   public long getBgmSpectrumUpdatedAtNanos() {
     return latestBgmSpectrumUpdatedAtNanos;
+  }
+
+  @Override public String backendId() { return state.backendId(); }
+  @Override public AudioCapabilities capabilities() { return state.capabilities(); }
+
+  @Override
+  public synchronized AudioSnapshot snapshot() {
+    double position = 0.0;
+    double duration = 0.0;
+    try {
+      if (bgmEngine != null) {
+        position = bgmEngine.getCurrentTime();
+        duration = bgmEngine.getTotalTime();
+      }
+    } catch (RuntimeException ignored) {
+      // Snapshot collection is best-effort during backend transitions.
+    }
+    return state.snapshot(position, duration, sfxEngines.size(), voiceEngines.size());
+  }
+
+  @Override public void addListener(AudioListener listener) { state.addListener(listener); }
+  @Override public void removeListener(AudioListener listener) { state.removeListener(listener); }
+
+  @Override
+  public synchronized void close() {
+    if (closed) return;
+    closed = true;
+    cancelCrossfadeTaskLocked();
+    stopEngines(sfxEngines);
+    stopEngines(voiceEngines);
+    safeStop(crossEngine);
+    safeStop(bgmEngine);
+    crossEngine = null;
+    bgmEngine = null;
+    bgmTrack = null;
+    scheduler.shutdownNow();
+    synchronized (extractedAudioCache) {
+      for (File file : extractedAudioCache.values()) {
+        try {
+          Files.deleteIfExists(file.toPath());
+        } catch (Exception ignored) {
+          // Temporary resource cleanup is best-effort during shutdown.
+        }
+      }
+      extractedAudioCache.clear();
+    }
+    state.closed();
   }
 }
