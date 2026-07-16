@@ -101,7 +101,6 @@ class NewProjectScaffoldTemplateWiringTest {
     String tutorialHub = render("scripts/story/tutorial_hub.vns");
 
     assertTrue(prologue.contains("@position desk_left 0.28 0.96"));
-    assertTrue(prologue.contains("@position window_right 0.72 0.96"));
     for (String scene : List.of(prologue, tutorialHub)) {
       assertTrue(scene.contains("[set ui.characterHeightFactor 0.82]"));
       assertTrue(scene.contains("[set ui.characterBaselineY 0.96]"));

@@ -286,6 +286,11 @@ arc "Prologue" script "scripts/story/prologue.vns" entry "start" at 40,40
 
 Creates baseline `config/ui/dialogue.layout` values fully compatible with visual editor.
 
+The default **Monochrome Sketch** theme ships a dedicated minimal variant. Its compact white
+choice rows are aligned to the right of the viewport, leaving the left staging area clear for
+Lavender. Thin black borders and restrained hover and selection colors replace the generic blue
+full-width presentation. Selecting another theme retains the general-purpose dialogue preset.
+
 ### Menu profile starter
 
 When enabled, creates:

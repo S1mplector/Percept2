@@ -2275,7 +2275,9 @@ public class NewProjectWizard extends Stage {
   private void createDialogueLayout(File dir) throws Exception {
     int[] res = getScaledResolution();
     double scale = res[1] / 1080.0;
-    String template = LayoutDslTemplates.defaultDialogueLayoutTemplate();
+    String template = "Monochrome Sketch".equals(cmbTheme.getValue())
+        ? LayoutDslTemplates.minimalMonochromeDialogueLayoutTemplate()
+        : LayoutDslTemplates.defaultDialogueLayoutTemplate();
     if (Math.abs(scale - 1.0) > 0.01) {
       template = scaleDialogueLayoutPixels(template, scale, res[0], res[1]);
     }

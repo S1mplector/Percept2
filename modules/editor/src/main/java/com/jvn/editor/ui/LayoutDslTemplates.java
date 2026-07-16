@@ -164,6 +164,78 @@ bubbleBorderWidth=2
 """;
   }
 
+  /** Minimal black-and-white dialogue UI used by the Monochrome Sketch starter game. */
+  public static String minimalMonochromeDialogueLayoutTemplate() {
+    return """
+# Minimal monochrome dialogue layout
+# Keeps choices on the right so the left character position remains readable.
+
+# ---- Dialogue panel ----
+textBoxX=0.04
+textBoxY=0.77
+textBoxWidth=0.92
+textBoxHeight=0.19
+textBoxPadding=18
+textBoxColor=#FFFFFFE8
+textBoxOpacity=0.94
+
+# ---- Speaker tag and dialogue text ----
+nameBoxXOffset=20
+nameBoxYOffset=-34
+nameBoxWidth=190
+nameBoxHeight=34
+nameTextXOffset=10
+nameTextBaselineOffset=22
+nameTextTopPadding=0
+nameTextBottomPadding=0
+nameTextYAlign=-1
+nameBoxColor=#FFFFFFE8
+nameTextColor=#111111
+nameTextFontFamily=SansSerif
+nameTextFontSize=17
+dialogueTextHorizontalPadding=22
+dialogueTextTopPadding=30
+dialogueTextRightPadding=22
+dialogueTextBottomPadding=12
+dialogueTextColor=#171717
+dialogueTextFontFamily=SansSerif
+dialogueTextFontSize=21
+
+# ---- Compact right-aligned choices ----
+choiceXCenter=0.74
+choiceYStart=-1
+choiceYAnchor=0
+choiceWidthFactor=0.40
+choiceHeight=44
+choiceGap=8
+choiceTextXPadding=16
+choiceTextTopPadding=0
+choiceTextBottomPadding=0
+choiceTextYAlign=-1
+choiceCornerRadius=3
+choiceBorderWidth=1
+choiceTextBaselineOffset=4
+choiceFontFamily=SansSerif
+choiceFontSize=18
+choiceBackgroundColor=#FFFFFFE8
+choiceHoverColor=#F1F1F1F2
+choiceSelectedColor=#E4E4E4F2
+choiceDisabledColor=#FFFFFF99
+choiceTextColor=#202020
+choiceHoverTextColor=#000000
+choiceSelectedTextColor=#000000
+choiceDisabledTextColor=#888888
+choiceBorderColor=#202020B8
+choiceHoverBorderColor=#000000
+choiceSelectedBorderColor=#000000
+choiceDisabledBorderColor=#88888880
+
+# ---- Character framing ----
+characterHeightFactor=0.82
+characterBaselineY=0.96
+""";
+  }
+
   public static String defaultMenuLayoutTemplate(MenuLayoutSpec spec) {
     MenuLayoutSpec s = spec == null ? MenuProfile.defaultLayout() : spec;
     return """

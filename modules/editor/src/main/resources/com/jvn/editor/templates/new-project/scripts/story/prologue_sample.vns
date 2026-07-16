@@ -4,7 +4,6 @@
 @scenario {{SCENARIO_PREFIX}}_prologue
 @include {{CHARACTERS_INCLUDE}}
 @position desk_left 0.28 0.96
-@position window_right 0.72 0.96
 
 {{BG_DECL}}@label start
 {{BG_START}}{{BG_TRANSITION}}[mode dialogue standard]
@@ -32,7 +31,7 @@ Lavender: We only need one honest first line. The second line is always easier.
 
 @label write_first_line
 [inc visit_count]
-[show lavender window_right talking]
+[show lavender desk_left talking]
 Lavender: Good. Let's keep it simple: what should a new project promise?
 > A place to tell a story -> promise_story
 > A place to experiment -> promise_experiment
@@ -54,7 +53,7 @@ narrator: {i}A project I can actually finish.{/i}
 [jump promise_kept]
 
 @label promise_kept
-[show lavender center happy]
+[show lavender desk_left happy]
 Lavender: That's a real beginning. The variable {b}project_promise{/b} now remembers your choice.
 Lavender: Open this file beside the running game. Change a line, add a choice, and run it again.
 > Learn the language one feature at a time -> route_tutorial
@@ -68,7 +67,7 @@ Lavender: The next screen is authored in {b}scripts/scenes/studio_tour.jes{/b}. 
 [jes push {{JES_SCENE_PATH}} label jes_returned with source=starter]
 
 @label jes_returned
-[show lavender center happy]
+[show lavender desk_left happy]
 Lavender: Welcome back. That was a real VNS to JES scene transition, not a mock-up.
 > Continue to the tutorials -> route_tutorial
 > Continue to the branch demo -> route_branch
