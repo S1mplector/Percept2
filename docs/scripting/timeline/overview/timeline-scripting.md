@@ -41,6 +41,7 @@ timeline {
 - **Played by:** `TimelineRunner` at runtime
 - **Purpose:** Runtime entity animation and scene choreography
 - **Full reference:** [Puppeteer Animation Timelines](../animation/timeline-animation.md)
+- **Reusable source fragments:** [Puppeteer Motifs](../../../editor/puppeteer/puppeteer-motifs.md)
 
 ---
 
@@ -294,6 +295,7 @@ See [Story Arcs & Links DSL](../story/timeline-story-arcs.md) for full examples 
 ### Animation
 
 - **[Puppeteer Animation Timelines](../animation/timeline-animation.md)** — TimelineData model, keyframe interpolation, inline JES block syntax, audio cues, TimelineRunner playback, TimelineRegistry, VNS integration, easing types
+- **[Puppeteer Motifs](../../../editor/puppeteer/puppeteer-motifs.md)** — reusable named animation fragments with parameters, defaults, nesting, and source-expansion rules
 - **[Hand-Coding Timelines](../animation/timeline-hand-coding.md)** — writing timeline animations by hand without the Puppeteer editor, time cursor model, easing selection guide, 18 annotated examples, reusable copy-paste templates
 
 ---

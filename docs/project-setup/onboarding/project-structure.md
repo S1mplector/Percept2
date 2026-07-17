@@ -47,6 +47,8 @@ MyProject/
 │   │   │   └── submenu.style
 │   │   └── theme/
 │   │       └── menu.theme
+│   ├── facets/                     # Composable reactive .facet UI
+│   │   └── status.facet
 │   ├── settings/
 │   │   └── vn.settings
 │   └── story/
@@ -187,6 +189,21 @@ config/menu/
 ```
 
 **Naming rule:** The filename (minus extension) is the ID. `main.menu` has ID `main`. `default.layout` has ID `default`.
+
+### `config/facets/` — Composable Reactive UI
+
+Facet files define nested freeform overlays backed by live VNS variables:
+
+```text
+config/facets/
+├── companion_card.facet
+├── quest_summary.facet
+└── status.facet
+```
+
+The filename is the screen ID. `status.facet` is shown with `[screen show status]` or called with `[screen call status]`. A Facet can contain ordered `group`, `text`, `image`, and `bar` nodes plus the standard reactive-overlay buttons and lifecycle fields.
+
+See [JVN Facets](../../scripting/ui/facets.md) for the complete file format, discovery precedence, geometry rules, reactive evaluation, and limitations.
 
 ### `config/settings/` — VN Settings
 

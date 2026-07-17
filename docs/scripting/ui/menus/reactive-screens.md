@@ -1,6 +1,6 @@
 # Reactive Overlay Screens
 
-Reactive screens are small in-game overlays loaded from plain `.screen` properties files. They are useful for confirmation dialogs, stat panels, shop prompts, chapter popups, and other VN screens whose text or buttons should react to `VnState` variables.
+Reactive screens are small in-game overlays loaded from plain `.screen` properties files. For nested, composable UI trees, use [JVN Facets](../facets.md), which extend this same runtime lifecycle.
 
 Core classes:
 - `modules/core/src/main/java/com/jvn/core/vn/ui/VnReactiveScreenLoader.java`
@@ -58,12 +58,14 @@ When `coins` changes, the overlay text and button enabled state update automatic
 
 `[screen show <id>]` and `[screen call <id>]` first look for a file-backed reactive screen:
 
-1. `config/screens/<id>.screen`
-2. `config/screens/<id>.properties`
-3. `screens/<id>.screen`
-4. `screens/<id>.properties`
-5. `<id>.screen`
-6. `<id>.properties`
+1. `config/facets/<id>.facet`
+2. `config/screens/<id>.screen`
+3. `config/screens/<id>.properties`
+4. `screens/<id>.screen`
+5. `screens/<id>.properties`
+6. `<id>.screen`
+7. `<id>.properties`
+8. `<id>.facet`
 
 If no file exists, JVN falls back to the existing inline screen syntax:
 

@@ -1,6 +1,6 @@
 # Puppeteer — JES Timeline DSL Reference
 
-Complete reference for the JES timeline code that Puppeteer generates and exports. Covers the `timeline { }` block syntax, all action types, generic property channels, event cues, easing values, parallel blocks, wait commands, audio cues, camera actions, editor metadata comments, and how to use exported code in VNS scripts and JES scenes.
+Complete reference for the JES timeline code that Puppeteer generates and exports. Covers the `timeline { }` block syntax, all action types, generic property channels, event cues, easing values, parallel blocks, wait commands, audio cues, camera actions, reusable Puppeteer Motifs, editor metadata comments, and how to use exported code in VNS scripts and JES scenes.
 
 Exporter: `modules/editor/src/main/java/com/jvn/editor/ui/actioneditor/CodeExporter.java`
 Runtime: `modules/core/src/main/java/com/jvn/core/animation/TimelineRunner.java`
@@ -57,6 +57,30 @@ Named export can also include Puppeteer-only metadata comments. Runtime parsers 
 // @jvn-puppeteer-stage id=sunset_park source=config%2Fstage%2Fsunset_park.stagepreset bg=park_day subject=hero lights=3 occluders=1 zones=4
 // @jvn-puppeteer-eye-focus character=john expression=neutral source=eyes sourceX=0.5 sourceY=0.26 deadZone=0.12 maxNudge=3 strength=1 layer1=eyes_01 layer2=eyes_02 layer3=eyes_03 layer4=eyes_04 layer5=eyes_05 layer6=eyes_06 layer7=eyes_07 layer8=eyes_08 layer9=eyes_09
 ```
+
+### Reusable Source With Puppeteer Motifs
+
+For repeated animation patterns, a source may declare named, parameterized `motif` fragments before its timeline and invoke them with `use`:
+
+```jes
+motif arrive(target, x=640, duration=320) {
+  move "${target}" {
+    x: ${x}
+    dur: ${duration}
+    easing: ease_out
+  }
+  fade "${target}" {
+    alpha: 1
+    dur: ${duration}
+  }
+}
+
+timeline {
+  use arrive(target="hero", x=720, duration=400)
+}
+```
+
+Motifs expand into ordinary actions before this document's timeline grammar is parsed. They do not add new runtime action types. See [Puppeteer Motifs](puppeteer-motifs.md) for definition grammar, parameters, nesting, cursor behavior, editor round trips, limitations, and complete examples.
 
 ---
 

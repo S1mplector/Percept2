@@ -1,5 +1,7 @@
 # Build a Complete Menu System
 
+> **Choosing the right UI layer:** This tutorial builds menu-profile screens: navigable collections such as main, settings, save/load, and extras menus. For a nested freeform panel driven by live VN variables, use [JVN Facets](../../facets.md). Facets share overlay actions and `[screen show]` / `[screen call]`, but they are not menu row layouts.
+
 This tutorial builds a small but production-shaped menu system entirely from source. It includes a
 main menu, settings and chapter-selection screens, reusable layout and style files, navigation, and
 a runtime verification checklist.

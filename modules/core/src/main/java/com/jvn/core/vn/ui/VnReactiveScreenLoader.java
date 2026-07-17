@@ -72,8 +72,42 @@ public final class VnReactiveScreenLoader {
         text(p, "timerAction", callScreen ? "return" : "hide"),
         text(p, "timerTarget", ""),
         text(p, "returnKey", "screen.return." + id),
-        buttons
+        buttons,
+        parseFacet(p, diagnostics, sourcePath)
     );
+  }
+
+  private static VnFacetSpec parseFacet(Properties p, List<String> diagnostics, String sourcePath) {
+    List<String> ids = parseCsv(p.getProperty("nodes"));
+    if (ids.isEmpty()) {
+      Set<String> found = new LinkedHashSet<>();
+      for (String key : p.stringPropertyNames()) {
+        if (!key.startsWith("node.")) continue;
+        int dot = key.indexOf('.', "node.".length());
+        if (dot > "node.".length()) found.add(key.substring("node.".length(), dot));
+      }
+      ids = new ArrayList<>(found);
+    }
+    if (ids.isEmpty()) return null;
+    List<VnFacetSpec.Node> nodes = new ArrayList<>();
+    for (String id : ids) {
+      String prefix = "node." + id + ".";
+      String typeRaw = text(p, prefix + "type", "text");
+      VnFacetSpec.Type type = VnFacetSpec.Type.parse(typeRaw);
+      if (!type.name().equalsIgnoreCase(typeRaw)) {
+        diagnostics.add("Unknown facet node type '" + typeRaw + "' for " + id + " in " + sourcePath);
+      }
+      nodes.add(new VnFacetSpec.Node(
+          id, type, text(p, prefix + "parent", "root"),
+          text(p, prefix + "text", ""), text(p, prefix + "value", ""),
+          text(p, prefix + "visibleIf", ""),
+          parseDouble(p, prefix + "x", 0.0, diagnostics, sourcePath),
+          parseDouble(p, prefix + "y", 0.0, diagnostics, sourcePath),
+          parseDouble(p, prefix + "width", 1.0, diagnostics, sourcePath),
+          parseDouble(p, prefix + "height", 0.1, diagnostics, sourcePath)
+      ));
+    }
+    return new VnFacetSpec(text(p, "root", "root"), nodes);
   }
 
   private static List<VnReactiveScreenSpec.Button> parseButtons(
@@ -136,12 +170,14 @@ public final class VnReactiveScreenLoader {
 
   private static String[] screenPaths(String id) {
     return new String[] {
+        "config/facets/" + id + ".facet",
         "config/screens/" + id + ".screen",
         "config/screens/" + id + ".properties",
         "screens/" + id + ".screen",
         "screens/" + id + ".properties",
         id + ".screen",
-        id + ".properties"
+        id + ".properties",
+        id + ".facet"
     };
   }
 

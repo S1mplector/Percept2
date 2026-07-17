@@ -43,6 +43,28 @@ public final class VnReactiveOverlayScreenSpec extends VnOverlayScreenSpec {
     return definition;
   }
 
+  public VnFacetSpec getFacet() {
+    return definition == null ? new VnFacetSpec("root", List.of()) : definition.facet();
+  }
+
+  public boolean isFacetNodeVisible(VnFacetSpec.Node node) {
+    return node != null && evalBool(node.visibleIf(), true);
+  }
+
+  public String resolveFacetText(String raw) {
+    return resolveText(raw);
+  }
+
+  public double resolveFacetNumber(String raw, double fallback) {
+    String value = resolveText(raw);
+    if (value == null || value.isBlank()) return fallback;
+    try {
+      return Double.parseDouble(value.trim());
+    } catch (NumberFormatException ignored) {
+      return fallback;
+    }
+  }
+
   public boolean isVisibleNow() {
     return definition == null || evalBool(definition.visibleIf(), true);
   }

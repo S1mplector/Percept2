@@ -56,4 +56,49 @@ class VnReactiveScreenLoaderTest {
       AssetCatalog.setDefaultManager(new ClasspathAssetManager());
     }
   }
+
+  @Test
+  void loadsComposableFacetNodesAndEvaluatesTheirBindings() throws Exception {
+    Path root = Files.createTempDirectory("jvn-facet-");
+    Files.createDirectories(root.resolve("config/facets"));
+    Files.writeString(root.resolve("config/facets/status.facet"), """
+        title=Status
+        nodes=content,name,health
+        node.content.type=group
+        node.content.x=0.08
+        node.content.y=0.18
+        node.content.width=0.84
+        node.content.height=0.60
+        node.name.type=text
+        node.name.parent=content
+        node.name.text=${player_name}
+        node.name.height=0.25
+        node.health.type=bar
+        node.health.parent=content
+        node.health.value=${health_ratio}
+        node.health.visibleIf=health_ratio > 0
+        node.health.y=0.40
+        node.health.height=0.12
+        """);
+
+    AssetCatalog.setDefaultManager(new FilesystemAssetManager(root));
+    try {
+      VnReactiveScreenLoader.LoadResult result = VnReactiveScreenLoader.loadFromAssets("status");
+      assertNotNull(result.screen());
+      assertNotNull(result.screen().facet());
+      assertEquals(3, result.screen().facet().nodes().size());
+
+      VnState state = new VnState();
+      state.setVariable("player_name", "Lavender");
+      state.setVariable("health_ratio", 0.75);
+      VnReactiveOverlayScreenSpec overlay = new VnReactiveOverlayScreenSpec(result.screen(), state, false);
+      VnFacetSpec.Node name = result.screen().facet().nodes().get(1);
+      VnFacetSpec.Node health = result.screen().facet().nodes().get(2);
+      assertEquals("Lavender", overlay.resolveFacetText(name.text()));
+      assertEquals(0.75, overlay.resolveFacetNumber(health.value(), 0), 0.001);
+      assertTrue(overlay.isFacetNodeVisible(health));
+    } finally {
+      AssetCatalog.setDefaultManager(new ClasspathAssetManager());
+    }
+  }
 }

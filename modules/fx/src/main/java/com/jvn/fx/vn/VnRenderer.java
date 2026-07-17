@@ -4,6 +4,7 @@ import java.io.File;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -53,6 +54,7 @@ import com.jvn.core.vn.text.TextParser;
 import com.jvn.core.vn.text.TextSpan;
 import com.jvn.core.vn.ui.VnOverlayButtonSpec;
 import com.jvn.core.vn.ui.VnOverlayScreenSpec;
+import com.jvn.core.vn.ui.VnFacetSpec;
 import com.jvn.core.vn.ui.VnReactiveOverlayScreenSpec;
 import com.jvn.core.vn.ui.VnUiActionButtonSpec;
 import com.jvn.core.vn.ui.VnUiLayoutLoader;
@@ -3551,10 +3553,60 @@ public class VnRenderer {
       }
       ScreenGeometry screenGeometry = computeOverlayScreenGeometry(screen, width, height);
       renderOverlayPanel(screen, screenGeometry, width, height);
+      if (screen instanceof VnReactiveOverlayScreenSpec reactive && reactive.getFacet() != null) {
+        renderFacet(reactive, screenGeometry);
+      }
       for (VnOverlayButtonSpec button : screen.getButtons()) {
         if (button == null || !button.enabled()) continue;
         ButtonGeometry geometry = computeOverlayButtonGeometry(button, screenGeometry, width, height);
         renderOverlayButton(button, geometry, sameOverlayButton(hoveredButton, button));
+      }
+    }
+  }
+
+  private void renderFacet(VnReactiveOverlayScreenSpec screen, ScreenGeometry root) {
+    VnFacetSpec facet = screen.getFacet();
+    if (facet == null) return;
+    Map<String, ScreenGeometry> geometryById = new HashMap<>();
+    geometryById.put(facet.rootId(), root);
+    geometryById.put("root", root);
+    for (VnFacetSpec.Node node : facet.nodes()) {
+      if (node == null || !screen.isFacetNodeVisible(node)) continue;
+      ScreenGeometry parent = geometryById.getOrDefault(node.parent(), root);
+      ScreenGeometry box = new ScreenGeometry(
+          parent.x() + parent.width() * node.x(),
+          parent.y() + parent.height() * node.y(),
+          Math.max(1, parent.width() * node.width()),
+          Math.max(1, parent.height() * node.height())
+      );
+      geometryById.put(node.id(), box);
+      switch (node.type()) {
+        case GROUP -> { }
+        case TEXT -> {
+          String value = screen.resolveFacetText(node.text());
+          if (!value.isBlank()) {
+            gc.setFill(Color.rgb(236, 240, 248, 0.98));
+            gc.setFont(Font.font(dialogueFont.getFamily(), FontWeight.NORMAL, Math.max(12, box.height() * 0.42)));
+            double lineY = box.y() + Math.min(box.height() * 0.7, 22);
+            for (String line : wrapText(value, box.width(), gc.getFont())) {
+              gc.fillText(line, box.x(), lineY);
+              lineY += Math.max(16, gc.getFont().getSize() * 1.25);
+              if (lineY > box.y() + box.height()) break;
+            }
+          }
+        }
+        case IMAGE -> {
+          String path = screen.resolveFacetText(node.value());
+          Image image = path.isBlank() ? null : loadImage(path);
+          if (image != null) gc.drawImage(image, box.x(), box.y(), box.width(), box.height());
+        }
+        case BAR -> {
+          double value = Math.max(0.0, Math.min(1.0, screen.resolveFacetNumber(node.value(), 0.0)));
+          gc.setFill(Color.rgb(255, 255, 255, 0.12));
+          gc.fillRoundRect(box.x(), box.y(), box.width(), box.height(), box.height(), box.height());
+          gc.setFill(Color.rgb(82, 210, 255, 0.88));
+          gc.fillRoundRect(box.x(), box.y(), box.width() * value, box.height(), box.height(), box.height());
+        }
       }
     }
   }
