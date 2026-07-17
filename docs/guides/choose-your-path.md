@@ -69,7 +69,7 @@ Start here if your first goal is:
 Read next:
 
 - [Scene Lighting Studio](../editor/sidebars/right/sidebar-image-tint-tool.md)
-- [VNS Directives & Declarations](../scripting/vns/language/vns-directives.md#stagepreset--stage-lighting-preset)
+- [VNS Directives & Declarations](../scripting/vns/language/vns-directives.md#stagepreset-stage-lighting-preset)
 
 ## When To Start With Menu Profiles And Layouts
 

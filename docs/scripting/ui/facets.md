@@ -752,7 +752,7 @@ These are extension points for the Facet node model, not features silently impli
 ## Related Documentation
 
 - [Reactive Overlay Screens](menus/reactive-screens.md)
-- [VNS Commands — Screen Show And Call](../vns/language/vns-commands.md#screen-show-id--screen-call-id)
+- [VNS Commands — Screen Show And Call](../vns/language/vns-commands.md#screen-show-id-screen-call-id)
 - [Menu Actions And Navigation](layout/structure/menu-actions.md)
 - [Menu Profiles](menus/menu-profiles.md)
 - [VNS Localization](../vns/runtime/vns-localization.md)

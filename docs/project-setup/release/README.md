@@ -50,5 +50,5 @@ Use this hub when the question is "how do we ship this game?"
 ## Related Docs
 
 - [Documentation Index](../../INDEX.md)
-- [Editor Guide](../../editor/core/editor.md#game-build--publish)
+- [Editor Guide](../../editor/core/editor.md#game-build-publish)
 - [New Project Wizard](../onboarding/new-project-wizard.md)

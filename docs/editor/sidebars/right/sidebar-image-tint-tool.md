@@ -415,6 +415,6 @@ Persisted state includes:
 - [Layered Image Visualizer](sidebar-layered-image-visualizer.md) — layer-based sprite composition and export
 - [Image Attributes Tool](sidebar-image-attributes-tool.md) — attribute-driven image assembly
 - [Asset Browser](sidebar-asset-browser.md) — general asset discovery
-- [VNS Directives — @stagepreset](../../../scripting/vns/language/vns-directives.md#stagepreset--stage-lighting-preset) — loading exported presets in VNS scripts
+- [VNS Directives — @stagepreset](../../../scripting/vns/language/vns-directives.md#stagepreset-stage-lighting-preset) — loading exported presets in VNS scripts
 - [VNS Commands — stage](../../../scripting/vns/language/vns-commands.md#stage-lighting) — activating stage presets at runtime
 - [Puppeteer Launcher](sidebar-puppeteer-launcher.md) — carrying active stage context into animation authoring

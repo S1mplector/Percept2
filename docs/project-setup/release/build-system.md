@@ -41,7 +41,7 @@ Before enabling build actions, the popup validates:
 
 Warnings are shown for easy-to-miss cases such as a project folder with leading/trailing whitespace, a script-only package without an `assets/` folder, or missing release-profile config for native packaging.
 
-The popup is described from the editor side in [Editor Guide](../../editor/core/editor.md#game-build--publish).
+The popup is described from the editor side in [Editor Guide](../../editor/core/editor.md#game-build-publish).
 
 ## CLI Commands
 
