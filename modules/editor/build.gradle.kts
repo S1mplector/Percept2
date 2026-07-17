@@ -39,6 +39,12 @@ application {
   mainClass.set("com.jvn.editor.EditorApp")
 }
 
+tasks.named<ProcessResources>("processResources") {
+  from(rootProject.file("misc/demo-assets")) {
+    into("com/jvn/editor/templates/new-project/demo-assets")
+  }
+}
+
 abstract class JavaFxModuleArgumentProvider @Inject constructor(objects: ObjectFactory) : CommandLineArgumentProvider {
   @get:Classpath
   val javafxClasspath: ConfigurableFileCollection = objects.fileCollection()

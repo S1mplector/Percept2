@@ -10,7 +10,7 @@ This section also covers timelines and data-driven UI configuration.
 | Dialogue, choices, story flow, and character staging | [VNS Overview](vns/overview/vns-scripting.md) |
 | Entities, components, physics, input, and gameplay scenes | [JES Overview](jes/overview/jes-scripting.md) |
 | Animation timelines and story maps | [Timeline Scripting](timeline/overview/timeline-scripting.md) |
-| Menus, dialogue layout, and themed screens | [Menu Profiles](ui/menus/menu-profiles.md) |
+| Menus, dialogue layout, and themed screens | [In-Game UI And Menu Authoring](ui/layout/README.md) |
 
 ## Language Contract
 

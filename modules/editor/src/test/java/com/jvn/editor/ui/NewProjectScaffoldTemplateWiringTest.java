@@ -1,10 +1,13 @@
 package com.jvn.editor.ui;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
@@ -12,7 +15,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+import javax.imageio.ImageIO;
+
 import org.junit.jupiter.api.Test;
+
+import com.jvn.core.vn.script.VnScriptParser;
+import com.jvn.scripting.jes.JesLoader;
 
 class NewProjectScaffoldTemplateWiringTest {
 
@@ -45,7 +53,7 @@ class NewProjectScaffoldTemplateWiringTest {
       "scripts/tutorial/14_localization_and_textkeys.vns",
       "scripts/tutorial/15_ui_layout_and_theme.vns",
       "scripts/tutorial/16_testing_and_release.vns",
-      "scripts/tutorial/17_inline_java_in_vns.vns");
+      "scripts/tutorial/17_vns_jes_integration.vns");
 
   private static final Map<String, String> TOKENS = buildTokens();
 
@@ -69,6 +77,59 @@ class NewProjectScaffoldTemplateWiringTest {
           UNRESOLVED_TOKEN.matcher(rendered).find(),
           () -> "Unresolved token found in rendered tutorial template " + path + ":\n" + rendered);
     }
+  }
+
+  @Test
+  void everyRenderedVnsTemplateIsAcceptedByTheRuntimeParser() throws Exception {
+    for (String path : STORY_TEMPLATE_PATHS) {
+      String rendered = render(path);
+      assertDoesNotThrow(
+          () -> parseVns(rendered),
+          () -> "Runtime parser rejected rendered story template " + path);
+    }
+    for (String path : TUTORIAL_TEMPLATE_PATHS) {
+      String rendered = render(path);
+      assertDoesNotThrow(
+          () -> parseVns(rendered),
+          () -> "Runtime parser rejected rendered tutorial template " + path);
+    }
+  }
+
+  @Test
+  void lavenderUsesViewportSafeFramingInStarterScenes() throws Exception {
+    String prologue = render("scripts/story/prologue_sample.vns");
+    String tutorialHub = render("scripts/story/tutorial_hub.vns");
+
+    assertTrue(prologue.contains("@position desk_left 0.28 0.96"));
+    for (String scene : List.of(prologue, tutorialHub)) {
+      assertTrue(scene.contains("[set ui.characterHeightFactor 0.82]"));
+      assertTrue(scene.contains("[set ui.characterBaselineY 0.96]"));
+      assertFalse(scene.contains("[set ui.characterHeightFactor 1.28]"));
+      assertFalse(scene.contains("[set ui.characterBaselineY 1.42]"));
+    }
+  }
+
+  @Test
+  void bundledJesTutorialSceneLoadsThroughTheRuntimeLoader() throws Exception {
+    String rendered = render("scripts/scenes/studio_tour.jes");
+    assertFalse(UNRESOLVED_TOKEN.matcher(rendered).find(), "JES template contains unresolved tokens");
+    assertDoesNotThrow(() -> JesLoader.load(rendered));
+  }
+
+  @Test
+  void defaultGameAssetsArePackagedWithTheEditor() {
+    ClassLoader loader = Thread.currentThread().getContextClassLoader();
+    String root = "com/jvn/editor/templates/new-project/demo-assets/";
+    assertNotNull(loader.getResource(root + "demo_bg/game.png"));
+    assertNotNull(loader.getResource(root + "demo_bg/menu.png"));
+    assertNotNull(loader.getResource(root + "Lavender_test_sprite/base/lavender_test_sprite_base.png"));
+    assertNotNull(loader.getResource(root + "demo_bgm/03 - Definitely Our Town.mp3"));
+  }
+
+  @Test
+  void defaultGameBackgroundsAreFullHdAndStrictlyMonochrome() throws Exception {
+    assertMonochromeBackground("demo_bg/game.png");
+    assertMonochromeBackground("demo_bg/menu.png");
   }
 
   @Test
@@ -110,13 +171,14 @@ class NewProjectScaffoldTemplateWiringTest {
         "T05_Transitions", "T06_Audio", "T07_Variables", "T08_Movement",
         "T09_Puppeteer", "T10_Menus", "T11_Subroutines", "T12_BestPractices",
         "T13_Camera", "T14_Localization", "T15_UILayout", "T16_TestingRelease",
-        "T17_InlineJava");
+        "T17_VnsJes");
     for (String target : expectedTargets) {
       assertTrue(hub.contains("[goto " + target + ":start]"), "Missing hub route for " + target);
     }
     assertTrue(hub.contains("@label topics_page_1"));
     assertTrue(hub.contains("@label topics_page_2"));
     assertTrue(hub.contains("@label topics_page_3"));
+    assertTrue(hub.contains("[goto T17_VnsJes:start]"));
   }
 
   @Test
@@ -141,6 +203,43 @@ class NewProjectScaffoldTemplateWiringTest {
       rendered = rendered.replace("{{" + entry.getKey() + "}}", entry.getValue());
     }
     return rendered;
+  }
+
+  private static void parseVns(String rendered) throws Exception {
+    String sharedCharacters = """
+        @character lavender "Lavender"
+        @character narrator "Narrator"
+        @charimg lavender neutral assets/lavender.png
+        @charimg lavender idle assets/lavender.png
+        @charimg lavender talking assets/lavender.png
+        @charimg lavender happy assets/lavender.png
+        @charimg lavender emphasis assets/lavender.png
+        """;
+    new VnScriptParser().parse(
+        new ByteArrayInputStream(rendered.getBytes(StandardCharsets.UTF_8)),
+        "scaffold-test.vns",
+        ignored -> new ByteArrayInputStream(sharedCharacters.getBytes(StandardCharsets.UTF_8)));
+  }
+
+  private static void assertMonochromeBackground(String relativePath) throws Exception {
+    String resourcePath = "com/jvn/editor/templates/new-project/demo-assets/" + relativePath;
+    try (InputStream in = Thread.currentThread().getContextClassLoader().getResourceAsStream(resourcePath)) {
+      assertNotNull(in, "Missing background resource: " + resourcePath);
+      BufferedImage image = ImageIO.read(in);
+      assertNotNull(image, "Unreadable background resource: " + resourcePath);
+      assertEquals(1920, image.getWidth(), "Unexpected background width: " + relativePath);
+      assertEquals(1080, image.getHeight(), "Unexpected background height: " + relativePath);
+      for (int y = 0; y < image.getHeight(); y++) {
+        for (int x = 0; x < image.getWidth(); x++) {
+          int rgb = image.getRGB(x, y);
+          int red = (rgb >>> 16) & 0xff;
+          int green = (rgb >>> 8) & 0xff;
+          int blue = rgb & 0xff;
+          assertTrue(red == green && green == blue,
+              "Colored pixel in " + relativePath + " at " + x + "," + y);
+        }
+      }
+    }
   }
 
   private static String loadTemplate(String relativePath) throws Exception {
@@ -183,7 +282,11 @@ class NewProjectScaffoldTemplateWiringTest {
     tokens.put("LOCALIZATION_TARGET", "T14_Localization");
     tokens.put("UI_LAYOUT_TARGET", "T15_UILayout");
     tokens.put("TESTING_RELEASE_TARGET", "T16_TestingRelease");
-    tokens.put("INLINE_JAVA_TARGET", "T17_InlineJava");
+    tokens.put("VNS_JES_TARGET", "T17_VnsJes");
+    tokens.put("JES_SCENE_PATH", "scripts/scenes/studio_tour.jes");
+    tokens.put(
+        "JES_BACKGROUND_ENTITY",
+        "  entity \"background\" { component Panel2D { x: 0 y: 0 w: 1920 h: 1080 fill: rgb(1, 1, 1, 1) } }\n\n");
     tokens.put("HUB_TARGET", "TutorialHub");
     tokens.put("CHARACTERS_SCRIPT_PATH", "scripts/definitions/characters.vns");
     tokens.put("BG_CROSSFADE", "[transition crossfade 600 field_evening]\n");

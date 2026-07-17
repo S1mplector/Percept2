@@ -1,0 +1,33 @@
+// A minimal JES scene launched from the starter VNS story.
+// Press Enter to invoke the runtime-provided return handler.
+scene "StudioTour" {
+{{JES_BACKGROUND_ENTITY}}  entity "shade" {
+    component Panel2D { x: 0 y: 0 w: 1920 h: 1080 fill: rgb(1, 1, 1, 0.18) }
+  }
+
+  entity "title" {
+    component Label2D {
+      text: "JES studio scene"
+      x: 120 y: 120 size: 42 bold: true
+      color: rgb(0.08, 0.08, 0.08, 1)
+    }
+  }
+
+  entity "hint" {
+    component Label2D {
+      text: "Press Enter to return to Lavender"
+      x: 120 y: 190 size: 24
+      color: rgb(0.18, 0.18, 0.18, 1)
+    }
+  }
+
+  on key "ENTER" do return
+  on key "ESCAPE" do return
+
+  timeline {
+    parallel {
+      move "title" { x: 150 y: 120 dur: 700 easing: cubic-bezier(0.22, 1, 0.36, 1) }
+      fade "hint" { alpha: 1 dur: 500 easing: ease_out_quad }
+    }
+  }
+}

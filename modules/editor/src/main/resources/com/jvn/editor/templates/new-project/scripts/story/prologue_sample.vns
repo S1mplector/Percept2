@@ -1,44 +1,81 @@
-# {{PROJECT_NAME}} - Prologue Entry
-# This is the first script the engine loads when the player starts the game.
-# It introduces the project structure and routes the player to other script files using [goto].
-# In a real game, you'd replace this with your opening scene, title card, or cold open.
+# {{PROJECT_NAME}} — The First Page
+# A small playable opening and a map of the starter project.
 
-@scenario {{SCENARIO_PREFIX}}_prologue_entry
+@scenario {{SCENARIO_PREFIX}}_prologue
 @include {{CHARACTERS_INCLUDE}}
+@position desk_left 0.28 0.96
 
 {{BG_DECL}}@label start
-{{BG_START}}{{BG_TRANSITION}}[show lavender center {{LAVENDER_EXPR}}]
-[wait 200]
-narrator: Welcome to {b}{{PROJECT_NAME}}{/b}.
+{{BG_START}}{{BG_TRANSITION}}[mode dialogue standard]
+[set ui.dialogueUi default]
+[set ui.textBoxAsset default]
+[set ui.characterHeightFactor 0.82]
+[set ui.characterBaselineY 0.96]
+[textspeed 26]
+[autodelay 1500]
+[set visit_count 0]
+[show lavender desk_left idle]
+[wait 250]
+
+narrator: Late sunlight rests across an unfinished page.
+[show lavender desk_left talking]
+Lavender: There you are. I was beginning to think this project would stay blank forever.
+Lavender: I'm Lavender. This studio—and the story inside it—belongs to you now.
+[show lavender desk_left happy]
+Lavender: We only need one honest first line. The second line is always easier.
+
+> Write the first line with Lavender -> write_first_line
+> Open the interactive VNS tutorials -> route_tutorial
+> Preview a JES scene -> open_jes
+> Explore a branching story example -> route_branch
+
+@label write_first_line
+[inc visit_count]
+[show lavender desk_left talking]
+Lavender: Good. Let's keep it simple: what should a new project promise?
+> A place to tell a story -> promise_story
+> A place to experiment -> promise_experiment
+> A project I can actually finish -> promise_finish
+
+@label promise_story
+[set project_promise story]
+narrator: {i}A place to tell a story.{/i}
+[jump promise_kept]
+
+@label promise_experiment
+[set project_promise experiment]
+narrator: {i}A place to experiment.{/i}
+[jump promise_kept]
+
+@label promise_finish
+[set project_promise finish]
+narrator: {i}A project I can actually finish.{/i}
+[jump promise_kept]
+
+@label promise_kept
+[show lavender desk_left happy]
+Lavender: That's a real beginning. The variable {b}project_promise{/b} now remembers your choice.
+Lavender: Open this file beside the running game. Change a line, add a choice, and run it again.
+> Learn the language one feature at a time -> route_tutorial
+> See the multi-file story route -> route_branch
+> Visit the JES studio overlay -> open_jes
+
+@label open_jes
 [show lavender center talking]
-Lavender: You're looking at the {b}prologue script{/b} — the entry point of the entire game.
-Lavender: When a player hits "New Game" from the main menu, execution starts right here, at the {b}@label start{/b} in this file.
+Lavender: VNS handles this conversation. JES handles entity scenes, input, and timelines.
+Lavender: The next screen is authored in {b}scripts/scenes/studio_tour.jes{/b}. Press Enter to return here.
+[jes push {{JES_SCENE_PATH}} label jes_returned with source=starter]
 
-Lavender: This project is organized into {b}story arcs{/b}: separate .vns files connected by {b}[goto]{/b} commands.
-narrator: The arc structure for this project looks like this:
-narrator: {color=#8888cc}prologue{/color}  →  {color=#8888cc}tutorial hub{/color} (17 lessons)  →  back to prologue
-narrator: {color=#8888cc}prologue{/color}  →  {color=#8888cc}branch demo{/color}  →  {color=#8888cc}epilogue{/color}
-
-[show lavender center happy]
-Lavender: Below are two choices. Each one uses {b}[goto]{/b} to jump to a different scenario file.
-Lavender: Open this file in the editor and read the labels below the choices to see exactly how routing works.
-
-> Learn VNS scripting — 17 interactive lessons covering dialogue to release -> route_tutorial
-> Branching scene demo — see how [goto] connects multiple script files -> route_branch
-
-# ─── Route: Tutorial Hub ────────────────────────────────────────
-# [goto] navigates to the tutorial_hub scenario's "start" label.
-# The tutorial_count variable tracks how many lessons the player completes.
-# When the player leaves the hub, execution returns here or ends.
+@label jes_returned
+[show lavender desk_left happy]
+Lavender: Welcome back. That was a real VNS to JES scene transition, not a mock-up.
+> Continue to the tutorials -> route_tutorial
+> Continue to the branch demo -> route_branch
+> Return to the opening choices -> start
 
 @label route_tutorial
 [set tutorial_count 0]
 [goto {{TUTORIAL_TARGET}}:start]
-
-# ─── Route: Branch Demo ─────────────────────────────────────────
-# [goto] navigates to the branch_demo scenario's "start" label.
-# That file runs a short scene, then [goto]s to the epilogue.
-# This demonstrates the prologue → branch → epilogue arc pattern.
 
 @label route_branch
 [goto {{BRANCH_TARGET}}:start]

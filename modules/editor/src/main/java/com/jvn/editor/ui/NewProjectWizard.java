@@ -169,7 +169,8 @@ public class NewProjectWizard extends Stage {
   private static final String TUTORIAL_LOCALIZATION_SCRIPT_PATH = "scripts/tutorial/14_localization_and_textkeys.vns";
   private static final String TUTORIAL_UI_LAYOUT_SCRIPT_PATH = "scripts/tutorial/15_ui_layout_and_theme.vns";
   private static final String TUTORIAL_TESTING_RELEASE_SCRIPT_PATH = "scripts/tutorial/16_testing_and_release.vns";
-  private static final String TUTORIAL_INLINE_JAVA_SCRIPT_PATH = "scripts/tutorial/17_inline_java_in_vns.vns";
+  private static final String TUTORIAL_VNS_JES_SCRIPT_PATH = "scripts/tutorial/17_vns_jes_integration.vns";
+  private static final String JES_STUDIO_SCENE_PATH = "scripts/scenes/studio_tour.jes";
   private static final String ARC_PROLOGUE = "Prologue";
   private static final String ARC_TUTORIAL_HUB = "TutorialHub";
   private static final String ARC_BRANCH_DEMO = "BranchDemo";
@@ -190,7 +191,7 @@ public class NewProjectWizard extends Stage {
   private static final String ARC_T14_LOCALIZATION = "T14_Localization";
   private static final String ARC_T15_UI_LAYOUT = "T15_UILayout";
   private static final String ARC_T16_TESTING_RELEASE = "T16_TestingRelease";
-  private static final String ARC_T17_INLINE_JAVA = "T17_InlineJava";
+  private static final String ARC_T17_VNS_JES = "T17_VnsJes";
   private static final String CHARACTERS_SCRIPT_PATH = "scripts/definitions/characters.vns";
   private static final String CHARACTERS_INCLUDE_PATH = "/definitions/characters.vns";
   private static final String STORY_MAP_PATH = StoryMapPaths.DEFAULT_PATH;
@@ -215,6 +216,23 @@ public class NewProjectWizard extends Stage {
   private static final String MENU_STYLE_SLOT_PATH = "config/menu/styles/slot.style";
   private static final String DEFAULT_MENU_BG_ASSET_PATH = "assets/demo/backgrounds/menu.png";
   private static final String BUNDLED_DEMO_ASSETS_DIR = "misc/demo-assets";
+  private static final String BUNDLED_DEMO_RESOURCE_ROOT =
+      "com/jvn/editor/templates/new-project/demo-assets/";
+  private static final List<String> BUNDLED_DEMO_RESOURCE_FILES = List.of(
+      "demo_bg/game.png",
+      "demo_bg/menu.png",
+      "Lavender_test_sprite/base/lavender_test_sprite_base.png",
+      "Lavender_test_sprite/eyes/lavender_test_sprite_eyes_angry.png",
+      "Lavender_test_sprite/eyes/lavender_test_sprite_eyes_closed.png",
+      "Lavender_test_sprite/eyes/lavender_test_sprite_eyes_cross_closed.png",
+      "Lavender_test_sprite/eyes/lavender_test_sprite_eyes_half_closed.png",
+      "Lavender_test_sprite/eyes/lavender_test_sprite_eyes_neutral.png",
+      "Lavender_test_sprite/mouth/lavender_test_sprite_mouth_happy.png",
+      "Lavender_test_sprite/mouth/lavender_test_sprite_mouth_neutral.png",
+      "Lavender_test_sprite/mouth/lavender_test_sprite_mouth_o.png",
+      "Lavender_test_sprite/mouth/lavender_test_sprite_mouth_smile.png",
+      "demo_bgm/03 - Definitely Our Town.mp3",
+      "demo_bgm/DOCUMENTATION & LICENSE.pdf");
   private static final String BUNDLED_DEMO_BG_DIR = "demo_bg";
   private static final String BUNDLED_DEMO_SPRITE_LAYERED_DIR = "Lavender_test_sprite";
   private static final String BUNDLED_DEMO_SPRITE_LEGACY_DIR = "demo_sprite_codel";
@@ -458,13 +476,14 @@ public class NewProjectWizard extends Stage {
 
     cmbTheme = new ComboBox<>();
     cmbTheme.getItems().addAll(
+        "Monochrome Sketch",
         "Dark Elegant",
         "Light Clean",
         "Retro Game",
         "Nature Green",
         "Custom"
     );
-    cmbTheme.setValue("Dark Elegant");
+    cmbTheme.setValue("Monochrome Sketch");
     cmbTheme.setPrefWidth(230);
     styleField(cmbTheme);
     tip(cmbTheme, "Color palette preset for menu theme. Affects title, items, hints, and background colors.");
@@ -1146,6 +1165,7 @@ public class NewProjectWizard extends Stage {
     boolean includeSave = chkSaveSystem != null && chkSaveSystem.isSelected();
     boolean includeSettings = chkSettingsMenu != null && chkSettingsMenu.isSelected();
     boolean includeDemoAssets = chkBundledDemoAssets != null && chkBundledDemoAssets.isSelected();
+    boolean includeStarterStory = chkStarterStory != null && chkStarterStory.isSelected();
     boolean includeTutorialPack = chkTutorialPack != null && chkTutorialPack.isSelected();
     String locale = cmbLocale == null || cmbLocale.getValue() == null || cmbLocale.getValue().isBlank() ? "en" : cmbLocale.getValue().trim();
 
@@ -1223,11 +1243,16 @@ public class NewProjectWizard extends Stage {
       sb.append("\u2502   \u2502   \u251c\u2500\u2500 13_camera_and_staging.vns\n");
       sb.append("\u2502   \u2502   \u251c\u2500\u2500 14_localization_and_textkeys.vns\n");
       sb.append("\u2502   \u2502   \u251c\u2500\u2500 15_ui_layout_and_theme.vns\n");
-      sb.append("\u2502   \u2502   \u2514\u2500\u2500 16_testing_and_release.vns\n");
+      sb.append("\u2502   \u2502   \u251c\u2500\u2500 16_testing_and_release.vns\n");
+      sb.append("\u2502   \u2502   \u2514\u2500\u2500 17_vns_jes_integration.vns\n");
     } else {
       sb.append("\u2502   \u2502   \u2514\u2500\u2500 (empty until tutorial pack is added)\n");
     }
     sb.append("\u2502   \u251c\u2500\u2500 routes/\n");
+    sb.append("\u2502   \u251c\u2500\u2500 scenes/\n");
+    if (includeStarterStory || includeTutorialPack) {
+      sb.append("\u2502   \u2502   \u2514\u2500\u2500 studio_tour.jes\n");
+    }
     sb.append("\u2502   \u251c\u2500\u2500 definitions/\n");
     sb.append("\u2502   \u2502   \u2514\u2500\u2500 characters.vns\n");
     sb.append("\u2502   \u251c\u2500\u2500 common/\n");
@@ -1463,6 +1488,9 @@ public class NewProjectWizard extends Stage {
         includeDemoAssets,
         useLayeredLavenderDemo
     );
+    if (includeStarterStory || includeTutorialPack) {
+      createJesStudioScene(dir, includeDemoAssets);
+    }
     createStoryMap(dir, displayName, includeTutorialPack);
 
     createSettings(dir);
@@ -1582,6 +1610,7 @@ public class NewProjectWizard extends Stage {
     // Scripts
     ensureDirectory(dir, "scripts/story");
     ensureDirectory(dir, "scripts/tutorial");
+    ensureDirectory(dir, "scripts/scenes");
     ensureDirectory(dir, "scripts/routes");
     ensureDirectory(dir, "scripts/definitions");
     ensureDirectory(dir, "scripts/common");
@@ -1627,6 +1656,8 @@ public class NewProjectWizard extends Stage {
   }
 
   private boolean copyBundledDemoAssets(File projectRoot) throws Exception {
+    if (copyBundledDemoAssetsFromResources(projectRoot)) return true;
+
     File sourceRoot = resolveBundledDemoAssetsRoot();
     if (sourceRoot == null || !sourceRoot.isDirectory()) return false;
 
@@ -1649,6 +1680,34 @@ public class NewProjectWizard extends Stage {
         new File(projectRoot, "assets/demo/audio")
     );
     return copiedLayeredLavender;
+  }
+
+  private boolean copyBundledDemoAssetsFromResources(File projectRoot) throws Exception {
+    ClassLoader loader = Thread.currentThread().getContextClassLoader();
+    if (loader.getResource(BUNDLED_DEMO_RESOURCE_ROOT + "demo_bg/game.png") == null) return false;
+
+    for (String relative : BUNDLED_DEMO_RESOURCE_FILES) {
+      String targetRelative;
+      if (relative.startsWith("demo_bg/")) {
+        targetRelative = "assets/demo/backgrounds/" + relative.substring("demo_bg/".length());
+      } else if (relative.startsWith("Lavender_test_sprite/")) {
+        targetRelative = "assets/demo/characters/lavender/"
+            + relative.substring("Lavender_test_sprite/".length());
+      } else if (relative.startsWith("demo_bgm/")) {
+        targetRelative = "assets/demo/audio/" + relative.substring("demo_bgm/".length());
+      } else {
+        continue;
+      }
+
+      String resourcePath = BUNDLED_DEMO_RESOURCE_ROOT + relative;
+      try (java.io.InputStream in = loader.getResourceAsStream(resourcePath)) {
+        if (in == null) throw new IllegalStateException("Missing bundled demo asset: " + resourcePath);
+        Path target = projectRoot.toPath().resolve(targetRelative);
+        Files.createDirectories(target.getParent());
+        Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
+      }
+    }
+    return true;
   }
 
   private File resolveBundledDemoAssetsRoot() {
@@ -1922,7 +1981,7 @@ public class NewProjectWizard extends Stage {
     tokens.put("LOCALIZATION_TARGET", ARC_T14_LOCALIZATION);
     tokens.put("UI_LAYOUT_TARGET", ARC_T15_UI_LAYOUT);
     tokens.put("TESTING_RELEASE_TARGET", ARC_T16_TESTING_RELEASE);
-    tokens.put("INLINE_JAVA_TARGET", ARC_T17_INLINE_JAVA);
+    tokens.put("VNS_JES_TARGET", ARC_T17_VNS_JES);
 
     writeScaffoldTemplateScript(
         dir,
@@ -1963,6 +2022,7 @@ public class NewProjectWizard extends Stage {
     baseTokens.put("BGM_START", tutorialBgmStart);
     baseTokens.put("BGM_FADE", tutorialBgmFade);
     baseTokens.put("EXPRESSION_HINT", expressionHint);
+    baseTokens.put("JES_SCENE_PATH", JES_STUDIO_SCENE_PATH);
 
     writeScaffoldTemplateScript(dir, TUTORIAL_DIALOGUE_SCRIPT_PATH, "scripts/tutorial/01_dialogue_basics.vns", baseTokens);
     writeScaffoldTemplateScript(dir, TUTORIAL_NARRATION_SCRIPT_PATH, "scripts/tutorial/02_narration_and_pacing.vns", baseTokens);
@@ -1980,7 +2040,29 @@ public class NewProjectWizard extends Stage {
     writeScaffoldTemplateScript(dir, TUTORIAL_LOCALIZATION_SCRIPT_PATH, "scripts/tutorial/14_localization_and_textkeys.vns", baseTokens);
     writeScaffoldTemplateScript(dir, TUTORIAL_UI_LAYOUT_SCRIPT_PATH, "scripts/tutorial/15_ui_layout_and_theme.vns", baseTokens);
     writeScaffoldTemplateScript(dir, TUTORIAL_TESTING_RELEASE_SCRIPT_PATH, "scripts/tutorial/16_testing_and_release.vns", baseTokens);
-    writeScaffoldTemplateScript(dir, TUTORIAL_INLINE_JAVA_SCRIPT_PATH, "scripts/tutorial/17_inline_java_in_vns.vns", baseTokens);
+    writeScaffoldTemplateScript(dir, TUTORIAL_VNS_JES_SCRIPT_PATH, "scripts/tutorial/17_vns_jes_integration.vns", baseTokens);
+  }
+
+  private void createJesStudioScene(File dir, boolean includeDemoAssets) throws Exception {
+    java.util.Map<String, String> tokens = new java.util.LinkedHashMap<>();
+    tokens.put(
+        "JES_BACKGROUND_ENTITY",
+        includeDemoAssets
+            ? "  entity \"background\" {\n"
+                + "    component Sprite2D {\n"
+                + "      image: \"assets/demo/backgrounds/game.png\"\n"
+                + "      x: 0 y: 0 w: 1920 h: 1080\n"
+                + "    }\n"
+                + "  }\n\n"
+            : "  entity \"background\" {\n"
+                + "    component Panel2D { x: 0 y: 0 w: 1920 h: 1080 fill: rgb(1, 1, 1, 1) }\n"
+                + "  }\n\n");
+    writeScaffoldTemplateScript(
+        dir,
+        JES_STUDIO_SCENE_PATH,
+        "scripts/scenes/studio_tour.jes",
+        tokens
+    );
   }
 
   private void writeScaffoldScript(File dir, String relativePath, String content) throws Exception {
@@ -2072,6 +2154,7 @@ public class NewProjectWizard extends Stage {
     tokens.put("BG_DECL", backgroundDecl);
     tokens.put("BG_START", backgroundStart);
     tokens.put("BG_TRANSITION", backgroundTransition);
+    tokens.put("JES_SCENE_PATH", JES_STUDIO_SCENE_PATH);
 
     writeScaffoldTemplateScript(dir, ENTRY_SCRIPT_PATH, "scripts/story/prologue_sample.vns", tokens);
     writeScaffoldTemplateScript(dir, STORY_BRANCH_SCRIPT_PATH, "scripts/story/branch_demo_sample.vns", tokens);
@@ -2106,7 +2189,7 @@ public class NewProjectWizard extends Stage {
         fw.write("arc " + ARC_T14_LOCALIZATION + " script \"" + TUTORIAL_LOCALIZATION_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 7 color \"#f3b27a\" tags \"tutorial,localization\" at 980,420\n");
         fw.write("arc " + ARC_T15_UI_LAYOUT + " script \"" + TUTORIAL_UI_LAYOUT_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 7 color \"#efb3c8\" tags \"tutorial,ui\" at 1200,420\n");
         fw.write("arc " + ARC_T16_TESTING_RELEASE + " script \"" + TUTORIAL_TESTING_RELEASE_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 8 color \"#d6a8ee\" tags \"tutorial,testing\" at 1420,420\n");
-        fw.write("arc " + ARC_T17_INLINE_JAVA + " script \"" + TUTORIAL_INLINE_JAVA_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 8 color \"#c4a4ff\" tags \"tutorial,java\" at 1640,420\n\n");
+        fw.write("arc " + ARC_T17_VNS_JES + " script \"" + TUTORIAL_VNS_JES_SCRIPT_PATH + "\" entry \"start\" cluster \"Tutorial\" priority 8 color \"#c4a4ff\" tags \"tutorial,interop\" at 1640,420\n\n");
       }
 
       fw.write("link " + ARC_PROLOGUE + ":route_tutorial -> " + ARC_TUTORIAL_HUB + ":start\n");
@@ -2130,7 +2213,7 @@ public class NewProjectWizard extends Stage {
         fw.write("link " + ARC_TUTORIAL_HUB + ":open_localization -> " + ARC_T14_LOCALIZATION + ":start\n");
         fw.write("link " + ARC_TUTORIAL_HUB + ":open_ui_layout -> " + ARC_T15_UI_LAYOUT + ":start\n");
         fw.write("link " + ARC_TUTORIAL_HUB + ":open_testing_release -> " + ARC_T16_TESTING_RELEASE + ":start\n");
-        fw.write("link " + ARC_TUTORIAL_HUB + ":open_inline_java -> " + ARC_T17_INLINE_JAVA + ":start\n");
+        fw.write("link " + ARC_TUTORIAL_HUB + ":open_vns_jes -> " + ARC_T17_VNS_JES + ":start\n");
       }
     }
   }
@@ -2192,7 +2275,9 @@ public class NewProjectWizard extends Stage {
   private void createDialogueLayout(File dir) throws Exception {
     int[] res = getScaledResolution();
     double scale = res[1] / 1080.0;
-    String template = LayoutDslTemplates.defaultDialogueLayoutTemplate();
+    String template = "Monochrome Sketch".equals(cmbTheme.getValue())
+        ? LayoutDslTemplates.minimalMonochromeDialogueLayoutTemplate()
+        : LayoutDslTemplates.defaultDialogueLayoutTemplate();
     if (Math.abs(scale - 1.0) > 0.01) {
       template = scaleDialogueLayoutPixels(template, scale, res[0], res[1]);
     }
@@ -2289,6 +2374,15 @@ public class NewProjectWizard extends Stage {
     Properties tp = new Properties();
 
     switch (theme) {
+      case "Monochrome Sketch" -> {
+        tp.setProperty("backgroundColor", "#FAFAFA");
+        tp.setProperty("titleColor", "#111111");
+        tp.setProperty("itemColor", "#333333");
+        tp.setProperty("itemSelectedColor", "#000000");
+        tp.setProperty("itemHoverColor", "#555555");
+        tp.setProperty("hintColor", "#666666");
+        tp.setProperty("accentColor", "#111111");
+      }
       case "Light Clean" -> {
         tp.setProperty("backgroundColor", "#EFF3F9");
         tp.setProperty("titleColor", "#1A2844");
@@ -2372,7 +2466,9 @@ public class NewProjectWizard extends Stage {
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_LAYOUT_DEFAULT_PATH))) {
-      fw.write(LayoutDslTemplates.defaultMenuLayoutTemplate(null));
+      fw.write("Monochrome Sketch".equals(cmbTheme.getValue())
+          ? LayoutDslTemplates.minimalMonochromeMenuLayoutTemplate()
+          : LayoutDslTemplates.defaultMenuLayoutTemplate(null));
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_LAYOUT_SUBMENU_PATH))) {
@@ -2388,7 +2484,9 @@ public class NewProjectWizard extends Stage {
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_STYLE_DEFAULT_PATH))) {
-      fw.write(LayoutDslTemplates.defaultMenuStyleFullTemplate(DEFAULT_MENU_BG_ASSET_PATH));
+      fw.write("Monochrome Sketch".equals(cmbTheme.getValue())
+          ? LayoutDslTemplates.minimalMonochromeMenuStyleTemplate(DEFAULT_MENU_BG_ASSET_PATH)
+          : LayoutDslTemplates.defaultMenuStyleFullTemplate(DEFAULT_MENU_BG_ASSET_PATH));
     }
 
     try (FileWriter fw = new FileWriter(new File(dir, MENU_STYLE_SUBMENU_PATH))) {
@@ -2647,6 +2745,10 @@ public class NewProjectWizard extends Stage {
       fw.write("## Entry Points\n\n");
       fw.write("- Script: `" + ENTRY_SCRIPT_PATH + "`\n");
       fw.write("- Arc scripts: `" + STORY_TUTORIAL_SCRIPT_PATH + "`, `" + STORY_BRANCH_SCRIPT_PATH + "`, `" + STORY_EPILOGUE_SCRIPT_PATH + "`\n");
+      if ((chkStarterStory != null && chkStarterStory.isSelected())
+          || (chkTutorialPack != null && chkTutorialPack.isSelected())) {
+        fw.write("- JES scene: `" + JES_STUDIO_SCENE_PATH + "`\n");
+      }
       fw.write("- Shared character definitions: `" + CHARACTERS_SCRIPT_PATH + "` (included by all story scripts)\n");
       fw.write("- Story map: `" + STORY_MAP_PATH + "`\n");
       fw.write("- Settings: `" + SETTINGS_PATH + "`\n");
