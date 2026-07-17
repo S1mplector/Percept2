@@ -2,6 +2,7 @@ package com.jvn.editor.ui;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -61,5 +62,33 @@ class GameBuildPublisherViewTest {
         new GameBuildPublisherView.ArtifactSummary("game.zip", 1536L, 2_000L, true)));
 
     assertTrue(text.contains("sha256"));
+  }
+
+  @Test
+  void validationSummaryShowsEveryBlockingIssue() {
+    String text = GameBuildPublisherView.formatValidationMessages(
+        "Blocked",
+        List.of("Missing jvn.project", "Output folder is read-only"));
+
+    assertEquals("Blocked:\n• Missing jvn.project\n• Output folder is read-only", text);
+  }
+
+  @Test
+  void desktopShippingOffersOnlyBackedTargets() {
+    List<String> targets = GameBuildPublisherView.supportedDesktopTargetTokens();
+
+    assertTrue(targets.containsAll(List.of("windows-x64", "linux-x64", "macos-x64", "macos-aarch64", "all")));
+    assertFalse(targets.contains("linux-aarch64"));
+  }
+
+  @Test
+  void releaseConfigTemplateStartsSafeAndCrossPlatform() {
+    String config = GameBuildPublisherView.defaultReleaseConfigText("Lantern House");
+
+    assertTrue(config.contains("defaultProfile=release"));
+    assertTrue(config.contains("profile.release.description=Lantern House built with JVN."));
+    assertTrue(config.contains("profile.release.mac.sign=false"));
+    assertTrue(config.contains("profile.release.win.sign=false"));
+    assertTrue(config.contains("profile.release.publish.command.1"));
   }
 }

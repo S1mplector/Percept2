@@ -753,29 +753,45 @@ fun gamePackageIconFile(): File? {
     .firstOrNull { it.isFile }
 }
 
+fun gamePackageExcludes(): List<String> {
+  val defaults = listOf(
+    ".git/**",
+    ".gradle/**",
+    ".jvn-gradle-user-home/**",
+    ".jvnignore",
+    "build/**",
+    "out/**",
+    "dist/**",
+    "save/**",
+    "saves/**",
+    "logs/**",
+    ".idea/**",
+    ".vscode/**",
+    "__MACOSX/**",
+    "**/*.log",
+    "**/*.tmp",
+    "**/Icon\r",
+    "**/.DS_Store",
+    "**/Thumbs.db"
+  )
+  val authoredProject = (findProperty("jvnGameProject") as String?)
+    ?.trim()
+    ?.takeIf { it.isNotBlank() }
+    ?.let { file(it) }
+  val authored = authoredProject?.resolve(".jvnignore")
+    ?.takeIf { it.isFile }
+    ?.readLines()
+    ?.map { it.trim() }
+    ?.filter { it.isNotBlank() && !it.startsWith("#") }
+    ?: emptyList()
+  return (defaults + authored).distinct()
+}
+
 fun copyGameProjectFiles(destination: File) {
   copy {
     from(gameProjectDir())
     into(destination)
-    exclude(
-      ".git/**",
-      ".gradle/**",
-      ".jvn-gradle-user-home/**",
-      "build/**",
-      "out/**",
-      "dist/**",
-      "save/**",
-      "saves/**",
-      "logs/**",
-      ".idea/**",
-      ".vscode/**",
-      "__MACOSX/**",
-      "**/*.log",
-      "**/*.tmp",
-      "**/Icon\r",
-      "**/.DS_Store",
-      "**/Thumbs.db"
-    )
+    exclude(gamePackageExcludes())
   }
 }
 
@@ -1522,6 +1538,40 @@ fun gameVersion(): String {
     ?: project.version.toString()
 }
 
+fun gameDisplayNameForTaskDiscovery(): String {
+  val explicit = (findProperty("jvnGameName") as String?)?.trim()
+  if (!explicit.isNullOrBlank()) return explicit
+  val rawProject = (findProperty("jvnGameProject") as String?)?.trim()
+  if (rawProject.isNullOrBlank()) return "jvn-game"
+  val dir = file(rawProject)
+  val manifest = File(dir, "jvn.project")
+  if (manifest.isFile) {
+    val props = Properties()
+    runCatching { manifest.inputStream().use { props.load(it) } }
+    val manifestName = props.getProperty("name", "").trim()
+    if (manifestName.isNotBlank()) return manifestName
+  }
+  return dir.name.ifBlank { "jvn-game" }
+}
+
+fun gameVersionForTaskDiscovery(): String {
+  val explicit = (findProperty("jvnGameVersion") as String?)?.trim()
+  if (!explicit.isNullOrBlank()) return explicit
+  val rawProject = (findProperty("jvnGameProject") as String?)?.trim()
+  if (!rawProject.isNullOrBlank()) {
+    val manifest = File(file(rawProject), "jvn.project")
+    if (manifest.isFile) {
+      val props = Properties()
+      runCatching { manifest.inputStream().use { props.load(it) } }
+      listOf("version", "releaseVersion", "build.version")
+        .map { props.getProperty(it, "").trim() }
+        .firstOrNull { it.isNotBlank() }
+        ?.let { return it }
+    }
+  }
+  return project.version.toString()
+}
+
 fun gameDistName(target: JvnGameTarget): String {
   return "${sanitizeGameName(gameDisplayName())}-${sanitizeGameName(gameVersion())}-${target.id}"
 }
@@ -1733,8 +1783,8 @@ val gameZipTasks = jvnGameTargets.map { target ->
   tasks.register<Zip>("assembleJvnGamePortable${target.taskSuffix}") {
     group = "distribution"
     description = "Assembles a portable JVN game zip for ${target.id}. Requires -PjvnGameProject=/path/to/game."
-    archiveBaseName.set(providers.provider { sanitizeGameName(gameDisplayName()) })
-    archiveVersion.set(providers.provider { sanitizeGameName(gameVersion()) })
+    archiveBaseName.set(providers.provider { sanitizeGameName(gameDisplayNameForTaskDiscovery()) })
+    archiveVersion.set(providers.provider { sanitizeGameName(gameVersionForTaskDiscovery()) })
     archiveClassifier.set(target.id)
     destinationDirectory.set(layout.buildDirectory.dir("distributions/games"))
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
@@ -1763,25 +1813,7 @@ val gameZipTasks = jvnGameTargets.map { target ->
     }
     from({ gameProjectDir() }) {
       into(providers.provider { "${gameDistName(target)}/game" })
-      exclude(
-        ".git/**",
-        ".gradle/**",
-        ".jvn-gradle-user-home/**",
-        "build/**",
-        "out/**",
-        "dist/**",
-        "save/**",
-        "saves/**",
-        "logs/**",
-        ".idea/**",
-        ".vscode/**",
-        "__MACOSX/**",
-        "**/*.log",
-        "**/*.tmp",
-        "**/Icon\r",
-        "**/.DS_Store",
-        "**/Thumbs.db"
-      )
+      exclude(gamePackageExcludes())
     }
     doLast {
       verifyPortableArtifact(target, archiveFile.get().asFile)
@@ -2258,132 +2290,6 @@ tasks.register("releaseJvnGameNativeCurrent") {
     maybeSignWindowsArtifact(artifact)
     maybeNotarizeMacArtifact(currentJpackageType(), artifact)
     runPublishCommands("native", artifact)
-  }
-}
-
-// Web export tasks
-tasks.register("assembleJvnGameWeb") {
-  group = "distribution"
-  description = "Builds a WebAssembly bundle for browser-based play using TeaVM."
-  doLast {
-    val distDir = File(buildDir, "distributions")
-    distDir.mkdirs()
-
-    logger.info("Web export task: Building WebAssembly bundle")
-    logger.info("TeaVM compilation not yet configured")
-    logger.info("To enable: Add org.teavm:teavm-gradle-plugin to web-runtime/build.gradle.kts")
-
-    // Create placeholder web bundle with metadata
-    val webBundleName = "game-${version}-web.zip"
-    val webBundleFile = File(distDir, webBundleName)
-
-    val htmlContent = """
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>JVN Game</title>
-        <style>
-          body { font-family: Arial; margin: 0; padding: 20px; background: #333; color: #fff; }
-          canvas { border: 1px solid white; display: block; }
-        </style>
-      </head>
-      <body>
-        <h1>Game (WASM Bundle)</h1>
-        <canvas id="game-canvas" width="800" height="600"></canvas>
-        <p>TeaVM WASM compilation not yet configured.</p>
-        <p>To generate the actual game.js and .wasm files:</p>
-        <ol>
-          <li>Configure TeaVM Gradle plugin in web-runtime/build.gradle.kts</li>
-          <li>Run: ./gradlew :web-runtime:compileTeaVM</li>
-          <li>Output will be placed in: build/distributions/</li>
-        </ol>
-      </body>
-      </html>
-    """.trimIndent()
-
-    val metadataContent = """
-      name=game-${version}-web
-      type=wasm
-      format=web-bundle
-      target=browser
-      required-toolchain=TeaVM 0.10.0+
-      status=scaffolding
-    """.trimIndent()
-
-    // Create zip with stub content
-    ant.withGroovyBuilder {
-      "zip"("destfile" to webBundleFile.absolutePath) {
-        "fileset"("dir" to buildDir.absolutePath) {
-          "include"("name" to "README-web.txt")
-        }
-        "zipfileset"("file" to File(buildDir, "temp-web-readme.txt").also {
-          it.writeText(htmlContent)
-        }.absolutePath, "fullpath" to "index.html")
-      }
-    }
-
-    // Clean up temp file
-    File(buildDir, "temp-web-readme.txt").delete()
-
-    logger.info("Web bundle created: ${webBundleFile.absolutePath}")
-    logger.info("Note: This is a placeholder. Run 'assembleJvnGameWeb' after TeaVM configuration for actual WASM output.")
-  }
-}
-
-// Mobile export tasks
-tasks.register("assembleJvnGameMobile") {
-  group = "distribution"
-  description = "Builds native mobile packages (Android APK/AAB and iOS IPA)."
-  doLast {
-    val osId = System.getProperty("os.name", "").lowercase()
-    val distDir = File(buildDir, "distributions")
-    distDir.mkdirs()
-
-    logger.info("Mobile export task: Building native mobile packages")
-
-    if (osId.contains("win") || osId.contains("linux")) {
-      logger.info("Android build: Requires Android SDK and Android Gradle Plugin")
-      logger.info("To enable: Apply com.android.application plugin to android-runtime/build.gradle.kts")
-
-      // Create placeholder Android manifest
-      val androidMetadata = """
-        name=game-${version}-android
-        type=apk
-        format=android-package
-        target=android-api-24+
-        required-toolchain=Android SDK 34+, Android Gradle Plugin 8.0+
-        status=scaffolding
-      """.trimIndent()
-
-      val androidMetadataFile = File(distDir, "game-${version}-android.metadata.txt")
-      androidMetadataFile.writeText(androidMetadata)
-      logger.info("Android placeholder created: ${androidMetadataFile.absolutePath}")
-    }
-
-    if (osId.contains("mac")) {
-      logger.info("iOS build: Requires macOS + Xcode and Multi-OS Engine (MOE)")
-      logger.info("To enable: Apply org.moe plugin to ios-runtime/build.gradle.kts")
-
-      // Create placeholder iOS metadata
-      val iosMetadata = """
-        name=game-${version}-ios
-        type=ipa
-        format=ios-package
-        target=ios-13.0+
-        required-toolchain=Xcode 14+, Multi-OS Engine 1.10+
-        status=scaffolding
-      """.trimIndent()
-
-      val iosMetadataFile = File(distDir, "game-${version}-ios.metadata.txt")
-      iosMetadataFile.writeText(iosMetadata)
-      logger.info("iOS placeholder created: ${iosMetadataFile.absolutePath}")
-    } else {
-      logger.info("iOS builds only supported on macOS")
-    }
-
-    logger.info("Mobile export: Placeholder metadata created in ${distDir.absolutePath}")
-    logger.info("Note: This is a placeholder. Configure the appropriate plugin for actual APK/IPA output.")
   }
 }
 
