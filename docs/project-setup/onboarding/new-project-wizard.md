@@ -10,7 +10,7 @@ Wizard class:
 - produce clean, engine-aligned directory layout
 - generate editable starter files (not opaque binary state)
 - support immediate run from editor project tree
-- include menu/dialogue/timeline config that visual editors can open directly
+- include menu/dialogue/timeline config that the editor and runtime can open directly
 
 ## Wizard Sections
 
@@ -284,7 +284,7 @@ arc "Prologue" script "scripts/story/prologue.vns" entry "start" at 40,40
 
 ### Dialogue layout starter
 
-Creates baseline `config/ui/dialogue.layout` values fully compatible with visual editor.
+Creates baseline `config/ui/dialogue.layout` values compatible with Layout Studio diagnostics and the runtime loader.
 
 The default **Monochrome Sketch** theme ships a dedicated minimal variant. Its compact white
 choice rows are aligned to the right of the viewport, leaving the left staging area clear for

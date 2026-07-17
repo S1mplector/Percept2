@@ -570,19 +570,12 @@ The `VnRenderer` (JavaFX) consumes all style properties at load time via `applyU
 
 ---
 
-## Editor Support
+## Editor support
 
-The dialogue layout is edited visually in the **Dialogue Layout Editor**:
-
-- **Collapsible sections** for textbox, name box, text, choices, buttons
-- **Resize handles** for textbox bounds
-- **Font weight** selectors for name text, dialogue text, and choice text (`NORMAL` / `BOLD`)
-- **Name box opacity** slider (0–1)
-- **Name box auto-width** checkbox — toggles dynamic name box sizing
-- **ColorPicker** for all color fields
-- **Bounds Studio** for textbox button placement (visual drag/draw tool)
-- **Live preview** canvas
-- **Ctrl+Z / Ctrl+Y** undo/redo
+Open `dialogue.layout` in Layout Studio for commented Standard and Minimal Monochrome templates,
+properties highlighting, source undo/redo, asset helpers, and diagnostics from the runtime dialogue
+loader. Use Save and Run Runtime to validate textbox geometry, type, choices, NVL, bubbles, and
+textbox actions together.
 
 ---
 

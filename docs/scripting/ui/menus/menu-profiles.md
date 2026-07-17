@@ -46,7 +46,7 @@ This page gives you the beginner map for:
 - **[Reactive Overlay Screens](reactive-screens.md)** — `.screen` overlays driven by `VnState` variables and VNS `[screen show/call]`
 - **[Menu Layouts](../layout/structure/menu-layouts.md)** — `.layout` files, list positioning, line height, text alignment, title placement, built-in layouts
 - **[Menu Styles](menu-styles.md)** — `.style` files, item colors/fonts/shadows, button skins, title/hints styling, backgrounds
-- **[Button Layouts](../layout/structure/menu-button-layouts.md)** — per-button positional layouts, explicit bounds, resolution hints, Bounds Studio editor
+- **[Button Layouts](../layout/structure/menu-button-layouts.md)** — per-button positional layouts, explicit bounds, and resolution hints
 
 ### Dialogue UI
 
@@ -204,18 +204,18 @@ Detects: missing default screen, empty screens, unknown layout/style refs, `OPEN
 
 ## Editor Support
 
-JVN editor provides dedicated visual editors for all config types:
+JVN's Layout Studio edits the runtime source formats directly:
 
-| File type | Editor | Features |
+| File type | Surface | Features |
 |-----------|--------|----------|
-| `.menu` | Menu Screen Visual Editor | Item table, action combos, bounds inspector, slot preview config |
-| `.layout` | Menu Layout Visual Editor | Slider controls, live preview, dynamic item count |
-| `.style` | Menu Style Visual Editor | ColorPickers, font selectors, asset pickers |
-| `.buttonlayout` | Bounds Studio | Visual drag/draw button placement tool |
-| `dialogue.layout` | Dialogue Layout Editor | Collapsible sections, resize handles, Bounds Studio |
-| `menu.registry` | Inline Registry Editor | TextField editing with validation |
+| `.menu` | Layout Studio | Source template, item diagnostics, asset helpers |
+| `.layout` | Layout Studio | Geometry template and range diagnostics |
+| `.style` | Layout Studio | Style template and asset helpers |
+| `.buttonlayout` | Source editor | Explicit normalized or pixel bounds |
+| `dialogue.layout` | Layout Studio | Runtime-loader diagnostics and dialogue templates |
+| `menu.registry` | Layout Editors sidebar/source editor | Cross-file validation and direct properties editing |
 
-All editors support **Ctrl+Z / Ctrl+Y** undo/redo and sync bidirectionally with properties text.
+Layout Studio supports source undo/redo and writes the properties text atomically.
 
 ---
 

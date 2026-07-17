@@ -1,6 +1,6 @@
 # Sidebar — Layout Launcher
 
-Quick-status and launch panel for all layout-related visual editors. Shows which layout, style, and screen files exist and whether they've been customized.
+Quick-status and authoring panel for layout sources. It shows which layout, style, and screen files exist and whether they have been customized.
 
 Source: `modules/editor/src/main/java/com/jvn/editor/ui/LayoutEditorLauncherView.java`
 
@@ -8,7 +8,7 @@ Source: `modules/editor/src/main/java/com/jvn/editor/ui/LayoutEditorLauncherView
 
 ## Overview
 
-The Layout Launcher provides a centralized dashboard for all layout customization files in a JVN project. It scans for dialogue layouts, menu layouts, menu styles, and menu screen definitions, reports their customization status, and offers one-click launch into the appropriate visual editor.
+The Layout Launcher provides a centralized dashboard for all layout customization files in a JVN project. It scans dialogue layouts, menu layouts, menu styles, and menu screen definitions, reports their status, and opens them in the text-first Layout Studio.
 
 - **Default side:** Right
 - **Tab name:** Layout Launcher
@@ -38,12 +38,12 @@ Full Layout Launcher sidebar utility view.
 
 ## File Types Tracked
 
-| Item Type | Default Path | Visual Editor |
+| Item Type | Default Path | Authoring Surface |
 |-----------|-------------|---------------|
-| **Dialogue Layout** | `config/ui/dialogue.layout` | `DialogueLayoutEditorView` |
-| **Menu Layout** | `config/menu/layouts/<name>.layout` | `MenuLayoutVisualEditor` |
-| **Menu Style** | `config/menu/styles/<name>.style` | `MenuStyleVisualEditor` |
-| **Menu Screen** | `config/menu/menus/<name>.menu` | `MenuScreenVisualEditor` |
+| **Dialogue Layout** | `config/ui/dialogue.layout` | Layout Studio source editor |
+| **Menu Layout** | `config/menu/layouts/<name>.layout` | Layout Studio source editor |
+| **Menu Style** | `config/menu/styles/<name>.style` | Layout Studio source editor |
+| **Menu Screen** | `config/menu/menus/<name>.menu` | Layout Studio source editor |
 
 ### Default Paths
 
@@ -83,7 +83,7 @@ Each item in the list shows:
 | **Path** | Relative file path |
 | **Status badge** | DEFAULT / CUSTOMIZED / MISSING |
 | **Detail** | Additional info (file size, last modified, etc.) |
-| **Open button** | Launches the corresponding visual editor |
+| **Open button** | Opens the source in Layout Studio |
 
 ---
 
@@ -93,14 +93,10 @@ Each item in the list shows:
 |--------|-------------|
 | **Filter** | Text field narrows the item list by name or path |
 | **Refresh** | Rescans the project directory for layout files |
-| **Open** (per item) | Opens the visual editor for that specific layout file |
+| **Open** (per item) | Opens that source with templates, diagnostics, and runtime launch tools |
 
-When you click **Open**, the editor launches the appropriate visual editor in a new window or tab:
-
-- **Dialogue Layout** → `DialogueLayoutEditorView` — textbox geometry, name box, choice buttons, action button bounds
-- **Menu Layout** → `MenuLayoutVisualEditor` — list positioning, line height, alignment, title position
-- **Menu Style** → `MenuStyleVisualEditor` — colors, fonts, button skins, background assets
-- **Menu Screen** → `MenuScreenVisualEditor` — item list, actions, labels, advanced fields, item bounds
+When you click **Open**, Layout Studio selects diagnostics, templates, and asset keys for the file
+type. The source stays directly reviewable, and Save and Run Runtime validates the actual output.
 
 ---
 

@@ -1,6 +1,7 @@
 package com.jvn.editor.ui;
 
 import java.io.File;
+import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
@@ -13,15 +14,19 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javafx.animation.PauseTransition;
+import com.jvn.core.menu.config.MenuProfile;
+import com.jvn.core.vn.ui.VnUiLayoutLoader;
+import com.jvn.core.vn.ui.VnUiLayoutSpec;
+import com.jvn.core.vn.ui.VnUiStyleSpec;
+
 import javafx.application.Platform;
 import javafx.geometry.Insets;
-import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
@@ -29,10 +34,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.Separator;
-import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
-import javafx.scene.control.ToggleButton;
-import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
@@ -43,11 +45,10 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
-import javafx.util.Duration;
 
 /**
- * Opens specialized layout/menu visual editors in external Studio windows.
- * This keeps the main editor focused while providing larger purpose-built workspaces.
+ * Opens text-first layout/menu authoring windows with diagnostics, asset helpers,
+ * and an authoritative save-and-run workflow.
  */
 public class LayoutStudioWindowManager {
   public enum Kind {
@@ -207,18 +208,13 @@ public class LayoutStudioWindowManager {
     private final Label fileLabel = new Label();
     private final Label dirtyBadge = new Label();
 
-    private final ToggleButton bDesign = new ToggleButton();
-    private final ToggleButton bCode = new ToggleButton();
-    private final ToggleButton bSplit = new ToggleButton();
-    private final ToggleButton previewToggle = new ToggleButton("Preview");
-
     private final BorderPane centerHost = new BorderPane();
-    private final SplitPane split = new SplitPane();
-    private final BorderPane designHost;
 
     private final TextField assetPathField = new TextField();
     private final ComboBox<String> assetKeyBox = new ComboBox<>();
     private final TextField assetItemIdField = new TextField();
+    private final ComboBox<String> templateBox = new ComboBox<>();
+    private final Button applyTemplateButton = new Button("Replace with Template");
 
     private final Button saveButton = new Button();
     private final Button runButton = new Button();
@@ -233,13 +229,6 @@ public class LayoutStudioWindowManager {
     private final Button copyPathButton = new Button();
     private final Button applyPathButton = new Button();
 
-    private final MenuScreenVisualEditor menuScreenVisualEditor;
-    private final MenuLayoutVisualEditor menuLayoutVisualEditor;
-    private final MenuStyleVisualEditor menuStyleVisualEditor;
-    private final DialogueLayoutEditorView dialogueLayoutVisualEditor;
-    private final Node designNode;
-    private final boolean designPreviewEnabled;
-
     LayoutStudioWindow(Stage owner,
                        File file,
                        Kind kind,
@@ -253,14 +242,6 @@ public class LayoutStudioWindowManager {
       this.externalStatus = statusSink;
       this.runProjectHandler = runProjectHandler;
       this.onClosed = onClosed;
-      this.designPreviewEnabled = true;
-
-      this.menuScreenVisualEditor = (kind == Kind.MENU_SCREEN) ? new MenuScreenVisualEditor() : null;
-      this.menuLayoutVisualEditor = (kind == Kind.MENU_LAYOUT) ? new MenuLayoutVisualEditor() : null;
-      this.menuStyleVisualEditor = (kind == Kind.MENU_STYLE) ? new MenuStyleVisualEditor() : null;
-      this.dialogueLayoutVisualEditor = (kind == Kind.DIALOGUE_LAYOUT) ? new DialogueLayoutEditorView() : null;
-      this.designNode = resolveDesignNode();
-      this.designHost = buildDesignHost();
       codeEditor.useDslHighlighting();
 
       this.stage = new Stage();
@@ -288,10 +269,8 @@ public class LayoutStudioWindowManager {
       stage.setScene(scene);
       applyLinuxDefaultWindowState(stage);
 
-      configureVisualEditors();
       bindSync();
       bindButtons();
-      applyMode(Mode.CODE);
       loadFromDisk();
 
       stage.setOnCloseRequest(e -> {
@@ -342,17 +321,8 @@ public class LayoutStudioWindowManager {
 
     void setProjectRoot(File projectRoot) {
       this.projectRoot = projectRoot;
-      configureVisualEditors();
       updateFileLabel();
       updateAssetUtilityState();
-    }
-
-    private Node resolveDesignNode() {
-      if (kind == Kind.MENU_SCREEN && menuScreenVisualEditor != null) return menuScreenVisualEditor;
-      if (kind == Kind.MENU_LAYOUT && menuLayoutVisualEditor != null) return menuLayoutVisualEditor;
-      if (kind == Kind.MENU_STYLE && menuStyleVisualEditor != null) return menuStyleVisualEditor;
-      if (kind == Kind.DIALOGUE_LAYOUT && dialogueLayoutVisualEditor != null) return dialogueLayoutVisualEditor;
-      return new Label("Unsupported studio file type");
     }
 
     private Node buildToolbar() {
@@ -361,24 +331,9 @@ public class LayoutStudioWindowManager {
 
       dirtyBadge.getStyleClass().add("layout-studio-dirty");
 
-      ToggleGroup modeGroup = new ToggleGroup();
-      bDesign.setToggleGroup(modeGroup);
-      bCode.setToggleGroup(modeGroup);
-      bSplit.setToggleGroup(modeGroup);
-      bCode.setSelected(true);
-
-      bDesign.setOnAction(e -> applyMode(Mode.DESIGN));
-      bCode.setOnAction(e -> applyMode(Mode.CODE));
-      bSplit.setOnAction(e -> applyMode(Mode.SPLIT));
-      previewToggle.setOnAction(e -> applyMode(previewToggle.isSelected() ? Mode.SPLIT : Mode.CODE));
-
       Region spacer = new Region();
       HBox.setHgrow(spacer, Priority.ALWAYS);
 
-      configureIconToggle(bDesign, CssIcon.palette("#b0b8c8"), "Design Mode");
-      configureIconToggle(bCode, CssIcon.list("#b0b8c8"), "Code Mode");
-      configureIconToggle(bSplit, CssIcon.grid("#b0b8c8"), "Split Mode");
-      previewToggle.setTooltip(new Tooltip("Enable/disable preview"));
       configureIconButton(saveButton, CssIcon.save("#8cd48c"), "Save");
       configureIconButton(runButton, CssIcon.play("#8cd48c"), "Save and Run Runtime (Ctrl/Cmd+Enter)");
       configureIconButton(reloadButton, CssIcon.redo("#7ec8e3"), "Reload");
@@ -390,10 +345,6 @@ public class LayoutStudioWindowManager {
           title,
           dirtyBadge,
           spacer,
-          previewToggle,
-          bDesign,
-          bCode,
-          bSplit,
           saveButton,
           runButton,
           reloadButton,
@@ -404,61 +355,30 @@ public class LayoutStudioWindowManager {
       row.setAlignment(Pos.CENTER_LEFT);
       row.setPadding(new Insets(8));
 
-      bDesign.getStyleClass().add("layout-studio-toolbar-toggle");
-      bCode.getStyleClass().add("layout-studio-toolbar-toggle");
-      bSplit.getStyleClass().add("layout-studio-toolbar-toggle");
-      previewToggle.getStyleClass().add("layout-studio-toolbar-toggle");
       saveButton.getStyleClass().add("layout-studio-toolbar-button");
       runButton.getStyleClass().add("layout-studio-toolbar-button");
       reloadButton.getStyleClass().add("layout-studio-toolbar-button");
       revealButton.getStyleClass().add("layout-studio-toolbar-button");
 
-      if (!designPreviewEnabled) {
-        previewToggle.setManaged(false);
-        previewToggle.setVisible(false);
-        bDesign.setManaged(false);
-        bDesign.setVisible(false);
-        bSplit.setManaged(false);
-        bSplit.setVisible(false);
-      }
-
       return row;
     }
 
     private Node buildContent() {
-      if (!designPreviewEnabled) {
-        centerHost.setCenter(codeEditor);
-        centerHost.getStyleClass().add("layout-studio-center");
-        return centerHost;
-      }
-      split.setOrientation(Orientation.HORIZONTAL);
-      ensureSplitContent();
-      split.setDividerPositions(0.62);
-      centerHost.setCenter(split);
+      centerHost.setCenter(codeEditor);
       centerHost.getStyleClass().add("layout-studio-center");
       return centerHost;
     }
 
-    private BorderPane buildDesignHost() {
-      BorderPane pane = new BorderPane(designNode);
-      pane.getStyleClass().add("layout-studio-design-host");
-      return pane;
-    }
-
-    private void ensureSplitContent() {
-      double divider = 0.62;
-      if (!split.getDividers().isEmpty()) {
-        divider = split.getDividers().get(0).getPosition();
-      }
-      if (split.getItems().size() != 2
-          || split.getItems().get(0) != designHost
-          || split.getItems().get(1) != codeEditor) {
-        split.getItems().setAll(designHost, codeEditor);
-        split.setDividerPositions(Math.max(0.2, Math.min(0.8, divider)));
-      }
-    }
-
     private Node buildUtilitiesPane() {
+      Label templateTitle = new Label("Source Templates");
+      templateTitle.getStyleClass().add("layout-studio-section-title");
+      configureTemplates();
+      templateBox.setMaxWidth(Double.MAX_VALUE);
+      templateBox.setTooltip(new Tooltip("Choose a valid, commented starting point for this file type"));
+      applyTemplateButton.setMaxWidth(Double.MAX_VALUE);
+      applyTemplateButton.getStyleClass().add("layout-studio-utility-button");
+      applyTemplateButton.setTooltip(new Tooltip("Replace the current source after confirmation"));
+
       Label utilTitle = new Label("Asset Utilities");
       utilTitle.getStyleClass().add("layout-studio-section-title");
 
@@ -505,13 +425,34 @@ public class LayoutStudioWindowManager {
         }
       }
 
-      VBox panel = new VBox(10, utilTitle, form, buttons, new Separator(), tip);
+      VBox panel = new VBox(10,
+          templateTitle,
+          templateBox,
+          applyTemplateButton,
+          new Separator(),
+          utilTitle,
+          form,
+          buttons,
+          new Separator(),
+          tip
+      );
       panel.getStyleClass().add("layout-studio-utils");
       panel.setPadding(new Insets(10));
       panel.setPrefWidth(320);
       panel.setMinWidth(280);
       updateAssetUtilityState();
       return panel;
+    }
+
+    private void configureTemplates() {
+      templateBox.getItems().clear();
+      switch (kind) {
+        case DIALOGUE_LAYOUT -> templateBox.getItems().addAll("Standard dialogue", "Minimal monochrome");
+        case MENU_LAYOUT -> templateBox.getItems().addAll("Standard menu", "Minimal right-side menu");
+        case MENU_STYLE -> templateBox.getItems().addAll("Standard menu", "Minimal monochrome");
+        case MENU_SCREEN -> templateBox.getItems().add("Standard menu screen");
+      }
+      templateBox.getSelectionModel().selectFirst();
     }
 
     private Node buildStatusBar() {
@@ -525,76 +466,12 @@ public class LayoutStudioWindowManager {
       return box;
     }
 
-    private void configureVisualEditors() {
-      if (!designPreviewEnabled) return;
-      if (menuScreenVisualEditor != null) {
-        menuScreenVisualEditor.setProjectRoot(projectRoot);
-        menuScreenVisualEditor.setScreenIdHint(screenIdFromFile(file));
-      }
-      if (menuStyleVisualEditor != null) menuStyleVisualEditor.setProjectRoot(projectRoot);
-      if (dialogueLayoutVisualEditor != null) dialogueLayoutVisualEditor.setProjectRoot(projectRoot);
-    }
-
-    private static final long SYNC_DEBOUNCE_MS = 300;
-    private PauseTransition syncDebounce;
-
     private void bindSync() {
-      syncDebounce = new PauseTransition(Duration.millis(SYNC_DEBOUNCE_MS));
       codeEditor.setOnTextChanged(text -> {
         if (syncing) return;
         updateDirtyState();
-        if (designPreviewEnabled) {
-          syncDebounce.setOnFinished(e -> {
-            if (syncing) return;
-            syncing = true;
-            try {
-              applyCodeToDesign(text);
-            } catch (Exception ex) {
-              setStatus("Design sync warning: " + normalize(ex.getMessage(), "Invalid content"));
-            }
-            syncing = false;
-          });
-          syncDebounce.playFromStart();
-        }
+        refreshCodeDiagnostics(text);
       });
-
-      if (!designPreviewEnabled) return;
-      if (menuScreenVisualEditor != null) {
-        menuScreenVisualEditor.setOnMenuTextChanged(text -> pushDesignTextToCode(text));
-      }
-      if (menuLayoutVisualEditor != null) {
-        menuLayoutVisualEditor.setOnLayoutTextChanged(text -> pushDesignTextToCode(text));
-      }
-      if (menuStyleVisualEditor != null) {
-        menuStyleVisualEditor.setOnStyleTextChanged(text -> pushDesignTextToCode(text));
-      }
-      if (dialogueLayoutVisualEditor != null) {
-        dialogueLayoutVisualEditor.setOnLayoutTextChanged(text -> pushDesignTextToCode(text));
-      }
-    }
-
-    private void pushDesignTextToCode(String text) {
-      if (syncing) return;
-      String current = normalizeLineEndings(codeEditor.getText());
-      String incoming = normalizeLineEndings(text);
-      if (Objects.equals(current, incoming)) return;
-      syncing = true;
-      codeEditor.setTextNoEvent(text);
-      syncing = false;
-      updateDirtyState();
-    }
-
-    private void applyCodeToDesign(String text) {
-      if (menuScreenVisualEditor != null) {
-        menuScreenVisualEditor.setMenuText(text);
-      } else if (menuLayoutVisualEditor != null) {
-        menuLayoutVisualEditor.setLayoutText(text);
-      } else if (menuStyleVisualEditor != null) {
-        menuStyleVisualEditor.setStyleText(text);
-      } else if (dialogueLayoutVisualEditor != null) {
-        dialogueLayoutVisualEditor.setLayoutText(text);
-      }
-      refreshCodeDiagnostics(text);
     }
 
     private static final Set<String> LAYOUT_KEYS = Set.of(
@@ -634,10 +511,24 @@ public class LayoutStudioWindowManager {
         case MENU_SCREEN -> rawIssues = DslPropertyDiagnostics.menuScreenIssues(text, SCREEN_TOP_KEYS, SCREEN_ITEM_KEYS);
         case MENU_LAYOUT -> rawIssues = DslPropertyDiagnostics.menuLayoutIssues(text, LAYOUT_KEYS);
         case MENU_STYLE -> rawIssues = DslPropertyDiagnostics.menuStyleIssues(text, STYLE_KEYS);
-        case DIALOGUE_LAYOUT -> rawIssues = DslPropertyDiagnostics.dialogueIssues(text, List.of());
+        case DIALOGUE_LAYOUT -> rawIssues = DslPropertyDiagnostics.dialogueIssues(text, dialogueRuntimeDiagnostics(text));
         default -> rawIssues = List.of();
       };
       codeEditor.setDiagnostics(parseDiagnosticStrings(rawIssues));
+    }
+
+    private static List<String> dialogueRuntimeDiagnostics(String text) {
+      try {
+        Properties properties = new Properties();
+        properties.load(new StringReader(text == null ? "" : text));
+        return VnUiLayoutLoader.parseWithDiagnostics(
+            properties,
+            VnUiLayoutSpec.defaults(),
+            VnUiStyleSpec.defaults()
+        ).diagnostics();
+      } catch (Exception ex) {
+        return List.of("L1 dsl: Invalid properties syntax: " + ex.getMessage());
+      }
     }
 
     private static List<JavaCodeEditor.Diagnostic> parseDiagnosticStrings(List<String> raw) {
@@ -679,6 +570,60 @@ public class LayoutStudioWindowManager {
       });
       copyPathButton.setOnAction(e -> copyAssetPath());
       applyPathButton.setOnAction(e -> applyAssetPathToCode());
+      applyTemplateButton.setOnAction(e -> applySelectedTemplate());
+    }
+
+    private void applySelectedTemplate() {
+      String selected = templateBox.getValue();
+      if (selected == null || selected.isBlank()) return;
+      if (!EditorDialogs.confirm(
+          stage,
+          "Replace layout source?",
+          "Replace the current file with the “" + selected + "” template? Unsaved edits will be replaced.",
+          "Replace",
+          true
+      )) return;
+
+      String template = selectedTemplate(selected);
+      syncing = true;
+      codeEditor.setTextNoEvent(template);
+      syncing = false;
+      updateDirtyState();
+      refreshCodeDiagnostics(template);
+      setStatus("Applied source template: " + selected + ". Review and save when ready.");
+      codeEditor.requestFocus();
+    }
+
+    private String selectedTemplate(String selected) {
+      return switch (kind) {
+        case DIALOGUE_LAYOUT -> "Minimal monochrome".equals(selected)
+            ? LayoutDslTemplates.minimalMonochromeDialogueLayoutTemplate()
+            : LayoutDslTemplates.defaultDialogueLayoutTemplate();
+        case MENU_LAYOUT -> "Minimal right-side menu".equals(selected)
+            ? LayoutDslTemplates.minimalMonochromeMenuLayoutTemplate()
+            : LayoutDslTemplates.defaultMenuLayoutTemplate(MenuProfile.defaultLayout());
+        case MENU_STYLE -> "Minimal monochrome".equals(selected)
+            ? LayoutDslTemplates.minimalMonochromeMenuStyleTemplate(currentProperty("backgroundAsset"))
+            : LayoutDslTemplates.defaultMenuStyleTemplate(MenuProfile.defaultStyle());
+        case MENU_SCREEN -> LayoutDslTemplates.defaultMenuScreenTemplate(screenIdFromFile());
+      };
+    }
+
+    private String currentProperty(String key) {
+      try {
+        Properties properties = new Properties();
+        properties.load(new StringReader(codeEditor.getText()));
+        return properties.getProperty(key, "").trim();
+      } catch (Exception ignored) {
+        return "";
+      }
+    }
+
+    private String screenIdFromFile() {
+      if (file == null) return "main";
+      String name = file.getName();
+      int dot = name.lastIndexOf('.');
+      return sanitizeId(dot > 0 ? name.substring(0, dot) : name);
     }
 
     private void loadFromDisk() {
@@ -686,13 +631,7 @@ public class LayoutStudioWindowManager {
         String text = Files.exists(file.toPath()) ? Files.readString(file.toPath()) : "";
         syncing = true;
         codeEditor.setTextNoEvent(text);
-        if (designPreviewEnabled) {
-          try {
-            applyCodeToDesign(text);
-          } catch (Exception ex) {
-            setStatus("Loaded with design warnings: " + normalize(ex.getMessage(), "invalid content"));
-          }
-        }
+        refreshCodeDiagnostics(text);
         syncing = false;
 
         savedSnapshot = normalizeLineEndings(text);
@@ -949,9 +888,8 @@ public class LayoutStudioWindowManager {
       return switch (kind) {
         case DIALOGUE_LAYOUT -> "Import textbox/choice button skins and map them to dialogue layout keys.\n"
             + "Use textBoxButton.<itemId>.* to map per-textbox action button assets (enter id in the field below).";
-        case MENU_STYLE -> designPreviewEnabled
-            ? "Import button textures and map them to style keys.\nUse Split mode to verify visual + file output together."
-            : "Import button textures and map them to style keys.\nUse Run Project to validate changes in the runtime quickly.";
+        case MENU_STYLE -> "Import button textures and map them to style keys.\n"
+            + "Use Save and Run Runtime to validate the authored result.";
         case MENU_SCREEN -> "Assign per-item button/icon assets using item.<itemId> keys.\n"
             + "For save/load screens, use slotPreview* keys to configure inline save thumbnails and frame skins.";
         case MENU_LAYOUT -> "This file is geometry-focused. Asset tools are still available for copying paths into custom properties.";
@@ -1048,14 +986,6 @@ public class LayoutStudioWindowManager {
       button.setPrefWidth(30);
     }
 
-    private static void configureIconToggle(ToggleButton button, Node icon, String tooltipText) {
-      button.setText("");
-      button.setGraphic(icon);
-      button.setTooltip(new Tooltip(tooltipText));
-      button.setMinWidth(30);
-      button.setPrefWidth(30);
-    }
-
     private boolean confirmDiscard(String operation) {
       return EditorDialogs.confirm(
           stage,
@@ -1082,26 +1012,6 @@ public class LayoutStudioWindowManager {
       if (result.isEmpty() || "cancel".equals(result.get())) return false;
       if ("discard".equals(result.get())) return true;
       return save();
-    }
-
-    private enum Mode { DESIGN, CODE, SPLIT }
-
-    private void applyMode(Mode mode) {
-      if (!designPreviewEnabled) mode = Mode.CODE;
-      if (mode == null) mode = Mode.SPLIT;
-      if (mode == Mode.DESIGN) {
-        centerHost.setCenter(designHost);
-      } else if (mode == Mode.CODE) {
-        centerHost.setCenter(codeEditor);
-      } else {
-        ensureSplitContent();
-        centerHost.setCenter(split);
-      }
-
-      previewToggle.setSelected(designPreviewEnabled && mode != Mode.CODE);
-      bDesign.setSelected(designPreviewEnabled && mode == Mode.DESIGN);
-      bCode.setSelected(mode == Mode.CODE);
-      bSplit.setSelected(designPreviewEnabled && mode == Mode.SPLIT);
     }
 
     private static String upsertProperty(String originalText, String key, String value) {
@@ -1147,11 +1057,5 @@ public class LayoutStudioWindowManager {
       }
     }
 
-    private static String screenIdFromFile(File file) {
-      if (file == null) return "main";
-      String name = file.getName();
-      int dot = name.lastIndexOf('.');
-      return dot > 0 ? name.substring(0, dot) : name;
-    }
   }
 }

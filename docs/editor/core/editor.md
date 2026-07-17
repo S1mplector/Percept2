@@ -71,7 +71,7 @@ Files open into typed tabs via `FileEditorTab` dispatch:
 - VNS (`.vns`) -> VNS code editor + VN preview
 - JES (`.jes`) -> JES code editor + viewport preview
 - Timeline (`.timeline`) -> timeline graph + timeline code editor
-- Menu/theme/layout config -> dedicated studio editors (Design / Code / Split modes)
+- Menu/theme/layout config -> text-first Layout Studio with diagnostics and runtime launch
 - General text/code formats -> text editor
 
 For VNS tabs, diagnostics are routed to the side diagnostics panel to preserve vertical editor space.
@@ -200,34 +200,19 @@ This matters for workflow-critical utilities such as **Build & Publish...**, **S
   - unreachable menus from `main`
 - save one screen or save all modified screens
 
-### Visual config editors
+### Layout configuration authoring
 
-These now open in dedicated external **Studio windows** (not embedded preview tabs), with:
+These open in dedicated external **Layout Studio** windows with:
 
-- Design / Code / Split modes
-- direct Save / Reload
+- DSL-aware source editing and line diagnostics
+- complete, commented source templates
+- direct Save / Reload / Save and Run Runtime
 - asset utilities (browse/import/copy/apply path helpers)
-- larger canvas-focused workspace for VN UI tuning
 
-- `config/ui/dialogue.layout` -> `DialogueLayoutEditorView`
-  - drag textbox/namebox/choice layout in preview
-  - import textbox assets and tune text/name bounds
-  - define clickable textbox action buttons with per-button bounds/actions/targets
-  - author custom button hit areas with polygon-point editing (point-nail mode) or rectangle bounds
-  - map per-button assets (`textBoxButton.<id>.asset/hoverAsset/disabledAsset`) for custom textbox UI chrome
-- `config/menu/menus/*.menu` -> `MenuScreenVisualEditor`
-  - edit menu items/actions/styles/targets with table + preview
-  - import per-item button assets (`bgAsset`, selected/disabled variants)
-  - map per-item click/render bounds by table, drag, or polygon-point editing for irregular hit areas
-  - configure save/load slot inline thumbnails (`slotPreviewEnabled`, placeholder/frame assets)
-  - override slot preview region (`slotPreviewX/Y/Width/Height`) for custom slot skins
-- `config/menu/layouts/*.layout` -> `MenuLayoutVisualEditor`
-  - edit list/title/hint geometry with draggable preview guides
-- `config/menu/styles/*.style` -> `MenuStyleVisualEditor`
-  - edit reusable item typography/colors/prefixes
-  - define shared button skins + text padding offsets
-
-All visual editors sync back to plain text properties content, preserving source-control-friendly files.
+The supported sources are `config/ui/dialogue.layout`, `config/menu/menus/*.menu`,
+`config/menu/layouts/*.layout`, and `config/menu/styles/*.style`. They are ordinary properties files
+consumed directly by the runtime. Layout Studio does not maintain a parallel form model or preview
+renderer; use Save and Run Runtime for authoritative rendering and interaction checks.
 
 ## New Project Wizard
 

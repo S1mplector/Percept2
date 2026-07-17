@@ -391,7 +391,7 @@ Reliability behaviors:
 
 - `EditorApp` composes project tree, tabbed file editors, and addable side panels via chooser tabs (`+`).
 - `FileEditorTab` routes file types to matching editor widgets.
-- Visual editors keep properties text synchronized for source-control-friendly config files.
+- Layout Studio edits the runtime properties sources directly for source-control-friendly config files.
 - Layout studios can run as dedicated external windows for canvas-heavy menu/dialogue editing workflows.
 - Project run action executes runtime through Gradle with isolated Gradle user home.
 

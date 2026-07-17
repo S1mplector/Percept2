@@ -15,7 +15,7 @@ This page is the high-level map. Use the linked docs for deeper implementation d
 
 1. Create/open a project in the editor.
 2. Author story scripts in `scripts/story/*.vns`.
-3. Configure dialogue/menu presentation in `config/ui` and `config/menu` (code or visual editors).
+3. Configure dialogue/menu presentation in `config/ui` and `config/menu` as text DSL sources.
 4. Preview scripts in editor and run full project via runtime.
 5. Iterate with saves, settings, and timeline graph tools.
 
@@ -52,7 +52,7 @@ This page is the high-level map. Use the linked docs for deeper implementation d
 ### Editor Tooling
 
 - Code editors for VNS/JES/Timeline and general text formats
-- Visual editors for dialogue layout, menu configs, and bounds drawing
+- Text-first layout/menu authoring with diagnostics, templates, and runtime validation
 - VNS lint + quick fixes (undefined labels, missing assets, unreachable blocks)
 - Timeline graph with validation and drag/drop script arc creation
 - Puppeteer animation tool with keyframes, easing, audio cues

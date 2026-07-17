@@ -6,9 +6,9 @@
 
 ## Purpose
 
-JVN layout editing is **code-first by default**. You write layout, style, menu, and registry
-files as plain-text properties, then run your project to see results. The editor's Layout
-Studio opens in code mode; the visual preview is an optional toggle, not the primary workflow.
+JVN layout editing is **text-first**. You write layout, style, menu, and registry files as
+plain-text properties, then run your project to see the authoritative result. Layout Studio
+supports that loop with source templates, line diagnostics, asset helpers, and Save and Run.
 
 This guide teaches you the complete text-first loop from scratch: where each file lives, what
 keys are available, how to validate changes in runtime, and how to debug problems fast.
@@ -64,9 +64,8 @@ Decide which layer you're editing:
 
 ### Step 2: Open the File in Code Mode
 
-Open the relevant file in the editor's code tab or any text editor. Layout Studio opens in
-code mode by default. If you see a visual preview, that's supplementary — your source of
-truth is always the text file.
+Open the relevant file in Layout Studio, the editor's normal source tab, or any text editor.
+The source file is the only authoring model and the runtime consumes it directly.
 
 ### Step 3: Edit Properties
 
@@ -614,10 +613,10 @@ bundle a custom font in your project assets.
 
 ---
 
-## Migration: From Visual-First to Text-First Habits
+## Migration from visual-first habits
 
-If you're used to dragging sliders and seeing instant visual preview, this section
-is for you.
+If you previously used JVN's visual layout editors, translate each operation into a small,
+reviewable property change:
 
 ### What changes
 
@@ -627,13 +626,13 @@ is for you.
 | Pick a color from the color wheel | Type `itemColor=#FFE8A3` and re-run |
 | Resize by dragging a handle | Edit `textBoxWidth=0.8` and re-run |
 | Use "Preview" tab to check layout | Run the actual project and observe |
-| Undo with Ctrl+Z in the visual editor | Edit the value back or use editor undo |
+| Undo in a form panel | Use source-editor undo or revert the source diff |
 
 ### Why text-first is better for production
 
 1. **Reproducibility.** Text files are diffable, mergeable, and versionable with Git.
 2. **Precision.** You know the exact value, not "roughly where the slider was."
-3. **Runtime truth.** The visual preview approximates; the runtime is authoritative.
+3. **Runtime truth.** There is no second renderer to disagree with the runtime.
 4. **Speed at scale.** Once you know the keys, editing text is faster than navigating UI panels.
 5. **Collaboration.** Teammates can review layout changes in pull requests.
 
@@ -641,7 +640,8 @@ is for you.
 
 - **Keep the DSL Cookbook open** as a reference while you learn the keys.
 - **Start with one file.** Get comfortable with `dialogue.layout` before tackling menus.
-- **Use the preview toggle sparingly** — only to get a rough sense of position, then validate in runtime.
+- **Use Save and Run Runtime** (`Ctrl/Cmd+Enter`) to keep the validation loop short.
+- **Use source templates** for a known-valid baseline rather than assembling every key from memory.
 - **Read console diagnostics.** The engine warns you about invalid keys and clamped values.
 - **Commit working states.** After each successful layout tweak, commit to Git so you can always roll back.
 
@@ -685,10 +685,10 @@ A: Not strictly. The engine auto-discovers `.layout`, `.style`, and `.menu` file
 `config/menu/` and its subdirectories. But an explicit registry is recommended for clarity
 and to set `defaultMenu`.
 
-**Q: Can I use the visual preview instead of running the project?**
-A: The visual preview is available as a toggle in Layout Studio, but it's an approximation.
-Always validate final results in the actual runtime. The preview doesn't execute actions,
-render real fonts, or simulate input.
+**Q: Why is there no visual preview in Layout Studio?**
+A: A preview duplicated layout parsing and rendering without being able to prove actions, input,
+fonts, or final platform output. Layout Studio now concentrates on accurate source diagnostics and
+launches the real runtime for visual and behavioral validation.
 
 **Q: What happens if I misspell a key?**
 A: The engine ignores unknown keys and logs a diagnostic warning. Your layout will use the
