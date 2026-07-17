@@ -221,6 +221,11 @@ public final class DslPropertyDiagnostics {
   }
 
   public static List<String> dialogueIssues(String text, List<String> parserDiagnostics) {
+    return runtimeBackedIssues(text, parserDiagnostics);
+  }
+
+  /** Adds runtime-loader diagnostics to line-aware properties syntax diagnostics. */
+  public static List<String> runtimeBackedIssues(String text, List<String> parserDiagnostics) {
     ParsedText parsed = parseProperties(text);
     LinkedHashSet<String> issues = new LinkedHashSet<>(parsed.issues());
 
@@ -232,6 +237,7 @@ public final class DslPropertyDiagnostics {
       if (diagnostic == null || diagnostic.isBlank()) continue;
       String message = diagnostic.trim();
       String key = extractQuotedKey(message);
+      if (key == null) key = extractPropertyReference(message);
       Integer line = key == null ? null : parsed.lastLineByKey().get(key);
       String quickFix = quickFixForDialogue(message, key);
       if (line != null) {
@@ -241,6 +247,12 @@ public final class DslPropertyDiagnostics {
       }
     }
     return new ArrayList<>(issues);
+  }
+
+  private static String extractPropertyReference(String message) {
+    if (message == null) return null;
+    Matcher matcher = Pattern.compile("(item\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+)").matcher(message);
+    return matcher.find() ? matcher.group(1) : null;
   }
 
   private static ParsedText parseProperties(String text) {

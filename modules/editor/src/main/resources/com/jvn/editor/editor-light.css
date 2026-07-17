@@ -1982,11 +1982,6 @@
   -fx-background-color: -jvn-studio-bg;
 }
 
-.layout-studio-design-host {
-  -fx-background-color: -jvn-studio-bg;
-  -fx-border-color: -jvn-studio-border;
-}
-
 .layout-studio-utils {
   -fx-background-color: -jvn-studio-surface;
   -fx-border-color: -jvn-studio-border;
@@ -2024,21 +2019,6 @@
 .layout-studio-dirty-unsaved {
   -fx-background-color: rgba(240, 182, 115, 0.18);
   -fx-text-fill: #f3c787;
-}
-
-.layout-studio-preview-host {
-  -fx-background-color: linear-gradient(to bottom, derive(-jvn-studio-bg, 7%), derive(-jvn-studio-bg, -8%));
-  -fx-border-color: -jvn-studio-border;
-}
-
-.layout-studio-controls-pane,
-.layout-studio-controls-pane > .viewport {
-  -fx-background-color: -jvn-studio-surface;
-}
-
-.layout-studio-controls-pane {
-  -fx-border-color: -jvn-studio-border;
-  -fx-border-width: 0 0 0 1;
 }
 
 .layout-studio-toolbar-button,

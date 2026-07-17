@@ -31,6 +31,7 @@ This guide focuses on practical editor use:
 
 - Need the architecture view: [Puppeteer Overview & Architecture](puppeteer.md)
 - Need the export syntax only: [Puppeteer JES DSL Reference](puppeteer-jes-dsl.md)
+- Need reusable parameterized animation source: [Puppeteer Motifs](puppeteer-motifs.md)
 - Need the timeline runtime model: [Puppeteer Animation Timelines](../../scripting/timeline/animation/timeline-animation.md)
 
 ## Contents
@@ -1165,6 +1166,8 @@ Closing Puppeteer with unsaved changes prompts: **Save & Register**, **Discard**
 
 Puppeteer supports editing the generated JES code directly and importing changes back into the visual model. This enables a round-trip workflow: author visually → export → hand-edit code → re-import.
 
+For repeated animation vocabulary, hand-authored code can also use [Puppeteer Motifs](puppeteer-motifs.md). Motifs expand before import, so the visual model receives the resulting tracks and keyframes. The source-level motif boundaries are not stored in `TimelineData`; preserve the motif-authored source if you need later exports to retain the abstraction.
+
 ### The Code Panel
 
 The right-side **Timeline Code** panel shows the live-generated JES source and provides three code-editing states:
@@ -1343,6 +1346,7 @@ Unknown easing "ease_in_out_quard" on hero.X at 400ms
 
 - [Puppeteer Architecture](puppeteer.md) — design overview, data flow, JES/VNS relationship
 - [Puppeteer JES DSL Reference](puppeteer-jes-dsl.md) — complete exported syntax: actions, easing, spring functions, event blocks
+- [Puppeteer Motifs](puppeteer-motifs.md) — named parameterized animation fragments, expansion semantics, composition, and limitations
 - [Timeline Animation (Core)](../../scripting/timeline/animation/timeline-animation.md) — `TimelineData` model, `TimelineRunner`, event cues, audio cues, `SceneAccessor`
 - [Hand-Coding Timelines](../../scripting/timeline/animation/timeline-hand-coding.md) — writing timeline code by hand with examples
 - [Puppeteer Launcher Panel](../sidebars/right/sidebar-puppeteer-launcher.md) — VNS snapshot resolution and launch configuration

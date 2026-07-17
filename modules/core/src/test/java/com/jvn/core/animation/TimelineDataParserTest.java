@@ -277,4 +277,31 @@ class TimelineDataParserTest {
         assertEquals(1.0, hero.getValueAt(TimelineData.Property.MIRROR_X, 300), 0.001);
         assertEquals(0.25, hero.getCustomValueAt("color.m04", 300, 0.0), 0.001);
     }
+
+    @Test
+    void expandsParameterizedPuppeteerMotifsInsideTimelines() {
+        String inline = """
+            motif arrive(target, destination=640, duration=400) {
+              move "${target}" {
+                x: ${destination}
+                dur: ${duration}
+                easing: ease_out
+              }
+              fade "${target}" {
+                alpha: 1
+                dur: ${duration}
+              }
+            }
+            timeline {
+              use arrive(target="hero", destination=720, duration=300)
+            }
+            """;
+
+        TimelineData data = TimelineDataParser.parse("motif_arrive", inline);
+        TimelineData.Track hero = data.getTrack("hero");
+        assertNotNull(hero);
+        assertEquals(300.0, data.getDurationMs(), 0.001);
+        assertEquals(720.0, hero.getValueAt(TimelineData.Property.X, 300), 0.001);
+        assertEquals(1.0, hero.getValueAt(TimelineData.Property.ALPHA, 300), 0.001);
+    }
 }

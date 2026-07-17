@@ -1,6 +1,6 @@
 # Validation & Diagnostics
 
-Complete guide to JVN's layout and menu validation system — all diagnostic messages, what triggers them, how to read console output, and how to fix every warning.
+Guide to JVN's layout and menu validation layers, diagnostic messages, fallbacks, and repair workflow.
 
 Validator: `modules/core/src/main/java/com/jvn/core/menu/config/MenuProfileValidator.java`
 Loader: `modules/core/src/main/java/com/jvn/core/menu/config/MenuProfileLoader.java`
@@ -12,7 +12,22 @@ Dialogue loader: `modules/core/src/main/java/com/jvn/core/vn/ui/VnUiLayoutLoader
 
 The JVN engine validates all layout, style, menu, and registry files at load time. When it finds issues — typos, out-of-range values, missing references, circular inheritance — it produces **diagnostic messages** that appear in the console output. Diagnostics are warnings, not fatal errors: the engine always falls back to safe defaults so your game still runs.
 
-Reading diagnostics after each run is a critical part of the text-first workflow.
+Layout Studio calls the same single-source parser entry points before launch, while the Layout
+Editors sidebar adds project-wide reference checks. Runtime output remains important because it
+includes final profile resolution and validation.
+
+## Validation layers
+
+| Layer | Knows about | Does not prove |
+|---|---|---|
+| Source syntax | malformed and duplicate properties | referenced files exist |
+| Runtime single-source loader | accepted keys, values, aliases, actions, bounds | complete project graph |
+| Layout Editors sidebar | registry membership, files, layout/style IDs, targets | rendering and input |
+| Runtime profile validation | inheritance and resolved profile consistency | visual quality |
+| Running renderer | fonts, assets, geometry, states, behavior | behavior on untested platforms/viewports |
+
+Resolve diagnostics from the narrowest layer first. A malformed property can generate downstream
+reference or rendering symptoms that disappear after the source is corrected.
 
 ---
 
@@ -32,9 +47,24 @@ Value for 'listWidthFactor' in config/menu/layouts/default.layout was out of ran
 Unknown menu action 'play_credits' in config/menu/menus/main.menu (item.credits.action); falling back to noop
 ```
 
-### Diagnostic Severity
+### Diagnostic severity
 
-All diagnostics are **warnings**. The engine never refuses to load a file. It always produces a usable result by falling back to defaults.
+Runtime loader diagnostics are recoverable warnings: loaders select a safe fallback where possible.
+Layout Studio may display malformed or unsupported declarations as errors because they should block
+an intentional save-and-review cycle even when runtime recovery is available. Recovery is not proof
+that the authored value took effect.
+
+### Deprecation diagnostics
+
+Deprecated aliases remain parseable during their compatibility window:
+
+```text
+Deprecated key 'listWidth' in config/menu/layouts/default.layout; use 'listWidthFactor' instead
+Deprecated key 'layoutId' in config/menu/menus/main.menu; use 'layout' instead
+```
+
+Replace deprecated keys promptly. A warning is the safe migration period before removal in a future
+incompatible specification version.
 
 ---
 

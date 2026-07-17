@@ -113,9 +113,9 @@ From this panel you can browse and create files, open Layout Studio, clone
 menu components, edit registry membership, assign layouts and styles to
 screens, and see cross-file warnings for missing references or targets.
 
-Visual editors write the same text DSL consumed by the runtime. Use their
-preview and diagnostics while authoring, then use Save + Run Runtime for the
-final behavior and navigation check."""));
+Layout Studio edits that runtime DSL directly and provides source templates,
+line diagnostics, asset helpers, and Save + Run Runtime. The running project is
+the authoritative rendering and navigation check."""));
     titleRow.setAlignment(Pos.CENTER_LEFT);
 
     filterField.setPromptText("Filter layout files...");
@@ -262,7 +262,7 @@ final behavior and navigation check."""));
 
     Button openButton = new Button("Open Studio");
     openButton.getStyleClass().add("layout-launcher-button");
-    openButton.setTooltip(new Tooltip("Open this item in the visual layout studio"));
+    openButton.setTooltip(new Tooltip("Open this source with templates, diagnostics, and runtime launch tools"));
     openButton.setOnAction(e -> openItem(item));
 
     Button cloneButton = new Button("Clone");

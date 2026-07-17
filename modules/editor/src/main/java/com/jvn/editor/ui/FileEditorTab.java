@@ -81,16 +81,11 @@ public class FileEditorTab extends BorderPane {
   private final JavaCodeEditor menuStyleEditor;
   private final JavaCodeEditor dialogueLayoutEditor;
   private final StoryTimelineView timelineView;
-  private final MenuScreenVisualEditor menuScreenVisualEditor;
-  private final MenuLayoutVisualEditor menuLayoutVisualEditor;
-  private final MenuStyleVisualEditor menuStyleVisualEditor;
-  private final DialogueLayoutEditorView dialogueLayoutVisualEditor;
 
   private final ViewportView viewport; // JES preview
   private JesScene2D jesScene;
 
   private final VnPreviewView vnPreview; // VNS preview
-  private final MenuThemePreviewView themePreview; // THEME preview
 
   private Consumer<Entity2D> onSelected;
   private Consumer<String> onStatus;
@@ -139,14 +134,8 @@ public class FileEditorTab extends BorderPane {
     this.menuStyleEditor = (kind == Kind.MENU_STYLE) ? newDslEditor() : null;
     this.dialogueLayoutEditor = (kind == Kind.DIALOGUE_LAYOUT) ? newDslEditor() : null;
     this.timelineView = (kind == Kind.TIMELINE) ? new StoryTimelineView() : null;
-    this.menuScreenVisualEditor = (kind == Kind.MENU_SCREEN) ? new MenuScreenVisualEditor() : null;
-    this.menuLayoutVisualEditor = (kind == Kind.MENU_LAYOUT) ? new MenuLayoutVisualEditor() : null;
-    this.menuStyleVisualEditor = (kind == Kind.MENU_STYLE) ? new MenuStyleVisualEditor() : null;
-    this.dialogueLayoutVisualEditor = (kind == Kind.DIALOGUE_LAYOUT) ? new DialogueLayoutEditorView() : null;
-
     this.viewport = (kind == Kind.JES) ? new ViewportView() : null;
     this.vnPreview = (kind == Kind.VNS) ? new VnPreviewView() : null;
-    this.themePreview = (kind == Kind.THEME) ? new MenuThemePreviewView() : null;
 
     if (viewport != null) {
       viewport.setOnSelected(e -> { if (onSelected != null) onSelected.accept(e); });
@@ -198,18 +187,6 @@ public class FileEditorTab extends BorderPane {
         timelineEditor.setTextNoEvent(text);
         notifyDiagnosticsTextChanged(text);
       });
-    } else if (kind == Kind.THEME) {
-      String text = themeEditor.getText();
-      if (text == null) text = "";
-      themePreview.setThemeFromText(text);
-    } else if (kind == Kind.MENU_SCREEN) {
-      bindMenuScreenVisualSync();
-    } else if (kind == Kind.MENU_LAYOUT) {
-      bindMenuLayoutVisualSync();
-    } else if (kind == Kind.MENU_STYLE) {
-      bindMenuStyleVisualSync();
-    } else if (kind == Kind.DIALOGUE_LAYOUT) {
-      bindDialogueLayoutVisualSync();
     }
   }
 
@@ -417,23 +394,15 @@ public class FileEditorTab extends BorderPane {
     } else if (kind == Kind.TIMELINE) {
       setCenter(createPreviewWorkspace("Timeline Preview", timelineView, timelineEditor, 0.6));
     } else if (kind == Kind.THEME) {
-      setCenter(createPreviewWorkspace("Theme Preview", themePreview, themeEditor, 0.6));
-      if (themeEditor != null && themePreview != null) {
-        String text = themeEditor.getText(); if (text == null) text = "";
-        themePreview.setThemeFromText(text);
-        themeEditor.setOnTextChanged(t -> {
-          themePreview.setThemeFromText(t);
-          notifyDiagnosticsTextChanged(t);
-        });
-      }
+      setCenter(themeEditor);
     } else if (kind == Kind.MENU_SCREEN) {
-      setCenter(createStudioWorkspace("Menu Screen Studio", menuScreenVisualEditor, menuScreenEditor, 0.62, true));
+      setCenter(menuScreenEditor);
     } else if (kind == Kind.MENU_LAYOUT) {
-      setCenter(createStudioWorkspace("Menu Layout Studio", menuLayoutVisualEditor, menuLayoutEditor, 0.58, true));
+      setCenter(menuLayoutEditor);
     } else if (kind == Kind.MENU_STYLE) {
-      setCenter(createStudioWorkspace("Menu Style Studio", menuStyleVisualEditor, menuStyleEditor, 0.58, true));
+      setCenter(menuStyleEditor);
     } else if (kind == Kind.DIALOGUE_LAYOUT) {
-      setCenter(createStudioWorkspace("Dialogue Layout Studio", dialogueLayoutVisualEditor, dialogueLayoutEditor, 0.58, true));
+      setCenter(dialogueLayoutEditor);
     } else if (kind == Kind.OTHER) {
       setCenter(textEditor);
     } else {
@@ -455,10 +424,6 @@ public class FileEditorTab extends BorderPane {
     if (timelineView != null) timelineView.setProjectRoot(root);
     if (viewport != null) viewport.setProjectRoot(root);
     if (vnPreview != null) vnPreview.setProjectRoot(root);
-    if (menuScreenVisualEditor != null) menuScreenVisualEditor.setProjectRoot(root);
-    if (menuLayoutVisualEditor != null) menuLayoutVisualEditor.setProjectRoot(root);
-    if (menuStyleVisualEditor != null) menuStyleVisualEditor.setProjectRoot(root);
-    if (dialogueLayoutVisualEditor != null) dialogueLayoutVisualEditor.setProjectRoot(root);
 
     if (kind == Kind.VNS && vnsEditor != null && vnPreview != null) {
       String code = vnsEditor.getText();
@@ -486,8 +451,6 @@ public class FileEditorTab extends BorderPane {
       viewport.render(dt);
     } else if (kind == Kind.VNS && vnPreview != null) {
       vnPreview.render(dt);
-    } else if (kind == Kind.THEME && themePreview != null) {
-      themePreview.render(dt);
     }
   }
 
@@ -549,32 +512,18 @@ public class FileEditorTab extends BorderPane {
       } else if (kind == Kind.THEME) {
         String text = Files.exists(file.toPath()) ? Files.readString(file.toPath()) : "";
         if (themeEditor != null) themeEditor.setText(text);
-        if (themePreview != null) themePreview.setThemeFromText(text);
-        if (themeEditor != null && themePreview != null) {
-          themeEditor.setOnTextChanged(t -> {
-            themePreview.setThemeFromText(t);
-            notifyDiagnosticsTextChanged(t);
-          });
-        }
       } else if (kind == Kind.MENU_SCREEN) {
         String text = Files.exists(file.toPath()) ? Files.readString(file.toPath()) : "";
         if (menuScreenEditor != null) menuScreenEditor.setText(text);
-        if (menuScreenVisualEditor != null) {
-          menuScreenVisualEditor.setScreenIdHint(screenIdFromFile());
-          menuScreenVisualEditor.setMenuText(text);
-        }
       } else if (kind == Kind.MENU_LAYOUT) {
         String text = Files.exists(file.toPath()) ? Files.readString(file.toPath()) : "";
         if (menuLayoutEditor != null) menuLayoutEditor.setText(text);
-        if (menuLayoutVisualEditor != null) menuLayoutVisualEditor.setLayoutText(text);
       } else if (kind == Kind.MENU_STYLE) {
         String text = Files.exists(file.toPath()) ? Files.readString(file.toPath()) : "";
         if (menuStyleEditor != null) menuStyleEditor.setText(text);
-        if (menuStyleVisualEditor != null) menuStyleVisualEditor.setStyleText(text);
       } else if (kind == Kind.DIALOGUE_LAYOUT) {
         String text = Files.exists(file.toPath()) ? Files.readString(file.toPath()) : "";
         if (dialogueLayoutEditor != null) dialogueLayoutEditor.setText(text);
-        if (dialogueLayoutVisualEditor != null) dialogueLayoutVisualEditor.setLayoutText(text);
       } else if (kind == Kind.JAVA) {
         String code = Files.readString(file.toPath());
         javaEditor.setText(code);
@@ -1277,8 +1226,6 @@ public class FileEditorTab extends BorderPane {
             viewport.render(dt);
           } else if (kind == Kind.VNS && vnPreview != null) {
             vnPreview.render(dt);
-          } else if (kind == Kind.THEME && themePreview != null) {
-            themePreview.render(dt);
           }
         } catch (Exception ex) {
           stopDetachedPreviewTimer();
@@ -1374,190 +1321,12 @@ public class FileEditorTab extends BorderPane {
 
     if (viewport != null) viewport.setSize(previewW, previewH);
     if (vnPreview != null) vnPreview.setSize(previewW, previewH);
-    if (themePreview != null) themePreview.setSize(previewW, previewH);
-  }
-
-  private Node createStudioWorkspace(String title, Node designNode, Node codeNode, double divider, boolean designEnabled) {
-    BorderPane root = new BorderPane();
-    root.getStyleClass().add("script-editor-workspace-root");
-    BorderPane content = new BorderPane();
-    content.getStyleClass().add("script-editor-workspace-content");
-    boolean allowDesign = designEnabled && designNode != null;
-
-    ToggleButton bDesign = new ToggleButton("Design");
-    ToggleButton bCode = new ToggleButton("Code");
-    ToggleButton bSplit = new ToggleButton("Split");
-    ToggleGroup group = new ToggleGroup();
-    bDesign.setToggleGroup(group);
-    bCode.setToggleGroup(group);
-    bSplit.setToggleGroup(group);
-    if (allowDesign) {
-      bCode.setSelected(true);
-    } else {
-      bCode.setSelected(true);
-      bDesign.setManaged(false);
-      bDesign.setVisible(false);
-      bSplit.setManaged(false);
-      bSplit.setVisible(false);
-    }
-
-    bDesign.getStyleClass().addAll("layout-studio-toolbar-toggle", "script-editor-workspace-toggle");
-    bCode.getStyleClass().addAll("layout-studio-toolbar-toggle", "script-editor-workspace-toggle");
-    bSplit.getStyleClass().addAll("layout-studio-toolbar-toggle", "script-editor-workspace-toggle");
-
-    configureIconToggle(bDesign, CssIcon.palette("#b8c5d8"), "Show design canvas");
-    configureIconToggle(bCode, CssIcon.list("#b8c5d8"), "Show code only");
-    configureIconToggle(bSplit, CssIcon.grid("#b8c5d8"), "Show design and code");
-
-    HBox toolbar = buildWorkspaceToolbar(
-        title == null ? "Studio" : title,
-        allowDesign ? "Design canvas and source stay in sync" : "Source-only workspace",
-        CssIcon.palette("#d7e1f0"),
-        allowDesign ? new Node[] {bDesign, bCode, bSplit} : new Node[] {bCode});
-    root.setTop(toolbar);
-    root.setCenter(content);
-
-    Runnable applyMode = () -> {
-      if (!allowDesign) {
-        detachFromParent(codeNode);
-        content.setCenter(codeNode);
-        primarySplit = null;
-        primarySplitCodeIndex = 1;
-        editorFullscreen = false;
-        return;
-      }
-      if (bSplit.isSelected()) {
-        content.setCenter(createVerticalSplit(designNode, codeNode, divider));
-      } else if (bCode.isSelected()) {
-        detachFromParent(codeNode);
-        content.setCenter(codeNode);
-        primarySplit = null;
-        primarySplitCodeIndex = 1;
-        editorFullscreen = false;
-      } else {
-        detachFromParent(designNode);
-        content.setCenter(designNode);
-        primarySplit = null;
-        primarySplitCodeIndex = 1;
-        editorFullscreen = false;
-      }
-    };
-
-    group.selectedToggleProperty().addListener((o, ov, nv) -> {
-      if (nv == null) {
-        if (allowDesign) bCode.setSelected(true);
-        else bCode.setSelected(true);
-      }
-      applyMode.run();
-    });
-    applyMode.run();
-    return root;
   }
 
   private double currentDividerPosition() {
     if (primarySplit == null) return restoreDividerPosition;
     if (primarySplit.getDividers().isEmpty()) return restoreDividerPosition;
     return primarySplit.getDividers().get(0).getPosition();
-  }
-
-  private void bindMenuScreenVisualSync() {
-    if (menuScreenEditor == null || menuScreenVisualEditor == null) return;
-    menuScreenVisualEditor.setScreenIdHint(screenIdFromFile());
-    final boolean[] syncing = new boolean[] {false};
-    menuScreenEditor.setOnTextChanged(text -> {
-      if (syncing[0]) return;
-      syncing[0] = true;
-      menuScreenVisualEditor.setMenuText(text);
-      syncing[0] = false;
-      notifyDiagnosticsTextChanged(text);
-    });
-    menuScreenVisualEditor.setOnMenuTextChanged(text -> {
-      if (syncing[0]) return;
-      if (Objects.equals(normalizeLineEndings(menuScreenEditor.getText()), normalizeLineEndings(text))) return;
-      syncing[0] = true;
-      menuScreenEditor.setTextNoEvent(text);
-      syncing[0] = false;
-      notifyDiagnosticsTextChanged(text);
-    });
-    String current = menuScreenEditor.getText();
-    if (current == null) current = "";
-    menuScreenVisualEditor.setMenuText(current);
-  }
-
-  private void bindMenuLayoutVisualSync() {
-    if (menuLayoutEditor == null || menuLayoutVisualEditor == null) return;
-    final boolean[] syncing = new boolean[] {false};
-    menuLayoutEditor.setOnTextChanged(text -> {
-      if (syncing[0]) return;
-      syncing[0] = true;
-      menuLayoutVisualEditor.setLayoutText(text);
-      syncing[0] = false;
-      notifyDiagnosticsTextChanged(text);
-    });
-    menuLayoutVisualEditor.setOnLayoutTextChanged(text -> {
-      if (syncing[0]) return;
-      if (Objects.equals(normalizeLineEndings(menuLayoutEditor.getText()), normalizeLineEndings(text))) return;
-      syncing[0] = true;
-      menuLayoutEditor.setTextNoEvent(text);
-      syncing[0] = false;
-      notifyDiagnosticsTextChanged(text);
-    });
-    String current = menuLayoutEditor.getText();
-    if (current == null) current = "";
-    menuLayoutVisualEditor.setLayoutText(current);
-  }
-
-  private void bindMenuStyleVisualSync() {
-    if (menuStyleEditor == null || menuStyleVisualEditor == null) return;
-    final boolean[] syncing = new boolean[] {false};
-    menuStyleEditor.setOnTextChanged(text -> {
-      if (syncing[0]) return;
-      syncing[0] = true;
-      menuStyleVisualEditor.setStyleText(text);
-      syncing[0] = false;
-      notifyDiagnosticsTextChanged(text);
-    });
-    menuStyleVisualEditor.setOnStyleTextChanged(text -> {
-      if (syncing[0]) return;
-      if (Objects.equals(normalizeLineEndings(menuStyleEditor.getText()), normalizeLineEndings(text))) return;
-      syncing[0] = true;
-      menuStyleEditor.setTextNoEvent(text);
-      syncing[0] = false;
-      notifyDiagnosticsTextChanged(text);
-    });
-    String current = menuStyleEditor.getText();
-    if (current == null) current = "";
-    menuStyleVisualEditor.setStyleText(current);
-  }
-
-  private void bindDialogueLayoutVisualSync() {
-    if (dialogueLayoutEditor == null || dialogueLayoutVisualEditor == null) return;
-    final boolean[] syncing = new boolean[] {false};
-    dialogueLayoutEditor.setOnTextChanged(text -> {
-      if (syncing[0]) return;
-      syncing[0] = true;
-      dialogueLayoutVisualEditor.setLayoutText(text);
-      syncing[0] = false;
-      notifyDiagnosticsTextChanged(text);
-    });
-    dialogueLayoutVisualEditor.setOnLayoutTextChanged(text -> {
-      if (syncing[0]) return;
-      if (Objects.equals(normalizeLineEndings(dialogueLayoutEditor.getText()), normalizeLineEndings(text))) return;
-      syncing[0] = true;
-      dialogueLayoutEditor.setTextNoEvent(text);
-      syncing[0] = false;
-      notifyDiagnosticsTextChanged(text);
-    });
-    String current = dialogueLayoutEditor.getText();
-    if (current == null) current = "";
-    dialogueLayoutVisualEditor.setLayoutText(current);
-  }
-
-  private String screenIdFromFile() {
-    if (file == null) return "main";
-    String name = file.getName();
-    int dot = name.lastIndexOf('.');
-    return dot > 0 ? name.substring(0, dot) : name;
   }
 
   private String getCurrentText() {

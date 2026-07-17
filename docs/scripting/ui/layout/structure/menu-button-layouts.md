@@ -221,19 +221,11 @@ List<String> issues = result.diagnostics();
 
 ---
 
-## Editor Support
+## Authoring bounds
 
-The **Bounds Studio** tool provides visual button placement:
-
-- **Select mode** — click to select, drag to move, corner handles to resize
-- **Rectangle mode** — click-drag to draw new rectangular bounds
-- **Point-Nail mode** — click to place corner points, then generate bounding rect
-- Background asset image display
-- Grid overlay for alignment
-- Color-coded bounds with labels
-- Coordinate readout
-
-Access via the "Bounds Studio" button in the Menu Screen Visual Editor's Item Bounds section.
+Edit button bounds as explicit source values. Start with normalized coordinates for layouts that
+must scale, make one axis change at a time, then run at the target viewport. A screenshot editor or
+image tool can help measure artwork, but store the final numbers only in the `.buttonlayout` source.
 
 ---
 
@@ -247,7 +239,7 @@ Button layouts and per-item `boundsX/Y/Width/Height` in `.menu` files serve simi
 | Asset support | Per-item `bgAsset` | Per-button `asset`/`hoverAsset`/`disabledAsset` |
 | Resolution | Not resolution-aware | Has `resolution` header |
 | Extras | Per-item extras | Per-button + top-level extras |
-| Editor | Item Bounds inspector | Bounds Studio |
+| Authoring | `.menu` properties in Layout Studio | `.buttonlayout` source editor |
 
 ---
 

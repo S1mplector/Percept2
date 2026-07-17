@@ -226,17 +226,14 @@ Or run from terminal:
 
 ### Dialogue Layout
 
-Open `config/ui/dialogue.layout` in the editor — it opens in the visual **Dialogue Layout Editor** where you can:
-- Drag the textbox and name box positions
-- Adjust text padding and choice layout
-- Import custom textbox assets
+Open `config/ui/dialogue.layout` in **Layout Studio**. Start with a commented template if useful,
+edit textbox, name, text-padding, and choice properties directly, and use the asset utilities for
+custom skins. Resolve diagnostics and run the project to see the authoritative result.
 
 ### Menu Screens
 
-Open files under `config/menu/menus/` — they open in the **Menu Screen Visual Editor** where you can:
-- Edit menu items, actions, and targets
-- Assign layout and style references
-- Preview the menu layout
+Open files under `config/menu/menus/` in Layout Studio to edit items, actions, targets, and
+layout/style references. Use **Save and Run Runtime** to test presentation and navigation.
 
 ### Menu Styles
 

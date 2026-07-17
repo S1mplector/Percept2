@@ -2,6 +2,9 @@ package com.jvn.core.menu;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.io.StringReader;
+import java.util.List;
+import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -16,6 +19,57 @@ import com.jvn.core.menu.config.MenuProfileLoader;
 import com.jvn.core.menu.config.MenuScreenSpec;
 
 class MenuProfileLoaderTest {
+
+  @Test
+  void singleSourceValidationUsesRuntimeLayoutContract() throws Exception {
+    Properties valid = properties("""
+        extends=default
+        listWidth=0.55
+        textAlign=left
+        """);
+    List<String> compatibilityDiagnostics = MenuProfileLoader.validateLayout(valid, "fixture.layout");
+    assertTrue(compatibilityDiagnostics.stream().anyMatch(s -> s.contains("Deprecated key 'listWidth'")));
+
+    Properties malformed = properties("""
+        lineHeight=-2
+        listWidthFactor=wide
+        madeUpKey=true
+        """);
+    List<String> diagnostics = MenuProfileLoader.validateLayout(malformed, "fixture.layout");
+    assertTrue(diagnostics.stream().anyMatch(s -> s.contains("lineHeight")));
+    assertTrue(diagnostics.stream().anyMatch(s -> s.contains("listWidthFactor")));
+    assertTrue(diagnostics.stream().anyMatch(s -> s.contains("madeUpKey")));
+  }
+
+  @Test
+  void singleSourceValidationUsesRuntimeScreenContract() throws Exception {
+    Properties valid = properties("""
+        items=start
+        item.start.action=open_menu
+        item.start.target=chapter_select
+        item.start.fontFamily=SansSerif
+        item.start.fontSize=22
+        item.start.textAlign=center
+        """);
+    assertTrue(MenuProfileLoader.validateScreen(valid, "fixture.menu").isEmpty());
+
+    Properties malformed = properties("""
+        items=start
+        item.start.action=open_menu
+        item.start.enabled=sometimes
+        item.start.boundsX=0.1
+        """);
+    List<String> diagnostics = MenuProfileLoader.validateScreen(malformed, "fixture.menu");
+    assertTrue(diagnostics.stream().anyMatch(s -> s.contains("requires a target")));
+    assertTrue(diagnostics.stream().anyMatch(s -> s.contains("enabled")));
+    assertTrue(diagnostics.stream().anyMatch(s -> s.contains("partial bounds")));
+  }
+
+  private static Properties properties(String text) throws Exception {
+    Properties properties = new Properties();
+    properties.load(new StringReader(text));
+    return properties;
+  }
 
   @Test
   void loadsDefaultsWhenConfigFilesAreMissing() throws Exception {

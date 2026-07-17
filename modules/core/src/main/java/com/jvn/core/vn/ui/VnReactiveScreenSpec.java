@@ -22,7 +22,8 @@ public record VnReactiveScreenSpec(
     String timerAction,
     String timerTarget,
     String returnKey,
-    List<Button> buttons
+    List<Button> buttons,
+    VnFacetSpec facet
 ) {
   public VnReactiveScreenSpec {
     id = normalize(id, "screen");
@@ -38,6 +39,20 @@ public record VnReactiveScreenSpec(
     timerTarget = normalize(timerTarget, "");
     returnKey = normalize(returnKey, "screen.return." + id);
     buttons = buttons == null ? List.of() : List.copyOf(buttons);
+    facet = facet == null ? new VnFacetSpec("root", List.of()) : facet;
+  }
+
+  /** Backward-compatible constructor for legacy reactive screen definitions. */
+  public VnReactiveScreenSpec(
+      String id, String title, String text, String visibleIf,
+      double x, double y, double width, double height,
+      boolean modal, boolean dimBackground, boolean dismissOnAdvance,
+      boolean callScreen, long timerMs, String timerAction, String timerTarget,
+      String returnKey, List<Button> buttons
+  ) {
+    this(id, title, text, visibleIf, x, y, width, height, modal, dimBackground,
+        dismissOnAdvance, callScreen, timerMs, timerAction, timerTarget,
+        returnKey, buttons, new VnFacetSpec("root", List.of()));
   }
 
   public record Button(

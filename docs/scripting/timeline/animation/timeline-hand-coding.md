@@ -20,6 +20,8 @@ The Puppeteer visual editor is excellent for complex multi-entity choreography, 
 
 You can always paste hand-coded timelines into Puppeteer later for visual fine-tuning.
 
+When an action sequence becomes a project convention, extract it into a [Puppeteer Motif](../../../editor/puppeteer/puppeteer-motifs.md). Motifs provide named parameters and defaults, then expand into the same action syntax documented here. Imports retain the expanded keyframes rather than the original motif boundary.
+
 ---
 
 ## Where to Write Timelines
@@ -1783,6 +1785,7 @@ vnState.addTimelineRunner(runner);
 ## Related Docs
 
 - [Puppeteer JES DSL Reference](../../../editor/puppeteer/puppeteer-jes-dsl.md) — complete action/property reference and export modes
+- [Puppeteer Motifs](../../../editor/puppeteer/puppeteer-motifs.md) — parameterized reuse for the actions in this guide
 - [Puppeteer Editor Guide](../../../editor/puppeteer/puppeteer-editor-guide.md) — visual keyframe editor usage
 - [JES Timeline & Actions](../../jes/timeline/jes-timeline.md) — JES runtime timeline actions (superset including combat, flow control)
 - [Puppeteer Animation Timelines](timeline-animation.md) — TimelineData model, TimelineRunner, TimelineRegistry

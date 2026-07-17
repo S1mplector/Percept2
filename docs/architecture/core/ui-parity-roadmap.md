@@ -42,7 +42,7 @@ Current JVN surface:
 
 - `dialogue.layout`
 - [`VnRenderer.java`](../../../modules/fx/src/main/java/com/jvn/fx/vn/VnRenderer.java)
-- [`DialogueLayoutEditorView.java`](../../../modules/editor/src/main/java/com/jvn/editor/ui/DialogueLayoutEditorView.java)
+- text-first `dialogue.layout` authoring in Layout Studio
 
 Patch requirements:
 
@@ -67,7 +67,7 @@ Patch requirements:
 
 - Add text alignment parity for padded choice content.
 - Add more per-state control over typography, spacing, and border styling.
-- Ensure layout editor preview matches runtime choice alignment and spacing exactly.
+- Add compatibility fixtures for choice alignment and spacing to runtime tests.
 
 Status:
 
@@ -92,7 +92,7 @@ Implemented so far:
 - `titleAlign`, `hintsAlign`, and `hintsX` in [`MenuLayoutSpec.java`](../../../modules/core/src/main/java/com/jvn/core/menu/config/MenuLayoutSpec.java)
 - `subtitleText` on menu screens and `subtitleGap` on menu layouts
 - runtime title/footer placement in [`MenuRenderer.java`](../../../modules/fx/src/main/java/com/jvn/fx/menu/MenuRenderer.java)
-- editor support in [`MenuLayoutVisualEditor.java`](../../../modules/editor/src/main/java/com/jvn/editor/ui/MenuLayoutVisualEditor.java)
+- editor diagnostics and templates in `LayoutStudioWindowManager`
 
 Status:
 
@@ -239,7 +239,7 @@ Required patches:
   - `dialogueTextXAlign`
   - `choiceTextXAlign`
 - Add stronger mapping docs from Ren'Py `gui.*` variables to JVN `.layout` keys.
-- Preserve unknown-but-supported style keys when editing through the Dialogue Layout Editor.
+- Preserve unknown-but-supported extension keys when parsing and serializing dialogue layouts.
 
 Status:
 
@@ -251,7 +251,7 @@ Files involved:
 - [`VnUiStyleSpec.java`](../../../modules/core/src/main/java/com/jvn/core/vn/ui/VnUiStyleSpec.java)
 - [`VnUiLayoutLoader.java`](../../../modules/core/src/main/java/com/jvn/core/vn/ui/VnUiLayoutLoader.java)
 - [`VnRenderer.java`](../../../modules/fx/src/main/java/com/jvn/fx/vn/VnRenderer.java)
-- [`DialogueLayoutEditorView.java`](../../../modules/editor/src/main/java/com/jvn/editor/ui/DialogueLayoutEditorView.java)
+- [`LayoutStudioWindowManager.java`](../../../modules/editor/src/main/java/com/jvn/editor/ui/LayoutStudioWindowManager.java)
 
 ### 2. Data-Driven Runtime Screen Parity
 

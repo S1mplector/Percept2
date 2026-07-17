@@ -47,6 +47,8 @@ MyProject/
 │   │   │   └── submenu.style
 │   │   └── theme/
 │   │       └── menu.theme
+│   ├── facets/                     # Composable reactive .facet UI
+│   │   └── status.facet
 │   ├── settings/
 │   │   └── vn.settings
 │   └── story/
@@ -188,6 +190,21 @@ config/menu/
 
 **Naming rule:** The filename (minus extension) is the ID. `main.menu` has ID `main`. `default.layout` has ID `default`.
 
+### `config/facets/` — Composable Reactive UI
+
+Facet files define nested freeform overlays backed by live VNS variables:
+
+```text
+config/facets/
+├── companion_card.facet
+├── quest_summary.facet
+└── status.facet
+```
+
+The filename is the screen ID. `status.facet` is shown with `[screen show status]` or called with `[screen call status]`. A Facet can contain ordered `group`, `text`, `image`, and `bar` nodes plus the standard reactive-overlay buttons and lifecycle fields.
+
+See [JVN Facets](../../scripting/ui/facets.md) for the complete file format, discovery precedence, geometry rules, reactive evaluation, and limitations.
+
 ### `config/settings/` — VN Settings
 
 ```text
@@ -307,9 +324,9 @@ assets/ui/
 | `.jes` | JES script | JES code editor + viewport |
 | `.storymap` | Story map | Story Map graph editor |
 | `.timeline` | Legacy story map | Story Map graph editor |
-| `.layout` | Menu layout | Menu Layout Visual Editor |
-| `.style` | Menu style | Menu Style Visual Editor |
-| `.menu` | Menu screen | Menu Screen Visual Editor |
+| `.layout` | Menu/dialogue layout | Layout Studio source editor |
+| `.style` | Menu style | Layout Studio source editor |
+| `.menu` | Menu screen | Layout Studio source editor |
 | `.registry` | Menu registry | Text editor (or inline editor) |
 | `.theme` | Menu theme | Text editor |
 | `.properties` | Config | Text editor |

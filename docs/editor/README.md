@@ -71,6 +71,7 @@ Use this hub when your work is primarily inside the editor: opening projects, au
 - [Puppeteer Overview](puppeteer/puppeteer.md)
 - [Puppeteer Editor Guide](puppeteer/puppeteer-editor-guide.md)
 - [Puppeteer JES DSL Reference](puppeteer/puppeteer-jes-dsl.md)
+- [Puppeteer Motifs](puppeteer/puppeteer-motifs.md)
 - [Puppeteer Launcher](sidebars/right/sidebar-puppeteer-launcher.md)
 
 ### Image And Staging Tools

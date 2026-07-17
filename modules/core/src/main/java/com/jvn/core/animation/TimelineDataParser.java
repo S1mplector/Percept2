@@ -83,6 +83,7 @@ public class TimelineDataParser {
      */
     public static TimelineData parse(String name, String block) {
         if (block == null) block = "";
+        block = PuppeteerMotifExpander.expand(block);
         String[] lines = expandInlineBlocks(block).split("\\r?\\n");
 
         double cursor = 0;

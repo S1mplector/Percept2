@@ -2784,7 +2784,7 @@ public class NewProjectWizard extends Stage {
       }
       if (includeMenuPack) {
         fw.write(step++ + ". Edit `config/menu/menus/*.menu`, `config/menu/layouts/*.layout`, and `config/menu/styles/*.style` in text first.\n");
-        fw.write(step++ + ". Use visual Layout Studio tools only when needed (bounds drawing, color picking, quick sanity preview).\n");
+        fw.write(step++ + ". Resolve Layout Studio diagnostics, then use Save and Run Runtime for authoritative rendering and navigation checks.\n");
       }
       if (shouldStartBlankMenus()) {
         fw.write(step++ + ". Create menu screens, layouts, and styles in `config/menu/` using the Layout Studio.\n");

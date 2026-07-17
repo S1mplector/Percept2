@@ -20,7 +20,7 @@ source of truth for docs changes.
 | I am writing gameplay/scene scripts | [JES Scripting](scripting/jes/overview/jes-scripting.md) |
 | I am animating a shot | [Puppeteer Editor Guide](editor/puppeteer/puppeteer-editor-guide.md) |
 | I am lighting/staging a scene | [Scene Lighting Studio](editor/sidebars/right/sidebar-image-tint-tool.md) |
-| I am building menus/UI | [Menu Profiles](scripting/ui/menus/menu-profiles.md) |
+| I am building menus/UI | [JVN Facets](scripting/ui/facets.md) |
 | I am packaging a game | [Build And Release Docs](project-setup/release/README.md) |
 | I need the normative VNS/JES rules | [Scripting Language Contract](scripting/spec/README.md) |
 | I want to extend JVN | [Plugin authoring and reference](plugins/README.md) |
@@ -50,8 +50,9 @@ source of truth for docs changes.
 1. [Puppeteer Launcher](editor/sidebars/right/sidebar-puppeteer-launcher.md)
 2. [Puppeteer Editor Guide](editor/puppeteer/puppeteer-editor-guide.md)
 3. [Puppeteer JES Timeline DSL Reference](editor/puppeteer/puppeteer-jes-dsl.md)
-4. [Puppeteer Animation Timelines](scripting/timeline/animation/timeline-animation.md)
-5. [Hand-Coding Puppeteer Timelines](scripting/timeline/animation/timeline-hand-coding.md)
+4. [Puppeteer Motifs](editor/puppeteer/puppeteer-motifs.md)
+5. [Puppeteer Animation Timelines](scripting/timeline/animation/timeline-animation.md)
+6. [Hand-Coding Puppeteer Timelines](scripting/timeline/animation/timeline-hand-coding.md)
 
 ### Carry Scene Lighting Into Animation
 
@@ -63,12 +64,13 @@ source of truth for docs changes.
 
 ### Build Menus And UI
 
-1. [Menu Profiles](scripting/ui/menus/menu-profiles.md)
-2. [Menu Screens](scripting/ui/menus/menu-screens.md)
-3. [Reactive Overlay Screens](scripting/ui/menus/reactive-screens.md)
-4. [Menu Styles](scripting/ui/menus/menu-styles.md)
-5. [Text-First Layout Workflow](scripting/ui/layout/workflow/text-first-layout-workflow.md)
-6. [Layout DSL Cookbook](scripting/ui/layout/reference/layout-dsl-cookbook.md)
+1. [JVN Facets](scripting/ui/facets.md)
+2. [Menu Profiles](scripting/ui/menus/menu-profiles.md)
+3. [Menu Screens](scripting/ui/menus/menu-screens.md)
+4. [Reactive Overlay Screens](scripting/ui/menus/reactive-screens.md)
+5. [Menu Styles](scripting/ui/menus/menu-styles.md)
+6. [Text-First Layout Workflow](scripting/ui/layout/workflow/text-first-layout-workflow.md)
+7. [Layout DSL Cookbook](scripting/ui/layout/reference/layout-dsl-cookbook.md)
 
 ### Create Gameplay Or Interactive Scenes
 
@@ -106,6 +108,7 @@ source of truth for docs changes.
 - [Puppeteer - Animation Timeline Editor](editor/puppeteer/puppeteer.md) - architecture and integration overview
 - [Puppeteer Editor Guide](editor/puppeteer/puppeteer-editor-guide.md) - day-to-day usage, panels, timeline, keyframes, registration
 - [Puppeteer JES Timeline DSL Reference](editor/puppeteer/puppeteer-jes-dsl.md) - exported syntax, JES parser compatibility, event cues, properties
+- [Puppeteer Motifs](editor/puppeteer/puppeteer-motifs.md) - reusable parameterized animation fragments
 - [Generated Puppeteer Screenshots](editor/puppeteer/generated-puppeteer-screenshots.md) - generated visual reference
 
 ### Sidebar Utilities
@@ -244,6 +247,7 @@ source of truth for docs changes.
 - [Core Animation API](scripting/timeline/animation/core-animation-api.md) - TimelineRunner, Easing, SceneAccessor
 - [Puppeteer Animation Timelines](scripting/timeline/animation/timeline-animation.md)
 - [Hand-Coding Puppeteer Timelines](scripting/timeline/animation/timeline-hand-coding.md)
+- [Puppeteer Motifs](editor/puppeteer/puppeteer-motifs.md)
 
 ## Menus And Layout
 
@@ -252,6 +256,7 @@ source of truth for docs changes.
 - [Menu Profiles](scripting/ui/menus/menu-profiles.md)
 - [Menu Screens](scripting/ui/menus/menu-screens.md)
 - [Reactive Overlay Screens](scripting/ui/menus/reactive-screens.md)
+- [JVN Facets](scripting/ui/facets.md)
 - [Menu Styles](scripting/ui/menus/menu-styles.md)
 
 ### Layout Components

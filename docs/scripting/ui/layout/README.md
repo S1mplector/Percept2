@@ -1,51 +1,50 @@
-# In-Game UI And Menu Authoring
+# In-Game UI and Menu Authoring
 
-JVN's in-game interface is authored as plain-text, versionable property files. The runtime and
-visual editors consume the same files; there is no editor-only menu format.
+This section covers dialogue presentation and menu-profile layouts. For nested freeform overlays whose text, images, bars, and visibility react to live VN variables, use [JVN Facets](../facets.md). Facets share the overlay-screen lifecycle but do not use menu row geometry.
 
-## Choose The File You Need
+JVN interfaces are authored as plain-text property files. These files are the public format, the
+reviewable source, and the exact input consumed by the runtime. There is no editor-only layout
+model and no approximate preview renderer to keep in sync.
 
-| You want to change | File | Primary guide |
+## File map
+
+| Change | Source file | Guide |
 |---|---|---|
-| Dialogue panel, choices, NVL, bubbles, or textbox actions | `config/ui/dialogue.layout` | [Dialogue layout](components/dialogue-layout.md) |
-| Menu screen contents and navigation | `config/menu/menus/<id>.menu` | [Menu actions](structure/menu-actions.md) |
-| Menu positioning and spacing | `config/menu/layouts/<id>.layout` | [Menu layouts](structure/menu-layouts.md) |
-| Colors, type, backgrounds, and button assets | `config/menu/styles/<id>.style` | [Colors and theming](styling/colors-theming.md) |
-| Menu discovery and the initial screen | `config/menu/registry/menu.registry` | [Menu registry](structure/menu-registry.md) |
+| Dialogue panel, choices, NVL, bubbles, textbox actions | `config/ui/dialogue.layout` | [Dialogue layout](components/dialogue-layout.md) |
+| Menu content and navigation | `config/menu/menus/<id>.menu` | [Menu actions](structure/menu-actions.md) |
+| Menu position and spacing | `config/menu/layouts/<id>.layout` | [Menu layouts](structure/menu-layouts.md) |
+| Type, colors, backgrounds, button assets | `config/menu/styles/<id>.style` | [Colors and theming](styling/colors-theming.md) |
+| Discovery and initial screen | `config/menu/registry/menu.registry` | [Menu registry](structure/menu-registry.md) |
 
-All five formats use Java properties syntax: one `key=value` declaration per line, with `#` for
-comments. Paths are project-relative and should use forward slashes.
+All formats use Java properties syntax: one `key=value` declaration per line and `#` for comments.
+Use project-relative asset paths with forward slashes.
 
-## How A Menu Is Resolved
+## How a menu is resolved
 
 ```text
 menu.registry
-    selects a .menu screen
-        ├── layout=<id>        → layouts/<id>.layout
-        ├── defaultItemStyle   → styles/<id>.style
-        └── item.*.action      → runtime action or another menu target
+  -> menus/<screen>.menu
+       -> layout=<id>              -> layouts/<id>.layout
+       -> defaultItemStyle=<id>    -> styles/<id>.style
+       -> item.<id>.action/target  -> runtime behavior or another screen
 ```
 
-A screen contains content and behavior, a layout contains geometry, and a style contains visual
-presentation. Keeping those responsibilities separate lets several screens share one layout or
-theme without copying configuration.
+Screens own content and behavior, layouts own geometry, and styles own presentation. Reuse layout
+and style IDs rather than copying their properties into each screen.
 
-## Recommended Workflow
+## Authoring loop
 
-1. Open **Layout Editors** in the editor sidebar.
-2. Resolve any registry or cross-file warnings shown on its cards.
-3. Open a screen, layout, style, or dialogue file in **Layout Studio**.
-4. Work in code, visual, or split mode. Both surfaces edit the same DSL text.
-5. Use drag handles, Bounds Studio, asset pickers, and presets for spatial work.
-6. Save and run the project to verify navigation, input, font availability, and final rendering.
+1. Open **Layout Editors** in the sidebar and resolve its registry or reference warnings.
+2. Open the relevant source in **Layout Studio**.
+3. Start from a commented source template when useful, then edit exact values.
+4. Fix the line diagnostics before saving.
+5. Use **Save and Run Runtime** (`Ctrl/Cmd+Enter`).
+6. Test rendering, navigation, keyboard/controller input, and each supported resolution.
 
-The visual previews are suitable for authoring geometry, color, bounds, and assets. The running
-game remains authoritative for behavior: actions, screen transitions, responsive behavior, and
-platform font rendering.
+The runtime is the only rendering authority. Removing the duplicate preview surface means editor
+diagnostics, documentation, templates, and the running game can all follow one contract.
 
-## Minimal Working Menu
-
-Register one screen, layout, and style:
+## Minimal working menu
 
 ```properties
 # config/menu/registry/menu.registry
@@ -54,8 +53,6 @@ menus=main
 layouts=default
 styles=default
 ```
-
-Define its content and actions:
 
 ```properties
 # config/menu/menus/main.menu
@@ -70,8 +67,6 @@ item.settings.action=settings_menu
 item.quit.label=Quit
 item.quit.action=quit
 ```
-
-Keep geometry and presentation independent:
 
 ```properties
 # config/menu/layouts/default.layout
@@ -93,68 +88,53 @@ itemFontSize=24
 backgroundAsset=assets/menu/background.png
 ```
 
-The exact accepted action names and target requirements are documented in
-[Menu Actions](structure/menu-actions.md).
+See [Menu actions](structure/menu-actions.md) for accepted actions and target requirements.
 
-## Contract And Diagnostics
+## What the editor guarantees
 
-The runtime loader defines accepted keys, ranges, inheritance, and fallback behavior. Layout Studio
-uses those loaders where possible and supplements them with line-aware diagnostics and cross-file
-checks. Diagnostics include duplicate or unknown keys, malformed values, missing assets, missing
-registry entries, unresolved layout/style references, and navigation targets that do not exist.
+Layout Studio provides DSL highlighting, undo/redo, line-aware diagnostics, complete starting
+templates, asset-path helpers, atomic saves, and one-command runtime launch. Dialogue diagnostics
+are generated by the runtime dialogue loader. The Layout Editors sidebar adds project-wide checks
+for missing files, registry membership, layout/style references, and navigation targets.
 
-Do not rely on implicit clamping as an authoring technique. If the editor reports that a value was
-adjusted, write the effective in-range value into the file.
+Templates replace the whole open source after confirmation. They are starting points, not hidden
+settings: the resulting text is ordinary project source and can be reviewed or reverted normally.
 
-## Visual Editors
+## Common tasks
 
-- **Dialogue Layout Editor** — standard/NVL/bubble previews, draggable and resizable regions,
-  choice styling, textbox buttons, runtime preview, and undoable Standard VN or Minimal Monochrome
-  presets.
-- **Menu Screen Editor** — ordered items, built-in actions, targets, enabled states, per-item bounds,
-  save/load slot fields, and interactive selection preview.
-- **Menu Layout Editor** — title/list/hint positioning, alignment, spacing, scrolling, and drag-based
-  geometry editing, with Standard and Minimal Right-Side presets.
-- **Menu Style Editor** — typography, state colors, opacity, shadows, backgrounds, button assets,
-  and undoable Standard or Minimal Monochrome presets.
-- **Unified Menu Editor** — the screen, referenced layout, and referenced style in one workspace.
-- **Bounds Studio** — precise rectangles and polygon bounds over reference artwork.
-
-See [Layout Editor Tools](tooling/layout-editor-tools.md) for the complete editor workflow.
-
-## Common Tasks
-
-| Task | Change |
+| Task | Property or operation |
 |---|---|
-| Move all menu entries | `listYStart` or `listXCenter` in the referenced `.layout` |
-| Change spacing | `lineHeight` in the referenced `.layout` |
-| Change the selected state | `itemSelectedColor`, prefix, or selected asset in `.style` |
-| Open another screen | `item.<id>.action=open_menu` plus `item.<id>.target=<screen>` |
-| Add a screen | Create `.menu`, register its id, and point an action target to it |
-| Put choices beside a character | Change `choiceXCenter` and `choiceWidthFactor` in `dialogue.layout` |
-| Add quick save/history controls | Add `textBoxButton.ids` and per-button fields in `dialogue.layout` |
-| Use custom artwork as buttons | Set normal/hover/selected/disabled asset paths in `.style` |
+| Move the menu list | `listYStart`, `listXCenter` |
+| Change menu spacing | `lineHeight` |
+| Change selected appearance | `itemSelectedColor`, selected prefix, or selected asset in `.style` |
+| Open another screen | `item.<id>.action=open_menu` and `item.<id>.target=<screen>` |
+| Add a screen | Create `.menu`, register its ID, then point an action target to it |
+| Move choices beside a character | `choiceXCenter`, `choiceWidthFactor` |
+| Add quick controls | `textBoxButton.ids` and `textBoxButton.<id>.*` |
+| Skin buttons | Normal, hover, selected, and disabled asset keys in `.style` |
 
-## Failure Checklist
+## Failure checklist
 
-If a menu does not appear or an edit seems ignored:
+1. Confirm IDs are listed in `menu.registry`.
+2. Confirm `layout=` and `defaultItemStyle=` match existing filenames without extensions.
+3. Resolve orange warnings in **Layout Editors** and line diagnostics in Layout Studio.
+4. Remove duplicate keys; Java properties keeps the last declaration.
+5. Use forward-slash, project-relative asset paths and verify case exactly.
+6. Save every participating file, then run the project.
+7. Exercise every action in runtime; source validation cannot prove navigation behavior.
 
-1. Confirm the screen, layout, and style IDs are present in `menu.registry`.
-2. Confirm `layout=` and `defaultItemStyle=` refer to existing files with matching IDs.
-3. Check Layout Editors for orange cross-file warnings.
-4. Check the file for duplicate keys; Java properties uses the last declaration.
-5. Use forward slashes and project-relative paths for assets.
-6. Save every participating file before running the project.
-7. Test navigation in runtime; a visual preview does not execute actions.
+## Continue reading
 
-## Reference
-
+- [Authoring model](workflow/authoring-model.md)
 - [Text-first workflow](workflow/text-first-layout-workflow.md)
+- [Complete menu tutorial](workflow/complete-menu-tutorial.md)
+- [Migrating from the former visual editors](workflow/migrating-from-visual-editors.md)
+- [Layout Studio and editor tools](tooling/layout-editor-tools.md)
 - [Complete DSL cookbook](reference/layout-dsl-cookbook.md)
+- [Common recipes](reference/common-recipes.md)
+- [Production review checklist](reference/production-review-checklist.md)
 - [Validation and diagnostics](tooling/validation-diagnostics.md)
-- [Choice buttons](components/choice-buttons.md)
-- [Textbox action buttons](components/textbox-action-buttons.md)
-- [Inheritance](structure/menu-inheritance.md)
+- [Menu inheritance](structure/menu-inheritance.md)
 - [Assets and backgrounds](styling/assets-backgrounds.md)
 - [Save and load screens](screens/save-load-screens.md)
 - [Settings screen](screens/settings-screen.md)

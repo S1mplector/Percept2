@@ -748,11 +748,16 @@ Declared using `button.ids` and `button.<id>.<field>` keys in the same `dialogue
 | `textAlign` | String | `"center"` | `left` / `center` / `right` |
 | `hintsBottomMargin` | double | `20.0` | >= 0 (pixels) |
 | `titleY` | Double | *(none)* | (optional) >= 0 (fraction); omit for no title |
+| `subtitleGap` | double | `12.0` | >= 0; gap below subtitle |
 | `listXCenter` | Double | *(none)* | (optional) 0.0–1.0; overrides textAlign-based horizontal positioning |
 | `titleX` | Double | *(none)* | (optional) 0.0–1.0; centers title at this fraction of viewport |
 | `maxVisibleItems` | Integer | *(none)* | (optional) > 0; limits visible items and enables scrolling |
+| `titleAlign` | String | `center` | `left` / `center` / `right` |
+| `hintsAlign` | String | `center` | `left` / `center` / `right` |
+| `hintsX` | Double | *(none)* | (optional) 0.0–1.0 horizontal hint anchor |
 
-*Alias:* `listWidth` is accepted as an alias for `listWidthFactor`.
+*Deprecated alias:* `listWidth` remains accepted for compatibility but emits a warning. Replace it
+with `listWidthFactor` before the next incompatible specification version.
 
 ### Menu .style Keys
 
@@ -799,6 +804,7 @@ Declared using `button.ids` and `button.<id>.<field>` keys in the same `dialogue
 |---|---|---|---|
 | `extends` | String | *(none)* | (optional) Parent menu ID to inherit from |
 | `titleText` | String | *(none)* | Screen title |
+| `subtitleText` | String | *(none)* | Optional screen subtitle |
 | `hintsText` | String | *(none)* | Hints/keybind text at bottom |
 | `layout` | String | `"default"` | Layout ID to use |
 | `defaultItemStyle` | String | `"default"` | Default style for items |
@@ -806,7 +812,7 @@ Declared using `button.ids` and `button.<id>.<field>` keys in the same `dialogue
 | `backgroundAsset` | String | *(none)* | (optional) Per-screen background image; overrides the style-level background |
 | `items` | CSV | *(auto-discover)* | Comma-separated item IDs |
 
-*Alias:* `layoutId` is accepted as an alias for `layout`.
+*Deprecated alias:* `layoutId` remains accepted for compatibility but emits a warning. Use `layout`.
 
 **Per-item keys** (prefixed with `item.<id>.`):
 

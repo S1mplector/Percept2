@@ -498,7 +498,7 @@ Force-clears any active shake or flash effects immediately.
 
 ### `[screen show <id>]` / `[screen call <id>]`
 
-Shows an overlay screen. If `config/screens/<id>.screen` exists, JVN loads it as a reactive screen whose text and buttons update from `VnState` variables. If no file exists, JVN falls back to the inline overlay syntax.
+Shows an overlay screen. JVN first checks `config/facets/<id>.facet` for a composable [JVN Facet](../../ui/facets.md), then checks the reactive `.screen` paths. Facets add nested groups, text, images, and bars while retaining the same overlay buttons and lifecycle. If no file exists, JVN falls back to the inline overlay syntax.
 
 ```vns
 [screen show shop]
@@ -531,7 +531,7 @@ Inline screen syntax still works:
 [screen show confirm title="Confirm" text="Continue?" buttons="Yes|return|yes;No|return|no"]
 ```
 
-See [Reactive Overlay Screens](../../ui/menus/reactive-screens.md).
+See [JVN Facets](../../ui/facets.md) and [Reactive Overlay Screens](../../ui/menus/reactive-screens.md).
 
 ---
 

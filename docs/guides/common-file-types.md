@@ -29,6 +29,7 @@ This page is for beginners who can already open the editor, but are not yet sure
 |------|--------------|-------------------|
 | `config/menu/registry/menu.registry` | Declares available menu IDs, layouts, and styles. | UI/system author |
 | `.menu` | Defines a menu screen, its items, and actions. | UI/system author |
+| `.facet` | Defines a composable reactive UI tree backed by live VN variables. | UI/system author |
 | `.layout` | Defines menu or dialogue geometry and positioning. | UI author |
 | `.style` | Defines colors, fonts, assets, and presentation styling. | UI author |
 | `config/ui/dialogue.layout` | Main textbox and dialogue UI configuration. | UI author |
@@ -45,7 +46,8 @@ This page is for beginners who can already open the editor, but are not yet sure
 - If it controls **story flow**, it is usually a `.vns`.
 - If it controls **entities and gameplay systems**, it is usually a `.jes`.
 - If it controls **menus or textbox presentation**, it is usually `.menu`, `.layout`, or `.style`.
-- If it controls **animation reuse**, it is usually a registered Puppeteer timeline or `.clip`.
+- If it controls a **nested reactive overlay**, it is usually a `.facet`.
+- If it controls **animation reuse**, it is usually a registered Puppeteer timeline, a source-level motif, or `.clip`.
 - If it controls **lighting/staging reuse**, it is usually `.tintsetup` or `.stagepreset`.
 
 Stage presets are normally declared from VNS:

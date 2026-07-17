@@ -34,6 +34,7 @@ This page is the orientation layer for Puppeteer. It explains:
 
 - Need hands-on usage: [Puppeteer Editor Guide](puppeteer-editor-guide.md)
 - Need the export syntax: [Puppeteer JES DSL Reference](puppeteer-jes-dsl.md)
+- Need reusable parameterized animation: [Puppeteer Motifs](puppeteer-motifs.md)
 - New to JVN overall: [Choose Your Path in JVN](../../guides/choose-your-path.md)
 - Need file-level orientation: [Common JVN File Types](../../guides/common-file-types.md)
 
@@ -43,6 +44,7 @@ This page is the orientation layer for Puppeteer. It explains:
 
 - **[Puppeteer Editor Guide](puppeteer-editor-guide.md)** — complete usage guide: launching, UI panels, selection-sidebar inspectors, keyframe editing, all 12 presets, 37 easing options, event cues, audio cues, animation clips, VN slot positions, camera animation, groups, layer ordering, orbit tool, onion skinning, code round-trip editing, timeline diagnostics, export workflows, keyboard shortcuts
 - **[Puppeteer JES DSL Reference](puppeteer-jes-dsl.md)** — exported timeline code syntax: `move`, `rotate`, `scale`, `fade`, `pivot`, `depth`, `visible`, `cameraMove`, `cameraZoom`, generic `property` actions, `event` cues, `playAudio`, `wait`, `parallel`, easing values, spring functions, named curves, custom cubic Bézier, export modes, VNS/JES integration examples
+- **[Puppeteer Motifs](puppeteer-motifs.md)** — named, parameterized, reusable animation fragments that expand into ordinary Puppeteer timeline actions
 - **[Sidebar Utilities](../sidebars/overview/sidebar-utilities.md)** — current editor sidebar panels including Puppeteer Launcher, VNS Diagnostics, Asset Browser, and more
 
 ---
