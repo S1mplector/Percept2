@@ -338,7 +338,7 @@ engine.setMenuActionHandler((actionKey, target) -> {
 Custom action keys and their targets are preserved exactly as written across all editing workflows:
 
 - **Loader round-trip** — `MenuProfileLoader` reads and writes custom action strings without normalizing or discarding them
-- **Editor round-trip** — the Menu Screen Visual Editor and Layout Launcher preserve unknown action keys when saving `.menu` files
+- **Editor round-trip** — Layout Studio edits the source without normalizing or discarding custom action keys
 - **Runtime delegation** — the engine delegates unrecognized actions to the registered `MenuActionHandler` before falling back to noop
 
 This means you can safely add game-specific actions like `show_credits` or `play_video` and they will never be silently removed by the tools.

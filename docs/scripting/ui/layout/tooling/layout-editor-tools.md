@@ -52,6 +52,17 @@ Applying a template requires confirmation because it replaces the current buffer
 style template, Layout Studio retains the current `backgroundAsset` value when it can parse one.
 Templates do not save automatically; inspect the diff and save deliberately.
 
+### Key reference and guides
+
+The Key Reference list is populated from the runtime menu loader's accepted-key catalog. Choose a
+key and use **Copy Key** to place a `key=` declaration on the clipboard. Screen item fields are
+shown as `item.<id>.<field>` so the required scope is explicit. Dialogue keys come from the
+regression-tested standard template plus textbox-action declarations.
+
+**Copy Template** copies a complete starting source without replacing the buffer. **Open Layout
+Guide** opens the guide for the active file type locally when the JVN repository is available, or
+falls back to the stable documentation on GitHub.
+
 ### Diagnostics
 
 Diagnostics appear on the relevant source lines. They cover malformed properties, duplicate and

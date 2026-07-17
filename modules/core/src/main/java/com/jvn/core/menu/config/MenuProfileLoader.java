@@ -101,6 +101,50 @@ public final class MenuProfileLoader {
 
   private MenuProfileLoader() {}
 
+  /** Accepted top-level keys for menu layout sources. */
+  public static Set<String> knownLayoutFields() {
+    return KNOWN_LAYOUT_FIELDS;
+  }
+
+  /** Accepted top-level keys for menu style sources. */
+  public static Set<String> knownStyleFields() {
+    return KNOWN_STYLE_FIELDS;
+  }
+
+  /** Accepted top-level keys for menu screen sources. */
+  public static Set<String> knownScreenFields() {
+    return KNOWN_SCREEN_FIELDS;
+  }
+
+  /** Accepted fields below an {@code item.<id>.} menu-screen prefix. */
+  public static Set<String> knownItemFields() {
+    return KNOWN_ITEM_FIELDS;
+  }
+
+  /** Validate one layout source with the same parser and fallbacks used by runtime loading. */
+  public static List<String> validateLayout(Properties properties, String sourceName) {
+    List<String> diagnostics = new ArrayList<>();
+    parseLayout("editor", properties == null ? new Properties() : properties,
+        MenuProfile.defaultLayout(), diagnostics, normalize(sourceName, "layout source"));
+    return List.copyOf(diagnostics);
+  }
+
+  /** Validate one style source with the same parser and fallbacks used by runtime loading. */
+  public static List<String> validateStyle(Properties properties, String sourceName) {
+    List<String> diagnostics = new ArrayList<>();
+    parseStyle("editor", properties == null ? new Properties() : properties,
+        MenuProfile.defaultStyle(), diagnostics, normalize(sourceName, "style source"));
+    return List.copyOf(diagnostics);
+  }
+
+  /** Validate one menu screen source with the same parser and fallbacks used by runtime loading. */
+  public static List<String> validateScreen(Properties properties, String sourceName) {
+    List<String> diagnostics = new ArrayList<>();
+    parseScreen("editor", properties == null ? new Properties() : properties,
+        MenuProfile.defaultMainScreen(), diagnostics, normalize(sourceName, "menu source"));
+    return List.copyOf(diagnostics);
+  }
+
   public static MenuProfile loadFromAssets() {
     return load(new AssetCatalog());
   }
@@ -300,6 +344,9 @@ public final class MenuProfileLoader {
 
   private static MenuLayoutSpec parseLayout(String id, Properties p, MenuLayoutSpec base, List<String> diagnostics, String sourcePath) {
     warnUnknownLayoutKeys(p, diagnostics, sourcePath);
+    if (p.containsKey("listWidth") && !p.containsKey("listWidthFactor")) {
+      diagnostics.add("Deprecated key 'listWidth' in " + sourcePath + "; use 'listWidthFactor' instead");
+    }
     double listYStart = parseDouble(p.getProperty("listYStart"), base.listYStart(), diagnostics, sourcePath, "listYStart");
     if (listYStart < 0.0) {
       diagnostics.add("Invalid value for 'listYStart' in " + sourcePath + ": must be >= 0 (using " + base.listYStart() + ")");
@@ -450,6 +497,9 @@ public final class MenuProfileLoader {
 
   private static MenuScreenSpec parseScreen(String id, Properties p, MenuScreenSpec base, List<String> diagnostics, String sourcePath) {
     warnUnknownScreenKeys(p, diagnostics, sourcePath);
+    if (p.containsKey("layoutId") && !p.containsKey("layout")) {
+      diagnostics.add("Deprecated key 'layoutId' in " + sourcePath + "; use 'layout' instead");
+    }
     String titleText = configuredText(p, "titleText", base == null ? null : base.titleText());
     String subtitleText = configuredText(p, "subtitleText", base == null ? null : base.subtitleText());
     String hintsText = configuredText(p, "hintsText", base == null ? null : base.hintsText());

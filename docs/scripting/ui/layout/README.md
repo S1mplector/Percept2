@@ -123,9 +123,14 @@ settings: the resulting text is ordinary project source and can be reviewed or r
 
 ## Continue reading
 
+- [Authoring model](workflow/authoring-model.md)
 - [Text-first workflow](workflow/text-first-layout-workflow.md)
+- [Complete menu tutorial](workflow/complete-menu-tutorial.md)
+- [Migrating from the former visual editors](workflow/migrating-from-visual-editors.md)
 - [Layout Studio and editor tools](tooling/layout-editor-tools.md)
 - [Complete DSL cookbook](reference/layout-dsl-cookbook.md)
+- [Common recipes](reference/common-recipes.md)
+- [Production review checklist](reference/production-review-checklist.md)
 - [Validation and diagnostics](tooling/validation-diagnostics.md)
 - [Menu inheritance](structure/menu-inheritance.md)
 - [Assets and backgrounds](styling/assets-backgrounds.md)

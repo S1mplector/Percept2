@@ -13,6 +13,9 @@ supports that loop with source templates, line diagnostics, asset helpers, and S
 This guide teaches you the complete text-first loop from scratch: where each file lives, what
 keys are available, how to validate changes in runtime, and how to debug problems fast.
 
+For a worked multi-screen project, continue with the
+[complete menu tutorial](complete-menu-tutorial.md).
+
 ---
 
 ## Fast Start
@@ -703,8 +706,10 @@ A: Yes. Use `extends=parent_menu_id` in a `.menu` file. The child inherits all i
 settings from the parent and can override individual items.
 
 **Q: What's the difference between `listWidthFactor` and `listWidth`?**
-A: They're the same key. `listWidth` is an older alias for `listWidthFactor`. Use
-`listWidthFactor` in new files.
+A: `listWidth` is a deprecated compatibility alias for `listWidthFactor`. It still loads, but the
+runtime and Layout Studio emit a warning so projects can migrate before a future specification
+version removes it. Use `listWidthFactor` in new files. The same policy applies to the deprecated
+screen key `layoutId`; replace it with `layout`.
 
 **Q: How do I make a decorative (non-interactive) menu item?**
 A: Set its action to `noop` and `enabled=false`:

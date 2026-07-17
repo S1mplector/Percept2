@@ -2,6 +2,7 @@ package com.jvn.editor.ui;
 
 import java.io.File;
 import java.io.StringReader;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
@@ -21,6 +22,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.jvn.core.menu.config.MenuProfile;
+import com.jvn.core.menu.config.MenuProfileLoader;
 import com.jvn.core.vn.ui.VnUiLayoutLoader;
 import com.jvn.core.vn.ui.VnUiLayoutSpec;
 import com.jvn.core.vn.ui.VnUiStyleSpec;
@@ -215,6 +217,10 @@ public class LayoutStudioWindowManager {
     private final TextField assetItemIdField = new TextField();
     private final ComboBox<String> templateBox = new ComboBox<>();
     private final Button applyTemplateButton = new Button("Replace with Template");
+    private final Button copyTemplateButton = new Button("Copy Template");
+    private final Button openGuideButton = new Button("Open Layout Guide");
+    private final ComboBox<String> keyReferenceBox = new ComboBox<>();
+    private final Button copyKeyButton = new Button("Copy Key");
 
     private final Button saveButton = new Button();
     private final Button runButton = new Button();
@@ -378,6 +384,19 @@ public class LayoutStudioWindowManager {
       applyTemplateButton.setMaxWidth(Double.MAX_VALUE);
       applyTemplateButton.getStyleClass().add("layout-studio-utility-button");
       applyTemplateButton.setTooltip(new Tooltip("Replace the current source after confirmation"));
+      copyTemplateButton.setMaxWidth(Double.MAX_VALUE);
+      copyTemplateButton.getStyleClass().add("layout-studio-utility-button");
+      copyTemplateButton.setTooltip(new Tooltip("Copy the selected commented template without changing the file"));
+
+      Label referenceTitle = new Label("Key Reference");
+      referenceTitle.getStyleClass().add("layout-studio-section-title");
+      configureKeyReference();
+      keyReferenceBox.setMaxWidth(Double.MAX_VALUE);
+      keyReferenceBox.setTooltip(new Tooltip("Accepted keys come from the runtime loader contract"));
+      copyKeyButton.setMaxWidth(Double.MAX_VALUE);
+      copyKeyButton.getStyleClass().add("layout-studio-utility-button");
+      openGuideButton.setMaxWidth(Double.MAX_VALUE);
+      openGuideButton.getStyleClass().add("layout-studio-utility-button");
 
       Label utilTitle = new Label("Asset Utilities");
       utilTitle.getStyleClass().add("layout-studio-section-title");
@@ -429,6 +448,12 @@ public class LayoutStudioWindowManager {
           templateTitle,
           templateBox,
           applyTemplateButton,
+          copyTemplateButton,
+          new Separator(),
+          referenceTitle,
+          keyReferenceBox,
+          copyKeyButton,
+          openGuideButton,
           new Separator(),
           utilTitle,
           form,
@@ -442,6 +467,37 @@ public class LayoutStudioWindowManager {
       panel.setMinWidth(280);
       updateAssetUtilityState();
       return panel;
+    }
+
+    private void configureKeyReference() {
+      List<String> keys = new ArrayList<>();
+      switch (kind) {
+        case MENU_LAYOUT -> keys.addAll(LAYOUT_KEYS);
+        case MENU_STYLE -> keys.addAll(STYLE_KEYS);
+        case MENU_SCREEN -> {
+          keys.addAll(SCREEN_TOP_KEYS);
+          SCREEN_ITEM_KEYS.stream().map(field -> "item.<id>." + field).forEach(keys::add);
+        }
+        case DIALOGUE_LAYOUT -> keys.addAll(dialogueReferenceKeys());
+      }
+      keys.sort(String.CASE_INSENSITIVE_ORDER);
+      keyReferenceBox.getItems().setAll(keys);
+      if (!keys.isEmpty()) keyReferenceBox.getSelectionModel().selectFirst();
+    }
+
+    private static List<String> dialogueReferenceKeys() {
+      List<String> keys = new ArrayList<>();
+      try {
+        Properties properties = new Properties();
+        properties.load(new StringReader(LayoutDslTemplates.defaultDialogueLayoutTemplate()));
+        keys.addAll(properties.stringPropertyNames());
+      } catch (Exception ignored) {
+        // The regression-tested built-in template is expected to parse.
+      }
+      keys.add("textBoxButton.<id>.label");
+      keys.add("textBoxButton.<id>.action");
+      keys.add("textBoxButton.<id>.target");
+      return keys;
     }
 
     private void configureTemplates() {
@@ -474,47 +530,51 @@ public class LayoutStudioWindowManager {
       });
     }
 
-    private static final Set<String> LAYOUT_KEYS = Set.of(
-        "listYStart", "lineHeight", "listWidthFactor", "textAlign", "hintsBottomMargin", "titleY", "subtitleGap",
-        "listXCenter", "titleX", "maxVisibleItems", "titleAlign", "hintsAlign", "hintsX");
-    private static final Set<String> STYLE_KEYS = Set.of(
-        "itemColor", "itemSelectedColor", "itemHoverColor", "itemDisabledColor",
-        "itemPrefix", "itemSelectedPrefix", "itemDisabledPrefix",
-        "itemFontFamily", "itemFontWeight", "itemFontSize",
-        "itemShadowColor", "itemShadowOffsetX", "itemShadowOffsetY", "itemOpacity",
-        "buttonAsset", "buttonSelectedAsset", "buttonHoverAsset", "buttonDisabledAsset",
-        "buttonTextPaddingX", "buttonTextPaddingY",
-        "titleColor", "titleFontFamily", "titleFontWeight", "titleFontSize", "titleShadowColor",
-        "hintsColor", "hintsFontFamily", "hintsFontWeight", "hintsFontSize",
-        "backgroundAsset", "backgroundColor", "backgroundOpacity");
-    private static final Set<String> SCREEN_TOP_KEYS = Set.of(
-        "titleText", "subtitleText", "hintsText", "layout", "layoutId", "defaultItemStyle", "wrapSelection", "items", "backgroundAsset");
-    private static final Set<String> SCREEN_ITEM_KEYS = Set.of(
-        "label", "style", "icon", "enabled", "action", "target",
-        "bgAsset", "bgSelectedAsset", "bgDisabledAsset",
-        "boundsX", "boundsY", "boundsWidth", "boundsHeight",
-        "slotPreviewEnabled", "slotPreviewPlaceholderAsset", "slotPreviewFrameAsset",
-        "slotPreviewX", "slotPreviewY", "slotPreviewWidth", "slotPreviewHeight",
-        "sliderX", "sliderY", "sliderWidth",
-        "sliderTrackAsset", "sliderBaseAsset", "sliderTrackHeight", "sliderShowFill",
-        "sliderFillAsset", "sliderFillActiveAsset", "sliderFillInactiveAsset",
-        "sliderKnobAsset", "sliderKnobActiveAsset", "sliderKnobInactiveAsset",
-        "sliderKnobWidth", "sliderKnobHeight", "sliderKnobOffsetX", "sliderKnobOffsetY",
-        "sliderResetAsset", "sliderResetActiveAsset", "sliderResetInactiveAsset",
-        "sliderResetX", "sliderResetY", "sliderResetWidth", "sliderResetHeight",
-        "toggleCheckedAsset", "toggleUncheckedAsset",
-        "toggleX", "toggleY", "toggleWidth", "toggleHeight");
+    private static final Set<String> LAYOUT_KEYS = MenuProfileLoader.knownLayoutFields();
+    private static final Set<String> STYLE_KEYS = MenuProfileLoader.knownStyleFields();
+    private static final Set<String> SCREEN_TOP_KEYS = MenuProfileLoader.knownScreenFields();
+    private static final Set<String> SCREEN_ITEM_KEYS = MenuProfileLoader.knownItemFields();
 
     private void refreshCodeDiagnostics(String text) {
       List<String> rawIssues;
       switch (kind) {
-        case MENU_SCREEN -> rawIssues = DslPropertyDiagnostics.menuScreenIssues(text, SCREEN_TOP_KEYS, SCREEN_ITEM_KEYS);
-        case MENU_LAYOUT -> rawIssues = DslPropertyDiagnostics.menuLayoutIssues(text, LAYOUT_KEYS);
-        case MENU_STYLE -> rawIssues = DslPropertyDiagnostics.menuStyleIssues(text, STYLE_KEYS);
+        case MENU_SCREEN -> rawIssues = mergeRuntimeIssues(
+            text,
+            DslPropertyDiagnostics.menuScreenIssues(text, SCREEN_TOP_KEYS, SCREEN_ITEM_KEYS),
+            menuRuntimeDiagnostics(text, kind));
+        case MENU_LAYOUT -> rawIssues = mergeRuntimeIssues(
+            text,
+            DslPropertyDiagnostics.menuLayoutIssues(text, LAYOUT_KEYS),
+            menuRuntimeDiagnostics(text, kind));
+        case MENU_STYLE -> rawIssues = mergeRuntimeIssues(
+            text,
+            DslPropertyDiagnostics.menuStyleIssues(text, STYLE_KEYS),
+            menuRuntimeDiagnostics(text, kind));
         case DIALOGUE_LAYOUT -> rawIssues = DslPropertyDiagnostics.dialogueIssues(text, dialogueRuntimeDiagnostics(text));
         default -> rawIssues = List.of();
       };
       codeEditor.setDiagnostics(parseDiagnosticStrings(rawIssues));
+    }
+
+    private static List<String> mergeRuntimeIssues(String text, List<String> editorIssues, List<String> runtimeIssues) {
+      java.util.LinkedHashSet<String> merged = new java.util.LinkedHashSet<>(editorIssues);
+      merged.addAll(DslPropertyDiagnostics.runtimeBackedIssues(text, runtimeIssues));
+      return List.copyOf(merged);
+    }
+
+    private static List<String> menuRuntimeDiagnostics(String text, Kind kind) {
+      try {
+        Properties properties = new Properties();
+        properties.load(new StringReader(text == null ? "" : text));
+        return switch (kind) {
+          case MENU_LAYOUT -> MenuProfileLoader.validateLayout(properties, "open layout");
+          case MENU_STYLE -> MenuProfileLoader.validateStyle(properties, "open style");
+          case MENU_SCREEN -> MenuProfileLoader.validateScreen(properties, "open menu");
+          default -> List.of();
+        };
+      } catch (Exception ex) {
+        return List.of("Invalid properties syntax: " + ex.getMessage());
+      }
     }
 
     private static List<String> dialogueRuntimeDiagnostics(String text) {
@@ -571,6 +631,50 @@ public class LayoutStudioWindowManager {
       copyPathButton.setOnAction(e -> copyAssetPath());
       applyPathButton.setOnAction(e -> applyAssetPathToCode());
       applyTemplateButton.setOnAction(e -> applySelectedTemplate());
+      copyTemplateButton.setOnAction(e -> copySelectedTemplate());
+      copyKeyButton.setOnAction(e -> copyReferenceKey());
+      openGuideButton.setOnAction(e -> openLayoutGuide());
+    }
+
+    private void copySelectedTemplate() {
+      String selected = templateBox.getValue();
+      if (selected == null || selected.isBlank()) return;
+      copyToClipboard(selectedTemplate(selected));
+      setStatus("Copied source template: " + selected + ".");
+    }
+
+    private void copyReferenceKey() {
+      String key = keyReferenceBox.getValue();
+      if (key == null || key.isBlank()) return;
+      copyToClipboard(key + "=");
+      setStatus("Copied declaration: " + key + "=");
+    }
+
+    private static void copyToClipboard(String value) {
+      ClipboardContent content = new ClipboardContent();
+      content.putString(value == null ? "" : value);
+      Clipboard.getSystemClipboard().setContent(content);
+    }
+
+    private void openLayoutGuide() {
+      String relative = switch (kind) {
+        case DIALOGUE_LAYOUT -> "docs/scripting/ui/layout/components/dialogue-layout.md";
+        case MENU_LAYOUT -> "docs/scripting/ui/layout/structure/menu-layouts.md";
+        case MENU_STYLE -> "docs/scripting/ui/layout/styling/colors-theming.md";
+        case MENU_SCREEN -> "docs/scripting/ui/layout/structure/menu-actions.md";
+      };
+      File local = new File(System.getProperty("user.dir", "."), relative);
+      try {
+        if (local.isFile()) {
+          java.awt.Desktop.getDesktop().open(local);
+        } else {
+          java.awt.Desktop.getDesktop().browse(new URI(
+              "https://github.com/S1mplector/Java-Vector-Nexus/blob/stable/" + relative));
+        }
+        setStatus("Opened authoring guide.");
+      } catch (Exception ex) {
+        setStatus("Could not open guide: " + normalize(ex.getMessage(), "desktop integration unavailable"));
+      }
     }
 
     private void applySelectedTemplate() {

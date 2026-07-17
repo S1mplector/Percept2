@@ -307,9 +307,9 @@ assets/ui/
 | `.jes` | JES script | JES code editor + viewport |
 | `.storymap` | Story map | Story Map graph editor |
 | `.timeline` | Legacy story map | Story Map graph editor |
-| `.layout` | Menu layout | Menu Layout Visual Editor |
-| `.style` | Menu style | Menu Style Visual Editor |
-| `.menu` | Menu screen | Menu Screen Visual Editor |
+| `.layout` | Menu/dialogue layout | Layout Studio source editor |
+| `.style` | Menu style | Layout Studio source editor |
+| `.menu` | Menu screen | Layout Studio source editor |
 | `.registry` | Menu registry | Text editor (or inline editor) |
 | `.theme` | Menu theme | Text editor |
 | `.properties` | Config | Text editor |

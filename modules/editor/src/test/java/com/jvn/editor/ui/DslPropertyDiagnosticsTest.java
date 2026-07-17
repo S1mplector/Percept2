@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 
+import com.jvn.core.menu.config.MenuProfileLoader;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -36,6 +38,34 @@ class DslPropertyDiagnosticsTest {
     List<String> issues = DslPropertyDiagnostics.menuLayoutIssues(text, LAYOUT_KEYS);
     assertFalse(issues.isEmpty(), "Unknown key should produce a diagnostic");
     assertTrue(issues.stream().anyMatch(s -> s.contains("bogusKey")));
+  }
+
+  @Test
+  void editorKeyCatalogMatchesRuntimeCompatibilityAliases() {
+    String text = "extends=default\nlistWidth=0.5\n";
+    List<String> issues = DslPropertyDiagnostics.menuLayoutIssues(
+        text,
+        MenuProfileLoader.knownLayoutFields());
+    assertTrue(issues.stream().noneMatch(s -> s.contains("Unknown")),
+        () -> "Runtime-compatible keys must not be rejected as unknown: " + issues);
+  }
+
+  @Test
+  void editorAcceptsEveryRuntimeMenuItemField() {
+    for (String field : MenuProfileLoader.knownItemFields()) {
+      String value = switch (field) {
+        case "enabled", "slotPreviewEnabled", "sliderShowFill" -> "true";
+        case "action" -> "noop";
+        default -> "1";
+      };
+      String text = "items=fixture\nitem.fixture." + field + "=" + value + "\n";
+      List<String> issues = DslPropertyDiagnostics.menuScreenIssues(
+          text,
+          MenuProfileLoader.knownScreenFields(),
+          MenuProfileLoader.knownItemFields());
+      assertTrue(issues.stream().noneMatch(s -> s.contains("Unknown")),
+          () -> "Runtime field was rejected by editor: " + field + " -> " + issues);
+    }
   }
 
   @Test
