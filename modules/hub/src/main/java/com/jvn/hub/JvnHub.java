@@ -5815,7 +5815,7 @@ public final class JvnHub {
     private final javax.swing.Timer refreshTimer = new javax.swing.Timer(1000, event -> refreshMetrics());
 
     HubPerformancePanel() {
-      super(new BorderLayout(0, ui(8)));
+      super(new BorderLayout(0, ui(3)));
       setBackground(PANEL_BG);
       setBorder(BorderFactory.createCompoundBorder(
           BorderFactory.createLineBorder(BORDER_NEUTRAL),
@@ -5838,9 +5838,13 @@ public final class JvnHub {
       metrics.add(metric("JVM heap", heapValue));
       metrics.add(metric("Threads", threadsValue));
       metrics.add(metric("Hub task", activityValue));
-      metrics.setMinimumSize(new Dimension(0, ui(26)));
-      metrics.setPreferredSize(new Dimension(0, ui(26)));
-      add(metrics, BorderLayout.SOUTH);
+      metrics.setMinimumSize(new Dimension(0, ui(24)));
+      metrics.setPreferredSize(new Dimension(0, ui(24)));
+      JPanel metricsSafeArea = new JPanel(new BorderLayout());
+      metricsSafeArea.setOpaque(false);
+      metricsSafeArea.setBorder(BorderFactory.createEmptyBorder(0, 0, ui(3), 0));
+      metricsSafeArea.add(metrics, BorderLayout.CENTER);
+      add(metricsSafeArea, BorderLayout.SOUTH);
       setPreferredSize(new Dimension(0, ui(128)));
       refreshMetrics();
     }
@@ -5890,7 +5894,7 @@ public final class JvnHub {
     private static JPanel metric(String name, JLabel value) {
       JPanel chip = new JPanel(new BorderLayout(ui(6), 0));
       chip.setBackground(PANEL_BG_TOP);
-      chip.setBorder(uiPadding(3, 7, 3, 7));
+      chip.setBorder(uiPadding(2, 7, 2, 7));
       JLabel label = new JLabel(name);
       label.setForeground(TEXT_MUTED);
       label.setFont(label.getFont().deriveFont(Font.BOLD, uiFont(8f)));
