@@ -108,11 +108,11 @@ public class WelcomeCenterView extends BorderPane {
   private final Label spotlightPathLabel = new Label("Pick a recent project or open one from disk.");
   private final Label spotlightSummaryLabel = new Label("The launcher will surface the project manifest, entry script, timeline, README, and docs folder here.");
   private final Label spotlightStateBadge = new Label("No project");
-  private final SpotlightLinkRow entryLinkRow = new SpotlightLinkRow(CssIcon.speech("#8bcf98"), "Entry Script", "Open");
-  private final SpotlightLinkRow timelineLinkRow = new SpotlightLinkRow(CssIcon.play("#dd9a48"), "Timeline", "Open");
-  private final SpotlightLinkRow manifestLinkRow = new SpotlightLinkRow(CssIcon.document("#c6d1dc"), "Manifest", "Open");
-  private final SpotlightLinkRow readmeLinkRow = new SpotlightLinkRow(CssIcon.document("#d6cab8"), "README", "Open");
-  private final SpotlightLinkRow docsLinkRow = new SpotlightLinkRow(CssIcon.folder("#d5b36a"), "Docs Folder", "Reveal");
+  private final SpotlightLinkRow entryLinkRow = new SpotlightLinkRow(AeroIcon.of(AeroIcon.Kind.ENTRY_SCRIPT, 20), "Entry Script", "Open");
+  private final SpotlightLinkRow timelineLinkRow = new SpotlightLinkRow(AeroIcon.of(AeroIcon.Kind.RUN, 20), "Timeline", "Open");
+  private final SpotlightLinkRow manifestLinkRow = new SpotlightLinkRow(AeroIcon.of(AeroIcon.Kind.MANIFEST, 20), "Manifest", "Open");
+  private final SpotlightLinkRow readmeLinkRow = new SpotlightLinkRow(AeroIcon.of(AeroIcon.Kind.README, 20), "README", "Open");
+  private final SpotlightLinkRow docsLinkRow = new SpotlightLinkRow(AeroIcon.of(AeroIcon.Kind.DOCUMENTATION, 20), "Docs Folder", "Reveal");
 
   private final ObservableList<ProjectEntry> recentProjects = FXCollections.observableArrayList();
   private final ListView<ProjectEntry> recentList = new ListView<>(recentProjects);
@@ -301,12 +301,12 @@ public class WelcomeCenterView extends BorderPane {
     healthDetailsPopup.setAutoHide(true);
     healthDetailsPopup.setHideOnEscape(true);
     healthDetailsPopup.setOnHidden(e -> btnHealthDetails.setText("Details"));
-    configureActionButton(btnNewProject, CssIcon.plus("#8bcf98"), "New Project", "Create a new project", "welcome-action-button-primary");
-    configureActionButton(btnOpenProject, CssIcon.folder("#d5b36a"), "Open Project", "Choose an existing project", "welcome-action-button-secondary");
-    configureActionButton(btnRunProject, CssIcon.play("#dd9a48"), "Run Project", "Run the selected project with the runtime", "welcome-action-button-secondary");
-    configureActionButton(btnBuildProject, CssIcon.download("#8bcf98"), "Build", "Package the selected project for distribution", "welcome-action-button-secondary");
-    configureActionButton(btnRefresh, CssIcon.redo("#d6cab8"), "Refresh Checks", "Refresh Welcome Center data and health checks", "welcome-action-button-secondary");
-    configureIconButton(btnSettings, CssIcon.settings("#d6cab8"), "Settings", "Configure launcher and editor defaults");
+    configureActionButton(btnNewProject, AeroIcon.of(AeroIcon.Kind.NEW_PROJECT, 22), "New Project", "Create a new project", "welcome-action-button-primary");
+    configureActionButton(btnOpenProject, AeroIcon.of(AeroIcon.Kind.OPEN_PROJECT, 22), "Open Project", "Choose an existing project", "welcome-action-button-secondary");
+    configureActionButton(btnRunProject, AeroIcon.of(AeroIcon.Kind.RUN, 22), "Run Project", "Run the selected project with the runtime", "welcome-action-button-secondary");
+    configureActionButton(btnBuildProject, AeroIcon.of(AeroIcon.Kind.BUILD, 22), "Build", "Package the selected project for distribution", "welcome-action-button-secondary");
+    configureActionButton(btnRefresh, AeroIcon.of(AeroIcon.Kind.REFRESH, 22), "Refresh Checks", "Refresh Welcome Center data and health checks", "welcome-action-button-secondary");
+    configureIconButton(btnSettings, AeroIcon.of(AeroIcon.Kind.SETTINGS, 22), "Settings", "Configure launcher and editor defaults");
     updateProjectActionButtons();
 
     HBox primaryActions = new HBox(8, btnNewProject, btnOpenProject, btnRunProject, btnBuildProject);
@@ -490,13 +490,13 @@ public class WelcomeCenterView extends BorderPane {
     if (launcherProject != null) {
       setActionButtonContent(
           btnOpenProject,
-          CssIcon.popOut("#d5b36a"),
+          AeroIcon.of(AeroIcon.Kind.OPEN_PROJECT, 22),
           "Open in Editor",
           "Open the selected project in the editor");
     } else {
       setActionButtonContent(
           btnOpenProject,
-          CssIcon.folder("#d5b36a"),
+          AeroIcon.of(AeroIcon.Kind.OPEN_PROJECT, 22),
           "Open Project",
           "Choose an existing project");
     }
@@ -783,7 +783,7 @@ public class WelcomeCenterView extends BorderPane {
 
     configureIconButton(
         btnSpotlightRevealProject,
-        CssIcon.folder("#d5b36a"),
+        AeroIcon.of(AeroIcon.Kind.REVEAL, 22),
         "Reveal Folder",
         "Reveal this project in JVN Path Explorer");
     btnSpotlightRevealProject.setOnAction(e -> revealLauncherProject(resolveLauncherProjectDir()));
@@ -836,6 +836,7 @@ public class WelcomeCenterView extends BorderPane {
                                             String tooltipText,
                                             String styleClass) {
     if (button == null) return;
+    if (icon instanceof AeroIcon) button.getStyleClass().add("aero-icon-button");
     button.setMinHeight(34);
     button.setPrefHeight(34);
     button.setMaxHeight(34);
@@ -853,13 +854,14 @@ public class WelcomeCenterView extends BorderPane {
                                           String accessibleText,
                                           String tooltipText) {
     if (button == null) return;
+    if (icon instanceof AeroIcon) button.getStyleClass().add("aero-icon-button");
     button.setText("");
     button.setGraphic(icon);
     button.setMinSize(34, 34);
     button.setPrefSize(34, 34);
     button.setMaxSize(34, 34);
     button.setFocusTraversable(false);
-    button.getStyleClass().add("welcome-settings-button");
+    button.getStyleClass().add("welcome-aero-utility-button");
     button.setAccessibleText(accessibleText == null ? tooltipText : accessibleText);
     button.setTooltip(tooltipText == null || tooltipText.isBlank() ? null : new Tooltip(tooltipText));
   }
@@ -869,6 +871,9 @@ public class WelcomeCenterView extends BorderPane {
                                              String text,
                                              String tooltipText) {
     if (button == null) return;
+    if (icon instanceof AeroIcon && !button.getStyleClass().contains("aero-icon-button")) {
+      button.getStyleClass().add("aero-icon-button");
+    }
     button.setText(text);
     button.setGraphic(icon);
     if (tooltipText != null && !tooltipText.isBlank()) {
@@ -1628,7 +1633,7 @@ public class WelcomeCenterView extends BorderPane {
       HBox.setHgrow(spacer, Priority.ALWAYS);
       content.getStyleClass().add("welcome-project-cell");
       titleRow.setAlignment(Pos.CENTER_LEFT);
-      openButton.setGraphic(CssIcon.popOut("#d5b36a"));
+      openButton.setGraphic(AeroIcon.of(AeroIcon.Kind.OPEN_PROJECT, 20));
       openButton.setText("");
       openButton.getStyleClass().add("welcome-open-button");
       openButton.setFocusTraversable(false);

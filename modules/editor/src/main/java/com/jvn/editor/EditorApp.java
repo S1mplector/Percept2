@@ -41,6 +41,7 @@ import org.jspecify.annotations.Nullable;
 import com.jvn.core.project.StoryMapPaths;
 import com.jvn.core.scene2d.Entity2D;
 import com.jvn.editor.commands.CommandStack;
+import com.jvn.editor.ui.AeroIcon;
 import com.jvn.editor.ui.AssetBrowserView;
 import com.jvn.editor.ui.CssIcon;
 import com.jvn.editor.ui.DeveloperLogPanel;
@@ -3594,32 +3595,32 @@ public class EditorApp extends Application {
 
   private Node sidebarPanelIcon(EditorSidebarPanel panel, String... extraStyleClasses) {
     if (panel == null) return null;
-    Region icon = getSidebarCssIcon(panel);
+    Region icon = getSidebarAeroIcon(panel, sidebarPanelAssetIconSize(extraStyleClasses));
     if (extraStyleClasses != null && extraStyleClasses.length > 0) {
       icon.getStyleClass().addAll(extraStyleClasses);
     }
     return icon;
   }
 
-  private Region getSidebarCssIcon(EditorSidebarPanel panel) {
-    switch (panel) {
-      case PROJECT: return com.jvn.editor.ui.CssIcon.folder("#f5c56f");
-      case TRASHMAN: return com.jvn.editor.ui.CssIcon.delete("#d6cab8");
-      case TIMELINE: return com.jvn.editor.ui.CssIcon.timeline("#cfd7e6");
-      case INSPECTOR: return com.jvn.editor.ui.CssIcon.search("#e2d3c3");
-      case VNS_DIAGNOSTICS: return com.jvn.editor.ui.CssIcon.warning("#f0b673");
-      case LABEL_FLOW: return com.jvn.editor.ui.CssIcon.link("#91d7a5");
-      case ASSETS: return com.jvn.editor.ui.CssIcon.folder("#d8cbb3");
-      case LAYOUT_LAUNCHER: return com.jvn.editor.ui.CssIcon.rectSelect("#dbcab8");
-      case STORYBOARD_OVERLAY: return com.jvn.editor.ui.CssIcon.movie("#e7bc72");
-      case LAYERED_IMAGES: return com.jvn.editor.ui.CssIcon.copy("#f5b971");
-      case IMAGE_ATTRIBUTES: return com.jvn.editor.ui.CssIcon.edit("#c0d7ef");
-      case IMAGE_TINT: return com.jvn.editor.ui.CssIcon.lightbulb("#f6a2c8");
-      case VERSION_CONTROL: return com.jvn.editor.ui.CssIcon.timeline("#86e4be");
-      case PUPPETEER_LAUNCHER: return com.jvn.editor.ui.CssIcon.theater("#f0a0d0");
-      case SCRIPT_EDITOR: return com.jvn.editor.ui.CssIcon.edit("#9cc7ff");
-      default: return com.jvn.editor.ui.CssIcon.folder("#ffffff");
-    }
+  private Region getSidebarAeroIcon(EditorSidebarPanel panel, double size) {
+    AeroIcon.Kind kind = switch (panel) {
+      case PROJECT -> AeroIcon.Kind.PROJECT;
+      case TRASHMAN -> AeroIcon.Kind.TRASHMAN;
+      case TIMELINE -> AeroIcon.Kind.STORY_MAP;
+      case INSPECTOR -> AeroIcon.Kind.INSPECTOR;
+      case VNS_DIAGNOSTICS -> AeroIcon.Kind.DIAGNOSTICS;
+      case LABEL_FLOW -> AeroIcon.Kind.LABEL_FLOW;
+      case ASSETS -> AeroIcon.Kind.ASSETS;
+      case LAYOUT_LAUNCHER -> AeroIcon.Kind.LAYOUT;
+      case STORYBOARD_OVERLAY -> AeroIcon.Kind.STORYBOARD;
+      case LAYERED_IMAGES -> AeroIcon.Kind.LAYERS;
+      case IMAGE_ATTRIBUTES -> AeroIcon.Kind.IMAGE_ATTRIBUTES;
+      case IMAGE_TINT -> AeroIcon.Kind.LIGHTING;
+      case VERSION_CONTROL -> AeroIcon.Kind.VERSION_CONTROL;
+      case PUPPETEER_LAUNCHER -> AeroIcon.Kind.PUPPETEER;
+      case SCRIPT_EDITOR -> AeroIcon.Kind.SCRIPT_EDITOR;
+    };
+    return AeroIcon.of(kind, size);
   }
 
   private ImageView sidebarPanelAssetIcon(EditorSidebarPanel panel, String... styleClasses) {
@@ -3650,7 +3651,7 @@ public class EditorApp extends Application {
   }
 
   private Node editorSettingsSidebarIcon(String... extraStyleClasses) {
-    Region icon = com.jvn.editor.ui.CssIcon.settings("#c4b5fd");
+    Region icon = AeroIcon.of(AeroIcon.Kind.SETTINGS, sidebarPanelAssetIconSize(extraStyleClasses));
     if (extraStyleClasses != null && extraStyleClasses.length > 0) {
       icon.getStyleClass().addAll(extraStyleClasses);
     }

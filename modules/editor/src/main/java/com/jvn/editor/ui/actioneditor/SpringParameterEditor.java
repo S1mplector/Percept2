@@ -4,6 +4,7 @@ import java.util.function.Consumer;
 
 import com.jvn.core.animation.Easing;
 import com.jvn.core.animation.EasingSpec;
+import com.jvn.editor.ui.CssIcon;
 
 import javafx.animation.AnimationTimer;
 import javafx.geometry.Pos;
@@ -164,7 +165,7 @@ final class SpringParameterEditor extends VBox {
             resizePreviewCanvas(newWidth.doubleValue());
         });
 
-        btnPlayStop = new Button("▶ Preview");
+        btnPlayStop = new Button("Preview", CssIcon.play("#d6dbe5"));
         btnPlayStop.setStyle(BUTTON_STYLE);
         btnPlayStop.setTooltip(new Tooltip("Play/stop the animated spring response preview"));
         btnPlayStop.setOnAction(e -> toggleAnimation());
@@ -252,7 +253,8 @@ final class SpringParameterEditor extends VBox {
         animating = false;
         if (animTimer != null) animTimer.stop();
         animProgress = 0.0;
-        btnPlayStop.setText("▶ Preview");
+        btnPlayStop.setText("Preview");
+        btnPlayStop.setGraphic(CssIcon.play("#d6dbe5"));
         btnPlayStop.setStyle(BUTTON_STYLE);
         drawPreview();
     }
@@ -266,7 +268,8 @@ final class SpringParameterEditor extends VBox {
             animating = true;
             animProgress = 0.0;
             animStartNanos = System.nanoTime();
-            btnPlayStop.setText("■ Stop");
+            btnPlayStop.setText("Stop");
+            btnPlayStop.setGraphic(CssIcon.stop("#f39aaa"));
             btnPlayStop.setStyle(TOGGLE_BUTTON_STYLE);
             if (animTimer == null) {
                 animTimer = new AnimationTimer() {

@@ -25,11 +25,11 @@ public class EditorSearchBar extends VBox {
   private final TextField searchField = new TextField();
   private final TextField replaceField = new TextField();
   private final Label statusLabel = new Label("");
-  private final Button prevButton = new Button("◀");
-  private final Button nextButton = new Button("▶");
+  private final Button prevButton = new Button("", CssIcon.arrowLeft("#d6dbe5"));
+  private final Button nextButton = new Button("", CssIcon.arrowRight("#d6dbe5"));
   private final Button replaceButton = new Button("Replace");
   private final Button replaceAllButton = new Button("All");
-  private final Button closeButton = new Button("✕");
+  private final Button closeButton = new Button("", CssIcon.clearX("#d6dbe5"));
   private final HBox findRow = new HBox(8);
   private final HBox replaceRow = new HBox(8);
 

@@ -9,6 +9,7 @@ import java.util.function.BiConsumer;
 
 import com.jvn.core.animation.Easing;
 import com.jvn.core.animation.EasingSpec;
+import com.jvn.editor.ui.CssIcon;
 import com.jvn.editor.ui.EditorTheme;
 
 import javafx.geometry.Insets;
@@ -130,7 +131,7 @@ public class EasingCurveDialog extends Stage {
     private Easing.Type highlightedType = Easing.Type.LINEAR;
     private boolean updatingSpecField = false;
     private double previewDurationMs = 1000.0;
-    private Button previewButton = new Button("▶  Preview");
+    private Button previewButton = new Button("Preview", CssIcon.play("#d6dbe5"));
 
     /**
      * @param owner          owner window (for positioning); may be null
@@ -468,7 +469,8 @@ public class EasingCurveDialog extends Stage {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        previewButton.setText("▶  Preview");
+        previewButton.setText("Preview");
+        previewButton.setGraphic(CssIcon.play("#d6dbe5"));
         previewButton.setStyle(btnStyle("#252525", "#c8c8c8", "#3d3d3d"));
         previewButton.setOnAction(e -> {
             curveEditor.toggleAnimation();
@@ -743,7 +745,10 @@ public class EasingCurveDialog extends Stage {
     private void updatePreviewButton() {
         if (previewButton == null) return;
         boolean playing = curveEditor.isAnimating();
-        previewButton.setText(playing ? "■  Stop" : "▶  Preview");
+        previewButton.setText(playing ? "Stop" : "Preview");
+        previewButton.setGraphic(playing
+            ? CssIcon.stop("#f39aaa")
+            : CssIcon.play("#d6dbe5"));
         previewButton.setStyle(playing
             ? btnStyle("#2e3445", "#f1f1f1", "#56617a")
             : btnStyle("#252525", "#c8c8c8", "#3d3d3d"));

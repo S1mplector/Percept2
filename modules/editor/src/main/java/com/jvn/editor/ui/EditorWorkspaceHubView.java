@@ -200,21 +200,21 @@ public class EditorWorkspaceHubView extends BorderPane {
 
     configureActionButton(
         btnNewProject,
-        CssIcon.plus("#8bcf98"),
+        AeroIcon.of(AeroIcon.Kind.NEW_PROJECT, 22),
         "New Project",
         "Create a new project",
         "welcome-action-button-primary",
         () -> runAction(onCreateProject, "New Project"));
     configureActionButton(
         btnOpenProject,
-        CssIcon.folder("#d5b36a"),
+        AeroIcon.of(AeroIcon.Kind.OPEN_PROJECT, 22),
         "Open Project",
         "Open an existing project folder",
         "welcome-action-button-secondary",
         () -> runAction(onOpenProjectDialog, "Open Project"));
     configureActionButton(
         btnRunProject,
-        CssIcon.play("#8bcf98"),
+        AeroIcon.of(AeroIcon.Kind.RUN, 22),
         "Run Project",
         "Run currently selected project",
         "welcome-action-button-secondary",
@@ -223,14 +223,14 @@ public class EditorWorkspaceHubView extends BorderPane {
 
     configureActionButton(
         btnOpenProjectExplorer,
-        CssIcon.list("#d6cab8"),
+        AeroIcon.of(AeroIcon.Kind.PROJECT, 22),
         "Project Explorer",
         "Open Project Explorer tab",
         "welcome-action-button-secondary",
         () -> runAction(onShowProjectExplorer, "Project Explorer"));
     configureIconButton(
         btnSettings,
-        CssIcon.settings("#d6cab8"),
+        AeroIcon.of(AeroIcon.Kind.SETTINGS, 22),
         "Settings",
         "Configure editor defaults",
         () -> runAction(onShowSettings, "Editor Settings"));
@@ -443,6 +443,7 @@ public class EditorWorkspaceHubView extends BorderPane {
     if (button == null) return;
     button.setText(text == null ? "" : text);
     button.setGraphic(icon);
+    if (icon instanceof AeroIcon) button.getStyleClass().add("aero-icon-button");
     button.setContentDisplay(ContentDisplay.LEFT);
     button.setMinHeight(34);
     button.setPrefHeight(34);
@@ -469,6 +470,7 @@ public class EditorWorkspaceHubView extends BorderPane {
     if (button == null) return;
     button.setText("");
     button.setGraphic(icon);
+    if (icon instanceof AeroIcon) button.getStyleClass().add("aero-icon-button");
     button.setMinSize(34, 34);
     button.setPrefSize(34, 34);
     button.setMaxSize(34, 34);

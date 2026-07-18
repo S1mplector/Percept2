@@ -56,7 +56,8 @@ public final class SidebarToolHelp {
   }
 
   private static Button createHelpButton(String title) {
-    Label glyph = new Label("?");
+    Label glyph = new Label();
+    glyph.setGraphic(CssIcon.help("#d6e6f2"));
     glyph.getStyleClass().add("help-button-glyph");
     glyph.setMouseTransparent(true);
 

@@ -90,11 +90,11 @@ public class VersionControlView extends BorderPane {
   private final Button btnConfigureRemote = new Button("Add Remote");
   private final Popup guidePopup = new Popup();
   private final VBox guidePopupRoot = new VBox(0);
-  private final Label guideArrowLabel = new Label("\u25b2");
+  private final Label guideArrowLabel = new Label("", CssIcon.arrowUp("#8ecaff"));
   private final VBox guideCard = new VBox(4);
   private final Label guideTitleLabel = new Label();
   private final Label guideBodyLabel = new Label();
-  private final Button guideCloseButton = new Button("\u00d7");
+  private final Button guideCloseButton = new Button("", CssIcon.clearX("#cbd5df"));
   private final BorderPane contentPane = new BorderPane();
   private final StackPane contentStack = new StackPane();
   private final StackPane centerViewStack = new StackPane();
@@ -103,7 +103,7 @@ public class VersionControlView extends BorderPane {
   private final ProgressIndicator initializingSpinner = new ProgressIndicator();
   private final Label initializingTitleLabel = new Label("Initializing version control");
   private final Label initializingBodyLabel = new Label("Reading project status and preparing Git controls.");
-  private final Label initTitleLabel = new Label("\u26a0 Repository Not Initialized");
+  private final Label initTitleLabel = new Label("Repository Not Initialized", CssIcon.warning("#f2c86b"));
   private final Label initHintLabel = new Label("Repository is not initialized for this project.");
   private final VBox initBox = new VBox(6);
 
@@ -342,7 +342,7 @@ public class VersionControlView extends BorderPane {
     initBox.getChildren().addAll(initTitleLabel, initHintLabel, initOptionsRow, initActionRow);
 
     // Setup guide banner - shown when repo exists but no remote configured
-    Label setupTitle = new Label("\u2699 Setup Required");
+    Label setupTitle = new Label("Setup Required", CssIcon.settings("#8ecaff"));
     setupTitle.getStyleClass().addAll("vcs-banner-title", "vcs-banner-title-info");
     Label setupDesc = new Label("Your project needs a remote repository to push, pull, and collaborate.");
     setupDesc.getStyleClass().add("vcs-banner-copy");

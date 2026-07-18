@@ -41,8 +41,8 @@ public final class MaintenanceOverlay extends StackPane {
     stripeCanvas.setMouseTransparent(true);
 
     // ── Icon + title row ────────────────────────────────────────────────
-    Label icon = new Label("⚙");
-    icon.setStyle("-fx-font-size: 20px; -fx-text-fill: #ff9933;");
+    Label icon = new Label();
+    icon.setGraphic(CssIcon.settings("#ff9933"));
 
     Label title = new Label("Under Maintenance");
     title.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #ff9933;");

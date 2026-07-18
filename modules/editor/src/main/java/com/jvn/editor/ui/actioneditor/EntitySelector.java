@@ -5,6 +5,7 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
+import com.jvn.editor.ui.CssIcon;
 import com.jvn.editor.ui.SidebarToolHelp;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 
@@ -126,7 +127,7 @@ public class EntitySelector extends VBox {
 
         VBox.setVgrow(treeView, Priority.ALWAYS);
 
-        Button btnNewGroup = new Button("+ Group");
+        Button btnNewGroup = new Button("Group", CssIcon.plus("#8bcf98"));
         btnNewGroup.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #a0a0a0; -fx-background-radius: 3; " +
             "-fx-border-color: #3a3a3a; -fx-border-radius: 3; -fx-padding: 2 8; -fx-font-size: 10px; -fx-cursor: hand;");
         btnNewGroup.setOnAction(e -> showCreateGroupOverlay());

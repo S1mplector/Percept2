@@ -1,5 +1,7 @@
 package com.jvn.editor.ui.actioneditor;
 
+import com.jvn.editor.ui.CssIcon;
+
 import javafx.animation.Interpolator;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
@@ -83,7 +85,7 @@ public class CollapsibleToolbarCluster extends VBox {
         setAlignment(Pos.TOP_LEFT);
         setId("toolbar-cluster-" + this.clusterKey);
 
-        indicatorLabel = new Label(">");
+        indicatorLabel = new Label("", CssIcon.arrowRight("#c7c7c7"));
         indicatorLabel.setStyle("-fx-text-fill: #c7c7c7; -fx-font-size: 10px; -fx-font-weight: bold;");
         indicatorLabel.setMouseTransparent(true);
 

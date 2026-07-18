@@ -17,6 +17,7 @@ import java.util.stream.Collectors;
 
 import com.jvn.core.animation.Easing;
 import com.jvn.core.animation.EasingSpec;
+import com.jvn.editor.ui.CssIcon;
 
 import javafx.animation.AnimationTimer;
 import javafx.geometry.Insets;
@@ -203,12 +204,12 @@ public class TimelinePanel extends VBox {
         this.commandStack = commandStack;
 
         // Initialize zoom controls
-        btnZoomOut = new Button("-");
+        btnZoomOut = new Button("", CssIcon.minus("#e6e6e6"));
         btnZoomOut.setPrefWidth(30);
         btnZoomOut.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #e6e6e6; -fx-border-color: #444; -fx-border-radius: 3;");
         btnZoomOut.setOnAction(e -> zoomStep(0.8));
 
-        btnZoomIn = new Button("+");
+        btnZoomIn = new Button("", CssIcon.plus("#e6e6e6"));
         btnZoomIn.setPrefWidth(30);
         btnZoomIn.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #e6e6e6; -fx-border-color: #444; -fx-border-radius: 3;");
         btnZoomIn.setOnAction(e -> zoomStep(1.2));

@@ -2052,23 +2052,23 @@ The editor.css file defines the visual styling for the editor module, including 
 
 /* Panel chooser icons */
 .panel-chooser-tool-icon {
-  -fx-min-width: 18px;
-  -fx-min-height: 18px;
-  -fx-pref-width: 18px;
-  -fx-pref-height: 18px;
-  -fx-max-width: 18px;
-  -fx-max-height: 18px;
+  -fx-min-width: 28px;
+  -fx-min-height: 28px;
+  -fx-pref-width: 28px;
+  -fx-pref-height: 28px;
+  -fx-max-width: 28px;
+  -fx-max-height: 28px;
   -fx-effect: none;
   -fx-opacity: 1;
 }
 
 .sidebar-tab-icon {
-  -fx-min-width: 14px;
-  -fx-min-height: 14px;
-  -fx-pref-width: 14px;
-  -fx-pref-height: 14px;
-  -fx-max-width: 14px;
-  -fx-max-height: 14px;
+  -fx-min-width: 22px;
+  -fx-min-height: 22px;
+  -fx-pref-width: 22px;
+  -fx-pref-height: 22px;
+  -fx-max-width: 22px;
+  -fx-max-height: 22px;
   -fx-effect: none;
   -fx-opacity: 0.96;
 }
@@ -5514,6 +5514,26 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-background-color: #c0c0c0;
 }
 
+/* Full Aero icons provide their own dimensional surface and hover feedback. */
+.button.aero-icon-button,
+.button.aero-icon-button:hover,
+.button.aero-icon-button:focused,
+.button.aero-icon-button:pressed {
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
+  -fx-background-insets: 0;
+  -fx-border-insets: 0;
+  -fx-effect: none;
+}
+
+.button.aero-icon-button:hover {
+  -fx-text-fill: #ffffff;
+}
+
+.button.aero-icon-button:pressed {
+  -fx-opacity: 0.92;
+}
+
 .sidebar-tab-pane .tab .tab-close-button:pressed {
   -fx-opacity: 1;
   -fx-background-color: #f06070;
@@ -7041,4 +7061,30 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-font-family: "JetBrains Mono", "Consolas", monospace;
   -fx-font-size: 10px;
   -fx-pref-row-count: 8;
+}
+
+/* Keep Aero command graphics free of legacy button capsules in every tool theme. */
+.root .button.aero-icon-button,
+.root .button.aero-icon-button:hover,
+.root .button.aero-icon-button:focused,
+.root .button.aero-icon-button:pressed,
+.root .welcome-settings-button.aero-icon-button,
+.root .welcome-settings-button.aero-icon-button:hover {
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
+  -fx-background-insets: 0;
+  -fx-border-insets: 0;
+  -fx-effect: none;
+}
+
+.root .button.welcome-aero-utility-button,
+.root .button.welcome-aero-utility-button:hover,
+.root .button.welcome-aero-utility-button:focused,
+.root .button.welcome-aero-utility-button:pressed {
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
+  -fx-background-radius: 0;
+  -fx-border-radius: 0;
+  -fx-padding: 4;
+  -fx-effect: none;
 }

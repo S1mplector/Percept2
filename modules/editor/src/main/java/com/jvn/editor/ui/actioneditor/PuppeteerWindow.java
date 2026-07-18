@@ -1528,7 +1528,7 @@ public class PuppeteerWindow extends Stage {
         btnPreviewBack = makeToolbarIconButton(com.jvn.editor.ui.CssIcon.arrowLeft(), "Return to the standard editor workspace");
         btnPreviewBack.getStyleClass().add("puppeteer-preview-overlay-button");
         btnPreviewBack.getStyleClass().add("puppeteer-preview-overlay-button-back");
-        btnPreviewBack.setText("◀ Back to Editor");
+        btnPreviewBack.setText("Back to Editor");
         btnPreviewBack.setContentDisplay(ContentDisplay.LEFT);
         btnPreviewBack.setGraphicTextGap(8);
         btnPreviewBack.setMinSize(160, 42);

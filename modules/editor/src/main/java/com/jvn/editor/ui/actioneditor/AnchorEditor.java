@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
 
+import com.jvn.editor.ui.CssIcon;
+
 import javafx.animation.AnimationTimer;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -228,11 +230,11 @@ public class AnchorEditor extends VBox {
         });
 
         // Zoom bar
-        Button btnZoomOut = new Button("−");
+        Button btnZoomOut = new Button("", CssIcon.minus("#d6dbe5"));
         btnZoomOut.setStyle(S_BTN_ZOOM);
         btnZoomOut.setOnAction(e -> smoothZoomTo(canvasZoom / ZOOM_STEP));
 
-        Button btnZoomIn = new Button("+");
+        Button btnZoomIn = new Button("", CssIcon.plus("#d6dbe5"));
         btnZoomIn.setStyle(S_BTN_ZOOM);
         btnZoomIn.setOnAction(e -> smoothZoomTo(canvasZoom * ZOOM_STEP));
 
@@ -1013,7 +1015,7 @@ public class AnchorEditor extends VBox {
             if (onAnchorUsedAsPivot != null) onAnchorUsedAsPivot.accept(currentEntityName, anchor);
         });
 
-        Button btnRemove = new Button("×");
+        Button btnRemove = new Button("", CssIcon.clearX("#d6dbe5"));
         btnRemove.setStyle(S_BTN_REMOVE);
         btnRemove.setOnAction(e -> {
             if (project == null || currentEntityName == null) return;

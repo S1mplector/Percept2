@@ -2,13 +2,13 @@ package com.jvn.editor.ui;
 
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
+import javafx.scene.effect.DropShadow;
+import javafx.scene.effect.InnerShadow;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
+import javafx.scene.paint.Color;
 
-/**
- * Lightweight CSS-only icon factory using SVG path shapes rendered
- * via {@code -fx-shape} on a tiny {@link Region}. No image assets needed.
- */
+/** Compact Aero glyph registry for dense editor controls and status surfaces. */
 public final class CssIcon {
   private CssIcon() {}
 
@@ -64,6 +64,10 @@ public final class CssIcon {
       "m9.55 18-5.7-5.7 1.425-1.425L9.55 15.15l9.175-9.175L20.15 7.4 9.55 18Z";
   private static final String PATH_ERROR =
       "M12 22q-2.075 0-3.9-.787-1.825-.788-3.175-2.138-1.35-1.35-2.137-3.175Q2 14.075 2 12t.788-3.9q.787-1.825 2.137-3.175 1.35-1.35 3.175-2.137Q9.925 2 12 2t3.9.788q1.825.787 3.175 2.137 1.35 1.35 2.138 3.175Q22 9.925 22 12t-.787 3.9q-.788 1.825-2.138 3.175-1.35 1.35-3.175 2.138Q14.075 22 12 22Zm0-2q3.35 0 5.675-2.325Q20 15.35 20 12q0-3.35-2.325-5.675Q15.35 4 12 4 8.65 4 6.325 6.325 4 8.65 4 12q0 3.35 2.325 5.675Q8.65 20 12 20Zm-1-5h2v-2h-2v2Zm0-4h2V5h-2v6Z";
+  private static final String PATH_INFO =
+      "M11 17h2v-6h-2v6Zm1-8q.425 0 .713-.287Q13 8.425 13 8t-.287-.713Q12.425 7 12 7t-.713.287Q11 7.575 11 8t.287.713Q11.575 9 12 9Zm0 13q-2.075 0-3.9-.787-1.825-.788-3.175-2.138-1.35-1.35-2.137-3.175Q2 14.075 2 12t.788-3.9q.787-1.825 2.137-3.175 1.35-1.35 3.175-2.137Q9.925 2 12 2t3.9.788q1.825.787 3.175 2.137 1.35 1.35 2.138 3.175Q22 9.925 22 12t-.787 3.9q-.788 1.825-2.138 3.175-1.35 1.35-3.175 2.138Q14.075 22 12 22Z";
+  private static final String PATH_HELP =
+      "M11 18h2v-2h-2v2Zm1 4q-2.075 0-3.9-.787-1.825-.788-3.175-2.138-1.35-1.35-2.137-3.175Q2 14.075 2 12t.788-3.9q.787-1.825 2.137-3.175 1.35-1.35 3.175-2.137Q9.925 2 12 2t3.9.788q1.825.787 3.175 2.137 1.35 1.35 2.138 3.175Q22 9.925 22 12t-.787 3.9q-.788 1.825-2.138 3.175-1.35 1.35-3.175 2.138Q14.075 22 12 22Zm-.1-7.5q.425 0 .713-.287.287-.288.287-.713 0-.625.25-1.012.25-.388.95-.988.75-.65 1.075-1.275.325-.625.325-1.425 0-1.45-1.025-2.375Q13.45 5.5 11.9 5.5q-1.225 0-2.175.675T8.4 8l1.8.7q.175-.55.625-.875.45-.325 1.075-.325.7 0 1.15.388.45.387.45 1.012 0 .475-.25.85t-.85.85q-.9.7-1.2 1.275-.3.575-.3 1.625 0 .425.288.713.287.287.712.287Z";
   private static final String PATH_LINK =
       "M7 15q-1.25 0-2.125-.875T4 12q0-1.25.875-2.125T7 9h4V7H7q-2.075 0-3.537 1.463Q2 9.925 2 12q0 2.075 1.463 3.538Q4.925 17 7 17h4v-2H7Zm1.5-2v-2h7v2h-7Zm4.5 4v-2h4q1.25 0 2.125-.875T20 12q0-1.25-.875-2.125T17 9h-4V7h4q2.075 0 3.538 1.463Q22 9.925 22 12q0 2.075-1.462 3.538Q19.075 17 17 17h-4Z";
   private static final String PATH_HOME =
@@ -145,6 +149,8 @@ public final class CssIcon {
   public static Region expand(String color)    { return icon(PATH_EXPAND, color, 14); }
   public static Region check(String color)     { return icon(PATH_CHECK, color, 14); }
   public static Region error(String color)     { return icon(PATH_ERROR, color, 14); }
+  public static Region info(String color)      { return icon(PATH_INFO, color, 14); }
+  public static Region help(String color)      { return icon(PATH_HELP, color, 14); }
   public static Region link(String color)      { return icon(PATH_LINK, color, 14); }
   public static Region home(String color)      { return icon(PATH_HOME, color, 14); }
   public static Region copy(String color)      { return icon(PATH_COPY, color, 14); }
@@ -262,12 +268,24 @@ public final class CssIcon {
     r.setPrefSize(size, size);
     r.setStyle(
         "-fx-shape: '" + svgPath + "';"
-        + " -fx-background-color: " + color + ";"
+        + " -fx-background-color: linear-gradient(to bottom,"
+        + " derive(" + color + ", 62%) 0%,"
+        + " derive(" + color + ", 18%) 38%,"
+        + " " + color + " 56%,"
+        + " derive(" + color + ", -34%) 100%);"
         + " -fx-min-width: " + size + ";"
         + " -fx-min-height: " + size + ";"
         + " -fx-max-width: " + size + ";"
         + " -fx-max-height: " + size + ";"
     );
+    InnerShadow bevel = new InnerShadow(
+        Math.max(0.7, size * 0.055), 0, -Math.max(0.35, size * 0.025),
+        Color.rgb(255, 255, 255, 0.48));
+    DropShadow depth = new DropShadow(
+        Math.max(1.0, size * 0.08), 0, Math.max(0.5, size * 0.045),
+        Color.rgb(0, 0, 0, 0.68));
+    depth.setInput(bevel);
+    r.setEffect(depth);
     return r;
   }
 
