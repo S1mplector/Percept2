@@ -110,6 +110,8 @@ public class GameBuildPublisherView extends BorderPane {
   private final Label runtimeBadgeLabel = new Label();
   private final Label releaseBadgeLabel = new Label();
   private final Label statusLabel = new Label();
+  private final Label configurationNoticeLabel = new Label();
+  private final Label validationNoticeLabel = new Label();
   private final Label commandPreviewLabel = new Label();
   private final Label artifactInventoryLabel = new Label();
   private final Label dependencySummaryLabel = new Label("Dependency report: not scanned yet.");
@@ -279,6 +281,8 @@ public class GameBuildPublisherView extends BorderPane {
     styleBadge(releaseBadgeLabel);
     statusLabel.setWrapText(true);
     statusLabel.getStyleClass().addAll("build-publisher-note", "build-publisher-note-status");
+    styleWorkflowNotice(configurationNoticeLabel);
+    styleWorkflowNotice(validationNoticeLabel);
     commandPreviewLabel.setWrapText(true);
     commandPreviewLabel.getStyleClass().addAll("build-publisher-command-preview", "build-publisher-path");
     artifactInventoryLabel.setWrapText(true);
@@ -344,8 +348,10 @@ public class GameBuildPublisherView extends BorderPane {
     buildAllButton.setOnAction(e -> buildAllTargets());
     preflightButton = button("Run Preflight", ButtonTone.SECONDARY, false);
     preflightButton.setOnAction(e -> runPreflight());
+    richAction(preflightButton, "Package preflight", "Check the manifest, target, output, and release settings.");
     dependencyScanButton = button("Scan Dependencies", ButtonTone.SECONDARY, false);
     dependencyScanButton.setOnAction(e -> runDependencyScan());
+    richAction(dependencyScanButton, "Scan game content", "Find missing assets, broken links, and unused media.");
     dependencyConsoleButton = button("Run Console Scan", ButtonTone.SECONDARY, false);
     dependencyConsoleButton.setOnAction(e -> runDependencyScanInConsole());
     copyDependencyReportButton = button("Copy Report", ButtonTone.SECONDARY, false);
@@ -413,11 +419,14 @@ public class GameBuildPublisherView extends BorderPane {
 
     FlowPane dependencyBadgeRow = new FlowPane(6, 6, dependencyErrorsBadgeLabel, dependencyWarningsBadgeLabel, dependencyInfoBadgeLabel);
     dependencyBadgeRow.setAlignment(Pos.CENTER_LEFT);
-    FlowPane dependencyActionsRow = new FlowPane(8, 8, preflightButton, dependencyScanButton,
-        dependencyConsoleButton, copyDependencyReportButton, clearDependencyReportButton);
+    FlowPane dependencyActionsRow = new FlowPane(10, 10, preflightButton, dependencyScanButton);
     dependencyActionsRow.setAlignment(Pos.CENTER_LEFT);
+    FlowPane dependencyUtilityRow = new FlowPane(8, 8, dependencyConsoleButton,
+        copyDependencyReportButton, clearDependencyReportButton);
+    dependencyUtilityRow.setAlignment(Pos.CENTER_LEFT);
+    TitledPane dependencyToolsPane = disclosure("More validation tools", dependencyUtilityRow);
     VBox dependencyCard = card("Check before shipping", dependencySummaryLabel, dependencyBadgeRow,
-        dependencyActionsRow, dependencyReportBox);
+        dependencyActionsRow, dependencyToolsPane, dependencyReportBox);
     renderDependencyPlaceholder("Run Scan Dependencies to inspect missing media, scripts, menus, stage presets, timelines, packaging blockers, and unused media.");
 
     Label nativeNote = new Label("Desktop bundles build locally for Windows, Linux, macOS Intel, and macOS Apple Silicon. Native installers still build on the matching host OS only.");
@@ -438,7 +447,8 @@ public class GameBuildPublisherView extends BorderPane {
     VBox validateStep = step("2", "Validate", "Catch broken references and packaging issues before exporting.", dependencyCard);
     VBox shipStep = step("3", "Build & ship", "Create the selected package, then use advanced workflows only when needed.", actionCard);
 
-    VBox content = new VBox(14, header, configureStep, validateStep, shipStep, nativeNote);
+    VBox content = new VBox(14, header, configureStep, configurationNoticeLabel,
+        validateStep, validationNoticeLabel, shipStep, nativeNote);
     content.getStyleClass().add("build-publisher-content");
     content.setFillWidth(true);
 
@@ -480,6 +490,39 @@ public class GameBuildPublisherView extends BorderPane {
     VBox box = new VBox(3, field, helpLabel);
     box.setFillWidth(true);
     return box;
+  }
+
+  private void styleWorkflowNotice(Label notice) {
+    notice.setWrapText(true);
+    notice.setMaxWidth(Double.MAX_VALUE);
+    notice.getStyleClass().addAll("build-publisher-workflow-notice", "build-publisher-workflow-notice-pending");
+  }
+
+  private void setWorkflowNotice(Label notice, String tone, String text) {
+    notice.setText(text);
+    notice.getStyleClass().removeAll(
+        "build-publisher-workflow-notice-ready",
+        "build-publisher-workflow-notice-pending",
+        "build-publisher-workflow-notice-blocked",
+        "build-publisher-workflow-notice-running");
+    notice.getStyleClass().add("build-publisher-workflow-notice-" + tone);
+  }
+
+  private void richAction(Button button, String title, String description) {
+    Label titleLabel = new Label(title);
+    titleLabel.getStyleClass().add("build-publisher-action-title");
+    Label descriptionLabel = new Label(description);
+    descriptionLabel.setWrapText(true);
+    descriptionLabel.getStyleClass().add("build-publisher-action-description");
+    VBox graphic = new VBox(3, titleLabel, descriptionLabel);
+    graphic.setAlignment(Pos.CENTER_LEFT);
+    button.setText("");
+    button.setGraphic(graphic);
+    button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+    button.setAlignment(Pos.CENTER_LEFT);
+    button.setMinWidth(260);
+    button.setMaxWidth(Double.MAX_VALUE);
+    button.getStyleClass().add("build-publisher-action-tile");
   }
 
   private VBox card(String title, Node... nodes) {
@@ -613,7 +656,37 @@ public class GameBuildPublisherView extends BorderPane {
     refreshActionButtons(result);
     refreshUtilityButtons(result);
     refreshCommandPreview(result);
+    refreshWorkflowNotices(result);
     return result;
+  }
+
+  private void refreshWorkflowNotices(ValidationResult result) {
+    if (result == null || !result.errors().isEmpty()) {
+      String issue = result == null || result.errors().isEmpty()
+          ? "Complete the release configuration above."
+          : result.errors().get(0);
+      setWorkflowNotice(configurationNoticeLabel, "blocked", "Configuration needs attention — " + issue);
+      setWorkflowNotice(validationNoticeLabel, "pending", "Validation unlocks after the configuration is ready.");
+      return;
+    }
+
+    setWorkflowNotice(configurationNoticeLabel, "ready",
+        "✓ Configuration ready — continue to Validate below.");
+    if (dependencyScanTask != null && dependencyScanTask.isRunning()) {
+      setWorkflowNotice(validationNoticeLabel, "running", "Scanning game content… Results will appear here when ready.");
+    } else if (dependencyReport == null) {
+      setWorkflowNotice(validationNoticeLabel, "pending",
+          "Next: scan the game content, or run package preflight before shipping.");
+    } else if (dependencyReport.errorCount() > 0) {
+      setWorkflowNotice(validationNoticeLabel, "blocked",
+          "Validation found " + dependencyReport.errorCount() + " blocking issue(s). Fix them before shipping.");
+    } else if (dependencyReport.warningCount() > 0) {
+      setWorkflowNotice(validationNoticeLabel, "ready",
+          "✓ Validation complete with " + dependencyReport.warningCount() + " warning(s) — review them, then continue to Build & ship.");
+    } else {
+      setWorkflowNotice(validationNoticeLabel, "ready",
+          "✓ Validation clear — continue to Build & ship below.");
+    }
   }
 
   private void applyValidation(ValidationResult result) {
@@ -1036,8 +1109,6 @@ public class GameBuildPublisherView extends BorderPane {
     setDependencyBadges(0, 0, 0);
     dependencySummaryLabel.setText("Scanning " + scanRoot.getAbsolutePath() + "...");
     renderDependencyBusy();
-    refreshUtilityButtons(validateForm());
-
     Task<ProjectDependencyValidator.Report> task = new Task<>() {
       @Override
       protected ProjectDependencyValidator.Report call() {
@@ -1045,6 +1116,8 @@ public class GameBuildPublisherView extends BorderPane {
       }
     };
     dependencyScanTask = task;
+    refreshUtilityButtons(validateForm());
+    refreshWorkflowNotices(validateForm());
     task.setOnSucceeded(e -> {
       if (dependencyScanTask != task) return;
       dependencyScanTask = null;
@@ -1054,6 +1127,7 @@ public class GameBuildPublisherView extends BorderPane {
       setNoteTone(statusLabel, dependencyReport.errorCount() > 0 ? "error"
           : dependencyReport.warningCount() > 0 ? "warn" : "ok");
       refreshUtilityButtons(validateForm());
+      refreshWorkflowNotices(validateForm());
     });
     task.setOnFailed(e -> {
       if (dependencyScanTask != task) return;
@@ -1065,6 +1139,7 @@ public class GameBuildPublisherView extends BorderPane {
       statusLabel.setText("Dependency scan failed: " + (ex == null ? "unknown failure" : ex.getMessage()));
       setNoteTone(statusLabel, "error");
       refreshUtilityButtons(validateForm());
+      refreshWorkflowNotices(validateForm());
     });
     Thread thread = new Thread(task, "jvn-build-dependency-scan");
     thread.setDaemon(true);
@@ -1366,6 +1441,7 @@ public class GameBuildPublisherView extends BorderPane {
     dependencySummaryLabel.setText("Dependency report: not scanned yet.");
     renderDependencyPlaceholder("Run Scan Dependencies to inspect missing media, scripts, menus, stage presets, timelines, packaging blockers, and unused media.");
     refreshUtilityButtons(validateForm());
+    refreshWorkflowNotices(validateForm());
   }
 
   private void copyDependencyReport() {

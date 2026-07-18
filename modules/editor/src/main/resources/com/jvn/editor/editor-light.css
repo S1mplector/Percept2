@@ -6201,6 +6201,57 @@
   -fx-font-weight: 600;
 }
 
+.build-publisher-workflow-notice {
+  -fx-padding: 12 15 12 15;
+  -fx-background-radius: 10;
+  -fx-border-radius: 10;
+  -fx-border-width: 1;
+  -fx-font-size: 11px;
+  -fx-font-weight: 800;
+}
+
+.build-publisher-workflow-notice-ready {
+  -fx-background-color: rgba(65, 137, 82, 0.11);
+  -fx-border-color: rgba(61, 125, 76, 0.30);
+  -fx-text-fill: #356f44;
+}
+
+.build-publisher-workflow-notice-pending {
+  -fx-background-color: rgba(168, 116, 56, 0.10);
+  -fx-border-color: rgba(141, 96, 46, 0.27);
+  -fx-text-fill: #795326;
+}
+
+.build-publisher-workflow-notice-blocked {
+  -fx-background-color: rgba(177, 72, 96, 0.10);
+  -fx-border-color: rgba(151, 56, 78, 0.28);
+  -fx-text-fill: #913a50;
+}
+
+.build-publisher-workflow-notice-running {
+  -fx-background-color: rgba(69, 111, 169, 0.10);
+  -fx-border-color: rgba(66, 105, 160, 0.28);
+  -fx-text-fill: #365f96;
+}
+
+.build-publisher-action-tile {
+  -fx-padding: 12 14 12 14;
+  -fx-min-height: 66;
+}
+
+.build-publisher-action-title {
+  -fx-text-fill: #302a25;
+  -fx-font-size: 12px;
+  -fx-font-weight: 900;
+}
+
+.build-publisher-action-description {
+  -fx-text-fill: #756b61;
+  -fx-font-size: 10px;
+  -fx-font-weight: 600;
+  -fx-max-width: 235;
+}
+
 .build-publisher-cta {
   -fx-font-size: 12px;
   -fx-padding: 10 22 10 22;

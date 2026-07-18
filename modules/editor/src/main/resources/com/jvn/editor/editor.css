@@ -6363,6 +6363,57 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-font-weight: 600;
 }
 
+.build-publisher-workflow-notice {
+  -fx-padding: 12 15 12 15;
+  -fx-background-radius: 10;
+  -fx-border-radius: 10;
+  -fx-border-width: 1;
+  -fx-font-size: 11px;
+  -fx-font-weight: 800;
+}
+
+.build-publisher-workflow-notice-ready {
+  -fx-background-color: rgba(72, 139, 88, 0.14);
+  -fx-border-color: rgba(112, 190, 131, 0.38);
+  -fx-text-fill: #a9e2b5;
+}
+
+.build-publisher-workflow-notice-pending {
+  -fx-background-color: rgba(142, 103, 62, 0.12);
+  -fx-border-color: rgba(171, 123, 73, 0.34);
+  -fx-text-fill: #e1c199;
+}
+
+.build-publisher-workflow-notice-blocked {
+  -fx-background-color: rgba(128, 50, 67, 0.15);
+  -fx-border-color: rgba(185, 91, 112, 0.38);
+  -fx-text-fill: #f0a9b8;
+}
+
+.build-publisher-workflow-notice-running {
+  -fx-background-color: rgba(71, 104, 151, 0.15);
+  -fx-border-color: rgba(104, 147, 207, 0.38);
+  -fx-text-fill: #b5d2f5;
+}
+
+.build-publisher-action-tile {
+  -fx-padding: 12 14 12 14;
+  -fx-min-height: 66;
+}
+
+.build-publisher-action-title {
+  -fx-text-fill: #eeeeee;
+  -fx-font-size: 12px;
+  -fx-font-weight: 900;
+}
+
+.build-publisher-action-description {
+  -fx-text-fill: #9d9d9d;
+  -fx-font-size: 10px;
+  -fx-font-weight: 600;
+  -fx-max-width: 235;
+}
+
 .build-publisher-cta {
   -fx-font-size: 12px;
   -fx-padding: 10 22 10 22;

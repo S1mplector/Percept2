@@ -203,6 +203,12 @@ val jvnGameRuntimeProjectPaths = listOf(
   ":runtime",
   ":demo-game"
 )
+val jvnGamePackagingRuntime = configurations.create("jvnGamePackagingRuntime") {
+  isCanBeResolved = true
+  isCanBeConsumed = false
+  description = "Runtime dependencies staged into JVN desktop game packages."
+}
+dependencies.add(jvnGamePackagingRuntime.name, project(":runtime"))
 val jvnGameJavaFxConfigurations = mutableMapOf<String, org.gradle.api.artifacts.Configuration>()
 
 fun currentGameTarget(): JvnGameTarget {
@@ -2009,8 +2015,7 @@ fun gameBuildMetadata(target: JvnGameTarget, distName: String): String {
 }
 
 fun externalRuntimeJars(): List<File> {
-  val runtimeRuntime = project(":runtime").configurations.getByName("runtimeClasspath").resolve()
-  return runtimeRuntime
+  return jvnGamePackagingRuntime.resolve()
     .filter { it.isFile && it.extension.equals("jar", ignoreCase = true) }
     .filterNot { it.name.startsWith("javafx-") }
     .distinctBy { it.name }
