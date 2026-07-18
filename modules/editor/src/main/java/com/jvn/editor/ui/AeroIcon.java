@@ -1,10 +1,17 @@
 package com.jvn.editor.ui;
 
+import java.util.Optional;
 import javafx.scene.control.ButtonBase;
 import javafx.scene.effect.DropShadow;
+import javafx.scene.effect.InnerShadow;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
+import javafx.scene.paint.CycleMethod;
+import javafx.scene.paint.RadialGradient;
+import javafx.scene.paint.Stop;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.shape.Shape;
@@ -21,6 +28,7 @@ public final class AeroIcon extends StackPane {
   }
 
   private record Palette(Color top, Color bottom, Color edge) {}
+  private record Badge(Region glyph, Color color) {}
 
   private final Kind kind;
   private final double iconSize;
@@ -84,7 +92,8 @@ public final class AeroIcon extends StackPane {
     Palette palette = paletteFor(kind);
     String color = toCss(mix(palette.top(), palette.edge(), 0.34));
     Region glyph = switch (kind) {
-      case PROJECT, ASSETS, OPEN_PROJECT, DOCUMENTATION, REVEAL -> CssIcon.folder(color, size);
+      case PROJECT, ASSETS, OPEN_PROJECT, DOCUMENTATION, REVEAL, NEW_PROJECT ->
+          CssIcon.folder(color, size);
       case TRASHMAN -> sized(CssIcon.delete(color), size);
       case STORY_MAP -> sized(CssIcon.timeline(color), size);
       case INSPECTOR -> sized(CssIcon.search(color), size);
@@ -93,11 +102,11 @@ public final class AeroIcon extends StackPane {
       case LAYOUT -> sized(CssIcon.rectSelect(color), size);
       case STORYBOARD -> sized(CssIcon.movie(color), size);
       case LAYERS -> sized(CssIcon.copy(color), size);
-      case IMAGE_ATTRIBUTES, SCRIPT_EDITOR -> sized(CssIcon.edit(color), size);
+      case IMAGE_ATTRIBUTES -> sized(CssIcon.landscape(color), size);
+      case SCRIPT_EDITOR -> sized(CssIcon.document(color), size);
       case LIGHTING -> sized(CssIcon.lightbulb(color), size);
       case PUPPETEER -> sized(CssIcon.theater(color), size);
       case SETTINGS -> settingsGlyph(color, size);
-      case NEW_PROJECT -> sized(CssIcon.plusBold(color), size);
       case RUN -> sized(CssIcon.play(color), size);
       case BUILD -> sized(CssIcon.download(color), size);
       case REFRESH -> sized(CssIcon.redo(color), size);
@@ -105,11 +114,74 @@ public final class AeroIcon extends StackPane {
       case MANIFEST, README -> sized(CssIcon.document(color), size);
       case ARROW_BACK -> sized(CssIcon.arrowLeft(color), size);
     };
+    glyph = decorate(kind, glyph, size, palette);
     DropShadow depth = new DropShadow(Math.max(2, size * 0.14), 0, Math.max(1, size * 0.08),
         Color.rgb(0, 0, 0, 0.82));
     depth.setInput(glyph.getEffect());
     glyph.setEffect(depth);
     return glyph;
+  }
+
+  private static Region decorate(Kind kind, Region base, double size, Palette palette) {
+    Optional<Badge> optionalBadge = badgeFor(kind, size);
+    StackPane artwork = new StackPane(base);
+    artwork.setMinSize(size, size);
+    artwork.setPrefSize(size, size);
+    artwork.setMaxSize(size, size);
+
+    Circle glint = new Circle(size * 0.055, Color.rgb(255, 255, 255, 0.78));
+    glint.setEffect(new DropShadow(size * 0.08, Color.rgb(255, 255, 255, 0.52)));
+    StackPane.setAlignment(glint, Pos.TOP_LEFT);
+    StackPane.setMargin(glint, new Insets(size * 0.16, 0, 0, size * 0.19));
+    artwork.getChildren().add(glint);
+
+    if (optionalBadge.isPresent()) {
+      Badge badge = optionalBadge.get();
+      double badgeSize = Math.max(7, size * 0.39);
+      Circle rim = new Circle(badgeSize / 2.0);
+      rim.setFill(new RadialGradient(
+          0, 0, 0.34, 0.27, 0.88, true, CycleMethod.NO_CYCLE,
+          new Stop(0, badge.color().deriveColor(0, 0.52, 1.42, 1)),
+          new Stop(0.58, badge.color()),
+          new Stop(1, badge.color().deriveColor(0, 1, 0.42, 1))));
+      rim.setStroke(Color.rgb(255, 255, 255, 0.82));
+      rim.setStrokeWidth(Math.max(0.55, size * 0.032));
+      rim.setEffect(new DropShadow(Math.max(1.4, size * 0.11), 0, size * 0.04,
+          Color.rgb(0, 0, 0, 0.82)));
+
+      Region badgeGlyph = badge.glyph();
+      badgeGlyph.setStyle(badgeGlyph.getStyle()
+          + " -fx-background-color: linear-gradient(to bottom, #ffffff, #dcecff 58%, #8295a6);");
+      StackPane jewel = new StackPane(rim, badgeGlyph);
+      jewel.setMinSize(badgeSize, badgeSize);
+      jewel.setPrefSize(badgeSize, badgeSize);
+      jewel.setMaxSize(badgeSize, badgeSize);
+      jewel.setEffect(new InnerShadow(Math.max(0.5, size * 0.035), Color.rgb(255, 255, 255, 0.36)));
+      StackPane.setAlignment(jewel, Pos.BOTTOM_RIGHT);
+      StackPane.setMargin(jewel, new Insets(0, -size * 0.04, -size * 0.03, 0));
+      artwork.getChildren().add(jewel);
+    }
+    return artwork;
+  }
+
+  private static Optional<Badge> badgeFor(Kind kind, double size) {
+    double glyphSize = Math.max(5, size * 0.21);
+    return switch (kind) {
+      case NEW_PROJECT -> Optional.of(new Badge(sized(CssIcon.plusBold("#ffffff"), glyphSize), Color.web("#28a75d")));
+      case OPEN_PROJECT -> Optional.of(new Badge(sized(CssIcon.arrowRight("#ffffff"), glyphSize), Color.web("#2689d8")));
+      case ASSETS -> Optional.of(new Badge(sized(CssIcon.landscape("#ffffff"), glyphSize), Color.web("#298ac4")));
+      case DOCUMENTATION -> Optional.of(new Badge(sized(CssIcon.help("#ffffff"), glyphSize), Color.web("#397cc0")));
+      case REVEAL -> Optional.of(new Badge(sized(CssIcon.popOut("#ffffff"), glyphSize), Color.web("#397cc0")));
+      case IMAGE_ATTRIBUTES, SCRIPT_EDITOR ->
+          Optional.of(new Badge(sized(CssIcon.edit("#ffffff"), glyphSize), Color.web("#168dbf")));
+      case MANIFEST -> Optional.of(new Badge(sized(CssIcon.check("#ffffff"), glyphSize), Color.web("#35a45c")));
+      case README -> Optional.of(new Badge(sized(CssIcon.list("#ffffff"), glyphSize), Color.web("#4b7ba6")));
+      case ENTRY_SCRIPT -> Optional.of(new Badge(sized(CssIcon.play("#ffffff"), glyphSize), Color.web("#2fa35a")));
+      case BUILD -> Optional.of(new Badge(sized(CssIcon.check("#ffffff"), glyphSize), Color.web("#2e9b50")));
+      case LIGHTING, PUPPETEER ->
+          Optional.of(new Badge(sized(CssIcon.sparkles("#ffffff"), glyphSize), Color.web("#b54f95")));
+      default -> Optional.empty();
+    };
   }
 
   private static Region sized(Region glyph, double size) {
