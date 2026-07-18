@@ -68,6 +68,8 @@ public final class CssIcon {
       "M11 17h2v-6h-2v6Zm1-8q.425 0 .713-.287Q13 8.425 13 8t-.287-.713Q12.425 7 12 7t-.713.287Q11 7.575 11 8t.287.713Q11.575 9 12 9Zm0 13q-2.075 0-3.9-.787-1.825-.788-3.175-2.138-1.35-1.35-2.137-3.175Q2 14.075 2 12t.788-3.9q.787-1.825 2.137-3.175 1.35-1.35 3.175-2.137Q9.925 2 12 2t3.9.788q1.825.787 3.175 2.137 1.35 1.35 2.138 3.175Q22 9.925 22 12t-.787 3.9q-.788 1.825-2.138 3.175-1.35 1.35-3.175 2.138Q14.075 22 12 22Z";
   private static final String PATH_HELP =
       "M11 18h2v-2h-2v2Zm1 4q-2.075 0-3.9-.787-1.825-.788-3.175-2.138-1.35-1.35-2.137-3.175Q2 14.075 2 12t.788-3.9q.787-1.825 2.137-3.175 1.35-1.35 3.175-2.137Q9.925 2 12 2t3.9.788q1.825.787 3.175 2.137 1.35 1.35 2.138 3.175Q22 9.925 22 12t-.787 3.9q-.788 1.825-2.138 3.175-1.35 1.35-3.175 2.138Q14.075 22 12 22Zm-.1-7.5q.425 0 .713-.287.287-.288.287-.713 0-.625.25-1.012.25-.388.95-.988.75-.65 1.075-1.275.325-.625.325-1.425 0-1.45-1.025-2.375Q13.45 5.5 11.9 5.5q-1.225 0-2.175.675T8.4 8l1.8.7q.175-.55.625-.875.45-.325 1.075-.325.7 0 1.15.388.45.387.45 1.012 0 .475-.25.85t-.85.85q-.9.7-1.2 1.275-.3.575-.3 1.625 0 .425.288.713.287.287.712.287Z";
+  private static final String PATH_QUESTION_MARK =
+      "M11 20h2v-2h-2v2Zm.9-4.5q.625 0 1.063-.438.437-.437.437-1.062 0-.625.25-1.013.25-.387.95-.987.9-.75 1.3-1.525.4-.775.4-1.775 0-1.8-1.263-2.95Q14.775 4.6 12 4.6q-1.575 0-2.825.875Q7.925 6.35 7.45 7.8l2.25.9q.25-.75.85-1.2.6-.45 1.4-.45.9 0 1.488.5.587.5.587 1.3 0 .625-.325 1.1-.325.475-1.075 1.075-1.125.9-1.5 1.625-.375.725-.375 2.1 0 .325.237.538.238.212.913.212Z";
   private static final String PATH_LINK =
       "M7 15q-1.25 0-2.125-.875T4 12q0-1.25.875-2.125T7 9h4V7H7q-2.075 0-3.537 1.463Q2 9.925 2 12q0 2.075 1.463 3.538Q4.925 17 7 17h4v-2H7Zm1.5-2v-2h7v2h-7Zm4.5 4v-2h4q1.25 0 2.125-.875T20 12q0-1.25-.875-2.125T17 9h-4V7h4q2.075 0 3.538 1.463Q22 9.925 22 12q0 2.075-1.462 3.538Q19.075 17 17 17h-4Z";
   private static final String PATH_HOME =
@@ -151,6 +153,7 @@ public final class CssIcon {
   public static Region error(String color)     { return icon(PATH_ERROR, color, 14); }
   public static Region info(String color)      { return icon(PATH_INFO, color, 14); }
   public static Region help(String color)      { return icon(PATH_HELP, color, 14); }
+  public static Region questionMark(String color) { return icon(PATH_QUESTION_MARK, color, 14); }
   public static Region link(String color)      { return icon(PATH_LINK, color, 14); }
   public static Region home(String color)      { return icon(PATH_HOME, color, 14); }
   public static Region copy(String color)      { return icon(PATH_COPY, color, 14); }

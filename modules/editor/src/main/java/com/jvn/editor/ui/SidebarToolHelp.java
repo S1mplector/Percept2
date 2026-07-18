@@ -56,15 +56,13 @@ public final class SidebarToolHelp {
   }
 
   private static Button createHelpButton(String title) {
-    Label glyph = new Label();
-    glyph.setGraphic(CssIcon.help("#d6e6f2"));
-    glyph.getStyleClass().add("help-button-glyph");
-    glyph.setMouseTransparent(true);
-
     Button btn = new Button();
-    btn.getStyleClass().add("help-button");
-    btn.setGraphic(glyph);
+    btn.getStyleClass().addAll("help-button", "aero-help-button", "aero-icon-button");
+    btn.setGraphic(AeroIcon.of(AeroIcon.Kind.HELP, 24));
     btn.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+    btn.setMinSize(30, 30);
+    btn.setPrefSize(30, 30);
+    btn.setMaxSize(30, 30);
     btn.setFocusTraversable(false);
     btn.setAccessibleText("Help: " + title);
     btn.setAccessibleHelp("Open help for " + title);

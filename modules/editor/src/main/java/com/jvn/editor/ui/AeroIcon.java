@@ -27,7 +27,7 @@ public final class AeroIcon extends StackPane {
     LAYOUT, STORYBOARD, LAYERS, IMAGE_ATTRIBUTES, LIGHTING, VERSION_CONTROL,
     PUPPETEER, SCRIPT_EDITOR, SETTINGS,
     NEW_PROJECT, OPEN_PROJECT, RUN, BUILD, REFRESH, ENTRY_SCRIPT, MANIFEST,
-    README, DOCUMENTATION, REVEAL, ARROW_BACK
+    README, DOCUMENTATION, REVEAL, ARROW_BACK, HELP
   }
 
   private record Palette(Color top, Color bottom, Color edge) {}
@@ -116,8 +116,9 @@ public final class AeroIcon extends StackPane {
       case ENTRY_SCRIPT -> sized(CssIcon.speech(color), size);
       case MANIFEST, README -> sized(CssIcon.document(color), size);
       case ARROW_BACK -> sized(CssIcon.arrowLeft(color), size);
+      case HELP -> helpGlyph(size);
     };
-    glyph = decorate(kind, glyph, size, palette);
+    if (kind != Kind.HELP) glyph = decorate(kind, glyph, size, palette);
     DropShadow depth = new DropShadow(Math.max(2, size * 0.14), 0, Math.max(1, size * 0.08),
         Color.rgb(0, 0, 0, 0.82));
     depth.setInput(glyph.getEffect());
@@ -194,6 +195,7 @@ public final class AeroIcon extends StackPane {
       case RUN -> new Badge(sized(CssIcon.rocket("#ffffff"), glyphSize), Color.web("#d16c25"));
       case REFRESH -> new Badge(sized(CssIcon.check("#ffffff"), glyphSize), Color.web("#2789c5"));
       case ARROW_BACK -> new Badge(sized(CssIcon.home("#ffffff"), glyphSize), Color.web("#c76328"));
+      case HELP -> new Badge(sized(CssIcon.questionMark("#ffffff"), glyphSize), Color.web("#397cc0"));
     };
   }
 
@@ -280,6 +282,34 @@ public final class AeroIcon extends StackPane {
     return artwork;
   }
 
+  private static Region helpGlyph(double size) {
+    Circle orb = new Circle(size * 0.39);
+    orb.setFill(new RadialGradient(
+        0, 0, 0.33, 0.25, 0.88, true, CycleMethod.NO_CYCLE,
+        new Stop(0, Color.web("#f7fdff")),
+        new Stop(0.34, Color.web("#94d9f4")),
+        new Stop(0.72, Color.web("#3c7fae")),
+        new Stop(1, Color.web("#173b5a"))));
+    orb.setStroke(Color.web("#e8f8ff"));
+    orb.setStrokeWidth(Math.max(0.7, size * 0.045));
+    orb.setEffect(new InnerShadow(Math.max(1.2, size * 0.08), Color.rgb(5, 28, 45, 0.78)));
+
+    Region question = sized(CssIcon.questionMark("#ffffff"), size * 0.48);
+    question.setEffect(new DropShadow(Math.max(1, size * 0.06), 0, size * 0.04,
+        Color.rgb(0, 23, 42, 0.88)));
+
+    Ellipse reflection = new Ellipse(size * 0.43, size * 0.31, size * 0.19, size * 0.075);
+    reflection.setFill(Color.rgb(255, 255, 255, 0.52));
+
+    StackPane canvas = new StackPane(orb, question, reflection);
+    canvas.setMinSize(size, size);
+    canvas.setPrefSize(size, size);
+    canvas.setMaxSize(size, size);
+    StackPane.setAlignment(reflection, Pos.TOP_CENTER);
+    StackPane.setMargin(reflection, new Insets(size * 0.17, 0, 0, 0));
+    return canvas;
+  }
+
   private static Palette paletteFor(Kind kind) {
     return switch (kind) {
       case PROJECT, OPEN_PROJECT, ASSETS, DOCUMENTATION, REVEAL ->
@@ -300,6 +330,7 @@ public final class AeroIcon extends StackPane {
       case BUILD -> palette("#87e79a", "#2d873e", "#ddffe3");
       case REFRESH -> palette("#7edbff", "#2471b3", "#d7f5ff");
       case ARROW_BACK -> palette("#ffb55d", "#b74c15", "#ffe0b0");
+      case HELP -> palette("#a9e5fb", "#235b82", "#f1fbff");
     };
   }
 

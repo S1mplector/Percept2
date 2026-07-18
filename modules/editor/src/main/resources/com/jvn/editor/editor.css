@@ -7088,3 +7088,15 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-padding: 4;
   -fx-effect: none;
 }
+
+.root .button.aero-help-button,
+.root .button.aero-help-button:hover,
+.root .button.aero-help-button:focused,
+.root .button.aero-help-button:pressed {
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
+  -fx-background-radius: 0;
+  -fx-border-radius: 0;
+  -fx-padding: 3;
+  -fx-effect: none;
+}
