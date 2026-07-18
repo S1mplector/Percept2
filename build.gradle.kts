@@ -10,8 +10,11 @@ import org.gradle.api.tasks.testing.Test
 import org.gradle.jvm.tasks.Jar
 import org.gradle.jvm.toolchain.JavaToolchainService
 import org.gradle.process.ExecOperations
+import java.io.ByteArrayOutputStream
 import java.net.HttpURLConnection
 import java.net.URI
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.security.MessageDigest
 import java.security.KeyFactory
 import java.security.Signature
@@ -677,8 +680,164 @@ fun verifyBundledRuntimeArtifact(target: JvnGameTarget, artifact: File) {
   writeArtifactChecksum(artifact)
 }
 
+fun commandOutput(vararg command: String): String {
+  val output = ByteArrayOutputStream()
+  val result = jvnExecOperations.exec {
+    commandLine(*command)
+    standardOutput = output
+    errorOutput = output
+    isIgnoreExitValue = true
+  }
+  if (result.exitValue != 0) {
+    throw GradleException("Command failed (${command.joinToString(" ")}): ${output.toString().trim()}")
+  }
+  return output.toString().trim()
+}
+
+fun extractZipSafely(artifact: File, destination: File) {
+  deleteAndMkdir(destination)
+  val root = destination.canonicalFile.toPath()
+  ZipFile(artifact).use { zip ->
+    val entries = zip.entries()
+    while (entries.hasMoreElements()) {
+      val entry = entries.nextElement()
+      val output = destination.resolve(entry.name).canonicalFile
+      if (!output.toPath().startsWith(root)) throw GradleException("Unsafe native app-image entry: ${entry.name}")
+      if (entry.isDirectory) output.mkdirs() else {
+        output.parentFile.mkdirs()
+        zip.getInputStream(entry).use { input -> output.outputStream().use { input.copyTo(it) } }
+      }
+    }
+  }
+}
+
+fun findSingle(root: File, predicate: (File) -> Boolean, label: String): File {
+  val matches = root.walkTopDown().filter { predicate(it) }.toList()
+  if (matches.isEmpty()) throw GradleException("Native package is missing $label under ${root.absolutePath}")
+  return matches.first()
+}
+
+fun verifyPackagedEntry(gameRoot: File) {
+  val manifest = gameRoot.resolve("jvn.project")
+  if (!manifest.isFile) throw GradleException("Native package is missing bundled jvn.project")
+  val props = Properties()
+  manifest.inputStream().use { props.load(it) }
+  val type = props.getProperty("type", "vn").trim().lowercase()
+  val rawEntry = if (type == "jes") props.getProperty("entry") else props.getProperty("entryVns")
+  val entry = if (type == "jes") rawEntry?.let { gameRoot.resolve(it) } else resolveScriptFile(gameRoot, rawEntry)
+  if (entry == null || !entry.isFile) {
+    throw GradleException("Native package manifest entry is missing: ${rawEntry ?: "(not configured)"}")
+  }
+}
+
+fun verifyRuntimeModules(javaExecutable: File) {
+  if (!javaExecutable.isFile) throw GradleException("Native package is missing runtime Java: ${javaExecutable.absolutePath}")
+  if (!currentHostIsWindows()) javaExecutable.setExecutable(true)
+  val modules = commandOutput(javaExecutable.absolutePath, "--list-modules")
+  runtimeImageModules().forEach { module ->
+    if (!modules.lineSequence().any { it.substringBefore('@') == module }) {
+      throw GradleException("Native runtime is missing required module '$module'")
+    }
+  }
+}
+
+fun verifyLauncherConfig(config: File) {
+  if (!config.isFile) throw GradleException("Native package is missing jpackage launcher configuration")
+  val text = config.readText()
+  if (!text.contains("app.mainclass=${gamePackagedMainClass()}")) {
+    throw GradleException("Native launcher does not use ${gamePackagedMainClass()}")
+  }
+  if (!text.contains("app.classpath=")) throw GradleException("Native launcher has no application classpath")
+}
+
+fun verifyMacNativePayload(app: File) {
+  val contents = app.resolve("Contents")
+  val executableName = commandOutput("/usr/libexec/PlistBuddy", "-c", "Print :CFBundleExecutable", contents.resolve("Info.plist").absolutePath)
+  val executable = contents.resolve("MacOS/$executableName")
+  val architecture = commandOutput("file", executable.absolutePath)
+  val expected = if (currentPackageHost().target.id.endsWith("aarch64")) "arm64" else "x86_64"
+  if (!architecture.contains(expected)) throw GradleException("Native executable architecture mismatch: $architecture")
+  verifyRuntimeModules(contents.resolve("runtime/Contents/Home/bin/java"))
+  verifyLauncherConfig(contents.resolve("app/$executableName.cfg"))
+  verifyPackagedEntry(contents.resolve("content/game"))
+  val iconName = commandOutput("/usr/libexec/PlistBuddy", "-c", "Print :CFBundleIconFile", contents.resolve("Info.plist").absolutePath)
+  if (!contents.resolve("Resources/$iconName").isFile) throw GradleException("Native macOS app is missing bundle icon '$iconName'")
+  if (selectedReleaseProfile().flag("mac.sign")) {
+    commandOutput("codesign", "--verify", "--deep", "--strict", app.absolutePath)
+  }
+}
+
+fun verifyWindowsNativePayload(root: File) {
+  val executable = findSingle(root, { it.isFile && it.extension.equals("exe", true) && it.parentFile.name.equals("bin", true) }, "launcher executable")
+  val cfg = findSingle(root, { it.isFile && it.extension.equals("cfg", true) && it.parentFile.name.equals("app", true) }, "launcher configuration")
+  val java = findSingle(root, { it.isFile && it.name.equals("java.exe", true) && it.parentFile.name.equals("bin", true) }, "runtime Java")
+  val game = findSingle(root, { it.isFile && it.name == "jvn.project" && it.parentFile.name == "game" }, "bundled jvn.project").parentFile
+  verifyRuntimeModules(java)
+  verifyLauncherConfig(cfg)
+  verifyPackagedEntry(game)
+  val bytes = executable.readBytes()
+  val peOffset = ByteBuffer.wrap(bytes, 0x3c, 4).order(ByteOrder.LITTLE_ENDIAN).int
+  val machine = ByteBuffer.wrap(bytes, peOffset + 4, 2).order(ByteOrder.LITTLE_ENDIAN).short.toInt() and 0xffff
+  if (machine != 0x8664) throw GradleException("Native Windows launcher is not x64 (PE machine=0x${machine.toString(16)})")
+  if (gamePackageIconFile() != null) {
+    val iconDimensions = commandOutput(
+      "powershell", "-NoProfile", "-Command",
+      "Add-Type -AssemblyName System.Drawing; " +
+        "\$icon = [System.Drawing.Icon]::ExtractAssociatedIcon('${executable.absolutePath.replace("'", "''")}'); " +
+        "if (\$null -eq \$icon) { exit 1 }; " +
+        "Write-Output \"\$(\$icon.Width)x\$(\$icon.Height)\""
+    )
+    if (!Regex("\\d+x\\d+").matches(iconDimensions)) {
+      throw GradleException("Native Windows launcher icon could not be inspected: $iconDimensions")
+    }
+  }
+  if (selectedReleaseProfile().flag("win.sign")) {
+    val signature = commandOutput("powershell", "-NoProfile", "-Command", "(Get-AuthenticodeSignature -LiteralPath '${executable.absolutePath.replace("'", "''")}').Status")
+    if (!signature.equals("Valid", true)) throw GradleException("Windows package signature is not valid: $signature")
+  }
+}
+
+fun verifyNativeArtifact(artifact: File, packageType: String) {
+  val inspectRoot = layout.buildDirectory.dir("tmp/jvn-native-smoke/${currentPackageHost().target.id}-$packageType").get().asFile
+  deleteAndMkdir(inspectRoot)
+  try {
+    when (packageType) {
+      "dmg" -> {
+        val mount = inspectRoot.resolve("mount")
+        mount.mkdirs()
+        commandOutput("hdiutil", "attach", "-nobrowse", "-readonly", "-mountpoint", mount.absolutePath, artifact.absolutePath)
+        try {
+          verifyMacNativePayload(findSingle(mount, { it.isDirectory && it.extension == "app" }, "macOS app bundle"))
+        } finally {
+          commandOutput("hdiutil", "detach", mount.absolutePath)
+        }
+      }
+      "msi" -> {
+        val extracted = inspectRoot.resolve("extracted")
+        extracted.mkdirs()
+        commandOutput("msiexec", "/a", artifact.absolutePath, "/qn", "TARGETDIR=${extracted.absolutePath}")
+        verifyWindowsNativePayload(extracted)
+      }
+      "app-image" -> {
+        val extracted = inspectRoot.resolve("extracted")
+        extractZipSafely(artifact, extracted)
+        when (currentPackageHost().osId) {
+          "macos" -> verifyMacNativePayload(findSingle(extracted, { it.isDirectory && it.extension == "app" }, "macOS app bundle"))
+          "windows" -> verifyWindowsNativePayload(extracted)
+        }
+      }
+      else -> {
+        if (!artifact.isFile || artifact.length() <= 0L) throw GradleException("Native package is missing or empty")
+      }
+    }
+    writeArtifactChecksum(artifact)
+  } finally {
+    inspectRoot.deleteRecursively()
+  }
+}
+
 fun verifyNativeArtifact(artifact: File) {
-  writeArtifactChecksum(artifact)
+  verifyNativeArtifact(artifact, currentJpackageType())
 }
 
 fun gameBundledDistName(target: JvnGameTarget): String {

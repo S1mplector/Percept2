@@ -4,7 +4,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.nio.file.Path;
 import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -159,6 +158,8 @@ public class GameBuildPublisherView extends BorderPane {
   private final TextField gameIconField = new TextField();
   private final Label nativeReleaseSummaryLabel = new Label();
   private final VBox nativeReleaseBox = new VBox(8);
+  private final FlowPane validationActionsRow = new FlowPane(8, 8);
+  private final FlowPane nativeReleaseActionsRow = new FlowPane(8, 8);
   private Button chooseGameIconButton;
   private Button clearGameIconButton;
   private Button nativeReleaseButton;
@@ -341,7 +342,7 @@ public class GameBuildPublisherView extends BorderPane {
     gameIconRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(gameIconField, Priority.ALWAYS);
     gameIconLabel.setMinWidth(120);
-    Label gameIconHelp = new Label("Used by native installers and app bundles. Required format on this host: " + nativeIconExtension() + ".");
+    Label gameIconHelp = new Label("Choose a square transparent PNG (512x512 or larger). JVN generates the native " + nativeIconExtension() + " icon.");
     gameIconHelp.setWrapText(true);
     gameIconHelp.getStyleClass().add("build-publisher-field-help");
 
@@ -462,10 +463,10 @@ public class GameBuildPublisherView extends BorderPane {
     nativeReleaseSummaryLabel.getStyleClass().add("build-publisher-copy");
     Label nativeReleaseTitle = new Label("Finish native release");
     nativeReleaseTitle.getStyleClass().add("build-publisher-section-label");
-    FlowPane nativeReleaseActions = new FlowPane(8, 8, nativeReleaseButton, nativeReleaseConfigButton,
+    nativeReleaseActionsRow.getChildren().setAll(nativeReleaseButton, nativeReleaseConfigButton,
         nativeCopyChecklistButton, nativeRevealIconButton, nativeRevealBuildsButton, nativeVerifyButton);
-    nativeReleaseActions.setAlignment(Pos.CENTER_LEFT);
-    nativeReleaseBox.getChildren().setAll(nativeReleaseTitle, nativeReleaseSummaryLabel, nativeReleaseActions);
+    nativeReleaseActionsRow.setAlignment(Pos.CENTER_LEFT);
+    nativeReleaseBox.getChildren().setAll(nativeReleaseTitle, nativeReleaseSummaryLabel, nativeReleaseActionsRow);
     nativeReleaseBox.getStyleClass().add("build-publisher-native-release");
 
     VBox actionCard = card("Create release", buildHelp, optionsRow,
@@ -477,14 +478,14 @@ public class GameBuildPublisherView extends BorderPane {
     Label dependencyActionsHelp = new Label("Scan content first to catch broken project references. Package preflight checks the selected release configuration.");
     dependencyActionsHelp.setWrapText(true);
     dependencyActionsHelp.getStyleClass().add("build-publisher-copy");
-    FlowPane dependencyActionsRow = new FlowPane(8, 8, dependencyScanButton, preflightButton);
-    dependencyActionsRow.setAlignment(Pos.CENTER_LEFT);
+    validationActionsRow.getChildren().setAll(dependencyScanButton, preflightButton);
+    validationActionsRow.setAlignment(Pos.CENTER_LEFT);
     FlowPane dependencyUtilityRow = new FlowPane(8, 8, dependencyConsoleButton,
         copyDependencyReportButton, clearDependencyReportButton);
     dependencyUtilityRow.setAlignment(Pos.CENTER_LEFT);
     TitledPane dependencyToolsPane = disclosure("More validation tools", dependencyUtilityRow);
     VBox dependencyCard = card("Validation status", dependencySummaryLabel, dependencyBadgeRow,
-        dependencyActionsHelp, dependencyActionsRow, dependencyToolsPane, dependencyReportBox);
+        dependencyActionsHelp, validationActionsRow, dependencyToolsPane, dependencyReportBox);
     renderDependencyPlaceholder("Scan game content to inspect missing media, scripts, menus, stage presets, timelines, packaging blockers, and unused media.");
 
     Label nativeNote = new Label("Desktop bundles build locally for Windows, Linux, macOS Intel, and macOS Apple Silicon. Native installers still build on the matching host OS only.");
@@ -717,7 +718,7 @@ public class GameBuildPublisherView extends BorderPane {
     String os = currentHostOs();
     List<String> steps = new ArrayList<>();
     steps.add(icon.isBlank()
-        ? "1. Choose a " + nativeIconExtension() + " game icon before the final package."
+        ? "1. Choose a high-resolution transparent PNG for the game icon."
         : "1. Icon ready: " + icon);
     if ("macos".equals(os)) {
       boolean sign = releaseProfileFlag(properties, profile, "mac.sign");
@@ -1865,34 +1866,68 @@ public class GameBuildPublisherView extends BorderPane {
     if (config == null) return;
     FileChooser chooser = new FileChooser();
     chooser.setTitle("Choose Game Package Icon");
-    String extension = nativeIconExtension();
     chooser.getExtensionFilters().setAll(
-        new FileChooser.ExtensionFilter(extension.substring(1).toUpperCase(Locale.ROOT) + " icon", "*" + extension),
+        new FileChooser.ExtensionFilter("High-resolution PNG icon", "*.png"),
         new FileChooser.ExtensionFilter("All files", "*.*"));
     File selected = chooser.showOpenDialog(getScene() == null ? null : getScene().getWindow());
     if (selected == null) return;
-    if (!selected.getName().toLowerCase(Locale.ROOT).endsWith(extension)) {
-      statusLabel.setText("Game icon must be a " + extension + " file on this host.");
-      setNoteTone(statusLabel, "error");
-      return;
-    }
+    installGameIcon(selected);
+  }
+
+  void installGameIcon(File selected) {
     try {
-      File packagingDir = new File(projectRoot, "packaging");
-      Files.createDirectories(packagingDir.toPath());
-      File destination = new File(packagingDir, "icon" + extension);
-      if (!selected.getCanonicalFile().equals(destination.getCanonicalFile())) {
-        Files.copy(selected.toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING);
-      }
-      String relativePath = projectRoot.toPath().relativize(destination.toPath()).toString().replace(File.separatorChar, '/');
+      File config = findReleaseConfig(projectRoot);
+      if (config == null) config = createReleaseConfig();
+      if (config == null) return;
+      GamePackageIconService.IconResult icon =
+          GamePackageIconService.install(selected, projectRoot, currentHostOs());
+      String relativePath = projectRoot.toPath().relativize(icon.platformIcon().toPath())
+          .toString().replace(File.separatorChar, '/');
       updateReleaseConfigProperty(config, releaseProfilePropertyKey("icon"), relativePath);
       gameIconField.setText(relativePath);
-      statusLabel.setText("Game icon set to " + relativePath + ".");
+      statusLabel.setText("Generated " + relativePath + " from " + icon.width() + "x" + icon.height() + " PNG artwork.");
       setNoteTone(statusLabel, "ok");
       refreshFormState();
     } catch (Exception ex) {
       statusLabel.setText("Could not set game icon: " + ex.getMessage());
       setNoteTone(statusLabel, "error");
     }
+  }
+
+  Button preflightButtonForTest() {
+    return preflightButton;
+  }
+
+  Button dependencyScanButtonForTest() {
+    return dependencyScanButton;
+  }
+
+  FlowPane validationActionsRowForTest() {
+    return validationActionsRow;
+  }
+
+  FlowPane nativeReleaseActionsRowForTest() {
+    return nativeReleaseActionsRow;
+  }
+
+  VBox nativeReleaseBoxForTest() {
+    return nativeReleaseBox;
+  }
+
+  Label nativeReleaseSummaryForTest() {
+    return nativeReleaseSummaryLabel;
+  }
+
+  TextField gameIconFieldForTest() {
+    return gameIconField;
+  }
+
+  void selectNativeModeForTest() {
+    formatBox.setValue(PackageMode.NATIVE_PACKAGE);
+  }
+
+  void selectPortableModeForTest() {
+    formatBox.setValue(PackageMode.PORTABLE_ZIP);
   }
 
   private void clearGameIcon() {
