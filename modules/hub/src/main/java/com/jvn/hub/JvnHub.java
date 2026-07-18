@@ -5654,6 +5654,7 @@ public final class JvnHub {
         }
         case SHORTCUT -> {
           // Desktop/app shortcut: small window tile with a launch arrow.
+          // Holy fuck! This is the last of the bunch. 
           float pad = s * 0.16f;
           float corner = s * 0.08f;
           g2.setStroke(new BasicStroke(strokeMain, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
