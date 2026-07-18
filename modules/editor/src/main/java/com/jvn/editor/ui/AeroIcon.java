@@ -7,12 +7,16 @@ import javafx.scene.effect.InnerShadow;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.CycleMethod;
+import javafx.scene.paint.LinearGradient;
 import javafx.scene.paint.RadialGradient;
 import javafx.scene.paint.Stop;
 import javafx.scene.shape.Circle;
+import javafx.scene.shape.Ellipse;
+import javafx.scene.shape.Polyline;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.shape.Shape;
 import javafx.scene.transform.Rotate;
@@ -97,7 +101,7 @@ public final class AeroIcon extends StackPane {
       case TRASHMAN -> sized(CssIcon.delete(color), size);
       case STORY_MAP -> sized(CssIcon.timeline(color), size);
       case INSPECTOR -> sized(CssIcon.search(color), size);
-      case DIAGNOSTICS -> sized(CssIcon.warning(color), size);
+      case DIAGNOSTICS -> diagnosticsGlyph(size);
       case LABEL_FLOW, VERSION_CONTROL -> sized(CssIcon.branchPlus(color), size);
       case LAYOUT -> sized(CssIcon.rectSelect(color), size);
       case STORYBOARD -> sized(CssIcon.movie(color), size);
@@ -211,6 +215,62 @@ public final class AeroIcon extends StackPane {
     return wrapper;
   }
 
+  private static Region diagnosticsGlyph(double size) {
+    Pane artwork = new Pane();
+    artwork.setMinSize(size, size);
+    artwork.setPrefSize(size, size);
+    artwork.setMaxSize(size, size);
+
+    Rectangle screen = new Rectangle(size * 0.07, size * 0.10, size * 0.86, size * 0.62);
+    screen.setArcWidth(size * 0.16);
+    screen.setArcHeight(size * 0.16);
+    screen.setFill(new LinearGradient(
+        0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+        new Stop(0, Color.web("#e8f7ff")),
+        new Stop(0.18, Color.web("#65c9ed")),
+        new Stop(0.30, Color.web("#153e61")),
+        new Stop(1, Color.web("#071b2b"))));
+    screen.setStroke(Color.web("#dff7ff"));
+    screen.setStrokeWidth(Math.max(0.7, size * 0.045));
+    screen.setEffect(new DropShadow(Math.max(1.4, size * 0.11), 0, size * 0.05,
+        Color.rgb(0, 0, 0, 0.82)));
+
+    Rectangle reflection = new Rectangle(size * 0.13, size * 0.16, size * 0.52, size * 0.09);
+    reflection.setArcWidth(size * 0.08);
+    reflection.setArcHeight(size * 0.08);
+    reflection.setFill(Color.rgb(255, 255, 255, 0.38));
+
+    Polyline pulse = new Polyline(
+        size * 0.15, size * 0.47,
+        size * 0.31, size * 0.47,
+        size * 0.39, size * 0.34,
+        size * 0.48, size * 0.60,
+        size * 0.59, size * 0.40,
+        size * 0.67, size * 0.47,
+        size * 0.84, size * 0.47);
+    pulse.setFill(Color.TRANSPARENT);
+    pulse.setStroke(Color.web("#72ff8f"));
+    pulse.setStrokeWidth(Math.max(1.1, size * 0.075));
+    pulse.setEffect(new DropShadow(Math.max(1.2, size * 0.09), Color.web("#38ff70")));
+
+    Rectangle stem = new Rectangle(size * 0.43, size * 0.70, size * 0.14, size * 0.13);
+    stem.setFill(new LinearGradient(
+        0, 0, 1, 0, true, CycleMethod.NO_CYCLE,
+        new Stop(0, Color.web("#677987")),
+        new Stop(0.48, Color.web("#f2fbff")),
+        new Stop(1, Color.web("#566775"))));
+    Ellipse foot = new Ellipse(size * 0.50, size * 0.86, size * 0.28, size * 0.075);
+    foot.setFill(new LinearGradient(
+        0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+        new Stop(0, Color.web("#f5fbff")),
+        new Stop(1, Color.web("#617584"))));
+    foot.setStroke(Color.web("#d8ecf7"));
+    foot.setStrokeWidth(Math.max(0.45, size * 0.025));
+
+    artwork.getChildren().addAll(stem, foot, screen, reflection, pulse);
+    return artwork;
+  }
+
   private static Palette paletteFor(Kind kind) {
     return switch (kind) {
       case PROJECT, OPEN_PROJECT, ASSETS, DOCUMENTATION, REVEAL ->
@@ -220,7 +280,7 @@ public final class AeroIcon extends StackPane {
           palette("#ffbd69", "#c5521c", "#ffe0a2");
       case INSPECTOR, SCRIPT_EDITOR, IMAGE_ATTRIBUTES ->
           palette("#79d8ff", "#2267ad", "#c9f2ff");
-      case DIAGNOSTICS -> palette("#ffd86b", "#c06a18", "#fff1ac");
+      case DIAGNOSTICS -> palette("#72ddff", "#19547a", "#dff8ff");
       case LABEL_FLOW, VERSION_CONTROL, ENTRY_SCRIPT, NEW_PROJECT ->
           palette("#8de8aa", "#26824e", "#d8ffe4");
       case LAYOUT, LAYERS, MANIFEST, README ->
