@@ -2457,7 +2457,6 @@ public class EditorApp extends Application {
       File rootDir = projectRoot == null ? ensureProjectRoot(primaryStage) : projectRoot;
       if (rootDir != null) doRunProject(rootDir);
     });
-    workspaceHubView.setOnShowProjectExplorer(this::selectProjectTab);
     workspaceHubView.setOnShowSettings(this::selectEditorSettingsTab);
     tabWorkspaceHub = new Tab("Workspace", workspaceHubView);
     tabWorkspaceHub.setClosable(false);

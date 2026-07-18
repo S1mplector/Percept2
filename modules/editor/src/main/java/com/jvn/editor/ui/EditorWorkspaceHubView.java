@@ -65,7 +65,6 @@ public class EditorWorkspaceHubView extends BorderPane {
   private final Button btnNewProject = new Button();
   private final Button btnOpenProject = new Button();
   private final Button btnRunProject = new Button();
-  private final Button btnOpenProjectExplorer = new Button();
   private final Button btnSettings = new Button();
 
   private File workspaceRoot;
@@ -74,7 +73,6 @@ public class EditorWorkspaceHubView extends BorderPane {
   private Runnable onCreateProject;
   private Runnable onOpenProjectDialog;
   private Runnable onRunProject;
-  private Runnable onShowProjectExplorer;
   private Runnable onShowSettings;
 
   public EditorWorkspaceHubView() {
@@ -102,10 +100,6 @@ public class EditorWorkspaceHubView extends BorderPane {
 
   public void setOnRunProject(Runnable onRunProject) {
     this.onRunProject = onRunProject;
-  }
-
-  public void setOnShowProjectExplorer(Runnable onShowProjectExplorer) {
-    this.onShowProjectExplorer = onShowProjectExplorer;
   }
 
   public void setOnShowSettings(Runnable onShowSettings) {
@@ -221,13 +215,6 @@ public class EditorWorkspaceHubView extends BorderPane {
         () -> runAction(onRunProject, "Run Project"));
     btnRunProject.setDisable(true);
 
-    configureActionButton(
-        btnOpenProjectExplorer,
-        AeroIcon.of(AeroIcon.Kind.PROJECT, 22),
-        "Project Explorer",
-        "Open Project Explorer tab",
-        "welcome-action-button-secondary",
-        () -> runAction(onShowProjectExplorer, "Project Explorer"));
     configureIconButton(
         btnSettings,
         AeroIcon.of(AeroIcon.Kind.SETTINGS, 22),
@@ -239,10 +226,6 @@ public class EditorWorkspaceHubView extends BorderPane {
     HBox rowPrimary = new HBox(8, btnNewProject, btnOpenProject, btnRunProject);
     rowPrimary.getStyleClass().add("welcome-action-row");
     rowPrimary.setAlignment(Pos.CENTER_LEFT);
-
-    HBox rowSecondary = new HBox(8, btnOpenProjectExplorer);
-    rowSecondary.getStyleClass().add("welcome-action-row");
-    rowSecondary.setAlignment(Pos.CENTER_LEFT);
 
     Region headingSpacer = new Region();
     HBox.setHgrow(headingSpacer, Priority.ALWAYS);
@@ -265,7 +248,7 @@ public class EditorWorkspaceHubView extends BorderPane {
     summaryGrid.getStyleClass().add("editor-workspace-summary-grid");
     summaryGrid.setAlignment(Pos.CENTER_LEFT);
 
-    VBox actionPanel = new VBox(8, rowPrimary, rowSecondary);
+    VBox actionPanel = new VBox(rowPrimary);
     actionPanel.getStyleClass().add("editor-workspace-action-panel");
 
     Label setupTitle = new Label("First-run setup");
