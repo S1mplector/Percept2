@@ -6242,24 +6242,24 @@ The editor.css file defines the visual styling for the editor module, including 
 }
 
 .build-publisher-content {
-  -fx-padding: 18;
+  -fx-padding: 16;
 }
 
 .build-publisher-header {
-  -fx-padding: 16;
+  -fx-padding: 14 16 14 16;
   -fx-spacing: 12;
   -fx-background-color:
       linear-gradient(to bottom, rgba(255,255,255,0.035), rgba(255,255,255,0.0)),
       linear-gradient(to bottom, #181818 0%, #121212 100%);
-  -fx-background-radius: 14;
+  -fx-background-radius: 8;
   -fx-border-color: #2f2f2f;
-  -fx-border-radius: 14;
+  -fx-border-radius: 8;
   -fx-border-width: 1;
 }
 
 .build-publisher-title {
   -fx-text-fill: #f1f1f1;
-  -fx-font-size: 26px;
+  -fx-font-size: 22px;
   -fx-font-weight: 800;
 }
 
@@ -6287,12 +6287,12 @@ The editor.css file defines the visual styling for the editor module, including 
 }
 
 .build-publisher-step {
-  -fx-padding: 15;
+  -fx-padding: 14;
   -fx-spacing: 12;
   -fx-background-color: rgba(255,255,255,0.018);
-  -fx-background-radius: 14;
+  -fx-background-radius: 8;
   -fx-border-color: rgba(220,220,220,0.10);
-  -fx-border-radius: 14;
+  -fx-border-radius: 8;
   -fx-border-width: 1;
 }
 
@@ -6396,28 +6396,10 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-text-fill: #b5d2f5;
 }
 
-.build-publisher-action-tile {
-  -fx-padding: 12 14 12 14;
-  -fx-min-height: 66;
-}
-
-.build-publisher-action-title {
-  -fx-text-fill: #eeeeee;
-  -fx-font-size: 12px;
-  -fx-font-weight: 900;
-}
-
-.build-publisher-action-description {
-  -fx-text-fill: #9d9d9d;
-  -fx-font-size: 10px;
-  -fx-font-weight: 600;
-  -fx-max-width: 235;
-}
-
 .build-publisher-cta {
   -fx-font-size: 12px;
-  -fx-padding: 10 22 10 22;
-  -fx-min-height: 40;
+  -fx-padding: 11 26 11 26;
+  -fx-min-height: 42;
 }
 
 .build-publisher-plan-title {
@@ -6549,6 +6531,15 @@ The editor.css file defines the visual styling for the editor module, including 
 
 .build-publisher-options {
   -fx-padding: 2 0 2 0;
+}
+
+.build-publisher-native-release {
+  -fx-padding: 12;
+  -fx-background-color: rgba(72, 139, 88, 0.08);
+  -fx-background-radius: 8;
+  -fx-border-color: rgba(112, 190, 131, 0.24);
+  -fx-border-radius: 8;
+  -fx-border-width: 1;
 }
 
 .build-publisher-option {

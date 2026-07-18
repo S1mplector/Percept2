@@ -750,6 +750,7 @@ fun runtimeImageModules(): List<String> {
     "java.scripting",
     "java.sql",
     "java.xml",
+    "jdk.management",
     "jdk.unsupported"
   )
   modules += jvnJavaFxRuntimeModules
@@ -2462,6 +2463,15 @@ tasks.register("prepareJvnGameNativeInputCurrent") {
   jvnGameRuntimeProjectPaths.forEach { projectPath ->
     dependsOn("$projectPath:jar")
   }
+  inputs.files(providers.provider { gameRuntimeClasspathJars() })
+    .withPropertyName("runtimeClasspath")
+    .withPathSensitivity(PathSensitivity.RELATIVE)
+  inputs.dir(providers.provider { gameProjectDir() })
+    .withPropertyName("gameProject")
+    .withPathSensitivity(PathSensitivity.RELATIVE)
+  inputs.property("nativePackageType", providers.provider { currentJpackageType() })
+  inputs.property("releaseProfile", providers.provider { selectedReleaseProfileName() })
+  inputs.property("packageVariant", providers.provider { selectedPackageVariant() })
   outputs.dir(providers.provider { jpackageInputDir() })
   outputs.dir(providers.provider { jpackageContentDir() })
   doLast {
