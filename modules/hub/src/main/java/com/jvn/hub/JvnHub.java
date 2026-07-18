@@ -18,6 +18,7 @@ import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.awt.LayoutManager;
 import java.awt.LinearGradientPaint;
+import java.awt.RadialGradientPaint;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Shape;
@@ -25,11 +26,14 @@ import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.awt.font.GlyphVector;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Arc2D;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
+import java.awt.geom.Point2D;
 import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
@@ -242,6 +246,8 @@ public final class JvnHub {
   private HubShellPanel shellPanel;
   private boolean frameConfigured;
   private boolean shutdownInProgress;
+  private ResizeOverlay resizeOverlay;
+  private javax.swing.Timer resizeOverlayTimer;
 
   private JvnHub(Path projectRoot) {
     this.projectRoot = projectRoot;
@@ -543,6 +549,7 @@ public final class JvnHub {
     frame.getRootPane().setBackground(BG);
     frame.getRootPane().setOpaque(true);
     frame.getContentPane().setBackground(BG);
+    installResizeOverlay();
 
     Dimension hubSize = uiDimension(BASE_HUB_WIDTH, BASE_HUB_HEIGHT);
     frame.setResizable(true);
@@ -553,6 +560,26 @@ public final class JvnHub {
     frame.setLocationRelativeTo(null);
 
     installApplicationIcon(frame);
+  }
+
+  private void installResizeOverlay() {
+    resizeOverlay = new ResizeOverlay(frame);
+    resizeOverlayTimer = new javax.swing.Timer(520, event -> resizeOverlay.setVisible(false));
+    resizeOverlayTimer.setRepeats(false);
+    frame.setGlassPane(resizeOverlay);
+    frame.addComponentListener(new ComponentAdapter() {
+      @Override
+      public void componentResized(ComponentEvent event) {
+        if (!frame.isShowing() || shutdownInProgress) return;
+        resizeOverlay.updateDimensions();
+        resizeOverlay.setVisible(true);
+        resizeOverlayTimer.restart();
+      }
+    });
+  }
+
+  static String formatWindowPixels(int width, int height) {
+    return Math.max(0, width) + " × " + Math.max(0, height) + " px";
   }
 
   private JMenuBar buildMenuBar() {
@@ -4986,6 +5013,81 @@ public final class JvnHub {
       int textY = badgeY + ui(14) - (ui(14) - fm.getAscent() + fm.getDescent()) / 2 - ui(1);
       g2.drawString(text, textX, textY);
       g2.dispose();
+    }
+  }
+
+  /** Temporary terminal-style size readout painted over the Hub during live resize. */
+  private static final class ResizeOverlay extends JComponent {
+    private final JFrame owner;
+    private String windowSize = "";
+    private String contentSize = "";
+
+    ResizeOverlay(JFrame owner) {
+      this.owner = owner;
+      setOpaque(false);
+      setVisible(false);
+    }
+
+    void updateDimensions() {
+      windowSize = formatWindowPixels(owner.getWidth(), owner.getHeight());
+      Component content = owner.getContentPane();
+      contentSize = "CONTENT  " + formatWindowPixels(content.getWidth(), content.getHeight());
+      repaint();
+    }
+
+    @Override
+    protected void paintComponent(Graphics graphics) {
+      int width = getWidth();
+      int height = getHeight();
+      if (width <= 0 || height <= 0) return;
+      Graphics2D g = (Graphics2D) graphics.create();
+      try {
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g.setColor(new Color(30, 14, 2, 112));
+        g.fillRect(0, 0, width, height);
+        paintCloud(g, width * 0.18f, height * 0.35f, Math.max(width, height) * 0.46f, 86);
+        paintCloud(g, width * 0.52f, height * 0.62f, Math.max(width, height) * 0.55f, 72);
+        paintCloud(g, width * 0.84f, height * 0.28f, Math.max(width, height) * 0.40f, 64);
+        paintCloud(g, width * 0.70f, height * 0.88f, Math.max(width, height) * 0.34f, 52);
+
+        Font dimensionFont = getFont().deriveFont(Font.BOLD, uiFont(34f));
+        g.setFont(dimensionFont);
+        FontMetrics dimensionMetrics = g.getFontMetrics();
+        int dimensionX = (width - dimensionMetrics.stringWidth(windowSize)) / 2;
+        int baseline = height / 2 + dimensionMetrics.getAscent() / 3;
+        g.setColor(new Color(0, 0, 0, 145));
+        g.drawString(windowSize, dimensionX + ui(2), baseline + ui(3));
+        g.setColor(Color.decode("#fff4e8"));
+        g.drawString(windowSize, dimensionX, baseline);
+
+        Font detailFont = getFont().deriveFont(Font.BOLD, uiFont(10f));
+        g.setFont(detailFont);
+        FontMetrics detailMetrics = g.getFontMetrics();
+        int detailX = (width - detailMetrics.stringWidth(contentSize)) / 2;
+        int detailBaseline = baseline + ui(24);
+        g.setColor(new Color(255, 210, 168, 225));
+        g.drawString(contentSize, detailX, detailBaseline);
+      } finally {
+        g.dispose();
+      }
+    }
+
+    private static void paintCloud(Graphics2D g, float centerX, float centerY, float radius, int alpha) {
+      float safeRadius = Math.max(1f, radius);
+      g.setPaint(new RadialGradientPaint(
+          new Point2D.Float(centerX, centerY),
+          safeRadius,
+          new float[] {0f, 0.45f, 1f},
+          new Color[] {
+              new Color(255, 145, 38, alpha),
+              new Color(225, 91, 12, alpha / 2),
+              new Color(116, 36, 0, 0)
+          }));
+      g.fill(new Ellipse2D.Float(
+          centerX - safeRadius,
+          centerY - safeRadius,
+          safeRadius * 2f,
+          safeRadius * 2f));
     }
   }
 

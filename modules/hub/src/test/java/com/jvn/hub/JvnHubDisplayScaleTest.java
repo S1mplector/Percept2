@@ -29,6 +29,12 @@ class JvnHubDisplayScaleTest {
   }
 
   @Test
+  void resizeOverlayReportsClampedPixelDimensions() {
+    assertEquals("1280 × 720 px", JvnHub.formatWindowPixels(1280, 720));
+    assertEquals("0 × 480 px", JvnHub.formatWindowPixels(-1, 480));
+  }
+
+  @Test
   void sourceBuildIndicatorUsesTheHubOrangeAccent() {
     String label = JvnHub.formatVersionLabel("0.3.1");
     if (label.startsWith("<html>")) {
