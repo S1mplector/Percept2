@@ -4971,19 +4971,26 @@ public final class JvnHub {
   }
 
   private static void paintHeaderHoverBackdrop(Graphics2D g, JComponent component, boolean pressed) {
-    int inset = ui(3);
-    int width = Math.max(0, component.getWidth() - inset * 2);
-    int height = Math.max(0, component.getHeight() - inset * 2);
-    int arc = ui(9);
-
-    g.setColor(alpha(Color.BLACK, pressed ? 0.34f : 0.26f));
-    g.fillRoundRect(inset, inset + ui(3), width, height, arc, arc);
-    g.setColor(alpha(Color.WHITE, pressed ? 0.24f : 0.15f));
-    g.fillRoundRect(inset, inset, width, height, arc, arc);
-    g.setColor(alpha(Color.WHITE, pressed ? 0.68f : 0.46f));
-    g.drawRoundRect(inset, inset, Math.max(0, width - 1), Math.max(0, height - 1), arc, arc);
-    g.setColor(alpha(Color.WHITE, pressed ? 0.18f : 0.10f));
-    g.drawLine(inset + ui(5), inset + ui(2), component.getWidth() - inset - ui(5), inset + ui(2));
+    float radius = ui(17);
+    float centerX = component.getWidth() / 2.0f;
+    float centerY = component.getHeight() / 2.0f + ui(1);
+    float strength = pressed ? 0.34f : 0.24f;
+    RadialGradientPaint shadow = new RadialGradientPaint(
+        new Point2D.Float(centerX, centerY),
+        radius,
+        new float[]{0.0f, 0.48f, 0.76f, 1.0f},
+        new Color[]{
+            alpha(Color.WHITE, strength),
+            alpha(Color.WHITE, strength * 0.72f),
+            alpha(Color.WHITE, strength * 0.24f),
+            alpha(Color.WHITE, 0.0f)
+        });
+    g.setPaint(shadow);
+    g.fillOval(
+        Math.round(centerX - radius),
+        Math.round(centerY - radius),
+        Math.round(radius * 2.0f),
+        Math.round(radius * 2.0f));
   }
 
   /**
