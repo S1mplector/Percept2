@@ -38,6 +38,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URI;
+import java.lang.management.ManagementFactory;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -62,22 +63,29 @@ import javax.swing.BorderFactory;
 import javax.swing.AbstractButton;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.ButtonGroup;
 import javax.swing.ButtonModel;
 import javax.swing.JCheckBox;
+import javax.swing.JCheckBoxMenuItem;
 import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
+import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JToggleButton;
+import javax.swing.JWindow;
+import javax.swing.JProgressBar;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
@@ -102,6 +110,7 @@ public final class JvnHub {
 
   private static final String PACKAGED_GRADLE_CACHE_MARKER_FILE = ".jvn-packaged-gradle-cache.properties";
   private static final String PUBLIC_DOCUMENTATION_URL = "https://javavectornexus.com";
+  private static final String SOURCE_REPOSITORY_URL = "https://github.com/S1mplector/Java-Vector-Nexus";
   private static final String ENGINE_UPDATE_REMOTE = "origin";
   private static final String ENGINE_UPDATE_BRANCH = "stable";
   private static final String ENGINE_UPDATE_REMOTE_REF = ENGINE_UPDATE_REMOTE + "/" + ENGINE_UPDATE_BRANCH;
@@ -142,21 +151,22 @@ public final class JvnHub {
   private static final String VERSION = readVersion();
   private static final int BASE_HUB_WIDTH = 640;
   private static final int BASE_HUB_HEIGHT = 540;
-  private static final double MIN_UI_SCALE = 0.85;
+  private static final double MIN_UI_SCALE = 0.75;
   private static final double MAX_UI_SCALE = 1.85;
   private static final HubDisplayProfile DISPLAY_PROFILE = HubDisplayProfile.detect();
+  private static double activeUiScale = initialUiScale();
 
   private static int ui(int value) {
     if (value == 0) return 0;
-    return Math.max(1, (int) Math.round(value * DISPLAY_PROFILE.uiScale()));
+    return Math.max(1, (int) Math.round(value * activeUiScale));
   }
 
   private static float uiFont(float value) {
-    return (float) (value * DISPLAY_PROFILE.uiScale());
+    return (float) (value * activeUiScale);
   }
 
   private static float uiStroke(float value) {
-    return (float) Math.max(1.0, value * DISPLAY_PROFILE.uiScale());
+    return (float) Math.max(1.0, value * activeUiScale);
   }
 
   private static Dimension uiDimension(int width, int height) {
@@ -230,6 +240,8 @@ public final class JvnHub {
   /** Update button with a right-aligned incoming-commit badge. */
   private UpdateEngineButton updateEngineButton;
   private HubShellPanel shellPanel;
+  private boolean frameConfigured;
+  private boolean shutdownInProgress;
 
   private JvnHub(Path projectRoot) {
     this.projectRoot = projectRoot;
@@ -250,8 +262,16 @@ public final class JvnHub {
     // setBackground/setForeground verbatim, which is what the custom theme needs.
     applyHubDefaults();
     SwingUtilities.invokeLater(() -> {
-      JvnHub hub = new JvnHub(root);
-      hub.frame.setVisible(true);
+      HubLifecycleSplash splash = HubLifecycleSplash.startup();
+      splash.showCentered();
+      javax.swing.Timer launchDelay = new javax.swing.Timer(120, event -> {
+        ((javax.swing.Timer) event.getSource()).stop();
+        JvnHub hub = new JvnHub(root);
+        hub.frame.setVisible(true);
+        splash.closeAfter(320, null);
+      });
+      launchDelay.setRepeats(false);
+      launchDelay.start();
     });
   }
 
@@ -272,6 +292,40 @@ public final class JvnHub {
     UIManager.put("ToolTip.background", BG);
     UIManager.put("ToolTip.foreground", TEXT_SOFT);
     UIManager.put("ToolTip.border", BorderFactory.createLineBorder(BORDER_NEUTRAL));
+    // macOS's native delegates paint a light menu strip regardless of component
+    // background values. Basic delegates respect the Hub palette on every host.
+    UIManager.put("MenuBarUI", "javax.swing.plaf.basic.BasicMenuBarUI");
+    UIManager.put("MenuUI", "javax.swing.plaf.basic.BasicMenuUI");
+    UIManager.put("MenuItemUI", "javax.swing.plaf.basic.BasicMenuItemUI");
+    UIManager.put("CheckBoxMenuItemUI", "javax.swing.plaf.basic.BasicCheckBoxMenuItemUI");
+    UIManager.put("RadioButtonMenuItemUI", "javax.swing.plaf.basic.BasicRadioButtonMenuItemUI");
+    UIManager.put("PopupMenuUI", "javax.swing.plaf.basic.BasicPopupMenuUI");
+    UIManager.put("PopupMenuSeparatorUI", "javax.swing.plaf.basic.BasicPopupMenuSeparatorUI");
+    UIManager.put("MenuBar.background", BG_TOP);
+    UIManager.put("MenuBar.foreground", TEXT_PRIMARY);
+    UIManager.put("Menu.background", BG_TOP);
+    UIManager.put("Menu.foreground", TEXT_PRIMARY);
+    UIManager.put("Menu.selectionBackground", HOVER_BG);
+    UIManager.put("Menu.selectionForeground", TEXT_PRIMARY);
+    UIManager.put("MenuItem.background", PANEL_BG);
+    UIManager.put("MenuItem.foreground", TEXT_PRIMARY);
+    UIManager.put("MenuItem.selectionBackground", HOVER_BG);
+    UIManager.put("MenuItem.selectionForeground", TEXT_PRIMARY);
+    UIManager.put("CheckBoxMenuItem.background", PANEL_BG);
+    UIManager.put("CheckBoxMenuItem.foreground", TEXT_PRIMARY);
+    UIManager.put("CheckBoxMenuItem.selectionBackground", HOVER_BG);
+    UIManager.put("CheckBoxMenuItem.selectionForeground", TEXT_PRIMARY);
+    UIManager.put("RadioButtonMenuItem.background", PANEL_BG);
+    UIManager.put("RadioButtonMenuItem.foreground", TEXT_PRIMARY);
+    UIManager.put("RadioButtonMenuItem.selectionBackground", HOVER_BG);
+    UIManager.put("RadioButtonMenuItem.selectionForeground", TEXT_PRIMARY);
+    UIManager.put("PopupMenu.background", PANEL_BG);
+    UIManager.put("PopupMenu.foreground", TEXT_PRIMARY);
+    UIManager.put("PopupMenu.border", BorderFactory.createLineBorder(BORDER_NEUTRAL));
+    UIManager.put("Separator.background", PANEL_BG);
+    UIManager.put("Separator.foreground", BORDER_NEUTRAL);
+    UIManager.put("PopupMenuSeparator.background", PANEL_BG);
+    UIManager.put("PopupMenuSeparator.foreground", BORDER_NEUTRAL);
     UIManager.put("ScrollPane.background", BG);
     UIManager.put("TextArea.background", BG);
     UIManager.put("TextArea.foreground", LOG_TEXT);
@@ -283,7 +337,7 @@ public final class JvnHub {
   }
 
   private static void scaleDefaultUiFonts() {
-    if (Math.abs(DISPLAY_PROFILE.uiScale() - 1.0) < 0.01) return;
+    if (Math.abs(activeUiScale - 1.0) < 0.01) return;
     for (String key : List.of(
         "Button.font",
         "CheckBox.font",
@@ -341,6 +395,26 @@ public final class JvnHub {
         // Some containerized desktops do not expose DPI to AWT.
       }
 
+      double scale = automaticScaleForDisplay(screenWidth, screenHeight, dpi);
+      return new HubDisplayProfile(scale, screenWidth, screenHeight, dpi, deviceScale, false);
+    }
+
+    private static double parseScaleOverride(String raw) {
+      if (raw == null || raw.isBlank()) return Double.NaN;
+      try {
+        double parsed = Double.parseDouble(raw.trim());
+        return Double.isFinite(parsed) && parsed > 0.0 ? parsed : Double.NaN;
+      } catch (NumberFormatException ignored) {
+        return Double.NaN;
+      }
+    }
+
+    private static double clampScale(double value) {
+      return Math.max(MIN_UI_SCALE, Math.min(MAX_UI_SCALE, value));
+    }
+  }
+
+  static double automaticScaleForDisplay(int screenWidth, int screenHeight, int dpi) {
       int longSide = Math.max(screenWidth, screenHeight);
       int shortSide = screenWidth > 0 && screenHeight > 0 ? Math.min(screenWidth, screenHeight) : 0;
       double resolutionScale = 1.0;
@@ -361,36 +435,27 @@ public final class JvnHub {
         dpiScale = 1.20;
       }
 
-      double transformScale = deviceScale > 1.05
-          ? Math.min(1.60, 1.0 + (deviceScale - 1.0) * 0.55)
-          : 1.0;
-      double scale = Math.max(resolutionScale, Math.max(dpiScale, transformScale));
+      // Swing already renders in logical coordinates on HiDPI displays. Applying the
+      // graphics transform again makes Retina windows roughly 1.5x too large.
+      double scale = Math.max(resolutionScale, dpiScale);
       if (screenWidth > 0 && screenHeight > 0) {
         double widthCap = (screenWidth * 0.82) / BASE_HUB_WIDTH;
         double heightCap = (screenHeight * 0.82) / BASE_HUB_HEIGHT;
         double screenCap = Math.max(1.0, Math.min(widthCap, heightCap));
         scale = Math.min(scale, screenCap);
       }
-      return new HubDisplayProfile(clampScale(scale), screenWidth, screenHeight, dpi, deviceScale, false);
-    }
+      return HubDisplayProfile.clampScale(scale);
+  }
 
-    private static double parseScaleOverride(String raw) {
-      if (raw == null || raw.isBlank()) return Double.NaN;
-      try {
-        double parsed = Double.parseDouble(raw.trim());
-        return Double.isFinite(parsed) && parsed > 0.0 ? parsed : Double.NaN;
-      } catch (NumberFormatException ignored) {
-        return Double.NaN;
-      }
-    }
-
-    private static double clampScale(double value) {
-      return Math.max(MIN_UI_SCALE, Math.min(MAX_UI_SCALE, value));
-    }
+  static Dimension hubSizeForScale(double scale) {
+    double bounded = HubDisplayProfile.clampScale(scale);
+    return new Dimension(
+        (int) Math.round(BASE_HUB_WIDTH * bounded),
+        (int) Math.round(BASE_HUB_HEIGHT * bounded));
   }
 
   private static String displayScaleSummary() {
-    return String.format(Locale.ROOT, "Hub UI scale %.2fx", DISPLAY_PROFILE.uiScale());
+    return String.format(Locale.ROOT, "Hub UI scale %.2fx", activeUiScale);
   }
 
   private static String displayScaleDetails() {
@@ -406,13 +471,62 @@ public final class JvnHub {
         + "; deviceScale=" + String.format(Locale.ROOT, "%.2f", DISPLAY_PROFILE.deviceScale());
   }
 
+  private static double initialUiScale() {
+    if (DISPLAY_PROFILE.override()) return DISPLAY_PROFILE.uiScale();
+    Path file = uiStateFile();
+    if (!Files.isRegularFile(file)) return DISPLAY_PROFILE.uiScale();
+    Properties properties = new Properties();
+    try (InputStream input = Files.newInputStream(file)) {
+      properties.load(input);
+      String value = properties.getProperty("ui.scale", "auto").trim();
+      if (value.equalsIgnoreCase("auto")) return DISPLAY_PROFILE.uiScale();
+      return HubDisplayProfile.clampScale(Double.parseDouble(value));
+    } catch (IOException | NumberFormatException ignored) {
+      return DISPLAY_PROFILE.uiScale();
+    }
+  }
+
+  private static Path uiStateFile() {
+    return Paths.get(System.getProperty("user.home", "."), ".jvn", "hub-ui.properties");
+  }
+
+  private static boolean automaticUiScaleSelected() {
+    if (DISPLAY_PROFILE.override()) return false;
+    Path file = uiStateFile();
+    if (!Files.isRegularFile(file)) return true;
+    Properties properties = new Properties();
+    try (InputStream input = Files.newInputStream(file)) {
+      properties.load(input);
+      return properties.getProperty("ui.scale", "auto").trim().equalsIgnoreCase("auto");
+    } catch (IOException ignored) {
+      return true;
+    }
+  }
+
+  private void saveUiScale(String value) {
+    Path file = uiStateFile();
+    Properties properties = new Properties();
+    properties.setProperty("ui.scale", value);
+    try {
+      Files.createDirectories(file.getParent());
+      try (var output = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
+        properties.store(output, "JVN Engine Hub UI preferences. Auto-generated.");
+      }
+    } catch (IOException e) {
+      appendLog("[hub] could not save UI scale: " + e.getMessage());
+    }
+  }
+
   // --- UI assembly -----------------------------------------------------------
 
   private void buildUi() {
-    frame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
-    frame.addWindowListener(new WindowAdapter() {
-      @Override public void windowClosing(WindowEvent e) { confirmAndExit(); }
-    });
+    if (!frameConfigured) {
+      frame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
+      frame.addWindowListener(new WindowAdapter() {
+        @Override public void windowClosing(WindowEvent e) { confirmAndExit(); }
+      });
+      frameConfigured = true;
+    }
 
     JPanel root = new GradientPanel(new BorderLayout(0, ui(12)), BG_TOP, BG_BOTTOM);
     root.setBackground(BG);
@@ -423,6 +537,7 @@ public final class JvnHub {
     root.add(buildFooter(), BorderLayout.SOUTH);
 
     frame.setContentPane(root);
+    frame.setJMenuBar(buildMenuBar());
     // Keep frame/root chrome aligned with the custom charcoal-neutral surface.
     frame.setBackground(BG);
     frame.getRootPane().setBackground(BG);
@@ -438,6 +553,195 @@ public final class JvnHub {
     frame.setLocationRelativeTo(null);
 
     installApplicationIcon(frame);
+  }
+
+  private JMenuBar buildMenuBar() {
+    JMenuBar bar = new JMenuBar() {
+      @Override
+      protected void paintComponent(Graphics graphics) {
+        graphics.setColor(BG_TOP);
+        graphics.fillRect(0, 0, getWidth(), getHeight());
+      }
+    };
+    bar.setOpaque(true);
+    bar.setBackground(BG_TOP);
+    bar.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, BORDER_NEUTRAL));
+
+    JMenu file = hubMenu("File");
+    file.add(hubMenuItem("Show Engine Folder", this::revealEngineRoot));
+    file.add(hubMenuItem("Show Hub Data Folder", () -> revealHubFolder("data", Paths.get(System.getProperty("user.home", "."), ".jvn"))));
+    file.add(hubMenuItem("Show Hub Logs", () -> revealHubFolder("logs", Paths.get(System.getProperty("user.home", "."), ".jvn", "logs"))));
+    file.add(hubMenuItem("Copy Engine Path", this::copyEngineRootPath));
+    file.addSeparator();
+    file.add(hubMenuItem("Quit Engine Hub", this::confirmAndExit));
+
+    JMenu engine = hubMenu("Engine");
+    engine.add(hubMenuItem("Run Editor", () -> clickIfAvailable(runEditorButton)));
+    engine.addSeparator();
+    engine.add(hubMenuItem("Refresh Hub State", this::refreshFromDisk));
+
+    JMenu build = hubMenu("Build");
+    build.add(hubMenuItem("Compile All Modules", () -> guardedRun(
+        "Compile All Modules", () -> runGradle("compileAll", "Compile All Modules"))));
+    build.add(hubMenuItem("Build All Modules", () -> clickIfAvailable(buildAllButton)));
+    build.add(hubMenuItem("Quick Verification", () -> guardedRun(
+        "Quick Verification", () -> runGradle("quickCheck", "Quick Verification"))));
+    build.add(hubMenuItem("Run Test Suite", () -> clickIfAvailable(runTestsButton)));
+    build.addSeparator();
+    build.add(hubMenuItem("Gradle Options", this::showGradleOptionsDialog));
+    build.add(hubMenuItem("Install Platform Shortcuts", () -> clickIfAvailable(buildShortcutsButton)));
+
+    JMenu sourceControl = hubMenu("Source Control");
+    sourceControl.setForeground(ACCENT_MAINTENANCE);
+    sourceControl.add(hubMenuItem("Check for Engine Updates", () -> checkIncomingUpdates(true)));
+    sourceControl.add(hubMenuItem("Update from Stable", () -> clickIfAvailable(updateEngineButton)));
+    sourceControl.addSeparator();
+    sourceControl.add(hubMenuItem("Open GitHub Repository", this::openSourceRepository));
+    sourceControl.add(hubMenuItem("Copy Current Branch", this::copyCurrentBranch));
+
+    JMenu tools = hubMenu("Tools");
+    tools.add(hubMenuItem("Run Diagnostics", this::showDiagnosticsReport));
+    tools.add(hubMenuItem("Show Hub Data Folder", () -> revealHubFolder(
+        "data", Paths.get(System.getProperty("user.home", "."), ".jvn"))));
+    tools.add(hubMenuItem("Show Hub Logs", () -> revealHubFolder(
+        "logs", Paths.get(System.getProperty("user.home", "."), ".jvn", "logs"))));
+    tools.addSeparator();
+    tools.add(hubMenuItem("Cancel Running Task", this::cancelRunning));
+
+    JMenu view = hubMenu("View");
+    view.add(buildUiScaleMenu());
+    view.addSeparator();
+    JCheckBoxMenuItem safeMode = hubCheckMenuItem("Safe Mode", safeModeEnabled);
+    safeMode.addActionListener(e -> setSafeModeEnabled(safeMode.isSelected()));
+    view.add(safeMode);
+    JCheckBoxMenuItem developerMode = hubCheckMenuItem("Developer Mode", developerModeEnabled);
+    developerMode.addActionListener(e -> setDeveloperModeEnabled(developerMode.isSelected()));
+    view.add(developerMode);
+
+    JMenu help = hubMenu("Help");
+    help.add(hubMenuItem("Documentation", this::openDocumentationWebsite));
+    help.add(hubMenuItem("Announcements", this::showAnnouncementsDialog));
+    help.addSeparator();
+    help.add(hubMenuItem("About Engine Hub", this::showAboutReport));
+
+    bar.add(file);
+    bar.add(engine);
+    bar.add(build);
+    bar.add(sourceControl);
+    bar.add(tools);
+    if (developerModeEnabled) bar.add(buildDeveloperModeMenu());
+    if (safeModeEnabled) bar.add(buildSafeModeMenu());
+    bar.add(view);
+    bar.add(help);
+    return bar;
+  }
+
+  private JMenu buildDeveloperModeMenu() {
+    JMenu developer = hubMenu("Developer");
+    developer.setForeground(ACCENT_DEV);
+    developer.add(hubMenuItem("Compile All Modules", () -> guardedRun(
+        "Compile All Modules", () -> runGradle("compileAll", "Compile All Modules"))));
+    developer.add(hubMenuItem("Quick Verification", () -> guardedRun(
+        "Quick Verification", () -> runGradle("quickCheck", "Quick Verification"))));
+    developer.add(hubMenuItem("Run Full Test Suite", () -> clickIfAvailable(runTestsButton)));
+    developer.addSeparator();
+    developer.add(hubMenuItem("Configure Gradle", this::showGradleOptionsDialog));
+    developer.add(hubMenuItem("Inspect Engine Diagnostics", this::showDiagnosticsReport));
+    return developer;
+  }
+
+  private JMenu buildSafeModeMenu() {
+    JMenu safe = hubMenu("Safe Mode");
+    safe.setForeground(ACCENT_SAFE);
+    safe.add(hubMenuItem("Run Editor with Guardrails", () -> clickIfAvailable(runEditorButton)));
+    safe.add(hubMenuItem("Update Stable with Recovery", () -> clickIfAvailable(updateEngineButton)));
+    safe.addSeparator();
+    safe.add(hubMenuItem("Recheck Workspace Health", this::showDiagnosticsReport));
+    safe.add(hubMenuItem("Open Recovery Logs", () -> revealHubFolder(
+        "logs", Paths.get(System.getProperty("user.home", "."), ".jvn", "logs"))));
+    safe.add(hubMenuItem("Cancel Running Task", this::cancelRunning));
+    return safe;
+  }
+
+  private JMenu buildUiScaleMenu() {
+    JMenu scale = hubMenu("UI Scale");
+    scale.setBackground(PANEL_BG);
+    ButtonGroup choices = new ButtonGroup();
+    boolean automatic = automaticUiScaleSelected();
+    addScaleChoice(scale, choices, "Auto (Fit Display)", Double.NaN, automatic);
+    addScaleChoice(scale, choices, "Compact (75%)", 0.75, !automatic && nearScale(0.75));
+    addScaleChoice(scale, choices, "Small (85%)", 0.85, !automatic && nearScale(0.85));
+    addScaleChoice(scale, choices, "Default (100%)", 1.0, !automatic && nearScale(1.0));
+    addScaleChoice(scale, choices, "Large (125%)", 1.25, !automatic && nearScale(1.25));
+    return scale;
+  }
+
+  private void addScaleChoice(JMenu menu, ButtonGroup choices, String label, double value, boolean selected) {
+    JRadioButtonMenuItem item = new JRadioButtonMenuItem(label, selected);
+    styleMenuItem(item);
+    item.addActionListener(e -> applyUiScale(value));
+    choices.add(item);
+    menu.add(item);
+  }
+
+  private boolean nearScale(double value) {
+    return Math.abs(activeUiScale - value) < 0.01;
+  }
+
+  private void applyUiScale(double requestedScale) {
+    if (runningProcess.get() != null) {
+      appendLog("[hub] UI scale cannot change while an action is running.");
+      return;
+    }
+    boolean automatic = !Double.isFinite(requestedScale);
+    double newScale = automatic ? DISPLAY_PROFILE.uiScale() : HubDisplayProfile.clampScale(requestedScale);
+    saveUiScale(automatic ? "auto" : String.format(Locale.ROOT, "%.2f", newScale));
+    if (Math.abs(activeUiScale - newScale) < 0.01) {
+      frame.setJMenuBar(buildMenuBar());
+      return;
+    }
+
+    activeUiScale = newScale;
+    actionButtons.clear();
+    activityPanel.removeAll();
+    buildUi();
+    setDeveloperModeEnabled(developerModeEnabled);
+    setSafeModeEnabled(safeModeEnabled);
+    frame.revalidate();
+    frame.repaint();
+    appendLog("[hub] UI scale changed to " + String.format(Locale.ROOT, "%.0f%%", newScale * 100.0) + ".");
+  }
+
+  private static JMenu hubMenu(String text) {
+    JMenu menu = new JMenu(text);
+    menu.setOpaque(true);
+    menu.setBackground(BG_TOP);
+    menu.setForeground(TEXT_PRIMARY);
+    menu.setFont(menu.getFont().deriveFont(Font.PLAIN, uiFont(12f)));
+    menu.getPopupMenu().setOpaque(true);
+    menu.getPopupMenu().setBackground(PANEL_BG);
+    menu.getPopupMenu().setBorder(BorderFactory.createLineBorder(BORDER_NEUTRAL));
+    return menu;
+  }
+
+  private static JMenuItem hubMenuItem(String text, Runnable action) {
+    JMenuItem item = new JMenuItem(text);
+    styleMenuItem(item);
+    item.addActionListener(e -> action.run());
+    return item;
+  }
+
+  private static JCheckBoxMenuItem hubCheckMenuItem(String text, boolean selected) {
+    JCheckBoxMenuItem item = new JCheckBoxMenuItem(text, selected);
+    styleMenuItem(item);
+    return item;
+  }
+
+  private static void styleMenuItem(JMenuItem item) {
+    item.setOpaque(true);
+    item.setBackground(PANEL_BG);
+    item.setForeground(TEXT_PRIMARY);
+    item.setFont(item.getFont().deriveFont(Font.PLAIN, uiFont(12f)));
   }
 
   private static void installApplicationIcon(JFrame frame) {
@@ -844,6 +1148,7 @@ public final class JvnHub {
     runEditorButton = makeAction("Run Editor", "Launch the full JVN editor.",
         VectorIcon.Kind.EDIT, null, () -> guardedRun("Run Editor", () -> runGradle(":editor:run", "Run Editor")));
 
+    // Launcher access is intentionally withheld while that workflow is under maintenance.
     runLauncherButton = makeLauncherAction();
 
     buildAllButton = makeAction("Build All", "Compile every module.",
@@ -867,20 +1172,24 @@ public final class JvnHub {
 
     shellPanel = new HubShellPanel();
 
+    JPanel workspace = new JPanel(new BorderLayout(0, ui(10)));
+    workspace.setOpaque(false);
+    workspace.add(new HubPerformancePanel(), BorderLayout.NORTH);
+    workspace.add(shellPanel, BorderLayout.CENTER);
+
     JPanel center = new JPanel(new BorderLayout(0, ui(8)));
     center.setOpaque(false);
     center.add(actionGrid, BorderLayout.NORTH);
     center.add(buildActivityPanel(), BorderLayout.SOUTH);
-    center.add(shellPanel, BorderLayout.CENTER);
+    center.add(workspace, BorderLayout.CENTER);
     return center;
   }
 
   private void rebuildActionGrid() {
     if (actionGrid == null) return;
     actionGrid.removeAll();
-    actionGrid.setLayout(new GridLayout(developerModeEnabled ? 4 : 3, 2, ui(10), ui(10)));
+    actionGrid.setLayout(new GridLayout(developerModeEnabled ? 3 : 2, 2, ui(10), ui(10)));
     actionGrid.add(runEditorButton);
-    actionGrid.add(runLauncherButton);
     actionGrid.add(buildAllButton);
     if (developerModeEnabled) {
       actionGrid.add(runTestsButton);
@@ -1029,7 +1338,6 @@ public final class JvnHub {
     menu.setBackground(PANEL_BG);
     menu.setBorder(BorderFactory.createLineBorder(BORDER_NEUTRAL));
     menu.add(popupItem("Run Editor", () -> clickIfAvailable(runEditorButton)));
-    menu.add(popupItem("Run Launcher", () -> clickIfAvailable(runLauncherButton)));
     menu.add(popupItem("Build All", () -> clickIfAvailable(buildAllButton)));
     menu.addSeparator();
     menu.add(popupItem("Update Engine", this::updateEngine));
@@ -1069,9 +1377,26 @@ public final class JvnHub {
     }
   }
 
+  private void revealHubFolder(String label, Path folder) {
+    try {
+      Files.createDirectories(folder);
+      java.awt.Desktop.getDesktop().open(folder.toFile());
+      setStatus("Opened Hub " + label, ACCENT_NEUTRAL);
+    } catch (Exception e) {
+      setStatus("Could not open Hub " + label, ACCENT_ERROR);
+      setActivity("Open folder failed", e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage(), false, ACCENT_ERROR);
+    }
+  }
+
   private void copyEngineRootPath() {
     Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(projectRoot.toString()), null);
     setStatus("Copied engine root path", ACCENT_NEUTRAL);
+  }
+
+  private void copyCurrentBranch() {
+    String branch = resolveBranch(projectRoot);
+    Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(branch), null);
+    setStatus("Copied branch " + branch, ACCENT_NEUTRAL);
   }
 
   private static JPanel footerItem(String caption, JLabel value) {
@@ -1185,6 +1510,7 @@ public final class JvnHub {
         : "Editor-side launches use the standard engine startup path. Update Engine uses the normal Git update path.";
     setStatus(title, enabled ? ACCENT_SAFE : TEXT_SOFT);
     setActivity(title, detail, false, enabled ? ACCENT_SAFE : TEXT_MUTED);
+    refreshModeMenus();
   }
 
   private void setDeveloperModeEnabled(boolean enabled) {
@@ -1203,6 +1529,14 @@ public final class JvnHub {
       frame.setPreferredSize(null);
       frame.pack();
     }
+    refreshModeMenus();
+  }
+
+  private void refreshModeMenus() {
+    if (!frameConfigured) return;
+    frame.setJMenuBar(buildMenuBar());
+    frame.revalidate();
+    frame.repaint();
   }
 
   private void showGradleOptionsDialog() {
@@ -1810,16 +2144,24 @@ public final class JvnHub {
   }
 
   private void openDocumentationWebsite() {
+    openWebsite("Documentation website", PUBLIC_DOCUMENTATION_URL);
+  }
+
+  private void openSourceRepository() {
+    openWebsite("Source repository", SOURCE_REPOSITORY_URL);
+  }
+
+  private void openWebsite(String label, String url) {
     try {
       if (!java.awt.Desktop.isDesktopSupported()
           || !java.awt.Desktop.getDesktop().isSupported(java.awt.Desktop.Action.BROWSE)) {
         throw new IOException("Desktop browser integration is not available.");
       }
-      java.awt.Desktop.getDesktop().browse(URI.create(PUBLIC_DOCUMENTATION_URL));
-      setActivity("Documentation website", PUBLIC_DOCUMENTATION_URL, false, ACCENT_NEUTRAL);
+      java.awt.Desktop.getDesktop().browse(URI.create(url));
+      setActivity(label, url, false, ACCENT_NEUTRAL);
     } catch (Exception ex) {
       String detail = ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage();
-      appendLog("[hub] could not open documentation website: " + detail);
+      appendLog("[hub] could not open " + label.toLowerCase(Locale.ROOT) + ": " + detail);
       setActivity("Open website failed", detail, false, ACCENT_ERROR);
     }
   }
@@ -2644,6 +2986,11 @@ public final class JvnHub {
   }
 
   private void confirmAndExit() {
+    if (shutdownInProgress) return;
+    shutdownInProgress = true;
+    HubLifecycleSplash splash = HubLifecycleSplash.shutdown(
+        "Verifying tasks and engine state...");
+    splash.showCentered();
     Process p = runningProcess.get();
     if (p != null) {
       appendLog("[hub] cancelling running task before exit...");
@@ -2652,11 +2999,20 @@ public final class JvnHub {
       p.destroy();
     }
     if (spinnerTimer.isRunning()) spinnerTimer.stop();
-    frame.dispose();
-    // Give child processes a moment to die.
+    frame.setVisible(false);
     new Thread(() -> {
-      try { Thread.sleep(150); } catch (InterruptedException ignored) { Thread.currentThread().interrupt(); }
-      System.exit(0);
+      if (p != null) {
+        try {
+          p.waitFor(650, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException ignored) {
+          Thread.currentThread().interrupt();
+        }
+      }
+      SwingUtilities.invokeLater(() -> splash.completeShutdown(
+          () -> {
+            frame.dispose();
+            System.exit(0);
+          }));
     }, "jvn-hub-shutdown").start();
   }
 
@@ -3628,10 +3984,11 @@ public final class JvnHub {
     return VERSION;
   }
 
-  private static String formatVersionLabel(String rawVersion) {
+  static String formatVersionLabel(String rawVersion) {
     String version = displayVersionLabel(rawVersion);
     if (!isRunningFromSource()) return version;
-    return "<html>" + version + "<br><span style='font-size:9px;font-weight:normal'>Running from source</span></html>";
+    return "<html>" + version
+        + "<br><span style='color:#ff9933;font-size:9px;font-weight:normal'>Running from source</span></html>";
   }
 
   private static String displayVersionLabel(String rawVersion) {
@@ -5200,6 +5557,325 @@ public final class JvnHub {
         g2.draw(mark);
       }
       g2.dispose();
+    }
+  }
+
+  private static final class HubLifecycleSplash extends JWindow {
+    private final JLabel status;
+    private final JLabel thanks;
+    private final JProgressBar progress;
+
+    private HubLifecycleSplash(JPanel content, int width, int height,
+                               JLabel status, JLabel thanks, JProgressBar progress) {
+      this.status = status;
+      this.thanks = thanks;
+      this.progress = progress;
+      setBackground(new Color(0, 0, 0, 0));
+      setContentPane(content);
+      setAlwaysOnTop(true);
+      setSize(ui(width), ui(height));
+    }
+
+    static HubLifecycleSplash startup() {
+      JPanel pane = new JPanel();
+      pane.setOpaque(false);
+      pane.setLayout(new BoxLayout(pane, BoxLayout.Y_AXIS));
+      pane.setBorder(uiPadding(18, 18, 18, 18));
+
+      JLabel logo = centered(new JLabel(new JvnLogoIcon(ui(230), ui(118))));
+      JLabel version = centered(new JLabel(displayVersionLabel(VERSION)));
+      version.setForeground(Color.decode("#f4f6f8"));
+      version.setFont(version.getFont().deriveFont(Font.BOLD, uiFont(18f)));
+      JLabel source = centered(new JLabel(isRunningFromSource() ? "Running from source" : ""));
+      source.setForeground(Color.decode("#d5dae0"));
+      source.setFont(source.getFont().deriveFont(Font.BOLD, uiFont(12f)));
+      source.setVisible(!source.getText().isBlank());
+
+      pane.add(Box.createVerticalGlue());
+      pane.add(logo);
+      pane.add(version);
+      pane.add(Box.createVerticalStrut(ui(4)));
+      pane.add(source);
+      pane.add(Box.createVerticalGlue());
+      return new HubLifecycleSplash(pane, 520, 300, null, null, null);
+    }
+
+    static HubLifecycleSplash shutdown(String detail) {
+      JPanel pane = new GradientPanel(new GridBagLayout(), Color.decode("#232323"), Color.decode("#171717"));
+      pane.setBorder(BorderFactory.createCompoundBorder(
+          BorderFactory.createLineBorder(Color.decode("#3a3a3a")),
+          uiPadding(24, 34, 24, 34)));
+      JPanel stack = new JPanel();
+      stack.setOpaque(false);
+      stack.setLayout(new BoxLayout(stack, BoxLayout.Y_AXIS));
+
+      JLabel logo = centered(new JLabel(new JvnLogoIcon(ui(150), ui(76))));
+      JLabel title = centered(new JLabel("Closing JVN"));
+      title.setForeground(Color.decode("#f4f4f4"));
+      title.setFont(title.getFont().deriveFont(Font.BOLD, uiFont(20f)));
+      JLabel status = centered(new JLabel(detail));
+      status.setForeground(Color.decode("#b8b8b8"));
+      status.setFont(status.getFont().deriveFont(Font.BOLD, uiFont(12f)));
+      JProgressBar progress = new JProgressBar();
+      progress.setAlignmentX(Component.CENTER_ALIGNMENT);
+      progress.setIndeterminate(true);
+      progress.setBorderPainted(false);
+      progress.setBackground(Color.decode("#111111"));
+      progress.setForeground(ACCENT_DEV);
+      progress.setMaximumSize(new Dimension(ui(300), ui(5)));
+      progress.setPreferredSize(new Dimension(ui(300), ui(5)));
+      JLabel thanks = centered(new JLabel("Thank you for choosing JVN."));
+      thanks.setForeground(Color.decode("#ff9933"));
+      thanks.setFont(thanks.getFont().deriveFont(Font.BOLD, uiFont(14f)));
+      thanks.setVisible(false);
+
+      stack.add(logo);
+      stack.add(Box.createVerticalStrut(ui(9)));
+      stack.add(title);
+      stack.add(Box.createVerticalStrut(ui(9)));
+      stack.add(status);
+      stack.add(Box.createVerticalStrut(ui(9)));
+      stack.add(progress);
+      stack.add(Box.createVerticalStrut(ui(9)));
+      stack.add(thanks);
+      pane.add(stack);
+      return new HubLifecycleSplash(pane, 390, 245, status, thanks, progress);
+    }
+
+    private static JLabel centered(JLabel label) {
+      label.setAlignmentX(Component.CENTER_ALIGNMENT);
+      label.setHorizontalAlignment(SwingConstants.CENTER);
+      return label;
+    }
+
+    void showCentered() {
+      setLocationRelativeTo(null);
+      setVisible(true);
+      toFront();
+    }
+
+    void completeShutdown(Runnable afterClose) {
+      status.setText("Everything is safely closed.");
+      progress.setIndeterminate(false);
+      progress.setValue(100);
+      thanks.setVisible(true);
+      revalidate();
+      repaint();
+      closeAfter(850, afterClose);
+    }
+
+    void closeAfter(int visibleMillis, Runnable afterClose) {
+      javax.swing.Timer closeDelay = new javax.swing.Timer(visibleMillis, event -> {
+        ((javax.swing.Timer) event.getSource()).stop();
+        dispose();
+        if (afterClose != null) afterClose.run();
+      });
+      closeDelay.setRepeats(false);
+      closeDelay.start();
+    }
+  }
+
+  private final class HubPerformancePanel extends JPanel {
+    private final JLabel cpuValue = metricValue();
+    private final JLabel heapValue = metricValue();
+    private final JLabel threadsValue = metricValue();
+    private final JLabel activityValue = metricValue();
+    private final JLabel engineValue = new JLabel();
+    private final PerformanceGraph graph = new PerformanceGraph();
+    private final String revision = readGitValue(List.of("git", "rev-parse", "--short", "HEAD"), "unknown");
+    private final javax.swing.Timer refreshTimer = new javax.swing.Timer(1000, event -> refreshMetrics());
+
+    HubPerformancePanel() {
+      super(new BorderLayout(0, ui(8)));
+      setBackground(PANEL_BG);
+      setBorder(BorderFactory.createCompoundBorder(
+          BorderFactory.createLineBorder(BORDER_NEUTRAL),
+          uiPadding(9, 12, 10, 12)));
+
+      engineValue.setForeground(TEXT_MUTED);
+      engineValue.setFont(engineValue.getFont().deriveFont(Font.PLAIN, uiFont(9f)));
+      engineValue.setHorizontalAlignment(SwingConstants.RIGHT);
+
+      JPanel header = new JPanel(new BorderLayout());
+      header.setOpaque(false);
+      header.add(engineValue, BorderLayout.CENTER);
+      add(header, BorderLayout.NORTH);
+
+      add(graph, BorderLayout.CENTER);
+
+      JPanel metrics = new JPanel(new GridLayout(1, 4, ui(8), 0));
+      metrics.setOpaque(false);
+      metrics.add(metric("CPU", cpuValue));
+      metrics.add(metric("JVM heap", heapValue));
+      metrics.add(metric("Threads", threadsValue));
+      metrics.add(metric("Hub task", activityValue));
+      metrics.setMinimumSize(new Dimension(0, ui(38)));
+      metrics.setPreferredSize(new Dimension(0, ui(38)));
+      add(metrics, BorderLayout.SOUTH);
+      setPreferredSize(new Dimension(0, ui(148)));
+      refreshMetrics();
+    }
+
+    @Override
+    public void addNotify() {
+      super.addNotify();
+      refreshMetrics();
+      refreshTimer.start();
+    }
+
+    @Override
+    public void removeNotify() {
+      refreshTimer.stop();
+      super.removeNotify();
+    }
+
+    private void refreshMetrics() {
+      Runtime runtime = Runtime.getRuntime();
+      long heapUsed = runtime.totalMemory() - runtime.freeMemory();
+      long heapMax = runtime.maxMemory();
+      heapValue.setText(formatBytes(heapUsed) + " / " + formatBytes(heapMax));
+      threadsValue.setText(Integer.toString(ManagementFactory.getThreadMXBean().getThreadCount()));
+      boolean active = runningProcess.get() != null;
+      activityValue.setText(active ? statusLabel.getText() : "Idle");
+      activityValue.setForeground(active ? ACCENT_GREEN : TEXT_SOFT);
+
+      java.lang.management.OperatingSystemMXBean genericBean = ManagementFactory.getOperatingSystemMXBean();
+      double cpuLoad = 0.0;
+      if (genericBean instanceof com.sun.management.OperatingSystemMXBean systemBean) {
+        cpuLoad = systemBean.getProcessCpuLoad();
+        cpuValue.setText(cpuLoad >= 0.0 ? String.format(Locale.ROOT, "%.0f%%", cpuLoad * 100.0) : "--");
+      } else {
+        cpuValue.setText("--");
+      }
+
+      long uptimeSeconds = ManagementFactory.getRuntimeMXBean().getUptime() / 1000L;
+      String updates = lastKnownIncoming > 0
+          ? lastKnownIncoming + " incoming"
+          : lastKnownIncoming == 0 ? "up to date" : "updates unknown";
+      engineValue.setText(resolveBranch(projectRoot) + " @ " + revision + "  ·  " + updates
+          + "  ·  uptime " + formatUptime(uptimeSeconds));
+      double heapRatio = heapMax > 0L ? Math.min(1.0, (double) heapUsed / heapMax) : 0.0;
+      graph.pushSample(Math.max(0.0, cpuLoad), heapRatio, active ? 1.0 : 0.0);
+    }
+
+    private static JPanel metric(String name, JLabel value) {
+      JPanel chip = new JPanel(new BorderLayout(0, ui(2)));
+      chip.setBackground(PANEL_BG_TOP);
+      chip.setBorder(uiPadding(5, 7, 5, 7));
+      JLabel label = new JLabel(name);
+      label.setForeground(TEXT_MUTED);
+      label.setFont(label.getFont().deriveFont(Font.BOLD, uiFont(8f)));
+      chip.add(label, BorderLayout.NORTH);
+      chip.add(value, BorderLayout.CENTER);
+      return chip;
+    }
+
+    private static JLabel metricValue() {
+      JLabel value = new JLabel("--");
+      value.setForeground(TEXT_SOFT);
+      value.setFont(value.getFont().deriveFont(Font.BOLD, uiFont(9f)));
+      return value;
+    }
+
+    private static String formatBytes(long bytes) {
+      if (bytes < 0L) return "--";
+      double gibibytes = bytes / (1024.0 * 1024.0 * 1024.0);
+      if (gibibytes >= 1.0) return String.format(Locale.ROOT, "%.1f GB", gibibytes);
+      return String.format(Locale.ROOT, "%.0f MB", bytes / (1024.0 * 1024.0));
+    }
+
+    private static String formatUptime(long seconds) {
+      long hours = seconds / 3600L;
+      long minutes = (seconds % 3600L) / 60L;
+      long remainder = seconds % 60L;
+      return hours > 0L
+          ? String.format(Locale.ROOT, "%dh %02dm", hours, minutes)
+          : String.format(Locale.ROOT, "%dm %02ds", minutes, remainder);
+    }
+
+    private static final class PerformanceGraph extends JComponent {
+      private static final int SAMPLE_COUNT = 120;
+      private final double[] cpu = new double[SAMPLE_COUNT];
+      private final double[] heap = new double[SAMPLE_COUNT];
+      private final double[] activity = new double[SAMPLE_COUNT];
+      private int index;
+      private boolean filled;
+
+      PerformanceGraph() {
+        setOpaque(true);
+        setBackground(Color.decode("#121212"));
+        setPreferredSize(new Dimension(0, ui(58)));
+      }
+
+      void pushSample(double cpuRatio, double heapRatio, double activityRatio) {
+        int slot = index % SAMPLE_COUNT;
+        cpu[slot] = clampRatio(cpuRatio);
+        heap[slot] = clampRatio(heapRatio);
+        activity[slot] = clampRatio(activityRatio);
+        index++;
+        if (index >= SAMPLE_COUNT) filled = true;
+        repaint();
+      }
+
+      @Override
+      protected void paintComponent(Graphics graphics) {
+        super.paintComponent(graphics);
+        Graphics2D g2 = (Graphics2D) graphics.create();
+        try {
+          g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+          int width = getWidth();
+          int height = getHeight();
+          g2.setColor(Color.decode("#242424"));
+          for (int row = 1; row < 4; row++) {
+            int y = height * row / 4;
+            g2.drawLine(0, y, width, y);
+          }
+          for (int column = 1; column < 6; column++) {
+            int x = width * column / 6;
+            g2.drawLine(x, 0, x, height);
+          }
+
+          int samples = filled ? SAMPLE_COUNT : Math.min(index, SAMPLE_COUNT);
+          if (samples <= 1) return;
+          double scaleX = width / (double) (SAMPLE_COUNT - 1);
+          Path2D heapArea = metricPath(heap, samples, scaleX, height, true);
+          g2.setColor(new Color(168, 85, 247, 56));
+          g2.fill(heapArea);
+          drawMetric(g2, heap, samples, scaleX, height, new Color(192, 132, 252), uiStroke(1.5f));
+          drawMetric(g2, cpu, samples, scaleX, height, Color.decode("#f27333"), uiStroke(1.8f));
+          drawMetric(g2, activity, samples, scaleX, height, Color.decode("#f4f4f4"), uiStroke(1.5f));
+        } finally {
+          g2.dispose();
+        }
+      }
+
+      private Path2D metricPath(double[] values, int samples, double scaleX, int height, boolean close) {
+        Path2D path = new Path2D.Double();
+        if (close) path.moveTo(0, height);
+        for (int i = 0; i < samples; i++) {
+          int slot = (index - samples + i + SAMPLE_COUNT) % SAMPLE_COUNT;
+          double x = i * scaleX;
+          double y = height * (1.0 - values[slot]);
+          if (i == 0 && !close) path.moveTo(x, y); else path.lineTo(x, y);
+        }
+        if (close) {
+          path.lineTo((samples - 1) * scaleX, height);
+          path.closePath();
+        }
+        return path;
+      }
+
+      private void drawMetric(
+          Graphics2D graphics, double[] values, int samples, double scaleX, int height, Color color, float width) {
+        graphics.setColor(color);
+        graphics.setStroke(new BasicStroke(width, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        graphics.draw(metricPath(values, samples, scaleX, height, false));
+      }
+
+      private static double clampRatio(double value) {
+        if (!Double.isFinite(value)) return 0.0;
+        return Math.max(0.0, Math.min(1.0, value));
+      }
     }
   }
 

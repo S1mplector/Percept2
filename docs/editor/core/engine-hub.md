@@ -86,15 +86,15 @@ For local testing or internal distribution, build the packaged Engine Hub jar:
 .\scripts\package-engine-hub.ps1
 ```
 
-Or run the Gradle task directly:
+Or run the full release pipeline directly:
 
 ```bash
-./gradlew :hub:packageEngineHubJar
+./gradlew :hub:packageEngineHubRelease
 ```
 
 The artifact is written to `build/distributions/jvn-engine-hub-<version>.jar`.
 
-This task does not mean JVN currently ships official prebuilt binaries. It is a developer packaging path for people building from a source checkout. Official, signed prebuilt downloads are planned for the first major release line.
+The release task builds the jar, launches that exact artifact in extraction-only mode, verifies the bundled engine workspace and warmed Gradle cache, and writes a neighboring `.sha256` checksum. Java 21 or newer is the only host prerequisite.
 
 Run it with:
 
@@ -102,17 +102,17 @@ Run it with:
 java -jar build/distributions/jvn-engine-hub-<version>.jar
 ```
 
-To build the larger package with a warmed Gradle dependency cache:
+The standard artifact includes the warmed Gradle dependency cache so the shipped Hub carries the engine workspace and the dependencies needed by its normal build and launch actions. For quick local packaging tests, build the smaller network-dependent variant:
 
 ```bash
-./scripts/package-engine-hub.sh --with-cache
+./scripts/package-engine-hub.sh --lite
 ```
 
 ```powershell
-.\scripts\package-engine-hub.ps1 --with-cache
+.\scripts\package-engine-hub.ps1 --lite
 ```
 
-That artifact is written to `build/distributions/jvn-engine-hub-cached-<version>.jar`. It extracts a local `.jvn-gradle-user-home` next to the bundled engine workspace and the hub automatically uses it for Gradle actions. This reduces first-run dependency work on slower machines by carrying the Gradle wrapper, dependency cache, and the host Java 21 toolchain cache, but the jar is larger and the cache is platform-sensitive for the Java toolchain and native JavaFX artifacts.
+That artifact is written to `build/distributions/jvn-engine-hub-lite-<version>.jar`. It contains the complete engine workspace but downloads missing Gradle dependencies on demand. The standard release jar is host-platform-sensitive because JavaFX contains native libraries; build and publish it separately on macOS, Windows, and Linux release workers.
 
 This jar contains a clean copy of the engine workspace. On first launch it extracts that workspace under `~/.jvn/engine-hub/<version>/<bundle-hash>/engine` and starts the normal hub against it. The hub can then launch the editor, launcher, Gradle builds, shortcut installers, docs, and updates from the extracted workspace.
 

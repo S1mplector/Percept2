@@ -1,3 +1,5 @@
+import java.security.MessageDigest
+
 plugins {
   `java`
   application
@@ -103,11 +105,11 @@ val packagedEngineWorkspaceZip = tasks.register<Zip>("packagedEngineWorkspaceZip
   }
 }
 
-tasks.register<Jar>("packageEngineHubJar") {
+val packageEngineHubLiteJar = tasks.register<Jar>("packageEngineHubLiteJar") {
   group = "distribution"
-  description = "Builds one launchable jar that bundles the engine workspace and starts the Engine Hub."
+  description = "Builds a smaller Hub jar without the warmed Gradle dependency cache."
   dependsOn(tasks.named("classes"), packagedEngineWorkspaceZip)
-  archiveBaseName.set("jvn-engine-hub")
+  archiveBaseName.set("jvn-engine-hub-lite")
   archiveVersion.set(rootProject.version.toString())
   destinationDirectory.set(rootProject.layout.buildDirectory.dir("distributions"))
   duplicatesStrategy = DuplicatesStrategy.EXCLUDE
@@ -155,7 +157,12 @@ val preparePackagedGradleCache = tasks.register<Exec>("preparePackagedGradleCach
       ":scripting:compileJava",
       ":runtime:compileJava",
       ":editor:compileJava",
-      ":hub:compileJava")
+      ":hub:compileJava",
+      ":hub:dependencies",
+      ":editor:dependencies",
+      ":runtime:dependencies",
+      "--configuration",
+      "runtimeClasspath")
 }
 
 val stripPackagedGradleCache = tasks.register("stripPackagedGradleCache") {
@@ -174,6 +181,9 @@ val stripPackagedGradleCache = tasks.register("stripPackagedGradleCache") {
         home.resolve("workers"),
         home.resolve("caches/build-cache-1"),
         home.resolve("caches/journal-1"))
+    home.resolve("caches").listFiles()
+      ?.filter { it.isDirectory }
+      ?.forEach { delete(it.resolve("transforms")) }
     fileTree(home) {
       include("**/*.lock")
       include("**/*.log")
@@ -199,11 +209,11 @@ val packagedGradleCacheZip = tasks.register<Zip>("packagedGradleCacheZip") {
   }
 }
 
-tasks.register<Jar>("packageEngineHubJarWithCache") {
+val packageEngineHubJar = tasks.register<Jar>("packageEngineHubJar") {
   group = "distribution"
-  description = "Builds a launchable Engine Hub jar with the engine workspace and a warmed Gradle cache."
+  description = "Builds the canonical, self-contained Engine Hub release jar."
   dependsOn(tasks.named("classes"), packagedEngineWorkspaceZip, packagedGradleCacheZip)
-  archiveBaseName.set("jvn-engine-hub-cached")
+  archiveBaseName.set("jvn-engine-hub")
   archiveVersion.set(rootProject.version.toString())
   destinationDirectory.set(rootProject.layout.buildDirectory.dir("distributions"))
   duplicatesStrategy = DuplicatesStrategy.EXCLUDE
@@ -224,4 +234,111 @@ tasks.register<Jar>("packageEngineHubJarWithCache") {
     into("com/jvn/hub")
     rename { "packaged-gradle-cache.zip" }
   }
+}
+
+tasks.register("packageEngineHubJarWithCache") {
+  group = "distribution"
+  description = "Compatibility alias for packageEngineHubJar."
+  dependsOn(packageEngineHubJar)
+}
+
+val packagedHubSmokeRoot = layout.buildDirectory.dir("tmp/verify-packaged-engine-hub")
+
+val verifyPackagedEngineHubJar = tasks.register<Exec>("verifyPackagedEngineHubJar") {
+  group = "verification"
+  description = "Extracts the actual release jar and verifies its bundled engine workspace."
+  dependsOn(packageEngineHubJar)
+
+  val smokeRoot = packagedHubSmokeRoot
+  val releaseJar = packageEngineHubJar.flatMap { it.archiveFile }
+  inputs.file(releaseJar)
+  outputs.dir(smokeRoot)
+
+  doFirst {
+    delete(smokeRoot)
+    smokeRoot.get().asFile.mkdirs()
+    commandLine(
+        javaToolchains.launcherFor {
+          languageVersion.set(JavaLanguageVersion.of(21))
+        }.get().executablePath.asFile.absolutePath,
+        "-Djvn.packagedEngineRoot=${smokeRoot.get().asFile.absolutePath}",
+        "-jar",
+        releaseJar.get().asFile.absolutePath,
+        "--extract-only")
+  }
+
+  doLast {
+    val extractedEngine = smokeRoot.get().asFile.walkTopDown()
+      .firstOrNull { it.isDirectory && it.name == "engine" && File(it, "settings.gradle.kts").isFile }
+      ?: throw GradleException("Packaged Hub did not extract a valid engine workspace")
+    val requiredPaths = listOf(
+        "gradlew",
+        "gradlew.bat",
+        "gradle/wrapper/gradle-wrapper.jar",
+        "gradle/wrapper/gradle-wrapper.properties",
+        "modules/hub/src/main/java/com/jvn/hub/JvnHub.java",
+        "modules/editor/build.gradle.kts",
+        "modules/runtime/build.gradle.kts",
+        ".jvn-gradle-user-home")
+    val missing = requiredPaths.filterNot { File(extractedEngine, it).exists() }
+    if (missing.isNotEmpty()) {
+      throw GradleException("Packaged Hub is missing: ${missing.joinToString()}")
+    }
+  }
+}
+
+val smokeTestPackagedEngineHubOffline = tasks.register<Exec>("smokeTestPackagedEngineHubOffline") {
+  group = "verification"
+  description = "Compiles the Hub from the extracted release workspace with networking disabled."
+  dependsOn(verifyPackagedEngineHubJar)
+  inputs.file(packageEngineHubJar.flatMap { it.archiveFile })
+
+  doFirst {
+    val extractedEngine = packagedHubSmokeRoot.get().asFile.walkTopDown()
+      .firstOrNull { it.isDirectory && it.name == "engine" && File(it, "settings.gradle.kts").isFile }
+      ?: throw GradleException("Packaged Hub smoke workspace is unavailable")
+    environment("GRADLE_USER_HOME", File(extractedEngine, ".jvn-gradle-user-home").absolutePath)
+    workingDir(extractedEngine)
+    commandLine(
+        File(extractedEngine, if (System.getProperty("os.name").lowercase().contains("win")) "gradlew.bat" else "gradlew").absolutePath,
+        "--offline",
+        "--no-daemon",
+        "--console=plain",
+        ":hub:classes",
+        ":hub:dependencies",
+        ":editor:dependencies",
+        ":runtime:dependencies",
+        "--configuration",
+        "runtimeClasspath")
+  }
+}
+
+val checksumEngineHubJar = tasks.register("checksumEngineHubJar") {
+  group = "distribution"
+  description = "Verifies the release jar and writes its SHA-256 checksum."
+  dependsOn(smokeTestPackagedEngineHubOffline)
+  val releaseJar = packageEngineHubJar.flatMap { it.archiveFile }
+  val checksumFile = releaseJar.map { it.asFile.resolveSibling("${it.asFile.name}.sha256") }
+  inputs.file(releaseJar)
+  outputs.file(checksumFile)
+  doLast {
+    val jar = releaseJar.get().asFile
+    val digest = MessageDigest.getInstance("SHA-256")
+    jar.inputStream().buffered().use { input ->
+      val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+      while (true) {
+        val count = input.read(buffer)
+        if (count < 0) break
+        digest.update(buffer, 0, count)
+      }
+    }
+    val hash = digest.digest().joinToString("") { "%02x".format(it) }
+    checksumFile.get().writeText("$hash  ${jar.name}\n")
+  }
+}
+
+tasks.register("packageEngineHubRelease") {
+  group = "distribution"
+  description = "Builds, smoke-tests, and checksums the complete Engine Hub release jar."
+  dependsOn(checksumEngineHubJar)
 }

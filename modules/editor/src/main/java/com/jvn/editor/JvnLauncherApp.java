@@ -27,6 +27,7 @@ import com.jvn.editor.ui.LauncherSettingsView;
 import com.jvn.editor.ui.NewProjectWizard;
 import com.jvn.editor.ui.RunConsoleView;
 import com.jvn.editor.ui.StartupSplashOverlay;
+import com.jvn.editor.ui.ShutdownSplashOverlay;
 import com.jvn.editor.ui.WelcomeCenterView;
 
 import javafx.animation.PauseTransition;
@@ -82,6 +83,7 @@ public class JvnLauncherApp extends Application {
   private MenuItem runProjectMenuItem;
   private MenuItem copyProjectPathMenuItem;
   private DeveloperLogPanel developerLogPanel;
+  private boolean shutdownInProgress;
 
   public static void main(String[] args) {
     launch(args);
@@ -305,6 +307,21 @@ public class JvnLauncherApp extends Application {
     stage.setScene(scene);
     stage.setMinWidth(1160);
     stage.setMinHeight(760);
+    stage.setOnCloseRequest(event -> {
+      event.consume();
+      if (shutdownInProgress) return;
+      shutdownInProgress = true;
+      new ShutdownSplashOverlay().show(
+          "Verifying launcher state and open services...",
+          () -> {
+            if (settingsStage != null) settingsStage.close();
+            if (gameBuildPublisherStage != null) gameBuildPublisherStage.close();
+          },
+          () -> {
+            stage.hide();
+            Platform.exit();
+          });
+    });
     stage.show();
 
     setCurrentProject(resolveStartupProject(), false);

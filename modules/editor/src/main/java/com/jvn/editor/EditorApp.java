@@ -77,6 +77,7 @@ import com.jvn.editor.ui.RunConsoleView;
 import com.jvn.editor.ui.ScriptEditorLauncherView;
 import com.jvn.editor.ui.SettingsEditorView;
 import com.jvn.editor.ui.StartupSplashOverlay;
+import com.jvn.editor.ui.ShutdownSplashOverlay;
 import com.jvn.editor.ui.StoryTimelineView;
 import com.jvn.editor.ui.StoryboardOverlayState;
 import com.jvn.editor.ui.StoryboardOverlayView;
@@ -317,6 +318,7 @@ public class EditorApp extends Application {
   private List<EditorWorkspaceHubView.SetupIssue> startupSetupIssues = List.of();
   private com.jvn.plugin.runtime.PluginHost pluginHost;
   private Menu pluginToolsMenu;
+  private boolean shutdownInProgress;
 
   public static void main(String[] args) {
     launch(args);
@@ -2543,6 +2545,10 @@ public class EditorApp extends Application {
     EditorTheme.apply(scene);
     primaryStage.setScene(scene);
     primaryStage.setOnCloseRequest(e -> {
+      if (shutdownInProgress) {
+        e.consume();
+        return;
+      }
       if (!confirmCloseAllTabs()) {
         e.consume();
         return;
@@ -2551,8 +2557,22 @@ public class EditorApp extends Application {
         e.consume();
         return;
       }
-      saveWorkspaceStateToPreferences();
-      disposeAllFileTabs();
+      e.consume();
+      shutdownInProgress = true;
+      new ShutdownSplashOverlay().show(
+          "Verifying editor workspace and background services...",
+          () -> {
+            saveWorkspaceStateToPreferences();
+            disposeAllFileTabs();
+            if (pluginHost != null) {
+              pluginHost.close();
+              pluginHost = null;
+            }
+          },
+          () -> {
+            primaryStage.hide();
+            Platform.exit();
+          });
     });
     applyLinuxDefaultWindowState(primaryStage);
     primaryStage.show();
