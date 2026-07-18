@@ -1,12 +1,15 @@
 package com.jvn.editor.ui;
 
 import javafx.geometry.Pos;
+import javafx.geometry.Insets;
 import javafx.scene.control.Label;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.effect.InnerShadow;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
 
 /** Compact Aero glyph registry for dense editor controls and status surfaces. */
 public final class CssIcon {
@@ -265,31 +268,71 @@ public final class CssIcon {
   }
 
   public static Region icon(String svgPath, String color, double size) {
-    Region r = prepare(new Region());
-    r.setMinSize(size, size);
-    r.setMaxSize(size, size);
-    r.setPrefSize(size, size);
-    r.setStyle(
+    String enamel = compactAccent(svgPath, color);
+    Region glyph = new Region();
+    glyph.getStyleClass().add("jvn-fx-icon-shape");
+    glyph.setScaleShape(true);
+    glyph.setCenterShape(true);
+    glyph.setCacheShape(true);
+    glyph.setMinSize(size, size);
+    glyph.setMaxSize(size, size);
+    glyph.setPrefSize(size, size);
+    glyph.setStyle(
         "-fx-shape: '" + svgPath + "';"
         + " -fx-background-color: linear-gradient(to bottom,"
-        + " derive(" + color + ", 62%) 0%,"
-        + " derive(" + color + ", 18%) 38%,"
-        + " " + color + " 56%,"
-        + " derive(" + color + ", -34%) 100%);"
+        + " derive(" + enamel + ", 78%) 0%,"
+        + " derive(" + enamel + ", 42%) 18%,"
+        + " derive(" + enamel + ", 8%) 43%,"
+        + " " + enamel + " 58%,"
+        + " derive(" + enamel + ", -28%) 82%,"
+        + " derive(" + enamel + ", -46%) 100%);"
         + " -fx-min-width: " + size + ";"
         + " -fx-min-height: " + size + ";"
         + " -fx-max-width: " + size + ";"
         + " -fx-max-height: " + size + ";"
     );
     InnerShadow bevel = new InnerShadow(
-        Math.max(0.7, size * 0.055), 0, -Math.max(0.35, size * 0.025),
-        Color.rgb(255, 255, 255, 0.48));
+        Math.max(0.8, size * 0.065), 0, -Math.max(0.4, size * 0.03),
+        Color.rgb(255, 255, 255, 0.62));
     DropShadow depth = new DropShadow(
-        Math.max(1.0, size * 0.08), 0, Math.max(0.5, size * 0.045),
-        Color.rgb(0, 0, 0, 0.68));
+        Math.max(1.2, size * 0.10), 0, Math.max(0.6, size * 0.055),
+        Color.rgb(0, 0, 0, 0.78));
     depth.setInput(bevel);
-    r.setEffect(depth);
-    return r;
+    glyph.setEffect(depth);
+
+    Circle glint = new Circle(Math.max(0.65, size * 0.052), Color.rgb(255, 255, 255, 0.88));
+    glint.setMouseTransparent(true);
+    glint.setEffect(new DropShadow(Math.max(0.6, size * 0.045), Color.rgb(255, 255, 255, 0.48)));
+    StackPane icon = prepare(new StackPane(glyph, glint));
+    icon.getStyleClass().add("jvn-compact-aero-icon");
+    icon.setMinSize(size, size);
+    icon.setMaxSize(size, size);
+    icon.setPrefSize(size, size);
+    StackPane.setAlignment(glint, Pos.TOP_LEFT);
+    StackPane.setMargin(glint, new Insets(size * 0.17, 0, 0, size * 0.18));
+    return icon;
+  }
+
+  private static String compactAccent(String svgPath, String requested) {
+    if (!isNeutral(requested)) return requested;
+    if (PATH_REDO.equals(svgPath)) return "#42bfe8";
+    if (PATH_DELETE.equals(svgPath) || PATH_CLEAR_X.equals(svgPath) || PATH_STOP.equals(svgPath)) return "#e06672";
+    if (PATH_SPARKLES.equals(svgPath) || PATH_AUTO.equals(svgPath)) return "#efa657";
+    if (PATH_PLAY.equals(svgPath) || PATH_ROCKET.equals(svgPath) || PATH_CHECK.equals(svgPath)) return "#56c978";
+    if (PATH_MEMORY.equals(svgPath) || PATH_GRID.equals(svgPath) || PATH_LIST.equals(svgPath)) return "#6db8e8";
+    if (PATH_PERSON.equals(svgPath) || PATH_INFO.equals(svgPath) || PATH_HELP.equals(svgPath)) return "#78cbe8";
+    if (PATH_DOWNLOAD.equals(svgPath) || PATH_SAVE.equals(svgPath)) return "#6aa7df";
+    if (PATH_SETTINGS.equals(svgPath)) return "#e89a4d";
+    if (PATH_WARNING.equals(svgPath)) return "#efbd55";
+    if (PATH_COPY.equals(svgPath) || PATH_DOCUMENT.equals(svgPath)) return "#91b9db";
+    return requested;
+  }
+
+  private static boolean isNeutral(String color) {
+    if (color == null) return false;
+    String value = color.trim().toLowerCase(java.util.Locale.ROOT);
+    return value.equals("#d0d0d0") || value.equals("#b0b8c8") || value.equals("#cbd5df")
+        || value.equals("#d6e6f2") || value.equals("#aeb8c2") || value.equals("#ffffff");
   }
 
 private static final String PATH_SKIP_PREVIOUS = "M7 6c.55 0 1 .45 1 1v10c0 .55-.45 1-1 1s-1-.45-1-1V7c0-.55.45-1 1-1zm3.66 6.82 5.77 4.07c.66.47 1.58-.01 1.58-.82V7.93c0-.81-.91-1.28-1.58-.82l-5.77 4.07a1 1 0 0 0 0 1.64z";

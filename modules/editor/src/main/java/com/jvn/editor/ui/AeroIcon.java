@@ -152,8 +152,6 @@ public final class AeroIcon extends StackPane {
         Color.rgb(0, 0, 0, 0.82)));
 
     Region badgeGlyph = badge.glyph();
-    badgeGlyph.setStyle(badgeGlyph.getStyle()
-        + " -fx-background-color: linear-gradient(to bottom, #ffffff, #dcecff 58%, #8295a6);");
     StackPane jewel = new StackPane(rim, badgeGlyph);
     jewel.setMinSize(badgeSize, badgeSize);
     jewel.setPrefSize(badgeSize, badgeSize);
