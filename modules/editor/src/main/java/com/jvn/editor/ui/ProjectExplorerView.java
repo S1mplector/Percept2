@@ -45,7 +45,7 @@ public class ProjectExplorerView extends VBox {
     tree.getStyleClass().add("project-explorer-tree");
     tree.setTooltip(new Tooltip("Project file tree. Double-click a file to open it."));
     
-    Region emptyIcon = ProjectFileIcons.iconFor(ProjectFileIcons.Kind.ROOT, 34);
+    Region emptyIcon = AeroIcon.of(AeroIcon.Kind.NO_PROJECT, 46);
     emptyIcon.getStyleClass().add("project-empty-icon");
     Label emptyTitle = new Label("No project selected");
     emptyTitle.getStyleClass().add("sidebar-empty-title");

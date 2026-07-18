@@ -1,5 +1,6 @@
 package com.jvn.editor.ui;
 
+import javafx.scene.CacheHint;
 import javafx.geometry.Pos;
 import javafx.geometry.Insets;
 import javafx.scene.control.Label;
@@ -261,6 +262,8 @@ public final class CssIcon {
     region.setScaleShape(true);
     region.setCenterShape(true);
     region.setCacheShape(true);
+    region.setCache(true);
+    region.setCacheHint(CacheHint.SPEED);
     region.setSnapToPixel(true);
     region.setPickOnBounds(false);
     region.setMouseTransparent(true);

@@ -59,6 +59,16 @@ class AeroIconTest {
     assertEquals(AeroIcon.Kind.SETTINGS, small.kind());
   }
 
+  @Test
+  void semanticArtworkUsesRenderCachingForPanelMovement() throws Exception {
+    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
+
+    AeroIcon icon = onFxThread(() -> AeroIcon.of(AeroIcon.Kind.PROJECT, 28));
+
+    assertTrue(icon.isCache());
+    assertTrue(icon.getChildren().getFirst().isCache());
+  }
+
   private static int nonTransparentPixels(WritableImage image) {
     int count = 0;
     for (int y = 0; y < (int) image.getHeight(); y++) {
