@@ -37,6 +37,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TitledPane;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
@@ -95,6 +96,7 @@ public class GameBuildPublisherView extends BorderPane {
   private final ComboBox<PackageMode> formatBox = new ComboBox<>();
   private final ComboBox<NativeTypeChoice> nativeTypeBox = new ComboBox<>();
   private final ComboBox<String> releaseProfileBox = new ComboBox<>();
+  private final ComboBox<String> packageVariantBox = new ComboBox<>();
   private final Label nativeTypeFieldLabel = new Label("Native Type");
   private final Label manifestLabel = new Label();
   private final Label outputLabel = new Label();
@@ -126,6 +128,9 @@ public class GameBuildPublisherView extends BorderPane {
   private Button copyDependencyReportButton;
   private Button clearDependencyReportButton;
   private Button releaseButton;
+  private Button smokeTestButton;
+  private Button updateBundleButton;
+  private Button storeBundleButton;
   private Button copyShipCliButton;
   private Button copyCliButton;
   private Button openProjectButton;
@@ -174,25 +179,24 @@ public class GameBuildPublisherView extends BorderPane {
     capabilityNote.setWrapText(true);
     capabilityNote.getStyleClass().addAll("build-publisher-note", "build-publisher-note-status");
 
-    Label quickModesLabel = new Label("Quick Modes");
+    Label quickModesLabel = new Label("Start with a release type");
     quickModesLabel.getStyleClass().add("build-publisher-section-label");
-    Label quickModesHelp = new Label("Switch the popup to the most common release flows without re-entering the whole plan.");
+    Label quickModesHelp = new Label("Choose the closest outcome. You can fine-tune the target and package below.");
     quickModesHelp.setWrapText(true);
     quickModesHelp.getStyleClass().add("build-publisher-copy");
 
-    presetPortableButton = button("Current Portable", ButtonTone.SECONDARY, true);
+    presetPortableButton = button("Portable · needs Java", ButtonTone.SECONDARY, true);
     presetPortableButton.setOnAction(e -> applyPreset(PackageMode.PORTABLE_ZIP, currentTargetToken()));
-    presetDesktopButton = button("Desktop Bundles", ButtonTone.SECONDARY, true);
+    presetDesktopButton = button("Desktop · all OSes", ButtonTone.SECONDARY, true);
     presetDesktopButton.setOnAction(e -> applyPreset(PackageMode.BUNDLED_RUNTIME_ZIP, "all"));
-    presetNativeButton = button("Native Current", ButtonTone.SECONDARY, true);
+    presetNativeButton = button("Installer · this OS", ButtonTone.SECONDARY, true);
     presetNativeButton.setOnAction(e -> applyPreset(PackageMode.NATIVE_PACKAGE, currentTargetToken()));
 
     FlowPane presetRow = new FlowPane(8, 8, presetPortableButton, presetDesktopButton, presetNativeButton);
     presetRow.setAlignment(Pos.CENTER_LEFT);
 
     VBox titleBlock = new VBox(4, title, subtitle, capabilityNote);
-    VBox quickModesBlock = new VBox(6, quickModesLabel, quickModesHelp, presetRow);
-    VBox header = new VBox(12, titleBlock, quickModesBlock);
+    VBox header = new VBox(12, titleBlock);
     header.getStyleClass().add("build-publisher-header");
 
     projectField.setEditable(false);
@@ -222,6 +226,12 @@ public class GameBuildPublisherView extends BorderPane {
     styleField(releaseProfileBox);
     releaseProfileBox.setMaxWidth(Double.MAX_VALUE);
     releaseProfileBox.getEditor().setPromptText("default");
+    releaseProfileBox.setTooltip(new Tooltip("Named signing and publishing settings from config/release/jvn-release.properties."));
+    packageVariantBox.setEditable(true);
+    styleField(packageVariantBox);
+    packageVariantBox.setMaxWidth(Double.MAX_VALUE);
+    packageVariantBox.getEditor().setPromptText("standard");
+    packageVariantBox.setTooltip(new Tooltip("Optional content edition such as standard, demo, or deluxe."));
 
     GridPane form = new GridPane();
     form.setHgap(10);
@@ -234,14 +244,16 @@ public class GameBuildPublisherView extends BorderPane {
     form.add(label("Version"), 0, 2);
     form.add(versionField, 1, 2);
     form.add(label("Target"), 0, 3);
-    form.add(targetBox, 1, 3);
-    form.add(label("Format"), 0, 4);
-    form.add(formatBox, 1, 4);
+    form.add(describedField(targetBox, "Which operating system receives this build."), 1, 3);
+    form.add(label("Package"), 0, 4);
+    form.add(describedField(formatBox, "Portable, self-contained desktop, or native installer."), 1, 4);
     nativeTypeFieldLabel.getStyleClass().add("layout-launcher-field-label");
     form.add(nativeTypeFieldLabel, 0, 5);
-    form.add(nativeTypeBox, 1, 5);
+    form.add(describedField(nativeTypeBox, "Installer type supported by this machine."), 1, 5);
     form.add(label("Release Profile"), 0, 6);
-    form.add(releaseProfileBox, 1, 6);
+    form.add(describedField(releaseProfileBox, "Signing and publishing recipe. Use default for ordinary builds."), 1, 6);
+    form.add(label("Package Variant"), 0, 7);
+    form.add(describedField(packageVariantBox, "Content edition, for example standard or demo."), 1, 7);
     form.getColumnConstraints().add(new javafx.scene.layout.ColumnConstraints(120));
     javafx.scene.layout.ColumnConstraints fill = new javafx.scene.layout.ColumnConstraints();
     fill.setHgrow(Priority.ALWAYS);
@@ -298,7 +310,7 @@ public class GameBuildPublisherView extends BorderPane {
     HBox.setHgrow(outputDirField, Priority.ALWAYS);
     outputDirLabel.setMinWidth(120);
 
-    VBox projectCard = card("Game", form, manifestLabel);
+    VBox projectCard = card("Game details", form, manifestLabel);
 
     FlowPane badgeRow = new FlowPane(6, 6, formatBadgeLabel, targetBadgeLabel, runtimeBadgeLabel, releaseBadgeLabel);
     badgeRow.setAlignment(Pos.CENTER_LEFT);
@@ -315,13 +327,16 @@ public class GameBuildPublisherView extends BorderPane {
     FlowPane utilitiesRow = new FlowPane(8, 8, openProjectButton, openReleaseConfigButton, revealRuntimeCacheButton, clearRuntimeCacheButton);
     utilitiesRow.setAlignment(Pos.CENTER_LEFT);
 
-    VBox planCard = card("Build Plan", badgeRow, buildPlanTitleLabel, buildPlanBodyLabel, buildPlanHintLabel, outputLabel, outputDirRow, validationLabel, releaseConfigLabel, utilitiesRow);
+    VBox planCard = card("Release preview", badgeRow, buildPlanTitleLabel, buildPlanBodyLabel,
+        buildPlanHintLabel, outputLabel, outputDirRow, validationLabel, releaseConfigLabel, utilitiesRow);
 
     Label buildHelp = new Label("Portable zips still need Java on the player machine. Desktop bundles include a prebuilt runtime for the selected target, so players do not need Java installed. The first bundle build for a target downloads and caches that runtime locally. Native packages use jpackage and stay host-specific.");
     buildHelp.setWrapText(true);
     buildHelp.getStyleClass().add("build-publisher-copy");
 
     shipBuildButton = button("Ship Build", ButtonTone.PRIMARY, false);
+    shipBuildButton.getStyleClass().add("build-publisher-cta");
+    shipBuildButton.setAccessibleHelp("Builds the selected package plan and writes its release manifest.");
     shipBuildButton.setOnAction(e -> shipSelectedBuild());
     buildSelectedButton = button("Build Selected", ButtonTone.PRIMARY, false);
     buildSelectedButton.setOnAction(e -> buildSelectedTarget());
@@ -339,6 +354,12 @@ public class GameBuildPublisherView extends BorderPane {
     clearDependencyReportButton.setOnAction(e -> clearDependencyReport());
     releaseButton = button("Run Release Hooks", ButtonTone.SECONDARY, false);
     releaseButton.setOnAction(e -> runReleaseProfile());
+    smokeTestButton = button("Verify Packaged Build", ButtonTone.SECONDARY, false);
+    smokeTestButton.setOnAction(e -> runPackagedArtifactSmokeTest());
+    updateBundleButton = button("Build Signed Update", ButtonTone.SECONDARY, false);
+    updateBundleButton.setOnAction(e -> writeSignedUpdateBundle());
+    storeBundleButton = button("Build Store Bundle", ButtonTone.SECONDARY, false);
+    storeBundleButton.setOnAction(e -> writeStoreBundle());
     copyShipCliButton = button("Copy Ship Command", ButtonTone.SECONDARY, false);
     copyShipCliButton.setOnAction(e -> copyShipCommand());
     copyCliButton = button("Copy Build Command", ButtonTone.SECONDARY, false);
@@ -364,35 +385,47 @@ public class GameBuildPublisherView extends BorderPane {
     zipOutputButton.setOnAction(e -> zipOutputFolder());
     zipOutputButton.setDisable(true);
 
-    Label buildActionsLabel = new Label("Ship & Build");
+    Label buildActionsLabel = new Label("Ready to create your release?");
     buildActionsLabel.getStyleClass().add("build-publisher-section-label");
-    Label toolsLabel = new Label("Tools & Artifacts");
-    toolsLabel.getStyleClass().add("build-publisher-section-label");
-
-    FlowPane buildPrimaryRow = new FlowPane(8, 8, shipBuildButton, buildSelectedButton, buildAllButton, preflightButton, dependencyScanButton, releaseButton);
+    FlowPane buildPrimaryRow = new FlowPane(8, 8, shipBuildButton);
     buildPrimaryRow.setAlignment(Pos.CENTER_LEFT);
-    FlowPane buildUtilityRow = new FlowPane(8, 8, copyShipCliButton, copyCliButton, reveal, revealManifestButton, copyManifestPathButton, refreshArtifactsButton, zipOutputButton, notes);
+    Label buildOnlyHelp = new Label("Create packages without writing the complete release manifest or running the shipping plan.");
+    buildOnlyHelp.setWrapText(true);
+    buildOnlyHelp.getStyleClass().add("build-publisher-copy");
+    FlowPane buildOnlyRow = new FlowPane(8, 8, buildSelectedButton, buildAllButton);
+    buildOnlyRow.setAlignment(Pos.CENTER_LEFT);
+    TitledPane buildOnlyPane = disclosure("Build only (advanced)", new VBox(8, buildOnlyHelp, buildOnlyRow));
+    FlowPane releaseWorkflowRow = new FlowPane(8, 8, smokeTestButton, updateBundleButton, storeBundleButton, releaseButton);
+    releaseWorkflowRow.setAlignment(Pos.CENTER_LEFT);
+    FlowPane buildUtilityRow = new FlowPane(8, 8, copyShipCliButton, copyCliButton, reveal,
+        revealManifestButton, copyManifestPathButton, refreshArtifactsButton, zipOutputButton, notes);
     buildUtilityRow.setAlignment(Pos.CENTER_LEFT);
     FlowPane buildDangerRow = new FlowPane(8, 8, cleanOutputButton);
     buildDangerRow.setAlignment(Pos.CENTER_LEFT);
-    javafx.scene.control.Separator actionSep = new javafx.scene.control.Separator();
+    VBox advancedReleaseContent = new VBox(10, releaseWorkflowRow);
+    TitledPane advancedReleasePane = disclosure("Advanced release workflows", advancedReleaseContent);
+    VBox artifactToolsContent = new VBox(10, commandPreviewLabel, buildUtilityRow,
+        artifactInventoryLabel, buildDangerRow);
+    TitledPane artifactToolsPane = disclosure("Commands, manifests & artifact tools", artifactToolsContent);
 
-    VBox actionCard = card("Actions", buildHelp, optionsRow, commandPreviewLabel,
-        buildActionsLabel, buildPrimaryRow,
-        toolsLabel, buildUtilityRow,
-        actionSep, buildDangerRow,
-        artifactInventoryLabel, statusLabel);
+    VBox actionCard = card("Create release", buildHelp, optionsRow,
+        buildActionsLabel, buildPrimaryRow, buildOnlyPane, advancedReleasePane, artifactToolsPane, statusLabel);
 
     FlowPane dependencyBadgeRow = new FlowPane(6, 6, dependencyErrorsBadgeLabel, dependencyWarningsBadgeLabel, dependencyInfoBadgeLabel);
     dependencyBadgeRow.setAlignment(Pos.CENTER_LEFT);
-    FlowPane dependencyActionsRow = new FlowPane(8, 8, dependencyConsoleButton, copyDependencyReportButton, clearDependencyReportButton);
+    FlowPane dependencyActionsRow = new FlowPane(8, 8, preflightButton, dependencyScanButton,
+        dependencyConsoleButton, copyDependencyReportButton, clearDependencyReportButton);
     dependencyActionsRow.setAlignment(Pos.CENTER_LEFT);
-    VBox dependencyCard = card("Dependency Report", dependencySummaryLabel, dependencyBadgeRow, dependencyActionsRow, dependencyReportBox);
+    VBox dependencyCard = card("Check before shipping", dependencySummaryLabel, dependencyBadgeRow,
+        dependencyActionsRow, dependencyReportBox);
     renderDependencyPlaceholder("Run Scan Dependencies to inspect missing media, scripts, menus, stage presets, timelines, packaging blockers, and unused media.");
 
     Label nativeNote = new Label("Desktop bundles build locally for Windows, Linux, macOS Intel, and macOS Apple Silicon. Native installers still build on the matching host OS only.");
     nativeNote.setWrapText(true);
     nativeNote.getStyleClass().add("build-publisher-copy");
+
+    VBox quickModesBlock = new VBox(6, quickModesLabel, quickModesHelp, presetRow);
+    quickModesBlock.getStyleClass().add("build-publisher-mode-picker");
 
     HBox topRow = new HBox(14, projectCard, planCard);
     topRow.setAlignment(Pos.TOP_LEFT);
@@ -401,7 +434,11 @@ public class GameBuildPublisherView extends BorderPane {
     projectCard.setMaxWidth(Double.MAX_VALUE);
     planCard.setMaxWidth(Double.MAX_VALUE);
 
-    VBox content = new VBox(14, header, topRow, actionCard, dependencyCard, nativeNote);
+    VBox configureStep = step("1", "Configure", "Choose what players will download.", quickModesBlock, topRow);
+    VBox validateStep = step("2", "Validate", "Catch broken references and packaging issues before exporting.", dependencyCard);
+    VBox shipStep = step("3", "Build & ship", "Create the selected package, then use advanced workflows only when needed.", actionCard);
+
+    VBox content = new VBox(14, header, configureStep, validateStep, shipStep, nativeNote);
     content.getStyleClass().add("build-publisher-content");
     content.setFillWidth(true);
 
@@ -424,6 +461,8 @@ public class GameBuildPublisherView extends BorderPane {
     nativeTypeBox.valueProperty().addListener((obs, oldValue, newValue) -> refreshFormState());
     releaseProfileBox.valueProperty().addListener((obs, oldValue, newValue) -> refreshFormState());
     releaseProfileBox.getEditor().textProperty().addListener((obs, oldValue, newValue) -> refreshFormState());
+    packageVariantBox.valueProperty().addListener((obs, oldValue, newValue) -> refreshFormState());
+    packageVariantBox.getEditor().textProperty().addListener((obs, oldValue, newValue) -> refreshFormState());
     offlineModeCheck.selectedProperty().addListener((obs, oldValue, newValue) -> refreshFormState());
     refreshRuntimeCheck.selectedProperty().addListener((obs, oldValue, newValue) -> refreshFormState());
   }
@@ -434,6 +473,15 @@ public class GameBuildPublisherView extends BorderPane {
     return label;
   }
 
+  private VBox describedField(Node field, String help) {
+    Label helpLabel = new Label(help);
+    helpLabel.setWrapText(true);
+    helpLabel.getStyleClass().add("build-publisher-field-help");
+    VBox box = new VBox(3, field, helpLabel);
+    box.setFillWidth(true);
+    return box;
+  }
+
   private VBox card(String title, Node... nodes) {
     Label label = new Label(title);
     label.getStyleClass().add("build-publisher-card-title");
@@ -442,6 +490,31 @@ public class GameBuildPublisherView extends BorderPane {
     box.getChildren().add(label);
     box.getChildren().addAll(nodes);
     return box;
+  }
+
+  private VBox step(String number, String title, String description, Node... nodes) {
+    Label numberLabel = new Label(number);
+    numberLabel.getStyleClass().add("build-publisher-step-number");
+    Label titleLabel = new Label(title);
+    titleLabel.getStyleClass().add("build-publisher-step-title");
+    Label descriptionLabel = new Label(description);
+    descriptionLabel.setWrapText(true);
+    descriptionLabel.getStyleClass().add("build-publisher-step-description");
+    VBox copy = new VBox(2, titleLabel, descriptionLabel);
+    HBox heading = new HBox(10, numberLabel, copy);
+    heading.setAlignment(Pos.CENTER_LEFT);
+    VBox box = new VBox(12, heading);
+    box.getChildren().addAll(nodes);
+    box.getStyleClass().add("build-publisher-step");
+    return box;
+  }
+
+  private TitledPane disclosure(String title, Node content) {
+    TitledPane pane = new TitledPane(title, content);
+    pane.setExpanded(false);
+    pane.setAnimated(false);
+    pane.getStyleClass().add("build-publisher-disclosure");
+    return pane;
   }
 
   private Button button(String text, ButtonTone tone, boolean pill) {
@@ -479,10 +552,12 @@ public class GameBuildPublisherView extends BorderPane {
     clearDependencyReport();
     Properties manifest = ProjectManifestService.loadManifest(root);
     releaseProfileBox.getItems().setAll(availableReleaseProfiles(root));
+    packageVariantBox.getItems().setAll(availablePackageVariants(root));
     if (manifest == null) {
       nameField.setText(root == null ? "" : root.getName());
       versionField.setText("0.1.0");
       setReleaseProfileSelection(defaultReleaseProfile(root));
+      setPackageVariantSelection(defaultPackageVariant(root));
       releaseConfigLabel.setText(releaseConfigText(root));
       manifestLabel.setText("No jvn.project found. Choose a JVN game project before building.");
       statusLabel.setText("Build unavailable: missing jvn.project.");
@@ -500,6 +575,7 @@ public class GameBuildPublisherView extends BorderPane {
     nameField.setText(name.isBlank() ? root.getName() : name);
     versionField.setText(version);
     setReleaseProfileSelection(defaultReleaseProfile(root));
+    setPackageVariantSelection(defaultPackageVariant(root));
     releaseConfigLabel.setText(releaseConfigText(root));
     manifestLabel.setText("Manifest: type=" + manifest.getProperty("type", "vn")
         + "  " + ProjectManifestService.manifestEntryText(manifest)
@@ -517,6 +593,13 @@ public class GameBuildPublisherView extends BorderPane {
     }
     releaseProfileBox.setValue(value);
     releaseProfileBox.getEditor().setText(value);
+  }
+
+  private void setPackageVariantSelection(String variant) {
+    String value = variant == null || variant.isBlank() ? "standard" : variant.trim();
+    if (!packageVariantBox.getItems().contains(value)) packageVariantBox.getItems().add(value);
+    packageVariantBox.setValue(value);
+    packageVariantBox.getEditor().setText(value);
   }
 
 
@@ -554,6 +637,9 @@ public class GameBuildPublisherView extends BorderPane {
       buildAllButton.setVisible(supportsBuildAll);
     }
     if (preflightButton != null) preflightButton.setDisable(!canBuild);
+    if (smokeTestButton != null) smokeTestButton.setDisable(!canBuild);
+    if (updateBundleButton != null) updateBundleButton.setDisable(!canBuild);
+    if (storeBundleButton != null) storeBundleButton.setDisable(!canBuild);
     boolean canRelease = canBuild && releaseTaskForSelection() != null;
     if (releaseButton != null) releaseButton.setDisable(!canRelease);
     if (copyShipCliButton != null) copyShipCliButton.setDisable(!canBuild);
@@ -790,6 +876,11 @@ public class GameBuildPublisherView extends BorderPane {
       warnings.add("No release profile config found. Native packaging will build unsigned packages without publish commands.");
     }
 
+    String variant = selectedPackageVariant();
+    if (!variant.matches("[A-Za-z0-9._-]+")) {
+      errors.add("Package variant may use only letters, numbers, dots, underscores, and hyphens.");
+    }
+
     return new ValidationResult(errors, warnings);
   }
 
@@ -798,7 +889,9 @@ public class GameBuildPublisherView extends BorderPane {
     TargetChoice target = targetBox.getValue();
     PackageMode mode = selectedPackageMode();
     String targetId = target == null ? "current-target" : target.outputToken();
-    String stem = BuildCliFormatter.safeToken(nameField.getText()) + "-" + BuildCliFormatter.safeToken(versionField.getText());
+    String variant = selectedPackageVariant();
+    String variantSuffix = "standard".equalsIgnoreCase(variant) ? "" : "-" + BuildCliFormatter.safeToken(variant);
+    String stem = BuildCliFormatter.safeToken(nameField.getText()) + "-" + BuildCliFormatter.safeToken(versionField.getText()) + variantSuffix;
     File outDir = buildDistributionsDir();
     switch (mode) {
       case PORTABLE_ZIP -> {
@@ -820,7 +913,7 @@ public class GameBuildPublisherView extends BorderPane {
         String ext = nativeType == null ? ".pkg" : nativeType.artifactSuffix();
         outputLabel.setText("Output: " + new File(outDir,
             BuildCliFormatter.safeToken(nameField.getText()) + "-"
-                + BuildCliFormatter.safeNativeVersionToken(versionField.getText()) + "-"
+                + BuildCliFormatter.safeNativeVersionToken(versionField.getText()) + variantSuffix + "-"
                 + currentTargetToken() + "-"
                 + (nativeType == null ? "native" : nativeType.token()) + ext).getPath());
       }
@@ -1008,6 +1101,33 @@ public class GameBuildPublisherView extends BorderPane {
     setNoteTone(statusLabel, "status");
   }
 
+  private void runPackagedArtifactSmokeTest() {
+    if (!canBuild() || onBuildRequested == null) return;
+    List<String> args = buildGradleArgs();
+    onBuildRequested.accept(new BuildRequest(
+        "smokeTestJvnGameRelease", args.toArray(String[]::new), "Verify Packaged Game"));
+    statusLabel.setText("Started packaged-artifact verification.");
+    setNoteTone(statusLabel, "status");
+  }
+
+  private void writeSignedUpdateBundle() {
+    if (!canBuild() || onBuildRequested == null) return;
+    List<String> args = buildGradleArgs();
+    onBuildRequested.accept(new BuildRequest(
+        "writeJvnGameUpdateBundle", args.toArray(String[]::new), "Build Signed Game Update"));
+    statusLabel.setText("Started signed update-catalog generation.");
+    setNoteTone(statusLabel, "status");
+  }
+
+  private void writeStoreBundle() {
+    if (!canBuild() || onBuildRequested == null) return;
+    List<String> args = buildGradleArgs();
+    onBuildRequested.accept(new BuildRequest(
+        "assembleJvnGameStoreBundle", args.toArray(String[]::new), "Build Game Store Bundle"));
+    statusLabel.setText("Started store upload-bundle generation.");
+    setNoteTone(statusLabel, "status");
+  }
+
   private void buildTask(String taskName, String title) {
     if (!canBuild()) return;
     List<String> args = buildGradleArgs();
@@ -1047,6 +1167,8 @@ public class GameBuildPublisherView extends BorderPane {
     if (!version.isBlank()) args.add("-PjvnGameVersion=" + version);
     String profile = selectedReleaseProfile();
     if (!profile.isBlank()) args.add("-PjvnReleaseProfile=" + profile);
+    String variant = selectedPackageVariant();
+    if (!variant.isBlank()) args.add("-PjvnPackageVariant=" + variant);
     if (selectedPackageMode() == PackageMode.BUNDLED_RUNTIME_ZIP && refreshRuntimeCheck.isSelected()) {
       args.add("-PjvnRefreshBundledRuntime=true");
     }
@@ -1424,6 +1546,7 @@ public class GameBuildPublisherView extends BorderPane {
     notes.append("Version: ").append(versionField.getText()).append('\n');
     notes.append("Format: ").append(selectedPackageMode().label).append('\n');
     notes.append("Release profile: ").append(selectedReleaseProfile()).append('\n');
+    notes.append("Package variant: ").append(selectedPackageVariant()).append('\n');
     notes.append("Artifacts: ").append(outputLabel.getText().replace("Output: ", "")).append('\n');
     switch (selectedPackageMode()) {
       case PORTABLE_ZIP -> {
@@ -1545,6 +1668,8 @@ public class GameBuildPublisherView extends BorderPane {
       }
       releaseProfileBox.getItems().setAll(availableReleaseProfiles(projectRoot));
       setReleaseProfileSelection("release");
+      packageVariantBox.getItems().setAll(availablePackageVariants(projectRoot));
+      setPackageVariantSelection(defaultPackageVariant(projectRoot));
       releaseConfigLabel.setText(releaseConfigText(projectRoot));
       statusLabel.setText("Created release profile: " + config.getAbsolutePath());
       setNoteTone(statusLabel, "ok");
@@ -1562,6 +1687,12 @@ public class GameBuildPublisherView extends BorderPane {
     return """
         # JVN desktop shipping profile
         defaultProfile=release
+        defaultVariant=standard
+
+        # Package variants can exclude authoring or edition-specific files.
+        # variant.demo.exclude.1=assets/bonus/**
+        # variant.steam.exclude.1=store/itch/**
+        # variant.steam.windows.exclude.1=store/macos/**
 
         profile.release.vendor=Your Studio
         profile.release.description=%s
@@ -1576,6 +1707,19 @@ public class GameBuildPublisherView extends BorderPane {
         profile.release.mac.sign=false
         profile.release.mac.notarize=false
         profile.release.win.sign=false
+
+        # Signed full-artifact update catalog (PKCS#8 private key).
+        profile.release.update.enabled=false
+        # profile.release.update.baseUrl=https://downloads.example.com/game
+        # profile.release.update.privateKey=packaging/update-private-key.pem
+        # profile.release.update.publicKey=packaging/update-public-key.pem
+
+        # Store upload layout: generic, itch, or steam.
+        profile.release.store.preset=generic
+        # profile.release.store.itch.project=account/game
+        # profile.release.store.itch.channelPattern={target}
+        # profile.release.store.steam.appId=000000
+        # profile.release.store.steam.depotId=000001
 
         # Optional publish command. Supported placeholders include artifact, mode,
         # target, version, gameName, projectDir, and profile.
@@ -1770,6 +1914,11 @@ public class GameBuildPublisherView extends BorderPane {
     return value == null || value.trim().isBlank() ? "default" : value.trim();
   }
 
+  private String selectedPackageVariant() {
+    String value = packageVariantBox.isEditable() ? packageVariantBox.getEditor().getText() : packageVariantBox.getValue();
+    return value == null || value.trim().isBlank() ? "standard" : value.trim();
+  }
+
   private BuildTaskSelection buildTaskForSelection() {
     PackageMode mode = selectedPackageMode();
     TargetChoice target = targetBox.getValue();
@@ -1856,6 +2005,25 @@ public class GameBuildPublisherView extends BorderPane {
       profiles.add(profile);
     }
     return profiles;
+  }
+
+  private List<String> availablePackageVariants(File root) {
+    Properties props = loadReleaseConfig(root);
+    List<String> variants = new ArrayList<>();
+    variants.add("standard");
+    for (String key : props.stringPropertyNames()) {
+      if (!key.startsWith("variant.")) continue;
+      String suffix = key.substring("variant.".length());
+      String variant = suffix.contains(".") ? suffix.substring(0, suffix.indexOf('.')) : suffix;
+      if (variant.isBlank() || variants.contains(variant)) continue;
+      variants.add(variant);
+    }
+    return variants;
+  }
+
+  private String defaultPackageVariant(File root) {
+    String configured = loadReleaseConfig(root).getProperty("defaultVariant", "standard").trim();
+    return configured.isBlank() ? "standard" : configured;
   }
 
   private String defaultReleaseProfile(File root) {

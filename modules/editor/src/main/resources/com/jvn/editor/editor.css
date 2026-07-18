@@ -6286,9 +6286,87 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-font-weight: 800;
 }
 
+.build-publisher-step {
+  -fx-padding: 15;
+  -fx-spacing: 12;
+  -fx-background-color: rgba(255,255,255,0.018);
+  -fx-background-radius: 14;
+  -fx-border-color: rgba(220,220,220,0.10);
+  -fx-border-radius: 14;
+  -fx-border-width: 1;
+}
+
+.build-publisher-step-number {
+  -fx-min-width: 30;
+  -fx-min-height: 30;
+  -fx-alignment: center;
+  -fx-background-color: #8e673e;
+  -fx-background-radius: 999;
+  -fx-text-fill: #fff8ef;
+  -fx-font-size: 12px;
+  -fx-font-weight: 900;
+}
+
+.build-publisher-step-title {
+  -fx-text-fill: #f2f2f2;
+  -fx-font-size: 16px;
+  -fx-font-weight: 900;
+}
+
+.build-publisher-step-description {
+  -fx-text-fill: #999999;
+  -fx-font-size: 11px;
+  -fx-font-weight: 600;
+}
+
+.build-publisher-mode-picker {
+  -fx-padding: 12;
+  -fx-background-color: rgba(142,103,62,0.10);
+  -fx-background-radius: 10;
+  -fx-border-color: rgba(171,123,73,0.28);
+  -fx-border-radius: 10;
+  -fx-border-width: 1;
+}
+
+.build-publisher-disclosure {
+  -fx-background-color: transparent;
+  -fx-border-color: rgba(220,220,220,0.10);
+  -fx-border-radius: 9;
+}
+
+.build-publisher-disclosure > .title {
+  -fx-background-color: rgba(255,255,255,0.035);
+  -fx-background-radius: 9;
+  -fx-padding: 9 11 9 11;
+}
+
+.build-publisher-disclosure > .title > .text {
+  -fx-fill: #cfcfcf;
+  -fx-font-size: 11px;
+  -fx-font-weight: 800;
+}
+
+.build-publisher-disclosure > .content {
+  -fx-background-color: rgba(255,255,255,0.018);
+  -fx-border-color: transparent;
+  -fx-padding: 11;
+}
+
 .build-publisher-form {
   -fx-hgap: 12;
   -fx-vgap: 10;
+}
+
+.build-publisher-field-help {
+  -fx-text-fill: #858585;
+  -fx-font-size: 9px;
+  -fx-font-weight: 600;
+}
+
+.build-publisher-cta {
+  -fx-font-size: 12px;
+  -fx-padding: 10 22 10 22;
+  -fx-min-height: 40;
 }
 
 .build-publisher-plan-title {

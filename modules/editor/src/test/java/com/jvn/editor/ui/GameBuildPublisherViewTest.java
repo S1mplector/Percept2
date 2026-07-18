@@ -86,6 +86,8 @@ class GameBuildPublisherViewTest {
     String config = GameBuildPublisherView.defaultReleaseConfigText("Lantern House");
 
     assertTrue(config.contains("defaultProfile=release"));
+    assertTrue(config.contains("defaultVariant=standard"));
+    assertTrue(config.contains("variant.demo.exclude.1"));
     assertTrue(config.contains("profile.release.description=Lantern House built with JVN."));
     assertTrue(config.contains("profile.release.mac.sign=false"));
     assertTrue(config.contains("profile.release.win.sign=false"));
