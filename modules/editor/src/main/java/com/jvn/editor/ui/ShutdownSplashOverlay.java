@@ -38,9 +38,7 @@ public final class ShutdownSplashOverlay {
     VBox pane = new VBox(9, new MetallicJvnLogo(150, 76), title, status, progress, thanks);
     pane.setAlignment(Pos.CENTER);
     pane.setPadding(new Insets(24, 34, 24, 34));
-    pane.setStyle("-fx-background-color: linear-gradient(to bottom, #232323, #171717);"
-        + " -fx-background-radius: 12; -fx-border-color: #3a3a3a; -fx-border-radius: 12;"
-        + " -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.48), 28, 0.25, 0, 10);");
+    pane.setStyle("-fx-background-color: transparent;");
     Scene scene = new Scene(pane, 390, 245, Color.TRANSPARENT);
     scene.setFill(Color.TRANSPARENT);
     stage.setScene(scene);

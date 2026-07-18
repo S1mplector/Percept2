@@ -1,6 +1,7 @@
 package com.jvn.hub;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.awt.Dimension;
 import org.junit.jupiter.api.Test;
@@ -32,6 +33,13 @@ class JvnHubDisplayScaleTest {
   void resizeOverlayReportsClampedPixelDimensions() {
     assertEquals("1280 × 720 px", JvnHub.formatWindowPixels(1280, 720));
     assertEquals("0 × 480 px", JvnHub.formatWindowPixels(-1, 480));
+  }
+
+  @Test
+  void announcementDatesAlwaysSortNewestFirst() {
+    assertTrue(JvnHub.compareAnnouncementDatesNewestFirst("2026-07-18", "2026-06-09") < 0);
+    assertTrue(JvnHub.compareAnnouncementDatesNewestFirst("not-a-date", "2026-06-09") > 0);
+    assertEquals(0, JvnHub.compareAnnouncementDatesNewestFirst("2026-07-18", "2026-07-18"));
   }
 
   @Test

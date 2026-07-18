@@ -18,6 +18,7 @@ import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.awt.LayoutManager;
 import java.awt.LinearGradientPaint;
+import java.awt.Point;
 import java.awt.RadialGradientPaint;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
@@ -913,8 +914,19 @@ public final class JvnHub {
     if (date != null) {
       out.add(new Announcement(date, title, body.toString().strip()));
     }
-    out.sort(Comparator.comparing(JvnHub::announcementDate).reversed());
+    sortAnnouncementsNewestFirst(out);
     return out;
+  }
+
+  private static void sortAnnouncementsNewestFirst(List<Announcement> entries) {
+    if (entries == null || entries.size() < 2) return;
+    entries.sort(Comparator.comparing(JvnHub::announcementDate).reversed());
+  }
+
+  static int compareAnnouncementDatesNewestFirst(String left, String right) {
+    Announcement leftEntry = new Announcement(left, "", "");
+    Announcement rightEntry = new Announcement(right, "", "");
+    return Comparator.comparing(JvnHub::announcementDate).reversed().compare(leftEntry, rightEntry);
   }
 
   private static LocalDate announcementDate(Announcement announcement) {
@@ -936,6 +948,7 @@ public final class JvnHub {
   }
 
   private void showAnnouncementsDialog() {
+    sortAnnouncementsNewestFirst(announcements);
     JDialog dialog = new JDialog(frame, "Announcements", true);
     dialog.setUndecorated(false);
 
@@ -1000,6 +1013,8 @@ public final class JvnHub {
 
     dialog.setContentPane(root);
     dialog.pack();
+    scroll.getViewport().setViewPosition(new Point(0, 0));
+    scroll.getVerticalScrollBar().setValue(0);
     dialog.setLocationRelativeTo(frame);
     // Opening the dialog counts as reading every entry currently visible in it.
     // The badge clears before the dialog shows so the user never sees a stale count.
@@ -4079,6 +4094,7 @@ public final class JvnHub {
       versionLabel.setText(formatVersionLabel(newVersion));
       announcements.clear();
       announcements.addAll(fresh);
+      sortAnnouncementsNewestFirst(announcements);
       int unread = unreadCount();
       if (announcementsButton != null) announcementsButton.refreshBadge(unread);
       boolean maintenanceChanged = launcherMaintenanceState.underMaintenance()
@@ -5832,10 +5848,9 @@ public final class JvnHub {
     }
 
     static HubLifecycleSplash shutdown(String detail) {
-      JPanel pane = new GradientPanel(new GridBagLayout(), Color.decode("#232323"), Color.decode("#171717"));
-      pane.setBorder(BorderFactory.createCompoundBorder(
-          BorderFactory.createLineBorder(Color.decode("#3a3a3a")),
-          uiPadding(24, 34, 24, 34)));
+      JPanel pane = new JPanel(new GridBagLayout());
+      pane.setOpaque(false);
+      pane.setBorder(uiPadding(24, 34, 24, 34));
       JPanel stack = new JPanel();
       stack.setOpaque(false);
       stack.setLayout(new BoxLayout(stack, BoxLayout.Y_AXIS));
