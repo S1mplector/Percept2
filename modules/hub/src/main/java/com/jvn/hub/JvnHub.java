@@ -4889,14 +4889,14 @@ public final class JvnHub {
     protected void paintComponent(Graphics g) {
       Graphics2D h = (Graphics2D) g.create();
       h.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+      if (getModel().isRollover() || getModel().isPressed()) {
+        paintHeaderHoverBackdrop(h, this, getModel().isPressed());
+      }
       if (isSelected()) {
         h.setColor(alpha(ACCENT_DEV, getModel().isPressed() ? 0.26f : getModel().isRollover() ? 0.20f : 0.14f));
         h.fillRoundRect(0, 0, getWidth(), getHeight(), ui(10), ui(10));
         h.setColor(alpha(ACCENT_DEV, 0.70f));
         h.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, ui(10), ui(10));
-      } else if (getModel().isRollover() || getModel().isPressed()) {
-        h.setColor(getModel().isPressed() ? PRESSED_BG : HOVER_BG);
-        h.fillRoundRect(0, 0, getWidth(), getHeight(), ui(10), ui(10));
       }
       h.dispose();
       super.paintComponent(g);
@@ -4930,14 +4930,14 @@ public final class JvnHub {
     protected void paintComponent(Graphics g) {
       Graphics2D h = (Graphics2D) g.create();
       h.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+      if (getModel().isRollover() || getModel().isPressed()) {
+        paintHeaderHoverBackdrop(h, this, getModel().isPressed());
+      }
       if (isSelected()) {
         h.setColor(alpha(ACCENT_SAFE, getModel().isPressed() ? 0.26f : getModel().isRollover() ? 0.20f : 0.14f));
         h.fillRoundRect(0, 0, getWidth(), getHeight(), ui(10), ui(10));
         h.setColor(alpha(ACCENT_SAFE, 0.70f));
         h.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, ui(10), ui(10));
-      } else if (getModel().isRollover() || getModel().isPressed()) {
-        h.setColor(getModel().isPressed() ? PRESSED_BG : HOVER_BG);
-        h.fillRoundRect(0, 0, getWidth(), getHeight(), ui(10), ui(10));
       }
       h.dispose();
       super.paintComponent(g);
@@ -4963,12 +4963,27 @@ public final class JvnHub {
       if (getModel().isRollover() || getModel().isPressed()) {
         Graphics2D h = (Graphics2D) g.create();
         h.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        h.setColor(getModel().isPressed() ? PRESSED_BG : HOVER_BG);
-        h.fillRoundRect(0, 0, getWidth(), getHeight(), ui(10), ui(10));
+        paintHeaderHoverBackdrop(h, this, getModel().isPressed());
         h.dispose();
       }
       super.paintComponent(g);
     }
+  }
+
+  private static void paintHeaderHoverBackdrop(Graphics2D g, JComponent component, boolean pressed) {
+    int inset = ui(3);
+    int width = Math.max(0, component.getWidth() - inset * 2);
+    int height = Math.max(0, component.getHeight() - inset * 2);
+    int arc = ui(9);
+
+    g.setColor(alpha(Color.BLACK, pressed ? 0.34f : 0.26f));
+    g.fillRoundRect(inset, inset + ui(3), width, height, arc, arc);
+    g.setColor(alpha(Color.WHITE, pressed ? 0.24f : 0.15f));
+    g.fillRoundRect(inset, inset, width, height, arc, arc);
+    g.setColor(alpha(Color.WHITE, pressed ? 0.68f : 0.46f));
+    g.drawRoundRect(inset, inset, Math.max(0, width - 1), Math.max(0, height - 1), arc, arc);
+    g.setColor(alpha(Color.WHITE, pressed ? 0.18f : 0.10f));
+    g.drawLine(inset + ui(5), inset + ui(2), component.getWidth() - inset - ui(5), inset + ui(2));
   }
 
   /**
@@ -5004,8 +5019,7 @@ public final class JvnHub {
       if (getModel().isRollover() || getModel().isPressed()) {
         Graphics2D h = (Graphics2D) g.create();
         h.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        h.setColor(getModel().isPressed() ? PRESSED_BG : HOVER_BG);
-        h.fillRoundRect(0, 0, getWidth(), getHeight(), ui(10), ui(10));
+        paintHeaderHoverBackdrop(h, this, getModel().isPressed());
         h.dispose();
       }
       super.paintComponent(g);
