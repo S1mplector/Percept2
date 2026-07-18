@@ -6242,24 +6242,24 @@ The editor.css file defines the visual styling for the editor module, including 
 }
 
 .build-publisher-content {
-  -fx-padding: 18;
+  -fx-padding: 16;
 }
 
 .build-publisher-header {
-  -fx-padding: 16;
+  -fx-padding: 14 16 14 16;
   -fx-spacing: 12;
   -fx-background-color:
       linear-gradient(to bottom, rgba(255,255,255,0.035), rgba(255,255,255,0.0)),
       linear-gradient(to bottom, #181818 0%, #121212 100%);
-  -fx-background-radius: 14;
+  -fx-background-radius: 8;
   -fx-border-color: #2f2f2f;
-  -fx-border-radius: 14;
+  -fx-border-radius: 8;
   -fx-border-width: 1;
 }
 
 .build-publisher-title {
   -fx-text-fill: #f1f1f1;
-  -fx-font-size: 26px;
+  -fx-font-size: 22px;
   -fx-font-weight: 800;
 }
 
@@ -6286,9 +6286,120 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-font-weight: 800;
 }
 
+.build-publisher-step {
+  -fx-padding: 14;
+  -fx-spacing: 12;
+  -fx-background-color: rgba(255,255,255,0.018);
+  -fx-background-radius: 8;
+  -fx-border-color: rgba(220,220,220,0.10);
+  -fx-border-radius: 8;
+  -fx-border-width: 1;
+}
+
+.build-publisher-step-number {
+  -fx-min-width: 30;
+  -fx-min-height: 30;
+  -fx-alignment: center;
+  -fx-background-color: #8e673e;
+  -fx-background-radius: 999;
+  -fx-text-fill: #fff8ef;
+  -fx-font-size: 12px;
+  -fx-font-weight: 900;
+}
+
+.build-publisher-step-title {
+  -fx-text-fill: #f2f2f2;
+  -fx-font-size: 16px;
+  -fx-font-weight: 900;
+}
+
+.build-publisher-step-description {
+  -fx-text-fill: #999999;
+  -fx-font-size: 11px;
+  -fx-font-weight: 600;
+}
+
+.build-publisher-mode-picker {
+  -fx-padding: 12;
+  -fx-background-color: rgba(142,103,62,0.10);
+  -fx-background-radius: 10;
+  -fx-border-color: rgba(171,123,73,0.28);
+  -fx-border-radius: 10;
+  -fx-border-width: 1;
+}
+
+.build-publisher-disclosure {
+  -fx-background-color: transparent;
+  -fx-border-color: rgba(220,220,220,0.10);
+  -fx-border-radius: 9;
+}
+
+.build-publisher-disclosure > .title {
+  -fx-background-color: rgba(255,255,255,0.035);
+  -fx-background-radius: 9;
+  -fx-padding: 9 11 9 11;
+}
+
+.build-publisher-disclosure > .title > .text {
+  -fx-fill: #cfcfcf;
+  -fx-font-size: 11px;
+  -fx-font-weight: 800;
+}
+
+.build-publisher-disclosure > .content {
+  -fx-background-color: rgba(255,255,255,0.018);
+  -fx-border-color: transparent;
+  -fx-padding: 11;
+}
+
 .build-publisher-form {
   -fx-hgap: 12;
   -fx-vgap: 10;
+}
+
+.build-publisher-field-help {
+  -fx-text-fill: #858585;
+  -fx-font-size: 9px;
+  -fx-font-weight: 600;
+}
+
+.build-publisher-workflow-notice {
+  -fx-padding: 12 15 12 15;
+  -fx-background-radius: 10;
+  -fx-border-radius: 10;
+  -fx-border-width: 1;
+  -fx-font-size: 11px;
+  -fx-font-weight: 800;
+}
+
+.build-publisher-workflow-notice-ready {
+  -fx-background-color: rgba(72, 139, 88, 0.14);
+  -fx-border-color: rgba(112, 190, 131, 0.38);
+  -fx-text-fill: #a9e2b5;
+}
+
+.build-publisher-workflow-notice-pending {
+  -fx-background-color: rgba(142, 103, 62, 0.12);
+  -fx-border-color: rgba(171, 123, 73, 0.34);
+  -fx-text-fill: #e1c199;
+}
+
+.build-publisher-workflow-notice-blocked {
+  -fx-background-color: rgba(128, 50, 67, 0.15);
+  -fx-border-color: rgba(185, 91, 112, 0.38);
+  -fx-text-fill: #f0a9b8;
+}
+
+.build-publisher-workflow-notice-running {
+  -fx-background-color: rgba(71, 104, 151, 0.15);
+  -fx-border-color: rgba(104, 147, 207, 0.38);
+  -fx-text-fill: #b5d2f5;
+}
+
+.build-publisher-cta {
+  -fx-font-size: 12px;
+  -fx-padding: 11 26 11 26;
+  -fx-min-height: 42;
 }
 
 .build-publisher-plan-title {
@@ -6420,6 +6531,15 @@ The editor.css file defines the visual styling for the editor module, including 
 
 .build-publisher-options {
   -fx-padding: 2 0 2 0;
+}
+
+.build-publisher-native-release {
+  -fx-padding: 12;
+  -fx-background-color: rgba(72, 139, 88, 0.08);
+  -fx-background-radius: 8;
+  -fx-border-color: rgba(112, 190, 131, 0.24);
+  -fx-border-radius: 8;
+  -fx-border-width: 1;
 }
 
 .build-publisher-option {

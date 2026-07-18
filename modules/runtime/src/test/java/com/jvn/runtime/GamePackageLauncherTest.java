@@ -83,4 +83,18 @@ class GamePackageLauncherTest {
       else System.setProperty("jvn.packaged.gameRoot", previous);
     }
   }
+
+  @Test
+  void bundledGameWinsOverWorkingDirectoryProject() throws Exception {
+    Path bundle = Files.createTempDirectory("jvn-bundle-priority-");
+    Path app = Files.createDirectories(bundle.resolve("Contents/app"));
+    Path bundledGame = Files.createDirectories(bundle.resolve("Contents/content/game"));
+    Files.writeString(bundledGame.resolve("jvn.project"), "type=vn\n");
+    Path workingProject = Files.createTempDirectory("jvn-working-project-");
+    Files.writeString(workingProject.resolve("jvn.project"), "type=vn\n");
+
+    assertEquals(
+        bundledGame.toFile().getCanonicalFile(),
+        GamePackageLauncher.findPackagedGameRoot(List.of(app.toFile(), workingProject.toFile())).getCanonicalFile());
+  }
 }

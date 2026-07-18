@@ -96,11 +96,10 @@ public final class GamePackageLauncher {
     }
 
     List<File> roots = new ArrayList<>();
-    String userDir = System.getProperty("user.dir", "").trim();
-    if (!userDir.isBlank()) roots.add(new File(userDir));
-
     File codeSource = codeSourceRoot();
     if (codeSource != null) roots.add(codeSource);
+    String userDir = System.getProperty("user.dir", "").trim();
+    if (!userDir.isBlank()) roots.add(new File(userDir));
     return findPackagedGameRoot(roots);
   }
 

@@ -1,0 +1,8 @@
+name=JVN Native Smoke
+version=1.0.0
+type=vn
+entryVns=scripts/story/prologue.vns
+runtime.ui=fx
+runtime.audio=auto
+width=960
+height=540

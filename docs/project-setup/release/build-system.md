@@ -31,6 +31,8 @@ Project Explorer -> Build
 
 The popup reads the current project's `jvn.project`, lets you set the release name/version, target, format, native package type, and release profile, then launches the matching Gradle task in the run console. Use **Ship Build** when you want the editor to build the selected package plan and write release manifests in one step. Use **Scan Dependencies** when you want an in-view shipping report for missing media, bad script/config links, broken menu targets, bad stage/timeline references, unused media, and packaging blockers. The report groups errors, warnings, and cleanup notes, supports per-finding copy/open actions, and still provides a console scan button for CI-style output. The view also reveals output folders, copies CLI/publish notes, shows checksum availability for completed artifacts, and can run the selected release profile.
 
+If a game does not have release configuration yet, **Create Release Config** writes a safe cross-platform starter profile at `config/release/jvn-release.properties`, selects it, and reveals it for authoring. Existing configurations remain untouched.
+
 Before enabling build actions, the popup validates:
 
 - the selected project is not the JVN engine workspace
@@ -113,6 +115,20 @@ Archives are written to:
 If `-PjvnBuildOutputDir=<dir>` is set, packaged game artifacts and their `.sha256` sidecars are written there instead.
 
 Each completed game artifact also receives a sibling `.sha256` file. The checksum sidecar is written after the package has been opened and checked for required launch content, so a missing checksum is a useful sign that the build did not finish its packaging verification step.
+
+### Controlling Shipped Files
+
+Add a `.jvnignore` file at the game project root to exclude authoring-only content from every desktop package. Use one Gradle/Ant-style path pattern per line; blank lines and lines beginning with `#` are ignored.
+
+```text
+# Source art and local production notes
+source-art/**
+notes/**
+**/*.kra
+**/*.psd
+```
+
+JVN always excludes version-control metadata, IDE state, build outputs, saves, logs, temporary files, and `.jvnignore` itself. Authored patterns are added to those safe defaults and apply consistently to portable zips, desktop bundles, and native packages.
 
 `dist-preflight` writes both machine-readable and human-readable reports:
 

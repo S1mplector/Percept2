@@ -10,11 +10,20 @@ import org.gradle.api.tasks.testing.Test
 import org.gradle.jvm.tasks.Jar
 import org.gradle.jvm.toolchain.JavaToolchainService
 import org.gradle.process.ExecOperations
+import java.io.ByteArrayOutputStream
 import java.net.HttpURLConnection
 import java.net.URI
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.security.MessageDigest
+import java.security.KeyFactory
+import java.security.Signature
+import java.security.spec.PKCS8EncodedKeySpec
 import java.time.Instant
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import java.util.Properties
+import java.util.Base64
 import java.util.zip.ZipFile
 import javax.inject.Inject
 
@@ -139,6 +148,18 @@ data class JvnReleaseProfile(
     }
     return values.toSortedMap().values.toList()
   }
+
+  fun values(prefix: String): List<String> {
+    val roots = listOf("profile.$name.$prefix.", "profile.default.$prefix.")
+    val values = linkedMapOf<String, String>()
+    roots.forEach { root ->
+      properties.stringPropertyNames()
+        .filter { it.startsWith(root) }
+        .sortedWith(compareBy({ it.removePrefix(root).toIntOrNull() ?: Int.MAX_VALUE }, { it }))
+        .forEach { key -> values.putIfAbsent(key.removePrefix(root), properties.getProperty(key).trim()) }
+    }
+    return values.values.filter { it.isNotBlank() }
+  }
 }
 
 data class JvnGamePlannedArtifact(
@@ -185,6 +206,12 @@ val jvnGameRuntimeProjectPaths = listOf(
   ":runtime",
   ":demo-game"
 )
+val jvnGamePackagingRuntime = configurations.create("jvnGamePackagingRuntime") {
+  isCanBeResolved = true
+  isCanBeConsumed = false
+  description = "Runtime dependencies staged into JVN desktop game packages."
+}
+dependencies.add(jvnGamePackagingRuntime.name, project(":runtime"))
 val jvnGameJavaFxConfigurations = mutableMapOf<String, org.gradle.api.artifacts.Configuration>()
 
 fun currentGameTarget(): JvnGameTarget {
@@ -434,6 +461,25 @@ fun selectedReleaseProfile(): JvnReleaseProfile {
   return JvnReleaseProfile(selectedReleaseProfileName(), gameReleaseConfigFile(), gameReleaseConfig())
 }
 
+fun selectedPackageVariant(): String {
+  val explicit = (findProperty("jvnPackageVariant") as String?)?.trim()
+  if (!explicit.isNullOrBlank()) return explicit
+  return gameReleaseConfig().getProperty("defaultVariant", "standard").trim().ifBlank { "standard" }
+}
+
+fun packageVariantSuffix(): String {
+  val variant = sanitizeGameName(selectedPackageVariant())
+  return if (variant.equals("standard", ignoreCase = true)) "" else "-$variant"
+}
+
+fun numberedPropertyValues(properties: Properties, prefix: String): List<String> {
+  return properties.stringPropertyNames()
+    .filter { it.startsWith("$prefix.") }
+    .sortedWith(compareBy({ it.removePrefix("$prefix.").toIntOrNull() ?: Int.MAX_VALUE }, { it }))
+    .map { properties.getProperty(it).trim() }
+    .filter { it.isNotBlank() }
+}
+
 fun nativeGameVersion(): String {
   val explicit = (findProperty("jvnNativeVersion") as String?)?.trim()
   if (!explicit.isNullOrBlank()) return explicit
@@ -576,7 +622,15 @@ fun assertZipArtifactContains(artifact: File, label: String, requiredSuffixes: L
     val entries = zip.entries()
     while (entries.hasMoreElements()) {
       val entry = entries.nextElement()
-      if (!entry.isDirectory) names += entry.name.replace('\\', '/')
+      val normalized = entry.name.replace('\\', '/')
+      if (normalized.startsWith("/") || normalized.split('/').any { it == ".." }) {
+        throw GradleException("$label artifact ${artifact.name} contains an unsafe archive path: ${entry.name}")
+      }
+      if (!entry.isDirectory) names += normalized
+    }
+    val duplicates = names.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
+    if (duplicates.isNotEmpty()) {
+      throw GradleException("$label artifact ${artifact.name} contains duplicate entries: ${duplicates.take(10).joinToString(", ")}")
     }
     val missing = requiredSuffixes.filter { suffix ->
       names.none { name ->
@@ -626,17 +680,173 @@ fun verifyBundledRuntimeArtifact(target: JvnGameTarget, artifact: File) {
   writeArtifactChecksum(artifact)
 }
 
+fun commandOutput(vararg command: String): String {
+  val output = ByteArrayOutputStream()
+  val result = jvnExecOperations.exec {
+    commandLine(*command)
+    standardOutput = output
+    errorOutput = output
+    isIgnoreExitValue = true
+  }
+  if (result.exitValue != 0) {
+    throw GradleException("Command failed (${command.joinToString(" ")}): ${output.toString().trim()}")
+  }
+  return output.toString().trim()
+}
+
+fun extractZipSafely(artifact: File, destination: File) {
+  deleteAndMkdir(destination)
+  val root = destination.canonicalFile.toPath()
+  ZipFile(artifact).use { zip ->
+    val entries = zip.entries()
+    while (entries.hasMoreElements()) {
+      val entry = entries.nextElement()
+      val output = destination.resolve(entry.name).canonicalFile
+      if (!output.toPath().startsWith(root)) throw GradleException("Unsafe native app-image entry: ${entry.name}")
+      if (entry.isDirectory) output.mkdirs() else {
+        output.parentFile.mkdirs()
+        zip.getInputStream(entry).use { input -> output.outputStream().use { input.copyTo(it) } }
+      }
+    }
+  }
+}
+
+fun findSingle(root: File, predicate: (File) -> Boolean, label: String): File {
+  val matches = root.walkTopDown().filter { predicate(it) }.toList()
+  if (matches.isEmpty()) throw GradleException("Native package is missing $label under ${root.absolutePath}")
+  return matches.first()
+}
+
+fun verifyPackagedEntry(gameRoot: File) {
+  val manifest = gameRoot.resolve("jvn.project")
+  if (!manifest.isFile) throw GradleException("Native package is missing bundled jvn.project")
+  val props = Properties()
+  manifest.inputStream().use { props.load(it) }
+  val type = props.getProperty("type", "vn").trim().lowercase()
+  val rawEntry = if (type == "jes") props.getProperty("entry") else props.getProperty("entryVns")
+  val entry = if (type == "jes") rawEntry?.let { gameRoot.resolve(it) } else resolveScriptFile(gameRoot, rawEntry)
+  if (entry == null || !entry.isFile) {
+    throw GradleException("Native package manifest entry is missing: ${rawEntry ?: "(not configured)"}")
+  }
+}
+
+fun verifyRuntimeModules(javaExecutable: File) {
+  if (!javaExecutable.isFile) throw GradleException("Native package is missing runtime Java: ${javaExecutable.absolutePath}")
+  if (!currentHostIsWindows()) javaExecutable.setExecutable(true)
+  val modules = commandOutput(javaExecutable.absolutePath, "--list-modules")
+  runtimeImageModules().forEach { module ->
+    if (!modules.lineSequence().any { it.substringBefore('@') == module }) {
+      throw GradleException("Native runtime is missing required module '$module'")
+    }
+  }
+}
+
+fun verifyLauncherConfig(config: File) {
+  if (!config.isFile) throw GradleException("Native package is missing jpackage launcher configuration")
+  val text = config.readText()
+  if (!text.contains("app.mainclass=${gamePackagedMainClass()}")) {
+    throw GradleException("Native launcher does not use ${gamePackagedMainClass()}")
+  }
+  if (!text.contains("app.classpath=")) throw GradleException("Native launcher has no application classpath")
+}
+
+fun verifyMacNativePayload(app: File) {
+  val contents = app.resolve("Contents")
+  val executableName = commandOutput("/usr/libexec/PlistBuddy", "-c", "Print :CFBundleExecutable", contents.resolve("Info.plist").absolutePath)
+  val executable = contents.resolve("MacOS/$executableName")
+  val architecture = commandOutput("file", executable.absolutePath)
+  val expected = if (currentPackageHost().target.id.endsWith("aarch64")) "arm64" else "x86_64"
+  if (!architecture.contains(expected)) throw GradleException("Native executable architecture mismatch: $architecture")
+  verifyRuntimeModules(contents.resolve("runtime/Contents/Home/bin/java"))
+  verifyLauncherConfig(contents.resolve("app/$executableName.cfg"))
+  verifyPackagedEntry(contents.resolve("content/game"))
+  val iconName = commandOutput("/usr/libexec/PlistBuddy", "-c", "Print :CFBundleIconFile", contents.resolve("Info.plist").absolutePath)
+  if (!contents.resolve("Resources/$iconName").isFile) throw GradleException("Native macOS app is missing bundle icon '$iconName'")
+  if (selectedReleaseProfile().flag("mac.sign")) {
+    commandOutput("codesign", "--verify", "--deep", "--strict", app.absolutePath)
+  }
+}
+
+fun verifyWindowsNativePayload(root: File) {
+  val executable = findSingle(root, { it.isFile && it.extension.equals("exe", true) && it.parentFile.name.equals("bin", true) }, "launcher executable")
+  val cfg = findSingle(root, { it.isFile && it.extension.equals("cfg", true) && it.parentFile.name.equals("app", true) }, "launcher configuration")
+  val java = findSingle(root, { it.isFile && it.name.equals("java.exe", true) && it.parentFile.name.equals("bin", true) }, "runtime Java")
+  val game = findSingle(root, { it.isFile && it.name == "jvn.project" && it.parentFile.name == "game" }, "bundled jvn.project").parentFile
+  verifyRuntimeModules(java)
+  verifyLauncherConfig(cfg)
+  verifyPackagedEntry(game)
+  val bytes = executable.readBytes()
+  val peOffset = ByteBuffer.wrap(bytes, 0x3c, 4).order(ByteOrder.LITTLE_ENDIAN).int
+  val machine = ByteBuffer.wrap(bytes, peOffset + 4, 2).order(ByteOrder.LITTLE_ENDIAN).short.toInt() and 0xffff
+  if (machine != 0x8664) throw GradleException("Native Windows launcher is not x64 (PE machine=0x${machine.toString(16)})")
+  if (gamePackageIconFile() != null) {
+    val iconDimensions = commandOutput(
+      "powershell", "-NoProfile", "-Command",
+      "Add-Type -AssemblyName System.Drawing; " +
+        "\$icon = [System.Drawing.Icon]::ExtractAssociatedIcon('${executable.absolutePath.replace("'", "''")}'); " +
+        "if (\$null -eq \$icon) { exit 1 }; " +
+        "Write-Output \"\$(\$icon.Width)x\$(\$icon.Height)\""
+    )
+    if (!Regex("\\d+x\\d+").matches(iconDimensions)) {
+      throw GradleException("Native Windows launcher icon could not be inspected: $iconDimensions")
+    }
+  }
+  if (selectedReleaseProfile().flag("win.sign")) {
+    val signature = commandOutput("powershell", "-NoProfile", "-Command", "(Get-AuthenticodeSignature -LiteralPath '${executable.absolutePath.replace("'", "''")}').Status")
+    if (!signature.equals("Valid", true)) throw GradleException("Windows package signature is not valid: $signature")
+  }
+}
+
+fun verifyNativeArtifact(artifact: File, packageType: String) {
+  val inspectRoot = layout.buildDirectory.dir("tmp/jvn-native-smoke/${currentPackageHost().target.id}-$packageType").get().asFile
+  deleteAndMkdir(inspectRoot)
+  try {
+    when (packageType) {
+      "dmg" -> {
+        val mount = inspectRoot.resolve("mount")
+        mount.mkdirs()
+        commandOutput("hdiutil", "attach", "-nobrowse", "-readonly", "-mountpoint", mount.absolutePath, artifact.absolutePath)
+        try {
+          verifyMacNativePayload(findSingle(mount, { it.isDirectory && it.extension == "app" }, "macOS app bundle"))
+        } finally {
+          commandOutput("hdiutil", "detach", mount.absolutePath)
+        }
+      }
+      "msi" -> {
+        val extracted = inspectRoot.resolve("extracted")
+        extracted.mkdirs()
+        commandOutput("msiexec", "/a", artifact.absolutePath, "/qn", "TARGETDIR=${extracted.absolutePath}")
+        verifyWindowsNativePayload(extracted)
+      }
+      "app-image" -> {
+        val extracted = inspectRoot.resolve("extracted")
+        extractZipSafely(artifact, extracted)
+        when (currentPackageHost().osId) {
+          "macos" -> verifyMacNativePayload(findSingle(extracted, { it.isDirectory && it.extension == "app" }, "macOS app bundle"))
+          "windows" -> verifyWindowsNativePayload(extracted)
+        }
+      }
+      else -> {
+        if (!artifact.isFile || artifact.length() <= 0L) throw GradleException("Native package is missing or empty")
+      }
+    }
+    writeArtifactChecksum(artifact)
+  } finally {
+    inspectRoot.deleteRecursively()
+  }
+}
+
 fun verifyNativeArtifact(artifact: File) {
-  writeArtifactChecksum(artifact)
+  verifyNativeArtifact(artifact, currentJpackageType())
 }
 
 fun gameBundledDistName(target: JvnGameTarget): String {
-  return "${sanitizeGameName(gameDisplayName())}-${sanitizeGameName(gameVersion())}-${target.id}-runtime"
+  return "${sanitizeGameName(gameDisplayName())}-${sanitizeGameName(gameVersion())}${packageVariantSuffix()}-${target.id}-runtime"
 }
 
 fun gameNativeArtifactStem(packageType: String): String {
   val host = currentPackageHost()
-  return "${sanitizeGameName(gameDisplayName())}-${sanitizeGameName(nativeGameVersion())}-${host.target.id}-$packageType"
+  return "${sanitizeGameName(gameDisplayName())}-${sanitizeGameName(nativeGameVersion())}${packageVariantSuffix()}-${host.target.id}-$packageType"
 }
 
 fun jpackageAppName(): String {
@@ -699,6 +909,7 @@ fun runtimeImageModules(): List<String> {
     "java.scripting",
     "java.sql",
     "java.xml",
+    "jdk.management",
     "jdk.unsupported"
   )
   modules += jvnJavaFxRuntimeModules
@@ -753,29 +964,69 @@ fun gamePackageIconFile(): File? {
     .firstOrNull { it.isFile }
 }
 
-fun copyGameProjectFiles(destination: File) {
+fun gamePackageExcludes(targetId: String? = null): List<String> {
+  val defaults = listOf(
+    ".git/**",
+    ".gradle/**",
+    ".jvn-gradle-user-home/**",
+    ".jvnignore",
+    "build/**",
+    "out/**",
+    "dist/**",
+    "save/**",
+    "saves/**",
+    "logs/**",
+    ".idea/**",
+    ".vscode/**",
+    "__MACOSX/**",
+    "**/*.log",
+    "**/*.tmp",
+    "**/Icon\r",
+    "**/.DS_Store",
+    "**/Thumbs.db"
+  )
+  val authoredProject = (findProperty("jvnGameProject") as String?)
+    ?.trim()
+    ?.takeIf { it.isNotBlank() }
+    ?.let { file(it) }
+  val authored = authoredProject?.resolve(".jvnignore")
+    ?.takeIf { it.isFile }
+    ?.readLines()
+    ?.map { it.trim() }
+    ?.filter { it.isNotBlank() && !it.startsWith("#") }
+    ?: emptyList()
+  val releaseProperties = Properties()
+  authoredProject?.let { dir ->
+    listOf(
+      File(dir, "config/release/jvn-release.properties"),
+      File(dir, "config/release/release.properties"),
+      File(dir, "release/jvn-release.properties"),
+      File(dir, "jvn-release.properties")
+    ).firstOrNull { it.isFile }?.inputStream()?.use { releaseProperties.load(it) }
+  }
+  val variant = (findProperty("jvnPackageVariant") as String?)?.trim()
+    ?.takeIf { it.isNotBlank() }
+    ?: releaseProperties.getProperty("defaultVariant", "standard").trim().ifBlank { "standard" }
+  val profileName = (findProperty("jvnReleaseProfile") as String?)?.trim()
+    ?.takeIf { it.isNotBlank() }
+    ?: releaseProperties.getProperty("defaultProfile", "default").trim().ifBlank { "default" }
+  val platform = targetId?.substringBefore('-')
+  val configured = buildList {
+    addAll(numberedPropertyValues(releaseProperties, "variant.$variant.exclude"))
+    addAll(numberedPropertyValues(releaseProperties, "profile.$profileName.package.exclude"))
+    if (!platform.isNullOrBlank()) {
+      addAll(numberedPropertyValues(releaseProperties, "variant.$variant.$platform.exclude"))
+      addAll(numberedPropertyValues(releaseProperties, "profile.$profileName.package.$platform.exclude"))
+    }
+  }
+  return (defaults + authored + configured).distinct()
+}
+
+fun copyGameProjectFiles(destination: File, targetId: String = currentGameTarget().id) {
   copy {
     from(gameProjectDir())
     into(destination)
-    exclude(
-      ".git/**",
-      ".gradle/**",
-      ".jvn-gradle-user-home/**",
-      "build/**",
-      "out/**",
-      "dist/**",
-      "save/**",
-      "saves/**",
-      "logs/**",
-      ".idea/**",
-      ".vscode/**",
-      "__MACOSX/**",
-      "**/*.log",
-      "**/*.tmp",
-      "**/Icon\r",
-      "**/.DS_Store",
-      "**/Thumbs.db"
-    )
+    exclude(gamePackageExcludes(targetId))
   }
 }
 
@@ -1178,6 +1429,7 @@ fun jvnGameBuildPlanMap(): Map<String, Any?> {
     "packageMode" to selectedJvnGamePackageMode(),
     "requestedTarget" to selectedJvnGameTargetToken(),
     "releaseProfile" to profile.name,
+    "packageVariant" to selectedPackageVariant(),
     "releaseConfig" to (profile.file?.absolutePath ?: ""),
     "warnings" to validation.warnings,
     "artifacts" to artifacts.map { artifact ->
@@ -1205,7 +1457,7 @@ fun jvnGameReleaseManifestMap(): Map<String, Any?> {
   val profile = selectedReleaseProfile()
   val artifacts = selectedJvnGamePlannedArtifacts()
   return mapOf(
-    "schema" to 1,
+    "schema" to 2,
     "generatedAt" to Instant.now().toString(),
     "engineVersion" to project.version.toString(),
     "workspaceRoot" to rootDir.absolutePath,
@@ -1219,7 +1471,9 @@ fun jvnGameReleaseManifestMap(): Map<String, Any?> {
     "packageMode" to selectedJvnGamePackageMode(),
     "requestedTarget" to selectedJvnGameTargetToken(),
     "releaseProfile" to profile.name,
+    "packageVariant" to selectedPackageVariant(),
     "releaseConfig" to (profile.file?.absolutePath ?: ""),
+    "provenance" to jvnReleaseProvenance(),
     "warnings" to validation.warnings,
     "artifacts" to artifacts.map { artifact ->
       val checksumFile = artifactChecksumFile(artifact.artifact)
@@ -1239,6 +1493,38 @@ fun jvnGameReleaseManifestMap(): Map<String, Any?> {
         "checksumExists" to checksumFile.isFile
       )
     }
+  )
+}
+
+fun commandOutput(workingDir: File, vararg command: String): String? {
+  return try {
+    val process = ProcessBuilder(*command)
+      .directory(workingDir)
+      .redirectErrorStream(true)
+      .start()
+    val output = process.inputStream.bufferedReader().use { it.readText() }.trim()
+    if (process.waitFor() == 0) output.ifBlank { null } else null
+  } catch (_: Exception) {
+    null
+  }
+}
+
+fun gitProvenance(directory: File): Map<String, Any?> {
+  val commit = commandOutput(directory, "git", "rev-parse", "HEAD") ?: ""
+  val branch = commandOutput(directory, "git", "branch", "--show-current") ?: ""
+  val dirty = commandOutput(directory, "git", "status", "--porcelain")?.isNotBlank() ?: false
+  return mapOf("commit" to commit, "branch" to branch, "dirty" to dirty)
+}
+
+fun jvnReleaseProvenance(): Map<String, Any?> {
+  return mapOf(
+    "engine" to gitProvenance(rootDir),
+    "game" to gitProvenance(gameProjectDir()),
+    "javaVersion" to System.getProperty("java.version"),
+    "javaVendor" to System.getProperty("java.vendor"),
+    "gradleVersion" to gradle.gradleVersion,
+    "hostOs" to System.getProperty("os.name"),
+    "hostArch" to System.getProperty("os.arch")
   )
 }
 
@@ -1267,6 +1553,7 @@ fun writeJvnGameBuildMarkdownReport(): File {
     appendLine("- Mode: ${selectedJvnGamePackageMode()}")
     appendLine("- Requested Target: ${selectedJvnGameTargetToken()}")
     appendLine("- Release Profile: ${selectedReleaseProfile().name}")
+    appendLine("- Package Variant: ${selectedPackageVariant()}")
     appendLine("- Release Config: ${selectedReleaseProfile().file?.absolutePath ?: "(none)"}")
     appendLine()
     appendLine("## Artifacts")
@@ -1310,7 +1597,14 @@ fun writeJvnGameReleaseManifest(): Pair<File, File> {
     appendLine("- Mode: ${manifest["packageMode"]}")
     appendLine("- Requested Target: ${manifest["requestedTarget"]}")
     appendLine("- Release Profile: ${manifest["releaseProfile"]}")
+    appendLine("- Package Variant: ${manifest["packageVariant"]}")
     appendLine("- Project: ${manifest["projectRoot"]}")
+    val provenance = manifest["provenance"] as Map<*, *>
+    val engineSource = provenance["engine"] as Map<*, *>
+    val gameSource = provenance["game"] as Map<*, *>
+    appendLine("- Engine Source: `${engineSource["commit"]}`${if (engineSource["dirty"] == true) " (dirty)" else ""}")
+    appendLine("- Game Source: `${gameSource["commit"]}`${if (gameSource["dirty"] == true) " (dirty)" else ""}")
+    appendLine("- Toolchain: Java ${provenance["javaVersion"]}, Gradle ${provenance["gradleVersion"]}, ${provenance["hostOs"]} ${provenance["hostArch"]}")
     appendLine()
     appendLine("## Artifacts")
     appendLine()
@@ -1335,7 +1629,155 @@ fun writeJvnGameReleaseManifest(): Pair<File, File> {
       warnings.forEach { warning -> appendLine("- $warning") }
     }
   })
+  val historyStamp = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
+    .withZone(ZoneOffset.UTC)
+    .format(Instant.now())
+  val historyDir = reportDir.resolve("history/${sanitizeGameName(gameVersion())}")
+  historyDir.mkdirs()
+  jsonFile.copyTo(historyDir.resolve("$historyStamp-release-manifest.json"), overwrite = true)
+  markdownFile.copyTo(historyDir.resolve("$historyStamp-release-manifest.md"), overwrite = true)
   return jsonFile to markdownFile
+}
+
+fun verifySelectedJvnGameArtifacts() {
+  selectedJvnGamePlannedArtifacts().forEach { artifact ->
+    when (artifact.mode) {
+      "portable" -> verifyPortableArtifact(jvnGameTargets.first { it.id == artifact.targetId }, artifact.artifact)
+      "bundled" -> verifyBundledRuntimeArtifact(jvnGameTargets.first { it.id == artifact.targetId }, artifact.artifact)
+      "native" -> verifyNativeArtifact(artifact.artifact)
+      else -> throw GradleException("Unsupported artifact mode for smoke verification: ${artifact.mode}")
+    }
+  }
+}
+
+fun decodePemPrivateKey(file: File): ByteArray {
+  val text = file.readText()
+  val encoded = text
+    .replace(Regex("-----BEGIN [^-]+-----"), "")
+    .replace(Regex("-----END [^-]+-----"), "")
+    .replace(Regex("\\s+"), "")
+  return try {
+    Base64.getDecoder().decode(encoded)
+  } catch (ex: Exception) {
+    throw GradleException("Update signing key is not valid PEM/base64: ${file.absolutePath}", ex)
+  }
+}
+
+fun writeJvnGameUpdateBundle(): List<File> {
+  val profile = selectedReleaseProfile()
+  if (!profile.flag("update.enabled")) {
+    logger.lifecycle("Update bundle disabled for release profile '${profile.name}'.")
+    return emptyList()
+  }
+  val privateKeyFile = resolveProjectRelativeFile(profile.value("update.privateKey"))
+    ?.takeIf { it.isFile }
+    ?: throw GradleException("Signed updates are enabled, but update.privateKey does not reference a PKCS#8 PEM private key.")
+  val keyAlgorithm = profile.value("update.keyAlgorithm") ?: "Ed25519"
+  val signatureAlgorithm = profile.value("update.signatureAlgorithm")
+    ?: if (keyAlgorithm.equals("RSA", ignoreCase = true)) "SHA256withRSA" else "Ed25519"
+  val artifacts = selectedJvnGamePlannedArtifacts()
+  val missing = artifacts.filterNot { it.artifact.isFile }
+  if (missing.isNotEmpty()) {
+    throw GradleException("Cannot build update catalog; release artifacts are missing: ${missing.joinToString { it.artifact.name }}")
+  }
+  val updateDir = layout.buildDirectory.dir(
+    "distributions/updates/${sanitizeGameName(gameDisplayName())}/${sanitizeGameName(gameVersion())}${packageVariantSuffix()}"
+  ).get().asFile
+  updateDir.mkdirs()
+  val catalog = mapOf(
+    "schema" to 1,
+    "game" to gameDisplayName(),
+    "version" to gameVersion(),
+    "variant" to selectedPackageVariant(),
+    "generatedAt" to Instant.now().toString(),
+    "signatureAlgorithm" to signatureAlgorithm,
+    "updateMode" to "full-artifact",
+    "artifacts" to artifacts.map { artifact ->
+      mapOf(
+        "target" to artifact.targetId,
+        "mode" to artifact.mode,
+        "name" to artifact.artifact.name,
+        "bytes" to artifact.artifact.length(),
+        "sha256" to sha256Hex(artifact.artifact),
+        "url" to "${profile.value("update.baseUrl")?.trimEnd('/') ?: ""}/${artifact.artifact.name}"
+      )
+    }
+  )
+  val catalogFile = updateDir.resolve("updates.json")
+  val catalogBytes = JsonOutput.prettyPrint(JsonOutput.toJson(catalog)).toByteArray(Charsets.UTF_8)
+  catalogFile.writeBytes(catalogBytes)
+  val privateKey = KeyFactory.getInstance(keyAlgorithm)
+    .generatePrivate(PKCS8EncodedKeySpec(decodePemPrivateKey(privateKeyFile)))
+  val signer = Signature.getInstance(signatureAlgorithm)
+  signer.initSign(privateKey)
+  signer.update(catalogBytes)
+  val signatureFile = updateDir.resolve("updates.sig")
+  signatureFile.writeText(Base64.getEncoder().encodeToString(signer.sign()) + "\n")
+  val publicKeyFile = resolveProjectRelativeFile(profile.value("update.publicKey"))?.takeIf { it.isFile }
+  val outputs = mutableListOf(catalogFile, signatureFile)
+  if (publicKeyFile != null) {
+    val copied = updateDir.resolve("updates-public-key.pem")
+    publicKeyFile.copyTo(copied, overwrite = true)
+    outputs += copied
+  }
+  artifacts.forEach { artifact ->
+    artifact.artifact.copyTo(updateDir.resolve(artifact.artifact.name), overwrite = true)
+    artifactChecksumFile(artifact.artifact).takeIf { it.isFile }
+      ?.let { checksum -> checksum.copyTo(updateDir.resolve(checksum.name), overwrite = true) }
+  }
+  return outputs
+}
+
+fun writeJvnGameStoreBundle(): List<File> {
+  val profile = selectedReleaseProfile()
+  val preset = profile.value("store.preset")?.lowercase()?.ifBlank { "generic" } ?: "generic"
+  if (preset !in setOf("generic", "itch", "steam")) {
+    throw GradleException("Unsupported store.preset '$preset'. Supported presets: generic, itch, steam.")
+  }
+  val artifacts = selectedJvnGamePlannedArtifacts()
+  val missing = artifacts.filterNot { it.artifact.isFile }
+  if (missing.isNotEmpty()) {
+    throw GradleException("Cannot assemble store bundle; release artifacts are missing: ${missing.joinToString { it.artifact.name }}")
+  }
+  val storeDir = layout.buildDirectory.dir(
+    "distributions/stores/$preset/${sanitizeGameName(gameDisplayName())}-${sanitizeGameName(gameVersion())}${packageVariantSuffix()}"
+  ).get().asFile
+  storeDir.deleteRecursively()
+  storeDir.mkdirs()
+  val copied = mutableListOf<File>()
+  artifacts.forEach { artifact ->
+    copied += artifact.artifact.copyTo(storeDir.resolve(artifact.artifact.name), overwrite = true)
+    artifactChecksumFile(artifact.artifact).takeIf { it.isFile }
+      ?.let { copied += it.copyTo(storeDir.resolve(it.name), overwrite = true) }
+  }
+  val releaseManifest = layout.buildDirectory.file("reports/jvn-game-release/release-manifest.json").get().asFile
+  if (releaseManifest.isFile) copied += releaseManifest.copyTo(storeDir.resolve("release-manifest.json"), overwrite = true)
+  val storeManifest = storeDir.resolve("store-manifest.json")
+  val metadata = linkedMapOf<String, Any?>(
+    "schema" to 1,
+    "preset" to preset,
+    "game" to gameDisplayName(),
+    "version" to gameVersion(),
+    "variant" to selectedPackageVariant(),
+    "generatedAt" to Instant.now().toString(),
+    "artifacts" to artifacts.map { mapOf("target" to it.targetId, "name" to it.artifact.name, "sha256" to sha256Hex(it.artifact)) }
+  )
+  if (preset == "itch") {
+    metadata["project"] = profile.value("store.itch.project") ?: ""
+    metadata["channelPattern"] = profile.value("store.itch.channelPattern") ?: "{target}"
+  }
+  if (preset == "steam") {
+    val appId = profile.value("store.steam.appId")
+      ?: throw GradleException("store.preset=steam requires store.steam.appId in the release profile.")
+    metadata["appId"] = appId
+    metadata["depotId"] = profile.value("store.steam.depotId") ?: ""
+    val appIdFile = storeDir.resolve("steam_appid.txt")
+    appIdFile.writeText("$appId\n")
+    copied += appIdFile
+  }
+  storeManifest.writeText(JsonOutput.prettyPrint(JsonOutput.toJson(metadata)))
+  copied += storeManifest
+  return copied
 }
 
 fun publishCommandVariables(mode: String, artifact: File, targetId: String = currentPackageHost().target.id): Map<String, String> {
@@ -1383,6 +1825,10 @@ fun validateSelectedReleaseProfile() {
   val selectedName = selectedReleaseProfile().name
   val explicit = (findProperty("jvnReleaseProfile") as String?)?.trim()
   val configuredDefault = gameReleaseConfig().getProperty("defaultProfile", "").trim()
+  val packageVariant = selectedPackageVariant()
+  if (!packageVariant.matches(Regex("[A-Za-z0-9._-]+"))) {
+    throw GradleException("Invalid jvnPackageVariant '$packageVariant'. Use letters, numbers, dots, underscores, or hyphens.")
+  }
 
   if (!configuredDefault.isNullOrBlank() &&
       !configuredDefault.equals("default", ignoreCase = true) &&
@@ -1409,6 +1855,13 @@ fun validateSelectedReleaseProfile() {
   validateExistingProfileFile("licenseFile", profile.value("licenseFile"))
   validateExistingProfileFile("mac.entitlements", profile.value("mac.entitlements"))
   validateExistingProfileFile("win.certificateFile", profile.value("win.certificateFile"))
+  if (profile.flag("update.enabled")) {
+    validateExistingProfileFile("update.privateKey", profile.value("update.privateKey"))
+    validateExistingProfileFile("update.publicKey", profile.value("update.publicKey"))
+    if (profile.value("update.privateKey").isNullOrBlank()) {
+      throw GradleException("Release profile '${profile.name}' enables updates but does not configure update.privateKey.")
+    }
+  }
 
   val allowedPublishKeys = publishCommandVariables(
     "portable",
@@ -1522,8 +1975,42 @@ fun gameVersion(): String {
     ?: project.version.toString()
 }
 
+fun gameDisplayNameForTaskDiscovery(): String {
+  val explicit = (findProperty("jvnGameName") as String?)?.trim()
+  if (!explicit.isNullOrBlank()) return explicit
+  val rawProject = (findProperty("jvnGameProject") as String?)?.trim()
+  if (rawProject.isNullOrBlank()) return "jvn-game"
+  val dir = file(rawProject)
+  val manifest = File(dir, "jvn.project")
+  if (manifest.isFile) {
+    val props = Properties()
+    runCatching { manifest.inputStream().use { props.load(it) } }
+    val manifestName = props.getProperty("name", "").trim()
+    if (manifestName.isNotBlank()) return manifestName
+  }
+  return dir.name.ifBlank { "jvn-game" }
+}
+
+fun gameVersionForTaskDiscovery(): String {
+  val explicit = (findProperty("jvnGameVersion") as String?)?.trim()
+  if (!explicit.isNullOrBlank()) return explicit
+  val rawProject = (findProperty("jvnGameProject") as String?)?.trim()
+  if (!rawProject.isNullOrBlank()) {
+    val manifest = File(file(rawProject), "jvn.project")
+    if (manifest.isFile) {
+      val props = Properties()
+      runCatching { manifest.inputStream().use { props.load(it) } }
+      listOf("version", "releaseVersion", "build.version")
+        .map { props.getProperty(it, "").trim() }
+        .firstOrNull { it.isNotBlank() }
+        ?.let { return it }
+    }
+  }
+  return project.version.toString()
+}
+
 fun gameDistName(target: JvnGameTarget): String {
-  return "${sanitizeGameName(gameDisplayName())}-${sanitizeGameName(gameVersion())}-${target.id}"
+  return "${sanitizeGameName(gameDisplayName())}-${sanitizeGameName(gameVersion())}${packageVariantSuffix()}-${target.id}"
 }
 
 fun gameLauncherBaseName(): String {
@@ -1688,8 +2175,7 @@ fun gameBuildMetadata(target: JvnGameTarget, distName: String): String {
 }
 
 fun externalRuntimeJars(): List<File> {
-  val runtimeRuntime = project(":runtime").configurations.getByName("runtimeClasspath").resolve()
-  return runtimeRuntime
+  return jvnGamePackagingRuntime.resolve()
     .filter { it.isFile && it.extension.equals("jar", ignoreCase = true) }
     .filterNot { it.name.startsWith("javafx-") }
     .distinctBy { it.name }
@@ -1733,8 +2219,8 @@ val gameZipTasks = jvnGameTargets.map { target ->
   tasks.register<Zip>("assembleJvnGamePortable${target.taskSuffix}") {
     group = "distribution"
     description = "Assembles a portable JVN game zip for ${target.id}. Requires -PjvnGameProject=/path/to/game."
-    archiveBaseName.set(providers.provider { sanitizeGameName(gameDisplayName()) })
-    archiveVersion.set(providers.provider { sanitizeGameName(gameVersion()) })
+    archiveBaseName.set(providers.provider { sanitizeGameName(gameDisplayNameForTaskDiscovery()) })
+    archiveVersion.set(providers.provider { sanitizeGameName(gameVersionForTaskDiscovery()) })
     archiveClassifier.set(target.id)
     destinationDirectory.set(layout.buildDirectory.dir("distributions/games"))
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
@@ -1763,25 +2249,7 @@ val gameZipTasks = jvnGameTargets.map { target ->
     }
     from({ gameProjectDir() }) {
       into(providers.provider { "${gameDistName(target)}/game" })
-      exclude(
-        ".git/**",
-        ".gradle/**",
-        ".jvn-gradle-user-home/**",
-        "build/**",
-        "out/**",
-        "dist/**",
-        "save/**",
-        "saves/**",
-        "logs/**",
-        ".idea/**",
-        ".vscode/**",
-        "__MACOSX/**",
-        "**/*.log",
-        "**/*.tmp",
-        "**/Icon\r",
-        "**/.DS_Store",
-        "**/Thumbs.db"
-      )
+      exclude(gamePackageExcludes(target.id))
     }
     doLast {
       verifyPortableArtifact(target, archiveFile.get().asFile)
@@ -1855,6 +2323,49 @@ tasks.register("writeJvnGameReleaseManifest") {
   }
 }
 
+tasks.register("smokeTestJvnGameRelease") {
+  group = "verification"
+  description = "Opens and verifies every selected packaged game artifact, refreshes checksums, and rejects unsafe archive paths."
+  doLast {
+    val missing = selectedJvnGamePlannedArtifacts().filterNot { it.artifact.isFile }
+    if (missing.isNotEmpty()) {
+      throw GradleException(
+        "Cannot smoke-test missing packaged artifacts:\n - " +
+          missing.joinToString("\n - ") { "${it.targetId}: ${it.artifact.absolutePath} (build task: ${it.buildTask})" }
+      )
+    }
+    verifySelectedJvnGameArtifacts()
+    println("JVN packaged-artifact smoke test passed")
+    selectedJvnGamePlannedArtifacts().forEach { println("  - ${it.targetId}: ${it.artifact.absolutePath}") }
+  }
+}
+
+tasks.register("writeJvnGameUpdateBundle") {
+  group = "distribution"
+  description = "Writes a signed full-artifact update catalog for the selected release profile."
+  doLast {
+    validateSelectedReleaseProfile()
+    val outputs = writeJvnGameUpdateBundle()
+    if (outputs.isEmpty()) {
+      println("JVN update bundle is disabled for profile '${selectedReleaseProfile().name}'.")
+    } else {
+      println("JVN signed update bundle written:")
+      outputs.forEach { println("  - ${it.absolutePath}") }
+    }
+  }
+}
+
+tasks.register("assembleJvnGameStoreBundle") {
+  group = "distribution"
+  description = "Collects selected release artifacts into a generic, itch.io, or Steam upload layout."
+  doLast {
+    validateSelectedReleaseProfile()
+    val outputs = writeJvnGameStoreBundle()
+    println("JVN store bundle written:")
+    outputs.forEach { println("  - ${it.absolutePath}") }
+  }
+}
+
 tasks.register("assembleJvnGameRelease") {
   group = "distribution"
   description = "Builds the selected JVN game package mode/target and writes release manifests."
@@ -1869,12 +2380,15 @@ tasks.register("assembleJvnGameRelease") {
       )
     }
     val (jsonFile, markdownFile) = writeJvnGameReleaseManifest()
+    verifySelectedJvnGameArtifacts()
+    val updateOutputs = writeJvnGameUpdateBundle()
     println("JVN game release artifacts ready:")
     artifacts.forEach { artifact ->
       println("  - ${artifact.targetId}: ${artifact.artifact.absolutePath}")
     }
     println("  release manifest: ${jsonFile.absolutePath}")
     println("  release notes: ${markdownFile.absolutePath}")
+    if (updateOutputs.isNotEmpty()) println("  signed update catalog: ${updateOutputs.first().absolutePath}")
   }
 }
 
@@ -2040,7 +2554,7 @@ val bundledRuntimeZipTasks = jvnGameTargets.map { target ->
       targetJavaFxRuntimeJars(target).forEach { jar ->
         jar.copyTo(javafxDir.resolve(jar.name), overwrite = true)
       }
-      copyGameProjectFiles(gameDir)
+      copyGameProjectFiles(gameDir, target.id)
       copyDirectoryContents(runtime.runtimeDir, runtimeDir)
 
       val launcher = binDir.resolve(if (target.windows) "${gameLauncherBaseName()}.bat" else gameLauncherBaseName())
@@ -2108,6 +2622,15 @@ tasks.register("prepareJvnGameNativeInputCurrent") {
   jvnGameRuntimeProjectPaths.forEach { projectPath ->
     dependsOn("$projectPath:jar")
   }
+  inputs.files(providers.provider { gameRuntimeClasspathJars() })
+    .withPropertyName("runtimeClasspath")
+    .withPathSensitivity(PathSensitivity.RELATIVE)
+  inputs.dir(providers.provider { gameProjectDir() })
+    .withPropertyName("gameProject")
+    .withPathSensitivity(PathSensitivity.RELATIVE)
+  inputs.property("nativePackageType", providers.provider { currentJpackageType() })
+  inputs.property("releaseProfile", providers.provider { selectedReleaseProfileName() })
+  inputs.property("packageVariant", providers.provider { selectedPackageVariant() })
   outputs.dir(providers.provider { jpackageInputDir() })
   outputs.dir(providers.provider { jpackageContentDir() })
   doLast {
@@ -2258,132 +2781,6 @@ tasks.register("releaseJvnGameNativeCurrent") {
     maybeSignWindowsArtifact(artifact)
     maybeNotarizeMacArtifact(currentJpackageType(), artifact)
     runPublishCommands("native", artifact)
-  }
-}
-
-// Web export tasks
-tasks.register("assembleJvnGameWeb") {
-  group = "distribution"
-  description = "Builds a WebAssembly bundle for browser-based play using TeaVM."
-  doLast {
-    val distDir = File(buildDir, "distributions")
-    distDir.mkdirs()
-
-    logger.info("Web export task: Building WebAssembly bundle")
-    logger.info("TeaVM compilation not yet configured")
-    logger.info("To enable: Add org.teavm:teavm-gradle-plugin to web-runtime/build.gradle.kts")
-
-    // Create placeholder web bundle with metadata
-    val webBundleName = "game-${version}-web.zip"
-    val webBundleFile = File(distDir, webBundleName)
-
-    val htmlContent = """
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>JVN Game</title>
-        <style>
-          body { font-family: Arial; margin: 0; padding: 20px; background: #333; color: #fff; }
-          canvas { border: 1px solid white; display: block; }
-        </style>
-      </head>
-      <body>
-        <h1>Game (WASM Bundle)</h1>
-        <canvas id="game-canvas" width="800" height="600"></canvas>
-        <p>TeaVM WASM compilation not yet configured.</p>
-        <p>To generate the actual game.js and .wasm files:</p>
-        <ol>
-          <li>Configure TeaVM Gradle plugin in web-runtime/build.gradle.kts</li>
-          <li>Run: ./gradlew :web-runtime:compileTeaVM</li>
-          <li>Output will be placed in: build/distributions/</li>
-        </ol>
-      </body>
-      </html>
-    """.trimIndent()
-
-    val metadataContent = """
-      name=game-${version}-web
-      type=wasm
-      format=web-bundle
-      target=browser
-      required-toolchain=TeaVM 0.10.0+
-      status=scaffolding
-    """.trimIndent()
-
-    // Create zip with stub content
-    ant.withGroovyBuilder {
-      "zip"("destfile" to webBundleFile.absolutePath) {
-        "fileset"("dir" to buildDir.absolutePath) {
-          "include"("name" to "README-web.txt")
-        }
-        "zipfileset"("file" to File(buildDir, "temp-web-readme.txt").also {
-          it.writeText(htmlContent)
-        }.absolutePath, "fullpath" to "index.html")
-      }
-    }
-
-    // Clean up temp file
-    File(buildDir, "temp-web-readme.txt").delete()
-
-    logger.info("Web bundle created: ${webBundleFile.absolutePath}")
-    logger.info("Note: This is a placeholder. Run 'assembleJvnGameWeb' after TeaVM configuration for actual WASM output.")
-  }
-}
-
-// Mobile export tasks
-tasks.register("assembleJvnGameMobile") {
-  group = "distribution"
-  description = "Builds native mobile packages (Android APK/AAB and iOS IPA)."
-  doLast {
-    val osId = System.getProperty("os.name", "").lowercase()
-    val distDir = File(buildDir, "distributions")
-    distDir.mkdirs()
-
-    logger.info("Mobile export task: Building native mobile packages")
-
-    if (osId.contains("win") || osId.contains("linux")) {
-      logger.info("Android build: Requires Android SDK and Android Gradle Plugin")
-      logger.info("To enable: Apply com.android.application plugin to android-runtime/build.gradle.kts")
-
-      // Create placeholder Android manifest
-      val androidMetadata = """
-        name=game-${version}-android
-        type=apk
-        format=android-package
-        target=android-api-24+
-        required-toolchain=Android SDK 34+, Android Gradle Plugin 8.0+
-        status=scaffolding
-      """.trimIndent()
-
-      val androidMetadataFile = File(distDir, "game-${version}-android.metadata.txt")
-      androidMetadataFile.writeText(androidMetadata)
-      logger.info("Android placeholder created: ${androidMetadataFile.absolutePath}")
-    }
-
-    if (osId.contains("mac")) {
-      logger.info("iOS build: Requires macOS + Xcode and Multi-OS Engine (MOE)")
-      logger.info("To enable: Apply org.moe plugin to ios-runtime/build.gradle.kts")
-
-      // Create placeholder iOS metadata
-      val iosMetadata = """
-        name=game-${version}-ios
-        type=ipa
-        format=ios-package
-        target=ios-13.0+
-        required-toolchain=Xcode 14+, Multi-OS Engine 1.10+
-        status=scaffolding
-      """.trimIndent()
-
-      val iosMetadataFile = File(distDir, "game-${version}-ios.metadata.txt")
-      iosMetadataFile.writeText(iosMetadata)
-      logger.info("iOS placeholder created: ${iosMetadataFile.absolutePath}")
-    } else {
-      logger.info("iOS builds only supported on macOS")
-    }
-
-    logger.info("Mobile export: Placeholder metadata created in ${distDir.absolutePath}")
-    logger.info("Note: This is a placeholder. Configure the appropriate plugin for actual APK/IPA output.")
   }
 }
 

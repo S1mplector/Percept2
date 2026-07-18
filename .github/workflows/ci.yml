@@ -48,7 +48,7 @@ jobs:
           retention-days: 14
 
   platform-smoke:
-    name: Compile smoke (${{ matrix.os }})
+    name: Native package smoke (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
@@ -70,6 +70,35 @@ jobs:
         run: /bin/bash ./scripts/test-jvnw-bootstrap.sh
       - name: Compile every module
         run: ./gradlew compileAll
+      - name: Build and inspect unsigned native installer
+        shell: bash
+        run: |
+          set -eu
+          package_type=dmg
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            package_type=msi
+          fi
+          args=(
+            -PjvnGameProject="$GITHUB_WORKSPACE/.github/fixtures/native-smoke-game"
+            -PjvnGameName="JVN Native Smoke"
+            -PjvnGameVersion=1.0.0
+            -PjvnPackageMode=native
+            -PjvnNativePackageType="$package_type"
+            -PjvnReleaseProfile=default
+            --no-daemon
+          )
+          ./gradlew packageJvnGameNativeCurrent "${args[@]}"
+          ./gradlew smokeTestJvnGameRelease "${args[@]}"
+      - name: Upload native smoke reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-smoke-${{ runner.os }}
+          path: |
+            build/distributions/games/
+            build/reports/problems/
+          if-no-files-found: ignore
+          retention-days: 14
 
   dependency-review:
     name: Dependency review
