@@ -5709,10 +5709,10 @@ public final class JvnHub {
       metrics.add(metric("JVM heap", heapValue));
       metrics.add(metric("Threads", threadsValue));
       metrics.add(metric("Hub task", activityValue));
-      metrics.setMinimumSize(new Dimension(0, ui(38)));
-      metrics.setPreferredSize(new Dimension(0, ui(38)));
+      metrics.setMinimumSize(new Dimension(0, ui(26)));
+      metrics.setPreferredSize(new Dimension(0, ui(26)));
       add(metrics, BorderLayout.SOUTH);
-      setPreferredSize(new Dimension(0, ui(148)));
+      setPreferredSize(new Dimension(0, ui(128)));
       refreshMetrics();
     }
 
@@ -5759,14 +5759,15 @@ public final class JvnHub {
     }
 
     private static JPanel metric(String name, JLabel value) {
-      JPanel chip = new JPanel(new BorderLayout(0, ui(2)));
+      JPanel chip = new JPanel(new BorderLayout(ui(6), 0));
       chip.setBackground(PANEL_BG_TOP);
-      chip.setBorder(uiPadding(5, 7, 5, 7));
+      chip.setBorder(uiPadding(3, 7, 3, 7));
       JLabel label = new JLabel(name);
       label.setForeground(TEXT_MUTED);
       label.setFont(label.getFont().deriveFont(Font.BOLD, uiFont(8f)));
-      chip.add(label, BorderLayout.NORTH);
-      chip.add(value, BorderLayout.CENTER);
+      chip.add(label, BorderLayout.WEST);
+      value.setHorizontalAlignment(SwingConstants.RIGHT);
+      chip.add(value, BorderLayout.EAST);
       return chip;
     }
 
@@ -5804,7 +5805,7 @@ public final class JvnHub {
       PerformanceGraph() {
         setOpaque(true);
         setBackground(Color.decode("#121212"));
-        setPreferredSize(new Dimension(0, ui(58)));
+        setPreferredSize(new Dimension(0, ui(48)));
       }
 
       void pushSample(double cpuRatio, double heapRatio, double activityRatio) {
