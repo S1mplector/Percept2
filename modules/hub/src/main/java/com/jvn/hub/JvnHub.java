@@ -834,19 +834,19 @@ public final class JvnHub {
     actionButtons.add(safeModeButton);
 
     diagnosticsButton = new HeaderIconButton(
-        uiIcon(VectorIcon.Kind.HEALTH, 22, TEXT_PRIMARY),
+        WindowsSevenActionIcon.of(WindowsSevenActionIcon.Kind.DIAGNOSTICS, 24),
         "Diagnostics — run a lightweight health check");
     diagnosticsButton.addActionListener(e -> showDiagnosticsReport());
     actionButtons.add(diagnosticsButton);
 
     aboutButton = new HeaderIconButton(
-        uiIcon(VectorIcon.Kind.INFO, 22, TEXT_PRIMARY),
+        WindowsSevenActionIcon.of(WindowsSevenActionIcon.Kind.ABOUT, 24),
         "About — version and install details");
     aboutButton.addActionListener(e -> showAboutReport());
     actionButtons.add(aboutButton);
 
     documentationButton = new HeaderIconButton(
-        uiIcon(VectorIcon.Kind.DOCUMENTATION, 22, TEXT_PRIMARY),
+        WindowsSevenActionIcon.of(WindowsSevenActionIcon.Kind.DOCUMENTATION, 24),
         "Documentation — open the documentation website");
     documentationButton.addActionListener(e -> openDocumentationWebsite());
     actionButtons.add(documentationButton);
@@ -1200,9 +1200,11 @@ public final class JvnHub {
 
     runTestsButton = makeAction("Run Tests", "Developer Mode: execute the full test suite.",
         VectorIcon.Kind.CHECK, ACCENT_DEV, () -> runGradle("test", "Run Tests"));
+    runTestsButton.setIcon(WindowsSevenActionIcon.of(WindowsSevenActionIcon.Kind.TESTS));
 
     gradleOptionsButton = makeAction("Gradle Options", "Developer Mode: configure Gradle flags for hub actions.",
         VectorIcon.Kind.SLIDERS, ACCENT_DEV, this::showGradleOptionsDialog);
+    gradleOptionsButton.setIcon(WindowsSevenActionIcon.of(WindowsSevenActionIcon.Kind.OPTIONS));
 
     buildShortcutsButton = makeAction("Build Shortcuts", "Install Start Menu / Applications shortcuts for this OS.",
         VectorIcon.Kind.SHORTCUT, null, () -> guardedRun("Build Shortcuts", this::installShortcuts));
@@ -1315,15 +1317,15 @@ public final class JvnHub {
     JLabel version = footerLabel(VERSION, TEXT_SOFT);
 
     FlatButton cancel = new FlatButton("Cancel",
-        uiIcon(VectorIcon.Kind.STOP, 14, ACCENT_ERROR), ACCENT_ERROR);
+        WindowsSevenActionIcon.of(WindowsSevenActionIcon.Kind.CANCEL, 18), ACCENT_ERROR);
     cancel.addActionListener(e -> cancelRunning());
 
     FlatButton quit = new FlatButton("Quit",
-        uiIcon(VectorIcon.Kind.CLOSE, 14, TEXT_PRIMARY), null);
+        WindowsSevenActionIcon.of(WindowsSevenActionIcon.Kind.QUIT, 18), null);
     quit.addActionListener(e -> confirmAndExit());
 
     FlatButton more = new FlatButton("More",
-        uiIcon(VectorIcon.Kind.SLIDERS, 14, TEXT_PRIMARY), null);
+        WindowsSevenActionIcon.of(WindowsSevenActionIcon.Kind.MORE, 18), null);
     more.addActionListener(e -> showFooterMenu(more));
 
     JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, ui(6), 0));
@@ -4875,7 +4877,8 @@ public final class JvnHub {
 
     void setDeveloperModeEnabled(boolean enabled) {
       setSelected(enabled);
-      setIcon(uiIcon(VectorIcon.Kind.DEVELOPER, 22, enabled ? ACCENT_DEV : TEXT_MUTED));
+      setIcon(WindowsSevenActionIcon.of(
+          enabled ? WindowsSevenActionIcon.Kind.DEVELOPER_ACTIVE : WindowsSevenActionIcon.Kind.DEVELOPER, 24));
       setToolTipText(enabled
           ? "Developer Mode ON — tests and engineering launch flags are enabled"
           : "Developer Mode OFF — click to show developer actions");
@@ -4915,7 +4918,8 @@ public final class JvnHub {
 
     void setSafeModeEnabled(boolean enabled) {
       setSelected(enabled);
-      setIcon(uiIcon(VectorIcon.Kind.SHIELD, 22, enabled ? ACCENT_SAFE : TEXT_MUTED));
+      setIcon(WindowsSevenActionIcon.of(
+          enabled ? WindowsSevenActionIcon.Kind.SAFE_ACTIVE : WindowsSevenActionIcon.Kind.SAFE, 24));
       setToolTipText(enabled
           ? "Safe Mode ON — launches use safe-mode flags; Update Engine uses guarded Git recovery"
           : "Safe Mode OFF — click to launch with safe-mode flags; Update Engine uses normal Git update");
@@ -4976,7 +4980,7 @@ public final class JvnHub {
     private int count = 0;
 
     AnnouncementsButton() {
-      setIcon(uiIcon(VectorIcon.Kind.BELL, 22, TEXT_PRIMARY));
+      setIcon(WindowsSevenActionIcon.of(WindowsSevenActionIcon.Kind.ANNOUNCEMENTS, 24));
       setToolTipText("Announcements — small updates pulled from the engine");
       setContentAreaFilled(false);
       setBorderPainted(false);
@@ -5109,7 +5113,12 @@ public final class JvnHub {
 
   /** Colorful glass-and-metal action glyphs inspired by the Windows 7 desktop era. */
   private static final class WindowsSevenActionIcon implements Icon {
-    enum Kind { EDITOR, BUILD, SHORTCUT, UPDATE }
+    enum Kind {
+      EDITOR, BUILD, SHORTCUT, UPDATE, TESTS, OPTIONS,
+      MORE, CANCEL, QUIT,
+      DEVELOPER, DEVELOPER_ACTIVE, SAFE, SAFE_ACTIVE,
+      DIAGNOSTICS, ABOUT, DOCUMENTATION, ANNOUNCEMENTS
+    }
 
     private final Kind kind;
     private final int size;
@@ -5121,6 +5130,10 @@ public final class JvnHub {
 
     static WindowsSevenActionIcon of(Kind kind) {
       return new WindowsSevenActionIcon(kind, ui(24));
+    }
+
+    static WindowsSevenActionIcon of(Kind kind, int logicalSize) {
+      return new WindowsSevenActionIcon(kind, ui(logicalSize));
     }
 
     @Override public int getIconWidth() { return size; }
@@ -5139,6 +5152,19 @@ public final class JvnHub {
           case BUILD -> paintBuild(g);
           case SHORTCUT -> paintShortcut(g);
           case UPDATE -> paintUpdate(g);
+          case TESTS -> paintTests(g);
+          case OPTIONS -> paintOptions(g);
+          case MORE -> paintMore(g);
+          case CANCEL -> paintCancel(g);
+          case QUIT -> paintQuit(g);
+          case DEVELOPER -> paintDeveloper(g, false);
+          case DEVELOPER_ACTIVE -> paintDeveloper(g, true);
+          case SAFE -> paintSafe(g, false);
+          case SAFE_ACTIVE -> paintSafe(g, true);
+          case DIAGNOSTICS -> paintDiagnostics(g);
+          case ABOUT -> paintAbout(g);
+          case DOCUMENTATION -> paintDocumentation(g);
+          case ANNOUNCEMENTS -> paintAnnouncements(g);
         }
       } finally {
         g.dispose();
@@ -5220,6 +5246,189 @@ public final class JvnHub {
       g.setColor(Color.decode("#f2fbff"));
       g.drawArc(5, 5, 14, 14, 210, 140);
       g.fillPolygon(new int[] {19, 20, 15}, new int[] {16, 10, 13}, 3);
+    }
+
+    private static void paintTests(Graphics2D g) {
+      glassTile(g, 3, 2, 18, 20, Color.decode("#80e77b"), Color.decode("#258b35"));
+      g.setColor(Color.decode("#f5fff2"));
+      g.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+      g.drawLine(7, 8, 9, 10);
+      g.drawLine(9, 10, 13, 6);
+      g.drawLine(7, 15, 9, 17);
+      g.drawLine(9, 17, 13, 13);
+      g.setColor(Color.decode("#d8f6ff"));
+      g.setStroke(new BasicStroke(1.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+      g.drawLine(15, 8, 19, 8);
+      g.drawLine(15, 15, 19, 15);
+    }
+
+    private static void paintOptions(Graphics2D g) {
+      glassTile(g, 2, 3, 20, 18, Color.decode("#c09aff"), Color.decode("#6740a8"));
+      g.setColor(Color.decode("#f8f2ff"));
+      g.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+      int[] ys = {8, 12, 16};
+      int[] knobs = {9, 16, 12};
+      for (int i = 0; i < ys.length; i++) {
+        g.drawLine(6, ys[i], 18, ys[i]);
+        g.setColor(Color.decode("#ffd66d"));
+        g.fillOval(knobs[i] - 2, ys[i] - 2, 4, 4);
+        g.setColor(Color.decode("#fff5c7"));
+        g.drawOval(knobs[i] - 2, ys[i] - 2, 3, 3);
+        g.setColor(Color.decode("#f8f2ff"));
+      }
+    }
+
+    private static void paintMore(Graphics2D g) {
+      glassTile(g, 2, 3, 20, 18, Color.decode("#77d9ff"), Color.decode("#266da9"));
+      g.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+      for (int i = 0; i < 3; i++) {
+        int y = 8 + i * 4;
+        g.setColor(Color.decode("#eaf9ff"));
+        g.drawLine(7, y, 18, y);
+        g.setPaint(new java.awt.GradientPaint(4, y - 2, Color.WHITE, 7, y + 2, Color.decode("#9daab4")));
+        g.fillOval(4, y - 2, 4, 4);
+      }
+    }
+
+    private static void paintCancel(Graphics2D g) {
+      glassOrb(g, Color.decode("#ff8b8b"), Color.decode("#b51f31"));
+      g.setPaint(new java.awt.GradientPaint(8, 7, Color.WHITE, 16, 17, Color.decode("#e4e9ed")));
+      g.fillRoundRect(7, 7, 10, 10, 2, 2);
+      g.setColor(Color.decode("#8d1727"));
+      g.drawRoundRect(7, 7, 9, 9, 2, 2);
+    }
+
+    private static void paintQuit(Graphics2D g) {
+      glassOrb(g, Color.decode("#ff876f"), Color.decode("#a71920"));
+      g.setColor(Color.decode("#fff9f4"));
+      g.setStroke(new BasicStroke(2.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+      g.drawArc(6, 5, 12, 14, 42, 276);
+      g.drawLine(12, 3, 12, 11);
+    }
+
+    private static void paintDeveloper(Graphics2D g, boolean active) {
+      glassOrb(g,
+          active ? Color.decode("#66d8ff") : Color.decode("#87a8c4"),
+          active ? Color.decode("#1764bc") : Color.decode("#405467"));
+      g.setColor(Color.WHITE);
+      g.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+      g.drawLine(9, 7, 5, 12);
+      g.drawLine(5, 12, 9, 17);
+      g.drawLine(15, 7, 19, 12);
+      g.drawLine(19, 12, 15, 17);
+      g.setColor(Color.decode("#ffe879"));
+      g.drawLine(14, 6, 10, 18);
+    }
+
+    private static void paintSafe(Graphics2D g, boolean active) {
+      shadow(g, 3, 2, 18, 20, 7);
+      Path2D shield = new Path2D.Float();
+      shield.moveTo(12, 2);
+      shield.curveTo(16, 5, 19, 5, 21, 6);
+      shield.lineTo(20, 13);
+      shield.curveTo(19, 18, 15, 21, 12, 22);
+      shield.curveTo(9, 21, 5, 18, 4, 13);
+      shield.lineTo(3, 6);
+      shield.curveTo(7, 5, 9, 4, 12, 2);
+      shield.closePath();
+      g.setPaint(new java.awt.GradientPaint(4, 3,
+          active ? Color.decode("#a8ef72") : Color.decode("#b1bec6"), 19, 22,
+          active ? Color.decode("#318638") : Color.decode("#53626c")));
+      g.fill(shield);
+      g.setColor(active ? Color.decode("#eaffd8") : Color.decode("#edf3f6"));
+      g.draw(shield);
+      g.setColor(new Color(255, 255, 255, 105));
+      g.fillOval(7, 5, 10, 5);
+      g.setColor(active ? Color.decode("#fff078") : Color.WHITE);
+      g.setStroke(new BasicStroke(2.1f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+      g.drawLine(8, 12, 11, 15);
+      g.drawLine(11, 15, 17, 9);
+    }
+
+    private static void paintDiagnostics(Graphics2D g) {
+      glassTile(g, 2, 3, 20, 18, Color.decode("#74dcff"), Color.decode("#176da8"));
+      g.setColor(Color.decode("#102a3a"));
+      g.fillRoundRect(5, 7, 14, 10, 2, 2);
+      g.setColor(Color.decode("#83f18b"));
+      g.setStroke(new BasicStroke(1.7f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+      Path2D pulse = new Path2D.Float();
+      pulse.moveTo(6, 13);
+      pulse.lineTo(9, 13);
+      pulse.lineTo(11, 9);
+      pulse.lineTo(14, 16);
+      pulse.lineTo(16, 12);
+      pulse.lineTo(19, 12);
+      g.draw(pulse);
+    }
+
+    private static void paintAbout(Graphics2D g) {
+      glassOrb(g, Color.decode("#83d8ff"), Color.decode("#235cae"));
+      g.setColor(Color.WHITE);
+      g.fillOval(11, 6, 3, 3);
+      g.setStroke(new BasicStroke(2.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+      g.drawLine(12, 11, 12, 17);
+    }
+
+    private static void paintDocumentation(Graphics2D g) {
+      shadow(g, 3, 3, 18, 18, 3);
+      g.setPaint(new java.awt.GradientPaint(3, 3, Color.decode("#72cfff"), 20, 21, Color.decode("#225aa8")));
+      g.fillRoundRect(3, 3, 18, 18, 3, 3);
+      g.setColor(Color.decode("#d9f3ff"));
+      g.drawRoundRect(3, 3, 17, 17, 3, 3);
+      g.setColor(Color.WHITE);
+      g.fillRoundRect(6, 6, 5, 12, 1, 1);
+      g.fillRoundRect(13, 6, 5, 12, 1, 1);
+      g.setColor(Color.decode("#6d92b8"));
+      g.drawLine(12, 7, 12, 18);
+      g.drawLine(7, 9, 10, 9);
+      g.drawLine(14, 9, 17, 9);
+    }
+
+    private static void paintAnnouncements(Graphics2D g) {
+      glassOrb(g, Color.decode("#ffe26f"), Color.decode("#d18116"));
+      g.setPaint(new java.awt.GradientPaint(8, 5, Color.decode("#fff9c9"), 16, 19, Color.decode("#e8a528")));
+      Path2D bell = new Path2D.Float();
+      bell.moveTo(12, 5);
+      bell.curveTo(16, 5, 17, 9, 17, 13);
+      bell.lineTo(19, 17);
+      bell.lineTo(5, 17);
+      bell.lineTo(7, 13);
+      bell.curveTo(7, 9, 8, 5, 12, 5);
+      bell.closePath();
+      g.fill(bell);
+      g.setColor(Color.decode("#89531a"));
+      g.draw(bell);
+      g.fillOval(10, 18, 4, 3);
+      g.setColor(new Color(255, 255, 255, 130));
+      g.fillOval(9, 7, 5, 4);
+    }
+
+    private static void glassTile(Graphics2D g, int x, int y, int width, int height,
+                                  Color top, Color bottom) {
+      shadow(g, x, y, width, height, 4);
+      g.setPaint(new java.awt.GradientPaint(x, y, top, x, y + height, bottom));
+      g.fillRoundRect(x, y, width, height, 4, 4);
+      g.setColor(brighter(top, 0.42f));
+      g.drawRoundRect(x, y, width - 1, height - 1, 4, 4);
+      gloss(g, x + 1, y + 1, width - 2, Math.max(4, height / 2), 3);
+    }
+
+    private static void glassOrb(Graphics2D g, Color top, Color bottom) {
+      shadow(g, 3, 3, 18, 18, 18);
+      g.setPaint(new java.awt.GradientPaint(4, 3, top, 19, 21, bottom));
+      g.fillOval(3, 3, 18, 18);
+      g.setColor(brighter(top, 0.45f));
+      g.drawOval(3, 3, 17, 17);
+      g.setColor(new Color(255, 255, 255, 105));
+      g.fillOval(6, 4, 12, 7);
+    }
+
+    private static Color brighter(Color color, float amount) {
+      float safe = Math.max(0f, Math.min(1f, amount));
+      return new Color(
+          Math.round(color.getRed() + (255 - color.getRed()) * safe),
+          Math.round(color.getGreen() + (255 - color.getGreen()) * safe),
+          Math.round(color.getBlue() + (255 - color.getBlue()) * safe));
     }
 
     private static void shadow(Graphics2D g, int x, int y, int width, int height, int arc) {
