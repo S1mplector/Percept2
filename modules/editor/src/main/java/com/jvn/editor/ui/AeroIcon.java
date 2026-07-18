@@ -1,6 +1,5 @@
 package com.jvn.editor.ui;
 
-import java.util.Optional;
 import javafx.scene.control.ButtonBase;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.effect.InnerShadow;
@@ -127,7 +126,7 @@ public final class AeroIcon extends StackPane {
   }
 
   private static Region decorate(Kind kind, Region base, double size, Palette palette) {
-    Optional<Badge> optionalBadge = badgeFor(kind, size);
+    Badge badge = badgeFor(kind, size);
     StackPane artwork = new StackPane(base);
     artwork.setMinSize(size, size);
     artwork.setPrefSize(size, size);
@@ -139,52 +138,62 @@ public final class AeroIcon extends StackPane {
     StackPane.setMargin(glint, new Insets(size * 0.16, 0, 0, size * 0.19));
     artwork.getChildren().add(glint);
 
-    if (optionalBadge.isPresent()) {
-      Badge badge = optionalBadge.get();
-      double badgeSize = Math.max(7, size * 0.39);
-      Circle rim = new Circle(badgeSize / 2.0);
-      rim.setFill(new RadialGradient(
-          0, 0, 0.34, 0.27, 0.88, true, CycleMethod.NO_CYCLE,
-          new Stop(0, badge.color().deriveColor(0, 0.52, 1.42, 1)),
-          new Stop(0.58, badge.color()),
-          new Stop(1, badge.color().deriveColor(0, 1, 0.42, 1))));
-      rim.setStroke(Color.rgb(255, 255, 255, 0.82));
-      rim.setStrokeWidth(Math.max(0.55, size * 0.032));
-      rim.setEffect(new DropShadow(Math.max(1.4, size * 0.11), 0, size * 0.04,
-          Color.rgb(0, 0, 0, 0.82)));
+    double badgeSize = Math.max(7, size * 0.39);
+    Circle rim = new Circle(badgeSize / 2.0);
+    rim.setFill(new RadialGradient(
+        0, 0, 0.34, 0.27, 0.88, true, CycleMethod.NO_CYCLE,
+        new Stop(0, badge.color().deriveColor(0, 0.52, 1.42, 1)),
+        new Stop(0.58, badge.color()),
+        new Stop(1, badge.color().deriveColor(0, 1, 0.42, 1))));
+    rim.setStroke(Color.rgb(255, 255, 255, 0.82));
+    rim.setStrokeWidth(Math.max(0.55, size * 0.032));
+    rim.setEffect(new DropShadow(Math.max(1.4, size * 0.11), 0, size * 0.04,
+        Color.rgb(0, 0, 0, 0.82)));
 
-      Region badgeGlyph = badge.glyph();
-      badgeGlyph.setStyle(badgeGlyph.getStyle()
-          + " -fx-background-color: linear-gradient(to bottom, #ffffff, #dcecff 58%, #8295a6);");
-      StackPane jewel = new StackPane(rim, badgeGlyph);
-      jewel.setMinSize(badgeSize, badgeSize);
-      jewel.setPrefSize(badgeSize, badgeSize);
-      jewel.setMaxSize(badgeSize, badgeSize);
-      jewel.setEffect(new InnerShadow(Math.max(0.5, size * 0.035), Color.rgb(255, 255, 255, 0.36)));
-      StackPane.setAlignment(jewel, Pos.BOTTOM_RIGHT);
-      StackPane.setMargin(jewel, new Insets(0, -size * 0.04, -size * 0.03, 0));
-      artwork.getChildren().add(jewel);
-    }
+    Region badgeGlyph = badge.glyph();
+    badgeGlyph.setStyle(badgeGlyph.getStyle()
+        + " -fx-background-color: linear-gradient(to bottom, #ffffff, #dcecff 58%, #8295a6);");
+    StackPane jewel = new StackPane(rim, badgeGlyph);
+    jewel.setMinSize(badgeSize, badgeSize);
+    jewel.setPrefSize(badgeSize, badgeSize);
+    jewel.setMaxSize(badgeSize, badgeSize);
+    jewel.setEffect(new InnerShadow(Math.max(0.5, size * 0.035), Color.rgb(255, 255, 255, 0.36)));
+    StackPane.setAlignment(jewel, Pos.BOTTOM_RIGHT);
+    StackPane.setMargin(jewel, new Insets(0, -size * 0.04, -size * 0.03, 0));
+    artwork.getChildren().add(jewel);
     return artwork;
   }
 
-  private static Optional<Badge> badgeFor(Kind kind, double size) {
+  private static Badge badgeFor(Kind kind, double size) {
     double glyphSize = Math.max(5, size * 0.21);
     return switch (kind) {
-      case NEW_PROJECT -> Optional.of(new Badge(sized(CssIcon.plusBold("#ffffff"), glyphSize), Color.web("#28a75d")));
-      case OPEN_PROJECT -> Optional.of(new Badge(sized(CssIcon.arrowRight("#ffffff"), glyphSize), Color.web("#2689d8")));
-      case ASSETS -> Optional.of(new Badge(sized(CssIcon.landscape("#ffffff"), glyphSize), Color.web("#298ac4")));
-      case DOCUMENTATION -> Optional.of(new Badge(sized(CssIcon.help("#ffffff"), glyphSize), Color.web("#397cc0")));
-      case REVEAL -> Optional.of(new Badge(sized(CssIcon.popOut("#ffffff"), glyphSize), Color.web("#397cc0")));
+      case PROJECT -> new Badge(sized(CssIcon.home("#ffffff"), glyphSize), Color.web("#4b82b1"));
+      case TRASHMAN -> new Badge(sized(CssIcon.clearX("#ffffff"), glyphSize), Color.web("#c44b55"));
+      case STORY_MAP -> new Badge(sized(CssIcon.arrowRight("#ffffff"), glyphSize), Color.web("#d16c25"));
+      case INSPECTOR -> new Badge(sized(CssIcon.info("#ffffff"), glyphSize), Color.web("#288fc5"));
+      case DIAGNOSTICS -> new Badge(sized(CssIcon.check("#ffffff"), glyphSize), Color.web("#27a45a"));
+      case LABEL_FLOW -> new Badge(sized(CssIcon.arrowRight("#ffffff"), glyphSize), Color.web("#2c9a5a"));
+      case NEW_PROJECT -> new Badge(sized(CssIcon.plusBold("#ffffff"), glyphSize), Color.web("#28a75d"));
+      case OPEN_PROJECT -> new Badge(sized(CssIcon.arrowRight("#ffffff"), glyphSize), Color.web("#2689d8"));
+      case ASSETS -> new Badge(sized(CssIcon.landscape("#ffffff"), glyphSize), Color.web("#298ac4"));
+      case LAYOUT -> new Badge(sized(CssIcon.grid("#ffffff"), glyphSize), Color.web("#4d7ea5"));
+      case STORYBOARD -> new Badge(sized(CssIcon.play("#ffffff"), glyphSize), Color.web("#d16c25"));
+      case LAYERS -> new Badge(sized(CssIcon.plusBold("#ffffff"), glyphSize), Color.web("#587fa2"));
+      case DOCUMENTATION -> new Badge(sized(CssIcon.help("#ffffff"), glyphSize), Color.web("#397cc0"));
+      case REVEAL -> new Badge(sized(CssIcon.popOut("#ffffff"), glyphSize), Color.web("#397cc0"));
       case IMAGE_ATTRIBUTES, SCRIPT_EDITOR ->
-          Optional.of(new Badge(sized(CssIcon.edit("#ffffff"), glyphSize), Color.web("#168dbf")));
-      case MANIFEST -> Optional.of(new Badge(sized(CssIcon.check("#ffffff"), glyphSize), Color.web("#35a45c")));
-      case README -> Optional.of(new Badge(sized(CssIcon.list("#ffffff"), glyphSize), Color.web("#4b7ba6")));
-      case ENTRY_SCRIPT -> Optional.of(new Badge(sized(CssIcon.play("#ffffff"), glyphSize), Color.web("#2fa35a")));
-      case BUILD -> Optional.of(new Badge(sized(CssIcon.check("#ffffff"), glyphSize), Color.web("#2e9b50")));
+          new Badge(sized(CssIcon.edit("#ffffff"), glyphSize), Color.web("#168dbf"));
+      case VERSION_CONTROL -> new Badge(sized(CssIcon.download("#ffffff"), glyphSize), Color.web("#2c9a5a"));
+      case MANIFEST -> new Badge(sized(CssIcon.check("#ffffff"), glyphSize), Color.web("#35a45c"));
+      case README -> new Badge(sized(CssIcon.list("#ffffff"), glyphSize), Color.web("#4b7ba6"));
+      case ENTRY_SCRIPT -> new Badge(sized(CssIcon.play("#ffffff"), glyphSize), Color.web("#2fa35a"));
+      case BUILD -> new Badge(sized(CssIcon.check("#ffffff"), glyphSize), Color.web("#2e9b50"));
       case LIGHTING, PUPPETEER ->
-          Optional.of(new Badge(sized(CssIcon.sparkles("#ffffff"), glyphSize), Color.web("#b54f95")));
-      default -> Optional.empty();
+          new Badge(sized(CssIcon.sparkles("#ffffff"), glyphSize), Color.web("#b54f95"));
+      case SETTINGS -> new Badge(sized(CssIcon.auto("#ffffff"), glyphSize), Color.web("#d27128"));
+      case RUN -> new Badge(sized(CssIcon.rocket("#ffffff"), glyphSize), Color.web("#d16c25"));
+      case REFRESH -> new Badge(sized(CssIcon.check("#ffffff"), glyphSize), Color.web("#2789c5"));
+      case ARROW_BACK -> new Badge(sized(CssIcon.home("#ffffff"), glyphSize), Color.web("#c76328"));
     };
   }
 
