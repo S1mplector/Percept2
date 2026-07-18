@@ -1147,12 +1147,14 @@ public final class JvnHub {
 
     runEditorButton = makeAction("Run Editor", "Launch the full JVN editor.",
         VectorIcon.Kind.EDIT, null, () -> guardedRun("Run Editor", () -> runGradle(":editor:run", "Run Editor")));
+    runEditorButton.setIcon(WindowsSevenActionIcon.of(WindowsSevenActionIcon.Kind.EDITOR));
 
     // Launcher access is intentionally withheld while that workflow is under maintenance.
     runLauncherButton = makeLauncherAction();
 
     buildAllButton = makeAction("Build All", "Compile every module.",
         VectorIcon.Kind.HAMMER, null, () -> guardedRun("Build All", () -> runGradle("build", "Build All")));
+    buildAllButton.setIcon(WindowsSevenActionIcon.of(WindowsSevenActionIcon.Kind.BUILD));
 
     runTestsButton = makeAction("Run Tests", "Developer Mode: execute the full test suite.",
         VectorIcon.Kind.CHECK, ACCENT_DEV, () -> runGradle("test", "Run Tests"));
@@ -1162,9 +1164,10 @@ public final class JvnHub {
 
     buildShortcutsButton = makeAction("Build Shortcuts", "Install Start Menu / Applications shortcuts for this OS.",
         VectorIcon.Kind.SHORTCUT, null, () -> guardedRun("Build Shortcuts", this::installShortcuts));
+    buildShortcutsButton.setIcon(WindowsSevenActionIcon.of(WindowsSevenActionIcon.Kind.SHORTCUT));
 
     updateEngineButton = new UpdateEngineButton("Update Engine",
-        uiIcon(VectorIcon.Kind.REFRESH, 16, ACCENT_NEUTRAL));
+        WindowsSevenActionIcon.of(WindowsSevenActionIcon.Kind.UPDATE));
     updateEngineButton.setToolTipText("git pull --rebase " + ENGINE_UPDATE_REMOTE + " " + ENGINE_UPDATE_BRANCH);
     updateEngineButton.addActionListener(e -> updateEngine());
     actionButtons.add(updateEngineButton);
@@ -4983,6 +4986,132 @@ public final class JvnHub {
       int textY = badgeY + ui(14) - (ui(14) - fm.getAscent() + fm.getDescent()) / 2 - ui(1);
       g2.drawString(text, textX, textY);
       g2.dispose();
+    }
+  }
+
+  /** Colorful glass-and-metal action glyphs inspired by the Windows 7 desktop era. */
+  private static final class WindowsSevenActionIcon implements Icon {
+    enum Kind { EDITOR, BUILD, SHORTCUT, UPDATE }
+
+    private final Kind kind;
+    private final int size;
+
+    private WindowsSevenActionIcon(Kind kind, int size) {
+      this.kind = kind;
+      this.size = size;
+    }
+
+    static WindowsSevenActionIcon of(Kind kind) {
+      return new WindowsSevenActionIcon(kind, ui(24));
+    }
+
+    @Override public int getIconWidth() { return size; }
+    @Override public int getIconHeight() { return size; }
+
+    @Override
+    public void paintIcon(Component component, Graphics graphics, int x, int y) {
+      Graphics2D g = (Graphics2D) graphics.create();
+      try {
+        g.translate(x, y);
+        g.scale(size / 24.0, size / 24.0);
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g.setStroke(new BasicStroke(1.25f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        switch (kind) {
+          case EDITOR -> paintEditor(g);
+          case BUILD -> paintBuild(g);
+          case SHORTCUT -> paintShortcut(g);
+          case UPDATE -> paintUpdate(g);
+        }
+      } finally {
+        g.dispose();
+      }
+    }
+
+    private static void paintEditor(Graphics2D g) {
+      shadow(g, 3, 3, 18, 15, 3);
+      g.setPaint(new java.awt.GradientPaint(0, 3, Color.decode("#65c9ff"), 0, 18, Color.decode("#1265b5")));
+      g.fillRoundRect(3, 2, 18, 15, 3, 3);
+      g.setColor(Color.decode("#b9eaff"));
+      g.drawRoundRect(3, 2, 17, 14, 3, 3);
+      gloss(g, 4, 3, 16, 6, 3);
+      g.setColor(Color.decode("#d8e9f4"));
+      g.fillRoundRect(9, 17, 6, 2, 1, 1);
+      g.fillRoundRect(6, 19, 12, 2, 2, 2);
+      g.rotate(-0.72, 17, 14);
+      g.setPaint(new java.awt.GradientPaint(14, 8, Color.decode("#ffe77a"), 20, 18, Color.decode("#f28b19")));
+      g.fillRoundRect(16, 7, 4, 13, 2, 2);
+      g.setColor(Color.decode("#7a491c"));
+      g.drawRoundRect(16, 7, 3, 12, 2, 2);
+      g.setColor(Color.decode("#f8d8b4"));
+      g.fillPolygon(new int[] {16, 20, 18}, new int[] {20, 20, 23}, 3);
+    }
+
+    private static void paintBuild(Graphics2D g) {
+      shadow(g, 2, 10, 15, 11, 3);
+      for (int row = 0; row < 2; row++) {
+        for (int col = 0; col < 2; col++) {
+          int bx = 2 + col * 7;
+          int by = 9 + row * 6;
+          g.setPaint(new java.awt.GradientPaint(bx, by, Color.decode("#6fd7ff"), bx, by + 6, Color.decode("#1670be")));
+          g.fillRoundRect(bx, by, 6, 5, 2, 2);
+          g.setColor(Color.decode("#bcecff"));
+          g.drawRoundRect(bx, by, 5, 4, 2, 2);
+        }
+      }
+      g.rotate(-0.68, 16, 10);
+      g.setPaint(new java.awt.GradientPaint(14, 2, Color.decode("#fff0a0"), 19, 8, Color.decode("#d78919")));
+      g.fillRoundRect(13, 2, 9, 6, 2, 2);
+      g.setColor(Color.decode("#76501f"));
+      g.drawRoundRect(13, 2, 8, 5, 2, 2);
+      g.setPaint(new java.awt.GradientPaint(16, 7, Color.decode("#a96b37"), 18, 21, Color.decode("#5b2e18")));
+      g.fillRoundRect(16, 7, 3, 14, 2, 2);
+    }
+
+    private static void paintShortcut(Graphics2D g) {
+      shadow(g, 4, 2, 16, 18, 4);
+      g.setPaint(new java.awt.GradientPaint(0, 2, Color.decode("#76e1ff"), 0, 21, Color.decode("#1575c7")));
+      g.fillRoundRect(4, 2, 16, 18, 4, 4);
+      g.setColor(Color.decode("#c7f4ff"));
+      g.drawRoundRect(4, 2, 15, 17, 4, 4);
+      gloss(g, 5, 3, 14, 7, 3);
+      g.setColor(Color.WHITE);
+      g.setStroke(new BasicStroke(2.1f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+      g.drawLine(8, 15, 16, 7);
+      g.drawLine(11, 7, 16, 7);
+      g.drawLine(16, 7, 16, 12);
+      g.setColor(Color.decode("#75d04a"));
+      g.fillRoundRect(1, 14, 10, 8, 4, 4);
+      g.setColor(Color.decode("#eaffdf"));
+      g.drawLine(3, 18, 8, 18);
+      g.drawLine(6, 16, 8, 18);
+      g.drawLine(6, 20, 8, 18);
+    }
+
+    private static void paintUpdate(Graphics2D g) {
+      shadow(g, 3, 3, 18, 18, 9);
+      g.setPaint(new java.awt.GradientPaint(4, 3, Color.decode("#79dcff"), 19, 21, Color.decode("#1976bd")));
+      g.fillOval(3, 3, 18, 18);
+      g.setColor(Color.decode("#b9f2ff"));
+      g.drawOval(3, 3, 17, 17);
+      g.setColor(new Color(255, 255, 255, 100));
+      g.fillOval(6, 4, 10, 5);
+      g.setColor(Color.decode("#79d34f"));
+      g.setStroke(new BasicStroke(2.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+      g.drawArc(5, 5, 14, 14, 30, 145);
+      g.fillPolygon(new int[] {5, 4, 9}, new int[] {8, 14, 11}, 3);
+      g.setColor(Color.decode("#f2fbff"));
+      g.drawArc(5, 5, 14, 14, 210, 140);
+      g.fillPolygon(new int[] {19, 20, 15}, new int[] {16, 10, 13}, 3);
+    }
+
+    private static void shadow(Graphics2D g, int x, int y, int width, int height, int arc) {
+      g.setColor(new Color(0, 0, 0, 85));
+      g.fillRoundRect(x + 1, y + 2, width, height, arc, arc);
+    }
+
+    private static void gloss(Graphics2D g, int x, int y, int width, int height, int arc) {
+      g.setPaint(new java.awt.GradientPaint(0, y, new Color(255, 255, 255, 145), 0, y + height, new Color(255, 255, 255, 12)));
+      g.fillRoundRect(x, y, width, height, arc, arc);
     }
   }
 
