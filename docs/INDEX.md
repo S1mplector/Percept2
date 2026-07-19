@@ -21,9 +21,11 @@ source of truth for docs changes.
 | I am animating a shot | [Puppeteer Editor Guide](editor/puppeteer/puppeteer-editor-guide.md) |
 | I am lighting/staging a scene | [Scene Lighting Studio](editor/sidebars/right/sidebar-image-tint-tool.md) |
 | I am building menus/UI | [JVN Facets](scripting/ui/facets.md) |
+| I want reusable UI and animation patterns | [Reusable Authoring With Facets And Motifs](guides/facets-and-motifs.md) |
 | I am packaging a game | [Build And Release Docs](project-setup/release/README.md) |
 | I need the normative VNS/JES rules | [Scripting Language Contract](scripting/spec/README.md) |
 | I want to extend JVN | [Plugin authoring and reference](plugins/README.md) |
+| I want to add animation curves | [Animation Easing Extensions](plugins/animation-extensions.md) |
 
 ## Browse By Section
 
@@ -34,6 +36,7 @@ source of truth for docs changes.
 - [Project Setup And Delivery](project-setup/README.md)
 - [Architecture](architecture/README.md)
 - [Plugins](plugins/README.md)
+- [Animation Easing Extensions](plugins/animation-extensions.md)
 
 ## Common Workflows
 
@@ -65,12 +68,13 @@ source of truth for docs changes.
 ### Build Menus And UI
 
 1. [JVN Facets](scripting/ui/facets.md)
-2. [Menu Profiles](scripting/ui/menus/menu-profiles.md)
-3. [Menu Screens](scripting/ui/menus/menu-screens.md)
-4. [Reactive Overlay Screens](scripting/ui/menus/reactive-screens.md)
-5. [Menu Styles](scripting/ui/menus/menu-styles.md)
-6. [Text-First Layout Workflow](scripting/ui/layout/workflow/text-first-layout-workflow.md)
-7. [Layout DSL Cookbook](scripting/ui/layout/reference/layout-dsl-cookbook.md)
+2. [Reusable Authoring With Facets And Motifs](guides/facets-and-motifs.md)
+3. [Menu Profiles](scripting/ui/menus/menu-profiles.md)
+4. [Menu Screens](scripting/ui/menus/menu-screens.md)
+5. [Reactive Overlay Screens](scripting/ui/menus/reactive-screens.md)
+6. [Menu Styles](scripting/ui/menus/menu-styles.md)
+7. [Text-First Layout Workflow](scripting/ui/layout/workflow/text-first-layout-workflow.md)
+8. [Layout DSL Cookbook](scripting/ui/layout/reference/layout-dsl-cookbook.md)
 
 ### Create Gameplay Or Interactive Scenes
 

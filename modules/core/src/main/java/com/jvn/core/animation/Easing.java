@@ -39,6 +39,10 @@ public class Easing {
 
   public static double apply(EasingSpec spec, double t) {
     EasingSpec resolved = spec != null ? spec : EasingSpec.of(Type.LINEAR);
+    if (resolved.isExtension()) {
+      t = Math.max(0, Math.min(1, t));
+      return EasingExtensions.apply(resolved.getExtensionId(), resolved.getNamedParameters(), t);
+    }
     return apply(resolved.getType(), resolved.getParameters(), t);
   }
 
@@ -187,6 +191,11 @@ public class Easing {
 
   public static double applyInterpolation(EasingSpec spec, Interpolation interpolation, double t) {
     EasingSpec resolved = spec != null ? spec : EasingSpec.of(Type.LINEAR);
+    t = Math.max(0, Math.min(1, t));
+    Interpolation mode = interpolation != null ? interpolation : Interpolation.TWEEN;
+    if (mode == Interpolation.HOLD) return t >= 1.0 ? 1.0 : 0.0;
+    if (mode == Interpolation.STEP) return t <= 0.0 ? 0.0 : 1.0;
+    if (resolved.isExtension()) return apply(resolved, t);
     return applyInterpolation(resolved.getType(), interpolation, resolved.getParameters(), t);
   }
 
@@ -323,6 +332,20 @@ public class Easing {
 
   public static String formatSpec(EasingSpec spec) {
     EasingSpec resolved = spec != null ? spec : EasingSpec.of(Type.LINEAR);
+    if (resolved.isExtension()) {
+      StringBuilder value = new StringBuilder(resolved.getExtensionId());
+      if (!resolved.getNamedParameters().isEmpty()) {
+        value.append('(');
+        boolean first = true;
+        for (var entry : resolved.getNamedParameters().entrySet()) {
+          if (!first) value.append(", ");
+          first = false;
+          value.append(entry.getKey()).append(": ").append(formatNumber(entry.getValue()));
+        }
+        value.append(')');
+      }
+      return value.toString();
+    }
     Type type = resolved.getType();
     double[] params = coerceParameters(type, resolved.getParameters());
     return switch (type) {

@@ -7,12 +7,14 @@ import java.util.Locale;
 
 import com.jvn.core.animation.Easing;
 import com.jvn.core.animation.EasingSpec;
+import com.jvn.core.animation.EasingExtensions;
 
 final class PuppeteerEasingCatalog {
 
     enum Source {
         BUILTIN,
-        PRESET
+        PRESET,
+        PLUGIN
     }
 
     record Entry(
@@ -27,8 +29,12 @@ final class PuppeteerEasingCatalog {
             return source == Source.PRESET;
         }
 
+        boolean isPlugin() {
+            return source == Source.PLUGIN;
+        }
+
         String badge() {
-            return isPreset() ? "Preset" : group;
+            return isPreset() ? "Preset" : isPlugin() ? "Plugin" : group;
         }
 
         boolean matches(String query) {
@@ -49,6 +55,19 @@ final class PuppeteerEasingCatalog {
                 Source.BUILTIN,
                 option.defaultSpec(),
                 buildSearchText(option.label(), option.group(), option.defaultSpec(), false)));
+        }
+        for (var extension : EasingExtensions.entries()) {
+            var easing = extension.extension();
+            EasingSpec spec = EasingSpec.extension(extension.id(), java.util.Map.of());
+            entries.add(new Entry(
+                "plugin:" + extension.id(),
+                easing.label(),
+                easing.category(),
+                Source.PLUGIN,
+                spec,
+                String.join(" ", easing.label(), easing.description(), easing.category(),
+                    extension.id(), spec.toDslString(), "plugin extension")
+                    .toLowerCase(Locale.ROOT)));
         }
         if (presets != null && !presets.isEmpty()) {
             List<PuppeteerEasingPresetStore.Preset> sorted = new ArrayList<>(presets);
@@ -88,7 +107,8 @@ final class PuppeteerEasingCatalog {
             if (entry.spec().equals(resolved)) return entry;
         }
         for (Entry entry : entries) {
-            if (!entry.isPreset() && entry.spec().getType() == resolved.getType()) return entry;
+            if (!entry.isPreset() && !entry.isPlugin()
+                && !resolved.isExtension() && entry.spec().getType() == resolved.getType()) return entry;
         }
         return entries.get(0);
     }

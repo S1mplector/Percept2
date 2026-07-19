@@ -32,7 +32,7 @@ import org.slf4j.LoggerFactory;
 
 /** Discovers, validates, starts, and stops plugins for one JVN process. */
 public final class PluginHost implements AutoCloseable {
-  public static final String API_VERSION = "1.0.0";
+  public static final String API_VERSION = "1.1.0";
   private static final Logger log = LoggerFactory.getLogger(PluginHost.class);
 
   private final String jvnVersion;
@@ -245,7 +245,8 @@ public final class PluginHost implements AutoCloseable {
       Map<String, String> configuration = loadConfiguration(dataDirectory.resolve("config.properties"));
       Logger pluginLogger = LoggerFactory.getLogger("jvn.plugin." + descriptor.id());
       PluginContext context = new DefaultPluginContext(descriptor, environment, jvnVersion, dataDirectory,
-          projectDirectory, configuration, pluginLogger, registries.forPlugin(descriptor));
+          projectDirectory, configuration, pluginLogger, registries.forPlugin(descriptor),
+          registries.contributionsFor(descriptor));
       Active loaded = new Active(candidate);
       active.put(descriptor.id(), loaded);
       candidate.plugin.initialize(context);

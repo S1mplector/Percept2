@@ -2,6 +2,16 @@
 
 All registries use a unique string ID and return a `Registration` handle. The host also tracks ownership and removes every registration when a plugin fails or stops.
 
+New author-focused extension families use `context.contribute()`. Existing low-level registries remain available for their established contracts.
+
+## Animation easing curves
+
+`context.contribute().animations().easing(...)` registers a named easing function with labels, descriptions, categories, documentation, and validated numeric parameters. The `animation.easing` manifest capability is required.
+
+Contributed curves are available through shared timeline parsing and evaluation, including Puppeteer imports, editor previews, JES timelines, and timelines invoked from VNS. The evaluator receives only normalized progress and resolved parameters; it does not receive engine or editor internals.
+
+See [Animation Easing Extensions](animation-extensions.md) for the complete authoring API, DSL grammar, lifecycle, validation, testing guidance, and limitations.
+
 ## Script commands
 
 `ScriptCommand` receives the source language, registered command ID, parsed arguments, current variables, and project directory. It returns whether it handled the call, an optional value, and variable updates.

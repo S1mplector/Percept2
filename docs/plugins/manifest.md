@@ -42,5 +42,6 @@ Supported ranges are exact versions, `*`, `1.x`, `1.2.x`, caret ranges such as `
 | `editor.tool` | Editor Tools menu actions |
 | `asset.importer` | Asset importers |
 | `runtime.listener` | Runtime lifecycle listeners |
+| `animation.easing` | Named easing curves and their authoring metadata |
 
 Unknown capabilities, malformed JSON, missing required fields, duplicate plugin IDs, incompatible API ranges, and invalid dependencies prevent loading. Diagnostics include a stable code suitable for tooling.

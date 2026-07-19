@@ -49,4 +49,10 @@ public interface PluginContext {
    * @return capability-checked owned registries
    */
   PluginRegistries registries();
+  /** Provides the fluent authoring API for new extension families.
+   * @return plugin-owned contribution surface
+   */
+  default PluginContributions contribute() {
+    throw new UnsupportedOperationException("This host does not provide the contribution API");
+  }
 }
