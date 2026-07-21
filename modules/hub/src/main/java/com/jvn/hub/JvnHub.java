@@ -4041,7 +4041,7 @@ public final class JvnHub {
   private static String displayVersionLabel(String rawVersion) {
     String raw = rawVersion == null ? "" : rawVersion.trim();
     if (raw.isBlank() || raw.equalsIgnoreCase("dev") || raw.equalsIgnoreCase("vdev")) {
-      return "v0.3.1";
+      return "v0.4.0";
     }
 
     String version = raw.startsWith("v") || raw.startsWith("V") ? raw.substring(1) : raw;
@@ -4060,7 +4060,7 @@ public final class JvnHub {
     int plus = version.indexOf('+');
     if (plus >= 0) version = version.substring(0, plus);
     version = version.trim();
-    if (version.isBlank()) version = "0.3.1";
+    if (version.isBlank()) version = "0.4.0";
     return "v" + version + (maturity == null ? "" : " " + maturity);
   }
 
@@ -4710,7 +4710,7 @@ public final class JvnHub {
     private boolean underMaintenance = false;
 
     LauncherButton(String text) {
-      super(text, uiIcon(VectorIcon.Kind.ROCKET, 16, TEXT_PRIMARY), BORDER_NEUTRAL);
+      super(text, WindowsSevenActionIcon.of(WindowsSevenActionIcon.Kind.LAUNCHER), BORDER_NEUTRAL);
       stripeTimer = new javax.swing.Timer(70, e -> {
         stripeOffset = (stripeOffset + 2) % STRIPE_PERIOD;
         repaint();
@@ -4722,7 +4722,9 @@ public final class JvnHub {
       LauncherMaintenanceState safeState = state == null ? LauncherMaintenanceState.available() : state;
       underMaintenance = safeState.underMaintenance();
       setForeground(underMaintenance ? ACCENT_MAINTENANCE : TEXT_PRIMARY);
-      setIcon(uiIcon(VectorIcon.Kind.ROCKET, 16, underMaintenance ? ACCENT_MAINTENANCE : TEXT_PRIMARY));
+      setIcon(WindowsSevenActionIcon.of(
+          underMaintenance ? WindowsSevenActionIcon.Kind.LAUNCHER_MAINTENANCE
+              : WindowsSevenActionIcon.Kind.LAUNCHER));
       setToolTipText(underMaintenance
           ? safeState.resolvedMessage()
           : "Launch the standalone JVN launcher.");
@@ -5135,7 +5137,7 @@ public final class JvnHub {
   /** Colorful glass-and-metal action glyphs inspired by the Windows 7 desktop era. */
   private static final class WindowsSevenActionIcon implements Icon {
     enum Kind {
-      EDITOR, BUILD, SHORTCUT, UPDATE, TESTS, OPTIONS,
+      EDITOR, LAUNCHER, LAUNCHER_MAINTENANCE, BUILD, SHORTCUT, UPDATE, TESTS, OPTIONS,
       MORE, CANCEL, QUIT,
       DEVELOPER, DEVELOPER_ACTIVE, SAFE, SAFE_ACTIVE,
       DIAGNOSTICS, ABOUT, DOCUMENTATION, ANNOUNCEMENTS
@@ -5150,7 +5152,7 @@ public final class JvnHub {
     }
 
     static WindowsSevenActionIcon of(Kind kind) {
-      return new WindowsSevenActionIcon(kind, ui(24));
+      return new WindowsSevenActionIcon(kind, ui(26));
     }
 
     static WindowsSevenActionIcon of(Kind kind, int logicalSize) {
@@ -5170,6 +5172,8 @@ public final class JvnHub {
         g.setStroke(new BasicStroke(1.25f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         switch (kind) {
           case EDITOR -> paintEditor(g);
+          case LAUNCHER -> paintLauncher(g, false);
+          case LAUNCHER_MAINTENANCE -> paintLauncher(g, true);
           case BUILD -> paintBuild(g);
           case SHORTCUT -> paintShortcut(g);
           case UPDATE -> paintUpdate(g);
@@ -5209,6 +5213,43 @@ public final class JvnHub {
       g.drawRoundRect(16, 7, 3, 12, 2, 2);
       g.setColor(Color.decode("#f8d8b4"));
       g.fillPolygon(new int[] {16, 20, 18}, new int[] {20, 20, 23}, 3);
+    }
+
+    private static void paintLauncher(Graphics2D g, boolean maintenance) {
+      Color top = maintenance ? Color.decode("#ffd36e") : Color.decode("#74ddff");
+      Color bottom = maintenance ? Color.decode("#b76513") : Color.decode("#1769b5");
+      glassOrb(g, top, bottom);
+
+      Path2D rocket = new Path2D.Float();
+      rocket.moveTo(13, 5);
+      rocket.curveTo(17, 6, 19, 9, 19, 12);
+      rocket.lineTo(14, 17);
+      rocket.lineTo(10, 17);
+      rocket.lineTo(6, 21);
+      rocket.lineTo(7, 15);
+      rocket.lineTo(12, 10);
+      rocket.curveTo(12, 8, 12, 6, 13, 5);
+      rocket.closePath();
+      g.setPaint(new LinearGradientPaint(
+          7f, 5f, 18f, 19f,
+          new float[] {0f, 0.45f, 1f},
+          new Color[] {Color.WHITE, Color.decode("#dceaf3"), Color.decode("#8297a8")}));
+      g.fill(rocket);
+      g.setColor(maintenance ? Color.decode("#7b3b0c") : Color.decode("#174b74"));
+      g.setStroke(new BasicStroke(1.05f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+      g.draw(rocket);
+      g.setPaint(new RadialGradientPaint(
+          new Point2D.Float(15f, 10f), 3.2f,
+          new float[] {0f, 0.62f, 1f},
+          new Color[] {Color.WHITE, Color.decode("#7fdcff"), Color.decode("#1765a2")}));
+      g.fillOval(13, 8, 4, 4);
+      g.setColor(new Color(255, 255, 255, 190));
+      g.drawOval(13, 8, 4, 4);
+      g.setPaint(new LinearGradientPaint(
+          7f, 17f, 7f, 23f,
+          new float[] {0f, 0.5f, 1f},
+          new Color[] {Color.decode("#fff4a0"), Color.decode("#ff9b28"), new Color(214, 48, 18, 40)}));
+      g.fillPolygon(new int[] {8, 11, 7}, new int[] {17, 18, 23}, 3);
     }
 
     private static void paintBuild(Graphics2D g) {
@@ -5427,21 +5468,48 @@ public final class JvnHub {
     private static void glassTile(Graphics2D g, int x, int y, int width, int height,
                                   Color top, Color bottom) {
       shadow(g, x, y, width, height, 4);
-      g.setPaint(new java.awt.GradientPaint(x, y, top, x, y + height, bottom));
+      g.setPaint(new LinearGradientPaint(
+          x, y, x, y + height,
+          new float[] {0f, 0.14f, 0.55f, 1f},
+          new Color[] {
+              brighter(top, 0.26f),
+              top,
+              blend(top, bottom, 0.58f),
+              darker(bottom, 0.18f)
+          }));
       g.fillRoundRect(x, y, width, height, 4, 4);
-      g.setColor(brighter(top, 0.42f));
+      g.setColor(new Color(255, 255, 255, 185));
       g.drawRoundRect(x, y, width - 1, height - 1, 4, 4);
+      g.setColor(new Color(0, 18, 34, 105));
+      g.drawRoundRect(x + 1, y + 1, width - 3, height - 3, 3, 3);
       gloss(g, x + 1, y + 1, width - 2, Math.max(4, height / 2), 3);
+      g.setColor(new Color(255, 255, 255, 72));
+      g.drawLine(x + 3, y + height - 2, x + width - 4, y + height - 2);
     }
 
     private static void glassOrb(Graphics2D g, Color top, Color bottom) {
       shadow(g, 3, 3, 18, 18, 18);
-      g.setPaint(new java.awt.GradientPaint(4, 3, top, 19, 21, bottom));
+      g.setPaint(new RadialGradientPaint(
+          new Point2D.Float(8.5f, 6.5f), 18f,
+          new float[] {0f, 0.30f, 0.72f, 1f},
+          new Color[] {
+              brighter(top, 0.38f),
+              top,
+              blend(top, bottom, 0.64f),
+              darker(bottom, 0.25f)
+          }));
       g.fillOval(3, 3, 18, 18);
-      g.setColor(brighter(top, 0.45f));
+      g.setColor(new Color(255, 255, 255, 205));
       g.drawOval(3, 3, 17, 17);
-      g.setColor(new Color(255, 255, 255, 105));
+      g.setColor(new Color(0, 18, 34, 100));
+      g.drawOval(4, 4, 15, 15);
+      g.setPaint(new LinearGradientPaint(
+          0f, 4f, 0f, 11f,
+          new float[] {0f, 1f},
+          new Color[] {new Color(255, 255, 255, 175), new Color(255, 255, 255, 12)}));
       g.fillOval(6, 4, 12, 7);
+      g.setColor(new Color(255, 255, 255, 70));
+      g.drawArc(6, 7, 12, 11, 205, 128);
     }
 
     private static Color brighter(Color color, float amount) {
@@ -5452,13 +5520,42 @@ public final class JvnHub {
           Math.round(color.getBlue() + (255 - color.getBlue()) * safe));
     }
 
+    private static Color darker(Color color, float amount) {
+      float safe = Math.max(0f, Math.min(1f, amount));
+      return new Color(
+          Math.round(color.getRed() * (1f - safe)),
+          Math.round(color.getGreen() * (1f - safe)),
+          Math.round(color.getBlue() * (1f - safe)),
+          color.getAlpha());
+    }
+
+    private static Color blend(Color first, Color second, float secondWeight) {
+      float weight = Math.max(0f, Math.min(1f, secondWeight));
+      float firstWeight = 1f - weight;
+      return new Color(
+          Math.round(first.getRed() * firstWeight + second.getRed() * weight),
+          Math.round(first.getGreen() * firstWeight + second.getGreen() * weight),
+          Math.round(first.getBlue() * firstWeight + second.getBlue() * weight));
+    }
+
     private static void shadow(Graphics2D g, int x, int y, int width, int height, int arc) {
-      g.setColor(new Color(0, 0, 0, 85));
-      g.fillRoundRect(x + 1, y + 2, width, height, arc, arc);
+      g.setColor(new Color(0, 0, 0, 24));
+      g.fillRoundRect(x - 1, y + 1, width + 2, height + 3, arc + 2, arc + 2);
+      g.setColor(new Color(0, 0, 0, 48));
+      g.fillRoundRect(x, y + 2, width, height + 1, arc + 1, arc + 1);
+      g.setColor(new Color(0, 0, 0, 82));
+      g.fillRoundRect(x + 1, y + 2, width - 2, height, arc, arc);
     }
 
     private static void gloss(Graphics2D g, int x, int y, int width, int height, int arc) {
-      g.setPaint(new java.awt.GradientPaint(0, y, new Color(255, 255, 255, 145), 0, y + height, new Color(255, 255, 255, 12)));
+      g.setPaint(new LinearGradientPaint(
+          0f, y, 0f, y + height,
+          new float[] {0f, 0.48f, 1f},
+          new Color[] {
+              new Color(255, 255, 255, 180),
+              new Color(255, 255, 255, 76),
+              new Color(255, 255, 255, 5)
+          }));
       g.fillRoundRect(x, y, width, height, arc, arc);
     }
   }
