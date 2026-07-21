@@ -19,6 +19,10 @@ class AeroIconTest {
 
   @BeforeAll
   static void startToolkit() throws Exception {
+    if (isHeadlessLinux()) {
+      toolkitAvailable = false;
+      return;
+    }
     CountDownLatch ready = new CountDownLatch(1);
     try {
       Platform.startup(ready::countDown);
@@ -28,6 +32,11 @@ class AeroIconTest {
     } catch (RuntimeException unavailable) {
       toolkitAvailable = false;
     }
+  }
+
+  private static boolean isHeadlessLinux() {
+    return System.getProperty("os.name", "").toLowerCase().contains("linux")
+        && System.getenv().getOrDefault("DISPLAY", "").isBlank();
   }
 
   @Test
