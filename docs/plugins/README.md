@@ -7,6 +7,7 @@ JVN plugins add scripting commands, editor tools, asset importers, and runtime o
 - [Authoring your first plugin](authoring.md)
 - [Manifest reference](manifest.md)
 - [Extension-point reference](extension-points.md)
+- [Animation easing extensions](animation-extensions.md)
 - [Plugin API reference](api-reference.md)
 - [Host and lifecycle reference](host-reference.md)
 - [Packaging and distribution](distribution.md)

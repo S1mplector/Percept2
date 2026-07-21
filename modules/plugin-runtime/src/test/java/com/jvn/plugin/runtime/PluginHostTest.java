@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import static com.jvn.plugin.api.animation.AnimationEasingDefinition.easing;
 
 class PluginHostTest {
   @TempDir Path temp;
@@ -69,6 +70,41 @@ class PluginHostTest {
     host.start();
     assertTrue(host.diagnostics().stream().anyMatch(d -> d.code().equals("dependency-missing")));
     assertEquals(PluginState.DISCOVERED, host.plugins().get(0).state());
+  }
+
+  @Test
+  void ownsFluentAnimationContributionsAndCleansThemUp() {
+    PluginHost host = host();
+    host.addBundled(provider(
+        descriptor("motion", List.of(), Set.of(PluginCapability.ANIMATION_EASING)),
+        new JvnPlugin() {
+          @Override public void initialize(PluginContext context) {
+            context.contribute().animations().easing("motion.smooth",
+                easing("Smooth").evaluate(frame -> frame.progress() * frame.progress()));
+          }
+        }));
+
+    host.start();
+    assertEquals("Smooth", host.registries().animationEasings()
+        .find("motion.smooth").orElseThrow().label());
+    host.close();
+    assertTrue(host.registries().animationEasings().entries().isEmpty());
+  }
+
+  @Test
+  void rejectsUnqualifiedAnimationIdsDuringInitialization() {
+    PluginHost host = host();
+    host.addBundled(provider(
+        descriptor("motion", List.of(), Set.of(PluginCapability.ANIMATION_EASING)),
+        new JvnPlugin() {
+          @Override public void initialize(PluginContext context) {
+            context.contribute().animations().easing("smooth",
+                easing("Smooth").evaluate(frame -> frame.progress()));
+          }
+        }));
+    host.start();
+    assertEquals(PluginState.FAILED, host.plugins().get(0).state());
+    assertTrue(host.diagnostics().stream().anyMatch(d -> d.code().equals("initialize-failed")));
   }
 
   private PluginHost host() {

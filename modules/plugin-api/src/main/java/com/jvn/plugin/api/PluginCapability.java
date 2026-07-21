@@ -9,7 +9,9 @@ public enum PluginCapability {
   /** Permission to register asset importers. */
   ASSET_IMPORTER("asset.importer"),
   /** Permission to observe runtime lifecycle events. */
-  RUNTIME_LISTENER("runtime.listener");
+  RUNTIME_LISTENER("runtime.listener"),
+  /** Permission to contribute named easing curves. */
+  ANIMATION_EASING("animation.easing");
 
   private final String id;
 

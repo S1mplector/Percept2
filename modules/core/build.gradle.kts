@@ -4,6 +4,7 @@ plugins {
 }
 
 dependencies {
+  api(project(":plugin-api"))
   api("org.slf4j:slf4j-api:2.0.13")
   api("org.jspecify:jspecify:1.0.0")
 

@@ -83,3 +83,17 @@ Returned variable updates are copied into VNS state.
 Keep plugin business logic independent from JavaFX. Unit-test handlers directly, then test host behavior using `PluginHost` with a `BundledPluginProvider`. Verify manifests, capabilities, configuration defaults, lifecycle cleanup, malformed arguments, and resources released from `stop()`.
 
 The repository tests in `modules/plugin-runtime/src/test` demonstrate dependency ordering, cleanup, capability enforcement, and failure isolation.
+
+## Add an animation easing
+
+Plugin API 1.1 adds the fluent contribution surface:
+
+```java
+context.contribute().animations().easing("greeter.friendly-pop",
+    AnimationEasingDefinition.easing("Friendly Pop")
+        .parameter("strength", 1.0, AnimationEasingDefinition.range(0.0, 2.0))
+        .evaluate(frame -> frame.progress()
+            + Math.sin(frame.progress() * Math.PI) * frame.parameter("strength") * 0.15));
+```
+
+Add `animation.easing` to the manifest capabilities and set `jvnApi` to `>=1.1.0 <2.0.0`. See [Animation Easing Extensions](animation-extensions.md) for metadata, parameter validation, timeline syntax, editor discovery, testing, and performance rules.

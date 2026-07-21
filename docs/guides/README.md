@@ -13,6 +13,7 @@ rules and subsystem contracts live in the scripting and runtime references.
 
 - [VNS By Example](vns-by-example.md) — ten chapters covering story scripting
 - [JES By Example](jes-by-example.md) — ten chapters covering interactive scenes
+- [Reusable Authoring With Facets And Motifs](facets-and-motifs.md) — design reusable UI and animation vocabulary, then combine both safely
 
 ## Recipes
 

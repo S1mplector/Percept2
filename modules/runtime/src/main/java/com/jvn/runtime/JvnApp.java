@@ -236,6 +236,7 @@ public class JvnApp {
         .projectDirectory(assetRootDir == null ? null : assetRootDir.toPath())
         .build();
     pluginHost.discoverAndStart();
+    com.jvn.core.animation.EasingExtensions.install(pluginHost.registries().animationEasings());
     Runtime.getRuntime().addShutdownHook(new Thread(pluginHost::close, "jvn-plugin-shutdown"));
     if (!pluginHost.plugins().isEmpty()) {
       log.info("Plugins -> discovered={}, diagnostics={}", pluginHost.plugins().size(), pluginHost.diagnostics().size());

@@ -13,6 +13,8 @@ Use a Facet when a normal menu row list or a single-title/single-body reactive s
 
 Facets extend JVN's existing overlay-screen lifecycle. They do not introduce another screen stack, input router, or action language. The established `[screen show]` and `[screen call]` commands, modal behavior, timers, buttons, localization, conditions, and return values all continue to apply.
 
+For a workflow that combines reactive UI with reusable scene animation, see [Reusable Authoring With Facets And Motifs](../../guides/facets-and-motifs.md). Motifs can coordinate motion around a Facet, but the current Facet contract does not animate individual nodes.
+
 Implementation:
 
 - model: `modules/core/src/main/java/com/jvn/core/vn/ui/VnFacetSpec.java`

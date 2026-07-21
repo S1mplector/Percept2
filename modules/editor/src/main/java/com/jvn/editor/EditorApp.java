@@ -490,6 +490,7 @@ public class EditorApp extends Application {
         .projectDirectory(project == null ? null : project.toPath())
         .build();
     pluginHost.discoverAndStart();
+    com.jvn.core.animation.EasingExtensions.install(pluginHost.registries().animationEasings());
     refreshPluginToolsMenu();
   }
 

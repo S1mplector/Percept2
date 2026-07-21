@@ -13,6 +13,10 @@ Use motifs for motion that should stay consistent across characters and scenes:
 
 Motifs expand the existing Puppeteer pipeline. They are not a second animation runtime and do not introduce another keyframe format.
 
+For a workflow that combines reusable animation with reactive project UI, see [Reusable Authoring With Facets And Motifs](../../guides/facets-and-motifs.md). A motif can stage the surrounding scene, but it cannot currently be embedded in a `.facet` file or target an individual Facet node.
+
+Motif parameters may substitute a contributed easing specification into an ordinary action. The extension must be installed when the expanded timeline is parsed. See [Animation Easing Extensions](../../plugins/animation-extensions.md).
+
 ```text
 motif definitions + use invocations
                 ↓ source expansion

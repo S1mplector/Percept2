@@ -23,6 +23,8 @@ This page is for beginners who can already open the editor, but are not yet sure
 | `scripts/timelines/*.jes` | Registered Puppeteer export files that can be called from VNS or used from JES. Named exports may include Puppeteer metadata comments for editor reopen/state handoff. | cinematic/technical authors |
 | `.clip` | Reusable Puppeteer clip snippets saved from track ranges. | cinematic authors |
 
+A Puppeteer motif is not a separate file type. It is a named `motif` definition inside timeline source and is invoked with `use`; the definition expands into ordinary timeline actions before parsing.
+
 ## Menu And UI Files
 
 | File | What it does | Usually edited by |
@@ -74,4 +76,5 @@ That gives you story, textbox, and menu control before you move into more specia
 
 - [Choose Your Path in JVN](choose-your-path.md)
 - [Getting Started Guide](getting-started.md)
+- [Reusable Authoring With Facets And Motifs](facets-and-motifs.md)
 - [Documentation Index](../INDEX.md)

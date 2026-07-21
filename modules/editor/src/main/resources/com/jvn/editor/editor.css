@@ -3556,6 +3556,32 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-effect: dropshadow(gaussian, rgba(210, 210, 210, 0.22), 10, 0.26, 0, 0);
 }
 
+/* Floating-docker commands carry their surface in the compact Aero artwork itself. */
+.puppeteer-toolbar-icon-button.puppeteer-aero-button,
+.puppeteer-toolbar-icon-toggle.puppeteer-aero-button {
+  -fx-background-color: linear-gradient(to bottom, rgba(255,255,255,0.045), rgba(0,0,0,0.16));
+  -fx-border-color: rgba(143, 162, 178, 0.34);
+  -fx-background-radius: 9;
+  -fx-border-radius: 9;
+}
+
+.puppeteer-toolbar-icon-button.puppeteer-aero-button:hover,
+.puppeteer-toolbar-icon-toggle.puppeteer-aero-button:hover {
+  -fx-background-color: linear-gradient(to bottom, rgba(148,205,240,0.12), rgba(26,53,70,0.18));
+  -fx-border-color: rgba(174, 218, 244, 0.62);
+}
+
+.puppeteer-toolbar-icon-button.puppeteer-aero-button:pressed,
+.puppeteer-toolbar-icon-toggle.puppeteer-aero-button:pressed {
+  -fx-background-color: rgba(0,0,0,0.28);
+  -fx-border-color: rgba(215, 235, 247, 0.54);
+}
+
+.puppeteer-toolbar-icon-toggle.puppeteer-aero-button:selected {
+  -fx-background-color: linear-gradient(to bottom, rgba(255,190,70,0.22), rgba(96,52,8,0.25));
+  -fx-border-color: rgba(255, 198, 91, 0.78);
+}
+
 .puppeteer-toolbar-icon-menu > .label {
   -fx-padding: 0;
 }

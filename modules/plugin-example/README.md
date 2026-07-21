@@ -1,6 +1,6 @@
 # JVN example plugin
 
-Reference plugin demonstrating script commands, editor tools, and runtime listeners without accessing engine or editor internals.
+Reference plugin demonstrating script commands, editor tools, runtime listeners, and a named easing extension without accessing engine or editor internals.
 
 ```bash
 ./gradlew :plugin-example:jar
@@ -12,6 +12,12 @@ After restarting JVN, run the editor action under **Tools → Plugins**, or call
 
 ```vns
 [plugin hello.greet Ada]
+```
+
+The plugin also contributes `hello.elastic-pop`, available in Puppeteer's easing catalog and timeline source:
+
+```jes
+easing: "hello.elastic-pop(overshoot: 1.4, settle: 0.8)"
 ```
 
 See [Plugin authoring](../../docs/plugins/authoring.md) for a guided implementation.

@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-class AeroIconTest {
+class PuppeteerAeroIconTest {
   private static boolean toolkitAvailable;
 
   @BeforeAll
@@ -40,48 +40,36 @@ class AeroIconTest {
   }
 
   @Test
-  void everySemanticKindRendersVisibleGlassAndGlyphPixels() throws Exception {
+  void everyKeyframeCommandRendersACompactAeroSurface() throws Exception {
     Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
-
-    for (AeroIcon.Kind kind : AeroIcon.Kind.values()) {
+    for (PuppeteerAeroIcon.Kind kind : PuppeteerAeroIcon.Kind.values()) {
       WritableImage image = onFxThread(() -> {
-        AeroIcon icon = AeroIcon.of(kind, 24);
+        PuppeteerAeroIcon icon = PuppeteerAeroIcon.of(kind);
         StackPane root = new StackPane(icon);
         new Scene(root, 32, 32);
         root.applyCss();
         root.layout();
         return root.snapshot(null, new WritableImage(32, 32));
       });
-      assertTrue(nonTransparentPixels(image) > 80, kind + " should render visible artwork");
+      assertTrue(nonTransparentPixels(image) > 180, kind + " should render a visible Aero plate and glyph");
     }
   }
 
   @Test
-  void supportedSizeRangeIsClampedWithoutChangingSemanticKind() throws Exception {
+  void sizeIsClampedAndKindIsPreserved() throws Exception {
     Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
-
-    AeroIcon small = onFxThread(() -> AeroIcon.of(AeroIcon.Kind.SETTINGS, 2));
-    AeroIcon large = onFxThread(() -> AeroIcon.of(AeroIcon.Kind.SETTINGS, 200));
-
-    assertEquals(14, small.iconSize());
-    assertEquals(48, large.iconSize());
-    assertEquals(AeroIcon.Kind.SETTINGS, small.kind());
-  }
-
-  @Test
-  void semanticArtworkUsesRenderCachingForPanelMovement() throws Exception {
-    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
-
-    AeroIcon icon = onFxThread(() -> AeroIcon.of(AeroIcon.Kind.PROJECT, 28));
-
-    assertTrue(icon.isCache());
-    assertTrue(icon.getChildren().getFirst().isCache());
+    PuppeteerAeroIcon small = onFxThread(() -> PuppeteerAeroIcon.of(PuppeteerAeroIcon.Kind.RIPPLE, 2));
+    PuppeteerAeroIcon large = onFxThread(() -> PuppeteerAeroIcon.of(PuppeteerAeroIcon.Kind.RIPPLE, 200));
+    assertEquals(18, small.iconSize());
+    assertEquals(28, large.iconSize());
+    assertEquals(PuppeteerAeroIcon.Kind.RIPPLE, small.kind());
+    assertTrue(small.isCache());
   }
 
   private static int nonTransparentPixels(WritableImage image) {
     int count = 0;
-    for (int y = 0; y < (int) image.getHeight(); y++) {
-      for (int x = 0; x < (int) image.getWidth(); x++) {
+    for (int y = 0; y < image.getHeight(); y++) {
+      for (int x = 0; x < image.getWidth(); x++) {
         if (image.getPixelReader().getArgb(x, y) >>> 24 != 0) count++;
       }
     }
@@ -93,13 +81,9 @@ class AeroIconTest {
     AtomicReference<T> result = new AtomicReference<>();
     AtomicReference<Throwable> failure = new AtomicReference<>();
     Platform.runLater(() -> {
-      try {
-        result.set(work.call());
-      } catch (Throwable error) {
-        failure.set(error);
-      } finally {
-        done.countDown();
-      }
+      try { result.set(work.call()); }
+      catch (Throwable error) { failure.set(error); }
+      finally { done.countDown(); }
     });
     assertTrue(done.await(10, TimeUnit.SECONDS), "JavaFX work timed out");
     if (failure.get() != null) throw new AssertionError(failure.get());

@@ -4,6 +4,7 @@ import com.jvn.plugin.api.asset.AssetImporter;
 import com.jvn.plugin.api.editor.EditorTool;
 import com.jvn.plugin.api.runtime.RuntimeListener;
 import com.jvn.plugin.api.script.ScriptCommand;
+import com.jvn.plugin.api.animation.AnimationEasing;
 
 /** Supported extension families. Access is checked against manifest capabilities. */
 public interface PluginRegistries {
@@ -23,4 +24,10 @@ public interface PluginRegistries {
    * @return owned registry
    */
   ExtensionRegistry<RuntimeListener> runtimeListeners();
+  /** Returns contributed easing curves; requires {@code animation.easing} for plugin access.
+   * @return owned registry
+   */
+  default ExtensionRegistry<AnimationEasing> animationEasings() {
+    throw new UnsupportedOperationException("This host does not provide animation easing extensions");
+  }
 }
