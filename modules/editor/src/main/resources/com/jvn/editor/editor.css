@@ -3711,6 +3711,27 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-background-color: linear-gradient(to bottom, #4aac76, #3b8e61);
 }
 
+.code-docker-command-button {
+  -fx-background-radius: 10;
+  -fx-border-radius: 10;
+  -fx-border-color: rgba(128, 151, 166, 0.38);
+}
+
+.code-docker-command-button:hover {
+  -fx-border-color: rgba(155, 210, 239, 0.68);
+  -fx-effect: dropshadow(gaussian, rgba(82, 165, 207, 0.16), 9, 0.22, 0, 1);
+}
+
+.code-docker-command-button:hover .code-docker-command-icon {
+  -fx-scale-x: 1.06;
+  -fx-scale-y: 1.06;
+}
+
+.code-docker-command-button:pressed .code-docker-command-icon {
+  -fx-scale-x: 0.94;
+  -fx-scale-y: 0.94;
+}
+
 .puppeteer-toolbar-icon {
   -fx-min-width: 17px;
   -fx-min-height: 17px;

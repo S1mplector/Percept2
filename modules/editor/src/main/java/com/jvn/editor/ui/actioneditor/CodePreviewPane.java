@@ -1,5 +1,6 @@
 package com.jvn.editor.ui.actioneditor;
 
+import com.jvn.editor.ui.CodeDockerIcon;
 import com.jvn.editor.ui.JesCodeEditor;
 
 import javafx.geometry.Insets;
@@ -59,13 +60,13 @@ public class CodePreviewPane extends VBox {
         });
         VBox.setVgrow(jesEditor, Priority.ALWAYS);
 
-        btnCopy = makeIconButton(com.jvn.editor.ui.CssIcon.copy(), "Copy the code to clipboard");
+        btnCopy = makeIconButton(CodeDockerIcon.of(CodeDockerIcon.Kind.COPY_CODE), "Copy the code to clipboard");
         btnCopy.setTooltip(new Tooltip("Copy the code to clipboard"));
         btnCopy.setOnAction(e -> {
             if (onCopy != null) onCopy.run();
         });
 
-        btnRegenerate = makeIconButton(com.jvn.editor.ui.CssIcon.auto(), "Discard manual edits and regenerate from the timeline");
+        btnRegenerate = makeIconButton(CodeDockerIcon.of(CodeDockerIcon.Kind.REGENERATE), "Discard manual edits and regenerate from the timeline");
         btnRegenerate.setTooltip(new Tooltip("Discard manual edits and regenerate from the timeline"));
         btnRegenerate.setOnAction(e -> {
             manuallyEdited = false;
@@ -74,28 +75,28 @@ public class CodePreviewPane extends VBox {
             if (onRegenerate != null) onRegenerate.run();
         });
 
-        btnPreviewApply = makeIconButton(com.jvn.editor.ui.CssIcon.check(), "Parse code and stage it in preview mode");
+        btnPreviewApply = makeIconButton(CodeDockerIcon.of(CodeDockerIcon.Kind.STAGE_PREVIEW), "Parse code and stage it in preview mode");
         btnPreviewApply.getStyleClass().add("puppeteer-toolbar-icon-button-success");
         btnPreviewApply.setTooltip(new Tooltip("Parse code and stage it in preview mode"));
         btnPreviewApply.setOnAction(e -> {
             if (onPreviewToModel != null) onPreviewToModel.run();
         });
 
-        btnCommitPreview = makeIconButton(com.jvn.editor.ui.CssIcon.save(), "Commit staged preview changes to the model");
+        btnCommitPreview = makeIconButton(CodeDockerIcon.of(CodeDockerIcon.Kind.COMMIT), "Commit staged preview changes to the model");
         btnCommitPreview.setTooltip(new Tooltip("Commit staged preview changes to the model"));
         btnCommitPreview.setDisable(true);
         btnCommitPreview.setOnAction(e -> {
             if (onCommitPreview != null) onCommitPreview.run();
         });
 
-        btnDiscardPreview = makeIconButton(com.jvn.editor.ui.CssIcon.clearX(), "Discard staged preview and restore previous model");
+        btnDiscardPreview = makeIconButton(CodeDockerIcon.of(CodeDockerIcon.Kind.ROLLBACK), "Discard staged preview and restore previous model");
         btnDiscardPreview.setTooltip(new Tooltip("Discard staged preview and restore previous model"));
         btnDiscardPreview.setDisable(true);
         btnDiscardPreview.setOnAction(e -> {
             if (onDiscardPreview != null) onDiscardPreview.run();
         });
 
-        btnToggleWarnings = makeIconToggleButton(com.jvn.editor.ui.CssIcon.warning("#f0b673"), "Toggle warnings/diagnostics visibility");
+        btnToggleWarnings = makeIconToggleButton(CodeDockerIcon.of(CodeDockerIcon.Kind.DIAGNOSTICS), "Toggle warnings/diagnostics visibility");
         btnToggleWarnings.setSelected(true);
         btnToggleWarnings.setVisible(false);
         btnToggleWarnings.setManaged(false);
@@ -119,6 +120,7 @@ public class CodePreviewPane extends VBox {
     private static Button makeIconButton(javafx.scene.layout.Region icon, String tooltip) {
         Button button = new Button();
         button.getStyleClass().add("puppeteer-toolbar-icon-button");
+        button.getStyleClass().add("code-docker-command-button");
         button.setText("");
         button.setGraphic(icon);
         button.setTooltip(new Tooltip(tooltip));
@@ -128,12 +130,14 @@ public class CodePreviewPane extends VBox {
         button.setPrefSize(34, 30);
         button.setMaxSize(34, 30);
         button.setFocusTraversable(false);
+        button.setAccessibleText(tooltip);
         return button;
     }
 
     private static ToggleButton makeIconToggleButton(javafx.scene.layout.Region icon, String tooltip) {
         ToggleButton button = new ToggleButton();
         button.getStyleClass().add("puppeteer-toolbar-icon-button");
+        button.getStyleClass().add("code-docker-command-button");
         button.setText("");
         button.setGraphic(icon);
         button.setTooltip(new Tooltip(tooltip));
@@ -143,6 +147,7 @@ public class CodePreviewPane extends VBox {
         button.setPrefSize(34, 30);
         button.setMaxSize(34, 30);
         button.setFocusTraversable(false);
+        button.setAccessibleText(tooltip);
         return button;
     }
 
