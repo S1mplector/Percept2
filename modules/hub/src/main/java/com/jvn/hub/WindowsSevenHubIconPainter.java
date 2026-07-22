@@ -237,29 +237,40 @@ final class WindowsSevenHubIconPainter {
   }
 
   private static void paintCancel(Graphics2D g) {
-    chromeOrb(g);
+    shadow(g, 4.5f, 4.5f, 15f, 15f, 4.5f);
+    g.setPaint(new LinearGradientPaint(0, 4.5f, 0, 19.5f,
+        new float[] {0f, 0.16f, 0.52f, 1f},
+        new Color[] {WHITE, SILVER_LIGHT, SILVER_DARK, BLACK}));
+    g.fill(new RoundRectangle2D.Float(4.5f, 4.5f, 15f, 15f, 4.5f, 4.5f));
+    g.setColor(WHITE);
+    g.setStroke(stroke(0.9f));
+    g.draw(new RoundRectangle2D.Float(4.5f, 4.5f, 14.4f, 14.4f, 4.5f, 4.5f));
     g.setColor(BLACK);
-    g.fillRoundRect(6, 6, 12, 12, 3, 3);
+    g.fillRoundRect(7, 7, 10, 10, 3, 3);
     g.setColor(SILVER_DARK);
-    g.drawRoundRect(6, 6, 11, 11, 3, 3);
+    g.drawRoundRect(7, 7, 9, 9, 3, 3);
     g.setPaint(new LinearGradientPaint(6, 10, 18, 14,
         new float[] {0f, 0.5f, 1f}, new Color[] {ORANGE_DARK, ORANGE_LIGHT, ORANGE}));
-    g.fillRoundRect(8, 10, 8, 4, 3, 3);
+    g.fill(new RoundRectangle2D.Float(9, 10.5f, 6, 3, 3, 3));
   }
 
   private static void paintQuit(Graphics2D g) {
-    chromeOrb(g);
-    g.setColor(BLACK);
-    g.fillOval(5, 5, 14, 14);
-    g.setColor(SILVER_DARK);
-    g.drawOval(5, 5, 13, 13);
-    g.setColor(ORANGE);
-    g.setStroke(stroke(2.5f));
-    g.draw(new Arc2D.Float(7, 6, 10, 12, 42, 276, Arc2D.OPEN));
-    g.drawLine(12, 4, 12, 11);
+    shadow(g, 4, 4, 16, 16, 16);
+    g.setPaint(new RadialGradientPaint(new Point2D.Float(8f, 6.5f), 17f,
+        new float[] {0f, 0.34f, 0.70f, 1f},
+        new Color[] {WHITE, SILVER_LIGHT, SILVER_DARK, BLACK}));
+    g.fill(new Ellipse2D.Float(4, 4, 16, 16));
     g.setColor(WHITE);
-    g.setStroke(stroke(0.75f));
-    g.drawArc(8, 7, 8, 10, 45, 270);
+    g.setStroke(stroke(0.9f));
+    g.draw(new Ellipse2D.Float(4, 4, 15.4f, 15.4f));
+    g.setColor(BLACK);
+    g.fillOval(6, 6, 12, 12);
+    g.setColor(SILVER_DARK);
+    g.drawOval(6, 6, 11, 11);
+    g.setColor(ORANGE);
+    g.setStroke(stroke(2.15f));
+    g.draw(new Arc2D.Float(7.5f, 7.5f, 9, 9, 42, 276, Arc2D.OPEN));
+    line(g, 12, 5.5f, 12, 11.5f);
   }
 
   private static void paintDeveloper(Graphics2D g, boolean active) {
