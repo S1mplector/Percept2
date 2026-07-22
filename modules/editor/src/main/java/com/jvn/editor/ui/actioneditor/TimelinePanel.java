@@ -32,6 +32,7 @@ import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.Slider;
+import javafx.scene.control.Tooltip;
 import javafx.scene.input.ContextMenuEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
@@ -208,19 +209,22 @@ public class TimelinePanel extends VBox {
         this.commandStack = commandStack;
 
         // Initialize zoom controls
-        btnZoomOut = new Button("", CssIcon.minus("#e6e6e6"));
-        btnZoomOut.setPrefWidth(30);
-        btnZoomOut.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #e6e6e6; -fx-border-color: #444; -fx-border-radius: 3;");
+        btnZoomOut = new Button("", CssIcon.timelineZoomOut());
+        btnZoomOut.setPrefWidth(34);
+        btnZoomOut.setTooltip(new Tooltip("Zoom out timeline"));
+        btnZoomOut.setStyle(timelineToolButtonStyle(false));
         btnZoomOut.setOnAction(e -> zoomStep(0.8));
 
-        btnZoomIn = new Button("", CssIcon.plus("#e6e6e6"));
-        btnZoomIn.setPrefWidth(30);
-        btnZoomIn.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #e6e6e6; -fx-border-color: #444; -fx-border-radius: 3;");
+        btnZoomIn = new Button("", CssIcon.timelineZoomIn());
+        btnZoomIn.setPrefWidth(34);
+        btnZoomIn.setTooltip(new Tooltip("Zoom in timeline"));
+        btnZoomIn.setStyle(timelineToolButtonStyle(false));
         btnZoomIn.setOnAction(e -> zoomStep(1.2));
 
-        btnZoomFit = new Button("Fit");
-        btnZoomFit.setPrefWidth(50);
-        btnZoomFit.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #e6e6e6; -fx-border-color: #444; -fx-border-radius: 3;");
+        btnZoomFit = new Button("", CssIcon.timelineFit());
+        btnZoomFit.setPrefWidth(38);
+        btnZoomFit.setTooltip(new Tooltip("Fit the full timeline in view"));
+        btnZoomFit.setStyle(timelineToolButtonStyle(false));
         btnZoomFit.setOnAction(e -> zoomToFit());
 
         lblZoomLevel = new Label(formatZoomLevel());
@@ -236,9 +240,10 @@ public class TimelinePanel extends VBox {
             lblZoomLevel.setText(formatZoomLevel());
         });
 
-        btnGraphToggle = new Button("Graph");
-        btnGraphToggle.setPrefWidth(52);
-        btnGraphToggle.setStyle("-fx-background-color: #2a2a2a; -fx-text-fill: #a6a6a6; -fx-border-color: #444; -fx-border-radius: 3;");
+        btnGraphToggle = new Button("", CssIcon.timelineGraph());
+        btnGraphToggle.setPrefWidth(38);
+        btnGraphToggle.setTooltip(new Tooltip("Toggle graph view"));
+        btnGraphToggle.setStyle(timelineToolButtonStyle(false));
         btnGraphToggle.setOnAction(e -> toggleGraphMode());
 
         zoomHeader = new HBox(6, btnZoomOut, zoomSlider, btnZoomIn, btnZoomFit, lblZoomLevel, btnGraphToggle);
@@ -678,11 +683,22 @@ public class TimelinePanel extends VBox {
         scrollPane.setManaged(!graphMode);
         graphEditorPanel.setVisible(graphMode);
         graphEditorPanel.setManaged(graphMode);
-        String style = "-fx-border-color: #444; -fx-border-radius: 3; -fx-font-size: 11px;";
-        btnGraphToggle.setStyle(graphMode
-            ? "-fx-background-color: #1e3450; -fx-text-fill: #4da3ff; " + style
-            : "-fx-background-color: #2a2a2a; -fx-text-fill: #a6a6a6; " + style);
+        btnGraphToggle.setGraphic(CssIcon.timelineGraph(graphMode ? "#79c8ff" : "#9ca9e8"));
+        btnGraphToggle.setStyle(timelineToolButtonStyle(graphMode));
         render();
+    }
+
+    private static String timelineToolButtonStyle(boolean active) {
+        String background = active ? "#20364b" : "#25282c";
+        String border = active ? "#5085ad" : "#454a50";
+        return "-fx-background-color: " + background + ";"
+            + " -fx-background-radius: 5;"
+            + " -fx-border-color: " + border + ";"
+            + " -fx-border-radius: 5;"
+            + " -fx-border-width: 1;"
+            + " -fx-padding: 5 8 5 8;"
+            + " -fx-focus-color: transparent;"
+            + " -fx-faint-focus-color: transparent;";
     }
 
     private void render() {

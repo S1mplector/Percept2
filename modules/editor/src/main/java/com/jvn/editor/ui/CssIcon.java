@@ -114,6 +114,16 @@ public final class CssIcon {
       "M7 21q-.825 0-1.412-.587Q5 19.825 5 19V6H4V4h5V3h6v1h5v2h-1v13q0 .825-.587 1.413Q17.825 21 17 21H7ZM17 6H7v13h10V6ZM9 17h2V8H9v9Zm4 0h2V8h-2v9ZM7 6v13V6Z";
   private static final String PATH_TIMELINE =
       "M4 20q-.825 0-1.412-.587Q2 18.825 2 18V6q0-.825.588-1.412Q3.175 4 4 4h16q.825 0 1.413.588Q22 5.175 22 6v12q0 .825-.587 1.413Q20.825 20 20 20H4Zm0-2h16V6H4v12Zm3-2h10v-2H7v2Zm-4-4h2V8H3v4Zm4 0h14V8H7v4ZM4 6v12V6Z";
+  private static final String PATH_TIMELINE_ZOOM_IN =
+      "M15.5 14h-.79l-.28-.27A6.47 6.47 0 1 0 13.73 14.43l.27.28v.79l5 4.99L20.49 19l-4.99-5Zm-6 0A4.5 4.5 0 1 1 9.5 5a4.5 4.5 0 0 1 0 9Zm-1-7.5h2v2h2v2h-2v2h-2v-2h-2v-2h2v-2Z";
+  private static final String PATH_TIMELINE_ZOOM_OUT =
+      "M15.5 14h-.79l-.28-.27A6.47 6.47 0 1 0 13.73 14.43l.27.28v.79l5 4.99L20.49 19l-4.99-5Zm-6 0A4.5 4.5 0 1 1 9.5 5a4.5 4.5 0 0 1 0 9Zm-3-5.5h6v2h-6v-2Z";
+  private static final String PATH_TIMELINE_FIT =
+      "M3 9V4h5v2H5v3H3Zm13-5h5v5h-2V6h-3V4ZM3 15h2v3h3v2H3v-5Zm16 0h2v5h-5v-2h3v-3ZM7 11h10v2H7v-2ZM7 9v6l-3-3 3-3Zm10 0 3 3-3 3V9Z";
+  private static final String PATH_TIMELINE_GRAPH =
+      "M4 4h2v14h14v2H4V4Zm3 10.2 3.1-4 3.15 2.25 4.1-5.15 1.65 1.3-5.3 6.65-3.15-2.25-2.2 2.75L7 14.2Z";
+  private static final String PATH_TIMELINE_GRAPH_KEYS =
+      "M7 12.2 9 14.2 7 16.2 5 14.2 7 12.2Zm3.1-3.8 2 2-2 2-2-2 2-2Zm3.15 2.05 2 2-2 2-2-2 2-2Zm4.1-5.15 2 2-2 2-2-2 2-2Z";
   private static final String PATH_ROCKET =
       "M14.05 18.3 12 16.25v-3.4l2.05-2.05H17.4l2.05 2.05v3.4l-2.05 2.05h-3.35ZM12 22v-3H8v3h4Zm0-4v-3.4l2.05-2.05h3.35L19.45 14.6v3.4ZM8 14H5v-4h3v4Zm4-4V6.6L9.95 4.55H6.6L4.55 6.6v3.4H8v-4h4Zm12 4v-4h-3v4h3Zm0-4h-3V6.6L18.95 4.55h-3.35L13.55 6.6V10h4v-4h4v4ZM8 6H5V3h3v3Zm12 0h-3V3h3v3Z";
   private static final String PATH_BRANCH_PLUS =
@@ -184,6 +194,20 @@ public final class CssIcon {
   public static Region edit(String color) { return icon(PATH_EDIT, color, 14); }
   public static Region delete(String color) { return icon(PATH_DELETE, color, 14); }
   public static Region timeline(String color) { return icon(PATH_TIMELINE, color, 14); }
+  public static Region timelineZoomIn(String color) { return icon(PATH_TIMELINE_ZOOM_IN, color, 17); }
+  public static Region timelineZoomOut(String color) { return icon(PATH_TIMELINE_ZOOM_OUT, color, 17); }
+  public static Region timelineFit(String color) { return icon(PATH_TIMELINE_FIT, color, 17); }
+  public static Region timelineGraph(String color) {
+    Region curve = shapeLayer(PATH_TIMELINE_GRAPH, color, 17);
+    Region keys = shapeLayer(PATH_TIMELINE_GRAPH_KEYS, "#f0b673", 17);
+    keys.setEffect(new DropShadow(1.3, 0, 0.5, Color.rgb(0, 0, 0, 0.82)));
+    StackPane graph = prepare(new StackPane(curve, keys));
+    graph.getStyleClass().add("jvn-timeline-graph-icon");
+    graph.setMinSize(17, 17);
+    graph.setPrefSize(17, 17);
+    graph.setMaxSize(17, 17);
+    return graph;
+  }
   public static Region rocket(String color) { return icon(PATH_ROCKET, color, 14); }
   public static Region branchPlus(String color) { return icon(PATH_BRANCH_PLUS, color, 15); }
   public static Region movie(String color) { return icon(PATH_MOVIE, color, 14); }
@@ -239,6 +263,10 @@ public final class CssIcon {
   public static Region edit() { return edit("#b0b8c8"); }
   public static Region delete() { return delete("#b0b8c8"); }
   public static Region timeline() { return timeline("#b0b8c8"); }
+  public static Region timelineZoomIn() { return timelineZoomIn("#70c7ef"); }
+  public static Region timelineZoomOut() { return timelineZoomOut("#70c7ef"); }
+  public static Region timelineFit() { return timelineFit("#90b9d8"); }
+  public static Region timelineGraph() { return timelineGraph("#9ca9e8"); }
   public static Region rocket() { return rocket("#b0b8c8"); }
   public static Region branchPlus() { return branchPlus("#b0b8c8"); }
   public static Region movie() { return movie("#b0b8c8"); }
@@ -318,6 +346,26 @@ public final class CssIcon {
     StackPane.setAlignment(glint, Pos.TOP_LEFT);
     StackPane.setMargin(glint, new Insets(size * 0.17, 0, 0, size * 0.18));
     return icon;
+  }
+
+  private static Region shapeLayer(String svgPath, String color, double size) {
+    Region glyph = new Region();
+    glyph.getStyleClass().add("jvn-fx-icon-shape");
+    glyph.setScaleShape(true);
+    glyph.setCenterShape(true);
+    glyph.setCacheShape(true);
+    glyph.setMinSize(size, size);
+    glyph.setPrefSize(size, size);
+    glyph.setMaxSize(size, size);
+    glyph.setMouseTransparent(true);
+    glyph.setStyle(
+        "-fx-shape: '" + svgPath + "';"
+        + " -fx-background-color: linear-gradient(to bottom,"
+        + " derive(" + color + ", 52%) 0%,"
+        + " " + color + " 48%,"
+        + " derive(" + color + ", -30%) 100%);"
+    );
+    return glyph;
   }
 
   private static String compactAccent(String svgPath, String requested) {
