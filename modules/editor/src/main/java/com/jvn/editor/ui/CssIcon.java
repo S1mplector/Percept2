@@ -162,7 +162,9 @@ public final class CssIcon {
   public static Region search(String color)   { return icon(PATH_SEARCH, color, 14); }
   public static Region grid(String color)     { return icon(PATH_GRID, color, 14); }
   public static Region palette(String color)  { return icon(PATH_PALETTE, color, 14); }
-  public static Region warning(String color)  { return icon(PATH_WARNING, color, 14); }
+  public static Region warning(String color)  {
+    return AlertIcon.of(compactAccent(PATH_WARNING, color), 16);
+  }
   public static Region download(String color)  { return icon(PATH_DOWNLOAD, color, 14); }
   public static Region save(String color)      { return icon(PATH_SAVE, color, 14); }
   public static Region expand(String color)    { return icon(PATH_EXPAND, color, 14); }
