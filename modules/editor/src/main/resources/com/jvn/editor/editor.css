@@ -3299,6 +3299,178 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-border-color: #b77284;
 }
 
+/* Expression keyframe editor */
+.expression-keyframe-dialog {
+  -fx-padding: 2 4 4 4;
+}
+
+.expression-keyframe-form,
+.expression-keyframe-preview-card {
+  -fx-background-color: linear-gradient(to bottom, #15181b, #111315);
+  -fx-background-radius: 9;
+  -fx-border-color: #30363c;
+  -fx-border-radius: 9;
+  -fx-border-width: 1;
+  -fx-padding: 13;
+}
+
+.expression-keyframe-label {
+  -fx-text-fill: #9ca8b4;
+  -fx-font-size: 10px;
+  -fx-font-weight: 800;
+}
+
+.combo-box.expression-keyframe-combo,
+.expression-keyframe-text-field {
+  -fx-min-height: 37px;
+  -fx-pref-height: 37px;
+  -fx-background-color: linear-gradient(to bottom, #202429, #191c20);
+  -fx-background-radius: 6;
+  -fx-border-color: #3b4249;
+  -fx-border-radius: 6;
+  -fx-border-width: 1;
+  -fx-text-fill: #edf2f5;
+  -fx-prompt-text-fill: #707b84;
+  -fx-font-size: 11px;
+}
+
+.combo-box.expression-keyframe-combo:focused,
+.expression-keyframe-text-field:focused {
+  -fx-background-color: #1d2328;
+  -fx-border-color: #5795bb;
+  -fx-effect: dropshadow(gaussian, rgba(80, 151, 194, 0.18), 8, 0.2, 0, 0);
+}
+
+.combo-box.expression-keyframe-combo:editable > .text-field {
+  -fx-background-color: transparent;
+  -fx-background-insets: 0;
+  -fx-text-fill: #edf2f5;
+  -fx-prompt-text-fill: #707b84;
+  -fx-highlight-fill: #315f79;
+  -fx-highlight-text-fill: #ffffff;
+  -fx-caret-color: #d9edf8;
+  -fx-padding: 7 10 7 11;
+}
+
+.combo-box.expression-keyframe-combo > .arrow-button {
+  -fx-min-width: 36px;
+  -fx-pref-width: 36px;
+  -fx-background-color: linear-gradient(to bottom, #2a3036, #22272c);
+  -fx-background-radius: 0 6 6 0;
+  -fx-border-color: transparent transparent transparent #3b4249;
+  -fx-border-width: 0 0 0 1;
+  -fx-padding: 0 12 0 12;
+}
+
+.combo-box.expression-keyframe-combo:hover > .arrow-button {
+  -fx-background-color: linear-gradient(to bottom, #343b42, #282e34);
+}
+
+.combo-box.expression-keyframe-combo > .arrow-button > .arrow {
+  -fx-background-color: #91c9e7;
+  -fx-padding: 4 5 4 5;
+}
+
+.combo-box-popup .list-view.expression-keyframe-popup-list {
+  -fx-background-color: #171a1e;
+  -fx-border-color: #3b4249;
+  -fx-border-radius: 7;
+  -fx-background-radius: 7;
+  -fx-padding: 4;
+}
+
+.expression-keyframe-popup-list .expression-keyframe-popup-cell {
+  -fx-background-color: transparent;
+  -fx-background-radius: 5;
+  -fx-text-fill: #dce4e9;
+  -fx-font-size: 11px;
+  -fx-padding: 7 10 7 10;
+}
+
+.expression-keyframe-popup-list .expression-keyframe-popup-cell:filled:hover {
+  -fx-background-color: #27343d;
+  -fx-text-fill: #ffffff;
+}
+
+.expression-keyframe-popup-list .expression-keyframe-popup-cell:filled:selected {
+  -fx-background-color: #29495c;
+  -fx-text-fill: #ffffff;
+}
+
+.expression-keyframe-check {
+  -fx-text-fill: #cfd7dc;
+  -fx-font-size: 11px;
+}
+
+.expression-keyframe-check > .box {
+  -fx-background-color: #1b1f23;
+  -fx-background-radius: 5;
+  -fx-border-color: #48515a;
+  -fx-border-radius: 5;
+}
+
+.expression-keyframe-check:selected > .box {
+  -fx-background-color: #315f79;
+  -fx-border-color: #6badd0;
+}
+
+.expression-keyframe-check:selected > .box > .mark {
+  -fx-background-color: #ffffff;
+}
+
+.expression-keyframe-resolved {
+  -fx-background-radius: 7;
+  -fx-border-radius: 7;
+  -fx-font-size: 10px;
+  -fx-font-weight: 700;
+  -fx-padding: 8 10 8 10;
+}
+
+.expression-keyframe-resolved-success {
+  -fx-background-color: rgba(92, 171, 124, 0.10);
+  -fx-border-color: rgba(103, 190, 139, 0.34);
+  -fx-text-fill: #9bd4b0;
+}
+
+.expression-keyframe-resolved-warning {
+  -fx-background-color: rgba(214, 160, 72, 0.10);
+  -fx-border-color: rgba(224, 174, 91, 0.34);
+  -fx-text-fill: #dcb978;
+}
+
+.expression-keyframe-section-title {
+  -fx-text-fill: #e3e9ed;
+  -fx-font-size: 11px;
+  -fx-font-weight: 800;
+}
+
+.expression-keyframe-section-hint {
+  -fx-background-color: #20262b;
+  -fx-background-radius: 9;
+  -fx-text-fill: #82909b;
+  -fx-font-size: 9px;
+  -fx-padding: 3 7 3 7;
+}
+
+.expression-keyframe-preview {
+  -fx-pref-height: 132px;
+  -fx-background-color: #0d1012;
+  -fx-control-inner-background: #0d1012;
+  -fx-background-radius: 6;
+  -fx-border-color: #2b3136;
+  -fx-border-radius: 6;
+  -fx-text-fill: #dbe7ed;
+  -fx-highlight-fill: #315f79;
+  -fx-font-family: "SF Mono", "Menlo", "Consolas", monospace;
+  -fx-font-size: 10px;
+  -fx-padding: 6;
+}
+
+.expression-keyframe-preview .content {
+  -fx-background-color: #0d1012;
+  -fx-background-radius: 6;
+}
+
 .script-editor-workspace-icon-button {
   -fx-background-color: linear-gradient(to bottom, #252525, #1a1a1a);
   -fx-border-color: #4a4a4a;

@@ -128,6 +128,7 @@ public class TimelinePanel extends VBox {
     private boolean selectedGroup = false;
     private PropertyType selectedProperty;
     private Keyframe selectedKeyframe;
+    private EditorEventCue selectedExpressionCue;
     private final KeyframeSelectionModel selectionModel = new KeyframeSelectionModel();
 
     private Consumer<Keyframe> onKeyframeSelected;
@@ -139,6 +140,9 @@ public class TimelinePanel extends VBox {
 
     private boolean draggingPlayhead = false;
     private boolean draggingKeyframe = false;
+    private boolean draggingExpressionCue = false;
+    private double expressionDragStartTimeMs;
+    private double expressionDragScrollOffsetMs;
     private boolean marqueeSelecting = false;
     private double dragAnchorX;
     private double marqueeStartX;
@@ -320,6 +324,7 @@ public class TimelinePanel extends VBox {
         this.selectedGroup = group;
         if (changed) {
             clearKeyframeSelection();
+            selectedExpressionCue = null;
         }
         if (this.selectedEntity != null && this.selectedProperty == null) {
             this.selectedProperty = PropertyType.X;
@@ -363,6 +368,10 @@ public class TimelinePanel extends VBox {
     }
 
     public void refresh() {
+        if (selectedExpressionCue != null && !project.getEditorEventCues().contains(selectedExpressionCue)) {
+            selectedExpressionCue = null;
+            draggingExpressionCue = false;
+        }
         updateCanvasViewportSize();
         clampScrollOffsets();
         render();
@@ -421,6 +430,22 @@ public class TimelinePanel extends VBox {
     }
 
     public void deleteSelectedKeyframe() {
+        if (selectedExpressionCue != null) {
+            EditorEventCue cue = selectedExpressionCue;
+            if (commandStack != null) {
+                commandStack.execute(new PuppeteerCommand(
+                    "Delete expression keyframe",
+                    () -> project.removeEditorEventCue(cue),
+                    () -> project.addEditorEventCue(cue)));
+            } else {
+                project.removeEditorEventCue(cue);
+            }
+            selectedExpressionCue = null;
+            draggingExpressionCue = false;
+            notifyEdited();
+            render();
+            return;
+        }
         List<PuppeteerCommand> cmds = new ArrayList<>();
         if (selectionModel.hasSelection()) {
             for (KeyframeSelectionModel.KeyframeRef ref : new ArrayList<>(selectionModel.getSelected())) {
@@ -875,21 +900,27 @@ public class TimelinePanel extends VBox {
         for (EditorEventCue cue : expressionCuesForEntity(entityName)) {
             double x = LABEL_WIDTH + cue.getTimeMs() * pixelsPerMs - scrollX;
             if (x < LABEL_WIDTH - 10 || x > width + 10) continue;
-            gc.setFill(color);
+            boolean selected = cue == selectedExpressionCue;
+            double radius = selected ? 8.0 : 6.0;
+            if (selected) {
+                gc.setFill(Color.web("#f0b673", 0.20));
+                gc.fillOval(x - 11, cy - 11, 22, 22);
+            }
+            gc.setFill(selected ? KEYFRAME_SELECTED_COLOR : color);
             gc.fillPolygon(
-                new double[] {x, x + 6, x, x - 6},
-                new double[] {cy - 6, cy, cy + 6, cy},
+                new double[] {x, x + radius, x, x - radius},
+                new double[] {cy - radius, cy, cy + radius, cy},
                 4);
-            gc.setStroke(Color.web("#07110a", 0.82));
-            gc.setLineWidth(0.9);
+            gc.setStroke(selected ? Color.web("#ffe3ad") : Color.web("#07110a", 0.82));
+            gc.setLineWidth(selected ? 1.4 : 0.9);
             gc.strokePolygon(
-                new double[] {x, x + 6, x, x - 6},
-                new double[] {cy - 6, cy, cy + 6, cy},
+                new double[] {x, x + radius, x, x - radius},
+                new double[] {cy - radius, cy, cy + radius, cy},
                 4);
             String value = cue.getPayloadValue("value");
             if (value.isBlank()) value = cue.getPayloadValue("expression");
             if (!value.isBlank()) {
-                gc.setFill(color.deriveColor(0, 0.7, 1.08, 0.9));
+                gc.setFill((selected ? KEYFRAME_SELECTED_COLOR : color).deriveColor(0, 0.7, 1.08, 0.9));
                 gc.setFont(javafx.scene.text.Font.font(9));
                 gc.fillText(value, x + 9, cy + 3);
             }
@@ -1299,6 +1330,17 @@ public class TimelinePanel extends VBox {
         return target + " / " + row.property().getDisplayName() + "  " + formatTime(timeMs);
     }
 
+    private String buildExpressionCueHoverReadout(TrackRow row, EditorEventCue cue) {
+        String expression = cue.getPayloadValue("value");
+        if (expression.isBlank()) expression = cue.getPayloadValue("expression");
+        String target = cue.getPayloadValue("target");
+        if (target.isBlank() && row != null) target = row.selectionName();
+        return target + " / Expression"
+            + (expression.isBlank() ? "" : "  " + expression)
+            + "  " + formatTime(cue.getTimeMs())
+            + "  drag to retime";
+    }
+
     private void updateHoverFromMouse(MouseEvent e) {
         hoverX = e.getX();
         hoverY = e.getY();
@@ -1316,6 +1358,21 @@ public class TimelinePanel extends VBox {
         }
 
         hoverTimeMs = clampToTimeline((hoverX - LABEL_WIDTH + scrollX) / pixelsPerMs);
+        ExpressionCueHit expressionHit = findExpressionCueAt(hoverX, hoverY);
+        if (expressionHit != null) {
+            TrackRow row = expressionHit.row();
+            hoverRowStorageName = storageNameForRow(row);
+            hoverRowProperty = null;
+            hoverRowGroup = false;
+            hoverRowExpression = true;
+            hoverReadout = buildExpressionCueHoverReadout(row, expressionHit.cue());
+            canvas.setCursor(javafx.scene.Cursor.H_RESIZE);
+            render();
+            return;
+        }
+        if (!middlePanning && !draggingExpressionCue) {
+            canvas.setCursor(javafx.scene.Cursor.DEFAULT);
+        }
         KeyframeHit hit = findKeyframeAt(hoverX, hoverY);
         if (hit != null) {
             TrackRow row = hit.row();
@@ -1358,6 +1415,9 @@ public class TimelinePanel extends VBox {
 
     private void handleMouseExited(MouseEvent e) {
         clearHoverState();
+        if (!middlePanning && !draggingExpressionCue) {
+            canvas.setCursor(javafx.scene.Cursor.DEFAULT);
+        }
         render();
     }
 
@@ -1391,14 +1451,20 @@ public class TimelinePanel extends VBox {
         ExpressionCueHit expressionHit = findExpressionCueAt(x, y);
         if (expressionHit != null) {
             selectExpressionRow(expressionHit.row());
-            project.setPlayheadMs(expressionHit.cue().getTimeMs());
-            if (onPlayheadChanged != null) onPlayheadChanged.accept(expressionHit.cue().getTimeMs());
+            selectedExpressionCue = expressionHit.cue();
+            draggingExpressionCue = true;
+            expressionDragStartTimeMs = selectedExpressionCue.getTimeMs();
+            expressionDragScrollOffsetMs = 0.0;
+            dragAnchorX = x;
+            lastDragMouseX = x;
+            canvas.setCursor(javafx.scene.Cursor.H_RESIZE);
             render();
             return;
         }
 
         KeyframeHit hit = findKeyframeAt(x, y);
         if (hit != null) {
+            selectedExpressionCue = null;
             selectedEntity = hit.row().selectionName();
             selectedGroup = hit.row().group();
             selectedProperty = hit.row().property();
@@ -1423,7 +1489,15 @@ public class TimelinePanel extends VBox {
             return;
         }
 
+        selectedExpressionCue = null;
         clearKeyframeSelection();
+        TrackRow pressedRow = findRowAt(y);
+        if (pressedRow != null && pressedRow.expression()) {
+            selectExpressionRow(pressedRow);
+            marqueeSelecting = false;
+            render();
+            return;
+        }
         selectTrackAt(y);
 
         marqueeSelecting = y >= HEADER_HEIGHT;
@@ -1446,6 +1520,14 @@ public class TimelinePanel extends VBox {
         }
         if (draggingPlayhead) {
             updatePlayheadFromX(e.getX());
+        } else if (draggingExpressionCue && selectedExpressionCue != null) {
+            double dt = (e.getX() - dragAnchorX) / pixelsPerMs;
+            double next = clampOrExpandTimeline(snapTime(
+                expressionDragStartTimeMs + expressionDragScrollOffsetMs + dt));
+            selectedExpressionCue.setTimeMs(next);
+            lastDragMouseX = e.getX();
+            ensureDragAutoScrollRunning();
+            render();
         } else if (draggingKeyframe && selectedKeyframe != null) {
             double dt = (e.getX() - dragAnchorX) / pixelsPerMs;
             if (!dragStartTimes.isEmpty()) {
@@ -1477,6 +1559,27 @@ public class TimelinePanel extends VBox {
             return;
         }
         stopDragAutoScroll();
+        if (draggingExpressionCue && selectedExpressionCue != null) {
+            EditorEventCue movedCue = selectedExpressionCue;
+            double oldTime = expressionDragStartTimeMs;
+            double newTime = movedCue.getTimeMs();
+            project.sortEditorEventCues();
+            if (Math.abs(oldTime - newTime) > 0.001) {
+                if (commandStack != null) {
+                    commandStack.pushExecuted(new PuppeteerCommand(
+                        "Move expression keyframe",
+                        () -> {
+                            movedCue.setTimeMs(newTime);
+                            project.sortEditorEventCues();
+                        },
+                        () -> {
+                            movedCue.setTimeMs(oldTime);
+                            project.sortEditorEventCues();
+                        }));
+                }
+                notifyEdited();
+            }
+        }
         if (draggingKeyframe && selectedEntity != null) {
             // Build undo commands for the drag
             if (commandStack != null && !dragStartTimes.isEmpty()) {
@@ -1513,6 +1616,9 @@ public class TimelinePanel extends VBox {
         }
         draggingPlayhead = false;
         draggingKeyframe = false;
+        draggingExpressionCue = false;
+        expressionDragScrollOffsetMs = 0.0;
+        canvas.setCursor(javafx.scene.Cursor.DEFAULT);
         dragStartTimes.clear();
         marqueeSelecting = false;
         render();
@@ -1584,6 +1690,24 @@ public class TimelinePanel extends VBox {
         selectedGroup = false;
         clearKeyframeSelection();
         notifyTargetSelectionChanged();
+    }
+
+    private void duplicateSelectedExpressionCue() {
+        if (selectedExpressionCue == null) return;
+        EditorEventCue duplicate = selectedExpressionCue.copy();
+        duplicate.setTimeMs(clampOrExpandTimeline(snapTime(
+            selectedExpressionCue.getTimeMs() + snapStepMs)));
+        if (commandStack != null) {
+            commandStack.execute(new PuppeteerCommand(
+                "Duplicate expression keyframe",
+                () -> project.addEditorEventCue(duplicate),
+                () -> project.removeEditorEventCue(duplicate)));
+        } else {
+            project.addEditorEventCue(duplicate);
+        }
+        selectedExpressionCue = duplicate;
+        notifyEdited();
+        render();
     }
 
     private void requestExpressionKeyframe(String entityName, double timeMs) {
@@ -2362,7 +2486,7 @@ public class TimelinePanel extends VBox {
         if (dragAutoScrollTimer != null) return;
         dragAutoScrollTimer = new AnimationTimer() {
             @Override public void handle(long now) {
-                if (!draggingKeyframe) {
+                if (!draggingKeyframe && !draggingExpressionCue) {
                     stopDragAutoScroll();
                     return;
                 }
@@ -2385,7 +2509,13 @@ public class TimelinePanel extends VBox {
                 if (Math.abs(effectiveDelta) < 0.001) return;
                 // Apply equivalent time delta to dragged keyframes so they keep up with view
                 double timeDelta = effectiveDelta / pixelsPerMs;
-                if (!dragStartTimes.isEmpty()) {
+                if (draggingExpressionCue && selectedExpressionCue != null) {
+                    expressionDragScrollOffsetMs += timeDelta;
+                    double pointerDelta = (lastDragMouseX - dragAnchorX) / pixelsPerMs;
+                    double next = clampOrExpandTimeline(snapTime(
+                        expressionDragStartTimeMs + expressionDragScrollOffsetMs + pointerDelta));
+                    selectedExpressionCue.setTimeMs(next);
+                } else if (!dragStartTimes.isEmpty()) {
                     for (Map.Entry<KeyframeSelectionModel.KeyframeRef, Double> entry : dragStartTimes.entrySet()) {
                         Keyframe moving = entry.getKey().keyframe();
                         double next = clampOrExpandTimeline(snapTime(moving.getTimeMs() + timeDelta));
@@ -2429,6 +2559,7 @@ public class TimelinePanel extends VBox {
         KeyframeHit hit = findKeyframeAt(x, y);
         if (expressionHit != null) {
             selectExpressionRow(expressionHit.row());
+            selectedExpressionCue = expressionHit.cue();
             render();
             menu = buildExpressionRowContextMenu(expressionHit.row(), x, expressionHit.cue());
         } else if (hit != null) {
@@ -2570,7 +2701,17 @@ public class TimelinePanel extends VBox {
                 if (onPlayheadChanged != null) onPlayheadChanged.accept(cue.getTimeMs());
                 render();
             });
-            menu.getItems().addAll(edit, playhead, new SeparatorMenuItem());
+            MenuItem duplicate = new MenuItem("Duplicate (+snap step)");
+            duplicate.setOnAction(ev -> {
+                selectedExpressionCue = cue;
+                duplicateSelectedExpressionCue();
+            });
+            MenuItem delete = new MenuItem("Delete Expression Keyframe");
+            delete.setOnAction(ev -> {
+                selectedExpressionCue = cue;
+                deleteSelectedKeyframe();
+            });
+            menu.getItems().addAll(edit, playhead, duplicate, delete, new SeparatorMenuItem());
         }
 
         MenuItem addHere = new MenuItem(String.format(

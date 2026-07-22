@@ -3152,6 +3152,178 @@
   -fx-border-color: #b77284;
 }
 
+/* Expression keyframe editor */
+.expression-keyframe-dialog {
+  -fx-padding: 2 4 4 4;
+}
+
+.expression-keyframe-form,
+.expression-keyframe-preview-card {
+  -fx-background-color: linear-gradient(to bottom, #fbfcfd, #f3f5f7);
+  -fx-background-radius: 9;
+  -fx-border-color: #cbd2d9;
+  -fx-border-radius: 9;
+  -fx-border-width: 1;
+  -fx-padding: 13;
+}
+
+.expression-keyframe-label {
+  -fx-text-fill: #566675;
+  -fx-font-size: 10px;
+  -fx-font-weight: 800;
+}
+
+.combo-box.expression-keyframe-combo,
+.expression-keyframe-text-field {
+  -fx-min-height: 37px;
+  -fx-pref-height: 37px;
+  -fx-background-color: linear-gradient(to bottom, #ffffff, #f1f4f6);
+  -fx-background-radius: 6;
+  -fx-border-color: #bdc6ce;
+  -fx-border-radius: 6;
+  -fx-border-width: 1;
+  -fx-text-fill: #1e2b35;
+  -fx-prompt-text-fill: #89949d;
+  -fx-font-size: 11px;
+}
+
+.combo-box.expression-keyframe-combo:focused,
+.expression-keyframe-text-field:focused {
+  -fx-background-color: #ffffff;
+  -fx-border-color: #397fa9;
+  -fx-effect: dropshadow(gaussian, rgba(53, 122, 164, 0.16), 8, 0.2, 0, 0);
+}
+
+.combo-box.expression-keyframe-combo:editable > .text-field {
+  -fx-background-color: transparent;
+  -fx-background-insets: 0;
+  -fx-text-fill: #1e2b35;
+  -fx-prompt-text-fill: #89949d;
+  -fx-highlight-fill: #8fc4e2;
+  -fx-highlight-text-fill: #10202a;
+  -fx-caret-color: #1e2b35;
+  -fx-padding: 7 10 7 11;
+}
+
+.combo-box.expression-keyframe-combo > .arrow-button {
+  -fx-min-width: 36px;
+  -fx-pref-width: 36px;
+  -fx-background-color: linear-gradient(to bottom, #edf2f5, #dde4e9);
+  -fx-background-radius: 0 6 6 0;
+  -fx-border-color: transparent transparent transparent #bdc6ce;
+  -fx-border-width: 0 0 0 1;
+  -fx-padding: 0 12 0 12;
+}
+
+.combo-box.expression-keyframe-combo:hover > .arrow-button {
+  -fx-background-color: linear-gradient(to bottom, #e4edf2, #d3dee5);
+}
+
+.combo-box.expression-keyframe-combo > .arrow-button > .arrow {
+  -fx-background-color: #397fa9;
+  -fx-padding: 4 5 4 5;
+}
+
+.combo-box-popup .list-view.expression-keyframe-popup-list {
+  -fx-background-color: #ffffff;
+  -fx-border-color: #bdc6ce;
+  -fx-border-radius: 7;
+  -fx-background-radius: 7;
+  -fx-padding: 4;
+}
+
+.expression-keyframe-popup-list .expression-keyframe-popup-cell {
+  -fx-background-color: transparent;
+  -fx-background-radius: 5;
+  -fx-text-fill: #24323c;
+  -fx-font-size: 11px;
+  -fx-padding: 7 10 7 10;
+}
+
+.expression-keyframe-popup-list .expression-keyframe-popup-cell:filled:hover {
+  -fx-background-color: #e5f0f6;
+  -fx-text-fill: #15232c;
+}
+
+.expression-keyframe-popup-list .expression-keyframe-popup-cell:filled:selected {
+  -fx-background-color: #c9e2ef;
+  -fx-text-fill: #10202a;
+}
+
+.expression-keyframe-check {
+  -fx-text-fill: #374853;
+  -fx-font-size: 11px;
+}
+
+.expression-keyframe-check > .box {
+  -fx-background-color: #ffffff;
+  -fx-background-radius: 5;
+  -fx-border-color: #aeb9c2;
+  -fx-border-radius: 5;
+}
+
+.expression-keyframe-check:selected > .box {
+  -fx-background-color: #397fa9;
+  -fx-border-color: #2f6d92;
+}
+
+.expression-keyframe-check:selected > .box > .mark {
+  -fx-background-color: #ffffff;
+}
+
+.expression-keyframe-resolved {
+  -fx-background-radius: 7;
+  -fx-border-radius: 7;
+  -fx-font-size: 10px;
+  -fx-font-weight: 700;
+  -fx-padding: 8 10 8 10;
+}
+
+.expression-keyframe-resolved-success {
+  -fx-background-color: rgba(56, 145, 91, 0.10);
+  -fx-border-color: rgba(56, 145, 91, 0.34);
+  -fx-text-fill: #287043;
+}
+
+.expression-keyframe-resolved-warning {
+  -fx-background-color: rgba(184, 123, 32, 0.10);
+  -fx-border-color: rgba(184, 123, 32, 0.32);
+  -fx-text-fill: #8b5a16;
+}
+
+.expression-keyframe-section-title {
+  -fx-text-fill: #26353f;
+  -fx-font-size: 11px;
+  -fx-font-weight: 800;
+}
+
+.expression-keyframe-section-hint {
+  -fx-background-color: #e8edf1;
+  -fx-background-radius: 9;
+  -fx-text-fill: #687984;
+  -fx-font-size: 9px;
+  -fx-padding: 3 7 3 7;
+}
+
+.expression-keyframe-preview {
+  -fx-pref-height: 132px;
+  -fx-background-color: #f7f9fa;
+  -fx-control-inner-background: #f7f9fa;
+  -fx-background-radius: 6;
+  -fx-border-color: #cbd2d9;
+  -fx-border-radius: 6;
+  -fx-text-fill: #263640;
+  -fx-highlight-fill: #b7d8e9;
+  -fx-font-family: "SF Mono", "Menlo", "Consolas", monospace;
+  -fx-font-size: 10px;
+  -fx-padding: 6;
+}
+
+.expression-keyframe-preview .content {
+  -fx-background-color: #f7f9fa;
+  -fx-background-radius: 6;
+}
+
 .script-editor-workspace-icon-button {
   -fx-background-color: linear-gradient(to bottom, #dadada, #e5e5e5);
   -fx-border-color: #b5b5b5;

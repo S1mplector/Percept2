@@ -326,6 +326,7 @@ public class AnimationProject {
     }
     public void removeEditorEventCue(EditorEventCue cue) { editorEventCues.remove(cue); }
     public void clearEditorEventCues() { editorEventCues.clear(); }
+    public void sortEditorEventCues() { editorEventCues.sort(EditorEventCue::compareTo); }
 
     public Map<String, double[]> getOrbitAnchorsView() {
         Map<String, double[]> copy = new LinkedHashMap<>();

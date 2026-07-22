@@ -13,6 +13,7 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
@@ -140,6 +141,16 @@ public final class ActionEditorDialogOverlay extends StackPane {
     }
 
     public void showDialog(String title, String message, Node content, ActionSpec... actions) {
+        configureCardSize(false);
+        showDialogContent(title, message, content, actions);
+    }
+
+    public void showCompactDialog(String title, String message, Node content, ActionSpec... actions) {
+        configureCardSize(true);
+        showDialogContent(title, message, content, actions);
+    }
+
+    private void showDialogContent(String title, String message, Node content, ActionSpec... actions) {
         titleLabel.setText(title == null || title.isBlank() ? "Dialog" : title.trim());
         String normalizedMessage = message == null ? "" : message.trim();
         messageLabel.setText(normalizedMessage);
@@ -190,6 +201,13 @@ public final class ActionEditorDialogOverlay extends StackPane {
                 card.requestFocus();
             }
         });
+    }
+
+    private void configureCardSize(boolean compact) {
+        card.setPrefWidth(compact ? 580 : Region.USE_COMPUTED_SIZE);
+        card.setMaxWidth(compact ? 580 : 560);
+        card.setPrefHeight(compact ? 560 : Region.USE_COMPUTED_SIZE);
+        card.setMaxHeight(compact ? 560 : 620);
     }
 
     public void hideOverlay() {

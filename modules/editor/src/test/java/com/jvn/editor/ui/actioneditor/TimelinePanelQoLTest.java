@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
@@ -46,5 +47,21 @@ class TimelinePanelQoLTest {
             "lavender", "lavender"));
         assertFalse(TimelinePanel.expressionTargetMatchesEntity(
             "lavender", "lavenderish_mouth"));
+    }
+
+    @Test
+    void expressionCuesCanBeRetimedAndResorted() {
+        AnimationProject project = new AnimationProject();
+        EditorEventCue first = new EditorEventCue(
+            100, "expression", Map.of("target", "lavender", "value", "neutral"));
+        EditorEventCue second = new EditorEventCue(
+            200, "expression", Map.of("target", "lavender", "value", "happy"));
+        project.addEditorEventCue(first);
+        project.addEditorEventCue(second);
+
+        first.setTimeMs(300);
+        project.sortEditorEventCues();
+
+        assertEquals(List.of(second, first), project.getEditorEventCues());
     }
 }

@@ -10662,46 +10662,48 @@ public class PuppeteerWindow extends Stage {
         String initialTarget = inferExpressionTargetFromSelection();
         ComboBox<String> cbTarget = new ComboBox<>();
         cbTarget.setEditable(true);
+        styleExpressionKeyframeCombo(cbTarget);
         cbTarget.getItems().setAll(expressionTargetSuggestions());
         cbTarget.setValue(initialTarget);
         cbTarget.setPromptText("character / entity");
-        cbTarget.setStyle(STYLE_TEXT_FIELD);
 
         ComboBox<String> cbExpression = new ComboBox<>();
         cbExpression.setEditable(true);
+        styleExpressionKeyframeCombo(cbExpression);
         cbExpression.getItems().setAll(expressionSuggestionsForTarget(initialTarget));
         cbExpression.setValue(preferredExpressionForTarget(initialTarget));
         cbExpression.setPromptText("expression");
-        cbExpression.setStyle(STYLE_TEXT_FIELD);
 
         TextField tfTime = new TextField(String.format(Locale.ROOT, "%.0f", project.getPlayheadMs()));
         tfTime.setPromptText("ms");
-        tfTime.setStyle(STYLE_TEXT_FIELD);
+        tfTime.getStyleClass().add("expression-keyframe-text-field");
 
         TextField tfPath = new TextField();
         tfPath.setPromptText("optional path override");
-        tfPath.setStyle(STYLE_TEXT_FIELD);
+        tfPath.getStyleClass().add("expression-keyframe-text-field");
 
         CheckBox cbEmbedResolved = new CheckBox("Embed resolved sprite path / layers");
         cbEmbedResolved.setSelected(true);
-        cbEmbedResolved.setStyle("-fx-text-fill: #d8d8d8; -fx-font-size: 11px;");
+        cbEmbedResolved.getStyleClass().add("expression-keyframe-check");
 
-        Label lblResolved = makeToolbarLabel("");
+        Label lblResolved = new Label();
         lblResolved.setWrapText(true);
+        lblResolved.getStyleClass().add("expression-keyframe-resolved");
 
         TextArea taDslPreview = new TextArea();
         taDslPreview.setEditable(false);
         taDslPreview.setFocusTraversable(false);
-        taDslPreview.setPrefRowCount(6);
-        taDslPreview.setWrapText(false);
-        taDslPreview.setStyle("-fx-control-inner-background: #111111; -fx-text-fill: #ececec;");
+        taDslPreview.setPrefRowCount(5);
+        taDslPreview.setWrapText(true);
+        taDslPreview.getStyleClass().add("expression-keyframe-preview");
 
         Runnable refreshResolved = () -> {
-            String target = cbTarget.getValue() == null ? "" : cbTarget.getValue().trim();
-            String expression = cbExpression.getValue() == null ? "" : cbExpression.getValue().trim();
+            String target = editableComboText(cbTarget);
+            String expression = editableComboText(cbExpression);
             List<ExpressionLayerSpec> layers = resolveExpressionLayerSpecs(target, expression, Map.of());
             String path = firstNonBlank(tfPath.getText(), resolveRawCueAssetPath(target, expression));
             if (!layers.isEmpty()) {
+                setExpressionResolutionState(lblResolved, true);
                 String layerNames = String.join(", ", layers.stream()
                     .map(ExpressionLayerSpec::layerId)
                     .filter(name -> name != null && !name.isBlank())
@@ -10709,8 +10711,10 @@ public class PuppeteerWindow extends Stage {
                 lblResolved.setText(layers.size() + " layered sprite entries resolved"
                     + (layerNames.isBlank() ? "" : ": " + layerNames));
             } else if (path != null && !path.isBlank()) {
+                setExpressionResolutionState(lblResolved, true);
                 lblResolved.setText("Sprite path resolved: " + path);
             } else {
+                setExpressionResolutionState(lblResolved, false);
                 lblResolved.setText("No mapping found; the expression name will still export for VN runtime playback.");
             }
             double previewTime = parseNonNegativeDoubleOr(tfTime.getText(), project.getPlayheadMs());
@@ -10732,40 +10736,52 @@ public class PuppeteerWindow extends Stage {
             refreshResolved.run();
         });
         cbExpression.valueProperty().addListener((obs, oldValue, newValue) -> refreshResolved.run());
+        cbTarget.getEditor().textProperty().addListener((obs, oldValue, newValue) -> refreshResolved.run());
+        cbExpression.getEditor().textProperty().addListener((obs, oldValue, newValue) -> refreshResolved.run());
         tfPath.textProperty().addListener((obs, oldValue, newValue) -> refreshResolved.run());
         tfTime.textProperty().addListener((obs, oldValue, newValue) -> refreshResolved.run());
         cbEmbedResolved.selectedProperty().addListener((obs, oldValue, newValue) -> refreshResolved.run());
         refreshResolved.run();
 
-        GridPane form = new GridPane();
-        form.setHgap(8);
-        form.setVgap(8);
-        form.setPadding(new Insets(8));
-        form.add(makeToolbarLabel("Target"), 0, 0);
-        form.add(cbTarget, 1, 0);
-        form.add(makeToolbarLabel("Expression"), 0, 1);
-        form.add(cbExpression, 1, 1);
-        form.add(makeToolbarLabel("Time"), 0, 2);
-        form.add(tfTime, 1, 2);
-        form.add(makeToolbarLabel("Path"), 0, 3);
-        form.add(tfPath, 1, 3);
-        form.add(cbEmbedResolved, 1, 4);
+        VBox targetField = expressionKeyframeField("Character target", cbTarget);
+        VBox expressionField = expressionKeyframeField("Expression preset", cbExpression);
+        HBox selectorRow = new HBox(12, targetField, expressionField);
+        HBox.setHgrow(targetField, Priority.ALWAYS);
+        HBox.setHgrow(expressionField, Priority.ALWAYS);
 
-        VBox body = new VBox(
-            8,
-            form,
-            lblResolved,
-            makeToolbarLabel("DSL Preview"),
-            taDslPreview
-        );
-        body.setPadding(new Insets(0, 8, 8, 8));
+        VBox timeField = expressionKeyframeField("Timeline position (ms)", tfTime);
+        timeField.setMinWidth(150);
+        timeField.setPrefWidth(150);
+        timeField.setMaxWidth(150);
+        VBox pathField = expressionKeyframeField("Sprite path override", tfPath);
+        HBox detailsRow = new HBox(12, timeField, pathField);
+        HBox.setHgrow(pathField, Priority.ALWAYS);
 
-        overlayDialog.showDialog(
+        VBox form = new VBox(12, selectorRow, detailsRow, cbEmbedResolved);
+        form.getStyleClass().add("expression-keyframe-form");
+
+        Label previewTitle = new Label("Timeline payload");
+        previewTitle.getStyleClass().add("expression-keyframe-section-title");
+        Label previewHint = new Label("Generated automatically");
+        previewHint.getStyleClass().add("expression-keyframe-section-hint");
+        Region previewSpacer = new Region();
+        HBox.setHgrow(previewSpacer, Priority.ALWAYS);
+        HBox previewHeader = new HBox(8, previewTitle, previewSpacer, previewHint);
+        previewHeader.setAlignment(Pos.CENTER_LEFT);
+
+        VBox previewCard = new VBox(8, previewHeader, taDslPreview);
+        previewCard.getStyleClass().add("expression-keyframe-preview-card");
+        VBox.setVgrow(taDslPreview, Priority.ALWAYS);
+
+        VBox body = new VBox(12, form, lblResolved, previewCard);
+        body.getStyleClass().add("expression-keyframe-dialog");
+
+        overlayDialog.showCompactDialog(
             "Expression Keyframe",
-            "Switches a character sprite/expression; the preview shows the exact timeline DSL and layered sprite payload.",
+            "Choose a character preset and place the expression change on the timeline.",
             body,
             ActionEditorDialogOverlay.ActionSpec.neutral("Cancel", overlayDialog::hideOverlay),
-            ActionEditorDialogOverlay.ActionSpec.stayOpen("Add", ActionEditorDialogOverlay.ButtonStyle.ACCENT, () -> {
+            ActionEditorDialogOverlay.ActionSpec.stayOpen("Add Keyframe", ActionEditorDialogOverlay.ButtonStyle.ACCENT, () -> {
                 double timeMs;
                 try {
                     timeMs = Math.max(0.0, Double.parseDouble(tfTime.getText().trim()));
@@ -10773,8 +10789,8 @@ public class PuppeteerWindow extends Stage {
                     tfTime.requestFocus();
                     return;
                 }
-                String target = cbTarget.getValue() == null ? "" : cbTarget.getValue().trim();
-                String expression = cbExpression.getValue() == null ? "" : cbExpression.getValue().trim();
+                String target = editableComboText(cbTarget);
+                String expression = editableComboText(cbExpression);
                 if (target.isBlank()) {
                     cbTarget.requestFocus();
                     return;
@@ -10796,6 +10812,56 @@ public class PuppeteerWindow extends Stage {
                 overlayDialog.hideOverlay();
             })
         );
+    }
+
+    private static void styleExpressionKeyframeCombo(ComboBox<String> combo) {
+        combo.getStyleClass().add("expression-keyframe-combo");
+        combo.setMaxWidth(Double.MAX_VALUE);
+        combo.setVisibleRowCount(8);
+        combo.setCellFactory(list -> {
+            if (!list.getStyleClass().contains("expression-keyframe-popup-list")) {
+                list.getStyleClass().add("expression-keyframe-popup-list");
+            }
+            return new ListCell<>() {
+                {
+                    getStyleClass().add("expression-keyframe-popup-cell");
+                }
+
+                @Override
+                protected void updateItem(String item, boolean empty) {
+                    super.updateItem(item, empty);
+                    setText(empty || item == null ? null : item);
+                }
+            };
+        });
+    }
+
+    private static void setExpressionResolutionState(Label label, boolean resolved) {
+        label.getStyleClass().removeAll(
+            "expression-keyframe-resolved-success",
+            "expression-keyframe-resolved-warning");
+        label.getStyleClass().add(resolved
+            ? "expression-keyframe-resolved-success"
+            : "expression-keyframe-resolved-warning");
+    }
+
+    private static VBox expressionKeyframeField(String labelText, Region control) {
+        Label label = new Label(labelText);
+        label.getStyleClass().add("expression-keyframe-label");
+        control.setMaxWidth(Double.MAX_VALUE);
+        VBox field = new VBox(6, label, control);
+        field.getStyleClass().add("expression-keyframe-field");
+        return field;
+    }
+
+    private static String editableComboText(ComboBox<String> combo) {
+        if (combo == null) return "";
+        String editorText = combo.isEditable() && combo.getEditor() != null
+            ? combo.getEditor().getText()
+            : null;
+        if (editorText != null && !editorText.isBlank()) return editorText.trim();
+        String value = combo.getValue();
+        return value == null ? "" : value.trim();
     }
 
     public void showEventCueManagerDialog(EditorEventCue initialSelection) {
