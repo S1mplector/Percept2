@@ -42,9 +42,9 @@ public class EditorWorkspaceHubView extends BorderPane {
   private static final DateTimeFormatter MODIFIED_FORMAT =
       DateTimeFormatter.ofPattern("MMM d, HH:mm").withZone(ZoneId.systemDefault());
 
-  private final Label kickerLabel = new Label("WORKSPACE");
-  private final Label headingLabel = new Label("JVN Editor");
-  private final Label introLabel = new Label("Project context, entry status, and common editor actions.");
+  private final Label kickerLabel = new Label("JVN EDITOR");
+  private final Label headingLabel = new Label("Welcome to JVN");
+  private final Label introLabel = new Label("Create, open, or continue a visual novel project.");
   private final Label healthChipLabel = new Label("NO PROJECT");
   private final Label runtimeChipLabel = new Label();
   private final Label workspaceValueLabel = new Label("--");
@@ -55,12 +55,12 @@ public class EditorWorkspaceHubView extends BorderPane {
   private final Label manifestDetailLabel = new Label("jvn.project not loaded");
   private final Label contentValueLabel = new Label("--");
   private final Label contentDetailLabel = new Label("Scripts and assets unavailable");
-  private final Label statusLabel = new Label("Choose an action to continue.");
-  private final VBox firstRunPanel = new VBox(8);
-  private final VBox firstRunItems = new VBox(6);
+  private final Label statusLabel = new Label();
   private HBox headerMetaChips;
   private Timeline headerMetaAnimation;
   private boolean headerMetaVisible = true;
+  private VBox manifestSummaryCard;
+  private VBox contentSummaryCard;
 
   private final Button btnNewProject = new Button();
   private final Button btnOpenProject = new Button();
@@ -87,6 +87,8 @@ public class EditorWorkspaceHubView extends BorderPane {
   public void setCurrentProject(File projectRoot) {
     this.projectRoot = normalizeDir(projectRoot);
     btnRunProject.setDisable(this.projectRoot == null);
+    btnRunProject.setVisible(this.projectRoot != null);
+    btnRunProject.setManaged(this.projectRoot != null);
     refreshSummary();
   }
 
@@ -108,18 +110,7 @@ public class EditorWorkspaceHubView extends BorderPane {
   }
 
   public void setFirstRunIssues(Collection<SetupIssue> issues) {
-    List<SetupIssue> visibleIssues = issues == null
-        ? List.of()
-        : issues.stream()
-            .filter(issue -> issue != null && issue.isVisible())
-            .toList();
-    firstRunItems.getChildren().clear();
-    for (SetupIssue issue : visibleIssues) {
-      firstRunItems.getChildren().add(setupIssueRow(issue));
-    }
-    boolean visible = !visibleIssues.isEmpty();
-    firstRunPanel.setVisible(visible);
-    firstRunPanel.setManaged(visible);
+    // Startup checks still feed the splash sequence, but are intentionally omitted here.
   }
 
   private static void configureHeaderChip(Label label) {
@@ -186,7 +177,6 @@ public class EditorWorkspaceHubView extends BorderPane {
     kickerLabel.getStyleClass().add("editor-workspace-kicker");
     headingLabel.getStyleClass().addAll("welcome-heading", "editor-workspace-heading");
     introLabel.getStyleClass().add("welcome-intro-text");
-    healthChipLabel.getStyleClass().addAll("editor-workspace-health-chip", "editor-workspace-health-info");
     runtimeChipLabel.getStyleClass().add("welcome-version-chip");
     statusLabel.getStyleClass().add("welcome-status-text");
     configureHeaderChip(healthChipLabel);
@@ -214,6 +204,8 @@ public class EditorWorkspaceHubView extends BorderPane {
         "welcome-action-button-secondary",
         () -> runAction(onRunProject, "Run Project"));
     btnRunProject.setDisable(true);
+    btnRunProject.setVisible(false);
+    btnRunProject.setManaged(false);
 
     configureIconButton(
         btnSettings,
@@ -232,7 +224,7 @@ public class EditorWorkspaceHubView extends BorderPane {
     VBox titleBlock = new VBox(3, kickerLabel, headingLabel, introLabel);
     titleBlock.setMinWidth(0);
     titleBlock.getStyleClass().add("editor-workspace-title-block");
-    headerMetaChips = new HBox(10, healthChipLabel, runtimeChipLabel);
+    headerMetaChips = new HBox(runtimeChipLabel);
     headerMetaChips.getStyleClass().add("editor-workspace-header-meta");
     headerMetaChips.setAlignment(Pos.CENTER_LEFT);
     headerMetaChips.setMinWidth(Region.USE_PREF_SIZE);
@@ -240,61 +232,34 @@ public class EditorWorkspaceHubView extends BorderPane {
     headingRow.setAlignment(Pos.CENTER_LEFT);
     installHeaderMetaAutoHide(headingRow, titleBlock);
 
-    FlowPane summaryGrid = new FlowPane(10, 10,
+    Label contextTitle = new Label("CURRENT CONTEXT");
+    contextTitle.getStyleClass().add("editor-workspace-context-title");
+    manifestSummaryCard = summaryCard("Entry", manifestValueLabel, manifestDetailLabel);
+    contentSummaryCard = summaryCard("Content", contentValueLabel, contentDetailLabel);
+    FlowPane summaryGrid = new FlowPane(14, 10,
         summaryCard("Workspace", workspaceValueLabel, workspaceDetailLabel),
         summaryCard("Project", projectValueLabel, projectDetailLabel),
-        summaryCard("Entry", manifestValueLabel, manifestDetailLabel),
-        summaryCard("Content", contentValueLabel, contentDetailLabel));
+        manifestSummaryCard,
+        contentSummaryCard);
     summaryGrid.getStyleClass().add("editor-workspace-summary-grid");
     summaryGrid.setAlignment(Pos.CENTER_LEFT);
+
+    VBox contextPanel = new VBox(10, contextTitle, summaryGrid);
+    contextPanel.getStyleClass().add("editor-workspace-context-panel");
 
     VBox actionPanel = new VBox(rowPrimary);
     actionPanel.getStyleClass().add("editor-workspace-action-panel");
 
-    Label setupTitle = new Label("First-run setup");
-    setupTitle.getStyleClass().add("editor-workspace-setup-title");
-    Label setupSummary = new Label("A few environment checks need attention before builds, publishing, or GitHub workflows feel smooth.");
-    setupSummary.getStyleClass().add("editor-workspace-setup-summary");
-    setupSummary.setWrapText(true);
-    firstRunPanel.getStyleClass().add("editor-workspace-setup-panel");
-    firstRunPanel.getChildren().addAll(setupTitle, setupSummary, firstRunItems);
-    firstRunPanel.setVisible(false);
-    firstRunPanel.setManaged(false);
-
-    VBox hero = new VBox(14, headingRow, summaryGrid, actionPanel, statusLabel);
-    hero.setPadding(new Insets(18));
+    VBox hero = new VBox(20, headingRow, actionPanel, contextPanel, statusLabel);
+    hero.setPadding(new Insets(24));
     hero.getStyleClass().addAll("welcome-hero-card", "editor-workspace-panel");
 
     Region fill = new Region();
     VBox.setVgrow(fill, Priority.ALWAYS);
-    VBox content = new VBox(10, hero, firstRunPanel, fill);
+    VBox content = new VBox(10, hero, fill);
     content.getStyleClass().add("welcome-center-body");
     setCenter(content);
     refreshSummary();
-  }
-
-  private VBox setupIssueRow(SetupIssue issue) {
-    Label severity = new Label(issue.severityLabel());
-    severity.getStyleClass().addAll("editor-workspace-setup-chip", "editor-workspace-setup-" + issue.severityClass());
-
-    Label title = new Label(issue.title());
-    title.getStyleClass().add("editor-workspace-setup-item-title");
-    title.setWrapText(true);
-
-    Label detail = new Label(issue.detail());
-    detail.getStyleClass().add("editor-workspace-setup-item-detail");
-    detail.setWrapText(true);
-
-    Label fix = new Label(issue.fix());
-    fix.getStyleClass().add("editor-workspace-setup-item-fix");
-    fix.setWrapText(true);
-
-    HBox heading = new HBox(8, severity, title);
-    heading.setAlignment(Pos.CENTER_LEFT);
-    VBox row = new VBox(4, heading, detail, fix);
-    row.getStyleClass().add("editor-workspace-setup-item");
-    row.setMaxWidth(Double.MAX_VALUE);
-    return row;
   }
 
   private VBox summaryCard(String title, Label value, Label detail) {
@@ -311,8 +276,8 @@ public class EditorWorkspaceHubView extends BorderPane {
 
     VBox card = new VBox(4, titleLabel, value, detail);
     card.getStyleClass().add("editor-workspace-summary-card");
-    card.setMinWidth(170);
-    card.setPrefWidth(210);
+    card.setMinWidth(190);
+    card.setPrefWidth(230);
     return card;
   }
 
@@ -328,16 +293,20 @@ public class EditorWorkspaceHubView extends BorderPane {
     }
 
     if (projectRoot == null) {
-      setHealthChip("NO PROJECT", "info");
+      setSummaryCardVisible(manifestSummaryCard, false);
+      setSummaryCardVisible(contentSummaryCard, false);
       projectValueLabel.setText("No project selected");
-      projectDetailLabel.setText("Open or create a project to enable run/build tools");
-      manifestValueLabel.setText("No manifest");
-      manifestDetailLabel.setText("jvn.project not loaded");
-      contentValueLabel.setText("--");
-      contentDetailLabel.setText("Scripts and assets unavailable");
-      statusLabel.setText("Open a project or create a new one to start authoring.");
+      projectDetailLabel.setText("Choose New Project or Open Project to begin");
+      statusLabel.setText("");
+      statusLabel.setVisible(false);
+      statusLabel.setManaged(false);
       return;
     }
+
+    setSummaryCardVisible(manifestSummaryCard, true);
+    setSummaryCardVisible(contentSummaryCard, true);
+    statusLabel.setVisible(true);
+    statusLabel.setManaged(true);
 
     projectValueLabel.setText(displayName(projectRoot));
     projectDetailLabel.setText(displayPath(projectRoot));
@@ -417,6 +386,12 @@ public class EditorWorkspaceHubView extends BorderPane {
     });
   }
 
+  private static void setSummaryCardVisible(Region card, boolean visible) {
+    if (card == null) return;
+    card.setVisible(visible);
+    card.setManaged(visible);
+  }
+
   private static void configureActionButton(Button button,
                                             Region icon,
                                             String text,
@@ -428,9 +403,9 @@ public class EditorWorkspaceHubView extends BorderPane {
     button.setGraphic(icon);
     if (icon instanceof AeroIcon) button.getStyleClass().add("aero-icon-button");
     button.setContentDisplay(ContentDisplay.LEFT);
-    button.setMinHeight(34);
-    button.setPrefHeight(34);
-    button.setMaxHeight(34);
+    button.setMinHeight(42);
+    button.setPrefHeight(42);
+    button.setMaxHeight(42);
     button.setFocusTraversable(false);
     if (styleClass != null && !styleClass.isBlank()) {
       button.getStyleClass().add(styleClass);
@@ -472,9 +447,6 @@ public class EditorWorkspaceHubView extends BorderPane {
   private void runAction(Runnable action, String actionLabel) {
     if (action == null) return;
     action.run();
-    if (actionLabel != null && !actionLabel.isBlank()) {
-      statusLabel.setText("Opened: " + actionLabel);
-    }
   }
 
   private File normalizeDir(File dir) {
