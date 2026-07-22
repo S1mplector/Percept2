@@ -5049,7 +5049,7 @@ public final class JvnHub {
       int badgeX = getWidth() - diameter - ui(4);
       int badgeY = ui(4);
 
-      g2.setColor(ACCENT_ERROR);
+      g2.setColor(ACCENT_MAINTENANCE);
       g2.fillRoundRect(badgeX, badgeY, diameter, ui(14), ui(14), ui(14));
       g2.setColor(Color.WHITE);
       int textX = badgeX + (diameter - textW) / 2;
@@ -5134,7 +5134,7 @@ public final class JvnHub {
     }
   }
 
-  /** Colorful glass-and-metal action glyphs inspired by the Windows 7 desktop era. */
+  /** Glass-and-chrome action glyphs inspired by the Windows 7 desktop era. */
   private static final class WindowsSevenActionIcon implements Icon {
     enum Kind {
       EDITOR, LAUNCHER, LAUNCHER_MAINTENANCE, BUILD, SHORTCUT, UPDATE, TESTS, OPTIONS,
@@ -5170,6 +5170,7 @@ public final class JvnHub {
         g.scale(size / 24.0, size / 24.0);
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g.setStroke(new BasicStroke(1.25f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        if (WindowsSevenHubIconPainter.paint(g, kind.name())) return;
         switch (kind) {
           case EDITOR -> paintEditor(g);
           case LAUNCHER -> paintLauncher(g, false);
