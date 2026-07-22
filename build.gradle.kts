@@ -172,7 +172,7 @@ data class JvnGamePlannedArtifact(
   val packageType: String?
 )
 
-val jvnJavaFxVersion = (findProperty("jvnJavaFxVersion") as String?)?.trim()?.ifBlank { null } ?: "21.0.3"
+val jvnJavaFxVersion = (findProperty("jvnJavaFxVersion") as String?)?.trim()?.ifBlank { null } ?: "23.0.1"
 val jvnJavaFxModules = listOf(
   "javafx-base",
   "javafx-graphics",

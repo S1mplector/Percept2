@@ -173,7 +173,7 @@ Errors fail the task. Warnings are printed but do not fail unless `-PjvnFailOnWa
 | `macos-x64` | `mac` | `assembleJvnGamePortableMacosX64` |
 | `macos-aarch64` | `mac-aarch64` | `assembleJvnGamePortableMacosAarch64` |
 
-Linux aarch64 is not part of the current supported set because OpenJFX 21.0.3 does not publish `linux-aarch64` classifier jars in Maven Central. Add it after upgrading the JavaFX runtime or supplying native JavaFX artifacts for that platform.
+Linux aarch64 is not part of the current supported target set. Add the target definition and release validation before publishing Linux aarch64 bundles.
 
 ## Desktop Bundles
 

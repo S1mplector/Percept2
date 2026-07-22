@@ -2570,10 +2570,7 @@ public class EditorApp extends Application {
               pluginHost = null;
             }
           },
-          () -> {
-            primaryStage.hide();
-            Platform.exit();
-          });
+          Platform::exit);
     });
     applyLinuxDefaultWindowState(primaryStage);
     primaryStage.show();

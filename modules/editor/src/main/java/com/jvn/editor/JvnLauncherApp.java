@@ -317,10 +317,7 @@ public class JvnLauncherApp extends Application {
             if (settingsStage != null) settingsStage.close();
             if (gameBuildPublisherStage != null) gameBuildPublisherStage.close();
           },
-          () -> {
-            stage.hide();
-            Platform.exit();
-          });
+          Platform::exit);
     });
     stage.show();
 
