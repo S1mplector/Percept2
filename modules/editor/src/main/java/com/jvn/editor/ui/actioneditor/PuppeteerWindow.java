@@ -33,6 +33,7 @@ import com.jvn.core.vn.stage.VnStagePreset;
 import com.jvn.core.vn.stage.VnStagePresetLoader;
 import com.jvn.editor.ui.CssIcon;
 import com.jvn.editor.ui.EditorTheme;
+import com.jvn.editor.ui.LayeredCharacterProjectCatalog;
 import com.jvn.editor.ui.ProjectViewportSpec;
 import com.jvn.editor.ui.PuppeteerLauncherPanel;
 import com.jvn.editor.ui.SidebarToolHelp;
@@ -278,6 +279,7 @@ public class PuppeteerWindow extends Stage {
     private Label lblSidebarSceneAnchors;
     private Label lblSidebarSceneStage;
     private Button btnSidebarAddKeyframe;
+    private Button btnSidebarAddExpressionKeyframe;
     private Button btnSidebarFocusSelection;
     private Button btnSidebarClearSelection;
     private Button btnSidebarCodePane;
@@ -325,6 +327,7 @@ public class PuppeteerWindow extends Stage {
     public final ActionEditorDialogOverlay overlayDialog = new ActionEditorDialogOverlay();
     private final Map<String, String> launchCharacterImagePaths = new LinkedHashMap<>();
     private final Map<String, List<PuppeteerLauncherPanel.CharacterLayerEntry>> launchCharacterPresetLayers = new LinkedHashMap<>();
+    private final Map<String, List<ExpressionLayerSpec>> projectCharacterPresetLayers = new LinkedHashMap<>();
     private final Map<String, String> launchBackgroundPaths = new LinkedHashMap<>();
     private final Map<String, String> launchAudioPaths = new LinkedHashMap<>();
     final List<List<com.jvn.editor.ui.actioneditor.TimelinePanel.ClipboardEntry>> clipboardHistory = new java.util.ArrayList<>();
@@ -1460,9 +1463,7 @@ public class PuppeteerWindow extends Stage {
             updatePreview();
             refreshExportPreviewAndMarkDirty();
         });
-        Tab rigTab = new Tab("Rig", constraintEditor);
-        rigTab.setClosable(false);
-        TabPane leftTabs = new TabPane(entitiesTab, selectionTab, sceneTab, anchorsTab, rigTab);
+        TabPane leftTabs = new TabPane(entitiesTab, selectionTab, sceneTab, anchorsTab);
         leftTabs.getStyleClass().add("sidebar-tab-pane");
         leftTabs.setMinWidth(0);
         leftTabs.setMaxWidth(Double.MAX_VALUE);
@@ -2058,6 +2059,8 @@ public class PuppeteerWindow extends Stage {
         miPlaceInSlot.setOnAction(e -> showSlotMenuOverlay());
         MenuItem miEyeFocus = new MenuItem("Eye Focus / Look At...");
         miEyeFocus.setOnAction(e -> showEyeFocusOverlay());
+        MenuItem miExpressionKeyframe = new MenuItem("Add Expression Keyframe...");
+        miExpressionKeyframe.setOnAction(e -> showExpressionKeyframeDialog());
         MenuItem miSyncSnapshot = new MenuItem("Sync Snapshot from VNS Script");
         miSyncSnapshot.setOnAction(e -> requestSyncSnapshot());
 
@@ -2129,6 +2132,8 @@ public class PuppeteerWindow extends Stage {
 
         Menu characterMenu = new Menu("Character");
         characterMenu.getItems().addAll(
+            miExpressionKeyframe,
+            new SeparatorMenuItem(),
             miApplyPreset,
             miPlaceInSlot,
             miEyeFocus,
@@ -2141,6 +2146,7 @@ public class PuppeteerWindow extends Stage {
                 && timelinePanel.getSelectedEntity() != null
                 && !timelinePanel.getSelectedEntity().isBlank();
             boolean entityTarget = hasTarget && !timelinePanel.isSelectedGroup();
+            miExpressionKeyframe.setDisable(!entityTarget || timelinePanel.isRuntimeCameraSelected());
             miApplyPreset.setDisable(!entityTarget);
             miPlaceInSlot.setDisable(!entityTarget);
             miEyeFocus.setDisable(project == null || timelinePanel == null);
@@ -2636,6 +2642,8 @@ public class PuppeteerWindow extends Stage {
             refreshExportPreviewAndMarkDirty();
             refreshSidebarTabs();
         }, "Add a keyframe at the current playhead for the selected entity");
+        btnSidebarAddExpressionKeyframe = buildSidebarActionButton("Expression", this::showExpressionKeyframeDialog,
+            "Add an expression keyframe for the selected character at the current playhead");
         btnSidebarFocusSelection = buildSidebarActionButton("Focus Timeline", () -> {
             timelinePanel.zoomToSelection();
             refreshSidebarTabs();
@@ -2663,8 +2671,8 @@ public class PuppeteerWindow extends Stage {
             refreshSidebarTabs();
         }, "Clear the current selection in the timeline and viewport");
 
-        HBox selectionActionsPrimary = buildSidebarButtonRow(btnSidebarAddKeyframe, btnSidebarFocusSelection);
-        HBox selectionActionsSecondary = buildSidebarButtonRow(btnPrevKey, btnNextKey, btnSidebarClearSelection);
+        HBox selectionActionsPrimary = buildSidebarButtonRow(btnSidebarAddKeyframe, btnSidebarAddExpressionKeyframe);
+        HBox selectionActionsSecondary = buildSidebarButtonRow(btnSidebarFocusSelection, btnPrevKey, btnNextKey, btnSidebarClearSelection);
 
         sidebarAdvancedUnavailableCard = buildSidebarCard(
             "Advanced",
@@ -2722,6 +2730,7 @@ public class PuppeteerWindow extends Stage {
                 "Actions",
                 "Keyframe actions for the current selection.\n\n" +
                 "• Add Keyframe — inserts a keyframe at the playhead for the selected entity and property\n" +
+                "• Expression — switches a character to a layered expression preset at the playhead\n" +
                 "• Focus Timeline — zooms the timeline to fit all selected keyframes on screen\n" +
                 "• Prev / Next Key — moves the playhead to the nearest keyframe on either side\n" +
                 "• Clear — deselects all entities and keyframes",
@@ -3056,6 +3065,9 @@ public class PuppeteerWindow extends Stage {
         }
         if (btnSidebarAddKeyframe != null) {
             btnSidebarAddKeyframe.setDisable(!hasTarget);
+        }
+        if (btnSidebarAddExpressionKeyframe != null) {
+            btnSidebarAddExpressionKeyframe.setDisable(!hasTarget || selectedGroup || runtimeCamera);
         }
         if (btnSidebarFocusSelection != null) {
             btnSidebarFocusSelection.setDisable(!hasTarget);
@@ -7146,6 +7158,7 @@ public class PuppeteerWindow extends Stage {
 
     public void setProjectRoot(java.io.File root) {
         this.projectRoot = root;
+        reloadProjectExpressionPresets();
         animationPreview.setProjectRoot(root);
         if (assetImporterPanel != null) {
             assetImporterPanel.setProjectRoot(root);
@@ -7157,6 +7170,32 @@ public class PuppeteerWindow extends Stage {
         refreshSidebarTabs();
         installWorkspaceServicesForProjectRoot();
         updateStatusBar();
+    }
+
+    private void reloadProjectExpressionPresets() {
+        projectCharacterPresetLayers.clear();
+        Map<String, Map<String, List<LayeredCharacterProjectCatalog.ExpressionLayer>>> catalog =
+            LayeredCharacterProjectCatalog.loadExpressionPresets(projectRoot);
+        for (Map.Entry<String, Map<String, List<LayeredCharacterProjectCatalog.ExpressionLayer>>> character
+            : catalog.entrySet()) {
+            String characterId = character.getKey();
+            if (characterId == null || characterId.isBlank() || character.getValue() == null) continue;
+            for (Map.Entry<String, List<LayeredCharacterProjectCatalog.ExpressionLayer>> expression
+                : character.getValue().entrySet()) {
+                if (expression.getKey() == null || expression.getKey().isBlank()) continue;
+                List<ExpressionLayerSpec> layers = expression.getValue() == null
+                    ? List.of()
+                    : expression.getValue().stream()
+                        .filter(layer -> layer != null && layer.path() != null && !layer.path().isBlank())
+                        .map(layer -> new ExpressionLayerSpec(layer.layerId(), layer.path()))
+                        .toList();
+                if (!layers.isEmpty()) {
+                    projectCharacterPresetLayers.put(
+                        characterId.trim() + "/" + expression.getKey().trim(),
+                        layers);
+                }
+            }
+        }
     }
 
     private void installWorkspaceServicesForProjectRoot() {
@@ -8856,6 +8895,16 @@ public class PuppeteerWindow extends Stage {
                 }
             }
         }
+        for (String key : projectCharacterPresetLayers.keySet()) {
+            int slash = key == null ? -1 : key.indexOf('/');
+            if (slash <= 0) continue;
+            String characterId = key.substring(0, slash);
+            String safeCharacter = selectorSafeName(characterId);
+            if (selection.equals(characterId)
+                || (!safeCharacter.isBlank() && selection.startsWith(safeCharacter + "_"))) {
+                return characterId;
+            }
+        }
         return selection;
     }
 
@@ -8875,6 +8924,10 @@ public class PuppeteerWindow extends Stage {
             if (slash > 0) targets.add(key.substring(0, slash));
         }
         for (String key : launchCharacterPresetLayers.keySet()) {
+            int slash = key == null ? -1 : key.indexOf('/');
+            if (slash > 0) targets.add(key.substring(0, slash));
+        }
+        for (String key : projectCharacterPresetLayers.keySet()) {
             int slash = key == null ? -1 : key.indexOf('/');
             if (slash > 0) targets.add(key.substring(0, slash));
         }
@@ -8904,6 +8957,11 @@ public class PuppeteerWindow extends Stage {
             }
         }
         for (String key : launchCharacterPresetLayers.keySet()) {
+            if (key != null && key.startsWith(prefix) && key.length() > prefix.length()) {
+                expressions.add(key.substring(prefix.length()));
+            }
+        }
+        for (String key : projectCharacterPresetLayers.keySet()) {
             if (key != null && key.startsWith(prefix) && key.length() > prefix.length()) {
                 expressions.add(key.substring(prefix.length()));
             }
@@ -9009,6 +9067,10 @@ public class PuppeteerWindow extends Stage {
                     specs.add(new ExpressionLayerSpec(layer.layerId, layer.path));
                 }
                 if (!specs.isEmpty()) return specs;
+            }
+            List<ExpressionLayerSpec> projectMapped = projectCharacterPresetLayers.get(target + "/" + token);
+            if (projectMapped != null && !projectMapped.isEmpty()) {
+                return List.copyOf(projectMapped);
             }
         }
 

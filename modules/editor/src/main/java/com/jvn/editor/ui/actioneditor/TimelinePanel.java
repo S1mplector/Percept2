@@ -131,6 +131,7 @@ public class TimelinePanel extends VBox {
 
     private Consumer<Keyframe> onKeyframeSelected;
     private Consumer<EditorEventCue> onEventCueSelected;
+    private BiConsumer<String, Double> onExpressionKeyframeRequested;
     private Consumer<Double> onPlayheadChanged;
     private BiConsumer<String, Boolean> onTargetSelectionChanged;
     private Runnable onEdited;
@@ -190,6 +191,7 @@ public class TimelinePanel extends VBox {
                             boolean group,
                             boolean runtimeCamera,
                             PropertyType property,
+                            boolean expression,
                             double y,
                             double height) {}
     private record KeyframeHit(TrackRow row, Keyframe keyframe) {}
@@ -290,6 +292,9 @@ public class TimelinePanel extends VBox {
 
     public void setOnKeyframeSelected(Consumer<Keyframe> callback) { this.onKeyframeSelected = callback; }
     public void setOnEventCueSelected(Consumer<EditorEventCue> callback) { this.onEventCueSelected = callback; }
+    public void setOnExpressionKeyframeRequested(BiConsumer<String, Double> callback) {
+        this.onExpressionKeyframeRequested = callback;
+    }
     public void setOnPlayheadChanged(Consumer<Double> callback) { this.onPlayheadChanged = callback; }
     public void setOnTargetSelectionChanged(BiConsumer<String, Boolean> callback) { this.onTargetSelectionChanged = callback; }
     public void setOnEdited(Runnable callback) { this.onEdited = callback; }
@@ -660,6 +665,7 @@ public class TimelinePanel extends VBox {
             for (PropertyType p : PropertyType.values()) {
                 if (shouldShowPropertyTrack(track, isSelected, false, false, p)) trackCount++;
             }
+            if (shouldShowExpressionTrack(track.getEntityName(), isSelected)) trackCount++;
         }
         return HEADER_HEIGHT + trackCount * TRACK_HEIGHT + 50;
     }
@@ -827,7 +833,48 @@ public class TimelinePanel extends VBox {
             drawKeyframes(gc, selectionName, track, prop, y, width);
             y += TRACK_HEIGHT;
         }
+        if (!groupTrack && !runtimeCameraTrack && shouldShowExpressionTrack(selectionName, isSelected)) {
+            boolean hovered = isHoveredExpressionRow(selectionName, track);
+            gc.setFill(hovered ? Color.web("#203028") : Color.web("#151515"));
+            gc.fillRect(0, y, width, TRACK_HEIGHT);
+            Color expressionColor = eventCueColor("expression");
+            gc.setFill(expressionColor.deriveColor(0, 1, 1, 0.62));
+            gc.fillRect(0, y, 3, TRACK_HEIGHT);
+            gc.setFill(expressionColor.deriveColor(0, 0.72, 1.08, 1));
+            gc.setFont(javafx.scene.text.Font.font(10));
+            gc.fillText("  └ Expression", 12, y + 15);
+            drawTrackGridLines(gc, y, width);
+            drawExpressionKeyframes(gc, selectionName, y, width);
+            y += TRACK_HEIGHT;
+        }
         return y;
+    }
+
+    private void drawExpressionKeyframes(GraphicsContext gc, String entityName, double y, double width) {
+        double cy = y + TRACK_HEIGHT / 2.0;
+        Color color = eventCueColor("expression");
+        for (EditorEventCue cue : expressionCuesForEntity(entityName)) {
+            double x = LABEL_WIDTH + cue.getTimeMs() * pixelsPerMs - scrollX;
+            if (x < LABEL_WIDTH - 10 || x > width + 10) continue;
+            gc.setFill(color);
+            gc.fillPolygon(
+                new double[] {x, x + 6, x, x - 6},
+                new double[] {cy - 6, cy, cy + 6, cy},
+                4);
+            gc.setStroke(Color.web("#07110a", 0.82));
+            gc.setLineWidth(0.9);
+            gc.strokePolygon(
+                new double[] {x, x + 6, x, x - 6},
+                new double[] {cy - 6, cy, cy + 6, cy},
+                4);
+            String value = cue.getPayloadValue("value");
+            if (value.isBlank()) value = cue.getPayloadValue("expression");
+            if (!value.isBlank()) {
+                gc.setFill(color.deriveColor(0, 0.7, 1.08, 0.9));
+                gc.setFont(javafx.scene.text.Font.font(9));
+                gc.fillText(value, x + 9, cy + 3);
+            }
+        }
     }
 
     private void drawTrackGridLines(GraphicsContext gc, double y, double width) {
@@ -1007,6 +1054,7 @@ public class TimelinePanel extends VBox {
 
         for (EditorEventCue cue : cues) {
             if (cue == null || cue.getType() == null || cue.getType().isBlank()) continue;
+            if (isExpressionCue(cue) && expressionCueHasEntityRow(cue)) continue;
             double x = LABEL_WIDTH + cue.getTimeMs() * pixelsPerMs - scrollX;
             if (x < LABEL_WIDTH - 10 || x > width + 10) continue;
 
@@ -1042,6 +1090,41 @@ public class TimelinePanel extends VBox {
             case "scene" -> Color.web("#b892ff", 0.92);
             default -> Color.web("#8fa3b8", 0.88);
         };
+    }
+
+    private boolean shouldShowExpressionTrack(String entityName, boolean selected) {
+        return selected || !expressionCuesForEntity(entityName).isEmpty();
+    }
+
+    private List<EditorEventCue> expressionCuesForEntity(String entityName) {
+        if (entityName == null || entityName.isBlank()) return List.of();
+        return project.getEditorEventCues().stream()
+            .filter(TimelinePanel::isExpressionCue)
+            .filter(cue -> expressionTargetMatchesEntity(cue.getPayloadValue("target"), entityName))
+            .toList();
+    }
+
+    private boolean expressionCueHasEntityRow(EditorEventCue cue) {
+        if (!isExpressionCue(cue)) return false;
+        String target = cue.getPayloadValue("target");
+        for (EntityTrack track : project.getTracks()) {
+            if (track != null && expressionTargetMatchesEntity(target, track.getEntityName())) return true;
+        }
+        return false;
+    }
+
+    private static boolean isExpressionCue(EditorEventCue cue) {
+        return cue != null && "expression".equalsIgnoreCase(cue.getType());
+    }
+
+    static boolean expressionTargetMatchesEntity(String target, String entityName) {
+        if (target == null || target.isBlank() || entityName == null || entityName.isBlank()) return false;
+        String cleanTarget = target.trim();
+        String cleanEntity = entityName.trim();
+        return cleanEntity.equals(cleanTarget)
+            || cleanEntity.startsWith(cleanTarget + "_")
+            || cleanEntity.startsWith(cleanTarget + ".")
+            || cleanEntity.startsWith(cleanTarget + ":");
     }
 
     private static double eventCueLabelWidth(String label) {
@@ -1745,36 +1828,40 @@ public class TimelinePanel extends VBox {
 
         if (shouldShowRuntimeCameraBlock()) {
             EntityTrack runtimeCameraTrack = resolveRuntimeCameraTrack(false);
-            rows.add(new TrackRow(runtimeCameraTrack, RUNTIME_CAMERA_TARGET, RUNTIME_CAMERA_LABEL, false, true, null, y, TRACK_HEIGHT));
+            rows.add(new TrackRow(runtimeCameraTrack, RUNTIME_CAMERA_TARGET, RUNTIME_CAMERA_LABEL, false, true, null, false, y, TRACK_HEIGHT));
             y += TRACK_HEIGHT;
             for (PropertyType prop : CAMERA_PROPERTIES) {
                 boolean showTrack = shouldShowPropertyTrack(runtimeCameraTrack, isRuntimeCameraSelected(), false, true, prop);
                 if (!showTrack) continue;
-                rows.add(new TrackRow(runtimeCameraTrack, RUNTIME_CAMERA_TARGET, prop.getDisplayName(), false, true, prop, y, TRACK_HEIGHT));
+                rows.add(new TrackRow(runtimeCameraTrack, RUNTIME_CAMERA_TARGET, prop.getDisplayName(), false, true, prop, false, y, TRACK_HEIGHT));
                 y += TRACK_HEIGHT;
             }
         }
 
         if (selectedGroup && groupTrack != null && selectedEntity != null) {
-            rows.add(new TrackRow(groupTrack, selectedEntity, "[Group] " + selectedEntity, true, false, null, y, TRACK_HEIGHT));
+            rows.add(new TrackRow(groupTrack, selectedEntity, "[Group] " + selectedEntity, true, false, null, false, y, TRACK_HEIGHT));
             y += TRACK_HEIGHT;
             for (PropertyType prop : GROUP_PROPERTIES) {
                 boolean showTrack = shouldShowPropertyTrack(groupTrack, true, true, false, prop);
                 if (!showTrack) continue;
-                rows.add(new TrackRow(groupTrack, selectedEntity, prop.getDisplayName(), true, false, prop, y, TRACK_HEIGHT));
+                rows.add(new TrackRow(groupTrack, selectedEntity, prop.getDisplayName(), true, false, prop, false, y, TRACK_HEIGHT));
                 y += TRACK_HEIGHT;
             }
         }
 
         for (EntityTrack track : project.getTracks()) {
             if (track == null || isRuntimeCameraCarrier(track)) continue;
-            rows.add(new TrackRow(track, track.getEntityName(), track.getEntityName(), false, false, null, y, TRACK_HEIGHT));
+            rows.add(new TrackRow(track, track.getEntityName(), track.getEntityName(), false, false, null, false, y, TRACK_HEIGHT));
             y += TRACK_HEIGHT;
             boolean isSelected = !selectedGroup && track.getEntityName().equals(selectedEntity);
             for (PropertyType prop : PropertyType.values()) {
                 boolean showTrack = shouldShowPropertyTrack(track, isSelected, false, false, prop);
                 if (!showTrack) continue;
-                rows.add(new TrackRow(track, track.getEntityName(), prop.getDisplayName(), false, false, prop, y, TRACK_HEIGHT));
+                rows.add(new TrackRow(track, track.getEntityName(), prop.getDisplayName(), false, false, prop, false, y, TRACK_HEIGHT));
+                y += TRACK_HEIGHT;
+            }
+            if (shouldShowExpressionTrack(track.getEntityName(), isSelected)) {
+                rows.add(new TrackRow(track, track.getEntityName(), "Expression", false, false, null, true, y, TRACK_HEIGHT));
                 y += TRACK_HEIGHT;
             }
         }

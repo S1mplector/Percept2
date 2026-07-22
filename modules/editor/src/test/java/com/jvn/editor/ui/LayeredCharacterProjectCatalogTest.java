@@ -7,10 +7,39 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class LayeredCharacterProjectCatalogTest {
+
+  @TempDir
+  Path tempDir;
+
+  @Test
+  void projectExpressionCatalogExposesLayeredPresetsToPuppeteer() throws Exception {
+    Path scripts = Files.createDirectories(tempDir.resolve("scripts/definitions"));
+    Files.writeString(scripts.resolve("characters.vns"), """
+        @charlayer hero base assets/hero/base.png
+        @charlayer hero eyes_happy assets/hero/eyes_happy.png
+        @charlayer hero mouth_smile assets/hero/mouth_smile.png
+        @charlayer hero mouth_open assets/hero/mouth_open.png
+        @charpreset hero happy $base | $eyes_happy | $mouth_smile
+        @charpreset hero talking $base | $eyes_happy | $mouth_open
+        """);
+
+    Map<String, Map<String, List<LayeredCharacterProjectCatalog.ExpressionLayer>>> catalog =
+        LayeredCharacterProjectCatalog.loadExpressionPresets(tempDir.toFile());
+
+    assertEquals(List.of("happy", "talking"), catalog.get("hero").keySet().stream().toList());
+    assertEquals(
+        List.of("base", "eyes", "mouth"),
+        catalog.get("hero").get("talking").stream()
+            .map(LayeredCharacterProjectCatalog.ExpressionLayer::layerId)
+            .toList());
+  }
 
   @Test
   void parseSourcesSplitsCooccurringBaseLayersIntoTheirOwnGroups() {

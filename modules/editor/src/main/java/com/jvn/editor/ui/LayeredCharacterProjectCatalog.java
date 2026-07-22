@@ -21,7 +21,7 @@ import java.util.regex.Pattern;
 
 import com.jvn.core.vn.LayeredCharacterResolver;
 
-final class LayeredCharacterProjectCatalog {
+public final class LayeredCharacterProjectCatalog {
   private static final Map<String, String> GROUP_TOKEN_ALIASES = Map.ofEntries(
       Map.entry("eye", "eyes"),
       Map.entry("eyes", "eyes"),
@@ -76,6 +76,43 @@ final class LayeredCharacterProjectCatalog {
       return Catalog.empty();
     }
     return parseSources(sources);
+  }
+
+  /**
+   * Returns every resolved layered character expression declared by project VNS sources.
+   * The outer key is the character id and the inner key is the expression/preset id.
+   */
+  public static Map<String, Map<String, List<ExpressionLayer>>> loadExpressionPresets(File projectRoot) {
+    Catalog catalog = load(projectRoot);
+    if (catalog.setsById().isEmpty()) return Map.of();
+
+    LinkedHashMap<String, LinkedHashMap<String, List<ExpressionLayer>>> mutable = new LinkedHashMap<>();
+    for (DeclaredSet set : catalog.setsById().values()) {
+      if (set == null || set.characterId() == null || set.characterId().isBlank()
+          || set.presets() == null || set.presets().isEmpty()) {
+        continue;
+      }
+      LinkedHashMap<String, List<ExpressionLayer>> expressions =
+          mutable.computeIfAbsent(set.characterId().trim(), key -> new LinkedHashMap<>());
+      for (DeclaredPreset preset : set.presets().values()) {
+        if (preset == null || preset.name() == null || preset.name().isBlank()
+            || preset.selectionsByGroup() == null || preset.selectionsByGroup().isEmpty()) {
+          continue;
+        }
+        List<ExpressionLayer> layers = preset.selectionsByGroup().entrySet().stream()
+            .filter(entry -> entry.getKey() != null && !entry.getKey().isBlank()
+                && entry.getValue() != null && !entry.getValue().isBlank())
+            .map(entry -> new ExpressionLayer(entry.getKey().trim(), entry.getValue().trim()))
+            .toList();
+        if (!layers.isEmpty()) expressions.put(preset.name().trim(), layers);
+      }
+    }
+
+    LinkedHashMap<String, Map<String, List<ExpressionLayer>>> resolved = new LinkedHashMap<>();
+    for (Map.Entry<String, LinkedHashMap<String, List<ExpressionLayer>>> entry : mutable.entrySet()) {
+      resolved.put(entry.getKey(), java.util.Collections.unmodifiableMap(entry.getValue()));
+    }
+    return java.util.Collections.unmodifiableMap(resolved);
   }
 
   static Catalog parseSources(Map<String, String> sources) {
@@ -701,6 +738,8 @@ final class LayeredCharacterProjectCatalog {
   record DeclaredPreset(String name, Map<String, String> selectionsByGroup) {}
 
   record GroupLabel(String groupId, String label) {}
+
+  public record ExpressionLayer(String layerId, String path) {}
 
   private record ResolvedLayer(String characterId, String layerId, String relativePath) {}
 
