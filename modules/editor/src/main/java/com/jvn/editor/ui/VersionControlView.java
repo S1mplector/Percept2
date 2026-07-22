@@ -113,7 +113,7 @@ public class VersionControlView extends BorderPane {
 
   private final Button btnRefresh = actionButton(
       "Refresh",
-      CssIcon.redo(ICON_REFRESH),
+      CssIcon.refresh(ICON_REFRESH),
       "Refresh the project status and check whether the online repository has new work.",
       "vcs-action-button-neutral");
   private final Button btnInitialize = new Button("Initialize");

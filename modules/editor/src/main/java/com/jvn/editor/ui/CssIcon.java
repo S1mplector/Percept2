@@ -46,6 +46,8 @@ public final class CssIcon {
       "M7.05 14q1.225-2.075 3.337-3.287Q12.5 9.5 15 9.5q2.5 0 4.675 1.15T23.55 14H21q-1.2-1.25-2.812-1.875Q16.575 11.5 15 11.5q-1.6 0-3.187.625T9 14h2v2H5V9h2v2.85Z";
   private static final String PATH_REDO =
       "M16.95 14q-1.225-2.075-3.337-3.287Q11.5 9.5 9 9.5q-2.5 0-4.675 1.15T.45 14H3q1.2-1.25 2.813-1.875Q7.425 11.5 9 11.5q1.6 0 3.188.625T15 14h-2v2h6V9h-2v2.85Z";
+  private static final String PATH_REFRESH =
+      "M12 20q-3.35 0-5.675-2.325Q4 15.35 4 12t2.325-5.675Q8.65 4 12 4q1.725 0 3.3.713Q16.875 5.425 18 6.7V4h2v7h-7V9h3.8q-.875-1.4-2.138-2.2Q13.4 6 12 6 9.5 6 7.75 7.75T6 12q0 2.5 1.75 4.25T12 18q1.925 0 3.475-1.1 1.55-1.1 2.175-2.9h2.1q-.7 2.65-2.85 4.325Q14.75 20 12 20Z";
   private static final String PATH_SPEECH =
       "M4 22q-.825 0-1.412-.587Q2 20.825 2 20V4q0-.825.588-1.412Q3.175 2 4 2h16q.825 0 1.413.588Q22 3.175 22 4v12q0 .825-.587 1.413Q20.825 18 20 18H8l-4 4Z";
   private static final String PATH_LIST =
@@ -144,6 +146,7 @@ public final class CssIcon {
   public static Region clearX(String color)   { return icon(PATH_CLEAR_X, color, 13); }
   public static Region undo(String color)     { return icon(PATH_UNDO, color, 14); }
   public static Region redo(String color)     { return icon(PATH_REDO, color, 14); }
+  public static Region refresh(String color)  { return icon(PATH_REFRESH, color, 14); }
   public static Region speech(String color)   { return icon(PATH_SPEECH, color, 14); }
   public static Region list(String color)     { return icon(PATH_LIST, color, 14); }
   public static Region search(String color)   { return icon(PATH_SEARCH, color, 14); }
@@ -205,6 +208,7 @@ public final class CssIcon {
   public static Region clearX()   { return clearX("#b0b8c8"); }
   public static Region undo()     { return undo("#b0b8c8"); }
   public static Region redo()     { return redo("#b0b8c8"); }
+  public static Region refresh()  { return refresh("#b0b8c8"); }
   public static Region speech()   { return speech("#b0b8c8"); }
   public static Region list()     { return list("#b0b8c8"); }
   public static Region search()   { return search("#b0b8c8"); }
@@ -318,7 +322,7 @@ public final class CssIcon {
 
   private static String compactAccent(String svgPath, String requested) {
     if (!isNeutral(requested)) return requested;
-    if (PATH_REDO.equals(svgPath)) return "#42bfe8";
+    if (PATH_REDO.equals(svgPath) || PATH_REFRESH.equals(svgPath)) return "#42bfe8";
     if (PATH_DELETE.equals(svgPath) || PATH_CLEAR_X.equals(svgPath) || PATH_STOP.equals(svgPath)) return "#e06672";
     if (PATH_SPARKLES.equals(svgPath) || PATH_AUTO.equals(svgPath)) return "#efa657";
     if (PATH_PLAY.equals(svgPath) || PATH_ROCKET.equals(svgPath) || PATH_CHECK.equals(svgPath)) return "#56c978";

@@ -200,7 +200,7 @@ Explorer without relying on operating-system desktop integration."""),
         .getStyleClass().add("script-editor-action-button-compact");
     styleActionButton(newScriptButton, CssIcon.plus("#96bf7c"), "Create a new project text file", false)
         .getStyleClass().add("script-editor-action-button-compact");
-    styleActionButton(refreshButton, CssIcon.redo("#d0d0d0"), "Refresh the text workspace", false)
+    styleActionButton(refreshButton, CssIcon.refresh("#d0d0d0"), "Refresh the text workspace", false)
         .getStyleClass().add("script-editor-action-button-compact");
     styleActionButton(revealButton, CssIcon.folder("#d0d0d0"), "Reveal the current workspace in JVN Path Explorer", false)
         .getStyleClass().add("script-editor-action-button-compact");

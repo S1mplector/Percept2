@@ -172,7 +172,7 @@ public class TrashmanView extends BorderPane {
         """));
     titleRow.setAlignment(Pos.CENTER_LEFT);
 
-    Button refreshButton = actionButton("Refresh", CssIcon.redo("#d0d0d0"), "Refresh all GC and memory telemetry.");
+    Button refreshButton = actionButton("Refresh", CssIcon.refresh("#d0d0d0"), "Refresh all GC and memory telemetry.");
     refreshButton.setOnAction(e -> refreshStatus(true));
     Button gcButton = actionButton("Run GC", CssIcon.delete("#d0d0d0"), "Request one JVM garbage collection pass.");
     gcButton.setOnAction(e -> runGc(false, false));

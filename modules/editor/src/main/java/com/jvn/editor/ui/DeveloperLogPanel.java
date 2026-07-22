@@ -47,7 +47,7 @@ public final class DeveloperLogPanel extends VBox {
   private final ComboBox<LogFile> fileSelector = new ComboBox<>();
   private final TextArea logText = new TextArea();
   private final Label statusLabel = new Label("Expand to refresh logs");
-  private final Button refreshButton = new Button("Refresh");
+  private final Button refreshButton = new Button("Refresh", CssIcon.refresh("#d0d0d0"));
   private final Button copyButton = new Button("Copy");
   private final Button revealButton = new Button("Reveal");
   private final Button saveButton = new Button("Save Logs...");

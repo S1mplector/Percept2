@@ -125,7 +125,7 @@ the authoritative rendering and navigation check."""));
 
     Button refreshButton = new Button("Refresh");
     refreshButton.getStyleClass().add("layout-launcher-button");
-    refreshButton.setGraphic(CssIcon.redo());
+    refreshButton.setGraphic(CssIcon.refresh());
     refreshButton.setTooltip(new Tooltip("Rescan project layout and menu files"));
     refreshButton.setOnAction(e -> refreshStatus());
 

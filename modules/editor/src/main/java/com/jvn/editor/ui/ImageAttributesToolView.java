@@ -260,7 +260,7 @@ dialogue line or @imgattr command. Clicking Copy puts it on the clipboard."""));
 
     shortformBox.setPromptText("Shortform");
 
-    Button refreshButton = iconButton(CssIcon.redo("#7ec8e3"), "Rescan image tags", this::refreshCatalog);
+    Button refreshButton = iconButton(CssIcon.refresh("#7ec8e3"), "Rescan image tags", this::refreshCatalog);
 
     HBox tagFilterRow = new HBox(8, new Label("Filter"), tagFilterField, refreshButton);
     tagFilterRow.setAlignment(Pos.CENTER_LEFT);

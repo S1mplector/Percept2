@@ -408,7 +408,7 @@ public class ImageTintToolView extends BorderPane implements ImageToolPanel {
     exportInfoLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #9a9a9a;");
     exportInfoLabel.setWrapText(true);
 
-    refreshCatalogButton = iconButton(CssIcon.redo("#7ec8e3"), "Rescan project images", this::onCatalogRefreshRequested);
+    refreshCatalogButton = iconButton(CssIcon.refresh("#7ec8e3"), "Rescan project images", this::onCatalogRefreshRequested);
     updateRefreshButtonUi(false);
 
     // ── Compact sidebar rows ──
@@ -1085,7 +1085,7 @@ sets the key light direction."""), sidebarHeaderSpacer, sidebarHideButton);
       refreshCatalogButton.setGraphic(CssIcon.clearX("#f38ba8"));
       refreshCatalogButton.setTooltip(new Tooltip("Cancel image scan"));
     } else {
-      refreshCatalogButton.setGraphic(CssIcon.redo("#7ec8e3"));
+      refreshCatalogButton.setGraphic(CssIcon.refresh("#7ec8e3"));
       refreshCatalogButton.setTooltip(new Tooltip("Rescan project images"));
     }
   }

@@ -115,7 +115,7 @@ public final class AeroIcon extends StackPane {
       case SETTINGS -> settingsGlyph(color, size);
       case RUN -> sized(CssIcon.play(color), size);
       case BUILD -> sized(CssIcon.download(color), size);
-      case REFRESH -> sized(CssIcon.redo(color), size);
+      case REFRESH -> sized(CssIcon.refresh(color), size);
       case ENTRY_SCRIPT -> sized(CssIcon.speech(color), size);
       case MANIFEST, README -> sized(CssIcon.document(color), size);
       case ARROW_BACK -> sized(CssIcon.arrowLeft(color), size);

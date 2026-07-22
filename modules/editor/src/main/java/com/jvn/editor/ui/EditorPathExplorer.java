@@ -117,7 +117,7 @@ public final class EditorPathExplorer {
 
       Button up = new Button("Up", CssIcon.arrowUp("#d6dbe5"));
       up.setOnAction(e -> navigate(directory == null ? null : directory.getParentFile(), null));
-      Button refresh = new Button("Refresh", CssIcon.redo("#d6dbe5"));
+      Button refresh = new Button("Refresh", CssIcon.refresh("#d6dbe5"));
       refresh.setOnAction(e -> refresh());
       HBox toolbar = new HBox(8, roots, pathField, up, refresh);
       toolbar.setAlignment(Pos.CENTER_LEFT);

@@ -323,7 +323,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
             (value, query) -> matchesSearchableText(value, query)));
     setBox.setOnAction(e -> onSetSelectionChanged());
 
-    refreshCatalogButton = iconButton(CssIcon.redo("#7ec8e3"), "Refresh set scan", this::onCatalogRefreshRequested);
+    refreshCatalogButton = iconButton(CssIcon.refresh("#7ec8e3"), "Refresh set scan", this::onCatalogRefreshRequested);
     updateRefreshButtonUi(false);
     Button newSetButton = iconButton(CssIcon.plus("#9ed67a"), "Create a new layered set from scratch", this::showNewSetDialog);
 
@@ -801,7 +801,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
       refreshCatalogButton.setGraphic(CssIcon.clearX("#f38ba8"));
       refreshCatalogButton.setTooltip(new Tooltip("Cancel set scan"));
     } else {
-      refreshCatalogButton.setGraphic(CssIcon.redo("#7ec8e3"));
+      refreshCatalogButton.setGraphic(CssIcon.refresh("#7ec8e3"));
       refreshCatalogButton.setTooltip(new Tooltip("Refresh set scan"));
     }
   }

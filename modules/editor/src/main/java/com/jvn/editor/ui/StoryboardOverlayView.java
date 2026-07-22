@@ -182,7 +182,7 @@ public class StoryboardOverlayView extends BorderPane {
 
     styleActionButton(browseButton, CssIcon.folder("#d5b36a"));
     styleActionButton(autoButton, CssIcon.search("#d6dbe5"));
-    styleActionButton(refreshButton, CssIcon.redo("#7ec8e3"));
+    styleActionButton(refreshButton, CssIcon.refresh("#7ec8e3"));
     styleActionButton(previousButton, CssIcon.arrowLeft("#d6dbe5"));
     styleActionButton(nextButton, CssIcon.arrowRight("#d6dbe5"));
     styleActionButton(matchButton, CssIcon.link("#f0c27a"));

@@ -441,7 +441,7 @@ public class StoryTimelineView extends BorderPane {
     Button bOpen = iconButton("Open", CssIcon.folder(), e -> openArc());
     Button bDelete = iconButton("Delete Selected", CssIcon.delete(), e -> deleteSelected());
     Button bCopyGoto = iconButton("Copy Goto", CssIcon.copy(), e -> copyGoto());
-    Button bRefresh = iconButton("Refresh", CssIcon.redo(), e -> syncFromDisk(true));
+    Button bRefresh = iconButton("Refresh", CssIcon.refresh(), e -> syncFromDisk(true));
     Button bAuto = iconButton("Auto Layout", CssIcon.auto(), e -> { graph.autoLayout(); onGraphChanged(); });
     Button bFit = iconButton("Fit", CssIcon.rectSelect(), e -> zoomToFit());
     Button bValidate = iconButton("Validate", CssIcon.check(), e -> validate());

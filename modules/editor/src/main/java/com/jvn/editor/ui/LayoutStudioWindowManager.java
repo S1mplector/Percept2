@@ -342,7 +342,7 @@ public class LayoutStudioWindowManager {
 
       configureIconButton(saveButton, CssIcon.save("#8cd48c"), "Save");
       configureIconButton(runButton, CssIcon.play("#8cd48c"), "Save and Run Runtime (Ctrl/Cmd+Enter)");
-      configureIconButton(reloadButton, CssIcon.redo("#7ec8e3"), "Reload");
+      configureIconButton(reloadButton, CssIcon.refresh("#7ec8e3"), "Reload");
       configureIconButton(revealButton, CssIcon.folder("#d4a8e8"), "Reveal File");
       configureIconButton(maximizeButton, CssIcon.expand("#b0b8c8"), "Maximize / Restore");
       maximizeButton.setOnAction(e -> stage.setMaximized(!stage.isMaximized()));
