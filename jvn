@@ -11,7 +11,6 @@
 set -eu
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
-GRADLEW="$SCRIPT_DIR/gradlew"
 
 is_bazzite_host() {
   if [[ ! -r /etc/os-release ]]; then
@@ -143,35 +142,7 @@ maybe_reenter_distrobox() {
 
 maybe_reenter_distrobox "$@"
 
-if [[ ! -x "$GRADLEW" ]]; then
-  echo "[jvn] error: gradlew not found or not executable at $GRADLEW" 1>&2
-  exit 1
-fi
-
-cpu_count() {
-  if command -v getconf >/dev/null 2>&1; then
-    getconf _NPROCESSORS_ONLN 2>/dev/null && return
-  fi
-  if command -v sysctl >/dev/null 2>&1; then
-    sysctl -n hw.ncpu 2>/dev/null && return
-  fi
-  printf '2\n'
-}
-
-launch_workers() {
-  local cpus
-  cpus="$(cpu_count)"
-  case "$cpus" in
-    ''|*[!0-9]*) cpus=2 ;;
-  esac
-  if (( cpus <= 2 )); then
-    printf '1\n'
-  else
-    printf '2\n'
-  fi
-}
-
-# Run the hub via Gradle so classpath + toolchain are handled for us.
-# -q / --console=plain keeps the terminal tidy since the hub is a GUI.
-# --configuration-cache keeps repeated source launches close to packaged shortcut speed.
-exec "$GRADLEW" -q --console=plain --configuration-cache --max-workers="$(launch_workers)" -p "$SCRIPT_DIR" :hub:run
+# The Swing hub has no external dependencies. Its dedicated launcher compiles a
+# tiny cache directly with javac and starts it without configuring Gradle.
+# Use ./jvn --gradle (or JVN_LAUNCH_MODE=gradle) for the legacy path.
+exec "$SCRIPT_DIR/scripts/launch-hub.sh" "$@"

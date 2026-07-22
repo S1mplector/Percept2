@@ -6,7 +6,7 @@
 #
 #    ~/Applications/JVN Engine Hub.app
 #
-#  The app bundle runs the in-tree Gradle hub task without opening Terminal,
+#  The app bundle runs the fast in-tree hub launcher without opening Terminal,
 #  logs launch output, and shows a native alert if startup fails.
 #
 #  Uninstall:
@@ -145,8 +145,8 @@ create_icns_icon() {
 }
 
 ensure_executable "$SCRIPT_DIR/jvn" "JVN launcher script"
-ensure_executable "$SCRIPT_DIR/gradlew" "Gradle wrapper"
-xattr -d com.apple.quarantine "$SCRIPT_DIR/jvn" "$SCRIPT_DIR/gradlew" 2>/dev/null || true
+ensure_executable "$SCRIPT_DIR/scripts/launch-hub.sh" "fast Hub launcher"
+xattr -d com.apple.quarantine "$SCRIPT_DIR/jvn" "$SCRIPT_DIR/scripts/launch-hub.sh" 2>/dev/null || true
 
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_BUNDLE/Contents/MacOS" "$APP_BUNDLE/Contents/Resources" "$LOG_DIR"
@@ -250,16 +250,16 @@ func launchHub() {
   appendLog("[JVN] JAVA_HOME: \\(env["JAVA_HOME"] ?? "")")
   runAndCapture("/usr/bin/env", ["java", "-version"], env: env)
 
-  let gradlew = URL(fileURLWithPath: projectDir).appendingPathComponent("gradlew").path
-  if !FileManager.default.fileExists(atPath: gradlew) {
-    appendLog("[JVN] Missing ./gradlew in \\(projectDir)")
-    showFailure("gradlew is missing.")
+  let launcher = URL(fileURLWithPath: projectDir).appendingPathComponent("jvn").path
+  if !FileManager.default.fileExists(atPath: launcher) {
+    appendLog("[JVN] Missing ./jvn in \\(projectDir)")
+    showFailure("jvn is missing.")
     return
   }
 
   let process = Process()
   process.executableURL = URL(fileURLWithPath: "/bin/bash")
-  process.arguments = ["./gradlew", "-q", "--console=plain", "-p", projectDir, ":hub:run"]
+  process.arguments = ["./jvn"]
   process.currentDirectoryURL = URL(fileURLWithPath: projectDir)
   process.environment = env
 
@@ -275,7 +275,7 @@ func launchHub() {
     process.waitUntilExit()
     let status = process.terminationStatus
     try? handle.close()
-    appendLog("[JVN] Gradle exited with code \\(status).")
+    appendLog("[JVN] Hub exited with code \\(status).")
     if status != 0 {
       appendLog("[JVN] Startup failed with exit code \\(status).")
       showFailure("Startup failed with exit code \\(status).")
@@ -365,19 +365,15 @@ if ! command -v java >/dev/null 2>&1; then
   exit 1
 fi
 
-if [[ ! -f ./gradlew ]]; then
-  echo "[JVN] Missing ./gradlew in \$PROJECT_DIR" | tee -a "\$LOG_FILE"
-  alert_failure "gradlew is missing."
+if [[ ! -x ./jvn ]]; then
+  echo "[JVN] Missing executable ./jvn in \$PROJECT_DIR" | tee -a "\$LOG_FILE"
+  alert_failure "jvn is missing or is not executable."
   exit 1
 fi
 
-if [[ ! -x ./gradlew ]]; then
-  chmod u+x ./gradlew >>"\$LOG_FILE" 2>&1 || true
-fi
-
-bash ./gradlew -q --console=plain -p "\$PROJECT_DIR" :hub:run >> "\$LOG_FILE" 2>&1
+bash ./jvn >> "\$LOG_FILE" 2>&1
 status="\$?"
-echo "[JVN] Gradle exited with code \$status." >> "\$LOG_FILE"
+echo "[JVN] Hub exited with code \$status." >> "\$LOG_FILE"
 if [[ "\$status" -ne 0 ]]; then
   alert_failure "Startup failed with exit code \$status."
 fi

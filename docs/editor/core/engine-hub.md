@@ -14,7 +14,17 @@ Launch it from the repository root:
 jvn.bat
 ```
 
-The hub runs through the Gradle wrapper so the classpath and Java toolchain stay consistent with the rest of the workspace.
+The hub starts through a small direct-launch cache, without configuring Gradle. Because the Swing hub has no external dependencies, the first launch compiles only its two source files with JDK 21 `javac`; later launches execute the cached classes immediately. The cache is rebuilt automatically when the hub source or version changes.
+
+To force a cache rebuild or select a launch path explicitly:
+
+```bash
+./jvn --rebuild-launcher
+./jvn --direct   # never invoke Gradle
+./jvn --gradle   # legacy Gradle :hub:run path
+```
+
+The equivalent persistent setting is `JVN_LAUNCH_MODE=auto|direct|gradle`. Auto mode is the default: it uses direct startup and falls back to Gradle only if `javac` is unavailable and there is no valid cache. Concurrent launches share a compilation lock so they cannot corrupt or redundantly rebuild the cache. The direct JVM also uses a low-overhead serial collector and startup-tier compilation; override or extend its flags with `JVN_HUB_JAVA_OPTS`. Gradle remains in use for editor/runtime builds and other workspace actions launched from the hub.
 
 ## Source-First Preview Builds
 
