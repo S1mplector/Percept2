@@ -91,6 +91,8 @@ Launch the Engine Hub:
 ./jvn
 ```
 
+Hub startup bypasses Gradle by default and reuses a tiny `javac` cache after the first launch. Use `./jvn --direct` to prohibit Gradle entirely, `./jvn --gradle` for the legacy launch path, or `./jvn --rebuild-launcher` to refresh the cache explicitly.
+
 ```bat
 :: Windows
 jvn.bat
