@@ -70,6 +70,7 @@ import com.jvn.editor.ui.LayoutEditorLauncherView;
 import com.jvn.editor.ui.LayoutStudioWindowManager;
 import com.jvn.editor.ui.MaintenanceOverlay;
 import com.jvn.editor.ui.MetallicJvnLogo;
+import com.jvn.editor.ui.NewTabIcon;
 import com.jvn.editor.ui.NewProjectWizard;
 import com.jvn.editor.ui.ProjectExplorerView;
 import com.jvn.editor.ui.ProjectViewportSpec;
@@ -2477,7 +2478,7 @@ public class EditorApp extends Application {
     rightTabs.setTabDragPolicy(TabPane.TabDragPolicy.REORDER);
     rightTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.SELECTED_TAB);
     tabRightAdd = new Tab("", createSidebarEmptyState("right")); tabRightAdd.setClosable(false);
-    tabRightAdd.setGraphic(CssIcon.plusBold("#8cd48c"));
+    tabRightAdd.setGraphic(NewTabIcon.compact());
     tabRightAdd.getStyleClass().add("sidebar-add-tab");
     rightTabs.getTabs().addAll(tabRightAdd);
     installAddTabBehavior(rightTabs, tabRightAdd, this::showRightAddMenu);
@@ -2516,7 +2517,7 @@ public class EditorApp extends Application {
     tabProject = new Tab("Project", projView); tabProject.setClosable(false);
     applySidebarPanelGraphic(tabProject, EditorSidebarPanel.PROJECT);
     tabLeftAdd = new Tab("", createSidebarEmptyState("left")); tabLeftAdd.setClosable(false);
-    tabLeftAdd.setGraphic(CssIcon.plusBold("#8cd48c"));
+    tabLeftAdd.setGraphic(NewTabIcon.compact());
     tabLeftAdd.getStyleClass().add("sidebar-add-tab");
     leftTabs.getTabs().addAll(tabProject, tabLeftAdd);
     installAddTabBehavior(leftTabs, tabLeftAdd, this::showLeftAddMenu);
@@ -6050,16 +6051,14 @@ public class EditorApp extends Application {
   }
 
   private StackPane createSidebarEmptyState(String side) {
-    Region plusIcon = CssIcon.plusBold("#8cd48c");
-    plusIcon.setScaleX(1.6);
-    plusIcon.setScaleY(1.6);
+    Region plusIcon = NewTabIcon.of(32);
 
     Label title = new Label("No sidebar tools added");
     title.getStyleClass().add("sidebar-empty-title");
 
     String placement = "right".equalsIgnoreCase(side) ? "right" : "left";
     Label message = new Label(
-        "Click the green + tab above to add a " + placement + " sidebar tool like Help, Puppeteer Launcher, or Scene Lighting Studio.");
+        "Use the new-tab button above to add a " + placement + " sidebar tool like Help, Puppeteer Launcher, or Scene Lighting Studio.");
     message.getStyleClass().add("sidebar-empty-copy");
     message.setWrapText(true);
 
