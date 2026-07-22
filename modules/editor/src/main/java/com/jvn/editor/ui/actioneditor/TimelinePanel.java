@@ -151,6 +151,7 @@ public class TimelinePanel extends VBox {
     private String hoverRowStorageName;
     private PropertyType hoverRowProperty;
     private boolean hoverRowGroup;
+    private boolean hoverRowExpression;
     private Keyframe hoverKeyframe;
     private final Map<KeyframeSelectionModel.KeyframeRef, Double> dragStartTimes = new HashMap<>();
     private List<ClipboardEntry> copiedKeyframes = List.of();
@@ -196,6 +197,7 @@ public class TimelinePanel extends VBox {
                             double height) {}
     private record KeyframeHit(TrackRow row, Keyframe keyframe) {}
     private record EventCueHit(EditorEventCue cue) {}
+    private record ExpressionCueHit(TrackRow row, EditorEventCue cue) {}
 
     public TimelinePanel(AnimationProject project) {
         this(project, null);
@@ -809,6 +811,21 @@ public class TimelinePanel extends VBox {
         drawTrackGridLines(gc, y, width);
         y += TRACK_HEIGHT;
 
+        if (!groupTrack && !runtimeCameraTrack && shouldShowExpressionTrack(selectionName, isSelected)) {
+            boolean hovered = isHoveredExpressionRow(selectionName, track);
+            gc.setFill(hovered ? Color.web("#203028") : Color.web("#151515"));
+            gc.fillRect(0, y, width, TRACK_HEIGHT);
+            Color expressionColor = eventCueColor("expression");
+            gc.setFill(expressionColor.deriveColor(0, 1, 1, 0.62));
+            gc.fillRect(0, y, 3, TRACK_HEIGHT);
+            gc.setFill(expressionColor.deriveColor(0, 0.72, 1.08, 1));
+            gc.setFont(javafx.scene.text.Font.font(10));
+            gc.fillText("  └ Expression", 12, y + 15);
+            drawTrackGridLines(gc, y, width);
+            drawExpressionKeyframes(gc, selectionName, y, width);
+            y += TRACK_HEIGHT;
+        }
+
         for (PropertyType prop : properties) {
             boolean showTrack = shouldShowPropertyTrack(track, isSelected, groupTrack, runtimeCameraTrack, prop);
             if (!showTrack) continue;
@@ -831,20 +848,6 @@ public class TimelinePanel extends VBox {
 
             drawTrackGridLines(gc, y, width);
             drawKeyframes(gc, selectionName, track, prop, y, width);
-            y += TRACK_HEIGHT;
-        }
-        if (!groupTrack && !runtimeCameraTrack && shouldShowExpressionTrack(selectionName, isSelected)) {
-            boolean hovered = isHoveredExpressionRow(selectionName, track);
-            gc.setFill(hovered ? Color.web("#203028") : Color.web("#151515"));
-            gc.fillRect(0, y, width, TRACK_HEIGHT);
-            Color expressionColor = eventCueColor("expression");
-            gc.setFill(expressionColor.deriveColor(0, 1, 1, 0.62));
-            gc.fillRect(0, y, 3, TRACK_HEIGHT);
-            gc.setFill(expressionColor.deriveColor(0, 0.72, 1.08, 1));
-            gc.setFont(javafx.scene.text.Font.font(10));
-            gc.fillText("  └ Expression", 12, y + 15);
-            drawTrackGridLines(gc, y, width);
-            drawExpressionKeyframes(gc, selectionName, y, width);
             y += TRACK_HEIGHT;
         }
         return y;
@@ -1093,7 +1096,12 @@ public class TimelinePanel extends VBox {
     }
 
     private boolean shouldShowExpressionTrack(String entityName, boolean selected) {
-        return selected || !expressionCuesForEntity(entityName).isEmpty();
+        if (selected) return true;
+        if (entityName == null || entityName.isBlank()) return false;
+        return project.getEditorEventCues().stream()
+            .filter(TimelinePanel::isExpressionCue)
+            .map(cue -> cue.getPayloadValue("target"))
+            .anyMatch(target -> entityName.equals(target == null ? "" : target.trim()));
     }
 
     private List<EditorEventCue> expressionCuesForEntity(String entityName) {
@@ -1108,7 +1116,13 @@ public class TimelinePanel extends VBox {
         if (!isExpressionCue(cue)) return false;
         String target = cue.getPayloadValue("target");
         for (EntityTrack track : project.getTracks()) {
-            if (track != null && expressionTargetMatchesEntity(target, track.getEntityName())) return true;
+            if (track == null) continue;
+            String entityName = track.getEntityName();
+            boolean selected = !selectedGroup && Objects.equals(selectedEntity, entityName);
+            if (shouldShowExpressionTrack(entityName, selected)
+                && expressionTargetMatchesEntity(target, entityName)) {
+                return true;
+            }
         }
         return false;
     }
@@ -1262,6 +1276,7 @@ public class TimelinePanel extends VBox {
 
     private String buildRowHoverReadout(TrackRow row, double timeMs) {
         if (row == null) return "Time " + formatTime(timeMs);
+        if (row.expression()) return row.selectionName() + " / Expression  " + formatTime(timeMs);
         if (row.property() == null) return row.displayLabel() + "  " + formatTime(timeMs);
         String target = row.runtimeCamera() ? "Runtime Camera" : row.selectionName();
         if (target == null || target.isBlank()) target = row.displayLabel();
@@ -1275,6 +1290,7 @@ public class TimelinePanel extends VBox {
         hoverRowStorageName = null;
         hoverRowProperty = null;
         hoverRowGroup = false;
+        hoverRowExpression = false;
 
         if (hoverX < LABEL_WIDTH || hoverY < HEADER_HEIGHT || hoverX > canvas.getWidth() || hoverY > canvas.getHeight()) {
             hoverTimeMs = Double.NaN;
@@ -1291,6 +1307,7 @@ public class TimelinePanel extends VBox {
             hoverRowStorageName = storageNameForRow(row);
             hoverRowProperty = row.property();
             hoverRowGroup = row.group();
+            hoverRowExpression = row.expression();
             hoverReadout = buildKeyframeHoverReadout(row, hit.keyframe());
             render();
             return;
@@ -1301,6 +1318,7 @@ public class TimelinePanel extends VBox {
             hoverRowStorageName = storageNameForRow(row);
             hoverRowProperty = row.property();
             hoverRowGroup = row.group();
+            hoverRowExpression = row.expression();
         }
         hoverReadout = buildRowHoverReadout(row, hoverTimeMs);
         render();
@@ -1314,6 +1332,7 @@ public class TimelinePanel extends VBox {
         hoverRowStorageName = null;
         hoverRowProperty = null;
         hoverRowGroup = false;
+        hoverRowExpression = false;
         hoverKeyframe = null;
     }
 
@@ -1350,6 +1369,15 @@ public class TimelinePanel extends VBox {
         if (y < HEADER_HEIGHT + 5) {
             draggingPlayhead = true;
             updatePlayheadFromX(x);
+            return;
+        }
+
+        ExpressionCueHit expressionHit = findExpressionCueAt(x, y);
+        if (expressionHit != null) {
+            selectExpressionRow(expressionHit.row());
+            project.setPlayheadMs(expressionHit.cue().getTimeMs());
+            if (onPlayheadChanged != null) onPlayheadChanged.accept(expressionHit.cue().getTimeMs());
+            render();
             return;
         }
 
@@ -1478,6 +1506,13 @@ public class TimelinePanel extends VBox {
         if (e.getButton() == MouseButton.PRIMARY && e.getClickCount() == 2) {
             double x = e.getX();
             double y = e.getY();
+            ExpressionCueHit expressionHit = findExpressionCueAt(x, y);
+            if (expressionHit != null && onEventCueSelected != null) {
+                selectExpressionRow(expressionHit.row());
+                onEventCueSelected.accept(expressionHit.cue());
+                e.consume();
+                return;
+            }
             EventCueHit eventCueHit = findEventCueAt(x, y);
             if (eventCueHit != null && onEventCueSelected != null) {
                 onEventCueSelected.accept(eventCueHit.cue());
@@ -1485,6 +1520,14 @@ public class TimelinePanel extends VBox {
                 return;
             }
             if (y > HEADER_HEIGHT) {
+                TrackRow row = findRowAt(y);
+                if (row != null && row.expression()) {
+                    double time = clampToTimeline(snapTime((x - LABEL_WIDTH + scrollX) / pixelsPerMs));
+                    selectExpressionRow(row);
+                    requestExpressionKeyframe(row.selectionName(), time);
+                    e.consume();
+                    return;
+                }
                 KeyframeHit hit = findKeyframeAt(x, y);
                 if (hit != null) {
                     selectedEntity = hit.row().selectionName();
@@ -1502,6 +1545,39 @@ public class TimelinePanel extends VBox {
                 }
             }
         }
+    }
+
+    private ExpressionCueHit findExpressionCueAt(double x, double y) {
+        TrackRow row = findRowAt(y);
+        if (row == null || !row.expression()) return null;
+        double cy = row.y() + row.height() / 2.0;
+        List<EditorEventCue> cues = expressionCuesForEntity(row.selectionName());
+        for (int i = cues.size() - 1; i >= 0; i--) {
+            EditorEventCue cue = cues.get(i);
+            double cueX = LABEL_WIDTH + cue.getTimeMs() * pixelsPerMs - scrollX;
+            if (Math.abs(x - cueX) <= 10.0 && Math.abs(y - cy) <= 10.0) {
+                return new ExpressionCueHit(row, cue);
+            }
+        }
+        return null;
+    }
+
+    private void selectExpressionRow(TrackRow row) {
+        if (row == null) return;
+        selectedEntity = row.selectionName();
+        selectedGroup = false;
+        clearKeyframeSelection();
+        notifyTargetSelectionChanged();
+    }
+
+    private void requestExpressionKeyframe(String entityName, double timeMs) {
+        double time = clampToTimeline(Math.max(0.0, timeMs));
+        project.setPlayheadMs(time);
+        if (onPlayheadChanged != null) onPlayheadChanged.accept(time);
+        if (onExpressionKeyframeRequested != null) {
+            onExpressionKeyframeRequested.accept(entityName, time);
+        }
+        render();
     }
 
     private EventCueHit findEventCueAt(double x, double y) {
@@ -1854,14 +1930,14 @@ public class TimelinePanel extends VBox {
             rows.add(new TrackRow(track, track.getEntityName(), track.getEntityName(), false, false, null, false, y, TRACK_HEIGHT));
             y += TRACK_HEIGHT;
             boolean isSelected = !selectedGroup && track.getEntityName().equals(selectedEntity);
+            if (shouldShowExpressionTrack(track.getEntityName(), isSelected)) {
+                rows.add(new TrackRow(track, track.getEntityName(), "Expression", false, false, null, true, y, TRACK_HEIGHT));
+                y += TRACK_HEIGHT;
+            }
             for (PropertyType prop : PropertyType.values()) {
                 boolean showTrack = shouldShowPropertyTrack(track, isSelected, false, false, prop);
                 if (!showTrack) continue;
                 rows.add(new TrackRow(track, track.getEntityName(), prop.getDisplayName(), false, false, prop, false, y, TRACK_HEIGHT));
-                y += TRACK_HEIGHT;
-            }
-            if (shouldShowExpressionTrack(track.getEntityName(), isSelected)) {
-                rows.add(new TrackRow(track, track.getEntityName(), "Expression", false, false, null, true, y, TRACK_HEIGHT));
                 y += TRACK_HEIGHT;
             }
         }
@@ -2079,7 +2155,16 @@ public class TimelinePanel extends VBox {
             : selectionName;
         return Objects.equals(hoverRowStorageName, storageName)
             && hoverRowProperty == property
+            && !hoverRowExpression
             && hoverRowGroup == groupTrack;
+    }
+
+    private boolean isHoveredExpressionRow(String selectionName, EntityTrack track) {
+        if (!Double.isFinite(hoverTimeMs) || !hoverRowExpression) return false;
+        String storageName = track != null && track.getEntityName() != null && !track.getEntityName().isBlank()
+            ? track.getEntityName()
+            : selectionName;
+        return Objects.equals(hoverRowStorageName, storageName);
     }
 
     static boolean isRuntimeCameraTarget(String name) {
@@ -2324,13 +2409,22 @@ public class TimelinePanel extends VBox {
         dismissContextMenu();
 
         ContextMenu menu;
+        ExpressionCueHit expressionHit = findExpressionCueAt(x, y);
         KeyframeHit hit = findKeyframeAt(x, y);
-        if (hit != null) {
+        if (expressionHit != null) {
+            selectExpressionRow(expressionHit.row());
+            render();
+            menu = buildExpressionRowContextMenu(expressionHit.row(), x, expressionHit.cue());
+        } else if (hit != null) {
             ensureKeyframeIsSelected(hit);
             menu = buildKeyframeContextMenu(hit);
         } else {
             TrackRow row = findRowAt(y);
-            if (row != null && row.property() != null) {
+            if (row != null && row.expression()) {
+                selectExpressionRow(row);
+                render();
+                menu = buildExpressionRowContextMenu(row, x, null);
+            } else if (row != null && row.property() != null) {
                 selectedEntity = row.selectionName();
                 selectedGroup = row.group();
                 selectedProperty = row.property();
@@ -2439,6 +2533,37 @@ public class TimelinePanel extends VBox {
         miSelectTrack.setOnAction(ev -> selectAllKeyframesOnTrack(hit.row()));
         menu.getItems().addAll(miSnapToPlayhead, miPlayheadToHere, miSelectColumn, miSelectTrack,
             new SeparatorMenuItem(), miDelete);
+        return menu;
+    }
+
+    private ContextMenu buildExpressionRowContextMenu(TrackRow row, double mouseX, EditorEventCue cue) {
+        ContextMenu menu = new ContextMenu();
+        double rowTime = clampToTimeline(snapTime((mouseX - LABEL_WIDTH + scrollX) / pixelsPerMs));
+        MenuItem header = new MenuItem(row.selectionName() + "  /  Expression");
+        header.setDisable(true);
+        menu.getItems().addAll(header, new SeparatorMenuItem());
+
+        if (cue != null) {
+            MenuItem edit = new MenuItem("Edit Expression Keyframe...");
+            edit.setOnAction(ev -> {
+                if (onEventCueSelected != null) onEventCueSelected.accept(cue);
+            });
+            MenuItem playhead = new MenuItem("Playhead to This Keyframe");
+            playhead.setOnAction(ev -> {
+                project.setPlayheadMs(cue.getTimeMs());
+                if (onPlayheadChanged != null) onPlayheadChanged.accept(cue.getTimeMs());
+                render();
+            });
+            menu.getItems().addAll(edit, playhead, new SeparatorMenuItem());
+        }
+
+        MenuItem addHere = new MenuItem(String.format(
+            Locale.ROOT, "Add Expression Here (%s)", formatTime(rowTime)));
+        addHere.setOnAction(ev -> requestExpressionKeyframe(row.selectionName(), rowTime));
+        MenuItem addPlayhead = new MenuItem("Add Expression at Playhead");
+        addPlayhead.setOnAction(ev -> requestExpressionKeyframe(
+            row.selectionName(), project.getPlayheadMs()));
+        menu.getItems().addAll(addHere, addPlayhead);
         return menu;
     }
 

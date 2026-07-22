@@ -2,6 +2,8 @@ package com.jvn.editor.ui.actioneditor;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 
@@ -30,5 +32,19 @@ class TimelinePanelQoLTest {
         double[] window = TimelinePanel.computeFocusWindow(900.0, 980.0, 1000.0);
 
         assertArrayEquals(new double[]{820.0, 1000.0}, window, 0.0001);
+    }
+
+    @Test
+    void expressionTargetMatchesLayeredCharacterEntities() {
+        assertTrue(TimelinePanel.expressionTargetMatchesEntity(
+            "lavender", "lavender_idle_mouth_neutral"));
+        assertTrue(TimelinePanel.expressionTargetMatchesEntity(
+            "lavender", "lavender.mouth"));
+        assertTrue(TimelinePanel.expressionTargetMatchesEntity(
+            "lavender", "lavender:mouth"));
+        assertTrue(TimelinePanel.expressionTargetMatchesEntity(
+            "lavender", "lavender"));
+        assertFalse(TimelinePanel.expressionTargetMatchesEntity(
+            "lavender", "lavenderish_mouth"));
     }
 }

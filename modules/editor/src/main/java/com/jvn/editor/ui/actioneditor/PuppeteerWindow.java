@@ -701,6 +701,13 @@ public class PuppeteerWindow extends Stage {
         });
 
         timelinePanel.setOnEventCueSelected(this::showEventCueManagerDialog);
+        timelinePanel.setOnExpressionKeyframeRequested((entityName, timeMs) -> {
+            timelinePanel.setSelectedTarget(entityName, false);
+            project.setPlayheadMs(timeMs);
+            updateTimeLabel();
+            updatePreview();
+            showExpressionKeyframeDialog();
+        });
 
         timelinePanel.setOnKeyframeSelected(kf -> {
             if (timelinePanel.getSelectionCount() > 1) {
