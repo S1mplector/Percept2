@@ -323,9 +323,15 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
             (value, query) -> matchesSearchableText(value, query)));
     setBox.setOnAction(e -> onSetSelectionChanged());
 
-    refreshCatalogButton = iconButton(CssIcon.refresh("#7ec8e3"), "Refresh set scan", this::onCatalogRefreshRequested);
+    refreshCatalogButton = iconButton(
+        LayeredVisualizerIcon.of(LayeredVisualizerIcon.Kind.REFRESH_SET),
+        "Refresh set scan",
+        this::onCatalogRefreshRequested);
     updateRefreshButtonUi(false);
-    Button newSetButton = iconButton(CssIcon.plus("#9ed67a"), "Create a new layered set from scratch", this::showNewSetDialog);
+    Button newSetButton = iconButton(
+        LayeredVisualizerIcon.of(LayeredVisualizerIcon.Kind.NEW_SET),
+        "Create a new layered set from scratch",
+        this::showNewSetDialog);
 
     HBox setRow = new HBox(4, new Label("Set"), setBox, refreshCatalogButton, newSetButton);
     setRow.setAlignment(Pos.CENTER_LEFT);
@@ -347,14 +353,23 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
               (value, query) -> matchesSearchableText(value, query)));
       HBox.setHgrow(presetBox, Priority.ALWAYS);
 
-      Button loadPresetButton = iconButton(CssIcon.download("#8ab4f8"), "Load selected preset", this::loadSelectedPreset);
-      Button deletePresetButton = iconButton(CssIcon.clearX("#f38ba8"), "Delete selected preset", this::deleteSelectedPreset);
+      Button loadPresetButton = iconButton(
+          LayeredVisualizerIcon.of(LayeredVisualizerIcon.Kind.LOAD_PRESET),
+          "Load selected preset",
+          this::loadSelectedPreset);
+      Button deletePresetButton = iconButton(
+          LayeredVisualizerIcon.of(LayeredVisualizerIcon.Kind.DELETE_PRESET),
+          "Delete selected preset",
+          this::deleteSelectedPreset);
       HBox presetLoadRow = new HBox(4, new Label("Preset"), presetBox, loadPresetButton, deletePresetButton);
       presetLoadRow.setAlignment(Pos.CENTER_LEFT);
 
       presetNameField.setPromptText("Preset name");
       HBox.setHgrow(presetNameField, Priority.ALWAYS);
-      Button savePresetButton = iconButton(CssIcon.save("#9ed67a"), "Save preset", this::savePreset);
+      Button savePresetButton = iconButton(
+          LayeredVisualizerIcon.of(LayeredVisualizerIcon.Kind.SAVE_PRESET),
+          "Save preset",
+          this::savePreset);
       HBox presetSaveRow = new HBox(4, new Label("Name"), presetNameField, savePresetButton);
       presetSaveRow.setAlignment(Pos.CENTER_LEFT);
 
@@ -467,15 +482,36 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     snippetRow.setAlignment(Pos.CENTER_LEFT);
 
     // Action row
-    Button randomizeButton = iconButton(CssIcon.sort("#f0b673"), "Randomize layer choices", this::randomizeSelection);
-    Button defaultsButton = iconButton(CssIcon.home("#9ed67a"), "Restore default first option per group", this::applyDefaultSelection);
-    Button noneButton = iconButton(CssIcon.clearX("#f38ba8"), "Clear all selected layers", this::applyNoneSelection);
-    Button swapPrevButton = iconButton(CssIcon.undo("#8ab4f8"), "Swap previous on marked groups", () -> swapMarkedGroups(-1));
-    Button swapNextButton = iconButton(CssIcon.redo("#8ab4f8"), "Swap next on marked groups", () -> swapMarkedGroups(1));
-    Button resetViewButton = iconButton(CssIcon.expand("#8ab4f8"), "Reset preview focus and zoom", () -> {
+    Button randomizeButton = iconButton(
+        LayeredVisualizerIcon.of(LayeredVisualizerIcon.Kind.RANDOMIZE),
+        "Randomize layer choices",
+        this::randomizeSelection);
+    Button defaultsButton = iconButton(
+        LayeredVisualizerIcon.of(LayeredVisualizerIcon.Kind.DEFAULTS),
+        "Restore default first option per group",
+        this::applyDefaultSelection);
+    Button noneButton = iconButton(
+        LayeredVisualizerIcon.of(LayeredVisualizerIcon.Kind.CLEAR_LAYERS),
+        "Clear all selected layers",
+        this::applyNoneSelection);
+    Button swapPrevButton = iconButton(
+        LayeredVisualizerIcon.of(LayeredVisualizerIcon.Kind.PREVIOUS_VARIANT),
+        "Swap previous on marked groups",
+        () -> swapMarkedGroups(-1));
+    Button swapNextButton = iconButton(
+        LayeredVisualizerIcon.of(LayeredVisualizerIcon.Kind.NEXT_VARIANT),
+        "Swap next on marked groups",
+        () -> swapMarkedGroups(1));
+    Button resetViewButton = iconButton(
+        LayeredVisualizerIcon.of(LayeredVisualizerIcon.Kind.RESET_VIEW),
+        "Reset preview focus and zoom",
+        () -> {
       resetViewportControls(true);
     });
-    fullscreenButton = iconButton(CssIcon.expand("#f5c46b"), "Fullscreen this panel in the current editor window", this::requestFullscreenToggle);
+    fullscreenButton = iconButton(
+        LayeredVisualizerIcon.of(LayeredVisualizerIcon.Kind.FULLSCREEN),
+        "Fullscreen this panel in the current editor window",
+        this::requestFullscreenToggle);
     updateFullscreenButtonUi();
 
     HBox toolRow = new HBox(
@@ -490,17 +526,59 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
         randomizeActiveOnly);
     toolRow.setAlignment(Pos.CENTER_LEFT);
 
-    Button chooseExportFolderButton = iconButton(CssIcon.folder("#f5c46b"), "Choose export folder", this::chooseExportDirectory);
-    Button revealExportFolderButton = iconButton(CssIcon.link("#9cc7ff"), "Reveal export folder in JVN Path Explorer", this::revealExportDirectory);
-    Button copyCharpresetExportButton = actionButton("Copy Charpreset", CssIcon.copy("#c6a0f6"), "Copy runtime-ready @charlayer + @charpreset declarations", this::copyCharpresetSnippet);
-    Button exportCharpresetButton = actionButton("Save Charpreset", CssIcon.save("#c6a0f6"), "Quick export @charlayer + @charpreset declarations as a .vns snippet", this::quickExportCharpresetToFile);
-    Button exportCharpresetAsButton = actionButton("Charpreset As", CssIcon.download("#c6a0f6"), "Choose a .vns snippet destination", this::exportCharpresetToFileAs);
-    Button exportPngButton = actionButton("PNG", CssIcon.download("#8ab4f8"), "Quick export composited PNG to the configured folder", this::quickExportCompositePng);
-    Button exportPngAsButton = actionButton("PNG As", CssIcon.save("#8ab4f8"), "Choose a PNG destination", this::exportCompositePngAs);
-    Button exportSetupBtn = actionButton("Layer Setup", CssIcon.save("#9ed67a"), "Quick export editor-only .layersetup to the configured folder", this::quickExportSetupToFile);
-    Button exportSetupAsButton = actionButton("Setup As", CssIcon.download("#9ed67a"), "Choose an editor-only .layersetup destination", this::exportSetupToFileAs);
-    Button importSetupBtn = actionButton("Import Setup", CssIcon.folder("#f5c46b"), "Import setup from .layersetup file", this::importSetupFromFile);
-    Button exportBundleButton = actionButton("PNG + Setup", CssIcon.download("#d8c48a"), "Quick export both PNG and editor-only .layersetup to the configured folder", this::quickExportBundle);
+    Button chooseExportFolderButton = iconButton(
+        LayeredVisualizerIcon.of(LayeredVisualizerIcon.Kind.CHOOSE_FOLDER),
+        "Choose export folder",
+        this::chooseExportDirectory);
+    Button revealExportFolderButton = iconButton(
+        LayeredVisualizerIcon.of(LayeredVisualizerIcon.Kind.REVEAL_FOLDER),
+        "Reveal export folder in JVN Path Explorer",
+        this::revealExportDirectory);
+    Button copyCharpresetExportButton = actionButton(
+        "Copy Charpreset",
+        LayeredVisualizerIcon.of(LayeredVisualizerIcon.Kind.COPY_CHARPRESET),
+        "Copy runtime-ready @charlayer + @charpreset declarations",
+        this::copyCharpresetSnippet);
+    Button exportCharpresetButton = actionButton(
+        "Save Charpreset",
+        LayeredVisualizerIcon.of(LayeredVisualizerIcon.Kind.SAVE_CHARPRESET),
+        "Quick export @charlayer + @charpreset declarations as a .vns snippet",
+        this::quickExportCharpresetToFile);
+    Button exportCharpresetAsButton = actionButton(
+        "Charpreset As",
+        LayeredVisualizerIcon.of(LayeredVisualizerIcon.Kind.CHARPRESET_AS),
+        "Choose a .vns snippet destination",
+        this::exportCharpresetToFileAs);
+    Button exportPngButton = actionButton(
+        "PNG",
+        LayeredVisualizerIcon.of(LayeredVisualizerIcon.Kind.EXPORT_PNG),
+        "Quick export composited PNG to the configured folder",
+        this::quickExportCompositePng);
+    Button exportPngAsButton = actionButton(
+        "PNG As",
+        LayeredVisualizerIcon.of(LayeredVisualizerIcon.Kind.PNG_AS),
+        "Choose a PNG destination",
+        this::exportCompositePngAs);
+    Button exportSetupBtn = actionButton(
+        "Layer Setup",
+        LayeredVisualizerIcon.of(LayeredVisualizerIcon.Kind.SAVE_SETUP),
+        "Quick export editor-only .layersetup to the configured folder",
+        this::quickExportSetupToFile);
+    Button exportSetupAsButton = actionButton(
+        "Setup As",
+        LayeredVisualizerIcon.of(LayeredVisualizerIcon.Kind.SETUP_AS),
+        "Choose an editor-only .layersetup destination",
+        this::exportSetupToFileAs);
+    Button importSetupBtn = actionButton(
+        "Import Setup",
+        LayeredVisualizerIcon.of(LayeredVisualizerIcon.Kind.IMPORT_SETUP),
+        "Import setup from .layersetup file",
+        this::importSetupFromFile);
+    Button exportBundleButton = actionButton(
+        "PNG + Setup",
+        LayeredVisualizerIcon.of(LayeredVisualizerIcon.Kind.EXPORT_BUNDLE),
+        "Quick export both PNG and editor-only .layersetup to the configured folder",
+        this::quickExportBundle);
     HBox exportDirRow = new HBox(4, new Label("Folder"), exportDirectoryField, chooseExportFolderButton, revealExportFolderButton);
     exportDirRow.setAlignment(Pos.CENTER_LEFT);
     HBox.setHgrow(exportDirectoryField, Priority.ALWAYS);
@@ -693,7 +771,10 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     galleryTitledPane.setAnimated(false);
     galleryTitledPane.setCollapsible(true);
 
-    sidebarHideButton = iconButton(CssIcon.arrowRight("#d0d0d0"), "Hide controls sidebar", () -> setSidebarCollapsed(true, true));
+    sidebarHideButton = iconButton(
+        LayeredVisualizerIcon.of(LayeredVisualizerIcon.Kind.HIDE_CONTROLS),
+        "Hide controls sidebar",
+        () -> setSidebarCollapsed(true, true));
     sidebarHideButton.getStyleClass().add("image-tool-sidebar-toggle");
     Region sidebarHeaderSpacer = new Region();
     HBox.setHgrow(sidebarHeaderSpacer, Priority.ALWAYS);
@@ -724,7 +805,10 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     sidebarScroll.setPrefWidth(320);
     sidebarScroll.setMinWidth(0);
 
-    sidebarShowButton = iconButton(CssIcon.arrowLeft("#d0d0d0"), "Show controls sidebar", () -> setSidebarCollapsed(false, true));
+    sidebarShowButton = iconButton(
+        LayeredVisualizerIcon.of(LayeredVisualizerIcon.Kind.SHOW_CONTROLS),
+        "Show controls sidebar",
+        () -> setSidebarCollapsed(false, true));
     sidebarShowButton.getStyleClass().addAll("image-tool-sidebar-toggle", "image-tool-sidebar-overlay-toggle");
     sidebarShowButton.setManaged(false);
     sidebarShowButton.setVisible(false);
@@ -798,10 +882,12 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   private void updateRefreshButtonUi(boolean scanning) {
     if (refreshCatalogButton == null) return;
     if (scanning) {
-      refreshCatalogButton.setGraphic(CssIcon.clearX("#f38ba8"));
+      refreshCatalogButton.setGraphic(
+          LayeredVisualizerIcon.of(LayeredVisualizerIcon.Kind.REFRESH_ERROR));
       refreshCatalogButton.setTooltip(new Tooltip("Cancel set scan"));
     } else {
-      refreshCatalogButton.setGraphic(CssIcon.refresh("#7ec8e3"));
+      refreshCatalogButton.setGraphic(
+          LayeredVisualizerIcon.of(LayeredVisualizerIcon.Kind.REFRESH_SET));
       refreshCatalogButton.setTooltip(new Tooltip("Refresh set scan"));
     }
   }
@@ -2665,10 +2751,12 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
   private void updateFullscreenButtonUi() {
     if (fullscreenButton == null) return;
     if (fullscreenActive) {
-      fullscreenButton.setGraphic(CssIcon.clearX("#f38ba8"));
+      fullscreenButton.setGraphic(
+          LayeredVisualizerIcon.of(LayeredVisualizerIcon.Kind.EXIT_FULLSCREEN));
       fullscreenButton.setTooltip(new Tooltip("Exit panel fullscreen"));
     } else {
-      fullscreenButton.setGraphic(CssIcon.expand("#f5c46b"));
+      fullscreenButton.setGraphic(
+          LayeredVisualizerIcon.of(LayeredVisualizerIcon.Kind.FULLSCREEN));
       fullscreenButton.setTooltip(new Tooltip("Fullscreen this panel in the current editor window"));
     }
   }
