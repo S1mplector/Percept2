@@ -130,6 +130,35 @@ tasks.register<JavaExec>("runLauncher") {
   configureJavaFxRuntime()
 }
 
+val fastLaunchDirectory = rootProject.layout.buildDirectory.dir("fast-launch/editor")
+
+tasks.register("prepareFastLaunch") {
+  group = "application"
+  description = "Compiles the editor and writes reusable direct-launch classpath metadata."
+  dependsOn(tasks.named("classes"))
+  val runtimeClasspath = sourceSets["main"].runtimeClasspath
+  inputs.files(runtimeClasspath)
+  outputs.dir(fastLaunchDirectory)
+  doLast {
+    val outputDir = fastLaunchDirectory.get().asFile
+    val javafxFiles = runtimeClasspath.files
+      .filter { it.name.startsWith("javafx-") && it.name.endsWith(".jar") }
+      .sortedBy { it.absolutePath }
+    val classpathFiles = runtimeClasspath.files
+      .filterNot { it in javafxFiles }
+      .sortedBy { it.absolutePath }
+    if (javafxFiles.isEmpty()) {
+      throw GradleException("No JavaFX runtime jars found for fast editor launch.")
+    }
+    outputDir.mkdirs()
+    outputDir.resolve("classpath.txt").writeText(
+      classpathFiles.joinToString("\n", postfix = "\n") { it.absolutePath })
+    outputDir.resolve("module-path.txt").writeText(
+      javafxFiles.joinToString("\n", postfix = "\n") { it.absolutePath })
+    outputDir.resolve("version.txt").writeText(rootProject.version.toString() + "\n")
+  }
+}
+
 fun JavaExec.forwardDocsScreenshotSystemProps() {
   listOf(
     "jvn.docs.profile",

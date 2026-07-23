@@ -26,6 +26,12 @@ To force a cache rebuild or select a launch path explicitly:
 
 The equivalent persistent setting is `JVN_LAUNCH_MODE=auto|direct|gradle`. Auto mode is the default: it uses direct startup and falls back to Gradle only if `javac` is unavailable and there is no valid cache. Concurrent launches share a compilation lock so they cannot corrupt or redundantly rebuild the cache. The direct JVM also uses a low-overhead serial collector and startup-tier compilation; override or extend its flags with `JVN_HUB_JAVA_OPTS`. Gradle remains in use for editor/runtime builds and other workspace actions launched from the hub.
 
+## Cache-First Application Launches
+
+**Run Editor** and **Run Launcher** also avoid Gradle on warm starts. After source, resources, or build definitions change, JVN runs one preparation task to compile the affected modules and record the exact JavaFX module path and runtime classpath. Later starts invoke Java directly until that cache becomes stale.
+
+The same path is used by `./jvnw editor`, `./jvnw launcher`, and `./jvnw runtime`. Control it with `JVN_APP_LAUNCH_MODE=auto|direct|gradle`: `auto` refreshes when needed, `direct` guarantees that no Gradle process will be started and reports a stale cache, and `gradle` always uses the original run task. Run `scripts/launch-app.sh editor --rebuild` to force a refresh.
+
 ## Source-First Preview Builds
 
 JVN does not publish official prebuilt Engine Hub, editor, or runtime binaries yet. During the current preview phase, run the hub from a source checkout with `./jvn` on macOS/Linux or `jvn.bat` on Windows. The hub then uses the same checkout for editor launches, builds, tests, update operations, shortcut installation, and project packaging.

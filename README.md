@@ -3,7 +3,7 @@
 <div align="left">
   <img src="docs/assets/images/jvn_logo.svg" width="460" alt="Java Vector Nexus logo">
   <br>
-  <strong>Current version:</strong> v0.4.0 <em></em>
+  <strong>Current version:</strong> v0.4.2 <em></em>
 </div>
 
 JVN is a young, modular cross-platform Visual Novel engine and 2D animation toolkit written in Java.
@@ -92,6 +92,8 @@ Launch the Engine Hub:
 ```
 
 Hub startup bypasses Gradle by default and reuses a tiny `javac` cache after the first launch. Use `./jvn --direct` to prohibit Gradle entirely, `./jvn --gradle` for the legacy launch path, or `./jvn --rebuild-launcher` to refresh the cache explicitly.
+
+Editor, Launcher, and Runtime starts are cache-first as well. Their first launch after a source or build change asks Gradle to refresh the compiled runtime metadata; warm launches execute Java/JavaFX directly. Set `JVN_APP_LAUNCH_MODE=direct` to prohibit Gradle and require an already-current cache, or `JVN_APP_LAUNCH_MODE=gradle` to retain the legacy behavior.
 
 ```bat
 :: Windows

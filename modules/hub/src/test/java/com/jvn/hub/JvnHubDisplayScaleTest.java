@@ -44,7 +44,7 @@ class JvnHubDisplayScaleTest {
 
   @Test
   void sourceBuildIndicatorUsesTheHubOrangeAccent() {
-    String label = JvnHub.formatVersionLabel("0.4.0");
+    String label = JvnHub.formatVersionLabel("0.4.2");
     if (label.startsWith("<html>")) {
       org.junit.jupiter.api.Assertions.assertTrue(label.contains("color:#ff9933"));
       org.junit.jupiter.api.Assertions.assertTrue(label.contains("Running from source"));

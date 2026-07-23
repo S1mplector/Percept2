@@ -1188,7 +1188,7 @@ public final class JvnHub {
     actionGrid.setOpaque(false);
 
     runEditorButton = makeAction("Run Editor", "Launch the full JVN editor.",
-        VectorIcon.Kind.EDIT, null, () -> guardedRun("Run Editor", () -> runGradle(":editor:run", "Run Editor")));
+        VectorIcon.Kind.EDIT, null, () -> guardedRun("Run Editor", () -> runFastApp("editor", "Run Editor")));
     runEditorButton.setIcon(WindowsSevenActionIcon.of(WindowsSevenActionIcon.Kind.EDITOR));
 
     // Launcher access is intentionally withheld while that workflow is under maintenance.
@@ -2043,7 +2043,7 @@ public final class JvnHub {
       showLauncherMaintenanceNotice();
       return;
     }
-    guardedRun("Run Launcher", () -> runGradle(":editor:runLauncher", "Run Launcher"));
+    guardedRun("Run Launcher", () -> runFastApp("launcher", "Run Launcher"));
   }
 
   private void showLauncherMaintenanceNotice() {
@@ -2108,6 +2108,24 @@ public final class JvnHub {
     }
     cmd.add(task);
     completeCurrentStep("Gradle command assembled.");
+    advanceStep(modeLaunchDetail());
+    appendLog("$ " + String.join(" ", cmd));
+    startProcess(cmd, label);
+  }
+
+  private void runFastApp(String app, String label) {
+    if (System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win")) {
+      runGradle(app.equals("runtime") ? ":runtime:run"
+          : app.equals("launcher") ? ":editor:runLauncher" : ":editor:run", label);
+      return;
+    }
+    if (!acquire(label)) return;
+    List<String> cmd = new ArrayList<>();
+    cmd.add(projectRoot.resolve("scripts").resolve("launch-app.sh").toString());
+    cmd.add(app);
+    if (developerModeEnabled) cmd.add("--developer-mode");
+    if (safeModeEnabled) cmd.add("--safe-mode");
+    completeCurrentStep("Cache-first launch command assembled.");
     advanceStep(modeLaunchDetail());
     appendLog("$ " + String.join(" ", cmd));
     startProcess(cmd, label);
@@ -4041,7 +4059,7 @@ public final class JvnHub {
   private static String displayVersionLabel(String rawVersion) {
     String raw = rawVersion == null ? "" : rawVersion.trim();
     if (raw.isBlank() || raw.equalsIgnoreCase("dev") || raw.equalsIgnoreCase("vdev")) {
-      return "v0.4.0";
+      return "v0.4.2";
     }
 
     String version = raw.startsWith("v") || raw.startsWith("V") ? raw.substring(1) : raw;
@@ -4060,7 +4078,7 @@ public final class JvnHub {
     int plus = version.indexOf('+');
     if (plus >= 0) version = version.substring(0, plus);
     version = version.trim();
-    if (version.isBlank()) version = "0.4.0";
+    if (version.isBlank()) version = "0.4.2";
     return "v" + version + (maturity == null ? "" : " " + maturity);
   }
 

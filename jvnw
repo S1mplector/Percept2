@@ -570,6 +570,18 @@ if [[ "$raw_mode" == "1" ]]; then
   exec "$GRADLEW_PATH"
 fi
 
+# Common application launches use the prepared runtime classpath directly.
+# Supplying Gradle options before the alias keeps the legacy passthrough path.
+if [[ ${#input_args[@]} -gt 0 && -z "${JVNW_GRADLEW_PATH:-}" ]]; then
+  case "${input_args[0]}" in
+    editor|launcher|runtime|run|game)
+      fast_app="${input_args[0]}"
+      case "$fast_app" in run|game) fast_app="runtime" ;; esac
+      exec "$SCRIPT_DIR/scripts/launch-app.sh" "$fast_app" "${input_args[@]:1}"
+      ;;
+  esac
+fi
+
 declare -a forwarded_args=()
 alias_label=""
 first_non_option_seen=0
