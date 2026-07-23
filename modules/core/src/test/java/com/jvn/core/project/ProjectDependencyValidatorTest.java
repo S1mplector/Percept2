@@ -103,6 +103,34 @@ class ProjectDependencyValidatorTest {
         "story/missing.vns"));
   }
 
+  @Test
+  void reportsInlineJavaCompilerRequirementOnceWithSourceLocation() throws Exception {
+    Path root = Files.createTempDirectory("jvn-dependency-inline-java-");
+    write(root.resolve("jvn.project"), """
+        name=Inline Java Demo
+        type=vn
+        entryVns=story/main.vns
+        """);
+    write(root.resolve("scripts/story/main.vns"), """
+        @scenario main
+        [java]
+        state.setVariable("ready", true);
+        [/java]
+        $ state.setVariable("score", 1);
+        """);
+
+    ProjectDependencyValidator.Report report = ProjectDependencyValidator.inspect(root);
+
+    assertTrue(hasFinding(report, ProjectDependencyValidator.Severity.WARNING, "packaging",
+        "jdk.compiler"));
+    long compilerFindings = report.findings().stream()
+        .filter(f -> "jdk.compiler".equals(f.target()))
+        .count();
+    assertTrue(compilerFindings == 1);
+    assertTrue(report.findings().stream().anyMatch(f ->
+        "jdk.compiler".equals(f.target()) && f.location().equals("scripts/story/main.vns:2")));
+  }
+
   private static boolean hasFinding(
       ProjectDependencyValidator.Report report,
       ProjectDependencyValidator.Severity severity,

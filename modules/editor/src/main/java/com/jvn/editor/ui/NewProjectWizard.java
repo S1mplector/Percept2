@@ -13,6 +13,7 @@ import java.util.Locale;
 import java.util.Properties;
 
 import com.jvn.core.project.StoryMapPaths;
+import com.jvn.core.vn.VnStoragePaths;
 import com.jvn.editor.vcs.GitVcsService;
 
 import javafx.css.Styleable;
@@ -1819,6 +1820,7 @@ public class NewProjectWizard extends Stage {
     Properties manifest = new Properties();
     manifest.setProperty("name", displayName);
     manifest.setProperty("author", txtAuthor.getText().trim());
+    manifest.setProperty("id", VnStoragePaths.resolveGameId(manifest, dir.toPath()));
     manifest.setProperty("type", "vn");
     manifest.setProperty("entryVns", ENTRY_SCRIPT_PATH);
     manifest.setProperty("entryLabel", "start");

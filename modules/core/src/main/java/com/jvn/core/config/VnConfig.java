@@ -3,9 +3,9 @@ package com.jvn.core.config;
 /**
  * Runtime configuration for the visual novel engine.
  *
- * <p>Covers rendering tuning, async behaviour, and accessibility settings.
- * Persisted via {@code VnSaveMigration}: any new field must be added with a
- * default so existing saves round-trip cleanly.
+ * <p>Covers process-level rendering and asynchronous behavior. Player
+ * preferences, including accessibility settings, belong to
+ * {@code com.jvn.core.vn.VnSettings}.
  */
 public class VnConfig {
 
@@ -21,13 +21,15 @@ public class VnConfig {
 
   // ── Accessibility ──────────────────────────────────────────────────────────
 
-  /** Whether text-to-speech self-voicing is enabled. */
+  /** @deprecated Use {@code VnSettings.isTextToSpeechEnabled()}. */
+  @Deprecated(forRemoval = true)
   private boolean ttsEnabled = false;
 
   /**
-   * UI font scale multiplier, clamped to [0.75, 2.0].
-   * Applied to every font size in VnRenderer and MenuRenderer.
+   * @deprecated Use {@code VnSettings.getUiFontScale()}. This compatibility
+   * field is not consumed by the runtime renderer.
    */
+  @Deprecated(forRemoval = true)
   private double uiFontScale = 1.0;
 
   // ── Accessors ──────────────────────────────────────────────────────────────
@@ -44,12 +46,20 @@ public class VnConfig {
     this.asyncImageDecode = asyncImageDecode;
   }
 
+  /** @deprecated Use the active {@code VnSettings} instance. */
+  @Deprecated(forRemoval = true)
   public boolean isTtsEnabled() { return ttsEnabled; }
 
+  /** @deprecated Use the active {@code VnSettings} instance. */
+  @Deprecated(forRemoval = true)
   public void setTtsEnabled(boolean ttsEnabled) { this.ttsEnabled = ttsEnabled; }
 
+  /** @deprecated Use the active {@code VnSettings} instance. */
+  @Deprecated(forRemoval = true)
   public double getUiFontScale() { return uiFontScale; }
 
+  /** @deprecated Use the active {@code VnSettings} instance. */
+  @Deprecated(forRemoval = true)
   public void setUiFontScale(double uiFontScale) {
     this.uiFontScale = Math.max(0.75, Math.min(2.0, uiFontScale));
   }

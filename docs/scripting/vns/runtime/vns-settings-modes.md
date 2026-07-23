@@ -1,6 +1,6 @@
 # VNS Settings & Playback Modes
 
-Complete reference for VN runtime settings and playback modes — text speed, audio volumes, skip mode, auto-play, UI visibility, click behavior, and physics tuning.
+Complete reference for VN runtime settings and playback modes — text speed, audio volumes, skip mode, auto-play, UI visibility, click behavior, accessibility, display, and physics tuning.
 
 Settings: `modules/core/src/main/java/com/jvn/core/vn/VnSettings.java`
 Scene modes: `modules/core/src/main/java/com/jvn/core/vn/VnScene.java`
@@ -62,6 +62,17 @@ Scene modes: `modules/core/src/main/java/com/jvn/core/vn/VnScene.java`
 |---------|---------|-------------|
 | `inputProfilePath` | `~/.jvn/input-bindings.properties` | Path to input bindings file |
 | `inputProfileSerialized` | `""` | Serialized ActionBindingProfile |
+
+### Accessibility
+
+| Setting | Default | Range | Description |
+|---------|---------|-------|-------------|
+| `accessibilityTheme` | `none` | built-in theme name | Live dialogue and choice theme |
+| `textToSpeechEnabled` | false | — | Speak each new dialogue node through the OS speech service |
+| `uiFontScale` | 1.0 | 0.75–2.0 | VN dialogue and settings-menu text scale |
+
+These preferences are available in the default settings screen and persist in
+the per-game settings file and save snapshots.
 
 ---
 

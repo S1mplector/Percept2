@@ -22,6 +22,8 @@ public class VnSettings {
   private boolean autoFitResolution = false;
   /** Accessibility theme preset: "none", "highcontrast", or "opendyslexic". */
   private String accessibilityTheme = "none";
+  private boolean textToSpeechEnabled = false;
+  private double uiFontScale = 1.0;
 
   public int getTextSpeed() { return textSpeed; }
   public void setTextSpeed(int speed) { this.textSpeed = Math.max(0, Math.min(speed, 200)); }
@@ -83,25 +85,41 @@ public class VnSettings {
     this.accessibilityTheme = (theme == null || theme.isBlank()) ? "none" : theme.trim().toLowerCase(java.util.Locale.ROOT);
   }
 
+  public boolean isTextToSpeechEnabled() { return textToSpeechEnabled; }
+  public void setTextToSpeechEnabled(boolean enabled) { this.textToSpeechEnabled = enabled; }
+
+  public double getUiFontScale() { return uiFontScale; }
+  public void setUiFontScale(double scale) {
+    if (!Double.isFinite(scale)) scale = 1.0;
+    this.uiFontScale = Math.max(0.75, Math.min(2.0, scale));
+  }
+
+  public void copyFrom(VnSettings source) {
+    if (source == null || source == this) return;
+    setTextSpeed(source.getTextSpeed());
+    setBgmVolume(source.getBgmVolume());
+    setSfxVolume(source.getSfxVolume());
+    setVoiceVolume(source.getVoiceVolume());
+    setAutoPlayDelay(source.getAutoPlayDelay());
+    setSkipUnreadText(source.isSkipUnreadText());
+    setSkipAfterChoices(source.isSkipAfterChoices());
+    setClickRevealBeforeAdvance(source.isClickRevealBeforeAdvance());
+    setPhysicsFixedStepMs(source.getPhysicsFixedStepMs());
+    setPhysicsMaxSubSteps(source.getPhysicsMaxSubSteps());
+    setPhysicsDefaultFriction(source.getPhysicsDefaultFriction());
+    setInputProfilePath(source.getInputProfilePath());
+    setInputProfileSerialized(source.getInputProfileSerialized());
+    setDisplayWidth(source.getDisplayWidth());
+    setDisplayHeight(source.getDisplayHeight());
+    setAutoFitResolution(source.isAutoFitResolution());
+    setAccessibilityTheme(source.getAccessibilityTheme());
+    setTextToSpeechEnabled(source.isTextToSpeechEnabled());
+    setUiFontScale(source.getUiFontScale());
+  }
+
   public VnSettings copy() {
     VnSettings copy = new VnSettings();
-    copy.textSpeed = this.textSpeed;
-    copy.bgmVolume = this.bgmVolume;
-    copy.sfxVolume = this.sfxVolume;
-    copy.voiceVolume = this.voiceVolume;
-    copy.autoPlayDelay = this.autoPlayDelay;
-    copy.skipUnreadText = this.skipUnreadText;
-    copy.skipAfterChoices = this.skipAfterChoices;
-    copy.clickRevealBeforeAdvance = this.clickRevealBeforeAdvance;
-    copy.physicsFixedStepMs = this.physicsFixedStepMs;
-    copy.physicsMaxSubSteps = this.physicsMaxSubSteps;
-    copy.physicsDefaultFriction = this.physicsDefaultFriction;
-    copy.inputProfilePath = this.inputProfilePath;
-    copy.inputProfileSerialized = this.inputProfileSerialized;
-    copy.displayWidth = this.displayWidth;
-    copy.displayHeight = this.displayHeight;
-    copy.autoFitResolution = this.autoFitResolution;
-    copy.accessibilityTheme = this.accessibilityTheme;
+    copy.copyFrom(this);
     return copy;
   }
 }

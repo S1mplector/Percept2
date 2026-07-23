@@ -45,6 +45,8 @@ public class SettingsScene implements Scene {
   private static final String KEY_DISPLAY_HEIGHT = "display_height";
   private static final String KEY_AUTO_FIT_RESOLUTION = "auto_fit_resolution";
   private static final String KEY_ACCESSIBILITY_THEME = "accessibility_theme";
+  private static final String KEY_TEXT_TO_SPEECH = "text_to_speech";
+  private static final String KEY_UI_FONT_SCALE = "ui_font_scale";
   private static final String KEY_BACK = "back";
 
   private final VnSettings settings;
@@ -287,7 +289,8 @@ public class SettingsScene implements Scene {
            KEY_PHYSICS_MAX_SUBSTEPS,
            KEY_PHYSICS_DEFAULT_FRICTION,
            KEY_DISPLAY_WIDTH,
-           KEY_DISPLAY_HEIGHT -> true;
+           KEY_DISPLAY_HEIGHT,
+           KEY_UI_FONT_SCALE -> true;
       default -> false;
     };
   }
@@ -299,7 +302,8 @@ public class SettingsScene implements Scene {
       case KEY_SKIP_UNREAD,
            KEY_SKIP_AFTER_CHOICES,
            KEY_CLICK_REVEAL_BEFORE_ADVANCE,
-           KEY_AUTO_FIT_RESOLUTION -> true;
+           KEY_AUTO_FIT_RESOLUTION,
+           KEY_TEXT_TO_SPEECH -> true;
       default -> false;
     };
   }
@@ -318,6 +322,7 @@ public class SettingsScene implements Scene {
       case KEY_PHYSICS_DEFAULT_FRICTION -> clamp01(settings.getPhysicsDefaultFriction());
       case KEY_DISPLAY_WIDTH -> clamp01((settings.getDisplayWidth() - 320.0) / (7680.0 - 320.0));
       case KEY_DISPLAY_HEIGHT -> clamp01((settings.getDisplayHeight() - 180.0) / (4320.0 - 180.0));
+      case KEY_UI_FONT_SCALE -> clamp01((settings.getUiFontScale() - 0.75) / (2.0 - 0.75));
       default -> 0.0;
     };
   }
@@ -330,8 +335,13 @@ public class SettingsScene implements Scene {
       case KEY_SKIP_AFTER_CHOICES -> settings.isSkipAfterChoices();
       case KEY_CLICK_REVEAL_BEFORE_ADVANCE -> settings.isClickRevealBeforeAdvance();
       case KEY_AUTO_FIT_RESOLUTION -> settings.isAutoFitResolution();
+      case KEY_TEXT_TO_SPEECH -> settings.isTextToSpeechEnabled();
       default -> false;
     };
+  }
+
+  public double getUiFontScale() {
+    return settings.getUiFontScale();
   }
 
   public void moveSelection(int delta) {
@@ -387,6 +397,8 @@ public class SettingsScene implements Scene {
       case KEY_DISPLAY_HEIGHT -> settings.setDisplayHeight(settings.getDisplayHeight() + delta * 36);
       case KEY_AUTO_FIT_RESOLUTION -> settings.setAutoFitResolution(!settings.isAutoFitResolution());
       case KEY_ACCESSIBILITY_THEME -> settings.setAccessibilityTheme(cycleAccessibilityTheme(settings.getAccessibilityTheme(), delta));
+      case KEY_TEXT_TO_SPEECH -> settings.setTextToSpeechEnabled(!settings.isTextToSpeechEnabled());
+      case KEY_UI_FONT_SCALE -> settings.setUiFontScale(settings.getUiFontScale() + delta * 0.05);
       case KEY_INPUT_PROFILE -> {
         if (delta > 0) saveBindingsToDisk();
         else loadBindingsFromDisk();
@@ -412,6 +424,7 @@ public class SettingsScene implements Scene {
       case KEY_CLICK_REVEAL_BEFORE_ADVANCE -> settings.setClickRevealBeforeAdvance(!settings.isClickRevealBeforeAdvance());
       case KEY_AUTO_FIT_RESOLUTION -> settings.setAutoFitResolution(!settings.isAutoFitResolution());
       case KEY_ACCESSIBILITY_THEME -> settings.setAccessibilityTheme(cycleAccessibilityTheme(settings.getAccessibilityTheme(), 1));
+      case KEY_TEXT_TO_SPEECH -> settings.setTextToSpeechEnabled(!settings.isTextToSpeechEnabled());
       case KEY_INPUT_PROFILE -> loadBindingsFromDisk();
       case KEY_BACK -> closeRequested = true;
       default -> {
@@ -461,6 +474,8 @@ public class SettingsScene implements Scene {
         settings.setDisplayHeight(val);
       }
       case KEY_AUTO_FIT_RESOLUTION -> settings.setAutoFitResolution(v >= 0.5);
+      case KEY_TEXT_TO_SPEECH -> settings.setTextToSpeechEnabled(v >= 0.5);
+      case KEY_UI_FONT_SCALE -> settings.setUiFontScale(0.75 + v * (2.0 - 0.75));
       case KEY_INPUT_PROFILE -> {
         if (v > 0.5) saveBindingsToDisk(); else loadBindingsFromDisk();
       }
@@ -494,6 +509,8 @@ public class SettingsScene implements Scene {
       case KEY_DISPLAY_HEIGHT -> settings.setDisplayHeight(defaults.getDisplayHeight());
       case KEY_AUTO_FIT_RESOLUTION -> settings.setAutoFitResolution(defaults.isAutoFitResolution());
       case KEY_ACCESSIBILITY_THEME -> settings.setAccessibilityTheme(defaults.getAccessibilityTheme());
+      case KEY_TEXT_TO_SPEECH -> settings.setTextToSpeechEnabled(defaults.isTextToSpeechEnabled());
+      case KEY_UI_FONT_SCALE -> settings.setUiFontScale(defaults.getUiFontScale());
       default -> {
       }
     }
@@ -574,6 +591,8 @@ public class SettingsScene implements Scene {
     out.add(defaultRow(KEY_AUTO_FIT_RESOLUTION, style));
     // Accessibility
     out.add(defaultRow(KEY_ACCESSIBILITY_THEME, style));
+    out.add(defaultRow(KEY_TEXT_TO_SPEECH, style));
+    out.add(defaultRow(KEY_UI_FONT_SCALE, style));
     // Navigation
     out.add(defaultRow(KEY_BACK, style));
     return out;
@@ -769,19 +788,7 @@ public class SettingsScene implements Scene {
       vnScene.setInterop(engine.getVnInteropFactory().create(engine));
     }
     VnSettings s = vnScene.getState().getSettings();
-    s.setTextSpeed(settings.getTextSpeed());
-    s.setBgmVolume(settings.getBgmVolume());
-    s.setSfxVolume(settings.getSfxVolume());
-    s.setVoiceVolume(settings.getVoiceVolume());
-    s.setAutoPlayDelay(settings.getAutoPlayDelay());
-    s.setSkipUnreadText(settings.isSkipUnreadText());
-    s.setSkipAfterChoices(settings.isSkipAfterChoices());
-    s.setClickRevealBeforeAdvance(settings.isClickRevealBeforeAdvance());
-    s.setPhysicsFixedStepMs(settings.getPhysicsFixedStepMs());
-    s.setPhysicsMaxSubSteps(settings.getPhysicsMaxSubSteps());
-    s.setPhysicsDefaultFriction(settings.getPhysicsDefaultFriction());
-    s.setInputProfilePath(settings.getInputProfilePath());
-    s.setInputProfileSerialized(settings.getInputProfileSerialized());
+    s.copyFrom(settings);
     if (audio != null) {
       audio.setBgmVolume(s.getBgmVolume());
       audio.setSfxVolume(s.getSfxVolume());
@@ -909,6 +916,8 @@ public class SettingsScene implements Scene {
       case KEY_AUTO_FIT_RESOLUTION -> fallbackLocalized("settings.auto_fit_resolution", "Auto-Fit Resolution");
       case KEY_INPUT_PROFILE -> "Input Profile";
       case KEY_ACCESSIBILITY_THEME -> fallbackLocalized("settings.accessibility_theme", "Accessibility Theme");
+      case KEY_TEXT_TO_SPEECH -> fallbackLocalized("settings.text_to_speech", "Self-Voicing");
+      case KEY_UI_FONT_SCALE -> fallbackLocalized("settings.ui_font_scale", "Text Size");
       case KEY_BACK -> fallbackLocalized("common.back", "Back");
       default -> titleize(key);
     };
@@ -941,6 +950,8 @@ public class SettingsScene implements Scene {
         case "opendyslexic" -> "OpenDyslexic";
         default -> "None";
       };
+      case KEY_TEXT_TO_SPEECH -> settings.isTextToSpeechEnabled() ? "On" : "Off";
+      case KEY_UI_FONT_SCALE -> Math.round(settings.getUiFontScale() * 100.0) + "%";
       default -> null;
     };
   }
@@ -1016,6 +1027,8 @@ public class SettingsScene implements Scene {
       case "auto_fit_resolution", "autofit", "auto_fit", "fit_resolution" -> KEY_AUTO_FIT_RESOLUTION;
       case "input", "input_profile", "bindings", "input_bindings" -> KEY_INPUT_PROFILE;
       case "accessibility_theme", "a11y_theme", "accessibility", "theme" -> KEY_ACCESSIBILITY_THEME;
+      case "text_to_speech", "tts", "self_voicing", "self_voicing_enabled" -> KEY_TEXT_TO_SPEECH;
+      case "ui_font_scale", "font_scale", "text_scale", "text_size" -> KEY_UI_FONT_SCALE;
       case "back", "close", "return" -> KEY_BACK;
       default -> v;
     };
@@ -1038,6 +1051,8 @@ public class SettingsScene implements Scene {
            KEY_DISPLAY_HEIGHT,
            KEY_AUTO_FIT_RESOLUTION,
            KEY_ACCESSIBILITY_THEME,
+           KEY_TEXT_TO_SPEECH,
+           KEY_UI_FONT_SCALE,
            KEY_INPUT_PROFILE -> true;
       default -> false;
     };

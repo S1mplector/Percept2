@@ -1,161 +1,79 @@
-# Platform Runtimes
+# Platform Runtime Status
 
-Deploy JVN applications to different platforms: desktop (FX), mobile (Android/iOS), and web (browser).
+This page describes what the repository can build today. A Java module that
+compiles on the desktop is not necessarily a deployable platform runtime.
 
----
+## Support Matrix
 
-## Platform Options
+| Target | Module | Current status | Shipping output |
+|---|---|---|---|
+| JavaFX desktop | `fx`, `runtime` | Supported primary runtime | Portable zip, bundled-runtime zip, native `jpackage` output |
+| Swing desktop | `swing`, `runtime` | Supported secondary renderer with a smaller scene surface | Same desktop launch process; select with `--ui swing` |
+| Android | `android-runtime` | Scaffold only | None; no APK or AAB task |
+| iOS | `ios-runtime` | Scaffold only | None; no Xcode project, framework, app, or IPA task |
+| Browser | `web-runtime` | Scaffold only | None; no JavaScript, WebAssembly, or static-site task |
 
-| Platform | Module | Renderer | Status |
-|----------|--------|----------|--------|
-| **Desktop (JavaFX)** | `modules/fx/` | JavaFX Canvas | Stable |
-| **Android** | `modules/android-runtime/` | Android Canvas | Documented |
-| **iOS** | `modules/ios-runtime/` | Metal/OpenGL | Documented |
-| **Web** | `modules/web-runtime/` | WebGL/Canvas2D | Documented |
+The project toolchain is Java 21. The desktop release system is the only
+production packaging path currently present in this repository.
 
----
+## Supported Desktop Workflow
 
-## Quick Start by Platform
-
-### Desktop (JavaFX)
-For local development and desktop distribution.
-- **Min Requirements:** Java 11+
-- **Setup:** Default; no extra config needed
-- **Deploy:** Package as JAR or native binary (GraalVM)
-- **Docs:** Covered in [Architecture Overview](../../architecture/core/overview.md)
-
-### Android
-For mobile phones/tablets running Android 5.0+ (API 21+).
-- **Min Requirements:** Android SDK, Android device or emulator
-- **Setup:** Gradle + AndroidManifest.xml
-- **Deploy:** APK (direct install) or AAB (Play Store)
-- **Docs:** [Android Runtime](android-runtime.md)
-
-### iOS
-For iPhones and iPads running iOS 12+.
-- **Min Requirements:** Xcode, Mac, iOS device or simulator
-- **Setup:** Gradle + Xcode project + Swift bridge
-- **Deploy:** TestFlight (beta) or App Store
-- **Docs:** [iOS Runtime](ios-runtime.md)
-
-### Web
-For browser-based play; no installation.
-- **Min Requirements:** Modern browser (Chrome 60+, Firefox 55+, Safari 11+)
-- **Setup:** Gradle + GWT transpiler
-- **Deploy:** Static hosting (GitHub Pages, Netlify) or server
-- **Docs:** [Web Runtime](web-runtime.md)
-
----
-
-## Choosing a Platform
-
-**For widest reach:** Web (browser, no install)  
-**For mobile focus:** Android + iOS (native performance)  
-**For desktop:** JavaFX (one-time download, full features)  
-**For all platforms:** Implement all four (more effort, maximum reach)
-
----
-
-## Common Tasks
-
-### Building & Testing
+Run a project through the JavaFX runtime:
 
 ```bash
-# Desktop (JavaFX)
-./gradlew :runtime:run --args='--scene path/to/game.jes'
-
-# Android
-./gradlew :app:assembleDebug
-adb install app/build/outputs/apk/debug/app-debug.apk
-
-# iOS
-# In Xcode: Product → Run (or ⌘R)
-# Requires Mac + Xcode
-
-# Web
-./gradlew gwtCompile
-open war/jvn-game/index.html
+./jvnw runtime -- --assets /path/to/game
 ```
 
-### Packaging for Distribution
+Use Swing instead:
 
 ```bash
-# Desktop JAR
-./gradlew :app:jar
-
-# Android APK for Play Store
-./gradlew :app:bundleRelease
-
-# iOS TestFlight
-# In Xcode: Product → Archive
-
-# Web
-./gradlew gwtCompile
-# Deploy war/jvn-game/ to static hosting
+./jvnw runtime -- --assets /path/to/game --ui swing
 ```
 
----
+Build desktop packages with the tasks documented in
+[Build System](../../project-setup/release/build-system.md). The repository
+supports portable packages that require Java on the player machine,
+self-contained bundled-runtime zips, and host-native `jpackage` output.
 
-## Render-API Abstraction
+Swing is an alternate AWT renderer, not a Java 8 compatibility mode. It uses
+the same Java 21 engine build and currently renders `Scene2D`; it does not have
+the JavaFX runtime's full menu/VN renderer registry.
 
-All platforms use the same core engine; the only difference is the **renderer backend**. See [Render-API](../../architecture/core/render-api.md) for how to add a new platform.
+## Scaffold Modules
 
-Key classes:
-- `RendererRegistry` — auto-discovers available backends
-- `RendererFactory` — creates platform-specific renderers
-- `RenderSurface` — window/framebuffer abstraction
-- `Blitter2D` — 2D drawing interface (same for all platforms)
+The Android, iOS, and web modules are architectural experiments. They contain
+`RenderSurface`, `Blitter2D`, factory, cache, launcher, and loop-shaped classes,
+but their platform calls are unresolved native stubs. Their Gradle builds apply
+only `java-library`.
 
----
+Consequently, these commands validate JVM-compilable scaffold code only:
 
-## Testing Across Platforms
+```bash
+./gradlew :android-runtime:test
+./gradlew :ios-runtime:test
+./gradlew :web-runtime:test
+```
 
-1. **Desktop (JavaFX):** Fastest iteration; use for development
-2. **Web:** Quick validation; copy code from desktop
-3. **Android:** Test on actual device via adb
-4. **iOS:** Test on simulator (Xcode) or real device
+They do not create or run a mobile/browser application.
 
----
+## Gates Before Advertising Platform Support
 
-## Asset & Audio Format Recommendations
+Android needs an Android Gradle Plugin application/library module, real Android
+SDK types and lifecycle integration, implemented Canvas/input/audio/storage
+bridges, device tests, and signed APK/AAB packaging.
 
-| Type | Desktop | Android | iOS | Web |
-|------|---------|---------|-----|-----|
-| **Images** | PNG | PNG | PNG | PNG/WebP |
-| **Audio** | .ogg, .wav | .ogg, .mp3 | .m4a, .mp3 | .ogg, .mp3 |
-| **Scripts** | .vns, .jes | .vns, .jes | .vns, .jes | .vns, .jes |
+iOS needs a selected Java/AOT toolchain, implemented UIKit/CoreGraphics
+bindings, an Xcode project and lifecycle bridge, input/audio/storage support,
+device tests, signing, and app/IPA packaging.
 
----
+Web needs a TeaVM or equivalent plugin, compatible replacements for unsupported
+JVM APIs, implemented browser bindings, a render loop that actually renders
+engine scenes, input/audio/storage support, browser tests, and a reproducible
+static distribution task.
 
-## Troubleshooting
+See the platform pages for the exact state of each scaffold:
 
-### "No renderer found"
-- Check platform module is on classpath
-- Verify ServiceLoader config exists (see Render-API docs)
-
-### Assets not loading
-- Check asset paths are relative to app root
-- For web: verify CORS headers if assets on different domain
-
-### Audio not playing
-- Check format is supported on target platform
-- Verify audio file is not compressed in package (for Android/iOS)
-
-### Performance issues
-- Desktop: profile with JProfiler or YourKit
-- Android: use Android Studio profiler
-- iOS: use Xcode Instruments
-- Web: use Chrome DevTools Performance tab
-
----
-
-## Related Documentation
-
-- [Render-API Abstraction](../../architecture/core/render-api.md)
-- [System Architecture](../../architecture/core/system-architecture.md)
-- [Asset Management](../systems/asset-management.md)
-- [Runtime Core](../core/runtime.md)
-
----
-
-**Last Updated:** May 2026
+- [Android scaffold](android-runtime.md)
+- [iOS scaffold](ios-runtime.md)
+- [Web scaffold](web-runtime.md)
+- [Swing desktop runtime](swing-runtime.md)

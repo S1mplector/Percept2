@@ -1,0 +1,7 @@
+@scene main
+
+[java]
+state.setVariable("package_preflight", true);
+[/java]
+
+narrator: Inline Java packaging fixture.

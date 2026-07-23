@@ -436,6 +436,13 @@ public final class ProjectDependencyValidator {
     String rel = ctx.rel(file);
     List<String> lines = readLines(ctx, file);
     for (int i = 0; i < lines.size(); i++) {
+      String trimmed = lines.get(i).trim();
+      if (!ctx.inlineJavaReported && isInlineJavaStart(trimmed)) {
+        ctx.inlineJavaReported = true;
+        ctx.add(Severity.WARNING, "packaging", rel + ":" + (i + 1),
+            "Inline Java requires jdk.compiler at runtime. Portable packages need a full JDK 21+; bundled and native packages must include the compiler module.",
+            "jdk.compiler");
+      }
       inspectVnsLine(ctx, file, rel + ":" + (i + 1), lines.get(i));
     }
 
@@ -447,6 +454,14 @@ public final class ProjectDependencyValidator {
       ctx.add(Severity.ERROR, "script", rel,
           "VNS parse failed: " + shortMessage(ex), rel);
     }
+  }
+
+  private static boolean isInlineJavaStart(String line) {
+    if (line == null) return false;
+    return "[java]".equals(line)
+        || "[init java]".equals(line)
+        || (line.startsWith("[java class ") && line.endsWith("]"))
+        || line.startsWith("$ ");
   }
 
   private static void inspectVnsLine(ValidationContext ctx, Path sourceFile, String location, String rawLine) {
@@ -1256,6 +1271,7 @@ public final class ProjectDependencyValidator {
     private final List<NamedReference> stageUses = new ArrayList<>();
     private final List<Finding> findings = new ArrayList<>();
     private final Set<String> findingKeys = new HashSet<>();
+    private boolean inlineJavaReported;
 
     private ValidationContext(Path root) {
       this.root = root;

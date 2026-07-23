@@ -11,7 +11,7 @@ public class VnSettingsStore {
   private final Path settingsPath;
 
   public VnSettingsStore() {
-    this(System.getProperty("user.home") + "/.jvn/settings.properties");
+    this(VnStoragePaths.settings().toString());
   }
 
   public VnSettingsStore(String path) {
@@ -57,7 +57,13 @@ public class VnSettingsStore {
         }
         try { s.setDisplayHeight(Integer.parseInt(p.getProperty("display_height", Integer.toString(s.getDisplayHeight())))); } catch (Exception ignored) { // reason: malformed settings value; property retains its default
         }
+        try { s.setAutoFitResolution(Boolean.parseBoolean(p.getProperty("auto_fit_resolution", Boolean.toString(s.isAutoFitResolution())))); } catch (Exception ignored) { // reason: malformed settings value; property retains its default
+        }
         try { s.setAccessibilityTheme(p.getProperty("accessibility_theme", s.getAccessibilityTheme())); } catch (Exception ignored) { // reason: malformed settings value; property retains its default
+        }
+        try { s.setTextToSpeechEnabled(Boolean.parseBoolean(p.getProperty("text_to_speech_enabled", Boolean.toString(s.isTextToSpeechEnabled())))); } catch (Exception ignored) { // reason: malformed settings value; property retains its default
+        }
+        try { s.setUiFontScale(Double.parseDouble(p.getProperty("ui_font_scale", Double.toString(s.getUiFontScale())))); } catch (Exception ignored) { // reason: malformed settings value; property retains its default
         }
       }
     } catch (Exception ignored) {
@@ -86,7 +92,10 @@ public class VnSettingsStore {
       p.setProperty("input_profile_serialized", s.getInputProfileSerialized());
       p.setProperty("display_width", Integer.toString(s.getDisplayWidth()));
       p.setProperty("display_height", Integer.toString(s.getDisplayHeight()));
+      p.setProperty("auto_fit_resolution", Boolean.toString(s.isAutoFitResolution()));
       p.setProperty("accessibility_theme", s.getAccessibilityTheme());
+      p.setProperty("text_to_speech_enabled", Boolean.toString(s.isTextToSpeechEnabled()));
+      p.setProperty("ui_font_scale", Double.toString(s.getUiFontScale()));
       try (FileOutputStream out = new FileOutputStream(settingsPath.toFile())) {
         p.store(out, "JVN Settings");
       }

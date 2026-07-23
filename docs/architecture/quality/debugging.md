@@ -89,7 +89,7 @@ Key patterns:
 
 ### Save Diagnostics
 
-**"Save write failed"** — disk full or permissions issue. Check `~/.jvn/saves/`.
+**"Save write failed"** — disk full or permissions issue. Check `~/.jvn/games/<game-id>/saves/`.
 
 **"Migration applied to save"** — an older save was automatically upgraded. Normal behavior.
 
@@ -161,7 +161,7 @@ Make the smallest possible change. Run again. Confirm the issue is resolved and 
 ### "Save/Load doesn't work"
 
 1. Check console for save write errors
-2. Verify `~/.jvn/saves/` directory exists and is writable
+2. Verify `~/.jvn/games/<game-id>/saves/` exists and is writable
 3. Check for schema migration warnings
 4. Test with a fresh save (delete old saves)
 
@@ -305,7 +305,7 @@ call "hud" { msg: "Debug: entity at x=100" }
 | Audio silent | `--audio` flag and file paths |
 | Menu looks wrong | Console for menu diagnostics |
 | Font wrong | `dialogue.layout` font family |
-| Save fails | `~/.jvn/saves/` permissions |
+| Save fails | `~/.jvn/games/<game-id>/saves/` permissions |
 | Slow startup | Asset count and Gradle overhead |
 | Slow gameplay | Entity/physics body count |
 | Editor crashes | Java version (needs JDK 21) |

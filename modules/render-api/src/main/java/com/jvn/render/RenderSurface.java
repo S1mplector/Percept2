@@ -3,9 +3,9 @@ package com.jvn.render;
 /**
  * Abstraction for a rendering target surface (canvas, framebuffer, HTML element, etc.).
  *
- * <p>Platform implementations (JavaFX Canvas, Android SurfaceView, iOS CAMetalLayer, HTML5 canvas)
- * provide concrete {@code RenderSurface} instances to the engine. This interface isolates the
- * engine from platform-specific rendering APIs.</p>
+ * <p>Concrete backends provide target-specific surfaces. The JavaFX and Swing
+ * desktop paths are supported; the repository's mobile and web surfaces are
+ * currently architectural scaffolds.</p>
  */
 public interface RenderSurface {
 

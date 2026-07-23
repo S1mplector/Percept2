@@ -623,27 +623,22 @@ for arg in "${input_args[@]}"; do
       build)
         alias_label="build"
         forwarded_args+=("build")
-        prefer_configuration_cache=1
         ;;
       ci)
         alias_label="ci"
         forwarded_args+=("ci")
-        prefer_configuration_cache=1
         ;;
       test)
         alias_label="test"
         forwarded_args+=("test")
-        prefer_configuration_cache=1
         ;;
       check)
         alias_label="check"
         forwarded_args+=("check")
-        prefer_configuration_cache=1
         ;;
       clean)
         alias_label="clean"
         forwarded_args+=("clean")
-        prefer_configuration_cache=1
         ;;
       dist)
         alias_label="dist"

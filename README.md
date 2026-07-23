@@ -205,7 +205,10 @@ Optional direct Gradle tasks for focused work:
 ./gradlew :core:test :scripting:test :swing:test
 ```
 
-Gradle build cache is enabled by default. `./jvnw compile`, `./jvnw quick`, `./jvnw build`, `./jvnw ci`, `./jvnw test`, `./jvnw check`, `./jvnw clean`, and `./jvnw jar` also opt into configuration cache automatically on macOS/Linux.
+Gradle build cache is enabled by default. Focused `./jvnw compile`, `./jvnw quick`, and `./jvnw jar`
+commands also opt into configuration cache automatically on macOS/Linux. Full lifecycle commands
+(`build`, `ci`, `test`, and `check`) use the regular task graph because every included language plugin
+must be configuration-cache compatible before those aggregate tasks can safely enable it.
 
 Game archives are written to `build/distributions/games/` by default. Set `jvnBuildDir=<dir>` in `gradle.properties` or pass `-PjvnBuildDir=<dir>` to relocate workspace build outputs; relative paths resolve from the workspace root. Use `-PjvnBuildOutputDir=<dir>` when you only want to redirect packaged game artifacts.
 

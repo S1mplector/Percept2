@@ -1,0 +1,9 @@
+name=Inline Java Packaging Fixture
+id=jvn-inline-java-packaging-fixture
+version=1.0.0
+type=vn
+entryVns=scripts/story/main.vns
+runtime.ui=fx
+runtime.audio=auto
+width=960
+height=540

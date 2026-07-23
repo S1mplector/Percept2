@@ -11,6 +11,7 @@ import com.jvn.core.assets.OverlayAssetManager;
 import com.jvn.core.vn.VnSettings;
 import com.jvn.core.vn.VnSettingsStore;
 import com.jvn.core.vn.VnEntryScriptResolver;
+import com.jvn.core.vn.VnStoragePaths;
 import com.jvn.core.vn.save.VnSaveManager;
 import com.jvn.core.localization.Localization;
 import com.jvn.core.menu.MainMenuScene;
@@ -29,6 +30,7 @@ import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.File;
 import java.io.InputStream;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Locale;
 import java.util.Properties;
@@ -173,6 +175,12 @@ public class JvnApp {
     }
 
     Properties manifest = loadProjectManifest(assetRoot);
+    Path projectRoot = assetRoot == null || assetRoot.isBlank() ? null : Paths.get(assetRoot);
+    String gameId = manifest == null && projectRoot == null
+        ? ""
+        : VnStoragePaths.resolveGameId(manifest, projectRoot);
+    VnStoragePaths.configureGame(gameId);
+    log.info("Game storage -> id={}, root={}", gameId.isBlank() ? "(legacy)" : gameId, VnStoragePaths.root());
     if (manifest != null) {
       if (!titleSpecified) {
         String manifestTitle = manifest.getProperty("name", "").trim();
@@ -294,10 +302,10 @@ public class JvnApp {
     });
     engine.start();
 
+    VnSettings settingsModel = new VnSettingsStore().load();
     if (jesScript != null) {
       loadJes(engine, jesScript);
     } else {
-      VnSettings settingsModel = new VnSettingsStore().load();
       VnSaveManager saveManager = new VnSaveManager();
       AudioFacade audio = null;
       if ("simp3".equalsIgnoreCase(audioBackend) || "auto".equalsIgnoreCase(audioBackend)) {
@@ -333,8 +341,12 @@ public class JvnApp {
     if ("swing".equalsIgnoreCase(ui)) {
       com.jvn.swing.SwingLauncher.launch(engine);
     } else {
-      String a11yTheme = new VnSettingsStore().load().getAccessibilityTheme();
-      FxLauncher.launch(engine, showPerfHud, a11yTheme);
+      FxLauncher.launch(
+          engine,
+          showPerfHud,
+          settingsModel.getAccessibilityTheme(),
+          settingsModel.getUiFontScale()
+      );
     }
   }
 

@@ -6,10 +6,9 @@ import com.jvn.core.scene2d.RendererCapabilities;
 /**
  * Service provider interface for creating platform-specific renderer implementations.
  *
- * <p>Each platform (JavaFX, Android, iOS, Web) provides a {@code RendererFactory}
- * implementation discoverable via {@link java.util.ServiceLoader}. The engine
- * loads the appropriate factory at startup and uses it to instantiate the
- * platform-specific {@code Blitter2D} and {@code RenderSurface}.</p>
+ * <p>Backend modules may provide a {@code RendererFactory} discoverable via
+ * {@link java.util.ServiceLoader}. Discovery only registers Java classes; it
+ * does not imply that a backend has a deployable platform build.</p>
  *
  * <p>Example: JavaFX provides {@code FxRendererFactory}, Android provides
  * {@code AndroidRendererFactory}, etc. The correct one is selected by the launcher

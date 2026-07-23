@@ -11,7 +11,7 @@ import java.util.Set;
  */
 public class VnSaveData implements Serializable {
   private static final long serialVersionUID = 1L;
-  public static final int CURRENT_SCHEMA_VERSION = 5;
+  public static final int CURRENT_SCHEMA_VERSION = 6;
   
   private int schemaVersion = CURRENT_SCHEMA_VERSION;
   private String scenarioId;
@@ -121,6 +121,12 @@ public class VnSaveData implements Serializable {
     private double physicsDefaultFriction = 0.2;
     private String inputProfilePath;
     private String inputProfileSerialized;
+    private int displayWidth = 1920;
+    private int displayHeight = 1080;
+    private boolean autoFitResolution = false;
+    private String accessibilityTheme = "none";
+    private boolean textToSpeechEnabled = false;
+    private double uiFontScale = 1.0;
 
     public int getTextSpeed() { return textSpeed; }
     public void setTextSpeed(int textSpeed) { this.textSpeed = textSpeed; }
@@ -148,6 +154,20 @@ public class VnSaveData implements Serializable {
     public void setInputProfilePath(String inputProfilePath) { this.inputProfilePath = inputProfilePath; }
     public String getInputProfileSerialized() { return inputProfileSerialized; }
     public void setInputProfileSerialized(String inputProfileSerialized) { this.inputProfileSerialized = inputProfileSerialized; }
+    public int getDisplayWidth() { return displayWidth; }
+    public void setDisplayWidth(int displayWidth) { this.displayWidth = displayWidth; }
+    public int getDisplayHeight() { return displayHeight; }
+    public void setDisplayHeight(int displayHeight) { this.displayHeight = displayHeight; }
+    public boolean isAutoFitResolution() { return autoFitResolution; }
+    public void setAutoFitResolution(boolean autoFitResolution) { this.autoFitResolution = autoFitResolution; }
+    public String getAccessibilityTheme() { return accessibilityTheme; }
+    public void setAccessibilityTheme(String accessibilityTheme) {
+      this.accessibilityTheme = accessibilityTheme == null ? "none" : accessibilityTheme;
+    }
+    public boolean isTextToSpeechEnabled() { return textToSpeechEnabled; }
+    public void setTextToSpeechEnabled(boolean textToSpeechEnabled) { this.textToSpeechEnabled = textToSpeechEnabled; }
+    public double getUiFontScale() { return uiFontScale; }
+    public void setUiFontScale(double uiFontScale) { this.uiFontScale = uiFontScale; }
   }
 
 }

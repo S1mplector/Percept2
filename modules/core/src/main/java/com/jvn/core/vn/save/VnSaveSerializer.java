@@ -417,6 +417,12 @@ public final class VnSaveSerializer {
             sb.append("    \"physicsFixedStepMs\": ").append(settings.getPhysicsFixedStepMs()).append(",\n");
             sb.append("    \"physicsMaxSubSteps\": ").append(settings.getPhysicsMaxSubSteps()).append(",\n");
             sb.append("    \"physicsDefaultFriction\": ").append(settings.getPhysicsDefaultFriction()).append(",\n");
+            sb.append("    \"displayWidth\": ").append(settings.getDisplayWidth()).append(",\n");
+            sb.append("    \"displayHeight\": ").append(settings.getDisplayHeight()).append(",\n");
+            sb.append("    \"autoFitResolution\": ").append(settings.isAutoFitResolution()).append(",\n");
+            sb.append("    \"accessibilityTheme\": \"").append(escapeJson(settings.getAccessibilityTheme())).append("\",\n");
+            sb.append("    \"textToSpeechEnabled\": ").append(settings.isTextToSpeechEnabled()).append(",\n");
+            sb.append("    \"uiFontScale\": ").append(settings.getUiFontScale()).append(",\n");
             sb.append("    \"inputProfilePath\": ");
             if (settings.getInputProfilePath() == null) {
                 sb.append("null,\n");
@@ -469,6 +475,24 @@ public final class VnSaveSerializer {
         }
         if (map.containsKey("physicsDefaultFriction")) {
             settings.setPhysicsDefaultFriction(((Number) map.get("physicsDefaultFriction")).doubleValue());
+        }
+        if (map.containsKey("displayWidth")) {
+            settings.setDisplayWidth(((Number) map.get("displayWidth")).intValue());
+        }
+        if (map.containsKey("displayHeight")) {
+            settings.setDisplayHeight(((Number) map.get("displayHeight")).intValue());
+        }
+        if (map.containsKey("autoFitResolution")) {
+            settings.setAutoFitResolution(Boolean.TRUE.equals(map.get("autoFitResolution")));
+        }
+        if (map.containsKey("accessibilityTheme")) {
+            settings.setAccessibilityTheme((String) map.get("accessibilityTheme"));
+        }
+        if (map.containsKey("textToSpeechEnabled")) {
+            settings.setTextToSpeechEnabled(Boolean.TRUE.equals(map.get("textToSpeechEnabled")));
+        }
+        if (map.containsKey("uiFontScale")) {
+            settings.setUiFontScale(((Number) map.get("uiFontScale")).doubleValue());
         }
         if (map.containsKey("inputProfilePath")) {
             settings.setInputProfilePath((String) map.get("inputProfilePath"));

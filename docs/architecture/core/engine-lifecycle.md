@@ -15,7 +15,9 @@ The **Engine** is the heart of JVN. It:
 - Coordinates all subsystems (graphics, audio, input, animation)
 - Tracks frame timing and statistics
 
-The **JvnApp** (runtime layer) wraps the Engine and provides platform-specific integration (FX, web, Android, iOS).
+The **JvnApp** runtime currently launches supported Java 21 desktop integrations
+(JavaFX, or Swing with `--ui swing`). Web, Android, and iOS modules are
+non-deployable scaffolds and are not JvnApp launch targets.
 
 ---
 
@@ -457,7 +459,7 @@ if (stats.getActiveAnimationCount() > 100) {
 2. Batch render calls (fewer draw calls)
 3. Reduce memory allocations (object pooling)
 4. Profile with JProfiler or YourKit (Java)
-5. Use Android Studio Profiler (Android) or Xcode Instruments (iOS)
+5. Profile the supported JavaFX/Swing desktop runtime before changing frame or GC tuning
 
 ---
 
@@ -483,44 +485,12 @@ public class FxApp extends Application {
 }
 ```
 
-### Web (GWT/WebGL)
+### Web and Mobile
 
-```java
-public class WebApp implements EntryPoint {
-  @Override
-  public void onModuleLoad() {
-    ApplicationConfig config = new ApplicationConfig("Game", 1920, 1080);
-    Renderer renderer = new WebGlRenderer(
-      Document.get().getElementById("gameCanvas"));
-    
-    engine = new Engine(config, renderer);
-    engine.pushScene(new JesScene2D("game/level1.jes"));
-    engine.start();
-  }
-}
-```
-
-### Mobile (Android)
-
-```java
-public class JvnActivity extends AppCompatActivity {
-  private Engine engine;
-  
-  @Override
-  protected void onCreate(Bundle savedInstanceState) {
-    super.onCreate(savedInstanceState);
-    
-    ApplicationConfig config = new ApplicationConfig("Game", 1080, 1920);
-    RendererRegistry registry = new RendererRegistry();
-    Renderer renderer = registry.get("Android")
-      .createRenderer(new RenderConfig(..., this));
-    
-    engine = new Engine(config, renderer);
-    engine.pushScene(new VnScene("game/intro.vns"));
-    engine.start();
-  }
-}
-```
+There is no runnable GWT/TeaVM, Android, or iOS integration example today.
+Those modules compile architectural scaffold classes on the JVM but do not
+provide browser, APK/AAB, Xcode, app, or IPA outputs. Track their implementation
+gates in the [platform status matrix](../../runtime/platforms/README.md).
 
 ---
 

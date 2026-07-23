@@ -9,7 +9,7 @@ Store: `modules/core/src/main/java/com/jvn/core/vn/VnSettingsStore.java`
 
 ## Overview
 
-`VnSettings` is the central configuration object for VN playback behavior. It holds text speed, audio volumes, auto-play timing, skip behavior, physics tuning, and input profile data. Settings are persisted to `~/.jvn/settings.properties` and also embedded in save data for per-save snapshots.
+`VnSettings` is the central configuration object for VN playback behavior. It holds text speed, audio volumes, auto-play timing, skip behavior, accessibility preferences, display settings, physics tuning, and input profile data. Runtime settings are persisted per game at `~/.jvn/games/<game-id>/settings.properties` and also embedded in save data for per-save snapshots.
 
 ---
 
@@ -19,7 +19,7 @@ Store: `modules/core/src/main/java/com/jvn/core/vn/VnSettingsStore.java`
 
 | Field | Property Key | Type | Default | Range | Description |
 |-------|-------------|------|---------|-------|-------------|
-| `textSpeed` | `text_speed` | int | `30` | 1–200 | Milliseconds per character during text reveal |
+| `textSpeed` | `text_speed` | int | `30` | 0–200 | Milliseconds per character during text reveal; 0 is instant |
 | `autoPlayDelay` | `auto_play_delay` | long | `2000` | ≥ 500 | Milliseconds to wait before auto-advancing |
 | `skipUnreadText` | `skip_unread_text` | boolean | `false` | — | Allow skip mode to skip text the player hasn't read |
 | `skipAfterChoices` | `skip_after_choices` | boolean | `false` | — | Continue skip mode after a choice is made |
@@ -49,6 +49,14 @@ Store: `modules/core/src/main/java/com/jvn/core/vn/VnSettingsStore.java`
 | `displayHeight` | `display_height` | int | `1080` | 180–4320 | Game window height in pixels |
 | `autoFitResolution` | `auto_fit_resolution` | boolean | `false` | — | Automatically adjust resolution to fit player's screen |
 
+### Accessibility
+
+| Field | Property Key | Type | Default | Range | Description |
+|-------|-------------|------|---------|-------|-------------|
+| `accessibilityTheme` | `accessibility_theme` | String | `none` | `none`, `highcontrast`, `opendyslexic` | Live dialogue/choice color and font preset |
+| `textToSpeechEnabled` | `text_to_speech_enabled` | boolean | `false` | — | Self-voice each new dialogue node through the available OS speech service |
+| `uiFontScale` | `ui_font_scale` | double | `1.0` | 0.75–2.0 | Scale VN dialogue and settings-menu text |
+
 ### Input
 
 | Field | Property Key | Type | Default | Description |
@@ -65,10 +73,13 @@ Store: `modules/core/src/main/java/com/jvn/core/vn/VnSettingsStore.java`
 Settings are stored as a Java `.properties` file at:
 
 ```text
-~/.jvn/settings.properties
+~/.jvn/games/<game-id>/settings.properties
 ```
 
-The directory is created automatically on first save.
+The runtime resolves `<game-id>` from the manifest `id`, or derives it from
+`author` and `name` for an older manifest. The directory is created
+automatically on first save. Code running without an active game uses the
+legacy `~/.jvn/settings.properties` path.
 
 ### Properties File Format
 
@@ -88,6 +99,9 @@ physics_default_friction=0.2
 display_width=1920
 display_height=1080
 auto_fit_resolution=false
+accessibility_theme=none
+text_to_speech_enabled=false
+ui_font_scale=1.0
 input_profile_path=/Users/me/.jvn/input-bindings.properties
 input_profile_serialized=
 ```
@@ -126,6 +140,8 @@ Persisted in save:
 - Click reveal setting
 - Physics tuning
 - Input profile data
+- Display resolution and auto-fit preference
+- Accessibility theme, self-voicing, and UI font scale
 
 ---
 
@@ -143,6 +159,9 @@ The settings menu screen binds to settings fields by item ID. Each recognized it
 | `skip_unread` | `skipUnreadText` | Toggle ON/OFF |
 | `skip_after_choices` | `skipAfterChoices` | Toggle ON/OFF |
 | `click_reveal_before_advance` | `clickRevealBeforeAdvance` | Toggle ON/OFF |
+| `text_to_speech` | `textToSpeechEnabled` | Toggle ON/OFF |
+| `ui_font_scale` | `uiFontScale` | ±0.05 per step |
+| `accessibility_theme` | `accessibilityTheme` | Cycle built-in themes |
 | `physics_fixed_step` | `physicsFixedStepMs` | ±5ms per step |
 | `physics_max_substeps` | `physicsMaxSubSteps` | ±1 per step |
 | `physics_default_friction` | `physicsDefaultFriction` | ±0.05 per step |
@@ -268,7 +287,7 @@ Settings can be changed from VNS scripts via the `settings` interop provider:
 All setter methods enforce valid ranges:
 
 ```java
-settings.setTextSpeed(-5);      // clamped to 1
+settings.setTextSpeed(-5);      // clamped to 0
 settings.setTextSpeed(999);     // clamped to 200
 settings.setBgmVolume(1.5f);    // clamped to 1.0
 settings.setBgmVolume(-0.1f);   // clamped to 0.0
@@ -291,7 +310,7 @@ saveData.setSettings(snapshot);
 
 ## Runtime Validation Checklist
 
-- [ ] Settings load on startup (no crash if `~/.jvn/settings.properties` doesn't exist)
+- [ ] Settings load on startup (no crash if the per-game `settings.properties` doesn't exist)
 - [ ] Changed settings persist after quitting and relaunching
 - [ ] Text speed change is visible in next dialogue line
 - [ ] Volume changes take effect immediately
@@ -304,6 +323,8 @@ saveData.setSettings(snapshot);
 - [ ] Display width/height sliders respond to input
 - [ ] Auto-fit resolution toggle is displayed correctly
 - [ ] Resolution values persist after game restart
+- [ ] Accessibility theme and text size apply without restarting
+- [ ] Self-voicing speaks each new dialogue node once when an OS speech command is available
 - [ ] Window/viewport updates when resolution settings change (if implemented)
 
 ---
@@ -311,7 +332,7 @@ saveData.setSettings(snapshot);
 ## Common Mistakes
 
 **Settings don't persist:**
-Check file permissions on `~/.jvn/`. The store silently catches write errors.
+Check file permissions on `~/.jvn/games/<game-id>/`. The store silently catches write errors.
 
 **Volume change not audible:**
 The audio backend must be non-null. Check that `--audio` flag is set correctly.

@@ -55,6 +55,12 @@ public class VnSavePersistenceTest {
     s.setPhysicsDefaultFriction(0.33);
     s.setInputProfilePath("config/input/default.input");
     s.setInputProfileSerialized("move_up=W,move_down=S");
+    s.setDisplayWidth(1440);
+    s.setDisplayHeight(900);
+    s.setAutoFitResolution(true);
+    s.setAccessibilityTheme("highcontrast");
+    s.setTextToSpeechEnabled(true);
+    s.setUiFontScale(1.35);
 
     // Use temp dir for saves
     Path tmp = Files.createTempDirectory("vn_saves_test");
@@ -94,6 +100,12 @@ public class VnSavePersistenceTest {
     assertEquals(s.getPhysicsDefaultFriction(), loaded.getSettings().getPhysicsDefaultFriction(), 0.0001);
     assertEquals(s.getInputProfilePath(), loaded.getSettings().getInputProfilePath());
     assertEquals(s.getInputProfileSerialized(), loaded.getSettings().getInputProfileSerialized());
+    assertEquals(s.getDisplayWidth(), loaded.getSettings().getDisplayWidth());
+    assertEquals(s.getDisplayHeight(), loaded.getSettings().getDisplayHeight());
+    assertEquals(s.isAutoFitResolution(), loaded.getSettings().isAutoFitResolution());
+    assertEquals(s.getAccessibilityTheme(), loaded.getSettings().getAccessibilityTheme());
+    assertEquals(s.isTextToSpeechEnabled(), loaded.getSettings().isTextToSpeechEnabled());
+    assertEquals(s.getUiFontScale(), loaded.getSettings().getUiFontScale(), 0.0001);
 
     // Visible characters
     assertTrue(loaded.getVisibleCharacters().containsKey(CharacterPosition.LEFT));

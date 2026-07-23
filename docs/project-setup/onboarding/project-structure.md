@@ -85,6 +85,7 @@ The `jvn.project` file in the project root is a properties file that tells the e
 ```properties
 name=My Visual Novel
 author=Studio Name
+id=studio-name-my-visual-novel
 type=vn
 
 entryVns=scripts/story/prologue.vns
@@ -115,6 +116,11 @@ vcs.git.enabled=true
 - **`entryVns`** — startup VNS script path
   - Example: `entryVns=scripts/story/chapter_01.vns`
   - Runtime uses this when `--script` is not passed.
+
+New projects also include **`id`**, a stable filesystem-safe identity used for
+per-game saves, settings, and persistent variables. Keep it unchanged after a
+release. Older projects without `id` remain supported; the runtime derives one
+from `author` and `name`.
 
 ### Optional Fields
 
@@ -364,15 +370,15 @@ assets/ui/
 | Sound effects | `assets/audio/sfx/` |
 | Voice clips | `assets/audio/voices/<name>/` |
 | Button/UI art | `assets/ui/` |
-| Save files | `save/` (gitignored) |
-| User settings | `~/.jvn/settings.properties` (outside project) |
+| Save files | `~/.jvn/games/<game-id>/saves/` (outside project) |
+| User settings | `~/.jvn/games/<game-id>/settings.properties` (outside project) |
 
 ---
 
 ## Team Workflow Tips
 
 1. **Keep `jvn.project` committed** — it defines how the project launches
-2. **Gitignore `save/`** — save files are user-specific, not shared
+2. **Do not commit runtime data** — per-game saves and settings live outside the project
 3. **Gitignore `.jvn-gradle-user-home/`** — editor's isolated Gradle cache
 4. **Keep binary assets reasonably sized** — compress images and audio before committing
 5. **Keep scripts and configs in normal Git** — they're plain text, diff-friendly

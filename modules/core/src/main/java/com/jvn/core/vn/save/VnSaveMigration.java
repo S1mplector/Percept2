@@ -73,6 +73,13 @@ public final class VnSaveMigration {
       changed = true;
     }
 
+    // v5 -> v6: display and accessibility preferences are included in settings snapshots.
+    if (version < 6) {
+      data.setSchemaVersion(6);
+      version = 6;
+      changed = true;
+    }
+
     // Normalize common nullable fields across all schema versions.
     if (data.getVariables() == null) {
       data.setVariables(new HashMap<>());

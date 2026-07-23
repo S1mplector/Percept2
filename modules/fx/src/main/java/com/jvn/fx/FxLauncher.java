@@ -90,6 +90,7 @@ public class FxLauncher extends Application {
   private static Engine engine;
   private static boolean showPerfHud;
   private static String pendingAccessibilityTheme = "none";
+  private static double pendingUiFontScale = 1.0;
   private AnimationTimer timer;
   private Canvas canvas;
   private GraphicsContext gc;
@@ -131,9 +132,21 @@ public class FxLauncher extends Application {
   }
 
   public static void launch(Engine eng, boolean perfHudEnabled, String accessibilityTheme) {
+    launch(eng, perfHudEnabled, accessibilityTheme, 1.0);
+  }
+
+  public static void launch(
+      Engine eng,
+      boolean perfHudEnabled,
+      String accessibilityTheme,
+      double uiFontScale
+  ) {
     engine = eng;
     showPerfHud = perfHudEnabled;
     pendingAccessibilityTheme = accessibilityTheme != null ? accessibilityTheme : "none";
+    pendingUiFontScale = Double.isFinite(uiFontScale)
+        ? Math.max(0.75, Math.min(2.0, uiFontScale))
+        : 1.0;
     Application.launch();
   }
 
@@ -189,6 +202,7 @@ public class FxLauncher extends Application {
     this.gc = this.canvas.getGraphicsContext2D();
     this.vnRenderer = new VnRenderer(gc);
     this.menuRenderer = new MenuRenderer(gc, MenuTheme.fromAssets());
+    this.menuRenderer.setUiFontScale(pendingUiFontScale);
     this.runtimeProjectRoot = resolveAssetsRoot();
     this.vnRenderer.setProjectRoot(runtimeProjectRoot);
     this.menuRenderer.setProjectRoot(runtimeProjectRoot);
@@ -1908,19 +1922,7 @@ public class FxLauncher extends Application {
 
   private void copySettings(com.jvn.core.vn.VnSettings src, com.jvn.core.vn.VnSettings dst) {
     if (src == null || dst == null) return;
-    dst.setTextSpeed(src.getTextSpeed());
-    dst.setBgmVolume(src.getBgmVolume());
-    dst.setSfxVolume(src.getSfxVolume());
-    dst.setVoiceVolume(src.getVoiceVolume());
-    dst.setAutoPlayDelay(src.getAutoPlayDelay());
-    dst.setSkipUnreadText(src.isSkipUnreadText());
-    dst.setSkipAfterChoices(src.isSkipAfterChoices());
-    dst.setClickRevealBeforeAdvance(src.isClickRevealBeforeAdvance());
-    dst.setPhysicsFixedStepMs(src.getPhysicsFixedStepMs());
-    dst.setPhysicsMaxSubSteps(src.getPhysicsMaxSubSteps());
-    dst.setPhysicsDefaultFriction(src.getPhysicsDefaultFriction());
-    dst.setInputProfilePath(src.getInputProfilePath());
-    dst.setInputProfileSerialized(src.getInputProfileSerialized());
+    dst.copyFrom(src);
   }
 
   @Override

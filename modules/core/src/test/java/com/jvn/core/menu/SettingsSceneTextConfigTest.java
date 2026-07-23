@@ -3,6 +3,7 @@ package com.jvn.core.menu;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jvn.core.config.ApplicationConfig;
 import com.jvn.core.engine.Engine;
@@ -174,5 +175,32 @@ class SettingsSceneTextConfigTest {
     SettingsScene top = assertInstanceOf(SettingsScene.class, engine.scenes().peek());
     assertEquals("settings_audio", top.getMenuId());
     assertEquals(2, top.getSelected());
+  }
+
+  @Test
+  void defaultSettingsExposeWorkingAccessibilityControls() {
+    VnSettings settings = new VnSettings();
+    SettingsScene scene = new SettingsScene(settings);
+
+    selectByKey(scene, "text_to_speech");
+    scene.toggleCurrent();
+    assertTrue(settings.isTextToSpeechEnabled());
+
+    selectByKey(scene, "ui_font_scale");
+    scene.adjustCurrent(2);
+    assertEquals(1.10, settings.getUiFontScale(), 0.0001);
+    assertEquals(1.10, scene.getUiFontScale(), 0.0001);
+
+    selectByKey(scene, "accessibility_theme");
+    scene.toggleCurrent();
+    assertEquals("highcontrast", settings.getAccessibilityTheme());
+  }
+
+  private static void selectByKey(SettingsScene scene, String key) {
+    for (int i = 0; i < scene.getDisplayItems().length; i++) {
+      scene.setSelected(i);
+      if (key.equals(scene.getSelectedKey())) return;
+    }
+    throw new AssertionError("Settings key not found: " + key);
   }
 }

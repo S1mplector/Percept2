@@ -88,6 +88,11 @@ data class JvnGameProjectValidation(
   val warnings: List<String>
 )
 
+data class JvnInlineJavaUsage(
+  val location: String,
+  val syntax: String
+)
+
 data class JvnGamePackageHost(
   val osId: String,
   val target: JvnGameTarget,
@@ -325,6 +330,36 @@ fun discoveredScript(dir: File, extension: String): String? {
     .firstOrNull()
 }
 
+fun discoverInlineJavaUsages(dir: File): List<JvnInlineJavaUsage> {
+  val roots = listOf(File(dir, "scripts"), File(dir, "game/scripts"))
+      .filter { it.isDirectory }
+  return roots.flatMap { scriptsRoot ->
+    scriptsRoot.walkTopDown()
+      .filter { it.isFile && it.extension.equals("vns", ignoreCase = true) }
+      .sortedBy { it.absolutePath }
+      .flatMap { script ->
+        script.readLines().mapIndexedNotNull { index, rawLine ->
+          val line = rawLine.trim()
+          val syntax = when {
+            line == "[java]" -> "[java]"
+            line.startsWith("[java class ") && line.endsWith("]") -> "[java class ...]"
+            line == "[init java]" -> "[init java]"
+            line.startsWith("$ ") -> "$"
+            else -> null
+          } ?: return@mapIndexedNotNull null
+          val relative = dir.toPath().toAbsolutePath().normalize()
+            .relativize(script.toPath().toAbsolutePath().normalize())
+            .toString()
+            .replace('\\', '/')
+          JvnInlineJavaUsage("$relative:${index + 1}", syntax)
+        }.asSequence()
+      }
+      .toList()
+  }
+}
+
+fun gameUsesInlineJava(): Boolean = discoverInlineJavaUsages(gameProjectDir()).isNotEmpty()
+
 fun validateGameProject(): JvnGameProjectValidation {
   val dir = gameProjectDir()
   val manifest = gameManifest()
@@ -385,6 +420,12 @@ fun validateGameProject(): JvnGameProjectValidation {
   }
   if (!File(dir, "assets").isDirectory && !File(dir, "game").isDirectory) {
     warnings += "No assets/ or game/ directory was found; package may be script-only."
+  }
+
+  val inlineJavaUsages = discoverInlineJavaUsages(dir)
+  if (inlineJavaUsages.isNotEmpty()) {
+    val first = inlineJavaUsages.first()
+    warnings += "Inline Java detected at ${first.location} (${inlineJavaUsages.size} occurrence(s)). Portable builds require a full JDK 21+ with jdk.compiler; bundled and native builds include or verify compiler support."
   }
 
   if (errors.isNotEmpty()) {
@@ -912,6 +953,10 @@ fun runtimeImageModules(): List<String> {
     "jdk.management",
     "jdk.unsupported"
   )
+  if (gameUsesInlineJava()) {
+    modules += "java.compiler"
+    modules += "jdk.compiler"
+  }
   modules += jvnJavaFxRuntimeModules
   selectedReleaseProfile().value("runtime.modules")
     ?.split(',', ';', ' ')
@@ -1207,6 +1252,7 @@ fun ensureBundledRuntimeSelection(target: JvnGameTarget): JvnBundledRuntimeSelec
 fun gameBundledScriptUnix(javaExecutableRelativePath: String): String {
   val dollar = "$"
   val javaPath = javaExecutableRelativePath.replace('\\', '/')
+  val compilerPreflight = inlineJavaPreflightUnix(dollar)
   return """
     |#!/usr/bin/env sh
     |set -eu
@@ -1216,9 +1262,10 @@ fun gameBundledScriptUnix(javaExecutableRelativePath: String): String {
     |  echo "JVN launcher error: bundled runtime image is missing ${dollar}JAVA_EXE." >&2
     |  exit 1
     |fi
+$compilerPreflight
     |exec "${dollar}JAVA_EXE" \
     |  --module-path "${dollar}APP_HOME/lib/javafx" \
-    |  --add-modules ${jvnJavaFxRuntimeModules.joinToString(",")} \
+    |  --add-modules ${gameLauncherModules()} \
     |  -cp "${dollar}APP_HOME/lib/*" \
     |  com.jvn.runtime.JvnApp \
 ${gameLauncherArgsUnix(dollar)}
@@ -1228,6 +1275,7 @@ ${gameLauncherArgsUnix(dollar)}
 
 fun gameBundledScriptWindows(target: JvnGameTarget, javaExecutableRelativePath: String): String {
   val javaPath = javaExecutableRelativePath.replace('/', '\\')
+  val compilerPreflight = inlineJavaPreflightWindows()
   return """
     |@echo off
     |setlocal
@@ -1241,7 +1289,8 @@ fun gameBundledScriptWindows(target: JvnGameTarget, javaExecutableRelativePath: 
     |  echo JVN launcher error: bundled runtime image is missing %JAVA_EXE%.
     |  exit /b 1
     |)
-    |"%JAVA_EXE%" --module-path "%APP_HOME%\lib\javafx" --add-modules ${jvnJavaFxRuntimeModules.joinToString(",")} -cp "%APP_HOME%\lib\*" com.jvn.runtime.JvnApp --assets "%APP_HOME%\game"${gameLauncherExtraArgsWindows()} %*
+$compilerPreflight
+    |"%JAVA_EXE%" --module-path "%APP_HOME%\lib\javafx" --add-modules ${gameLauncherModules()} -cp "%APP_HOME%\lib\*" com.jvn.runtime.JvnApp --assets "%APP_HOME%\game"${gameLauncherExtraArgsWindows()} %*
     |exit /b %ERRORLEVEL%
     |
   """.trimMargin()
@@ -1417,6 +1466,7 @@ fun jvnGameBuildPlanMap(): Map<String, Any?> {
   validateSelectedReleaseProfile()
   val profile = selectedReleaseProfile()
   val artifacts = selectedJvnGamePlannedArtifacts()
+  val inlineJavaUsages = discoverInlineJavaUsages(validation.dir)
   return mapOf(
     "generatedAt" to Instant.now().toString(),
     "workspaceRoot" to rootDir.absolutePath,
@@ -1431,6 +1481,17 @@ fun jvnGameBuildPlanMap(): Map<String, Any?> {
     "releaseProfile" to profile.name,
     "packageVariant" to selectedPackageVariant(),
     "releaseConfig" to (profile.file?.absolutePath ?: ""),
+    "inlineJava" to mapOf(
+      "used" to inlineJavaUsages.isNotEmpty(),
+      "occurrences" to inlineJavaUsages.size,
+      "locations" to inlineJavaUsages.map { it.location },
+      "compilerModule" to if (inlineJavaUsages.isEmpty()) "" else "jdk.compiler",
+      "runtimeGuarantee" to when {
+        inlineJavaUsages.isEmpty() -> "not required"
+        selectedJvnGamePackageMode() == "portable" -> "launcher preflight requires a full JDK 21+"
+        else -> "compiler module bundled and verified"
+      }
+    ),
     "warnings" to validation.warnings,
     "artifacts" to artifacts.map { artifact ->
       mapOf(
@@ -1555,6 +1616,8 @@ fun writeJvnGameBuildMarkdownReport(): File {
     appendLine("- Release Profile: ${selectedReleaseProfile().name}")
     appendLine("- Package Variant: ${selectedPackageVariant()}")
     appendLine("- Release Config: ${selectedReleaseProfile().file?.absolutePath ?: "(none)"}")
+    val inlineJavaUsages = discoverInlineJavaUsages(validation.dir)
+    appendLine("- Inline Java: ${if (inlineJavaUsages.isEmpty()) "not used" else "${inlineJavaUsages.size} occurrence(s); jdk.compiler required"}")
     appendLine()
     appendLine("## Artifacts")
     appendLine()
@@ -2050,9 +2113,40 @@ fun gameLauncherExtraArgsWindows(): String {
   return args.joinToString(separator = "") { arg -> " ${batQuote(arg)}" }
 }
 
+fun gameLauncherModules(): String {
+  val modules = linkedSetOf<String>()
+  modules += jvnJavaFxRuntimeModules
+  if (gameUsesInlineJava()) modules += "jdk.compiler"
+  return modules.joinToString(",")
+}
+
+fun inlineJavaPreflightUnix(dollar: String): String {
+  if (!gameUsesInlineJava()) return ""
+  return """
+    |if ! "${dollar}JAVA_EXE" --list-modules 2>/dev/null | grep -q '^jdk.compiler@'; then
+    |  echo "JVN launcher error: this game uses inline Java and requires a full JDK 21+ with the jdk.compiler module. JAVA_HOME currently points to a JRE or minimal runtime." >&2
+    |  exit 1
+    |fi
+    |
+  """.trimMargin()
+}
+
+fun inlineJavaPreflightWindows(): String {
+  if (!gameUsesInlineJava()) return ""
+  return """
+    |"%JAVA_EXE%" --list-modules 2>nul | findstr /B /C:"jdk.compiler@" >nul
+    |if errorlevel 1 (
+    |  echo JVN launcher error: this game uses inline Java and requires a full JDK 21+ with the jdk.compiler module. JAVA_HOME currently points to a JRE or minimal runtime.
+    |  exit /b 1
+    |)
+    |
+  """.trimMargin()
+}
+
 fun gameScriptUnix(): String {
   val dollar = "$"
   val launcherArgs = gameLauncherArgsUnix(dollar)
+  val compilerPreflight = inlineJavaPreflightUnix(dollar)
   return """
     |#!/usr/bin/env sh
     |set -eu
@@ -2079,9 +2173,10 @@ fun gameScriptUnix(): String {
     |  echo "JVN launcher error: Java 21 or newer is required. Found Java ${dollar}JAVA_SPEC." >&2
     |  exit 1
     |fi
+$compilerPreflight
     |exec "${dollar}JAVA_EXE" \
     |  --module-path "${dollar}APP_HOME/lib/javafx" \
-    |  --add-modules ${jvnJavaFxRuntimeModules.joinToString(",")} \
+    |  --add-modules ${gameLauncherModules()} \
     |  -cp "${dollar}APP_HOME/lib/*" \
     |  com.jvn.runtime.JvnApp \
 $launcherArgs
@@ -2091,6 +2186,7 @@ $launcherArgs
 
 fun gameScriptWindows(): String {
   val extraArgs = gameLauncherExtraArgsWindows()
+  val compilerPreflight = inlineJavaPreflightWindows()
   return """
     |@echo off
     |setlocal
@@ -2109,7 +2205,8 @@ fun gameScriptWindows(): String {
     |  echo JVN launcher error: Java 21 or newer is required. Set JAVA_HOME or add java to PATH.
     |  exit /b 1
     |)
-    |"%JAVA_EXE%" --module-path "%APP_HOME%\lib\javafx" --add-modules ${jvnJavaFxRuntimeModules.joinToString(",")} -cp "%APP_HOME%\lib\*" com.jvn.runtime.JvnApp --assets "%APP_HOME%\game"$extraArgs %*
+$compilerPreflight
+    |"%JAVA_EXE%" --module-path "%APP_HOME%\lib\javafx" --add-modules ${gameLauncherModules()} -cp "%APP_HOME%\lib\*" com.jvn.runtime.JvnApp --assets "%APP_HOME%\game"$extraArgs %*
     |exit /b %ERRORLEVEL%
     |
   """.trimMargin()
@@ -2125,13 +2222,18 @@ fun gameReadme(target: JvnGameTarget, distName: String, launcherName: String): S
       |  bin/$launcherName
     """.trimMargin()
   }
+  val runtimeRequirement = if (gameUsesInlineJava()) {
+    "A full JDK 21 or newer on PATH, or JAVA_HOME pointing at one (inline Java requires jdk.compiler)."
+  } else {
+    "Java 21 or newer on PATH, or JAVA_HOME pointing at a Java 21+ runtime."
+  }
   return """
     |$distName
     |
     |Portable JVN game build for ${target.id}.
     |
     |Requirements:
-    |  Java 21 or newer on PATH, or JAVA_HOME pointing at a Java 21+ runtime.
+    |  $runtimeRequirement
     |
     |Launch:
     |$launchExamples
@@ -2153,6 +2255,7 @@ fun gameReadme(target: JvnGameTarget, distName: String, launcherName: String): S
 fun gameBuildMetadata(target: JvnGameTarget, distName: String): String {
   val validation = validateGameProject()
   val manifest = validation.manifest
+  val inlineJavaUsages = discoverInlineJavaUsages(validation.dir)
   return """
     |JVN Game Portable Build
     |builtAt=${Instant.now()}
@@ -2162,7 +2265,9 @@ fun gameBuildMetadata(target: JvnGameTarget, distName: String): String {
     |gameVersion=${gameVersion()}
     |projectType=${validation.type}
     |entry=${validation.entryKey ?: "(runtime discovery)"}
-    |runtimeRequirement=Java 21+
+    |runtimeRequirement=${if (inlineJavaUsages.isEmpty()) "Java 21+" else "Full JDK 21+ with jdk.compiler"}
+    |inlineJava=${inlineJavaUsages.isNotEmpty()}
+    |inlineJavaOccurrences=${inlineJavaUsages.size}
     |runtimeModules=${jvnGameRuntimeProjectPaths.joinToString(",")}
     |javafxVersion=$jvnJavaFxVersion
     |javafxClassifier=${target.javafxClassifier}

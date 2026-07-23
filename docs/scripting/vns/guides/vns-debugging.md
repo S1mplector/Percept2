@@ -223,7 +223,7 @@ narrator: World.
 1. **Scenario ID mismatch** — loading a save from a different `@scenario` is rejected.
    - **Fix:** Ensure the save was made from the same scenario.
 
-2. **Save directory not writable** — the default `~/.jvn/saves/` might have permission issues.
+2. **Save directory not writable** — the default `~/.jvn/games/<game-id>/saves/` might have permission issues.
    - **Fix:** Check filesystem permissions.
 
 3. **Schema version mismatch** — older saves are auto-migrated, but extremely old formats might fail.
@@ -445,7 +445,7 @@ Or create a custom validation task that loads each `.vns` file and reports parse
 
 ### Technique 6: Save state inspection
 
-Save files are stored as JSON at `~/.jvn/saves/`. Open them in a text editor to inspect:
+Save files are stored as JSON at `~/.jvn/games/<game-id>/saves/`. Open them in a text editor to inspect:
 
 - `currentNodeIndex` — which node the player is at
 - `variables` — current variable state

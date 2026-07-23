@@ -1719,13 +1719,7 @@ public class VnPreviewView extends StackPane {
 
   private void copySettings(VnSettings src, VnSettings dst) {
     if (src == null || dst == null) return;
-    dst.setTextSpeed(src.getTextSpeed());
-    dst.setBgmVolume(src.getBgmVolume());
-    dst.setSfxVolume(src.getSfxVolume());
-    dst.setVoiceVolume(src.getVoiceVolume());
-    dst.setAutoPlayDelay(src.getAutoPlayDelay());
-    dst.setSkipUnreadText(src.isSkipUnreadText());
-    dst.setSkipAfterChoices(src.isSkipAfterChoices());
+    dst.copyFrom(src);
   }
 
   private VnPhoneData loadPhoneSeed() {

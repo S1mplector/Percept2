@@ -282,18 +282,7 @@ public class MainMenuScene implements Scene {
     }
     // Apply settings model to scene settings
     VnSettings s = vnScene.getState().getSettings();
-    s.setTextSpeed(settingsModel.getTextSpeed());
-    s.setBgmVolume(settingsModel.getBgmVolume());
-    s.setSfxVolume(settingsModel.getSfxVolume());
-    s.setVoiceVolume(settingsModel.getVoiceVolume());
-    s.setAutoPlayDelay(settingsModel.getAutoPlayDelay());
-    s.setSkipUnreadText(settingsModel.isSkipUnreadText());
-    s.setSkipAfterChoices(settingsModel.isSkipAfterChoices());
-    s.setPhysicsFixedStepMs(settingsModel.getPhysicsFixedStepMs());
-    s.setPhysicsMaxSubSteps(settingsModel.getPhysicsMaxSubSteps());
-    s.setPhysicsDefaultFriction(settingsModel.getPhysicsDefaultFriction());
-    s.setInputProfilePath(settingsModel.getInputProfilePath());
-    s.setInputProfileSerialized(settingsModel.getInputProfileSerialized());
+    s.copyFrom(settingsModel);
     if (audio != null) {
       audio.setBgmVolume(s.getBgmVolume());
       audio.setSfxVolume(s.getSfxVolume());

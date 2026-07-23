@@ -2,7 +2,8 @@
 
 **Module:** `modules/render-api/`  
 **Package:** `com.jvn.render`  
-**Purpose:** Abstract graphics rendering interface enabling multi-platform backend support (JavaFX, Web, Android, iOS)
+**Purpose:** Abstract graphics rendering interfaces. JavaFX and Swing are
+usable desktop backends; Web, Android, and iOS are non-deployable scaffolds.
 
 ---
 
@@ -13,10 +14,10 @@ The render-api module defines the contract between JVN's scene graph and platfor
 ### Key Abstractions
 
 - **RendererRegistry** — auto-discovers and manages available renderer backends via Java ServiceLoader
-- **RendererFactory** — creates platform-specific Renderer instances
-- **RenderSurface** — window/framebuffer abstraction (size, refresh, input source)
+- **RendererFactory** — creates platform-specific `Blitter2D` instances
+- **RenderSurface** — rendering-target abstraction (size, pixel scale, validity, presentation)
 - **Blitter2D** (from core) — drawing primitive interface (rect, circle, sprite, text)
-- **InputSource** — platform input (keyboard, mouse, gamepad) event stream
+- **InputSource** — a separate platform-input abstraction
 
 ---
 
@@ -30,12 +31,15 @@ Application (Editor/Runtime)
    RendererRegistry (render-api)
           ↓ (discovers)
    RendererFactory implementations
-     (FX, Web, Android, iOS)
+     (deployable status varies)
           ↓
   RenderSurface (window/framebuffer)
   + Blitter2D (drawing commands)
-  + InputSource (events)
 ```
+
+Service discovery proves that a factory is on the classpath; it does not prove
+that the target has a build pipeline or implemented native bindings. See the
+[platform status matrix](../../runtime/platforms/README.md).
 
 ---
 
@@ -69,7 +73,7 @@ if (factory != null) {
 
 **How it works:**
 1. Scans classpath for `RendererFactory` implementations
-2. Each platform module (fx, web-runtime, android-runtime, ios-runtime) provides a factory
+2. Platform modules may provide a factory; only JavaFX/Swing have supported desktop launch paths
 3. Factories self-register via Java ServiceLoader; no manual registration needed
 
 ---
@@ -118,16 +122,18 @@ JavaFX blitter (or vice versa) is rejected explicitly.
 
 ```java
 public interface RendererFactory {
-  String getRendererName();  // e.g. "JavaFX", "WebGL", "Android"
-  Renderer createRenderer(RenderConfig config);
+  default RendererCapabilities getCapabilities();
+  Blitter2D createBlitter2D(RenderSurface surface);
+  String getRendererName();
 }
 ```
 
 **Implementation Examples:**
-- `modules/fx/...` — JavaFX backend
-- `modules/web-runtime/...` — WebGL/Canvas2D backend
-- `modules/android-runtime/...` — Android Canvas backend
-- `modules/ios-runtime/...` — iOS Metal/UIKit backend
+- `modules/fx/...` — supported JavaFX desktop backend
+- `modules/swing/...` — supported secondary Swing desktop backend
+- `modules/web-runtime/...` — Canvas-shaped scaffold; no web build
+- `modules/android-runtime/...` — Android-shaped scaffold; no Android build
+- `modules/ios-runtime/...` — CoreGraphics-shaped scaffold; no iOS build
 
 **Pattern:** Each platform module implements `RendererFactory` and registers itself via ServiceLoader config file.
 
@@ -141,24 +147,18 @@ Abstracts the window or framebuffer that receives drawing commands.
 
 ```java
 public interface RenderSurface {
-  int getWidth();
-  int getHeight();
-  
-  void setSize(int w, int h);
-  void requestFrame();          // signal ready to render next frame
-  
-  InputSource getInputSource(); // get input event stream
-  
-  void present();               // display rendered frame to screen
-  void close();                 // cleanup
+  double getWidth();
+  double getHeight();
+  double getPixelScale();
+  void present();
+  boolean isValid();
+  void dispose();
 }
 ```
 
 **Platform Examples:**
-- **FX:** wraps JavaFX Canvas or Stage
-- **Web:** wraps HTML5 Canvas or WebGL context
-- **Android:** wraps android.view.SurfaceView
-- **iOS:** wraps UIView or Metal rendering target
+- **Web/Android/iOS:** corresponding surface classes exist as scaffolds, but
+  their native target calls and deployment toolchains are not implemented
 
 ---
 
@@ -238,7 +238,8 @@ blitter.scale(sx, sy);
 blitter.popTransform();                    // restore
 ```
 
-Each backend (FX, Web, Android) maps these calls to its native graphics API.
+Supported desktop backends map these calls to JavaFX or AWT. The mobile/web
+modules contain proposed mappings with unresolved platform stubs.
 
 ---
 
@@ -326,12 +327,11 @@ Some backends (especially Web/Canvas) benefit from batching draw calls. Consider
 - Using viewport/scissor tests to cull off-screen entities
 - Rendering to intermediate textures for effects
 
-### Platform-Specific Optimizations
+### Platform-Specific Considerations
 
 - **JavaFX:** Uses double-buffering internally; avoid excessive `Canvas.getGraphicsContext2D()` calls
-- **Web:** Prefer OffscreenCanvas or requestAnimationFrame for smooth 60fps
-- **Android:** Minimize garbage allocation in frame loop
-- **iOS:** Use Metal vs OpenGL based on target devices
+- **Web/Android/iOS:** performance decisions remain unverified until their
+  deployable backends and integration benchmarks exist
 
 ---
 

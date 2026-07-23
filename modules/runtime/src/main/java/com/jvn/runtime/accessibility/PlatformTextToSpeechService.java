@@ -5,9 +5,15 @@ import com.jvn.core.accessibility.TextToSpeechService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Platform TTS implementation.
@@ -27,6 +33,7 @@ public final class PlatformTextToSpeechService implements TextToSpeechService {
   private static final Logger log = LoggerFactory.getLogger(PlatformTextToSpeechService.class);
 
   private static final String OS = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
+  private static final boolean AVAILABLE = detectAvailability();
 
   private final ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
     Thread t = new Thread(r, "jvn-tts");
@@ -35,17 +42,24 @@ public final class PlatformTextToSpeechService implements TextToSpeechService {
   });
 
   private volatile Process activeProcess;
+  private final AtomicLong requestGeneration = new AtomicLong();
 
   @Override
   public void speak(String text, Locale locale) {
-    if (text == null || text.isBlank()) return;
+    if (!AVAILABLE || text == null || text.isBlank()) return;
     stop();
+    long generation = requestGeneration.get();
     executor.submit(() -> {
+      if (generation != requestGeneration.get()) return;
       try {
         ProcessBuilder pb = buildCommand(text, locale);
         if (pb == null) return;
         pb.redirectErrorStream(true);
         Process proc = pb.start();
+        if (generation != requestGeneration.get()) {
+          proc.destroy();
+          return;
+        }
         activeProcess = proc;
         proc.waitFor();
       } catch (Exception e) {
@@ -58,6 +72,7 @@ public final class PlatformTextToSpeechService implements TextToSpeechService {
 
   @Override
   public void stop() {
+    requestGeneration.incrementAndGet();
     Process proc = activeProcess;
     if (proc != null && proc.isAlive()) {
       proc.destroy();
@@ -67,19 +82,43 @@ public final class PlatformTextToSpeechService implements TextToSpeechService {
 
   @Override
   public boolean isAvailable() {
-    return OS.contains("win") || OS.contains("mac") || OS.contains("nix")
-        || OS.contains("nux") || OS.contains("linux");
+    return AVAILABLE;
+  }
+
+  private static boolean detectAvailability() {
+    if (OS.contains("win")) return executableOnPath("powershell.exe") || executableOnPath("powershell");
+    if (OS.contains("mac")) {
+      return Files.isExecutable(Path.of("/usr/bin/say")) || executableOnPath("say");
+    }
+    if (OS.contains("nix") || OS.contains("nux") || OS.contains("linux")) {
+      return executableOnPath("espeak-ng");
+    }
+    return false;
+  }
+
+  private static boolean executableOnPath(String executable) {
+    String pathValue = System.getenv("PATH");
+    if (pathValue == null || pathValue.isBlank()) return false;
+    for (String directory : pathValue.split(java.util.regex.Pattern.quote(File.pathSeparator))) {
+      if (directory == null || directory.isBlank()) continue;
+      try {
+        if (Files.isExecutable(Path.of(directory, executable))) return true;
+      } catch (RuntimeException ignored) {
+        // Ignore malformed PATH entries and continue checking the remaining entries.
+      }
+    }
+    return false;
   }
 
   private ProcessBuilder buildCommand(String text, Locale locale) {
-    String safe = text.replace("\"", "\\\"");
     if (OS.contains("win")) {
-      // Use PowerShell SAPI; quiet on missing assembly
+      String singleQuotedText = text.replace("'", "''");
       String script = String.format(
           "Add-Type -AssemblyName System.Speech; "
           + "$s = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
-          + "$s.Speak(\\\"%s\\\")", safe);
-      return new ProcessBuilder("powershell", "-NonInteractive", "-Command", script);
+          + "$s.Speak('%s')", singleQuotedText);
+      String encoded = Base64.getEncoder().encodeToString(script.getBytes(StandardCharsets.UTF_16LE));
+      return new ProcessBuilder("powershell", "-NonInteractive", "-EncodedCommand", encoded);
     } else if (OS.contains("mac")) {
       return new ProcessBuilder("say", text);
     } else {

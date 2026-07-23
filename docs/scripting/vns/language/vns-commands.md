@@ -964,7 +964,9 @@ if (hp <= 0) {
 - Blank lines and comments (`//`, `/* */`) are preserved inside the block.
 - Lines starting with `#` are **not** treated as VNS comments inside `[java]` blocks.
 - Compiled classes are cached by content hash (MD5) to avoid recompilation.
-- Only available when running on a JDK (requires `javax.tools.JavaCompiler`).
+- Requires the `jdk.compiler` module. Portable packages perform a launcher
+  preflight and therefore need a full JDK 21+, not a JRE or minimal runtime.
+  Bundled-runtime and native packages include or verify compiler support.
 - Import `com.jvn.core.vn.*` and `com.jvn.core.vn.script.Vn` are provided automatically.
 - Compiler errors are remapped to the original script line numbers.
 

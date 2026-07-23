@@ -345,6 +345,9 @@ public record MenuProfile(
             settingsToggleItem("skip_unread", "Skip Unread {value}"),
             settingsToggleItem("skip_after_choices", "Skip After Choices {value}"),
             settingsToggleItem("click_reveal_before_advance", "Click Reveal {value}"),
+            settingsToggleItem("text_to_speech", "Self-Voicing {value}"),
+            settingsSliderItem("ui_font_scale", "Text Size {value}"),
+            actionItem("accessibility_theme", "Accessibility Theme {value}", MenuActionType.NOOP),
             actionItem("back", "Back", MenuActionType.BACK)
         )
     );

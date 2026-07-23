@@ -20,15 +20,20 @@ Legacy `.sav` files are still readable and are migrated forward to JSON on load.
 Default save directory:
 
 ```text
-~/.jvn/saves
+~/.jvn/games/<game-id>/saves
 ```
+
+The runtime reads `id` from `jvn.project`. For older manifests without `id`,
+it derives a stable ID from `author` and `name`. This keeps slots, quick saves,
+and autosaves isolated between installed games. A process with no active game
+retains the legacy `~/.jvn/saves` location.
 
 You can override it with `new VnSaveManager("/custom/path")`.
 
 ## Current Schema
 
 Current schema version:
-- `CURRENT_SCHEMA_VERSION = 4`
+- `CURRENT_SCHEMA_VERSION = 6`
 
 `VnSaveData` persists:
 - identity: `schemaVersion`, `scenarioId`, `saveName`, `saveTimestamp`
@@ -48,6 +53,8 @@ Current schema version:
   - text/audio/autoplay flags
   - physics defaults (`physicsFixedStepMs`, `physicsMaxSubSteps`, `physicsDefaultFriction`)
   - input profile fields (`inputProfilePath`, `inputProfileSerialized`)
+  - display fields (`displayWidth`, `displayHeight`, `autoFitResolution`)
+  - accessibility fields (`accessibilityTheme`, `textToSpeechEnabled`, `uiFontScale`)
 - optional RPG payload: `rpgState` (serialized to base64 when serializable)
 
 ## Example Save Payload (Abbreviated)

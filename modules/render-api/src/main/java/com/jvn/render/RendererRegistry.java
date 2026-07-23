@@ -12,8 +12,8 @@ import org.slf4j.LoggerFactory;
  * Registry for discovering and managing platform-specific renderer implementations.
  *
  * <p>Uses Java ServiceLoader to auto-discover {@link RendererFactory} implementations
- * on the classpath, allowing pluggable renderer backends for different platforms
- * (JavaFX, web, Android, iOS).</p>
+ * on the classpath. Registry discovery does not by itself imply that a backend
+ * has an executable platform integration or packaging pipeline.</p>
  */
 public class RendererRegistry {
   private static final Logger log = LoggerFactory.getLogger(RendererRegistry.class);

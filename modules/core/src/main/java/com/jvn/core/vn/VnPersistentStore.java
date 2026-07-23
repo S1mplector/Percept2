@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -18,7 +17,7 @@ public class VnPersistentStore {
   private final Map<String, Object> values = new LinkedHashMap<>();
 
   public VnPersistentStore() {
-    this(Paths.get(System.getProperty("user.home"), ".jvn", "persistent.json"));
+    this(VnStoragePaths.persistentData());
   }
 
   public VnPersistentStore(Path file) {

@@ -436,18 +436,7 @@ public class SaveMenuScene implements Scene {
       scene.setInterop(engine.getVnInteropFactory().create(engine));
     }
     VnSettings s = scene.getState().getSettings();
-    s.setTextSpeed(settingsModel.getTextSpeed());
-    s.setBgmVolume(settingsModel.getBgmVolume());
-    s.setSfxVolume(settingsModel.getSfxVolume());
-    s.setVoiceVolume(settingsModel.getVoiceVolume());
-    s.setAutoPlayDelay(settingsModel.getAutoPlayDelay());
-    s.setSkipUnreadText(settingsModel.isSkipUnreadText());
-    s.setSkipAfterChoices(settingsModel.isSkipAfterChoices());
-    s.setPhysicsFixedStepMs(settingsModel.getPhysicsFixedStepMs());
-    s.setPhysicsMaxSubSteps(settingsModel.getPhysicsMaxSubSteps());
-    s.setPhysicsDefaultFriction(settingsModel.getPhysicsDefaultFriction());
-    s.setInputProfilePath(settingsModel.getInputProfilePath());
-    s.setInputProfileSerialized(settingsModel.getInputProfileSerialized());
+    s.copyFrom(settingsModel);
     if (currentAudio() != null) {
       currentAudio().setBgmVolume(s.getBgmVolume());
       currentAudio().setSfxVolume(s.getSfxVolume());

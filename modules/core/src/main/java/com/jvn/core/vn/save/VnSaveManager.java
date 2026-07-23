@@ -21,6 +21,7 @@ import java.util.List;
 import com.jvn.core.vn.CharacterPosition;
 import com.jvn.core.vn.VnSettings;
 import com.jvn.core.vn.VnState;
+import com.jvn.core.vn.VnStoragePaths;
 
 /**
  * Manages saving and loading VN game state.
@@ -45,7 +46,7 @@ public class VnSaveManager {
   }
 
   public VnSaveManager() {
-    this(System.getProperty("user.home") + "/.jvn/saves");
+    this(VnStoragePaths.saves().toString());
   }
 
   public String getSaveDirectory() {
@@ -128,6 +129,12 @@ public class VnSaveManager {
     sd.setPhysicsDefaultFriction(s.getPhysicsDefaultFriction());
     sd.setInputProfilePath(s.getInputProfilePath());
     sd.setInputProfileSerialized(s.getInputProfileSerialized());
+    sd.setDisplayWidth(s.getDisplayWidth());
+    sd.setDisplayHeight(s.getDisplayHeight());
+    sd.setAutoFitResolution(s.isAutoFitResolution());
+    sd.setAccessibilityTheme(s.getAccessibilityTheme());
+    sd.setTextToSpeechEnabled(s.isTextToSpeechEnabled());
+    sd.setUiFontScale(s.getUiFontScale());
     saveData.setSettings(sd);
 
     // Optional RPG state passthrough.
@@ -409,6 +416,12 @@ public class VnSaveManager {
       s.setPhysicsDefaultFriction(sd.getPhysicsDefaultFriction());
       if (sd.getInputProfilePath() != null) s.setInputProfilePath(sd.getInputProfilePath());
       if (sd.getInputProfileSerialized() != null) s.setInputProfileSerialized(sd.getInputProfileSerialized());
+      s.setDisplayWidth(sd.getDisplayWidth());
+      s.setDisplayHeight(sd.getDisplayHeight());
+      s.setAutoFitResolution(sd.isAutoFitResolution());
+      s.setAccessibilityTheme(sd.getAccessibilityTheme());
+      s.setTextToSpeechEnabled(sd.isTextToSpeechEnabled());
+      s.setUiFontScale(sd.getUiFontScale());
     }
     state.setRpgState(saveData.getRpgState());
   }

@@ -242,11 +242,16 @@ Upload platform-specific builds. Most platforms support:
 
 ## Save Data Location
 
-Save files are stored at `~/.jvn/saves/` by default. This is outside the distribution directory, so saves persist across updates.
+Save files are stored at `~/.jvn/games/<game-id>/saves/` by default. This is outside the distribution directory, so saves persist across updates.
 
-Settings are at `~/.jvn/settings.properties`.
+Settings are at `~/.jvn/games/<game-id>/settings.properties`, and cross-save
+persistent variables are at `~/.jvn/games/<game-id>/persistent.json`.
 
-These paths are user-specific and don't need to be included in the distribution.
+`<game-id>` comes from the `id` field in `jvn.project`; older manifests derive
+it from `author` and `name`. Treat a released ID as permanent so updates keep
+using the same data. These paths are user-specific and don't need to be
+included in the distribution. Advanced launchers may set
+`-Djvn.storage.root=/custom/path` to replace the resolved per-game root.
 
 ---
 
@@ -271,7 +276,7 @@ Ensure `--assets` points to the directory containing `assets/`, `scripts/`, and 
 The Simp3 audio module must be on the classpath. Verify the audio JAR is included in your distribution.
 
 **Save permission errors:**
-`~/.jvn/` must be writable. On some locked-down systems, the save directory may need configuration.
+`~/.jvn/games/<game-id>/` must be writable. On some locked-down systems, the storage root may need configuration.
 
 ---
 

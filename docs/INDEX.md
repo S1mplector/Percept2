@@ -339,10 +339,10 @@ source of truth for docs changes.
 
 - [Platform Runtimes Overview](runtime/platforms/README.md)
 - [Render-API](architecture/core/render-api.md) - graphics backend abstraction
-- [Android Runtime](runtime/platforms/android-runtime.md) - APK deployment and Android integration
-- [iOS Runtime](runtime/platforms/ios-runtime.md) - Xcode build and Swift interop
-- [Web Runtime](runtime/platforms/web-runtime.md) - browser deployment with WebGL/Canvas
-- [Swing Runtime](runtime/platforms/swing-runtime.md) - Swing/AWT renderer for Java 8 compatibility
+- [Android Runtime](runtime/platforms/android-runtime.md) - non-deployable Android backend scaffold
+- [iOS Runtime](runtime/platforms/ios-runtime.md) - non-deployable iOS backend scaffold
+- [Web Runtime](runtime/platforms/web-runtime.md) - non-deployable Canvas/web scaffold
+- [Swing Runtime](runtime/platforms/swing-runtime.md) - secondary Java 21 Swing/AWT renderer
 
 ## Documentation Governance
 

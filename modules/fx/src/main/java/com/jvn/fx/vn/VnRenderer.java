@@ -46,6 +46,7 @@ import com.jvn.core.vn.VnNodeType;
 import com.jvn.core.vn.VnParticleCommand;
 import com.jvn.core.vn.VnParticlePresetLibrary;
 import com.jvn.core.vn.VnScenario;
+import com.jvn.core.vn.VnSettings;
 import com.jvn.core.vn.VnState;
 import com.jvn.core.vn.VnVariableInterpolator;
 import com.jvn.core.vn.stage.VnStagePreset;
@@ -103,6 +104,7 @@ public class VnRenderer {
   private VnUiLayoutSpec uiLayout;
   private VnUiStyleSpec uiStyle = VnUiStyleSpec.defaults();
   private AccessibilityThemeLoader accessibilityTheme = AccessibilityThemeLoader.load("none");
+  private String appliedAccessibilityThemeName = "none";
   private List<VnUiActionButtonSpec> textBoxButtons = List.of();
   private VnCharacterSceneAccessor timelineAccessor;
   private Map<String, VnEyeFocusProfile> eyeFocusProfiles;
@@ -114,6 +116,8 @@ public class VnRenderer {
   private final TextToSpeechService tts = ServiceLoader.load(TextToSpeechService.class)
       .findFirst().orElseGet(NoopTextToSpeechService::new);
   private String lastTtsNodeId = null;
+  private boolean textToSpeechEnabled;
+  private double appliedUiFontScale = 1.0;
 
   public void setTimelineAccessor(VnCharacterSceneAccessor accessor) { this.timelineAccessor = accessor; }
   public void setAudioFacade(AudioFacade facade) { this.audioFacade = facade; }
@@ -212,10 +216,9 @@ public class VnRenderer {
     this.gc = gc;
     this.particleBlitter = new FxBlitter2D(gc);
     resetParticleState();
-    double fscale = VnConfig.defaults().getUiFontScale();
-    this.nameFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.BOLD, DEFAULT_NAME_FONT_SIZE * fscale);
-    this.dialogueFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.NORMAL, DEFAULT_DIALOGUE_FONT_SIZE * fscale);
-    this.choiceFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.NORMAL, DEFAULT_CHOICE_FONT_SIZE * fscale);
+    this.nameFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.BOLD, DEFAULT_NAME_FONT_SIZE);
+    this.dialogueFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.NORMAL, DEFAULT_DIALOGUE_FONT_SIZE);
+    this.choiceFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.NORMAL, DEFAULT_CHOICE_FONT_SIZE);
     Arrays.fill(visualizerWidthMultipliers, 1.0);
     reloadUiLayout();
   }
@@ -261,7 +264,8 @@ public class VnRenderer {
   }
 
   public void setAccessibilityTheme(String themeName) {
-    this.accessibilityTheme = AccessibilityThemeLoader.load(themeName);
+    this.appliedAccessibilityThemeName = normalizeAccessibilityThemeName(themeName);
+    this.accessibilityTheme = AccessibilityThemeLoader.load(appliedAccessibilityThemeName);
     applyUiStyle(this.uiStyle);
   }
 
@@ -289,6 +293,7 @@ public class VnRenderer {
   public void render(VnState state, VnScenario scenario, double width, double height) {
     RenderThreadGuard.requireFxThread("VnRenderer.render");
     this.currentState = state;
+    syncAccessibilitySettings(state);
     applyRuntimeCharacterFramingOverrides(state);
     VnStagePreset activeStage = resolveActiveStagePreset(state, scenario);
     // Clear screen
@@ -375,10 +380,16 @@ public class VnRenderer {
     VnNode currentNode = state.getCurrentNode();
     if (currentNode != null && !state.isUiHidden()) {
       if (currentNode.getType() == VnNodeType.DIALOGUE && currentNode.getDialogue() != null) {
-        String nodeKey = String.valueOf(currentNode.getSourceLine());
-        if (!nodeKey.equals(lastTtsNodeId) && VnConfig.defaults().isTtsEnabled()) {
+        String scenarioId = scenario == null ? "" : String.valueOf(scenario.getId());
+        String nodeKey = scenarioId + ":" + state.getCurrentNodeIndex() + ":" + currentNode.getSourceLine();
+        if (!nodeKey.equals(lastTtsNodeId) && textToSpeechEnabled && tts.isAvailable()) {
           lastTtsNodeId = nodeKey;
-          tts.speak(resolveRuntimeText(currentNode.getDialogue().getText()), java.util.Locale.getDefault());
+          String spokenText = resolveRuntimeText(currentNode.getDialogue().getText());
+          String speaker = resolveRuntimeText(currentNode.getDialogue().getSpeakerName());
+          if (speaker != null && !speaker.isBlank()) {
+            spokenText = speaker + ". " + spokenText;
+          }
+          tts.speak(spokenText, Locale.getDefault());
         }
       }
       switch (currentNode.getType()) {
@@ -1994,7 +2005,7 @@ public class VnRenderer {
     Color activeNameBoxFillColor = defaultDialogueStyle ? NAME_BOX_COLOR : nameBoxFillColor;
     Color activeNameTextFillColor = defaultDialogueStyle ? Color.web("#FFD78A") : nameTextFillColor;
     Color activeDialogueTextFillColor = defaultDialogueStyle ? TEXT_COLOR : dialogueTextFillColor;
-    double fscale = VnConfig.defaults().getUiFontScale();
+    double fscale = state == null ? 1.0 : state.getSettings().getUiFontScale();
     Font activeNameFont = defaultDialogueStyle
         ? Font.font(DEFAULT_FONT_FAMILY, FontWeight.BOLD, DEFAULT_NAME_FONT_SIZE * fscale)
         : nameFont;
@@ -2674,6 +2685,58 @@ public class VnRenderer {
     if (accessibilityTheme != null && accessibilityTheme.isActive()) {
       applyAccessibilityThemeOverrides(accessibilityTheme);
     }
+    applyUiFontScale();
+  }
+
+  private void syncAccessibilitySettings(VnState state) {
+    VnSettings settings = state == null ? null : state.getSettings();
+    String requestedTheme = normalizeAccessibilityThemeName(
+        settings == null ? "none" : settings.getAccessibilityTheme());
+    double requestedScale = settings == null ? 1.0 : settings.getUiFontScale();
+    boolean requestedTts = settings != null && settings.isTextToSpeechEnabled();
+
+    boolean themeChanged = !appliedAccessibilityThemeName.equals(requestedTheme);
+    boolean scaleChanged = Math.abs(appliedUiFontScale - requestedScale) > 0.0001;
+    if (themeChanged || scaleChanged) {
+      accessibilityTheme = AccessibilityThemeLoader.load(requestedTheme);
+      appliedAccessibilityThemeName = requestedTheme;
+      appliedUiFontScale = requestedScale;
+      applyUiStyle(uiStyle);
+    }
+    if (textToSpeechEnabled && !requestedTts) {
+      tts.stop();
+      lastTtsNodeId = null;
+    }
+    textToSpeechEnabled = requestedTts;
+  }
+
+  private void applyUiFontScale() {
+    if (Math.abs(appliedUiFontScale - 1.0) < 0.0001) return;
+    nameFont = Font.font(nameFont.getFamily(), fontWeightOf(nameFont, FontWeight.BOLD),
+        nameFont.getSize() * appliedUiFontScale);
+    dialogueFont = Font.font(dialogueFont.getFamily(), fontWeightOf(dialogueFont, FontWeight.NORMAL),
+        dialogueFont.getSize() * appliedUiFontScale);
+    choiceFont = Font.font(choiceFont.getFamily(), fontWeightOf(choiceFont, FontWeight.NORMAL),
+        choiceFont.getSize() * appliedUiFontScale);
+  }
+
+  private static String normalizeAccessibilityThemeName(String themeName) {
+    return themeName == null || themeName.isBlank()
+        ? "none"
+        : themeName.trim().toLowerCase(Locale.ROOT);
+  }
+
+  private static FontWeight fontWeightOf(Font font, FontWeight fallback) {
+    if (font == null || font.getStyle() == null) return fallback;
+    String style = font.getStyle().toLowerCase(Locale.ROOT);
+    if (style.contains("black")) return FontWeight.BLACK;
+    if (style.contains("extra bold") || style.contains("ultra bold")) return FontWeight.EXTRA_BOLD;
+    if (style.contains("semi bold") || style.contains("demi bold")) return FontWeight.SEMI_BOLD;
+    if (style.contains("bold")) return FontWeight.BOLD;
+    if (style.contains("medium")) return FontWeight.MEDIUM;
+    if (style.contains("light")) return FontWeight.LIGHT;
+    if (style.contains("thin")) return FontWeight.THIN;
+    return fallback;
   }
 
   private void applyAccessibilityThemeOverrides(AccessibilityThemeLoader theme) {

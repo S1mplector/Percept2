@@ -25,7 +25,6 @@ import com.jvn.core.menu.gallery.GalleryEntry;
 import com.jvn.core.menu.gallery.GalleryScene;
 import com.jvn.core.menu.gallery.MusicRoomEntry;
 import com.jvn.core.menu.gallery.MusicRoomScene;
-import com.jvn.core.config.VnConfig;
 import com.jvn.core.ui.BoundsPointCodec;
 import com.jvn.fx.ui.FxTextMetrics;
 import com.jvn.fx.ui.ProjectFontResolver;
@@ -57,6 +56,7 @@ public class MenuRenderer {
   private final BoundedImageCache<Image> imageCache = new BoundedImageCache<>(256);
   private final FxTextMetrics textMetrics = new FxTextMetrics();
   private File projectRoot;
+  private double activeUiFontScale = 1.0;
 
   public enum LoadControlType {
     NONE,
@@ -81,6 +81,11 @@ public class MenuRenderer {
   public MenuTheme getTheme() { return theme; }
   public void setProjectRoot(File root) {
     this.projectRoot = root;
+    textMetrics.clear();
+  }
+  public void setUiFontScale(double scale) {
+    if (!Double.isFinite(scale)) scale = 1.0;
+    activeUiFontScale = Math.max(0.75, Math.min(2.0, scale));
     textMetrics.clear();
   }
 
@@ -427,6 +432,7 @@ public class MenuRenderer {
   }
 
   public void renderSettings(SettingsScene scene, double w, double h) {
+    if (scene != null) setUiFontScale(scene.getUiFontScale());
     MenuLayoutSpec layout = scene != null ? scene.getMenuLayout() : null;
     MenuStyleSpec screenStyle = scene != null ? scene.getDefaultMenuStyle() : null;
     String screenBg = scene != null && scene.getMenuScreen() != null ? scene.getMenuScreen().backgroundAsset() : null;
@@ -2277,15 +2283,14 @@ public class MenuRenderer {
   }
 
   private Font resolveItemFont(MenuStyleSpec style, MenuItemSpec item) {
-    if (style == null && item == null) return theme.getItemFont();
+    if (style == null && item == null) return scaledFont(theme.getItemFont());
     String family = firstNonBlank(
         item != null ? item.fontFamily() : null,
         style != null ? style.itemFontFamily() : null,
         theme.getItemFont().getFamily());
-    double scale = VnConfig.defaults().getUiFontScale();
     double size = (item != null && item.fontSize() != null ? item.fontSize()
         : style != null && style.itemFontSize() != null ? style.itemFontSize()
-        : theme.getItemFont().getSize()) * scale;
+        : theme.getItemFont().getSize()) * activeUiFontScale;
     String weightRaw = firstNonBlank(
         item != null ? item.fontWeight() : null,
         style != null ? style.itemFontWeight() : null);
@@ -2297,10 +2302,10 @@ public class MenuRenderer {
   }
 
   private Font resolveTitleFont(MenuStyleSpec style) {
-    if (style == null) return theme.getTitleFont();
+    if (style == null) return scaledFont(theme.getTitleFont());
     String family = firstNonBlank(style.titleFontFamily(), theme.getTitleFont().getFamily());
-    double scale = VnConfig.defaults().getUiFontScale();
-    double size = (style.titleFontSize() != null ? style.titleFontSize() : theme.getTitleFont().getSize()) * scale;
+    double size = (style.titleFontSize() != null ? style.titleFontSize() : theme.getTitleFont().getSize())
+        * activeUiFontScale;
     FontWeight weight = parseFontWeight(style.titleFontWeight(), FontWeight.BOLD);
     return ProjectFontResolver.resolve(projectRoot, family, weight, size, theme.getTitleFont().getFamily());
   }
@@ -2317,12 +2322,17 @@ public class MenuRenderer {
   }
 
   private Font resolveHintFont(MenuStyleSpec style) {
-    if (style == null) return theme.getHintFont();
+    if (style == null) return scaledFont(theme.getHintFont());
     String family = firstNonBlank(style.hintsFontFamily(), theme.getHintFont().getFamily());
-    double scale = VnConfig.defaults().getUiFontScale();
-    double size = (style.hintsFontSize() != null ? style.hintsFontSize() : theme.getHintFont().getSize()) * scale;
+    double size = (style.hintsFontSize() != null ? style.hintsFontSize() : theme.getHintFont().getSize())
+        * activeUiFontScale;
     FontWeight weight = parseFontWeight(style.hintsFontWeight(), FontWeight.NORMAL);
     return ProjectFontResolver.resolve(projectRoot, family, weight, size, theme.getHintFont().getFamily());
+  }
+
+  private Font scaledFont(Font font) {
+    if (font == null || Math.abs(activeUiFontScale - 1.0) < 0.0001) return font;
+    return Font.font(font.getFamily(), font.getSize() * activeUiFontScale);
   }
 
   private FontWeight parseFontWeight(String raw, FontWeight def) {

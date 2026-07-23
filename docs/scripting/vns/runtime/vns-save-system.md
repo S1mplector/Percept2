@@ -24,7 +24,11 @@ The VN save system persists the complete playback state of a visual novel to dis
 
 ## Save Directory
 
-Default: `~/.jvn/saves/`
+Default: `~/.jvn/games/<game-id>/saves/`
+
+The runtime gets `<game-id>` from `jvn.project`. Older manifests without an
+explicit `id` derive the same value from `author` and `name`, so moving an
+installation does not move its saves.
 
 Custom:
 
@@ -42,7 +46,7 @@ The directory is created automatically if it does not exist.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `schemaVersion` | int | Schema version (current: 5) |
+| `schemaVersion` | int | Schema version (current: 6) |
 | `scenarioId` | String | Script identifier (`@scenario` ID) |
 | `currentNodeIndex` | int | Position in the node list |
 | `currentBackgroundId` | String | Active background |
@@ -80,6 +84,12 @@ Nested `SettingsData` preserves all player preferences:
 | `physicsDefaultFriction` | 0.2 | Default friction |
 | `inputProfilePath` | `~/.jvn/input-bindings.properties` | Input bindings file |
 | `inputProfileSerialized` | `""` | Serialized bindings |
+| `displayWidth` | 1920 | Preferred display width |
+| `displayHeight` | 1080 | Preferred display height |
+| `autoFitResolution` | false | Fit the game viewport to the display |
+| `accessibilityTheme` | `none` | Active accessibility theme |
+| `textToSpeechEnabled` | false | Self-voice new dialogue nodes |
+| `uiFontScale` | 1.0 | VN and settings-menu text scale |
 
 ---
 
@@ -92,7 +102,7 @@ VnSaveManager manager = new VnSaveManager();
 manager.save(state, "slot_1");
 ```
 
-This captures all state fields from `VnState` and writes to `~/.jvn/saves/slot_1.json`.
+This captures all state fields from `VnState` and writes to `~/.jvn/games/<game-id>/saves/slot_1.json`.
 
 ### Quick Save (F5)
 
@@ -235,9 +245,9 @@ Circular or forward migrations are safe — already-current saves pass through u
 Saves are stored as `.json` files using `VnSaveSerializer`:
 
 ```text
-~/.jvn/saves/slot_1.json
-~/.jvn/saves/_quicksave.json
-~/.jvn/saves/_autosave_0.json
+~/.jvn/games/<game-id>/saves/slot_1.json
+~/.jvn/games/<game-id>/saves/_quicksave.json
+~/.jvn/games/<game-id>/saves/_autosave_0.json
 ```
 
 ### Legacy `.sav` (Backward Compatible)
@@ -263,8 +273,8 @@ This prevents corruption from crashes or power loss during write.
 Save slots can have associated screenshot thumbnails:
 
 ```text
-~/.jvn/saves/slot_1.json      # Save data
-~/.jvn/saves/slot_1.png       # Screenshot thumbnail
+~/.jvn/games/<game-id>/saves/slot_1.json      # Save data
+~/.jvn/games/<game-id>/saves/slot_1.png       # Screenshot thumbnail
 ```
 
 - Thumbnails are managed alongside saves
