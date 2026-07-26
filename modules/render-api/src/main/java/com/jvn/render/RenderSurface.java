@@ -4,8 +4,9 @@ package com.jvn.render;
  * Abstraction for a rendering target surface (canvas, framebuffer, HTML element, etc.).
  *
  * <p>Concrete backends provide target-specific surfaces. The JavaFX and Swing
- * desktop paths are supported; the repository's mobile and web surfaces are
- * currently architectural scaffolds.</p>
+ * desktop paths are supported; mobile surfaces remain architectural scaffolds,
+ * while the web surface has an executable Canvas 2D bootstrap but not full game
+ * scene support.</p>
  */
 public interface RenderSurface {
 

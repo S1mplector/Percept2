@@ -6,6 +6,9 @@ import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.teavm.jso.canvas.CanvasImageSource;
+import org.teavm.jso.dom.html.HTMLDocument;
+import org.teavm.jso.dom.html.HTMLImageElement;
 
 /**
  * Image cache for web renderer, storing loaded canvas Image elements.
@@ -15,7 +18,7 @@ import org.slf4j.LoggerFactory;
 public class WebImageCache {
   private static final Logger log = LoggerFactory.getLogger(WebImageCache.class);
 
-  private final Map<String, Object> cache = new HashMap<>();
+  private final Map<String, CanvasImageSource> cache = new HashMap<>();
   private final Map<String, List<Runnable>> loadingCallbacks = new HashMap<>();
   private final Map<String, Boolean> loading = new HashMap<>();
 
@@ -26,7 +29,7 @@ public class WebImageCache {
    * @return the canvas Image element, or null if not yet loaded
    */
   @SuppressWarnings("NullAway")
-  public Object getOrLoad(String classpath) {
+  public CanvasImageSource getOrLoad(String classpath) {
     return getOrLoadInternal(classpath, null);
   }
 
@@ -38,13 +41,13 @@ public class WebImageCache {
    * @return the canvas Image element, or null if not yet loaded
    */
   @SuppressWarnings("NullAway")
-  public Object getOrLoad(String classpath, Runnable onLoaded) {
+  public CanvasImageSource getOrLoad(String classpath, Runnable onLoaded) {
     return getOrLoadInternal(classpath, onLoaded);
   }
 
   @SuppressWarnings("NullAway")
-  private Object getOrLoadInternal(String classpath, Runnable onLoaded) {
-    Object cached = cache.get(classpath);
+  private CanvasImageSource getOrLoadInternal(String classpath, Runnable onLoaded) {
+    CanvasImageSource cached = cache.get(classpath);
     if (cached != null) {
       return cached;
     }
@@ -64,15 +67,15 @@ public class WebImageCache {
   }
 
   private void loadImageAsync(String classpath) {
-    // Convert classpath to web URL (e.g., "game/images/hero.png" -> "/assets/game/images/hero.png")
-    String imageUrl = "/assets/" + classpath;
-    loadImageNative(imageUrl, classpath, this);
+    String imageUrl = resolveAssetUrl(classpath);
+    HTMLImageElement image = (HTMLImageElement) HTMLDocument.current().createElement("img");
+    image.addEventListener("load", event -> onImageLoaded(classpath, image));
+    image.addEventListener("error", event -> onImageError(classpath, "Failed to load " + imageUrl));
+    image.setSrc(imageUrl);
   }
 
-  /**
-   * Called by native JS when an image finishes loading.
-   */
-  public void onImageLoaded(String classpath, Object imageElement) {
+  /** Called by the browser load event when an image finishes loading. */
+  public void onImageLoaded(String classpath, CanvasImageSource imageElement) {
     loading.remove(classpath);
     cache.put(classpath, imageElement);
     log.debug("Image loaded: {}", classpath);
@@ -90,9 +93,7 @@ public class WebImageCache {
     }
   }
 
-  /**
-   * Called by native JS if image fails to load.
-   */
+  /** Called by the browser error event if an image fails to load. */
   public void onImageError(String classpath, String error) {
     loading.remove(classpath);
     log.error("Failed to load image {}: {}", classpath, error);
@@ -108,15 +109,18 @@ public class WebImageCache {
     loading.clear();
   }
 
-  // Native JS image loading via TeaVM JSO
-  private static native void loadImageNative(String url, String classpath, WebImageCache cache) /*-{
-    var img = new Image();
-    img.onload = function() {
-      cache.@com.jvn.web.WebImageCache::onImageLoaded(Ljava/lang/String;Ljava/lang/Object;)(classpath, img);
-    };
-    img.onerror = function() {
-      cache.@com.jvn.web.WebImageCache::onImageError(Ljava/lang/String;Ljava/lang/String;)(classpath, "Failed to load");
-    };
-    img.src = url;
-  }-*/;
+  static String resolveAssetUrl(String classpath) {
+    if (classpath == null || classpath.isBlank()) {
+      throw new IllegalArgumentException("Web asset path must not be blank");
+    }
+    String normalized = classpath.replace('\\', '/');
+    if (normalized.startsWith("data:")
+        || normalized.startsWith("blob:")
+        || normalized.startsWith("https://")
+        || normalized.startsWith("http://")) {
+      return normalized;
+    }
+    while (normalized.startsWith("/")) normalized = normalized.substring(1);
+    return normalized.startsWith("assets/") ? normalized : "assets/" + normalized;
+  }
 }

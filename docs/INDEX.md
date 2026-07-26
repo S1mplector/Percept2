@@ -341,7 +341,7 @@ source of truth for docs changes.
 - [Render-API](architecture/core/render-api.md) - graphics backend abstraction
 - [Android Runtime](runtime/platforms/android-runtime.md) - non-deployable Android backend scaffold
 - [iOS Runtime](runtime/platforms/ios-runtime.md) - non-deployable iOS backend scaffold
-- [Web Runtime](runtime/platforms/web-runtime.md) - non-deployable Canvas/web scaffold
+- [Web Runtime](runtime/platforms/web-runtime.md) - executable TeaVM/Canvas 2D bootstrap; not game-ready
 - [Swing Runtime](runtime/platforms/swing-runtime.md) - secondary Java 21 Swing/AWT renderer
 
 ## Documentation Governance

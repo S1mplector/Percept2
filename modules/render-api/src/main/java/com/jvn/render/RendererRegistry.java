@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,10 +43,10 @@ public class RendererRegistry {
   /**
    * Get a renderer factory by name.
    *
-   * @param name the renderer name (e.g., "JavaFX", "WebGL/Canvas2D", "Android Canvas")
+   * @param name the renderer name (e.g., "JavaFX", "Canvas 2D", "Android Canvas")
    * @return the factory, or null if not found
    */
-  public RendererFactory get(String name) {
+  public @Nullable RendererFactory get(String name) {
     return factories.get(name);
   }
 
@@ -54,7 +55,7 @@ public class RendererRegistry {
    *
    * @return the first factory found, or null if none available
    */
-  public RendererFactory getFirst() {
+  public @Nullable RendererFactory getFirst() {
     return factories.values().stream().findFirst().orElse(null);
   }
 

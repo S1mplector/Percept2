@@ -1,7 +1,10 @@
 package com.jvn.web;
 
+import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.teavm.jso.browser.AnimationFrameCallback;
+import org.teavm.jso.browser.Window;
 
 import com.jvn.core.engine.Engine;
 import com.jvn.render.RenderSurface;
@@ -15,25 +18,38 @@ import com.jvn.render.RenderSurface;
  */
 public class WebGameLoop {
   private static final Logger log = LoggerFactory.getLogger(WebGameLoop.class);
-  private static final double TARGET_FPS = 60.0;
-  private static final long TARGET_FRAME_TIME_NS = (long) (1_000_000_000.0 / TARGET_FPS);
 
   private final Engine engine;
   private final RenderSurface surface;
-  private long lastFrameTimeNs = 0;
-  private volatile boolean running = false;
+  private final AnimationFrameScheduler scheduler;
+  private double lastFrameTimestampMs = -1.0;
+  private Runnable frameRenderer;
+  private boolean running;
 
   public WebGameLoop(Engine engine, RenderSurface surface) {
-    this.engine = engine;
-    this.surface = surface;
+    this(engine, surface, callback -> Window.requestAnimationFrame(callback));
   }
 
-  /**
-   * Start the game loop on requestAnimationFrame.
-   */
+  WebGameLoop(
+      Engine engine,
+      RenderSurface surface,
+      AnimationFrameScheduler scheduler) {
+    this.engine = Objects.requireNonNull(engine, "engine");
+    this.surface = Objects.requireNonNull(surface, "surface");
+    this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
+    this.frameRenderer = () -> {};
+  }
+
+  /** Set the drawing callback invoked after each engine update. */
+  public void setFrameRenderer(Runnable frameRenderer) {
+    this.frameRenderer = Objects.requireNonNull(frameRenderer, "frameRenderer");
+  }
+
+  /** Start the game loop on requestAnimationFrame. */
   public void start() {
     if (running) return;
     running = true;
+    lastFrameTimestampMs = -1.0;
     log.info("Starting web game loop");
     scheduleNextFrame();
   }
@@ -42,36 +58,36 @@ public class WebGameLoop {
    * Stop the game loop.
    */
   public void stop() {
+    if (!running) return;
     running = false;
     log.info("Stopping web game loop");
   }
 
+  /** @return whether this loop is currently scheduling frames */
+  public boolean isRunning() {
+    return running;
+  }
+
   private void scheduleNextFrame() {
     if (!running) return;
-    requestAnimationFrameNative(this::onFrame);
+    scheduler.request(this::onFrame);
   }
 
   private void onFrame(double timestamp) {
-    if (!running || !surface.isValid()) {
+    if (!running) return;
+    if (!surface.isValid()) {
+      running = false;
       return;
     }
 
-    // Calculate delta time in milliseconds
-    long currentTimeMs = (long) timestamp; // timestamp is already in ms
-    long deltaMs = lastFrameTimeNs > 0
-        ? currentTimeMs - (lastFrameTimeNs / 1_000_000)
-        : 16; // Default to ~60 FPS on first frame
-    lastFrameTimeNs = currentTimeMs * 1_000_000;
+    long deltaMs = lastFrameTimestampMs >= 0.0
+        ? Math.max(0L, Math.round(timestamp - lastFrameTimestampMs))
+        : 16L;
+    lastFrameTimestampMs = timestamp;
 
     try {
-      // Update game engine (expects milliseconds)
       engine.update(deltaMs);
-
-      // Render frame - this would be handled by a separate renderer
-      // that polls the engine's scene stack and draws with WebRenderer
-      // For now, this is a placeholder
-
-      // Present the frame
+      frameRenderer.run();
       surface.present();
     } catch (Exception e) {
       log.error("Error in game loop", e);
@@ -81,15 +97,8 @@ public class WebGameLoop {
     scheduleNextFrame();
   }
 
-  // Native requestAnimationFrame binding
-  private static native void requestAnimationFrameNative(FrameCallback callback) /*-{
-    window.requestAnimationFrame(function(timestamp) {
-      callback.@com.jvn.web.WebGameLoop$FrameCallback::onFrame(D)(timestamp);
-    });
-  }-*/;
-
   @FunctionalInterface
-  interface FrameCallback {
-    void onFrame(double timestamp);
+  interface AnimationFrameScheduler {
+    void request(AnimationFrameCallback callback);
   }
 }

@@ -1,5 +1,11 @@
 package com.jvn.web;
 
+import org.teavm.jso.browser.Window;
+import org.teavm.jso.canvas.CanvasRenderingContext2D;
+import org.teavm.jso.dom.html.HTMLCanvasElement;
+import org.teavm.jso.dom.html.HTMLDocument;
+import org.teavm.jso.dom.html.HTMLElement;
+
 import com.jvn.render.RenderSurface;
 
 /**
@@ -10,9 +16,10 @@ import com.jvn.render.RenderSurface;
 public class WebCanvasRenderSurface implements RenderSurface {
 
   private final String canvasElementId;
-  private double cachedWidth;
-  private double cachedHeight;
-  private double pixelScale = 1.0;
+  private final HTMLCanvasElement canvas;
+  private final double logicalWidth;
+  private final double logicalHeight;
+  private final double pixelScale;
   private boolean valid = true;
 
   /**
@@ -21,31 +28,49 @@ public class WebCanvasRenderSurface implements RenderSurface {
    * @param canvasElementId the HTML ID of the canvas element
    */
   public WebCanvasRenderSurface(String canvasElementId) {
+    this(canvasElementId, 0, 0);
+  }
+
+  /**
+   * Construct and size a web canvas surface for an engine viewport.
+   *
+   * @param canvasElementId the HTML ID of the canvas element
+   * @param width requested logical width, or {@code 0} to retain the canvas width
+   * @param height requested logical height, or {@code 0} to retain the canvas height
+   */
+  public WebCanvasRenderSurface(String canvasElementId, int width, int height) {
+    if (canvasElementId == null || canvasElementId.isBlank()) {
+      throw new IllegalArgumentException("Canvas element ID must not be blank");
+    }
     this.canvasElementId = canvasElementId;
-    this.cachedWidth = getCanvasWidth();
-    this.cachedHeight = getCanvasHeight();
+
+    HTMLElement element = HTMLDocument.current().getElementById(canvasElementId);
+    if (!(element instanceof HTMLCanvasElement canvasElement)) {
+      throw new IllegalArgumentException(
+          "Element '" + canvasElementId + "' does not exist or is not a canvas");
+    }
+    this.canvas = canvasElement;
+
+    double browserScale = Window.current().getDevicePixelRatio();
+    this.pixelScale = Double.isFinite(browserScale) ? Math.max(1.0, browserScale) : 1.0;
+    this.logicalWidth = width > 0 ? width : Math.max(1.0, canvas.getWidth() / pixelScale);
+    this.logicalHeight = height > 0 ? height : Math.max(1.0, canvas.getHeight() / pixelScale);
+    configureBackingStore();
   }
 
   @Override
   public double getWidth() {
-    return cachedWidth;
+    return logicalWidth;
   }
 
   @Override
   public double getHeight() {
-    return cachedHeight;
+    return logicalHeight;
   }
 
   @Override
   public double getPixelScale() {
     return pixelScale;
-  }
-
-  /**
-   * Set the device pixel ratio (e.g., 2.0 for Retina displays).
-   */
-  public void setPixelScale(double scale) {
-    this.pixelScale = Math.max(1.0, scale);
   }
 
   @Override
@@ -55,7 +80,7 @@ public class WebCanvasRenderSurface implements RenderSurface {
 
   @Override
   public boolean isValid() {
-    return valid && getCanvasElement() != null;
+    return valid;
   }
 
   @Override
@@ -63,33 +88,30 @@ public class WebCanvasRenderSurface implements RenderSurface {
     valid = false;
   }
 
-  /**
-   * Get the underlying HTML canvas element (for native JS interop).
-   */
-  public Object getCanvasElement() {
-    return getCanvasElementNative(canvasElementId);
+  /** Get the underlying HTML canvas element. */
+  public HTMLCanvasElement getCanvasElement() {
+    return canvas;
   }
 
-  private double getCanvasWidth() {
-    return getCanvasWidthNative(canvasElementId);
+  /** Get the canvas's 2D context. */
+  public CanvasRenderingContext2D getContext2D() {
+    CanvasRenderingContext2D context = (CanvasRenderingContext2D) canvas.getContext("2d");
+    if (context == null) {
+      throw new IllegalStateException(
+          "Canvas '" + canvasElementId + "' does not provide a 2D rendering context");
+    }
+    return context;
   }
 
-  private double getCanvasHeight() {
-    return getCanvasHeightNative(canvasElementId);
+  private void configureBackingStore() {
+    canvas.setWidth((int) Math.round(logicalWidth * pixelScale));
+    canvas.setHeight((int) Math.round(logicalHeight * pixelScale));
+    canvas.getStyle().setProperty("width", formatCssPixels(logicalWidth));
+    canvas.getStyle().setProperty("height", formatCssPixels(logicalHeight));
   }
 
-  // Native JS interop methods (implemented via TeaVM JSO)
-  private static native Object getCanvasElementNative(String elementId) /*-{
-    return document.getElementById(elementId);
-  }-*/;
-
-  private static native double getCanvasWidthNative(String elementId) /*-{
-    var canvas = document.getElementById(elementId);
-    return canvas ? canvas.width : 0;
-  }-*/;
-
-  private static native double getCanvasHeightNative(String elementId) /*-{
-    var canvas = document.getElementById(elementId);
-    return canvas ? canvas.height : 0;
-  }-*/;
+  private static String formatCssPixels(double value) {
+    long rounded = Math.round(value);
+    return rounded + "px";
+  }
 }

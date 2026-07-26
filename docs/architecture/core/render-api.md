@@ -3,7 +3,8 @@
 **Module:** `modules/render-api/`  
 **Package:** `com.jvn.render`  
 **Purpose:** Abstract graphics rendering interfaces. JavaFX and Swing are
-usable desktop backends; Web, Android, and iOS are non-deployable scaffolds.
+usable desktop backends; Web has an executable Canvas 2D bootstrap; Android and
+iOS remain non-deployable scaffolds.
 
 ---
 

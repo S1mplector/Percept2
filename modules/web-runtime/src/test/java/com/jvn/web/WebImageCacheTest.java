@@ -5,12 +5,12 @@ import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.teavm.jso.canvas.CanvasImageSource;
 
 /**
  * Tests for {@link WebImageCache}.
  *
- * Note: WebImageCache uses native JS methods that are not available in JVM unit tests.
- * These tests verify the cache logic without invoking native methods.
+ * <p>The JVM tests exercise cache state and callbacks without invoking TeaVM DOM APIs.</p>
  */
 public class WebImageCacheTest {
 
@@ -48,7 +48,7 @@ public class WebImageCacheTest {
     WebImageCache cache = new WebImageCache();
     String classpath = "game/images/hero.png";
     boolean[] callbackInvoked = {false};
-    Object image = new Object();
+    CanvasImageSource image = new FakeImage();
 
     loading(cache).put(classpath, true);
     callbacks(cache).put(classpath, List.of(() -> callbackInvoked[0] = true));
@@ -81,7 +81,7 @@ public class WebImageCacheTest {
     WebImageCache cache = new WebImageCache();
     String classpath = "game/images/hero.png";
 
-    cachedImages(cache).put(classpath, new Object());
+    cachedImages(cache).put(classpath, new FakeImage());
     loading(cache).put(classpath, true);
     callbacks(cache).put(classpath, List.of(() -> {}));
 
@@ -93,8 +93,8 @@ public class WebImageCacheTest {
   }
 
   @SuppressWarnings("unchecked")
-  private static Map<String, Object> cachedImages(WebImageCache cache) throws Exception {
-    return (Map<String, Object>) field(cache, "cache");
+  private static Map<String, CanvasImageSource> cachedImages(WebImageCache cache) throws Exception {
+    return (Map<String, CanvasImageSource>) field(cache, "cache");
   }
 
   @SuppressWarnings("unchecked")
@@ -112,4 +112,6 @@ public class WebImageCacheTest {
     field.setAccessible(true);
     return field.get(cache);
   }
+
+  private static final class FakeImage implements CanvasImageSource {}
 }

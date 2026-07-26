@@ -15,7 +15,7 @@ public class WebRendererFactoryTest {
   void testFactoryCreation() {
     RendererFactory factory = new WebRendererFactory();
     assertNotNull(factory);
-    assertEquals("WebGL/Canvas2D", factory.getRendererName());
+    assertEquals("Canvas 2D", factory.getRendererName());
     assertTrue(factory.getCapabilities().supports(RenderFeature.BLEND_MODES));
   }
 
@@ -53,6 +53,6 @@ public class WebRendererFactoryTest {
   void testRendererNameCorrect() {
     WebRendererFactory factory = new WebRendererFactory();
     String name = factory.getRendererName();
-    assertTrue(name.contains("Web") || name.contains("Canvas") || name.contains("GL"));
+    assertTrue(name.contains("Canvas"));
   }
 }

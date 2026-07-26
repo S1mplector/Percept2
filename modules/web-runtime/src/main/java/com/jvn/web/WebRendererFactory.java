@@ -23,6 +23,6 @@ public class WebRendererFactory implements RendererFactory {
 
   @Override
   public String getRendererName() {
-    return "WebGL/Canvas2D";
+    return "Canvas 2D";
   }
 }

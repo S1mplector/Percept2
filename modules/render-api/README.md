@@ -105,7 +105,7 @@ RendererFactory fxFactory = registry.get("JavaFX");
 
 // List all available
 List<String> names = registry.getAvailableRenderers();
-// Output: ["JavaFX", "WebGL/Canvas2D", "Android Canvas", "iOS CoreGraphics"]
+// Output: ["JavaFX", "Canvas 2D", "Android Canvas", "iOS CoreGraphics"]
 ```
 
 ## Implementation Registration
