@@ -201,7 +201,12 @@ public class FxLauncher extends Application {
     // Initialize graphics context and resize canvas with scene
     this.gc = this.canvas.getGraphicsContext2D();
     this.vnRenderer = new VnRenderer(gc);
-    this.menuRenderer = new MenuRenderer(gc, MenuTheme.fromAssets());
+    MenuTheme menuTheme = MenuTheme.fromAssets();
+    this.menuRenderer = new MenuRenderer(gc, menuTheme);
+    if (engine != null && engine.scenes().peek() instanceof MainMenuScene main
+        && menuTheme.getBgmPath() != null && !menuTheme.getBgmPath().isBlank()) {
+      main.setTitleBgm(menuTheme.getBgmPath(), menuTheme.getBgmVolume());
+    }
     this.menuRenderer.setUiFontScale(pendingUiFontScale);
     this.runtimeProjectRoot = resolveAssetsRoot();
     this.vnRenderer.setProjectRoot(runtimeProjectRoot);
