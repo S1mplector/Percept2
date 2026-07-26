@@ -20,6 +20,9 @@ public class VnParticlePresetLibraryTest {
         .opacity(0.5)
         .speed(1.25)
         .wind(-18.0)
+        .size(1.5)
+        .prewarm(3000)
+        .texture("assets/vfx/snowflake.png")
         .tint(0x0088AAFF)
         .build();
 
@@ -32,6 +35,10 @@ public class VnParticlePresetLibraryTest {
     assertEquals(-18.0, emitter.getWindX(), 0.0001);
     assertEquals(25.0, emitter.getMinSpeed(), 0.0001);
     assertEquals(68.75, emitter.getMaxSpeed(), 0.0001);
+    assertEquals(3.75, emitter.getMinSize(), 0.0001);
+    assertEquals(9.0, emitter.getMaxSize(), 0.0001);
+    assertEquals("assets/vfx/snowflake.png", emitter.getTexture());
+    assertEquals(3000L, command.getPrewarmMs());
     assertEquals(-928.0, emitter.getMinSpawnX(), 0.0001);
     assertEquals(928.0, emitter.getMaxSpawnX(), 0.0001);
     assertEquals(0x88 / 255.0, emitter.getStartR(), 0.0001);

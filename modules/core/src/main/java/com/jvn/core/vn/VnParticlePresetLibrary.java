@@ -116,6 +116,15 @@ public final class VnParticlePresetLibrary {
       case LEAVES -> configureLeaves(emitter, cmd, width, height);
       default -> configureNeutral(emitter, cmd, width, height);
     }
+    if (cmd.getSizeScale() != 1.0) {
+      emitter.setSizeRange(
+          emitter.getMinSize() * cmd.getSizeScale(),
+          emitter.getMaxSize() * cmd.getSizeScale(),
+          emitter.getEndSizeScale());
+    }
+    if (cmd.getTexturePath() != null) {
+      emitter.setTexture(cmd.getTexturePath());
+    }
   }
 
   // ──────────────────────────────────────────────────────────────────────────

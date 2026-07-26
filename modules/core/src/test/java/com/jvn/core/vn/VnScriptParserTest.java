@@ -1003,7 +1003,7 @@ public class VnScriptParserTest {
   public void particlesCommandSupportsFxShapingOptionsAndAliases() throws Exception {
     String script = """
       @label start
-      [pfx snow intensity=0.6 layer=90 opacity=0.35 speed=1.25 wind=-18 duration=2500 tint=#88aaff]
+      [pfx snow intensity=0.6 layer=90 opacity=0.35 speed=1.25 wind=-18 size=1.5 duration=2500 prewarm=3000 texture=assets/vfx/snowflake.png tint=#88aaff]
       [end]
     """;
 
@@ -1021,7 +1021,10 @@ public class VnScriptParserTest {
     assertEquals(0.35, command.getOpacityScale(), 0.0001);
     assertEquals(1.25, command.getSpeedScale(), 0.0001);
     assertEquals(-18.0, command.getWindX(), 0.0001);
+    assertEquals(1.5, command.getSizeScale(), 0.0001);
     assertEquals(2500L, command.getDurationMs());
+    assertEquals(3000L, command.getPrewarmMs());
+    assertEquals("assets/vfx/snowflake.png", command.getTexturePath());
     assertEquals(0x0088AAFF, command.getTintArgb());
   }
 

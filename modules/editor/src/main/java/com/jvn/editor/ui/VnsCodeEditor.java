@@ -2067,9 +2067,9 @@ public class VnsCodeEditor extends BorderPane {
     VNS_COMMAND_DOCS.put("bgm_fadeout", "Fade out BGM. Usage: [bgm_fadeout duration]");
     VNS_COMMAND_DOCS.put("sfx", "Play sound effect. Usage: [sfx audio_file]");
     VNS_COMMAND_DOCS.put("voice", "Play voice clip. Usage: [voice audio_file]");
-    VNS_COMMAND_DOCS.put("particles", "Start or stop particle effects. Usage: [particles preset=rain intensity=0.5 layer=100 opacity=0.8 wind=20] or [particles rain 0.5 100]");
+    VNS_COMMAND_DOCS.put("particles", "Start or stop particle effects. Usage: [particles preset=rain intensity=0.5 layer=100 opacity=0.8 wind=20] or [particles snow texture=assets/vfx/snow.png size=1.5 prewarm=3000]");
     VNS_COMMAND_DOCS.put("weather", "Weather alias for particles. Usage: [weather preset=snow intensity=0.4 layer=120 duration=3000] or [weather stop]");
-    VNS_COMMAND_DOCS.put("pfx", "Short alias for particles. Usage: [pfx snow intensity=0.5 opacity=0.8 wind=20]");
+    VNS_COMMAND_DOCS.put("pfx", "Short alias for particles. Usage: [pfx snow intensity=0.5 speed=2 texture=assets/vfx/snow.png size=1.5 prewarm=3000]");
     VNS_COMMAND_DOCS.put("fx", "Short alias for particles. Usage: [fx rain intensity=0.7 speed=1.2 tint=#88aaff]");
     VNS_COMMAND_DOCS.put("set", "Set a variable. Usage: [set var_name value]");
     VNS_COMMAND_DOCS.put("inc", "Increment a numeric variable. Usage: [inc var_name amount]");

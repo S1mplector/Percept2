@@ -15,6 +15,9 @@ package com.jvn.core.vn;
  *   <li><b>wind</b> — horizontal acceleration in world units / sec² (drift).</li>
  *   <li><b>duration</b> — auto-stop in milliseconds (0 = run forever).</li>
  *   <li><b>tint</b> — packed ARGB colour override; {@code null} keeps preset colour.</li>
+ *   <li><b>texture</b> — optional project/classpath sprite drawn for each particle.</li>
+ *   <li><b>size</b> — multiplier on the preset's particle-size range.</li>
+ *   <li><b>prewarm</b> — milliseconds of simulation run before the first rendered frame.</li>
  * </ul>
  *
  * <p>Construct with the static {@link #start(Preset)} factory for a quick
@@ -22,6 +25,8 @@ package com.jvn.core.vn;
  * produces a sentinel command that clears the active effect.</p>
  */
 public class VnParticleCommand {
+  /** Avoid pathological authored warmups from stalling the render thread. */
+  private static final long MAX_PREWARM_MS = 60_000L;
 
   public enum Preset {
     SNOW,
@@ -58,6 +63,9 @@ public class VnParticleCommand {
   private final double speedScale;
   private final double windX;
   private final long durationMs;
+  private final String texturePath;
+  private final double sizeScale;
+  private final long prewarmMs;
   /** Packed ARGB; {@code null} = use preset colour. */
   private final Integer tintArgb;
 
@@ -70,6 +78,9 @@ public class VnParticleCommand {
     this.speedScale = Math.max(0.0, b.speedScale);
     this.windX = b.windX;
     this.durationMs = Math.max(0L, b.durationMs);
+    this.texturePath = normalizePath(b.texturePath);
+    this.sizeScale = Math.max(0.0, b.sizeScale);
+    this.prewarmMs = Math.max(0L, Math.min(MAX_PREWARM_MS, b.prewarmMs));
     this.tintArgb = b.tintArgb;
   }
 
@@ -105,6 +116,9 @@ public class VnParticleCommand {
   public double getSpeedScale() { return speedScale; }
   public double getWindX() { return windX; }
   public long getDurationMs() { return durationMs; }
+  public String getTexturePath() { return texturePath; }
+  public double getSizeScale() { return sizeScale; }
+  public long getPrewarmMs() { return prewarmMs; }
   public Integer getTintArgb() { return tintArgb; }
 
   // ── Builder ────────────────────────────────────────────────────────────
@@ -118,6 +132,9 @@ public class VnParticleCommand {
     private double speedScale = 1.0;
     private double windX = 0.0;
     private long durationMs = 0L;
+    private String texturePath = null;
+    private double sizeScale = 1.0;
+    private long prewarmMs = 0L;
     private Integer tintArgb = null;
 
     Builder(Preset preset) {
@@ -130,6 +147,9 @@ public class VnParticleCommand {
     public Builder speed(double v)          { this.speedScale = v; return this; }
     public Builder wind(double v)           { this.windX = v; return this; }
     public Builder duration(long ms)        { this.durationMs = ms; return this; }
+    public Builder texture(String path)      { this.texturePath = path; return this; }
+    public Builder size(double scale)        { this.sizeScale = scale; return this; }
+    public Builder prewarm(long ms)          { this.prewarmMs = ms; return this; }
     public Builder tint(Integer argb)       { this.tintArgb = argb; return this; }
 
     public VnParticleCommand build() {
@@ -139,4 +159,10 @@ public class VnParticleCommand {
 
   private static float clamp01(float v)   { return Math.max(0f, Math.min(1f, v)); }
   private static double clamp01d(double v) { return Math.max(0.0, Math.min(1.0, v)); }
+
+  private static String normalizePath(String path) {
+    if (path == null) return null;
+    String normalized = path.trim().replace('\\', '/');
+    return normalized.isEmpty() ? null : normalized;
+  }
 }

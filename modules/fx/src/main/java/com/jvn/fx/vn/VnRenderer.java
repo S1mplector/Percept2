@@ -483,6 +483,14 @@ public class VnRenderer {
 
     if (cmd != null && (cmd != renderedParticleCommand || sizeChanged)) {
       VnParticlePresetLibrary.apply(particleEmitter, cmd, width, height);
+      if (cmd.getPrewarmMs() > 0L && particleEmitter.getParticleCount() == 0) {
+        long remaining = cmd.getPrewarmMs();
+        while (remaining > 0L) {
+          long step = Math.min(16L, remaining);
+          particleEmitter.update(step);
+          remaining -= step;
+        }
+      }
       renderedParticleCommand = cmd;
       lastParticleLayer = cmd.getLayer();
       particleConfigWidth = width;

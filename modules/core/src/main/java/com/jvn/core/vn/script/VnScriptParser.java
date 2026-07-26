@@ -1810,7 +1810,10 @@ public class VnScriptParser {
         Double opacity = null;
         Double speed = null;
         Double wind = null;
+        Double size = null;
         Long durationMs = null;
+        Long prewarmMs = null;
+        String texturePath = null;
         Integer tintArgb = null;
         boolean intensitySet = false;
         boolean layerSet = false;
@@ -1835,12 +1838,21 @@ public class VnScriptParser {
                   speed = parseNonNegativeDouble(option.value(), tag, "speed", sourceName, lineNumber, rawLine);
               case "wind", "drift", "windx" ->
                   wind = parseDoubleValue(option.value(), tag, "wind", sourceName, lineNumber, rawLine);
+              case "size", "sizescale", "scale" ->
+                  size = parseNonNegativeDouble(option.value(), tag, "size", sourceName, lineNumber, rawLine);
               case "duration", "dur", "ms", "time" -> {
                 durationMs = parseLongValue(option.value(), tag, "duration", sourceName, lineNumber, rawLine);
                 if (durationMs < 0) {
                   throw parseError(sourceName, lineNumber, tag + " duration must be >= 0", rawLine);
                 }
               }
+              case "prewarm", "warmup", "warmupms" -> {
+                prewarmMs = parseLongValue(option.value(), tag, "prewarm", sourceName, lineNumber, rawLine);
+                if (prewarmMs < 0) {
+                  throw parseError(sourceName, lineNumber, tag + " prewarm must be >= 0", rawLine);
+                }
+              }
+              case "texture", "asset", "sprite", "image" -> texturePath = option.value();
               case "tint", "color", "colour" ->
                   tintArgb = parseHexColor(option.value(), tag, sourceName, lineNumber, rawLine);
               default -> throw parseError(sourceName, lineNumber, tag + " unknown option: " + option.key(), rawLine);
@@ -1875,7 +1887,10 @@ public class VnScriptParser {
           if (opacity != null)    pb.opacity(opacity);
           if (speed != null)      pb.speed(speed);
           if (wind != null)       pb.wind(wind);
+          if (size != null)       pb.size(size);
           if (durationMs != null) pb.duration(durationMs);
+          if (prewarmMs != null)  pb.prewarm(prewarmMs);
+          if (texturePath != null) pb.texture(texturePath);
           if (tintArgb != null)   pb.tint(tintArgb);
           state.builder.particles(pb.build());
         }
@@ -2583,7 +2598,10 @@ public class VnScriptParser {
              "layer", "z", "zorder",
              "opacity", "alpha", "speed", "speedscale", "velocity",
              "wind", "drift", "windx",
+             "size", "sizescale", "scale",
              "duration", "dur", "ms", "time",
+             "prewarm", "warmup", "warmupms",
+             "texture", "asset", "sprite", "image",
              "tint", "color", "colour" -> true;
         default -> false;
       };
