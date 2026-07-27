@@ -86,6 +86,8 @@ public final class CssIcon {
       "M8 19V5l11 7-11 7Z";
   private static final String PATH_STOP =
       "M6 18V6h12v12H6Z";
+  private static final String PATH_WRENCH =
+      "M22.3 19.2 13.4 10.3q.85-2.35-.95-4.15Q10.5 4.2 7.8 4.8l3.05 3.05-3 3L4.8 7.8q-.6 2.7 1.35 4.65 1.8 1.8 4.15.95l8.9 8.9q.6.6 1.2 0l1.9-1.9q.6-.6 0-1.2Z";
   private static final String PATH_POP_OUT =
       "M19 19H5V5h7V3H5q-.825 0-1.412.588Q3 4.175 3 5v14q0 .825.588 1.413Q4.175 21 5 21h14q.825 0 1.413-.587Q21 19.825 21 19v-7h-2v7ZM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7Z";
   private static final String PATH_DOCK =
@@ -178,6 +180,7 @@ public final class CssIcon {
   public static Region copy(String color)      { return icon(PATH_COPY, color, 14); }
   public static Region play(String color)      { return icon(PATH_PLAY, color, 14); }
   public static Region stop(String color)      { return icon(PATH_STOP, color, 12); }
+  public static Region wrench(String color)    { return icon(PATH_WRENCH, color, 14); }
   public static Region runtimePlay()           { return icon(PATH_PLAY, "#83e4a1", 17); }
   public static Region runtimeStop()           { return icon(PATH_STOP, "#f39aaa", 15); }
   public static Region runtimeClear()          { return icon(PATH_CLEAR_X, "#f5c46b", 16); }

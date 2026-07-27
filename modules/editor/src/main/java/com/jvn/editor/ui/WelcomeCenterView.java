@@ -303,8 +303,8 @@ public class WelcomeCenterView extends BorderPane {
     healthDetailsPopup.setOnHidden(e -> btnHealthDetails.setText("Details"));
     configureActionButton(btnNewProject, AeroIcon.of(AeroIcon.Kind.NEW_PROJECT, 22), "New Project", "Create a new project", "welcome-action-button-primary");
     configureActionButton(btnOpenProject, AeroIcon.of(AeroIcon.Kind.OPEN_PROJECT, 22), "Open Project", "Choose an existing project", "welcome-action-button-secondary");
-    configureActionButton(btnRunProject, AeroIcon.of(AeroIcon.Kind.RUN, 22), "Run Project", "Run the selected project with the runtime", "welcome-action-button-secondary");
-    configureActionButton(btnBuildProject, AeroIcon.of(AeroIcon.Kind.BUILD, 22), "Build", "Package the selected project for distribution", "welcome-action-button-secondary");
+    configureActionButton(btnRunProject, AeroIcon.runProject(22), "Run Project", "Run the selected project with the runtime", "welcome-action-button-secondary");
+    configureActionButton(btnBuildProject, AeroIcon.buildProject(22), "Build", "Package the selected project for distribution", "welcome-action-button-secondary");
     configureActionButton(btnRefresh, AeroIcon.of(AeroIcon.Kind.REFRESH, 22), "Refresh Checks", "Refresh Welcome Center data and health checks", "welcome-action-button-secondary");
     configureIconButton(btnSettings, AeroIcon.of(AeroIcon.Kind.SETTINGS, 22), "Settings", "Configure launcher and editor defaults");
     updateProjectActionButtons();

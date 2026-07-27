@@ -198,7 +198,7 @@ public class EditorWorkspaceHubView extends BorderPane {
         () -> runAction(onOpenProjectDialog, "Open Project"));
     configureActionButton(
         btnRunProject,
-        AeroIcon.of(AeroIcon.Kind.RUN, 22),
+        AeroIcon.runProject(22),
         "Run Project",
         "Run currently selected project",
         "welcome-action-button-secondary",

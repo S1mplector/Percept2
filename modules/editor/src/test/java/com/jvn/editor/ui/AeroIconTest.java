@@ -69,6 +69,19 @@ class AeroIconTest {
   }
 
   @Test
+  void projectActionFactoriesKeepWelcomeAndExplorerArtworkAligned() throws Exception {
+    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
+
+    AeroIcon run = onFxThread(() -> AeroIcon.runProject(22));
+    AeroIcon build = onFxThread(() -> AeroIcon.buildProject(22));
+
+    assertEquals(AeroIcon.Kind.RUN, run.kind());
+    assertEquals(AeroIcon.Kind.BUILD, build.kind());
+    assertEquals(22, run.iconSize());
+    assertEquals(22, build.iconSize());
+  }
+
+  @Test
   void semanticArtworkUsesRenderCachingForPanelMovement() throws Exception {
     Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
 

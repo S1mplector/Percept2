@@ -30,7 +30,6 @@ public final class RuntimeConsoleIcon extends Pane {
   }
 
   private static final double SIZE = 24.0;
-  private static final Color SILVER = Color.web("#b8c4cd");
   private static final Color BRIGHT = Color.web("#f4fbff");
   private final Kind kind;
 
@@ -86,12 +85,31 @@ public final class RuntimeConsoleIcon extends Pane {
   }
 
   private static Group clear() {
-    Rectangle terminal =
-        roundedRect(2.7, 4.0, 18.6, 15.2, 2.6, gradient("#293640", "#10171c"), SILVER, 1.15);
-    SVGPath prompt = stroked("M6.1 8.2 L8.8 10.6 L6.1 13 M10.3 13 H13.1", Color.web("#9edcff"), 1.45);
-    SVGPath sweep = stroked("M13.4 15.8 L19.1 10.1 M15 9.1 L20.1 14.2", Color.web("#ffb56c"), 1.7);
-    Circle spark = new Circle(18.8, 7.3, 1.15, Color.web("#ffe0a4"));
-    return new Group(terminal, prompt, sweep, spark);
+    SVGPath wipedLines = stroked(
+        "M2.5 18.6 H8.2 M2.5 21 H11.2",
+        Color.web("#6f8794"),
+        1.05);
+    wipedLines.setOpacity(0.72);
+
+    SVGPath sleeve = filled(
+        "M4.4 15.2 L9.7 8.6 L16.3 13.8 L11.2 20.5 H7.4 L4.3 18.1 Q3.2 17.2 4.4 15.2 Z",
+        gradient("#79c7e9", "#245b78"));
+    sleeve.setStroke(Color.web("#bcecff"));
+    sleeve.setStrokeWidth(1.0);
+    sleeve.setStrokeLineJoin(StrokeLineJoin.ROUND);
+
+    SVGPath rubber = filled(
+        "M9.7 8.6 L13.1 4.3 Q14 3.1 15.2 4 L20.2 7.9 Q21.3 8.8 20.4 10 L16.3 13.8 Z",
+        gradient("#ffd4df", "#e36f91"));
+    rubber.setStroke(Color.web("#fff0f4"));
+    rubber.setStrokeWidth(1.0);
+    rubber.setStrokeLineJoin(StrokeLineJoin.ROUND);
+
+    Line band = line(9.7, 8.6, 16.3, 13.8, Color.web("#f7fbff"), 1.1);
+    Line shine = line(14.1, 5.3, 18.9, 9.1, Color.rgb(255, 255, 255, 0.48), 0.8);
+    Circle crumbOne = new Circle(13.4, 19.4, 0.75, Color.web("#f2a2b6"));
+    Circle crumbTwo = new Circle(15.8, 20.7, 0.5, Color.web("#9fd9ef"));
+    return new Group(wipedLines, sleeve, rubber, band, shine, crumbOne, crumbTwo);
   }
 
   private static Group copy() {

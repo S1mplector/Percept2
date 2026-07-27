@@ -61,6 +61,14 @@ public final class AeroIcon extends StackPane {
     return new AeroIcon(kind, size);
   }
 
+  public static AeroIcon runProject(double size) {
+    return of(Kind.RUN, size);
+  }
+
+  public static AeroIcon buildProject(double size) {
+    return of(Kind.BUILD, size);
+  }
+
   public Kind kind() {
     return kind;
   }
@@ -192,7 +200,7 @@ public final class AeroIcon extends StackPane {
       case MANIFEST -> new Badge(sized(CssIcon.check("#ffffff"), glyphSize), Color.web("#35a45c"));
       case README -> new Badge(sized(CssIcon.list("#ffffff"), glyphSize), Color.web("#4b7ba6"));
       case ENTRY_SCRIPT -> new Badge(sized(CssIcon.play("#ffffff"), glyphSize), Color.web("#2fa35a"));
-      case BUILD -> new Badge(sized(CssIcon.check("#ffffff"), glyphSize), Color.web("#2e9b50"));
+      case BUILD -> new Badge(sized(CssIcon.wrench("#ffffff"), glyphSize), Color.web("#287fb4"));
       case LIGHTING, PUPPETEER ->
           new Badge(sized(CssIcon.sparkles("#ffffff"), glyphSize), Color.web("#b54f95"));
       case SETTINGS -> new Badge(sized(CssIcon.auto("#ffffff"), glyphSize), Color.web("#d27128"));
