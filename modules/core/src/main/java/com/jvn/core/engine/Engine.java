@@ -60,7 +60,7 @@ import com.jvn.core.vn.VnInteropFactory;
  * @see EngineListener
  * @see FrameStats
  */
-public class Engine {
+public class Engine implements AutoCloseable {
 
   private static final Logger log = LoggerFactory.getLogger(Engine.class);
 
@@ -101,6 +101,12 @@ public class Engine {
    * listeners can safely register / unregister themselves from inside a callback.
    */
   private final List<Runnable> pendingListenerMutations = new ArrayList<>();
+
+  /** Runtime resources whose lifetime is bounded by this engine instance. */
+  private final List<AutoCloseable> ownedResources = new ArrayList<>();
+
+  /** Guards deterministic, idempotent teardown after {@link #stop()}. */
+  private boolean resourcesClosed;
 
   /** True while iterating {@link #listeners}; re-entrant mutations are queued. */
   private boolean dispatchingListeners = false;
@@ -173,6 +179,9 @@ public class Engine {
    * scenes and configuration have been set up.
    */
   public void start() {
+    if (resourcesClosed) {
+      throw new IllegalStateException("A stopped engine cannot be restarted after its resources are closed");
+    }
     this.started = true;
   }
 
@@ -183,6 +192,49 @@ public class Engine {
    */
   public void stop() {
     this.started = false;
+    close();
+  }
+
+  /**
+   * Give the engine ownership of a runtime resource such as an audio backend.
+   *
+   * <p>Owned resources are closed in reverse registration order when the engine
+   * stops, including when a platform window is closed directly. Registering the
+   * same object more than once is harmless.</p>
+   *
+   * @param resource resource to close with the engine; {@code null} is ignored
+   * @return the supplied resource for convenient construction-time wiring
+   */
+  public <T extends AutoCloseable> T own(T resource) {
+    if (resource == null) return null;
+    if (resourcesClosed) {
+      closeResource(resource);
+      return resource;
+    }
+    boolean alreadyOwned = ownedResources.stream().anyMatch(existing -> existing == resource);
+    if (!alreadyOwned) ownedResources.add(resource);
+    return resource;
+  }
+
+  /**
+   * Release all engine-owned runtime resources. This operation is idempotent.
+   */
+  @Override
+  public void close() {
+    if (resourcesClosed) return;
+    resourcesClosed = true;
+    for (int i = ownedResources.size() - 1; i >= 0; i--) {
+      closeResource(ownedResources.get(i));
+    }
+    ownedResources.clear();
+  }
+
+  private void closeResource(AutoCloseable resource) {
+    try {
+      resource.close();
+    } catch (Exception ex) {
+      log.warn("Failed to close engine-owned resource {}", resource.getClass().getName(), ex);
+    }
   }
 
   /** @return {@code true} if the engine has been started and not yet stopped */

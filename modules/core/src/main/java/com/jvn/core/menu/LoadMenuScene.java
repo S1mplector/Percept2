@@ -60,6 +60,7 @@ public class LoadMenuScene implements Scene {
   private final Set<String> favorites = new HashSet<>();
   private final String scopedScriptName;
   private final String scopedScenarioId;
+  private VnScene gameplayVnScene;
   private boolean favoritesOnly = false;
   private int selected = -1;
 
@@ -177,6 +178,11 @@ public class LoadMenuScene implements Scene {
   public String getDefaultScriptName() { return defaultScriptName; }
   public com.jvn.core.vn.VnSettings getSettingsModel() { return settingsModel; }
   public AudioFacade getAudioFacade() { return audio; }
+  public VnScene getGameplayVnScene() { return gameplayVnScene; }
+  public LoadMenuScene withGameplayVnScene(VnScene scene) {
+    this.gameplayVnScene = scene;
+    return this;
+  }
   public int getItemCount() { return saves.size(); }
   public boolean isFavoritesOnly() { return favoritesOnly; }
 
@@ -552,6 +558,7 @@ public class LoadMenuScene implements Scene {
         audio.setSfxVolume(s.getSfxVolume());
         audio.setVoiceVolume(s.getVoiceVolume());
       }
+      MenuAudioLifecycle.beginGameplay(audio);
       engine.scenes().push(scene);
     } catch (Exception ignored) {
             // reason: non-critical operation; exception swallowed to prevent crash propagation
@@ -605,6 +612,7 @@ public class LoadMenuScene implements Scene {
     }
     if (engine != null) {
       engine.setFixedUpdateStepMs(settingsModel.getPhysicsFixedStepMs(), settingsModel.getPhysicsMaxSubSteps());
+      MenuAudioLifecycle.beginGameplay(audio);
       engine.scenes().push(scene);
     }
   }

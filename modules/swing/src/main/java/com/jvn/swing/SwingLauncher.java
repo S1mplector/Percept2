@@ -77,6 +77,11 @@ public class SwingLauncher {
     frame.setLocationRelativeTo(null);
     applyLinuxDefaultWindowState(frame);
     frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+    frame.addWindowListener(new WindowAdapter() {
+      @Override public void windowClosing(WindowEvent event) {
+        if (engine != null) engine.stop();
+      }
+    });
     frame.setVisible(true);
 
     final long[] lastNs = { -1L };

@@ -216,6 +216,8 @@ public class MainMenuScene implements Scene {
         engine.scenes().push(new com.jvn.core.menu.gallery.MusicRoomScene(engine, audio, store));
       }
       case SAVE_MENU -> LOG.debug("Ignoring save menu action in title context");
+      case HISTORY_MENU, TOGGLE_SKIP, TOGGLE_AUTO ->
+          LOG.debug("Ignoring gameplay-only menu action {} in title context", action.type());
       case NOOP -> {
       }
     }
@@ -290,6 +292,7 @@ public class MainMenuScene implements Scene {
     }
     if (engine != null) {
       engine.setFixedUpdateStepMs(settingsModel.getPhysicsFixedStepMs(), settingsModel.getPhysicsMaxSubSteps());
+      MenuAudioLifecycle.beginGameplay(audio);
       engine.scenes().push(vnScene);
     }
   }
@@ -381,6 +384,9 @@ public class MainMenuScene implements Scene {
       case NEW_GAME -> Localization.t("menu.new_game");
       case LOAD_MENU -> Localization.t("menu.load");
       case SETTINGS_MENU -> Localization.t("menu.settings");
+      case HISTORY_MENU -> Localization.t("history.title");
+      case TOGGLE_SKIP -> "Skip";
+      case TOGGLE_AUTO -> "Auto";
       case QUIT -> Localization.t("menu.quit");
       case BACK -> Localization.t("common.back");
       case SAVE_MENU -> Localization.t("save.title");

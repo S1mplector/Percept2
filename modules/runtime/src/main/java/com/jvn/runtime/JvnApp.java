@@ -320,6 +320,7 @@ public class JvnApp {
       } else {
         audio = new FxAudioService();
       }
+      engine.own(audio);
       configureAudioProjectRoot(audio, assetRoot);
       // Apply user settings to audio backend immediately
       try {

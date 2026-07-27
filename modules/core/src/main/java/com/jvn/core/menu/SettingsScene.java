@@ -68,6 +68,7 @@ public class SettingsScene implements Scene {
   private String requestedMenuId = null;
   private String requestedSelectionKey = null;
   private String lastPrimarySelectionKey = null;
+  private VnScene gameplayVnScene;
 
   private record Row(
       String id,
@@ -78,6 +79,12 @@ public class SettingsScene implements Scene {
       MenuActionSpec action,
       MenuItemSpec itemSpec
   ) {}
+
+  public VnScene getGameplayVnScene() { return gameplayVnScene; }
+  public SettingsScene withGameplayVnScene(VnScene scene) {
+    this.gameplayVnScene = scene;
+    return this;
+  }
 
   public SettingsScene(VnSettings settings) {
     this(null, null, null, settings, null, null, null, "settings");
@@ -795,6 +802,7 @@ public class SettingsScene implements Scene {
       audio.setVoiceVolume(s.getVoiceVolume());
     }
     engine.setFixedUpdateStepMs(settings.getPhysicsFixedStepMs(), settings.getPhysicsMaxSubSteps());
+    MenuAudioLifecycle.beginGameplay(audio);
     engine.scenes().push(vnScene);
   }
 

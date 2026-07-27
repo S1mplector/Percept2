@@ -60,13 +60,14 @@ public class JavaZoomAudioEngine implements AudioEngine, BasicPlayerListener {
         volume.addListener((obs, oldVal, newVal) -> {
             if (player != null) {
                 try {
-                    // BasicPlayer uses gain in range -80.0 to 6.0206 dB
-                    // Convert 0.0-1.0 to gain value
-                    double gain = convertVolumeToGain(newVal.doubleValue());
-                    player.setGain(gain);
+                    // BasicPlayer#setGain accepts a normalized 0..1 value and
+                    // performs its own conversion to the line's dB range.
+                    player.setGain(normalizeBasicPlayerGain(newVal.doubleValue()));
                     currentVolume = newVal.doubleValue();
                 } catch (BasicPlayerException e) {
-                    LOGGER.log(Level.WARNING, "Failed to set volume", e);
+                    // The output line does not expose gain control until the
+                    // media has been opened. opened(...) reapplies the value.
+                    LOGGER.log(Level.FINE, "Volume deferred until the audio line is open", e);
                 }
             }
         });
@@ -350,6 +351,7 @@ public class JavaZoomAudioEngine implements AudioEngine, BasicPlayerListener {
         
         switch (code) {
             case BasicPlayerEvent.PLAYING:
+                applyCurrentVolume();
                 Platform.runLater(() -> playing.set(true));
                 LOGGER.fine("State: PLAYING");
                 break;
@@ -402,21 +404,18 @@ public class JavaZoomAudioEngine implements AudioEngine, BasicPlayerListener {
     
     // Helper methods
     
-    /**
-     * Converts volume from 0.0-1.0 range to gain in dB.
-     * BasicPlayer uses gain range from -80.0 to 6.0206 dB.
-     */
-    private double convertVolumeToGain(double volume) {
-        if (volume <= 0.0) {
-            return -80.0; // Minimum gain (mute)
+    static double normalizeBasicPlayerGain(double volume) {
+        if (!Double.isFinite(volume) || volume <= 0.0) return 0.0;
+        return Math.min(1.0, volume);
+    }
+
+    private void applyCurrentVolume() {
+        try {
+            player.setGain(normalizeBasicPlayerGain(volume.get()));
+            currentVolume = volume.get();
+        } catch (BasicPlayerException e) {
+            LOGGER.log(Level.WARNING, "Failed to apply volume to active audio line", e);
         }
-        
-        // Convert linear volume to logarithmic gain
-        // Using a logarithmic scale for more natural volume control
-        double gain = 20.0 * Math.log10(volume);
-        
-        // Clamp to BasicPlayer's gain range
-        return Math.max(-80.0, Math.min(6.0206, gain));
     }
     
     /**
