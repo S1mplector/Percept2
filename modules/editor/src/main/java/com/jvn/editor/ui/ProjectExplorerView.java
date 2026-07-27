@@ -74,8 +74,10 @@ public class ProjectExplorerView extends VBox {
       private final Label nameLabel = new Label();
       private final Region rootIcon = ProjectFileIcons.iconFor(ProjectFileIcons.Kind.ROOT);
       private final Region spacer = new Region();
-      private final Button buildButton = new Button("Build", CssIcon.download("#ecfff2"));
-      private final Button runButton = new Button("Run", CssIcon.play("#ecfff2"));
+      private final Button buildButton =
+          new Button("Build", projectActionGraphic(AeroIcon.buildProject(22)));
+      private final Button runButton =
+          new Button("Run", projectActionGraphic(AeroIcon.runProject(22)));
       private final HBox rootRow = new HBox(6, rootIcon, nameLabel, spacer, buildButton, runButton);
       {
         rootRow.setAlignment(Pos.CENTER_LEFT);
@@ -159,6 +161,15 @@ public class ProjectExplorerView extends VBox {
     miDelete.setOnAction(e -> deleteSelected());
 
     getChildren().addAll(header, filter, treeContainer);
+  }
+
+  private static Region projectActionGraphic(AeroIcon icon) {
+    javafx.scene.layout.StackPane holder = new javafx.scene.layout.StackPane(icon);
+    holder.setMinSize(22, 22);
+    holder.setPrefSize(22, 22);
+    holder.setMaxSize(22, 22);
+    holder.setMouseTransparent(true);
+    return holder;
   }
 
   public void setRootDirectory(File dir) {

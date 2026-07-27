@@ -41,6 +41,7 @@ import org.jspecify.annotations.Nullable;
 import com.jvn.core.project.StoryMapPaths;
 import com.jvn.core.scene2d.Entity2D;
 import com.jvn.editor.commands.CommandStack;
+import com.jvn.editor.runtime.GradleRuntimeLauncher;
 import com.jvn.editor.ui.AeroIcon;
 import com.jvn.editor.ui.AssetBrowserView;
 import com.jvn.editor.ui.CssIcon;
@@ -587,31 +588,11 @@ public class EditorApp extends Application {
   private void runGradle(File root, String task, String[] args, String title) {
     boolean windows = System.getProperty("os.name", "").toLowerCase().contains("win");
     File gradlew = new File(root, windows ? "gradlew.bat" : "gradlew");
-    File gradleUserHome = new File(root, ".jvn-gradle-user-home");
     try {
-      if (!gradleUserHome.exists()) gradleUserHome.mkdirs();
-      java.util.List<String> cmd = new java.util.ArrayList<>();
-      if (gradlew.exists()) cmd.add(gradlew.getAbsolutePath()); else cmd.add("gradle");
-      cmd.add("--no-daemon");
-      cmd.add("--console=plain");
-      cmd.add("--gradle-user-home");
-      cmd.add(gradleUserHome.getAbsolutePath());
-      cmd.add("-Dorg.gradle.vfs.watch=false");
-      cmd.add(task);
-      if (args != null) {
-        for (String arg : args) {
-          if (arg != null && !arg.isBlank()) cmd.add(arg);
-        }
-      }
       RunConsoleView console = new RunConsoleView(title);
       console.setLaunchContext(gradlew.exists() ? "Gradle wrapper" : "Gradle CLI", task, root.getName());
-      RunConsoleView.ProcessStarter starter = () -> {
-        ProcessBuilder pb = new ProcessBuilder(cmd);
-        pb.directory(root);
-        pb.redirectErrorStream(true);
-        pb.environment().put("GRADLE_USER_HOME", gradleUserHome.getAbsolutePath());
-        return pb.start();
-      };
+      RunConsoleView.ProcessStarter starter =
+          options -> GradleRuntimeLauncher.start(root, gradlew, task, args, options);
       console.setProcessStarter(starter);
 
       javafx.stage.Stage logStage = new javafx.stage.Stage();
@@ -624,7 +605,9 @@ public class EditorApp extends Application {
       applyLinuxDefaultWindowState(logStage);
       logStage.setOnHiding(e -> console.dispose());
       logStage.show();
-      console.startProcess(starter.start());
+      if (!console.startConfiguredProcess()) {
+        status.setText("Run failed");
+      }
     } catch (Exception ex) {
       status.setText("Run failed");
     }

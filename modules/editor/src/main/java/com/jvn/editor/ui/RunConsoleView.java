@@ -13,9 +13,13 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
+import com.jvn.editor.runtime.RuntimeGradleOptions;
+import com.jvn.editor.runtime.RuntimeGradleOptionsStore;
 import com.sun.management.OperatingSystemMXBean;
+import org.jspecify.annotations.Nullable;
 
 import javafx.animation.AnimationTimer;
 import javafx.application.Platform;
@@ -29,18 +33,23 @@ import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckMenuItem;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
+import javafx.scene.control.MenuButton;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.ProgressIndicator;
+import javafx.scene.control.RadioMenuItem;
 import javafx.scene.control.Separator;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.ToolBar;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.Clipboard;
@@ -67,7 +76,7 @@ public class RunConsoleView extends BorderPane {
 
     @FunctionalInterface
     public interface ProcessStarter {
-        Process start() throws Exception;
+        Process start(RuntimeGradleOptions options) throws Exception;
     }
 
     private final ListView<String> outputList = new ListView<>();
@@ -78,18 +87,26 @@ public class RunConsoleView extends BorderPane {
     private final Label launchDetailLabel = new Label();
     private final Label stateLabel = new Label();
     private final Label elapsedLabel = new Label();
-    private final ToggleButton showAllToggle = new ToggleButton("Build Output");
-    private final Button runBtn = iconButton(CssIcon.runtimePlay(), "Run current build again");
-    private final Button copyBtn = iconButton(CssIcon.runtimeCopy(), "Copy traceback to clipboard");
-    private final Button clearBtn = iconButton(CssIcon.runtimeClear(), "Clear output");
-    private final Button stopBtn = iconButton(CssIcon.runtimeStop(), "Stop current build");
+    private final ToggleButton showAllToggle =
+        iconToggle(RuntimeConsoleIcon.Kind.BUILD_OUTPUT, "Include full Gradle/build output");
+    private final Button runBtn =
+        iconButton(RuntimeConsoleIcon.Kind.RUN, "Run current build again");
+    private final Button copyBtn =
+        iconButton(RuntimeConsoleIcon.Kind.COPY, "Copy visible output to clipboard");
+    private final Button clearBtn =
+        iconButton(RuntimeConsoleIcon.Kind.CLEAR, "Clear output");
+    private final Button stopBtn =
+        iconButton(RuntimeConsoleIcon.Kind.STOP, "Stop current build");
+    private final MenuButton launchOptionsButton = new MenuButton();
 
     // Enhanced UI components
     private final TextField searchField = new TextField();
     private final ComboBox<String> logLevelFilter = new ComboBox<>(
         FXCollections.observableArrayList("All", "Engine", "Errors", "Warnings"));
-    private final ToggleButton autoScrollBtn = new ToggleButton("Auto-scroll");
-    private final ToggleButton wordWrapBtn = new ToggleButton("Wrap");
+    private final ToggleButton autoScrollBtn =
+        iconToggle(RuntimeConsoleIcon.Kind.AUTO_SCROLL, "Auto-scroll to latest output");
+    private final ToggleButton wordWrapBtn =
+        iconToggle(RuntimeConsoleIcon.Kind.WORD_WRAP, "Wrap long output lines");
     private final Label lineCountLabel = new Label("0 lines");
     private final Label errorCountLabel = new Label("0 errors");
     private final Label warnCountLabel = new Label("0 warnings");
@@ -103,8 +120,11 @@ public class RunConsoleView extends BorderPane {
     private final List<String> rawLineBuffer = new ArrayList<>();
 
     private EngineState engineState = EngineState.BUILDING;
-    private Process runningProcess;
-    private ProcessStarter processStarter;
+    private @Nullable Process runningProcess;
+    private @Nullable ProcessStarter processStarter;
+    private final RuntimeGradleOptionsStore gradleOptionsStore;
+    private RuntimeGradleOptions gradleOptions;
+    private RuntimeGradleOptions activeGradleOptions;
     private long startTime = System.currentTimeMillis();
     private int lineCount = 0;
     private int errorCount = 0;
@@ -177,6 +197,14 @@ public class RunConsoleView extends BorderPane {
     private static final Pattern COMPILE_TASK = Pattern.compile("^> Task (:[^\\s]+):compileJava(?:\\s+.*)?$");
 
     public RunConsoleView(String title) {
+        this(title, new RuntimeGradleOptionsStore());
+    }
+
+    RunConsoleView(String title, RuntimeGradleOptionsStore optionsStore) {
+        gradleOptionsStore =
+            optionsStore == null ? new RuntimeGradleOptionsStore() : optionsStore;
+        gradleOptions = gradleOptionsStore.load();
+        activeGradleOptions = gradleOptions;
         getStyleClass().add("run-console-root");
         launchActivityLabel.getStyleClass().add("run-console-launch-activity");
         launchDetailLabel.getStyleClass().add("run-console-launch-detail");
@@ -226,16 +254,26 @@ public class RunConsoleView extends BorderPane {
         refreshLaunchBanner();
     }
 
-    private static Button iconButton(javafx.scene.layout.Region iconClass, String tooltipText) {
+    private static Button iconButton(RuntimeConsoleIcon.Kind kind, String tooltipText) {
         Button btn = new Button();
         btn.getStyleClass().add("run-console-icon-btn");
-        btn.setGraphic(iconClass);
+        btn.setGraphic(RuntimeConsoleIcon.of(kind));
         btn.setTooltip(new Tooltip(tooltipText));
         btn.setFocusTraversable(false);
         return btn;
     }
 
-    public void setProcessStarter(ProcessStarter processStarter) {
+    private static ToggleButton iconToggle(
+        RuntimeConsoleIcon.Kind kind, String tooltipText) {
+        ToggleButton button = new ToggleButton();
+        button.setGraphic(RuntimeConsoleIcon.of(kind));
+        button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        button.setTooltip(new Tooltip(tooltipText));
+        button.setFocusTraversable(false);
+        return button;
+    }
+
+    public void setProcessStarter(@Nullable ProcessStarter processStarter) {
         this.processStarter = processStarter;
         runBtn.setDisable(processStarter == null || !(engineState == EngineState.STOPPED || engineState == EngineState.FAILED));
     }
@@ -251,8 +289,21 @@ public class RunConsoleView extends BorderPane {
         attachProcess(process);
     }
 
+    public boolean startConfiguredProcess() {
+        if (processStarter == null) return false;
+        try {
+            attachProcess(processStarter.start(gradleOptions));
+            return true;
+        } catch (Exception ex) {
+            setState(EngineState.FAILED);
+            appendInfoMessage("Failed to start process: " + ex.getMessage());
+            return false;
+        }
+    }
+
     private void attachProcess(Process process) {
         this.runningProcess = process;
+        activeGradleOptions = gradleOptions;
         startTime = System.currentTimeMillis();
         lineCount = 0;
         errorCount = 0;
@@ -679,7 +730,7 @@ public class RunConsoleView extends BorderPane {
         if (runningProcess != null && runningProcess.isAlive()) {
             appendInfoMessage("Stopping process...");
             stopBtn.setDisable(true);
-            runningProcess.destroyForcibly();
+            terminateProcessTree(runningProcess, activeGradleOptions.reuseDaemon());
         }
     }
 
@@ -691,7 +742,7 @@ public class RunConsoleView extends BorderPane {
         }
         try {
             appendInfoMessage("Re-running build...");
-            Process process = processStarter.start();
+            Process process = processStarter.start(gradleOptions);
             attachProcess(process);
         } catch (Exception ex) {
             setState(EngineState.FAILED);
@@ -791,7 +842,11 @@ public class RunConsoleView extends BorderPane {
         miStop.setAccelerator(new KeyCodeCombination(KeyCode.PERIOD, KeyCombination.SHORTCUT_DOWN));
         miStop.setOnAction(e -> stopProcess());
 
-        runMenu.getItems().addAll(miRerun, miStop);
+        MenuItem miLaunchOptions = new MenuItem("Gradle Launch Options");
+        miLaunchOptions.setOnAction(e -> Platform.runLater(launchOptionsButton::show));
+
+        runMenu.getItems().addAll(
+            miRerun, miStop, new SeparatorMenuItem(), miLaunchOptions);
 
         // — Help menu —
         Menu helpMenu = new Menu("Help");
@@ -838,6 +893,7 @@ public class RunConsoleView extends BorderPane {
 
         runBtn.getStyleClass().add("run-console-icon-btn-success");
         stopBtn.getStyleClass().add("run-console-icon-btn-danger");
+        configureLaunchOptionsButton();
 
         runBtn.setOnAction(e -> rerunProcess());
         stopBtn.setOnAction(e -> stopProcess());
@@ -907,13 +963,166 @@ public class RunConsoleView extends BorderPane {
 
         bar.getItems().addAll(
             runBtn, stopBtn, new Separator(),
-            clearBtn, copyBtn, new Separator(),
+            clearBtn, copyBtn, launchOptionsButton, new Separator(),
             perfGraphShell, new Separator(),
             showAllToggle, autoScrollBtn, wordWrapBtn, new Separator(),
             searchLabel, searchField, logLevelFilter,
             spacer, stateLabel, elapsedLabel
         );
         return bar;
+    }
+
+    private void configureLaunchOptionsButton() {
+        launchOptionsButton.getStyleClass().addAll(
+            "run-console-icon-btn", "run-console-launch-options-btn");
+        launchOptionsButton.setGraphic(RuntimeConsoleIcon.of(RuntimeConsoleIcon.Kind.LAUNCH_OPTIONS));
+        launchOptionsButton.setContentDisplay(ContentDisplay.LEFT);
+        launchOptionsButton.setFocusTraversable(false);
+
+        CheckMenuItem reuseDaemonItem = new CheckMenuItem("Reuse warm Gradle daemon");
+        CheckMenuItem buildCacheItem = new CheckMenuItem("Reuse build cache");
+        CheckMenuItem configurationCacheItem = new CheckMenuItem("Reuse configuration cache");
+        CheckMenuItem parallelItem = new CheckMenuItem("Build projects in parallel");
+        CheckMenuItem sharedDependenciesItem = new CheckMenuItem("Share dependency cache across projects");
+
+        reuseDaemonItem.setSelected(gradleOptions.reuseDaemon());
+        buildCacheItem.setSelected(gradleOptions.buildCache());
+        configurationCacheItem.setSelected(gradleOptions.configurationCache());
+        parallelItem.setSelected(gradleOptions.parallelExecution());
+        sharedDependenciesItem.setSelected(gradleOptions.sharedDependencyCache());
+
+        reuseDaemonItem.setOnAction(
+            e -> updateGradleOptions(gradleOptions.withReuseDaemon(reuseDaemonItem.isSelected())));
+        buildCacheItem.setOnAction(
+            e -> updateGradleOptions(gradleOptions.withBuildCache(buildCacheItem.isSelected())));
+        configurationCacheItem.setOnAction(
+            e -> updateGradleOptions(
+                gradleOptions.withConfigurationCache(configurationCacheItem.isSelected())));
+        parallelItem.setOnAction(
+            e -> updateGradleOptions(
+                gradleOptions.withParallelExecution(parallelItem.isSelected())));
+        sharedDependenciesItem.setOnAction(
+            e -> updateGradleOptions(
+                gradleOptions.withSharedDependencyCache(sharedDependenciesItem.isSelected())));
+
+        Menu workersMenu = new Menu("Maximum workers");
+        ToggleGroup workersGroup = new ToggleGroup();
+        RadioMenuItem automaticWorkers = workerItem("Automatic", 0, workersGroup);
+        RadioMenuItem twoWorkers = workerItem("2 (recommended)", 2, workersGroup);
+        RadioMenuItem fourWorkers = workerItem("4", 4, workersGroup);
+        RadioMenuItem eightWorkers = workerItem("8", 8, workersGroup);
+        workersMenu.getItems().addAll(
+            automaticWorkers, twoWorkers, fourWorkers, eightWorkers);
+        selectWorkerItem(
+            gradleOptions.maxWorkers(),
+            automaticWorkers,
+            twoWorkers,
+            fourWorkers,
+            eightWorkers);
+
+        MenuItem fastPreset = new MenuItem("Use Fast Launch preset");
+        MenuItem compatibilityPreset = new MenuItem("Use Compatibility preset");
+        fastPreset.setOnAction(e -> {
+            RuntimeGradleOptions options = RuntimeGradleOptions.fastDefaults();
+            syncLaunchOptionItems(
+                options,
+                reuseDaemonItem,
+                buildCacheItem,
+                configurationCacheItem,
+                parallelItem,
+                sharedDependenciesItem,
+                automaticWorkers,
+                twoWorkers,
+                fourWorkers,
+                eightWorkers);
+            updateGradleOptions(options);
+        });
+        compatibilityPreset.setOnAction(e -> {
+            RuntimeGradleOptions options = RuntimeGradleOptions.compatibilityDefaults();
+            syncLaunchOptionItems(
+                options,
+                reuseDaemonItem,
+                buildCacheItem,
+                configurationCacheItem,
+                parallelItem,
+                sharedDependenciesItem,
+                automaticWorkers,
+                twoWorkers,
+                fourWorkers,
+                eightWorkers);
+            updateGradleOptions(options);
+        });
+
+        launchOptionsButton.getItems().setAll(
+            reuseDaemonItem,
+            buildCacheItem,
+            configurationCacheItem,
+            parallelItem,
+            sharedDependenciesItem,
+            new SeparatorMenuItem(),
+            workersMenu,
+            new SeparatorMenuItem(),
+            fastPreset,
+            compatibilityPreset);
+        refreshLaunchOptionsButton();
+    }
+
+    private RadioMenuItem workerItem(String label, int workers, ToggleGroup group) {
+        RadioMenuItem item = new RadioMenuItem(label);
+        item.setToggleGroup(group);
+        item.setOnAction(e -> {
+            if (item.isSelected()) updateGradleOptions(gradleOptions.withMaxWorkers(workers));
+        });
+        return item;
+    }
+
+    private static void selectWorkerItem(
+        int workers, RadioMenuItem automatic, RadioMenuItem two, RadioMenuItem four, RadioMenuItem eight) {
+        if (workers == 2) two.setSelected(true);
+        else if (workers == 4) four.setSelected(true);
+        else if (workers == 8) eight.setSelected(true);
+        else automatic.setSelected(true);
+    }
+
+    private static void syncLaunchOptionItems(
+        RuntimeGradleOptions options,
+        CheckMenuItem reuseDaemon,
+        CheckMenuItem buildCache,
+        CheckMenuItem configurationCache,
+        CheckMenuItem parallel,
+        CheckMenuItem sharedDependencies,
+        RadioMenuItem automaticWorkers,
+        RadioMenuItem twoWorkers,
+        RadioMenuItem fourWorkers,
+        RadioMenuItem eightWorkers) {
+        reuseDaemon.setSelected(options.reuseDaemon());
+        buildCache.setSelected(options.buildCache());
+        configurationCache.setSelected(options.configurationCache());
+        parallel.setSelected(options.parallelExecution());
+        sharedDependencies.setSelected(options.sharedDependencyCache());
+        selectWorkerItem(
+            options.maxWorkers(),
+            automaticWorkers,
+            twoWorkers,
+            fourWorkers,
+            eightWorkers);
+    }
+
+    private void updateGradleOptions(RuntimeGradleOptions options) {
+        if (options == null || options.equals(gradleOptions)) return;
+        gradleOptions = options;
+        try {
+            gradleOptionsStore.save(options);
+        } catch (java.io.IOException ex) {
+            appendInfoMessage("Could not save Gradle launch options: " + ex.getMessage());
+        }
+        refreshLaunchOptionsButton();
+    }
+
+    private void refreshLaunchOptionsButton() {
+        launchOptionsButton.setText(gradleOptions.shortLabel());
+        launchOptionsButton.setTooltip(new Tooltip(
+            "Gradle launch options for the next run\n" + gradleOptions.summary()));
     }
 
     // ─── Status Bar ─────────────────────────────────────────────────────────
@@ -995,6 +1204,38 @@ public class RunConsoleView extends BorderPane {
 
     public void dispose() {
         perfHudTimer.stop();
+        if (runningProcess != null && runningProcess.isAlive()) {
+            terminateProcessTree(runningProcess, activeGradleOptions.reuseDaemon());
+        }
+    }
+
+    private static void terminateProcessTree(Process process, boolean preserveReusableDaemon) {
+        if (process == null) return;
+        ProcessHandle handle = process.toHandle();
+        List<ProcessHandle> descendants = handle.descendants().toList();
+        handle.destroy();
+
+        Thread cleanup = new Thread(() -> {
+            try {
+                process.waitFor(900, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+            descendants.stream()
+                .filter(ProcessHandle::isAlive)
+                .filter(child -> !preserveReusableDaemon || !isGradleDaemon(child))
+                .sorted(java.util.Comparator.comparingLong(ProcessHandle::pid).reversed())
+                .forEach(ProcessHandle::destroyForcibly);
+            if (handle.isAlive()) handle.destroyForcibly();
+        }, "jvn-runtime-process-cleanup");
+        cleanup.setDaemon(true);
+        cleanup.start();
+    }
+
+    private static boolean isGradleDaemon(ProcessHandle process) {
+        if (process == null) return false;
+        String commandLine = process.info().commandLine().orElse("");
+        return commandLine.contains("org.gradle.launcher.daemon.bootstrap.GradleDaemon");
     }
 
     private void updatePerfHud(long nowNs) {
