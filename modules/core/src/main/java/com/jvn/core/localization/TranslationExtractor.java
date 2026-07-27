@@ -23,7 +23,9 @@ import java.util.stream.Stream;
  * Extracts translatable VNS and UI text from a project tree.
  */
 public final class TranslationExtractor {
-  private static final Pattern CHARACTER = Pattern.compile("^@character\\s+\\S+\\s+\"([^\"]*)\"\\s*$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern CHARACTER = Pattern.compile(
+      "^@character\\s+\\S+\\s+\"([^\"]*)\"(?:\\s+.+)?$",
+      Pattern.CASE_INSENSITIVE);
   private static final Pattern DIALOGUE_COLON = Pattern.compile("^([^:#@\\[][^:]{0,96}):\\s*(.+)$");
   private static final Pattern DIALOGUE_QUOTED = Pattern.compile("^(\\S+)\\s+\"((?:[^\"\\\\]|\\\\.)*)\"\\s*$");
   private static final Pattern CHOICE_CONDITION = Pattern.compile("^(.*)\\[if\\s+.+]\\s*$", Pattern.CASE_INSENSITIVE);

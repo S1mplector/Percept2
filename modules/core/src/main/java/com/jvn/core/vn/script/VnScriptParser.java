@@ -19,6 +19,7 @@ import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.AssetType;
 import com.jvn.core.vn.CharacterPosition;
 import com.jvn.core.vn.Choice;
+import com.jvn.core.vn.DialogueLine;
 import com.jvn.core.vn.LayeredCharacterResolver;
 import com.jvn.core.vn.VnArgTokenizer;
 import com.jvn.core.vn.VnConditionEvaluator;
@@ -37,7 +38,9 @@ import com.jvn.core.diagnostics.runtime_logs.warnings.warning_factories.UnknownE
  */
 public class VnScriptParser {
   private static final Pattern SCENARIO_PATTERN = Pattern.compile("^@scenario\\s+(.+)$", Pattern.CASE_INSENSITIVE);
-  private static final Pattern CHARACTER_PATTERN = Pattern.compile("^@character\\s+(\\S+)\\s+\"([^\"]*)\"$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern CHARACTER_PATTERN = Pattern.compile(
+      "^@character\\s+(\\S+)\\s+\"([^\"]*)\"(?:\\s+(.+))?$",
+      Pattern.CASE_INSENSITIVE);
   private static final Pattern BACKGROUND_PATTERN = Pattern.compile("^@background\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARIMG_PATTERN = Pattern.compile("^@charimg\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARLAYER_PATTERN = Pattern.compile("^@charlayer\\s+(\\S+)\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
@@ -722,6 +725,23 @@ public class VnScriptParser {
           state.charBuilders.put(id, cb);
         }
         cb.displayName(name);
+        String options = charMatcher.group(3);
+        if (options != null && !options.isBlank()) {
+          for (String token : VnArgTokenizer.tokenize(options)) {
+            KeyValueOption option = parseKeyValueOption(
+                token, sourceName, lineNumber, rawLine, "@character");
+            switch (option.key()) {
+              case "color", "colour", "namecolor", "name_color", "who_color" ->
+                  cb.nameColor(parseCharacterColor(
+                      option.value(), sourceName, lineNumber, rawLine));
+              default -> throw parseError(
+                  sourceName,
+                  lineNumber,
+                  "@character unknown option: " + option.key(),
+                  rawLine);
+            }
+          }
+        }
         state.builder.addCharacter(id, name);
         continue;
       }
@@ -2512,12 +2532,33 @@ public class VnScriptParser {
 
   private void emitDialogue(ParseState state, String speakerId, String text) {
     String displayName = resolveDisplayName(state, speakerId);
+    com.jvn.core.vn.VnCharacter.Builder character = state.charBuilders.get(speakerId);
+    String speakerColor = character == null ? null : character.getNameColor();
+    DialogueLine.Builder line = DialogueLine.builder()
+        .speakerName(displayName)
+        .speakerId(speakerId)
+        .speakerColor(speakerColor)
+        .text(text);
     if (state.pendingVoiceTrackId != null && !state.pendingVoiceTrackId.isBlank()) {
-      state.builder.dialogue(displayName, text, state.pendingVoiceTrackId);
+      line.voiceTrackId(state.pendingVoiceTrackId);
       state.pendingVoiceTrackId = null;
-      return;
     }
-    state.builder.dialogue(displayName, text);
+    state.builder.dialogue(line.build());
+  }
+
+  private String parseCharacterColor(String token,
+                                     String sourceName,
+                                     int lineNumber,
+                                     String rawLine) throws IOException {
+    String color = token == null ? "" : token.trim();
+    if (!color.matches("#[0-9A-Fa-f]{6}(?:[0-9A-Fa-f]{2})?")) {
+      throw parseError(
+          sourceName,
+          lineNumber,
+          "@character color must use #RRGGBB or #RRGGBBAA",
+          rawLine);
+    }
+    return color.toUpperCase(java.util.Locale.ENGLISH);
   }
 
   private void flushChoices(VnScenarioBuilder builder, List<Choice> choices) {

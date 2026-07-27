@@ -48,6 +48,42 @@ public class VnScriptParserTest {
   }
 
   @Test
+  public void parsesCharacterSpeakerColorAndCarriesItToDialogue() throws Exception {
+    String script = """
+      @scenario color_demo
+      @character hi "Hisao" color=#629276
+
+      @label start
+      hi: The text itself keeps the normal dialogue color.
+      [end]
+    """;
+
+    VnScenario scenario = new VnScriptParser().parseFromString(script);
+    VnCharacter hisao = scenario.getCharacter("hi");
+    DialogueLine line = scenario.getNodes().stream()
+        .filter(node -> node.getType() == VnNodeType.DIALOGUE)
+        .findFirst()
+        .orElseThrow()
+        .getDialogue();
+
+    assertEquals("#629276", hisao.getNameColor());
+    assertEquals("hi", line.getSpeakerId());
+    assertEquals("Hisao", line.getSpeakerName());
+    assertEquals("#629276", line.getSpeakerColor());
+  }
+
+  @Test
+  public void rejectsMalformedCharacterSpeakerColor() {
+    String script = """
+      @scenario color_demo
+      @character hi "Hisao" color=green
+      [end]
+    """;
+
+    assertThrows(IOException.class, () -> new VnScriptParser().parseFromString(script));
+  }
+
+  @Test
   public void parsesCharacterLayerPresetsIntoLayeredCharimgExpressions() throws Exception {
     String script = """
       @scenario layered_demo

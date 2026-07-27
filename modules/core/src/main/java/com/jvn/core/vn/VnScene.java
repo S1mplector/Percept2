@@ -521,7 +521,7 @@ public class VnScene implements Scene {
     String text = resolveInterpolatedText(dialogue.getText());
     dialogueControlTags = TextParser.controlTags(text);
     dialogueControlNodeIndex = state.getCurrentNodeIndex();
-    state.getHistory().addEntry(speaker, text);
+    state.getHistory().addEntry(speaker, text, dialogue.getSpeakerColor());
 
     // Update character display
     if (dialogue.getCharacterId() != null) {

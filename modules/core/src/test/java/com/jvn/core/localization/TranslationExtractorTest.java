@@ -17,7 +17,7 @@ class TranslationExtractorTest {
     Files.createDirectories(root.resolve("scripts/story"));
     Files.createDirectories(root.resolve("config/menu/menus"));
     Files.writeString(root.resolve("scripts/story/prologue.vns"), """
-        @character alice "Alice"
+        @character alice "Alice" color=#897CBF
         alice: Welcome to JVN.
         - Open the door -> open
         [hud Save complete]
@@ -31,6 +31,7 @@ class TranslationExtractorTest {
 
     List<TranslationEntry> entries = TranslationExtractor.extract(root);
 
+    assertTrue(entries.stream().anyMatch(e -> e.key().equals(Localization.sourceKey("Alice"))));
     assertTrue(entries.stream().anyMatch(e -> e.key().equals(Localization.sourceKey("Welcome to JVN."))));
     assertTrue(entries.stream().anyMatch(e -> e.key().equals(Localization.sourceKey("Open the door"))));
     assertTrue(entries.stream().anyMatch(e -> e.key().equals(Localization.sourceKey("Save complete"))));

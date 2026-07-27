@@ -5,6 +5,8 @@ package com.jvn.core.vn;
  */
 public class DialogueLine {
   private final String speakerName;
+  private final String speakerId;
+  private final String speakerColor;
   private final String text;
   private final String characterId;
   private final String expression;
@@ -13,6 +15,8 @@ public class DialogueLine {
 
   private DialogueLine(Builder builder) {
     this.speakerName = builder.speakerName;
+    this.speakerId = builder.speakerId;
+    this.speakerColor = builder.speakerColor;
     this.text = builder.text;
     this.characterId = builder.characterId;
     this.expression = builder.expression;
@@ -21,6 +25,8 @@ public class DialogueLine {
   }
 
   public String getSpeakerName() { return speakerName; }
+  public String getSpeakerId() { return speakerId; }
+  public String getSpeakerColor() { return speakerColor; }
   public String getText() { return text; }
   public String getCharacterId() { return characterId; }
   public String getExpression() { return expression; }
@@ -31,6 +37,8 @@ public class DialogueLine {
 
   public static class Builder {
     private String speakerName = "";
+    private String speakerId = null;
+    private String speakerColor = null;
     private String text = "";
     private String characterId = null;
     private String expression = "neutral";
@@ -38,6 +46,8 @@ public class DialogueLine {
     private String voiceTrackId = null;
 
     public Builder speakerName(String name) { this.speakerName = name; return this; }
+    public Builder speakerId(String id) { this.speakerId = id; return this; }
+    public Builder speakerColor(String color) { this.speakerColor = color; return this; }
     public Builder text(String text) { this.text = text; return this; }
     public Builder characterId(String id) { this.characterId = id; return this; }
     public Builder expression(String expression) { this.expression = expression; return this; }

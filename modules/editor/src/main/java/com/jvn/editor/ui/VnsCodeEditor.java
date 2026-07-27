@@ -2104,7 +2104,7 @@ public class VnsCodeEditor extends BorderPane {
     VNS_COMMAND_DOCS.put("phone", "Run phone UI commands. Usage: [phone open] or [phone chat contact_id]");
     VNS_COMMAND_DOCS.put("menu", "Open a menu. Usage: [menu menu_name]");
     VNS_COMMAND_DOCS.put("@scenario", "Declare scenario metadata. Usage: @scenario name");
-    VNS_COMMAND_DOCS.put("@character", "Declare a character. Usage: @character id display_name");
+    VNS_COMMAND_DOCS.put("@character", "Declare a character and optional speaker color. Usage: @character id \"Display Name\" color=#RRGGBB");
     VNS_COMMAND_DOCS.put("@background", "Declare a background alias. Usage: @background alias path");
     VNS_COMMAND_DOCS.put("@label", "Define a jump target. Usage: @label name");
     VNS_COMMAND_DOCS.put("@var", "Declare a variable. Usage: @var name default_value");

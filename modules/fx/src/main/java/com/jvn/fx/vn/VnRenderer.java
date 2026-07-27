@@ -1983,7 +1983,12 @@ public class VnRenderer {
 
   private record AudioVisualizerPalette(Color base, Color accent, Color shadow) {}
 
-  private record DialogueRenderEntry(String speaker, String text, int revealedChars) {}
+  private record DialogueRenderEntry(
+      String speaker,
+      String speakerColor,
+      String text,
+      int revealedChars
+  ) {}
 
   private record BubbleGeometry(
       double x,
@@ -2011,7 +2016,9 @@ public class VnRenderer {
     boolean defaultDialogueStyle = shouldUseDefaultDialogueUi(state) || shouldUseDefaultDialogueStyle(state);
     Color activeTextBoxFillColor = defaultDialogueStyle ? TEXTBOX_COLOR : textBoxFillColor;
     Color activeNameBoxFillColor = defaultDialogueStyle ? NAME_BOX_COLOR : nameBoxFillColor;
-    Color activeNameTextFillColor = defaultDialogueStyle ? Color.web("#FFD78A") : nameTextFillColor;
+    Color activeNameTextFillColor = resolveSpeakerColor(
+        dialogue,
+        defaultDialogueStyle ? Color.web("#FFD78A") : nameTextFillColor);
     Color activeDialogueTextFillColor = defaultDialogueStyle ? TEXT_COLOR : dialogueTextFillColor;
     double fscale = state == null ? 1.0 : state.getSettings().getUiFontScale();
     Font activeNameFont = defaultDialogueStyle
@@ -2193,7 +2200,7 @@ public class VnRenderer {
     for (DialogueRenderEntry entry : entries) {
       if (y > panelY + panelH) break;
       String speaker = entry.speaker() == null ? "" : entry.speaker();
-      gc.setFill(nvlSpeakerTextFillColor);
+      gc.setFill(parseColor(entry.speakerColor(), nvlSpeakerTextFillColor));
       gc.setFont(nameFont);
       gc.fillText(truncateText(speaker, Math.max(20.0, speakerW - 8.0), nameFont), speakerX, y);
 
@@ -2225,7 +2232,7 @@ public class VnRenderer {
     double contentWidth = Math.max(80.0, bubble.width() - pad * 2);
     double y = bubble.y() + pad + nameFont.getSize();
     if (speaker != null && !speaker.isBlank()) {
-      gc.setFill(bubbleSpeakerTextFillColor);
+      gc.setFill(resolveSpeakerColor(dialogue, bubbleSpeakerTextFillColor));
       gc.setFont(nameFont);
       gc.fillText(speaker, textX, y);
       y += nameFont.getSize() * 0.95;
@@ -2328,17 +2335,26 @@ public class VnRenderer {
     for (int i = start; i < historyEntries.size(); i++) {
       var entry = historyEntries.get(i);
       String text = entry.getText() == null ? "" : entry.getText();
-      entries.add(new DialogueRenderEntry(entry.getSpeaker(), text, TextParser.plainLength(text)));
+      entries.add(new DialogueRenderEntry(
+          entry.getSpeaker(),
+          entry.getSpeakerColor(),
+          text,
+          TextParser.plainLength(text)));
     }
     if (currentDialogue != null && !entries.isEmpty()) {
       String text = resolveRuntimeText(currentDialogue.getText());
-      DialogueRenderEntry last = entries.get(entries.size() - 1);
       entries.set(entries.size() - 1, new DialogueRenderEntry(
           resolveRuntimeText(currentDialogue.getSpeakerName()),
+          currentDialogue.getSpeakerColor(),
           text,
           Math.min(state.getTextRevealProgress(), TextParser.plainLength(text))));
     }
     return entries;
+  }
+
+  private Color resolveSpeakerColor(DialogueLine dialogue, Color fallback) {
+    if (dialogue == null) return fallback;
+    return parseColor(dialogue.getSpeakerColor(), fallback);
   }
 
   private void renderTextBoxButtons(TextBoxGeometry textBox, double viewportWidth, double viewportHeight, int hoveredButtonIndex, VnState state) {
