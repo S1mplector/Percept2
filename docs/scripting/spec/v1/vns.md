@@ -34,6 +34,10 @@ Any other non-empty line MUST produce an error diagnostic.
 - A script MAY declare scenarios, characters, backgrounds, character images and layers, character
   groups and presets, display presets, stage presets, positions, variables, defines, external
   bindings, includes, and labels using their documented directive forms.
+- A character declaration MAY specify `scale=<factor>`, where the factor is a
+  finite number from `0.1` through `3.0`. Omission is equivalent to `scale=1.0`.
+  The factor multiplies global character framing and MUST remain in effect
+  across show/hide and expression changes.
 - Duplicate labels in the same resolved script MUST be rejected.
 - A statically resolvable local label reference MUST name a declared label.
 - Include resolution MUST preserve source names and line locations in diagnostics.

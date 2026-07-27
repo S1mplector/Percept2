@@ -179,7 +179,9 @@ The VNS `[show]` command positions characters at named positions (left, center, 
 [show villain right]
 ```
 
-Both `hero` and `villain` render at the configured `characterHeightFactor` height, with feet at `characterBaselineY`.
+Both `hero` and `villain` use the configured `characterHeightFactor`, with feet
+at `characterBaselineY`. A character-level `scale=` multiplier can adjust either
+character's final base size.
 
 ### Layering
 
@@ -194,13 +196,28 @@ Layer order is independent of character framing -- framing controls size/positio
 
 ---
 
-## Per-Character Overrides
+## Per-Character Scale
 
-The `characterHeightFactor` and `characterBaselineY` values apply to **all** characters uniformly. There is no per-character override in the layout file.
+The layout file establishes the global framing base. To give a specific
+character a persistent relative size, declare `scale=` in VNS:
 
-To achieve different sizes per character, use sprite assets of different inherent sizes. A character with a taller source image will appear proportionally taller when scaled by the same factor.
+```vns
+@character hero "Aria" scale=1.12
+@character companion "Kai" scale=0.94
+```
 
-**Workaround for mixed sizes:** Design character sprites with built-in padding. A "short" character can have empty space above their head in the source image, so when scaled to the same height factor, they appear shorter than other characters.
+The allowed range is `0.1`--`3.0`; omitted scales default to `1.0`. The
+multiplier applies automatically whenever the character is rendered, including
+after hide/show cycles and expression changes.
+
+```text
+final base height = viewport height × characterHeightFactor × character scale
+```
+
+`characterBaselineY` remains global. Use positioning, sprite-canvas padding, or
+timeline transforms when an individual character also needs a different visual
+grounding. Timeline `scaleX`/`scaleY` values multiply the already-scaled base and
+are appropriate for temporary animation rather than default proportions.
 
 ---
 

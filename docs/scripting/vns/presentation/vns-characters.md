@@ -9,7 +9,7 @@ Complete reference for the VNS character system: declarations, layered sprites, 
 ### Basic character registration
 
 ```vns
-@character <id> "Display Name"
+@character <id> "Display Name" [scale=<factor>] [color=<#RRGGBB[AA]>]
 ```
 
 The `id` is used in commands and dialogue. The display name is shown to the player.
@@ -19,6 +19,30 @@ The `id` is used in commands and dialogue. The display name is shown to the play
 @character mentor "Professor Vale"
 @character villain "Shadow King"
 ```
+
+### Persistent character scale
+
+Use `scale=` on the character declaration when one character should always render
+larger or smaller than the project's normal character framing:
+
+```vns
+@character emi "Emi" scale=1.15
+@character rin "Rin" scale=0.92 color=#A978B8
+```
+
+The value must be between `0.1` and `3.0` and defaults to `1.0`. It persists
+across `[show]`, `[hide]`, movement, and expression changes, so it does not need
+to be repeated in story code.
+
+The final base sprite height is:
+
+```text
+viewport height × characterHeightFactor × character scale
+```
+
+Timeline `scaleX` and `scaleY` transforms are then applied on top of that base
+size, which keeps temporary animation scaling independent from authored character
+proportions.
 
 ### Expression sprites
 

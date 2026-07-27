@@ -23,7 +23,7 @@ Directives start with `@` and are processed before runtime. They declare metadat
 | Directive | Syntax | Purpose |
 |-----------|--------|---------|
 | `@scenario` | `@scenario <name>` | Declares the scenario ID (one per file) |
-| `@character` | `@character <id> "Display Name"` | Registers a character |
+| `@character` | `@character <id> "Display Name" [scale=1.0] [color=#RRGGBB]` | Registers a character and optional persistent sprite scale/name color |
 | `@charimg` | `@charimg <id> <expression> <path>` | Maps character expression to image |
 | `@charlayer` | `@charlayer <id> <layer_name> <path>` | Defines a compositing layer for a character |
 | `@charpreset` | `@charpreset <id> <preset> $layer1 \| $layer2 \| ...` | Builds named expression from layers |

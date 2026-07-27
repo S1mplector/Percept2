@@ -13,10 +13,10 @@
   "Character Declaration": {
     "prefix": "character",
     "body": [
-      "@character ${1:id} ${2:Display Name}",
-      "@charimg ${1:id} neutral ${3:assets/characters/${1:id}/neutral.png}"
+      "@character ${1:id} \"${2:Display Name}\" scale=${3:1.0}",
+      "@charimg ${1:id} neutral ${4:assets/characters/${1:id}/neutral.png}"
     ],
-    "description": "Declare a VNS character and neutral image."
+    "description": "Declare a VNS character with persistent sprite scale and neutral image."
   },
   "Background Declaration": {
     "prefix": "background",

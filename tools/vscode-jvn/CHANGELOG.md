@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Add persistent `scale=` metadata to the VNS character declaration snippet.
+
 ## 0.1.5
 
 - Bump the language-tools package version for the JVN 0.1.3 maintenance release.
