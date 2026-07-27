@@ -110,6 +110,54 @@ item.settings.action=settings_menu
 
 ---
 
+### HISTORY_MENU — Open Dialogue History
+
+Opens the active VN scene's dialogue backlog without advancing the scene.
+
+```properties
+item.history.label=History
+item.history.action=history
+```
+
+**Aliases:** `history_menu`, `backlog`, `toggle_history`
+
+This action is intended for an in-game `pause` menu. The live scene remains
+under the history surface and its transition, particle, and dialogue-fade clocks
+remain suspended until gameplay resumes.
+
+---
+
+### TOGGLE_SKIP — Resume in Skip Mode
+
+Toggles skip mode and closes the pause menu.
+
+```properties
+item.skip.label=Skip
+item.skip.action=toggle_skip
+```
+
+**Alias:** `skip`
+
+Enabling skip disables auto mode because the two playback modes are mutually
+exclusive.
+
+---
+
+### TOGGLE_AUTO — Resume in Auto Mode
+
+Toggles automatic dialogue advancement and closes the pause menu.
+
+```properties
+item.auto.label=Auto
+item.auto.action=toggle_auto
+```
+
+**Aliases:** `auto`, `auto_play`
+
+Enabling auto disables skip mode and resets the auto-advance timer.
+
+---
+
 ### MAIN_MENU — Return to Main Menu
 
 Navigates back to the main menu screen.

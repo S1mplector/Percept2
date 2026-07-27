@@ -104,6 +104,19 @@ Backend failures remain non-fatal to the scene runtime. Missing and undecodable 
 
 Simp3 uses a hybrid engine: JavaFX Media handles common native formats and JavaZoom-based providers handle extended codecs. JavaFX is also the dependable fallback when the optional audio module is absent.
 
+The JavaZoom provider accepts normalized gain values from `0.0` to `1.0`.
+JVN applies the configured volume after BasicPlayer enters its `PLAYING`
+lifecycle state, when the platform output line and its gain control are ready.
+This is especially relevant to Ogg Vorbis playback.
+
+The runtime owns the selected audio backend for the lifetime of its engine.
+Starting gameplay from a title, load, settings, or save menu ends menu BGM
+before the VN scene enters, allowing the script to start or fade in its own
+music without title-track bleed. Stopping the engine or closing its platform
+window closes the backend, its players, fader worker, and extracted temporary
+resources deterministically. Detached editor preview windows also stop their
+preview audio when closed.
+
 | Format | Typical provider | Recommended use |
 | --- | --- | --- |
 | Ogg Vorbis | JavaZoom | General BGM, SFX, and voice |

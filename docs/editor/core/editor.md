@@ -158,6 +158,13 @@ This matters for workflow-critical utilities such as **Build & Publish...**, **S
 
 - syntax highlighting
 - strict parser diagnostics (same parser as runtime)
+- compact VNS tool strip with dedicated actions for:
+  - run from the nearest `@label` above the caret (`F5`)
+  - run from the project entry point (`Shift+F5`)
+  - open the label/symbol navigator (`Cmd/Ctrl+Shift+O`)
+  - open the VNS snippet picker (`Cmd/Ctrl+J`)
+  - open the runtime preview in a separate window
+  - open the standard `?` help panel for these controls
 - lint for:
   - undefined labels
   - missing assets/background ids
@@ -170,6 +177,10 @@ This matters for workflow-critical utilities such as **Build & Publish...**, **S
 - side-panel integrations:
   - `VNS Diagnostics` panel with filter + click-to-jump lines
   - `Label Flow` graph panel for label/jump/choice flow
+
+The VNS strip is action-only: it does not repeat explanatory preview text. Hover
+an icon for its short description or use the `?` control for the complete key
+map.
 
 ### JES editor
 

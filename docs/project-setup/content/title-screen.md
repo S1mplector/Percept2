@@ -79,6 +79,26 @@ bgm=game/audio/title_theme.ogg
 bgmVolume=0.7
 ```
 
+### In-game menu overlay assets
+
+Pause, history, in-game save/load, and in-game settings can preserve the
+composed VN frame beneath a shared overlay. Configure that surface in the same
+theme:
+
+```properties
+gameplayDimColor=#7F000000
+gameplayPanelImage=assets/ui/menu/game_menu_panel.png
+gameplayLogoImage=assets/ui/menu/game_menu_logo.png
+gameplayPanelScale=1.0
+gameplayLogoScale=0.25
+```
+
+`gameplayDimColor` accepts the same color forms as the other theme colors. An
+eight-digit hex value uses `#AARRGGBB`. Panel and logo assets keep their natural
+pixel dimensions multiplied by their scale values and are centered over the
+frozen scene. All keys are optional; without assets, the runtime still applies
+the configured dim color.
+
 ## Dynamic Menu Profiles (Recommended)
 
 Profile loader:
@@ -168,6 +188,9 @@ Core action types:
 - `load_menu`
 - `save_menu`
 - `settings_menu`
+- `history`
+- `toggle_skip`
+- `toggle_auto`
 - `main_menu`
 - `open_menu`
 - `back`

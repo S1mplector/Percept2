@@ -60,6 +60,31 @@ hero: Let's go!
 narrator "The sign read: \"No Entry\""
 ```
 
+## Dialogue Window Fade Timing
+
+The JavaFX renderer fades the dialogue presentation in when a dialogue node
+becomes visible and out when script execution leaves dialogue or hides the UI.
+The default duration is `500` milliseconds. A scene can tune the duration
+through the runtime variable `ui.dialogueFadeMs`:
+
+```vns
+@label start
+[set ui.dialogueFadeMs 200]
+[mode dialogue nvl]
+narrator: This NVL panel appears quickly.
+
+[set ui.dialogueFadeMs 3000]
+[mode dialogue standard]
+[wait 3000]
+
+[set ui.dialogueFadeMs 500]
+hero: The normal dialogue timing is restored.
+```
+
+Values are clamped to `0`–`10000`; `0` makes visibility changes immediate.
+When a menu pauses the VN, elapsed pause time is excluded from an active
+dialogue fade.
+
 ---
 
 ## Text Effects (Inline Markup)
