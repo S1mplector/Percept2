@@ -49,6 +49,12 @@ public class PuppeteerLauncherPanel extends VBox {
   private static final Pattern BG_CMD_PATTERN = Pattern.compile("^\\s*\\[(?:bg|background)\\s+(\\S+)]", Pattern.CASE_INSENSITIVE);
   private static final Pattern BG_DECL_PATTERN = Pattern.compile("^\\s*@background\\s+(\\S+)\\s+(.+)", Pattern.CASE_INSENSITIVE);
   private static final Pattern STAGE_PRESET_PATTERN = Pattern.compile("^\\s*@stagepreset\\s+(\\S+)\\s+(.+)$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern CHARACTER_DECL_PATTERN = Pattern.compile(
+      "^\\s*@character\\s+(\\S+)\\s+\"[^\"]*\"(?:\\s+(.+))?$",
+      Pattern.CASE_INSENSITIVE);
+  private static final Pattern CHARACTER_SCALE_OPTION_PATTERN = Pattern.compile(
+      "(?:^|\\s)scale\\s*=\\s*([^\\s]+)",
+      Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARIMG_PATTERN = Pattern.compile("^\\s*@charimg\\s+(\\S+)\\s+(\\S+)\\s+(.+)", Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARLAYER_PATTERN = Pattern.compile("^\\s*@charlayer\\s+(\\S+)\\s+(\\S+)\\s+(.+)", Pattern.CASE_INSENSITIVE);
   private static final Pattern CHARGROUP_PATTERN = Pattern.compile("^\\s*@chargroup\\s+(\\S+)\\s+(\\S+)\\s+(.+)", Pattern.CASE_INSENSITIVE);
@@ -1226,6 +1232,7 @@ button then opens it in the editor."""));
     Map<String, String> bgPaths = new LinkedHashMap<>();
     Map<String, String> stagePresetPaths = new LinkedHashMap<>();
     Map<String, String> charImgPaths = new LinkedHashMap<>();
+    Map<String, Double> characterScales = new LinkedHashMap<>();
     Map<String, Map<String, String>> charLayerPaths = new LinkedHashMap<>();
     Map<String, List<CharacterLayerEntry>> charPresetLayers = new LinkedHashMap<>();
     Map<String, CharacterLayerGroupEntry> charLayerGroups = new LinkedHashMap<>();
@@ -1245,6 +1252,7 @@ button then opens it in the editor."""));
         bgPaths,
         stagePresetPaths,
         charImgPaths,
+        characterScales,
         charLayerPaths,
         charPresetLayers,
         charLayerGroups,
@@ -1450,12 +1458,16 @@ button then opens it in the editor."""));
 	        : inlineTimelineHistory.get(inlineTimelineHistory.size() - 1);
 	    String inlineTimelineName = inlineTimeline != null ? deriveInlineTimelineName(currentLabel, inlineTimeline.startLine()) : null;
 
+    List<CharacterEntry> scaledCharacters = visible.values().stream()
+        .map(entry -> entry.withScale(characterScales.getOrDefault(entry.characterId, 1.0)))
+        .toList();
+
     return new SceneSnapshot(
         currentLabel,
         backgroundId,
         previousBackgroundId,
         backgroundLine,
-        new ArrayList<>(visible.values()),
+        scaledCharacters,
         limit,
         bgPaths,
         stagePresetPaths,
@@ -2018,6 +2030,7 @@ button then opens it in the editor."""));
       Map<String, String> bgPaths,
       Map<String, String> stagePresetPaths,
       Map<String, String> charImgPaths,
+      Map<String, Double> characterScales,
       Map<String, Map<String, String>> charLayerPaths,
       Map<String, List<CharacterLayerEntry>> charPresetLayers,
       Map<String, CharacterLayerGroupEntry> charLayerGroups,
@@ -2049,6 +2062,7 @@ button then opens it in the editor."""));
                     bgPaths,
                     stagePresetPaths,
                     charImgPaths,
+                    characterScales,
                     charLayerPaths,
                     charPresetLayers,
                     charLayerGroups,
@@ -2080,6 +2094,13 @@ button then opens it in the editor."""));
           charImgPaths.put(
               charImgMatcher.group(1) + "/" + charImgMatcher.group(2),
               charImgMatcher.group(3).trim());
+          continue;
+        }
+
+        Matcher characterMatcher = CHARACTER_DECL_PATTERN.matcher(trimmed);
+        if (characterMatcher.matches()) {
+          double scale = parseCharacterScaleOption(characterMatcher.group(2));
+          characterScales.put(characterMatcher.group(1), scale);
           continue;
         }
 
@@ -2126,6 +2147,18 @@ button then opens it in the editor."""));
       }
     } finally {
       includeStack.remove(normalizedSource);
+    }
+  }
+
+  private static double parseCharacterScaleOption(String options) {
+    if (options == null || options.isBlank()) return 1.0;
+    Matcher matcher = CHARACTER_SCALE_OPTION_PATTERN.matcher(options);
+    if (!matcher.find()) return 1.0;
+    try {
+      double scale = Double.parseDouble(matcher.group(1));
+      return Double.isFinite(scale) ? Math.max(0.1, Math.min(3.0, scale)) : 1.0;
+    } catch (NumberFormatException ignored) {
+      return 1.0;
     }
   }
 
@@ -2449,12 +2482,27 @@ button then opens it in the editor."""));
     public final String position;
     public final String expression;
     public final int atLine;
+    public final double scale;
 
     public CharacterEntry(String characterId, String position, String expression, int atLine) {
+      this(characterId, position, expression, atLine, 1.0);
+    }
+
+    public CharacterEntry(
+        String characterId,
+        String position,
+        String expression,
+        int atLine,
+        double scale) {
       this.characterId = characterId;
       this.position = position;
       this.expression = expression;
       this.atLine = atLine;
+      this.scale = Double.isFinite(scale) ? Math.max(0.1, Math.min(3.0, scale)) : 1.0;
+    }
+
+    public CharacterEntry withScale(double scale) {
+      return new CharacterEntry(characterId, position, expression, atLine, scale);
     }
   }
 

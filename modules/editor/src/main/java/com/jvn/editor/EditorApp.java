@@ -7797,6 +7797,9 @@ public class EditorApp extends Application {
     }
 
     Entity2D snapshotAnchorEntity = firstSnapshotEntity(scene, snapshot, snapshotEntry);
+    if (snapshotEntry != null) {
+      characterHeight *= snapshotEntry.scale;
+    }
     boolean expressionLayerOutsideSnapshot = snapshotEntry != null
         && !isVisibleSnapshotTarget(snapshot, snapshotEntry, entityName);
     String expression = snapshotEntry != null ? snapshotEntry.expression : "neutral";
@@ -7912,11 +7915,13 @@ public class EditorApp extends Application {
     for (PuppeteerLauncherPanel.CharacterEntry ch : snapshot.characters) {
       List<PuppeteerLauncherPanel.CharacterLayerEntry> layers = snapshot.resolveCharacterLayers(ch.characterId, ch.expression);
       if (!layers.isEmpty()) {
-        addLayeredSnapshotCharacter(scene, snapshot, ch, layers, sceneW, sceneH, characterHeight);
+        addLayeredSnapshotCharacter(
+            scene, snapshot, ch, layers, sceneW, sceneH, characterHeight * ch.scale);
         continue;
       }
       String spritePathSpec = resolveProjectPathSpec(snapshot.resolveCharacterPath(ch.characterId, ch.expression));
-      double[] spriteSize = estimateSpriteSize(firstLayerPath(spritePathSpec), characterHeight);
+      double[] spriteSize = estimateSpriteSize(
+          firstLayerPath(spritePathSpec), characterHeight * ch.scale);
       double charW = spriteSize[0];
       double charH = spriteSize[1];
       double leftX = positionToLeftX(ch.position, sceneW, charW);
