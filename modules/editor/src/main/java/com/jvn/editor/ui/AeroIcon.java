@@ -28,7 +28,8 @@ public final class AeroIcon extends StackPane {
     LAYOUT, STORYBOARD, LAYERS, IMAGE_ATTRIBUTES, LIGHTING, VERSION_CONTROL,
     PUPPETEER, SCRIPT_EDITOR, SETTINGS,
     NEW_PROJECT, OPEN_PROJECT, RUN, BUILD, REFRESH, ENTRY_SCRIPT, MANIFEST,
-    README, DOCUMENTATION, REVEAL, ARROW_BACK, HELP, NO_PROJECT
+    README, DOCUMENTATION, REVEAL, ARROW_BACK, HELP, NO_PROJECT,
+    VNS_RUN_LABEL, VNS_RUN_ENTRY, VNS_SYMBOLS, VNS_SNIPPET, VNS_PREVIEW
   }
 
   private record Palette(Color top, Color bottom, Color edge) {}
@@ -125,6 +126,9 @@ public final class AeroIcon extends StackPane {
       case BUILD -> sized(CssIcon.download(color), size);
       case REFRESH -> sized(CssIcon.refresh(color), size);
       case ENTRY_SCRIPT -> sized(CssIcon.speech(color), size);
+      case VNS_RUN_LABEL, VNS_SYMBOLS -> sized(CssIcon.label(color), size);
+      case VNS_RUN_ENTRY, VNS_SNIPPET -> sized(CssIcon.document(color), size);
+      case VNS_PREVIEW -> sized(CssIcon.movie(color), size);
       case MANIFEST, README -> sized(CssIcon.document(color), size);
       case ARROW_BACK -> sized(CssIcon.arrowLeft(color), size);
       case HELP -> helpGlyph(size);
@@ -200,6 +204,16 @@ public final class AeroIcon extends StackPane {
       case MANIFEST -> new Badge(sized(CssIcon.check("#ffffff"), glyphSize), Color.web("#35a45c"));
       case README -> new Badge(sized(CssIcon.list("#ffffff"), glyphSize), Color.web("#4b7ba6"));
       case ENTRY_SCRIPT -> new Badge(sized(CssIcon.play("#ffffff"), glyphSize), Color.web("#2fa35a"));
+      case VNS_RUN_LABEL ->
+          new Badge(sized(CssIcon.play("#ffffff"), glyphSize), Color.web("#2fa35a"));
+      case VNS_RUN_ENTRY ->
+          new Badge(sized(CssIcon.rocket("#ffffff"), glyphSize), Color.web("#cf6927"));
+      case VNS_SYMBOLS ->
+          new Badge(sized(CssIcon.search("#ffffff"), glyphSize), Color.web("#c98225"));
+      case VNS_SNIPPET ->
+          new Badge(sized(CssIcon.plusBold("#ffffff"), glyphSize), Color.web("#b46a25"));
+      case VNS_PREVIEW ->
+          new Badge(sized(CssIcon.popOut("#ffffff"), glyphSize), Color.web("#278bc5"));
       case BUILD -> new Badge(sized(CssIcon.wrench("#ffffff"), glyphSize), Color.web("#287fb4"));
       case LIGHTING, PUPPETEER ->
           new Badge(sized(CssIcon.sparkles("#ffffff"), glyphSize), Color.web("#b54f95"));
@@ -394,6 +408,16 @@ public final class AeroIcon extends StackPane {
       case DIAGNOSTICS -> palette("#72ddff", "#19547a", "#dff8ff");
       case LABEL_FLOW, VERSION_CONTROL, ENTRY_SCRIPT, NEW_PROJECT ->
           palette("#8de8aa", "#26824e", "#d8ffe4");
+      case VNS_RUN_LABEL ->
+          palette("#75e8d6", "#1d8074", "#d4fff8");
+      case VNS_RUN_ENTRY ->
+          palette("#8de8aa", "#26824e", "#d8ffe4");
+      case VNS_SYMBOLS ->
+          palette("#79d8ff", "#2267ad", "#c9f2ff");
+      case VNS_SNIPPET ->
+          palette("#c4b4ff", "#6450a8", "#eee9ff");
+      case VNS_PREVIEW ->
+          palette("#72ddff", "#19547a", "#dff8ff");
       case LAYOUT, LAYERS, MANIFEST, README ->
           palette("#b9c9d8", "#586b7e", "#edf6ff");
       case LIGHTING, PUPPETEER ->
