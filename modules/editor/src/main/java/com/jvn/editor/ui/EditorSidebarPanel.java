@@ -18,7 +18,7 @@ public enum EditorSidebarPanel {
   IMAGE_TINT("image_tint", "Scene Lighting Studio", EditorPanelPlacement.HIDDEN, true, "icon-panel-image-tint", "scene_lighting_studio_tool_orange_transparent.png", "0.7", Maturity.BETA),
   VERSION_CONTROL("version_control", "Version Control", EditorPanelPlacement.HIDDEN, true, "icon-panel-vcs", "version_control_orange_transparent_v2.png", "1.0", Maturity.STABLE),
   PUPPETEER_LAUNCHER("puppeteer_launcher", "Puppeteer Launcher", EditorPanelPlacement.HIDDEN, true, "icon-panel-puppeteer", "puppetteer_orange_transparent.png", "1.0", Maturity.STABLE),
-  SCRIPT_EDITOR("script_editor", "Script Editor", EditorPanelPlacement.HIDDEN, true, "icon-panel-text", "code_editor_orange_transparent.png", "1.0", Maturity.STABLE);
+  SCRIPT_EDITOR("script_editor", "Script Editor", EditorPanelPlacement.HIDDEN, false, "icon-panel-text", "code_editor_orange_transparent.png", "1.0", Maturity.STABLE);
 
   private final String key;
   private final String displayName;
@@ -93,7 +93,7 @@ public enum EditorSidebarPanel {
   }
 
   public boolean editableInSettings() {
-    return true;
+    return this != SCRIPT_EDITOR;
   }
 
   public boolean supportsDocking() {

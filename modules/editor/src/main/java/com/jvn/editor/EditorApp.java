@@ -1639,8 +1639,6 @@ public class EditorApp extends Application {
     miShowVersionControlPanel.setOnAction(e -> selectVersionControlTab());
     MenuItem miShowAssets = new MenuItem("Asset Browser");
     miShowAssets.setOnAction(e -> selectAssetBrowserTab());
-    MenuItem miShowScriptEditorWorkspace = new MenuItem("Text Editor Workspace");
-    miShowScriptEditorWorkspace.setOnAction(e -> selectScriptEditorLauncherTab());
     MenuItem miShowDiagnostics = new MenuItem("Diagnostics");
     miShowDiagnostics.setOnAction(e -> selectVnsDiagnosticsTab());
     MenuItem miShowFlowMap = new MenuItem("Label Flow Map");
@@ -1670,7 +1668,7 @@ public class EditorApp extends Application {
         miShowWelcomePanel, miShowProject, miShowTrashman, miShowTimeline, miShowInspector, miShowVersionControlPanel);
     Menu menuPanelsAuthoring = new Menu("Authoring");
     menuPanelsAuthoring.getItems().addAll(
-        miShowAssets, miShowScriptEditorWorkspace, miShowPuppeteerLauncher);
+        miShowAssets, miShowPuppeteerLauncher);
     Menu menuPanelsAnalysis = new Menu("Analysis & Flow");
     menuPanelsAnalysis.getItems().addAll(miShowDiagnostics, miShowFlowMap, miShowLayoutLauncher);
     Menu menuPanelsVisual = new Menu("Visual Tools");
@@ -1732,14 +1730,12 @@ public class EditorApp extends Application {
     Menu menuNavigateEditors = new Menu("Editors & Tools");
     MenuItem miNavigateAssetBrowser = new MenuItem("Asset Browser");
     miNavigateAssetBrowser.setOnAction(e -> selectAssetBrowserTab());
-    MenuItem miNavigateScriptWorkspace = new MenuItem("Text Editor Workspace");
-    miNavigateScriptWorkspace.setOnAction(e -> selectScriptEditorLauncherTab());
     MenuItem miNavigatePuppeteer = new MenuItem("Puppeteer Launcher");
     miNavigatePuppeteer.setOnAction(e -> selectPuppeteerLauncherTab());
     MenuItem miNavigateLayoutLauncher = new MenuItem("Layout Launcher");
     miNavigateLayoutLauncher.setOnAction(e -> selectLayoutLauncherTab());
     menuNavigateEditors.getItems().addAll(
-        miNavigateAssetBrowser, miNavigateScriptWorkspace, miNavigatePuppeteer, miNavigateLayoutLauncher);
+        miNavigateAssetBrowser, miNavigatePuppeteer, miNavigateLayoutLauncher);
 
     Menu menuNavigateVisual = new Menu("Visual Tools");
     MenuItem miNavigateStoryboard = new MenuItem("Storyboard Overlay");
@@ -1797,8 +1793,6 @@ public class EditorApp extends Application {
 
 	    // ── Text ──
 	    Menu menuText = new Menu("Text");
-	    MenuItem miTextWorkspace = new MenuItem("Text Editor Workspace");
-	    miTextWorkspace.setOnAction(e -> selectScriptEditorLauncherTab());
 	    MenuItem miTextOpen = new MenuItem("Open Text File...");
 	    miTextOpen.setOnAction(e -> doOpenTextFile(primaryStage));
 	    MenuItem miTextSave = new MenuItem("Save Active File");
@@ -1844,7 +1838,7 @@ public class EditorApp extends Application {
 	    menuTextEdit.getItems().addAll(miTextUndo, miTextRedo, new SeparatorMenuItem(), miTextFind, miTextGoToLine);
 	    Menu menuTextPaths = new Menu("Paths");
 	    menuTextPaths.getItems().addAll(miTextRevealActive, miTextCopyActive);
-	    menuText.getItems().addAll(miTextWorkspace, new SeparatorMenuItem(), menuTextFile, menuTextEdit, menuTextPaths);
+	    menuText.getItems().addAll(menuTextFile, menuTextEdit, menuTextPaths);
 
 	    // ── VNS ──
 	    Menu menuVns = new Menu("VNS");
@@ -2030,9 +2024,6 @@ public class EditorApp extends Application {
     miActionEditor.setAccelerator(new KeyCodeCombination(KeyCode.A, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN));
     MenuItem miPuppeteerPanel = new MenuItem("Puppeteer Launcher");
     miPuppeteerPanel.setOnAction(e -> selectPuppeteerLauncherTab());
-    MenuItem miScriptEditorWorkspace = new MenuItem("Text Editor Workspace");
-    miScriptEditorWorkspace.setOnAction(e -> selectScriptEditorLauncherTab());
-
     MenuItem miLayoutLauncher = new MenuItem("Layout Launcher");
     miLayoutLauncher.setOnAction(e -> selectLayoutLauncherTab());
     MenuItem miStoryboardOverlay = new MenuItem("Storyboard Overlay");
@@ -2065,7 +2056,7 @@ public class EditorApp extends Application {
     Menu menuAnimationTools = new Menu("Animation");
     menuAnimationTools.getItems().addAll(miActionEditor, miPuppeteerPanel);
     Menu menuScriptTools = new Menu("Scripts & Analysis");
-    menuScriptTools.getItems().addAll(miScriptEditorWorkspace, menuVnsTools);
+    menuScriptTools.getItems().add(menuVnsTools);
     Menu menuLayoutTools = new Menu("Layout & UI");
     menuLayoutTools.getItems().addAll(miLayoutLauncher, miStoryboardOverlay);
     Menu menuImageTools = new Menu("Image & Assets");
@@ -2176,13 +2167,6 @@ public class EditorApp extends Application {
     MenuItem miWindowPuppeteer = new MenuItem("Puppeteer Launcher");
     miWindowPuppeteer.setOnAction(e ->
         launchPanelAsWindow("Puppeteer Launcher", ensurePuppeteerLauncherPanel(), 600, 500, EditorSidebarPanel.PUPPETEER_LAUNCHER));
-    MenuItem miWindowTextEditor = new MenuItem("Text Editor");
-    miWindowTextEditor.setOnAction(e -> {
-      ScriptEditorLauncherView launcher = ensureScriptEditorLauncherView();
-      launcher.setProjectRoot(projectRoot);
-      launcher.setWorkspaceRoot(resolveWorkspaceRoot());
-      launcher.launchEditorWindow();
-    });
     MenuItem miWindowEditorSettings = new MenuItem("Editor Settings");
     miWindowEditorSettings.setOnAction(e ->
         launchPanelAsWindow("Editor Settings", ensureEditorSettingsView(), 520, 760, null));
@@ -2199,7 +2183,6 @@ public class EditorApp extends Application {
         miWindowImageAttributes,
         miWindowImageTint,
         miWindowPuppeteer,
-        miWindowTextEditor,
         miWindowEditorSettings);
     menuWindow.getItems().addAll(
         miBringMainWindowToFront,
@@ -6669,17 +6652,6 @@ public class EditorApp extends Application {
       if (t != null) pane.getSelectionModel().select(t);
     }, () -> launchPanelAsWindow("Puppeteer Launcher", ensurePuppeteerLauncherPanel(), 600, 500, EditorSidebarPanel.PUPPETEER_LAUNCHER), () -> {
       rememberPanelPlacement(EditorSidebarPanel.PUPPETEER_LAUNCHER, EditorPanelPlacement.HIDDEN);
-      applyDefaultSidebarPreferences();
-    });
-
-    addChooserActionRow(pane, actions, EditorSidebarPanel.SCRIPT_EDITOR, targetPlacement, "Text Editor", null, null, () -> {
-      ScriptEditorLauncherView launcher = ensureScriptEditorLauncherView();
-      launcher.setProjectRoot(projectRoot);
-      launcher.setWorkspaceRoot(resolveWorkspaceRoot());
-      launcher.launchEditorWindow();
-      rememberPanelPlacement(EditorSidebarPanel.SCRIPT_EDITOR, EditorPanelPlacement.HIDDEN);
-    }, () -> {
-      rememberPanelPlacement(EditorSidebarPanel.SCRIPT_EDITOR, EditorPanelPlacement.HIDDEN);
       applyDefaultSidebarPreferences();
     });
 
