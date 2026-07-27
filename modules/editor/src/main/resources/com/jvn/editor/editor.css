@@ -69,27 +69,22 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-padding: 0;
   -fx-alignment: center;
   -fx-content-display: graphic-only;
-  -fx-background-color:
-      linear-gradient(to bottom, rgba(255,255,255,0.055), rgba(255,255,255,0)),
-      linear-gradient(to bottom, #292929, #171717);
-  -fx-background-radius: 10;
-  -fx-border-color: #424242;
-  -fx-border-radius: 10;
-  -fx-border-width: 1;
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
+  -fx-background-insets: 0;
+  -fx-border-insets: 0;
   -fx-cursor: hand;
-  -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.40), 7, 0.18, 0, 2);
+  -fx-effect: none;
 }
 
 .run-console-icon-btn:hover {
-  -fx-background-color:
-      linear-gradient(to bottom, rgba(255,255,255,0.09), rgba(255,255,255,0)),
-      linear-gradient(to bottom, #343434, #202020);
-  -fx-border-color: #606060;
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
 }
 
 .run-console-icon-btn:pressed {
-  -fx-background-color: linear-gradient(to bottom, #141414, #202020);
-  -fx-border-color: #747474;
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
 }
 
 .run-console-icon-btn:disabled {
@@ -98,37 +93,9 @@ The editor.css file defines the visual styling for the editor module, including 
 }
 
 .run-console-icon-btn:focused {
-  -fx-effect: dropshadow(gaussian, rgba(230, 230, 230, 0.16), 8, 0.22, 0, 0);
-}
-
-.run-console-icon-btn-success {
-  -fx-background-color: linear-gradient(to bottom, #245939, #1a412a);
-  -fx-border-color: #68b385;
-}
-
-.run-console-icon-btn-success:hover {
-  -fx-background-color: linear-gradient(to bottom, #2c6943, #205235);
-  -fx-border-color: #81c99e;
-}
-
-.run-console-icon-btn-success:pressed {
-  -fx-background-color: linear-gradient(to bottom, #1b422b, #153521);
-  -fx-border-color: #5aa476;
-}
-
-.run-console-icon-btn-danger {
-  -fx-background-color: linear-gradient(to bottom, #4b2934, #351c24);
-  -fx-border-color: #9f586b;
-}
-
-.run-console-icon-btn-danger:hover {
-  -fx-background-color: linear-gradient(to bottom, #5b3140, #40222c);
-  -fx-border-color: #bb7386;
-}
-
-.run-console-icon-btn-danger:pressed {
-  -fx-background-color: linear-gradient(to bottom, #361b23, #271319);
-  -fx-border-color: #8c4a5e;
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
+  -fx-effect: none;
 }
 
 .run-console-launch-options-btn {
@@ -430,24 +397,22 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-pref-height: 40px;
   -fx-padding: 0;
   -fx-content-display: graphic-only;
-  -fx-background-color: linear-gradient(to bottom, #272727, #171717);
-  -fx-border-color: #414141;
-  -fx-border-radius: 10;
-  -fx-background-radius: 10;
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
+  -fx-background-insets: 0;
+  -fx-border-insets: 0;
   -fx-cursor: hand;
 }
 
 .run-console-toolbar .run-console-toggle:hover {
-  -fx-background-color: #242424;
-  -fx-border-color: #494949;
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
 }
 
 .run-console-toolbar .run-console-toggle:selected {
-  -fx-background-color:
-      linear-gradient(to bottom, rgba(107,190,238,0.18), rgba(107,190,238,0.04)),
-      #20282d;
-  -fx-border-color: #70b8dd;
-  -fx-effect: dropshadow(gaussian, rgba(72, 166, 216, 0.22), 7, 0.16, 0, 0);
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
+  -fx-effect: none;
 }
 
 .run-console-search-label {

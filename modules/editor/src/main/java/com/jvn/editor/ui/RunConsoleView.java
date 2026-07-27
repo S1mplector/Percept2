@@ -257,7 +257,9 @@ public class RunConsoleView extends BorderPane {
     private static Button iconButton(RuntimeConsoleIcon.Kind kind, String tooltipText) {
         Button btn = new Button();
         btn.getStyleClass().add("run-console-icon-btn");
-        btn.setGraphic(RuntimeConsoleIcon.of(kind));
+        RuntimeConsoleIcon icon = RuntimeConsoleIcon.of(kind);
+        btn.setGraphic(icon);
+        icon.installButtonTreatment(btn);
         btn.setTooltip(new Tooltip(tooltipText));
         btn.setFocusTraversable(false);
         return btn;
@@ -266,7 +268,9 @@ public class RunConsoleView extends BorderPane {
     private static ToggleButton iconToggle(
         RuntimeConsoleIcon.Kind kind, String tooltipText) {
         ToggleButton button = new ToggleButton();
-        button.setGraphic(RuntimeConsoleIcon.of(kind));
+        RuntimeConsoleIcon icon = RuntimeConsoleIcon.of(kind);
+        button.setGraphic(icon);
+        icon.installButtonTreatment(button);
         button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
         button.setTooltip(new Tooltip(tooltipText));
         button.setFocusTraversable(false);
@@ -891,8 +895,6 @@ public class RunConsoleView extends BorderPane {
         ToolBar bar = new ToolBar();
         bar.getStyleClass().add("run-console-toolbar");
 
-        runBtn.getStyleClass().add("run-console-icon-btn-success");
-        stopBtn.getStyleClass().add("run-console-icon-btn-danger");
         configureLaunchOptionsButton();
 
         runBtn.setOnAction(e -> rerunProcess());
@@ -975,7 +977,10 @@ public class RunConsoleView extends BorderPane {
     private void configureLaunchOptionsButton() {
         launchOptionsButton.getStyleClass().addAll(
             "run-console-icon-btn", "run-console-launch-options-btn");
-        launchOptionsButton.setGraphic(RuntimeConsoleIcon.of(RuntimeConsoleIcon.Kind.LAUNCH_OPTIONS));
+        RuntimeConsoleIcon icon =
+            RuntimeConsoleIcon.of(RuntimeConsoleIcon.Kind.LAUNCH_OPTIONS);
+        launchOptionsButton.setGraphic(icon);
+        icon.installButtonTreatment(launchOptionsButton);
         launchOptionsButton.setContentDisplay(ContentDisplay.LEFT);
         launchOptionsButton.setFocusTraversable(false);
 

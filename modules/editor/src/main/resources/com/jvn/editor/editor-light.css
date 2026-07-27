@@ -66,25 +66,22 @@
   -fx-padding: 0;
   -fx-alignment: center;
   -fx-content-display: graphic-only;
-  -fx-background-color:
-      linear-gradient(to bottom, rgba(255,255,255,0.72), rgba(255,255,255,0)),
-      linear-gradient(to bottom, #ececec, #d4d4d4);
-  -fx-background-radius: 10;
-  -fx-border-color: #b9b9b9;
-  -fx-border-radius: 10;
-  -fx-border-width: 1;
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
+  -fx-background-insets: 0;
+  -fx-border-insets: 0;
   -fx-cursor: hand;
-  -fx-effect: dropshadow(gaussian, rgba(35, 35, 35, 0.20), 7, 0.18, 0, 2);
+  -fx-effect: none;
 }
 
 .run-console-icon-btn:hover {
-  -fx-background-color: linear-gradient(to bottom, #f4f4f4, #dddddd);
-  -fx-border-color: #999999;
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
 }
 
 .run-console-icon-btn:pressed {
-  -fx-background-color: linear-gradient(to bottom, #cfcfcf, #e3e3e3);
-  -fx-border-color: #858585;
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
 }
 
 .run-console-icon-btn:disabled {
@@ -93,37 +90,9 @@
 }
 
 .run-console-icon-btn:focused {
-  -fx-effect: dropshadow(gaussian, rgba(25, 25, 25, 0.16), 8, 0.22, 0, 0);
-}
-
-.run-console-icon-btn-success {
-  -fx-background-color: linear-gradient(to bottom, #245939, #1a412a);
-  -fx-border-color: #68b385;
-}
-
-.run-console-icon-btn-success:hover {
-  -fx-background-color: linear-gradient(to bottom, #2c6943, #205235);
-  -fx-border-color: #81c99e;
-}
-
-.run-console-icon-btn-success:pressed {
-  -fx-background-color: linear-gradient(to bottom, #1b422b, #153521);
-  -fx-border-color: #5aa476;
-}
-
-.run-console-icon-btn-danger {
-  -fx-background-color: linear-gradient(to bottom, #4b2934, #351c24);
-  -fx-border-color: #9f586b;
-}
-
-.run-console-icon-btn-danger:hover {
-  -fx-background-color: linear-gradient(to bottom, #5b3140, #40222c);
-  -fx-border-color: #bb7386;
-}
-
-.run-console-icon-btn-danger:pressed {
-  -fx-background-color: linear-gradient(to bottom, #361b23, #271319);
-  -fx-border-color: #8c4a5e;
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
+  -fx-effect: none;
 }
 
 .run-console-launch-options-btn {
@@ -374,24 +343,22 @@
   -fx-pref-height: 40px;
   -fx-padding: 0;
   -fx-content-display: graphic-only;
-  -fx-background-color: linear-gradient(to bottom, #eeeeee, #d7d7d7);
-  -fx-border-color: #bcbcbc;
-  -fx-border-radius: 10;
-  -fx-background-radius: 10;
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
+  -fx-background-insets: 0;
+  -fx-border-insets: 0;
   -fx-cursor: hand;
 }
 
 .run-console-toolbar .run-console-toggle:hover {
-  -fx-background-color: #dbdbdb;
-  -fx-border-color: #b6b6b6;
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
 }
 
 .run-console-toolbar .run-console-toggle:selected {
-  -fx-background-color:
-      linear-gradient(to bottom, rgba(82,164,207,0.24), rgba(82,164,207,0.08)),
-      #dcebf2;
-  -fx-border-color: #4e9cc5;
-  -fx-effect: dropshadow(gaussian, rgba(48, 136, 182, 0.20), 7, 0.16, 0, 0);
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
+  -fx-effect: none;
 }
 
 .run-console-search-label {

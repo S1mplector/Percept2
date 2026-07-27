@@ -8,6 +8,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import javafx.application.Platform;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
 import javafx.scene.image.WritableImage;
 import javafx.scene.layout.StackPane;
 import org.junit.jupiter.api.Assumptions;
@@ -40,11 +41,14 @@ class RuntimeConsoleIconTest {
     for (RuntimeConsoleIcon.Kind kind : RuntimeConsoleIcon.Kind.values()) {
       WritableImage image = onFxThread(() -> {
         RuntimeConsoleIcon icon = RuntimeConsoleIcon.of(kind);
+        Button button = new Button();
+        icon.installButtonTreatment(button);
         StackPane root = new StackPane(icon);
         new Scene(root, 30, 30);
         root.applyCss();
         root.layout();
         assertEquals(kind, icon.kind());
+        assertTrue(button.getStyleClass().contains("runtime-console-aero-button"));
         return root.snapshot(null, new WritableImage(30, 30));
       });
       assertTrue(nonTransparentPixels(image) > 60, kind + " should render visible vector artwork");
