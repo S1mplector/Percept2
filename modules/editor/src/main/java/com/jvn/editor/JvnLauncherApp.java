@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
 
+import com.jvn.editor.runtime.GradleRuntimeLauncher;
 import com.jvn.editor.ui.EditorDialogs;
 import com.jvn.editor.ui.DeveloperLogPanel;
 import com.jvn.editor.ui.DeveloperToolsMenu;
@@ -859,33 +860,12 @@ public class JvnLauncherApp extends Application {
 
     boolean windows = isWindowsOs();
     File gradlew = new File(runRoot, windows ? "gradlew.bat" : "gradlew");
-    File gradleUserHome = new File(runRoot, ".jvn-gradle-user-home");
 
     try {
-      if (!gradleUserHome.exists()) gradleUserHome.mkdirs();
-      List<String> cmd = new ArrayList<>();
-      cmd.add(gradlew.exists() ? gradlew.getAbsolutePath() : "gradle");
-      cmd.add("--no-daemon");
-      cmd.add("--console=plain");
-      cmd.add("--gradle-user-home");
-      cmd.add(gradleUserHome.getAbsolutePath());
-      cmd.add("-Dorg.gradle.vfs.watch=false");
-      cmd.add(task);
-      if (args != null) {
-        for (String arg : args) {
-          if (arg != null && !arg.isBlank()) cmd.add(arg);
-        }
-      }
-
       RunConsoleView console = new RunConsoleView(title);
       console.setLaunchContext(gradlew.exists() ? "Gradle wrapper" : "Gradle CLI", task, runRoot.getName());
-      RunConsoleView.ProcessStarter starter = () -> {
-        ProcessBuilder pb = new ProcessBuilder(cmd);
-        pb.directory(runRoot);
-        pb.redirectErrorStream(true);
-        pb.environment().put("GRADLE_USER_HOME", gradleUserHome.getAbsolutePath());
-        return pb.start();
-      };
+      RunConsoleView.ProcessStarter starter =
+          options -> GradleRuntimeLauncher.start(runRoot, gradlew, task, args, options);
       console.setProcessStarter(starter);
 
       Stage logStage = new Stage();
@@ -899,8 +879,11 @@ public class JvnLauncherApp extends Application {
       logStage.setOnHiding(e -> console.dispose());
       logStage.show();
 
-      console.startProcess(starter.start());
-      statusLabel.setText("Running " + task + " for " + runRoot.getName());
+      if (console.startConfiguredProcess()) {
+        statusLabel.setText("Running " + task + " for " + runRoot.getName());
+      } else {
+        statusLabel.setText("Run failed for " + runRoot.getName());
+      }
     } catch (Exception ex) {
       EditorDialogs.error(
           primaryStage,

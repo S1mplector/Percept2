@@ -59,30 +59,32 @@
 
 /* Runtime console icon buttons */
 .run-console-icon-btn {
-  -fx-min-width: 34px;
-  -fx-min-height: 34px;
-  -fx-pref-width: 34px;
-  -fx-pref-height: 34px;
+  -fx-min-width: 40px;
+  -fx-min-height: 40px;
+  -fx-pref-width: 40px;
+  -fx-pref-height: 40px;
   -fx-padding: 0;
   -fx-alignment: center;
   -fx-content-display: graphic-only;
-  -fx-background-color: linear-gradient(to bottom, #d9d9d9, #e6e6e6);
-  -fx-background-radius: 8;
-  -fx-border-color: #c5c5c5;
-  -fx-border-radius: 8;
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255,255,255,0.72), rgba(255,255,255,0)),
+      linear-gradient(to bottom, #ececec, #d4d4d4);
+  -fx-background-radius: 10;
+  -fx-border-color: #b9b9b9;
+  -fx-border-radius: 10;
   -fx-border-width: 1;
   -fx-cursor: hand;
-  -fx-effect: dropshadow(gaussian, rgba(255, 255, 255, 0.24), 6, 0.18, 0, 1);
+  -fx-effect: dropshadow(gaussian, rgba(35, 35, 35, 0.20), 7, 0.18, 0, 2);
 }
 
 .run-console-icon-btn:hover {
-  -fx-background-color: linear-gradient(to bottom, #cecece, #dfdfdf);
-  -fx-border-color: #aaaaaa;
+  -fx-background-color: linear-gradient(to bottom, #f4f4f4, #dddddd);
+  -fx-border-color: #999999;
 }
 
 .run-console-icon-btn:pressed {
-  -fx-background-color: linear-gradient(to bottom, #e7e7e7, #efefef);
-  -fx-border-color: #949494;
+  -fx-background-color: linear-gradient(to bottom, #cfcfcf, #e3e3e3);
+  -fx-border-color: #858585;
 }
 
 .run-console-icon-btn:disabled {
@@ -122,6 +124,26 @@
 .run-console-icon-btn-danger:pressed {
   -fx-background-color: linear-gradient(to bottom, #361b23, #271319);
   -fx-border-color: #8c4a5e;
+}
+
+.run-console-launch-options-btn {
+  -fx-min-width: 88px;
+  -fx-pref-width: 88px;
+  -fx-max-width: 88px;
+  -fx-content-display: left;
+  -fx-graphic-text-gap: 6;
+  -fx-text-fill: #282828;
+  -fx-font-size: 10px;
+  -fx-font-weight: 700;
+  -fx-padding: 0 7 0 6;
+}
+
+.run-console-launch-options-btn > .arrow-button {
+  -fx-padding: 0 0 0 2;
+}
+
+.run-console-launch-options-btn > .arrow-button > .arrow {
+  -fx-background-color: #59656c;
 }
 
 .icon-runtime-run {
@@ -346,14 +368,17 @@
 }
 
 .run-console-toolbar .run-console-toggle {
-  -fx-font-size: 11px;
-  -fx-font-weight: 600;
-  -fx-text-fill: #454545;
-  -fx-background-color: #e3e3e3;
-  -fx-border-color: #c7c7c7;
-  -fx-border-radius: 7;
-  -fx-background-radius: 7;
-  -fx-padding: 5 10 5 10;
+  -fx-min-width: 40px;
+  -fx-min-height: 40px;
+  -fx-pref-width: 40px;
+  -fx-pref-height: 40px;
+  -fx-padding: 0;
+  -fx-content-display: graphic-only;
+  -fx-background-color: linear-gradient(to bottom, #eeeeee, #d7d7d7);
+  -fx-border-color: #bcbcbc;
+  -fx-border-radius: 10;
+  -fx-background-radius: 10;
+  -fx-cursor: hand;
 }
 
 .run-console-toolbar .run-console-toggle:hover {
@@ -362,9 +387,11 @@
 }
 
 .run-console-toolbar .run-console-toggle:selected {
-  -fx-text-fill: #181818;
-  -fx-background-color: #cfcfcf;
-  -fx-border-color: #909090;
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(82,164,207,0.24), rgba(82,164,207,0.08)),
+      #dcebf2;
+  -fx-border-color: #4e9cc5;
+  -fx-effect: dropshadow(gaussian, rgba(48, 136, 182, 0.20), 7, 0.16, 0, 0);
 }
 
 .run-console-search-label {
