@@ -3964,6 +3964,7 @@ public class EditorApp extends Application {
       }
     });
     editor.setOnStatus(s -> status.setText(s));
+    editor.setOnOpenDiagnostics(this::selectVnsDiagnosticsTab);
     editor.setCommandStack(commands);
     editor.setOnDiagnosticsTextChanged(text -> {
       if (editor != getActiveFileTab()) return;

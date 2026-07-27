@@ -93,6 +93,11 @@ class AeroIconTest {
         AeroIcon.Kind.VNS_RUN_ENTRY,
         AeroIcon.Kind.VNS_SYMBOLS,
         AeroIcon.Kind.VNS_SNIPPET,
+        AeroIcon.Kind.VNS_FIND,
+        AeroIcon.Kind.VNS_COMMANDS,
+        AeroIcon.Kind.VNS_WORD_WRAP,
+        AeroIcon.Kind.VNS_DIFF,
+        AeroIcon.Kind.VNS_DIAGNOSTICS,
         AeroIcon.Kind.VNS_PREVIEW
     }) {
       Button button = onFxThread(() -> {
@@ -109,7 +114,7 @@ class AeroIconTest {
   }
 
   @Test
-  void vnsCommandsHaveFiveDistinctPrimarySilhouettes() throws Exception {
+  void vnsCommandsHaveDistinctPrimarySilhouettes() throws Exception {
     Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
 
     Set<Long> artworkHashes = new HashSet<>();
@@ -118,6 +123,11 @@ class AeroIconTest {
         AeroIcon.Kind.VNS_RUN_ENTRY,
         AeroIcon.Kind.VNS_SYMBOLS,
         AeroIcon.Kind.VNS_SNIPPET,
+        AeroIcon.Kind.VNS_FIND,
+        AeroIcon.Kind.VNS_COMMANDS,
+        AeroIcon.Kind.VNS_WORD_WRAP,
+        AeroIcon.Kind.VNS_DIFF,
+        AeroIcon.Kind.VNS_DIAGNOSTICS,
         AeroIcon.Kind.VNS_PREVIEW
     }) {
       WritableImage image = onFxThread(() -> {
@@ -130,7 +140,7 @@ class AeroIconTest {
       });
       artworkHashes.add(pixelHash(image));
     }
-    assertEquals(5, artworkHashes.size(), "Every VNS command needs a distinct readable silhouette");
+    assertEquals(10, artworkHashes.size(), "Every VNS command needs a distinct readable silhouette");
   }
 
   @Test

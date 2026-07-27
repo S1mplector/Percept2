@@ -3350,22 +3350,47 @@
 }
 
 .vns-tools-strip {
-  -fx-spacing: 10;
-  -fx-padding: 9 12 9 12;
-  -fx-background-color: linear-gradient(to bottom, #f6f8fa, #e9edf0);
-  -fx-border-color: transparent transparent #c3cbd1 transparent;
+  -fx-spacing: 7;
+  -fx-padding: 8 12 8 12;
+  -fx-background-color:
+    linear-gradient(to bottom, rgba(255,255,255,0.76), transparent 46%),
+    linear-gradient(to bottom, #f7f9fb, #e6ebef);
+  -fx-border-color: transparent transparent #bcc6ce transparent;
 }
 
-.vns-tools-aero-button,
-.vns-tools-aero-button:hover,
-.vns-tools-aero-button:focused,
-.vns-tools-aero-button:pressed {
+.vns-tools-aero-button {
   -fx-background-color: transparent;
   -fx-border-color: transparent;
   -fx-background-insets: 0;
   -fx-border-insets: 0;
   -fx-padding: 5;
   -fx-effect: none;
+  -fx-background-radius: 5;
+  -fx-border-radius: 5;
+}
+
+.vns-tools-aero-button:hover {
+  -fx-background-color:
+    linear-gradient(to bottom, rgba(255,255,255,0.86), rgba(141,201,234,0.32));
+  -fx-border-color: rgba(74,137,174,0.38);
+}
+
+.vns-tools-aero-button:pressed {
+  -fx-background-color:
+    linear-gradient(to bottom, rgba(102,167,204,0.34), rgba(230,247,255,0.66));
+  -fx-border-color: rgba(48,119,160,0.48);
+}
+
+.vns-tools-aero-button:selected {
+  -fx-background-color:
+    linear-gradient(to bottom, rgba(255,255,255,0.92), rgba(98,177,219,0.46));
+  -fx-border-color: rgba(42,118,161,0.58);
+}
+
+.vns-tools-separator > .line {
+  -fx-border-color: transparent #ffffff transparent #b9c2c9;
+  -fx-border-width: 0 1 0 1;
+  -fx-padding: 0;
 }
 
 .vns-tools-help-button {
