@@ -25,6 +25,15 @@ public class VnScenarioBuilder {
     return this;
   }
 
+  public VnScenarioBuilder addCharacter(String id, String displayName, double scale) {
+    VnCharacter character = VnCharacter.builder(id)
+      .displayName(displayName)
+      .scale(scale)
+      .build();
+    scenarioBuilder.addCharacter(character);
+    return this;
+  }
+
   public VnScenarioBuilder addCharacterWithExpressions(String id, String displayName, 
                                                        String... expressionPaths) {
     VnCharacter.Builder builder = VnCharacter.builder(id).displayName(displayName);

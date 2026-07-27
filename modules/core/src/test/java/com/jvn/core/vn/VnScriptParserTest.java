@@ -73,6 +73,46 @@ public class VnScriptParserTest {
   }
 
   @Test
+  public void parsesPersistentCharacterScaleAlongsideSpeakerColor() throws Exception {
+    String script = """
+      @scenario scaled_character
+      @character emi "Emi" color=#F28C8C scale=1.15
+      @charimg emi neutral assets/characters/emi.png
+
+      @label start
+      [show emi center]
+      emi: Hi!
+      [end]
+    """;
+
+    VnCharacter emi = new VnScriptParser().parseFromString(script).getCharacter("emi");
+
+    assertEquals(1.15, emi.getScale(), 1e-9);
+    assertEquals("#F28C8C", emi.getNameColor());
+  }
+
+  @Test
+  public void characterScaleDefaultsToOneAndRejectsInvalidValues() throws Exception {
+    VnCharacter regular = new VnScriptParser().parseFromString("""
+        @scenario regular
+        @character hero "Hero"
+        [end]
+        """).getCharacter("hero");
+
+    assertEquals(1.0, regular.getScale(), 1e-9);
+    assertThrows(IOException.class, () -> new VnScriptParser().parseFromString("""
+        @scenario invalid
+        @character hero "Hero" scale=0
+        [end]
+        """));
+    assertThrows(IOException.class, () -> new VnScriptParser().parseFromString("""
+        @scenario invalid
+        @character hero "Hero" scale=huge
+        [end]
+        """));
+  }
+
+  @Test
   public void rejectsMalformedCharacterSpeakerColor() {
     String script = """
       @scenario color_demo

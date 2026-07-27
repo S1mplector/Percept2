@@ -36,11 +36,15 @@ Declares the scenario identity for this script.
 Registers a display name for a speaker ID used in dialogue lines.
 
 ```text
-@character <id> "Display Name"
+@character <id> "Display Name" [scale=<factor>] [color=<#RRGGBB[AA]>]
 ```
 
 - `id` is used in dialogue lines and commands.
 - `"Display Name"` is what the renderer shows to the player.
+- `scale` is an optional persistent sprite-size multiplier from `0.1` to `3.0`;
+  it defaults to `1.0` and applies every time the character is shown.
+- `color` is an optional speaker/name-box color in `#RRGGBB` or `#RRGGBBAA`
+  format.
 - Multiple `@character` declarations can exist per script.
 - If a speaker ID is used without a matching `@character`, the raw ID is shown as the display name.
 
@@ -48,10 +52,14 @@ Registers a display name for a speaker ID used in dialogue lines.
 
 ```vns
 @character narrator "Narrator"
-@character hero "Aria"
-@character villain "Lord Wraith"
+@character hero "Aria" scale=1.1
+@character villain "Lord Wraith" color=#A978B8
 @character npc_guard "City Guard"
 ```
+
+`scale` multiplies the active `characterHeightFactor` from
+`config/ui/dialogue.layout` or `ui.characterHeightFactor`. Timeline scaling
+remains an additional temporary transform.
 
 **Usage in dialogue:**
 

@@ -734,6 +734,9 @@ public class VnScriptParser {
               case "color", "colour", "namecolor", "name_color", "who_color" ->
                   cb.nameColor(parseCharacterColor(
                       option.value(), sourceName, lineNumber, rawLine));
+              case "scale" ->
+                  cb.scale(parseCharacterScale(
+                      option.value(), sourceName, lineNumber, rawLine));
               default -> throw parseError(
                   sourceName,
                   lineNumber,
@@ -2559,6 +2562,30 @@ public class VnScriptParser {
           rawLine);
     }
     return color.toUpperCase(java.util.Locale.ENGLISH);
+  }
+
+  private double parseCharacterScale(String token,
+                                     String sourceName,
+                                     int lineNumber,
+                                     String rawLine) throws IOException {
+    double scale;
+    try {
+      scale = Double.parseDouble(token == null ? "" : token.trim());
+    } catch (NumberFormatException ex) {
+      throw parseError(
+          sourceName,
+          lineNumber,
+          "@character scale must be a number between 0.1 and 3.0",
+          rawLine);
+    }
+    if (!Double.isFinite(scale) || scale < 0.1 || scale > 3.0) {
+      throw parseError(
+          sourceName,
+          lineNumber,
+          "@character scale must be between 0.1 and 3.0",
+          rawLine);
+    }
+    return scale;
   }
 
   private void flushChoices(VnScenarioBuilder builder, List<Choice> choices) {

@@ -405,7 +405,7 @@ public class VnRenderer {
       }
       switch (currentNode.getType()) {
         case DIALOGUE:
-          renderDialogueWithFade(currentNode.getDialogue(), state, width, height, -1);
+          renderDialogueWithFade(currentNode.getDialogue(), state, scenario, width, height, -1);
           break;
         case CHOICE:
           if (state.getDialoguePresentationMode() == DialoguePresentationMode.NVL) {
@@ -433,7 +433,7 @@ public class VnRenderer {
     }
     if ((currentNode == null || currentNode.getType() != VnNodeType.DIALOGUE || state.isUiHidden())
         && dialogueFadeLine != null && dialogueFadeAlpha > 0.001) {
-      renderDialogueWithFade(dialogueFadeLine, state, width, height, -1);
+      renderDialogueWithFade(dialogueFadeLine, state, scenario, width, height, -1);
     }
 
     renderOverlayScreens(state, width, height, null);
@@ -483,7 +483,7 @@ public class VnRenderer {
         int hoverButton = getHoveredTextBoxButtonIndex(state, width, height, mouseX, mouseY);
         // Avoid double-compositing a partially transparent dialogue window.
         if (dialogueFadeAlpha >= 0.999) {
-          renderDialogueWithFade(currentNode.getDialogue(), state, width, height, hoverButton);
+          renderDialogueWithFade(currentNode.getDialogue(), state, scenario, width, height, hoverButton);
         }
       }
     }
@@ -877,7 +877,7 @@ public class VnRenderer {
   private void renderCharacterSprite(String imagePath, String expression, VnCharacter character, CharacterPosition position, double width, double height, double offsetX, double offsetY, String characterId, VnState state, VnScenario scenario, VnStagePreset stage) {
     List<String> layerPaths = parseLayerPaths(imagePath);
     Image reference = loadSpriteSourceImage(imagePath, layerPaths);
-    double spriteHeight = height * characterHeightFactor;
+    double spriteHeight = height * characterHeightFactor * characterScale(character);
     double spriteWidth = reference != null ? reference.getWidth() * (spriteHeight / reference.getHeight()) : spriteHeight * 0.5;
     double defaultX = position.computeScreenX(width, spriteWidth) + offsetX;
     double defaultY = position.computeScreenY(height, spriteHeight, characterBaselineY) + offsetY;
@@ -1203,7 +1203,7 @@ public class VnRenderer {
     String imagePath = character.getExpressionPath(slot.getExpression());
     List<String> layerPaths = parseLayerPaths(imagePath);
     Image reference = loadSpriteSourceImage(imagePath, layerPaths);
-    double spriteHeight = canvasHeight * characterHeightFactor;
+    double spriteHeight = canvasHeight * characterHeightFactor * characterScale(character);
     double spriteWidth = reference != null && reference.getHeight() > 0.0
         ? reference.getWidth() * (spriteHeight / reference.getHeight())
         : spriteHeight * 0.5;
@@ -2033,12 +2033,18 @@ public class VnRenderer {
       boolean tailOnTop
   ) {}
 
-  private void renderDialogue(DialogueLine dialogue, VnState state, double width, double height, int hoveredButtonIndex) {
+  private void renderDialogue(
+      DialogueLine dialogue,
+      VnState state,
+      VnScenario scenario,
+      double width,
+      double height,
+      int hoveredButtonIndex) {
     if (dialogue == null) return;
     DialoguePresentationMode mode = state == null ? DialoguePresentationMode.STANDARD : state.getDialoguePresentationMode();
     switch (mode) {
       case NVL -> renderNvlDialogue(dialogue, state, width, height);
-      case BUBBLE -> renderBubbleDialogue(dialogue, state, width, height);
+      case BUBBLE -> renderBubbleDialogue(dialogue, state, scenario, width, height);
       default -> renderStandardDialogue(dialogue, state, width, height, hoveredButtonIndex);
     }
   }
@@ -2046,6 +2052,7 @@ public class VnRenderer {
   private void renderDialogueWithFade(
       DialogueLine dialogue,
       VnState state,
+      VnScenario scenario,
       double width,
       double height,
       int hoveredButtonIndex
@@ -2053,7 +2060,7 @@ public class VnRenderer {
     if (dialogue == null || dialogueFadeAlpha <= 0.001) return;
     gc.save();
     gc.setGlobalAlpha(gc.getGlobalAlpha() * clamp(dialogueFadeAlpha, 0.0, 1.0));
-    renderDialogue(dialogue, state, width, height, hoveredButtonIndex);
+    renderDialogue(dialogue, state, scenario, width, height, hoveredButtonIndex);
     gc.restore();
   }
 
@@ -2310,14 +2317,20 @@ public class VnRenderer {
     gc.restore();
   }
 
-  private void renderBubbleDialogue(DialogueLine dialogue, VnState state, double width, double height) {
+  private void renderBubbleDialogue(
+      DialogueLine dialogue,
+      VnState state,
+      VnScenario scenario,
+      double width,
+      double height) {
     if (dialogue == null) return;
     String speaker = resolveRuntimeText(dialogue.getSpeakerName());
     String fullText = resolveRuntimeText(dialogue.getText());
     List<TextSpan> spans = TextParser.parse(fullText);
     int revealedChars = Math.min(state.getTextRevealProgress(), TextParser.plainLength(fullText));
 
-    BubbleGeometry bubble = resolveBubbleGeometry(dialogue, state, width, height, speaker, spans, revealedChars);
+    BubbleGeometry bubble = resolveBubbleGeometry(
+        dialogue, state, scenario, width, height, speaker, spans, revealedChars);
     drawBubblePanel(bubble);
 
     double pad = uiLayout.bubbleTextPadding();
@@ -2341,6 +2354,7 @@ public class VnRenderer {
   private BubbleGeometry resolveBubbleGeometry(
       DialogueLine dialogue,
       VnState state,
+      VnScenario scenario,
       double width,
       double height,
       String speaker,
@@ -2358,6 +2372,10 @@ public class VnRenderer {
     double anchorX = width * 0.5;
     double anchorY = height * 0.58;
     String characterId = dialogue.getCharacterId();
+    VnCharacter dialogueCharacter = scenario == null || characterId == null
+        ? null
+        : scenario.getCharacter(characterId);
+    double dialogueCharacterScale = characterScale(dialogueCharacter);
     if (characterId != null && !characterId.isBlank()) {
       BubbleAnchor pref = state.getBubbleAnchorPreference(characterId);
       if (pref != BubbleAnchor.AUTO) {
@@ -2382,7 +2400,7 @@ public class VnRenderer {
         if (position == null) position = dialogue.getPosition();
         if (position != null) {
           anchorX = width * position.getXFraction();
-          double spriteHeight = height * characterHeightFactor;
+          double spriteHeight = height * characterHeightFactor * dialogueCharacterScale;
           double topY = position.computeScreenY(height, spriteHeight, characterBaselineY);
           if (visual == null) visual = state.getCharacterVisual(position);
           if (visual != null) {
@@ -2404,7 +2422,7 @@ public class VnRenderer {
       anchorY += state.getBubbleOffsetYPreference(characterId);
     } else if (dialogue.getPosition() != null) {
       anchorX = width * dialogue.getPosition().getXFraction();
-      double spriteHeight = height * characterHeightFactor;
+      double spriteHeight = height * characterHeightFactor * dialogueCharacterScale;
       anchorY = dialogue.getPosition().computeScreenY(height, spriteHeight, characterBaselineY) + spriteHeight * 0.22;
     }
 
@@ -2938,6 +2956,11 @@ public class VnRenderer {
       }
     }
     return null;
+  }
+
+  static double characterScale(VnCharacter character) {
+    if (character == null) return 1.0;
+    return Math.max(0.1, Math.min(3.0, character.getScale()));
   }
 
   private String readStringVariable(VnState state, String key) {

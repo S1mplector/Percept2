@@ -18,6 +18,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PuppeteerLauncherPanelTest {
 
   @Test
+  void snapshotCarriesPersistentCharacterScale() {
+    String source = """
+        @scenario scale_preview
+        @character emi "Emi" scale=1.2 color=#F28C8C
+        @charimg emi neutral assets/characters/emi.png
+        @label start
+        [show emi center neutral]
+        """;
+
+    PuppeteerLauncherPanel.SceneSnapshot snapshot =
+        PuppeteerLauncherPanel.resolveSnapshot(source, 4);
+
+    assertEquals(1, snapshot.characters.size());
+    assertEquals(1.2, snapshot.characters.get(0).scale, 1e-9);
+  }
+
+  @Test
   void resolveSnapshotClampsLineToLastSourceLine() {
     String source = """
         @label start

@@ -2124,7 +2124,7 @@ public class VnsCodeEditor extends BorderPane {
     VNS_COMMAND_DOCS.put("phone", "Run phone UI commands. Usage: [phone open] or [phone chat contact_id]");
     VNS_COMMAND_DOCS.put("menu", "Open a menu. Usage: [menu menu_name]");
     VNS_COMMAND_DOCS.put("@scenario", "Declare scenario metadata. Usage: @scenario name");
-    VNS_COMMAND_DOCS.put("@character", "Declare a character and optional speaker color. Usage: @character id \"Display Name\" color=#RRGGBB");
+    VNS_COMMAND_DOCS.put("@character", "Declare a character with optional persistent sprite scale and speaker color. Usage: @character id \"Display Name\" scale=1.15 color=#RRGGBB");
     VNS_COMMAND_DOCS.put("@background", "Declare a background alias. Usage: @background alias path");
     VNS_COMMAND_DOCS.put("@label", "Define a jump target. Usage: @label name");
     VNS_COMMAND_DOCS.put("@var", "Declare a variable. Usage: @var name default_value");
@@ -3098,7 +3098,7 @@ public class VnsCodeEditor extends BorderPane {
       {"Java Import", "@jimport com.example.GameHooks"},
       {"Puppeteer Timeline Cue", "@external jes_timeline timeline_id"},
       {"Phone Open", "[phone open]"},
-      {"Character Decl", "@character id \"Display Name\""},
+      {"Character Decl", "@character id \"Display Name\" scale=1.0"},
       {"Background Decl", "@background alias path/to/image.png"},
       {"Include", "@include path/to/script.vns"},
       {"End", "[end]"},
