@@ -720,6 +720,26 @@ public class VnsCodeEditor extends BorderPane {
     this.onLaunchFromHere = listener;
   }
 
+  /** Launches the script at the nearest label at or above the caret. */
+  public void launchFromCurrentLabel() {
+    launchFromHere();
+  }
+
+  /** Launches the script through the configured callback from its entry point. */
+  public void launchFromStart() {
+    if (onLaunchFromHere != null) onLaunchFromHere.accept(null);
+  }
+
+  /** Opens the VNS label navigator at the editor caret. */
+  public void showSymbolNavigator() {
+    showGoToSymbol();
+  }
+
+  /** Opens the VNS snippet picker at the editor caret. */
+  public void showSnippetPicker() {
+    showSnippetPalette();
+  }
+
   private static final Pattern LABEL_SCAN_PATTERN = Pattern.compile("^\\s*@label\\s+(\\S+)", Pattern.CASE_INSENSITIVE);
 
   private void launchFromHere() {

@@ -38,6 +38,7 @@ import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuButton;
@@ -1041,13 +1042,56 @@ public class FileEditorTab extends BorderPane {
         isVnsPreviewWorkspace() ? CssIcon.popOut("#b8c5d8") : CssIcon.dock("#b8c5d8"),
         isVnsPreviewWorkspace() ? "Open preview in a separate window" : "Preview dock options");
 
+    Node[] toolbarActions;
+    if (vnsDetachedOnly && vnsEditor != null) {
+      Button runLabel = new Button();
+      configureIconButton(runLabel, CssIcon.vnsRunLabel(), "Run from current label (F5)");
+      runLabel.setOnAction(e -> vnsEditor.launchFromCurrentLabel());
+
+      Button runStart = new Button();
+      configureIconButton(runStart, CssIcon.vnsRunStart(), "Run from script entry (Shift+F5)");
+      runStart.setOnAction(e -> vnsEditor.launchFromStart());
+
+      Button symbols = new Button();
+      configureIconButton(symbols, CssIcon.vnsSymbols(), "Go to VNS symbol (Ctrl/Cmd+Shift+O)");
+      symbols.setOnAction(e -> vnsEditor.showSymbolNavigator());
+
+      Button snippets = new Button();
+      configureIconButton(snippets, CssIcon.vnsSnippet(), "Insert VNS snippet (Ctrl/Cmd+J)");
+      snippets.setOnAction(e -> vnsEditor.showSnippetPicker());
+
+      Button help = SidebarToolHelp.button(
+          root,
+          "VNS editor tools",
+          """
+          Run from current label
+          Starts the runtime at the nearest @label above the caret. Shortcut: F5.
+
+          Run from script entry
+          Starts the runtime from the project entry point. Shortcut: Shift+F5.
+
+          Go to symbol
+          Searches @label declarations in this script. Shortcut: Ctrl/Cmd+Shift+O.
+
+          Insert snippet
+          Opens the VNS command and declaration palette. Shortcut: Ctrl/Cmd+J.
+
+          Open runtime preview
+          Opens the live game preview in its own resizable window.
+          """);
+
+      toolbarActions = new Node[] {runLabel, runStart, symbols, snippets, previewDockMenu, help};
+    } else {
+      toolbarActions = new Node[] {
+          previewModePreviewButton, previewModeCodeButton, previewModeSplitButton, previewDockMenu
+      };
+    }
+
     HBox toolbar = buildWorkspaceToolbar(
-        title == null ? "Preview" : title,
+        vnsDetachedOnly ? "VNS Tools" : (title == null ? "Preview" : title),
         previewWorkspaceSubtitle(vnsDetachedOnly),
         previewWorkspaceTitleIcon(),
-        vnsDetachedOnly
-            ? new Node[] {previewDockMenu}
-            : new Node[] {previewModePreviewButton, previewModeCodeButton, previewModeSplitButton, previewDockMenu});
+        toolbarActions);
 
     root.setTop(toolbar);
     root.setCenter(previewWorkspaceContent);
@@ -1240,6 +1284,7 @@ public class FileEditorTab extends BorderPane {
     if (stage == null || detachedPreviewStage != stage) return;
     detachedPreviewStage = null;
     stopDetachedPreviewTimer();
+    stopPreviewAudio();
     removeDockPreviewFromParent();
     if (disposed) return;
 
@@ -1410,7 +1455,7 @@ public class FileEditorTab extends BorderPane {
   }
 
   private String previewWorkspaceSubtitle(boolean vnsDetachedOnly) {
-    if (vnsDetachedOnly) return "Runtime preview opens in its own window";
+    if (vnsDetachedOnly) return null;
     return switch (kind) {
       case JES -> "Scene preview and source editor";
       case TIMELINE -> "Story Map preview and source editor";
@@ -1437,10 +1482,13 @@ public class FileEditorTab extends BorderPane {
     titleLabel.getStyleClass().add("script-editor-workspace-title");
     titleRow.getChildren().add(titleLabel);
 
-    Label metaLabel = new Label(meta == null ? "" : meta);
-    metaLabel.getStyleClass().add("script-editor-workspace-meta");
-
-    VBox titleBox = new VBox(1, titleRow, metaLabel);
+    VBox titleBox = new VBox(1);
+    titleBox.getChildren().add(titleRow);
+    if (meta != null && !meta.isBlank()) {
+      Label metaLabel = new Label(meta);
+      metaLabel.getStyleClass().add("script-editor-workspace-meta");
+      titleBox.getChildren().add(metaLabel);
+    }
     titleBox.getStyleClass().add("script-editor-workspace-title-box");
 
     Region spacer = new Region();
@@ -1475,6 +1523,21 @@ public class FileEditorTab extends BorderPane {
     if (!button.getStyleClass().contains("script-editor-workspace-icon-button")) {
       button.getStyleClass().add("script-editor-workspace-icon-button");
     }
+  }
+
+  private static void configureIconButton(Button button, Node icon, String tooltipText) {
+    if (button == null) return;
+    button.setText("");
+    button.setGraphic(icon);
+    button.setTooltip(new Tooltip(tooltipText));
+    button.setMinSize(32, 30);
+    button.setPrefSize(32, 30);
+    button.setMaxSize(32, 30);
+    button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+    button.getStyleClass().addAll(
+        "layout-studio-toolbar-button",
+        "layout-studio-icon-button",
+        "script-editor-workspace-icon-button");
   }
 
   private static void configureIconMenuButton(MenuButton button, Node icon, String tooltipText) {
