@@ -43,6 +43,7 @@ import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuButton;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.Separator;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
@@ -92,6 +93,7 @@ public class FileEditorTab extends BorderPane {
   private Consumer<String> onStatus;
   private Consumer<String> onVnsTextChanged;
   private Consumer<String> onDiagnosticsTextChanged;
+  private Runnable onOpenDiagnostics;
   private Consumer<StoryboardOverlayState> onStoryboardOverlayAdjusted;
   private com.jvn.editor.commands.CommandStack commands;
   private File projectRoot;
@@ -614,6 +616,10 @@ public class FileEditorTab extends BorderPane {
     }
   }
 
+  public void setOnOpenDiagnostics(Runnable listener) {
+    this.onOpenDiagnostics = listener;
+  }
+
   private void installVnsTextChangedHandler() {
     if (vnsEditor == null) return;
     vnsEditor.setOnTextChanged(text -> {
@@ -1053,7 +1059,7 @@ public class FileEditorTab extends BorderPane {
       Button runLabel = new Button();
       configureVnsAeroButton(
           runLabel,
-          AeroIcon.of(AeroIcon.Kind.VNS_RUN_LABEL, 30),
+          AeroIcon.of(AeroIcon.Kind.VNS_RUN_LABEL, 32),
           "Run from current label",
           "Start at the nearest @label above the caret and open the runtime preview (F5)");
       runLabel.setOnAction(e -> vnsEditor.launchFromCurrentLabel());
@@ -1061,7 +1067,7 @@ public class FileEditorTab extends BorderPane {
       Button runStart = new Button();
       configureVnsAeroButton(
           runStart,
-          AeroIcon.of(AeroIcon.Kind.VNS_RUN_ENTRY, 30),
+          AeroIcon.of(AeroIcon.Kind.VNS_RUN_ENTRY, 32),
           "Run from script entry",
           "Start at the project entry point and open the runtime preview (Shift+F5)");
       runStart.setOnAction(e -> vnsEditor.launchFromStart());
@@ -1069,7 +1075,7 @@ public class FileEditorTab extends BorderPane {
       Button symbols = new Button();
       configureVnsAeroButton(
           symbols,
-          AeroIcon.of(AeroIcon.Kind.VNS_SYMBOLS, 30),
+          AeroIcon.of(AeroIcon.Kind.VNS_SYMBOLS, 32),
           "Go to VNS symbol",
           "Find an @label declaration in this script (Ctrl/Cmd+Shift+O)");
       symbols.setOnAction(e -> vnsEditor.showSymbolNavigator());
@@ -1077,15 +1083,58 @@ public class FileEditorTab extends BorderPane {
       Button snippets = new Button();
       configureVnsAeroButton(
           snippets,
-          AeroIcon.of(AeroIcon.Kind.VNS_SNIPPET, 30),
+          AeroIcon.of(AeroIcon.Kind.VNS_SNIPPET, 32),
           "Insert VNS snippet",
           "Open the VNS command and declaration palette (Ctrl/Cmd+J)");
       snippets.setOnAction(e -> vnsEditor.showSnippetPicker());
 
+      Button find = new Button();
+      configureVnsAeroButton(
+          find,
+          AeroIcon.of(AeroIcon.Kind.VNS_FIND, 32),
+          "Find in VNS script",
+          "Find text in this script (Ctrl/Cmd+F)");
+      find.setOnAction(e -> vnsEditor.showSearchBar());
+
+      Button commands = new Button();
+      configureVnsAeroButton(
+          commands,
+          AeroIcon.of(AeroIcon.Kind.VNS_COMMANDS, 32),
+          "Open VNS command palette",
+          "Search all VNS editor commands (Ctrl/Cmd+Shift+P)");
+      commands.setOnAction(e -> vnsEditor.showCommandPalette());
+
+      ToggleButton wordWrap = new ToggleButton();
+      configureVnsAeroToggle(
+          wordWrap,
+          AeroIcon.of(AeroIcon.Kind.VNS_WORD_WRAP, 32),
+          "Toggle VNS word wrap",
+          "Wrap long script lines in the editor (Ctrl/Cmd+Shift+W)");
+      wordWrap.setSelected(vnsEditor.isWordWrapEnabled());
+      wordWrap.setOnAction(e -> wordWrap.setSelected(vnsEditor.toggleWordWrap()));
+
+      Button diff = new Button();
+      configureVnsAeroButton(
+          diff,
+          AeroIcon.of(AeroIcon.Kind.VNS_DIFF, 32),
+          "Compare VNS script with saved version",
+          "Show changes since the script was last saved or loaded (Ctrl/Cmd+Shift+D)");
+      diff.setOnAction(e -> vnsEditor.showDiffView());
+
+      Button diagnostics = new Button();
+      configureVnsAeroButton(
+          diagnostics,
+          AeroIcon.of(AeroIcon.Kind.VNS_DIAGNOSTICS, 32),
+          "Open VNS diagnostics",
+          "Inspect errors, warnings, and source locations for this script");
+      diagnostics.setOnAction(e -> {
+        if (onOpenDiagnostics != null) onOpenDiagnostics.run();
+      });
+
       Button openPreview = new Button();
       configureVnsAeroButton(
           openPreview,
-          AeroIcon.of(AeroIcon.Kind.VNS_PREVIEW, 30),
+          AeroIcon.of(AeroIcon.Kind.VNS_PREVIEW, 32),
           "Open runtime preview",
           "Open the live game preview in a separate resizable window");
       openPreview.setOnAction(e -> setPreviewDockPosition(PreviewDockPosition.WINDOW));
@@ -1106,12 +1155,36 @@ public class FileEditorTab extends BorderPane {
           Insert snippet
           Opens the VNS command and declaration palette. Shortcut: Ctrl/Cmd+J.
 
+          Find in script
+          Opens the editor search bar. Shortcut: Ctrl/Cmd+F.
+
+          Command palette
+          Searches all VNS editor commands. Shortcut: Ctrl/Cmd+Shift+P.
+
+          Word wrap
+          Wraps long script lines without changing the file. Shortcut: Ctrl/Cmd+Shift+W.
+
+          Compare with saved
+          Shows changes since the file was last saved or loaded. Shortcut: Ctrl/Cmd+Shift+D.
+
+          Diagnostics
+          Opens the diagnostics panel for errors, warnings, and source navigation.
+
           Open runtime preview
           Opens the live game preview in its own resizable window.
           """);
+      help.setGraphic(AeroIcon.of(AeroIcon.Kind.HELP, 30));
+      help.setMinSize(44, 42);
+      help.setPrefSize(44, 42);
+      help.setMaxSize(44, 42);
       help.getStyleClass().add("vns-tools-help-button");
 
-      toolbarActions = new Node[] {runLabel, runStart, symbols, snippets, openPreview, help};
+      toolbarActions = new Node[] {
+          runLabel, runStart, vnsToolSeparator(),
+          symbols, snippets, find, commands, vnsToolSeparator(),
+          wordWrap, diff, diagnostics, vnsToolSeparator(),
+          openPreview, vnsToolSeparator(), help
+      };
     } else {
       toolbarActions = new Node[] {
           previewModePreviewButton, previewModeCodeButton, previewModeSplitButton, previewDockMenu
@@ -1498,7 +1571,7 @@ public class FileEditorTab extends BorderPane {
 
   private Region previewWorkspaceTitleIcon() {
     return switch (kind) {
-      case VNS -> CssIcon.speech("#d7e1f0");
+      case VNS -> AeroIcon.of(AeroIcon.Kind.SCRIPT_EDITOR, 26);
       case THEME -> CssIcon.palette("#d7e1f0");
       case TIMELINE -> CssIcon.play("#d7e1f0");
       default -> CssIcon.visibility("#d7e1f0");
@@ -1579,11 +1652,34 @@ public class FileEditorTab extends BorderPane {
     button.setTooltip(new Tooltip(tooltipText));
     button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
     button.setAccessibleText(accessibleText);
-    button.setMinSize(42, 40);
-    button.setPrefSize(42, 40);
-    button.setMaxSize(42, 40);
+    button.setMinSize(44, 42);
+    button.setPrefSize(44, 42);
+    button.setMaxSize(44, 42);
     button.setFocusTraversable(false);
     button.getStyleClass().add("vns-tools-aero-button");
+  }
+
+  private static void configureVnsAeroToggle(
+      ToggleButton button, AeroIcon icon, String accessibleText, String tooltipText) {
+    button.setText("");
+    button.setGraphic(icon);
+    button.setTooltip(new Tooltip(tooltipText));
+    button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+    button.setAccessibleText(accessibleText);
+    button.setMinSize(44, 42);
+    button.setPrefSize(44, 42);
+    button.setMaxSize(44, 42);
+    button.setFocusTraversable(false);
+    button.getStyleClass().add("vns-tools-aero-button");
+  }
+
+  private static Separator vnsToolSeparator() {
+    Separator separator = new Separator(Orientation.VERTICAL);
+    separator.setMinHeight(28);
+    separator.setPrefHeight(28);
+    separator.setMaxHeight(28);
+    separator.getStyleClass().add("vns-tools-separator");
+    return separator;
   }
 
   private static void configureIconMenuButton(MenuButton button, Node icon, String tooltipText) {

@@ -3219,7 +3219,8 @@ public class VnsCodeEditor extends BorderPane {
       {"Show Diff", "Compare with saved version (Ctrl+Shift+D)"},
   };
 
-  private void showCommandPalette() {
+  /** Opens the searchable VNS editor command palette. */
+  public void showCommandPalette() {
     Popup popup = new Popup();
     popup.setAutoHide(true);
 
@@ -3374,15 +3375,22 @@ public class VnsCodeEditor extends BorderPane {
   // ═══════════════════════════════════════════════════════════════════
   //  FEATURE: Word Wrap Toggle (Ctrl+Shift+W)
   // ═══════════════════════════════════════════════════════════════════
-  private void toggleWordWrap() {
+  /** Toggles line wrapping and returns the new state for toolbar controls. */
+  public boolean toggleWordWrap() {
     wordWrapEnabled = !wordWrapEnabled;
     codeArea.setWrapText(wordWrapEnabled);
+    return wordWrapEnabled;
+  }
+
+  public boolean isWordWrapEnabled() {
+    return wordWrapEnabled;
   }
 
   // ═══════════════════════════════════════════════════════════════════
   //  FEATURE: Diff View (Ctrl+Shift+D) — compare with saved snapshot
   // ═══════════════════════════════════════════════════════════════════
-  private void showDiffView() {
+  /** Compares the current script with the last saved or loaded snapshot. */
+  public void showDiffView() {
     String current = codeArea.getText();
     if (current == null) current = "";
     String saved = savedTextSnapshot;

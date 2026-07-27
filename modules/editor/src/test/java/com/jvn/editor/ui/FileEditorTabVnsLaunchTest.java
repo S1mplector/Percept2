@@ -4,10 +4,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import javafx.application.Platform;
+import javafx.scene.Scene;
+import javafx.scene.control.ButtonBase;
+import javafx.scene.control.ToggleButton;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -52,6 +57,49 @@ class FileEditorTabVnsLaunchTest {
       try {
         tab.runFromLabel(null);
         assertTrue(tab.isDetachedPreviewVisible());
+      } finally {
+        tab.dispose();
+      }
+      return null;
+    });
+  }
+
+  @Test
+  void vnsStripExposesWorkingReviewControls(@TempDir Path tempDir) throws Exception {
+    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
+    Path script = tempDir.resolve("review_controls.vns");
+    Files.writeString(script, "@scenario review_controls\n@label start\nnarrator: Hello.\n");
+
+    onFxThread(() -> {
+      FileEditorTab tab = new FileEditorTab(script.toFile());
+      AtomicBoolean diagnosticsOpened = new AtomicBoolean();
+      tab.setOnOpenDiagnostics(() -> diagnosticsOpened.set(true));
+      new Scene(tab, 1400, 180);
+      tab.applyCss();
+      tab.layout();
+      try {
+        Set<javafx.scene.Node> controls = tab.lookupAll(".vns-tools-aero-button");
+        ButtonBase diagnostics = controls.stream()
+            .filter(ButtonBase.class::isInstance)
+            .map(ButtonBase.class::cast)
+            .filter(button -> "Open VNS diagnostics".equals(button.getAccessibleText()))
+            .findFirst()
+            .orElseThrow();
+        ToggleButton wordWrap = controls.stream()
+            .filter(ToggleButton.class::isInstance)
+            .map(ToggleButton.class::cast)
+            .filter(button -> "Toggle VNS word wrap".equals(button.getAccessibleText()))
+            .findFirst()
+            .orElseThrow();
+        assertTrue(controls.stream()
+            .filter(ButtonBase.class::isInstance)
+            .map(ButtonBase.class::cast)
+            .anyMatch(button -> "Compare VNS script with saved version".equals(button.getAccessibleText())));
+
+        diagnostics.fire();
+        wordWrap.fire();
+        assertTrue(diagnosticsOpened.get());
+        assertTrue(wordWrap.isSelected());
       } finally {
         tab.dispose();
       }

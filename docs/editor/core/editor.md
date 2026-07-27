@@ -163,11 +163,16 @@ This matters for workflow-critical utilities such as **Build & Publish...**, **S
   - run from the project entry point (`Shift+F5`)
   - open the label/symbol navigator (`Cmd/Ctrl+Shift+O`)
   - open the VNS snippet picker (`Cmd/Ctrl+J`)
+  - find text in the current script (`Cmd/Ctrl+F`)
+  - search all editor actions in the command palette (`Cmd/Ctrl+Shift+P`)
+  - toggle line wrapping (`Cmd/Ctrl+Shift+W`)
+  - compare the current buffer with the saved version (`Cmd/Ctrl+Shift+D`)
+  - open the diagnostics panel
   - open the runtime preview in a separate window
   - open the standard `?` help panel for these controls
-- native Aero command artwork shared with Build Project and Run Project, transparent
-  42 × 40 hit targets, icon-owned hover glow, accessible action names, and distinct
-  primary silhouettes for label-run, entry-run, symbol search, snippets, and preview
+- native Aero command artwork shared with Build Project and Run Project, grouped
+  44 × 42 hit targets, glass-and-metal hover chrome, accessible action names, and
+  distinct silhouettes for each run, navigation, authoring, review, and preview action
 - all text authoring stays in the main tabbed editor; the legacy Text Editor
   workspace and standalone text window are no longer exposed
 - lint for:
