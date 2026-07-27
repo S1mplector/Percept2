@@ -8,6 +8,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import javafx.application.Platform;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
 import javafx.scene.image.WritableImage;
 import javafx.scene.layout.StackPane;
 import org.junit.jupiter.api.Assumptions;
@@ -79,6 +80,30 @@ class AeroIconTest {
     assertEquals(AeroIcon.Kind.BUILD, build.kind());
     assertEquals(22, run.iconSize());
     assertEquals(22, build.iconSize());
+  }
+
+  @Test
+  void vnsCommandsUseTheSameTransparentAeroButtonTreatment() throws Exception {
+    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
+
+    for (AeroIcon.Kind kind : new AeroIcon.Kind[] {
+        AeroIcon.Kind.VNS_RUN_LABEL,
+        AeroIcon.Kind.VNS_RUN_ENTRY,
+        AeroIcon.Kind.VNS_SYMBOLS,
+        AeroIcon.Kind.VNS_SNIPPET,
+        AeroIcon.Kind.VNS_PREVIEW
+    }) {
+      Button button = onFxThread(() -> {
+        Button result = new Button();
+        result.setGraphic(AeroIcon.of(kind, 30));
+        StackPane root = new StackPane(result);
+        new Scene(root, 48, 48);
+        root.applyCss();
+        root.layout();
+        return result;
+      });
+      assertTrue(button.getStyleClass().contains("aero-icon-button"));
+    }
   }
 
   @Test

@@ -1045,42 +1045,44 @@ public class FileEditorTab extends BorderPane {
     Node[] toolbarActions;
     if (vnsDetachedOnly && vnsEditor != null) {
       Button runLabel = new Button();
-      configureVnsToolButton(
+      configureVnsAeroButton(
           runLabel,
-          VnsToolsIcon.of(VnsToolsIcon.Kind.RUN_LABEL),
+          AeroIcon.of(AeroIcon.Kind.VNS_RUN_LABEL, 30),
           "Run from current label",
           "Starts at the nearest @label above the caret (F5)");
       runLabel.setOnAction(e -> vnsEditor.launchFromCurrentLabel());
 
       Button runStart = new Button();
-      configureVnsToolButton(
+      configureVnsAeroButton(
           runStart,
-          VnsToolsIcon.of(VnsToolsIcon.Kind.RUN_ENTRY),
+          AeroIcon.of(AeroIcon.Kind.VNS_RUN_ENTRY, 30),
           "Run from script entry",
           "Starts at the project entry point (Shift+F5)");
       runStart.setOnAction(e -> vnsEditor.launchFromStart());
 
       Button symbols = new Button();
-      configureVnsToolButton(
+      configureVnsAeroButton(
           symbols,
-          VnsToolsIcon.of(VnsToolsIcon.Kind.GO_TO_SYMBOL),
+          AeroIcon.of(AeroIcon.Kind.VNS_SYMBOLS, 30),
           "Go to VNS symbol",
           "Find an @label declaration in this script (Ctrl/Cmd+Shift+O)");
       symbols.setOnAction(e -> vnsEditor.showSymbolNavigator());
 
       Button snippets = new Button();
-      configureVnsToolButton(
+      configureVnsAeroButton(
           snippets,
-          VnsToolsIcon.of(VnsToolsIcon.Kind.INSERT_SNIPPET),
+          AeroIcon.of(AeroIcon.Kind.VNS_SNIPPET, 30),
           "Insert VNS snippet",
           "Open the VNS command and declaration palette (Ctrl/Cmd+J)");
       snippets.setOnAction(e -> vnsEditor.showSnippetPicker());
 
-      configureVnsToolMenuButton(
-          previewDockMenu,
-          VnsToolsIcon.of(VnsToolsIcon.Kind.OPEN_PREVIEW),
+      Button openPreview = new Button();
+      configureVnsAeroButton(
+          openPreview,
+          AeroIcon.of(AeroIcon.Kind.VNS_PREVIEW, 30),
           "Open runtime preview",
           "Open the live game preview in a separate resizable window");
+      openPreview.setOnAction(e -> setPreviewDockPosition(PreviewDockPosition.WINDOW));
 
       Button help = SidebarToolHelp.button(
           root,
@@ -1103,7 +1105,7 @@ public class FileEditorTab extends BorderPane {
           """);
       help.getStyleClass().add("vns-tools-help-button");
 
-      toolbarActions = new Node[] {runLabel, runStart, symbols, snippets, previewDockMenu, help};
+      toolbarActions = new Node[] {runLabel, runStart, symbols, snippets, openPreview, help};
     } else {
       toolbarActions = new Node[] {
           previewModePreviewButton, previewModeCodeButton, previewModeSplitButton, previewDockMenu
@@ -1564,24 +1566,18 @@ public class FileEditorTab extends BorderPane {
         "script-editor-workspace-icon-button");
   }
 
-  private static void configureVnsToolButton(
-      Button button, Node icon, String accessibleText, String tooltipText) {
-    configureIconButton(button, icon, tooltipText);
+  private static void configureVnsAeroButton(
+      Button button, AeroIcon icon, String accessibleText, String tooltipText) {
+    button.setText("");
+    button.setGraphic(icon);
+    button.setTooltip(new Tooltip(tooltipText));
+    button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
     button.setAccessibleText(accessibleText);
     button.setMinSize(42, 40);
     button.setPrefSize(42, 40);
     button.setMaxSize(42, 40);
-    button.getStyleClass().add("vns-tools-command-button");
-  }
-
-  private static void configureVnsToolMenuButton(
-      MenuButton button, Node icon, String accessibleText, String tooltipText) {
-    configureIconMenuButton(button, icon, tooltipText);
-    button.setAccessibleText(accessibleText);
-    button.setMinSize(42, 40);
-    button.setPrefSize(42, 40);
-    button.setMaxSize(42, 40);
-    button.getStyleClass().add("vns-tools-command-button");
+    button.setFocusTraversable(false);
+    button.getStyleClass().add("vns-tools-aero-button");
   }
 
   private static void configureIconMenuButton(MenuButton button, Node icon, String tooltipText) {
