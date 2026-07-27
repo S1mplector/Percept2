@@ -224,14 +224,14 @@ public final class AeroIcon extends StackPane {
     at.setStrokeWidth(Math.max(0.35, size * 0.022));
     at.relocate(size * 0.01, size * 0.03);
 
-    Circle lens = new Circle(size * 0.66, size * 0.56, size * 0.25, Color.rgb(23, 32, 40, 0.72));
+    Circle lens = new Circle(size * 0.73, size * 0.65, size * 0.145, Color.rgb(23, 32, 40, 0.72));
     lens.setStroke(Color.web("#ffd079"));
-    lens.setStrokeWidth(Math.max(1.5, size * 0.085));
-    lens.setEffect(new DropShadow(size * 0.13, Color.web("#d58a28")));
+    lens.setStrokeWidth(Math.max(1.05, size * 0.06));
+    lens.setEffect(new DropShadow(size * 0.09, Color.web("#d58a28")));
     Line handle = styledLine(
-        size * 0.83, size * 0.74, size * 0.98, size * 0.91,
-        Color.web("#ffe6ad"), Math.max(1.6, size * 0.09));
-    art.getChildren().addAll(at, lens, handle, vnsGlint(size, 0.55, 0.40));
+        size * 0.83, size * 0.75, size * 0.94, size * 0.87,
+        Color.web("#ffe6ad"), Math.max(1.1, size * 0.062));
+    art.getChildren().addAll(at, lens, handle, vnsGlint(size, 0.68, 0.60));
     return art;
   }
 
