@@ -14,6 +14,7 @@ public class VnCharacter {
   private final String id;
   private final String displayName;
   private final String nameColor;
+  private final double scale;
   private final Map<String, String> expressions; // expression name -> image path
   private final Map<String, String> layerPaths; // @charlayer id -> image path
   private final Map<String, List<String>> expressionLayerIds; // expression name -> ordered @charlayer ids
@@ -23,6 +24,7 @@ public class VnCharacter {
     this.id = builder.id;
     this.displayName = builder.displayName;
     this.nameColor = builder.nameColor;
+    this.scale = builder.scale;
     this.expressions = new HashMap<>(builder.expressions);
     this.layerPaths = new HashMap<>(builder.layerPaths);
     this.expressionLayerIds = new HashMap<>(builder.expressionLayerIds);
@@ -33,6 +35,8 @@ public class VnCharacter {
   public String getDisplayName() { return displayName; }
   /** Optional authored speaker/name-box color in {@code #RRGGBB[AA]} form. */
   public String getNameColor() { return nameColor; }
+  /** Persistent authored sprite scale applied on top of the global character height factor. */
+  public double getScale() { return scale; }
   public String getExpressionPath(String expression) {
     return expressions.getOrDefault(expression, expressions.get("neutral"));
   }
@@ -139,6 +143,7 @@ public class VnCharacter {
     private final String id;
     private String displayName;
     private String nameColor;
+    private double scale;
     private final Map<String, String> expressions = new HashMap<>();
     private final Map<String, String> layerPaths = new HashMap<>();
     private final Map<String, List<String>> expressionLayerIds = new HashMap<>();
@@ -148,6 +153,7 @@ public class VnCharacter {
       this.id = id;
       this.displayName = id;
       this.nameColor = null;
+      this.scale = 1.0;
     }
 
     public Builder displayName(String name) { this.displayName = name; return this; }
@@ -155,8 +161,16 @@ public class VnCharacter {
       this.nameColor = color == null || color.isBlank() ? null : color.trim();
       return this;
     }
+    public Builder scale(double scale) {
+      if (!Double.isFinite(scale) || scale < 0.1 || scale > 3.0) {
+        throw new IllegalArgumentException("Character scale must be between 0.1 and 3.0");
+      }
+      this.scale = scale;
+      return this;
+    }
     public String getDisplayName() { return displayName; }
     public String getNameColor() { return nameColor; }
+    public double getScale() { return scale; }
     public boolean hasExpression(String name) { return expressions.containsKey(name); }
     public String getExpressionPath(String name) { return expressions.get(name); }
     public String getLayerPath(String layerId) { return layerPaths.get(layerId); }
