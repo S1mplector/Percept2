@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.HashSet;
+import java.util.Set;
 import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -107,6 +109,31 @@ class AeroIconTest {
   }
 
   @Test
+  void vnsCommandsHaveFiveDistinctPrimarySilhouettes() throws Exception {
+    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
+
+    Set<Long> artworkHashes = new HashSet<>();
+    for (AeroIcon.Kind kind : new AeroIcon.Kind[] {
+        AeroIcon.Kind.VNS_RUN_LABEL,
+        AeroIcon.Kind.VNS_RUN_ENTRY,
+        AeroIcon.Kind.VNS_SYMBOLS,
+        AeroIcon.Kind.VNS_SNIPPET,
+        AeroIcon.Kind.VNS_PREVIEW
+    }) {
+      WritableImage image = onFxThread(() -> {
+        AeroIcon icon = AeroIcon.of(kind, 30);
+        StackPane root = new StackPane(icon);
+        new Scene(root, 38, 38);
+        root.applyCss();
+        root.layout();
+        return root.snapshot(null, new WritableImage(38, 38));
+      });
+      artworkHashes.add(pixelHash(image));
+    }
+    assertEquals(5, artworkHashes.size(), "Every VNS command needs a distinct readable silhouette");
+  }
+
+  @Test
   void semanticArtworkUsesRenderCachingForPanelMovement() throws Exception {
     Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
 
@@ -124,6 +151,17 @@ class AeroIconTest {
       }
     }
     return count;
+  }
+
+  private static long pixelHash(WritableImage image) {
+    long hash = 0xcbf29ce484222325L;
+    for (int y = 0; y < (int) image.getHeight(); y++) {
+      for (int x = 0; x < (int) image.getWidth(); x++) {
+        hash ^= image.getPixelReader().getArgb(x, y);
+        hash *= 0x100000001b3L;
+      }
+    }
+    return hash;
   }
 
   private static <T> T onFxThread(java.util.concurrent.Callable<T> work) throws Exception {

@@ -166,7 +166,8 @@ This matters for workflow-critical utilities such as **Build & Publish...**, **S
   - open the runtime preview in a separate window
   - open the standard `?` help panel for these controls
 - native Aero command artwork shared with Build Project and Run Project, transparent
-  42 × 40 hit targets, icon-owned hover glow, and accessible action names
+  42 × 40 hit targets, icon-owned hover glow, accessible action names, and distinct
+  primary silhouettes for label-run, entry-run, symbol search, snippets, and preview
 - all text authoring stays in the main tabbed editor; the legacy Text Editor
   workspace and standalone text window are no longer exposed
 - lint for:
