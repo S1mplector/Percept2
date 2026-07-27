@@ -264,13 +264,19 @@ public class FileEditorTab extends BorderPane {
     try {
       if (kind != Kind.VNS || vnsEditor == null || vnPreview == null) return;
       String code = vnsEditor.getText();
-      if (code == null || code.isBlank()) return;
+      if (code == null || code.isBlank()) {
+        if (onStatus != null) onStatus.accept("Cannot run an empty VNS script");
+        return;
+      }
       VnScenario scenario = parseVnsScenarioFromText(code);
       vnPreview.setSourceScriptName(resolveVnsScriptKey());
       vnPreview.runScenario(scenario, label);
+      setPreviewDockPosition(PreviewDockPosition.WINDOW);
       if (onStatus != null) onStatus.accept("Run from label: " + (label == null ? "<start>" : label));
     } catch (Exception ex) {
       showVnsParseOverlay(ex);
+      setPreviewDockPosition(PreviewDockPosition.WINDOW);
+      if (onStatus != null) onStatus.accept("VNS launch failed: " + ex.getMessage());
     }
   }
 
@@ -1049,7 +1055,7 @@ public class FileEditorTab extends BorderPane {
           runLabel,
           AeroIcon.of(AeroIcon.Kind.VNS_RUN_LABEL, 30),
           "Run from current label",
-          "Starts at the nearest @label above the caret (F5)");
+          "Start at the nearest @label above the caret and open the runtime preview (F5)");
       runLabel.setOnAction(e -> vnsEditor.launchFromCurrentLabel());
 
       Button runStart = new Button();
@@ -1057,7 +1063,7 @@ public class FileEditorTab extends BorderPane {
           runStart,
           AeroIcon.of(AeroIcon.Kind.VNS_RUN_ENTRY, 30),
           "Run from script entry",
-          "Starts at the project entry point (Shift+F5)");
+          "Start at the project entry point and open the runtime preview (Shift+F5)");
       runStart.setOnAction(e -> vnsEditor.launchFromStart());
 
       Button symbols = new Button();
@@ -1274,7 +1280,7 @@ public class FileEditorTab extends BorderPane {
     vnPreview.setActiveError(VnErrorOverlay.fromScriptLoadFailure(sourceName, ex));
   }
 
-  private boolean isDetachedPreviewVisible() {
+  boolean isDetachedPreviewVisible() {
     return detachedPreviewStage != null && detachedPreviewStage.isShowing();
   }
 
