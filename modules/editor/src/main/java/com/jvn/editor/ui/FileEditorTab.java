@@ -1045,20 +1045,42 @@ public class FileEditorTab extends BorderPane {
     Node[] toolbarActions;
     if (vnsDetachedOnly && vnsEditor != null) {
       Button runLabel = new Button();
-      configureIconButton(runLabel, CssIcon.vnsRunLabel(), "Run from current label (F5)");
+      configureVnsToolButton(
+          runLabel,
+          VnsToolsIcon.of(VnsToolsIcon.Kind.RUN_LABEL),
+          "Run from current label",
+          "Starts at the nearest @label above the caret (F5)");
       runLabel.setOnAction(e -> vnsEditor.launchFromCurrentLabel());
 
       Button runStart = new Button();
-      configureIconButton(runStart, CssIcon.vnsRunStart(), "Run from script entry (Shift+F5)");
+      configureVnsToolButton(
+          runStart,
+          VnsToolsIcon.of(VnsToolsIcon.Kind.RUN_ENTRY),
+          "Run from script entry",
+          "Starts at the project entry point (Shift+F5)");
       runStart.setOnAction(e -> vnsEditor.launchFromStart());
 
       Button symbols = new Button();
-      configureIconButton(symbols, CssIcon.vnsSymbols(), "Go to VNS symbol (Ctrl/Cmd+Shift+O)");
+      configureVnsToolButton(
+          symbols,
+          VnsToolsIcon.of(VnsToolsIcon.Kind.GO_TO_SYMBOL),
+          "Go to VNS symbol",
+          "Find an @label declaration in this script (Ctrl/Cmd+Shift+O)");
       symbols.setOnAction(e -> vnsEditor.showSymbolNavigator());
 
       Button snippets = new Button();
-      configureIconButton(snippets, CssIcon.vnsSnippet(), "Insert VNS snippet (Ctrl/Cmd+J)");
+      configureVnsToolButton(
+          snippets,
+          VnsToolsIcon.of(VnsToolsIcon.Kind.INSERT_SNIPPET),
+          "Insert VNS snippet",
+          "Open the VNS command and declaration palette (Ctrl/Cmd+J)");
       snippets.setOnAction(e -> vnsEditor.showSnippetPicker());
+
+      configureVnsToolMenuButton(
+          previewDockMenu,
+          VnsToolsIcon.of(VnsToolsIcon.Kind.OPEN_PREVIEW),
+          "Open runtime preview",
+          "Open the live game preview in a separate resizable window");
 
       Button help = SidebarToolHelp.button(
           root,
@@ -1079,6 +1101,7 @@ public class FileEditorTab extends BorderPane {
           Open runtime preview
           Opens the live game preview in its own resizable window.
           """);
+      help.getStyleClass().add("vns-tools-help-button");
 
       toolbarActions = new Node[] {runLabel, runStart, symbols, snippets, previewDockMenu, help};
     } else {
@@ -1092,6 +1115,7 @@ public class FileEditorTab extends BorderPane {
         previewWorkspaceSubtitle(vnsDetachedOnly),
         previewWorkspaceTitleIcon(),
         toolbarActions);
+    if (vnsDetachedOnly) toolbar.getStyleClass().add("vns-tools-strip");
 
     root.setTop(toolbar);
     root.setCenter(previewWorkspaceContent);
@@ -1538,6 +1562,26 @@ public class FileEditorTab extends BorderPane {
         "layout-studio-toolbar-button",
         "layout-studio-icon-button",
         "script-editor-workspace-icon-button");
+  }
+
+  private static void configureVnsToolButton(
+      Button button, Node icon, String accessibleText, String tooltipText) {
+    configureIconButton(button, icon, tooltipText);
+    button.setAccessibleText(accessibleText);
+    button.setMinSize(42, 40);
+    button.setPrefSize(42, 40);
+    button.setMaxSize(42, 40);
+    button.getStyleClass().add("vns-tools-command-button");
+  }
+
+  private static void configureVnsToolMenuButton(
+      MenuButton button, Node icon, String accessibleText, String tooltipText) {
+    configureIconMenuButton(button, icon, tooltipText);
+    button.setAccessibleText(accessibleText);
+    button.setMinSize(42, 40);
+    button.setPrefSize(42, 40);
+    button.setMaxSize(42, 40);
+    button.getStyleClass().add("vns-tools-command-button");
   }
 
   private static void configureIconMenuButton(MenuButton button, Node icon, String tooltipText) {

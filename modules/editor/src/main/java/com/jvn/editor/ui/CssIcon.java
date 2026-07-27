@@ -219,19 +219,6 @@ public final class CssIcon {
   public static Region label(String color) { return icon(PATH_LABEL, color, 14); }
   public static Region auto(String color) { return icon(PATH_AUTO, color, 14); }
   public static Region settings(String color) { return icon(PATH_SETTINGS, color, 14); }
-  public static Region vnsRunLabel() {
-    return layeredVnsIcon(PATH_LABEL, "#68b9eb", PATH_PLAY, "#67d48a");
-  }
-  public static Region vnsRunStart() {
-    return layeredVnsIcon(PATH_DOCUMENT, "#a9c5dd", PATH_PLAY, "#67d48a");
-  }
-  public static Region vnsSymbols() {
-    return layeredVnsIcon(PATH_LABEL, "#80c3ed", PATH_SEARCH, "#f0b86c");
-  }
-  public static Region vnsSnippet() {
-    return layeredVnsIcon(PATH_DOCUMENT, "#a9c5dd", PATH_PLUS_BOLD, "#f0b86c");
-  }
-
   /** Convenience: icon at default muted color. */
     public static Region sparkles() { return sparkles("#b0b8c8"); }
   public static Region theater() { return theater("#b0b8c8"); }
@@ -383,25 +370,6 @@ public final class CssIcon {
         + " derive(" + color + ", -30%) 100%);"
     );
     return glyph;
-  }
-
-  private static Region layeredVnsIcon(
-      String basePath,
-      String baseColor,
-      String badgePath,
-      String badgeColor
-  ) {
-    Region base = shapeLayer(basePath, baseColor, 17);
-    Region badge = shapeLayer(badgePath, badgeColor, 9);
-    badge.setEffect(new DropShadow(1.5, 0, 0.7, Color.rgb(0, 0, 0, 0.9)));
-    StackPane icon = prepare(new StackPane(base, badge));
-    icon.getStyleClass().add("jvn-vns-command-icon");
-    icon.setMinSize(18, 18);
-    icon.setPrefSize(18, 18);
-    icon.setMaxSize(18, 18);
-    StackPane.setAlignment(badge, Pos.BOTTOM_RIGHT);
-    StackPane.setMargin(badge, new Insets(0, -1, -1, 0));
-    return icon;
   }
 
   private static String compactAccent(String svgPath, String requested) {
