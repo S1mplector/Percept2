@@ -16,9 +16,16 @@ import javafx.scene.paint.RadialGradient;
 import javafx.scene.paint.Stop;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Ellipse;
+import javafx.scene.shape.Line;
+import javafx.scene.shape.Polygon;
 import javafx.scene.shape.Polyline;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.shape.Shape;
+import javafx.scene.shape.StrokeLineCap;
+import javafx.scene.shape.StrokeLineJoin;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.scene.text.Text;
 import javafx.scene.transform.Rotate;
 
 /** Dimensional glass-and-metal icon used by spacious editor command surfaces. */
@@ -126,15 +133,16 @@ public final class AeroIcon extends StackPane {
       case BUILD -> sized(CssIcon.download(color), size);
       case REFRESH -> sized(CssIcon.refresh(color), size);
       case ENTRY_SCRIPT -> sized(CssIcon.speech(color), size);
-      case VNS_RUN_LABEL, VNS_SYMBOLS -> sized(CssIcon.label(color), size);
-      case VNS_RUN_ENTRY, VNS_SNIPPET -> sized(CssIcon.document(color), size);
-      case VNS_PREVIEW -> sized(CssIcon.movie(color), size);
+      case VNS_RUN_LABEL, VNS_RUN_ENTRY, VNS_SYMBOLS, VNS_SNIPPET, VNS_PREVIEW ->
+          vnsCommandGlyph(kind, size, palette);
       case MANIFEST, README -> sized(CssIcon.document(color), size);
       case ARROW_BACK -> sized(CssIcon.arrowLeft(color), size);
       case HELP -> helpGlyph(size);
       case NO_PROJECT -> noProjectGlyph(size);
     };
-    if (kind != Kind.HELP && kind != Kind.NO_PROJECT) glyph = decorate(kind, glyph, size, palette);
+    if (kind != Kind.HELP && kind != Kind.NO_PROJECT && !isVnsCommand(kind)) {
+      glyph = decorate(kind, glyph, size, palette);
+    }
     DropShadow depth = new DropShadow(Math.max(2, size * 0.14), 0, Math.max(1, size * 0.08),
         Color.rgb(0, 0, 0, 0.82));
     depth.setInput(glyph.getEffect());
@@ -142,6 +150,189 @@ public final class AeroIcon extends StackPane {
     glyph.setCache(true);
     glyph.setCacheHint(CacheHint.SPEED);
     return glyph;
+  }
+
+  private static boolean isVnsCommand(Kind kind) {
+    return kind == Kind.VNS_RUN_LABEL
+        || kind == Kind.VNS_RUN_ENTRY
+        || kind == Kind.VNS_SYMBOLS
+        || kind == Kind.VNS_SNIPPET
+        || kind == Kind.VNS_PREVIEW;
+  }
+
+  private static Region vnsCommandGlyph(Kind kind, double size, Palette palette) {
+    return switch (kind) {
+      case VNS_RUN_LABEL -> vnsRunLabelGlyph(size, palette);
+      case VNS_RUN_ENTRY -> vnsRunEntryGlyph(size, palette);
+      case VNS_SYMBOLS -> vnsSymbolsGlyph(size, palette);
+      case VNS_SNIPPET -> vnsSnippetGlyph(size, palette);
+      case VNS_PREVIEW -> vnsPreviewGlyph(size, palette);
+      default -> throw new IllegalArgumentException("Not a VNS command icon: " + kind);
+    };
+  }
+
+  private static Region vnsRunLabelGlyph(double size, Palette palette) {
+    Pane art = vnsCanvas(size);
+    Polygon tag = new Polygon(
+        size * 0.05, size * 0.24,
+        size * 0.58, size * 0.24,
+        size * 0.78, size * 0.50,
+        size * 0.58, size * 0.76,
+        size * 0.05, size * 0.76);
+    polishShape(tag, palette, size);
+    Circle pin = new Circle(size * 0.20, size * 0.50, size * 0.065, Color.web("#f4fffd"));
+    pin.setEffect(new DropShadow(size * 0.08, Color.web("#63e8cf")));
+    Polygon play = new Polygon(
+        size * 0.48, size * 0.30,
+        size * 0.96, size * 0.50,
+        size * 0.48, size * 0.70);
+    play.setFill(commandGradient("#effff4", "#48d983"));
+    play.setStroke(Color.web("#f2fff6"));
+    play.setStrokeWidth(Math.max(0.7, size * 0.045));
+    play.setEffect(new DropShadow(size * 0.13, Color.web("#25b967")));
+    art.getChildren().addAll(tag, pin, play, vnsGlint(size, 0.12, 0.31));
+    return art;
+  }
+
+  private static Region vnsRunEntryGlyph(double size, Palette palette) {
+    Pane art = vnsCanvas(size);
+    Line pole = styledLine(size * 0.16, size * 0.10, size * 0.16, size * 0.90,
+        Color.web("#eaf8f0"), Math.max(1.2, size * 0.075));
+    Polygon flag = new Polygon(
+        size * 0.18, size * 0.14,
+        size * 0.72, size * 0.25,
+        size * 0.18, size * 0.48);
+    polishShape(flag, palette, size);
+    Polygon play = new Polygon(
+        size * 0.36, size * 0.45,
+        size * 0.94, size * 0.68,
+        size * 0.36, size * 0.91);
+    play.setFill(commandGradient("#f1fff5", "#4bd883"));
+    play.setStroke(Color.web("#f3fff6"));
+    play.setStrokeWidth(Math.max(0.7, size * 0.045));
+    play.setEffect(new DropShadow(size * 0.13, Color.web("#2fbb6c")));
+    art.getChildren().addAll(pole, flag, play, vnsGlint(size, 0.27, 0.20));
+    return art;
+  }
+
+  private static Region vnsSymbolsGlyph(double size, Palette palette) {
+    Pane art = vnsCanvas(size);
+    Text at = new Text("@");
+    at.setFont(Font.font("System", FontWeight.BOLD, size * 0.70));
+    at.setFill(commandGradient(toCss(palette.edge()), toCss(palette.bottom())));
+    at.setStroke(palette.edge().deriveColor(0, 0.7, 0.72, 0.9));
+    at.setStrokeWidth(Math.max(0.35, size * 0.022));
+    at.relocate(size * 0.01, size * 0.03);
+
+    Circle lens = new Circle(size * 0.66, size * 0.56, size * 0.25, Color.rgb(23, 32, 40, 0.72));
+    lens.setStroke(Color.web("#ffd079"));
+    lens.setStrokeWidth(Math.max(1.5, size * 0.085));
+    lens.setEffect(new DropShadow(size * 0.13, Color.web("#d58a28")));
+    Line handle = styledLine(
+        size * 0.83, size * 0.74, size * 0.98, size * 0.91,
+        Color.web("#ffe6ad"), Math.max(1.6, size * 0.09));
+    art.getChildren().addAll(at, lens, handle, vnsGlint(size, 0.55, 0.40));
+    return art;
+  }
+
+  private static Region vnsSnippetGlyph(double size, Palette palette) {
+    Pane art = vnsCanvas(size);
+    Polyline left = new Polyline(
+        size * 0.31, size * 0.18,
+        size * 0.07, size * 0.50,
+        size * 0.31, size * 0.82);
+    Polyline right = new Polyline(
+        size * 0.53, size * 0.18,
+        size * 0.77, size * 0.50,
+        size * 0.53, size * 0.82);
+    for (Polyline bracket : new Polyline[] {left, right}) {
+      bracket.setFill(Color.TRANSPARENT);
+      bracket.setStroke(palette.edge());
+      bracket.setStrokeWidth(Math.max(1.7, size * 0.10));
+      bracket.setStrokeLineCap(StrokeLineCap.ROUND);
+      bracket.setStrokeLineJoin(StrokeLineJoin.ROUND);
+      bracket.setEffect(new DropShadow(size * 0.11, palette.bottom()));
+    }
+    Circle plusCore = new Circle(size * 0.79, size * 0.72, size * 0.20,
+        commandGradient("#ffe7a9", "#bc6d22"));
+    plusCore.setStroke(Color.web("#fff3d1"));
+    plusCore.setStrokeWidth(Math.max(0.7, size * 0.04));
+    Line plusH = styledLine(
+        size * 0.69, size * 0.72, size * 0.89, size * 0.72,
+        Color.WHITE, Math.max(1.2, size * 0.075));
+    Line plusV = styledLine(
+        size * 0.79, size * 0.62, size * 0.79, size * 0.82,
+        Color.WHITE, Math.max(1.2, size * 0.075));
+    art.getChildren().addAll(left, right, plusCore, plusH, plusV);
+    return art;
+  }
+
+  private static Region vnsPreviewGlyph(double size, Palette palette) {
+    Pane art = vnsCanvas(size);
+    Rectangle window = new Rectangle(size * 0.04, size * 0.18, size * 0.76, size * 0.62);
+    window.setArcWidth(size * 0.14);
+    window.setArcHeight(size * 0.14);
+    window.setFill(commandGradient(toCss(palette.top()), toCss(palette.bottom())));
+    window.setStroke(palette.edge());
+    window.setStrokeWidth(Math.max(0.8, size * 0.05));
+    Line chrome = styledLine(
+        size * 0.08, size * 0.31, size * 0.75, size * 0.31,
+        Color.rgb(240, 252, 255, 0.60), Math.max(0.65, size * 0.035));
+    Circle status = new Circle(size * 0.14, size * 0.25, size * 0.035, Color.web("#ffca69"));
+    Polygon play = new Polygon(
+        size * 0.27, size * 0.40,
+        size * 0.59, size * 0.56,
+        size * 0.27, size * 0.72);
+    play.setFill(Color.web("#70efa8"));
+    play.setEffect(new DropShadow(size * 0.10, Color.web("#28b96b")));
+    Line diagonal = styledLine(
+        size * 0.64, size * 0.38, size * 0.96, size * 0.06,
+        Color.web("#f1fbff"), Math.max(1.4, size * 0.08));
+    Line arrowTop = styledLine(
+        size * 0.77, size * 0.06, size * 0.96, size * 0.06,
+        Color.web("#f1fbff"), Math.max(1.4, size * 0.08));
+    Line arrowSide = styledLine(
+        size * 0.96, size * 0.06, size * 0.96, size * 0.25,
+        Color.web("#f1fbff"), Math.max(1.4, size * 0.08));
+    art.getChildren().addAll(window, chrome, status, play, diagonal, arrowTop, arrowSide);
+    return art;
+  }
+
+  private static Pane vnsCanvas(double size) {
+    Pane pane = new Pane();
+    pane.setMinSize(size, size);
+    pane.setPrefSize(size, size);
+    pane.setMaxSize(size, size);
+    return pane;
+  }
+
+  private static void polishShape(Shape shape, Palette palette, double size) {
+    shape.setFill(commandGradient(toCss(palette.top()), toCss(palette.bottom())));
+    shape.setStroke(palette.edge());
+    shape.setStrokeWidth(Math.max(0.75, size * 0.045));
+    shape.setEffect(new InnerShadow(Math.max(0.8, size * 0.06), Color.rgb(255, 255, 255, 0.25)));
+  }
+
+  private static LinearGradient commandGradient(String top, String bottom) {
+    return new LinearGradient(
+        0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+        new Stop(0, Color.web(top)),
+        new Stop(1, Color.web(bottom)));
+  }
+
+  private static Circle vnsGlint(double size, double x, double y) {
+    Circle glint = new Circle(size * x, size * y, size * 0.035, Color.rgb(255, 255, 255, 0.84));
+    glint.setEffect(new DropShadow(size * 0.08, Color.rgb(255, 255, 255, 0.55)));
+    return glint;
+  }
+
+  private static Line styledLine(
+      double startX, double startY, double endX, double endY, Color color, double width) {
+    Line line = new Line(startX, startY, endX, endY);
+    line.setStroke(color);
+    line.setStrokeWidth(width);
+    line.setStrokeLineCap(StrokeLineCap.ROUND);
+    return line;
   }
 
   private static Region decorate(Kind kind, Region base, double size, Palette palette) {
