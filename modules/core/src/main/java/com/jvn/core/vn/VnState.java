@@ -57,6 +57,7 @@ public class VnState {
   private final Set<Integer> readNodes; // Track which nodes have been read
   private VnTransition activeTransition;
   private long transitionStartTime;
+  private long transitionPausedAt;
   private String previousBackgroundIdDuringTransition;
   private boolean uiHidden = false; // H key toggle
   private boolean historyOverlayShown = false; // Backlog toggle
@@ -1092,15 +1093,32 @@ public class VnState {
   public void setActiveTransition(VnTransition transition) { 
     this.activeTransition = transition;
     this.transitionStartTime = System.currentTimeMillis();
+    this.transitionPausedAt = 0L;
     this.previousBackgroundIdDuringTransition = this.currentBackgroundId;
   }
-  public void clearActiveTransition() { this.activeTransition = null; }
+  public void clearActiveTransition() {
+    this.activeTransition = null;
+    this.transitionPausedAt = 0L;
+  }
   
   public long getTransitionStartTime() { return transitionStartTime; }
   public float getTransitionProgress() {
     if (activeTransition == null) return 1.0f;
-    long elapsed = System.currentTimeMillis() - transitionStartTime;
+    long now = transitionPausedAt > 0L ? transitionPausedAt : System.currentTimeMillis();
+    long elapsed = now - transitionStartTime;
     return Math.min(1.0f, elapsed / (float) activeTransition.getDurationMs());
+  }
+
+  public void pauseVisualClock() {
+    if (activeTransition != null && transitionPausedAt == 0L) {
+      transitionPausedAt = System.currentTimeMillis();
+    }
+  }
+
+  public void resumeVisualClock() {
+    if (transitionPausedAt <= 0L) return;
+    transitionStartTime += Math.max(0L, System.currentTimeMillis() - transitionPausedAt);
+    transitionPausedAt = 0L;
   }
 
   public String getPreviousBackgroundIdDuringTransition() { return previousBackgroundIdDuringTransition; }

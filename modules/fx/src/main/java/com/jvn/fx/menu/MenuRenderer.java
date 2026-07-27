@@ -145,9 +145,7 @@ public class MenuRenderer {
   public void renderPauseMenu(PauseMenuScene scene, double w, double h) {
     MenuLayoutSpec layout = scene != null ? scene.getMenuLayout() : null;
     MenuStyleSpec screenStyle = scene != null ? scene.getDefaultMenuStyle() : null;
-    // Semi-transparent dark overlay instead of full background
-    gc.setFill(Color.rgb(6, 10, 20, 0.72));
-    gc.fillRect(0, 0, w, h);
+    drawGameplayMenuBackdrop(w, h);
 
     String title = scene != null ? scene.getDisplayTitle() : "Paused";
     String subtitle = scene != null ? scene.getDisplaySubtitle() : null;
@@ -178,7 +176,8 @@ public class MenuRenderer {
     MenuLayoutSpec layout = scene != null ? scene.getMenuLayout() : null;
     MenuStyleSpec screenStyle = scene != null ? scene.getDefaultMenuStyle() : null;
     String screenBg = scene != null && scene.getMenuScreen() != null ? scene.getMenuScreen().backgroundAsset() : null;
-    drawScreenBackground(w, h, screenStyle, false, screenBg);
+    if (scene != null && scene.getCurrentVnScene() != null) drawGameplayMenuBackdrop(w, h);
+    else drawScreenBackground(w, h, screenStyle, false, screenBg);
     String title = scene != null ? scene.getDisplayTitle() : Localization.t("save.title");
     String subtitle = scene != null ? scene.getDisplaySubtitle() : null;
     double titleY = (layout != null && layout.titleY() != null) ? resolve(layout.titleY(), h) : 60.0;
@@ -229,7 +228,8 @@ public class MenuRenderer {
     MenuLayoutSpec layout = scene != null ? scene.getMenuLayout() : null;
     MenuStyleSpec screenStyle = scene != null ? scene.getDefaultMenuStyle() : null;
     String screenBg = scene != null && scene.getMenuScreen() != null ? scene.getMenuScreen().backgroundAsset() : null;
-    drawScreenBackground(w, h, screenStyle, false, screenBg);
+    if (scene != null && scene.getGameplayVnScene() != null) drawGameplayMenuBackdrop(w, h);
+    else drawScreenBackground(w, h, screenStyle, false, screenBg);
     String title = scene != null ? scene.getDisplayTitle() : Localization.t("load.title");
     String subtitle = scene != null ? scene.getDisplaySubtitle() : null;
     double titleY = (layout != null && layout.titleY() != null) ? resolve(layout.titleY(), h) : 60.0;
@@ -343,7 +343,7 @@ public class MenuRenderer {
     MenuStyleSpec screenStyle = scene != null ? scene.getDefaultMenuStyle() : null;
     MenuStyleSpec entryStyle = scene != null ? scene.getEntryStyle() : screenStyle;
     String screenBg = scene != null && scene.getMenuScreen() != null ? scene.getMenuScreen().backgroundAsset() : null;
-    drawScreenBackground(w, h, screenStyle, false, screenBg);
+    drawGameplayMenuBackdrop(w, h);
 
     String title = scene != null ? scene.getDisplayTitle() : Localization.t("history.title");
     String subtitle = scene != null ? scene.getDisplaySubtitle() : null;
@@ -436,7 +436,8 @@ public class MenuRenderer {
     MenuLayoutSpec layout = scene != null ? scene.getMenuLayout() : null;
     MenuStyleSpec screenStyle = scene != null ? scene.getDefaultMenuStyle() : null;
     String screenBg = scene != null && scene.getMenuScreen() != null ? scene.getMenuScreen().backgroundAsset() : null;
-    drawScreenBackground(w, h, screenStyle, false, screenBg);
+    if (scene != null && scene.getGameplayVnScene() != null) drawGameplayMenuBackdrop(w, h);
+    else drawScreenBackground(w, h, screenStyle, false, screenBg);
     String title = scene != null ? scene.getDisplayTitle() : Localization.t("settings.title");
     String subtitle = scene != null ? scene.getDisplaySubtitle() : null;
     double titleY = (layout != null && layout.titleY() != null) ? resolve(layout.titleY(), h) : 60.0;
@@ -479,6 +480,36 @@ public class MenuRenderer {
   private void clear(double w, double h) {
     gc.setFill(theme.getBackgroundColor());
     gc.fillRect(0, 0, w, h);
+  }
+
+  private void drawGameplayMenuBackdrop(double w, double h) {
+    Color dim = theme.getGameplayDimColor();
+    if (dim == null) dim = Color.rgb(0, 0, 0, 0.50);
+    gc.setFill(dim);
+    gc.fillRect(0, 0, w, h);
+
+    Image panel = loadImage(theme.getGameplayPanelImagePath());
+    double panelX = w / 2.0;
+    double panelY = h / 2.0;
+    double panelScale = theme.getGameplayPanelScale();
+    if (panel != null) {
+      double panelW = panel.getWidth() * panelScale;
+      double panelH = panel.getHeight() * panelScale;
+      panelX = (w - panelW) / 2.0;
+      panelY = (h - panelH) / 2.0;
+      gc.drawImage(panel, panelX, panelY, panelW, panelH);
+      panelX += panelW / 2.0;
+    }
+
+    Image logo = loadImage(theme.getGameplayLogoImagePath());
+    if (logo != null) {
+      double logoScale = theme.getGameplayLogoScale();
+      double logoW = logo.getWidth() * logoScale;
+      double logoH = logo.getHeight() * logoScale;
+      double logoX = panelX - logoW / 2.0;
+      double logoY = panel == null ? h * 0.08 : panelY + 18.0;
+      gc.drawImage(logo, logoX, logoY, logoW, logoH);
+    }
   }
 
   private void drawScreenBackground(double w, double h, MenuStyleSpec style, boolean allowThemeImageFallback) {

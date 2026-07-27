@@ -85,6 +85,16 @@ public class VnScene implements Scene {
     processCurrentNode();
   }
 
+  @Override
+  public void onPause() {
+    state.pauseVisualClock();
+  }
+
+  @Override
+  public void onResume() {
+    state.resumeVisualClock();
+  }
+
   /**
    * Fast-forward state from node 0 to {@code targetIndex - 1}, applying only
    * non-interactive, non-blocking effects: backgrounds, character visibility,

@@ -72,6 +72,13 @@ public class MenuTheme {
   private double bgmVolume = 0.7; // title screen BGM volume
   private boolean logoShadow = true; // draw shadow behind logo
 
+  // In-game menu overlay assets
+  private Color gameplayDimColor = Color.rgb(0, 0, 0, 0.50);
+  private String gameplayPanelImagePath = null;
+  private String gameplayLogoImagePath = null;
+  private double gameplayPanelScale = 1.0;
+  private double gameplayLogoScale = 0.25;
+
   public static MenuTheme defaults() { return new MenuTheme(); }
 
   public static MenuTheme fromAssets() {
@@ -186,6 +193,12 @@ public class MenuTheme {
     logoScale = parseDouble(p.getProperty("logoScale"), logoScale);
     bgmVolume = parseDouble(p.getProperty("bgmVolume"), bgmVolume);
     logoShadow = parseBool(p.getProperty("logoShadow"), logoShadow);
+
+    gameplayDimColor = parseColor(p.getProperty("gameplayDimColor"), gameplayDimColor);
+    gameplayPanelImagePath = emptyToNull(p.getProperty("gameplayPanelImage"));
+    gameplayLogoImagePath = emptyToNull(p.getProperty("gameplayLogoImage"));
+    gameplayPanelScale = Math.max(0.05, parseDouble(p.getProperty("gameplayPanelScale"), gameplayPanelScale));
+    gameplayLogoScale = Math.max(0.05, parseDouble(p.getProperty("gameplayLogoScale"), gameplayLogoScale));
   }
 
   private static boolean parseBool(String s, boolean def) {
@@ -289,4 +302,9 @@ public class MenuTheme {
   public double getLogoScale() { return logoScale; }
   public double getBgmVolume() { return bgmVolume; }
   public boolean isLogoShadow() { return logoShadow; }
+  public Color getGameplayDimColor() { return gameplayDimColor; }
+  public String getGameplayPanelImagePath() { return gameplayPanelImagePath; }
+  public String getGameplayLogoImagePath() { return gameplayLogoImagePath; }
+  public double getGameplayPanelScale() { return gameplayPanelScale; }
+  public double getGameplayLogoScale() { return gameplayLogoScale; }
 }

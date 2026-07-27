@@ -49,6 +49,9 @@ public record MenuActionSpec(MenuActionType type, String target, String rawActio
       case LOAD_MENU -> "load_menu";
       case SAVE_MENU -> "save_menu";
       case SETTINGS_MENU -> "settings_menu";
+      case HISTORY_MENU -> "history";
+      case TOGGLE_SKIP -> "toggle_skip";
+      case TOGGLE_AUTO -> "toggle_auto";
       case MAIN_MENU -> "main_menu";
       case OPEN_MENU -> "open_menu";
       case RUN_SCRIPT -> "run_script";

@@ -635,7 +635,7 @@ public class FxLauncher extends Application {
       if (vn != null) {
         vnRenderer.setAudioFacade(vn.getAudioFacade());
         syncTimelineAccessor(vn);
-        vnRenderer.render(vn.getState(), vn.getScenario(), ctx.width(), ctx.height(), mouseX, mouseY);
+        vnRenderer.renderFrozen(vn.getState(), vn.getScenario(), ctx.width(), ctx.height());
       }
       menuRenderer.renderPauseMenu(pause, ctx.width(), ctx.height());
     });
@@ -644,7 +644,7 @@ public class FxLauncher extends Application {
       if (vn != null) {
         vnRenderer.setAudioFacade(vn.getAudioFacade());
         syncTimelineAccessor(vn);
-        vnRenderer.render(vn.getState(), vn.getScenario(), ctx.width(), ctx.height(), mouseX, mouseY);
+        vnRenderer.renderFrozen(vn.getState(), vn.getScenario(), ctx.width(), ctx.height());
       }
       menuRenderer.renderHistoryMenu(history, ctx.width(), ctx.height());
     });
@@ -660,9 +660,18 @@ public class FxLauncher extends Application {
       }
     });
     reg.register(MainMenuScene.class, (scene, ctx) -> menuRenderer.renderMainMenu(scene, ctx.width(), ctx.height()));
-    reg.register(LoadMenuScene.class, (scene, ctx) -> menuRenderer.renderLoadMenu(scene, ctx.width(), ctx.height()));
-    reg.register(SettingsScene.class, (scene, ctx) -> menuRenderer.renderSettings(scene, ctx.width(), ctx.height()));
-    reg.register(SaveMenuScene.class, (scene, ctx) -> menuRenderer.renderSaveMenu(scene, ctx.width(), ctx.height()));
+    reg.register(LoadMenuScene.class, (scene, ctx) -> {
+      renderFrozenVnUnderlay(scene.getGameplayVnScene(), ctx.width(), ctx.height());
+      menuRenderer.renderLoadMenu(scene, ctx.width(), ctx.height());
+    });
+    reg.register(SettingsScene.class, (scene, ctx) -> {
+      renderFrozenVnUnderlay(scene.getGameplayVnScene(), ctx.width(), ctx.height());
+      menuRenderer.renderSettings(scene, ctx.width(), ctx.height());
+    });
+    reg.register(SaveMenuScene.class, (scene, ctx) -> {
+      renderFrozenVnUnderlay(scene.getCurrentVnScene(), ctx.width(), ctx.height());
+      menuRenderer.renderSaveMenu(scene, ctx.width(), ctx.height());
+    });
 
     reg.register(Scene2D.class, (scene2D, ctx) -> {
       double w = ctx.width();
@@ -694,6 +703,13 @@ public class FxLauncher extends Application {
     } else {
       vnRenderer.setTimelineAccessor(emptyTimelineAccessor);
     }
+  }
+
+  private void renderFrozenVnUnderlay(VnScene vn, double width, double height) {
+    if (vn == null) return;
+    vnRenderer.setAudioFacade(vn.getAudioFacade());
+    syncTimelineAccessor(vn);
+    vnRenderer.renderFrozen(vn.getState(), vn.getScenario(), width, height);
   }
 
   private void applyConfiguredCursor(javafx.scene.Scene scene) {
@@ -1937,9 +1953,7 @@ public class FxLauncher extends Application {
       hotReloadTracker.close();
       hotReloadTracker = null;
     }
-    if (engine != null && engine.isStarted()) {
-      engine.stop();
-    }
+    if (engine != null) engine.stop();
     if (vnRenderer != null) vnRenderer.dispose();
     if (menuRenderer != null) menuRenderer.dispose();
     if (phoneRenderer != null) phoneRenderer.dispose();

@@ -139,6 +139,7 @@ public class VnRenderer {
   private static final int VISUALIZER_BAR_COUNT = VnAudioVisualizerConfig.MAX_BARS;
   private static final String VAR_CHARACTER_HEIGHT_FACTOR = "ui.characterHeightFactor";
   private static final String VAR_CHARACTER_BASELINE_Y = "ui.characterBaselineY";
+  private static final String VAR_DIALOGUE_FADE_MS = "ui.dialogueFadeMs";
   private static final String VAR_DIALOGUE_UI = "ui.dialogueUi";
   private static final String VAR_DIALOGUE_STYLE = "ui.dialogueStyle";
   private static final String VAR_TEXT_BOX_ASSET = "ui.textBoxAsset";
@@ -179,6 +180,14 @@ public class VnRenderer {
   private Color choiceBorderColor = TEXT_COLOR;
   private Color choiceHoverBorderColor = TEXT_COLOR;
   private Color choiceDisabledBorderColor = CHOICE_DISABLED_BORDER_COLOR;
+  private boolean freezeTransientEffects;
+  private VnState dialogueFadeState;
+  private DialogueLine dialogueFadeLine;
+  private boolean dialogueFadeVisible;
+  private double dialogueFadeAlpha;
+  private double dialogueFadeFrom;
+  private double dialogueFadeTarget;
+  private long dialogueFadeStartedAtNanos;
   private double choiceCornerRadius = DEFAULT_CHOICE_RADIUS;
   private double choiceBorderWidth = DEFAULT_CHOICE_BORDER_WIDTH;
   private double choiceTextBaselineOffset = DEFAULT_CHOICE_TEXT_BASELINE_OFFSET;
@@ -376,8 +385,10 @@ public class VnRenderer {
     renderLayeredScene(orderedCharacters, state, scenario, activeStage, width, height, visualizerSettings);
     renderStageLightOverlays(activeStage, width, height, VnStagePreset.LightLayer.FOREGROUND);
 
-    // Render current node content (unless UI is hidden)
+    // Render current node content. Dialogue visibility is animated so Ren'Py-
+    // style window show/hide dissolves do not pop between scene statements.
     VnNode currentNode = state.getCurrentNode();
+    syncDialogueFade(state, currentNode);
     if (currentNode != null && !state.isUiHidden()) {
       if (currentNode.getType() == VnNodeType.DIALOGUE && currentNode.getDialogue() != null) {
         String scenarioId = scenario == null ? "" : String.valueOf(scenario.getId());
@@ -394,7 +405,7 @@ public class VnRenderer {
       }
       switch (currentNode.getType()) {
         case DIALOGUE:
-          renderDialogue(currentNode.getDialogue(), state, width, height, -1);
+          renderDialogueWithFade(currentNode.getDialogue(), state, width, height, -1);
           break;
         case CHOICE:
           if (state.getDialoguePresentationMode() == DialoguePresentationMode.NVL) {
@@ -419,6 +430,10 @@ public class VnRenderer {
           renderEnd(width, height);
           break;
       }
+    }
+    if ((currentNode == null || currentNode.getType() != VnNodeType.DIALOGUE || state.isUiHidden())
+        && dialogueFadeLine != null && dialogueFadeAlpha > 0.001) {
+      renderDialogueWithFade(dialogueFadeLine, state, width, height, -1);
     }
 
     renderOverlayScreens(state, width, height, null);
@@ -466,7 +481,10 @@ public class VnRenderer {
         renderChoices(currentNode.getChoices(), width, height, hoverIndex);
       } else if (currentNode.getType() == VnNodeType.DIALOGUE) {
         int hoverButton = getHoveredTextBoxButtonIndex(state, width, height, mouseX, mouseY);
-        renderDialogue(currentNode.getDialogue(), state, width, height, hoverButton);
+        // Avoid double-compositing a partially transparent dialogue window.
+        if (dialogueFadeAlpha >= 0.999) {
+          renderDialogueWithFade(currentNode.getDialogue(), state, width, height, hoverButton);
+        }
       }
     }
     renderOverlayScreens(state, width, height, getHoveredOverlayButton(state, width, height, mouseX, mouseY));
@@ -501,6 +519,10 @@ public class VnRenderer {
     }
 
     long now = System.nanoTime();
+    if (freezeTransientEffects) {
+      particleLastFrameNanos = now;
+      return cmd != null || particleEmitter.getParticleCount() > 0;
+    }
     long deltaMs = 16L;
     if (particleLastFrameNanos > 0L) {
       deltaMs = Math.max(0L, Math.min(250L, (now - particleLastFrameNanos) / 1_000_000L));
@@ -509,6 +531,16 @@ public class VnRenderer {
     particleEmitter.update(deltaMs);
 
     return cmd != null || particleEmitter.getParticleCount() > 0;
+  }
+
+  public void renderFrozen(VnState state, VnScenario scenario, double width, double height) {
+    boolean previous = freezeTransientEffects;
+    freezeTransientEffects = true;
+    try {
+      render(state, scenario, width, height);
+    } finally {
+      freezeTransientEffects = previous;
+    }
   }
 
   private void renderParticles(double width, double height) {
@@ -2008,6 +2040,67 @@ public class VnRenderer {
       case NVL -> renderNvlDialogue(dialogue, state, width, height);
       case BUBBLE -> renderBubbleDialogue(dialogue, state, width, height);
       default -> renderStandardDialogue(dialogue, state, width, height, hoveredButtonIndex);
+    }
+  }
+
+  private void renderDialogueWithFade(
+      DialogueLine dialogue,
+      VnState state,
+      double width,
+      double height,
+      int hoveredButtonIndex
+  ) {
+    if (dialogue == null || dialogueFadeAlpha <= 0.001) return;
+    gc.save();
+    gc.setGlobalAlpha(gc.getGlobalAlpha() * clamp(dialogueFadeAlpha, 0.0, 1.0));
+    renderDialogue(dialogue, state, width, height, hoveredButtonIndex);
+    gc.restore();
+  }
+
+  private void syncDialogueFade(VnState state, VnNode currentNode) {
+    boolean requestedVisible = state != null
+        && !state.isUiHidden()
+        && currentNode != null
+        && currentNode.getType() == VnNodeType.DIALOGUE
+        && currentNode.getDialogue() != null;
+
+    if (state != dialogueFadeState) {
+      dialogueFadeState = state;
+      dialogueFadeLine = requestedVisible ? currentNode.getDialogue() : null;
+      dialogueFadeVisible = requestedVisible;
+      dialogueFadeAlpha = requestedVisible ? 0.0 : 0.0;
+      dialogueFadeFrom = dialogueFadeAlpha;
+      dialogueFadeTarget = requestedVisible ? 1.0 : 0.0;
+      dialogueFadeStartedAtNanos = System.nanoTime();
+    } else if (requestedVisible != dialogueFadeVisible) {
+      dialogueFadeVisible = requestedVisible;
+      dialogueFadeFrom = dialogueFadeAlpha;
+      dialogueFadeTarget = requestedVisible ? 1.0 : 0.0;
+      dialogueFadeStartedAtNanos = System.nanoTime();
+    }
+
+    if (requestedVisible) {
+      dialogueFadeLine = currentNode.getDialogue();
+    }
+    if (freezeTransientEffects) {
+      dialogueFadeFrom = dialogueFadeAlpha;
+      dialogueFadeStartedAtNanos = System.nanoTime();
+    } else {
+      double durationMs = 500.0;
+      Double configured = readDoubleVariable(state, VAR_DIALOGUE_FADE_MS);
+      if (configured != null && Double.isFinite(configured)) {
+        durationMs = clamp(configured, 0.0, 10_000.0);
+      }
+      if (durationMs <= 0.0) {
+        dialogueFadeAlpha = dialogueFadeTarget;
+      } else {
+        double elapsedMs = Math.max(0.0, (System.nanoTime() - dialogueFadeStartedAtNanos) / 1_000_000.0);
+        double progress = clamp(elapsedMs / durationMs, 0.0, 1.0);
+        dialogueFadeAlpha = dialogueFadeFrom + (dialogueFadeTarget - dialogueFadeFrom) * progress;
+      }
+    }
+    if (!requestedVisible && dialogueFadeAlpha <= 0.001) {
+      dialogueFadeLine = null;
     }
   }
 

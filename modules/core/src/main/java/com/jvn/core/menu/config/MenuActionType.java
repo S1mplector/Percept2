@@ -7,6 +7,9 @@ public enum MenuActionType {
   LOAD_MENU,
   SAVE_MENU,
   SETTINGS_MENU,
+  HISTORY_MENU,
+  TOGGLE_SKIP,
+  TOGGLE_AUTO,
   MAIN_MENU,
   OPEN_MENU,
   RUN_SCRIPT,
@@ -21,6 +24,9 @@ public enum MenuActionType {
       "load", "load_menu", "continue",
       "save", "save_menu",
       "settings", "settings_menu", "options",
+      "history", "history_menu", "backlog", "toggle_history",
+      "skip", "toggle_skip",
+      "auto", "toggle_auto", "auto_play",
       "main", "main_menu", "title", "title_menu",
       "open_menu", "submenu", "menu",
       "run_script", "script", "start_script", "play_script",
@@ -42,6 +48,9 @@ public enum MenuActionType {
       case "load", "load_menu", "continue" -> LOAD_MENU;
       case "save", "save_menu" -> SAVE_MENU;
       case "settings", "settings_menu", "options" -> SETTINGS_MENU;
+      case "history", "history_menu", "backlog", "toggle_history" -> HISTORY_MENU;
+      case "skip", "toggle_skip" -> TOGGLE_SKIP;
+      case "auto", "toggle_auto", "auto_play" -> TOGGLE_AUTO;
       case "main", "main_menu", "title", "title_menu" -> MAIN_MENU;
       case "open_menu", "submenu", "menu" -> OPEN_MENU;
       case "run_script", "script", "start_script", "play_script" -> RUN_SCRIPT;

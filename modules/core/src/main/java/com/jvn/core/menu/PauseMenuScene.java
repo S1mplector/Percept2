@@ -147,7 +147,9 @@ public class PauseMenuScene implements Scene {
       case LOAD_MENU -> {
         if (engine != null) {
           VnSettings s = vnScene != null ? vnScene.getState().getSettings() : new VnSettings();
-          engine.scenes().push(new LoadMenuScene(engine, saveManager, defaultScriptName, s, audio));
+          engine.scenes().push(
+              new LoadMenuScene(engine, saveManager, defaultScriptName, s, audio)
+                  .withGameplayVnScene(vnScene));
         }
       }
       case SETTINGS_MENU -> {
@@ -164,9 +166,24 @@ public class PauseMenuScene implements Scene {
               profile,
               menuProfile,
               targetMenu
-          ));
+          ).withGameplayVnScene(vnScene));
         }
       }
+      case HISTORY_MENU -> {
+        if (engine != null && vnScene != null) {
+          vnScene.getState().clearHistoryScroll();
+          engine.scenes().push(new HistoryMenuScene(engine, vnScene));
+        }
+      }
+      case TOGGLE_SKIP -> {
+        if (vnScene != null) vnScene.toggleSkipMode();
+        if (engine != null) engine.scenes().pop();
+      }
+      case TOGGLE_AUTO -> {
+        if (vnScene != null) vnScene.toggleAutoPlayMode();
+        if (engine != null) engine.scenes().pop();
+      }
+      case OPEN_MENU -> openConfiguredMenu(action.target());
       case MAIN_MENU -> {
         if (engine != null) {
           // Pop pause menu + VN scene, then push main menu
@@ -189,6 +206,27 @@ public class PauseMenuScene implements Scene {
 
   private boolean handleCustomMenuAction(MenuActionSpec action, String itemId) {
     if (action == null || !action.isCustomAction() || engine == null) return false;
+    String key = normalize(action.actionKey(), "").toLowerCase(java.util.Locale.ROOT).replace('-', '_');
+    switch (key) {
+      case "history", "toggle_history" -> {
+        if (vnScene != null) {
+          vnScene.getState().clearHistoryScroll();
+          engine.scenes().push(new HistoryMenuScene(engine, vnScene));
+        }
+        return true;
+      }
+      case "skip", "toggle_skip" -> {
+        if (vnScene != null) vnScene.toggleSkipMode();
+        engine.scenes().pop();
+        return true;
+      }
+      case "auto", "toggle_auto" -> {
+        if (vnScene != null) vnScene.toggleAutoPlayMode();
+        engine.scenes().pop();
+        return true;
+      }
+      default -> { }
+    }
     var handler = engine.getMenuActionHandler();
     if (handler == null) return false;
     try {
@@ -199,6 +237,24 @@ public class PauseMenuScene implements Scene {
       LOG.warn("Custom menu action '{}' failed in pause menu", action.actionKey(), ex);
       return false;
     }
+  }
+
+  private void openConfiguredMenu(String targetMenu) {
+    String target = normalize(targetMenu, null);
+    if (target == null || !menuProfile.screens().containsKey(target) || engine == null) return;
+    VnSettings settings = vnScene != null ? vnScene.getState().getSettings() : new VnSettings();
+    ActionBindingProfile bindings =
+        ActionBindingProfile.deserialize(settings.getInputProfileSerialized());
+    engine.scenes().push(new SettingsScene(
+        engine,
+        saveManager,
+        defaultScriptName,
+        settings,
+        audio,
+        bindings,
+        menuProfile,
+        target
+    ).withGameplayVnScene(vnScene));
   }
 
   private boolean openQuitConfirmationMenu(String targetMenu) {
