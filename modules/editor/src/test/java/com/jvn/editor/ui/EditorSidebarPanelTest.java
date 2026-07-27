@@ -14,8 +14,10 @@ class EditorSidebarPanelTest {
   }
 
   @Test
-  void scriptEditorIsPopOutOnly() {
+  void legacyScriptEditorIsHiddenFromUserConfiguration() {
     assertFalse(EditorSidebarPanel.SCRIPT_EDITOR.supportsDocking());
+    assertFalse(EditorSidebarPanel.SCRIPT_EDITOR.defaultVisibleInChooser());
+    assertFalse(EditorSidebarPanel.SCRIPT_EDITOR.editableInSettings());
     assertEquals(EditorPanelPlacement.HIDDEN, EditorSidebarPanel.SCRIPT_EDITOR.defaultPlacement());
   }
 }

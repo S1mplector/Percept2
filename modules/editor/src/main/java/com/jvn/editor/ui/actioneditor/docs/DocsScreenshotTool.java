@@ -10,7 +10,6 @@ import com.jvn.editor.ui.LayoutEditorLauncherView;
 import com.jvn.editor.ui.ProjectExplorerView;
 import com.jvn.editor.ui.PuppeteerLauncherPanel;
 import com.jvn.editor.ui.RunConsoleView;
-import com.jvn.editor.ui.ScriptEditorLauncherView;
 import com.jvn.editor.ui.StoryTimelineView;
 import com.jvn.editor.ui.VersionControlView;
 import com.jvn.editor.ui.VnsDiagnosticsView;
@@ -525,65 +524,6 @@ public final class DocsScreenshotTool extends Application {
         DocsScreenshotTool::openPuppeteerLauncherWindow
     );
 
-    private static final ProfileSpec TEXT_EDITOR_PROFILE = new ProfileSpec(
-        "text-editor",
-        "Text Editor",
-        "docs/editor/sidebars/right/sidebar-script-editor.md",
-        "docs/editor/sidebars/right/generated-script-editor-screenshots.md",
-        "docs/assets/images/sidebars/text-editor",
-        "docs/assets/images/sidebars/text-editor/raw",
-        "<!-- AUTO-TEXT_EDITOR-SCREENSHOTS:START -->",
-        "<!-- AUTO-TEXT_EDITOR-SCREENSHOTS:END -->",
-        1200,
-        List.of(
-            new ShotSpec(
-                "full",
-                "full",
-                "text_editor_ui_full.png",
-                "Text Editor Overview",
-                "Header, search/filter controls, project tree, and selection inspector in the text workspace.",
-                0,
-                1200,
-                0,
-                List.of(
-                    new Callout("Header + Search", 0.02, 0.02, 0.96, 0.22),
-                    new Callout("Project Files", 0.02, 0.28, 0.48, 0.69),
-                    new Callout("Selection Inspector", 0.53, 0.28, 0.45, 0.69)
-                )
-            ),
-            new ShotSpec(
-                "explorer",
-                "explorer",
-                "text_editor_explorer.png",
-                "Text Workspace Explorer",
-                "Indexed project text files with hierarchy browsing and file-search context.",
-                8,
-                620,
-                0,
-                List.of(
-                    new Callout("Explorer Tree", 0.03, 0.08, 0.94, 0.70),
-                    new Callout("Search Results", 0.03, 0.81, 0.94, 0.16)
-                )
-            ),
-            new ShotSpec(
-                "inspector",
-                "inspector",
-                "text_editor_inspector.png",
-                "Selection Inspector",
-                "Path, metadata, label outline, and include relationships for the selected text file.",
-                8,
-                620,
-                0,
-                List.of(
-                    new Callout("Selected File", 0.03, 0.05, 0.94, 0.15),
-                    new Callout("Outline + Includes", 0.03, 0.24, 0.94, 0.72)
-                )
-            )
-        ),
-        DocsScreenshotTool::openTextEditorWindow,
-        DocsScreenshotTool::resolveTextEditorRegions
-    );
-
     private static final ProfileSpec VERSION_CONTROL_PROFILE = basicSidebarProfile(
         "version-control",
         "Version Control",
@@ -817,7 +757,6 @@ public final class DocsScreenshotTool extends Application {
         LAYERED_IMAGE_VISUALIZER_PROFILE.key(),
         LAYOUT_LAUNCHER_PROFILE.key(),
         PUPPETEER_LAUNCHER_PROFILE.key(),
-        TEXT_EDITOR_PROFILE.key(),
         VERSION_CONTROL_PROFILE.key(),
         VNS_DIAGNOSTICS_PROFILE.key(),
         STORY_TIMELINE_PROFILE.key(),
@@ -836,7 +775,6 @@ public final class DocsScreenshotTool extends Application {
         Map.entry(LAYERED_IMAGE_VISUALIZER_PROFILE.key(), LAYERED_IMAGE_VISUALIZER_PROFILE),
         Map.entry(LAYOUT_LAUNCHER_PROFILE.key(), LAYOUT_LAUNCHER_PROFILE),
         Map.entry(PUPPETEER_LAUNCHER_PROFILE.key(), PUPPETEER_LAUNCHER_PROFILE),
-        Map.entry(TEXT_EDITOR_PROFILE.key(), TEXT_EDITOR_PROFILE),
         Map.entry(VERSION_CONTROL_PROFILE.key(), VERSION_CONTROL_PROFILE),
         Map.entry(VNS_DIAGNOSTICS_PROFILE.key(), VNS_DIAGNOSTICS_PROFILE),
         Map.entry(STORY_TIMELINE_PROFILE.key(), STORY_TIMELINE_PROFILE),
@@ -1081,14 +1019,6 @@ public final class DocsScreenshotTool extends Application {
         panel.setCaretLine(12);
         panel.setOnLaunch(request -> {});
         return openToolStage("Docs Screenshot Session - Puppeteer Launcher", panel, 620, 940);
-    }
-
-    private static Stage openTextEditorWindow(Path repoRoot) throws Exception {
-        ScriptEditorLauncherView view = new ScriptEditorLauncherView();
-        Path fixtureRoot = ensureDocsFixtureProject(repoRoot);
-        view.setWorkspaceRoot(repoRoot.toFile());
-        view.setProjectRoot(fixtureRoot.toFile());
-        return openToolStage("Docs Screenshot Session - Text Editor", view, 1460, 980);
     }
 
     private static Stage openVersionControlWindow(Path repoRoot) {
@@ -1538,20 +1468,6 @@ public final class DocsScreenshotTool extends Application {
         }
         if (children.size() >= 3) {
             regions.put("tree", children.get(2));
-        }
-        return regions;
-    }
-
-    private static Map<String, Node> resolveTextEditorRegions(Stage stage) {
-        Map<String, Node> regions = resolveFullRegions(stage);
-        if (stage == null || stage.getScene() == null || !(stage.getScene().getRoot() instanceof BorderPane root)) {
-            return regions;
-        }
-        regions.put("header", root.getTop());
-        Node center = root.getCenter();
-        if (center instanceof SplitPane split && split.getItems().size() >= 2) {
-            regions.put("explorer", split.getItems().get(0));
-            regions.put("inspector", split.getItems().get(1));
         }
         return regions;
     }

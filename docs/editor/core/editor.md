@@ -165,6 +165,10 @@ This matters for workflow-critical utilities such as **Build & Publish...**, **S
   - open the VNS snippet picker (`Cmd/Ctrl+J`)
   - open the runtime preview in a separate window
   - open the standard `?` help panel for these controls
+- purpose-built command artwork, 42 × 40 hit targets, keyboard-focus feedback, and
+  accessible action names in both editor themes
+- all text authoring stays in the main tabbed editor; the legacy Text Editor
+  workspace and standalone text window are no longer exposed
 - lint for:
   - undefined labels
   - missing assets/background ids

@@ -15,6 +15,8 @@ import javafx.scene.shape.Rectangle;
 import javafx.scene.shape.SVGPath;
 import javafx.scene.shape.StrokeLineCap;
 import javafx.scene.shape.StrokeLineJoin;
+import javafx.scene.control.ButtonBase;
+import javafx.scene.control.ToggleButton;
 
 /** Purpose-built vector artwork for the runtime window command strip. */
 public final class RuntimeConsoleIcon extends Pane {
@@ -63,6 +65,56 @@ public final class RuntimeConsoleIcon extends Pane {
 
   public Kind kind() {
     return kind;
+  }
+
+  /**
+   * Applies the same icon-owned hover/press treatment used by welcome-chip Aero icons.
+   * The surrounding JavaFX button remains visually transparent.
+   */
+  public void installButtonTreatment(ButtonBase button) {
+    if (button == null) return;
+    if (!button.getStyleClass().contains("runtime-console-aero-button")) {
+      button.getStyleClass().add("runtime-console-aero-button");
+    }
+    button.hoverProperty().addListener((obs, wasHovered, hovered) -> updateButtonEffect(button));
+    button.pressedProperty().addListener((obs, wasPressed, pressed) -> updateButtonEffect(button));
+    if (button instanceof ToggleButton toggle) {
+      toggle.selectedProperty().addListener((obs, wasSelected, selected) -> updateButtonEffect(button));
+    }
+    updateButtonEffect(button);
+  }
+
+  private void updateButtonEffect(ButtonBase button) {
+    Color accent = accentFor(kind);
+    boolean selected = button instanceof ToggleButton toggle && toggle.isSelected();
+    if (button.isPressed()) {
+      setScaleX(0.94);
+      setScaleY(0.94);
+      setEffect(new DropShadow(4.0, accent.deriveColor(0, 0.85, 0.9, 0.72)));
+    } else if (button.isHover()) {
+      setScaleX(1.06);
+      setScaleY(1.06);
+      setEffect(new DropShadow(9.0, accent.deriveColor(0, 1.08, 1.15, 0.92)));
+    } else if (selected) {
+      setScaleX(1.0);
+      setScaleY(1.0);
+      setEffect(new DropShadow(6.0, accent.deriveColor(0, 0.95, 1.05, 0.72)));
+    } else {
+      setScaleX(1.0);
+      setScaleY(1.0);
+      setEffect(null);
+    }
+  }
+
+  private static Color accentFor(Kind kind) {
+    return switch (kind) {
+      case RUN -> Color.web("#75e69e");
+      case STOP -> Color.web("#f294ac");
+      case CLEAR -> Color.web("#79c7e9");
+      case COPY, BUILD_OUTPUT, WORD_WRAP -> Color.web("#9ad9ff");
+      case AUTO_SCROLL -> Color.web("#70e0c0");
+      case LAUNCH_OPTIONS -> Color.web("#f3b963");
+    };
   }
 
   private static Group run() {

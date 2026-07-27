@@ -25,9 +25,8 @@ Use this hub when your work is primarily inside the editor: opening projects, au
 ### I need script authoring and diagnostics
 
 1. [Editor Guide](core/editor.md#supported-editing-modes)
-2. [Text Editor Workspace](sidebars/right/sidebar-script-editor.md)
-3. [VNS Diagnostics](sidebars/right/sidebar-vns-diagnostics.md)
-4. [Label Flow Map](sidebars/right/sidebar-label-flow-map.md)
+2. [VNS Diagnostics](sidebars/right/sidebar-vns-diagnostics.md)
+3. [Label Flow Map](sidebars/right/sidebar-label-flow-map.md)
 
 ### I need visual staging or animation tools
 

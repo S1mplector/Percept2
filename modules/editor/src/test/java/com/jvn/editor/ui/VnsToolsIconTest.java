@@ -8,14 +8,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import javafx.application.Platform;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
 import javafx.scene.image.WritableImage;
 import javafx.scene.layout.StackPane;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-class RuntimeConsoleIconTest {
+class VnsToolsIconTest {
   private static boolean toolkitAvailable;
 
   @BeforeAll
@@ -36,19 +35,16 @@ class RuntimeConsoleIconTest {
   }
 
   @Test
-  void everyRuntimeCommandHasVisiblePurposeBuiltArtwork() throws Exception {
+  void everyVnsToolHasVisiblePurposeBuiltArtwork() throws Exception {
     Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
-    for (RuntimeConsoleIcon.Kind kind : RuntimeConsoleIcon.Kind.values()) {
+    for (VnsToolsIcon.Kind kind : VnsToolsIcon.Kind.values()) {
       WritableImage image = onFxThread(() -> {
-        RuntimeConsoleIcon icon = RuntimeConsoleIcon.of(kind);
-        Button button = new Button();
-        icon.installButtonTreatment(button);
+        VnsToolsIcon icon = VnsToolsIcon.of(kind);
         StackPane root = new StackPane(icon);
         new Scene(root, 30, 30);
         root.applyCss();
         root.layout();
         assertEquals(kind, icon.kind());
-        assertTrue(button.getStyleClass().contains("runtime-console-aero-button"));
         return root.snapshot(null, new WritableImage(30, 30));
       });
       assertTrue(nonTransparentPixels(image) > 60, kind + " should render visible vector artwork");

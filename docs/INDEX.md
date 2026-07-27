@@ -131,7 +131,6 @@ source of truth for docs changes.
 - [Image Attributes Tool](editor/sidebars/right/sidebar-image-attributes-tool.md) - attribute-driven image assembly
 - [Scene Lighting Studio](editor/sidebars/right/sidebar-image-tint-tool.md) - lighting, grading, occlusion, setup, and stage-preset export
 - [Version Control](editor/sidebars/right/sidebar-version-control.md) - Git status, commit, push, pull, branch, stash
-- [Text Editor](editor/sidebars/right/sidebar-script-editor.md) - text-file explorer, VNS outline, include graph
 
 ### Editor File Formats And Generated References
 
@@ -148,7 +147,6 @@ source of truth for docs changes.
 - [Generated Layered Image Visualizer Screenshots](editor/sidebars/right/generated-layered-image-visualizer-screenshots.md)
 - [Generated Layout Launcher Screenshots](editor/sidebars/right/generated-layout-launcher-screenshots.md)
 - [Generated Puppeteer Launcher Screenshots](editor/sidebars/right/generated-puppeteer-launcher-screenshots.md)
-- [Generated Text Editor Screenshots](editor/sidebars/right/generated-script-editor-screenshots.md)
 - [Generated Version Control Screenshots](editor/sidebars/right/generated-version-control-screenshots.md)
 - [Generated VNS Diagnostics Screenshots](editor/sidebars/right/generated-vns-diagnostics-screenshots.md)
 
