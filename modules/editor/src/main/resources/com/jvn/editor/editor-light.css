@@ -3224,39 +3224,6 @@
   -fx-padding: 2 8 4 0;
 }
 
-.whats-new-hero {
-  -fx-background-color:
-      radial-gradient(center 12% 20%, radius 85%, rgba(57, 132, 188, 0.16), transparent),
-      linear-gradient(to bottom, #edf5fb, #e2ebf2);
-  -fx-background-radius: 11;
-  -fx-border-color: #afc7d9;
-  -fx-border-radius: 11;
-  -fx-padding: 14;
-}
-
-.whats-new-badge {
-  -fx-background-color: linear-gradient(to bottom, #4e9bcf, #337ba9);
-  -fx-background-radius: 8;
-  -fx-border-color: #23648f;
-  -fx-border-radius: 8;
-  -fx-text-fill: #ffffff;
-  -fx-font-size: 9px;
-  -fx-font-weight: 900;
-  -fx-padding: 3 7 3 7;
-}
-
-.whats-new-version {
-  -fx-text-fill: #245f87;
-  -fx-font-size: 11px;
-  -fx-font-weight: 900;
-}
-
-.whats-new-summary {
-  -fx-text-fill: #1c3445;
-  -fx-font-size: 12px;
-  -fx-font-weight: 700;
-}
-
 .whats-new-section {
   -fx-background-color: linear-gradient(to bottom, #f4f5f6, #eceeef);
   -fx-background-radius: 10;

@@ -3309,39 +3309,6 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-padding: 2 8 4 0;
 }
 
-.whats-new-hero {
-  -fx-background-color:
-      radial-gradient(center 12% 20%, radius 85%, rgba(76, 153, 214, 0.18), transparent),
-      linear-gradient(to bottom, #1b222a, #15191e);
-  -fx-background-radius: 11;
-  -fx-border-color: #344454;
-  -fx-border-radius: 11;
-  -fx-padding: 14;
-}
-
-.whats-new-badge {
-  -fx-background-color: linear-gradient(to bottom, #347caf, #215878);
-  -fx-background-radius: 8;
-  -fx-border-color: #6db5e6;
-  -fx-border-radius: 8;
-  -fx-text-fill: #edf8ff;
-  -fx-font-size: 9px;
-  -fx-font-weight: 900;
-  -fx-padding: 3 7 3 7;
-}
-
-.whats-new-version {
-  -fx-text-fill: #a9d8f7;
-  -fx-font-size: 11px;
-  -fx-font-weight: 900;
-}
-
-.whats-new-summary {
-  -fx-text-fill: #e6ebf0;
-  -fx-font-size: 12px;
-  -fx-font-weight: 700;
-}
-
 .whats-new-section {
   -fx-background-color: linear-gradient(to bottom, #181a1d, #131416);
   -fx-background-radius: 10;
