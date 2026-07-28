@@ -111,15 +111,15 @@ public class RunConsoleView extends BorderPane {
     private final Label errorCountLabel = new Label("0 errors");
     private final Label warnCountLabel = new Label("0 warnings");
     private final PerfGraph perfGraph = new PerfGraph();
-    private final Tooltip perfGraphTooltip = new Tooltip("CPU -- | JVN -- MB | FPS --");
+    private final Tooltip perfGraphTooltip = new Tooltip("CPU -- | JVM -- MB | FPS --");
     private final Label perfCpuValue = new Label("CPU --");
-    private final Label perfJvmValue = new Label("JVN -- MB");
+    private final Label perfJvmValue = new Label("JVM -- MB");
     private final Label perfFpsValue = new Label("FPS --");
 
     // Raw line buffer for search/filter replay
     private final List<String> rawLineBuffer = new ArrayList<>();
 
-    private EngineState engineState = EngineState.BUILDING;
+    private volatile EngineState engineState = EngineState.BUILDING;
     private @Nullable Process runningProcess;
     private @Nullable ProcessStarter processStarter;
     private final RuntimeGradleOptionsStore gradleOptionsStore;
@@ -469,7 +469,7 @@ public class RunConsoleView extends BorderPane {
         if (size > 0) outputList.scrollTo(size - 1);
     }
 
-    private static String classifyLine(String line) {
+    static String classifyLine(String line) {
         if (line.startsWith("\u200B")) return "run-console-line-milestone";
         java.util.regex.Matcher rtm = RUNTIME_LOG_LINE.matcher(line);
         if (rtm.find()) {
@@ -689,7 +689,7 @@ public class RunConsoleView extends BorderPane {
         return Math.min(0.76, Math.max(0.0, progress));
     }
 
-    private static boolean isEngineOutputLine(String rawLine) {
+    static boolean isEngineOutputLine(String rawLine) {
         if (rawLine == null || rawLine.isBlank()) return false;
         return ENGINE_MSG.matcher(rawLine).find() || RUNTIME_LOG_LINE.matcher(rawLine).find();
     }
@@ -1292,8 +1292,8 @@ public class RunConsoleView extends BorderPane {
             nonHeapCeilingBytes = nonHeap.getUsed();
         }
         double nonHeapCeilingMb = Math.max(nonHeapMb, bytesToMb(nonHeapCeilingBytes));
-        double jvnUsedMb = Math.max(0.0, heapUsedMb + nonHeapMb);
-        double jvnCeilingMb = Math.max(1.0, heapMaxMb + nonHeapCeilingMb);
+        double jvmUsedMb = Math.max(0.0, heapUsedMb + nonHeapMb);
+        double jvmCeilingMb = Math.max(1.0, heapMaxMb + nonHeapCeilingMb);
         double cpuRatio = isRatioValid(smoothedProcessCpu) ? clamp01(smoothedProcessCpu) : 0.0;
         double cpuPercent = cpuRatio * 100.0;
         double fpsValue = Math.max(0.0, smoothedFps);
@@ -1310,14 +1310,14 @@ public class RunConsoleView extends BorderPane {
 
         perfGraphTooltip.setText(String.format(
             Locale.ROOT,
-            "CPU %.0f%% | JVN %.0f MB | %s",
+            "CPU %.0f%% | JVM %.0f MB | %s",
             cpuPercent,
-            jvnUsedMb,
+            jvmUsedMb,
             fpsText));
         perfCpuValue.setText(String.format(Locale.ROOT, "CPU %.0f%%", cpuPercent));
-        perfJvmValue.setText(String.format(Locale.ROOT, "JVN %.0f MB", jvnUsedMb));
+        perfJvmValue.setText(String.format(Locale.ROOT, "JVM %.0f MB", jvmUsedMb));
         perfFpsValue.setText(fpsText);
-        perfGraph.pushSample(cpuPercent, jvnUsedMb, fpsSampleValue, jvnCeilingMb);
+        perfGraph.pushSample(cpuPercent, jvmUsedMb, fpsSampleValue, jvmCeilingMb);
     }
 
     private static final class PerfGraph {

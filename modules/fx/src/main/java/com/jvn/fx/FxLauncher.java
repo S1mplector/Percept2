@@ -489,6 +489,10 @@ public class FxLauncher extends Application {
         }
         syncPhoneOverlay(currentScene);
         pollProjectHotReload();
+        // Use the AnimationTimer's nanosecond clock for the HUD. Engine frame
+        // statistics intentionally store millisecond deltas and can therefore
+        // lose precision for fast frames.
+        hudData.tick(now);
         updatePerfHud(now);
 
         // Render
@@ -518,7 +522,6 @@ public class FxLauncher extends Application {
           } else {
             drawDefaultScene(w, h);
           }
-          hudData.tick(now);
           hudOverlay.render(gc, w, h);
           hideRuntimeLoadingOverlayAfterFirstFrame();
         }
@@ -558,7 +561,7 @@ public class FxLauncher extends Application {
 
   private HBox createPerfHud() {
     perfCpuLabel = createPerfHudLabel("CPU --", "#f27333");
-    perfJvmLabel = createPerfHudLabel("JVN -- MB", "#49a5ff");
+    perfJvmLabel = createPerfHudLabel("JVM -- MB", "#49a5ff");
     perfFpsLabel = createPerfHudLabel("FPS --", "#f4f4f4");
 
     HBox box = new HBox(6, perfCpuLabel, perfJvmLabel, perfFpsLabel);
@@ -599,19 +602,19 @@ public class FxLauncher extends Application {
       processCpu = osBean.getProcessCpuLoad();
     }
     smoothedProcessCpu = smoothRatio(smoothedProcessCpu, processCpu, PERF_CPU_SMOOTH_ALPHA);
-    smoothedFps = smoothRatio(smoothedFps, engine.frameStats().getFps(), PERF_FPS_SMOOTH_ALPHA);
+    smoothedFps = smoothRatio(smoothedFps, hudData.getFps(), PERF_FPS_SMOOTH_ALPHA);
 
     MemoryUsage heap = memoryBean.getHeapMemoryUsage();
     MemoryUsage nonHeap = memoryBean.getNonHeapMemoryUsage();
     double heapUsedMb = Math.max(0.0, bytesToMb(heap == null ? -1L : heap.getUsed()));
     double nonHeapMb = Math.max(0.0, bytesToMb(nonHeap == null ? -1L : nonHeap.getUsed()));
-    double jvnUsedMb = Math.max(0.0, heapUsedMb + nonHeapMb);
+    double jvmUsedMb = Math.max(0.0, heapUsedMb + nonHeapMb);
 
     String cpuText = isRatioValid(smoothedProcessCpu)
         ? String.format(Locale.ROOT, "CPU %.0f%%", smoothedProcessCpu * 100.0)
         : "CPU --";
-    String jvmText = String.format(Locale.ROOT, "JVN %.0f MB", jvnUsedMb);
-    String fpsText = String.format(Locale.ROOT, "FPS %.0f", Math.max(0.0, smoothedFps));
+    String jvmText = jvmMemoryText(jvmUsedMb);
+    String fpsText = fpsText(smoothedFps);
 
     perfCpuLabel.setText(cpuText);
     perfJvmLabel.setText(jvmText);
@@ -1976,6 +1979,16 @@ public class FxLauncher extends Application {
   private static double bytesToMb(long bytes) {
     if (bytes <= 0L) return 0.0;
     return bytes / (1024.0 * 1024.0);
+  }
+
+  static String jvmMemoryText(double usedMb) {
+    return String.format(Locale.ROOT, "JVM %.0f MB", Math.max(0.0, usedMb));
+  }
+
+  static String fpsText(double fps) {
+    return isRatioValid(fps)
+        ? String.format(Locale.ROOT, "FPS %.0f", fps)
+        : "FPS --";
   }
 
   private static boolean isRatioValid(double value) {
