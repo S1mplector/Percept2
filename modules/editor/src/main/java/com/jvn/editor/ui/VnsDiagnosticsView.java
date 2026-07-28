@@ -11,11 +11,14 @@ import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
@@ -32,6 +35,12 @@ public class VnsDiagnosticsView extends BorderPane {
   private static final String SEVERITY_ALL = "All";
   private static final String SEVERITY_ERRORS = "Errors";
   private static final String SEVERITY_WARNINGS = "Warnings";
+  private static final String CATEGORY_ALL = "All categories";
+  private static final String CATEGORY_SYNTAX = "Syntax";
+  private static final String CATEGORY_FLOW = "Flow";
+  private static final String CATEGORY_ASSETS = "Assets";
+  private static final String CATEGORY_SCRIPTS = "Scripts";
+  private static final String CATEGORY_CONTENT = "Content";
 
   private enum SortMode { LINE, SEVERITY }
   private SortMode sortMode = SortMode.LINE;
@@ -40,30 +49,37 @@ public class VnsDiagnosticsView extends BorderPane {
   private final Label fileLabel = new Label("No active file");
   private final Label summaryLabel = new Label("Open a script or DSL file to see diagnostics.");
   private final Label statsLabel = new Label("");
-  private final Label errorCountLabel = new Label("0 Errors");
-  private final Label warningCountLabel = new Label("0 Warnings");
+  private final Label healthLabel = new Label("Waiting");
+  private final ToggleButton allCountButton = new ToggleButton("All 0");
+  private final ToggleButton errorCountLabel = new ToggleButton("0 Errors");
+  private final ToggleButton warningCountLabel = new ToggleButton("0 Warnings");
   private final Label filteredCountLabel = new Label("No file");
   private final Label placeholderLabel = new Label("Open a script or DSL file to see diagnostics.");
   private final TextField filterField = new TextField();
-  private final ComboBox<String> severityFilter = new ComboBox<>(
-      FXCollections.observableArrayList(SEVERITY_ALL, SEVERITY_ERRORS, SEVERITY_WARNINGS)
+  private final ComboBox<String> categoryFilter = new ComboBox<>(
+      FXCollections.observableArrayList(
+          CATEGORY_ALL, CATEGORY_SYNTAX, CATEGORY_FLOW, CATEGORY_ASSETS, CATEGORY_SCRIPTS, CATEGORY_CONTENT)
   );
-  private final Button openSelectedButton = actionButton("Open", CssIcon.expand("#7ec8e3"));
-  private final Button copyDiagnosticsButton = actionButton("Copy", CssIcon.copy("#a8d0f0"));
+  private final Button openSelectedButton = actionButton("Open", CssIcon.expand("#477fae"));
+  private final Button copyDiagnosticsButton = actionButton("Copy Report", CssIcon.copy("#4f7fa5"));
   private final Button clearFilterButton = actionButton("Clear Filter", CssIcon.clearX("#f0a080"));
-  private final Button prevButton = actionButton("↑", null);
-  private final Button nextButton = actionButton("↓", null);
-  private final Button sortButton = actionButton("By Line", null);
+  private final Button refreshButton = actionButton("Rescan", CssIcon.refresh("#447ba7"));
+  private final Button prevButton = actionButton("Prev", CssIcon.arrowUp("#536d86"));
+  private final Button nextButton = actionButton("Next", CssIcon.arrowDown("#536d86"));
+  private final Button sortButton = actionButton("By Line", CssIcon.sort("#536d86"));
   private final ListView<DiagnosticRow> listView = new ListView<>();
 
   private final List<DiagnosticRow> allRows = new ArrayList<>();
   private boolean hasActiveFile;
   private Consumer<Integer> onOpenLine;
   private Consumer<OpenTarget> onOpenTarget;
+  private Runnable onRefresh;
 
   public VnsDiagnosticsView() {
     getStyleClass().addAll("vns-diagnostics-root", "sidebar-tool-root");
     titleLabel.getStyleClass().addAll("vns-diagnostics-title", "sidebar-tool-title");
+    titleLabel.setGraphic(CssIcon.warning("#a66c18"));
+    titleLabel.setGraphicTextGap(7);
     fileLabel.getStyleClass().addAll("vns-diagnostics-file", "sidebar-tool-subtitle");
     summaryLabel.getStyleClass().addAll("vns-diagnostics-summary", "sidebar-tool-summary");
     summaryLabel.setWrapText(true);
@@ -77,10 +93,17 @@ public class VnsDiagnosticsView extends BorderPane {
       statsLabel.setManaged(hasText);
     });
     filteredCountLabel.getStyleClass().add("vns-diagnostics-filter-count");
+    healthLabel.getStyleClass().addAll("vns-diagnostics-health", "vns-diagnostics-health-waiting");
+    allCountButton.getStyleClass().addAll("vns-diagnostics-chip", "vns-diagnostics-chip-all");
     errorCountLabel.getStyleClass().addAll("vns-diagnostics-chip", "vns-diagnostics-chip-error");
     warningCountLabel.getStyleClass().addAll("vns-diagnostics-chip", "vns-diagnostics-chip-warning");
+    ToggleGroup severityGroup = new ToggleGroup();
+    configureSeverityButton(allCountButton, severityGroup, SEVERITY_ALL);
+    configureSeverityButton(errorCountLabel, severityGroup, SEVERITY_ERRORS);
+    configureSeverityButton(warningCountLabel, severityGroup, SEVERITY_WARNINGS);
+    allCountButton.setSelected(true);
 
-    filterField.setPromptText("Filter diagnostics...");
+    filterField.setPromptText("Search message, code, source, or line...");
     filterField.getStyleClass().add("vns-diagnostics-filter");
     filterField.textProperty().addListener((obs, oldValue, newValue) -> applyFilter());
     filterField.setOnKeyPressed(e -> {
@@ -90,18 +113,18 @@ public class VnsDiagnosticsView extends BorderPane {
       }
     });
 
-    severityFilter.setValue(SEVERITY_ALL);
-    severityFilter.setFocusTraversable(false);
-    severityFilter.setPrefWidth(96);
-    severityFilter.getStyleClass().add("vns-diagnostics-severity-filter");
-    severityFilter.setButtonCell(new javafx.scene.control.ListCell<>() {
+    categoryFilter.setValue(CATEGORY_ALL);
+    categoryFilter.setFocusTraversable(false);
+    categoryFilter.setPrefWidth(128);
+    categoryFilter.getStyleClass().add("vns-diagnostics-category-filter");
+    categoryFilter.setButtonCell(new javafx.scene.control.ListCell<>() {
       @Override
       protected void updateItem(String item, boolean empty) {
         super.updateItem(item, empty);
         setText(empty ? "" : item);
       }
     });
-    severityFilter.getSelectionModel().selectedItemProperty().addListener((obs, oldValue, newValue) -> applyFilter());
+    categoryFilter.getSelectionModel().selectedItemProperty().addListener((obs, oldValue, newValue) -> applyFilter());
 
     placeholderLabel.getStyleClass().add("vns-diagnostics-placeholder");
     placeholderLabel.setWrapText(true);
@@ -114,13 +137,26 @@ public class VnsDiagnosticsView extends BorderPane {
       openSelectedRow();
     });
     listView.setOnKeyPressed(e -> {
-      if (e.getCode() != KeyCode.ENTER) return;
-      openSelectedRow();
+      if (e.getCode() == KeyCode.ENTER) {
+        openSelectedRow();
+        e.consume();
+      } else if (e.getCode() == KeyCode.F4) {
+        navigateDiagnostic(e.isShiftDown() ? -1 : 1);
+        e.consume();
+      } else if (e.getCode() == KeyCode.C && e.isShortcutDown()) {
+        DiagnosticRow selected = listView.getSelectionModel().getSelectedItem();
+        if (selected != null) copySingleDiagnostic(selected);
+        e.consume();
+      }
     });
 
     openSelectedButton.setOnAction(e -> openSelectedRow());
     copyDiagnosticsButton.setOnAction(e -> copyVisibleDiagnostics());
     clearFilterButton.setOnAction(e -> clearFilters());
+    refreshButton.setTooltip(new Tooltip("Run diagnostics again for the active editor"));
+    refreshButton.setOnAction(e -> {
+      if (onRefresh != null) onRefresh.run();
+    });
 
     prevButton.setTooltip(new Tooltip("Previous diagnostic (wraps around)"));
     prevButton.setOnAction(e -> navigateDiagnostic(-1));
@@ -137,36 +173,48 @@ public class VnsDiagnosticsView extends BorderPane {
       applyFilter();
     });
 
+    javafx.scene.layout.Region titleSpacer = new javafx.scene.layout.Region();
+    HBox.setHgrow(titleSpacer, Priority.ALWAYS);
     HBox titleRow = new HBox(8, titleLabel, SidebarToolHelp.button(this, "VNS Diagnostics", """
-        The Diagnostics panel scans the active .vns script file and reports \
-errors, warnings, and informational messages in real time.
+        The Diagnostics panel scans the active script or DSL file and reports \
+errors and warnings in real time.
 
 Severity levels:
   • Error   — something that will prevent the script from running correctly \
 (e.g. an undefined character ID, a missing @label target)
   • Warning — a potential problem that won't block execution but may produce \
 unexpected results (e.g. unreachable labels, duplicate keys)
-  • Info    — style suggestions and best-practice hints
-
 Clicking a diagnostic entry jumps the editor cursor to the affected line so \
 you can fix it immediately. Use the filter bar to narrow results by keyword \
-or severity, and the copy button to export the full list for sharing."""));
+or category. F4 and Shift+F4 move between findings. Copy Report exports the \
+visible, source-aware result set for sharing."""),
+        titleSpacer, healthLabel);
     titleRow.setAlignment(Pos.CENTER_LEFT);
     titleRow.getStyleClass().add("vns-diagnostics-title-row");
 
-    HBox countsRow = new HBox(8, errorCountLabel, warningCountLabel);
+    HBox countsRow = new HBox(6, allCountButton, errorCountLabel, warningCountLabel);
     countsRow.setAlignment(Pos.CENTER_LEFT);
+    countsRow.getStyleClass().add("vns-diagnostics-severity-row");
 
     VBox header = new VBox(6, titleRow, fileLabel, summaryLabel, statsLabel, countsRow);
     header.setPadding(new Insets(10, 10, 6, 10));
     header.getStyleClass().add("vns-diagnostics-header");
 
-    HBox filterRow = new HBox(8, filterField, severityFilter, sortButton);
+    HBox filterRow = new HBox(8, filterField, categoryFilter, sortButton);
     filterRow.setPadding(new Insets(0, 10, 8, 10));
     HBox.setHgrow(filterField, Priority.ALWAYS);
     filterRow.getStyleClass().add("vns-diagnostics-filter-row");
 
-    HBox actionRow = new HBox(8, openSelectedButton, prevButton, nextButton, copyDiagnosticsButton, clearFilterButton, filteredCountLabel);
+    FlowPane actionRow = new FlowPane(
+        6,
+        6,
+        refreshButton,
+        openSelectedButton,
+        prevButton,
+        nextButton,
+        copyDiagnosticsButton,
+        clearFilterButton,
+        filteredCountLabel);
     actionRow.setAlignment(Pos.CENTER_LEFT);
     actionRow.setPadding(new Insets(0, 10, 8, 10));
     actionRow.getStyleClass().add("vns-diagnostics-action-row");
@@ -185,14 +233,21 @@ or severity, and the copy button to export the full list for sharing."""));
     this.onOpenTarget = onOpenTarget;
   }
 
+  public void setOnRefresh(Runnable onRefresh) {
+    this.onRefresh = onRefresh;
+    updateActionState();
+  }
+
   public void clear() {
     hasActiveFile = false;
     fileLabel.setText("No active file");
     fileLabel.setTooltip(null);
     summaryLabel.setText("Open a script or DSL file to see diagnostics.");
     statsLabel.setText("");
+    allCountButton.setText("All 0");
     errorCountLabel.setText("0 Errors");
     warningCountLabel.setText("0 Warnings");
+    setHealth("Waiting", "waiting");
     allRows.clear();
     listView.getItems().clear();
     updatePlaceholder(0);
@@ -239,15 +294,20 @@ or severity, and the copy button to export the full list for sharing."""));
     }
     errorCountLabel.setText(errors + (errors == 1 ? " Error" : " Errors"));
     warningCountLabel.setText(warnings + (warnings == 1 ? " Warning" : " Warnings"));
+    allCountButton.setText("All " + (errors + warnings));
 
     if (errors == 0 && warnings == 0) {
       summaryLabel.setText(label + ": no issues found.");
+      setHealth("Clean", "clean");
     } else if (errors > 0 && warnings > 0) {
       summaryLabel.setText(label + ": " + errors + " errors, " + warnings + " warnings");
+      setHealth(errors + " blocking", "error");
     } else if (errors > 0) {
       summaryLabel.setText(label + ": " + errors + (errors == 1 ? " error" : " errors"));
+      setHealth(errors + " blocking", "error");
     } else {
       summaryLabel.setText(label + ": " + warnings + (warnings == 1 ? " warning" : " warnings"));
+      setHealth(warnings + " to review", "warning");
     }
 
     applyFilter();
@@ -260,6 +320,7 @@ or severity, and the copy button to export the full list for sharing."""));
     List<DiagnosticRow> filtered = new ArrayList<>();
     for (DiagnosticRow row : allRows) {
       if (!matchesSeverity(row)) continue;
+      if (!matchesCategory(row)) continue;
       if (!normalized.isEmpty() && !row.searchText().contains(normalized)) continue;
       filtered.add(row);
     }
@@ -292,7 +353,8 @@ or severity, and the copy button to export the full list for sharing."""));
   }
 
   private boolean matchesSeverity(DiagnosticRow row) {
-    String selected = severityFilter.getValue();
+    ToggleButton selectedButton = selectedSeverityButton();
+    String selected = selectedButton == null ? SEVERITY_ALL : String.valueOf(selectedButton.getUserData());
     if (SEVERITY_ERRORS.equals(selected)) {
       return !row.issue().warning();
     }
@@ -302,11 +364,21 @@ or severity, and the copy button to export the full list for sharing."""));
     return true;
   }
 
+  private boolean matchesCategory(DiagnosticRow row) {
+    String selected = categoryFilter.getValue();
+    return selected == null
+        || CATEGORY_ALL.equals(selected)
+        || selected.equals(categoryForKind(row.issue().kind()));
+  }
+
   private void clearFilters() {
     boolean changed = filterField.getText() != null && !filterField.getText().isBlank();
-    changed = changed || !SEVERITY_ALL.equals(severityFilter.getValue());
+    ToggleButton selectedButton = selectedSeverityButton();
+    changed = changed || selectedButton != allCountButton;
+    changed = changed || !CATEGORY_ALL.equals(categoryFilter.getValue());
     filterField.clear();
-    severityFilter.setValue(SEVERITY_ALL);
+    allCountButton.setSelected(true);
+    categoryFilter.setValue(CATEGORY_ALL);
     if (!changed) applyFilter();
   }
 
@@ -337,6 +409,14 @@ or severity, and the copy button to export the full list for sharing."""));
     if (rows == null || rows.isEmpty()) return;
 
     StringBuilder out = new StringBuilder();
+    out.append("Diagnostics — ").append(fileLabel.getText()).append(System.lineSeparator());
+    if (!summaryLabel.getText().isBlank()) {
+      out.append(summaryLabel.getText()).append(System.lineSeparator());
+    }
+    if (!statsLabel.getText().isBlank()) {
+      out.append(statsLabel.getText()).append(System.lineSeparator());
+    }
+    out.append(System.lineSeparator());
     for (DiagnosticRow row : rows) {
       out.append(row.level())
           .append(" ")
@@ -382,12 +462,32 @@ or severity, and the copy button to export the full list for sharing."""));
     boolean hasVisibleRows = !listView.getItems().isEmpty();
     boolean hasSelection = listView.getSelectionModel().getSelectedItem() != null;
     boolean hasFilter = (filterField.getText() != null && !filterField.getText().isBlank())
-        || !SEVERITY_ALL.equals(severityFilter.getValue());
+        || selectedSeverityButton() != allCountButton
+        || !CATEGORY_ALL.equals(categoryFilter.getValue());
+    refreshButton.setDisable(!hasActiveFile || onRefresh == null);
     openSelectedButton.setDisable(!hasSelection);
     prevButton.setDisable(!hasVisibleRows);
     nextButton.setDisable(!hasVisibleRows);
     copyDiagnosticsButton.setDisable(!hasVisibleRows);
     clearFilterButton.setDisable(!hasFilter);
+  }
+
+  private ToggleButton selectedSeverityButton() {
+    if (allCountButton.getToggleGroup() == null) return allCountButton;
+    if (allCountButton.getToggleGroup().getSelectedToggle() instanceof ToggleButton button) {
+      return button;
+    }
+    return allCountButton;
+  }
+
+  private void setHealth(String text, String tone) {
+    healthLabel.setText(text == null ? "" : text);
+    healthLabel.getStyleClass().removeAll(
+        "vns-diagnostics-health-waiting",
+        "vns-diagnostics-health-clean",
+        "vns-diagnostics-health-warning",
+        "vns-diagnostics-health-error");
+    healthLabel.getStyleClass().add("vns-diagnostics-health-" + tone);
   }
 
   private static DiagnosticRow buildRow(String source, Diagnostic issue) {
@@ -485,6 +585,40 @@ or severity, and the copy button to export the full list for sharing."""));
     String normalized = kind.replace('_', ' ').trim();
     if (normalized.isEmpty()) return "Issue";
     return Character.toUpperCase(normalized.charAt(0)) + normalized.substring(1);
+  }
+
+  static String categoryForKind(String kind) {
+    String normalized = kind == null ? "" : kind.trim().toLowerCase(Locale.ROOT);
+    if (containsAny(normalized, "asset", "background", "image", "audio", "voice", "sfx", "bgm")) {
+      return CATEGORY_ASSETS;
+    }
+    if (containsAny(normalized, "script", "include", "interop", "provider", "jes")) {
+      return CATEGORY_SCRIPTS;
+    }
+    if (containsAny(normalized, "label", "flow", "jump", "goto", "return", "unreachable", "branch")) {
+      return CATEGORY_FLOW;
+    }
+    if (containsAny(normalized, "parse", "syntax", "invalid", "malformed", "duplicate", "unknown")) {
+      return CATEGORY_SYNTAX;
+    }
+    return CATEGORY_CONTENT;
+  }
+
+  private static boolean containsAny(String value, String... tokens) {
+    if (value == null || value.isBlank() || tokens == null) return false;
+    for (String token : tokens) {
+      if (token != null && !token.isBlank() && value.contains(token)) return true;
+    }
+    return false;
+  }
+
+  private void configureSeverityButton(ToggleButton button, ToggleGroup group, String severity) {
+    button.setToggleGroup(group);
+    button.setUserData(severity);
+    button.setMnemonicParsing(false);
+    button.setFocusTraversable(false);
+    button.setOnAction(e -> applyFilter());
+    button.setTooltip(new Tooltip("Show " + severity.toLowerCase(Locale.ROOT) + " diagnostics"));
   }
 
   private static String buildStatsSummary(VnsScriptAnalyzer.ScriptStats stats) {

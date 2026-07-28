@@ -1,0 +1,97 @@
+package com.jvn.editor.ui;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.nio.file.Path;
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import javafx.application.Platform;
+import javafx.scene.Scene;
+import javafx.scene.control.ListView;
+import javafx.scene.control.ToggleButton;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+class VnsDiagnosticsViewFxTest {
+  private static boolean toolkitAvailable;
+
+  @BeforeAll
+  static void startToolkit() {
+    if (System.getProperty("os.name", "").toLowerCase().contains("linux")
+        && System.getenv().getOrDefault("DISPLAY", "").isBlank()) {
+      return;
+    }
+    try {
+      CountDownLatch ready = new CountDownLatch(1);
+      Platform.startup(ready::countDown);
+      toolkitAvailable = ready.await(10, TimeUnit.SECONDS);
+    } catch (IllegalStateException alreadyStarted) {
+      toolkitAvailable = true;
+    } catch (Exception unavailable) {
+      toolkitAvailable = false;
+    }
+  }
+
+  @Test
+  void toolbarFiltersFindingsAndRescans(@TempDir Path tempDir) throws Exception {
+    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
+    runFx(() -> {
+      VnsDiagnosticsView view = new VnsDiagnosticsView();
+      AtomicBoolean rescanned = new AtomicBoolean();
+      view.setOnRefresh(() -> rescanned.set(true));
+      view.setDiagnostics(
+          tempDir.resolve("demo.vns").toFile(),
+          "VNS",
+          "[jump missing]\n[bgm assets/audio/missing.ogg]",
+          "2 lines",
+          List.of(
+              VnsDiagnosticsView.Diagnostic.error("undefined_label", "Undefined label: missing", 6, 13, 0),
+              VnsDiagnosticsView.Diagnostic.warning("missing_audio_asset", "Missing audio", 20, 30, 1)));
+
+      Scene scene = new Scene(view, 720, 620);
+      var stylesheet = VnsDiagnosticsView.class.getResource("/com/jvn/editor/editor-light.css");
+      if (stylesheet != null) scene.getStylesheets().add(stylesheet.toExternalForm());
+      view.applyCss();
+      view.layout();
+
+      assertTrue(view.lookup(".vns-diagnostics-health") != null);
+      assertTrue(view.lookup(".vns-diagnostics-category-filter") != null);
+      assertTrue(view.lookup(".vns-diagnostics-action-row") != null);
+
+      ToggleButton errors = view.lookupAll(".vns-diagnostics-chip").stream()
+          .filter(ToggleButton.class::isInstance)
+          .map(ToggleButton.class::cast)
+          .filter(button -> button.getText().contains("Error"))
+          .findFirst()
+          .orElseThrow();
+      errors.fire();
+
+      @SuppressWarnings("unchecked")
+      ListView<Object> findings = (ListView<Object>) view.lookup(".vns-diagnostics-list");
+      assertEquals(1, findings.getItems().size());
+
+      view.lookupAll(".button").stream()
+          .filter(javafx.scene.control.Button.class::isInstance)
+          .map(javafx.scene.control.Button.class::cast)
+          .filter(button -> "Rescan".equals(button.getText()))
+          .findFirst()
+          .orElseThrow()
+          .fire();
+      assertTrue(rescanned.get());
+      return null;
+    });
+  }
+
+  private static <T> T runFx(Callable<T> callable) throws Exception {
+    FutureTask<T> task = new FutureTask<>(callable);
+    Platform.runLater(task);
+    return task.get(30, TimeUnit.SECONDS);
+  }
+}
