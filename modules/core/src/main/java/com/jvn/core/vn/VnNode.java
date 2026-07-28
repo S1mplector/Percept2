@@ -25,6 +25,7 @@ public class VnNode {
   private final String displaySlot;
   private final Easing.Type moveEasingType;
   private final long moveDurationMs;
+  private final long expressionDurationMs;
   private final VnExternalCommand externalCommand;
   private final VnParticleCommand particleCommand;
   private final String groupTargetId;
@@ -48,6 +49,7 @@ public class VnNode {
     this.displaySlot = builder.displaySlot;
     this.moveEasingType = builder.moveEasingType;
     this.moveDurationMs = builder.moveDurationMs;
+    this.expressionDurationMs = builder.expressionDurationMs;
     this.externalCommand = builder.externalCommand;
     this.particleCommand = builder.particleCommand;
     this.groupTargetId = builder.groupTargetId;
@@ -71,6 +73,12 @@ public class VnNode {
   public String getDisplaySlot() { return displaySlot; }
   public Easing.Type getMoveEasingType() { return moveEasingType; }
   public long getMoveDurationMs() { return moveDurationMs; }
+  /**
+   * Expression transition duration for move nodes.
+   *
+   * @return milliseconds, or {@code -1} when the runtime default should be used
+   */
+  public long getExpressionDurationMs() { return expressionDurationMs; }
   public VnExternalCommand getExternalCommand() { return externalCommand; }
   public VnParticleCommand getParticleCommand() { return particleCommand; }
   public String getGroupTargetId() { return groupTargetId; }
@@ -96,6 +104,7 @@ public class VnNode {
     private String displaySlot;
     private Easing.Type moveEasingType;
     private long moveDurationMs;
+    private long expressionDurationMs = -1L;
     private VnExternalCommand externalCommand;
     private VnParticleCommand particleCommand;
     private String groupTargetId;
@@ -119,6 +128,7 @@ public class VnNode {
     public Builder displaySlot(String slot) { this.displaySlot = slot; return this; }
     public Builder moveEasingType(Easing.Type easing) { this.moveEasingType = easing; return this; }
     public Builder moveDurationMs(long ms) { this.moveDurationMs = ms; return this; }
+    public Builder expressionDurationMs(long ms) { this.expressionDurationMs = ms; return this; }
     public Builder external(VnExternalCommand cmd) { this.externalCommand = cmd; return this; }
     public Builder particleCommand(VnParticleCommand cmd) { this.particleCommand = cmd; return this; }
     public Builder groupTargetId(String targetId) { this.groupTargetId = targetId; return this; }

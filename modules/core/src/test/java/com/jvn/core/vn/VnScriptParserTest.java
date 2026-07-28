@@ -1061,6 +1061,63 @@ public class VnScriptParserTest {
   }
 
   @Test
+  public void moveCommandSupportsIndependentExpressionDuration() throws Exception {
+    String script = """
+      @label start
+      [move john pos=right expression=talking dur=400 exprDur=120]
+      [end]
+    """;
+
+    VnScenario scenario = new VnScriptParser().parseFromString(script);
+    VnNode move = scenario.getNodes().stream()
+        .filter(n -> n.getType() == VnNodeType.MOVE)
+        .findFirst()
+        .orElseThrow();
+
+    assertEquals(400, move.getMoveDurationMs());
+    assertEquals(120, move.getExpressionDurationMs());
+  }
+
+  @Test
+  public void characterExpressionCommandAcceptsInstantAndDefaultDurations() throws Exception {
+    String instantScript = """
+      @scenario expression_instant
+      @character lily "Lily"
+      @charimg lily neutral neutral.png
+      @charimg lily talking talking.png
+      @label start
+      [show lily center neutral]
+      [character lily expression talking dur=0]
+      [end]
+    """;
+
+    VnScene instantScene = new VnScene(new VnScriptParser().parseFromString(instantScript));
+    instantScene.setInterop(new DefaultVnInterop());
+    instantScene.onEnter();
+
+    assertEquals("talking", instantScene.getState().getCharacterExpression("lily"));
+    assertNull(instantScene.getState().getExpressionTransition("lily"));
+
+    String defaultScript = """
+      @scenario expression_default
+      @character lily "Lily"
+      @charimg lily neutral neutral.png
+      @charimg lily talking talking.png
+      @label start
+      [show lily center talking]
+      [character lily expression neutral]
+      [end]
+    """;
+
+    VnScene defaultScene = new VnScene(new VnScriptParser().parseFromString(defaultScript));
+    defaultScene.setInterop(new DefaultVnInterop());
+    defaultScene.onEnter();
+
+    assertEquals("neutral", defaultScene.getState().getCharacterExpression("lily"));
+    assertNotNull(defaultScene.getState().getExpressionTransition("lily"));
+  }
+
+  @Test
   public void transitionCommandSupportsNamedOptions() throws Exception {
     String script = """
       @label start

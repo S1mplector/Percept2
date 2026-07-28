@@ -96,6 +96,75 @@ class DefaultVnInteropQuotedArgsTest {
   }
 
   @Test
+  void characterExpressionCommandSupportsInstantAndDefaultSwaps() {
+    VnScenario scenario = new VnScenarioBuilder("expression_swap_modes")
+      .addCharacterWithExpressions("lily", "Lily", "neutral.png", "talking.png")
+      .label("start")
+      .end()
+      .build();
+    VnScene scene = new VnScene(scenario);
+    scene.getState().showCharacter(CharacterPosition.CENTER, "lily", "neutral");
+    DefaultVnInterop interop = new DefaultVnInterop();
+
+    interop.handle(new VnExternalCommand("char", "lily expression talking dur=0"), scene);
+    assertEquals("talking", scene.getState().getCharacterExpression("lily"));
+    assertNull(scene.getState().getExpressionTransition("lily"));
+
+    interop.handle(new VnExternalCommand("char", "lily expression neutral"), scene);
+    assertEquals("neutral", scene.getState().getCharacterExpression("lily"));
+    assertNotNull(scene.getState().getExpressionTransition("lily"));
+  }
+
+  @Test
+  void characterMoveAppliesExpressionDurationIndependently() {
+    VnScenario scenario = new VnScenarioBuilder("independent_expression_duration")
+      .addCharacterWithExpressions("john", "John", "neutral.png", "talking.png")
+      .label("start")
+      .end()
+      .build();
+    VnScene scene = new VnScene(scenario);
+    scene.getState().showCharacter(CharacterPosition.CENTER, "john", "neutral");
+    scene.getState().setCharacterGlobalPositionEnabled("john", true);
+    DefaultVnInterop interop = new DefaultVnInterop();
+
+    interop.handle(
+        new VnExternalCommand(
+            "char",
+            "john move right expression=talking dur=400 exprDur=120"),
+        scene);
+
+    assertEquals("neutral", scene.getState().getCharacterExpression("john"));
+    scene.getState().updateCharacterAnimations(400);
+    assertEquals("talking", scene.getState().getCharacterExpression("john"));
+    assertNotNull(scene.getState().getExpressionTransition("john"));
+    scene.getState().updateCharacterAnimations(120);
+    assertNull(scene.getState().getExpressionTransition("john"));
+  }
+
+  @Test
+  void characterMoveAcceptsQuotedExpressionWithInstantDuration() {
+    VnScenario scenario = new VnScenarioBuilder("quoted_expression_duration")
+      .addCharacterWithExpressions("john", "John", "neutral.png")
+      .label("start")
+      .end()
+      .build();
+    VnScene scene = new VnScene(scenario);
+    scene.getState().showCharacter(CharacterPosition.CENTER, "john", "neutral");
+    scene.getState().setCharacterGlobalPositionEnabled("john", true);
+    DefaultVnInterop interop = new DefaultVnInterop();
+
+    interop.handle(
+        new VnExternalCommand(
+            "char",
+            "john move right expression=\"soft smile\" dur=400 exprDur=0"),
+        scene);
+
+    scene.getState().updateCharacterAnimations(400);
+    assertEquals("soft smile", scene.getState().getCharacterExpression("john"));
+    assertNull(scene.getState().getExpressionTransition("john"));
+  }
+
+  @Test
   void laterInlineTimelineMoveReplacesEarlierCharacterDisplacement() {
     VnScenario scenario = new VnScenarioBuilder("timeline_displacement_latest")
       .addCharacterWithExpressions("john", "John", "body.png")

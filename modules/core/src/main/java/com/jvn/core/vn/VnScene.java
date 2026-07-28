@@ -782,13 +782,18 @@ public class VnScene implements Scene {
       }
       String expr = node.getShowExpression() != null ? node.getShowExpression() : null;
       state.showCharacterAnimated(node.getShowPosition(), node.getCharacterToShow(), expr,
-          null, node.getMoveEasingType(), node.getMoveDurationMs(), node.getDisplaySlot());
+          null,
+          node.getMoveEasingType(),
+          node.getMoveDurationMs(),
+          node.getDisplaySlot(),
+          node.getExpressionDurationMs());
     } else if (node.getDisplaySlot() != null && node.getShowPosition() != null) {
       state.moveDisplaySlotAnimated(node.getDisplaySlot(),
           node.getShowPosition(),
           node.getShowExpression(),
           node.getMoveEasingType(),
-          node.getMoveDurationMs());
+          node.getMoveDurationMs(),
+          node.getExpressionDurationMs());
     }
   }
 

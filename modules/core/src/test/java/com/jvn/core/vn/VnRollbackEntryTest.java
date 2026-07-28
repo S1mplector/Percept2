@@ -4,6 +4,7 @@ import com.jvn.core.vn.rollback.VnRollbackEntry;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class VnRollbackEntryTest {
@@ -84,5 +85,21 @@ class VnRollbackEntryTest {
     assertEquals("body", state.getVisibleCharacters().get(bodySlot).getCharacterId());
     assertEquals("head", state.getVisibleCharacters().get(headSlot).getCharacterId());
     assertEquals(10, state.getVisibleCharacters().get(headSlot).getLayerOrder());
+  }
+
+  @Test
+  void rollbackDuringExpressionTransitionRestoresTargetExpressionDeterministically() {
+    VnState state = new VnState();
+    state.showCharacter(CharacterPosition.CENTER, "lily", "neutral");
+    assertTrue(state.setCharacterExpression("lily", "talking", 240));
+    assertTrue(state.getExpressionTransition("lily") != null);
+
+    VnRollbackEntry entry = VnRollbackEntry.capture(state, "Lily", "Line");
+    state.setCharacterExpression("lily", "neutral", 0);
+
+    entry.applyTo(state);
+
+    assertEquals("talking", state.getCharacterExpression("lily"));
+    assertNull(state.getExpressionTransition("lily"));
   }
 }

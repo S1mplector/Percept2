@@ -252,6 +252,16 @@ public class VnScenarioBuilder {
                                  Easing.Type easingType,
                                  long durationMs,
                                  String displaySlot) {
+    return move(characterId, position, expression, easingType, durationMs, displaySlot, -1L);
+  }
+
+  public VnScenarioBuilder move(String characterId,
+                                 CharacterPosition position,
+                                 String expression,
+                                 Easing.Type easingType,
+                                 long durationMs,
+                                 String displaySlot,
+                                 long expressionDurationMs) {
     VnNode.Builder b = VnNode.builder(VnNodeType.MOVE)
         .characterToShow(characterId)
         .showPosition(position)
@@ -259,6 +269,7 @@ public class VnScenarioBuilder {
     if (expression != null) b.showExpression(expression);
     if (easingType != null) b.moveEasingType(easingType);
     if (durationMs > 0) b.moveDurationMs(durationMs);
+    if (expressionDurationMs >= 0L) b.expressionDurationMs(expressionDurationMs);
     scenarioBuilder.addNode(b.build());
     return this;
   }

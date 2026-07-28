@@ -145,4 +145,28 @@ public class VnSavePersistenceTest {
     assertEquals("head", loaded.getVisibleCharacters().get(headSlot).getCharacterId());
     assertEquals(10, loaded.getVisibleCharacters().get(headSlot).getLayerOrder());
   }
+
+  @Test
+  public void saveDuringExpressionTransitionClampsToTargetExpression() throws Exception {
+    VnScenario scenario = new VnScenarioBuilder("transition_save")
+        .addCharacterWithExpressions("lily", "Lily", "neutral.png", "talking.png")
+        .end()
+        .build();
+    VnState state = new VnState();
+    state.setScenario(scenario);
+    state.showCharacter(CharacterPosition.CENTER, "lily", "neutral");
+    assertTrue(state.setCharacterExpression("lily", "talking", 240));
+    assertTrue(state.getExpressionTransition("lily") != null);
+
+    Path tmp = Files.createTempDirectory("vn_transition_save_test");
+    VnSaveManager manager = new VnSaveManager(tmp.toString());
+    manager.save(state, "during_transition");
+
+    VnState loaded = new VnState();
+    loaded.setScenario(scenario);
+    manager.applyToState(manager.load("during_transition"), loaded);
+
+    assertEquals("talking", loaded.getCharacterExpression("lily"));
+    assertTrue(loaded.getExpressionTransition("lily") == null);
+  }
 }

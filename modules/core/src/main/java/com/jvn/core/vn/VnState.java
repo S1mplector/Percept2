@@ -249,6 +249,25 @@ public class VnState {
                                     Easing.Type easingType,
                                     long customDurationMs,
                                     String displaySlot) {
+    showCharacterAnimated(
+        position,
+        characterId,
+        expression,
+        layerOrder,
+        easingType,
+        customDurationMs,
+        displaySlot,
+        -1L);
+  }
+
+  public void showCharacterAnimated(CharacterPosition position,
+                                    String characterId,
+                                    String expression,
+                                    Integer layerOrder,
+                                    Easing.Type easingType,
+                                    long customDurationMs,
+                                    String displaySlot,
+                                    long expressionDurationMs) {
     String normalizedSlot = normalizeDisplaySlotId(displaySlot);
     CharacterPosition baseTarget = fallbackPositionFor(characterId, position);
     CharacterPosition target = displayPositionFor(baseTarget, normalizedSlot);
@@ -256,11 +275,14 @@ public class VnState {
     CharacterSlot existingSlot = existingPos == null ? null : visibleCharacters.get(existingPos);
     String fallbackExpression = existingSlot != null ? existingSlot.getExpression() : "neutral";
     String resolvedExpression = normalizeExpression(expression, fallbackExpression);
+    long resolvedExpressionDurationMs = expressionDurationMs >= 0L
+        ? expressionDurationMs
+        : DEFAULT_EXPRESSION_TRANSITION_MS;
     int resolvedLayerOrder = resolveLayerOrder(baseTarget, layerOrder, existingSlot != null ? existingSlot.getLayerOrder() : null);
 
     if (existingPos != null && existingSlot != null && existingPos.equals(target)) {
       updateVisibleSlotExpression(target, existingSlot, resolvedExpression, resolvedLayerOrder,
-          DEFAULT_EXPRESSION_TRANSITION_MS, null);
+          resolvedExpressionDurationMs, null);
       pendingExpressionSwitches.remove(target);
       ensureCharacterVisual(target);
       if (normalizedSlot.isEmpty() && isCharacterGlobalPositionEnabled(characterId)) {
@@ -281,7 +303,12 @@ public class VnState {
       pendingExpressionSwitches.remove(target);
       if (!resolvedExpression.equals(movingExpression)) {
         pendingExpressionSwitches.put(target, new PendingExpressionSwitch(
-            characterId, normalizedSlot, resolvedExpression, moveDur, DEFAULT_EXPRESSION_TRANSITION_MS, null));
+            characterId,
+            normalizedSlot,
+            resolvedExpression,
+            moveDur,
+            resolvedExpressionDurationMs,
+            null));
       }
       if (normalizedSlot.isEmpty()) {
         characterDefinedPositions.put(characterId, baseTarget);
@@ -312,6 +339,15 @@ public class VnState {
                                          String expression,
                                          Easing.Type easingType,
                                          long customDurationMs) {
+    return moveDisplaySlotAnimated(displaySlot, position, expression, easingType, customDurationMs, -1L);
+  }
+
+  public boolean moveDisplaySlotAnimated(String displaySlot,
+                                         CharacterPosition position,
+                                         String expression,
+                                         Easing.Type easingType,
+                                         long customDurationMs,
+                                         long expressionDurationMs) {
     CharacterPosition existingPos = findDisplaySlotPosition(displaySlot);
     CharacterSlot existingSlot = existingPos == null ? null : visibleCharacters.get(existingPos);
     if (existingSlot == null) return false;
@@ -321,7 +357,8 @@ public class VnState {
         null,
         easingType,
         customDurationMs,
-        existingSlot.getDisplaySlot());
+        existingSlot.getDisplaySlot(),
+        expressionDurationMs);
     return true;
   }
 
@@ -404,6 +441,26 @@ public class VnState {
       }
     }
 
+    if (!expressionTransitions.isEmpty()) {
+      var it = expressionTransitions.entrySet().iterator();
+      while (it.hasNext()) {
+        var entry = it.next();
+        String stateKey = entry.getKey();
+        ExpressionTransition transition = entry.getValue();
+        if (findStateKeyPosition(stateKey) == null && !detachedCharacters.containsKey(stateKey)) {
+          it.remove();
+          continue;
+        }
+        transition.update(deltaMs);
+        if (transition.isFinished()) {
+          it.remove();
+        }
+      }
+    }
+
+    // Start delayed expression swaps after advancing transitions that were
+    // already active at the beginning of this frame. A newly-started
+    // crossfade must not consume the movement frame's entire delta.
     if (!pendingExpressionSwitches.isEmpty()) {
       var it = pendingExpressionSwitches.entrySet().iterator();
       while (it.hasNext()) {
@@ -420,23 +477,6 @@ public class VnState {
         updateVisibleSlotExpression(position, slot, pending.expression, slot.getLayerOrder(),
             pending.transitionDurationMs, pending.easingType);
         it.remove();
-      }
-    }
-
-    if (!expressionTransitions.isEmpty()) {
-      var it = expressionTransitions.entrySet().iterator();
-      while (it.hasNext()) {
-        var entry = it.next();
-        String stateKey = entry.getKey();
-        ExpressionTransition transition = entry.getValue();
-        if (findStateKeyPosition(stateKey) == null && !detachedCharacters.containsKey(stateKey)) {
-          it.remove();
-          continue;
-        }
-        transition.update(deltaMs);
-        if (transition.isFinished()) {
-          it.remove();
-        }
       }
     }
   }
