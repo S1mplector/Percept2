@@ -36,6 +36,7 @@ import com.jvn.core.phone.VnPhoneStateStore;
 import com.jvn.core.project.StoryMapPaths;
 import com.jvn.core.scene.Scene;
 import com.jvn.core.vn.DefaultVnInterop;
+import com.jvn.core.vn.VnAudioCommand;
 import com.jvn.core.vn.VnErrorOverlay;
 import com.jvn.core.vn.VnExternalCommand;
 import com.jvn.core.vn.VnInteropResult;
@@ -98,6 +99,7 @@ public class VnPreviewView extends StackPane {
   private VnScene scene;
   private double mouseX, mouseY;
   private AudioFacade audio;
+  private boolean playbackActive;
   private File projectRoot;
   private String audioBackend = "auto";
   private String sourceScriptName;
@@ -135,6 +137,11 @@ public class VnPreviewView extends StackPane {
   private int virtualHeight = 0;
 
   public VnPreviewView() {
+    this(null);
+  }
+
+  VnPreviewView(AudioFacade audio) {
+    this.audio = audio;
     configureStoryboardHud();
     getChildren().addAll(canvas, phoneRenderer);
     StackPane.setAlignment(storyboardHud, Pos.TOP_RIGHT);
@@ -294,7 +301,7 @@ public class VnPreviewView extends StackPane {
     this.scene = nextScene;
     this.overlayScene = null;
     phoneRenderer.setSceneModel(null);
-    renderer.setAudioFacade(audio);
+    renderer.setAudioFacade(activeAudioFacade());
     this.scene.onEnter();
     storyboardPreviewLine = resolveCurrentStoryboardLine();
     emitStoryboardPreviewLineChanged();
@@ -327,11 +334,32 @@ public class VnPreviewView extends StackPane {
     applyUiOverrides();
     bindProjectRoot(audio, root);
     if (scene != null) {
-      if (audio == null) {
-        audio = createAudioFacade(root, audioBackend);
-      }
-      scene.setAudioFacade(audio);
+      scene.setAudioFacade(playbackActive ? ensureAudioFacade() : null);
     }
+  }
+
+  /**
+   * Enables runtime audio only while a preview surface is actually visible.
+   * Loading and analysing a VNS document keeps this disabled.
+   */
+  public void setPlaybackActive(boolean active) {
+    if (playbackActive == active) return;
+    playbackActive = active;
+    if (!active) {
+      stopAudio();
+      if (scene != null) scene.setAudioFacade(null);
+      renderer.setAudioFacade(null);
+      return;
+    }
+    if (scene == null) return;
+    AudioFacade activeAudio = ensureAudioFacade();
+    scene.setAudioFacade(activeAudio);
+    renderer.setAudioFacade(activeAudio);
+    restoreAmbientBgm();
+  }
+
+  public boolean isPlaybackActive() {
+    return playbackActive;
   }
 
   private void resolveVirtualViewport(File root) {
@@ -582,7 +610,7 @@ public class VnPreviewView extends StackPane {
     this.scene = nextScene;
     this.overlayScene = null;
     phoneRenderer.setSceneModel(null);
-    renderer.setAudioFacade(audio);
+    renderer.setAudioFacade(activeAudioFacade());
     storyboardPreviewLine = resolveCurrentStoryboardLine();
     emitStoryboardPreviewLineChanged();
     applyStoryboardUiState();
@@ -605,9 +633,9 @@ public class VnPreviewView extends StackPane {
     interop.setSceneAccessor(accessor);
     renderer.setTimelineAccessor(accessor);
     nextScene.setInterop(interop);
-    if (audio == null) audio = createAudioFacade(projectRoot, audioBackend);
-    bindProjectRoot(audio, projectRoot);
-    nextScene.setAudioFacade(audio);
+    if (playbackActive) {
+      nextScene.setAudioFacade(ensureAudioFacade());
+    }
     if (settingsTemplate != null) {
       copySettings(settingsTemplate, nextScene.getState().getSettings());
     }
@@ -867,7 +895,7 @@ public class VnPreviewView extends StackPane {
       VnSettings settings = activeScene == null ? null : activeScene.getState().getSettings();
       this.sourceScriptName = normalizeScriptKey(script);
       this.scene = buildScene(loaded, label, sourceScriptName, settings);
-      renderer.setAudioFacade(audio);
+      renderer.setAudioFacade(activeAudioFacade());
       storyboardPreviewLine = resolveCurrentStoryboardLine();
       emitStoryboardPreviewLineChanged();
       applyStoryboardUiState();
@@ -1755,6 +1783,7 @@ public class VnPreviewView extends StackPane {
   }
 
   public void dispose() {
+    playbackActive = false;
     stopAudio();
     scene = null;
     overlayScene = null;
@@ -1763,6 +1792,47 @@ public class VnPreviewView extends StackPane {
     audio = null;
     renderer.setAudioFacade(null);
     renderer.setProjectRoot(null);
+  }
+
+  private AudioFacade activeAudioFacade() {
+    return playbackActive ? audio : null;
+  }
+
+  private AudioFacade ensureAudioFacade() {
+    if (audio == null) {
+      audio = createAudioFacade(projectRoot, audioBackend);
+    }
+    bindProjectRoot(audio, projectRoot);
+    return audio;
+  }
+
+  private void restoreAmbientBgm() {
+    if (!playbackActive || audio == null || scene == null || scene.getScenario() == null) return;
+    stopAudio();
+
+    VnAudioCommand ambient = null;
+    List<VnNode> nodes = scene.getScenario().getNodes();
+    int limit = Math.min(Math.max(0, scene.getState().getCurrentNodeIndex()), nodes.size());
+    for (int i = 0; i < limit; i++) {
+      VnNode node = nodes.get(i);
+      if (node == null || node.getType() != VnNodeType.AUDIO || node.getAudioCommand() == null) continue;
+      VnAudioCommand command = node.getAudioCommand();
+      switch (command.getType()) {
+        case PLAY_BGM -> ambient = command;
+        case STOP_BGM, FADE_OUT_BGM -> ambient = null;
+        default -> {
+          // Historical voice and SFX commands must not replay when the preview becomes visible.
+        }
+      }
+    }
+
+    VnSettings settings = scene.getState().getSettings();
+    audio.setBgmVolume(settings.getBgmVolume());
+    audio.setSfxVolume(settings.getSfxVolume());
+    audio.setVoiceVolume(settings.getVoiceVolume());
+    if (ambient != null && ambient.getTrackId() != null && !ambient.getTrackId().isBlank()) {
+      audio.playBgm(ambient.getTrackId(), ambient.isLoop());
+    }
   }
 
   static String normalizeAudioBackendValue(String raw) {

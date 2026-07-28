@@ -5254,8 +5254,9 @@ public class EditorApp extends Application {
     fullscreenStage.setOnCloseRequest(e -> cleanup.run());
     fullscreenStage.setOnHidden(e -> cleanup.run());
     
-    timer.start();
     fullscreenStage.show();
+    fullscreenPreview.setPlaybackActive(true);
+    timer.start();
     fullscreenPreview.requestFocus();
   }
 
