@@ -140,10 +140,10 @@ public class Camera2D {
    * @param y world Y
    */
   public void setPosition(double x, double y) {
-    this.x = x;
-    this.y = y;
-    this.targetX = x;
-    this.targetY = y;
+    this.x = sanitizeFinite(x, this.x);
+    this.y = sanitizeFinite(y, this.y);
+    this.targetX = this.x;
+    this.targetY = this.y;
     clampToBounds();
   }
 
@@ -154,7 +154,7 @@ public class Camera2D {
    * @param z desired zoom factor
    */
   public void setZoom(double z) {
-    this.zoom = z <= 0 ? 0.0001 : z;
+    this.zoom = !Double.isFinite(z) || z <= 0 ? 0.0001 : z;
     clampToBounds();
   }
 
@@ -230,8 +230,8 @@ public class Camera2D {
    * @param y target world Y
    */
   public void setTarget(double x, double y) {
-    this.targetX = x;
-    this.targetY = y;
+    this.targetX = sanitizeFinite(x, targetX);
+    this.targetY = sanitizeFinite(y, targetY);
     clampToBounds();
   }
 
@@ -248,8 +248,8 @@ public class Camera2D {
    * full camera frame stays inside the configured world bounds.</p>
    */
   public void setViewportSize(double width, double height) {
-    this.viewportWidth = width > 0 ? width : 0.0;
-    this.viewportHeight = height > 0 ? height : 0.0;
+    this.viewportWidth = Double.isFinite(width) && width > 0 ? width : 0.0;
+    this.viewportHeight = Double.isFinite(height) && height > 0 ? height : 0.0;
     clampToBounds();
   }
 
@@ -324,7 +324,9 @@ public class Camera2D {
    *
    * @param ms time constant in milliseconds; 0 = instant snap, 200 = gentle follow
    */
-  public void setSmoothingMs(double ms) { this.smoothingMs = ms < 0 ? 0 : ms; }
+  public void setSmoothingMs(double ms) {
+    this.smoothingMs = Double.isFinite(ms) && ms > 0 ? ms : 0.0;
+  }
 
   // ──────────────────────────────────────────────────────────────────────────
   //  Bounds
@@ -341,6 +343,10 @@ public class Camera2D {
    * @param bottom the other vertical edge
    */
   public void setBounds(double left, double top, double right, double bottom) {
+    left = sanitizeFinite(left, 0.0);
+    top = sanitizeFinite(top, 0.0);
+    right = sanitizeFinite(right, left);
+    bottom = sanitizeFinite(bottom, top);
     this.boundLeft = Math.min(left, right);
     this.boundTop = Math.min(top, bottom);
     this.boundRight = Math.max(left, right);

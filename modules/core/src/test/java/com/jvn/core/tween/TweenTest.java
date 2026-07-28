@@ -155,4 +155,24 @@ public class TweenTest {
     assertEquals(10.0, t.currentValue(), EPS);
     assertTrue(t.isFinished());
   }
+
+  @Test
+  public void hugeInfiniteLoopDeltaAdvancesWithoutIteratingEveryLoop() {
+    Tween t = Tween.from(0).to(10).duration(10).loopForever().yoyo().build();
+
+    double value = t.update(Long.MAX_VALUE);
+
+    assertFalse(t.isFinished());
+    assertTrue(Double.isFinite(value));
+    assertEquals(Integer.MAX_VALUE, t.loopsCompleted(),
+        "the public loop count saturates instead of overflowing");
+  }
+
+  @Test
+  public void invalidLoopCountsGracefullyPlayOnce() {
+    Tween t = Tween.from(0).to(10).duration(10).loops(0).build();
+    t.update(10);
+    assertTrue(t.isFinished());
+    assertEquals(1, t.loopsCompleted());
+  }
 }

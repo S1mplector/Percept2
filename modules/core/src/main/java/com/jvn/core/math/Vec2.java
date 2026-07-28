@@ -97,7 +97,26 @@ public class Vec2 {
    *
    * @return this vector (mutated), now with length ≈ 1.0 (or unchanged if zero)
    */
-  public Vec2 normalize() { double len = length(); if (len != 0) { x /= len; y /= len; } return this; }
+  public Vec2 normalize() {
+    double len = length();
+    if (Double.isFinite(len) && len > 0.0) {
+      x /= len;
+      y /= len;
+    } else if (!Double.isFinite(len)) {
+      zero();
+    }
+    return this;
+  }
+
+  /** @return whether both components are finite real numbers */
+  public boolean isFinite() { return Double.isFinite(x) && Double.isFinite(y); }
+
+  /** Replace non-finite components with zero. */
+  public Vec2 sanitize() {
+    if (!Double.isFinite(x)) x = 0.0;
+    if (!Double.isFinite(y)) y = 0.0;
+    return this;
+  }
 
   /**
    * Compute the dot product of two vectors.
@@ -210,8 +229,9 @@ public class Vec2 {
    * If the vector is already shorter, it is left unchanged. Zero vectors are safe.
    */
   public Vec2 clampLength(double maxLength) {
+    if (!isFinite()) return zero();
     double lenSq = lengthSq();
-    double max = Math.max(0.0, maxLength);
+    double max = Double.isFinite(maxLength) ? Math.max(0.0, maxLength) : 0.0;
     if (lenSq > max * max && lenSq > 0.0) {
       double scale = max / Math.sqrt(lenSq);
       this.x *= scale;
@@ -220,11 +240,29 @@ public class Vec2 {
     return this;
   }
 
-  /** Non-allocating static add: returns a new {@code Vec2} holding {@code a + b}. */
+  /** Static add returning a new {@code Vec2} holding {@code a + b}. */
   public static Vec2 add(Vec2 a, Vec2 b) { return new Vec2(a.x + b.x, a.y + b.y); }
 
-  /** Non-allocating static subtract: returns a new {@code Vec2} holding {@code a - b}. */
+  /** Static subtract returning a new {@code Vec2} holding {@code a - b}. */
   public static Vec2 sub(Vec2 a, Vec2 b) { return new Vec2(a.x - b.x, a.y - b.y); }
+
+  /** Allocation-free add into a caller-owned output vector. */
+  public static Vec2 add(Vec2 a, Vec2 b, Vec2 out) {
+    Vec2 target = out == null ? new Vec2() : out;
+    return target.set(a.x + b.x, a.y + b.y);
+  }
+
+  /** Allocation-free subtract into a caller-owned output vector. */
+  public static Vec2 sub(Vec2 a, Vec2 b, Vec2 out) {
+    Vec2 target = out == null ? new Vec2() : out;
+    return target.set(a.x - b.x, a.y - b.y);
+  }
+
+  /** Allocation-free interpolation into a caller-owned output vector. */
+  public static Vec2 lerp(Vec2 a, Vec2 b, double t, Vec2 out) {
+    Vec2 target = out == null ? new Vec2() : out;
+    return target.set(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
+  }
 
   @Override
   public String toString() { return "Vec2(" + x + ", " + y + ")"; }

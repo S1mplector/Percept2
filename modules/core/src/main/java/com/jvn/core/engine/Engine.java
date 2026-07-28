@@ -182,6 +182,7 @@ public class Engine implements AutoCloseable {
     if (resourcesClosed) {
       throw new IllegalStateException("A stopped engine cannot be restarted after its resources are closed");
     }
+    resetFrameTiming();
     this.started = true;
   }
 
@@ -211,7 +212,13 @@ public class Engine implements AutoCloseable {
       closeResource(resource);
       return resource;
     }
-    boolean alreadyOwned = ownedResources.stream().anyMatch(existing -> existing == resource);
+    boolean alreadyOwned = false;
+    for (int i = 0; i < ownedResources.size(); i++) {
+      if (ownedResources.get(i) == resource) {
+        alreadyOwned = true;
+        break;
+      }
+    }
     if (!alreadyOwned) ownedResources.add(resource);
     return resource;
   }
@@ -251,6 +258,7 @@ public class Engine implements AutoCloseable {
    * Listeners still receive pre/post update callbacks.
    */
   public void setPaused(boolean paused) {
+    if (this.paused && !paused) resetFrameTiming();
     this.paused = paused;
   }
 
@@ -301,15 +309,14 @@ public class Engine implements AutoCloseable {
         return;
       }
 
-      Scene current = sceneManager.peek();
-
       // --- Fixed update phase ---
       if (fixedUpdateMs > 0) {
-        accumulatorMs += effective;
+        accumulatorMs = saturatingAdd(accumulatorMs, effective);
         int steps = 0;
         while (accumulatorMs >= fixedUpdateMs && steps < maxFixedSteps) {
-          if (current != null) {
-            current.fixedUpdate(fixedUpdateMs);
+          Scene fixedScene = sceneManager.peek();
+          if (fixedScene != null) {
+            fixedScene.fixedUpdate(fixedUpdateMs);
           }
           accumulatorMs -= fixedUpdateMs;
           steps++;
@@ -328,12 +335,16 @@ public class Engine implements AutoCloseable {
 
       // --- Variable update phase ---
       tweens.update(effective);
+      Scene current = sceneManager.peek();
       if (current != null) {
         current.update(effective);
       }
 
       // --- Late update phase ---
-      if (current != null) {
+      // A scene that transitioned during update has already received onExit;
+      // do not call into it again, and do not late-update its replacement
+      // before that replacement has received a regular update.
+      if (current != null && sceneManager.peek() == current) {
         current.lateUpdate(effective);
       }
     } finally {
@@ -480,7 +491,12 @@ public class Engine implements AutoCloseable {
    * @param maxSteps maximum fixed steps per frame (min 1) to prevent spiral-of-death
    */
   public void setFixedUpdateStepMs(long stepMs, int maxSteps) {
-    this.fixedUpdateMs = stepMs <= 0 ? 0 : stepMs;
+    long resolvedStep = stepMs <= 0 ? 0 : stepMs;
+    if (this.fixedUpdateMs != resolvedStep) {
+      accumulatorMs = 0;
+      interpolationAlpha = 0.0;
+    }
+    this.fixedUpdateMs = resolvedStep;
     this.maxFixedSteps = Math.max(1, maxSteps);
   }
 
@@ -581,6 +597,17 @@ public class Engine implements AutoCloseable {
     if (timeScale == 1.0) return deltaMs;
     if (timeScale == 0.0) return 0;
     return Math.round(deltaMs * timeScale);
+  }
+
+  private void resetFrameTiming() {
+    smoothedDeltaMs = -1.0;
+    accumulatorMs = 0;
+    interpolationAlpha = 0.0;
+  }
+
+  private static long saturatingAdd(long a, long b) {
+    if (b <= 0) return a;
+    return a > Long.MAX_VALUE - b ? Long.MAX_VALUE : a + b;
   }
 
   // ──────────────────────────────────────────────────────────────────────────

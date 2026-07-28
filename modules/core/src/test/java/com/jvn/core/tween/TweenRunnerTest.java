@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -91,6 +92,28 @@ public class TweenRunnerTest {
     }
     runner.update(16);
     assertEquals(10, updateOrder.size(), "every queued task must update exactly once");
+    assertEquals(0, runner.activeCount());
+  }
+
+  @Test
+  public void throwingTaskDoesNotCorruptCompactionOrDeferredAdds() {
+    TweenRunner runner = new TweenRunner();
+    Counting follower = new Counting("follower", 1);
+    runner.add(new TweenRunner.TweenTask() {
+      @Override public void update(long deltaMs) {
+        runner.add(follower);
+        throw new IllegalStateException("boom");
+      }
+      @Override public boolean isFinished() { return false; }
+    });
+    Counting healthy = new Counting("healthy", 1);
+    runner.add(healthy);
+
+    assertThrows(IllegalStateException.class, () -> runner.update(16));
+
+    assertTrue(healthy.isFinished(), "later tasks should still receive their update");
+    assertEquals(1, runner.activeCount(), "only the deferred follower should remain");
+    runner.update(16);
     assertEquals(0, runner.activeCount());
   }
 }

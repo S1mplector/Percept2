@@ -1,7 +1,6 @@
 package com.jvn.core.scene2d;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
@@ -27,6 +26,9 @@ import java.util.Random;
  * @see Blitter2D#setBlendMode(String)
  */
 public class ParticleEmitter2D extends Entity2D {
+  /** Bound direct emitter updates even when it is driven outside Engine's clamped loop. */
+  private static final double MAX_UPDATE_SECONDS = 0.25;
+  private static final double MIN_LIFE_SECONDS = 0.001;
   public enum RenderMode {
     CIRCLE,
     STREAK
@@ -175,11 +177,16 @@ public class ParticleEmitter2D extends Entity2D {
   // ──────────────────────────────────────────────────────────────────────────
 
   /** @param rate particles per second */
-  public void setEmissionRate(double rate) { this.emissionRate = rate; }
+  public void setEmissionRate(double rate) {
+    this.emissionRate = Double.isFinite(rate) ? Math.max(0.0, rate) : 0.0;
+  }
   /** @return particles per second */
   public double getEmissionRate() { return emissionRate; }
   /** @param max maximum concurrent alive particles */
-  public void setMaxParticles(int max) { this.maxParticles = max; }
+  public void setMaxParticles(int max) {
+    this.maxParticles = Math.max(0, max);
+    trimToMaxParticles();
+  }
   /** @return maximum concurrent alive particles */
   public int getMaxParticles() { return maxParticles; }
   /** @param emit whether continuous emission is active */
@@ -188,7 +195,12 @@ public class ParticleEmitter2D extends Entity2D {
   public boolean isEmitting() { return emitting; }
 
   /** Set the min/max particle lifetime range (seconds). */
-  public void setLifeRange(double min, double max) { this.minLife = min; this.maxLife = max; }
+  public void setLifeRange(double min, double max) {
+    min = positiveFinite(min, MIN_LIFE_SECONDS);
+    max = positiveFinite(max, min);
+    this.minLife = Math.min(min, max);
+    this.maxLife = Math.max(min, max);
+  }
   /** @return minimum lifetime (seconds) */
   public double getMinLife() { return minLife; }
   /** @return maximum lifetime (seconds) */
@@ -196,7 +208,11 @@ public class ParticleEmitter2D extends Entity2D {
 
   /** Set the min/max initial size and the end-of-life size scale factor. */
   public void setSizeRange(double min, double max, double endScale) { 
-    this.minSize = min; this.maxSize = max; this.endSizeScale = endScale; 
+    min = nonNegativeFinite(min, 0.0);
+    max = nonNegativeFinite(max, min);
+    this.minSize = Math.min(min, max);
+    this.maxSize = Math.max(min, max);
+    this.endSizeScale = nonNegativeFinite(endScale, 0.0);
   }
   /** @return minimum initial size */
   public double getMinSize() { return minSize; }
@@ -206,14 +222,24 @@ public class ParticleEmitter2D extends Entity2D {
   public double getEndSizeScale() { return endSizeScale; }
 
   /** Set the min/max initial speed range (world units/sec). */
-  public void setSpeedRange(double min, double max) { this.minSpeed = min; this.maxSpeed = max; }
+  public void setSpeedRange(double min, double max) {
+    min = finiteOrZero(min);
+    max = finiteOrZero(max);
+    this.minSpeed = Math.min(min, max);
+    this.maxSpeed = Math.max(min, max);
+  }
   /** @return minimum initial speed */
   public double getMinSpeed() { return minSpeed; }
   /** @return maximum initial speed */
   public double getMaxSpeed() { return maxSpeed; }
 
   /** Set the emission angle range in degrees. */
-  public void setAngleRange(double min, double max) { this.minAngle = min; this.maxAngle = max; }
+  public void setAngleRange(double min, double max) {
+    min = finiteOrZero(min);
+    max = finiteOrZero(max);
+    this.minAngle = Math.min(min, max);
+    this.maxAngle = Math.max(min, max);
+  }
   /** @return minimum emission angle (degrees) */
   public double getMinAngle() { return minAngle; }
   /** @return maximum emission angle (degrees) */
@@ -225,6 +251,10 @@ public class ParticleEmitter2D extends Entity2D {
    * behaviour.
    */
   public void setSpawnArea(double minX, double maxX, double minY, double maxY) {
+    minX = finiteOrZero(minX);
+    maxX = finiteOrZero(maxX);
+    minY = finiteOrZero(minY);
+    maxY = finiteOrZero(maxY);
     this.minSpawnX = Math.min(minX, maxX);
     this.maxSpawnX = Math.max(minX, maxX);
     this.minSpawnY = Math.min(minY, maxY);
@@ -242,7 +272,7 @@ public class ParticleEmitter2D extends Entity2D {
   public double getMaxSpawnY() { return maxSpawnY; }
 
   /** @param gy vertical gravity acceleration (positive = downward) */
-  public void setGravity(double gy) { this.gravityY = gy; }
+  public void setGravity(double gy) { this.gravityY = finiteOrZero(gy); }
   /** @return vertical gravity */
   public double getGravityY() { return gravityY; }
 
@@ -253,13 +283,16 @@ public class ParticleEmitter2D extends Entity2D {
    *
    * @param wx horizontal acceleration
    */
-  public void setWindX(double wx) { this.windX = wx; }
+  public void setWindX(double wx) { this.windX = finiteOrZero(wx); }
   /** @return horizontal wind acceleration (world units / sec²) */
   public double getWindX() { return windX; }
 
   /** Set the start colour (RGBA, [0.0, 1.0]). */
   public void setStartColor(double r, double g, double b, double a) {
-    this.startR = r; this.startG = g; this.startB = b; this.startA = a;
+    this.startR = clamp01(r);
+    this.startG = clamp01(g);
+    this.startB = clamp01(b);
+    this.startA = clamp01(a);
   }
   /** @return start red */
   public double getStartR() { return startR; }
@@ -272,7 +305,10 @@ public class ParticleEmitter2D extends Entity2D {
 
   /** Set the end colour (RGBA, [0.0, 1.0]). */
   public void setEndColor(double r, double g, double b, double a) {
-    this.endR = r; this.endG = g; this.endB = b; this.endA = a;
+    this.endR = clamp01(r);
+    this.endG = clamp01(g);
+    this.endB = clamp01(b);
+    this.endA = clamp01(a);
   }
   /** @return end red */
   public double getEndR() { return endR; }
@@ -323,7 +359,9 @@ public class ParticleEmitter2D extends Entity2D {
   /** @return particle renderer used when no texture is set */
   public RenderMode getRenderMode() { return renderMode; }
   /** @param scale multiplier applied to velocity magnitude for streak length */
-  public void setStreakLengthScale(double scale) { this.streakLengthScale = Math.max(0.0, scale); }
+  public void setStreakLengthScale(double scale) {
+    this.streakLengthScale = nonNegativeFinite(scale, 0.0);
+  }
   /** @return velocity multiplier used for streak length */
   public double getStreakLengthScale() { return streakLengthScale; }
   /** @param add whether to use additive blend mode */
@@ -396,15 +434,20 @@ public class ParticleEmitter2D extends Entity2D {
    */
   @Override
   public void update(long deltaMs) {
-    double dt = deltaMs / 1000.0;
+    if (deltaMs <= 0) return;
+    double dt = Math.min(deltaMs / 1000.0, MAX_UPDATE_SECONDS);
     
     // Continuous emission: accumulate fractional particles and spawn whole ones
     if (emitting) {
       emissionAccum += emissionRate * dt;
-      while (emissionAccum >= 1.0 && particles.size() < maxParticles) {
+      int capacity = Math.max(0, maxParticles - particles.size());
+      int emitCount = (int) Math.min(capacity, Math.floor(emissionAccum));
+      for (int i = 0; i < emitCount; i++) {
         emit();
-        emissionAccum -= 1.0;
       }
+      emissionAccum -= emitCount;
+      // Do not bank an enormous burst while the emitter is at capacity.
+      if (capacity == emitCount && emissionAccum >= 1.0) emissionAccum %= 1.0;
     }
     
     // Update particles (using swap-and-pop to avoid O(N) array shifts)
@@ -448,53 +491,79 @@ public class ParticleEmitter2D extends Entity2D {
    */
   @Override
   public void render(Blitter2D b) {
-    if (particles.isEmpty()) return;
+    if (b == null || particles.isEmpty()) return;
     
     b.push();
-    if (useAdditive) b.setBlendMode("additive");
-    
-    for (Particle p : particles) {
-      b.push();
-      b.translate(p.x, p.y);
-      b.setGlobalAlpha(p.a);
-
-      String tex = p.texturePath != null ? p.texturePath : texture;
-      if (tex != null) {
-        // Textured quads honour per-particle rotation so authored sprites can spin.
-        b.rotateDeg(p.rotation);
-        double hs = p.size / 2;
-        b.drawImage(tex, -hs, -hs, p.size, p.size);
-      } else if (renderMode == RenderMode.STREAK) {
-        // Streaks self-orient along their velocity vector; applying the random
-        // per-particle rotation here would scramble that alignment, which is
-        // why rain previously rendered as a starburst instead of vertical lines.
-        double speed = Math.hypot(p.vx, p.vy);
-        double len = Math.max(p.size * 3.0, speed * streakLengthScale);
-        double ux = speed > 1e-6 ? p.vx / speed : 0.0;
-        double uy = speed > 1e-6 ? p.vy / speed : 1.0;
-        b.setStroke(p.r, p.g, p.b, 1.0);
-        b.setStrokeWidth(Math.max(0.75, p.size));
-        b.setStrokeCap("round");
-        b.drawLine(-ux * len, -uy * len, ux * len * 0.18, uy * len * 0.18);
-      } else {
-        // Filled circles are rotation-invariant — skip the rotate to avoid
-        // pointless transform churn.
-        b.setFill(p.r, p.g, p.b, p.a);
-        b.fillCircle(0, 0, p.size / 2);
+    try {
+      if (useAdditive) b.setBlendMode("additive");
+      for (Particle p : particles) {
+        b.push();
+        try {
+          b.translate(p.x, p.y);
+          b.setGlobalAlpha(p.a);
+          renderParticle(b, p);
+        } finally {
+          b.pop();
+        }
       }
-
+    } finally {
+      if (useAdditive) b.setBlendMode("normal");
       b.pop();
     }
-    
-    if (useAdditive) b.setBlendMode("normal");
-    b.pop();
+  }
+
+  private void renderParticle(Blitter2D b, Particle p) {
+    String tex = p.texturePath != null ? p.texturePath : texture;
+    if (tex != null) {
+      b.rotateDeg(p.rotation);
+      double hs = p.size / 2;
+      b.drawImage(tex, -hs, -hs, p.size, p.size);
+    } else if (renderMode == RenderMode.STREAK) {
+      double speed = Math.hypot(p.vx, p.vy);
+      double len = Math.max(p.size * 3.0, speed * streakLengthScale);
+      double ux = speed > 1e-6 ? p.vx / speed : 0.0;
+      double uy = speed > 1e-6 ? p.vy / speed : 1.0;
+      b.setStroke(p.r, p.g, p.b, 1.0);
+      b.setStrokeWidth(Math.max(0.75, p.size));
+      b.setStrokeCap("round");
+      b.drawLine(-ux * len, -uy * len, ux * len * 0.18, uy * len * 0.18);
+    } else {
+      b.setFill(p.r, p.g, p.b, p.a);
+      b.fillCircle(0, 0, p.size / 2);
+    }
   }
   
   /** @return the number of currently alive particles */
   public int getParticleCount() { return particles.size(); }
 
   /** Remove all alive particles immediately. */
-  public void clear() { particles.clear(); }
+  public void clear() {
+    pool.addAll(particles);
+    particles.clear();
+    emissionAccum = 0;
+  }
+
+  private void trimToMaxParticles() {
+    while (particles.size() > maxParticles) {
+      pool.add(particles.remove(particles.size() - 1));
+    }
+  }
+
+  private static double finiteOrZero(double value) {
+    return Double.isFinite(value) ? value : 0.0;
+  }
+
+  private static double nonNegativeFinite(double value, double fallback) {
+    return Double.isFinite(value) ? Math.max(0.0, value) : fallback;
+  }
+
+  private static double positiveFinite(double value, double fallback) {
+    return Double.isFinite(value) && value > 0.0 ? value : fallback;
+  }
+
+  private static double clamp01(double value) {
+    return Double.isFinite(value) ? Math.max(0.0, Math.min(1.0, value)) : 0.0;
+  }
 
   private double randomRange(double min, double max) {
     if (Math.abs(max - min) < 1e-9) return min;

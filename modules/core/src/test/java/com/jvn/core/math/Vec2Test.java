@@ -147,6 +147,23 @@ public class Vec2Test {
   }
 
   @Test
+  public void outputOverloadsReuseCallerOwnedStorage() {
+    Vec2 out = new Vec2();
+    assertSame(out, Vec2.add(new Vec2(1, 2), new Vec2(3, 4), out));
+    assertVec(out, 4, 6);
+    assertSame(out, Vec2.lerp(new Vec2(0, 0), new Vec2(10, 20), 0.25, out));
+    assertVec(out, 2.5, 5);
+  }
+
+  @Test
+  public void nonFiniteVectorsSanitizeBeforeNormalization() {
+    Vec2 v = new Vec2(Double.NaN, Double.POSITIVE_INFINITY);
+    v.normalize();
+    assertVec(v, 0, 0);
+    assertTrue(v.isFinite());
+  }
+
+  @Test
   public void toStringIncludesComponents() {
     String s = new Vec2(1.5, -2.25).toString();
     assertTrue(s.contains("1.5"));
