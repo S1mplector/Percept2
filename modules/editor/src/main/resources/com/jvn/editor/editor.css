@@ -3293,6 +3293,101 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-border-color: #b77284;
 }
 
+/* What's New */
+.whats-new-scroll {
+  -fx-background-color: transparent;
+  -fx-background: transparent;
+  -fx-border-color: transparent;
+  -fx-padding: 0;
+}
+
+.whats-new-scroll > .viewport {
+  -fx-background-color: transparent;
+}
+
+.whats-new-content {
+  -fx-padding: 2 8 4 0;
+}
+
+.whats-new-hero {
+  -fx-background-color:
+      radial-gradient(center 12% 20%, radius 85%, rgba(76, 153, 214, 0.18), transparent),
+      linear-gradient(to bottom, #1b222a, #15191e);
+  -fx-background-radius: 11;
+  -fx-border-color: #344454;
+  -fx-border-radius: 11;
+  -fx-padding: 14;
+}
+
+.whats-new-badge {
+  -fx-background-color: linear-gradient(to bottom, #347caf, #215878);
+  -fx-background-radius: 8;
+  -fx-border-color: #6db5e6;
+  -fx-border-radius: 8;
+  -fx-text-fill: #edf8ff;
+  -fx-font-size: 9px;
+  -fx-font-weight: 900;
+  -fx-padding: 3 7 3 7;
+}
+
+.whats-new-version {
+  -fx-text-fill: #a9d8f7;
+  -fx-font-size: 11px;
+  -fx-font-weight: 900;
+}
+
+.whats-new-summary {
+  -fx-text-fill: #e6ebf0;
+  -fx-font-size: 12px;
+  -fx-font-weight: 700;
+}
+
+.whats-new-section {
+  -fx-background-color: linear-gradient(to bottom, #181a1d, #131416);
+  -fx-background-radius: 10;
+  -fx-border-color: #30343a;
+  -fx-border-radius: 10;
+}
+
+.whats-new-section-title {
+  -fx-text-fill: #f0f3f6;
+  -fx-font-size: 12px;
+  -fx-font-weight: 900;
+}
+
+.whats-new-section-summary {
+  -fx-text-fill: #929ba6;
+  -fx-font-size: 10px;
+  -fx-font-weight: 700;
+}
+
+.whats-new-change-row {
+  -fx-padding: 2 0 0 0;
+}
+
+.whats-new-change-marker {
+  -fx-background-color: #214c3a;
+  -fx-background-radius: 8;
+  -fx-text-fill: #a9edc9;
+  -fx-font-size: 9px;
+  -fx-font-weight: 900;
+  -fx-alignment: center;
+  -fx-padding: 2 4 2 4;
+}
+
+.whats-new-change-text {
+  -fx-text-fill: #c7cdd4;
+  -fx-font-size: 11px;
+  -fx-font-weight: 600;
+}
+
+.whats-new-footer {
+  -fx-text-fill: #737d88;
+  -fx-font-size: 10px;
+  -fx-font-weight: 700;
+  -fx-padding: 1 4 0 4;
+}
+
 /* Expression keyframe editor */
 .expression-keyframe-dialog {
   -fx-padding: 2 4 4 4;

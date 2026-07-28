@@ -4032,16 +4032,16 @@ public class VnRenderer {
   // ─── Error Overlay ─────────────────────────────────────────────────
 
   private static final Color ERROR_BG_COLOR = Color.rgb(28, 30, 34, 0.97);
-  private static final Color ERROR_HEADER_COLOR = Color.rgb(230, 62, 72);
   private static final Color ERROR_TEXT_COLOR = Color.web("#F2F2F2");
   private static final Color ERROR_DIM_TEXT_COLOR = Color.web("#C8CDD4");
   private static final Color ERROR_BOX_COLOR = Color.rgb(18, 20, 24, 0.88);
   private static final Color ERROR_ACCENT_COLOR = Color.rgb(230, 62, 72);
   private static final Color ERROR_PANEL_BORDER_COLOR = Color.rgb(86, 92, 102);
-  private static final Color ERROR_RULE_COLOR = Color.rgb(112, 118, 128);
   private static final Color ERROR_BUTTON_COLOR = Color.rgb(56, 60, 68);
   private static final Color ERROR_BUTTON_HOVER_COLOR = Color.rgb(76, 82, 92);
   private static final Color ERROR_BUTTON_TEXT_COLOR = Color.web("#F0F3F7");
+  private static final Color ERROR_PRIMARY_BUTTON_COLOR = Color.web("#236b9a");
+  private static final Color ERROR_PRIMARY_BUTTON_HOVER_COLOR = Color.web("#2e84b9");
 
   /**
    * Renders a full-screen error overlay, similar to Ren'Py's traceback screen.
@@ -4052,104 +4052,136 @@ public class VnRenderer {
    * @param height  canvas height
    * @param mouseX  mouse x for button hover
    * @param mouseY  mouse y for button hover
-   * @return index of hovered button (0=Ignore, 1=Reload, 2=Copy) or -1
+   * @return index of hovered button (0=Continue, 1=Reload, 2=Copy Details) or -1
    */
   public int renderErrorOverlay(com.jvn.core.vn.VnErrorOverlay error,
                                  double width, double height,
                                  double mouseX, double mouseY) {
     if (error == null) return -1;
 
-    // Full-screen neutral traceback background.
+    // Preserve the existing full-screen safety surface, but organize it like a
+    // recoverable runtime interruption rather than a raw traceback dump.
     gc.setFill(ERROR_BG_COLOR);
     gc.fillRect(0, 0, width, height);
-
-    // Subtle gradient stripe at top
     gc.setFill(new LinearGradient(0, 0, 0, 6, false, CycleMethod.NO_CYCLE,
         new Stop(0, ERROR_ACCENT_COLOR), new Stop(1, Color.TRANSPARENT)));
     gc.fillRect(0, 0, width, 6);
 
-    double padding = Math.max(28, width * 0.04);
-    double contentX = padding;
-    double contentW = width - padding * 2;
-    double y = padding + 10;
+    double outerPadding = Math.max(16, Math.min(42, width * 0.045));
+    double contentW = Math.min(1080, Math.max(240, width - outerPadding * 2));
+    double contentX = (width - contentW) * 0.5;
+    double y = Math.max(20, Math.min(36, height * 0.045));
 
-    // Title
-    Font titleFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.BOLD, Math.min(34, Math.max(26, height * 0.046)));
+    // Clear error marker and title.
+    double markerSize = Math.min(38, Math.max(30, height * 0.055));
+    gc.setFill(Color.rgb(88, 30, 36, 0.96));
+    gc.fillOval(contentX, y, markerSize, markerSize);
+    gc.setStroke(Color.rgb(244, 100, 108, 0.92));
+    gc.setLineWidth(1.5);
+    gc.strokeOval(contentX + 0.75, y + 0.75, markerSize - 1.5, markerSize - 1.5);
+    Font markerFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.BOLD, markerSize * 0.66);
+    gc.setFont(markerFont);
+    gc.setFill(Color.web("#FFE4E6"));
+    gc.fillText("!", contentX + markerSize * 0.40, y + markerSize * 0.73);
+
+    Font titleFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.BOLD,
+        Math.min(30, Math.max(21, height * 0.040)));
     gc.setFont(titleFont);
-    gc.setFill(ERROR_HEADER_COLOR);
-    gc.fillText(error.getTitle(), contentX, y + titleFont.getSize());
-    y += titleFont.getSize() + 16;
+    gc.setFill(ERROR_TEXT_COLOR);
+    String title = error.getTitle() == null || error.getTitle().isBlank()
+        ? "Runtime Error"
+        : error.getTitle();
+    gc.fillText(title, contentX + markerSize + 14, y + titleFont.getSize());
 
-    // Separator line
-    gc.setStroke(ERROR_RULE_COLOR);
-    gc.setLineWidth(2);
-    gc.strokeLine(contentX, y, contentX + contentW, y);
-    y += 20;
+    Font subtitleFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.NORMAL,
+        Math.min(15, Math.max(12, height * 0.020)));
+    String subtitle = switch (error.getType()) {
+      case PARSE_ERROR, DSL_PARSE_ERROR, COMPILATION_ERROR ->
+          "The script could not be loaded. Fix the source, then reload to try again.";
+      default ->
+          "Playback paused safely. You can reload, copy the details, or continue past this error.";
+    };
+    gc.setFont(subtitleFont);
+    gc.setFill(ERROR_DIM_TEXT_COLOR);
+    gc.fillText(subtitle, contentX + markerSize + 14,
+        y + titleFont.getSize() + subtitleFont.getSize() + 5);
+    y += Math.max(markerSize, titleFont.getSize() + subtitleFont.getSize() + 7) + 14;
 
-    // Location info
-    Font infoFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.NORMAL, Math.min(20, Math.max(16, height * 0.025)));
+    // Compact source/type metadata keeps the cause in view on smaller windows.
+    Font infoFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.BOLD,
+        Math.min(14, Math.max(11, height * 0.018)));
+    String source = error.getSourceName() == null || error.getSourceName().isBlank()
+        ? "Unknown source"
+        : error.getSourceName();
+    String location = error.getLineNumber() > 0 ? source + ":" + error.getLineNumber() : source;
+    String type = error.getType().name().replace('_', ' ');
+    String timeStr = new java.text.SimpleDateFormat("HH:mm:ss").format(new java.util.Date(error.getTimestamp()));
+    String metadata = location + "   •   " + type + "   •   " + timeStr;
     gc.setFont(infoFont);
     gc.setFill(ERROR_DIM_TEXT_COLOR);
+    gc.fillText(metadata, contentX, y + infoFont.getSize());
+    y += infoFont.getSize() + 12;
 
-    if (error.getSourceName() != null && !error.getSourceName().isEmpty()) {
-      gc.fillText("File:  " + error.getSourceName(), contentX, y + infoFont.getSize());
-      y += infoFont.getSize() + 6;
-    }
-    if (error.getLineNumber() > 0) {
-      gc.fillText("Line:  " + error.getLineNumber(), contentX, y + infoFont.getSize());
-      y += infoFont.getSize() + 6;
-    }
-    gc.fillText("Type:  " + error.getType().name().replace('_', ' '), contentX, y + infoFont.getSize());
-    y += infoFont.getSize() + 16;
+    double buttonH = Math.min(44, Math.max(38, height * 0.065));
+    double buttonY = Math.max(8, height - outerPadding - buttonH);
+    double bodyBottom = buttonY - 16;
+    double bodyAvailable = Math.max(72, bodyBottom - y);
 
-    if (error.getRawLine() != null && !error.getRawLine().isBlank()) {
-      gc.setFont(infoFont);
-      gc.setFill(ERROR_DIM_TEXT_COLOR);
-      gc.fillText("Script Line:", contentX, y + infoFont.getSize());
-      y += infoFont.getSize() + 8;
-      double lineBoxH = Math.min(height * 0.09, 68);
-      gc.setFill(ERROR_BOX_COLOR);
-      gc.fillRoundRect(contentX, y, contentW, lineBoxH, 8, 8);
-      gc.setStroke(ERROR_PANEL_BORDER_COLOR);
-      gc.setLineWidth(1);
-      gc.strokeRoundRect(contentX, y, contentW, lineBoxH, 8, 8);
-      Font lineFont = Font.font("Monospaced", FontWeight.BOLD, Math.min(18, Math.max(15, height * 0.022)));
-      gc.setFont(lineFont);
-      gc.setFill(ERROR_TEXT_COLOR);
-      drawWrappedText(error.getRawLine(), contentX + 14, y + 22, contentW - 28, lineBoxH - 10, lineFont);
-      y += lineBoxH + 16;
-    }
+    Font sectionFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.BOLD,
+        Math.min(15, Math.max(12, height * 0.019)));
+    Font msgFont = Font.font("Monospaced", FontWeight.NORMAL,
+        Math.min(15, Math.max(12, height * 0.019)));
 
-    // Cause message box
-    Font causeFont = Font.font(DEFAULT_FONT_FAMILY, FontWeight.BOLD, Math.min(22, Math.max(18, height * 0.028)));
-    gc.setFont(causeFont);
-    gc.setFill(ERROR_TEXT_COLOR);
-    gc.fillText("Cause:", contentX, y + causeFont.getSize());
-    y += causeFont.getSize() + 8;
-
+    // The human-readable cause is always first and always visible.
     String message = error.getMessage() != null ? error.getMessage() : "(unknown error)";
-    double msgBoxH = Math.min(height * 0.13, 96);
+    gc.setFont(sectionFont);
+    gc.setFill(ERROR_TEXT_COLOR);
+    gc.fillText("What happened", contentX, y + sectionFont.getSize());
+    y += sectionFont.getSize() + 7;
+    double messageRoom = Math.max(34, bodyBottom - y);
+    double msgBoxH = Math.min(92, Math.max(54, Math.min(bodyAvailable * 0.25, messageRoom)));
     gc.setFill(ERROR_BOX_COLOR);
     gc.fillRoundRect(contentX, y, contentW, msgBoxH, 8, 8);
     gc.setStroke(ERROR_PANEL_BORDER_COLOR);
     gc.setLineWidth(1);
     gc.strokeRoundRect(contentX, y, contentW, msgBoxH, 8, 8);
 
-    Font msgFont = Font.font("Monospaced", FontWeight.NORMAL, Math.min(18, Math.max(15, height * 0.022)));
     gc.setFont(msgFont);
     gc.setFill(ERROR_TEXT_COLOR);
-    // Word-wrap the message into the box
     drawWrappedText(message, contentX + 14, y + 22, contentW - 28, msgBoxH - 10, msgFont);
-    y += msgBoxH + 20;
+    y += msgBoxH + 12;
+
+    String rawLine = error.getRawLine();
+    boolean showRawLine = rawLine != null && !rawLine.isBlank() && y + 72 <= bodyBottom;
+    if (showRawLine) {
+      gc.setFont(sectionFont);
+      gc.setFill(ERROR_TEXT_COLOR);
+      gc.fillText("Source line", contentX, y + sectionFont.getSize());
+      y += sectionFont.getSize() + 7;
+      double lineBoxH = Math.min(66, bodyBottom - y);
+      gc.setFill(ERROR_BOX_COLOR);
+      gc.fillRoundRect(contentX, y, contentW, lineBoxH, 8, 8);
+      gc.setStroke(ERROR_PANEL_BORDER_COLOR);
+      gc.setLineWidth(1);
+      gc.strokeRoundRect(contentX, y, contentW, lineBoxH, 8, 8);
+      Font lineFont = Font.font("Monospaced", FontWeight.BOLD,
+          Math.min(14, Math.max(11, height * 0.018)));
+      gc.setFont(lineFont);
+      gc.setFill(ERROR_TEXT_COLOR);
+      drawWrappedText(rawLine, contentX + 14, y + 20, contentW - 28, lineBoxH - 10, lineFont);
+      y += lineBoxH + 12;
+    }
 
     String likelyCause = error.getLikelyCause();
-    if (likelyCause != null && !likelyCause.isBlank()) {
-      gc.setFont(causeFont);
+    boolean showLikelyCause = likelyCause != null && !likelyCause.isBlank()
+        && y + 90 <= bodyBottom;
+    if (showLikelyCause) {
+      gc.setFont(sectionFont);
       gc.setFill(ERROR_TEXT_COLOR);
-      gc.fillText("Likely Went Wrong:", contentX, y + causeFont.getSize());
-      y += causeFont.getSize() + 8;
+      gc.fillText("Likely cause", contentX, y + sectionFont.getSize());
+      y += sectionFont.getSize() + 7;
 
-      double likelyBoxH = Math.min(height * 0.14, 106);
+      double likelyBoxH = Math.min(88, Math.max(62, (bodyBottom - y) * 0.34));
       gc.setFill(ERROR_BOX_COLOR);
       gc.fillRoundRect(contentX, y, contentW, likelyBoxH, 8, 8);
       gc.setStroke(ERROR_PANEL_BORDER_COLOR);
@@ -4159,64 +4191,66 @@ public class VnRenderer {
       gc.setFont(msgFont);
       gc.setFill(ERROR_TEXT_COLOR);
       drawWrappedText(likelyCause, contentX + 14, y + 22, contentW - 28, likelyBoxH - 10, msgFont);
-      y += likelyBoxH + 20;
+      y += likelyBoxH + 12;
     }
 
-    // Stack trace area (scrollable-looking panel)
+    // Technical details use only the remaining room; Copy Details always
+    // includes them even when the viewport is too small to show them.
     String trace = error.getStackTrace();
-    if (trace != null && !trace.isEmpty()) {
-      gc.setFont(infoFont);
+    if (trace != null && !trace.isBlank() && y + 72 <= bodyBottom) {
+      gc.setFont(sectionFont);
       gc.setFill(ERROR_DIM_TEXT_COLOR);
-      gc.fillText("Stack Trace:", contentX, y + infoFont.getSize());
-      y += infoFont.getSize() + 8;
-
-      double traceBoxH = Math.min(height * 0.32, height - y - 92);
-      traceBoxH = Math.max(traceBoxH, 80);
+      gc.fillText("Technical details", contentX, y + sectionFont.getSize());
+      y += sectionFont.getSize() + 7;
+      double traceBoxH = Math.max(54, bodyBottom - y);
       gc.setFill(ERROR_BOX_COLOR);
       gc.fillRoundRect(contentX, y, contentW, traceBoxH, 8, 8);
       gc.setStroke(ERROR_PANEL_BORDER_COLOR);
       gc.setLineWidth(1);
       gc.strokeRoundRect(contentX, y, contentW, traceBoxH, 8, 8);
-
-      Font traceFont = Font.font("Monospaced", FontWeight.NORMAL, Math.min(15, Math.max(13, height * 0.018)));
+      Font traceFont = Font.font("Monospaced", FontWeight.NORMAL,
+          Math.min(13, Math.max(10, height * 0.016)));
       gc.setFont(traceFont);
       gc.setFill(ERROR_DIM_TEXT_COLOR);
-      drawWrappedText(trace, contentX + 14, y + 20, contentW - 28, traceBoxH - 14, traceFont);
-      y += traceBoxH + 16;
+      drawWrappedText(trace, contentX + 14, y + 18, contentW - 28, traceBoxH - 12, traceFont);
     }
 
-    // Action buttons at bottom
-    double buttonY = Math.max(y + 12, height - 68);
-    double buttonH = 44;
-    double buttonW = 156;
-    double buttonGap = 16;
-    double buttonsStartX = contentX;
+    double buttonGap = Math.max(8, Math.min(14, contentW * 0.018));
+    double buttonW = Math.min(164, (contentW - buttonGap * 2) / 3.0);
+    double buttonsWidth = buttonW * 3 + buttonGap * 2;
+    double buttonsStartX = contentX + Math.max(0, contentW - buttonsWidth);
     int hoveredButton = -1;
 
-    String[] labels = {"Ignore", "Reload", "Copy Traceback"};
+    if (contentW - buttonsWidth >= 250) {
+      gc.setFont(Font.font(DEFAULT_FONT_FAMILY, FontWeight.NORMAL,
+          Math.min(12, Math.max(10, height * 0.016))));
+      gc.setFill(ERROR_DIM_TEXT_COLOR);
+      gc.fillText("Enter / R  Reload    Esc  Continue    C  Copy",
+          contentX, buttonY + buttonH / 2 + 5);
+    }
+
+    String[] labels = {"Continue", "Reload Script", "Copy Details"};
     for (int i = 0; i < labels.length; i++) {
       double bx = buttonsStartX + i * (buttonW + buttonGap);
       boolean hovered = mouseX >= bx && mouseX <= bx + buttonW
           && mouseY >= buttonY && mouseY <= buttonY + buttonH;
       if (hovered) hoveredButton = i;
 
-      gc.setFill(hovered ? ERROR_BUTTON_HOVER_COLOR : ERROR_BUTTON_COLOR);
+      boolean primary = i == 1;
+      gc.setFill(primary
+          ? (hovered ? ERROR_PRIMARY_BUTTON_HOVER_COLOR : ERROR_PRIMARY_BUTTON_COLOR)
+          : (hovered ? ERROR_BUTTON_HOVER_COLOR : ERROR_BUTTON_COLOR));
       gc.fillRoundRect(bx, buttonY, buttonW, buttonH, 6, 6);
-      gc.setStroke(ERROR_PANEL_BORDER_COLOR);
+      gc.setStroke(primary ? Color.web("#7cc8f4") : ERROR_PANEL_BORDER_COLOR);
       gc.setLineWidth(1);
       gc.strokeRoundRect(bx, buttonY, buttonW, buttonH, 6, 6);
 
-      gc.setFont(Font.font(DEFAULT_FONT_FAMILY, FontWeight.BOLD, 15));
+      gc.setFont(Font.font(DEFAULT_FONT_FAMILY, FontWeight.BOLD,
+          Math.min(14, Math.max(11, buttonW / 11.0))));
       gc.setFill(ERROR_BUTTON_TEXT_COLOR);
       double textW = computeTextWidth(labels[i], gc.getFont());
       gc.fillText(labels[i], bx + (buttonW - textW) / 2, buttonY + buttonH / 2 + 6);
     }
-
-    // Timestamp in bottom-right corner
-    gc.setFont(Font.font(DEFAULT_FONT_FAMILY, FontWeight.NORMAL, 12));
-    gc.setFill(ERROR_DIM_TEXT_COLOR);
-    String timeStr = new java.text.SimpleDateFormat("HH:mm:ss").format(new java.util.Date(error.getTimestamp()));
-    gc.fillText(timeStr, width - padding - 60, height - 12);
 
     return hoveredButton;
   }
@@ -4229,28 +4263,51 @@ public class VnRenderer {
     double currentY = y;
     String[] lines = text.split("\n");
     for (String line : lines) {
-      if (currentY + lineH > y + maxHeight) {
-        gc.fillText("...", x, currentY);
-        break;
-      }
-      // Simple character-based wrapping
       if (line.isEmpty()) {
         currentY += lineH;
         continue;
       }
-      double charW = font.getSize() * 0.62; // Approx monospace char width
-      int charsPerLine = Math.max(1, (int) (maxWidth / charW));
-      int pos = 0;
-      while (pos < line.length()) {
+      String remaining = line;
+      while (!remaining.isEmpty()) {
         if (currentY + lineH > y + maxHeight) {
-          gc.fillText("...", x, currentY);
+          gc.fillText("…", x, Math.min(currentY, y + maxHeight));
           return;
         }
-        int end = Math.min(pos + charsPerLine, line.length());
-        gc.fillText(line.substring(pos, end), x, currentY);
+        int end = fittingTextEnd(remaining, maxWidth, font);
+        if (end < remaining.length()) {
+          int whitespace = lastWhitespaceBefore(remaining, end);
+          if (whitespace >= Math.max(1, end / 3)) end = whitespace;
+        }
+        end = Math.max(1, end);
+        String visualLine = remaining.substring(0, end).stripTrailing();
+        gc.fillText(visualLine, x, currentY);
         currentY += lineH;
-        pos = end;
+        remaining = remaining.substring(end).stripLeading();
       }
     }
+  }
+
+  private int fittingTextEnd(String text, double maxWidth, Font font) {
+    if (text == null || text.isEmpty()) return 0;
+    if (computeTextWidth(text, font) <= maxWidth) return text.length();
+    int low = 1;
+    int high = text.length();
+    while (low < high) {
+      int mid = (low + high + 1) >>> 1;
+      if (computeTextWidth(text.substring(0, mid), font) <= maxWidth) {
+        low = mid;
+      } else {
+        high = mid - 1;
+      }
+    }
+    return low;
+  }
+
+  private static int lastWhitespaceBefore(String text, int end) {
+    int safeEnd = Math.min(text == null ? 0 : text.length(), Math.max(0, end));
+    for (int i = safeEnd - 1; i > 0; i--) {
+      if (Character.isWhitespace(text.charAt(i))) return i;
+    }
+    return -1;
   }
 }

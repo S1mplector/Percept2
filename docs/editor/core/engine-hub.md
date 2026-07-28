@@ -165,16 +165,13 @@ The hub exposes the main workspace actions as buttons:
 
 The hub shows a compact status strip instead of a terminal-style output panel. Long task output is reduced to simple progress and completion messages.
 
-## Maintenance And Announcements
+## Maintenance State
 
-The hub reads dynamic workspace state from committed files under `.jvn/`:
+The hub reads launcher maintenance state from the committed `.jvn/maintenance.properties`
+file. It currently supports `launcher.maintenance` and `launcher.message`.
 
-| File | Purpose |
-|------|---------|
-| `.jvn/maintenance.properties` | Feature-level maintenance flags, currently including `launcher.maintenance` and `launcher.message` |
-| `.jvn/announcements.md` | Hub announcement cards shown from the bell button |
-
-The running hub re-reads both files after a successful **Update Engine** action. That means a launcher maintenance badge or announcement can appear or disappear after updating the engine without closing and reopening the hub.
+The running hub re-reads this file after a successful **Update Engine** action, so the
+launcher maintenance state can change without closing and reopening the hub.
 
 When `launcher.maintenance=true`, the **Run Launcher** button stays visible but displays a striped maintenance state. Clicking it shows the configured message instead of launching the standalone launcher. The default committed state is `launcher.maintenance=false`, so the launcher opens normally.
 

@@ -34,6 +34,7 @@ public final class EditorPreferences {
   private boolean launcherConfirmRunProject;
   private boolean launcherRuntimePerfHud;
   private boolean gradleSkipTestsOnRun;
+  private String lastSeenWhatsNewVersion = "";
   private final EnumMap<EditorSidebarPanel, EditorPanelPlacement> panelPlacements =
       new EnumMap<>(EditorSidebarPanel.class);
   private final EnumMap<EditorSidebarPanel, Boolean> chooserVisibility =
@@ -279,6 +280,14 @@ public final class EditorPreferences {
     this.gradleSkipTestsOnRun = gradleSkipTestsOnRun;
   }
 
+  public String getLastSeenWhatsNewVersion() {
+    return lastSeenWhatsNewVersion;
+  }
+
+  public void setLastSeenWhatsNewVersion(String lastSeenWhatsNewVersion) {
+    this.lastSeenWhatsNewVersion = cleanText(lastSeenWhatsNewVersion);
+  }
+
   public EditorPanelPlacement getPlacement(EditorSidebarPanel panel) {
     if (panel == null) return EditorPanelPlacement.HIDDEN;
     EditorPanelPlacement placement = panelPlacements.getOrDefault(panel, panel.defaultPlacement());
@@ -386,6 +395,7 @@ public final class EditorPreferences {
     c.centerDividerRight = this.centerDividerRight;
     c.activeLeftTab = this.activeLeftTab;
     c.activeRightTab = this.activeRightTab;
+    c.lastSeenWhatsNewVersion = this.lastSeenWhatsNewVersion;
     c.statusBarVisibility.clear();
     c.statusBarVisibility.putAll(this.statusBarVisibility);
     return c;

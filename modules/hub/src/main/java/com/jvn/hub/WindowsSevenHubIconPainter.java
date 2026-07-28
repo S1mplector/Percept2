@@ -58,7 +58,6 @@ final class WindowsSevenHubIconPainter {
         case "DIAGNOSTICS" -> paintDiagnostics(g);
         case "ABOUT" -> paintAbout(g);
         case "DOCUMENTATION" -> paintDocumentation(g);
-        case "ANNOUNCEMENTS" -> paintAnnouncements(g);
         default -> {
           return false;
         }
@@ -368,25 +367,6 @@ final class WindowsSevenHubIconPainter {
     g.drawLine(14, 9, 19, 9); g.drawLine(14, 12, 19, 12);
     g.setColor(ORANGE);
     g.fillPolygon(new int[] {14, 17, 17, 15}, new int[] {14, 14, 21, 19}, 4);
-  }
-
-  private static void paintAnnouncements(Graphics2D g) {
-    chromeOrb(g);
-    Path2D bell = new Path2D.Float();
-    bell.moveTo(12, 5);
-    bell.curveTo(16, 5, 17, 9, 17, 13);
-    bell.lineTo(19, 17); bell.lineTo(5, 17); bell.lineTo(7, 13);
-    bell.curveTo(7, 9, 8, 5, 12, 5); bell.closePath();
-    g.setPaint(new LinearGradientPaint(7, 5, 17, 18,
-        new float[] {0f, 0.48f, 1f}, new Color[] {WHITE, SILVER, GRAPHITE}));
-    g.fill(bell);
-    g.setColor(BLACK);
-    g.draw(bell);
-    g.setColor(ORANGE);
-    g.fillOval(10, 18, 4, 3);
-    g.fill(new Ellipse2D.Float(16.5f, 5.5f, 3.2f, 3.2f));
-    g.setColor(WHITE);
-    g.fill(new Ellipse2D.Float(17.1f, 6f, 0.9f, 0.9f));
   }
 
   private static void chromeTile(Graphics2D g, float x, float y, float width, float height, float arc) {

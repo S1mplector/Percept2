@@ -30,6 +30,8 @@ import com.jvn.editor.ui.RunConsoleView;
 import com.jvn.editor.ui.StartupSplashOverlay;
 import com.jvn.editor.ui.ShutdownSplashOverlay;
 import com.jvn.editor.ui.WelcomeCenterView;
+import com.jvn.editor.ui.WhatsNewCatalog;
+import com.jvn.editor.ui.WhatsNewDialog;
 
 import javafx.animation.PauseTransition;
 import javafx.application.Application;
@@ -290,7 +292,7 @@ public class JvnLauncherApp extends Application {
     statusBar.setOnOpenSettings(this::showLauncherSettings);
     statusLabel.textProperty().bindBidirectional(statusBar.messageLabel().textProperty());
 
-    MenuBar menuBar = buildMenuBar();
+    MenuBar menuBar = buildMenuBar(buildInfo);
     if (DEVELOPER_MODE) {
       developerLogPanel = new DeveloperLogPanel("Logs", this::developerLogRoots);
       root.setTop(new VBox(menuBar, developerLogPanel));
@@ -325,6 +327,7 @@ public class JvnLauncherApp extends Application {
     setCurrentProject(resolveStartupProject(), false);
     refreshButtonState();
     statusLabel.setText("Workspace: " + displayPath(workspaceRoot));
+    Platform.runLater(() -> maybeShowWhatsNew(buildInfo));
   }
 
   private static String startupLogLine(String level, String category, String detail) {
@@ -379,7 +382,7 @@ public class JvnLauncherApp extends Application {
     }
   }
 
-  private MenuBar buildMenuBar() {
+  private MenuBar buildMenuBar(AppBuildInfo.BuildInfo buildInfo) {
     MenuBar menuBar = new MenuBar();
     menuBar.getStyleClass().add("jvn-launcher-menubar");
 
@@ -447,11 +450,14 @@ public class JvnLauncherApp extends Application {
     menuView.setOnShowing(e -> syncTheme.run());
 
     Menu menuHelp = new Menu("Help");
+    MenuItem miWhatsNew = new MenuItem("What's New in " + buildInfo.versionLabel());
+    miWhatsNew.setOnAction(e ->
+        WhatsNewDialog.show(primaryStage, WhatsNewCatalog.forVersion(buildInfo.versionLabel())));
     MenuItem miAbout = new MenuItem("About JVN Launcher");
     miAbout.setOnAction(e -> EditorDialogs.info(primaryStage,
         "About JVN Launcher",
-        "JVN Launcher " + AppBuildInfo.resolve(JvnLauncherApp.class).fullLabel()));
-    menuHelp.getItems().add(miAbout);
+        "JVN Launcher " + buildInfo.fullLabel()));
+    menuHelp.getItems().addAll(miWhatsNew, miAbout);
 
     menuBar.getMenus().addAll(menuFile, menuEdit, menuProject, menuView);
     if (DEVELOPER_MODE) {
@@ -463,6 +469,24 @@ public class JvnLauncherApp extends Application {
     }
     menuBar.getMenus().add(menuHelp);
     return menuBar;
+  }
+
+  private void maybeShowWhatsNew(AppBuildInfo.BuildInfo buildInfo) {
+    if (buildInfo == null || editorPreferences == null) return;
+    String currentVersion = buildInfo.versionLabel();
+    if (!WhatsNewCatalog.shouldShow(
+        currentVersion,
+        editorPreferences.getLastSeenWhatsNewVersion())) {
+      return;
+    }
+
+    WhatsNewDialog.show(primaryStage, WhatsNewCatalog.forVersion(currentVersion));
+    editorPreferences.setLastSeenWhatsNewVersion(currentVersion);
+    try {
+      editorPreferencesStore.save(editorPreferences);
+    } catch (Exception ex) {
+      statusLabel.setText("Could not remember the displayed release notes: " + ex.getMessage());
+    }
   }
 
   private void chooseProjectDirectory() {

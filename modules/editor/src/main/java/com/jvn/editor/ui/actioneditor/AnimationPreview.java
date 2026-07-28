@@ -11,6 +11,8 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
+import org.jspecify.annotations.Nullable;
+
 import com.jvn.core.graphics.Camera2D;
 import com.jvn.core.graphics.ViewportScaler2D;
 import com.jvn.core.input.Input;
@@ -441,6 +443,7 @@ public class AnimationPreview extends VBox {
     private String matrixOverlayText = null;
     private double matrixOverlayScreenX = 0.0;
     private double matrixOverlayScreenY = 0.0;
+    private PuppeteerLivePreviewReadout.@Nullable Snapshot livePreviewReadout;
 
     public void setProjectRoot(java.io.File root) {
         projectRoot = root;
@@ -483,6 +486,10 @@ public class AnimationPreview extends VBox {
 
         setupMouseControls();
         render();
+    }
+
+    public void setLivePreviewReadout(PuppeteerLivePreviewReadout.@Nullable Snapshot readout) {
+        livePreviewReadout = readout;
     }
 
     public void setScene(JesScene2D scene) {
@@ -618,6 +625,7 @@ public class AnimationPreview extends VBox {
         drawCameraHud();
         drawAssetDropOverlay();
         drawAnchorPlacementOverlay(w, h);
+        drawLivePreviewReadout(w, h);
 
         if (pivotOverlayText != null) {
             gc.setFont(javafx.scene.text.Font.font("Monospaced", 11));
@@ -652,6 +660,71 @@ public class AnimationPreview extends VBox {
             gc.setFill(Color.web("#c084fc", 0.97));
             gc.fillText(hint, 18, h - 13);
         }
+    }
+
+    private void drawLivePreviewReadout(double canvasW, double canvasH) {
+        if (scene == null || livePreviewReadout == null || canvasW < 220 || canvasH < 120) return;
+
+        double margin = 10.0;
+        double panelHeight = canvasW < 620 ? 66.0 : 52.0;
+        double panelWidth = Math.max(200.0, canvasW - margin * 2.0);
+        double panelX = margin;
+        double panelY = canvasH - panelHeight - margin;
+        if (anchorPlacementMode) panelY -= 28.0;
+        panelY = Math.max(34.0, panelY);
+
+        gc.save();
+        gc.setFill(Color.web("#080b10", 0.88));
+        gc.fillRoundRect(panelX, panelY, panelWidth, panelHeight, 10.0, 10.0);
+        gc.setStroke(Color.web("#91a0b5", 0.38));
+        gc.setLineWidth(1.0);
+        gc.strokeRoundRect(panelX + 0.5, panelY + 0.5, panelWidth - 1.0, panelHeight - 1.0, 10.0, 10.0);
+
+        double progress = Math.max(0.0, Math.min(1.0, livePreviewReadout.progress()));
+        gc.setFill(Color.web("#273241", 0.92));
+        gc.fillRoundRect(panelX + 1.0, panelY + 1.0, panelWidth - 2.0, 3.0, 8.0, 8.0);
+        if (progress > 0.0) {
+            gc.setFill(Color.web("#68b7f0", 0.96));
+            gc.fillRoundRect(panelX + 1.0, panelY + 1.0, (panelWidth - 2.0) * progress, 3.0, 8.0, 8.0);
+        }
+
+        String mode = livePreviewReadout.mode();
+        gc.setFont(javafx.scene.text.Font.font("Monospaced", javafx.scene.text.FontWeight.BOLD, 10));
+        double modeWidth = Math.max(78.0, mode.length() * 6.3 + 16.0);
+        gc.setFill(Color.web(mode.contains("RUNTIME") ? "#6d4829" : "#234b66", 0.96));
+        gc.fillRoundRect(panelX + 9.0, panelY + 10.0, modeWidth, 18.0, 9.0, 9.0);
+        gc.setFill(Color.web(mode.contains("RUNTIME") ? "#ffd4a8" : "#ccecff", 0.98));
+        gc.fillText(mode, panelX + 17.0, panelY + 23.0);
+
+        gc.setFont(javafx.scene.text.Font.font("Monospaced", javafx.scene.text.FontWeight.BOLD, 11));
+        gc.setFill(Color.web("#f2f5f8", 0.98));
+        gc.fillText(livePreviewReadout.clock(), panelX + modeWidth + 18.0, panelY + 23.0);
+
+        gc.setFont(javafx.scene.text.Font.font("System", javafx.scene.text.FontWeight.BOLD, 11));
+        gc.setFill(Color.web("#d9e1ea", 0.96));
+        if (canvasW < 620) {
+            gc.fillText(ellipsize(livePreviewReadout.target(), 48), panelX + 10.0, panelY + 42.0);
+            gc.setFont(javafx.scene.text.Font.font("System", 10));
+            gc.setFill(Color.web("#aeb9c7", 0.94));
+            gc.fillText(
+                ellipsize(livePreviewReadout.state() + "   |   " + livePreviewReadout.upcoming(), 76),
+                panelX + 10.0,
+                panelY + 57.0);
+        } else {
+            gc.fillText(ellipsize(livePreviewReadout.target(), 42), panelX + 10.0, panelY + 43.0);
+            gc.setFont(javafx.scene.text.Font.font("System", 10));
+            gc.setFill(Color.web("#b7c1cd", 0.94));
+            gc.fillText(ellipsize(livePreviewReadout.state(), 46), panelX + panelWidth * 0.40, panelY + 43.0);
+            gc.setFill(Color.web("#8ecbf4", 0.96));
+            gc.fillText(ellipsize(livePreviewReadout.upcoming(), 42), panelX + panelWidth * 0.70, panelY + 43.0);
+        }
+        gc.restore();
+    }
+
+    private static String ellipsize(String text, int maxChars) {
+        if (text == null) return "";
+        if (text.length() <= maxChars) return text;
+        return text.substring(0, Math.max(1, maxChars - 1)) + "…";
     }
 
     private void drawAnchorPlacementOverlay(double canvasW, double canvasH) {

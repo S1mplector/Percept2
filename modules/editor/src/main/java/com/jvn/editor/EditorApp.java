@@ -90,6 +90,8 @@ import com.jvn.editor.ui.VersionControlView;
 import com.jvn.editor.ui.VnsDiagnosticsView;
 import com.jvn.editor.ui.VnsFlowMapView;
 import com.jvn.editor.ui.VnsScriptAnalyzer;
+import com.jvn.editor.ui.WhatsNewCatalog;
+import com.jvn.editor.ui.WhatsNewDialog;
 import com.jvn.editor.ui.actioneditor.AnimationProject;
 import com.jvn.editor.ui.actioneditor.CodeImporter;
 import com.jvn.editor.ui.actioneditor.EntityTrack;
@@ -2201,6 +2203,8 @@ public class EditorApp extends Application {
     miOpenProjectDocs.setOnAction(e -> openProjectDocsFolder());
     MenuItem miOpenWorkspaceDocs = new MenuItem("Open Workspace Docs Folder");
     miOpenWorkspaceDocs.setOnAction(e -> openWorkspaceDocsFolder());
+    MenuItem miWhatsNew = new MenuItem("What's New in " + buildInfo.versionLabel());
+    miWhatsNew.setOnAction(e -> showWhatsNew(primaryStage, buildInfo));
     MenuItem miAbout = new MenuItem("About JVN Editor");
     miAbout.setOnAction(e -> {
       EditorDialogs.show(primaryStage,
@@ -2214,6 +2218,7 @@ public class EditorApp extends Application {
         new SeparatorMenuItem(),
         miOpenProjectDocs, miOpenWorkspaceDocs,
         new SeparatorMenuItem(),
+        miWhatsNew,
         miAbout);
 
 	    mb.getMenus().addAll(
@@ -2541,6 +2546,7 @@ public class EditorApp extends Application {
     });
     applyLinuxDefaultWindowState(primaryStage);
     primaryStage.show();
+    Platform.runLater(() -> maybeShowWhatsNew(primaryStage, buildInfo));
     installSidebarDividerHoverHints();
     scene.setOnDragOver((DragEvent e) -> {
       Dragboard db = e.getDragboard();
@@ -2581,6 +2587,25 @@ public class EditorApp extends Application {
       }
     };
     timer.start();
+  }
+
+  private void maybeShowWhatsNew(Window owner, AppBuildInfo.BuildInfo buildInfo) {
+    if (SAFE_MODE || editorPreferences == null || buildInfo == null) return;
+    String currentVersion = buildInfo.versionLabel();
+    if (!WhatsNewCatalog.shouldShow(
+        currentVersion,
+        editorPreferences.getLastSeenWhatsNewVersion())) {
+      return;
+    }
+
+    showWhatsNew(owner, buildInfo);
+    editorPreferences.setLastSeenWhatsNewVersion(currentVersion);
+    persistEditorPreferences();
+  }
+
+  private void showWhatsNew(Window owner, AppBuildInfo.BuildInfo buildInfo) {
+    if (buildInfo == null) return;
+    WhatsNewDialog.show(owner, WhatsNewCatalog.forVersion(buildInfo.versionLabel()));
   }
 
   private void doOpen(Stage stage) {
