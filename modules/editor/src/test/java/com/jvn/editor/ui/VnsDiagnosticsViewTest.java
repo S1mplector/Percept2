@@ -92,4 +92,13 @@ class VnsDiagnosticsViewTest {
     assertEquals("jump missing_label", preview.sourceLine());
     assertEquals("     ^", preview.caretLine());
   }
+
+  @Test
+  void categorizesDiagnosticsForToolbarFiltering() {
+    assertEquals("Syntax", VnsDiagnosticsView.categoryForKind("parse_error"));
+    assertEquals("Flow", VnsDiagnosticsView.categoryForKind("unreachable_statement"));
+    assertEquals("Assets", VnsDiagnosticsView.categoryForKind("missing_audio_asset"));
+    assertEquals("Scripts", VnsDiagnosticsView.categoryForKind("missing_script"));
+    assertEquals("Content", VnsDiagnosticsView.categoryForKind("timeline"));
+  }
 }

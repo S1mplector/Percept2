@@ -4330,6 +4330,12 @@ public class EditorApp extends Application {
     if (vnsDiagnosticsView != null) return vnsDiagnosticsView;
     vnsDiagnosticsView = new VnsDiagnosticsView();
     vnsDiagnosticsView.setOnOpenTarget(this::jumpToActiveVnsDiagnostic);
+    vnsDiagnosticsView.setOnRefresh(() -> {
+      FileEditorTab activeTab = getActiveFileTab();
+      refreshVnsToolPanels(
+          activeTab,
+          activeTab == null ? null : activeTab.getCurrentTextSnapshot());
+    });
     FileEditorTab ft = getActiveFileTab();
     refreshVnsToolPanels(ft, ft != null ? ft.getCurrentTextSnapshot() : null);
     return vnsDiagnosticsView;

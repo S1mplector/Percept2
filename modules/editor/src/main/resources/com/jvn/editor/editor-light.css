@@ -2666,13 +2666,15 @@
 
 .vns-diagnostics-root {
   -fx-background-color:
-      linear-gradient(to bottom, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.0)),
-      linear-gradient(to bottom, #e8e8e8 0%, #efefef 100%);
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.0)),
+      linear-gradient(to bottom, #e7eef3 0%, #edf1f4 100%);
 }
 
 .vns-diagnostics-header {
-  -fx-background-color: rgba(239, 239, 239, 0.9);
-  -fx-border-color: #d3d3d3;
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.18)),
+      linear-gradient(to bottom, #e7f4fc 0%, #cfdfea 100%);
+  -fx-border-color: #9fb7c8;
   -fx-border-width: 0 0 1 0;
 }
 
@@ -2698,35 +2700,86 @@
 }
 
 .vns-diagnostics-stats {
-  -fx-text-fill: #4e5b6c;
+  -fx-text-fill: #344c60;
   -fx-font-size: 11px;
   -fx-font-weight: 700;
   -fx-padding: 5 8 5 8;
-  -fx-background-color: rgba(255, 255, 255, 0.72);
+  -fx-background-color: rgba(255, 255, 255, 0.66);
   -fx-background-radius: 8;
   -fx-border-color: #d1d8e2;
   -fx-border-radius: 8;
+}
+
+.vns-diagnostics-health {
+  -fx-font-size: 10px;
+  -fx-font-weight: 900;
+  -fx-padding: 4 9 4 9;
+  -fx-background-radius: 10;
+  -fx-border-radius: 10;
+  -fx-border-width: 1;
+}
+
+.vns-diagnostics-health-waiting {
+  -fx-text-fill: #4f6170;
+  -fx-background-color: rgba(233, 240, 245, 0.92);
+  -fx-border-color: #b2c2cd;
+}
+
+.vns-diagnostics-health-clean {
+  -fx-text-fill: #285e3c;
+  -fx-background-color: rgba(218, 241, 224, 0.94);
+  -fx-border-color: #8fbd9e;
+}
+
+.vns-diagnostics-health-warning {
+  -fx-text-fill: #76531c;
+  -fx-background-color: rgba(255, 237, 196, 0.95);
+  -fx-border-color: #d0aa59;
+}
+
+.vns-diagnostics-health-error {
+  -fx-text-fill: #7a2d3c;
+  -fx-background-color: rgba(250, 220, 226, 0.95);
+  -fx-border-color: #c78491;
 }
 
 .vns-diagnostics-chip {
   -fx-font-size: 10px;
   -fx-font-weight: 800;
   -fx-padding: 4 9 4 9;
-  -fx-background-radius: 999;
-  -fx-border-radius: 999;
+  -fx-background-radius: 10;
+  -fx-border-radius: 10;
   -fx-border-width: 1;
+  -fx-cursor: hand;
+}
+
+.vns-diagnostics-chip-all {
+  -fx-text-fill: #334957;
+  -fx-background-color: linear-gradient(to bottom, #f8fcff, #dce8ef);
+  -fx-border-color: #a8bcc9;
 }
 
 .vns-diagnostics-chip-error {
-  -fx-text-fill: #ffd8df;
-  -fx-background-color: rgba(109, 42, 57, 0.9);
-  -fx-border-color: #8f5061;
+  -fx-text-fill: #793145;
+  -fx-background-color: linear-gradient(to bottom, #fff6f8, #efd8de);
+  -fx-border-color: #c4939f;
 }
 
 .vns-diagnostics-chip-warning {
-  -fx-text-fill: #ffe5ba;
-  -fx-background-color: rgba(98, 72, 28, 0.9);
-  -fx-border-color: #9b7a3c;
+  -fx-text-fill: #74531e;
+  -fx-background-color: linear-gradient(to bottom, #fffaf0, #eee0bf);
+  -fx-border-color: #c9aa67;
+}
+
+.vns-diagnostics-chip:hover {
+  -fx-effect: dropshadow(gaussian, rgba(63, 106, 137, 0.18), 5, 0.25, 0, 1);
+}
+
+.vns-diagnostics-chip:selected,
+.vns-diagnostics-chip:selected:hover {
+  -fx-text-fill: white;
+  -fx-background-color: linear-gradient(to bottom, #5e9cca, #3676a7);
+  -fx-border-color: #285e87;
 }
 
 .vns-diagnostics-filter-row {
@@ -2787,7 +2840,8 @@
   -fx-effect: none;
 }
 
-.vns-diagnostics-severity-filter {
+.vns-diagnostics-severity-filter,
+.vns-diagnostics-category-filter {
   -fx-font-size: 11px;
   -fx-background-color: #e5e5e5;
   -fx-border-color: #cbcbcb;
@@ -2797,37 +2851,45 @@
   -fx-text-fill: #121212;
 }
 
-.vns-diagnostics-severity-filter:focused {
+.vns-diagnostics-severity-filter:focused,
+.vns-diagnostics-category-filter:focused {
   -fx-border-color: #8e8e8e;
 }
 
-.vns-diagnostics-severity-filter .list-cell {
+.vns-diagnostics-severity-filter .list-cell,
+.vns-diagnostics-category-filter .list-cell {
   -fx-background-color: #e5e5e5;
   -fx-text-fill: #121212;
 }
 
-.vns-diagnostics-severity-filter .arrow-button {
+.vns-diagnostics-severity-filter .arrow-button,
+.vns-diagnostics-category-filter .arrow-button {
   -fx-background-color: #e5e5e5;
   -fx-background-radius: 0 10 10 0;
 }
 
-.vns-diagnostics-severity-filter .arrow {
+.vns-diagnostics-severity-filter .arrow,
+.vns-diagnostics-category-filter .arrow {
   -fx-background-color: #1f1f1f;
 }
 
-.vns-diagnostics-severity-filter .combo-box-popup .list-view {
+.vns-diagnostics-severity-filter .combo-box-popup .list-view,
+.vns-diagnostics-category-filter .combo-box-popup .list-view {
   -fx-background-color: #e7e7e7;
   -fx-control-inner-background: #e7e7e7;
   -fx-border-color: #cbcbcb;
 }
 
-.vns-diagnostics-severity-filter .combo-box-popup .list-cell {
+.vns-diagnostics-severity-filter .combo-box-popup .list-cell,
+.vns-diagnostics-category-filter .combo-box-popup .list-cell {
   -fx-background-color: #e7e7e7;
   -fx-text-fill: #141414;
 }
 
 .vns-diagnostics-severity-filter .combo-box-popup .list-cell:hover,
-.vns-diagnostics-severity-filter .combo-box-popup .list-cell:selected {
+.vns-diagnostics-severity-filter .combo-box-popup .list-cell:selected,
+.vns-diagnostics-category-filter .combo-box-popup .list-cell:hover,
+.vns-diagnostics-category-filter .combo-box-popup .list-cell:selected {
   -fx-background-color: #d9d9d9;
 }
 
@@ -7155,4 +7217,44 @@
   -fx-font-family: "JetBrains Mono", "Consolas", monospace;
   -fx-font-size: 10px;
   -fx-pref-row-count: 8;
+}
+
+/* Diagnostics keeps a compact Windows 7-style glass surface over shared sidebar defaults. */
+.vns-diagnostics-root.sidebar-tool-root {
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.0)),
+      linear-gradient(to bottom, #e7eef3 0%, #edf1f4 100%);
+}
+
+.vns-diagnostics-root .vns-diagnostics-header {
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.18)),
+      linear-gradient(to bottom, #e7f4fc 0%, #cfdfea 100%);
+  -fx-border-color: #9fb7c8;
+}
+
+.vns-diagnostics-root .vns-diagnostics-chip.vns-diagnostics-chip-all {
+  -fx-text-fill: #334957;
+  -fx-background-color: linear-gradient(to bottom, #f8fcff, #dce8ef);
+  -fx-border-color: #a8bcc9;
+}
+
+.vns-diagnostics-root .vns-diagnostics-chip.vns-diagnostics-chip-error {
+  -fx-text-fill: #793145;
+  -fx-background-color: linear-gradient(to bottom, #fff6f8, #efd8de);
+  -fx-border-color: #c4939f;
+}
+
+.vns-diagnostics-root .vns-diagnostics-chip.vns-diagnostics-chip-warning {
+  -fx-text-fill: #74531e;
+  -fx-background-color: linear-gradient(to bottom, #fffaf0, #eee0bf);
+  -fx-border-color: #c9aa67;
+}
+
+.vns-diagnostics-root .vns-diagnostics-chip.vns-diagnostics-chip-all:selected,
+.vns-diagnostics-root .vns-diagnostics-chip.vns-diagnostics-chip-error:selected,
+.vns-diagnostics-root .vns-diagnostics-chip.vns-diagnostics-chip-warning:selected {
+  -fx-text-fill: white;
+  -fx-background-color: linear-gradient(to bottom, #64a4d2, #3476a8);
+  -fx-border-color: #285e87;
 }

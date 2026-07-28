@@ -32,6 +32,10 @@ import com.jvn.core.vn.script.VnScriptParser;
 public final class VnsScriptAnalyzer {
   private static final Pattern LABEL_PATTERN = Pattern.compile("^\\s*(?:@label|label)\\s+(\\S+)\\s*$", Pattern.CASE_INSENSITIVE);
   private static final Pattern BG_DECL_PATTERN = Pattern.compile("^\\s*@background\\s+(\\S+)\\s+(.+)\\s*$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern CHARIMG_PATTERN = Pattern.compile(
+      "^\\s*@charimg\\s+(\\S+)\\s+(\\S+)\\s+(.+)\\s*$", Pattern.CASE_INSENSITIVE);
+  private static final Pattern CHARLAYER_PATTERN = Pattern.compile(
+      "^\\s*@charlayer\\s+(\\S+)\\s+(\\S+)\\s+(.+)\\s*$", Pattern.CASE_INSENSITIVE);
   private static final Pattern COMMAND_PATTERN = Pattern.compile("^\\s*\\[(.+)]\\s*$");
   private static final Pattern CHOICE_IF_SUFFIX_PATTERN = Pattern.compile("^(.*)\\[if\\s+(.+)]\\s*$", Pattern.CASE_INSENSITIVE);
   private static final Pattern IF_GOTO_PATTERN = Pattern.compile("^(.+?)\\s+goto\\s+(\\S+)\\s*$", Pattern.CASE_INSENSITIVE);
@@ -131,6 +135,28 @@ public final class VnsScriptAnalyzer {
         }
       }
 
+      Matcher charImageMatcher = CHARIMG_PATTERN.matcher(line.text);
+      if (charImageMatcher.matches()) {
+        addAssetDiagnostic(
+            projectRoot,
+            diagnostics,
+            line,
+            stripWrappingQuotes(charImageMatcher.group(3)),
+            "character image",
+            "missing_character_asset");
+      }
+
+      Matcher charLayerMatcher = CHARLAYER_PATTERN.matcher(line.text);
+      if (charLayerMatcher.matches()) {
+        addAssetDiagnostic(
+            projectRoot,
+            diagnostics,
+            line,
+            stripWrappingQuotes(charLayerMatcher.group(3)),
+            "character layer",
+            "missing_character_asset");
+      }
+
       if (trimmed.startsWith(">")) {
         addChoiceReference(line, trimmed.substring(1).trim(), refs);
         continue;
@@ -184,6 +210,15 @@ public final class VnsScriptAnalyzer {
               -1
           ));
         }
+      } else if (isAudioAssetCommand(cmd)) {
+        String path = audioAssetPath(cmd, arg);
+        addAssetDiagnostic(
+            projectRoot,
+            diagnostics,
+            line,
+            path,
+            audioAssetKind(cmd),
+            "missing_audio_asset");
       } else if (projectRoot != null) {
         addScriptAssetDiagnostic(projectRoot, diagnostics, line, cmd, arg);
       }
@@ -207,6 +242,7 @@ public final class VnsScriptAnalyzer {
     List<LabelNode> labels = new ArrayList<>(labelsByName.values());
     labels.sort((a, b) -> Integer.compare(a.line(), b.line()));
     List<FlowEdge> edges = computeFlowEdges(source, lines, labelsByName, labels);
+    addUnreachableStatementDiagnostics(lines, diagnostics);
 
     if (!labels.isEmpty()) {
       String startLabel = pickStartLabel(labelsByName, labels);
@@ -228,6 +264,7 @@ public final class VnsScriptAnalyzer {
       }
     }
 
+    diagnostics = deduplicateDiagnostics(diagnostics);
     diagnostics.sort((a, b) -> {
       int sa = a.start();
       int sb = b.start();
@@ -512,6 +549,154 @@ public final class VnsScriptAnalyzer {
     return new LabelRef(target, start, start + target.length(), line.index);
   }
 
+  private static void addUnreachableStatementDiagnostics(List<LineInfo> lines,
+                                                         List<Diagnostic> diagnostics) {
+    boolean flowTerminated = false;
+    boolean reportedInBlock = false;
+    for (LineInfo line : lines) {
+      String trimmed = line.trimmed();
+      if (trimmed.isEmpty() || trimmed.startsWith("#")) continue;
+      if (LABEL_PATTERN.matcher(line.text).matches()) {
+        flowTerminated = false;
+        reportedInBlock = false;
+        continue;
+      }
+
+      if (flowTerminated) {
+        if (!reportedInBlock) {
+          int start = line.start + firstNonWhitespaceIndex(line.text);
+          diagnostics.add(Diagnostic.warning(
+              "unreachable_statement",
+              "This statement cannot run because an earlier command already exits this label.",
+              start,
+              Math.max(start + 1, line.end),
+              line.index,
+              null,
+              null,
+              -1
+          ));
+          reportedInBlock = true;
+        }
+        continue;
+      }
+
+      Matcher commandMatcher = COMMAND_PATTERN.matcher(trimmed);
+      if (!commandMatcher.matches()) continue;
+      String body = commandMatcher.group(1).trim();
+      if (body.isBlank()) continue;
+      String command = body.split("\\s+", 2)[0].toLowerCase(Locale.ROOT);
+      if ("end".equals(command) || "jump".equals(command) || "goto".equals(command)) {
+        flowTerminated = true;
+      }
+    }
+  }
+
+  private static int firstNonWhitespaceIndex(String text) {
+    if (text == null) return 0;
+    for (int i = 0; i < text.length(); i++) {
+      if (!Character.isWhitespace(text.charAt(i))) return i;
+    }
+    return 0;
+  }
+
+  private static boolean isAudioAssetCommand(String command) {
+    if (command == null) return false;
+    return switch (command.toLowerCase(Locale.ROOT)) {
+      case "bgm", "bgm_crossfade", "sfx", "voice" -> true;
+      default -> false;
+    };
+  }
+
+  private static String audioAssetKind(String command) {
+    if (command == null) return "audio";
+    return switch (command.toLowerCase(Locale.ROOT)) {
+      case "bgm", "bgm_crossfade" -> "background music";
+      case "voice" -> "voice";
+      case "sfx" -> "sound effect";
+      default -> "audio";
+    };
+  }
+
+  private static String audioAssetPath(String command, String argument) {
+    String[] tokens = VnArgTokenizer.tokenizeToArray(argument);
+    if (tokens.length == 0) return "";
+    for (String rawToken : tokens) {
+      String token = rawToken == null ? "" : rawToken.trim();
+      if (token.isBlank()) continue;
+      int separator = token.indexOf('=');
+      if (separator <= 0) separator = token.indexOf(':');
+      if (separator > 0 && separator < token.length() - 1) {
+        String key = token.substring(0, separator).trim().toLowerCase(Locale.ROOT);
+        if (Set.of("track", "id", "file", "path").contains(key)) {
+          return stripWrappingQuotes(token.substring(separator + 1));
+        }
+        continue;
+      }
+      return stripWrappingQuotes(token);
+    }
+    return "";
+  }
+
+  private static void addAssetDiagnostic(File projectRoot,
+                                         List<Diagnostic> diagnostics,
+                                         LineInfo line,
+                                         String rawPath,
+                                         String assetKind,
+                                         String missingKind) {
+    String path = rawPath == null ? "" : rawPath.trim();
+    if (projectRoot == null || path.isBlank() || isDynamicAssetPath(path)) return;
+
+    int pathStart = line.start + safeIndexOf(line.text, path, firstNonWhitespaceIndex(line.text));
+    File direct = new File(path);
+    if (direct.isAbsolute()) {
+      diagnostics.add(Diagnostic.warning(
+          "external_asset_path",
+          "Absolute " + assetKind + " path is not portable: " + path,
+          pathStart,
+          pathStart + path.length(),
+          line.index,
+          null,
+          path,
+          -1
+      ));
+    }
+
+    if (assetExists(projectRoot, path)) return;
+    diagnostics.add(Diagnostic.error(
+        missingKind,
+        "Missing " + assetKind + " asset: " + path,
+        pathStart,
+        pathStart + path.length(),
+        line.index,
+        null,
+        path,
+        -1
+    ));
+  }
+
+  private static boolean isDynamicAssetPath(String path) {
+    String normalized = path == null ? "" : path.trim().toLowerCase(Locale.ROOT);
+    return normalized.isBlank()
+        || normalized.contains("${")
+        || normalized.startsWith("$")
+        || normalized.startsWith("http://")
+        || normalized.startsWith("https://")
+        || normalized.startsWith("classpath:")
+        || normalized.startsWith("data:");
+  }
+
+  private static String stripWrappingQuotes(String value) {
+    String trimmed = value == null ? "" : value.trim();
+    if (trimmed.length() >= 2) {
+      char first = trimmed.charAt(0);
+      char last = trimmed.charAt(trimmed.length() - 1);
+      if ((first == '"' && last == '"') || (first == '\'' && last == '\'')) {
+        return trimmed.substring(1, trimmed.length() - 1);
+      }
+    }
+    return trimmed;
+  }
+
   private static boolean assetExists(File projectRoot, String path) {
     if (path == null || path.isBlank()) return false;
     File resolved = resolveAssetPath(projectRoot, path);
@@ -525,18 +710,52 @@ public final class VnsScriptAnalyzer {
                                                String arg) {
     ScriptRef ref = scriptReference(cmd, arg);
     if (ref == null || ref.path() == null || ref.path().isBlank()) return;
-    if (assetExists(projectRoot, ref.path())) return;
-    int pathStart = line.start + safeIndexOf(line.text, ref.path(), 0);
-    diagnostics.add(Diagnostic.error(
-        "missing_script",
-        "Missing " + ref.kind() + " script: " + ref.path(),
-        pathStart,
-        pathStart + ref.path().length(),
-        line.index,
-        null,
-        ref.path(),
-        -1
-    ));
+    String target = ref.label() == null || ref.label().isBlank()
+        ? ref.path()
+        : ref.path() + ":" + ref.label();
+    int pathStart = line.start + safeIndexOf(line.text, target, safeIndexOf(line.text, ref.path(), 0));
+    File scriptFile = resolveAssetPath(projectRoot, ref.path());
+    if (scriptFile == null || !scriptFile.isFile()) {
+      diagnostics.add(Diagnostic.error(
+          "missing_script",
+          "Missing " + ref.kind() + " script: " + ref.path(),
+          pathStart,
+          pathStart + target.length(),
+          line.index,
+          null,
+          ref.path(),
+          -1
+      ));
+      return;
+    }
+    if ("VNS".equals(ref.kind())
+        && ref.label() != null
+        && !ref.label().isBlank()
+        && !scriptDeclaresLabel(scriptFile, ref.label())) {
+      diagnostics.add(Diagnostic.error(
+          "missing_script_label",
+          "VNS script '" + ref.path() + "' has no label named '" + ref.label() + "'.",
+          pathStart,
+          pathStart + target.length(),
+          line.index,
+          ref.label(),
+          ref.path(),
+          -1
+      ));
+    }
+  }
+
+  private static boolean scriptDeclaresLabel(File scriptFile, String targetLabel) {
+    if (scriptFile == null || targetLabel == null || targetLabel.isBlank()) return false;
+    try {
+      for (String line : Files.readAllLines(scriptFile.toPath(), StandardCharsets.UTF_8)) {
+        Matcher matcher = LABEL_PATTERN.matcher(line);
+        if (matcher.matches() && targetLabel.equals(matcher.group(1))) return true;
+      }
+    } catch (Exception ignored) {
+      // A readable target is required for reliable cross-script navigation.
+    }
+    return false;
   }
 
   private static ScriptRef scriptReference(String cmd, String arg) {
@@ -561,7 +780,7 @@ public final class VnsScriptAnalyzer {
     if ("goto".equals(action)) {
       int colon = toks[1].indexOf(':');
       if (colon > 0 && toks[1].substring(0, colon).contains(".")) {
-        return directScriptRef("VNS", toks[1].substring(0, colon));
+        return new ScriptRef("VNS", toks[1].substring(0, colon), toks[1].substring(colon + 1));
       }
     }
     return null;
@@ -573,7 +792,7 @@ public final class VnsScriptAnalyzer {
     if (colon <= 0) return null;
     String script = target.substring(0, colon);
     if (script.indexOf('.') < 0 && !script.contains("/")) return null;
-    return directScriptRef("VNS", script);
+    return new ScriptRef("VNS", script, target.substring(colon + 1));
   }
 
   private static ScriptRef jesPayloadRef(String arg) {
@@ -586,10 +805,10 @@ public final class VnsScriptAnalyzer {
 
   private static ScriptRef directScriptRef(String kind, String path) {
     if (path == null || path.isBlank()) return null;
-    return new ScriptRef(kind, path);
+    return new ScriptRef(kind, path, null);
   }
 
-  private record ScriptRef(String kind, String path) {}
+  private record ScriptRef(String kind, String path, String label) {}
 
   private static File resolveAssetPath(File projectRoot, String rawPath) {
     if (rawPath == null || rawPath.isBlank()) return null;
@@ -625,6 +844,22 @@ public final class VnsScriptAnalyzer {
       if (f.exists()) return f;
     }
     return new File(projectRoot, normalized);
+  }
+
+  private static List<Diagnostic> deduplicateDiagnostics(List<Diagnostic> diagnostics) {
+    if (diagnostics == null || diagnostics.isEmpty()) return new ArrayList<>();
+    List<Diagnostic> unique = new ArrayList<>();
+    Set<String> seen = new LinkedHashSet<>();
+    for (Diagnostic diagnostic : diagnostics) {
+      if (diagnostic == null) continue;
+      String key = diagnostic.kind()
+          + "|" + diagnostic.start()
+          + "|" + diagnostic.end()
+          + "|" + diagnostic.warning()
+          + "|" + diagnostic.message();
+      if (seen.add(key)) unique.add(diagnostic);
+    }
+    return unique;
   }
 
   private static int parseLineFromMessage(String message) {
