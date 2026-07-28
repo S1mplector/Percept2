@@ -60,13 +60,20 @@ public class VnsDiagnosticsView extends BorderPane {
       FXCollections.observableArrayList(
           CATEGORY_ALL, CATEGORY_SYNTAX, CATEGORY_FLOW, CATEGORY_ASSETS, CATEGORY_SCRIPTS, CATEGORY_CONTENT)
   );
-  private final Button openSelectedButton = actionButton("Open", CssIcon.expand("#477fae"));
-  private final Button copyDiagnosticsButton = actionButton("Copy Report", CssIcon.copy("#4f7fa5"));
-  private final Button clearFilterButton = actionButton("Clear Filter", CssIcon.clearX("#f0a080"));
-  private final Button refreshButton = actionButton("Rescan", CssIcon.refresh("#447ba7"));
-  private final Button prevButton = actionButton("Prev", CssIcon.arrowUp("#536d86"));
-  private final Button nextButton = actionButton("Next", CssIcon.arrowDown("#536d86"));
-  private final Button sortButton = actionButton("By Line", CssIcon.sort("#536d86"));
+  private final Button openSelectedButton =
+      actionButton("Open", DiagnosticsToolbarIcon.Kind.OPEN);
+  private final Button copyDiagnosticsButton =
+      actionButton("Copy Report", DiagnosticsToolbarIcon.Kind.COPY_REPORT);
+  private final Button clearFilterButton =
+      actionButton("Clear Filter", DiagnosticsToolbarIcon.Kind.CLEAR_FILTER);
+  private final Button refreshButton =
+      actionButton("Rescan", DiagnosticsToolbarIcon.Kind.RESCAN);
+  private final Button prevButton =
+      actionButton("Prev", DiagnosticsToolbarIcon.Kind.PREVIOUS);
+  private final Button nextButton =
+      actionButton("Next", DiagnosticsToolbarIcon.Kind.NEXT);
+  private final Button sortButton =
+      actionButton("By Line", DiagnosticsToolbarIcon.Kind.SORT_LINE);
   private final ListView<DiagnosticRow> listView = new ListView<>();
 
   private final List<DiagnosticRow> allRows = new ArrayList<>();
@@ -78,7 +85,7 @@ public class VnsDiagnosticsView extends BorderPane {
   public VnsDiagnosticsView() {
     getStyleClass().addAll("vns-diagnostics-root", "sidebar-tool-root");
     titleLabel.getStyleClass().addAll("vns-diagnostics-title", "sidebar-tool-title");
-    titleLabel.setGraphic(CssIcon.warning("#a66c18"));
+    titleLabel.setGraphic(AeroIcon.of(AeroIcon.Kind.VNS_DIAGNOSTICS, 20));
     titleLabel.setGraphicTextGap(7);
     fileLabel.getStyleClass().addAll("vns-diagnostics-file", "sidebar-tool-subtitle");
     summaryLabel.getStyleClass().addAll("vns-diagnostics-summary", "sidebar-tool-summary");
@@ -167,6 +174,9 @@ public class VnsDiagnosticsView extends BorderPane {
       sortMode = sortMode == SortMode.LINE ? SortMode.SEVERITY : SortMode.LINE;
       boolean bySeverity = sortMode == SortMode.SEVERITY;
       sortButton.setText(bySeverity ? "By Severity" : "By Line");
+      sortButton.setGraphic(DiagnosticsToolbarIcon.of(bySeverity
+          ? DiagnosticsToolbarIcon.Kind.SORT_SEVERITY
+          : DiagnosticsToolbarIcon.Kind.SORT_LINE));
       sortButton.setTooltip(new Tooltip(bySeverity
           ? "Errors shown first — click to sort by line number"
           : "Sorted by line number — click to sort errors first"));
@@ -633,12 +643,13 @@ visible, source-aware result set for sharing."""),
         + " | ~" + minutes;
   }
 
-  private static Button actionButton(String text, javafx.scene.layout.Region icon) {
+  private static Button actionButton(String text, DiagnosticsToolbarIcon.Kind iconKind) {
     Button button = new Button(text);
-    button.getStyleClass().add("sidebar-tool-btn");
-    button.setGraphic(icon);
+    button.getStyleClass().addAll("sidebar-tool-btn", "vns-diagnostics-action-button");
+    button.setGraphic(DiagnosticsToolbarIcon.of(iconKind));
     button.setGraphicTextGap(6);
     button.setMnemonicParsing(false);
+    button.setFocusTraversable(false);
     return button;
   }
 

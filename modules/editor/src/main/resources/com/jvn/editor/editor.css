@@ -7126,6 +7126,36 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-font-size: 11px;
 }
 
+.vns-diagnostics-root .vns-diagnostics-action-button {
+  -fx-padding: 4 9 4 7;
+  -fx-graphic-text-gap: 6;
+  -fx-text-fill: #dcebf4;
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.01)),
+      linear-gradient(to bottom, #344957 0%, #253641 52%, #1d2a32 100%);
+  -fx-border-color: #4d6d80;
+  -fx-border-radius: 5;
+  -fx-background-radius: 5;
+  -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.36), 3, 0.15, 0, 1);
+}
+
+.vns-diagnostics-root .vns-diagnostics-action-button:hover {
+  -fx-text-fill: #f0faff;
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.21), rgba(255, 255, 255, 0.03)),
+      linear-gradient(to bottom, #406178 0%, #2e495b 52%, #243845 100%);
+  -fx-border-color: #6594af;
+  -fx-effect: dropshadow(gaussian, rgba(72, 157, 207, 0.30), 6, 0.2, 0, 1);
+}
+
+.vns-diagnostics-root .vns-diagnostics-action-button:pressed {
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(0, 0, 0, 0.12), rgba(255, 255, 255, 0.08)),
+      linear-gradient(to bottom, #1c2b34, #334b5a);
+  -fx-border-color: #75a7c3;
+  -fx-effect: innershadow(gaussian, rgba(0, 0, 0, 0.50), 4, 0.25, 0, 1);
+}
+
 .sidebar-tool-root .check-box .box {
   -fx-background-color: #1c1c1c;
   -fx-border-color: #404040;

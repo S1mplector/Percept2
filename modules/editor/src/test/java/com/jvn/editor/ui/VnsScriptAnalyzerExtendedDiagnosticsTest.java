@@ -1,5 +1,6 @@
 package com.jvn.editor.ui;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -119,5 +120,31 @@ class VnsScriptAnalyzerExtendedDiagnosticsTest {
         .filter(d -> "unreachable_statement".equals(d.kind()))
         .count();
     assertTrue(deadStatements == 1);
+  }
+
+  @Test
+  void reportsTrailingCharactersAfterTimelineClosingBrace() {
+    String source = """
+        @scenario malformed_timeline
+        @label heart_slow
+        timeline {
+          entity "heart_effect" {
+            0ms { alpha: 0.3 }
+          }
+        }a
+        [return]
+        """;
+
+    VnsScriptAnalyzer.Analysis analysis =
+        VnsScriptAnalyzer.analyze(source, null);
+
+    VnsScriptAnalyzer.Diagnostic diagnostic = analysis.diagnostics().stream().filter(d ->
+        "parse_error".equals(d.kind())
+            && d.line() == 6
+            && d.message().contains("Unexpected content after timeline block: a"))
+        .findFirst()
+        .orElseThrow();
+
+    assertEquals("a", source.substring(diagnostic.start(), diagnostic.end()));
   }
 }

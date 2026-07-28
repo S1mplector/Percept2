@@ -4,7 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.FutureTask;
@@ -12,6 +14,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javafx.application.Platform;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ToggleButton;
 import org.junit.jupiter.api.Assumptions;
@@ -64,6 +67,34 @@ class VnsDiagnosticsViewFxTest {
       assertTrue(view.lookup(".vns-diagnostics-health") != null);
       assertTrue(view.lookup(".vns-diagnostics-category-filter") != null);
       assertTrue(view.lookup(".vns-diagnostics-action-row") != null);
+
+      Set<DiagnosticsToolbarIcon.Kind> toolbarKinds = new HashSet<>();
+      view.lookupAll(".vns-diagnostics-action-button").stream()
+          .filter(Button.class::isInstance)
+          .map(Button.class::cast)
+          .forEach(button -> {
+            assertTrue(button.getGraphic() instanceof DiagnosticsToolbarIcon);
+            toolbarKinds.add(((DiagnosticsToolbarIcon) button.getGraphic()).kind());
+          });
+      assertEquals(Set.of(
+          DiagnosticsToolbarIcon.Kind.RESCAN,
+          DiagnosticsToolbarIcon.Kind.OPEN,
+          DiagnosticsToolbarIcon.Kind.PREVIOUS,
+          DiagnosticsToolbarIcon.Kind.NEXT,
+          DiagnosticsToolbarIcon.Kind.COPY_REPORT,
+          DiagnosticsToolbarIcon.Kind.CLEAR_FILTER,
+          DiagnosticsToolbarIcon.Kind.SORT_LINE), toolbarKinds);
+
+      Button sort = view.lookupAll(".vns-diagnostics-action-button").stream()
+          .filter(Button.class::isInstance)
+          .map(Button.class::cast)
+          .filter(button -> "By Line".equals(button.getText()))
+          .findFirst()
+          .orElseThrow();
+      sort.fire();
+      assertEquals(
+          DiagnosticsToolbarIcon.Kind.SORT_SEVERITY,
+          ((DiagnosticsToolbarIcon) sort.getGraphic()).kind());
 
       ToggleButton errors = view.lookupAll(".vns-diagnostics-chip").stream()
           .filter(ToggleButton.class::isInstance)
