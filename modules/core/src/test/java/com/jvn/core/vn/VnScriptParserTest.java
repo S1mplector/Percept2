@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 import com.jvn.core.vn.script.InMemoryJavaCompiler;
+import com.jvn.core.vn.script.MultipleParseErrorsException;
 import com.jvn.core.vn.script.VnScriptParser;
 
 public class VnScriptParserTest {
@@ -837,6 +838,91 @@ public class VnScriptParserTest {
         .orElseThrow();
     assertTrue(timeline.getExternalCommand().getPayload().startsWith("timeline {"));
     assertTrue(timeline.getExternalCommand().getPayload().contains("move \"hero\""));
+  }
+
+  @Test
+  public void rejectsTrailingContentAfterInlineTimelineBlock() {
+    String script = """
+      @scenario malformed_timeline
+      @label start
+      timeline {
+        entity "heart_effect" {
+          0ms { alpha: 0.3 }
+        }
+      }a
+      [end]
+      """;
+
+    MultipleParseErrorsException error = assertThrows(
+        MultipleParseErrorsException.class,
+        () -> new VnScriptParser().parseFromString(script));
+
+    assertTrue(error.getMessage().contains("Unexpected content after timeline block: a"));
+    assertEquals(7, error.getErrors().getFirst().getLineNumber());
+  }
+
+  @Test
+  public void allowsCommentAfterInlineTimelineBlock() throws Exception {
+    String script = """
+      @scenario commented_timeline
+      @label start
+      timeline {
+        entity "heart_effect" {
+          0ms { alpha: 0.3 }
+        }
+      } # pulse complete
+      [end]
+      """;
+
+    VnScenario scenario = new VnScriptParser().parseFromString(script);
+
+    assertTrue(scenario.getNodes().stream().anyMatch(node ->
+        node.getType() == VnNodeType.EXTERNAL
+            && "jes_timeline_inline".equals(node.getExternalCommand().getProvider())));
+  }
+
+  @Test
+  public void ignoresQuotedAndCommentedBracesInsideInlineTimeline() throws Exception {
+    String script = """
+      @scenario quoted_timeline
+      @label start
+      timeline { # opening comment with }
+        entity "brace_{_name" {
+          0ms { text: "escaped \\"}\\" and {", tint: #7de2ff } # ignored }
+        }
+      } # closing comment
+      [end]
+      """;
+
+    VnScenario scenario = new VnScriptParser().parseFromString(script);
+
+    VnNode timeline = scenario.getNodes().stream()
+        .filter(node -> node.getType() == VnNodeType.EXTERNAL
+            && "jes_timeline_inline".equals(node.getExternalCommand().getProvider()))
+        .findFirst()
+        .orElseThrow();
+    assertTrue(timeline.getExternalCommand().getPayload().contains("escaped"));
+    assertTrue(timeline.getExternalCommand().getPayload().contains("#7de2ff"));
+  }
+
+  @Test
+  public void rejectsCommandsAndExtraBracesAfterInlineTimelineBlock() {
+    for (String suffix : List.of("[wait 100]", "}")) {
+      String script = """
+        @scenario malformed_timeline
+        @label start
+        timeline {
+          0ms { alpha: 0.3 }
+        } %s
+        [end]
+        """.formatted(suffix);
+
+      MultipleParseErrorsException error = assertThrows(
+          MultipleParseErrorsException.class,
+          () -> new VnScriptParser().parseFromString(script));
+
+      assertTrue(error.getMessage().contains("Unexpected content after timeline block: " + suffix));
+    }
   }
 
   @Test

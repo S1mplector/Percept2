@@ -61,7 +61,7 @@ public final class VnsScriptAnalyzer {
         int start = 0;
         int end = Math.max(0, source.length());
         if (line >= 0) {
-          int[] bounds = lineBounds(source, line);
+          int[] bounds = parseDiagnosticBounds(source, line, ex);
           start = bounds[0];
           end = bounds[1];
         }
@@ -279,6 +279,26 @@ public final class VnsScriptAnalyzer {
     ScriptStats stats = computeStats(lines, labels, edges);
 
     return new Analysis(source, diagnostics, labels, edges, startLabel, backgrounds, stats);
+  }
+
+  private static int[] parseDiagnosticBounds(String source, int line, VnParseException error) {
+    int[] lineRange = lineBounds(source, line);
+    if (error == null
+        || error.getDetailMessage() == null
+        || !error.getDetailMessage().startsWith("Unexpected content after timeline block:")) {
+      return lineRange;
+    }
+
+    String rawLine = error.getRawLine();
+    int colon = error.getDetailMessage().indexOf(':');
+    String trailing = colon < 0 ? "" : error.getDetailMessage().substring(colon + 1).trim();
+    if (rawLine == null || trailing.isEmpty()) return lineRange;
+
+    int relativeStart = rawLine.lastIndexOf(trailing);
+    if (relativeStart < 0) return lineRange;
+    int absoluteStart = Math.min(lineRange[1], lineRange[0] + relativeStart);
+    int absoluteEnd = Math.min(lineRange[1], absoluteStart + trailing.length());
+    return new int[] {absoluteStart, Math.max(absoluteStart + 1, absoluteEnd)};
   }
 
   private static void parseWithIncludeResolver(String source, File projectRoot, File sourceFile) throws Exception {

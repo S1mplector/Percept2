@@ -927,24 +927,24 @@ public class VnScriptParser {
         continue;
       }
 
-      // Inline timeline { ... } block
-      if (trimmed.startsWith("timeline") && (trimmed.endsWith("{") || trimmed.equals("timeline"))) {
+      // Inline timeline { ... } block. Scan braces lexically so values such as
+      // text: "use {braces}" and commented-out braces do not corrupt block depth.
+      String timelineHeader = timelineHeaderCode(trimmed);
+      if (isTimelineHeader(timelineHeader)) {
         state.contentEmitted = true;
         flushChoices(state.builder, state.pendingChoices);
         flushPendingVoice(state);
         ensureBuilder(state);
         StringBuilder block = new StringBuilder();
-        String timelineModifiers = timelineHeaderModifiers(trimmed);
-        int braceDepth = 0;
-        // Count opening braces on the first line
-        for (char c : trimmed.toCharArray()) { if (c == '{') braceDepth++; }
+        String timelineModifiers = timelineHeaderModifiers(timelineHeader);
+        int braceDepth = scanTimelineBraces(timelineHeader, 0).depth();
         if (braceDepth == 0) {
           // Opening brace on next line
           String nextLine;
           boolean foundOpeningBrace = false;
           while ((nextLine = reader.readLine()) != null) {
             lineNumber++;
-            String nt = nextLine.trim();
+            String nt = timelineHeaderCode(nextLine);
             if (nt.isEmpty() || nt.startsWith("#")) continue;
             if (nt.equals("{")) {
               braceDepth = 1;
@@ -959,15 +959,23 @@ public class VnScriptParser {
         }
         while (braceDepth > 0 && (line = reader.readLine()) != null) {
           lineNumber++;
-          for (char c : line.toCharArray()) {
-            if (c == '{') braceDepth++;
-            else if (c == '}') braceDepth--;
-          }
+          TimelineBraceScan scan = scanTimelineBraces(line, braceDepth);
+          braceDepth = scan.depth();
+          int closingBrace = scan.closingBrace();
           if (braceDepth > 0) block.append(line).append('\n');
           else {
-            // Remove trailing } from the line content if there's anything before it
-            int lastBrace = line.lastIndexOf('}');
-            if (lastBrace > 0) block.append(line, 0, lastBrace).append('\n');
+            if (closingBrace > 0) block.append(line, 0, closingBrace).append('\n');
+            String trailing = closingBrace >= 0
+                ? line.substring(closingBrace + 1).trim()
+                : "";
+            String trailingCode = timelineHeaderCode(trailing);
+            if (!trailingCode.isEmpty()) {
+              throw parseError(
+                  sourceName,
+                  lineNumber,
+                  "Unexpected content after timeline block: " + trailingCode,
+                  line);
+            }
           }
         }
         if (braceDepth != 0) {
@@ -3398,12 +3406,134 @@ public class VnScriptParser {
   private String timelineHeaderModifiers(String header) {
     if (header == null) return "";
     String trimmed = header.trim();
-    if (!trimmed.startsWith("timeline")) return "";
+    if (!hasTimelineKeyword(trimmed)) return "";
     String tail = trimmed.substring("timeline".length()).trim();
-    int brace = tail.indexOf('{');
+    int brace = timelineOpeningBrace(tail);
     if (brace >= 0) tail = tail.substring(0, brace).trim();
     return tail;
   }
+
+  private boolean isTimelineHeader(String header) {
+    if (!hasTimelineKeyword(header)) return false;
+    String code = header.trim();
+    return code.equals("timeline") || code.endsWith("{");
+  }
+
+  private boolean hasTimelineKeyword(String value) {
+    if (value == null) return false;
+    String trimmed = value.trim();
+    if (!trimmed.startsWith("timeline")) return false;
+    return trimmed.length() == "timeline".length()
+        || Character.isWhitespace(trimmed.charAt("timeline".length()))
+        || trimmed.charAt("timeline".length()) == '{';
+  }
+
+  /**
+   * Removes a VNS-style trailing comment while respecting quoted values.
+   * A hash begins a comment at the start of a line or after whitespace.
+   */
+  private String timelineHeaderCode(String value) {
+    if (value == null || value.isEmpty()) return "";
+    char quote = 0;
+    boolean escaped = false;
+    for (int i = 0; i < value.length(); i++) {
+      char c = value.charAt(i);
+      if (quote != 0) {
+        if (escaped) {
+          escaped = false;
+        } else if (c == '\\') {
+          escaped = true;
+        } else if (c == quote) {
+          quote = 0;
+        }
+        continue;
+      }
+      if (c == '"' || c == '\'') {
+        quote = c;
+      } else if (isTimelineCommentStart(value, i)) {
+        return value.substring(0, i).trim();
+      }
+    }
+    return value.trim();
+  }
+
+  private TimelineBraceScan scanTimelineBraces(String value, int initialDepth) {
+    int depth = initialDepth;
+    char quote = 0;
+    boolean escaped = false;
+    for (int i = 0; i < value.length(); i++) {
+      char c = value.charAt(i);
+      if (quote != 0) {
+        if (escaped) {
+          escaped = false;
+        } else if (c == '\\') {
+          escaped = true;
+        } else if (c == quote) {
+          quote = 0;
+        }
+        continue;
+      }
+      if (c == '"' || c == '\'') {
+        quote = c;
+        continue;
+      }
+      if (isTimelineCommentStart(value, i)) {
+        break;
+      }
+      if (c == '{') {
+        depth++;
+      } else if (c == '}') {
+        depth--;
+        if (depth == 0) return new TimelineBraceScan(depth, i);
+      }
+    }
+    return new TimelineBraceScan(depth, -1);
+  }
+
+  private int timelineOpeningBrace(String value) {
+    if (value == null || value.isEmpty()) return -1;
+    char quote = 0;
+    boolean escaped = false;
+    for (int i = 0; i < value.length(); i++) {
+      char c = value.charAt(i);
+      if (quote != 0) {
+        if (escaped) escaped = false;
+        else if (c == '\\') escaped = true;
+        else if (c == quote) quote = 0;
+      } else if (c == '"' || c == '\'') {
+        quote = c;
+      } else if (isTimelineCommentStart(value, i)) {
+        return -1;
+      } else if (c == '{') {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  private boolean isTimelineCommentStart(String value, int index) {
+    if (value == null || index < 0 || index >= value.length() || value.charAt(index) != '#') {
+      return false;
+    }
+    if (isTimelineHexColor(value, index)) return false;
+    if (index == 0 || Character.isWhitespace(value.charAt(index - 1))) return true;
+    char previous = value.charAt(index - 1);
+    return previous == '{' || previous == '}';
+  }
+
+  private boolean isTimelineHexColor(String value, int hashIndex) {
+    int end = hashIndex + 1;
+    while (end < value.length() && Character.digit(value.charAt(end), 16) >= 0) end++;
+    int digits = end - hashIndex - 1;
+    if (digits != 3 && digits != 4 && digits != 6 && digits != 8) return false;
+    return end == value.length()
+        || Character.isWhitespace(value.charAt(end))
+        || value.charAt(end) == '}'
+        || value.charAt(end) == ','
+        || value.charAt(end) == ';';
+  }
+
+  private record TimelineBraceScan(int depth, int closingBrace) {}
 
   private void validateJavaImport(String imp, String sourceName, int lineNumber, String rawLine) throws IOException {
     if (!JAVA_IMPORT_PATTERN.matcher(imp).matches()) {
