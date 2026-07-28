@@ -37,7 +37,7 @@ public final class AeroIcon extends StackPane {
     LAYOUT, STORYBOARD, LAYERS, IMAGE_ATTRIBUTES, LIGHTING, VERSION_CONTROL,
     PUPPETEER, SCRIPT_EDITOR, SETTINGS,
     NEW_PROJECT, OPEN_PROJECT, RUN, BUILD, REFRESH, ENTRY_SCRIPT, MANIFEST,
-    README, DOCUMENTATION, REVEAL, ARROW_BACK, HELP, NO_PROJECT,
+    README, DOCUMENTATION, REVEAL, ARROW_BACK, HELP, WHATS_NEW, NO_PROJECT,
     VNS_RUN_LABEL, VNS_RUN_ENTRY, VNS_SYMBOLS, VNS_SNIPPET, VNS_FIND,
     VNS_COMMANDS, VNS_WORD_WRAP, VNS_DIFF, VNS_DIAGNOSTICS, VNS_PREVIEW
   }
@@ -143,6 +143,7 @@ public final class AeroIcon extends StackPane {
       case MANIFEST, README -> sized(CssIcon.document(color), size);
       case ARROW_BACK -> sized(CssIcon.arrowLeft(color), size);
       case HELP -> helpGlyph(size);
+      case WHATS_NEW -> sized(CssIcon.sparkles(color), size);
       case NO_PROJECT -> noProjectGlyph(size);
     };
     if (kind != Kind.HELP && kind != Kind.NO_PROJECT && !isVnsCommand(kind)) {
@@ -731,6 +732,7 @@ public final class AeroIcon extends StackPane {
       case REFRESH -> new Badge(sized(CssIcon.check("#ffffff"), glyphSize), Color.web("#2789c5"));
       case ARROW_BACK -> new Badge(sized(CssIcon.home("#ffffff"), glyphSize), Color.web("#c76328"));
       case HELP -> new Badge(sized(CssIcon.questionMark("#ffffff"), glyphSize), Color.web("#397cc0"));
+      case WHATS_NEW -> new Badge(sized(CssIcon.check("#ffffff"), glyphSize), Color.web("#7654bd"));
       case NO_PROJECT -> new Badge(sized(CssIcon.minus("#ffffff"), glyphSize), Color.web("#c97b2d"));
     };
   }
@@ -946,6 +948,7 @@ public final class AeroIcon extends StackPane {
       case REFRESH -> palette("#7edbff", "#2471b3", "#d7f5ff");
       case ARROW_BACK -> palette("#ffb55d", "#b74c15", "#ffe0b0");
       case HELP -> palette("#a9e5fb", "#235b82", "#f1fbff");
+      case WHATS_NEW -> palette("#c5b6ff", "#5f449e", "#f0ebff");
       case NO_PROJECT -> palette("#d8e7f0", "#344b5c", "#edf8ff");
     };
   }

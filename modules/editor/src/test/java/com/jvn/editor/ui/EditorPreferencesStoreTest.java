@@ -41,6 +41,7 @@ class EditorPreferencesStoreTest {
     assertFalse(preferences.isLauncherConfirmRunProject());
     assertTrue(preferences.isLauncherRuntimePerfHud());
     assertTrue(preferences.isGradleSkipTestsOnRun());
+    assertEquals("", preferences.getLastSeenWhatsNewVersion());
     assertEquals(EditorPanelPlacement.LEFT, preferences.getPlacement(EditorSidebarPanel.PROJECT));
     assertTrue(preferences.isVisibleInChooser(EditorSidebarPanel.PROJECT));
     assertFalse(preferences.isVisibleInChooser(EditorSidebarPanel.INSPECTOR));
@@ -71,6 +72,7 @@ class EditorPreferencesStoreTest {
     preferences.setLauncherConfirmRunProject(true);
     preferences.setLauncherRuntimePerfHud(false);
     preferences.setGradleSkipTestsOnRun(false);
+    preferences.setLastSeenWhatsNewVersion("v0.4.2");
     preferences.setPlacement(EditorSidebarPanel.TIMELINE, EditorPanelPlacement.LEFT);
 
     store.save(preferences);
@@ -93,6 +95,7 @@ class EditorPreferencesStoreTest {
     assertTrue(loaded.isLauncherConfirmRunProject());
     assertFalse(loaded.isLauncherRuntimePerfHud());
     assertFalse(loaded.isGradleSkipTestsOnRun());
+    assertEquals("v0.4.2", loaded.getLastSeenWhatsNewVersion());
     assertEquals(EditorPanelPlacement.LEFT, loaded.getPlacement(EditorSidebarPanel.TIMELINE));
   }
 
@@ -145,6 +148,7 @@ class EditorPreferencesStoreTest {
     assertFalse(loaded.isLauncherConfirmRunProject());
     assertTrue(loaded.isLauncherRuntimePerfHud());
     assertTrue(loaded.isGradleSkipTestsOnRun());
+    assertEquals("", loaded.getLastSeenWhatsNewVersion());
     assertEquals(EditorPanelPlacement.LEFT, loaded.getPlacement(EditorSidebarPanel.PROJECT));
     assertTrue(loaded.isVisibleInChooser(EditorSidebarPanel.PROJECT));
   }

@@ -3208,6 +3208,101 @@
   -fx-border-color: #b77284;
 }
 
+/* What's New */
+.whats-new-scroll {
+  -fx-background-color: transparent;
+  -fx-background: transparent;
+  -fx-border-color: transparent;
+  -fx-padding: 0;
+}
+
+.whats-new-scroll > .viewport {
+  -fx-background-color: transparent;
+}
+
+.whats-new-content {
+  -fx-padding: 2 8 4 0;
+}
+
+.whats-new-hero {
+  -fx-background-color:
+      radial-gradient(center 12% 20%, radius 85%, rgba(57, 132, 188, 0.16), transparent),
+      linear-gradient(to bottom, #edf5fb, #e2ebf2);
+  -fx-background-radius: 11;
+  -fx-border-color: #afc7d9;
+  -fx-border-radius: 11;
+  -fx-padding: 14;
+}
+
+.whats-new-badge {
+  -fx-background-color: linear-gradient(to bottom, #4e9bcf, #337ba9);
+  -fx-background-radius: 8;
+  -fx-border-color: #23648f;
+  -fx-border-radius: 8;
+  -fx-text-fill: #ffffff;
+  -fx-font-size: 9px;
+  -fx-font-weight: 900;
+  -fx-padding: 3 7 3 7;
+}
+
+.whats-new-version {
+  -fx-text-fill: #245f87;
+  -fx-font-size: 11px;
+  -fx-font-weight: 900;
+}
+
+.whats-new-summary {
+  -fx-text-fill: #1c3445;
+  -fx-font-size: 12px;
+  -fx-font-weight: 700;
+}
+
+.whats-new-section {
+  -fx-background-color: linear-gradient(to bottom, #f4f5f6, #eceeef);
+  -fx-background-radius: 10;
+  -fx-border-color: #cdd2d6;
+  -fx-border-radius: 10;
+}
+
+.whats-new-section-title {
+  -fx-text-fill: #161a1e;
+  -fx-font-size: 12px;
+  -fx-font-weight: 900;
+}
+
+.whats-new-section-summary {
+  -fx-text-fill: #68727c;
+  -fx-font-size: 10px;
+  -fx-font-weight: 700;
+}
+
+.whats-new-change-row {
+  -fx-padding: 2 0 0 0;
+}
+
+.whats-new-change-marker {
+  -fx-background-color: #d8f0e3;
+  -fx-background-radius: 8;
+  -fx-text-fill: #286646;
+  -fx-font-size: 9px;
+  -fx-font-weight: 900;
+  -fx-alignment: center;
+  -fx-padding: 2 4 2 4;
+}
+
+.whats-new-change-text {
+  -fx-text-fill: #38414a;
+  -fx-font-size: 11px;
+  -fx-font-weight: 600;
+}
+
+.whats-new-footer {
+  -fx-text-fill: #737d88;
+  -fx-font-size: 10px;
+  -fx-font-weight: 700;
+  -fx-padding: 1 4 0 4;
+}
+
 /* Expression keyframe editor */
 .expression-keyframe-dialog {
   -fx-padding: 2 4 4 4;

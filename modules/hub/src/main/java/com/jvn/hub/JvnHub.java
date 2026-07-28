@@ -18,7 +18,6 @@ import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.awt.LayoutManager;
 import java.awt.LinearGradientPaint;
-import java.awt.Point;
 import java.awt.RadialGradientPaint;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
@@ -49,17 +48,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.CodeSource;
-import java.time.LocalDate;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -207,12 +200,8 @@ public final class JvnHub {
   private int activeStepIndex = -1;
   private String activeStepLabel = "";
 
-  /** Currently-loaded announcements; refreshed on startup and after Update Engine. */
-  private final List<Announcement> announcements = new ArrayList<>();
   /** Launcher maintenance state; refreshed on startup and after Update Engine. */
   private LauncherMaintenanceState launcherMaintenanceState = LauncherMaintenanceState.available();
-  /** IDs (date+title) of announcements the user has already opened in the dialog. */
-  private final Set<String> readIds = new HashSet<>();
   /** Developer Mode exposes engineering-focused actions and launch flags. */
   private boolean developerModeEnabled = false;
   private DeveloperModeToggleButton developerModeButton;
@@ -240,8 +229,6 @@ public final class JvnHub {
   private HeaderIconButton aboutButton;
   /** Header shortcut that opens the public documentation website. */
   private HeaderIconButton documentationButton;
-  /** Bell button in the header; redrawn so the small badge reflects announcement count. */
-  private AnnouncementsButton announcementsButton;
   /** Update button with a right-aligned incoming-commit badge. */
   private UpdateEngineButton updateEngineButton;
   private HubShellPanel shellPanel;
@@ -252,10 +239,6 @@ public final class JvnHub {
 
   private JvnHub(Path projectRoot) {
     this.projectRoot = projectRoot;
-    // Load persisted read-state first so the badge counts only unread entries
-    // on the very first paint.
-    readIds.addAll(loadReadIds());
-    announcements.addAll(loadAnnouncements());
     launcherMaintenanceState = loadLauncherMaintenanceState();
     buildUi();
     checkIncomingUpdates(true);
@@ -648,7 +631,6 @@ public final class JvnHub {
 
     JMenu help = hubMenu("Help");
     help.add(hubMenuItem("Documentation", this::openDocumentationWebsite));
-    help.add(hubMenuItem("Announcements", this::showAnnouncementsDialog));
     help.addSeparator();
     help.add(hubMenuItem("About Engine Hub", this::showAboutReport));
 
@@ -824,7 +806,7 @@ public final class JvnHub {
     left.add(titleBox);
     header.add(left, BorderLayout.WEST);
 
-    // --- Right: documentation + announcements -------------------------------
+    // --- Right: mode toggles and utility shortcuts ---------------------------
     developerModeButton = new DeveloperModeToggleButton();
     developerModeButton.addActionListener(e -> setDeveloperModeEnabled(developerModeButton.isSelected()));
     actionButtons.add(developerModeButton);
@@ -851,10 +833,6 @@ public final class JvnHub {
     documentationButton.addActionListener(e -> openDocumentationWebsite());
     actionButtons.add(documentationButton);
 
-    announcementsButton = new AnnouncementsButton();
-    announcementsButton.refreshBadge(unreadCount());
-    announcementsButton.addActionListener(e -> showAnnouncementsDialog());
-
     JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, ui(6), 0));
     right.setOpaque(false);
     right.add(developerModeButton);
@@ -862,271 +840,10 @@ public final class JvnHub {
     right.add(diagnosticsButton);
     right.add(aboutButton);
     right.add(documentationButton);
-    right.add(announcementsButton);
     header.add(right, BorderLayout.EAST);
 
     return header;
   }
-
-  // --- Announcements ---------------------------------------------------------
-
-  /**
-   * Reads the announcements file (committed at {@code .jvn/announcements.md} so it
-   * arrives via {@code git pull --rebase}). The format is markdown-flavoured:
-   * each entry begins with {@code ## YYYY-MM-DD — Title} followed by a body that
-   * runs until the next {@code ## } header or end of file.
-   */
-  private List<Announcement> loadAnnouncements() {
-    Path file = projectRoot.resolve(".jvn/announcements.md");
-    if (!Files.isRegularFile(file)) return Collections.emptyList();
-    List<String> lines;
-    try {
-      lines = Files.readAllLines(file, StandardCharsets.UTF_8);
-    } catch (IOException e) {
-      appendLog("[hub] failed to read announcements: " + e.getMessage());
-      return Collections.emptyList();
-    }
-    List<Announcement> out = new ArrayList<>();
-    String date = null;
-    String title = null;
-    StringBuilder body = new StringBuilder();
-    for (String raw : lines) {
-      if (raw.startsWith("## ")) {
-        if (date != null) {
-          out.add(new Announcement(date, title, body.toString().strip()));
-          body.setLength(0);
-        }
-        // Header form: "## 2026-04-27 — Title"  or  "## 2026-04-27 - Title"
-        String header = raw.substring(3).strip();
-        int sep = indexOfFirst(header, " — ", " - ", " – ");
-        if (sep > 0) {
-          date = header.substring(0, sep).strip();
-          title = header.substring(sep).replaceFirst("^[\\s\u2014\u2013-]+", "").strip();
-        } else {
-          date = header;
-          title = "";
-        }
-      } else if (date != null) {
-        body.append(raw).append('\n');
-      }
-      // Lines before the first header are intentionally ignored (file preamble).
-    }
-    if (date != null) {
-      out.add(new Announcement(date, title, body.toString().strip()));
-    }
-    sortAnnouncementsNewestFirst(out);
-    return out;
-  }
-
-  private static void sortAnnouncementsNewestFirst(List<Announcement> entries) {
-    if (entries == null || entries.size() < 2) return;
-    entries.sort(Comparator.comparing(JvnHub::announcementDate).reversed());
-  }
-
-  static int compareAnnouncementDatesNewestFirst(String left, String right) {
-    Announcement leftEntry = new Announcement(left, "", "");
-    Announcement rightEntry = new Announcement(right, "", "");
-    return Comparator.comparing(JvnHub::announcementDate).reversed().compare(leftEntry, rightEntry);
-  }
-
-  private static LocalDate announcementDate(Announcement announcement) {
-    if (announcement == null || announcement.date() == null) return LocalDate.MIN;
-    try {
-      return LocalDate.parse(announcement.date().strip());
-    } catch (DateTimeParseException ignored) {
-      return LocalDate.MIN;
-    }
-  }
-
-  private static int indexOfFirst(String s, String... needles) {
-    int best = -1;
-    for (String n : needles) {
-      int idx = s.indexOf(n);
-      if (idx >= 0 && (best < 0 || idx < best)) best = idx;
-    }
-    return best;
-  }
-
-  private void showAnnouncementsDialog() {
-    sortAnnouncementsNewestFirst(announcements);
-    JDialog dialog = new JDialog(frame, "Announcements", true);
-    dialog.setUndecorated(false);
-
-    JPanel root = new JPanel(new BorderLayout(0, ui(12)));
-    root.setBackground(BG);
-    root.setBorder(uiPadding(16, 16, 16, 16));
-
-    JLabel header = new JLabel("Engine Announcements");
-    header.setForeground(TEXT_PRIMARY);
-    header.setFont(header.getFont().deriveFont(Font.BOLD, uiFont(16f)));
-
-    JLabel sub = new JLabel(announcements.isEmpty()
-        ? "No announcements yet. Click \"Update Engine\" to fetch the latest."
-        : announcements.size() + " total \u00B7");
-    sub.setForeground(TEXT_MUTED);
-    sub.setFont(sub.getFont().deriveFont(Font.PLAIN, uiFont(11f)));
-
-    JPanel headerBox = new JPanel();
-    headerBox.setBackground(BG);
-    headerBox.setLayout(new BoxLayout(headerBox, BoxLayout.Y_AXIS));
-    header.setAlignmentX(Component.LEFT_ALIGNMENT);
-    sub.setAlignmentX(Component.LEFT_ALIGNMENT);
-    headerBox.add(header);
-    headerBox.add(Box.createVerticalStrut(ui(2)));
-    headerBox.add(sub);
-    root.add(headerBox, BorderLayout.NORTH);
-
-    // List body.
-    JPanel list = new JPanel();
-    list.setBackground(BG);
-    list.setLayout(new BoxLayout(list, BoxLayout.Y_AXIS));
-    list.setBorder(BorderFactory.createEmptyBorder());
-
-    if (announcements.isEmpty()) {
-      JLabel empty = new JLabel("—");
-      empty.setForeground(TEXT_MUTED);
-      list.add(empty);
-    } else {
-      for (int i = 0; i < announcements.size(); i++) {
-        list.add(buildAnnouncementCard(announcements.get(i)));
-        if (i < announcements.size() - 1) list.add(Box.createVerticalStrut(ui(10)));
-      }
-    }
-
-    JScrollPane scroll = new JScrollPane(list);
-    scroll.setBorder(BorderFactory.createLineBorder(BORDER_NEUTRAL));
-    scroll.setBackground(BG);
-    scroll.getViewport().setOpaque(true);
-    scroll.getViewport().setBackground(BG);
-    scroll.setPreferredSize(uiDimension(540, 320));
-    styleScrollBar(scroll.getVerticalScrollBar());
-    styleScrollBar(scroll.getHorizontalScrollBar());
-    root.add(scroll, BorderLayout.CENTER);
-
-    FlatButton close = new FlatButton("Close",
-        uiIcon(VectorIcon.Kind.CLOSE, 14, TEXT_PRIMARY), null);
-    close.addActionListener(e -> dialog.dispose());
-    JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
-    footer.setBackground(BG);
-    footer.add(close);
-    root.add(footer, BorderLayout.SOUTH);
-
-    dialog.setContentPane(root);
-    dialog.pack();
-    scroll.getViewport().setViewPosition(new Point(0, 0));
-    scroll.getVerticalScrollBar().setValue(0);
-    dialog.setLocationRelativeTo(frame);
-    // Opening the dialog counts as reading every entry currently visible in it.
-    // The badge clears before the dialog shows so the user never sees a stale count.
-    markAllAnnouncementsRead();
-    dialog.setVisible(true);
-  }
-
-  // --- Read-state persistence ------------------------------------------------
-
-  private static String idOf(Announcement a) {
-    return a.date + "|" + a.title;
-  }
-
-  private int unreadCount() {
-    int n = 0;
-    for (Announcement a : announcements) {
-      if (!readIds.contains(idOf(a))) n++;
-    }
-    return n;
-  }
-
-  private void markAllAnnouncementsRead() {
-    if (announcements.isEmpty()) return;
-    boolean changed = false;
-    for (Announcement a : announcements) {
-      changed |= readIds.add(idOf(a));
-    }
-    if (changed) saveReadIds();
-    if (announcementsButton != null) announcementsButton.refreshBadge(0);
-  }
-
-  /** Per-user, machine-local state file. Lives outside the repo by design. */
-  private static Path readStateFile() {
-    return Paths.get(System.getProperty("user.home", "."), ".jvn", "hub-read.properties");
-  }
-
-  private static Set<String> loadReadIds() {
-    Path file = readStateFile();
-    if (!Files.isRegularFile(file)) return new HashSet<>();
-    Properties props = new Properties();
-    try (InputStream in = Files.newInputStream(file)) {
-      props.load(in);
-    } catch (IOException ignored) {
-            // reason: I/O failure on best-effort save/load; in-memory state remains valid
-      return new HashSet<>();
-    }
-    Set<String> out = new HashSet<>();
-    for (String key : props.stringPropertyNames()) {
-      if ("true".equalsIgnoreCase(props.getProperty(key))) out.add(key);
-    }
-    return out;
-  }
-
-  private void saveReadIds() {
-    Path file = readStateFile();
-    try {
-      Files.createDirectories(file.getParent());
-    } catch (IOException e) {
-      appendLog("[hub] could not create state dir: " + e.getMessage());
-      return;
-    }
-    Properties props = new Properties();
-    for (String id : readIds) props.setProperty(id, "true");
-    try (var out = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
-      props.store(out, "JVN Engine Hub \u2014 announcement read-state. Auto-generated.");
-    } catch (IOException e) {
-      appendLog("[hub] could not save read-state: " + e.getMessage());
-    }
-  }
-
-  private JPanel buildAnnouncementCard(Announcement a) {
-    JPanel card = new JPanel(new BorderLayout(0, ui(4)));
-    card.setBackground(BG);
-    card.setBorder(BorderFactory.createCompoundBorder(
-        BorderFactory.createLineBorder(BORDER_NEUTRAL),
-        uiPadding(10, 12, 10, 12)));
-
-    JLabel dateLbl = new JLabel(a.date);
-    dateLbl.setForeground(ACCENT_NEUTRAL);
-    dateLbl.setFont(dateLbl.getFont().deriveFont(Font.BOLD, uiFont(10f)));
-
-    JLabel titleLbl = new JLabel(a.title.isEmpty() ? "Update" : a.title);
-    titleLbl.setForeground(TEXT_PRIMARY);
-    titleLbl.setFont(titleLbl.getFont().deriveFont(Font.BOLD, uiFont(13f)));
-
-    JPanel head = new JPanel();
-    head.setBackground(BG);
-    head.setLayout(new BoxLayout(head, BoxLayout.Y_AXIS));
-    dateLbl.setAlignmentX(Component.LEFT_ALIGNMENT);
-    titleLbl.setAlignmentX(Component.LEFT_ALIGNMENT);
-    head.add(dateLbl);
-    head.add(Box.createVerticalStrut(ui(1)));
-    head.add(titleLbl);
-    card.add(head, BorderLayout.NORTH);
-
-    JTextArea bodyArea = new JTextArea(a.body);
-    bodyArea.setEditable(false);
-    bodyArea.setFocusable(false);
-    bodyArea.setLineWrap(true);
-    bodyArea.setWrapStyleWord(true);
-    bodyArea.setOpaque(true);
-    bodyArea.setBackground(BG);
-    bodyArea.setForeground(TEXT_SOFT);
-    bodyArea.setFont(bodyArea.getFont().deriveFont(Font.PLAIN, uiFont(12f)));
-    bodyArea.setBorder(uiPadding(4, 0, 0, 0));
-    card.add(bodyArea, BorderLayout.CENTER);
-
-    return card;
-  }
-
-  /** Small immutable record describing one announcement entry. */
-  private record Announcement(String date, String title, String body) {}
 
   private LauncherMaintenanceState loadLauncherMaintenanceState() {
     Path file = projectRoot.resolve(".jvn/maintenance.properties");
@@ -2779,7 +2496,7 @@ public final class JvnHub {
           }
         }
         // Update Engine touched the working tree — re-read on-disk state so
-        // the version label and announcements list reflect the new HEAD.
+        // version and maintenance state reflect the new HEAD.
         if (exit == 0 && "Update Engine".equals(label)) {
           refreshFromDisk();
           checkIncomingUpdates(false);
@@ -3267,7 +2984,7 @@ public final class JvnHub {
           "Fetch upstream changes",
           "Rebase local checkout",
           "Refresh version metadata",
-          "Reload announcements");
+          "Reload engine state");
       case "clean before update" -> List.of(
           "Inspect local files",
           "Select safe clean command",
@@ -4102,30 +3819,21 @@ public final class JvnHub {
   }
 
   /**
-   * Re-reads the version + announcements file and updates the corresponding
-   * Swing components. Safe to call from any thread; UI updates are dispatched
-   * to the EDT.
+   * Re-reads version and launcher-maintenance state from disk. Safe to call
+   * from any thread; UI updates are dispatched to the EDT.
    */
   private void refreshFromDisk() {
     String newVersion = readDiskVersion();
-    List<Announcement> fresh = loadAnnouncements();
     LauncherMaintenanceState freshLauncherMaintenance = loadLauncherMaintenanceState();
     SwingUtilities.invokeLater(() -> {
       versionLabel.setText(formatVersionLabel(newVersion));
-      announcements.clear();
-      announcements.addAll(fresh);
-      sortAnnouncementsNewestFirst(announcements);
-      int unread = unreadCount();
-      if (announcementsButton != null) announcementsButton.refreshBadge(unread);
       boolean maintenanceChanged = launcherMaintenanceState.underMaintenance()
           != freshLauncherMaintenance.underMaintenance();
       launcherMaintenanceState = freshLauncherMaintenance;
       if (runLauncherButton instanceof LauncherButton launcherButton) {
         launcherButton.setMaintenanceState(freshLauncherMaintenance);
       }
-      appendLog("[hub] refresh: " + fresh.size()
-          + " announcement" + (fresh.size() == 1 ? "" : "s")
-          + " (" + unread + " unread). Version: " + newVersion
+      appendLog("[hub] refresh: version " + newVersion
           + ". Launcher maintenance: "
           + (freshLauncherMaintenance.underMaintenance() ? "on" : "off")
           + (maintenanceChanged ? " (changed)" : "") + ".");
@@ -4964,7 +4672,7 @@ public final class JvnHub {
     }
   }
 
-  /** Borderless header icon button with the same hover treatment as the bell. */
+  /** Borderless header utility button with the shared Hub hover treatment. */
   private static class HeaderIconButton extends JButton {
     HeaderIconButton(Icon icon, String tooltip) {
       setIcon(icon);
@@ -5011,70 +4719,6 @@ public final class JvnHub {
         Math.round(centerY - radius),
         Math.round(radius * 2.0f),
         Math.round(radius * 2.0f));
-  }
-
-  /**
-   * Borderless bell button with a small numeric badge in the top-right corner.
-   * The badge auto-hides when the announcement count is zero. Painted entirely
-   * by Swing — no rasters required.
-   */
-  private static final class AnnouncementsButton extends JButton {
-    private int count = 0;
-
-    AnnouncementsButton() {
-      setIcon(WindowsSevenActionIcon.of(WindowsSevenActionIcon.Kind.ANNOUNCEMENTS, 24));
-      setToolTipText("Announcements — small updates pulled from the engine");
-      setContentAreaFilled(false);
-      setBorderPainted(false);
-      setFocusPainted(false);
-      setOpaque(false);
-      setRolloverEnabled(true);
-      setBorder(uiPadding(8, 8, 8, 8));
-      setPreferredSize(uiDimension(40, 40));
-    }
-
-    void refreshBadge(int newCount) {
-      this.count = Math.max(0, newCount);
-      setToolTipText(count == 0
-          ? "No announcements yet"
-          : count + " announcement" + (count == 1 ? "" : "s") + " — click to read");
-      repaint();
-    }
-
-    @Override
-    protected void paintComponent(Graphics g) {
-      if (getModel().isRollover() || getModel().isPressed()) {
-        Graphics2D h = (Graphics2D) g.create();
-        h.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        paintHeaderHoverBackdrop(h, this, getModel().isPressed());
-        h.dispose();
-      }
-      super.paintComponent(g);
-
-      if (count <= 0) return;
-
-      // Badge: small filled circle + numeric label, anchored top-right.
-      Graphics2D g2 = (Graphics2D) g.create();
-      g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-      g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-
-      String text = count > 9 ? "9+" : Integer.toString(count);
-      Font badgeFont = getFont().deriveFont(Font.BOLD, uiFont(9f));
-      g2.setFont(badgeFont);
-      FontMetrics fm = g2.getFontMetrics();
-      int textW = fm.stringWidth(text);
-      int diameter = Math.max(ui(14), textW + ui(8));
-      int badgeX = getWidth() - diameter - ui(4);
-      int badgeY = ui(4);
-
-      g2.setColor(ACCENT_MAINTENANCE);
-      g2.fillRoundRect(badgeX, badgeY, diameter, ui(14), ui(14), ui(14));
-      g2.setColor(Color.WHITE);
-      int textX = badgeX + (diameter - textW) / 2;
-      int textY = badgeY + ui(14) - (ui(14) - fm.getAscent() + fm.getDescent()) / 2 - ui(1);
-      g2.drawString(text, textX, textY);
-      g2.dispose();
-    }
   }
 
   /** Temporary terminal-style size readout painted over the Hub during live resize. */
@@ -5158,7 +4802,7 @@ public final class JvnHub {
       EDITOR, LAUNCHER, LAUNCHER_MAINTENANCE, BUILD, SHORTCUT, UPDATE, TESTS, OPTIONS,
       MORE, CANCEL, QUIT,
       DEVELOPER, DEVELOPER_ACTIVE, SAFE, SAFE_ACTIVE,
-      DIAGNOSTICS, ABOUT, DOCUMENTATION, ANNOUNCEMENTS
+      DIAGNOSTICS, ABOUT, DOCUMENTATION
     }
 
     private final Kind kind;
@@ -5208,7 +4852,6 @@ public final class JvnHub {
           case DIAGNOSTICS -> paintDiagnostics(g);
           case ABOUT -> paintAbout(g);
           case DOCUMENTATION -> paintDocumentation(g);
-          case ANNOUNCEMENTS -> paintAnnouncements(g);
         }
       } finally {
         g.dispose();
@@ -5465,25 +5108,6 @@ public final class JvnHub {
       g.drawLine(14, 9, 17, 9);
     }
 
-    private static void paintAnnouncements(Graphics2D g) {
-      glassOrb(g, Color.decode("#ffe26f"), Color.decode("#d18116"));
-      g.setPaint(new java.awt.GradientPaint(8, 5, Color.decode("#fff9c9"), 16, 19, Color.decode("#e8a528")));
-      Path2D bell = new Path2D.Float();
-      bell.moveTo(12, 5);
-      bell.curveTo(16, 5, 17, 9, 17, 13);
-      bell.lineTo(19, 17);
-      bell.lineTo(5, 17);
-      bell.lineTo(7, 13);
-      bell.curveTo(7, 9, 8, 5, 12, 5);
-      bell.closePath();
-      g.fill(bell);
-      g.setColor(Color.decode("#89531a"));
-      g.draw(bell);
-      g.fillOval(10, 18, 4, 3);
-      g.setColor(new Color(255, 255, 255, 130));
-      g.fillOval(9, 7, 5, 4);
-    }
-
     private static void glassTile(Graphics2D g, int x, int y, int width, int height,
                                   Color top, Color bottom) {
       shadow(g, x, y, width, height, 4);
@@ -5584,7 +5208,7 @@ public final class JvnHub {
    * configurable so the same {@link Kind} can be reused across contexts.
    */
   private static final class VectorIcon implements Icon {
-    enum Kind { PLAY, EDIT, ROCKET, HAMMER, CHECK, REFRESH, STOP, CLOSE, BELL, SHORTCUT, DOCUMENTATION, HEALTH, INFO, SHIELD, DEVELOPER, SLIDERS }
+    enum Kind { PLAY, EDIT, ROCKET, HAMMER, CHECK, REFRESH, STOP, CLOSE, SHORTCUT, DOCUMENTATION, HEALTH, INFO, SHIELD, DEVELOPER, SLIDERS }
 
     private final Kind kind;
     private final int size;
@@ -5786,26 +5410,6 @@ public final class JvnHub {
           head.lineTo(s * 0.58f, s * 0.30f);
           head.closePath();
           g2.fill(head);
-        }
-        case BELL -> {
-          // Top stem (the loop where a real bell would hang).
-          float stemW = s * 0.12f;
-          float stemH = s * 0.08f;
-          g2.fill(new RoundRectangle2D.Float(
-              (s - stemW) / 2f, s * 0.06f, stemW, stemH, s * 0.04f, s * 0.04f));
-
-          // Dome that flares into a wide flange — closes flat across the bottom.
-          Path2D body = new Path2D.Float();
-          body.moveTo(s * 0.50f, s * 0.16f);
-          body.curveTo(s * 0.78f, s * 0.20f, s * 0.78f, s * 0.50f, s * 0.84f, s * 0.70f);
-          body.lineTo(s * 0.16f, s * 0.70f);
-          body.curveTo(s * 0.22f, s * 0.50f, s * 0.22f, s * 0.20f, s * 0.50f, s * 0.16f);
-          body.closePath();
-          g2.fill(body);
-
-          // Clapper — small ball just below the flange.
-          float clapper = s * 0.16f;
-          g2.fill(new Ellipse2D.Float((s - clapper) / 2f, s * 0.74f, clapper, clapper));
         }
         case DOCUMENTATION -> {
           // Document sheet with a folded corner and two guide lines.

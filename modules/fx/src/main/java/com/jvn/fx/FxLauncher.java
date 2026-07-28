@@ -11,6 +11,7 @@ import java.util.Locale;
 
 import javax.imageio.ImageIO;
 
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,6 +58,8 @@ import com.jvn.fx.vn.VnRenderer;
 import com.sun.management.OperatingSystemMXBean;
 
 import javafx.animation.AnimationTimer;
+import javafx.animation.FadeTransition;
+import javafx.animation.PauseTransition;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.embed.swing.SwingFXUtils;
@@ -77,8 +80,10 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
+import javafx.util.Duration;
 
 public class FxLauncher extends Application {
   private static final Logger log = LoggerFactory.getLogger(FxLauncher.class);
@@ -102,7 +107,9 @@ public class FxLauncher extends Application {
   private ActionMap actionMap;
   private Cursor configuredCursor = Cursor.DEFAULT;
   private javafx.scene.Scene fxScene;
-  private StackPane runtimeLoadingOverlay;
+  private @Nullable StackPane runtimeLoadingOverlay;
+  private @Nullable PauseTransition runtimeLoadingRevealDelay;
+  private @Nullable FadeTransition runtimeLoadingFade;
   private File runtimeProjectRoot;
   private ProjectHotReloadTracker hotReloadTracker;
   private double mouseX = 0;
@@ -227,6 +234,18 @@ public class FxLauncher extends Application {
     // Input handling
     scene.setOnKeyPressed(e -> {
       com.jvn.core.scene.Scene cur = engine != null ? engine.scenes().peek() : null;
+      if (cur instanceof VnScene vn && vn.getActiveError() != null) {
+        if (e.getCode() == KeyCode.ENTER || e.getCode() == KeyCode.R || e.getCode() == KeyCode.F5) {
+          handleRuntimeErrorButton(vn, 1);
+        } else if (e.getCode() == KeyCode.ESCAPE) {
+          handleRuntimeErrorButton(vn, 0);
+        } else if (e.getCode() == KeyCode.C) {
+          handleRuntimeErrorButton(vn, 2);
+        }
+        // Never let an error-screen keystroke advance or mutate the scene below it.
+        e.consume();
+        return;
+      }
       if (cur instanceof PhoneScene phone) {
         if (phoneRenderer != null && phoneRenderer.handleKeyPressed(e.getCode(), e.isShiftDown())) {
           if (phone.consumeCloseRequested() && engine != null) {
@@ -533,18 +552,55 @@ public class FxLauncher extends Application {
   private StackPane createRuntimeLoadingOverlay() {
     ProgressIndicator indicator = new ProgressIndicator();
     indicator.setMouseTransparent(true);
-    indicator.setMaxSize(42, 42);
+    indicator.setMaxSize(34, 34);
     indicator.setStyle(
-        "-fx-progress-color: #e8d8ad;"
-            + "-fx-background-color: rgba(10, 10, 10, 0.72);"
-            + "-fx-background-radius: 8;"
-            + "-fx-padding: 10;");
+        "-fx-progress-color: #82c8f5;"
+            + "-fx-padding: 2;");
 
-    StackPane overlay = new StackPane(indicator);
+    String projectTitle = engine != null && engine.getConfig() != null
+        && engine.getConfig().title() != null && !engine.getConfig().title().isBlank()
+            ? engine.getConfig().title()
+            : "JVN";
+    Label title = new Label(projectTitle);
+    title.setStyle(
+        "-fx-text-fill: #f4f7fa;"
+            + "-fx-font-size: 18px;"
+            + "-fx-font-weight: 800;");
+    Label status = new Label("Preparing the first frame…");
+    status.setStyle(
+        "-fx-text-fill: #aeb9c5;"
+            + "-fx-font-size: 12px;");
+
+    HBox progressRow = new HBox(12, indicator, status);
+    progressRow.setAlignment(Pos.CENTER_LEFT);
+    VBox card = new VBox(8, title, progressRow);
+    card.setAlignment(Pos.CENTER_LEFT);
+    card.setMaxSize(360, Region.USE_PREF_SIZE);
+    card.setPadding(new Insets(20, 24, 20, 24));
+    card.setStyle(
+        "-fx-background-color: rgba(17, 21, 27, 0.96);"
+            + "-fx-background-radius: 12;"
+            + "-fx-border-color: rgba(145, 170, 194, 0.52);"
+            + "-fx-border-width: 1;"
+            + "-fx-border-radius: 12;"
+            + "-fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.58), 28, 0.24, 0, 8);");
+
+    StackPane overlay = new StackPane(card);
     overlay.setMouseTransparent(true);
     overlay.setPickOnBounds(false);
     overlay.setAlignment(Pos.CENTER);
-    overlay.setStyle("-fx-background-color: rgba(0, 0, 0, 0.35);");
+    overlay.setOpacity(0.0);
+    overlay.setStyle("-fx-background-color: rgba(3, 5, 8, 0.58);");
+
+    runtimeLoadingRevealDelay = new PauseTransition(Duration.millis(160));
+    runtimeLoadingRevealDelay.setOnFinished(event -> {
+      if (runtimeLoadingOverlay != overlay || firstFrameRendered) return;
+      runtimeLoadingFade = new FadeTransition(Duration.millis(150), overlay);
+      runtimeLoadingFade.setFromValue(overlay.getOpacity());
+      runtimeLoadingFade.setToValue(1.0);
+      runtimeLoadingFade.play();
+    });
+    runtimeLoadingRevealDelay.play();
     return overlay;
   }
 
@@ -552,11 +608,32 @@ public class FxLauncher extends Application {
     if (firstFrameRendered) return;
     firstFrameRendered = true;
     if (runtimeLoadingOverlay == null) return;
-    runtimeLoadingOverlay.setVisible(false);
-    if (runtimeLoadingOverlay.getParent() instanceof StackPane parent) {
-      parent.getChildren().remove(runtimeLoadingOverlay);
+    if (runtimeLoadingRevealDelay != null) {
+      runtimeLoadingRevealDelay.stop();
+      runtimeLoadingRevealDelay = null;
     }
-    runtimeLoadingOverlay = null;
+    if (runtimeLoadingFade != null) runtimeLoadingFade.stop();
+
+    StackPane overlay = runtimeLoadingOverlay;
+    if (overlay.getOpacity() <= 0.01) {
+      removeRuntimeLoadingOverlay(overlay);
+      return;
+    }
+    runtimeLoadingFade = new FadeTransition(Duration.millis(130), overlay);
+    runtimeLoadingFade.setFromValue(overlay.getOpacity());
+    runtimeLoadingFade.setToValue(0.0);
+    runtimeLoadingFade.setOnFinished(event -> removeRuntimeLoadingOverlay(overlay));
+    runtimeLoadingFade.play();
+  }
+
+  private void removeRuntimeLoadingOverlay(StackPane overlay) {
+    if (overlay == null) return;
+    overlay.setVisible(false);
+    if (overlay.getParent() instanceof StackPane parent) {
+      parent.getChildren().remove(overlay);
+    }
+    if (runtimeLoadingOverlay == overlay) runtimeLoadingOverlay = null;
+    runtimeLoadingFade = null;
   }
 
   private HBox createPerfHud() {
@@ -2004,9 +2081,9 @@ public class FxLauncher extends Application {
 
   private void handleRuntimeErrorButton(VnScene vnScene, int buttonIndex) {
     switch (buttonIndex) {
-      case 0 -> vnScene.clearActiveError(); // Ignore
+      case 0 -> vnScene.clearActiveError(); // Continue past the surfaced error.
       case 1 -> reloadTopVnScene(); // Reload the latest script content from disk.
-      case 2 -> { // Copy — copy error text to clipboard
+      case 2 -> { // Copy the complete error details to the clipboard.
         com.jvn.core.vn.VnErrorOverlay error = vnScene.getActiveError();
         if (error != null) {
           javafx.scene.input.Clipboard clipboard = javafx.scene.input.Clipboard.getSystemClipboard();

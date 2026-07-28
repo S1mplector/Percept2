@@ -14,7 +14,7 @@ class WindowsSevenHubIconPainterTest {
   private static final String[] KINDS = {
       "EDITOR", "LAUNCHER", "LAUNCHER_MAINTENANCE", "BUILD", "SHORTCUT", "UPDATE",
       "TESTS", "OPTIONS", "MORE", "CANCEL", "QUIT", "DEVELOPER", "DEVELOPER_ACTIVE",
-      "SAFE", "SAFE_ACTIVE", "DIAGNOSTICS", "ABOUT", "DOCUMENTATION", "ANNOUNCEMENTS"
+      "SAFE", "SAFE_ACTIVE", "DIAGNOSTICS", "ABOUT", "DOCUMENTATION"
   };
 
   @Test

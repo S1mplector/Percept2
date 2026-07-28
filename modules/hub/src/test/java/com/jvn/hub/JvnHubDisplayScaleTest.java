@@ -36,13 +36,6 @@ class JvnHubDisplayScaleTest {
   }
 
   @Test
-  void announcementDatesAlwaysSortNewestFirst() {
-    assertTrue(JvnHub.compareAnnouncementDatesNewestFirst("2026-07-18", "2026-06-09") < 0);
-    assertTrue(JvnHub.compareAnnouncementDatesNewestFirst("not-a-date", "2026-06-09") > 0);
-    assertEquals(0, JvnHub.compareAnnouncementDatesNewestFirst("2026-07-18", "2026-07-18"));
-  }
-
-  @Test
   void sourceBuildIndicatorUsesTheHubOrangeAccent() {
     String label = JvnHub.formatVersionLabel("0.4.2");
     if (label.startsWith("<html>")) {
