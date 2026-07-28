@@ -1616,6 +1616,7 @@ public class VnScriptParser {
         String moveExpr = null;
         Easing.Type moveEasing = null;
         long moveDur = 0;
+        long moveExprDur = -1L;
 
         // Parse all tokens
         int i = 0;
@@ -1701,6 +1702,19 @@ public class VnScriptParser {
                 moveDur = parseLongValue(option.value(), "[move]", "duration", sourceName, lineNumber, rawLine);
                 if (moveDur < 0) throw parseError(sourceName, lineNumber, "[move] duration must be >= 0", rawLine);
               }
+              case "exprdur", "exprduration", "expr_duration", "expr-duration",
+                   "expressiondur", "expressionduration", "expression_duration", "expression-duration" -> {
+                moveExprDur = parseLongValue(
+                    option.value(),
+                    "[move]",
+                    "expression duration",
+                    sourceName,
+                    lineNumber,
+                    rawLine);
+                if (moveExprDur < 0) {
+                  throw parseError(sourceName, lineNumber, "[move] expression duration must be >= 0", rawLine);
+                }
+              }
               default -> throw parseError(sourceName, lineNumber, "[move] unknown option: " + option.key(), rawLine);
             }
             i++;
@@ -1742,7 +1756,14 @@ public class VnScriptParser {
           throw parseError(sourceName, lineNumber, "[move] expects a character id or slot=...", rawLine);
         }
 
-        state.builder.move(moveCharId, movePos, moveExpr, moveEasing, moveDur, moveDisplaySlot);
+        state.builder.move(
+            moveCharId,
+            movePos,
+            moveExpr,
+            moveEasing,
+            moveDur,
+            moveDisplaySlot,
+            moveExprDur);
         return;
       }
       case "stage": {
@@ -2629,6 +2650,8 @@ public class VnScriptParser {
       case "move" -> switch (key) {
         case "pos", "position", "at", "coord", "coords", "xy",
              "expr", "expression", "preset", "ease", "easing", "dur", "duration", "ms",
+             "exprdur", "exprduration", "expr_duration", "expr-duration",
+             "expressiondur", "expressionduration", "expression_duration", "expression-duration",
              "slot", "as", "instance", "display", "display_slot", "display-slot" -> true;
         default -> false;
       };

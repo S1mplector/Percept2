@@ -1923,6 +1923,7 @@ public class DefaultVnInterop implements VnInterop {
         String displaySlot = null;
         Easing.Type easingType = null;
         long durationMs = 0;
+        long expressionDurationMs = -1L;
         for (int ti = startIdx; ti < toks.length; ti++) {
           String tok = toks[ti].trim();
           if (tok.isEmpty()) continue;
@@ -1948,6 +1949,16 @@ public class DefaultVnInterop implements VnInterop {
               case "duration":
               case "ms":
                 durationMs = Math.max(0L, parseLongSafe(value, durationMs));
+                break;
+              case "exprdur":
+              case "exprduration":
+              case "expr_duration":
+              case "expr-duration":
+              case "expressiondur":
+              case "expressionduration":
+              case "expression_duration":
+              case "expression-duration":
+                expressionDurationMs = Math.max(0L, parseLongSafe(value, expressionDurationMs));
                 break;
               case "ease":
               case "easing":
@@ -1975,7 +1986,12 @@ public class DefaultVnInterop implements VnInterop {
           state.setCharacterDefinedPosition(characterId, position);
         }
         state.showCharacterAnimated(position, characterId,
-            expression == null ? "neutral" : expression, null, easingType, durationMs, displaySlot);
+            expression == null ? "neutral" : expression,
+            null,
+            easingType,
+            durationMs,
+            displaySlot,
+            expressionDurationMs);
         break;
       }
       case "show": {
