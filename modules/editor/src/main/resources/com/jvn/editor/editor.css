@@ -7423,3 +7423,82 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-padding: 3;
   -fx-effect: none;
 }
+
+/*
+ * One command language for every sidebar tool: the same quiet-at-rest,
+ * glass-on-interaction treatment used by the VNS strip and Aero welcome
+ * actions. This final shared block intentionally wins over legacy
+ * tool-specific button capsules without forcing each tool to opt in.
+ */
+.sidebar-tool-root .button,
+.sidebar-tool-root .toggle-button,
+.sidebar-tool-root .menu-button,
+.sidebar-tool-root .split-menu-button {
+  -fx-background-color: transparent;
+  -fx-text-fill: #dcebf4;
+  -fx-border-color: transparent;
+  -fx-border-width: 1;
+  -fx-background-insets: 0;
+  -fx-border-insets: 0;
+  -fx-background-radius: 5;
+  -fx-border-radius: 5;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+  -fx-cursor: hand;
+  -fx-effect: none;
+}
+
+.sidebar-tool-root .button:hover,
+.sidebar-tool-root .toggle-button:hover,
+.sidebar-tool-root .menu-button:hover,
+.sidebar-tool-root .split-menu-button:hover {
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(166, 224, 255, 0.16), rgba(72, 143, 184, 0.08));
+  -fx-border-color: rgba(185, 229, 255, 0.20);
+  -fx-text-fill: #f0faff;
+  -fx-effect: dropshadow(gaussian, rgba(72, 157, 207, 0.24), 6, 0.18, 0, 1);
+}
+
+.sidebar-tool-root .button:pressed,
+.sidebar-tool-root .toggle-button:pressed,
+.sidebar-tool-root .menu-button:pressed,
+.sidebar-tool-root .split-menu-button:pressed {
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(45, 96, 126, 0.22), rgba(140, 210, 246, 0.10));
+  -fx-border-color: rgba(145, 208, 241, 0.26);
+  -fx-text-fill: #f2fbff;
+  -fx-effect: innershadow(gaussian, rgba(0, 0, 0, 0.46), 4, 0.22, 0, 1);
+}
+
+.sidebar-tool-root .toggle-button:selected,
+.sidebar-tool-root .toggle-button:selected:hover,
+.sidebar-tool-root .menu-button:showing,
+.sidebar-tool-root .split-menu-button:showing {
+  -fx-background-color:
+      linear-gradient(to bottom, rgba(156, 220, 255, 0.24), rgba(43, 112, 151, 0.16));
+  -fx-border-color: rgba(167, 222, 252, 0.44);
+  -fx-text-fill: #f2fbff;
+  -fx-effect: innershadow(gaussian, rgba(0, 0, 0, 0.34), 4, 0.2, 0, 1);
+}
+
+.sidebar-tool-root .button:focused,
+.sidebar-tool-root .toggle-button:focused,
+.sidebar-tool-root .menu-button:focused,
+.sidebar-tool-root .split-menu-button:focused {
+  -fx-border-color: rgba(149, 210, 242, 0.48);
+}
+
+.sidebar-tool-root .button:disabled,
+.sidebar-tool-root .toggle-button:disabled,
+.sidebar-tool-root .menu-button:disabled,
+.sidebar-tool-root .split-menu-button:disabled {
+  -fx-opacity: 0.42;
+  -fx-cursor: default;
+  -fx-effect: none;
+}
+
+.sidebar-tool-root .split-menu-button > .label,
+.sidebar-tool-root .split-menu-button > .arrow-button {
+  -fx-background-color: transparent;
+  -fx-border-color: transparent;
+}

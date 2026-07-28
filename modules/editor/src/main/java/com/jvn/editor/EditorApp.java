@@ -6493,6 +6493,7 @@ public class EditorApp extends Application {
     javafx.scene.layout.VBox root = new javafx.scene.layout.VBox(10);
     root.setPadding(new javafx.geometry.Insets(12));
     root.setFillWidth(true);
+    root.getStyleClass().addAll("panel-chooser-root", "sidebar-tool-root");
     Label heading = new Label(title);
     heading.getStyleClass().add("panel-chooser-heading");
     Label info = new Label(details);

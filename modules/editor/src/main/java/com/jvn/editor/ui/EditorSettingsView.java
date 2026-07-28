@@ -76,7 +76,7 @@ public class EditorSettingsView extends BorderPane {
   public EditorSettingsView(EditorPreferencesStore store) {
     this.store = store == null ? new EditorPreferencesStore() : store;
     setPadding(Insets.EMPTY);
-    getStyleClass().add("editor-settings-view");
+    getStyleClass().addAll("editor-settings-view", "sidebar-tool-root");
 
     ToolBar toolbar = new ToolBar();
     toolbar.getStyleClass().add("editor-settings-toolbar");
