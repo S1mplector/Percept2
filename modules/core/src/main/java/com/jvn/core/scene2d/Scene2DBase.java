@@ -48,9 +48,13 @@ public class Scene2DBase implements Scene2D {
    * New variables from the new method defined in Entity2D.java
    * */
    
-   private static final Comparator<Entity2D> Z_COMPARATOR = (a,b) ->
-   Double.compare(a.getZ(), b.getZ());
-	private final double[] scratchColorMatrix = new double[20];
+  private static final Comparator<Entity2D> Z_COMPARATOR = (a,b) ->
+      Double.compare(a.getZ(), b.getZ());
+  private final double[] scratchColorMatrix = new double[20];
+
+  /** Entity mutations requested from update/render callbacks, applied after traversal. */
+  private final List<Runnable> pendingChildMutations = new ArrayList<>();
+  private int traversalDepth;
 
   // ──────────────────────────────────────────────────────────────────────────
   //  Camera & input wiring
@@ -77,17 +81,23 @@ public class Scene2DBase implements Scene2D {
    *
    * @param e the entity to add; {@code null} is silently ignored
    */
-  public void add(Entity2D e) { if (e != null) children.add(e); }
+  public void add(Entity2D e) {
+    if (e == null) return;
+    mutateChildren(() -> children.add(e));
+  }
 
   /**
    * Remove an entity from this scene. No-op if not present.
    *
    * @param e the entity to remove
    */
-  public void remove(Entity2D e) { children.remove(e); }
+  public void remove(Entity2D e) {
+    if (e == null) return;
+    mutateChildren(() -> children.remove(e));
+  }
 
   /** Remove all entities from this scene. */
-  public void clear() { children.clear(); }
+  public void clear() { mutateChildren(children::clear); }
 
   /** @return the live (mutable) list of child entities */
   public java.util.List<Entity2D> getChildren() { return children; }
@@ -107,9 +117,15 @@ public class Scene2DBase implements Scene2D {
    */
   @Override
   public void update(long deltaMs) {
-    if (camera != null) camera.update(deltaMs);
-    for (int i = 0; i < children.size(); i++) {
-      children.get(i).update(deltaMs);
+    beginTraversal();
+    try {
+      if (camera != null) camera.update(Math.max(0L, deltaMs));
+      int childCount = children.size();
+      for (int i = 0; i < childCount; i++) {
+        children.get(i).update(Math.max(0L, deltaMs));
+      }
+    } finally {
+      endTraversal();
     }
   }
 
@@ -127,74 +143,108 @@ public class Scene2DBase implements Scene2D {
    */
   @Override
   public void render(Blitter2D b, double width, double height) {
-    // Sort by depth so entities with lower Z are drawn first (background → foreground)
-    boolean zDirty = false;
-    for (int i = 1; i < children.size(); i++) {
-      if (children.get(i - 1).getZ() > children.get(i).getZ()) {
-        zDirty = true;
-        break;
-      }
-    }
-    if (zDirty) {
-       // children.sort(Comparator.comparingDouble(Entity2D::getZ));
-       children.sort(Z_COMPARATOR);
-    }
-    b.push();
-    if (camera != null) {
-      camera.setViewportSize(width, height);
-      b.translate(-camera.getX(), -camera.getY());
-      b.scale(camera.getZoom(), camera.getZoom());
-    }
-    for (int i = 0; i < children.size(); i++) {
-      Entity2D e = children.get(i);
-      if (!e.isVisible()) continue;
-      b.push();
-      // Apply parallax: offset the entity position relative to camera movement.
-      // A parallaxX of 0.0 makes the entity fixed to the screen (HUD-like).
-      if (camera != null) {
-        double ox = camera.getX() * (1.0 - e.getParallaxX());
-        double oy = camera.getY() * (1.0 - e.getParallaxY());
-        if (ox != 0 || oy != 0) b.translate(ox, oy);
-      }
-      b.translate(e.getX(), e.getY());
-      if (e.getRotationDeg() != 0) b.rotateDeg(e.getRotationDeg());
-      if (e.getScaleX() != 1.0 || e.getScaleY() != 1.0) b.scale(e.getScaleX(), e.getScaleY());
-      if (e.hasSupplementalTransform()) {
-        b.transform(
-            e.getMatrixMxx(),
-            e.getMatrixMyx(),
-            e.getMatrixMxy(),
-            e.getMatrixMyy(),
-            e.getMatrixTx(),
-            e.getMatrixTy());
-      }
-      double brightness = e.getBrightness();
-      if (e.hasNonIdentityColorMatrix() || Math.abs(brightness - 1.0) > 1e-9) {
-        e.getColorMatrix(scratchColorMatrix);
-        if (Math.abs(brightness - 1.0) > 1e-9) {
-          applyBrightness(scratchColorMatrix, brightness);
+    if (b == null) return;
+    beginTraversal();
+    try {
+      // Sort only when order actually changed; most frames remain allocation-free.
+      boolean zDirty = false;
+      for (int i = 1; i < children.size(); i++) {
+        if (children.get(i - 1).getZ() > children.get(i).getZ()) {
+          zDirty = true;
+          break;
         }
-        b.setColorMatrix(scratchColorMatrix);
-      } else {
-        b.clearColorMatrix();
       }
-      double blurRadius = e.getBlurRadius();
-      if (camera != null && camera.hasDepthOfField()) {
-        double depthDistance = Math.abs(e.getZ() - camera.getFocusDepth());
-        double dofBlur = Math.min(
-            camera.getDepthOfFieldMaxBlur(),
-            depthDistance * camera.getDepthOfFieldStrength());
-        blurRadius += Math.max(0.0, dofBlur);
+      if (zDirty) children.sort(Z_COMPARATOR);
+
+      b.push();
+      try {
+        if (camera != null) {
+          camera.setViewportSize(width, height);
+          b.translate(-camera.getX(), -camera.getY());
+          b.scale(camera.getZoom(), camera.getZoom());
+        }
+        int childCount = children.size();
+        for (int i = 0; i < childCount; i++) {
+          Entity2D e = children.get(i);
+          if (!e.isVisible()) continue;
+          b.push();
+          try {
+            renderEntity(b, e);
+          } finally {
+            // Never leak transforms, colour matrices, blur, or blend state when
+            // an entity renderer fails.
+            b.pop();
+          }
+        }
+      } finally {
+        b.pop();
       }
-      if (blurRadius > 1e-9) {
-        b.setBlurRadius(blurRadius);
-      } else {
-        b.setBlurRadius(0.0);
-      }
-      e.render(b);
-      b.pop();
+    } finally {
+      endTraversal();
     }
-    b.pop();
+  }
+
+  private void renderEntity(Blitter2D b, Entity2D e) {
+    // Apply parallax: offset the entity position relative to camera movement.
+    // A parallaxX of 0.0 makes the entity fixed to the screen (HUD-like).
+    if (camera != null) {
+      double ox = camera.getX() * (1.0 - e.getParallaxX());
+      double oy = camera.getY() * (1.0 - e.getParallaxY());
+      if (ox != 0 || oy != 0) b.translate(ox, oy);
+    }
+    b.translate(e.getX(), e.getY());
+    if (e.getRotationDeg() != 0) b.rotateDeg(e.getRotationDeg());
+    if (e.getScaleX() != 1.0 || e.getScaleY() != 1.0) b.scale(e.getScaleX(), e.getScaleY());
+    if (e.hasSupplementalTransform()) {
+      b.transform(
+          e.getMatrixMxx(),
+          e.getMatrixMyx(),
+          e.getMatrixMxy(),
+          e.getMatrixMyy(),
+          e.getMatrixTx(),
+          e.getMatrixTy());
+    }
+    double brightness = e.getBrightness();
+    if (e.hasNonIdentityColorMatrix() || Math.abs(brightness - 1.0) > 1e-9) {
+      e.getColorMatrix(scratchColorMatrix);
+      if (Math.abs(brightness - 1.0) > 1e-9) {
+        applyBrightness(scratchColorMatrix, brightness);
+      }
+      b.setColorMatrix(scratchColorMatrix);
+    } else {
+      b.clearColorMatrix();
+    }
+    double blurRadius = e.getBlurRadius();
+    if (camera != null && camera.hasDepthOfField()) {
+      double depthDistance = Math.abs(e.getZ() - camera.getFocusDepth());
+      double dofBlur = Math.min(
+          camera.getDepthOfFieldMaxBlur(),
+          depthDistance * camera.getDepthOfFieldStrength());
+      blurRadius += Math.max(0.0, dofBlur);
+    }
+    b.setBlurRadius(blurRadius > 1e-9 ? blurRadius : 0.0);
+    e.render(b);
+  }
+
+  private void beginTraversal() {
+    traversalDepth++;
+  }
+
+  private void endTraversal() {
+    traversalDepth--;
+    if (traversalDepth != 0 || pendingChildMutations.isEmpty()) return;
+    for (int i = 0; i < pendingChildMutations.size(); i++) {
+      pendingChildMutations.get(i).run();
+    }
+    pendingChildMutations.clear();
+  }
+
+  private void mutateChildren(Runnable mutation) {
+    if (traversalDepth > 0) {
+      pendingChildMutations.add(mutation);
+    } else {
+      mutation.run();
+    }
   }
 
   private static void applyBrightness(double[] colorMatrix, double brightness) {

@@ -36,6 +36,8 @@ public class TimelineRunner {
 
     /** Epsilon for floating-point time comparisons. */
     private static final double EPS = 1e-6;
+    /** Prevent a resumed looping timeline from replaying unbounded stale cues in one frame. */
+    private static final long MAX_CUE_CYCLES_PER_UPDATE = 256;
 
     /** The timeline data being played. */
     private final TimelineData timeline;
@@ -97,7 +99,8 @@ public class TimelineRunner {
     public void update(long deltaMs) {
         if (finished) return;
 
-        double duration = Math.max(0.0, timeline.getDurationMs());
+        double rawDuration = timeline.getDurationMs();
+        double duration = Double.isFinite(rawDuration) ? Math.max(0.0, rawDuration) : 0.0;
         double safeDelta = Math.max(0L, deltaMs);
         if (safeDelta <= 0.0) {
             applyFrame(elapsedMs);
@@ -136,6 +139,7 @@ public class TimelineRunner {
      * @param timeMs the absolute playback time in milliseconds
      */
     public void applyFrame(double timeMs) {
+        if (!Double.isFinite(timeMs)) timeMs = 0.0;
         for (TimelineData.Track track : timeline.getTracks()) {
             if (track.hasKeyframes(TimelineData.Property.CAMERA_X)) {
                 scene.setCameraX(track.getValueAt(TimelineData.Property.CAMERA_X, timeMs));
@@ -247,11 +251,13 @@ public class TimelineRunner {
 
         long startCycle = (long) Math.floor(startAbs / duration);
         long endCycle = (long) Math.floor(endAbs / duration);
+        startCycle = boundedCueStartCycle(startCycle, endCycle);
         for (long cycle = startCycle; cycle <= endCycle; cycle++) {
             double cycleBase = cycle * duration;
             double localStart = (cycle == startCycle) ? (startAbs - cycleBase) : 0.0;
             double localEnd = (cycle == endCycle) ? (endAbs - cycleBase) : duration;
             triggerAudioWindow(localStart, localEnd, localStart <= EPS);
+            if (cycle == endCycle) break;
         }
     }
 
@@ -266,11 +272,13 @@ public class TimelineRunner {
 
         long startCycle = (long) Math.floor(startAbs / duration);
         long endCycle = (long) Math.floor(endAbs / duration);
+        startCycle = boundedCueStartCycle(startCycle, endCycle);
         for (long cycle = startCycle; cycle <= endCycle; cycle++) {
             double cycleBase = cycle * duration;
             double localStart = (cycle == startCycle) ? (startAbs - cycleBase) : 0.0;
             double localEnd = (cycle == endCycle) ? (endAbs - cycleBase) : duration;
             triggerEventWindow(localStart, localEnd, localStart <= EPS);
+            if (cycle == endCycle) break;
         }
     }
 
@@ -357,5 +365,13 @@ public class TimelineRunner {
         if (callback != null) {
             callback.run();
         }
+    }
+
+    private static long boundedCueStartCycle(long startCycle, long endCycle) {
+        if (endCycle < startCycle) return startCycle;
+        long earliestRetained = endCycle > Long.MIN_VALUE + MAX_CUE_CYCLES_PER_UPDATE
+            ? endCycle - MAX_CUE_CYCLES_PER_UPDATE + 1
+            : Long.MIN_VALUE;
+        return Math.max(startCycle, earliestRetained);
     }
 }

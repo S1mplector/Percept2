@@ -14,7 +14,8 @@ public class FrameStats {
   private int head = 0;
   private int count = 0;
   private long totalFrames = 0;
-  private long sumMs = 0;
+  /** Double avoids overflow when a diagnostics caller records extreme long deltas. */
+  private double sumMs = 0;
   private long minSampleMs = 0;
   private long maxSampleMs = 0;
 
@@ -82,7 +83,7 @@ public class FrameStats {
 
   private void recomputeDerived() {
     if (count == 0) return;
-    avgMs = (double) sumMs / count;
+    avgMs = sumMs / count;
     minMs = minSampleMs;
     maxMs = maxSampleMs;
     // avgMs is guaranteed >= 0 because every recorded sample is >= 0, but we

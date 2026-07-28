@@ -42,7 +42,9 @@ public class Tween {
 
   private long delayRemainingMs;
   private long loopElapsedMs;
-  private int loopsCompleted;
+  private long loopsCompleted;
+  /** Current yoyo direction, tracked separately so loop-count saturation cannot corrupt parity. */
+  private boolean reversePhase;
   private boolean finished;
   private double currentValue;
 
@@ -73,13 +75,14 @@ public class Tween {
     this.durationMs = Math.max(1, durationMs);
     this.delayMs = Math.max(0, delayMs);
     this.easing = easing != null ? easing : (t -> t);
-    this.loops = loops;
+    this.loops = loops == LOOP_INFINITE ? LOOP_INFINITE : Math.max(1, loops);
     this.yoyo = yoyo;
     this.onUpdate = onUpdate;
     this.onComplete = onComplete;
     this.delayRemainingMs = this.delayMs;
     this.loopElapsedMs = 0;
     this.loopsCompleted = 0;
+    this.reversePhase = false;
     this.finished = false;
     this.currentValue = start;
   }
@@ -102,55 +105,80 @@ public class Tween {
       if (remaining <= 0) return currentValue;
     }
 
-    // Phase 2: advance time within loops.
-    loopElapsedMs += remaining;
-    while (true) {
-      if (loopElapsedMs < durationMs) {
-        double t = loopElapsedMs / (double) durationMs;
-        currentValue = valueAt(t);
-        if (onUpdate != null) onUpdate.accept(currentValue);
-        return currentValue;
-      }
-      // Current loop finished.
-      loopElapsedMs -= durationMs;
-      loopsCompleted++;
-      if (loops != LOOP_INFINITE && loopsCompleted >= loops) {
+    // Phase 2: advance in O(1), even after a debugger pause or a very large
+    // clock jump. The previous per-loop while-loop could monopolise a frame
+    // for effectively unbounded time when an infinite tween caught up.
+    long completedNow = remaining / durationMs;
+    long remainder = remaining % durationMs;
+    long untilBoundary = durationMs - loopElapsedMs;
+    if (remainder >= untilBoundary) {
+      completedNow = saturatingAdd(completedNow, 1);
+      loopElapsedMs = remainder - untilBoundary;
+    } else {
+      loopElapsedMs += remainder;
+    }
+
+    if (loops != LOOP_INFINITE) {
+      long loopsRemaining = loops - loopsCompleted;
+      if (completedNow >= loopsRemaining) {
+        loopsCompleted = loops;
+        reversePhase = yoyo && (loops & 1) == 1;
+        loopElapsedMs = 0;
         currentValue = terminalValue();
-        if (onUpdate != null) onUpdate.accept(currentValue);
+        // Publish terminal state before invoking user code. A throwing callback
+        // must not leave a logically completed tween alive forever.
         finished = true;
+        if (onUpdate != null) onUpdate.accept(currentValue);
         if (onComplete != null) onComplete.run();
         return currentValue;
       }
-      // Otherwise the next loop consumes the carry-over.
     }
+
+    if ((completedNow & 1L) != 0L) reversePhase = !reversePhase;
+    loopsCompleted = saturatingAdd(loopsCompleted, completedNow);
+    double t = loopElapsedMs / (double) durationMs;
+    currentValue = valueAt(t);
+    if (onUpdate != null) onUpdate.accept(currentValue);
+    return currentValue;
+  }
+
+  private static long saturatingAdd(long a, long b) {
+    if (b > Long.MAX_VALUE - a) return Long.MAX_VALUE;
+    return a + b;
+  }
+
+  private int completedLoopCount() {
+    return loopsCompleted >= Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) loopsCompleted;
+  }
+
+  private boolean terminalLoopIsForward() {
+    if (!yoyo) return true;
+    if (loops != LOOP_INFINITE) return (loops & 1) == 1;
+    return !reversePhase;
+  }
+
+  private double terminalValue() {
+    return terminalLoopIsForward() ? end : start;
   }
 
   private double valueAt(double tNormalized) {
     double phase = tNormalized;
-    if (yoyo && (loopsCompleted & 1) == 1) {
-      // Odd loop: play backwards.
+    if (yoyo && reversePhase) {
       phase = 1.0 - tNormalized;
     }
     double k = easing.applyAsDouble(phase);
     return start + (end - start) * k;
   }
 
-  /** The value held after the final loop completes (accounts for yoyo parity). */
-  private double terminalValue() {
-    if (!yoyo) return end;
-    // With yoyo, the final resting point alternates: even completed loops end at start,
-    // odd completed loops end at end.
-    return (loopsCompleted & 1) == 1 ? end : start;
-  }
-
   public boolean isFinished() { return finished; }
   public double currentValue() { return currentValue; }
-  public int loopsCompleted() { return loopsCompleted; }
+  public int loopsCompleted() { return completedLoopCount(); }
 
   public void reset() {
     delayRemainingMs = delayMs;
     loopElapsedMs = 0;
     loopsCompleted = 0;
+    reversePhase = false;
     finished = false;
     currentValue = start;
   }

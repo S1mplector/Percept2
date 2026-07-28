@@ -88,7 +88,10 @@ public class RigidBody2D {
   public static RigidBody2D box(double x, double y, double w, double h) {
     RigidBody2D b = new RigidBody2D();
     b.shapeType = ShapeType.AABB;
-    b.aabb.x = x; b.aabb.y = y; b.aabb.w = w; b.aabb.h = h;
+    b.aabb.x = finiteOrZero(x);
+    b.aabb.y = finiteOrZero(y);
+    b.aabb.w = finiteMagnitude(w);
+    b.aabb.h = finiteMagnitude(h);
     return b;
   }
 
@@ -103,7 +106,9 @@ public class RigidBody2D {
   public static RigidBody2D circle(double x, double y, double r) {
     RigidBody2D b = new RigidBody2D();
     b.shapeType = ShapeType.CIRCLE;
-    b.circle.x = x; b.circle.y = y; b.circle.r = r;
+    b.circle.x = finiteOrZero(x);
+    b.circle.y = finiteOrZero(y);
+    b.circle.r = finiteMagnitude(r);
     return b;
   }
 
@@ -131,7 +136,16 @@ public class RigidBody2D {
   public double getY() { return shapeType == ShapeType.AABB ? aabb.y : circle.y; }
 
   /** Set the body's position, updating the active shape. */
-  public void setPosition(double x, double y) { if (shapeType == ShapeType.AABB) { aabb.x = x; aabb.y = y; } else { circle.x = x; circle.y = y; } }
+  public void setPosition(double x, double y) {
+    if (!Double.isFinite(x) || !Double.isFinite(y)) return;
+    if (shapeType == ShapeType.AABB) {
+      aabb.x = x;
+      aabb.y = y;
+    } else {
+      circle.x = x;
+      circle.y = y;
+    }
+  }
 
   /** @return the horizontal velocity */
   public double getVx() { return vx; }
@@ -140,7 +154,10 @@ public class RigidBody2D {
   public double getVy() { return vy; }
 
   /** Set the body's velocity. */
-  public void setVelocity(double vx, double vy) { this.vx = vx; this.vy = vy; }
+  public void setVelocity(double vx, double vy) {
+    this.vx = finiteOrZero(vx);
+    this.vy = finiteOrZero(vy);
+  }
 
   // ──────────────────────────────────────────────────────────────────────────
   //  Physical property accessors
@@ -150,7 +167,9 @@ public class RigidBody2D {
   public double getMass() { return mass; }
 
   /** Set the mass. Values ≤ 0 are clamped to 1. */
-  public void setMass(double mass) { this.mass = mass <= 0 ? 1.0 : mass; }
+  public void setMass(double mass) {
+    this.mass = Double.isFinite(mass) && mass > 0 ? mass : 1.0;
+  }
 
   /** @return {@code true} if the body is immovable */
   public boolean isStatic() { return isStatic; }
@@ -162,7 +181,11 @@ public class RigidBody2D {
   public double getRestitution() { return restitution; }
 
   /** Set the restitution, clamped to [0, 1]. */
-  public void setRestitution(double restitution) { this.restitution = Math.max(0, Math.min(1, restitution)); }
+  public void setRestitution(double restitution) {
+    this.restitution = Double.isFinite(restitution)
+        ? Math.max(0, Math.min(1, restitution))
+        : 0.0;
+  }
 
   /** @return {@code true} if this body is a sensor (overlap-only) */
   public boolean isSensor() { return sensor; }
@@ -188,5 +211,34 @@ public class RigidBody2D {
     if (friction < 0) friction = 0;
     if (friction > 1) friction = 1;
     this.friction = friction;
+  }
+
+  /**
+   * Repair mutable shape fields before simulation. Shape objects are exposed
+   * for compatibility, so callers can otherwise inject NaN or negative extents
+   * without going through the guarded setters.
+   */
+  void sanitizeState() {
+    vx = finiteOrZero(vx);
+    vy = finiteOrZero(vy);
+    mass = Double.isFinite(mass) && mass > 0 ? mass : 1.0;
+    if (shapeType == ShapeType.CIRCLE) {
+      circle.x = finiteOrZero(circle.x);
+      circle.y = finiteOrZero(circle.y);
+      circle.r = finiteMagnitude(circle.r);
+    } else {
+      aabb.x = finiteOrZero(aabb.x);
+      aabb.y = finiteOrZero(aabb.y);
+      aabb.w = finiteMagnitude(aabb.w);
+      aabb.h = finiteMagnitude(aabb.h);
+    }
+  }
+
+  private static double finiteOrZero(double value) {
+    return Double.isFinite(value) ? value : 0.0;
+  }
+
+  private static double finiteMagnitude(double value) {
+    return Double.isFinite(value) ? Math.abs(value) : 0.0;
   }
 }

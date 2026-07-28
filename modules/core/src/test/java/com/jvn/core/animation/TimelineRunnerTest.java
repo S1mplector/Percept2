@@ -150,4 +150,20 @@ class TimelineRunnerTest {
         assertEquals(0.75, scene.hero.getBrightness(), 0.001);
         assertEquals(0.75, scene.hero.readCustomProperty("effect.brightness"), 0.001);
     }
+
+    @Test
+    void loopingCueCatchupIsBoundedAfterVeryLargeTimeJump() {
+        TimelineData data = new TimelineData("bounded", 1);
+        data.setLooping(true);
+        data.addAudioCue(new TimelineData.AudioCue(0, "tick.wav", "sound", 1, false, 0));
+        RecordingSceneAccessor scene = new RecordingSceneAccessor();
+        TimelineRunner runner = new TimelineRunner(data, scene);
+
+        runner.update(Long.MAX_VALUE);
+
+        assertTrue(scene.audioPlayCount <= 256,
+            "catch-up must not replay an unbounded number of stale cues");
+        assertTrue(scene.audioPlayCount > 0);
+        assertTrue(Double.isFinite(runner.getElapsedMs()));
+    }
 }

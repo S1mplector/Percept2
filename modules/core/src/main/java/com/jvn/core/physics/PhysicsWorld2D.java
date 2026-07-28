@@ -5,7 +5,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import com.jvn.core.math.Rect;
 
@@ -38,6 +37,7 @@ import com.jvn.core.math.Rect;
  * @see Collision2D
  */
 public class PhysicsWorld2D {
+  private static final long MAX_CELLS_PER_BODY = 4096;
 
   // ──────────────────────────────────────────────────────────────────────────
   //  World state
@@ -84,6 +84,17 @@ public class PhysicsWorld2D {
 
   /** Unique broadphase collision pairs for the current step. */
   private final List<int[]> broadphasePairs = new ArrayList<>();
+  private int broadphasePairCount;
+
+  /** Reused broadphase containers to avoid rebuilding garbage every sub-step. */
+  private final List<List<Integer>> broadphaseBucketPool = new ArrayList<>();
+  private final HashSet<Long> broadphaseSeenPairs = new HashSet<>();
+  private final Bounds scratchBounds = new Bounds();
+  private final CollisionInfo scratchCollision = new CollisionInfo();
+
+  /** Mutations requested by collision callbacks are published after the simulation step. */
+  private final List<Runnable> pendingMutations = new ArrayList<>();
+  private boolean stepping;
 
   // ──────────────────────────────────────────────────────────────────────────
   //  Inner types
@@ -133,16 +144,21 @@ public class PhysicsWorld2D {
   // ──────────────────────────────────────────────────────────────────────────
 
   /** Set world gravity in pixels / s². */
-  public void setGravity(double gx, double gy) { this.gravityX = gx; this.gravityY = gy; }
+  public void setGravity(double gx, double gy) {
+    this.gravityX = finiteOrZero(gx);
+    this.gravityY = finiteOrZero(gy);
+  }
 
   /** Set the optional world boundary rectangle ({@code null} = unbounded). */
   public void setBounds(Rect bounds) { this.bounds = bounds; }
 
   /** Add an immovable rectangular collider (e.g. a tile). */
-  public void addStaticRect(Rect r) { if (r != null) staticRects.add(r); }
+  public void addStaticRect(Rect r) {
+    if (r != null) mutate(() -> staticRects.add(r));
+  }
 
   /** Remove all static rectangular colliders. */
-  public void clearStaticRects() { staticRects.clear(); }
+  public void clearStaticRects() { mutate(staticRects::clear); }
 
   /** Set the sensor overlap callback. */
   public void setSensorListener(PhysicsSensorListener l) { this.sensorListener = l; }
@@ -155,16 +171,22 @@ public class PhysicsWorld2D {
   // ──────────────────────────────────────────────────────────────────────────
 
   /** Add a body to the simulation. */
-  public void addBody(RigidBody2D b) { if (b != null) bodies.add(b); }
+  public void addBody(RigidBody2D b) {
+    if (b != null) mutate(() -> bodies.add(b));
+  }
 
   /** Remove a body from the simulation. */
-  public void removeBody(RigidBody2D b) { bodies.remove(b); }
+  public void removeBody(RigidBody2D b) {
+    if (b != null) mutate(() -> bodies.remove(b));
+  }
 
   /** @return all registered bodies (mutable list) */
   public List<RigidBody2D> getBodies() { return bodies; }
 
   /** Set the maximum single-step duration in ms. 0 = no limit. */
-  public void setMaxStepMs(double ms) { this.maxStepMs = ms <= 0 ? 0 : ms; }
+  public void setMaxStepMs(double ms) {
+    this.maxStepMs = Double.isFinite(ms) && ms > 0 ? ms : 0;
+  }
 
   /** @return the maximum step duration in ms */
   public double getMaxStepMs() { return maxStepMs; }
@@ -176,7 +198,9 @@ public class PhysicsWorld2D {
    * @param maxSubSteps the maximum number of sub-steps per frame
    */
   public void setFixedTimeStepMs(double stepMs, int maxSubSteps) {
-    this.fixedTimeStepMs = stepMs <= 0 ? 0 : stepMs;
+    double resolvedStep = Double.isFinite(stepMs) && stepMs > 0 ? stepMs : 0;
+    if (Double.compare(fixedTimeStepMs, resolvedStep) != 0) accumulatorMs = 0;
+    this.fixedTimeStepMs = resolvedStep;
     this.maxSubSteps = Math.max(1, maxSubSteps);
   }
 
@@ -235,24 +259,33 @@ public class PhysicsWorld2D {
    * @param deltaMs frame delta in milliseconds
    */
   public void step(double deltaMs) {
-    if (deltaMs < 0) return;
+    if (!Double.isFinite(deltaMs) || deltaMs <= 0) return;
+    if (stepping) throw new IllegalStateException("PhysicsWorld2D.step cannot be called recursively");
     double stepMs = deltaMs;
     if (maxStepMs > 0 && stepMs > maxStepMs) stepMs = maxStepMs;
 
-    if (fixedTimeStepMs > 0) {
-      accumulatorMs += stepMs;
-      int steps = 0;
-      while (accumulatorMs >= fixedTimeStepMs && steps < maxSubSteps) {
-        stepOnce(fixedTimeStepMs);
-        accumulatorMs -= fixedTimeStepMs;
-        steps++;
+    stepping = true;
+    try {
+      if (fixedTimeStepMs > 0) {
+        accumulatorMs = Math.min(
+            accumulatorMs + stepMs,
+            fixedTimeStepMs * (maxSubSteps + 1.0));
+        int steps = 0;
+        while (accumulatorMs >= fixedTimeStepMs && steps < maxSubSteps) {
+          stepOnce(fixedTimeStepMs);
+          accumulatorMs -= fixedTimeStepMs;
+          steps++;
+        }
+        // Avoid unbounded accumulation if frame time explodes.
+        if (steps == maxSubSteps && accumulatorMs > fixedTimeStepMs) {
+          accumulatorMs = fixedTimeStepMs;
+        }
+      } else {
+        stepOnce(stepMs);
       }
-      // Avoid unbounded accumulation if frame time explodes
-      if (steps == maxSubSteps && accumulatorMs > fixedTimeStepMs) {
-        accumulatorMs = fixedTimeStepMs;
-      }
-    } else {
-      stepOnce(stepMs);
+    } finally {
+      stepping = false;
+      drainPendingMutations();
     }
   }
 
@@ -261,7 +294,12 @@ public class PhysicsWorld2D {
     double dt = stepMs / 1000.0;
     if (dt <= 0) return;
 
-    for (RigidBody2D b : bodies) {
+    sanitizeRect(bounds);
+    for (int i = 0; i < staticRects.size(); i++) sanitizeRect(staticRects.get(i));
+    int bodyCount = bodies.size();
+    for (int i = 0; i < bodyCount; i++) {
+      RigidBody2D b = bodies.get(i);
+      b.sanitizeState();
       if (b.isStatic()) continue;
       b.setVelocity(b.getVx() + gravityX * dt, b.getVy() + gravityY * dt);
       if (b.getLinearDamping() > 0) {
@@ -275,7 +313,9 @@ public class PhysicsWorld2D {
       resolveStaticColliders(b);
     }
 
-    for (int[] pair : gatherPairs()) {
+    gatherPairs();
+    for (int pairIndex = 0; pairIndex < broadphasePairCount; pairIndex++) {
+      int[] pair = broadphasePairs.get(pairIndex);
       RigidBody2D a = bodies.get(pair[0]);
       RigidBody2D b = bodies.get(pair[1]);
       CollisionInfo info = findCollision(a, b);
@@ -289,23 +329,41 @@ public class PhysicsWorld2D {
   }
 
   /** Populate broadphase grid and gather unique overlapping body pairs. */
-  private List<int[]> gatherPairs() {
-    broadphasePairs.clear();
+  private void gatherPairs() {
+    broadphasePairCount = 0;
+    broadphaseSeenPairs.clear();
+    for (List<Integer> bucket : broadphaseCells.values()) {
+      bucket.clear();
+      broadphaseBucketPool.add(bucket);
+    }
     broadphaseCells.clear();
     for (int i = 0; i < bodies.size(); i++) {
-      Bounds bb = computeBounds(bodies.get(i));
+      Bounds bb = computeBounds(bodies.get(i), scratchBounds);
       int minCx = (int) Math.floor(bb.minX / broadphaseCellSize);
       int maxCx = (int) Math.floor(bb.maxX / broadphaseCellSize);
       int minCy = (int) Math.floor(bb.minY / broadphaseCellSize);
       int maxCy = (int) Math.floor(bb.maxY / broadphaseCellSize);
-      for (int cx = minCx; cx <= maxCx; cx++) {
-        for (int cy = minCy; cy <= maxCy; cy++) {
+      long spanX = (long) maxCx - minCx + 1L;
+      long spanY = (long) maxCy - minCy + 1L;
+      if (spanX <= 0 || spanY <= 0 || spanX > MAX_CELLS_PER_BODY
+          || spanY > MAX_CELLS_PER_BODY || spanX * spanY > MAX_CELLS_PER_BODY) {
+        buildAllPairs();
+        return;
+      }
+      for (long cellX = minCx; cellX <= maxCx; cellX++) {
+        int cx = (int) cellX;
+        for (long cellY = minCy; cellY <= maxCy; cellY++) {
+          int cy = (int) cellY;
           long key = hashCell(cx, cy);
-          broadphaseCells.computeIfAbsent(key, k -> new ArrayList<>()).add(i);
+          List<Integer> bucket = broadphaseCells.get(key);
+          if (bucket == null) {
+            bucket = acquireBroadphaseBucket();
+            broadphaseCells.put(key, bucket);
+          }
+          bucket.add(i);
         }
       }
     }
-    Set<Long> seen = new HashSet<>();
     for (List<Integer> bucket : broadphaseCells.values()) {
       int n = bucket.size();
       if (n < 2) continue;
@@ -314,16 +372,14 @@ public class PhysicsWorld2D {
           int a = bucket.get(i);
           int b = bucket.get(j);
           long key = pairKey(a, b);
-          if (seen.add(key)) broadphasePairs.add(new int[] {a, b});
+          if (broadphaseSeenPairs.add(key)) addBroadphasePair(a, b);
         }
       }
     }
-    return broadphasePairs;
   }
 
   /** Compute the axis-aligned bounding box of a body for broadphase insertion. */
-  private Bounds computeBounds(RigidBody2D b) {
-    Bounds out = new Bounds();
+  private Bounds computeBounds(RigidBody2D b, Bounds out) {
     if (b.getShapeType() == RigidBody2D.ShapeType.CIRCLE) {
       var c = b.getCircle();
       out.minX = c.x - c.r;
@@ -338,6 +394,32 @@ public class PhysicsWorld2D {
       out.maxY = r.bottom();
     }
     return out;
+  }
+
+  private List<Integer> acquireBroadphaseBucket() {
+    int last = broadphaseBucketPool.size() - 1;
+    return last >= 0 ? broadphaseBucketPool.remove(last) : new ArrayList<>();
+  }
+
+  private void addBroadphasePair(int a, int b) {
+    int[] pair;
+    if (broadphasePairCount < broadphasePairs.size()) {
+      pair = broadphasePairs.get(broadphasePairCount);
+    } else {
+      pair = new int[2];
+      broadphasePairs.add(pair);
+    }
+    pair[0] = a;
+    pair[1] = b;
+    broadphasePairCount++;
+  }
+
+  private void buildAllPairs() {
+    broadphasePairCount = 0;
+    int count = bodies.size();
+    for (int a = 0; a < count; a++) {
+      for (int b = a + 1; b < count; b++) addBroadphasePair(a, b);
+    }
   }
 
   /** Narrow-phase collision detection; returns contact info or {@code null}. */
@@ -369,7 +451,7 @@ public class PhysicsWorld2D {
     double rsum = ca.r + cb.r;
     if (dist2 >= rsum * rsum) return null;
     double dist = Math.sqrt(Math.max(1e-9, dist2));
-    CollisionInfo info = new CollisionInfo();
+    CollisionInfo info = scratchCollision;
     if (dist > 1e-6) {
       info.nx = dx / dist;
       info.ny = dy / dist;
@@ -394,7 +476,7 @@ public class PhysicsWorld2D {
     double minOverlapX = Math.min(overlapX1, overlapX2);
     double minOverlapY = Math.min(overlapY1, overlapY2);
 
-    CollisionInfo info = new CollisionInfo();
+    CollisionInfo info = scratchCollision;
     if (minOverlapX < minOverlapY) {
       double dir = (overlapX1 < overlapX2) ? 1 : -1; // normal from a to b
       info.nx = dir;
@@ -420,7 +502,7 @@ public class PhysicsWorld2D {
     double dist2 = dx * dx + dy * dy;
     double radius = c.r;
     if (dist2 > radius * radius) return null;
-    CollisionInfo info = new CollisionInfo();
+    CollisionInfo info = scratchCollision;
     if (dist2 > 1e-9) {
       double dist = Math.sqrt(dist2);
       double nx = dx / dist; // normal from circle (a) toward box (b)
@@ -528,6 +610,31 @@ public class PhysicsWorld2D {
 
   private double clamp(double v, double min, double max) {
     return v < min ? min : Math.min(v, max);
+  }
+
+  private static double finiteOrZero(double value) {
+    return Double.isFinite(value) ? value : 0.0;
+  }
+
+  private static void sanitizeRect(Rect rect) {
+    if (rect == null) return;
+    rect.x = finiteOrZero(rect.x);
+    rect.y = finiteOrZero(rect.y);
+    rect.w = Double.isFinite(rect.w) ? Math.abs(rect.w) : 0.0;
+    rect.h = Double.isFinite(rect.h) ? Math.abs(rect.h) : 0.0;
+  }
+
+  private void mutate(Runnable mutation) {
+    if (stepping) pendingMutations.add(mutation);
+    else mutation.run();
+  }
+
+  private void drainPendingMutations() {
+    if (pendingMutations.isEmpty()) return;
+    for (int i = 0; i < pendingMutations.size(); i++) {
+      pendingMutations.get(i).run();
+    }
+    pendingMutations.clear();
   }
 
   /** Clamp a body inside the world bounds and reflect velocity on contact. */

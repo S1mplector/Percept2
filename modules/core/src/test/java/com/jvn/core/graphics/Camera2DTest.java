@@ -87,4 +87,18 @@ class Camera2DTest {
     assertEquals(63.212055882855765, camera.getX(), 1e-9);
     assertEquals(31.606027941427882, camera.getY(), 1e-9);
   }
+
+  @Test
+  void nonFiniteConfigurationFallsBackToStableValues() {
+    Camera2D camera = new Camera2D();
+    camera.setPosition(10, 20);
+    camera.setPosition(Double.NaN, Double.POSITIVE_INFINITY);
+    camera.setZoom(Double.NaN);
+    camera.setSmoothingMs(Double.POSITIVE_INFINITY);
+    camera.update(Long.MAX_VALUE);
+
+    assertEquals(10.0, camera.getX(), 1e-9);
+    assertEquals(20.0, camera.getY(), 1e-9);
+    assertEquals(0.0001, camera.getZoom(), 1e-12);
+  }
 }

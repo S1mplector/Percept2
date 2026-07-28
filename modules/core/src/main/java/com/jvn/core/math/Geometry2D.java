@@ -51,8 +51,14 @@ public final class Geometry2D {
 
   public static boolean intersects(Capsule2 capsule, Rect rect) {
     if (capsule == null || rect == null) return false;
-    Rect expanded = new Rect(rect.x - capsule.r, rect.y - capsule.r, rect.w + capsule.r * 2.0, rect.h + capsule.r * 2.0);
-    return raycastSegmentAABB(capsule.x1, capsule.y1, capsule.x2, capsule.y2, expanded) != null
+    double radius = Double.isFinite(capsule.r) ? Math.max(0.0, capsule.r) : 0.0;
+    double left = rect.left() - radius;
+    double top = rect.top() - radius;
+    double right = rect.right() + radius;
+    double bottom = rect.bottom() + radius;
+    return segmentIntersectsAabb(
+            capsule.x1, capsule.y1, capsule.x2, capsule.y2,
+            left, top, right, bottom)
         || rect.contains(capsule.x1, capsule.y1)
         || rect.contains(capsule.x2, capsule.y2);
   }
@@ -158,5 +164,31 @@ public final class Geometry2D {
       return new double[] { ox + t * dx, oy + t * dy, t };
     }
     return null;
+  }
+
+  private static boolean segmentIntersectsAabb(
+      double sx, double sy, double ex, double ey,
+      double left, double top, double right, double bottom) {
+    double dx = ex - sx;
+    double dy = ey - sy;
+    double tmin = 0.0;
+    double tmax = 1.0;
+    if (dx != 0.0) {
+      double tx1 = (left - sx) / dx;
+      double tx2 = (right - sx) / dx;
+      tmin = Math.max(tmin, Math.min(tx1, tx2));
+      tmax = Math.min(tmax, Math.max(tx1, tx2));
+    } else if (sx < left || sx > right) {
+      return false;
+    }
+    if (dy != 0.0) {
+      double ty1 = (top - sy) / dy;
+      double ty2 = (bottom - sy) / dy;
+      tmin = Math.max(tmin, Math.min(ty1, ty2));
+      tmax = Math.min(tmax, Math.max(ty1, ty2));
+    } else if (sy < top || sy > bottom) {
+      return false;
+    }
+    return tmax >= tmin && tmin >= 0.0 && tmin <= 1.0;
   }
 }

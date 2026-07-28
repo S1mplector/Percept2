@@ -6,7 +6,6 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.stage.Window;
 
@@ -20,29 +19,6 @@ public final class WhatsNewDialog {
 
     VBox content = new VBox(12);
     content.getStyleClass().add("whats-new-content");
-
-    HBox hero = new HBox(14);
-    hero.setAlignment(Pos.CENTER_LEFT);
-    hero.getStyleClass().add("whats-new-hero");
-
-    Region icon = AeroIcon.of(AeroIcon.Kind.WHATS_NEW, 48);
-    VBox heading = new VBox(3);
-    HBox badges = new HBox(7);
-    badges.setAlignment(Pos.CENTER_LEFT);
-    Label newBadge = new Label("NEW RELEASE");
-    newBadge.getStyleClass().add("whats-new-badge");
-    Label versionBadge = new Label(release.versionLabel());
-    versionBadge.getStyleClass().add("whats-new-version");
-    badges.getChildren().addAll(newBadge, versionBadge);
-
-    Label summary = new Label(release.summary());
-    summary.getStyleClass().add("whats-new-summary");
-    summary.setWrapText(true);
-    summary.setMaxWidth(420);
-    heading.getChildren().addAll(badges, summary);
-    HBox.setHgrow(heading, Priority.ALWAYS);
-    hero.getChildren().addAll(icon, heading);
-    content.getChildren().add(hero);
 
     for (WhatsNewCatalog.Section section : release.sections()) {
       content.getChildren().add(sectionCard(section));

@@ -18,28 +18,41 @@ public class TweenRunner {
   public int activeCount() { return tasks.size(); }
 
   public void update(long deltaMs) {
-    // Index-based loop tolerates the underlying list being mutated below
-    // (we never let add() touch `tasks` during update).
+    if (updating) {
+      throw new IllegalStateException("TweenRunner.update cannot be called recursively");
+    }
+    long safeDeltaMs = Math.max(0L, deltaMs);
+    RuntimeException firstFailure = null;
+    int writeIdx = 0;
     updating = true;
     try {
-      int writeIdx = 0;
       for (int readIdx = 0; readIdx < tasks.size(); readIdx++) {
         TweenTask t = tasks.get(readIdx);
-        t.update(deltaMs);
-        if (!t.isFinished()) {
+        boolean keep = false;
+        try {
+          t.update(safeDeltaMs);
+          keep = !t.isFinished();
+        } catch (RuntimeException ex) {
+          // Remove a poisoned task, but finish compacting the runner so one
+          // callback cannot corrupt every tween scheduled after it.
+          if (firstFailure == null) firstFailure = ex;
+        }
+        if (keep) {
           if (writeIdx != readIdx) tasks.set(writeIdx, t);
           writeIdx++;
         }
       }
-      // Trim any tail that's now beyond the kept tasks (in O(removed) not O(n*removed)).
-      while (tasks.size() > writeIdx) tasks.remove(tasks.size() - 1);
     } finally {
+      // Always restore a valid compact list and publish deferred additions,
+      // including when a task throws.
+      while (tasks.size() > writeIdx) tasks.remove(tasks.size() - 1);
       updating = false;
+      if (!pendingAdds.isEmpty()) {
+        tasks.addAll(pendingAdds);
+        pendingAdds.clear();
+      }
     }
-    if (!pendingAdds.isEmpty()) {
-      tasks.addAll(pendingAdds);
-      pendingAdds.clear();
-    }
+    if (firstFailure != null) throw firstFailure;
   }
 
   public static abstract class TweenTask {

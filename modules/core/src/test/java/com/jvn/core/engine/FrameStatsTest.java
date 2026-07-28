@@ -75,4 +75,14 @@ public class FrameStatsTest {
     assertEquals(30.0, stats.getMaxMs(), 1e-9);
     assertEquals((20.0 + 30.0 + 10.0) / 3.0, stats.getAvgMs(), 1e-9);
   }
+
+  @Test
+  public void extremeSamplesDoNotOverflowTheRollingSum() {
+    FrameStats stats = new FrameStats(4);
+    for (int i = 0; i < 4; i++) stats.record(Long.MAX_VALUE);
+
+    assertTrue(Double.isFinite(stats.getAvgMs()));
+    assertTrue(stats.getAvgMs() > 0);
+    assertEquals((double) Long.MAX_VALUE, stats.getAvgMs(), 1.0);
+  }
 }
