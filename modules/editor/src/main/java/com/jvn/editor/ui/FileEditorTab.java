@@ -458,8 +458,6 @@ public class FileEditorTab extends BorderPane {
     if (isDetachedPreviewVisible()) return;
     if (kind == Kind.JES && viewport != null) {
       viewport.render(dt);
-    } else if (kind == Kind.VNS && vnPreview != null) {
-      vnPreview.render(dt);
     }
   }
 
@@ -1327,6 +1325,9 @@ public class FileEditorTab extends BorderPane {
     stage.setOnHidden(e -> handleDetachedPreviewStageHidden(stage));
     detachedPreviewStage = stage;
     stage.show();
+    if (kind == Kind.VNS && vnPreview != null) {
+      vnPreview.setPlaybackActive(true);
+    }
     if (previewModeBeforeDetach != PreviewLayoutMode.CODE && previewModeCodeButton != null) {
       previewModeCodeButton.setSelected(true);
     }
@@ -1339,6 +1340,9 @@ public class FileEditorTab extends BorderPane {
     Stage stage = detachedPreviewStage;
     detachedPreviewStage = null;
     stopDetachedPreviewTimer();
+    if (kind == Kind.VNS && vnPreview != null) {
+      vnPreview.setPlaybackActive(false);
+    }
     removeDockPreviewFromParent();
     if (stage.isShowing()) stage.hide();
     if (disposing) return;
@@ -1389,7 +1393,11 @@ public class FileEditorTab extends BorderPane {
     if (stage == null || detachedPreviewStage != stage) return;
     detachedPreviewStage = null;
     stopDetachedPreviewTimer();
-    stopPreviewAudio();
+    if (kind == Kind.VNS && vnPreview != null) {
+      vnPreview.setPlaybackActive(false);
+    } else {
+      stopPreviewAudio();
+    }
     removeDockPreviewFromParent();
     if (disposed) return;
 

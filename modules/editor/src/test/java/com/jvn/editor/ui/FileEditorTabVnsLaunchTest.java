@@ -1,7 +1,14 @@
 package com.jvn.editor.ui;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.jvn.core.audio.AudioFacade;
+import com.jvn.core.vn.VnAudioCommand;
+import com.jvn.core.vn.VnNode;
+import com.jvn.core.vn.VnNodeType;
+import com.jvn.core.vn.VnScenario;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
@@ -105,6 +112,67 @@ class FileEditorTabVnsLaunchTest {
       }
       return null;
     });
+  }
+
+  @Test
+  void loadingVnsKeepsAudioSilentUntilPreviewIsVisible() throws Exception {
+    Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
+
+    onFxThread(() -> {
+      RecordingAudio audio = new RecordingAudio();
+      VnPreviewView preview = new VnPreviewView(audio);
+      VnScenario scenario = VnScenario.builder("silent_editor")
+          .addNode(VnNode.builder(VnNodeType.AUDIO)
+              .audioCommand(VnAudioCommand.builder(VnAudioCommand.AudioCommandType.PLAY_BGM)
+                  .trackId("theme.ogg")
+                  .loop(true)
+                  .build())
+              .build())
+          .build();
+
+      try {
+        preview.setScenario(scenario);
+
+        assertFalse(preview.isPlaybackActive());
+        assertEquals(0, audio.bgmPlayCount);
+
+        preview.setPlaybackActive(true);
+
+        assertTrue(preview.isPlaybackActive());
+        assertEquals(1, audio.bgmPlayCount);
+        assertEquals("theme.ogg", audio.lastBgm);
+
+        preview.setPlaybackActive(false);
+
+        assertFalse(preview.isPlaybackActive());
+        assertTrue(audio.stopCount > 0);
+      } finally {
+        preview.dispose();
+      }
+      return null;
+    });
+  }
+
+  private static final class RecordingAudio implements AudioFacade {
+    private int bgmPlayCount;
+    private int stopCount;
+    private String lastBgm = "";
+
+    @Override
+    public void playBgm(String trackId, boolean loop) {
+      bgmPlayCount++;
+      lastBgm = trackId;
+    }
+
+    @Override
+    public void stopBgm() {
+      stopCount++;
+    }
+
+    @Override
+    public void playSfx(String soundId) {
+      // Historical sound effects must not replay when the preview becomes visible.
+    }
   }
 
   private static <T> T onFxThread(java.util.concurrent.Callable<T> work) throws Exception {
