@@ -688,17 +688,9 @@ public class AnimationPreview extends VBox {
             gc.fillRoundRect(panelX + 1.0, panelY + 1.0, (panelWidth - 2.0) * progress, 3.0, 8.0, 8.0);
         }
 
-        String mode = livePreviewReadout.mode();
-        gc.setFont(javafx.scene.text.Font.font("Monospaced", javafx.scene.text.FontWeight.BOLD, 10));
-        double modeWidth = Math.max(78.0, mode.length() * 6.3 + 16.0);
-        gc.setFill(Color.web(mode.contains("RUNTIME") ? "#6d4829" : "#234b66", 0.96));
-        gc.fillRoundRect(panelX + 9.0, panelY + 10.0, modeWidth, 18.0, 9.0, 9.0);
-        gc.setFill(Color.web(mode.contains("RUNTIME") ? "#ffd4a8" : "#ccecff", 0.98));
-        gc.fillText(mode, panelX + 17.0, panelY + 23.0);
-
         gc.setFont(javafx.scene.text.Font.font("Monospaced", javafx.scene.text.FontWeight.BOLD, 11));
         gc.setFill(Color.web("#f2f5f8", 0.98));
-        gc.fillText(livePreviewReadout.clock(), panelX + modeWidth + 18.0, panelY + 23.0);
+        gc.fillText(livePreviewReadout.clock(), panelX + 10.0, panelY + 23.0);
 
         gc.setFont(javafx.scene.text.Font.font("System", javafx.scene.text.FontWeight.BOLD, 11));
         gc.setFill(Color.web("#d9e1ea", 0.96));
