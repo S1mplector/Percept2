@@ -4072,57 +4072,6 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-border-width: 0 0 1 0;
 }
 
-.editor-perf-chip-row {
-  -fx-alignment: center-left;
-  -fx-padding: 0 4 0 4;
-}
-
-.editor-perf-chip {
-  -fx-padding: 3 8 3 8;
-  -fx-background-color: #141414;
-  -fx-background-radius: 999;
-  -fx-border-color: #2f2f2f;
-  -fx-border-radius: 999;
-  -fx-border-width: 1;
-  -fx-font-size: 11px;
-  -fx-font-weight: 800;
-  -fx-text-fill: #d8d8d8;
-}
-
-.editor-perf-chip.perf-chip-cpu {
-  -fx-text-fill: #ff8b45;
-  -fx-border-color: rgba(242, 115, 51, 0.48);
-  -fx-background-color: rgba(242, 115, 51, 0.10);
-}
-
-.editor-perf-chip.perf-chip-heap {
-  -fx-text-fill: #c084fc;
-  -fx-border-color: rgba(168, 85, 247, 0.46);
-  -fx-background-color: rgba(168, 85, 247, 0.10);
-}
-
-.editor-perf-chip.perf-chip-jvm {
-  -fx-text-fill: #62b6ff;
-  -fx-border-color: rgba(73, 165, 255, 0.44);
-  -fx-background-color: rgba(73, 165, 255, 0.10);
-}
-
-.editor-perf-chip.perf-chip-fps {
-  -fx-text-fill: #eeeeee;
-}
-
-.editor-perf-chip.perf-chip-java {
-  -fx-text-fill: #99e6ae;
-  -fx-border-color: rgba(126, 211, 154, 0.42);
-  -fx-background-color: rgba(126, 211, 154, 0.09);
-}
-
-.editor-perf-chip.perf-chip-build {
-  -fx-text-fill: #e4c378;
-  -fx-border-color: rgba(213, 179, 106, 0.44);
-  -fx-background-color: rgba(213, 179, 106, 0.10);
-}
-
 .main-editor-command-bar {
   -fx-background-color: #050505;
   -fx-padding: 6 10 0 10;
@@ -4133,6 +4082,28 @@ The editor.css file defines the visual styling for the editor module, including 
 .main-editor-command-bar .menu-bar {
   -fx-background-color: transparent;
   -fx-padding: 0;
+}
+
+.main-editor-command-bar .menu-bar:compact .menu-button {
+  -fx-padding: 2 5 2 5;
+  -fx-background-insets: 0;
+  -fx-background-radius: 5;
+}
+
+.main-editor-command-bar .menu-bar:compact .menu-button > .label {
+  -fx-padding: 0;
+  -fx-content-display: graphic-only;
+}
+
+.main-editor-command-bar .menu-bar:compact .editor-menu-icon {
+  -fx-scale-x: 1;
+  -fx-scale-y: 1;
+}
+
+.main-editor-command-bar .menu-bar:compact .menu-button:hover .editor-menu-icon,
+.main-editor-command-bar .menu-bar:compact .menu-button:showing .editor-menu-icon {
+  -fx-scale-x: 1.08;
+  -fx-scale-y: 1.08;
 }
 
 .main-editor-command-summary {
