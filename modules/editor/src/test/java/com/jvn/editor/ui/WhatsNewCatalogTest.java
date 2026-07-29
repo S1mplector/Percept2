@@ -10,19 +10,19 @@ class WhatsNewCatalogTest {
 
   @Test
   void requestsPopupOnlyWhenVersionChanges() {
-    assertTrue(WhatsNewCatalog.shouldShow("v0.4.2", ""));
-    assertTrue(WhatsNewCatalog.shouldShow("v0.4.2", "v0.4.1"));
-    assertTrue(WhatsNewCatalog.shouldShow("v0.4.2", "v0.4.2 Beta"));
-    assertFalse(WhatsNewCatalog.shouldShow("v0.4.2", " v0.4.2 "));
+    assertTrue(WhatsNewCatalog.shouldShow("v0.4.3", ""));
+    assertTrue(WhatsNewCatalog.shouldShow("v0.4.3", "v0.4.2"));
+    assertTrue(WhatsNewCatalog.shouldShow("v0.4.3", "v0.4.3 Beta"));
+    assertFalse(WhatsNewCatalog.shouldShow("v0.4.3", " v0.4.3 "));
     assertFalse(WhatsNewCatalog.shouldShow("", "v0.4.1"));
   }
 
   @Test
   void currentReleaseContainsCuratedDetailedNotes() {
-    WhatsNewCatalog.Release release = WhatsNewCatalog.forVersion("v0.4.2");
+    WhatsNewCatalog.Release release = WhatsNewCatalog.forVersion("v0.4.3");
 
     assertTrue(release.curated());
-    assertEquals("v0.4.2", release.versionLabel());
+    assertEquals("v0.4.3", release.versionLabel());
     assertEquals(4, release.sections().size());
     assertTrue(release.sections().stream().allMatch(section -> !section.title().isBlank()));
     assertTrue(release.sections().stream().allMatch(section -> section.changes().size() >= 2));
@@ -30,10 +30,10 @@ class WhatsNewCatalogTest {
 
   @Test
   void maturityBuildUsesNumericReleaseNotesButKeepsFullLabel() {
-    WhatsNewCatalog.Release release = WhatsNewCatalog.forVersion("v0.4.2 Beta");
+    WhatsNewCatalog.Release release = WhatsNewCatalog.forVersion("v0.4.3 Beta");
 
     assertTrue(release.curated());
-    assertEquals("v0.4.2 Beta", release.versionLabel());
+    assertEquals("v0.4.3 Beta", release.versionLabel());
   }
 
   @Test
