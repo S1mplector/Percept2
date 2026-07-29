@@ -7,9 +7,11 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import javafx.application.Platform;
+import javafx.scene.Group;
 import javafx.scene.Scene;
 import javafx.scene.image.WritableImage;
 import javafx.scene.layout.StackPane;
+import javafx.scene.shape.SVGPath;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -33,7 +35,7 @@ class NewTabIconTest {
   }
 
   @Test
-  void rendersPurposeBuiltTabArtworkAtCompactSize() throws Exception {
+  void rendersPlainPlusAtCompactSize() throws Exception {
     Assumptions.assumeTrue(toolkitAvailable, "JavaFX toolkit is unavailable in this environment");
     WritableImage image = onFxThread(() -> {
       NewTabIcon icon = NewTabIcon.compact();
@@ -42,9 +44,12 @@ class NewTabIconTest {
       root.applyCss();
       root.layout();
       assertEquals(20, icon.iconSize());
+      Group artwork = (Group) icon.getChildren().get(0);
+      assertEquals(2, artwork.getChildren().size());
+      assertTrue(artwork.getChildren().get(1) instanceof SVGPath);
       return root.snapshot(null, new WritableImage(28, 28));
     });
-    assertTrue(nonTransparentPixels(image) > 90);
+    assertTrue(nonTransparentPixels(image) > 20);
   }
 
   private static int nonTransparentPixels(WritableImage image) {

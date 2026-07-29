@@ -4,9 +4,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.awt.Dimension;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class JvnHubDisplayScaleTest {
+  @TempDir Path tempDir;
+
   @Test
   void retinaLogicalResolutionDoesNotReceiveASecondScaleFactor() {
     assertEquals(1.0, JvnHub.automaticScaleForDisplay(1470, 956, 72));
@@ -42,5 +48,17 @@ class JvnHubDisplayScaleTest {
       org.junit.jupiter.api.Assertions.assertTrue(label.contains("color:#ff9933"));
       org.junit.jupiter.api.Assertions.assertTrue(label.contains("Running from source"));
     }
+  }
+
+  @Test
+  void engineModuleInventoryIncludesOnlyConfiguredModules() throws Exception {
+    Path modules = Files.createDirectories(tempDir.resolve("modules"));
+    Files.createDirectories(modules.resolve("core"));
+    Files.writeString(modules.resolve("core").resolve("build.gradle.kts"), "");
+    Files.createDirectories(modules.resolve("runtime"));
+    Files.writeString(modules.resolve("runtime").resolve("build.gradle"), "");
+    Files.createDirectories(modules.resolve("notes"));
+
+    assertEquals(List.of("core", "runtime"), JvnHub.discoverEngineModules(tempDir));
   }
 }

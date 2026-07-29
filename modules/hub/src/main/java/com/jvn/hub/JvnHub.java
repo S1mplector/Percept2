@@ -140,8 +140,6 @@ public final class JvnHub {
   private static final Color LOG_TEXT       = Color.decode("#cfcfcf");
   private static final Color SCROLL_THUMB   = Color.decode("#2a2a2a");
   private static final Color SCROLL_THUMB_HOVER = Color.decode("#3a3a3a");
-  private static final String DEFAULT_LAUNCHER_MAINTENANCE_MESSAGE =
-      "JVN Launcher is temporarily under maintenance. Use Run Editor for daily work.";
   private static final int PROCESS_OUTPUT_PREFIX_LIMIT = 8192;
   private static final int PROCESS_OUTPUT_TAIL_LINES = 40;
 
@@ -200,8 +198,6 @@ public final class JvnHub {
   private int activeStepIndex = -1;
   private String activeStepLabel = "";
 
-  /** Launcher maintenance state; refreshed on startup and after Update Engine. */
-  private LauncherMaintenanceState launcherMaintenanceState = LauncherMaintenanceState.available();
   /** Developer Mode exposes engineering-focused actions and launch flags. */
   private boolean developerModeEnabled = false;
   private DeveloperModeToggleButton developerModeButton;
@@ -210,7 +206,6 @@ public final class JvnHub {
   private SafeModeToggleButton safeModeButton;
   private JPanel actionGrid;
   private JButton runEditorButton;
-  private JButton runLauncherButton;
   private JButton buildAllButton;
   private JButton runTestsButton;
   private JButton gradleOptionsButton;
@@ -239,7 +234,6 @@ public final class JvnHub {
 
   private JvnHub(Path projectRoot) {
     this.projectRoot = projectRoot;
-    launcherMaintenanceState = loadLauncherMaintenanceState();
     buildUi();
     checkIncomingUpdates(true);
   }
@@ -587,9 +581,13 @@ public final class JvnHub {
     file.add(hubMenuItem("Quit Engine Hub", this::confirmAndExit));
 
     JMenu engine = hubMenu("Engine");
-    engine.add(hubMenuItem("Run Editor", () -> clickIfAvailable(runEditorButton)));
+    engine.add(hubMenuItem("Module Inventory", this::showModuleInventory));
+    engine.add(hubMenuItem("Engine Configuration", this::showEngineConfiguration));
     engine.addSeparator();
-    engine.add(hubMenuItem("Refresh Hub State", this::refreshFromDisk));
+    engine.add(hubMenuItem("Open gradle.properties", this::openEngineConfiguration));
+    engine.add(hubMenuItem("Copy Environment Summary", this::copyEngineEnvironmentSummary));
+    engine.addSeparator();
+    engine.add(hubMenuItem("Refresh Engine Metadata", this::refreshFromDisk));
 
     JMenu build = hubMenu("Build");
     build.add(hubMenuItem("Compile All Modules", () -> guardedRun(
@@ -845,59 +843,12 @@ public final class JvnHub {
     return header;
   }
 
-  private LauncherMaintenanceState loadLauncherMaintenanceState() {
-    Path file = projectRoot.resolve(".jvn/maintenance.properties");
-    if (!Files.isRegularFile(file)) return LauncherMaintenanceState.available();
-    Properties props = new Properties();
-    try (InputStream in = Files.newInputStream(file)) {
-      props.load(in);
-    } catch (IOException e) {
-      appendLog("[hub] failed to read maintenance state: " + e.getMessage());
-      return LauncherMaintenanceState.available();
-    }
-    boolean launcherUnderMaintenance = parseBooleanProperty(
-        props,
-        "launcher.maintenance",
-        "launcher.underMaintenance",
-        "launcher.disabled");
-    String message = firstNonBlank(
-        props.getProperty("launcher.message"),
-        props.getProperty("launcher.maintenanceMessage"),
-        DEFAULT_LAUNCHER_MAINTENANCE_MESSAGE);
-    return new LauncherMaintenanceState(launcherUnderMaintenance, message);
-  }
-
-  private static boolean parseBooleanProperty(Properties props, String... keys) {
-    if (props == null || keys == null) return false;
-    for (String key : keys) {
-      if (key == null || key.isBlank()) continue;
-      String value = props.getProperty(key);
-      if (value == null || value.isBlank()) continue;
-      String normalized = value.trim().toLowerCase(Locale.ROOT);
-      return normalized.equals("true")
-          || normalized.equals("1")
-          || normalized.equals("yes")
-          || normalized.equals("on");
-    }
-    return false;
-  }
-
   private static String firstNonBlank(String... values) {
     if (values == null) return "";
     for (String value : values) {
       if (value != null && !value.isBlank()) return value.trim();
     }
     return "";
-  }
-
-  private record LauncherMaintenanceState(boolean underMaintenance, String message) {
-    static LauncherMaintenanceState available() {
-      return new LauncherMaintenanceState(false, "");
-    }
-
-    String resolvedMessage() {
-      return message == null || message.isBlank() ? DEFAULT_LAUNCHER_MAINTENANCE_MESSAGE : message;
-    }
   }
 
   private JPanel buildCenter() {
@@ -907,9 +858,6 @@ public final class JvnHub {
     runEditorButton = makeAction("Run Editor", "Launch the full JVN editor.",
         VectorIcon.Kind.EDIT, null, () -> guardedRun("Run Editor", () -> runFastApp("editor", "Run Editor")));
     runEditorButton.setIcon(WindowsSevenActionIcon.of(WindowsSevenActionIcon.Kind.EDITOR));
-
-    // Launcher access is intentionally withheld while that workflow is under maintenance.
-    runLauncherButton = makeLauncherAction();
 
     buildAllButton = makeAction("Build All", "Compile every module.",
         VectorIcon.Kind.HAMMER, null, () -> guardedRun("Build All", () -> runGradle("build", "Build All")));
@@ -1473,6 +1421,140 @@ public final class JvnHub {
     }.execute();
   }
 
+  private void showModuleInventory() {
+    List<String> modules = discoverEngineModules(projectRoot);
+    List<HealthCheck> report = modules.stream()
+        .map(module -> new HealthCheck(
+            CheckStatus.INFO,
+            module,
+            "JVN engine module",
+            projectRoot.resolve("modules").resolve(module).toString()))
+        .toList();
+    if (report.isEmpty()) {
+      report = List.of(new HealthCheck(
+          CheckStatus.WARN,
+          "No modules found",
+          "The engine module inventory is empty.",
+          projectRoot.resolve("modules").toString()));
+    }
+    setStatus("Module inventory ready", ACCENT_NEUTRAL);
+    setActivity(
+        "Engine modules",
+        modules.size() + " module" + (modules.size() == 1 ? "" : "s") + " discovered.",
+        false,
+        ACCENT_NEUTRAL);
+    showReportDialog(
+        "Engine Module Inventory",
+        report,
+        modules.size() + " configured engine module" + (modules.size() == 1 ? "" : "s"));
+  }
+
+  static List<String> discoverEngineModules(Path engineRoot) {
+    if (engineRoot == null) return List.of();
+    Path modulesRoot = engineRoot.resolve("modules");
+    if (!Files.isDirectory(modulesRoot)) return List.of();
+    try (var entries = Files.list(modulesRoot)) {
+      return entries
+          .filter(Files::isDirectory)
+          .filter(path -> Files.isRegularFile(path.resolve("build.gradle.kts"))
+              || Files.isRegularFile(path.resolve("build.gradle")))
+          .map(path -> path.getFileName().toString())
+          .sorted(String.CASE_INSENSITIVE_ORDER)
+          .toList();
+    } catch (IOException e) {
+      return List.of();
+    }
+  }
+
+  private void showEngineConfiguration() {
+    String buildDir = firstNonBlank(readGradleProperty("jvnBuildDir"), "build/ (workspace default)");
+    List<HealthCheck> report = List.of(
+        new HealthCheck(
+            CheckStatus.INFO,
+            "Engine version",
+            displayVersionLabel(readDiskVersion()),
+            "Configured by jvnVersion."),
+        new HealthCheck(
+            CheckStatus.INFO,
+            "Java toolchain",
+            "Java " + firstNonBlank(readGradleProperty("javaVersion"), "not configured"),
+            "Running Hub JVM: " + firstNonBlank(System.getProperty("java.version"), "unknown")),
+        new HealthCheck(
+            CheckStatus.INFO,
+            "JavaFX",
+            firstNonBlank(readGradleProperty("jvnJavaFxVersion"), "not configured"),
+            "Shared JavaFX dependency version."),
+        new HealthCheck(
+            CheckStatus.INFO,
+            "Build execution",
+            "Parallel: " + enabledLabel(readGradleProperty("org.gradle.parallel"))
+                + " · Cache: " + enabledLabel(readGradleProperty("org.gradle.caching")),
+            describeGradleOptions()),
+        new HealthCheck(
+            CheckStatus.INFO,
+            "Build output",
+            buildDir,
+            "Workspace build-output location."),
+        new HealthCheck(
+            CheckStatus.INFO,
+            "Gradle wrapper",
+            gradleCommand(),
+            "Wrapper used for Hub build actions."));
+    setStatus("Engine configuration ready", ACCENT_NEUTRAL);
+    setActivity("Engine configuration", "Build and runtime properties loaded.", false, ACCENT_NEUTRAL);
+    showReportDialog(
+        "Engine Configuration",
+        report,
+        displayVersionLabel(readDiskVersion()) + " build environment");
+  }
+
+  private static String enabledLabel(String value) {
+    return Boolean.parseBoolean(firstNonBlank(value, "false")) ? "enabled" : "disabled";
+  }
+
+  private void openEngineConfiguration() {
+    Path configuration = projectRoot.resolve("gradle.properties");
+    if (!Files.isRegularFile(configuration)) {
+      setStatus("gradle.properties not found", ACCENT_ERROR);
+      setActivity("Open configuration failed", configuration.toString(), false, ACCENT_ERROR);
+      return;
+    }
+    try {
+      java.awt.Desktop desktop = java.awt.Desktop.getDesktop();
+      if (desktop.isSupported(java.awt.Desktop.Action.EDIT)) {
+        desktop.edit(configuration.toFile());
+      } else {
+        desktop.open(configuration.toFile());
+      }
+      setStatus("Opened engine configuration", ACCENT_NEUTRAL);
+    } catch (Exception e) {
+      setStatus("Could not open engine configuration", ACCENT_ERROR);
+      setActivity(
+          "Open configuration failed",
+          e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage(),
+          false,
+          ACCENT_ERROR);
+    }
+  }
+
+  private void copyEngineEnvironmentSummary() {
+    String summary = String.join("\n",
+        "JVN " + displayVersionLabel(readDiskVersion()),
+        "Mode: " + (isRunningFromSource() ? "source" : "packaged"),
+        "Revision: " + readGitValue(List.of("git", "rev-parse", "--short", "HEAD"), "unknown"),
+        "Branch: " + resolveBranch(projectRoot),
+        "Modules: " + discoverEngineModules(projectRoot).size(),
+        "Java: " + firstNonBlank(System.getProperty("java.version"), "unknown")
+            + " (toolchain " + firstNonBlank(readGradleProperty("javaVersion"), "unknown") + ")",
+        "JavaFX: " + firstNonBlank(readGradleProperty("jvnJavaFxVersion"), "unknown"),
+        "OS: " + firstNonBlank(System.getProperty("os.name"), "unknown")
+            + " " + firstNonBlank(System.getProperty("os.arch"), "unknown"),
+        "Engine root: " + projectRoot.toAbsolutePath());
+    Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(summary), null);
+    setStatus("Copied engine environment summary", ACCENT_NEUTRAL);
+    setActivity("Environment summary copied", "Ready to paste into an issue or support request.", false, ACCENT_NEUTRAL);
+  }
+
   private List<HealthCheck> runHealthChecks() {
     List<HealthCheck> checks = new ArrayList<>();
 
@@ -1747,28 +1829,6 @@ public final class JvnHub {
     return button;
   }
 
-  private JButton makeLauncherAction() {
-    LauncherButton button = new LauncherButton("Run Launcher");
-    button.setMaintenanceState(launcherMaintenanceState);
-    button.addActionListener(e -> runLauncherAction());
-    actionButtons.add(button);
-    return button;
-  }
-
-  private void runLauncherAction() {
-    if (launcherMaintenanceState.underMaintenance()) {
-      showLauncherMaintenanceNotice();
-      return;
-    }
-    guardedRun("Run Launcher", () -> runFastApp("launcher", "Run Launcher"));
-  }
-
-  private void showLauncherMaintenanceNotice() {
-    LauncherMaintenanceState state = launcherMaintenanceState;
-    setStatus("Launcher under maintenance", ACCENT_MAINTENANCE);
-    setActivity("Launcher under maintenance", state.resolvedMessage(), false, ACCENT_MAINTENANCE);
-  }
-
   // --- Task execution --------------------------------------------------------
 
   /**
@@ -1832,8 +1892,7 @@ public final class JvnHub {
 
   private void runFastApp(String app, String label) {
     if (System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win")) {
-      runGradle(app.equals("runtime") ? ":runtime:run"
-          : app.equals("launcher") ? ":editor:runLauncher" : ":editor:run", label);
+      runGradle(app.equals("runtime") ? ":runtime:run" : ":editor:run", label);
       return;
     }
     if (!acquire(label)) return;
@@ -1859,7 +1918,7 @@ public final class JvnHub {
     if (safeModeEnabled) return false;
     if (hasConfigurationCacheFlag()) return false;
     return switch (task) {
-      case ":editor:run", ":editor:runLauncher", ":runtime:run",
+      case ":editor:run", ":runtime:run",
           "build", "test", "check", "ci", "compileAll", "quickCheck" -> true;
       default -> false;
     };
@@ -1881,7 +1940,7 @@ public final class JvnHub {
   private boolean shouldLimitLaunchWorkers(String task) {
     if (hasMaxWorkersFlag()) return false;
     return switch (task) {
-      case ":editor:run", ":editor:runLauncher", ":runtime:run" -> true;
+      case ":editor:run", ":runtime:run" -> true;
       default -> false;
     };
   }
@@ -3818,25 +3877,12 @@ public final class JvnHub {
     }
   }
 
-  /**
-   * Re-reads version and launcher-maintenance state from disk. Safe to call
-   * from any thread; UI updates are dispatched to the EDT.
-   */
+  /** Re-reads engine metadata from disk and refreshes the Hub UI on the EDT. */
   private void refreshFromDisk() {
     String newVersion = readDiskVersion();
-    LauncherMaintenanceState freshLauncherMaintenance = loadLauncherMaintenanceState();
     SwingUtilities.invokeLater(() -> {
       versionLabel.setText(formatVersionLabel(newVersion));
-      boolean maintenanceChanged = launcherMaintenanceState.underMaintenance()
-          != freshLauncherMaintenance.underMaintenance();
-      launcherMaintenanceState = freshLauncherMaintenance;
-      if (runLauncherButton instanceof LauncherButton launcherButton) {
-        launcherButton.setMaintenanceState(freshLauncherMaintenance);
-      }
-      appendLog("[hub] refresh: version " + newVersion
-          + ". Launcher maintenance: "
-          + (freshLauncherMaintenance.underMaintenance() ? "on" : "off")
-          + (maintenanceChanged ? " (changed)" : "") + ".");
+      appendLog("[hub] refresh: engine version " + newVersion + ".");
       frame.repaint();
     });
   }
@@ -4424,97 +4470,6 @@ public final class JvnHub {
 
       g2.dispose();
       super.paintComponent(g);
-    }
-  }
-
-  /** Launcher action button that can switch its maintenance overlay on refresh. */
-  private static final class LauncherButton extends FlatButton {
-    private static final int STRIPE_WIDTH = ui(28);
-    private static final int STRIPE_PERIOD = STRIPE_WIDTH * 2;
-    private final javax.swing.Timer stripeTimer;
-    private int stripeOffset = 0;
-    private boolean underMaintenance = false;
-
-    LauncherButton(String text) {
-      super(text, WindowsSevenActionIcon.of(WindowsSevenActionIcon.Kind.LAUNCHER), BORDER_NEUTRAL);
-      stripeTimer = new javax.swing.Timer(70, e -> {
-        stripeOffset = (stripeOffset + 2) % STRIPE_PERIOD;
-        repaint();
-      });
-      stripeTimer.setCoalesce(true);
-    }
-
-    void setMaintenanceState(LauncherMaintenanceState state) {
-      LauncherMaintenanceState safeState = state == null ? LauncherMaintenanceState.available() : state;
-      underMaintenance = safeState.underMaintenance();
-      setForeground(underMaintenance ? ACCENT_MAINTENANCE : TEXT_PRIMARY);
-      setIcon(WindowsSevenActionIcon.of(
-          underMaintenance ? WindowsSevenActionIcon.Kind.LAUNCHER_MAINTENANCE
-              : WindowsSevenActionIcon.Kind.LAUNCHER));
-      setToolTipText(underMaintenance
-          ? safeState.resolvedMessage()
-          : "Launch the standalone JVN launcher.");
-      if (underMaintenance && isDisplayable()) {
-        stripeTimer.start();
-      } else {
-        stripeTimer.stop();
-      }
-      repaint();
-    }
-
-    @Override
-    public void addNotify() {
-      super.addNotify();
-      if (underMaintenance) stripeTimer.start();
-    }
-
-    @Override
-    public void removeNotify() {
-      stripeTimer.stop();
-      super.removeNotify();
-    }
-
-    @Override
-    protected void paintComponent(Graphics g) {
-      super.paintComponent(g);
-      if (!underMaintenance) return;
-
-      Graphics2D g2 = (Graphics2D) g.create();
-      g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-      int w = getWidth();
-      int h = getHeight();
-      int arc = ui(8);
-      Shape oldClip = g2.getClip();
-      g2.setClip(new RoundRectangle2D.Double(0, 0, w, h, arc, arc));
-
-      g2.setColor(alpha(Color.decode("#120c00"), 0.34f));
-      g2.fillRoundRect(0, 0, w, h, arc, arc);
-
-      g2.setColor(alpha(ACCENT_MAINTENANCE, 0.18f));
-      for (int x = -h - STRIPE_PERIOD + stripeOffset; x < w + STRIPE_PERIOD; x += STRIPE_PERIOD) {
-        g2.fillPolygon(
-            new int[] {x, x + STRIPE_WIDTH, x + STRIPE_WIDTH + h, x + h},
-            new int[] {0, 0, h, h},
-            4);
-      }
-      g2.setClip(oldClip);
-
-      String badge = "MAINTENANCE";
-      Font badgeFont = getFont().deriveFont(Font.BOLD, uiFont(9f));
-      g2.setFont(badgeFont);
-      FontMetrics fm = g2.getFontMetrics();
-      int badgeW = fm.stringWidth(badge) + ui(12);
-      int badgeH = ui(17);
-      int badgeX = Math.max(ui(6), w - badgeW - ui(7));
-      int badgeY = ui(6);
-      g2.setColor(alpha(Color.decode("#1b1202"), 0.94f));
-      g2.fillRoundRect(badgeX, badgeY, badgeW, badgeH, ui(7), ui(7));
-      g2.setColor(alpha(ACCENT_MAINTENANCE, 0.72f));
-      g2.drawRoundRect(badgeX, badgeY, badgeW, badgeH, ui(7), ui(7));
-      g2.setColor(ACCENT_MAINTENANCE);
-      g2.drawString(badge, badgeX + ui(6), badgeY + ui(12));
-      g2.dispose();
     }
   }
 
