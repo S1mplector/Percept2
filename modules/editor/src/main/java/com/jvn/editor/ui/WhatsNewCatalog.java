@@ -49,6 +49,39 @@ public final class WhatsNewCatalog {
   private static Map<String, Release> createReleases() {
     Map<String, Release> releases = new LinkedHashMap<>();
     add(releases, new Release(
+        "v0.4.3",
+        "Broader runtime reach, stronger VNS authoring, and a more dependable play loop.",
+        List.of(
+            new Section(
+                "Web and release workflows",
+                "JVN projects are easier to launch and package beyond the desktop editor.",
+                List.of(
+                    "The web runtime now includes an executable browser bootstrap, application configuration parsing, and a complete runtime session.",
+                    "Runtime packaging, project storage, and accessibility behavior are more resilient.",
+                    "Console launches now provide a clearer, more consistent path from project actions into a running game.")),
+            new Section(
+                "VNS authoring tools",
+                "The visual-novel workflow has gained faster controls and clearer feedback.",
+                List.of(
+                    "The VNS tool strip now uses distinct controls for preview, validation, formatting, navigation, and related actions.",
+                    "the diagnostics utilities handle timeline issues more safely and offer clearer refresh and toolbar actions.",
+                    "Preview launches keep their visible game window and no longer leave hidden preview audio playing.")),
+            new Section(
+                "Characters and dialogue",
+                "Authors have more control over how speakers look and behave.",
+                List.of(
+                    "Dialogue speakers can define their own persistent colors.",
+                    "Characters can keep an authored scale across VNS scenes, with matching editor preview support.",
+                    "Expression transitions have been hardened so rapid changes settle on the intended pose.")),
+            new Section(
+                "Runtime stability and polish",
+                "Core playback paths now behave more predictably under real project load.",
+                List.of(
+                    "Update loops, renderer primitives, audio ownership, and title-menu music startup are more robust.",
+                    "The gameplay menu and dialogue presentation have moved closer to full runtime parity.",
+                    "Performance HUD metrics now report frame timing and activity more accurately."))),
+        true));
+    add(releases, new Release(
         "v0.4.2",
         "A more immediate authoring loop, calmer runtime feedback, and sharper editor tools.",
         List.of(
