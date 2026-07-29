@@ -175,7 +175,7 @@ public final class JvnHub {
 
   private static VectorIcon uiIcon(VectorIcon.Kind kind, int size, Color color) {
     return VectorIcon.of(kind, ui(size), color);
-  }
+  } //test
 
   private final Path projectRoot;
   private final JFrame frame = new JFrame("JVN Engine Hub");
