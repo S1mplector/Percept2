@@ -51,23 +51,40 @@ public final class VnsScriptAnalyzer {
   public static Analysis analyze(String text, File projectRoot, File sourceFile) {
     String source = text == null ? "" : text;
     List<Diagnostic> diagnostics = new ArrayList<>();
+    File effectiveRoot = resolveProjectRoot(projectRoot, sourceFile);
+    String analyzedSourceName = effectiveRoot == null || !effectiveRoot.exists()
+        ? "<string>"
+        : resolveSourceName(effectiveRoot, sourceFile);
 
     // Strict parser diagnostics first.
     try {
       parseWithIncludeResolver(source, projectRoot, sourceFile);
     } catch (MultipleParseErrorsException mex) {
       for (VnParseException ex : mex.getErrors()) {
-        int line = ex.getLineNumber() - 1;
+        boolean fromIncludedFile = !sameSource(ex.getSourceName(), analyzedSourceName);
+        int line = fromIncludedFile
+            ? findIncludeLine(source, ex.getSourceName())
+            : ex.getLineNumber() - 1;
         int start = 0;
         int end = Math.max(0, source.length());
         if (line >= 0) {
-          int[] bounds = parseDiagnosticBounds(source, line, ex);
+          int[] bounds = fromIncludedFile
+              ? lineBounds(source, line)
+              : parseDiagnosticBounds(source, line, ex);
           start = bounds[0];
           end = bounds[1];
         }
+        String message = ex.getDetailMessage();
+        if (fromIncludedFile) {
+          message = "In included file " + ex.getSourceName() + ":" + ex.getLineNumber()
+              + ": " + message;
+          if (ex.getRawLine() != null && !ex.getRawLine().isBlank()) {
+            message += " -> " + ex.getRawLine().trim();
+          }
+        }
         diagnostics.add(Diagnostic.error(
             "parse_error",
-            ex.getDetailMessage(),
+            message,
             start,
             end,
             Math.max(line, 0),
@@ -279,6 +296,32 @@ public final class VnsScriptAnalyzer {
     ScriptStats stats = computeStats(lines, labels, edges);
 
     return new Analysis(source, diagnostics, labels, edges, startLabel, backgrounds, stats);
+  }
+
+  private static boolean sameSource(String left, String right) {
+    if (left == null || right == null) return left == null && right == null;
+    return left.replace('\\', '/').equals(right.replace('\\', '/'));
+  }
+
+  private static int findIncludeLine(String source, String includedSourceName) {
+    String target = includedSourceName == null ? "" : includedSourceName.replace('\\', '/');
+    List<LineInfo> lines = splitLines(source);
+    for (LineInfo line : lines) {
+      String trimmed = line.trimmed();
+      if (!trimmed.toLowerCase(Locale.ROOT).startsWith("@include ")) continue;
+      String value = trimmed.substring("@include".length()).trim();
+      if (value.length() >= 2
+          && ((value.startsWith("\"") && value.endsWith("\""))
+              || (value.startsWith("'") && value.endsWith("'")))) {
+        value = value.substring(1, value.length() - 1);
+      }
+      String normalized = value.replace('\\', '/');
+      while (normalized.startsWith("/")) normalized = normalized.substring(1);
+      if (target.equals(normalized) || target.endsWith("/" + normalized)) {
+        return line.index;
+      }
+    }
+    return 0;
   }
 
   private static int[] parseDiagnosticBounds(String source, int line, VnParseException error) {

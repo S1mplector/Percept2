@@ -49,6 +49,11 @@ public final class WhatsNewCatalog {
   private static Map<String, Release> createReleases() {
     Map<String, Release> releases = new LinkedHashMap<>();
     add(releases, new Release(
+        "v0.4.3.1",
+        "VNS diagnostics now identify parse errors in included files instead of pointing at blank lines in the open script.",
+        List.of(),
+        true));
+    add(releases, new Release(
         "v0.4.3",
         "Broader runtime reach, stronger VNS authoring, and a more dependable play loop.",
         List.of(

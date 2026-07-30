@@ -1,5 +1,6 @@
 package com.jvn.editor.ui;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -94,5 +95,34 @@ class VnsScriptAnalyzerIncludeTest {
         .anyMatch(d -> "missing_script".equals(d.kind()) && d.message().contains("story/missing_chapter.vns")));
     assertTrue(analysis.diagnostics().stream()
         .anyMatch(d -> "missing_script".equals(d.kind()) && d.message().contains("scripts/missing_scene.jes")));
+  }
+
+  @Test
+  void parseErrorsInIncludesPointToTheIncludeAndNameTheRealSource() throws Exception {
+    Path storyDir = Files.createDirectories(tempProjectRoot.resolve("scripts/story"));
+    Path definitionsDir = Files.createDirectories(tempProjectRoot.resolve("scripts/definitions"));
+    Path script = storyDir.resolve("prologue.vns");
+    String source = """
+        @scenario include_error
+        @include /definitions/characters.vns
+        @label start
+        [end]
+        """;
+    Files.writeString(script, source);
+    Files.writeString(definitionsDir.resolve("characters.vns"), """
+        @character lavender "Lavender"
+        <<<<<<< Updated upstream
+        """);
+
+    VnsScriptAnalyzer.Analysis analysis =
+        VnsScriptAnalyzer.analyze(source, tempProjectRoot.toFile(), script.toFile());
+    VnsScriptAnalyzer.Diagnostic diagnostic = analysis.diagnostics().stream()
+        .filter(d -> "parse_error".equals(d.kind()))
+        .findFirst()
+        .orElseThrow();
+
+    assertEquals(1, diagnostic.line());
+    assertTrue(diagnostic.message().contains("definitions/characters.vns:2"));
+    assertTrue(diagnostic.message().contains("<<<<<<< Updated upstream"));
   }
 }
