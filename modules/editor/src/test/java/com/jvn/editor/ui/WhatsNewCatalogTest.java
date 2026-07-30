@@ -24,6 +24,8 @@ class WhatsNewCatalogTest {
     assertTrue(release.curated());
     assertEquals("v0.4.3.1", release.versionLabel());
     assertTrue(release.summary().contains("included files"));
+    assertEquals(1, release.sections().size());
+    assertTrue(release.sections().get(0).summary().contains("real source and line"));
   }
 
   @Test

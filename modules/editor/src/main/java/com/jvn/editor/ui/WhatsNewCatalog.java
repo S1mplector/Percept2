@@ -51,7 +51,10 @@ public final class WhatsNewCatalog {
     add(releases, new Release(
         "v0.4.3.1",
         "VNS diagnostics now identify parse errors in included files instead of pointing at blank lines in the open script.",
-        List.of(),
+        List.of(new Section(
+            "VNS diagnostics",
+            "Parse errors in included files now show their real source and line instead of pointing at blank lines in the open script.",
+            List.of())),
         true));
     add(releases, new Release(
         "v0.4.3",
