@@ -15,6 +15,9 @@ public final class EditorPreferences {
   public static final String TEXT_EDITOR_CUSTOM = "custom";
   public static final String LAUNCHER_THEME_DARK = "dark";
   public static final String LAUNCHER_THEME_LIGHT = "light";
+  public static final String GRAPHICS_MODE_AUTO = "auto";
+  public static final String GRAPHICS_MODE_HARDWARE = "hardware";
+  public static final String GRAPHICS_MODE_SOFTWARE = "software";
 
   private int codeEditorFontSize;
   private int editorMaxFps = DEFAULT_EDITOR_MAX_FPS;
@@ -34,6 +37,7 @@ public final class EditorPreferences {
   private boolean launcherConfirmRunProject;
   private boolean launcherRuntimePerfHud;
   private boolean gradleSkipTestsOnRun;
+  private String graphicsMode = GRAPHICS_MODE_AUTO;
   private String lastSeenWhatsNewVersion = "";
   private final EnumMap<EditorSidebarPanel, EditorPanelPlacement> panelPlacements =
       new EnumMap<>(EditorSidebarPanel.class);
@@ -280,6 +284,14 @@ public final class EditorPreferences {
     this.gradleSkipTestsOnRun = gradleSkipTestsOnRun;
   }
 
+  public String getGraphicsMode() {
+    return graphicsMode;
+  }
+
+  public void setGraphicsMode(String graphicsMode) {
+    this.graphicsMode = normalizeGraphicsMode(graphicsMode);
+  }
+
   public String getLastSeenWhatsNewVersion() {
     return lastSeenWhatsNewVersion;
   }
@@ -396,6 +408,7 @@ public final class EditorPreferences {
     c.activeLeftTab = this.activeLeftTab;
     c.activeRightTab = this.activeRightTab;
     c.lastSeenWhatsNewVersion = this.lastSeenWhatsNewVersion;
+    c.graphicsMode = this.graphicsMode;
     c.statusBarVisibility.clear();
     c.statusBarVisibility.putAll(this.statusBarVisibility);
     return c;
@@ -418,6 +431,13 @@ public final class EditorPreferences {
 
   public static String normalizeEditorTheme(String value) {
     return normalizeTheme(value);
+  }
+
+  public static String normalizeGraphicsMode(String value) {
+    String normalized = cleanText(value).toLowerCase();
+    if (GRAPHICS_MODE_HARDWARE.equals(normalized)) return GRAPHICS_MODE_HARDWARE;
+    if (GRAPHICS_MODE_SOFTWARE.equals(normalized)) return GRAPHICS_MODE_SOFTWARE;
+    return GRAPHICS_MODE_AUTO;
   }
 
   private static String normalizeTheme(String value) {

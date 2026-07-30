@@ -133,6 +133,7 @@ public class FxLauncher extends Application {
   }
 
   public static void launch(Engine eng, boolean perfHudEnabled) {
+    com.jvn.core.diagnostics.GraphicsPipeline.configure();
     engine = eng;
     showPerfHud = perfHudEnabled;
     Application.launch();
@@ -148,6 +149,7 @@ public class FxLauncher extends Application {
       String accessibilityTheme,
       double uiFontScale
   ) {
+    com.jvn.core.diagnostics.GraphicsPipeline.configure();
     engine = eng;
     showPerfHud = perfHudEnabled;
     pendingAccessibilityTheme = accessibilityTheme != null ? accessibilityTheme : "none";

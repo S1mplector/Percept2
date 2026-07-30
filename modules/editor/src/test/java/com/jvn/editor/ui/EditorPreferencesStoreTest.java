@@ -41,6 +41,7 @@ class EditorPreferencesStoreTest {
     assertFalse(preferences.isLauncherConfirmRunProject());
     assertTrue(preferences.isLauncherRuntimePerfHud());
     assertTrue(preferences.isGradleSkipTestsOnRun());
+    assertEquals(EditorPreferences.GRAPHICS_MODE_AUTO, preferences.getGraphicsMode());
     assertEquals("", preferences.getLastSeenWhatsNewVersion());
     assertEquals(EditorPanelPlacement.LEFT, preferences.getPlacement(EditorSidebarPanel.PROJECT));
     assertTrue(preferences.isVisibleInChooser(EditorSidebarPanel.PROJECT));
@@ -72,6 +73,7 @@ class EditorPreferencesStoreTest {
     preferences.setLauncherConfirmRunProject(true);
     preferences.setLauncherRuntimePerfHud(false);
     preferences.setGradleSkipTestsOnRun(false);
+    preferences.setGraphicsMode(EditorPreferences.GRAPHICS_MODE_HARDWARE);
     preferences.setLastSeenWhatsNewVersion("v0.4.2");
     preferences.setPlacement(EditorSidebarPanel.TIMELINE, EditorPanelPlacement.LEFT);
 
@@ -95,6 +97,7 @@ class EditorPreferencesStoreTest {
     assertTrue(loaded.isLauncherConfirmRunProject());
     assertFalse(loaded.isLauncherRuntimePerfHud());
     assertFalse(loaded.isGradleSkipTestsOnRun());
+    assertEquals(EditorPreferences.GRAPHICS_MODE_HARDWARE, loaded.getGraphicsMode());
     assertEquals("v0.4.2", loaded.getLastSeenWhatsNewVersion());
     assertEquals(EditorPanelPlacement.LEFT, loaded.getPlacement(EditorSidebarPanel.TIMELINE));
   }

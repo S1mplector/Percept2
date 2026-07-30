@@ -35,6 +35,9 @@ public class EditorSettingsView extends BorderPane {
   private static final String TEXT_EDITOR_LABEL_CUSTOM = "Custom Command";
   private static final String THEME_LABEL_DARK = "Dark";
   private static final String THEME_LABEL_LIGHT = "Light";
+  private static final String GRAPHICS_LABEL_AUTO = "Automatic (recommended)";
+  private static final String GRAPHICS_LABEL_HARDWARE = "Prefer GPU acceleration";
+  private static final String GRAPHICS_LABEL_SOFTWARE = "Software compatibility";
   private static final String SETTINGS_SEARCH_TEXT_KEY = "settingsSearchText";
   private static final Set<EditorStatusBarSegment> COMPACT_STATUS_BAR_SEGMENTS =
       EnumSet.of(
@@ -48,6 +51,7 @@ public class EditorSettingsView extends BorderPane {
   private final ComboBox<String> editorThemeCombo = new ComboBox<>();
   private final Spinner<Integer> codeEditorFontSizeSpinner = new Spinner<>();
   private final Spinner<Integer> editorMaxFpsSpinner = new Spinner<>();
+  private final ComboBox<String> graphicsModeCombo = new ComboBox<>();
   private final ComboBox<String> defaultTextEditorCombo = new ComboBox<>();
   private final TextField customTextEditorCommandField = new TextField();
   private final TextField settingsFilterField = new TextField();
@@ -132,6 +136,11 @@ public class EditorSettingsView extends BorderPane {
     editorMaxFpsSpinner.setEditable(true);
     editorMaxFpsSpinner.getStyleClass().add("editor-settings-spinner");
     editorMaxFpsSpinner.setPromptText("0 = display rate");
+    graphicsModeCombo.getItems().addAll(
+        GRAPHICS_LABEL_AUTO, GRAPHICS_LABEL_HARDWARE, GRAPHICS_LABEL_SOFTWARE);
+    graphicsModeCombo.setMaxWidth(Double.MAX_VALUE);
+    graphicsModeCombo.setTooltip(new Tooltip(
+        "Selects the JavaFX graphics pipeline at the next JVN restart. GPU mode retains software fallback."));
     defaultTextEditorCombo.getItems().addAll(
         TEXT_EDITOR_LABEL_JVN,
         TEXT_EDITOR_LABEL_SYSTEM,
@@ -159,10 +168,11 @@ public class EditorSettingsView extends BorderPane {
 
     GridPane runtimeGrid = settingsGrid(180);
     runtimeGrid.addRow(0, fieldLabel("Max FPS"), editorMaxFpsSpinner);
-    runtimeGrid.add(editorRuntimePerfHudCheck, 1, 1);
-    runtimeGrid.add(autoSaveBeforeRunCheck, 1, 2);
-    runtimeGrid.add(editorConfirmRunProjectCheck, 1, 3);
-    runtimeGrid.add(gradleSkipTestsOnRunCheck, 1, 4);
+    runtimeGrid.addRow(1, fieldLabel("Graphics"), graphicsModeCombo);
+    runtimeGrid.add(editorRuntimePerfHudCheck, 1, 2);
+    runtimeGrid.add(autoSaveBeforeRunCheck, 1, 3);
+    runtimeGrid.add(editorConfirmRunProjectCheck, 1, 4);
+    runtimeGrid.add(gradleSkipTestsOnRunCheck, 1, 5);
     VBox runtimeSection =
         registerSection(
             settingsSection("Runtime", "Project launch and preview performance defaults.", runtimeGrid),
@@ -319,6 +329,7 @@ public class EditorSettingsView extends BorderPane {
     editorThemeCombo.setValue(themeLabel(model.getEditorTheme()));
     codeEditorFontSizeSpinner.getValueFactory().setValue(model.getCodeEditorFontSize());
     editorMaxFpsSpinner.getValueFactory().setValue(model.getEditorMaxFps());
+    graphicsModeCombo.setValue(graphicsModeLabel(model.getGraphicsMode()));
     defaultTextEditorCombo.setValue(textEditorLabel(model.getDefaultTextEditor()));
     customTextEditorCommandField.setText(model.getCustomTextEditorCommand());
     updateCustomTextEditorCommandState();
@@ -367,6 +378,7 @@ public class EditorSettingsView extends BorderPane {
         maxFps == null
             ? EditorPreferences.DEFAULT_EDITOR_MAX_FPS
             : maxFps.intValue());
+    preferences.setGraphicsMode(graphicsModeValue(graphicsModeCombo.getValue()));
     preferences.setDefaultTextEditor(textEditorValue(defaultTextEditorCombo.getValue()));
     preferences.setCustomTextEditorCommand(customTextEditorCommandField.getText());
     preferences.setShowWelcomeOnStartup(showWelcomeOnStartupCheck.isSelected());
@@ -493,6 +505,20 @@ public class EditorSettingsView extends BorderPane {
     return THEME_LABEL_LIGHT.equals(label)
         ? EditorPreferences.LAUNCHER_THEME_LIGHT
         : EditorPreferences.LAUNCHER_THEME_DARK;
+  }
+
+  private static String graphicsModeLabel(String value) {
+    return switch (EditorPreferences.normalizeGraphicsMode(value)) {
+      case EditorPreferences.GRAPHICS_MODE_HARDWARE -> GRAPHICS_LABEL_HARDWARE;
+      case EditorPreferences.GRAPHICS_MODE_SOFTWARE -> GRAPHICS_LABEL_SOFTWARE;
+      default -> GRAPHICS_LABEL_AUTO;
+    };
+  }
+
+  private static String graphicsModeValue(String label) {
+    if (GRAPHICS_LABEL_HARDWARE.equals(label)) return EditorPreferences.GRAPHICS_MODE_HARDWARE;
+    if (GRAPHICS_LABEL_SOFTWARE.equals(label)) return EditorPreferences.GRAPHICS_MODE_SOFTWARE;
+    return EditorPreferences.GRAPHICS_MODE_AUTO;
   }
 
   private static String textEditorLabel(String value) {

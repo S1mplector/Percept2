@@ -326,6 +326,7 @@ public class EditorApp extends Application {
   private boolean shutdownInProgress;
 
   public static void main(String[] args) {
+    com.jvn.core.diagnostics.GraphicsPipeline.configure();
     launch(args);
   }
 

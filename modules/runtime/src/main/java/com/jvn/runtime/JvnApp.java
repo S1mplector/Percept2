@@ -40,6 +40,7 @@ public class JvnApp {
   private static final String DEFAULT_ENTRY_SCRIPT = "story/prologue.vns";
 
   public static void main(String[] args) {
+    com.jvn.core.diagnostics.GraphicsPipeline.configure();
     RuntimeCrashSupport.install();
     ApplicationConfig.Builder builder = ApplicationConfig.builder().title("JVN Runtime").width(960).height(540);
     String scriptName = null;

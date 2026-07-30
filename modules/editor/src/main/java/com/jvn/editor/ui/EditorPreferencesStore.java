@@ -27,6 +27,7 @@ public final class EditorPreferencesStore {
   static final String KEY_LAUNCHER_CONFIRM_RUN_PROJECT = "launcher.confirmRunProject";
   static final String KEY_LAUNCHER_RUNTIME_PERF_HUD = "launcher.runtimePerfHud";
   static final String KEY_GRADLE_SKIP_TESTS_ON_RUN = "gradle.skipTestsOnRun";
+  static final String KEY_GRAPHICS_MODE = "graphics.mode";
   static final String KEY_LAST_SEEN_WHATS_NEW_VERSION = "whatsNew.lastSeenVersion";
   static final String KEY_PANEL_PREFIX = "panel.";
   static final String KEY_PANEL_SUFFIX = ".placement";
@@ -138,6 +139,7 @@ public final class EditorPreferencesStore {
     props.setProperty(
         KEY_GRADLE_SKIP_TESTS_ON_RUN,
         Boolean.toString(preferences.isGradleSkipTestsOnRun()));
+    props.setProperty(KEY_GRAPHICS_MODE, preferences.getGraphicsMode());
     props.setProperty(
         KEY_LAST_SEEN_WHATS_NEW_VERSION,
         preferences.getLastSeenWhatsNewVersion());
@@ -207,6 +209,8 @@ public final class EditorPreferencesStore {
         props.getProperty(KEY_LAUNCHER_RUNTIME_PERF_HUD), true));
     preferences.setGradleSkipTestsOnRun(parseBoolean(
         props.getProperty(KEY_GRADLE_SKIP_TESTS_ON_RUN), true));
+    preferences.setGraphicsMode(props.getProperty(
+        KEY_GRAPHICS_MODE, EditorPreferences.GRAPHICS_MODE_AUTO));
     preferences.setLastSeenWhatsNewVersion(props.getProperty(
         KEY_LAST_SEEN_WHATS_NEW_VERSION,
         ""));

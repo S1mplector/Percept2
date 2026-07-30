@@ -1,5 +1,6 @@
 package com.jvn.fx.diagnostics;
 
+import com.jvn.core.diagnostics.GraphicsPipeline;
 import com.jvn.core.diagnostics.PerformanceHud;
 
 import javafx.scene.canvas.GraphicsContext;
@@ -48,11 +49,12 @@ public final class FxPerformanceHudOverlay {
     String[] lines = {
         String.format("FPS: %.1f", fps),
         String.format("Heap: %d MB", heapMb),
+        "Graphics: " + GraphicsPipeline.statusText(),
         String.format("Cache hit: %s", Double.isNaN(hitRate) ? "n/a" : String.format("%.0f%%", hitRate * 100)),
         String.format("Timelines: %d", timelines)
     };
 
-    double boxW = 160.0;
+    double boxW = 300.0;
     double boxH = PAD * 2 + LINE_H * lines.length;
     double x = width - boxW - 8;
     double y = 8;
