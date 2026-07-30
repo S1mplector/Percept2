@@ -15,6 +15,8 @@ final class FxRenderTarget2D implements RenderTarget2D {
   private final Canvas canvas;
   private final FxBlitter2D blitter;
   private boolean valid = true;
+  private boolean snapshotDirty = true;
+  private WritableImage cachedSnapshot;
 
   FxRenderTarget2D(double width, double height, double pixelScale) {
     validateDimensions(width, height, pixelScale);
@@ -30,21 +32,25 @@ final class FxRenderTarget2D implements RenderTarget2D {
 
   WritableImage snapshot() {
     ensureValid();
-    WritableImage image = new WritableImage(
+    if (!snapshotDirty && cachedSnapshot != null) return cachedSnapshot;
+    cachedSnapshot = new WritableImage(
         Math.max(1, (int) Math.ceil(canvas.getWidth())),
         Math.max(1, (int) Math.ceil(canvas.getHeight())));
     SnapshotParameters parameters = new SnapshotParameters();
     parameters.setFill(Color.TRANSPARENT);
-    canvas.snapshot(parameters, image);
-    return image;
+    canvas.snapshot(parameters, cachedSnapshot);
+    snapshotDirty = false;
+    return cachedSnapshot;
   }
+
+  void markDirty() { snapshotDirty = true; }
 
   @Override public double getWidth() { return width; }
   @Override public double getHeight() { return height; }
   @Override public double getPixelScale() { return pixelScale; }
   @Override public Blitter2D getBlitter() { ensureValid(); return blitter; }
   @Override public boolean isValid() { return valid; }
-  @Override public void dispose() { valid = false; }
+  @Override public void dispose() { valid = false; cachedSnapshot = null; }
 
   private void ensureValid() {
     if (!valid) throw new IllegalStateException("Render target has been disposed");

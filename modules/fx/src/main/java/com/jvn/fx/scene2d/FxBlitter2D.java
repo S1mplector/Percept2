@@ -27,6 +27,7 @@ import javafx.scene.effect.BlendMode;
 import javafx.scene.effect.Effect;
 import javafx.scene.effect.GaussianBlur;
 import javafx.scene.image.Image;
+import javafx.scene.image.PixelFormat;
 import javafx.scene.image.PixelReader;
 import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
@@ -123,8 +124,13 @@ public class FxBlitter2D implements Blitter2D {
     this.ownerTarget = target;
   }
 
+  private void markOwnerDirty() {
+    if (ownerTarget != null) ownerTarget.markDirty();
+  }
+
   @Override
   public void clear(double r, double g, double b, double a) {
+    markOwnerDirty();
     gc.setFill(Color.color(clamp01(r), clamp01(g), clamp01(b), clamp01(a)));
     gc.fillRect(0, 0, viewportW, viewportH);
   }
@@ -179,25 +185,27 @@ public class FxBlitter2D implements Blitter2D {
   }
 
   @Override
-  public void fillRect(double x, double y, double w, double h) { gc.fillRect(x, y, w, h); }
+  public void fillRect(double x, double y, double w, double h) { markOwnerDirty(); gc.fillRect(x, y, w, h); }
 
   @Override
-  public void strokeRect(double x, double y, double w, double h) { gc.strokeRect(x, y, w, h); }
+  public void strokeRect(double x, double y, double w, double h) { markOwnerDirty(); gc.strokeRect(x, y, w, h); }
 
   @Override
   public void fillCircle(double cx, double cy, double radius) {
+    markOwnerDirty();
     double d = radius * 2;
     gc.fillOval(cx - radius, cy - radius, d, d);
   }
 
   @Override
   public void strokeCircle(double cx, double cy, double radius) {
+    markOwnerDirty();
     double d = radius * 2;
     gc.strokeOval(cx - radius, cy - radius, d, d);
   }
 
   @Override
-  public void drawLine(double x1, double y1, double x2, double y2) { gc.strokeLine(x1, y1, x2, y2); }
+  public void drawLine(double x1, double y1, double x2, double y2) { markOwnerDirty(); gc.strokeLine(x1, y1, x2, y2); }
 
   @Override
   public void drawImage(String classpath, double x, double y, double w, double h) {
@@ -210,6 +218,7 @@ public class FxBlitter2D implements Blitter2D {
 
     Image img = cache.computeIfAbsent(classpath, this::loadImage);
     if (img != null) {
+      markOwnerDirty();
       gc.drawImage(resolveProcessedImage(classpath, img), x, y, w, h);
     } else {
       reportMissing(classpath);
@@ -229,6 +238,7 @@ public class FxBlitter2D implements Blitter2D {
 
     Image img = cache.computeIfAbsent(classpath, this::loadImage);
     if (img != null) {
+      markOwnerDirty();
       gc.drawImage(resolveProcessedImage(classpath, img), sx, sy, sw, sh, dx, dy, dw, dh);
     } else {
       reportMissing(classpath);
@@ -239,6 +249,7 @@ public class FxBlitter2D implements Blitter2D {
   @Override
   public void drawText(String text, double x, double y, double size, boolean bold) {
     if (text == null) return;
+    markOwnerDirty();
     Font cur = gc.getFont();
     String fam = (cur != null && cur.getFamily() != null && !cur.getFamily().isBlank()) ? cur.getFamily() : "Arial";
     gc.setFont(Font.font(fam, bold ? FontWeight.BOLD : FontWeight.NORMAL, size));
@@ -344,11 +355,13 @@ public class FxBlitter2D implements Blitter2D {
 
   @Override
   public void fillPath() {
+    markOwnerDirty();
     gc.fill();
   }
 
   @Override
   public void strokePath() {
+    markOwnerDirty();
     gc.stroke();
   }
 
@@ -386,6 +399,7 @@ public class FxBlitter2D implements Blitter2D {
   @Override
   public void fillPolygon(double[] xy) {
     if (xy == null || xy.length < 6 || xy.length % 2 != 0) return;
+    markOwnerDirty();
     int count = xy.length / 2;
     double[] xs = new double[count];
     double[] ys = new double[count];
@@ -399,6 +413,7 @@ public class FxBlitter2D implements Blitter2D {
   @Override
   public void strokePolygon(double[] xy) {
     if (xy == null || xy.length < 6 || xy.length % 2 != 0) return;
+    markOwnerDirty();
     int count = xy.length / 2;
     double[] xs = new double[count];
     double[] ys = new double[count];
@@ -412,6 +427,7 @@ public class FxBlitter2D implements Blitter2D {
   @Override
   public void fillCapsule(Capsule2 capsule) {
     if (capsule == null) return;
+    markOwnerDirty();
     gc.save();
     gc.setStroke(gc.getFill());
     gc.setLineWidth(capsule.r * 2.0);
@@ -452,6 +468,7 @@ public class FxBlitter2D implements Blitter2D {
     }
     Image image = fxTarget.snapshot();
     if (state.hasColorMatrix()) image = applyColorMatrix(image, state.colorMatrix);
+    markOwnerDirty();
     gc.drawImage(image, x, y, width, height);
   }
 
@@ -473,17 +490,16 @@ public class FxBlitter2D implements Blitter2D {
     PixelReader contentReader = contentImage.getPixelReader();
     PixelReader maskReader = maskImage.getPixelReader();
     PixelWriter writer = result.getPixelWriter();
-    for (int y = 0; y < height; y++) {
-      int maskY = Math.min(maskHeight - 1, (int) ((long) y * maskHeight / height));
-      for (int x = 0; x < width; x++) {
-        int maskX = Math.min(maskWidth - 1, (int) ((long) x * maskWidth / width));
-        int contentArgb = contentReader.getArgb(x, y);
-        int maskAlpha = (maskReader.getArgb(maskX, maskY) >>> 24) & 0xff;
-        int contentAlpha = (contentArgb >>> 24) & 0xff;
-        int resultAlpha = contentAlpha * maskAlpha / 255;
-        writer.setArgb(x, y, (contentArgb & 0x00ffffff) | (resultAlpha << 24));
-      }
-    }
+    int[] contentPixels = new int[width * height];
+    int[] maskPixels = new int[maskWidth * maskHeight];
+    contentReader.getPixels(
+        0, 0, width, height, PixelFormat.getIntArgbInstance(), contentPixels, 0, width);
+    maskReader.getPixels(
+        0, 0, maskWidth, maskHeight, PixelFormat.getIntArgbInstance(), maskPixels, 0, maskWidth);
+    PixelEffects.applyAlphaMask(contentPixels, width, height, maskPixels, maskWidth, maskHeight);
+    writer.setPixels(
+        0, 0, width, height, PixelFormat.getIntArgbInstance(), contentPixels, 0, width);
+    markOwnerDirty();
     gc.save();
     gc.setTransform(1, 0, 0, 1, 0, 0);
     gc.setGlobalAlpha(1.0);
@@ -581,32 +597,15 @@ public class FxBlitter2D implements Blitter2D {
     PixelReader reader = source.getPixelReader();
     PixelWriter writer = output.getPixelWriter();
     if (reader == null || writer == null) return output;
-
-    for (int y = 0; y < height; y++) {
-      for (int x = 0; x < width; x++) {
-        int argb = reader.getArgb(x, y);
-        double a = ((argb >>> 24) & 0xff) / 255.0;
-        double r = ((argb >>> 16) & 0xff) / 255.0;
-        double g = ((argb >>> 8) & 0xff) / 255.0;
-        double b = (argb & 0xff) / 255.0;
-
-        double outR = clamp01(matrix[0] * r + matrix[1] * g + matrix[2] * b + matrix[3] * a + matrix[4]);
-        double outG = clamp01(matrix[5] * r + matrix[6] * g + matrix[7] * b + matrix[8] * a + matrix[9]);
-        double outB = clamp01(matrix[10] * r + matrix[11] * g + matrix[12] * b + matrix[13] * a + matrix[14]);
-        double outA = clamp01(matrix[15] * r + matrix[16] * g + matrix[17] * b + matrix[18] * a + matrix[19]);
-
-        int outArgb =
-            ((int) Math.round(outA * 255.0) << 24)
-                | ((int) Math.round(outR * 255.0) << 16)
-                | ((int) Math.round(outG * 255.0) << 8)
-                | (int) Math.round(outB * 255.0);
-        writer.setArgb(x, y, outArgb);
-      }
-    }
+    int[] pixels = new int[width * height];
+    reader.getPixels(0, 0, width, height, PixelFormat.getIntArgbInstance(), pixels, 0, width);
+    PixelEffects.applyColorMatrix(pixels, matrix);
+    writer.setPixels(0, 0, width, height, PixelFormat.getIntArgbInstance(), pixels, 0, width);
     return output;
   }
 
   private void drawMissingPlaceholder(double x, double y, double w, double h) {
+    markOwnerDirty();
     gc.setFill(Color.color(1, 0, 1, 0.8)); // magenta box
     gc.fillRect(x, y, w, h);
     gc.setStroke(Color.color(0, 0, 0, 0.9));
@@ -640,6 +639,7 @@ public class FxBlitter2D implements Blitter2D {
           int vw = media.getWidth();
           int vh = media.getHeight();
           if (vw > 0 && vh > 0) {
+              markOwnerDirty();
               WritableImage frame = videoFrames.get(path);
               if (frame == null || frame.getWidth() != vw || frame.getHeight() != vh) {
                   frame = new WritableImage(vw, vh);
