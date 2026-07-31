@@ -1,6 +1,7 @@
 package com.jvn.core.diagnostics;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.AfterEach;
@@ -9,12 +10,15 @@ import org.junit.jupiter.api.Test;
 class GraphicsPipelineTest {
   private final String originalMode = System.getProperty(GraphicsPipeline.MODE_PROPERTY);
   private final String originalOrder = System.getProperty(GraphicsPipeline.PRISM_ORDER_PROPERTY);
+  private final String originalForceGpu =
+      System.getProperty(GraphicsPipeline.PRISM_FORCE_GPU_PROPERTY);
   private final String originalOs = System.getProperty("os.name");
 
   @AfterEach
   void restoreProperties() {
     restore(GraphicsPipeline.MODE_PROPERTY, originalMode);
     restore(GraphicsPipeline.PRISM_ORDER_PROPERTY, originalOrder);
+    restore(GraphicsPipeline.PRISM_FORCE_GPU_PROPERTY, originalForceGpu);
     restore("os.name", originalOs);
   }
 
@@ -26,6 +30,7 @@ class GraphicsPipelineTest {
 
     assertEquals(GraphicsPipeline.Mode.HARDWARE, GraphicsPipeline.configure());
     assertEquals("d3d,es2,sw", System.getProperty(GraphicsPipeline.PRISM_ORDER_PROPERTY));
+    assertEquals("true", System.getProperty(GraphicsPipeline.PRISM_FORCE_GPU_PROPERTY));
     assertTrue(GraphicsPipeline.statusText().startsWith("GPU preferred"));
   }
 
@@ -36,6 +41,7 @@ class GraphicsPipelineTest {
 
     assertEquals(GraphicsPipeline.Mode.SOFTWARE, GraphicsPipeline.configure());
     assertEquals("sw", System.getProperty(GraphicsPipeline.PRISM_ORDER_PROPERTY));
+    assertNull(System.getProperty(GraphicsPipeline.PRISM_FORCE_GPU_PROPERTY));
   }
 
   @Test
@@ -46,6 +52,7 @@ class GraphicsPipelineTest {
     GraphicsPipeline.configure();
 
     assertEquals("custom", System.getProperty(GraphicsPipeline.PRISM_ORDER_PROPERTY));
+    assertEquals("true", System.getProperty(GraphicsPipeline.PRISM_FORCE_GPU_PROPERTY));
   }
 
   private static void restore(String key, String value) {

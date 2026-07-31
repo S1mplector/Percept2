@@ -32,6 +32,8 @@ The equivalent persistent setting is `JVN_LAUNCH_MODE=auto|direct|gradle`. Auto 
 
 The same path is used by `./jvnw editor`, `./jvnw launcher`, and `./jvnw runtime`. Control it with `JVN_APP_LAUNCH_MODE=auto|direct|gradle`: `auto` refreshes when needed, `direct` guarantees that no Gradle process will be started and reports a stale cache, and `gradle` always uses the original run task. Run `scripts/launch-app.sh editor --rebuild` to force a refresh.
 
+On Linux/X11, the application launcher also checks whether the default GLX provider can create a hardware context. If the default provider is broken but the Mesa provider works, JVN uses Mesa for that launch and passes the GPU pipeline flags before JavaFX initializes. Set `JVN_DISABLE_GLX_FALLBACK=1` to disable this recovery. The editor performance strip reports **GPU active**, **GPU fallback**, or **GPU off** so a software-rendering fallback is visible.
+
 ## Source-First Preview Builds
 
 JVN does not publish official prebuilt Engine Hub, editor, or runtime binaries yet. During the current preview phase, run the hub from a source checkout with `./jvn` on macOS/Linux or `jvn.bat` on Windows. The hub then uses the same checkout for editor launches, builds, tests, update operations, shortcut installation, and project packaging.

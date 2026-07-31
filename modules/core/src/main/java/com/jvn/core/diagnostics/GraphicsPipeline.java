@@ -17,6 +17,7 @@ public final class GraphicsPipeline {
   public static final String MODE_PROPERTY = "jvn.graphics.mode";
   public static final String MODE_ENVIRONMENT = "JVN_GRAPHICS_MODE";
   static final String PRISM_ORDER_PROPERTY = "prism.order";
+  static final String PRISM_FORCE_GPU_PROPERTY = "prism.forceGPU";
 
   public enum Mode {
     AUTO,
@@ -43,14 +44,19 @@ public final class GraphicsPipeline {
    */
   public static Mode configure() {
     Mode mode = requestedMode();
-    if (System.getProperty(PRISM_ORDER_PROPERTY) != null) return mode;
-
-    switch (mode) {
-      case HARDWARE -> System.setProperty(PRISM_ORDER_PROPERTY, preferredHardwareOrder());
-      case SOFTWARE -> System.setProperty(PRISM_ORDER_PROPERTY, "sw");
-      case AUTO -> {
-        // Leave Prism untouched so JavaFX can select its platform default.
+    if (System.getProperty(PRISM_ORDER_PROPERTY) == null) {
+      switch (mode) {
+        case HARDWARE -> System.setProperty(PRISM_ORDER_PROPERTY, preferredHardwareOrder());
+        case SOFTWARE -> System.setProperty(PRISM_ORDER_PROPERTY, "sw");
+        case AUTO -> {
+          // Leave Prism untouched so JavaFX can select its platform default.
+        }
       }
+    }
+    if (mode == Mode.HARDWARE && System.getProperty(PRISM_FORCE_GPU_PROPERTY) == null) {
+      // JavaFX's hardware qualifier can reject newer or unrecognized GPUs before trying ES2.
+      // The pipeline order still retains software as the final fallback if ES2 cannot initialize.
+      System.setProperty(PRISM_FORCE_GPU_PROPERTY, "true");
     }
     return mode;
   }

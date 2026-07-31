@@ -4000,6 +4000,18 @@
   -fx-text-fill: #333333;
 }
 
+.editor-perf-chip.perf-chip-graphics {
+  -fx-text-fill: #257f45;
+  -fx-border-color: rgba(35, 135, 72, 0.48);
+  -fx-background-color: rgba(35, 135, 72, 0.09);
+}
+
+.editor-perf-chip.perf-chip-graphics-fallback {
+  -fx-text-fill: #a94722;
+  -fx-border-color: rgba(190, 78, 31, 0.52);
+  -fx-background-color: rgba(190, 78, 31, 0.10);
+}
+
 .editor-perf-chip.perf-chip-java {
   -fx-text-fill: #27753d;
   -fx-border-color: rgba(69, 151, 92, 0.38);

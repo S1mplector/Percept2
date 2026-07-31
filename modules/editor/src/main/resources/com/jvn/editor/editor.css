@@ -4111,6 +4111,18 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-text-fill: #eeeeee;
 }
 
+.editor-perf-chip.perf-chip-graphics {
+  -fx-text-fill: #8ee8ac;
+  -fx-border-color: rgba(76, 196, 120, 0.48);
+  -fx-background-color: rgba(76, 196, 120, 0.09);
+}
+
+.editor-perf-chip.perf-chip-graphics-fallback {
+  -fx-text-fill: #ff9a62;
+  -fx-border-color: rgba(242, 115, 51, 0.58);
+  -fx-background-color: rgba(242, 115, 51, 0.10);
+}
+
 .editor-perf-chip.perf-chip-java {
   -fx-text-fill: #99e6ae;
   -fx-border-color: rgba(126, 211, 154, 0.42);

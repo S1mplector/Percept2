@@ -23,6 +23,7 @@ Usage: scripts/launch-app.sh editor|launcher|runtime [options] [-- app arguments
 
 Environment: JVN_APP_LAUNCH_MODE=auto|direct|gradle
              JVN_APP_JAVA_OPTS="<additional JVM options>"
+             JVN_DISABLE_GLX_FALLBACK=1 disables Linux Mesa GLX recovery
 EOF
 }
 
@@ -81,6 +82,60 @@ run_gradle() {
     "${MODE_PROPS[@]}" "$task"
 }
 
+requested_graphics_mode() {
+  if [[ -n "${JVN_GRAPHICS_MODE:-}" ]]; then
+    printf '%s' "$JVN_GRAPHICS_MODE"
+    return
+  fi
+  local preferences_file="${HOME:-}/.jvn-editor/editor-preferences.properties"
+  if [[ -r "$preferences_file" ]]; then
+    local stored_mode
+    stored_mode="$(sed -n 's/^graphics\\.mode=//p' "$preferences_file" | tail -n 1)"
+    if [[ -n "$stored_mode" ]]; then
+      printf '%s' "$stored_mode"
+      return
+    fi
+  fi
+  printf 'auto'
+}
+
+run_glx_probe() {
+  if command -v timeout >/dev/null 2>&1; then
+    timeout 4s "$@"
+  else
+    "$@"
+  fi
+}
+
+configure_linux_glx_fallback() {
+  [[ "$(uname -s 2>/dev/null)" == "Linux" ]] || return
+  [[ -n "${DISPLAY:-}" ]] || return
+  [[ "${JVN_DISABLE_GLX_FALLBACK:-0}" != "1" ]] || return
+  [[ -z "${__GLX_VENDOR_LIBRARY_NAME:-}" ]] || return
+  command -v glxinfo >/dev/null 2>&1 || return
+
+  local graphics_mode
+  graphics_mode="$(requested_graphics_mode)"
+  case "${graphics_mode,,}" in
+    sw|software|compatibility) return ;;
+  esac
+
+  if run_glx_probe glxinfo -B >/dev/null 2>&1; then
+    return
+  fi
+  if ! run_glx_probe env __GLX_VENDOR_LIBRARY_NAME=mesa glxinfo -B >/dev/null 2>&1; then
+    return
+  fi
+
+  export __GLX_VENDOR_LIBRARY_NAME=mesa
+  if [[ "${graphics_mode,,}" == "auto" || -z "$graphics_mode" ]]; then
+    # The Mesa probe proved that a hardware OpenGL path exists. Ask JavaFX to bypass
+    # its conservative GPU qualifier while retaining the software pipeline fallback.
+    export JVN_GRAPHICS_MODE=hardware
+  fi
+  echo "[jvn] default GLX is unavailable; using the working Mesa GPU provider for this launch." >&2
+}
+
 cache_is_stale() {
   [[ "$FORCE_REBUILD" -eq 1 || ! -s "$CLASSPATH_FILE" || ! -f "$MODULE_PATH_FILE" || ! -s "$VERSION_FILE" || ! -f "$STAMP_FILE" ]] && return 0
   find "$ROOT_DIR/modules" "$ROOT_DIR/misc/demo-assets" \
@@ -90,6 +145,8 @@ cache_is_stale() {
     \( -name '*.gradle' -o -name '*.gradle.kts' -o -name 'gradle.properties' \) \
     -newer "$STAMP_FILE" -print -quit | grep -q .
 }
+
+configure_linux_glx_fallback
 
 if [[ "$MODE" == "gradle" ]]; then
   run_gradle "$GRADLE_TASK"
@@ -123,6 +180,22 @@ CLASSPATH="$(join_path_file "$CLASSPATH_FILE")"
 MODULE_PATH="$(join_path_file "$MODULE_PATH_FILE")"
 VERSION="$(sed -n '1p' "$VERSION_FILE")"
 declare -a JAVA_ARGS=("-Djvn.version=$VERSION" "${MODE_PROPS[@]}")
+GRAPHICS_MODE="$(requested_graphics_mode)"
+HARDWARE_PRISM_ORDER="es2,sw"
+case "$(uname -s 2>/dev/null)" in
+  MINGW*|MSYS*|CYGWIN*) HARDWARE_PRISM_ORDER="d3d,es2,sw" ;;
+esac
+case "${GRAPHICS_MODE,,}" in
+  gpu|hardware|accelerated|prefer-gpu)
+    JAVA_ARGS+=("-Djvn.graphics.mode=hardware" "-Dprism.order=$HARDWARE_PRISM_ORDER" "-Dprism.forceGPU=true")
+    ;;
+  sw|software|compatibility)
+    JAVA_ARGS+=("-Djvn.graphics.mode=software" "-Dprism.order=sw")
+    ;;
+  *)
+    JAVA_ARGS+=("-Djvn.graphics.mode=auto")
+    ;;
+esac
 if [[ -n "${JVN_APP_JAVA_OPTS:-}" ]]; then
   read -r -a USER_JAVA_OPTS <<< "$JVN_APP_JAVA_OPTS"
   JAVA_ARGS+=("${USER_JAVA_OPTS[@]}")

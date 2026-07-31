@@ -1,3 +1,6 @@
+import java.io.File
+import java.util.Properties
+
 plugins {
   application
   id("net.ltgt.errorprone") version "4.0.1"
@@ -31,6 +34,45 @@ tasks.withType<JavaCompile>().configureEach {
 
 application {
   mainClass.set("com.jvn.runtime.JvnApp")
+}
+
+fun requestedGraphicsModeForLaunch(): String {
+  val explicitProperty = System.getProperty("jvn.graphics.mode")?.trim().orEmpty()
+  if (explicitProperty.isNotEmpty()) return explicitProperty
+  val explicitEnvironment = System.getenv("JVN_GRAPHICS_MODE")?.trim().orEmpty()
+  if (explicitEnvironment.isNotEmpty()) return explicitEnvironment
+
+  val preferencesFile = File(
+    System.getProperty("user.home", "."),
+    ".jvn-editor/editor-preferences.properties")
+  if (!preferencesFile.isFile) return "auto"
+  return try {
+    val properties = Properties()
+    preferencesFile.inputStream().use(properties::load)
+    properties.getProperty("graphics.mode", "auto").trim().ifEmpty { "auto" }
+  } catch (_: Exception) {
+    "auto"
+  }
+}
+
+tasks.named<JavaExec>("run") {
+  when (requestedGraphicsModeForLaunch().lowercase()) {
+    "gpu", "hardware", "accelerated", "prefer-gpu" -> {
+      systemProperty("jvn.graphics.mode", "hardware")
+      val prismOrder = if (System.getProperty("os.name", "").lowercase().contains("win")) {
+        "d3d,es2,sw"
+      } else {
+        "es2,sw"
+      }
+      systemProperty("prism.order", prismOrder)
+      systemProperty("prism.forceGPU", "true")
+    }
+    "sw", "software", "compatibility" -> {
+      systemProperty("jvn.graphics.mode", "software")
+      systemProperty("prism.order", "sw")
+    }
+    else -> systemProperty("jvn.graphics.mode", "auto")
+  }
 }
 
 val fastLaunchDirectory = rootProject.layout.buildDirectory.dir("fast-launch/runtime")

@@ -1085,6 +1085,12 @@ public class JvnLauncherApp extends Application {
           || arg.startsWith("--add-opens=") || arg.startsWith("--add-exports=")
           || arg.startsWith("--patch-module=")) {
         forwarded.add(arg);
+        continue;
+      }
+      if (arg.startsWith("-Djvn.graphics.mode=")
+          || arg.startsWith("-Dprism.order=")
+          || arg.startsWith("-Dprism.forceGPU=")) {
+        forwarded.add(arg);
       }
     }
     return forwarded;

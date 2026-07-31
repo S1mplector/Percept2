@@ -176,6 +176,7 @@ public class EditorApp extends Application {
   private Label heapChip;
   private Label jvmChip;
   private Label fpsChip;
+  private Label graphicsChip;
   private Label threadsChip;
   private Label gcChip;
   private Label javaChip;
@@ -183,6 +184,7 @@ public class EditorApp extends Application {
   private Label gradleChip;
   private Label projectShapeChip;
   private PerfGraph perfGraph;
+  private EditorGraphicsStatus.Snapshot graphicsStatus;
   private File lastOpened;
   private Entity2D selected;
   private String lastSelectedName;
@@ -2284,6 +2286,13 @@ public class EditorApp extends Application {
     heapChip = perfChip("Heap --", "perf-chip-heap");
     jvmChip = perfChip("JVM --", "perf-chip-jvm");
     fpsChip = perfChip("FPS --", "perf-chip-fps");
+    graphicsStatus = EditorGraphicsStatus.detect();
+    graphicsChip = perfChip(
+        graphicsStatus.chipText(),
+        graphicsStatus.hardwareAccelerated()
+            ? "perf-chip-graphics"
+            : "perf-chip-graphics-fallback");
+    updatePerfChip(graphicsChip, graphicsStatus.chipText(), graphicsStatus.tooltip());
     threadsChip = perfChip("Threads --", "perf-chip-neutral");
     gcChip = perfChip("GC --", "perf-chip-neutral");
     javaChip = perfChip("Java --", "perf-chip-java");
@@ -2295,6 +2304,7 @@ public class EditorApp extends Application {
         heapChip,
         jvmChip,
         fpsChip,
+        graphicsChip,
         threadsChip,
         gcChip,
         javaChip,
@@ -3113,6 +3123,9 @@ public class EditorApp extends Application {
             frameStats.maxMillis(),
             frameStats.stalls(),
             frameStats.samples()));
+    if (graphicsStatus != null) {
+      updatePerfChip(graphicsChip, graphicsStatus.chipText(), graphicsStatus.tooltip());
+    }
     updatePerfChip(threadsChip, "Threads " + threadCount, threadCount + " live threads, " + daemonThreadCount + " daemon threads.");
     updatePerfChip(gcChip, gcText, "Garbage collection delta since the previous sample.");
     updatePerfChip(javaChip, environment.javaChip(), environment.javaText());
@@ -3253,11 +3266,19 @@ public class EditorApp extends Application {
 
   private static void updatePerfChip(Label label, String text, String tooltip) {
     if (label == null) return;
-    label.setText(text == null || text.isBlank() ? "--" : text);
+    String resolvedText = text == null || text.isBlank() ? "--" : text;
+    if (!resolvedText.equals(label.getText())) {
+      label.setText(resolvedText);
+    }
     if (tooltip == null || tooltip.isBlank()) {
-      label.setTooltip(null);
+      if (label.getTooltip() != null) label.setTooltip(null);
     } else {
-      label.setTooltip(new Tooltip(tooltip));
+      Tooltip existing = label.getTooltip();
+      if (existing == null) {
+        label.setTooltip(new Tooltip(tooltip));
+      } else if (!tooltip.equals(existing.getText())) {
+        existing.setText(tooltip);
+      }
     }
   }
 
