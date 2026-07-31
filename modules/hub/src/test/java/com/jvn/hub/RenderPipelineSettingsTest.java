@@ -21,6 +21,9 @@ class RenderPipelineSettingsTest {
     assertEquals(
         RenderPipelineSettings.Mode.AUTO,
         RenderPipelineSettings.load(temporaryDirectory.resolve("missing.properties")));
+    assertEquals(
+        RenderPipelineSettings.Options.defaults(),
+        RenderPipelineSettings.loadOptions(temporaryDirectory.resolve("missing-tuning.properties")));
   }
 
   @Test
@@ -58,12 +61,16 @@ class RenderPipelineSettingsTest {
     boolean applied = RenderPipelineSettings.applyLaunchEnvironment(
         environment,
         List.of("/engine/scripts/launch-app.sh", "editor"),
-        RenderPipelineSettings.Mode.HARDWARE);
+        RenderPipelineSettings.Mode.HARDWARE,
+        RenderPipelineSettings.Options.defaults().withLinuxGlxRecovery(false));
 
     assertTrue(applied);
     assertEquals(
         "hardware",
         environment.get(RenderPipelineSettings.GRAPHICS_MODE_ENVIRONMENT));
+    assertEquals(
+        "1",
+        environment.get(RenderPipelineSettings.DISABLE_GLX_RECOVERY_ENVIRONMENT));
     assertTrue(RenderPipelineSettings.isManagedLaunchCommand(
         List.of("./gradlew", ":editor:run")));
     assertTrue(RenderPipelineSettings.isManagedLaunchCommand(
@@ -79,7 +86,8 @@ class RenderPipelineSettingsTest {
     boolean applied = RenderPipelineSettings.applyLaunchEnvironment(
         environment,
         List.of("./gradlew", "build"),
-        RenderPipelineSettings.Mode.SOFTWARE);
+        RenderPipelineSettings.Mode.SOFTWARE,
+        RenderPipelineSettings.Options.defaults());
 
     assertFalse(applied);
     assertFalse(environment.containsKey(RenderPipelineSettings.GRAPHICS_MODE_ENVIRONMENT));
@@ -96,5 +104,39 @@ class RenderPipelineSettingsTest {
     assertEquals(
         "Software renderer only",
         RenderPipelineSettings.Mode.SOFTWARE.backendOrder("macOS"));
+  }
+
+  @Test
+  void persistsCompleteRenderTuningConfiguration() throws Exception {
+    Path tuning = temporaryDirectory.resolve("settings/render-pipeline.properties");
+    RenderPipelineSettings.Options requested = new RenderPipelineSettings.Options(
+        false,
+        true,
+        false,
+        RenderPipelineSettings.ShapeCache.ALL,
+        true,
+        true,
+        true,
+        true,
+        false);
+
+    RenderPipelineSettings.saveOptions(tuning, requested);
+
+    assertEquals(requested, RenderPipelineSettings.loadOptions(tuning));
+    assertTrue(requested.diagnosticsEnabled());
+  }
+
+  @Test
+  void enabledGlxRecoveryClearsAnInheritedDisableOverride() {
+    Map<String, String> environment = new HashMap<>();
+    environment.put(RenderPipelineSettings.DISABLE_GLX_RECOVERY_ENVIRONMENT, "1");
+
+    RenderPipelineSettings.applyLaunchEnvironment(
+        environment,
+        List.of("/engine/scripts/launch-app.sh", "runtime"),
+        RenderPipelineSettings.Mode.AUTO,
+        RenderPipelineSettings.Options.defaults());
+
+    assertFalse(environment.containsKey(RenderPipelineSettings.DISABLE_GLX_RECOVERY_ENVIRONMENT));
   }
 }

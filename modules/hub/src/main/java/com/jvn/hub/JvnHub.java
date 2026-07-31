@@ -134,6 +134,7 @@ public final class JvnHub {
   private static final Color ACCENT_NEUTRAL = Color.decode("#c2c2c2");
   private static final Color ACCENT_GREEN   = Color.decode("#7ed39a");
   private static final Color ACCENT_DEV     = Color.decode("#8cc5ff");
+  private static final Color ACCENT_RENDER  = Color.decode("#c58cff");
   private static final Color ACCENT_SAFE    = Color.decode("#ffd166");
   private static final Color ACCENT_ERROR   = Color.decode("#f38ba8");
   private static final Color ACCENT_MAINTENANCE = Color.decode("#ff9933");
@@ -179,6 +180,7 @@ public final class JvnHub {
 
   private final Path projectRoot;
   private final Path renderPipelinePreferencesFile;
+  private final Path renderPipelineTuningFile;
   private final JFrame frame = new JFrame("JVN Engine Hub");
   private final JLabel statusLabel = new JLabel("Idle");
   private final JLabel footerBranchLabel = new JLabel("No branch");
@@ -221,6 +223,7 @@ public final class JvnHub {
   private String gradleExtraArgs = "";
   /** Rendering profile persisted for editor, preview, launcher, and game-runtime processes. */
   private RenderPipelineSettings.Mode renderPipelineMode;
+  private RenderPipelineSettings.Options renderPipelineOptions;
   /** Header shortcut for a lightweight local environment report. */
   private HeaderIconButton diagnosticsButton;
   /** Header shortcut for version, source, install, and update details. */
@@ -229,7 +232,6 @@ public final class JvnHub {
   private HeaderIconButton documentationButton;
   /** Update button with a right-aligned incoming-commit badge. */
   private UpdateEngineButton updateEngineButton;
-  private HubShellPanel shellPanel;
   private boolean frameConfigured;
   private boolean shutdownInProgress;
   private ResizeOverlay resizeOverlay;
@@ -238,7 +240,9 @@ public final class JvnHub {
   private JvnHub(Path projectRoot) {
     this.projectRoot = projectRoot;
     this.renderPipelinePreferencesFile = RenderPipelineSettings.defaultPreferencesFile();
+    this.renderPipelineTuningFile = RenderPipelineSettings.defaultTuningFile();
     this.renderPipelineMode = RenderPipelineSettings.load(renderPipelinePreferencesFile);
+    this.renderPipelineOptions = RenderPipelineSettings.loadOptions(renderPipelineTuningFile);
     buildUi();
     checkIncomingUpdates(true);
   }
@@ -679,7 +683,8 @@ public final class JvnHub {
 
   private JMenu buildRenderPipelineMenu() {
     JMenu render = hubMenu("Render Pipeline");
-    render.setForeground(ACCENT_DEV);
+    render.setForeground(ACCENT_RENDER);
+    render.getPopupMenu().setBorder(BorderFactory.createLineBorder(ACCENT_RENDER.darker()));
 
     JMenuItem profile = hubMenuItem(
         "Next launch: " + renderPipelineMode.displayName(),
@@ -692,6 +697,19 @@ public final class JvnHub {
         () -> {});
     backend.setEnabled(false);
     render.add(backend);
+    JMenuItem tuningStatus = hubMenuItem(
+        "Tuning: VSync " + (renderPipelineOptions.vsync() ? "on" : "off")
+            + " · Dirty regions " + (renderPipelineOptions.dirtyRegions() ? "on" : "off")
+            + " · Cache " + renderPipelineOptions.shapeCache().id(),
+        () -> {});
+    tuningStatus.setEnabled(false);
+    render.add(tuningStatus);
+    if (renderPipelineOptions.diagnosticsEnabled()) {
+      JMenuItem diagnosticsStatus = hubMenuItem("Diagnostics active — may affect performance", () -> {});
+      diagnosticsStatus.setForeground(ACCENT_RENDER);
+      diagnosticsStatus.setEnabled(false);
+      render.add(diagnosticsStatus);
+    }
     render.addSeparator();
 
     ButtonGroup profiles = new ButtonGroup();
@@ -712,13 +730,107 @@ public final class JvnHub {
         RenderPipelineSettings.Mode.SOFTWARE);
 
     render.addSeparator();
+    JMenu performance = hubMenu("Performance Tuning");
+    performance.setForeground(ACCENT_RENDER);
+    performance.getPopupMenu().setBorder(BorderFactory.createLineBorder(ACCENT_RENDER.darker()));
+    JCheckBoxMenuItem vsync = hubCheckMenuItem(
+        "Display Synchronization (VSync)",
+        renderPipelineOptions.vsync());
+    vsync.setToolTipText("Synchronize Prism presentation to the display refresh cycle.");
+    vsync.addActionListener(e -> setRenderPipelineOptions(
+        renderPipelineOptions.withVsync(vsync.isSelected()),
+        "Display synchronization"));
+    performance.add(vsync);
+
+    JCheckBoxMenuItem dirtyRegions = hubCheckMenuItem(
+        "Dirty-Region Rendering",
+        renderPipelineOptions.dirtyRegions());
+    dirtyRegions.setToolTipText("Redraw changed areas instead of repainting the whole scene.");
+    dirtyRegions.addActionListener(e -> setRenderPipelineOptions(
+        renderPipelineOptions.withDirtyRegions(dirtyRegions.isSelected()),
+        "Dirty-region rendering"));
+    performance.add(dirtyRegions);
+
+    JCheckBoxMenuItem occlusion = hubCheckMenuItem(
+        "Occlusion Culling",
+        renderPipelineOptions.occlusionCulling());
+    occlusion.setToolTipText("Skip obscured scene content when dirty-region rendering is active.");
+    occlusion.addActionListener(e -> setRenderPipelineOptions(
+        renderPipelineOptions.withOcclusionCulling(occlusion.isSelected()),
+        "Occlusion culling"));
+    performance.add(occlusion);
+
+    JMenu shapeCache = hubMenu("Shape Cache");
+    shapeCache.setForeground(ACCENT_RENDER);
+    shapeCache.getPopupMenu().setBorder(BorderFactory.createLineBorder(ACCENT_RENDER.darker()));
+    ButtonGroup cacheChoices = new ButtonGroup();
+    addShapeCacheChoice(shapeCache, cacheChoices, RenderPipelineSettings.ShapeCache.COMPLEX);
+    addShapeCacheChoice(shapeCache, cacheChoices, RenderPipelineSettings.ShapeCache.ALL);
+    addShapeCacheChoice(shapeCache, cacheChoices, RenderPipelineSettings.ShapeCache.OFF);
+    performance.add(shapeCache);
+    render.add(performance);
+
+    JMenu diagnostics = hubMenu("Render Diagnostics");
+    diagnostics.setForeground(ACCENT_RENDER);
+    diagnostics.getPopupMenu().setBorder(BorderFactory.createLineBorder(ACCENT_RENDER.darker()));
+    JCheckBoxMenuItem verbose = hubCheckMenuItem(
+        "Verbose Pipeline Startup",
+        renderPipelineOptions.verbose());
+    verbose.setToolTipText("Print JavaFX Prism pipeline selection and capability details at startup.");
+    verbose.addActionListener(e -> setRenderPipelineOptions(
+        renderPipelineOptions.withVerbose(verbose.isSelected()),
+        "Verbose pipeline startup"));
+    diagnostics.add(verbose);
+
+    JCheckBoxMenuItem showDirty = hubCheckMenuItem(
+        "Visualize Dirty Regions",
+        renderPipelineOptions.showDirtyRegions());
+    showDirty.setToolTipText("Overlay the regions Prism repaints. Intended for short diagnostic sessions.");
+    showDirty.addActionListener(e -> setRenderPipelineOptions(
+        renderPipelineOptions.withShowDirtyRegions(showDirty.isSelected()),
+        "Dirty-region visualization"));
+    diagnostics.add(showDirty);
+
+    JCheckBoxMenuItem showOverdraw = hubCheckMenuItem(
+        "Visualize Overdraw",
+        renderPipelineOptions.showOverdraw());
+    showOverdraw.setToolTipText("Highlight repeatedly rendered pixels. Intended for short diagnostic sessions.");
+    showOverdraw.addActionListener(e -> setRenderPipelineOptions(
+        renderPipelineOptions.withShowOverdraw(showOverdraw.isSelected()),
+        "Overdraw visualization"));
+    diagnostics.add(showOverdraw);
+
+    JCheckBoxMenuItem printGraph = hubCheckMenuItem(
+        "Print Render Graph",
+        renderPipelineOptions.printRenderGraph());
+    printGraph.setToolTipText("Print Prism render-graph diagnostics to process output.");
+    printGraph.addActionListener(e -> setRenderPipelineOptions(
+        renderPipelineOptions.withPrintRenderGraph(printGraph.isSelected()),
+        "Render-graph logging"));
+    diagnostics.add(printGraph);
+    diagnostics.addSeparator();
+    diagnostics.add(hubMenuItem("Disable All Render Diagnostics", this::disableRenderDiagnostics));
+    render.add(diagnostics);
+
+    JCheckBoxMenuItem glxRecovery = hubCheckMenuItem(
+        "Automatic Mesa GLX Recovery (Linux)",
+        renderPipelineOptions.linuxGlxRecovery());
+    glxRecovery.setToolTipText("Retry a broken default GLX provider with Mesa during managed Linux launches.");
+    glxRecovery.setEnabled(System.getProperty("os.name", "")
+        .toLowerCase(Locale.ROOT)
+        .contains("linux"));
+    glxRecovery.addActionListener(e -> setRenderPipelineOptions(
+        renderPipelineOptions.withLinuxGlxRecovery(glxRecovery.isSelected()),
+        "Linux GLX recovery"));
+    render.add(glxRecovery);
+
+    render.addSeparator();
     render.add(hubMenuItem("Launch Editor with This Pipeline", () -> clickIfAvailable(runEditorButton)));
     render.add(hubMenuItem("Inspect Render Stack...", this::showRenderPipelineReport));
     render.add(hubMenuItem("Copy Render Stack Summary", this::copyRenderPipelineSummary));
     render.addSeparator();
-    render.add(hubMenuItem("Open Graphics Preferences", this::openRenderPipelinePreferences));
-    render.add(hubMenuItem("Reset to Adaptive Defaults", () ->
-        setRenderPipelineMode(RenderPipelineSettings.Mode.AUTO)));
+    render.add(hubMenuItem("Open Render Pipeline Settings", this::openRenderPipelinePreferences));
+    render.add(hubMenuItem("Reset All Rendering Defaults", this::resetRenderPipelineDefaults));
     return render;
   }
 
@@ -732,6 +844,26 @@ public final class JvnHub {
     item.setToolTipText(mode.description());
     item.addActionListener(e -> setRenderPipelineMode(mode));
     profiles.add(item);
+    menu.add(item);
+  }
+
+  private void addShapeCacheChoice(
+      JMenu menu,
+      ButtonGroup choices,
+      RenderPipelineSettings.ShapeCache cache) {
+    JRadioButtonMenuItem item = new JRadioButtonMenuItem(
+        cache.displayName(),
+        renderPipelineOptions.shapeCache() == cache);
+    styleMenuItem(item);
+    item.setToolTipText(switch (cache) {
+      case COMPLEX -> "Cache complex vector shapes while leaving simple shapes on the direct path.";
+      case ALL -> "Cache simple and complex shapes; may trade additional memory for lower rasterization work.";
+      case OFF -> "Disable Prism shape caching for compatibility or cache-related diagnostics.";
+    });
+    item.addActionListener(e -> setRenderPipelineOptions(
+        renderPipelineOptions.withShapeCache(cache),
+        "Shape cache"));
+    choices.add(item);
     menu.add(item);
   }
 
@@ -946,12 +1078,9 @@ public final class JvnHub {
     actionButtons.add(updateEngineButton);
     rebuildActionGrid();
 
-    shellPanel = new HubShellPanel();
-
     JPanel workspace = new JPanel(new BorderLayout(0, ui(10)));
     workspace.setOpaque(false);
-    workspace.add(new HubPerformancePanel(), BorderLayout.NORTH);
-    workspace.add(shellPanel, BorderLayout.CENTER);
+    workspace.add(new HubPerformancePanel(), BorderLayout.CENTER);
 
     JPanel center = new JPanel(new BorderLayout(0, ui(8)));
     center.setOpaque(false);
@@ -1300,11 +1429,6 @@ public final class JvnHub {
         : "Developer-only actions are hidden from the main hub controls.";
     setStatus(title, enabled ? ACCENT_DEV : TEXT_SOFT);
     setActivity(title, detail, false, enabled ? ACCENT_DEV : TEXT_MUTED);
-    if (shellPanel != null) {
-      shellPanel.setVisible(enabled);
-      frame.setPreferredSize(null);
-      frame.pack();
-    }
     refreshModeMenus();
   }
 
@@ -1317,12 +1441,12 @@ public final class JvnHub {
       renderPipelineMode = mode;
       appendLog("[hub] render pipeline set to " + mode.displayName()
           + " (" + mode.backendOrder(System.getProperty("os.name", "")) + ").");
-      setStatus("Render Pipeline: " + mode.displayName(), ACCENT_DEV);
+      setStatus("Render Pipeline: " + mode.displayName(), ACCENT_RENDER);
       setActivity(
           "Render pipeline updated",
           "Applies to the next editor, preview, launcher, and game-runtime process.",
           false,
-          ACCENT_DEV);
+          ACCENT_RENDER);
     } catch (IOException error) {
       appendLog("[hub] could not save render pipeline: " + error.getMessage());
       setStatus("Could not save Render Pipeline", ACCENT_ERROR);
@@ -1335,15 +1459,86 @@ public final class JvnHub {
     refreshModeMenus();
   }
 
+  private void setRenderPipelineOptions(
+      RenderPipelineSettings.Options requestedOptions,
+      String changedSetting) {
+    RenderPipelineSettings.Options options = requestedOptions == null
+        ? RenderPipelineSettings.Options.defaults()
+        : requestedOptions;
+    try {
+      RenderPipelineSettings.saveOptions(renderPipelineTuningFile, options);
+      renderPipelineOptions = options;
+      String label = firstNonBlank(changedSetting, "Rendering option");
+      appendLog("[hub] render tuning updated: " + label + ".");
+      setStatus(label + " updated", ACCENT_RENDER);
+      setActivity(
+          "Render tuning updated",
+          "The change applies when the next JVN process starts.",
+          false,
+          ACCENT_RENDER);
+    } catch (IOException error) {
+      appendLog("[hub] could not save render tuning: " + error.getMessage());
+      setStatus("Could not save render tuning", ACCENT_ERROR);
+      setActivity(
+          "Render tuning unchanged",
+          error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage(),
+          false,
+          ACCENT_ERROR);
+    }
+    refreshModeMenus();
+  }
+
+  private void disableRenderDiagnostics() {
+    RenderPipelineSettings.Options current = renderPipelineOptions;
+    RenderPipelineSettings.Options quiet = current
+        .withVerbose(false)
+        .withShowDirtyRegions(false)
+        .withShowOverdraw(false)
+        .withPrintRenderGraph(false);
+    setRenderPipelineOptions(quiet, "Render diagnostics");
+  }
+
+  private void resetRenderPipelineDefaults() {
+    try {
+      RenderPipelineSettings.Mode mode = RenderPipelineSettings.Mode.AUTO;
+      RenderPipelineSettings.Options options = RenderPipelineSettings.Options.defaults();
+      RenderPipelineSettings.save(renderPipelinePreferencesFile, mode);
+      RenderPipelineSettings.saveOptions(renderPipelineTuningFile, options);
+      renderPipelineMode = mode;
+      renderPipelineOptions = options;
+      appendLog("[hub] Render Pipeline reset to adaptive JavaFX defaults.");
+      setStatus("Render Pipeline defaults restored", ACCENT_RENDER);
+      setActivity(
+          "Rendering defaults restored",
+          "Adaptive selection and safe JavaFX performance defaults apply on the next launch.",
+          false,
+          ACCENT_RENDER);
+    } catch (IOException error) {
+      appendLog("[hub] could not reset Render Pipeline: " + error.getMessage());
+      setStatus("Could not reset Render Pipeline", ACCENT_ERROR);
+      setActivity(
+          "Render Pipeline reset failed",
+          error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage(),
+          false,
+          ACCENT_ERROR);
+    }
+    refreshModeMenus();
+  }
+
   private void showRenderPipelineReport() {
-    setStatus("Inspecting render stack", ACCENT_DEV);
-    setActivity("Inspecting render stack", "Checking display and JavaFX launch configuration.", true, ACCENT_DEV);
+    setStatus("Inspecting render stack", ACCENT_RENDER);
+    setActivity(
+        "Inspecting render stack",
+        "Checking display and JavaFX launch configuration.",
+        true,
+        ACCENT_RENDER);
     setButtonsEnabled(false);
     RenderPipelineSettings.Mode selectedMode = renderPipelineMode;
+    RenderPipelineSettings.Options selectedOptions = renderPipelineOptions;
 
     new SwingWorker<List<HealthCheck>, Void>() {
       @Override protected List<HealthCheck> doInBackground() {
-        return buildRenderPipelineReport(selectedMode);
+        return buildRenderPipelineReport(selectedMode, selectedOptions);
       }
 
       @Override protected void done() {
@@ -1358,12 +1553,12 @@ public final class JvnHub {
               "The rendering report could not be completed.",
               error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage()));
         }
-        setStatus("Render stack report ready", ACCENT_DEV);
+        setStatus("Render stack report ready", ACCENT_RENDER);
         setActivity(
             "Render stack inspected",
             selectedMode.displayName() + " is selected for the next launch.",
             false,
-            ACCENT_DEV);
+            ACCENT_RENDER);
         showReportDialog(
             "Render Pipeline / Render Stack",
             report,
@@ -1372,10 +1567,15 @@ public final class JvnHub {
     }.execute();
   }
 
-  private List<HealthCheck> buildRenderPipelineReport(RenderPipelineSettings.Mode mode) {
+  private List<HealthCheck> buildRenderPipelineReport(
+      RenderPipelineSettings.Mode mode,
+      RenderPipelineSettings.Options options) {
     RenderPipelineSettings.Mode selected = mode == null
         ? RenderPipelineSettings.Mode.AUTO
         : mode;
+    RenderPipelineSettings.Options tuning = options == null
+        ? RenderPipelineSettings.Options.defaults()
+        : options;
     List<HealthCheck> report = new ArrayList<>();
     report.add(new HealthCheck(
         CheckStatus.INFO,
@@ -1391,6 +1591,28 @@ public final class JvnHub {
             : selected == RenderPipelineSettings.Mode.SOFTWARE
                 ? "Hardware rendering is intentionally disabled for compatibility diagnostics."
                 : "JavaFX selects its platform default and may fall back when required."));
+    report.add(new HealthCheck(
+        tuning.vsync() ? CheckStatus.PASS : CheckStatus.INFO,
+        "Frame presentation",
+        tuning.vsync() ? "Display synchronization enabled" : "Display synchronization disabled",
+        "Prism VSync is applied before the JavaFX toolkit initializes."));
+    report.add(new HealthCheck(
+        tuning.dirtyRegions() && tuning.occlusionCulling() ? CheckStatus.PASS : CheckStatus.INFO,
+        "Scene repaint optimization",
+        "Dirty regions " + (tuning.dirtyRegions() ? "enabled" : "disabled")
+            + " · occlusion culling " + (tuning.occlusionCulling() ? "enabled" : "disabled"),
+        "Shape cache: " + tuning.shapeCache().displayName() + "."));
+    report.add(new HealthCheck(
+        tuning.diagnosticsEnabled() ? CheckStatus.WARN : CheckStatus.PASS,
+        "Render diagnostics",
+        tuning.diagnosticsEnabled() ? "One or more diagnostic probes are enabled" : "Disabled",
+        "Verbose startup=" + tuning.verbose()
+            + "; dirty-region overlay=" + tuning.showDirtyRegions()
+            + "; overdraw overlay=" + tuning.showOverdraw()
+            + "; render-graph logging=" + tuning.printRenderGraph()
+            + (tuning.diagnosticsEnabled()
+                ? ". Diagnostic overlays and logging may reduce performance."
+                : ".")));
 
     report.add(displayDeviceCheck());
     report.add(new HealthCheck(
@@ -1401,7 +1623,14 @@ public final class JvnHub {
             + "; arch=" + firstNonBlank(System.getProperty("os.arch"), "unknown")));
 
     String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
-    if (os.contains("linux")) report.add(linuxOpenGlCheck());
+    if (os.contains("linux")) {
+      report.add(new HealthCheck(
+          tuning.linuxGlxRecovery() ? CheckStatus.PASS : CheckStatus.INFO,
+          "Managed GLX recovery",
+          tuning.linuxGlxRecovery() ? "Enabled" : "Disabled",
+          "When enabled, JVN retries a broken default GLX provider with Mesa."));
+      report.add(linuxOpenGlCheck());
+    }
 
     report.add(new HealthCheck(
         CheckStatus.INFO,
@@ -1409,11 +1638,20 @@ public final class JvnHub {
         "Editor, previews, launcher, and game runtime",
         "The Hub persists graphics.mode and explicitly forwards JVN_GRAPHICS_MODE to managed launches."));
     report.add(new HealthCheck(
-        Files.isWritable(renderPipelinePreferencesFile.getParent()) ? CheckStatus.PASS : CheckStatus.WARN,
-        "Graphics preferences",
-        renderPipelinePreferencesFile.toAbsolutePath().toString(),
-        "Stored value: graphics.mode=" + selected.id()));
+        renderSettingsWritable() ? CheckStatus.PASS : CheckStatus.WARN,
+        "Render Pipeline settings",
+        renderPipelineTuningFile.toAbsolutePath().toString(),
+        "Profile: graphics.mode=" + selected.id()
+            + " in " + renderPipelinePreferencesFile.toAbsolutePath()));
     return List.copyOf(report);
+  }
+
+  private boolean renderSettingsWritable() {
+    Path folder = renderPipelineTuningFile.toAbsolutePath().getParent();
+    if (folder == null) return false;
+    if (Files.isDirectory(folder)) return Files.isWritable(folder);
+    Path parent = folder.getParent();
+    return parent != null && Files.isDirectory(parent) && Files.isWritable(parent);
   }
 
   private HealthCheck displayDeviceCheck() {
@@ -1484,7 +1722,7 @@ public final class JvnHub {
             CheckStatus.PASS,
             "Linux OpenGL recovery",
             "Default GLX failed, but the Mesa GPU provider is available.",
-            "JVN will select Mesa automatically for managed launches.\n"
+            "Mesa can be selected by the managed GLX recovery option.\n"
                 + summarizeOpenGlProbe(mesa.output));
       }
       return new HealthCheck(
@@ -1521,38 +1759,50 @@ public final class JvnHub {
 
   private String renderPipelineSummary() {
     RenderPipelineSettings.Mode mode = renderPipelineMode;
+    RenderPipelineSettings.Options tuning = renderPipelineOptions;
     return String.join("\n",
         "JVN Render Pipeline",
         "Profile: " + mode.displayName() + " (" + mode.id() + ")",
         "Backend order: " + mode.backendOrder(System.getProperty("os.name", "")),
+        "VSync: " + tuning.vsync(),
+        "Dirty regions: " + tuning.dirtyRegions(),
+        "Occlusion culling: " + tuning.occlusionCulling(),
+        "Shape cache: " + tuning.shapeCache().displayName(),
+        "Diagnostics: " + (tuning.diagnosticsEnabled() ? "enabled" : "disabled"),
+        "Linux GLX recovery: " + tuning.linuxGlxRecovery(),
         "Scope: editor, previews, launcher, and game runtime",
         "Desktop session: " + renderSessionSummary(),
         "OS: " + firstNonBlank(System.getProperty("os.name"), "unknown")
             + " " + firstNonBlank(System.getProperty("os.arch"), "unknown"),
         "Java: " + firstNonBlank(System.getProperty("java.version"), "unknown"),
-        "Preferences: " + renderPipelinePreferencesFile.toAbsolutePath(),
+        "Profile preferences: " + renderPipelinePreferencesFile.toAbsolutePath(),
+        "Tuning preferences: " + renderPipelineTuningFile.toAbsolutePath(),
         "Applies on next process launch: yes");
   }
 
   private void copyRenderPipelineSummary() {
     String summary = renderPipelineSummary();
     Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(summary), null);
-    setStatus("Copied render stack summary", ACCENT_DEV);
-    setActivity("Render stack summary copied", "Ready to paste into a performance report.", false, ACCENT_DEV);
+    setStatus("Copied render stack summary", ACCENT_RENDER);
+    setActivity(
+        "Render stack summary copied",
+        "Ready to paste into a performance report.",
+        false,
+        ACCENT_RENDER);
   }
 
   private void openRenderPipelinePreferences() {
     try {
-      if (!Files.isRegularFile(renderPipelinePreferencesFile)) {
-        RenderPipelineSettings.save(renderPipelinePreferencesFile, renderPipelineMode);
+      if (!Files.isRegularFile(renderPipelineTuningFile)) {
+        RenderPipelineSettings.saveOptions(renderPipelineTuningFile, renderPipelineOptions);
       }
       java.awt.Desktop desktop = java.awt.Desktop.getDesktop();
       if (desktop.isSupported(java.awt.Desktop.Action.EDIT)) {
-        desktop.edit(renderPipelinePreferencesFile.toFile());
+        desktop.edit(renderPipelineTuningFile.toFile());
       } else {
-        desktop.open(renderPipelinePreferencesFile.toFile());
+        desktop.open(renderPipelineTuningFile.toFile());
       }
-      setStatus("Opened graphics preferences", ACCENT_DEV);
+      setStatus("Opened Render Pipeline settings", ACCENT_RENDER);
     } catch (Exception error) {
       appendLog("[hub] could not open graphics preferences: " + error.getMessage());
       setStatus("Could not open graphics preferences", ACCENT_ERROR);
@@ -2802,6 +3052,7 @@ public final class JvnHub {
 
   private void startProcess(List<String> command, String label) {
     RenderPipelineSettings.Mode launchPipelineMode = renderPipelineMode;
+    RenderPipelineSettings.Options launchPipelineOptions = renderPipelineOptions;
     new SwingWorker<Integer, String>() {
       private String lastOutput = "";
       private final StringBuilder fullOutput = new StringBuilder();
@@ -2812,7 +3063,7 @@ public final class JvnHub {
             .directory(projectRoot.toFile())
             .redirectErrorStream(true);
         if (RenderPipelineSettings.applyLaunchEnvironment(
-            pb.environment(), command, launchPipelineMode)) {
+            pb.environment(), command, launchPipelineMode, launchPipelineOptions)) {
           publish("[hub] render pipeline: " + launchPipelineMode.displayName()
               + " (" + launchPipelineMode.backendOrder(System.getProperty("os.name", "")) + ").");
         }
@@ -4215,8 +4466,11 @@ public final class JvnHub {
     String newVersion = readDiskVersion();
     RenderPipelineSettings.Mode refreshedPipeline =
         RenderPipelineSettings.load(renderPipelinePreferencesFile);
+    RenderPipelineSettings.Options refreshedRenderOptions =
+        RenderPipelineSettings.loadOptions(renderPipelineTuningFile);
     SwingUtilities.invokeLater(() -> {
       renderPipelineMode = refreshedPipeline;
+      renderPipelineOptions = refreshedRenderOptions;
       versionLabel.setText(formatVersionLabel(newVersion));
       appendLog("[hub] refresh: engine version " + newVersion + ".");
       frame.setJMenuBar(buildMenuBar());
@@ -6375,161 +6629,4 @@ public final class JvnHub {
     }
   }
 
-  private class HubShellPanel extends JPanel {
-    private final javax.swing.JTextPane textPane = new javax.swing.JTextPane();
-    private final JTextField inputField = new JTextField();
-    private final StringBuilder sessionText = new StringBuilder();
-    private File currentWorkingDir;
-
-    HubShellPanel() {
-      super(new BorderLayout(0, ui(8)));
-      setOpaque(false);
-      setVisible(false);
-
-      currentWorkingDir = projectRoot != null ? projectRoot.toFile() : new File(System.getProperty("user.dir"));
-
-      textPane.setEditable(false);
-      textPane.setBackground(PANEL_BG);
-      textPane.setForeground(LOG_TEXT);
-      textPane.setFont(new Font(Font.MONOSPACED, Font.PLAIN, (int) uiFont(12f)));
-      textPane.setBorder(uiPadding(4, 4, 4, 4));
-
-      JScrollPane scroll = new JScrollPane(textPane);
-      scroll.setBorder(BorderFactory.createLineBorder(BORDER_NEUTRAL));
-      scroll.setBackground(BG);
-      scroll.getViewport().setBackground(PANEL_BG);
-      styleScrollBar(scroll.getVerticalScrollBar());
-      styleScrollBar(scroll.getHorizontalScrollBar());
-      scroll.setPreferredSize(uiDimension(0, 160));
-
-      inputField.setBackground(PANEL_BG);
-      inputField.setForeground(TEXT_PRIMARY);
-      inputField.setCaretColor(TEXT_PRIMARY);
-      inputField.setBorder(BorderFactory.createCompoundBorder(
-          BorderFactory.createLineBorder(BORDER_NEUTRAL),
-          uiPadding(4, 6, 4, 6)));
-      inputField.setFont(new Font(Font.MONOSPACED, Font.PLAIN, (int) uiFont(12f)));
-
-      inputField.addActionListener(e -> {
-        String cmd = inputField.getText();
-        if (cmd != null && !cmd.isBlank()) {
-          inputField.setText("");
-          executeCommand(cmd.trim());
-        }
-      });
-
-      FlatButton btnNew = new FlatButton("New Session", null, null);
-      btnNew.addActionListener(e -> {
-        textPane.setText("");
-        sessionText.setLength(0);
-        appendOutput("Session reset.\n", LOG_TEXT);
-      });
-
-      FlatButton btnCopy = new FlatButton("Copy Session", null, null);
-      btnCopy.addActionListener(e -> {
-        StringSelection selection = new StringSelection(sessionText.toString());
-        Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, selection);
-        appendOutput("Session text copied to clipboard.\n", LOG_TEXT);
-      });
-
-      JPanel header = new JPanel(new BorderLayout());
-      header.setOpaque(false);
-      JLabel lbl = new JLabel("Developer Shell");
-      lbl.setForeground(TEXT_PRIMARY);
-      lbl.setFont(lbl.getFont().deriveFont(Font.BOLD, uiFont(11f)));
-      header.add(lbl, BorderLayout.WEST);
-
-      JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, ui(4), 0));
-      buttons.setOpaque(false);
-      buttons.add(btnNew);
-      buttons.add(btnCopy);
-      header.add(buttons, BorderLayout.EAST);
-
-      add(header, BorderLayout.NORTH);
-      add(scroll, BorderLayout.CENTER);
-      add(inputField, BorderLayout.SOUTH);
-
-      appendOutput("Working directory initialized to: " + currentWorkingDir.getAbsolutePath() + "\n", ACCENT_NEUTRAL);
-    }
-
-    private void appendOutput(String text, Color color) {
-      SwingUtilities.invokeLater(() -> {
-        javax.swing.text.StyledDocument doc = textPane.getStyledDocument();
-        javax.swing.text.Style style = textPane.addStyle("ColorStyle", null);
-        javax.swing.text.StyleConstants.setForeground(style, color);
-        try {
-          doc.insertString(doc.getLength(), text, style);
-          sessionText.append(text);
-          textPane.setCaretPosition(doc.getLength());
-        } catch (Exception ignored) {}
-      });
-    }
-
-    private void executeCommand(String commandLine) {
-      String dirPrefix = currentWorkingDir != null ? currentWorkingDir.getAbsolutePath() + "> " : "> ";
-      appendOutput(dirPrefix + commandLine + "\n", ACCENT_GREEN);
-
-      if (commandLine.startsWith("cd ")) {
-        handleCdCommand(commandLine);
-        return;
-      }
-
-      boolean isWin = System.getProperty("os.name").toLowerCase().contains("win");
-      List<String> command = new ArrayList<>();
-      if (isWin) {
-        command.add("cmd.exe");
-        command.add("/c");
-        command.add(commandLine);
-      } else {
-        command.add("bash");
-        command.add("-c");
-        command.add(commandLine);
-      }
-
-      ProcessBuilder pb = new ProcessBuilder(command);
-      if (currentWorkingDir != null && currentWorkingDir.isDirectory()) {
-        pb.directory(currentWorkingDir);
-      }
-      pb.redirectErrorStream(true);
-
-      Thread execThread = new Thread(() -> {
-        try {
-          Process process = pb.start();
-          try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-              appendOutput(line + "\n", LOG_TEXT);
-            }
-          }
-          process.waitFor();
-        } catch (Exception e) {
-          appendOutput("Execution error: " + e.getMessage() + "\n", ACCENT_ERROR);
-        }
-      });
-      execThread.setDaemon(true);
-      execThread.start();
-    }
-
-    private void handleCdCommand(String commandLine) {
-      String target = commandLine.substring(3).trim();
-      if (target.isBlank()) return;
-
-      File newDir = new File(target);
-      if (!newDir.isAbsolute() && currentWorkingDir != null) {
-        newDir = new File(currentWorkingDir, target);
-      }
-
-      try {
-        newDir = newDir.getCanonicalFile();
-        if (newDir.exists() && newDir.isDirectory()) {
-          currentWorkingDir = newDir;
-          appendOutput("Changed directory to " + currentWorkingDir.getAbsolutePath() + "\n", ACCENT_NEUTRAL);
-        } else {
-          appendOutput("cd: no such file or directory: " + target + "\n", ACCENT_ERROR);
-        }
-      } catch (Exception e) {
-        appendOutput("cd error: " + e.getMessage() + "\n", ACCENT_ERROR);
-      }
-    }
-  }
 }

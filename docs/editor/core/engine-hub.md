@@ -32,7 +32,7 @@ The equivalent persistent setting is `JVN_LAUNCH_MODE=auto|direct|gradle`. Auto 
 
 The same path is used by `./jvnw editor`, `./jvnw launcher`, and `./jvnw runtime`. Control it with `JVN_APP_LAUNCH_MODE=auto|direct|gradle`: `auto` refreshes when needed, `direct` guarantees that no Gradle process will be started and reports a stale cache, and `gradle` always uses the original run task. Run `scripts/launch-app.sh editor --rebuild` to force a refresh.
 
-On Linux/X11, the application launcher also checks whether the default GLX provider can create a hardware context. If the default provider is broken but the Mesa provider works, JVN uses Mesa for that launch and passes the GPU pipeline flags before JavaFX initializes. Set `JVN_DISABLE_GLX_FALLBACK=1` to disable this recovery. The editor performance strip reports **GPU active**, **GPU fallback**, or **GPU off** so a software-rendering fallback is visible.
+On Linux/X11, the application launcher also checks whether the default GLX provider can create a hardware context. If the default provider is broken but the Mesa provider works, JVN uses Mesa for that launch and passes the GPU pipeline flags before JavaFX initializes. Toggle this from **Render Pipeline > Automatic Mesa GLX Recovery**, or set `JVN_DISABLE_GLX_FALLBACK=1` to disable it for a launch. The editor performance strip reports **GPU active**, **GPU fallback**, or **GPU off** so a software-rendering fallback is visible.
 
 ## Render Pipeline
 
@@ -46,7 +46,16 @@ The Engine Hub's **Render Pipeline** menu controls the JavaFX rendering profile 
 
 The selected profile is shared by the editor, Puppeteer and other previews, the standalone launcher, and game-runtime processes. It is stored as `graphics.mode` in `~/.jvn-editor/editor-preferences.properties` and takes effect when the next process starts; an already-open editor is not reconfigured in place.
 
-Use **Inspect Render Stack** to review the requested backend order, desktop session, display capabilities, preference path, and—on Linux when `glxinfo` is installed—the active OpenGL vendor and renderer. **Copy Render Stack Summary** creates a compact report suitable for performance or driver bug reports.
+The **Performance Tuning** submenu also controls:
+
+- display synchronization (Prism VSync)
+- dirty-region rendering
+- occlusion culling
+- shape caching for complex shapes, all shapes, or no shapes
+
+The **Render Diagnostics** submenu can enable verbose Prism startup output, dirty-region visualization, overdraw visualization, and render-graph logging. These probes are intended for short diagnostic sessions and may reduce performance while enabled. **Disable All Render Diagnostics** returns them to the quiet state.
+
+Advanced values are stored in `~/.jvn-editor/render-pipeline.properties` and applied before JavaFX initializes. Use **Inspect Render Stack** to review every selected option, the requested backend order, desktop session, display capabilities, preference paths, and—on Linux when `glxinfo` is installed—the active OpenGL vendor and renderer. **Copy Render Stack Summary** creates a compact report suitable for performance or driver bug reports.
 
 ## Source-First Preview Builds
 

@@ -111,6 +111,14 @@ configure_linux_glx_fallback() {
   [[ "$(uname -s 2>/dev/null)" == "Linux" ]] || return
   [[ -n "${DISPLAY:-}" ]] || return
   [[ "${JVN_DISABLE_GLX_FALLBACK:-0}" != "1" ]] || return
+  local render_settings_file="${HOME:-}/.jvn-editor/render-pipeline.properties"
+  if [[ -r "$render_settings_file" ]]; then
+    local stored_recovery
+    stored_recovery="$(sed -n 's/^linux\.glxRecovery=//p' "$render_settings_file" | tail -n 1)"
+    case "${stored_recovery,,}" in
+      false|0|no|off|disabled) return ;;
+    esac
+  fi
   [[ -z "${__GLX_VENDOR_LIBRARY_NAME:-}" ]] || return
   command -v glxinfo >/dev/null 2>&1 || return
 

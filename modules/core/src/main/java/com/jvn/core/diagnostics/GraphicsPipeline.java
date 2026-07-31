@@ -11,13 +11,23 @@ import java.util.Properties;
  *
  * <p>Set {@code -Djvn.graphics.mode=auto|hardware|software} or the
  * {@code JVN_GRAPHICS_MODE} environment variable. Hardware mode keeps the software pipeline as a
- * final fallback so a driver problem cannot make JVN unusable.</p>
+ * final fallback so a driver problem cannot make JVN unusable. Advanced Prism tuning is loaded
+ * from {@code ~/.jvn-editor/render-pipeline.properties} before the toolkit initializes.</p>
  */
 public final class GraphicsPipeline {
   public static final String MODE_PROPERTY = "jvn.graphics.mode";
   public static final String MODE_ENVIRONMENT = "JVN_GRAPHICS_MODE";
+  static final String SETTINGS_FILE_PROPERTY = "jvn.graphics.settingsFile";
   static final String PRISM_ORDER_PROPERTY = "prism.order";
   static final String PRISM_FORCE_GPU_PROPERTY = "prism.forceGPU";
+  static final String PRISM_VSYNC_PROPERTY = "prism.vsync";
+  static final String PRISM_DIRTY_REGIONS_PROPERTY = "prism.dirtyopts";
+  static final String PRISM_OCCLUSION_CULLING_PROPERTY = "prism.occlusion.culling";
+  static final String PRISM_SHAPE_CACHE_PROPERTY = "prism.cacheshapes";
+  static final String PRISM_VERBOSE_PROPERTY = "prism.verbose";
+  static final String PRISM_SHOW_DIRTY_PROPERTY = "prism.showdirty";
+  static final String PRISM_SHOW_OVERDRAW_PROPERTY = "prism.showoverdraw";
+  static final String PRISM_PRINT_RENDER_GRAPH_PROPERTY = "prism.printrendergraph";
 
   public enum Mode {
     AUTO,
@@ -43,6 +53,7 @@ public final class GraphicsPipeline {
    * @return the normalized requested mode
    */
   public static Mode configure() {
+    applyUserTuning();
     Mode mode = requestedMode();
     if (System.getProperty(PRISM_ORDER_PROPERTY) == null) {
       switch (mode) {
@@ -89,6 +100,66 @@ public final class GraphicsPipeline {
 
   private static String cleanOrder(String order, String fallback) {
     return order == null || order.isBlank() ? fallback : order.trim();
+  }
+
+  private static void applyUserTuning() {
+    Path file = renderSettingsFile();
+    if (!Files.isRegularFile(file)) return;
+    Properties properties = new Properties();
+    try (InputStream input = Files.newInputStream(file)) {
+      properties.load(input);
+    } catch (Exception ignored) {
+      return;
+    }
+    applyBooleanSetting(properties, "render.vsync", PRISM_VSYNC_PROPERTY);
+    applyBooleanSetting(properties, "render.dirtyRegions", PRISM_DIRTY_REGIONS_PROPERTY);
+    applyBooleanSetting(properties, "render.occlusionCulling", PRISM_OCCLUSION_CULLING_PROPERTY);
+    applyStringSetting(properties, "render.shapeCache", PRISM_SHAPE_CACHE_PROPERTY);
+    applyBooleanSetting(properties, "diagnostics.verbose", PRISM_VERBOSE_PROPERTY);
+    applyBooleanSetting(properties, "diagnostics.showDirtyRegions", PRISM_SHOW_DIRTY_PROPERTY);
+    applyBooleanSetting(properties, "diagnostics.showOverdraw", PRISM_SHOW_OVERDRAW_PROPERTY);
+    applyBooleanSetting(properties, "diagnostics.printRenderGraph", PRISM_PRINT_RENDER_GRAPH_PROPERTY);
+  }
+
+  private static Path renderSettingsFile() {
+    String override = System.getProperty(SETTINGS_FILE_PROPERTY);
+    if (override != null && !override.isBlank()) return Path.of(override.trim());
+    return Path.of(
+        System.getProperty("user.home", "."),
+        ".jvn-editor",
+        "render-pipeline.properties");
+  }
+
+  private static void applyBooleanSetting(
+      Properties properties,
+      String preferenceKey,
+      String systemProperty) {
+    if (System.getProperty(systemProperty) != null) return;
+    String value = properties.getProperty(preferenceKey);
+    if (value == null || value.isBlank()) return;
+    switch (value.trim().toLowerCase(Locale.ROOT)) {
+      case "true", "1", "yes", "on", "enabled" -> System.setProperty(systemProperty, "true");
+      case "false", "0", "no", "off", "disabled" -> System.setProperty(systemProperty, "false");
+      default -> {
+        // Ignore malformed user settings and preserve JavaFX defaults.
+      }
+    }
+  }
+
+  private static void applyStringSetting(
+      Properties properties,
+      String preferenceKey,
+      String systemProperty) {
+    if (System.getProperty(systemProperty) != null) return;
+    String value = properties.getProperty(preferenceKey);
+    if (value == null || value.isBlank()) return;
+    String normalized = value.trim().toLowerCase(Locale.ROOT);
+    if (normalized.equals("all")
+        || normalized.equals("true")
+        || normalized.equals("complex")
+        || normalized.equals("false")) {
+      System.setProperty(systemProperty, normalized);
+    }
   }
 
   private static String readUserPreference() {

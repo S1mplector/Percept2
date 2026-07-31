@@ -1089,7 +1089,15 @@ public class JvnLauncherApp extends Application {
       }
       if (arg.startsWith("-Djvn.graphics.mode=")
           || arg.startsWith("-Dprism.order=")
-          || arg.startsWith("-Dprism.forceGPU=")) {
+          || arg.startsWith("-Dprism.forceGPU=")
+          || arg.startsWith("-Dprism.vsync=")
+          || arg.startsWith("-Dprism.dirtyopts=")
+          || arg.startsWith("-Dprism.occlusion.culling=")
+          || arg.startsWith("-Dprism.cacheshapes=")
+          || arg.startsWith("-Dprism.verbose=")
+          || arg.startsWith("-Dprism.showdirty=")
+          || arg.startsWith("-Dprism.showoverdraw=")
+          || arg.startsWith("-Dprism.printrendergraph=")) {
         forwarded.add(arg);
       }
     }
