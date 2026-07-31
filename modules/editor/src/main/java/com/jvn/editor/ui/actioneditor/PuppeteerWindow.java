@@ -216,6 +216,9 @@ public class PuppeteerWindow extends Stage {
 
     AnimationTimer playbackTimer;
     long lastNanos = 0;
+    private static final long PLAYBACK_CHROME_REFRESH_INTERVAL_NS = 100_000_000L;
+    private final PlaybackRefreshGate playbackChromeRefreshGate =
+        new PlaybackRefreshGate(PLAYBACK_CHROME_REFRESH_INTERVAL_NS);
     private double playbackSpeed = 1.0;
     private boolean autoKeyEnabled = false;
     private boolean runtimeParityPreview = false;
@@ -8251,6 +8254,7 @@ public class PuppeteerWindow extends Stage {
         if (project.isPlaying()) return;
         project.setPlaying(true);
         lastNanos = System.nanoTime();
+        playbackChromeRefreshGate.reset();
         playbackTimer.start();
         refreshTransportButtonStates();
         updateStatusBar();
@@ -8259,6 +8263,8 @@ public class PuppeteerWindow extends Stage {
     public void pause() {
         project.setPlaying(false);
         playbackTimer.stop();
+        playbackChromeRefreshGate.reset();
+        refreshSidebarTabs();
         refreshTransportButtonStates();
         updateStatusBar();
     }
@@ -8417,8 +8423,10 @@ public class PuppeteerWindow extends Stage {
                 }
                 project.setPlayheadMs(newTime);
                 timelinePanel.setPlayhead(newTime);
-                updateTimeLabel();
-                updatePreview();
+                lblTime.setText(String.format("%.0f ms", newTime));
+                boolean refreshEditorChrome = playbackChromeRefreshGate.shouldRefresh(now);
+                updatePreview(refreshEditorChrome);
+                if (refreshEditorChrome) updateStatusBar();
             }
         };
         refreshTransportButtonStates();
@@ -8426,8 +8434,6 @@ public class PuppeteerWindow extends Stage {
 
     public void updateTimeLabel() {
         lblTime.setText(String.format("%.0f ms", project.getPlayheadMs()));
-        updateLivePreviewReadout();
-        refreshSidebarTabs();
         updateStatusBar();
     }
 
@@ -8470,7 +8476,14 @@ public class PuppeteerWindow extends Stage {
     }
 
     public void updatePreview() {
-        if (scene == null) return;
+        updatePreview(true);
+    }
+
+    private void updatePreview(boolean refreshEditorChrome) {
+        if (scene == null) {
+            if (refreshEditorChrome) refreshSidebarTabs();
+            return;
+        }
 
         double time = project.getPlayheadMs();
         updateLivePreviewReadout();
@@ -8478,7 +8491,7 @@ public class PuppeteerWindow extends Stage {
         if (runtimeParityPreview) {
             applyRuntimeParityPreview(time);
             animationPreview.render();
-            refreshSidebarTabs();
+            if (refreshEditorChrome) refreshSidebarTabs();
             return;
         }
         var previewCamera = animationPreview.getCamera();
@@ -8679,7 +8692,7 @@ public class PuppeteerWindow extends Stage {
         applyPreviewEventCuesUpTo(time);
 
         animationPreview.render();
-        refreshSidebarTabs();
+        if (refreshEditorChrome) refreshSidebarTabs();
     }
 
     private void updateLivePreviewReadout() {
