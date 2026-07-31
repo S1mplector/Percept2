@@ -2582,7 +2582,12 @@ public class EditorApp extends Application {
         FileEditorTab ft = getActiveFileTab();
         if (ft != null) {
           ft.setSize(filesTabs.getWidth(), filesTabs.getHeight());
-          ft.render(dt);
+          if (EditorPulsePolicy.shouldRenderActivePreview(
+              primaryStage.isShowing(),
+              primaryStage.isIconified(),
+              primaryStage.isFocused())) {
+            ft.render(dt);
+          }
         }
         if (lastTabDirtyRefreshNs < 0
             || now - lastTabDirtyRefreshNs >= TAB_DIRTY_REFRESH_INTERVAL_NS) {

@@ -8272,7 +8272,7 @@ public class PuppeteerWindow extends Stage {
         timelinePanel.setPlayhead(project.getPlayheadMs());
         refreshSidebarTabs();
         refreshTransportButtonStates();
-        updateStatusBar();
+        updateTimeLabel();
     }
 
     public void stop() {
@@ -8431,10 +8431,9 @@ public class PuppeteerWindow extends Stage {
                 if (playbackTimelineRefreshGate.shouldRefresh(now)) {
                     timelinePanel.setPlayhead(newTime);
                 }
-                lblTime.setText(String.format("%.0f ms", newTime));
-                boolean refreshEditorChrome = playbackChromeRefreshGate.shouldRefresh(now);
-                updatePreview(refreshEditorChrome);
-                if (refreshEditorChrome) updatePlaybackStatusTime();
+                boolean refreshReadouts = playbackChromeRefreshGate.shouldRefresh(now);
+                updatePreview(refreshReadouts, false);
+                if (refreshReadouts) updatePlaybackChrome();
             }
         };
         refreshTransportButtonStates();
@@ -8451,6 +8450,24 @@ public class PuppeteerWindow extends Stage {
             formatStatusTime(project.getPlayheadMs())
                 + " / "
                 + formatStatusTime(project.getTotalDurationMs()));
+    }
+
+    private void updatePlaybackChrome() {
+        lblTime.setText(String.format(Locale.ROOT, "%.0f ms", project.getPlayheadMs()));
+        updatePlaybackStatusTime();
+        if (lblSidebarSelectionPlayhead != null) {
+            lblSidebarSelectionPlayhead.setText(
+                String.format(Locale.ROOT, "%.0f ms", project.getPlayheadMs()));
+        }
+        if (lblSidebarSceneCamera != null && animationPreview != null) {
+            var camera = animationPreview.getCamera();
+            lblSidebarSceneCamera.setText(String.format(
+                Locale.ROOT,
+                "X %.1f  Y %.1f  Z %.2f",
+                camera.getX(),
+                camera.getY(),
+                camera.getZoom()));
+        }
     }
 
     private void refreshPropertyPickerChoices() {
@@ -8492,17 +8509,17 @@ public class PuppeteerWindow extends Stage {
     }
 
     public void updatePreview() {
-        updatePreview(true);
+        updatePreview(true, true);
     }
 
-    private void updatePreview(boolean refreshEditorChrome) {
+    private void updatePreview(boolean refreshLiveReadout, boolean refreshEditorChrome) {
         if (scene == null) {
             if (refreshEditorChrome) refreshSidebarTabs();
             return;
         }
 
         double time = project.getPlayheadMs();
-        updateLivePreviewReadout();
+        if (refreshLiveReadout) updateLivePreviewReadout();
         restorePreviewBaselineState();
         if (runtimeParityPreview) {
             applyRuntimeParityPreview(time);
