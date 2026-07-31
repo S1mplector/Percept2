@@ -1,12 +1,14 @@
 package com.jvn.hub;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.awt.Dimension;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Properties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -50,6 +52,17 @@ class JvnHubDisplayScaleTest {
     assertTrue(Double.isNaN(JvnHub.parseCustomUiScale("74%")));
     assertTrue(Double.isNaN(JvnHub.parseCustomUiScale("200%")));
     assertTrue(Double.isNaN(JvnHub.parseCustomUiScale("large")));
+  }
+
+  @Test
+  void performanceVisibilityPreferencesAcceptCommonBooleanForms() {
+    Properties properties = new Properties();
+    properties.setProperty("performance.graph.visible", "yes");
+    properties.setProperty("performance.chips.visible", "off");
+
+    assertTrue(JvnHub.booleanPreference(properties, "performance.graph.visible", false));
+    assertFalse(JvnHub.booleanPreference(properties, "performance.chips.visible", true));
+    assertTrue(JvnHub.booleanPreference(properties, "missing", true));
   }
 
   @Test

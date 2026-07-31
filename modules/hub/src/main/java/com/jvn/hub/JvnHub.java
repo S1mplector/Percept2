@@ -153,6 +153,9 @@ public final class JvnHub {
   private static final int BASE_HUB_HEIGHT = 540;
   private static final double MIN_UI_SCALE = 0.75;
   private static final double MAX_UI_SCALE = 1.85;
+  private static final String UI_SCALE_KEY = "ui.scale";
+  private static final String PERFORMANCE_GRAPH_VISIBLE_KEY = "performance.graph.visible";
+  private static final String PERFORMANCE_CHIPS_VISIBLE_KEY = "performance.chips.visible";
   private static final HubDisplayProfile DISPLAY_PROFILE = HubDisplayProfile.detect();
   private static double activeUiScale = initialUiScale();
 
@@ -199,12 +202,15 @@ public final class JvnHub {
   private final javax.swing.Timer autoStepTimer = new javax.swing.Timer(1800, e -> autoAdvanceDuringSilence());
   private final List<AbstractButton> actionButtons = new ArrayList<>();
   private final AtomicReference<Process> runningProcess = new AtomicReference<>();
+  private final AtomicReference<HubPerformancePanel> performancePanel = new AtomicReference<>();
   private final RenderGraphCapture renderGraphCapture = new RenderGraphCapture();
   private final AtomicReference<JDialog> renderGraphViewer = new AtomicReference<>();
   private final AtomicBoolean updateCheckRunning = new AtomicBoolean(false);
   private int lastKnownIncoming = -1;
   private int activeStepIndex = -1;
   private String activeStepLabel = "";
+  private boolean performanceGraphVisible = loadUiBoolean(PERFORMANCE_GRAPH_VISIBLE_KEY, true);
+  private boolean performanceChipsVisible = loadUiBoolean(PERFORMANCE_CHIPS_VISIBLE_KEY, true);
 
   /** Developer Mode exposes engineering-focused actions and launch flags. */
   private boolean developerModeEnabled = false;
@@ -471,15 +477,12 @@ public final class JvnHub {
 
   private static double initialUiScale() {
     if (DISPLAY_PROFILE.override()) return DISPLAY_PROFILE.uiScale();
-    Path file = uiStateFile();
-    if (!Files.isRegularFile(file)) return DISPLAY_PROFILE.uiScale();
-    Properties properties = new Properties();
-    try (InputStream input = Files.newInputStream(file)) {
-      properties.load(input);
-      String value = properties.getProperty("ui.scale", "auto").trim();
-      if (value.equalsIgnoreCase("auto")) return DISPLAY_PROFILE.uiScale();
+    Properties properties = loadUiState();
+    String value = properties.getProperty(UI_SCALE_KEY, "auto").trim();
+    if (value.equalsIgnoreCase("auto")) return DISPLAY_PROFILE.uiScale();
+    try {
       return HubDisplayProfile.clampScale(Double.parseDouble(value));
-    } catch (IOException | NumberFormatException ignored) {
+    } catch (NumberFormatException ignored) {
       return DISPLAY_PROFILE.uiScale();
     }
   }
@@ -490,28 +493,58 @@ public final class JvnHub {
 
   private static boolean automaticUiScaleSelected() {
     if (DISPLAY_PROFILE.override()) return false;
-    Path file = uiStateFile();
-    if (!Files.isRegularFile(file)) return true;
-    Properties properties = new Properties();
-    try (InputStream input = Files.newInputStream(file)) {
-      properties.load(input);
-      return properties.getProperty("ui.scale", "auto").trim().equalsIgnoreCase("auto");
-    } catch (IOException ignored) {
-      return true;
-    }
+    return loadUiState().getProperty(UI_SCALE_KEY, "auto").trim().equalsIgnoreCase("auto");
   }
 
   private void saveUiScale(String value) {
-    Path file = uiStateFile();
+    Properties properties = loadUiState();
+    properties.setProperty(UI_SCALE_KEY, value);
+    writeUiState(properties);
+  }
+
+  private static boolean loadUiBoolean(String key, boolean fallback) {
+    return booleanPreference(loadUiState(), key, fallback);
+  }
+
+  static boolean booleanPreference(Properties properties, String key, boolean fallback) {
+    if (properties == null || key == null || key.isBlank()) return fallback;
+    String value = properties.getProperty(key);
+    if (value == null || value.isBlank()) return fallback;
+    return switch (value.trim().toLowerCase(Locale.ROOT)) {
+      case "true", "1", "yes", "on", "enabled" -> true;
+      case "false", "0", "no", "off", "disabled" -> false;
+      default -> fallback;
+    };
+  }
+
+  private static Properties loadUiState() {
     Properties properties = new Properties();
-    properties.setProperty("ui.scale", value);
+    Path file = uiStateFile();
+    if (!Files.isRegularFile(file)) return properties;
+    try (InputStream input = Files.newInputStream(file)) {
+      properties.load(input);
+    } catch (IOException | IllegalArgumentException ignored) {
+      // Invalid or unreadable preferences fall back to defaults without blocking Hub startup.
+    }
+    return properties;
+  }
+
+  private void savePerformanceVisibility() {
+    Properties properties = loadUiState();
+    properties.setProperty(PERFORMANCE_GRAPH_VISIBLE_KEY, Boolean.toString(performanceGraphVisible));
+    properties.setProperty(PERFORMANCE_CHIPS_VISIBLE_KEY, Boolean.toString(performanceChipsVisible));
+    writeUiState(properties);
+  }
+
+  private void writeUiState(Properties properties) {
+    Path file = uiStateFile();
     try {
       Files.createDirectories(file.getParent());
       try (var output = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
         properties.store(output, "JVN Engine Hub UI preferences. Auto-generated.");
       }
     } catch (IOException e) {
-      appendLog("[hub] could not save UI scale: " + e.getMessage());
+      appendLog("[hub] could not save UI preferences: " + e.getMessage());
     }
   }
 
@@ -792,8 +825,27 @@ public final class JvnHub {
         (developerModeEnabled ? "Developer Mode" : "Standard Mode")
             + " · " + (safeModeEnabled ? "Safe Mode" : "Normal launch guardrails"),
         TEXT_SOFT));
+    view.add(menuStatusCard(
+        "Performance monitor",
+        performanceVisibilitySummary(),
+        ACCENT_TOOLS));
     view.addSeparator();
     view.add(buildUiScaleMenu());
+    view.addSeparator();
+    JCheckBoxMenuItem performanceGraph = hubCheckMenuItem(
+        "Show Performance Graph",
+        "Show or hide the scrolling CPU, heap, and Hub-task history graph.",
+        ACCENT_TOOLS,
+        performanceGraphVisible);
+    performanceGraph.addActionListener(e -> setPerformanceGraphVisible(performanceGraph.isSelected()));
+    view.add(performanceGraph);
+    JCheckBoxMenuItem performanceChips = hubCheckMenuItem(
+        "Show Performance Metric Chips",
+        "Show or hide the CPU, JVM heap, thread, and Hub-task metric chips.",
+        ACCENT_TOOLS,
+        performanceChipsVisible);
+    performanceChips.addActionListener(e -> setPerformanceChipsVisible(performanceChips.isSelected()));
+    view.add(performanceChips);
     view.addSeparator();
     JCheckBoxMenuItem safeMode = hubCheckMenuItem(
         "Safe Mode",
@@ -1304,6 +1356,31 @@ public final class JvnHub {
     }
   }
 
+  private String performanceVisibilitySummary() {
+    if (performanceGraphVisible && performanceChipsVisible) return "Graph and metric chips shown";
+    if (performanceGraphVisible) return "Graph shown · metric chips hidden";
+    if (performanceChipsVisible) return "Graph hidden · metric chips shown";
+    return "Hidden · performance sampling paused";
+  }
+
+  private void setPerformanceGraphVisible(boolean visible) {
+    performanceGraphVisible = visible;
+    updatePerformanceVisibility("Performance graph " + (visible ? "shown" : "hidden"));
+  }
+
+  private void setPerformanceChipsVisible(boolean visible) {
+    performanceChipsVisible = visible;
+    updatePerformanceVisibility("Performance metric chips " + (visible ? "shown" : "hidden"));
+  }
+
+  private void updatePerformanceVisibility(String status) {
+    savePerformanceVisibility();
+    HubPerformancePanel monitor = performancePanel.get();
+    if (monitor != null) monitor.applyVisibility(performanceGraphVisible, performanceChipsVisible);
+    setStatus(status, ACCENT_TOOLS);
+    refreshModeMenus();
+  }
+
   private void applyUiScale(double requestedScale) {
     if (runningProcess.get() != null) {
       appendLog("[hub] UI scale cannot change while an action is running.");
@@ -1557,7 +1634,9 @@ public final class JvnHub {
 
     JPanel workspace = new JPanel(new BorderLayout(0, ui(10)));
     workspace.setOpaque(false);
-    workspace.add(new HubPerformancePanel(), BorderLayout.CENTER);
+    HubPerformancePanel monitor = new HubPerformancePanel();
+    performancePanel.set(monitor);
+    workspace.add(monitor, BorderLayout.CENTER);
 
     JPanel center = new JPanel(new BorderLayout(0, ui(8)));
     center.setOpaque(false);
@@ -7167,8 +7246,12 @@ public final class JvnHub {
     private final JLabel activityValue = metricValue();
     private final JLabel engineValue = new JLabel();
     private final PerformanceGraph graph = new PerformanceGraph();
+    private final JPanel header = new JPanel(new BorderLayout());
+    private final JPanel metricsSafeArea = new JPanel(new BorderLayout());
     private final String revision = readGitValue(List.of("git", "rev-parse", "--short", "HEAD"), "unknown");
     private final javax.swing.Timer refreshTimer = new javax.swing.Timer(1000, event -> refreshMetrics());
+    private boolean graphVisible;
+    private boolean chipsVisible;
 
     HubPerformancePanel() {
       super(new BorderLayout(0, ui(3)));
@@ -7181,7 +7264,6 @@ public final class JvnHub {
       engineValue.setFont(engineValue.getFont().deriveFont(Font.PLAIN, uiFont(9f)));
       engineValue.setHorizontalAlignment(SwingConstants.RIGHT);
 
-      JPanel header = new JPanel(new BorderLayout());
       header.setOpaque(false);
       header.add(engineValue, BorderLayout.CENTER);
       add(header, BorderLayout.NORTH);
@@ -7196,20 +7278,44 @@ public final class JvnHub {
       metrics.add(metric("Hub task", activityValue));
       metrics.setMinimumSize(new Dimension(0, ui(24)));
       metrics.setPreferredSize(new Dimension(0, ui(24)));
-      JPanel metricsSafeArea = new JPanel(new BorderLayout());
       metricsSafeArea.setOpaque(false);
       metricsSafeArea.setBorder(BorderFactory.createEmptyBorder(0, 0, ui(3), 0));
       metricsSafeArea.add(metrics, BorderLayout.CENTER);
       add(metricsSafeArea, BorderLayout.SOUTH);
       setPreferredSize(new Dimension(0, ui(128)));
+      applyVisibility(performanceGraphVisible, performanceChipsVisible);
       refreshMetrics();
+    }
+
+    void applyVisibility(boolean showGraph, boolean showChips) {
+      graphVisible = showGraph;
+      chipsVisible = showChips;
+      boolean monitorVisible = showGraph || showChips;
+      graph.setVisible(showGraph);
+      metricsSafeArea.setVisible(showChips);
+      header.setVisible(monitorVisible);
+      setVisible(monitorVisible);
+      int preferredHeight = showGraph ? (showChips ? 128 : 98) : (showChips ? 52 : 0);
+      setPreferredSize(new Dimension(0, ui(preferredHeight)));
+      if (monitorVisible && isDisplayable()) {
+        refreshMetrics();
+        refreshTimer.start();
+      } else {
+        refreshTimer.stop();
+      }
+      revalidate();
+      repaint();
+      if (getParent() != null) {
+        getParent().revalidate();
+        getParent().repaint();
+      }
     }
 
     @Override
     public void addNotify() {
       super.addNotify();
       refreshMetrics();
-      refreshTimer.start();
+      if (graphVisible || chipsVisible) refreshTimer.start();
     }
 
     @Override
@@ -7219,21 +7325,26 @@ public final class JvnHub {
     }
 
     private void refreshMetrics() {
+      if (!graphVisible && !chipsVisible) return;
       Runtime runtime = Runtime.getRuntime();
       long heapUsed = runtime.totalMemory() - runtime.freeMemory();
       long heapMax = runtime.maxMemory();
-      heapValue.setText(formatBytes(heapUsed) + " / " + formatBytes(heapMax));
-      threadsValue.setText(Integer.toString(ManagementFactory.getThreadMXBean().getThreadCount()));
       boolean active = runningProcess.get() != null;
-      activityValue.setText(active ? statusLabel.getText() : "Idle");
-      activityValue.setForeground(active ? ACCENT_GREEN : TEXT_SOFT);
+      if (chipsVisible) {
+        heapValue.setText(formatBytes(heapUsed) + " / " + formatBytes(heapMax));
+        threadsValue.setText(Integer.toString(ManagementFactory.getThreadMXBean().getThreadCount()));
+        activityValue.setText(active ? statusLabel.getText() : "Idle");
+        activityValue.setForeground(active ? ACCENT_GREEN : TEXT_SOFT);
+      }
 
       java.lang.management.OperatingSystemMXBean genericBean = ManagementFactory.getOperatingSystemMXBean();
       double cpuLoad = 0.0;
       if (genericBean instanceof com.sun.management.OperatingSystemMXBean systemBean) {
         cpuLoad = systemBean.getProcessCpuLoad();
-        cpuValue.setText(cpuLoad >= 0.0 ? String.format(Locale.ROOT, "%.0f%%", cpuLoad * 100.0) : "--");
-      } else {
+        if (chipsVisible) {
+          cpuValue.setText(cpuLoad >= 0.0 ? String.format(Locale.ROOT, "%.0f%%", cpuLoad * 100.0) : "--");
+        }
+      } else if (chipsVisible) {
         cpuValue.setText("--");
       }
 
@@ -7244,7 +7355,9 @@ public final class JvnHub {
       engineValue.setText(resolveBranch(projectRoot) + " @ " + revision + "  ·  " + updates
           + "  ·  uptime " + formatUptime(uptimeSeconds));
       double heapRatio = heapMax > 0L ? Math.min(1.0, (double) heapUsed / heapMax) : 0.0;
-      graph.pushSample(Math.max(0.0, cpuLoad), heapRatio, active ? 1.0 : 0.0);
+      if (graphVisible) {
+        graph.pushSample(Math.max(0.0, cpuLoad), heapRatio, active ? 1.0 : 0.0);
+      }
     }
 
     private static JPanel metric(String name, JLabel value) {

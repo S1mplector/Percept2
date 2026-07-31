@@ -30,6 +30,8 @@ The equivalent persistent setting is `JVN_LAUNCH_MODE=auto|direct|gradle`. Auto 
 
 Every Engine Hub dropdown—including the footer **More** menu—begins with live context for that command group, such as the current engine branch, update state, Gradle configuration, active task, UI scale, or next render pipeline. Commands include short descriptions, consistent icons, keyboard mnemonics, and state-aware availability so an action that conflicts with a running task is visibly disabled. Each group has its own accent; rendering controls and their nested submenus use the purple Render Pipeline accent throughout. Press `F5` to refresh engine metadata or the platform menu shortcut plus `Q` to quit.
 
+The **View** dropdown can independently hide or show the scrolling **Performance Graph** and the CPU, JVM heap, thread, and Hub-task **Performance Metric Chips**. These choices persist across Hub launches. Hiding both collapses the monitor and pauses its sampling timer, which removes the monitor's periodic CPU query and repaint work entirely.
+
 ## Cache-First Application Launches
 
 **Run Editor** and **Run Launcher** also avoid Gradle on warm starts. After source, resources, or build definitions change, JVN runs one preparation task to compile the affected modules and record the exact JavaFX module path and runtime classpath. Later starts invoke Java directly until that cache becomes stale.
