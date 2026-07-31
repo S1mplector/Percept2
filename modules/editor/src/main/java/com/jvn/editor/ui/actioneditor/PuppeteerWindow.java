@@ -216,7 +216,10 @@ public class PuppeteerWindow extends Stage {
 
     AnimationTimer playbackTimer;
     long lastNanos = 0;
+    private static final long PLAYBACK_TIMELINE_REFRESH_INTERVAL_NS = 33_333_333L;
     private static final long PLAYBACK_CHROME_REFRESH_INTERVAL_NS = 100_000_000L;
+    private final PlaybackRefreshGate playbackTimelineRefreshGate =
+        new PlaybackRefreshGate(PLAYBACK_TIMELINE_REFRESH_INTERVAL_NS);
     private final PlaybackRefreshGate playbackChromeRefreshGate =
         new PlaybackRefreshGate(PLAYBACK_CHROME_REFRESH_INTERVAL_NS);
     private double playbackSpeed = 1.0;
@@ -8254,6 +8257,7 @@ public class PuppeteerWindow extends Stage {
         if (project.isPlaying()) return;
         project.setPlaying(true);
         lastNanos = System.nanoTime();
+        playbackTimelineRefreshGate.reset();
         playbackChromeRefreshGate.reset();
         playbackTimer.start();
         refreshTransportButtonStates();
@@ -8263,7 +8267,9 @@ public class PuppeteerWindow extends Stage {
     public void pause() {
         project.setPlaying(false);
         playbackTimer.stop();
+        playbackTimelineRefreshGate.reset();
         playbackChromeRefreshGate.reset();
+        timelinePanel.setPlayhead(project.getPlayheadMs());
         refreshSidebarTabs();
         refreshTransportButtonStates();
         updateStatusBar();
@@ -8422,11 +8428,13 @@ public class PuppeteerWindow extends Stage {
                     }
                 }
                 project.setPlayheadMs(newTime);
-                timelinePanel.setPlayhead(newTime);
+                if (playbackTimelineRefreshGate.shouldRefresh(now)) {
+                    timelinePanel.setPlayhead(newTime);
+                }
                 lblTime.setText(String.format("%.0f ms", newTime));
                 boolean refreshEditorChrome = playbackChromeRefreshGate.shouldRefresh(now);
                 updatePreview(refreshEditorChrome);
-                if (refreshEditorChrome) updateStatusBar();
+                if (refreshEditorChrome) updatePlaybackStatusTime();
             }
         };
         refreshTransportButtonStates();
@@ -8435,6 +8443,14 @@ public class PuppeteerWindow extends Stage {
     public void updateTimeLabel() {
         lblTime.setText(String.format("%.0f ms", project.getPlayheadMs()));
         updateStatusBar();
+    }
+
+    private void updatePlaybackStatusTime() {
+        if (statusTimelineLabel == null) return;
+        statusTimelineLabel.setText(
+            formatStatusTime(project.getPlayheadMs())
+                + " / "
+                + formatStatusTime(project.getTotalDurationMs()));
     }
 
     private void refreshPropertyPickerChoices() {
