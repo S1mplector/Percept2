@@ -6,9 +6,26 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
+import javax.swing.JMenuItem;
+import javax.swing.ToolTipManager;
 import org.junit.jupiter.api.Test;
 
 class JvnHubAeroHelpIconTest {
+  @Test
+  void contextHelpIndicatorFollowsGlobalTooltipVisibility() {
+    boolean previous = ToolTipManager.sharedInstance().isEnabled();
+    JMenuItem item = new JMenuItem("Render Pipeline");
+    item.setToolTipText("Configure rendering.");
+    try {
+      JvnHub.configureToolTipManager(true);
+      assertTrue(JvnHub.hasContextHelp(item));
+      JvnHub.configureToolTipManager(false);
+      org.junit.jupiter.api.Assertions.assertFalse(JvnHub.hasContextHelp(item));
+    } finally {
+      JvnHub.configureToolTipManager(previous);
+    }
+  }
+
   @Test
   void helpOrbKeepsTheEditorAeroPaletteAndQuestionHighlight() {
     JvnHub.AeroHelpIcon icon = new JvnHub.AeroHelpIcon(64);

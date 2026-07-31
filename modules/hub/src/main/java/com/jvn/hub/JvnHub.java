@@ -2091,8 +2091,11 @@ public final class JvnHub {
     icon.paintIcon(item, graphics, x, y);
   }
 
-  private static boolean hasContextHelp(JMenuItem item) {
-    return item.getToolTipText() != null && !item.getToolTipText().isBlank();
+  static boolean hasContextHelp(JMenuItem item) {
+    return ToolTipManager.sharedInstance().isEnabled()
+        && item != null
+        && item.getToolTipText() != null
+        && !item.getToolTipText().isBlank();
   }
 
   private static JToolTip hubToolTip(JComponent owner) {
