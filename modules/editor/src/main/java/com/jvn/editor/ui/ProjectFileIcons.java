@@ -206,14 +206,32 @@ final class ProjectFileIcons {
   }
 
   static Region iconFor(Kind kind) {
-    return iconFor(kind, 18);
+    return iconFor(kind, FreedesktopProjectIconPack.configuredSize());
   }
 
   static Region iconFor(Kind kind, double size) {
     Kind safeKind = kind != null ? kind : Kind.DOCUMENT;
-    return FreedesktopProjectIconPack.icon(systemIconNames(safeKind), size)
-        .or(() -> MaterialProjectIconPack.icon(iconName(safeKind), size))
-        .orElseGet(() -> fallbackIcon(safeKind, size));
+    double effectiveSize = size > 0 ? size : FreedesktopProjectIconPack.configuredSize();
+    List<String> semanticNames = configuredSystemIconNames(safeKind);
+    return FreedesktopProjectIconPack.icon(semanticNames, effectiveSize)
+        .or(() -> FreedesktopProjectIconPack.useBundledFallback()
+            ? MaterialProjectIconPack.icon(iconName(safeKind), effectiveSize)
+            : java.util.Optional.empty())
+        .orElseGet(() -> fallbackIcon(safeKind, effectiveSize));
+  }
+
+  private static List<String> configuredSystemIconNames(Kind kind) {
+    if (isFolderKind(kind) && !FreedesktopProjectIconPack.folderVariantsEnabled()) {
+      return List.of("folder");
+    }
+    if (!isFolderKind(kind) && !FreedesktopProjectIconPack.fileTypeVariantsEnabled()) {
+      return List.of("text-x-generic");
+    }
+    return systemIconNames(kind);
+  }
+
+  private static boolean isFolderKind(Kind kind) {
+    return kind == Kind.ROOT || kind == Kind.FOLDER || kind.name().endsWith("_FOLDER");
   }
 
   static List<String> systemIconNames(Kind kind) {

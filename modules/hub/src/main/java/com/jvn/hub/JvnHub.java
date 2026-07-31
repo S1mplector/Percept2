@@ -5,6 +5,7 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
+import java.awt.Desktop;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.FontMetrics;
@@ -16,6 +17,7 @@ import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
+import java.awt.Image;
 import java.awt.LayoutManager;
 import java.awt.LinearGradientPaint;
 import java.awt.RadialGradientPaint;
@@ -66,11 +68,13 @@ import javax.swing.ButtonGroup;
 import javax.swing.ButtonModel;
 import javax.swing.JCheckBox;
 import javax.swing.JCheckBoxMenuItem;
+import javax.swing.JComboBox;
 import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
+import javax.swing.ImageIcon;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
@@ -80,6 +84,7 @@ import javax.swing.JPopupMenu;
 import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
+import javax.swing.JSpinner;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JToolTip;
@@ -90,6 +95,7 @@ import javax.swing.KeyStroke;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
+import javax.swing.SpinnerNumberModel;
 import javax.swing.ToolTipManager;
 import javax.swing.UIManager;
 import javax.swing.WindowConstants;
@@ -189,6 +195,7 @@ public final class JvnHub {
   private final Path projectRoot;
   private final Path renderPipelinePreferencesFile;
   private final Path renderPipelineTuningFile;
+  private final Path projectIconSettingsFile;
   private final JFrame frame = new JFrame("JVN Engine Hub");
   private final JLabel statusLabel = new JLabel("Idle");
   private final JLabel footerBranchLabel = new JLabel("No branch");
@@ -239,6 +246,8 @@ public final class JvnHub {
   /** Rendering profile persisted for editor, preview, launcher, and game-runtime processes. */
   private RenderPipelineSettings.Mode renderPipelineMode;
   private RenderPipelineSettings.Options renderPipelineOptions;
+  /** Project-tree icon profile shared with editor processes launched by the Hub. */
+  private ProjectIconThemeSettings.Options projectIconOptions;
   /** Header shortcut for a lightweight local environment report. */
   private HeaderIconButton diagnosticsButton;
   /** Header shortcut for version, source, install, and update details. */
@@ -256,8 +265,10 @@ public final class JvnHub {
     this.projectRoot = projectRoot;
     this.renderPipelinePreferencesFile = RenderPipelineSettings.defaultPreferencesFile();
     this.renderPipelineTuningFile = RenderPipelineSettings.defaultTuningFile();
+    this.projectIconSettingsFile = ProjectIconThemeSettings.defaultFile();
     this.renderPipelineMode = RenderPipelineSettings.load(renderPipelinePreferencesFile);
     this.renderPipelineOptions = RenderPipelineSettings.loadOptions(renderPipelineTuningFile);
+    this.projectIconOptions = ProjectIconThemeSettings.load(projectIconSettingsFile);
     buildUi();
     checkIncomingUpdates(true);
   }
@@ -837,8 +848,13 @@ public final class JvnHub {
         "Performance monitor",
         performanceVisibilitySummary(),
         ACCENT_TOOLS));
+    view.add(menuStatusCard(
+        "Project Explorer icons",
+        ProjectIconThemeSettings.summary(projectIconOptions),
+        ACCENT_GREEN));
     view.addSeparator();
     view.add(buildUiScaleMenu());
+    view.add(buildProjectIconThemeMenu());
     view.addSeparator();
     JCheckBoxMenuItem performanceGraph = hubCheckMenuItem(
         "Show Performance Graph",
@@ -1240,6 +1256,514 @@ public final class JvnHub {
     scale.add(custom);
     return scale;
   }
+
+  private JMenu buildProjectIconThemeMenu() {
+    ProjectIconThemeSettings.Options options = projectIconOptions;
+    JMenu icons = hubMenu("Project Explorer Icons", ACCENT_GREEN);
+    icons.setToolTipText(
+        "Choose the icon source, installed Linux theme, size, semantic variants, and fallback behavior.");
+    icons.add(menuStatusCard(
+        options.source().displayName(),
+        ProjectIconThemeSettings.resolvedTheme(options) + " · " + options.size() + " px",
+        ACCENT_GREEN));
+    icons.add(menuStatusCard(
+        "Detected desktop theme",
+        ProjectIconThemeSettings.detectedDesktopTheme(),
+        TEXT_SOFT));
+    icons.addSeparator();
+
+    JMenu source = hubMenu("Icon Source", ACCENT_GREEN);
+    ButtonGroup sourceChoices = new ButtonGroup();
+    for (ProjectIconThemeSettings.Source candidate : ProjectIconThemeSettings.Source.values()) {
+      JRadioButtonMenuItem item = new HelpRadioButtonMenuItem(
+          candidate.displayName(),
+          options.source() == candidate);
+      styleMenuItem(item, ACCENT_GREEN);
+      item.setToolTipText(candidate.description());
+      item.addActionListener(e -> {
+        ProjectIconThemeSettings.Options requested = projectIconOptions.withSource(candidate);
+        if (candidate == ProjectIconThemeSettings.Source.THEME && requested.theme().isBlank()) {
+          requested = requested.withTheme(ProjectIconThemeSettings.detectedDesktopTheme());
+        }
+        setProjectIconOptions(requested, "Icon source");
+      });
+      sourceChoices.add(item);
+      source.add(item);
+    }
+    icons.add(source);
+
+    JMenu size = hubMenu("Icon Size", ACCENT_GREEN);
+    ButtonGroup sizeChoices = new ButtonGroup();
+    addProjectIconSizeChoice(size, sizeChoices, "Compact (14 px)", 14);
+    addProjectIconSizeChoice(size, sizeChoices, "Small (16 px)", 16);
+    addProjectIconSizeChoice(size, sizeChoices, "Standard (18 px)", 18);
+    addProjectIconSizeChoice(size, sizeChoices, "Comfortable (20 px)", 20);
+    addProjectIconSizeChoice(size, sizeChoices, "Large (22 px)", 22);
+    size.addSeparator();
+    size.add(hubMenuItem(
+        "Custom Size...",
+        "Enter any Project Explorer icon size from 12 through 28 pixels.",
+        VectorIcon.Kind.SLIDERS,
+        ACCENT_GREEN,
+        this::showProjectIconThemeDialog));
+    icons.add(size);
+
+    icons.addSeparator();
+    JCheckBoxMenuItem folderVariants = hubCheckMenuItem(
+        "Semantic Folder Icons",
+        "Use specialized artwork for assets, audio, exports, documents, and other known folders.",
+        ACCENT_GREEN,
+        options.folderVariants());
+    folderVariants.addActionListener(e -> setProjectIconOptions(
+        projectIconOptions.withFolderVariants(folderVariants.isSelected()),
+        "Semantic folder icons"));
+    icons.add(folderVariants);
+
+    JCheckBoxMenuItem fileVariants = hubCheckMenuItem(
+        "File-Type Icons",
+        "Use distinct theme icons for source, image, audio, archive, document, and executable files.",
+        ACCENT_GREEN,
+        options.fileTypeVariants());
+    fileVariants.addActionListener(e -> setProjectIconOptions(
+        projectIconOptions.withFileTypeVariants(fileVariants.isSelected()),
+        "File-type icons"));
+    icons.add(fileVariants);
+
+    JCheckBoxMenuItem inheritance = hubCheckMenuItem(
+        "Follow Theme Inheritance",
+        "Search inherited themes, Adwaita, and hicolor when the selected theme lacks an icon.",
+        ACCENT_GREEN,
+        options.inheritTheme());
+    inheritance.addActionListener(e -> setProjectIconOptions(
+        projectIconOptions.withInheritTheme(inheritance.isSelected()),
+        "Theme inheritance"));
+    icons.add(inheritance);
+
+    JCheckBoxMenuItem bundledFallback = hubCheckMenuItem(
+        "Use Bundled Fallback Icons",
+        "Use JVN's Material artwork when a Linux theme has no JavaFX-compatible PNG entry.",
+        ACCENT_GREEN,
+        options.bundledFallback());
+    bundledFallback.addActionListener(e -> setProjectIconOptions(
+        projectIconOptions.withBundledFallback(bundledFallback.isSelected()),
+        "Bundled icon fallback"));
+    icons.add(bundledFallback);
+
+    JCheckBoxMenuItem smooth = hubCheckMenuItem(
+        "Smooth Icon Scaling",
+        "Use filtered image scaling; disable it for crisp pixel-oriented icon packs.",
+        ACCENT_GREEN,
+        options.smoothScaling());
+    smooth.addActionListener(e -> setProjectIconOptions(
+        projectIconOptions.withSmoothScaling(smooth.isSelected()),
+        "Icon scaling"));
+    icons.add(smooth);
+
+    icons.addSeparator();
+    icons.add(hubMenuItem(
+        "Configure and Preview...",
+        "Open the complete Project Explorer icon-theme configuration and live preview.",
+        VectorIcon.Kind.SLIDERS,
+        ACCENT_GREEN,
+        this::showProjectIconThemeDialog));
+    icons.add(hubMenuItem(
+        "Open Settings File",
+        "Open the shared project-icons.properties file used by the editor.",
+        VectorIcon.Kind.EDIT,
+        ACCENT_GREEN,
+        this::openProjectIconSettingsFile));
+    icons.add(hubMenuItem(
+        "Restore Icon Defaults",
+        "Follow the desktop theme at 18 px with semantic icons and safe fallbacks.",
+        VectorIcon.Kind.REFRESH,
+        ACCENT_GREEN,
+        this::resetProjectIconOptions));
+    return icons;
+  }
+
+  private void addProjectIconSizeChoice(
+      JMenu menu,
+      ButtonGroup choices,
+      String label,
+      int iconSize) {
+    JRadioButtonMenuItem item = new HelpRadioButtonMenuItem(
+        label,
+        projectIconOptions.size() == iconSize);
+    styleMenuItem(item, ACCENT_GREEN);
+    item.setToolTipText("Render Project Explorer icons at " + iconSize + " logical pixels.");
+    item.addActionListener(e -> setProjectIconOptions(
+        projectIconOptions.withSize(iconSize),
+        "Project icon size"));
+    choices.add(item);
+    menu.add(item);
+  }
+
+  private void showProjectIconThemeDialog() {
+    JDialog dialog = new JDialog(frame, "Project Explorer Icon Theme", true);
+    dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
+
+    JPanel root = new JPanel(new BorderLayout(0, ui(12)));
+    root.setBackground(BG);
+    root.setBorder(uiPadding(16, 16, 16, 16));
+    root.add(dialogHeader(
+        "Project Explorer Icon Theme",
+        "Configure Linux desktop artwork used across every editor file and project browser."),
+        BorderLayout.NORTH);
+
+    List<String> installedThemes = new ArrayList<>(ProjectIconThemeSettings.installedThemes());
+    if (!projectIconOptions.theme().isBlank()
+        && installedThemes.stream().noneMatch(projectIconOptions.theme()::equalsIgnoreCase)) {
+      installedThemes.add(projectIconOptions.theme());
+      installedThemes.sort(String.CASE_INSENSITIVE_ORDER);
+    }
+    if (installedThemes.isEmpty()) installedThemes.add(ProjectIconThemeSettings.detectedDesktopTheme());
+
+    JComboBox<String> source = projectIconCombo(List.of(
+        ProjectIconThemeSettings.Source.DESKTOP.displayName(),
+        ProjectIconThemeSettings.Source.THEME.displayName(),
+        ProjectIconThemeSettings.Source.BUNDLED.displayName()));
+    source.setToolTipText(
+        "Desktop follows GTK, Installed Theme locks a theme name, and Bundled Material ignores Linux artwork.");
+    source.setSelectedIndex(projectIconOptions.source().ordinal());
+
+    JComboBox<String> theme = projectIconCombo(installedThemes);
+    theme.setEditable(true);
+    theme.setToolTipText("Select a detected theme or enter its exact freedesktop directory name.");
+    if (theme.getEditor().getEditorComponent() instanceof JTextField themeEditor) {
+      themeEditor.setBackground(BG);
+      themeEditor.setForeground(TEXT_PRIMARY);
+      themeEditor.setCaretColor(TEXT_PRIMARY);
+    }
+    String selectedTheme = projectIconOptions.theme().isBlank()
+        ? ProjectIconThemeSettings.detectedDesktopTheme()
+        : projectIconOptions.theme();
+    theme.setSelectedItem(selectedTheme);
+
+    JSpinner size = new JSpinner(new SpinnerNumberModel(
+        projectIconOptions.size(),
+        ProjectIconThemeSettings.MIN_ICON_SIZE,
+        ProjectIconThemeSettings.MAX_ICON_SIZE,
+        1));
+    size.setToolTipText("Logical Project Explorer icon size, from 12 through 28 pixels.");
+    styleProjectIconSpinner(size);
+
+    JCheckBox folderVariants = optionCheckBox(
+        "Semantic folder icons",
+        "Differentiate assets, audio, exports, documents, and other recognized folders.",
+        projectIconOptions.folderVariants());
+    JCheckBox fileVariants = optionCheckBox(
+        "File-type icons",
+        "Differentiate source, image, audio, archive, document, and executable files.",
+        projectIconOptions.fileTypeVariants());
+    JCheckBox inheritance = optionCheckBox(
+        "Follow freedesktop theme inheritance",
+        "Search inherited themes plus Adwaita and hicolor for missing icons.",
+        projectIconOptions.inheritTheme());
+    JCheckBox bundledFallback = optionCheckBox(
+        "Use bundled JVN fallback icons",
+        "Keep file types recognizable when the selected desktop theme has no PNG icon.",
+        projectIconOptions.bundledFallback());
+    JCheckBox smooth = optionCheckBox(
+        "Smooth image scaling",
+        "Use filtered scaling for high-resolution desktop icons.",
+        projectIconOptions.smoothScaling());
+
+    JPanel form = new JPanel();
+    form.setLayout(new BoxLayout(form, BoxLayout.Y_AXIS));
+    form.setBackground(PANEL_BG);
+    form.setBorder(BorderFactory.createCompoundBorder(
+        BorderFactory.createLineBorder(BORDER_NEUTRAL),
+        uiPadding(12, 14, 12, 14)));
+    form.add(projectIconField(
+        "Icon source",
+        "Follow the desktop, lock a named installed theme, or use JVN's bundled artwork.",
+        source));
+    form.add(Box.createVerticalStrut(ui(8)));
+    form.add(projectIconField(
+        "Installed Linux theme",
+        installedThemes.size() + " freedesktop theme" + (installedThemes.size() == 1 ? "" : "s")
+            + " detected. Current desktop: " + ProjectIconThemeSettings.detectedDesktopTheme(),
+        theme));
+    form.add(Box.createVerticalStrut(ui(8)));
+    form.add(projectIconField(
+        "Icon size",
+        "Any logical size from 12 through 28 pixels.",
+        size));
+    form.add(Box.createVerticalStrut(ui(8)));
+    form.add(folderVariants);
+    form.add(fileVariants);
+    form.add(inheritance);
+    form.add(bundledFallback);
+    form.add(smooth);
+
+    JPanel preview = new JPanel(new FlowLayout(FlowLayout.LEFT, ui(16), ui(8)));
+    preview.setBackground(PRESSED_BG);
+    preview.setBorder(BorderFactory.createCompoundBorder(
+        BorderFactory.createLineBorder(ACCENT_GREEN.darker()),
+        uiPadding(8, 10, 8, 10)));
+    preview.setAlignmentX(Component.LEFT_ALIGNMENT);
+    preview.setMaximumSize(new Dimension(Integer.MAX_VALUE, ui(88)));
+
+    JLabel previewStatus = new JLabel();
+    previewStatus.setForeground(TEXT_MUTED);
+    previewStatus.setFont(previewStatus.getFont().deriveFont(Font.PLAIN, uiFont(10f)));
+    previewStatus.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+    JPanel center = new JPanel();
+    center.setOpaque(false);
+    center.setLayout(new BoxLayout(center, BoxLayout.Y_AXIS));
+    form.setAlignmentX(Component.LEFT_ALIGNMENT);
+    center.add(form);
+    center.add(Box.createVerticalStrut(ui(10)));
+    center.add(preview);
+    center.add(Box.createVerticalStrut(ui(4)));
+    center.add(previewStatus);
+    JScrollPane settingsScroll = new JScrollPane(center);
+    settingsScroll.setBorder(null);
+    settingsScroll.setOpaque(false);
+    settingsScroll.getViewport().setOpaque(false);
+    settingsScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+    settingsScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+    settingsScroll.getVerticalScrollBar().setUnitIncrement(ui(18));
+    styleScrollBar(settingsScroll.getVerticalScrollBar());
+    root.add(settingsScroll, BorderLayout.CENTER);
+
+    Runnable updatePreview = () -> {
+      boolean installed = source.getSelectedIndex() == ProjectIconThemeSettings.Source.THEME.ordinal();
+      theme.setEnabled(installed);
+      ProjectIconThemeSettings.Options draft = projectIconOptionsFromControls(
+          source, theme, size, folderVariants, fileVariants, inheritance, bundledFallback, smooth);
+      updateProjectIconPreview(preview, previewStatus, draft);
+    };
+    source.addActionListener(e -> updatePreview.run());
+    theme.addActionListener(e -> updatePreview.run());
+    size.addChangeListener(e -> updatePreview.run());
+    folderVariants.addActionListener(e -> updatePreview.run());
+    fileVariants.addActionListener(e -> updatePreview.run());
+    inheritance.addActionListener(e -> updatePreview.run());
+    bundledFallback.addActionListener(e -> updatePreview.run());
+    smooth.addActionListener(e -> updatePreview.run());
+    updatePreview.run();
+
+    FlatButton reset = new FlatButton(
+        "Defaults",
+        uiIcon(VectorIcon.Kind.REFRESH, 14, TEXT_SOFT),
+        TEXT_SOFT);
+    reset.addActionListener(e -> {
+      ProjectIconThemeSettings.Options defaults = ProjectIconThemeSettings.Options.defaults();
+      source.setSelectedIndex(defaults.source().ordinal());
+      theme.setSelectedItem(ProjectIconThemeSettings.detectedDesktopTheme());
+      size.setValue(defaults.size());
+      folderVariants.setSelected(defaults.folderVariants());
+      fileVariants.setSelected(defaults.fileTypeVariants());
+      inheritance.setSelected(defaults.inheritTheme());
+      bundledFallback.setSelected(defaults.bundledFallback());
+      smooth.setSelected(defaults.smoothScaling());
+      updatePreview.run();
+    });
+
+    FlatButton cancel = new FlatButton(
+        "Cancel",
+        uiIcon(VectorIcon.Kind.CLOSE, 14, TEXT_SOFT),
+        TEXT_SOFT);
+    cancel.addActionListener(e -> dialog.dispose());
+
+    FlatButton apply = new FlatButton(
+        "Apply Icon Theme",
+        uiIcon(VectorIcon.Kind.CHECK, 14, ACCENT_GREEN),
+        ACCENT_GREEN);
+    apply.addActionListener(e -> {
+      ProjectIconThemeSettings.Options requested = projectIconOptionsFromControls(
+          source, theme, size, folderVariants, fileVariants, inheritance, bundledFallback, smooth);
+      dialog.dispose();
+      setProjectIconOptions(requested, "Project Explorer icon theme");
+    });
+
+    JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, ui(8), 0));
+    footer.setOpaque(false);
+    footer.add(reset);
+    footer.add(cancel);
+    footer.add(apply);
+    root.add(footer, BorderLayout.SOUTH);
+
+    dialog.setContentPane(root);
+    dialog.getRootPane().setDefaultButton(apply);
+    dialog.pack();
+    Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
+    int targetWidth = Math.min(ui(640), Math.max(ui(480), screen.width - ui(80)));
+    int targetHeight = Math.min(ui(650), Math.max(ui(520), screen.height - ui(100)));
+    dialog.setMinimumSize(new Dimension(Math.min(targetWidth, ui(560)), Math.min(targetHeight, ui(520))));
+    dialog.setSize(new Dimension(
+        targetWidth,
+        targetHeight));
+    dialog.setLocationRelativeTo(frame);
+    dialog.setVisible(true);
+  }
+
+  private JComboBox<String> projectIconCombo(List<String> values) {
+    JComboBox<String> combo = new JComboBox<>(values.toArray(String[]::new));
+    combo.setBackground(BG);
+    combo.setForeground(TEXT_PRIMARY);
+    combo.setFont(combo.getFont().deriveFont(Font.PLAIN, uiFont(12f)));
+    combo.setMaximumSize(new Dimension(Integer.MAX_VALUE, ui(34)));
+    combo.setPreferredSize(uiDimension(420, 34));
+    combo.setAlignmentX(Component.LEFT_ALIGNMENT);
+    return combo;
+  }
+
+  private void styleProjectIconSpinner(JSpinner spinner) {
+    spinner.setBackground(BG);
+    spinner.setForeground(TEXT_PRIMARY);
+    spinner.setMaximumSize(new Dimension(Integer.MAX_VALUE, ui(34)));
+    spinner.setPreferredSize(uiDimension(420, 34));
+    spinner.setAlignmentX(Component.LEFT_ALIGNMENT);
+    JComponent editor = spinner.getEditor();
+    if (editor instanceof JSpinner.DefaultEditor defaultEditor) {
+      defaultEditor.getTextField().setBackground(BG);
+      defaultEditor.getTextField().setForeground(TEXT_PRIMARY);
+      defaultEditor.getTextField().setCaretColor(TEXT_PRIMARY);
+    }
+  }
+
+  private JPanel projectIconField(String labelText, String helpText, JComponent control) {
+    JPanel field = new JPanel();
+    field.setOpaque(false);
+    field.setLayout(new BoxLayout(field, BoxLayout.Y_AXIS));
+    JLabel label = new JLabel(labelText);
+    label.setForeground(TEXT_SOFT);
+    label.setFont(label.getFont().deriveFont(Font.BOLD, uiFont(11f)));
+    JLabel help = new JLabel(helpText);
+    help.setForeground(TEXT_MUTED);
+    help.setFont(help.getFont().deriveFont(Font.PLAIN, uiFont(9.5f)));
+    label.setAlignmentX(Component.LEFT_ALIGNMENT);
+    help.setAlignmentX(Component.LEFT_ALIGNMENT);
+    control.setAlignmentX(Component.LEFT_ALIGNMENT);
+    field.setAlignmentX(Component.LEFT_ALIGNMENT);
+    field.add(label);
+    field.add(Box.createVerticalStrut(ui(3)));
+    field.add(control);
+    field.add(Box.createVerticalStrut(ui(3)));
+    field.add(help);
+    return field;
+  }
+
+  private ProjectIconThemeSettings.Options projectIconOptionsFromControls(
+      JComboBox<String> source,
+      JComboBox<String> theme,
+      JSpinner size,
+      JCheckBox folderVariants,
+      JCheckBox fileVariants,
+      JCheckBox inheritance,
+      JCheckBox bundledFallback,
+      JCheckBox smooth) {
+    int sourceIndex = Math.max(0, source.getSelectedIndex());
+    ProjectIconThemeSettings.Source[] sources = ProjectIconThemeSettings.Source.values();
+    ProjectIconThemeSettings.Source selectedSource = sources[Math.min(sourceIndex, sources.length - 1)];
+    Object themeValue = theme.getSelectedItem();
+    return new ProjectIconThemeSettings.Options(
+        selectedSource,
+        themeValue == null ? "" : themeValue.toString(),
+        ((Number) size.getValue()).intValue(),
+        folderVariants.isSelected(),
+        fileVariants.isSelected(),
+        inheritance.isSelected(),
+        bundledFallback.isSelected(),
+        smooth.isSelected());
+  }
+
+  private void updateProjectIconPreview(
+      JPanel preview,
+      JLabel status,
+      ProjectIconThemeSettings.Options options) {
+    preview.removeAll();
+    List<ProjectIconPreview> samples = List.of(
+        new ProjectIconPreview("Folder", List.of("folder-pictures", "folder")),
+        new ProjectIconPreview("Java", List.of("text-x-java-source", "text-x-generic")),
+        new ProjectIconPreview("Image", List.of("image-x-generic", "text-x-generic")),
+        new ProjectIconPreview("Script", List.of("text-x-script", "text-x-generic")));
+    int resolved = 0;
+    for (ProjectIconPreview sample : samples) {
+      JLabel tile = new JLabel(sample.label(), SwingConstants.CENTER);
+      tile.setForeground(TEXT_SOFT);
+      tile.setFont(tile.getFont().deriveFont(Font.PLAIN, uiFont(10f)));
+      tile.setHorizontalTextPosition(SwingConstants.CENTER);
+      tile.setVerticalTextPosition(SwingConstants.BOTTOM);
+      tile.setIconTextGap(ui(5));
+      Optional<Path> artwork = ProjectIconThemeSettings.previewIcon(options, sample.names());
+      if (artwork.isPresent()) {
+        ImageIcon raw = new ImageIcon(artwork.get().toString());
+        int hint = options.smoothScaling() ? Image.SCALE_SMOOTH : Image.SCALE_FAST;
+        tile.setIcon(new ImageIcon(raw.getImage().getScaledInstance(
+            ui(options.size()), ui(options.size()), hint)));
+        resolved++;
+      } else {
+        tile.setIcon(uiIcon(VectorIcon.Kind.SLIDERS, options.size(), ACCENT_GREEN));
+      }
+      tile.setPreferredSize(uiDimension(76, 56));
+      preview.add(tile);
+    }
+    String theme = ProjectIconThemeSettings.resolvedTheme(options);
+    status.setText(options.source() == ProjectIconThemeSettings.Source.BUNDLED
+        ? "Bundled Material artwork · preview placeholders shown · applies on the next editor launch."
+        : theme + " · " + resolved + "/" + samples.size()
+            + " PNG samples resolved · applies on the next editor launch.");
+    preview.revalidate();
+    preview.repaint();
+  }
+
+  private void setProjectIconOptions(
+      ProjectIconThemeSettings.Options requested,
+      String changedSetting) {
+    ProjectIconThemeSettings.Options options = requested == null
+        ? ProjectIconThemeSettings.Options.defaults()
+        : requested;
+    try {
+      ProjectIconThemeSettings.save(projectIconSettingsFile, options);
+      projectIconOptions = options;
+      String label = firstNonBlank(changedSetting, "Project icon setting");
+      appendLog("[hub] project icon theme updated: " + ProjectIconThemeSettings.summary(options) + ".");
+      setStatus(label + " updated", ACCENT_GREEN);
+      setActivity(
+          "Project Explorer icons updated",
+          "The complete icon profile applies when the next editor process starts.",
+          false,
+          ACCENT_GREEN);
+    } catch (IOException error) {
+      appendLog("[hub] could not save project icon settings: " + error.getMessage());
+      setStatus("Could not save Project Explorer icons", ACCENT_ERROR);
+      setActivity(
+          "Project icon theme unchanged",
+          error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage(),
+          false,
+          ACCENT_ERROR);
+    }
+    refreshModeMenus();
+  }
+
+  private void resetProjectIconOptions() {
+    setProjectIconOptions(ProjectIconThemeSettings.Options.defaults(), "Project icon defaults");
+  }
+
+  private void openProjectIconSettingsFile() {
+    if (!Files.isRegularFile(projectIconSettingsFile)) {
+      try {
+        ProjectIconThemeSettings.save(projectIconSettingsFile, projectIconOptions);
+      } catch (IOException error) {
+        setStatus("Could not create Project Explorer icon settings", ACCENT_ERROR);
+        return;
+      }
+    }
+    try {
+      Desktop desktop = Desktop.getDesktop();
+      desktop.open(projectIconSettingsFile.toFile());
+      setStatus("Opened Project Explorer icon settings", ACCENT_GREEN);
+    } catch (Exception error) {
+      appendLog("[hub] could not open project icon settings: " + error.getMessage());
+      setStatus("Could not open Project Explorer icon settings", ACCENT_ERROR);
+    }
+  }
+
+  private record ProjectIconPreview(String label, List<String> names) {}
 
   private void addScaleChoice(JMenu menu, ButtonGroup choices, String label, double value, boolean selected) {
     JRadioButtonMenuItem item = new HelpRadioButtonMenuItem(label, selected);
@@ -5988,9 +6512,12 @@ public final class JvnHub {
         RenderPipelineSettings.load(renderPipelinePreferencesFile);
     RenderPipelineSettings.Options refreshedRenderOptions =
         RenderPipelineSettings.loadOptions(renderPipelineTuningFile);
+    ProjectIconThemeSettings.Options refreshedProjectIcons =
+        ProjectIconThemeSettings.load(projectIconSettingsFile);
     SwingUtilities.invokeLater(() -> {
       renderPipelineMode = refreshedPipeline;
       renderPipelineOptions = refreshedRenderOptions;
+      projectIconOptions = refreshedProjectIcons;
       versionLabel.setText(formatVersionLabel(newVersion));
       appendLog("[hub] refresh: engine version " + newVersion + ".");
       frame.setJMenuBar(buildMenuBar());

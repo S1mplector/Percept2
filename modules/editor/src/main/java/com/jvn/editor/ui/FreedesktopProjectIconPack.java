@@ -33,15 +33,19 @@ final class FreedesktopProjectIconPack {
   private static final Map<Path, Map<String, List<Path>>> THEME_INDEXES = new ConcurrentHashMap<>();
   private static final Map<IconRequest, Optional<Path>> PATH_CACHE = new ConcurrentHashMap<>();
   private static final Map<ImageRequest, Image> IMAGE_CACHE = new ConcurrentHashMap<>();
+  private static final ProjectIconPreferences.Options OPTIONS = ProjectIconPreferences.load();
   private static final List<Path> ICON_ROOTS = iconRoots();
-  private static final String ACTIVE_THEME = detectActiveTheme();
-  private static final List<Path> ACTIVE_THEME_CHAIN = themeChain(ICON_ROOTS, ACTIVE_THEME);
+  private static final String ACTIVE_THEME = configuredTheme();
+  private static final List<Path> ACTIVE_THEME_CHAIN = themeChain(
+      ICON_ROOTS,
+      ACTIVE_THEME,
+      OPTIONS.inheritTheme());
 
   private FreedesktopProjectIconPack() {}
 
   static Optional<Region> icon(List<String> semanticNames, double requestedSize) {
-    if (!isLinux() || semanticNames == null || semanticNames.isEmpty()) return Optional.empty();
-    int size = Math.max(12, (int) Math.round(requestedSize > 0 ? requestedSize : 18.0));
+    if (!useSystemIcons() || semanticNames == null || semanticNames.isEmpty()) return Optional.empty();
+    int size = Math.max(12, (int) Math.round(requestedSize > 0 ? requestedSize : OPTIONS.size()));
     IconRequest request = new IconRequest(List.copyOf(semanticNames), size);
     Optional<Path> path = PATH_CACHE.computeIfAbsent(
         request,
@@ -62,7 +66,7 @@ final class FreedesktopProjectIconPack {
     view.setFitWidth(size);
     view.setFitHeight(size);
     view.setPreserveRatio(true);
-    view.setSmooth(true);
+    view.setSmooth(OPTIONS.smoothScaling());
     view.setMouseTransparent(true);
 
     StackPane holder = new StackPane(view);
@@ -81,6 +85,16 @@ final class FreedesktopProjectIconPack {
       List<String> semanticNames,
       int requestedSize
   ) {
+    return resolveIconPath(iconRoots, requestedTheme, semanticNames, requestedSize, true);
+  }
+
+  static Optional<Path> resolveIconPath(
+      List<Path> iconRoots,
+      String requestedTheme,
+      List<String> semanticNames,
+      int requestedSize,
+      boolean inheritTheme
+  ) {
     if (iconRoots == null || semanticNames == null || semanticNames.isEmpty()) return Optional.empty();
     List<String> names = semanticNames.stream()
         .filter(name -> name != null && !name.isBlank())
@@ -89,7 +103,10 @@ final class FreedesktopProjectIconPack {
         .toList();
     if (names.isEmpty()) return Optional.empty();
 
-    return resolveIconPathInThemes(themeChain(iconRoots, requestedTheme), names, requestedSize);
+    return resolveIconPathInThemes(
+        themeChain(iconRoots, requestedTheme, inheritTheme),
+        names,
+        requestedSize);
   }
 
   private static Optional<Path> resolveIconPathInThemes(
@@ -131,18 +148,49 @@ final class FreedesktopProjectIconPack {
     return ACTIVE_THEME;
   }
 
+  static boolean useSystemIcons() {
+    return isLinux() && OPTIONS.source() != ProjectIconPreferences.Source.BUNDLED;
+  }
+
+  static boolean useBundledFallback() {
+    return OPTIONS.source() == ProjectIconPreferences.Source.BUNDLED || OPTIONS.bundledFallback();
+  }
+
+  static boolean folderVariantsEnabled() {
+    return OPTIONS.folderVariants();
+  }
+
+  static boolean fileTypeVariantsEnabled() {
+    return OPTIONS.fileTypeVariants();
+  }
+
+  static int configuredSize() {
+    return OPTIONS.size();
+  }
+
   private static List<Path> themeChain(List<Path> roots, String requestedTheme) {
+    return themeChain(roots, requestedTheme, true);
+  }
+
+  private static List<Path> themeChain(
+      List<Path> roots,
+      String requestedTheme,
+      boolean inherit
+  ) {
     LinkedHashSet<Path> directories = new LinkedHashSet<>();
     LinkedHashSet<String> visited = new LinkedHashSet<>();
-    collectTheme(roots, normalizeTheme(requestedTheme), directories, visited);
-    collectTheme(roots, "Adwaita", directories, visited);
-    collectTheme(roots, "hicolor", directories, visited);
+    collectTheme(roots, normalizeTheme(requestedTheme), inherit, directories, visited);
+    if (inherit) {
+      collectTheme(roots, "Adwaita", true, directories, visited);
+      collectTheme(roots, "hicolor", true, directories, visited);
+    }
     return List.copyOf(directories);
   }
 
   private static void collectTheme(
       List<Path> roots,
       String theme,
+      boolean inherit,
       Set<Path> directories,
       Set<String> visited
   ) {
@@ -152,9 +200,10 @@ final class FreedesktopProjectIconPack {
         .filter(Files::isDirectory)
         .toList();
     directories.addAll(matches);
+    if (!inherit) return;
     for (Path directory : matches) {
       for (String inherited : inheritedThemes(directory.resolve("index.theme"))) {
-        collectTheme(roots, inherited, directories, visited);
+        collectTheme(roots, inherited, true, directories, visited);
       }
     }
   }
@@ -259,6 +308,15 @@ final class FreedesktopProjectIconPack {
     String gsettingsTheme = readGsettingsTheme();
     if (!gsettingsTheme.isBlank()) return gsettingsTheme;
     return "Adwaita";
+  }
+
+  private static String configuredTheme() {
+    String override = firstNonBlank(System.getProperty("jvn.icon.theme"), System.getenv("JVN_ICON_THEME"));
+    if (!override.isBlank()) return unquote(override);
+    if (OPTIONS.source() == ProjectIconPreferences.Source.THEME && !OPTIONS.theme().isBlank()) {
+      return OPTIONS.theme();
+    }
+    return detectActiveTheme();
   }
 
   private static String readGsettingsTheme() {

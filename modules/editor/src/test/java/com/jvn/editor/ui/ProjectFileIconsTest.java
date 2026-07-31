@@ -57,6 +57,8 @@ class ProjectFileIconsTest {
         List.of(icons), "Classic", List.of("text-x-generic"), 18).orElseThrow());
     assertEquals(folder, FreedesktopProjectIconPack.resolveIconPath(
         List.of(icons), "Classic", List.of("folder"), 18).orElseThrow());
+    assertTrue(FreedesktopProjectIconPack.resolveIconPath(
+        List.of(icons), "Classic", List.of("folder"), 18, false).isEmpty());
   }
 
   @Test
