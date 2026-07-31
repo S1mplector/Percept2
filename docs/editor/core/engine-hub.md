@@ -26,6 +26,10 @@ To force a cache rebuild or select a launch path explicitly:
 
 The equivalent persistent setting is `JVN_LAUNCH_MODE=auto|direct|gradle`. Auto mode is the default: it uses direct startup and falls back to Gradle only if `javac` is unavailable and there is no valid cache. Concurrent launches share a compilation lock so they cannot corrupt or redundantly rebuild the cache. The direct JVM also uses a low-overhead serial collector and startup-tier compilation; override or extend its flags with `JVN_HUB_JAVA_OPTS`. Gradle remains in use for editor/runtime builds and other workspace actions launched from the hub.
 
+## Hub Menus
+
+Every Engine Hub dropdown—including the footer **More** menu—begins with live context for that command group, such as the current engine branch, update state, Gradle configuration, active task, UI scale, or next render pipeline. Commands include short descriptions, consistent icons, keyboard mnemonics, and state-aware availability so an action that conflicts with a running task is visibly disabled. Each group has its own accent; rendering controls and their nested submenus use the purple Render Pipeline accent throughout. Press `F5` to refresh engine metadata or the platform menu shortcut plus `Q` to quit.
+
 ## Cache-First Application Launches
 
 **Run Editor** and **Run Launcher** also avoid Gradle on warm starts. After source, resources, or build definitions change, JVN runs one preparation task to compile the affected modules and record the exact JavaFX module path and runtime classpath. Later starts invoke Java directly until that cache becomes stale.
@@ -53,7 +57,9 @@ The **Performance Tuning** submenu also controls:
 - occlusion culling
 - shape caching for complex shapes, all shapes, or no shapes
 
-The **Render Diagnostics** submenu can enable verbose Prism startup output, dirty-region visualization, overdraw visualization, and render-graph logging. These probes are intended for short diagnostic sessions and may reduce performance while enabled. **Disable All Render Diagnostics** returns them to the quiet state.
+The **Render Diagnostics** submenu can enable verbose Prism startup output, dirty-region visualization, overdraw visualization, and render-graph capture. These probes are intended for short diagnostic sessions and may reduce performance while enabled. **Disable All Render Diagnostics** returns them to the quiet state.
+
+**Open Render Graph Viewer** opens a compact live window for the latest detailed JavaFX slow-pulse tree emitted by a Hub-managed editor, preview, launcher, or game process. Enable capture, launch the process from the Hub, and interact with its UI; the viewer retains the newest bounded graph and can copy or clear it. JavaFX only emits detailed trees for pulses over its logging threshold, so a smooth idle scene may remain in the waiting state. Render-graph capture also enables JavaFX PulseLogger and the dirty-region roots Prism requires for that diagnostic launch. It remains off by default because it adds overhead.
 
 Advanced values are stored in `~/.jvn-editor/render-pipeline.properties` and applied before JavaFX initializes. Use **Inspect Render Stack** to review every selected option, the requested backend order, desktop session, display capabilities, preference paths, and—on Linux when `glxinfo` is installed—the active OpenGL vendor and renderer. **Copy Render Stack Summary** creates a compact report suitable for performance or driver bug reports.
 
@@ -68,6 +74,8 @@ Official prebuilt binaries are planned from the first major JVN release onward, 
 ## High-Resolution Display Scaling
 
 The hub automatically enlarges its window, fonts, icon buttons, and status surfaces on high-DPI or very high-resolution displays. This is meant to keep the compact Swing control panel readable on 2K/3K/4K OLED panels and Linux desktops that report a large physical framebuffer without applying Swing UI scaling.
+
+Use **View > UI Scale** for automatic sizing, common presets, or **Custom Scale**. The custom dialog accepts percentages such as `125` or `125%`, scale factors such as `1.25`, and locale decimal input such as `1,25`. Fixed values are validated from 75% through 185% and saved in the Hub UI preferences.
 
 If your desktop reports unusual DPI data, override the hub scale manually:
 

@@ -42,6 +42,17 @@ class JvnHubDisplayScaleTest {
   }
 
   @Test
+  void customScaleAcceptsPercentFactorAndLocaleDecimalForms() {
+    assertEquals(1.25, JvnHub.parseCustomUiScale("125"));
+    assertEquals(1.25, JvnHub.parseCustomUiScale("125%"));
+    assertEquals(1.25, JvnHub.parseCustomUiScale("1.25"));
+    assertEquals(1.25, JvnHub.parseCustomUiScale("1,25"));
+    assertTrue(Double.isNaN(JvnHub.parseCustomUiScale("74%")));
+    assertTrue(Double.isNaN(JvnHub.parseCustomUiScale("200%")));
+    assertTrue(Double.isNaN(JvnHub.parseCustomUiScale("large")));
+  }
+
+  @Test
   void sourceBuildIndicatorUsesTheHubOrangeAccent() {
     String label = JvnHub.formatVersionLabel("0.4.3");
     if (label.startsWith("<html>")) {

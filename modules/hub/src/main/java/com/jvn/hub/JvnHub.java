@@ -28,6 +28,7 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
+import java.awt.event.KeyEvent;
 import java.awt.font.GlyphVector;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Arc2D;
@@ -84,6 +85,7 @@ import javax.swing.JTextField;
 import javax.swing.JToggleButton;
 import javax.swing.JWindow;
 import javax.swing.JProgressBar;
+import javax.swing.KeyStroke;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
@@ -135,6 +137,7 @@ public final class JvnHub {
   private static final Color ACCENT_GREEN   = Color.decode("#7ed39a");
   private static final Color ACCENT_DEV     = Color.decode("#8cc5ff");
   private static final Color ACCENT_RENDER  = Color.decode("#c58cff");
+  private static final Color ACCENT_TOOLS   = Color.decode("#68c7d8");
   private static final Color ACCENT_SAFE    = Color.decode("#ffd166");
   private static final Color ACCENT_ERROR   = Color.decode("#f38ba8");
   private static final Color ACCENT_MAINTENANCE = Color.decode("#ff9933");
@@ -196,6 +199,8 @@ public final class JvnHub {
   private final javax.swing.Timer autoStepTimer = new javax.swing.Timer(1800, e -> autoAdvanceDuringSilence());
   private final List<AbstractButton> actionButtons = new ArrayList<>();
   private final AtomicReference<Process> runningProcess = new AtomicReference<>();
+  private final RenderGraphCapture renderGraphCapture = new RenderGraphCapture();
+  private final AtomicReference<JDialog> renderGraphViewer = new AtomicReference<>();
   private final AtomicBoolean updateCheckRunning = new AtomicBoolean(false);
   private int lastKnownIncoming = -1;
   private int activeStepIndex = -1;
@@ -581,65 +586,246 @@ public final class JvnHub {
     bar.setBackground(BG_TOP);
     bar.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, BORDER_NEUTRAL));
 
-    JMenu file = hubMenu("File");
-    file.add(hubMenuItem("Show Engine Folder", this::revealEngineRoot));
-    file.add(hubMenuItem("Show Hub Data Folder", () -> revealHubFolder("data", Paths.get(System.getProperty("user.home", "."), ".jvn"))));
-    file.add(hubMenuItem("Show Hub Logs", () -> revealHubFolder("logs", Paths.get(System.getProperty("user.home", "."), ".jvn", "logs"))));
-    file.add(hubMenuItem("Copy Engine Path", this::copyEngineRootPath));
+    boolean busy = runningProcess.get() != null;
+    String branch = resolveBranch(projectRoot);
+    String version = displayVersionLabel(readDiskVersion());
+    String updateSummary = lastKnownIncoming > 0
+        ? lastKnownIncoming + " incoming commit" + (lastKnownIncoming == 1 ? "" : "s")
+        : lastKnownIncoming == 0 ? "Up to date with " + ENGINE_UPDATE_REMOTE_REF : "Update status unavailable";
+
+    JMenu file = hubMenu("File", TEXT_SOFT, KeyEvent.VK_F);
+    file.add(menuStatusCard("Engine workspace", compactMenuPath(projectRoot), TEXT_SOFT));
     file.addSeparator();
-    file.add(hubMenuItem("Quit Engine Hub", this::confirmAndExit));
+    file.add(hubMenuItem(
+        "Show Engine Folder",
+        "Reveal the active engine checkout in the system file manager.",
+        VectorIcon.Kind.INFO,
+        TEXT_SOFT,
+        this::revealEngineRoot));
+    file.add(hubMenuItem(
+        "Show Hub Data Folder",
+        "Open user-local JVN Hub state and configuration.",
+        VectorIcon.Kind.SLIDERS,
+        TEXT_SOFT,
+        () -> revealHubFolder("data", Paths.get(System.getProperty("user.home", "."), ".jvn"))));
+    file.add(hubMenuItem(
+        "Show Hub Logs",
+        "Open user-local Hub logs.",
+        VectorIcon.Kind.DOCUMENTATION,
+        TEXT_SOFT,
+        () -> revealHubFolder("logs", Paths.get(System.getProperty("user.home", "."), ".jvn", "logs"))));
+    file.add(hubMenuItem(
+        "Copy Engine Path",
+        "Copy the active engine root to the clipboard.",
+        VectorIcon.Kind.CHECK,
+        TEXT_SOFT,
+        this::copyEngineRootPath));
+    file.addSeparator();
+    file.add(withAccelerator(hubMenuItem(
+        "Quit Engine Hub",
+        "Close the Hub after confirming any running task.",
+        VectorIcon.Kind.CLOSE,
+        TEXT_SOFT,
+        this::confirmAndExit), KeyEvent.VK_Q, menuShortcutMask()));
 
-    JMenu engine = hubMenu("Engine");
-    engine.add(hubMenuItem("Module Inventory", this::showModuleInventory));
-    engine.add(hubMenuItem("Engine Configuration", this::showEngineConfiguration));
+    JMenu engine = hubMenu("Engine", ACCENT_NEUTRAL, KeyEvent.VK_E);
+    engine.add(menuStatusCard(version + " · " + branch,
+        isRunningFromSource() ? "Source checkout" : "Packaged engine workspace", ACCENT_NEUTRAL));
     engine.addSeparator();
-    engine.add(hubMenuItem("Open gradle.properties", this::openEngineConfiguration));
-    engine.add(hubMenuItem("Copy Environment Summary", this::copyEngineEnvironmentSummary));
+    engine.add(hubMenuItem(
+        "Module Inventory",
+        "List every configured JVN module.",
+        VectorIcon.Kind.INFO,
+        ACCENT_NEUTRAL,
+        this::showModuleInventory));
+    engine.add(hubMenuItem(
+        "Engine Configuration",
+        "Inspect toolchain, JavaFX, cache, and build settings.",
+        VectorIcon.Kind.SLIDERS,
+        ACCENT_NEUTRAL,
+        this::showEngineConfiguration));
     engine.addSeparator();
-    engine.add(hubMenuItem("Refresh Engine Metadata", this::refreshFromDisk));
+    engine.add(hubMenuItem(
+        "Open gradle.properties",
+        "Edit the root Gradle configuration file.",
+        VectorIcon.Kind.EDIT,
+        ACCENT_NEUTRAL,
+        this::openEngineConfiguration));
+    engine.add(hubMenuItem(
+        "Copy Environment Summary",
+        "Copy a support-ready engine and host summary.",
+        VectorIcon.Kind.CHECK,
+        ACCENT_NEUTRAL,
+        this::copyEngineEnvironmentSummary));
+    engine.addSeparator();
+    engine.add(withAccelerator(hubMenuItem(
+        "Refresh Engine Metadata",
+        "Reload the engine version, rendering preferences, and menu status.",
+        VectorIcon.Kind.REFRESH,
+        ACCENT_NEUTRAL,
+        this::refreshFromDisk), KeyEvent.VK_F5, 0));
 
-    JMenu build = hubMenu("Build");
-    build.add(hubMenuItem("Compile All Modules", () -> guardedRun(
-        "Compile All Modules", () -> runGradle("compileAll", "Compile All Modules"))));
-    build.add(hubMenuItem("Build All Modules", () -> clickIfAvailable(buildAllButton)));
-    build.add(hubMenuItem("Quick Verification", () -> guardedRun(
-        "Quick Verification", () -> runGradle("quickCheck", "Quick Verification"))));
-    build.add(hubMenuItem("Run Test Suite", () -> clickIfAvailable(runTestsButton)));
+    JMenu build = hubMenu("Build", ACCENT_GREEN, KeyEvent.VK_B);
+    build.add(menuStatusCard(
+        busy ? "Build system busy" : "Build system ready",
+        developerModeEnabled ? describeGradleOptions() : "Standard cached Gradle execution",
+        ACCENT_GREEN));
     build.addSeparator();
-    build.add(hubMenuItem("Gradle Options", this::showGradleOptionsDialog));
-    build.add(hubMenuItem("Install Platform Shortcuts", () -> clickIfAvailable(buildShortcutsButton)));
+    JMenuItem compileAll = hubMenuItem(
+        "Compile All Modules",
+        "Compile the complete workspace without packaging outputs.",
+        VectorIcon.Kind.HAMMER,
+        ACCENT_GREEN,
+        () -> guardedRun("Compile All Modules", () -> runGradle("compileAll", "Compile All Modules")));
+    compileAll.setEnabled(!busy);
+    build.add(compileAll);
+    JMenuItem buildAll = hubMenuItem(
+        "Build All Modules",
+        "Run the full workspace build.",
+        VectorIcon.Kind.ROCKET,
+        ACCENT_GREEN,
+        () -> clickIfAvailable(buildAllButton));
+    buildAll.setEnabled(!busy);
+    build.add(buildAll);
+    JMenuItem quickCheck = hubMenuItem(
+        "Quick Verification",
+        "Run the fast engine verification path.",
+        VectorIcon.Kind.CHECK,
+        ACCENT_GREEN,
+        () -> guardedRun("Quick Verification", () -> runGradle("quickCheck", "Quick Verification")));
+    quickCheck.setEnabled(!busy);
+    build.add(quickCheck);
+    JMenuItem tests = hubMenuItem(
+        "Run Test Suite",
+        "Execute the complete automated test suite.",
+        VectorIcon.Kind.HEALTH,
+        ACCENT_GREEN,
+        () -> clickIfAvailable(runTestsButton));
+    tests.setEnabled(!busy);
+    build.add(tests);
+    build.addSeparator();
+    build.add(hubMenuItem(
+        "Gradle Options",
+        "Configure diagnostic and dependency flags used in Developer Mode.",
+        VectorIcon.Kind.SLIDERS,
+        ACCENT_GREEN,
+        this::showGradleOptionsDialog));
+    JMenuItem shortcuts = hubMenuItem(
+        "Install Platform Shortcuts",
+        "Create native desktop and application-menu launchers.",
+        VectorIcon.Kind.SHORTCUT,
+        ACCENT_GREEN,
+        () -> clickIfAvailable(buildShortcutsButton));
+    shortcuts.setEnabled(!busy);
+    build.add(shortcuts);
 
-    JMenu sourceControl = hubMenu("Source Control");
-    sourceControl.setForeground(ACCENT_MAINTENANCE);
-    sourceControl.add(hubMenuItem("Check for Engine Updates", () -> checkIncomingUpdates(true)));
-    sourceControl.add(hubMenuItem("Update from Stable", () -> clickIfAvailable(updateEngineButton)));
+    JMenu sourceControl = hubMenu("Source Control", ACCENT_MAINTENANCE, KeyEvent.VK_S);
+    sourceControl.add(menuStatusCard(branch, updateSummary, ACCENT_MAINTENANCE));
     sourceControl.addSeparator();
-    sourceControl.add(hubMenuItem("Open GitHub Repository", this::openSourceRepository));
-    sourceControl.add(hubMenuItem("Copy Current Branch", this::copyCurrentBranch));
+    JMenuItem checkUpdates = hubMenuItem(
+        "Check for Engine Updates",
+        "Fetch and compare the local checkout with origin/stable.",
+        VectorIcon.Kind.REFRESH,
+        ACCENT_MAINTENANCE,
+        () -> checkIncomingUpdates(true));
+    checkUpdates.setEnabled(!busy && !updateCheckRunning.get());
+    sourceControl.add(checkUpdates);
+    JMenuItem update = hubMenuItem(
+        "Update from Stable",
+        "Run the guarded stable update and recovery flow.",
+        VectorIcon.Kind.ROCKET,
+        ACCENT_MAINTENANCE,
+        () -> clickIfAvailable(updateEngineButton));
+    update.setEnabled(!busy);
+    sourceControl.add(update);
+    sourceControl.addSeparator();
+    sourceControl.add(hubMenuItem(
+        "Open GitHub Repository",
+        "Open the JVN source repository in a browser.",
+        VectorIcon.Kind.DOCUMENTATION,
+        ACCENT_MAINTENANCE,
+        this::openSourceRepository));
+    sourceControl.add(hubMenuItem(
+        "Copy Current Branch",
+        "Copy the active Git branch name.",
+        VectorIcon.Kind.CHECK,
+        ACCENT_MAINTENANCE,
+        this::copyCurrentBranch));
 
-    JMenu tools = hubMenu("Tools");
-    tools.add(hubMenuItem("Run Diagnostics", this::showDiagnosticsReport));
-    tools.add(hubMenuItem("Show Hub Data Folder", () -> revealHubFolder(
-        "data", Paths.get(System.getProperty("user.home", "."), ".jvn"))));
-    tools.add(hubMenuItem("Show Hub Logs", () -> revealHubFolder(
-        "logs", Paths.get(System.getProperty("user.home", "."), ".jvn", "logs"))));
+    JMenu tools = hubMenu("Tools", ACCENT_TOOLS, KeyEvent.VK_T);
+    tools.add(menuStatusCard(
+        busy ? "Background task active" : "Tooling ready",
+        busy ? firstNonBlank(activeStepLabel, "Working") : "No background task is running",
+        ACCENT_TOOLS));
     tools.addSeparator();
-    tools.add(hubMenuItem("Cancel Running Task", this::cancelRunning));
+    tools.add(hubMenuItem(
+        "Run Diagnostics",
+        "Run lightweight workspace, toolchain, and repository checks.",
+        VectorIcon.Kind.HEALTH,
+        ACCENT_TOOLS,
+        this::showDiagnosticsReport));
+    tools.add(hubMenuItem(
+        "Show Hub Data Folder",
+        "Open user-local Hub state.",
+        VectorIcon.Kind.SLIDERS,
+        ACCENT_TOOLS,
+        () -> revealHubFolder("data", Paths.get(System.getProperty("user.home", "."), ".jvn"))));
+    tools.add(hubMenuItem(
+        "Show Hub Logs",
+        "Open Hub process and recovery logs.",
+        VectorIcon.Kind.DOCUMENTATION,
+        ACCENT_TOOLS,
+        () -> revealHubFolder("logs", Paths.get(System.getProperty("user.home", "."), ".jvn", "logs"))));
+    tools.addSeparator();
+    JMenuItem cancel = hubMenuItem(
+        "Cancel Running Task",
+        busy ? "Stop the active Hub-managed process." : "No Hub-managed process is running.",
+        VectorIcon.Kind.STOP,
+        ACCENT_ERROR,
+        this::cancelRunning);
+    cancel.setEnabled(busy);
+    tools.add(cancel);
 
-    JMenu view = hubMenu("View");
+    JMenu view = hubMenu("View", TEXT_SOFT, KeyEvent.VK_V);
+    view.add(menuStatusCard(
+        displayScaleSummary(),
+        (developerModeEnabled ? "Developer Mode" : "Standard Mode")
+            + " · " + (safeModeEnabled ? "Safe Mode" : "Normal launch guardrails"),
+        TEXT_SOFT));
+    view.addSeparator();
     view.add(buildUiScaleMenu());
     view.addSeparator();
-    JCheckBoxMenuItem safeMode = hubCheckMenuItem("Safe Mode", safeModeEnabled);
+    JCheckBoxMenuItem safeMode = hubCheckMenuItem(
+        "Safe Mode",
+        "Enable guarded launches and update recovery.",
+        ACCENT_SAFE,
+        safeModeEnabled);
     safeMode.addActionListener(e -> setSafeModeEnabled(safeMode.isSelected()));
     view.add(safeMode);
-    JCheckBoxMenuItem developerMode = hubCheckMenuItem("Developer Mode", developerModeEnabled);
+    JCheckBoxMenuItem developerMode = hubCheckMenuItem(
+        "Developer Mode",
+        "Expose test, Gradle, and engineering diagnostics without resizing the Hub.",
+        ACCENT_DEV,
+        developerModeEnabled);
     developerMode.addActionListener(e -> setDeveloperModeEnabled(developerMode.isSelected()));
     view.add(developerMode);
 
-    JMenu help = hubMenu("Help");
-    help.add(hubMenuItem("Documentation", this::openDocumentationWebsite));
+    JMenu help = hubMenu("Help", TEXT_SOFT, KeyEvent.VK_H);
+    help.add(menuStatusCard("JVN " + version, "Documentation and install information", TEXT_SOFT));
     help.addSeparator();
-    help.add(hubMenuItem("About Engine Hub", this::showAboutReport));
+    help.add(hubMenuItem(
+        "Documentation",
+        "Open the public JVN documentation website.",
+        VectorIcon.Kind.DOCUMENTATION,
+        TEXT_SOFT,
+        this::openDocumentationWebsite));
+    help.addSeparator();
+    help.add(hubMenuItem(
+        "About Engine Hub",
+        "Show version, revision, install, Java, OS, and display details.",
+        VectorIcon.Kind.INFO,
+        TEXT_SOFT,
+        this::showAboutReport));
 
     bar.add(file);
     bar.add(engine);
@@ -655,60 +841,118 @@ public final class JvnHub {
   }
 
   private JMenu buildDeveloperModeMenu() {
-    JMenu developer = hubMenu("Developer");
-    developer.setForeground(ACCENT_DEV);
-    developer.add(hubMenuItem("Compile All Modules", () -> guardedRun(
-        "Compile All Modules", () -> runGradle("compileAll", "Compile All Modules"))));
-    developer.add(hubMenuItem("Quick Verification", () -> guardedRun(
-        "Quick Verification", () -> runGradle("quickCheck", "Quick Verification"))));
-    developer.add(hubMenuItem("Run Full Test Suite", () -> clickIfAvailable(runTestsButton)));
+    boolean busy = runningProcess.get() != null;
+    JMenu developer = hubMenu("Developer", ACCENT_DEV, KeyEvent.VK_D);
+    developer.add(menuStatusCard(
+        "Developer Mode active",
+        describeGradleOptions(),
+        ACCENT_DEV));
     developer.addSeparator();
-    developer.add(hubMenuItem("Configure Gradle", this::showGradleOptionsDialog));
-    developer.add(hubMenuItem("Inspect Engine Diagnostics", this::showDiagnosticsReport));
+    JMenuItem compile = hubMenuItem(
+        "Compile All Modules",
+        "Compile the workspace with Developer Mode launch flags.",
+        VectorIcon.Kind.HAMMER,
+        ACCENT_DEV,
+        () -> guardedRun("Compile All Modules", () -> runGradle("compileAll", "Compile All Modules")));
+    compile.setEnabled(!busy);
+    developer.add(compile);
+    JMenuItem verify = hubMenuItem(
+        "Quick Verification",
+        "Run the fast engineering verification path.",
+        VectorIcon.Kind.CHECK,
+        ACCENT_DEV,
+        () -> guardedRun("Quick Verification", () -> runGradle("quickCheck", "Quick Verification")));
+    verify.setEnabled(!busy);
+    developer.add(verify);
+    JMenuItem tests = hubMenuItem(
+        "Run Full Test Suite",
+        "Execute every automated test.",
+        VectorIcon.Kind.HEALTH,
+        ACCENT_DEV,
+        () -> clickIfAvailable(runTestsButton));
+    tests.setEnabled(!busy);
+    developer.add(tests);
+    developer.addSeparator();
+    developer.add(hubMenuItem(
+        "Configure Gradle",
+        "Configure stacktraces, logging, dependency, cache, daemon, and custom flags.",
+        VectorIcon.Kind.SLIDERS,
+        ACCENT_DEV,
+        this::showGradleOptionsDialog));
+    developer.add(hubMenuItem(
+        "Inspect Engine Diagnostics",
+        "Run the Hub health report.",
+        VectorIcon.Kind.HEALTH,
+        ACCENT_DEV,
+        this::showDiagnosticsReport));
     return developer;
   }
 
   private JMenu buildSafeModeMenu() {
-    JMenu safe = hubMenu("Safe Mode");
-    safe.setForeground(ACCENT_SAFE);
-    safe.add(hubMenuItem("Run Editor with Guardrails", () -> clickIfAvailable(runEditorButton)));
-    safe.add(hubMenuItem("Update Stable with Recovery", () -> clickIfAvailable(updateEngineButton)));
+    boolean busy = runningProcess.get() != null;
+    JMenu safe = hubMenu("Safe Mode", ACCENT_SAFE, KeyEvent.VK_A);
+    safe.add(menuStatusCard(
+        "Safe Mode active",
+        "Guarded launches · update recovery · preserved caches",
+        ACCENT_SAFE));
     safe.addSeparator();
-    safe.add(hubMenuItem("Recheck Workspace Health", this::showDiagnosticsReport));
-    safe.add(hubMenuItem("Open Recovery Logs", () -> revealHubFolder(
-        "logs", Paths.get(System.getProperty("user.home", "."), ".jvn", "logs"))));
-    safe.add(hubMenuItem("Cancel Running Task", this::cancelRunning));
+    JMenuItem runEditor = hubMenuItem(
+        "Run Editor with Guardrails",
+        "Launch the editor with safe-mode flags.",
+        VectorIcon.Kind.SHIELD,
+        ACCENT_SAFE,
+        () -> clickIfAvailable(runEditorButton));
+    runEditor.setEnabled(!busy);
+    safe.add(runEditor);
+    JMenuItem update = hubMenuItem(
+        "Update Stable with Recovery",
+        "Update with autostash and interrupted-operation recovery.",
+        VectorIcon.Kind.REFRESH,
+        ACCENT_SAFE,
+        () -> clickIfAvailable(updateEngineButton));
+    update.setEnabled(!busy);
+    safe.add(update);
+    safe.addSeparator();
+    safe.add(hubMenuItem(
+        "Recheck Workspace Health",
+        "Run workspace and repository diagnostics.",
+        VectorIcon.Kind.HEALTH,
+        ACCENT_SAFE,
+        this::showDiagnosticsReport));
+    safe.add(hubMenuItem(
+        "Open Recovery Logs",
+        "Open update and process recovery logs.",
+        VectorIcon.Kind.DOCUMENTATION,
+        ACCENT_SAFE,
+        () -> revealHubFolder("logs", Paths.get(System.getProperty("user.home", "."), ".jvn", "logs"))));
+    JMenuItem cancel = hubMenuItem(
+        "Cancel Running Task",
+        busy ? "Stop the active safe-mode process." : "No Hub-managed process is running.",
+        VectorIcon.Kind.STOP,
+        ACCENT_ERROR,
+        this::cancelRunning);
+    cancel.setEnabled(busy);
+    safe.add(cancel);
     return safe;
   }
 
   private JMenu buildRenderPipelineMenu() {
-    JMenu render = hubMenu("Render Pipeline");
-    render.setForeground(ACCENT_RENDER);
-    render.getPopupMenu().setBorder(BorderFactory.createLineBorder(ACCENT_RENDER.darker()));
-
-    JMenuItem profile = hubMenuItem(
-        "Next launch: " + renderPipelineMode.displayName(),
-        () -> {});
-    profile.setEnabled(false);
-    render.add(profile);
-
-    JMenuItem backend = hubMenuItem(
-        "Backends: " + renderPipelineMode.backendOrder(System.getProperty("os.name", "")),
-        () -> {});
-    backend.setEnabled(false);
-    render.add(backend);
-    JMenuItem tuningStatus = hubMenuItem(
-        "Tuning: VSync " + (renderPipelineOptions.vsync() ? "on" : "off")
-            + " · Dirty regions " + (renderPipelineOptions.dirtyRegions() ? "on" : "off")
-            + " · Cache " + renderPipelineOptions.shapeCache().id(),
-        () -> {});
-    tuningStatus.setEnabled(false);
-    render.add(tuningStatus);
+    boolean busy = runningProcess.get() != null;
+    JMenu render = hubMenu("Render Pipeline", ACCENT_RENDER, KeyEvent.VK_R);
+    render.add(menuStatusCard(
+        "Next launch · " + renderPipelineMode.displayName(),
+        renderPipelineMode.backendOrder(System.getProperty("os.name", "")),
+        ACCENT_RENDER));
+    render.add(menuStatusCard(
+        "VSync " + (renderPipelineOptions.vsync() ? "on" : "off")
+            + " · Dirty regions " + (renderPipelineOptions.dirtyRegions() ? "on" : "off"),
+        "Shape cache · " + renderPipelineOptions.shapeCache().displayName(),
+        ACCENT_RENDER));
     if (renderPipelineOptions.diagnosticsEnabled()) {
-      JMenuItem diagnosticsStatus = hubMenuItem("Diagnostics active — may affect performance", () -> {});
-      diagnosticsStatus.setForeground(ACCENT_RENDER);
-      diagnosticsStatus.setEnabled(false);
-      render.add(diagnosticsStatus);
+      render.add(menuStatusCard(
+          "Render diagnostics active",
+          "Visualization and logging may reduce frame rate",
+          ACCENT_ERROR));
     }
     render.addSeparator();
 
@@ -730,13 +974,13 @@ public final class JvnHub {
         RenderPipelineSettings.Mode.SOFTWARE);
 
     render.addSeparator();
-    JMenu performance = hubMenu("Performance Tuning");
-    performance.setForeground(ACCENT_RENDER);
-    performance.getPopupMenu().setBorder(BorderFactory.createLineBorder(ACCENT_RENDER.darker()));
+    JMenu performance = hubMenu("Performance Tuning", ACCENT_RENDER);
+    performance.setToolTipText("Tune presentation, redraw, culling, and vector-shape caching.");
     JCheckBoxMenuItem vsync = hubCheckMenuItem(
         "Display Synchronization (VSync)",
+        "Synchronize Prism presentation to the display refresh cycle.",
+        ACCENT_RENDER,
         renderPipelineOptions.vsync());
-    vsync.setToolTipText("Synchronize Prism presentation to the display refresh cycle.");
     vsync.addActionListener(e -> setRenderPipelineOptions(
         renderPipelineOptions.withVsync(vsync.isSelected()),
         "Display synchronization"));
@@ -744,8 +988,9 @@ public final class JvnHub {
 
     JCheckBoxMenuItem dirtyRegions = hubCheckMenuItem(
         "Dirty-Region Rendering",
+        "Redraw changed areas instead of repainting the whole scene.",
+        ACCENT_RENDER,
         renderPipelineOptions.dirtyRegions());
-    dirtyRegions.setToolTipText("Redraw changed areas instead of repainting the whole scene.");
     dirtyRegions.addActionListener(e -> setRenderPipelineOptions(
         renderPipelineOptions.withDirtyRegions(dirtyRegions.isSelected()),
         "Dirty-region rendering"));
@@ -753,16 +998,16 @@ public final class JvnHub {
 
     JCheckBoxMenuItem occlusion = hubCheckMenuItem(
         "Occlusion Culling",
+        "Skip obscured content while dirty-region rendering is active.",
+        ACCENT_RENDER,
         renderPipelineOptions.occlusionCulling());
-    occlusion.setToolTipText("Skip obscured scene content when dirty-region rendering is active.");
     occlusion.addActionListener(e -> setRenderPipelineOptions(
         renderPipelineOptions.withOcclusionCulling(occlusion.isSelected()),
         "Occlusion culling"));
     performance.add(occlusion);
 
-    JMenu shapeCache = hubMenu("Shape Cache");
-    shapeCache.setForeground(ACCENT_RENDER);
-    shapeCache.getPopupMenu().setBorder(BorderFactory.createLineBorder(ACCENT_RENDER.darker()));
+    JMenu shapeCache = hubMenu("Shape Cache", ACCENT_RENDER);
+    shapeCache.setToolTipText("Choose how aggressively Prism caches vector shapes.");
     ButtonGroup cacheChoices = new ButtonGroup();
     addShapeCacheChoice(shapeCache, cacheChoices, RenderPipelineSettings.ShapeCache.COMPLEX);
     addShapeCacheChoice(shapeCache, cacheChoices, RenderPipelineSettings.ShapeCache.ALL);
@@ -770,13 +1015,13 @@ public final class JvnHub {
     performance.add(shapeCache);
     render.add(performance);
 
-    JMenu diagnostics = hubMenu("Render Diagnostics");
-    diagnostics.setForeground(ACCENT_RENDER);
-    diagnostics.getPopupMenu().setBorder(BorderFactory.createLineBorder(ACCENT_RENDER.darker()));
+    JMenu diagnostics = hubMenu("Render Diagnostics", ACCENT_RENDER);
+    diagnostics.setToolTipText("Temporarily inspect Prism startup, redraw, and overdraw behavior.");
     JCheckBoxMenuItem verbose = hubCheckMenuItem(
         "Verbose Pipeline Startup",
+        "Print JavaFX Prism pipeline selection and capabilities at startup.",
+        ACCENT_RENDER,
         renderPipelineOptions.verbose());
-    verbose.setToolTipText("Print JavaFX Prism pipeline selection and capability details at startup.");
     verbose.addActionListener(e -> setRenderPipelineOptions(
         renderPipelineOptions.withVerbose(verbose.isSelected()),
         "Verbose pipeline startup"));
@@ -784,8 +1029,9 @@ public final class JvnHub {
 
     JCheckBoxMenuItem showDirty = hubCheckMenuItem(
         "Visualize Dirty Regions",
+        "Overlay repainted regions during a short diagnostic session.",
+        ACCENT_RENDER,
         renderPipelineOptions.showDirtyRegions());
-    showDirty.setToolTipText("Overlay the regions Prism repaints. Intended for short diagnostic sessions.");
     showDirty.addActionListener(e -> setRenderPipelineOptions(
         renderPipelineOptions.withShowDirtyRegions(showDirty.isSelected()),
         "Dirty-region visualization"));
@@ -793,8 +1039,9 @@ public final class JvnHub {
 
     JCheckBoxMenuItem showOverdraw = hubCheckMenuItem(
         "Visualize Overdraw",
+        "Highlight repeatedly rendered pixels during a short diagnostic session.",
+        ACCENT_RENDER,
         renderPipelineOptions.showOverdraw());
-    showOverdraw.setToolTipText("Highlight repeatedly rendered pixels. Intended for short diagnostic sessions.");
     showOverdraw.addActionListener(e -> setRenderPipelineOptions(
         renderPipelineOptions.withShowOverdraw(showOverdraw.isSelected()),
         "Overdraw visualization"));
@@ -802,20 +1049,37 @@ public final class JvnHub {
 
     JCheckBoxMenuItem printGraph = hubCheckMenuItem(
         "Print Render Graph",
+        "Capture JavaFX slow-pulse render trees for the Hub viewer on the next launch.",
+        ACCENT_RENDER,
         renderPipelineOptions.printRenderGraph());
-    printGraph.setToolTipText("Print Prism render-graph diagnostics to process output.");
     printGraph.addActionListener(e -> setRenderPipelineOptions(
         renderPipelineOptions.withPrintRenderGraph(printGraph.isSelected()),
         "Render-graph logging"));
     diagnostics.add(printGraph);
     diagnostics.addSeparator();
-    diagnostics.add(hubMenuItem("Disable All Render Diagnostics", this::disableRenderDiagnostics));
+    diagnostics.add(hubMenuItem(
+        "Open Render Graph Viewer...",
+        "View, refresh, copy, or clear the latest captured JavaFX render tree.",
+        VectorIcon.Kind.INFO,
+        ACCENT_RENDER,
+        this::showRenderGraphViewer));
+    JMenuItem disableDiagnostics = hubMenuItem(
+        "Disable All Render Diagnostics",
+        renderPipelineOptions.diagnosticsEnabled()
+            ? "Turn off every performance-sensitive render overlay and log."
+            : "No render diagnostics are currently active.",
+        VectorIcon.Kind.STOP,
+        ACCENT_RENDER,
+        this::disableRenderDiagnostics);
+    disableDiagnostics.setEnabled(renderPipelineOptions.diagnosticsEnabled());
+    diagnostics.add(disableDiagnostics);
     render.add(diagnostics);
 
     JCheckBoxMenuItem glxRecovery = hubCheckMenuItem(
         "Automatic Mesa GLX Recovery (Linux)",
+        "Retry a broken default GLX provider with Mesa during managed Linux launches.",
+        ACCENT_RENDER,
         renderPipelineOptions.linuxGlxRecovery());
-    glxRecovery.setToolTipText("Retry a broken default GLX provider with Mesa during managed Linux launches.");
     glxRecovery.setEnabled(System.getProperty("os.name", "")
         .toLowerCase(Locale.ROOT)
         .contains("linux"));
@@ -825,12 +1089,39 @@ public final class JvnHub {
     render.add(glxRecovery);
 
     render.addSeparator();
-    render.add(hubMenuItem("Launch Editor with This Pipeline", () -> clickIfAvailable(runEditorButton)));
-    render.add(hubMenuItem("Inspect Render Stack...", this::showRenderPipelineReport));
-    render.add(hubMenuItem("Copy Render Stack Summary", this::copyRenderPipelineSummary));
+    JMenuItem launch = hubMenuItem(
+        "Launch Editor with This Pipeline",
+        "Start the editor with the selected pipeline and tuning options.",
+        VectorIcon.Kind.PLAY,
+        ACCENT_RENDER,
+        () -> clickIfAvailable(runEditorButton));
+    launch.setEnabled(!busy);
+    render.add(launch);
+    render.add(hubMenuItem(
+        "Inspect Render Stack...",
+        "Show the selected backends, active tuning, and host graphics environment.",
+        VectorIcon.Kind.INFO,
+        ACCENT_RENDER,
+        this::showRenderPipelineReport));
+    render.add(hubMenuItem(
+        "Copy Render Stack Summary",
+        "Copy a support-ready rendering report.",
+        VectorIcon.Kind.CHECK,
+        ACCENT_RENDER,
+        this::copyRenderPipelineSummary));
     render.addSeparator();
-    render.add(hubMenuItem("Open Render Pipeline Settings", this::openRenderPipelinePreferences));
-    render.add(hubMenuItem("Reset All Rendering Defaults", this::resetRenderPipelineDefaults));
+    render.add(hubMenuItem(
+        "Open Render Pipeline Settings",
+        "Edit the persisted rendering preferences file.",
+        VectorIcon.Kind.EDIT,
+        ACCENT_RENDER,
+        this::openRenderPipelinePreferences));
+    render.add(hubMenuItem(
+        "Reset All Rendering Defaults",
+        "Restore adaptive selection and all recommended performance settings.",
+        VectorIcon.Kind.REFRESH,
+        ACCENT_RENDER,
+        this::resetRenderPipelineDefaults));
     return render;
   }
 
@@ -840,7 +1131,7 @@ public final class JvnHub {
       String label,
       RenderPipelineSettings.Mode mode) {
     JRadioButtonMenuItem item = new JRadioButtonMenuItem(label, renderPipelineMode == mode);
-    styleMenuItem(item);
+    styleMenuItem(item, ACCENT_RENDER);
     item.setToolTipText(mode.description());
     item.addActionListener(e -> setRenderPipelineMode(mode));
     profiles.add(item);
@@ -854,7 +1145,7 @@ public final class JvnHub {
     JRadioButtonMenuItem item = new JRadioButtonMenuItem(
         cache.displayName(),
         renderPipelineOptions.shapeCache() == cache);
-    styleMenuItem(item);
+    styleMenuItem(item, ACCENT_RENDER);
     item.setToolTipText(switch (cache) {
       case COMPLEX -> "Cache complex vector shapes while leaving simple shapes on the direct path.";
       case ALL -> "Cache simple and complex shapes; may trade additional memory for lower rasterization work.";
@@ -868,8 +1159,9 @@ public final class JvnHub {
   }
 
   private JMenu buildUiScaleMenu() {
-    JMenu scale = hubMenu("UI Scale");
+    JMenu scale = hubMenu("UI Scale", TEXT_SOFT);
     scale.setBackground(PANEL_BG);
+    scale.setToolTipText("Resize the complete Hub interface or fit it automatically to this display.");
     ButtonGroup choices = new ButtonGroup();
     boolean automatic = automaticUiScaleSelected();
     addScaleChoice(scale, choices, "Auto (Fit Display)", Double.NaN, automatic);
@@ -877,12 +1169,25 @@ public final class JvnHub {
     addScaleChoice(scale, choices, "Small (85%)", 0.85, !automatic && nearScale(0.85));
     addScaleChoice(scale, choices, "Default (100%)", 1.0, !automatic && nearScale(1.0));
     addScaleChoice(scale, choices, "Large (125%)", 1.25, !automatic && nearScale(1.25));
+    scale.addSeparator();
+    JMenuItem custom = hubMenuItem(
+        "Custom Scale...",
+        "Enter a fixed Hub scale from 75% through 185%.",
+        VectorIcon.Kind.SLIDERS,
+        TEXT_SOFT,
+        this::showCustomUiScaleDialog);
+    custom.setEnabled(runningProcess.get() == null);
+    scale.add(custom);
     return scale;
   }
 
   private void addScaleChoice(JMenu menu, ButtonGroup choices, String label, double value, boolean selected) {
     JRadioButtonMenuItem item = new JRadioButtonMenuItem(label, selected);
-    styleMenuItem(item);
+    styleMenuItem(item, TEXT_SOFT);
+    item.setToolTipText(Double.isFinite(value)
+        ? "Use a fixed " + Math.round(value * 100.0) + "% Hub scale."
+        : "Choose a comfortable Hub scale from the current display bounds.");
+    item.setEnabled(runningProcess.get() == null);
     item.addActionListener(e -> applyUiScale(value));
     choices.add(item);
     menu.add(item);
@@ -890,6 +1195,113 @@ public final class JvnHub {
 
   private boolean nearScale(double value) {
     return Math.abs(activeUiScale - value) < 0.01;
+  }
+
+  private void showCustomUiScaleDialog() {
+    if (runningProcess.get() != null) {
+      setStatus("UI scale is locked while a task is running", ACCENT_ERROR);
+      return;
+    }
+
+    JDialog dialog = new JDialog(frame, "Custom UI Scale", true);
+    dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
+    dialog.setResizable(false);
+
+    JPanel root = new JPanel(new BorderLayout(0, ui(14)));
+    root.setBackground(BG);
+    root.setBorder(uiPadding(16, 16, 16, 16));
+    root.add(dialogHeader(
+        "Custom UI Scale",
+        "Set a fixed Engine Hub scale between 75% and 185%."), BorderLayout.NORTH);
+
+    JPanel form = new JPanel();
+    form.setOpaque(true);
+    form.setBackground(PANEL_BG);
+    form.setBorder(BorderFactory.createCompoundBorder(
+        BorderFactory.createLineBorder(BORDER_NEUTRAL),
+        uiPadding(12, 14, 12, 14)));
+    form.setLayout(new BoxLayout(form, BoxLayout.Y_AXIS));
+
+    JLabel inputLabel = new JLabel("Scale value");
+    inputLabel.setForeground(TEXT_SOFT);
+    inputLabel.setFont(inputLabel.getFont().deriveFont(Font.BOLD, uiFont(11f)));
+    inputLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+    JTextField input = gradleTextField(String.format(Locale.ROOT, "%.0f%%", activeUiScale * 100.0));
+    input.setToolTipText("Examples: 125, 125%, or 1.25");
+    input.setAlignmentX(Component.LEFT_ALIGNMENT);
+    input.setPreferredSize(uiDimension(300, 38));
+    input.setMaximumSize(new Dimension(Integer.MAX_VALUE, ui(38)));
+    input.selectAll();
+
+    JLabel help = new JLabel("Examples: 125 · 125% · 1.25");
+    help.setForeground(TEXT_MUTED);
+    help.setFont(help.getFont().deriveFont(Font.PLAIN, uiFont(10f)));
+    help.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+    JLabel validation = new JLabel(" ");
+    validation.setForeground(ACCENT_ERROR);
+    validation.setFont(validation.getFont().deriveFont(Font.BOLD, uiFont(10f)));
+    validation.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+    form.add(inputLabel);
+    form.add(Box.createVerticalStrut(ui(6)));
+    form.add(input);
+    form.add(Box.createVerticalStrut(ui(6)));
+    form.add(help);
+    form.add(Box.createVerticalStrut(ui(4)));
+    form.add(validation);
+    root.add(form, BorderLayout.CENTER);
+
+    FlatButton cancel = new FlatButton(
+        "Cancel",
+        uiIcon(VectorIcon.Kind.CLOSE, 14, TEXT_SOFT),
+        TEXT_SOFT);
+    cancel.addActionListener(e -> dialog.dispose());
+
+    FlatButton apply = new FlatButton(
+        "Apply Scale",
+        uiIcon(VectorIcon.Kind.CHECK, 14, ACCENT_NEUTRAL),
+        ACCENT_NEUTRAL);
+    apply.addActionListener(e -> {
+      double scale = parseCustomUiScale(input.getText());
+      if (!Double.isFinite(scale)) {
+        validation.setText("Enter a value from 75% to 185%.");
+        input.requestFocusInWindow();
+        input.selectAll();
+        return;
+      }
+      dialog.dispose();
+      SwingUtilities.invokeLater(() -> applyUiScale(scale));
+    });
+
+    JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, ui(8), 0));
+    footer.setOpaque(false);
+    footer.add(cancel);
+    footer.add(apply);
+    root.add(footer, BorderLayout.SOUTH);
+
+    dialog.setContentPane(root);
+    dialog.getRootPane().setDefaultButton(apply);
+    dialog.setSize(uiDimension(430, 300));
+    dialog.setLocationRelativeTo(frame);
+    dialog.setVisible(true);
+  }
+
+  static double parseCustomUiScale(String rawValue) {
+    if (rawValue == null || rawValue.isBlank()) return Double.NaN;
+    String value = rawValue.trim().replace(" ", "");
+    boolean percent = value.endsWith("%");
+    if (percent) value = value.substring(0, value.length() - 1);
+    if (value.indexOf(',') >= 0 && value.indexOf('.') < 0) value = value.replace(',', '.');
+    try {
+      double parsed = Double.parseDouble(value);
+      if (!Double.isFinite(parsed)) return Double.NaN;
+      double scale = percent || parsed > MAX_UI_SCALE ? parsed / 100.0 : parsed;
+      return scale >= MIN_UI_SCALE && scale <= MAX_UI_SCALE ? scale : Double.NaN;
+    } catch (NumberFormatException ignored) {
+      return Double.NaN;
+    }
   }
 
   private void applyUiScale(double requestedScale) {
@@ -916,36 +1328,101 @@ public final class JvnHub {
     appendLog("[hub] UI scale changed to " + String.format(Locale.ROOT, "%.0f%%", newScale * 100.0) + ".");
   }
 
-  private static JMenu hubMenu(String text) {
+  private static JMenu hubMenu(String text, Color accent) {
+    return hubMenu(text, accent, 0);
+  }
+
+  private static JMenu hubMenu(String text, Color accent, int mnemonic) {
+    Color tone = accent == null ? TEXT_PRIMARY : accent;
     JMenu menu = new JMenu(text);
     menu.setOpaque(true);
     menu.setBackground(BG_TOP);
-    menu.setForeground(TEXT_PRIMARY);
+    menu.setForeground(tone);
     menu.setFont(menu.getFont().deriveFont(Font.PLAIN, uiFont(12f)));
+    if (mnemonic > 0) menu.setMnemonic(mnemonic);
     menu.getPopupMenu().setOpaque(true);
     menu.getPopupMenu().setBackground(PANEL_BG);
-    menu.getPopupMenu().setBorder(BorderFactory.createLineBorder(BORDER_NEUTRAL));
+    menu.getPopupMenu().setBorder(BorderFactory.createCompoundBorder(
+        BorderFactory.createMatteBorder(ui(2), ui(1), ui(1), ui(1), tone.darker()),
+        uiPadding(4, 3, 4, 3)));
+    menu.putClientProperty("jvn.menu.accent", tone);
     return menu;
   }
 
-  private static JMenuItem hubMenuItem(String text, Runnable action) {
+  private static JMenuItem hubMenuItem(
+      String text,
+      String tooltip,
+      VectorIcon.Kind iconKind,
+      Color accent,
+      Runnable action) {
     JMenuItem item = new JMenuItem(text);
-    styleMenuItem(item);
+    styleMenuItem(item, accent);
+    if (tooltip != null && !tooltip.isBlank()) item.setToolTipText(tooltip);
+    if (iconKind != null) item.setIcon(uiIcon(iconKind, 13, accent == null ? TEXT_SOFT : accent));
     item.addActionListener(e -> action.run());
     return item;
   }
 
-  private static JCheckBoxMenuItem hubCheckMenuItem(String text, boolean selected) {
+  private static JCheckBoxMenuItem hubCheckMenuItem(
+      String text,
+      String tooltip,
+      Color accent,
+      boolean selected) {
     JCheckBoxMenuItem item = new JCheckBoxMenuItem(text, selected);
-    styleMenuItem(item);
+    styleMenuItem(item, accent);
+    if (tooltip != null && !tooltip.isBlank()) item.setToolTipText(tooltip);
     return item;
   }
 
-  private static void styleMenuItem(JMenuItem item) {
+  private static void styleMenuItem(JMenuItem item, Color accent) {
     item.setOpaque(true);
     item.setBackground(PANEL_BG);
     item.setForeground(TEXT_PRIMARY);
     item.setFont(item.getFont().deriveFont(Font.PLAIN, uiFont(12f)));
+    item.setBorder(uiPadding(5, 8, 5, 10));
+    item.setBorderPainted(false);
+    item.putClientProperty("jvn.menu.accent", accent == null ? TEXT_SOFT : accent);
+  }
+
+  private static JComponent menuStatusCard(String titleText, String detailText, Color accent) {
+    Color tone = accent == null ? ACCENT_NEUTRAL : accent;
+    JPanel card = new JPanel(new BorderLayout(0, ui(2)));
+    card.setBackground(PRESSED_BG);
+    card.setBorder(BorderFactory.createCompoundBorder(
+        BorderFactory.createMatteBorder(0, ui(3), 0, 0, tone),
+        uiPadding(7, 10, 7, 10)));
+
+    JLabel title = new JLabel(firstNonBlank(titleText, "Status"));
+    title.setForeground(tone);
+    title.setFont(title.getFont().deriveFont(Font.BOLD, uiFont(11f)));
+    JLabel detail = new JLabel(firstNonBlank(detailText, "Ready"));
+    detail.setForeground(TEXT_MUTED);
+    detail.setFont(detail.getFont().deriveFont(Font.PLAIN, uiFont(9.5f)));
+    card.add(title, BorderLayout.NORTH);
+    card.add(detail, BorderLayout.CENTER);
+    card.setMaximumSize(new Dimension(Integer.MAX_VALUE, ui(48)));
+    card.setPreferredSize(uiDimension(310, 48));
+    return card;
+  }
+
+  private static JMenuItem withAccelerator(JMenuItem item, int keyCode, int modifiers) {
+    if (item != null) item.setAccelerator(KeyStroke.getKeyStroke(keyCode, modifiers));
+    return item;
+  }
+
+  private static int menuShortcutMask() {
+    try {
+      return Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx();
+    } catch (java.awt.HeadlessException ignored) {
+      return java.awt.event.InputEvent.CTRL_DOWN_MASK;
+    }
+  }
+
+  private static String compactMenuPath(Path path) {
+    if (path == null) return "Path unavailable";
+    String text = path.toAbsolutePath().normalize().toString();
+    int max = 54;
+    return text.length() <= max ? text : "…" + text.substring(text.length() - max + 1);
   }
 
   private static void installApplicationIcon(JFrame frame) {
@@ -1239,31 +1716,106 @@ public final class JvnHub {
   }
 
   private JPopupMenu buildFooterMenu() {
-    JPopupMenu menu = new JPopupMenu();
-    menu.setBackground(PANEL_BG);
-    menu.setBorder(BorderFactory.createLineBorder(BORDER_NEUTRAL));
-    menu.add(popupItem("Run Editor", () -> clickIfAvailable(runEditorButton)));
-    menu.add(popupItem("Build All", () -> clickIfAvailable(buildAllButton)));
-    menu.addSeparator();
-    menu.add(popupItem("Update Engine", this::updateEngine));
-    menu.add(popupItem("Diagnostics", this::showDiagnosticsReport));
-    menu.add(popupItem("Documentation Website", this::openDocumentationWebsite));
-    menu.addSeparator();
-    menu.add(popupItem("Reveal Engine Root", this::revealEngineRoot));
-    menu.add(popupItem("Copy Engine Root Path", this::copyEngineRootPath));
-    menu.addSeparator();
-    menu.add(popupItem("Cancel Running Task", this::cancelRunning));
-    menu.add(popupItem("Quit Hub", this::confirmAndExit));
+    JPopupMenu menu = new JPopupMenu() {
+      @Override
+      public void show(Component invoker, int x, int y) {
+        populateFooterMenu(this);
+        super.show(invoker, x, y);
+      }
+    };
+    populateFooterMenu(menu);
     return menu;
   }
 
-  private JMenuItem popupItem(String label, Runnable action) {
-    JMenuItem item = new JMenuItem(label);
-    item.setBackground(PANEL_BG);
-    item.setForeground(TEXT_SOFT);
-    item.setFont(item.getFont().deriveFont(Font.BOLD, uiFont(12f)));
-    item.setEnabled(action != null);
-    if (action != null) item.addActionListener(e -> action.run());
+  private void populateFooterMenu(JPopupMenu menu) {
+    boolean busy = runningProcess.get() != null;
+    menu.removeAll();
+    menu.setBackground(PANEL_BG);
+    menu.setBorder(BorderFactory.createCompoundBorder(
+        BorderFactory.createMatteBorder(ui(2), ui(1), ui(1), ui(1), ACCENT_TOOLS.darker()),
+        uiPadding(4, 3, 4, 3)));
+    menu.add(menuStatusCard(
+        busy ? "Background task active" : "Engine Hub ready",
+        busy ? firstNonBlank(activeStepLabel, "Working") : compactMenuPath(projectRoot),
+        ACCENT_TOOLS));
+    menu.addSeparator();
+    menu.add(popupItem(
+        "Run Editor",
+        "Launch the JVN editor from this workspace.",
+        VectorIcon.Kind.PLAY,
+        ACCENT_TOOLS,
+        !busy,
+        () -> clickIfAvailable(runEditorButton)));
+    menu.add(popupItem(
+        "Build All",
+        "Run the complete workspace build.",
+        VectorIcon.Kind.HAMMER,
+        ACCENT_GREEN,
+        !busy,
+        () -> clickIfAvailable(buildAllButton)));
+    menu.addSeparator();
+    menu.add(popupItem(
+        "Update Engine",
+        "Update this checkout from the stable branch.",
+        VectorIcon.Kind.REFRESH,
+        ACCENT_MAINTENANCE,
+        !busy,
+        this::updateEngine));
+    menu.add(popupItem(
+        "Diagnostics",
+        "Run the Hub health report.",
+        VectorIcon.Kind.HEALTH,
+        ACCENT_TOOLS,
+        true,
+        this::showDiagnosticsReport));
+    menu.add(popupItem(
+        "Documentation Website",
+        "Open the public JVN documentation.",
+        VectorIcon.Kind.DOCUMENTATION,
+        TEXT_SOFT,
+        true,
+        this::openDocumentationWebsite));
+    menu.addSeparator();
+    menu.add(popupItem(
+        "Reveal Engine Root",
+        "Open the active checkout in the system file manager.",
+        VectorIcon.Kind.INFO,
+        TEXT_SOFT,
+        true,
+        this::revealEngineRoot));
+    menu.add(popupItem(
+        "Copy Engine Root Path",
+        "Copy the active checkout path.",
+        VectorIcon.Kind.CHECK,
+        TEXT_SOFT,
+        true,
+        this::copyEngineRootPath));
+    menu.addSeparator();
+    menu.add(popupItem(
+        "Cancel Running Task",
+        busy ? "Stop the active Hub-managed process." : "No Hub-managed process is running.",
+        VectorIcon.Kind.STOP,
+        ACCENT_ERROR,
+        busy,
+        this::cancelRunning));
+    menu.add(popupItem(
+        "Quit Hub",
+        "Close the Engine Hub after confirming any active task.",
+        VectorIcon.Kind.CLOSE,
+        TEXT_SOFT,
+        true,
+        this::confirmAndExit));
+  }
+
+  private JMenuItem popupItem(
+      String label,
+      String tooltip,
+      VectorIcon.Kind iconKind,
+      Color accent,
+      boolean enabled,
+      Runnable action) {
+    JMenuItem item = hubMenuItem(label, tooltip, iconKind, accent, action);
+    item.setEnabled(enabled);
     return item;
   }
 
@@ -1789,6 +2341,183 @@ public final class JvnHub {
         "Ready to paste into a performance report.",
         false,
         ACCENT_RENDER);
+  }
+
+  private void showRenderGraphViewer() {
+    JDialog openViewer = renderGraphViewer.get();
+    if (openViewer != null && openViewer.isDisplayable()) {
+      openViewer.setVisible(true);
+      openViewer.toFront();
+      openViewer.requestFocus();
+      return;
+    }
+
+    JDialog dialog = new JDialog(frame, "Render Graph Viewer", false);
+    dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
+    renderGraphViewer.set(dialog);
+
+    JPanel root = new JPanel(new BorderLayout(0, ui(12)));
+    root.setBackground(BG);
+    root.setBorder(uiPadding(14, 14, 14, 14));
+    root.add(dialogHeader(
+        "Render Graph Viewer",
+        "Latest detailed JavaFX slow-pulse tree from a Hub-managed launch."), BorderLayout.NORTH);
+
+    JLabel captureStatus = new JLabel("Waiting for capture state...");
+    captureStatus.setForeground(ACCENT_RENDER);
+    captureStatus.setFont(captureStatus.getFont().deriveFont(Font.BOLD, uiFont(10.5f)));
+    captureStatus.setBorder(uiPadding(0, 2, 5, 2));
+
+    JTextArea graphArea = new JTextArea();
+    graphArea.setEditable(false);
+    graphArea.setLineWrap(false);
+    graphArea.setWrapStyleWord(false);
+    graphArea.setBackground(PRESSED_BG);
+    graphArea.setForeground(LOG_TEXT);
+    graphArea.setCaretColor(ACCENT_RENDER);
+    graphArea.setSelectionColor(new Color(83, 54, 108));
+    graphArea.setSelectedTextColor(TEXT_PRIMARY);
+    graphArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, Math.round(uiFont(10.5f))));
+    graphArea.setBorder(uiPadding(10, 12, 10, 12));
+
+    JScrollPane scroll = new JScrollPane(graphArea);
+    scroll.setBorder(BorderFactory.createLineBorder(ACCENT_RENDER.darker()));
+    scroll.getViewport().setBackground(PRESSED_BG);
+    styleScrollBar(scroll.getVerticalScrollBar());
+    styleScrollBar(scroll.getHorizontalScrollBar());
+
+    JPanel graphPanel = new JPanel(new BorderLayout());
+    graphPanel.setOpaque(false);
+    graphPanel.add(captureStatus, BorderLayout.NORTH);
+    graphPanel.add(scroll, BorderLayout.CENTER);
+    root.add(graphPanel, BorderLayout.CENTER);
+
+    JCheckBox captureToggle = optionCheckBox(
+        "Capture slow-pulse render trees on the next launch",
+        "Enables JavaFX PulseLogger and Prism render-graph output for diagnostic launches.",
+        renderPipelineOptions.printRenderGraph());
+    captureToggle.addActionListener(e -> setRenderPipelineOptions(
+        renderPipelineOptions.withPrintRenderGraph(captureToggle.isSelected()),
+        "Render-graph capture"));
+
+    FlatButton launch = new FlatButton(
+        "Launch Editor",
+        uiIcon(VectorIcon.Kind.PLAY, 14, ACCENT_RENDER),
+        ACCENT_RENDER);
+    launch.setToolTipText("Launch the editor with the current Render Pipeline settings.");
+    launch.addActionListener(e -> clickIfAvailable(runEditorButton));
+
+    FlatButton copy = new FlatButton(
+        "Copy Graph",
+        uiIcon(VectorIcon.Kind.CHECK, 14, TEXT_SOFT),
+        TEXT_SOFT);
+    copy.addActionListener(e -> {
+      String graph = renderGraphCapture.snapshot().graph();
+      if (graph.isBlank()) return;
+      Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(graph), null);
+      setStatus("Copied render graph", ACCENT_RENDER);
+    });
+
+    FlatButton clear = new FlatButton(
+        "Clear",
+        uiIcon(VectorIcon.Kind.CLOSE, 14, TEXT_SOFT),
+        TEXT_SOFT);
+    clear.addActionListener(e -> renderGraphCapture.clear());
+
+    FlatButton close = new FlatButton(
+        "Close",
+        uiIcon(VectorIcon.Kind.CLOSE, 14, TEXT_PRIMARY),
+        TEXT_PRIMARY);
+    close.addActionListener(e -> dialog.dispose());
+
+    JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, ui(7), 0));
+    actions.setOpaque(false);
+    actions.add(launch);
+    actions.add(copy);
+    actions.add(clear);
+    actions.add(close);
+
+    JPanel footer = new JPanel(new BorderLayout(0, ui(7)));
+    footer.setOpaque(false);
+    footer.add(captureToggle, BorderLayout.NORTH);
+    footer.add(actions, BorderLayout.SOUTH);
+    root.add(footer, BorderLayout.SOUTH);
+
+    long[] shownRevision = {-1L};
+    boolean[] shownPreference = {!renderPipelineOptions.printRenderGraph()};
+    Runnable refresh = () -> {
+      RenderGraphCapture.Snapshot snapshot = renderGraphCapture.snapshot();
+      boolean preference = renderPipelineOptions.printRenderGraph();
+      if (snapshot.revision() != shownRevision[0] || preference != shownPreference[0]) {
+        shownRevision[0] = snapshot.revision();
+        shownPreference[0] = preference;
+        captureToggle.setSelected(preference);
+        String text = snapshot.graph().isBlank()
+            ? renderGraphEmptyState(preference, snapshot.processRunning(), snapshot.captureEnabled())
+            : snapshot.graph();
+        graphArea.setText(text);
+        graphArea.setCaretPosition(0);
+      }
+      launch.setEnabled(runningProcess.get() == null);
+      copy.setEnabled(!snapshot.graph().isBlank());
+      clear.setEnabled(!snapshot.graph().isBlank());
+      captureStatus.setText(renderGraphStatus(snapshot, preference));
+    };
+
+    javax.swing.Timer refreshTimer = new javax.swing.Timer(240, e -> refresh.run());
+    refreshTimer.setCoalesce(true);
+    dialog.addWindowListener(new WindowAdapter() {
+      @Override
+      public void windowClosed(WindowEvent event) {
+        refreshTimer.stop();
+        renderGraphViewer.compareAndSet(dialog, null);
+      }
+    });
+
+    dialog.setContentPane(root);
+    dialog.setMinimumSize(uiDimension(650, 420));
+    dialog.setSize(uiDimension(760, 500));
+    dialog.setLocationRelativeTo(frame);
+    refresh.run();
+    refreshTimer.start();
+    dialog.setVisible(true);
+  }
+
+  private static String renderGraphEmptyState(
+      boolean preferenceEnabled,
+      boolean processRunning,
+      boolean launchCaptureEnabled) {
+    if (!preferenceEnabled) {
+      return "No render graph captured.\n\n"
+          + "Enable capture below, launch the editor or a game from the Hub, then interact with "
+          + "the UI. Detailed graphs are emitted for slow JavaFX pulses.";
+    }
+    if (processRunning && !launchCaptureEnabled) {
+      return "Capture was enabled after this process started.\n\n"
+          + "JavaFX diagnostics are startup-only; relaunch the editor or game to collect a graph.";
+    }
+    if (processRunning) {
+      return "Listening for a detailed render graph...\n\n"
+          + "Interact with the running JavaFX UI. The latest slow-pulse tree will appear here.";
+    }
+    return "Render-graph capture is ready.\n\n"
+        + "Launch the editor or a game from the Hub, then interact with its UI.";
+  }
+
+  private static String renderGraphStatus(
+      RenderGraphCapture.Snapshot snapshot,
+      boolean preferenceEnabled) {
+    if (snapshot.processRunning() && snapshot.captureEnabled()) {
+      return "● Listening · " + snapshot.session()
+          + " · " + snapshot.capturedGraphs() + " graph"
+          + (snapshot.capturedGraphs() == 1 ? "" : "s");
+    }
+    if (!snapshot.graph().isBlank()) {
+      return "Latest · " + snapshot.graphSession()
+          + " · " + snapshot.capturedGraphs() + " graph"
+          + (snapshot.capturedGraphs() == 1 ? "" : "s");
+    }
+    return preferenceEnabled ? "Ready for the next managed launch" : "Capture disabled";
   }
 
   private void openRenderPipelinePreferences() {
@@ -3039,6 +3768,7 @@ public final class JvnHub {
   private void release(String label, int exitCode) {
     runningProcess.set(null);
     setButtonsEnabled(true);
+    refreshModeMenus();
     Color tone = exitCode == 0 ? ACCENT_GREEN : ACCENT_ERROR;
     String prefix = exitCode == 0 ? "Done" : "Failed (exit " + exitCode + ")";
     setStatus(prefix + ": " + label, tone);
@@ -3062,8 +3792,10 @@ public final class JvnHub {
         ProcessBuilder pb = new ProcessBuilder(command)
             .directory(projectRoot.toFile())
             .redirectErrorStream(true);
-        if (RenderPipelineSettings.applyLaunchEnvironment(
-            pb.environment(), command, launchPipelineMode, launchPipelineOptions)) {
+        boolean managedGraphicsLaunch = RenderPipelineSettings.applyLaunchEnvironment(
+            pb.environment(), command, launchPipelineMode, launchPipelineOptions);
+        if (managedGraphicsLaunch) {
+          renderGraphCapture.beginSession(label, launchPipelineOptions.printRenderGraph());
           publish("[hub] render pipeline: " + launchPipelineMode.displayName()
               + " (" + launchPipelineMode.backendOrder(System.getProperty("os.name", "")) + ").");
         }
@@ -3081,27 +3813,34 @@ public final class JvnHub {
           publish("[hub] preparing process environment...");
           process = pb.start();
         } catch (IOException e) {
+          if (managedGraphicsLaunch) renderGraphCapture.endSession();
           publish("[hub] failed to start process: " + e.getMessage());
           return -1;
         }
         runningProcess.set(process);
+        SwingUtilities.invokeLater(JvnHub.this::refreshModeMenus);
         publish("[hub] process started; reading live output...");
-        try (BufferedReader reader = new BufferedReader(
-            new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-          String line;
-          while ((line = reader.readLine()) != null) {
-            if (!line.isBlank()) {
-              if (fullOutput.length() < PROCESS_OUTPUT_PREFIX_LIMIT) fullOutput.append(line).append('\n');
-              rememberProcessOutput(recentOutput, line);
-              lastOutput = compactMessage(line);
-              publish(line);
+        try {
+          try (BufferedReader reader = new BufferedReader(
+              new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+              boolean renderGraphLine = managedGraphicsLaunch && renderGraphCapture.accept(line);
+              if (!line.isBlank() && !renderGraphLine) {
+                if (fullOutput.length() < PROCESS_OUTPUT_PREFIX_LIMIT) fullOutput.append(line).append('\n');
+                rememberProcessOutput(recentOutput, line);
+                lastOutput = compactMessage(line);
+                publish(line);
+              }
             }
+          } catch (IOException e) {
+            lastOutput = "Stream error: " + e.getMessage();
+            publish("[hub] " + lastOutput);
           }
-        } catch (IOException e) {
-          lastOutput = "Stream error: " + e.getMessage();
-          publish("[hub] " + lastOutput);
+          return process.waitFor();
+        } finally {
+          if (managedGraphicsLaunch) renderGraphCapture.endSession();
         }
-        return process.waitFor();
       }
 
       @Override protected void process(List<String> chunks) {
@@ -3822,6 +4561,7 @@ public final class JvnHub {
     if (!updateCheckRunning.compareAndSet(false, true)) return;
 
     updateEngineButton.setChecking(true);
+    refreshModeMenus();
     new SwingWorker<Integer, Void>() {
       @Override protected Integer doInBackground() {
         if (fetchFirst) {
@@ -3847,6 +4587,7 @@ public final class JvnHub {
         }
         lastKnownIncoming = count;
         updateEngineButton.setIncomingCount(count);
+        refreshModeMenus();
       }
     }.execute();
   }

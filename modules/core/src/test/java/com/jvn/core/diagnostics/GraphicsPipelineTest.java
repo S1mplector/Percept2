@@ -33,6 +33,8 @@ class GraphicsPipelineTest {
       System.getProperty(GraphicsPipeline.PRISM_SHOW_OVERDRAW_PROPERTY);
   private final String originalPrintRenderGraph =
       System.getProperty(GraphicsPipeline.PRISM_PRINT_RENDER_GRAPH_PROPERTY);
+  private final String originalPulseLogger =
+      System.getProperty(GraphicsPipeline.JAVAFX_PULSE_LOGGER_PROPERTY);
   private final String originalOs = System.getProperty("os.name");
 
   @BeforeEach
@@ -56,6 +58,7 @@ class GraphicsPipelineTest {
     restore(GraphicsPipeline.PRISM_SHOW_DIRTY_PROPERTY, originalShowDirty);
     restore(GraphicsPipeline.PRISM_SHOW_OVERDRAW_PROPERTY, originalShowOverdraw);
     restore(GraphicsPipeline.PRISM_PRINT_RENDER_GRAPH_PROPERTY, originalPrintRenderGraph);
+    restore(GraphicsPipeline.JAVAFX_PULSE_LOGGER_PROPERTY, originalPulseLogger);
     restore("os.name", originalOs);
   }
 
@@ -114,6 +117,7 @@ class GraphicsPipelineTest {
     System.clearProperty(GraphicsPipeline.PRISM_SHOW_DIRTY_PROPERTY);
     System.clearProperty(GraphicsPipeline.PRISM_SHOW_OVERDRAW_PROPERTY);
     System.clearProperty(GraphicsPipeline.PRISM_PRINT_RENDER_GRAPH_PROPERTY);
+    System.clearProperty(GraphicsPipeline.JAVAFX_PULSE_LOGGER_PROPERTY);
 
     GraphicsPipeline.configure();
 
@@ -125,6 +129,19 @@ class GraphicsPipelineTest {
     assertEquals("true", System.getProperty(GraphicsPipeline.PRISM_SHOW_DIRTY_PROPERTY));
     assertEquals("false", System.getProperty(GraphicsPipeline.PRISM_SHOW_OVERDRAW_PROPERTY));
     assertEquals("true", System.getProperty(GraphicsPipeline.PRISM_PRINT_RENDER_GRAPH_PROPERTY));
+    assertEquals("true", System.getProperty(GraphicsPipeline.JAVAFX_PULSE_LOGGER_PROPERTY));
+  }
+
+  @Test
+  void explicitRenderGraphCaptureEnablesItsRequiredLoggerAndRenderRoots() {
+    System.setProperty(GraphicsPipeline.PRISM_PRINT_RENDER_GRAPH_PROPERTY, "true");
+    System.setProperty(GraphicsPipeline.PRISM_DIRTY_REGIONS_PROPERTY, "false");
+    System.clearProperty(GraphicsPipeline.JAVAFX_PULSE_LOGGER_PROPERTY);
+
+    GraphicsPipeline.configure();
+
+    assertEquals("true", System.getProperty(GraphicsPipeline.JAVAFX_PULSE_LOGGER_PROPERTY));
+    assertEquals("true", System.getProperty(GraphicsPipeline.PRISM_DIRTY_REGIONS_PROPERTY));
   }
 
   private static void restore(String key, String value) {

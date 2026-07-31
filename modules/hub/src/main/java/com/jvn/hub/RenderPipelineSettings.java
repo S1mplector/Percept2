@@ -130,6 +130,8 @@ final class RenderPipelineSettings {
 
     Options {
       shapeCache = shapeCache == null ? ShapeCache.COMPLEX : shapeCache;
+      // Prism builds its printable render tree from dirty-region roots.
+      if (printRenderGraph) dirtyRegions = true;
     }
 
     static Options defaults() {

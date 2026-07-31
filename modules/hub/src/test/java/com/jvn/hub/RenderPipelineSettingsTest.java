@@ -127,6 +127,16 @@ class RenderPipelineSettingsTest {
   }
 
   @Test
+  void renderGraphCaptureKeepsDirtyRegionRootsAvailable() {
+    RenderPipelineSettings.Options options = RenderPipelineSettings.Options.defaults()
+        .withDirtyRegions(false)
+        .withPrintRenderGraph(true);
+
+    assertTrue(options.printRenderGraph());
+    assertTrue(options.dirtyRegions());
+  }
+
+  @Test
   void enabledGlxRecoveryClearsAnInheritedDisableOverride() {
     Map<String, String> environment = new HashMap<>();
     environment.put(RenderPipelineSettings.DISABLE_GLX_RECOVERY_ENVIRONMENT, "1");

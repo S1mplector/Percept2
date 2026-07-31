@@ -28,6 +28,7 @@ public final class GraphicsPipeline {
   static final String PRISM_SHOW_DIRTY_PROPERTY = "prism.showdirty";
   static final String PRISM_SHOW_OVERDRAW_PROPERTY = "prism.showoverdraw";
   static final String PRISM_PRINT_RENDER_GRAPH_PROPERTY = "prism.printrendergraph";
+  static final String JAVAFX_PULSE_LOGGER_PROPERTY = "javafx.pulseLogger";
 
   public enum Mode {
     AUTO,
@@ -54,6 +55,7 @@ public final class GraphicsPipeline {
    */
   public static Mode configure() {
     applyUserTuning();
+    enablePulseLoggerForRenderGraph();
     Mode mode = requestedMode();
     if (System.getProperty(PRISM_ORDER_PROPERTY) == null) {
       switch (mode) {
@@ -119,6 +121,19 @@ public final class GraphicsPipeline {
     applyBooleanSetting(properties, "diagnostics.showDirtyRegions", PRISM_SHOW_DIRTY_PROPERTY);
     applyBooleanSetting(properties, "diagnostics.showOverdraw", PRISM_SHOW_OVERDRAW_PROPERTY);
     applyBooleanSetting(properties, "diagnostics.printRenderGraph", PRISM_PRINT_RENDER_GRAPH_PROPERTY);
+  }
+
+  private static void enablePulseLoggerForRenderGraph() {
+    if (Boolean.parseBoolean(System.getProperty(PRISM_PRINT_RENDER_GRAPH_PROPERTY, "false"))
+        && System.getProperty(JAVAFX_PULSE_LOGGER_PROPERTY) == null) {
+      // Prism sends the graph to PulseLogger rather than stdout directly. Enable the print logger
+      // only for explicit graph captures so ordinary launches retain their low-overhead path.
+      System.setProperty(JAVAFX_PULSE_LOGGER_PROPERTY, "true");
+    }
+    if (Boolean.parseBoolean(System.getProperty(PRISM_PRINT_RENDER_GRAPH_PROPERTY, "false"))) {
+      // ViewPainter derives the printable tree from dirty-region render roots.
+      System.setProperty(PRISM_DIRTY_REGIONS_PROPERTY, "true");
+    }
   }
 
   private static Path renderSettingsFile() {
