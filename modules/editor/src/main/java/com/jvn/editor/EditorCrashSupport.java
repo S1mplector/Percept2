@@ -89,6 +89,12 @@ final class EditorCrashSupport {
   }
 
   private static void handleUncaught(Thread thread, Throwable throwable) {
+    if (isRecoverableJavaFxToolbarTraversalBug(throwable)) {
+      log.warn(
+          "Suppressed recoverable JavaFX ToolBar focus traversal failure (JDK-8364088) on thread {}",
+          thread != null ? thread.getName() : "unknown");
+      return;
+    }
     Path logFile = writeCrashLog(throwable, thread);
     if (throwable != null) {
       log.error("Uncaught exception on thread {}", thread.getName(), throwable);
@@ -103,6 +109,23 @@ final class EditorCrashSupport {
             // reason: JavaFX state race on shutdown; not actionable at call site
       // JavaFX toolkit is not available; stderr/log file are the fallback.
     }
+  }
+
+  static boolean isRecoverableJavaFxToolbarTraversalBug(Throwable throwable) {
+    if (!(throwable instanceof NullPointerException)) return false;
+    boolean toolbarSelect = false;
+    boolean focusCleanup = false;
+    for (StackTraceElement frame : throwable.getStackTrace()) {
+      if ("javafx.scene.control.skin.ToolBarSkin$1".equals(frame.getClassName())
+          && "select".equals(frame.getMethodName())) {
+        toolbarSelect = true;
+      }
+      if ("javafx.scene.Scene$ScenePulseListener".equals(frame.getClassName())
+          && "focusCleanup".equals(frame.getMethodName())) {
+        focusCleanup = true;
+      }
+    }
+    return toolbarSelect && focusCleanup;
   }
 
   private static void showCrashAlert(Thread thread, Throwable throwable, Path logFile) {

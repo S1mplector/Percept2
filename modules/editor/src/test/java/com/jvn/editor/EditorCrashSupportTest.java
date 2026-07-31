@@ -1,5 +1,6 @@
 package com.jvn.editor;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -43,5 +44,22 @@ class EditorCrashSupportTest {
     } finally {
       System.setProperty("user.home", previousHome.toString());
     }
+  }
+
+  @Test
+  void recognizesOnlyTheKnownJavaFxToolbarTraversalFailure() {
+    NullPointerException toolbarFailure = new NullPointerException("item");
+    toolbarFailure.setStackTrace(new StackTraceElement[] {
+        new StackTraceElement(
+            "javafx.scene.control.skin.ToolBarSkin$1", "select", "ToolBarSkin.java", 195),
+        new StackTraceElement(
+            "javafx.scene.Scene$ScenePulseListener", "focusCleanup", "Scene.java", 2568)
+    });
+
+    assertTrue(EditorCrashSupport.isRecoverableJavaFxToolbarTraversalBug(toolbarFailure));
+    assertFalse(EditorCrashSupport.isRecoverableJavaFxToolbarTraversalBug(
+        new NullPointerException("ordinary application bug")));
+    assertFalse(EditorCrashSupport.isRecoverableJavaFxToolbarTraversalBug(
+        new IllegalStateException("not the upstream NPE")));
   }
 }

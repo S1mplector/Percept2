@@ -50,7 +50,6 @@ import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
-import javafx.scene.control.ToolBar;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
@@ -58,6 +57,7 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -216,7 +216,7 @@ public class RunConsoleView extends BorderPane {
         MenuBar menuBar = createMenuBar(title);
 
         // ─── Tool Bar ────────────────────────────────────────────────
-        ToolBar toolBar = createToolBar();
+        FlowPane toolBar = createToolBar();
 
         VBox topContainer = new VBox(menuBar, toolBar);
         topContainer.getStyleClass().add("run-console-top");
@@ -891,9 +891,10 @@ public class RunConsoleView extends BorderPane {
 
     // ─── Tool Bar ───────────────────────────────────────────────────────────
 
-    private ToolBar createToolBar() {
-        ToolBar bar = new ToolBar();
+    private FlowPane createToolBar() {
+        FlowPane bar = new FlowPane(6, 6);
         bar.getStyleClass().add("run-console-toolbar");
+        bar.setAlignment(Pos.CENTER_LEFT);
 
         configureLaunchOptionsButton();
 
@@ -960,18 +961,21 @@ public class RunConsoleView extends BorderPane {
         perfGraphShell.setPrefWidth(260);
         perfGraphShell.setMaxWidth(Region.USE_PREF_SIZE);
 
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-
-        bar.getItems().addAll(
-            runBtn, stopBtn, new Separator(),
-            clearBtn, copyBtn, launchOptionsButton, new Separator(),
-            perfGraphShell, new Separator(),
-            showAllToggle, autoScrollBtn, wordWrapBtn, new Separator(),
+        bar.getChildren().addAll(
+            runBtn, stopBtn, verticalSeparator(),
+            clearBtn, copyBtn, launchOptionsButton, verticalSeparator(),
+            perfGraphShell, verticalSeparator(),
+            showAllToggle, autoScrollBtn, wordWrapBtn, verticalSeparator(),
             searchLabel, searchField, logLevelFilter,
-            spacer, stateLabel, elapsedLabel
+            stateLabel, elapsedLabel
         );
         return bar;
+    }
+
+    private static Separator verticalSeparator() {
+        Separator separator = new Separator(javafx.geometry.Orientation.VERTICAL);
+        separator.setPrefHeight(28);
+        return separator;
     }
 
     private void configureLaunchOptionsButton() {
