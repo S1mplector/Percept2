@@ -99,6 +99,8 @@ compile_hub() {
   mkdir -p "$temp_dir/classes/com/jvn/hub" "$CACHE_DIR"
   if ! javac --release 21 -encoding UTF-8 -d "$temp_dir/classes" \
       "$SOURCE_DIR/com/jvn/hub/JvnHub.java" \
+      "$SOURCE_DIR/com/jvn/hub/RenderGraphCapture.java" \
+      "$SOURCE_DIR/com/jvn/hub/RenderPipelineSettings.java" \
       "$SOURCE_DIR/com/jvn/hub/WindowsSevenHubIconPainter.java"; then
     trap - RETURN
     rm -rf "$temp_dir" "$LOCK_DIR"

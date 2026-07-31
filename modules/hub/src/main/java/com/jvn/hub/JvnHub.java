@@ -202,6 +202,8 @@ public final class JvnHub {
   private final javax.swing.Timer autoStepTimer = new javax.swing.Timer(1800, e -> autoAdvanceDuringSilence());
   private final List<AbstractButton> actionButtons = new ArrayList<>();
   private final AtomicReference<Process> runningProcess = new AtomicReference<>();
+  private final AtomicReference<UpdateProgressDialog> updateProgressDialog = new AtomicReference<>();
+  private final AtomicReference<UpdateAttempt> activeUpdateAttempt = new AtomicReference<>();
   private final AtomicReference<HubPerformancePanel> performancePanel = new AtomicReference<>();
   private final RenderGraphCapture renderGraphCapture = new RenderGraphCapture();
   private final AtomicReference<JDialog> renderGraphViewer = new AtomicReference<>();
@@ -272,6 +274,7 @@ public final class JvnHub {
         ((javax.swing.Timer) event.getSource()).stop();
         JvnHub hub = new JvnHub(root);
         hub.frame.setVisible(true);
+        signalRelaunchReady();
         splash.closeAfter(320, null);
       });
       launchDelay.setRepeats(false);
@@ -3393,14 +3396,56 @@ public final class JvnHub {
       appendLog("[hub] a task is already running; wait for it to finish or cancel it.");
       return;
     }
+    UpdateProgressDialog progress = showUpdateProgress();
+    progress.begin(
+        "Preparing engine update",
+        "Inspecting the checkout before integrating " + ENGINE_UPDATE_REMOTE_REF + ".",
+        "Preflight status: running\nRemote target: " + ENGINE_UPDATE_REMOTE_REF);
+    if (updateEngineButton != null) updateEngineButton.setChecking(true);
+    setButtonsEnabled(false);
     startSteps("Update Engine");
     setActivity("Inspecting update readiness", "Checking Git worktree before pulling.", true, ACCENT_NEUTRAL);
-    UpdatePreflight preflight = inspectUpdatePreflight();
+    new SwingWorker<UpdatePreflightInspection, Void>() {
+      @Override protected UpdatePreflightInspection doInBackground() {
+        String beforeRevision = readGitValue(
+            List.of("git", "rev-parse", "--short", "HEAD"), "unknown");
+        String branch = readGitValue(
+            List.of("git", "rev-parse", "--abbrev-ref", "HEAD"), "unknown");
+        String version = readDiskVersion();
+        return new UpdatePreflightInspection(
+            inspectUpdatePreflight(),
+            new UpdateAttempt(beforeRevision, branch, version, System.nanoTime()));
+      }
+
+      @Override protected void done() {
+        setButtonsEnabled(true);
+        UpdatePreflightInspection inspection;
+        try {
+          inspection = get();
+        } catch (Exception ex) {
+          inspection = new UpdatePreflightInspection(
+              UpdatePreflight.unavailable(exceptionMessage(ex)),
+              new UpdateAttempt("unknown", "unknown", readDiskVersion(), System.nanoTime()));
+        }
+        activeUpdateAttempt.set(inspection.attempt());
+        handleUpdatePreflight(inspection.preflight());
+      }
+    }.execute();
+  }
+
+  private void handleUpdatePreflight(UpdatePreflight preflight) {
     completeCurrentStep("Git worktree inspected.");
+    updateProgress(
+        "Engine update ready",
+        "The checkout was inspected. Preparing the integration command.",
+        "Preflight status: " + (preflight.statusUnavailable() ? "unavailable" : "complete")
+            + "\nLocal changes: " + preflight.allChanges().size()
+            + "\nInterrupted Git operations: " + preflight.interruptedGitOperations().size(),
+        true,
+        UpdateDialogTone.QUESTION);
     if (preflight.statusUnavailable()) {
       if (!confirmUpdateWithUnknownStatus(preflight.statusError())) {
-        finishSteps(false, "Update cancelled before pull.");
-        setActivity("Update cancelled", "No engine files were changed.", false, TEXT_MUTED);
+        cancelUpdateLifecycle("Preflight status was unavailable and the update was cancelled.");
         return;
       }
     } else if (preflight.hasInterruptedGitOperation() || preflight.hasChanges()) {
@@ -3418,8 +3463,7 @@ public final class JvnHub {
       }
       UpdatePreflightAction action = chooseUpdatePreflightAction(preflight);
       if (action == UpdatePreflightAction.CANCEL) {
-        finishSteps(false, "Update cancelled before pull.");
-        setActivity("Update cancelled", "No engine files were changed.", false, TEXT_MUTED);
+        cancelUpdateLifecycle("Local checkout changes were left untouched.");
         return;
       }
       cleanBeforeUpdate(preflight);
@@ -3439,8 +3483,29 @@ public final class JvnHub {
     if (safeModeEnabled) {
       appendLog("[hub] Safe Mode: Update Engine will autostash tracked local changes and auto-recover failed rebase state.");
     }
+    updateProgress(
+        "Updating JVN Engine Hub",
+        "Fetching and integrating " + ENGINE_UPDATE_REMOTE_REF + ".",
+        "Integration command: " + quoteCommandForLog(cmd)
+            + "\nSafe Mode autostash: " + (safeModeEnabled ? "enabled" : "disabled")
+            + "\nIntegration status: running",
+        true,
+        UpdateDialogTone.QUESTION);
     appendLog("$ " + String.join(" ", cmd));
     startProcess(cmd, "Update Engine");
+  }
+
+  private void cancelUpdateLifecycle(String technicalReason) {
+    setButtonsEnabled(true);
+    if (updateEngineButton != null) updateEngineButton.setChecking(false);
+    finishSteps(false, "Update cancelled before pull.");
+    setActivity("Update cancelled", "No engine files were changed.", false, TEXT_MUTED);
+    updateProgress(
+        "Engine update cancelled",
+        "No update was integrated and the Hub will remain open.",
+        "Integration status: cancelled\n" + technicalReason,
+        false,
+        UpdateDialogTone.WARNING);
   }
 
   private UpdatePreflight inspectUpdatePreflight() {
@@ -3633,8 +3698,50 @@ public final class JvnHub {
     return button;
   }
 
+  private UpdateProgressDialog showUpdateProgress() {
+    UpdateProgressDialog existing = updateProgressDialog.get();
+    if (existing != null && existing.isDisplayable()) {
+      existing.showCentered();
+      return existing;
+    }
+    UpdateProgressDialog created = new UpdateProgressDialog();
+    updateProgressDialog.set(created);
+    created.showCentered();
+    return created;
+  }
+
+  private void updateProgress(
+      String title,
+      String message,
+      String details,
+      boolean running,
+      UpdateDialogTone tone
+  ) {
+    SwingUtilities.invokeLater(() -> {
+      UpdateProgressDialog dialog = updateProgressDialog.get();
+      if (dialog == null || !dialog.isDisplayable()) return;
+      dialog.update(title, message, details, running, tone);
+    });
+  }
+
+  private void appendUpdateProgressOutput(String line) {
+    SwingUtilities.invokeLater(() -> {
+      UpdateProgressDialog dialog = updateProgressDialog.get();
+      if (dialog != null && dialog.isDisplayable()) dialog.appendTechnicalLine(line);
+    });
+  }
+
   private void cleanBeforeUpdate(UpdatePreflight preflight) {
     setButtonsEnabled(false);
+    updateProgress(
+        "Preparing the engine checkout",
+        preflight.hasInterruptedGitOperation()
+            ? "Recovering an interrupted Git operation before updating."
+            : "Removing the approved local files before updating.",
+        "Checkout cleanup: running\n"
+            + (preflight.summary().isBlank() ? "No local file details." : preflight.summary()),
+        true,
+        UpdateDialogTone.WARNING);
     setStatus(preflight.hasInterruptedGitOperation() ? "Recovering Git checkout" : "Cleaning before update", ACCENT_NEUTRAL);
     startSteps("Clean Before Update");
     setActivity(
@@ -3678,10 +3785,18 @@ public final class JvnHub {
           failure = e.getMessage();
         }
         if (!ok) {
+          if (updateEngineButton != null) updateEngineButton.setChecking(false);
           setStatus("Clean failed", ACCENT_ERROR);
           finishSteps(false, failure == null || failure.isBlank() ? "Clean failed." : failure);
           setActivity("Clean failed", failure == null || failure.isBlank() ? "Git could not clean the checkout." : failure,
               false, ACCENT_ERROR);
+          updateProgress(
+              "Engine update could not start",
+              "The checkout cleanup failed, so no update was integrated.",
+              "Integration status: not started\nCleanup status: failed\nTechnical result: "
+                  + firstNonBlank(failure, "Git could not clean the checkout."),
+              false,
+              UpdateDialogTone.DANGER);
           return;
         }
         finishSteps(true, "Checkout cleaned.");
@@ -3927,6 +4042,7 @@ public final class JvnHub {
           String line = chunks.get(chunks.size() - 1);
           updateStepsFromOutput(label, line);
           appendLog(line);
+          if ("Update Engine".equals(label)) appendUpdateProgressOutput(line);
         }
       }
 
@@ -3938,7 +4054,14 @@ public final class JvnHub {
           exit = -1;
           lastOutput = "Task raised: " + e.getMessage();
         }
-        release(label, exit);
+        boolean engineUpdate = "Update Engine".equals(label);
+        if (engineUpdate) {
+          runningProcess.set(null);
+          refreshModeMenus();
+          stopAutoStepTicker();
+        } else {
+          release(label, exit);
+        }
         if (exit == 0) {
           if (!lastOutput.isBlank()) {
             setActivityDetail(lastOutput);
@@ -3954,15 +4077,303 @@ public final class JvnHub {
         }
         // Update Engine touched the working tree — re-read on-disk state so
         // version and maintenance state reflect the new HEAD.
-        if (exit == 0 && "Update Engine".equals(label)) {
-          refreshFromDisk();
-          checkIncomingUpdates(false);
-        } else if ("Update Engine".equals(label) && updateEngineButton != null) {
-          updateEngineButton.setChecking(false);
-          handleUpdateEngineFailure(exit, fullOutput.toString().isBlank() ? lastOutput : fullOutput.toString());
+        if (engineUpdate && exit == 0) {
+          verifyUpdateIntegration(fullOutput.toString().isBlank() ? lastOutput : fullOutput.toString());
+        } else if (engineUpdate) {
+          setButtonsEnabled(true);
+          finishSteps(false, "Git could not integrate the engine update.");
+          setStatus("Failed (exit " + exit + "): Update Engine", ACCENT_ERROR);
+          if (updateEngineButton != null) updateEngineButton.setChecking(false);
+          String output = fullOutput.toString().isBlank() ? lastOutput : fullOutput.toString();
+          updateProgress(
+              "Engine update failed",
+              "Git did not integrate the update. The Hub will not relaunch.",
+              "Integration status: failed\nGit exit code: " + exit + "\n\nGit output:\n"
+                  + compactForDialog(output),
+              false,
+              UpdateDialogTone.DANGER);
+          handleUpdateEngineFailure(exit, output);
         }
       }
     }.execute();
+  }
+
+  private void verifyUpdateIntegration(String gitOutput) {
+    setButtonsEnabled(false);
+    setStatus("Verifying engine integration", ACCENT_NEUTRAL);
+    setActivity(
+        "Verifying engine integration",
+        "Checking the updated revision, upstream state, and Git operation state.",
+        true,
+        ACCENT_NEUTRAL);
+    updateProgress(
+        "Verifying the engine update",
+        "Git completed. The Hub is checking whether the update was properly integrated.",
+        "Git command: completed successfully\nIntegration verification: running",
+        true,
+        UpdateDialogTone.QUESTION);
+
+    UpdateAttempt attempt = Optional.ofNullable(activeUpdateAttempt.get())
+        .orElseGet(() -> new UpdateAttempt("unknown", "unknown", readDiskVersion(), System.nanoTime()));
+    new SwingWorker<UpdateIntegrationResult, Void>() {
+      @Override protected UpdateIntegrationResult doInBackground() {
+        CommandResult revisionResult = runGit(List.of("git", "rev-parse", "--short", "HEAD"), 8);
+        String afterRevision = revisionResult.exitCode() == 0
+            ? firstNonBlank(revisionResult.output(), "unknown")
+            : "unknown";
+        CommandResult branchResult = runGit(List.of("git", "rev-parse", "--abbrev-ref", "HEAD"), 8);
+        String branch = branchResult.exitCode() == 0
+            ? firstNonBlank(branchResult.output(), attempt.branch())
+            : attempt.branch();
+        CommandResult behindResult = runGit(
+            List.of("git", "rev-list", "--count", "HEAD.." + ENGINE_UPDATE_REMOTE_REF), 8);
+        int behind = parseNonNegativeInt(behindResult.output(), -1);
+        UpdatePreflight postflight = inspectUpdatePreflight();
+        String afterVersion = readDiskVersion();
+        long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - attempt.startedNanos());
+        boolean integrated = updateProperlyIntegrated(
+            revisionResult.exitCode(), behindResult.exitCode(), behind,
+            postflight.statusUnavailable(), postflight.hasInterruptedGitOperation(), afterRevision);
+        return new UpdateIntegrationResult(
+            integrated,
+            attempt.beforeRevision(),
+            afterRevision,
+            branch,
+            attempt.beforeVersion(),
+            afterVersion,
+            behind,
+            postflight,
+            elapsedMillis,
+            gitOutput);
+      }
+
+      @Override protected void done() {
+        UpdateIntegrationResult result;
+        try {
+          result = get();
+        } catch (Exception ex) {
+          result = UpdateIntegrationResult.failed(attempt, gitOutput, exceptionMessage(ex));
+        }
+        refreshFromDisk();
+        if (updateEngineButton != null) updateEngineButton.setChecking(false);
+        String details = formatUpdateIntegrationDetails(result);
+        if (!result.integrated()) {
+          setButtonsEnabled(true);
+          finishSteps(false, "Post-update integration checks did not pass.");
+          setStatus("Update integration unverified", ACCENT_ERROR);
+          setActivity(
+              "Update integration unverified",
+              "The Git command completed, but the updated checkout did not pass every safety check.",
+              false,
+              ACCENT_ERROR);
+          updateProgress(
+              "Engine update needs attention",
+              "The Hub could not verify that the update was properly integrated, so it will not relaunch.",
+              details,
+              false,
+              UpdateDialogTone.DANGER);
+          checkIncomingUpdates(false);
+          return;
+        }
+
+        finishSteps(true, "Update integrated and verified.");
+        setStatus("Update integrated", ACCENT_GREEN);
+        setActivity(
+            "Engine update integrated",
+            "All post-update checks passed. Relaunching the Hub with the updated code.",
+            false,
+            ACCENT_GREEN);
+        updateProgress(
+            "Engine update integrated",
+            "The update passed every integration check. The Hub will now relaunch automatically.",
+            details + "\n\nRelaunch status: preparing updated Hub",
+            false,
+            UpdateDialogTone.SUCCESS);
+        javax.swing.Timer relaunchDelay = new javax.swing.Timer(1400, event -> {
+          ((javax.swing.Timer) event.getSource()).stop();
+          relaunchUpdatedHub(details);
+        });
+        relaunchDelay.setRepeats(false);
+        relaunchDelay.start();
+      }
+    }.execute();
+  }
+
+  private void relaunchUpdatedHub(String integrationDetails) {
+    List<String> command = hubRelaunchCommand(projectRoot, System.getProperty("os.name", ""));
+    Path logFile = Paths.get(System.getProperty("user.home", "."), ".jvn", "logs", "hub-relaunch.log");
+    Path readyFile = Paths.get(
+        System.getProperty("user.home", "."),
+        ".jvn",
+        "run",
+        "hub-relaunch-ready-" + ProcessHandle.current().pid() + "-" + System.nanoTime());
+    updateProgress(
+        "Relaunching JVN Engine Hub",
+        "Building and starting the updated Hub. This window stays open until the replacement is ready.",
+        integrationDetails + "\n\nRelaunch status: waiting for startup confirmation"
+            + "\nCommand: " + quoteCommandForLog(command)
+            + "\nRelaunch log: " + logFile,
+        true,
+        UpdateDialogTone.SUCCESS);
+
+    new SwingWorker<HubRelaunchResult, Void>() {
+      @Override protected HubRelaunchResult doInBackground() {
+        try {
+          Files.createDirectories(logFile.getParent());
+          Files.createDirectories(readyFile.getParent());
+          Files.deleteIfExists(readyFile);
+          ProcessBuilder builder = new ProcessBuilder(command)
+              .directory(projectRoot.toFile())
+              .redirectErrorStream(true)
+              .redirectOutput(ProcessBuilder.Redirect.appendTo(logFile.toFile()));
+          builder.environment().put("JVN_HUB_RELAUNCH_READY_FILE", readyFile.toString());
+          Process replacement = builder.start();
+          appendLog("[hub] replacement Hub command started: " + quoteCommandForLog(command));
+          boolean detachedWindowsLauncher = System.getProperty("os.name", "")
+              .toLowerCase(Locale.ROOT).contains("win");
+          long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(45);
+          while (System.nanoTime() < deadline) {
+            if (Files.isRegularFile(readyFile)) {
+              Files.deleteIfExists(readyFile);
+              return new HubRelaunchResult(true, "Replacement Hub confirmed its window is visible.");
+            }
+            if (!detachedWindowsLauncher && !replacement.isAlive()) {
+              return new HubRelaunchResult(
+                  false,
+                  "Replacement process exited before startup confirmation (exit "
+                      + replacement.exitValue() + ").");
+            }
+            Thread.sleep(100);
+          }
+          return new HubRelaunchResult(false, "Timed out waiting 45 seconds for startup confirmation.");
+        } catch (InterruptedException ex) {
+          Thread.currentThread().interrupt();
+          return new HubRelaunchResult(false, "Interrupted while waiting for the replacement Hub.");
+        } catch (IOException ex) {
+          return new HubRelaunchResult(false, exceptionMessage(ex));
+        }
+      }
+
+      @Override protected void done() {
+        HubRelaunchResult result;
+        try {
+          result = get();
+        } catch (Exception ex) {
+          result = new HubRelaunchResult(false, exceptionMessage(ex));
+        }
+        if (!result.ready()) {
+          setButtonsEnabled(true);
+          setStatus("Hub relaunch failed", ACCENT_ERROR);
+          setActivity(
+              "Hub relaunch failed",
+              "The engine update is integrated, but the replacement Hub did not confirm startup.",
+              false,
+              ACCENT_ERROR);
+          updateProgress(
+              "Engine updated; relaunch failed",
+              "The update was properly integrated, but the Hub could not confirm an automatic relaunch.",
+              integrationDetails + "\n\nRelaunch status: failed\nTechnical result: " + result.details()
+                  + "\nCommand: " + quoteCommandForLog(command)
+                  + "\nRelaunch log: " + logFile,
+              false,
+              UpdateDialogTone.WARNING);
+          return;
+        }
+
+        updateProgress(
+            "Relaunching JVN Engine Hub",
+            "The updated Hub confirmed it is ready. This window is closing.",
+            integrationDetails + "\n\nRelaunch status: confirmed\n" + result.details()
+                + "\nRelaunch log: " + logFile,
+            false,
+            UpdateDialogTone.SUCCESS);
+        shutdownInProgress = true;
+        if (spinnerTimer.isRunning()) spinnerTimer.stop();
+        if (autoStepTimer.isRunning()) autoStepTimer.stop();
+        javax.swing.Timer closeDelay = new javax.swing.Timer(350, event -> {
+          ((javax.swing.Timer) event.getSource()).stop();
+          frame.setVisible(false);
+          frame.dispose();
+          System.exit(0);
+        });
+        closeDelay.setRepeats(false);
+        closeDelay.start();
+      }
+    }.execute();
+  }
+
+  private static void signalRelaunchReady() {
+    String marker = System.getenv("JVN_HUB_RELAUNCH_READY_FILE");
+    if (marker == null || marker.isBlank()) return;
+    try {
+      Path file = Paths.get(marker).toAbsolutePath().normalize();
+      Path parent = file.getParent();
+      if (parent != null) Files.createDirectories(parent);
+      Files.writeString(file, "ready\n", StandardCharsets.UTF_8);
+    } catch (IOException ignored) {
+      // The previous Hub will keep running and report a confirmation timeout.
+    }
+  }
+
+  static List<String> hubRelaunchCommand(Path projectRoot, String osName) {
+    Path root = projectRoot.toAbsolutePath().normalize();
+    String os = osName == null ? "" : osName.toLowerCase(Locale.ROOT);
+    if (os.contains("win")) {
+      return List.of("cmd.exe", "/c", "start", "", root.resolve("jvn.bat").toString());
+    }
+    return List.of("bash", root.resolve("jvn").toString(), "--rebuild-launcher");
+  }
+
+  static boolean updateProperlyIntegrated(
+      int revisionExit,
+      int behindExit,
+      int behindCount,
+      boolean statusUnavailable,
+      boolean interruptedOperation,
+      String afterRevision
+  ) {
+    return revisionExit == 0
+        && behindExit == 0
+        && behindCount == 0
+        && !statusUnavailable
+        && !interruptedOperation
+        && afterRevision != null
+        && !afterRevision.isBlank()
+        && !"unknown".equalsIgnoreCase(afterRevision.trim());
+  }
+
+  private static int parseNonNegativeInt(String value, int fallback) {
+    try {
+      return Math.max(0, Integer.parseInt(value == null ? "" : value.strip()));
+    } catch (NumberFormatException ignored) {
+      return fallback;
+    }
+  }
+
+  private static String formatUpdateIntegrationDetails(UpdateIntegrationResult result) {
+    UpdatePreflight postflight = result.postflight();
+    String revisionStatus = result.beforeRevision().equals(result.afterRevision())
+        ? "already current"
+        : result.beforeRevision() + " -> " + result.afterRevision();
+    String versionStatus = result.beforeVersion().equals(result.afterVersion())
+        ? result.afterVersion() + " (unchanged)"
+        : result.beforeVersion() + " -> " + result.afterVersion();
+    String worktreeStatus = postflight.statusUnavailable()
+        ? "unavailable: " + postflight.statusError()
+        : postflight.hasChanges()
+            ? postflight.allChanges().size() + " local change(s) present/preserved"
+            : "clean";
+    String integration = result.integrated() ? "verified" : "not verified";
+    String behind = result.behindCount() < 0 ? "unavailable" : Integer.toString(result.behindCount());
+    return "Integration status: " + integration
+        + "\nBranch: " + result.branch()
+        + "\nRevision: " + revisionStatus
+        + "\nEngine version: " + versionStatus
+        + "\nCommits pending from " + ENGINE_UPDATE_REMOTE_REF + ": " + behind
+        + "\nInterrupted Git operation: " + (postflight.hasInterruptedGitOperation() ? "detected" : "none")
+        + "\nWorktree after integration: " + worktreeStatus
+        + "\nElapsed: " + Math.max(0, result.elapsedMillis()) + " ms"
+        + "\n\nGit output:\n" + compactForDialog(result.gitOutput());
   }
 
   private void handleUpdateEngineFailure(int exitCode, String output) {
@@ -4017,6 +4428,13 @@ public final class JvnHub {
       return;
     }
     setStatus("Safe Mode recovering update", ACCENT_SAFE);
+    updateProgress(
+        "Recovering the engine checkout",
+        "Safe Mode is removing interrupted Git state before another update attempt.",
+        "Integration status: not integrated\nRecovery status: running\n\nSource details:\n"
+            + compactForDialog(output),
+        true,
+        UpdateDialogTone.WARNING);
     startSteps("Safe Mode Update Recovery");
     setActivity(
         "Recovering failed update",
@@ -4065,6 +4483,13 @@ public final class JvnHub {
               recoverySummary(result),
               false,
               ACCENT_SAFE);
+          updateProgress(
+              "Engine checkout recovered",
+              "Git is stable again. The previous update was not integrated; you can now retry it.",
+              "Integration status: not integrated\nRecovery status: complete\n"
+                  + recoverySummary(result),
+              false,
+              UpdateDialogTone.SUCCESS);
           showSafeModeRecoveryDialog(result);
         } else {
           finishSteps(false, "Safe Mode could not recover the checkout automatically.");
@@ -4074,6 +4499,13 @@ public final class JvnHub {
               compactMessage(result.abortResult() != null ? result.abortResult().output : ""),
               false,
               ACCENT_ERROR);
+          updateProgress(
+              "Engine checkout recovery failed",
+              "The update was not integrated and Git still needs manual attention.",
+              "Integration status: not integrated\nRecovery status: failed\n"
+                  + recoverySummary(result),
+              false,
+              UpdateDialogTone.DANGER);
           showManualRecoveryDialog(result);
         }
       }
@@ -4810,6 +5242,43 @@ public final class JvnHub {
   }
 
   private record CommandResult(int exitCode, String output) {}
+
+  private record UpdateAttempt(
+      String beforeRevision,
+      String branch,
+      String beforeVersion,
+      long startedNanos) {}
+
+  private record UpdatePreflightInspection(UpdatePreflight preflight, UpdateAttempt attempt) {}
+
+  private record HubRelaunchResult(boolean ready, String details) {}
+
+  private record UpdateIntegrationResult(
+      boolean integrated,
+      String beforeRevision,
+      String afterRevision,
+      String branch,
+      String beforeVersion,
+      String afterVersion,
+      int behindCount,
+      UpdatePreflight postflight,
+      long elapsedMillis,
+      String gitOutput) {
+
+    static UpdateIntegrationResult failed(UpdateAttempt attempt, String gitOutput, String failure) {
+      return new UpdateIntegrationResult(
+          false,
+          attempt.beforeRevision(),
+          "unknown",
+          attempt.branch(),
+          attempt.beforeVersion(),
+          attempt.beforeVersion(),
+          -1,
+          UpdatePreflight.unavailable(firstNonBlank(failure, "Integration verification failed.")),
+          TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - attempt.startedNanos()),
+          gitOutput);
+    }
+  }
 
   private record UpdateRecoveryResult(
       boolean ok,
@@ -5748,8 +6217,117 @@ public final class JvnHub {
     }
   }
 
+  private final class UpdateProgressDialog {
+    private final JDialog dialog = new JDialog(frame, "Update Engine", false);
+    private final JLabel iconLabel = new JLabel();
+    private final JLabel titleLabel = new JLabel();
+    private final JTextArea messageArea = dialogText("", TEXT_SOFT, 12f, Font.BOLD);
+    private final JTextArea detailArea = dialogText("", LOG_TEXT, 11f, Font.PLAIN);
+    private final JProgressBar progress = new JProgressBar();
+    private UpdateDialogTone tone = UpdateDialogTone.QUESTION;
+
+    UpdateProgressDialog() {
+      dialog.setUndecorated(true);
+      dialog.setDefaultCloseOperation(WindowConstants.HIDE_ON_CLOSE);
+
+      JPanel card = new JPanel(new BorderLayout(0, ui(14)));
+      card.setBackground(PANEL_BG);
+      card.setBorder(uiPadding(18, 20, 18, 20));
+
+      JPanel header = new JPanel(new BorderLayout(ui(14), 0));
+      header.setOpaque(false);
+      iconLabel.setIcon(new UpdateDialogIcon(tone, ui(34)));
+      header.add(iconLabel, BorderLayout.WEST);
+
+      JPanel titleStack = new JPanel();
+      titleStack.setOpaque(false);
+      titleStack.setLayout(new BoxLayout(titleStack, BoxLayout.Y_AXIS));
+      titleLabel.setForeground(TEXT_PRIMARY);
+      titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD, uiFont(17f)));
+      titleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+      messageArea.setAlignmentX(Component.LEFT_ALIGNMENT);
+      messageArea.setBorder(uiPadding(4, 0, 0, 0));
+      titleStack.add(titleLabel);
+      titleStack.add(messageArea);
+      header.add(titleStack, BorderLayout.CENTER);
+
+      JButton hide = iconOnlyButton(uiIcon(VectorIcon.Kind.CLOSE, 12, TEXT_MUTED));
+      hide.setToolTipText("Hide update details");
+      hide.addActionListener(e -> dialog.setVisible(false));
+      header.add(hide, BorderLayout.EAST);
+      card.add(header, BorderLayout.NORTH);
+
+      detailArea.setBorder(uiPadding(10, 12, 10, 12));
+      JScrollPane scroll = new JScrollPane(detailArea);
+      scroll.setBorder(BorderFactory.createLineBorder(BORDER_NEUTRAL));
+      scroll.setBackground(BG);
+      scroll.getViewport().setBackground(BG);
+      scroll.setPreferredSize(uiDimension(540, 155));
+      styleScrollBar(scroll.getVerticalScrollBar());
+      styleScrollBar(scroll.getHorizontalScrollBar());
+      card.add(scroll, BorderLayout.CENTER);
+
+      progress.setIndeterminate(true);
+      progress.setBorderPainted(false);
+      progress.setBackground(BG);
+      progress.setForeground(tone.primaryColor());
+      progress.setPreferredSize(uiDimension(540, 5));
+      card.add(progress, BorderLayout.SOUTH);
+
+      dialog.setContentPane(card);
+      applyTone(tone);
+      dialog.pack();
+      dialog.setMinimumSize(uiDimension(620, 300));
+    }
+
+    boolean isDisplayable() {
+      return dialog.isDisplayable();
+    }
+
+    void showCentered() {
+      if (!dialog.isVisible()) {
+        dialog.setLocationRelativeTo(frame);
+        dialog.setVisible(true);
+      }
+      dialog.toFront();
+    }
+
+    void begin(String title, String message, String details) {
+      update(title, message, details, true, UpdateDialogTone.QUESTION);
+      showCentered();
+    }
+
+    void update(String title, String message, String details, boolean running, UpdateDialogTone nextTone) {
+      titleLabel.setText(firstNonBlank(title, "Update Engine"));
+      messageArea.setText(message == null ? "" : message);
+      detailArea.setText(details == null ? "" : details);
+      detailArea.setCaretPosition(0);
+      progress.setIndeterminate(running);
+      progress.setVisible(running);
+      applyTone(nextTone == null ? UpdateDialogTone.QUESTION : nextTone);
+      dialog.pack();
+    }
+
+    void appendTechnicalLine(String line) {
+      if (line == null || line.isBlank()) return;
+      String text = detailArea.getText();
+      String updated = text + (text.isBlank() ? "" : "\n") + line.strip();
+      if (updated.length() > 12000) updated = updated.substring(updated.length() - 12000);
+      detailArea.setText(updated);
+      detailArea.setCaretPosition(detailArea.getDocument().getLength());
+    }
+
+    private void applyTone(UpdateDialogTone nextTone) {
+      tone = nextTone;
+      dialog.getRootPane().setBorder(BorderFactory.createLineBorder(tone.borderColor(), 1));
+      iconLabel.setIcon(new UpdateDialogIcon(tone, ui(34)));
+      progress.setForeground(tone.primaryColor());
+    }
+  }
+
   private enum UpdateDialogTone {
     QUESTION(ACCENT_NEUTRAL, BORDER_NEUTRAL),
+    SUCCESS(ACCENT_GREEN, Color.decode("#376347")),
     WARNING(Color.decode("#d7b56d"), Color.decode("#6d5830")),
     DANGER(ACCENT_ERROR, Color.decode("#6d3440"));
 
@@ -5808,6 +6386,12 @@ public final class JvnHub {
         arrow.lineTo(s * 0.62f, s * 0.50f);
         arrow.lineTo(s * 0.50f, s * 0.38f);
         g2.draw(arrow);
+      } else if (tone == UpdateDialogTone.SUCCESS) {
+        Path2D check = new Path2D.Float();
+        check.moveTo(s * 0.25f, s * 0.52f);
+        check.lineTo(s * 0.43f, s * 0.69f);
+        check.lineTo(s * 0.75f, s * 0.34f);
+        g2.draw(check);
       } else {
         g2.drawLine(Math.round(s * 0.50f), Math.round(s * 0.24f), Math.round(s * 0.50f), Math.round(s * 0.58f));
         g2.fillOval(Math.round(s * 0.45f), Math.round(s * 0.70f), Math.round(s * 0.10f), Math.round(s * 0.10f));
