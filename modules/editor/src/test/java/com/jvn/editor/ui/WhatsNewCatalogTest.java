@@ -10,30 +10,30 @@ class WhatsNewCatalogTest {
 
   @Test
   void requestsPopupOnlyWhenVersionChanges() {
-    assertTrue(WhatsNewCatalog.shouldShow("v0.4.3.1", ""));
-    assertTrue(WhatsNewCatalog.shouldShow("v0.4.3.1", "v0.4.3"));
-    assertTrue(WhatsNewCatalog.shouldShow("v0.4.3.1", "v0.4.3.1 Beta"));
-    assertFalse(WhatsNewCatalog.shouldShow("v0.4.3.1", " v0.4.3.1 "));
+    assertTrue(WhatsNewCatalog.shouldShow("v0.4.4.1", ""));
+    assertTrue(WhatsNewCatalog.shouldShow("v0.4.4.1", "v0.4.3.1"));
+    assertTrue(WhatsNewCatalog.shouldShow("v0.4.4.1", "v0.4.4.1 Beta"));
+    assertFalse(WhatsNewCatalog.shouldShow("v0.4.4.1", " v0.4.4.1 "));
     assertFalse(WhatsNewCatalog.shouldShow("", "v0.4.1"));
   }
 
   @Test
   void currentReleaseContainsCuratedDetailedNotes() {
-    WhatsNewCatalog.Release release = WhatsNewCatalog.forVersion("v0.4.3.1");
+    WhatsNewCatalog.Release release = WhatsNewCatalog.forVersion("v0.4.4.1");
 
     assertTrue(release.curated());
-    assertEquals("v0.4.3.1", release.versionLabel());
-    assertTrue(release.summary().contains("included files"));
+    assertEquals("v0.4.4.1", release.versionLabel());
+    assertTrue(release.summary().contains("Render Pipeline"));
     assertEquals(1, release.sections().size());
-    assertTrue(release.sections().get(0).summary().contains("real source and line"));
+    assertTrue(release.sections().get(0).summary().contains("GPU acceleration"));
   }
 
   @Test
   void maturityBuildUsesNumericReleaseNotesButKeepsFullLabel() {
-    WhatsNewCatalog.Release release = WhatsNewCatalog.forVersion("v0.4.3.1 Beta");
+    WhatsNewCatalog.Release release = WhatsNewCatalog.forVersion("v0.4.4.1 Beta");
 
     assertTrue(release.curated());
-    assertEquals("v0.4.3.1 Beta", release.versionLabel());
+    assertEquals("v0.4.4.1 Beta", release.versionLabel());
   }
 
   @Test

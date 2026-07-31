@@ -49,6 +49,14 @@ public final class WhatsNewCatalog {
   private static Map<String, Release> createReleases() {
     Map<String, Release> releases = new LinkedHashMap<>();
     add(releases, new Release(
+        "v0.4.4.1",
+        "A configurable Render Pipeline, smoother Puppeteer playback, and a more capable Engine Hub.",
+        List.of(new Section(
+            "Rendering and Engine Hub",
+            "Manage GPU acceleration, renderer diagnostics, performance displays, UI scale, and Project Explorer icon themes from the Hub.",
+            List.of())),
+        true));
+    add(releases, new Release(
         "v0.4.3.1",
         "VNS diagnostics now identify parse errors in included files instead of pointing at blank lines in the open script.",
         List.of(new Section(
