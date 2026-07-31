@@ -1,6 +1,7 @@
 package com.jvn.editor.ui;
 
 import java.io.File;
+import java.util.List;
 import java.util.Locale;
 
 import javafx.scene.layout.Region;
@@ -210,8 +211,53 @@ final class ProjectFileIcons {
 
   static Region iconFor(Kind kind, double size) {
     Kind safeKind = kind != null ? kind : Kind.DOCUMENT;
-    return MaterialProjectIconPack.icon(iconName(safeKind), size)
+    return FreedesktopProjectIconPack.icon(systemIconNames(safeKind), size)
+        .or(() -> MaterialProjectIconPack.icon(iconName(safeKind), size))
         .orElseGet(() -> fallbackIcon(safeKind, size));
+  }
+
+  static List<String> systemIconNames(Kind kind) {
+    Kind safeKind = kind != null ? kind : Kind.DOCUMENT;
+    return switch (safeKind) {
+      case ASSET_FOLDER -> List.of("folder-pictures", "folder");
+      case AUDIO_FOLDER -> List.of("folder-music", "folder");
+      case VIDEO_FOLDER -> List.of("folder-videos", "folder-video", "folder");
+      case DOCS_FOLDER -> List.of("folder-documents", "folder");
+      case DOWNLOAD_FOLDER, EXPORT_FOLDER -> List.of("folder-download", "folder");
+      case TEMPLATE_FOLDER -> List.of("folder-templates", "folder");
+      case PUBLIC_FOLDER -> List.of("folder-publicshare", "folder");
+      case ROOT -> List.of("folder", "user-home");
+      case FOLDER, SOURCE_FOLDER, CONFIG_FOLDER, SCRIPT_FOLDER, STORY_FOLDER, LAYOUT_FOLDER, STYLE_FOLDER,
+          BUILD_FOLDER, SAVE_FOLDER, TEST_FOLDER, JAVA_FOLDER, UI_FOLDER, FONT_FOLDER, RESOURCE_FOLDER,
+          TOOLS_FOLDER, ARCHIVE_FOLDER, BACKUP_FOLDER, CI_FOLDER, COMPONENTS_FOLDER, CONTENT_FOLDER,
+          CORE_FOLDER, COVERAGE_FOLDER, DEBUG_FOLDER, DOCKER_FOLDER, EXAMPLES_FOLDER, FEATURES_FOLDER,
+          FUNCTIONS_FOLDER, GIT_FOLDER, GITHUB_FOLDER, I18N_FOLDER, INPUT_FOLDER, INTERFACE_FOLDER,
+          JSON_FOLDER, LIB_FOLDER, LOG_FOLDER, MESSAGES_FOLDER, MOCK_FOLDER, NODE_FOLDER, PACKAGES_FOLDER,
+          PRIVATE_FOLDER, REPOSITORY_FOLDER, ROUTES_FOLDER, SASS_FOLDER, SHADER_FOLDER, SHARED_FOLDER,
+          TEMP_FOLDER, TASKS_FOLDER, TYPESCRIPT_FOLDER, UPLOAD_FOLDER, VIEWS_FOLDER -> List.of("folder");
+      case IMAGE, SVG_FILE, MERMAID, DRAWIO -> List.of("image-x-generic", "text-x-generic");
+      case AUDIO -> List.of("audio-x-generic", "application-ogg", "text-x-generic");
+      case VIDEO, TIMELINE -> List.of("video-x-generic", "text-x-generic");
+      case SCRIPT, STORY, CONSOLE, POWERSHELL -> List.of("text-x-script", "text-x-generic");
+      case JAVA -> List.of("text-x-java-source", "text-x-java", "text-x-source", "text-x-generic");
+      case KOTLIN -> List.of("text-x-kotlin", "text-x-source", "text-x-generic");
+      case PYTHON -> List.of("text-x-python", "text-x-script", "text-x-generic");
+      case MARKDOWN -> List.of("text-x-readme", "text-markdown", "text-x-generic");
+      case HTML -> List.of("text-html", "text-x-generic");
+      case ARCHIVE -> List.of("package-x-generic", "application-x-archive", "text-x-generic");
+      case DATABASE -> List.of("application-x-sqlite3", "application-x-generic", "text-x-generic");
+      case FONT -> List.of("font-x-generic", "text-x-generic");
+      case PDF -> List.of("application-pdf", "gnome-mime-application-pdf", "text-x-generic");
+      case OFFICE -> List.of("x-office-document", "text-x-generic");
+      case EXECUTABLE -> List.of("application-x-executable", "application-x-generic");
+      case DLL -> List.of("application-x-sharedlib", "application-x-generic");
+      case SETTINGS -> List.of("preferences-system", "application-x-generic", "text-x-generic");
+      case NOTE -> List.of("dialog-warning", "text-x-generic");
+      case XML, CSS, STYLE, SASS, LESS, JAVASCRIPT, TYPESCRIPT, REACT, VUE, YAML, GRADLE, TOML, MENU,
+          LAYOUT, JSON, JSON_SCHEMA, DOCKER, GIT, GITHUB_ACTIONS, GITLAB, TASKFILE, LOG, NODE, NPM,
+          LICENSE, CHANGELOG, AUTHORS, CREDITS, ESLINT, PRETTIER, EDITORCONFIG, DOCUMENT ->
+          List.of("text-x-generic");
+    };
   }
 
   private static Kind folderKind(String lower) {
