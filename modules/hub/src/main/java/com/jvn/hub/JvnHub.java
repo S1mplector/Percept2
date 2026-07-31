@@ -164,6 +164,7 @@ public final class JvnHub {
   private static final String UI_SCALE_KEY = "ui.scale";
   private static final String PERFORMANCE_GRAPH_VISIBLE_KEY = "performance.graph.visible";
   private static final String PERFORMANCE_CHIPS_VISIBLE_KEY = "performance.chips.visible";
+  private static final String TOOLTIPS_ENABLED_KEY = "tooltips.enabled";
   private static final HubDisplayProfile DISPLAY_PROFILE = HubDisplayProfile.detect();
   private static double activeUiScale = initialUiScale();
 
@@ -222,6 +223,7 @@ public final class JvnHub {
   private String activeStepLabel = "";
   private boolean performanceGraphVisible = loadUiBoolean(PERFORMANCE_GRAPH_VISIBLE_KEY, true);
   private boolean performanceChipsVisible = loadUiBoolean(PERFORMANCE_CHIPS_VISIBLE_KEY, true);
+  private boolean tooltipsEnabled = loadUiBoolean(TOOLTIPS_ENABLED_KEY, true);
 
   /** Developer Mode exposes engineering-focused actions and launch flags. */
   private boolean developerModeEnabled = false;
@@ -269,6 +271,7 @@ public final class JvnHub {
     this.renderPipelineMode = RenderPipelineSettings.load(renderPipelinePreferencesFile);
     this.renderPipelineOptions = RenderPipelineSettings.loadOptions(renderPipelineTuningFile);
     this.projectIconOptions = ProjectIconThemeSettings.load(projectIconSettingsFile);
+    configureToolTipManager(tooltipsEnabled);
     buildUi();
     checkIncomingUpdates(true);
   }
@@ -552,6 +555,12 @@ public final class JvnHub {
     Properties properties = loadUiState();
     properties.setProperty(PERFORMANCE_GRAPH_VISIBLE_KEY, Boolean.toString(performanceGraphVisible));
     properties.setProperty(PERFORMANCE_CHIPS_VISIBLE_KEY, Boolean.toString(performanceChipsVisible));
+    writeUiState(properties);
+  }
+
+  private void saveTooltipVisibility() {
+    Properties properties = loadUiState();
+    properties.setProperty(TOOLTIPS_ENABLED_KEY, Boolean.toString(tooltipsEnabled));
     writeUiState(properties);
   }
 
@@ -870,6 +879,13 @@ public final class JvnHub {
         performanceChipsVisible);
     performanceChips.addActionListener(e -> setPerformanceChipsVisible(performanceChips.isSelected()));
     view.add(performanceChips);
+    JCheckBoxMenuItem tooltips = hubCheckMenuItem(
+        "Show Tooltips",
+        "Show or hide contextual help popups throughout Engine Hub.",
+        ACCENT_NEUTRAL,
+        tooltipsEnabled);
+    tooltips.addActionListener(e -> setTooltipsEnabled(tooltips.isSelected()));
+    view.add(tooltips);
     view.addSeparator();
     JCheckBoxMenuItem safeMode = hubCheckMenuItem(
         "Safe Mode",
@@ -1911,6 +1927,18 @@ public final class JvnHub {
     if (monitor != null) monitor.applyVisibility(performanceGraphVisible, performanceChipsVisible);
     setStatus(status, ACCENT_TOOLS);
     refreshModeMenus();
+  }
+
+  private void setTooltipsEnabled(boolean enabled) {
+    tooltipsEnabled = enabled;
+    configureToolTipManager(enabled);
+    saveTooltipVisibility();
+    setStatus("Tooltips " + (enabled ? "shown" : "hidden"), ACCENT_NEUTRAL);
+    refreshModeMenus();
+  }
+
+  static void configureToolTipManager(boolean enabled) {
+    ToolTipManager.sharedInstance().setEnabled(enabled);
   }
 
   private void applyUiScale(double requestedScale) {

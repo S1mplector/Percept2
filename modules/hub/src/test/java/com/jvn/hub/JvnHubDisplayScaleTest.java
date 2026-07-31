@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Properties;
+import javax.swing.ToolTipManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -59,10 +60,25 @@ class JvnHubDisplayScaleTest {
     Properties properties = new Properties();
     properties.setProperty("performance.graph.visible", "yes");
     properties.setProperty("performance.chips.visible", "off");
+    properties.setProperty("tooltips.enabled", "disabled");
 
     assertTrue(JvnHub.booleanPreference(properties, "performance.graph.visible", false));
     assertFalse(JvnHub.booleanPreference(properties, "performance.chips.visible", true));
+    assertFalse(JvnHub.booleanPreference(properties, "tooltips.enabled", true));
     assertTrue(JvnHub.booleanPreference(properties, "missing", true));
+  }
+
+  @Test
+  void tooltipVisibilityControlsTheSharedSwingManager() {
+    boolean previous = ToolTipManager.sharedInstance().isEnabled();
+    try {
+      JvnHub.configureToolTipManager(false);
+      assertFalse(ToolTipManager.sharedInstance().isEnabled());
+      JvnHub.configureToolTipManager(true);
+      assertTrue(ToolTipManager.sharedInstance().isEnabled());
+    } finally {
+      JvnHub.configureToolTipManager(previous);
+    }
   }
 
   @Test
