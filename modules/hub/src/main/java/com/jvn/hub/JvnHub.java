@@ -178,6 +178,7 @@ public final class JvnHub {
   }
 
   private final Path projectRoot;
+  private final Path renderPipelinePreferencesFile;
   private final JFrame frame = new JFrame("JVN Engine Hub");
   private final JLabel statusLabel = new JLabel("Idle");
   private final JLabel footerBranchLabel = new JLabel("No branch");
@@ -218,6 +219,8 @@ public final class JvnHub {
   private boolean gradleNoBuildCacheEnabled = false;
   private boolean gradleNoDaemonEnabled = false;
   private String gradleExtraArgs = "";
+  /** Rendering profile persisted for editor, preview, launcher, and game-runtime processes. */
+  private RenderPipelineSettings.Mode renderPipelineMode;
   /** Header shortcut for a lightweight local environment report. */
   private HeaderIconButton diagnosticsButton;
   /** Header shortcut for version, source, install, and update details. */
@@ -234,6 +237,8 @@ public final class JvnHub {
 
   private JvnHub(Path projectRoot) {
     this.projectRoot = projectRoot;
+    this.renderPipelinePreferencesFile = RenderPipelineSettings.defaultPreferencesFile();
+    this.renderPipelineMode = RenderPipelineSettings.load(renderPipelinePreferencesFile);
     buildUi();
     checkIncomingUpdates(true);
   }
@@ -634,6 +639,7 @@ public final class JvnHub {
 
     bar.add(file);
     bar.add(engine);
+    bar.add(buildRenderPipelineMenu());
     bar.add(build);
     bar.add(sourceControl);
     bar.add(tools);
@@ -669,6 +675,64 @@ public final class JvnHub {
         "logs", Paths.get(System.getProperty("user.home", "."), ".jvn", "logs"))));
     safe.add(hubMenuItem("Cancel Running Task", this::cancelRunning));
     return safe;
+  }
+
+  private JMenu buildRenderPipelineMenu() {
+    JMenu render = hubMenu("Render Pipeline");
+    render.setForeground(ACCENT_DEV);
+
+    JMenuItem profile = hubMenuItem(
+        "Next launch: " + renderPipelineMode.displayName(),
+        () -> {});
+    profile.setEnabled(false);
+    render.add(profile);
+
+    JMenuItem backend = hubMenuItem(
+        "Backends: " + renderPipelineMode.backendOrder(System.getProperty("os.name", "")),
+        () -> {});
+    backend.setEnabled(false);
+    render.add(backend);
+    render.addSeparator();
+
+    ButtonGroup profiles = new ButtonGroup();
+    addRenderPipelineChoice(
+        render,
+        profiles,
+        "Adaptive Selection (Recommended)",
+        RenderPipelineSettings.Mode.AUTO);
+    addRenderPipelineChoice(
+        render,
+        profiles,
+        "GPU Preferred (Safe Fallback)",
+        RenderPipelineSettings.Mode.HARDWARE);
+    addRenderPipelineChoice(
+        render,
+        profiles,
+        "Software Compatibility",
+        RenderPipelineSettings.Mode.SOFTWARE);
+
+    render.addSeparator();
+    render.add(hubMenuItem("Launch Editor with This Pipeline", () -> clickIfAvailable(runEditorButton)));
+    render.add(hubMenuItem("Inspect Render Stack...", this::showRenderPipelineReport));
+    render.add(hubMenuItem("Copy Render Stack Summary", this::copyRenderPipelineSummary));
+    render.addSeparator();
+    render.add(hubMenuItem("Open Graphics Preferences", this::openRenderPipelinePreferences));
+    render.add(hubMenuItem("Reset to Adaptive Defaults", () ->
+        setRenderPipelineMode(RenderPipelineSettings.Mode.AUTO)));
+    return render;
+  }
+
+  private void addRenderPipelineChoice(
+      JMenu menu,
+      ButtonGroup profiles,
+      String label,
+      RenderPipelineSettings.Mode mode) {
+    JRadioButtonMenuItem item = new JRadioButtonMenuItem(label, renderPipelineMode == mode);
+    styleMenuItem(item);
+    item.setToolTipText(mode.description());
+    item.addActionListener(e -> setRenderPipelineMode(mode));
+    profiles.add(item);
+    menu.add(item);
   }
 
   private JMenu buildUiScaleMenu() {
@@ -1242,6 +1306,262 @@ public final class JvnHub {
       frame.pack();
     }
     refreshModeMenus();
+  }
+
+  private void setRenderPipelineMode(RenderPipelineSettings.Mode requestedMode) {
+    RenderPipelineSettings.Mode mode = requestedMode == null
+        ? RenderPipelineSettings.Mode.AUTO
+        : requestedMode;
+    try {
+      RenderPipelineSettings.save(renderPipelinePreferencesFile, mode);
+      renderPipelineMode = mode;
+      appendLog("[hub] render pipeline set to " + mode.displayName()
+          + " (" + mode.backendOrder(System.getProperty("os.name", "")) + ").");
+      setStatus("Render Pipeline: " + mode.displayName(), ACCENT_DEV);
+      setActivity(
+          "Render pipeline updated",
+          "Applies to the next editor, preview, launcher, and game-runtime process.",
+          false,
+          ACCENT_DEV);
+    } catch (IOException error) {
+      appendLog("[hub] could not save render pipeline: " + error.getMessage());
+      setStatus("Could not save Render Pipeline", ACCENT_ERROR);
+      setActivity(
+          "Render pipeline unchanged",
+          error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage(),
+          false,
+          ACCENT_ERROR);
+    }
+    refreshModeMenus();
+  }
+
+  private void showRenderPipelineReport() {
+    setStatus("Inspecting render stack", ACCENT_DEV);
+    setActivity("Inspecting render stack", "Checking display and JavaFX launch configuration.", true, ACCENT_DEV);
+    setButtonsEnabled(false);
+    RenderPipelineSettings.Mode selectedMode = renderPipelineMode;
+
+    new SwingWorker<List<HealthCheck>, Void>() {
+      @Override protected List<HealthCheck> doInBackground() {
+        return buildRenderPipelineReport(selectedMode);
+      }
+
+      @Override protected void done() {
+        setButtonsEnabled(true);
+        List<HealthCheck> report;
+        try {
+          report = get();
+        } catch (Exception error) {
+          report = List.of(new HealthCheck(
+              CheckStatus.FAIL,
+              "Render stack inspection",
+              "The rendering report could not be completed.",
+              error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage()));
+        }
+        setStatus("Render stack report ready", ACCENT_DEV);
+        setActivity(
+            "Render stack inspected",
+            selectedMode.displayName() + " is selected for the next launch.",
+            false,
+            ACCENT_DEV);
+        showReportDialog(
+            "Render Pipeline / Render Stack",
+            report,
+            selectedMode.displayName() + " · next process launch");
+      }
+    }.execute();
+  }
+
+  private List<HealthCheck> buildRenderPipelineReport(RenderPipelineSettings.Mode mode) {
+    RenderPipelineSettings.Mode selected = mode == null
+        ? RenderPipelineSettings.Mode.AUTO
+        : mode;
+    List<HealthCheck> report = new ArrayList<>();
+    report.add(new HealthCheck(
+        CheckStatus.INFO,
+        "Launch profile",
+        selected.displayName(),
+        selected.description() + " Changes take effect when a new JVN process starts."));
+    report.add(new HealthCheck(
+        selected == RenderPipelineSettings.Mode.SOFTWARE ? CheckStatus.INFO : CheckStatus.PASS,
+        "JavaFX backend order",
+        selected.backendOrder(System.getProperty("os.name", "")),
+        selected == RenderPipelineSettings.Mode.HARDWARE
+            ? "Hardware acceleration is preferred; the software backend remains available if GPU initialization fails."
+            : selected == RenderPipelineSettings.Mode.SOFTWARE
+                ? "Hardware rendering is intentionally disabled for compatibility diagnostics."
+                : "JavaFX selects its platform default and may fall back when required."));
+
+    report.add(displayDeviceCheck());
+    report.add(new HealthCheck(
+        CheckStatus.INFO,
+        "Desktop graphics session",
+        renderSessionSummary(),
+        "OS=" + firstNonBlank(System.getProperty("os.name"), "unknown")
+            + "; arch=" + firstNonBlank(System.getProperty("os.arch"), "unknown")));
+
+    String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
+    if (os.contains("linux")) report.add(linuxOpenGlCheck());
+
+    report.add(new HealthCheck(
+        CheckStatus.INFO,
+        "Shared process scope",
+        "Editor, previews, launcher, and game runtime",
+        "The Hub persists graphics.mode and explicitly forwards JVN_GRAPHICS_MODE to managed launches."));
+    report.add(new HealthCheck(
+        Files.isWritable(renderPipelinePreferencesFile.getParent()) ? CheckStatus.PASS : CheckStatus.WARN,
+        "Graphics preferences",
+        renderPipelinePreferencesFile.toAbsolutePath().toString(),
+        "Stored value: graphics.mode=" + selected.id()));
+    return List.copyOf(report);
+  }
+
+  private HealthCheck displayDeviceCheck() {
+    if (GraphicsEnvironment.isHeadless()) {
+      return new HealthCheck(
+          CheckStatus.WARN,
+          "Display device",
+          "No desktop display is available to the Hub.",
+          "The editor needs a graphical desktop session to initialize JavaFX rendering.");
+    }
+    try {
+      GraphicsDevice device = GraphicsEnvironment
+          .getLocalGraphicsEnvironment()
+          .getDefaultScreenDevice();
+      GraphicsConfiguration configuration = device.getDefaultConfiguration();
+      Rectangle bounds = configuration.getBounds();
+      java.awt.ImageCapabilities capabilities = configuration.getImageCapabilities();
+      return new HealthCheck(
+          capabilities.isAccelerated() ? CheckStatus.PASS : CheckStatus.INFO,
+          "Hub display device",
+          firstNonBlank(device.getIDstring(), "Default display"),
+          bounds.width + "x" + bounds.height
+              + "; color depth=" + configuration.getColorModel().getPixelSize()
+              + " bit; AWT accelerated images=" + capabilities.isAccelerated()
+              + ". JavaFX confirms its own active backend after launch.");
+    } catch (Exception error) {
+      return new HealthCheck(
+          CheckStatus.WARN,
+          "Display device",
+          "Display capabilities could not be queried.",
+          error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage());
+    }
+  }
+
+  private String renderSessionSummary() {
+    String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
+    if (!os.contains("linux")) return firstNonBlank(System.getProperty("os.name"), "Desktop session");
+    String session = firstNonBlank(System.getenv("XDG_SESSION_TYPE"), "unknown");
+    String wayland = firstNonBlank(System.getenv("WAYLAND_DISPLAY"), "not set");
+    String x11 = firstNonBlank(System.getenv("DISPLAY"), "not set");
+    return session + " · WAYLAND_DISPLAY=" + wayland + " · DISPLAY=" + x11;
+  }
+
+  private HealthCheck linuxOpenGlCheck() {
+    if (!commandExists("glxinfo")) {
+      return new HealthCheck(
+          CheckStatus.INFO,
+          "Linux OpenGL probe",
+          "glxinfo is not installed; the launcher's automatic fallback remains available.",
+          "Install mesa-utils to include the active OpenGL vendor and renderer in this report.");
+    }
+    if (firstNonBlank(System.getenv("DISPLAY"), "").isBlank()) {
+      return new HealthCheck(
+          CheckStatus.INFO,
+          "Linux OpenGL probe",
+          "No X11 DISPLAY is available for glxinfo.",
+          "A native Wayland session may still provide a working JavaFX hardware pipeline.");
+    }
+    CommandResult result = runLocalCommand(List.of("glxinfo", "-B"), 6);
+    if (result.exitCode != 0) {
+      CommandResult mesa = commandExists("env")
+          ? runLocalCommand(
+              List.of("env", "__GLX_VENDOR_LIBRARY_NAME=mesa", "glxinfo", "-B"),
+              6)
+          : new CommandResult(-1, "env command not found");
+      if (mesa.exitCode == 0) {
+        return new HealthCheck(
+            CheckStatus.PASS,
+            "Linux OpenGL recovery",
+            "Default GLX failed, but the Mesa GPU provider is available.",
+            "JVN will select Mesa automatically for managed launches.\n"
+                + summarizeOpenGlProbe(mesa.output));
+      }
+      return new HealthCheck(
+          CheckStatus.WARN,
+          "Linux OpenGL probe",
+          "Neither the default nor Mesa GLX provider initialized.",
+          "Default: " + compactMessage(result.output)
+              + "\nMesa: " + compactMessage(mesa.output));
+    }
+    return new HealthCheck(
+        CheckStatus.PASS,
+        "Linux OpenGL probe",
+        "Direct OpenGL initialization succeeded.",
+        summarizeOpenGlProbe(result.output));
+  }
+
+  private static String summarizeOpenGlProbe(String output) {
+    if (output == null || output.isBlank()) return "glxinfo -B completed successfully.";
+    List<String> lines = output.lines()
+        .map(String::trim)
+        .filter(line -> {
+          String lower = line.toLowerCase(Locale.ROOT);
+          return lower.startsWith("direct rendering:")
+              || lower.startsWith("accelerated:")
+              || lower.startsWith("opengl vendor string:")
+              || lower.startsWith("opengl renderer string:")
+              || lower.startsWith("opengl core profile version string:")
+              || lower.startsWith("opengl version string:");
+        })
+        .limit(6)
+        .toList();
+    return lines.isEmpty() ? "glxinfo -B completed successfully." : String.join("\n", lines);
+  }
+
+  private String renderPipelineSummary() {
+    RenderPipelineSettings.Mode mode = renderPipelineMode;
+    return String.join("\n",
+        "JVN Render Pipeline",
+        "Profile: " + mode.displayName() + " (" + mode.id() + ")",
+        "Backend order: " + mode.backendOrder(System.getProperty("os.name", "")),
+        "Scope: editor, previews, launcher, and game runtime",
+        "Desktop session: " + renderSessionSummary(),
+        "OS: " + firstNonBlank(System.getProperty("os.name"), "unknown")
+            + " " + firstNonBlank(System.getProperty("os.arch"), "unknown"),
+        "Java: " + firstNonBlank(System.getProperty("java.version"), "unknown"),
+        "Preferences: " + renderPipelinePreferencesFile.toAbsolutePath(),
+        "Applies on next process launch: yes");
+  }
+
+  private void copyRenderPipelineSummary() {
+    String summary = renderPipelineSummary();
+    Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(summary), null);
+    setStatus("Copied render stack summary", ACCENT_DEV);
+    setActivity("Render stack summary copied", "Ready to paste into a performance report.", false, ACCENT_DEV);
+  }
+
+  private void openRenderPipelinePreferences() {
+    try {
+      if (!Files.isRegularFile(renderPipelinePreferencesFile)) {
+        RenderPipelineSettings.save(renderPipelinePreferencesFile, renderPipelineMode);
+      }
+      java.awt.Desktop desktop = java.awt.Desktop.getDesktop();
+      if (desktop.isSupported(java.awt.Desktop.Action.EDIT)) {
+        desktop.edit(renderPipelinePreferencesFile.toFile());
+      } else {
+        desktop.open(renderPipelinePreferencesFile.toFile());
+      }
+      setStatus("Opened graphics preferences", ACCENT_DEV);
+    } catch (Exception error) {
+      appendLog("[hub] could not open graphics preferences: " + error.getMessage());
+      setStatus("Could not open graphics preferences", ACCENT_ERROR);
+      setActivity(
+          "Open graphics preferences failed",
+          error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage(),
+          false,
+          ACCENT_ERROR);
+    }
   }
 
   private void refreshModeMenus() {
@@ -1864,6 +2184,9 @@ public final class JvnHub {
     List<String> cmd = new ArrayList<>();
     cmd.add(gradleCommand());
     cmd.add("--console=plain");
+    if (RenderPipelineSettings.isManagedGradleTask(task)) {
+      cmd.add("-D" + RenderPipelineSettings.GRAPHICS_MODE_PROPERTY + "=" + renderPipelineMode.id());
+    }
     if (developerModeEnabled) {
       cmd.add("-Djvn.hub.developerMode=true");
       cmd.add("-Djvn.editor.developerMode=true");
@@ -2478,6 +2801,7 @@ public final class JvnHub {
   }
 
   private void startProcess(List<String> command, String label) {
+    RenderPipelineSettings.Mode launchPipelineMode = renderPipelineMode;
     new SwingWorker<Integer, String>() {
       private String lastOutput = "";
       private final StringBuilder fullOutput = new StringBuilder();
@@ -2487,6 +2811,11 @@ public final class JvnHub {
         ProcessBuilder pb = new ProcessBuilder(command)
             .directory(projectRoot.toFile())
             .redirectErrorStream(true);
+        if (RenderPipelineSettings.applyLaunchEnvironment(
+            pb.environment(), command, launchPipelineMode)) {
+          publish("[hub] render pipeline: " + launchPipelineMode.displayName()
+              + " (" + launchPipelineMode.backendOrder(System.getProperty("os.name", "")) + ").");
+        }
         if (isGradleWrapperCommand(command)) {
           Path packagedGradleHome = projectRoot.resolve(".jvn-gradle-user-home");
           if (isPackagedGradleHome(packagedGradleHome)) {
@@ -3272,6 +3601,10 @@ public final class JvnHub {
   }
 
   private CommandResult runGit(List<String> command, long timeoutSeconds) {
+    return runLocalCommand(command, timeoutSeconds);
+  }
+
+  private CommandResult runLocalCommand(List<String> command, long timeoutSeconds) {
     Process process;
     try {
       process = new ProcessBuilder(command)
@@ -3294,7 +3627,7 @@ public final class JvnHub {
             // reason: I/O failure on best-effort save/load; in-memory state remains valid
         // Best-effort capture only.
       }
-    }, "jvn-hub-git-output");
+    }, "jvn-hub-command-output");
     reader.setDaemon(true);
     reader.start();
 
@@ -3880,9 +4213,14 @@ public final class JvnHub {
   /** Re-reads engine metadata from disk and refreshes the Hub UI on the EDT. */
   private void refreshFromDisk() {
     String newVersion = readDiskVersion();
+    RenderPipelineSettings.Mode refreshedPipeline =
+        RenderPipelineSettings.load(renderPipelinePreferencesFile);
     SwingUtilities.invokeLater(() -> {
+      renderPipelineMode = refreshedPipeline;
       versionLabel.setText(formatVersionLabel(newVersion));
       appendLog("[hub] refresh: engine version " + newVersion + ".");
+      frame.setJMenuBar(buildMenuBar());
+      frame.revalidate();
       frame.repaint();
     });
   }

@@ -34,6 +34,20 @@ The same path is used by `./jvnw editor`, `./jvnw launcher`, and `./jvnw runtime
 
 On Linux/X11, the application launcher also checks whether the default GLX provider can create a hardware context. If the default provider is broken but the Mesa provider works, JVN uses Mesa for that launch and passes the GPU pipeline flags before JavaFX initializes. Set `JVN_DISABLE_GLX_FALLBACK=1` to disable this recovery. The editor performance strip reports **GPU active**, **GPU fallback**, or **GPU off** so a software-rendering fallback is visible.
 
+## Render Pipeline
+
+The Engine Hub's **Render Pipeline** menu controls the JavaFX rendering profile used by newly launched JVN processes:
+
+| Profile | Behavior |
+|---------|----------|
+| Adaptive Selection | Lets JavaFX choose the platform renderer and fallbacks. This is the recommended default. |
+| GPU Preferred | Tries Direct3D on Windows or OpenGL ES2 elsewhere, while retaining the software renderer as a safe fallback. |
+| Software Compatibility | Uses the CPU renderer for driver troubleshooting and compatibility testing. |
+
+The selected profile is shared by the editor, Puppeteer and other previews, the standalone launcher, and game-runtime processes. It is stored as `graphics.mode` in `~/.jvn-editor/editor-preferences.properties` and takes effect when the next process starts; an already-open editor is not reconfigured in place.
+
+Use **Inspect Render Stack** to review the requested backend order, desktop session, display capabilities, preference path, and—on Linux when `glxinfo` is installed—the active OpenGL vendor and renderer. **Copy Render Stack Summary** creates a compact report suitable for performance or driver bug reports.
+
 ## Source-First Preview Builds
 
 JVN does not publish official prebuilt Engine Hub, editor, or runtime binaries yet. During the current preview phase, run the hub from a source checkout with `./jvn` on macOS/Linux or `jvn.bat` on Windows. The hub then uses the same checkout for editor launches, builds, tests, update operations, shortcut installation, and project packaging.
