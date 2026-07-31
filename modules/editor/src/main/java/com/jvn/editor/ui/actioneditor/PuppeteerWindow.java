@@ -589,7 +589,6 @@ public class PuppeteerWindow extends Stage {
             refreshPropertyPickerChoices();
             refreshSidebarTabs();
             updateStatusBar();
-            updateLivePreviewReadout();
             animationPreview.render();
         });
 
@@ -1068,7 +1067,6 @@ public class PuppeteerWindow extends Stage {
             if (effective != null && cbProperty.getValue() != effective) {
                 cbProperty.setValue(effective);
             }
-            updateLivePreviewReadout();
             animationPreview.render();
         });
         timelinePanel.setSelectedProperty(PropertyType.X);
@@ -8431,9 +8429,9 @@ public class PuppeteerWindow extends Stage {
                 if (playbackTimelineRefreshGate.shouldRefresh(now)) {
                     timelinePanel.setPlayhead(newTime);
                 }
-                boolean refreshReadouts = playbackChromeRefreshGate.shouldRefresh(now);
-                updatePreview(refreshReadouts, false);
-                if (refreshReadouts) updatePlaybackChrome();
+                boolean refreshPlaybackChrome = playbackChromeRefreshGate.shouldRefresh(now);
+                updatePreview(false);
+                if (refreshPlaybackChrome) updatePlaybackChrome();
             }
         };
         refreshTransportButtonStates();
@@ -8509,17 +8507,16 @@ public class PuppeteerWindow extends Stage {
     }
 
     public void updatePreview() {
-        updatePreview(true, true);
+        updatePreview(true);
     }
 
-    private void updatePreview(boolean refreshLiveReadout, boolean refreshEditorChrome) {
+    private void updatePreview(boolean refreshEditorChrome) {
         if (scene == null) {
             if (refreshEditorChrome) refreshSidebarTabs();
             return;
         }
 
         double time = project.getPlayheadMs();
-        if (refreshLiveReadout) updateLivePreviewReadout();
         restorePreviewBaselineState();
         if (runtimeParityPreview) {
             applyRuntimeParityPreview(time);
@@ -8726,18 +8723,6 @@ public class PuppeteerWindow extends Stage {
 
         animationPreview.render();
         if (refreshEditorChrome) refreshSidebarTabs();
-    }
-
-    private void updateLivePreviewReadout() {
-        if (animationPreview == null || timelinePanel == null) return;
-        animationPreview.setLivePreviewReadout(PuppeteerLivePreviewReadout.build(
-            project,
-            timelinePanel.getSelectedEntity(),
-            timelinePanel.isSelectedGroup(),
-            timelinePanel.isRuntimeCameraSelected(),
-            timelinePanel.getSelectedProperty(),
-            runtimeParityPreview
-        ));
     }
 
     private boolean trackHasAuthoredValues(EntityTrack track) {
