@@ -21,7 +21,7 @@ final class ProjectIconPreferences {
       if (value == null || value.isBlank()) return DESKTOP;
       return switch (value.trim().toLowerCase(Locale.ROOT)) {
         case "theme", "installed", "custom" -> THEME;
-        case "bundled", "material", "jvn" -> BUNDLED;
+        case "jvn-defaults", "default", "defaults", "bundled", "material", "svg", "jvn" -> BUNDLED;
         default -> DESKTOP;
       };
     }

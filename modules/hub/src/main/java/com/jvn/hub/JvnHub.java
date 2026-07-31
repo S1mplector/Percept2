@@ -1340,8 +1340,8 @@ public final class JvnHub {
     icons.add(inheritance);
 
     JCheckBoxMenuItem bundledFallback = hubCheckMenuItem(
-        "Use Bundled Fallback Icons",
-        "Use JVN's Material artwork when a Linux theme has no JavaFX-compatible PNG entry.",
+        "Use JVN Default Fallback Icons",
+        "Use JVN's previous bundled SVG pack when a Linux theme has no JavaFX-compatible PNG entry.",
         ACCENT_GREEN,
         options.bundledFallback());
     bundledFallback.addActionListener(e -> setProjectIconOptions(
@@ -1423,7 +1423,7 @@ public final class JvnHub {
         ProjectIconThemeSettings.Source.THEME.displayName(),
         ProjectIconThemeSettings.Source.BUNDLED.displayName()));
     source.setToolTipText(
-        "Desktop follows GTK, Installed Theme locks a theme name, and Bundled Material ignores Linux artwork.");
+        "Desktop follows GTK, Installed Theme locks a theme name, and JVN Defaults uses the previous SVG pack.");
     source.setSelectedIndex(projectIconOptions.source().ordinal());
 
     JComboBox<String> theme = projectIconCombo(installedThemes);
@@ -1460,8 +1460,8 @@ public final class JvnHub {
         "Search inherited themes plus Adwaita and hicolor for missing icons.",
         projectIconOptions.inheritTheme());
     JCheckBox bundledFallback = optionCheckBox(
-        "Use bundled JVN fallback icons",
-        "Keep file types recognizable when the selected desktop theme has no PNG icon.",
+        "Use JVN default SVGs as fallback icons",
+        "Use the previous bundled Project Explorer pack when the selected desktop theme has no PNG icon.",
         projectIconOptions.bundledFallback());
     JCheckBox smooth = optionCheckBox(
         "Smooth image scaling",
@@ -1704,7 +1704,7 @@ public final class JvnHub {
     }
     String theme = ProjectIconThemeSettings.resolvedTheme(options);
     status.setText(options.source() == ProjectIconThemeSettings.Source.BUNDLED
-        ? "Bundled Material artwork · preview placeholders shown · applies on the next editor launch."
+        ? "JVN default SVG artwork · preview placeholders shown · applies on the next editor launch."
         : theme + " · " + resolved + "/" + samples.size()
             + " PNG samples resolved · applies on the next editor launch.");
     preview.revalidate();

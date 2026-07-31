@@ -67,6 +67,19 @@ class ProjectIconThemeSettingsTest {
   }
 
   @Test
+  void jvnDefaultsHaveADedicatedPersistedSourceId() throws Exception {
+    Path file = temporaryDirectory.resolve("project-icons.properties");
+    ProjectIconThemeSettings.Options options = ProjectIconThemeSettings.Options.defaults()
+        .withSource(ProjectIconThemeSettings.Source.BUNDLED);
+
+    ProjectIconThemeSettings.save(file, options);
+
+    assertTrue(Files.readString(file).contains("icons.source=jvn-defaults"));
+    assertEquals(ProjectIconThemeSettings.Source.BUNDLED, ProjectIconThemeSettings.load(file).source());
+    assertEquals("JVN Defaults", ProjectIconThemeSettings.resolvedTheme(options));
+  }
+
+  @Test
   void gtkThemeSettingSupportsQuotedDesktopValues() {
     assertEquals("Mint-X-Grey", ProjectIconThemeSettings.parseThemeSetting(
         "[Settings]\ngtk-icon-theme-name='Mint-X-Grey'\n"));

@@ -45,4 +45,14 @@ class ProjectIconPreferencesTest {
 
     assertEquals(12, ProjectIconPreferences.load(file).size());
   }
+
+  @Test
+  void recognizesJvnDefaultsAndLegacyBundledAliases() throws Exception {
+    Path file = temporaryDirectory.resolve("project-icons.properties");
+    Files.writeString(file, "icons.source=jvn-defaults\n");
+    assertEquals(ProjectIconPreferences.Source.BUNDLED, ProjectIconPreferences.load(file).source());
+
+    Files.writeString(file, "icons.source=material\n");
+    assertEquals(ProjectIconPreferences.Source.BUNDLED, ProjectIconPreferences.load(file).source());
+  }
 }

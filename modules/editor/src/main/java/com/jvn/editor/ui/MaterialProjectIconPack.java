@@ -22,6 +22,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
+/** Previously bundled JVN Project Explorer SVG pack retained as the cross-platform default. */
 final class MaterialProjectIconPack {
   private static final String RESOURCE_ROOT = "/com/jvn/editor/icons/material/";
   private static final Map<String, Optional<IconTemplate>> CACHE = new ConcurrentHashMap<>();

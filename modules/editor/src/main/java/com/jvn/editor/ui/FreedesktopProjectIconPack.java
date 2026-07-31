@@ -229,7 +229,7 @@ final class FreedesktopProjectIconPack {
     Map<String, List<Path>> icons = new ConcurrentHashMap<>();
     if (!Files.isDirectory(themeDirectory)) return icons;
     try (var paths = Files.walk(themeDirectory, 5)) {
-      // JavaFX Image decodes raster artwork directly; SVG-only entries use the bundled fallback pack.
+      // JavaFX Image decodes raster artwork directly; SVG-only entries use the JVN default icon pack.
       paths.filter(Files::isRegularFile)
           .filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".png"))
           .forEach(path -> icons

@@ -46,7 +46,10 @@ final class ProjectIconThemeSettings {
   enum Source {
     DESKTOP("desktop", "Follow Linux Desktop", "Use the current GTK/freedesktop icon theme."),
     THEME("theme", "Installed Theme", "Lock JVN to a selected installed freedesktop theme."),
-    BUNDLED("bundled", "Bundled Material", "Use JVN's cross-platform bundled icon artwork.");
+    BUNDLED(
+        "jvn-defaults",
+        "JVN Defaults (Bundled SVG)",
+        "Use JVN's previous bundled Project Explorer SVG pack on every platform.");
 
     private final String id;
     private final String displayName;
@@ -74,7 +77,7 @@ final class ProjectIconThemeSettings {
       if (value == null || value.isBlank()) return DESKTOP;
       return switch (value.trim().toLowerCase(Locale.ROOT)) {
         case "theme", "installed", "custom" -> THEME;
-        case "bundled", "material", "jvn" -> BUNDLED;
+        case "jvn-defaults", "default", "defaults", "bundled", "material", "svg", "jvn" -> BUNDLED;
         default -> DESKTOP;
       };
     }
@@ -192,7 +195,7 @@ final class ProjectIconThemeSettings {
   static String resolvedTheme(Options options) {
     Options safe = options == null ? Options.defaults() : options;
     return switch (safe.source()) {
-      case BUNDLED -> "Bundled Material";
+      case BUNDLED -> "JVN Defaults";
       case THEME -> safe.theme().isBlank() ? DETECTED_DESKTOP_THEME : safe.theme();
       case DESKTOP -> DETECTED_DESKTOP_THEME;
     };
