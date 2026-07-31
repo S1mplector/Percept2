@@ -264,11 +264,13 @@ public class EditorApp extends Application {
   private File perfEnvironmentProjectRoot;
   private PerfEnvironment perfEnvironment;
   private static final long PERF_UPDATE_INTERVAL_NS = 300_000_000L;
+  private static final long TAB_DIRTY_REFRESH_INTERVAL_NS = 250_000_000L;
   private static final long DEV_DIAGNOSTIC_WRITE_INTERVAL_NS = 5_000_000_000L;
   private static final DateTimeFormatter DEV_DIAGNOSTIC_LOG_TIME =
       DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
   private static final double PERF_CPU_SMOOTH_ALPHA = 0.28;
   private static final double PERF_FPS_SMOOTH_ALPHA = 0.20;
+  private final EditorFrameStats editorFrameStats = new EditorFrameStats(180);
   private double targetFps = EditorPreferences.DEFAULT_EDITOR_MAX_FPS;
   private long minFrameIntervalNs = 0L; // 0 = uncapped
   private @Nullable Path developerDiagnosticsLogFile;
@@ -2569,21 +2571,27 @@ public class EditorApp extends Application {
     // Timer
     timer = new AnimationTimer() {
       long last = -1;
+      long lastTabDirtyRefreshNs = -1;
       @Override public void handle(long now) {
         if (last < 0) { last = now; return; }
         if (minFrameIntervalNs > 0 && now - last < minFrameIntervalNs) return;
-        long dt = (now - last) / 1_000_000L;
+        long elapsedNs = now - last;
+        long dt = elapsedNs / 1_000_000L;
         last = now;
+        editorFrameStats.record(elapsedNs);
         FileEditorTab ft = getActiveFileTab();
         if (ft != null) {
           ft.setSize(filesTabs.getWidth(), filesTabs.getHeight());
           ft.render(dt);
         }
-        refreshTabDirtyIndicators();
-    if (fps != null) {
-      double f = (dt > 0) ? (1000.0 / dt) : 0.0;
-      lastFps = f;
-    }
+        if (lastTabDirtyRefreshNs < 0
+            || now - lastTabDirtyRefreshNs >= TAB_DIRTY_REFRESH_INTERVAL_NS) {
+          lastTabDirtyRefreshNs = now;
+          refreshTabDirtyIndicators();
+        }
+        if (fps != null) {
+          lastFps = elapsedNs > 0 ? 1_000_000_000.0 / elapsedNs : 0.0;
+        }
         updatePerf(now);
       }
     };
@@ -3077,17 +3085,29 @@ public class EditorApp extends Application {
         jvnUsedMb,
         heapUsedMb,
         nonHeapMb);
+    EditorFrameStats.Snapshot frameStats = editorFrameStats.snapshot(targetFps);
     String fpsTextValue = String.format(
         Locale.ROOT,
-        "FPS %.0f",
-        Math.max(0.0, smoothedFps * targetFps));
+        "FPS %.0f · P95 %.0fms",
+        Math.max(0.0, smoothedFps * targetFps),
+        frameStats.p95Millis());
 
     updatePerfChip(cpuChip, cpuTextValue, isRatioValid(smoothedProcessCpu)
         ? "Editor process CPU load: " + String.format(Locale.ROOT, "%.0f%%", safePercent(smoothedProcessCpu))
         : "Editor process CPU load unavailable.");
     updatePerfChip(heapChip, heapChipText, heapTooltip);
     updatePerfChip(jvmChip, ramTextValue, jvmTooltip);
-    updatePerfChip(fpsChip, fpsTextValue, "Smoothed editor UI frame rate.");
+    updatePerfChip(
+        fpsChip,
+        fpsTextValue,
+        String.format(
+            Locale.ROOT,
+            "Rolling frame pacing: %.1f average FPS, %.1f ms P95, %.1f ms worst, %d stalls in %d frames.",
+            frameStats.averageFps(),
+            frameStats.p95Millis(),
+            frameStats.maxMillis(),
+            frameStats.stalls(),
+            frameStats.samples()));
     updatePerfChip(threadsChip, "Threads " + threadCount, threadCount + " live threads, " + daemonThreadCount + " daemon threads.");
     updatePerfChip(gcChip, gcText, "Garbage collection delta since the previous sample.");
     updatePerfChip(javaChip, environment.javaChip(), environment.javaText());
@@ -3949,7 +3969,8 @@ public class EditorApp extends Application {
   private void updateTabTitle(Tab tab, FileEditorTab ft) {
     if (tab == null || ft == null) return;
     String base = ft.getDisplayName();
-    tab.setText(ft.isDirty() ? (base + " *") : base);
+    String title = ft.isDirty() ? (base + " *") : base;
+    if (!title.equals(tab.getText())) tab.setText(title);
   }
 
   private void openFile(File f) {
