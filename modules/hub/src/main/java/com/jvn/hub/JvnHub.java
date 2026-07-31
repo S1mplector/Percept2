@@ -82,6 +82,7 @@ import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.JToolTip;
 import javax.swing.JToggleButton;
 import javax.swing.JWindow;
 import javax.swing.JProgressBar;
@@ -89,6 +90,7 @@ import javax.swing.KeyStroke;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
+import javax.swing.ToolTipManager;
 import javax.swing.UIManager;
 import javax.swing.WindowConstants;
 import javax.swing.border.EmptyBorder;
@@ -299,6 +301,9 @@ public final class JvnHub {
     UIManager.put("ToolTip.background", BG);
     UIManager.put("ToolTip.foreground", TEXT_SOFT);
     UIManager.put("ToolTip.border", BorderFactory.createLineBorder(BORDER_NEUTRAL));
+    ToolTipManager.sharedInstance().setInitialDelay(280);
+    ToolTipManager.sharedInstance().setReshowDelay(80);
+    ToolTipManager.sharedInstance().setDismissDelay(12000);
     // macOS's native delegates paint a light menu strip regardless of component
     // background values. Basic delegates respect the Hub palette on every host.
     UIManager.put("MenuBarUI", "javax.swing.plaf.basic.BasicMenuBarUI");
@@ -1185,7 +1190,7 @@ public final class JvnHub {
       ButtonGroup profiles,
       String label,
       RenderPipelineSettings.Mode mode) {
-    JRadioButtonMenuItem item = new JRadioButtonMenuItem(label, renderPipelineMode == mode);
+    JRadioButtonMenuItem item = new HelpRadioButtonMenuItem(label, renderPipelineMode == mode);
     styleMenuItem(item, ACCENT_RENDER);
     item.setToolTipText(mode.description());
     item.addActionListener(e -> setRenderPipelineMode(mode));
@@ -1197,7 +1202,7 @@ public final class JvnHub {
       JMenu menu,
       ButtonGroup choices,
       RenderPipelineSettings.ShapeCache cache) {
-    JRadioButtonMenuItem item = new JRadioButtonMenuItem(
+    JRadioButtonMenuItem item = new HelpRadioButtonMenuItem(
         cache.displayName(),
         renderPipelineOptions.shapeCache() == cache);
     styleMenuItem(item, ACCENT_RENDER);
@@ -1237,7 +1242,7 @@ public final class JvnHub {
   }
 
   private void addScaleChoice(JMenu menu, ButtonGroup choices, String label, double value, boolean selected) {
-    JRadioButtonMenuItem item = new JRadioButtonMenuItem(label, selected);
+    JRadioButtonMenuItem item = new HelpRadioButtonMenuItem(label, selected);
     styleMenuItem(item, TEXT_SOFT);
     item.setToolTipText(Double.isFinite(value)
         ? "Use a fixed " + Math.round(value * 100.0) + "% Hub scale."
@@ -1414,7 +1419,7 @@ public final class JvnHub {
 
   private static JMenu hubMenu(String text, Color accent, int mnemonic) {
     Color tone = accent == null ? TEXT_PRIMARY : accent;
-    JMenu menu = new JMenu(text);
+    JMenu menu = new HelpMenu(text);
     menu.setOpaque(true);
     menu.setBackground(BG_TOP);
     menu.setForeground(tone);
@@ -1435,7 +1440,7 @@ public final class JvnHub {
       VectorIcon.Kind iconKind,
       Color accent,
       Runnable action) {
-    JMenuItem item = new JMenuItem(text);
+    JMenuItem item = new HelpMenuItem(text);
     styleMenuItem(item, accent);
     if (tooltip != null && !tooltip.isBlank()) item.setToolTipText(tooltip);
     if (iconKind != null) item.setIcon(uiIcon(iconKind, 13, accent == null ? TEXT_SOFT : accent));
@@ -1448,7 +1453,7 @@ public final class JvnHub {
       String tooltip,
       Color accent,
       boolean selected) {
-    JCheckBoxMenuItem item = new JCheckBoxMenuItem(text, selected);
+    JCheckBoxMenuItem item = new HelpCheckBoxMenuItem(text, selected);
     styleMenuItem(item, accent);
     if (tooltip != null && !tooltip.isBlank()) item.setToolTipText(tooltip);
     return item;
@@ -1503,6 +1508,232 @@ public final class JvnHub {
     String text = path.toAbsolutePath().normalize().toString();
     int max = 54;
     return text.length() <= max ? text : "…" + text.substring(text.length() - max + 1);
+  }
+
+  private static Dimension contextHelpPreferredSize(JMenuItem item, Dimension base) {
+    if (!hasContextHelp(item)) return base;
+    return new Dimension(base.width + ui(24), base.height);
+  }
+
+  private static void paintContextHelpIndicator(JMenuItem item, Graphics graphics) {
+    if (!hasContextHelp(item)) return;
+    AeroHelpIcon icon = new AeroHelpIcon(ui(16));
+    int trailing = ui(7);
+    if (item instanceof JMenu) trailing += ui(13);
+    KeyStroke accelerator = item.getAccelerator();
+    if (accelerator != null) {
+      String modifier = java.awt.event.InputEvent.getModifiersExText(accelerator.getModifiers());
+      String key = KeyEvent.getKeyText(accelerator.getKeyCode());
+      String label = modifier.isBlank() ? key : modifier + "+" + key;
+      trailing += item.getFontMetrics(item.getFont()).stringWidth(label) + ui(12);
+    }
+    int x = Math.max(ui(4), item.getWidth() - trailing - icon.getIconWidth());
+    int y = Math.max(0, (item.getHeight() - icon.getIconHeight()) / 2);
+    if (item.getModel().isArmed()) {
+      Graphics2D glow = (Graphics2D) graphics.create();
+      glow.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+      glow.setColor(new Color(169, 229, 251, 55));
+      glow.fillOval(x - ui(2), y - ui(2), icon.getIconWidth() + ui(4), icon.getIconHeight() + ui(4));
+      glow.dispose();
+    }
+    icon.paintIcon(item, graphics, x, y);
+  }
+
+  private static boolean hasContextHelp(JMenuItem item) {
+    return item.getToolTipText() != null && !item.getToolTipText().isBlank();
+  }
+
+  private static JToolTip hubToolTip(JComponent owner) {
+    return new HubToolTip(owner);
+  }
+
+  private static final class HelpMenu extends JMenu {
+    HelpMenu(String text) {
+      super(text);
+    }
+
+    @Override public Dimension getPreferredSize() {
+      return contextHelpPreferredSize(this, super.getPreferredSize());
+    }
+
+    @Override protected void paintComponent(Graphics graphics) {
+      super.paintComponent(graphics);
+      paintContextHelpIndicator(this, graphics);
+    }
+
+    @Override public JToolTip createToolTip() {
+      return hubToolTip(this);
+    }
+  }
+
+  private static final class HelpMenuItem extends JMenuItem {
+    HelpMenuItem(String text) {
+      super(text);
+    }
+
+    @Override public Dimension getPreferredSize() {
+      return contextHelpPreferredSize(this, super.getPreferredSize());
+    }
+
+    @Override protected void paintComponent(Graphics graphics) {
+      super.paintComponent(graphics);
+      paintContextHelpIndicator(this, graphics);
+    }
+
+    @Override public JToolTip createToolTip() {
+      return hubToolTip(this);
+    }
+  }
+
+  private static final class HelpCheckBoxMenuItem extends JCheckBoxMenuItem {
+    HelpCheckBoxMenuItem(String text, boolean selected) {
+      super(text, selected);
+    }
+
+    @Override public Dimension getPreferredSize() {
+      return contextHelpPreferredSize(this, super.getPreferredSize());
+    }
+
+    @Override protected void paintComponent(Graphics graphics) {
+      super.paintComponent(graphics);
+      paintContextHelpIndicator(this, graphics);
+    }
+
+    @Override public JToolTip createToolTip() {
+      return hubToolTip(this);
+    }
+  }
+
+  private static final class HelpRadioButtonMenuItem extends JRadioButtonMenuItem {
+    HelpRadioButtonMenuItem(String text, boolean selected) {
+      super(text, selected);
+    }
+
+    @Override public Dimension getPreferredSize() {
+      return contextHelpPreferredSize(this, super.getPreferredSize());
+    }
+
+    @Override protected void paintComponent(Graphics graphics) {
+      super.paintComponent(graphics);
+      paintContextHelpIndicator(this, graphics);
+    }
+
+    @Override public JToolTip createToolTip() {
+      return hubToolTip(this);
+    }
+  }
+
+  private static final class HelpCheckBox extends JCheckBox {
+    HelpCheckBox(String text, boolean selected) {
+      super(text, selected);
+    }
+
+    @Override public JToolTip createToolTip() {
+      return hubToolTip(this);
+    }
+  }
+
+  private static final class HelpTextField extends JTextField {
+    HelpTextField(String text) {
+      super(text);
+    }
+
+    @Override public JToolTip createToolTip() {
+      return hubToolTip(this);
+    }
+  }
+
+  private static final class HubToolTip extends JToolTip {
+    private final Icon helpIcon = new AeroHelpIcon(ui(18));
+
+    HubToolTip(JComponent owner) {
+      setComponent(owner);
+      setOpaque(true);
+      setBackground(BG);
+      setForeground(TEXT_SOFT);
+      setFont(getFont().deriveFont(Font.PLAIN, uiFont(11f)));
+      setBorder(BorderFactory.createCompoundBorder(
+          BorderFactory.createLineBorder(Color.decode("#345d78")),
+          uiPadding(6, 31, 6, 10)));
+    }
+
+    @Override protected void paintComponent(Graphics graphics) {
+      super.paintComponent(graphics);
+      int y = Math.max(0, (getHeight() - helpIcon.getIconHeight()) / 2);
+      helpIcon.paintIcon(this, graphics, ui(7), y);
+    }
+  }
+
+  /** Swing reproduction of the Editor's glossy Aero help orb. */
+  static final class AeroHelpIcon implements Icon {
+    private final int size;
+
+    AeroHelpIcon(int size) {
+      this.size = Math.max(12, size);
+    }
+
+    @Override public int getIconWidth() {
+      return size;
+    }
+
+    @Override public int getIconHeight() {
+      return size;
+    }
+
+    @Override public void paintIcon(Component component, Graphics graphics, int x, int y) {
+      Graphics2D g2 = (Graphics2D) graphics.create();
+      g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+      g2.translate(x, y);
+      float s = size;
+      float diameter = s * 0.78f;
+      float left = (s - diameter) / 2f;
+      float top = (s - diameter) / 2f;
+      float cx = s / 2f;
+      float cy = s / 2f;
+      float radius = diameter / 2f;
+
+      g2.setColor(new Color(0, 10, 20, 125));
+      g2.fill(new Ellipse2D.Float(left, top + s * 0.07f, diameter, diameter));
+
+      g2.setPaint(new RadialGradientPaint(
+          new Point2D.Float(cx, cy),
+          radius,
+          new Point2D.Float(s * 0.36f, s * 0.31f),
+          new float[]{0f, 0.34f, 0.72f, 1f},
+          new Color[]{
+              Color.decode("#f7fdff"),
+              Color.decode("#94d9f4"),
+              Color.decode("#3c7fae"),
+              Color.decode("#173b5a")},
+          java.awt.MultipleGradientPaint.CycleMethod.NO_CYCLE));
+      g2.fill(new Ellipse2D.Float(left, top, diameter, diameter));
+
+      g2.setColor(new Color(5, 28, 45, 150));
+      g2.setStroke(new BasicStroke(Math.max(1f, s * 0.08f)));
+      g2.draw(new Ellipse2D.Float(
+          left + s * 0.045f,
+          top + s * 0.045f,
+          diameter - s * 0.09f,
+          diameter - s * 0.09f));
+      g2.setColor(Color.decode("#e8f8ff"));
+      g2.setStroke(new BasicStroke(Math.max(0.8f, s * 0.045f)));
+      g2.draw(new Ellipse2D.Float(left, top, diameter, diameter));
+
+      Font questionFont = new Font(Font.SANS_SERIF, Font.BOLD, Math.max(9, Math.round(s * 0.55f)));
+      g2.setFont(questionFont);
+      FontMetrics metrics = g2.getFontMetrics();
+      String question = "?";
+      float questionX = cx - metrics.stringWidth(question) / 2f;
+      float questionY = cy + (metrics.getAscent() - metrics.getDescent()) / 2f + s * 0.01f;
+      g2.setColor(new Color(0, 23, 42, 225));
+      g2.drawString(question, questionX, questionY + Math.max(1f, s * 0.04f));
+      g2.setColor(Color.WHITE);
+      g2.drawString(question, questionX, questionY);
+
+      g2.setColor(new Color(255, 255, 255, 132));
+      g2.fill(new Ellipse2D.Float(s * 0.24f, s * 0.19f, s * 0.38f, s * 0.15f));
+      g2.dispose();
+    }
   }
 
   private static void installApplicationIcon(JFrame frame) {
@@ -2734,7 +2965,7 @@ public final class JvnHub {
   }
 
   private JCheckBox optionCheckBox(String label, String tooltip, boolean selected) {
-    JCheckBox box = new JCheckBox(label, selected);
+    JCheckBox box = new HelpCheckBox(label, selected);
     box.setToolTipText(tooltip);
     box.setOpaque(false);
     box.setForeground(TEXT_SOFT);
@@ -2750,7 +2981,7 @@ public final class JvnHub {
   }
 
   private JTextField gradleTextField(String value) {
-    JTextField field = new JTextField(value == null ? "" : value);
+    JTextField field = new HelpTextField(value == null ? "" : value);
     field.setForeground(TEXT_PRIMARY);
     field.setBackground(BG);
     field.setCaretColor(TEXT_PRIMARY);
@@ -6430,6 +6661,10 @@ public final class JvnHub {
       setRolloverEnabled(true);
     }
 
+    @Override public JToolTip createToolTip() {
+      return hubToolTip(this);
+    }
+
     @Override
     protected void paintComponent(Graphics g) {
       Graphics2D g2 = (Graphics2D) g.create();
@@ -6554,6 +6789,10 @@ public final class JvnHub {
       setPreferredSize(uiDimension(40, 40));
     }
 
+    @Override public JToolTip createToolTip() {
+      return hubToolTip(this);
+    }
+
     void setDeveloperModeEnabled(boolean enabled) {
       setSelected(enabled);
       setIcon(WindowsSevenActionIcon.of(
@@ -6593,6 +6832,10 @@ public final class JvnHub {
       setRolloverEnabled(true);
       setBorder(uiPadding(8, 8, 8, 8));
       setPreferredSize(uiDimension(40, 40));
+    }
+
+    @Override public JToolTip createToolTip() {
+      return hubToolTip(this);
     }
 
     void setSafeModeEnabled(boolean enabled) {
@@ -6635,6 +6878,10 @@ public final class JvnHub {
       setRolloverEnabled(true);
       setBorder(uiPadding(8, 8, 8, 8));
       setPreferredSize(uiDimension(40, 40));
+    }
+
+    @Override public JToolTip createToolTip() {
+      return hubToolTip(this);
     }
 
     @Override
