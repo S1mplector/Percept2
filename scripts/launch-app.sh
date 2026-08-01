@@ -107,36 +107,47 @@ run_glx_probe() {
   fi
 }
 
+lowercase() {
+  # macOS still ships Bash 3.2, which does not support ${value,,}.
+  printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
+}
+
 configure_linux_glx_fallback() {
-  [[ "$(uname -s 2>/dev/null)" == "Linux" ]] || return
-  [[ -n "${DISPLAY:-}" ]] || return
-  [[ "${JVN_DISABLE_GLX_FALLBACK:-0}" != "1" ]] || return
+  # This function is invoked as a top-level command while errexit is enabled.
+  # Benign "fallback not applicable" branches must therefore return success;
+  # a bare `return` would preserve the failed guard's status and terminate the
+  # launcher before it ever reaches the cache or Java command.
+  [[ "$(uname -s 2>/dev/null)" == "Linux" ]] || return 0
+  [[ -n "${DISPLAY:-}" ]] || return 0
+  [[ "${JVN_DISABLE_GLX_FALLBACK:-0}" != "1" ]] || return 0
   local render_settings_file="${HOME:-}/.jvn-editor/render-pipeline.properties"
   if [[ -r "$render_settings_file" ]]; then
     local stored_recovery
     stored_recovery="$(sed -n 's/^linux\.glxRecovery=//p' "$render_settings_file" | tail -n 1)"
-    case "${stored_recovery,,}" in
-      false|0|no|off|disabled) return ;;
+    case "$(lowercase "$stored_recovery")" in
+      false|0|no|off|disabled) return 0 ;;
     esac
   fi
-  [[ -z "${__GLX_VENDOR_LIBRARY_NAME:-}" ]] || return
-  command -v glxinfo >/dev/null 2>&1 || return
+  [[ -z "${__GLX_VENDOR_LIBRARY_NAME:-}" ]] || return 0
+  command -v glxinfo >/dev/null 2>&1 || return 0
 
   local graphics_mode
   graphics_mode="$(requested_graphics_mode)"
-  case "${graphics_mode,,}" in
-    sw|software|compatibility) return ;;
+  local graphics_mode_normalized
+  graphics_mode_normalized="$(lowercase "$graphics_mode")"
+  case "$graphics_mode_normalized" in
+    sw|software|compatibility) return 0 ;;
   esac
 
   if run_glx_probe glxinfo -B >/dev/null 2>&1; then
-    return
+    return 0
   fi
   if ! run_glx_probe env __GLX_VENDOR_LIBRARY_NAME=mesa glxinfo -B >/dev/null 2>&1; then
-    return
+    return 0
   fi
 
   export __GLX_VENDOR_LIBRARY_NAME=mesa
-  if [[ "${graphics_mode,,}" == "auto" || -z "$graphics_mode" ]]; then
+  if [[ "$graphics_mode_normalized" == "auto" || -z "$graphics_mode" ]]; then
     # The Mesa probe proved that a hardware OpenGL path exists. Ask JavaFX to bypass
     # its conservative GPU qualifier while retaining the software pipeline fallback.
     export JVN_GRAPHICS_MODE=hardware
@@ -189,11 +200,12 @@ MODULE_PATH="$(join_path_file "$MODULE_PATH_FILE")"
 VERSION="$(sed -n '1p' "$VERSION_FILE")"
 declare -a JAVA_ARGS=("-Djvn.version=$VERSION" "${MODE_PROPS[@]}")
 GRAPHICS_MODE="$(requested_graphics_mode)"
+GRAPHICS_MODE_NORMALIZED="$(lowercase "$GRAPHICS_MODE")"
 HARDWARE_PRISM_ORDER="es2,sw"
 case "$(uname -s 2>/dev/null)" in
   MINGW*|MSYS*|CYGWIN*) HARDWARE_PRISM_ORDER="d3d,es2,sw" ;;
 esac
-case "${GRAPHICS_MODE,,}" in
+case "$GRAPHICS_MODE_NORMALIZED" in
   gpu|hardware|accelerated|prefer-gpu)
     JAVA_ARGS+=("-Djvn.graphics.mode=hardware" "-Dprism.order=$HARDWARE_PRISM_ORDER" "-Dprism.forceGPU=true")
     ;;
