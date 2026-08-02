@@ -66,6 +66,7 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
 import javax.swing.ButtonModel;
+import javax.swing.DefaultListCellRenderer;
 import javax.swing.JCheckBox;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComboBox;
@@ -79,6 +80,7 @@ import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JLabel;
+import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JRadioButtonMenuItem;
@@ -100,7 +102,10 @@ import javax.swing.ToolTipManager;
 import javax.swing.UIManager;
 import javax.swing.WindowConstants;
 import javax.swing.border.EmptyBorder;
+import javax.swing.plaf.basic.BasicCheckBoxUI;
+import javax.swing.plaf.basic.BasicComboBoxUI;
 import javax.swing.plaf.basic.BasicScrollBarUI;
+import javax.swing.plaf.basic.BasicComboPopup;
 
 /**
  * Standalone engine hub. a tiny Swing app that lets the user launch the editor,
@@ -323,6 +328,8 @@ public final class JvnHub {
     UIManager.put("MenuBarUI", "javax.swing.plaf.basic.BasicMenuBarUI");
     UIManager.put("MenuUI", "javax.swing.plaf.basic.BasicMenuUI");
     UIManager.put("MenuItemUI", "javax.swing.plaf.basic.BasicMenuItemUI");
+    UIManager.put("CheckBoxUI", "javax.swing.plaf.basic.BasicCheckBoxUI");
+    UIManager.put("ComboBoxUI", "javax.swing.plaf.basic.BasicComboBoxUI");
     UIManager.put("CheckBoxMenuItemUI", "javax.swing.plaf.basic.BasicCheckBoxMenuItemUI");
     UIManager.put("RadioButtonMenuItemUI", "javax.swing.plaf.basic.BasicRadioButtonMenuItemUI");
     UIManager.put("PopupMenuUI", "javax.swing.plaf.basic.BasicPopupMenuUI");
@@ -341,10 +348,18 @@ public final class JvnHub {
     UIManager.put("CheckBoxMenuItem.foreground", TEXT_PRIMARY);
     UIManager.put("CheckBoxMenuItem.selectionBackground", HOVER_BG);
     UIManager.put("CheckBoxMenuItem.selectionForeground", TEXT_PRIMARY);
+    UIManager.put("CheckBoxMenuItem.checkIcon", new HubMenuSelectionIcon(false));
     UIManager.put("RadioButtonMenuItem.background", PANEL_BG);
     UIManager.put("RadioButtonMenuItem.foreground", TEXT_PRIMARY);
     UIManager.put("RadioButtonMenuItem.selectionBackground", HOVER_BG);
     UIManager.put("RadioButtonMenuItem.selectionForeground", TEXT_PRIMARY);
+    UIManager.put("RadioButtonMenuItem.checkIcon", new HubMenuSelectionIcon(true));
+    UIManager.put("CheckBox.background", PANEL_BG);
+    UIManager.put("CheckBox.foreground", TEXT_SOFT);
+    UIManager.put("ComboBox.background", BG);
+    UIManager.put("ComboBox.foreground", TEXT_PRIMARY);
+    UIManager.put("ComboBox.selectionBackground", HOVER_BG);
+    UIManager.put("ComboBox.selectionForeground", TEXT_PRIMARY);
     UIManager.put("PopupMenu.background", PANEL_BG);
     UIManager.put("PopupMenu.foreground", TEXT_PRIMARY);
     UIManager.put("PopupMenu.border", BorderFactory.createLineBorder(BORDER_NEUTRAL));
@@ -1618,8 +1633,12 @@ public final class JvnHub {
 
   private JComboBox<String> projectIconCombo(List<String> values) {
     JComboBox<String> combo = new JComboBox<>(values.toArray(String[]::new));
+    combo.setRenderer(new HubComboBoxRenderer());
+    combo.setUI(new HubComboBoxUI());
+    combo.setOpaque(true);
     combo.setBackground(BG);
     combo.setForeground(TEXT_PRIMARY);
+    combo.setBorder(BorderFactory.createLineBorder(BORDER_NEUTRAL));
     combo.setFont(combo.getFont().deriveFont(Font.PLAIN, uiFont(12f)));
     combo.setMaximumSize(new Dimension(Integer.MAX_VALUE, ui(34)));
     combo.setPreferredSize(uiDimension(420, 34));
@@ -3521,6 +3540,7 @@ public final class JvnHub {
 
   private JCheckBox optionCheckBox(String label, String tooltip, boolean selected) {
     JCheckBox box = new HelpCheckBox(label, selected);
+    box.setUI(new BasicCheckBoxUI());
     box.setToolTipText(tooltip);
     box.setOpaque(false);
     box.setForeground(TEXT_SOFT);
@@ -8460,6 +8480,138 @@ public final class JvnHub {
       g2.setColor(fill);
       g2.fillRoundRect(bounds.x + inset, bounds.y + inset,
           bounds.width - inset * 2, bounds.height - inset * 2, arc, arc);
+      g2.dispose();
+    }
+  }
+
+  /**
+   * Plain menu indicator used instead of host look-and-feel artwork. Aqua may
+   * otherwise supply light or offset check/radio glyphs inside the dark menus.
+   */
+  private static final class HubMenuSelectionIcon implements Icon {
+    private final boolean radio;
+
+    HubMenuSelectionIcon(boolean radio) {
+      this.radio = radio;
+    }
+
+    @Override
+    public int getIconWidth() {
+      return ui(14);
+    }
+
+    @Override
+    public int getIconHeight() {
+      return ui(14);
+    }
+
+    @Override
+    public void paintIcon(Component component, Graphics graphics, int x, int y) {
+      Graphics2D g2 = (Graphics2D) graphics.create();
+      g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+      ButtonModel model = component instanceof AbstractButton button ? button.getModel() : null;
+      boolean selected = model != null && model.isSelected();
+      boolean enabled = component == null || component.isEnabled();
+      Color accent = component instanceof JComponent jc
+          && jc.getClientProperty("jvn.menu.accent") instanceof Color color
+              ? color
+              : TEXT_SOFT;
+      Color outline = enabled ? (selected ? accent : BORDER_NEUTRAL) : Color.decode("#303030");
+      int size = Math.min(getIconWidth(), getIconHeight());
+
+      g2.setStroke(new BasicStroke(uiStroke(1f)));
+      g2.setColor(outline);
+      if (radio) {
+        g2.drawOval(x + ui(1), y + ui(1), size - ui(3), size - ui(3));
+        if (selected) {
+          int dot = Math.max(ui(5), size / 2);
+          int inset = (size - dot) / 2;
+          g2.fillOval(x + inset, y + inset, dot, dot);
+        }
+      } else {
+        g2.drawRoundRect(x + ui(1), y + ui(1), size - ui(3), size - ui(3), ui(3), ui(3));
+        if (selected) {
+          g2.setStroke(new BasicStroke(uiStroke(1.8f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+          Path2D mark = new Path2D.Double();
+          mark.moveTo(x + size * 0.25, y + size * 0.52);
+          mark.lineTo(x + size * 0.43, y + size * 0.70);
+          mark.lineTo(x + size * 0.76, y + size * 0.30);
+          g2.draw(mark);
+        }
+      }
+      g2.dispose();
+    }
+  }
+
+  /** Basic combo delegate with a host-independent popup and arrow button. */
+  private static final class HubComboBoxUI extends BasicComboBoxUI {
+    @Override
+    protected JButton createArrowButton() {
+      return new HubComboArrowButton();
+    }
+
+    @Override
+    protected BasicComboPopup createPopup() {
+      BasicComboPopup result = new BasicComboPopup(comboBox);
+      result.setBorder(BorderFactory.createLineBorder(BORDER_NEUTRAL));
+      result.getList().setBackground(BG);
+      result.getList().setForeground(TEXT_PRIMARY);
+      result.getList().setSelectionBackground(HOVER_BG);
+      result.getList().setSelectionForeground(TEXT_PRIMARY);
+      return result;
+    }
+  }
+
+  private static final class HubComboBoxRenderer extends DefaultListCellRenderer {
+    @Override
+    public Component getListCellRendererComponent(
+        JList<?> list,
+        Object value,
+        int index,
+        boolean selected,
+        boolean focused) {
+      super.getListCellRendererComponent(list, value, index, selected, focused);
+      setOpaque(true);
+      setBackground(selected ? HOVER_BG : BG);
+      setForeground(list.isEnabled() ? TEXT_PRIMARY : TEXT_MUTED);
+      setBorder(uiPadding(6, 9, 6, 9));
+      return this;
+    }
+  }
+
+  private static final class HubComboArrowButton extends JButton {
+    HubComboArrowButton() {
+      setName("ComboBox.arrowButton");
+      setFocusable(false);
+      setBorderPainted(false);
+      setContentAreaFilled(false);
+      setRolloverEnabled(true);
+      setPreferredSize(uiDimension(30, 32));
+    }
+
+    @Override
+    protected void paintComponent(Graphics graphics) {
+      Graphics2D g2 = (Graphics2D) graphics.create();
+      g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+      ButtonModel model = getModel();
+      Color fill = model.isPressed() ? PRESSED_BG : model.isRollover() ? HOVER_BG : PANEL_BG;
+      if (!isEnabled()) fill = BG;
+      g2.setColor(fill);
+      g2.fillRect(0, 0, getWidth(), getHeight());
+      g2.setColor(BORDER_NEUTRAL);
+      g2.drawLine(0, 0, 0, getHeight());
+
+      int centerX = getWidth() / 2;
+      int centerY = getHeight() / 2;
+      int halfWidth = ui(4);
+      int halfHeight = ui(2);
+      Path2D arrow = new Path2D.Double();
+      arrow.moveTo(centerX - halfWidth, centerY - halfHeight);
+      arrow.lineTo(centerX + halfWidth, centerY - halfHeight);
+      arrow.lineTo(centerX, centerY + halfHeight);
+      arrow.closePath();
+      g2.setColor(isEnabled() ? TEXT_SOFT : TEXT_MUTED.darker());
+      g2.fill(arrow);
       g2.dispose();
     }
   }
