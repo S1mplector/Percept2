@@ -246,7 +246,9 @@ public class StoryGraphPane extends Pane {
         e.consume();
       });
       setOnMouseDragged(e -> {
-        if (e.getButton() != MouseButton.PRIMARY) return;
+        // MOUSE_DRAGGED reports MouseButton.NONE on JavaFX; the held-button
+        // state is the authoritative signal after the initial press.
+        if (!e.isPrimaryButtonDown()) return;
         if (e.getTarget() == outHandle) {
           if (mouseDraggedHook != null) mouseDraggedHook.accept(e);
           e.consume();
