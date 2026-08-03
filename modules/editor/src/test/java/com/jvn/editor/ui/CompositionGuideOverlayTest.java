@@ -1,6 +1,7 @@
 package com.jvn.editor.ui;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
@@ -64,5 +65,16 @@ class CompositionGuideOverlayTest {
 
     assertEquals(1920.0 * fractions[1], pole[0], 1e-12);
     assertEquals(1080.0 * fractions[0], pole[1], 1e-12);
+  }
+
+  @Test
+  void everyGoldenSpiralTurnRemainsInsideVirtualFrame() {
+    double width = 1920.0;
+    double height = 1080.0;
+
+    for (double[] point : CompositionGuideOverlay.goldenSpiralPoints(width, height)) {
+      assertTrue(point[0] >= 0.0 && point[0] <= width, "spiral x must remain in frame");
+      assertTrue(point[1] >= 0.0 && point[1] <= height, "spiral y must remain in frame");
+    }
   }
 }

@@ -95,6 +95,46 @@ public final class CompositionGuideOverlay extends Pane {
     return new double[] {width * fractions[1], height * fractions[0]};
   }
 
+  static double[][] goldenSpiralPoints(double width, double height) {
+    double[] pole = goldenSpiralPole(width, height);
+    double centerX = pole[0];
+    double centerY = pole[1];
+    double turns = 2.75;
+    double thetaMax = turns * Math.PI * 2.0;
+    double growth = Math.log(PHI) / (Math.PI / 2.0);
+    double targetDx = -centerX;
+    double targetDy = height - centerY;
+    double endAngle = Math.atan2(-targetDy, targetDx);
+    int segments = Math.max(240, (int) Math.ceil(thetaMax * 24.0));
+
+    // Find the largest exact golden spiral whose complete sampled path fits in
+    // the virtual frame. This avoids sizing only from the final radius, which
+    // can push an earlier outer turn through another edge of a wide frame.
+    double maximumRadius = Double.POSITIVE_INFINITY;
+    for (int i = 0; i <= segments; i++) {
+      double progress = thetaMax * i / segments;
+      double theta = endAngle - thetaMax + progress;
+      double radiusFactor = Math.exp(growth * (progress - thetaMax));
+      double dx = radiusFactor * Math.cos(theta);
+      double dy = -radiusFactor * Math.sin(theta);
+      if (dx > 1e-12) maximumRadius = Math.min(maximumRadius, (width - centerX) / dx);
+      else if (dx < -1e-12) maximumRadius = Math.min(maximumRadius, centerX / -dx);
+      if (dy > 1e-12) maximumRadius = Math.min(maximumRadius, (height - centerY) / dy);
+      else if (dy < -1e-12) maximumRadius = Math.min(maximumRadius, centerY / -dy);
+    }
+    maximumRadius *= 0.985;
+
+    double[][] points = new double[segments + 1][2];
+    for (int i = 0; i <= segments; i++) {
+      double progress = thetaMax * i / segments;
+      double theta = endAngle - thetaMax + progress;
+      double radius = maximumRadius * Math.exp(growth * (progress - thetaMax));
+      points[i][0] = centerX + radius * Math.cos(theta);
+      points[i][1] = centerY - radius * Math.sin(theta);
+    }
+    return points;
+  }
+
   static double[] fittedFrame(double hostWidth, double hostHeight, double virtualWidth, double virtualHeight) {
     if (hostWidth <= 0.0 || hostHeight <= 0.0 || virtualWidth <= 0.0 || virtualHeight <= 0.0) {
       return new double[] {0.0, 0.0, Math.max(0.0, hostWidth), Math.max(0.0, hostHeight)};
@@ -189,28 +229,11 @@ public final class CompositionGuideOverlay extends Pane {
   private static void drawGoldenSpiral(GraphicsContext gc, double width, double height) {
     gc.setStroke(Color.web("#ffd45c", 0.92));
     gc.setLineWidth(1.35);
-    double turns = 2.75;
-    double thetaMax = turns * Math.PI * 2.0;
-    double growth = Math.log(PHI) / (Math.PI / 2.0);
-    double[] pole = goldenSpiralPole(width, height);
-    double centerX = pole[0];
-    double centerY = pole[1];
-    // Aim the outer arm at the opposite corner. The pole remains exactly on the
-    // upper-right golden-grid intersection at every aspect ratio and size.
-    double targetDx = -centerX;
-    double targetDy = height - centerY;
-    double maximumRadius = Math.hypot(targetDx, targetDy) * 0.985;
-    double a = maximumRadius / Math.exp(growth * thetaMax);
-    double endAngle = Math.atan2(-targetDy, targetDx);
-    int segments = Math.max(240, (int) Math.ceil(thetaMax * 24.0));
+    double[][] points = goldenSpiralPoints(width, height);
     gc.beginPath();
-    for (int i = 0; i <= segments; i++) {
-      double progress = thetaMax * i / segments;
-      double theta = endAngle - thetaMax + progress;
-      double radius = a * Math.exp(growth * progress);
-      double x = centerX + radius * Math.cos(theta);
-      double y = centerY - radius * Math.sin(theta);
-      if (i == 0) gc.moveTo(x, y); else gc.lineTo(x, y);
+    for (int i = 0; i < points.length; i++) {
+      if (i == 0) gc.moveTo(points[i][0], points[i][1]);
+      else gc.lineTo(points[i][0], points[i][1]);
     }
     gc.stroke();
   }
