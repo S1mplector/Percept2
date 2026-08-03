@@ -4165,12 +4165,6 @@ The editor.css file defines the visual styling for the editor module, including 
   -fx-padding: 2.5;
 }
 
-.main-editor-command-summary {
-  -fx-text-fill: #8f949c;
-  -fx-font-size: 10px;
-  -fx-font-weight: 700;
-}
-
 .toolbar-status-panel {
   -fx-background-color: #131313;
   -fx-border-color: #2a2a2a;

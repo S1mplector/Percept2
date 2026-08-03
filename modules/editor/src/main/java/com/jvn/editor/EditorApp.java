@@ -2298,15 +2298,9 @@ public class EditorApp extends Application {
     }
     mb.getMenus().add(menuHelp);
 
-    Label toolbarCommandSummary = new Label();
-    toolbarCommandSummary.getStyleClass().add("main-editor-command-summary");
-    toolbarCommandSummary.setWrapText(false);
-    toolbarCommandSummary.setTextOverrun(OverrunStyle.LEADING_ELLIPSIS);
-    toolbarCommandSummary.setMaxWidth(Double.MAX_VALUE);
-
-    Region menuSpacer = new Region();
-    HBox.setHgrow(menuSpacer, Priority.ALWAYS);
-    HBox commandBar = new HBox(10, mb, menuSpacer, toolbarCommandSummary);
+    mb.setMaxWidth(Double.MAX_VALUE);
+    HBox.setHgrow(mb, Priority.ALWAYS);
+    HBox commandBar = new HBox(mb);
     commandBar.getStyleClass().add("main-editor-command-bar");
     commandBar.setAlignment(Pos.CENTER_LEFT);
 
@@ -2424,7 +2418,6 @@ public class EditorApp extends Application {
       miOpenProjectDocs.setDisable(resolveDocsDirectory(projectRoot) == null);
       miOpenWorkspaceDocs.setDisable(resolveDocsDirectory(resolveWorkspaceRoot()) == null);
 
-      toolbarCommandSummary.setText(buildMainCommandSummary());
       refreshStatusBarContext(ft);
     };
     refreshMainCommandUi = refreshChrome;
@@ -3013,60 +3006,6 @@ public class EditorApp extends Application {
       if (tab.isClosable()) closableCount++;
     }
     return closableCount;
-  }
-
-  private String buildMainCommandSummary() {
-    Tab activeTab = filesTabs != null ? filesTabs.getSelectionModel().getSelectedItem() : null;
-    if (activeTab == tabWorkspaceHub) {
-      return "";
-    }
-
-    List<String> parts = new ArrayList<>();
-    parts.add(projectRoot != null ? "Project " + projectRoot.getName() : "No Project Open");
-
-    FileEditorTab ft = getActiveFileTab();
-    if (ft != null) {
-      parts.add(kindLabel(ft.getKind()));
-      parts.add(ft.getDisplayName() + (ft.isDirty() ? " Unsaved" : " Saved"));
-      if (canLaunchFromActiveTab()) {
-        parts.add("Launch Here Ready");
-      } else if (ft.getKind() == FileEditorTab.Kind.JES) {
-        parts.add("Scene Preview Ready");
-      }
-    } else if (activeTab != null && activeTab.getText() != null && !activeTab.getText().isBlank()) {
-      parts.add(activeTab.getText());
-    } else {
-      parts.add("No File Selected");
-    }
-
-    int dirtyTabs = countDirtyFileTabs();
-    if (dirtyTabs > 0 && (ft == null || !ft.isDirty() || dirtyTabs > 1)) {
-      parts.add(dirtyTabs + " Unsaved Tab" + (dirtyTabs == 1 ? "" : "s"));
-    }
-    if (commands.canUndo()) parts.add("Undo " + commands.undoDescription());
-    if (commands.canRedo()) parts.add("Redo " + commands.redoDescription());
-    if (layeredVisualizerFullscreen && fullscreenImageToolView != null) {
-      parts.add(imageToolName(fullscreenImageToolView) + " Fullscreen");
-    } else if (editorFullscreen) {
-      parts.add("Editor Fullscreen");
-    }
-    return String.join("  •  ", parts);
-  }
-
-  private String kindLabel(FileEditorTab.Kind kind) {
-    if (kind == null) return "Editor";
-    return switch (kind) {
-      case JES -> "JES Scene";
-      case VNS -> "VNS Script";
-      case JAVA -> "Java Source";
-      case TIMELINE -> "Story Map";
-      case THEME -> "Theme";
-      case MENU_SCREEN -> "Menu Screen";
-      case MENU_LAYOUT -> "Menu Layout";
-      case MENU_STYLE -> "Menu Style";
-      case DIALOGUE_LAYOUT -> "Dialogue Layout";
-      case OTHER -> "Text File";
-    };
   }
 
   private String mapKey(KeyCode code) { return code == null ? "" : (code.getName() == null || code.getName().isBlank() ? code.toString() : code.getName()).toUpperCase(); }
