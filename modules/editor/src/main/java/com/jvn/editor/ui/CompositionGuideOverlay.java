@@ -46,7 +46,6 @@ public final class CompositionGuideOverlay extends Canvas {
   }
 
   public CompositionGuideOverlay() {
-    setManaged(false);
     setMouseTransparent(true);
     setPickOnBounds(false);
     widthProperty().addListener((obs, oldValue, value) -> draw());
