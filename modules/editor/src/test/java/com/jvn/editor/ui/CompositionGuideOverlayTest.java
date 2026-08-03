@@ -27,6 +27,28 @@ class CompositionGuideOverlayTest {
   }
 
   @Test
+  void resizingRecomputesTheSharedFrameUsedByEveryGuide() {
+    CompositionGuideOverlay overlay = new CompositionGuideOverlay();
+    overlay.setVirtualResolution(1920.0, 1080.0);
+
+    overlay.resize(1600.0, 900.0);
+    overlay.layout();
+    assertEquals(0.0, overlay.renderedFrame()[0], 1e-12);
+    assertEquals(0.0, overlay.renderedFrame()[1], 1e-12);
+    assertEquals(1600.0, overlay.renderedFrame()[2], 1e-12);
+    assertEquals(900.0, overlay.renderedFrame()[3], 1e-12);
+
+    overlay.resize(900.0, 900.0);
+    overlay.layout();
+    assertEquals(0.0, overlay.renderedFrame()[0], 1e-12);
+    assertEquals(196.875, overlay.renderedFrame()[1], 1e-12);
+    assertEquals(900.0, overlay.renderedFrame()[2], 1e-12);
+    assertEquals(506.25, overlay.renderedFrame()[3], 1e-12);
+    assertEquals(900.0, overlay.renderedWidth(), 1e-12);
+    assertEquals(900.0, overlay.renderedHeight(), 1e-12);
+  }
+
+  @Test
   void goldenGridUsesExactReciprocalPhiSquaredIntersections() {
     double[] fractions = CompositionGuideOverlay.goldenGridFractions();
 

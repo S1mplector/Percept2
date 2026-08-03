@@ -1037,6 +1037,8 @@ Available guides include rule of thirds, an exact golden-ratio grid, a logarithm
 the diagonal method, a center crosshair, and 90% action-safe / 80% title-safe boundaries. The
 golden grid uses the intersections at `1/φ²` and `1 - 1/φ²`, where `φ = (1 + √5) / 2`; the spiral
 grows by exactly `φ` every quarter turn. Guides are editor-only and do not appear in game output.
+Every guide uses the same virtual-resolution frame and is recomputed continuously when a preview
+window is resized, so guides never extend into letterbox or pillarbox regions.
 
 ### Onion Skinning
 

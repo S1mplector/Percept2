@@ -108,6 +108,10 @@ public final class CompositionGuideOverlay extends Pane {
     return canvas.getHeight();
   }
 
+  double[] renderedFrame() {
+    return fittedFrame(getWidth(), getHeight(), virtualWidth, virtualHeight);
+  }
+
   private void draw() {
     double width = getWidth();
     double height = getHeight();
