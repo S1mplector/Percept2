@@ -984,7 +984,9 @@ public class FileEditorTab extends BorderPane {
     root.getStyleClass().add("script-editor-workspace-root");
     previewWorkspaceContent = new BorderPane();
     previewWorkspaceContent.getStyleClass().add("script-editor-workspace-content");
-    dockPreviewNode = previewNode;
+    CompositionGuideOverlay compositionGuides = new CompositionGuideOverlay();
+    StackPane previewWithGuides = new StackPane(previewNode, compositionGuides);
+    dockPreviewNode = previewWithGuides;
     dockEditorNode = editorNode;
     previewDockPosition = PreviewDockPosition.TOP;
     lastEmbeddedPreviewDock = PreviewDockPosition.TOP;

@@ -1027,6 +1027,17 @@ hero: Something is coming...
 | **Scroll wheel** | Zoom viewport |
 | **Ctrl+Scroll** on timeline | Zoom timeline horizontally |
 
+### Composition Guides
+
+Open **Preview → Composition Guides** in Puppeteer, or **View → Viewport → Composition Guides**
+in the main editor. Guide choices are shared by embedded JES/VNS previews, detached previews,
+fullscreen VN preview, and Puppeteer, and are remembered between launches.
+
+Available guides include rule of thirds, an exact golden-ratio grid, a logarithmic golden spiral,
+the diagonal method, a center crosshair, and 90% action-safe / 80% title-safe boundaries. The
+golden grid uses the intersections at `1/φ²` and `1 - 1/φ²`, where `φ = (1 + √5) / 2`; the spiral
+grows by exactly `φ` every quarter turn. Guides are editor-only and do not appear in game output.
+
 ### Onion Skinning
 
 Toggle with **Ctrl/Cmd+O**. When active, the preview canvas renders semi-transparent ghost frames at timestamps surrounding the playhead. This helps you:

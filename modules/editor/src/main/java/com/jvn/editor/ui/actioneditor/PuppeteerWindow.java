@@ -32,6 +32,7 @@ import com.jvn.core.vn.VnEyeFocusProfileStore;
 import com.jvn.core.vn.stage.VnStagePreset;
 import com.jvn.core.vn.stage.VnStagePresetLoader;
 import com.jvn.editor.ui.CssIcon;
+import com.jvn.editor.ui.CompositionGuideOverlay;
 import com.jvn.editor.ui.EditorTheme;
 import com.jvn.editor.ui.LayeredCharacterProjectCatalog;
 import com.jvn.editor.ui.ProjectViewportSpec;
@@ -1554,7 +1555,8 @@ public class PuppeteerWindow extends Stage {
         btnPreviewBack.setVisible(false);
         btnPreviewBack.setOnAction(e -> exitFullscreenPreview());
 
-        previewViewportHost = new StackPane(animationPreview, btnPreviewBack, btnPreviewFullscreen);
+        previewViewportHost = new StackPane(
+            animationPreview, new CompositionGuideOverlay(), btnPreviewBack, btnPreviewFullscreen);
         previewViewportHost.getStyleClass().add("puppeteer-preview-viewport-host");
         previewViewportHost.setMinHeight(0);
         previewViewportHost.hoverProperty().addListener((obs, wasHover, isHover) -> updatePreviewOverlayVisibility());
@@ -2364,6 +2366,8 @@ public class PuppeteerWindow extends Stage {
             miFitPreview,
             miFullscreenPreview,
             miRecordGif,
+            new SeparatorMenuItem(),
+            CompositionGuideOverlay.createMenu(),
             new SeparatorMenuItem(),
             miOnionSkin,
             miInterpolationGhosts,

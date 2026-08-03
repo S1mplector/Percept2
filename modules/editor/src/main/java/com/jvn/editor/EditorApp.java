@@ -45,6 +45,7 @@ import com.jvn.editor.runtime.GradleRuntimeLauncher;
 import com.jvn.editor.ui.AeroIcon;
 import com.jvn.editor.ui.AssetBrowserView;
 import com.jvn.editor.ui.CssIcon;
+import com.jvn.editor.ui.CompositionGuideOverlay;
 import com.jvn.editor.ui.DeveloperLogPanel;
 import com.jvn.editor.ui.DeveloperToolsMenu;
 import com.jvn.editor.ui.DslPropertyDiagnostics;
@@ -1691,7 +1692,9 @@ public class EditorApp extends Application {
         miAddRightPanel);
 
     Menu menuViewport = new Menu("Viewport");
-    menuViewport.getItems().addAll(miToggleEditorFullscreen, miResetCamera, miFitContent);
+    menuViewport.getItems().addAll(
+        miToggleEditorFullscreen, miResetCamera, miFitContent,
+        new SeparatorMenuItem(), CompositionGuideOverlay.createMenu());
     Menu menuTheme = new Menu("Theme");
     ToggleGroup themeToggleGroup = new ToggleGroup();
     RadioMenuItem miThemeDark = new RadioMenuItem("Dark");
@@ -5327,7 +5330,8 @@ public class EditorApp extends Application {
       fullscreenPreview.setActiveError(com.jvn.core.vn.VnErrorOverlay.fromScriptLoadFailure(sourceName, ex));
     }
     
-    javafx.scene.layout.StackPane root = new javafx.scene.layout.StackPane(fullscreenPreview);
+    javafx.scene.layout.StackPane root = new javafx.scene.layout.StackPane(
+        fullscreenPreview, new CompositionGuideOverlay());
     root.setStyle("-fx-background-color: black;");
     javafx.scene.Scene scene = new javafx.scene.Scene(root, 1280, 720);
     
