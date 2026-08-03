@@ -3281,7 +3281,7 @@ public final class JvnHub {
 
     JCheckBox captureToggle = optionCheckBox(
         "Capture slow-pulse render trees on the next launch",
-        "Enables JavaFX PulseLogger and Prism render-graph output for diagnostic launches.",
+        "Requests Prism render-graph output without forcing JavaFX's unstable internal PulseLogger.",
         renderPipelineOptions.printRenderGraph());
     captureToggle.addActionListener(e -> setRenderPipelineOptions(
         renderPipelineOptions.withPrintRenderGraph(captureToggle.isSelected()),

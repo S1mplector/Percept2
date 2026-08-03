@@ -129,18 +129,18 @@ class GraphicsPipelineTest {
     assertEquals("true", System.getProperty(GraphicsPipeline.PRISM_SHOW_DIRTY_PROPERTY));
     assertEquals("false", System.getProperty(GraphicsPipeline.PRISM_SHOW_OVERDRAW_PROPERTY));
     assertEquals("true", System.getProperty(GraphicsPipeline.PRISM_PRINT_RENDER_GRAPH_PROPERTY));
-    assertEquals("true", System.getProperty(GraphicsPipeline.JAVAFX_PULSE_LOGGER_PROPERTY));
+    assertNull(System.getProperty(GraphicsPipeline.JAVAFX_PULSE_LOGGER_PROPERTY));
   }
 
   @Test
-  void explicitRenderGraphCaptureEnablesItsRequiredLoggerAndRenderRoots() {
+  void explicitRenderGraphCaptureEnablesRenderRootsWithoutUnsafePulseLogger() {
     System.setProperty(GraphicsPipeline.PRISM_PRINT_RENDER_GRAPH_PROPERTY, "true");
     System.setProperty(GraphicsPipeline.PRISM_DIRTY_REGIONS_PROPERTY, "false");
     System.clearProperty(GraphicsPipeline.JAVAFX_PULSE_LOGGER_PROPERTY);
 
     GraphicsPipeline.configure();
 
-    assertEquals("true", System.getProperty(GraphicsPipeline.JAVAFX_PULSE_LOGGER_PROPERTY));
+    assertNull(System.getProperty(GraphicsPipeline.JAVAFX_PULSE_LOGGER_PROPERTY));
     assertEquals("true", System.getProperty(GraphicsPipeline.PRISM_DIRTY_REGIONS_PROPERTY));
   }
 

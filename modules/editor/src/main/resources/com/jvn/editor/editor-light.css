@@ -4036,6 +4036,24 @@
   -fx-padding: 0;
 }
 
+.main-editor-command-bar .jvn-application-menu {
+  -fx-padding: 2 7 2 6;
+}
+
+.main-editor-command-bar .jvn-application-menu > .label {
+  -fx-content-display: graphic-only;
+  -fx-padding: 0;
+}
+
+.main-editor-command-bar .jvn-application-menu > .arrow-button {
+  -fx-padding: 0 0 0 4;
+}
+
+.main-editor-command-bar .jvn-application-menu > .arrow-button > .arrow {
+  -fx-background-color: #555b62;
+  -fx-padding: 2.5;
+}
+
 .main-editor-command-summary {
   -fx-text-fill: #8f949c;
   -fx-font-size: 10px;

@@ -24,6 +24,8 @@ sourceSets {
               "simp3/src/main/resources"
           )
       )
+      // A library must not contribute a root Logback configuration to consuming applications.
+      exclude("logback.xml")
     }
   }
 }

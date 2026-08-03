@@ -1604,9 +1604,6 @@ public class EditorApp extends Application {
     menuEditDocument.getItems().addAll(miReload, miEditorSettings);
     Menu menuEditPaths = new Menu("Paths & Reveal");
     menuEditPaths.getItems().addAll(
-        miRevealActiveFile,
-        miCopyActiveFilePath,
-        new SeparatorMenuItem(),
         miEditRevealProjectRoot,
         miEditCopyProjectRootPath);
     Menu menuEditPreview = new Menu("Preview");
@@ -2226,7 +2223,54 @@ public class EditorApp extends Application {
         miWhatsNew,
         miAbout);
 
+    // Blender-style application menu: the same scalable logo renderer used at top right.
+    Menu menuJvn = new Menu("JVN");
+    menuJvn.setGraphic(new MetallicJvnLogo(36, 18));
+    menuJvn.getStyleClass().add("jvn-application-menu");
+    MenuItem miJvnSplash = new MenuItem("Show JVN Splash");
+    miJvnSplash.setOnAction(e -> {
+      StartupSplashOverlay splash = new StartupSplashOverlay();
+      splash.prepareForChecks(true);
+      splash.setProgress(1.0);
+      splash.setStatus("JVN Editor " + buildInfo.versionLabel());
+      splash.show();
+      PauseTransition closeSplash = new PauseTransition(Duration.seconds(2.4));
+      closeSplash.setOnFinished(done -> splash.close());
+      closeSplash.play();
+    });
+    MenuItem miJvnCopySystemInfo = new MenuItem("Copy System Information");
+    miJvnCopySystemInfo.setOnAction(e -> {
+      ClipboardContent content = new ClipboardContent();
+      content.putString(String.join(System.lineSeparator(),
+          "JVN Editor " + buildInfo.fullLabel(),
+          "Java: " + System.getProperty("java.version", "unknown"),
+          "JavaFX: " + System.getProperty("javafx.runtime.version", "unknown"),
+          "OS: " + System.getProperty("os.name", "unknown") + " "
+              + System.getProperty("os.version", "") + " (" + System.getProperty("os.arch", "unknown") + ")",
+          "Graphics: " + EditorGraphicsStatus.detect().tooltip()));
+      Clipboard.getSystemClipboard().setContent(content);
+      status.setText("Copied JVN system information");
+    });
+    MenuItem miJvnDataFolder = new MenuItem("Open Editor Data Folder");
+    miJvnDataFolder.setOnAction(e -> {
+      Path preferencesFile = editorPreferencesStore.preferencesFile();
+      Path dataDirectory = preferencesFile == null ? null : preferencesFile.getParent();
+      if (dataDirectory != null) {
+        try {
+          Files.createDirectories(dataDirectory);
+          EditorPathExplorer.show(primaryStage, dataDirectory.toFile());
+        } catch (IOException ex) {
+          EditorDialogs.error(primaryStage, "Editor Data Folder", "Could not open the editor data folder.", ex);
+        }
+      }
+    });
+    menuJvn.getItems().addAll(
+        miJvnSplash,
+        miJvnCopySystemInfo,
+        miJvnDataFolder);
+
 	    mb.getMenus().addAll(
+	        menuJvn,
 	        menuFile,
 	        menuEdit,
 	        menuView,

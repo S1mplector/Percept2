@@ -19,9 +19,9 @@ import javafx.scene.text.Text;
 /** Clean, background-free metallic JVN wordmark shared by editor chrome, launcher, and splashes. */
 public final class MetallicJvnLogo extends StackPane {
   public MetallicJvnLogo(double width, double height) {
-    double safeWidth = Math.max(72.0, width);
-    double safeHeight = Math.max(36.0, height);
-    double fontSize = Math.max(30.0, safeHeight * 0.76);
+    double safeWidth = Math.max(22.0, width);
+    double safeHeight = Math.max(14.0, height);
+    double fontSize = safeHeight * 0.76;
 
     Pane brushLayer = new Pane();
     brushLayer.setMouseTransparent(true);
@@ -34,21 +34,21 @@ public final class MetallicJvnLogo extends StackPane {
             safeWidth * 0.24, safeHeight * 0.58,
             safeWidth * 0.47, safeHeight * 0.66,
             safeWidth * 0.88, safeHeight * 0.44,
-            Math.max(9.0, safeHeight * 0.22),
+            safeHeight * 0.22,
             0.58),
         brushStroke(
             safeWidth * 0.17, safeHeight * 0.84,
             safeWidth * 0.36, safeHeight * 0.70,
             safeWidth * 0.56, safeHeight * 0.74,
             safeWidth * 0.80, safeHeight * 0.58,
-            Math.max(2.2, safeHeight * 0.045),
+            safeHeight * 0.045,
             0.22),
         brushStroke(
             safeWidth * 0.12, safeHeight * 0.64,
             safeWidth * 0.33, safeHeight * 0.50,
             safeWidth * 0.57, safeHeight * 0.55,
             safeWidth * 0.92, safeHeight * 0.32,
-            Math.max(3.0, safeHeight * 0.07),
+            safeHeight * 0.07,
             0.16));
 
     Text wordmark = new Text("JVN");
@@ -66,8 +66,8 @@ public final class MetallicJvnLogo extends StackPane {
     wordmark.setStroke(null);
     wordmark.setStrokeWidth(0);
     DropShadow shadow = new DropShadow();
-    shadow.setRadius(Math.max(4.0, fontSize * 0.14));
-    shadow.setOffsetY(Math.max(2.0, fontSize * 0.05));
+    shadow.setRadius(fontSize * 0.14);
+    shadow.setOffsetY(fontSize * 0.05);
     shadow.setColor(Color.web("#000000", 0.48));
     wordmark.setEffect(shadow);
 
