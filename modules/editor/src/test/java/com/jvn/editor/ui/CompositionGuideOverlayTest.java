@@ -56,4 +56,13 @@ class CompositionGuideOverlayTest {
     assertEquals(1.0, fractions[0] + fractions[1], 1e-15);
     assertEquals(CompositionGuideOverlay.PHI, fractions[1] / fractions[0], 1e-15);
   }
+
+  @Test
+  void goldenSpiralPoleCoincidesWithGoldenGridIntersection() {
+    double[] fractions = CompositionGuideOverlay.goldenGridFractions();
+    double[] pole = CompositionGuideOverlay.goldenSpiralPole(1920.0, 1080.0);
+
+    assertEquals(1920.0 * fractions[1], pole[0], 1e-12);
+    assertEquals(1080.0 * fractions[0], pole[1], 1e-12);
+  }
 }

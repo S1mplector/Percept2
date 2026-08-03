@@ -19,7 +19,7 @@ public final class CompositionGuideOverlay extends Pane {
 
   public enum Guide {
     THIRDS("Rule of Thirds", false),
-    GOLDEN_RATIO("Golden Ratio Grid", false),
+    GOLDEN_RATIO("Golden Ratio Grid + Spiral", false),
     GOLDEN_SPIRAL("Golden Spiral", false),
     DIAGONALS("Diagonal Method", false),
     CENTER("Center Crosshair", false),
@@ -90,6 +90,11 @@ public final class CompositionGuideOverlay extends Pane {
     return new double[] {edge, 1.0 - edge};
   }
 
+  static double[] goldenSpiralPole(double width, double height) {
+    double[] fractions = goldenGridFractions();
+    return new double[] {width * fractions[1], height * fractions[0]};
+  }
+
   static double[] fittedFrame(double hostWidth, double hostHeight, double virtualWidth, double virtualHeight) {
     if (hostWidth <= 0.0 || hostHeight <= 0.0 || virtualWidth <= 0.0 || virtualHeight <= 0.0) {
       return new double[] {0.0, 0.0, Math.max(0.0, hostWidth), Math.max(0.0, hostHeight)};
@@ -130,11 +135,12 @@ public final class CompositionGuideOverlay extends Pane {
     gc.translate(frame[0], frame[1]);
     gc.setLineWidth(1.0);
     if (enabled(Guide.THIRDS)) drawGrid(gc, frameWidth, frameHeight, new double[] {1.0 / 3.0, 2.0 / 3.0}, Color.web("#ffffff", 0.72));
-    if (enabled(Guide.GOLDEN_RATIO)) drawGrid(gc, frameWidth, frameHeight, goldenGridFractions(), Color.web("#ffd45c", 0.82));
+    boolean goldenRatioEnabled = enabled(Guide.GOLDEN_RATIO);
+    if (goldenRatioEnabled) drawGrid(gc, frameWidth, frameHeight, goldenGridFractions(), Color.web("#ffd45c", 0.82));
     if (enabled(Guide.DIAGONALS)) drawDiagonals(gc, frameWidth, frameHeight);
     if (enabled(Guide.CENTER)) drawCenter(gc, frameWidth, frameHeight);
     if (enabled(Guide.SAFE_AREAS)) drawSafeAreas(gc, frameWidth, frameHeight);
-    if (enabled(Guide.GOLDEN_SPIRAL)) drawGoldenSpiral(gc, frameWidth, frameHeight);
+    if (goldenRatioEnabled || enabled(Guide.GOLDEN_SPIRAL)) drawGoldenSpiral(gc, frameWidth, frameHeight);
     gc.restore();
   }
 
@@ -183,21 +189,25 @@ public final class CompositionGuideOverlay extends Pane {
   private static void drawGoldenSpiral(GraphicsContext gc, double width, double height) {
     gc.setStroke(Color.web("#ffd45c", 0.92));
     gc.setLineWidth(1.35);
-    double margin = Math.min(width, height) * 0.035;
-    double availableWidth = Math.max(1.0, width - margin * 2.0);
-    double availableHeight = Math.max(1.0, height - margin * 2.0);
     double turns = 2.75;
     double thetaMax = turns * Math.PI * 2.0;
     double growth = Math.log(PHI) / (Math.PI / 2.0);
-    double maximumRadius = Math.min(availableWidth, availableHeight) * 0.49;
+    double[] pole = goldenSpiralPole(width, height);
+    double centerX = pole[0];
+    double centerY = pole[1];
+    // Aim the outer arm at the opposite corner. The pole remains exactly on the
+    // upper-right golden-grid intersection at every aspect ratio and size.
+    double targetDx = -centerX;
+    double targetDy = height - centerY;
+    double maximumRadius = Math.hypot(targetDx, targetDy) * 0.985;
     double a = maximumRadius / Math.exp(growth * thetaMax);
-    double centerX = width / 2.0;
-    double centerY = height / 2.0;
+    double endAngle = Math.atan2(-targetDy, targetDx);
     int segments = Math.max(240, (int) Math.ceil(thetaMax * 24.0));
     gc.beginPath();
     for (int i = 0; i <= segments; i++) {
-      double theta = thetaMax * i / segments;
-      double radius = a * Math.exp(growth * theta);
+      double progress = thetaMax * i / segments;
+      double theta = endAngle - thetaMax + progress;
+      double radius = a * Math.exp(growth * progress);
       double x = centerX + radius * Math.cos(theta);
       double y = centerY - radius * Math.sin(theta);
       if (i == 0) gc.moveTo(x, y); else gc.lineTo(x, y);
