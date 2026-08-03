@@ -6,6 +6,16 @@ import org.junit.jupiter.api.Test;
 
 class CompositionGuideOverlayTest {
   @Test
+  void layoutSizesDrawingCanvasToDetachedPreviewBounds() {
+    CompositionGuideOverlay overlay = new CompositionGuideOverlay();
+    overlay.resize(1280.0, 720.0);
+    overlay.layout();
+
+    assertEquals(1280.0, overlay.renderedWidth());
+    assertEquals(720.0, overlay.renderedHeight());
+  }
+
+  @Test
   void goldenGridUsesExactReciprocalPhiSquaredIntersections() {
     double[] fractions = CompositionGuideOverlay.goldenGridFractions();
 

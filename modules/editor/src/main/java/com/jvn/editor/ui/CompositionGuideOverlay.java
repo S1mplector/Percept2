@@ -10,10 +10,11 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.CheckMenuItem;
 import javafx.scene.control.Menu;
+import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 
 /** Camera-style composition guides shared by every editor preview surface. */
-public final class CompositionGuideOverlay extends Canvas {
+public final class CompositionGuideOverlay extends Pane {
   public static final double PHI = (1.0 + Math.sqrt(5.0)) / 2.0;
 
   public enum Guide {
@@ -35,6 +36,7 @@ public final class CompositionGuideOverlay extends Canvas {
 
   private static final Preferences PREFS = Preferences.userNodeForPackage(CompositionGuideOverlay.class);
   private static final Map<Guide, BooleanProperty> ENABLED = new EnumMap<>(Guide.class);
+  private final Canvas canvas = new Canvas();
 
   static {
     for (Guide guide : Guide.values()) {
@@ -48,22 +50,21 @@ public final class CompositionGuideOverlay extends Canvas {
   public CompositionGuideOverlay() {
     setMouseTransparent(true);
     setPickOnBounds(false);
-    widthProperty().addListener((obs, oldValue, value) -> draw());
-    heightProperty().addListener((obs, oldValue, value) -> draw());
+    setMinSize(0.0, 0.0);
+    setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+    getChildren().add(canvas);
     for (BooleanProperty property : ENABLED.values()) {
       property.addListener((obs, oldValue, value) -> draw());
     }
   }
 
   @Override
-  public boolean isResizable() {
-    return true;
-  }
-
-  @Override
-  public void resize(double width, double height) {
-    setWidth(Math.max(0.0, width));
-    setHeight(Math.max(0.0, height));
+  protected void layoutChildren() {
+    double width = Math.max(0.0, getWidth());
+    double height = Math.max(0.0, getHeight());
+    canvas.setWidth(width);
+    canvas.setHeight(height);
+    draw();
   }
 
   public static Menu createMenu() {
@@ -81,10 +82,18 @@ public final class CompositionGuideOverlay extends Canvas {
     return new double[] {edge, 1.0 - edge};
   }
 
+  double renderedWidth() {
+    return canvas.getWidth();
+  }
+
+  double renderedHeight() {
+    return canvas.getHeight();
+  }
+
   private void draw() {
     double width = getWidth();
     double height = getHeight();
-    GraphicsContext gc = getGraphicsContext2D();
+    GraphicsContext gc = canvas.getGraphicsContext2D();
     gc.clearRect(0, 0, width, height);
     if (width <= 1.0 || height <= 1.0) return;
 
