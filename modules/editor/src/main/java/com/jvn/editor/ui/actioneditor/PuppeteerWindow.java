@@ -258,6 +258,7 @@ public class PuppeteerWindow extends Stage {
     private Button btnSidebarPreviewLayout;
     private BorderPane previewPane;
     private StackPane previewViewportHost;
+    private CompositionGuideOverlay compositionGuideOverlay;
     private Button btnPreviewFullscreen;
     private Button btnPreviewBack;
     private MediaPlayer audioPreviewPlayer;
@@ -1555,8 +1556,11 @@ public class PuppeteerWindow extends Stage {
         btnPreviewBack.setVisible(false);
         btnPreviewBack.setOnAction(e -> exitFullscreenPreview());
 
+        compositionGuideOverlay = new CompositionGuideOverlay();
+        ProjectViewportSpec.Dimensions guideDimensions = animationPreview.getViewportDimensions();
+        compositionGuideOverlay.setVirtualResolution(guideDimensions.width(), guideDimensions.height());
         previewViewportHost = new StackPane(
-            animationPreview, new CompositionGuideOverlay(), btnPreviewBack, btnPreviewFullscreen);
+            animationPreview, compositionGuideOverlay, btnPreviewBack, btnPreviewFullscreen);
         previewViewportHost.getStyleClass().add("puppeteer-preview-viewport-host");
         previewViewportHost.setMinHeight(0);
         previewViewportHost.hoverProperty().addListener((obs, wasHover, isHover) -> updatePreviewOverlayVisibility());
@@ -7179,6 +7183,8 @@ public class PuppeteerWindow extends Stage {
         this.projectRoot = root;
         reloadProjectExpressionPresets();
         animationPreview.setProjectRoot(root);
+        ProjectViewportSpec.Dimensions guideDimensions = animationPreview.getViewportDimensions();
+        compositionGuideOverlay.setVirtualResolution(guideDimensions.width(), guideDimensions.height());
         if (assetImporterPanel != null) {
             assetImporterPanel.setProjectRoot(root);
         }

@@ -5269,8 +5269,10 @@ public class EditorApp extends Application {
       fullscreenPreview.setActiveError(com.jvn.core.vn.VnErrorOverlay.fromScriptLoadFailure(sourceName, ex));
     }
     
-    javafx.scene.layout.StackPane root = new javafx.scene.layout.StackPane(
-        fullscreenPreview, new CompositionGuideOverlay());
+    CompositionGuideOverlay fullscreenGuides = new CompositionGuideOverlay();
+    ProjectViewportSpec.Dimensions fullscreenDimensions = ProjectViewportSpec.resolve(previewRoot);
+    fullscreenGuides.setVirtualResolution(fullscreenDimensions.width(), fullscreenDimensions.height());
+    javafx.scene.layout.StackPane root = new javafx.scene.layout.StackPane(fullscreenPreview, fullscreenGuides);
     root.setStyle("-fx-background-color: black;");
     javafx.scene.Scene scene = new javafx.scene.Scene(root, 1280, 720);
     

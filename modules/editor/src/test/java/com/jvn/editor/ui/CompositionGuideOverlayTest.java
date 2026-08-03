@@ -16,6 +16,17 @@ class CompositionGuideOverlayTest {
   }
 
   @Test
+  void fittedFrameMatchesVirtualAspectAndCentersLetterboxing() {
+    double[] frame = CompositionGuideOverlay.fittedFrame(1000.0, 800.0, 1920.0, 1080.0);
+
+    assertEquals(0.0, frame[0], 1e-12);
+    assertEquals(118.75, frame[1], 1e-12);
+    assertEquals(1000.0, frame[2], 1e-12);
+    assertEquals(562.5, frame[3], 1e-12);
+    assertEquals(1920.0 / 1080.0, frame[2] / frame[3], 1e-12);
+  }
+
+  @Test
   void goldenGridUsesExactReciprocalPhiSquaredIntersections() {
     double[] fractions = CompositionGuideOverlay.goldenGridFractions();
 

@@ -37,6 +37,8 @@ public final class CompositionGuideOverlay extends Pane {
   private static final Preferences PREFS = Preferences.userNodeForPackage(CompositionGuideOverlay.class);
   private static final Map<Guide, BooleanProperty> ENABLED = new EnumMap<>(Guide.class);
   private final Canvas canvas = new Canvas();
+  private double virtualWidth;
+  private double virtualHeight;
 
   static {
     for (Guide guide : Guide.values()) {
@@ -77,9 +79,25 @@ public final class CompositionGuideOverlay extends Pane {
     return menu;
   }
 
+  public void setVirtualResolution(double width, double height) {
+    virtualWidth = Double.isFinite(width) && width > 0.0 ? width : 0.0;
+    virtualHeight = Double.isFinite(height) && height > 0.0 ? height : 0.0;
+    draw();
+  }
+
   static double[] goldenGridFractions() {
     double edge = 1.0 / (PHI * PHI);
     return new double[] {edge, 1.0 - edge};
+  }
+
+  static double[] fittedFrame(double hostWidth, double hostHeight, double virtualWidth, double virtualHeight) {
+    if (hostWidth <= 0.0 || hostHeight <= 0.0 || virtualWidth <= 0.0 || virtualHeight <= 0.0) {
+      return new double[] {0.0, 0.0, Math.max(0.0, hostWidth), Math.max(0.0, hostHeight)};
+    }
+    double scale = Math.min(hostWidth / virtualWidth, hostHeight / virtualHeight);
+    double width = virtualWidth * scale;
+    double height = virtualHeight * scale;
+    return new double[] {(hostWidth - width) / 2.0, (hostHeight - height) / 2.0, width, height};
   }
 
   double renderedWidth() {
@@ -97,14 +115,22 @@ public final class CompositionGuideOverlay extends Pane {
     gc.clearRect(0, 0, width, height);
     if (width <= 1.0 || height <= 1.0) return;
 
+    double[] frame = fittedFrame(width, height, virtualWidth, virtualHeight);
+    double frameWidth = frame[2];
+    double frameHeight = frame[3];
+
     gc.save();
+    gc.beginPath();
+    gc.rect(frame[0], frame[1], frameWidth, frameHeight);
+    gc.clip();
+    gc.translate(frame[0], frame[1]);
     gc.setLineWidth(1.0);
-    if (enabled(Guide.THIRDS)) drawGrid(gc, width, height, new double[] {1.0 / 3.0, 2.0 / 3.0}, Color.web("#ffffff", 0.72));
-    if (enabled(Guide.GOLDEN_RATIO)) drawGrid(gc, width, height, goldenGridFractions(), Color.web("#ffd45c", 0.82));
-    if (enabled(Guide.DIAGONALS)) drawDiagonals(gc, width, height);
-    if (enabled(Guide.CENTER)) drawCenter(gc, width, height);
-    if (enabled(Guide.SAFE_AREAS)) drawSafeAreas(gc, width, height);
-    if (enabled(Guide.GOLDEN_SPIRAL)) drawGoldenSpiral(gc, width, height);
+    if (enabled(Guide.THIRDS)) drawGrid(gc, frameWidth, frameHeight, new double[] {1.0 / 3.0, 2.0 / 3.0}, Color.web("#ffffff", 0.72));
+    if (enabled(Guide.GOLDEN_RATIO)) drawGrid(gc, frameWidth, frameHeight, goldenGridFractions(), Color.web("#ffd45c", 0.82));
+    if (enabled(Guide.DIAGONALS)) drawDiagonals(gc, frameWidth, frameHeight);
+    if (enabled(Guide.CENTER)) drawCenter(gc, frameWidth, frameHeight);
+    if (enabled(Guide.SAFE_AREAS)) drawSafeAreas(gc, frameWidth, frameHeight);
+    if (enabled(Guide.GOLDEN_SPIRAL)) drawGoldenSpiral(gc, frameWidth, frameHeight);
     gc.restore();
   }
 

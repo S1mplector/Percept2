@@ -106,6 +106,7 @@ public class FileEditorTab extends BorderPane {
   private double restoreDividerPosition = 0.6;
   private BorderPane previewWorkspaceContent;
   private Node dockPreviewNode;
+  private CompositionGuideOverlay compositionGuideOverlay;
   private Node dockEditorNode;
   private ToggleButton previewModePreviewButton;
   private ToggleButton previewModeCodeButton;
@@ -433,6 +434,10 @@ public class FileEditorTab extends BorderPane {
     if (timelineView != null) timelineView.setProjectRoot(root);
     if (viewport != null) viewport.setProjectRoot(root);
     if (vnPreview != null) vnPreview.setProjectRoot(root);
+    if (compositionGuideOverlay != null) {
+      ProjectViewportSpec.Dimensions dimensions = ProjectViewportSpec.resolve(root);
+      compositionGuideOverlay.setVirtualResolution(dimensions.width(), dimensions.height());
+    }
 
     if (kind == Kind.VNS && vnsEditor != null && vnPreview != null) {
       String code = vnsEditor.getText();
@@ -984,8 +989,10 @@ public class FileEditorTab extends BorderPane {
     root.getStyleClass().add("script-editor-workspace-root");
     previewWorkspaceContent = new BorderPane();
     previewWorkspaceContent.getStyleClass().add("script-editor-workspace-content");
-    CompositionGuideOverlay compositionGuides = new CompositionGuideOverlay();
-    StackPane previewWithGuides = new StackPane(previewNode, compositionGuides);
+    compositionGuideOverlay = new CompositionGuideOverlay();
+    ProjectViewportSpec.Dimensions dimensions = ProjectViewportSpec.resolve(projectRoot);
+    compositionGuideOverlay.setVirtualResolution(dimensions.width(), dimensions.height());
+    StackPane previewWithGuides = new StackPane(previewNode, compositionGuideOverlay);
     dockPreviewNode = previewWithGuides;
     dockEditorNode = editorNode;
     previewDockPosition = PreviewDockPosition.TOP;
