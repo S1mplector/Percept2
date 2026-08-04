@@ -1050,11 +1050,15 @@ public class AnimationProject {
         double timeMs,
         Map<PropertyType, Double> fallbackLocalValues
     ) {
-        return computeEffectiveEntityTransform(entityName, timeMs, fallbackLocalValues, true, new HashSet<>());
+        Set<String> constraintStack = constraints.containsKey(entityName)
+            ? new HashSet<>()
+            : Collections.emptySet();
+        return computeEffectiveEntityTransform(entityName, timeMs, fallbackLocalValues, true, constraintStack);
     }
 
     EffectiveEntityTransform computeUnconstrainedEntityTransform(String entityName, double timeMs) {
-        return computeEffectiveEntityTransform(entityName, timeMs, Collections.emptyMap(), false, new HashSet<>());
+        return computeEffectiveEntityTransform(
+            entityName, timeMs, Collections.emptyMap(), false, Collections.emptySet());
     }
 
     EffectiveEntityTransform computeUnconstrainedEntityTransform(
@@ -1062,7 +1066,8 @@ public class AnimationProject {
         double timeMs,
         Map<PropertyType, Double> fallbackLocalValues
     ) {
-        return computeEffectiveEntityTransform(entityName, timeMs, fallbackLocalValues, false, new HashSet<>());
+        return computeEffectiveEntityTransform(
+            entityName, timeMs, fallbackLocalValues, false, Collections.emptySet());
     }
 
     private EffectiveEntityTransform computeEffectiveEntityTransform(
@@ -1091,7 +1096,7 @@ public class AnimationProject {
         double visibility = localValueAt(track, PropertyType.VISIBILITY, timeMs, fallbackLocalValues);
 
         String cursor = track.getParentGroupName();
-        Set<String> visited = new HashSet<>();
+        Set<String> visited = cursor != null ? new HashSet<>() : Collections.emptySet();
         while (cursor != null && visited.add(cursor)) {
             EntityGroup group = groups.get(cursor);
             if (group == null) break;

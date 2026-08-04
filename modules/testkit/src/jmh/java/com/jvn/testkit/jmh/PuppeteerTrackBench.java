@@ -1,5 +1,6 @@
 package com.jvn.testkit.jmh;
 
+import com.jvn.editor.ui.actioneditor.AnimationProject;
 import com.jvn.editor.ui.actioneditor.EntityTrack;
 import com.jvn.editor.ui.actioneditor.Keyframe;
 import com.jvn.editor.ui.actioneditor.PropertyType;
@@ -47,6 +48,7 @@ public class PuppeteerTrackBench {
     public int keyframeCount;
 
     private EntityTrack track;
+    private AnimationProject project;
     private double[] sampleTimes;
     private int sampleCursor;
 
@@ -60,6 +62,8 @@ public class PuppeteerTrackBench {
             }
             track.setKeyframes(PREVIEW_PROPERTIES[propertyIndex], keyframes);
         }
+        project = new AnimationProject();
+        project.addTrack(track);
 
         sampleTimes = new double[1024];
         long state = 0x9e3779b97f4a7c15L;
@@ -81,5 +85,11 @@ public class PuppeteerTrackBench {
         for (PropertyType property : PREVIEW_PROPERTIES) {
             blackhole.consume(track.getValueAt(property, time));
         }
+    }
+
+    @Benchmark
+    public AnimationProject.EffectiveEntityTransform sampleEffectiveEntityTransform() {
+        double time = sampleTimes[sampleCursor++ & (sampleTimes.length - 1)];
+        return project.computeEffectiveEntityTransform("bench-sprite", time);
     }
 }
