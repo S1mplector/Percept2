@@ -57,17 +57,17 @@ public class EntityTrack {
     public Keyframe upsertKeyframe(PropertyType property, Keyframe kf) {
         if (property == null || kf == null) return null;
         List<Keyframe> list = keyframes.computeIfAbsent(property, k -> new ArrayList<>());
-        for (Keyframe existing : list) {
+        int matchingIndex = lowerBound(list, kf.getTimeMs() - KEYFRAME_TIME_EPSILON_MS);
+        if (matchingIndex < list.size()) {
+            Keyframe existing = list.get(matchingIndex);
             if (Math.abs(existing.getTimeMs() - kf.getTimeMs()) <= KEYFRAME_TIME_EPSILON_MS) {
                 // Keep easing shape on existing keyframe; only replace value/time.
                 existing.setTimeMs(kf.getTimeMs());
                 existing.setValue(kf.getValue());
-                sortKeyframes(property);
                 return existing;
             }
         }
-        list.add(kf);
-        sortKeyframes(property);
+        list.add(lowerBound(list, kf.getTimeMs()), kf);
         return kf;
     }
 
@@ -75,16 +75,16 @@ public class EntityTrack {
         if (propertyKey == null || propertyKey.isBlank() || kf == null) return null;
         String normalized = propertyKey.trim();
         List<Keyframe> list = customKeyframes.computeIfAbsent(normalized, k -> new ArrayList<>());
-        for (Keyframe existing : list) {
+        int matchingIndex = lowerBound(list, kf.getTimeMs() - KEYFRAME_TIME_EPSILON_MS);
+        if (matchingIndex < list.size()) {
+            Keyframe existing = list.get(matchingIndex);
             if (Math.abs(existing.getTimeMs() - kf.getTimeMs()) <= KEYFRAME_TIME_EPSILON_MS) {
                 existing.setTimeMs(kf.getTimeMs());
                 existing.setValue(kf.getValue());
-                sortCustomKeyframes(normalized);
                 return existing;
             }
         }
-        list.add(kf);
-        sortCustomKeyframes(normalized);
+        list.add(lowerBound(list, kf.getTimeMs()), kf);
         return kf;
     }
 
@@ -143,11 +143,11 @@ public class EntityTrack {
 
     public Keyframe findKeyframeAt(PropertyType property, double timeMs) {
         List<Keyframe> list = keyframes.get(property);
-        if (list == null) return null;
-        for (Keyframe kf : list) {
-            if (Math.abs(kf.getTimeMs() - timeMs) <= KEYFRAME_TIME_EPSILON_MS) return kf;
-        }
-        return null;
+        if (list == null || list.isEmpty()) return null;
+        int index = lowerBound(list, timeMs - KEYFRAME_TIME_EPSILON_MS);
+        if (index >= list.size()) return null;
+        Keyframe keyframe = list.get(index);
+        return Math.abs(keyframe.getTimeMs() - timeMs) <= KEYFRAME_TIME_EPSILON_MS ? keyframe : null;
     }
 
     public boolean hasKeyframes(PropertyType property) {
@@ -216,21 +216,32 @@ public class EntityTrack {
 
     private static double interpolate(List<Keyframe> list, double timeMs, double defaultValue) {
         if (list == null || list.isEmpty()) return defaultValue;
+        if (Double.isNaN(timeMs)) return defaultValue;
         if (timeMs <= list.get(0).getTimeMs()) return list.get(0).getValue();
         if (timeMs >= list.get(list.size() - 1).getTimeMs()) return list.get(list.size() - 1).getValue();
 
-        for (int i = 0; i < list.size() - 1; i++) {
-            Keyframe k0 = list.get(i);
-            Keyframe k1 = list.get(i + 1);
-            if (timeMs >= k0.getTimeMs() && timeMs <= k1.getTimeMs()) {
-                double span = k1.getTimeMs() - k0.getTimeMs();
-                if (span < 0.001) return k1.getValue();
-                double t = (timeMs - k0.getTimeMs()) / span;
-                double easedT = com.jvn.core.animation.Easing.applyInterpolation(
-                    k1.getEasingSpec(), k1.getInterpolation(), t);
-                return k0.getValue() + (k1.getValue() - k0.getValue()) * easedT;
+        int nextIndex = lowerBound(list, timeMs);
+        Keyframe k0 = list.get(nextIndex - 1);
+        Keyframe k1 = list.get(nextIndex);
+        double span = k1.getTimeMs() - k0.getTimeMs();
+        if (span < 0.001) return k1.getValue();
+        double t = (timeMs - k0.getTimeMs()) / span;
+        double easedT = com.jvn.core.animation.Easing.applyInterpolation(
+            k1.getEasingSpec(), k1.getInterpolation(), t);
+        return k0.getValue() + (k1.getValue() - k0.getValue()) * easedT;
+    }
+
+    private static int lowerBound(List<Keyframe> list, double timeMs) {
+        int low = 0;
+        int high = list.size();
+        while (low < high) {
+            int mid = (low + high) >>> 1;
+            if (list.get(mid).getTimeMs() < timeMs) {
+                low = mid + 1;
+            } else {
+                high = mid;
             }
         }
-        return defaultValue;
+        return low;
     }
 }

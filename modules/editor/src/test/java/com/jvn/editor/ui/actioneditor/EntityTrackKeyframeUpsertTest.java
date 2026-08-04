@@ -1,6 +1,7 @@
 package com.jvn.editor.ui.actioneditor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.util.List;
@@ -51,5 +52,18 @@ class EntityTrackKeyframeUpsertTest {
     track.upsertKeyframe(PropertyType.X, new Keyframe(101.5, 2.0));
 
     assertEquals(2, track.getKeyframes(PropertyType.X).size());
+  }
+
+  @Test
+  void findsTimestampWithinToleranceOnLargeTrack() {
+    EntityTrack track = new EntityTrack("hero");
+    for (int i = 0; i < 4096; i++) {
+      track.upsertKeyframe(PropertyType.X, new Keyframe(i * 10.0, i));
+    }
+
+    Keyframe found = track.findKeyframeAt(PropertyType.X, 30000.0005);
+
+    assertEquals(3000.0, found.getValue(), 0.0000001);
+    assertNull(track.findKeyframeAt(PropertyType.X, 30000.01));
   }
 }
