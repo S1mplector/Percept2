@@ -11,6 +11,7 @@ dependencies {
 
   jmh(project(":core"))
   jmh(project(":editor"))
+  jmh(project(":fx"))
   jmh("org.openjdk.jmh:jmh-core:1.37")
   jmhAnnotationProcessor("org.openjdk.jmh:jmh-generator-annprocess:1.37")
 }

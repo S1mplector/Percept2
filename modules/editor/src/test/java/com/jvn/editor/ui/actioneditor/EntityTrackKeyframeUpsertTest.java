@@ -1,8 +1,11 @@
 package com.jvn.editor.ui.actioneditor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 
@@ -65,5 +68,26 @@ class EntityTrackKeyframeUpsertTest {
 
     assertEquals(3000.0, found.getValue(), 0.0000001);
     assertNull(track.findKeyframeAt(PropertyType.X, 30000.01));
+  }
+
+  @Test
+  void animatedPropertyIndexTracksSetRemoveAndCopy() {
+    EntityTrack track = new EntityTrack("hero");
+    Keyframe x = new Keyframe(100.0, 1.0);
+    track.addKeyframe(PropertyType.X, x);
+    track.setKeyframes(PropertyType.ALPHA, List.of(new Keyframe(200.0, 0.5)));
+
+    assertIterableEquals(List.of(PropertyType.X, PropertyType.ALPHA), track.getAnimatedProperties());
+
+    EntityTrack copy = track.copy();
+    track.removeKeyframe(PropertyType.X, x);
+    track.setKeyframes(PropertyType.ALPHA, List.of());
+
+    assertFalse(track.hasKeyframes(PropertyType.X));
+    assertFalse(track.hasKeyframes(PropertyType.ALPHA));
+    assertIterableEquals(List.of(), track.getAnimatedProperties());
+    assertTrue(copy.hasKeyframes(PropertyType.X));
+    assertTrue(copy.hasKeyframes(PropertyType.ALPHA));
+    assertIterableEquals(List.of(PropertyType.X, PropertyType.ALPHA), copy.getAnimatedProperties());
   }
 }

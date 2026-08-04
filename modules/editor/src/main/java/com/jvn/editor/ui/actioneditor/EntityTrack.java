@@ -2,16 +2,18 @@ package com.jvn.editor.ui.actioneditor;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 
 public class EntityTrack {
     private static final double KEYFRAME_TIME_EPSILON_MS = 0.001;
+    private static final PropertyType[] PROPERTY_TYPES = PropertyType.values();
 
     private final String entityName;
     private String parentGroupName;
-    private final Map<PropertyType, List<Keyframe>> keyframes;
+    private final List<Keyframe>[] keyframes;
+    private final EnumSet<PropertyType> animatedProperties;
     private final Map<String, List<Keyframe>> customKeyframes;
     private boolean expanded = true;
     private boolean visible = true;
@@ -20,7 +22,8 @@ public class EntityTrack {
 
     public EntityTrack(String entityName) {
         this.entityName = entityName;
-        this.keyframes = new EnumMap<>(PropertyType.class);
+        this.keyframes = newKeyframeTable();
+        this.animatedProperties = EnumSet.noneOf(PropertyType.class);
         this.customKeyframes = new java.util.LinkedHashMap<>();
     }
 
@@ -43,7 +46,8 @@ public class EntityTrack {
     public void setLayerOrder(int layerOrder) { this.layerOrder = layerOrder; }
 
     public List<Keyframe> getKeyframes(PropertyType property) {
-        return keyframes.getOrDefault(property, Collections.emptyList());
+        List<Keyframe> list = keyframesFor(property);
+        return list != null ? list : Collections.emptyList();
     }
 
     public void addKeyframe(PropertyType property, Keyframe kf) {
@@ -56,7 +60,13 @@ public class EntityTrack {
 
     public Keyframe upsertKeyframe(PropertyType property, Keyframe kf) {
         if (property == null || kf == null) return null;
-        List<Keyframe> list = keyframes.computeIfAbsent(property, k -> new ArrayList<>());
+        int propertyIndex = property.ordinal();
+        List<Keyframe> list = keyframes[propertyIndex];
+        if (list == null) {
+            list = new ArrayList<>();
+            keyframes[propertyIndex] = list;
+            animatedProperties.add(property);
+        }
         int matchingIndex = lowerBound(list, kf.getTimeMs() - KEYFRAME_TIME_EPSILON_MS);
         if (matchingIndex < list.size()) {
             Keyframe existing = list.get(matchingIndex);
@@ -89,10 +99,13 @@ public class EntityTrack {
     }
 
     public void removeKeyframe(PropertyType property, Keyframe kf) {
-        List<Keyframe> list = keyframes.get(property);
+        List<Keyframe> list = keyframesFor(property);
         if (list != null) {
             list.remove(kf);
-            if (list.isEmpty()) keyframes.remove(property);
+            if (list.isEmpty()) {
+                keyframes[property.ordinal()] = null;
+                animatedProperties.remove(property);
+            }
         }
     }
 
@@ -106,11 +119,15 @@ public class EntityTrack {
     }
 
     public void setKeyframes(PropertyType property, List<Keyframe> kfs) {
+        if (property == null) return;
         if (kfs == null || kfs.isEmpty()) {
-            keyframes.remove(property);
+            keyframes[property.ordinal()] = null;
+            animatedProperties.remove(property);
         } else {
-            keyframes.put(property, new ArrayList<>(kfs));
-            sortKeyframes(property);
+            List<Keyframe> copy = new ArrayList<>(kfs);
+            Collections.sort(copy);
+            keyframes[property.ordinal()] = copy;
+            animatedProperties.add(property);
         }
     }
 
@@ -131,7 +148,7 @@ public class EntityTrack {
     }
 
     public void sortKeyframes(PropertyType property) {
-        List<Keyframe> list = keyframes.get(property);
+        List<Keyframe> list = keyframesFor(property);
         if (list != null) Collections.sort(list);
     }
 
@@ -142,7 +159,7 @@ public class EntityTrack {
     }
 
     public Keyframe findKeyframeAt(PropertyType property, double timeMs) {
-        List<Keyframe> list = keyframes.get(property);
+        List<Keyframe> list = keyframesFor(property);
         if (list == null || list.isEmpty()) return null;
         int index = lowerBound(list, timeMs - KEYFRAME_TIME_EPSILON_MS);
         if (index >= list.size()) return null;
@@ -151,7 +168,7 @@ public class EntityTrack {
     }
 
     public boolean hasKeyframes(PropertyType property) {
-        List<Keyframe> list = keyframes.get(property);
+        List<Keyframe> list = keyframesFor(property);
         return list != null && !list.isEmpty();
     }
 
@@ -162,7 +179,7 @@ public class EntityTrack {
     }
 
     public Iterable<PropertyType> getAnimatedProperties() {
-        return keyframes.keySet();
+        return animatedProperties;
     }
 
     public Iterable<String> getAnimatedCustomProperties() {
@@ -170,7 +187,8 @@ public class EntityTrack {
     }
 
     public double getValueAt(PropertyType property, double timeMs) {
-        List<Keyframe> list = keyframes.get(property);
+        if (property == null) return 0.0;
+        List<Keyframe> list = keyframes[property.ordinal()];
         return interpolate(list, timeMs, property.getDefaultValue());
     }
 
@@ -181,7 +199,8 @@ public class EntityTrack {
 
     public double getMaxTimeMs() {
         double max = 0;
-        for (List<Keyframe> list : keyframes.values()) {
+        for (PropertyType property : animatedProperties) {
+            List<Keyframe> list = keyframes[property.ordinal()];
             for (Keyframe kf : list) {
                 if (kf.getTimeMs() > max) max = kf.getTimeMs();
             }
@@ -201,10 +220,11 @@ public class EntityTrack {
         copy.visible = visible;
         copy.locked = locked;
         copy.layerOrder = layerOrder;
-        for (Map.Entry<PropertyType, List<Keyframe>> entry : keyframes.entrySet()) {
+        for (PropertyType property : animatedProperties) {
             List<Keyframe> copyList = new ArrayList<>();
-            for (Keyframe kf : entry.getValue()) copyList.add(kf.copy());
-            copy.keyframes.put(entry.getKey(), copyList);
+            for (Keyframe kf : keyframes[property.ordinal()]) copyList.add(kf.copy());
+            copy.keyframes[property.ordinal()] = copyList;
+            copy.animatedProperties.add(property);
         }
         for (Map.Entry<String, List<Keyframe>> entry : customKeyframes.entrySet()) {
             List<Keyframe> copyList = new ArrayList<>();
@@ -212,6 +232,15 @@ public class EntityTrack {
             copy.customKeyframes.put(entry.getKey(), copyList);
         }
         return copy;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Keyframe>[] newKeyframeTable() {
+        return (List<Keyframe>[]) new List<?>[PROPERTY_TYPES.length];
+    }
+
+    private List<Keyframe> keyframesFor(PropertyType property) {
+        return property != null ? keyframes[property.ordinal()] : null;
     }
 
     private static double interpolate(List<Keyframe> list, double timeMs, double defaultValue) {

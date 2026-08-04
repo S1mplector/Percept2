@@ -28,6 +28,21 @@ import java.util.concurrent.TimeUnit;
 @Measurement(iterations = 5, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @State(Scope.Benchmark)
 public class PuppeteerTrackBench {
+    private static final PropertyType[] PREVIEW_PROPERTIES = {
+        PropertyType.X,
+        PropertyType.Y,
+        PropertyType.Z,
+        PropertyType.PIVOT_X,
+        PropertyType.PIVOT_Y,
+        PropertyType.ROTATION,
+        PropertyType.SCALE_X,
+        PropertyType.SCALE_Y,
+        PropertyType.MIRROR_X,
+        PropertyType.ALPHA,
+        PropertyType.VISIBILITY,
+        PropertyType.BLUR
+    };
+
     @Param({"16", "256", "4096"})
     public int keyframeCount;
 
@@ -38,11 +53,13 @@ public class PuppeteerTrackBench {
     @Setup
     public void setup() {
         track = new EntityTrack("bench-sprite");
-        List<Keyframe> keyframes = new ArrayList<>(keyframeCount);
-        for (int i = 0; i < keyframeCount; i++) {
-            keyframes.add(new Keyframe(i * 10.0, i));
+        for (int propertyIndex = 0; propertyIndex < PREVIEW_PROPERTIES.length; propertyIndex++) {
+            List<Keyframe> keyframes = new ArrayList<>(keyframeCount);
+            for (int i = 0; i < keyframeCount; i++) {
+                keyframes.add(new Keyframe(i * 10.0, propertyIndex * 1000.0 + i));
+            }
+            track.setKeyframes(PREVIEW_PROPERTIES[propertyIndex], keyframes);
         }
-        track.setKeyframes(PropertyType.X, keyframes);
 
         sampleTimes = new double[1024];
         long state = 0x9e3779b97f4a7c15L;
@@ -60,11 +77,9 @@ public class PuppeteerTrackBench {
 
     @Benchmark
     public void samplePreviewFrame(Blackhole blackhole) {
-        int cursor = sampleCursor;
-        for (int property = 0; property < 12; property++) {
-            double time = sampleTimes[cursor++ & (sampleTimes.length - 1)];
-            blackhole.consume(track.getValueAt(PropertyType.X, time));
+        double time = sampleTimes[sampleCursor++ & (sampleTimes.length - 1)];
+        for (PropertyType property : PREVIEW_PROPERTIES) {
+            blackhole.consume(track.getValueAt(property, time));
         }
-        sampleCursor = cursor;
     }
 }

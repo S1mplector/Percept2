@@ -2,7 +2,6 @@ package com.jvn.fx.scene2d;
 
 import java.net.URL;
 import java.util.ArrayDeque;
-import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -24,6 +23,7 @@ import javafx.geometry.VPos;
 import javafx.scene.SnapshotParameters;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.effect.BlendMode;
+import javafx.scene.effect.ColorAdjust;
 import javafx.scene.effect.Effect;
 import javafx.scene.effect.GaussianBlur;
 import javafx.scene.image.Image;
@@ -66,24 +66,36 @@ public class FxBlitter2D implements Blitter2D {
       0.0, 0.0, 1.0, 0.0, 0.0,
       0.0, 0.0, 0.0, 1.0, 0.0
   };
+  private static final double COLOR_MATRIX_EPSILON = 1e-9;
 
   private static final class RenderState {
-    double[] colorMatrix = null;
+    final double[] colorMatrix = new double[IDENTITY_COLOR_MATRIX.length];
+    boolean colorMatrixSet = false;
     double blurRadius = 0.0;
 
-    RenderState copy() {
-      RenderState copy = new RenderState();
-      copy.colorMatrix = colorMatrix != null ? colorMatrix.clone() : null;
-      copy.blurRadius = blurRadius;
-      return copy;
+    void copyFrom(RenderState source) {
+      colorMatrixSet = source.colorMatrixSet;
+      if (colorMatrixSet) {
+        System.arraycopy(source.colorMatrix, 0, colorMatrix, 0, colorMatrix.length);
+      }
+      blurRadius = source.blurRadius;
+    }
+
+    void reset() {
+      colorMatrixSet = false;
+      blurRadius = 0.0;
     }
 
     boolean hasColorMatrix() {
-      if (colorMatrix == null || colorMatrix.length < IDENTITY_COLOR_MATRIX.length) return false;
+      if (!colorMatrixSet) return false;
       for (int i = 0; i < IDENTITY_COLOR_MATRIX.length; i++) {
-        if (Math.abs(colorMatrix[i] - IDENTITY_COLOR_MATRIX[i]) > 1e-9) return true;
+        if (Math.abs(colorMatrix[i] - IDENTITY_COLOR_MATRIX[i]) > COLOR_MATRIX_EPSILON) return true;
       }
       return false;
+    }
+
+    double gpuBrightness() {
+      return colorMatrixSet ? gpuBrightnessFor(colorMatrix) : Double.NaN;
     }
   }
 
@@ -99,6 +111,7 @@ public class FxBlitter2D implements Blitter2D {
   };
   private final Set<String> missing = new HashSet<>();
   private final Deque<RenderState> stateStack = new ArrayDeque<>();
+  private final Deque<RenderState> statePool = new ArrayDeque<>();
   private RenderState state = new RenderState();
   private FxRenderTarget2D ownerTarget;
   
@@ -160,14 +173,28 @@ public class FxBlitter2D implements Blitter2D {
   @Override
   public void push() {
     gc.save();
-    stateStack.push(state.copy());
+    RenderState next = statePool.pollFirst();
+    if (next == null) next = new RenderState();
+    next.copyFrom(state);
+    stateStack.push(state);
+    state = next;
   }
 
   @Override
   public void pop() {
     gc.restore();
-    state = stateStack.isEmpty() ? new RenderState() : stateStack.pop();
-    applyEffectState();
+    RenderState completed = state;
+    RenderState restored = stateStack.pollFirst();
+    if (restored == null) {
+      completed.reset();
+      state = completed;
+    } else {
+      state = restored;
+      completed.reset();
+      statePool.offerFirst(completed);
+    }
+    // GraphicsContext.restore() already restores the saved Effect. Re-applying it
+    // here would allocate another shader/effect chain at every nested entity pop.
   }
 
   @Override
@@ -442,17 +469,28 @@ public class FxBlitter2D implements Blitter2D {
       clearColorMatrix();
       return;
     }
-    state.colorMatrix = Arrays.copyOf(matrix, IDENTITY_COLOR_MATRIX.length);
+    double previousGpuBrightness = state.gpuBrightness();
+    if (state.colorMatrixSet && sameColorMatrix(state.colorMatrix, matrix)) return;
+    System.arraycopy(matrix, 0, state.colorMatrix, 0, state.colorMatrix.length);
+    state.colorMatrixSet = true;
+    if (Double.compare(previousGpuBrightness, state.gpuBrightness()) != 0) {
+      applyEffectState();
+    }
   }
 
   @Override
   public void clearColorMatrix() {
-    state.colorMatrix = null;
+    if (!state.colorMatrixSet) return;
+    double previousGpuBrightness = state.gpuBrightness();
+    state.colorMatrixSet = false;
+    if (!Double.isNaN(previousGpuBrightness)) applyEffectState();
   }
 
   @Override
   public void setBlurRadius(double radius) {
-    state.blurRadius = Math.max(0.0, radius);
+    double nextRadius = Math.max(0.0, radius);
+    if (Math.abs(state.blurRadius - nextRadius) <= COLOR_MATRIX_EPSILON) return;
+    state.blurRadius = nextRadius;
     applyEffectState();
   }
 
@@ -467,7 +505,9 @@ public class FxBlitter2D implements Blitter2D {
       throw new IllegalArgumentException("FxBlitter2D requires a JavaFX render target");
     }
     Image image = fxTarget.snapshot();
-    if (state.hasColorMatrix()) image = applyColorMatrix(image, state.colorMatrix);
+    if (state.hasColorMatrix() && !hasGpuColorMatrix()) {
+      image = applyColorMatrix(image, state.colorMatrix);
+    }
     markOwnerDirty();
     gc.drawImage(image, x, y, width, height);
   }
@@ -569,16 +609,56 @@ public class FxBlitter2D implements Blitter2D {
 
   private void applyEffectState() {
     Effect effect = null;
+    double gpuBrightness = state.gpuBrightness();
+    if (!Double.isNaN(gpuBrightness)) {
+      // For values from 0 through 1 JavaFX's ColorAdjust shader scales HSB value,
+      // which is exactly the uniform RGB multiplication represented by this matrix.
+      // Prism executes the effect on the selected graphics pipeline, avoiding a CPU
+      // pixel pass and a new texture upload for every animated Puppeteer frame.
+      ColorAdjust brightness = new ColorAdjust();
+      brightness.setBrightness(gpuBrightness - 1.0);
+      effect = brightness;
+    }
     if (state.blurRadius > 1e-9) {
-      effect = new GaussianBlur(Math.min(63.0, state.blurRadius));
+      GaussianBlur blur = new GaussianBlur(Math.min(63.0, state.blurRadius));
+      blur.setInput(effect);
+      effect = blur;
     }
     gc.setEffect(effect);
   }
 
   private Image resolveProcessedImage(String path, Image source) {
-    if (source == null || !state.hasColorMatrix()) return source;
+    if (source == null || !state.hasColorMatrix() || hasGpuColorMatrix()) return source;
     String cacheKey = buildProcessedKey(path, state.colorMatrix);
     return processedCache.computeIfAbsent(cacheKey, key -> applyColorMatrix(source, state.colorMatrix));
+  }
+
+  private boolean hasGpuColorMatrix() {
+    return !Double.isNaN(state.gpuBrightness());
+  }
+
+  static double gpuBrightnessFor(double[] matrix) {
+    if (matrix == null || matrix.length < IDENTITY_COLOR_MATRIX.length) return Double.NaN;
+    double brightness = matrix[0];
+    if (!Double.isFinite(brightness) || brightness < 0.0 || brightness >= 1.0) {
+      return Double.NaN;
+    }
+    for (int i = 0; i < IDENTITY_COLOR_MATRIX.length; i++) {
+      double expected = switch (i) {
+        case 0, 6, 12 -> brightness;
+        case 18 -> 1.0;
+        default -> 0.0;
+      };
+      if (Math.abs(matrix[i] - expected) > COLOR_MATRIX_EPSILON) return Double.NaN;
+    }
+    return brightness;
+  }
+
+  private static boolean sameColorMatrix(double[] left, double[] right) {
+    for (int i = 0; i < IDENTITY_COLOR_MATRIX.length; i++) {
+      if (Double.compare(left[i], right[i]) != 0) return false;
+    }
+    return true;
   }
 
   private String buildProcessedKey(String path, double[] matrix) {
