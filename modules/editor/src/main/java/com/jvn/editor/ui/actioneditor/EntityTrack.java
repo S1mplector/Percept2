@@ -19,6 +19,7 @@ public class EntityTrack {
     private boolean visible = true;
     private boolean locked = false;
     private int layerOrder = 0;
+    private int modCount = 0;
 
     public EntityTrack(String entityName) {
         this.entityName = entityName;
@@ -44,6 +45,8 @@ public class EntityTrack {
 
     public int getLayerOrder() { return layerOrder; }
     public void setLayerOrder(int layerOrder) { this.layerOrder = layerOrder; }
+
+    public int getModCount() { return modCount; }
 
     public List<Keyframe> getKeyframes(PropertyType property) {
         List<Keyframe> list = keyframesFor(property);
@@ -74,10 +77,12 @@ public class EntityTrack {
                 // Keep easing shape on existing keyframe; only replace value/time.
                 existing.setTimeMs(kf.getTimeMs());
                 existing.setValue(kf.getValue());
+                modCount++;
                 return existing;
             }
         }
         list.add(lowerBound(list, kf.getTimeMs()), kf);
+        modCount++;
         return kf;
     }
 
@@ -91,17 +96,19 @@ public class EntityTrack {
             if (Math.abs(existing.getTimeMs() - kf.getTimeMs()) <= KEYFRAME_TIME_EPSILON_MS) {
                 existing.setTimeMs(kf.getTimeMs());
                 existing.setValue(kf.getValue());
+                modCount++;
                 return existing;
             }
         }
         list.add(lowerBound(list, kf.getTimeMs()), kf);
+        modCount++;
         return kf;
     }
 
     public void removeKeyframe(PropertyType property, Keyframe kf) {
         List<Keyframe> list = keyframesFor(property);
         if (list != null) {
-            list.remove(kf);
+            if (list.remove(kf)) modCount++;
             if (list.isEmpty()) {
                 keyframes[property.ordinal()] = null;
                 animatedProperties.remove(property);
@@ -113,13 +120,14 @@ public class EntityTrack {
         if (propertyKey == null || propertyKey.isBlank()) return;
         List<Keyframe> list = customKeyframes.get(propertyKey.trim());
         if (list != null) {
-            list.remove(kf);
+            if (list.remove(kf)) modCount++;
             if (list.isEmpty()) customKeyframes.remove(propertyKey.trim());
         }
     }
 
     public void setKeyframes(PropertyType property, List<Keyframe> kfs) {
         if (property == null) return;
+        modCount++;
         if (kfs == null || kfs.isEmpty()) {
             keyframes[property.ordinal()] = null;
             animatedProperties.remove(property);
@@ -139,6 +147,7 @@ public class EntityTrack {
     public void setCustomKeyframes(String propertyKey, List<Keyframe> kfs) {
         if (propertyKey == null || propertyKey.isBlank()) return;
         String normalized = propertyKey.trim();
+        modCount++;
         if (kfs == null || kfs.isEmpty()) {
             customKeyframes.remove(normalized);
         } else {

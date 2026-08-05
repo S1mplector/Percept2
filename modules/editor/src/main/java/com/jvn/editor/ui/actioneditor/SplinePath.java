@@ -85,14 +85,10 @@ public class SplinePath {
 
         if (xFrames.isEmpty() && yFrames.isEmpty()) return new ArrayList<>();
 
-        List<Double> times = new ArrayList<>();
-        for (Keyframe kf : xFrames) {
-            if (!times.contains(kf.getTimeMs())) times.add(kf.getTimeMs());
-        }
-        for (Keyframe kf : yFrames) {
-            if (!times.contains(kf.getTimeMs())) times.add(kf.getTimeMs());
-        }
-        times.sort(Double::compare);
+        java.util.Set<Double> timesSet = new java.util.TreeSet<>();
+        for (Keyframe kf : xFrames) timesSet.add(kf.getTimeMs());
+        for (Keyframe kf : yFrames) timesSet.add(kf.getTimeMs());
+        List<Double> times = new ArrayList<>(timesSet);
 
         List<Point> points = new ArrayList<>();
         for (double t : times) {

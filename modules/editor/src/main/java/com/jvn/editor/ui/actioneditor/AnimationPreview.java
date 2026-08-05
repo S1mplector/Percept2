@@ -1147,6 +1147,14 @@ public class AnimationPreview extends VBox {
         return null;
     }
 
+    private static final class MotionPathCache {
+        int modCount = -1;
+        java.util.List<SplinePath.Point> controlPoints;
+        java.util.List<SplinePath.Point> curve;
+    }
+
+    private final java.util.Map<EntityTrack, MotionPathCache> motionPathCache = new java.util.IdentityHashMap<>();
+
     private void drawMotionPaths() {
         if (project == null) return;
         double z = Math.max(1e-6, displayScale);
@@ -1155,11 +1163,19 @@ public class AnimationPreview extends VBox {
         applyCameraTransform();
 
         for (EntityTrack track : project.getTracks()) {
-            java.util.List<SplinePath.Point> controlPoints =
-                SplinePath.buildControlPoints(track, project.getTotalDurationMs());
+            MotionPathCache cache = motionPathCache.computeIfAbsent(track, k -> new MotionPathCache());
+            if (cache.modCount != track.getModCount() || cache.controlPoints == null) {
+                cache.controlPoints = SplinePath.buildControlPoints(track, project.getTotalDurationMs());
+                cache.curve = cache.controlPoints.size() >= 2 
+                    ? SplinePath.catmullRom(cache.controlPoints, 16) 
+                    : java.util.Collections.emptyList();
+                cache.modCount = track.getModCount();
+            }
+
+            java.util.List<SplinePath.Point> controlPoints = cache.controlPoints;
             if (controlPoints.size() < 2) continue;
 
-            java.util.List<SplinePath.Point> curve = SplinePath.catmullRom(controlPoints, 16);
+            java.util.List<SplinePath.Point> curve = cache.curve;
             boolean isSelectedPath = selectedEntityName != null
                 && selectedEntityName.equals(track.getEntityName());
             Color stroke = isSelectedPath
