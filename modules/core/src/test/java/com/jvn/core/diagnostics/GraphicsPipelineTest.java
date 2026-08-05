@@ -63,13 +63,37 @@ class GraphicsPipelineTest {
   }
 
   @Test
-  void hardwareModePrefersNativePipelinesAndKeepsSoftwareFallback() {
+  void hardwareModePrefersNativePipelinesAndKeepsSoftwareFallback_Windows() {
     System.setProperty(GraphicsPipeline.MODE_PROPERTY, "hardware");
     System.setProperty("os.name", "Windows 11");
     System.clearProperty(GraphicsPipeline.PRISM_ORDER_PROPERTY);
 
     assertEquals(GraphicsPipeline.Mode.HARDWARE, GraphicsPipeline.configure());
     assertEquals("d3d,es2,sw", System.getProperty(GraphicsPipeline.PRISM_ORDER_PROPERTY));
+    assertEquals("true", System.getProperty(GraphicsPipeline.PRISM_FORCE_GPU_PROPERTY));
+    assertTrue(GraphicsPipeline.statusText().startsWith("GPU preferred"));
+  }
+
+  @Test
+  void hardwareModePrefersNativePipelinesAndKeepsSoftwareFallback_Mac() {
+    System.setProperty(GraphicsPipeline.MODE_PROPERTY, "hardware");
+    System.setProperty("os.name", "Mac OS X");
+    System.clearProperty(GraphicsPipeline.PRISM_ORDER_PROPERTY);
+
+    assertEquals(GraphicsPipeline.Mode.HARDWARE, GraphicsPipeline.configure());
+    assertEquals("metal,es2,sw", System.getProperty(GraphicsPipeline.PRISM_ORDER_PROPERTY));
+    assertEquals("true", System.getProperty(GraphicsPipeline.PRISM_FORCE_GPU_PROPERTY));
+    assertTrue(GraphicsPipeline.statusText().startsWith("GPU preferred"));
+  }
+
+  @Test
+  void hardwareModePrefersNativePipelinesAndKeepsSoftwareFallback_Linux() {
+    System.setProperty(GraphicsPipeline.MODE_PROPERTY, "hardware");
+    System.setProperty("os.name", "Linux");
+    System.clearProperty(GraphicsPipeline.PRISM_ORDER_PROPERTY);
+
+    assertEquals(GraphicsPipeline.Mode.HARDWARE, GraphicsPipeline.configure());
+    assertEquals("es2,sw", System.getProperty(GraphicsPipeline.PRISM_ORDER_PROPERTY));
     assertEquals("true", System.getProperty(GraphicsPipeline.PRISM_FORCE_GPU_PROPERTY));
     assertTrue(GraphicsPipeline.statusText().startsWith("GPU preferred"));
   }

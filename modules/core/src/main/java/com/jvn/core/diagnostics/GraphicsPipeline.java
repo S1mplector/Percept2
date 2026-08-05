@@ -97,7 +97,9 @@ public final class GraphicsPipeline {
 
   static String preferredHardwareOrder() {
     String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
-    return os.contains("win") ? "d3d,es2,sw" : "es2,sw";
+    if (os.contains("win")) return "d3d,es2,sw";
+    if (os.contains("mac")) return "metal,es2,sw";
+    return "es2,sw";
   }
 
   private static String cleanOrder(String order, String fallback) {
