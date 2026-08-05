@@ -1380,7 +1380,25 @@ public class PuppeteerWindow extends Stage {
         toolbarPane.setPadding(TOOLBAR_PADDING_DYNAMIC);
         toolbarPane.setMinHeight(Region.USE_PREF_SIZE);
         toolbarPane.setMaxWidth(Double.MAX_VALUE);
-
+        
+        // Add the missing toolbar cluster lines 
+        
+        toolbarPane.addCluster(transportCluster);
+        toolbarPane.addCluster(historyCluster);
+        toolbarPane.addCluster(durationCluster);
+        toolbarPane.addCluster(presetsCluster);
+        toolbarPane.addCluster(propertyCluster);
+        toolbarPane.addCluster(keyframesCluster);
+        toolbarPane.addCluster(snapCluster);
+        toolbarPane.addCluster(previewCluster);
+        toolbarPane.addCluster(orbitCluster);
+        toolbarPane.addCluster(audioCluster);
+        toolbarPane.addCluster(registerCluster);
+        toolbarPane.addCluster(exportCluster);
+		toolbarPane.addCluster(diagnosticsCluster);
+		toolbarPane.addCluster(helpCluster);
+		
+		// Build the command bar right afterwards
         toolbarCommandBar = buildToolbarCommandBar();
         setToolbarClustersExpanded(true);
         setToolbarLayoutMode(AnimatedToolbarPane.LayoutMode.COMPACT);
