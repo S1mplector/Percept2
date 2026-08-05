@@ -278,24 +278,33 @@ public class TimelineData {
 
         private static double interpolateValue(List<Keyframe> list, double timeMs, double defaultValue) {
             if (list == null || list.isEmpty()) return defaultValue;
-            if (list.size() == 1) return list.get(0).getValue();
-
+            if (Double.isNaN(timeMs)) return defaultValue;
             if (timeMs <= list.get(0).getTimeMs()) return list.get(0).getValue();
             if (timeMs >= list.get(list.size() - 1).getTimeMs()) return list.get(list.size() - 1).getValue();
 
-            for (int i = 0; i < list.size() - 1; i++) {
-                Keyframe a = list.get(i);
-                Keyframe b = list.get(i + 1);
-                if (timeMs >= a.getTimeMs() && timeMs <= b.getTimeMs()) {
-                    double span = b.getTimeMs() - a.getTimeMs();
-                    if (span <= 0) return b.getValue();
-                    double t = (timeMs - a.getTimeMs()) / span;
-                    double eased = Easing.applyInterpolation(
-                        b.getEasingSpec(), b.getInterpolation(), t);
-                    return Easing.lerp(a.getValue(), b.getValue(), eased);
+            int nextIndex = lowerBound(list, timeMs);
+            Keyframe a = list.get(nextIndex - 1);
+            Keyframe b = list.get(nextIndex);
+            double span = b.getTimeMs() - a.getTimeMs();
+            if (span <= 0) return b.getValue();
+            double t = (timeMs - a.getTimeMs()) / span;
+            double eased = Easing.applyInterpolation(
+                b.getEasingSpec(), b.getInterpolation(), t);
+            return Easing.lerp(a.getValue(), b.getValue(), eased);
+        }
+
+        private static int lowerBound(List<Keyframe> list, double timeMs) {
+            int low = 0;
+            int high = list.size();
+            while (low < high) {
+                int mid = (low + high) >>> 1;
+                if (list.get(mid).getTimeMs() < timeMs) {
+                    low = mid + 1;
+                } else {
+                    high = mid;
                 }
             }
-            return list.get(list.size() - 1).getValue();
+            return low;
         }
     }
 
