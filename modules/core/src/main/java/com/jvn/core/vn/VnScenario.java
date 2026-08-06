@@ -63,11 +63,20 @@ public class VnScenario {
     private final Map<String, VnBackground> backgrounds = new HashMap<>();
     private final Map<String, VnStagePreset> stagePresets = new HashMap<>();
     private final Map<String, VnGroup> groups = new HashMap<>();
+    private int sourceLine;
 
     private Builder(String id) { this.id = id; }
 
     public Builder addNode(VnNode node) {
+      if (node != null && node.getSourceLine() <= 0 && sourceLine > 0) {
+        node = node.withSourceLine(sourceLine);
+      }
       nodes.add(node);
+      return this;
+    }
+
+    public Builder sourceLine(int line) {
+      sourceLine = Math.max(0, line);
       return this;
     }
 

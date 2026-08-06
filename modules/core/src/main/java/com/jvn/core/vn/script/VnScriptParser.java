@@ -195,6 +195,7 @@ public class VnScriptParser {
     String activeDisplayPresetId;
     String pendingVoiceTrackId;
     List<VnParseException> errors = new ArrayList<>();
+    int currentSourceLine;
 
     boolean insideMenu = false;
     List<BufferedLine> menuBuffer = new ArrayList<>();
@@ -485,6 +486,8 @@ public class VnScriptParser {
 
     while ((line = reader.readLine()) != null) {
       lineNumber++;
+      state.currentSourceLine = lineNumber;
+      if (state.builder != null) state.builder.sourceLine(lineNumber);
       String rawLine = line;
       String trimmed = rawLine.trim();
 
@@ -3401,7 +3404,8 @@ public class VnScriptParser {
 
   private void ensureBuilder(ParseState state) {
     if (state.builder == null) {
-      state.builder = new VnScenarioBuilder(state.scenarioId);
+      state.builder = new VnScenarioBuilder(state.scenarioId)
+          .sourceLine(state.currentSourceLine);
     }
   }
 

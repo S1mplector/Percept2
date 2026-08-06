@@ -9,6 +9,8 @@ MODE="${JVN_APP_LAUNCH_MODE:-auto}"
 FORCE_REBUILD=0
 SAFE_MODE=0
 DEVELOPER_MODE=0
+GPU_INFO_ONLY=0
+JFR_PROFILE=0
 declare -a APP_ARGS=()
 
 usage() {
@@ -20,10 +22,13 @@ Usage: scripts/launch-app.sh editor|launcher|runtime [options] [-- app arguments
   --rebuild           Refresh the compiled launch cache before starting.
   --safe-mode         Forward JVN safe-mode properties.
   --developer-mode    Forward JVN developer-mode properties.
+  --gpu-info          Print the GPU that a hardware launch would use, then exit.
+  --jfr               Record the launched Java process with Java Flight Recorder.
 
 Environment: JVN_APP_LAUNCH_MODE=auto|direct|gradle
              JVN_APP_JAVA_OPTS="<additional JVM options>"
              JVN_DISABLE_GLX_FALLBACK=1 disables Linux Mesa GLX recovery
+             JVN_DISABLE_GPU_OFFLOAD=1 disables Linux discrete-GPU selection
 EOF
 }
 
@@ -48,6 +53,8 @@ while (($#)); do
     --rebuild) FORCE_REBUILD=1 ;;
     --safe-mode) SAFE_MODE=1 ;;
     --developer-mode) DEVELOPER_MODE=1 ;;
+    --gpu-info) GPU_INFO_ONLY=1 ;;
+    --jfr) JFR_PROFILE=1 ;;
     --) shift; APP_ARGS+=("$@"); break ;;
     *) APP_ARGS+=("$1") ;;
   esac
@@ -66,6 +73,8 @@ VERSION_FILE="$CACHE_DIR/version.txt"
 STAMP_FILE="$CACHE_DIR/launch.stamp"
 
 declare -a MODE_PROPS=()
+declare -a GPU_LAUNCH_PREFIX=()
+GPU_SELECTION_MESSAGE=""
 if [[ "$SAFE_MODE" -eq 1 ]]; then
   MODE_PROPS+=("-Djvn.hub.safeMode=true" "-Djvn.editor.safeMode=true" "-Djvn.launcher.safeMode=true" "-Djvn.help.safeMode=true")
 fi
@@ -78,7 +87,7 @@ set +u
 run_gradle() {
   local task="$1"
   local workers=2
-  exec "$ROOT_DIR/gradlew" --console=plain --configuration-cache --max-workers="$workers" -p "$ROOT_DIR" \
+  exec "${GPU_LAUNCH_PREFIX[@]}" "$ROOT_DIR/gradlew" --console=plain --configuration-cache --max-workers="$workers" -p "$ROOT_DIR" \
     "${MODE_PROPS[@]}" "$task"
 }
 
@@ -110,6 +119,118 @@ run_glx_probe() {
 lowercase() {
   # macOS still ships Bash 3.2, which does not support ${value,,}.
   printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
+}
+
+likely_discrete_gpu_name() {
+  local name
+  name="$(lowercase "$1")"
+  case "$name" in
+    *nvidia*|*geforce*|*quadro*|*intel*arc*|*radeon*rx*|*radeon*pro*|*firepro*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+configure_linux_discrete_gpu() {
+  [[ "$(uname -s 2>/dev/null)" == "Linux" ]] || return 0
+  [[ "${JVN_DISABLE_GPU_OFFLOAD:-0}" != "1" ]] || return 0
+  case "$GRAPHICS_MODE_NORMALIZED" in
+    gpu|hardware|accelerated|prefer-gpu) ;;
+    *) return 0 ;;
+  esac
+
+  # Respect an adapter choice made by the desktop, Steam, gamescope, or the caller.
+  if [[ -n "${DRI_PRIME:-}" || -n "${__NV_PRIME_RENDER_OFFLOAD:-}" \
+      || -n "${__GLX_VENDOR_LIBRARY_NAME:-}" \
+      || -n "${__VK_LAYER_NV_optimus:-}" ]]; then
+    GPU_SELECTION_MESSAGE="using inherited Linux GPU offload environment"
+    return 0
+  fi
+
+  if ! command -v switcherooctl >/dev/null 2>&1; then
+    configure_linux_sysfs_gpu_fallback
+    return 0
+  fi
+
+  local devices default_name device_count
+  devices="$(switcherooctl list 2>/dev/null || true)"
+  device_count="$(printf '%s\n' "$devices" | awk '/^Device:/ { count++ } END { print count + 0 }')"
+  [[ "$device_count" -gt 0 ]] || {
+    configure_linux_sysfs_gpu_fallback
+    return 0
+  }
+  [[ "$device_count" -gt 1 ]] || {
+    GPU_SELECTION_MESSAGE="one GPU reported; using the desktop's default GPU"
+    return 0
+  }
+  default_name="$(printf '%s\n' "$devices" | awk '
+    /^Device:/ { device=$2 }
+    /^[[:space:]]+Name:/ { line=$0; sub(/^[[:space:]]+Name:[[:space:]]*/, "", line); names[device]=line }
+    /^[[:space:]]+Default:[[:space:]]+yes/ { selected=device }
+    END { if (selected in names) print names[selected] }')"
+
+  # switcherooctl treats the first non-default adapter as the discrete GPU. Some
+  # desktops run on the discrete GPU already; in that case wrapping the command
+  # would incorrectly move JVN back to the integrated adapter.
+  if likely_discrete_gpu_name "$default_name"; then
+    GPU_SELECTION_MESSAGE="desktop default already appears discrete: $default_name"
+    return 0
+  fi
+
+  GPU_LAUNCH_PREFIX=(switcherooctl launch)
+  GPU_SELECTION_MESSAGE="requesting the discrete GPU through switcheroo-control"
+}
+
+configure_linux_sysfs_gpu_fallback() {
+  local vendor_file vendor boot default_vendor="" candidate_vendor="" count=0
+  for vendor_file in /sys/class/drm/card*/device/vendor; do
+    [[ -r "$vendor_file" ]] || continue
+    vendor="$(sed -n '1p' "$vendor_file" 2>/dev/null)"
+    [[ -n "$vendor" ]] || continue
+    count=$((count + 1))
+    boot="$(sed -n '1p' "${vendor_file%/vendor}/boot_vga" 2>/dev/null || true)"
+    if [[ "$boot" == "1" ]]; then
+      default_vendor="$vendor"
+    elif [[ -z "$candidate_vendor" ]]; then
+      candidate_vendor="$vendor"
+    fi
+  done
+  if [[ "$count" -le 1 || -z "$default_vendor" || -z "$candidate_vendor" ]]; then
+    GPU_SELECTION_MESSAGE="discrete-GPU service unavailable; using the desktop's default GPU"
+    return 0
+  fi
+  if [[ "$default_vendor" == "0x10de" ]]; then
+    GPU_SELECTION_MESSAGE="the boot display GPU is NVIDIA; using the desktop's default GPU"
+    return 0
+  fi
+  if [[ "$candidate_vendor" == "0x10de" ]]; then
+    export __NV_PRIME_RENDER_OFFLOAD=1
+    export __GLX_VENDOR_LIBRARY_NAME=nvidia
+    export __VK_LAYER_NV_optimus=NVIDIA_only
+    GPU_SELECTION_MESSAGE="requesting the NVIDIA GPU through PRIME environment variables"
+    return 0
+  fi
+  if [[ "$default_vendor" == "0x8086" && "$candidate_vendor" != "0x8086" ]]; then
+    export DRI_PRIME=1
+    GPU_SELECTION_MESSAGE="requesting the non-Intel GPU through Mesa PRIME"
+    return 0
+  fi
+  GPU_SELECTION_MESSAGE="GPU roles are ambiguous; preserving the desktop's default adapter"
+}
+
+print_gpu_launch_probe() {
+  case "$GRAPHICS_MODE_NORMALIZED" in
+    gpu|hardware|accelerated|prefer-gpu) ;;
+    *) return 0 ;;
+  esac
+  [[ -n "$GPU_SELECTION_MESSAGE" ]] && echo "[jvn] GPU preference: $GPU_SELECTION_MESSAGE." >&2
+  command -v glxinfo >/dev/null 2>&1 || return 0
+  local probe summary
+  probe="$(run_glx_probe "${GPU_LAUNCH_PREFIX[@]}" glxinfo -B 2>/dev/null || true)"
+  summary="$(printf '%s\n' "$probe" | sed -n \
+    -e 's/^[[:space:]]*OpenGL vendor string:[[:space:]]*/vendor=/p' \
+    -e 's/^[[:space:]]*OpenGL renderer string:[[:space:]]*/renderer=/p' \
+    | awk 'NR == 1 { text=$0; next } { text=text " | " $0 } END { print text }')"
+  [[ -n "$summary" ]] && echo "[jvn] GPU probe: $summary" >&2
 }
 
 configure_linux_glx_fallback() {
@@ -165,9 +286,17 @@ cache_is_stale() {
     -newer "$STAMP_FILE" -print -quit | grep -q .
 }
 
+GRAPHICS_MODE="$(requested_graphics_mode)"
+GRAPHICS_MODE_NORMALIZED="$(lowercase "$GRAPHICS_MODE")"
+configure_linux_discrete_gpu
 configure_linux_glx_fallback
+if [[ "$GPU_INFO_ONLY" -eq 1 ]]; then
+  print_gpu_launch_probe
+  exit 0
+fi
 
 if [[ "$MODE" == "gradle" ]]; then
+  print_gpu_launch_probe
   run_gradle "$GRADLE_TASK"
 fi
 
@@ -199,11 +328,10 @@ CLASSPATH="$(join_path_file "$CLASSPATH_FILE")"
 MODULE_PATH="$(join_path_file "$MODULE_PATH_FILE")"
 VERSION="$(sed -n '1p' "$VERSION_FILE")"
 declare -a JAVA_ARGS=("-Djvn.version=$VERSION" "${MODE_PROPS[@]}")
-GRAPHICS_MODE="$(requested_graphics_mode)"
-GRAPHICS_MODE_NORMALIZED="$(lowercase "$GRAPHICS_MODE")"
 HARDWARE_PRISM_ORDER="es2,sw"
 case "$(uname -s 2>/dev/null)" in
   MINGW*|MSYS*|CYGWIN*) HARDWARE_PRISM_ORDER="d3d,es2,sw" ;;
+  Darwin) HARDWARE_PRISM_ORDER="metal,es2,sw" ;;
 esac
 case "$GRAPHICS_MODE_NORMALIZED" in
   gpu|hardware|accelerated|prefer-gpu)
@@ -216,6 +344,14 @@ case "$GRAPHICS_MODE_NORMALIZED" in
     JAVA_ARGS+=("-Djvn.graphics.mode=auto")
     ;;
 esac
+if [[ "$JFR_PROFILE" -eq 1 ]]; then
+  JFR_DIR="${XDG_STATE_HOME:-${HOME:-.}/.local/state}/jvn-engine-hub/profiles"
+  mkdir -p "$JFR_DIR"
+  JFR_FILE="$JFR_DIR/${APP}-$(date '+%Y%m%d-%H%M%S').jfr"
+  JAVA_ARGS+=("-XX:StartFlightRecording=filename=$JFR_FILE,settings=profile,dumponexit=true" \
+    "-Dprism.verbose=true")
+  echo "[jvn] Java Flight Recorder: $JFR_FILE" >&2
+fi
 if [[ -n "${JVN_APP_JAVA_OPTS:-}" ]]; then
   read -r -a USER_JAVA_OPTS <<< "$JVN_APP_JAVA_OPTS"
   JAVA_ARGS+=("${USER_JAVA_OPTS[@]}")
@@ -223,4 +359,5 @@ fi
 if [[ -n "$MODULE_PATH" ]]; then
   JAVA_ARGS+=(--module-path "$MODULE_PATH" --add-modules javafx.controls,javafx.graphics,javafx.base,javafx.media,javafx.swing,javafx.fxml)
 fi
-exec java "${JAVA_ARGS[@]}" -cp "$CLASSPATH" "$MAIN_CLASS" "${APP_ARGS[@]}"
+print_gpu_launch_probe
+exec "${GPU_LAUNCH_PREFIX[@]}" java "${JAVA_ARGS[@]}" -cp "$CLASSPATH" "$MAIN_CLASS" "${APP_ARGS[@]}"

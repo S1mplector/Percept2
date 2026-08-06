@@ -3474,12 +3474,12 @@
 }
 
 .vns-tools-strip {
-  -fx-spacing: 7;
-  -fx-padding: 8 12 8 12;
+  -fx-spacing: 5;
+  -fx-padding: 3 8 3 8;
   -fx-background-color:
-    linear-gradient(to bottom, rgba(255,255,255,0.76), transparent 46%),
-    linear-gradient(to bottom, #f7f9fb, #e6ebef);
-  -fx-border-color: transparent transparent #bcc6ce transparent;
+    linear-gradient(to bottom, rgba(255,255,255,0.56), transparent 50%),
+    linear-gradient(to bottom, #eeeeee, #e3e3e3);
+  -fx-border-color: transparent transparent #c8c8c8 transparent;
 }
 
 .vns-tools-aero-button {
@@ -3495,20 +3495,20 @@
 
 .vns-tools-aero-button:hover {
   -fx-background-color:
-    linear-gradient(to bottom, rgba(255,255,255,0.86), rgba(141,201,234,0.32));
-  -fx-border-color: rgba(74,137,174,0.38);
+    linear-gradient(to bottom, #ffffff, #d9d9d9);
+  -fx-border-color: #b5b5b5;
 }
 
 .vns-tools-aero-button:pressed {
   -fx-background-color:
-    linear-gradient(to bottom, rgba(102,167,204,0.34), rgba(230,247,255,0.66));
-  -fx-border-color: rgba(48,119,160,0.48);
+    linear-gradient(to bottom, #d2d2d2, #e5e5e5);
+  -fx-border-color: #a0a0a0;
 }
 
 .vns-tools-aero-button:selected {
   -fx-background-color:
-    linear-gradient(to bottom, rgba(255,255,255,0.92), rgba(98,177,219,0.46));
-  -fx-border-color: rgba(42,118,161,0.58);
+    linear-gradient(to bottom, #d0d0d0, #bfbfbf);
+  -fx-border-color: #929292;
 }
 
 .vns-tools-separator > .line {

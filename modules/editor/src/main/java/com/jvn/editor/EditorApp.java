@@ -1853,13 +1853,13 @@ public class EditorApp extends Application {
 	    miVnsOpen.setOnAction(e -> doOpenVns(primaryStage));
 	    MenuItem miVnsApplyPreview = new MenuItem("Apply to Preview");
 	    miVnsApplyPreview.setOnAction(e -> applyCodeFromEditor());
-	    MenuItem miVnsLaunchHere = new MenuItem("Launch from Here");
+	    MenuItem miVnsLaunchHere = new MenuItem("Run from Cursor");
 	    miVnsLaunchHere.setOnAction(e -> {
 	      FileEditorTab ft = getActiveFileTab();
 	      if (ft != null && ft.getKind() == FileEditorTab.Kind.VNS) {
-	        ft.launchFromHere();
+	        ft.launchFromCursor();
 	      } else {
-	        status.setText("Launch from Here is only available for VNS files");
+	        status.setText("Run from Cursor is only available for VNS files");
 	      }
 	    });
 	    MenuItem miVnsLaunchStart = new MenuItem("Launch from Start");
@@ -1871,14 +1871,14 @@ public class EditorApp extends Application {
 	        status.setText("Launch from Start is only available for VNS files");
 	      }
 	    });
-	    MenuItem miVnsApplyAndLaunchHere = new MenuItem("Apply Preview and Launch Here");
+	    MenuItem miVnsApplyAndLaunchHere = new MenuItem("Apply Preview and Run from Cursor");
 	    miVnsApplyAndLaunchHere.setOnAction(e -> {
 	      applyCodeFromEditor();
 	      FileEditorTab ft = getActiveFileTab();
 	      if (ft != null && ft.getKind() == FileEditorTab.Kind.VNS) {
-	        ft.launchFromHere();
+	        ft.launchFromCursor();
 	      } else {
-	        status.setText("Apply + Launch Here is only available for VNS files");
+	        status.setText("Apply + Run from Cursor is only available for VNS files");
 	      }
 	    });
 	    MenuItem miVnsApplyAndLaunchStart = new MenuItem("Apply Preview and Launch From Start");
@@ -1964,14 +1964,14 @@ public class EditorApp extends Application {
     miRunProject.setOnAction(e -> doRunProject(primaryStage));
     MenuItem miBuildPublishProject = new MenuItem("Build & Publish...");
     miBuildPublishProject.setOnAction(e -> showGameBuildPublisherWindow(primaryStage));
-    MenuItem miLaunchHere = new MenuItem("Launch VNS from Here");
+    MenuItem miLaunchHere = new MenuItem("Run VNS from Cursor");
     miLaunchHere.setAccelerator(new KeyCodeCombination(KeyCode.F5));
     miLaunchHere.setOnAction(e -> {
       FileEditorTab ft = getActiveFileTab();
       if (ft != null && ft.getKind() == FileEditorTab.Kind.VNS) {
-        ft.launchFromHere();
+        ft.launchFromCursor();
       } else {
-        status.setText("Launch from Here is only available for VNS files");
+        status.setText("Run from Cursor is only available for VNS files");
       }
     });
     MenuItem miLaunchStart = new MenuItem("Launch VNS from Start");
@@ -1984,14 +1984,14 @@ public class EditorApp extends Application {
         status.setText("Launch from Start is only available for VNS files");
       }
     });
-    MenuItem miApplyAndLaunchHere = new MenuItem("Apply Preview and Launch Here");
+    MenuItem miApplyAndLaunchHere = new MenuItem("Apply Preview and Run from Cursor");
     miApplyAndLaunchHere.setOnAction(e -> {
       applyCodeFromEditor();
       FileEditorTab ft = getActiveFileTab();
       if (ft != null && ft.getKind() == FileEditorTab.Kind.VNS) {
-        ft.launchFromHere();
+        ft.launchFromCursor();
       } else {
-        status.setText("Apply + Launch Here is only available for VNS files");
+        status.setText("Apply + Run from Cursor is only available for VNS files");
       }
     });
     MenuItem miApplyAndLaunchStart = new MenuItem("Apply Preview and Launch From Start");
@@ -5278,14 +5278,14 @@ public class EditorApp extends Application {
     
     // Animation timer for rendering
     javafx.animation.AnimationTimer timer = new javafx.animation.AnimationTimer() {
-      long last = -1;
+      final com.jvn.editor.ui.PreviewFramePacer pacer =
+          com.jvn.editor.ui.PreviewFramePacer.forCurrentPipeline();
       @Override
       public void handle(long now) {
-        if (last < 0) { last = now; return; }
-        long dt = (now - last) / 1_000_000L;
-        last = now;
+        com.jvn.editor.ui.PreviewFramePacer.Frame frame = pacer.next(now);
+        if (!frame.render()) return;
         fullscreenPreview.setSize(scene.getWidth(), scene.getHeight());
-        fullscreenPreview.render(dt);
+        fullscreenPreview.render(frame.deltaMs());
       }
     };
     

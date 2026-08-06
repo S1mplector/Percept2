@@ -1,4 +1,6 @@
 import java.io.File
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import java.util.Properties
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.model.ObjectFactory
@@ -118,10 +120,11 @@ fun JavaExec.configureGraphicsPipelineAtProcessStart() {
   when (requestedGraphicsModeForLaunch().lowercase()) {
     "gpu", "hardware", "accelerated", "prefer-gpu" -> {
       systemProperty("jvn.graphics.mode", "hardware")
-      val prismOrder = if (System.getProperty("os.name", "").lowercase().contains("win")) {
-        "d3d,es2,sw"
-      } else {
-        "es2,sw"
+      val os = System.getProperty("os.name", "").lowercase()
+      val prismOrder = when {
+        os.contains("win") -> "d3d,es2,sw"
+        os.contains("mac") -> "metal,es2,sw"
+        else -> "es2,sw"
       }
       systemProperty("prism.order", prismOrder)
       systemProperty("prism.forceGPU", "true")
@@ -132,6 +135,25 @@ fun JavaExec.configureGraphicsPipelineAtProcessStart() {
     }
     else -> systemProperty("jvn.graphics.mode", "auto")
   }
+}
+
+fun JavaExec.configureFlightRecordingForLaunch() {
+  val requested = System.getenv("JVN_PROFILE_JFR")?.trim()?.lowercase()
+  if (requested !in setOf("1", "true", "yes", "on")) return
+  val os = System.getProperty("os.name", "").lowercase()
+  val userHome = File(System.getProperty("user.home", "."))
+  val profileDir = when {
+    os.contains("win") -> File(System.getenv("LOCALAPPDATA") ?: userHome.path, "JVN Engine Hub/profiles")
+    os.contains("mac") -> File(userHome, "Library/Application Support/JVN Engine Hub/profiles")
+    else -> File(System.getenv("XDG_STATE_HOME") ?: File(userHome, ".local/state").path,
+      "jvn-engine-hub/profiles")
+  }
+  profileDir.mkdirs()
+  val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
+  val recording = File(profileDir, "editor-$timestamp.jfr")
+  jvmArgs("-XX:StartFlightRecording=filename=${recording.absolutePath},settings=profile,dumponexit=true")
+  systemProperty("prism.verbose", "true")
+  logger.lifecycle("JVN Java Flight Recorder: ${recording.absolutePath}")
 }
 
 fun JavaExec.forwardHubLaunchSystemProps() {
@@ -156,6 +178,7 @@ fun JavaExec.forwardHubLaunchSystemProps() {
 // This avoids the "JavaFX runtime components are missing" error.
 tasks.named<JavaExec>("run") {
   configureJavaFxRuntime()
+  configureFlightRecordingForLaunch()
   systemProperty("jvn.version", rootProject.version.toString())
   forwardHubLaunchSystemProps()
 }
@@ -167,6 +190,7 @@ tasks.register<JavaExec>("runLauncher") {
   mainClass.set("com.jvn.editor.JvnLauncherApp")
   workingDir = rootProject.projectDir
   systemProperty("jvn.version", rootProject.version.toString())
+  configureFlightRecordingForLaunch()
   forwardHubLaunchSystemProps()
   configureJavaFxRuntime()
 }

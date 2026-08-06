@@ -49,6 +49,34 @@ public class VnScriptParserTest {
   }
 
   @Test
+  public void parsedNodesRetainTheirExactSourceLines() throws Exception {
+    VnScenario scenario = new VnScriptParser().parseFromString("""
+        @scenario cursor_lines
+        @character narrator ""
+        @label start
+
+        [bg bg_mags]
+
+        [show panel_01 center neutral]
+        [show panel_mags center neutral]
+        narrator:1714
+        [show panel_01 center neutral]
+        [show panel_mags center neutral]
+        narrator:1716
+        [end]
+        """);
+
+    List<VnNode> nodes = scenario.getNodes();
+    assertEquals(5, nodes.get(0).getSourceLine());
+    assertEquals(9, nodes.stream()
+        .filter(node -> node.getType() == VnNodeType.DIALOGUE)
+        .findFirst().orElseThrow().getSourceLine());
+    assertEquals(12, nodes.stream()
+        .filter(node -> node.getType() == VnNodeType.DIALOGUE)
+        .skip(1).findFirst().orElseThrow().getSourceLine());
+  }
+
+  @Test
   public void parsesCharacterSpeakerColorAndCarriesItToDialogue() throws Exception {
     String script = """
       @scenario color_demo

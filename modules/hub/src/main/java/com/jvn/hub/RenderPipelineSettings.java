@@ -69,9 +69,11 @@ final class RenderPipelineSettings {
       String os = operatingSystem == null ? "" : operatingSystem.toLowerCase(Locale.ROOT);
       return switch (this) {
         case AUTO -> "JavaFX platform default";
-        case HARDWARE -> os.contains("win")
-            ? "Direct3D → OpenGL ES2 → software"
-            : "OpenGL ES2 → software";
+        case HARDWARE -> {
+          if (os.contains("win")) yield "Direct3D → OpenGL ES2 → software";
+          if (os.contains("mac")) yield "Metal → OpenGL ES2 → software";
+          yield "OpenGL ES2 → software";
+        }
         case SOFTWARE -> "Software renderer only";
       };
     }

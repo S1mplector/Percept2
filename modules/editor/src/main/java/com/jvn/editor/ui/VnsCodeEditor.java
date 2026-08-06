@@ -17,6 +17,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.function.IntConsumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -72,6 +73,7 @@ public class VnsCodeEditor extends BorderPane {
   private boolean highlightedIssueWarning = false;
   private Consumer<String> onTextChanged;
   private Consumer<String> onLaunchFromHere;
+  private IntConsumer onLaunchFromCursor;
   private EditorSearchBar searchBar;
   private boolean searchBarVisible = false;
   private final Label statusBarLabel = new Label("Ln 1, Col 1");
@@ -269,10 +271,12 @@ public class VnsCodeEditor extends BorderPane {
 
     codeArea.setOnContextMenuRequested(e -> {
       ContextMenu menu = new ContextMenu();
-      // Launch from here
-      MenuItem launchItem = new MenuItem("Launch from here (F5)");
-      launchItem.setOnAction(a -> launchFromHere());
+      MenuItem launchItem = new MenuItem("Run from cursor (F5)");
+      launchItem.setOnAction(a -> launchFromCursor());
       menu.getItems().add(launchItem);
+      MenuItem launchLabelItem = new MenuItem("Run from current label");
+      launchLabelItem.setOnAction(a -> launchFromCurrentLabel());
+      menu.getItems().add(launchLabelItem);
       MenuItem launchStartItem = new MenuItem("Launch from start (Shift+F5)");
       launchStartItem.setOnAction(a -> { if (onLaunchFromHere != null) onLaunchFromHere.accept(null); });
       menu.getItems().add(launchStartItem);
@@ -317,7 +321,7 @@ public class VnsCodeEditor extends BorderPane {
         if (e.isShiftDown()) {
           if (onLaunchFromHere != null) onLaunchFromHere.accept(null);
         } else {
-          launchFromHere();
+          launchFromCursor();
         }
         e.consume();
       }
@@ -720,9 +724,20 @@ public class VnsCodeEditor extends BorderPane {
     this.onLaunchFromHere = listener;
   }
 
+  public void setOnLaunchFromCursor(IntConsumer listener) {
+    this.onLaunchFromCursor = listener;
+  }
+
   /** Launches the script at the nearest label at or above the caret. */
   public void launchFromCurrentLabel() {
     launchFromHere();
+  }
+
+  /** Launches the script at the first executable node at or after the caret line. */
+  public void launchFromCursor() {
+    if (onLaunchFromCursor != null) {
+      onLaunchFromCursor.accept(codeArea.getCurrentParagraph() + 1);
+    }
   }
 
   /** Launches the script through the configured callback from its entry point. */
@@ -744,14 +759,17 @@ public class VnsCodeEditor extends BorderPane {
 
   private void launchFromHere() {
     if (onLaunchFromHere == null) return;
-    int cursorLine = codeArea.getCurrentParagraph(); // 0-based
+    int cursorLine = codeArea.getCurrentParagraph();
     String text = codeArea.getText();
-    if (text == null || text.isEmpty()) { onLaunchFromHere.accept(null); return; }
+    if (text == null || text.isEmpty()) {
+      onLaunchFromHere.accept(null);
+      return;
+    }
     String[] lines = text.split("\\n", -1);
     for (int i = Math.min(cursorLine, lines.length - 1); i >= 0; i--) {
-      Matcher m = LABEL_SCAN_PATTERN.matcher(lines[i]);
-      if (m.find()) {
-        onLaunchFromHere.accept(m.group(1));
+      Matcher matcher = LABEL_SCAN_PATTERN.matcher(lines[i]);
+      if (matcher.find()) {
+        onLaunchFromHere.accept(matcher.group(1));
         return;
       }
     }

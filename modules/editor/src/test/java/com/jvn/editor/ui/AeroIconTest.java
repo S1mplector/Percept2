@@ -90,6 +90,7 @@ class AeroIconTest {
 
     for (AeroIcon.Kind kind : new AeroIcon.Kind[] {
         AeroIcon.Kind.VNS_RUN_LABEL,
+        AeroIcon.Kind.VNS_RUN_CURSOR,
         AeroIcon.Kind.VNS_RUN_ENTRY,
         AeroIcon.Kind.VNS_SYMBOLS,
         AeroIcon.Kind.VNS_SNIPPET,
@@ -120,6 +121,7 @@ class AeroIconTest {
     Set<Long> artworkHashes = new HashSet<>();
     for (AeroIcon.Kind kind : new AeroIcon.Kind[] {
         AeroIcon.Kind.VNS_RUN_LABEL,
+        AeroIcon.Kind.VNS_RUN_CURSOR,
         AeroIcon.Kind.VNS_RUN_ENTRY,
         AeroIcon.Kind.VNS_SYMBOLS,
         AeroIcon.Kind.VNS_SNIPPET,
@@ -140,7 +142,7 @@ class AeroIconTest {
       });
       artworkHashes.add(pixelHash(image));
     }
-    assertEquals(10, artworkHashes.size(), "Every VNS command needs a distinct readable silhouette");
+    assertEquals(11, artworkHashes.size(), "Every VNS command needs a distinct readable silhouette");
   }
 
   @Test

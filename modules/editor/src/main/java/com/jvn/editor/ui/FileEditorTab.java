@@ -116,7 +116,7 @@ public class FileEditorTab extends BorderPane {
   private PreviewDockPosition lastEmbeddedPreviewDock = PreviewDockPosition.TOP;
   private Stage detachedPreviewStage;
   private AnimationTimer detachedPreviewTimer;
-  private long detachedPreviewLastNs = -1L;
+  private PreviewFramePacer detachedPreviewPacer;
   private double verticalDockDivider = 0.6;
   private double horizontalDockDivider = 0.5;
   private PreviewLayoutMode previewModeBeforeDetach = PreviewLayoutMode.SPLIT;
@@ -154,6 +154,7 @@ public class FileEditorTab extends BorderPane {
     
     if (vnsEditor != null) {
       vnsEditor.setOnLaunchFromHere(this::runFromLabel);
+      vnsEditor.setOnLaunchFromCursor(this::runFromSourceLine);
       vnsEditor.setOnStoryboardLineRequested(this::syncStoryboardPreviewToLine);
     }
     if (vnPreview != null) {
@@ -255,12 +256,36 @@ public class FileEditorTab extends BorderPane {
 
   public void launchFromHere() {
     if (kind != Kind.VNS || vnsEditor == null) return;
-    vnsEditor.setOnLaunchFromHere(this::runFromLabel);
-    // Trigger the VNS editor's built-in launch-from-here logic
-    javafx.scene.input.KeyEvent fakeF5 = new javafx.scene.input.KeyEvent(
-        javafx.scene.input.KeyEvent.KEY_PRESSED, "", "", javafx.scene.input.KeyCode.F5,
-        false, false, false, false);
-    vnsEditor.fireEvent(fakeF5);
+    vnsEditor.launchFromCurrentLabel();
+  }
+
+  public void launchFromCursor() {
+    if (kind != Kind.VNS || vnsEditor == null) return;
+    vnsEditor.launchFromCursor();
+  }
+
+  public void runFromSourceLine(int oneBasedLine) {
+    try {
+      if (kind != Kind.VNS || vnsEditor == null || vnPreview == null) return;
+      String code = vnsEditor.getText();
+      if (code == null || code.isBlank()) {
+        if (onStatus != null) onStatus.accept("Cannot run an empty VNS script");
+        return;
+      }
+      VnScenario scenario = parseVnsScenarioFromText(code);
+      vnPreview.setSourceScriptName(resolveVnsScriptKey());
+      vnPreview.runScenarioFromSourceLine(scenario, Math.max(1, oneBasedLine));
+      setPreviewDockPosition(PreviewDockPosition.WINDOW);
+      if (onStatus != null) onStatus.accept("Run from cursor: line " + Math.max(1, oneBasedLine));
+    } catch (Exception ex) {
+      showVnsParseOverlay(ex);
+      setPreviewDockPosition(PreviewDockPosition.WINDOW);
+      if (onStatus != null) onStatus.accept("VNS launch failed: " + ex.getMessage());
+    }
+  }
+
+  int getVnsPreviewSourceLine() {
+    return vnPreview == null ? -1 : vnPreview.getCurrentSourceLine();
   }
 
   public void runFromLabel(String label) {
@@ -1068,8 +1093,16 @@ public class FileEditorTab extends BorderPane {
           runLabel,
           AeroIcon.of(AeroIcon.Kind.VNS_RUN_LABEL, 32),
           "Run from current label",
-          "Start at the nearest @label above the caret and open the runtime preview (F5)");
+          "Start at the nearest @label at or above the caret");
       runLabel.setOnAction(e -> vnsEditor.launchFromCurrentLabel());
+
+      Button runCursor = new Button();
+      configureVnsAeroButton(
+          runCursor,
+          AeroIcon.of(AeroIcon.Kind.VNS_RUN_CURSOR, 32),
+          "Run from cursor",
+          "Start at the first executable VNS line at or after the blinking caret (F5)");
+      runCursor.setOnAction(e -> vnsEditor.launchFromCursor());
 
       Button runStart = new Button();
       configureVnsAeroButton(
@@ -1151,7 +1184,10 @@ public class FileEditorTab extends BorderPane {
           "VNS editor tools",
           """
           Run from current label
-          Starts the runtime at the nearest @label above the caret. Shortcut: F5.
+          Starts at the nearest @label at or above the blinking caret.
+
+          Run from cursor
+          Starts at the first executable VNS line at or after the blinking caret. Shortcut: F5.
 
           Run from script entry
           Starts the runtime from the project entry point. Shortcut: Shift+F5.
@@ -1181,13 +1217,13 @@ public class FileEditorTab extends BorderPane {
           Opens the live game preview in its own resizable window.
           """);
       help.setGraphic(AeroIcon.of(AeroIcon.Kind.HELP, 30));
-      help.setMinSize(44, 42);
-      help.setPrefSize(44, 42);
-      help.setMaxSize(44, 42);
+      help.setMinSize(38, 36);
+      help.setPrefSize(38, 36);
+      help.setMaxSize(38, 36);
       help.getStyleClass().add("vns-tools-help-button");
 
       toolbarActions = new Node[] {
-          runLabel, runStart, vnsToolSeparator(),
+          runLabel, runCursor, runStart, vnsToolSeparator(),
           symbols, snippets, find, commands, vnsToolSeparator(),
           wordWrap, diff, diagnostics, vnsToolSeparator(),
           openPreview, vnsToolSeparator(), help
@@ -1198,12 +1234,13 @@ public class FileEditorTab extends BorderPane {
       };
     }
 
-    HBox toolbar = buildWorkspaceToolbar(
-        vnsDetachedOnly ? "VNS Tools" : (title == null ? "Preview" : title),
-        previewWorkspaceSubtitle(vnsDetachedOnly),
-        previewWorkspaceTitleIcon(),
-        toolbarActions);
-    if (vnsDetachedOnly) toolbar.getStyleClass().add("vns-tools-strip");
+    HBox toolbar = vnsDetachedOnly
+        ? buildVnsToolsStrip(toolbarActions)
+        : buildWorkspaceToolbar(
+            title == null ? "Preview" : title,
+            previewWorkspaceSubtitle(false),
+            previewWorkspaceTitleIcon(),
+            toolbarActions);
 
     root.setTop(toolbar);
     root.setCenter(previewWorkspaceContent);
@@ -1372,22 +1409,18 @@ public class FileEditorTab extends BorderPane {
 
   private void startDetachedPreviewTimer() {
     if (detachedPreviewTimer != null) return;
-    detachedPreviewLastNs = -1L;
+    detachedPreviewPacer = PreviewFramePacer.forCurrentPipeline();
     detachedPreviewTimer = new AnimationTimer() {
       @Override
       public void handle(long now) {
         if (!isDetachedPreviewVisible()) return;
-        if (detachedPreviewLastNs < 0L) {
-          detachedPreviewLastNs = now;
-          return;
-        }
-        long dt = (now - detachedPreviewLastNs) / 1_000_000L;
-        detachedPreviewLastNs = now;
+        PreviewFramePacer.Frame frame = detachedPreviewPacer.next(now);
+        if (!frame.render()) return;
         try {
           if (kind == Kind.JES && viewport != null) {
-            viewport.render(dt);
+            viewport.render(frame.deltaMs());
           } else if (kind == Kind.VNS && vnPreview != null) {
-            vnPreview.render(dt);
+            vnPreview.render(frame.deltaMs());
           }
         } catch (Exception ex) {
           stopDetachedPreviewTimer();
@@ -1430,7 +1463,6 @@ public class FileEditorTab extends BorderPane {
     if (detachedPreviewTimer == null) return;
     detachedPreviewTimer.stop();
     detachedPreviewTimer = null;
-    detachedPreviewLastNs = -1L;
   }
 
   private void updatePreviewDockMenuText() {
@@ -1629,6 +1661,18 @@ public class FileEditorTab extends BorderPane {
     return toolbar;
   }
 
+  private static HBox buildVnsToolsStrip(Node... actions) {
+    HBox toolbar = new HBox(5);
+    toolbar.getStyleClass().addAll("script-editor-workspace-toolbar", "vns-tools-strip");
+    toolbar.setAlignment(Pos.CENTER_LEFT);
+    if (actions != null) {
+      for (Node action : actions) {
+        if (action != null) toolbar.getChildren().add(action);
+      }
+    }
+    return toolbar;
+  }
+
   private static void configureIconToggle(ToggleButton button, Node icon, String tooltipText) {
     if (button == null) return;
     button.setText("");
@@ -1669,9 +1713,9 @@ public class FileEditorTab extends BorderPane {
     button.setTooltip(new Tooltip(tooltipText));
     button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
     button.setAccessibleText(accessibleText);
-    button.setMinSize(44, 42);
-    button.setPrefSize(44, 42);
-    button.setMaxSize(44, 42);
+    button.setMinSize(38, 36);
+    button.setPrefSize(38, 36);
+    button.setMaxSize(38, 36);
     button.setFocusTraversable(false);
     button.getStyleClass().add("vns-tools-aero-button");
   }
@@ -1683,9 +1727,9 @@ public class FileEditorTab extends BorderPane {
     button.setTooltip(new Tooltip(tooltipText));
     button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
     button.setAccessibleText(accessibleText);
-    button.setMinSize(44, 42);
-    button.setPrefSize(44, 42);
-    button.setMaxSize(44, 42);
+    button.setMinSize(38, 36);
+    button.setPrefSize(38, 36);
+    button.setMaxSize(38, 36);
     button.setFocusTraversable(false);
     button.getStyleClass().add("vns-tools-aero-button");
   }
