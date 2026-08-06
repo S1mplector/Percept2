@@ -284,6 +284,10 @@ public class FileEditorTab extends BorderPane {
     }
   }
 
+  int getVnsPreviewSourceLine() {
+    return vnPreview == null ? -1 : vnPreview.getCurrentSourceLine();
+  }
+
   public void runFromLabel(String label) {
     try {
       if (kind != Kind.VNS || vnsEditor == null || vnPreview == null) return;

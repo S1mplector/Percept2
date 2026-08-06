@@ -17,6 +17,12 @@ public class VnScenarioBuilder {
     this.scenarioBuilder = VnScenario.builder(scenarioId);
   }
 
+  /** Sets the source line stamped onto subsequently emitted nodes. */
+  public VnScenarioBuilder sourceLine(int line) {
+    scenarioBuilder.sourceLine(line);
+    return this;
+  }
+
   public VnScenarioBuilder addCharacter(String id, String displayName) {
     VnCharacter character = VnCharacter.builder(id)
       .displayName(displayName)

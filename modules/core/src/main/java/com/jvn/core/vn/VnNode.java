@@ -85,6 +85,32 @@ public class VnNode {
   public String getGroupParentId() { return groupParentId; }
   public int getSourceLine() { return sourceLine; }
 
+  VnNode withSourceLine(int line) {
+    return builder(type)
+        .dialogue(dialogue)
+        .choices(choices)
+        .backgroundId(backgroundId)
+        .jumpLabel(jumpLabel)
+        .audioCommand(audioCommand)
+        .transition(transition)
+        .waitMs(waitMs)
+        .characterToShow(characterToShow)
+        .characterToHide(characterToHide)
+        .showPosition(showPosition)
+        .showExpression(showExpression)
+        .showLayerOrder(showLayerOrder)
+        .displaySlot(displaySlot)
+        .moveEasingType(moveEasingType)
+        .moveDurationMs(moveDurationMs)
+        .expressionDurationMs(expressionDurationMs)
+        .external(externalCommand)
+        .particleCommand(particleCommand)
+        .groupTargetId(groupTargetId)
+        .groupParentId(groupParentId)
+        .sourceLine(line)
+        .build();
+  }
+
   public static Builder builder(VnNodeType type) { return new Builder(type); }
 
   public static class Builder {

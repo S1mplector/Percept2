@@ -281,6 +281,10 @@ public class VnPreviewView extends StackPane {
     requestFocus();
   }
 
+  int getCurrentSourceLine() {
+    return resolveCurrentStoryboardLine();
+  }
+
   public void reloadScenarioPreservingPosition(VnScenario scenario) {
     if (scenario == null) {
       initializeScenario(null, null);
