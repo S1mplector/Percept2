@@ -255,6 +255,32 @@ public class VnPreviewView extends StackPane {
     initializeScenario(scenario, label);
   }
 
+  /** Starts preview at the first parsed node on or after the requested source line. */
+  public void runScenarioFromSourceLine(VnScenario scenario, int oneBasedLine) {
+    renderer.resetParticleState();
+    activeError = null;
+    stopAudio();
+    if (scenario == null) {
+      initializeScenario(null, null);
+      return;
+    }
+
+    VnSettings existingSettings = scene == null ? null : scene.getState().getSettings();
+    VnScene nextScene = buildScene(scenario, null, sourceScriptName, existingSettings, false);
+    int targetIndex = findLaunchNodeIndexForSourceLine(scenario, Math.max(1, oneBasedLine));
+    nextScene.preflightState(targetIndex);
+    nextScene.getState().setCurrentNodeIndex(targetIndex);
+    this.scene = nextScene;
+    this.overlayScene = null;
+    phoneRenderer.setSceneModel(null);
+    renderer.setAudioFacade(activeAudioFacade());
+    nextScene.onEnter();
+    storyboardPreviewLine = resolveCurrentStoryboardLine();
+    emitStoryboardPreviewLineChanged();
+    applyStoryboardUiState();
+    requestFocus();
+  }
+
   public void reloadScenarioPreservingPosition(VnScenario scenario) {
     if (scenario == null) {
       initializeScenario(null, null);
@@ -523,6 +549,29 @@ public class VnPreviewView extends StackPane {
       }
     }
     return bestIndex;
+  }
+
+  static int findLaunchNodeIndexForSourceLine(VnScenario scenario, int sourceLine) {
+    if (scenario == null || scenario.getNodes().isEmpty()) return 0;
+    List<VnNode> nodes = scenario.getNodes();
+    int firstAfterIndex = -1;
+    int firstAfterLine = Integer.MAX_VALUE;
+    int lastBeforeIndex = 0;
+    int lastBeforeLine = Integer.MIN_VALUE;
+    for (int i = 0; i < nodes.size(); i++) {
+      VnNode node = nodes.get(i);
+      if (node == null || node.getSourceLine() <= 0) continue;
+      int nodeLine = node.getSourceLine();
+      if (nodeLine >= sourceLine && nodeLine < firstAfterLine) {
+        firstAfterLine = nodeLine;
+        firstAfterIndex = i;
+      }
+      if (nodeLine <= sourceLine && nodeLine >= lastBeforeLine) {
+        lastBeforeLine = nodeLine;
+        lastBeforeIndex = i;
+      }
+    }
+    return firstAfterIndex >= 0 ? firstAfterIndex : lastBeforeIndex;
   }
 
   private void syncStoryboardHud() {

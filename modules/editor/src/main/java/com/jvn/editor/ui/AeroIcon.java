@@ -38,7 +38,7 @@ public final class AeroIcon extends StackPane {
     PUPPETEER, SCRIPT_EDITOR, SETTINGS,
     NEW_PROJECT, OPEN_PROJECT, RUN, BUILD, REFRESH, ENTRY_SCRIPT, MANIFEST,
     README, DOCUMENTATION, REVEAL, ARROW_BACK, HELP, WHATS_NEW, NO_PROJECT,
-    VNS_RUN_LABEL, VNS_RUN_ENTRY, VNS_SYMBOLS, VNS_SNIPPET, VNS_FIND,
+    VNS_RUN_LABEL, VNS_RUN_CURSOR, VNS_RUN_ENTRY, VNS_SYMBOLS, VNS_SNIPPET, VNS_FIND,
     VNS_COMMANDS, VNS_WORD_WRAP, VNS_DIFF, VNS_DIAGNOSTICS, VNS_PREVIEW
   }
 
@@ -137,7 +137,7 @@ public final class AeroIcon extends StackPane {
       case BUILD -> sized(CssIcon.download(color), size);
       case REFRESH -> sized(CssIcon.refresh(color), size);
       case ENTRY_SCRIPT -> sized(CssIcon.speech(color), size);
-      case VNS_RUN_LABEL, VNS_RUN_ENTRY, VNS_SYMBOLS, VNS_SNIPPET, VNS_FIND,
+      case VNS_RUN_LABEL, VNS_RUN_CURSOR, VNS_RUN_ENTRY, VNS_SYMBOLS, VNS_SNIPPET, VNS_FIND,
           VNS_COMMANDS, VNS_WORD_WRAP, VNS_DIFF, VNS_DIAGNOSTICS, VNS_PREVIEW ->
           vnsCommandGlyph(kind, size, palette);
       case MANIFEST, README -> sized(CssIcon.document(color), size);
@@ -160,6 +160,7 @@ public final class AeroIcon extends StackPane {
 
   private static boolean isVnsCommand(Kind kind) {
     return kind == Kind.VNS_RUN_LABEL
+        || kind == Kind.VNS_RUN_CURSOR
         || kind == Kind.VNS_RUN_ENTRY
         || kind == Kind.VNS_SYMBOLS
         || kind == Kind.VNS_SNIPPET
@@ -174,6 +175,7 @@ public final class AeroIcon extends StackPane {
   private static Region vnsCommandGlyph(Kind kind, double size, Palette palette) {
     return switch (kind) {
       case VNS_RUN_LABEL -> vnsRunLabelGlyph(size, palette);
+      case VNS_RUN_CURSOR -> vnsRunCursorGlyph(size, palette);
       case VNS_RUN_ENTRY -> vnsRunEntryGlyph(size, palette);
       case VNS_SYMBOLS -> vnsSymbolsGlyph(size, palette);
       case VNS_SNIPPET -> vnsSnippetGlyph(size, palette);
@@ -217,6 +219,27 @@ public final class AeroIcon extends StackPane {
     Polygon play = playTriangle(size * 0.16, Color.WHITE);
     playOrb.getChildren().add(play);
     art.getChildren().addAll(page, fold, ruleTop, ruleBottom, label, pin, playOrb);
+    return art;
+  }
+
+  private static Region vnsRunCursorGlyph(double size, Palette palette) {
+    Pane art = vnsCanvas(size);
+    Rectangle page = vnsDocument(size, palette, 0.05, 0.08, 0.66, 0.82);
+    Polygon fold = vnsPageFold(size, palette, 0.49, 0.08, 0.22);
+    for (int i = 0; i < 3; i++) {
+      art.getChildren().add(styledLine(
+          size * 0.16, size * (0.30 + i * 0.17),
+          size * 0.54, size * (0.30 + i * 0.17),
+          Color.rgb(224, 247, 255, 0.66), Math.max(0.65, size * 0.032)));
+    }
+    Line caret = styledLine(
+        size * 0.39, size * 0.36, size * 0.39, size * 0.69,
+        Color.web("#fff3a6"), Math.max(1.35, size * 0.07));
+    caret.setEffect(new DropShadow(Math.max(1, size * 0.06), Color.web("#b46a25")));
+    StackPane playOrb = vnsOrb(size, "#f2fbff", "#35a9dd", "#155a82");
+    playOrb.resizeRelocate(size * 0.58, size * 0.53, size * 0.39, size * 0.39);
+    playOrb.getChildren().add(playTriangle(size * 0.16, Color.WHITE));
+    art.getChildren().addAll(page, fold, caret, playOrb);
     return art;
   }
 
@@ -706,6 +729,8 @@ public final class AeroIcon extends StackPane {
       case ENTRY_SCRIPT -> new Badge(sized(CssIcon.play("#ffffff"), glyphSize), Color.web("#2fa35a"));
       case VNS_RUN_LABEL ->
           new Badge(sized(CssIcon.play("#ffffff"), glyphSize), Color.web("#2fa35a"));
+      case VNS_RUN_CURSOR ->
+          new Badge(sized(CssIcon.play("#ffffff"), glyphSize), Color.web("#2689d8"));
       case VNS_RUN_ENTRY ->
           new Badge(sized(CssIcon.rocket("#ffffff"), glyphSize), Color.web("#cf6927"));
       case VNS_SYMBOLS ->
@@ -921,6 +946,8 @@ public final class AeroIcon extends StackPane {
           palette("#8de8aa", "#26824e", "#d8ffe4");
       case VNS_RUN_LABEL ->
           palette("#75e8d6", "#1d8074", "#d4fff8");
+      case VNS_RUN_CURSOR ->
+          palette("#8bdfff", "#26689f", "#dff7ff");
       case VNS_RUN_ENTRY ->
           palette("#8de8aa", "#26824e", "#d8ffe4");
       case VNS_SYMBOLS ->

@@ -4,6 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Properties;
 
+import com.jvn.core.vn.VnNode;
+import com.jvn.core.vn.VnNodeType;
+import com.jvn.core.vn.VnScenario;
+
 import org.junit.jupiter.api.Test;
 
 class VnPreviewViewTest {
@@ -32,5 +36,20 @@ class VnPreviewViewTest {
 
     props.setProperty("runtime.audio", "unknown");
     assertEquals("auto", VnPreviewView.resolveAudioBackend(props));
+  }
+
+  @Test
+  void cursorLaunchSelectsTheFirstNodeAtOrAfterTheCaret() {
+    VnScenario scenario = VnScenario.builder("cursor_launch")
+        .addNode(VnNode.builder(VnNodeType.BACKGROUND).sourceLine(3).build())
+        .addNode(VnNode.builder(VnNodeType.DIALOGUE).sourceLine(7).build())
+        .addNode(VnNode.builder(VnNodeType.CHOICE).sourceLine(11).build())
+        .build();
+
+    assertEquals(0, VnPreviewView.findLaunchNodeIndexForSourceLine(scenario, 1));
+    assertEquals(1, VnPreviewView.findLaunchNodeIndexForSourceLine(scenario, 4));
+    assertEquals(1, VnPreviewView.findLaunchNodeIndexForSourceLine(scenario, 7));
+    assertEquals(2, VnPreviewView.findLaunchNodeIndexForSourceLine(scenario, 9));
+    assertEquals(2, VnPreviewView.findLaunchNodeIndexForSourceLine(scenario, 20));
   }
 }

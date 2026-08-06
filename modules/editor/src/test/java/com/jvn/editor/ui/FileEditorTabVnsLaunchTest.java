@@ -17,9 +17,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import javafx.application.Platform;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.ButtonBase;
 import javafx.scene.control.ToggleButton;
+import javafx.scene.layout.HBox;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -86,6 +88,12 @@ class FileEditorTabVnsLaunchTest {
       tab.layout();
       try {
         Set<javafx.scene.Node> controls = tab.lookupAll(".vns-tools-aero-button");
+        Node stripNode = tab.lookup(".vns-tools-strip");
+        assertTrue(stripNode instanceof HBox);
+        assertTrue(stripNode.getBoundsInLocal().getHeight() <= 44.0,
+            "The VNS command strip should remain compact");
+        assertTrue(tab.lookupAll(".script-editor-workspace-title").isEmpty(),
+            "The compact VNS strip should not reserve space for a title or logo");
         ButtonBase diagnostics = controls.stream()
             .filter(ButtonBase.class::isInstance)
             .map(ButtonBase.class::cast)
@@ -98,6 +106,16 @@ class FileEditorTabVnsLaunchTest {
             .filter(button -> "Toggle VNS word wrap".equals(button.getAccessibleText()))
             .findFirst()
             .orElseThrow();
+        ButtonBase runFromCursor = controls.stream()
+            .filter(ButtonBase.class::isInstance)
+            .map(ButtonBase.class::cast)
+            .filter(button -> "Run from cursor".equals(button.getAccessibleText()))
+            .findFirst()
+            .orElseThrow();
+        assertTrue(controls.stream()
+            .filter(ButtonBase.class::isInstance)
+            .map(ButtonBase.class::cast)
+            .anyMatch(button -> "Run from current label".equals(button.getAccessibleText())));
         assertTrue(controls.stream()
             .filter(ButtonBase.class::isInstance)
             .map(ButtonBase.class::cast)
@@ -105,8 +123,10 @@ class FileEditorTabVnsLaunchTest {
 
         diagnostics.fire();
         wordWrap.fire();
+        runFromCursor.fire();
         assertTrue(diagnosticsOpened.get());
         assertTrue(wordWrap.isSelected());
+        assertTrue(tab.isDetachedPreviewVisible());
       } finally {
         tab.dispose();
       }
