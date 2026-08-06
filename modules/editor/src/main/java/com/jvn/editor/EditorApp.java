@@ -5278,14 +5278,14 @@ public class EditorApp extends Application {
     
     // Animation timer for rendering
     javafx.animation.AnimationTimer timer = new javafx.animation.AnimationTimer() {
-      long last = -1;
+      final com.jvn.editor.ui.PreviewFramePacer pacer =
+          com.jvn.editor.ui.PreviewFramePacer.forCurrentPipeline();
       @Override
       public void handle(long now) {
-        if (last < 0) { last = now; return; }
-        long dt = (now - last) / 1_000_000L;
-        last = now;
+        com.jvn.editor.ui.PreviewFramePacer.Frame frame = pacer.next(now);
+        if (!frame.render()) return;
         fullscreenPreview.setSize(scene.getWidth(), scene.getHeight());
-        fullscreenPreview.render(dt);
+        fullscreenPreview.render(frame.deltaMs());
       }
     };
     

@@ -102,6 +102,9 @@ class RenderPipelineSettingsTest {
         "OpenGL ES2 → software",
         RenderPipelineSettings.Mode.HARDWARE.backendOrder("Linux"));
     assertEquals(
+        "Metal → OpenGL ES2 → software",
+        RenderPipelineSettings.Mode.HARDWARE.backendOrder("macOS"));
+    assertEquals(
         "Software renderer only",
         RenderPipelineSettings.Mode.SOFTWARE.backendOrder("macOS"));
   }

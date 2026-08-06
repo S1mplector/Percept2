@@ -54,6 +54,7 @@ import java.security.CodeSource;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
@@ -1170,6 +1171,14 @@ public final class JvnHub {
         VectorIcon.Kind.INFO,
         ACCENT_RENDER,
         this::showRenderGraphViewer));
+    JMenuItem profileEditor = hubMenuItem(
+        "Launch Editor with Java Flight Recorder...",
+        "Record CPU, allocation, GC, and JavaFX submission activity while using the selected GPU pipeline.",
+        VectorIcon.Kind.PLAY,
+        ACCENT_RENDER,
+        () -> guardedRun("Profile Editor", this::runProfiledEditor));
+    profileEditor.setEnabled(!busy);
+    diagnostics.add(profileEditor);
     JMenuItem disableDiagnostics = hubMenuItem(
         "Disable All Render Diagnostics",
         renderPipelineOptions.diagnosticsEnabled()
@@ -3067,8 +3076,11 @@ public final class JvnHub {
           tuning.linuxGlxRecovery() ? CheckStatus.PASS : CheckStatus.INFO,
           "Managed GLX recovery",
           tuning.linuxGlxRecovery() ? "Enabled" : "Disabled",
-          "When enabled, JVN retries a broken default GLX provider with Mesa."));
+              "When enabled, JVN retries a broken default GLX provider with Mesa."));
       report.add(linuxOpenGlCheck());
+      if (selected == RenderPipelineSettings.Mode.HARDWARE) {
+        report.add(linuxDiscreteGpuLaunchCheck());
+      }
     }
 
     report.add(new HealthCheck(
@@ -3176,6 +3188,41 @@ public final class JvnHub {
         "Linux OpenGL probe",
         "Direct OpenGL initialization succeeded.",
         summarizeOpenGlProbe(result.output));
+  }
+
+  private HealthCheck linuxDiscreteGpuLaunchCheck() {
+    Path launcher = projectRoot.resolve("scripts").resolve("launch-app.sh");
+    if (!Files.isExecutable(launcher) || !commandExists("env")) {
+      return new HealthCheck(
+          CheckStatus.INFO,
+          "Linux discrete-GPU launch probe",
+          "The managed launch probe is unavailable.",
+          "Expected executable: " + launcher.toAbsolutePath());
+    }
+    CommandResult result = runLocalCommand(
+        List.of(
+            "env",
+            RenderPipelineSettings.GRAPHICS_MODE_ENVIRONMENT + "=hardware",
+            launcher.toString(),
+            "runtime",
+            "--gpu-info"),
+        8);
+    String detail = result.output == null ? "" : result.output.trim();
+    if (result.exitCode != 0) {
+      return new HealthCheck(
+          CheckStatus.WARN,
+          "Linux discrete-GPU launch probe",
+          "The GPU preference probe did not complete.",
+          detail.isBlank() ? "Exit code " + result.exitCode : detail);
+    }
+    boolean rendererReported = detail.toLowerCase(Locale.ROOT).contains("renderer=");
+    return new HealthCheck(
+        rendererReported ? CheckStatus.PASS : CheckStatus.INFO,
+        "Linux discrete-GPU launch probe",
+        rendererReported ? "The managed launch resolved an OpenGL adapter." : "Adapter selection was requested.",
+        detail.isBlank()
+            ? "No OpenGL renderer was reported; install mesa-demos or the distribution's glxinfo package."
+            : detail);
   }
 
   private static String summarizeOpenGlProbe(String output) {
@@ -4097,6 +4144,28 @@ public final class JvnHub {
     startProcess(cmd, label);
   }
 
+  private void runProfiledEditor() {
+    if (!acquire("Profile Editor")) return;
+    List<String> cmd = new ArrayList<>();
+    if (System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win")) {
+      cmd.add(gradleCommand());
+      cmd.add("--console=plain");
+      cmd.add("-D" + RenderPipelineSettings.GRAPHICS_MODE_PROPERTY + "=" + renderPipelineMode.id());
+      cmd.add("--max-workers=" + balancedLaunchWorkerCount());
+      cmd.add(":editor:run");
+    } else {
+      cmd.add(projectRoot.resolve("scripts").resolve("launch-app.sh").toString());
+      cmd.add("editor");
+      cmd.add("--jfr");
+      if (developerModeEnabled) cmd.add("--developer-mode");
+      if (safeModeEnabled) cmd.add("--safe-mode");
+    }
+    completeCurrentStep("Profiled launch command assembled.");
+    advanceStep("Starting the editor with Java Flight Recorder.");
+    appendLog("$ " + String.join(" ", cmd));
+    startProcess(cmd, "Profile Editor", Map.of("JVN_PROFILE_JFR", "1"));
+  }
+
   private String modeLaunchDetail() {
     if (developerModeEnabled && safeModeEnabled) return "Starting background process in Developer + Safe Mode.";
     if (developerModeEnabled) return "Starting background process in Developer Mode.";
@@ -4781,8 +4850,18 @@ public final class JvnHub {
   }
 
   private void startProcess(List<String> command, String label) {
+    startProcess(command, label, Map.of());
+  }
+
+  private void startProcess(
+      List<String> command,
+      String label,
+      Map<String, String> launchEnvironment) {
     RenderPipelineSettings.Mode launchPipelineMode = renderPipelineMode;
     RenderPipelineSettings.Options launchPipelineOptions = renderPipelineOptions;
+    Map<String, String> extraEnvironment = launchEnvironment == null
+        ? Map.of()
+        : Map.copyOf(launchEnvironment);
     new SwingWorker<Integer, String>() {
       private String lastOutput = "";
       private final StringBuilder fullOutput = new StringBuilder();
@@ -4792,6 +4871,7 @@ public final class JvnHub {
         ProcessBuilder pb = new ProcessBuilder(command)
             .directory(projectRoot.toFile())
             .redirectErrorStream(true);
+        pb.environment().putAll(extraEnvironment);
         boolean managedGraphicsLaunch = RenderPipelineSettings.applyLaunchEnvironment(
             pb.environment(), command, launchPipelineMode, launchPipelineOptions);
         if (managedGraphicsLaunch) {

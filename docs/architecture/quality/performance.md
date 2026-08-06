@@ -26,6 +26,42 @@ Lock-heavy environments (especially Linux) should:
 
 ## Runtime Performance
 
+### Verify and profile the desktop GPU path
+
+The Engine Hub's **Render Pipeline → GPU Preferred** profile selects JavaFX's native
+hardware backend while retaining a software fallback. On Linux hybrid-GPU systems,
+Hub-managed launches also ask `switcheroo-control` for the discrete adapter. Existing
+`DRI_PRIME` or NVIDIA PRIME variables are preserved so Steam, gamescope, and desktop
+GPU preferences remain authoritative.
+
+Use **Render Pipeline → Inspect Render Stack** before a test. On Linux the report runs
+the same adapter probe used by the managed launcher. Every hardware launch also writes
+the resolved OpenGL vendor and renderer to the Hub log when `glxinfo` is available.
+For a platform-independent recording, choose **Render Diagnostics → Launch Editor with
+Java Flight Recorder**. The launch enables JavaFX's startup diagnostics (including the
+actual Prism pipeline and renderer) and writes a `.jfr` recording under the platform's
+JVN Engine Hub state directory:
+
+- Linux: `$XDG_STATE_HOME/jvn-engine-hub/profiles` or `~/.local/state/jvn-engine-hub/profiles`
+- macOS: `~/Library/Application Support/JVN Engine Hub/profiles`
+- Windows: `%LOCALAPPDATA%\JVN Engine Hub\profiles`
+
+Open the recording in JDK Mission Control. JFR measures Java frame submission, CPU,
+allocation, locks, and GC; use a vendor GPU tool alongside it when shader or GPU-core
+timings are required. The runtime's F3 HUD provides FPS, heap, cache-hit, and timeline
+signals during an interactive test.
+
+The `:testkit:jmh` suite is useful for deterministic CPU-side microbenchmarks, but it
+does not prove which GPU rendered a JavaFX window. In particular, do not use the
+placeholder `RenderFrameBench` as an adapter-usage test.
+
+Editor VNS preview windows use bounded frame pacing: 60 FPS on a hardware-capable
+pipeline and 30 FPS when JavaFX reports the software path. This keeps CPU rendering
+responsive instead of letting preview work monopolize every JavaFX pulse. For a
+controlled comparison, override the cap with
+`-Djvn.editor.previewMaxFps=15..240`. UI layout/style overrides are applied when they
+change rather than reparsed and reloaded on every preview frame.
+
 ### VNS rendering and flow
 
 - Keep dialogue effects focused; animated per-character spans cost more than plain text.

@@ -434,7 +434,6 @@ public class VnPreviewView extends StackPane {
     scene.update(deltaMs);
     renderer.updateAnimation(deltaMs);
     renderer.setAudioFacade(scene.getAudioFacade());
-    applyUiOverrides();
     syncRequestedOverlayScene();
     if (overlayScene instanceof PhoneScene phone && phone.consumeCloseRequested()) {
       closeOverlayScene();

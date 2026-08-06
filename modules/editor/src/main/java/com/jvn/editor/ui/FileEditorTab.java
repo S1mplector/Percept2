@@ -116,7 +116,7 @@ public class FileEditorTab extends BorderPane {
   private PreviewDockPosition lastEmbeddedPreviewDock = PreviewDockPosition.TOP;
   private Stage detachedPreviewStage;
   private AnimationTimer detachedPreviewTimer;
-  private long detachedPreviewLastNs = -1L;
+  private PreviewFramePacer detachedPreviewPacer;
   private double verticalDockDivider = 0.6;
   private double horizontalDockDivider = 0.5;
   private PreviewLayoutMode previewModeBeforeDetach = PreviewLayoutMode.SPLIT;
@@ -1372,22 +1372,18 @@ public class FileEditorTab extends BorderPane {
 
   private void startDetachedPreviewTimer() {
     if (detachedPreviewTimer != null) return;
-    detachedPreviewLastNs = -1L;
+    detachedPreviewPacer = PreviewFramePacer.forCurrentPipeline();
     detachedPreviewTimer = new AnimationTimer() {
       @Override
       public void handle(long now) {
         if (!isDetachedPreviewVisible()) return;
-        if (detachedPreviewLastNs < 0L) {
-          detachedPreviewLastNs = now;
-          return;
-        }
-        long dt = (now - detachedPreviewLastNs) / 1_000_000L;
-        detachedPreviewLastNs = now;
+        PreviewFramePacer.Frame frame = detachedPreviewPacer.next(now);
+        if (!frame.render()) return;
         try {
           if (kind == Kind.JES && viewport != null) {
-            viewport.render(dt);
+            viewport.render(frame.deltaMs());
           } else if (kind == Kind.VNS && vnPreview != null) {
-            vnPreview.render(dt);
+            vnPreview.render(frame.deltaMs());
           }
         } catch (Exception ex) {
           stopDetachedPreviewTimer();
@@ -1430,7 +1426,6 @@ public class FileEditorTab extends BorderPane {
     if (detachedPreviewTimer == null) return;
     detachedPreviewTimer.stop();
     detachedPreviewTimer = null;
-    detachedPreviewLastNs = -1L;
   }
 
   private void updatePreviewDockMenuText() {
