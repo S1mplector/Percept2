@@ -65,6 +65,10 @@ public class EditorSettingsView extends BorderPane {
       new CheckBox("Show runtime performance HUD when launching projects");
   private final CheckBox editorConfirmRunProjectCheck =
       new CheckBox("Confirm before running a project from the editor");
+  private final CheckBox vnsWordWrapByDefaultCheck =
+      new CheckBox("Wrap long VNS lines by default");
+  private final CheckBox vnsMinimapVisibleCheck =
+      new CheckBox("Show the VNS script minimap");
   private final CheckBox gradleSkipTestsOnRunCheck =
       new CheckBox("Skip Gradle tests for default project runs");
   private final Map<EditorSidebarPanel, ComboBox<EditorPanelPlacement>> panelPlacements =
@@ -156,6 +160,8 @@ public class EditorSettingsView extends BorderPane {
     autoSaveBeforeRunCheck.getStyleClass().add("editor-settings-check");
     editorRuntimePerfHudCheck.getStyleClass().add("editor-settings-check");
     editorConfirmRunProjectCheck.getStyleClass().add("editor-settings-check");
+    vnsWordWrapByDefaultCheck.getStyleClass().add("editor-settings-check");
+    vnsMinimapVisibleCheck.getStyleClass().add("editor-settings-check");
     gradleSkipTestsOnRunCheck.getStyleClass().add("editor-settings-check");
 
     GridPane appearanceGrid = settingsGrid(180);
@@ -165,6 +171,17 @@ public class EditorSettingsView extends BorderPane {
         registerSection(
             settingsSection("Appearance", "Theme and code editor scale.", appearanceGrid),
             "appearance theme code text size font editor dark light scale");
+
+    GridPane authoringGrid = settingsGrid(180);
+    authoringGrid.add(vnsWordWrapByDefaultCheck, 1, 0);
+    authoringGrid.add(vnsMinimapVisibleCheck, 1, 1);
+    VBox authoringSection =
+        registerSection(
+            settingsSection(
+                "VNS Authoring",
+                "Defaults for script readability and navigation. Changes apply to open VNS tabs immediately.",
+                authoringGrid),
+            "vns authoring script word wrap long lines minimap navigation overview writer code");
 
     GridPane runtimeGrid = settingsGrid(180);
     runtimeGrid.addRow(0, fieldLabel("Max FPS"), editorMaxFpsSpinner);
@@ -292,6 +309,7 @@ public class EditorSettingsView extends BorderPane {
         settingsFilterField,
         new Separator(),
         appearanceSection,
+        authoringSection,
         runtimeSection,
         startupSection,
         statusBarSection,
@@ -338,6 +356,8 @@ public class EditorSettingsView extends BorderPane {
     autoSaveBeforeRunCheck.setSelected(model.isAutoSaveBeforeRun());
     editorRuntimePerfHudCheck.setSelected(model.isEditorRuntimePerfHud());
     editorConfirmRunProjectCheck.setSelected(model.isEditorConfirmRunProject());
+    vnsWordWrapByDefaultCheck.setSelected(model.isVnsWordWrapByDefault());
+    vnsMinimapVisibleCheck.setSelected(model.isVnsMinimapVisible());
     gradleSkipTestsOnRunCheck.setSelected(model.isGradleSkipTestsOnRun());
     for (EditorStatusBarSegment segment : EditorStatusBarSegment.values()) {
       CheckBox check = statusBarSegmentChecks.get(segment);
@@ -386,6 +406,8 @@ public class EditorSettingsView extends BorderPane {
     preferences.setAutoSaveBeforeRun(autoSaveBeforeRunCheck.isSelected());
     preferences.setEditorRuntimePerfHud(editorRuntimePerfHudCheck.isSelected());
     preferences.setEditorConfirmRunProject(editorConfirmRunProjectCheck.isSelected());
+    preferences.setVnsWordWrapByDefault(vnsWordWrapByDefaultCheck.isSelected());
+    preferences.setVnsMinimapVisible(vnsMinimapVisibleCheck.isSelected());
     preferences.setGradleSkipTestsOnRun(gradleSkipTestsOnRunCheck.isSelected());
     for (EditorStatusBarSegment segment : EditorStatusBarSegment.values()) {
       CheckBox check = statusBarSegmentChecks.get(segment);

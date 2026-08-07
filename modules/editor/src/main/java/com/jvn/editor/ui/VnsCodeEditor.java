@@ -98,6 +98,7 @@ public class VnsCodeEditor extends BorderPane {
   private boolean wordWrapEnabled = false;
   // Minimap
   private VnsCodeMinimap minimap;
+  private javafx.scene.layout.Region minimapSeparator;
   private VirtualizedScrollPane<CodeArea> mainScrollPane;
   // Breadcrumb
   private final Label breadcrumbLabel = new Label("");
@@ -236,11 +237,11 @@ public class VnsCodeEditor extends BorderPane {
     StackPane.setMargin(timelineNavOverlay, new Insets(0, 10, 14, 0));
 
     // Separator line between editor and minimap
-    javafx.scene.layout.Region minimapSep = new javafx.scene.layout.Region();
-    minimapSep.setMinWidth(1); minimapSep.setMaxWidth(1);
-    minimapSep.getStyleClass().add("code-editor-minimap-separator");
+    minimapSeparator = new javafx.scene.layout.Region();
+    minimapSeparator.setMinWidth(1); minimapSeparator.setMaxWidth(1);
+    minimapSeparator.getStyleClass().add("code-editor-minimap-separator");
 
-    HBox codeAndMinimap = new HBox(codeWithOverlay, minimapSep, minimap);
+    HBox codeAndMinimap = new HBox(codeWithOverlay, minimapSeparator, minimap);
     HBox.setHgrow(codeWithOverlay, Priority.ALWAYS);
     codeAndMinimap.heightProperty().addListener((obs, o, n) -> {
       minimap.setPrefHeight(n.doubleValue());
@@ -3403,6 +3404,23 @@ public class VnsCodeEditor extends BorderPane {
 
   public boolean isWordWrapEnabled() {
     return wordWrapEnabled;
+  }
+
+  /** Applies the global default without treating it as a toolbar toggle. */
+  public void setWordWrapEnabled(boolean enabled) {
+    wordWrapEnabled = enabled;
+    codeArea.setWrapText(enabled);
+  }
+
+  public void setMinimapVisible(boolean visible) {
+    if (minimap != null) {
+      minimap.setVisible(visible);
+      minimap.setManaged(visible);
+    }
+    if (minimapSeparator != null) {
+      minimapSeparator.setVisible(visible);
+      minimapSeparator.setManaged(visible);
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════

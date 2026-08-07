@@ -16,6 +16,8 @@ public final class EditorPreferencesStore {
   static final String KEY_AUTO_SAVE_BEFORE_RUN = "autoSaveBeforeRun";
   static final String KEY_EDITOR_RUNTIME_PERF_HUD = "editor.runtimePerfHud";
   static final String KEY_EDITOR_CONFIRM_RUN_PROJECT = "editor.confirmRunProject";
+  static final String KEY_VNS_WORD_WRAP_BY_DEFAULT = "vns.wordWrapByDefault";
+  static final String KEY_VNS_MINIMAP_VISIBLE = "vns.minimapVisible";
   static final String KEY_DEFAULT_TEXT_EDITOR = "defaultTextEditor";
   static final String KEY_CUSTOM_TEXT_EDITOR_COMMAND = "customTextEditorCommand";
   static final String KEY_LAUNCHER_THEME = "launcher.theme";
@@ -110,6 +112,12 @@ public final class EditorPreferencesStore {
         KEY_EDITOR_CONFIRM_RUN_PROJECT,
         Boolean.toString(preferences.isEditorConfirmRunProject()));
     props.setProperty(
+        KEY_VNS_WORD_WRAP_BY_DEFAULT,
+        Boolean.toString(preferences.isVnsWordWrapByDefault()));
+    props.setProperty(
+        KEY_VNS_MINIMAP_VISIBLE,
+        Boolean.toString(preferences.isVnsMinimapVisible()));
+    props.setProperty(
         KEY_DEFAULT_TEXT_EDITOR,
         preferences.getDefaultTextEditor());
     props.setProperty(
@@ -185,6 +193,10 @@ public final class EditorPreferencesStore {
         props.getProperty(KEY_EDITOR_RUNTIME_PERF_HUD), true));
     preferences.setEditorConfirmRunProject(parseBoolean(
         props.getProperty(KEY_EDITOR_CONFIRM_RUN_PROJECT), false));
+    preferences.setVnsWordWrapByDefault(parseBoolean(
+        props.getProperty(KEY_VNS_WORD_WRAP_BY_DEFAULT), false));
+    preferences.setVnsMinimapVisible(parseBoolean(
+        props.getProperty(KEY_VNS_MINIMAP_VISIBLE), true));
     preferences.setDefaultTextEditor(props.getProperty(
         KEY_DEFAULT_TEXT_EDITOR,
         EditorPreferences.TEXT_EDITOR_JVN));

@@ -4009,6 +4009,8 @@ public class EditorApp extends Application {
     FileEditorTab editor = new FileEditorTab(f);
     if (projectRoot != null) editor.setProjectRoot(projectRoot);
     editor.setCodeEditorFontSize(editorPreferences.getCodeEditorFontSize());
+    editor.setVnsAuthoringPreferences(
+        editorPreferences.isVnsWordWrapByDefault(), editorPreferences.isVnsMinimapVisible());
     editor.setStoryboardOverlay(storyboardOverlayState);
     editor.setOnStoryboardOverlayAdjusted(this::setStoryboardOverlayState);
     editor.setOnSelected(ent -> {
@@ -4125,6 +4127,7 @@ public class EditorApp extends Application {
       statusBar.applyStatusBarPreferences(editorPreferences);
     }
     applyCodeEditorFontSizePreference();
+    applyVnsAuthoringPreferences();
     applyWelcomeTabPreference();
     applyDefaultSidebarPreferences();
     if (status != null) {
@@ -4200,6 +4203,17 @@ public class EditorApp extends Application {
     }
     if (scriptEditorLauncherView != null) {
       scriptEditorLauncherView.setCodeEditorFontSize(fontSize);
+    }
+  }
+
+  private void applyVnsAuthoringPreferences() {
+    if (filesTabs == null) return;
+    boolean wordWrapEnabled = editorPreferences.isVnsWordWrapByDefault();
+    boolean minimapVisible = editorPreferences.isVnsMinimapVisible();
+    for (Tab tab : filesTabs.getTabs()) {
+      if (tab.getContent() instanceof FileEditorTab fileEditorTab) {
+        fileEditorTab.setVnsAuthoringPreferences(wordWrapEnabled, minimapVisible);
+      }
     }
   }
 

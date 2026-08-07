@@ -27,6 +27,8 @@ public final class EditorPreferences {
   private boolean autoSaveBeforeRun;
   private boolean editorRuntimePerfHud;
   private boolean editorConfirmRunProject;
+  private boolean vnsWordWrapByDefault;
+  private boolean vnsMinimapVisible = true;
   private String defaultTextEditor;
   private String customTextEditorCommand;
   private String launcherTheme;
@@ -202,6 +204,22 @@ public final class EditorPreferences {
 
   public void setEditorConfirmRunProject(boolean editorConfirmRunProject) {
     this.editorConfirmRunProject = editorConfirmRunProject;
+  }
+
+  public boolean isVnsWordWrapByDefault() {
+    return vnsWordWrapByDefault;
+  }
+
+  public void setVnsWordWrapByDefault(boolean vnsWordWrapByDefault) {
+    this.vnsWordWrapByDefault = vnsWordWrapByDefault;
+  }
+
+  public boolean isVnsMinimapVisible() {
+    return vnsMinimapVisible;
+  }
+
+  public void setVnsMinimapVisible(boolean vnsMinimapVisible) {
+    this.vnsMinimapVisible = vnsMinimapVisible;
   }
 
   public String getDefaultTextEditor() {
@@ -403,6 +421,8 @@ public final class EditorPreferences {
         panelPlacements,
         chooserVisibility);
     c.editorMaxFps = this.editorMaxFps;
+    c.vnsWordWrapByDefault = this.vnsWordWrapByDefault;
+    c.vnsMinimapVisible = this.vnsMinimapVisible;
     c.centerDividerLeft = this.centerDividerLeft;
     c.centerDividerRight = this.centerDividerRight;
     c.activeLeftTab = this.activeLeftTab;

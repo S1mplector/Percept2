@@ -31,6 +31,8 @@ class EditorPreferencesStoreTest {
     assertTrue(preferences.isAutoSaveBeforeRun());
     assertTrue(preferences.isEditorRuntimePerfHud());
     assertFalse(preferences.isEditorConfirmRunProject());
+    assertFalse(preferences.isVnsWordWrapByDefault());
+    assertTrue(preferences.isVnsMinimapVisible());
     assertEquals(EditorPreferences.TEXT_EDITOR_JVN, preferences.getDefaultTextEditor());
     assertEquals("", preferences.getCustomTextEditorCommand());
     assertEquals(EditorPreferences.LAUNCHER_THEME_DARK, preferences.getLauncherTheme());
@@ -63,6 +65,8 @@ class EditorPreferencesStoreTest {
     preferences.setAutoSaveBeforeRun(false);
     preferences.setEditorRuntimePerfHud(false);
     preferences.setEditorConfirmRunProject(true);
+    preferences.setVnsWordWrapByDefault(true);
+    preferences.setVnsMinimapVisible(false);
     preferences.setDefaultTextEditor(EditorPreferences.TEXT_EDITOR_CUSTOM);
     preferences.setCustomTextEditorCommand("code --reuse-window {file}");
     preferences.setLauncherTheme(EditorPreferences.LAUNCHER_THEME_LIGHT);
@@ -87,6 +91,8 @@ class EditorPreferencesStoreTest {
     assertFalse(loaded.isAutoSaveBeforeRun());
     assertFalse(loaded.isEditorRuntimePerfHud());
     assertTrue(loaded.isEditorConfirmRunProject());
+    assertTrue(loaded.isVnsWordWrapByDefault());
+    assertFalse(loaded.isVnsMinimapVisible());
     assertEquals(EditorPreferences.TEXT_EDITOR_CUSTOM, loaded.getDefaultTextEditor());
     assertEquals("code --reuse-window {file}", loaded.getCustomTextEditorCommand());
     assertEquals(EditorPreferences.LAUNCHER_THEME_LIGHT, loaded.getLauncherTheme());
@@ -113,6 +119,8 @@ class EditorPreferencesStoreTest {
     props.setProperty(EditorPreferencesStore.KEY_AUTO_SAVE_BEFORE_RUN, "notabool");
     props.setProperty(EditorPreferencesStore.KEY_EDITOR_RUNTIME_PERF_HUD, "notabool");
     props.setProperty(EditorPreferencesStore.KEY_EDITOR_CONFIRM_RUN_PROJECT, "notabool");
+    props.setProperty(EditorPreferencesStore.KEY_VNS_WORD_WRAP_BY_DEFAULT, "notabool");
+    props.setProperty(EditorPreferencesStore.KEY_VNS_MINIMAP_VISIBLE, "notabool");
     props.setProperty(EditorPreferencesStore.KEY_DEFAULT_TEXT_EDITOR, "unknown");
     props.setProperty(EditorPreferencesStore.KEY_LAUNCHER_THEME, "unknown");
     props.setProperty(EditorPreferencesStore.KEY_LAUNCHER_RESTORE_LAST_PROJECT, "notabool");
@@ -143,6 +151,8 @@ class EditorPreferencesStoreTest {
     assertTrue(loaded.isAutoSaveBeforeRun());
     assertTrue(loaded.isEditorRuntimePerfHud());
     assertFalse(loaded.isEditorConfirmRunProject());
+    assertFalse(loaded.isVnsWordWrapByDefault());
+    assertTrue(loaded.isVnsMinimapVisible());
     assertEquals(EditorPreferences.TEXT_EDITOR_JVN, loaded.getDefaultTextEditor());
     assertEquals(EditorPreferences.LAUNCHER_THEME_DARK, loaded.getLauncherTheme());
     assertTrue(loaded.isLauncherRestoreLastProject());

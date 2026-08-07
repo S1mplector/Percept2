@@ -111,6 +111,7 @@ public class FileEditorTab extends BorderPane {
   private ToggleButton previewModePreviewButton;
   private ToggleButton previewModeCodeButton;
   private ToggleButton previewModeSplitButton;
+  private ToggleButton vnsWordWrapButton;
   private MenuButton previewDockMenu;
   private PreviewDockPosition previewDockPosition = PreviewDockPosition.TOP;
   private PreviewDockPosition lastEmbeddedPreviewDock = PreviewDockPosition.TOP;
@@ -252,6 +253,13 @@ public class FileEditorTab extends BorderPane {
     if (menuLayoutEditor != null) menuLayoutEditor.setFontSizePx(fontSizePx);
     if (menuStyleEditor != null) menuStyleEditor.setFontSizePx(fontSizePx);
     if (dialogueLayoutEditor != null) dialogueLayoutEditor.setFontSizePx(fontSizePx);
+  }
+
+  public void setVnsAuthoringPreferences(boolean wordWrapEnabled, boolean minimapVisible) {
+    if (vnsEditor == null) return;
+    vnsEditor.setWordWrapEnabled(wordWrapEnabled);
+    vnsEditor.setMinimapVisible(minimapVisible);
+    if (vnsWordWrapButton != null) vnsWordWrapButton.setSelected(wordWrapEnabled);
   }
 
   public void launchFromHere() {
@@ -1152,6 +1160,7 @@ public class FileEditorTab extends BorderPane {
           "Wrap long script lines in the editor (Ctrl/Cmd+Shift+W)");
       wordWrap.setSelected(vnsEditor.isWordWrapEnabled());
       wordWrap.setOnAction(e -> wordWrap.setSelected(vnsEditor.toggleWordWrap()));
+      vnsWordWrapButton = wordWrap;
 
       Button diff = new Button();
       configureVnsAeroButton(
