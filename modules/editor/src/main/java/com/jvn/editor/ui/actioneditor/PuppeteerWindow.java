@@ -596,6 +596,9 @@ public class PuppeteerWindow extends Stage {
 
         entitySelector.setOnSelectionChanged((name, isGroup) -> {
             timelinePanel.setSelectedTarget(name, isGroup);
+            if (!isGroup) {
+                animationPreview.selectEntities(entitySelector.getSelectedEntityNames(), name);
+            }
             anchorEditor.setSelectedEntityName(name, isGroup);
             if (constraintEditor != null) constraintEditor.selectEntity(isGroup ? null : name);
             refreshPropertyPickerChoices();

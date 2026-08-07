@@ -4,6 +4,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -306,6 +307,7 @@ public class AnimationPreview extends VBox {
 
     private Entity2D selectedEntity;
     private String selectedEntityName;
+    private final Set<String> selectedEntityNames = new LinkedHashSet<>();
     private String selectedGroupName;
     private final Set<String> selectedGroupMemberNames = new HashSet<>();
     private boolean draggingEntity = false;
@@ -523,6 +525,7 @@ public class AnimationPreview extends VBox {
                     selectedEntity = scene.find(selectedEntityName);
                 }
             }
+            selectedEntityNames.retainAll(names);
             if (selectedGroupName != null) {
                 refreshSelectedGroupMembers();
                 if (selectedGroupMemberNames.isEmpty()) {
@@ -532,6 +535,7 @@ public class AnimationPreview extends VBox {
         } else {
             selectedEntity = null;
             selectedEntityName = null;
+            selectedEntityNames.clear();
             selectedGroupName = null;
             selectedGroupMemberNames.clear();
             if (onOrbitAnchorRemoved != null) {
@@ -601,6 +605,7 @@ public class AnimationPreview extends VBox {
                 scene.render(blitter, viewportLogicalWidth, viewportLogicalHeight);
                 drawMotionPaths();
                 if (selectedEntity != null) drawSelectionHighlight(selectedEntity);
+                drawAdditionalEntitySelectionHighlights();
                 if (selectedGroupName != null && !selectedGroupMemberNames.isEmpty()) {
                     drawGroupSelectionHighlight(selectedGroupName);
                 }
@@ -1508,9 +1513,51 @@ public class AnimationPreview extends VBox {
             clearSelection();
             return;
         }
-        boolean changed = entity != selectedEntity || !entityName.equals(selectedEntityName);
+        boolean changed = entity != selectedEntity || !entityName.equals(selectedEntityName)
+            || selectedEntityNames.size() != 1 || !selectedEntityNames.contains(entityName)
+            || selectedGroupName != null;
         selectedEntity = entity;
         selectedEntityName = entityName;
+        selectedEntityNames.clear();
+        selectedEntityNames.add(entityName);
+        selectedGroupName = null;
+        selectedGroupMemberNames.clear();
+        pivotDragState = null;
+        matrixDragState = null;
+        rotateDragState = null;
+        groupRotateMemberStartStates.clear();
+        matrixOverlayText = null;
+        draggingGroupRotate = false;
+        startSpriteRegionAnimation();
+        if (changed) render();
+    }
+
+    /** Highlights several picked entities while keeping one active for editing handles. */
+    public void selectEntities(Iterable<String> entityNames, String activeEntityName) {
+        if (scene == null || entityNames == null) {
+            clearSelection();
+            return;
+        }
+        Set<String> nextNames = new LinkedHashSet<>();
+        for (String entityName : entityNames) {
+            if (entityName != null && !entityName.isBlank() && scene.find(entityName) != null) {
+                nextNames.add(entityName);
+            }
+        }
+        if (nextNames.isEmpty()) {
+            clearSelection();
+            return;
+        }
+        String activeName = nextNames.contains(activeEntityName) ? activeEntityName : nextNames.iterator().next();
+        Entity2D activeEntity = scene.find(activeName);
+        boolean changed = activeEntity != selectedEntity
+            || !activeName.equals(selectedEntityName)
+            || !nextNames.equals(selectedEntityNames)
+            || selectedGroupName != null;
+        selectedEntity = activeEntity;
+        selectedEntityName = activeName;
+        selectedEntityNames.clear();
+        selectedEntityNames.addAll(nextNames);
         selectedGroupName = null;
         selectedGroupMemberNames.clear();
         pivotDragState = null;
@@ -1529,9 +1576,11 @@ public class AnimationPreview extends VBox {
             return;
         }
         Set<String> nextMembers = new HashSet<>(project.collectGroupEntityNames(groupName));
-        boolean changed = !groupName.equals(selectedGroupName) || !nextMembers.equals(selectedGroupMemberNames);
+        boolean changed = !groupName.equals(selectedGroupName) || !nextMembers.equals(selectedGroupMemberNames)
+            || !selectedEntityNames.isEmpty();
         selectedEntity = null;
         selectedEntityName = null;
+        selectedEntityNames.clear();
         selectedGroupName = groupName;
         selectedGroupMemberNames.clear();
         selectedGroupMemberNames.addAll(nextMembers);
@@ -1546,9 +1595,11 @@ public class AnimationPreview extends VBox {
     }
 
     public void clearSelection() {
-        boolean changed = selectedEntity != null || selectedEntityName != null || selectedGroupName != null || !selectedGroupMemberNames.isEmpty();
+        boolean changed = selectedEntity != null || selectedEntityName != null || !selectedEntityNames.isEmpty()
+            || selectedGroupName != null || !selectedGroupMemberNames.isEmpty();
         selectedEntity = null;
         selectedEntityName = null;
+        selectedEntityNames.clear();
         selectedGroupName = null;
         selectedGroupMemberNames.clear();
         pivotDragState = null;
@@ -1854,6 +1905,7 @@ public class AnimationPreview extends VBox {
             if (updateSelection) {
                 selectedEntity = null;
                 selectedEntityName = null;
+                selectedEntityNames.clear();
             }
             return null;
         }
@@ -1893,6 +1945,8 @@ public class AnimationPreview extends VBox {
         if (updateSelection) {
             selectedEntity = bestEntity;
             selectedEntityName = bestName;
+            selectedEntityNames.clear();
+            if (bestName != null) selectedEntityNames.add(bestName);
         }
         return bestName;
     }
@@ -3171,6 +3225,38 @@ public class AnimationPreview extends VBox {
             gc.setFont(javafx.scene.text.Font.font(javafx.scene.text.Font.getDefault().getFamily(), 10.0 / z));
             gc.fillText(selectedEntityName, minWx, minWy - (6.0 / z));
         }
+        gc.restore();
+    }
+
+    private void drawAdditionalEntitySelectionHighlights() {
+        if (scene == null || selectedEntityNames.size() < 2) return;
+        for (String entityName : selectedEntityNames) {
+            if (entityName == null || entityName.equals(selectedEntityName)) continue;
+            Entity2D entity = scene.find(entityName);
+            if (entity != null) drawEntitySelectionOutline(entity);
+        }
+    }
+
+    /** Draws the same marching-ants component outline without active editing handles. */
+    private void drawEntitySelectionOutline(Entity2D entity) {
+        double[] corners = getEntityCorners(entity);
+        if (corners.length < 8) return;
+        double z = Math.max(1e-6, displayScale);
+        gc.save();
+        applyCameraTransform();
+        gc.setStroke(Color.web("#c084fc", 0.85));
+        gc.setLineWidth(1.5 / z);
+        gc.setLineDashes(6.0 / z, 4.0 / z);
+        gc.setLineDashOffset(-(System.currentTimeMillis() / 35.0 % 18.0) / z);
+        gc.beginPath();
+        gc.moveTo(corners[0], corners[1]);
+        gc.lineTo(corners[2], corners[3]);
+        gc.lineTo(corners[4], corners[5]);
+        gc.lineTo(corners[6], corners[7]);
+        gc.closePath();
+        gc.stroke();
+        gc.setLineDashes((double[]) null);
+        gc.setLineDashOffset(0);
         gc.restore();
     }
 
