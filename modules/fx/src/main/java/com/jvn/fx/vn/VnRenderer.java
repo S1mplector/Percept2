@@ -137,6 +137,7 @@ public class VnRenderer {
   private static final double DEFAULT_CHARACTER_HEIGHT_FACTOR = 0.85;
   private static final double DEFAULT_CHARACTER_BASELINE_Y = 1.0;
   private static final int VISUALIZER_BAR_COUNT = VnAudioVisualizerConfig.MAX_BARS;
+  private static final int MAX_CACHED_LAYER_PATH_SPECS = 256;
   private static final String VAR_CHARACTER_HEIGHT_FACTOR = "ui.characterHeightFactor";
   private static final String VAR_CHARACTER_BASELINE_Y = "ui.characterBaselineY";
   private static final String VAR_DIALOGUE_FADE_MS = "ui.dialogueFadeMs";
@@ -224,6 +225,9 @@ public class VnRenderer {
   // Reusable per-frame lists to reduce GC pressure (cleared + re-populated each frame)
   private final List<CharacterRenderEntry> reusableCharacterEntries = new ArrayList<>();
   private final List<LayeredSceneDraw> reusableLayeredDraws = new ArrayList<>();
+  // Expression path specifications are immutable for a rendered scenario. Caching their
+  // layer lists avoids splitting and allocating once per character on every frame.
+  private final Map<String, List<String>> layerPathCache = new HashMap<>();
 
   public VnRenderer(GraphicsContext gc) {
     this.gc = gc;
@@ -244,6 +248,7 @@ public class VnRenderer {
     particleBlitter.setProjectRoot(root);
     stageBackgroundCache.clear();
     stageCharacterCache.clear();
+    layerPathCache.clear();
     reloadUiLayout();
   }
 
@@ -836,7 +841,7 @@ public class VnRenderer {
 
   private void preloadSpriteSource(String imagePath) {
     if (imagePath == null || imagePath.isBlank()) return;
-    List<String> layerPaths = parseLayerPaths(imagePath);
+    List<String> layerPaths = layerPathsFor(imagePath);
     loadSpriteSourceImage(imagePath, layerPaths);
   }
 
@@ -881,7 +886,7 @@ public class VnRenderer {
   }
 
   private void renderCharacterSprite(String imagePath, String expression, VnCharacter character, CharacterPosition position, double width, double height, double offsetX, double offsetY, String characterId, VnState state, VnScenario scenario, VnStagePreset stage) {
-    List<String> layerPaths = parseLayerPaths(imagePath);
+    List<String> layerPaths = layerPathsFor(imagePath);
     Image reference = loadSpriteSourceImage(imagePath, layerPaths);
     double spriteHeight = height * characterHeightFactor * characterScale(character);
     double spriteWidth = reference != null ? reference.getWidth() * (spriteHeight / reference.getHeight()) : spriteHeight * 0.5;
@@ -1207,7 +1212,7 @@ public class VnRenderer {
     VnCharacter character = scenario.getCharacter(slot.getCharacterId());
     if (character == null) return null;
     String imagePath = character.getExpressionPath(slot.getExpression());
-    List<String> layerPaths = parseLayerPaths(imagePath);
+    List<String> layerPaths = layerPathsFor(imagePath);
     Image reference = loadSpriteSourceImage(imagePath, layerPaths);
     double spriteHeight = canvasHeight * characterHeightFactor * characterScale(character);
     double spriteWidth = reference != null && reference.getHeight() > 0.0
@@ -1484,6 +1489,16 @@ public class VnRenderer {
     return safe.isBlank() ? "layer" + (index + 1) : safe;
   }
 
+  private List<String> layerPathsFor(String imagePathSpec) {
+    if (imagePathSpec == null) return List.of();
+    List<String> cached = layerPathCache.get(imagePathSpec);
+    if (cached != null) return cached;
+    if (layerPathCache.size() >= MAX_CACHED_LAYER_PATH_SPECS) layerPathCache.clear();
+    List<String> parsed = parseLayerPaths(imagePathSpec);
+    layerPathCache.put(imagePathSpec, parsed);
+    return parsed;
+  }
+
   private String selectorSafeName(String raw) {
     return selectorSafeNameStatic(raw);
   }
@@ -1505,18 +1520,19 @@ public class VnRenderer {
     return cleaned;
   }
 
-  private List<String> parseLayerPaths(String imagePathSpec) {
+  static List<String> parseLayerPaths(String imagePathSpec) {
+    if (imagePathSpec == null || imagePathSpec.isBlank()) return List.of();
+    if (imagePathSpec.indexOf('|') < 0) return List.of(imagePathSpec.trim());
+
     List<String> layers = new ArrayList<>();
-    if (imagePathSpec == null) return layers;
-    for (String part : imagePathSpec.split("\\|")) {
-      String path = part == null ? "" : part.trim();
+    int start = 0;
+    for (int separator; (separator = imagePathSpec.indexOf('|', start)) >= 0; start = separator + 1) {
+      String path = imagePathSpec.substring(start, separator).trim();
       if (!path.isEmpty()) layers.add(path);
     }
-    if (layers.isEmpty()) {
-      String single = imagePathSpec.trim();
-      if (!single.isEmpty()) layers.add(single);
-    }
-    return layers;
+    String path = imagePathSpec.substring(start).trim();
+    if (!path.isEmpty()) layers.add(path);
+    return layers.isEmpty() ? List.of(imagePathSpec.trim()) : List.copyOf(layers);
   }
 
   private Image firstAvailableImage(List<String> layerPaths) {

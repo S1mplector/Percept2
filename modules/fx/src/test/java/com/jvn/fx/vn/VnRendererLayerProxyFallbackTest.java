@@ -24,4 +24,13 @@ class VnRendererLayerProxyFallbackTest {
         java.util.List.of("john_neutral_head", "john_head"),
         VnRenderer.timelineGroupTargetNames("john", "neutral", "head"));
   }
+
+  @Test
+  void parsesLayeredSpritePathsWithoutRegexSplitting() {
+    assertEquals(java.util.List.of("body.png"), VnRenderer.parseLayerPaths(" body.png "));
+    assertEquals(
+        java.util.List.of("body.png", "eyes.png", "mouth.png"),
+        VnRenderer.parseLayerPaths(" body.png | eyes.png || mouth.png "));
+    assertEquals(java.util.List.of(), VnRenderer.parseLayerPaths("   "));
+  }
 }
