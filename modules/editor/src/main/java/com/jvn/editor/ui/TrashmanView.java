@@ -162,72 +162,36 @@ public class TrashmanView extends BorderPane {
   private void buildUi() {
     Label title = new Label("Trashman");
     title.getStyleClass().add("trashman-title");
-    Label subtitle = new Label("Garbage collection controls, heap telemetry, jcmd diagnostics, memory pool peaks, and collector counters.");
+    Label subtitle = new Label("Heap memory cleanup utility.");
     subtitle.getStyleClass().add("trashman-subtitle");
     subtitle.setWrapText(true);
     HBox titleRow = new HBox(6, title, SidebarToolHelp.button(this, "Trashman", """
-        Trashman is a JVM garbage collection utility for the editor process.
-        It can request normal GC, run repeated sweep passes with optional finalization, call jcmd GC.run when available, collect heap_info and class_histogram diagnostics, reset memory-pool peak counters, and copy detailed heap reports.
-        GC is only a request to the JVM. The VM decides when and how much memory is actually reclaimed.
+        Trashman requests JVM garbage collection to free heap memory.
+        Run GC performs a single pass. Sweep runs multiple passes with
+        optional finalization between each. GC is only a request — the
+        VM decides when and how much memory is actually reclaimed.
         """));
     titleRow.setAlignment(Pos.CENTER_LEFT);
 
-    Button refreshButton = actionButton("Refresh", CssIcon.refresh("#d0d0d0"), "Refresh all GC and memory telemetry.");
+    Button refreshButton = actionButton("Refresh", CssIcon.refresh("#d0d0d0"), "Refresh heap telemetry.");
     refreshButton.setOnAction(e -> refreshStatus(true));
     Button gcButton = actionButton("Run GC", CssIcon.delete("#d0d0d0"), "Request one JVM garbage collection pass.");
     gcButton.setOnAction(e -> runGc(false, false));
     Button sweepButton = actionButton("Sweep", CssIcon.sparkles("#f0b673"), "Run the configured multi-pass sweep.");
     sweepButton.setOnAction(e -> runGc(true, jcmdCheck.isSelected()));
-    Button finalizeButton = actionButton("Finalize", CssIcon.auto("#d0d0d0"), "Request legacy finalization without requesting GC.");
-    finalizeButton.setOnAction(e -> runFinalizationOnly());
-    Button jcmdButton = actionButton("jcmd GC.run", CssIcon.runtimePlay(), "Execute jcmd <pid> GC.run if JDK tools are available.");
-    jcmdButton.setOnAction(e -> runJcmdGc());
-    Button heapInfoButton = actionButton("Heap Info", CssIcon.memory("#d0d0d0"), "Run jcmd <pid> GC.heap_info and put the result in the report.");
-    heapInfoButton.setOnAction(e -> runJcmdDiagnostic("jcmd GC.heap_info", "GC.heap_info"));
-    Button histogramButton = actionButton("Histogram", CssIcon.list("#d0d0d0"), "Run jcmd <pid> GC.class_histogram and put the result in the report.");
-    histogramButton.setOnAction(e -> runJcmdDiagnostic(
-        "jcmd GC.class_histogram",
-        histogramAllCheck.isSelected()
-            ? List.of("GC.class_histogram", "-all")
-            : List.of("GC.class_histogram")));
-    Button finalizerInfoButton = actionButton("Finalizers", CssIcon.person("#d0d0d0"), "Run jcmd <pid> GC.finalizer_info.");
-    finalizerInfoButton.setOnAction(e -> runJcmdDiagnostic("jcmd GC.finalizer_info", "GC.finalizer_info"));
-    Button nmtButton = actionButton("Native Mem", CssIcon.grid("#d0d0d0"), "Run jcmd <pid> VM.native_memory summary.");
-    nmtButton.setOnAction(e -> runJcmdDiagnostic("jcmd VM.native_memory summary", "VM.native_memory", "summary"));
-    Button trimNativeButton = actionButton("Trim Native", CssIcon.download("#d0d0d0"), "Run jcmd <pid> System.trim_native_heap when supported by the VM.");
-    trimNativeButton.setOnAction(e -> runJcmdDiagnostic("jcmd System.trim_native_heap", "System.trim_native_heap"));
-    Button flagsButton = actionButton("VM Flags", CssIcon.settings("#d0d0d0"), "Run jcmd <pid> VM.flags.");
-    flagsButton.setOnAction(e -> runJcmdDiagnostic("jcmd VM.flags", "VM.flags"));
-    Button dumpHeapButton = actionButton("Dump Heap", CssIcon.save("#d0d0d0"), "Write an HPROF heap dump under ~/.jvn/trashman.");
-    dumpHeapButton.setOnAction(e -> dumpHeap(liveHeapDumpCheck.isSelected()));
-    Button resetPeaksButton = actionButton("Reset Peaks", CssIcon.clearX("#d0d0d0"), "Reset memory pool peak usage counters.");
-    resetPeaksButton.setOnAction(e -> resetPeaks());
-    Button armUsageThresholdButton = actionButton("Arm Usage", CssIcon.warning("#d0d0d0"), "Set usage thresholds on pools that support them.");
-    armUsageThresholdButton.setOnAction(e -> armThresholds(false));
-    Button armCollectionThresholdButton = actionButton("Arm Collection", CssIcon.warning("#d0d0d0"), "Set collection-usage thresholds on pools that support them.");
-    armCollectionThresholdButton.setOnAction(e -> armThresholds(true));
-    Button clearThresholdsButton = actionButton("Clear Thresholds", CssIcon.clearX("#d0d0d0"), "Clear JVM memory pool thresholds.");
-    clearThresholdsButton.setOnAction(e -> clearThresholds());
     Button copyButton = actionButton("Copy Report", CssIcon.copy("#d0d0d0"), "Copy the current Trashman report.");
     copyButton.setOnAction(e -> copyText(reportText(latestSnapshot)));
 
-    FlowPane actions = new FlowPane(6, 6, refreshButton, gcButton, sweepButton, finalizeButton, jcmdButton, resetPeaksButton, copyButton);
+    FlowPane actions = new FlowPane(6, 6, refreshButton, gcButton, sweepButton, copyButton);
     actions.getStyleClass().add("trashman-actions");
     actions.setAlignment(Pos.CENTER_LEFT);
-    FlowPane diagnostics = new FlowPane(6, 6, heapInfoButton, histogramButton, finalizerInfoButton, nmtButton, trimNativeButton, flagsButton, dumpHeapButton);
-    diagnostics.getStyleClass().add("trashman-actions");
-    diagnostics.setAlignment(Pos.CENTER_LEFT);
 
     configureSpinner(passSpinner, "GC pass count for Sweep.");
     configureSpinner(pauseSpinner, "Milliseconds to pause between sweep passes.");
-    configureSpinner(thresholdSpinner, "Percent of each supported pool to use for JVM usage thresholds.");
     Label passLabel = optionLabel("Passes");
     Label pauseLabel = optionLabel("Pause ms");
     HBox sweepOptions = new HBox(6, passLabel, passSpinner, pauseLabel, pauseSpinner);
     sweepOptions.setAlignment(Pos.CENTER_LEFT);
-    Label thresholdLabel = optionLabel("Threshold %");
-    HBox thresholdOptions = new HBox(6, thresholdLabel, thresholdSpinner, armUsageThresholdButton, armCollectionThresholdButton, clearThresholdsButton);
-    thresholdOptions.setAlignment(Pos.CENTER_LEFT);
 
     autoRefreshCheck.selectedProperty().addListener((obs, oldValue, enabled) -> {
       if (enabled) {
@@ -237,37 +201,24 @@ public class TrashmanView extends BorderPane {
       }
     });
 
-    FlowPane toggles = new FlowPane(8, 7, finalizationCheck, jcmdCheck, beforeAfterCheck, autoRefreshCheck, liveReportCheck, liveHeapDumpCheck, histogramAllCheck);
+    FlowPane toggles = new FlowPane(8, 7, finalizationCheck, autoRefreshCheck);
     toggles.getStyleClass().add("trashman-options");
 
-    VBox header = new VBox(9, titleRow, subtitle, actions, diagnostics, sweepOptions, thresholdOptions, toggles, statusLabel, lastRunLabel);
+    VBox header = new VBox(9, titleRow, subtitle, actions, sweepOptions, toggles, statusLabel, lastRunLabel);
     header.getStyleClass().addAll("trashman-header", "sidebar-tool-header");
     setTop(header);
 
     FlowPane cards = new FlowPane(8, 8,
         metricCard("Heap", heapValue, heapDetail, heapBar),
-        metricCard("Non-heap", nonHeapValue, nonHeapDetail, nonHeapBar),
         metricCard("Pressure", pressureValue, pressureDetail, pressureBar),
-        metricCard("GC Load", gcLoadValue, gcLoadDetail, null),
-        metricCard("Collectors", gcValue, gcDetail, null),
-        metricCard("Classes", classesValue, classesDetail, null),
-        metricCard("Threads", threadsValue, threadsDetail, null),
-        metricCard("Buffers", buffersValue, buffersDetail, null),
-        metricCard("Telemetry", telemetryValue, telemetryDetail, null),
-        metricCard("Finalizers", finalizerValue, finalizerDetail, null),
-        metricCard("jcmd", jcmdValue, jcmdDetail, null));
+        metricCard("GC Load", gcLoadValue, gcLoadDetail, null));
     cards.getStyleClass().add("trashman-card-grid");
 
     FlowPane graphs = new FlowPane(8, 8,
-        graphCard(heapGraph),
-        graphCard(nonHeapGraph),
-        graphCard(gcLoadGraph),
-        graphCard(telemetryGraph));
+        graphCard(heapGraph));
     graphs.getStyleClass().add("trashman-graph-grid");
 
     Label collectorsTitle = sectionTitle("Collectors");
-    Label poolsTitle = sectionTitle("Memory Pools");
-    Label buffersTitle = sectionTitle("Buffer Pools");
     reportArea.getStyleClass().add("trashman-report");
     reportArea.setEditable(false);
     reportArea.setWrapText(false);
@@ -279,12 +230,6 @@ public class TrashmanView extends BorderPane {
         new Separator(),
         collectorsTitle,
         collectorRows,
-        new Separator(),
-        poolsTitle,
-        poolRows,
-        new Separator(),
-        buffersTitle,
-        bufferRows,
         new Separator(),
         sectionTitle("Report"),
         reportArea);
