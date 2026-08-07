@@ -1,6 +1,7 @@
 package com.jvn.editor.ui.actioneditor;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
@@ -8,11 +9,15 @@ import java.util.Map;
 
 public class EntityTrack {
     private static final double KEYFRAME_TIME_EPSILON_MS = 0.001;
+    private static final int MAX_CACHED_INDEX_ADVANCE = 8;
+    private static final double MAX_CACHED_TIME_ADVANCE_MS = 100.0;
     private static final PropertyType[] PROPERTY_TYPES = PropertyType.values();
 
     private final String entityName;
     private String parentGroupName;
     private final List<Keyframe>[] keyframes;
+    private final int[] interpolationNextIndices;
+    private final double[] interpolationSampleTimes;
     private final EnumSet<PropertyType> animatedProperties;
     private final Map<String, List<Keyframe>> customKeyframes;
     private boolean expanded = true;
@@ -24,6 +29,10 @@ public class EntityTrack {
     public EntityTrack(String entityName) {
         this.entityName = entityName;
         this.keyframes = newKeyframeTable();
+        this.interpolationNextIndices = new int[PROPERTY_TYPES.length];
+        Arrays.fill(interpolationNextIndices, -1);
+        this.interpolationSampleTimes = new double[PROPERTY_TYPES.length];
+        Arrays.fill(interpolationSampleTimes, Double.NaN);
         this.animatedProperties = EnumSet.noneOf(PropertyType.class);
         this.customKeyframes = new java.util.LinkedHashMap<>();
     }
@@ -197,8 +206,8 @@ public class EntityTrack {
 
     public double getValueAt(PropertyType property, double timeMs) {
         if (property == null) return 0.0;
-        List<Keyframe> list = keyframes[property.ordinal()];
-        return interpolate(list, timeMs, property.getDefaultValue());
+        return interpolateKeyframed(
+            property.ordinal(), keyframes[property.ordinal()], timeMs, property.getDefaultValue());
     }
 
     public double getCustomValueAt(String propertyKey, double timeMs, double defaultValue) {
@@ -259,8 +268,60 @@ public class EntityTrack {
         if (timeMs >= list.get(list.size() - 1).getTimeMs()) return list.get(list.size() - 1).getValue();
 
         int nextIndex = lowerBound(list, timeMs);
+        return interpolateSegment(list, nextIndex, timeMs);
+    }
+
+    private double interpolateKeyframed(int propertyIndex, List<Keyframe> list, double timeMs, double defaultValue) {
+        if (list == null || list.isEmpty()) return defaultValue;
+        if (Double.isNaN(timeMs)) return defaultValue;
+        double previousSampleTime = interpolationSampleTimes[propertyIndex];
+        interpolationSampleTimes[propertyIndex] = timeMs;
+        int size = list.size();
+        if (timeMs <= list.get(0).getTimeMs()) {
+            interpolationNextIndices[propertyIndex] = Math.min(1, size);
+            return list.get(0).getValue();
+        }
+        if (timeMs >= list.get(size - 1).getTimeMs()) {
+            interpolationNextIndices[propertyIndex] = size;
+            return list.get(size - 1).getValue();
+        }
+
+        int nextIndex = interpolationNextIndices[propertyIndex];
+        boolean canReuseInterval = timeMs >= previousSampleTime
+            && timeMs - previousSampleTime <= MAX_CACHED_TIME_ADVANCE_MS;
+        if (canReuseInterval && nextIndex > 0 && nextIndex < size) {
+            Keyframe previous = list.get(nextIndex - 1);
+            Keyframe next = list.get(nextIndex);
+            if (timeMs >= previous.getTimeMs() && timeMs <= next.getTimeMs()) {
+                return interpolateSegment(previous, next, timeMs);
+            }
+            if (timeMs > next.getTimeMs()) {
+                int advances = 0;
+                do {
+                    nextIndex++;
+                    advances++;
+                } while (advances < MAX_CACHED_INDEX_ADVANCE
+                    && nextIndex < size
+                    && list.get(nextIndex).getTimeMs() < timeMs);
+                if (nextIndex < size && list.get(nextIndex).getTimeMs() >= timeMs) {
+                    interpolationNextIndices[propertyIndex] = nextIndex;
+                    return interpolateSegment(list, nextIndex, timeMs);
+                }
+            }
+        }
+
+        nextIndex = lowerBound(list, timeMs);
+        interpolationNextIndices[propertyIndex] = nextIndex;
+        return interpolateSegment(list, nextIndex, timeMs);
+    }
+
+    private static double interpolateSegment(List<Keyframe> list, int nextIndex, double timeMs) {
         Keyframe k0 = list.get(nextIndex - 1);
         Keyframe k1 = list.get(nextIndex);
+        return interpolateSegment(k0, k1, timeMs);
+    }
+
+    private static double interpolateSegment(Keyframe k0, Keyframe k1, double timeMs) {
         double span = k1.getTimeMs() - k0.getTimeMs();
         if (span < 0.001) return k1.getValue();
         double t = (timeMs - k0.getTimeMs()) / span;

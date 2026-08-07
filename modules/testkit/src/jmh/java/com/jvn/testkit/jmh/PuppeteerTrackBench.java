@@ -51,6 +51,7 @@ public class PuppeteerTrackBench {
     private AnimationProject project;
     private double[] sampleTimes;
     private int sampleCursor;
+    private double playbackTime;
 
     @Setup
     public void setup() {
@@ -90,6 +91,15 @@ public class PuppeteerTrackBench {
     @Benchmark
     public AnimationProject.EffectiveEntityTransform sampleEffectiveEntityTransform() {
         double time = sampleTimes[sampleCursor++ & (sampleTimes.length - 1)];
+        return project.computeEffectiveEntityTransform("bench-sprite", time);
+    }
+
+    /** Mirrors normal preview playback, where time moves forward one frame at a time. */
+    @Benchmark
+    public AnimationProject.EffectiveEntityTransform sampleEffectiveEntityTransformPlayback() {
+        double time = playbackTime;
+        playbackTime += 1000.0 / 60.0;
+        if (playbackTime >= keyframeCount * 10.0) playbackTime = 0.0;
         return project.computeEffectiveEntityTransform("bench-sprite", time);
     }
 }

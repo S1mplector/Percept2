@@ -71,6 +71,20 @@ class EntityTrackKeyframeUpsertTest {
   }
 
   @Test
+  void samplesCorrectlyAcrossPlaybackAndSeekJumps() {
+    EntityTrack track = new EntityTrack("hero");
+    for (int i = 0; i < 64; i++) {
+      track.addKeyframe(PropertyType.X, new Keyframe(i * 10.0, i * 100.0));
+    }
+
+    assertEquals(50.0, track.getValueAt(PropertyType.X, 5.0), 0.0000001);
+    assertEquals(2450.0, track.getValueAt(PropertyType.X, 245.0), 0.0000001);
+    assertEquals(2550.0, track.getValueAt(PropertyType.X, 255.0), 0.0000001);
+    assertEquals(6150.0, track.getValueAt(PropertyType.X, 615.0), 0.0000001);
+    assertEquals(150.0, track.getValueAt(PropertyType.X, 15.0), 0.0000001);
+  }
+
+  @Test
   void animatedPropertyIndexTracksSetRemoveAndCopy() {
     EntityTrack track = new EntityTrack("hero");
     Keyframe x = new Keyframe(100.0, 1.0);
