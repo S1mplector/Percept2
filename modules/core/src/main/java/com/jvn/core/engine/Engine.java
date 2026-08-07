@@ -100,7 +100,8 @@ public class Engine implements AutoCloseable {
    * is true. Applied atomically after the current dispatch finishes so
    * listeners can safely register / unregister themselves from inside a callback.
    */
-  private final List<Runnable> pendingListenerMutations = new ArrayList<>();
+  private List<Runnable> pendingListenerMutations = new ArrayList<>();
+  private List<Runnable> drainingListenerMutations = new ArrayList<>();
 
   /** Runtime resources whose lifetime is bounded by this engine instance. */
   private final List<AutoCloseable> ownedResources = new ArrayList<>();
@@ -394,18 +395,19 @@ public class Engine implements AutoCloseable {
 
   private void drainPendingListenerMutations() {
     if (pendingListenerMutations.isEmpty()) return;
-    // Copy then clear before executing so a mutation that itself queues
-    // another mutation is applied on the next drain, not in the middle of
-    // the current one.
-    List<Runnable> batch = new ArrayList<>(pendingListenerMutations);
+    // Swap instead of copying to avoid per-drain allocation.
+    List<Runnable> batch = pendingListenerMutations;
+    pendingListenerMutations = drainingListenerMutations;
+    drainingListenerMutations = batch;
     pendingListenerMutations.clear();
-    for (Runnable r : batch) {
+    for (int i = 0, n = batch.size(); i < n; i++) {
       try {
-        r.run();
+        batch.get(i).run();
       } catch (RuntimeException ex) {
         reportListenerFailure("listener-mutation", ex);
       }
     }
+    batch.clear();
   }
 
   private static void reportListenerFailure(String phase, Throwable t) {

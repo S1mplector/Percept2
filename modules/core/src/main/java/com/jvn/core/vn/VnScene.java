@@ -47,6 +47,8 @@ public class VnScene implements Scene {
   private long textTagWaitRemainingMs = 0;
   private boolean nowaitPending = false;
   private long nowaitRemainingMs = 0;
+  private String cachedResolvedDialogueText;
+  private int cachedResolvedDialogueNodeIndex = -1;
 
   public VnScene(VnScenario scenario) {
     this.scenario = scenario;
@@ -250,7 +252,7 @@ public class VnScene implements Scene {
     if (currentNode.getType() == VnNodeType.DIALOGUE) {
       DialogueLine dialogue = currentNode.getDialogue();
       if (dialogue != null) {
-        String resolvedText = resolveInterpolatedText(dialogue.getText());
+        String resolvedText = resolveDialogueTextCached(dialogue);
         ensureDialogueControlState(resolvedText);
         int textLength = TextParser.plainLength(resolvedText);
         
@@ -345,7 +347,7 @@ public class VnScene implements Scene {
     if (current.getType() == VnNodeType.DIALOGUE
         && state.getSettings().isClickRevealBeforeAdvance()) {
       DialogueLine dialogue = current.getDialogue();
-      String resolvedText = dialogue == null ? "" : resolveInterpolatedText(dialogue.getText());
+      String resolvedText = dialogue == null ? "" : resolveDialogueTextCached(dialogue);
       ensureDialogueControlState(resolvedText);
       int textLength = TextParser.plainLength(resolvedText);
       if (state.getTextRevealProgress() < textLength) {
@@ -568,6 +570,17 @@ public class VnScene implements Scene {
     return VnTextFormatter.format(Localization.translateText(text), state.getVariables());
   }
 
+  private String resolveDialogueTextCached(DialogueLine dialogue) {
+    if (dialogue == null) return "";
+    int nodeIndex = state.getCurrentNodeIndex();
+    if (cachedResolvedDialogueNodeIndex == nodeIndex && cachedResolvedDialogueText != null) {
+      return cachedResolvedDialogueText;
+    }
+    cachedResolvedDialogueText = resolveInterpolatedText(dialogue.getText());
+    cachedResolvedDialogueNodeIndex = nodeIndex;
+    return cachedResolvedDialogueText;
+  }
+
   private void ensureDialogueControlState(String resolvedText) {
     if (dialogueControlNodeIndex == state.getCurrentNodeIndex()) return;
     resetDialogueControlState();
@@ -583,6 +596,8 @@ public class VnScene implements Scene {
     textTagWaitRemainingMs = 0;
     nowaitPending = false;
     nowaitRemainingMs = 0;
+    cachedResolvedDialogueText = null;
+    cachedResolvedDialogueNodeIndex = -1;
   }
 
   private void revealDialogueText(long deltaMs, int textLength) {

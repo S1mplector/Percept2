@@ -40,7 +40,7 @@ public final class VnTextFormatter {
 
     private static String processIcuBlocks(String template, Map<String, ?> variables) {
         Matcher matcher = ICU_BLOCK.matcher(template);
-        StringBuffer sb = new StringBuffer();
+        StringBuilder sb = new StringBuilder();
 
         while (matcher.find()) {
             String varName = matcher.group(1);
@@ -133,7 +133,7 @@ public final class VnTextFormatter {
 
     private static String interpolateVariables(String template, Map<String, ?> variables) {
         Matcher matcher = PLACEHOLDER.matcher(template);
-        StringBuffer sb = new StringBuffer();
+        StringBuilder sb = new StringBuilder();
 
         while (matcher.find()) {
             String key = matcher.group(1);
