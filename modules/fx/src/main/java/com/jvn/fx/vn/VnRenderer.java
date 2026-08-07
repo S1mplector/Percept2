@@ -220,6 +220,10 @@ public class VnRenderer {
   private int lastParticleLayer = 100;
   private double particleConfigWidth = -1.0;
   private double particleConfigHeight = -1.0;
+  
+  // Reusable per-frame lists to reduce GC pressure (cleared + re-populated each frame)
+  private final List<CharacterRenderEntry> reusableCharacterEntries = new ArrayList<>();
+  private final List<LayeredSceneDraw> reusableLayeredDraws = new ArrayList<>();
 
   public VnRenderer(GraphicsContext gc) {
     this.gc = gc;
@@ -652,12 +656,13 @@ public class VnRenderer {
     gc.restore();
   }
 
+
   private List<CharacterRenderEntry> orderedCharacterEntries(VnState state) {
     Map<CharacterPosition, VnState.CharacterSlot> characters = state.getVisibleCharacters();
 
-    java.util.List<CharacterRenderEntry> ordered = new java.util.ArrayList<>();
+    reusableCharacterEntries.clear();
     for (Map.Entry<CharacterPosition, VnState.CharacterSlot> entry : characters.entrySet()) {
-      ordered.add(new CharacterRenderEntry(
+      reusableCharacterEntries.add(new CharacterRenderEntry(
           entry.getKey(),
           entry.getValue(),
           state.getCharacterVisual(entry.getKey()),
@@ -667,19 +672,19 @@ public class VnRenderer {
     for (VnState.DetachedCharacterSlot detached : state.getDetachedCharacters().values()) {
       if (detached == null || detached.getSlot() == null) continue;
       CharacterPosition basePosition = detached.getBasePosition();
-      ordered.add(new CharacterRenderEntry(
+      reusableCharacterEntries.add(new CharacterRenderEntry(
           basePosition,
           detached.getSlot(),
           detached.getVisual(),
           positionOrdinal(basePosition) + detachedOrder++));
     }
-    ordered.sort(
+    reusableCharacterEntries.sort(
         java.util.Comparator
             .comparingInt((CharacterRenderEntry e) ->
                 e.slot() != null ? e.slot().getLayerOrder() : 0)
             .thenComparingInt(CharacterRenderEntry::order)
     );
-    return ordered;
+    return reusableCharacterEntries;
   }
 
   private void renderLayeredScene(
@@ -691,7 +696,8 @@ public class VnRenderer {
       double height,
       AudioVisualizerSettings visualizerSettings) {
 
-    List<LayeredSceneDraw> draws = new ArrayList<>();
+    reusableLayeredDraws.clear();
+    List<LayeredSceneDraw> draws = reusableLayeredDraws;
     if (orderedCharacters != null) {
       for (int i = 0; i < orderedCharacters.size(); i++) {
         CharacterRenderEntry entry = orderedCharacters.get(i);

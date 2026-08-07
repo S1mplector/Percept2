@@ -1,6 +1,7 @@
 package com.jvn.core.vn.rollback;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -34,12 +35,12 @@ public final class VnRollbackEntry {
     private VnRollbackEntry(Builder builder) {
         this.nodeIndex = builder.nodeIndex;
         this.backgroundId = builder.backgroundId;
-        this.variables = builder.variables != null ? new HashMap<>(builder.variables) : new HashMap<>();
-        this.visibleCharacters = builder.visibleCharacters != null ? new HashMap<>(builder.visibleCharacters) : new HashMap<>();
-        this.readNodes = builder.readNodes != null ? new HashSet<>(builder.readNodes) : new HashSet<>();
-        this.callStack = builder.callStack != null ? new ArrayList<>(builder.callStack) : new ArrayList<>();
-        this.globalPositionCharacters = builder.globalPositionCharacters != null ? new HashSet<>(builder.globalPositionCharacters) : new HashSet<>();
-        this.characterDefinedPositions = builder.characterDefinedPositions != null ? new HashMap<>(builder.characterDefinedPositions) : new HashMap<>();
+        this.variables = builder.variables != null ? Collections.unmodifiableMap(new HashMap<>(builder.variables)) : Map.of();
+        this.visibleCharacters = builder.visibleCharacters != null ? Collections.unmodifiableMap(new HashMap<>(builder.visibleCharacters)) : Map.of();
+        this.readNodes = builder.readNodes != null ? Collections.unmodifiableSet(new HashSet<>(builder.readNodes)) : Set.of();
+        this.callStack = builder.callStack != null ? Collections.unmodifiableList(new ArrayList<>(builder.callStack)) : List.of();
+        this.globalPositionCharacters = builder.globalPositionCharacters != null ? Collections.unmodifiableSet(new HashSet<>(builder.globalPositionCharacters)) : Set.of();
+        this.characterDefinedPositions = builder.characterDefinedPositions != null ? Collections.unmodifiableMap(new HashMap<>(builder.characterDefinedPositions)) : Map.of();
         this.skipMode = builder.skipMode;
         this.autoPlayMode = builder.autoPlayMode;
         this.autoPlayTimer = builder.autoPlayTimer;
@@ -51,12 +52,12 @@ public final class VnRollbackEntry {
 
     public int getNodeIndex() { return nodeIndex; }
     public String getBackgroundId() { return backgroundId; }
-    public Map<String, Object> getVariables() { return new HashMap<>(variables); }
-    public Map<CharacterPosition, CharacterSnapshot> getVisibleCharacters() { return new HashMap<>(visibleCharacters); }
-    public Set<Integer> getReadNodes() { return new HashSet<>(readNodes); }
-    public List<Integer> getCallStack() { return new ArrayList<>(callStack); }
-    public Set<String> getGlobalPositionCharacters() { return new HashSet<>(globalPositionCharacters); }
-    public Map<String, CharacterPosition> getCharacterDefinedPositions() { return new HashMap<>(characterDefinedPositions); }
+    public Map<String, Object> getVariables() { return variables; }
+    public Map<CharacterPosition, CharacterSnapshot> getVisibleCharacters() { return visibleCharacters; }
+    public Set<Integer> getReadNodes() { return readNodes; }
+    public List<Integer> getCallStack() { return callStack; }
+    public Set<String> getGlobalPositionCharacters() { return globalPositionCharacters; }
+    public Map<String, CharacterPosition> getCharacterDefinedPositions() { return characterDefinedPositions; }
     public boolean isSkipMode() { return skipMode; }
     public boolean isAutoPlayMode() { return autoPlayMode; }
     public long getAutoPlayTimer() { return autoPlayTimer; }

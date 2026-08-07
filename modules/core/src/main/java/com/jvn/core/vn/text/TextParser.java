@@ -142,7 +142,16 @@ public class TextParser {
    * Calculate total character count excluding markup
    */
   public static int plainLength(String text) {
-    return stripTags(text).length();
+    if (text == null) return 0;
+    Matcher matcher = TAG_PATTERN.matcher(text);
+    int length = 0;
+    int lastEnd = 0;
+    while (matcher.find()) {
+      length += matcher.start() - lastEnd;
+      lastEnd = matcher.end();
+    }
+    length += text.length() - lastEnd;
+    return length;
   }
 
   /**

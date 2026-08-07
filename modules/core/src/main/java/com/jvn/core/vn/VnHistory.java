@@ -1,6 +1,6 @@
 package com.jvn.core.vn;
 
-import java.util.ArrayList;
+import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.List;
 
@@ -8,7 +8,7 @@ import java.util.List;
  * Manages dialogue history/backlog for review
  */
 public class VnHistory {
-  private final List<HistoryEntry> entries = new ArrayList<>();
+  private final ArrayDeque<HistoryEntry> entries = new ArrayDeque<>();
   private final int maxEntries;
 
   public VnHistory() {
@@ -24,16 +24,16 @@ public class VnHistory {
   }
 
   public void addEntry(String speaker, String text, String speakerColor) {
-    entries.add(new HistoryEntry(speaker, text, speakerColor, System.currentTimeMillis()));
+    entries.addLast(new HistoryEntry(speaker, text, speakerColor, System.currentTimeMillis()));
     
-    // Trim old entries if we exceed max
+    // Trim old entries if we exceed max (O(1) with ArrayDeque)
     while (entries.size() > maxEntries) {
-      entries.remove(0);
+      entries.removeFirst();
     }
   }
 
   public List<HistoryEntry> getEntries() {
-    return Collections.unmodifiableList(entries);
+    return List.copyOf(entries);
   }
 
   public void clear() {
