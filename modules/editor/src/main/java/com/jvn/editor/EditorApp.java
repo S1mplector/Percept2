@@ -1449,6 +1449,8 @@ public class EditorApp extends Application {
 
   private void initializeEditorStage(Stage primaryStage) {
     primaryStage.setTitle("JVN Editor");
+    URL editorIcon = getClass().getResource("/com/jvn/editor/images/jvn_editor_icon.png");
+    if (editorIcon != null) primaryStage.getIcons().add(new Image(editorIcon.toExternalForm()));
     editorPreferencesStore = new EditorPreferencesStore();
     editorPreferences = SAFE_MODE ? EditorPreferences.defaults() : editorPreferencesStore.load();
     layoutStudioWindowManager = new LayoutStudioWindowManager(primaryStage, this::doRunProject);

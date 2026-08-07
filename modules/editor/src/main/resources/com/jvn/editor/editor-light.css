@@ -1210,7 +1210,8 @@
 
  /* Line numbers (RichTextFX LineNumberFactory) */
  .lineno {
-   -fx-background-color: #e4e4e4;
+   -fx-background-color: #e4e4e4, linear-gradient(to right, rgba(228,228,228,0.78), transparent);
+   -fx-background-insets: -1 0 -1 0, -1 -8 -1 0;
    -fx-border-color: rgba(0,0,0,0.08);
    -fx-border-width: 0 1 0 0;
    -fx-padding: 0 10 0 8;
