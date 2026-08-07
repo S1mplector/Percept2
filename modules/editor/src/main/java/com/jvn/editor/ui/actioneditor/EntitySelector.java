@@ -575,6 +575,12 @@ public class EntitySelector extends VBox {
         TreeItem<String> match = findTreeItem(root, encodedValue);
         if (match == null) return;
         expandTreePath(match);
+        // The timeline echoes picker changes back through selectEntity/selectGroup.
+        // Do not let that acknowledgement collapse a Shift-selected range.
+        if (treeView.getSelectionModel().getSelectedItem() == match
+            && treeView.getSelectionModel().getSelectedItems().contains(match)) {
+            return;
+        }
         treeView.getSelectionModel().clearAndSelect(treeView.getRow(match));
     }
 

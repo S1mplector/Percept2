@@ -46,6 +46,11 @@ class EntitySelectorFxTest {
 
       EntitySelector selector = new EntitySelector();
       selector.refresh(project);
+      // Mirrors Puppeteer's timeline acknowledgement after a picker selection.
+      selector.setOnSelectionChanged((name, group) -> {
+        if (group) selector.selectGroup(name);
+        else selector.selectEntity(name);
+      });
       selector.selectEntities(List.of("body", "eyes", "mouth"));
       return selector.getSelectedEntityNames();
     });
