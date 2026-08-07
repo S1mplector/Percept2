@@ -735,6 +735,34 @@ public final class JvnHub {
         ACCENT_NEUTRAL,
         this::copyEngineEnvironmentSummary));
     engine.addSeparator();
+    JMenu plugins = hubMenu("Plugins", ACCENT_DEV, KeyEvent.VK_P);
+    plugins.add(menuStatusCard(
+        "Plugin bundles",
+        "Verify and load JARs without running plugin code",
+        ACCENT_DEV));
+    plugins.addSeparator();
+    plugins.add(hubMenuItem(
+        "Manage Plugins…",
+        "Inspect installed plugin bundles, verify their manifests and entrypoints, or load a verified JAR.",
+        VectorIcon.Kind.HEALTH,
+        ACCENT_DEV,
+        this::showPluginManager));
+    plugins.add(hubMenuItem(
+        "Open User Plugin Folder",
+        "Open the user-wide plugin folder used by every JVN project.",
+        VectorIcon.Kind.INFO,
+        ACCENT_DEV,
+        () -> revealHubFolder("plugins", Paths.get(System.getProperty("user.home", "."), ".jvn", "plugins"))));
+    if (projectRoot != null) {
+      plugins.add(hubMenuItem(
+          "Open Project Plugin Folder",
+          "Open this project’s plugin folder.",
+          VectorIcon.Kind.INFO,
+          ACCENT_DEV,
+          () -> revealHubFolder("project plugins", projectRoot.resolve("plugins"))));
+    }
+    engine.add(plugins);
+    engine.addSeparator();
     engine.add(withAccelerator(hubMenuItem(
         "Refresh Engine Metadata",
         "Reload the engine version, rendering preferences, and menu status.",
@@ -946,6 +974,13 @@ public final class JvnHub {
     bar.add(view);
     bar.add(help);
     return bar;
+  }
+
+  private void showPluginManager() {
+    HubPluginManagerDialog dialog = new HubPluginManagerDialog(frame, projectRoot, () -> {
+      statusLabel.setText("Plugin folders changed. Reload the project in the editor to apply the new plugin set.");
+    });
+    dialog.setVisible(true);
   }
 
   private JMenu buildDeveloperModeMenu() {

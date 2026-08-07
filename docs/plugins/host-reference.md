@@ -2,7 +2,12 @@
 
 ## Discovery
 
-The shared host checks user plugins, project plugins, explicitly configured directories, and bundled `ServiceLoader` providers. JARs are processed in filename order; identity and dependencies determine activation order.
+The shared host checks user plugins, project plugins, explicitly configured directories, and bundled `ServiceLoader` providers. External JARs are preflighted before construction: their manifest, Plugin API range, entrypoint type, and public no-argument constructor must all be valid. JARs are processed in filename order; identity and dependencies determine activation order.
+
+Use **Engine Hub → Engine → Plugins → Manage Plugins** to scan installed bundles, see structural
+verification failures, load a verified JAR into either scope, or remove a bundle. Hub verification
+does not load, construct, or start plugin code; the editor performs the complete entrypoint preflight
+when it reloads the project.
 
 Set `-Djvn.plugins.disabled=true` to start JVN without loading plugins during recovery or diagnosis.
 
@@ -15,7 +20,7 @@ META-INF/services/com.jvn.plugin.api.BundledPluginProvider
 ## Lifecycle
 
 ```text
-discover → validate → dependency order → initialize → start
+discover → preflight → validate → dependency order → initialize → start
                                                    ↓
                                       listeners and extensions
                                                    ↓
@@ -32,6 +37,6 @@ Each plugin receives `~/.jvn/plugin-data/<plugin-id>/`. If `config.properties` e
 
 ## Diagnostics
 
-`PluginHost.diagnostics()` reports severity, plugin ID, stable code, message, and cause. Important codes include `jar-load`, `duplicate-id`, `api-incompatible`, dependency errors, lifecycle failures, and listener failures.
+`PluginHost.diagnostics()` reports severity, plugin ID, stable code, message, and cause. Important codes include `jar-verify`, `jar-load`, `duplicate-id`, `api-incompatible`, dependency errors, lifecycle failures, and listener failures.
 
 `PluginHost.plugins()` exposes descriptor, state, source JAR, and failure text for management UI.

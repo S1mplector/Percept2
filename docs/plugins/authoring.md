@@ -68,6 +68,11 @@ cp build/libs/greeter-1.0.0.jar ~/.jvn/plugins/
 
 For a project-local extension, copy the JAR into `<project>/plugins/`. Open the project again so the editor reloads its plugin host.
 
+The safer installation path is **Engine Hub → Engine → Plugins → Manage Plugins**. It verifies the
+manifest, Plugin API range, and entrypoint class presence without starting plugin code, then copies
+the verified JAR into the user or current-project plugin folder. The editor performs the full
+entrypoint-type and constructor preflight when it reloads the project.
+
 ## 5. Use it
 
 Editor tools appear under **Tools → Plugins**. Script commands use the plugin provider followed by the registered command and arguments:
@@ -82,7 +87,7 @@ Returned variable updates are copied into VNS state.
 
 Keep plugin business logic independent from JavaFX. Unit-test handlers directly, then test host behavior using `PluginHost` with a `BundledPluginProvider`. Verify manifests, capabilities, configuration defaults, lifecycle cleanup, malformed arguments, and resources released from `stop()`.
 
-The repository tests in `modules/plugin-runtime/src/test` demonstrate dependency ordering, cleanup, capability enforcement, and failure isolation.
+The repository tests in `modules/plugin-runtime/src/test` demonstrate dependency ordering, cleanup, capability enforcement, bundle verification, and failure isolation.
 
 ## Add an animation easing
 

@@ -26,7 +26,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.ServiceLoader;
 import java.util.Set;
-import java.util.jar.JarFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,6 +40,7 @@ public final class PluginHost implements AutoCloseable {
   private final Path userDataDirectory;
   private final List<Path> pluginDirectories;
   private final DefaultPluginRegistries registries = new DefaultPluginRegistries();
+  private final PluginBundleVerifier bundleVerifier = new PluginBundleVerifier();
   private final Map<String, Candidate> candidates = new LinkedHashMap<>();
   private final Map<String, Active> active = new LinkedHashMap<>();
   private final List<PluginDiagnostic> diagnostics = new ArrayList<>();
@@ -158,18 +158,19 @@ public final class PluginHost implements AutoCloseable {
 
   private void discoverJar(Path jar) {
     URLClassLoader loader = null;
-    try (JarFile archive = new JarFile(jar.toFile())) {
-      loader = new URLClassLoader(new URL[] {jar.toUri().toURL()}, JvnPlugin.class.getClassLoader());
-      var manifestEntry = archive.getJarEntry(PluginManifestReader.MANIFEST_PATH);
-      if (manifestEntry == null) throw new IOException("Missing " + PluginManifestReader.MANIFEST_PATH);
-      try (InputStream manifest = archive.getInputStream(manifestEntry)) {
-        PluginDescriptor descriptor = new PluginManifestReader().read(manifest);
-        Class<?> type = Class.forName(descriptor.entrypoint(), true, loader);
-        if (!JvnPlugin.class.isAssignableFrom(type)) throw new IOException("Entrypoint does not implement JvnPlugin");
-        JvnPlugin plugin = (JvnPlugin) type.getDeclaredConstructor().newInstance();
-        addCandidate(new Candidate(descriptor, plugin, jar.toAbsolutePath(), loader));
-        loader = null;
+    try {
+      PluginBundleVerifier.Verification verification = bundleVerifier.verify(jar);
+      if (!verification.isValid()) {
+        diagnostic(PluginDiagnostic.Severity.ERROR, "", "jar-verify",
+            "Could not verify plugin jar " + jar + ": " + verification.error(), null);
+        return;
       }
+      loader = new URLClassLoader(new URL[] {jar.toUri().toURL()}, JvnPlugin.class.getClassLoader());
+      PluginDescriptor descriptor = verification.descriptor();
+      Class<?> type = Class.forName(descriptor.entrypoint(), true, loader);
+      JvnPlugin plugin = (JvnPlugin) type.getDeclaredConstructor().newInstance();
+      addCandidate(new Candidate(descriptor, plugin, jar.toAbsolutePath(), loader));
+      loader = null;
     } catch (Throwable error) {
       diagnostic(PluginDiagnostic.Severity.ERROR, "", "jar-load", "Could not load plugin jar " + jar, error);
     } finally {
