@@ -65,6 +65,7 @@ public class TimelineCodeEditor extends BorderPane {
     if (!code.getStyleClass().contains("code-area")) {
       code.getStyleClass().add("code-area");
     }
+    CodeEditorGutterGuard.install(code);
     code.setParagraphGraphicFactory(LineNumberFactory.get(code));
     code.textProperty().addListener((o,ov,nv) -> {
       issues = computeIssues(nv == null ? "" : nv);

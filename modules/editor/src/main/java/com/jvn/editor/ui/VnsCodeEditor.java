@@ -203,6 +203,7 @@ public class VnsCodeEditor extends BorderPane {
     if (!codeArea.getStyleClass().contains("code-area")) {
       codeArea.getStyleClass().add("code-area");
     }
+    CodeEditorGutterGuard.install(codeArea);
     codeArea.setParagraphGraphicFactory(this::makeLineNumberLabel);
     codeArea.textProperty().addListener((obs, oldText, newText) -> {
       String value = newText == null ? "" : newText;

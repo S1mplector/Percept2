@@ -102,6 +102,7 @@ public class JesCodeEditor extends BorderPane {
     if (!codeArea.getStyleClass().contains("code-area")) {
       codeArea.getStyleClass().add("code-area");
     }
+    CodeEditorGutterGuard.install(codeArea);
     codeArea.setParagraphGraphicFactory(line -> {
       Label ln = new Label(String.format("%d", line + 1));
       ln.getStyleClass().add("lineno");

@@ -98,6 +98,7 @@ public class JavaCodeEditor extends BorderPane {
     if (!codeArea.getStyleClass().contains("code-area")) {
       codeArea.getStyleClass().add("code-area");
     }
+    CodeEditorGutterGuard.install(codeArea);
     IntFunction<Node> lineNumberFactory = LineNumberFactory.get(codeArea);
     codeArea.setParagraphGraphicFactory(line -> buildGutterGraphic(line, lineNumberFactory));
     codeArea.textProperty().addListener((obs, oldText, newText) -> {
