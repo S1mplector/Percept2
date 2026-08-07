@@ -1264,8 +1264,9 @@ The editor.css file defines the visual styling for the editor module, including 
 
  /* Line numbers (RichTextFX LineNumberFactory) */
  .lineno {
-   -fx-background-color: #151515, linear-gradient(to right, rgba(21,21,21,0.78), transparent);
-   -fx-background-insets: -1 0 -1 0, -1 -8 -1 0;
+   -fx-background-color: #151515;
+   -fx-background-insets: -2 -24 -2 0;
+   -fx-view-order: -1;
    -fx-border-color: rgba(255,255,255,0.06);
    -fx-border-width: 0 1 0 0;
    -fx-padding: 0 8 0 6;
