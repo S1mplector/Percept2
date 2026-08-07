@@ -291,8 +291,8 @@ Change expression without moving:
 ```
 
 Expression changes preserve the character's current slot, layer order, timeline
-offset, mirror state, and detached position. By default the renderer crossfades
-the old and new expression over `120ms`; use `dur=0` for an instant sprite swap.
+offset, mirror state, and detached position. Expressions swap instantly by
+default; use a positive `dur` value to crossfade the old and new sprites.
 
 ### `[char charId hide]`
 

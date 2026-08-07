@@ -261,7 +261,7 @@ Character choreography helper provider. `[character]` is accepted as an alias fo
 | `at` | `position`, `pos` | Set the character's anchor position |
 | `move` | — | Animated slide to a new position (with optional expression, easing, duration) |
 | `show` | — | Show character at a position with an expression |
-| `expression` | `expr` | Change expression without moving; crossfades by default |
+| `expression` | `expr` | Change expression without moving; swaps instantly unless given a duration |
 | `hide` | — | Animated exit |
 
 **Move with easing and duration:**
@@ -273,8 +273,8 @@ Character choreography helper provider. `[character]` is accepted as an alias fo
 **Expression transition:**
 
 ```vns
-[char hero expression angry]          # 120ms default crossfade
-[char hero expression neutral dur=0]  # instant swap
+[char hero expression angry]          # instant swap
+[char hero expression neutral dur=120] # opt-in crossfade
 [char hero expr surprised dur=180 easing=ease_out_quad]
 ```
 

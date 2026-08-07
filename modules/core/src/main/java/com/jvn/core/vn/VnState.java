@@ -23,7 +23,8 @@ public class VnState {
   private static final String VAR_BUBBLE_OFFSET_X_PREFIX = "ui.bubble.offsetX.";
   private static final String VAR_BUBBLE_OFFSET_Y_PREFIX = "ui.bubble.offsetY.";
   private static final String VAR_ACTIVE_STAGE_PRESET_ID = "stage.activePreset";
-  public static final long DEFAULT_EXPRESSION_TRANSITION_MS = 120L;
+  /** Expressions swap immediately unless a command explicitly requests a transition. */
+  public static final long DEFAULT_EXPRESSION_TRANSITION_MS = 0L;
 
   private VnScenario scenario;
   private String sourceScriptName;

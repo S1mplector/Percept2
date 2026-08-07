@@ -75,7 +75,7 @@ class VnStateCharacterSlotsTest {
   }
 
   @Test
-  void showCharacterAnimatedExpressionOnlySwitchDoesNotRestartVisualAnimation() {
+  void showCharacterAnimatedExpressionOnlySwitchIsInstantAndDoesNotRestartVisualAnimation() {
     VnState state = new VnState();
 
     state.showCharacter(CharacterPosition.CENTER, "john", "neutral");
@@ -92,10 +92,7 @@ class VnStateCharacterSlotsTest {
     assertEquals(42.0, visual.getOffsetX(), 0.001);
     assertEquals(-6.0, visual.getOffsetY(), 0.001);
     assertTrue(visual.isFinished());
-    VnState.ExpressionTransition transition = state.getExpressionTransition("john");
-    assertNotNull(transition);
-    assertEquals("neutral", transition.getFromExpression());
-    assertEquals("talking", transition.getToExpression());
+    assertNull(state.getExpressionTransition("john"));
   }
 
   @Test
@@ -225,7 +222,7 @@ class VnStateCharacterSlotsTest {
     VnState.DetachedCharacterSlot detached = state.getDetachedCharacter("john");
     assertNotNull(detached);
     assertEquals("talking", detached.getSlot().getExpression());
-    assertNotNull(state.getExpressionTransition("john"));
+    assertNull(state.getExpressionTransition("john"));
   }
 
   @Test

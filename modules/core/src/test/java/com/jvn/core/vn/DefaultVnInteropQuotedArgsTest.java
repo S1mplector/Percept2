@@ -112,7 +112,7 @@ class DefaultVnInteropQuotedArgsTest {
 
     interop.handle(new VnExternalCommand("char", "lily expression neutral"), scene);
     assertEquals("neutral", scene.getState().getCharacterExpression("lily"));
-    assertNotNull(scene.getState().getExpressionTransition("lily"));
+    assertNull(scene.getState().getExpressionTransition("lily"));
   }
 
   @Test

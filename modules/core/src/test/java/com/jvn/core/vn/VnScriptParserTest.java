@@ -1107,7 +1107,7 @@ public class VnScriptParserTest {
   }
 
   @Test
-  public void characterExpressionCommandAcceptsInstantAndDefaultDurations() throws Exception {
+  public void characterExpressionCommandUsesInstantDefaultAndAcceptsExplicitDuration() throws Exception {
     String instantScript = """
       @scenario expression_instant
       @character lily "Lily"
@@ -1142,7 +1142,7 @@ public class VnScriptParserTest {
     defaultScene.onEnter();
 
     assertEquals("neutral", defaultScene.getState().getCharacterExpression("lily"));
-    assertNotNull(defaultScene.getState().getExpressionTransition("lily"));
+    assertNull(defaultScene.getState().getExpressionTransition("lily"));
   }
 
   @Test

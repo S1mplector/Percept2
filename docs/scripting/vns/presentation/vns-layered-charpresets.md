@@ -261,7 +261,7 @@ The pivot from `@chargroup` is only the default. If a Puppeteer timeline target 
 | Group motion affects the wrong layers | Check the layer list in `@chargroup`; nested groups expand into their declared layers. |
 | Rotation pivots around the feet | Add `pivot=0.5,0.28` or author a pivot directly on the Puppeteer group target. |
 
-Each `[show]` command swaps the expression instantly by switching which layers are composited. The transition uses a 180ms crossfade by default.
+Each `[show]` command swaps the expression instantly by switching which layers are composited. Use `[char aria expression ... dur=...]` when a crossfade is explicitly wanted.
 
 ### Faster preset switching and inline composites
 

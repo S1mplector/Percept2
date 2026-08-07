@@ -184,7 +184,7 @@ Character show/hide/move operations use `CharacterVisual` for smooth animation:
 **Animation constants:**
 - Entrance tween: 220ms, ease-out-quad, 60px slide offset
 - Move between positions: 320ms, ease-out-quad, 220px step offset
-- Expression fade: 180ms crossfade
+- Expression swap: instant by default; use `dur=...` to opt into a crossfade
 
 ```java
 // Show with entrance animation (fade in + slide from edge)
