@@ -1,6 +1,7 @@
 package com.jvn.editor.ui.actioneditor;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -20,6 +21,7 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.SelectionMode;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TreeCell;
 import javafx.scene.control.TreeItem;
@@ -78,6 +80,7 @@ public class EntitySelector extends VBox {
             "• Entities are scene2D nodes (sprites, labels, cameras) loaded at runtime and available for animation.\n" +
             "• Groups let you animate multiple entities together on a single coordinated track.\n" +
             "• Click an entity to activate its track in the timeline.\n" +
+            "• Shift-click to select a contiguous range of entities.\n" +
             "• Use the filter field to quickly find an entity by name.\n" +
             "• \"+ Group\" creates a new animation group.\n" +
             "• \"Actions\" shows bulk operations such as solo, hide, and delete."));
@@ -100,6 +103,7 @@ public class EntitySelector extends VBox {
         treeView.setMinWidth(0);
         treeView.setShowRoot(false);
         treeView.setStyle("-fx-background-color: #1a1a1a; -fx-control-inner-background: #1a1a1a;");
+        treeView.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
         treeView.setCellFactory(tv -> new EntityTreeCell());
         treeView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
@@ -194,7 +198,7 @@ public class EntitySelector extends VBox {
     }
 
     public void refresh(AnimationProject project) {
-        String previousSelection = selectedEncodedValue();
+        List<String> previousSelections = selectedEncodedValues();
         this.project = project;
         rootItem.getChildren().clear();
         if (project == null) {
@@ -213,7 +217,7 @@ public class EntitySelector extends VBox {
         }
 
         applyFilter();
-        reselectByEncodedValue(previousSelection);
+        reselectByEncodedValues(previousSelections);
         updateEmptyState();
     }
 
@@ -223,6 +227,28 @@ public class EntitySelector extends VBox {
 
     public void selectGroup(String name) {
         selectByName(name, true);
+    }
+
+    /** Returns the selected entity names, excluding group containers. */
+    public List<String> getSelectedEntityNames() {
+        return treeView.getSelectionModel().getSelectedItems().stream()
+            .map(TreeItem::getValue)
+            .filter(value -> !isEncodedGroupValue(value))
+            .map(EntitySelector::decodeTreeValue)
+            .toList();
+    }
+
+    /** Selects multiple entities for callers that use the shared entity picker. */
+    public void selectEntities(List<String> names) {
+        treeView.getSelectionModel().clearSelection();
+        if (names == null) return;
+        for (String name : names) {
+            if (name == null || name.isBlank()) continue;
+            TreeItem<String> match = findTreeItem(treeView.getRoot(), name);
+            if (match == null) continue;
+            expandTreePath(match);
+            treeView.getSelectionModel().select(match);
+        }
     }
 
     private void updateEmptyState() {
@@ -273,11 +299,11 @@ public class EntitySelector extends VBox {
     }
 
     private void applyFilter() {
-        String selected = selectedEncodedValue();
+        List<String> selections = selectedEncodedValues();
         String query = filterField.getText();
         if (query == null || query.isBlank()) {
             treeView.setRoot(rootItem);
-            reselectByEncodedValue(selected);
+            reselectByEncodedValues(selections);
             return;
         }
 
@@ -291,7 +317,7 @@ public class EntitySelector extends VBox {
             }
         }
         treeView.setRoot(filtered);
-        reselectByEncodedValue(selected);
+        reselectByEncodedValues(selections);
     }
 
     private boolean matchesFilter(TreeItem<String> item, String query) {
@@ -528,6 +554,12 @@ public class EntitySelector extends VBox {
         return selected != null ? selected.getValue() : null;
     }
 
+    private List<String> selectedEncodedValues() {
+        return treeView.getSelectionModel().getSelectedItems().stream()
+            .map(TreeItem::getValue)
+            .toList();
+    }
+
     private void selectByName(String name, boolean group) {
         if (name == null || name.isBlank()) {
             treeView.getSelectionModel().clearSelection();
@@ -543,7 +575,18 @@ public class EntitySelector extends VBox {
         TreeItem<String> match = findTreeItem(root, encodedValue);
         if (match == null) return;
         expandTreePath(match);
-        treeView.getSelectionModel().select(match);
+        treeView.getSelectionModel().clearAndSelect(treeView.getRow(match));
+    }
+
+    private void reselectByEncodedValues(List<String> encodedValues) {
+        if (encodedValues == null || encodedValues.isEmpty()) return;
+        treeView.getSelectionModel().clearSelection();
+        for (String encodedValue : encodedValues) {
+            TreeItem<String> match = findTreeItem(treeView.getRoot(), encodedValue);
+            if (match == null) continue;
+            expandTreePath(match);
+            treeView.getSelectionModel().select(treeView.getRow(match));
+        }
     }
 
     private static TreeItem<String> findTreeItem(TreeItem<String> root, String value) {
