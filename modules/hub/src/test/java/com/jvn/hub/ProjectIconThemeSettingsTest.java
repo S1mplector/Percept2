@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -84,5 +85,15 @@ class ProjectIconThemeSettingsTest {
     assertEquals("Mint-X-Grey", ProjectIconThemeSettings.parseThemeSetting(
         "[Settings]\ngtk-icon-theme-name='Mint-X-Grey'\n"));
     assertFalse(ProjectIconThemeSettings.detectedDesktopTheme().isBlank());
+  }
+
+  @Test
+  void xdgDirectoryListsSupportColonAndSemicolonFormats() {
+    assertEquals(
+        List.of("/usr/local/share", "/usr/share"),
+        ProjectIconThemeSettings.splitDataDirectories("/usr/local/share:/usr/share"));
+    assertEquals(
+        List.of("C:\\icons", "D:\\icons"),
+        ProjectIconThemeSettings.splitDataDirectories("C:\\icons;D:\\icons"));
   }
 }

@@ -8,6 +8,7 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
@@ -319,21 +320,49 @@ final class ProjectIconThemeSettings {
 
   private static List<Path> iconRoots() {
     LinkedHashSet<Path> roots = new LinkedHashSet<>();
+    boolean linux = System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("linux");
     Path home = Paths.get(System.getProperty("user.home", "."));
     roots.add(home.resolve(".icons"));
     String dataHome = System.getenv("XDG_DATA_HOME");
-    roots.add((dataHome == null || dataHome.isBlank()
+    Path resolvedDataHome = dataHome == null || dataHome.isBlank()
         ? home.resolve(".local/share")
-        : Paths.get(dataHome)).resolve("icons"));
+        : safePath(dataHome).orElse(home.resolve(".local/share"));
+    roots.add(resolvedDataHome.resolve("icons"));
     String dataDirectories = System.getenv("XDG_DATA_DIRS");
     String resolved = dataDirectories == null || dataDirectories.isBlank()
-        ? "/usr/local/share:/usr/share"
+        ? (linux ? "/usr/local/share:/usr/share" : "")
         : dataDirectories;
-    for (String directory : resolved.split(Pattern.quote(java.io.File.pathSeparator))) {
-      if (!directory.isBlank()) roots.add(Paths.get(directory).resolve("icons"));
+    for (String directory : splitDataDirectories(resolved)) {
+      safePath(directory).ifPresent(path -> roots.add(path.resolve("icons")));
     }
-    roots.add(Paths.get("/usr/share/icons"));
+    if (linux) roots.add(Paths.get("/usr/share/icons"));
     return roots.stream().filter(Files::isDirectory).toList();
+  }
+
+  static List<String> splitDataDirectories(String value) {
+    if (value == null || value.isBlank()) return List.of();
+    if (value.contains(";")) {
+      return Arrays.stream(value.split(Pattern.quote(";")))
+          .map(String::trim)
+          .filter(part -> !part.isBlank())
+          .toList();
+    }
+    if (value.contains(":")) {
+      return Arrays.stream(value.split(Pattern.quote(":")))
+          .map(String::trim)
+          .filter(part -> !part.isBlank())
+          .toList();
+    }
+    return List.of(value.trim());
+  }
+
+  private static Optional<Path> safePath(String value) {
+    if (value == null || value.isBlank()) return Optional.empty();
+    try {
+      return Optional.of(Paths.get(value.trim()));
+    } catch (InvalidPathException ignored) {
+      return Optional.empty();
+    }
   }
 
   private static String detectDesktopTheme() {
