@@ -1,11 +1,5 @@
 package com.jvn.editor.ui;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -17,6 +11,11 @@ import java.util.regex.Pattern;
 
 import javax.imageio.ImageIO;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 import com.jvn.core.vn.script.VnScriptParser;
@@ -202,7 +201,7 @@ class NewProjectScaffoldTemplateWiringTest {
     for (Map.Entry<String, String> entry : TOKENS.entrySet()) {
       rendered = rendered.replace("{{" + entry.getKey() + "}}", entry.getValue());
     }
-    return rendered;
+    return rendered.replace("\r\n", "\n").replace("\r", "\n");
   }
 
   private static void parseVns(String rendered) throws Exception {

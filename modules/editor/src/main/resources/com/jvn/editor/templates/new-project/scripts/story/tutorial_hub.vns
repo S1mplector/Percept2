@@ -9,13 +9,14 @@
 @include {{CHARACTERS_INCLUDE}}
 
 {{BG_DECL}}@label start
-{{BG_START}}[mode dialogue standard]
+[mode dialogue standard]
 [set ui.dialogueUi default]
 [set ui.textBoxAsset default]
 [textspeed 28]
 [autodelay 1700]
 [set ui.characterHeightFactor 0.82]
 [set ui.characterBaselineY 0.96]
+{{BG_START}}
 [show lavender center happy]
 [wait 200]
 
