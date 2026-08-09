@@ -1520,7 +1520,7 @@ public class VnRenderer {
     return cleaned;
   }
 
-  static List<String> parseLayerPaths(String imagePathSpec) {
+  public static List<String> parseLayerPaths(String imagePathSpec) {
     if (imagePathSpec == null || imagePathSpec.isBlank()) return List.of();
     if (imagePathSpec.indexOf('|') < 0) return List.of(imagePathSpec.trim());
 

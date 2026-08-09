@@ -6861,7 +6861,8 @@ public final class JvnHub {
     private double targetScrollOffset = 0.0;
 
     StepListPanel() {
-      setOpaque(false);
+      setOpaque(true);
+      setBackground(PANEL_BG);
       setPreferredSize(uiDimension(0, 62));
       setMinimumSize(uiDimension(0, 62));
       scrollTimer = new javax.swing.Timer(16, e -> animateScroll());
@@ -6919,7 +6920,10 @@ public final class JvnHub {
 
     @Override
     protected void paintComponent(Graphics g) {
+      super.paintComponent(g);
       Graphics2D g2 = (Graphics2D) g.create();
+      g2.setColor(getBackground());
+      g2.fillRect(0, 0, getWidth(), getHeight());
       g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
       g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
       Shape oldClip = g2.getClip();
