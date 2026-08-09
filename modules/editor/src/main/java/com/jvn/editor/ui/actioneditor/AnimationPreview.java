@@ -1965,8 +1965,9 @@ public class AnimationPreview extends VBox {
             w = panel.getWidth();
             h = panel.getHeight();
         } else if (entity instanceof com.jvn.core.scene2d.SpriteAnimation2D) {
-            w = 40.0;
-            h = 40.0;
+            com.jvn.core.scene2d.SpriteAnimation2D animation = (com.jvn.core.scene2d.SpriteAnimation2D) entity;
+            w = animation.getWidth();
+            h = animation.getHeight();
         }
         return new EntityFrame(
             entity.getX(),

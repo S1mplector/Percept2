@@ -102,6 +102,12 @@ public class SpriteAnimation2D extends Entity2D {
   /** @param a opacity [0.0, 1.0] */
   public void setAlpha(double a) { this.alpha = a; }
 
+  /** @return display width in logical pixels */
+  public double getWidth() { return width; }
+
+  /** @return display height in logical pixels */
+  public double getHeight() { return height; }
+
   /** @param pingPong {@code true} to oscillate between first and last frame */
   public void setPingPong(boolean pingPong) { this.pingPong = pingPong; }
 
