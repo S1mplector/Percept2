@@ -64,6 +64,9 @@ public class VnCharacter {
     }
     return ids == null ? List.of() : ids;
   }
+  public Map<String, List<String>> getExpressionLayerIdsByName() {
+    return Map.copyOf(expressionLayerIds);
+  }
   public LayerGroup getLayerGroup(String groupId) {
     if (groupId == null || groupId.isBlank()) return null;
     return layerGroups.get(groupId.trim());

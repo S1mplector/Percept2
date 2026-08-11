@@ -8053,7 +8053,7 @@ public class EditorApp extends Application {
     for (PuppeteerLauncherPanel.CharacterLayerEntry layer : layers) {
       if (layer == null || layer.path == null || layer.path.isBlank()) continue;
       String resolvedPath = resolveProjectPath(layer.path);
-      String entityName = PuppeteerLauncherPanel.snapshotLayerEntityName(ch.characterId, ch.expression, layer.layerId);
+      String entityName = PuppeteerLauncherPanel.snapshotStableLayerEntityName(ch.characterId, layer.layerId);
       while (scene.find(entityName) != null) {
         entityName = entityName + "_" + (layerIndex + 2);
       }
@@ -8065,7 +8065,7 @@ public class EditorApp extends Application {
       scene.registerEntity(entityName, sprite);
       for (String alias : PuppeteerLauncherPanel.equivalentSnapshotLayerEntityNames(snapshot, ch, layer.layerId)) {
         if (alias == null || alias.isBlank() || alias.equals(entityName)) continue;
-        scene.registerEntity(alias, sprite);
+        scene.registerEntityAlias(alias, sprite);
       }
       layerIndex++;
     }

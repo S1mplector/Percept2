@@ -726,6 +726,8 @@ Layered character launches also create expression-specific aliases:
 
 Group transforms are applied before individual layer transforms. This lets authors animate broad motion on `hero_head` while keeping small corrections on `hero_eyes_neutral` or `hero_mouth_smile`.
 
+Puppeteer uses the stable `hero_<layer>` name as the canonical exported track. The expression-specific form remains an alias for importing older timelines. A stable layer target follows that exact layer when it is reused by another expression; it does not automatically transfer to a replacement layer with a different ID. Use an `@chargroup` containing the alternative layer IDs when one transform should follow a semantic part such as every body or arm variant.
+
 ### JES Launch
 
 When launched from a JES file, entity names are the JES entity names:
@@ -750,7 +752,25 @@ timeline {
 }
 ```
 
-**Missing entities are silently skipped** — the runner checks `scene.findEntity(name)` and continues if it returns null.
+For declared layered characters, a timeline may intentionally target a layer or group absent from the current `[show]` composition. The engine pre-arms that proxy and the editor reports a warning so the delayed effect is explicit. When a later expression substitutes a conventionally named variant such as `body_default` → `body_no_limbs` or `arm_front_default` → `arm_front_holding_wrist`, the renderer infers the shared anatomical lane and carries the transform without requiring an `@chargroup`. An explicit group remains available when naming is ambiguous or a project wants to override the inferred lane.
+
+### Contextual timeline diagnostics
+
+The main VNS diagnostics pass and VN runtime share the same composition-aware timeline validator. The editor annotates the quoted target before preview; runtime turns blocking findings into the full-screen **Puppeteer Timeline Diagnostics** overlay and does not create a timeline runner or proxy.
+
+| Diagnostic | Result | Suggested correction |
+|------------|--------|----------------------|
+| Character is not currently shown | Playback blocked | Move the timeline after the relevant `[show]` |
+| Declared layer is absent from the active composition | Warning; transform is pre-armed | Keep it when intentional, or move the timeline after `[show]` to preview it immediately |
+| Declared group has no visible member | Warning; transform is pre-armed | Keep it when intentional, or show a member first |
+| Expression-qualified alias belongs to another composition | Compatibility warning | Prefer the stable `character_layer` or `character_group` name |
+| Character-prefixed target matches no declared layer/group | Playback blocked | Correct the spelling or declare the intended group |
+| Expression-specific target is valid now | Warning | Prefer the stable target if the animation should survive expression changes |
+| Exact layer has replacement variants | Advisory | The renderer infers a unique anatomical lane; use `@chargroup` only to resolve ambiguity or override it |
+| Layer disappears in another expression | Warning | Its state persists and follows a uniquely inferred replacement; reset it when that persistence is unwanted |
+| Non-zero animation ends within one 60 Hz frame | Warning | Use more than `17ms` for visible interpolation, or `0ms` for an intentional cut |
+
+Blocking validation also applies between chained timelines. If a later chain member becomes invalid after an event or expression change, the chain stops safely and releases a waiting VNS call instead of creating dormant state or deadlocking playback.
 
 ---
 
@@ -907,6 +927,7 @@ Apply a preset, then refine: change easing curves, adjust timing, modify target 
 | Entity snaps to position | Missing starting keyframe | Add a `dur: 0` keyframe at the initial position before the animation |
 | Jittery movement | Two timelines animating the same property | Avoid overlapping timelines on the same entity/property |
 | Animation too fast/slow | Duration mismatch | Check `dur` values; ensure `[wait]` values in VNS match the timeline duration |
+| Animation jumps straight to its result | Duration is shorter than one display frame | Durations are milliseconds; use more than `17ms` for a visible transition, or `0ms` for an intentional instant change |
 | Easing feels wrong | Wrong easing direction | `ease_in_*` accelerates, `ease_out_*` decelerates — most entrances want `ease_out_*` |
 | Alpha has no effect | Non-Sprite2D entity | Alpha only works on `Sprite2D`, `Label2D`, `Panel2D`, and `CharacterEntity2D` |
 

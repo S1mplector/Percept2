@@ -242,6 +242,26 @@ class PuppeteerVerificationTest {
     }
 
     @Test
+    void runtimeRegistrationWarnsForSubFrameAnimation() {
+        AnimationProject project = new AnimationProject();
+        project.setName("sub_frame_mirror");
+        EntityTrack body = project.getOrCreateTrack("john_body_default");
+        body.addKeyframe(PropertyType.MIRROR_X, new Keyframe(1, 1));
+
+        List<TimelineDiagnostic.Message> messages = PuppeteerVerification.diagnose(
+            project,
+            Set.of("john_body_default"),
+            null,
+            PuppeteerVerification.Mode.REGISTER_RUNTIME
+        );
+
+        assertTrue(messages.stream().anyMatch(message ->
+            message.severity() == TimelineDiagnostic.Severity.WARNING
+                && message.entityOrTrack().equals("john_body_default")
+                && message.description().contains("within one 60 Hz display frame")));
+    }
+
+    @Test
     void timelineNameValidationBlocksUnsafeFileAndVnsNames() {
         assertTrue(PuppeteerVerification.validateTimelineName("../bad name").stream().anyMatch(message ->
             message.severity() == TimelineDiagnostic.Severity.ERROR

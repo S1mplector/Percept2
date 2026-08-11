@@ -1,6 +1,8 @@
 package com.jvn.core.vn;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -12,6 +14,12 @@ import java.util.Set;
  */
 public final class LayeredCharacterResolver {
   private static final char[] GROUP_VARIANT_SEPARATORS = {'_', '-', '/', '.', ':'};
+  private static final Set<String> ANATOMICAL_TOKENS = Set.of(
+      "body", "neck", "head", "face", "mouth", "eye", "eyes", "brow", "brows",
+      "hair", "arm", "arms", "hand", "hands", "leg", "legs", "foot", "feet",
+      "torso", "chest", "hip", "hips", "shoulder", "shoulders");
+  private static final Set<String> LANE_MODIFIERS = Set.of(
+      "front", "behind", "back", "rear", "left", "right", "upper", "lower");
 
   private LayeredCharacterResolver() {
   }
@@ -76,6 +84,74 @@ public final class LayeredCharacterResolver {
     return new ArrayList<>(candidates);
   }
 
+  /**
+   * Infer which previously animated declared layer is the replacement lane for
+   * a newly visible layer. Returns {@code null} when no safe, unique match exists.
+   * Explicit {@code @chargroup} metadata remains authoritative; this is the
+   * convention-based fallback for projects with many one-off sprite variants.
+   */
+  public static String inferReplacementLayerId(
+      String activeLayerId,
+      Collection<String> animatedLayerIds
+  ) {
+    if (activeLayerId == null || activeLayerId.isBlank()
+        || animatedLayerIds == null || animatedLayerIds.isEmpty()) {
+      return null;
+    }
+    String active = activeLayerId.trim();
+    String activeLane = replacementLane(active);
+    if (activeLane.isBlank()) return null;
+
+    List<ReplacementCandidate> candidates = new ArrayList<>();
+    for (String rawCandidate : animatedLayerIds) {
+      if (rawCandidate == null || rawCandidate.isBlank()) continue;
+      String candidate = rawCandidate.trim();
+      if (active.equals(candidate) || !activeLane.equals(replacementLane(candidate))) continue;
+      candidates.add(new ReplacementCandidate(candidate, replacementScore(active, candidate)));
+    }
+    if (candidates.isEmpty()) return null;
+    candidates.sort(Comparator
+        .comparingInt(ReplacementCandidate::score).reversed()
+        .thenComparing(ReplacementCandidate::layerId));
+    ReplacementCandidate best = candidates.get(0);
+    if (candidates.size() > 1 && candidates.get(1).score() == best.score()) return null;
+    return best.layerId();
+  }
+
+  public static String replacementLane(String rawLayerId) {
+    List<String> tokens = layerTokens(rawLayerId);
+    if (tokens.isEmpty()) return "";
+    for (int i = 0; i < tokens.size(); i++) {
+      String token = tokens.get(i);
+      if (!ANATOMICAL_TOKENS.contains(token)) continue;
+      if (i + 1 < tokens.size() && LANE_MODIFIERS.contains(tokens.get(i + 1))) {
+        return token + "_" + tokens.get(i + 1);
+      }
+      return token;
+    }
+    return tokens.get(0);
+  }
+
+  private static int replacementScore(String left, String right) {
+    List<String> a = layerTokens(left);
+    List<String> b = layerTokens(right);
+    int prefix = 0;
+    while (prefix < a.size() && prefix < b.size() && a.get(prefix).equals(b.get(prefix))) prefix++;
+    Set<String> shared = new LinkedHashSet<>(a);
+    shared.retainAll(b);
+    return prefix * 100 + shared.size();
+  }
+
+  private static List<String> layerTokens(String rawLayerId) {
+    String normalized = rawLayerId == null ? "" : rawLayerId.trim().toLowerCase(java.util.Locale.ROOT);
+    if (normalized.isBlank()) return List.of();
+    List<String> tokens = new ArrayList<>();
+    for (String token : normalized.split("[^a-z0-9]+")) {
+      if (!token.isBlank()) tokens.add(token);
+    }
+    return tokens;
+  }
+
   private static int characterSeparatorIndex(String ref, int eqIndex) {
     if (ref == null || ref.isBlank()) {
       return -1;
@@ -132,4 +208,5 @@ public final class LayeredCharacterResolver {
   }
 
   private record GroupVariant(String groupId, String variantId) {}
+  private record ReplacementCandidate(String layerId, int score) {}
 }

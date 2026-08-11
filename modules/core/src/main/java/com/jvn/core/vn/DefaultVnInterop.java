@@ -262,8 +262,7 @@ public class DefaultVnInterop implements VnInterop {
     try {
       String name = "_inline_timeline_" + (++inlineTimelineCounter);
       TimelineData data = TimelineDataParser.parse(name, invocation.block());
-      startTimelinePlayback(data, scene, blocking, invocation.chain());
-      started = true;
+      started = startTimelinePlayback(data, scene, blocking, invocation.chain());
     } catch (Exception ex) {
       scene.getState().showHudMessage("inline timeline error: " + ex.getMessage(), 2000);
       scene.setActiveError(VnErrorOverlay.puppeteerJesParseError(
@@ -293,8 +292,8 @@ public class DefaultVnInterop implements VnInterop {
       return VnInteropResult.advance();
     }
     boolean blocking = forceBlocking || invocation.waitForCompletion();
-    startTimelinePlayback(data, scene, blocking, invocation.chain());
-    return blocking ? VnInteropResult.block() : VnInteropResult.advance();
+    boolean started = startTimelinePlayback(data, scene, blocking, invocation.chain());
+    return started && blocking ? VnInteropResult.block() : VnInteropResult.advance();
   }
 
   private void handleVar(String payload, VnScene scene) {
@@ -1168,13 +1167,14 @@ public class DefaultVnInterop implements VnInterop {
     return VnInteropResult.advance();
   }
 
-  private void startTimelinePlayback(
+  private boolean startTimelinePlayback(
       TimelineData data,
       VnScene scene,
       boolean waitForCompletion,
       List<String> chain
   ) {
-    if (data == null || scene == null) return;
+    if (data == null || scene == null) return false;
+    if (!validateActiveTimelineLayerTargets(data, scene)) return false;
     recordTimelineDisplacements(data, scene);
     final boolean[] completed = {false};
     TimelineRunner runner = createTimelineRunnerChain(data, scene, chain, 0, completed);
@@ -1182,6 +1182,7 @@ public class DefaultVnInterop implements VnInterop {
     if (waitForCompletion) {
       scene.beginInteropBlock(() -> completed[0]);
     }
+    return true;
   }
 
   private TimelineRunner createTimelineRunnerChain(
@@ -1198,11 +1199,47 @@ public class DefaultVnInterop implements VnInterop {
         completed[0] = true;
         return;
       }
+      if (!validateActiveTimelineLayerTargets(next.get(), scene)) {
+        completed[0] = true;
+        return;
+      }
       recordTimelineDisplacements(next.get(), scene);
       TimelineRunner nextRunner = createTimelineRunnerChain(next.get(), scene, chain, index + 1, completed);
       scene.getState().addTimelineRunner(nextRunner);
     });
     return runner;
+  }
+
+  private boolean validateActiveTimelineLayerTargets(TimelineData data, VnScene scene) {
+    if (data == null || scene == null || scene.getState() == null) return true;
+    VnState state = scene.getState();
+    VnTimelineDiagnostics.Report report = VnTimelineDiagnostics.diagnose(
+        data, scene.getScenario(), state);
+    if (!report.blocksPlayback()) {
+      report.findings().stream()
+          .filter(finding -> finding.severity() == VnTimelineDiagnostics.Severity.WARNING)
+          .findFirst()
+          .ifPresent(finding -> state.showHudMessage("Timeline warning: " + finding.description(), 3200));
+      return true;
+    }
+    List<VnTimelineDiagnostics.Finding> blockers = report.blockingFindings();
+    String message = blockers.stream()
+        .map(finding -> "[" + finding.code() + "] " + finding.target() + ": " + finding.description())
+        .collect(java.util.stream.Collectors.joining("\n"));
+    String likelyCause = blockers.stream()
+        .map(VnTimelineDiagnostics.Finding::quickFix)
+        .filter(fix -> fix != null && !fix.isBlank())
+        .distinct()
+        .collect(java.util.stream.Collectors.joining(" "));
+    String targets = blockers.stream()
+        .map(VnTimelineDiagnostics.Finding::target)
+        .distinct()
+        .collect(java.util.stream.Collectors.joining(", "));
+    VnNode node = state.getCurrentNode();
+    int line = node == null ? -1 : node.getSourceLine();
+    scene.setActiveError(VnErrorOverlay.puppeteerTimelineDiagnosticsError(
+        state.getSourceScriptName(), line, message, likelyCause, targets));
+    return false;
   }
 
   private void recordTimelineDisplacements(TimelineData data, VnScene scene) {
@@ -1215,10 +1252,18 @@ public class DefaultVnInterop implements VnInterop {
       String characterId = resolveTimelineTrackCharacter(track.getEntityName(), state);
       if (characterId == null || characterId.isBlank()) continue;
       boolean characterTrack = track.getEntityName() != null && track.getEntityName().trim().equals(characterId);
+      VnCharacter character = scene.getScenario() == null
+          ? null
+          : scene.getScenario().getCharacter(characterId);
+      // Layered characters are rendered from their exact layer/group proxies.
+      // Promoting several layer tracks to one character-wide transform makes
+      // unrelated layers inherit the animation and lets hidden targets surface
+      // after a later [show]. Keep the old fallback only for non-layered sprites.
+      boolean recordCharacterState = characterTrack || character == null || character.getLayerIds().isEmpty();
 
       boolean hasX = track.hasKeyframes(TimelineData.Property.X);
       boolean hasY = track.hasKeyframes(TimelineData.Property.Y);
-      if (hasX || hasY) {
+      if (recordCharacterState && (hasX || hasY)) {
         double x = hasX ? lastKeyframeValue(track, TimelineData.Property.X) : 0.0;
         double y = hasY ? lastKeyframeValue(track, TimelineData.Property.Y) : 0.0;
         displacements
@@ -1232,7 +1277,8 @@ public class DefaultVnInterop implements VnInterop {
       boolean hasRotation = track.hasKeyframes(TimelineData.Property.ROTATION);
       boolean hasPivotX = track.hasKeyframes(TimelineData.Property.PIVOT_X);
       boolean hasPivotY = track.hasKeyframes(TimelineData.Property.PIVOT_Y);
-      if (!hasScaleX && !hasScaleY && !hasMirrorX && !hasRotation && !hasPivotX && !hasPivotY) continue;
+      if (!recordCharacterState
+          || (!hasScaleX && !hasScaleY && !hasMirrorX && !hasRotation && !hasPivotX && !hasPivotY)) continue;
 
       double scaleX = 1.0;
       if (hasScaleX || hasMirrorX) {

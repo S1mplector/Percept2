@@ -5,6 +5,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -35,6 +36,7 @@ import com.jvn.core.vn.Choice;
 import com.jvn.core.vn.DialogueLine;
 import com.jvn.core.vn.DialoguePresentationMode;
 import com.jvn.core.vn.EyeFocusResolver;
+import com.jvn.core.vn.LayeredCharacterResolver;
 import com.jvn.core.vn.VnAudioVisualizerConfig;
 import com.jvn.core.vn.VnBackground;
 import com.jvn.core.vn.VnCharacter;
@@ -1005,13 +1007,15 @@ public class VnRenderer {
   ) {
     if (layerPaths == null || layerPaths.size() <= 1) return false;
     List<SpriteLayer> layers = spriteLayers(character, expression, characterId, layerPaths);
+    Map<String, Entity2D> inferredReplacementProxies = inferredReplacementProxies(
+        character, characterId, expression, layers);
     EyeFocusDraw eyeFocus = resolveEyeFocusDraw(
         state, scenario, character, expression, characterId, layers,
         defaultX, defaultY, spriteWidth, spriteHeight, canvasWidth, canvasHeight);
     boolean hasLayerProxy = false;
     if (timelineAccessor != null) {
       for (SpriteLayer layer : layers) {
-        if (layer != null && hasAnyLayerTransformProxy(layer)) {
+        if (layer != null && hasAnyLayerTransformProxy(layer, inferredReplacementProxies)) {
           hasLayerProxy = true;
           break;
         }
@@ -1034,13 +1038,14 @@ public class VnRenderer {
         drawLayer = new SpriteLayer(
             eyeFocus.selectedPath(),
             eyeFocus.selectedLayerId(),
-            timelineLayerTargetNames(characterId, expression, eyeFocus.selectedLayerId()),
+            timelineDeclaredLayerTargetNames(character, characterId, expression, eyeFocus.selectedLayerId()),
             layer.groupTargets(),
             selectedImage);
         nudgeX = eyeFocus.nudgeX();
         nudgeY = eyeFocus.nudgeY();
       }
-      List<LayerTransformTarget> transforms = resolveLayerTransforms(drawLayer, layers);
+      List<LayerTransformTarget> transforms = resolveLayerTransforms(
+          drawLayer, inferredReplacementProxies);
       if (transforms.stream().anyMatch(target -> target.exact() && target.proxy() != null && !target.proxy().isVisible())) {
         continue;
       }
@@ -1329,7 +1334,10 @@ public class VnRenderer {
     return hasTimelinePosition(proxy) ? proxy.getY() - defaultY : 0.0;
   }
 
-  private boolean hasAnyLayerTransformProxy(SpriteLayer layer) {
+  private boolean hasAnyLayerTransformProxy(
+      SpriteLayer layer,
+      Map<String, Entity2D> inferredReplacementProxies
+  ) {
     if (timelineAccessor == null || layer == null) return false;
     if (firstProxy(layer.targetNames()) != null) return true;
     if (layer.groupTargets() != null) {
@@ -1337,10 +1345,13 @@ public class VnRenderer {
         if (groupTarget != null && firstProxy(groupTarget.targetNames()) != null) return true;
       }
     }
-    return false;
+    return inferredReplacementProxies != null && inferredReplacementProxies.containsKey(layer.layerId());
   }
 
-  private List<LayerTransformTarget> resolveLayerTransforms(SpriteLayer layer, List<SpriteLayer> expressionLayers) {
+  private List<LayerTransformTarget> resolveLayerTransforms(
+      SpriteLayer layer,
+      Map<String, Entity2D> inferredReplacementProxies
+  ) {
     if (timelineAccessor == null || layer == null) return List.of();
     List<LayerTransformTarget> transforms = new ArrayList<>();
     if (layer.groupTargets() != null) {
@@ -1357,30 +1368,79 @@ public class VnRenderer {
       return List.copyOf(transforms);
     }
 
-    if (!hasBroadLayerProxyCoverage(expressionLayers)) return List.copyOf(transforms);
-    for (SpriteLayer sibling : expressionLayers) {
-      if (sibling == null || sibling == layer) continue;
-      Entity2D siblingProxy = firstProxy(sibling.targetNames());
-      if (siblingProxy != null) {
-        transforms.add(new LayerTransformTarget(siblingProxy, null, false));
-        return List.copyOf(transforms);
-      }
+    Entity2D inferred = inferredReplacementProxies == null ? null : inferredReplacementProxies.get(layer.layerId());
+    if (inferred != null) {
+      transforms.add(new LayerTransformTarget(inferred, null, false));
+      return List.copyOf(transforms);
     }
+
     return List.copyOf(transforms);
   }
 
-  private boolean hasBroadLayerProxyCoverage(List<SpriteLayer> expressionLayers) {
-    if (timelineAccessor == null || expressionLayers == null || expressionLayers.isEmpty()) return false;
-    int layerCount = 0;
-    int proxyCount = 0;
+  private Map<String, Entity2D> inferredReplacementProxies(
+      VnCharacter character,
+      String characterId,
+      String expression,
+      List<SpriteLayer> expressionLayers
+  ) {
+    if (timelineAccessor == null || character == null || expressionLayers == null || expressionLayers.isEmpty()) {
+      return Map.of();
+    }
+    Set<String> activeLayerIds = new LinkedHashSet<>();
     for (SpriteLayer layer : expressionLayers) {
-      if (layer == null || layer.targetNames() == null || layer.targetNames().isEmpty()) continue;
-      layerCount++;
-      if (firstProxy(layer.targetNames()) != null) {
-        proxyCount++;
+      if (layer != null && layer.layerId() != null && !layer.layerId().isBlank()) {
+        activeLayerIds.add(layer.layerId());
       }
     }
-    return shouldFallbackMissingLayerProxy(layerCount, proxyCount);
+    Map<String, Entity2D> animatedLayers = new LinkedHashMap<>();
+    for (String declaredLayerId : character.getLayerIds()) {
+      if (declaredLayerId == null || declaredLayerId.isBlank() || activeLayerIds.contains(declaredLayerId)) continue;
+      Entity2D proxy = firstProxy(timelineDeclaredLayerTargetNames(
+          character, characterId, expression, declaredLayerId));
+      if (proxy != null) animatedLayers.put(declaredLayerId, proxy);
+    }
+    if (animatedLayers.isEmpty()) return Map.of();
+
+    Map<String, Entity2D> inferred = new LinkedHashMap<>();
+    for (SpriteLayer layer : expressionLayers) {
+      if (layer == null || layer.layerId() == null || layer.layerId().isBlank()
+          || firstProxy(layer.targetNames()) != null) {
+        continue;
+      }
+      String inferredLayerId = LayeredCharacterResolver.inferReplacementLayerId(
+          layer.layerId(), animatedLayers.keySet());
+      if (inferredLayerId != null) {
+        Entity2D proxy = animatedLayers.get(inferredLayerId);
+        if (proxy != null) inferred.put(layer.layerId(), proxy);
+      }
+    }
+    return inferred.isEmpty() ? Map.of() : Map.copyOf(inferred);
+  }
+
+  private List<String> timelineDeclaredLayerTargetNames(
+      VnCharacter character,
+      String characterId,
+      String expression,
+      String layerId
+  ) {
+    String safeCharacter = selectorSafeName(characterId);
+    String safeLayer = selectorSafeName(layerId);
+    if (safeCharacter.isBlank() || safeLayer.isBlank()) return List.of();
+    LinkedHashSet<String> names = new LinkedHashSet<>();
+    names.add(safeCharacter + "_" + safeLayer);
+    String currentExpression = selectorSafeName(expression == null || expression.isBlank() ? "neutral" : expression);
+    if (!currentExpression.isBlank()) {
+      names.add(safeCharacter + "_" + currentExpression + "_" + safeLayer);
+    }
+    if (character != null) {
+      for (String declaredExpression : character.getExpressionLayerIdsByName().keySet()) {
+        String safeExpression = selectorSafeName(declaredExpression);
+        if (!safeExpression.isBlank()) {
+          names.add(safeCharacter + "_" + safeExpression + "_" + safeLayer);
+        }
+      }
+    }
+    return List.copyOf(names);
   }
 
   private Entity2D firstProxy(List<String> targetNames) {
@@ -1391,11 +1451,6 @@ public class VnRenderer {
       if (proxy != null) return proxy;
     }
     return null;
-  }
-
-  static boolean shouldFallbackMissingLayerProxy(int layerCount, int proxyCount) {
-    if (layerCount <= 2 || proxyCount <= 0) return false;
-    return proxyCount >= Math.max(2, layerCount - 1);
   }
 
   private boolean hasTimelinePosition(Entity2D proxy) {
@@ -1426,7 +1481,7 @@ public class VnRenderer {
       String path = layerPaths.get(i);
       String layerId = i < layerIds.size() ? layerIds.get(i) : "";
       if (layerId == null || layerId.isBlank()) layerId = fallbackLayerId(path, i);
-      List<String> targetNames = timelineLayerTargetNames(characterId, expression, layerId);
+      List<String> targetNames = timelineDeclaredLayerTargetNames(character, characterId, expression, layerId);
       List<GroupLayerTarget> groupTargets = timelineGroupTargets(character, characterId, expression, layerId);
       layers.add(new SpriteLayer(path, layerId, targetNames, groupTargets, loadSpriteLayerImage(path)));
     }

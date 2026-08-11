@@ -47,6 +47,7 @@ public class VnScenario {
     return best;
   }
   public VnCharacter getCharacter(String id) { return characters.get(id); }
+  public Map<String, VnCharacter> getCharacters() { return Map.copyOf(characters); }
   public VnBackground getBackground(String id) { return backgrounds.get(id); }
   public VnStagePreset getStagePreset(String id) { return stagePresets.get(id); }
   public Map<String, VnStagePreset> getStagePresets() { return stagePresets; }

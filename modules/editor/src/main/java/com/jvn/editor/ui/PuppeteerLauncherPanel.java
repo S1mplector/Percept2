@@ -1586,6 +1586,13 @@ button then opens it in the editor."""));
     return safeCharacter + "_" + safeExpression + "_" + safeLayer;
   }
 
+  public static String snapshotStableLayerEntityName(String characterId, String layerId) {
+    String safeCharacter = selectorSafeName(characterId);
+    String safeLayer = selectorSafeName(layerId);
+    if (safeCharacter.isBlank() || safeLayer.isBlank()) return "";
+    return safeCharacter + "_" + safeLayer;
+  }
+
   public static String snapshotLayerGroupEntityName(String characterId, String expression, String groupId) {
     List<String> names = equivalentSnapshotLayerGroupEntityNames(characterId, expression, groupId);
     return names.isEmpty() ? "" : names.get(0);
@@ -1613,6 +1620,11 @@ button then opens it in the editor."""));
     }
     Set<String> names = new java.util.LinkedHashSet<>();
     String safeLayer = selectorSafeName(layerId);
+    // Put the expression-independent runtime target first so Puppeteer creates
+    // and exports stable tracks instead of baking the current [show] composition
+    // into every entity name. Expression-qualified names remain lookup aliases.
+    String stableName = snapshotStableLayerEntityName(character.characterId, layerId);
+    if (!stableName.isBlank()) names.add(stableName);
     String currentName = snapshotLayerEntityName(character.characterId, character.expression, layerId);
     if (!currentName.isBlank()) names.add(currentName);
     if (snapshot != null && snapshot.characterPresetLayers != null && !snapshot.characterPresetLayers.isEmpty()) {

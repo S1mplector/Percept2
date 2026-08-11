@@ -3,6 +3,7 @@ package com.jvn.core.vn;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import com.jvn.core.animation.TimelineDataParser;
 import com.jvn.core.animation.TimelineRegistry;
 import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.ClasspathAssetManager;
@@ -73,6 +74,176 @@ class DefaultVnInteropQuotedArgsTest {
     assertNotNull(displacement);
     assertTrue(displacement.hasX());
     assertEquals(542.0, displacement.getX(), 0.0001);
+  }
+
+  @Test
+  void inlineTimelinePreArmsDeclaredLayerMissingFromCurrentShowComposition() {
+    VnCharacter john = VnCharacter.builder("john")
+        .addLayer("body_default", "body.png")
+        .addLayer("eyes_n_base", "eyes.png")
+        .addExpression("head_only", "eyes.png", java.util.List.of("eyes_n_base"))
+        .build();
+    VnScene scene = new VnScene(new VnScenarioBuilder("inactive_timeline_layer")
+        .addCharacter(john)
+        .label("start")
+        .end()
+        .build());
+    scene.getState().setSourceScriptName("lightning.vns");
+    scene.getState().showCharacter(CharacterPosition.CENTER, "john", "head_only");
+    DefaultVnInterop interop = new DefaultVnInterop();
+    VnCharacterSceneAccessor accessor = new VnCharacterSceneAccessor();
+    interop.setSceneAccessor(accessor);
+
+    VnInteropResult result = interop.handle(new VnExternalCommand("jes_timeline_blocking_inline", """
+        timeline {
+          mirror "john_body_default" { mirrorX: 1 dur: 1 }
+        }
+        """), scene);
+
+    assertNull(scene.getActiveError());
+    assertFalse(result.shouldAdvance());
+    assertTrue(scene.getState().hasActiveTimelines());
+    scene.getState().updateTimelineRunners(1);
+    assertNotNull(accessor.getProxy("john_body_default"));
+    assertEquals(-1.0, accessor.getProxy("john_body_default").getScaleX(), 0.000001);
+    assertNull(scene.getState().getTimelineTransform("john"));
+  }
+
+  @Test
+  void lightningSequencePreArmsMirrorsAndKeepsThemLayerScoped() {
+    VnCharacter john = VnCharacter.builder("john")
+        .addLayer("body_default", "body.png")
+        .addLayer("neck_normal", "neck.png")
+        .addLayer("arm_front_default", "arm.png")
+        .addLayer("body_no_limbs", "body_no_limbs.png")
+        .addLayer("arm_front_holding_wrist", "holding.png")
+        .addLayer("eyes_n_base", "eyes.png")
+        .addLayer("normal_face_common_05", "face.png")
+        .addLayer("normal_mouth_common_01", "mouth.png")
+        .addExpression("head_only", "head.png", java.util.List.of(
+            "eyes_n_base", "normal_face_common_05", "normal_mouth_common_01"))
+        .addExpression("full_default", "full.png", java.util.List.of(
+            "body_default", "neck_normal", "arm_front_default",
+            "eyes_n_base", "normal_face_common_05", "normal_mouth_common_01"))
+        .addExpression("holding", "holding_full.png", java.util.List.of(
+            "body_no_limbs", "neck_normal", "arm_front_holding_wrist",
+            "eyes_n_base", "normal_face_common_05", "normal_mouth_common_01"))
+        .build();
+    VnScene scene = new VnScene(new VnScenarioBuilder("lightning_sequence")
+        .addCharacter(john)
+        .label("start")
+        .end()
+        .build());
+    scene.getState().showCharacter(CharacterPosition.CENTER, "john", "head_only");
+    VnCharacterSceneAccessor accessor = new VnCharacterSceneAccessor();
+    DefaultVnInterop interop = new DefaultVnInterop();
+    interop.setSceneAccessor(accessor);
+
+    interop.handle(new VnExternalCommand("jes_timeline_inline", """
+        timeline {
+          parallel {
+            mirror "john_body_default" { mirrorX: 1 dur: 1 }
+            mirror "john_neck_normal" { mirrorX: 1 dur: 1 }
+            mirror "john_arm_front_default" { mirrorX: 1 dur: 1 }
+          }
+        }
+        """), scene);
+    scene.getState().updateTimelineRunners(1);
+
+    assertNull(scene.getActiveError());
+    assertEquals(-1.0, accessor.getProxy("john_body_default").getScaleX(), 0.000001);
+    assertEquals(-1.0, accessor.getProxy("john_neck_normal").getScaleX(), 0.000001);
+    assertEquals(-1.0, accessor.getProxy("john_arm_front_default").getScaleX(), 0.000001);
+    assertNull(scene.getState().getTimelineTransform("john"));
+
+    scene.getState().showCharacterAnimated(CharacterPosition.CENTER, "john", "full_default");
+    scene.getState().updateTimelineRunners(1);
+    assertEquals(-1.0, accessor.getProxy("john_body_default").getScaleX(), 0.000001,
+        "Line 1590 should reveal the pre-armed exact-layer mirror");
+
+    scene.getState().showCharacterAnimated(CharacterPosition.CENTER, "john", "holding");
+    scene.getState().updateTimelineRunners(1);
+    assertEquals(
+        "body_default",
+        LayeredCharacterResolver.inferReplacementLayerId(
+            "body_no_limbs", java.util.Set.of("body_default", "arm_front_default", "neck_normal")));
+    assertEquals(
+        "arm_front_default",
+        LayeredCharacterResolver.inferReplacementLayerId(
+            "arm_front_holding_wrist", java.util.Set.of("body_default", "arm_front_default", "neck_normal")));
+  }
+
+  @Test
+  void chainedTimelineStopsBeforeUnknownCharacterLayerTarget() {
+    VnCharacter john = VnCharacter.builder("john")
+        .addLayer("body_default", "body.png")
+        .addLayer("eyes_n_base", "eyes.png")
+        .addExpression("head_only", "eyes.png", java.util.List.of("eyes_n_base"))
+        .build();
+    VnScene scene = new VnScene(new VnScenarioBuilder("inactive_chained_layer")
+        .addCharacter(john)
+        .label("start")
+        .end()
+        .build());
+    scene.getState().showCharacter(CharacterPosition.CENTER, "john", "head_only");
+    VnCharacterSceneAccessor accessor = new VnCharacterSceneAccessor();
+    DefaultVnInterop interop = new DefaultVnInterop();
+    interop.setSceneAccessor(accessor);
+    TimelineRegistry.clear();
+
+    try {
+      TimelineRegistry.register(TimelineDataParser.parse("hidden_mirror", """
+          timeline {
+            mirror "john_bdy_default" { mirrorX: 1 dur: 1 }
+          }
+          """));
+
+      VnInteropResult result = interop.handle(new VnExternalCommand("jes_timeline_blocking_inline", """
+          timeline { wait 1 }
+          then hidden_mirror
+          """), scene);
+      assertFalse(result.shouldAdvance());
+
+      scene.getState().updateTimelineRunners(1);
+
+      assertNotNull(scene.getActiveError());
+      assertEquals("Puppeteer Timeline Diagnostics", scene.getActiveError().getTitle());
+      assertTrue(scene.getActiveError().getMessage().contains("john_bdy_default"));
+      assertFalse(scene.getState().hasActiveTimelines());
+      assertNull(accessor.getProxy("john_bdy_default"));
+    } finally {
+      TimelineRegistry.clear();
+    }
+  }
+
+  @Test
+  void inlineTimelineAcceptsLayerPresentInCurrentShowComposition() {
+    VnCharacter john = VnCharacter.builder("john")
+        .addLayer("body_default", "body.png")
+        .addLayer("eyes_n_base", "eyes.png")
+        .addExpression("full", "body.png", java.util.List.of("body_default", "eyes_n_base"))
+        .build();
+    VnScene scene = new VnScene(new VnScenarioBuilder("active_timeline_layer")
+        .addCharacter(john)
+        .label("start")
+        .end()
+        .build());
+    scene.getState().showCharacter(CharacterPosition.CENTER, "john", "full");
+    DefaultVnInterop interop = new DefaultVnInterop();
+    VnCharacterSceneAccessor accessor = new VnCharacterSceneAccessor();
+    interop.setSceneAccessor(accessor);
+
+    interop.handle(new VnExternalCommand("jes_timeline_inline", """
+        timeline {
+          mirror "john_body_default" { mirrorX: 1 dur: 1 }
+        }
+        """), scene);
+
+    assertNull(scene.getActiveError());
+    scene.getState().updateTimelineRunners(1);
+    assertNotNull(accessor.getProxy("john_body_default"));
+    assertNull(scene.getState().getTimelineTransform("john"),
+        "A declared layer mirror must not become a whole-character mirror");
   }
 
   @Test
