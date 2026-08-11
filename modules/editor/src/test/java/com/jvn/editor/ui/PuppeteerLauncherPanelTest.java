@@ -322,10 +322,14 @@ class PuppeteerLauncherPanelTest {
 	        john,
 	        "mouth_murmuring");
 
-	    assertTrue(armNames.contains("john_talking_arm_front_default"));
-	    assertTrue(armNames.contains("john_arm_front_default"));
-	    assertTrue(armNames.contains("john_neutral_arm_front_default"));
-	    assertEquals(List.of("john_talking_mouth_murmuring", "john_mouth_murmuring"), mouthNames);
+    assertEquals("john_arm_front_default", armNames.get(0));
+    assertTrue(armNames.contains("john_talking_arm_front_default"));
+    assertTrue(armNames.contains("john_neutral_arm_front_default"));
+    assertEquals(List.of("john_mouth_murmuring", "john_talking_mouth_murmuring"), mouthNames);
+    assertEquals(
+        "john_body_default",
+        PuppeteerLauncherPanel.snapshotStableLayerEntityName(
+            "john", "body_default"));
 	  }
 
 	  @Test

@@ -1,6 +1,7 @@
 package com.jvn.core.animation;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -69,5 +70,40 @@ class TimelineDataDiagnosticsTest {
         assertEquals(500.0, keyframes.get(1).getTimeMs(), 0.001);
         assertEquals(1000.0, keyframes.get(2).getTimeMs(), 0.001);
         assertEquals(25.0, track.getValueAt(TimelineData.Property.X, 250), 0.001);
+    }
+
+    @Test
+    void warnsWhenAuthoredAnimationFinishesBetweenDisplayFrames() {
+        TimelineData data = new TimelineData("sub_frame", 1);
+        TimelineData.Track track = new TimelineData.Track("john_body_default");
+        track.addKeyframe(
+            TimelineData.Property.MIRROR_X,
+            new TimelineData.Keyframe(1, 1, Easing.Type.EASE_IN_OUT_CUBIC));
+        data.addTrack(track);
+
+        List<TimelineDataDiagnostics.Message> messages = TimelineDataDiagnostics.diagnose(data);
+
+        assertTrue(messages.stream().anyMatch(message ->
+            message.severity() == TimelineDataDiagnostics.Severity.WARNING
+                && message.target().equals("john_body_default")
+                && message.description().contains("within one 60 Hz display frame")));
+    }
+
+    @Test
+    void doesNotWarnForIntentionalInstantOrVisibleDuration() {
+        TimelineData instant = new TimelineData("instant", 0);
+        TimelineData.Track instantTrack = new TimelineData.Track("hero");
+        instantTrack.addKeyframe(TimelineData.Property.X, new TimelineData.Keyframe(0, 10, Easing.Type.LINEAR));
+        instant.addTrack(instantTrack);
+
+        TimelineData visible = new TimelineData("visible", 100);
+        TimelineData.Track visibleTrack = new TimelineData.Track("hero");
+        visibleTrack.addKeyframe(TimelineData.Property.X, new TimelineData.Keyframe(100, 10, Easing.Type.LINEAR));
+        visible.addTrack(visibleTrack);
+
+        assertFalse(TimelineDataDiagnostics.diagnose(instant).stream().anyMatch(message ->
+            message.description().contains("within one 60 Hz display frame")));
+        assertFalse(TimelineDataDiagnostics.diagnose(visible).stream().anyMatch(message ->
+            message.description().contains("within one 60 Hz display frame")));
     }
 }

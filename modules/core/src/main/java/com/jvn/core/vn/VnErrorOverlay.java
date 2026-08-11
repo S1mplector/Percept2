@@ -161,6 +161,20 @@ public class VnErrorOverlay {
         null);
   }
 
+  public static VnErrorOverlay puppeteerTimelineDiagnosticsError(String sourceName, int line,
+                                                                 String message, String likelyCause,
+                                                                 String rawTimeline) {
+    return new VnErrorOverlay(
+        ErrorType.DSL_RUNTIME_ERROR,
+        "Puppeteer Timeline Diagnostics",
+        message == null || message.isBlank() ? "Timeline validation blocked unsafe playback" : message,
+        sourceName,
+        line,
+        likelyCause,
+        rawTimeline,
+        null);
+  }
+
   public static VnErrorOverlay fromScriptLoadFailure(String fallbackSource, Exception cause) {
     if (cause instanceof MultipleParseErrorsException multi) {
       return fromMultipleParseErrors(fallbackSource, multi);

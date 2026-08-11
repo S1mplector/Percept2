@@ -17,6 +17,7 @@ import java.util.Set;
  */
 public final class TimelineDataDiagnostics {
     private static final double TIME_EPSILON_MS = 0.001;
+    private static final double SINGLE_FRAME_MS = 1000.0 / 60.0;
     private static final String CAMERA_TRACK = "__camera__";
 
     public enum Severity {
@@ -118,6 +119,7 @@ public final class TimelineDataDiagnostics {
             }
 
             boolean cameraTrack = CAMERA_TRACK.equals(target);
+            boolean subFrameWarningAdded = false;
             for (Map.Entry<TimelineData.Property, List<TimelineData.Keyframe>> entry : track.getAllKeyframes().entrySet()) {
                 TimelineData.Property property = entry.getKey();
                 if (property == null) {
@@ -145,6 +147,15 @@ public final class TimelineDataDiagnostics {
                     ));
                 }
                 diagnoseKeyframes(target, property.name(), property, entry.getValue(), durationMs, messages);
+                if (!subFrameWarningAdded && finishesWithinOneFrame(entry.getValue())) {
+                    messages.add(new Message(
+                        Severity.WARNING,
+                        target,
+                        "Animation finishes within one 60 Hz display frame and may appear instant",
+                        "Use a duration above 17ms for a visible transition, or 0ms for an intentional instant change"
+                    ));
+                    subFrameWarningAdded = true;
+                }
             }
             for (Map.Entry<String, List<TimelineData.Keyframe>> entry : track.getAllCustomKeyframes().entrySet()) {
                 String key = entry.getKey();
@@ -158,8 +169,28 @@ public final class TimelineDataDiagnostics {
                     continue;
                 }
                 diagnoseKeyframes(target, key, null, entry.getValue(), durationMs, messages);
+                if (!subFrameWarningAdded && finishesWithinOneFrame(entry.getValue())) {
+                    messages.add(new Message(
+                        Severity.WARNING,
+                        target,
+                        "Animation finishes within one 60 Hz display frame and may appear instant",
+                        "Use a duration above 17ms for a visible transition, or 0ms for an intentional instant change"
+                    ));
+                    subFrameWarningAdded = true;
+                }
             }
         }
+    }
+
+    private static boolean finishesWithinOneFrame(List<TimelineData.Keyframe> keyframes) {
+        if (keyframes == null || keyframes.isEmpty()) return false;
+        double latest = 0.0;
+        for (TimelineData.Keyframe keyframe : keyframes) {
+            if (keyframe != null && Double.isFinite(keyframe.getTimeMs())) {
+                latest = Math.max(latest, keyframe.getTimeMs());
+            }
+        }
+        return latest > TIME_EPSILON_MS && latest < SINGLE_FRAME_MS;
     }
 
     private static void diagnoseKeyframes(
