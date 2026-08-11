@@ -323,8 +323,9 @@ class PuppeteerLauncherPanelTest {
 	        "mouth_murmuring");
 
 	    assertTrue(armNames.contains("john_talking_arm_front_default"));
+	    assertTrue(armNames.contains("john_arm_front_default"));
 	    assertTrue(armNames.contains("john_neutral_arm_front_default"));
-	    assertEquals(List.of("john_talking_mouth_murmuring"), mouthNames);
+	    assertEquals(List.of("john_talking_mouth_murmuring", "john_mouth_murmuring"), mouthNames);
 	  }
 
 	  @Test

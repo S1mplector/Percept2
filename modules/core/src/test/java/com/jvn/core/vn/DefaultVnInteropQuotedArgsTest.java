@@ -76,6 +76,60 @@ class DefaultVnInteropQuotedArgsTest {
   }
 
   @Test
+  void inlineTimelineReportsLayersMissingFromCurrentShowComposition() {
+    VnCharacter john = VnCharacter.builder("john")
+        .addLayer("body_default", "body.png")
+        .addLayer("eyes_n_base", "eyes.png")
+        .addExpression("head_only", "eyes.png", java.util.List.of("eyes_n_base"))
+        .build();
+    VnScene scene = new VnScene(new VnScenarioBuilder("inactive_timeline_layer")
+        .addCharacter(john)
+        .label("start")
+        .end()
+        .build());
+    scene.getState().setSourceScriptName("lightning.vns");
+    scene.getState().showCharacter(CharacterPosition.CENTER, "john", "head_only");
+    DefaultVnInterop interop = new DefaultVnInterop();
+    interop.setSceneAccessor(new VnCharacterSceneAccessor());
+
+    interop.handle(new VnExternalCommand("jes_timeline_inline", """
+        timeline {
+          mirror "john_body_default" { mirrorX: 1 dur: 1 }
+        }
+        """), scene);
+
+    assertNotNull(scene.getActiveError());
+    assertEquals("Puppeteer Timeline Target Error", scene.getActiveError().getTitle());
+    assertTrue(scene.getActiveError().getMessage().contains("john_body_default"));
+    assertTrue(scene.getActiveError().getLikelyCause().contains("preceding [show]"));
+  }
+
+  @Test
+  void inlineTimelineAcceptsLayerPresentInCurrentShowComposition() {
+    VnCharacter john = VnCharacter.builder("john")
+        .addLayer("body_default", "body.png")
+        .addLayer("eyes_n_base", "eyes.png")
+        .addExpression("full", "body.png", java.util.List.of("body_default", "eyes_n_base"))
+        .build();
+    VnScene scene = new VnScene(new VnScenarioBuilder("active_timeline_layer")
+        .addCharacter(john)
+        .label("start")
+        .end()
+        .build());
+    scene.getState().showCharacter(CharacterPosition.CENTER, "john", "full");
+    DefaultVnInterop interop = new DefaultVnInterop();
+    interop.setSceneAccessor(new VnCharacterSceneAccessor());
+
+    interop.handle(new VnExternalCommand("jes_timeline_inline", """
+        timeline {
+          mirror "john_body_default" { mirrorX: 1 dur: 1 }
+        }
+        """), scene);
+
+    assertNull(scene.getActiveError());
+  }
+
+  @Test
   void characterExpressionCommandAcceptsTransitionDuration() {
     VnScenario scenario = new VnScenarioBuilder("expression_transition")
       .addCharacterWithExpressions("lily", "Lily", "neutral.png", "talking.png")

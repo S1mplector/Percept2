@@ -7,6 +7,22 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class JesSceneStateTest {
   @Test
+  public void entityAliasesResolveWithoutCreatingAdditionalSceneEntities() {
+    JesScene2D scene = new JesScene2D();
+    Sprite2D body = new Sprite2D("body.png", 10, 10);
+    scene.add(body);
+    scene.registerEntity("john_current_body", body);
+    scene.registerEntityAlias("john_neutral_body", body);
+    scene.registerEntityAlias("john_talking_body", body);
+
+    assertSame(body, scene.find("john_current_body"));
+    assertSame(body, scene.find("john_neutral_body"));
+    assertSame(body, scene.find("john_talking_body"));
+    assertEquals(java.util.Set.of("john_current_body"), scene.names());
+    assertEquals(java.util.Set.of("john_current_body"), scene.exportNamed().keySet());
+  }
+
+  @Test
   public void savesAndRestoresCoreState() {
     JesScene2D scene = new JesScene2D();
     Sprite2D hero = new Sprite2D("hero.png", 10, 10);

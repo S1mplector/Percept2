@@ -8065,7 +8065,7 @@ public class EditorApp extends Application {
       scene.registerEntity(entityName, sprite);
       for (String alias : PuppeteerLauncherPanel.equivalentSnapshotLayerEntityNames(snapshot, ch, layer.layerId)) {
         if (alias == null || alias.isBlank() || alias.equals(entityName)) continue;
-        scene.registerEntity(alias, sprite);
+        scene.registerEntityAlias(alias, sprite);
       }
       layerIndex++;
     }

@@ -29,6 +29,7 @@ public class JesScene2D extends Scene2DBase {
   private PhysicsDebugOverlay2D debugOverlay;
   private final List<Binding> bindings = new ArrayList<>();
   private final Map<String, Entity2D> named = new HashMap<>();
+  private final Map<String, Entity2D> aliases = new HashMap<>();
   private final Map<String, Stats> statsByEntity = new HashMap<>();
   private final Map<String, Item> items = new HashMap<>();
   private final Map<String, Inventory> inventories = new HashMap<>();
@@ -134,8 +135,16 @@ public class JesScene2D extends Scene2DBase {
   public void setDebug(boolean d) { this.debug = d; }
   public void addBinding(String key, String action, Map<String,Object> props) { bindings.add(new Binding(key, action, props)); }
   public void registerEntity(String name, Entity2D e) {
-    if (name != null && !name.isBlank() && e != null && !named.containsKey(name)) {
+    if (name != null && !name.isBlank() && e != null
+        && !named.containsKey(name) && !aliases.containsKey(name)) {
       named.put(name, e);
+      spawnPositions.put(name, new double[]{ e.getX(), e.getY() });
+    }
+  }
+  public void registerEntityAlias(String name, Entity2D e) {
+    if (name != null && !name.isBlank() && e != null
+        && !named.containsKey(name) && !aliases.containsKey(name)) {
+      aliases.put(name, e);
       spawnPositions.put(name, new double[]{ e.getX(), e.getY() });
     }
   }
@@ -179,7 +188,10 @@ public class JesScene2D extends Scene2DBase {
     }
   }
   public java.util.Set<String> names() { return named.keySet(); }
-  public Entity2D find(String name) { return named.get(name); }
+  public Entity2D find(String name) {
+    Entity2D entity = named.get(name);
+    return entity != null ? entity : aliases.get(name);
+  }
   public Map<String, Entity2D> exportNamed() { return java.util.Collections.unmodifiableMap(new java.util.HashMap<>(named)); }
   public java.util.List<Binding> exportBindings() { return java.util.Collections.unmodifiableList(new java.util.ArrayList<>(bindings)); }
   public java.util.List<JesAst.TimelineAction> exportTimeline() { return java.util.Collections.unmodifiableList(new java.util.ArrayList<>(timeline)); }

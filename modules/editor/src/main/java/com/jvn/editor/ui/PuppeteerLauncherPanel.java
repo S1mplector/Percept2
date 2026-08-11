@@ -1615,6 +1615,13 @@ button then opens it in the editor."""));
     String safeLayer = selectorSafeName(layerId);
     String currentName = snapshotLayerEntityName(character.characterId, character.expression, layerId);
     if (!currentName.isBlank()) names.add(currentName);
+    String safeCharacter = selectorSafeName(character.characterId);
+    if (!safeCharacter.isBlank() && !safeLayer.isBlank()) {
+      // Match VnRenderer's expression-independent layer target. Puppeteer exports
+      // may deliberately use this stable name so one animation keeps working when
+      // the visible expression changes but the underlying layer is shared.
+      names.add(safeCharacter + "_" + safeLayer);
+    }
     if (snapshot != null && snapshot.characterPresetLayers != null && !snapshot.characterPresetLayers.isEmpty()) {
       String prefix = character.characterId + "/";
       for (Map.Entry<String, List<CharacterLayerEntry>> entry : snapshot.characterPresetLayers.entrySet()) {
