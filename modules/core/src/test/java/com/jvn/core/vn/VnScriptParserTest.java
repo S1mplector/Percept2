@@ -251,6 +251,58 @@ public class VnScriptParserTest {
   }
 
   @Test
+  public void characterLayerGroupsExpandVariantGlobs() throws Exception {
+    String script = """
+      @scenario layered_demo
+      @character john "John"
+      @charlayer john arm_behind_default assets/john/arm_behind.png
+      @charlayer john body_default assets/john/body.png
+      @charlayer john body_no_limbs assets/john/body_no_limbs.png
+      @charlayer john neck_normal assets/john/neck.png
+      @charlayer john arm_front_default assets/john/arm_front.png
+      @charlayer john arm_front_holding_wrist assets/john/holding.png
+      @chargroup john body_orientation pivot=0.5,1 \\
+        $arm_behind_* | $body_* | \\
+        $neck_* | $arm_front_*
+      @charpreset john holding $body_no_limbs | $neck_normal | $arm_front_holding_wrist
+
+      @label start
+      [show john center holding]
+      [end]
+    """;
+
+    VnCharacter john = new VnScriptParser().parseFromString(script).getCharacter("john");
+
+    assertNotNull(john);
+    VnCharacter.LayerGroup group = john.getLayerGroup("body_orientation");
+    assertNotNull(group);
+    assertEquals(List.of(
+        "arm_behind_default",
+        "body_default",
+        "body_no_limbs",
+        "neck_normal",
+        "arm_front_default",
+        "arm_front_holding_wrist"), group.layerIds());
+    assertEquals(List.of(group), john.getLayerGroupChainForLayer("body_no_limbs"));
+    assertEquals(List.of(group), john.getLayerGroupChainForLayer("arm_front_holding_wrist"));
+  }
+
+  @Test
+  public void characterLayerGroupRejectsGlobThatMatchesNothing() {
+    IOException error = assertThrows(IOException.class, () -> new VnScriptParser().parseFromString("""
+      @scenario layered_demo
+      @character john "John"
+      @charlayer john body_default assets/john/body.png
+      @chargroup john body_orientation $missing_*
+      @label start
+      [end]
+    """));
+
+    assertTrue(error.getMessage().contains("$missing_*"));
+    assertTrue(error.getMessage().contains("@chargroup"));
+  }
+
+  @Test
   public void parsesNestedCharacterLayerGroups() throws Exception {
     String script = """
       @scenario layered_demo

@@ -1127,7 +1127,10 @@ public class AssetPickerPanel extends VBox {
             Map<String, Map<String, List<String>>> presetPaths = new LinkedHashMap<>();
             List<String> lines;
             try {
-                lines = Files.readAllLines(scriptPath, StandardCharsets.UTF_8);
+                String source = Files.readString(scriptPath, StandardCharsets.UTF_8);
+                lines = List.of(LayeredCharacterResolver
+                    .collapseLayerDirectiveContinuations(source)
+                    .split("\\R", -1));
             } catch (IOException ignored) {
             // reason: I/O failure on best-effort save/load; in-memory state remains valid
                 continue;
@@ -1309,9 +1312,12 @@ public class AssetPickerPanel extends VBox {
             if (part.isEmpty()) continue;
             if (part.startsWith("$")) {
                 String rawRef = part.substring(1).trim();
-                String path = LayeredCharacterResolver.resolveLayerPath(charLayerPaths, defaultCharacterId, rawRef);
-                if (path != null && !path.isBlank()) {
-                    resolved.add(normalizeDeclaredAssetPath(path));
+                List<LayeredCharacterResolver.LayerMatch> matches =
+                    LayeredCharacterResolver.resolveLayerMatches(charLayerPaths, defaultCharacterId, rawRef);
+                if (!matches.isEmpty()) {
+                    for (LayeredCharacterResolver.LayerMatch match : matches) {
+                        resolved.add(normalizeDeclaredAssetPath(match.path()));
+                    }
                 } else {
                     resolved.addAll(resolveGroupPaths(charLayerPaths, charGroupLayerIds, defaultCharacterId, rawRef));
                 }
@@ -1362,20 +1368,12 @@ public class AssetPickerPanel extends VBox {
             if (part.isEmpty() || !part.startsWith("$")) continue;
             String rawRef = part.substring(1).trim();
             LayeredCharacterResolver.CharacterRef ref = LayeredCharacterResolver.parseReference(rawRef, defaultCharacterId);
-            String path = LayeredCharacterResolver.resolveLayerPath(charLayerPaths, defaultCharacterId, rawRef);
-            if (path != null && !path.isBlank()) {
-                String resolvedLayerId = ref.localId();
-                Map<String, String> layerMap = charLayerPaths.get(ref.characterId());
-                if (layerMap != null) {
-                    for (String candidate : LayeredCharacterResolver.candidateLayerIds(ref.localId())) {
-                        String candidatePath = layerMap.get(candidate);
-                        if (candidatePath != null && candidatePath.trim().equals(path.trim())) {
-                            resolvedLayerId = candidate;
-                            break;
-                        }
-                    }
+            List<LayeredCharacterResolver.LayerMatch> matches =
+                LayeredCharacterResolver.resolveLayerMatches(charLayerPaths, defaultCharacterId, rawRef);
+            if (!matches.isEmpty()) {
+                for (LayeredCharacterResolver.LayerMatch match : matches) {
+                    if (!out.contains(match.layerId())) out.add(match.layerId());
                 }
-                if (!out.contains(resolvedLayerId)) out.add(resolvedLayerId);
                 continue;
             }
             List<String> nested = charGroupLayerIds.getOrDefault(ref.characterId(), Map.of()).get(ref.localId());

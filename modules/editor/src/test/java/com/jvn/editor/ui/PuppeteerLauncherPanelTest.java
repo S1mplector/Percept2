@@ -147,8 +147,36 @@ class PuppeteerLauncherPanelTest {
     assertEquals(List.of("head_base", "eyes_neutral", "mouth_smile"), head.layerIds);
     assertTrue(head.hasPivot);
     assertEquals(
-        List.of("john_neutral_head", "john_head"),
+        List.of("john_head", "john_neutral_head"),
         PuppeteerLauncherPanel.equivalentSnapshotLayerGroupEntityNames("john", "neutral", "head"));
+  }
+
+  @Test
+  void resolveSnapshotExpandsCharacterLayerGroupGlobs() {
+    String source = """
+        @charlayer john body_default assets/john/body.png
+        @charlayer john body_no_limbs assets/john/body_no_limbs.png
+        @charlayer john arm_front_default assets/john/arm.png
+        @charlayer john arm_front_holding_wrist assets/john/holding.png
+        @chargroup john body_orientation pivot=0.5,1 \\
+          $body_* | \\
+          $arm_front_*
+        @charpreset john holding $body_no_limbs | $arm_front_holding_wrist
+        @label start
+        [show john center holding]
+        """;
+
+    PuppeteerLauncherPanel.SceneSnapshot snapshot =
+        PuppeteerLauncherPanel.resolveSnapshot(source, 7);
+
+    PuppeteerLauncherPanel.CharacterLayerGroupEntry group =
+        snapshot.resolveCharacterLayerGroup("john", "body_orientation");
+    assertEquals(
+        List.of("body_default", "body_no_limbs", "arm_front_default", "arm_front_holding_wrist"),
+        group.layerIds);
+    assertEquals(
+        "john_body_orientation",
+        PuppeteerLauncherPanel.snapshotLayerGroupEntityName("john", "holding", "body_orientation"));
   }
 
   @Test

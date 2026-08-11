@@ -180,6 +180,8 @@ Registers a named movable group of character layers. Groups make large rigs easi
 ```
 
 - `layerSpec` uses the same pipe-separated `$layerId` references as `@charpreset`.
+- Layer globs are supported: `$body_*`, `$arm_front_*`, and `?` for one character. They expand to declared layer IDs in deterministic name order; a glob that matches nothing is an error.
+- Long `@chargroup` and `@charpreset` declarations may continue onto the next line with a trailing `\`.
 - `$groupId` can reference an earlier `@chargroup`, allowing nested groups.
 - `parent=<parentGroupId>` makes this group inherit the parent group's timeline transform.
 - `pivot=<x>,<y>` sets the default group pivot for rotation/scale until a timeline pivot overrides it.
@@ -196,6 +198,7 @@ Registers a named movable group of character layers. Groups make large rigs easi
 @charlayer john mouth_smile assets/characters/john/mouth_smile.png
 
 @chargroup john head pivot=0.5,0.28 $head_base | $eyes_neutral | $mouth_smile
+@chargroup john body_orientation pivot=0.5,1 $body_* | $neck_* | $arm_front_* | $arm_behind_*
 @charpreset john neutral $body_default | $head
 ```
 

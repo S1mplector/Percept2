@@ -1221,6 +1221,7 @@ button then opens it in the editor."""));
       String sourceName,
       IncludeSourceResolver includeResolver
   ) {
+    source = LayeredCharacterResolver.collapseLayerDirectiveContinuations(source);
     String[] lines = source.split("\n", -1);
     int limit = Math.max(0, Math.min(upToLine, lines.length - 1));
 
@@ -1604,8 +1605,8 @@ button then opens it in the editor."""));
     String safeGroup = selectorSafeName(groupId);
     if (safeCharacter.isBlank() || safeExpression.isBlank() || safeGroup.isBlank()) return List.of();
     LinkedHashSet<String> names = new LinkedHashSet<>();
-    names.add(safeCharacter + "_" + safeExpression + "_" + safeGroup);
     names.add(safeCharacter + "_" + safeGroup);
+    names.add(safeCharacter + "_" + safeExpression + "_" + safeGroup);
     return List.copyOf(names);
   }
 
@@ -2049,6 +2050,7 @@ button then opens it in the editor."""));
       Set<String> includeStack
   ) {
     if (source == null || source.isBlank()) return;
+    source = LayeredCharacterResolver.collapseLayerDirectiveContinuations(source);
     String normalizedSource = normalizeSourceName(sourceName);
     if (!includeStack.add(normalizedSource)) return;
     try {
@@ -2314,8 +2316,13 @@ button then opens it in the editor."""));
       String defaultCharacterId,
       String rawRef
   ) {
-    CharacterLayerEntry layer = resolveLayerEntry(layersByCharacter, defaultCharacterId, rawRef);
-    if (layer != null) return List.of(layer);
+    List<LayeredCharacterResolver.LayerMatch> layerMatches =
+        LayeredCharacterResolver.resolveLayerMatches(layersByCharacter, defaultCharacterId, rawRef);
+    if (!layerMatches.isEmpty()) {
+      return layerMatches.stream()
+          .map(match -> new CharacterLayerEntry(match.layerId(), match.path()))
+          .toList();
+    }
 
     LayeredCharacterResolver.CharacterRef ref = LayeredCharacterResolver.parseReference(rawRef, defaultCharacterId);
     CharacterLayerGroupEntry group = groupsByCharacter == null ? null : groupsByCharacter.get(ref.characterId() + "/" + ref.localId());

@@ -266,6 +266,7 @@ public final class LayeredCharacterProjectCatalog {
                                   Map<String, LinkedHashMap<String, String>> rawGroupsByCharacter,
                                   Map<String, LinkedHashMap<String, String>> rawPresetsByCharacter) {
     if (source == null || source.isBlank()) return;
+    source = LayeredCharacterResolver.collapseLayerDirectiveContinuations(source);
     String[] lines = source.split("\\R");
     for (String line : lines) {
       if (line == null) continue;
@@ -390,8 +391,14 @@ public final class LayeredCharacterProjectCatalog {
       String rawRef,
       Deque<String> groupStack
   ) {
-    ResolvedLayer layer = resolveLayerReference(layersByCharacter, defaultCharacterId, rawRef);
-    if (layer != null) return List.of(layer);
+    List<LayeredCharacterResolver.LayerMatch> layerMatches =
+        LayeredCharacterResolver.resolveLayerMatches(layersByCharacter, defaultCharacterId, rawRef);
+    if (!layerMatches.isEmpty()) {
+      return layerMatches.stream()
+          .map(match -> new ResolvedLayer(
+              match.characterId(), match.layerId(), normalizeRelativePath(match.path())))
+          .toList();
+    }
 
     LayeredCharacterResolver.CharacterRef ref = LayeredCharacterResolver.parseReference(rawRef, defaultCharacterId);
     if (ref.characterId() == null || ref.characterId().isBlank()

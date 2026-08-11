@@ -34,7 +34,9 @@ class ProjectDependencyValidatorTest {
         @background missing assets/backgrounds/missing.png
         @charimg hero neutral assets/characters/hero.png
         @charlayer hero base assets/characters/hero_base.png
-        @chargroup hero head pivot=0.5,0.28 $base | assets/characters/hero_head.png
+        @chargroup hero head pivot=0.5,0.28 \\
+          $base | \\
+          assets/characters/hero_head.png
         @charpreset hero special $base | assets/characters/hero_smile.png
         @stagepreset sunset config/stage/sunset.stagepreset
 

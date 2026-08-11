@@ -3,7 +3,7 @@ package com.jvn.core.vn.script;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -480,7 +480,9 @@ public class VnScriptParser {
                          IncludeResolver resolver,
                          ParseState state,
                          Deque<String> includeStack) throws IOException {
-    BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8));
+    String sourceText = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+    BufferedReader reader = new BufferedReader(new StringReader(
+        LayeredCharacterResolver.collapseLayerDirectiveContinuations(sourceText)));
     String line;
     int lineNumber = 0;
 
@@ -800,7 +802,8 @@ public class VnScriptParser {
         if (options.spec().isBlank()) {
           throw parseError(sourceName, lineNumber, "@chargroup layer spec cannot be empty", rawLine);
         }
-        LayerPresetSpec resolvedSpec = resolveLayerPresetSpec(state, id, options.spec(), sourceName, lineNumber, rawLine);
+        LayerPresetSpec resolvedSpec = resolveLayerPresetSpec(
+            state, id, options.spec(), sourceName, lineNumber, rawLine, "@chargroup");
         getOrCreateCharacterBuilder(state, id).addLayerGroup(
             groupId,
             options.parentId(),
@@ -820,7 +823,8 @@ public class VnScriptParser {
         if (spec.isEmpty()) {
           throw parseError(sourceName, lineNumber, "@charpreset layer spec cannot be empty", rawLine);
         }
-        LayerPresetSpec resolvedSpec = resolveLayerPresetSpec(state, id, spec, sourceName, lineNumber, rawLine);
+        LayerPresetSpec resolvedSpec = resolveLayerPresetSpec(
+            state, id, spec, sourceName, lineNumber, rawLine, "@charpreset");
         com.jvn.core.vn.VnCharacter.Builder cb = state.charBuilders.get(id);
         if (cb == null) {
           cb = com.jvn.core.vn.VnCharacter.builder(id);
@@ -2820,7 +2824,8 @@ public class VnScriptParser {
                                                  String spec,
                                                  String sourceName,
                                                  int lineNumber,
-                                                 String rawLine) throws IOException {
+                                                 String rawLine,
+                                                 String context) throws IOException {
     String[] tokens = spec.split("\\|");
     List<String> resolved = new ArrayList<>();
     List<String> layerIds = new ArrayList<>();
@@ -2831,7 +2836,7 @@ public class VnScriptParser {
       if (part.startsWith("$")) {
         String rawRef = part.substring(1).trim();
         if (rawRef.isEmpty()) {
-          throw parseError(sourceName, lineNumber, "@charpreset contains empty $layer reference", rawLine);
+          throw parseError(sourceName, lineNumber, context + " contains empty $layer reference", rawLine);
         }
         List<LayerReference> refs = resolveLayerOrGroupReference(
             state,
@@ -2840,7 +2845,7 @@ public class VnScriptParser {
             sourceName,
             lineNumber,
             rawLine,
-            "@charpreset");
+            context);
         for (LayerReference ref : refs) {
           resolved.add(ref.path());
           layerIds.add(ref.layerId());
@@ -2873,7 +2878,7 @@ public class VnScriptParser {
       }
     }
     if (resolved.isEmpty()) {
-      throw parseError(sourceName, lineNumber, "@charpreset produced no layers", rawLine);
+      throw parseError(sourceName, lineNumber, context + " produced no layers", rawLine);
     }
     return new LayerPresetSpec(String.join(" | ", resolved), layerIds);
   }
@@ -3196,8 +3201,17 @@ public class VnScriptParser {
                                                             int lineNumber,
                                                             String rawLine,
                                                             String context) throws IOException {
-    LayerReference layer = tryResolveLayerReference(state, defaultCharacterId, rawRef);
-    if (layer != null) return List.of(layer);
+    List<LayeredCharacterResolver.LayerMatch> layerMatches =
+        LayeredCharacterResolver.resolveLayerMatches(state.charLayers, defaultCharacterId, rawRef);
+    if (!layerMatches.isEmpty()) {
+      LayeredCharacterResolver.CharacterRef layerRef =
+          LayeredCharacterResolver.parseReference(rawRef, defaultCharacterId);
+      boolean glob = LayeredCharacterResolver.containsGlob(layerRef.localId());
+      return layerMatches.stream()
+          .map(match -> new LayerReference(
+              match.path(), glob ? match.layerId() : layerRef.localId()))
+          .toList();
+    }
 
     LayeredCharacterResolver.CharacterRef groupRef = LayeredCharacterResolver.parseReference(rawRef, defaultCharacterId);
     com.jvn.core.vn.VnCharacter.Builder groupCharacter = state.charBuilders.get(groupRef.characterId());
@@ -3210,6 +3224,15 @@ public class VnScriptParser {
         if (groupLayer != null) out.add(groupLayer);
       }
       if (!out.isEmpty()) return out;
+    }
+
+    if (LayeredCharacterResolver.containsGlob(groupRef.localId())) {
+      throw parseError(
+          sourceName,
+          lineNumber,
+          context + " layer glob '$" + rawRef + "' matched no declared @charlayer IDs for character '"
+              + groupRef.characterId() + "'",
+          rawLine);
     }
 
     if (groupCharacter == null || groupCharacter.getLayerGroups().isEmpty()) {
