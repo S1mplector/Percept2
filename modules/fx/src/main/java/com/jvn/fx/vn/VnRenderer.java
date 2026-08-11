@@ -455,16 +455,27 @@ public class VnRenderer {
     // HUD message (toast)
     long now = System.currentTimeMillis();
     if (state.getHudMessage() != null && now < state.getHudMessageExpireAt()) {
-      gc.setFont(Font.font(nameFont.getFamily(), FontWeight.BOLD, 16));
+      Font hudFont = Font.font(nameFont.getFamily(), FontWeight.BOLD, 16);
+      gc.setFont(hudFont);
+      String msg = state.getHudMessage();
+      double lineHeight = Math.max(hudFont.getSize() * 1.25, computeTextHeight(hudFont) + 3.0);
+      HudToastLayout.Layout toast = HudToastLayout.compute(
+          msg,
+          width,
+          lineHeight,
+          line -> computeTextWidth(line, hudFont));
       gc.setFill(Color.rgb(0, 0, 0, 0.6));
-      double boxW = Math.min(width * 0.6, 360);
-      double boxH = 40;
+      double boxW = toast.width();
+      double boxH = toast.height();
       double bx = (width - boxW) / 2;
-      double by = height * 0.1;
+      double by = clamp(height * 0.1, 16.0, Math.max(16.0, height - boxH - 16.0));
       gc.fillRoundRect(bx, by, boxW, boxH, 10, 10);
       gc.setFill(Color.WHITE);
-      String msg = state.getHudMessage();
-      gc.fillText(msg, bx + 12, by + 25);
+      double baseline = by + HudToastLayout.VERTICAL_PADDING + computeTextAscent(hudFont);
+      for (String line : toast.lines()) {
+        gc.fillText(line, bx + HudToastLayout.HORIZONTAL_PADDING, baseline);
+        baseline += lineHeight;
+      }
     }
 
     if (shaking) {
