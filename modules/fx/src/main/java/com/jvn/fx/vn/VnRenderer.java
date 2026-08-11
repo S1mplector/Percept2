@@ -1528,8 +1528,8 @@ public class VnRenderer {
     String safeGroup = selectorSafeNameStatic(groupId);
     if (safeCharacter.isBlank() || safeExpression.isBlank() || safeGroup.isBlank()) return List.of();
     LinkedHashSet<String> names = new LinkedHashSet<>();
-    names.add(safeCharacter + "_" + safeExpression + "_" + safeGroup);
     names.add(safeCharacter + "_" + safeGroup);
+    names.add(safeCharacter + "_" + safeExpression + "_" + safeGroup);
     return List.copyOf(names);
   }
 

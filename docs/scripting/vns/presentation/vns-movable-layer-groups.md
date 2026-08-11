@@ -82,6 +82,16 @@ With `@chargroup`, write the layer list once:
 
 You can choose how much to group. If every expression uses the same head base but different eyes and mouths, keep only stable layers in `head_base_group`, or define expression-specific groups such as `head_neutral`, `head_happy`, and `head_angry`.
 
+For characters with many one-off variants, use layer globs instead of listing every sprite:
+
+```vns
+@chargroup john body_orientation pivot=0.5,1 \
+  $body_* | $neck_* | \
+  $arm_front_* | $arm_behind_*
+```
+
+The glob expands against previously declared `@charlayer` IDs. Expansion is deterministic, and a pattern that matches nothing is a script error rather than a broken runtime target. Animate the resulting group through the stable `john_body_orientation` target across expression changes.
+
 ---
 
 ## Nested Groups

@@ -9,7 +9,7 @@ class VnRendererLayerProxyFallbackTest {
   @Test
   void layerGroupTargetsExposeExpressionSpecificAndStableAliases() {
     assertEquals(
-        java.util.List.of("john_neutral_head", "john_head"),
+        java.util.List.of("john_head", "john_neutral_head"),
         VnRenderer.timelineGroupTargetNames("john", "neutral", "head"));
   }
 

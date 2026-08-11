@@ -115,4 +115,22 @@ class AssetPickerPanelTest {
             AssetPickerPanel.resolvePresetPaths(layers, groups, Map.of(), "john", "$body | $head")
         );
     }
+
+    @Test
+    void resolveCharacterGroupsExpandsLayerGlobs() {
+        Map<String, Map<String, String>> layers = Map.of(
+            "john",
+            Map.of(
+                "body_default", "assets/characters/john/body.png",
+                "body_no_limbs", "assets/characters/john/body_no_limbs.png",
+                "arm_front_default", "assets/characters/john/arm.png"
+            )
+        );
+
+        assertEquals(
+            List.of("body_default", "body_no_limbs"),
+            AssetPickerPanel.resolveGroupLayerIds(
+                layers, Map.of(), "john", "pivot=0.5,1 $body_*")
+        );
+    }
 }

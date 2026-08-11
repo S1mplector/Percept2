@@ -7121,7 +7121,6 @@ public class PuppeteerWindow extends Stage {
             launchSceneSnapshot,
             character,
             groupId);
-        if (names.size() > 1) return names.get(1);
         return names.isEmpty() ? "" : names.get(0);
     }
 

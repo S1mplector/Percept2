@@ -726,7 +726,7 @@ Layered character launches also create expression-specific aliases:
 
 Group transforms are applied before individual layer transforms. This lets authors animate broad motion on `hero_head` while keeping small corrections on `hero_eyes_neutral` or `hero_mouth_smile`.
 
-Puppeteer uses the stable `hero_<layer>` name as the canonical exported track. The expression-specific form remains an alias for importing older timelines. A stable layer target follows that exact layer when it is reused by another expression; it does not automatically transfer to a replacement layer with a different ID. Use an `@chargroup` containing the alternative layer IDs when one transform should follow a semantic part such as every body or arm variant.
+Puppeteer uses the stable `hero_<layer>` name as the canonical exported track. The expression-specific form remains an alias for importing older timelines. A stable layer target follows that exact layer when it is reused by another expression and transfers to a uniquely inferred same-lane replacement. Use an `@chargroup` when several variants should share one explicit semantic target or naming is ambiguous.
 
 ### JES Launch
 
@@ -753,6 +753,8 @@ timeline {
 ```
 
 For declared layered characters, a timeline may intentionally target a layer or group absent from the current `[show]` composition. The engine pre-arms that proxy and the editor reports a warning so the delayed effect is explicit. When a later expression substitutes a conventionally named variant such as `body_default` → `body_no_limbs` or `arm_front_default` → `arm_front_holding_wrist`, the renderer infers the shared anatomical lane and carries the transform without requiring an `@chargroup`. An explicit group remains available when naming is ambiguous or a project wants to override the inferred lane.
+
+Large rigs can keep that override concise. `@chargroup john body_orientation $body_* | $neck_* | $arm_front_* | $arm_behind_*` expands all matching declared layers, and Puppeteer exports the expression-independent `john_body_orientation` target as the canonical group track. Expression-qualified group names remain import aliases for older timelines.
 
 ### Contextual timeline diagnostics
 

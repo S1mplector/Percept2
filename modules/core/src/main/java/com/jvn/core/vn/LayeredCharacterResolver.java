@@ -25,6 +25,7 @@ public final class LayeredCharacterResolver {
   }
 
   public record CharacterRef(String characterId, String localId) {}
+  public record LayerMatch(String characterId, String layerId, String path) {}
 
   public static CharacterRef parseReference(String rawRef, String defaultCharacterId) {
     String ref = rawRef == null ? "" : rawRef.trim();
@@ -44,24 +45,123 @@ public final class LayeredCharacterResolver {
   public static String resolveLayerPath(Map<String, ? extends Map<String, String>> layersByCharacter,
                                         String defaultCharacterId,
                                         String rawRef) {
-    if (layersByCharacter == null || rawRef == null || rawRef.isBlank()) {
-      return null;
-    }
+    List<LayerMatch> matches = resolveLayerMatches(layersByCharacter, defaultCharacterId, rawRef);
+    return matches.isEmpty() ? null : matches.get(0).path();
+  }
+
+  /**
+   * Resolve an exact layer reference or a glob such as {@code body_*}. Globs
+   * are useful in {@code @chargroup} declarations so a semantic animation
+   * group can cover many sprite variants without repeating every identifier.
+   */
+  public static List<LayerMatch> resolveLayerMatches(
+      Map<String, ? extends Map<String, String>> layersByCharacter,
+      String defaultCharacterId,
+      String rawRef
+  ) {
+    if (layersByCharacter == null || rawRef == null || rawRef.isBlank()) return List.of();
     CharacterRef ref = parseReference(rawRef, defaultCharacterId);
-    if (ref.characterId() == null || ref.characterId().isBlank() || ref.localId() == null || ref.localId().isBlank()) {
-      return null;
+    if (ref.characterId() == null || ref.characterId().isBlank()
+        || ref.localId() == null || ref.localId().isBlank()) {
+      return List.of();
     }
     Map<String, String> layerMap = layersByCharacter.get(ref.characterId());
-    if (layerMap == null || layerMap.isEmpty()) {
-      return null;
+    if (layerMap == null || layerMap.isEmpty()) return List.of();
+
+    String localId = ref.localId();
+    if (!containsGlob(localId)) {
+      for (String candidate : candidateLayerIds(localId)) {
+        String path = layerMap.get(candidate);
+        if (path != null && !path.isBlank()) {
+          return List.of(new LayerMatch(ref.characterId(), candidate, path.trim()));
+        }
+      }
+      return List.of();
     }
-    for (String candidate : candidateLayerIds(ref.localId())) {
-      String path = layerMap.get(candidate);
-      if (path != null && !path.isBlank()) {
-        return path.trim();
+
+    return layerMap.entrySet().stream()
+        .filter(entry -> entry.getKey() != null && globMatches(localId, entry.getKey()))
+        .filter(entry -> entry.getValue() != null && !entry.getValue().isBlank())
+        .sorted(Map.Entry.comparingByKey())
+        .map(entry -> new LayerMatch(ref.characterId(), entry.getKey(), entry.getValue().trim()))
+        .toList();
+  }
+
+  public static boolean containsGlob(String value) {
+    return value != null && (value.indexOf('*') >= 0 || value.indexOf('?') >= 0);
+  }
+
+  /**
+   * Joins backslash-continued layered declarations while retaining the same
+   * number of physical lines, so editor and parser diagnostics keep accurate
+   * source locations.
+   */
+  public static String collapseLayerDirectiveContinuations(String source) {
+    if (source == null || source.isEmpty()) return source == null ? "" : source;
+    String[] lines = source.split("\\R", -1);
+    for (int start = 0; start < lines.length; start++) {
+      String trimmed = lines[start] == null ? "" : lines[start].trim();
+      if (!startsLayerDirective(trimmed) || !hasTrailingContinuation(trimmed)) continue;
+      StringBuilder logical = new StringBuilder(lines[start]);
+      int cursor = start;
+      while (hasTrailingContinuation(logical.toString().trim()) && cursor + 1 < lines.length) {
+        String withoutSlash = removeTrailingContinuation(logical.toString());
+        logical.setLength(0);
+        logical.append(withoutSlash).append(' ').append(lines[++cursor].trim());
+        lines[cursor] = "";
+      }
+      lines[start] = logical.toString();
+      start = cursor;
+    }
+    return String.join("\n", lines);
+  }
+
+  private static boolean startsLayerDirective(String trimmed) {
+    if (trimmed == null) return false;
+    return trimmed.regionMatches(true, 0, "@chargroup", 0, "@chargroup".length())
+        || trimmed.regionMatches(true, 0, "@charpreset", 0, "@charpreset".length());
+  }
+
+  private static boolean hasTrailingContinuation(String value) {
+    if (value == null) return false;
+    int index = value.length() - 1;
+    while (index >= 0 && Character.isWhitespace(value.charAt(index))) index--;
+    return index >= 0 && value.charAt(index) == '\\';
+  }
+
+  private static String removeTrailingContinuation(String value) {
+    if (value == null || value.isEmpty()) return "";
+    int index = value.length() - 1;
+    while (index >= 0 && Character.isWhitespace(value.charAt(index))) index--;
+    if (index >= 0 && value.charAt(index) == '\\') {
+      return value.substring(0, index).stripTrailing();
+    }
+    return value;
+  }
+
+  static boolean globMatches(String pattern, String value) {
+    if (pattern == null || value == null) return false;
+    int patternIndex = 0;
+    int valueIndex = 0;
+    int starIndex = -1;
+    int starValueIndex = -1;
+    while (valueIndex < value.length()) {
+      if (patternIndex < pattern.length()
+          && (pattern.charAt(patternIndex) == '?' || pattern.charAt(patternIndex) == value.charAt(valueIndex))) {
+        patternIndex++;
+        valueIndex++;
+      } else if (patternIndex < pattern.length() && pattern.charAt(patternIndex) == '*') {
+        starIndex = patternIndex++;
+        starValueIndex = valueIndex;
+      } else if (starIndex >= 0) {
+        patternIndex = starIndex + 1;
+        valueIndex = ++starValueIndex;
+      } else {
+        return false;
       }
     }
-    return null;
+    while (patternIndex < pattern.length() && pattern.charAt(patternIndex) == '*') patternIndex++;
+    return patternIndex == pattern.length();
   }
 
   public static List<String> candidateLayerIds(String rawLayerId) {

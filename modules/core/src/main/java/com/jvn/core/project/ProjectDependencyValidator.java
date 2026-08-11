@@ -41,6 +41,7 @@ import com.jvn.core.menu.config.MenuProfile;
 import com.jvn.core.menu.config.MenuProfileLoader;
 import com.jvn.core.menu.config.MenuScreenSpec;
 import com.jvn.core.vn.VnArgTokenizer;
+import com.jvn.core.vn.LayeredCharacterResolver;
 import com.jvn.core.vn.script.VnScriptParser;
 import com.jvn.core.vn.stage.VnStagePresetLoader;
 
@@ -434,7 +435,10 @@ public final class ProjectDependencyValidator {
 
   private static void inspectVnsFile(ValidationContext ctx, Path file, VnScriptParser parser) {
     String rel = ctx.rel(file);
-    List<String> lines = readLines(ctx, file);
+    List<String> physicalLines = readLines(ctx, file);
+    List<String> lines = List.of(LayeredCharacterResolver
+        .collapseLayerDirectiveContinuations(String.join("\n", physicalLines))
+        .split("\\R", -1));
     for (int i = 0; i < lines.size(); i++) {
       String trimmed = lines.get(i).trim();
       if (!ctx.inlineJavaReported && isInlineJavaStart(trimmed)) {
