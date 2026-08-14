@@ -1,14 +1,22 @@
 package com.jvn.editor.ui;
 
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Point2D;
 import javafx.scene.Cursor;
+import javafx.scene.Group;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Tooltip;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.geometry.Pos;
 import javafx.scene.paint.Color;
@@ -26,6 +34,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.function.Consumer;
 
 /** Visual label-flow graph for a single VNS script. */
@@ -40,10 +50,14 @@ public class VnsFlowMapView extends BorderPane {
   private final Label titleLabel = new Label("Label Flow Map");
   private final Label fileLabel = new Label("No active .vns file");
   private final Label summaryLabel = new Label("Open a .vns script to inspect label flow.");
+  private final Label zoomLabel = new Label("100%");
   private final Pane graphPane = new Pane();
-  private final ScrollPane scrollPane = new ScrollPane(graphPane);
+  private final Group graphGroup = new Group(graphPane);
+  private final StackPane graphSurface = new StackPane(graphGroup);
+  private final ScrollPane scrollPane = new ScrollPane(graphSurface);
 
   private Consumer<Integer> onOpenLine;
+  private double zoom = 1.0;
 
   public VnsFlowMapView() {
     getStyleClass().add("sidebar-tool-root");
@@ -62,21 +76,49 @@ reachable from choices, jumps (@goto), or fall-through. This helps you:
   • Find labels that have no outgoing connections (potential dead ends)
   • Trace the story path from a given label without reading raw script
 
-Clicking a node in the diagram jumps the script editor to that label's \
-opening line. The map refreshes automatically when you save or switch the \
-active .vns file."""));
+Clicking a node jumps the script editor to that label's opening line. Orange \
+nodes are unreachable from the start label; red dashed nodes are undefined targets.
+
+Use the toolbar to zoom, fit the graph, or return to 100%. Ctrl/Cmd + mouse \
+wheel zooms around the graph while normal scrolling and dragging pan it. The map \
+refreshes automatically when you edit or switch the active .vns file."""));
     titleRow.setAlignment(Pos.CENTER_LEFT);
-    VBox header = new VBox(6, titleRow, fileLabel, summaryLabel);
+    Region titleSpacer = new Region();
+    HBox.setHgrow(titleSpacer, Priority.ALWAYS);
+    Button zoomOut = toolbarButton("−", "Zoom out", () -> setZoom(zoom - 0.1));
+    Button zoomIn = toolbarButton("+", "Zoom in", () -> setZoom(zoom + 0.1));
+    Button actualSize = toolbarButton("100%", "Reset graph zoom", () -> setZoom(1.0));
+    Button fit = toolbarButton("Fit", "Fit the entire graph in the viewport", this::fitGraph);
+    zoomLabel.getStyleClass().add("sidebar-tool-subtitle");
+    zoomLabel.setMinWidth(38);
+    HBox toolbar = new HBox(5, zoomOut, zoomLabel, zoomIn, actualSize, fit);
+    toolbar.setAlignment(Pos.CENTER_LEFT);
+    titleRow.getChildren().add(titleSpacer);
+
+    FlowPane legend = new FlowPane(10, 4,
+        legendItem("●", "Start", "#8bd17c"),
+        legendItem("●", "Reachable", "#5e718f"),
+        legendItem("●", "Unreachable", "#f0b673"),
+        legendItem("●", "Undefined", "#f38ba8"));
+    legend.setAlignment(Pos.CENTER_LEFT);
+    VBox header = new VBox(6, titleRow, fileLabel, summaryLabel, toolbar, legend);
     header.setPadding(new Insets(10, 10, 8, 10));
     header.getStyleClass().add("sidebar-tool-header");
     setTop(header);
 
     graphPane.setMinSize(420, 320);
     graphPane.setPrefSize(780, 520);
+    graphSurface.setAlignment(Pos.TOP_LEFT);
+    updateZoomSurface();
 
     scrollPane.setFitToHeight(true);
     scrollPane.setFitToWidth(false);
     scrollPane.setPannable(true);
+    scrollPane.setOnScroll(event -> {
+      if (!event.isShortcutDown()) return;
+      setZoom(zoom + (event.getDeltaY() > 0 ? 0.1 : -0.1));
+      event.consume();
+    });
     setCenter(scrollPane);
   }
 
@@ -88,6 +130,7 @@ active .vns file."""));
     fileLabel.setText("No active .vns file");
     summaryLabel.setText("Open a .vns script to inspect label flow.");
     graphPane.getChildren().clear();
+    setZoom(1.0);
   }
 
   public void setAnalysis(File scriptFile, VnsScriptAnalyzer.Analysis analysis) {
@@ -97,9 +140,8 @@ active .vns file."""));
     }
 
     fileLabel.setText(scriptFile.getName());
-    summaryLabel.setText(
-        analysis.labels().size() + " labels, " + analysis.edges().size() + " transitions"
-    );
+    FlowSummary summary = summarizeAnalysis(analysis);
+    summaryLabel.setText(summary.displayText());
     renderGraph(analysis);
   }
 
@@ -113,12 +155,13 @@ active .vns file."""));
       empty.setLayoutY(24);
       graphPane.getChildren().add(empty);
       graphPane.setPrefSize(520, 260);
+      updateZoomSurface();
       return;
     }
 
     Map<String, GraphNode> graphNodes = new LinkedHashMap<>();
     for (VnsScriptAnalyzer.LabelNode node : labelNodes) {
-      graphNodes.put(node.name(), new GraphNode(node.name(), node.line(), true));
+      graphNodes.put(node.name(), new GraphNode(node.name(), node.line(), true, false));
     }
 
     // Adjacency for depth assignment.
@@ -147,6 +190,12 @@ active .vns file."""));
       }
     }
 
+    Set<String> reachableLabels = Set.copyOf(depthByLabel.keySet());
+    for (String reachable : reachableLabels) {
+      GraphNode node = graphNodes.get(reachable);
+      if (node != null) node.reachable = true;
+    }
+
     int maxDepth = depthByLabel.values().stream().mapToInt(Integer::intValue).max().orElse(0);
     List<GraphNode> unassigned = new ArrayList<>(graphNodes.values());
     unassigned.removeIf(node -> depthByLabel.containsKey(node.label));
@@ -161,7 +210,7 @@ active .vns file."""));
       if (edge.definedTarget()) continue;
       String unresolvedKey = unresolvedNodeKey(edge.toLabel());
       if (!graphNodes.containsKey(unresolvedKey)) {
-        GraphNode unresolved = new GraphNode(edge.toLabel(), -1, false);
+        GraphNode unresolved = new GraphNode(edge.toLabel(), -1, false, false);
         graphNodes.put(unresolvedKey, unresolved);
       }
       int fromDepth = depthByLabel.getOrDefault(edge.fromLabel(), 0);
@@ -226,6 +275,10 @@ active .vns file."""));
       } else if (node.label.equalsIgnoreCase(analysis.startLabel())) {
         rect.setFill(Color.web("#23362a"));
         rect.setStroke(Color.web("#8bd17c"));
+      } else if (!node.reachable) {
+        rect.setFill(Color.web("#3a3023"));
+        rect.setStroke(Color.web("#f0b673"));
+        rect.getStrokeDashArray().setAll(6.0, 4.0);
       } else {
         rect.setFill(Color.web("#252c39"));
         rect.setStroke(Color.web("#5e718f"));
@@ -250,6 +303,17 @@ active .vns file."""));
         label.setOnMouseClicked(e -> openLine(node, e.getButton()));
         line.setOnMouseClicked(e -> openLine(node, e.getButton()));
       }
+      String nodeDescription = node.defined
+          ? node.label + ", line " + (node.line + 1)
+              + (node.reachable ? ", reachable" : ", unreachable")
+          : node.label + ", undefined target";
+      rect.setAccessibleText(nodeDescription);
+      label.setAccessibleText(nodeDescription);
+      line.setAccessibleText(nodeDescription);
+      Tooltip nodeTooltip = new Tooltip(nodeDescription + (node.defined ? " — click to open" : ""));
+      Tooltip.install(rect, nodeTooltip);
+      Tooltip.install(label, nodeTooltip);
+      Tooltip.install(line, nodeTooltip);
 
       graphPane.getChildren().addAll(rect, label, line);
     }
@@ -258,6 +322,84 @@ active .vns file."""));
     double width = Math.max(640, MARGIN_X * 2 + (maxDepthValue + 1) * X_GAP);
     double height = Math.max(360, MARGIN_Y * 2 + Math.max(1, maxLayerSize) * Y_GAP + 60);
     graphPane.setPrefSize(width, height);
+    updateZoomSurface();
+  }
+
+  private Button toolbarButton(String text, String tooltip, Runnable action) {
+    Button button = new Button(text);
+    button.setTooltip(new Tooltip(tooltip));
+    button.setAccessibleText(tooltip);
+    button.setOnAction(event -> action.run());
+    button.setFocusTraversable(false);
+    return button;
+  }
+
+  private Label legendItem(String marker, String text, String color) {
+    Label label = new Label(marker + " " + text);
+    label.setStyle("-fx-text-fill: " + color + "; -fx-font-size: 10px;");
+    return label;
+  }
+
+  private void setZoom(double requestedZoom) {
+    zoom = Math.max(0.1, Math.min(2.0, requestedZoom));
+    zoom = Math.round(zoom * 10.0) / 10.0;
+    graphGroup.setScaleX(zoom);
+    graphGroup.setScaleY(zoom);
+    zoomLabel.setText(Math.round(zoom * 100) + "%");
+    updateZoomSurface();
+  }
+
+  private void fitGraph() {
+    double graphWidth = Math.max(1, graphPane.getPrefWidth());
+    double graphHeight = Math.max(1, graphPane.getPrefHeight());
+    double viewportWidth = Math.max(1, scrollPane.getViewportBounds().getWidth() - 16);
+    double viewportHeight = Math.max(1, scrollPane.getViewportBounds().getHeight() - 16);
+    setZoom(Math.min(viewportWidth / graphWidth, viewportHeight / graphHeight));
+    Platform.runLater(() -> {
+      scrollPane.setHvalue(0);
+      scrollPane.setVvalue(0);
+    });
+  }
+
+  private void updateZoomSurface() {
+    graphSurface.setMinSize(
+        Math.max(1, graphPane.getPrefWidth() * zoom),
+        Math.max(1, graphPane.getPrefHeight() * zoom));
+    graphSurface.setPrefSize(
+        Math.max(1, graphPane.getPrefWidth() * zoom),
+        Math.max(1, graphPane.getPrefHeight() * zoom));
+  }
+
+  static FlowSummary summarizeAnalysis(VnsScriptAnalyzer.Analysis analysis) {
+    if (analysis == null) return new FlowSummary(0, 0, 0, 0);
+    Map<String, List<VnsScriptAnalyzer.FlowEdge>> outgoing = new HashMap<>();
+    for (VnsScriptAnalyzer.FlowEdge edge : analysis.edges()) {
+      outgoing.computeIfAbsent(edge.fromLabel(), ignored -> new ArrayList<>()).add(edge);
+    }
+    Set<String> defined = new HashSet<>();
+    for (VnsScriptAnalyzer.LabelNode label : analysis.labels()) defined.add(label.name());
+    Set<String> reachable = new HashSet<>();
+    ArrayDeque<String> queue = new ArrayDeque<>();
+    if (analysis.startLabel() != null && defined.contains(analysis.startLabel())) {
+      reachable.add(analysis.startLabel());
+      queue.add(analysis.startLabel());
+    }
+    while (!queue.isEmpty()) {
+      String from = queue.removeFirst();
+      for (VnsScriptAnalyzer.FlowEdge edge : outgoing.getOrDefault(from, List.of())) {
+        if (edge.definedTarget() && defined.contains(edge.toLabel()) && reachable.add(edge.toLabel())) {
+          queue.addLast(edge.toLabel());
+        }
+      }
+    }
+    int undefined = (int) analysis.edges().stream()
+        .filter(edge -> !edge.definedTarget())
+        .map(VnsScriptAnalyzer.FlowEdge::toLabel)
+        .distinct()
+        .count();
+    return new FlowSummary(
+        analysis.labels().size(), analysis.edges().size(),
+        Math.max(0, defined.size() - reachable.size()), undefined);
   }
 
   private void openLine(GraphNode node, MouseButton button) {
@@ -311,13 +453,26 @@ active .vns file."""));
     final String label;
     final int line;
     final boolean defined;
+    boolean reachable;
     double x;
     double y;
 
-    GraphNode(String label, int line, boolean defined) {
+    GraphNode(String label, int line, boolean defined, boolean reachable) {
       this.label = label;
       this.line = line;
       this.defined = defined;
+      this.reachable = reachable;
+    }
+  }
+
+  record FlowSummary(int labels, int transitions, int unreachable, int undefined) {
+    String displayText() {
+      StringBuilder text = new StringBuilder()
+          .append(labels).append(labels == 1 ? " label" : " labels")
+          .append(", ").append(transitions).append(transitions == 1 ? " transition" : " transitions");
+      if (unreachable > 0) text.append("  •  ").append(unreachable).append(" unreachable");
+      if (undefined > 0) text.append("  •  ").append(undefined).append(" undefined");
+      return text.toString();
     }
   }
 }

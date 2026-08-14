@@ -964,7 +964,7 @@ public final class DocsScreenshotTool extends Application {
 
         BorderPane host = new BorderPane(view);
         host.setPadding(new javafx.geometry.Insets(10));
-        return openToolStage("Docs Screenshot Session - Inspector", host, 760, 940);
+        return openToolStage("Docs Screenshot Session - Inspector", host, 760, 1120);
     }
 
     private static Stage openLabelFlowMapWindow(Path repoRoot) throws Exception {

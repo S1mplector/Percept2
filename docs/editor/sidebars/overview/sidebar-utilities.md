@@ -70,6 +70,21 @@ Most panels are also reachable from the menu bar:
 - **Tools**
 - **Window -> Open Tool Window**
 
+## Shared Interaction Baseline
+
+The sidebar-tool audit uses the following baseline across all maintained panels:
+
+- A persistent title and contextual help entry point
+- A useful no-project, no-selection, empty-result, or error state
+- Destructive or committing actions disabled until their prerequisites exist
+- Browsing separated from explicit insertion or mutation
+- Visible feedback for scans, copies, opens, saves, and failures
+- Keyboard access for primary list and form workflows
+- Accessible names for icon-only controls and ambiguous inputs
+- Undo-safe edits that skip unchanged values
+
+The specialized image tools already satisfy most of this baseline through shared fullscreen, persistence, tooltips, status, and export patterns. The Project Explorer, Asset Browser, Inspector, Label Flow Map, and Layered Image Visualizer have additionally been aligned around keyboard navigation, explicit actions, field validation, graph navigation/reachability, and contextual onboarding.
+
 ---
 
 ## Fullscreen Mode (Image Tools)

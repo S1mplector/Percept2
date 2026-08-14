@@ -129,7 +129,7 @@ For a custom snow sprite that is already spread across the scene when dialogue b
 ```
 
 `prewarm` is capped at 60 seconds to protect the render thread. Use the complete
-[VNS Commands Reference](../../scripting/vns/language/vns-commands.md#particles-options-weather-pfx-fx)
+[VNS Commands Reference](../../scripting/vns/language/vns-commands.md#particles-preset-options-weather-pfx-fx)
 for preset aliases, positional syntax, and defaults.
 
 ---

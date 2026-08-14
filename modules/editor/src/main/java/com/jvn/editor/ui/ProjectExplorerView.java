@@ -3,6 +3,7 @@ package com.jvn.editor.ui;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
+import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -40,6 +41,12 @@ public class ProjectExplorerView extends VBox {
     filter.getStyleClass().add("project-explorer-filter");
     filter.setTooltip(new Tooltip("Filter project files by name"));
     filter.textProperty().addListener((o, ov, nv) -> refresh());
+    filter.setOnKeyPressed(event -> {
+      if (event.getCode() == KeyCode.ESCAPE && !filter.getText().isEmpty()) {
+        filter.clear();
+        event.consume();
+      }
+    });
 
     tree.setShowRoot(true);
     tree.getStyleClass().add("project-explorer-tree");
@@ -147,6 +154,17 @@ public class ProjectExplorerView extends VBox {
         if (it != null && it.getValue() != null && it.getValue().isFile()) openFile(it.getValue());
       }
     });
+    tree.setOnKeyPressed(event -> {
+      TreeItem<File> item = tree.getSelectionModel().getSelectedItem();
+      if (event.getCode() == KeyCode.ENTER && item != null && item.getValue() != null) {
+        if (item.getValue().isFile()) openFile(item.getValue());
+        else item.setExpanded(!item.isExpanded());
+        event.consume();
+      } else if (event.getCode() == KeyCode.F5) {
+        refresh();
+        event.consume();
+      }
+    });
 
     miOpen.setOnAction(e -> {
       File f = getSelectedFile();
@@ -160,7 +178,22 @@ public class ProjectExplorerView extends VBox {
     miRename.setOnAction(e -> renameSelected());
     miDelete.setOnAction(e -> deleteSelected());
 
-    getChildren().addAll(header, filter, treeContainer);
+    Region headerSpacer = new Region();
+    HBox.setHgrow(headerSpacer, Priority.ALWAYS);
+    Button help = SidebarToolHelp.button(this, "Project Explorer", """
+        Browse and manage the current project's files. Double-click a file or press Enter to open
+        it. Enter on a folder expands or collapses it; F5 rescans the tree; Escape clears the filter.
+
+        Right-click a file or folder to create scripts/folders, rename, delete, or reveal it in JVN
+        Path Explorer. The project root row provides Run and Build actions. Hidden dot-directories
+        are intentionally omitted from the tree.""");
+    Button refreshButton = new Button("Refresh", CssIcon.refresh());
+    refreshButton.setTooltip(new Tooltip("Rescan project files (F5)"));
+    refreshButton.setAccessibleText("Refresh project files");
+    refreshButton.setOnAction(event -> refresh());
+    HBox headerRow = new HBox(6, header, help, headerSpacer, refreshButton);
+    headerRow.setAlignment(Pos.CENTER_LEFT);
+    getChildren().addAll(headerRow, filter, treeContainer);
   }
 
   private static Region projectActionGraphic(AeroIcon icon) {

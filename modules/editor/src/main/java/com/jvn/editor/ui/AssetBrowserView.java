@@ -1,5 +1,6 @@
 package com.jvn.editor.ui;
 
+import java.awt.Desktop;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -24,6 +25,7 @@ import javafx.scene.image.ImageView;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.Dragboard;
+import javafx.scene.input.KeyCode;
 import javafx.scene.input.TransferMode;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
@@ -34,6 +36,8 @@ import javafx.scene.layout.VBox;
 public class AssetBrowserView extends BorderPane {
   private final Label titleLabel = new Label("Asset Browser");
   private final Label rootLabel = new Label("No project loaded");
+  private final Label summaryLabel = new Label("Open a project to browse assets.");
+  private final Label statusLabel = new Label("");
   private final TextField filterField = new TextField();
   private final ComboBox<String> typeFilter = new ComboBox<>();
   private final ListView<AssetItem> listView = new ListView<>();
@@ -43,21 +47,34 @@ public class AssetBrowserView extends BorderPane {
   private final Label previewMeta = new Label("");
   private final Button copyPathButton = new Button("Copy Path");
   private final Button openButton = new Button("Open");
+  private final Button useAssetButton = new Button("Use Asset");
+  private final Button refreshButton = new Button("Refresh", CssIcon.refresh());
 
   private final List<AssetItem> allItems = new ArrayList<>();
   private File projectRoot;
   private Consumer<File> onOpenAsset;
   private Consumer<String> onAssetSelected;
+  private int scanIssueCount;
 
   public AssetBrowserView() {
     getStyleClass().add("sidebar-tool-root");
     titleLabel.getStyleClass().add("sidebar-tool-title");
     rootLabel.getStyleClass().add("sidebar-tool-subtitle");
+    summaryLabel.getStyleClass().add("sidebar-tool-summary");
+    statusLabel.getStyleClass().add("sidebar-tool-status");
+    summaryLabel.setWrapText(true);
+    statusLabel.setWrapText(true);
 
     filterField.setPromptText("Filter assets...");
     filterField.getStyleClass().add("sidebar-tool-search-field");
     filterField.setTooltip(new Tooltip("Filter assets by filename or path"));
     filterField.textProperty().addListener((obs, oldValue, newValue) -> applyFilter());
+    filterField.setOnKeyPressed(event -> {
+      if (event.getCode() == KeyCode.ESCAPE && !filterField.getText().isEmpty()) {
+        filterField.clear();
+        event.consume();
+      }
+    });
 
     typeFilter.getItems().addAll("All Types", "Image", "Audio", "Video", "Font", "Data", "File");
     typeFilter.setValue("All Types");
@@ -67,12 +84,26 @@ public class AssetBrowserView extends BorderPane {
 
     listView.setCellFactory(lv -> new AssetCell());
     listView.setPlaceholder(new Label("No assets found"));
-    listView.getSelectionModel().selectedItemProperty().addListener((obs, oldItem, newItem) -> showPreview(newItem));
+    listView.getSelectionModel().selectedItemProperty().addListener((obs, oldItem, newItem) -> {
+      showPreview(newItem);
+      updateActionState();
+    });
     listView.setOnMouseClicked(e -> {
       if (e.getClickCount() < 2) return;
       AssetItem item = listView.getSelectionModel().getSelectedItem();
       if (item == null) return;
       openAsset(item.file());
+    });
+    listView.setOnKeyPressed(event -> {
+      AssetItem item = listView.getSelectionModel().getSelectedItem();
+      if (item == null) return;
+      if (event.getCode() == KeyCode.ENTER) {
+        openAsset(item.file());
+        event.consume();
+      } else if (event.getCode() == KeyCode.C && event.isShortcutDown()) {
+        copyPath(item);
+        event.consume();
+      }
     });
 
     listView.setOnDragDetected(e -> {
@@ -85,12 +116,6 @@ public class AssetBrowserView extends BorderPane {
       e.consume();
     });
 
-    listView.getSelectionModel().selectedItemProperty().addListener((obs, oldItem, newItem) -> {
-      if (newItem != null && onAssetSelected != null) {
-        onAssetSelected.accept(newItem.relativePath());
-      }
-    });
-
     previewImage.setPreserveRatio(true);
     previewImage.setFitHeight(150);
     previewImage.setFitWidth(260);
@@ -98,10 +123,7 @@ public class AssetBrowserView extends BorderPane {
 
     copyPathButton.setOnAction(e -> {
       AssetItem item = listView.getSelectionModel().getSelectedItem();
-      if (item == null) return;
-      ClipboardContent content = new ClipboardContent();
-      content.putString(item.relativePath());
-      Clipboard.getSystemClipboard().setContent(content);
+      if (item != null) copyPath(item);
     });
     copyPathButton.setTooltip(new Tooltip("Copy the selected asset's project-relative path"));
 
@@ -112,14 +134,17 @@ public class AssetBrowserView extends BorderPane {
     });
     openButton.setTooltip(new Tooltip("Open the selected asset in the system default app"));
 
-    Button useAssetButton = new Button("Use Asset");
     useAssetButton.setTooltip(new Tooltip("Send the selected asset path to the active editor tool"));
     useAssetButton.setOnAction(e -> {
       AssetItem item = listView.getSelectionModel().getSelectedItem();
       if (item != null && onAssetSelected != null) {
         onAssetSelected.accept(item.relativePath());
+        status("Sent " + item.relativePath() + " to the active editor.");
       }
     });
+
+    refreshButton.setTooltip(new Tooltip("Rescan project asset folders"));
+    refreshButton.setOnAction(e -> refresh());
 
     HBox filterRow = new HBox(8, filterField, typeFilter);
     HBox.setHgrow(filterField, Priority.ALWAYS);
@@ -141,14 +166,17 @@ panel below. From there you can:
 Assets are read-only here; to add or remove project assets use your OS \
 file manager or version control tools."""));
     titleRow.setAlignment(Pos.CENTER_LEFT);
-    VBox header = new VBox(6, titleRow, rootLabel, filterRow);
+    javafx.scene.layout.Region titleSpacer = new javafx.scene.layout.Region();
+    HBox.setHgrow(titleSpacer, Priority.ALWAYS);
+    titleRow.getChildren().addAll(titleSpacer, refreshButton);
+    VBox header = new VBox(6, titleRow, rootLabel, summaryLabel, filterRow);
     header.setPadding(new Insets(10, 10, 8, 10));
     header.getStyleClass().add("sidebar-tool-header");
 
     HBox previewActions = new HBox(8, copyPathButton, openButton, useAssetButton);
     previewActions.setAlignment(Pos.CENTER_LEFT);
 
-    VBox previewBox = new VBox(6, previewImage, previewPath, previewMeta, previewActions);
+    VBox previewBox = new VBox(6, previewImage, previewPath, previewMeta, previewActions, statusLabel);
     previewBox.setPadding(new Insets(10));
     previewBox.getStyleClass().add("sidebar-tool-footer");
     previewPath.setWrapText(true);
@@ -159,6 +187,7 @@ file manager or version control tools."""));
 
     setTop(header);
     setCenter(center);
+    updateActionState();
   }
 
   public void setOnOpenAsset(Consumer<File> onOpenAsset) {
@@ -167,6 +196,7 @@ file manager or version control tools."""));
 
   public void setOnAssetSelected(Consumer<String> onAssetSelected) {
     this.onAssetSelected = onAssetSelected;
+    updateActionState();
   }
 
   public String getSelectedAssetPath() {
@@ -180,14 +210,20 @@ file manager or version control tools."""));
   }
 
   public void refresh() {
+    String selectedPath = getSelectedAssetPath();
     allItems.clear();
     listView.getItems().clear();
     previewImage.setImage(null);
     previewPath.setText("Select an asset");
     previewMeta.setText("");
+    scanIssueCount = 0;
 
-    if (projectRoot == null) {
+    if (projectRoot == null || !projectRoot.isDirectory()) {
       rootLabel.setText("No project loaded");
+      summaryLabel.setText("Open a project to browse assets.");
+      listView.setPlaceholder(new Label("No project loaded"));
+      status("");
+      updateActionState();
       return;
     }
 
@@ -197,6 +233,11 @@ file manager or version control tools."""));
 
     allItems.sort(Comparator.comparing(AssetItem::relativePath, String.CASE_INSENSITIVE_ORDER));
     applyFilter();
+    restoreSelection(selectedPath);
+    status(scanIssueCount == 0
+        ? "Asset scan complete."
+        : "Asset scan completed with " + scanIssueCount + " unreadable path"
+            + (scanIssueCount == 1 ? "." : "s."));
   }
 
   private void collectAssets(Path base) {
@@ -211,11 +252,11 @@ file manager or version control tools."""));
               String type = typeFor(path.getFileName().toString());
               allItems.add(new AssetItem(file, rel, type));
             } catch (Exception ignored) {
-            // reason: non-critical operation; exception swallowed to prevent crash propagation
+              scanIssueCount++;
             }
           });
     } catch (Exception ignored) {
-            // reason: non-critical operation; exception swallowed to prevent crash propagation
+      scanIssueCount++;
     }
   }
 
@@ -227,6 +268,7 @@ file manager or version control tools."""));
 
     if (normalized.isEmpty() && !filterByType) {
       listView.setItems(FXCollections.observableArrayList(allItems));
+      updateResultsSummary();
       return;
     }
 
@@ -240,6 +282,7 @@ file manager or version control tools."""));
       filtered.add(item);
     }
     listView.setItems(FXCollections.observableArrayList(filtered));
+    updateResultsSummary();
   }
 
   private void showPreview(AssetItem item) {
@@ -247,6 +290,7 @@ file manager or version control tools."""));
       previewImage.setImage(null);
       previewPath.setText("Select an asset");
       previewMeta.setText("");
+      updateActionState();
       return;
     }
 
@@ -254,7 +298,7 @@ file manager or version control tools."""));
     long size = item.file().length();
     previewMeta.setText(item.type() + "  •  " + humanFileSize(size));
 
-    if (isImage(item.file().getName())) {
+    if (isPreviewableImage(item.file().getName())) {
       try {
         Image image = new Image(item.file().toURI().toString(), 260, 150, true, true, true);
         previewImage.setImage(image);
@@ -266,35 +310,52 @@ file manager or version control tools."""));
     }
   }
 
+  private void copyPath(AssetItem item) {
+    ClipboardContent content = new ClipboardContent();
+    content.putString(item.relativePath());
+    Clipboard.getSystemClipboard().setContent(content);
+    status("Copied " + item.relativePath());
+  }
+
   private void openAsset(File file) {
     if (file == null) return;
     if (onOpenAsset != null) {
       onOpenAsset.accept(file);
+      status("Opened " + file.getName());
       return;
     }
     try {
-      java.awt.Desktop.getDesktop().open(file);
-    } catch (Exception ignored) {
-            // reason: non-critical operation; exception swallowed to prevent crash propagation
+      if (!Desktop.isDesktopSupported()) throw new UnsupportedOperationException("Desktop integration is unavailable");
+      Desktop.getDesktop().open(file);
+      status("Opened " + file.getName());
+    } catch (Exception ex) {
+      status("Could not open " + file.getName() + ": " + safeMessage(ex));
     }
   }
 
-  private String typeFor(String fileName) {
+  static String typeFor(String fileName) {
     String lower = fileName == null ? "" : fileName.toLowerCase(Locale.ROOT);
-    if (lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".webp")) return "Image";
-    if (lower.endsWith(".ogg") || lower.endsWith(".wav") || lower.endsWith(".mp3") || lower.endsWith(".flac")) return "Audio";
-    if (lower.endsWith(".mp4") || lower.endsWith(".webm") || lower.endsWith(".mov")) return "Video";
+    if (lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg")
+        || lower.endsWith(".gif") || lower.endsWith(".bmp") || lower.endsWith(".webp")
+        || lower.endsWith(".svg") || lower.endsWith(".tif") || lower.endsWith(".tiff")) return "Image";
+    if (lower.endsWith(".ogg") || lower.endsWith(".wav") || lower.endsWith(".mp3")
+        || lower.endsWith(".flac") || lower.endsWith(".aac") || lower.endsWith(".m4a")) return "Audio";
+    if (lower.endsWith(".mp4") || lower.endsWith(".webm") || lower.endsWith(".mov")
+        || lower.endsWith(".avi") || lower.endsWith(".mkv")) return "Video";
     if (lower.endsWith(".ttf") || lower.endsWith(".otf")) return "Font";
-    if (lower.endsWith(".json") || lower.endsWith(".yaml") || lower.endsWith(".yml") || lower.endsWith(".toml")) return "Data";
+    if (lower.endsWith(".json") || lower.endsWith(".yaml") || lower.endsWith(".yml")
+        || lower.endsWith(".toml") || lower.endsWith(".xml") || lower.endsWith(".properties")
+        || lower.endsWith(".csv") || lower.endsWith(".tsv")) return "Data";
     return "File";
   }
 
-  private boolean isImage(String fileName) {
+  static boolean isPreviewableImage(String fileName) {
     String lower = fileName == null ? "" : fileName.toLowerCase(Locale.ROOT);
-    return lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".webp");
+    return lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg")
+        || lower.endsWith(".gif") || lower.endsWith(".bmp") || lower.endsWith(".webp");
   }
 
-  private String humanFileSize(long sizeBytes) {
+  static String humanFileSize(long sizeBytes) {
     if (sizeBytes < 1024) return sizeBytes + " B";
     double kb = sizeBytes / 1024.0;
     if (kb < 1024) return String.format(Locale.ROOT, "%.1f KB", kb);
@@ -302,6 +363,58 @@ file manager or version control tools."""));
     if (mb < 1024) return String.format(Locale.ROOT, "%.1f MB", mb);
     double gb = mb / 1024.0;
     return String.format(Locale.ROOT, "%.2f GB", gb);
+  }
+
+  /** Formats a project-relative asset path as one safe VNS argument token. */
+  public static String vnsTokenForPath(String relativePath) {
+    String value = relativePath == null ? "" : relativePath.trim();
+    if (value.isBlank()) return "\"\"";
+    if (value.matches("[A-Za-z0-9_./:@+-]+")) return value;
+    return "\"" + value
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t")
+        + "\"";
+  }
+
+  private void updateResultsSummary() {
+    int visible = listView.getItems().size();
+    int total = allItems.size();
+    rootLabel.setText(projectRoot == null ? "No project loaded" : projectRoot.getName());
+    summaryLabel.setText(visible == total
+        ? total + " asset" + (total == 1 ? "" : "s")
+        : visible + " of " + total + " assets");
+    boolean filtered = !filterField.getText().trim().isEmpty() || !"All Types".equals(typeFilter.getValue());
+    listView.setPlaceholder(new Label(total == 0
+        ? "No assets found in assets/ or game/images/"
+        : filtered ? "No assets match the current filters" : "No assets found"));
+    updateActionState();
+  }
+
+  private void restoreSelection(String relativePath) {
+    if (relativePath == null || relativePath.isBlank()) return;
+    listView.getItems().stream()
+        .filter(item -> relativePath.equals(item.relativePath()))
+        .findFirst()
+        .ifPresent(item -> listView.getSelectionModel().select(item));
+  }
+
+  private void updateActionState() {
+    boolean noSelection = listView.getSelectionModel().getSelectedItem() == null;
+    copyPathButton.setDisable(noSelection);
+    openButton.setDisable(noSelection);
+    useAssetButton.setDisable(noSelection || onAssetSelected == null);
+  }
+
+  private void status(String message) {
+    statusLabel.setText(message == null ? "" : message);
+  }
+
+  private static String safeMessage(Exception ex) {
+    if (ex == null || ex.getMessage() == null || ex.getMessage().isBlank()) return "unknown error";
+    return ex.getMessage();
   }
 
   private record AssetItem(File file, String relativePath, String type) {
