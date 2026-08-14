@@ -467,6 +467,47 @@ Plays a visual transition effect, optionally changing the background.
 
 ## Screen Effects
 
+### `[particles <preset> [options]]` / `[weather]` / `[pfx]` / `[fx]`
+
+Starts a continuous particle effect above or behind the VN scene. The four command names are
+aliases with identical behavior.
+
+```vns
+[particles snow]
+[weather preset=rain intensity=0.75 layer=120]
+[pfx sakura opacity=0.8 speed=0.7 wind=12]
+[fx fireflies duration=8000 prewarm=2500]
+[particles dust texture=assets/vfx/mote.png size=1.5 tint=#88aaff]
+[particles stop]
+```
+
+Available presets are `snow`, `rain`, `sakura`, `fireflies`, `dust`, and `leaves`. `petals` and
+`cherry` alias `sakura`; `motes` aliases `dust`; singular preset names are accepted where defined.
+Use `none`, `off`, `stop`, or `clear` to stop emission. Existing particles finish their normal
+fade instead of disappearing immediately.
+
+| Option | Default | Behavior |
+|---|---:|---|
+| `intensity` | `0.5` | Emission/count multiplier from `0.0` through `1.0` |
+| `layer` | `100` | Render layer; use a lower value to place weather behind foreground art |
+| `opacity` | `1.0` | Alpha multiplier from `0.0` through `1.0` |
+| `speed` | `1.0` | Non-negative velocity multiplier |
+| `wind` | `0.0` | Horizontal acceleration; negative values drift left |
+| `size` | `1.0` | Non-negative particle-size multiplier |
+| `duration` | `0` | Automatic stop delay in milliseconds; `0` runs until another particle command |
+| `prewarm` | `0` | Milliseconds simulated before the first frame, clamped to 60 seconds |
+| `texture` | preset artwork | Project or classpath image used for each particle |
+| `tint` | preset color | Hex color override such as `#88aaff` or `#cc88aaff` |
+
+The positional form accepts preset, intensity, and layer in that order:
+
+```vns
+[particles rain 0.8 140]
+```
+
+Named options are recommended for longer commands. Starting a new particle command replaces the
+active emitter configuration; JVN does not stack multiple VNS weather presets at once.
+
 ### `[screen shake [intensity] [durationMs]]`
 
 Triggers a screen shake effect.

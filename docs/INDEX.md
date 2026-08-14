@@ -20,7 +20,7 @@ source of truth for docs changes.
 | I am writing gameplay/scene scripts | [JES Scripting](scripting/jes/overview/jes-scripting.md) |
 | I am animating a shot | [Puppeteer Editor Guide](editor/puppeteer/puppeteer-editor-guide.md) |
 | I am lighting/staging a scene | [Scene Lighting Studio](editor/sidebars/right/sidebar-image-tint-tool.md) |
-| I am building menus/UI | [JVN Facets](scripting/ui/facets.md) |
+| I am building menus/UI | [UI By Example](guides/ui-by-example.md) |
 | I want reusable UI and animation patterns | [Reusable Authoring With Facets And Motifs](guides/facets-and-motifs.md) |
 | I am packaging a game | [Build And Release Docs](project-setup/release/README.md) |
 | I need the normative VNS/JES rules | [Scripting Language Contract](scripting/spec/README.md) |
@@ -67,14 +67,14 @@ source of truth for docs changes.
 
 ### Build Menus And UI
 
-1. [JVN Facets](scripting/ui/facets.md)
-2. [Reusable Authoring With Facets And Motifs](guides/facets-and-motifs.md)
-3. [Menu Profiles](scripting/ui/menus/menu-profiles.md)
-4. [Menu Screens](scripting/ui/menus/menu-screens.md)
-5. [Reactive Overlay Screens](scripting/ui/menus/reactive-screens.md)
-6. [Menu Styles](scripting/ui/menus/menu-styles.md)
-7. [Text-First Layout Workflow](scripting/ui/layout/workflow/text-first-layout-workflow.md)
-8. [Layout DSL Cookbook](scripting/ui/layout/reference/layout-dsl-cookbook.md)
+1. [UI By Example](guides/ui-by-example.md)
+2. [Menu Profiles](scripting/ui/menus/menu-profiles.md)
+3. [Reactive Overlay Screens](scripting/ui/menus/reactive-screens.md)
+4. [JVN Facets](scripting/ui/facets.md)
+5. [Reusable Authoring With Facets And Motifs](guides/facets-and-motifs.md)
+6. [Text-First Layout Workflow](scripting/ui/layout/workflow/text-first-layout-workflow.md)
+7. [Layout DSL Cookbook](scripting/ui/layout/reference/layout-dsl-cookbook.md)
+8. [Production UI Review Checklist](scripting/ui/layout/reference/production-review-checklist.md)
 
 ### Create Gameplay Or Interactive Scenes
 
@@ -159,6 +159,7 @@ source of truth for docs changes.
 - [JES <-> VNS Integration Cookbook](guides/integration-cookbook.md)
 - [JES By Example](guides/jes-by-example.md)
 - [VNS By Example](guides/vns-by-example.md)
+- [UI By Example](guides/ui-by-example.md)
 
 ### VNS By Example Chapters
 
@@ -172,6 +173,8 @@ source of truth for docs changes.
 - [08 - Script Structure](guides/vns-by-example/08-script-structure.md)
 - [09 - Advanced Variables](guides/vns-by-example/09-advanced-variables.md)
 - [10 - JES and Java Integration](guides/vns-by-example/10-jes-and-java-integration.md)
+- [11 - Reactive UI with Facets](guides/vns-by-example/11-reactive-ui-and-facets.md)
+- [12 - Phone Storytelling](guides/vns-by-example/12-phone-storytelling.md)
 
 ### JES By Example Chapters
 
@@ -185,6 +188,26 @@ source of truth for docs changes.
 - [08 - RPG Systems](guides/jes-by-example/08-rpg-systems.md)
 - [09 - Physics Bodies](guides/jes-by-example/09-physics-bodies.md)
 - [10 - VNS Bridge Integration](guides/jes-by-example/10-vns-bridge.md)
+- [11 - Particle Effects](guides/jes-by-example/11-particle-effects.md)
+- [12 - Interactive UI](guides/jes-by-example/12-interactive-ui.md)
+
+### UI By Example Chapters
+
+- [01 - Choose the Right UI System](guides/ui-by-example/01-choose-the-right-ui-system.md)
+- [02 - Dialogue, Name Boxes, and Character Framing](guides/ui-by-example/02-dialogue-and-character-framing.md)
+- [03 - Choices, Dialogue Modes, and Quick Controls](guides/ui-by-example/03-choices-modes-and-controls.md)
+- [04 - Themes, Typography, and Assets](guides/ui-by-example/04-themes-typography-and-assets.md)
+- [05 - A Complete Menu Profile](guides/ui-by-example/05-complete-menu-profile.md)
+- [06 - Navigation, Scripts, and Custom Actions](guides/ui-by-example/06-navigation-and-actions.md)
+- [07 - Layouts, Inheritance, and Bespoke Buttons](guides/ui-by-example/07-layouts-inheritance-and-buttons.md)
+- [08 - Settings, Save/Load, and Help](guides/ui-by-example/08-settings-save-load-and-help.md)
+- [09 - Reactive Overlay Screens](guides/ui-by-example/09-reactive-overlay-screens.md)
+- [10 - Facet Fundamentals](guides/ui-by-example/10-facet-fundamentals.md)
+- [11 - Advanced Facets and Reusable Presentation](guides/ui-by-example/11-advanced-facets.md)
+- [12 - JES HUDs and Interactive Widgets](guides/ui-by-example/12-jes-huds-and-widgets.md)
+- [13 - Phone, Gallery, and Music Room Surfaces](guides/ui-by-example/13-specialized-surfaces.md)
+- [14 - Localization, Accessibility, and Responsive Layout](guides/ui-by-example/14-localization-accessibility-and-responsive-ui.md)
+- [15 - Tooling, Diagnostics, and Shipping](guides/ui-by-example/15-tooling-validation-and-shipping.md)
 
 ## Scripting Language Contract
 

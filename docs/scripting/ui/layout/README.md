@@ -2,6 +2,8 @@
 
 This section covers dialogue presentation and menu-profile layouts. For nested freeform overlays whose text, images, bars, and visibility react to live VN variables, use [JVN Facets](../facets.md). Facets share the overlay-screen lifecycle but do not use menu row geometry.
 
+For a progressive tour through dialogue, menus, reactive screens, Facets, JES widgets, specialized surfaces, and production review, start with [UI By Example](../../../guides/ui-by-example.md).
+
 JVN interfaces are authored as plain-text property files. These files are the public format, the
 reviewable source, and the exact input consumed by the runtime. There is no editor-only layout
 model and no approximate preview renderer to keep in sync.

@@ -586,7 +586,7 @@ After completing this tutorial, explore:
 
 - [Layered Character Presets](../presentation/vns-layered-charpresets.md) — build expression presets from sprite layers
 - [Movable Character Layer Groups](../presentation/vns-movable-layer-groups.md) — move nested sprite parts such as heads, faces, and arms as one target
-- [Inline Timelines](../integration/vns-interop.md#inline-timelines) — animate characters with JES keyframes
+- [Inline Timelines](../integration/vns-interop.md#inline-timelines-puppeteer-compatible) — animate characters with JES keyframes
 - [Localization](../runtime/vns-localization.md) — translate your script to multiple languages
 - [Project Organization](vns-project-organization.md) — scale up to a full-length visual novel
 - [Best Practices](vns-best-practices.md) — patterns for clean, maintainable scripts

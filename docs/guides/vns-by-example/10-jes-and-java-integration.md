@@ -510,6 +510,10 @@ hero: Where should I go?
 7. Data flows VNS → JES via `with` parameters and JES → VNS via `return` variables
 8. VNS variables (`${var}`) can be interpolated into launch parameters
 
+## Next
+
+Continue to [Reactive UI with Facets](11-reactive-ui-and-facets.md) to build a variable-driven story overlay.
+
 ---
 
 ## Related Docs

@@ -142,7 +142,7 @@ Each JES feature area has its own detailed documentation with examples:
 
 - **[Scenes & Entities](../scene/jes-scenes-entities.md)** — scene structure, entity declarations, lifecycle, merging, save/load
 - **[Component Reference](../scene/components.md)** — all 12 component types with full property tables
-- **[Timeline & Actions](../timeline/jes-timeline.md)** — 22 timeline actions: move, rotate, scale, fade, camera, audio, combat, parallel, loop, labels, jumps
+- **[Timeline & Actions](../timeline/jes-timeline.md)** — 27 timeline actions covering movement, transforms, camera, audio, combat, particles, control flow, custom properties, and calls
 
 ### Systems
 

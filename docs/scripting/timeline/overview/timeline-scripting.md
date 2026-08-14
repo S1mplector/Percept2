@@ -304,7 +304,7 @@ See [Story Arcs & Links DSL](../story/timeline-story-arcs.md) for full examples 
 
 - [Documentation Index](../../../INDEX.md)
 - [VNS Scripting](../../vns/overview/vns-scripting.md) — runtime story flow
-- [JES Timeline & Actions](../../jes/timeline/jes-timeline.md) — all 22 JES timeline actions
+- [JES Timeline & Actions](../../jes/timeline/jes-timeline.md) — all 27 JES timeline actions
 - [Puppeteer Editor Guide](../../../editor/puppeteer/puppeteer-editor-guide.md) — visual keyframe editor
 - [Puppeteer JES DSL Reference](../../../editor/puppeteer/puppeteer-jes-dsl.md) — exported timeline code syntax
 - [Editor Guide](../../../editor/core/editor.md) — story graph editing mode

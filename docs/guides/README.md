@@ -11,8 +11,9 @@ rules and subsystem contracts live in the scripting and runtime references.
 
 ## Learn By Example
 
-- [VNS By Example](vns-by-example.md) — ten chapters covering story scripting
-- [JES By Example](jes-by-example.md) — ten chapters covering interactive scenes
+- [VNS By Example](vns-by-example.md) — twelve chapters covering story scripting
+- [JES By Example](jes-by-example.md) — twelve chapters covering interactive scenes
+- [UI By Example](ui-by-example.md) — fifteen chapters covering every JVN UI authoring layer
 - [Reusable Authoring With Facets And Motifs](facets-and-motifs.md) — design reusable UI and animation vocabulary, then combine both safely
 
 ## Recipes

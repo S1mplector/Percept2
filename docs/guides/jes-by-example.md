@@ -1,8 +1,10 @@
 # JES By Example
 
-A progressive tutorial series that builds increasingly complex JES scenes — from a single label to a full tile-mapped RPG town with physics, AI, camera tracking, and VNS integration.
+A progressive tutorial series that builds increasingly complex JES scenes — from a single label to animated worlds, RPG systems, particles, interactive controls, and VNS integration.
 
 Each chapter is a self-contained document covering one topic in depth with full examples, property references, and design patterns.
+
+Read chapters 1–4 in order if JES is new to you. Chapters 5–12 can then be followed by feature area, although the advanced examples assume you understand entities, components, timelines, and call handlers.
 
 Source reference:
 - Parser: `modules/scripting/src/main/java/com/jvn/scripting/jes/JesParser.java`
@@ -44,6 +46,8 @@ Source reference:
 | 8 | [RPG Systems](jes-by-example/08-rpg-systems.md) | `Stats`, `Inventory`, `Equipment`, `Ai2D`, items, combat, AI behavior types |
 | 9 | [Physics Bodies](jes-by-example/09-physics-bodies.md) | `PhysicsBody2D`, circle/box shapes, static bodies, sensors, `onTrigger` |
 | 10 | [VNS Bridge Integration](jes-by-example/10-vns-bridge.md) | `[jes push]`, launch parameters, `return` handler, data flow, scene stack |
+| 11 | [Particle Effects](jes-by-example/11-particle-effects.md) | `ParticleEmitter2D`, bursts, continuous emission, motion, color, blending |
+| 12 | [Interactive UI](jes-by-example/12-interactive-ui.md) | `Button2D`, `Slider2D`, widget states, Java callbacks, live labels |
 
 ---
 
@@ -51,7 +55,8 @@ Source reference:
 
 - [JES Overview & Reference](../scripting/jes/overview/jes-scripting.md) — complete language reference
 - [Component Reference](../scripting/jes/scene/components.md) — all 12 component types
-- [Timeline Actions](../scripting/jes/timeline/jes-timeline.md) — all 22 timeline action types
+- [Timeline Actions](../scripting/jes/timeline/jes-timeline.md) — all 27 timeline action types
+- [JES UI Widgets](../scripting/jes/gameplay/jes-ui-widgets.md) — buttons, sliders, and HUD patterns
 - [VN Bridge & Java Hooks](../scripting/jes/integration/jes-bridge.md) — full integration reference
 - [VNS By Example](vns-by-example.md) — the same progressive tutorial series for VNS scripting
 - [Puppeteer Editor Guide](../editor/puppeteer/puppeteer-editor-guide.md) — visual animation authoring

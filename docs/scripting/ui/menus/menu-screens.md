@@ -225,11 +225,16 @@ item.start.action=run_script:scripts/story/prologue.vns
 | `LOAD_MENU` | `load`, `load_menu`, `continue` | Navigate to load screen |
 | `SAVE_MENU` | `save`, `save_menu` | Navigate to save screen |
 | `SETTINGS_MENU` | `settings`, `settings_menu`, `options` | Navigate to settings |
+| `HISTORY_MENU` | `history`, `history_menu`, `backlog`, `toggle_history` | Open dialogue history |
+| `TOGGLE_SKIP` | `skip`, `toggle_skip` | Toggle skip playback |
+| `TOGGLE_AUTO` | `auto`, `toggle_auto`, `auto_play` | Toggle auto playback |
 | `MAIN_MENU` | `main`, `main_menu`, `title`, `title_menu` | Return to main menu |
 | `OPEN_MENU` | `open_menu`, `submenu`, `menu` | Open a named sub-menu |
 | `RUN_SCRIPT` | `run_script`, `script`, `start_script`, `play_script` | Run a VNS script |
 | `BACK` | `back`, `return` | Go back to previous screen |
 | `QUIT` | `quit`, `exit` | Exit the application |
+| `GALLERY` | `gallery`, `cg`, `cg_gallery` | Open the built-in CG gallery |
+| `MUSIC_ROOM` | `music`, `music_room`, `sound_room`, `jukebox` | Open the built-in music room |
 | `NOOP` | `noop`, `no_op`, `none` | No action |
 
 ### Custom Actions

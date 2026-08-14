@@ -116,7 +116,7 @@ Each VNS feature area has its own detailed documentation with extensive examples
 - **[Character Display Slots](../presentation/vns-display-slots.md)** — `slot=`, `@displaypreset`, `[showpreset]`, same-position sprite instances, slot-only move/hide, and save/rollback behavior
 - **[Movable Character Layer Groups](../presentation/vns-movable-layer-groups.md)** — `@chargroup`, nested movable rigs, Puppeteer target names, pivots, and migration from repeated layer lists
 - **[Audio Commands](../presentation/vns-audio.md)** — BGM, SFX, voice, crossfade, seek, pause/resume, visualizer
-- **[Transitions & Screen Effects](../presentation/vns-transitions.md)** — fade/dissolve/crossfade/slide/wipe, screen shake, screen flash, UI visibility
+- **[Transitions & Screen Effects](../presentation/vns-transitions.md)** — fade/dissolve/crossfade/slide/wipe, particle weather, screen shake, screen flash, UI visibility
 - **[Subroutines & Flow Control](../flow/vns-flow-control.md)** — labels, jumps, call/return, conditionals, script switching, menu navigation
 - **[Interop & Integration](../integration/vns-interop.md)** — JES push/replace/pop, Java reflection calls, inline timelines, menu commands, timeline registry
 

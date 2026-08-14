@@ -15,7 +15,7 @@ This document describes the engine structure and the key execution paths across 
 - `runtime`
   - App entrypoint (`JvnApp`) and runtime-only interop (`RuntimeVnInterop`).
 - `editor`
-  - JavaFX content tooling: file editors, visual editors, project explorer, timeline graph, docs help center.
+  - JavaFX content tooling: file editors, visual editors, project explorer, timeline graph, and documentation links.
 - `audio`
   - Bundled Simp3-compatible audio integration layer (available by default).
 

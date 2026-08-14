@@ -187,6 +187,8 @@ This matters for workflow-critical utilities such as **Build & Publish...**, **S
 - side-panel integrations:
   - `VNS Diagnostics` panel with filter + click-to-jump lines
   - `Label Flow` graph panel for label/jump/choice flow
+- persisted VNS authoring defaults in **Editor Settings** for long-line wrapping and minimap
+  visibility; changes apply to open VNS tabs immediately
 
 The VNS strip is action-only: it does not repeat explanatory preview text. Hover
 an icon for its short description or use the `?` control for the complete key

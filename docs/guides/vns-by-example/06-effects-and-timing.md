@@ -1,10 +1,11 @@
 # VNS By Example — Screen Effects and Timing
 
-Add dramatic impact with screen shake, flash effects, timed pauses, text speed control, UI visibility, and HUD messages.
+Add atmosphere and dramatic impact with particle weather, screen shake, flash effects, timed pauses,
+text speed control, UI visibility, and HUD messages.
 
 **Difficulty:** Intermediate
 **Time:** 15 minutes
-**Concepts:** `[screen shake]`, `[screen flash]`, `[screen clear]`, `[wait]`, `[textspeed]`, `[autodelay]`, `[ui]`, `[hud]`, `[skip]`, `[auto]`
+**Concepts:** `[particles]`, `[weather]`, `[screen shake]`, `[screen flash]`, `[screen clear]`, `[wait]`, `[textspeed]`, `[autodelay]`, `[ui]`, `[hud]`, `[skip]`, `[auto]`
 
 ---
 
@@ -26,6 +27,7 @@ Add dramatic impact with screen shake, flash effects, timed pauses, text speed c
 [textspeed 30]
 [bg alley]
 [bgm assets/audio/bgm/tension.ogg vol=0.5]
+[weather rain intensity=0.45 opacity=0.7 wind=-12 prewarm=1800]
 
 [show hero center neutral]
 narrator: The alley was silent.
@@ -85,6 +87,50 @@ Shakes the screen to convey impact, earthquakes, or dramatic tension.
 - Earthquakes and environmental events
 - Emotional shock moments
 - Jump scares
+
+---
+
+## Particle Weather And Ambience
+
+Start one of JVN's tuned continuous particle presets with `[particles]`. `[weather]`, `[pfx]`, and
+`[fx]` are equivalent aliases.
+
+```vns
+[particles snow]
+[weather rain intensity=0.7 layer=120]
+[pfx sakura opacity=0.8 speed=0.65 wind=10]
+[fx fireflies duration=8000 prewarm=2500]
+[particles stop]
+```
+
+The built-in presets are `snow`, `rain`, `sakura`, `fireflies`, `dust`, and `leaves`. A new command
+replaces the active particle configuration. Stopping disables new emission while particles already
+on screen finish fading.
+
+Shape a preset with named options:
+
+| Option | What It Changes |
+|---|---|
+| `intensity=0..1` | Emission rate and particle count |
+| `layer=<integer>` | Draw order; the default is `100` |
+| `opacity=0..1` | Preset alpha |
+| `speed=<scale>` | Particle velocity |
+| `wind=<number>` | Horizontal drift; negative values move left |
+| `size=<scale>` | Particle dimensions |
+| `duration=<ms>` | Automatic stop time; `0` keeps running |
+| `prewarm=<ms>` | Simulated lead-in so the first frame is already populated |
+| `texture=<path>` | Custom project/classpath sprite |
+| `tint=<hex>` | RGB or ARGB color override |
+
+For a custom snow sprite that is already spread across the scene when dialogue begins:
+
+```vns
+[particles snow texture=assets/vfx/snowflake.png size=1.4 prewarm=3000 opacity=0.75]
+```
+
+`prewarm` is capped at 60 seconds to protect the render thread. Use the complete
+[VNS Commands Reference](../../scripting/vns/language/vns-commands.md#particles-options-weather-pfx-fx)
+for preset aliases, positional syntax, and defaults.
 
 ---
 
@@ -381,13 +427,14 @@ narrator: At last, the summit.
 ## Key Takeaways
 
 1. `[screen shake intensity duration]` shakes the screen for impact
-2. `[screen flash strength duration r g b]` overlays a colored flash
-3. `[screen clear]` cancels active effects immediately
-4. `[wait ms]` pauses execution (player cannot advance)
-5. `[textspeed ms]` controls text reveal speed (lower = faster)
-6. `[ui hide/show]` toggles the dialogue UI for CG viewing or cinematics
-7. `[hud message]` displays temporary on-screen toast messages
-8. Combine effects with timing for dramatic sequences: flash → wait → shake → SFX
+2. `[particles preset ...]` starts atmospheric weather or ambience; `[particles stop]` ends emission
+3. `[screen flash strength duration r g b]` overlays a colored flash
+4. `[screen clear]` cancels active shake and flash effects immediately
+5. `[wait ms]` pauses execution (player cannot advance)
+6. `[textspeed ms]` controls text reveal speed (lower = faster)
+7. `[ui hide/show]` toggles the dialogue UI for CG viewing or cinematics
+8. `[hud message]` displays temporary on-screen toast messages
+9. Combine effects with timing for dramatic sequences: weather → flash → wait → shake → SFX
 
 ---
 

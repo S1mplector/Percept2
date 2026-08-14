@@ -54,6 +54,16 @@ Both settings windows include a **Filter settings...** field. Type one or more w
 | Editor Theme | Switches the editor between dark and light theme. | Dark |
 | Code Text Size | Changes the code editor font size. | 13 |
 
+### VNS Authoring
+
+| Setting | What It Does | Default |
+|---------|--------------|---------|
+| Wrap long VNS lines by default | Enables line wrapping in every open VNS tab and for VNS tabs opened later. | Off |
+| Show the VNS script minimap | Shows the script overview and its diagnostic/timeline markers beside VNS source. | On |
+
+Saving either preference applies it to open VNS tabs immediately. The VNS toolbar's line-wrap
+button (`Cmd/Ctrl+Shift+W`) can still change wrapping temporarily for the current editor session.
+
 ### Runtime
 
 | Setting | What It Does | Default |

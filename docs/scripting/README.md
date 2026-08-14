@@ -10,7 +10,7 @@ This section also covers timelines and data-driven UI configuration.
 | Dialogue, choices, story flow, and character staging | [VNS Overview](vns/overview/vns-scripting.md) |
 | Entities, components, physics, input, and gameplay scenes | [JES Overview](jes/overview/jes-scripting.md) |
 | Animation timelines and story maps | [Timeline Scripting](timeline/overview/timeline-scripting.md) |
-| Menus, dialogue layout, and composable reactive UI | [JVN Facets](ui/facets.md) |
+| Menus, dialogue layout, and composable reactive UI | [UI By Example](../guides/ui-by-example.md) |
 
 ## Language Contract
 
@@ -25,6 +25,7 @@ reconciled through shared fixtures. See the [Contract 1 status](spec/v1/README.m
 
 - [VNS By Example](../guides/vns-by-example.md)
 - [JES By Example](../guides/jes-by-example.md)
+- [UI By Example](../guides/ui-by-example.md)
 - [Integration Cookbook](../guides/integration-cookbook.md)
 - [VNS And JES Architecture](vns/integration/vns-jes-architecture.md)
 

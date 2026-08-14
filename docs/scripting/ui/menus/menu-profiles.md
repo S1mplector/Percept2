@@ -184,11 +184,16 @@ Only explicitly set properties override the parent. Circular inheritance is dete
 | `LOAD_MENU` | `load`, `continue` | Navigate to load screen |
 | `SAVE_MENU` | `save` | Navigate to save screen |
 | `SETTINGS_MENU` | `settings`, `options` | Navigate to settings |
+| `HISTORY_MENU` | `history`, `backlog` | Open dialogue history |
+| `TOGGLE_SKIP` | `skip` | Toggle skip playback |
+| `TOGGLE_AUTO` | `auto`, `auto_play` | Toggle auto playback |
 | `MAIN_MENU` | `main`, `title` | Return to main menu |
 | `OPEN_MENU` | `submenu`, `menu` | Open a named sub-menu |
 | `RUN_SCRIPT` | `script`, `play_script` | Run a VNS script |
 | `BACK` | `return` | Go back to previous screen |
 | `QUIT` | `exit` | Exit the application |
+| `GALLERY` | `gallery`, `cg` | Open the built-in CG gallery |
+| `MUSIC_ROOM` | `music`, `music_room` | Open the built-in music room |
 | `NOOP` | `none` | No action |
 
 ---

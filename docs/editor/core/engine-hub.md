@@ -32,6 +32,19 @@ Every Engine Hub dropdown—including the footer **More** menu—begins with liv
 
 The **View** dropdown can independently hide or show the scrolling **Performance Graph**, the CPU, JVM heap, thread, and Hub-task **Performance Metric Chips**, and contextual **Tooltips** throughout the Hub. These choices persist across Hub launches. Hiding both performance displays collapses the monitor and pauses its sampling timer, which removes the monitor's periodic CPU query and repaint work entirely.
 
+### Project Explorer Icons
+
+Use **View -> Project Explorer Icons** to choose how the editor renders project-tree icons. On Linux,
+JVN can follow the current GTK/freedesktop theme or lock to an installed icon theme. On every
+platform, **JVN Defaults** selects the bundled SVG icon set.
+
+The menu controls icon size (12–28 logical pixels), semantic folder variants, file-type variants,
+theme inheritance, bundled fallbacks, and smooth scaling. **Configure and Preview...** shows the
+complete profile before saving it. Changes are stored in
+`~/.jvn-editor/project-icons.properties` and apply to newly launched editor processes; restart an
+already-open editor to reload the icon pack. `JVN_ICON_THEME=<name>` or
+`-Djvn.icon.theme=<name>` overrides automatic Linux theme detection for that launch.
+
 ## Cache-First Application Launches
 
 **Run Editor** and **Run Launcher** also avoid Gradle on warm starts. After source, resources, or build definitions change, JVN runs one preparation task to compile the affected modules and record the exact JavaFX module path and runtime classpath. Later starts invoke Java directly until that cache becomes stale.

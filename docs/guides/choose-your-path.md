@@ -82,6 +82,7 @@ Start here if your first goal is:
 
 Read next:
 
+- [UI By Example](ui-by-example.md)
 - [Menu Profiles Overview](../scripting/ui/menus/menu-profiles.md)
 - [Text-First Layout Workflow](../scripting/ui/layout/workflow/text-first-layout-workflow.md)
 
@@ -109,6 +110,7 @@ Use:
 
 - menu profiles
 - layouts and styles
+- Facets or reactive screens for story-bound overlays
 - VNS only once the player enters story content
 
 ## If You Are Unsure

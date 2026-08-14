@@ -1,7 +1,7 @@
 # Documentation Maintenance Guide
 
 The Markdown files under `docs/` are JVN's documentation source of truth. The public website and the
-editor Help Center are reading surfaces built from this material; changes should begin here.
+editor-integrated documentation links are reading surfaces built from this material; changes should begin here.
 
 ## Documentation Model
 
@@ -81,11 +81,11 @@ diagnostics, and external language tooling agree.
 
 ## Safe Refactoring
 
-Existing paths may be bookmarked by users, the hosted site, and the editor Help Center. Prefer
+Existing paths may be bookmarked by users, the hosted site, and editor integrations. Prefer
 improving pages in place. Before moving or deleting a page:
 
 1. search for inbound references with `rg`;
-2. check Help Center routing and generated guide trees;
+2. check editor documentation routing and generated guide trees;
 3. update every repository-relative link;
 4. provide a redirect or compatibility stub when the publishing surface supports it;
 5. run the complete validation checklist.

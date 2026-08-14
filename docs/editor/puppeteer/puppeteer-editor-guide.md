@@ -49,12 +49,12 @@ This guide focuses on practical editor use:
 11. [Event Cues](#event-cues) — presets, payload, preview behavior
 12. [Animation Clips](#animation-clips) — save, load, apply modes, storage
 13. [VN Slot Positions](#vn-slot-positions) — character-aware positioning
-14. [Eye Focus / Look At](#eye-focus--look-at) — keypad pupil rigs and runtime gaze
+14. [Eye Focus / Look At](#eye-focus-look-at) — keypad pupil rigs and runtime gaze
 15. [Camera Animation](#camera-animation) — pan, zoom, DOF, runtime integration
 16. [Preview Controls](#preview-controls) — playback, viewport, onion skinning, orbit tool
 17. [Timeline Panel](#timeline-panel) — ruler, tracks, playhead, snap, loop, zoom
-18. [Undo/Redo](#undoredo)
-19. [Export & Registration](#export--registration) — register, copy, export modes
+18. [Undo/Redo](#undo-redo)
+19. [Export & Registration](#export-registration) — register, copy, export modes
 20. [Code Round-Trip Editing](#code-round-trip-editing) — import workflow, fidelity
 21. [Timeline Diagnostics](#timeline-diagnostics) — categories, easing suggestions
 22. [Keyboard Shortcuts](#keyboard-shortcuts)

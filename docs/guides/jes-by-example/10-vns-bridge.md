@@ -385,6 +385,10 @@ VNS                              JES
 7. Use `push` for temporary gameplay segments, `replace` for permanent mode switches
 8. VN state can be forwarded to JES via `${variable}` interpolation in `with` clauses
 
+## Next
+
+Continue to [Particle Effects](11-particle-effects.md) to add ambient emitters and timeline-triggered bursts.
+
 ---
 
 ## Related Docs
