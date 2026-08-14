@@ -4445,6 +4445,16 @@ public class EditorApp extends Application {
     assetBrowserView = new AssetBrowserView();
     assetBrowserView.setProjectRoot(projectRoot);
     assetBrowserView.setOnOpenAsset(this::openEditableOrExternal);
+    assetBrowserView.setOnAssetSelected(relativePath -> {
+      FileEditorTab activeTab = getActiveFileTab();
+      if (activeTab == null || activeTab.getKind() != FileEditorTab.Kind.VNS) {
+        status.setText("Open a .vns file to insert an asset path.");
+        return;
+      }
+      activeTab.insertVnsSnippet(AssetBrowserView.vnsTokenForPath(relativePath));
+      activeTab.focusEditor();
+      status.setText("Inserted asset path: " + relativePath);
+    });
     return assetBrowserView;
   }
 

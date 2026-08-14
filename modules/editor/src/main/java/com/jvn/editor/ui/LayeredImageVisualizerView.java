@@ -293,6 +293,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     statusLabel.setWrapText(true);
 
     filterField.setPromptText("Filter sets...");
+    filterField.setAccessibleText("Filter layered image sets");
     filterField.textProperty().addListener((o, ov, nv) -> {
       if (applyingState) return;
       refreshSetOptions();
@@ -310,6 +311,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     });
 
     setBox.setPromptText("Select layered set");
+    setBox.setAccessibleText("Layered image set");
     setBox.setConverter(new StringConverter<>() {
       @Override public String toString(String object) { return object == null ? "" : object; }
       @Override public String fromString(String string) { return string; }
@@ -375,7 +377,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
 
       setSection.getChildren().addAll(presetLoadRow, presetSaveRow);
     }
-    TitledPane setPane = new TitledPane("Set & Presets", setSection);
+    TitledPane setPane = new TitledPane(presetControlsEnabled ? "Set & Presets" : "Set", setSection);
     setPane.setExpanded(true);
     setPane.setAnimated(false);
     setPane.setCollapsible(true);
@@ -778,7 +780,21 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     sidebarHideButton.getStyleClass().add("image-tool-sidebar-toggle");
     Region sidebarHeaderSpacer = new Region();
     HBox.setHgrow(sidebarHeaderSpacer, Priority.ALWAYS);
-    HBox sidebarHeader = new HBox(8, title, sidebarHeaderSpacer, sidebarHideButton);
+    Button toolHelpButton = SidebarToolHelp.button(this, this.toolTitle, """
+        Build and inspect layered character images from declared @charlayer/@charpreset rigs or
+        from compatible project folders.
+
+        Start by selecting a set. Choose one option in each layer group, then use Attributes,
+        Typed, Shortforms, or the Gallery to explore combinations. The list order is also the
+        render order: groups at the top are behind groups below them.
+
+        Drag the preview to pan, scroll to zoom, and double-click to reset. Match Game Framing
+        previews runtime placement. Export Charpreset for reusable VNS declarations, PNG for a
+        flattened image, or Layer Setup to preserve editor-only selections.
+
+        The refresh button rescans assets; while a scan is running, the same button cancels it.
+        Each set keeps its selections, framing, filters, and export preferences in .jvn/.""");
+    HBox sidebarHeader = new HBox(8, title, toolHelpButton, sidebarHeaderSpacer, sidebarHideButton);
     sidebarHeader.setAlignment(Pos.CENTER_LEFT);
     sidebarHeader.getStyleClass().add("sidebar-tool-header");
 
@@ -2717,6 +2733,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     button.setFocusTraversable(false);
     if (tooltip != null && !tooltip.isBlank()) {
       button.setTooltip(new Tooltip(tooltip));
+      button.setAccessibleText(tooltip);
     }
     button.setOnAction(e -> {
       if (action != null) action.run();
@@ -2733,6 +2750,7 @@ public class LayeredImageVisualizerView extends BorderPane implements ImageToolP
     button.setFocusTraversable(false);
     if (tooltip != null && !tooltip.isBlank()) {
       button.setTooltip(new Tooltip(tooltip));
+      button.setAccessibleText(tooltip);
     }
     button.setOnAction(e -> {
       if (action != null) action.run();
