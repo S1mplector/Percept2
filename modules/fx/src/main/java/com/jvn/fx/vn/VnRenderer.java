@@ -2619,7 +2619,15 @@ public class VnRenderer {
     }
   }
 
-  private record StyledGlyph(char value, Font font, Color color, TextEffect effect, int glyphIndex, double width) {}
+  private record StyledGlyph(
+      char value,
+      Font font,
+      Color color,
+      TextEffect effect,
+      int glyphIndex,
+      double width,
+      boolean syntheticItalic
+  ) {}
 
   private record StyledLine(List<StyledGlyph> glyphs, double width) {}
 
@@ -2666,10 +2674,16 @@ public class VnRenderer {
       if (visibleChars > 0) {
         Color spanColor = span.hasColor() ? parseColorHex(span.getColorHex()) : defaultTextColor;
         Font effectFont = baseFont;
+        boolean syntheticItalic = false;
         if (span.getEffect() == TextEffect.BOLD) {
           effectFont = Font.font(baseFont.getFamily(), FontWeight.BOLD, baseFont.getSize());
         } else if (span.getEffect() == TextEffect.ITALIC) {
-          effectFont = Font.font(baseFont.getFamily(), FontWeight.NORMAL, baseFont.getSize());
+          ItalicFontSupport.ResolvedItalic resolvedItalic = ItalicFontSupport.resolve(
+              baseFont,
+              fontWeightOf(baseFont, FontWeight.NORMAL)
+          );
+          effectFont = resolvedItalic.font();
+          syntheticItalic = resolvedItalic.synthetic();
         }
 
         for (int i = 0; i < visibleChars; i++) {
@@ -2688,7 +2702,15 @@ public class VnRenderer {
             currentLineWidth = 0.0;
           }
 
-          currentLine.add(new StyledGlyph(c, effectFont, spanColor, span.getEffect(), glyphIndex, charWidth));
+          currentLine.add(new StyledGlyph(
+              c,
+              effectFont,
+              spanColor,
+              span.getEffect(),
+              glyphIndex,
+              charWidth,
+              syntheticItalic
+          ));
           currentLineWidth += charWidth;
           glyphIndex++;
         }
@@ -2736,7 +2758,23 @@ public class VnRenderer {
           default -> {}
         }
 
-        gc.fillText(String.valueOf(glyph.value()), x + offsetX, y + offsetY);
+        double drawX = x + offsetX;
+        double drawY = y + offsetY;
+        if (glyph.syntheticItalic()) {
+          gc.save();
+          gc.transform(
+              1.0,
+              0.0,
+              ItalicFontSupport.SYNTHETIC_SHEAR,
+              1.0,
+              -ItalicFontSupport.SYNTHETIC_SHEAR * drawY,
+              0.0
+          );
+          gc.fillText(String.valueOf(glyph.value()), drawX, drawY);
+          gc.restore();
+        } else {
+          gc.fillText(String.valueOf(glyph.value()), drawX, drawY);
+        }
         x += glyph.width();
       }
     }
