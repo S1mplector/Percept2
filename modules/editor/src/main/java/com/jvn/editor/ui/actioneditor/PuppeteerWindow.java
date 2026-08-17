@@ -108,6 +108,7 @@ import javafx.util.Duration;
 import javafx.util.StringConverter;
 
 public class PuppeteerWindow extends Stage {
+    static final String WINDOW_ICON_RESOURCE = "/com/jvn/editor/images/jvn_puppeteer_icon.png";
     private static final StringConverter<PropertyType> PROPERTY_TYPE_LABEL_CONVERTER =
         new StringConverter<>() {
             @Override
@@ -467,6 +468,7 @@ public class PuppeteerWindow extends Stage {
         this.project = project != null ? project : new AnimationProject();
 
         setTitle("Puppeteer - " + this.project.getName());
+        loadWindowIcon().ifPresent(icon -> getIcons().add(icon));
         setWidth(1400);
         setHeight(900);
 
@@ -1773,6 +1775,13 @@ public class PuppeteerWindow extends Stage {
         });
 
         refreshExportPreview();
+    }
+
+    static Optional<javafx.scene.image.Image> loadWindowIcon() {
+        java.net.URL resource = PuppeteerWindow.class.getResource(WINDOW_ICON_RESOURCE);
+        return resource == null
+            ? Optional.empty()
+            : Optional.of(new javafx.scene.image.Image(resource.toExternalForm(), false));
     }
 
     private HBox buildPuppeteerStatusBar() {
