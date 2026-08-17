@@ -1834,6 +1834,14 @@ public class VnPreviewView extends StackPane {
     }
   }
 
+  /** Releases reloadable preview caches without closing the editor tab. */
+  public void trimMemoryCaches() {
+    renderer.clearCache();
+    menuRenderer.clearImageCache();
+    menuRenderer.clearTextMeasureCache();
+    phoneRenderer.clearAssetCache();
+  }
+
   public void dispose() {
     playbackActive = false;
     stopAudio();

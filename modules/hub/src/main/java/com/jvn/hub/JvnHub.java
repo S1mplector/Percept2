@@ -203,6 +203,9 @@ public final class JvnHub {
   private final Path renderPipelinePreferencesFile;
   private final Path renderPipelineTuningFile;
   private final Path projectIconSettingsFile;
+  private final Path jvmLaunchSettingsFile;
+  private final Path jvmLaunchArgumentsFile;
+  private final Path heapDumpDirectory;
   private final JFrame frame = new JFrame("JVN Engine Hub");
   private final JLabel statusLabel = new JLabel("Idle");
   private final JLabel footerBranchLabel = new JLabel("No branch");
@@ -256,6 +259,8 @@ public final class JvnHub {
   private RenderPipelineSettings.Options renderPipelineOptions;
   /** Project-tree icon profile shared with editor processes launched by the Hub. */
   private ProjectIconThemeSettings.Options projectIconOptions;
+  /** Memory and GC policy applied to every Hub-managed JVN application process. */
+  private JvmLaunchSettings jvmLaunchSettings;
   /** Header shortcut for a lightweight local environment report. */
   private HeaderIconButton diagnosticsButton;
   /** Header shortcut for version, source, install, and update details. */
@@ -274,9 +279,14 @@ public final class JvnHub {
     this.renderPipelinePreferencesFile = RenderPipelineSettings.defaultPreferencesFile();
     this.renderPipelineTuningFile = RenderPipelineSettings.defaultTuningFile();
     this.projectIconSettingsFile = ProjectIconThemeSettings.defaultFile();
+    this.jvmLaunchSettingsFile = JvmLaunchSettings.defaultSettingsFile();
+    this.jvmLaunchArgumentsFile = JvmLaunchSettings.defaultArgumentsFile();
+    this.heapDumpDirectory = JvmLaunchSettings.defaultHeapDumpDirectory();
     this.renderPipelineMode = RenderPipelineSettings.load(renderPipelinePreferencesFile);
     this.renderPipelineOptions = RenderPipelineSettings.loadOptions(renderPipelineTuningFile);
     this.projectIconOptions = ProjectIconThemeSettings.load(projectIconSettingsFile);
+    this.jvmLaunchSettings = JvmLaunchSettings.load(jvmLaunchSettingsFile);
+    writeJvmLaunchArguments(jvmLaunchSettings, false);
     configureToolTipManager(tooltipsEnabled);
     buildUi();
     checkIncomingUpdates(true);
@@ -285,6 +295,7 @@ public final class JvnHub {
   /** Entry point. Can be invoked directly or via the {@code :hub:run} Gradle task. */
   public static void main(String[] args) {
     Path root = resolveProjectRoot(args);
+    boolean openJvmMemorySettings = hasArgument(args, "--jvm-memory-settings");
     // Keep the cross-platform (Metal) L&F — Aqua on macOS tints custom backgrounds
     // with system chrome we cannot override per-component. Cross-platform L&F honors
     // setBackground/setForeground verbatim, which is what the custom theme needs.
@@ -298,6 +309,9 @@ public final class JvnHub {
         hub.frame.setVisible(true);
         signalRelaunchReady();
         splash.closeAfter(320, null);
+        if (openJvmMemorySettings) {
+          SwingUtilities.invokeLater(hub::showJvmMemorySettingsDialog);
+        }
       });
       launchDelay.setRepeats(false);
       launchDelay.start();
@@ -862,7 +876,17 @@ public final class JvnHub {
         busy ? "Background task active" : "Tooling ready",
         busy ? firstNonBlank(activeStepLabel, "Working") : "No background task is running",
         ACCENT_TOOLS));
+    tools.add(menuStatusCard(
+        "Application JVM",
+        jvmLaunchSettings.summary(),
+        ACCENT_TOOLS));
     tools.addSeparator();
+    tools.add(hubMenuItem(
+        "JVM Memory Settings...",
+        "Set real heap, garbage collector, and out-of-memory options for managed application launches.",
+        VectorIcon.Kind.SLIDERS,
+        ACCENT_TOOLS,
+        this::showJvmMemorySettingsDialog));
     tools.add(hubMenuItem(
         "Run Diagnostics",
         "Run lightweight workspace, toolchain, and repository checks.",
@@ -3620,6 +3644,221 @@ public final class JvnHub {
     dialog.setVisible(true);
   }
 
+  private void showJvmMemorySettingsDialog() {
+    JDialog dialog = new JDialog(frame, "JVM Memory Settings", true);
+    dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
+
+    JPanel root = new JPanel(new BorderLayout(0, ui(14)));
+    root.setBackground(BG);
+    root.setBorder(uiPadding(16, 16, 16, 16));
+    root.add(dialogHeader(
+        "JVM Memory Settings",
+        "Applied at process startup to Editor, Launcher, previews, and game runtime launches."),
+        BorderLayout.NORTH);
+
+    JCheckBox customInitial = optionCheckBox(
+        "Set initial heap (-Xms)",
+        "Reserve an exact initial Java heap. Automatic is normally best unless startup allocation is known.",
+        jvmLaunchSettings.initialHeapMb() > 0);
+    JSpinner initialHeap = new JSpinner(new SpinnerNumberModel(
+        jvmLaunchSettings.initialHeapMb() > 0 ? jvmLaunchSettings.initialHeapMb() : 512,
+        JvmLaunchSettings.MIN_HEAP_MB,
+        JvmLaunchSettings.MAX_HEAP_MB,
+        128));
+    initialHeap.setEnabled(customInitial.isSelected());
+    customInitial.addActionListener(event -> initialHeap.setEnabled(customInitial.isSelected()));
+
+    JCheckBox customMaximum = optionCheckBox(
+        "Set maximum heap (-Xmx)",
+        "Set the exact Java heap ceiling. This does not include native JavaFX textures or process overhead.",
+        jvmLaunchSettings.maxHeapMb() > 0);
+    JSpinner maximumHeap = new JSpinner(new SpinnerNumberModel(
+        jvmLaunchSettings.maxHeapMb() > 0 ? jvmLaunchSettings.maxHeapMb() : 4096,
+        JvmLaunchSettings.MIN_HEAP_MB,
+        JvmLaunchSettings.MAX_HEAP_MB,
+        128));
+    maximumHeap.setEnabled(customMaximum.isSelected());
+    customMaximum.addActionListener(event -> maximumHeap.setEnabled(customMaximum.isSelected()));
+
+    JComboBox<JvmLaunchSettings.Collector> collector =
+        new JComboBox<>(JvmLaunchSettings.Collector.values());
+    collector.setSelectedItem(jvmLaunchSettings.collector());
+    collector.setToolTipText("G1 is balanced, ZGC favors low pauses, and Serial minimizes collector overhead for small heaps.");
+
+    JCheckBox heapDump = optionCheckBox(
+        "Write heap dump on OutOfMemoryError",
+        "Writes an HPROF file under ~/.jvn/heap-dumps for real retained-object diagnosis.",
+        jvmLaunchSettings.heapDumpOnOutOfMemory());
+    JCheckBox exitOnOom = optionCheckBox(
+        "Exit process after OutOfMemoryError",
+        "Terminates a corrupted or unusable process promptly after the JVM reports an OOM.",
+        jvmLaunchSettings.exitOnOutOfMemory());
+    JCheckBox stringDedup = optionCheckBox(
+        "Enable string deduplication",
+        "Allows G1/ZGC to merge duplicate String backing arrays; useful for text-heavy projects at a small GC cost.",
+        jvmLaunchSettings.stringDeduplication());
+
+    JTextField extraArguments = gradleTextField(jvmLaunchSettings.extraJvmArgs());
+    extraArguments.setToolTipText(
+        "Advanced JVM options. Quotes preserve spaces. Heap, GC, OOM, and deduplication flags belong in the controls above.");
+
+    JPanel options = new JPanel(new GridBagLayout());
+    options.setBackground(PANEL_BG);
+    options.setBorder(BorderFactory.createCompoundBorder(
+        BorderFactory.createLineBorder(BORDER_NEUTRAL),
+        uiPadding(12, 14, 12, 14)));
+    GridBagConstraints gbc = new GridBagConstraints();
+    gbc.gridx = 0;
+    gbc.weightx = 1.0;
+    gbc.fill = GridBagConstraints.HORIZONTAL;
+    gbc.anchor = GridBagConstraints.WEST;
+    gbc.insets = new java.awt.Insets(0, 0, ui(7), 0);
+    int row = 0;
+    gbc.gridy = row++;
+    options.add(memorySpinnerRow(customInitial, initialHeap), gbc);
+    gbc.gridy = row++;
+    options.add(memorySpinnerRow(customMaximum, maximumHeap), gbc);
+    gbc.gridy = row++;
+    options.add(labeledJvmControl("Garbage collector", collector), gbc);
+    for (JCheckBox checkBox : List.of(heapDump, exitOnOom, stringDedup)) {
+      gbc.gridy = row++;
+      options.add(checkBox, gbc);
+    }
+    gbc.gridy = row++;
+    gbc.insets = new java.awt.Insets(ui(7), 0, ui(5), 0);
+    JLabel extraLabel = new JLabel("Extra JVM arguments (advanced)");
+    extraLabel.setForeground(TEXT_MUTED);
+    extraLabel.setFont(extraLabel.getFont().deriveFont(Font.BOLD, uiFont(10f)));
+    options.add(extraLabel, gbc);
+    gbc.gridy = row;
+    gbc.insets = new java.awt.Insets(0, 0, 0, 0);
+    options.add(extraArguments, gbc);
+    root.add(options, BorderLayout.CENTER);
+
+    FlatButton reset = new FlatButton("Reset to JDK Defaults", null, null);
+    reset.addActionListener(event -> {
+      JvmLaunchSettings defaults = JvmLaunchSettings.defaults();
+      customInitial.setSelected(false);
+      initialHeap.setEnabled(false);
+      initialHeap.setValue(512);
+      customMaximum.setSelected(false);
+      maximumHeap.setEnabled(false);
+      maximumHeap.setValue(4096);
+      collector.setSelectedItem(defaults.collector());
+      heapDump.setSelected(defaults.heapDumpOnOutOfMemory());
+      exitOnOom.setSelected(defaults.exitOnOutOfMemory());
+      stringDedup.setSelected(defaults.stringDeduplication());
+      extraArguments.setText("");
+    });
+
+    FlatButton cancel = new FlatButton("Cancel", null, null);
+    cancel.addActionListener(event -> dialog.dispose());
+
+    FlatButton apply = new FlatButton(
+        "Apply to Next Launch", uiIcon(VectorIcon.Kind.CHECK, 14, ACCENT_TOOLS), ACCENT_TOOLS);
+    apply.addActionListener(event -> {
+      JvmLaunchSettings candidate = new JvmLaunchSettings(
+          customInitial.isSelected() ? ((Number) initialHeap.getValue()).intValue() : 0,
+          customMaximum.isSelected() ? ((Number) maximumHeap.getValue()).intValue() : 0,
+          (JvmLaunchSettings.Collector) collector.getSelectedItem(),
+          heapDump.isSelected(),
+          exitOnOom.isSelected(),
+          stringDedup.isSelected(),
+          extraArguments.getText());
+      Optional<String> validationError = candidate.validationError();
+      if (validationError.isPresent()) {
+        javax.swing.JOptionPane.showMessageDialog(
+            dialog, validationError.get(), "Invalid JVM Settings", javax.swing.JOptionPane.WARNING_MESSAGE);
+        return;
+      }
+      if (!writeJvmLaunchArguments(candidate, true)) return;
+      dialog.dispose();
+      refreshModeMenus();
+      setStatus("JVM memory settings saved", ACCENT_TOOLS);
+      setActivity(
+          "JVM settings ready for next launch",
+          candidate.summary(),
+          false,
+          ACCENT_TOOLS);
+    });
+
+    JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, ui(8), 0));
+    footer.setOpaque(false);
+    footer.add(reset);
+    footer.add(cancel);
+    footer.add(apply);
+    root.add(footer, BorderLayout.SOUTH);
+
+    dialog.setContentPane(root);
+    Dimension minimum = uiDimension(680, 560);
+    dialog.setMinimumSize(minimum);
+    dialog.pack();
+    if (dialog.getWidth() < minimum.width || dialog.getHeight() < minimum.height) {
+      dialog.setSize(minimum);
+    }
+    dialog.setLocationRelativeTo(frame);
+    dialog.getRootPane().setDefaultButton(apply);
+    dialog.setVisible(true);
+  }
+
+  private JPanel memorySpinnerRow(JCheckBox checkBox, JSpinner spinner) {
+    JPanel row = new JPanel(new BorderLayout(ui(10), 0));
+    row.setOpaque(false);
+    row.add(checkBox, BorderLayout.CENTER);
+    JPanel value = new JPanel(new FlowLayout(FlowLayout.RIGHT, ui(6), 0));
+    value.setOpaque(false);
+    spinner.setPreferredSize(uiDimension(110, 30));
+    JLabel unit = new JLabel("MiB");
+    unit.setForeground(TEXT_MUTED);
+    value.add(spinner);
+    value.add(unit);
+    row.add(value, BorderLayout.EAST);
+    return row;
+  }
+
+  private JPanel labeledJvmControl(String label, JComponent control) {
+    JPanel row = new JPanel(new BorderLayout(ui(10), 0));
+    row.setOpaque(false);
+    JLabel text = new JLabel(label);
+    text.setForeground(TEXT_SOFT);
+    row.add(text, BorderLayout.CENTER);
+    control.setPreferredSize(uiDimension(230, 30));
+    row.add(control, BorderLayout.EAST);
+    return row;
+  }
+
+  private boolean writeJvmLaunchArguments(JvmLaunchSettings settings, boolean persistSettings) {
+    try {
+      if (persistSettings) settings.save(jvmLaunchSettingsFile);
+      if (settings.heapDumpOnOutOfMemory()) Files.createDirectories(heapDumpDirectory);
+      settings.writeArguments(jvmLaunchArgumentsFile, heapDumpDirectory);
+      jvmLaunchSettings = settings;
+      return true;
+    } catch (IOException | IllegalArgumentException error) {
+      if (frame.isShowing()) {
+        javax.swing.JOptionPane.showMessageDialog(
+            frame,
+            "Could not save JVM launch settings:\n" + exceptionMessage(error),
+            "JVM Settings Error",
+            javax.swing.JOptionPane.ERROR_MESSAGE);
+      }
+      return false;
+    }
+  }
+
+  private Map<String, String> managedApplicationEnvironment(String taskOrApp) {
+    String value = taskOrApp == null ? "" : taskOrApp.trim().toLowerCase(Locale.ROOT);
+    boolean managedApplication = value.equals("editor")
+        || value.equals("launcher")
+        || value.equals("runtime")
+        || value.equals(":editor:run")
+        || value.equals(":editor:runlauncher")
+        || value.equals(":runtime:run");
+    if (!managedApplication) return Map.of();
+    writeJvmLaunchArguments(jvmLaunchSettings, false);
+    return Map.of("JVN_APP_JAVA_OPTS_FILE", jvmLaunchArgumentsFile.toAbsolutePath().toString());
+  }
+
   private JCheckBox optionCheckBox(String label, String tooltip, boolean selected) {
     JCheckBox box = new HelpCheckBox(label, selected);
     box.setUI(new BasicCheckBoxUI());
@@ -4159,7 +4398,7 @@ public final class JvnHub {
     completeCurrentStep("Gradle command assembled.");
     advanceStep(modeLaunchDetail());
     appendLog("$ " + String.join(" ", cmd));
-    startProcess(cmd, label);
+    startProcess(cmd, label, managedApplicationEnvironment(task));
   }
 
   private void runFastApp(String app, String label) {
@@ -4176,7 +4415,7 @@ public final class JvnHub {
     completeCurrentStep("Cache-first launch command assembled.");
     advanceStep(modeLaunchDetail());
     appendLog("$ " + String.join(" ", cmd));
-    startProcess(cmd, label);
+    startProcess(cmd, label, managedApplicationEnvironment(app));
   }
 
   private void runProfiledEditor() {
@@ -4198,7 +4437,9 @@ public final class JvnHub {
     completeCurrentStep("Profiled launch command assembled.");
     advanceStep("Starting the editor with Java Flight Recorder.");
     appendLog("$ " + String.join(" ", cmd));
-    startProcess(cmd, "Profile Editor", Map.of("JVN_PROFILE_JFR", "1"));
+    startProcess(cmd, "Profile Editor", Map.of(
+        "JVN_PROFILE_JFR", "1",
+        "JVN_APP_JAVA_OPTS_FILE", jvmLaunchArgumentsFile.toAbsolutePath().toString()));
   }
 
   private String modeLaunchDetail() {
@@ -6708,6 +6949,14 @@ public final class JvnHub {
       probe = probe.getParent();
     }
     return cwd;
+  }
+
+  static boolean hasArgument(String[] args, String expected) {
+    if (args == null || expected == null || expected.isBlank()) return false;
+    for (String argument : args) {
+      if (expected.equalsIgnoreCase(argument == null ? "" : argument.trim())) return true;
+    }
+    return false;
   }
 
   private static boolean looksLikeProjectRoot(Path dir) {

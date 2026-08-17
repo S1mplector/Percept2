@@ -62,4 +62,11 @@ class EditorCrashSupportTest {
     assertFalse(EditorCrashSupport.isRecoverableJavaFxToolbarTraversalBug(
         new IllegalStateException("not the upstream NPE")));
   }
+
+  @Test
+  void recognizesWrappedOutOfMemoryFailures() {
+    assertTrue(EditorCrashSupport.containsOutOfMemory(
+        new RuntimeException("preview failed", new OutOfMemoryError("Java heap space"))));
+    assertFalse(EditorCrashSupport.containsOutOfMemory(new RuntimeException("ordinary failure")));
+  }
 }

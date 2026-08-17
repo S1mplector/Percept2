@@ -156,6 +156,21 @@ fun JavaExec.configureFlightRecordingForLaunch() {
   logger.lifecycle("JVN Java Flight Recorder: ${recording.absolutePath}")
 }
 
+fun JavaExec.configureManagedJvmLaunchSettings() {
+  val defaultFile = File(System.getProperty("user.home", "."), ".jvn/jvm-launch.args")
+  val argumentsFile = providers.environmentVariable("JVN_APP_JAVA_OPTS_FILE")
+    .map(::File)
+    .orElse(defaultFile)
+  inputs.file(argumentsFile)
+    .withPropertyName("jvnManagedJvmArguments")
+    .optional()
+  jvmArgumentProviders.add(CommandLineArgumentProvider {
+    val file = argumentsFile.get()
+    if (!file.isFile) emptyList()
+    else file.readLines().map(String::trim).filter(String::isNotEmpty)
+  })
+}
+
 fun JavaExec.forwardHubLaunchSystemProps() {
   listOf(
     "jvn.hub.safeMode",
@@ -179,6 +194,7 @@ fun JavaExec.forwardHubLaunchSystemProps() {
 tasks.named<JavaExec>("run") {
   configureJavaFxRuntime()
   configureFlightRecordingForLaunch()
+  configureManagedJvmLaunchSettings()
   systemProperty("jvn.version", rootProject.version.toString())
   forwardHubLaunchSystemProps()
 }
@@ -191,6 +207,7 @@ tasks.register<JavaExec>("runLauncher") {
   workingDir = rootProject.projectDir
   systemProperty("jvn.version", rootProject.version.toString())
   configureFlightRecordingForLaunch()
+  configureManagedJvmLaunchSettings()
   forwardHubLaunchSystemProps()
   configureJavaFxRuntime()
 }

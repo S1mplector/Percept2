@@ -23,6 +23,7 @@ final class EditorCrashSupport {
   private static final Logger log = LoggerFactory.getLogger(EditorCrashSupport.class);
   private static final AtomicBoolean INSTALLED = new AtomicBoolean(false);
   private static final AtomicBoolean SHOWING_ALERT = new AtomicBoolean(false);
+  private static volatile byte[] emergencyMemoryReserve = new byte[2 * 1024 * 1024];
   private static final DateTimeFormatter FILE_TIME = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
   private static final DateTimeFormatter DISPLAY_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -95,16 +96,18 @@ final class EditorCrashSupport {
           thread != null ? thread.getName() : "unknown");
       return;
     }
+    boolean outOfMemory = containsOutOfMemory(throwable);
+    if (outOfMemory) emergencyMemoryReserve = null;
     Path logFile = writeCrashLog(throwable, thread);
     if (throwable != null) {
       log.error("Uncaught exception on thread {}", thread.getName(), throwable);
     }
     if (Platform.isFxApplicationThread()) {
-      showCrashAlert(thread, throwable, logFile);
+      showCrashAlert(thread, throwable, logFile, outOfMemory);
       return;
     }
     try {
-      Platform.runLater(() -> showCrashAlert(thread, throwable, logFile));
+      Platform.runLater(() -> showCrashAlert(thread, throwable, logFile, outOfMemory));
     } catch (IllegalStateException ignored) {
             // reason: JavaFX state race on shutdown; not actionable at call site
       // JavaFX toolkit is not available; stderr/log file are the fallback.
@@ -128,7 +131,21 @@ final class EditorCrashSupport {
     return toolbarSelect && focusCleanup;
   }
 
-  private static void showCrashAlert(Thread thread, Throwable throwable, Path logFile) {
+  static boolean containsOutOfMemory(Throwable throwable) {
+    Throwable current = throwable;
+    for (int depth = 0; current != null && depth < 32; depth++) {
+      if (current instanceof OutOfMemoryError) return true;
+      current = current.getCause();
+    }
+    return false;
+  }
+
+  private static void showCrashAlert(
+      Thread thread,
+      Throwable throwable,
+      Path logFile,
+      boolean outOfMemory
+  ) {
     if (!SHOWING_ALERT.compareAndSet(false, true)) return;
     try {
       String pathLine = logFile != null
@@ -137,13 +154,19 @@ final class EditorCrashSupport {
       EditorDialogs.error(
           null,
           "JVN Editor",
-          "An unexpected editor error occurred on thread "
-              + (thread != null ? thread.getName() : "<unknown>")
-              + ".",
+          outOfMemory
+              ? "The editor exhausted its JVM memory on thread "
+                  + (thread != null ? thread.getName() : "<unknown>") + "."
+              : "An unexpected editor error occurred on thread "
+                  + (thread != null ? thread.getName() : "<unknown>") + ".",
           throwable,
           pathLine,
-          "Save any recoverable work in other windows before continuing.",
-          "Restart the editor if the UI behaves inconsistently after this error.");
+          outOfMemory
+              ? "Restart through Engine Hub and review Tools > JVM Memory Settings; enable an OOM heap dump if this repeats."
+              : "Save any recoverable work in other windows before continuing.",
+          outOfMemory
+              ? "Use the crash log and diagnostics bundle to distinguish a retained-object leak from a legitimately undersized heap."
+              : "Restart the editor if the UI behaves inconsistently after this error.");
     } catch (Exception ex) {
       log.error("Failed to show crash alert", ex);
     } finally {

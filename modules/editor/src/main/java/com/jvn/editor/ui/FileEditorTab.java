@@ -744,6 +744,10 @@ public class FileEditorTab extends BorderPane {
   public void stopPreviewAudio() {
     if (vnPreview != null) vnPreview.stopAudio();
   }
+  public void trimPreviewMemoryCaches() {
+    if (vnPreview != null) vnPreview.trimMemoryCaches();
+    if (viewport != null) viewport.trimMemoryCaches();
+  }
   public void dispose() {
     if (disposed) return;
     disposed = true;

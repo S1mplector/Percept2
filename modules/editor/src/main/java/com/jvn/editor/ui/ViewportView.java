@@ -218,6 +218,7 @@ public class ViewportView extends StackPane {
     blitter.clearCache();
     blitter.setProjectRoot(null);
   }
+  public void trimMemoryCaches() { blitter.clearCache(); }
   public void setShowGrid(boolean b) { this.showGrid = b; }
   public void setSize(double w, double h) {
     double sw = sanitizeCanvasDimension(w);

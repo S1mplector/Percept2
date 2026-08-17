@@ -26,6 +26,7 @@ Usage: scripts/launch-app.sh editor|launcher|runtime [options] [-- app arguments
   --jfr               Record the launched Java process with Java Flight Recorder.
 
 Environment: JVN_APP_LAUNCH_MODE=auto|direct|gradle
+             JVN_APP_JAVA_OPTS_FILE=<one-JVM-option-per-line file>
              JVN_APP_JAVA_OPTS="<additional JVM options>"
              JVN_DISABLE_GLX_FALLBACK=1 disables Linux Mesa GLX recovery
              JVN_DISABLE_GPU_OFFLOAD=1 disables Linux discrete-GPU selection
@@ -351,6 +352,12 @@ if [[ "$JFR_PROFILE" -eq 1 ]]; then
   JAVA_ARGS+=("-XX:StartFlightRecording=filename=$JFR_FILE,settings=profile,dumponexit=true" \
     "-Dprism.verbose=true")
   echo "[jvn] Java Flight Recorder: $JFR_FILE" >&2
+fi
+JAVA_OPTS_FILE="${JVN_APP_JAVA_OPTS_FILE:-${HOME:-.}/.jvn/jvm-launch.args}"
+if [[ -r "$JAVA_OPTS_FILE" ]]; then
+  while IFS= read -r option || [[ -n "$option" ]]; do
+    [[ -n "$option" ]] && JAVA_ARGS+=("$option")
+  done < "$JAVA_OPTS_FILE"
 fi
 if [[ -n "${JVN_APP_JAVA_OPTS:-}" ]]; then
   read -r -a USER_JAVA_OPTS <<< "$JVN_APP_JAVA_OPTS"
