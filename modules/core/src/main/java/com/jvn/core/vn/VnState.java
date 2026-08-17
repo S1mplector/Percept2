@@ -50,6 +50,9 @@ public class VnState {
   private final List<VnOverlayScreenSpec> overlayScreens = new ArrayList<>();
   private boolean waitingForInput;
   private int textRevealProgress; // For text animation
+  // A completed line remains visible while a following blocking scene action
+  // (such as a timeline or wait) is in progress.
+  private DialogueLine retainedDialogue;
   private final VnHistory history;
   private final VnSettings settings;
   private boolean skipMode = false;
@@ -118,17 +121,63 @@ public class VnState {
   public void setScenario(VnScenario scenario) {
     this.scenario = scenario;
     this.currentNodeIndex = 0;
+    this.retainedDialogue = null;
   }
 
   public String getSourceScriptName() { return sourceScriptName; }
   public void setSourceScriptName(String sourceScriptName) { this.sourceScriptName = sourceScriptName; }
 
   public int getCurrentNodeIndex() { return currentNodeIndex; }
-  public void setCurrentNodeIndex(int index) { this.currentNodeIndex = index; }
-  public void advance() { currentNodeIndex++; }
+  public void setCurrentNodeIndex(int index) {
+    this.currentNodeIndex = index;
+    // Indexed navigation starts a new presentation position and must not
+    // inherit dialogue from the point that was navigated away from.
+    this.retainedDialogue = null;
+  }
+  public void advance() {
+    VnNode current = getCurrentNode();
+    if (current != null && current.getType() == VnNodeType.DIALOGUE) {
+      retainedDialogue = current.getDialogue();
+    }
+    currentNodeIndex++;
+    VnNode next = getCurrentNode();
+    if (next == null || next.getType() == VnNodeType.CHOICE || next.getType() == VnNodeType.END) {
+      retainedDialogue = null;
+    }
+  }
 
   public VnNode getCurrentNode() {
     return scenario != null ? scenario.getNode(currentNodeIndex) : null;
+  }
+
+  /**
+   * The last completed line, retained while intervening scene actions are
+   * presented. This lets dialogue remain readable during an animation.
+   */
+  public DialogueLine getRetainedDialogue() { return retainedDialogue; }
+
+  /**
+   * Reconstructs retained dialogue after a saved state is restored. Scene
+   * actions between a completed line and the saved blocking action do not
+   * replace the dialogue window; a choice or end node does.
+   */
+  public void restoreRetainedDialogue() {
+    retainedDialogue = null;
+    VnNode current = getCurrentNode();
+    if (current == null || current.getType() == VnNodeType.DIALOGUE
+        || current.getType() == VnNodeType.CHOICE || current.getType() == VnNodeType.END) {
+      return;
+    }
+    for (int index = currentNodeIndex - 1; index >= 0; index--) {
+      VnNode previous = scenario.getNode(index);
+      if (previous == null || previous.getType() == VnNodeType.CHOICE || previous.getType() == VnNodeType.END) {
+        return;
+      }
+      if (previous.getType() == VnNodeType.DIALOGUE) {
+        retainedDialogue = previous.getDialogue();
+        return;
+      }
+    }
   }
 
   public String getCurrentBackgroundId() { return currentBackgroundId; }

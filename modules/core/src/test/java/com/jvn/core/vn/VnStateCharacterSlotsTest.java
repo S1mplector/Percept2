@@ -4,10 +4,65 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 class VnStateCharacterSlotsTest {
+
+  @Test
+  void retainsCompletedDialogueWhileAnAnimationOrWaitNodeIsCurrent() {
+    DialogueLine line = DialogueLine.builder().speakerName("Guide").text("Watch this.").build();
+    VnScenario scenario = VnScenario.builder("retained_dialogue")
+        .addNode(VnNode.builder(VnNodeType.DIALOGUE).dialogue(line).build())
+        .addNode(VnNode.builder(VnNodeType.EXTERNAL)
+            .external(new VnExternalCommand("jes_timeline", "hero_arrival wait"))
+            .build())
+        .addNode(VnNode.builder(VnNodeType.WAIT).waitMs(500).build())
+        .addNode(VnNode.builder(VnNodeType.DIALOGUE)
+            .dialogue(DialogueLine.builder().speakerName("Guide").text("Done.").build())
+            .build())
+        .build();
+    VnState state = new VnState();
+    state.setScenario(scenario);
+
+    state.advance();
+
+    assertEquals(VnNodeType.EXTERNAL, state.getCurrentNode().getType());
+    assertSame(line, state.getRetainedDialogue());
+
+    state.advance();
+
+    assertEquals(VnNodeType.WAIT, state.getCurrentNode().getType());
+    assertSame(line, state.getRetainedDialogue());
+
+    state.advance();
+
+    assertEquals(VnNodeType.DIALOGUE, state.getCurrentNode().getType());
+    assertSame(line, state.getRetainedDialogue());
+  }
+
+  @Test
+  void clearsRetainedDialogueBeforeChoicesAndEnd() {
+    DialogueLine line = DialogueLine.builder().text("Choose.").build();
+    VnScenario choiceScenario = VnScenario.builder("choice")
+        .addNode(VnNode.builder(VnNodeType.DIALOGUE).dialogue(line).build())
+        .addNode(VnNode.builder(VnNodeType.CHOICE).build())
+        .build();
+    VnState choiceState = new VnState();
+    choiceState.setScenario(choiceScenario);
+    choiceState.advance();
+    assertNull(choiceState.getRetainedDialogue());
+
+    VnScenario endScenario = VnScenario.builder("end")
+        .addNode(VnNode.builder(VnNodeType.DIALOGUE).dialogue(line).build())
+        .addNode(VnNode.builder(VnNodeType.END).build())
+        .build();
+    VnState endState = new VnState();
+    endState.setScenario(endScenario);
+    endState.advance();
+    assertNull(endState.getRetainedDialogue());
+  }
 
   @Test
   void showCharacterKeepsSingleSlotPerCharacterId() {

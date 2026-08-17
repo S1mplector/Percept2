@@ -3,6 +3,7 @@ package com.jvn.core.vn;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
@@ -10,6 +11,26 @@ import org.junit.jupiter.api.Test;
 import com.jvn.core.audio.AudioFacade;
 
 class VnSceneInteropFailureTest {
+
+  @Test
+  void keepsCompletedDialogueWhileBlockingTimelineInteropIsCurrent() {
+    DialogueLine line = DialogueLine.builder().speakerName("Hero").text("Watch this.").build();
+    VnScenario scenario = VnScenario.builder("blocking_timeline_dialogue")
+        .addNode(VnNode.builder(VnNodeType.DIALOGUE).dialogue(line).build())
+        .addNode(VnNode.builder(VnNodeType.EXTERNAL)
+            .external(new VnExternalCommand("jes_timeline", "hero_arrival wait"))
+            .build())
+        .addNode(VnNode.builder(VnNodeType.END).build())
+        .build();
+    VnScene scene = new VnScene(scenario);
+    scene.setInterop((command, vnScene) -> VnInteropResult.block());
+    scene.onEnter();
+
+    scene.advance();
+
+    assertEquals(VnNodeType.EXTERNAL, scene.getState().getCurrentNode().getType());
+    assertSame(line, scene.getState().getRetainedDialogue());
+  }
 
   @Test
   void externalInteropFailureShowsHudAndKeepsProcessing() {

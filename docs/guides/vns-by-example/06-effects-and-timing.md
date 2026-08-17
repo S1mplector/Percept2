@@ -217,6 +217,23 @@ hero: ...I'm leaving.
 narrator: The forest stretched endlessly.
 ```
 
+### Keep Dialogue Visible During An Animation
+
+Dialogue now remains on screen after the reader advances it through intervening scene actions, including Puppeteer/JES timelines and `[wait]`. Write the line first, then start the animation and wait for its beat before the next line:
+
+```vns
+hero: Watch this.
+
+timeline {
+  move "hero" { x: 500 dur: 600 easing: ease_out_cubic }
+}
+[wait 600]
+
+hero: Did you see that?
+```
+
+There is no special command or menu option to enable. The retained line is replaced by the next dialogue, and it does not remain behind choices or the end screen. Saving during a blocking animation also restores the retained line when loaded.
+
 ---
 
 ## Text Speed

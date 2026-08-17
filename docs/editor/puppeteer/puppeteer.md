@@ -871,6 +871,17 @@ hero: I'm here now!
 
 The inline timeline fires asynchronously, but the dialogue node appears immediately. The player reads the text while the animation plays — this creates a natural feel where the character "arrives" as they speak.
 
+If the dialogue should be read *before* the animation starts, place the dialogue first and then the timeline followed by a matching `[wait]`. Once the player advances the line, its dialogue window remains visible for the animation; the following dialogue replaces it.
+
+```vns
+hero: Watch this.
+timeline {
+  move "hero" { x: 500 dur: 600 easing: ease_out_cubic }
+}
+[wait 600]
+hero: Did you see that?
+```
+
 ### Looping Ambient Animations
 
 For idle animations (floating gems, breathing characters), create a looping timeline:

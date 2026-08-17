@@ -352,6 +352,7 @@ public class VnSaveManager {
     VnSaveMigration.migrateInPlace(saveData, saveData.getSaveName());
 
     state.setCurrentNodeIndex(saveData.getCurrentNodeIndex());
+    state.restoreRetainedDialogue();
     state.setCurrentBackgroundId(saveData.getCurrentBackgroundId());
     state.setVariables(saveData.getVariables());
     state.setReadNodes(saveData.getReadNodes());

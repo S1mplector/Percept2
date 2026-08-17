@@ -4,6 +4,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
@@ -11,6 +12,32 @@ import com.jvn.core.vn.save.VnSaveData;
 import com.jvn.core.vn.save.VnSaveManager;
 
 public class VnSavePersistenceTest {
+  @Test
+  public void restoresDialogueKeptVisibleDuringASavedAnimation() throws Exception {
+    DialogueLine line = DialogueLine.builder().speakerName("Hero").text("Watch this.").build();
+    VnScenario scenario = VnScenario.builder("retained_dialogue_save")
+        .addNode(VnNode.builder(VnNodeType.DIALOGUE).dialogue(line).build())
+        .addNode(VnNode.builder(VnNodeType.EXTERNAL)
+            .external(new VnExternalCommand("jes_timeline", "hero_arrival wait"))
+            .build())
+        .addNode(VnNode.builder(VnNodeType.END).build())
+        .build();
+    VnState state = new VnState();
+    state.setScenario(scenario);
+    state.advance();
+
+    Path tmp = Files.createTempDirectory("vn_retained_dialogue_save_test");
+    VnSaveManager manager = new VnSaveManager(tmp.toString());
+    manager.save(state, "during_animation");
+
+    VnState loaded = new VnState();
+    loaded.setScenario(scenario);
+    manager.applyToState(manager.load("during_animation"), loaded);
+
+    assertEquals(VnNodeType.EXTERNAL, loaded.getCurrentNode().getType());
+    assertSame(line, loaded.getRetainedDialogue());
+  }
+
   @Test
   public void savesAndLoadsExtendedState() throws Exception {
     // Build a tiny scenario

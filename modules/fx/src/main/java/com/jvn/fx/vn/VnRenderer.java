@@ -399,7 +399,8 @@ public class VnRenderer {
     // Render current node content. Dialogue visibility is animated so Ren'Py-
     // style window show/hide dissolves do not pop between scene statements.
     VnNode currentNode = state.getCurrentNode();
-    syncDialogueFade(state, currentNode);
+    DialogueLine displayedDialogue = displayedDialogue(state);
+    syncDialogueFade(state, displayedDialogue);
     if (currentNode != null && !state.isUiHidden()) {
       if (currentNode.getType() == VnNodeType.DIALOGUE && currentNode.getDialogue() != null) {
         String scenarioId = scenario == null ? "" : String.valueOf(scenario.getId());
@@ -416,7 +417,7 @@ public class VnRenderer {
       }
       switch (currentNode.getType()) {
         case DIALOGUE:
-          renderDialogueWithFade(currentNode.getDialogue(), state, scenario, width, height, -1);
+          renderDialogueWithFade(displayedDialogue, state, scenario, width, height, -1);
           break;
         case CHOICE:
           if (state.getDialoguePresentationMode() == DialoguePresentationMode.NVL) {
@@ -441,8 +442,15 @@ public class VnRenderer {
           renderEnd(width, height);
           break;
       }
+      if (currentNode.getType() != VnNodeType.DIALOGUE
+          && currentNode.getType() != VnNodeType.CHOICE
+          && currentNode.getType() != VnNodeType.END) {
+        // A completed line stays on screen while an intervening scene action,
+        // including a blocking timeline or wait, is playing.
+        renderDialogueWithFade(displayedDialogue, state, scenario, width, height, -1);
+      }
     }
-    if ((currentNode == null || currentNode.getType() != VnNodeType.DIALOGUE || state.isUiHidden())
+    if ((displayedDialogue == null || state.isUiHidden())
         && dialogueFadeLine != null && dialogueFadeAlpha > 0.001) {
       renderDialogueWithFade(dialogueFadeLine, state, scenario, width, height, -1);
     }
@@ -483,6 +491,15 @@ public class VnRenderer {
     }
 
     renderFlashOverlay(state, width, height);
+  }
+
+  /** Chooses the dialogue line rendered over the current non-dialogue action. */
+  static DialogueLine displayedDialogue(VnState state) {
+    if (state == null) return null;
+    VnNode currentNode = state.getCurrentNode();
+    return currentNode != null && currentNode.getType() == VnNodeType.DIALOGUE
+        ? currentNode.getDialogue()
+        : state.getRetainedDialogue();
   }
 
   /**
@@ -2152,16 +2169,14 @@ public class VnRenderer {
     gc.restore();
   }
 
-  private void syncDialogueFade(VnState state, VnNode currentNode) {
+  private void syncDialogueFade(VnState state, DialogueLine displayedDialogue) {
     boolean requestedVisible = state != null
         && !state.isUiHidden()
-        && currentNode != null
-        && currentNode.getType() == VnNodeType.DIALOGUE
-        && currentNode.getDialogue() != null;
+        && displayedDialogue != null;
 
     if (state != dialogueFadeState) {
       dialogueFadeState = state;
-      dialogueFadeLine = requestedVisible ? currentNode.getDialogue() : null;
+      dialogueFadeLine = requestedVisible ? displayedDialogue : null;
       dialogueFadeVisible = requestedVisible;
       dialogueFadeAlpha = requestedVisible ? 0.0 : 0.0;
       dialogueFadeFrom = dialogueFadeAlpha;
@@ -2175,7 +2190,7 @@ public class VnRenderer {
     }
 
     if (requestedVisible) {
-      dialogueFadeLine = currentNode.getDialogue();
+      dialogueFadeLine = displayedDialogue;
     }
     if (freezeTransientEffects) {
       dialogueFadeFrom = dialogueFadeAlpha;
