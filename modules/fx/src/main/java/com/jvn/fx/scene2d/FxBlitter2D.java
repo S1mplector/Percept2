@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.jvn.core.math.Capsule2;
+import com.jvn.core.assets.BoundedImageCache;
 import com.jvn.core.scene2d.Blitter2D;
 import com.jvn.core.scene2d.RenderFeature;
 import com.jvn.core.scene2d.RenderBlendMode;
@@ -18,6 +19,7 @@ import com.jvn.core.scene2d.RenderDiagnostics;
 import com.jvn.core.scene2d.RenderTarget2D;
 import com.jvn.core.scene2d.RendererCapabilities;
 import com.jvn.core.scene2d.TextFontMetrics2D;
+import com.jvn.fx.FxImageMemory;
 
 import javafx.geometry.VPos;
 import javafx.scene.SnapshotParameters;
@@ -102,13 +104,13 @@ public class FxBlitter2D implements Blitter2D {
   private final GraphicsContext gc;
   private double viewportW = 0;
   private double viewportH = 0;
-  private int cacheCapacity = 128;
-  private final Map<String, Image> cache = new LinkedHashMap<>(16, 0.75f, true) {
-    @Override protected boolean removeEldestEntry(Map.Entry<String, Image> eldest) { return size() > cacheCapacity; }
-  };
-  private final Map<String, Image> processedCache = new LinkedHashMap<>(16, 0.75f, true) {
-    @Override protected boolean removeEldestEntry(Map.Entry<String, Image> eldest) { return size() > cacheCapacity; }
-  };
+  private static final int CACHE_MAX_ENTRIES = 128;
+  private static final long SOURCE_CACHE_MAX_BYTES = 96L * 1024L * 1024L;
+  private static final long PROCESSED_CACHE_MAX_BYTES = 64L * 1024L * 1024L;
+  private final BoundedImageCache<Image> cache = new BoundedImageCache<>(
+      CACHE_MAX_ENTRIES, SOURCE_CACHE_MAX_BYTES, FxImageMemory::estimatedBytes);
+  private final BoundedImageCache<Image> processedCache = new BoundedImageCache<>(
+      CACHE_MAX_ENTRIES, PROCESSED_CACHE_MAX_BYTES, FxImageMemory::estimatedBytes);
   private final Set<String> missing = new HashSet<>();
   private final Deque<RenderState> stateStack = new ArrayDeque<>();
   private final Deque<RenderState> statePool = new ArrayDeque<>();
@@ -550,11 +552,15 @@ public class FxBlitter2D implements Blitter2D {
     gc.restore();
   }
 
-  public void setCacheCapacity(int capacity) { this.cacheCapacity = Math.max(16, capacity); }
+  public void setCacheCapacity(int capacity) {
+    int boundedCapacity = Math.max(16, capacity);
+    cache.setMaxEntries(boundedCapacity);
+    processedCache.setMaxEntries(boundedCapacity);
+  }
   public void evict(String path) {
     if (path != null) {
       cache.remove(path);
-      processedCache.keySet().removeIf(key -> key.startsWith(path + "::"));
+      processedCache.removeKeysIf(key -> key.startsWith(path + "::"));
       missing.remove(path);
       MediaPlayer mp = videoPlayers.remove(path);
       if (mp != null) {
@@ -603,7 +609,11 @@ public class FxBlitter2D implements Blitter2D {
   }
 
   private java.io.File projectRoot;
-  public void setProjectRoot(java.io.File root) { this.projectRoot = root; }
+  public void setProjectRoot(java.io.File root) {
+    if (java.util.Objects.equals(this.projectRoot, root)) return;
+    clearCache();
+    this.projectRoot = root;
+  }
 
   private double clamp01(double v) { return v < 0 ? 0 : (v > 1 ? 1 : v); }
 

@@ -13417,6 +13417,7 @@ public class PuppeteerWindow extends Stage {
     @Override
     public void close() {
         if (playbackTimer != null) playbackTimer.stop();
+        if (animationPreview != null) animationPreview.dispose();
         super.close();
     }
 

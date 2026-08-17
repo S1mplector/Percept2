@@ -1843,7 +1843,9 @@ public class VnPreviewView extends StackPane {
     projectRoot = null;
     audio = null;
     renderer.setAudioFacade(null);
-    renderer.setProjectRoot(null);
+    renderer.dispose();
+    menuRenderer.dispose();
+    phoneRenderer.dispose();
   }
 
   private AudioFacade activeAudioFacade() {

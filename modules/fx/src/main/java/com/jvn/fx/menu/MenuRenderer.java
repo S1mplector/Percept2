@@ -10,6 +10,7 @@ import java.util.List;
 import com.jvn.fx.RenderThreadGuard;
 import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.BoundedImageCache;
+import com.jvn.fx.FxImageMemory;
 import com.jvn.core.assets.AssetType;
 import com.jvn.core.localization.Localization;
 import com.jvn.core.menu.HistoryMenuScene;
@@ -53,7 +54,9 @@ public class MenuRenderer {
 
   private final GraphicsContext gc;
   private MenuTheme theme;
-  private final BoundedImageCache<Image> imageCache = new BoundedImageCache<>(256);
+  private static final long IMAGE_CACHE_BUDGET_BYTES = 48L * 1024L * 1024L;
+  private final BoundedImageCache<Image> imageCache =
+      new BoundedImageCache<>(128, IMAGE_CACHE_BUDGET_BYTES, FxImageMemory::estimatedBytes);
   private final FxTextMetrics textMetrics = new FxTextMetrics();
   private File projectRoot;
   private double activeUiFontScale = 1.0;
@@ -80,6 +83,7 @@ public class MenuRenderer {
   }
   public MenuTheme getTheme() { return theme; }
   public void setProjectRoot(File root) {
+    if (!java.util.Objects.equals(projectRoot, root)) imageCache.clear();
     this.projectRoot = root;
     textMetrics.clear();
   }

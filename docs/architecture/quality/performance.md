@@ -62,6 +62,28 @@ controlled comparison, override the cap with
 `-Djvn.editor.previewMaxFps=15..240`. UI layout/style overrides are applied when they
 change rather than reparsed and reloaded on every preview frame.
 
+### Preview memory safety
+
+JavaFX image caches are bounded by estimated decoded raster bytes as well as entry
+count. This matters during animation: a 1024×1024 ARGB frame is approximately 4 MiB,
+so an entry-only cache of 256 transformed frames could retain about 1 GiB even when
+the source image is small on disk. VNS stage composites, JES/Puppeteer processed
+sprites, menu images, phone images, and Puppeteer's source-image cache all use byte
+ceilings. A raster larger than an individual cache's budget may render, but is not
+retained.
+
+Closing a VNS/JES tab or Puppeteer window stops its preview activity and clears its
+renderer caches. Switching a preview to another project also clears path-dependent
+images. Consequently, a healthy preview heap should rise and fall within a bounded
+range during repeated animation; it should not grow in proportion to the number of
+frames previewed.
+
+Do not use a larger `-Xmx` value or repeated manual GC as the primary remedy for
+steadily growing preview memory. The collector cannot reclaim images while a renderer
+cache still holds strong references to them. Heap tuning remains useful for projects
+that legitimately keep many large decoded source assets live, but it does not replace
+the cache ceilings and lifecycle cleanup.
+
 ### VNS rendering and flow
 
 - Keep dialogue effects focused; animated per-character spans cost more than plain text.

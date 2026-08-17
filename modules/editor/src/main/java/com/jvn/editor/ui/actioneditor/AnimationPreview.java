@@ -14,11 +14,13 @@ import java.util.function.Consumer;
 
 import org.jspecify.annotations.Nullable;
 
+import com.jvn.core.assets.BoundedImageCache;
 import com.jvn.core.graphics.Camera2D;
 import com.jvn.core.graphics.ViewportScaler2D;
 import com.jvn.core.input.Input;
 import com.jvn.core.scene2d.Entity2D;
 import com.jvn.editor.ui.ProjectViewportSpec;
+import com.jvn.fx.FxImageMemory;
 import com.jvn.fx.scene2d.FxBlitter2D;
 import com.jvn.scripting.jes.runtime.JesScene2D;
 
@@ -431,7 +433,8 @@ public class AnimationPreview extends VBox {
     private ScrollZoomMode scrollZoomMode = ScrollZoomMode.VIEW;
     private java.io.File projectRoot;
     private final Map<String, double[]> sourceImageSizeCache = new HashMap<>();
-    private final Map<String, Image> sourceImageCache = new HashMap<>();
+    private final BoundedImageCache<Image> sourceImageCache = new BoundedImageCache<>(
+        128, 48L * 1024L * 1024L, FxImageMemory::estimatedBytes);
     private final Set<String> missingSourceImagePaths = new HashSet<>();
     private boolean moveInteractionActive = false;
     private String moveInteractionEntityName = null;
@@ -460,6 +463,25 @@ public class AnimationPreview extends VBox {
         } else {
             render();
         }
+    }
+
+    /** Stops preview activity and releases raster/project references held by this view. */
+    public void dispose() {
+        stopSpriteRegionAnimation();
+        if (viewportFocusAnimation != null) {
+            viewportFocusAnimation.stop();
+            viewportFocusAnimation = null;
+        }
+        blitter.clearCache();
+        spriteRegionCache.clear();
+        sourceImageSizeCache.clear();
+        sourceImageCache.clear();
+        missingSourceImagePaths.clear();
+        selectedEntity = null;
+        scene = null;
+        project = null;
+        projectRoot = null;
+        pixelAnalyzer = null;
     }
 
     public AnimationPreview() {

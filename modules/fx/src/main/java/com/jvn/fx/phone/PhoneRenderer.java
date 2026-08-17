@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import com.jvn.fx.RenderThreadGuard;
 import com.jvn.core.assets.AssetCatalog;
 import com.jvn.core.assets.BoundedImageCache;
+import com.jvn.fx.FxImageMemory;
 import com.jvn.core.assets.AssetType;
 import com.jvn.core.phone.PhoneScene;
 import com.jvn.core.phone.VnPhoneData;
@@ -92,7 +93,9 @@ public final class PhoneRenderer extends StackPane {
   private final Label footerLabel = new Label("Esc closes");
   private final VBox bottomChrome = new VBox(4);
 
-  private final BoundedImageCache<Image> imageCache = new BoundedImageCache<>(256);
+  private static final long IMAGE_CACHE_BUDGET_BYTES = 24L * 1024L * 1024L;
+  private final BoundedImageCache<Image> imageCache =
+      new BoundedImageCache<>(96, IMAGE_CACHE_BUDGET_BYTES, FxImageMemory::estimatedBytes);
   private final Map<String, AlphaBounds> alphaBoundsCache = new java.util.HashMap<>();
 
   private PhoneScene sceneModel;

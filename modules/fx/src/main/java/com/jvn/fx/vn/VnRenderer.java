@@ -64,6 +64,7 @@ import com.jvn.core.vn.ui.VnUiLayoutLoader;
 import com.jvn.core.vn.ui.VnUiLayoutSpec;
 import com.jvn.core.vn.ui.VnUiStyleSpec;
 import com.jvn.fx.RenderThreadGuard;
+import com.jvn.fx.FxImageMemory;
 import com.jvn.fx.scene2d.FxBlitter2D;
 import com.jvn.fx.ui.FxTextMetrics;
 import com.jvn.fx.ui.ProjectFontResolver;
@@ -85,11 +86,18 @@ import javafx.scene.text.FontWeight;
  */
 public class VnRenderer {
   private static final Logger log = LoggerFactory.getLogger(VnRenderer.class);
+  private static final long MIB = 1024L * 1024L;
+  static final long SOURCE_IMAGE_CACHE_BUDGET_BYTES = 96L * MIB;
+  static final long STAGE_BACKGROUND_CACHE_BUDGET_BYTES = 48L * MIB;
+  static final long STAGE_CHARACTER_CACHE_BUDGET_BYTES = 64L * MIB;
 
   private final GraphicsContext gc;
-  private BoundedImageCache<Image> imageCache = new BoundedImageCache<>(VnConfig.defaults().getImageCacheMaxEntries());
-  private BoundedImageCache<Image> stageBackgroundCache = new BoundedImageCache<>(VnConfig.defaults().getImageCacheMaxEntries());
-  private BoundedImageCache<Image> stageCharacterCache = new BoundedImageCache<>(VnConfig.defaults().getImageCacheMaxEntries());
+  private final BoundedImageCache<Image> imageCache = new BoundedImageCache<>(
+      VnConfig.defaults().getImageCacheMaxEntries(), SOURCE_IMAGE_CACHE_BUDGET_BYTES, FxImageMemory::estimatedBytes);
+  private final BoundedImageCache<Image> stageBackgroundCache = new BoundedImageCache<>(
+      16, STAGE_BACKGROUND_CACHE_BUDGET_BYTES, FxImageMemory::estimatedBytes);
+  private final BoundedImageCache<Image> stageCharacterCache = new BoundedImageCache<>(
+      64, STAGE_CHARACTER_CACHE_BUDGET_BYTES, FxImageMemory::estimatedBytes);
   private final FxTextMetrics textMetrics = new FxTextMetrics();
   private Font nameFont;
   private Font dialogueFont;
@@ -245,8 +253,11 @@ public class VnRenderer {
   // Optional base directory used to resolve asset paths from filesystem (editor preview)
   private File projectRoot;
   public void setProjectRoot(File root) {
+    if (java.util.Objects.equals(this.projectRoot, root)) return;
     this.projectRoot = root;
     this.eyeFocusProfiles = null;
+    imageCache.clear();
+    particleBlitter.clearCache();
     particleBlitter.setProjectRoot(root);
     stageBackgroundCache.clear();
     stageCharacterCache.clear();
@@ -4156,6 +4167,10 @@ public class VnRenderer {
 
   public void clearCache() {
     imageCache.clear();
+    stageBackgroundCache.clear();
+    stageCharacterCache.clear();
+    layerPathCache.clear();
+    particleBlitter.clearCache();
     textMetrics.clear();
   }
 
@@ -4167,7 +4182,12 @@ public class VnRenderer {
     imageCache.clear();
     stageBackgroundCache.clear();
     stageCharacterCache.clear();
+    layerPathCache.clear();
+    particleBlitter.clearCache();
     textMetrics.clear();
+    timelineAccessor = null;
+    currentState = null;
+    projectRoot = null;
   }
 
   // ─── Error Overlay ─────────────────────────────────────────────────

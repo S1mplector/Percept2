@@ -201,6 +201,7 @@ public class ViewportView extends StackPane {
   public Camera2D getCamera() { return camera; }
 
   public void setProjectRoot(java.io.File root) {
+    blitter.clearCache();
     blitter.setProjectRoot(root);
     ProjectViewportSpec.Dimensions dims = ProjectViewportSpec.resolve(root);
     overlayViewportWidth = dims.width();
@@ -208,6 +209,14 @@ public class ViewportView extends StackPane {
   }
   public void setStoryboardOverlay(StoryboardOverlayState storyboardOverlay) {
     this.storyboardOverlay = storyboardOverlay == null ? StoryboardOverlayState.none() : storyboardOverlay;
+  }
+
+  public void dispose() {
+    scene = null;
+    beforeSceneUpdateHook = null;
+    selected = null;
+    blitter.clearCache();
+    blitter.setProjectRoot(null);
   }
   public void setShowGrid(boolean b) { this.showGrid = b; }
   public void setSize(double w, double h) {

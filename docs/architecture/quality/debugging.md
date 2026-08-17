@@ -212,6 +212,22 @@ Common memory issues:
 - **Audio file extraction** — classpath audio is extracted to temp files
 - **Accumulated SFX engines** — many rapid SFX plays create engine instances
 
+If editor memory climbs while a preview loops:
+
+1. Update to a build with byte-bounded preview raster caches.
+2. In Engine Hub Developer Mode, enable **DevTools > Auto-write Editor Diagnostics**
+   before reproducing the issue. The heartbeat log records heap use and GC deltas.
+3. Loop the same animation for several minutes, close its editor tab or Puppeteer
+   window, then watch the heap across subsequent GC cycles. Frame count alone should
+   no longer increase the retained heap, and closing the preview releases its caches.
+4. Use **Save Diagnostics Bundle...** if memory continues to climb. Include the
+   project resolution, source image dimensions, preview type (VNS, JES, or Puppeteer),
+   configured editor heap, and the shortest reliable reproduction sequence.
+
+A manual GC that briefly lowers the heap is evidence of allocation churn, not a broken
+collector. A heap that remains high can also be normal until the JVM needs space; the
+failure signal is retained usage that continues increasing with each identical loop.
+
 ### Build Performance
 
 ```bash

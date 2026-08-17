@@ -84,4 +84,81 @@ class BoundedImageCacheTest {
     assertNotNull(cache.get("shared-key"));
     assertTrue(cache.size() <= 256);
   }
+
+  @Test
+  void weightedEvictionCapsRetainedRasterBytesDuringAnimationStress() {
+    long frameBytes = 512L * 512L * 4L;
+    long budgetBytes = 16L * 1024L * 1024L;
+    BoundedImageCache<SimulatedRaster> cache =
+        new BoundedImageCache<>(256, budgetBytes, SimulatedRaster::bytes);
+
+    for (int frame = 0; frame < 10_000; frame++) {
+      cache.put("character-at-x-" + frame, new SimulatedRaster(frameBytes));
+      assertTrue(cache.currentWeight() <= budgetBytes);
+    }
+
+    assertEquals(16, cache.size());
+    assertEquals(budgetBytes, cache.currentWeight());
+    assertNull(cache.get("character-at-x-0"));
+    assertNotNull(cache.get("character-at-x-9999"));
+  }
+
+  @Test
+  void replacingAndClearingEntriesUpdatesRetainedWeight() {
+    BoundedImageCache<SimulatedRaster> cache =
+        new BoundedImageCache<>(8, 1_000L, SimulatedRaster::bytes);
+
+    cache.put("frame", new SimulatedRaster(700L));
+    cache.put("frame", new SimulatedRaster(200L));
+    assertEquals(200L, cache.currentWeight());
+
+    cache.clear();
+    assertEquals(0, cache.size());
+    assertEquals(0L, cache.currentWeight());
+  }
+
+  @Test
+  void rasterLargerThanBudgetIsNotRetained() {
+    BoundedImageCache<SimulatedRaster> cache =
+        new BoundedImageCache<>(8, 1_000L, SimulatedRaster::bytes);
+
+    SimulatedRaster raster = cache.computeIfAbsent("oversized", key -> new SimulatedRaster(1_001L));
+
+    assertNotNull(raster);
+    assertEquals(0, cache.size());
+    assertEquals(0L, cache.currentWeight());
+  }
+
+  @Test
+  void targetedRemovalUpdatesRetainedWeight() {
+    BoundedImageCache<SimulatedRaster> cache =
+        new BoundedImageCache<>(8, 1_000L, SimulatedRaster::bytes);
+    cache.put("sprite.png", new SimulatedRaster(100L));
+    cache.put("sprite.png::tint-1", new SimulatedRaster(200L));
+    cache.put("sprite.png::tint-2", new SimulatedRaster(300L));
+    cache.put("other.png::tint-1", new SimulatedRaster(400L));
+
+    cache.remove("sprite.png");
+    cache.removeKeysIf(key -> key.startsWith("sprite.png::"));
+
+    assertEquals(1, cache.size());
+    assertEquals(400L, cache.currentWeight());
+  }
+
+  @Test
+  void reducingEntryLimitEvictsLeastRecentlyUsedImmediately() {
+    BoundedImageCache<String> cache = new BoundedImageCache<>(4);
+    cache.put("a", "A");
+    cache.put("b", "B");
+    cache.put("c", "C");
+    cache.get("a");
+
+    cache.setMaxEntries(2);
+
+    assertEquals(2, cache.size());
+    assertNull(cache.get("b"));
+    assertNotNull(cache.get("a"));
+  }
+
+  private record SimulatedRaster(long bytes) {}
 }

@@ -750,6 +750,7 @@ public class FileEditorTab extends BorderPane {
     closeDetachedPreviewWindow(true);
     stopPreviewAudio();
     if (vnPreview != null) vnPreview.dispose();
+    if (viewport != null) viewport.dispose();
   }
   public Node getEditorNode() {
     if (kind == Kind.JES) return jesEditor;
