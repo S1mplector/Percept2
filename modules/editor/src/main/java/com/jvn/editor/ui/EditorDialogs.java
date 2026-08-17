@@ -51,6 +51,7 @@ public final class EditorDialogs {
     PROCESS("Process / Gradle"),
     ASSET("Asset"),
     AUDIO("Audio"),
+    MEMORY("JVM memory"),
     VALIDATION("Validation"),
     CLIPBOARD("Clipboard"),
     UNKNOWN("Unknown");
@@ -359,6 +360,10 @@ public final class EditorDialogs {
       case PROCESS -> hints.add("Check the run console or terminal output for the process exit reason.");
       case ASSET -> hints.add("Verify referenced assets exist under the project folder and paths are relative to the project root.");
       case AUDIO -> hints.add("Verify the audio file exists, uses a supported format, and is referenced by the correct channel.");
+      case MEMORY -> {
+        hints.add("Close unused previews or release their caches, then retry the action.");
+        hints.add("Use Engine Hub > Tools > JVM Memory Settings for the next launch and save a heap dump if pressure returns.");
+      }
       case VALIDATION -> hints.add("Correct the highlighted field or invalid value, then try the action again.");
       case CLIPBOARD -> hints.add("Focus the editor window and try copying again.");
       case UNKNOWN -> hints.add("Check the selected project, file, or folder and try the action again.");
@@ -391,6 +396,11 @@ public final class EditorDialogs {
     }
     if (haystack.contains("timeline") || haystack.contains("puppeteer")) {
       hints.add("Run Puppeteer verification and fix errors before exporting or registering the timeline.");
+    }
+    if (haystack.contains("memory") || haystack.contains("heap") || haystack.contains("outofmemory")
+        || haystack.contains("garbage collection") || haystack.contains(" gc ")) {
+      hints.add("Close unused previews or release their caches before retrying.");
+      hints.add("Configure the next launch under Engine Hub > Tools > JVM Memory Settings.");
     }
     if (hints.isEmpty()) {
       hints.add("Check the selected project, file, or folder and try the action again.");
@@ -433,6 +443,12 @@ public final class EditorDialogs {
         + (root == null || root.getMessage() == null ? "" : root.getMessage()) + " "
         + (root == null ? "" : root.getClass().getSimpleName()))
         .toLowerCase(Locale.ROOT);
+    if (haystack.contains("outofmemory") || haystack.contains("out of memory")
+        || haystack.contains("heap space") || haystack.contains("heap pressure")
+        || haystack.contains("garbage collection") || haystack.contains("gc overhead")
+        || haystack.contains("memory limit")) {
+      return ErrorType.MEMORY;
+    }
     if (haystack.contains("workspace root") || haystack.contains("project root")
         || haystack.contains("jvn.project") || haystack.contains("manifest")) {
       return ErrorType.PROJECT_CONTEXT;

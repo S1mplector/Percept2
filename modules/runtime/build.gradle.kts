@@ -2,6 +2,7 @@ import java.io.File
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Properties
+import org.gradle.process.CommandLineArgumentProvider
 
 plugins {
   application
@@ -57,6 +58,21 @@ fun JavaExec.configureFlightRecordingForLaunch() {
   logger.lifecycle("JVN Java Flight Recorder: ${recording.absolutePath}")
 }
 
+fun JavaExec.configureManagedJvmLaunchSettings() {
+  val defaultFile = File(System.getProperty("user.home", "."), ".jvn/jvm-launch.args")
+  val argumentsFile = providers.environmentVariable("JVN_APP_JAVA_OPTS_FILE")
+    .map(::File)
+    .orElse(defaultFile)
+  inputs.file(argumentsFile)
+    .withPropertyName("jvnManagedJvmArguments")
+    .optional()
+  jvmArgumentProviders.add(CommandLineArgumentProvider {
+    val file = argumentsFile.get()
+    if (!file.isFile) emptyList()
+    else file.readLines().map(String::trim).filter(String::isNotEmpty)
+  })
+}
+
 fun requestedGraphicsModeForLaunch(): String {
   val explicitProperty = System.getProperty("jvn.graphics.mode")?.trim().orEmpty()
   if (explicitProperty.isNotEmpty()) return explicitProperty
@@ -78,6 +94,7 @@ fun requestedGraphicsModeForLaunch(): String {
 
 tasks.named<JavaExec>("run") {
   configureFlightRecordingForLaunch()
+  configureManagedJvmLaunchSettings()
   when (requestedGraphicsModeForLaunch().lowercase()) {
     "gpu", "hardware", "accelerated", "prefer-gpu" -> {
       systemProperty("jvn.graphics.mode", "hardware")

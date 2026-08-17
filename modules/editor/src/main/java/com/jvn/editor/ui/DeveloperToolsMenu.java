@@ -126,9 +126,27 @@ public final class DeveloperToolsMenu {
   }
 
   public static List<String> configuredEditorJvmArgs() {
+    List<String> managed = managedJvmArgs();
     Optional<Integer> heapMb = configuredEditorHeapMb();
-    if (heapMb.isEmpty()) return List.of();
-    return List.of("-Xmx" + heapMb.get() + "m");
+    if (heapMb.isEmpty() || managed.stream().anyMatch(argument -> argument.startsWith("-Xmx"))) {
+      return managed;
+    }
+    List<String> combined = new ArrayList<>(managed);
+    combined.add("-Xmx" + heapMb.get() + "m");
+    return List.copyOf(combined);
+  }
+
+  private static List<String> managedJvmArgs() {
+    Path file = Path.of(System.getProperty("user.home", "."), ".jvn", "jvm-launch.args");
+    if (!Files.isRegularFile(file)) return List.of();
+    try {
+      return Files.readAllLines(file, java.nio.charset.StandardCharsets.UTF_8).stream()
+          .map(String::trim)
+          .filter(line -> !line.isEmpty())
+          .toList();
+    } catch (IOException ignored) {
+      return List.of();
+    }
   }
 
   public static boolean isCaptureEditorProcessOutputEnabled() {

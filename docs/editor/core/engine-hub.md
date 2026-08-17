@@ -246,6 +246,38 @@ When the launcher opens the editor in Developer Mode, it also forwards Developer
 
 Developer Mode also adds a **DevTools** menu to the editor and launcher menu bars. It includes runtime/JVM diagnostics, manual GC, log-panel refresh, a developer settings file shortcut, a launcher output-capture toggle, an editor JVM heap setting, and **Save Diagnostics Bundle...**. The editor DevTools menu also includes **Auto-write Editor Diagnostics**. The diagnostics bundle writes a timestamped folder and `.zip` containing discovered logs, crash/audit/diagnostic files, Gradle daemon output, launcher logs, a manifest of copied/skipped files, and JVM/runtime memory details. The heap setting is stored in `~/.jvn-editor/devtools.properties` and applies to the next editor launch started from the launcher.
 
+### JVM memory settings
+
+Open **Tools > JVM Memory Settings...** to configure the JVM used by applications
+started through Engine Hub. The policy applies on the next launch to the editor,
+launcher, embedded preview tools in those processes, and the game runtime. The Hub
+passes it through both cache-first and Gradle fallback paths; Windows uses its Gradle
+launch path.
+
+Available controls have direct JVM effects:
+
+- **Initial heap** emits `-Xms<n>m`. Leave it automatic unless pre-reserving the heap
+  is useful for a known workload.
+- **Maximum heap** emits `-Xmx<n>m` and is the precise Java heap ceiling. It does not
+  include JavaFX native textures, thread stacks, code cache, or other process memory.
+- **Garbage collector** selects the JDK default, G1, ZGC, or Serial collector. G1 is a
+  balanced explicit choice, ZGC prioritizes short pauses, and Serial minimizes GC
+  overhead for small heaps.
+- **Heap dump on OutOfMemoryError** emits the standard heap-dump flags and stores HPROF
+  files under `~/.jvn/heap-dumps`.
+- **Exit after OutOfMemoryError** emits `-XX:+ExitOnOutOfMemoryError`, avoiding a process
+  continuing after memory exhaustion has left it unusable.
+- **String deduplication** emits `-XX:+UseStringDeduplication` and requires G1 or ZGC.
+- **Extra JVM arguments** accepts advanced options with quote-aware tokenization.
+  Options managed by the dedicated controls are rejected here so conflicting heap or
+  GC flags cannot silently override the visible values.
+
+Settings are persisted in `~/.jvn/jvm-launch.properties`; the resolved, one-option-per-line
+launch file is `~/.jvn/jvm-launch.args`. The latter format preserves argument values that
+contain spaces. **Reset to JDK Defaults** removes explicit heap and collector choices.
+The older Developer Mode editor-only maximum-heap setting remains compatible, but an
+Engine Hub `-Xmx` value takes precedence when both are present.
+
 Use **DevTools > Auto-write Editor Diagnostics** when diagnosing freezes or machine slowdowns. While enabled, the editor appends a heartbeat line every few seconds under the current project or workspace `.jvn/logs` folder, in a file named like `editor-heartbeat-20260713-184500.log`. Each line records uptime, active file, dirty-tab count, CPU text, heap/non-heap/JVM memory, FPS, thread counts, and GC deltas. Because the file is appended continuously, it can still contain useful evidence after a forced restart.
 
 ## Install Desktop Shortcuts

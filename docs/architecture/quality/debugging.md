@@ -228,6 +228,21 @@ A manual GC that briefly lowers the heap is evidence of allocation churn, not a 
 collector. A heap that remains high can also be normal until the JVM needs space; the
 failure signal is retained usage that continues increasing with each identical loop.
 
+For a controlled reproduction, set the next application launch under **Engine Hub >
+Tools > JVM Memory Settings...**. A smaller explicit maximum heap can make a retention
+regression fail sooner; enable an OOM heap dump to capture the retained-object graph.
+Do not treat a larger maximum heap as the fix for unbounded growth—the preview caches
+must remain bounded independently of `-Xmx`.
+
+The editor also classifies memory pressure before an `OutOfMemoryError` occurs. It warns
+once when the launched maximum heap is below 768 MiB, after heap use stays at or above
+84% for 15 seconds, after it stays at or above 94% for 3 seconds, or when a 10-second
+window contains at least four collections and two seconds of GC time while at least 78%
+of the heap remains occupied. Alerts are cooldown-limited so a pressured process does
+not create a dialog loop. From the alert, **Release Preview Caches** drops reloadable
+preview rasters without closing the project, **Save Diagnostics...** captures evidence,
+and **Open JVM Settings** opens the Engine Hub policy for the next launch.
+
 ### Build Performance
 
 ```bash

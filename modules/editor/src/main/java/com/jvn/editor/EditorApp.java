@@ -47,6 +47,7 @@ import com.jvn.editor.ui.AssetBrowserView;
 import com.jvn.editor.ui.CssIcon;
 import com.jvn.editor.ui.CompositionGuideOverlay;
 import com.jvn.editor.ui.DeveloperLogPanel;
+import com.jvn.editor.ui.DeveloperDiagnosticsExporter;
 import com.jvn.editor.ui.DeveloperToolsMenu;
 import com.jvn.editor.ui.DslPropertyDiagnostics;
 import com.jvn.editor.ui.EditorDialogs;
@@ -264,6 +265,8 @@ public class EditorApp extends Application {
   private double smoothedFps = Double.NaN;
   private long lastGcCollectionCount = -1L;
   private long lastGcCollectionTimeMs = -1L;
+  private final EditorMemoryPressureMonitor memoryPressureMonitor = new EditorMemoryPressureMonitor();
+  private boolean memoryPressureDialogShowing;
   private File perfEnvironmentProjectRoot;
   private PerfEnvironment perfEnvironment;
   private static final long PERF_UPDATE_INTERVAL_NS = 300_000_000L;
@@ -3056,6 +3059,12 @@ public class EditorApp extends Application {
     long gcTimeDelta = (lastGcCollectionTimeMs >= 0L) ? Math.max(0L, gcTimeMs - lastGcCollectionTimeMs) : 0L;
     lastGcCollectionCount = gcCount;
     lastGcCollectionTimeMs = gcTimeMs;
+    memoryPressureMonitor.sample(
+        nowNs,
+        heap == null ? 0L : heap.getUsed(),
+        heapMaxBytes,
+        gcCountDelta,
+        gcTimeDelta).ifPresent(this::showMemoryPressureAlert);
     String gcText = gcCountDelta > 0
         ? String.format(Locale.ROOT, "GC +%d/%dms", gcCountDelta, gcTimeDelta)
         : "GC idle";
@@ -3137,6 +3146,128 @@ public class EditorApp extends Application {
         gcTimeDelta,
         cpuTextValue,
         fpsTextValue);
+  }
+
+  private void showMemoryPressureAlert(EditorMemoryPressureMonitor.Snapshot snapshot) {
+    if (snapshot == null || memoryPressureDialogShowing || shutdownInProgress) return;
+    memoryPressureDialogShowing = true;
+    try {
+      long usedMiB = Math.max(0L, snapshot.heapUsedBytes() / EditorMemoryPressureMonitor.MIB);
+      long maxMiB = Math.max(1L, snapshot.heapMaxBytes() / EditorMemoryPressureMonitor.MIB);
+      String percent = String.format(Locale.ROOT, "%.0f%%", snapshot.heapRatio() * 100.0);
+      String title;
+      String message;
+      String explanation;
+      switch (snapshot.event()) {
+        case LOW_MAX_HEAP -> {
+          title = "Editor Heap Is Configured Too Low";
+          message = "This editor process has a maximum Java heap of " + maxMiB + " MiB.";
+          explanation = "Large projects and animated previews are more reliable with at least 768 MiB. "
+              + "This is a launch setting, so changing it takes effect after restarting the editor.";
+        }
+        case SUSTAINED_HIGH_HEAP -> {
+          title = "Sustained Editor Memory Pressure";
+          message = "Java heap use has remained high: " + usedMiB + " / " + maxMiB + " MiB (" + percent + ").";
+          explanation = "This was sustained rather than a short allocation spike. Release reloadable preview caches, "
+              + "close unused tabs, or save diagnostics if the value continues rising.";
+        }
+        case CRITICAL_HEAP -> {
+          title = "Editor Memory Is Nearly Exhausted";
+          message = "Java heap use is critical: " + usedMiB + " / " + maxMiB + " MiB (" + percent + ").";
+          explanation = "Save important work now. Releasing preview caches can recover space; a diagnostics bundle "
+              + "and OOM heap dump are the most useful evidence if pressure returns.";
+        }
+        case GC_THRASHING -> {
+          title = "Garbage Collection Cannot Recover Enough Memory";
+          message = "The JVM spent " + snapshot.windowGcTimeMs() + " ms in "
+              + snapshot.windowGcCount() + " collections while heap use stayed at " + percent + ".";
+          explanation = "The collector is running, but live objects still occupy most of the heap. This usually means "
+              + "retained caches/data or a heap ceiling that is too low—not a broken garbage collector.";
+        }
+        default -> throw new IllegalStateException("Unexpected memory event: " + snapshot.event());
+      }
+
+      Label details = new Label(explanation + "\n\nCurrent heap: " + usedMiB + " MiB used / "
+          + maxMiB + " MiB maximum\nAlert policy: sustained and cooldown-limited");
+      details.setWrapText(true);
+      details.getStyleClass().add("editor-dialog-message");
+      details.setMaxWidth(520);
+
+      List<EditorDialogs.ActionSpec> actions = new ArrayList<>();
+      if (snapshot.event() != EditorMemoryPressureMonitor.Event.LOW_MAX_HEAP) {
+        actions.add(EditorDialogs.ActionSpec.accent(
+            "release", "Release Preview Caches", this::releasePreviewMemoryCaches));
+        actions.add(EditorDialogs.ActionSpec.neutral(
+            "diagnostics", "Save Diagnostics...", () -> Platform.runLater(() ->
+                DeveloperDiagnosticsExporter.chooseAndExport(
+                    dialogOwner(), "JVN Editor", this::developerLogRoots))));
+      }
+      actions.add(EditorDialogs.ActionSpec.neutral(
+          "settings", "Open JVM Settings", () -> Platform.runLater(this::openHubJvmMemorySettings)));
+      actions.add(EditorDialogs.ActionSpec.neutral("dismiss", "Dismiss", null));
+      EditorDialogs.show(
+          dialogOwner(),
+          title,
+          message,
+          details,
+          actions.toArray(EditorDialogs.ActionSpec[]::new));
+    } finally {
+      memoryPressureDialogShowing = false;
+    }
+  }
+
+  private void releasePreviewMemoryCaches() {
+    int trimmed = 0;
+    if (filesTabs != null) {
+      for (Tab tab : filesTabs.getTabs()) {
+        if (tab.getContent() instanceof FileEditorTab fileEditorTab) {
+          fileEditorTab.trimPreviewMemoryCaches();
+          trimmed++;
+        }
+      }
+    }
+    ManagementFactory.getMemoryMXBean().gc();
+    if (status != null) {
+      status.setText("Released reloadable preview caches in " + trimmed + " editor tab"
+          + (trimmed == 1 ? "" : "s") + "; requested GC");
+    }
+  }
+
+  private void openHubJvmMemorySettings() {
+    File workspace = resolveWorkspaceRoot();
+    if (workspace == null || !workspace.isDirectory()) {
+      EditorDialogs.warning(
+          dialogOwner(),
+          "JVM Memory Settings",
+          "Open Engine Hub, then choose Tools > JVM Memory Settings. Restart the editor after applying changes.");
+      return;
+    }
+    try {
+      List<String> command = new ArrayList<>();
+      String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
+      if (os.contains("win")) {
+        command.add(new File(workspace, "gradlew.bat").getAbsolutePath());
+        command.add("--console=plain");
+        command.add(":hub:run");
+        command.add("--args=--jvm-memory-settings");
+      } else {
+        command.add(new File(workspace, "scripts/launch-hub.sh").getAbsolutePath());
+        command.add("--jvm-memory-settings");
+      }
+      new ProcessBuilder(command)
+          .directory(workspace)
+          .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+          .redirectError(ProcessBuilder.Redirect.DISCARD)
+          .start();
+      if (status != null) status.setText("Opening Engine Hub JVM Memory Settings");
+    } catch (Exception error) {
+      EditorDialogs.error(
+          dialogOwner(),
+          "JVM Memory Settings",
+          "Could not open Engine Hub JVM Memory Settings.",
+          error,
+          "Open Engine Hub manually, then choose Tools > JVM Memory Settings.");
+    }
   }
 
   private void autoWriteDeveloperDiagnostics(
