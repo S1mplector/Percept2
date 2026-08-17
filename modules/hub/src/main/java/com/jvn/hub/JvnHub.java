@@ -107,6 +107,7 @@ import javax.swing.plaf.basic.BasicCheckBoxUI;
 import javax.swing.plaf.basic.BasicComboBoxUI;
 import javax.swing.plaf.basic.BasicScrollBarUI;
 import javax.swing.plaf.basic.BasicComboPopup;
+import javax.swing.plaf.basic.BasicSpinnerUI;
 
 /**
  * Standalone engine hub. a tiny Swing app that lets the user launch the editor,
@@ -1701,31 +1702,16 @@ public final class JvnHub {
 
   private JComboBox<String> projectIconCombo(List<String> values) {
     JComboBox<String> combo = new JComboBox<>(values.toArray(String[]::new));
-    combo.setRenderer(new HubComboBoxRenderer());
-    combo.setUI(new HubComboBoxUI());
-    combo.setOpaque(true);
-    combo.setBackground(BG);
-    combo.setForeground(TEXT_PRIMARY);
-    combo.setBorder(BorderFactory.createLineBorder(BORDER_NEUTRAL));
-    combo.setFont(combo.getFont().deriveFont(Font.PLAIN, uiFont(12f)));
+    styleHubComboBox(combo, uiDimension(420, 34));
     combo.setMaximumSize(new Dimension(Integer.MAX_VALUE, ui(34)));
-    combo.setPreferredSize(uiDimension(420, 34));
     combo.setAlignmentX(Component.LEFT_ALIGNMENT);
     return combo;
   }
 
   private void styleProjectIconSpinner(JSpinner spinner) {
-    spinner.setBackground(BG);
-    spinner.setForeground(TEXT_PRIMARY);
+    styleHubSpinner(spinner, uiDimension(420, 34));
     spinner.setMaximumSize(new Dimension(Integer.MAX_VALUE, ui(34)));
-    spinner.setPreferredSize(uiDimension(420, 34));
     spinner.setAlignmentX(Component.LEFT_ALIGNMENT);
-    JComponent editor = spinner.getEditor();
-    if (editor instanceof JSpinner.DefaultEditor defaultEditor) {
-      defaultEditor.getTextField().setBackground(BG);
-      defaultEditor.getTextField().setForeground(TEXT_PRIMARY);
-      defaultEditor.getTextField().setCaretColor(TEXT_PRIMARY);
-    }
   }
 
   private JPanel projectIconField(String labelText, String helpText, JComponent control) {
@@ -3665,6 +3651,7 @@ public final class JvnHub {
         JvmLaunchSettings.MIN_HEAP_MB,
         JvmLaunchSettings.MAX_HEAP_MB,
         128));
+    styleHubSpinner(initialHeap, uiDimension(110, 32));
     initialHeap.setEnabled(customInitial.isSelected());
     customInitial.addActionListener(event -> initialHeap.setEnabled(customInitial.isSelected()));
 
@@ -3677,11 +3664,13 @@ public final class JvnHub {
         JvmLaunchSettings.MIN_HEAP_MB,
         JvmLaunchSettings.MAX_HEAP_MB,
         128));
+    styleHubSpinner(maximumHeap, uiDimension(110, 32));
     maximumHeap.setEnabled(customMaximum.isSelected());
     customMaximum.addActionListener(event -> maximumHeap.setEnabled(customMaximum.isSelected()));
 
     JComboBox<JvmLaunchSettings.Collector> collector =
         new JComboBox<>(JvmLaunchSettings.Collector.values());
+    styleHubComboBox(collector, uiDimension(230, 34));
     collector.setSelectedItem(jvmLaunchSettings.collector());
     collector.setToolTipText("G1 is balanced, ZGC favors low pauses, and Serial minimizes collector overhead for small heaps.");
 
@@ -3807,7 +3796,6 @@ public final class JvnHub {
     row.add(checkBox, BorderLayout.CENTER);
     JPanel value = new JPanel(new FlowLayout(FlowLayout.RIGHT, ui(6), 0));
     value.setOpaque(false);
-    spinner.setPreferredSize(uiDimension(110, 30));
     JLabel unit = new JLabel("MiB");
     unit.setForeground(TEXT_MUTED);
     value.add(spinner);
@@ -3822,9 +3810,44 @@ public final class JvnHub {
     JLabel text = new JLabel(label);
     text.setForeground(TEXT_SOFT);
     row.add(text, BorderLayout.CENTER);
-    control.setPreferredSize(uiDimension(230, 30));
     row.add(control, BorderLayout.EAST);
     return row;
+  }
+
+  static <T> void styleHubComboBox(JComboBox<T> combo, Dimension preferredSize) {
+    combo.setRenderer(new HubComboBoxRenderer());
+    combo.setUI(new HubComboBoxUI());
+    combo.setOpaque(true);
+    combo.setBackground(BG);
+    combo.setForeground(TEXT_PRIMARY);
+    combo.setBorder(BorderFactory.createLineBorder(BORDER_NEUTRAL));
+    combo.setFont(combo.getFont().deriveFont(Font.PLAIN, uiFont(12f)));
+    combo.setPreferredSize(preferredSize);
+  }
+
+  static void styleHubSpinner(JSpinner spinner, Dimension preferredSize) {
+    spinner.setUI(new HubSpinnerUI());
+    spinner.setOpaque(true);
+    spinner.setBackground(BG);
+    spinner.setForeground(TEXT_PRIMARY);
+    spinner.setBorder(BorderFactory.createLineBorder(BORDER_NEUTRAL));
+    spinner.setPreferredSize(preferredSize);
+    if (spinner.getEditor() instanceof JSpinner.DefaultEditor defaultEditor) {
+      JTextField field = defaultEditor.getTextField();
+      defaultEditor.setOpaque(true);
+      defaultEditor.setBackground(BG);
+      defaultEditor.setBorder(null);
+      field.setOpaque(true);
+      field.setBackground(BG);
+      field.setForeground(TEXT_PRIMARY);
+      field.setCaretColor(TEXT_PRIMARY);
+      field.setSelectionColor(HOVER_BG);
+      field.setSelectedTextColor(TEXT_PRIMARY);
+      field.setDisabledTextColor(TEXT_MUTED);
+      field.setHorizontalAlignment(SwingConstants.RIGHT);
+      field.setBorder(uiPadding(0, 8, 0, 8));
+      field.setFont(field.getFont().deriveFont(Font.PLAIN, uiFont(12f)));
+    }
   }
 
   private boolean writeJvmLaunchArguments(JvmLaunchSettings settings, boolean persistSettings) {
@@ -8928,6 +8951,12 @@ public final class JvnHub {
       result.getList().setSelectionForeground(TEXT_PRIMARY);
       return result;
     }
+
+    @Override
+    public void paintCurrentValueBackground(Graphics graphics, Rectangle bounds, boolean focused) {
+      graphics.setColor(comboBox.isEnabled() ? BG : PANEL_BG);
+      graphics.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
+    }
   }
 
   private static final class HubComboBoxRenderer extends DefaultListCellRenderer {
@@ -8977,6 +9006,71 @@ public final class JvnHub {
       arrow.moveTo(centerX - halfWidth, centerY - halfHeight);
       arrow.lineTo(centerX + halfWidth, centerY - halfHeight);
       arrow.lineTo(centerX, centerY + halfHeight);
+      arrow.closePath();
+      g2.setColor(isEnabled() ? TEXT_SOFT : TEXT_MUTED.darker());
+      g2.fill(arrow);
+      g2.dispose();
+    }
+  }
+
+  /** Plain graphite spinner delegate with host-independent arrow controls. */
+  private static final class HubSpinnerUI extends BasicSpinnerUI {
+    @Override
+    protected Component createNextButton() {
+      JButton button = new HubSpinnerArrowButton(true);
+      installNextButtonListeners(button);
+      return button;
+    }
+
+    @Override
+    protected Component createPreviousButton() {
+      JButton button = new HubSpinnerArrowButton(false);
+      installPreviousButtonListeners(button);
+      return button;
+    }
+  }
+
+  private static final class HubSpinnerArrowButton extends JButton {
+    private final boolean pointsUp;
+
+    HubSpinnerArrowButton(boolean pointsUp) {
+      this.pointsUp = pointsUp;
+      setName(pointsUp ? "Spinner.nextButton" : "Spinner.previousButton");
+      setFocusable(false);
+      setBorderPainted(false);
+      setContentAreaFilled(false);
+      setRolloverEnabled(true);
+      setPreferredSize(uiDimension(24, 16));
+      setMinimumSize(uiDimension(20, 12));
+    }
+
+    @Override
+    protected void paintComponent(Graphics graphics) {
+      Graphics2D g2 = (Graphics2D) graphics.create();
+      g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+      ButtonModel model = getModel();
+      Color fill = model.isPressed() ? PRESSED_BG : model.isRollover() ? HOVER_BG : PANEL_BG;
+      if (!isEnabled()) fill = BG;
+      g2.setColor(fill);
+      g2.fillRect(0, 0, getWidth(), getHeight());
+      g2.setColor(BORDER_NEUTRAL);
+      g2.drawLine(0, 0, 0, getHeight());
+      if (pointsUp) g2.drawLine(0, getHeight() - 1, getWidth(), getHeight() - 1);
+
+      int centerX = getWidth() / 2;
+      int centerY = getHeight() / 2;
+      int halfWidth = ui(4);
+      int halfHeight = ui(2);
+      Path2D arrow = new Path2D.Double();
+      if (pointsUp) {
+        arrow.moveTo(centerX, centerY - halfHeight);
+        arrow.lineTo(centerX + halfWidth, centerY + halfHeight);
+        arrow.lineTo(centerX - halfWidth, centerY + halfHeight);
+      } else {
+        arrow.moveTo(centerX - halfWidth, centerY - halfHeight);
+        arrow.lineTo(centerX + halfWidth, centerY - halfHeight);
+        arrow.lineTo(centerX, centerY + halfHeight);
+      }
       arrow.closePath();
       g2.setColor(isEnabled() ? TEXT_SOFT : TEXT_MUTED.darker());
       g2.fill(arrow);
