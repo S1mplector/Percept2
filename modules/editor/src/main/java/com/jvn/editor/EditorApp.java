@@ -2874,6 +2874,16 @@ public class EditorApp extends Application {
     File f = ft.getFile();
     if (f == null) { doSaveAs(stage); return; }
     ft.saveTo(f);
+    notifyVersionControlOfFileChange();
+  }
+
+  /**
+   * Nudges the Version Control panel to refresh after a file save so the changed-files list
+   * reflects the edit immediately instead of waiting for its periodic auto-refresh. No-op if the
+   * panel has not been opened yet.
+   */
+  private void notifyVersionControlOfFileChange() {
+    if (versionControlView != null) versionControlView.refreshStatus();
   }
 
   private void saveAllOpenTabs() {
@@ -2902,6 +2912,7 @@ public class EditorApp extends Application {
 
     refreshTabDirtyIndicators();
     refreshMainCommandUi.run();
+    if (savedFileTabs > 0) notifyVersionControlOfFileChange();
 
     if (status != null) {
       if (savedFileTabs == 0 && failedFileTabs == 0 && studiosSaved) {
@@ -2926,6 +2937,7 @@ public class EditorApp extends Application {
       File f = fc.showSaveDialog(stage);
       if (f == null) return;
       ft.saveTo(f);
+      notifyVersionControlOfFileChange();
       openFile(f);
       if (currentTab != null && filesTabs != null) closeAndDisposeTab(currentTab);
     } catch (Exception ex) {

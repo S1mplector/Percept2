@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -337,7 +338,11 @@ public class VersionControlView extends BorderPane {
         selected = cbBranch.getEditor().getText();
       }
       if (selected == null || selected.isBlank() || selected.equals(currentBranch)) return;
-      if (selected != null && !selected.isBlank()) runSwitchBranch(selected);
+      if (cbBranch.getItems().contains(selected)) {
+        runSwitchBranch(selected);
+      } else {
+        appendLog("'" + selected + "' is not an existing branch. Click New Branch to create it.");
+      }
     });
 
     // Sync toolbar: refresh, fetch, pull, push
@@ -885,9 +890,13 @@ result of your most recent actions."""));
   }
 
   private void updateBranchChoices(List<String> branches, String selectedBranch) {
+    boolean editingBranchField = cbBranch.getEditor() != null && cbBranch.getEditor().isFocused();
     updatingBranchSelection = true;
     try {
       cbBranch.setItems(FXCollections.observableArrayList(branches == null ? List.of() : branches));
+      if (editingBranchField) {
+        return;
+      }
       cbBranch.setValue(selectedBranch == null || selectedBranch.isBlank() ? null : selectedBranch);
       if (cbBranch.getEditor() != null) {
         cbBranch.getEditor().setText(selectedBranch == null ? "" : selectedBranch);
@@ -1161,6 +1170,8 @@ result of your most recent actions."""));
     });
   }
 
+  private static final int DIVERGED_WARNING_THRESHOLD = 15;
+
   private void runFetch() {
     runAsync("Fetch", () -> {
       if (projectRoot == null) {
@@ -1171,6 +1182,16 @@ result of your most recent actions."""));
         appendCommandResult(vcs.fetch(projectRoot));
         lastRemoteCheckMs = System.currentTimeMillis();
         lastRemoteCheckDisplay = "Online check: " + LocalTime.now().format(CHECK_TIME_FORMAT);
+        GitVcsService.RepositoryStatus status = vcs.getRepositoryStatus(projectRoot);
+        if (status.behind() >= DIVERGED_WARNING_THRESHOLD) {
+          appendLog("Warning: this branch is " + status.behind()
+              + " snapshots behind the remote. Consider getting updates before making further changes"
+              + " to reduce the chance of a difficult rebase.");
+        }
+        if (status.ahead() >= DIVERGED_WARNING_THRESHOLD) {
+          appendLog("Warning: this branch is " + status.ahead()
+              + " snapshots ahead of the remote and not yet sent online. Consider sending online soon.");
+        }
       } catch (Exception ex) {
         lastRemoteCheckMs = System.currentTimeMillis();
         lastRemoteCheckDisplay = "Online check failed: " + safeMessage(ex);
@@ -1288,6 +1309,10 @@ result of your most recent actions."""));
         appendLog("Select a project before pulling.");
         return;
       }
+      if (hasUncommittedChanges() && !confirmAutostashPull()) {
+        appendLog("Pull cancelled.");
+        return;
+      }
       try {
         appendCommandResult(vcs.pullRebase(projectRoot));
       } catch (Exception ex) {
@@ -1297,6 +1322,36 @@ result of your most recent actions."""));
     });
   }
 
+  /** Must be called from the background worker thread. */
+  private boolean hasUncommittedChanges() {
+    CompletableFuture<Boolean> result = new CompletableFuture<>();
+    Platform.runLater(() -> result.complete(!listChanges.getItems().isEmpty()));
+    return result.join();
+  }
+
+  /**
+   * Called from the background worker before a pull that will temporarily shelve uncommitted
+   * changes. Must be called from the background worker thread.
+   */
+  private boolean confirmAutostashPull() {
+    CompletableFuture<Boolean> decision = new CompletableFuture<>();
+    Platform.runLater(() -> {
+      boolean confirmed = EditorDialogs.confirm(
+          getScene() == null ? null : getScene().getWindow(),
+          "Pull With Local Changes",
+          "You have uncommitted local changes. Getting updates will temporarily shelve them, "
+              + "rebase your branch onto the incoming changes, then restore them. "
+              + "If the rebase touches the same lines, restoring may fail and leave your changes "
+              + "in the stash list instead of your working files.\n\nContinue?",
+          "Get Updates",
+          false);
+      decision.complete(confirmed);
+    });
+    return decision.join();
+  }
+
+  private static final Set<String> PROTECTED_BRANCH_NAMES = Set.of("main", "master", "stable");
+
   private void runPush() {
     runAsync("Push", () -> {
       if (projectRoot == null) {
@@ -1304,6 +1359,10 @@ result of your most recent actions."""));
         return;
       }
       if (!confirmPreflight("Send Online")) return;
+      if (PROTECTED_BRANCH_NAMES.contains(currentBranch) && !confirmProtectedBranchPush(currentBranch)) {
+        appendLog("Push cancelled.");
+        return;
+      }
       try {
         appendCommandResult(vcs.pushSafe(projectRoot));
       } catch (Exception ex) {
@@ -1315,6 +1374,26 @@ result of your most recent actions."""));
       }
       loadStatus(true);
     });
+  }
+
+  /**
+   * Called from the background worker before pushing directly to a protected branch
+   * (main/master/stable). Must be called from the background worker thread.
+   */
+  private boolean confirmProtectedBranchPush(String branch) {
+    CompletableFuture<Boolean> decision = new CompletableFuture<>();
+    Platform.runLater(() -> {
+      boolean confirmed = EditorDialogs.confirm(
+          getScene() == null ? null : getScene().getWindow(),
+          "Push to Protected Branch",
+          "You're about to push directly to '" + branch + "'. This branch is typically shared "
+              + "and often protected — consider using a feature branch and a pull request instead.\n\n"
+              + "Push anyway?",
+          "Push Anyway",
+          true);
+      decision.complete(confirmed);
+    });
+    return decision.join();
   }
 
   private void runStash() {
@@ -1432,11 +1511,46 @@ result of your most recent actions."""));
     runAsync("Switch branch", () -> {
       try {
         appendCommandResult(vcs.switchBranch(projectRoot, branchName));
+      } catch (GitVcsService.GitVcsException ex) {
+        if (ex.hasLocalChangesConflict()) {
+          handleSwitchBranchConflict(branchName);
+        } else {
+          appendLog("Branch switch failed: " + ex.getMessage());
+        }
       } catch (Exception ex) {
         appendLog("Branch switch failed: " + ex.getMessage());
       }
       loadStatus(false);
     });
+  }
+
+  /**
+   * Called from the background worker after a switch fails because local changes would be
+   * overwritten. Offers to stash them first, GitHub-Desktop style, then retries the switch.
+   */
+  private void handleSwitchBranchConflict(String branchName) {
+    CompletableFuture<String> decision = new CompletableFuture<>();
+    Platform.runLater(() -> {
+      Optional<String> choice = EditorDialogs.show(
+          getScene() == null ? null : getScene().getWindow(),
+          "Local Changes Would Be Overwritten",
+          "Switching to '" + branchName + "' would overwrite uncommitted local changes.\n\n"
+              + "You can stash your changes first and switch, or cancel and handle them manually.",
+          null,
+          EditorDialogs.ActionSpec.neutral("cancel", "Cancel", null).defaultFocus(true),
+          EditorDialogs.ActionSpec.accent("stash", "Stash Changes and Switch", null));
+      decision.complete(choice.orElse(null));
+    });
+    if (!"stash".equals(decision.join())) {
+      appendLog("Branch switch cancelled.");
+      return;
+    }
+    try {
+      appendCommandResult(vcs.stash(projectRoot, "Auto-stash before switching to " + branchName));
+      appendCommandResult(vcs.switchBranch(projectRoot, branchName));
+    } catch (Exception ex) {
+      appendLog("Branch switch failed: " + ex.getMessage());
+    }
   }
 
   private void runCreateBranch() {
@@ -1446,11 +1560,11 @@ result of your most recent actions."""));
       appendLog("Enter a branch name in the branch selector to create a new branch.");
       return;
     }
-    if (name.equals(currentBranch)) {
-      appendLog("You are already on branch: " + name);
+    String branchToCreate = name.trim();
+    if (branchToCreate.equals(currentBranch)) {
+      appendLog("Enter a new branch name in the branch selector to create a new branch (it currently shows your current branch: " + currentBranch + ").");
       return;
     }
-    String branchToCreate = name.trim();
     runAsync("Create branch", () -> {
       try {
         appendCommandResult(vcs.createBranch(projectRoot, branchToCreate));

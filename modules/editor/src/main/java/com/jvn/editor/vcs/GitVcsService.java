@@ -244,6 +244,7 @@ public class GitVcsService {
       if (dirty) {
         stashed = git.stashCreate().call();
       }
+      String stashRestoreWarning = null;
       try {
         PullResult result = git.pull()
             .setRebase(true)
@@ -253,17 +254,26 @@ public class GitVcsService {
           throw new GitVcsException("Pull with rebase did not complete successfully.",
               new CommandResult(commandLine("pull", "--rebase"), 1, String.valueOf(result)));
         }
-        return new CommandResult(commandLine("pull", "--rebase"), 0, "Pull with rebase completed.");
       } finally {
         if (stashed != null) {
           try {
             git.stashApply().call();
             git.stashDrop().call();
           } catch (GitAPIException ex) {
+            stashRestoreWarning = "Your stashed local changes could not be reapplied automatically "
+                + "(" + describeFailure(ex) + "). They are still saved in the stash list "
+                + "(Restore Shelf) — resolve manually before continuing.";
             log.warning("Autostash restore failed; stash left in place: " + ex.getMessage());
           }
         }
       }
+      String message = "Pull with rebase completed."
+          + (dirty ? " Local changes were temporarily shelved and restored." : "");
+      if (stashRestoreWarning != null) {
+        throw new GitVcsException(stashRestoreWarning,
+            new CommandResult(commandLine("pull", "--rebase"), 0, message));
+      }
+      return new CommandResult(commandLine("pull", "--rebase"), 0, message);
     } catch (GitAPIException ex) {
       throw new GitVcsException("Failed to pull with rebase.", failureResult("pull --rebase", ex));
     }
@@ -536,11 +546,11 @@ public class GitVcsService {
     if (branchName == null || branchName.isBlank()) throw new GitVcsException("Branch name cannot be empty.");
     String trimmed = branchName.trim();
     try (Git git = open(root)) {
-      git.checkout().setName(trimmed).call();
+      git.checkout().setName(resolveLocalBranchRef(git, trimmed)).call();
       return new CommandResult(commandLine("switch", trimmed), 0, "Switched to branch '" + trimmed + "'.");
     } catch (CheckoutConflictException ex) {
       throw new GitVcsException("Failed to switch to branch '" + branchName + "': local changes would be overwritten.",
-          failureResult("switch " + trimmed, ex));
+          failureResult("switch " + trimmed, ex), true);
     } catch (GitAPIException ex) {
       throw new GitVcsException("Failed to switch to branch '" + branchName + "'.", failureResult("switch " + trimmed, ex));
     }
@@ -557,6 +567,21 @@ public class GitVcsService {
       return new CommandResult(commandLine("switch", "-c", trimmed), 0, "Created and switched to branch '" + trimmed + "'.");
     } catch (GitAPIException ex) {
       throw new GitVcsException("Failed to create branch '" + branchName + "'.", failureResult("switch -c " + trimmed, ex));
+    }
+  }
+
+  /**
+   * Resolves a branch name to an unambiguous ref. JGit's checkout treats a bare
+   * "remote/name"-shaped argument as remote-tracking shorthand, which fails when no such
+   * remote ref exists even though a local branch with that literal name does. Fully
+   * qualifying the name to refs/heads/... when a matching local branch exists sidesteps that.
+   */
+  private String resolveLocalBranchRef(Git git, String name) {
+    try {
+      Ref localRef = git.getRepository().exactRef("refs/heads/" + name);
+      return localRef != null ? "refs/heads/" + name : name;
+    } catch (IOException ex) {
+      return name;
     }
   }
 
@@ -903,19 +928,30 @@ public class GitVcsService {
 
   public static class GitVcsException extends Exception {
     private final CommandResult result;
+    private final boolean localChangesConflict;
 
     public GitVcsException(String message) {
       super(message);
       this.result = null;
+      this.localChangesConflict = false;
     }
 
     public GitVcsException(String message, CommandResult result) {
+      this(message, result, false);
+    }
+
+    public GitVcsException(String message, CommandResult result, boolean localChangesConflict) {
       super(formatMessage(message, result));
       this.result = result;
+      this.localChangesConflict = localChangesConflict;
     }
 
     public CommandResult getResult() {
       return result;
+    }
+
+    public boolean hasLocalChangesConflict() {
+      return localChangesConflict;
     }
 
     private static String formatMessage(String message, CommandResult result) {

@@ -145,6 +145,18 @@ using `x-access-token` as the username (per GitHub's expected credential format)
 | **Get Updates** | `vcs-icon-pull` | Download incoming snapshots safely | `git pull --rebase --autostash` |
 | **Send Online** | `vcs-icon-push` | Upload saved snapshots to the remote | `git push`, or `git push -u origin <branch>` when no upstream is set |
 
+### Warnings
+
+| Action | Warning | Trigger |
+|--------|---------|---------|
+| **Get Updates** | Confirmation dialog before pulling | Uncommitted local changes exist — explains that changes will be shelved, rebased past, then restored, and that restoring can fail if the rebase touches the same lines |
+| **Get Updates** | Log warning after pulling | Restoring shelved changes after the rebase failed — the changes remain in the stash list (**Restore Shelf**) instead of the working files |
+| **Send Online** | Confirmation dialog before pushing | Current branch is `main`, `master`, or `stable` — pushing directly to a shared/protected branch is discouraged in favor of a feature branch and pull request |
+| **Check Online** | Log warning after fetching | Branch is 15+ snapshots behind or ahead of the remote — flags a growing divergence that increases rebase/merge risk if left unaddressed |
+
+These are in addition to the existing [preflight check](#github-sign-in) run before **Save Snapshot**
+and **Send Online**, which verifies remote reachability and credentials before proceeding.
+
 ---
 
 ## Stash Toolbar
@@ -162,6 +174,36 @@ using `x-access-token` as the username (per GitHub's expected credential format)
 |---------|-------------|
 | **Branch ComboBox** | Lists local branches. Select one to switch, or type a new branch name. |
 | **New Branch** | Creates and switches to the typed branch name (`git switch -c <name>`) |
+
+The Branch ComboBox's text field is pre-filled with the current branch name (so selecting an
+existing branch from the dropdown switches to it). To create a new branch, clear the field first
+and type the new name — if the field still contains the current branch name when **New Branch**
+is clicked, the panel reports that a new name is needed instead of silently failing.
+
+While the branch field has keyboard focus (the user is actively editing it), background status
+refreshes no longer overwrite its text with the current branch name — previously an auto-refresh
+mid-typing could silently replace a partially typed new branch name.
+
+Pressing Enter in the branch field only switches branches if the typed text matches an existing
+branch. If it does not match any branch, the panel logs a hint to use **New Branch** instead of
+attempting (and failing) a switch to a nonexistent branch.
+
+### Switching with Uncommitted Changes
+
+If switching branches would overwrite uncommitted local changes, the panel shows a confirmation
+dialog offering to stash first, similar to GitHub Desktop:
+
+| Option | Result |
+|--------|--------|
+| **Stash Changes and Switch** | Runs `git stash push`, then switches to the target branch |
+| **Cancel** | Aborts the switch; changes are left as-is |
+
+### Branch Name Resolution
+
+Local branch names are resolved against `refs/heads/<name>` before falling back to JGit's default
+resolution. This avoids a JGit ambiguity where a local branch name shaped like `<remote>/<name>`
+(e.g. a branch literally named `origin/experimental`) is misread as remote-tracking shorthand and
+fails to resolve even though the local branch exists.
 
 ---
 
@@ -227,9 +269,14 @@ The log is useful for debugging failed operations.
 ## Auto-Refresh
 
 The panel uses a `Timeline`-based periodic refresh to keep the status display current:
-- Polls `git status` at regular intervals
+- Polls `git status` every 30 seconds
 - Updates branch, sync, and changed files displays
 - Pauses during active operations to avoid conflicts
+
+In addition, saving a file from the editor (**Save**, **Save As**, or **Save All Open Tabs**)
+immediately triggers a status refresh, so the Changed Files list picks up the edit right away
+instead of waiting for the next 30-second poll. This only fires if the Version Control panel has
+already been opened at least once in the session; it does not open the panel automatically.
 
 ---
 

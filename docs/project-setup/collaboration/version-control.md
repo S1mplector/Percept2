@@ -29,6 +29,25 @@ for the full panel reference, including GitHub sign-in and repository creation.
 
 Changed files are listed and can be opened directly by double-clicking an entry.
 
+### Safety Warnings
+
+The panel proactively warns before a few operations that are easy to get wrong:
+
+- **Pulling with uncommitted changes** — asks for confirmation before shelving your changes,
+  rebasing, and restoring them, since a restore can fail if the rebase touched the same lines. If
+  the restore does fail, the changes stay safe in the stash list (**Restore Shelf**) instead of
+  being lost.
+- **Pushing directly to `main`, `master`, or `stable`** — asks for confirmation, since these are
+  shared integration branches (see [Collaboration Recommendations](#collaboration-recommendations)
+  below); prefer pushing a topic branch and merging instead.
+- **Switching branches with uncommitted changes** — offers to stash them first rather than
+  blocking the switch outright.
+- **Checking online when far behind or ahead** — logs a warning once the branch diverges from the
+  remote by 15+ snapshots in either direction, as a nudge to sync before the gap grows.
+
+See [Sidebar — Version Control](../../editor/sidebars/right/sidebar-version-control.md#warnings)
+for the full list of warning conditions.
+
 ## GitHub Sign-In And Remote Creation
 
 When a project has no remote configured, the panel offers two ways to connect a GitHub repository:
