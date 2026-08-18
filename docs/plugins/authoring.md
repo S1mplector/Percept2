@@ -69,9 +69,11 @@ cp build/libs/greeter-1.0.0.jar ~/.jvn/plugins/
 For a project-local extension, copy the JAR into `<project>/plugins/`. Open the project again so the editor reloads its plugin host.
 
 The safer installation path is **Engine Hub → Engine → Plugins → Manage Plugins**. It verifies the
-manifest, Plugin API range, and entrypoint class presence without starting plugin code, then copies
-the verified JAR into the user or current-project plugin folder. The editor performs the full
-entrypoint-type and constructor preflight when it reloads the project.
+manifest, Plugin API range, and entrypoint class presence without starting plugin code, then stages
+and atomically installs the verified JAR into the user or current-project plugin folder. The manager
+also reports duplicate IDs and missing dependencies, shows a SHA-256 fingerprint, and can disable a
+bundle without deleting it. The editor performs the full entrypoint-type and constructor preflight
+when it reloads the project.
 
 ## 5. Use it
 

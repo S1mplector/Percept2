@@ -4,10 +4,12 @@
 
 The shared host checks user plugins, project plugins, explicitly configured directories, and bundled `ServiceLoader` providers. External JARs are preflighted before construction: their manifest, Plugin API range, entrypoint type, and public no-argument constructor must all be valid. JARs are processed in filename order; identity and dependencies determine activation order.
 
-Use **Engine Hub → Engine → Plugins → Manage Plugins** to scan installed bundles, see structural
-verification failures, load a verified JAR into either scope, or remove a bundle. Hub verification
-does not load, construct, or start plugin code; the editor performs the complete entrypoint preflight
-when it reloads the project.
+Use **Engine Hub → Engine → Plugins → Manage Plugins** to search and filter installed bundles,
+inspect manifests and checksums, see duplicate-ID or dependency diagnostics, install a verified JAR
+into either scope, disable a bundle, or move it to the trash. Disabled bundles use the
+`.jar.disabled` suffix and remain visible in the manager while the runtime ignores them. Hub
+verification does not load, construct, or start plugin code; the editor performs the complete
+entrypoint preflight when it reloads the project.
 
 Set `-Djvn.plugins.disabled=true` to start JVN without loading plugins during recovery or diagnosis.
 
