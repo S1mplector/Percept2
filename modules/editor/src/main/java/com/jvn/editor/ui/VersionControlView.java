@@ -1988,6 +1988,11 @@ result of your most recent actions."""));
     return message == null || message.isBlank() ? ex.getClass().getSimpleName() : message.trim();
   }
 
+  /** Hides the floating guidance popup without disposing the view, e.g. when its tab loses focus. */
+  public void hideGuidePopup() {
+    guidePopup.hide();
+  }
+
   public void dispose() {
     if (disposed) return;
     disposed = true;

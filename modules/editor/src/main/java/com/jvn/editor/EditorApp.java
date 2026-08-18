@@ -5764,6 +5764,9 @@ public class EditorApp extends Application {
         tabVersionControl = null;
         releaseSidebarPanelIfUnused(EditorSidebarPanel.VERSION_CONTROL);
       });
+      tabVersionControl.selectedProperty().addListener((obs, wasSelected, isSelected) -> {
+        if (!isSelected) vcs.hideGuidePopup();
+      });
     } else if (tabVersionControl.getContent() != vcs) {
       tabVersionControl.setContent(vcs);
     }
