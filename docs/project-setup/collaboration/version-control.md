@@ -2,8 +2,10 @@
 
 JVN includes built-in project version-control tooling for team workflows.
 
-Prerequisites:
-- `git` installed and available on `PATH`
+The editor's Version Control panel talks to Git repositories directly through
+[JGit](https://www.eclipse.org/jgit/) — no `git` executable, `gh` CLI, or other external binary is
+required on `PATH`. See [Sidebar — Version Control](../../editor/sidebars/right/sidebar-version-control.md)
+for the full panel reference, including GitHub sign-in and repository creation.
 
 ## Where It Is Integrated
 
@@ -26,6 +28,21 @@ Prerequisites:
 - `Push`: pushes current branch
 
 Changed files are listed and can be opened directly by double-clicking an entry.
+
+## GitHub Sign-In And Remote Creation
+
+When a project has no remote configured, the panel offers two ways to connect a GitHub repository:
+
+- **Create GitHub Repository** — creates a new repo on your GitHub account via the GitHub REST API,
+  sets it as `origin`, and pushes. Requires signing in first (device flow or a personal access
+  token); see [GitHub Sign-In](../../editor/sidebars/right/sidebar-version-control.md#github-sign-in).
+- **Add Remote Manually** — paste an existing repository URL (GitHub, GitLab, Bitbucket, or any Git
+  host) to use as `origin`.
+
+Signing in stores a GitHub token using the current OS's native credential store (Windows Credential
+Manager, macOS Keychain, or Linux Secret Service) when available, falling back to a locally
+encrypted file otherwise. The token is only used to authenticate Git operations and GitHub API calls
+made by the editor; it is never written into project files or committed.
 
 ## Managed Defaults
 
@@ -70,9 +87,15 @@ Additional recommendations:
 
 ## Troubleshooting
 
-- If `Init Repo` fails with tool errors, verify `git --version` in terminal.
-- If commit fails due identity, configure Git user:
+- If commit fails due to missing identity, configure Git user globally (JGit reads the same global
+  `.gitconfig` a command-line `git` would use):
   - `git config --global user.name "Your Name"`
   - `git config --global user.email "you@example.com"`
 - If push fails due missing upstream, set it once:
   - `git push -u origin <branch>`
+- If GitHub sign-in or repo creation fails, check the panel's log area for the GitHub API error
+  message. A `401`/token-rejected error usually means the stored token expired or was revoked; use
+  **Change** to sign in again.
+- If a GitHub token seems "lost" after an OS update or profile move, note that it is stored in the
+  OS-native credential store (Windows Credential Manager, macOS Keychain, or Linux Secret Service),
+  not in the project or a dotfile — it does not travel with the project directory.
