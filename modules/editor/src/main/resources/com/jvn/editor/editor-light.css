@@ -1055,6 +1055,21 @@
 
 .vcs-log {
   -fx-text-fill: #202020;
+  -fx-font-family: "Consolas", "Cascadia Mono", "JetBrains Mono", monospace;
+}
+
+.vcs-danger-zone {
+  -fx-padding: 6 8 6 8;
+  -fx-border-color: #e0a5b3;
+  -fx-border-radius: 7;
+  -fx-background-color: #fbecef;
+  -fx-background-radius: 7;
+}
+
+.vcs-danger-zone-label {
+  -fx-text-fill: #a13355;
+  -fx-font-size: 11px;
+  -fx-font-weight: bold;
 }
 
 .vcs-list .list-cell {

@@ -13,6 +13,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.logging.Logger;
 
 import org.eclipse.jgit.api.CreateBranchCommand;
@@ -27,6 +28,7 @@ import org.eclipse.jgit.diff.DiffEntry;
 import org.eclipse.jgit.lib.BranchTrackingStatus;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.PersonIdent;
+import org.eclipse.jgit.lib.ProgressMonitor;
 import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.lib.StoredConfig;
@@ -86,6 +88,42 @@ public class GitVcsService {
   private final GitHubTokenStore githubTokenStore = new GitHubTokenStore();
 
   public GitVcsService() {
+  }
+
+  private static void emit(Consumer<String> progressSink, String line) {
+    if (progressSink != null && line != null && !line.isBlank()) progressSink.accept(line);
+  }
+
+  /**
+   * Adapts JGit's {@link ProgressMonitor} callbacks into plain progress lines so long-running
+   * transport operations (fetch/pull/push) can stream status to the UI as they happen, instead
+   * of only reporting a result after the whole operation completes.
+   */
+  private static ProgressMonitor progressMonitor(Consumer<String> progressSink) {
+    if (progressSink == null) return org.eclipse.jgit.lib.NullProgressMonitor.INSTANCE;
+    return new ProgressMonitor() {
+      @Override
+      public void start(int totalTasks) {}
+
+      @Override
+      public void beginTask(String title, int totalWork) {
+        emit(progressSink, title);
+      }
+
+      @Override
+      public void update(int completed) {}
+
+      @Override
+      public void endTask() {}
+
+      @Override
+      public boolean isCancelled() {
+        return false;
+      }
+
+      @Override
+      public void showDuration(boolean enabled) {}
+    };
   }
 
   /**
@@ -236,27 +274,46 @@ public class GitVcsService {
   }
 
   public CommandResult pullRebase(File root) throws GitVcsException {
+    return pullRebase(root, null);
+  }
+
+  public CommandResult pullRebase(File root, Consumer<String> progressSink) throws GitVcsException {
     requireRepository(root);
     try (Git git = open(root)) {
       Status statusBefore = git.status().call();
       boolean dirty = statusBefore.hasUncommittedChanges();
       RevCommit stashed = null;
       if (dirty) {
+        emit(progressSink, "Shelving local changes before rebase...");
         stashed = git.stashCreate().call();
       }
       String stashRestoreWarning = null;
       try {
+        emit(progressSink, "Pulling with rebase...");
         PullResult result = git.pull()
             .setRebase(true)
             .setCredentialsProvider(credentialsProvider())
+            .setProgressMonitor(progressMonitor(progressSink))
             .call();
         if (!result.isSuccessful()) {
+          List<String> conflicts = new ArrayList<>(git.status().call().getConflicting());
+          if (!conflicts.isEmpty()) {
+            throw new GitVcsException(
+                "Pull with rebase stopped due to conflicts in " + conflicts.size()
+                    + " file" + (conflicts.size() == 1 ? "" : "s") + ":\n  "
+                    + String.join("\n  ", conflicts)
+                    + "\n\nResolve the conflicts in these files, then stage them and continue the "
+                    + "rebase, or abort the rebase to return to your previous state.",
+                new CommandResult(commandLine("pull", "--rebase"), 1, String.valueOf(result)),
+                false, conflicts);
+          }
           throw new GitVcsException("Pull with rebase did not complete successfully.",
               new CommandResult(commandLine("pull", "--rebase"), 1, String.valueOf(result)));
         }
       } finally {
         if (stashed != null) {
           try {
+            emit(progressSink, "Restoring shelved local changes...");
             git.stashApply().call();
             git.stashDrop().call();
           } catch (GitAPIException ex) {
@@ -279,17 +336,62 @@ public class GitVcsService {
     }
   }
 
-  public CommandResult push(File root) throws GitVcsException {
+  /**
+   * "Force pull": fetches the remote branch, then hard-resets the current branch to exactly match
+   * it. This discards local commits not on the remote and all uncommitted changes — it is
+   * equivalent to {@code git fetch && git reset --hard origin/<branch>}, not a real Git concept.
+   * Callers are expected to have already confirmed this destructive intent with the user.
+   */
+  public CommandResult forcePull(File root, Consumer<String> progressSink) throws GitVcsException {
     requireRepository(root);
-    return doPush(root, null);
-  }
-
-  public CommandResult fetch(File root) throws GitVcsException {
-    requireRepository(root);
+    if (!hasRemote(root)) {
+      throw new GitVcsException("No remote configured. Add a remote before pulling.");
+    }
+    String branch = getCurrentBranch(root);
+    String trackingRef = "refs/remotes/origin/" + branch;
     try (Git git = open(root)) {
+      emit(progressSink, "Fetching from remote...");
       git.fetch()
           .setRemoveDeletedRefs(true)
           .setCredentialsProvider(credentialsProvider())
+          .setProgressMonitor(progressMonitor(progressSink))
+          .call();
+      Ref remoteRef = git.getRepository().exactRef(trackingRef);
+      if (remoteRef == null) {
+        throw new GitVcsException("Could not find remote branch 'origin/" + branch
+            + "' after fetching. The branch may not exist on the remote.");
+      }
+      emit(progressSink, "Resetting local branch to match origin/" + branch + "...");
+      git.reset().setMode(org.eclipse.jgit.api.ResetCommand.ResetType.HARD).setRef(trackingRef).call();
+      return new CommandResult(commandLine("reset", "--hard", "origin/" + branch), 0,
+          "Reset '" + branch + "' to match origin/" + branch + ". Local commits and changes not on "
+              + "the remote were discarded.");
+    } catch (GitAPIException ex) {
+      throw new GitVcsException("Failed to force-pull (hard reset to remote).",
+          failureResult("reset --hard origin/" + branch, ex));
+    } catch (IOException ex) {
+      throw new GitVcsException("Failed to force-pull (hard reset to remote).",
+          failureResult("reset --hard origin/" + branch, ex));
+    }
+  }
+
+  public CommandResult push(File root) throws GitVcsException {
+    requireRepository(root);
+    return doPush(root, null, null);
+  }
+
+  public CommandResult fetch(File root) throws GitVcsException {
+    return fetch(root, null);
+  }
+
+  public CommandResult fetch(File root, Consumer<String> progressSink) throws GitVcsException {
+    requireRepository(root);
+    try (Git git = open(root)) {
+      emit(progressSink, "Fetching from remote...");
+      git.fetch()
+          .setRemoveDeletedRefs(true)
+          .setCredentialsProvider(credentialsProvider())
+          .setProgressMonitor(progressMonitor(progressSink))
           .call();
       return new CommandResult(commandLine("fetch", "--all", "--prune"), 0, "Fetched remote state.");
     } catch (GitAPIException ex) {
@@ -625,6 +727,10 @@ public class GitVcsService {
   // --- Hardened push with upstream check ---
 
   public CommandResult pushSafe(File root) throws GitVcsException {
+    return pushSafe(root, null);
+  }
+
+  public CommandResult pushSafe(File root, Consumer<String> progressSink) throws GitVcsException {
     requireRepository(root);
     if (!hasRemote(root)) {
       throw new GitVcsException("No remote configured. Add a remote before pushing.");
@@ -633,7 +739,7 @@ public class GitVcsService {
     try (Git git = open(root)) {
       BranchTrackingStatus tracking = BranchTrackingStatus.of(git.getRepository(), branch);
       if (tracking == null) {
-        CommandResult result = doPush(root, branch);
+        CommandResult result = doPush(root, branch, progressSink);
         StoredConfig config = git.getRepository().getConfig();
         config.setString("branch", branch, "remote", "origin");
         config.setString("branch", branch, "merge", "refs/heads/" + branch);
@@ -643,7 +749,50 @@ public class GitVcsService {
     } catch (IOException ex) {
       throw new GitVcsException("Failed to push (setting upstream).", failureResult("push -u origin " + branch, ex));
     }
-    return doPush(root, null);
+    return doPush(root, null, progressSink);
+  }
+
+  /**
+   * Force-pushes the current branch using force-with-lease semantics: the push is rejected if the
+   * remote branch has moved since the last time this repository fetched it (its remote-tracking
+   * ref is used as the expected value), which protects against silently clobbering commits nobody
+   * here has seen yet. This is the only supported "force push" — there is no raw unconditional
+   * {@code --force}.
+   */
+  public CommandResult forcePush(File root, Consumer<String> progressSink) throws GitVcsException {
+    requireRepository(root);
+    if (!hasRemote(root)) {
+      throw new GitVcsException("No remote configured. Add a remote before pushing.");
+    }
+    String branch = getCurrentBranch(root);
+    String refName = "refs/heads/" + branch;
+    String trackingRef = "refs/remotes/origin/" + branch;
+    try (Git git = open(root)) {
+      emit(progressSink, "Force-pushing to remote (with lease)...");
+      Iterable<PushResult> results = git.push()
+          .setCredentialsProvider(credentialsProvider())
+          .setProgressMonitor(progressMonitor(progressSink))
+          .setRefSpecs(new org.eclipse.jgit.transport.RefSpec(refName + ":" + refName))
+          .setRefLeaseSpecs(new org.eclipse.jgit.transport.RefLeaseSpec(refName, trackingRef))
+          .call();
+      List<String> rejections = new ArrayList<>();
+      for (PushResult result : results) {
+        for (RemoteRefUpdate update : result.getRemoteUpdates()) {
+          RemoteRefUpdate.Status status = update.getStatus();
+          if (status != RemoteRefUpdate.Status.OK && status != RemoteRefUpdate.Status.UP_TO_DATE) {
+            rejections.add(update.getRemoteName() + ": " + status
+                + (update.getMessage() != null ? " (" + update.getMessage() + ")" : ""));
+          }
+        }
+      }
+      if (!rejections.isEmpty()) {
+        throw new GitVcsException("Failed to force-push changes.",
+            new CommandResult(commandLine("push", "--force-with-lease"), 1, String.join("\n", rejections)));
+      }
+      return new CommandResult(commandLine("push", "--force-with-lease"), 0, "Force-pushed to origin.");
+    } catch (GitAPIException ex) {
+      throw new GitVcsException("Failed to force-push changes.", failureResult("push --force-with-lease", ex));
+    }
   }
 
   public static boolean isAuthCooldownActive(long lastFailureMs, long nowMs, long cooldownMs) {
@@ -665,9 +814,18 @@ public class GitVcsService {
         || lower.contains("credentials required");
   }
 
-  private CommandResult doPush(File root, String setUpstreamBranch) throws GitVcsException {
+  public static boolean isNonFastForwardRejection(String message) {
+    if (message == null) return false;
+    String lower = message.toLowerCase(Locale.ROOT);
+    return lower.contains("rejected_nonfastforward") || lower.contains("non-fast-forward");
+  }
+
+  private CommandResult doPush(File root, String setUpstreamBranch, Consumer<String> progressSink) throws GitVcsException {
     try (Git git = open(root)) {
-      var pushCmd = git.push().setCredentialsProvider(credentialsProvider());
+      emit(progressSink, "Pushing to remote...");
+      var pushCmd = git.push()
+          .setCredentialsProvider(credentialsProvider())
+          .setProgressMonitor(progressMonitor(progressSink));
       if (setUpstreamBranch != null) {
         pushCmd.add(setUpstreamBranch);
         pushCmd.setRemote("origin");
@@ -929,11 +1087,13 @@ public class GitVcsService {
   public static class GitVcsException extends Exception {
     private final CommandResult result;
     private final boolean localChangesConflict;
+    private final List<String> conflictedFiles;
 
     public GitVcsException(String message) {
       super(message);
       this.result = null;
       this.localChangesConflict = false;
+      this.conflictedFiles = List.of();
     }
 
     public GitVcsException(String message, CommandResult result) {
@@ -941,9 +1101,15 @@ public class GitVcsService {
     }
 
     public GitVcsException(String message, CommandResult result, boolean localChangesConflict) {
+      this(message, result, localChangesConflict, List.of());
+    }
+
+    public GitVcsException(String message, CommandResult result, boolean localChangesConflict,
+                           List<String> conflictedFiles) {
       super(formatMessage(message, result));
       this.result = result;
       this.localChangesConflict = localChangesConflict;
+      this.conflictedFiles = conflictedFiles == null ? List.of() : List.copyOf(conflictedFiles);
     }
 
     public CommandResult getResult() {
@@ -952,6 +1118,14 @@ public class GitVcsService {
 
     public boolean hasLocalChangesConflict() {
       return localChangesConflict;
+    }
+
+    public List<String> getConflictedFiles() {
+      return conflictedFiles;
+    }
+
+    public boolean hasMergeConflict() {
+      return !conflictedFiles.isEmpty();
     }
 
     private static String formatMessage(String message, CommandResult result) {

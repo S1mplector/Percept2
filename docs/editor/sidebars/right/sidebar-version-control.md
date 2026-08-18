@@ -159,6 +159,37 @@ and **Send Online**, which verifies remote reachability and credentials before p
 
 ---
 
+## Danger Zone
+
+Visually separated below the Sync Toolbar with a red-bordered box, for the two destructive sync
+operations that bypass the normal safety checks:
+
+| Button | Icon Class | Tooltip | Effect |
+|--------|-----------|---------|--------|
+| **Force Pull** | `vcs-icon-pull` | Discard local commits and changes and make this branch match the remote exactly | `git fetch && git reset --hard origin/<branch>` — **not** a real Git operation, since Git has no "force pull"; this is the closest equivalent |
+| **Force Push** | `vcs-icon-push` | Overwrite the remote branch with your local history | `git push --force-with-lease` |
+
+Both are enabled whenever a remote is configured, including while conflicts are outstanding —
+that's the situation they exist to resolve, since the panel otherwise never force-pushes or
+force-pulls (see [Conflict Guidance](#conflict-guidance)).
+
+**Force Pull** permanently discards any local commits not on the remote and any uncommitted
+changes. There is no undo.
+
+**Force Push** uses `--force-with-lease`, not a raw `--force`: the push is rejected if the remote
+branch moved since this repository's last fetch, which protects against silently clobbering
+commits from someone else's concurrent push. It does not protect commits the remote already has
+that aren't in your local history — those are still lost once the push succeeds.
+
+### Confirmation
+
+Both buttons require typing the current branch name into a confirmation dialog before the action
+button enables — a lighter Yes/No dialog was judged too easy to click through for an operation
+this hard to reverse. **Send Online** also runs the same [preflight check](#github-sign-in) as a
+normal push before **Force Push** proceeds.
+
+---
+
 ## Stash Toolbar
 
 | Button | Icon Class | Tooltip | Git Command |
@@ -257,12 +288,32 @@ The commit stages all changes (`-A`) before committing, ensuring nothing is acci
 
 ## Log Area
 
-A read-only `TextArea` at the bottom showing recent Git operation output:
+A read-only, monospace `TextArea` at the bottom showing Git operation output console-style:
 - Command executed (e.g., `> git push origin main`)
 - Git response (e.g., "Everything up-to-date")
 - Error messages if operations fail
 
+For **Check Online**, **Get Updates**, and **Send Online**, JGit's transport progress (phases such
+as "remote: Counting objects", "Receiving objects", "Writing objects") is streamed into the log
+line-by-line as it happens, prefixed with `>`, rather than only appearing as a single result line
+once the whole operation finishes. This is Java-side progress reporting from JGit's
+`ProgressMonitor`, not raw `git` CLI stdout, since these operations never shell out to a `git`
+executable.
+
 The log is useful for debugging failed operations.
+
+### Conflict Guidance
+
+Since the panel never force-pushes or force-pulls, conflicting or diverged history is surfaced
+instead of silently overridden:
+
+- **Get Updates** — if the rebase stops due to a conflict, the log lists every conflicting file by
+  path and explains the next step: resolve the conflicts in the editor, **Stage** the resolved
+  files, then **Save Snapshot** to continue (or restore the pre-pull state manually to back out).
+- **Send Online** — if the remote has commits this branch doesn't have (a non-fast-forward
+  rejection), the log explains that force-pushing isn't available and to use **Get Updates** first.
+- The status area's **Conflict** indicator also lists the specific conflicting file paths in its
+  tooltip whenever conflicts are outstanding, not just a generic "conflicts exist" message.
 
 ---
 

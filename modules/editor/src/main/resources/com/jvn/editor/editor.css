@@ -1109,6 +1109,25 @@ The editor.css file defines the visual styling for the editor module, including 
 
 .vcs-log {
   -fx-text-fill: #dcdcdc;
+  -fx-font-family: "Consolas", "Cascadia Mono", "JetBrains Mono", monospace;
+}
+
+.vcs-log .content {
+  -fx-background-color: #141414;
+}
+
+.vcs-danger-zone {
+  -fx-padding: 6 8 6 8;
+  -fx-border-color: #5c2733;
+  -fx-border-radius: 7;
+  -fx-background-color: #241417;
+  -fx-background-radius: 7;
+}
+
+.vcs-danger-zone-label {
+  -fx-text-fill: #f38ba8;
+  -fx-font-size: 11px;
+  -fx-font-weight: bold;
 }
 
 .vcs-list .list-cell {

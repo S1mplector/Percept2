@@ -49,9 +49,13 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.Scene;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
+import javafx.stage.Modality;
 import javafx.stage.Popup;
+import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 import javafx.stage.Window;
 import javafx.util.Duration;
 
@@ -144,6 +148,16 @@ public class VersionControlView extends BorderPane {
       CssIcon.arrowUp(ICON_PUSH),
       "Upload your saved snapshots to the remote repository.",
       "vcs-action-button-success");
+  private final Button btnForcePull = actionButton(
+      "Force Pull",
+      CssIcon.arrowDown(ICON_DISCARD),
+      "Discard local commits and changes and make this branch match the remote exactly.",
+      "vcs-action-button-danger");
+  private final Button btnForcePush = actionButton(
+      "Force Push",
+      CssIcon.arrowUp(ICON_DISCARD),
+      "Overwrite the remote branch with your local history (force-with-lease).",
+      "vcs-action-button-danger");
   private final Button btnCommit = actionButton(
       "Save Snapshot",
       CssIcon.save(ICON_COMMIT),
@@ -321,6 +335,8 @@ public class VersionControlView extends BorderPane {
     btnFetch.setOnAction(e -> runFetch());
     btnPull.setOnAction(e -> runPull());
     btnPush.setOnAction(e -> runPush());
+    btnForcePull.setOnAction(e -> runForcePull());
+    btnForcePush.setOnAction(e -> runForcePush());
     btnCommit.setOnAction(e -> runCommit());
     btnStash.setOnAction(e -> runStash());
     btnStashPop.setOnAction(e -> runStashPop());
@@ -349,12 +365,20 @@ public class VersionControlView extends BorderPane {
     HBox syncRow = new HBox(6, btnRefresh, btnFetch, btnPull, btnPush);
     syncRow.setAlignment(Pos.CENTER_LEFT);
 
+    // Danger zone: force pull (hard reset to remote) / force push (force-with-lease)
+    Label dangerZoneLabel = new Label("Danger Zone");
+    dangerZoneLabel.getStyleClass().add("vcs-danger-zone-label");
+    HBox dangerRow = new HBox(6, btnForcePull, btnForcePush);
+    dangerRow.setAlignment(Pos.CENTER_LEFT);
+    VBox dangerZoneBox = new VBox(4, dangerZoneLabel, dangerRow);
+    dangerZoneBox.getStyleClass().add("vcs-danger-zone");
+
     // Stash toolbar
     HBox stashRow = new HBox(6, btnStash, btnStashPop);
     stashRow.setAlignment(Pos.CENTER_LEFT);
 
     // Combined toolbar
-    VBox toolbar = new VBox(6, syncRow, stashRow);
+    VBox toolbar = new VBox(6, syncRow, dangerZoneBox, stashRow);
     toolbar.setAlignment(Pos.CENTER_LEFT);
     toolbar.setPadding(new Insets(4, 0, 4, 0));
 
@@ -688,9 +712,10 @@ result of your most recent actions."""));
       String remoteUrl = hasRemote ? vcs.getRemoteUrl(projectRoot) : null;
       List<String> branches = vcs.listBranches(projectRoot);
       List<GitVcsService.ChangeGraphEntry> graphEntries = vcs.changeGraphEntries(projectRoot, 80);
-      boolean hasConflicts = hasConflicts(status);
+      List<String> conflictedPaths = conflictedPaths(status);
+      boolean hasConflicts = !conflictedPaths.isEmpty();
       String finalRemoteCheckText = remoteCheckText;
-      Platform.runLater(() -> applyRepositoryStatus(status, hasRemote, remoteUrl, branches, graphEntries, hasConflicts, finalRemoteCheckText));
+      Platform.runLater(() -> applyRepositoryStatus(status, hasRemote, remoteUrl, branches, graphEntries, hasConflicts, conflictedPaths, finalRemoteCheckText));
     } catch (Exception ex) {
       appendLog(safeMessage(ex));
       Platform.runLater(() -> {
@@ -785,6 +810,7 @@ result of your most recent actions."""));
                                      List<String> branches,
                                      List<GitVcsService.ChangeGraphEntry> graphEntries,
                                      boolean hasConflicts,
+                                     List<String> conflictedPaths,
                                      String remoteCheckText) {
     markStatusLoaded();
     repositoryInitialized = true;
@@ -812,7 +838,16 @@ result of your most recent actions."""));
     incomingLabel.setTooltip(new Tooltip(buildIncomingText(hasRemote, currentBehind)));
     String checkText = remoteCheckText == null || remoteCheckText.isBlank() ? lastRemoteCheckText() : remoteCheckText;
     lastRemoteCheckLabel.setTooltip(new Tooltip(checkText));
-    conflictLabel.setText(hasConflicts ? "Conflicts need manual resolution before syncing." : "");
+    if (hasConflicts) {
+      int count = conflictedPaths == null ? 0 : conflictedPaths.size();
+      conflictLabel.setText("Conflicts in " + count + " file" + plural(count) + " need manual resolution before syncing.");
+      conflictLabel.setTooltip(new Tooltip(conflictedPaths == null || conflictedPaths.isEmpty()
+          ? "Conflicting files"
+          : "Conflicting files:\n" + String.join("\n", conflictedPaths)));
+    } else {
+      conflictLabel.setText("");
+      conflictLabel.setTooltip(null);
+    }
     conflictLabel.setVisible(hasConflicts);
     conflictLabel.setManaged(hasConflicts);
 
@@ -912,15 +947,21 @@ result of your most recent actions."""));
   }
 
   private boolean hasConflicts(GitVcsService.RepositoryStatus status) {
-    if (status == null || status.entries() == null) return false;
+    return !conflictedPaths(status).isEmpty();
+  }
+
+  private List<String> conflictedPaths(GitVcsService.RepositoryStatus status) {
+    if (status == null || status.entries() == null) return List.of();
+    List<String> paths = new ArrayList<>();
     for (GitVcsService.StatusEntry entry : status.entries()) {
       String index = entry.indexStatus();
       String workTree = entry.workTreeStatus();
-      if ("U".equals(index) || "U".equals(workTree)) return true;
-      if ("D".equals(index) && "D".equals(workTree)) return true;
-      if ("A".equals(index) && "A".equals(workTree)) return true;
+      boolean conflicted = "U".equals(index) || "U".equals(workTree)
+          || ("D".equals(index) && "D".equals(workTree))
+          || ("A".equals(index) && "A".equals(workTree));
+      if (conflicted) paths.add(entry.path());
     }
-    return false;
+    return paths;
   }
 
   private void updateSyncChipStyle() {
@@ -1179,7 +1220,7 @@ result of your most recent actions."""));
         return;
       }
       try {
-        appendCommandResult(vcs.fetch(projectRoot));
+        appendCommandResult(vcs.fetch(projectRoot, this::appendConsoleLine));
         lastRemoteCheckMs = System.currentTimeMillis();
         lastRemoteCheckDisplay = "Online check: " + LocalTime.now().format(CHECK_TIME_FORMAT);
         GitVcsService.RepositoryStatus status = vcs.getRepositoryStatus(projectRoot);
@@ -1314,7 +1355,16 @@ result of your most recent actions."""));
         return;
       }
       try {
-        appendCommandResult(vcs.pullRebase(projectRoot));
+        appendCommandResult(vcs.pullRebase(projectRoot, this::appendConsoleLine));
+      } catch (GitVcsService.GitVcsException ex) {
+        if (ex.hasMergeConflict()) {
+          appendLog(ex.getMessage());
+          appendLog("Since force-pulling isn't available, resolve the conflicted files listed "
+              + "above in the editor, then use Stage on each resolved file and Save Snapshot to "
+              + "continue, or restore the pre-pull state manually if you'd rather back out.");
+        } else {
+          appendLog(ex.getMessage());
+        }
       } catch (Exception ex) {
         appendLog(ex.getMessage());
       }
@@ -1364,13 +1414,18 @@ result of your most recent actions."""));
         return;
       }
       try {
-        appendCommandResult(vcs.pushSafe(projectRoot));
+        appendCommandResult(vcs.pushSafe(projectRoot, this::appendConsoleLine));
       } catch (Exception ex) {
         if (GitVcsService.isCredentialFailure(ex.getMessage())) {
           lastAuthFailureMs = System.currentTimeMillis();
           lastAuthFailureMessage = ex.getMessage();
         }
         appendLog(ex.getMessage());
+        if (GitVcsService.isNonFastForwardRejection(ex.getMessage())) {
+          appendLog("The remote has snapshots this branch doesn't have. Use Get Updates to pull "
+              + "them in first, then Send Online again — or use Force Push (Danger Zone) if you "
+              + "intend to overwrite the remote's history with yours.");
+        }
       }
       loadStatus(true);
     });
@@ -1394,6 +1449,146 @@ result of your most recent actions."""));
       decision.complete(confirmed);
     });
     return decision.join();
+  }
+
+  private void runForcePull() {
+    runAsync("Force Pull", () -> {
+      if (projectRoot == null) {
+        appendLog("Select a project before force-pulling.");
+        return;
+      }
+      if (!confirmDestructiveForceAction(
+          "Force Pull",
+          "Force pulling will make '" + currentBranch + "' match origin/" + currentBranch
+              + " exactly. Any local commits not on the remote, and any uncommitted changes, "
+              + "will be permanently discarded. This cannot be undone.",
+          currentBranch)) {
+        appendLog("Force pull cancelled.");
+        return;
+      }
+      try {
+        appendCommandResult(vcs.forcePull(projectRoot, this::appendConsoleLine));
+      } catch (Exception ex) {
+        appendLog(ex.getMessage());
+      }
+      loadStatus(true);
+    });
+  }
+
+  private void runForcePush() {
+    runAsync("Force Push", () -> {
+      if (projectRoot == null) {
+        appendLog("Select a project before force-pushing.");
+        return;
+      }
+      if (!confirmPreflight("Force Push")) return;
+      if (!confirmDestructiveForceAction(
+          "Force Push",
+          "Force pushing will overwrite the remote copy of '" + currentBranch + "' with your local "
+              + "history. Commits on the remote that aren't in your local history will be lost for "
+              + "anyone who hasn't already fetched them. This uses force-with-lease, so it will be "
+              + "rejected if someone else pushed since your last fetch — but it can still discard "
+              + "work once it succeeds.",
+          currentBranch)) {
+        appendLog("Force push cancelled.");
+        return;
+      }
+      try {
+        appendCommandResult(vcs.forcePush(projectRoot, this::appendConsoleLine));
+      } catch (Exception ex) {
+        if (GitVcsService.isCredentialFailure(ex.getMessage())) {
+          lastAuthFailureMs = System.currentTimeMillis();
+          lastAuthFailureMessage = ex.getMessage();
+        }
+        appendLog(ex.getMessage());
+      }
+      loadStatus(true);
+    });
+  }
+
+  /**
+   * Shows a type-to-confirm dialog requiring the user to type {@code confirmToken} exactly before
+   * the destructive action button enables, for irreversible operations like force pull/push where
+   * a plain Yes/No is too easy to click through. Must be called from the background worker thread.
+   */
+  private boolean confirmDestructiveForceAction(String title, String message, String confirmToken) {
+    CompletableFuture<Boolean> decision = new CompletableFuture<>();
+    Platform.runLater(() -> showTypeToConfirmDialog(title, message, confirmToken, decision));
+    return decision.join();
+  }
+
+  private void showTypeToConfirmDialog(String title, String message, String confirmToken,
+                                       CompletableFuture<Boolean> decision) {
+    StackPane overlay = new StackPane();
+    overlay.getStyleClass().add("editor-dialog-overlay");
+
+    VBox card = new VBox(12);
+    card.getStyleClass().add("editor-dialog-card");
+    card.setMaxWidth(480);
+    card.setFillWidth(true);
+    card.setPadding(new Insets(16));
+
+    Label titleLabel = new Label(title);
+    titleLabel.getStyleClass().add("editor-dialog-title");
+
+    Label messageLabel = new Label(message);
+    messageLabel.getStyleClass().add("editor-dialog-message");
+    messageLabel.setWrapText(true);
+
+    Label instructionLabel = new Label("Type \"" + confirmToken + "\" to confirm:");
+    instructionLabel.getStyleClass().add("editor-dialog-field-label");
+
+    TextField confirmField = new TextField();
+    confirmField.getStyleClass().add("vcs-text-field");
+    confirmField.setPromptText(confirmToken);
+
+    Button cancelButton = new Button("Cancel");
+    cancelButton.getStyleClass().addAll("editor-dialog-button", "editor-dialog-button-neutral");
+    Button confirmButton = new Button(title);
+    confirmButton.getStyleClass().addAll("editor-dialog-button", "editor-dialog-button-danger");
+    confirmButton.setDisable(true);
+
+    confirmField.textProperty().addListener((obs, oldVal, newVal) ->
+        confirmButton.setDisable(!confirmToken.equals(newVal)));
+
+    HBox actionsBox = new HBox(8, cancelButton, confirmButton);
+    actionsBox.setAlignment(Pos.CENTER_RIGHT);
+
+    card.getChildren().addAll(titleLabel, messageLabel, instructionLabel, confirmField, actionsBox);
+    overlay.getChildren().add(card);
+    overlay.setAlignment(Pos.CENTER);
+
+    Stage stage = new Stage(StageStyle.TRANSPARENT);
+    Window owner = getScene() == null ? null : getScene().getWindow();
+    if (owner != null) {
+      stage.initOwner(owner);
+      stage.initModality(Modality.WINDOW_MODAL);
+    } else {
+      stage.initModality(Modality.APPLICATION_MODAL);
+    }
+    Scene scene = new Scene(overlay);
+    scene.setFill(null);
+    scene.getStylesheets().addAll(getScene() == null ? List.of() : getScene().getStylesheets());
+    stage.setScene(scene);
+
+    cancelButton.setOnAction(e -> {
+      decision.complete(false);
+      stage.close();
+    });
+    confirmButton.setOnAction(e -> {
+      decision.complete(true);
+      stage.close();
+    });
+    overlay.setOnMouseClicked(e -> {
+      if (e.getTarget() == overlay) {
+        decision.complete(false);
+        stage.close();
+      }
+    });
+    stage.setOnCloseRequest(e -> decision.complete(false));
+
+    stage.show();
+    Platform.runLater(confirmField::requestFocus);
   }
 
   private void runStash() {
@@ -2056,6 +2251,8 @@ result of your most recent actions."""));
     btnFetch.setDisable(busy || !repoReady || !currentHasRemote);
     btnPull.setDisable(busy || !canSync);
     btnPush.setDisable(busy || !canSync || currentBehind > 0 || (currentAhead == 0 && currentHasUpstream));
+    btnForcePull.setDisable(busy || !repoReady || !currentHasRemote);
+    btnForcePush.setDisable(busy || !repoReady || !currentHasRemote);
     btnCommit.setDisable(busy || !repoReady || !hasChanges || currentHasConflicts);
     btnStash.setDisable(busy || !repoReady || !hasChanges);
     btnStashPop.setDisable(busy || !repoReady);
@@ -2088,6 +2285,20 @@ result of your most recent actions."""));
     Platform.runLater(() -> {
       if (!txtLog.getText().isBlank()) txtLog.appendText("\n\n");
       txtLog.appendText(message.trim());
+      txtLog.setScrollTop(Double.MAX_VALUE);
+    });
+  }
+
+  /**
+   * Appends a single streamed progress line (e.g. from a JGit {@code ProgressMonitor} callback
+   * during a fetch/pull/push) as its own console line, without the blank-line separation used
+   * between discrete log entries. Safe to call from any thread.
+   */
+  private void appendConsoleLine(String line) {
+    if (line == null || line.isBlank()) return;
+    Platform.runLater(() -> {
+      if (!txtLog.getText().isBlank()) txtLog.appendText("\n");
+      txtLog.appendText("> " + line.trim());
       txtLog.setScrollTop(Double.MAX_VALUE);
     });
   }

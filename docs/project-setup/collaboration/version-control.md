@@ -48,6 +48,17 @@ The panel proactively warns before a few operations that are easy to get wrong:
 See [Sidebar — Version Control](../../editor/sidebars/right/sidebar-version-control.md#warnings)
 for the full list of warning conditions.
 
+### Danger Zone: Force Pull / Force Push
+
+For the rare case where the normal safety checks are actually in the way — a branch you know
+should just match the remote, or a history you deliberately want to overwrite — the panel has a
+separate **Danger Zone** section with **Force Pull** (`git fetch && git reset --hard
+origin/<branch>`, discarding local commits and changes) and **Force Push** (`git push
+--force-with-lease`). Both require typing the branch name to confirm before they run. See
+[Danger Zone](../../editor/sidebars/right/sidebar-version-control.md#danger-zone) for details —
+these bypass the "no force-push/force-pull" behavior the rest of the panel relies on, so use them
+deliberately, not as a routine way past a conflict.
+
 ## GitHub Sign-In And Remote Creation
 
 When a project has no remote configured, the panel offers two ways to connect a GitHub repository:
