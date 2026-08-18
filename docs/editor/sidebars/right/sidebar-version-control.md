@@ -236,6 +236,19 @@ resolution. This avoids a JGit ambiguity where a local branch name shaped like `
 (e.g. a branch literally named `origin/experimental`) is misread as remote-tracking shorthand and
 fails to resolve even though the local branch exists.
 
+### Refreshing Other Views After a Branch Change
+
+Switching or creating a branch changes files on disk outside the editor's normal save flow, which
+can leave other views showing stale content. The panel notifies its host after any operation that
+can add, remove, or overwrite files on disk — branch switch, branch create, **Get Updates**,
+**Force Pull**, and **Restore Shelf** — so the host can refresh:
+
+- The Project Explorer file tree (in JVN's main editor window, via `EditorApp`)
+- The status bar's Git state segment (the "Clean"/"N changes" indicator)
+
+This notification does **not** fire for operations that only touch the index or history (stage,
+commit, push, force push), since those don't change which files exist in the working tree.
+
 ---
 
 ## Changed Files List

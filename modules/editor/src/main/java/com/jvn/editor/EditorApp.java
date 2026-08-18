@@ -2878,12 +2878,13 @@ public class EditorApp extends Application {
   }
 
   /**
-   * Nudges the Version Control panel to refresh after a file save so the changed-files list
-   * reflects the edit immediately instead of waiting for its periodic auto-refresh. No-op if the
-   * panel has not been opened yet.
+   * Nudges Git-status displays to refresh after a file save: the Version Control panel's
+   * changed-files list, and the status bar's "Clean"/"N changes" segment, both of which
+   * otherwise only refresh on a timer or when the project is reloaded.
    */
   private void notifyVersionControlOfFileChange() {
     if (versionControlView != null) versionControlView.refreshStatus();
+    if (statusBar != null) statusBar.refreshGitState();
   }
 
   private void saveAllOpenTabs() {
@@ -4611,6 +4612,10 @@ public class EditorApp extends Application {
       if (!target.exists()) return;
       if (isEditableFile(target)) openFile(target);
     });
+    versionControlView.setOnWorkingTreeChanged(() -> {
+      if (projView != null) projView.refresh();
+      if (statusBar != null) statusBar.refreshGitState();
+    });
     return versionControlView;
   }
 
@@ -5777,7 +5782,11 @@ public class EditorApp extends Application {
         releaseSidebarPanelIfUnused(EditorSidebarPanel.VERSION_CONTROL);
       });
       tabVersionControl.selectedProperty().addListener((obs, wasSelected, isSelected) -> {
-        if (!isSelected) vcs.hideGuidePopup();
+        if (isSelected) {
+          vcs.showGuidePopupIfActive();
+        } else {
+          vcs.hideGuidePopup();
+        }
       });
     } else if (tabVersionControl.getContent() != vcs) {
       tabVersionControl.setContent(vcs);

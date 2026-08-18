@@ -673,6 +673,16 @@ public final class JvnStatusBar extends HBox {
         "jvn-status-diagnostics-warn");
   }
 
+  /**
+   * Re-probes Git status for the currently active project root, e.g. after a file save, so the
+   * "Clean"/"N changes" segment doesn't sit stale between project loads. No-op if no Git root is
+   * active. Throttled the same as the normal refresh path to avoid spawning a subprocess per file
+   * on a multi-file "Save All".
+   */
+  public void refreshGitState() {
+    if (activeGitRoot != null) refreshGitStateAsync(activeGitRoot);
+  }
+
   private void refreshGitStateAsync(Path root) {
     if (root == null) return;
     long now = System.currentTimeMillis();

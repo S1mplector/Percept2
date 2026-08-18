@@ -230,6 +230,7 @@ public class VersionControlView extends BorderPane {
   private String lastRemoteCheckDisplay = "Online check: not checked yet";
   private String currentBranch = "";
   private Consumer<String> onOpenRelativePath;
+  private Runnable onWorkingTreeChanged;
   private Timeline autoRefreshTimer;
   private boolean disposed;
   private String lastRemoteFailure = "";
@@ -237,6 +238,7 @@ public class VersionControlView extends BorderPane {
   private String lastAuthFailureMessage = "";
   private String lastGuideKey = "";
   private String dismissedGuideKey = "";
+  private boolean guideTabActive = true;
   private String busyActionName = "";
   private final List<Node> currentGuideTargets = new ArrayList<>();
 
@@ -642,6 +644,20 @@ result of your most recent actions."""));
     this.onOpenRelativePath = onOpenRelativePath;
   }
 
+  /**
+   * Registers a callback fired after operations that can add, remove, or overwrite files on disk
+   * outside the editor's knowledge (branch switch/create, pull, force pull, stash pop) so hosts
+   * can refresh things like the Project Explorer tree. Not fired for operations that only touch
+   * the index/history (stage, commit, push).
+   */
+  public void setOnWorkingTreeChanged(Runnable onWorkingTreeChanged) {
+    this.onWorkingTreeChanged = onWorkingTreeChanged;
+  }
+
+  private void notifyWorkingTreeChanged() {
+    if (onWorkingTreeChanged != null) Platform.runLater(onWorkingTreeChanged);
+  }
+
   public void setProjectRoot(File projectRoot) {
     if (disposed) return;
     this.projectRoot = projectRoot;
@@ -1005,7 +1021,7 @@ result of your most recent actions."""));
   private void updateGuidance() {
     clearGuideTargets();
     GuidanceStep step = computeGuidanceStep();
-    if (step == null || step.targets().isEmpty()) {
+    if (step == null || step.targets().isEmpty() || !guideTabActive) {
       lastGuideKey = "";
       guidePopup.hide();
       return;
@@ -1356,12 +1372,14 @@ result of your most recent actions."""));
       }
       try {
         appendCommandResult(vcs.pullRebase(projectRoot, this::appendConsoleLine));
+        notifyWorkingTreeChanged();
       } catch (GitVcsService.GitVcsException ex) {
         if (ex.hasMergeConflict()) {
           appendLog(ex.getMessage());
-          appendLog("Since force-pulling isn't available, resolve the conflicted files listed "
-              + "above in the editor, then use Stage on each resolved file and Save Snapshot to "
-              + "continue, or restore the pre-pull state manually if you'd rather back out.");
+          appendLog("Resolve the conflicted files listed above in the editor, then use Stage on "
+              + "each resolved file and Save Snapshot to continue, restore the pre-pull state "
+              + "manually to back out, or use Force Pull (Danger Zone) to discard local history "
+              + "and match the remote instead.");
         } else {
           appendLog(ex.getMessage());
         }
@@ -1468,6 +1486,7 @@ result of your most recent actions."""));
       }
       try {
         appendCommandResult(vcs.forcePull(projectRoot, this::appendConsoleLine));
+        notifyWorkingTreeChanged();
       } catch (Exception ex) {
         appendLog(ex.getMessage());
       }
@@ -1608,6 +1627,7 @@ result of your most recent actions."""));
       if (projectRoot == null) return;
       try {
         appendCommandResult(vcs.stashPop(projectRoot));
+        notifyWorkingTreeChanged();
       } catch (Exception ex) {
         appendLog("Stash pop failed: " + ex.getMessage());
       }
@@ -1706,6 +1726,7 @@ result of your most recent actions."""));
     runAsync("Switch branch", () -> {
       try {
         appendCommandResult(vcs.switchBranch(projectRoot, branchName));
+        notifyWorkingTreeChanged();
       } catch (GitVcsService.GitVcsException ex) {
         if (ex.hasLocalChangesConflict()) {
           handleSwitchBranchConflict(branchName);
@@ -1743,6 +1764,7 @@ result of your most recent actions."""));
     try {
       appendCommandResult(vcs.stash(projectRoot, "Auto-stash before switching to " + branchName));
       appendCommandResult(vcs.switchBranch(projectRoot, branchName));
+      notifyWorkingTreeChanged();
     } catch (Exception ex) {
       appendLog("Branch switch failed: " + ex.getMessage());
     }
@@ -1763,6 +1785,7 @@ result of your most recent actions."""));
     runAsync("Create branch", () -> {
       try {
         appendCommandResult(vcs.createBranch(projectRoot, branchToCreate));
+        notifyWorkingTreeChanged();
       } catch (Exception ex) {
         appendLog("Create branch failed: " + ex.getMessage());
       }
@@ -2315,7 +2338,14 @@ result of your most recent actions."""));
 
   /** Hides the floating guidance popup without disposing the view, e.g. when its tab loses focus. */
   public void hideGuidePopup() {
+    guideTabActive = false;
     guidePopup.hide();
+  }
+
+  /** Marks the guidance popup as eligible to show again, e.g. when its tab regains focus. */
+  public void showGuidePopupIfActive() {
+    guideTabActive = true;
+    updateGuidance();
   }
 
   public void dispose() {
