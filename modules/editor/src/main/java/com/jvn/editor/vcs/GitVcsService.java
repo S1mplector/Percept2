@@ -1,19 +1,54 @@
 package com.jvn.editor.vcs;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.logging.Logger;
 
+import org.eclipse.jgit.api.CreateBranchCommand;
+import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.api.PullResult;
+import org.eclipse.jgit.api.Status;
+import org.eclipse.jgit.api.errors.CheckoutConflictException;
+import org.eclipse.jgit.api.errors.GitAPIException;
+import org.eclipse.jgit.api.errors.InvalidRemoteException;
+import org.eclipse.jgit.api.errors.RefNotAdvertisedException;
+import org.eclipse.jgit.diff.DiffEntry;
+import org.eclipse.jgit.lib.BranchTrackingStatus;
+import org.eclipse.jgit.lib.ObjectId;
+import org.eclipse.jgit.lib.PersonIdent;
+import org.eclipse.jgit.lib.Ref;
+import org.eclipse.jgit.lib.Repository;
+import org.eclipse.jgit.lib.StoredConfig;
+import org.eclipse.jgit.revplot.PlotCommit;
+import org.eclipse.jgit.revplot.PlotCommitList;
+import org.eclipse.jgit.revplot.PlotLane;
+import org.eclipse.jgit.revplot.PlotWalk;
+import org.eclipse.jgit.revwalk.RevCommit;
+import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
+import org.eclipse.jgit.transport.ChainingCredentialsProvider;
+import org.eclipse.jgit.transport.CredentialsProvider;
+import org.eclipse.jgit.transport.NetRCCredentialsProvider;
+import org.eclipse.jgit.transport.PushResult;
+import org.eclipse.jgit.transport.RemoteRefUpdate;
+import org.eclipse.jgit.transport.URIish;
+import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
+import org.eclipse.jgit.transport.sshd.SshdSessionFactory;
+import org.eclipse.jgit.transport.sshd.SshdSessionFactoryBuilder;
+import org.eclipse.jgit.transport.SshSessionFactory;
+
 /**
- * Local Git integration service for editor workflows.
+ * Local Git integration service for editor workflows, backed by JGit (no external git binary required).
  */
 public class GitVcsService {
   private static final Logger log = Logger.getLogger(GitVcsService.class.getName());
@@ -39,34 +74,55 @@ public class GitVcsService {
       "save/"
   );
 
-  private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(30);
-
-  private final Duration commandTimeout;
-
-  public GitVcsService() {
-    this(DEFAULT_TIMEOUT);
+  static {
+    SshdSessionFactory sshFactory = new SshdSessionFactoryBuilder()
+        .setPreferredAuthentications("publickey")
+        .setHomeDirectory(new File(System.getProperty("user.home", ".")))
+        .setSshDirectory(new File(System.getProperty("user.home", "."), ".ssh"))
+        .build(null);
+    SshSessionFactory.setInstance(sshFactory);
   }
 
-  public GitVcsService(Duration commandTimeout) {
-    this.commandTimeout = commandTimeout == null ? DEFAULT_TIMEOUT : commandTimeout;
+  private final GitHubTokenStore githubTokenStore = new GitHubTokenStore();
+
+  public GitVcsService() {
+  }
+
+  /**
+   * Builds the credentials provider used for HTTPS git operations: a saved GitHub sign-in
+   * token (if any) tried first, falling back to {@code ~/.netrc}/{@code ~/_netrc} for other hosts.
+   */
+  private CredentialsProvider credentialsProvider() {
+    Optional<String> token = githubTokenStore.loadToken();
+    if (token.isPresent()) {
+      return new ChainingCredentialsProvider(
+          new UsernamePasswordCredentialsProvider(token.get(), token.get()),
+          new NetRCCredentialsProvider());
+    }
+    return new NetRCCredentialsProvider();
   }
 
   public boolean isGitAvailable() {
-    CommandResult result = execute(null, List.of("git", "--version"), true);
-    return result.success();
+    return true;
   }
 
   public boolean isRepository(File root) {
     if (root == null || !root.isDirectory()) return false;
-    CommandResult result = execute(root, List.of("git", "rev-parse", "--is-inside-work-tree"), true);
-    return result.success() && "true".equalsIgnoreCase(result.output().trim());
+    try {
+      File gitDir = new FileRepositoryBuilder()
+          .setWorkTree(root)
+          .findGitDir(root)
+          .getGitDir();
+      return gitDir != null && gitDir.isDirectory();
+    } catch (Exception ex) {
+      return false;
+    }
   }
 
   public void bootstrapRepository(File root,
                                   boolean createInitialCommit,
                                   String initialCommitMessage) throws GitVcsException {
     requireDirectory(root);
-    requireGitAvailable();
 
     initRepositoryIfNeeded(root);
     installDefaultTrackingFiles(root);
@@ -96,9 +152,62 @@ public class GitVcsService {
 
   public RepositoryStatus getRepositoryStatus(File root) throws GitVcsException {
     requireRepository(root);
-    CommandResult result = execute(root, List.of("git", "status", "--porcelain", "--branch"), false);
-    ensureSuccess(result, "Failed to read git status.");
-    return parseStatus(result.output());
+    try (Git git = open(root)) {
+      Repository repo = git.getRepository();
+      Status status = git.status().call();
+      List<StatusEntry> entries = toStatusEntries(status);
+
+      String branch = repo.getBranch();
+      if (branch == null || branch.isBlank()) branch = "unknown";
+
+      String upstream = null;
+      int ahead = 0;
+      int behind = 0;
+      BranchTrackingStatus tracking = BranchTrackingStatus.of(repo, branch);
+      if (tracking != null) {
+        upstream = tracking.getRemoteTrackingBranch();
+        ahead = tracking.getAheadCount();
+        behind = tracking.getBehindCount();
+      }
+
+      return new RepositoryStatus(branch, upstream, ahead, behind, entries);
+    } catch (IOException | GitAPIException ex) {
+      throw new GitVcsException("Failed to read git status.", failureResult("status", ex));
+    }
+  }
+
+  public PreflightResult preflight(File root) throws GitVcsException {
+    RepositoryStatus status = getRepositoryStatus(root);
+    boolean hasRemote = hasRemote(root);
+    String remoteUrl = hasRemote ? getRemoteUrl(root) : null;
+
+    boolean remoteReachable = false;
+    String remoteCheckError = null;
+    if (!hasRemote) {
+      remoteCheckError = "No remote configured.";
+    } else {
+      try (Git git = open(root)) {
+        git.lsRemote().setRemote("origin").setHeads(true).setCredentialsProvider(credentialsProvider()).call();
+        remoteReachable = true;
+      } catch (Exception ex) {
+        remoteCheckError = describeFailure(ex);
+      }
+    }
+
+    boolean credentialsOk = !isCredentialFailure(remoteCheckError);
+    String credentialIssue = credentialsOk ? null : remoteCheckError;
+
+    return new PreflightResult(
+        status.branch(),
+        remoteUrl,
+        hasRemote,
+        status.ahead(),
+        status.behind(),
+        status.entries().size(),
+        remoteReachable,
+        remoteCheckError,
+        credentialsOk,
+        credentialIssue);
   }
 
   public CommandResult commitAll(File root, String message) throws GitVcsException {
@@ -106,269 +215,386 @@ public class GitVcsService {
     if (message == null || message.isBlank()) {
       throw new GitVcsException("Commit message cannot be empty.");
     }
+    String trimmed = message.trim();
 
-    ensureSuccess(execute(root, List.of("git", "add", "-A"), false), "Failed to stage changes.");
+    try (Git git = open(root)) {
+      git.add().addFilepattern(".").call();
+      git.add().setUpdate(true).addFilepattern(".").call();
 
-    CommandResult staged = execute(root, List.of("git", "diff", "--cached", "--quiet"), true);
-    if (staged.exitCode() == 0) {
-      return new CommandResult(List.of("git", "commit", "-m", message.trim()), 0, "Nothing to commit.");
+      Status status = git.status().call();
+      if (!status.hasUncommittedChanges() && status.getAdded().isEmpty()
+          && status.getChanged().isEmpty() && status.getRemoved().isEmpty()) {
+        return new CommandResult(commandLine("commit", "-m", trimmed), 0, "Nothing to commit.");
+      }
+
+      RevCommit commit = git.commit().setMessage(trimmed).call();
+      return new CommandResult(commandLine("commit", "-m", trimmed), 0,
+          "Created commit " + abbreviate(commit) + ".");
+    } catch (GitAPIException ex) {
+      throw new GitVcsException("Failed to create commit.", failureResult("commit", ex));
     }
-    if (staged.exitCode() != 1) {
-      throw new GitVcsException("Unable to inspect staged changes.", staged);
-    }
-
-    CommandResult commit = execute(root, List.of("git", "commit", "-m", message.trim()), false);
-    ensureSuccess(commit, "Failed to create commit.");
-    return commit;
   }
 
   public CommandResult pullRebase(File root) throws GitVcsException {
     requireRepository(root);
-    CommandResult pull = execute(root, List.of("git", "pull", "--rebase", "--autostash"), false);
-    ensureSuccess(pull, "Failed to pull with rebase.");
-    return pull;
+    try (Git git = open(root)) {
+      Status statusBefore = git.status().call();
+      boolean dirty = statusBefore.hasUncommittedChanges();
+      RevCommit stashed = null;
+      if (dirty) {
+        stashed = git.stashCreate().call();
+      }
+      try {
+        PullResult result = git.pull()
+            .setRebase(true)
+            .setCredentialsProvider(credentialsProvider())
+            .call();
+        if (!result.isSuccessful()) {
+          throw new GitVcsException("Pull with rebase did not complete successfully.",
+              new CommandResult(commandLine("pull", "--rebase"), 1, String.valueOf(result)));
+        }
+        return new CommandResult(commandLine("pull", "--rebase"), 0, "Pull with rebase completed.");
+      } finally {
+        if (stashed != null) {
+          try {
+            git.stashApply().call();
+            git.stashDrop().call();
+          } catch (GitAPIException ex) {
+            log.warning("Autostash restore failed; stash left in place: " + ex.getMessage());
+          }
+        }
+      }
+    } catch (GitAPIException ex) {
+      throw new GitVcsException("Failed to pull with rebase.", failureResult("pull --rebase", ex));
+    }
   }
 
   public CommandResult push(File root) throws GitVcsException {
     requireRepository(root);
-    CommandResult push = execute(root, List.of("git", "push"), false);
-    ensureSuccess(push, "Failed to push changes.");
-    return push;
+    return doPush(root, null);
   }
 
   public CommandResult fetch(File root) throws GitVcsException {
     requireRepository(root);
-    CommandResult fetch = execute(root, List.of("git", "fetch", "--all", "--prune"), false);
-    ensureSuccess(fetch, "Failed to fetch remote state.");
-    return fetch;
+    try (Git git = open(root)) {
+      git.fetch()
+          .setRemoveDeletedRefs(true)
+          .setCredentialsProvider(credentialsProvider())
+          .call();
+      return new CommandResult(commandLine("fetch", "--all", "--prune"), 0, "Fetched remote state.");
+    } catch (GitAPIException ex) {
+      throw new GitVcsException("Failed to fetch remote state.", failureResult("fetch", ex));
+    }
   }
 
   // --- Conflict detection ---
 
   public boolean hasConflicts(File root) throws GitVcsException {
     requireRepository(root);
-    RepositoryStatus status = getRepositoryStatus(root);
-    for (StatusEntry e : status.entries()) {
-      if ("U".equals(e.indexStatus()) || "U".equals(e.workTreeStatus()) ||
-          ("D".equals(e.indexStatus()) && "D".equals(e.workTreeStatus())) ||
-          ("A".equals(e.indexStatus()) && "A".equals(e.workTreeStatus()))) {
-        return true;
-      }
+    try (Git git = open(root)) {
+      return !git.status().call().getConflicting().isEmpty();
+    } catch (GitAPIException ex) {
+      throw new GitVcsException("Failed to inspect conflicts.", failureResult("status", ex));
     }
-    return false;
   }
 
   public List<String> getConflictedFiles(File root) throws GitVcsException {
     requireRepository(root);
-    RepositoryStatus status = getRepositoryStatus(root);
-    List<String> conflicts = new ArrayList<>();
-    for (StatusEntry e : status.entries()) {
-      if ("U".equals(e.indexStatus()) || "U".equals(e.workTreeStatus()) ||
-          ("D".equals(e.indexStatus()) && "D".equals(e.workTreeStatus())) ||
-          ("A".equals(e.indexStatus()) && "A".equals(e.workTreeStatus()))) {
-        conflicts.add(e.path());
-      }
+    try (Git git = open(root)) {
+      return new ArrayList<>(git.status().call().getConflicting());
+    } catch (GitAPIException ex) {
+      throw new GitVcsException("Failed to inspect conflicts.", failureResult("status", ex));
     }
-    return conflicts;
   }
 
   // --- Stash support ---
 
   public CommandResult stash(File root, String message) throws GitVcsException {
     requireRepository(root);
-    List<String> cmd = message != null && !message.isBlank()
-        ? List.of("git", "stash", "push", "-m", message.trim())
-        : List.of("git", "stash", "push");
-    CommandResult result = execute(root, cmd, false);
-    ensureSuccess(result, "Failed to stash changes.");
-    return result;
+    try (Git git = open(root)) {
+      var cmd = git.stashCreate();
+      if (message != null && !message.isBlank()) cmd.setWorkingDirectoryMessage(message.trim());
+      RevCommit stash = cmd.call();
+      if (stash == null) {
+        return new CommandResult(commandLine("stash", "push"), 0, "No local changes to save.");
+      }
+      return new CommandResult(commandLine("stash", "push"), 0, "Saved stash " + abbreviate(stash) + ".");
+    } catch (GitAPIException ex) {
+      throw new GitVcsException("Failed to stash changes.", failureResult("stash push", ex));
+    }
   }
 
   public CommandResult stashPop(File root) throws GitVcsException {
     requireRepository(root);
-    CommandResult result = execute(root, List.of("git", "stash", "pop"), false);
-    ensureSuccess(result, "Failed to pop stash.");
-    return result;
+    try (Git git = open(root)) {
+      var stashes = git.stashList().call();
+      if (stashes.isEmpty()) {
+        throw new GitVcsException("No stash entries found.");
+      }
+      git.stashApply().call();
+      git.stashDrop().call();
+      return new CommandResult(commandLine("stash", "pop"), 0, "Restored stashed changes.");
+    } catch (GitAPIException ex) {
+      throw new GitVcsException("Failed to pop stash.", failureResult("stash pop", ex));
+    }
   }
 
   public List<String> stashList(File root) throws GitVcsException {
     requireRepository(root);
-    CommandResult result = execute(root, List.of("git", "stash", "list"), true);
-    if (!result.success() || result.output().isBlank()) return List.of();
-    return Arrays.asList(result.output().split("\\r?\\n"));
+    try (Git git = open(root)) {
+      List<String> lines = new ArrayList<>();
+      int index = 0;
+      for (RevCommit stash : git.stashList().call()) {
+        lines.add("stash@{" + index + "}: " + stash.getShortMessage());
+        index++;
+      }
+      return lines;
+    } catch (GitAPIException ex) {
+      throw new GitVcsException("Failed to list stashes.", failureResult("stash list", ex));
+    }
   }
 
   // --- Remote validation ---
 
   public boolean hasRemote(File root) throws GitVcsException {
     requireRepository(root);
-    CommandResult result = execute(root, List.of("git", "remote"), true);
-    return result.success() && !result.output().isBlank();
+    try (Git git = open(root)) {
+      return !git.getRepository().getConfig().getSubsections("remote").isEmpty();
+    } catch (Exception ex) {
+      throw new GitVcsException("Failed to inspect remotes.", failureResult("remote", ex));
+    }
   }
 
   public String getRemoteUrl(File root) throws GitVcsException {
     requireRepository(root);
-    CommandResult result = execute(root, List.of("git", "remote", "get-url", "origin"), true);
-    return result.success() ? result.output().trim() : null;
-  }
-
-  public boolean isGhCliAvailable() {
-    CommandResult result = execute(null, List.of("gh", "--version"), true);
-    return result.success();
-  }
-
-  public boolean isGhCliAuthenticated() {
-    CommandResult result = execute(null, List.of("gh", "auth", "status"), true);
-    return result.success();
-  }
-
-  public CommandResult createGitHubRepo(File root, String repoName, boolean isPrivate) throws GitVcsException {
-    requireRepository(root);
-    if (repoName == null || repoName.isBlank()) throw new GitVcsException("Repository name cannot be empty.");
-    String visibility = isPrivate ? "--private" : "--public";
-    // Create repo and set remote, but don't push yet.
-    CommandResult result = execute(root, List.of("gh", "repo", "create", repoName.trim(), visibility, "--source=.", "--remote=origin"), false);
-    ensureSuccess(result, "Failed to create GitHub repository.");
-    return result;
+    try (Git git = open(root)) {
+      return git.getRepository().getConfig().getString("remote", "origin", "url");
+    } catch (Exception ex) {
+      throw new GitVcsException("Failed to read remote URL.", failureResult("remote get-url origin", ex));
+    }
   }
 
   public CommandResult addRemote(File root, String name, String url) throws GitVcsException {
     requireRepository(root);
     if (name == null || name.isBlank()) name = "origin";
     if (url == null || url.isBlank()) throw new GitVcsException("Remote URL cannot be empty.");
-    CommandResult result = execute(root, List.of("git", "remote", "add", name.trim(), url.trim()), false);
-    ensureSuccess(result, "Failed to add remote '" + name + "'.");
-    return result;
+    String trimmedName = name.trim();
+    String trimmedUrl = url.trim();
+    try (Git git = open(root)) {
+      git.remoteAdd().setName(trimmedName).setUri(new URIish(trimmedUrl)).call();
+      return new CommandResult(commandLine("remote", "add", trimmedName, trimmedUrl), 0,
+          "Added remote '" + trimmedName + "'.");
+    } catch (Exception ex) {
+      throw new GitVcsException("Failed to add remote '" + trimmedName + "'.",
+          failureResult("remote add " + trimmedName + " " + trimmedUrl, ex));
+    }
+  }
+
+  public CommandResult removeRemote(File root, String name) throws GitVcsException {
+    requireRepository(root);
+    String trimmedName = (name == null || name.isBlank()) ? "origin" : name.trim();
+    try (Git git = open(root)) {
+      git.remoteRemove().setRemoteName(trimmedName).call();
+      return new CommandResult(commandLine("remote", "remove", trimmedName), 0,
+          "Removed remote '" + trimmedName + "'.");
+    } catch (Exception ex) {
+      throw new GitVcsException("Failed to remove remote '" + trimmedName + "'.",
+          failureResult("remote remove " + trimmedName, ex));
+    }
   }
 
   // --- Diff support ---
 
   public String diff(File root) throws GitVcsException {
     requireRepository(root);
-    CommandResult result = execute(root, List.of("git", "diff", "--stat"), true);
-    return result.success() ? result.output() : "";
+    try (Git git = open(root)) {
+      List<DiffEntry> entries = git.diff().call();
+      return formatDiffStat(entries);
+    } catch (GitAPIException ex) {
+      return "";
+    }
   }
 
   public String diffFile(File root, String relativePath) throws GitVcsException {
     requireRepository(root);
-    CommandResult result = execute(root, List.of("git", "diff", "--", relativePath), true);
-    return result.success() ? result.output() : "";
+    try (Git git = open(root); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+      git.diff()
+          .setPathFilter(org.eclipse.jgit.treewalk.filter.PathFilter.create(relativePath))
+          .setOutputStream(out)
+          .call();
+      return out.toString(StandardCharsets.UTF_8);
+    } catch (GitAPIException | IOException ex) {
+      return "";
+    }
   }
 
   public String diffCached(File root) throws GitVcsException {
     requireRepository(root);
-    CommandResult result = execute(root, List.of("git", "diff", "--cached", "--stat"), true);
-    return result.success() ? result.output() : "";
+    try (Git git = open(root)) {
+      List<DiffEntry> entries = git.diff().setCached(true).call();
+      return formatDiffStat(entries);
+    } catch (GitAPIException ex) {
+      return "";
+    }
   }
 
   // --- Log retrieval ---
 
   public List<String> log(File root, int count) throws GitVcsException {
     requireRepository(root);
-    CommandResult result = execute(root, List.of("git", "log", "--oneline", "-" + Math.max(1, count)), true);
-    if (!result.success() || result.output().isBlank()) return List.of();
-    return Arrays.asList(result.output().split("\\r?\\n"));
+    try (Git git = open(root)) {
+      List<String> lines = new ArrayList<>();
+      for (RevCommit commit : git.log().setMaxCount(Math.max(1, count)).call()) {
+        lines.add(abbreviate(commit) + " " + commit.getShortMessage());
+      }
+      return lines;
+    } catch (GitAPIException ex) {
+      return List.of();
+    }
   }
 
   public String changeGraph(File root, int count) throws GitVcsException {
     requireRepository(root);
-    int safeCount = Math.max(1, Math.min(250, count));
-    CommandResult result = execute(root, List.of(
-        "git",
-        "log",
-        "--graph",
-        "--decorate",
-        "--oneline",
-        "--all",
-        "--max-count=" + safeCount), true);
-    return result.success() ? result.output() : "";
+    List<ChangeGraphEntry> entries = changeGraphEntries(root, count);
+    StringBuilder sb = new StringBuilder();
+    for (ChangeGraphEntry entry : entries) {
+      if (sb.length() > 0) sb.append('\n');
+      sb.append(entry.graphPrefix()).append(entry.hash()).append(' ').append(entry.subject());
+    }
+    return sb.toString();
   }
 
   public List<ChangeGraphEntry> changeGraphEntries(File root, int count) throws GitVcsException {
     requireRepository(root);
     int safeCount = Math.max(1, Math.min(250, count));
-    CommandResult result = execute(root, List.of(
-        "git",
-        "log",
-        "--graph",
-        "--decorate=short",
-        "--pretty=format:%h%x1f%D%x1f%s%x1f%an",
-        "--all",
-        "--max-count=" + safeCount), true);
-    if (!result.success() || result.output().isBlank()) return List.of();
 
-    List<ChangeGraphEntry> entries = new ArrayList<>();
-    for (String rawLine : result.output().split("\\r?\\n")) {
-      ChangeGraphEntry entry = parseChangeGraphEntry(rawLine);
-      if (entry != null) entries.add(entry);
+    try (Repository repo = openRepository(root);
+         PlotWalk walk = new PlotWalk(repo)) {
+      for (Ref ref : repo.getRefDatabase().getRefsByPrefix("refs/heads/", "refs/tags/", "refs/remotes/")) {
+        try {
+          walk.markStart(walk.parseCommit(ref.getObjectId()));
+        } catch (Exception ignored) {
+          // Skip refs that don't resolve to a commit (e.g. annotated tags handled below, dangling refs).
+        }
+      }
+
+      PlotCommitList<PlotLane> commitList = new PlotCommitList<>();
+      commitList.source(walk);
+      commitList.fillTo(safeCount);
+
+      Map<ObjectId, List<String>> refsByCommit = collectRefLabels(repo);
+
+      List<ChangeGraphEntry> entries = new ArrayList<>();
+      for (int i = 0; i < commitList.size(); i++) {
+        PlotCommit<PlotLane> commit = commitList.get(i);
+        String graphPrefix = buildGraphPrefix(commit, commitList, i);
+        String hash = commit.abbreviate(7).name();
+        List<String> refs = refsByCommit.getOrDefault(commit.getId(), List.of());
+        PersonIdent author = commit.getAuthorIdent();
+        entries.add(new ChangeGraphEntry(
+            graphPrefix,
+            hash,
+            String.join(", ", refs),
+            commit.getShortMessage(),
+            author == null ? "unknown" : author.getName()));
+      }
+      return entries;
+    } catch (IOException ex) {
+      throw new GitVcsException("Failed to read change graph.", failureResult("log --graph", ex));
     }
-    return entries;
   }
 
   // --- Branch operations ---
 
   public String getCurrentBranch(File root) throws GitVcsException {
     requireRepository(root);
-    CommandResult result = execute(root, List.of("git", "branch", "--show-current"), true);
-    return result.success() ? result.output().trim() : "unknown";
+    try (Git git = open(root)) {
+      String branch = git.getRepository().getBranch();
+      return branch == null || branch.isBlank() ? "unknown" : branch;
+    } catch (IOException ex) {
+      return "unknown";
+    }
   }
 
   public List<String> listBranches(File root) throws GitVcsException {
     requireRepository(root);
-    CommandResult result = execute(root, List.of("git", "branch", "--list", "--no-color"), true);
-    if (!result.success() || result.output().isBlank()) return List.of();
-    List<String> branches = new ArrayList<>();
-    for (String line : result.output().split("\\r?\\n")) {
-      String name = line.trim();
-      if (name.startsWith("* ")) name = name.substring(2).trim();
-      if (!name.isBlank()) branches.add(name);
+    try (Git git = open(root)) {
+      List<String> branches = new ArrayList<>();
+      for (Ref ref : git.branchList().call()) {
+        String name = ref.getName();
+        if (name.startsWith("refs/heads/")) name = name.substring("refs/heads/".length());
+        if (!name.isBlank()) branches.add(name);
+      }
+      return branches;
+    } catch (GitAPIException ex) {
+      return List.of();
     }
-    return branches;
   }
 
   public CommandResult switchBranch(File root, String branchName) throws GitVcsException {
     requireRepository(root);
     if (branchName == null || branchName.isBlank()) throw new GitVcsException("Branch name cannot be empty.");
-    CommandResult result = execute(root, List.of("git", "switch", branchName.trim()), false);
-    ensureSuccess(result, "Failed to switch to branch '" + branchName + "'.");
-    return result;
+    String trimmed = branchName.trim();
+    try (Git git = open(root)) {
+      git.checkout().setName(trimmed).call();
+      return new CommandResult(commandLine("switch", trimmed), 0, "Switched to branch '" + trimmed + "'.");
+    } catch (CheckoutConflictException ex) {
+      throw new GitVcsException("Failed to switch to branch '" + branchName + "': local changes would be overwritten.",
+          failureResult("switch " + trimmed, ex));
+    } catch (GitAPIException ex) {
+      throw new GitVcsException("Failed to switch to branch '" + branchName + "'.", failureResult("switch " + trimmed, ex));
+    }
   }
 
   public CommandResult createBranch(File root, String branchName) throws GitVcsException {
     requireRepository(root);
     if (branchName == null || branchName.isBlank()) throw new GitVcsException("Branch name cannot be empty.");
-    CommandResult result = execute(root, List.of("git", "switch", "-c", branchName.trim()), false);
-    ensureSuccess(result, "Failed to create branch '" + branchName + "'.");
-    return result;
+    String trimmed = branchName.trim();
+    try (Git git = open(root)) {
+      git.checkout().setCreateBranch(true).setName(trimmed)
+          .setUpstreamMode(CreateBranchCommand.SetupUpstreamMode.TRACK)
+          .call();
+      return new CommandResult(commandLine("switch", "-c", trimmed), 0, "Created and switched to branch '" + trimmed + "'.");
+    } catch (GitAPIException ex) {
+      throw new GitVcsException("Failed to create branch '" + branchName + "'.", failureResult("switch -c " + trimmed, ex));
+    }
   }
 
   // --- Stage/unstage individual files ---
 
   public CommandResult stageFile(File root, String path) throws GitVcsException {
     requireRepository(root);
-    CommandResult result = execute(root, List.of("git", "add", "--", path), false);
-    ensureSuccess(result, "Failed to stage file: " + path);
-    return result;
+    try (Git git = open(root)) {
+      git.add().addFilepattern(path).call();
+      return new CommandResult(commandLine("add", "--", path), 0, "Staged " + path + ".");
+    } catch (GitAPIException ex) {
+      throw new GitVcsException("Failed to stage file: " + path, failureResult("add -- " + path, ex));
+    }
   }
 
   public CommandResult unstageFile(File root, String path) throws GitVcsException {
     requireRepository(root);
-    CommandResult result = execute(root, List.of("git", "restore", "--staged", "--", path), false);
-    ensureSuccess(result, "Failed to unstage file: " + path);
-    return result;
+    try (Git git = open(root)) {
+      git.reset().addPath(path).call();
+      return new CommandResult(commandLine("restore", "--staged", "--", path), 0, "Unstaged " + path + ".");
+    } catch (GitAPIException ex) {
+      throw new GitVcsException("Failed to unstage file: " + path, failureResult("restore --staged -- " + path, ex));
+    }
   }
 
   public CommandResult discardFile(File root, String path) throws GitVcsException {
     requireRepository(root);
     if (path == null || path.isBlank()) throw new GitVcsException("File path cannot be empty.");
-    CommandResult result;
-    if (isUntracked(root, path)) {
-      result = execute(root, List.of("git", "clean", "-f", "--", path), false);
-    } else {
-      result = execute(root, List.of("git", "restore", "--", path), false);
+    try (Git git = open(root)) {
+      if (isUntracked(git, path)) {
+        git.clean().setPaths(Set.of(path)).call();
+      } else {
+        git.checkout().addPath(path).call();
+      }
+      return new CommandResult(commandLine("restore", "--", path), 0, "Discarded changes in " + path + ".");
+    } catch (GitAPIException ex) {
+      throw new GitVcsException("Failed to discard changes in: " + path, failureResult("restore -- " + path, ex));
     }
-    ensureSuccess(result, "Failed to discard changes in: " + path);
-    return result;
   }
 
   // --- Hardened push with upstream check ---
@@ -378,24 +604,76 @@ public class GitVcsService {
     if (!hasRemote(root)) {
       throw new GitVcsException("No remote configured. Add a remote before pushing.");
     }
-    // Check if upstream is set
-    CommandResult tracking = execute(root, List.of("git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"), true);
-    if (!tracking.success()) {
-      // No upstream set, push with -u
-      String branch = getCurrentBranch(root);
-      CommandResult push = execute(root, List.of("git", "push", "-u", "origin", branch), false);
-      ensureSuccess(push, "Failed to push (setting upstream).");
-      return push;
+    String branch = getCurrentBranch(root);
+    try (Git git = open(root)) {
+      BranchTrackingStatus tracking = BranchTrackingStatus.of(git.getRepository(), branch);
+      if (tracking == null) {
+        CommandResult result = doPush(root, branch);
+        StoredConfig config = git.getRepository().getConfig();
+        config.setString("branch", branch, "remote", "origin");
+        config.setString("branch", branch, "merge", "refs/heads/" + branch);
+        config.save();
+        return result;
+      }
+    } catch (IOException ex) {
+      throw new GitVcsException("Failed to push (setting upstream).", failureResult("push -u origin " + branch, ex));
     }
-    CommandResult push = execute(root, List.of("git", "push"), false);
-    ensureSuccess(push, "Failed to push changes.");
-    return push;
+    return doPush(root, null);
   }
 
-  private boolean isUntracked(File root, String path) throws GitVcsException {
-    requireRepository(root);
-    CommandResult result = execute(root, List.of("git", "status", "--porcelain", "--", path), true);
-    return result.success() && result.output().lines().anyMatch(line -> line.startsWith("?? "));
+  public static boolean isAuthCooldownActive(long lastFailureMs, long nowMs, long cooldownMs) {
+    if (lastFailureMs < 0L) return false;
+    return nowMs - lastFailureMs < cooldownMs;
+  }
+
+  public static boolean isCredentialFailure(String message) {
+    if (message == null) return false;
+    String lower = message.toLowerCase(Locale.ROOT);
+    return lower.contains("authentication failed")
+        || lower.contains("permission")
+        || lower.contains("could not read username")
+        || lower.contains("could not read password")
+        || lower.contains("403")
+        || lower.contains("auth fail")
+        || lower.contains("not authorized")
+        || lower.contains("invalid credentials")
+        || lower.contains("credentials required");
+  }
+
+  private CommandResult doPush(File root, String setUpstreamBranch) throws GitVcsException {
+    try (Git git = open(root)) {
+      var pushCmd = git.push().setCredentialsProvider(credentialsProvider());
+      if (setUpstreamBranch != null) {
+        pushCmd.add(setUpstreamBranch);
+        pushCmd.setRemote("origin");
+      }
+      Iterable<PushResult> results = pushCmd.call();
+      List<String> rejections = new ArrayList<>();
+      for (PushResult result : results) {
+        for (RemoteRefUpdate update : result.getRemoteUpdates()) {
+          RemoteRefUpdate.Status status = update.getStatus();
+          if (status != RemoteRefUpdate.Status.OK && status != RemoteRefUpdate.Status.UP_TO_DATE) {
+            rejections.add(update.getRemoteName() + ": " + status
+                + (update.getMessage() != null ? " (" + update.getMessage() + ")" : ""));
+          }
+        }
+      }
+      if (!rejections.isEmpty()) {
+        throw new GitVcsException("Failed to push changes.",
+            new CommandResult(commandLine("push"), 1, String.join("\n", rejections)));
+      }
+      return new CommandResult(commandLine("push"), 0, "Pushed to origin.");
+    } catch (GitAPIException ex) {
+      throw new GitVcsException("Failed to push changes.", failureResult("push", ex));
+    }
+  }
+
+  private boolean isUntracked(Git git, String path) throws GitVcsException {
+    try {
+      return git.status().call().getUntracked().contains(path);
+    } catch (GitAPIException ex) {
+      throw new GitVcsException("Failed to inspect status for: " + path, failureResult("status -- " + path, ex));
+    }
   }
 
   private void requireDirectory(File root) throws GitVcsException {
@@ -406,25 +684,36 @@ public class GitVcsService {
 
   private void requireRepository(File root) throws GitVcsException {
     requireDirectory(root);
-    requireGitAvailable();
     if (!isRepository(root)) {
       throw new GitVcsException("No Git repository found at: " + root.getAbsolutePath());
     }
   }
 
-  private void requireGitAvailable() throws GitVcsException {
-    if (!isGitAvailable()) {
-      throw new GitVcsException("Git is not available. Install Git and ensure it is on PATH.");
+  private void initRepositoryIfNeeded(File root) throws GitVcsException {
+    if (isRepository(root)) return;
+    try (Git git = Git.init().setDirectory(root).setInitialBranch("main").call()) {
+      // Repository created; nothing further to do.
+    } catch (GitAPIException ex) {
+      throw new GitVcsException("Failed to initialize git repository.", failureResult("init --initial-branch=main", ex));
     }
   }
 
-  private void initRepositoryIfNeeded(File root) throws GitVcsException {
-    if (isRepository(root)) return;
+  private Git open(File root) throws GitVcsException {
+    try {
+      return Git.open(root);
+    } catch (IOException ex) {
+      throw new GitVcsException("No Git repository found at: " + root.getAbsolutePath());
+    }
+  }
 
-    CommandResult init = execute(root, List.of("git", "init", "--initial-branch=main"), true);
-    if (!init.success()) {
-      ensureSuccess(execute(root, List.of("git", "init"), false), "Failed to initialize git repository.");
-      execute(root, List.of("git", "symbolic-ref", "HEAD", "refs/heads/main"), true);
+  private Repository openRepository(File root) throws GitVcsException {
+    try {
+      return new FileRepositoryBuilder()
+          .setWorkTree(root)
+          .findGitDir(root)
+          .build();
+    } catch (IOException ex) {
+      throw new GitVcsException("No Git repository found at: " + root.getAbsolutePath());
     }
   }
 
@@ -452,148 +741,116 @@ public class GitVcsService {
     Files.writeString(file, updated, StandardCharsets.UTF_8);
   }
 
-  private RepositoryStatus parseStatus(String output) {
-    String branch = "unknown";
-    String upstream = null;
-    int ahead = 0;
-    int behind = 0;
-    List<StatusEntry> entries = new ArrayList<>();
-
-    if (output == null || output.isBlank()) {
-      return new RepositoryStatus(branch, upstream, ahead, behind, entries);
-    }
-
-    List<String> lines = Arrays.asList(output.split("\\r?\\n"));
-    int startLine = 0;
-
-    if (!lines.isEmpty() && lines.get(0).startsWith("## ")) {
-      String info = lines.get(0).substring(3).trim();
-      startLine = 1;
-
-      if (info.toLowerCase(Locale.ROOT).startsWith("no commits yet on ")) {
-        branch = info.substring("No commits yet on ".length()).trim();
-      } else if (info.startsWith("HEAD (")) {
-        branch = "detached";
-      } else {
-        String branchPart = info;
-        String relation = null;
-
-        int relationStart = info.indexOf(" [");
-        if (relationStart >= 0 && info.endsWith("]")) {
-          branchPart = info.substring(0, relationStart);
-          relation = info.substring(relationStart + 2, info.length() - 1);
-        }
-
-        int upstreamIndex = branchPart.indexOf("...");
-        if (upstreamIndex >= 0) {
-          branch = branchPart.substring(0, upstreamIndex);
-          upstream = branchPart.substring(upstreamIndex + 3);
-        } else {
-          branch = branchPart;
-        }
-
-        if (relation != null) {
-          String[] parts = relation.split(",");
-          for (String part : parts) {
-            String p = part.trim().toLowerCase(Locale.ROOT);
-            if (p.startsWith("ahead ")) {
-              ahead = parseTrailingInt(p.substring("ahead ".length()));
-            } else if (p.startsWith("behind ")) {
-              behind = parseTrailingInt(p.substring("behind ".length()));
-            }
-          }
-        }
-      }
-    }
-
-    for (int i = startLine; i < lines.size(); i++) {
-      String line = lines.get(i);
-      if (line == null || line.isBlank()) continue;
-      if (line.length() < 3) continue;
-      if (line.startsWith("!! ")) continue;
-
-      String xy = line.substring(0, 2);
-      String path = line.substring(3);
-      if (path.contains(" -> ")) {
-        String[] rename = path.split(" -> ", 2);
-        if (rename.length == 2) {
-          path = rename[0] + " -> " + rename[1];
-        }
-      }
-
-      String index = String.valueOf(xy.charAt(0));
-      String workTree = String.valueOf(xy.charAt(1));
-      entries.add(new StatusEntry(index, workTree, path));
-    }
-
-    return new RepositoryStatus(branch, upstream, ahead, behind, entries);
-  }
-
-  private int parseTrailingInt(String raw) {
-    try {
-      return Integer.parseInt(raw.trim());
-    } catch (Exception e) {
-      log.warning("Failed to parse trailing int: " + raw + " - " + e.getMessage());
-      return 0;
-    }
-  }
-
   private String normalizeEol(String value) {
     return value.replace("\r\n", "\n").replace('\r', '\n');
   }
 
-  private ChangeGraphEntry parseChangeGraphEntry(String rawLine) {
-    if (rawLine == null || rawLine.isBlank()) return null;
-    String[] parts = rawLine.split("\u001f", -1);
-    if (parts.length < 4) return null;
+  private List<StatusEntry> toStatusEntries(Status status) {
+    Map<String, char[]> codes = new LinkedHashMap<>();
+    applyCode(codes, status.getAdded(), 0, 'A');
+    applyCode(codes, status.getChanged(), 0, 'M');
+    applyCode(codes, status.getRemoved(), 0, 'D');
+    applyCode(codes, status.getModified(), 1, 'M');
+    applyCode(codes, status.getMissing(), 1, 'D');
+    applyCode(codes, status.getUntracked(), 0, '?');
+    applyCode(codes, status.getUntracked(), 1, '?');
+    applyCode(codes, status.getConflicting(), 0, 'U');
+    applyCode(codes, status.getConflicting(), 1, 'U');
 
-    String graphAndHash = parts[0];
-    int hashStart = graphAndHash.length();
-    while (hashStart > 0 && isHex(graphAndHash.charAt(hashStart - 1))) hashStart--;
-    if (hashStart >= graphAndHash.length()) return null;
-
-    String hash = graphAndHash.substring(hashStart).trim();
-    String graphPrefix = graphAndHash.substring(0, hashStart);
-    if (hash.isBlank()) return null;
-    return new ChangeGraphEntry(graphPrefix, hash, parts[1].trim(), parts[2].trim(), parts[3].trim());
-  }
-
-  private boolean isHex(char c) {
-    return (c >= '0' && c <= '9')
-        || (c >= 'a' && c <= 'f')
-        || (c >= 'A' && c <= 'F');
-  }
-
-  private void ensureSuccess(CommandResult result, String message) throws GitVcsException {
-    if (result != null && result.success()) return;
-    throw new GitVcsException(message, result);
-  }
-
-  private CommandResult execute(File workingDir, List<String> command, boolean allowNonZero) {
-    try {
-      ProcessBuilder pb = new ProcessBuilder(command);
-      if (workingDir != null) pb.directory(workingDir);
-      pb.redirectErrorStream(true);
-
-      Process process = pb.start();
-      boolean finished = process.waitFor(commandTimeout.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS);
-      if (!finished) {
-        process.destroyForcibly();
-        return new CommandResult(command, 124, "Command timed out after " + commandTimeout.toSeconds() + "s.");
-      }
-
-      int exit = process.exitValue();
-      byte[] bytes = process.getInputStream().readAllBytes();
-      String output = new String(bytes, StandardCharsets.UTF_8).trim();
-
-      if (!allowNonZero && exit != 0 && output.isBlank()) {
-        output = "Command failed with exit code " + exit + ".";
-      }
-      return new CommandResult(command, exit, output);
-    } catch (Exception ex) {
-      log.warning("Failed to execute command: " + command + " - " + ex.getMessage());
-      return new CommandResult(command, 126, ex.getMessage() == null ? "Failed to execute command." : ex.getMessage());
+    List<StatusEntry> entries = new ArrayList<>();
+    for (Map.Entry<String, char[]> e : codes.entrySet()) {
+      char[] xy = e.getValue();
+      String index = xy[0] == 0 ? " " : String.valueOf(xy[0]);
+      String workTree = xy[1] == 0 ? " " : String.valueOf(xy[1]);
+      entries.add(new StatusEntry(index, workTree, e.getKey()));
     }
+    return entries;
+  }
+
+  private void applyCode(Map<String, char[]> codes, Set<String> paths, int position, char code) {
+    for (String path : paths) {
+      char[] xy = codes.computeIfAbsent(path, p -> new char[2]);
+      xy[position] = code;
+    }
+  }
+
+  private String formatDiffStat(List<DiffEntry> entries) {
+    if (entries.isEmpty()) return "";
+    StringBuilder sb = new StringBuilder();
+    for (DiffEntry entry : entries) {
+      String path = entry.getChangeType() == DiffEntry.ChangeType.DELETE
+          ? entry.getOldPath()
+          : entry.getNewPath();
+      sb.append(' ').append(path).append(" | ").append(entry.getChangeType().name().toLowerCase(Locale.ROOT)).append('\n');
+    }
+    sb.append(entries.size()).append(entries.size() == 1 ? " file changed" : " files changed");
+    return sb.toString();
+  }
+
+  private Map<ObjectId, List<String>> collectRefLabels(Repository repo) throws IOException {
+    Map<ObjectId, List<String>> map = new LinkedHashMap<>();
+    for (Ref ref : repo.getRefDatabase().getRefsByPrefix("refs/heads/", "refs/remotes/", "refs/tags/")) {
+      ObjectId target = ref.getPeeledObjectId() != null ? ref.getPeeledObjectId() : ref.getObjectId();
+      if (target == null) continue;
+      String name = ref.getName();
+      if (name.startsWith("refs/heads/")) name = name.substring("refs/heads/".length());
+      else if (name.startsWith("refs/remotes/")) name = name.substring("refs/remotes/".length());
+      else if (name.startsWith("refs/tags/")) name = "tag: " + name.substring("refs/tags/".length());
+      map.computeIfAbsent(target, k -> new ArrayList<>()).add(name);
+    }
+    return map;
+  }
+
+  private String buildGraphPrefix(PlotCommit<PlotLane> commit, PlotCommitList<PlotLane> list, int index) {
+    int commitLane = commit.getLane() == null ? 0 : commit.getLane().getPosition();
+    java.util.Set<Integer> passingLanes = new java.util.TreeSet<>();
+    passingLanes.add(commitLane);
+
+    List<PlotLane> passing = new ArrayList<>();
+    list.findPassingThrough(commit, passing);
+    int maxLane = commitLane;
+    for (PlotLane lane : passing) {
+      passingLanes.add(lane.getPosition());
+      maxLane = Math.max(maxLane, lane.getPosition());
+    }
+
+    StringBuilder sb = new StringBuilder();
+    for (int lane = 0; lane <= maxLane; lane++) {
+      if (lane == commitLane) {
+        sb.append('*');
+      } else if (passingLanes.contains(lane)) {
+        sb.append('|');
+      } else {
+        sb.append(' ');
+      }
+      sb.append(' ');
+    }
+    return sb.toString();
+  }
+
+  private String abbreviate(RevCommit commit) {
+    return commit.abbreviate(7).name();
+  }
+
+  private String describeFailure(Exception ex) {
+    if (ex instanceof InvalidRemoteException || ex instanceof RefNotAdvertisedException) {
+      return "Could not reach remote repository.";
+    }
+    String message = ex.getMessage();
+    return message == null || message.isBlank() ? "Could not reach remote repository." : message;
+  }
+
+  private CommandResult failureResult(String subcommand, Exception ex) {
+    String message = ex.getMessage();
+    return new CommandResult(commandLine(subcommand.split(" ")), 1,
+        message == null || message.isBlank() ? ex.getClass().getSimpleName() : message);
+  }
+
+  private List<String> commandLine(String... parts) {
+    List<String> line = new ArrayList<>();
+    line.add("git");
+    for (String part : parts) line.add(part);
+    return line;
   }
 
   public record CommandResult(List<String> command, int exitCode, String output) {
@@ -622,6 +879,17 @@ public class GitVcsService {
                                  String refs,
                                  String subject,
                                  String author) {}
+
+  public record PreflightResult(String branch,
+                                String remoteUrl,
+                                boolean hasRemote,
+                                int ahead,
+                                int behind,
+                                int changedFileCount,
+                                boolean remoteReachable,
+                                String remoteCheckError,
+                                boolean credentialsOk,
+                                String credentialIssue) {}
 
   public record RepositoryStatus(String branch,
                                  String upstream,

@@ -539,6 +539,19 @@
   -fx-border-width: 1;
 }
 
+.vcs-status-row {
+  -fx-padding: 0;
+}
+
+.vcs-status-chip {
+  -fx-padding: 2 8 2 8;
+  -fx-background-color: #e8e8e8;
+  -fx-background-radius: 999;
+  -fx-text-fill: #3c3c3c;
+  -fx-font-size: 11px;
+  -fx-font-weight: 700;
+}
+
 .vcs-banner {
   -fx-padding: 10;
   -fx-background-radius: 8;
@@ -796,6 +809,16 @@
 
 .vcs-center-view {
   -fx-fill-width: true;
+}
+
+.sidebar-tool-split {
+  -fx-background-color: transparent;
+  -fx-padding: 0;
+}
+
+.sidebar-tool-split > .split-pane-divider {
+  -fx-background-color: #d8d8d8;
+  -fx-padding: 0 0 3 0;
 }
 
 .vcs-graph-list {
@@ -1076,6 +1099,15 @@
 
 .vcs-dialog-visibility-public {
   -fx-text-fill: #9a6128;
+}
+
+.vcs-device-code {
+  -fx-font-size: 26px;
+  -fx-font-weight: 900;
+  -fx-font-family: monospace;
+  -fx-text-fill: #1c1c1c;
+  -fx-padding: 8 0 8 0;
+  -fx-letter-spacing: 2px;
 }
 
 /* Refresh - circular arrow */

@@ -18,6 +18,7 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
+import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
@@ -182,8 +183,11 @@ file manager or version control tools."""));
     previewPath.setWrapText(true);
     previewMeta.getStyleClass().add("sidebar-tool-subtitle");
 
-    VBox center = new VBox(listView, previewBox);
-    VBox.setVgrow(listView, Priority.ALWAYS);
+    SplitPane center = new SplitPane(listView, previewBox);
+    center.setOrientation(javafx.geometry.Orientation.VERTICAL);
+    center.getStyleClass().add("sidebar-tool-split");
+    center.setDividerPositions(0.7);
+    SplitPane.setResizableWithParent(previewBox, true);
 
     setTop(header);
     setCenter(center);

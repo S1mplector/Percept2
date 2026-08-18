@@ -22,6 +22,11 @@ dependencies {
   implementation(project(":audio"))
   implementation(project(":scripting"))
   implementation("org.fxmisc.richtext:richtextfx:0.11.2")
+  implementation("org.eclipse.jgit:org.eclipse.jgit:7.3.0.202506031305-r")
+  implementation("org.eclipse.jgit:org.eclipse.jgit.ssh.apache:7.3.0.202506031305-r")
+  implementation("net.i2p.crypto:eddsa:0.3.0")
+  implementation("net.java.dev.jna:jna:5.19.1")
+  implementation("net.java.dev.jna:jna-platform:5.19.1")
   runtimeOnly("ch.qos.logback:logback-classic:1.5.6")
 
   errorprone("com.google.errorprone:error_prone_core:2.28.0")
@@ -40,6 +45,12 @@ tasks.withType<JavaCompile>().configureEach {
 
 application {
   mainClass.set("com.jvn.editor.EditorApp")
+}
+
+tasks.register("printRuntimeCp") {
+  doLast {
+    println(sourceSets.main.get().runtimeClasspath.files.joinToString(File.pathSeparator) { it.absolutePath })
+  }
 }
 
 tasks.named<ProcessResources>("processResources") {

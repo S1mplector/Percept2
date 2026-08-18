@@ -278,14 +278,16 @@ final class FreedesktopProjectIconPack {
     roots.add((dataHome == null || dataHome.isBlank()
         ? home.resolve(".local/share")
         : Paths.get(dataHome)).resolve("icons"));
-    String dataDirectories = System.getenv("XDG_DATA_DIRS");
-    String resolved = dataDirectories == null || dataDirectories.isBlank()
-        ? "/usr/local/share:/usr/share"
-        : dataDirectories;
-    for (String directory : resolved.split(Pattern.quote(java.io.File.pathSeparator))) {
-      if (!directory.isBlank()) roots.add(Paths.get(directory).resolve("icons"));
+    if (java.io.File.separatorChar == '/') {
+      String dataDirectories = System.getenv("XDG_DATA_DIRS");
+      String resolved = dataDirectories == null || dataDirectories.isBlank()
+          ? "/usr/local/share:/usr/share"
+          : dataDirectories;
+      for (String directory : resolved.split(Pattern.quote(java.io.File.pathSeparator))) {
+        if (!directory.isBlank()) roots.add(Paths.get(directory).resolve("icons"));
+      }
+      roots.add(Paths.get("/usr/share/icons"));
     }
-    roots.add(Paths.get("/usr/share/icons"));
     return roots.stream().filter(Files::isDirectory).toList();
   }
 
