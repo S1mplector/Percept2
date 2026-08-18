@@ -96,7 +96,7 @@ public class GitVcsService {
     Optional<String> token = githubTokenStore.loadToken();
     if (token.isPresent()) {
       return new ChainingCredentialsProvider(
-          new UsernamePasswordCredentialsProvider(token.get(), token.get()),
+          new UsernamePasswordCredentialsProvider("x-access-token", token.get()),
           new NetRCCredentialsProvider());
     }
     return new NetRCCredentialsProvider();
