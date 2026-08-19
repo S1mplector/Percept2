@@ -1066,6 +1066,18 @@ Toggle with **A**. The orbit tool enables rotation-around-a-point workflows:
 
 This is useful for pendulum swings, circular reveals, and characters turning around pivot points.
 
+### Orbit Pivot Risk Badge
+
+An orbit anchor is only export-safe when Puppeteer can resolve it to a real point: the entity needs a valid anchor (or a valid anchor on the entity it's linked to) and a captured scene snapshot with non-zero size. If a track has rotation keyframes but its pivot can't be resolved this way, Puppeteer shows a small amber warning-triangle badge on the entity's track header in the Timeline Panel, in the same slot area as constraint indicators.
+
+Click the badge to open an explanation popup describing:
+
+- what will export instead (a plain positional X/Y move rather than a pivot-centered rotation)
+- what will be lost (the orbit-centered spin you see in the preview)
+- the specific cause — no anchor set, no scene snapshot captured, or a broken anchor-source link — and how to fix it
+
+This is a creator-facing warning only; it does not block export or registration by default. See [Timeline Diagnostics](#timeline-diagnostics) below for how it also surfaces in the export/register confirmation dialogs, including an optional strict-validation checkbox.
+
 ---
 
 ## Timeline Panel
@@ -1243,6 +1255,7 @@ Puppeteer includes a built-in diagnostics system (`TimelineDiagnostic`) that val
 | **Unknown easing** | Warning | Unrecognized easing name (with edit-distance suggestion) |
 | **Camera key placement** | Warning | Camera keys on non-camera tracks or spread across multiple tracks |
 | **Missing audio file** | Warning | Audio cue references a path that doesn't exist in the project |
+| **Orbit pivot at risk** | Warning | Rotation keyframes exist but the orbit anchor (direct or source-linked) can't be resolved; rotation will export as a plain X/Y move instead of pivoting. See [Orbit Pivot Risk Badge](#orbit-pivot-risk-badge) |
 
 ### Easing Suggestions
 
@@ -1258,6 +1271,7 @@ Unknown easing "ease_in_out_quard" on hero.X at 400ms
 - **On registration** — blocking errors prevent registration; warnings can be acknowledged
 - **On code preview parse** — full diagnostics are shown in the diagnostics area
 - **On manual regeneration** — Regenerate button updates diagnostics alongside the code
+- **On export/register confirmation** — the Save & Register dialog and the Copy Code / Regenerate Code dialogs list any orbit-pivot-at-risk entities as warnings and offer a per-dialog "Treat orbit-pivot warnings as blocking" checkbox. Leave it unchecked (the default) to proceed with the warning accepted, or check it to make Puppeteer block that specific action until the pivot is fixed.
 
 ---
 

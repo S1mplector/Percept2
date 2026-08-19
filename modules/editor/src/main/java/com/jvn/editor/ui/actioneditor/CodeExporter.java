@@ -356,10 +356,7 @@ public class CodeExporter {
                 String entity = track.getEntityName();
                 if (!project.hasOrbitAnchor(entity)) continue;
                 if (!project.hasEffectiveAnimation(entity, PropertyType.ROTATION)) continue;
-                double[] anchor = project.getOrbitAnchorsView().get(entity);
-                AnimationProject.SceneEntitySnapshot snap =
-                        project.getSceneEntitySnapshotsView().get(entity);
-                if (anchor == null || snap == null || snap.width() <= 0 || snap.height() <= 0) continue;
+                if (project.isOrbitPivotAtRisk(entity)) continue;
                 orbitPivotEntities.add(entity);
             }
         }

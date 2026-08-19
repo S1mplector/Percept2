@@ -48,6 +48,8 @@ public class TimelinePanel extends VBox {
     private static final double TRACK_HEIGHT = 24;
     private static final double HEADER_HEIGHT = 30;
     private static final double LABEL_WIDTH = 140;
+    private static final double ORBIT_RISK_ICON_SIZE = 12;
+    private static final double CONSTRAINT_ICON_SLOT_WIDTH = 20;
     static final String RUNTIME_CAMERA_TARGET = "__camera__";
     private static final String RUNTIME_CAMERA_LABEL = "Runtime Camera / Frame";
     private static final PropertyType[] GROUP_PROPERTIES = {
@@ -847,8 +849,11 @@ public class TimelinePanel extends VBox {
             if (constraint != null) {
                 drawConstraintIndicator(gc, width, y, constraint);
             }
+            if (project.isOrbitPivotAtRisk(selectionName)) {
+                drawOrbitRiskIndicator(gc, width, y);
+            }
         }
-        
+
         drawTrackGridLines(gc, y, width);
         y += TRACK_HEIGHT;
 
@@ -976,6 +981,32 @@ public class TimelinePanel extends VBox {
             gc.setFill(Color.web("#00aaff", 0.8));
             gc.fillOval(iconX + 4, iconY + 4, 4, 4);
         }
+    }
+
+    /** Left-of-icon x-offset for the orbit-pivot-risk badge, kept clear of the constraint icon slot. */
+    static double orbitRiskIndicatorX(double width) {
+        return width - ORBIT_RISK_ICON_SIZE - 8 - CONSTRAINT_ICON_SLOT_WIDTH;
+    }
+
+    private void drawOrbitRiskIndicator(GraphicsContext gc, double width, double y) {
+        double iconSize = ORBIT_RISK_ICON_SIZE;
+        double iconX = orbitRiskIndicatorX(width);
+        double iconY = y + (TRACK_HEIGHT - iconSize) / 2;
+
+        gc.setFill(Color.web("#ffb020", 0.92));
+        gc.fillPolygon(
+            new double[]{iconX + iconSize / 2.0, iconX + iconSize, iconX},
+            new double[]{iconY, iconY + iconSize, iconY + iconSize},
+            3);
+        gc.setStroke(Color.web("#3a2400", 0.85));
+        gc.setLineWidth(1.0);
+        gc.strokePolygon(
+            new double[]{iconX + iconSize / 2.0, iconX + iconSize, iconX},
+            new double[]{iconY, iconY + iconSize, iconY + iconSize},
+            3);
+        gc.setFill(Color.web("#3a2400", 0.9));
+        gc.fillRect(iconX + iconSize / 2.0 - 0.75, iconY + iconSize * 0.38, 1.5, iconSize * 0.32);
+        gc.fillOval(iconX + iconSize / 2.0 - 1.0, iconY + iconSize * 0.78, 2.0, 2.0);
     }
 
     private void drawKeyframes(GraphicsContext gc, String selectionName, EntityTrack track, PropertyType prop, double y, double width) {
@@ -1448,6 +1479,13 @@ public class TimelinePanel extends VBox {
             return;
         }
 
+        String orbitRiskEntity = findOrbitRiskIconAt(x, y);
+        if (orbitRiskEntity != null) {
+            showOrbitRiskExplanation(orbitRiskEntity);
+            e.consume();
+            return;
+        }
+
         ExpressionCueHit expressionHit = findExpressionCueAt(x, y);
         if (expressionHit != null) {
             selectExpressionRow(expressionHit.row());
@@ -1866,6 +1904,81 @@ public class TimelinePanel extends VBox {
             }
         }
         return null;
+    }
+
+    /** Returns the entity name if (x,y) lands on an orbit-pivot-risk badge, else null. */
+    private String findOrbitRiskIconAt(double mx, double my) {
+        if (project == null) return null;
+        double iconX = orbitRiskIndicatorX(getWidth());
+        for (TrackRow row : buildVisibleRows()) {
+            if (row.group() || row.runtimeCamera() || row.property() != null || row.expression()) continue;
+            if (!project.isOrbitPivotAtRisk(row.selectionName())) continue;
+            double iconY = row.y() + (TRACK_HEIGHT - ORBIT_RISK_ICON_SIZE) / 2;
+            if (mx >= iconX - 2 && mx <= iconX + ORBIT_RISK_ICON_SIZE + 2
+                && my >= iconY - 2 && my <= iconY + ORBIT_RISK_ICON_SIZE + 2) {
+                return row.selectionName();
+            }
+        }
+        return null;
+    }
+
+    private void showOrbitRiskExplanation(String entityName) {
+        String body = describeOrbitPivotRisk(project, entityName);
+        Window owner = getScene() != null ? getScene().getWindow() : null;
+        javafx.stage.Stage stage = new javafx.stage.Stage();
+        stage.initModality(javafx.stage.Modality.NONE);
+        stage.initOwner(owner);
+        stage.setTitle("Orbit Pivot Risk: " + entityName);
+
+        javafx.scene.control.TextArea area = new javafx.scene.control.TextArea(body);
+        area.setEditable(false);
+        area.setWrapText(true);
+        area.setStyle("-fx-control-inner-background: #1e1e1e; -fx-text-fill: #e0e0e0;"
+            + "-fx-font-size: 12px; -fx-background-color: #1e1e1e;");
+
+        Button close = new Button("Got it");
+        close.setDefaultButton(true);
+        close.setOnAction(ev -> stage.close());
+
+        VBox root = new VBox(10, area, close);
+        root.setPadding(new Insets(14));
+        root.setAlignment(Pos.BOTTOM_RIGHT);
+        VBox.setVgrow(area, Priority.ALWAYS);
+
+        javafx.scene.Scene scene = new javafx.scene.Scene(root, 480, 320);
+        if (getScene() != null) scene.getStylesheets().addAll(getScene().getStylesheets());
+        stage.setScene(scene);
+        stage.show();
+    }
+
+    static String describeOrbitPivotRisk(AnimationProject project, String entityName) {
+        if (project == null || entityName == null) return "";
+        String sourceEntity = project.getOrbitAnchorSourcesView().get(entityName);
+        StringBuilder sb = new StringBuilder();
+        sb.append("\"").append(entityName).append("\" has rotation keyframes, but Puppeteer cannot resolve ")
+            .append("a valid orbit pivot for it right now.\n\n");
+
+        if (!project.hasOrbitAnchor(entityName) && (sourceEntity == null || sourceEntity.isBlank())) {
+            sb.append("No orbit anchor is set on this entity.\n\n")
+              .append("What will export: rotation will fall back to a plain positional (X/Y) move — ")
+              .append("the entity will appear to travel rather than spin in place.\n\n")
+              .append("What will be lost: the pivot-centered rotation you see while an anchor is active.\n\n")
+              .append("Fix: place an anchor on the sprite in the Anchors panel and click \"Set Pivot\".");
+        } else if (sourceEntity != null && !sourceEntity.isBlank()) {
+            sb.append("This entity's pivot is sourced from \"").append(sourceEntity).append("\", ")
+              .append("but that entity has no resolvable anchor or scene snapshot.\n\n")
+              .append("What will export: rotation will fall back to a plain positional (X/Y) move.\n\n")
+              .append("What will be lost: the pivot following \"").append(sourceEntity).append("\".\n\n")
+              .append("Fix: give \"").append(sourceEntity).append("\" its own orbit anchor, or set a direct ")
+              .append("anchor on \"").append(entityName).append("\" instead.");
+        } else {
+            sb.append("An orbit anchor is set, but this entity has no valid scene snapshot to pivot around ")
+              .append("(it may not currently be visible/selected in the scene).\n\n")
+              .append("What will export: rotation will fall back to a plain positional (X/Y) move.\n\n")
+              .append("What will be lost: the pivot-centered rotation around the anchor.\n\n")
+              .append("Fix: reselect the entity in the scene so Puppeteer captures its snapshot, then re-place the anchor.");
+        }
+        return sb.toString();
     }
 
     private TrackRow findRowAt(double my) {

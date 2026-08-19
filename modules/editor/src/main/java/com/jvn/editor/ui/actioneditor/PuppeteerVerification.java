@@ -45,6 +45,7 @@ final class PuppeteerVerification {
         diagnoseContent(project, messages);
         diagnoseAudioFiles(project, projectRoot, messages);
         diagnoseSceneEntityAssets(project, projectRoot, messages);
+        diagnoseOrbitPivotRisk(project, messages);
 
         if (mode == Mode.REGISTER_RUNTIME) {
             diagnoseRuntimeRegistration(project, messages);
@@ -195,6 +196,41 @@ final class PuppeteerVerification {
                     ));
                 }
             }
+        }
+    }
+
+    static final String ORBIT_PIVOT_RISK_MARKER = "orbit pivot may not export/reload correctly";
+
+    private static void diagnoseOrbitPivotRisk(
+        AnimationProject project,
+        List<TimelineDiagnostic.Message> messages
+    ) {
+        for (EntityTrack track : project.getTracks()) {
+            if (track == null) continue;
+            String entity = track.getEntityName();
+            if (!project.isOrbitPivotAtRisk(entity)) continue;
+
+            String sourceEntity = project.getOrbitAnchorSourcesView().get(entity);
+            String reason;
+            String quickFix;
+            if (!project.hasOrbitAnchor(entity) && (sourceEntity == null || sourceEntity.isBlank())) {
+                reason = "has rotation keyframes but no orbit anchor";
+                quickFix = "Place an anchor and click \"Set Pivot\" in the Anchors panel, or remove the rotation keyframes";
+            } else if (sourceEntity != null && !sourceEntity.isBlank()) {
+                reason = "has a pivot sourced from \"" + sourceEntity + "\", which has no resolvable anchor or scene snapshot";
+                quickFix = "Give \"" + sourceEntity + "\" its own orbit anchor, or set a direct anchor on \"" + entity + "\"";
+            } else {
+                reason = "has an orbit anchor but no valid scene snapshot to pivot around";
+                quickFix = "Reselect the entity in the scene so Puppeteer can capture its current snapshot, then re-place the anchor";
+            }
+
+            messages.add(new TimelineDiagnostic.Message(
+                TimelineDiagnostic.Severity.WARNING,
+                entity,
+                "\"" + entity + "\" " + reason + " — " + ORBIT_PIVOT_RISK_MARKER
+                    + "; rotation will export as a plain positional move instead of pivoting",
+                quickFix
+            ));
         }
     }
 

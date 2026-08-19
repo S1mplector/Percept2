@@ -12294,6 +12294,9 @@ public class PuppeteerWindow extends Stage {
         }
         details.add("This will not insert or edit any .vns script line; reference it manually with @external jes_timeline " + name + " when needed.");
 
+        boolean hasOrbitPivotRisk = findings.stream()
+            .anyMatch(message -> message.description().contains(PuppeteerVerification.ORBIT_PIVOT_RISK_MARKER));
+
         VBox body = new VBox(10);
         body.setFillWidth(true);
         body.getChildren().add(buildExportSummaryContent(name));
@@ -12305,12 +12308,35 @@ public class PuppeteerWindow extends Stage {
             body.getChildren().add(buildVerificationContent(findings));
         }
 
+        javafx.scene.control.CheckBox strictOrbitCheck = null;
+        if (hasOrbitPivotRisk) {
+            strictOrbitCheck = new javafx.scene.control.CheckBox(
+                "Treat orbit-pivot warnings as blocking for this registration");
+            strictOrbitCheck.setStyle("-fx-text-fill: #d0d0d0; -fx-font-size: 11px;");
+            body.getChildren().add(strictOrbitCheck);
+        }
+        javafx.scene.control.CheckBox strictCheckRef = strictOrbitCheck;
+
         overlayDialog.showDialog(
             hasWarnings ? "Register Timeline With Warnings?" : "Register Timeline?",
             "Review exactly what Puppeteer will do before it saves and registers \"" + name + "\".",
             body,
             ActionEditorDialogOverlay.ActionSpec.neutral("Cancel", overlayDialog::hideOverlay).defaultFocus(true),
-            ActionEditorDialogOverlay.ActionSpec.accent("Register", () -> performRegisterTimeline(name, onSuccess))
+            ActionEditorDialogOverlay.ActionSpec.accent("Register", () -> {
+                if (strictCheckRef != null && strictCheckRef.isSelected()) {
+                    showVerificationOverlay(
+                        "Registration Blocked",
+                        "Strict validation is on for this registration. Resolve the orbit-pivot warnings below before registering.",
+                        findings.stream()
+                            .filter(message -> message.description().contains(PuppeteerVerification.ORBIT_PIVOT_RISK_MARKER))
+                            .toList(),
+                        null,
+                        null
+                    );
+                    return;
+                }
+                performRegisterTimeline(name, onSuccess);
+            })
         );
     }
 
@@ -12413,12 +12439,50 @@ public class PuppeteerWindow extends Stage {
         body.getChildren().add(buildExportSummaryContent(previewName.isBlank() ? project.getName() : previewName));
         body.getChildren().add(buildActionDetailsContent(details));
 
+        List<TimelineDiagnostic.Message> orbitRiskFindings = new ArrayList<>();
+        for (EntityTrack track : project.getTracks()) {
+            if (track == null) continue;
+            String entity = track.getEntityName();
+            if (!project.isOrbitPivotAtRisk(entity)) continue;
+            orbitRiskFindings.add(new TimelineDiagnostic.Message(
+                TimelineDiagnostic.Severity.WARNING,
+                entity,
+                "\"" + entity + "\" " + PuppeteerVerification.ORBIT_PIVOT_RISK_MARKER
+                    + "; rotation will export as a plain positional move instead of pivoting",
+                "Open the orbit-pivot warning badge on this entity's track for details"
+            ));
+        }
+
+        javafx.scene.control.CheckBox strictOrbitCheck = null;
+        if (!orbitRiskFindings.isEmpty()) {
+            Label warningHeader = new Label("Warnings that will be accepted if you continue:");
+            warningHeader.setStyle("-fx-text-fill: #ffe2a8; -fx-font-size: 11px; -fx-font-weight: bold;");
+            body.getChildren().add(warningHeader);
+            body.getChildren().add(buildVerificationContent(orbitRiskFindings));
+            strictOrbitCheck = new javafx.scene.control.CheckBox(
+                "Treat orbit-pivot warnings as blocking for this action");
+            strictOrbitCheck.setStyle("-fx-text-fill: #d0d0d0; -fx-font-size: 11px;");
+            body.getChildren().add(strictOrbitCheck);
+        }
+        javafx.scene.control.CheckBox strictCheckRef = strictOrbitCheck;
+        List<TimelineDiagnostic.Message> orbitRiskFindingsRef = orbitRiskFindings;
+
         overlayDialog.showDialog(
             title,
             header,
             body,
             ActionEditorDialogOverlay.ActionSpec.neutral("Cancel", overlayDialog::hideOverlay).defaultFocus(true),
             ActionEditorDialogOverlay.ActionSpec.accent(actionLabel, () -> {
+                if (strictCheckRef != null && strictCheckRef.isSelected()) {
+                    showVerificationOverlay(
+                        "Action Blocked",
+                        "Strict validation is on for this action. Resolve the orbit-pivot warnings below before continuing.",
+                        orbitRiskFindingsRef,
+                        null,
+                        null
+                    );
+                    return;
+                }
                 if (onContinue != null) {
                     onContinue.run();
                 }
