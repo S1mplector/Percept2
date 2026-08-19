@@ -191,6 +191,7 @@ public class PuppeteerWindow extends Stage {
     private String expressionPreviewExpression;
 
     private final EntitySelector entitySelector;
+    private ExpressionPreviewPanel expressionPreviewPanel;
     public final TimelinePanel timelinePanel;
     public final KeyframeEditor keyframeEditor;
     private AnchorEditor anchorEditor;
@@ -478,6 +479,7 @@ public class PuppeteerWindow extends Stage {
         setHeight(900);
 
         entitySelector = new EntitySelector();
+        expressionPreviewPanel = new ExpressionPreviewPanel();
         timelinePanel = new TimelinePanel(this.project, commandStack);
         selectionModel = timelinePanel.getSelectionModel();
         keyframeEditor = new KeyframeEditor();
@@ -571,6 +573,7 @@ public class PuppeteerWindow extends Stage {
 
         timelinePanel.setOnTargetSelectionChanged((name, isGroup) -> {
             clearExpressionPreview();
+            refreshExpressionPreviewPanel(name, isGroup);
             keyframeEditor.setSelectionContext(
                 selectionLabel(name, isGroup),
                 isGroup,
@@ -604,6 +607,7 @@ public class PuppeteerWindow extends Stage {
 
         entitySelector.setOnSelectionChanged((name, isGroup) -> {
             clearExpressionPreview();
+            refreshExpressionPreviewPanel(name, isGroup);
             timelinePanel.setSelectedTarget(name, isGroup);
             if (!isGroup) {
                 animationPreview.selectEntities(entitySelector.getSelectedEntityNames(), name);
@@ -612,6 +616,31 @@ public class PuppeteerWindow extends Stage {
             if (constraintEditor != null) constraintEditor.selectEntity(isGroup ? null : name);
             refreshPropertyPickerChoices();
             updateStatusBar();
+        });
+
+        expressionPreviewPanel.setOnExpressionChosen(expression -> {
+            String target = timelinePanel != null ? timelinePanel.getSelectedEntity() : null;
+            if (target == null || target.isBlank()) return;
+            previewExpression(target, expression);
+            expressionPreviewPanel.setPreviewingState(expression);
+            animationPreview.setExpressionPreviewIndicator(target, expression, true);
+        });
+
+        expressionPreviewPanel.setOnClear(() -> {
+            String target = timelinePanel != null ? timelinePanel.getSelectedEntity() : null;
+            clearExpressionPreview();
+            expressionPreviewPanel.setPreviewingState(null);
+            if (target != null && !target.isBlank()) {
+                animationPreview.setExpressionPreviewIndicator(
+                    target, preferredExpressionForTarget(target), false);
+            }
+        });
+
+        expressionPreviewPanel.setOnApply(() -> {
+            String target = getExpressionPreviewEntityName();
+            String expression = getExpressionPreviewName();
+            if (target == null || expression == null) return;
+            showExpressionKeyframeDialog(target, expression);
         });
 
         entitySelector.setOnCreateGroup(groupName -> {
@@ -1619,6 +1648,8 @@ public class PuppeteerWindow extends Stage {
         previewPane.setTop(viewportInfoLabel);
         previewPane.setStyle("-fx-background-color: #121212;");
         DockSlot previewSlot = createDockSlot(createDockItem("preview", "Preview", previewPane, false));
+        DockSlot expressionPreviewSlot = createDockSlot(
+            createDockItem("expression-preview", "Expression Preview", expressionPreviewPanel, false));
         DockSlot keyframeSlot = createDockSlot(createDockItem("keyframes-panel", "Keyframes", keyframeEditor, false));
         DockSlot timelineSlot = createDockSlot(createDockItem("timeline-panel", "Timeline", timelinePanel, false));
         DockSlot codeSlot = createDockSlot(createDockItem("code", "Code", codePreview, false));
@@ -1674,11 +1705,13 @@ public class PuppeteerWindow extends Stage {
         topWorkspaceSplit.setOrientation(Orientation.HORIZONTAL);
         topWorkspaceSplit.setMinWidth(0);
         topWorkspaceSplit.setMinHeight(0);
-        topWorkspaceSplit.getItems().addAll(entitiesSlot, previewSlot);
+        topWorkspaceSplit.getItems().addAll(entitiesSlot, previewSlot, expressionPreviewSlot);
         SplitPane.setResizableWithParent(entitiesSlot, Boolean.TRUE);
         SplitPane.setResizableWithParent(previewSlot, Boolean.TRUE);
+        SplitPane.setResizableWithParent(expressionPreviewSlot, Boolean.TRUE);
         registerDockSlotHome(entitiesSlot, topWorkspaceSplit, 0, false);
         registerDockSlotHome(previewSlot, topWorkspaceSplit, 1, false);
+        registerDockSlotHome(expressionPreviewSlot, topWorkspaceSplit, 2, false);
         registerDockGroup("workspace-top", topWorkspaceSplit);
         topWorkspaceSplit.setDividerPositions(DEFAULT_TOP_WORKSPACE_DIVIDER_POSITION);
 
@@ -3090,6 +3123,22 @@ public class PuppeteerWindow extends Stage {
             }
         }
         return row;
+    }
+
+    private void refreshExpressionPreviewPanel(String name, boolean isGroup) {
+        if (expressionPreviewPanel == null) return;
+        if (isGroup || name == null || name.isBlank()) {
+            expressionPreviewPanel.setCharacterContext(null, List.of(), null);
+            expressionPreviewPanel.setDisable(true);
+            animationPreview.setExpressionPreviewIndicator(null, null, false);
+            return;
+        }
+        String characterId = inferCharacterIdFromSelection(name);
+        List<String> expressionNames = expressionSuggestionsForTarget(name);
+        String currentExpression = preferredExpressionForTarget(name);
+        expressionPreviewPanel.setDisable(false);
+        expressionPreviewPanel.setCharacterContext(characterId, expressionNames, currentExpression);
+        animationPreview.setExpressionPreviewIndicator(name, currentExpression, false);
     }
 
     public void refreshSidebarTabs() {
@@ -10799,7 +10848,13 @@ public class PuppeteerWindow extends Stage {
     }
 
     private void showExpressionKeyframeDialog() {
-        String initialTarget = inferExpressionTargetFromSelection();
+        showExpressionKeyframeDialog(null, null);
+    }
+
+    private void showExpressionKeyframeDialog(String presetTarget, String presetExpression) {
+        String initialTarget = (presetTarget != null && !presetTarget.isBlank())
+            ? presetTarget
+            : inferExpressionTargetFromSelection();
         ComboBox<String> cbTarget = new ComboBox<>();
         cbTarget.setEditable(true);
         styleExpressionKeyframeCombo(cbTarget);
@@ -10811,7 +10866,11 @@ public class PuppeteerWindow extends Stage {
         cbExpression.setEditable(true);
         styleExpressionKeyframeCombo(cbExpression);
         cbExpression.getItems().setAll(expressionSuggestionsForTarget(initialTarget));
-        cbExpression.setValue(preferredExpressionForTarget(initialTarget));
+        String initialExpression = (presetExpression != null && !presetExpression.isBlank()
+            && expressionSuggestionsForTarget(initialTarget).contains(presetExpression))
+            ? presetExpression
+            : preferredExpressionForTarget(initialTarget);
+        cbExpression.setValue(initialExpression);
         cbExpression.setPromptText("expression");
 
         TextField tfTime = new TextField(String.format(Locale.ROOT, "%.0f", project.getPlayheadMs()));
@@ -10947,6 +11006,9 @@ public class PuppeteerWindow extends Stage {
                     cbEmbedResolved.isSelected());
                 project.addEditorEventCue(new EditorEventCue(timeMs, "expression", payload));
                 timelinePanel.refresh();
+                clearExpressionPreview();
+                if (expressionPreviewPanel != null) expressionPreviewPanel.setPreviewingState(null);
+                animationPreview.setExpressionPreviewIndicator(target, expression, false);
                 updatePreview();
                 refreshExportPreviewAndMarkDirty();
                 overlayDialog.hideOverlay();
